@@ -5,7 +5,7 @@
 #   ./kor.sh frisor-exempel-umea "Frisör Exempel, Umeå, https://exempel.se"
 #
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
-# Miljö (valfri): NWP_MODELL (annars din standardmodell), NWP_MAX_TURNS (400), NWP_STOPP_TAK (4).
+# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (high), NWP_MAX_TURNS (400), NWP_STOPP_TAK (4).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SLUG="${1:-}"
@@ -44,7 +44,11 @@ ARGS=(-p
   # nekas här; nekande går före tillåtande. Ingen säkerhetsgräns, men det stoppar misstag.
   --disallowedTools "Bash(rm *)" "Bash(gh pr *)" "Bash(git rebase *)" "Bash(git checkout *)" "Bash(git reset *)"
   "Bash(git worktree *)" "Bash(git config *)" "Bash(git push --force *)" "Bash(git push -f *)")
-if [ -n "${NWP_MODELL:-}" ]; then ARGS+=(--model "$NWP_MODELL"); fi
+# Bara projektets inställningar: då gäller --allowedTools som vitlista (ägarens egna allow-regler i
+# ~/.claude/settings.json läses inte). Modell och effort anges därför uttryckligen; gh får sin konfigurationsmapp.
+GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
+ARGS+=(--setting-sources project,local --model "${NWP_MODELL:-opus[1m]}" --effort "${NWP_EFFORT:-high}")
+if [ -n "$GH_DIR" ]; then ARGS+=(--settings "{\"env\":{\"GH_CONFIG_DIR\":\"$GH_DIR\"}}"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort.
 RENSA=(-u CLAUDECODE)

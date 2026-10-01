@@ -337,9 +337,16 @@ def backloggen():
 
 
 INTAG = ROOT / 'kirurgen'
-INTAG_VERKTYG = ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'Skill', 'Edit(kunskap/REGISTER.md)',
+# Vitlista: intaget startas med --setting-sources project,local, så ägarens egna allow-regler gäller inte här.
+INTAG_VERKTYG = ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'Skill', 'Task', 'Edit(kunskap/REGISTER.md)',
                  'Bash(.venv/bin/python kontroller/backlog.py *)', 'Bash(.venv/bin/python kontroller/youtube.py *)',
-                 'Bash(gh repo clone *)', 'Bash(gh api repos/*)', 'Bash(cd *)', 'Bash(git add *)', 'Bash(git commit *)', 'Bash(git push origin main)', 'Bash(ls *)', 'Bash(find *)', 'Bash(wc *)', 'Bash(head *)', 'Bash(cat *)', 'Bash(mkdir *)']
+                 'Bash(node kontroller/sida.mjs *)', 'Bash(curl -sSL -o /tmp/kirurg/*)', 'Bash(gh repo clone *)',
+                 'Bash(gh api repos/*)', 'Bash(cd *)', 'Bash(git add *)', 'Bash(git commit *)', 'Bash(git push origin main)',
+                 'Bash(ls *)', 'Bash(find *)', 'Bash(wc *)', 'Bash(head *)', 'Bash(tail *)', 'Bash(cat *)', 'Bash(mkdir *)']
+INTAG_NEKAS = ['Bash(rm *)', 'Bash(gh pr *)', 'Bash(git rebase *)', 'Bash(git checkout *)', 'Bash(git reset *)',
+               'Bash(git worktree *)', 'Bash(git config *)', 'Bash(git push --force *)', 'Bash(git push -f *)']
+UPPLADDNING_TYPER = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.pdf', '.txt', '.md'}
+UPPLADDNING_MAX = 40 * 1024 * 1024
 
 
 def intag_lista():
@@ -350,37 +357,75 @@ def intag_lista():
         m = las_json(meta) or {}
         logg = meta.with_suffix('.jsonl')
         k = las_logg(logg) if logg.is_file() else None
-        ut.append({'id': meta.stem, 'url': m.get('url'), 'not': m.get('not'), 'tid': m.get('tid'),
+        filer = m.get('filer') or []
+        etikett = m.get('url') or ('Uppladdat: ' + ', '.join(Path(f).name for f in filer[:4]) + (' …' if len(filer) > 4 else ''))
+        ut.append({'id': meta.stem, 'url': etikett, 'not': m.get('not'), 'tid': m.get('tid'),
                    'pagar': bool(k and k['pagar']), 'resultat': k and k['resultat'], 'svar': md(k['senaste_text']) if k and k.get('senaste_text') else '',
                    'handlingar': (k or {}).get('handlingar', [])[:6]})
     return ut
 
 
-def starta_intag(url, not_):
+def spara_uppladdning(stamp, filer):
+    """Ägarens uppladdade filer (base64 i JSON) till kirurgen/uppladdat/<stamp>/. Bara bilder, PDF och text."""
+    import base64
+    if not filer:
+        return []
+    if not isinstance(filer, list) or len(filer) > 30:
+        raise ValueError('högst 30 filer')
+    mapp = INTAG / 'uppladdat' / stamp
+    mapp.mkdir(parents=True, exist_ok=True)
+    sparade, total = [], 0
+    for i, f in enumerate(filer):
+        namn = re.sub(r'[^A-Za-z0-9._-]+', '-', str(f.get('namn') or 'fil'))[-80:].strip('-.') or 'fil'
+        if Path(namn).suffix.lower() not in UPPLADDNING_TYPER:
+            raise ValueError('filtypen tas inte emot: %s (bilder, PDF, txt, md)' % namn)
+        data = base64.b64decode(str(f.get('data') or '').split(',', 1)[-1], validate=False)
+        total += len(data)
+        if total > UPPLADDNING_MAX:
+            raise ValueError('uppladdningen är större än 40 MB')
+        p = mapp / ('%02d-%s' % (i + 1, namn))
+        p.write_bytes(data)
+        sparade.append(str(p))
+    return sparade
+
+
+def starta_intag(url, not_, filer=None):
     import os
     import shutil
     import subprocess
-    if not re.fullmatch(r'https?://[^\s]{4,500}', url or ''):
+    url = (url or '').strip()
+    if url and not re.fullmatch(r'https?://[^\s]{4,500}', url):
         raise ValueError('ange en http- eller https-adress')
+    if not url and not filer:
+        raise ValueError('ange en länk eller ladda upp filer')
     if sum(1 for x in intag_lista() if x['pagar']) >= 2:
         raise ValueError('två intag pågår redan; vänta tills ett är klart')
     claude = shutil.which('claude') or str(Path.home() / '.local/bin/claude')
     INTAG.mkdir(exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    sparade = spara_uppladdning(stamp, filer)
     meta = INTAG / ('intag-%s.json' % stamp)
-    meta.write_text(json.dumps({'url': url, 'not': not_ or '', 'tid': nu()}, ensure_ascii=False) + '\n', encoding='utf-8')
-    prompt = ('Använd skillen kirurg (.claude/skills/kirurg/SKILL.md) på: %s\n\nÄgarens not: %s\n\nDu startades från dashboarden; '
+    meta.write_text(json.dumps({'url': url, 'filer': sparade, 'not': not_ or '', 'tid': nu()}, ensure_ascii=False) + '\n', encoding='utf-8')
+    kalla = []
+    if url:
+        kalla.append('Länk: %s' % url)
+    if sparade:
+        kalla.append('Ägaren laddade upp dessa filer; läs varje fil med Read (bilder och PDF går att läsa):\n' + '\n'.join('- ' + f for f in sparade))
+    prompt = ('Använd skillen kirurg (.claude/skills/kirurg/SKILL.md) på följande.\n\n%s\n\nÄgarens not: %s\n\nDu startades från dashboarden; '
               'ingen människa svarar under körningen. Följ skillen hela vägen: registret, och vid "ta in" eller "prova A/B" '
-              'backloggen. Avsluta med domen och skälet i högst fyra meningar.') % (url, (not_ or '').strip() or 'ingen')
+              'backloggen. Avsluta med domen och skälet i högst fyra meningar.') % ('\n\n'.join(kalla), (not_ or '').strip() or 'ingen')
     env = {k: v for k, v in os.environ.items() if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_')}
-    # Sessionen ärver ägarens egna allow-regler (git push, rm -f, gh pr …); kirurgen får committa registret och
-    # backloggen enligt skillen, men det som aldrig behövs nekas. Nekande går före tillåtande.
-    args = [claude, '-p', '--max-turns', '150', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
-            '--allowedTools', *INTAG_VERKTYG,
-            '--disallowedTools', 'Bash(rm *)', 'Bash(gh pr *)', 'Bash(git rebase *)', 'Bash(git checkout *)', 'Bash(git reset *)',
-            'Bash(git worktree *)', 'Bash(git config *)', 'Bash(git push --force *)', 'Bash(git push -f *)']
-    if os.environ.get('NWP_KIRURG_MODELL'):
-        args += ['--model', os.environ['NWP_KIRURG_MODELL']]
+    # --setting-sources project,local: ägarens egna allow-regler läses inte, så INTAG_VERKTYG är en vitlista
+    # (rena läskommandon tillåter Claude Code alltid). Modell och effort anges därför uttryckligen.
+    anv = las_json(Path.home() / '.claude' / 'settings.json') or {}
+    args = [claude, '-p', '--max-turns', os.environ.get('NWP_KIRURG_TURER', '250'), '--permission-mode', 'dontAsk',
+            '--output-format', 'stream-json', '--verbose', '--setting-sources', 'project,local',
+            '--model', os.environ.get('NWP_KIRURG_MODELL') or anv.get('model') or 'opus[1m]',
+            '--effort', os.environ.get('NWP_KIRURG_EFFORT') or anv.get('effortLevel') or 'high',
+            '--allowedTools', *INTAG_VERKTYG, '--disallowedTools', *INTAG_NEKAS]
+    gh = (anv.get('env') or {}).get('GH_CONFIG_DIR')
+    if gh:
+        args += ['--settings', json.dumps({'env': {'GH_CONFIG_DIR': gh}})]
     with open(meta.with_suffix('.jsonl'), 'wb') as ut:
         p = subprocess.Popen(args, cwd=str(ROOT), env=env, stdin=subprocess.PIPE, stdout=ut, stderr=subprocess.STDOUT, start_new_session=True)
         p.stdin.write(prompt.encode())
@@ -467,7 +512,7 @@ class H(BaseHTTPRequestHandler):
             return self.skicka(403, {'fel': 'fel ursprung'})
         try:
             n = int(self.headers.get('Content-Length') or 0)
-            data = json.loads(self.rfile.read(min(n, 60000)) or b'{}')
+            data = json.loads(self.rfile.read(min(n, 56 * 1024 * 1024)) or b'{}')
             m = re.match(r'^/api/dom/([a-z0-9-]{2,60})$', vag)
             if m:
                 return self.skicka(200, spara_dom(m.group(1), data))
@@ -478,7 +523,7 @@ class H(BaseHTTPRequestHandler):
                 meta = bl.satt_status(m.group(1), data['status'], not_=(data.get('not') or 'ändrad av ägaren i dashboarden'))
                 return self.skicka(200, {'id': meta['id'], 'status': meta['status']})
             if vag == '/api/kirurg':
-                return self.skicka(200, starta_intag((data.get('url') or '').strip(), data.get('not')))
+                return self.skicka(200, starta_intag(data.get('url'), data.get('not'), data.get('filer')))
             return self.skicka(404, {'fel': 'finns inte'})
         except (ValueError, json.JSONDecodeError, OSError) as e:
             return self.skicka(400, {'fel': str(e)})
