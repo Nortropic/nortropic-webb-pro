@@ -41,6 +41,8 @@ PLATSHALLARE = ['lorem ipsum', 'todo-fact', 'todo-copy', '[osäker]', 'platshål
 TAGG = re.compile(r'<[^>]+>')
 JSX = re.compile(r'\{[^{}]*\}')
 SCRIPT = re.compile(r'<(script|style)\b.*?</\1>', re.S | re.I)
+# Kundcitat är kundens ord ordagrant: copyreglerna gäller vår text, inte deras (fynd från Sundboms 2026-10-01).
+CITAT = re.compile(r'<(blockquote|q)\b.*?</\1>', re.S | re.I)
 TITLE = re.compile(r'<title[^>]*>(.*?)</title>', re.S | re.I)
 META_DESC = re.compile(r'<meta\s+[^>]*name=["\']description["\'][^>]*content=["\']([^"\']*)["\']', re.I)
 META_DESC2 = re.compile(r'<meta\s+[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']description["\']', re.I)
@@ -50,6 +52,7 @@ def synlig_text(path, raw):
     """Textrader med radnummer. HTML/JSX: taggar, script/style och JSX-uttryck bort; Markdown/text: som de är."""
     if path.suffix in ('.html', '.htm'):
         raw = SCRIPT.sub(lambda m: '\n' * m.group(0).count('\n'), raw)
+        raw = CITAT.sub(lambda m: '\n' * m.group(0).count('\n'), raw)
     rows = []
     for i, line in enumerate(raw.split('\n'), 1):
         segs = [line]

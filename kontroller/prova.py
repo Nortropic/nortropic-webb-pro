@@ -79,6 +79,15 @@ def sidor_i(dist):
     return rutter
 
 
+class TystServer(ThreadingHTTPServer):
+    """Webbläsare som stänger anslutningen i förtid ska inte ge tracebacks i provets utdata (fynd 2026-10-01)."""
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
+            return
+        super().handle_error(request, client_address)
+
+
 class Server:
     """Statisk server för dist/ på 127.0.0.1. Saknad sida ger 404.html med status 404."""
 
@@ -105,7 +114,7 @@ class Server:
                     return
                 super().send_error(code, message, explain)
 
-        self.httpd = ThreadingHTTPServer(('127.0.0.1', 0), H)
+        self.httpd = TystServer(('127.0.0.1', 0), H)
         self.url = 'http://127.0.0.1:%d' % self.httpd.server_address[1]
         self.trad = threading.Thread(target=self.httpd.serve_forever, daemon=True)
 
@@ -184,30 +193,30 @@ def prova(slug, snabb=False):
     except (OSError, ValueError, KeyError):
         g['seo'] = grind(False, 'seo_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
 
-    # copy
-    kallor = [str(p) for p in (sajt / 'src', sajt / 'content') if p.is_dir()]
-    cmd = [PY, '-B', str(KONTROLLER / 'copy_kontroll.py'), '--kalla', *(kallor or [str(sajt)]), '--ut', str(prov / 'copy.json'), '--md', str(prov / 'copy.md')]
+    # copy: läses i den byggda HTML:en, sida för sida. Där syns texten som besökaren ser den: uppgifter ur datafiler
+    # finns med, utropstecken räknas per sida och kundcitat (blockquote, q) räknas inte (fynd från Luleå-Snickaren och
+    # Sundboms 2026-10-01). Fynden pekar på sidan; rätta i källan.
+    sidfiler = [str(f) for f in sorted(dist.rglob('*.html')) if f.name != '404.html']
+    cmd = [PY, '-B', str(KONTROLLER / 'copy_kontroll.py'), '--kalla', *sidfiler, '--ut', str(prov / 'copy.json'), '--md', str(prov / 'copy.md')]
     fraser = underlag / 'FRASER.txt'
     if fraser.is_file():
         cmd += ['--fraser', str(fraser)]
-    krav = None
     if verksamhet.is_file():
         rc_k, _ = kor([PY, '-B', str(KONTROLLER / 'verksamhetsuppgifter.py'), 'krav', str(verksamhet), '--ut', str(prov / 'krav.json')])
         if rc_k == 0 and (prov / 'krav.json').is_file():
-            krav = prov / 'krav.json'
+            cmd += ['--krav', str(prov / 'krav.json')]
         else:
             info['verksamhet'] = 'VERKSAMHET.json är ogiltig enligt verksamhetsuppgifter.py; kör kontrollera'
-    rc, out = kor(cmd)  # fraser och strukturer läses i källan, där de går att rätta
-    # Obligatoriska element (telefon på varje sida, orgnr, ort) prövas mot den byggda HTML:en: i källan kan de komma ur
-    # en datafil och synas först efter bygget (fynd från Luleå-Snickaren 2026-10-01).
-    if krav:
-        sidfiler = [str(f) for f in sorted(dist.rglob('*.html')) if f.name != '404.html']
-        kor([PY, '-B', str(KONTROLLER / 'copy_kontroll.py'), '--kalla', *sidfiler, '--krav', str(krav), '--ut', str(prov / 'copy-krav.json')])
+    rc, out = kor(cmd)
+    def sida(fil):
+        try:
+            rel = Path(fil).relative_to(dist).parent.as_posix()
+        except ValueError:
+            return Path(str(fil)).name
+        return '/' if rel == '.' else '/' + rel + '/'
     try:
         cf = json.loads((prov / 'copy.json').read_text(encoding='utf-8'))['fynd']
-        if krav and (prov / 'copy-krav.json').is_file():
-            cf += [f for f in json.loads((prov / 'copy-krav.json').read_text(encoding='utf-8'))['fynd'] if f.get('typ') == 'saknat element']
-        rader = ['%s:%s %s "%s" (%s)' % (Path(f.get('fil', '')).name, f.get('rad', ''), f.get('typ'), f.get('text', ''), f.get('riktning', '')) for f in cf]
+        rader = ['%s %s "%s" (%s)' % (sida(f.get('fil', '')), f.get('typ'), f.get('text', ''), f.get('riktning', '')) for f in cf]
         info['copy'] = '%d fynd (prov/copy.md); rätta eller motivera varje fynd i RAPPORT.md' % len(cf) + (''.join('\n  - ' + r[:200] for r in rader[:15]))
         status['copy_fynd'] = len(cf)
     except (OSError, ValueError, KeyError):

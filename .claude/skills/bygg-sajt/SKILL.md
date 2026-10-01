@@ -32,9 +32,11 @@ rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella
   `.venv/bin/python underlag/<slug>/skript/<namn>.py`. Hämta sidor med WebFetch eller `curl -sSL -o FIL 'URL'`.
 - **Ta bort filer** med `.venv/bin/python kontroller/ta_bort.py <slug> <sökväg>`; det fungerar bara i
   `kunder/<slug>/` och `underlag/<slug>/` (rm är spärrat).
-- **Typsnitt** installeras med npm i sajten (`cd kunder/<slug>/sajt && npm install @fontsource/<namn>` eller
-  `@fontsource-variable/<namn>`) och importeras i layouten, eller kopieras som woff2 från `node_modules` med cp.
-  Packa aldrig upp arkiv med tar.
+- **Typsnitt** installeras med npm i sajten, i ett kommando: `npm install --prefix kunder/<slug>/sajt
+  @fontsource/<namn>` (eller `@fontsource-variable/<namn>`), och importeras i layouten, eller kopieras som woff2 från
+  `node_modules` med cp. Packa aldrig upp arkiv med tar. Registrera varje typsnittsfil och ikonuppsättning i
+  `kunder/<slug>/sajt/public/bilder/TYPSNITT-IKONER.json` (formen står i `kunskap/bild.md`) och lägg licensen bredvid
+  filen; prelaunch läser registret.
 - **Titta inte på andra byggen** i `kunder/` eller `underlag/`. Varje sajt härleds ur sin egen verksamhet.
 - **Rör inte** `kontroller/`, `kunskap/`, `kritik/`, `mall/`, `.claude/` eller `LARDOMAR.md` under en körning. Verkar en kontroll fel: skriv det i rapporten under "Kontroller som verkar fel".
 - **Inget skickas ut.** Inga formulär skickas, inga mejl, inga kontakter med verksamheten eller någon annan.
