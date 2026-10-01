@@ -7,7 +7,7 @@ Interaktiva sessioner påverkas inte. Läser kommandot ur hookens JSON på stdin
   - git add av något annat än de tillåtna sökvägarna, eller -A, --all, -u, .
   - git commit med -a/--all, eller när något utanför de tillåtna sökvägarna är köat
   - git push som inte är "git push origin main", eller när utgående commits rör annat än de tillåtna sökvägarna
-  - git med -c, --git-dir, --work-tree eller -C (omvägar runt kontrollen)
+  - git -c (en inställning kan starta program); -C, --git-dir och --work-tree bara för läsande kommandon
 Bygger på forskningens råd att begränsa vad en lyckad attack kan göra, inte bara filtrera indata.
 """
 import json
@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+LASANDE = {'log', 'show', 'status', 'diff', 'rev-parse', 'ls-files', 'ls-tree', 'cat-file', 'describe', 'shortlog',
+           'blame', 'grep', 'rev-list', 'for-each-ref', 'count-objects'}
 
 
 def neka(skal):
@@ -59,14 +61,28 @@ def main():
             ord_ = ord_[1:]  # miljötilldelningar före kommandot
         if not ord_ or Path(ord_[0]).name != 'git':
             continue
-        i = 1
+        i, annan_katalog = 1, False
         while i < len(ord_) and ord_[i].startswith('-'):  # gits globala flaggor före underkommandot
-            if ord_[i] in ('-c', '-C', '--git-dir', '--work-tree') or ord_[i].startswith(('--git-dir=', '--work-tree=', '--exec-path')):
-                neka('git med -c, -C, --git-dir eller --work-tree nekas här')
+            f = ord_[i]
+            if (f.startswith('-c') and not f.startswith('--')) or f.startswith(('--config-env', '--exec-path')):
+                # -c kan köra godtyckliga program även i läskommandon (core.pager, core.fsmonitor, alias med !)
+                neka('git -c nekas alltid: en inställning kan starta program (core.pager, core.fsmonitor, alias med !)')
+            if f in ('-C', '--git-dir', '--work-tree'):
+                annan_katalog, i = True, i + 1  # flaggans värde är nästa ord
+            elif f.startswith(('--git-dir=', '--work-tree=')) or (f.startswith('-C') and len(f) > 2):
+                annan_katalog = True
             i += 1
         if i >= len(ord_):
             continue
         sub, args = ord_[i], ord_[i + 1:]
+        if annan_katalog:
+            # Läsa i en klon (git -C /tmp/kirurg/repo log -1) är ofarligt; skriva eller starta program är det inte.
+            farliga = [a for a in args if a.startswith(('--output', '--open-files-in-pager', '--ext-diff', '--textconv'))
+                       or re.fullmatch(r'-O.*', a)]
+            if sub in LASANDE and not farliga:
+                continue
+            neka('git -C/--git-dir/--work-tree tillåts bara för läsande kommandon (%s) utan --output, -O och --ext-diff'
+                 % ', '.join(sorted(LASANDE)))
         if sub == 'add':
             vagar = [a for a in args if not a.startswith('-')]
             if any(a in ('-A', '--all', '-u', '--update', '.', '*') for a in args) or not vagar:

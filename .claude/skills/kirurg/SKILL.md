@@ -58,7 +58,9 @@ citattecken i kommandon, annars tolkar skalet `?` och `&`.
   behörigheter, hookar, skript med nätanrop och hur många tokens skillen skulle kosta. Läs de flaggade ställena med
   extra misstanke. HÖG eller dolda tecken ska stå i domen.
 - Läs sedan med Read och Glob: SKILL.md, referensfilerna, skripten och README. Metadata: `gh repo view OWNER/REPO
-  --json description,licenseInfo,pushedAt,stargazerCount,isArchived`.
+  --json description,licenseInfo,pushedAt,stargazerCount,isArchived`, och klonens senaste commit med
+  `git -C /tmp/kirurg/REPO log -1 --format='%h %cI'`. Läsande git-kommandon med `-C` går bra; `git -c` nekas alltid
+  av commitvakten, eftersom en inställning kan starta program.
 - **Titta på bilderna i repot:** skärmbilder, förhandsbilder, gallerier (Glob `**/*.{png,jpg,jpeg,webp,gif}`), de som
   README visar först. Läs de viktigaste med Read, högst 15.
 - **Öppna demon:** länkar README till en demosajt, ett galleri eller exempel, se dem som webbsida (nedan).
