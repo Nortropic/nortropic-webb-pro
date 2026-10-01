@@ -68,6 +68,7 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Backlog: ingen
 - Not: kopplingsprov av dashboardens intagsfält 2026-10-01, kört med Sonnet 5. Länken skickades av Claude, inte av
   ägaren. Bedömningen står kvar eftersom den är sakligt riktig.
+- Ersatt av: 2026-10-01 · vercel-web-interface-guidelines med förgranskning och vercel.com/design/guidelines
 
 ### 2026-10-01 · AI LABS-video: sex steg till vackra sajter med Claude Code (Hallmark, design.md, scroll-world, CodeRabbit) · nej
 - Källa: https://www.youtube.com/watch?v=DP7mgLUKN_U @ 2026-09-30 (AI LABS, 25:26, autogenererat transkript, sponsrad
@@ -248,4 +249,48 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   till den avvisade posten i sitt förslag; den hänvisningen gäller inte längre. Juniper-exemplet visar en sak att
   hålla ögonen på: innehåll som tonas in vid skroll syns inte i en helsidesbild. Blir det ett fynd i ett riktigt
   bygge (tomma band i `-hela.png`), hör det hemma som en rad i steg 6.3, inte som det här verktyget
+- Backlog: ingen
+
+### 2026-10-01 · vercel-web-interface-guidelines med förgranskning och vercel.com/design/guidelines · parkera
+- Källa: https://github.com/vercel-labs/web-interface-guidelines @ `e3d624b` (senast pushad 2026-08-18), MIT, 917
+  stjärnor. Ny bedömning på ägarens begäran; den förra var ett kopplingsprov med Sonnet. Läst i sin helhet: README.md
+  (198 rader), command.md (190), AGENTS.md (155) och install.sh (144). Sedda: vercel.com/design/guidelines i 390 och
+  1440 (första vyn) och ett skrolläge av åtta; sidan är README:n renderad, mörk Geist-typografi utan bilder [BILD
+  desktop-forsta, mobil-forsta, desktop-skroll-04]. Upstreams command.md är samma commit som vår lokala kopia
+  (filnamnets `e3d624ba`)
+- Steg: 5 (bygge) och 6 (prov); command.md är ett granskningskommando för kod, AGENTS.md samma regler i MUST/SHOULD-form
+- Sår: inget. L0 ("ai slope skit") gäller generiskt innehåll och generisk form; källan handlar om hantverket i
+  komponenterna och säger inget om huruvida sajten hör till verksamheten. Ingen JAMFORELSE.md finns ännu
+- Överlapp: tillgänglighet och fokus i `bygge-referens.md` rad 9–13 (WCAG 2.2 AA, synligt fokus, hopp-länk, Escape)
+  och Osmanis text som den pekar på; bilder med mått, prioriterad första bild, självhostade typsnitt rad 14–15;
+  formulärens fel-, tom- och laddningslägen rad 19; `prefers-reduced-motion` rad 23; 404 med nästa handling rad 24.
+  Mobilreglerna (16 px i fält, `touch-action`, tap-highlight, `overscroll-behavior`, safe areas, `type` och
+  `inputmode`) står djupare i `emil-mobile-native-SKILL.md` rad 44–51, 102–128 och 118, som steg 5 läser
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 133). Spill mäts som grind i 390, 768 och 1440 (`kontroller/prova.py`
+  rad 11), axe och Lighthouse rad 9–10. Vår kopia av källan, `kunskap/externa/vercel-web-interface-guidelines-command-e3d624ba.md`,
+  laddas däremot inte av något steg: utanför registret nämns den bara i `.claude/skills/kirurg/SKILL.md` rad 104
+- Skäl: källan är god, saklig och gratis, men den svarar på en annan fråga än vårt sår. Den är skriven för Vercels
+  egna React- och Next-produkter (hydrering, URL-synkad state, kontrollerade fält, virtualiserade listor, `POST`
+  under 500 ms [REPO command.md rad 95–100, 130–134; README.md rad 117]), och mallen är Astro med minimal JavaScript
+  (`mall/astro/src/layouts/Bas.astro`). Det som gäller en informationssajt har vi redan i texter som laddas. Två
+  rättelser av den ersatta posten: krocken med "rubriker i satsform" (`kunskap/copy-kontroll.md` rad 30) finns bara i
+  command.md ("Title Case for headings/buttons" [REPO command.md rad 144]); README:n märker copyreglerna som
+  Vercel-specifika och skriver "On marketing pages, use sentence case." [REPO README.md rad 145, 151], så för våra
+  sajter finns ingen krock. Och `type`/`inputmode` är inte nytt, det står i Emil rad 118. Det som verkligen saknas
+  hos oss är småt: `autocomplete` och meningsfulla `name` på formulärfält, `spellcheck` av på mejlfält, placeholder
+  som exempel, `text-wrap: balance` på rubriker, `scroll-margin-top` under en klistrad meny och `min-w-0` på
+  flexbarn [REPO command.md rad 39–47, 69, 25, 74]. Inget av det har ett bygge ännu visat fel på. Källkritik:
+  källan säljer inget utom en rekryteringsrad [REPO README.md rad 191–193]; reglerna är praxis, inte belagda med
+  mätningar, och några hänvisar till tweets som belägg [REPO README.md rad 23, 42, 53].
+- Kostnad: command.md 190 rader om den skulle laddas i steg 6; hela repot ungefär 8 700 tokens text. Inga beroenden.
+  Installationsvägarna (install.sh, `npx skills add`) behövs inte; vi har redan texten
+- Säkerhet: förgranskningen gav MEDEL, enbart för install.sh: den hämtar command.md med curl och skriver i
+  användarens kataloger för sju agentverktyg, bland annat `~/.claude/commands/` och Windsurfs globala regler [REPO
+  install.sh rad 35–41, 59–76]. Inga dolda tecken, ingen text riktad till agenter; sidtexten fick LÅG. Inget kördes
+- Förslag: inget
+- Utfall: villkoret i den ersatta posten gäller, preciserat. Visar ett riktigt bygge trasig formulär-UX (autofyll
+  som inte fungerar, fel tangentbord, fel som inte syns vid fältet) eller dåliga radbrytningar i rubriker, tas
+  bara de raderna ur listan ovan in i `kunskap/bygge-referens.md` rad 19 respektive i formulärkravet i
+  `kunskap/formularsakerhet.md`, med svenska ord. Att vår kopia ligger oläst är ingen brist i sig; den är
+  uppslagsmaterial för kirurgen, inte byggets text
 - Backlog: ingen
