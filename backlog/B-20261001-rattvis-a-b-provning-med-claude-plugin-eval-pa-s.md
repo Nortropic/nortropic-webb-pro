@@ -11,6 +11,6 @@ steg: 4–6
 
 **Varför:** Kirurgens dom 'prova A/B' saknar en mätmetod. Forskningen: samma indata, minst tre körningar per arm, blind parvis jämförelse med ombytt ordning, en annan modell som domare, och kostnad bredvid kvalitet. Det kräver fall ur riktiga byggen, som inte finns än.
 
-**Förslag:** Lägg en evals/-svit i repot (claude plugin eval, --ablation with-without, --judge-model sonnet, runs 3) med fall ur de första byggenas underlag: steg 4 (INNEHALL.md ur RESEARCH.md och BRIEF.md) och steg 5 (första vyn). LLM-graderare med rubrik som PASS/FAIL-villkor ur kunskap/referenser-professionella.md och copy-kontroll.md. Använd sviten för den vilande posten om ui-ux-pro-max.
+**Förslag:** Lägg en evals/-svit i repot (claude plugin eval, --ablation with-without, --judge-model sonnet, runs 3) med fall ur de första byggenas underlag: steg 4 (INNEHALL.md ur RESEARCH.md och BRIEF.md) och steg 5 (första vyn). LLM-graderare med rubrik som PASS/FAIL-villkor ur kunskap/referenser-professionella.md och copy-kontroll.md. Använd sviten för den första domen "prova A/B" som kirurgen fäller.
 
-**Klart när:** En körbar svit finns, och första A/B-prövningen är avgjord med den och bokförd i REGISTER.md.
+**Klart när:** En körbar svit finns, och den första A/B-prövningen är avgjord med den och bokförd i REGISTER.md.
