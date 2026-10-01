@@ -132,3 +132,35 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Förslag: inget.
 - Utfall: ingen åtgärd. Villkoret i den ersatta posten för Hallmarks layoutgrindar 49–51 och 55 gäller oförändrat.
 - Backlog: ingen
+
+### 2026-10-01 · AI LABS-video: Shopifys Helix-flöde (checkpoints, fyra grindar, orkestrerare) · nej
+- Källa: https://www.youtube.com/watch?v=bBMp5tLxShQ @ 2026-09-24 (AI LABS, 14:51, autogenererat transkript, sponsrad
+  av Hedra [TAL 06:36]); alla 41 bildrutor sedda. Förlagan läst i original: shopify.engineering/helix (Talha Naqvi,
+  2026-09-21). Helix är internt; AI LABS skills ligger bakom deras betalgemenskap [TAL 14:21] och gick inte att läsa
+- Steg: 5 och 6 (grindarna), 7–8 (mänsklig granskning, lärdomsfil); orkestreringen berör hela körningen
+- Sår: L0 ("ai slope skit"). Ingen JAMFORELSE.md finns ännu
+- Överlapp: kroken som säger exit 2 när agenten vill sluta [TAL 05:29, SKÄRM 06:10], videons "change that fixes that
+  problem entirely" [TAL 00:32], är vår stoppvakt (`.claude/hooks/stoppvakt.py`, med tak 4 så att ägaren ser ett rött
+  avslut). Lärdomsfilen som varje agent läser först [TAL 13:15] är `LARDOMAR.md`. De två UI-granskarna som inte ser
+  projektets instruktioner [TAL 11:34, SKÄRM 11:32] är femsekunderstestet i steg 6. Checkpoints i stigande
+  svårighet [SKÄRM 03:18] är de åtta stegen i ordning, och jämförelsen mot öppnade referenser i steg 5 gör UI-grindens
+  jobb utan en egen mekanik
+- Skäl: Helix grindar mäter överensstämmelse med ett känt mål. Hos Shopify är målet den gamla appen, skärm för skärm
+  [Shopify-artikeln]; hos AI LABS är det agentens egen HTML-prototyp [TAL 09:54, SKÄRM 10:49]. Vårt sår är att
+  målet självt är generiskt, och en grind som jämför sajten med en prototyp den själv ritat släpper igenom det.
+  Bilderna visar det: DESIGN.md för "Personnel Ledger" sätter yta `#FBF9F3`, neutral `#F1EDE2` och primär `#2E5A46`
+  [SKÄRM 10:28], och resultatet är krämvitt med mörkgrön knapp, versala etiketter över siffror och kolumner
+  ("ACTIVE EMPLOYEES", "PERIOD", "STATUS"), monospace-belopp och metasträngar med mittpunkt ("Head of People ·
+  People", "STEP 7 · DONE") [SKÄRM 07:34, 10:06, 11:53, 13:41]. Det är punkt 5 och den krämvita grunden ur punkt 1 i
+  `anthropic-frontend-design-SKILL.md` rad 39–43, och alla grindar passerades. Kodgranskningsloopen visas bara när
+  kritikern godkänner i första rundan utan ändringar [SKÄRM 12:58], och vår sajt är Astro med minimal JavaScript,
+  så den adresserar inget vi har sett gå fel. Resten krockar med medvetna val: planen stannar för människans
+  godkännande [SKÄRM 14:02] mot "Ingen människa svarar under körningen", och en orkestrerare med fem agenter, egna
+  skills och en planvisare är ny mekanik. Källkritik: beviset är en intern demo-app i en sponsrad video, körd med
+  `--dangerously-skip-permissions` [SKÄRM 08:40]. Videon säger att Shopify "released their whole setup" [TAL
+  02:12], men artikeln beskriver bara metoden och nämner inga misslyckanden.
+- Förslag: inget.
+- Utfall: ingen åtgärd. Aktuellt på ett villkor: att ägarens dom över ett riktigt bygge pekar på något som
+  sessionens egen renderingsläsning (steg 6.3) borde ha sett. Då är grindtanken "granskaren ser inte bygget
+  inifrån" värd en rad i steg 6, så att renderingsläsningen görs avskärmad som femsekunderstestet. Ingen ny mekanik.
+- Backlog: ingen
