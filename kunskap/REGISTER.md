@@ -870,3 +870,40 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Förslag: inget
 - Utfall: ingen åtgärd. Skulle ett bygge kräva riktig interaktivitet prövas den som en Astro-ö i steg 5, som för React
 - Backlog: ingen
+
+### 2026-10-01 · three.js (mrdoob/three.js) · nej
+- Källa: https://github.com/mrdoob/three.js @ `f0f1455` (gren dev, senast pushad 2026-10-01), MIT, drygt 116 000
+  stjärnor, inte arkiverat. Förgranskat. Läst: README.md, `llms.txt` (tre rader som pekar till dokumentation på
+  threejs.org) och de flaggade ställena nedan; själva biblioteket, exemplen och editorn lästes inte, eftersom repot
+  är källkoden till ett 3D-bibliotek och inte en metod. Repot har ingen CLAUDE.md, AGENTS.md eller skill. Bilder:
+  den enda, `files/og_image.png`. Demon https://threejs.org sedd som webbsida: första vyn i desktop och mobil och
+  skrollsekvensens läge vid 48 % i desktop. Ägarens not: ingen
+- Steg: 5 (riktning och bygge), i så fall
+- Sår: inget. L0 gäller slop i vad sidan säger, inte avsaknad av 3D. Ingen JAMFORELSE.md finns ännu
+- Överlapp: mallen är Astro med `astro` och `sharp` som enda beroenden (`mall/astro/package.json` rad 10–13), och
+  steg 5 kräver "ingen JavaScript som inte behövs" (`.claude/skills/bygg-sajt/SKILL.md` rad 145). Taste nämner redan
+  Three.js som valet för canvasbakgrunder och 3D-scener och varnar för storleken
+  (`kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md` rad 545 och 778). Emil visar att djup och rotation går i CSS
+  utan JavaScript (`kunskap/externa/emil-emil-design-eng-SKILL.md` rad 370–372)
+- Skäl: three.js är ett JavaScript-bibliotek för 3D i WebGL och WebGPU [REPO README.md rad 9–11], ingen regel eller
+  skill för att bygga bättre sajter. Det som syns på threejs.org är ett galleri av spel, konstexperiment,
+  produktvisningar och byråsajter: en racerbana, Doom, biljard, en tecknad gelégubbe, en Maserati, en NASA-kapsel
+  [BILD desktop-forsta.png; BILD desktop-skroll-05.png; BILD files/og_image.png]. Ingen av rutorna är en
+  informationssajt för en lokal verksamhet. För våra kunder är den primära handlingen ett telefonnummer, ett mejl
+  eller deras bokning (bygg-sajt rad 89), och en 3D-scen vore ett dekorativt påslag i stället för verksamhetens egna
+  bilder, som regeln mot slop och "Inga stockbilder" (rad 53) går emot. Det adresserar inget sår. Källkritik: källan
+  säljer bara sig själv; README:n gör inga påståenden om kvalitet utöver "easy-to-use, lightweight" [REPO README.md
+  rad 11]
+- Kostnad: ungefär 750 000 tokens text i repot. Som beroende i mallen skulle det betyda ett stort klientbibliotek,
+  WebGL-krav, en canvas som måste ha reserv för minskad rörelse och svaga telefoner, och versionsunderhåll i varje
+  bygge
+- Säkerhet: förgranskningen gav HÖG, av mängden: 1 737 skript, med eval/exec i editorns kodredigerare (CodeMirror,
+  Acorn, Esprima) och nätanrop i dekoderbibliotek (Draco, Basis). Inga ställen med text riktad till agenter, inga
+  krokar, MCP-servrar eller behörigheter. Tolv dolda tecken: i `editor/js/libs/acorn/acorn.js` rad 879 inleder
+  U+200C och U+200D tabellen över tecken som får ingå i JavaScript-identifierare, och i fem typsnittsfiler under
+  `examples/fonts/droid/` är U+200B och U+FEFF glyfposter. Inget av dem är text till en agent. Inget kördes eller
+  installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Skulle en verksamhet ha en produkt som besökaren behöver vrida på (en möbel, en båt) prövas
+  det som en Astro-ö på en undersida, aldrig i mallen
+- Backlog: ingen
