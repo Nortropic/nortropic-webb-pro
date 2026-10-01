@@ -707,3 +707,29 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   rubrikerna, är securityheaders.com eller Mozilla Observatory ett manuellt kvitto mot den levande adressen, inte en
   ny kontroll
 - Backlog: ingen
+
+### 2026-10-01 · DigitalPlatDev/FreeDomain · nej
+- Källa: https://github.com/DigitalPlatDev/FreeDomain @ `9c7c541`, AGPL-3.0; läst README, FAQ, handledningens
+  översikt (1.0) och avsnittet om godtagbar användning (5.6), plus förgranskningen över alla 79 textfiler. Sett
+  logotypen och två av nio skärmbilder (DigitalPlats registreringsruta, Cloudflares namnserversida). Övriga sju är
+  panelbilder av samma slag och lästes inte. Ingen demo; länken går till en inloggningspanel. Ägarens not: ingen
+- Steg: lanseringen efter 7 (domän och DNS), i så fall
+- Sår: inget. L0 gäller generiskt innehåll och generisk form; källan är en gratistjänst för underdomäner och en
+  DNS-handledning. Ingen JAMFORELSE.md finns ännu
+- Överlapp: steg 5 sätter sajtens adress till verksamhetens egen domän (`.claude/skills/bygg-sajt/SKILL.md` rad 138).
+  Det handledningen lär ut om delegering, TTL, namnserverbyte och e-postposter [REPO documents/tutorial/] står redan
+  som procedur i `kunskap/lansering.md` rad 11–17 (TTL och namnserverbyte), 19–37 (DNS-bild före och efter) och
+  49–62 (SPF, DKIM, DMARC), och där gör ingen session DNS-ändringar (rad 16)
+- Skäl: tjänsten ger gratis namn under fem delade ändelser som .us.kg och .dpdns.org [REPO README.md rad 25–29], högst
+  ett per konto [REPO documents/domains/faq.md rad 5], och kontot kan stängas utan förvarning efter tjänstens eget
+  gottfinnande [BILD digitalplat-domain-registration.jpg]. En riktig verksamhet ska stå på sin egen domän; ett lånat
+  namn i en namnrymd som tjänsten själv beskriver som utsatt för missbruk [REPO faq.md rad 7] är fel signal och en
+  driftsrisk. Handledningen är en ordentlig DNS-bok men lär ut det vi redan har som procedur. Källkritik: README:n
+  säljer tjänsten, ber om stjärnor [REPO faq.md rad 23–26] och anger både "500,000 domains" [REPO README.md rad 53]
+  och 400 000 användare (i den länkade artikelns adress) [REPO README.md rad 96] utan belägg; stjärnantalet (drygt 202 000) är räckvidd, inte kvalitet
+- Kostnad: ungefär 63 700 tokens text om handledningen skulle laddas; inga beroenden. Inget att vinna
+- Säkerhet: förgranskningen gav LÅG över 79 textfiler: inga dolda tecken, ingen text riktad till agenter, inga skript
+  eller krokar. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: ingen åtgärd
+- Backlog: ingen
