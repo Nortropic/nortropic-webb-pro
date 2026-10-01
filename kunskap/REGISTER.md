@@ -43,6 +43,7 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   fångar något Vercel och Osmani missar tas in som rader i vår egen text, inte verktyget.
 - Utfall: väntar på första bygget
 - Backlog: B-20261001-prova-ui-ux-pro-max-s-ux-riktlinjer-och-leverans
+- Ersatt av: 2026-10-01 · ui-ux-pro-max-skill med förgranskning, repots bilder och uupm.cc
 
 ### 2026-10-01 · vercel-web-interface-guidelines · parkera
 - Källa: https://github.com/vercel-labs/web-interface-guidelines (lokal kopia
@@ -194,4 +195,57 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Förslag: inget.
 - Utfall: ingen åtgärd. När piloten är klar och ägaren vänder sig mot kunder finns underlaget till ett ärligt första
   besked redan: DIAGNOS.md och före/efter-tabellen. Något utskicksverktyg behövs inte för det.
+- Backlog: ingen
+
+### 2026-10-01 · ui-ux-pro-max-skill med förgranskning, repots bilder och uupm.cc · nej
+- Källa: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill @ `09170ee` (samma commit som den ersatta posten,
+  senast pushad 2026-09-27), MIT, 132 297 stjärnor. Ny bedömning på ägarens begäran; den förra gjordes för hand utan
+  förgranskning och utan bilder. Läst: README, `.claude/skills/ui-ux-pro-max/SKILL.md`, de 40 första raderna av 119 i
+  `ux-guidelines.csv`, `stack/README.md` och exemplet `stack/examples/juniper-audit/` (README och report.md). Sedda:
+  `screenshots/website.png`, Juniper-exemplets bilder i 1440 och 390, och demosajten uupm.cc i 390 och 1440 (första
+  vyn och sju av åtta skrollägen; läget 0 % är samma som första vyn)
+- Steg: 4–5 (designsystem-generatorn: mönster, stil, palett, typsnitt) och 6 (UX-riktlinjer, leveranschecklista,
+  `stack/`-delens skärmbildsgranskning)
+- Sår: L0 ("ai slope skit"); källan säger sig lösa det ("kills 'AI slop' defaults" [REPO stack/README.md]). Ingen
+  JAMFORELSE.md finns ännu
+- Överlapp: riktningen ur verksamheten, aldrig ur en branschmall (`.claude/skills/bygg-sajt/SKILL.md` rad 135–136),
+  "Kopiera aldrig layout, palett eller typsnitt" (rad 150), "Hitta aldrig på" (rad 20), "Inga stockbilder" (rad 49).
+  Det demon faller på står redan som regel: stor siffra med statistik och gradientaccent som standardval
+  (`anthropic-frontend-design-SKILL.md` rad 17), likadana kort med gradienttvätt (rad 42), mörk mesh, tre lika kort
+  (Taste rad 39), emoji (Taste rad 147–148), gradienttext i stora rubriker (Taste rad 603), påhittade exakta siffror
+  (Taste rad 327, 618). UX-riktlinjerna jag läste (fokus, kontrast, alt-text, rubrikordning, träffytor, reduced-motion,
+  overflow) står i `bygge-referens.md` rad 11 och 23, i Osmanis två texter och i Vercels regler, och axe och Lighthouse
+  mäter dem i `kontroller/prova.py`. `stack/`-delens skärmbilder i flera bredder plus granskare motsvarar steg 5.5 och
+  steg 6.3–6.4 (rad 145–150, 160–165)
+- Skäl: bilderna fäller källan på dess egen fråga. Demosajten är mörk med blå och orange glöd, gradienttext i varje
+  rubrik, sex lika statistikkort och tre lika funktionskort med pillerbrickor [BILD uupm desktop-forsta,
+  desktop-skroll-02], och avslutas med en raketemoji över rubriken [BILD desktop-skroll-08] trots att den egna
+  checklistan kräver "SVG icons (no emoji)" [BILD desktop-skroll-04]. Siffrorna i första vyn (57 stilar, 95 paletter,
+  56 typsnittspar, 8 stackar) [BILD desktop-forsta] motsäger README:s 79, 192, 74 och 22 [REPO README.md rad
+  191–197]. Galleriets "real-world website demos" är påhittade verksamheter: PawSpa har en bricka "#1 Pet Spa in
+  Town", ett ord i annan färg i rubriken, ett stockfoto av en hund och siffrorna 5,000+, 4.9 och 10+ [BILD
+  desktop-skroll-04, -05]; "Transform Data Into Actionable Insights" och "Learn Anything, Anytime, Anywhere!" är
+  likadana. Det är generatorns resultat när den gör det den säljs för, och det är L0. Den nya `stack/`-delen påstår
+  att en sajt som granskats är "genuinely well-built" och att granskningen hittade det en människa missar vid en
+  snabb titt [REPO
+  stack/examples/juniper-audit/README.md], men helsidesbilderna har tre tomma band under de två första sektionerna
+  [BILD juniper desktop-1440, mobile-390]; rapporten listar fokus, träffytor och kontrast och nämner inte banden [REPO
+  report.md], och README:n kallar det ett verktygsfel. Leveranschecklistan bockar av det som syns, inte om sidan
+  hör till verksamheten, så den hade släppt igenom demon. Den ersatta postens förhoppning, att riktlinjerna och
+  checklistan fångar något i steg 6 som våra texter missar, håller inte: de 40 raderna jag läste är allmän webbpraxis
+  vi redan har, och några är tveksamma som regel (mjuk skroll som "High" [REPO ux-guidelines.csv rad 2]). Källkritik:
+  repot säljer en premiumversion och betaltjänster via uupm.cc [REPO README.md rad 243–249; BILD desktop-forsta],
+  och stjärnantalet är räckvidd, inte belägg.
+- Kostnad: SKILL.md, 215 rader, laddas per session, plus referensfiler vid behov; hela repot är ungefär 271 000 tokens text och 152 skript; Python krävs för
+  sökningen; `stack/` vill ha tre MCP-servrar via npx
+- Säkerhet: förgranskningen gav HÖG. Inga dolda tecken. De två agentriktade träffarna (`cip/generate.py` rad 434) är en
+  utskriftsrad till användaren, inte en instruktion. HÖG kommer av skript med nätanrop och miljövariabler i logo-,
+  bakgrunds- och katalogskripten och av `stack/.claude/settings.json`, som tillåter `npx playwright` och tre
+  MCP-servrar som hämtas med `npx -y …@latest`. Inget kördes
+- Förslag: inget
+- Utfall: den vilande posten B-20261001-prova-ui-ux-pro-max-s-ux-riktlinjer-och-leverans satt till avvisad ("ersatt av
+  ny bedömning 2026-10-01"). Posten B-20261001-rattvis-a-b-provning-med-claude-plugin-eval-pa-s hänvisar fortfarande
+  till den avvisade posten i sitt förslag; den hänvisningen gäller inte längre. Juniper-exemplet visar en sak att
+  hålla ögonen på: innehåll som tonas in vid skroll syns inte i en helsidesbild. Blir det ett fynd i ett riktigt
+  bygge (tomma band i `-hela.png`), hör det hemma som en rad i steg 6.3, inte som det här verktyget
 - Backlog: ingen
