@@ -134,6 +134,7 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Förslag: inget.
 - Utfall: ingen åtgärd. Villkoret i den ersatta posten för Hallmarks layoutgrindar 49–51 och 55 gäller oförändrat.
 - Backlog: ingen
+- Ersatt av: 2026-10-01 · AI LABS-video med förgranskade repon, usehallmark.com och aura.build
 
 ### 2026-10-01 · AI LABS-video: Shopifys Helix-flöde (checkpoints, fyra grindar, orkestrerare) · nej
 - Källa: https://www.youtube.com/watch?v=bBMp5tLxShQ @ 2026-09-24 (AI LABS, 14:51, autogenererat transkript, sponsrad
@@ -293,4 +294,58 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   bara de raderna ur listan ovan in i `kunskap/bygge-referens.md` rad 19 respektive i formulärkravet i
   `kunskap/formularsakerhet.md`, med svenska ord. Att vår kopia ligger oläst är ingen brist i sig; den är
   uppslagsmaterial för kirurgen, inte byggets text
+- Backlog: ingen
+
+### 2026-10-01 · AI LABS-video med förgranskade repon, usehallmark.com och aura.build · nej
+- Källa: https://www.youtube.com/watch?v=DP7mgLUKN_U @ 2026-09-30 (AI LABS, 25:26, autogenererat transkript, sponsrad
+  av CodeRabbit [BESKRIVNING]). Ny bedömning på ägarens begäran med den uppgraderade kirurgen; de två tidigare
+  posterna saknade förgranskning och sidorna sedda som webbsidor. Sedda: hela tidslinjen och alla 44 bildrutor.
+  Repona förgranskade och lästa: nutlope/hallmark @ `13ac0ec` (v1.1.0, senast pushad 2026-08-06, MIT, 29 394
+  stjärnor; SKILL.md i sin helhet, slop-test.md grind 49–55) och oso95/scroll-world @ `71cc36d` (senast pushad
+  2026-07-29, MIT, 9 624 stjärnor; README). Sidor sedda i 390 och 1440: usehallmark.com (första vyn och sju av åtta
+  skrollägen), aura.build (första vyn och tre skrollägen) och dess design.md-galleri aura.build/design-systems (första
+  vyn och ett skrolläge). Videons slutsajt forma-site-flame.vercel.app svarade 503 `DEPLOYMENT_PAUSED` [BILD forma
+  desktop-forsta], så den kunde inte ses på riktigt; ailabspro.io, theroundup.so och CodeRabbit öppnades inte
+- Steg: 1 och 3 (planläge, affärskontext i CLAUDE.md), 4–5 (Hallmark, design.md, scroll-world), 6 (CodeRabbit)
+- Sår: L0 ("ai slope skit"); videon säger sig lösa just det [TAL 00:00]. Ingen JAMFORELSE.md finns ännu
+- Överlapp: som i de ersatta posterna. Det resultatet faller på står redan som regel: krämvit grund med serif och
+  lerfärgad accent samt versal eyebrow och mittpunktssträngar (`kunskap/externa/anthropic-frontend-design-SKILL.md`
+  rad 39 och 43), Inter som standardval (Taste rad 39 och 169), riktningar härledda ur verksamheten och aldrig ur en
+  branschmall (`.claude/skills/bygg-sajt/SKILL.md` rad 135–136), "Kopiera aldrig layout, palett eller typsnitt" (rad
+  150), "Hitta aldrig på" (rad 20) och "Inga stockbilder" (rad 49). Hallmarks mobilgolv i fyra bredder motsvaras av
+  spillgrinden i 390, 768 och 1440 px (`kontroller/prova.py` rad 11)
+- Skäl: de nya källorna fäller verktygen på deras egna regler. usehallmark.com har numrerade versala monospace-etiketter
+  över varje rubrik ("02 / EXAMPLES" till "07 / INSTALL") [BILD usehallmark desktop-forsta, desktop-skroll-03, -06,
+  -07], fast skillen säger att sådana etiketter är av som standard [REPO SKILL.md rad 450]. Sidans exempel på
+  Hallmarks resultat har ett kursivt betonat ord i rubriken ("after dark.", "at a price", "made") [BILD desktop-skroll-07,
+  -04], fast skillen kallar just det ett av de säkraste AI-tecknen [REPO SKILL.md rad 56]; bildtexten "Real bottle, real
+  grape, real region" står under en utvecklarkonferens [BILD desktop-skroll-07]. Sidan säger 20 teman och 57 grindar
+  [BILD desktop-forsta, -08], skillen 21 och 58 [REPO SKILL.md rad 38, 344]. Kärnan är oförändrad: ett av 21
+  katalogteman väljs tyst och roteras mellan byggen [REPO SKILL.md rad 38, 240], mekanismen som ger utbytbara sajter.
+  aura.build är en mallbutik med betalmallar ($24.99–$39) [BILD aura desktop-skroll-06], och design.md-galleriet visar
+  Inter i både rubrik och brödtext på de flesta kort [BILD aura-ds desktop-skroll-04] och säljer att man gör en
+  design.md av någon annans sajt [TEXT aura-ds], rakt emot rad 150 ovan; Hallmarks egen study-verb vägrar mallbutiker
+  [REPO SKILL.md rad 28]. Videon själv: den design.md som lades in var `neurosync-master-your-mind-1-DESIGN.md`, ett
+  system för en annan produkt [SKÄRM 13:38]. Slutsajten är krämvit med serifrubrik, versal eyebrow ("BUILT TO
+  BELONG"), "05 / 05" och mörka pillerknappar [SKÄRM 21:36], och accenten `#6f7a5e` [SKÄRM 24:03] är första planens
+  moss bredvid Fraunces och Inter [SKÄRM 06:53]: modellens standardval, inte verksamhetens. Förtroendet bärs av en
+  AI-genererad arkitekt vid ritbordet [SKÄRM 25:07]. Flera bilder är animerade illustrationer, inte inspelningar
+  [SKÄRM 05:35, 12:24, 18:18], och de motsäger inspelningarna: den ritade PR:en ändrar två filer [SKÄRM 22:49], den
+  riktiga 78 filer, +1 609 −1 608 rader, och ersätter hela den tidigare sajten [SKÄRM 23:26]; körningen av "första
+  versionen" serverar redan scroll-worlds `/world/scrub-engine.js` [SKÄRM 07:30]. Inspelningarna körs med "bypass
+  permissions on" [SKÄRM 04:26, 17:55]. CodeRabbit granskar pull requests, och vi committar direkt på main.
+  scroll-world kräver betalda bild- och videotjänster (Monid eller Higgsfield, ca 27 USD för sex scener [REPO
+  README.md]) och ger AI-genererade bilder i stället för verksamhetens egna.
+- Kostnad: Hallmarks SKILL.md, 559 rader, laddas per session, plus sex regelfiler per bygge och slop-testet (omkring
+  7 000 tokens enligt skillen själv [REPO SKILL.md rad 381]); hela repot ungefär 203 000 tokens text. scroll-world
+  ungefär 21 000 tokens, ffmpeg, Pillow och krediter per klipp. aura.build och CodeRabbit är betaltjänster
+- Säkerhet: förgranskningen gav MEDEL för båda repona, inga dolda tecken och ingen text riktad till agenter. Hallmarks
+  träffar är falsklarm: `curl | sh` står som synlig text i en exempelsida för ett påhittat CLI
+  (`site/_tests/02-streampipe-cli/index.html`), och "miljö" i `custom-05/script.js` är en funktion som heter
+  envelope. scroll-world ger sig själv Bash, Write, Edit och Skill i frontmatter; `knockout.py` läser en tröskel ur
+  miljön och `scrub-engine.js` hämtar videofiler med fetch. Sidtexterna fick LÅG. Inget kördes
+- Förslag: inget
+- Utfall: ingen åtgärd. Villkoret för Hallmarks grindar 49–51 och 55 (klickbar text på två rader, `minmax(0, 1fr)` för
+  bildspår, `overflow-wrap` på rubriker, versala rubriker med radhöjd under 1) gäller oförändrat: visar ett riktigt
+  bygge felbrytning eller överflöd, tas bara de raderna in i `kunskap/bygge-referens.md`
 - Backlog: ingen
