@@ -55,7 +55,7 @@ Grindar: bygge, seo, axe, lighthouse, spill, utan-js. Copykontrollen är en rapp
 
 ```sh
 /opt/homebrew/bin/python3.12 -m venv .venv
-.venv/bin/python -m pip install yt-dlp youtube-transcript-api
+.venv/bin/python -m pip install yt-dlp youtube-transcript-api imageio-ffmpeg
 (cd kontroller && npm install)
 ```
 
