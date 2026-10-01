@@ -12,3 +12,6 @@ dist/
 .DS_Store
 __pycache__/
 *.pyc
+
+# Kirurgens intagsloggar från dashboarden
+kirurgen/

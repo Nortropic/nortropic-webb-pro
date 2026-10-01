@@ -7,11 +7,13 @@ description: Bygg en webbplats åt en riktig verksamhet enligt litteraturens åt
 
 **Målet** är en sajt som ägaren vill sätta sitt namn på och visa för verksamheten. Två ribbor avgör:
 1. Den är tydligt bättre än verksamhetens nuvarande sajt (eller än att inte ha någon).
-2. Den står sig mot referenserna i `referenser/REFERENSER.md`.
+2. Den står sig mot de referenser som du själv hittar och öppnar i steg 3.
 
 **Slop uppstår när modellen saknar något specifikt att säga.** Allt i den här skillen finns för att få fram det
-specifika ur en riktig verksamhet och låta det bära sajten. Ägarens domar i `LARDOMAR.md` och reglerna i
-`regler/antislop.md` gäller före allt annat här.
+specifika ur en riktig verksamhet och låta det bära sajten. Regeln mot slop finns redan och kommer ur Nortropics
+gamla antislop-skill: `kunskap/copy-kontroll.md` (fraser och strukturer, med `kontroller/copy_kontroll.py` som
+rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella.md` (åtta jämförelsedimensioner).
+Ägarens domar i `LARDOMAR.md` gäller före allt annat här.
 
 ## Ramar för körningen
 
@@ -24,16 +26,15 @@ specifika ur en riktig verksamhet och låta det bära sajten. Ägarens domar i `
   - `kunder/<slug>/prov/` provets utdata; skrivs bara av `kontroller/prova.py`, aldrig av dig
 - **Verktyg:** Python körs med `.venv/bin/python`, Node-kontroller med `node kontroller/...`. Kommandon körs från
   repots rot.
-- **Rör inte** `kontroller/`, `regler/`, `kunskap/`, `referenser/`, `mall/`, `.claude/` eller `LARDOMAR.md` under en
-  körning. Verkar en kontroll fel: skriv det i rapporten under "Kontroller som verkar fel".
+- **Rör inte** `kontroller/`, `kunskap/`, `kritik/`, `mall/`, `.claude/` eller `LARDOMAR.md` under en körning. Verkar en kontroll fel: skriv det i rapporten under "Kontroller som verkar fel".
 - **Inget skickas ut.** Inga formulär skickas, inga mejl, inga kontakter med verksamheten eller någon annan.
 - **Personuppgifter:** bara det som behövs för sajten och som verksamheten själv visar publikt.
 
 ## Uppstart
 
-Läs, i den här ordningen: `LARDOMAR.md` (varje dom), `regler/antislop.md`, `referenser/REFERENSER.md`. Är
-referenslistan tom: skriv i rapporten att ribba 2 saknas och använd `kunskap/referenser-professionella.md` som
-ersättning. Lägg upp de åtta stegen som uppgifter med TaskCreate och bocka av dem med TaskUpdate.
+Läs, i den här ordningen: `LARDOMAR.md` (varje dom), `kunskap/copy-kontroll.md`,
+`kunskap/referenser-professionella.md`. Lägg upp de åtta stegen som uppgifter med TaskCreate och bocka av dem med
+TaskUpdate.
 
 ## Steg 1 — Underlag (upptäckt)
 
@@ -90,6 +91,20 @@ Läs `kunskap/brief-mall.md`, `kunskap/beredning.md` och `kunskap/juridikflaggor
 Skriv också `underlag/<slug>/FRASER.txt`: en rad per fras som konkurrenterna i branschen använder och som vi därför
 inte ska använda. Briefen är en hypotes; den prövas när ägaren och verksamheten ser resultatet.
 
+**Referenser — du hittar dem själv.** Läs `kunskap/referensjakt.md` och följ den. Sök efter vad toppuppgifterna
+kräver, i tre roller: bransch (starka verkliga sajter i samma sorts verksamhet, även utanför Sverige), hantverk
+(komposition, typografi, bild, rytm, även andra branscher) och UX/funktion. Gallerier är sökingångar, inte facit.
+Öppna varje vald referens på riktigt:
+
+```sh
+node kontroller/webblasare/inspektera.mjs --adress https://REFERENS/ --ut underlag/<slug>/referenser/<namn> --vyer 390,1440
+```
+
+Lägg till `--tillat` med referensens egna ursprung om den ser trasig ut. Titta på skärmbilderna med Read. Skriv
+`underlag/<slug>/REFERENSER.md`: per referens roll, varför den är stark för just den här frågan, vad du faktiskt
+såg, och vilket val i vår sajt den ska påverka. Ingen kvot: sluta när underlaget räcker för välgrundade val. En
+referens som inte gick att öppna märks så och ersätts.
+
 ## Steg 4 — Innehåll före form
 
 Läs `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`, `kunskap/seo.md` och, om verksamheten är lokal,
@@ -97,16 +112,17 @@ Läs `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`, `kunskap/seo.m
 
 Skriv all text i `underlag/<slug>/INNEHALL.md` innan något ritas: per sida title (högst 60 tecken), description
 (högst 155), h1, sektioner, knappar. Under varje sektion: raden `Specifikt:` med den sak ur "Bara de har" som
-sektionen bär (antislop regel 1). Saknas den, stryk sektionen.
+sektionen bär. Saknas den, stryk sektionen.
 
-Kontrollera texten och rätta tills den har noll fynd:
+Kontrollera texten:
 
 ```sh
 .venv/bin/python kontroller/copy_kontroll.py --kalla underlag/<slug>/INNEHALL.md --fraser underlag/<slug>/FRASER.txt --ut underlag/<slug>/copy-innehall.json --md underlag/<slug>/copy-innehall.md
 ```
 
-Läs fraslistan i `regler/antislop.md` och ta bort varje träff. Läs sedan texten högt för dig själv som en kund i
-orten: kunde någon mening stå hos en konkurrent? Skriv om den.
+Rätta varje fynd, eller motivera det om frasen är rätt i verksamhetens egen röst (`kunskap/copy-kontroll.md`:
+rapporten är aldrig en grind). Läs sedan texten högt för dig själv som en kund i orten: kunde någon mening stå hos en
+konkurrent? Skriv om den.
 
 ## Steg 5 — Koncept och bygge (design)
 
@@ -125,8 +141,11 @@ Läs `kunskap/externa/anthropic-frontend-design-SKILL.md`, `kunskap/externa/leon
    primära handlingen går via telefon, mejl eller deras befintliga bokning.
 4. **Snabbprov ofta:** `.venv/bin/python kontroller/prova.py <slug> --snabb`. Läs `kunder/<slug>/prov/PROV.md`.
 5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-forsta.png`, `vy-1440-forsta.png` och
-   `-hela.png` med Read. Ställ dem bredvid referenserna och antislop-reglerna. Rätta det som ser generiskt ut: där allt
-   är lika stort, där en sektion inte bär något specifikt, där första vyn inte säger vad de gör och vad man gör härnäst.
+   `-hela.png` med Read. Ställ dem bredvid referensernas skärmbilder och gå igenom de åtta dimensionerna i
+   `kunskap/referenser-professionella.md`. Skriv `underlag/<slug>/JAMFORELSE.md` i dess form: kandidatens drag ·
+   referensens lösning · vad som skiljer · vad som ändras eller behålls, och varför. Rätta det som ser generiskt ut:
+   där allt är lika stort, där en sektion inte bär något specifikt, där första vyn inte säger vad de gör och vad man
+   gör härnäst. Kopiera aldrig layout, palett eller typsnitt.
 
 ## Steg 6 — Prov
 
@@ -134,7 +153,8 @@ Läs `kunskap/prelaunch.md` och `kunskap/webblasare.md`.
 
 1. **Hela provet:** `.venv/bin/python kontroller/prova.py <slug>`. Rätta tills alla grindar är gröna. Grindarna och
    kraven står överst i `kontroller/prova.py`.
-2. **Utforskning:** läs `kunder/<slug>/prov/utforska/UTFORSKNING.md` och rätta verkliga fynd.
+2. **Utforskning och copy:** läs `kunder/<slug>/prov/utforska/UTFORSKNING.md` och rätta verkliga fynd. Läs
+   `kunder/<slug>/prov/copy.md` och rätta eller motivera varje fynd.
 3. **Renderingsläsning:** läs `kritik/FRAGA-renderingslasning.md` och gör läsningen själv mot skärmbilderna. Skriv
    svaret i `underlag/<slug>/RENDERINGSLASNING.md`. Rätta det du hittar.
 4. **Femsekunderstest, avskärmat:** starta en subagent med Task-verktyget. Ge den bara texten i
@@ -152,17 +172,40 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 3. **Det specifika:** vilka saker ur "Bara de har" som bär vilken sida.
 4. **Före och efter**, en tabell: deras sajt (DIAGNOS.md) mot vår (`prov/STATUS.json`): axe allvarliga, Lighthouse
    P/A/BP/SEO mobil, SEO-fynd.
-5. **Antaganden** och vad verksamheten skulle behöva bekräfta.
-6. **Svagheter du själv ser** och det som inte gick.
-7. **Kontroller som verkar fel**, om några.
-8. **Femsekunderstestets svar**, ordagrant.
-9. **Så tittar ägaren:** `cd kunder/<slug>/sajt && npx astro preview`, samt skärmbilderna i `prov/inspektion/`.
+5. **Referenserna:** vilka du valde och varför, och de viktigaste raderna ur JAMFORELSE.md.
+6. **Copyfynd som står kvar**, var och en med motivering.
+7. **Antaganden** och vad verksamheten skulle behöva bekräfta.
+8. **Svagheter du själv ser** och det som inte gick.
+9. **Kontroller som verkar fel**, om några.
+10. **Femsekunderstestets svar**, ordagrant.
+11. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.
+
+**Dina frågor till ägaren.** Skriv `kunder/<slug>/FRAGOR.json`: tre till sex frågor om det du är mest osäker på, där
+ägarens svar skulle ändra nästa bygge mest. Dashboarden visar dem efter kärnfrågorna i frågeformuläret, och svaren blir
+träningsdata. Fråga om konkreta val, aldrig "vad tycker du?". Form:
+
+```json
+[{"id": "riktning", "fraga": "Jag valde den mörka, typografiska riktningen före den ljusa och fotodrivna. Vilken hade du valt?",
+  "typ": "val", "alternativ": ["Mörk, typografisk", "Ljus, fotodriven", "Ingen av dem"],
+  "bild": "prov/inspektion/hem/vy-1440-forsta.png", "varfor": "avgör om riktningen ska härledas ur bilderna eller ur tonen"}]
+```
+
+`typ` är `val`, `skala` (med `min`, `max`, `steg`) eller `fritext`. `bild` är en sökväg under `kunder/<slug>/` eller
+`underlag/<slug>/`.
+
+**Brister i verktygen.** Hittade du en brist i en kontroll, i den här skillen eller i en kunskapsfil, lägg en vilande
+post i backloggen per brist:
+
+```sh
+.venv/bin/python kontroller/backlog.py ny --kalla bygge --kallref "kunder/<slug>/RAPPORT.md" --steg "<steg>" \
+  --titel "<bristen, en mening>" --varfor "<vad som hände i bygget>" --forslag "<fil och ändring>"
+```
 
 Avsluta sedan. Stoppvakten (`.claude/hooks/stoppvakt.py`) kör hela provet själv och släpper inte avslutet förrän
 grindarna är gröna och rapporten finns. Blockerar den: läs skälet, rätta, försök igen.
 
 ## Steg 8 — Dom (ägaren, utanför körningen)
 
-Ägaren tittar på sajten och rapporten och skriver sin dom ordagrant i `LARDOMAR.md`: bättre än deras? nära
-referenserna? vad är fel? I en senare session blir varje dom en textändring i rätt fil (`regler/antislop.md`, den här
-skillen, en kunskapsfil eller referenslistan). En ändring per dom, så att ägaren kan läsa den på fem minuter.
+Ägaren tittar på sajten och rapporten i dashboarden och skriver sin dom där; den hamnar ordagrant i `LARDOMAR.md`:
+bättre än deras? nära referenserna? vad är fel? I en senare session blir varje dom en textändring i rätt fil (den här
+skillen eller en fil i `kunskap/`). En ändring per dom, så att ägaren kan läsa den på fem minuter.

@@ -15,7 +15,8 @@ passerar sikten, säg det rakt; det är ett giltigt och vanligt utfall.** (Ur ve
 
 ## Före intaget
 
-Läs `LARDOMAR.md` (såren: ägarens domar), `regler/antislop.md`, `referenser/REFERENSER.md`, och sök i
+Läs `LARDOMAR.md` (såren: ägarens domar), `kunskap/copy-kontroll.md` och `kunskap/referenser-professionella.md`
+(den befintliga regeln mot slop), de senaste byggenas `underlag/*/JAMFORELSE.md` (gapet mot referenserna), och sök i
 `kunskap/REGISTER.md` efter länken. **Finns den redan där: bedöm den inte igen.** Svara med den tidigare domen och
 fråga om något har ändrats.
 
@@ -42,13 +43,14 @@ fråga om något har ändrats.
    eller tas bort), liten nog att läsa på fem minuter. Ta in regler och principer som rader i vår egen text, inte
    verktyget i sig, om inte verktyget gör något vår text inte kan. "Prova A/B" betyder samma steg med och utan på
    samma verksamhet; ägaren jämför de två resultaten.
-7. **Aldrig:** starta sessioner eller körningar, installera något, ändra mekanik, föreslå mer än en förändring per
-   bygge. Diffen tillämpas först när ägaren säger ja.
+7. **Aldrig:** starta sessioner eller körningar, installera något, ändra mekanik eller andra filer än registret och
+   backloggen. Förslaget genomförs först när ägaren säger "implementera enligt backlog".
 
 ## Utdata
 
-Svara ägaren kort: domen först, sedan skälet, sedan diffen om det finns en. Lägg samtidigt till en post sist i
-`kunskap/REGISTER.md` under "Intag":
+Svara ägaren kort: domen först, sedan skälet, sedan förslaget om det finns ett. Gör samtidigt två saker:
+
+**1. Registret.** Lägg till en post sist i `kunskap/REGISTER.md` under "Intag":
 
 ```
 ### ÅÅÅÅ-MM-DD · <namn> · <dom>
@@ -59,7 +61,19 @@ Svara ägaren kort: domen först, sedan skälet, sedan diffen om det finns en. L
 - Skäl: <ett stycke>
 - Förslag: <fil och ändring, eller "inget">
 - Utfall: <fylls i efter A/B eller när ägaren beslutat>
+- Backlog: <postens id, eller "ingen">
 ```
+
+**2. Backloggen, automatiskt.** Vid "ta in" eller "prova A/B" skapar du en vilande post, utan att fråga:
+
+```sh
+.venv/bin/python kontroller/backlog.py ny --kalla kirurg --kallref "kunskap/REGISTER.md · <datum> · <namn>" \
+  --steg "<steg>" --sar "<dom i LARDOMAR.md eller gap>" --titel "<vad som ska göras, en mening>" \
+  --varfor "<domen och skälet i två meningar>" --forslag "<fil och ändring>" --klart "<hur man ser att det är gjort>"
+```
+
+Skriv postens id i registrets rad "Backlog". Vid "parkera" eller "nej" skapas ingen post; registret räcker.
+Posten genomförs aldrig av dig: ägaren startar en session och säger "implementera enligt backlog".
 
 Egen innovation är tillåten: föreslå något ingen skickat, men bara knutet till ett sår i `LARDOMAR.md`, och högst ett
 förslag per bygge.

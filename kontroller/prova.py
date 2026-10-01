@@ -6,14 +6,16 @@ Bygger sajten själv (npm run build i kunder/<slug>/sajt), serverar dist/ på 12
 Grindar (röd grind = sajten är inte klar):
   bygge        npm run build lyckas och dist/ har minst en sida
   seo          seo_kontroll.py i lanseringsläge: 0 fynd
-  copy         copy_kontroll.py på sajtens källtexter: 0 fynd
-  antislop     fraserna i regler/antislop.md: 0 träffar i synlig text
   axe          0 överträdelser med påverkan serious/critical, mobil och desktop
   lighthouse   prestanda ≥ 90, tillgänglighet ≥ 95, bästa praxis ≥ 95, SEO ≥ 90, mobil och desktop
   spill        inget horisontellt spill i 390, 768 och 1440 px på någon sida
   utan-js      sidorna läsbara utan JavaScript (inte FAIL)
 
-Information (visas, blockerar inte): utforska.mjs-fynd, prelaunch.py-grindarna (juridik avgörs av människa).
+Information (visas, blockerar inte):
+  copy         copy_kontroll.py på sajtens källtexter. Enligt kunskap/copy-kontroll.md är rapporten aldrig en grind:
+               varje fynd rättas eller motiveras i RAPPORT.md (en fras kan vara rätt i kundens röst).
+  utforska     utforska.mjs-fynd
+  prelaunch    prelaunch.py-grindarna (juridik avgörs av människa)
 
     .venv/bin/python kontroller/prova.py <slug> [--snabb]
 
@@ -31,7 +33,6 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
-from html.parser import HTMLParser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -76,48 +77,6 @@ def sidor_i(dist):
         rutter.append('/' if rel == '.' else '/' + rel + '/')
     rutter.sort(key=lambda r: (r != '/', r.count('/'), r))
     return rutter
-
-
-class Synlig(HTMLParser):
-    """Synlig text ur HTML: hoppar över script, style, noscript, template och svg."""
-    HOPPA = {'script', 'style', 'noscript', 'template', 'svg'}
-
-    def __init__(self):
-        super().__init__()
-        self.djup = 0
-        self.delar = []
-
-    def handle_starttag(self, tag, attrs):
-        if tag in self.HOPPA:
-            self.djup += 1
-        for k, v in attrs:
-            if k in ('alt', 'title', 'aria-label', 'placeholder') and v and not self.djup:
-                self.delar.append(v)
-
-    def handle_endtag(self, tag):
-        if tag in self.HOPPA and self.djup:
-            self.djup -= 1
-
-    def handle_data(self, data):
-        if not self.djup and data.strip():
-            self.delar.append(data.strip())
-
-
-def synlig_text(html):
-    p = Synlig()
-    p.feed(html)
-    return ' '.join(p.delar)
-
-
-def antislop_fraser():
-    """Fraserna står i regler/antislop.md i ett kodblock märkt ```fraser, en per rad. Rader som börjar med # är noter."""
-    fil = ROOT / 'regler' / 'antislop.md'
-    if not fil.is_file():
-        return []
-    m = re.search(r'```fraser\n(.*?)```', fil.read_text(encoding='utf-8'), re.S)
-    if not m:
-        return []
-    return [r.strip() for r in m.group(1).splitlines() if r.strip() and not r.strip().startswith('#')]
 
 
 class Server:
@@ -240,26 +199,11 @@ def prova(slug, snabb=False):
     rc, out = kor(cmd)
     try:
         cf = json.loads((prov / 'copy.json').read_text(encoding='utf-8'))['fynd']
-        n = len(cf)
         rader = ['%s:%s %s "%s" (%s)' % (Path(f.get('fil', '')).name, f.get('rad', ''), f.get('typ'), f.get('text', ''), f.get('riktning', '')) for f in cf]
-        g['copy'] = grind(n == 0, '%d fynd' % n, 'prov/copy.md', '\n'.join(r[:200] for r in rader[:15]) or None)
+        info['copy'] = '%d fynd (prov/copy.md); rätta eller motivera varje fynd i RAPPORT.md' % len(cf) + (''.join('\n  - ' + r[:200] for r in rader[:15]))
+        status['copy_fynd'] = len(cf)
     except (OSError, ValueError, KeyError):
-        g['copy'] = grind(False, 'copy_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
-
-    # antislop
-    fraser = antislop_fraser()
-    traffar = []
-    for f in sorted(dist.rglob('*.html')):
-        text = synlig_text(f.read_text(encoding='utf-8', errors='replace')).lower()
-        for fr in fraser:
-            if fr.lower() in text:
-                traffar.append({'sida': '/' + f.relative_to(dist).as_posix(), 'fras': fr})
-    (prov / 'antislop.json').write_text(json.dumps({'fraser': len(fraser), 'traffar': traffar}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    if not fraser:
-        g['antislop'] = grind(False, 'inga fraser i regler/antislop.md (kodblocket ```fraser saknas)')
-    else:
-        g['antislop'] = grind(not traffar, '%d träffar av %d fraser' % (len(traffar), len(fraser)), 'prov/antislop.json',
-                              '; '.join('%s: "%s"' % (t['sida'], t['fras']) for t in traffar[:15]) or None)
+        info['copy'] = 'copy_kontroll kördes inte (rc %d): %s' % (rc, svans(out, 3))
 
     with Server(dist) as srv:
         lista = ','.join(provsidor)
@@ -355,7 +299,7 @@ def markdown(s):
     return '\n'.join(rad) + '\n'
 
 
-GRINDAR = ('bygge', 'seo', 'copy', 'antislop', 'axe', 'lighthouse', 'spill', 'utan-js')
+GRINDAR = ('bygge', 'seo', 'axe', 'lighthouse', 'spill', 'utan-js')
 
 
 def main(argv=None):

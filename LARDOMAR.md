@@ -1,8 +1,9 @@
 # Lärdomar — ägarens domar
 
-Loop 3: ägaren tittar på en sajt och dess rapport och dömer med egna ord. Domen skrivs här ordagrant samma dag. Varje
-dom blir **en** textändring i rätt fil (`regler/antislop.md`, `.claude/skills/bygg-sajt/SKILL.md`, en fil i
-`kunskap/`, `referenser/REFERENSER.md`), liten nog att läsa på fem minuter. Ingen dom blir ny mekanik.
+Loop 3: ägaren tittar på en sajt och dess rapport och dömer med egna ord, i dashboardens frågeformulär eller direkt
+här. Domen står ordagrant och blir automatiskt en vilande post i backloggen. Varje dom blir **en** textändring i rätt
+fil (`.claude/skills/bygg-sajt/SKILL.md` eller en fil i `kunskap/`), liten nog att läsa på fem minuter. Ingen dom blir
+ny mekanik.
 
 Form:
 
@@ -16,4 +17,6 @@ Form:
 ## L0 · 2026-10-01 · norrglanta (historik)
 **Ägarens ord:** "norrglänta är historik, den var undermålig, ai slope skit"
 **Bättre än deras?** ej tillämpligt (fiktiv verksamhet) · **Nära referenserna?** nej
-**Ändring:** `regler/antislop.md` — regeln skapades ur domen (utkast, väntar på ägarens egna ord).
+**Ändring:** `.claude/skills/bygg-sajt/SKILL.md` — skillen kräver "Bara de har" och en rad `Specifikt:` per sektion,
+och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`,
+`kunskap/referenser-professionella.md`).

@@ -42,3 +42,4 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Förslag: inget nu. Efter första bygget: kör dess UX-riktlinjer och leveranschecklista mot byggets fynd. De regler som
   fångar något Vercel och Osmani missar tas in som rader i vår egen text, inte verktyget.
 - Utfall: väntar på första bygget
+- Backlog: B-20261001-prova-ui-ux-pro-max-s-ux-riktlinjer-och-leverans

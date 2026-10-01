@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nortropic webb-pro</title>
+<style>
+:root {
+  --bg: #f5f4f0; --yta: #ffffff; --yta2: #faf9f6; --text: #1c1b19; --dampad: #6a675f; --linje: #e3e0d8;
+  --accent: #1d5b47; --accent-mjuk: #e3efe9; --gron: #1e7a4b; --gron-mjuk: #e4f3ea; --rod: #b1281f; --rod-mjuk: #fbe9e7;
+  --gul: #8a6200; --gul-mjuk: #fbf1d9; --skugga: 0 1px 2px rgba(20,18,12,.05), 0 4px 16px rgba(20,18,12,.04);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131311; --yta: #1b1b19; --yta2: #20201d; --text: #ebe9e4; --dampad: #a3a097; --linje: #2f2e2a;
+    --accent: #7fc4a6; --accent-mjuk: #1e2f28; --gron: #6fcf97; --gron-mjuk: #17291f; --rod: #f08a80; --rod-mjuk: #33201d;
+    --gul: #e6b84d; --gul-mjuk: #302714; --skugga: none; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); }
+.topp { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--linje); }
+.topp-inre { max-width: 1180px; margin: 0 auto; padding: 12px 20px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.mark { font-weight: 650; letter-spacing: -.01em; }
+.mark span { color: var(--dampad); font-weight: 500; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; }
+nav a { text-decoration: none; color: var(--dampad); padding: 6px 10px; border-radius: 8px; font-size: 14px; }
+nav a:hover { color: var(--text); background: var(--yta); }
+nav a.aktiv { color: var(--text); background: var(--yta); box-shadow: inset 0 0 0 1px var(--linje); }
+nav b { font-weight: 600; font-size: 12px; background: var(--accent-mjuk); color: var(--accent); border-radius: 99px; padding: 1px 7px; margin-left: 4px; }
+main { max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
+h1 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 4px; line-height: 1.2; }
+h2 { font-size: 17px; margin: 28px 0 10px; letter-spacing: -.01em; }
+h3 { font-size: 15px; margin: 18px 0 6px; }
+.under { color: var(--dampad); margin: 0 0 20px; }
+.kort { background: var(--yta); border: 1px solid var(--linje); border-radius: 12px; padding: 16px 18px; box-shadow: var(--skugga); }
+.rutnat { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.siffror { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-bottom: 8px; }
+.siffra { padding: 14px 16px; }
+.siffra .tal { font-size: 28px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.siffra .etikett { color: var(--dampad); font-size: 13px; }
+.bygge-kort { display: block; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+.bygge-kort:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--linje)); }
+.bygge-kort .namn { font-weight: 620; font-size: 16px; }
+.bygge-kort .ort { color: var(--dampad); font-size: 13px; }
+.steg { display: flex; gap: 4px; margin: 12px 0 10px; }
+.steg i { flex: 1; height: 6px; border-radius: 3px; background: var(--linje); }
+.steg i.klar { background: var(--accent); }
+.steglista { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 18px 0 6px; }
+.steglista div { font-size: 12px; color: var(--dampad); border-top: 3px solid var(--linje); padding-top: 6px; }
+.steglista div.klar { color: var(--text); border-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--yta2); border: 1px solid var(--linje); color: var(--dampad); white-space: nowrap; }
+.chip.ok { background: var(--gron-mjuk); color: var(--gron); border-color: transparent; }
+.chip.rod { background: var(--rod-mjuk); color: var(--rod); border-color: transparent; }
+.chip.gul { background: var(--gul-mjuk); color: var(--gul); border-color: transparent; }
+.chip.acc { background: var(--accent-mjuk); color: var(--accent); border-color: transparent; }
+.puls::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 6px; animation: puls 1.4s ease-in-out infinite; }
+@keyframes puls { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .puls::before { animation: none; } }
+.rad { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mellan { justify-content: space-between; }
+.knapp { appearance: none; border: 1px solid var(--linje); background: var(--yta); color: var(--text); font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 9px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.knapp:hover { border-color: var(--dampad); }
+.knapp.primar { background: var(--accent); border-color: var(--accent); color: var(--yta); font-weight: 560; }
+.knapp:disabled { opacity: .5; cursor: default; }
+.flikar { display: flex; gap: 2px; border-bottom: 1px solid var(--linje); margin: 22px 0 18px; overflow-x: auto; }
+.flikar button { appearance: none; border: 0; background: none; font: inherit; font-size: 14px; color: var(--dampad); padding: 9px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.flikar button.aktiv { color: var(--text); border-color: var(--text); }
+.bilder { display: grid; gap: 14px; grid-template-columns: 220px 1fr; align-items: start; }
+.bilder figure { margin: 0; }
+.bilder img, .galleri img { width: 100%; border: 1px solid var(--linje); border-radius: 10px; display: block; background: var(--yta2); }
+figcaption { font-size: 12px; color: var(--dampad); margin-top: 6px; }
+.galleri { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+@media (max-width: 700px) { .bilder { grid-template-columns: 1fr; } .steglista { grid-template-columns: repeat(4, 1fr); } }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--linje); vertical-align: top; }
+th { color: var(--dampad); font-weight: 560; font-size: 13px; }
+td.tal, th.tal { text-align: right; font-variant-numeric: tabular-nums; }
+.tabell { overflow-x: auto; }
+.prosa { max-width: 78ch; }
+.prosa p, .prosa li { margin: 6px 0; }
+.prosa code, code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--yta2); border: 1px solid var(--linje); border-radius: 5px; padding: 1px 5px; }
+pre { background: var(--yta2); border: 1px solid var(--linje); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+pre code { border: 0; padding: 0; background: none; }
+blockquote { margin: 8px 0; padding: 4px 14px; border-left: 3px solid var(--linje); color: var(--dampad); }
+.tom { color: var(--dampad); padding: 22px; text-align: center; border: 1px dashed var(--linje); border-radius: 12px; }
+.handling { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--dampad); padding: 4px 0; border-bottom: 1px solid var(--linje); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.handling b { color: var(--text); font-weight: 600; }
+.fraga { padding: 16px 0; border-bottom: 1px solid var(--linje); }
+.fraga > label, .fraga > .q { display: block; font-weight: 560; margin-bottom: 10px; }
+.fraga .varfor { font-weight: 400; color: var(--dampad); font-size: 13px; display: block; margin-top: 2px; }
+.val { display: flex; flex-wrap: wrap; gap: 6px; }
+.val label { cursor: pointer; }
+.val input { position: absolute; opacity: 0; pointer-events: none; }
+.val span { display: inline-block; padding: 7px 12px; border: 1px solid var(--linje); border-radius: 99px; font-size: 14px; background: var(--yta); }
+.val input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--yta); }
+.val input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.skala { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.skala small { color: var(--dampad); }
+textarea, input[type=url], input[type=text] { width: 100%; font: inherit; color: inherit; background: var(--yta); border: 1px solid var(--linje); border-radius: 9px; padding: 9px 11px; }
+textarea { min-height: 76px; resize: vertical; }
+textarea:focus, input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent); border-color: var(--accent); }
+.matris td, .matris th { text-align: center; padding: 6px 4px; }
+.val.cell { justify-content: center; flex-wrap: nowrap; }
+@media (max-width: 520px) { .val.cell span { padding: 6px 9px; font-size: 13px; } .matris td:first-child { font-size: 13px; } }
+.matris td:first-child, .matris th:first-child { text-align: left; }
+.fraga img { max-width: 520px; width: 100%; border: 1px solid var(--linje); border-radius: 10px; margin-bottom: 10px; }
+.kommando { display: flex; gap: 8px; align-items: stretch; margin: 6px 0 14px; }
+.kommando code { flex: 1; display: block; padding: 10px 12px; overflow-x: auto; white-space: nowrap; }
+details.post { border: 1px solid var(--linje); border-radius: 12px; background: var(--yta); margin-bottom: 10px; }
+details.post summary { cursor: pointer; padding: 13px 16px; list-style: none; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+details.post summary::-webkit-details-marker { display: none; }
+details.post summary .titel { flex: 1 1 300px; font-weight: 560; }
+details.post .innehall { padding: 0 16px 14px; }
+.ok-text { color: var(--gron); } .rod-text { color: var(--rod); }
+.meddelande { padding: 12px 14px; border-radius: 10px; background: var(--gron-mjuk); color: var(--gron); margin: 12px 0; }
+.meddelande.fel { background: var(--rod-mjuk); color: var(--rod); }
+</style>
+</head>
+<body>
+<header class="topp"><div class="topp-inre">
+  <div class="mark">Nortropic <span>webb-pro</span></div>
+  <nav>
+    <a href="#/" data-v="">Översikt</a>
+    <a href="#/backlog" data-v="backlog">Backlog <b id="n-backlog" hidden></b></a>
+    <a href="#/kirurgen" data-v="kirurgen">Kirurgen <b id="n-kirurg" hidden></b></a>
+    <a href="#/lardomar" data-v="lardomar">Lärdomar</a>
+    <a href="#/starta" data-v="starta">Starta</a>
+  </nav>
+</div></header>
+<main id="vy"><p class="under">Laddar …</p></main>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const api = async (p) => { const r = await fetch(p, { cache: 'no-store' }); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).fel || r.status); return r.json(); };
+const post = async (p, body) => { const r = await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.fel || r.status); return j; };
+const tid = (t) => t ? new Date(t).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
+const GRINDNAMN = { bygge: 'Bygge', seo: 'SEO', axe: 'Tillgänglighet (axe)', lighthouse: 'Lighthouse', spill: 'Spill', 'utan-js': 'Utan JS' };
+const kopiera = (text, knapp) => { navigator.clipboard?.writeText(text); const t = knapp.textContent; knapp.textContent = 'Kopierat'; setTimeout(() => (knapp.textContent = t), 1400); };
+const kommando = (text) => `<div class="kommando"><code>${esc(text)}</code><button class="knapp" onclick="kopiera(${esc(JSON.stringify(text))}, this)">Kopiera</button></div>`;
+let timer = null, flik = 'oversikt';
+
+function aktivNav(v) { document.querySelectorAll('nav a').forEach((a) => a.classList.toggle('aktiv', a.dataset.v === v)); }
+function raknare(o) {
+  const b = $('#n-backlog'); b.hidden = !o.backlog_vilande; b.textContent = o.backlog_vilande;
+  const k = $('#n-kirurg'); k.hidden = !o.intag_pagar; k.textContent = o.intag_pagar ? o.intag_pagar + ' pågår' : '';
+}
+function grindchips(prov) {
+  if (!prov) return '<span class="chip">Inte provad</span>';
+  return Object.entries(prov.grindar).map(([n, ok]) => `<span class="chip ${ok ? 'ok' : 'rod'}">${esc(GRINDNAMN[n] || n)}</span>`).join('');
+}
+function statuschip(b) {
+  if (b.pagar) return '<span class="chip acc puls">Körning pågår</span>';
+  if (b.domd) return '<span class="chip">Dömd</span>';
+  if (b.prov && b.steg[6].klar) return '<span class="chip gul">Väntar på din dom</span>';
+  if (b.prov) return `<span class="chip ${b.prov.ok ? 'ok' : 'rod'}">${b.prov.ok ? 'Grönt' : 'Rött'}</span>`;
+  return '<span class="chip">Påbörjad</span>';
+}
+
+async function oversikt() {
+  aktivNav('');
+  const o = await api('/api/oversikt'); raknare(o);
+  const b = o.byggen;
+  const vantar = b.filter((x) => !x.domd && x.steg[6].klar && !x.pagar);
+  $('#vy').innerHTML = `
+    <h1>Översikt</h1><p class="under">Byggen åt riktiga verksamheter. Du dömer, backloggen fångar resten.</p>
+    <div class="siffror">
+      <div class="kort siffra"><div class="tal">${b.length}</div><div class="etikett">byggen</div></div>
+      <div class="kort siffra"><div class="tal">${b.filter((x) => x.pagar).length}</div><div class="etikett">körningar pågår</div></div>
+      <div class="kort siffra"><div class="tal">${vantar.length}</div><div class="etikett">väntar på din dom</div></div>
+      <div class="kort siffra"><div class="tal">${o.backlog_vilande}</div><div class="etikett">vilande i backloggen</div></div>
+    </div>
+    ${vantar.length ? `<h2>Väntar på din dom</h2><div class="rutnat">${vantar.map(kort).join('')}</div>` : ''}
+    <h2>Alla byggen</h2>
+    ${b.length ? `<div class="rutnat">${b.map(kort).join('')}</div>` : `<div class="tom">Inga byggen än. Starta ett under <a href="#/starta">Starta</a>.</div>`}`;
+  timer = setTimeout(oversikt, b.some((x) => x.pagar) ? 6000 : 20000);
+}
+function kort(b) {
+  return `<a class="kort bygge-kort" href="#/bygge/${esc(b.slug)}">
+    <div class="rad mellan"><div><div class="namn">${esc(b.namn)}</div><div class="ort">${esc(b.ort || b.slug)}</div></div>${statuschip(b)}</div>
+    <div class="steg">${b.steg.map((s) => `<i class="${s.klar ? 'klar' : ''}" title="${esc(s.namn)}"></i>`).join('')}</div>
+    <div class="chips">${grindchips(b.prov)}</div></a>`;
+}
+
+async function byggevy(slug, behallFlik) {
+  aktivNav('');
+  const b = await api('/api/bygge/' + encodeURIComponent(slug));
+  if (!behallFlik) flik = (!b.domd && b.steg[6].klar) ? 'dom' : 'oversikt';
+  const flikar = [['oversikt', 'Översikt'], ['rapport', 'Rapport'], ['underlag', 'Underlag'], ['korning', 'Körning'], ['prov', 'Prov'], ['dom', b.domd ? 'Dom ✓' : 'Din dom']];
+  $('#vy').innerHTML = `
+    <p class="under" style="margin-bottom:6px"><a href="#/">Översikt</a></p>
+    <div class="rad mellan"><div><h1>${esc(b.namn)}</h1><div class="under" style="margin:0">${esc([b.ort, b.doman].filter(Boolean).join(' · ') || b.slug)}</div></div>
+      <div class="rad">${statuschip(b)}
+        ${b.steg[4].klar ? `<a class="knapp primar" href="/visa/${esc(b.slug)}" target="_blank" rel="noopener">Öppna vår sajt</a>` : ''}
+        ${b.doman ? `<a class="knapp" href="https://${esc(b.doman)}" target="_blank" rel="noopener">Deras sajt</a>` : ''}</div></div>
+    <div class="steglista">${b.steg.map((s, i) => `<div class="${s.klar ? 'klar' : ''}">${i + 1}. ${esc(s.namn)}</div>`).join('')}</div>
+    <div class="flikar">${flikar.map(([k, n]) => `<button class="${flik === k ? 'aktiv' : ''}" data-f="${k}">${esc(n)}</button>`).join('')}</div>
+    <div id="flik"></div>`;
+  document.querySelectorAll('.flikar button').forEach((x) => x.onclick = () => { flik = x.dataset.f; byggevy(slug, true); });
+  const f = $('#flik');
+  if (flik === 'oversikt') f.innerHTML = bOversikt(b);
+  if (flik === 'rapport') f.innerHTML = b.rapport ? `<div class="prosa">${b.rapport}</div>` : '<div class="tom">Ingen rapport än.</div>';
+  if (flik === 'underlag') f.innerHTML = bUnderlag(b);
+  if (flik === 'korning') f.innerHTML = bKorning(b.korning);
+  if (flik === 'prov') f.innerHTML = b.prov_md ? `<div class="prosa">${b.prov_md}</div>` : '<div class="tom">Provet har inte körts.</div>';
+  if (flik === 'dom') bDom(b, f);
+  if (b.pagar && flik !== 'dom') timer = setTimeout(() => byggevy(slug, true), 6000);
+}
+function bild(p, text) { return p ? `<figure><a href="/fil/${esc(p)}" target="_blank"><img loading="lazy" src="/fil/${esc(p)}" alt="${esc(text)}"></a><figcaption>${esc(text)}</figcaption></figure>` : ''; }
+function hitta(lista, sida, vy) { return lista.find((p) => p.includes(`/${sida}/vy-${vy}-`)) || lista.find((p) => p.includes(`vy-${vy}-`)); }
+function bOversikt(b) {
+  const v = b.bilder.var, d = b.bilder.deras;
+  const rader = [['Prestanda (mobil)', 'prestanda'], ['Tillgänglighet (mobil)', 'tillganglighet'], ['Bästa praxis (mobil)', 'bastaPraxis'], ['SEO (mobil)', 'seo'], ['Allvarliga axe-fel', 'axe_allvarliga'], ['LCP, ms (mobil)', 'lcpMs']];
+  const harFore = Object.keys(b.fore || {}).length, harEfter = Object.keys(b.efter || {}).length;
+  return `
+    <h2 style="margin-top:0">Vår sajt</h2>
+    ${v.length ? `<div class="bilder">${bild(hitta(v, 'hem', 390), 'Startsidan, mobil 390')}${bild(hitta(v, 'hem', 1440), 'Startsidan, desktop 1440')}</div>` : '<div class="tom">Inga skärmbilder än.</div>'}
+    ${d.length ? `<h2>Deras nuvarande sajt</h2><div class="bilder">${bild(hitta(d, '', 390), 'Deras startsida, mobil')}${bild(hitta(d, '', 1440), 'Deras startsida, desktop')}</div>` : ''}
+    ${harFore || harEfter ? `<h2>Före och efter</h2><div class="kort tabell"><table><thead><tr><th></th><th class="tal">Deras</th><th class="tal">Vår</th></tr></thead><tbody>
+      ${rader.map(([n, k]) => `<tr><td>${n}</td><td class="tal">${b.fore?.[k] ?? '–'}</td><td class="tal">${b.efter?.[k] ?? '–'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    <h2>Grindar</h2><div class="chips">${grindchips(b.prov)}</div>
+    ${b.stoppvakt ? `<p class="under" style="margin-top:10px">Stoppvakten: ${esc(b.stoppvakt.skal)} (försök ${b.stoppvakt.forsok} av ${b.stoppvakt.tak}).</p>` : ''}
+    ${v.length > 2 ? `<h2>Alla sidor</h2><div class="galleri">${v.map((p) => bild(p, p.split('/inspektion/')[1])).join('')}</div>` : ''}
+    ${b.bilder.referenser.length ? `<h2>Referenserna bygget valde</h2><div class="galleri">${b.bilder.referenser.map((p) => bild(p, p.split('/referenser/')[1])).join('')}</div>` : ''}`;
+}
+function bUnderlag(b) {
+  const e = Object.entries(b.underlag || {});
+  if (!e.length) return '<div class="tom">Inget underlag än.</div>';
+  return e.map(([n, h]) => `<details class="post"><summary><span class="titel">${esc(n)}</span></summary><div class="innehall prosa">${h}</div></details>`).join('');
+}
+function bKorning(k) {
+  if (!k) return '<div class="tom">Ingen körning loggad. Starta med kor.sh (se Starta).</div>';
+  return `<div class="rad" style="margin-bottom:12px">${k.pagar ? '<span class="chip acc puls">Pågår</span>' : `<span class="chip">${esc(k.resultat ? 'Klar: ' + k.resultat.utfall : 'Avbruten')}</span>`}
+      <span class="chip">${k.antal_handlingar} handlingar</span>${k.resultat ? `<span class="chip">${k.resultat.turer} turer · ${k.resultat.minuter} min</span>` : ''}
+      ${k.modell ? `<span class="chip">${esc(k.modell)}</span>` : ''}<span class="chip">senast ${tid(k.senast)}</span></div>
+    ${k.senaste_text ? `<div class="kort prosa" style="margin-bottom:14px">${esc(k.senaste_text)}</div>` : ''}
+    <h3>Senaste handlingar</h3>${k.handlingar.map((h) => `<div class="handling"><b>${esc(h.verktyg)}</b> ${esc(h.mal)}</div>`).join('')}
+    <p class="under" style="margin-top:12px">Logg: <code>${esc(k.logg)}</code></p>`;
+}
+
+function falt(q) {
+  const id = esc(q.id), varfor = q.varfor ? `<span class="varfor">${esc(q.varfor)}</span>` : '';
+  const bildHtml = q.bild ? `<img src="/fil/${esc(q.bild.startsWith('underlag/') || q.bild.startsWith('kunder/') ? q.bild : 'kunder/' + window._slug + '/' + q.bild)}" alt="">` : '';
+  if (q.typ === 'val') return `<div class="fraga"><div class="q">${esc(q.fraga)}${varfor}</div>${bildHtml}<div class="val">${(q.alternativ || []).map((a) => `<label><input type="radio" name="${id}" value="${esc(a)}"><span>${esc(a)}</span></label>`).join('')}</div>${q.foljd ? `<textarea name="${id}__foljd" placeholder="${esc(q.foljd)}" style="margin-top:10px;min-height:56px"></textarea>` : ''}</div>`;
+  if (q.typ === 'skala') { const n = q.steg || 5; return `<div class="fraga"><div class="q">${esc(q.fraga)}${varfor}</div>${bildHtml}<div class="skala"><small>${esc(q.min || '')}</small><div class="val">${Array.from({ length: n }, (_, i) => `<label><input type="radio" name="${id}" value="${i + 1}"><span>${i + 1}</span></label>`).join('')}</div><small>${esc(q.max || '')}</small></div></div>`; }
+  if (q.typ === 'matris') return `<div class="fraga"><div class="q">${esc(q.fraga)}${varfor}</div><div class="tabell"><table class="matris"><thead><tr><th></th>${q.alternativ.map((a) => `<th>${esc(a)}</th>`).join('')}</tr></thead><tbody>${q.rader.map((r) => `<tr><td>${esc(r)}</td>${q.alternativ.map((a) => `<td><div class="val cell"><label><input type="radio" name="${id}::${esc(r)}" value="${esc(a)}" aria-label="${esc(r)}: ${esc(a)}"><span>${esc(a)}</span></label></div></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+  return `<div class="fraga"><label for="f-${id}">${esc(q.fraga)}${varfor}</label>${bildHtml}<textarea id="f-${id}" name="${id}"></textarea></div>`;
+}
+function bDom(b, f) {
+  window._slug = b.slug;
+  const tidigare = (b.domar || []).map((d) => `<details class="post"><summary><span class="titel">Dom ${tid(d.tid)}</span><span class="chip">${esc(d.svar.namn || '')}</span></summary><div class="innehall"><table>${Object.entries(d.svar).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(typeof v === 'object' ? Object.entries(v).map(([a, c]) => a + ': ' + c).join(', ') : v)}</td></tr>`).join('')}</table></div></details>`).join('');
+  f.innerHTML = `
+    ${tidigare ? `<h2 style="margin-top:0">Tidigare domar</h2>${tidigare}` : ''}
+    <h2 ${tidigare ? '' : 'style="margin-top:0"'}>${b.domd ? 'Döm igen' : 'Din dom'}</h2>
+    <p class="under">Titta på sajten först (Öppna vår sajt). Svaren sparas ordagrant i LARDOMAR.md och blir en vilande post i backloggen. Hoppa över det du inte har en åsikt om.</p>
+    <form id="domform" class="kort">
+      ${b.fragor.karna.map(falt).join('')}
+      ${b.fragor.egna.length ? `<h3 style="margin-top:22px">Byggets egna frågor</h3><p class="under" style="margin:0">Det bygget själv var mest osäkert på.</p>${b.fragor.egna.map(falt).join('')}` : ''}
+      <div class="rad" style="margin-top:18px"><button class="knapp primar" type="submit">Skicka domen</button><span id="domsvar"></span></div>
+    </form>`;
+  $('#domform').onsubmit = async (e) => {
+    e.preventDefault();
+    const svar = {};
+    for (const [k, v] of new FormData(e.target).entries()) {
+      if (!String(v).trim()) continue;
+      if (k.includes('::')) { const [id, rad] = k.split('::'); (svar[id] ||= {})[rad] = v; }
+      else if (k.endsWith('__foljd')) svar[k.slice(0, -7) + '_exempel'] = v;
+      else svar[k] = v;
+    }
+    if (!Object.keys(svar).length) { $('#domsvar').innerHTML = '<span class="rod-text">Svara på minst en fråga.</span>'; return; }
+    e.target.querySelector('button').disabled = true;
+    try {
+      const r = await post('/api/dom/' + b.slug, { svar });
+      f.insertAdjacentHTML('afterbegin', `<div class="meddelande">Tack. Domen sparades som ${esc(r.lardom)} i LARDOMAR.md och som backlogpost <a href="#/backlog">${esc(r.backlog)}</a>.</div>`);
+      setTimeout(() => byggevy(b.slug, true), 1800);
+    } catch (err) { $('#domsvar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; e.target.querySelector('button').disabled = false; }
+  };
+}
+
+async function backlogvy() {
+  aktivNav('backlog');
+  const lista = await api('/api/backlog');
+  const KALLA = { kirurg: 'Kirurgen', dom: 'Din dom', bygge: 'Bygge' }, STATUS = { vilande: 'Vilande', pagar: 'Pågår', klar: 'Klar', avvisad: 'Avvisad' };
+  const grupp = (s) => lista.filter((p) => p.status === s);
+  const post_ = (p) => `<details class="post"><summary><span class="titel">${esc(p.titel)}</span>
+      <span class="chip ${p.status === 'klar' ? 'ok' : p.status === 'pagar' ? 'acc' : p.status === 'avvisad' ? '' : 'gul'}">${STATUS[p.status] || esc(p.status)}</span>
+      <span class="chip">${esc(KALLA[p.kalla] || p.kalla)}</span>${p.prio === 'hog' ? '<span class="chip rod">Hög prio</span>' : ''}<span class="chip">${esc(p.skapad)}</span></summary>
+    <div class="innehall"><div class="prosa">${p.html}</div>
+      <p class="under" style="margin:10px 0 8px"><code>${esc(p.id)}</code>${p.kallref ? ' · källa ' + esc(p.kallref) : ''}${p.commit ? ' · commit ' + esc(p.commit) : ''}</p>
+      ${p.status === 'vilande' ? `<button class="knapp" data-id="${esc(p.id)}" data-s="avvisad">Avvisa</button>` : ''}
+      ${p.status === 'avvisad' ? `<button class="knapp" data-id="${esc(p.id)}" data-s="vilande">Återställ till vilande</button>` : ''}</div></details>`;
+  $('#vy').innerHTML = `
+    <h1>Backlog</h1><p class="under">Fylls automatiskt av kirurgen, dina domar och byggena. Inget genomförs av sig självt.</p>
+    <div class="kort" style="margin-bottom:18px"><div style="font-weight:560">Genomför backloggen</div>
+      <p class="under" style="margin:4px 0 8px">Starta en Claude Code-session i repot och skriv:</p>
+      ${kommando('implementera enligt backlog')}
+      <p class="under" style="margin:0">Sessionen tar de vilande posterna en i taget, prövar, committar och sätter dem till klar.</p></div>
+    ${['pagar', 'vilande', 'klar', 'avvisad'].map((s) => grupp(s).length ? `<h2>${STATUS[s]} (${grupp(s).length})</h2>${grupp(s).map(post_).join('')}` : '').join('') || '<div class="tom">Backloggen är tom.</div>'}`;
+  document.querySelectorAll('[data-id]').forEach((k) => k.onclick = async () => { k.disabled = true; await post(`/api/backlog/${k.dataset.id}/status`, { status: k.dataset.s }); backlogvy(); });
+  const o = await api('/api/oversikt'); raknare(o);
+}
+
+async function kirurgvy(baraLista) {
+  aktivNav('kirurgen');
+  const d = await api('/api/kirurg');
+  if (!baraLista) {
+    $('#vy').innerHTML = `
+      <h1>Kirurgen</h1><p class="under">Skicka ett GitHub-repo, en skill, en artikel eller en YouTube-video. Kirurgen läser i original, prövar mot dina domar och lägger det som är aktuellt i backloggen. Oftast blir svaret nej.</p>
+      <form id="intag" class="kort">
+        <label for="url" style="font-weight:560;display:block;margin-bottom:8px">Länk</label>
+        <input id="url" type="url" required placeholder="https://github.com/… eller https://www.youtube.com/watch?v=…">
+        <label for="not" style="font-weight:560;display:block;margin:12px 0 8px">Varför du skickar den (valfritt)</label>
+        <input id="not" type="text" placeholder="t.ex. bättre typografi i hero">
+        <div class="rad" style="margin-top:14px"><button class="knapp primar" type="submit">Skicka till kirurgen</button><span id="intagsvar" class="under"></span></div>
+      </form>
+      <div id="intag-lista"></div>`;
+    $('#intag').onsubmit = async (e) => {
+      e.preventDefault(); const k = e.target.querySelector('button'); k.disabled = true;
+      try { await post('/api/kirurg', { url: $('#url').value, not: $('#not').value }); $('#url').value = ''; $('#not').value = ''; $('#intagsvar').textContent = 'Startad. Bedömningen tar några minuter.'; kirurgvy(true); }
+      catch (err) { $('#intagsvar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; }
+      k.disabled = false;
+    };
+  }
+  $('#intag-lista').innerHTML = `
+    ${d.intag.length ? `<h2>Intag</h2>${d.intag.map((x) => `<details class="post" ${x.pagar ? 'open' : ''}><summary><span class="titel">${esc(x.url)}</span>
+        ${x.pagar ? '<span class="chip acc puls">Pågår</span>' : `<span class="chip ${x.resultat?.utfall === 'success' ? 'ok' : 'rod'}">${x.resultat ? (x.resultat.utfall === 'success' ? 'Klar' : esc(x.resultat.utfall)) : 'Avbruten'}</span>`}<span class="chip">${tid(x.tid)}</span></summary>
+        <div class="innehall">${x.not ? `<p class="under">Din not: ${esc(x.not)}</p>` : ''}${x.svar ? `<div class="prosa">${x.svar}</div>` : ''}
+        ${x.pagar ? x.handlingar.map((h) => `<div class="handling"><b>${esc(h.verktyg)}</b> ${esc(h.mal)}</div>`).join('') : ''}</div></details>`).join('')}` : ''}
+    <h2>Registret</h2>
+    ${d.register.length ? d.register.map((r) => `<details class="post"><summary><span class="titel">${esc(r.namn)}</span><span class="chip ${/ta in/i.test(r.dom) ? 'ok' : /prova/i.test(r.dom) ? 'gul' : ''}">${esc(r.dom)}</span><span class="chip">${esc(r.datum)}</span></summary><div class="innehall prosa">${r.html}</div></details>`).join('') : '<div class="tom">Inget bedömt än.</div>'}`;
+  if (d.intag.some((x) => x.pagar)) timer = setTimeout(() => kirurgvy(true), 6000);
+  const o = await api('/api/oversikt'); raknare(o);
+}
+
+async function lardomvy() {
+  aktivNav('lardomar');
+  const o = await api('/api/oversikt'); raknare(o);
+  $('#vy').innerHTML = `<h1>Lärdomar</h1><p class="under">Dina domar, ordagrant. Varje dom blir en textändring via backloggen.</p><div class="kort prosa">${o.lardomar}</div>`;
+}
+
+function startavy() {
+  aktivNav('starta');
+  $('#vy').innerHTML = `
+    <h1>Starta</h1><p class="under">Kommandona körs i Terminal, i repots rot.</p>
+    <div class="kort"><h3 style="margin-top:0">Ett bygge åt en verksamhet</h3><p class="under" style="margin:0">Går obevakat, oftast en till två timmar. Följ det här under Översikt.</p>
+      ${kommando('./kor.sh <slug> "Verksamhetens namn, Ort, https://deras-doman.se"')}
+      <h3>Tre byggen över natten</h3>${kommando('./kor.sh a-slug "…" ; ./kor.sh b-slug "…" ; ./kor.sh c-slug "…"')}
+      <h3>Genomför backloggen</h3><p class="under" style="margin:0">I en Claude Code-session i repot:</p>${kommando('implementera enligt backlog')}
+      <h3>Kirurgen i en session</h3>${kommando('/kirurg https://…')}
+      <h3>Rökprov efter ändringar i kontrollerna</h3>${kommando('kontroller/rokprov.sh')}</div>`;
+}
+
+async function route() {
+  clearTimeout(timer);
+  const h = location.hash.replace(/^#\/?/, '');
+  try {
+    if (h.startsWith('bygge/')) return await byggevy(decodeURIComponent(h.slice(6)));
+    if (h === 'backlog') return await backlogvy();
+    if (h === 'kirurgen') return await kirurgvy();
+    if (h === 'lardomar') return await lardomvy();
+    if (h === 'starta') return startavy();
+    return await oversikt();
+  } catch (e) { $('#vy').innerHTML = `<div class="meddelande fel">Fel: ${esc(e.message)}</div>`; }
+}
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
