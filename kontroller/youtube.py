@@ -184,6 +184,10 @@ def main(argv=None):
         print(str(e), file=sys.stderr)
         return 2
     ut = Path(a.ut)
+    # Utdata får aldrig hamna i repot: en styrd session ska inte kunna skriva över kod som sedan pushas.
+    if ut.resolve().is_relative_to(Path(__file__).resolve().parents[1]):
+        print('--ut får inte ligga i repot; använd /tmp/kirurg/…', file=sys.stderr)
+        return 2
     ut.parent.mkdir(parents=True, exist_ok=True)
     sprak_lista = [s.strip() for s in a.sprak.split(',') if s.strip()]
     rader, sprak, tfel = transkript(vid, sprak_lista) if vid else (None, None, 'inte YouTube')

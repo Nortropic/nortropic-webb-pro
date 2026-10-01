@@ -184,7 +184,8 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 
 **Dina frågor till ägaren.** Skriv `kunder/<slug>/FRAGOR.json`: tre till sex frågor om det du är mest osäker på, där
 ägarens svar skulle ändra nästa bygge mest. Dashboarden visar dem efter kärnfrågorna i frågeformuläret, och svaren blir
-träningsdata. Fråga om konkreta val, aldrig "vad tycker du?". Form:
+träningsdata. Fråga om konkreta val, aldrig "vad tycker du?". Helst parvis: två alternativ du faktiskt övervägde, med
+en skärmbild var, så att ägaren väljer A eller B. Val och ja/nej ger säkrare träningsdata än skalor. Form:
 
 ```json
 [{"id": "riktning", "fraga": "Jag valde den mörka, typografiska riktningen före den ljusa och fotodrivna. Vilken hade du valt?",

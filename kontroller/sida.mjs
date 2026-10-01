@@ -6,7 +6,8 @@
 // Skriver KATALOG/SIDA.md (läs först), TEXT.md, mobil-forsta.png, mobil-hela.png, desktop-forsta.png, desktop-hela.png
 // och desktop-skroll-NN.png. Exit 0 = skrivet (även om sidan spärrade; då står det i SIDA.md), 2 = fel i anropet.
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const argv = process.argv.slice(2);
@@ -15,6 +16,9 @@ const flagga = (n, std) => { const i = argv.indexOf('--' + n); return i >= 0 ? a
 const ut = flagga('ut');
 const antalSkroll = Math.max(0, Math.min(20, parseInt(flagga('skroll', '8'), 10) || 0));
 if (!url || !ut) { console.error("användning: node kontroller/sida.mjs 'URL' --ut KATALOG [--skroll 8]"); process.exit(2); }
+// Utdata får aldrig hamna i repot: en styrd session ska inte kunna skriva över kod som sedan pushas.
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+if ((resolve(ut) + sep).startsWith(REPO + sep)) { console.error('--ut får inte ligga i repot; använd /tmp/kirurg/…'); process.exit(2); }
 mkdirSync(ut, { recursive: true });
 
 const VYER = {

@@ -285,7 +285,7 @@ function bDom(b, f) {
 async function backlogvy() {
   aktivNav('backlog');
   const lista = await api('/api/backlog');
-  const KALLA = { kirurg: 'Kirurgen', dom: 'Din dom', bygge: 'Bygge' }, STATUS = { vilande: 'Vilande', pagar: 'Pågår', klar: 'Klar', avvisad: 'Avvisad' };
+  const KALLA = { kirurg: 'Kirurgen', dom: 'Din dom', bygge: 'Bygge', bevakning: 'Omvärldsbevakning' }, STATUS = { vilande: 'Vilande', pagar: 'Pågår', klar: 'Klar', avvisad: 'Avvisad' };
   const grupp = (s) => lista.filter((p) => p.status === s);
   const post_ = (p) => `<details class="post"><summary><span class="titel">${esc(p.titel)}</span>
       <span class="chip ${p.status === 'klar' ? 'ok' : p.status === 'pagar' ? 'acc' : p.status === 'avvisad' ? '' : 'gul'}">${STATUS[p.status] || esc(p.status)}</span>
@@ -320,7 +320,7 @@ async function kirurgvy(baraLista) {
         <input id="not" type="text" placeholder="t.ex. bättre typografi i hero">
         <div class="rad" style="margin-top:14px"><button class="knapp primar" type="submit">Skicka till kirurgen</button><span id="intagsvar" class="under"></span></div>
       </form>
-      <div id="intag-lista"></div>`;
+      <div id="intag-lista"></div><div id="register"></div>`;
     $('#intag').onsubmit = async (e) => {
       e.preventDefault(); const k = e.target.querySelector('button'); k.disabled = true;
       try {
@@ -339,11 +339,43 @@ async function kirurgvy(baraLista) {
     ${d.intag.length ? `<h2>Intag</h2>${d.intag.map((x) => `<details class="post" ${x.pagar ? 'open' : ''}><summary><span class="titel">${esc(x.url)}</span>
         ${x.pagar ? '<span class="chip acc puls">Pågår</span>' : `<span class="chip ${x.resultat?.utfall === 'success' ? 'ok' : 'rod'}">${x.resultat ? (x.resultat.utfall === 'success' ? 'Klar' : esc(x.resultat.utfall)) : 'Avbruten'}</span>`}<span class="chip">${tid(x.tid)}</span></summary>
         <div class="innehall">${x.not ? `<p class="under">Din not: ${esc(x.not)}</p>` : ''}${x.svar ? `<div class="prosa">${x.svar}</div>` : ''}
-        ${x.pagar ? x.handlingar.map((h) => `<div class="handling"><b>${esc(h.verktyg)}</b> ${esc(h.mal)}</div>`).join('') : ''}</div></details>`).join('')}` : ''}
+        ${x.pagar ? x.handlingar.map((h) => `<div class="handling"><b>${esc(h.verktyg)}</b> ${esc(h.mal)}</div>`).join('') : ''}</div></details>`).join('')}` : ''}`;
+  // Registret ritas bara vid full laddning och när ett intag just blivit klart, så att en påbörjad motivering inte raderas.
+  const pagar = d.intag.some((x) => x.pagar);
+  if (!baraLista || (window._kirurgPagar && !pagar)) $('#register').innerHTML = `
     <h2>Registret</h2>
-    ${d.register.length ? d.register.map((r) => `<details class="post"><summary><span class="titel">${esc(r.namn)}</span><span class="chip ${/ta in/i.test(r.dom) ? 'ok' : /prova/i.test(r.dom) ? 'gul' : ''}">${esc(r.dom)}</span><span class="chip">${esc(r.datum)}</span></summary><div class="innehall prosa">${r.html}</div></details>`).join('') : '<div class="tom">Inget bedömt än.</div>'}`;
-  if (d.intag.some((x) => x.pagar)) timer = setTimeout(() => kirurgvy(true), 6000);
+    ${overens(d.overens)}
+    ${d.register.length ? d.register.map(registerpost).join('') : '<div class="tom">Inget bedömt än.</div>'}`;
+  window._kirurgPagar = pagar;
+  document.querySelectorAll('form.omdome').forEach((f) => f.onsubmit = async (e) => {
+    e.preventDefault();
+    const val = new FormData(f).get('agaren');
+    if (!val) { f.querySelector('.svar').textContent = 'Välj håller med eller en annan dom.'; return; }
+    f.querySelector('button').disabled = true;
+    try { const r = await post('/api/kirurg/omdome', { rubrik: f.dataset.rubrik, agaren: val, ord: f.querySelector('textarea').value }); f.querySelector('.svar').textContent = 'Sparat, ' + r.git + '.'; setTimeout(() => kirurgvy(), 1200); }
+    catch (err) { f.querySelector('.svar').textContent = err.message; f.querySelector('button').disabled = false; }
+  });
+  if (pagar) timer = setTimeout(() => kirurgvy(true), 6000);
   const o = await api('/api/oversikt'); raknare(o);
+}
+
+function overens(o) {
+  if (!o || !o.bedomda) return '<p class="under">Säg vad du tycker om kirurgens domar nedan. Dina överprövningar blir kirurgens viktigaste exempel, och här syns hur ofta ni är överens.</p>';
+  const per = Object.entries(o.per_dom).map(([k, r]) => `<span class="chip">${esc(k)}: ${r.haller_med} av ${r.bedomda}</span>`).join('');
+  return `<div class="kort" style="margin-bottom:12px"><div style="font-weight:560">Du håller med kirurgen i ${o.haller_med} av ${o.bedomda} bedömda domar (${Math.round(100 * o.haller_med / o.bedomda)} %)</div>
+    <div class="chips" style="margin-top:8px">${per}</div><p class="under" style="margin:8px 0 0">Per sorts dom, så att ett lätt "nej" inte döljer en svag "ta in".</p></div>`;
+}
+function registerpost(r) {
+  const domchip = `<span class="chip ${/ta in/i.test(r.dom) ? 'ok' : /prova/i.test(r.dom) ? 'gul' : ''}">${esc(r.dom)}</span>`;
+  const om = r.omdome;
+  const omchip = om ? `<span class="chip ${/^håller med/i.test(om.agaren) ? 'ok' : 'rod'}">Du: ${esc(/^håller med/i.test(om.agaren) ? 'håller med' : om.agaren.replace('håller inte med, borde ha blivit: ', 'borde: '))}</span>` : (r.ersatt ? '<span class="chip">Ersatt</span>' : '<span class="chip gul">Ej bedömd av dig</span>');
+  const form = r.ersatt ? '' : `<form class="omdome kort" data-rubrik="${esc(r.rubrik)}" style="margin-top:12px;background:var(--yta2)">
+      <div style="font-weight:560;margin-bottom:8px">Vad tycker du om domen?</div>
+      <div class="val">${[['håller med', 'Håller med'], ['ta in', 'Borde: ta in'], ['prova', 'Borde: prova'], ['parkera', 'Borde: parkera'], ['nej', 'Borde: nej']].map(([v, t]) => `<label><input type="radio" name="agaren" value="${v}"><span>${t}</span></label>`).join('')}</div>
+      <textarea placeholder="Varför, med dina ord (valfritt men det är det kirurgen lär sig mest av)" style="margin-top:10px;min-height:56px"></textarea>
+      <div class="rad" style="margin-top:10px"><button class="knapp primar" type="submit">Spara</button><span class="svar under"></span></div></form>`;
+  return `<details class="post"><summary><span class="titel">${esc(r.namn)}</span>${domchip}${omchip}<span class="chip">${esc(r.datum)}</span></summary>
+    <div class="innehall"><div class="prosa">${r.html}</div>${om && om.ord ? `<blockquote>Du: ${esc(om.ord)}</blockquote>` : ''}${form}</div></details>`;
 }
 
 async function lardomvy() {

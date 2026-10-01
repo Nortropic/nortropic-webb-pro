@@ -40,8 +40,8 @@ ARGS=(-p
   "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" "Bash(cp *)" "Bash(mv *)" "Bash(find *)"
   "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)"
   "Bash(git add backlog/*)" "Bash(git commit *)" "Bash(git push origin main)"
-  # Sessionen ärver också ägarens egna allow-regler (git push, rm -f, gh pr …). Det som aldrig behövs i ett bygge
-  # nekas här; nekande går före tillåtande. Ingen säkerhetsgräns, men det stoppar misstag.
+  # Det som aldrig behövs i ett bygge nekas uttryckligen; nekande går före tillåtande. Commitvakten
+  # (.claude/hooks/commitvakt.py, NWP_COMMIT_TILLATET nedan) släpper bara commits av backlog/.
   --disallowedTools "Bash(rm *)" "Bash(gh pr *)" "Bash(git rebase *)" "Bash(git checkout *)" "Bash(git reset *)"
   "Bash(git worktree *)" "Bash(git config *)" "Bash(git push --force *)" "Bash(git push -f *)")
 # Bara projektets inställningar: då gäller --allowedTools som vitlista (ägarens egna allow-regler i
@@ -59,7 +59,7 @@ done < <(env)
 cd "$ROOT"   # projektets Stop-krok laddas bara när sessionen startar i reporoten
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
-printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" claude "${ARGS[@]}" > "$LOGG" 2>&1
+printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
 

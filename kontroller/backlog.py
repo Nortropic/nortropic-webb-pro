@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """backlog.py — den vilande backloggen: en markdownfil per post i backlog/.
 
-    .venv/bin/python kontroller/backlog.py ny --kalla kirurg|dom|bygge --titel T --varfor V [--forslag F] [--klart K]
+    .venv/bin/python kontroller/backlog.py ny --kalla kirurg|dom|bygge|bevakning --titel T --varfor V [--forslag F] [--klart K]
         [--steg S] [--sar S] [--kallref R] [--prio hog|normal]
     .venv/bin/python kontroller/backlog.py lista [--status vilande] [--json]
     .venv/bin/python kontroller/backlog.py visa ID
@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MAPP = ROOT / 'backlog'
 STATUS = ('vilande', 'pagar', 'klar', 'avvisad')
-KALLOR = ('kirurg', 'dom', 'bygge')
+KALLOR = ('kirurg', 'dom', 'bygge', 'bevakning')
 FALT = ('id', 'status', 'kalla', 'kallref', 'skapad', 'prio', 'steg', 'sar', 'commit', 'andrad')
 
 

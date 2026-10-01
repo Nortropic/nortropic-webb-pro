@@ -60,6 +60,7 @@ KARNFRAGOR = [
     {'id': 'referenser', 'fraga': 'Hur nära referenserna som bygget valde är den?', 'typ': 'skala', 'min': 'Långt ifrån', 'max': 'I nivå', 'steg': 5},
     {'id': 'referensval', 'fraga': 'Var referenserna rätt valda? Vilken skulle du ha valt i stället?', 'typ': 'fritext'},
     {'id': 'en_andring', 'fraga': 'Om du fick ändra en sak i hur vi bygger, vad skulle det vara?', 'typ': 'fritext'},
+    {'id': 'sakerhet', 'fraga': 'Hur säker är du på din dom?', 'typ': 'val', 'alternativ': ['Säker', 'Ganska säker', 'Osäker']},
 ]
 
 
@@ -127,7 +128,7 @@ def md(text):
         if re.match(r'^\s*([-*]|\d+\.)\s+', r):
             ordnad = bool(re.match(r'^\s*\d+\.', r))
             items = []
-            while i < len(rader) and (re.match(r'^\s*([-*]|\d+\.)\s+', rader[i]) or (rader[i].startswith('   ') and items)):
+            while i < len(rader) and (re.match(r'^\s*([-*]|\d+\.)\s+', rader[i]) or (re.match(r'^ {2,}\S', rader[i]) and items)):
                 if re.match(r'^\s*([-*]|\d+\.)\s+', rader[i]):
                     items.append(re.sub(r'^\s*([-*]|\d+\.)\s+', '', rader[i]))
                 else:
@@ -265,16 +266,83 @@ def bygge(slug):
     return b
 
 
+OMDOMEN = ROOT / 'kunskap' / 'KIRURG-OMDOMEN.md'
+DOMKLASSER = ('ta in', 'prova', 'parkera', 'nej')
+
+
+def domklass(text):
+    t = (text or '').lower()
+    for k in DOMKLASSER:
+        if t.startswith(k) or (k == 'prova' and 'prova' in t):
+            return k
+    return 'okänd'
+
+
+def omdomen():
+    """Ägarens överprövningar av kirurgens domar, ur kunskap/KIRURG-OMDOMEN.md, per registerrubrik (senaste gäller)."""
+    ut = {}
+    for d in (las_text(OMDOMEN) or '').split('\n### ')[1:]:
+        rubrik, _, kropp = d.partition('\n')
+        rubrik = rubrik.split(' · ', 1)[1] if ' · ' in rubrik else rubrik
+        f = dict(re.findall(r'^- ([^:]+): (.*)$', kropp, re.M))
+        ut[rubrik.strip()] = {'kirurgen': f.get('Kirurgens dom', ''), 'agaren': f.get('Ägarens dom', ''), 'ord': f.get('Ägarens ord', '').strip('"')}
+    return ut
+
+
 def register():
     text = las_text(ROOT / 'kunskap' / 'REGISTER.md') or ''
     delar = text.split('\n### ')[1:]
-    poster = []
+    poster, om = [], omdomen()
     for d in delar:
         rubrik, _, kropp = d.partition('\n')
         bitar = [x.strip() for x in rubrik.split('·')]
-        poster.append({'datum': bitar[0] if bitar else '', 'namn': bitar[1] if len(bitar) > 1 else rubrik,
-                       'dom': bitar[2] if len(bitar) > 2 else '', 'html': md(kropp)})
+        poster.append({'rubrik': rubrik.strip(), 'datum': bitar[0] if bitar else '', 'namn': bitar[1] if len(bitar) > 1 else rubrik,
+                       'dom': bitar[2] if len(bitar) > 2 else '', 'html': md(kropp), 'ersatt': '- Ersatt av:' in kropp,
+                       'omdome': om.get(rubrik.strip())})
     return poster[::-1]
+
+
+def overensstammelse():
+    """Hur ofta ägaren håller med kirurgen, per kirurgens domklass (forskningens råd: inte bara total andel)."""
+    per = {}
+    for o in omdomen().values():
+        k = domklass(o['kirurgen'])
+        r = per.setdefault(k, {'bedomda': 0, 'haller_med': 0})
+        r['bedomda'] += 1
+        r['haller_med'] += o['agaren'].lower().startswith('håller med')
+    tot = sum(r['bedomda'] for r in per.values())
+    return {'bedomda': tot, 'haller_med': sum(r['haller_med'] for r in per.values()), 'per_dom': per}
+
+
+def spara_omdome(data):
+    """Ägaren överprövar en registerpost. Skrivs i kunskap/KIRURG-OMDOMEN.md, committas och pushas (ägarens egna ord)."""
+    import subprocess
+    rubrik = (data.get('rubrik') or '').strip()
+    agaren = (data.get('agaren') or '').strip()
+    if not rubrik or rubrik not in {p['rubrik'] for p in register()}:
+        raise ValueError('okänd registerpost')
+    if agaren != 'håller med' and agaren not in DOMKLASSER:
+        raise ValueError('välj håller med, eller vilken dom det borde ha blivit')
+    ord_ = (data.get('ord') or '').strip().replace('\n', ' ')[:3000]
+    kirurgen = rubrik.split('·')[-1].strip()
+    if not OMDOMEN.is_file():
+        OMDOMEN.write_text('# Ägarens omdömen om kirurgens domar\n\nKalibrering: varje post är ägarens överprövning av en registerpost. '
+                           'Kirurgen läser dem före varje intag; där ägaren inte höll med är de viktigaste exemplen.\n', encoding='utf-8')
+    post = '\n### %s · %s\n- Kirurgens dom: %s\n- Ägarens dom: %s\n- Ägarens ord: "%s"\n' % (
+        nu()[:10], rubrik, kirurgen, 'håller med' if agaren == 'håller med' else 'håller inte med, borde ha blivit: ' + agaren, ord_)
+    with open(OMDOMEN, 'a', encoding='utf-8') as f:
+        f.write(post)
+    return {'sparad': True, 'git': commit_agarens(['kunskap/KIRURG-OMDOMEN.md'], 'Ägaren: omdöme om kirurgens dom (%s)' % rubrik.split('·')[1].strip()[:60])}
+
+
+def commit_agarens(filer, meddelande):
+    """Ägarens egna ord (domar, omdömen) committas och pushas direkt, så att de inte går förlorade."""
+    import subprocess
+    g = lambda *a: subprocess.run(['git', '-C', str(ROOT), *a], capture_output=True, text=True, timeout=60)
+    if g('add', *filer).returncode or g('commit', '-q', '-m', meddelande, '--', *filer).returncode:
+        return 'kunde inte committa'
+    p = g('push', '-q', 'origin', 'main')
+    return 'committad och pushad' if p.returncode == 0 else 'committad lokalt; push misslyckades: ' + (p.stderr or '').strip()[-160:]
 
 
 # --- domen ---
@@ -321,7 +389,8 @@ def spara_dom(slug, data):
     rader[-2] = '**Ändring:** väntar (backlog %s)' % pid
     with open(lar, 'a', encoding='utf-8') as f:
         f.write('\n'.join(rader))
-    return {'lardom': 'L%d' % n, 'sparad': str(fil.relative_to(ROOT)), 'backlog': pid}
+    git = commit_agarens(['LARDOMAR.md', 'backlog/%s.md' % pid], 'Ägaren: dom L%d (%s)' % (n, slug))
+    return {'lardom': 'L%d' % n, 'sparad': str(fil.relative_to(ROOT)), 'backlog': pid, 'git': git}
 
 
 # --- backloggen och kirurgen ---
@@ -340,8 +409,8 @@ INTAG = ROOT / 'kirurgen'
 # Vitlista: intaget startas med --setting-sources project,local, så ägarens egna allow-regler gäller inte här.
 INTAG_VERKTYG = ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'Skill', 'Task', 'Edit(kunskap/REGISTER.md)',
                  'Bash(.venv/bin/python kontroller/backlog.py *)', 'Bash(.venv/bin/python kontroller/youtube.py *)',
-                 'Bash(node kontroller/sida.mjs *)', 'Bash(curl -sSL -o /tmp/kirurg/*)', 'Bash(gh repo clone *)',
-                 'Bash(gh api repos/*)', 'Bash(cd *)', 'Bash(git add *)', 'Bash(git commit *)', 'Bash(git push origin main)',
+                 'Bash(node kontroller/sida.mjs *)', 'Bash(.venv/bin/python kontroller/granska_repo.py *)', 'Bash(curl -sSL -o /tmp/kirurg/*)', 'Bash(gh repo clone *)', 'Bash(gh repo view *)',
+                 'Bash(cd *)', 'Bash(git add *)', 'Bash(git commit *)', 'Bash(git push origin main)',
                  'Bash(ls *)', 'Bash(find *)', 'Bash(wc *)', 'Bash(head *)', 'Bash(tail *)', 'Bash(cat *)', 'Bash(mkdir *)']
 INTAG_NEKAS = ['Bash(rm *)', 'Bash(gh pr *)', 'Bash(git rebase *)', 'Bash(git checkout *)', 'Bash(git reset *)',
                'Bash(git worktree *)', 'Bash(git config *)', 'Bash(git push --force *)', 'Bash(git push -f *)']
@@ -415,6 +484,8 @@ def starta_intag(url, not_, filer=None):
               'ingen människa svarar under körningen. Följ skillen hela vägen: registret, och vid "ta in" eller "prova A/B" '
               'backloggen. Avsluta med domen och skälet i högst fyra meningar.') % ('\n\n'.join(kalla), (not_ or '').strip() or 'ingen')
     env = {k: v for k, v in os.environ.items() if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_')}
+    env['NWP_COMMIT_TILLATET'] = 'kunskap/REGISTER.md,backlog/'  # commitvakten: bara registret och backloggen
+    env.pop('NWP_SLUG', None)
     # --setting-sources project,local: ägarens egna allow-regler läses inte, så INTAG_VERKTYG är en vitlista
     # (rena läskommandon tillåter Claude Code alltid). Modell och effort anges därför uttryckligen.
     anv = las_json(Path.home() / '.claude' / 'settings.json') or {}
@@ -481,7 +552,7 @@ class H(BaseHTTPRequestHandler):
             if vag == '/api/backlog':
                 return self.skicka(200, backloggen())
             if vag == '/api/kirurg':
-                return self.skicka(200, {'intag': intag_lista(), 'register': register()})
+                return self.skicka(200, {'intag': intag_lista(), 'register': register(), 'overens': overensstammelse()})
             m = re.match(r'^/api/bygge/([a-z0-9-]{2,60})$', vag)
             if m and (KUNDER / m.group(1)).is_dir():
                 return self.skicka(200, bygge(m.group(1)))
@@ -524,6 +595,8 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, {'id': meta['id'], 'status': meta['status']})
             if vag == '/api/kirurg':
                 return self.skicka(200, starta_intag(data.get('url'), data.get('not'), data.get('filer')))
+            if vag == '/api/kirurg/omdome':
+                return self.skicka(200, spara_omdome(data))
             return self.skicka(404, {'fel': 'finns inte'})
         except (ValueError, json.JSONDecodeError, OSError) as e:
             return self.skicka(400, {'fel': str(e)})
