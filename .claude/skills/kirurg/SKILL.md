@@ -40,7 +40,9 @@ och `kunskap/referenser-professionella.md` (den befintliga regeln mot slop), de 
 `underlag/*/JAMFORELSE.md` (gapet mot referenserna), och sök i `kunskap/REGISTER.md` efter länken. **Finns den redan där: bedöm den inte igen**, svara med den tidigare domen.
 Två undantag: ägarens not ber uttryckligen om en ny bedömning, eller den gamla posten gäller något visuellt (video,
 webbsida, bilder) och saknar `[SKÄRM]`- eller `[BILD]`-belägg. Gör då en ny bedömning som en ny post, och skriv sist i
-den gamla posten raden `- Ersatt av: <datum> · <namn>`.
+den gamla posten raden `- Ersatt av: <datum> · <namn>`. Hade den gamla posten en vilande backlogpost: är den nya domen
+inte längre "ta in" eller "prova", sätt den gamla till avvisad (`backlog.py status <id> avvisad --not "ersatt av ny
+bedömning <datum>"`); gäller förslaget fortfarande, låt den stå och hänvisa till den i den nya posten.
 
 ## Protokollet
 
