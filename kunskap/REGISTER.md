@@ -199,6 +199,7 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Utfall: ingen åtgärd. När piloten är klar och ägaren vänder sig mot kunder finns underlaget till ett ärligt första
   besked redan: DIAGNOS.md och före/efter-tabellen. Något utskicksverktyg behövs inte för det.
 - Backlog: ingen
+- Ersatt av: 2026-10-01 · Reddit-inlägget "How I Sold 200 Websites in 12 Months" med swokei.com sedd som webbsida
 
 ### 2026-10-01 · ui-ux-pro-max-skill med förgranskning, repots bilder och uupm.cc · nej
 - Källa: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill @ `09170ee` (samma commit som den ersatta posten,
@@ -402,4 +403,49 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   inifrån" en rad i steg 6, så att läsningen görs avskärmad som femsekunderstestet. Personnel Ledger-exemplet visar
   också en sak att hålla ögonen på: KONCEPT.md kan säga en sak och sajten en annan. Blir det ett fynd i ett riktigt
   bygge, hör det hemma som en rad i steg 5.5 (jämför sajten med KONCEPT.md:s egna ord), inte som en grind
+- Backlog: ingen
+
+### 2026-10-01 · Reddit-inlägget "How I Sold 200 Websites in 12 Months" med swokei.com sedd som webbsida · nej
+- Källa: fyra uppladdade skärmbilder (`kirurgen/uppladdat/20261001T195500Z/01–04`, samma som i den ersatta posten): en
+  Instagram-karusell från artificialintelligenceee som återger r/AI_Agents-inlägget av Murky_Explanation_73 ("4mo
+  ago", flair Tutorial). Sedda: bildtexten [BILD 01] och karusellens bild 2, 3 och 4 av 4 [BILD 04, 03, 02]; bild 1
+  laddades inte upp. Originalet hittades inte: webbsökning på rubriken gav inget, och Reddit spärrade förra gången med
+  inloggning. Ny i den här bedömningen: swokei.com, det enda verktyget i inlägget som beskrivs i detalj, sedd som
+  webbsida 2026-10-01 (omdirigerad till den svenska versionen /sv): första vyn i 390 och 1440, skrolläge 2, 4 och 7 av
+  8, och hela texten. Ingen licens
+- Steg: 2 (diagnos av nuvarande sajt), 5 (bygge); kundjakt, utskick och SEO-blogg ligger utanför kedjan
+- Sår: inget. L0 gäller kvaliteten i det som byggs, och inlägget säger bara att "clients care way more about the final
+  result than how the website was actually made" [BILD 03, 02]
+- Överlapp: att hitta företag och mäta deras sajt för "slow speeds, weak SEO and poor mobile design" [BILD 01] är steg 2
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 60–74: axe, Lighthouse och inspektion i 390 och 1440, sedan DIAGNOS.md med
+  "vad som hindrar toppuppgifterna"). Swokeis analys, "design och layout till laddningstid, mobil och SEO, läses sida
+  för sida i en riktig webbläsare" [TEXT swokei], är samma sak. Exempelmejlets fynd, att offertdelen ligger långt ner
+  på mobilen och att bilderna laddas i full storlek [TEXT swokei], är just den sortens rad som DIAGNOS.md redan ska
+  innehålla. Före/efter-tabellen i steg 7 (rad 175–176) är vårt "actual issues on their site" [BILD 03]. "Claude Code
+  for building websites" [BILD 02] är bygg-sajt. Ett upprepbart system i stället för ett eget projekt per sajt [BILD 01]
+  är ägarens egen vision (`BESLUT.md` rad 10)
+- Skäl: det som berör kedjan har vi redan, och resten krockar med medvetna val. Automatiserade utskick till skrapade
+  företag [BILD 03] går emot "Inget utskick till verksamheterna" (`BESLUT.md` rad 75), mot "Inget skickas ut" (bygg-sajt
+  rad 30) och mot ägarens ordning att produkten ska vara klar innan vi går till kunder (`BESLUT.md` rad 12).
+  Automatiserad SEO-blogg [BILD 03] är text i volym, alltså det L0 dömer; inget i `kunskap/seo*.md` eller
+  `kunskap/lokal-synlighet.md` föreslår bloggande. Swokeis sajt visar dessutom vad "personalized outreach" betyder i
+  praktiken: varje exempelmejl öppnar med en påhittad personlig förevändning, till exempel att avsändaren letade efter
+  en födelsedagstårta på South Congress och fastnade på bageriets sida [TEXT swokei]. Det är motsatsen till "Hitta aldrig
+  på fakta" (bygg-sajt rad 20–21). Källkritik: inlägget är andrahandsåtergivet av ett räckviddskonto (1 086
+  gillningar, 699 delningar [BILD 02]), och 200 sajter av två personer på ett år är obelagt: inga sajter, kunder eller
+  priser visas. Inlägget räknar upp fem verktyg [BILD 02], men det längsta stycket beskriver i detalj det som Swokei
+  står för, "website analysis and outreach campaigns" [BILD 02, 03], och med nästan samma uppräkning som Swokeis egen
+  sajt (design, layout, mobil, laddningstid, SEO). Det tyder på produktplacering men bevisar
+  den inte. Swokei säljer abonnemang för 42–212 dollar i månaden [BILD swokei desktop-skroll-07] och påstår "Älskad av
+  1 000+ webbyråer · 31,7M skickade mejl" [BILD swokei desktop-forsta] utan belägg; siffrorna i panelen är en
+  demopanel. Leveransen mäts i sålda sajter, inte i om de blev bättre än kundernas gamla, och det är vår ribba 1
+  (bygg-sajt rad 9)
+- Kostnad: inget att ladda. Swokei, Apollo och Soro är betaltjänster med e-post och leadlistor, alltså ny mekanik och
+  personuppgifter om tredje part
+- Säkerhet: förgranskningen av swokei.com:s text gav LÅG, inga dolda tecken och ingen text riktad till agenter. Inget
+  repo att förgranska. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Villkoret i den ersatta posten står kvar: när piloten är klar och ägaren vänder sig mot kunder
+  finns underlaget till ett ärligt första besked redan i DIAGNOS.md och före/efter-tabellen. Blir det aktuellt ska
+  beskedet bygga på det vi faktiskt har mätt och sett, aldrig på en påhittad förevändning
 - Backlog: ingen
