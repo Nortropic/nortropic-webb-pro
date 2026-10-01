@@ -39,6 +39,7 @@ ARGS=(-p
   "Bash(npm *)" "Bash(npx *)" "Bash(node *)" "Bash(.venv/bin/python *)" "Bash(curl *)"
   "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" "Bash(cp *)" "Bash(mv *)" "Bash(find *)"
   "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)"
+  "Bash(sort *)" "Bash(uniq *)" "Bash(sed *)" "Bash(tr *)" "Bash(cut *)"
   "Bash(git add backlog/*)" "Bash(git commit *)" "Bash(git push origin main)"
   # Det som aldrig behövs i ett bygge nekas uttryckligen; nekande går före tillåtande. Commitvakten
   # (.claude/hooks/commitvakt.py, NWP_COMMIT_TILLATET nedan) släpper bara commits av backlog/.
