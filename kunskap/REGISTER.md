@@ -65,3 +65,5 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   (dimension 7, mobil ergonomi) som pekar på trasig formulär-UX eller textöverflöde — då tas bara de rader som
   fångar det specifika fyndet in i `bygge-referens.md` eller `formularsakerhet.md`, inte källan som helhet.
 - Backlog: ingen
+- Not: kopplingsprov av dashboardens intagsfält 2026-10-01, kört med Sonnet 5. Länken skickades av Claude, inte av
+  ägaren. Bedömningen står kvar eftersom den är sakligt riktig.

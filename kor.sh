@@ -38,7 +38,12 @@ ARGS=(-p
   --allowedTools Read Write Edit Glob Grep WebFetch WebSearch Skill Task TaskCreate TaskUpdate TaskList TaskGet
   "Bash(npm *)" "Bash(npx *)" "Bash(node *)" "Bash(.venv/bin/python *)" "Bash(curl *)"
   "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" "Bash(cp *)" "Bash(mv *)" "Bash(find *)"
-  "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)")
+  "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)"
+  "Bash(git add backlog/*)" "Bash(git commit *)" "Bash(git push origin main)"
+  # Sessionen ärver också ägarens egna allow-regler (git push, rm -f, gh pr …). Det som aldrig behövs i ett bygge
+  # nekas här; nekande går före tillåtande. Ingen säkerhetsgräns, men det stoppar misstag.
+  --disallowedTools "Bash(rm *)" "Bash(gh pr *)" "Bash(git rebase *)" "Bash(git checkout *)" "Bash(git reset *)"
+  "Bash(git worktree *)" "Bash(git config *)" "Bash(git push --force *)" "Bash(git push -f *)")
 if [ -n "${NWP_MODELL:-}" ]; then ARGS+=(--model "$NWP_MODELL"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort.

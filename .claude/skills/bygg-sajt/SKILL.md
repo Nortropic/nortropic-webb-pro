@@ -201,6 +201,9 @@ post i backloggen per brist:
   --titel "<bristen, en mening>" --varfor "<vad som hände i bygget>" --forslag "<fil och ändring>"
 ```
 
+Committa bara de nya filerna i `backlog/`, med meddelandet `Bygge <slug>: backlogposter`, och `git push origin main`.
+Inget annat committas av en byggkörning; `underlag/` och `kunder/` ligger utanför git.
+
 Avsluta sedan. Stoppvakten (`.claude/hooks/stoppvakt.py`) kör hela provet själv och släpper inte avslutet förrän
 grindarna är gröna och rapporten finns. Blockerar den: läs skälet, rätta, försök igen.
 

@@ -75,5 +75,8 @@ Svara ägaren kort: domen först, sedan skälet, sedan förslaget om det finns e
 Skriv postens id i registrets rad "Backlog". Vid "parkera" eller "nej" skapas ingen post; registret räcker.
 Posten genomförs aldrig av dig: ägaren startar en session och säger "implementera enligt backlog".
 
+**3. Commit.** Committa bara `kunskap/REGISTER.md` och en eventuell ny fil i `backlog/`, med meddelandet
+`Kirurg: <namn> <dom>`, och `git push origin main`. Inga andra filer.
+
 Egen innovation är tillåten: föreslå något ingen skickat, men bara knutet till ett sår i `LARDOMAR.md`, och högst ett
 förslag per bygge.
