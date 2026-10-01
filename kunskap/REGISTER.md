@@ -547,3 +547,42 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   REFERENSER.md att hantverksreferenser var svåra att hitta, är det fyndet som ska åtgärdas, i `referensjakt.md`, inte
   genom en MCP-server
 - Backlog: ingen
+
+### 2026-10-01 · Paul J Lipsky-video: "How To Create Stunning Websites With Claude Design" · nej
+- Källa: https://www.youtube.com/watch?v=IjdkFhpxw7o @ 2026-08-24 (Paul J Lipsky, 14:10, autogenererat transkript,
+  ingen sponsor angiven, YouTubes standardvillkor). Sedda: hela tidslinjen och alla 41 bildrutor; sju är talaren i
+  bild, resten skärminspelningar av Claude Design, ChatGPT, Gemini, land-book.com, onepagelove.com och de byggda
+  sidorna. Den enda länken, claude.ai/design, kräver inloggning och öppnades inte; inga referenssajter öppnades.
+  Scrollanimationerna syns bara som lägen i stillbilder, inte som rörelse
+- Steg: 3 (brief, referenser), 5 (riktning, bygge) och bildanskaffning i steg 1
+- Sår: L0 ("ai slope skit"); videon lovar att lyfta en sida som är "extremely generic" [TAL 03:52]. Ingen
+  JAMFORELSE.md finns ännu
+- Överlapp: tipset att alltid ange utseende, målgrupp och mål [TAL 01:42, SKÄRM 02:07] är vår brief: mål, målgrupper
+  med belägg och toppuppgifter (`.claude/skills/bygg-sajt/SKILL.md` rad 82–84) och riktningen i KONCEPT.md (rad
+  135–137). Att bifoga verksamhetens filer som sammanhang [TAL 02:47] är steg 1 och "Bara de har" (rad 45–58). Att
+  bygga ett designsystem ur skärmbilder från gallerier [TAL 05:34] motsvaras av referensjakten, som redan nämner One
+  Page Love som sökingång och kräver att man följer till den riktiga sajten (`kunskap/referensjakt.md` rad 25–27,
+  31–32). Scrollavslöjanden med respekt för minskad rörelse [SKÄRM 12:43] står i `kunskap/bygge-referens.md` rad 23
+- Skäl: det som videon visar som lyft är det som våra regler förbjuder. Designsystemet byggs ur två skärmbilder av
+  Le Petit Bleu [SKÄRM 06:54] och tar med sig referensens egen adress och öppettid, "1427 Washington Ave" och "7:00
+  AM – 7:00 PM", in i bageriets komponenter [SKÄRM 07:56, 08:16], och dess turkos på kräm blir bageriets palett
+  [SKÄRM 07:56, 08:57]; det är att kopiera palett och identitet, mot bygg-sajt rad 150 och referensjakt rad 53, och
+  ett moodboard av färg, serif och rundningar, som referensjakt rad 52 säger inte räcker. Talaren ber därtill uttryckligen
+  om layouten från Gaia Masala & Burger [TAL 11:10, SKÄRM 10:19]. "Personaliseringen" är ChatGPT-bilder av påhittade
+  bakverk och ett påhittat bord [TAL 04:27, SKÄRM 04:51], och sidan märker den genererade bilden "Our table, last
+  Saturday, 7:40 AM" [SKÄRM 09:18], alltså en genererad bild framställd som verksamhetens egen, mot `kunskap/bild.md` rad
+  16 och 19 och "Inga stockbilder" (bygg-sajt rad 49). Gemini-videon i hjälteytan visar en surdegslimpa [SKÄRM 10:40,
+  12:02] fast menyn har kakor, muffins, scones, bullar och bananbröd, ingen limpa [SKÄRM 04:10, 11:41]. Med egna ögon är slutresultatet [SKÄRM
+  12:02, 12:43] ett vanligt mönster: versal eyebrow med spärrning, tunn serif i accentfärg på kräm, tvåkolumnshjälte,
+  pillerknappar och en nedräkning; den "fun, colorful" riktning briefen bad om [SKÄRM 02:48] försvann när
+  referenspaletten tog över. Restaurangexemplet har gatuadressen "123 Pearl Street" och "9 partner farms" [SKÄRM
+  13:03] utan att någon källa till uppgifterna visas. Källkritik: allt bevis är fiktiva verksamheter och talarens
+  omdöme ("looks so much better" [TAL 08:23]); ingen jämförelse görs mot något annat än hans egen första version
+- Kostnad: inget att ladda. Claude Design är ett webbgränssnitt med inloggning och ingen väg för ett obevakat bygge;
+  arbetssättet kräver dessutom två externa genereringstjänster (ChatGPT, Gemini)
+- Säkerhet: ej tillämpligt; ingen kod eller text riktad till agenter. Inget kördes eller installerades. Talarens
+  egna kontaktuppgifter syns i prompten [SKÄRM 02:28] och är inte återgivna här
+- Förslag: inget
+- Utfall: ingen åtgärd. Det enda nya för oss, Claude Designs kommentarsverktyg för att peka på en del av sidan
+  [TAL 09:30], är ett gränssnitt för människor och bär inget sår
+- Backlog: ingen
