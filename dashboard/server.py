@@ -211,9 +211,11 @@ def las_logg(logg):
                         mal = inp.get('file_path') or inp.get('command') or inp.get('url') or inp.get('pattern') or inp.get('subject') or inp.get('description') or ''
                         handlingar.append({'verktyg': c.get('name'), 'mal': str(mal).replace(str(ROOT) + '/', '')[:160]})
                     elif c.get('type') == 'text' and c.get('text', '').strip():
-                        text = c['text'].strip()[:600]
+                        text = c['text'].strip()  # hela texten; dashboarden kapar inte
             elif t == 'result':
                 resultat = {'utfall': e.get('subtype'), 'turer': e.get('num_turns'), 'minuter': round((e.get('duration_ms') or 0) / 60000, 1)}
+                if isinstance(e.get('result'), str) and e['result'].strip():
+                    text = e['result'].strip()  # slutsvaret, samlat i resultathändelsen
     except OSError:
         return None
     andrad = logg.stat().st_mtime
