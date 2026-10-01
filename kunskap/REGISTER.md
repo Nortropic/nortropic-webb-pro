@@ -449,3 +449,43 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   finns underlaget till ett ärligt första besked redan i DIAGNOS.md och före/efter-tabellen. Blir det aktuellt ska
   beskedet bygga på det vi faktiskt har mätt och sett, aldrig på en påhittad förevändning
 - Backlog: ingen
+
+### 2026-10-01 · AI LABS-video: sju sätt att använda beslutsmodellen Jev i Claude Code · nej
+- Källa: https://www.youtube.com/watch?v=2nc_QMuNp18 @ 2026-09-28 (AI LABS, 12:37, autogenererat transkript, sponsrad
+  av Zapier [BESKRIVNING]). Sedda: hela tidslinjen och alla 41 bildrutor; nio av dem är skärminspelningar av editor,
+  terminal och webbläsare, resten animerade illustrationer, sponsorklipp och en svart övergång. Repot i beskrivningen,
+  tamaratran/fast-jev-compaction (MIT, 7 300 stjärnor, senast ändrat 2026-09-18), gick inte att läsa: klonen hängde
+  och stoppades, så bara metadata och de delar av plugin.json som syns i bild [SKÄRM 04:01] är sedda. Skills och krokar
+  ur videon ligger bakom AI Labs Pro [TAL 12:02] och gick inte att läsa. ailabspro.io och theroundup.so öppnades inte
+- Steg: inget av de åtta direkt. Det är verktyg kring agentens arbete (komprimering, val av skill, filsökning,
+  granskning, klickval i webbläsaren, regelkrok); närmast ligger steg 6 (utforskning i webbläsaren) och loop 1
+- Sår: inget. L0 dömer innehållet i det som byggs; videons löfte är att agenten blir "way faster and cheaper to run"
+  [TAL 00:00], inte att resultatet blir bättre
+- Överlapp: webbläsartestet där en modell väljer nästa klick mot ett mål [TAL 10:25, SKÄRM 10:43] motsvaras av
+  utforskningen i provet (`kontroller/prova.py` rad 265, `kontroller/webblasare/utforska.mjs`; bygg-sajt rad 158–159).
+  Kroken som håller agenten till reglerna "because a hook runs every single time" [TAL 11:30] är vår stoppvakt
+  (`.claude/hooks/stoppvakt.py` rad 2 och 6). Granskning av en annan modell än byggarens [TAL 08:46] står i kirurgens
+  A/B-krav och i femsekunderstestet som görs avskärmat (bygg-sajt rad 162–165). Skillväljaren [SKÄRM 06:27] löser ett
+  problem vi inte har: repot har tre skills
+- Skäl: inget av de sju fallen rör det som gör våra sajter generiska, och flera går mot medvetna val. Varje fall är en
+  ny krok eller skill med en extern nyckel via Vercel AI Gateway [TAL 02:44, SKÄRM 03:06], alltså ny mekanik och ett
+  nytt beroende mot "Inga nya mekaniker" (`BESLUT.md` rad 74). Förhandsgallringen före granskningen ger ändringar som
+  bedöms som små "one quick round" [TAL 09:20], vilket byter kvalitet mot tid; vi har valt kvalitet. Regelkroken
+  blockerar en ändring när Jev är minst 80 % säker [TAL 11:30], men vår regel mot slop ska vara rapport, inte grind
+  (`BESLUT.md` rad 57). Källkritik: det enda inspelade komprimeringsfallet visar att pluginet föll tillbaka till den
+  vanliga sammanfattningen, "below 25% minimum: 0% reduction" [SKÄRM 04:38], så "less than a second" [TAL 04:23] syns
+  aldrig. Filrankningen visas på riktigt, men de två översta får 0,40 och 0,39 [SKÄRM 08:53], alltså ingen tydlig
+  skillnad; skillväljarens säkra 0,93–0,98 [SKÄRM 06:45] och rollmatrisen [SKÄRM 11:01] är animationer, inte
+  inspelningar. Bildrutan vid 00:38 visar en spelare med längden 18:05 och andra kapiteltider än den här videon, så
+  materialet tycks klippt ur en längre version. Inspelningarna körs med `--dangerously-skip-permissions` [SKÄRM 08:53]
+  och "bypass permissions on" [SKÄRM 04:38]. Videon säljer AI Labs Pro [TAL 12:02] och Zapier [TAL 06:35]
+- Kostnad: inget att ladda. Ett genomförande vore flera krokar och skills, en API-nyckel via en betald gateway och
+  underhåll av kod vi inte kan läsa (betalvägg)
+- Säkerhet: förgranskningen kunde inte köras, eftersom klonen hängde och ingen text hämtades. Inget kördes eller
+  installerades. Pluginet ersätter Claude Codes egen komprimering genom en krok och skickar sessionens innehåll till en
+  extern tjänst [TAL 03:50; SKÄRM 04:01]
+- Förslag: inget
+- Utfall: ingen åtgärd. Blir körtid eller kvot ett namngivet problem i ett riktigt bygge (till exempel att stoppvakten
+  eller utforskningen tar för lång tid), kan en snabb klassificerare prövas där, som A/B och utan att ersätta någon
+  granskning
+- Backlog: ingen
