@@ -167,6 +167,7 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   sessionens egen renderingsläsning (steg 6.3) borde ha sett. Då är grindtanken "granskaren ser inte bygget
   inifrån" värd en rad i steg 6, så att renderingsläsningen görs avskärmad som femsekunderstestet. Ingen ny mekanik.
 - Backlog: ingen
+- Ersatt av: 2026-10-01 · AI LABS-video om Helix med artikeln sedd som webbsida och ailabspro.io
 
 ### 2026-10-01 · Reddit-inlägget "How I Sold 200 Websites in 12 Months" (via Instagram) · nej
 - Källa: fyra uppladdade skärmbilder (`kirurgen/uppladdat/20261001T192233Z/01–04`, 2026-10-01 18:29–18:30 lokal
@@ -348,4 +349,57 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Utfall: ingen åtgärd. Villkoret för Hallmarks grindar 49–51 och 55 (klickbar text på två rader, `minmax(0, 1fr)` för
   bildspår, `overflow-wrap` på rubriker, versala rubriker med radhöjd under 1) gäller oförändrat: visar ett riktigt
   bygge felbrytning eller överflöd, tas bara de raderna in i `kunskap/bygge-referens.md`
+- Backlog: ingen
+
+### 2026-10-01 · AI LABS-video om Helix med artikeln sedd som webbsida och ailabspro.io · nej
+- Källa: https://www.youtube.com/watch?v=bBMp5tLxShQ @ 2026-09-24 (AI LABS, 14:51, autogenererat transkript, sponsrad
+  av Hedra [BESKRIVNING]). Ny bedömning på ägarens begäran med den uppgraderade kirurgen; den förra posten hade inte
+  sett artikeln som webbsida och var inte förgranskad. Sedda: hela tidslinjen och alla 41 bildrutor; 14 av dem är
+  skärminspelningar av editor och terminal, resten animerade illustrationer, sponsorklipp och en bild av artikeln.
+  Sidor sedda i 390 och 1440: shopify.engineering/helix (Talha Naqvi, 2026-09-21; första vyn och sju av åtta
+  skrollägen, hela texten) och ailabspro.io (första vyn, texten). Helix är internt och AI LABS skills ligger bakom
+  betalgemenskapen, så det fanns inget repo att läsa. Ingen licens
+- Steg: 5 och 6 (grindarna), 7–8 (mänsklig granskning, lärdomsfil); orkestreringen berör hela körningen
+- Sår: L0 ("ai slope skit"). Ingen JAMFORELSE.md finns ännu
+- Överlapp: kroken som svarar exit 2 när agenten vill sluta [TAL 05:29, SKÄRM 06:10], videons ändring som "fixes that
+  problem entirely" [TAL 00:32], är vår stoppvakt (`.claude/hooks/stoppvakt.py` rad 6–7; `.claude/skills/bygg-sajt/SKILL.md`
+  rad 210–211). Minnet där ingenjörens återkoppling förbättrar varje senare checkpoint [TEXT shopify, Gate 4] är
+  `LARDOMAR.md` och steg 8 (bygg-sajt rad 215–217). De två UI-granskarna som inte ser projektets instruktioner [TAL
+  11:34] motsvaras av femsekunderstestet (rad 162–165). Checkpoints i stigande svårighet [SKÄRM 03:18; TEXT shopify,
+  "Checkpoints that can be reviewed at a glance"] är de åtta stegen i ordning, och artikelns "one decision they can
+  make as opposed to ten pages they will skim" [TEXT shopify] står hos oss som rapporten "kort och ärligt" (rad 170) och
+  ägarens frågor som parvisa val (rad 187–188)
+- Skäl: Helix grindar mäter överensstämmelse med ett känt mål, och vårt sår är att målet självt är generiskt. Hos
+  Shopify är målet den gamla appen: "The reference is the spec", och UI-grinden är skälet till att resultatet blir
+  "so close to 1:1" [TEXT shopify]. Vi ska tvärtom aldrig kopiera layout, palett eller typsnitt (bygg-sajt rad 150).
+  Hos AI LABS är målet agentens egen HTML-prototyp ur samma DESIGN.md [TAL 09:54, 10:28; SKÄRM 10:49], och bilderna
+  visar vad det släpper igenom. DESIGN.md beskriver systemet som "a well-kept personnel office, not a SaaS dashboard"
+  och sätter yta `#FBF9F3` och primär `#2E5A46` [SKÄRM 10:28]; appen har fyra statistikrutor med stora siffror under
+  versala etiketter, ikonmeny och mörkgrön knapp [SKÄRM 10:06], versala tabellrubriker, monospace-belopp och
+  "STEP 6 · IN PROGRESS" [SKÄRM 11:53], och UI-grinden är bockad som "Looks right" [SKÄRM 11:53]. Det är punkt 1 och 5 i
+  `kunskap/externa/anthropic-frontend-design-SKILL.md` rad 39 och 43 och versala etiketter på rad 27. Grinden jämför
+  appen med prototypen, inte med avsikten, så avsteget från filens egen mening syns aldrig. Kodgranskningsloopen visas
+  bara i ett fall där kritikern godkänner i första rundan utan ändringar och UI-grinden är "n/a" [SKÄRM 12:58], och vår
+  sajt är Astro med minimal JavaScript. Resten krockar med medvetna val: planen stannar för människans godkännande
+  ("Approve the plan?" [SKÄRM 05:05]) mot "Ingen människa svarar under körningen" (bygg-sajt rad 20), och en
+  orkestrerare med fem agenter och sex skills [SKÄRM 03:40, 11:10] är ny mekanik. Artikeln säger att grindarna inte
+  slappnar när ingen tittar och att agenten får försöka hur många gånger som helst [TEXT shopify]; vår stoppvakt släpper
+  medvetet efter fyra försök så att ägaren ser ett rött avslut (stoppvakt.py rad 7 och 72). Källkritik: artikeln är en
+  rekryteringstext ("We're hiring" vid sidan av hela texten [BILD shopify desktop-skroll-02]) utan siffror för
+  kvalitet, tid eller antal omförsök och utan ett enda misslyckande. Videon säger att Shopify "released their whole
+  setup" [TAL 02:12], men artikeln beskriver bara metoden. Inspelningarna körs med `--dangerously-skip-permissions`
+  [SKÄRM 05:05, 09:02, 12:58]. Videon säljer sina skills genom AI Labs Pro [TAL 14:21], kr200 i månaden [TEXT
+  ailabspro], och bilden av att man bara ber Claude skriva orkestreraren är en animation, inte en inspelning [SKÄRM 14:24].
+  Två rättelser av den ersatta posten: flaggan syns inte vid 08:40 (där visas test-planners SKILL.md) och
+  godkännandestoppet visas vid 05:05, inte 14:02
+- Kostnad: inget att ladda; Helix går inte att få. AI LABS uppsättning är fem agenter, sex skills och en krok, bakom
+  betalvägg; en egen motsvarighet vore ny mekanik med underhåll
+- Säkerhet: förgranskningen av artikelns och ailabspro.io:s text gav LÅG, inga dolda tecken och ingen text riktad till
+  agenter. Inget repo att förgranska. Inget kördes
+- Förslag: inget
+- Utfall: ingen åtgärd. Villkoret i den ersatta posten gäller oförändrat: pekar ägarens dom över ett riktigt bygge på
+  något som renderingsläsningen i steg 6.3 (bygg-sajt rad 160–161) borde ha sett, blir "granskaren ser inte bygget
+  inifrån" en rad i steg 6, så att läsningen görs avskärmad som femsekunderstestet. Personnel Ledger-exemplet visar
+  också en sak att hålla ögonen på: KONCEPT.md kan säga en sak och sajten en annan. Blir det ett fynd i ett riktigt
+  bygge, hör det hemma som en rad i steg 5.5 (jämför sajten med KONCEPT.md:s egna ord), inte som en grind
 - Backlog: ingen
