@@ -17,18 +17,30 @@ passerar sikten, säg det rakt; det är ett giltigt och vanligt utfall.** (Ur ve
 
 Läs `LARDOMAR.md` (såren: ägarens domar), `kunskap/copy-kontroll.md` och `kunskap/referenser-professionella.md`
 (den befintliga regeln mot slop), de senaste byggenas `underlag/*/JAMFORELSE.md` (gapet mot referenserna), och sök i
-`kunskap/REGISTER.md` efter länken. **Finns den redan där: bedöm den inte igen.** Svara med den tidigare domen och
-fråga om något har ändrats.
+`kunskap/REGISTER.md` efter länken. **Finns den redan där: bedöm den inte igen**, svara med den tidigare domen.
+Två undantag: ägarens not ber uttryckligen om en ny bedömning, eller den gamla posten gäller en video och saknar
+`[SKÄRM]`-belägg (den gjordes utan att se videon). Gör då en ny bedömning som en ny post, och skriv sist i den gamla
+posten raden `- Ersatt av: <datum> · <namn>`.
 
 ## Protokollet
 
 1. **Läs i original.** Hela källan, inte bara README.
    - GitHub: `gh repo clone OWNER/REPO "$TMPDIR/kirurg/REPO" -- --depth 1` och läs filerna, eller GitHub-verktygen.
      Notera licens, senaste commit, aktivitet, storlek i tecken av det som skulle laddas i en session.
-   - YouTube: `.venv/bin/python kontroller/youtube.py URL --ut "$TMPDIR/kirurg/<id>.md"`. Läs länkarna i
-     beskrivningen först: ett repo slår alltid en skärmdump. Läs sedan transkriptet. Bildrutor bara när kod eller
-     gränssnitt bara syns i bild (kräver ffmpeg; säg till ägaren i så fall). Källmärk påståenden `[TAL]`,
-     `[BESKRIVNING]` eller `[REPO]`.
+   - YouTube: `.venv/bin/python kontroller/youtube.py 'URL' --ut /tmp/kirurg/<id>.md` (adressen inom enkla
+     citattecken, annars tolkar skalet `?`). Verktyget ger metadata, länkarna i beskrivningen och en tidslinje där
+     transkriptet och drygt 40 bildrutor ur videon står flätade vid samma tidpunkt. **Du ska se videon, inte bara
+     läsa den:**
+     1. Läs länkarna först: ett repo slår alltid en skärmdump.
+     2. Läs tidslinjen och **varje bildruta** med Read, gärna flera i samma tur.
+     3. Koppla tal och bild: när talaren säger "så här blir det", titta på bilden vid samma tid.
+     4. Bedöm det som visas med egna ögon. I en designvideo gäller det särskilt resultatet: hade det klarat de åtta
+        dimensionerna i `kunskap/referenser-professionella.md` och regeln mot slop? Se det med egna ögon i stället
+        för att återge berättarens omdöme.
+     5. Behövs tätare bilder i ett avsnitt: kör om med `--bilder 80`.
+
+     Källmärk varje påstående `[TAL MM:SS]`, `[SKÄRM MM:SS]`, `[BESKRIVNING]` eller `[REPO]`. Återge aldrig kod
+     eller text ur en bild som du inte kan läsa säkert.
    - Artikel: WebFetch.
 2. **Placera i kedjan.** Vilket av de åtta stegen i `.claude/skills/bygg-sajt/SKILL.md` berörs, och vad ändras där?
    Vad överlappar det vi redan har? Jämför med de faktiska filerna: `kunskap/externa/` (frontend-design, Taste,

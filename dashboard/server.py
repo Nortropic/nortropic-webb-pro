@@ -339,7 +339,7 @@ def backloggen():
 INTAG = ROOT / 'kirurgen'
 INTAG_VERKTYG = ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'Skill', 'Edit(kunskap/REGISTER.md)',
                  'Bash(.venv/bin/python kontroller/backlog.py *)', 'Bash(.venv/bin/python kontroller/youtube.py *)',
-                 'Bash(gh repo clone *)', 'Bash(git add *)', 'Bash(git commit *)', 'Bash(git push origin main)', 'Bash(ls *)', 'Bash(find *)', 'Bash(wc *)', 'Bash(head *)', 'Bash(cat *)', 'Bash(mkdir *)']
+                 'Bash(gh repo clone *)', 'Bash(gh api repos/*)', 'Bash(cd *)', 'Bash(git add *)', 'Bash(git commit *)', 'Bash(git push origin main)', 'Bash(ls *)', 'Bash(find *)', 'Bash(wc *)', 'Bash(head *)', 'Bash(cat *)', 'Bash(mkdir *)']
 
 
 def intag_lista():
@@ -375,7 +375,7 @@ def starta_intag(url, not_):
     env = {k: v for k, v in os.environ.items() if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_')}
     # Sessionen ärver ägarens egna allow-regler (git push, rm -f, gh pr …); kirurgen får committa registret och
     # backloggen enligt skillen, men det som aldrig behövs nekas. Nekande går före tillåtande.
-    args = [claude, '-p', '--max-turns', '80', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
+    args = [claude, '-p', '--max-turns', '150', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
             '--allowedTools', *INTAG_VERKTYG,
             '--disallowedTools', 'Bash(rm *)', 'Bash(gh pr *)', 'Bash(git rebase *)', 'Bash(git checkout *)', 'Bash(git reset *)',
             'Bash(git worktree *)', 'Bash(git config *)', 'Bash(git push --force *)', 'Bash(git push -f *)']
