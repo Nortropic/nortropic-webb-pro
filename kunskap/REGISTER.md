@@ -907,3 +907,41 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Utfall: ingen åtgärd. Skulle en verksamhet ha en produkt som besökaren behöver vrida på (en möbel, en båt) prövas
   det som en Astro-ö på en undersida, aldrig i mallen
 - Backlog: ingen
+
+### 2026-10-01 · awesome-design-md (VoltAgent) · nej
+- Källa: https://github.com/VoltAgent/awesome-design-md @ `f696123` (senast pushad 2026-09-21), MIT, drygt 119 000
+  stjärnor, inte arkiverat. Förgranskat. Läst: README.md, Starbucks-filen i sin helhet (`design-md/starbucks/DESIGN.md`,
+  581 rader) och dess README, samt de flaggade ställena i Ollama- och OpenCode-filerna. Repot har 74 DESIGN.md (README
+  säger 73) och inga bilder; varje mappens README pekar vidare till getdesign.md. Demon
+  https://getdesign.md/starbucks/design-md sedd som webbsida: första vyn i desktop och mobil och skrollägena vid 13, 40
+  och 66 % i desktop. Ägarens not: ingen
+- Steg: 4 (riktning), 5 (bygge)
+- Sår: L0 ("ai slope skit") i den mån det säljs som väg till UI som inte är ytligt [REPO README.md rad 31]. Ingen
+  JAMFORELSE.md finns ännu
+- Överlapp: formatet har vi redan: briefens §7 skrivs som `DESIGN.md` i kundrepot, med Googles lint som valbart verktyg
+  (`kunskap/bygge-referens.md` rad 46–50). Riktningen härleds ur verksamheten, aldrig ur en branschmall
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 139–140), och "Kopiera aldrig layout, palett eller typsnitt" (rad 154;
+  `kunskap/referenser-professionella.md` rad 61). Samma slags galleri, aura.build/design-systems, fick nej i posten om
+  AI LABS-videon med förgranskade repon
+- Skäl: kärnan är en katalog av andras varumärken att lägga in och låta agenten efterlikna [REPO README.md rad 29,
+  238–239], alltså palett, typsnitt och komponenter ur en annan verksamhet. Det är mekanismen som ger utbytbara sajter
+  och rakt emot rad 154; kundens egna bilder, material och ton kommer aldrig in. Katalogen är dessutom AI-verktyg,
+  SaaS, fintech och storbolag [REPO README.md rad 105–208], inga lokala verksamheter. Beläggen håller inte det som
+  säljs: Starbucks-filen säger att SoDoSans bär nästan varje yta [REPO starbucks/DESIGN.md rad 7] men anger Proxima
+  Nova för produktsidans komponenter (rad 353, 386, 391), och dess egna pillerknappar är omkring 32 px höga, under
+  träffytegränsen (rad 502). Förhandsvisningen kallar presentkorten "photographed as physical product" men visar
+  enfärgade gradientrutor [BILD getdesign-starbucks desktop-skroll-04.png], och statuskorten bär villkor som inte står i filen
+  ("Reach Gold status by earning 450 Stars in 12 months") [samma bild; REPO starbucks/DESIGN.md saknar "450"]. Källkritik: repot är en tratt till en
+  kommersiell sajt med privata DESIGN.md på beställning, "Catalog Pass", betalda startkit, annonser för EveryFeed och
+  Mobbin och en installation via `npx` [BILD desktop-forsta.png, mobil-forsta.png; REPO README.md rad 49–89];
+  stjärnantalet är beviset, inte resultat
+- Kostnad: hela repot ungefär 542 000 tokens text enligt förgranskningen; en enskild fil som Starbucks är 581 rader och
+  skulle laddas i varje bygge som använde den. Inga beroenden om filen kopieras, `npx getdesign` om sajtens väg följs
+- Säkerhet: förgranskningen gav MEDEL, inga dolda tecken, ingen text riktad till agenter, inga skript, krokar eller
+  behörigheter. Träffarna `curl | sh` i `design-md/ollama/DESIGN.md` och `design-md/opencode.ai/DESIGN.md` är
+  beskrivningar av installationsrutan på de sajterna, inte instruktioner. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Filernas avsnittsrubriker (roller per färg, typografitabell, gör och gör inte) är ingen
+  anledning att ändra vår §7; blir en byggs DESIGN.md otydlig i ett riktigt bygge är det Googles format och lint som
+  prövas, inte katalogen
+- Backlog: ingen
