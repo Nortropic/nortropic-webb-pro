@@ -674,3 +674,36 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Utfall: ingen åtgärd. Skulle ett bygge kräva riktig interaktivitet (till exempel en bokningsvy som deras system inte
   redan ger) prövas det som en Astro-ö i steg 5, inte som byte av mall
 - Backlog: ingen
+
+### 2026-10-01 · the-book-of-secret-knowledge (trimstray) · nej
+- Källa: https://github.com/trimstray/the-book-of-secret-knowledge @ `7d37069` (senast pushad 2024-11-19), MIT, 247 262
+  stjärnor. Repot är en enda README.md på drygt 4 400 rader plus licens och bidragsregler. Läst: inledningen och
+  innehållsförteckningen, alla avsnittsrubriker, och i sin helhet de avsnitt som rör webbsajter: Web Tools (rad
+  443–591: webbläsare, SSL/säkerhet, HTTP-rubriker och webblinters, DNS, e-post, prestanda) och Manuals "Web Apps",
+  "All-in-one" och "Other" (rad 935–1015). Resten (CLI-verktyg, nätverk, containrar, pentest, skal-enradare) lästes
+  bara som rubriker. Sedd: den enda bilden, `static/img/the-book-of-secret-knowledge-preview.png`, en tecknad bok med
+  titeln [BILD]. Ingen demo. Ägarens not: ingen
+- Steg: 6 (prov) och lanseringen efter 7, i så fall
+- Sår: inget. L0 ("ai slope skit") gäller generiskt innehåll och generisk form; källan handlar om drift, nät och
+  säkerhet. Ingen JAMFORELSE.md finns ännu
+- Överlapp: det webbrelevanta är länkar till mätverktyg vars mått vi redan har som krav och prov. Säkerhetsrubrikerna
+  som securityheaders.com och Mozilla Observatory betygsätter [REPO README.md rad 491–492] står i
+  `kunskap/bygge-referens.md` rad 16–18 och prövas i `kunskap/prelaunch.md` rad 17 (grind 7). Lighthouse och
+  PageSpeed Insights [REPO rad 588–590] körs av `kontroller/lighthouse.mjs` och mäts mot kravnivån i prelaunch.md rad
+  12, och Core Web Vitals-målen står i bygge-referens.md rad 14. SPF/DKIM-kontrollen som e-postverktygen gör [REPO rad
+  523–528] står i `kunskap/lansering.md` rad 52–62
+- Skäl: en länksamling för systemadministratörer, DevOps och pentestare, som författaren själv säger [REPO README.md
+  rad 32], utan regler eller metod att ta in, bara en mening om varje länk. Det lilla som rör en lokal verksamhets
+  sajt är kontrollverktyg för det vi redan kräver och mäter, och flera av dem är föråldrade eller nere (xip.io,
+  Panopticlick, Netcraft märkt som otillgänglig [REPO rad 450, 513, 546]; senast pushad för snart två år sedan). Inget
+  i den adresserar att sajten ska höra till verksamheten. Källkritik: källan säljer inget utom en Open
+  Collective-insamling [REPO rad 65–74]; stjärnantalet är räckvidd, inte belägg, och urvalet är en persons bokmärken
+- Kostnad: ungefär 54 500 tokens text om den skulle laddas; inga beroenden. Inget att underhålla, men inget att vinna
+- Säkerhet: förgranskningen gav LÅG över fem textfiler: inga dolda tecken, ingen text riktad till agenter, inga skript
+  eller krokar. Innehållet länkar till exploit-, lösenords- och skanningsverktyg, men som listor, inte som
+  instruktioner till en agent. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Skulle prelaunch grind 7 i ett riktigt bygge behöva ett oberoende andra utlåtande om
+  rubrikerna, är securityheaders.com eller Mozilla Observatory ett manuellt kvitto mot den levande adressen, inte en
+  ny kontroll
+- Backlog: ingen
