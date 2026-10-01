@@ -32,11 +32,34 @@ Nej till att bygga om från grunden, ja till att börja om smått. Ett nytt, lit
 - Digitalas kunskapstexter och fristående kontroller kopierade in (`kunskap/`, `kontroller/`, `kritik/`);
 - en stoppvakt som håller varje körning kvar tills kontrollerna är gröna (loop 1);
 - skillen `kirurg` som bedömer det ägaren skickar mot såren i `LARDOMAR.md` (oftast nej);
-- en pilot: en bransch, en stad, tre riktiga verksamheter, två veckor. Ägaren ger bransch och stad, tio referenser och
-  antislop-regeln; ägaren dömer varje bygge med egna ord.
+- en pilot: en bransch, en stad, tre riktiga verksamheter, två veckor. Ägaren ger bransch och stad och dömer varje
+  bygge; referenserna hittar bygget själv (se tillägget nedan).
 
 Riktiga verksamheter i stället för fiktiva, eftersom fiktiva företag inte har något specifikt att säga och därför ger
 slop. Playwright används inte mot YouTube; transkriptet hämtas med `kontroller/youtube.py`.
+
+## Tillägg samma kväll
+
+Ägarens ord, ordagrant:
+
+- "inte privat repo, public"
+- "vi har väl redan en antislop regel och jag vill ha ett dashboard för allt detta"
+- "och vadå referens sajter? det tar du ju reda på själv"
+- "ja, det skulle hjälpa om jag får ett frågeforumlär efter ett bygge med åsikter som besvarar det du undrar för träningsdata på bästa sätt"
+- "är kirurgen med youtube skillen på dashboard också, viist?"
+- "Jag vill att den är utformad som förbättringsagenten så det blir en vilande backlog per automatik av allt som upptäcks som är aktuellt för oss så jag kan starta en claude session och peka den på backloggen och säg börja implementera enligt backlog"
+
+Genomfört:
+
+- Repot är publikt (`Nortropic/nortropic-webb-pro`).
+- Antislop: utkastet togs bort. Den befintliga regeln, ur den gamla skillen nortropic-antislop, gäller:
+  `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`, `kunskap/referenser-professionella.md`.
+  Copykontrollen är rapport, inte grind, som dess egen text kräver.
+- Referenserna hittar bygget själv i steg 3 (`kunskap/referensjakt.md`), öppnar dem och jämför i steg 5.
+- Dashboarden (`./dashboard.sh`) med frågeformuläret efter varje bygge: kärnfrågor som går att jämföra över byggen
+  plus byggets egna frågor. Svaren blir träningsdata i `kunder/<slug>/DOM.json` och `LARDOMAR.md`.
+- Vilande backlog (`backlog/`), automatiskt fylld av kirurgen, domarna och byggena; skillen `backlog` genomför den
+  när ägaren säger "implementera enligt backlog". Kirurgen nås från dashboarden.
 
 ## Det gamla, fryst (inget raderat)
 
