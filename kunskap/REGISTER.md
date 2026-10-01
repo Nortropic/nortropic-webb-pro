@@ -829,3 +829,44 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Förslag: inget
 - Utfall: ingen åtgärd
 - Backlog: ingen
+
+### 2026-10-01 · shadcn/ui (shadcn-ui/ui) · nej
+- Källa: https://github.com/shadcn-ui/ui @ `d75a96a` (senast pushad 2026-10-01), MIT, knappt 125 000 stjärnor, inte
+  arkiverat. Förgranskat. Läst: README.md, `skills/shadcn/SKILL.md` i sin helhet, Astro-mallen
+  (`templates/astro-app/package.json`, `src/pages/index.astro`) och de flaggade ställena nedan. Regelfilerna under
+  `skills/shadcn/rules/`, dokumentationen och registerkoden lästes inte. Bilder: README:ns förhandsbild
+  (`apps/v4/public/opengraph-image.png`). Demon https://ui.shadcn.com sedd som webbsida: första vyn och hela sidan i
+  desktop, första vyn i mobil. Ägarens not: ingen
+- Steg: 5 (koncept och bygge), i så fall
+- Sår: inget. L0 gäller slop och copy, inte vilket komponentbibliotek knappar och formulär byggs med. Ingen
+  JAMFORELSE.md finns ännu
+- Överlapp: mallen är Astro med `astro` och `sharp` som enda beroenden (`mall/astro/package.json` rad 10–13), och
+  steg 5 kräver "ingen JavaScript som inte behövs" och att formulären inte skickar något i demon
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 144–147). Taste nämner redan shadcn/ui, för SaaS och med kravet att aldrig
+  släppa standardutseendet (`kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md` rad 99 och 627). Det generiska
+  kortkit som biblioteket lätt ger står redan som slopmönster i frontend-design rad 42
+  (`kunskap/externa/anthropic-frontend-design-SKILL.md`). React som grund är avfärdat i posten "React (react/react)"
+  ovan
+- Skäl: shadcn/ui är ett komponentbibliotek i React och Tailwind, där komponenterna kopieras in som källkod i
+  projektet med ett eget CLI [REPO README.md rad 3; REPO skills/shadcn/SKILL.md rad 10]. Den medföljande skillen är
+  en bruksanvisning för biblioteket, inte för design: dess regler gäller vilka komponenter som ska komponeras och hur
+  (FieldGroup, Badge, Separator, semantiska färgtokens) [REPO skills/shadcn/SKILL.md rad 22–84]. Även Astro-mallen
+  drar in React, React DOM och Tailwind, och knappen på startsidan laddas som klientö [REPO
+  templates/astro-app/package.json rad 18–27; templates/astro-app/src/pages/index.astro rad 13]; det går emot steg
+  5:s minimala JavaScript för informationssajter. Det som syns i demon är en vägg av likformiga rundade kort med samma
+  radie, gråskala och dashboardinnehåll i dollar [BILD desktop-hela.png; BILD opengraph-image.png], alltså just det
+  SaaS-kortkit som vi redan räknar som generiskt. Ingen del adresserar ett sår: hos oss uppstår slop i vad sidan
+  säger, inte i hur ett fält är märkt upp. Källkritik: källan säljer bara sig själv; "thoughtful defaults" [TEXT] är
+  ett omdöme, inte något belagt mot verksamhetssajter
+- Kostnad: ungefär 540 000 tokens text i repot; skillen ensam är knappt 300 rader och laddar dessutom resultatet av
+  ett CLI-anrop varje gång den används. Som beroende skulle det betyda React, React DOM, Tailwind, en
+  Astro-integration och ett CLI som skriver komponentfiler, med versionsunderhåll i varje bygge
+- Säkerhet: förgranskningen gav HÖG, av mängden: 633 skript (eval/exec i release- och registerskript, miljövariabler
+  i v0- och registerkod, nätanrop i registerhämtning). Inga dolda tecken. De 27 ställena med text riktad till agenter
+  är installationsrader i dokumentation och mallarnas README. Skillen ger sig själv rätt att köra paketets CLI via
+  `npx`, `pnpm dlx` och `bunx` och kör ett sådant anrop redan när den laddas [REPO skills/shadcn/SKILL.md rad 5 och
+  17], och `.cursor-plugin/plugin.json` startar en MCP-server via `npx`; att installera den vore att hämta och köra
+  kod från npm i varje session. Inget försök att styra granskaren hittades. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Skulle ett bygge kräva riktig interaktivitet prövas den som en Astro-ö i steg 5, som för React
+- Backlog: ingen
