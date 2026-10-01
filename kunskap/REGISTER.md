@@ -489,3 +489,61 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   eller utforskningen tar för lång tid), kan en snabb klassificerare prövas där, som A/B och utan att ersätta någon
   granskning
 - Backlog: ingen
+
+### 2026-10-01 · AI LABS-video om Inspo (referensarkiv över MCP, av Hallmarks upphovsperson) · nej
+- Källa: https://www.youtube.com/watch?v=Ow_z94c3wKk @ 2026-09-18 (AI LABS, 12:35, autogenererat transkript,
+  sponsrad [TAL 06:00]). Sedda: hela tidslinjen och alla 41 bildrutor; nio är skärminspelningar (Inspos sajt,
+  installationen, `/mcp`, Claude Codes svar och den byggda sidan i 1440 och 402), resten animerade illustrationer,
+  sponsorklipp och kanalreklam. Repot förgranskat och läst: Nutlope/inspo @ `647c3b1` (senast pushad 2026-10-01, MIT,
+  815 stjärnor): README.md, `apps/mcp/README.md`, serverinstruktionerna och kompositionsreglerna i
+  `apps/mcp/src/tools.ts` (rad 127–151, 1717–1747), branschlistan i `packages/taxonomy/src/index.ts` (rad 36–61) och
+  den egna användningsmätningen `apps/mcp/bench/results/2026-09-10-agent-usage.md`. Sedda bilder i repot: README:ns
+  med- och utan-jämförelse (`docs/img/with-inspo.jpg`, `without-inspo.jpg`). inspomcp.dev öppnades inte som webbsida;
+  den syns i videon [SKÄRM 04:01, 07:02]. ui-skills.com, monid.ai, ailabspro.io och theroundup.so öppnades inte
+- Steg: 3 (referenser) och 5 (riktning, bygge)
+- Sår: L0 ("ai slope skit"); videon säger att varje designskill lämnar ett gap som gör att resultatet "still feel
+  generated" [TAL 00:00]. Ingen JAMFORELSE.md finns ännu
+- Överlapp: att ge agenten riktiga sajter att se i stället för textregler är redan vårt steg 3: referenser i tre roller
+  som agenten själv söker fram och öppnar i riktig webbläsare i 390 och 1440 (`.claude/skills/bygg-sajt/SKILL.md` rad
+  96–108, `kunskap/referensjakt.md` rad 13–21 och 31–32). Gallerier står där redan som "möjliga sökingångar, inte en
+  stilhierarki" (`referensjakt.md` rad 25–27), och Inspos arkiv kan användas så utan att något installeras. Mobil- och
+  desktopbilder per referens motsvaras av `inspektera.mjs --vyer 390,1440` (bygg-sajt rad 102). Inspos hero-regel,
+  att första vyn ska rymma rubrik, stödrad och primär handling [REPO tools.ts rad 139], är femsekunderstestet i steg 6.4
+  (bygg-sajt rad 162–165) och kravet i steg 5.5 att första vyn säger vad de gör och vad man gör härnäst (rad 149–150)
+- Skäl: källans egna bilder fäller den på dess egen fråga. README:ns med-och-utan-jämförelse, "That gap is the
+  product" [REPO README.md rad 18], går från ett standardval till ett annat: utan Inspo nästan svart med en enda
+  syragrön accent [REPO docs/img/without-inspo.jpg], alltså punkt 2 i `anthropic-frontend-design-SKILL.md` rad 40;
+  med Inspo varmt papper, ett ord i rubriken markerat med accentfärg, en versal eyebrow med mittpunkt ("A GUIDED TOUR
+  · FIVE STEPS"), monospace-etiketter och mörk pillerknapp [REPO docs/img/with-inspo.jpg], alltså rad 26–27, 39 och
+  43 i samma fil. Inspos egen sajt har ett ord i accentfärg i rubriken ("inspiration") [SKÄRM 07:02]. I videons
+  bygge härleds riktningen ur "category gravity" bland 24 modesajter, och valet är "Maharishi's exact move" [SKÄRM
+  08:52]; agenten säger sedan att maharishistore "did most of the work", att grunden `#c9b49e` kommer därifrån och att
+  accenten är Maharishis overshirtfärg mörkad [SKÄRM 09:46]. Det är att kopiera layout och palett ur en referens,
+  rakt emot bygg-sajt rad 150 och referensjakt rad 53, och riktningen kommer ur branschen, inte ur verksamheten (rad
+  135–136). Bilderna är stockbilder: agenten lägger en varm ton över "stock shots in five different colour
+  temperatures" [SKÄRM 09:10] och kallar alla nio för platshållare [SKÄRM 09:46], mot "Inga stockbilder" (rad 49).
+  Mobilens första vy är bara ett foto med en versal etikett, utan rubrik eller handling [SKÄRM 10:19], så den hade
+  fallit på femsekunderstestet. Arkivet passar dessutom inte våra verksamheter: branschlistans 24 kategorier har SaaS,
+  krypto, AI, typsnittsgjuterier och utvecklarverktyg men ingen för lokala tjänster, hantverk eller vård [REPO
+  taxonomy/src/index.ts rad 36–61], och videon visar själv att sökningen gav fel bransch två gånger [TAL 10:53, SKÄRM
+  11:17]. Källkritik: beviset i videon är en fiktiv butik och berättarens omdöme; den sponsrade delen säger
+  "Manifold" [TAL 06:00] medan bilden och beskrivningen visar Monid [SKÄRM 06:26; BESKRIVNING]. Inspelningarna körs
+  med `--dangerously-skip-permissions` [SKÄRM 08:52] och "bypass permissions on" [SKÄRM 11:17]. Repots egen mätning
+  är ärlig och talar emot det: av 25–56 hämtade sajter per bygge citerades 4 eller 5, och 13 % av de returnerade
+  sajterna användes [REPO 2026-09-10-agent-usage.md rad 45–47]
+- Kostnad: 15 verktyg i en MCP-server i användarnivå [SKÄRM 07:39, 07:57]; enligt repot omkring 37 000 tokens
+  verktygssvar per bygge före en omläggning, uppskattat till 12 000–14 000 efter, inte prövat på nya byggen [REPO
+  2026-09-10-agent-usage.md rad 13–14, 97–102]. Den hostade vägen skickar briefen till en extern tjänst
+  (inspomcp.dev); vår brief bygger på verksamhetens underlag
+- Säkerhet: förgranskningen gav MEDEL, inga dolda tecken och ingen text riktad till agenter. MEDEL kommer av skript
+  med nätanrop och miljövariabler, och av `apps/mcp/src/install.ts`, som skriver i andra verktygs konfiguration utanför
+  repot (Claude Code i användarnivå, Codex, Claude Desktop [SKÄRM 07:39]). Träffen `curl … | sh` är synlig text i en
+  exempelsida för ett påhittat CLI (`apps/web/public/examples/ferrite-terminal/page.html` rad 289). Serverinstruktionerna
+  säger själva att projektets egna konventioner vinner över Inspo [REPO tools.ts rad 1727–1732]. Inget kördes eller
+  installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Arkivet på inspomcp.dev är en galleriingång bland andra och får användas som sådan enligt
+  `referensjakt.md` rad 25–27, med samma krav: följ till den riktiga sajten och öppna den. Visar ett riktigt byggs
+  REFERENSER.md att hantverksreferenser var svåra att hitta, är det fyndet som ska åtgärdas, i `referensjakt.md`, inte
+  genom en MCP-server
+- Backlog: ingen
