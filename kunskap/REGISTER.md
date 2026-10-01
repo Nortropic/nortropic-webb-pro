@@ -586,3 +586,60 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Utfall: ingen åtgärd. Det enda nya för oss, Claude Designs kommentarsverktyg för att peka på en del av sidan
   [TAL 09:30], är ett gränssnitt för människor och bär inget sår
 - Backlog: ingen
+
+### 2026-10-01 · ECC (affaan-m, "operating system for AI agent harnesses") · nej
+- Källa: https://github.com/affaan-m/ECC @ `c70874f` (senast pushad 2026-10-01, MIT, 270 621 stjärnor, inte
+  arkiverat). Förgranskat. Paketet har 293 skills, 68 agenter och 94 kommandon [REPO README.md rad 142], och
+  förgranskningen räknade cirka 3,9 miljoner tokens text. Läst därför ett urval: README.md (rad 1–160), hjältebilden
+  `assets/hero.png`, och de skills som berör webbygge och slop: `frontend-design-direction`,
+  `make-interfaces-feel-better`, `design-system`, `brand-voice`, `loop-design-check`, `seo` (rad 1–60) och
+  `taste-distillation`. Läst även `continuous-learning-v2` (rad 1–50), krokarnas händelser i `hooks/hooks.json` och de
+  flaggade ställena. Övriga cirka 285 skills är bara sedda som namn och beskrivning (mest språk- och ramverksmönster,
+  sociala medier, finans, hälsovård). ecc.tools öppnades inte
+- Steg: 4 (copy), 5 (riktning och bygge) och 6 (prov); resten av paketet ligger utanför kedjan
+- Sår: L0 ("ai slope skit"). Ingen JAMFORELSE.md finns ännu
+- Överlapp: designdelarna är en tunnare upplaga av det vi redan läser. `frontend-design-direction` förbjuder lila
+  gradienter, dekorativa blobbar, stora kort och vag hjältetext [REPO skills/frontend-design-direction/SKILL.md rad
+  69–70]. Det står redan i Taste (`kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md` rad 39) och i frontend-design
+  (`kunskap/externa/anthropic-frontend-design-SKILL.md` rad 17 och 42). Skillen säger själv att den inte buntar
+  Anthropics frontend-design [REPO rad 15–18], och den har vi redan. `make-interfaces-feel-better` (inget
+  `transition: all`, `text-wrap: balance`, `tabular-nums`, träffytor 40–44 px) [REPO
+  skills/make-interfaces-feel-better/SKILL.md rad 50–55, 107, 123] motsvaras av Vercels riktlinjer
+  (`kunskap/externa/vercel-web-interface-guidelines-command-e3d624ba.md` rad 55, 68–69), Emil
+  (`kunskap/externa/emil-emil-design-eng-SKILL.md` rad 44) och Osmani
+  (`kunskap/externa/addyosmani-accessibility-SKILL.md` rad 255–258). Slopkontrollen i `design-system` är sju rader
+  [REPO skills/design-system/SKILL.md rad 59–66], alla redan i Taste rad 39 och 187. `loop-design-check` kräver en
+  oberoende domare och att människan ger slutgodkännandet [REPO skills/loop-design-check/SKILL.md rad 85, 110]. Det
+  har vi redan: det avskärmade femsekunderstestet (`.claude/skills/bygg-sajt/SKILL.md` rad 162–165), stoppvakten som
+  kör provet själv (rad 210–211) och ägarens dom i steg 8 (rad 213–217)
+- Skäl: inget i urvalet adresserar L0 bättre än det vi redan har, och flera delar drar åt fel håll.
+  `frontend-design-direction` säger att man ska använda "real or generated visual assets"
+  [REPO skills/frontend-design-direction/SKILL.md rad 53]. Det skiljer inte på anspråk som `kunskap/bild.md` rad
+  12–19 gör, och det går emot "Inga stockbilder" (bygg-sajt rad 49). `design-system` hämtar inspiration från "3
+  competitor sites" [REPO skills/design-system/SKILL.md rad 27] och skapar ett tokensystem ur dem. Våra referenser
+  ska i stället ha tre roller och får inte kopieras (bygg-sajt rad 96–108, 150). `brand-voice` bygger en röst ur
+  X-inlägg och mejl för sociala kanaler [REPO skills/brand-voice/SKILL.md rad 23–26, 92–96]. Vår ton hämtas ur
+  verksamhetens och kundernas egna ord (bygg-sajt rad 89). Kärnan i paketet är mekanik: sex krokhändelser från
+  PreToolUse till SessionEnd [REPO hooks/hooks.json rad 3, 92, 103, 123, 166, 240] och ett system som observerar
+  sessioner och själv gör om "instincts" till skills, kommandon och agenter [REPO
+  skills/continuous-learning-v2/SKILL.md rad 3]. Det strider mot "en dom blir en textändring, inte en ny mekanik"
+  och mot ägarens domar som enda källa till ändrade regler. `taste-distillation` mäter färgton och klipprytm i video
+  och ligger utanför webbygge. Källkritik: README:n säljer ECC Pro från 19 dollar per plats och månad [REPO README.md
+  rad 79–83] och visar sponsorer. Hjältebilden är själv ett vanligt mönster: nästan svart botten med en enda
+  orangeröd accent, accentfärg på rubrikens sista ord, en versal spärrad eyebrow med mittpunkt och
+  monospace-etiketter [BILD assets/hero.png]. Det är samma drag som frontend-design rad 26–27, 40 och 43 pekar ut. Påståendet att ECC gör agenten bättre är inte belagt med någon
+  jämförelse i det jag läste
+- Kostnad: hela paketet ligger på flera miljoner tokens text. Det installeras som plugin med krokar i sex händelser,
+  regler som alltid laddas och en bakgrundsagent för inlärning. Det betyder underhåll av en kodbas som släpper varje
+  vecka över sju verktyg [REPO README.md rad 104]
+- Säkerhet: förgranskningen gav HÖG, inga dolda tecken. HÖG kommer av 1 003 skript, bland dem installatörer som
+  skriver utanför repot (`.codebuddy/install.sh`, `.trae/install.sh`, `.kiro/install.sh`), krokar med `eval` och
+  miljövariabler, en MCP-server via `npx` (`.mcp.json`) och nätanrop (bland annat `skills/taste-application/scripts/falapi.py`).
+  De 48 ställena med text riktad till agenter är i sitt sammanhang ofarliga: säkerhetsguider som beskriver
+  exfiltrering, testfixturer för en promptinjektionsvakt och en exempelfil för användarens CLAUDE.md
+  (`examples/user-CLAUDE.md` rad 14). Inget försök att styra granskaren hittades i det lästa. Inget kördes eller
+  installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Visar ett riktigt byggs JAMFORELSE.md att detaljfinishen brister (radbrytning i rubriker,
+  siffror, övergångar), finns reglerna redan i Vercels riktlinjer och Emil. Då ska steg 5 peka dit, inte ta in ECC
+- Backlog: ingen
