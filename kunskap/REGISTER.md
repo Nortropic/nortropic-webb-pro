@@ -43,3 +43,25 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   fångar något Vercel och Osmani missar tas in som rader i vår egen text, inte verktyget.
 - Utfall: väntar på första bygget
 - Backlog: B-20261001-prova-ui-ux-pro-max-s-ux-riktlinjer-och-leverans
+
+### 2026-10-01 · vercel-web-interface-guidelines · parkera
+- Källa: https://github.com/vercel-labs/web-interface-guidelines (lokal kopia
+  `kunskap/externa/vercel-web-interface-guidelines-command-e3d624ba.md`, kopierad utan ändring vid repots skapande), MIT
+- Steg: 5 (bygge), 6 (prov)
+- Sår: inget namngivet i LARDOMAR.md (L0 gäller generiskt innehåll, inte kodnivåns UI-detaljer) och ingen faktisk
+  JAMFORELSE.md/RAPPORT.md finns ännu som pekar på det den täcker
+- Överlapp: tillgänglighetsavsnittet görs djupare och WCAG-citerat av `addyosmani-accessibility-SKILL.md` (redan i
+  kunskap/externa, redan läst via bygge-referens.md); touch-detaljerna (touch-action, tap-highlight-color,
+  overscroll-behavior) görs djupare av `emil-mobile-native-SKILL.md` (redan läst i steg 5); prestanda, säkerhet,
+  formulärens fel-/tom-/laddningslägen och prefers-reduced-motion står redan i `bygge-referens.md`
+- Skäl: ett terse 190-rads kodgranskningskommando skrivet för Vercels egna React/Next-produkter (hydrering,
+  URL-synkad state, kontrollerade inputs, listvirtualisering) — de flesta reglerna möter inte mallens Astro-stack
+  med minimal klient-JS. En regel krockar rakt med ett medvetet val: "Title Case for headings/buttons (Chicago
+  style)" mot copy-kontroll.md:s "rubriker i satsform, inte versaler". Det genuint nya (autocomplete/inputmode/
+  spellcheck på formulärfält, placeholders som slutar på "…", varning vid osparad navigering, textöverflöde med
+  truncate/line-clamp/min-w-0) är smått men adresserar inget namngivet sår eller gap ännu.
+- Förslag: inget nu.
+- Utfall: aktualiseras av ett fynd i en riktig byggs renderingsläsning, femsekunderstest eller JAMFORELSE.md
+  (dimension 7, mobil ergonomi) som pekar på trasig formulär-UX eller textöverflöde — då tas bara de rader som
+  fångar det specifika fyndet in i `bygge-referens.md` eller `formularsakerhet.md`, inte källan som helhet.
+- Backlog: ingen
