@@ -1,0 +1,14 @@
+# Råmaterial om verksamheter och byggena: privat, aldrig i git
+underlag/
+kunder/
+
+# Miljöer och beroenden
+.venv/
+node_modules/
+dist/
+.astro/
+
+# Övrigt
+.DS_Store
+__pycache__/
+*.pyc

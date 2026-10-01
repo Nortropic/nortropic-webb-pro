@@ -1,0 +1,23 @@
+---
+// Bara det tekniska varje sida behöver. All design, typografi och struktur skrivs för just den här verksamheten.
+interface Props {
+  titel: string;
+  beskrivning: string;
+}
+const { titel, beskrivning } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+---
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{titel}</title>
+    <meta name="description" content={beskrivning} />
+    <link rel="canonical" href={canonical} />
+    <slot name="head" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
