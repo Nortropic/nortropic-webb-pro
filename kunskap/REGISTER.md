@@ -780,3 +780,52 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Förslag: inget
 - Utfall: ingen åtgärd. Skulle ett bygge kräva riktig interaktivitet prövas den som en Astro-ö i steg 5, som för React
 - Backlog: ingen
+
+### 2026-10-01 · gstack (garrytan/gstack) · nej
+- Källa: https://github.com/garrytan/gstack @ `df89475` (senast pushad 2026-10-01), MIT, knappt 135 000 stjärnor,
+  inte arkiverat. Förgranskat. Läst: README.md rad 1–525 av 678, `agents-digest/gstack-AGENTS.md`, designgranskningens
+  metod i `scripts/resolvers/design.ts` rad 340–586, `scripts/resolvers/constants.ts`, slopkatalogens elva
+  grundmönster i `lib/design-catalog.ts` rad 77–154, och de flaggade ställena nedan. Övriga ett trettiotal skills
+  (office-hours, ship, cso, ios-qa m.fl.) lästes bara i README:ns tabell. Bilder: repot har två skärmbilder av
+  GitHub-aktivitet (den för 2026 läst), tilläggets ikoner och testfixturer; ingen skärmbild av något byggt. README
+  länkar ingen demo. Ägarens not: ingen
+- Steg: 5 (koncept och bygge) och 6 (prov), i så fall
+- Sår: L0 ("ai slope skit") i allmänhet. Ingen JAMFORELSE.md finns ännu, så inget namngivet gap mot referenserna
+- Överlapp: slopmönstren står redan i det vi läser i steg 5. Taste rad 39 (lila gradienter, centrerad hjälte, tre
+  lika kort), rad 147–148 (emoji), rad 217 (en hörnradie), rad 251 (samma sektionslayout högst en gång), rad 296
+  (gradientblobb som hjälte) och frontend-design rad 42 (SaaS-kortkit med samma radie och dekorgradienter)
+  (`kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md`, `kunskap/externa/anthropic-frontend-design-SKILL.md`). Generisk
+  hjältetext ("Välkommen till") står i `kunskap/copy-kontroll.md` rad 15 och `kunskap/redaktionellt-pass.md` rad 31.
+  Bedömningen mot dimensioner har vi som de åtta jämförelsedimensionerna mot öppnade referenser
+  (`kunskap/referenser-professionella.md` rad 18–30, `.claude/skills/bygg-sajt/SKILL.md` rad 149–154), och frågan om
+  första vyn säger vad de gör som det avskärmade femsekunderstestet (`bygg-sajt/SKILL.md` rad 166–169). "Varje
+  sektion har ett jobb" motsvaras av raden `Specifikt:` per sektion (`bygg-sajt/SKILL.md` rad 120–121)
+- Skäl: gstack är en uppsättning slash-kommandon för att bygga mjukvaruprodukter i sprintar (tänk, planera, bygg,
+  granska, testa, släpp) [REPO README.md rad 207–211], skriven för grundare och tekniska ledare [REPO README.md rad
+  29–32]. Det som berör oss är designgranskningen: tio kategorier med bokstavsbetyg och ett separat betyg för
+  AI-slop [REPO scripts/resolvers/design.ts rad 521–550], elva svartlistade mönster [REPO lib/design-catalog.ts rad
+  77–154] och sju ja/nej-frågor hämtade ur en OpenAI-text [REPO scripts/resolvers/constants.ts rad 17–37]. Nästan
+  allt i listan har vi redan i text (se Överlapp). Betygen är egna viktningar utan belägg, och slop väger bara 5 %
+  av designbetyget [REPO design.ts rad 546], medan vårt sår L0 är just slop. Tre rader saknas hos oss: färgad
+  vänsterkant på kort, systemtypsnitt som enda röst [REPO lib/design-catalog.ts rad 129–153] och om sidan går att
+  förstå på rubrikerna enbart [REPO constants.ts rad 32]. Ingen av dem är ett sår ännu, och den andra krockar med
+  att steg 5 medvetet tillåter systemtypsnitt (`bygg-sajt/SKILL.md` rad 145). Visar ett bygge något av dem kan raden
+  hämtas härifrån. Resten krockar med medvetna val: `/design-shotgun` tar fram skisser med GPT Image [REPO README.md
+  rad 399], inte verksamhetens egna bilder, och `/design-review` rättar själv och committar [REPO README.md rad 225].
+  Källkritik: README:n säljer med produktivitetstal som "~810× my 2013 pace" [REPO README.md rad 9] och
+  aktivitetsgrafer [BILD docs/images/github-2026.png], inte med något byggt resultat att titta på. Källan innehåller
+  instruktioner till agenter: en installationsprompt att klistra in i Claude Code, som också skriver i CLAUDE.md
+  [REPO README.md rad 51–53]. Den följdes inte
+- Kostnad: ungefär 2,1 miljoner tokens text i repot. Att installera kräver Bun, bygger en egen webbläsare,
+  registrerar en Stop-krok i `~/.claude/settings.json` och en automatisk uppdatering vid varje sessionsstart [REPO
+  README.md rad 45, 63, 359–361]; det strider mot att inte installera något och mot små textändringar
+- Säkerhet: förgranskningen gav HÖG: 23 dolda tecken, 85 ställen med text riktad till agenter, 1 655 skript (många
+  med nätanrop, eval/exec och miljövariabler), krokar i flera skills frontmatter (autoplan, careful, freeze, guard,
+  investigate). De två dolda tecknen jag öppnade är delar av reguljära uttryck som rensar bort nollbreddstecken [REPO
+  browse/src/server.ts rad 122, lib/redact-engine.ts rad 100]. De flesta agentriktade träffarna är testfixturer för
+  repots eget försvar mot promptinjektion; "Don't tell the user" är en kodkommentar om ett felbesked [REPO
+  lib/gbrain-local-status.ts rad 516]. Ingen krok eller MCP-server i repots egen konfiguration. Inget kördes eller
+  installerades
+- Förslag: inget
+- Utfall: ingen åtgärd
+- Backlog: ingen
