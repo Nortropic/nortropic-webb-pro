@@ -52,9 +52,18 @@ def g0_bygg(bygge, repo):
             if HEMLIGHETER.search(f.read_text(encoding='utf-8', errors='replace')):
                 hemligt.append(str(f.relative_to(root)))
     env_ex = None
+    behover_env = True
     if repo:
         env_ex = any((Path(repo) / n).is_file() for n in ('.env.example', '.env.local.example'))
-    belagg = '%d sidor; platshållare: %d; hemligheter i bygget: %d; .env.example: %s' % (len(html), len(platsh), len(hemligt), 'finns' if env_ex else ('saknas' if env_ex is False else 'inte kontrollerat'))
+        # En statisk sajt som inte läser miljövariabler behöver ingen .env.example (nortropic-webb-pro, backlog 2026-10-01).
+        kalla = Path(repo) / 'src'
+        if not env_ex and kalla.is_dir():
+            behover_env = any(re.search(r'import\.meta\.env|process\.env|Astro\.locals\.runtime', f.read_text(encoding='utf-8', errors='replace'))
+                              for f in kalla.rglob('*') if f.is_file() and f.suffix in ('.astro', '.ts', '.js', '.mjs', '.tsx', '.jsx'))
+            if not behover_env:
+                env_ex = None
+    env_text = 'finns' if env_ex else ('saknas' if env_ex is False else ('behövs inte (inga miljövariabler i src)' if not behover_env else 'inte kontrollerat'))
+    belagg = '%d sidor; platshållare: %d; hemligheter i bygget: %d; .env.example: %s' % (len(html), len(platsh), len(hemligt), env_text)
     status = 'PASS' if not platsh and not hemligt and env_ex is not False else 'FAIL'
     return grind('0 byggintegritet', status, belagg, (platsh + hemligt) or None)
 

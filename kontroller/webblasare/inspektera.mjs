@@ -26,6 +26,10 @@ for (const vy of vyer) {
     r.status = svar?.status() ?? null; r.titel = await b.page.title();
     await b.page.waitForTimeout(500);
     r.forsta_vyn = skriv(a.ut, `vy-${vy}-forsta.png`, ''); await b.page.screenshot({ path: r.forsta_vyn });
+    // Lata bilder (loading=lazy) och intoning vid skroll syns inte i en helsidesbild om sidan inte skrollats igenom först.
+    await b.page.evaluate(async () => { const h = () => document.documentElement.scrollHeight; for (let y = 0; y < h(); y += innerHeight * 0.8) { scrollTo(0, y); await new Promise((ok) => setTimeout(ok, 150)); } scrollTo(0, 0); });
+    await b.page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 8000 }).catch(() => {});
+    await b.page.waitForTimeout(300);
     r.hela_sidan = join(a.ut, `vy-${vy}-hela.png`); await b.page.screenshot({ path: r.hela_sidan, fullPage: true });
     r.tillganglighetstrad = skriv(a.ut, `vy-${vy}-aria.txt`, await b.page.locator('body').ariaSnapshot());
     r.h1 = await b.page.locator('h1').count();

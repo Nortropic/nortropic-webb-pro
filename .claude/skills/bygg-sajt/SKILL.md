@@ -161,12 +161,16 @@ Läs `kunskap/prelaunch.md` och `kunskap/webblasare.md`.
    kraven står överst i `kontroller/prova.py`.
 2. **Utforskning och copy:** läs `kunder/<slug>/prov/utforska/UTFORSKNING.md` och rätta verkliga fynd. Läs
    `kunder/<slug>/prov/copy.md` och rätta eller motivera varje fynd.
-3. **Renderingsläsning:** läs `kritik/FRAGA-renderingslasning.md` och gör läsningen själv mot skärmbilderna. Skriv
-   svaret i `underlag/<slug>/RENDERINGSLASNING.md`. Rätta det du hittar.
+3. **Renderingsläsning:** läs `kritik/FRAGA-renderingslasning.md` och gör läsningen själv mot skärmbilderna. Använd
+   frågorna 1–6. Hoppa över allt som hör till det gamla Runtime-paketet: FILES.md, VYER/, MATT/, KUND/, UNDERLAG/,
+   BEDOMNINGSBINDNING och JSON-schemat. Skriv svaret i `underlag/<slug>/RENDERINGSLASNING.md`, en rubrik per fråga
+   med vad du såg (bild och vy) och vad som ska rättas. Rätta det du hittar.
 4. **Femsekunderstest, avskärmat:** starta en subagent med Task-verktyget. Ge den bara texten i
-   `kritik/FRAGA-femsekunderstest.md` och sökvägarna till första-vyn-bilderna för startsidan i 390 och 1440. Ingen
-   brief, inget underlag, ingen kod. Spara svaret i `underlag/<slug>/FEMSEK.md`. Kan läsaren inte säga vad
-   verksamheten gör och vad besökaren ska göra härnäst: rätta och testa igen.
+   `kritik/FRAGA-femsekunderstest.md`, fältlistan i `kritik/SCHEMA-femsekunderstest.json` och sökvägarna till
+   första-vyn-bilderna för startsidan i 390 och 1440. Säg att den ska läsa bilderna i stället för FILES.md och svara
+   med ett JSON-objekt med schemats fält. Ingen brief, inget underlag, ingen kod. Spara svaret i
+   `underlag/<slug>/FEMSEK.md`. Kan läsaren inte säga vad verksamheten gör och vad besökaren ska göra härnäst: rätta
+   och testa igen.
 5. Kör hela provet igen efter sista ändringen.
 
 ## Steg 7 — Rapport

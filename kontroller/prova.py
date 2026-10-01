@@ -190,15 +190,23 @@ def prova(slug, snabb=False):
     fraser = underlag / 'FRASER.txt'
     if fraser.is_file():
         cmd += ['--fraser', str(fraser)]
+    krav = None
     if verksamhet.is_file():
         rc_k, _ = kor([PY, '-B', str(KONTROLLER / 'verksamhetsuppgifter.py'), 'krav', str(verksamhet), '--ut', str(prov / 'krav.json')])
         if rc_k == 0 and (prov / 'krav.json').is_file():
-            cmd += ['--krav', str(prov / 'krav.json')]
+            krav = prov / 'krav.json'
         else:
             info['verksamhet'] = 'VERKSAMHET.json är ogiltig enligt verksamhetsuppgifter.py; kör kontrollera'
-    rc, out = kor(cmd)
+    rc, out = kor(cmd)  # fraser och strukturer läses i källan, där de går att rätta
+    # Obligatoriska element (telefon på varje sida, orgnr, ort) prövas mot den byggda HTML:en: i källan kan de komma ur
+    # en datafil och synas först efter bygget (fynd från Luleå-Snickaren 2026-10-01).
+    if krav:
+        sidfiler = [str(f) for f in sorted(dist.rglob('*.html')) if f.name != '404.html']
+        kor([PY, '-B', str(KONTROLLER / 'copy_kontroll.py'), '--kalla', *sidfiler, '--krav', str(krav), '--ut', str(prov / 'copy-krav.json')])
     try:
         cf = json.loads((prov / 'copy.json').read_text(encoding='utf-8'))['fynd']
+        if krav and (prov / 'copy-krav.json').is_file():
+            cf += [f for f in json.loads((prov / 'copy-krav.json').read_text(encoding='utf-8'))['fynd'] if f.get('typ') == 'saknat element']
         rader = ['%s:%s %s "%s" (%s)' % (Path(f.get('fil', '')).name, f.get('rad', ''), f.get('typ'), f.get('text', ''), f.get('riktning', '')) for f in cf]
         info['copy'] = '%d fynd (prov/copy.md); rätta eller motivera varje fynd i RAPPORT.md' % len(cf) + (''.join('\n  - ' + r[:200] for r in rader[:15]))
         status['copy_fynd'] = len(cf)
