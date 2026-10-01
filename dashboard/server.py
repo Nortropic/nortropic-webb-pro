@@ -240,7 +240,8 @@ def sammanfattning(slug):
 def byggen():
     if not KUNDER.is_dir():
         return []
-    ut = [sammanfattning(p.name) for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name)]
+    # rokprov-* är kontrollernas regressionsfixtur (kontroller/rokprov.sh), inget bygge att döma
+    ut = [sammanfattning(p.name) for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and not p.name.startswith('rokprov')]
     return sorted(ut, key=lambda b: (not b['pagar'], b['domd'], b['slug']))
 
 
