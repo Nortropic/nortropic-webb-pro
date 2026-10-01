@@ -643,3 +643,34 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Utfall: ingen åtgärd. Visar ett riktigt byggs JAMFORELSE.md att detaljfinishen brister (radbrytning i rubriker,
   siffror, övergångar), finns reglerna redan i Vercels riktlinjer och Emil. Då ska steg 5 peka dit, inte ta in ECC
 - Backlog: ingen
+
+### 2026-10-01 · React (react/react) · nej
+- Källa: https://github.com/react/react @ 7c6ac13e, MIT. Läst: README.md, CLAUDE.md, `.claude/instructions.md`,
+  `.claude/skills/verify/SKILL.md`, förgranskningens rapport och de flaggade ställena. Bilder: repot har bara ikoner
+  och logotyper (DevTools-ikoner, fixturlogor), inga skärmbilder eller demo att se; README visar bara märken.
+  Ägarens not: ingen
+- Steg: 5 (bygge), i så fall
+- Sår: inget. L0 gäller copy och slop, inte vilket ramverk sidorna renderas med. Ingen JAMFORELSE.md finns ännu
+- Överlapp: mallen är Astro med `astro` och `sharp` som enda beroenden (`mall/astro/package.json` rad 10–13), och
+  steg 5 kräver "ingen JavaScript som inte behövs" och att den primära handlingen fungerar utan JavaScript
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 85 och 141). Registret har redan två gånger avfärdat React-specifika regler
+  för att de inte möter mallens stack (rad 58–59 och 276–278)
+- Skäl: det här är källkoden till själva biblioteket, ingen metod, regel eller skill för att bygga bättre sajter
+  [REPO README.md rad 3–7]. Det som repot innehåller för agenter är bidragsverktyg för React-kärnan: Prettier, lint,
+  Flow och tester via yarn [REPO .claude/skills/verify/SKILL.md rad 15–22; .claude/instructions.md rad 37–46]. Att
+  bygga kundsajterna i React skulle lägga ett klientbibliotek och hydrering på informationssajter för lokala
+  verksamheter, vilket går emot steg 5:s minimala JavaScript och inte adresserar något sår. Källan säljer inget
+  utöver sig själv; påståendena i README är allmän produktbeskrivning, inte belagda mot något vi mäter
+- Kostnad: ungefär 1,1 miljoner tokens text i repot; som beroende i mallen skulle det betyda React, en renderare och
+  en Astro-integration i varje bygge, med underhåll av versioner och större JavaScript-last på varje sida
+- Säkerhet: förgranskningen gav HÖG, av mängden: 4 349 skript med eval/exec, nätanrop och miljövariabler i ett stort
+  kompilator- och testträd. Sju dolda tecken (nollbredd U+200B) i
+  `packages/react-reconciler/src/__tests__/ReactPerformanceTrack-test.js` rad 97 m.fl.; jag läste rad 97 och tecknet
+  står först i ett förväntat mätnamn i ett test, inte i text till en agent. De tio ställena med text riktad till
+  agenter är byggrader i DevTools-README:er och utvecklarskript. Repot har egen `.claude/settings.json` med en
+  SessionStart-krok och tillåtna yarn-kommandon; den gäller bara sessioner startade inne i repot, och inget startades
+  där. Inget försök att styra granskaren hittades. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Skulle ett bygge kräva riktig interaktivitet (till exempel en bokningsvy som deras system inte
+  redan ger) prövas det som en Astro-ö i steg 5, inte som byte av mall
+- Backlog: ingen
