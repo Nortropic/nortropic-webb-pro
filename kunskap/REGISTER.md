@@ -98,3 +98,37 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   aktuella på samma villkor som vercel-posten ovan: när ett riktigt bygge visar textöverflöde eller felbrytning. Då
   tas bara de raderna in i `bygge-referens.md`.
 - Backlog: ingen
+- Ersatt av: 2026-10-01 · AI LABS-video med bildrutor (Hallmark, design.md, scroll-world, CodeRabbit)
+
+### 2026-10-01 · AI LABS-video med bildrutor (Hallmark, design.md, scroll-world, CodeRabbit) · nej
+- Källa: https://www.youtube.com/watch?v=DP7mgLUKN_U @ 2026-09-30 (AI LABS, 25:26, autogenererat transkript, sponsrad
+  av CodeRabbit [BESKRIVNING]). Ny bedömning på ägarens begäran, den förra gjordes bara på transkriptet. Sedda: alla 44
+  bildrutor i standardkörningen och 24 av 83 i en tätare körning kring resultaten efter steg 1, 3, 4 och 6. Länkarna
+  oförändrade sedan förra posten: nutlope/hallmark @ `13ac0ec` och oso95/scroll-world @ `71cc36d`, båda MIT [REPO]
+- Steg: 1 och 3 (planläge, affärskontext i CLAUDE.md), 5 (Hallmark, design.md, scroll-world), 6 (CodeRabbit)
+- Sår: L0 ("ai slope skit"); videon säger sig lösa just det [TAL 00:00]. Ingen JAMFORELSE.md finns ännu
+- Överlapp: som i den ersatta posten. Det resultatet faller på står redan som regel hos oss: krämvit grund med serif
+  och lerfärgad accent (`anthropic-frontend-design-SKILL.md` rad 39), versal eyebrow (rad 43; Taste rad 253), Inter
+  (Taste rad 169), "Hitta aldrig på fakta" och "Inga stockbilder" (bygg-sajt rad 20 och 47), riktningar härledda ur
+  verksamheten (rad 133–135) och "Kopiera aldrig layout, palett eller typsnitt" (rad 148)
+- Skäl: bilderna fäller videon på dess egen fråga. Första versionen är krämvit med serif och ett stockfoto av en soffa
+  märkt som projektet "Larch Apartment, Portland, Oregon. 2024" [SKÄRM 07:49]; Forma är fiktiv, men processen fyller
+  luckor med påhittade verk och stockbilder i stället för att märka dem. Efter Hallmark: benvit grund, stor grotesk
+  och ett portföljfilter över sex projekt i sex kategorier (Hospitality, Cultural …) [SKÄRM 11:35] åt en enmanspraktik
+  med bostäder som huvudsak [SKÄRM 09:20]. Den design.md som lades in hette `neurosync-master-your-mind-1-DESIGN.md`,
+  ett system gjort för en annan produkt ("NeuroSync | Master Your Mind"); Claude noterade bytet och tillämpade det
+  [SKÄRM 13:23, 13:41], och sidan blev vit med Inter, pillerfilter och ett stockfoto av ett sovrum [SKÄRM 13:59].
+  Slutsajten efter scroll-world är krämvit igen med serifrubrik, versal eyebrow ("IT STARTS WITH THE GROUND"), tre
+  pillerchips, mörk pillerknapp och terrakotta aktiv flik [SKÄRM 21:12, 25:07], och accenten `#6f7a5e` [SKÄRM 24:03]
+  är första planens moss [SKÄRM 06:53]. Det är exakt det standardval som videon säger att design.md låser bort [TAL
+  11:44]. CodeRabbits sammanfattning säger att PR:en "replaces the previous TypeScript project site with a JavaScript
+  Next.js site" (78 filer) [SKÄRM 23:26], och repot har en commit "Replace site with the current Forma build" [SKÄRM
+  16:42]: slutsajten byggde inte vidare på steg 3–4 utan ersatte dem, så kedjan som säljs syns inte i resultatet. Mot
+  de åtta dimensionerna: dioramorna ger en igenkännbar hållning (1) och mobilen får egna 9:16-klipp (7) [SKÄRM
+  21:36], men typografi och färg (2, 3) är modellens standard, första vyn är en skrollfilm före allt innehåll (5), och
+  förtroendet (6) bärs av AI-genererade hus och en påhittad arkitekt vid ritbordet [SKÄRM 25:07], aldrig av byråns
+  egna verk. Konstriktningen väljs ur en meny ("Flat papercraft", "Fly through the world (Recommended for
+  dioramas)") [SKÄRM 20:36], inte ur verksamheten. Interaktionen går inte att bedöma ur stillbilder.
+- Förslag: inget.
+- Utfall: ingen åtgärd. Villkoret i den ersatta posten för Hallmarks layoutgrindar 49–51 och 55 gäller oförändrat.
+- Backlog: ingen
