@@ -733,3 +733,50 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
 - Förslag: inget
 - Utfall: ingen åtgärd
 - Backlog: ingen
+
+### 2026-10-01 · Next.js (vercel/next.js) · nej
+- Källa: https://github.com/vercel/next.js @ `d5d747e` (gren canary, senast pushad 2026-10-01), MIT, knappt 143 000
+  stjärnor, inte arkiverat. Förgranskat. Läst: README.md, AGENTS.md (rad 1–40 och 280–309), listan över repots 20
+  agentskills under `.agents/skills/` (namnen), `packages/next-codemod/lib/agents-md.ts` (rad 1–60),
+  `packages/next/src/cli/internal/agent-feedback-instructions.ts` (rad 50–73) och de flaggade ställena. Bilder: repot
+  har bara exempelappars favicons, författarfoton och omslagsbilder, ingen skärmbild av ramverket; README visar logga
+  och märken. README:ns galleri nextjs.org/showcase öppnat som webbsida och tre skärmbilder lästa (desktop första vyn,
+  mobil första vyn, desktop skrollad 34 %). Övriga nio lästes inte. Ägarens not: ingen
+- Steg: 5 (bygge), i så fall
+- Sår: inget. L0 ("ai slope skit") gäller generisk copy och form, inte vilket ramverk sidorna genereras med. Ingen
+  JAMFORELSE.md finns ännu
+- Överlapp: mallen är Astro med `astro` och `sharp` som enda beroenden (`mall/astro/package.json` rad 10–13). Steg 5
+  kopierar den (`.claude/skills/bygg-sajt/SKILL.md` rad 142) och kräver "ingen JavaScript som inte behövs" (rad 145).
+  Den primära handlingen ska fungera utan JavaScript (rad 89). `kunskap/bygge-referens.md` rad 28 nämner redan Next.js
+  med statisk generering som ett beprövat mönster bredvid Astro, och rad 36 har dess `NEXT_PUBLIC_`-regel. React, som
+  Next.js bygger på, är redan avfärdat med samma skäl (posten "React (react/react)" ovan)
+- Skäl: det här är källkoden till ett React-ramverk för fullstack-appar [REPO README.md rad 19], inte en metod, regel
+  eller skill för att bygga bättre sajter. Repots agentmaterial gäller bidrag till ramverket självt: monorepots
+  struktur, PR-regler, fork-adoption och skills som `react-sync`, `backport-pr` och `v8-jit` [REPO AGENTS.md rad 1–40;
+  .agents/skills/]. Det enda som riktar sig till den som bygger med Next.js är en generator som lägger in ett
+  dokumentationsindex i projektets AGENTS.md [REPO packages/next-codemod/lib/agents-md.ts rad 1–6], och den gäller
+  bara Next.js-projekt. Att byta mall till Next.js skulle ge React-körning och hydrering på informationssajter för
+  lokala verksamheter, vilket går emot steg 5:s minimala JavaScript och inte adresserar något sår. Källkritik: README
+  säljer med "Used by some of the world's largest companies" [REPO README.md rad 19] och galleriet bekräftar det:
+  Sonos, Nike, ChatGPT, Claude och Netflix [BILD desktop-skroll-04.png], inga verksamheter i vår storlek. Galleriet
+  visar ramverkets räckvidd, inte hur bra sajterna är för deras besökare. Sidan själv öppnade en integritetsruta som
+  täckte innehållet i båda vyerna [BILD desktop-forsta.png, mobil-forsta.png]. Källan innehåller instruktioner till
+  agenter: en dold HTML-kommentar ber AI-assistenter som skriver PR-beskrivningar att lägga in en markör
+  [REPO contributing/repository/pull-request-descriptions.md rad 9–14]. Den gäller bidrag till deras repo, angick inte
+  granskningen och följdes inte
+- Kostnad: ungefär 1,6 miljoner tokens text i repot. Som mall skulle det betyda Next.js, React och en Rust-baserad
+  verktygskedja i varje bygge, med versionsunderhåll och större JavaScript-last på varje sida
+- Säkerhet: förgranskningen gav HÖG, av mängden: 16 835 skript med eval/exec, nätanrop och miljövariabler i ett stort
+  ramverks-, test- och CI-träd, och 1 102 dolda tecken. Utanför katalogerna `compiled/` finns de bara i tre filer.
+  I `packages/next/src/cli/internal/static-routes-info.ts` rad 687 hindrar ett nollbreddstecken att `*/` i en
+  kommentar avslutar kommentaren. I `crates/next-core/src/next_manifests/encode_uri_component.rs` rad 74 och 76 är
+  det sammanfogningstecken i emoji i testdata. Den tredje är en byggd bunt
+  (`.github/actions/validate-docs-links/dist/index.js`). Resten ligger i förkompilerade tredjepartsbuntar under
+  `packages/next/src/compiled/` (acorn, babel, json5 m.fl.); dem öppnade jag inte. En sökning efter nollbredds- och
+  riktningstecken i alla md-, mdx- och txt-filer gav noll träffar. Av de 47 ställena med text riktad till agenter är
+  nästan alla installationsrader i dokumentation och exempel. AGENTS.md rad 298 är en säkerhetsvarning om att
+  adopterade fork-PR:er kan läcka hemligheter. Undantaget är PR-markören ovan. Inga krokar eller MCP-servrar i
+  konfigurationen. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Skulle ett bygge kräva riktig interaktivitet prövas den som en Astro-ö i steg 5, som för React
+- Backlog: ingen
