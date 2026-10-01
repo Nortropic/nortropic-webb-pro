@@ -491,6 +491,7 @@ def starta_intag(url, not_, filer=None):
     anv = las_json(Path.home() / '.claude' / 'settings.json') or {}
     args = [claude, '-p', '--max-turns', os.environ.get('NWP_KIRURG_TURER', '250'), '--permission-mode', 'dontAsk',
             '--output-format', 'stream-json', '--verbose', '--setting-sources', 'project,local',
+            '--strict-mcp-config',  # inga anslutningar (Gmail, Drive, Resend …) i kirurgens körning
             '--model', os.environ.get('NWP_KIRURG_MODELL') or anv.get('model') or 'opus[1m]',
             '--effort', os.environ.get('NWP_KIRURG_EFFORT') or anv.get('effortLevel') or 'high',
             '--allowedTools', *INTAG_VERKTYG, '--disallowedTools', *INTAG_NEKAS]
