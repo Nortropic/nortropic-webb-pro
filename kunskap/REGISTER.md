@@ -164,3 +164,34 @@ Kirurgens domar, äldst först. Formen står i `.claude/skills/kirurg/SKILL.md`.
   sessionens egen renderingsläsning (steg 6.3) borde ha sett. Då är grindtanken "granskaren ser inte bygget
   inifrån" värd en rad i steg 6, så att renderingsläsningen görs avskärmad som femsekunderstestet. Ingen ny mekanik.
 - Backlog: ingen
+
+### 2026-10-01 · Reddit-inlägget "How I Sold 200 Websites in 12 Months" (via Instagram) · nej
+- Källa: fyra uppladdade skärmbilder (`kirurgen/uppladdat/20261001T192233Z/01–04`, 2026-10-01 18:29–18:30 lokal
+  tid): en Instagram-karusell från kontot artificialintelligenceee som återger r/AI_Agents-inlägget av
+  Murky_Explanation_73 ("4mo ago", flair Tutorial). Sedda: bildtexten och karusellens bild 2, 3 och 4 av 4; bild 1
+  laddades inte upp. Originalet gick inte att läsa: Reddit skickar både `kontroller/sida.mjs` och WebFetch till
+  inloggning, och webbsökningen hittade inte inlägget. Ingen licens
+- Steg: 2 (diagnos av nuvarande sajt), 5 (bygge); resten, alltså kundjakt, utskick och SEO-blogg, ligger före och
+  efter kedjan
+- Sår: inget. L0 gäller kvaliteten i det som byggs, och inlägget säger inget om kvalitet utöver att "clients care way
+  more about the final result than how the website was actually made" [BILD 03, 04]
+- Överlapp: att leta upp företag och mäta deras sajt för "slow speeds, weak SEO and poor mobile design" [BILD 01] är
+  vårt steg 2 (`.claude/skills/bygg-sajt/SKILL.md` rad 60–76: axe, Lighthouse och inspektion i 390 och 1440 px,
+  sedan DIAGNOS.md), och före/efter-tabellen i steg 7 (rad 175–176) är det "actual issues on their site" som deras
+  utskick bygger på [BILD 03]. "Claude Code for building websites" [BILD 02] är vad bygg-sajt redan är. Tanken att
+  göra varje sajt till ett upprepbart system i stället för ett eget projekt [BILD 01] är ägarens egen vision, ordagrant
+  i `BESLUT.md` rad 10
+- Skäl: det som berör kedjan har vi redan, och det övriga krockar med medvetna val. Automatiserade utskick till
+  skrapade företag [BILD 03] går emot "Inget utskick till verksamheterna" (`BESLUT.md` rad 75) och emot ägarens ordning
+  att produkten ska vara klar innan vi går till kunder (rad 12). Automatiserad SEO-blogg [BILD 03] är text i volym,
+  alltså det L0 dömer, och ingen av våra SEO-texter (`kunskap/seo*.md`) föreslår bloggande. Källkritik: inlägget är
+  andrahandsåtergivet av ett Instagramkonto som lever på räckvidd (1 086 gillningar, 699 delningar [BILD 02]).
+  Påståendet om 200 sajter av två personer, ungefär fyra i veckan, är obelagt: inga sajter, kunder eller priser visas.
+  Inlägget säljer en tes ("The best web designer in the world will eventually lose to some random teenager using AI"
+  [BILD 04]) och nämner verktyg för leads, utskick och blogg (Apollo, Swokei, Soro [BILD 02]) som jag inte har
+  granskat. Att det rör sig om dold reklam för något av dem kan jag inte belägga. Leveransen mäts i antal sålda sajter,
+  inte i om de blev bättre än kundernas gamla, och det är vår ribba 1 (bygg-sajt rad 9).
+- Förslag: inget.
+- Utfall: ingen åtgärd. När piloten är klar och ägaren vänder sig mot kunder finns underlaget till ett ärligt första
+  besked redan: DIAGNOS.md och före/efter-tabellen. Något utskicksverktyg behövs inte för det.
+- Backlog: ingen
