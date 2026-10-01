@@ -139,8 +139,8 @@ Läs `kunskap/externa/anthropic-frontend-design-SKILL.md`, `kunskap/externa/leon
 1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md`: två visuella riktningar härledda ur verksamheten själv (deras
    bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Per riktning typografi, färg, rytm och
    vad som dominerar första vyn. Välj en med skäl.
-2. **Projekt.** `cp -R mall/astro/. kunder/<slug>/sajt/`, sätt `site` i `astro.config.mjs` till deras domän,
-   `cd kunder/<slug>/sajt && npm install`. Läs `mall/astro/README.md`.
+2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
+   sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md`.
 3. **Bygg** sidorna ur INNEHALL.md: mobil först, semantisk HTML, en h1 per sida, självhostade typsnitt eller
    systemtypsnitt, verksamhetens bilder via `astro:assets`, ingen JavaScript som inte behövs, JSON-LD
    (LocalBusiness eller rätt undertyp) sanningsenligt ur VERKSAMHET.json. Formulär skickar ingenting i demon; den
