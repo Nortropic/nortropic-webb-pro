@@ -330,6 +330,8 @@ def prova(slug, snabb=False):
             ut = prov / 'inspektion' / namn
             rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'inspektera.mjs'), '--adress', srv.url + r, '--ut', str(ut), '--vyer', '390,768,1440'], timeout=300)
             for vy in ('390', '1440'):
+                if (ut / ('vy-%s-ruta-01.png' % vy)).is_file():
+                    continue  # inspektionen har skrollat fram rutorna själv
                 gjorda, skarmar = rutor(ut, vy)
                 if skarmar > gjorda:
                     rutinfo.append('%s @%s: %d av %d skärmar som rutor' % (r, vy, gjorda, skarmar))
@@ -338,6 +340,8 @@ def prova(slug, snabb=False):
                 for vy, d in (ins.get('vyer') or {}).items():
                     if (d.get('spill') or {}).get('spill'):
                         spill.append('%s @%s (%s > %s px)' % (r, vy, d['spill'].get('scrollWidth'), d['spill'].get('clientWidth')))
+                    if r == '/' and d.get('h1_i_forsta_vyn') is False:
+                        rutinfo.append('startsidans h1 syns inte i första vyn @%s' % vy)
                     if d.get('forsta_vyn'):
                         bilder.append(str(Path(d['forsta_vyn']).relative_to(kund)) if Path(d['forsta_vyn']).is_absolute() else d['forsta_vyn'])
             except (OSError, ValueError):

@@ -5,7 +5,7 @@
 // är inte bildseende — bedöm layout i bilderna.
 //   node inspektera.mjs --adress URL --ut DIR [--vyer 390,1440] [--tillat ORIGIN;ORIGIN] [--undantag-fil F]
 //        [--hemligheter FIL] [--kontext FIL,FIL] [--hover SEL] [--fokus SEL] [--meny SEL] [--tillstand tangentbord,reflow,reload,bakat]
-import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter } from './gemensamt.mjs';
+import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER } from './gemensamt.mjs';
 import { readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
 
@@ -31,6 +31,22 @@ for (const vy of vyer) {
     await b.page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 8000 }).catch(() => {});
     await b.page.waitForTimeout(300);
     r.hela_sidan = join(a.ut, `vy-${vy}-hela.png`); await b.page.screenshot({ path: r.hela_sidan, fullPage: true });
+    // Skärmhöga rutor tagna genom att skrolla en skärm i taget: varje ruta är det besökaren ser i det läget, och
+    // ruta 01 är alltid förstavyn. Chromiums helsidesbild kan börja mitt på sidan (lulea-snickaren-abx 2026-10-02),
+    // så rutorna skärs inte ur den.
+    r.rutor = [];
+    const sidhojd = await b.page.evaluate(() => document.documentElement.scrollHeight);
+    const skarmhojd = VYER[vy].viewport.height;
+    for (let i = 0; i < Math.min(12, Math.ceil(sidhojd / skarmhojd)); i++) {
+      await b.page.evaluate((y) => scrollTo(0, y), i * skarmhojd);
+      await b.page.waitForTimeout(150);
+      const fil = join(a.ut, `vy-${vy}-ruta-${String(i + 1).padStart(2, '0')}.png`);
+      await b.page.screenshot({ path: fil });
+      r.rutor.push(fil);
+    }
+    await b.page.evaluate(() => scrollTo(0, 0));
+    r.skarmar = Math.ceil(sidhojd / skarmhojd);
+    r.h1_i_forsta_vyn = await b.page.evaluate((h) => { const e = document.querySelector('h1'); return !!e && e.getBoundingClientRect().top < h; }, skarmhojd);
     r.tillganglighetstrad = skriv(a.ut, `vy-${vy}-aria.txt`, await b.page.locator('body').ariaSnapshot());
     r.h1 = await b.page.locator('h1').count();
     r.spill = await horisontellSpill(b.page);
