@@ -509,3 +509,55 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   securityheaders.com ett handkvitto mot den levande adressen enligt `lansering.md` och `prelaunch.md`, inte en ny
   kontroll)
 - Backlog: ingen
+
+### 2026-10-02 · deepseek-ai/deepseek-harness · nej
+- Källa: https://github.com/deepseek-ai/deepseek-harness @ 639ed01 (ur klonens `.git/shallow`; senaste push
+  2026-09-29T09:41Z), MIT, cirka 242 000 stjärnor, inte arkiverat; 14 104 filer, cirka 6,6 miljoner tokens text.
+  Förgranskat. Läst: README, SAFETY.md, BENCHMARK.md, AGENTS.md rad 1–60, beskrivningarna för alla 15 skills i
+  `.agents/skills/`, hela SKILL.md för dsh-prose-standard (med `references/examples.md` rad 1–50), dsh-trim-cot-leakage
+  (med `references/examples.md` rad 1–60), dsh-client-ui-ux, record-browser-gif och agent-experience, samt README för
+  `packages/experimental/auto-review`. Bild: `docs/user/guide/providers-models-page.png` (en av fyra; de andra är samma
+  inställningsvy i formulär och på kinesiska). Ingen demosajt; produkten är ett program. Ägarens not: ingen
+- Steg: inget av de åtta; närmast steg 4 (texten) och backlog-skillen (hur en dom blir text)
+- Jämfört med i dag: DeepSeek Harness är en agentkörmiljö där allt är ett tillägg, med webbgränssnitt, sandlåda,
+  underagenter och krokar [REPO README.md rad 5–7; AGENTS.md rad 17–60], samma slags ersättning för vår körmiljö som
+  openclaw och Hermes (nej respektive bara enskilda skills, ovan). Skillsen i `.agents/skills/` är underhållsverktyg för
+  just det kodförrådet (PR-staplar, översättning, CI, prestanda, uppgraderingsguider). Fem delar prövades sak mot sak.
+  (1) dsh-prose-standard: räkna upp varje påstående (vem, villkor, ordning, måste/får/aldrig, undantag, följd) innan en
+  text kortas, eftersom "A smaller word count alone is not an improvement." [REPO
+  .agents/skills/dsh-prose-standard/SKILL.md rad 28–38]. Det gäller kod, JSDoc och agenttexter, och för våra skilltexter
+  täcks samma sak av writing-for-agents (en betydelse på ett ställe, rensa sediment) och klassningen av domändringar,
+  båda redan vilande poster (mattpocock/skills och obra/superpowers ovan). För sajtens text står strykprovet i
+  `bygg-sajt/SKILL.md:224–225`, och ingen dom i `LARDOMAR.md` visar att en strykning tappat en sakuppgift. Lika. (2)
+  dsh-trim-cot-leakage: text vars synvinkel är skrivsessionens, inte läsarens (döda hänvisningar, "används inte längre",
+  svar till en granskare) [REPO .agents/skills/dsh-trim-cot-leakage/SKILL.md rad 10–23]. För kundtext har vi motsvarande
+  fråga, ord som beskriver oss själva eller vår planering (`kunskap/redaktionellt-pass.md:26`); i de byggda sajterna
+  finns ingen sådan läcka, bara daterade källrader för omdömen ("läst 1 oktober 2026",
+  `kunder/lulea-snickaren/sajt/src/pages/index.astro:100`) som är kvitton enligt `kunskap/copy-kontroll.md:29–30`.
+  Lika. (3) dsh-client-ui-ux: tokens, få textstorlekar, båda färgteman, toast mot notis i ett appgränssnitt [REPO
+  .agents/skills/dsh-client-ui-ux/SKILL.md rad 12–16, 25–32]; för en statisk sajt täcker byggstandarden 3.1 tokens och
+  skala (`kunskap/byggstandard.md:46`), resten gäller appar. Lika eller inte tillämpligt. (4) record-browser-gif spelar
+  in en GIF ur en riktig körning till varje PR [REPO .agents/skills/record-browser-gif/SKILL.md rad 12–16]; våra sajter
+  har ingen JavaScript och nästan ingen rörelse, och ägaren dömer i dashboarden med skärmbilder. Inget för oss. (5)
+  auto-review låter modellen själv godkänna varje verktygsanrop med full åtkomst och säger att den "can allow unsafe
+  actions" [REPO packages/experimental/auto-review/README.md rad 12]; vi kör byggen med vitlista och fasta nekanden
+  (`kor.sh:38–51`). Sämre
+- Skäl: källan hjälper inte oss att bygga bättre sajter. Som plattform krockar den med två medvetna val, att kod ur
+  källor inte körs (installation via `npx` eller `pnpm install` [REPO README.md rad 23–39]) och att ingen agent ändrar
+  systemet obevakat; projektet säger självt att det är en förhandsversion utan säkerhetsgranskning som kan skada
+  värddatorn [REPO SAFETY.md rad 7–9]. Skillsen är välskrivna och ärliga om sina gränser, men de som går att föra över
+  (fullständiga påståenden vid strykning, skrivsessionens synvinkel, kontextsnål agenttext) är redan intagna i
+  verktygslådan genom tidigare poster eller står i `redaktionellt-pass.md`; ingen av dem rör det ägarens domar L1–L3
+  pekar på (förfrågan, bildunderlag, förtroende, rösten). Källkritik: README:n säljer inget; stjärnantalet är räckvidd,
+  inte belägg, och BENCHMARK.md hänvisar bara till ett SDK utan resultat [REPO BENCHMARK.md rad 3]
+- Kostnad: ingen; inget tas in. Skillsen skulle kosta 52–147 tokens i varje session och 446–4 452 vid användning
+  enligt förgranskningen
+- Säkerhet: förgranskningen HÖG, av mängden: 4 879 skript (CI, testfixturer, GIF-kodaren med eval/exec, skript med
+  nätanrop och miljövariabler). Tio dolda tecken (nollbredd U+200B); läst i sitt sammanhang (`scripts/jsdoc.ts:14`,
+  `packages/client/ui-schedule/src/client/task-cron.ts:55`) bryter tecknet `*/` inne i en JSDoc-kommentar, de övriga
+  ligger i testfixturer för matematisk markdown. De 100 ställena med text till agenter (60 listade och lästa som sökväg) är källans egen
+  systemprompt och dess ögonblicksbilder ("You are an AI"), tester, och säkerhetsnoter om exfiltrering. Krokfilerna
+  ligger i provmappar under `snapshots/`. Inget i det lästa försökte styra kirurgen. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
