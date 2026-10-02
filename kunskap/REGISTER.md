@@ -200,3 +200,65 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261002-valj-formen-pa-en-domandring-efter-hur-bygget-br (ta in);
   B-20261002-mikroprova-en-domandring-mot-en-kontroll-utan-an (prova A/B, egen innovation)
+
+### 2026-10-02 · mattpocock/skills · ta in
+- Källa: https://github.com/mattpocock/skills @ d81f3a1 (ur klonens `.git/shallow`; senaste push 2026-09-29T12:38Z),
+  MIT enligt LICENSE. Läst: README, förgranskningen, och hela SKILL.md för writing-for-agents med
+  `SKILL-MECHANICS.md`, retro, prototype med `UI.md`, to-questionnaire, code-review, research, writing-shape och
+  writing-fragments. Övriga 29 av 37 skills (TDD, triage, spec, tickets, wayfinder, wizard, handoff, teach m.fl.) bara i
+  README:s sammanfattning och förgranskningens storlekstabell. Repot har inga bilder; README:s banner ligger på en
+  extern bildtjänst och visar bara namnet. Ingen demosajt.
+- Steg: steg 8 och backlog-skillen (hur en dom blir text); steg 5.1 och frågorna till ägaren (den egna innovationen).
+- Jämfört med i dag: källan är en verktygslåda för programmerare som arbetar med agenter: intervju före arbete,
+  gemensam ordlista, TDD, granskning i två axlar [REPO README.md rad 88–178]. Sak mot sak: (1) writing-for-agents är
+  en referens för att skriva texter som agenter läser: ordalydelsen i en pekare avgör när materialet nås, varje steg
+  slutar i ett slutvillkor som är tydligt och krävande, styr med det positiva målet i stället för förbud, en betydelse
+  på ett ställe, och rensa no-ops och inaktuella lager ("sediment") [REPO
+  skills/productivity/writing-for-agents/SKILL.md rad 10–18, 45–52, 74, 76–81]. Vi har ingen sådan regel: backlog-
+  skillen säger att en dom blir en textändring, så liten som posten kräver (`.claude/skills/backlog/SKILL.md:26–27`),
+  och prövar bara att sökvägarna finns (`:39–40`). Följden syns i `bygg-sajt/SKILL.md`, 333 rader som växer med varje
+  dom: beställningen beskrivs både i ramarna och i steg 3 (`:20–24`, `:130–134`), copy-kontroll.md läses både i
+  uppstarten och i steg 4 (`:56–57`, `:155`), och slutvillkoren är ojämna, "tills den svarar exit 0" (`:76`) bredvid
+  "läs texten högt … skriv om den" (`:171–172`). Källans sätt är smartare: det ger den som genomför backloggen en
+  måttstock vi saknar. (2) prototype/UI.md bygger flera strukturellt olika varianter på den riktiga sidan med riktigt
+  innehåll, eftersom "every variant looks fine in isolation" [REPO skills/engineering/prototype/UI.md rad 16]. Vårt
+  steg 5.1 kräver fyra riktningar och en namngiven axel (`bygg-sajt/SKILL.md:187–197`), men bara den valda byggs; i
+  alla tre byggen visade riktningsfrågan bara den byggda sajtens skärmbild och beskrev alternativet i ord
+  (`kunder/*/FRAGOR.json` post 1; dashboarden visar en bild per fråga, `dashboard/index.html:255`), och ägaren valde
+  "som byggd" alla tre gånger (`LARDOMAR.md:40, 65, 89`). Källans sätt är bättre för ägarens dom; det blir den egna
+  innovationen. (3) to-questionnaire (syfte, viktigast först, en idé per fråga, "vet inte" är ett svar) [REPO
+  skills/productivity/to-questionnaire/SKILL.md rad 20–40] mot vår BESTALLNING.md, en rad per sak med vad, varför och
+  var, svarbar på fem minuter (`bygg-sajt/SKILL.md:130–134`). Lika. (4) retro klassar ett fel och bygger hellre en
+  kontroll än skriver en regel [REPO skills/engineering/retro/SKILL.md rad 19]; det krockar med vårt val att en dom
+  blir en textändring, inte ny mekanik (`CLAUDE.md`, Arbetssätt), och byggets brister blir redan backlogposter
+  (`bygg-sajt/SKILL.md:313–319`). (5) code-review håller standard och spec isär i två subagenter [REPO
+  skills/engineering/code-review/SKILL.md rad 6–11, 80–87]; vi har samma delning mellan provets grindar och
+  granskaren, som prövar briefens EARS-krav (`bygg-sajt/SKILL.md:119–121`). Lika. (6) writing-shape och
+  writing-fragments förutsätter en människa i samtalet [REPO skills/in-progress/writing-shape/SKILL.md rad 23–26];
+  våra byggen körs utan. Inget för oss.
+- Skäl: som paket är det verktyg för kodprojekt med en människa vid tangentbordet, och det mesta (intervjuer, ärenden,
+  TDD, PR) hjälper inte en obevakad sajtbyggare. Men writing-for-agents är en sammanhängande lära om just det vi gör
+  vid varje dom: ändra en skilltext så att nästa bygge beter sig annorlunda. Den tappar värde om den kokas ned till
+  några rader, så den tas in som skill och backlog-skillen pekar på den. Den kompletterar superpowers-intaget (form
+  efter brist, mikroprov) med rensningen som saknas där; en krock finns: källan vill ha förbud bara som hårda
+  skyddsräcken, ihopparade med det positiva målet [REPO skills/productivity/writing-for-agents/SKILL.md rad 74],
+  medan superpowers-postens klass (c) är förbud med undanflykter, så klass (c) skrivs som förbud plus målet.
+  Källkritik: principerna är upphovsmannens erfarenhet utan publicerade mätningar; att no-ops avgörs "by running the
+  document, not by debate" (rad 81) stämmer med vår mikroprovspost. README säljer ett nyhetsbrev [REPO README.md rad
+  21–23], och cirka 274 000 stjärnor säger inget om metoden.
+- Kostnad: skillen kostar cirka 30 tokens i varje session (beskrivningen) och cirka 3 400 när den används (SKILL.md
+  2 683 plus SKILL-MECHANICS.md) enligt förgranskningen; bara i sessioner som ändrar texter, aldrig i byggen. Inga
+  beroenden, inga skript. Underhåll: kopian följer inte källan. Den egna innovationen kostar en extra förstavy och två
+  skärmbilder per bygge.
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text riktad till agenter, inga hookar eller MCP; 22 skills
+  har bara `disable-model-invocation`. Sju skript, bland dem `scripts/link-skills.sh` som skriver utanför repot och
+  wizardmallen som hanterar hemligheter; inget av dem följer med. writing-for-agents har inga skript och inga
+  behörigheter; `agents/openai.yaml` (visningsnamn för Codex) tas bort. Inget kördes.
+- Förslag: `.claude/skills/writing-for-agents/` (SKILL.md, SKILL-MECHANICS.md, LICENSE, KALLA.md) med en beskrivning som
+  säger att den används när en session ändrar en skill, CLAUDE.md eller en kunskapsfil, inte av byggen; en rad i
+  `.claude/skills/backlog/SKILL.md` steg 3 (efter rad 26–27) som pekar på den och prövar ändringen mot dubbletter och
+  inaktuella rader. Egen innovation: steg 5.1 bygger tvåan-riktningens första vy som kastbar sida och riktningsfrågan
+  får en skärmbild per alternativ (`dashboard/index.html:255` tar en lista).
+- Utfall: —
+- Backlog: B-20261002-ta-in-mattpocock-skills-writing-for-agents-i-ver (ta in);
+  B-20261002-rendera-tvaan-den-nast-starkaste-riktningens-for (prova A/B, egen innovation)
