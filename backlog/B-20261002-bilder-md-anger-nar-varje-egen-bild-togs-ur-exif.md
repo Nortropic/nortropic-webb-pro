@@ -1,11 +1,12 @@
 ---
 id: B-20261002-bilder-md-anger-nar-varje-egen-bild-togs-ur-exif
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · gohugoio/hugo
 skapad: 2026-10-02
 prio: normal
 steg: 1 (underlag: bilderna)
+andrad: 2026-10-02T23:44Z
 ---
 # BILDER.md anger när varje egen bild togs, ur EXIF eller filnamnet, så att daterade bevis kan bära en sektion
 

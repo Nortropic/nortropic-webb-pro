@@ -158,6 +158,28 @@ assert [f for f in sk.granska(d)[0] if f['punkt'] == '9.4' and f['sida'] == '/om
 " || { echo "FEL: byggposternas kontroller"; exit 1; }
 echo "   byggposterna ok"
 
+echo "   bilddatum ur EXIF och filnamn, och GPS i en publicerad bild"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, struct, shutil, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import bilddatum as bd, standard_kontroll as sk
+datum = b'2021:08:24 07:25:00\x00'
+# TIFF: IFD0 med pekare till Exif-IFD och GPS-IFD; Exif-IFD med DateTimeOriginal
+ifd0 = struct.pack('<H', 2) + struct.pack('<HHII', 0x8769, 4, 1, 38) + struct.pack('<HHII', 0x8825, 4, 1, 56) + struct.pack('<I', 0)
+exififd = struct.pack('<H', 1) + struct.pack('<HHII', 0x9003, 2, len(datum), 62) + struct.pack('<I', 0)
+tiff = b'II*\x00' + struct.pack('<I', 8) + ifd0 + exififd + struct.pack('<H', 0) + struct.pack('<I', 0) + datum
+app1 = b'Exif\x00\x00' + tiff
+jpg = b'\xff\xd8' + b'\xff\xe1' + struct.pack('>H', len(app1) + 2) + app1 + b'\xff\xd9'
+tmp = pathlib.Path(tempfile.mkdtemp()); (tmp / 'jobb.jpg').write_bytes(jpg); (tmp / 'IMG_20210902_144500.jpg').write_bytes(b'\xff\xd8\xff\xd9')
+r = {x['fil']: x for x in (bd.datum(f) for f in sorted(tmp.iterdir()))}
+assert r['jobb.jpg']['datum'] == '2021-08-24 07:25' and r['jobb.jpg']['gps'], r
+assert r['IMG_20210902_144500.jpg']['datum'] == '2021-09-02 14:45' and r['IMG_20210902_144500.jpg']['kalla'] == 'filnamn (tolkning)', r
+d = tmp / 'dist'; shutil.copytree('$S/dist', d)
+assert not [f for f in sk.granska(d)[0] if f['punkt'] == '4.2' and 'GPS' in f['text']]
+(d / 'jobb.jpg').write_bytes(jpg)
+assert [f for f in sk.granska(d)[0] if f['punkt'] == '4.2' and 'GPS' in f['text']]
+" || { echo "FEL: bilddatum eller GPS-vakten"; exit 1; }
+echo "   bilddatum ok"
+
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \
   || { echo "FEL: prospektpipelinen"; tail -20 "$ROOT/kunder/rokprov-mall/prospekt-prov.log"; exit 1; }

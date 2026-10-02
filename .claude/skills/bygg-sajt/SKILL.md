@@ -74,7 +74,8 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    domänen.
 2. **Bilder:** ladda ner verksamhetens egna bilder (bildlistan i `kalla/SIDOR.md` och deras kanaler) med
    `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil, källa,
-   vad bilden visar, kvalitet. Inga stockbilder. Räkna de användbara: färre än fem, eller saknas den som kommer hem
+   vad bilden visar, datum, kvalitet. Datumet och dess källa (EXIF, filnamn eller okänt) ger `.venv/bin/python
+   kontroller/bilddatum.py underlag/<slug>/bilder`; daterade jobbilder kan bära en sektion. Inga stockbilder. Räkna de användbara: färre än fem, eller saknas den som kommer hem
    till kunden, bilen eller verktyget, ett jobb före och efter eller ett färdigt resultat, så blir bilderna en
    beställning i steg 3.
 3. **`underlag/<slug>/VERKSAMHET.json`:** formen står i `validera()` i `kontroller/verksamhetsuppgifter.py`

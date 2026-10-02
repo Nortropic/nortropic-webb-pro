@@ -407,6 +407,15 @@ def granska(dist):
             F('7.2', '/404.html', '404-sidan saknar <meta name="robots" content="noindex">')
         if any('canonical' in a.get('rel', '').lower().split() for t, a, *_ in p404.el if t == 'link'):
             F('7.2', '/404.html', '404-sidan har canonical; ta bort den (404-sidan ska inte indexeras)')
+    # 4.2 GPS-läge i en publicerad bild är en personuppgift; astro:assets tar bort metadata, en fil i public/ gör det inte
+    from bilddatum import BILDER, exif, tiff_block
+    for f in sorted(x for x in dist.rglob('*') if x.suffix.lower() in BILDER):
+        try:
+            gps = exif(tiff_block(f.read_bytes())).get('gps')
+        except Exception:  # noqa: BLE001 — en trasig bild ska inte stoppa resten av kontrollen
+            gps = False
+        if gps:
+            F('4.2', '/' + f.relative_to(dist).as_posix(), 'bilden bär GPS-läge i sin metadata; lägg den i src/assets/ (astro:assets tar bort metadata) eller rensa den')
     # 9.4 mening som löper ihop med nästa utan mellanslag ("förfrågan.Så", L1: ").Läs"), också över inline-element
     for f in sidor:
         raw = re.sub(r'<(script|style|head)\b.*?</\1>', ' ', f.read_text(encoding='utf-8', errors='replace'), flags=re.S | re.I)

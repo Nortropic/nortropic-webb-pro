@@ -44,6 +44,10 @@ miljö, kvadrat för porträtt) och responsiva storlekar med `sizes`; AVIF/WebP 
 Explicita mått på varje bild (ingen layoutförskjutning), `loading="lazy"` utom första vyns bild, alt-text på svenska
 som beskriver innehållet (tom alt bara för dekor).
 
+- **Metadata stannar i underlaget.** Tagningsdatum och kamera läses där (`kontroller/bilddatum.py`) och kan bära
+  en daterad sektion; GPS-läget är en personuppgift och följer aldrig med till sajten. `astro:assets` tar bort
+  metadata; en fil som läggs direkt i `public/` gör det inte, och standarden (4.2) fäller den.
+
 ## Verktygen (som de är; flaggor skrivs `--flagga=värde`)
 
 - `node verktyg/bild/treatment.mjs --in=raw --ref=ref --out=public/images [--stage=both|normalise|look]
