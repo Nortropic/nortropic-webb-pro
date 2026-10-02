@@ -331,3 +331,42 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261002-byggsessionen-nekas-att-skriva-i-kontroller-krit (ta in);
   B-20261002-a-b-tva-isolerade-granskare-per-omgang-blockeran (prova A/B)
+
+### 2026-10-02 · react/react · nej
+- Källa: https://github.com/react/react @ 7c6ac13 (senaste push 2026-10-01), MIT; cirka 251 000 stjärnor, inte
+  arkiverat. Läst: README.md (79 rader), `.claude/instructions.md`, `.claude/skills/verify/SKILL.md`,
+  `.claude/skills/fix/SKILL.md`, början av `compiler/.claude/skills/compiler-orchestrator/SKILL.md`, förgranskningens
+  rapport och de flaggade ställena. Bilder: README visar bara märken; repot har ikoner och fixturlogor, ingen skärmbild
+  eller demo att se. Ägarens not: ingen. Bedömd en gång förut med de gamla reglerna, samma commit och samma dom
+  (`kunskap/REGISTER-arkiv-20261001.md:624`); här bedömd på meriter
+- Steg: 5 (bygge), i så fall; i arbetssättet de egna verifieringsskillsen
+- Jämfört med i dag: (1) Bygget: mallen är statisk Astro med `astro` och `sharp` som enda beroenden
+  (`mall/astro/package.json:10–13`), steg 5 kräver "ingen JavaScript som inte behövs" (`bygg-sajt/SKILL.md:202`), och
+  byggstandarden säger mindre JavaScript, innehåll och navigation utan JS, förrenderat (`kunskap/byggstandard.md:18,
+  25`). Alla tre dömda byggena levererade 0 kB JS, och ägaren räknade det till det bästa (`LARDOMAR.md:31, 56, 87`).
+  React är ett klientbibliotek för interaktiva gränssnitt med tillstånd [REPO README.md rad 3–7]; på en
+  informationssajt för en hantverkare lägger det på runtime och hydrering utan att något i sajten blir bättre. Sämre.
+  (2) Arbetssättet: repots agentskills är bidragsverktyg för React-kärnan, Prettier och lint i följd och sedan Flow
+  och tester parallellt via yarn [REPO .claude/skills/verify/SKILL.md rad 15–22], och en Rust-portering av kompilatorn
+  [REPO compiler/.claude/skills/compiler-orchestrator/SKILL.md rad 1–8]. Vi har redan ett prov som stoppvakten kör
+  och en oberoende granskare (`kontroller/prova.py`, `kontroller/granska.py`); källan har inget utvärderingssteg vi
+  saknar. Lika eller inte tillämpligt
+- Skäl: källan är källkoden till ett UI-bibliotek, inte en metod, regel eller skill för att bygga bättre sajter
+  [REPO README.md rad 3]. Litteraturen står på vår sida: "rule of least power", HTML före JS, och progressive
+  enhancement (`kunskap/teoretisk-grund.md:47–48, 119–120`). React skulle krocka med ett medvetet val som ägarens
+  domar bekräftat, och ingen dom i `LARDOMAR.md` pekar på en brist som ett klientramverk löser; formulär, bilder och
+  tidsaxlar fungerar utan det. Behöver en framtida sajt verklig interaktivitet (bokning med tillstånd, kalkylator)
+  är det en enskild ö i Astro, och den frågan tas då, inte nu. Källkritik: README:n beskriver produkten men belägger
+  inget mot något vi mäter; den säljer inget utöver sig själv
+- Kostnad: inget tas in. Cirka 1,1 miljoner tokens text i repot; som beroende skulle det betyda React, en renderare
+  och en Astro-integration i varje bygge, med versionsunderhåll och större JavaScript-last på varje sida
+- Säkerhet: förgranskningen HÖG, av mängden: 4 349 skript med eval/exec, nätanrop och miljövariabler i ett stort
+  kompilator- och testträd. Sju dolda tecken (nollbredd U+200B) i
+  `packages/react-reconciler/src/__tests__/ReactPerformanceTrack-test.js` rad 97 m.fl.; läst i sitt sammanhang står
+  tecknet först i förväntade mätnamn i ett test, inte i text till en agent. De tio ställena med text till agenter är
+  byggrader i DevTools-README:er och utvecklarskript. Repots egen `.claude/settings.json` har en SessionStart-krok och
+  tillåtna yarn-kommandon som bara gäller sessioner startade inne i repot; inget startades där. Inget försök att styra
+  granskaren hittades. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
