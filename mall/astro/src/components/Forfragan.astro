@@ -7,10 +7,16 @@
 interface Props {
   fraga?: string; // etiketten för meddelandet, i verksamhetens ord
   knapp?: string;
+  saknas?: string; // felbeskedet när ett ofullständigt inskick kommer tillbaka, i verksamhetens ord
+  telefon?: string; // numret som väg vidare i felbeskedet, som tel-adress: +46...
+  telefonText?: string;
 }
-const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan' } = Astro.props;
+const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
+  saknas = 'Namn, telefon och vad du vill ha hjälp med behövs. Fyll i dem och skicka igen.', telefon, telefonText } = Astro.props;
 ---
 <form class="forfragan" id="forfragan" action="/api/forfragan" method="post" enctype="multipart/form-data">
+  <!-- Felbesked utan JavaScript: mottagaren skickar ett ofullständigt inskick till #forfragan-saknas, och :target visar det. -->
+  <p id="forfragan-saknas" class="ff-saknas" tabindex="-1" role="alert">{saknas}{telefon && <> Eller ring <a href={`tel:${telefon}`}>{telefonText || telefon}</a>.</>}</p>
   <p>
     <label for="ff-namn">Namn</label>
     <input id="ff-namn" name="namn" type="text" autocomplete="name" required maxlength="100" />
@@ -31,7 +37,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan' } = A
     <label for="ff-webbplats">Lämna fältet tomt</label>
     <input id="ff-webbplats" name="webbplats" type="text" tabindex="-1" autocomplete="off" />
   </p>
-  <input type="hidden" name="laddad" value="" />
+  <input type="hidden" name="fylltid" value="" />
   <p class="ff-integritet">
     <slot name="integritet">Vi använder uppgifterna bara för att svara på din förfrågan.
     <a href="/integritet/">Så hanterar vi personuppgifter</a>.</slot>
@@ -40,11 +46,13 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan' } = A
 </form>
 
 <script>
-  // Tidsfällan och låst knapp. Utan JavaScript står tiden tom och mottagaren godtar ändå inskicket.
+  // Tidsfällan mäts på EN klocka, webbläsarens, från laddning till inskick, och skickas som varaktighet i ms
+  // (kunskap/formularsakerhet.md, princip b). Utan JavaScript står fältet tomt och mottagaren godtar inskicket.
+  const start = performance.now();
   for (const f of document.querySelectorAll<HTMLFormElement>('form.forfragan')) {
-    const tid = f.querySelector<HTMLInputElement>('input[name="laddad"]');
-    if (tid) tid.value = String(Date.now());
     f.addEventListener('submit', () => {
+      const tid = f.querySelector<HTMLInputElement>('input[name="fylltid"]');
+      if (tid) tid.value = String(Math.round(performance.now() - start));
       const b = f.querySelector<HTMLButtonElement>('button[type="submit"]');
       if (b) { b.disabled = true; b.textContent = 'Skickar …'; }
     });
@@ -53,4 +61,6 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan' } = A
 
 <style>
   .ff-falla { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+  .ff-saknas { display: none; }
+  .ff-saknas:target { display: block; }
 </style>

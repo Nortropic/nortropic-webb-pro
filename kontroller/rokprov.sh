@@ -56,9 +56,10 @@ def skicka(url, data):
     except urllib.error.HTTPError as e:
         return e.headers.get('Location')
 with prova.Server('$S/dist') as srv:
-    assert skicka(srv.url, 'namn=Test&telefon=070&meddelande=hej&webbplats=&laddad=1') == '/tack/'
+    assert skicka(srv.url, 'namn=Test&telefon=070&meddelande=hej&webbplats=&fylltid=4200') == '/tack/'
     assert skicka(srv.url, 'namn=Bot&telefon=1&meddelande=x&webbplats=spam') == '/tack/'
-    assert skicka(srv.url, 'namn=&telefon=070&meddelande=') == '/kontakt/?saknas=1#forfragan'
+    assert skicka(srv.url, 'namn=&telefon=070&meddelande=') == '/kontakt/?saknas=1#forfragan-saknas'
+    assert skicka(srv.url, 'namn=+&telefon=+&meddelande=+') == '/kontakt/?saknas=1#forfragan-saknas'
 " || { echo "FEL: formulärets demomottagare"; exit 1; }
 echo "   demomottagaren ok"
 

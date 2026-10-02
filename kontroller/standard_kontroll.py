@@ -63,6 +63,8 @@ class Sida(HTMLParser):
                 self._form['lankar'].append(a.get('href', ''))
             elif tag == 'button':
                 self._form['knappar'].append(a)
+            if a.get('id') == 'forfragan-saknas':
+                self._form.setdefault('felbesked', []).append(a)
         if tag in self._djup:
             self._djup[tag] += 1
         if re.fullmatch(r'h[1-6]', tag):
@@ -407,10 +409,12 @@ def granska(dist):
             F('6.2', sida, 'namnfältet ska ha autocomplete="name"')
         if (falt.get('webbplats') or {}).get('tabindex') != '-1':
             F('6.5', sida, 'honeypoten (fältet webbplats med tabindex="-1") saknas')
-        if 'laddad' not in falt:
-            F('6.5', sida, 'tidsfällan (dolt fält laddad) saknas')
+        if 'fylltid' not in falt:
+            F('6.5', sida, 'tidsfällan (dolt fält fylltid, varaktighet mätt i webbläsaren) saknas')
         if any(x.get('type') == 'file' for x in fm['falt']) and fm['attr'].get('enctype') != 'multipart/form-data':
             F('6.3', sida, 'formulär med bildfält behöver enctype="multipart/form-data"')
+        if not any(x.get('id') == 'forfragan-saknas' for x in fm.get('felbesked', [])):
+            F('6.2', sida, 'förfrågan saknar felbeskedet #forfragan-saknas som visas utan JavaScript')
         if not any(h.rstrip('/').endswith('/integritet') for h in fm['lankar']):
             F('6.8', sida, 'förfrågan saknar länk till /integritet/ vid knappen')
     if forfragan:

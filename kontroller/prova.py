@@ -167,7 +167,7 @@ class Server:
                 elif all(falt.get(k, '').strip() for k in ('namn', 'telefon', 'meddelande')):
                     mal = '/tack/'
                 else:
-                    mal = '/kontakt/?saknas=1#forfragan'
+                    mal = '/kontakt/?saknas=1#forfragan-saknas'
                 self.send_response(303)
                 self.send_header('Location', mal)
                 self.send_header('Content-Length', '0')
