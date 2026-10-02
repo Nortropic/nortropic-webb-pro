@@ -262,3 +262,72 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261002-ta-in-mattpocock-skills-writing-for-agents-i-ver (ta in);
   B-20261002-rendera-tvaan-den-nast-starkaste-riktningens-for (prova A/B, egen innovation)
+
+### 2026-10-02 · affaan-m/ECC · ta in
+- Källa: https://github.com/affaan-m/ECC @ ef648e0 (ur klonens `.git/shallow`; senaste push 2026-10-02T02:01Z), MIT,
+  cirka 271 000 stjärnor, inte arkiverat. Bedömd förut med de gamla reglerna (`REGISTER-arkiv-20261001.md:567`, nej);
+  arkivet ligger utanför registret, så det här är en ny bedömning med dagens regler (storlek och tokens är inget
+  nej-skäl). Förgranskat. Läst själv: README rad 1–170, hjältebilden `assets/hero.png`, `hooks/hooks.json` (händelserna),
+  `workflows/orch-review.workflow.js` rad 110–139 och de rader ur santa-method och loop-design-check som citeras nedan.
+  Läst i helhet av tre subagenter med belägg (domen är min): 35 skills, nämligen designen (frontend-design-direction,
+  make-interfaces-feel-better, design-system, taste, liquid-glass-design, motion-foundations/-patterns/-advanced,
+  inherit-legacy-style, ui-demo), prov och utvärdering (loop-design-check, browser-qa, click-path-audit, frontend-a11y,
+  accessibility, seo, production-audit, canary-watch, verification-loop, gan-style-harness, santa-method, council,
+  eval-harness), samt innehåll, varumärke och kunder (brand-voice, brand-discovery, article-writing, content-engine,
+  product-lens, competitive-platform-analysis, benchmark-methodology, competitive-report-structure, lead-intelligence,
+  marketing-campaign, deep-research, search-first). Övriga cirka 258 skills bara som namn och beskrivning (språk- och
+  ramverksmönster, finans, hälsovård, sociala medier). Ingen demosajt; ecc.tools öppnades inte. Ägarens not: ingen
+- Steg: 5.6 (oberoende granskning) och ramarna för körningen (`kor.sh`, stoppvakten); i övrigt inget av de åtta
+- Jämfört med i dag: (1) Design: frontend-design-direction och make-interfaces-feel-better är kortare upplagor av det
+  steg 5 redan läser (`bygg-sajt/SKILL.md:177–180`): Anthropics frontend-design, Emil och Vercels riktlinjer. Skillen
+  säger själv att den inte buntar Anthropics [REPO skills/frontend-design-direction/SKILL.md rad 13–18]. Sämre:
+  den tillåter "real or generated visual assets" [REPO samma fil rad 53] mot "Inga stockbilder" (`bygg-sajt/SKILL.md:70`);
+  design-system hämtar tokens ur "3 competitor sites" [REPO skills/design-system/SKILL.md rad 27] mot referenser som
+  inte kopieras (`:223`). Rörelseskillsen kräver React och `motion/react` och utesluter ren CSS, mot "ingen JavaScript
+  som inte behövs" (`:202`). (2) Innehåll: marketing-campaigns test om texten skulle fungera oförändrad hos en
+  konkurrent [REPO skills/marketing-campaign/SKILL.md rad 95] har vi redan, i steg 4 (`bygg-sajt/SKILL.md:171–172`) och
+  i granskarens originalitet (`kritik/GRANSKARE.md:80`). Femsekunderstestet har vi avskärmat (`bygg-sajt/SKILL.md:259–264`).
+  brand-voice bygger rösten ur X-inlägg och mejl [REPO skills/brand-voice/SKILL.md rad 21–26]; vår ton kommer ur
+  verksamhetens och kundernas ord (`:127`). Lika eller sämre. (3) Granskaren: gan-style-harness (design, originalitet,
+  hantverk, funktion med förankrade betyg och tröskel 7) [REPO skills/gan-style-harness/SKILL.md rad 119–148] bygger på
+  samma Anthropic-artikel som vår granskare och är det vi har (`kritik/GRANSKARE.md:12–14, 67–95`). Lika. Men
+  santa-method låter två granskare med samma kriterier döma isolerat, var för sig, och ett fynd räknas som verkligt om
+  en av dem hittar det, med nya granskare varje omgång [REPO skills/santa-method/SKILL.md rad 79–84, 162–174, 204]. Vi
+  kör en huvudgranskare per omgång (`kontroller/granska.py:266–273`) och en originalitetsdomare i skugga (`:302–304`).
+  Litteraturen står på källans sida: en ensam granskare hittar omkring 35 procent av problemen, tre till fem omkring 75
+  (`kunskap/teoretisk-grund.md:128–129`). Ägaren hittade efter godkännandet konkreta fel i alla tre byggena
+  (`LARDOMAR.md:32, 57, 81`). Kanske bättre; det syns först i ett prov. (4) Gränsen för byggaren: loop-design-check
+  säger att byggaren aldrig får ändra sina acceptansvillkor, och att en slinga som bara grindar på "allt grönt" får
+  agenten att ta bort proven [REPO skills/loop-design-check/SKILL.md rad 85, 105]. Hos oss står förbudet bara som text
+  (`bygg-sajt/SKILL.md:47`), medan `kor.sh:40` ger bygget Write och Edit utan sökvägsgräns; stoppvakten kör
+  `kontroller/prova.py` ur samma arbetsträd (`.claude/hooks/stoppvakt.py:51`) och granskaren läser `kritik/GRANSKARE.md`
+  därifrån (`kontroller/granska.py:219, 272`). Källans sätt är smartare och kostar några rader i `kor.sh`, där samma
+  slags nekanden redan står (`:51–52`)
+- Skäl: som paket är ECC fel verktyg: en plugin för kodprojekt med krokar i sex händelser [REPO hooks/hooks.json rad 3,
+  92, 103, 123, 166, 240] och en inlärningsslinga som gör om sessioner till nya skills, vilket krockar med att en dom
+  blir en textändring av ägarens hand. Designdelarna tillför inget utöver det vi läser och drar på två ställen åt fel
+  håll (genererade bilder, konkurrenters tokens). Men två metoder för utvärdering bär: byggaren ska inte kunna nå
+  provet den döms av, och två oberoende granskare hittar mer än en. Den första är en liten ändring av ett medvetet val
+  vi redan har ("ingen agent som ändrar systemet obevakat") och tas in direkt. Den andra följer litteraturen men dubblar
+  granskarens kostnad, så den prövas mot ägarens facit först. Källkritik: README:n säljer ECC Pro från 19 dollar per
+  plats och månad och visar sponsorer [REPO README.md rad 79–83, 104–122]; hjältebilden är själv ett vanligt mönster
+  (nästan svart botten, orangeröd accent på rubrikens sista ord, spärrad versal eyebrow, monospace-etiketter) och visar
+  261 skills mot README:ns 293 [BILD assets/hero.png; REPO README.md rad 142]. Santa-methods påstående att en flagga
+  från en granskare är verklig är upphovsmannens resonemang utan mätningar; stödet för det här kommer från NN/g, inte
+  från källan. Inget försök att styra granskaren hittades i det lästa
+- Kostnad: inget kopieras; ingen skill tas in. Gränsen kostar inga tokens. A/B:t kostar cirka 18 granskarsessioner
+  (4–15 minuter var, `bygg-sajt/SKILL.md:227`) och en domare; vinner arm B dubblas granskarens kostnad per omgång men
+  inte tiden (sessionerna går parallellt). Hela källan är cirka 3,9 miljoner tokens text
+- Säkerhet: förgranskningen HÖG, inga dolda tecken. HÖG kommer av 1 003 skript, bland dem installatörer som skriver
+  utanför repot (`.codebuddy/install.sh`, `.trae/install.sh`, `.kiro/install.sh`), krokar med eval och miljövariabler,
+  en MCP-server via npx (`.mcp.json`) och inherit-legacy-style med breda `allowed-tools`. De 48 ställena med text till
+  agenter är i sitt sammanhang säkerhetsguider, testfixturer för en promptinjektionsvakt och granskningsprompter som
+  varnar för injektion (`workflows/orch-review.workflow.js:119, 134`). Inget kördes eller installerades
+- Förslag: (a) `kor.sh` rad 51–52: Edit- och Write-nekanden för `kontroller/`, `kritik/`, `kunskap/`, `mall/`,
+  `.claude/` och `LARDOMAR.md`; sammanfattningen efter körningen säger till om de sökvägarna inte är rena i git;
+  `bygg-sajt/SKILL.md:47` får en halv mening om det. (b) A/B på de tre dömda byggena: en granskare mot två isolerade
+  (unionen av blockerande fynd), tre körningar per arm och bygge, ägarens fel i L1–L3 som facit, en Sonnet-domare som
+  inte vet armen och byter ordning, träffar, falska blockerande fynd, överensstämmelse, tokens och tid
+- Utfall: —
+- Backlog: B-20261002-byggsessionen-nekas-att-skriva-i-kontroller-krit (ta in);
+  B-20261002-a-b-tva-isolerade-granskare-per-omgang-blockeran (prova A/B)
