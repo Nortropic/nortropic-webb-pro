@@ -1811,3 +1811,109 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261002-stilrapporten-mater-fem-renderade-monster-ur-imp; egen innovation:
   B-20261002-granskaren-satter-originalitetsbetyget-innan-hen
+
+### 2026-10-02 · coreyhaines31/marketingskills · ta in
+- Källa: https://github.com/coreyhaines31/marketingskills @ 13c3832 (ur klonens `.git/logs/HEAD`; senaste push
+  2026-10-02T18:32Z; tagg v2.11.11), MIT (Corey Haines), cirka 52 000 stjärnor, inte arkiverat. 473 textfiler, cirka
+  710 000 tokens text, 50 skills. Inte bedömd förut. Förgranskat. Läst själv: README (349 rader), AGENTS.md,
+  CONTRIBUTING.md, `tools/PARTNERS.md`, `.claude-plugin/plugin.json`, `.github/workflows/validate-skill.yml`, början
+  av `.github/scripts/sync-skills.js` och `tools/clis/resend.js`, och hela SKILL.md för de tolv skills som kan röra
+  en sajt åt en verksamhet: copywriting, copy-editing, cro, seo-audit, schema, site-architecture, customer-research,
+  marketing-psychology, product-marketing, image, ai-seo och marketing-council (rad 1–70). Referenser lästa i helhet:
+  `copywriting/references/ai-tells.md` och `copy-frameworks.md`, `copy-editing/references/checklist.md`,
+  `cro/references/form.md`, `seo-audit/references/ai-writing-detection.md`, `schema/references/schema-examples.md`,
+  `site-architecture/references/site-type-templates.md`, `copywriting/evals/evals.json`, `cro/references/
+  experiments.md` rad 1–80, och den flaggade raden i `ads/references/audit-guardrails.md` i sitt sammanhang. Övriga 38
+  skills (annonser, ASO, churn, kalla mejl, paywalls, prissättning, referral, RevOps, SMS, sociala medier, video,
+  events, lanseringar …) bara som beskrivning i README och förgranskningen. Repot har inga bilder och ingen demosajt;
+  inget att se. Ägarens not: ingen
+- Steg: 4 (innehåll före form, humanizer-passet); berör också 1, 3, 5 och 6 där det visade sig lika eller sämre
+- Jämfört med i dag: källan är ett bibliotek för marknadsförare på SaaS- och B2B-bolag: 50 skills som alla först
+  läser en kontextfil om produkten [REPO README.md rad 31; product-marketing/SKILL.md rad 12], 60-talet CLI-skript mot
+  marknadsföringstjänsters API:er med nycklar ur miljön [REPO AGENTS.md rad 24; tools/clis/resend.js rad 3–8], ett
+  partnerprogram där verktyg köper disklad placering [REPO tools/PARTNERS.md rad 12, 45–50] och en Claude
+  Code-marknadsplats [REPO .claude-plugin/plugin.json]. Vi bygger sajter åt hantverkare och skickar ingenting
+  (`.claude/skills/bygg-sajt/SKILL.md:50–51`); kampanjer, utskick, prissättning och annonser finns inte i våra åtta
+  steg. Sak mot sak för det som ändå rör sajten. (1) **ai-tells.md** (copywriting) är en katalog över AI-mönster i
+  säljtext, byggd på samma Wikipedia-lista som vår humanizer plus Kobak m.fl., Juzek & Ward och EQ-Bench [REPO
+  ai-tells.md rad 248–259]. Mönstren finns redan hos oss: kontrastvändning, negationslista, tre-i-rad, tankstreck,
+  retorisk fråga, fragment (`.claude/skills/humanizer/SKILL.md:215–233, 278–286, 495–518`; `kunskap/copy-kontroll.md:
+  17`). Tre saker saknas hos oss. För det första skiljer källan **förbud** från **tak**: ett fragment och en lista på
+  tre per sektion är hantverk, två är tic [REPO ai-tells.md rad 5–9, 92–102]; humanizer säger bara "overuse" utan
+  gräns (`humanizer/SKILL.md:232–240, 495–505`). För det andra ett eget **register för kort text**: rubriker,
+  underrubriker, knappar och ingress, där tankstreck och vändningar inte får förekomma alls [REPO ai-tells.md rad
+  12–15, 104–108]; hos oss gäller samma regel för all text, och ägaren pekade i L3 ut just en rubrik ("Dagen efter,
+  tre timmar senare") som det som lät skrivet (`LARDOMAR.md:83, 92`). För det tredje regeln **variera rättningarna**:
+  blir varje vändning ", eftersom" och varje negationslista "det finns inget att", är det de nya ticen; skriv om ur
+  sakuppgiften, aldrig med synonym [REPO ai-tells.md rad 220–231]. Vi kör humanizer på hela INNEHALL.md i varje bygge
+  (`bygg-sajt/SKILL.md:184–185`) och har ingen sådan vakt mot att passet själv lämnar ett mönster. Smartare, och
+  det är tre rader i humanizerns förord. Källans bytestest, "fungerar raden oförändrad hos en konkurrent, skriv om"
+  [REPO ai-tells.md rad 224], har vi redan som läsning och FRASER.txt (`bygg-sajt/SKILL.md:147, 183`). Lika. Källans
+  `[NEED: proof]` i stället för påhitt [rad 226] är vår beställning (`bygg-sajt/SKILL.md:20–24`). Lika. (2) **Resten
+  av copywriting** är rubrikformler ("Never X again", "The {category} for {audience}"), knapptexter som "Start Free
+  Trial" och en sidstruktur med logotyprad, "10,000+ teams" och garantier [REPO copywriting/SKILL.md rad 147–151,
+  185–201; copy-frameworks.md rad 18–99, 229–243]. Det är mallar för SaaS; hos oss ska varje sektion bära en sak ur
+  "Bara de har" och rubriken vara verksamhetens namn eller ett bokstavligt erbjudande (`bygg-sajt/SKILL.md:170–172,
+  284–285`), och ägaren valde "Ring Dan" och "Ring Yoel" med numret utskrivet (`LARDOMAR.md:30, 54`). Formlerna är
+  slopens råvara för oss. Sämre. Siffrorna "+81 % konvertering, −38 % säljcykel" saknar källa [REPO copywriting/SKILL.md
+  rad 44; copy-frameworks.md rad 423–428]. (3) **copy-editing** gör sju pass i tur och ordning med återgång
+  (klarhet, röst, "so what", bevis, specifikt, känsla, noll risk) och ett expertpanelsbetyg 1–10 av tre till fem
+  personer i samma session tills alla ger 7+ [REPO copy-editing/SKILL.md rad 27–29, 259–269]. Bevis- och
+  specifikpassen är vår kvittoregel och "Specifikt:" (`kunskap/copy-kontroll.md:29–31`, `bygg-sajt/SKILL.md:170–172`);
+  passet "känsla" ("paint the before state vividly", "fear of missing out") [rad 198–211] krockar med lugn, konkret
+  svenska (`copy-kontroll.md:27–28`). Panelen i samma kontext är svagare än våra två isolerade granskare
+  (`bygg-sajt/SKILL.md:255–262`). Lika eller sämre. (4) **cro** och **form.md**: värdebudskap på fem sekunder, en
+  primär handling, förtroende nära knappen, få fält, synliga etiketter, svarstid vid formuläret [REPO cro/SKILL.md rad
+  29–60; form.md rad 36–45, 116, 218–224]. Vårt: byggstandarden 9.1 och 6.1–6.8, femsekunderstestet, tacksidan som
+  säger när (`kunskap/byggstandard.md:84–91, 119`; `kunskap/forfragan.md:13–22`; `bygg-sajt/SKILL.md:289–294`). Lika.
+  Källan vill göra telefonen valfri [REPO form.md rad 73–77]; ägaren kräver den (`LARDOMAR.md:47`). Krock, ägaren
+  gäller. (5) **seo-audit, schema, site-architecture**: lokalavsnittet säger samma NAP, lokalt schema, en sida per
+  tjänst [REPO seo-audit/SKILL.md rad 414–419; site-type-templates.md rad 258–293]; schema-skillen listar FAQPage som
+  rikresultat och en generisk LocalBusiness [REPO schema/SKILL.md rad 60–63; schema-examples.md rad 263–297], där vår
+  standard kräver den mest specifika typen och vet att FAQPage slutade ge rikresultat i maj 2026
+  (`kunskap/byggstandard.md:99, 142–144`; `kunskap/seo-lokal.md:9–14`). Lika eller vårt mer aktuellt. (6)
+  **customer-research**: ordagranna citat, aldrig parafras, inga påhittade detaljer, säkerhetsnivå efter antal
+  oberoende källor [REPO customer-research/SKILL.md rad 77–80, 97–103, 259]; vårt steg 1 kräver källa eller
+  `antagande` per påstående och omdömen ordagrant med tjänsten de är skrivna hos (`bygg-sajt/SKILL.md:86–92`). Lika.
+  (7) **marketing-psychology**: Fogg, Cialdini och Hicks lag står hos oss (`kunskap/teoretisk-grund.md:103–109`);
+  källans knapphet, ankring, lockbete och 9-priser [REPO marketing-psychology/SKILL.md rad 247–250, 262–275, 293–296]
+  är tekniker vi inte använder på en hantverkares sajt. Sämre. (8) **image** räknar stockfoto som ett alternativ
+  [REPO image/SKILL.md rad 46]; hos oss aldrig (`bygg-sajt/SKILL.md:77`). Krock. (9) **ai-seo**, 7 310 tokens om
+  AI-citeringar, llms.txt och prisfiler för SaaS; vår standard 7.6 säger att llms.txt inte behövs
+  (`kunskap/byggstandard.md:102, 153`). Inte tillämpligt. (10) Källan har **evals** per skill, prompt med påståenden
+  att pröva [REPO copywriting/evals/evals.json], men ingen körare i repot, bara CI:s formvalidering [REPO
+  .github/workflows/validate-skill.yml rad 63–66]; vår mikroprövning av domändringar är redan i backloggen
+  (`B-20261002-mikroprova-en-domandring-mot-en-kontroll-utan-an`). Lika. Att hitta och nå kunder senare: cold-email,
+  prospecting och directory-submissions gäller SaaS-listor och B2B-utskick och är inte aktuella
+- Skäl: som bibliotek nej: 50 skills för SaaS-marknadsföring, varav kanske tolv rör en sajt alls, och de tolv är
+  antingen det vi redan har i våra egna ord, mallar som skulle ge oss just den slop vi bygger bort, eller tekniker
+  som krockar med ägarens val (telefon krävs, inga stockbilder, lugn svenska). Men ai-tells.md är den skarpaste
+  formuleringen vi sett av det humanizer gör, och tre regler där saknas hos oss: tak per sektion i stället för
+  "overuse", ett strängare register för rubriker och knappar, och vakten mot att rättningen blir ett nytt mönster.
+  Den sista träffar en risk vi själva infört genom att köra humanizer i varje bygge, och ägaren har i L3 pekat på
+  rubriken som det stället där texten lät skriven. Tre rader i en fil vi redan laddar, därför ta in, avgränsat till
+  det. Källkritik: README säljer upphovsmannens byrå, nyhetsbrev, kurs och en AI-marknadschef [REPO README.md rad 5]
+  och två betalande partner står i README med disklad markering [rad 15–20]; partnerreglerna är ovanligt tydliga om
+  att pengar köper placering men inte rekommendation [REPO tools/PARTNERS.md rad 12, 33–39]. Konverteringssiffrorna
+  är obelagda; ai-tells.md:s källor är däremot verkliga och namngivna. Källan innehåller instruktioner till agenter:
+  AGENTS.md ber agenten hämta VERSIONS.md från GitHub en gång per session och köra `git pull` när användaren säger
+  "update skills" [REPO AGENTS.md rad 220–241], och rekommenderar skalkommandon som körs när skillen laddas [rad
+  251–278]; inget av det gällde kirurgen och inget följdes. Den flaggade raden i audit-guardrails.md är tvärtom en
+  vakt mot injektion i hämtade sidor [REPO ads/references/audit-guardrails.md rad 77]
+- Kostnad: inget kopieras, ingen skill tas in. Tre rader, cirka 120 tokens, i humanizerns förord, som laddas bara i
+  steg 4. Hade copywriting tagits in som skill: 239 tokens alltid, 2 477 vid användning, 11 740 vid behov enligt
+  förgranskningen. Inga beroenden, inget underhåll
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ett ställe med text till agenter (vakten ovan), inga
+  behörigheter i frontmatter, inga hookar. 69 skript: 60-talet CLI:er i `tools/clis/` som läser API-nycklar ur
+  miljön och anropar marknadsföringstjänster (Resend, Mailchimp, Google Ads, Meta Ads …), `check-versions.mjs` kör
+  `git` via `execFileSync` (förgranskningens eval/exec) och `sync-skills.js` skriver om README och marketplace.json.
+  Inget kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: `.claude/skills/humanizer/SKILL.md`, avsnittet "Så används skillen i nortropic-webb-pro" (rad 10–20),
+  tre punkter efter rad 18, med egna ord: (1) tak, inte förbud, för mönster 10, 14 och 31: högst ett fragment och
+  högst en lista på tre per sektion, högst ett tankstreck per stycke i löptext; (2) kort text är strängare: i h1,
+  h2, ingress, knappar, title och description inga tankstreck, ingen "inte X utan Y", ingen fråga som besvaras i
+  nästa mening; (3) variera rättningarna: skriv om ur sakuppgiften i underlaget, aldrig med synonym, och blir samma
+  konstruktion rättning två gånger på en sida är den ett nytt mönster. `KALLA.md` får en rad om källan och
+  commiten. Ingen ny mekanik i `copy_kontroll.py`
+- Utfall: —
+- Backlog: B-20261002-tre-regler-ur-ai-tells-i-humanizerns-forord-tak
