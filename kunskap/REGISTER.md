@@ -2764,3 +2764,80 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   brödsmula som bryts
 - Utfall: —
 - Backlog: B-20261002-stilrapporten-varnar-nar-klickbar-text-menylank (eget förslag; ingen post för källan)
+
+### 2026-10-03 · AI LABS, "Insane Jev Use Cases You Need To Use Right Now" (YouTube 2nc_QMuNp18) · nej
+- Källa: https://www.youtube.com/watch?v=2nc_QMuNp18 @ publicerad 2026-09-28 (AI LABS, 12:37, 60 005 visningar,
+  autogenererat engelskt transkript, sponsrad av Zapier och med länk till kanalens betalgemenskap [BESKRIVNING]).
+  Andra bedömningen av länken; den första (2026-10-01) står i `REGISTER-arkiv-20261001.md` och räknas inte (gamla
+  reglerna). Läst och sett: hela tidslinjen och alla 41 bildrutor. Nio är inspelningar av terminal, editor eller
+  webbläsare, resten animerade illustrationer, sponsorklipp och en svart övergång. Repot i beskrivningen,
+  tamaratran/fast-jev-compaction (MIT, 7 330 stjärnor, senast pushat 2026-09-18, klonen läst i sin helhet: README,
+  `hooks/fast-jev.ts`, `hooks/README.md`, `src/compact.ts`, `.claude-plugin/plugin.json`). Övriga skills och krokar
+  i videon ligger i betalgemenskapen [TAL 12:02] och syns bara som utsnitt i bild. ailabspro.io, theroundup.so och
+  Zapier öppnades inte. Ägarens not: ingen
+- Steg: inget av de åtta direkt; arbetssättet runt dem: körningens kontext (kor.sh), verktygslådan, granskningen
+  (`kontroller/granska.py`), provets utforskning (steg 6) och stoppvakten
+- Jämfört med i dag, fall för fall: (1) **Komprimering utan sammanfattning.** Pluginet byter Claude Codes
+  sammanfattning mot en beskärning: varje verktygsanrop får två ja/nej-frågor till beslutsmodellen Jev, och det som
+  behålls står ordagrant [REPO README rad 8–15, 39–51; `src/compact.ts` rad 56–66]. Argumentet är sakligt: en
+  sammanfattning kan tappa en sökväg, ett exakt fel eller en regel [REPO README rad 10–12]. Vi: en session per bygge
+  i opus[1m] (`kor.sh` rad 62) och ingen egen komprimering. Ingen av de fem körningsloggarna i `kunder/*/korning-*.jsonl`
+  innehåller en komprimeringshändelse (ordet förekommer bara i kommandolistan), och kontextdjupet mäts av en vilande
+  post (B-20261002-mat-kontextdjupet-per-bygge-i-a-b-posten-storsta). Problemet som pluginet löser är alltså inte
+  påvisat hos oss. Tillståndet som skickas till Jev är hela samtalet med texter och verktygsindata ordagrant [REPO
+  README rad 26–28]; i ett bygge är det verksamhetens underlag, som `CLAUDE.md` håller utanför git som privat. Kräver
+  nyckel hos TypeSafe, där registreringen är pausad [SKÄRM 02:12], eller via OpenRouter eller Vercel AI Gateway
+  [TAL 02:10–02:44], och Claude Codes funktionskrokar i förhandsläge, med en typreferens på 11 268 rader som ska
+  genereras om efter varje uppgradering [REPO `hooks/README.md` rad 26–28, 79–82]. (2) **Jev som domare över att
+  varje regel har ett prov** [SKÄRM 05:32 PostToolUse-krok efter ändring i rättighetsfiler]. Vi: byggstandardens
+  kolumn "Prövas av" namnger kontrollen för varje punkt (`kunskap/byggstandard.md` rad 10–12), och granskaren prövar
+  varje EARS-krav i briefen (`kritik/GRANSKARE.md` rad 58; `granska.py` rad 218 ger BRIEF.md till granskaren). Lika.
+  (3) **Skillväljare** vid varje prompt [SKÄRM 06:09 UserPromptSubmit; SKÄRM 06:45 säkerheter 0,93–0,98,
+  animation]. Vi: fem skills i `.claude/skills/`, och bygget väljer ur verktygslådan på beskrivningen (`bygg-sajt`
+  rad 44–46). Kroken fyrar vid prompten; vårt bygge har en enda prompt (`kor.sh` rad 27–34) och väljer skills under
+  400 turer, så kroken träffar aldrig valet. Inte tillämpligt. (4) **Filsökning med rankning** [SKÄRM 08:53: 35
+  filer på 1,6 s, topp två 0,40 och 0,39]. Ett bygge är ett litet Astro-projekt med ett tiotal sidor; sökning är inte
+  en kostnad hos oss, och de två toppfilerna skiljer sig med en hundradel. Inte för oss. (5) **Billig gallring före
+  granskningen**: sju ja/nej-frågor, små ändringar får "one quick round" [TAL 09:20; SKÄRM 09:48]. Vi: två
+  oberoende granskare dömer alltid hela sajten (`granska.py` rad 2–6), samma bygge granskas aldrig två gånger
+  (hashjämförelse, rad 592–597) och körningen har ett tak om fem omgångar (rad 49, 599–603). Vår gallring är
+  deterministisk (ändrades bygget eller inte); videons byter granskningsdjup mot tid, och ägaren har satt kvalitet
+  före tokens (kirurgens siktfrågor, 2026-10-02). Litteraturen: en ensam granskare hittar omkring 35 procent av
+  problemen, flera oberoende omkring 75 (`kunskap/teoretisk-grund.md` rad 128–129); en snabbrunda går åt fel håll.
+  Sämre. (6) **Webbläsartest där Jev väljer nästa klick mot ett mål** [SKÄRM 10:43 "Change Priya's role",
+  numrerade länkar; SKÄRM 11:01 rollmatris, animation; SKÄRM 12:14 skillen kör Playwright per roll]. Vi:
+  `kontroller/webblasare/utforska.mjs` väljer själv vägar, provar formulär och felvägar utan att skicka (rad 2–5;
+  `prova.py` rad 374–384), och granskaren gör en kognitiv genomgång av den primära handlingen steg för steg
+  (`GRANSKARE.md` rad 55–58). Videons mål är rollbaserad åtkomst i en app; våra sajter är statiska med ett formulär.
+  Lika för vårt behov. (7) **Regelkrok som blockerar en ändring när Jev är minst 80 procent säker** [TAL 11:30;
+  SKÄRM 11:37 rules.md per mapp]. Vi: deterministiska nekanden av Edit och Write i skyddade mappar och
+  hashjämförelse före och efter (`kor.sh` rad 55–57, 72–74, 81), stoppvakten som kör prov och granskning innan
+  avslutet släpps (`.claude/hooks/stoppvakt.py` rad 2–8), och copykontrollen som rapport, inte grind (`BESLUT.md` rad
+  57). En sannolikhetsgrind på innehållsregler krockar med det valet; på filskydd är vårt starkare
+- Skäl: videons löfte är att agenten blir "way faster and cheaper to run" [TAL 00:00], och sex av sju fall är
+  tids- och kostnadsverktyg där vi antingen inte har kostnaden (sökning, skillval, komprimering) eller har valt bort
+  att byta kvalitet mot tid (granskningen). Det enda fallet med ett kvalitetsargument, beskärning i stället för
+  sammanfattning, löser ett problem som inte är påvisat i något av våra fem byggen, och skulle skicka verksamhetens
+  privata underlag till en tredje part genom en förhandskrok som kan ändras med varje Claude Code-version. Varje
+  fall är ny mekanik med en extern nyckel, mot "Inga nya mekaniker" och "Ingen agent som arbetar obevakat på
+  systemet" (`BESLUT.md` rad 81–82). Källkritik: det enda inspelade komprimeringsfallet föll tillbaka till den
+  vanliga sammanfattningen, "below 25% minimum: 0% reduction" [SKÄRM 04:38], så "less than a second" [TAL 04:23]
+  syns aldrig; snabbheten 0,18 s mot 2,40 s [SKÄRM 00:02], säkerheterna [SKÄRM 06:45] och rollmatrisen [SKÄRM 11:01]
+  är animationer; den enda riktiga rankningen skiljer topp två med en hundradel [SKÄRM 08:53]. Inspelningarna körs med
+  alla behörigheter avstängda [SKÄRM 04:38, 08:53]. Bildrutan vid 00:38 visar en spelare på 18:05 med andra
+  kapiteltider, så materialet är klippt ur en längre version. Videon säljer betalgemenskapen [TAL 12:02] och Zapier
+  [SKÄRM 07:04–07:40]. Repots egen begränsning: "a probability is not a proof that a result is safe to delete"
+  [REPO README rad 123–124]. Videon innehåller inga instruktioner riktade till agenter
+- Kostnad: inget tas in. Hade det tagits in: Jev 0,042 USD per miljon tokens via gateway [SKÄRM 01:53], en nyckel
+  till i miljön, funktionskrokar i förhandsläge och underhåll av en typreferens per Claude Code-version
+- Säkerhet: förgranskningen MEDEL för fast-jev-compaction: inga dolda tecken, inga behörigheter i frontmatter, inga
+  hookar i konfiguration (pluginets krok registreras i `hooks/hooks.json` som modul, inte som kommando); 13 skript med
+  miljöläsning, nätanrop i `hooks/fast-jev.ts` och i typreferensen. Det enda fyndet "riktad till agenter" är en
+  dokumentationskommentar i `types/claude-code.d.ts` rad 10397 ("run this command in the background"), inget till
+  oss. Krokens återfall till den inbyggda sammanfattningen vid fel är korrekt byggt (`hooks/fast-jev.ts` rad
+  263–290). Inget kördes eller installerades
+- Förslag: inget
+- Utfall: ingen åtgärd. Visar den vilande kontextdjupsmätningen att byggena komprimerar och att granskarens betyg
+  faller efter det, kan beskärning i stället för sammanfattning prövas som A/B, med Jev eller med egen regel, utan
+  att underlaget lämnar maskinen
+- Backlog: ingen
