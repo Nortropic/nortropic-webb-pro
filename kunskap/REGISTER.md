@@ -1144,3 +1144,66 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · msitarzewski/agency-agents · prova A/B
+- Källa: https://github.com/msitarzewski/agency-agents @ d3f71c4 (ur klonens `.git/refs/heads/main`; senaste push
+  2026-10-01T19:35Z), MIT; cirka 156 000 stjärnor, inte arkiverat. Förgranskat. Läst: README (rollistan, exempelteam,
+  designfilosofin, statistiken), LICENSE och i helhet de sex agenter som rör webbyggen: design-ui-finish-gate-reviewer,
+  design-persona-walkthrough, testing-reality-checker, marketing-aeo-foundations, samt de relevanta styckena i
+  testing-evidence-collector och design-ux-researcher. Övriga drygt 220 agenter (spel, Kina-marknad, ekonomi, juridik
+  m.m.) bara i README:s tabeller. Repot har inga bilder; appen och sajten som README säljer öppnades inte. Ägarens not:
+  ingen
+- Steg: 5–6 och den oberoende granskaren (kognitiv genomgång, slutgrind); 7.6 i byggstandarden (AI-sök)
+- Jämfört med i dag: källan är en samling rollprompter ("agenter med personlighet") för alla tänkbara yrken, att
+  installera i Claude Code och andra verktyg [REPO README.md rad 21–28, 46–57]. Inga skills, inga referenser eller data.
+  Sak mot sak för det som rör oss: (1) **Persona Walkthrough**: en simulerad besökare med sökfras, ankomstväg, sajter
+  sedda innan, rädslor och kontakttröskel [REPO design/design-persona-walkthrough.md rad 63–91] går igenom sidan
+  skärm för skärm, med besökarens egen röst och analytikerns bedömning åtskilda [rad 46, 99–112, 161–188]. Vår
+  granskare går igenom som en anonym förstagångsbesökare i mobilen (`kritik/GRANSKARE.md` rad 50–53), och idén att göra
+  besökaren namngiven med situation ligger redan som vilande A/B (backlog
+  B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive, från hermes-agent). Källan lägger till två saker den
+  posten saknar: sökfrasen och jämförelseramen (vad besökaren såg innan), och genomgång per skärmruta. Möjligen
+  bättre; syns först i provet. (2) **UI Finish-Gate Reviewer**: designkontrakt med förbjudna standardval och
+  PASS/HOLD med verifieringsvillkor [REPO design/design-ui-finish-gate-reviewer.md rad 108–123, 143–165]. Vi har
+  samma sak i starkare form: exakt specifikation och visuell tes i KONCEPT.md (`.claude/skills/bygg-sajt/SKILL.md` rad
+  187–197), upptagna val (rad 182–185), och granskarens blockerande fynd med acceptanskriterium i EARS-form och
+  stoppvakten (`kritik/GRANSKARE.md` rad 113–122). Lika eller sämre. (3) **Reality Checker**: utgår från "NEEDS WORK"
+  och behandlar ett första bygge som ofullständigt per automatik [REPO testing/testing-reality-checker.md rad 47–50]
+  och kör ett skript som inte finns i repot (`qa-playwright-capture.sh`, rad 63). Vår granskare är sträng men
+  kalibrerad mot ägarens domar och ankare (`kritik/GRANSKARE.md` rad 5–7, 69–75), och bygget varnar uttryckligen för
+  granskare som alltid hittar något (`bygg-sajt/SKILL.md` rad 229–231). Sämre. (4) **AEO Foundations**: llms.txt,
+  token-budgetar, FAQPage-schema på alla lämpliga sidor och "Allow (drives citations)" för träningsrobotar [REPO
+  marketing/marketing-aeo-foundations.md rad 26–28, 205, 217–218]. Byggstandarden säger med källa att llms.txt inte
+  behövs och att FAQPage inte längre ger rikresultat (`kunskap/byggstandard.md` rad 102, 142–144, 153). Sämre
+- Skäl: som helhet hjälper samlingen oss inte: rollprompter med emoji och "personlighet" ersätter inte våra metoder,
+  som redan är förankrade i litteraturen (`kunskap/teoretisk-grund.md` rad 16–21), och de delar som rör webbyggen är
+  lika bra eller sämre än det vi har; AEO-agenten säger dessutom emot dokumenterade källor. Ett undantag:
+  persona-genomgångens jämförelseram och skärmruta-för-skärmruta, där besökarens ord hålls isär från analysen, kan
+  skärpa den A/B som redan väntar; ägarens sämsta fynd i L1 var just en sådan situation (mobilen kl 21,
+  `LARDOMAR.md` rad 32), och L3:s citat om ett formulär som inte fanns (rad 81) är något en besökare som jämför med
+  den gamla sajten kan snubbla på. Väg det försiktigt: källan säger själv att det är en kvalitativ simulering, inte
+  statistiskt belägg [REPO design/design-persona-walkthrough.md rad 51], vår grund säger att en modellbaserad besökare
+  inte är en människa (`kunskap/teoretisk-grund.md` rad 20), och agenten bygger också på anknytningsteori för
+  besökare (rad 85) och obelagda tal ("fewer than 20% of visitors" efter sjätte skärmen, rad 220) och föreslår
+  chattfönster och skrollutlösta uppmaningar (rad 151, 270), som krockar med regeln mot slop och sajter utan JS. Det
+  tas inte med. Källkritik: README säljer en app och sponsring [REPO README.md rad 8–15] och påstår "Battle-tested in
+  production environments" utan belägg [rad 732]; README:s citat om att alltid hitta "3-5 issues" (rad 709) stämmer
+  inte längre med agentfilen, som nu säger att noll fynd är ett giltigt utfall [REPO
+  testing/testing-evidence-collector.md rad 27–30]
+- Kostnad: inget kopieras. Tillägget är några meningar i `kritik/GRANSKARE.md` om A/B:n vinner; i varje granskning
+  någon minut och några tusen tokens till för skärmrutorna. A/B:n körs i samma omgång som den befintliga posten, som
+  en extra arm. Källans text är cirka 1,1 miljoner tokens enligt förgranskningen; ingen skill
+- Säkerhet: förgranskningen MEDEL, inga dolda tecken, inga behörigheter eller krokar. De 15 ställena med text till
+  agenter är oskyldiga i sitt sammanhang: rollprompternas "You are …" och ordet "exfiltration" i säkerhetsagenterna;
+  "Ignore all previous instructions" (engineering-prompt-engineer.md rad 169) är ett exempel på injektion att testa
+  mot, inte riktat till läsaren. 34 skript, bland dem en installatör som skriver utanför repot och eval/exec i två
+  kontrollskript. Inget kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: `kritik/GRANSKARE.md` steg 5 (rad 50–53), som tillägg till den namngivna besökaren i den vilande posten:
+  sökfras och vad besökaren såg innan som jämförelseram; genomgång per skärmruta i 390 px med besökarens ord och en
+  analytikerrad (förtroende upp eller ner, Fogg 2009: motivation, förmåga, trigger, kan hen ta kontakt härifrån) hållna
+  isär; slut med var hen nästan lämnade och om hen skulle ringa eller skriva. Prövas som arm C i samma A/B: ägarens fel
+  i L1–L3 som facit, tre körningar per arm och bygge, blind domare av en annan modell med ombytt ordning, oenighet
+  räknas som oavgjort, tokens och tid redovisas bredvid
+- Utfall: —
+- Backlog: B-20261002-a-b-tillagg-granskarens-namngivna-besokare-far-s (prova A/B, körs ihop med
+  B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive)
