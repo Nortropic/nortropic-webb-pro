@@ -121,7 +121,9 @@ Gör vi det redan lika bra (en text hos oss är obeprövad tills ett bygge visat
 medvetet val (verksamhetens egna bilder och ord, kvalitet före volym, ingen agent som ändrar systemet obevakat, kod ur
 källor körs inte)? Bär det sin vikt? Storlek är inget skäl att säga nej: en skill laddar bara sin beskrivning i varje
 session och resten först när den används, och "en större verktygslåda är sällan dålig att ha" (ägaren 2026-10-02).
-Väg i stället värdet mot krockar med våra regler, beroenden, säkerhet och underhåll. Källkritik: säljer källan
+Väg i stället värdet mot krockar med våra regler, beroenden, säkerhet och underhåll. Kvalitet går före tokens: att
+något kostar mer tokens eller tid är inget skäl att säga nej när det ger bättre sajter ("Att det kostar mer tokens är
+ju värt för kvalité och bättre utgångar", ägaren 2026-10-02). Källkritik: säljer källan
 något, är påståendet belagt eller anekdot, är beviset det som faktiskt syns eller bara vad någon säger?
 
 ### 5. Dom
@@ -151,7 +153,7 @@ liten nog att läsa på fem minuter. Det finns två sätt att ta in något:
 "Prova A/B" betyder samma steg med och utan på samma verksamhet; beskriv
 i förslaget vad som jämförs och hur det avgörs rättvist: samma indata, flera körningar per arm, blind parvis jämförelse
 med ombytt ordning (oenighet räknas som oavgjort), en annan modell som domare än den som byggde, och kostnaden i tokens
-och tid bredvid kvaliteten.
+och tid bredvid kvaliteten. Kvaliteten avgör; kostnaden redovisas.
 
 ### 7. Kontrollera beläggen
 
