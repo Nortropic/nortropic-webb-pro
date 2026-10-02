@@ -71,5 +71,5 @@ varför.
 
 ## Aldrig
 
-Starta byggkörningar mot verksamheter, skicka något till någon, ändra de frysta repona (Runtime, kontoret, Digitala),
+Starta byggkörningar mot verksamheter, skicka något till någon, ändra de gamla repona på GitHub (Runtime, kontoret, Digitala),
 radera poster. Avvisade poster ligger kvar.

@@ -30,4 +30,6 @@ utanför git.
 - Efter ändringar i `kontroller/` eller `mall/`: `kontroller/rokprov.sh` ska sluta grönt.
 - Commit direkt på `main` och `git push origin main`. Repot är publikt: inga hemligheter, inget ur `underlag/` eller
   `kunder/`.
-- De gamla repona (Nortropic Runtime, nortropic-projektkontor, nortropic-digitala) är frysta och rörs inte.
+- De gamla repona (Nortropic Runtime, nortropic-projektkontor, nortropic-digitala, kund-demo-norrglanta) är borttagna
+  lokalt sedan 2026-10-02 (ägarens beslut, `BESLUT.md`). Historiken finns på GitHub och som git-bundles i
+  `~/Arkiv/nortropic-gamla-20261002/`.
