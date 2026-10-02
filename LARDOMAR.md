@@ -44,7 +44,7 @@ och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunsk
 - **Deras tio nästan identiska ortsidor (Snickare Boden, Fasadbyte Luleå …) syns i sök. Jag tog bort dem och föreslår 301 till de nya sidorna. Rätt?** Ja, ta bort och led vidare
 - **Skulle du visa den här för Dan Sandberg som den är?** Ja, efter små ändringar
 
-**Ändring:** väntar (backlog B-20261002-dom-l1-lulea-snickaren-bygg-alltid-in-en-skriftl)
+**Ändring:** bc5360f: skriftlig förfrågan i varje bygge (formulär, tacksida, integritetssida, demomottagare; byggstandarden 6) (backlog B-20261002-dom-l1-lulea-snickaren-bygg-alltid-in-en-skriftl)
 
 ## L2 · 2026-10-02 · paint-it-black-maleri
 
@@ -68,7 +68,7 @@ och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunsk
 - **Rubrikerna och telefonnumret är satta i en smal, tung grotesk (Archivo i smal bredd). Passar den en målare i Luleå?** Ja
 - **På mobil syns tre menylänkar direkt under loggan i stället för en hamburgermeny. Bättre eller sämre?** Bättre
 
-**Ändring:** väntar (backlog B-20261002-dom-l2-paint-it-black-maleri-gor-bildunderlaget)
+**Ändring:** cbc5c06: det som saknas beställs i BESTALLNING.md (bilder, telefontid, försäkring, F-skatt); grinden 9.3 (backlog B-20261002-dom-l2-paint-it-black-maleri-gor-bildunderlaget)
 
 ## L3 · 2026-10-02 · sundboms-el
 
@@ -92,4 +92,4 @@ och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunsk
 - **Rubriken efter första vyn är kundens ord: "Dagen efter, tre timmar senare". Femsekunderstestet kallade den kryptisk. Den sakliga varianten vore "Så fort det gick, enligt kunderna". Vilken?** Saklig: Så fort det gick, enligt kunderna
 - **Elcentral och jordfelsbrytare fick en egen sida och en egen menypunkt, eftersom det är deras rikaste innehåll. Bättre än att ha allt under Tjänster?** Ja, egen sida och menypunkt
 
-**Ändring:** väntar (backlog B-20261002-dom-l3-sundboms-el-gor-inga-egna-foton-till-en-b)
+**Ändring:** cbc5c06: samma ändring som L2; plats för beställda bilder utan platshållare (backlog B-20261002-dom-l3-sundboms-el-gor-inga-egna-foton-till-en-b)

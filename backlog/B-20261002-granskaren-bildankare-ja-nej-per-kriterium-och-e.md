@@ -1,12 +1,13 @@
 ---
 id: B-20261002-granskaren-bildankare-ja-nej-per-kriterium-och-e
-status: pagar
+status: klar
 kalla: bevakning
 kallref: OpenAI Evaluation best practices; Anthropic Demystifying evals for AI agents (2026-01-09)
 skapad: 2026-10-02
 prio: normal
 steg: granskaren
-andrad: 2026-10-02T11:48Z
+commit: 6a4f777
+andrad: 2026-10-02T12:09Z
 ---
 # Granskaren: bildankare, ja/nej per kriterium och en egen domare för originalitet (A/B)
 
@@ -15,3 +16,5 @@ andrad: 2026-10-02T11:48Z
 **Förslag:** När ägaren dömt några byggen: två till tre förstavyer med ägarbekräftade betyg som bildankare i kritik/GRANSKARE.md. En ja/nej-fråga per kriterium: skulle ägaren visa detta för verksamheten? Originalitet döms i en egen session, prövat som A/B mot dagens granskare.
 
 **Klart när:** Överensstämmelsen mellan granskaren och ägaren under Lärdomar mäts före och efter.
+
+**Klar (2026-10-02):** visa per kriterium, bildankare, skuggdomare för originalitet (A/B-data samlas per granskning)
