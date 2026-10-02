@@ -1535,3 +1535,43 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   `kunskap/lansering.md:68` och tre hjälptexter i `kontroller/prelaunch.py` (rad 141, 241, 496)
 - Utfall: —
 - Backlog: B-20261002-webblasartexterna-pekar-pa-kontroller-webblasare (egen innovation)
+
+### 2026-10-02 · mrdoob/three.js · nej
+- Källa: https://github.com/mrdoob/three.js @ f0f1455 (ur klonens `.git/shallow`; senaste push 2026-10-02T13:18Z),
+  MIT; cirka 116 000 stjärnor, inte arkiverat; version 0.186.0 (r186); cirka 750 000 tokens text. Inte bedömd förut.
+  Förgranskat. Läst: README i helhet, `docs/llms.txt` i helhet, `package.json` (version och ingångar), förgranskningens
+  dolda tecken och riskmönster. Biblioteket (`src/`), exemplen, editorn och manualen bara som fillista. Sett:
+  https://threejs.org öppnad i dag, desktop första vyn och skrolläge 4 av 8, mobil första vyn. Bibliotekets storlek
+  mättes inte (mätkommandot nekades i den här körningen). Ägarens not: ingen
+- Steg: 5 (bygge: rörelse och 3D i sidan); inget annat
+- Jämfört med i dag: three.js är ett JavaScript-bibliotek som ritar 3D i en canvas med WebGL eller WebGPU [REPO
+  README.md rad 9–11]; README:s grundexempel är en kub som snurrar i en animationsloop över hela fönstret [rad 44–55].
+  Hos oss är principen att innehåll och navigation fungerar utan JS (`kunskap/byggstandard.md:18`), med budget 200 kB
+  JS per sida (3.7, rad 52) och krav på `prefers-reduced-motion` när sidan har rörelse (3.5, rad 50); bygget skriver
+  "ingen JavaScript som inte behövs" (`.claude/skills/bygg-sajt/SKILL.md:202`), och litteraturen bakom är HTML före JS
+  (`kunskap/teoretisk-grund.md:47–48`, 119). De tre dömda byggena hade 0 kB JS och inga tredjepartsanrop (`LARDOMAR.md`
+  rad 31, 56, 63, 87). Klonen har ingen träff på `prefers-reduced-motion` utanför minifierade filer, så hänsynen till
+  rörelse vore helt vårt eget arbete. Ingen motsvarighet hos oss att jämföra mot sak för sak, eftersom vi medvetet inte
+  har klientritad grafik; för oss sämre
+- Skäl: three.js är ett utmärkt bibliotek för det det gör, men det gör spel, portfolior, konstprojekt och
+  produktkonfiguratorer: galleriet på threejs.org är just det, lerfigurer, bilspel, en snookerbana, en "Design the next
+  iPhone", en smyckesvisare och en kamera [BILD threejs-sida-20261002/desktop-forsta.png, desktop-skroll-04.png]. Våra
+  verksamheter är lokala hantverkare där ägaren dömt det härledda och verkliga som det bästa (byggdagbok med egna
+  telefonbilder, ordagranna omdömen) och bristen på egna bilder som det sämsta (`LARDOMAR.md` L1–L3). En 3D-scen
+  kräver en modell som ingen av dem har, ger ingen text till sök eller skärmläsare, drar JS och GPU på mobilen och
+  löser inget av de gap ägaren pekat på; det är dekoration, och krockar med ett medvetet val (minimal klient-JS). Det
+  enda läge där domen kunde ändras är en framtida kund vars vara är ett föremål med färdig 3D-modell (till exempel
+  trappor eller kök på beställning); det bedöms då med det fallet framför sig. Källkritik: källan säljer inget;
+  README:s "lightweight" och "easy-to-use" [REPO README.md rad 11] är egna omdömen. `docs/llms.txt` har ett avsnitt med
+  instruktioner till språkmodeller som skriver three.js-kod [REPO docs/llms.txt rad 5–81], bland annat att hämta
+  biblioteket från ett CDN; det gäller kodgenerering, inte kirurgen, och följdes inte
+- Kostnad: ingen; inget tas in. Som beroende vore det biblioteket och eventuella tillägg i varje sida som använder det,
+  plus modeller och texturer, och versionsuppföljning (r186 i dag, med en egen migreringsguide [REPO README.md rad 17])
+- Säkerhet: förgranskningen HÖG, av mängden: 1 737 skript (eval/exec i editorn och dess vendorbibliotek, nätanrop i
+  laddare och dekodrar, base64-klumpar i WASM-dekodrar). Tolv dolda tecken: nollbredds- och BOM-tecken i fem
+  typsnitts-JSON under `examples/fonts/droid/`, där de är glyfnycklar i en teckentabell, och U+200C/U+200D på en lång
+  rad i den medföljande parsern `editor/js/libs/acorn/acorn.js:879`, som förtecknar tillåtna identifierartecken; inget
+  gömmer text. Inga skills, hookar eller behörigheter. Inget kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
