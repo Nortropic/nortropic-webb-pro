@@ -9,6 +9,8 @@ som beslutats: `BESLUT.md`. Ägarens domar: `LARDOMAR.md`; de gäller före allt
 - `kirurg`: bedömer ett repo, en skill, en artikel eller en YouTube-video (`/kirurg <url>`). Lägger aktuella fynd i
   backloggen automatiskt.
 - `backlog`: genomför den vilande backloggen när ägaren säger "implementera enligt backlog".
+- Övriga mappar i `.claude/skills/` är verktygslådan: skills som kirurgen tagit in och som byggena använder efter
+  behov. Var och en har `KALLA.md` med källa, commit och licens.
 
 ## Var saker finns
 

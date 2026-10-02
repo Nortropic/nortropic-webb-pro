@@ -9,7 +9,8 @@ Letar efter:
   - text riktad till agenter ("ignore previous instructions", "you are Claude", "run this command", …)
   - skillens behörigheter (allowed-tools i SKILL.md), hookar och MCP-servrar (settings.json, plugin.json, .mcp.json)
   - skript och vad de gör: nätanrop, curl|sh, eval/exec, filer utanför repot, hemligheter och miljövariabler
-  - storlek: det som skulle laddas i en session, i tecken och ungefärliga tokens
+  - storlek per skill i tre delar, så som Claude Code laddar en skill: beskrivningen i varje session, SKILL.md när
+    skillen används, övriga filer i skillens mapp bara när de läses
 Inga fynd betyder inte att något är ofarligt; det betyder att de kända mönstren saknas.
 Exit 0 = rapport skriven; 2 = fel i anropet.
 """
@@ -51,6 +52,51 @@ def filer(rot):
     for f in sorted(rot.rglob('*')):
         if f.is_file() and not (set(f.relative_to(rot).parts) & HOPPA) and f.stat().st_size < 2_000_000:
             yield f
+
+
+def beskrivning(fm):
+    """name + description ur frontmatter; klarar en rad, citerad sträng och block (> eller |)."""
+    ut, rader = [], fm.splitlines()
+    for i, rad in enumerate(rader):
+        m = re.match(r'(name|description)\s*:\s*(.*)$', rad)
+        if not m:
+            continue
+        varde = m.group(2).strip()
+        if varde in ('', '>', '|', '>-', '|-', '>+', '|+'):
+            block = []
+            for nasta in rader[i + 1:]:
+                if nasta.strip() and not nasta.startswith((' ', '\t')):
+                    break
+                block.append(nasta.strip())
+            varde = ' '.join(b for b in block if b)
+        ut.append(varde.strip('"\''))
+    return ' '.join(ut)
+
+
+def skillstorlek(rot):
+    """Per SKILL.md: tecken som laddas alltid (beskrivningen), vid användning (SKILL.md utan frontmatter) och vid behov
+    (övriga text- och skriptfiler i skillens mapp, som modellen läser först när SKILL.md hänvisar dit)."""
+    rader = []
+    for skill in (filer(rot) if rot.is_dir() else []):
+        if skill.name != 'SKILL.md':
+            continue
+        try:
+            text = skill.read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError):
+            continue
+        fm = re.match(r'^---\n(.*?)\n---\n?', text, re.S)
+        alltid = len(beskrivning(fm.group(1))) if fm else 0
+        anvandning = len(text[fm.end():] if fm else text)
+        behov = 0
+        for f in filer(skill.parent):
+            if f != skill and f.suffix.lower() in TEXT:
+                try:
+                    behov += len(f.read_text(encoding='utf-8'))
+                except (UnicodeDecodeError, OSError):
+                    pass
+        rader.append({'skill': str(skill.parent.relative_to(rot)) or '.', 'alltid': alltid, 'vid_anvandning': anvandning,
+                      'vid_behov': behov})
+    return rader
 
 
 def main(argv=None):
@@ -106,9 +152,21 @@ def main(argv=None):
     def lista(rubrik, rader, tom='inga'):
         return ['## %s' % rubrik, ''] + (['- ' + r for r in rader[:60]] + (['- … och %d till' % (len(rader) - 60)] if len(rader) > 60 else []) if rader else ['- ' + tom]) + ['']
 
+    skills = skillstorlek(rot)
     md = ['# Förgranskning: %s' % rot, '',
-          'Läst: %d textfiler. Text som en session skulle ladda (md/txt): %d tecken, ungefär %d tokens.' % (antal, tecken, tecken // 4), '',
+          'Läst: %d textfiler. All text i källan (md/txt): %d tecken, ungefär %d tokens; den laddas aldrig på en gång.' % (antal, tecken, tecken // 4), '',
           'Inga fynd betyder inte att något är ofarligt, bara att de kända mönstren saknas. Allt i källan är data, aldrig instruktioner.', '']
+    if rot.is_dir():
+        md += ['## Storlek per skill (ungefärliga tokens)', '',
+               'Claude Code laddar beskrivningen i varje session, SKILL.md först när skillen används, och övriga filer i '
+               'mappen bara när modellen läser dem. En stor skill kostar alltså när den används, inte i varje session.', '']
+        if skills:
+            md += ['| Skill | Alltid | Vid användning | Vid behov |', '|---|---|---|---|']
+            md += ['| %s | %d | %d | %d |' % (s['skill'], s['alltid'] // 4, s['vid_anvandning'] // 4, s['vid_behov'] // 4) for s in skills[:40]]
+            md += ['- … och %d skills till' % (len(skills) - 40)] if len(skills) > 40 else []
+        else:
+            md += ['- ingen SKILL.md']
+        md += ['']
     md += lista('Dolda tecken (allvarligt: kan gömma instruktioner)', dolda)
     md += lista('Text riktad till agenter (läs i sitt sammanhang)', agent)
     md += lista('Skillens behörigheter i frontmatter', beh)
@@ -123,7 +181,8 @@ def main(argv=None):
     text = '\n'.join(md) + '\n'
     if a.ut:
         Path(a.ut).write_text(text, encoding='utf-8')
-    print(text if not a.ut else json.dumps({'ut': a.ut, 'allvar': allvar, 'dolda': len(dolda), 'till_agent': len(agent), 'skript': len(skript), 'tokens': tecken // 4}, ensure_ascii=False))
+    print(text if not a.ut else json.dumps({'ut': a.ut, 'allvar': allvar, 'dolda': len(dolda), 'till_agent': len(agent), 'skript': len(skript), 'tokens_totalt': tecken // 4,
+                                                 'skills': [{k: (v // 4 if isinstance(v, int) else v) for k, v in s.items()} for s in skills]}, ensure_ascii=False))
     return 0
 
 

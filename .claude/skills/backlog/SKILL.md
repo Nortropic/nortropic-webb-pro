@@ -26,6 +26,13 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
    `bygg-sajt` eller en fil i `kunskap/`. Ny mekanik bara när posten uttryckligen kräver det och inget enklare räcker.
    Gäller posten ett kommande bygge (en A/B-prövning) och inget bygge finns än: låt den stå vilande med en not
    (`status <id> vilande --not "väntar på bygge"`) och gå vidare.
+   **En skill till verktygslådan:**
+   - Klona källan vid den commit posten anger, till `/tmp/kirurg/`.
+   - Kopiera skillens mapp till `.claude/skills/<namn>/` med licensfilen.
+   - Ta bort det posten säger. Ta alltid bort `allowed-tools` och `hooks` ur frontmatter.
+   - Skriv `KALLA.md` i mappen: källa, commit, licens, datum och vad som togs bort.
+   - Låt `description` säga när ett bygge ska använda skillen.
+   - Kör `.venv/bin/python kontroller/granska_repo.py .claude/skills/<namn>` på kopian. Den får inte bli HÖG.
 4. **Pröva:**
    - Ändrades något i `kontroller/` eller `mall/`: kör `kontroller/rokprov.sh`. Den ska sluta grönt.
    - Ändrades en skill eller kunskapsfil: läs igenom hela den ändrade delen och kontrollera att varje sökväg och
