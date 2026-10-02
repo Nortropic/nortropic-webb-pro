@@ -1434,3 +1434,52 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261002-mallens-formular-visar-ett-felbesked-utan-javasc (egen innovation; en första version av posten
   med ett felaktigt antal byggen sattes till avvisad)
+
+### 2026-10-02 · shadcn-ui/ui · nej
+- Källa: https://github.com/shadcn-ui/ui @ 295a1f1 (ur klonens `.git/shallow`; senaste push 2026-10-02T11:32Z), MIT;
+  cirka 125 000 stjärnor, inte arkiverat; cirka 542 000 tokens text. Bedömd förut med de gamla reglerna
+  (`REGISTER-arkiv-20261001.md:810`, nej, @ d75a96a); arkivet ligger utanför registret, så det här är en ny bedömning
+  med dagens regler, som för gstack. Förgranskat. Läst: README, `skills/shadcn/SKILL.md` i helhet,
+  `skills/shadcn/rules/forms.md` i helhet, det nya `typeset.css` (rad 1–490) och dess dokumentation
+  `apps/v4/content/docs/(root)/typeset.mdx` i helhet. Skillen `migrate-radix-to-base`, övriga regelfiler, registerkoden
+  och mallarna bara som namn i förgranskningen. Sett: `apps/v4/public/opengraph-image.png`, och demon
+  https://ui.shadcn.com öppnad i dag (desktop hela sidan, mobil första vyn). Ägarens not: ingen
+- Steg: 5 (bygge: komponenter, formulär, typografi för löptext); inget annat
+- Jämfört med i dag: (1) **Komponentbiblioteket och skillen.** Komponenterna är React med Tailwind som kopieras in med
+  ett CLI, och skillen är en bruksanvisning för just det: komponera Card, Badge, FieldGroup och semantiska färgklasser,
+  hämta allt via `npx shadcn@latest` [REPO skills/shadcn/SKILL.md rad 10–28, 177–186]. Vår mall har `astro` och `sharp`
+  som enda beroenden (`mall/astro/package.json` rad 10–13), byggstandarden kräver att innehåll och navigation fungerar
+  utan JS (`kunskap/byggstandard.md:18`) och bygget skriver typsnitt, skala, radie och avstånd som en egen
+  specifikation per verksamhet (`.claude/skills/bygg-sajt/SKILL.md:193–195`). Sämre för oss, och krockar med ett
+  medvetet val. (2) **Formulärreglerna:** etikett per fält, `aria-invalid` på kontrollen och felbeskedet vid fältet
+  [REPO skills/shadcn/rules/forms.md rad 14–29, 173–192]. Mallens `Forfragan.astro` har etikett per fält (rad 14–29),
+  byggstandarden kräver fel vid fältet (5.4), och felbeskedet utan JS ligger redan som vilande post
+  (B-20261002-mallens-formular-visar-ett-felbesked-utan-javasc). Lika. (3) **Typeset**, nytt sedan förra bedömningen:
+  en CSS-fil utan JS som sätter rytmen för löptext ur tre värden, storlek, radhöjd och flöde [REPO typeset.mdx rad
+  10, 33–35; typeset.css rad 7–14], byggd för renderad markdown och strömmande chatt [typeset.mdx rad 6–8, 215–221].
+  Våra sajter renderar ingen markdown; löptexten på integritets- och tjänstesidor sätts av riktningens egen skala. Att
+  lägga in en färdig rytm (radhöjd 1,75, rubriker i vikt 600, rundade bilder [typeset.css rad 12, 59, 349]) vore ett
+  standardutseende ovanpå riktningen, och radlängden lämnar den uttryckligen åt layouten [typeset.mdx rad 95]. Lika
+  eller sämre
+- Skäl: shadcn/ui är ett komponentbibliotek för appar i React och Tailwind [REPO README.md rad 3; SKILL.md rad 10],
+  och det syns. Demon är fortfarande en vägg av likformiga rundade kort i gråskala med dollarbelopp, sparmål och
+  inloggningsfält [BILD shadcn-sida-20261002/desktop-hela.png], förhandsbilden en mörk instrumentpanel för "Acme Inc."
+  [BILD opengraph-image.png], och i 390 px skärs kortens tredje kolumn av i högerkanten [BILD mobil-forsta.png]. Det är
+  det SaaS-kortkit som vi räknar som generiskt, inte något som gör en hantverkarsajt mer deras egen; ägarens domar
+  L1–L3 berömmer det som är härlett ur verksamheten och pekar ut de generiska mönstren som det svaga (`LARDOMAR.md`
+  rad 29, 78). Dagens regel att en större verktygslåda sällan är dålig ändrar inte domen: skillen gäller bara projekt
+  med en `components.json` [SKILL.md rad 3] och skulle aldrig väljas av ett Astro-bygge utan React, och det enda nya
+  som passar vår stack, Typeset, löser ett problem vi inte har. Källkritik: "beautifully designed" och "thoughtful
+  defaults" [REPO README.md rad 3; TEXT] är omdömen, inte belägg, och källan säljer bara sig själv
+- Kostnad: ingen; inget tas in. Som skill vore det 104 tokens i varje session, 4 713 vid användning och 18 358 vid
+  behov, plus ett CLI-anrop mot npm varje gång den laddas; som beroende React, React DOM, Tailwind och ett CLI med
+  versionsunderhåll i varje bygge
+- Säkerhet: förgranskningen HÖG, av mängden: 633 skript (eval/exec i release- och registerskript, miljövariabler i
+  v0- och registerkod, nätanrop i registerhämtningen). Inga dolda tecken. De 27 agentriktade träffarna är
+  installationsrader i dokumentationen och mallarnas README. Skillen ger sig själv rätt att köra paketets CLI via
+  `npx`, `pnpm dlx` och `bunx` och kör ett sådant anrop redan när den laddas [REPO skills/shadcn/SKILL.md rad 5 och
+  17]; `.cursor-plugin/plugin.json` startar en MCP-server via `npx`, och `.claude/settings.local.json` tillåter bland
+  annat `npm test`, `cat` och WebSearch. Inget försök att styra kirurgen. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
