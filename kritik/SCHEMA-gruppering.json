@@ -1,0 +1,28 @@
+{
+ "type": "object",
+ "required": ["kategorier", "storsta", "forslag"],
+ "additionalProperties": false,
+ "properties": {
+  "kategorier": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": ["namn", "antal", "kallor", "exempel"],
+    "additionalProperties": false,
+    "properties": {
+     "namn": {"type": "string"},
+     "antal": {"type": "integer", "minimum": 1},
+     "kallor": {"type": "array", "items": {"type": "string"}},
+     "exempel": {"type": "array", "items": {"type": "string"}}
+    }
+   }
+  },
+  "storsta": {"type": "string"},
+  "forslag": {
+   "type": "object",
+   "required": ["fil", "andring", "varfor", "klart"],
+   "additionalProperties": false,
+   "properties": {"fil": {"type": "string"}, "andring": {"type": "string"}, "varfor": {"type": "string"}, "klart": {"type": "string"}}
+  }
+ }
+}
