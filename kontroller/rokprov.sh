@@ -63,6 +63,35 @@ with prova.Server('$S/dist') as srv:
 " || { echo "FEL: formulärets demomottagare"; exit 1; }
 echo "   demomottagaren ok"
 
+echo "   hämtverktyget mot en lokal sajt (robots.txt, sidkarta, frågesträng, bilder)"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, tempfile, threading, functools, pathlib, http.server
+sys.path.insert(0, '$ROOT/kontroller'); import hamta_sajt as h
+rot, ut = pathlib.Path(tempfile.mkdtemp()), pathlib.Path(tempfile.mkdtemp())
+class Tyst(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *a): pass
+srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Tyst, directory=str(rot)))
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+bas = f'http://127.0.0.1:{srv.server_port}'
+def sida(vag, kropp):
+    d = rot / vag.strip('/'); d.mkdir(parents=True, exist_ok=True)
+    (d / 'index.html').write_text(f'<html lang=\"sv\"><head><title>T {vag}</title></head><body>{kropp}</body></html>')
+(rot / 'robots.txt').write_text(f'User-agent: *\nDisallow: /hemlig/\nSitemap: {bas}/sitemap.xml\n')
+(rot / 'sitemap.xml').write_text(f'<urlset><url><loc>{bas}/el/</loc></url><url><loc>{bas}/hemlig/</loc></url></urlset>')
+sida('/', '<a href=\"/om/#x\">Om</a><a href=\"/s/?q=1\">Sök</a><a href=\"https://www.facebook.com/f\">Fb</a><a href=\"tel:+4670\">R</a><h1>Rubrik</h1><img data-src=\"/lat.jpg\" srcset=\"/s-480.jpg 480w, /s-1200.jpg 1200w\" alt=\"Bil\"><div style=\"background:url(/bg.webp)\"></div>')
+sida('/om/', '<p>Om oss.</p><a href=\"/saknas/\">x</a>')
+sida('/el/', '<p>Bara i sidkartan.</p>')
+sida('/hemlig/', '<p>nej</p>')
+r = h.hamta_sajt(bas + '/', ut, paus=0)
+srv.shutdown()
+assert (r['sidor'], r['nekade'], r['fel']) == (3, 1, 1), r
+md, txt = (ut / 'SIDOR.md').read_text(), (ut / 'start.txt').read_text()
+for krav in ('/lat.jpg', '/s-1200.jpg', '/bg.webp', 'tel:+4670', 'facebook.com', 'nekad av robots.txt', 'frågesträng'):
+    assert krav in md, krav
+assert '[h1] Rubrik' in txt and 'T /' not in txt.split('---TEXT---')[1], txt
+" || { echo "FEL: hämtverktyget"; exit 1; }
+echo "   hämtverktyget ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"

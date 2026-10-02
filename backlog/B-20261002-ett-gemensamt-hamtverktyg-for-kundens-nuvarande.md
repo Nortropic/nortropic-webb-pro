@@ -1,11 +1,12 @@
 ---
 id: B-20261002-ett-gemensamt-hamtverktyg-for-kundens-nuvarande
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · firecrawl/firecrawl
 skapad: 2026-10-02
 prio: normal
 steg: 1 (hämta det publika, innehållsinventering)
+andrad: 2026-10-02T15:42Z
 ---
 # Ett gemensamt hämtverktyg för kundens nuvarande sajt i steg 1, i stället för att varje bygge skriver egna hämt- och lässkript
 

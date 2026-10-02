@@ -820,7 +820,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   README:er, testfall för injektionsskyddet och skyddets egen systemprompt; inget riktar sig till kirurgen utom README:ns
   uppmaning till agenter ovan. Skills utan behörigheter i frontmatter, inga hookar. Inget kördes eller installerades
 - Förslag: inget för Firecrawl. Egen innovation: ett gemensamt hämtverktyg för steg 1 (se backlog)
-- Utfall: —
+- Utfall: `kontroller/hamta_sajt.py` 2026-10-02; på sundbomsel.se 40 sidor (alla 15 i byggets handskrivna lista, plus
+  start, gdpr och en jobbannons), 72 bilder och fem kontaktvägar på 1 min 37 s. bygg-sajt steg 1 pekar på verktyget.
 - Backlog: B-20261002-ett-gemensamt-hamtverktyg-for-kundens-nuvarande (egen innovation)
 
 ### 2026-10-02 · avelino/awesome-go · nej

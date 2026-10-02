@@ -61,13 +61,16 @@ TaskUpdate.
 
 Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/research-underlag.md`.
 
-1. **Hämta det publika:** deras webbplats (alla sidor som spelar roll), Google-profil och omdömen, sociala kanaler,
-   företagsregister för grunduppgifter, två eller tre konkurrenter i samma ort. WebFetch och WebSearch. Skriv också
-   upp namn, adress och telefon exakt som de står i Google-profilen, på hitta.se och på eniro.se; avvikelser mellan
-   dem och deras sajt är ett fynd för rapporten. Sök också efter verksamhetens andra domäner (namnet med .se, .com
-   och .nu, adressen på bilen och i katalogerna) och läs dem som egna källor; två levande domäner är ett fynd för
-   rapporten. I lulea-snickaren-abx låg det mesta egna materialet på den äldre domänen.
-2. **Bilder:** ladda ner verksamhetens egna bilder (från deras sajt och kanaler) med
+1. **Hämta det publika:** deras webbplats med `.venv/bin/python kontroller/hamta_sajt.py https://deras-doman.se --ut
+   underlag/<slug>/kalla` (varje sida som .html och .txt; `kalla/SIDOR.md` listar sidorna, bilderna, kontaktvägarna
+   och de externa domäner sajten länkar till), en andra domän med `--ut underlag/<slug>/kalla/<domän>`. Google-profil
+   och omdömen, sociala kanaler, företagsregister för grunduppgifter, två eller tre konkurrenter i samma ort:
+   WebFetch och WebSearch. Skriv också upp namn, adress och telefon exakt som de står i Google-profilen, på hitta.se
+   och på eniro.se; avvikelser mellan dem och deras sajt är ett fynd för rapporten. Sök också efter verksamhetens
+   andra domäner (namnet med .se, .com och .nu, adressen på bilen och i katalogerna) och läs dem som egna källor; två
+   levande domäner är ett fynd för rapporten. I lulea-snickaren-abx låg det mesta egna materialet på den äldre
+   domänen.
+2. **Bilder:** ladda ner verksamhetens egna bilder (bildlistan i `kalla/SIDOR.md` och deras kanaler) med
    `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil, källa,
    vad bilden visar, kvalitet. Inga stockbilder. Räkna de användbara: färre än fem, eller saknas den som kommer hem
    till kunden, bilen eller verktyget, ett jobb före och efter eller ett färdigt resultat, så blir bilderna en
