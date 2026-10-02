@@ -99,12 +99,14 @@ def godkand(resultat):
 # --- underlag till granskaren ---
 
 def skarmbilder(rot, sajtrot):
-    """Provets skärmbilder kopierade till omgången (provet tömmer sin mapp vid nästa körning)."""
+    """Provets skärmbilder kopierade till omgången (provet tömmer sin mapp vid nästa körning). Skärmhöga rutor när
+    provet har gjort dem; annars första vyn och den nedskalade helsidan."""
     ut = []
     for sida in sorted(p for p in (rot / 'prov' / 'inspektion').glob('*') if p.is_dir()):
-        for vy in VYER:
-            f = sida / vy
+        rutor = sorted(sida.glob('vy-390-ruta-*.png')) + sorted(sida.glob('vy-1440-ruta-*.png'))
+        for f in rutor or [sida / vy for vy in VYER]:
             if f.is_file():
+                vy = f.name
                 mal = sajtrot / sida.name / vy
                 mal.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(f, mal)
@@ -173,7 +175,8 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Kalibrering, ägarens dom bredvid granskarens för tidigare byggen:',
         *(kal or ['- inga ännu']), '',
         'Verksamhetens underlag:', *[rad(p) for p in underlag], '',
-        'Sajtens skärmbilder från provet (läs varje):', *[rad(p) for p in bilder], '',
+        'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390 och 1440 (läs varje):',
+        *[rad(p) for p in bilder], ''
         'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'), '',
         'Referensernas skärmbilder:', *([rad(p) for p in refs] or ['- inga']), '',
         'Tidigare byggens första vy:', *([rad(p) for p in tidigare] or ['- inga']), '',

@@ -16,8 +16,8 @@ originalitet tyngst, och låt kritiken gå tillbaka tills sajten håller.
 
 Uppdraget räknar upp sökvägarna. Du har:
 
-- **Sajten live** på en lokal adress, och provets skärmbilder av varje sida i 390 och 1440 px, första vyn och hela
-  sidan.
+- **Sajten live** på en lokal adress, och provets skärmbilder av varje sida i 390 och 1440 px, uppifrån och ned i
+  skärmhöga rutor.
 - **Verksamhetens underlag:** uppgifterna, researchen med listan "Bara de har", briefen med toppuppgifterna och den
   primära handlingen, och förteckningen över deras egna bilder.
 - **Referenserna** som byggaren valde, med skärmbilder.
@@ -32,8 +32,8 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
 
 1. Läs ägarens domar och kalibreringen. Där ägaren var strängare än en tidigare granskning: döm som ägaren.
 2. Läs underlaget: vad är specifikt för just den här verksamheten, och vilka är toppuppgifterna?
-3. **Titta på varje skärmbild med Read.** Startsidan i 390 och 1440 först, sedan varje undersida, första vyn och
-   hela sidan.
+3. **Titta på varje skärmbild med Read.** Varje sida finns uppifrån och ned i skärmhöga rutor, i 390 och 1440.
+   Startsidan först, sedan varje undersida.
 4. **Se sidan som en besökare.** `node kontroller/sida.mjs '<adress>' --ut <arbetskatalog>/<namn>` ger en
    skrollsekvens, uppmätta designfakta (typsnitt, storlekar, färger, radlängder) och sidans text. Använd den på
    startsidan och på varje sida där du tvekar. Behöver du se ett tillstånd: `node kontroller/webblasare/inspektera.mjs

@@ -20,7 +20,7 @@ echo "   grönt"
 
 echo "   granskarens uppdrag (torrt, ingen session) och godkännandets regel"
 UPPDRAG=$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/granska.py" rokprov-mall --torr)
-for krav in "kritik/GRANSKARE.md" "originalitet ≥ 7" "vy-390-forsta.png" "kunskap/referenser-professionella.md"; do
+for krav in "kritik/GRANSKARE.md" "originalitet ≥ 7" "vy-390-ruta-01.png" "vy-1440-ruta-01.png" "kunskap/referenser-professionella.md"; do
   case "$UPPDRAG" in *"$krav"*) ;; *) echo "FEL: granskarens uppdrag saknar: $krav"; exit 1;; esac
 done
 "$ROOT/.venv/bin/python" -B -c "

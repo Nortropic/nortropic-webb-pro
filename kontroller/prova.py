@@ -41,6 +41,8 @@ KONTROLLER = ROOT / 'kontroller'
 PY = sys.executable
 NODE = shutil.which('node') or 'node'
 NPM = shutil.which('npm') or 'npm'
+SIPS = shutil.which('sips')
+MAX_RUTOR = 12
 MAX_SIDOR = 12
 
 
@@ -68,6 +70,38 @@ def dist_hash(dist):
         h.update(str(f.relative_to(dist)).encode())
         h.update(hashlib.sha256(f.read_bytes()).digest())
     return h.hexdigest()
+
+
+def bildmatt(p):
+    rc, out = kor([SIPS, '-g', 'pixelWidth', '-g', 'pixelHeight', str(p)], timeout=30)
+    m = dict(re.findall(r'pixel(Width|Height):\s*(\d+)', out))
+    return (int(m['Width']), int(m['Height'])) if rc == 0 and len(m) == 2 else (0, 0)
+
+
+def rutor(mapp, vy):
+    """Helsidesbilden delad i skärmhöga rutor, vy-<bredd>-ruta-NN.png, uppifrån och ned. En helsida på över 8000 px
+    skalas ned så mycket när en modell läser den att text och detaljer försvinner (fynd 2026-10-02: startsidan i 390
+    var 780×10164 px). Rutans höjd är förstavyns. Returnerar (antal rutor, antal skärmar)."""
+    hela, forsta = mapp / ('vy-%s-hela.png' % vy), mapp / ('vy-%s-forsta.png' % vy)
+    if not (SIPS and hela.is_file() and forsta.is_file()):
+        return 0, 0
+    (b, h), (_, steg) = bildmatt(hela), bildmatt(forsta)
+    if not (b and h and steg):
+        return 0, 0
+    skarmar = list(range(0, h, steg))
+    gjorda = 0
+    for i, y in enumerate(skarmar[:MAX_RUTOR], 1):
+        # sips beskär inte när rutan slutar exakt vid bildens nederkant (ger hela bilden); sluta en pixel ovanför.
+        hojd = min(steg, h - y - 1)
+        ut = mapp / ('vy-%s-ruta-%02d.png' % (vy, i))
+        if hojd < 1:
+            continue
+        rc, _ = kor([SIPS, '-c', str(hojd), str(b), '--cropOffset', str(y), '0', str(hela), '--out', str(ut)], timeout=60)
+        if rc == 0 and bildmatt(ut) == (b, hojd):
+            gjorda += 1
+        else:
+            ut.unlink(missing_ok=True)
+    return gjorda, len(skarmar)
 
 
 def sidor_i(dist):
@@ -250,10 +284,15 @@ def prova(slug, snabb=False):
         # spill och skärmbilder
         spill = []
         bilder = []
+        rutinfo = []
         for r in provsidor:
             namn = 'hem' if r == '/' else r.strip('/').replace('/', '-')
             ut = prov / 'inspektion' / namn
             rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'inspektera.mjs'), '--adress', srv.url + r, '--ut', str(ut), '--vyer', '390,768,1440'], timeout=300)
+            for vy in ('390', '1440'):
+                gjorda, skarmar = rutor(ut, vy)
+                if skarmar > gjorda:
+                    rutinfo.append('%s @%s: %d av %d skärmar som rutor' % (r, vy, gjorda, skarmar))
             try:
                 ins = json.loads((ut / 'INSPEKTION.json').read_text(encoding='utf-8'))
                 for vy, d in (ins.get('vyer') or {}).items():
@@ -264,7 +303,10 @@ def prova(slug, snabb=False):
             except (OSError, ValueError):
                 spill.append('%s: inspektionen kördes inte (rc %d) %s' % (r, rc, svans(out, 3)))
         g['spill'] = grind(not spill, 'inget spill på %d sidor × 3 vyer' % len(provsidor) if not spill else '%d fall' % len(spill), 'prov/inspektion/', '; '.join(spill[:12]) or None)
-        info['skarmbilder'] = 'prov/inspektion/<sida>/vy-<bredd>-forsta.png och -hela.png (titta på dem; ett textträd är inte bildseende)'
+        if rutinfo:
+            info['rutor'] = '; '.join(rutinfo)
+        info['skarmbilder'] = ('prov/inspektion/<sida>/vy-<bredd>-forsta.png och vy-<bredd>-ruta-NN.png, helsidan i skärmhöga '
+                               'rutor (titta på dem; ett textträd är inte bildseende). -hela.png är nedskalad och visar bara rytmen.')
 
         # utan js
         rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'utan-js.mjs'), '--adress', srv.url + '/', '--sidor', ';'.join(provsidor), '--ut', str(prov / 'utan-js')], timeout=300)

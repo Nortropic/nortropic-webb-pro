@@ -163,8 +163,9 @@ trösklar. Bygg för att klara den. Läs sedan `kunskap/externa/anthropic-fronte
    (LocalBusiness eller rätt undertyp) sanningsenligt ur VERKSAMHET.json. Formulär skickar ingenting i demon; den
    primära handlingen går via telefon, mejl eller deras befintliga bokning.
 4. **Snabbprov ofta:** `.venv/bin/python kontroller/prova.py <slug> --snabb`. Läs `kunder/<slug>/prov/PROV.md`.
-5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-forsta.png`, `vy-1440-forsta.png` och
-   `-hela.png` med Read. Ställ dem bredvid referensernas skärmbilder och gå igenom de åtta dimensionerna i
+5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-ruta-NN.png` och `vy-1440-ruta-NN.png`
+   med Read: varje sida uppifrån och ned i skärmhöga rutor. `-hela.png` skalas ned så mycket att detaljer försvinner;
+   använd den bara för att se rytmen. Ställ dem bredvid referensernas skärmbilder och gå igenom de åtta dimensionerna i
    `kunskap/referenser-professionella.md`. Skriv `underlag/<slug>/JAMFORELSE.md` i dess form: kandidatens drag ·
    referensens lösning · vad som skiljer · vad som ändras eller behålls, och varför. Rätta det som ser generiskt ut:
    där allt är lika stort, där en sektion inte bär något specifikt, där första vyn inte säger vad de gör och vad man
