@@ -388,7 +388,7 @@ async function lardomvy() {
   aktivNav('lardomar');
   const o = await api('/api/oversikt'); raknare(o);
   const g = o.granskare || { bedomda: 0, rader: [] };
-  const gk = g.bedomda ? `<div class="kort" style="margin-bottom:12px"><div style="font-weight:560">Granskaren och du är överens om ${g.overens} av ${g.bedomda} byggen</div><p class="under" style="margin:4px 0 0">${g.rader.map((r) => `${esc(r.slug)}: granskaren ${r.granskaren ? 'godkände' : 'underkände'}, du svarade "${esc(r.agarens_svar)}"${r.overens ? '' : ' (oense)'}`).join(' · ')}</p></div>` : '';
+  const gk = g.bedomda ? `<div class="kort" style="margin-bottom:12px"><div style="font-weight:560">Granskaren och du är överens om ${g.overens} av ${g.bedomda} byggen</div><p class="under" style="margin:4px 0 0">${g.rader.map((r) => `${esc(r.slug)}: granskaren ${esc(r.granskaren)}, du svarade "${esc(r.agarens_svar)}"${r.overens ? '' : ' (oense)'}`).join(' · ')}</p></div>` : '';
   $('#vy').innerHTML = `<h1>Lärdomar</h1><p class="under">Dina domar, ordagrant. Varje dom blir en textändring via backloggen.</p>${gk}<div class="kort prosa">${o.lardomar}</div>`;
 }
 

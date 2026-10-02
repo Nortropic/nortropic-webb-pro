@@ -91,6 +91,22 @@ def ren_miljo():
             if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_') and not k.startswith('NWP_')}
 
 
+NIVAER = ('godkänd', 'detaljrättning', 'ny riktning')
+
+
+def niva(resultat):
+    """0 godkänd, 1 underkänd med bara detaljfynd, 2 minst ett fynd kräver ny riktning; None för äldre granskningar
+    utan omfattning. Jämförs med ägarens svar: som den är, efter små ändringar, inte utan större ändringar."""
+    if godkand(resultat):
+        return 0
+    omf = [f.get('omfattning') for f in resultat.get('blockerande') or []]
+    if 'riktning' in omf:
+        return 2
+    if omf and all(o == 'detalj' for o in omf):
+        return 1
+    return 2 if not omf else None  # betyg under tröskeln utan fynd räknas som större brist
+
+
 def godkand(resultat):
     k = resultat.get('kriterier') or {}
     betyg_ok = all(isinstance((k.get(n) or {}).get('betyg'), int) and k[n]['betyg'] >= TROSKEL[n] for n in KRITERIER)
@@ -161,7 +177,8 @@ def kalibrering():
                            ('namn', 'battre', 'specifik', 'mall_tecken', 'samsta', 'basta', 'en_andring') if svar.get(k) not in (None, ''))
         if g:
             betyg = ', '.join('%s %s' % (n, (g.get('kriterier') or {}).get(n, {}).get('betyg', '?')) for n in KRITERIER)
-            gr = 'granskaren: %s (%s)' % ('godkänd' if g.get('godkand') else 'underkänd', betyg)
+            dom = NIVAER[g['niva']] if g.get('niva') is not None else ('godkänd' if g.get('godkand') else 'underkänd')
+            gr = 'granskaren: %s (%s)' % (dom, betyg)
         else:
             gr = 'ingen granskning'
         rader.append('- %s · %s · ägaren: %s' % (p.name, gr, agaren or 'inga svar'))
@@ -237,7 +254,7 @@ def arbetare(rdir):
                 p.returncode, svar.get('subtype'), (p.stderr or b'').decode(errors='replace')[-500:] or str(svar.get('result'))[:500]))
         post = {'schema': 1, 'slug': slug, 'runda': upp['runda'], 'korning': upp['korning'], 'tid': nu(),
                 'startad': upp['tid'], 'dist_sha256': upp['dist_sha256'], 'modell': upp['modell'], 'effort': upp['effort'],
-                'troskel': TROSKEL, 'godkand': godkand(res), **res,
+                'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res,
                 'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}}
         (rdir / 'GRANSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         (rdir / 'GRANSKNING.md').write_text(markdown(post), encoding='utf-8')
@@ -250,7 +267,9 @@ def arbetare(rdir):
 
 
 def markdown(g):
-    rad = ['# Granskning · %s · %s (omgång %d)' % (g['slug'], 'GODKÄND' if g['godkand'] else 'UNDERKÄND', g['runda']), '',
+    nv = g.get('niva')
+    rad = ['# Granskning · %s · %s%s (omgång %d)' % (g['slug'], 'GODKÄND' if g['godkand'] else 'UNDERKÄND',
+                                                   '' if g['godkand'] or nv is None else ', ' + NIVAER[nv], g['runda']), '',
            '%s · %s, %s · bygge %s. Godkänt kräver %s och inga blockerande fynd.' % (
                g['tid'], g['modell'], g['effort'], g['dist_sha256'][:12],
                ', '.join('%s ≥ %d' % (k, g['troskel'][k]) for k in KRITERIER)), '',
@@ -263,6 +282,7 @@ def markdown(g):
     for i, f in enumerate(g.get('blockerande') or [], 1):
         grad = ' · grad %s' % f['allvarlighet'] if f.get('allvarlighet') else ''
         punkt = ' · standard %s' % f['standardpunkt'] if f.get('standardpunkt') else ''
+        punkt += ' · %s' % f['omfattning'] if f.get('omfattning') else ''
         rad.append('%d. **%s%s · %s%s.** %s Konsekvens: %s%s **Rättning:** %s%s' % (
             i, f['kriterium'], grad, f['var'], punkt, f['observation'], f['konsekvens'],
             (' Bryter: %s.' % f['heuristik']) if f.get('heuristik') else '', f['rattning'],

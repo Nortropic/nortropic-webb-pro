@@ -33,6 +33,9 @@ assert g.godkand({'kriterier': k, 'blockerande': []})
 assert not g.godkand({'kriterier': dict(k, originalitet={'betyg': 6, 'motivering': ''}), 'blockerande': []})
 assert not g.godkand({'kriterier': k, 'blockerande': [{'kriterium': 'text'}]})
 assert not g.godkand({'kriterier': {}, 'blockerande': []})
+assert g.niva({'kriterier': k, 'blockerande': []}) == 0
+assert g.niva({'kriterier': k, 'blockerande': [{'omfattning': 'detalj'}]}) == 1
+assert g.niva({'kriterier': k, 'blockerande': [{'omfattning': 'detalj'}, {'omfattning': 'riktning'}]}) == 2
 " || { echo "FEL: godkännandets regel"; exit 1; }
 echo "   granskaren ok"
 

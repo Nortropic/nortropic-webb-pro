@@ -281,21 +281,29 @@ def granskningen(slug, domd):
             'rundor': len(list(gdir.glob('runda-*'))), 'html': md(las_text(gdir / 'GRANSKNING.md'))}
 
 
-GODKANT_AV_AGAREN = ('Ja, som den är', 'Ja, efter små ändringar')
+AGARENS_NIVA = {'Ja, som den är': 0, 'Ja, efter små ändringar': 1, 'Nej, inte utan större ändringar': 2, 'Nej': 2}
+GRANSKARENS_NIVA = ('godkände', 'krävde detaljrättning', 'krävde ny riktning')
 
 
 def granskare_overens():
-    """Per dömt och granskat bygge: godkände granskaren det som ägaren ville visa, och underkände det ägaren inte ville?"""
+    """Per dömt och granskat bygge, i tre nivåer: granskaren godkänd / detaljrättning / ny riktning mot ägarens
+    som den är / efter små ändringar / inte utan större ändringar. Äldre granskningar utan omfattning jämförs bara på
+    om sajten kan visas som den är."""
     rader = []
     for p in sorted(KUNDER.iterdir()) if KUNDER.is_dir() else []:
         dom = (las_json(p / 'DOM.json') or {}).get('domar') or []
         g = las_json(p / 'granskning' / 'GRANSKNING.json')
         namn = (dom[-1].get('svar') or {}).get('namn') if dom else None
-        if not (g and namn):
+        if not (g and namn in AGARENS_NIVA):
             continue
-        agaren = namn in GODKANT_AV_AGAREN
-        rader.append({'slug': p.name, 'granskaren': bool(g.get('godkand')), 'agaren': agaren, 'agarens_svar': namn,
-                      'overens': bool(g.get('godkand')) == agaren})
+        an = AGARENS_NIVA[namn]
+        gn = g.get('niva')
+        if gn is None:
+            overens = bool(g.get('godkand')) == (an == 0)
+            gtext = 'godkände' if g.get('godkand') else 'underkände'
+        else:
+            overens, gtext = gn == an, GRANSKARENS_NIVA[gn]
+        rader.append({'slug': p.name, 'granskaren': gtext, 'agarens_svar': namn, 'overens': overens})
     return {'bedomda': len(rader), 'overens': sum(r['overens'] for r in rader), 'rader': rader}
 
 

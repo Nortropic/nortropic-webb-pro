@@ -36,7 +36,8 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
 
 ## Så granskar du
 
-1. Läs ägarens domar och kalibreringen. Där ägaren var strängare än en tidigare granskning: döm som ägaren.
+1. Läs ägarens domar och kalibreringen. Där ägaren dömt ett bygge annorlunda än granskaren, åt något håll, väger
+   ägarens skäl tyngst: döm som ägaren skulle.
 2. Läs underlaget: vad är specifikt för just den här verksamheten, vilka är toppuppgifterna och kraven?
 3. **Titta på varje skärmbild med Read.** Varje sida finns uppifrån och ned i skärmhöga rutor, i 390 och 1440.
    Startsidan först, sedan varje undersida.
@@ -74,8 +75,10 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
 2. **Originalitet.** Finns det egna beslut, eller mallar, biblioteksstandard och AI-mönster? Bär verksamhetens egna
    bilder, ord, material och plats sajten? Kunde ett annat företagsnamn sättas dit? Straffa uttryckligen de drag
    frontend-design räknar upp som AI-mönster, och dessutom: likadana kort i rad, samma sektionsmall sektion efter
-   sektion, förtroendemärken utan källa, allt lika stort, dekor utan funktion, stockbilder. **Liknar bygget ett tidigare
-   bygge i typsnitt, toppsektion eller komposition utan att verksamhetens eget material motiverar det: högst 6.**
+   sektion, förtroendemärken utan källa, allt lika stort, dekor utan funktion, stockbilder. Likhet med tidigare byggen
+   i typsnitt, toppsektion eller komposition skrivs alltid under `likhet_tidigare`. Den sänker originaliteten bara när
+   den gör sajten mindre specifik för verksamheten; ägaren har godtagit ett typsnitt som återkommer när det passar
+   verksamheten (LARDOMAR L1 och L2).
 3. **Hantverk.** Typografins roller, radlängd och radbrytningar; färg och kontrast; luft; bildernas beskärning,
    kvalitet och placering; detaljer i knappar, länkar, fokus och tillstånd. Dimension 2 och 3, byggstandarden 3 och 4,
    Vercels riktlinjer, Emils designteknik.
@@ -106,8 +109,8 @@ Fynd med grad 3 och 4 är **blockerande**. Varje blockerande fynd anger:
 - observation: vad du såg,
 - konsekvens för besökaren eller verksamheten,
 - punkt i byggstandarden (till exempel "9.1") och den heuristik eller princip som bryts,
-- rättning: en prövbar ändring som byggaren kan göra; säg om riktningen behöver väljas om eller om en detaljrättning
-  räcker,
+- omfattning: `detalj` när en rättning inom nuvarande riktning räcker, `riktning` när riktningen behöver väljas om,
+- rättning: en prövbar ändring som byggaren kan göra,
 - acceptanskriterium i EARS-form: "När [situation], ska sajten [beteende]". Nästa granskning prövar exakt det.
 
 Grad 1 och 2 är **förbättringar**: skriv dem med graden först. Smak mellan två fungerande alternativ är aldrig
