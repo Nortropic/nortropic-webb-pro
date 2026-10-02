@@ -2191,3 +2191,62 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261002-prova-astros-inbyggda-typsnitts-api-fonts-i-astr (prova),
   B-20261002-provet-stoppar-nar-ett-sjalvhostat-typsnitt-sakn (egen innovation)
+
+### 2026-10-02 · DavidHDev/react-bits · nej
+- Källa: https://github.com/DavidHDev/react-bits @ e1bbb69 (ur klonens `.git/logs/HEAD`, klonad 2026-10-02; senaste push
+  2026-09-30T11:19Z), MIT + Commons Clause (får användas i en sajt, komponenterna får inte säljas eller spridas vidare
+  [REPO LICENSE.md rad 8, 15]); cirka 48 400 stjärnor, inte arkiverat; cirka 27 500 tokens text i 1 600 textfiler.
+  Inte bedömd förut. Förgranskat. Läst: README i helhet, `LICENSE.md`, `package.json`, `src/constants/Pro.js` rad
+  1–140, `src/constants/Showcase.js`, `scripts/generateLlmsText.js` rad 1–80, komponenterna `BlurText.jsx` i helhet,
+  `Aurora.jsx` rad 1–60 och `CallChip.jsx` i helhet, och de två ställena för `prefers-reduced-motion` i
+  `WarpText.jsx`. Övriga komponenter (fem kategorier: text, animationer, komponenter, mikro, bakgrunder) bara som
+  fillista. Sett: `gh-showcase.png`, `tools-readme.webp`, två av arton Pro-förhandsbilder (`skill-corporate-trust.webp`,
+  `prompt-agency.webp`), och demosajten reactbits.dev öppnad i dag i 390 och 1440: mobilens och desktops första vy
+  och skrollägena 3, 5 och 7 av åtta. Ägarens not: ingen
+- Steg: 5 (bygge: rörelse, bakgrunder och textanimationer i sidan); inget annat
+- Jämfört med i dag: react-bits är cirka 210 React-komponenter som kopieras in som källkod via ett CLI, i fyra
+  varianter (JS/TS, CSS/Tailwind) [REPO README.md rad 13, 42, 63–67; BILD reactbits-dev/mobil-forsta.png]. De bygger
+  på React plus motion, GSAP, ogl, three och matter-js [REPO package.json rad 25, 28–31, 39, 46, 49, 62]: BlurText
+  animerar varje ord med motion [REPO BlurText.jsx rad 3, 87–97], Aurora ritar en bakgrund i WebGL-shaders via ogl
+  [REPO Aurora.jsx rad 3, 8–15]. Hos oss: mallen har astro och sharp som enda beroenden
+  (`mall/astro/package.json` rad 10–13), innehåll och navigation ska fungera utan JS (`kunskap/byggstandard.md:18`),
+  bygget skriver "ingen JavaScript som inte behövs" (`.claude/skills/bygg-sajt/SKILL.md:217`), och litteraturen bakom
+  är HTML före JS och minimal klient-JS (`kunskap/teoretisk-grund.md:47–48`, 119). De tre dömda byggena hade 0 kB JS
+  (`LARDOMAR.md` rad 31, 56, 87). Astro stöds via React-öar [BILD reactbits-dev/desktop-skroll-05.png "Works with Vite,
+  Next.js, Astro and Remix"], så det går tekniskt, men varje använd komponent drar in React och ett
+  animationsbibliotek på sidan. Det enda som är bättre än vårt: 104 av komponentfilerna tar hänsyn till
+  `prefers-reduced-motion` i koden, till exempel att shadern stannar [REPO WarpText.jsx rad 305, 441–444]; vår mall
+  gör samma sak globalt i CSS (`mall/astro/src/layouts/Bas.astro` rad 47–51, standarden 3.5). Lika på den punkten,
+  sämre i övrigt, och krockar med ett medvetet val
+- Skäl: Källan är ett bibliotek för att få en sajt att "stand out" med rörliga bakgrunder, glänsande text, kuber,
+  partiklar och markörer [REPO README.md rad 11, 33; BILD reactbits-dev/desktop-skroll-03.png: ShapeGrid,
+  MagicRings, ShinyText, Dock], och dess egen sajt är det mörklila SaaS-uttrycket med Geist, 66 px rubrik och
+  "Get Pro"-knapp [BILD reactbits-dev/desktop-forsta.png; TEXT SIDA.md designfakta]. Sajterna som visar upp det är
+  utvecklarportföljer och inloggningssidor för appar [REPO Showcase.js rad 3–31]. Våra verksamheter är lokala
+  hantverkare där ägaren dömt det härledda och verkliga som det bästa (byggdagbok med egna telefonbilder, ordagranna
+  omdömen, gulmarkerad konkret del av citatet) och de generiska mönstren som det som luktar mall (`LARDOMAR.md` rad 29,
+  54, 78); riktningen ska härledas ur verksamheten, "aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md:
+  200–201`). En aurora bakom "Elektriker i Luleå" gör inte sajten mer Sundboms, den gör den mer reactbits. Mikro-
+  kategorin, som är ny, är gjord för AI-appar: CallChip visar ett verktygsanrop med "bash npm test" och
+  status running/done/failed [REPO CallChip.jsx rad 18–19, 26–28], inte en ringknapp. Pro-delen säljer dessutom en
+  "Agent Kit" med stilskills för Claude Code [REPO Pro.js rad 120–137], och förhandsbilderna är exakt det vi inte vill
+  ha: fintech-mallen "Bastion" med SOC 2-märken och tre nyckeltal [BILD skill-corporate-trust.webp] och byrån
+  "Kilter" i serif på crème [BILD prompt-agency.webp]; snyggt, men utbytbart. Samma dom som för shadcn/ui, Bootstrap
+  och three.js (ovan), och ägaren höll med i alla tre (`kunskap/KIRURG-OMDOMEN.md`). Källkritik: "largest & most
+  creative" och "ship stunning interfaces faster" [REPO README.md rad 11, 33] är egna omdömen; källan säljer Pro
+  (765 poster [REPO Pro.js rad 29–36]) och sponsorplatser till shadcn-ekosystemet [REPO README.md rad 116; BILD
+  reactbits-dev/desktop-skroll-07.png]. Komponenterna är i sig välgjorda (rörelsehänsyn, aria-live i CallChip rad
+  151–152, 208), så nej gäller passformen, inte hantverket. Ändras om en framtida kund säljer något där rörelsen är
+  varan (en byrå, en spelstudio); bedöms då med det fallet framför sig
+- Kostnad: ingen; inget tas in. Som beroende vore det React, React DOM och per komponent motion, GSAP eller ogl i
+  varje sida som använder den, mot vår budget 200 kB JS (standarden 3.7), plus versionsuppföljning av fem
+  animationsbibliotek
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text riktad till agenter, inga hookar, MCP-servrar eller
+  skill-frontmatter. 302 skript: `scripts/generateOgImages.js` har nätanrop, eval/exec och miljövariabler (bygger
+  OG-bilder för deras sajt), `src/constants/Information.js` nätanrop, `src/utils/aiExport.js` eval/exec; allt hör till
+  deras dokumentationssajt, inte komponenterna. `scripts/generateLlmsText.js` skriver en `llms.txt` med UTM-märkta
+  länkar till Pro för agenter [REPO rad 15–19]; gäller kodgenererande agenter, inte kirurgen. Inget kördes eller
+  installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
