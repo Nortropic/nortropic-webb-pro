@@ -1207,3 +1207,51 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261002-a-b-tillagg-granskarens-namngivna-besokare-far-s (prova A/B, körs ihop med
   B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive)
+
+### 2026-10-02 · open-webui/open-webui · nej
+- Källa: https://github.com/open-webui/open-webui @ 8bd8b4f (ur klonens `.git/shallow`; senaste push
+  2026-10-02T04:50Z), "Open WebUI License", en BSD-licens med ett tillägg om varumärket; cirka 154 000 stjärnor, inte
+  arkiverat. Förgranskat. Läst: README och LICENSE i helhet, förgranskningens rapport och de flaggade ställena
+  (`backend/open_webui/utils/files.py`, `src/lib/utils/index.ts`, `Dockerfile`, `backend/open_webui/utils/plugin.py`)
+  och utvärderingens Elo-beräkning (`backend/open_webui/routers/evaluations.py` rad 86–133). Övriga omkring 370 skript
+  bara som fillista. Bilder: README:ns demobild och banderollen; övriga bilder i repot är ikoner, favicons och
+  kartmarkörer. Demon kräver en egen server och öppnades inte. Ägarens not: ingen
+- Steg: inget av de åtta; närmast steg 5 (en AI-chatt på kundens sajt) och kirurgens A/B-metod (modellarenan)
+- Jämfört med i dag: källan är ett självkört chattgränssnitt för språkmodeller, lokala via Ollama eller via
+  OpenAI-kompatibla API:er, med RAG, webbsök, bildgenerering, kalender, automationer och företagsinloggning [REPO
+  README.md rad 13, 24–86]. Sak mot sak: (1) **En AI-chatt på kundens sajt**: våra sajter laddar inget från tredje
+  part och håller sig under 200 kB JS (`kunskap/byggstandard.md` rad 52, 61), de dömda byggena har 0 kB JS
+  (`LARDOMAR.md` rad 31, 56, 87), och besökarens väg är telefonen och formuläret (byggstandarden 6.1, rad 84). Open
+  WebUI är dessutom ett internt verktyg för inloggade användare, inte en widget för besökare [BILD demo.png: sidomeny
+  med chattar, mappar och kanaler, inloggad användare nere till vänster]. Samma slutsats som för Dify (posten
+  2026-10-02 · langgenius/dify ovan); sämre för oss. (2) **Modellarenan med A/B och Elo** [REPO README.md rad 68]: när
+  en användare röstar fram en vinnare uppdateras ett Elo-tal med K = 32, i den ordning rösterna kom, och bara vinst
+  eller förlust räknas [REPO backend/open_webui/routers/evaluations.py rad 100, 108–124]. Vår A/B jämför två armar
+  blint parvis med ombytt ordning, räknar oenighet som oavgjort och använder en annan modell som domare än den som
+  byggde (`.claude/skills/kirurg/SKILL.md` rad 159–162). För två armar och några körningar är en ordningsberoende
+  Elo-summa utan oavgjort sämre än vår räkning, och den mäter vad en människa i chatten tycker om ett svar, inte en
+  sajt. Sämre. (3) **Ägarens arbete** (att fråga, döma, mata kirurgen): det gör ägaren redan i Claude Code och
+  dashboarden; en egen chattserver lägger till drift utan nytt i sak
+- Skäl: Open WebUI är ett välskött och aktivt projekt för den som vill driva ett eget chattgränssnitt, men det hjälper
+  oss inte att bygga bättre sajter åt små verksamheter eller att arbeta smartare: bygget behöver ingen chattserver,
+  och en chatt på sajten krockar med våra gränser för JS och tredjepartsresurser och efterfrågas av ingen dom i
+  `LARDOMAR.md`. Det enda med metodvärde, arenans röstning, är svagare än A/B-regeln vi redan har. Licensen förbjuder
+  att "Open WebUI"-märket tas bort eller ändras i en driftsättning med fler än 50 användare på 30 dagar utan
+  företagslicens [REPO LICENSE rad 20–34], så en kundvänd driftsättning vore också en licensfråga. Källkritik: README
+  säljer, med en ruta om företagsplan och säljteam överst [REPO README.md rad 19–20] och "a home for AI" [rad 13];
+  funktionslistan är verklig men belägg för kvalitet visas inte, och demobilden visar ett tomt startläge
+- Kostnad: ingen; inget tas in. Som beroende vore det en Python 3.11-server eller Docker-behållare med databas,
+  eventuellt vektorlager och Ollama, per installation, plus varumärkesvillkoret. Källans text är cirka 344 000 tokens
+  enligt förgranskningen; ingen skill
+- Säkerhet: förgranskningen HÖG, av mängden: 370 skript med nätanrop, hemligheter i miljövariabler och eval/exec,
+  och `curl | sh` för Ollamas installatör i `Dockerfile` rad 194. Pluginsystemet kör användarens Python-kod med
+  `exec` [REPO backend/open_webui/utils/plugin.py rad 241, 291], vilket är produktens avsikt. 30 dolda tecken, alla
+  nollbreddsfogar (U+200D) i emojisekvenser: i CHANGELOG och i en kodkommentar som visar familjeemoji [REPO
+  src/lib/utils/index.ts rad 1016]; inget som gömmer text. De tre ställena med text till agenter är en
+  installationsanvisning till människor [REPO README.md rad 115] och två texter om en rättad läcka mellan användare,
+  en rad i CHANGELOG och kodkommentaren vid rättelsen [REPO CHANGELOG.md rad 1246; backend/open_webui/utils/files.py
+  rad 214]. Inga skills, krokar eller behörigheter. Inget kördes eller
+  installerades. Inget försök att styra kirurgen
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
