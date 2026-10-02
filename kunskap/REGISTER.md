@@ -2486,3 +2486,71 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · foundation/yeti · nej
+- Källa: https://github.com/foundation/yeti @ f52d1e8 (ur klonens `.git/shallow`; senaste push 2026-09-25T18:02Z),
+  FSL-1.1-MIT (Functional Source License, blir MIT två år efter varje release) [REPO LICENSE rad 5, 87–92]; cirka
+  29 800 stjärnor (repot är det gamla foundation-sites, Foundation 6 lever på grenen `v6` [REPO README.md rad 5]), inte
+  arkiverat. 507 textfiler, cirka 290 000 tokens. Förgranskat. Läst i helhet: README, LICENSE, `package.json`,
+  `docs/guides/layouts.md`, `docs/guides/install.md`, `docs/guides/stability.md`, `docs/guides/theming.md`,
+  `src/starter/index.html`, `src/starter/theme.css`; `src/guides/responsive.md` rad 1–60; `src/components/nav/nav.css`
+  bara som sökning på popover. Sett sju av skärmbilderna i `test/browser/screenshots/`: starter, hero-receptet, nav,
+  card, base, sidebar och de två temana (light). Komponenternas CSS, manifesten, `bin/`-skripten och testerna lästes
+  inte. Ingen demosajt öppnad: README länkar bara till foundationcss.com, och paketet är inte släppt [REPO
+  docs/guides/install.md rad 41]. Ägarens not: ingen
+- Steg: 5 (koncept och bygge); möjligen mallen `mall/astro/`
+- Jämfört med i dag: (1) **Stilmallen.** Vår mall bär medvetet ingen design: `mall/astro/src/layouts/Bas.astro` rad
+  2–3 och `mall/astro/README.md` rad 3–5 säger att allt synligt skrivs för verksamheten, och steg 5 härleder fyra
+  riktningar ur verksamhetens material, "aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md` rad 200–201).
+  Yeti är en hel stilmall med standardval: blå primärton 250, systemtypsnitt, radie 0,5 rem på kort [REPO
+  src/starter/theme.css rad 19, 41, 72], och startsidan är "rubrik + ingress + två knappar + bild, tre likadana kort,
+  en Om-text" [REPO src/starter/index.html rad 44–91; BILD starter-light.png]. Det är ordagrant de mönster granskaren
+  straffar under originalitet: "likadana kort i rad, samma sektionsmall sektion efter sektion" (`kritik/GRANSKARE.md`
+  rad 84–88), och det ägaren pekade ut som det enda mall-luktande i L1 och L3 (`LARDOMAR.md` rad 29, 78). Sämre.
+  (2) **Meny och karusell.** Navkomponenten viker menyn bakom en hamburgare under tröskeln, med popover [REPO
+  src/starter/index.html rad 31–39; src/components/nav/nav.css rad 2]; ägaren valde synliga länkar utan hamburgare
+  (`LARDOMAR.md` rad 69) och skillen kräver det (`bygg-sajt/SKILL.md` rad 222). Källan levererar en karusell
+  (`src/components/carousel/`), som byggstandarden 5.5 förbjuder. Krockar med medvetna val. (3) **Vikt.** De tre dömda
+  byggena väger 4–10 kB CSS och 0 kB JS (`LARDOMAR.md` rad 31, 56, 87). Yeti är en stilmall för 49 komponenter och 17
+  layouter med valfri bantning via egen `@import`-lista och esbuild [REPO docs/guides/install.md rad 77–106], och
+  dess CSS skulle läggas under byggstandardens 3.7 (100 kB) men över allt vi levererat. Sämre. (4) **Metoden.**
+  Det Yeti gör bra är inte stilmallen utan grammatiken: layouten äger avståndet och barnen bär inga marginaler [REPO
+  docs/guides/layouts.md rad 12, 172], en skala för text och luft ur bas och kvot [REPO docs/guides/theming.md rad
+  65–76], och tröskel per komponent i stället för viewport-brytpunkt, med media queries bara för besökarens
+  preferenser [REPO docs/guides/layouts.md rad 16–24; src/guides/responsive.md rad 31–49]. Det är Every Layout (Bell &
+  Pickering 2019), som `kunskap/teoretisk-grund.md` rad 64–65 och 154 redan namnger som princip, men som
+  `kunskap/bygge-referens.md` inte gör något av: dess enda layoutrad är "responsivt utan horisontell spill" (rad 10).
+  Byggstandarden 3.1 kräver en typografisk skala och ett avståndssystem, men säger inget om vem som äger avståndet.
+  Metoden är lika i litteraturen och bättre formulerad hos källan än hos oss
+- Skäl: Yeti är Foundation 6:s efterträdare, ett välbyggt CSS-ramverk med rätt instinkter: ingen byggkedja, cascade
+  layers, container queries, `light-dark()`, tokens som data och ett manifest som dokumentation, typer och `llms.txt`
+  genereras ur [REPO README.md rad 19–24; docs/guides/install.md rad 179–204]. Men att bygga våra sajter på det drar
+  dem mot biblioteksstandard, samma dom som för twbs/bootstrap och shadcn-ui/ui i det här registret: startsidans
+  skelett [BILD starter-light.png] och hero-receptets åtta varianter av "text på ena sidan, bild på den andra" [BILD
+  recipes-hero-light.png] är just det granskaren och ägaren straffar, och menyn med hamburgare och karusellen krockar
+  med två medvetna val. Till det kommer att paketet inte är släppt och att README säger beta medan `package.json`
+  säger alpha [REPO README.md rad 9; package.json rad 3]: ytorna är frysta enligt stabilitetssidan [REPO
+  docs/guides/stability.md rad 12–23], men standardvärdena får flytta. Licensen tillåter professionella tjänster [REPO
+  LICENSE rad 51–52] och är inget hinder, men varje kundsajt skulle bära en licenstext som inte är MIT på två år.
+  Smart i källan, och värt att ta med som idé, är layoutgrammatiken i (4); den kräver inget ramverk, bara tre rader i
+  vår egen text, och träffar den dimension ägaren dömt lägst i alla tre byggen: "Luft och hierarki: Okej"
+  (`LARDOMAR.md` rad 35, 60, 84). Källkritik: README:n gör påståenden utan mätningar ("coherent site fast",
+  "accessible by default, checked in CI" [REPO README.md rad 13, 23]); axe körs i deras Playwright-svit
+  (`@axe-core/playwright` i `package.json` rad 54) men inga tal redovisas. Skärmbilderna är fixturer med platshållare,
+  inte sajter [BILD components-card-light.png, base-light.png], så ingen färdig sajt gick att döma
+- Kostnad: inget tas in ur källan. Som beroende i varje bygge vore det ett npm-paket som inte finns ännu, en stilmall
+  på tiotals kB före bantning, nio valfria JS-moduler (cirka 9 kB komprimerat [REPO docs/guides/install.md rad 149])
+  och Node 24 för källans egen byggkedja [REPO package.json rad 12]; källans text är cirka 290 000 tokens. Egen
+  innovation: tre rader i `kunskap/bygge-referens.md`, inga beroenden
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text till agenter, inga skills, hookar eller
+  behörigheter. 124 skript; flaggorna "eval/exec" och "hemligheter/miljö" ligger i `bin/` (bygge, release,
+  skärmbilder, validering), i komponenternas JS och i Playwright-testerna, och lästes inte i detalj. README:s
+  kloningsrader och `npx playwright install` [REPO README.md rad 46–52] är användardokumentation, inte riktade till
+  kirurgen; inget kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: inget ur källan. Egen innovation: `kunskap/bygge-referens.md`, efter rad 10 under "Krav på resultatet",
+  tre punkter: avståndet ägs av layouten (gap på föräldern, aldrig marginaler på barnen; undantaget skrivs på barnet);
+  text och luft delar en skala ur bas och kvot som CSS-variabler (byggstandarden 3.1); en sektion byter form vid sin
+  egen tröskel (container query eller flex-basis mot en bredd ur skalan), media queries bara för besökarens
+  preferenser. Källa i raden: Bell & Pickering (2019), Every Layout
+- Utfall: —
+- Backlog: B-20261002-skriv-tre-layoutregler-i-bygge-referens-md-layou (egen innovation; domen om källan är nej)
