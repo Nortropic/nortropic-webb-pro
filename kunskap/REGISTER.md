@@ -856,3 +856,41 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · getify/You-Dont-Know-JS · nej
+- Källa: https://github.com/getify/You-Dont-Know-JS @ 044120e (grenen 2nd-ed, ur klonens `.git/shallow`; senaste push
+  2026-02-15), CC BY-NC-ND 4.0 [REPO LICENSE.txt; README.md rad 63–65]. Läst: README, förordet `preface.md`,
+  innehållsförteckningarna för alla sex böcker, förgranskningens flaggade ställen i sitt sammanhang
+  (`objects-classes/ch3.md:1078–1104`, `types-grammar/ch1.md:481–488`, `types-grammar/ch2.md:256`). Kapiteltexten
+  (cirka 236 000 tokens) lästes inte i sin helhet; innehållsförteckningarna räckte för att se vad den handlar om. Två
+  bilder sedda: `get-started/images/fig1.png` och `fixed-it-for-you.png`. Inga skills, ingen demosajt.
+- Steg: inget av de åtta; närmast steg 5 (bygget), och där bara den lilla del som är JavaScript.
+- Jämfört med i dag: en bokserie för yrkesprogrammerare om JavaScript-språkets inre (räckvidd och closures,
+  prototyper, `this`, klasser, typer och typomvandling [REPO get-started/toc.md, scope-closures/toc.md,
+  objects-classes/toc.md, types-grammar/toc.md]), skriven för den som redan har 6–9 månaders JS-erfarenhet [REPO
+  preface.md rad 10]. Våra sajter är statisk Astro där innehåll och navigation fungerar utan JS
+  (`kunskap/byggstandard.md:18`, punkt 1.1 rad 25), bygget lägger "ingen JavaScript som inte behövs"
+  (`.claude/skills/bygg-sajt/SKILL.md:202`) och de dömda byggena hade 0 kB JS (`LARDOMAR.md:31`). Den enda JS i
+  mallen är nio rader för tidsfällan och den låsta knappen i förfrågningsformuläret
+  (`mall/astro/src/components/Forfragan.astro:42–52`). Boken kan inte göra den bättre; den handlar om språkets
+  mekanik, inte om webben, tillgänglighet eller konvertering. Inte jämförbart med något vi gör; för vår stack lika
+  eller sämre än det vi redan har
+- Skäl: källan svarar på "hur fungerar JavaScript under huven", en fråga våra byggen medvetet undviker att behöva ställa
+  genom att hålla JS borta ("rule of least power", `kunskap/teoretisk-grund.md:47–48`). Inget i ägarens domar L1–L3
+  (skriftlig förfrågan, bildunderlag, förtroendekvitton, träffytor, og:image) har med språkkunskap att göra. Principen
+  om minsta exponering för räckvidd [REPO scope-closures/toc.md rad 37, 49] är god programmering men tillför inget som
+  inte redan följer av att vi nästan inte skriver JS. Licensen (ingen bearbetning, inget kommersiellt bruk) utesluter
+  dessutom att boken kokas ned till en text eller skill i verktygslådan. Källkritik: välrenommerad och ärlig om sig
+  själv (två av sex böcker inställda, två är utkast [REPO README.md rad 17–23]); README:n gör reklam för sponsorn
+  [rad 47–57] men säljer inget till oss. Ägarens tidigare domar över språk- och ramverkskällor utan koppling till
+  sajtbygget (react/react, vuejs/vue, vinta/awesome-python, `kunskap/KIRURG-OMDOMEN.md:15–18, 35–38, 60–63`) var nej
+  och höll
+- Kostnad: ingen; inget tas in. Hela källan är cirka 236 000 tokens text enligt förgranskningen; inga skills
+- Säkerhet: förgranskningen HÖG, men alla fynd är ofarliga i sitt sammanhang: de nio dolda tecknen är nollbreddsfogar
+  (U+200D) inuti familje-emojin som boken använder för att förklara grafemkluster (`types-grammar/ch1.md:481, 488`,
+  `ch2.md:256`), och de tre träffarna "text till agenter" är ordet "exfiltration" i ett avsnitt om privata klassfält
+  (`objects-classes/ch3.md:1078–1100`). Inga skript, hookar, behörigheter eller skills; inget försök att styra
+  kirurgen. Inget kördes
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
