@@ -1483,3 +1483,55 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · browser-use/browser-use · nej
+- Källa: https://github.com/browser-use/browser-use @ 302d8fc (ur klonens `.git/shallow`; senaste push
+  2026-10-02T02:56Z), MIT; cirka 117 000 stjärnor, inte arkiverat; cirka 134 000 tokens text. Inte bedömd förut.
+  Förgranskat. Läst: README i helhet, `skills/browser-use/SKILL.md` i helhet, `skills/qa/SKILL.md` i helhet och
+  `skills/qa/references/methodology.md` i helhet. Biblioteket (`browser_use/`), skillsen cloud, open-source,
+  remote-browser och x402 bara som namn och storlek i förgranskningen. Sett: `static/hard_benchmark_v2.jpg` och
+  `static/NiceHack69.png`; README:s demo är en extern animation och öppnades inte. Ägarens not: ingen
+- Steg: 6 (prov i riktig webbläsare) och granskaren i 5.6; inget annat
+- Jämfört med i dag: (1) **Biblioteket** är en agent som styr en webbläsare åt en språkmodell, i Python med egen
+  API-nyckel (OpenAI, Anthropic eller deras egen modell) och gärna deras molnwebbläsare [REPO README.md rad 95–150,
+  219]. Vi har redan Playwright-vägen: provet kör `kontroller/webblasare/utforska.mjs` på upp till tolv sidor
+  (`kontroller/prova.py:374`), som räknar konsolfel per sida (`utforska.mjs:91, 118`), och granskaren har sajten live,
+  `sida.mjs` och `inspektera.mjs` för tillstånd (`kritik/GRANSKARE.md:22, 44–49`). Ett andra webbläsarramverk med egen
+  modellnyckel ger inget som Claude-sessionen med bildseende och Playwright inte redan gör. Lika, med ett beroende
+  till. (2) **qa-skillen** kör ett flöde i en riktig webbläsare och ger betyg 1–5, förankrat i om uppgiften gick att
+  slutföra, med det svagaste kritiska flödet som totalbetyg och konsol- och nätverksfel som belägg [REPO
+  skills/qa/references/methodology.md rad 81–125]. Granskaren gör samma sak med litteraturens metod: kognitiv genomgång
+  av den primära handlingen och varje toppuppgift i mobilen med Whartons fyra frågor (`kritik/GRANSKARE.md:50–53`), och
+  kriteriet Funktion frågar om varje toppuppgift går att lösa (rad 89–92). Lika eller sämre: källans rubrik är
+  utvecklarens röktest, vår är förankrad i Wharton m.fl. 1994 (`kunskap/teoretisk-grund.md:38–39`). (3) **Kraven runt
+  qa-skillen:** den får bara köras i deras molnwebbläsare, aldrig lokalt [REPO skills/qa/SKILL.md rad 39, 67], och en
+  lokal sajt ska ut på internet genom en ngrok-tunnel [REPO methodology.md rad 7–9, 32–44]. Våra förhandsvisningar är
+  privata. Sämre för oss
+- Skäl: browser-use är byggt för att låta en agent utföra uppgifter på andras sajter (boka, fylla i, skrapa) [REPO
+  README.md rad 50–52], inte för att bygga eller pröva en sajt, och den del som liknar provning, qa-skillen, har vi
+  redan i granskarens kognitiva genomgång och i utforskningen. Det som skulle följa med är det vi medvetet håller
+  borta: qa-skillen installerar själv med `curl | sh` och uv utan att fråga [REPO skills/qa/SKILL.md rad 49–55] och
+  skaffar en API-nyckel genom att agenten själv registrerar sig hos tjänsten [REPO methodology.md rad 16], alltså
+  installation och kontoskapande obevakat. browser-use-skillen låter agenten klicka bort Chromes egen fråga om
+  fjärrstyrning via macOS hjälpmedelsbehörighet [REPO skills/browser-use/SKILL.md rad 120–135], att godkänna en
+  säkerhetsfråga åt användaren. Källkritik: riktmärket är deras eget, en delmängd på 60 uppgifter, och bilden visar att
+  den bästa modellen klarar cirka 77 procent och Claude Opus 5 cirka 50 [BILD static/hard_benchmark_v2.jpg]; det
+  säger något om svåra uppgifter på främmande sajter, inget om provning av en egen statisk sajt. README säljer
+  molnkrediter [REPO README.md rad 81] och vänder sig till agenter: läs deras llms.txt [rad 60] och klistra in en
+  installationsprompt i Claude Code [rad 87–91]. Det följdes inte
+- Kostnad: ingen; inget tas in. Som skills vore det 31–206 tokens i varje session och upp till 3 571 vid användning
+  (qa 2 149, med 6 911 vid behov), plus Python-paket, uv, ngrok eller cloudflared och ett konto med API-nyckel
+- Säkerhet: förgranskningen HÖG. Inga dolda tecken. De åtta agentriktade träffarna är bibliotekets egna systemprompter
+  ("You are an AI" i `browser_use/agent/system_prompts/`) och kod och test för skydd av känsliga data, inte riktade
+  till kirurgen. HÖG kommer av 414 skript med nätanrop, eval/exec och miljövariabler, `curl | sh` i `bin/setup.sh`,
+  `CLOUD.md` och qa-skillen, och behörigheter i frontmatter: qa (Bash, Read, Task), x402 (Bash, Read, Write, Edit),
+  remote-browser (Bash för sitt CLI). Källan innehåller instruktioner till agenter (README rad 60 och 87–91, qa-skillens
+  självinstallation och självregistrering). Inget kördes eller installerades. Inget försök att styra kirurgen utöver
+  README:s uppmaningar till agenter i allmänhet
+- Förslag: inget ur källan. Egen innovation: under jämförelsen syntes att `kunskap/webblasare.md`, som bygget läser i
+  steg 6 (`.claude/skills/bygg-sajt/SKILL.md:242`), anger verktygen under `verktyg/webblasare/` (rad 4, 76, 91) och
+  beskriver en avskärmad besökare i `besok.mjs` (rad 16); här ligger verktygen i `kontroller/webblasare/` och
+  `besok.mjs` finns inte. Samma döda sökväg står i `kunskap/bygge-referens.md:55`, `kunskap/formularsakerhet.md:37`,
+  `kunskap/lansering.md:68` och tre hjälptexter i `kontroller/prelaunch.py` (rad 141, 241, 496)
+- Utfall: —
+- Backlog: B-20261002-webblasartexterna-pekar-pa-kontroller-webblasare (egen innovation)
