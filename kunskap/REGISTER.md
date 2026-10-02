@@ -774,3 +774,49 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · firecrawl/firecrawl · nej
+- Källa: https://github.com/firecrawl/firecrawl @ 2ffb1ab (ur klonens `.git/shallow`; senaste push 2026-10-02T14:19Z),
+  AGPL-3.0 för tjänsten, MIT för SDK:erna; cirka 188 000 stjärnor, inte arkiverat; 1 649 textfiler, cirka 167 000 tokens
+  text. Förgranskat. Läst: README i helhet, `skills/firecrawl-build/SKILL.md` i helhet och namnen på alla fem skills,
+  typerna för varumärkesutdragningen (`apps/api/src/lib/branding/types.ts`), skyddet mot promptinjektion
+  (`apps/api/src/scraper/scrapeURL/lib/promptInjectionGuard.ts`) och tjänstelistan i `docker-compose.yaml`. Bild:
+  jämförelsen öppen källkod mot moln [BILD img/open-source-cloud.png]. Ingen demosajt; produkten är ett API. Ägarens
+  not: ingen
+- Steg: 1 (hämta det publika, innehållsinventering) och 2 (diagnos av nuvarande sajt)
+- Jämfört med i dag: Firecrawl gör en webbsida till markdown, JSON eller skärmbild, hittar alla adresser på en sajt
+  (map), hämtar en hel sajt (crawl) och söker på webben [REPO README.md rad 67–82]. Det körs som molntjänst med
+  API-nyckel och krediter [rad 88, 447–448] eller självhostat som sju tjänster: api, playwright, redis, rabbitmq,
+  postgres och två för foundationdb [REPO docker-compose.yaml rad 63–215]. Robotskydd, proxyrotation och klick finns
+  bara i molnet [BILD open-source-cloud.png]. Varumärkesutdragningen samlar färger, typsnitt, knappar och
+  logotypkandidater och låter en språkmodell välja [REPO apps/api/src/lib/branding/types.ts rad 47–103]. Hos oss
+  hämtar steg 1 deras sajt med WebFetch och curl (`.claude/skills/bygg-sajt/SKILL.md:64–69`), steg 2 mäter med axe,
+  Lighthouse och vår inspektion i 390 och 1440 px (`:87–91`), och kirurgen ser en sida med `kontroller/sida.mjs`
+  (text, skärmbilder, designfakta). Våra kunder är små firmor med få sidor (sundboms-el: 16 sidor i
+  `underlag/sundboms-el/kalla/`). Det Firecrawl gör bättre än oss är att hitta alla
+  adresser själv och ge samma utdata varje gång. I dag skriver varje bygge sina egna hämt- och lässkript: sundboms-el
+  med en handskriven sidlista (`underlag/sundboms-el/skript/hamta.py:4–8`), paint-it-black med en egen HTML-läsare
+  (`underlag/paint-it-black-maleri/skript/las.py`), lulea-snickaren-abx och -aby med var sin `hamta.py` och `las.py`,
+  och sundboms-el med egna skript för logotypens färg och typsnitt (`farg.mjs`, `typsnitt.py`). Som verktyg är Firecrawl sämre för oss än det vi har, men det pekar på
+  något vi gör onödigt omständligt
+- Skäl: Firecrawl löser problem vi inte har (robotskydd, proxyer, tusentals sidor, data till appar), och det skulle
+  antingen skicka kundens sajt och en nyckel till en betald tredjepart eller kräva en server med sju tjänster för att
+  läsa en hantverkares tio sidor. Det krockar med "kod ur källor körs inte" och ger inget vi saknar i kvalitet; ingen dom
+  i `LARDOMAR.md` pekar på att underlaget missat något. Skyddet mot promptinjektion är välskrivet (sidinnehåll är
+  aldrig instruktioner, slumpad tagg runt det), men kirurgen har samma regel i text och `granska_repo.py` som verktyg.
+  Lärdomen som är värd något är metoden, inte verktyget: hitta sajtens adresser via sitemap och interna länkar och
+  hämta dem med ett gemensamt verktyg, så att innehållsinventeringen i steg 1 (Halvorson & Rach 2012,
+  `kunskap/teoretisk-grund.md:29–31`) blir densamma i varje bygge; det ligger som egen post i backloggen. Källkritik:
+  README:n säljer molnet ("Covers 96% of the web", "P95 latency of 3.4s" [REPO README.md rad 54–55], belagt bara med
+  egen blogg). Den innehåller också text till agenter som ber dem registrera användaren och hämta en API-nyckel [rad
+  302–308]; noterad, inte följd
+- Kostnad: ingen; inget tas in. Som verktyg vore det API-krediter per bygge eller en självhostad tjänstestack att
+  underhålla
+- Säkerhet: förgranskningen HÖG, av mängden: 1 332 skript med nätanrop, eval och miljövariabler, och `curl | sh` i
+  `apps/api/Dockerfile` och två exempel. De tre dolda tecknen är riktningsmarkörer i landsnamn
+  (`apps/api/src/lib/validate-country.ts:204, 583, 1225`). De elva ställena med text till agenter är installationsrader i
+  README:er, testfall för injektionsskyddet och skyddets egen systemprompt; inget riktar sig till kirurgen utom README:ns
+  uppmaning till agenter ovan. Skills utan behörigheter i frontmatter, inga hookar. Inget kördes eller installerades
+- Förslag: inget för Firecrawl. Egen innovation: ett gemensamt hämtverktyg för steg 1 (se backlog)
+- Utfall: —
+- Backlog: B-20261002-ett-gemensamt-hamtverktyg-for-kundens-nuvarande (egen innovation)
