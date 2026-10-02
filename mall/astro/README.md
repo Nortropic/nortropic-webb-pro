@@ -13,11 +13,13 @@ synligt skrivs för verksamheten. Byggstandarden som provet prövar står i `kun
    `public/apple-touch-icon.png` (180×180) och `public/delningsbild.png` (1200×630).
 4. Bilder i `src/assets/` och `<Image>` från `astro:assets` (WebP, width och height, srcset). Den största bilden i
    första vyn får `loading="eager"` och `fetchpriority="high"`. Typsnitt självhostade som WOFF2 i `public/fonts/`.
-5. Strukturerad data: den mest specifika schema.org-typen (GeneralContractor, Electrician, HousePainter, Plumber,
+5. Skriftlig förfrågan: `src/components/Forfragan.astro` på kontaktsidan, `src/pages/tack.astro` (noindex) och en
+   integritetssida, enligt `kunskap/forfragan.md`. Provets och dashboardens server tar emot inskicket i demon.
+6. Strukturerad data: den mest specifika schema.org-typen (GeneralContractor, Electrician, HousePainter, Plumber,
    RoofingContractor …) som JSON-LD på startsidan, med uppgifter ur `VERKSAMHET.json`.
-6. Skript och inline-händelser: CSP:n i `astro.config.mjs` släpper bara skript som Astro har hashat. Skriv skript
+7. Skript och inline-händelser: CSP:n i `astro.config.mjs` släpper bara skript som Astro har hashat. Skriv skript
    som `<script>` i komponenten, aldrig `onclick=""`. Stilattribut (`style=""`) går bra.
-7. `npm install` en gång, sedan `npm run build`. Provet bygger själv: `.venv/bin/python kontroller/prova.py <slug>`.
+8. `npm install` en gång, sedan `npm run build`. Provet bygger själv: `.venv/bin/python kontroller/prova.py <slug>`.
 
 Demon skyddas vid driftsättning (lösenord och `X-Robots-Tag: noindex` som svarshuvud), aldrig med noindex i HTML:
 då blir SEO-kontrollen och Lighthouse missvisande.

@@ -1,0 +1,56 @@
+---
+// Skriftlig förfrågan (byggstandarden 6, ägarens dom L1: "standarden ska inte tillåta att 'ring' är enda vägen").
+// Fungerar med vanlig POST utan JavaScript; honeypot och tidsfälla mot spam. Mottagaren är /api/forfragan: i demon
+// svarar provets och dashboardens server och visar /tack/ utan att spara eller skicka något; vid lansering tar en
+// serverfunktion över med samma kontrakt (kunskap/forfragan.md). Bygget stylar formuläret och skriver etiketterna i
+// verksamhetens ord; fältnamnen och fällorna ändras inte.
+interface Props {
+  fraga?: string; // etiketten för meddelandet, i verksamhetens ord
+  knapp?: string;
+}
+const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan' } = Astro.props;
+---
+<form class="forfragan" id="forfragan" action="/api/forfragan" method="post" enctype="multipart/form-data">
+  <p>
+    <label for="ff-namn">Namn</label>
+    <input id="ff-namn" name="namn" type="text" autocomplete="name" required maxlength="100" />
+  </p>
+  <p>
+    <label for="ff-telefon">Telefon</label>
+    <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40" />
+  </p>
+  <p>
+    <label for="ff-meddelande">{fraga}</label>
+    <textarea id="ff-meddelande" name="meddelande" rows="5" required maxlength="4000"></textarea>
+  </p>
+  <p>
+    <label for="ff-bild">Bild på jobbet (valfritt)</label>
+    <input id="ff-bild" name="bild" type="file" accept="image/*" />
+  </p>
+  <p class="ff-falla" aria-hidden="true">
+    <label for="ff-webbplats">Lämna fältet tomt</label>
+    <input id="ff-webbplats" name="webbplats" type="text" tabindex="-1" autocomplete="off" />
+  </p>
+  <input type="hidden" name="laddad" value="" />
+  <p class="ff-integritet">
+    <slot name="integritet">Vi använder uppgifterna bara för att svara på din förfrågan.
+    <a href="/integritet/">Så hanterar vi personuppgifter</a>.</slot>
+  </p>
+  <button type="submit">{knapp}</button>
+</form>
+
+<script>
+  // Tidsfällan och låst knapp. Utan JavaScript står tiden tom och mottagaren godtar ändå inskicket.
+  for (const f of document.querySelectorAll<HTMLFormElement>('form.forfragan')) {
+    const tid = f.querySelector<HTMLInputElement>('input[name="laddad"]');
+    if (tid) tid.value = String(Date.now());
+    f.addEventListener('submit', () => {
+      const b = f.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (b) { b.disabled = true; b.textContent = 'Skickar …'; }
+    });
+  }
+</script>
+
+<style>
+  .ff-falla { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+</style>

@@ -44,6 +44,8 @@ class Sida(HTMLParser):
         self.lanktexter = []  # (href, text, aria-label)
         self.ids = set()
         self._djup = {'header': 0, 'main': 0}
+        self.formular = []  # {'attr', 'falt', 'lankar'} per <form>
+        self._form = None
         self._fangar, self._buf, self._a = None, '', None
 
     def handle_starttag(self, tag, attrs):
@@ -51,6 +53,16 @@ class Sida(HTMLParser):
         if a.get('id'):
             self.ids.add(a['id'])
         self.el.append((tag, a, self._djup['header'] > 0, self._djup['main'] > 0))
+        if tag == 'form':
+            self._form = {'attr': a, 'falt': [], 'lankar': [], 'knappar': []}
+            self.formular.append(self._form)
+        elif self._form is not None:
+            if tag in ('input', 'textarea', 'select'):
+                self._form['falt'].append(dict(a, _tag=tag))
+            elif tag == 'a':
+                self._form['lankar'].append(a.get('href', ''))
+            elif tag == 'button':
+                self._form['knappar'].append(a)
         if tag in self._djup:
             self._djup[tag] += 1
         if re.fullmatch(r'h[1-6]', tag):
@@ -63,6 +75,8 @@ class Sida(HTMLParser):
             self._a = [a.get('href', ''), '', a.get('aria-label', ''), []]
 
     def handle_endtag(self, tag):
+        if tag == 'form':
+            self._form = None
         if tag in self._djup and self._djup[tag] > 0:
             self._djup[tag] -= 1
         if tag in ('script', 'style') and self._fangar:
@@ -376,10 +390,48 @@ def granska(dist):
             F('7.2', '/404.html', '404-sidan saknar <meta name="robots" content="noindex">')
         if any('canonical' in a.get('rel', '').lower().split() for t, a, *_ in p404.el if t == 'link'):
             F('7.2', '/404.html', '404-sidan har canonical; ta bort den (404-sidan ska inte indexeras)')
+    # 6 skriftlig förfrågan (ägarens dom L1: "standarden ska inte tillåta att 'ring' är enda vägen")
+    forfragan = [(s, fm) for s, fm in ((sida_av(dist, f), fm) for f, p in sidobjekt.items() for fm in p.formular)
+                 if fm['attr'].get('method', '').lower() == 'post' and fm['attr'].get('action') == '/api/forfragan']
+    if not forfragan:
+        F('6.1', '(alla)', 'ingen skriftlig förfrågningsväg: formulär med method="post" och action="/api/forfragan" saknas (mallens Forfragan.astro)')
+    for sida, fm in forfragan[:3]:
+        falt = {x.get('name'): x for x in fm['falt']}
+        for namn in ('namn', 'telefon', 'meddelande'):
+            if namn not in falt:
+                F('6.1', sida, 'förfrågan saknar fältet %r' % namn)
+        tel = falt.get('telefon') or {}
+        if tel and (tel.get('type') != 'tel' or tel.get('autocomplete') != 'tel'):
+            F('6.2', sida, 'telefonfältet ska ha type="tel" och autocomplete="tel"')
+        if (falt.get('namn') or {}) and (falt.get('namn') or {}).get('autocomplete') != 'name':
+            F('6.2', sida, 'namnfältet ska ha autocomplete="name"')
+        if (falt.get('webbplats') or {}).get('tabindex') != '-1':
+            F('6.5', sida, 'honeypoten (fältet webbplats med tabindex="-1") saknas')
+        if 'laddad' not in falt:
+            F('6.5', sida, 'tidsfällan (dolt fält laddad) saknas')
+        if any(x.get('type') == 'file' for x in fm['falt']) and fm['attr'].get('enctype') != 'multipart/form-data':
+            F('6.3', sida, 'formulär med bildfält behöver enctype="multipart/form-data"')
+        if not any(h.rstrip('/').endswith('/integritet') for h in fm['lankar']):
+            F('6.8', sida, 'förfrågan saknar länk till /integritet/ vid knappen')
+    if forfragan:
+        tack = dist / 'tack' / 'index.html'
+        if not tack.is_file():
+            F('6.7', '(alla)', 'tacksidan /tack/ saknas')
+        elif 'noindex' not in ''.join(m.get('content', '') for t_, m, *_ in sidobjekt[tack].el if t_ == 'meta' and m.get('name') == 'robots'):
+            F('6.7', '/tack/', 'tacksidan saknar noindex')
+        if not (dist / 'integritet' / 'index.html').is_file():
+            F('6.8', '(alla)', 'integritetssidan /integritet/ saknas (ansvarig, ändamål, rättslig grund, lagringstid, rättigheter, kontakt)')
     # 2.5 giltig HTML, lokalt (W3C:s tjänst skulle få verksamhetens sidor skickade till sig)
     for sida, text in giltig_html(dist):
         (F if sida else I)('2.5', sida or '(alla)', text)
     return fel, info, len(sidor)
+
+
+def sida_av(dist, f):
+    rel = f.relative_to(dist)
+    if rel.name == 'index.html':
+        return '/' if rel.parent == Path('.') else '/%s/' % rel.parent.as_posix()
+    return '/' + rel.as_posix()
 
 
 def giltig_html(dist):

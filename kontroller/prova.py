@@ -35,7 +35,10 @@ import threading
 import time
 from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from email import policy as email_policy
+from email.parser import BytesParser
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 KONTROLLER = ROOT / 'kontroller'
@@ -114,6 +117,19 @@ def sidor_i(dist):
     return rutter
 
 
+def las_formular(ctype, kropp):
+    """Textfälten ur ett inskickat formulär (multipart eller urlencoded). Filer läses inte."""
+    if ctype.startswith('multipart/form-data'):
+        msg = BytesParser(policy=email_policy.default).parsebytes(b'Content-Type: ' + ctype.encode() + b'\r\n\r\n' + kropp)
+        ut = {}
+        for del_ in msg.iter_parts():
+            namn = del_.get_param('name', header='content-disposition')
+            if namn and not del_.get_filename():
+                ut[namn] = del_.get_content() if isinstance(del_.get_content(), str) else ''
+        return ut
+    return {k: v[0] for k, v in parse_qs(kropp.decode('utf-8', 'replace')).items()}
+
+
 class TystServer(ThreadingHTTPServer):
     """Webbläsare som stänger anslutningen i förtid ska inte ge tracebacks i provets utdata (fynd 2026-10-01)."""
 
@@ -135,6 +151,27 @@ class Server:
 
             def log_message(self, *a):
                 pass
+
+            def do_POST(self):
+                """Demomottagare för förfrågningsformuläret (kunskap/forfragan.md): läser fälten, kontrollerar dem och
+                skickar besökaren vidare med 303. Sparar, loggar och skickar ingenting; vid lansering tar en
+                serverfunktion med samma kontrakt över."""
+                if urlsplit(self.path).path != '/api/forfragan':
+                    return self.send_error(405)
+                n = int(self.headers.get('Content-Length') or 0)
+                if n > 26 * 1024 * 1024:
+                    return self.send_error(413)
+                falt = las_formular(self.headers.get('Content-Type') or '', self.rfile.read(n))
+                if falt.get('webbplats'):
+                    mal = '/tack/'  # honeypoten ifylld: tyst, som om det gick bra
+                elif all(falt.get(k, '').strip() for k in ('namn', 'telefon', 'meddelande')):
+                    mal = '/tack/'
+                else:
+                    mal = '/kontakt/?saknas=1#forfragan'
+                self.send_response(303)
+                self.send_header('Location', mal)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
 
             def send_error(self, code, message=None, explain=None):
                 sida = Path(dist) / '404.html'
@@ -271,7 +308,9 @@ def prova(slug, snabb=False):
         if snabb:
             info['lighthouse'] = 'hoppades över (--snabb)'
         else:
-            rc, out = kor([NODE, str(KONTROLLER / 'lighthouse.mjs'), '--url=' + srv.url, '--sidor=' + lista, '--ut=' + str(prov / 'lighthouse')], timeout=900)
+            # sidor med noindex med avsikt (tacksidan) mäts inte: Lighthouse sänker SEO för noindex
+            lh = [r for r in provsidor if not re.search(r'<meta[^>]+name="robots"[^>]+noindex', (dist / r.strip('/') / 'index.html').read_text(encoding='utf-8', errors='replace') if (dist / r.strip('/') / 'index.html').is_file() else '')]
+            rc, out = kor([NODE, str(KONTROLLER / 'lighthouse.mjs'), '--url=' + srv.url, '--sidor=' + ','.join(lh), '--ut=' + str(prov / 'lighthouse')], timeout=900)
             try:
                 lh = json.loads((prov / 'lighthouse' / 'lighthouse.json').read_text(encoding='utf-8'))
                 rader = lh['rader']

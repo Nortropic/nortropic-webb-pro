@@ -1,7 +1,7 @@
 # Byggstandard för småföretagssajter (praxis 2026)
 
-Ägarens byggstandard (inklistrad 2026-10-02), anpassad till vår stack: statisk Astro, inga formulär som skickas i
-demon, ingen driftsättning förrän ägaren startar den. Varje punkt går att verifiera i webbläsaren (W) eller i koden
+Ägarens byggstandard (inklistrad 2026-10-02), anpassad till vår stack: statisk Astro, formulär vars inskick tas
+emot av en demomottagare som inte sparar eller skickar något, ingen driftsättning förrän ägaren startar den. Varje punkt går att verifiera i webbläsaren (W) eller i koden
 (K). Teorin och metoderna bakom punkterna står i `kunskap/teoretisk-grund.md`.
 
 **Fas.** **D** gäller varje bygge och prövas innan bygget får avslutas. **L** gäller lanseringen och prövas först när
@@ -75,19 +75,20 @@ sälja: varje sida har ett tydligt nästa steg.
 
 ## 6. Formulär (W+K)
 
-Demon skickar ingenting: den primära handlingen går via telefon, mejl eller verksamhetens befintliga bokning. Har
-demon ett formulär gäller 6.1–6.2 och 5.4; resten gäller lanseringen.
+Varje sajt har en skriftlig förfrågningsväg utöver telefonen (ägarens dom L1–L3). Formuläret, tacksidan och
+integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid lansering. Kontraktet står i
+`kunskap/forfragan.md`.
 
 | Punkt | Fas | Prövas av |
 |---|---|---|
-| 6.1 Få fält (namn, telefon, e-post, meddelande, ev. tjänst eller ort); obligatoriska markerade, inte allt obligatoriskt. | D om formulär | granskaren |
-| 6.2 `type="tel"`/`"email"`, inputmode, autocomplete; svenska felmeddelanden vid fältet. | D om formulär | info |
-| 6.3 Vanlig POST fungerar utan JS; knappen låses under sändning; bekräftelsen säger vad som händer härnäst. | L | lansering |
+| 6.1 Ett formulär med få fält (namn, telefon, vad besökaren vill ha hjälp med, valfri bild); det valfria märks, resten krävs. Telefonen får inte vara enda vägen. | D | `standard`, granskaren |
+| 6.2 `type="tel"`, inputmode och autocomplete; svenska felmeddelanden vid fältet. | D | `standard`, `axe` |
+| 6.3 Vanlig POST till `/api/forfragan` fungerar utan JS; knappen låses under sändning; tacksidan säger vad som händer härnäst och när. | D formulär och tacksida, L mottagare | `standard`, demomottagaren |
 | 6.4 Servern validerar allt igen, begränsar längd, escapar i mejlmallen. | L | lansering |
-| 6.5 Spamskydd i lager: honeypot, tidsfälla, rate limit, Turnstile. | L | lansering |
+| 6.5 Spamskydd i lager: honeypot och tidsfälla i formuläret; rate limit och Turnstile i mottagaren. | D fällor, L resten | `standard`, lansering |
 | 6.6 Transaktionsmejl med SPF, DKIM och DMARC; "skickat" först när mejlet accepterats; vid fel visas telefonnumret. | L | lansering |
-| 6.7 Tacksida med noindex och konverteringshändelse. | L | lansering |
-| 6.8 Integritetstext vid knappen, ingen förikryssad ruta, inga personuppgifter i loggar längre än nödvändigt. | L | lansering |
+| 6.7 Tacksidan `/tack/` med noindex; konverteringshändelse vid lansering. | D sida, L händelse | `standard` |
+| 6.8 Integritetstext med länk vid knappen, integritetssida med ansvarig, ändamål, rättslig grund, lagringstid, rättigheter och kontakt; ingen förikryssad ruta. | D | `standard`, granskaren |
 
 ## 7. SEO och lokal synlighet (W)
 

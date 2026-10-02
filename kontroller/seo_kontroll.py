@@ -66,7 +66,8 @@ def finns_lokalt(root, href):
 def granska_sida(root, f, raw, lage, verksamhet, doman):
     fynd = []
     url = url_for(root, f)
-    ar_404 = f.name == '404.html'  # 404-sidan ska ha noindex och ingen canonical (byggstandarden 7.2, ägarens dom L1–L3)
+    # 404-sidan och tacksidan ska ha noindex och ingen canonical (byggstandarden 6.7 och 7.2, ägarens domar L1–L3)
+    ar_404 = f.relative_to(root).as_posix() in ('404.html', 'tack/index.html')
     m = TITLE.search(raw)
     title = htmlmod.unescape(re.sub(r'<[^>]+>', '', m.group(1))).strip() if m else ''
     if not title:

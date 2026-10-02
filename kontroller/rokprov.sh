@@ -39,6 +39,26 @@ assert g.niva({'kriterier': k, 'blockerande': [{'omfattning': 'detalj'}, {'omfat
 " || { echo "FEL: godkännandets regel"; exit 1; }
 echo "   granskaren ok"
 
+echo "   formulärets demomottagare"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, urllib.request, urllib.error
+sys.path.insert(0, '$ROOT/kontroller'); import prova
+class Ingen(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k): return None
+op = urllib.request.build_opener(Ingen)
+def skicka(url, data):
+    req = urllib.request.Request(url + '/api/forfragan', data=data.encode(), headers={'Content-Type': 'application/x-www-form-urlencoded'}, method='POST')
+    try:
+        return op.open(req).headers.get('Location')
+    except urllib.error.HTTPError as e:
+        return e.headers.get('Location')
+with prova.Server('$S/dist') as srv:
+    assert skicka(srv.url, 'namn=Test&telefon=070&meddelande=hej&webbplats=&laddad=1') == '/tack/'
+    assert skicka(srv.url, 'namn=Bot&telefon=1&meddelande=x&webbplats=spam') == '/tack/'
+    assert skicka(srv.url, 'namn=&telefon=070&meddelande=') == '/kontakt/?saknas=1#forfragan'
+" || { echo "FEL: formulärets demomottagare"; exit 1; }
+echo "   demomottagaren ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"
