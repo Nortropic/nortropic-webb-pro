@@ -2358,3 +2358,70 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · lissy93/web-check · parkera
+- Källa: https://github.com/lissy93/web-check @ 0690bb3 (ur klonens `.git/refs/heads/master`; senaste push
+  2026-10-02T19:06Z), MIT, cirka 35 000 stjärnor, inte arkiverat, version 2.3.0 [REPO package.json rad 4]. Läst: README,
+  alla 48 API-kontroller som lista och i sin helhet `api/mail-config.js`, `api/http-security.js`, `api/trackers.js`,
+  `api/tech-stack.js`, `api/quality.js`, `api/cookies.js`, `api/ports.js`, `api/_common/middleware.js`, samt
+  regelmotorn `src/client/analysis/registry.ts` och reglerna för e-post, svarshuvuden och delningstaggar. Sett: 3 av 47
+  bilder, de tre helsidesskärmbilderna av instrumentpanelen för github.com, news.ycombinator.com och stackoverflow.com
+  [BILD .github/screenshots/web-check-screenshot1.png, -screenshot2.png, -screenshot10.png]. Demon web-check.xyz
+  öppnades inte: skärmbilderna visar samma vy, och verktyget skannar en domän på riktigt.
+- Steg: 2 (diagnos av nuvarande sajt) och lanseringen (fas L i byggstandarden: 6.6, 8.1, 10.3). Inget av stegen 3–7.
+- Jämfört med i dag: källan är en instrumentpanel som kör ett 40-tal uppslag mot en levande domän och visar dem som
+  kort: serverplats, certifikat, whois, DNS, svarshuvuden, HSTS, teknikstack, PageSpeed, kakor, spårare, e-postposter,
+  delningstaggar, robots, sitemap, öppna portar, traceroute, hotlistor, arkivhistorik [BILD web-check-screenshot1.png;
+  REPO registry.ts rad 33–59]. Sak mot sak. (1) Diagnosen av deras sajt: vi kör axe, Lighthouse och inspektionen i 390
+  och 1440 px och gör heuristisk utvärdering och kognitiv genomgång (`.claude/skills/bygg-sajt/SKILL.md` rad 99–114);
+  `hamta_sajt.py` läser generator-taggen (rad 132) och inspektionen loggar varje blockerad tredjepartsförfrågan
+  (`kontroller/webblasare/gemensamt.mjs` rad 84, `inspektera.mjs` rad 61). De tre dömda byggena fann WordPress/Divi,
+  WordPress/Elementor, cookiebanner och utgånget Instagramflöde den vägen (`LARDOMAR.md` rad 38, 63, 87;
+  `underlag/sundboms-el/DIAGNOS.md` rad 3). Källans Wappalyzer [REPO api/tech-stack.js rad 26] och Ghosterys
+  spårardatabas [REPO api/trackers.js rad 3–4] ger namngivna produkter i stället för domänlistor: lite bättre
+  som inventering, men inget som ändrar ribba 1, som sätts av Lighthouse, axe och första vyn. Lika i sak.
+  (2) Svarshuvuden: källan svarar bara ja eller nej per huvud [REPO api/http-security.js rad 5–23], medan
+  `kontroller/prelaunch.py` läser CSP:ns innehåll (object-src, base-uri, unsafe-inline utan hash, rad 398–409) och
+  kräver frame-ancestors och nosniff (rad 443–449). Sämre. (3) E-postposter: `kunskap/lansering.md` rad 49–64 läser SPF,
+  DKIM under en angiven selektor och DMARC och säger "saknas både SPF och DKIM blir det fynd; saknad DMARC blir
+  anmärkning; flera SPF-poster är ett fynd" (rad 59–60). Källan provar 17 vanliga DKIM-selektorer [REPO
+  api/mail-config.js rad 17–35], räknar SPF-uppslag mot gränsen 10 (rad 83–101) och dömer policyn: SPF utan -all
+  eller ~all, DMARC p=none som "monitor-only", pct under 100, sp som släpper underdomäner, DKIM-nyckel under 1 024
+  bitar [REPO src/client/analysis/rules/mail-config.ts rad 44–166]. Bättre regler än våra, på en punkt
+  (byggstandarden 6.6, `kunskap/byggstandard.md` rad 89) som prövas först vid lansering, och verktyget lansering.md
+  pekar på (`verktyg/lansering.py`, rad 20, 51) finns inte i det här repot. (4) Delningstaggar: källan flaggar saknad
+  og:image [REPO rules/social-tags.ts rad 3–8]; `seo_kontroll` och standarden prövar 7.1 på vår sajt
+  (`byggstandard.md` rad 97). Lika. (5) Litteraturen: header-skanning och OWASP står redan som metoder
+  (`kunskap/teoretisk-grund.md` rad 95–99); källan tillför ingen utvärderingsmetod, bara fler uppslag. Samma slutsats
+  som för the-book-of-secret-knowledge ovan (rad 517–519): ett andra kvitto på den levande adressen vid lansering, inte
+  en ny kontroll; ägaren höll med om den domen (`kunskap/KIRURG-OMDOMEN.md`).
+- Skäl: Inget i källan rör det ägarens domar L1–L3 pekar på: förfrågningsvägen, bildunderlaget, förtroendet och
+  rösten. Den kan inte få oss att bygga bättre sajter, och i byggena gör den inget smartare än det vi mäter
+  (`lighthouse.mjs` rad 35–42 ger samma PageSpeed-poäng som källans quality-kort, som dessutom kräver en Google-nyckel
+  [REPO api/quality.js rad 6, README rad 175]). Det som är bättre, e-postreglerna, hör till lanseringen, som inte har
+  ägt rum för något bygge och vars L-punkter inte redovisas (`SKILL.md` rad 319). Därför parkera, inte nej: när den
+  första lanseringen planeras är reglerna i `mail-config.ts` värda några rader i `lansering.md`, och en driftad
+  instans (web-check.xyz eller egen) är ett handkvitto på den levande adressen bredvid securityheaders.com. Att ta in
+  den nu vore fel på tre sätt: den är en tjänst att driftsätta (Astro + React + Svelte + Puppeteer + Chromium +
+  Wappalyzer + Express, [REPO package.json rad 23–63; README rad 213–214]), inte en skill eller en textrad, och kod ur
+  källor körs inte; den skannar portar och kör traceroute mot kundens värd [REPO api/ports.js rad 6–9,
+  api/trace-route.js] och presenterar sig som ett verktyg för att "uncover potential attack vectors" [REPO README.md
+  rad 70], vilket går utöver "bara läsning" i steg 2 (`SKILL.md` rad 114–115) och vore fel att rikta mot en
+  hantverkares webbhotell utan deras uttryckliga ja; och svarshuvudkontrollen är grundare än vår. Källkritik: README
+  bär tre sponsorer och Hostinger-länkarna är affiliate-länkar [REPO README.md rad 14–40, 128]; stjärnorna är räckvidd,
+  inte belägg; koden är välskriven och nyligen underhållen (push samma dag), och reglerna i mail-config.ts stämmer med
+  vad Gmail och DMARC-standarden kräver (`lansering.md` rad 62–64 säger samma sak om Gmail).
+- Kostnad: ingen; inget tas in. Hela källans text är cirka 9 100 tokens enligt förgranskningen; 140 skript; inga
+  skills. Vid lansering: fem till åtta rader i `lansering.md` och ett manuellt kvitto, inga beroenden.
+- Säkerhet: förgranskningen MEDEL över 171 textfiler: inga dolda tecken, ingen text riktad till agenter, inga hookar,
+  MCP-servrar eller skill-frontmatter. Riskmönstren är verktygets natur: nätanrop i sju skript, miljönycklar i tolv
+  (API-nycklar till Google, Shodan, Cloudmersive, Tranco, GitHub, CertSpotter [REPO README.md rad 173–181]), eval/exec
+  i skärmbilds- och traceroute-kontrollen. Portskanning, subdomänsökning, läckkontroll och Shodan är OSINT mot andras
+  domäner; inget kördes eller installerades. README:s installationsrader följdes inte.
+- Förslag: inget nu. Vid första planerade lansering: (a) lägg källans e-postregler som rader i `kunskap/lansering.md`
+  efter rad 60 (DMARC p=none är bara övervakning, pct under 100, sp som släpper underdomäner, SPF utan -all/~all,
+  fler än 10 SPF-uppslag, DKIM under 1 024 bitar, prova de vanliga selektorerna när leverantörens är okänd); (b) kör
+  en driftad web-check mot den levande adressen som handkvitto på e-postposter och svarshuvuden, med portskanning och
+  traceroute avstängda (`API_DISABLED_CHECKS` [REPO README.md rad 191]).
+- Utfall: — (aktuellt först när en sajt ska lanseras på riktigt; se `LARDOMAR.md` för om någon nått dit)
+- Backlog: ingen
