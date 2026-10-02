@@ -18,6 +18,21 @@ if ! "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/prova.py" rokprov-mall >/dev/
 fi
 echo "   grönt"
 
+echo "   granskarens uppdrag (torrt, ingen session) och godkännandets regel"
+UPPDRAG=$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/granska.py" rokprov-mall --torr)
+for krav in "kritik/GRANSKARE.md" "originalitet ≥ 7" "vy-390-forsta.png" "kunskap/referenser-professionella.md"; do
+  case "$UPPDRAG" in *"$krav"*) ;; *) echo "FEL: granskarens uppdrag saknar: $krav"; exit 1;; esac
+done
+"$ROOT/.venv/bin/python" -B -c "
+import sys; sys.path.insert(0, '$ROOT/kontroller'); import granska as g
+k = {n: {'betyg': 8, 'motivering': ''} for n in g.KRITERIER}
+assert g.godkand({'kriterier': k, 'blockerande': []})
+assert not g.godkand({'kriterier': dict(k, originalitet={'betyg': 6, 'motivering': ''}), 'blockerande': []})
+assert not g.godkand({'kriterier': k, 'blockerande': [{'kriterium': 'text'}]})
+assert not g.godkand({'kriterier': {}, 'blockerande': []})
+" || { echo "FEL: godkännandets regel"; exit 1; }
+echo "   granskaren ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"

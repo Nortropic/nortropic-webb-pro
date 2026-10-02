@@ -1,0 +1,52 @@
+{
+ "type": "object",
+ "required": ["kriterier", "blockerande", "forbattringar", "styrkor", "likhet_tidigare", "sett", "ej_bedomt", "sammanfattning"],
+ "additionalProperties": false,
+ "properties": {
+  "kriterier": {
+   "type": "object",
+   "required": ["designkvalitet", "originalitet", "hantverk", "funktion", "text"],
+   "additionalProperties": false,
+   "properties": {
+    "designkvalitet": {"$ref": "#/$defs/betyg"},
+    "originalitet": {"$ref": "#/$defs/betyg"},
+    "hantverk": {"$ref": "#/$defs/betyg"},
+    "funktion": {"$ref": "#/$defs/betyg"},
+    "text": {"$ref": "#/$defs/betyg"}
+   }
+  },
+  "blockerande": {
+   "type": "array",
+   "maxItems": 8,
+   "items": {
+    "type": "object",
+    "required": ["kriterium", "var", "observation", "konsekvens", "rattning"],
+    "additionalProperties": false,
+    "properties": {
+     "kriterium": {"type": "string", "enum": ["designkvalitet", "originalitet", "hantverk", "funktion", "text"]},
+     "var": {"type": "string"},
+     "observation": {"type": "string"},
+     "konsekvens": {"type": "string"},
+     "rattning": {"type": "string"}
+    }
+   }
+  },
+  "forbattringar": {"type": "array", "items": {"type": "string"}},
+  "styrkor": {"type": "array", "items": {"type": "string"}},
+  "likhet_tidigare": {"type": "string"},
+  "sett": {"type": "array", "items": {"type": "string"}},
+  "ej_bedomt": {"type": "array", "items": {"type": "string"}},
+  "sammanfattning": {"type": "string"}
+ },
+ "$defs": {
+  "betyg": {
+   "type": "object",
+   "required": ["betyg", "motivering"],
+   "additionalProperties": false,
+   "properties": {
+    "betyg": {"type": "integer", "minimum": 1, "maximum": 10},
+    "motivering": {"type": "string"}
+   }
+  }
+ }
+}

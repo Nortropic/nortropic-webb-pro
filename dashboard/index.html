@@ -191,7 +191,7 @@ async function byggevy(slug, behallFlik) {
   aktivNav('');
   const b = await api('/api/bygge/' + encodeURIComponent(slug));
   if (!behallFlik) flik = (!b.domd && b.steg[6].klar) ? 'dom' : 'oversikt';
-  const flikar = [['oversikt', 'Översikt'], ['rapport', 'Rapport'], ['underlag', 'Underlag'], ['korning', 'Körning'], ['prov', 'Prov'], ['dom', b.domd ? 'Dom ✓' : 'Din dom']];
+  const flikar = [['oversikt', 'Översikt'], ['rapport', 'Rapport'], ['underlag', 'Underlag'], ['korning', 'Körning'], ['prov', 'Prov'], ['granskning', 'Granskning'], ['dom', b.domd ? 'Dom ✓' : 'Din dom']];
   $('#vy').innerHTML = `
     <p class="under" style="margin-bottom:6px"><a href="#/">Översikt</a></p>
     <div class="rad mellan"><div><h1>${esc(b.namn)}</h1><div class="under" style="margin:0">${esc([b.ort, b.doman].filter(Boolean).join(' · ') || b.slug)}</div></div>
@@ -208,6 +208,7 @@ async function byggevy(slug, behallFlik) {
   if (flik === 'underlag') f.innerHTML = bUnderlag(b);
   if (flik === 'korning') f.innerHTML = bKorning(b.korning);
   if (flik === 'prov') f.innerHTML = b.prov_md ? `<div class="prosa">${b.prov_md}</div>` : '<div class="tom">Provet har inte körts.</div>';
+  if (flik === 'granskning') f.innerHTML = bGranskning(b.granskning || {});
   if (flik === 'dom') bDom(b, f);
   if (b.pagar && flik !== 'dom') timer = setTimeout(() => byggevy(slug, true), 6000);
 }
@@ -227,6 +228,11 @@ function bOversikt(b) {
     ${b.stoppvakt ? `<p class="under" style="margin-top:10px">Stoppvakten: ${esc(b.stoppvakt.skal)} (försök ${b.stoppvakt.forsok} av ${b.stoppvakt.tak}).</p>` : ''}
     ${v.length > 2 ? `<h2>Alla sidor</h2><div class="galleri">${v.map((p) => bild(p, p.split('/inspektion/')[1])).join('')}</div>` : ''}
     ${b.bilder.referenser.length ? `<h2>Referenserna bygget valde</h2><div class="galleri">${b.bilder.referenser.map((p) => bild(p, p.split('/referenser/')[1])).join('')}</div>` : ''}`;
+}
+function bGranskning(g) {
+  if (!g.finns) return '<div class="tom">Ingen oberoende granskning än. Bygget kör kontroller/granska.py efter designsteget, och stoppvakten kör den innan bygget får avslutas.</div>';
+  if (g.dold) return `<div class="tom">Granskaren har dömt bygget (${g.rundor} omgång${g.rundor === 1 ? '' : 'ar'}). Domen visas efter din dom, så att du dömer oberoende och vi kan se hur ofta ni är överens.</div>`;
+  return `<div class="rad" style="margin-bottom:12px"><span class="chip ${g.godkand ? 'ok' : 'rod'}">${g.godkand ? 'Godkänd' : 'Underkänd'}</span><span class="chip">omgång ${g.runda} av ${g.rundor}</span></div><div class="prosa">${g.html}</div>`;
 }
 function bUnderlag(b) {
   const e = Object.entries(b.underlag || {});
@@ -381,7 +387,9 @@ function registerpost(r) {
 async function lardomvy() {
   aktivNav('lardomar');
   const o = await api('/api/oversikt'); raknare(o);
-  $('#vy').innerHTML = `<h1>Lärdomar</h1><p class="under">Dina domar, ordagrant. Varje dom blir en textändring via backloggen.</p><div class="kort prosa">${o.lardomar}</div>`;
+  const g = o.granskare || { bedomda: 0, rader: [] };
+  const gk = g.bedomda ? `<div class="kort" style="margin-bottom:12px"><div style="font-weight:560">Granskaren och du är överens om ${g.overens} av ${g.bedomda} byggen</div><p class="under" style="margin:4px 0 0">${g.rader.map((r) => `${esc(r.slug)}: granskaren ${r.granskaren ? 'godkände' : 'underkände'}, du svarade "${esc(r.agarens_svar)}"${r.overens ? '' : ' (oense)'}`).join(' · ')}</p></div>` : '';
+  $('#vy').innerHTML = `<h1>Lärdomar</h1><p class="under">Dina domar, ordagrant. Varje dom blir en textändring via backloggen.</p>${gk}<div class="kort prosa">${o.lardomar}</div>`;
 }
 
 function startavy() {

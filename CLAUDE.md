@@ -6,6 +6,8 @@ som beslutats: `BESLUT.md`. Ägarens domar: `LARDOMAR.md`; de gäller före allt
 ## Skills
 
 - `bygg-sajt`: ett bygge åt en verksamhet, steg 1–7. Startas obevakat av `./kor.sh <slug> "<verksamhet>"`.
+  En oberoende granskare (`kontroller/granska.py`, kriterierna i `kritik/GRANSKARE.md`) dömer sajten i en egen
+  session; stoppvakten släpper inte bygget förrän den godkänner eller taket nås.
 - `kirurg`: bedömer ett repo, en skill, en artikel eller en YouTube-video (`/kirurg <url>`). Lägger aktuella fynd i
   backloggen automatiskt.
 - `backlog`: genomför den vilande backloggen när ägaren säger "implementera enligt backlog".

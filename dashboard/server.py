@@ -264,8 +264,39 @@ def bygge(slug):
             ('Koncept', 'KONCEPT.md'), ('Innehåll', 'INNEHALL.md')) if (UNDERLAG / slug / fil).is_file()},
         'fragor': {'karna': KARNFRAGOR, 'egna': egna if isinstance(egna, list) else []},
         'domar': (las_json(KUNDER / slug / 'DOM.json') or {}).get('domar', []),
+        'granskning': granskningen(slug, b['domd']),
     })
     return b
+
+
+def granskningen(slug, domd):
+    """Granskarens dom visas först när ägaren har dömt bygget, så att ägarens dom är oberoende och kan jämföras."""
+    gdir = KUNDER / slug / 'granskning'
+    g = las_json(gdir / 'GRANSKNING.json')
+    if not g:
+        return {'finns': False}
+    if not domd:
+        return {'finns': True, 'dold': True, 'rundor': len(list(gdir.glob('runda-*')))}
+    return {'finns': True, 'dold': False, 'godkand': g.get('godkand'), 'runda': g.get('runda'),
+            'rundor': len(list(gdir.glob('runda-*'))), 'html': md(las_text(gdir / 'GRANSKNING.md'))}
+
+
+GODKANT_AV_AGAREN = ('Ja, som den är', 'Ja, efter små ändringar')
+
+
+def granskare_overens():
+    """Per dömt och granskat bygge: godkände granskaren det som ägaren ville visa, och underkände det ägaren inte ville?"""
+    rader = []
+    for p in sorted(KUNDER.iterdir()) if KUNDER.is_dir() else []:
+        dom = (las_json(p / 'DOM.json') or {}).get('domar') or []
+        g = las_json(p / 'granskning' / 'GRANSKNING.json')
+        namn = (dom[-1].get('svar') or {}).get('namn') if dom else None
+        if not (g and namn):
+            continue
+        agaren = namn in GODKANT_AV_AGAREN
+        rader.append({'slug': p.name, 'granskaren': bool(g.get('godkand')), 'agaren': agaren, 'agarens_svar': namn,
+                      'overens': bool(g.get('godkand')) == agaren})
+    return {'bedomda': len(rader), 'overens': sum(r['overens'] for r in rader), 'rader': rader}
 
 
 OMDOMEN = ROOT / 'kunskap' / 'KIRURG-OMDOMEN.md'
@@ -551,7 +582,8 @@ class H(BaseHTTPRequestHandler):
                 bk = backloggen()
                 return self.skicka(200, {'byggen': byggen(), 'lardomar': md(las_text(ROOT / 'LARDOMAR.md')),
                                          'backlog_vilande': sum(1 for p in bk if p.get('status') == 'vilande'),
-                                         'intag_pagar': sum(1 for x in intag_lista() if x['pagar']), 'tid': nu()})
+                                         'intag_pagar': sum(1 for x in intag_lista() if x['pagar']),
+                                         'granskare': granskare_overens(), 'tid': nu()})
             if vag == '/api/backlog':
                 return self.skicka(200, backloggen())
             if vag == '/api/kirurg':

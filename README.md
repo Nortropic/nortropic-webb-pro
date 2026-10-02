@@ -16,7 +16,7 @@ frågeformuläret där du dömer ett bygge, backloggen, kirurgen (klistra in en 
 
 | Loop | Vad | Var |
 |---|---|---|
-| 1. Inne i ett bygge | kontrollera, rätta, kör igen tills grönt | `kontroller/prova.py`, stoppvakten i `.claude/hooks/` |
+| 1. Inne i ett bygge | kontrollera, rätta, kör igen tills grönt och granskaren godkänner | `kontroller/prova.py`, `kontroller/granska.py`, stoppvakten i `.claude/hooks/` |
 | 2. Genom stegen | upptäckt, definition, innehåll, design, bygge, prov, rapport | skillen `bygg-sajt` |
 | 3. Mellan byggen | ägarens dom blir en textändring | frågeformuläret, `LARDOMAR.md`, backloggen |
 
@@ -45,6 +45,7 @@ Bara transkriptet: `.venv/bin/python kontroller/youtube.py URL --ut video.md`.
 ```sh
 .venv/bin/python kontroller/prova.py <slug>          # alla grindar
 .venv/bin/python kontroller/prova.py <slug> --snabb  # utan Lighthouse och utforskning
+.venv/bin/python kontroller/granska.py <slug>        # oberoende granskning i en egen session (efter provet)
 kontroller/rokprov.sh                                 # regressionsprov efter ändringar i kontroller/ eller mall/
 ```
 

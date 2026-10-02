@@ -5,13 +5,14 @@
 #   ./kor.sh frisor-exempel-umea "Frisör Exempel, Umeå, https://exempel.se"
 #
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
-# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (high), NWP_MAX_TURNS (400), NWP_STOPP_TAK (4).
+# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (high), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
+# NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKNING_MAX (5 granskningar per körning).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SLUG="${1:-}"
 VERKSAMHET="${2:-}"
 if [[ ! "$SLUG" =~ ^[a-z0-9-]{2,60}$ || -z "$VERKSAMHET" ]]; then
-  sed -n '2,8p' "$0"
+  sed -n '2,9p' "$0"
   exit 2
 fi
 [ -x "$ROOT/.venv/bin/python" ] || { echo "saknar .venv — se README.md, Installation"; exit 2; }
@@ -28,8 +29,9 @@ Slug: $SLUG
 
 Följ skillen bygg-sajt (.claude/skills/bygg-sajt/SKILL.md) steg 1–7, i ordning. Underlag i underlag/$SLUG/, bygget i
 kunder/$SLUG/sajt/, rapporten i kunder/$SLUG/RAPPORT.md. Ingen människa svarar under körningen: saknas en uppgift,
-märk den antagande och fortsätt. Avsluta först när .venv/bin/python kontroller/prova.py $SLUG är grönt och rapporten
-är skriven. Stoppvakten kör provet själv när du försöker avsluta."
+märk den antagande och fortsätt. Avsluta först när .venv/bin/python kontroller/prova.py $SLUG är grönt, rapporten är
+skriven och den oberoende granskaren (kontroller/granska.py) har godkänt sajten. Stoppvakten kör provet och
+granskningen själv när du försöker avsluta."
 
 ARGS=(-p
   --max-turns "${NWP_MAX_TURNS:-400}"
@@ -64,7 +66,7 @@ done < <(env)
 cd "$ROOT"   # projektets Stop-krok laddas bara när sessionen startar i reporoten
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
-printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
+printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
 
@@ -77,7 +79,7 @@ def las(p):
         return json.loads(p.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
-s, v = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json')
+s, v, g = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json'), las(k / 'granskning' / 'GRANSKNING.json')
 print('\nclaude avslutade med kod', rc)
 if s:
     print('Provet:', 'GRÖNT' if s.get('ok') else 'RÖTT', '—', ', '.join('%s %s' % (n, 'ok' if g['ok'] else 'RÖD') for n, g in s['grindar'].items()))
@@ -85,6 +87,11 @@ else:
     print('Provet: inget STATUS.json (provet kördes aldrig)')
 if v:
     print('Stoppvakten:', v.get('skal'), '(försök %s av %s)' % (v.get('forsok'), v.get('tak')))
+if g:
+    print('Granskningen:', 'GODKÄND' if g.get('godkand') else 'UNDERKÄND', '(omgång %s)' % g.get('runda'), '—',
+          ', '.join('%s %s' % (n, x.get('betyg')) for n, x in (g.get('kriterier') or {}).items()))
+else:
+    print('Granskningen: ingen')
 print('Rapport:', k / 'RAPPORT.md' if (k / 'RAPPORT.md').is_file() else 'saknas')
 print('Titta:  cd %s && npx astro preview' % (k / 'sajt'))
 PY

@@ -58,7 +58,9 @@ TaskUpdate.
 Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/research-underlag.md`.
 
 1. **Hämta det publika:** deras webbplats (alla sidor som spelar roll), Google-profil och omdömen, sociala kanaler,
-   företagsregister för grunduppgifter, två eller tre konkurrenter i samma ort. WebFetch och WebSearch.
+   företagsregister för grunduppgifter, två eller tre konkurrenter i samma ort. WebFetch och WebSearch. Skriv också
+   upp namn, adress och telefon exakt som de står i Google-profilen, på hitta.se och på eniro.se; avvikelser mellan
+   dem och deras sajt är ett fynd för rapporten.
 2. **Bilder:** ladda ner verksamhetens egna bilder (från deras sajt och kanaler) med
    `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil, källa,
    vad bilden visar, kvalitet. Inga stockbilder.
@@ -92,7 +94,9 @@ Har de ingen sajt: skriv det, och att ribba 1 då är deras Google-profil och so
 
 ## Steg 3 — Brief (definition)
 
-Läs `kunskap/brief-mall.md`, `kunskap/beredning.md` och `kunskap/juridikflaggor.md`. Skriv `underlag/<slug>/BRIEF.md`:
+Läs `kunskap/brief-mall.md`, `kunskap/beredning.md` och `kunskap/juridikflaggor.md`, och `kunskap/lokal-synlighet.md`
+om verksamheten är lokal (hoppa över verktygen och profilskapandet där; det som gäller bygget är samma namn, adress
+och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRIEF.md`:
 
 - verksamhetsmål och vad sajten ska ändra
 - målgrupper, med belägg ur omdömen och underlag
@@ -143,8 +147,10 @@ konkurrent? Skriv om den.
 
 ## Steg 5 — Koncept och bygge (design)
 
-Läs `kunskap/externa/anthropic-frontend-design-SKILL.md`, `kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md`
-(principerna i §0 och §4, inte dess stack eller skelett), `kunskap/bygge-referens.md`, `kunskap/bild.md`,
+Läs först `kritik/GRANSKARE.md`: så bedömer den oberoende granskaren sajten, på fem kriterier med betyg och
+trösklar. Bygg för att klara den. Läs sedan `kunskap/externa/anthropic-frontend-design-SKILL.md`,
+`kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md` (principerna i §0 och §4, inte dess stack eller skelett),
+`kunskap/externa/emil-emil-design-eng-SKILL.md`, `kunskap/bygge-referens.md`, `kunskap/bild.md`,
 `kunskap/externa/emil-mobile-native-SKILL.md`, och `kunskap/formularsakerhet.md` om sajten får formulär.
 
 1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md`: två visuella riktningar härledda ur verksamheten själv (deras
@@ -163,10 +169,19 @@ Läs `kunskap/externa/anthropic-frontend-design-SKILL.md`, `kunskap/externa/leon
    referensens lösning · vad som skiljer · vad som ändras eller behålls, och varför. Rätta det som ser generiskt ut:
    där allt är lika stort, där en sektion inte bär något specifikt, där första vyn inte säger vad de gör och vad man
    gör härnäst. Kopiera aldrig layout, palett eller typsnitt.
+6. **Oberoende granskning.** Kör `.venv/bin/python kontroller/granska.py <slug>` direkt efter ett snabbprov, med
+   Bash-tidsgränsen 600000. En egen Claude-session som inte sett ditt resonemang dömer sajten; det tar 4–15 minuter.
+   Svarar kommandot att granskningen pågår: kör samma kommando igen. Läs `kunder/<slug>/granskning/GRANSKNING.md`.
+   Rätta varje blockerande fynd. Behöver riktningen väljas om, gör det. Kör snabbprovet och granskningen igen efter
+   rättningarna, tills granskaren godkänner. Är en invändning fel: skriv varför under Granskningen i rapporten.
+   Granskningarna per körning har ett tak; använd dem efter verkliga ändringar, inte för varje detalj.
 
 ## Steg 6 — Prov
 
-Läs `kunskap/prelaunch.md` och `kunskap/webblasare.md`.
+Läs `kunskap/prelaunch.md`, `kunskap/webblasare.md`,
+`kunskap/externa/vercel-web-interface-guidelines-command-e3d624ba.md` och
+`kunskap/externa/addyosmani-web-quality-audit-SKILL.md`. Gå igenom riktlinjerna mot sajten och rätta det som brister.
+Kontrollera att namn, adress och telefon på sajten, i sidfoten och i JSON-LD är exakt desamma som i VERKSAMHET.json.
 
 1. **Hela provet:** `.venv/bin/python kontroller/prova.py <slug>`. Rätta tills alla grindar är gröna. Grindarna och
    kraven står överst i `kontroller/prova.py`.
@@ -182,7 +197,7 @@ Läs `kunskap/prelaunch.md` och `kunskap/webblasare.md`.
    med ett JSON-objekt med schemats fält. Ingen brief, inget underlag, ingen kod. Spara svaret i
    `underlag/<slug>/FEMSEK.md`. Kan läsaren inte säga vad verksamheten gör och vad besökaren ska göra härnäst: rätta
    och testa igen.
-5. Kör hela provet igen efter sista ändringen.
+5. Kör hela provet och granskningen igen efter sista ändringen.
 
 ## Steg 7 — Rapport
 
@@ -199,9 +214,13 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 8. **Svagheter du själv ser** och det som inte gick.
 9. **Kontroller som verkar fel**, om några.
 10. **Femsekunderstestets svar**, ordagrant.
-11. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
+11. **Granskningen:** antal omgångar, slutbetygen per kriterium, vad du ändrade efter kritiken, och varje invändning
+    du inte rättade, med skäl.
+12. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
+    verksamheten bör rätta. Inga avvikelser: skriv det.
+13. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
     kopplas till dem.
-12. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.
+14. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.
 
 **Dina frågor till ägaren.** Skriv `kunder/<slug>/FRAGOR.json`: tre till sex frågor om det du är mest osäker på, där
 ägarens svar skulle ändra nästa bygge mest. Dashboarden visar dem efter kärnfrågorna i frågeformuläret, och svaren blir
@@ -228,8 +247,9 @@ post i backloggen per brist:
 Committa bara de nya filerna i `backlog/`, med meddelandet `Bygge <slug>: backlogposter`, och `git push origin main`.
 Inget annat committas av en byggkörning; `underlag/` och `kunder/` ligger utanför git.
 
-Avsluta sedan. Stoppvakten (`.claude/hooks/stoppvakt.py`) kör hela provet själv och släpper inte avslutet förrän
-grindarna är gröna och rapporten finns. Blockerar den: läs skälet, rätta, försök igen.
+Avsluta sedan. Stoppvakten (`.claude/hooks/stoppvakt.py`) kör hela provet och granskningen själv och släpper inte
+avslutet förrän grindarna är gröna, rapporten finns och granskaren har godkänt. Blockerar den: läs skälet, rätta,
+försök igen.
 
 ## Steg 8 — Dom (ägaren, utanför körningen)
 
