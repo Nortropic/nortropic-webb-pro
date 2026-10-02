@@ -17,12 +17,13 @@ mkdirSync(ut, { recursive: true });
 
 function matPaSidan() {
   const vh = window.innerHeight;
+  const rot = document.querySelector('main') ? 'main' : 'body';  // främmande sajter saknar ofta main
   const rgb = (s) => { const m = (s || '').match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/); return m && (m[4] === undefined || +m[4] > 0.05) ? [+m[1], +m[2], +m[3]] : null; };
   const hex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
   const familj = (el) => (getComputedStyle(el).fontFamily || '').split(',')[0].replace(/["']/g, '').trim();
   const synlig = (el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && r.bottom > 0 && s.visibility !== 'hidden' && s.display !== 'none' && +s.opacity > 0; };
   const typsnitt = {};
-  for (const [roll, sel] of [['h1', 'h1'], ['h2', 'h2'], ['brodtext', 'main p'], ['knapp', 'a[href^="tel:"], button']]) {
+  for (const [roll, sel] of [['h1', 'h1'], ['h2', 'h2'], ['brodtext', `${rot} p`], ['knapp', 'a[href^="tel:"], button']]) {
     const el = document.querySelector(sel);
     if (el) typsnitt[roll] = { familj: familj(el), storlek: getComputedStyle(el).fontSize, vikt: getComputedStyle(el).fontWeight, stil: getComputedStyle(el).fontStretch };
   }
@@ -36,8 +37,8 @@ function matPaSidan() {
     ytor.set(k, (ytor.get(k) || 0) + r.width * Math.min(r.height, 4000));
   }
   const bodyBg = rgb(getComputedStyle(document.body).backgroundColor) || rgb(getComputedStyle(document.documentElement).backgroundColor) || [255, 255, 255];
-  const text = rgb(getComputedStyle(document.querySelector('main p') || document.body).color);
-  const knapp = document.querySelector('a[href^="tel:"], button, main a');
+  const text = rgb(getComputedStyle(document.querySelector(`${rot} p`) || document.body).color);
+  const knapp = document.querySelector(`a[href^="tel:"], button, ${rot} a`);
   const accent = knapp ? (rgb(getComputedStyle(knapp).backgroundColor) || rgb(getComputedStyle(knapp).color)) : null;
   // En gradient räknas som toning bara när två intilliggande stopp har olika färg OCH olika position; hårda stopp
   // (en färg slutar där nästa börjar) är två platta fält (fynd i lulea-snickaren-abx).
@@ -54,7 +55,7 @@ function matPaSidan() {
   // radier och kort
   const radier = new Map();
   const kort = [];
-  for (const el of document.querySelectorAll('main *')) {
+  for (const el of document.querySelectorAll(`${rot} *`)) {
     if (!synlig(el)) continue;
     const s = getComputedStyle(el);
     const rad = parseFloat(s.borderTopLeftRadius) || 0;
@@ -66,7 +67,7 @@ function matPaSidan() {
   const kortRader = [...new Set(kort.map((k) => k.parentElement))].filter((p) => p && kort.filter((k) => k.parentElement === p).length >= 3).length;
   const kortIKort = kort.filter((k) => kort.some((o) => o !== k && o.contains(k))).length;
   // nästa sektion i första vyn
-  const main = document.querySelector('main');
+  const main = document.querySelector(rot);
   const block = main ? [...main.children].filter(synlig) : [];
   const nasta = block[1] ? Math.round(block[1].getBoundingClientRect().top) : null;
   // klickytor under 24 px som inte står i löpande text
@@ -84,15 +85,15 @@ function matPaSidan() {
   }
   // sex renderade mönster ur gstacks designkatalog (lib/design-catalog.ts), trösklarna skrivna här
   const tecken = (() => { const c = document.createElement('canvas').getContext('2d'); return (el) => { const s = getComputedStyle(el); c.font = `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`; return c.measureText('abcdefghijklmnopqrstuvwxyzåäö ').width / 30; }; })();
-  const stycken = [...document.querySelectorAll('main p')].filter((p) => synlig(p) && (p.textContent || '').trim().length > 80);
+  const stycken = [...document.querySelectorAll(`${rot} p`)].filter((p) => synlig(p) && (p.textContent || '').trim().length > 80);
   const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
   const radlangd = median(stycken.map((p) => Math.round(p.getBoundingClientRect().width / tecken(p))));
   const radhojd = median(stycken.map((p) => { const s = getComputedStyle(p); return parseFloat(s.lineHeight) / parseFloat(s.fontSize) || 1.2; }));
-  const doltIVila = [...document.querySelectorAll('main *')].filter((el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && (s.opacity === '0' || s.visibility === 'hidden') && ((el.textContent || '').trim().length > 20 || el.tagName === 'IMG'); }).length;
-  const marginaljusterad = [...document.querySelectorAll('main p, main li')].some((el) => getComputedStyle(el).textAlign === 'justify');
-  const textblock = [...document.querySelectorAll('main p, main h1, main h2, main h3, main li')].filter(synlig);
+  const doltIVila = [...document.querySelectorAll(`${rot} *`)].filter((el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && (s.opacity === '0' || s.visibility === 'hidden') && ((el.textContent || '').trim().length > 20 || el.tagName === 'IMG'); }).length;
+  const marginaljusterad = [...document.querySelectorAll(`${rot} p, ${rot} li`)].some((el) => getComputedStyle(el).textAlign === 'justify');
+  const textblock = [...document.querySelectorAll(`${rot} p, ${rot} h1, ${rot} h2, ${rot} h3, ${rot} li`)].filter(synlig);
   const centrerad = textblock.length ? textblock.filter((el) => getComputedStyle(el).textAlign === 'center').length / textblock.length : 0;
-  const rundade = [...document.querySelectorAll('main *')].filter(synlig).map((el) => Math.round(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0)).filter((r) => r > 0);
+  const rundade = [...document.querySelectorAll(`${rot} *`)].filter(synlig).map((el) => Math.round(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0)).filter((r) => r > 0);
   const vanligast = rundade.length ? Math.max(...Object.values(rundade.reduce((m, r) => (m[r] = (m[r] || 0) + 1, m), {}))) : 0;
   const storRadie = rundade.length >= 5 ? Object.entries(rundade.reduce((m, r) => (m[r] = (m[r] || 0) + 1, m), {})).find(([r, n]) => n === vanligast && +r >= 16 && n / rundade.length > 0.8) : null;
   const monster = { radlangd, radhojd: radhojd ? Math.round(radhojd * 100) / 100 : null, doltIVila, marginaljusterad, centrerad: Math.round(centrerad * 100), enStorRadie: storRadie ? +storRadie[0] : null };
@@ -101,7 +102,7 @@ function matPaSidan() {
   const huvud = [...document.querySelectorAll('header')].find((h) => synlig(h) && h.getBoundingClientRect().top < 10);
   const menyLankar = huvud ? [...huvud.querySelectorAll('nav a')].filter(synlig).length : 0;
   const hamburgare = !!(huvud && [...huvud.querySelectorAll('button[aria-expanded], button[aria-controls]')].some(synlig));
-  const bilder = [...document.querySelectorAll('main img, main picture')].filter(synlig);
+  const bilder = [...document.querySelectorAll(`${rot} img, ${rot} picture`)].filter(synlig);
   const fotoIForsta = bilder.some((b) => { const r = b.getBoundingClientRect(); return r.top < vh && r.width >= 120 && r.height >= 80; });
   const fasta = [...document.querySelectorAll('body *')].filter((el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return (s.position === 'fixed' || s.position === 'sticky') && synlig(el) && r.bottom >= vh - 2 && r.top > vh / 2; });
   const lankarI = (el) => (el.matches('a[href]') ? [el] : []).concat([...el.querySelectorAll('a[href]')]);
@@ -150,17 +151,21 @@ function familjAv(h) {
 }
 
 const browser = await chromium.launch();
-const rader = [];
+const matningar = [];
 try {
   for (const vy of ['390', '1440']) {
     const ctx = await browser.newContext(VYER[vy]);
     for (const sida of sidor) {
       const page = await ctx.newPage();
-      await page.goto(base + sida, { waitUntil: 'networkidle' });
-      await page.evaluate(() => document.fonts.ready);
-      const m = await page.evaluate(matPaSidan);
-      m.familjer = { bakgrund: familjAv(m.bakgrund), accent: m.accent ? familjAv(m.accent) : null };
-      rader.push({ sida, vy, ...m });
+      try {
+        await page.goto(base + sida, { waitUntil: 'networkidle', timeout: 45000 }).catch(() => page.goto(base + sida, { waitUntil: 'load', timeout: 45000 }));
+        await page.evaluate(() => document.fonts.ready);
+        const m = await page.evaluate(matPaSidan);
+        m.familjer = { bakgrund: familjAv(m.bakgrund), accent: m.accent ? familjAv(m.accent) : null };
+        matningar.push({ sida, vy, ...m });
+      } catch (e) {
+        matningar.push({ sida, vy, fel: String(e.message).slice(0, 200) });  // en sida som inte går att mäta fäller inte rapporten
+      }
       await page.close();
     }
     await ctx.close();
@@ -168,6 +173,8 @@ try {
 } finally {
   await browser.close();
 }
+const fel = matningar.filter((r) => r.fel);
+const rader = matningar.filter((r) => !r.fel);
 
 const alla = (f) => [...new Set(rader.flatMap(f).filter(Boolean))];
 const varningar = [];
@@ -207,7 +214,7 @@ const sammanfattning = {
 };
 const smaYtor = rader.filter((r) => r.vy === '390').flatMap((r) => r.smaYtor.map((y) => ({ sida: r.sida, ...y })));
 const toppsektion = rader.filter((r) => r.sida === '/').map((r) => ({ vy: r.vy, h1: r.typsnitt.h1, nastaSektionTopp: r.nastaSektionTopp, vyhojd: r.vyhojd }));
-writeFileSync(join(ut, 'STIL.json'), JSON.stringify({ base, tid: new Date().toISOString(), sammanfattning, toppsektion, varningar, smaYtor, rader }, null, 1) + '\n');
+writeFileSync(join(ut, 'STIL.json'), JSON.stringify({ base, tid: new Date().toISOString(), sammanfattning, toppsektion, varningar, smaYtor, fel, rader }, null, 1) + '\n');
 const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val att motivera ur verksamhetens material, inte förbud.', '',
   `- Typsnitt: ${sammanfattning.typsnitt.join(', ') || '-'} (rubriker: ${sammanfattning.rubriktypsnitt.join(', ') || '-'})`,
   `- Bakgrund: ${sammanfattning.bakgrund.join(', ')} (${bgFam.join(', ')}); accent: ${sammanfattning.accent.join(', ') || '-'}`,
@@ -221,4 +228,4 @@ const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val 
   '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',
   '## Klickytor under 24 px i 390 (byggstandarden 3.3)', '', ...(smaYtor.length ? smaYtor.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), ''];
 writeFileSync(join(ut, 'STIL.md'), md.join('\n'));
-console.log(`stil: ${rader.length} mätningar, ${varningar.length} varningar, ${smaYtor.length} små klickytor`);
+console.log(`stil: ${rader.length} mätningar, ${fel.length} fel, ${varningar.length} varningar, ${smaYtor.length} små klickytor`);

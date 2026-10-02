@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+<title>Provkanal</title>
+<entry><id>yt:video:dQw4w9WgXcQ</id><yt:videoId>dQw4w9WgXcQ</yt:videoId><title>Accessibility audit with axe and WCAG</title><link rel="alternate" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"/><published>2026-09-25T12:00:00+00:00</published>
+<media:group><media:description>Typography and forms for small business websites.</media:description><media:community><media:statistics views="123456"/></media:community></media:group></entry>
+</feed>

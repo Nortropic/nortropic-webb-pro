@@ -12,13 +12,14 @@ import argparse
 import html
 import json
 import mimetypes
+import os
 import re
 import sys
 import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 KUNDER = ROOT / 'kunder'
@@ -27,6 +28,9 @@ SLUG = re.compile(r'^[a-z0-9-]{2,60}$')
 sys.path.insert(0, str(ROOT / 'kontroller'))
 from prova import Server  # noqa: E402  (samma statiska server som provet använder)
 import backlog as bl  # noqa: E402  (samma backlog-format som kirurgen och byggena skriver)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import prospektvy as pv  # noqa: E402  (prospekten: kampanjer, kort, brev; heter inte prospekt eftersom kontroller/prospekt.py ligger först på sys.path)
+import kallnyckel  # noqa: E402  (spanarens nyckel: är länken redan bedömd?)
 
 STEG = [
     ('Underlag', lambda s: (UNDERLAG / s / 'RESEARCH.md').is_file()),
@@ -606,6 +610,102 @@ def starta_intag(url, not_, filer=None):
     return {'id': meta.stem}
 
 
+# --- spanaren: kandidater åt kirurgen, utan modell (kontroller/spana.py) ---
+SPANING = INTAG / 'spaning'
+SPANING_INTERVALL = int(os.environ.get('NWP_SPANING_INTERVALL_DAGAR') or 7)
+
+
+def spaning_pagar():
+    try:
+        pid = int((SPANING / 'PAGAR').read_text().strip() or 0)
+        os.kill(pid, 0)
+        return pid
+    except (OSError, ValueError):
+        return None
+
+
+def spaning_lista():
+    lista = las_json(SPANING / 'KANDIDATER.json') or []
+    nya = [k for k in lista if k.get('status') == 'ny']
+    return {'kandidater': nya[:20], 'antal': len(nya), 'senast': las_json(SPANING / 'SENAST.json'), 'pagar': bool(spaning_pagar()),
+            'av': bool(os.environ.get('NWP_SPANING_AV'))}
+
+
+def starta_spaning(skal='ägaren'):
+    import subprocess
+    if spaning_pagar():
+        raise ValueError('en spaning pågår redan')
+    SPANING.mkdir(parents=True, exist_ok=True)
+    env = {k: v for k, v in os.environ.items() if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_') and (not k.startswith('NWP_') or k.startswith('NWP_SPANING_'))}
+    gh = ((las_json(Path.home() / '.claude' / 'settings.json') or {}).get('env') or {}).get('GH_CONFIG_DIR')
+    if gh:
+        env['GH_CONFIG_DIR'] = gh
+    with open(SPANING / 'korning.log', 'ab') as ut:
+        ut.write(('\n=== %s %s ===\n' % (nu(), skal)).encode())
+        subprocess.Popen([sys.executable, '-B', str(ROOT / 'kontroller' / 'spana.py'), 'spana'], cwd=str(ROOT), env=env, stdin=subprocess.DEVNULL,
+                         stdout=ut, stderr=subprocess.STDOUT, start_new_session=True)
+    return {'startad': True}
+
+
+def spaning_vid_behov():
+    """Veckovis spaning utan schemaläggare: vid serverstart och vid varje läsning av /api/kirurg, om den senaste är äldre än
+    intervallet. Misslyckade försök väntar sex timmar (FORSOK) så att en död källa inte startar om vid varje poll."""
+    if os.environ.get('NWP_SPANING_AV') or spaning_pagar():
+        return
+    try:
+        senast = (SPANING / 'SENAST.json').stat().st_mtime
+    except OSError:
+        senast = 0
+    try:
+        forsok = (SPANING / 'FORSOK').stat().st_mtime
+    except OSError:
+        forsok = 0
+    if time.time() - senast < SPANING_INTERVALL * 86400 or time.time() - forsok < 6 * 3600:
+        return
+    SPANING.mkdir(parents=True, exist_ok=True)
+    (SPANING / 'FORSOK').write_text(nu())
+    starta_spaning('automatisk, veckovis')
+
+
+def kandidat(ident):
+    lista = las_json(SPANING / 'KANDIDATER.json') or []
+    k = next((x for x in lista if x.get('id') == ident), None)
+    if not k:
+        raise ValueError('ingen kandidat %s' % ident)
+    return k
+
+
+def ta_in_kandidat(ident):
+    """Startar ett vanligt intag med en neutral proveniensnot: datum, källans namn och typ, våra egna termer. Aldrig källans
+    text, aldrig en begäran (kirurgens dedupe-undantag ska inte väckas av spanaren)."""
+    import subprocess
+    k = kandidat(ident)
+    if k.get('status') != 'ny':
+        raise ValueError('kandidaten är redan %s' % k.get('status'))
+    if k.get('ny_version'):
+        raise ValueError('redan dömd nej tidigare: skicka länken själv med en not om du vill ha en ny bedömning')
+    not_ = 'Hittad av spanaren %s via %s (%s); matchade: %s' % (nu()[:10], k.get('kalla'), k.get('kalla_typ'), ', '.join((k.get('traffar') or [])[:6]) or 'inga termer')
+    r = starta_intag(k['url'].split('#')[0], not_)
+    subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'spana.py'), 'intagen', ident, '--intag', r['id']], cwd=str(ROOT), timeout=30)
+    return {'intag': r['id'], 'not': not_}
+
+
+def avfarda_kandidat(ident, skal):
+    import subprocess
+    kandidat(ident)
+    subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'spana.py'), 'avfard', ident, '--skal', (skal or '')[:300]], cwd=str(ROOT), timeout=30)
+    return {'id': ident, 'status': 'avfardad'}
+
+
+def redan_bedomd(url):
+    n = kallnyckel.normalisera(url or '')
+    tr = kallnyckel.kanda_kallor().get(n) if n else None
+    return {'url': url, 'normaliserad': n, 'kand': tr}
+
+
+pv.koppla(siffror=siffror, bilder=bilder, korning=korning, byggen=byggen)
+
+
 # --- http ---
 
 VISNING = {}
@@ -651,13 +751,30 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, {'byggen': byggen(), 'lardomar': md(las_text(ROOT / 'LARDOMAR.md')),
                                          'backlog_vilande': sum(1 for p in bk if p.get('status') == 'vilande'),
                                          'intag_pagar': sum(1 for x in intag_lista() if x['pagar']),
+                                         'prospekt_vantar': pv.raknare(),
                                          'granskare': granskare_overens(), 'tid': nu()})
             if vag == '/api/ab':
                 return self.skicka(200, ab_lista())
             if vag == '/api/backlog':
                 return self.skicka(200, backloggen())
             if vag == '/api/kirurg':
+                try:
+                    spaning_vid_behov()
+                except Exception:
+                    pass
                 return self.skicka(200, {'intag': intag_lista(), 'register': register(), 'overens': overensstammelse()})
+            if vag == '/api/spaning':
+                return self.skicka(200, spaning_lista())
+            if vag == '/api/kirurg/kand':
+                return self.skicka(200, redan_bedomd(dict(parse_qsl(urlsplit(self.path).query)).get('url')))
+            if vag == '/api/prospekt':
+                return self.skicka(200, pv.kampanjer())
+            m = re.match(r'^/api/prospekt/([a-z0-9-]{3,60})$', vag)
+            if m:
+                return self.skicka(200, pv.kampanj(m.group(1)))
+            m = re.match(r'^/api/prospekt/([a-z0-9-]{3,60})/([a-z0-9-]{2,60})$', vag)
+            if m:
+                return self.skicka(200, pv.prospekt(m.group(1), m.group(2)))
             m = re.match(r'^/api/bygge/([a-z0-9-]{2,60})$', vag)
             if m and (KUNDER / m.group(1)).is_dir():
                 return self.skicka(200, bygge(m.group(1)))
@@ -701,13 +818,34 @@ class H(BaseHTTPRequestHandler):
             m = re.match(r'^/api/ab/([a-z0-9TZ-]+)$', vag)
             if m:
                 return self.skicka(200, spara_ab(m.group(1), data))
+            if vag == '/api/prospekt/kampanj':
+                return self.skicka(200, pv.starta_kampanj(data))
+            m = re.match(r'^/api/prospekt/([a-z0-9-]{3,60})/analysera$', vag)
+            if m:
+                return self.skicka(200, pv.starta_analys(m.group(1), data))
+            m = re.match(r'^/api/prospekt/([a-z0-9-]{3,60})/([a-z0-9-]{2,60})/(status|sajt|demo|brev|brev/godkann|skicka|stryk)$', vag)
+            if m:
+                k, slug, h = m.groups()
+                handtag = {'status': lambda: pv.satt_status(k, slug, data), 'sajt': lambda: pv.satt_sajt(k, slug, data), 'demo': lambda: pv.starta_demo(k, slug),
+                           'brev': lambda: pv.starta_brev(k, slug), 'brev/godkann': lambda: pv.godkann(k, slug, data), 'skicka': lambda: pv.skicka(k, slug),
+                           'stryk': lambda: pv.stryk(k, slug, data)}[h]
+                return self.skicka(200, handtag())
             if vag == '/api/kirurg':
                 return self.skicka(200, starta_intag(data.get('url'), data.get('not'), data.get('filer')))
             if vag == '/api/kirurg/omdome':
                 return self.skicka(200, spara_omdome(data))
+            if vag == '/api/spaning/kor':
+                return self.skicka(200, starta_spaning())
+            m = re.match(r'^/api/spaning/([a-f0-9]{12})/(ta-in|avfarda)$', vag)
+            if m:
+                return self.skicka(200, ta_in_kandidat(m.group(1)) if m.group(2) == 'ta-in' else avfarda_kandidat(m.group(1), data.get('skal')))
             return self.skicka(404, {'fel': 'finns inte'})
         except (ValueError, json.JSONDecodeError, OSError) as e:
             return self.skicka(400, {'fel': str(e)})
+        except Exception as e:  # ett oväntat fel ska bli ett svar, inte en bruten förbindelse
+            import subprocess
+            kod = 504 if isinstance(e, subprocess.TimeoutExpired) else 500
+            return self.skicka(kod, {'fel': '%s: %s' % (type(e).__name__, e)})
 
 
 def main():
@@ -716,6 +854,10 @@ def main():
     a = p.parse_args()
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
     print('Dashboard: http://127.0.0.1:%d' % a.port, flush=True)
+    try:
+        spaning_vid_behov()
+    except Exception as e:
+        print('spaningen startade inte: %s' % e, flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

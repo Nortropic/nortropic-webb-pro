@@ -31,7 +31,10 @@ try {
     const ctx = await browser.newContext({ ...opt, locale: 'sv-SE', reducedMotion: 'reduce' });
     const page = await ctx.newPage();
     for (const sida of [...sidor, '/finns-inte-nwp']) {
-      const svar = await page.goto(base + sida, { waitUntil: 'networkidle' });
+      try {
+      // networkidle hinner inte på sajter med evig bakgrundstrafik (spårning, annonser): då räcker load
+      const svar = await page.goto(base + sida, { waitUntil: 'networkidle', timeout: 45000 })
+        .catch(() => page.goto(base + sida, { waitUntil: 'load', timeout: 45000 }));
       await page.evaluate(axeSource);
       const r = await page.evaluate(async (tags) => {
         const x = await window.axe.run(document, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations', 'incomplete'] });
@@ -39,6 +42,9 @@ try {
         return { overtradelser: smal(x.violations), ofullstandiga: smal(x.incomplete), godkanda: x.passes.length };
       }, TAGS);
       rader.push({ vy, sida, http: svar?.status() ?? null, ...r });
+      } catch (e) {
+        rader.push({ vy, sida, http: null, fel: String(e.message).slice(0, 200), overtradelser: [], ofullstandiga: [], godkanda: 0 });
+      }
     }
     await ctx.close();
   }
@@ -47,9 +53,11 @@ try {
 }
 const allvarliga = rader.reduce((n, r) => n + r.overtradelser.filter((v) => ALLVARLIG.has(v.impact)).length, 0);
 const totalt = rader.reduce((n, r) => n + r.overtradelser.length, 0);
+const fel = rader.filter((r) => r.fel).length;
+for (const r of rader) if (r.fel) console.log(r.vy, r.sida, 'FEL', r.fel);
 for (const r of rader) {
   if (r.overtradelser.length) console.log(r.vy, r.sida, r.overtradelser.map((v) => `${v.id}(${v.impact})`).join(', '));
 }
-writeFileSync(join(ut, 'axe.json'), JSON.stringify({ base, axeVersion, tags: TAGS, tid: new Date().toISOString(), allvarliga, totalt, rader }, null, 1) + '\n');
+writeFileSync(join(ut, 'axe.json'), JSON.stringify({ base, axeVersion, tags: TAGS, tid: new Date().toISOString(), allvarliga, totalt, fel, rader }, null, 1) + '\n');
 console.log(`axe-core ${axeVersion}: ${allvarliga} allvarliga (serious/critical) av ${totalt} överträdelser i ${rader.length} lägen`);
-process.exitCode = allvarliga === 0 ? 0 : 1;
+process.exitCode = allvarliga === 0 && fel === 0 ? 0 : 1;

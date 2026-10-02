@@ -1,5 +1,6 @@
 // Lighthouse (pinnad) på varje sida, mobil och desktop. Generell form av kund-demo-norrglanta/scripts/prov/lighthouse.mjs.
-//   node kontroller/lighthouse.mjs --url=http://127.0.0.1:PORT --sidor=/,/om/ --ut=KATALOG
+//   node kontroller/lighthouse.mjs --url=http://127.0.0.1:PORT --sidor=/,/om/ --ut=KATALOG [--omgangar=3] [--enheter=mobil|desktop|båda]
+// Prospektanalysen (kontroller/prospekt.py) kör en omgång och bara mobil: en främmande sajt ska mätas, inte nå kravet.
 // Krav (planen 2026-10-01): prestanda ≥ 90, tillgänglighet ≥ 95, bästa praxis ≥ 95, SEO ≥ 90 i båda formerna.
 // Chrome: CHROME_PATH, annars systemets Google Chrome, annars Playwrights chromium.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -16,6 +17,9 @@ const base = (arg('url') || '').replace(/\/$/, '');
 const sidor = (arg('sidor') || '/').split(',').filter(Boolean);
 const ut = arg('ut');
 if (!base || !ut) { console.error('användning: --url=URL --sidor=/,/a/ --ut=KATALOG'); process.exit(2); }
+const omgangar = Math.max(1, parseInt(arg('omgangar') || '3', 10) || 3);
+const enheter = arg('enheter') || 'båda';
+const FORMER = enheter === 'mobil' ? ['mobil'] : enheter === 'desktop' ? ['desktop'] : ['mobil', 'desktop'];
 
 const SYSTEM = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const chromePath = process.env.CHROME_PATH || (existsSync(SYSTEM) ? SYSTEM : chromium.executablePath());
@@ -40,18 +44,19 @@ try {
       lcpMs: Math.round(lhr.audits['largest-contentful-paint']?.numericValue ?? 0),
       cls: +(lhr.audits['cumulative-layout-shift']?.numericValue ?? 0).toFixed(3),
       tbtMs: Math.round(lhr.audits['total-blocking-time']?.numericValue ?? 0),
+      viktByte: Math.round(lhr.audits['total-byte-weight']?.numericValue ?? 0),
       underkanda, varningar: lhr.runWarnings, belastning: +loadavg()[0].toFixed(1),
     };
     rad.ok = rad.prestanda >= KRAV.prestanda && rad.tillganglighet >= KRAV.tillganglighet && rad.bastaPraxis >= KRAV.bastaPraxis && rad.seo >= KRAV.seo;
     return { rad, rapport: runner.report };
   };
-  for (const form of ['mobil', 'desktop']) {
+  for (const form of FORMER) {
     for (const sida of sidor) {
       // Prestanda varierar med datorns belastning (samma bygge gav P 93 och P 77, fynd 2026-10-01). En sida under kravet
       // mäts om upp till två gånger och bästa mätningen gäller; alla försök och belastningen står i resultatet.
       let basta = null;
       const forsok = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < omgangar; i++) {
         const m = await mat(form, sida);
         forsok.push({ prestanda: m.rad.prestanda, belastning: m.rad.belastning });
         if (!basta || m.rad.prestanda > basta.rad.prestanda) basta = m;

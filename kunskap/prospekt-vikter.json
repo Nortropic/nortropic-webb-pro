@@ -1,0 +1,77 @@
+{
+ "version": 1,
+ "status": "initiala gissningar 2026-10-02; justera efter utfall (svar per poängintervall) och höj version",
+ "regler": "Kategori = kvalitet 0–10, där 10 är inget att vinna. bas sedan avdrag i ordning; första raden som träffar en signal gäller, senare rader för samma signal hoppas över (nivåer skrivs strängast först). Operatorer: over, under, minst, lika, skiljer. En signal som är null träffar aldrig. total = summa vikt × (10 − kategori); en kategori utan mätning lämnas utanför och vikterna normeras om (poang.osaker).",
+ "vikter": {"hastighet": 0.3, "mobil": 0.3, "seo": 0.2, "design": 0.2},
+ "svag": {"total_minst": 5, "kategori_hogst": 3},
+ "kategorier": {
+  "hastighet": {
+   "bas": {"signal": "prestanda", "dela": 10},
+   "avdrag": [
+    {"signal": "lcpMs", "over": 4000, "poang": -2, "varfor": "startsidan visar sitt största innehåll efter mer än 4 s på mobil (4.1)"},
+    {"signal": "lcpMs", "over": 2500, "poang": -1, "varfor": "startsidan visar sitt största innehåll efter mer än 2,5 s på mobil (4.1)"},
+    {"signal": "tbtMs", "over": 600, "poang": -1, "varfor": "sidan är upptagen med skript i mer än 600 ms (4.1)"},
+    {"signal": "vikt_byte", "over": 3000000, "poang": -2, "varfor": "startsidan väger mer än 3 MB (4.2)"},
+    {"signal": "vikt_byte", "over": 1500000, "poang": -1, "varfor": "startsidan väger mer än 1,5 MB (4.2)"},
+    {"signal": "js_byte", "over": 200000, "poang": -1, "varfor": "mer än 200 kB JavaScript (3.7)"},
+    {"signal": "css_byte", "over": 100000, "poang": -0.5, "varfor": "mer än 100 kB CSS (3.7)"},
+    {"signal": "bild_storsta_byte", "over": 200000, "poang": -0.5, "varfor": "största bilden väger mer än 200 kB (4.2)"},
+    {"signal": "renderingsblockerande", "lika": true, "poang": -0.5, "varfor": "resurser som blockerar renderingen (4.1)"}
+   ]
+  },
+  "seo": {
+   "bas": 10,
+   "avdrag": [
+    {"signal": "title_saknas", "lika": true, "poang": -3, "varfor": "startsidan saknar titel (7.1)"},
+    {"signal": "title_langd", "over": 60, "poang": -1, "varfor": "titeln är längre än 60 tecken (7.1)"},
+    {"signal": "title_generisk", "lika": true, "poang": -1, "varfor": "titeln säger bara Hem, Startsida eller Välkommen (7.1)"},
+    {"signal": "description_saknas", "lika": true, "poang": -2, "varfor": "ingen beskrivning för sökresultatet (7.1)"},
+    {"signal": "description_langd", "over": 155, "poang": -0.5, "varfor": "beskrivningen är längre än 155 tecken (7.1)"},
+    {"signal": "h1_antal", "skiljer": 1, "poang": -1, "varfor": "startsidan har inte exakt en huvudrubrik (7.1)"},
+    {"signal": "lang_saknas", "lika": true, "poang": -1, "varfor": "sidans språk är inte angivet (2.3)"},
+    {"signal": "canonical_saknas", "lika": true, "poang": -1, "varfor": "ingen kanonisk adress (7.1)"},
+    {"signal": "noindex_start", "lika": true, "poang": -4, "varfor": "startsidan ber sökmotorer att inte indexera den (7.2)"},
+    {"signal": "robots_nekar_allt", "lika": true, "poang": -3, "varfor": "robots.txt stänger ute alla sökmotorer (7.2)"},
+    {"signal": "sidkarta_saknas", "lika": true, "poang": -1, "varfor": "ingen sidkarta (7.2)"},
+    {"signal": "lokal_schema_saknas", "lika": true, "poang": -1, "varfor": "ingen strukturerad data om verksamheten (7.3)"},
+    {"signal": "titlar_dubbla", "lika": true, "poang": -1, "varfor": "flera sidor delar samma titel (7.1)"},
+    {"signal": "lh_seo", "under": 80, "poang": -1, "varfor": "Lighthouse SEO under 80"},
+    {"signal": "soft_404", "lika": true, "poang": -0.5, "varfor": "en adress som inte finns svarar ändå 200 (7.2)"},
+    {"signal": "orgnr_pa_sajt", "lika": false, "poang": -0.5, "varfor": "organisationsnumret syns inte på sajten (9.3)"}
+   ]
+  },
+  "mobil": {
+   "bas": 10,
+   "avdrag": [
+    {"signal": "viewport_meta", "lika": false, "poang": -5, "varfor": "sidan saknar viewport-meta och ritas som en krympt datorsida på mobil (2.3)"},
+    {"signal": "spill_390", "lika": true, "poang": -2, "varfor": "innehållet går utanför skärmen i 390 px (3.3)"},
+    {"signal": "spill_320", "lika": true, "poang": -1, "varfor": "innehållet går utanför skärmen i 320 px (3.3)"},
+    {"signal": "zoom_sparrad", "lika": true, "poang": -0.5, "varfor": "besökaren kan inte zooma (2.3)"},
+    {"signal": "target_size", "lika": false, "poang": -1, "varfor": "Lighthouse: klickytor för små eller för tätt (3.3)"},
+    {"signal": "sma_ytor", "minst": 5, "poang": -1, "varfor": "fem eller fler klickytor under 24 px i 390 (3.3)"},
+    {"signal": "sidhuvud_px", "over": 160, "poang": -1, "varfor": "sidhuvudet tar mer än 160 px av mobilens första skärm (9.1)"},
+    {"signal": "h1_i_forsta_vyn", "lika": false, "poang": -0.5, "varfor": "huvudrubriken syns inte i mobilens första skärm (9.1)"},
+    {"signal": "tillganglighet", "under": 80, "poang": -1, "varfor": "Lighthouse tillgänglighet under 80 (5.x)"},
+    {"signal": "radlangd_390", "under": 25, "poang": -0.5, "varfor": "brödtexten bryts i mycket korta rader på mobil"}
+   ]
+  },
+  "design": {
+   "bas": 10,
+   "avdrag": [
+    {"signal": "axe_allvarliga", "minst": 10, "poang": -2, "varfor": "tio eller fler allvarliga tillgänglighetsfel (5.x)"},
+    {"signal": "axe_allvarliga", "minst": 3, "poang": -1, "varfor": "tre eller fler allvarliga tillgänglighetsfel (5.x)"},
+    {"signal": "kontrast", "lika": true, "poang": -1, "varfor": "text med för svag kontrast (3.4)"},
+    {"signal": "karusell", "lika": true, "poang": -1, "varfor": "bildkarusell på startsidan (5.x)"},
+    {"signal": "valkommen_rubrik", "lika": true, "poang": -1, "varfor": "rubriken säger Välkommen i stället för vad, var och för vem (9.1)"},
+    {"signal": "foto_saknas_forsta", "lika": true, "poang": -1, "varfor": "inget foto i mobilens första skärm fast sajten har bilder (9.4)"},
+    {"signal": "tel_lank_start", "lika": false, "poang": -1, "varfor": "telefonnumret går inte att trycka på från startsidan (9.2)"},
+    {"signal": "copyright_gammal", "lika": true, "poang": -1, "varfor": "sidfoten anger ett årtal två år gammalt eller äldre"},
+    {"signal": "byggverktyg_enkelt", "lika": true, "poang": -1, "varfor": "byggd i ett enkelt sajtverktyg (Wix, Weebly, Hemsida24 eller liknande)"},
+    {"signal": "wordpress_gammal", "lika": true, "poang": -1, "varfor": "WordPress äldre än version 6"},
+    {"signal": "typsnitt_familjer", "over": 3, "poang": -0.5, "varfor": "fler än tre typsnittsfamiljer (4.3)"},
+    {"signal": "centrerad", "over": 60, "poang": -0.5, "varfor": "mer än 60 procent av texten centrerad"},
+    {"signal": "lorem_ipsum", "lika": true, "poang": -2, "varfor": "platshållartext kvar på sajten"}
+   ]
+  }
+ }
+}

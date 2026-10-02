@@ -3,7 +3,7 @@
 // hashar, ta skärmbilder (första vyn och hela sidan), tillgänglighetsträd, konsol, nätverk, tillstånd (hover, fokus,
 // tangentbord, reflow 320, meny, omladdning, bakåt/framåt), spår. Skärmbilder kompletterar interaktionen; ett textträd
 // är inte bildseende — bedöm layout i bilderna.
-//   node inspektera.mjs --adress URL --ut DIR [--vyer 390,1440] [--tillat ORIGIN;ORIGIN] [--undantag-fil F]
+//   node inspektera.mjs --adress URL --ut DIR [--vyer 390,1440] [--tillat ORIGIN;ORIGIN | --tillat-alla] [--undantag-fil F]
 //        [--hemligheter FIL] [--kontext FIL,FIL] [--hover SEL] [--fokus SEL] [--meny SEL] [--tillstand tangentbord,reflow,reload,bakat]
 import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER } from './gemensamt.mjs';
 import { readFileSync } from 'node:fs';
@@ -11,13 +11,14 @@ import { join, basename } from 'node:path';
 
 const a = args(process.argv.slice(2));
 if (!a.adress || !a.ut) { console.error('användning: --adress URL --ut DIR [...]'); process.exit(2); }
-const tillat = [origin(a.adress), ...(a.tillat ? String(a.tillat).split(';').filter(Boolean) : [])];
+// --tillat-alla: inga ursprungsgränser (främmande sajter i prospektanalysen lastar typsnitt, bilder och skript från CDN:er)
+const tillat = a['tillat-alla'] ? [] : [origin(a.adress), ...(a.tillat ? String(a.tillat).split(';').filter(Boolean) : [])];
 const undantag = lasUndantag(a['undantag-fil']);
 const hemliga = hemligheter(a.hemligheter);
 const vyer = String(a.vyer || '390,1440').split(',');
 const tillstand = new Set(String(a.tillstand || 'tangentbord,reflow,reload,bakat').split(',').filter(Boolean));
 const kontext = (a.kontext ? String(a.kontext).split(',') : []).map(f => ({ fil: f, namn: basename(f), sha256: sha256(readFileSync(f)), byte: readFileSync(f).length }));
-const rapport = { schema: 1, verktyg: 'inspektera', adress: a.adress, tid: nu(), tillatna_ursprung: tillat, undantag: !!undantag, kontext, vyer: {}, not: 'utvecklarinspektion med kontext; skärmbilderna avgör layout (textträdet är inte bildseende); mobilvyerna är emulerade, inte fysisk enhet' };
+const rapport = { schema: 1, verktyg: 'inspektera', adress: a.adress, tid: nu(), tillatna_ursprung: tillat.length ? tillat : 'alla', undantag: !!undantag, kontext, vyer: {}, not: 'utvecklarinspektion med kontext; skärmbilderna avgör layout (textträdet är inte bildseende); mobilvyerna är emulerade, inte fysisk enhet' };
 for (const vy of vyer) {
   const b = await oppna({ vy, tillat, undantag, hemliga, spar: true, mal: a.adress });
   const r = { namn: b.vy.namn, sidor: [], tillstand: {} };

@@ -41,6 +41,7 @@ ARKIV = re.compile(r"(^|/)(author|tags?|categor(y|ies)|kategori|etikett|arkiv|ar
                    re.I)
 DOKUMENT = re.compile(r"\.(pdf|docx?|xlsx?|pptx?|odt)$", re.I)
 HOPPA = {"script", "style", "noscript", "svg", "template", "iframe"}
+VIKTIG = re.compile(r"(kontakt|contact|om-oss|om_oss|omoss|om/|about|tjanster|tj%C3%A4nster|services)", re.I)
 
 
 def antal(n, en, flera):
@@ -271,6 +272,7 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
     sedda, tagna = set(), set()
     ko = deque()
     kartan = None
+    generator = None
 
     def nyckel(u):
         s = urllib.parse.urlsplit(u)
@@ -354,8 +356,11 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
                 post["alt"] = alt
 
         if not sidor:
-            # startsidans länkar (oftast menyn) först, sedan sidkartan, sedan länkarna på varje sida i tur och ordning
-            meny = list(ko)
+            generator = p.meta.get("generator")
+            # startsidans länkar (oftast menyn) först, sedan sidkartan, sedan länkarna på varje sida i tur och ordning;
+            # kontakt, om oss och tjänster främst i menyn, så att de ryms inom ett lågt tak (prospektanalysen hämtar 8 sidor)
+            vag_ = lambda u: urllib.parse.urlsplit(u).path
+            meny = sorted(ko, key=lambda u: 0 if VIKTIG.search(vag_(u)) else 1)
             ko.clear()
             kartan = sitemapadresser(slut, rp, kartlogg)
             for u in meny:
@@ -411,7 +416,8 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
         md.append("- inget")
     (ut / "SIDOR.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     return {"ut": str(ut), "sidor": len(sidor), "bilder": len(bilder), "kvar": len(kvar), "nekade": len(nekade),
-            "fel": len(fel), "robots": robotslage}
+            "fel": len(fel), "robots": robotslage, "sidkarta": kartlogg, "generator": generator,
+            "sidlista": [{"fil": x["fil"], "url": x["url"], "status": x["status"]} for x in sidor]}
 
 
 def main():

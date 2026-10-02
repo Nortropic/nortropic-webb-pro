@@ -1,0 +1,13 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": ["amne", "text", "fakta", "ringmanus"],
+ "properties": {
+  "amne": {"type": "string", "maxLength": 80, "description": "Ämnesrad utan superlativ"},
+  "text": {"type": "string", "maxLength": 1000, "description": "Brevkroppen på svenska, högst 120 ord, utan sidfot och underskrift"},
+  "fakta": {"type": "array", "minItems": 2, "maxItems": 3, "items": {"type": "object", "additionalProperties": false, "required": ["pastaende", "kalla"],
+            "properties": {"pastaende": {"type": "string", "maxLength": 200, "description": "iakttagelsen som den står i brevet"},
+                           "kalla": {"type": "string", "maxLength": 120, "description": "raden i faktalistan eller skärmbilden den bygger på"}}}},
+  "ringmanus": {"type": "string", "maxLength": 700, "description": "samma iakttagelser som talade meningar för ett samtal under en minut, högst 90 ord"}
+ }
+}

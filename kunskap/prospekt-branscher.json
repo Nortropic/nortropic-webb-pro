@@ -1,0 +1,17 @@
+{
+ "status": "initial 2026-10-02; prospekt.py svep kontrollerar prefixen mot KODER.json (naringsgrenkoder) och skriver ut träffade koder med klartext, rensa efter första körningen",
+ "not": "SNI-prefix utan punkt jämförs mot kodens början: '43' träffar 43110–43999, '41.2' träffar 41200. SNI 2025 numrerade om delar av 41 och 96.",
+ "branscher": {
+  "hantverkare": {"namn": "Hantverkare: bygg, el, VVS, snickeri, måleri, golv, tak, mark", "sni_prefix": ["41.2", "43"], "ord": "hantverkare"},
+  "stad": {"namn": "Städ och fönsterputs", "sni_prefix": ["81.21", "81.22", "81.29"], "ord": "städfirma"},
+  "tradgard": {"namn": "Trädgård och fastighetsskötsel", "sni_prefix": ["81.3", "81.1"], "ord": "trädgård"},
+  "fordon": {"namn": "Bilverkstad, däck, tvätt och rekond", "sni_prefix": ["45.2"], "ord": "bilverkstad"},
+  "skonhet": {"namn": "Frisör, barberare, naglar, hudvård och massage", "sni_prefix": ["96.02", "96.04", "96.09"], "ord": "frisör"},
+  "halsa": {"namn": "Tandläkare, fysioterapeut, naprapat och veterinär", "sni_prefix": ["86.23", "86.90", "75.00"], "ord": "klinik"},
+  "mat": {"namn": "Restaurang, café, catering och bageri", "sni_prefix": ["56.1", "56.2", "56.3", "10.71"], "ord": "restaurang"},
+  "handel": {"namn": "Järn-, möbel- och blomsterhandel", "sni_prefix": ["47.52", "47.59", "47.76"], "ord": "butik"},
+  "transport": {"namn": "Åkeri och flytt", "sni_prefix": ["49.41", "49.42"], "ord": "åkeri"},
+  "fotograf": {"namn": "Fotograf", "sni_prefix": ["74.20"], "ord": "fotograf"},
+  "lassmed": {"namn": "Låssmed", "sni_prefix": ["80.20", "95.29"], "ord": "låssmed"}
+ }
+}

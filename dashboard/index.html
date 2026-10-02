@@ -123,6 +123,12 @@ details.post .innehall { padding: 0 16px 14px; }
 .ok-text { color: var(--gron); } .rod-text { color: var(--rod); }
 .meddelande { padding: 12px 14px; border-radius: 10px; background: var(--gron-mjuk); color: var(--gron); margin: 12px 0; }
 .meddelande.fel { background: var(--rod-mjuk); color: var(--rod); }
+select, input[type=number], input[type=email] { font: inherit; color: inherit; background: var(--yta); border: 1px solid var(--linje); border-radius: 9px; padding: 8px 10px; }
+button.chip { font: inherit; font-size: 12px; cursor: pointer; }
+label.rad { gap: 6px; }
+.varfor-rad { padding: 6px 0; border-bottom: 1px solid var(--linje); display: flex; gap: 10px; align-items: baseline; }
+.varfor-rad .p { font-variant-numeric: tabular-nums; color: var(--rod); min-width: 36px; text-align: right; }
+.varfor-rad .k { color: var(--dampad); font-size: 12px; min-width: 70px; }
 </style>
 </head>
 <body>
@@ -132,6 +138,7 @@ details.post .innehall { padding: 0 16px 14px; }
     <a href="#/" data-v="">Översikt</a>
     <a href="#/backlog" data-v="backlog">Backlog <b id="n-backlog" hidden></b></a>
     <a href="#/kirurgen" data-v="kirurgen">Kirurgen <b id="n-kirurg" hidden></b></a>
+    <a href="#/prospekt" data-v="prospekt">Prospekt <b id="n-prospekt" hidden></b></a>
     <a href="#/lardomar" data-v="lardomar">Lärdomar</a>
     <a href="#/ab" data-v="ab">Jämförelser</a>
     <a href="#/starta" data-v="starta">Starta</a>
@@ -154,6 +161,7 @@ function aktivNav(v) { document.querySelectorAll('nav a').forEach((a) => a.class
 function raknare(o) {
   const b = $('#n-backlog'); b.hidden = !o.backlog_vilande; b.textContent = o.backlog_vilande;
   const k = $('#n-kirurg'); k.hidden = !o.intag_pagar; k.textContent = o.intag_pagar ? o.intag_pagar + ' pågår' : '';
+  const pr = $('#n-prospekt'); if (pr) { pr.hidden = !o.prospekt_vantar; pr.textContent = o.prospekt_vantar || ''; }
 }
 function grindchips(prov) {
   if (!prov) return '<span class="chip">Inte provad</span>';
@@ -336,13 +344,15 @@ async function kirurgvy(baraLista) {
         <input id="not" type="text" placeholder="t.ex. bättre typografi i hero">
         <div class="rad" style="margin-top:14px"><button class="knapp primar" type="submit">Skicka till kirurgen</button><span id="intagsvar" class="under"></span></div>
       </form>
-      <div id="intag-lista"></div><div id="register"></div>`;
+      <div id="intag-lista"></div><div id="spaning"></div><div id="register"></div>`;
     $('#intag').onsubmit = async (e) => {
       e.preventDefault(); const k = e.target.querySelector('button'); k.disabled = true;
       try {
         const las = (f) => new Promise((ok, fel) => { const r = new FileReader(); r.onload = () => ok({ namn: f.name, data: r.result }); r.onerror = fel; r.readAsDataURL(f); });
         const filer = await Promise.all(Array.from($('#filer').files || []).map(las));
         if (!$('#url').value.trim() && !filer.length) throw new Error('Ange en länk eller välj filer.');
+        if ($('#url').value.trim() && !$('#not').value.trim()) { const kand = await api('/api/kirurg/kand?url=' + encodeURIComponent($('#url').value.trim())).catch(() => null);
+          if (kand?.kand && !confirm(`Redan bedömd ${kand.kand.datum || ''} (${kand.kand.dom}, ${kand.kand.var}). Kirurgen svarar med den gamla domen om du inte skriver i noten att du vill ha en ny bedömning. Skicka ändå?`)) { k.disabled = false; return; } }
         $('#intagsvar').textContent = filer.length ? 'Laddar upp …' : '';
         await post('/api/kirurg', { url: $('#url').value, not: $('#not').value, filer });
         $('#url').value = ''; $('#not').value = ''; $('#filer').value = '';
@@ -371,8 +381,36 @@ async function kirurgvy(baraLista) {
     try { const r = await post('/api/kirurg/omdome', { rubrik: f.dataset.rubrik, agaren: val, ord: f.querySelector('textarea').value }); f.querySelector('.svar').textContent = 'Sparat, ' + r.git + '.'; setTimeout(() => kirurgvy(), 1200); }
     catch (err) { f.querySelector('.svar').textContent = err.message; f.querySelector('button').disabled = false; }
   });
+  await spaningvy();
   if (pagar) timer = setTimeout(() => kirurgvy(true), 6000);
   const o = await api('/api/oversikt'); raknare(o);
+}
+
+async function spaningvy() {
+  const el = $('#spaning'); if (!el) return;
+  const d = await api('/api/spaning').catch(() => null); if (!d) return;
+  const sen = d.senast;
+  const kort = (k) => `<div class="kort" style="margin-bottom:10px"><div class="rad mellan"><div class="titel" style="font-weight:560">${/^https?:\/\//.test(k.url) ? `<a href="${esc(k.url)}" target="_blank" rel="noopener">${esc(k.titel || k.url)}</a>` : esc(k.titel || k.url)}</div>
+      <div class="chips"><span class="chip">${esc(k.kalla)}</span><span class="chip acc">${esc(String(k.poang ?? ''))}</span>${k.publicerad ? `<span class="chip">${esc(k.publicerad)}</span>` : ''}${(k.varning || []).map((v) => `<span class="chip gul">${esc(v)}</span>`).join('')}</div></div>
+      <div class="under" style="margin:6px 0">${esc((k.varfor || []).join(' · '))}</div>
+      ${k.sammanfattning ? `<div style="font-size:14px">${esc(k.sammanfattning.slice(0, 300))}</div>` : ''}
+      <div class="rad" style="margin-top:10px">${k.ny_version ? `<button class="knapp" data-sp="form" data-url="${esc(k.url)}">Fyll i formuläret (dömd nej tidigare)</button>` : `<button class="knapp primar" data-sp="ta-in" data-id="${esc(k.id)}">Ta in</button>`}
+        <button class="knapp" data-sp="avfarda" data-id="${esc(k.id)}">Avfärda</button><span class="under sp-svar"></span></div></div>`;
+  el.innerHTML = `<h2>Spaning</h2><div class="rad" style="margin-bottom:12px">${d.pagar ? '<span class="chip acc puls">Spanar …</span>' : sen ? `<span class="chip">senast ${tid(sen.slut)}</span><span class="chip">${d.antal} kandidater</span>${sen.fel?.length ? `<span class="chip gul">${sen.fel.length} av ${sen.kallor.length} källor svarade inte</span>` : ''}` : '<span class="chip">ingen spaning än</span>'}
+      ${d.av ? '<span class="chip">automatiken är av (NWP_SPANING_AV)</span>' : '<span class="chip">körs en gång i veckan</span>'}<button class="knapp" id="spana-nu" ${d.pagar ? 'disabled' : ''}>Spana nu</button><span id="spana-svar" class="under"></span></div>
+    <p class="under">Spanaren letar utan modell i flöden, leverantörsdokumentation, GitHub och Hacker News (<code>kunskap/spaning-kallor.md</code>), rensar texten och rankar mot våra termer. Kandidaterna är data; varje intag startar du.</p>
+    ${d.kandidater.length ? d.kandidater.map(kort).join('') : '<div class="tom">Inga kandidater just nu.</div>'}`;
+  $('#spana-nu').onclick = async () => { $('#spana-nu').disabled = true; try { await post('/api/spaning/kor', {}); setTimeout(spaningvy, 1500); } catch (err) { $('#spana-svar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; $('#spana-nu').disabled = false; } };
+  el.querySelectorAll('[data-sp]').forEach((b) => b.onclick = async () => {
+    const svar = b.parentElement.querySelector('.sp-svar'); b.disabled = true;
+    try {
+      if (b.dataset.sp === 'form') { $('#url').value = b.dataset.url; $('#not').focus(); window.scrollTo({ top: 0 }); b.disabled = false; return; }
+      if (b.dataset.sp === 'ta-in') { await post(`/api/spaning/${b.dataset.id}/ta-in`, {}); kirurgvy(true); }
+      if (b.dataset.sp === 'avfarda') { const skal = prompt('Varför avfärdas den?') ?? ''; await post(`/api/spaning/${b.dataset.id}/avfarda`, { skal }); }
+      spaningvy();
+    } catch (err) { svar.innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; b.disabled = false; }
+  });
+  if (d.pagar) setTimeout(spaningvy, 6000);
 }
 
 function overens(o) {
@@ -422,6 +460,172 @@ async function abvy() {
   });
 }
 
+// --- prospekt: kampanjer, register, kort per verksamhet, brev ---
+const PSTATUS = { ny: 'Ny', 'utan-sajt': 'Utan sajt', analyserad: 'Analyserad', vald: 'Vald', avvisad: 'Avvisad', demo: 'Demo', utkast: 'Brevutkast', skickat: 'Skickat', svar: 'Svar', kund: 'Kund', nej: 'Nej' };
+const pchip = (s) => `<span class="chip ${['skickat', 'svar', 'kund'].includes(s) ? 'ok' : ['vald', 'demo'].includes(s) ? 'acc' : s === 'utkast' ? 'gul' : ''}">${esc(PSTATUS[s] || s)}</span>`;
+const tal = (x) => x == null ? '–' : String(x).replace('.', ',');
+const kortUrl = (u) => (u || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+const ROLL = /^(info|kontakt|hej|hello|mail|post|office|kansli|bokning|admin|reception|support|kundtj[aä]nst|kontor|order|webb?)/i;
+let pfilter = 'aktiva';
+
+async function prospektvy() {
+  aktivNav('prospekt');
+  const d = await api('/api/prospekt');
+  const kortK = (k) => `<a class="kort bygge-kort" href="#/prospekt/${esc(k.id)}">
+      <div class="rad mellan"><div><div class="namn">${esc(k.bransch_namn || k.bransch)}</div><div class="ort">${esc(k.kommun || k.kommunKod)} · ${esc(k.id)}</div></div>
+        ${k.jobb.pagar ? `<span class="chip acc puls">Pågår: ${esc(k.jobb.steg || '')}</span>` : k.jobb.fel ? `<span class="chip rod">${esc(k.jobb.fel)}</span>` : `<span class="chip">${k.totalt} verksamheter</span>`}</div>
+      <div class="chips" style="margin-top:10px">${Object.entries(k.antal).map(([s, n]) => `<span class="chip">${esc(PSTATUS[s] || s)}: ${n}</span>`).join('') || '<span class="chip">tomt</span>'}</div></a>`;
+  $('#vy').innerHTML = `
+    <h1>Prospekt</h1><p class="under">Verksamheter i en bransch och kommun ur SCB:s företagsregister, deras webbplats uppmätt och rankad efter vad de har att vinna. Reglerna står i <code>kunskap/prospekt-och-utskick.md</code>.</p>
+    ${d.stopp ? '<div class="meddelande fel">Dödsknappen är nedtryckt (underlag/prospekt/STOPP): pipelinen kör inte förrän filen tas bort.</div>' : ''}
+    ${!d.nyckel_finns ? '<div class="meddelande fel">SCB-nyckel saknas. Skapa ~/.nortropic-hemligheter/webb-pro/scb.env med raden SCB_API_NYCKEL=… (chmod 600). Nyckeln söks med BankID på registreraafr.scb.se och kommer per e-post, oftast samma dag.</div>' : ''}
+    <form id="nykampanj" class="kort" style="margin-bottom:18px"><div style="font-weight:560;margin-bottom:10px">Ny kampanj</div>
+      <div class="rad">
+        <label>Bransch <select id="k-bransch">${d.branscher.map((b) => `<option value="${esc(b.id)}">${esc(b.namn)}</option>`).join('')}</select></label>
+        <label>Kommun <select id="k-kommun">${d.kommuner.map((k) => `<option value="${esc(k.kod)}" ${k.kod === '2580' ? 'selected' : ''}>${esc(k.namn)} (${esc(k.kod)})</option>`).join('')}</select></label>
+        <label>Analysera först <input id="k-max" type="number" min="1" max="50" value="10" style="width:76px"></label>
+        <button class="knapp primar" type="submit" ${d.nyckel_finns ? '' : 'disabled'}>Starta</button><span id="k-svar" class="under"></span></div>
+      <p class="under" style="margin:10px 0 0">Svepet hämtar registret (några minuter), sajtjakten tar upp till 40 verksamheter, analysen de första sajterna (3–4 min per sajt). Fler analyseras från kampanjens sida.</p></form>
+    ${d.kampanjer.length ? `<div class="rutnat">${d.kampanjer.map(kortK).join('')}</div>` : '<div class="tom">Inga kampanjer än.</div>'}`;
+  $('#nykampanj').onsubmit = async (e) => {
+    e.preventDefault(); const kn = e.target.querySelector('button'); kn.disabled = true;
+    try { const r = await post('/api/prospekt/kampanj', { bransch: $('#k-bransch').value, kommun: $('#k-kommun').value, max: $('#k-max').value }); location.hash = '#/prospekt/' + r.id; }
+    catch (err) { $('#k-svar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; kn.disabled = false; }
+  };
+  if (d.kampanjer.some((k) => k.jobb.pagar)) timer = setTimeout(prospektvy, 6000);
+  const o = await api('/api/oversikt'); raknare(o);
+}
+
+async function kampanjvy(k) {
+  aktivNav('prospekt');
+  const d = await api('/api/prospekt/' + encodeURIComponent(k));
+  const dolj = new Set(['avvisad', 'nej']);
+  const alla = d.poster;
+  const visade = alla.filter((p) => pfilter === 'alla' || (pfilter === 'aktiva' ? !dolj.has(p.status) : p.status === pfilter));
+  const med = visade.filter((p) => p.poang && p.poang.total != null).sort((a, b) => b.poang.total - a.poang.total);
+  const utan = visade.filter((p) => !(p.poang && p.poang.total != null));
+  const huvud = '<thead><tr><th>Verksamhet</th><th>Ort</th><th>Form</th><th>Sajt</th><th class="tal" title="Hastighet">H</th><th class="tal" title="SEO">S</th><th class="tal" title="Mobil">M</th><th class="tal" title="Design">D</th><th class="tal">Att vinna</th><th>Status</th></tr></thead>';
+  const rad = (p) => `<tr><td><a href="#/prospekt/${esc(k)}/${esc(p.slug)}">${esc(p.namn)}</a></td><td>${esc(p.postort || '')}</td>
+      <td>${p.fysisk_person ? '<span class="chip gul">enskild firma</span>' : esc(p.jurform_text || '')}</td>
+      <td>${p.sajt?.url ? `<a href="${esc(p.sajt.url)}" target="_blank" rel="noopener">${esc(kortUrl(p.sajt.url))}</a> <span class="chip">${esc(p.sajt.kalla)}</span>` : p.sajt_kandidat ? `<span class="chip gul">kandidat</span> ${esc(kortUrl(p.sajt_kandidat.url))}` : '<span class="chip">ingen</span>'}</td>
+      <td class="tal">${tal(p.poang?.hastighet)}</td><td class="tal">${tal(p.poang?.seo)}</td><td class="tal">${tal(p.poang?.mobil)}</td><td class="tal">${tal(p.poang?.design)}</td><td class="tal"><b>${tal(p.poang?.total)}</b></td><td>${pchip(p.status)}</td></tr>`;
+  const filterchips = [['aktiva', 'Aktiva'], ['alla', 'Alla'], ...Object.keys(d.antal).sort().map((s) => [s, (PSTATUS[s] || s) + ' ' + d.antal[s]])];
+  $('#vy').innerHTML = `
+    <p class="under" style="margin-bottom:6px"><a href="#/prospekt">Prospekt</a></p>
+    <div class="rad mellan"><div><h1>${esc(d.bransch_namn || d.bransch)} i ${esc(d.kommun || d.kommunKod)}</h1><div class="under" style="margin:0">${esc(d.id)} · ${alla.length} verksamheter</div></div>
+      <div class="rad">${d.jobb.pagar ? `<span class="chip acc puls">Pågår: ${esc(d.jobb.steg || '')}</span>` : d.jobb.fel ? `<span class="chip rod">${esc(d.jobb.fel)}</span>` : d.jobb.slut ? `<span class="chip">senaste jobbet klart ${tid(d.jobb.slut)}</span>` : ''}
+        <button class="knapp" id="analysera" ${d.jobb.pagar ? 'disabled' : ''}>Analysera 10 till</button><span id="k-svar" class="under"></span></div></div>
+    <div class="chips" style="margin:14px 0">${filterchips.map(([v, t]) => `<button class="chip ${pfilter === v ? 'acc' : ''}" data-f="${esc(v)}">${esc(t)}</button>`).join('')}</div>
+    ${med.length ? `<div class="kort tabell"><table>${huvud}<tbody>${med.map(rad).join('')}</tbody></table></div>` : ''}
+    ${utan.length ? `<h2>Utan mätning (${utan.length})</h2><div class="kort tabell"><table>${huvud}<tbody>${utan.map(rad).join('')}</tbody></table></div>` : ''}
+    ${!med.length && !utan.length ? '<div class="tom">Inga verksamheter i urvalet.</div>' : ''}
+    ${d.logg.length ? `<h2>Senaste händelser</h2>${d.logg.map((h) => `<div class="handling"><b>${esc(h.handelse)}</b> ${esc([h.slug, h.url, h.status, h.skal, h.fraga, h.lage, h.fel].filter(Boolean).join(' · '))} <span style="float:right">${tid(h.tid)}</span></div>`).join('')}` : ''}`;
+  document.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { pfilter = b.dataset.f; kampanjvy(k); });
+  $('#analysera').onclick = async () => {
+    $('#analysera').disabled = true;
+    try { await post('/api/prospekt/' + encodeURIComponent(k) + '/analysera', { max: 10 }); kampanjvy(k); }
+    catch (err) { $('#k-svar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; $('#analysera').disabled = false; }
+  };
+  if (d.jobb.pagar) timer = setTimeout(() => kampanjvy(k), 6000);
+}
+
+async function prospektkortvy(k, slug) {
+  aktivNav('prospekt');
+  const d = await api(`/api/prospekt/${encodeURIComponent(k)}/${encodeURIComponent(slug)}`);
+  const p = d.post, pr = d.prospekt || {}, po = pr.poang || p.poang || {}, bas = `/api/prospekt/${encodeURIComponent(k)}/${encodeURIComponent(slug)}`;
+  const info = [p.orgNr && `org.nr ${p.orgNr}`, p.postort, (p.sni || [])[0]?.text, p.anstKl_text, p.startDat && `sedan ${p.startDat.slice(0, 4)}`, p.tel, p.epost].filter(Boolean);
+  const sp = p.sparr || {};
+  const knapp = (txt, h, primar, disabled, titel) => `<button class="knapp ${primar ? 'primar' : ''}" data-h="${h}" ${disabled ? 'disabled' : ''} title="${esc(titel || '')}">${esc(txt)}</button>`;
+  let knappar = '';
+  if (['ny', 'analyserad', 'utan-sajt'].includes(p.status)) knappar = knapp('Välj', 'valj', true) + knapp('Avvisa', 'avvisa');
+  if (p.status === 'vald') knappar = knapp('Bygg demo', 'demo', true, d.bygge_pagar_annat, d.bygge_pagar_annat ? 'ett bygge pågår redan; en demo i taget' : '') + knapp('Skriv brev', 'brev', false, d.brev_lage.pagar || !pr.analys_tid, pr.analys_tid ? '' : 'ingen mätning att skriva ur') + knapp('Avvisa', 'avvisa');
+  if (p.status === 'demo') knappar = knapp('Skriv brev', 'brev', true, d.brev_lage.pagar || !pr.analys_tid) + knapp('Avvisa', 'avvisa');
+  if (p.status === 'utkast') knappar = knapp('Skriv om', 'brev', false, d.brev_lage.pagar) + knapp('Avvisa', 'avvisa');
+  if (['skickat', 'svar'].includes(p.status)) knappar = (p.status === 'skickat' ? knapp('Markera svar', 'svar', true) : '') + knapp('Blev kund', 'kund', p.status === 'svar') + knapp('Nej tack', 'nej') + knapp('Stryk (avregistrera)', 'stryk');
+  if (['kund', 'nej', 'avvisad'].includes(p.status)) knappar = (p.status !== 'nej' ? knapp('Stryk (avregistrera)', 'stryk') : '');
+  const sajtrad = p.sajt?.url ? `<a href="${esc(p.sajt.url)}" target="_blank" rel="noopener">${esc(kortUrl(p.sajt.url))}</a> <span class="chip">${esc(p.sajt.kalla)}${p.sajt.sakerhet != null ? ' ' + tal(p.sajt.sakerhet) : ''}</span>`
+    : `<span class="chip">ingen sajt</span>${p.sajt_kandidat ? ` kandidat: <a href="${esc(p.sajt_kandidat.url)}" target="_blank" rel="noopener">${esc(kortUrl(p.sajt_kandidat.url))}</a> (${tal(p.sajt_kandidat.sakerhet)}) ${knapp('Bekräfta sajten', 'sajt')}` : ''}
+       <span class="rad" style="display:inline-flex;margin-left:8px"><input id="s-url" type="url" placeholder="eller ange adressen" style="width:260px">${knapp('Sätt', 'sajt-manuell')}</span>`;
+  const rader = [['Hastighet', 'hastighet'], ['SEO', 'seo'], ['Mobil', 'mobil'], ['Design', 'design']];
+  const lh = d.siffror || {};
+  const underlag = Object.entries(pr.underlag || {}).filter(([kk, v]) => v != null && v !== false && v !== '' && !(Array.isArray(v) && !v.length) && !(typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length) && !['sidor'].includes(kk));
+  const brev = d.brev, u = brev?.utkast || {}, red = brev?.redigerat || {}, g = brev?.godkand, mott = brev?.mottagare || {};
+  const epost0 = mott.epost || p.epost || '';
+  const visaKryss = epost0 && !ROLL.test(epost0.split('@')[0]);
+  const brevHtml = p.fysisk_person
+    ? `<div class="meddelande fel">Enskild firma är en fysisk person: inget mejl utan samtycke (marknadsföringslagen 19 §). Ring${p.tel ? ' ' + esc(p.tel) : ''} eller skriv brev. ${u.ringmanus ? '' : 'Skriv brev ger ett ringmanus ur mätningen.'}</div>
+       ${u.ringmanus ? `<h3>Ringmanus</h3><div class="kort prosa">${esc(u.ringmanus)}</div>` : ''}`
+    : brev ? `
+      <label style="display:block">Ämne <input id="b-amne" type="text" value="${esc(red.amne || u.amne || '')}"></label>
+      <label style="display:block;margin-top:10px">Text <textarea id="b-text" style="min-height:170px">${esc(red.text || u.text || '')}</textarea></label>
+      <div class="under" style="margin:6px 0 10px" id="b-ord"></div>
+      <details class="post"><summary><span class="titel">Fakta brevet bygger på (${(u.fakta || []).length})</span>${brev.kontroll?.siffror_ok === false ? '<span class="chip rod">siffra utanför fakta</span>' : ''}</summary><div class="innehall">${(u.fakta || []).map((f) => `<div class="handling"><b>${esc(f.pastaende)}</b> ${esc(f.kalla)}</div>`).join('') || '<div class="under">inga</div>'}</div></details>
+      ${(brev.kontroll?.copy_fynd || []).length ? `<details class="post"><summary><span class="titel">Copykontrollens fynd (${brev.kontroll.copy_fynd.length})</span></summary><div class="innehall">${brev.kontroll.copy_fynd.map((f) => `<div class="handling"><b>${esc(f.typ)}</b> ${esc(f.text)} · ${esc(f.riktning)}</div>`).join('')}</div></details>` : ''}
+      <details class="post"><summary><span class="titel">Sidfot som läggs till automatiskt</span></summary><div class="innehall"><pre style="white-space:pre-wrap">${esc(d.sidfot || '')}</pre></div></details>
+      <div class="rad" style="margin-top:12px"><label>Mottagare <input id="b-epost" type="email" value="${esc(epost0)}" style="min-width:280px"></label>
+        <label class="rad" id="b-person-rad" ${visaKryss ? '' : 'hidden'}><input id="b-person" type="checkbox" ${mott.bekraftad_person ? 'checked' : ''}> Jag bedömer att den här namngivna adressen är verksamhetens, inte en privat</label></div>
+      <div class="rad" style="margin-top:12px">${g ? `<span class="chip ok">Godkänd ${tid(g.tid)}</span>` : '<span class="chip gul">Inte godkänd</span>'}
+        <button class="knapp primar" id="b-godkann">${g ? 'Godkänn igen' : 'Godkänn'}</button>
+        <button class="knapp" id="b-skicka" ${d.grind.ok ? '' : 'disabled'} title="${esc(d.grind.skal)}">Skicka via Resend</button>
+        ${d.grind.ok ? '' : `<span class="under">${esc(d.grind.skal)}</span>`}<span id="b-svar" class="under"></span></div>
+      ${u.ringmanus ? `<h3>Ringmanus</h3><div class="prosa">${esc(u.ringmanus)}</div>` : ''}
+      <p class="under" style="margin:12px 0 0">Utkast ${tid(u.skapad)} · ${esc(u.modell || '')} · ${u.turer || '?'} turer${red.tid ? ' · redigerat ' + tid(red.tid) : ''}</p>`
+    : d.brev_lage.pagar ? '<span class="chip acc puls">Skriver brev …</span>'
+    : d.brev_lage.fel ? `<div class="meddelande fel">Brevet stoppades: ${esc(d.brev_lage.fel)}</div><p class="under">Skriv om för ett nytt försök.</p>`
+    : '<div class="under">Inget utkast än. Välj verksamheten och tryck Skriv brev.</div>';
+  $('#vy').innerHTML = `
+    <p class="under" style="margin-bottom:6px"><a href="#/prospekt">Prospekt</a> · <a href="#/prospekt/${esc(k)}">${esc(k)}</a></p>
+    <div class="rad mellan"><div><h1>${esc(p.namn)}</h1><div class="under" style="margin:0">${esc(info.join(' · '))}</div></div>
+      <div class="rad">${pchip(p.status)}${p.fysisk_person ? '<span class="chip gul">enskild firma</span>' : `<span class="chip">${esc(p.jurform_text || '')}</span>`}
+        ${sp.reklam ? '<span class="chip rod">reklamspärr</span>' : ''}${sp.epost ? '<span class="chip rod">e-postspärr</span>' : ''}${sp.telefon ? '<span class="chip rod">telefonspärr</span>' : ''}
+        ${p.avvisad_skal ? `<span class="chip">${esc(p.avvisad_skal)}</span>` : ''}</div></div>
+    <div class="rad" style="margin:12px 0">${knappar}<span id="p-svar" class="under"></span></div>
+    <div class="kort" style="margin-bottom:14px"><div class="rad"><b>Sajt</b> ${sajtrad}</div>${p.kanaler && Object.keys(p.kanaler).length ? `<div class="under" style="margin:6px 0 0">Kanaler: ${Object.entries(p.kanaler).map(([n, u2]) => `<a href="${esc(u2)}" target="_blank" rel="noopener">${esc(n)}</a>`).join(', ')}</div>` : ''}</div>
+    ${d.bilder.length ? `<h2>Deras sajt</h2><div class="bilder">${bild(hitta(d.bilder, '', 390), 'Startsidan, mobil 390')}${bild(hitta(d.bilder, '', 1440), 'Startsidan, desktop 1440')}</div>` : ''}
+    ${po.total != null ? `<h2>Att vinna: ${tal(po.total)} av 10${po.osaker ? ' <span class="chip gul">osäker mätning</span>' : ''}${po.svag ? ' <span class="chip rod">svag sajt</span>' : ''}</h2>
+      <div class="siffror">${rader.map(([n, kk]) => `<div class="kort siffra"><div class="tal">${tal(po[kk])}</div><div class="etikett">${n} (10 = inget att vinna)</div></div>`).join('')}</div>
+      ${Object.keys(lh).length ? `<p class="under">Lighthouse mobil: prestanda ${lh.prestanda ?? '–'}, tillgänglighet ${lh.tillganglighet ?? '–'}, bästa praxis ${lh.bastaPraxis ?? '–'}, SEO ${lh.seo ?? '–'}, LCP ${lh.lcpMs ?? '–'} ms; allvarliga axe-fel ${lh.axe_allvarliga ?? '–'}.</p>` : ''}
+      <div class="kort">${(pr.varfor || []).map((v) => `<div class="varfor-rad"><span class="p">${v.poang > 0 ? '' : ''}${tal(v.poang)}</span><span class="k">${esc(v.kategori)}</span><span>${esc(v.varfor)}${v.varde != null && typeof v.varde !== 'boolean' ? ` <span class="under" style="display:inline">(${esc(String(v.varde))})</span>` : ''}</span></div>`).join('') || '<div class="under">inga avdrag</div>'}</div>`
+      : p.status === 'utan-sajt' ? '<h2>Ingen sajt</h2><div class="under">Verksamheten saknar en egen webbplats som vi hittat. Ribban är deras Google-profil och kanaler; en demo kan ändå byggas.</div>' : ''}
+    ${underlag.length ? `<h2>Fakta ur mätningen</h2><div class="chips">${underlag.map(([kk, v]) => `<span class="chip">${esc(kk)}: ${esc(typeof v === 'object' ? JSON.stringify(v) : String(v))}</span>`).join('')}</div>` : ''}
+    ${pr.verktygsfel && Object.keys(pr.verktygsfel).length ? `<p class="under">Verktyg som föll: ${Object.entries(pr.verktygsfel).map(([n, f]) => `${esc(n)} (${esc(String(f).slice(0, 80))})`).join('; ')}</p>` : ''}
+    ${d.filer.length ? `<details class="post"><summary><span class="titel">Mätfiler (${d.filer.length})</span></summary><div class="innehall">${d.filer.map((f) => `<div><a href="/fil/${esc(f)}" target="_blank">${esc(f.replace('underlag/' + slug + '/', ''))}</a></div>`).join('')}</div></details>` : ''}
+    ${d.bygge.finns ? `<h2>Demo</h2><div class="kort"><div class="rad"><a href="#/bygge/${esc(slug)}">Bygget ${esc(slug)}</a>${d.bygge.korning ? (d.bygge.korning.pagar ? '<span class="chip acc puls">Körning pågår</span>' : `<span class="chip">${esc(d.bygge.korning.resultat ? 'klar: ' + d.bygge.korning.resultat.utfall : 'avbruten')}</span>`) : ''}</div></div>` : ''}
+    <h2>Brev</h2><div class="kort">${brevHtml}</div>
+    ${d.utskick ? `<h2>Utskick</h2><div class="kort"><div class="rad"><span class="chip ok">Skickat ${d.skickat_dagar != null ? d.skickat_dagar + ' dagar sedan' : tid(d.utskick.tid)}</span><span class="chip">${esc(d.utskick.till)}</span>${d.utskick.torr ? '<span class="chip gul">torrkörning</span>' : `<span class="chip">resend ${esc(d.utskick.resend_id)}</span>`}</div><p class="under" style="margin:8px 0 0">Ämne: ${esc(d.utskick.amne)}</p>${p.svar ? `<p class="under" style="margin:4px 0 0">Svar: ${esc(p.svar.status)} ${tid(p.svar.tid)} ${esc(p.svar.not || '')}</p>` : ''}</div>` : ''}
+    ${d.sparrad ? `<div class="meddelande fel" style="margin-top:14px">Adressen eller verksamheten står i spärrlistan: ${esc(d.sparrad.skal || '')}</div>` : ''}`;
+  const fel = (m) => { $('#p-svar').innerHTML = `<span class="rod-text">${esc(m)}</span>`; };
+  document.querySelectorAll('[data-h]').forEach((x) => x.onclick = async () => {
+    const h = x.dataset.h; x.disabled = true;
+    try {
+      if (h === 'valj') await post(bas + '/status', { status: 'vald' });
+      else if (h === 'avvisa') { const skal = prompt('Varför avvisas ' + p.namn + '?'); if (!skal) { x.disabled = false; return; } await post(bas + '/status', { status: 'avvisad', skal }); }
+      else if (h === 'demo') { if (!confirm('Starta ett demobygge åt ' + p.namn + '? Det tar en till två timmar.')) { x.disabled = false; return; } await post(bas + '/demo', {}); }
+      else if (h === 'brev') await post(bas + '/brev', {});
+      else if (['svar', 'kund', 'nej'].includes(h)) { const not = prompt('Anteckning (valfritt)') ?? ''; await post(bas + '/status', { status: h, not }); }
+      else if (h === 'stryk') { const skal = prompt('Skäl till strykningen', 'bad om det'); if (skal === null) { x.disabled = false; return; } if (!confirm('Stryk ' + p.namn + ' och lägg adressen i spärrlistan?')) { x.disabled = false; return; } await post(bas + '/stryk', { skal }); }
+      else if (h === 'sajt') await post(bas + '/sajt', {});
+      else if (h === 'sajt-manuell') { const url = $('#s-url').value.trim(); if (!url) { fel('ange en adress'); x.disabled = false; return; } await post(bas + '/sajt', { url }); }
+      prospektkortvy(k, slug);
+    } catch (err) { fel(err.message); x.disabled = false; }
+  });
+  const ordrakn = () => { const t = $('#b-text'); if (t) $('#b-ord').textContent = t.value.trim().split(/\s+/).filter(Boolean).length + ' ord (högst 120)'; };
+  if ($('#b-text')) { ordrakn(); $('#b-text').oninput = ordrakn; }
+  if ($('#b-epost')) $('#b-epost').oninput = () => { const e = $('#b-epost').value.trim(); $('#b-person-rad').hidden = !(e && !ROLL.test(e.split('@')[0])); };
+  if ($('#b-godkann')) $('#b-godkann').onclick = async () => {
+    $('#b-godkann').disabled = true;
+    try { await post(bas + '/brev/godkann', { amne: $('#b-amne').value, text: $('#b-text').value, mottagare: { epost: $('#b-epost').value, bekraftad_person: !!$('#b-person')?.checked } }); prospektkortvy(k, slug); }
+    catch (err) { $('#b-svar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; $('#b-godkann').disabled = false; }
+  };
+  if ($('#b-skicka')) $('#b-skicka').onclick = async () => {
+    if (!confirm('Skicka brevet till ' + $('#b-epost').value + ' från nortropic.se?')) return;
+    $('#b-skicka').disabled = true;
+    try { const r = await post(bas + '/skicka', {}); $('#b-svar').textContent = 'Skickat' + (r.torr ? ' (torrkörning)' : ', resend ' + r.resend_id) + '.'; setTimeout(() => prospektkortvy(k, slug), 1200); }
+    catch (err) { $('#b-svar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; $('#b-skicka').disabled = false; }
+  };
+  if ((d.brev_lage.pagar || d.bygge?.korning?.pagar) && p.status !== 'utkast') timer = setTimeout(() => prospektkortvy(k, slug), 6000);
+}
+
 function startavy() {
   aktivNav('starta');
   $('#vy').innerHTML = `
@@ -443,6 +647,7 @@ async function route() {
     if (h === 'kirurgen') return await kirurgvy();
     if (h === 'lardomar') return await lardomvy();
     if (h === 'ab') return await abvy();
+    if (h.startsWith('prospekt')) { const d = h.split('/'); return d[2] ? await prospektkortvy(decodeURIComponent(d[1]), decodeURIComponent(d[2])) : d[1] ? await kampanjvy(decodeURIComponent(d[1])) : await prospektvy(); }
     if (h === 'starta') return startavy();
     return await oversikt();
   } catch (e) { $('#vy').innerHTML = `<div class="meddelande fel">Fel: ${esc(e.message)}</div>`; }

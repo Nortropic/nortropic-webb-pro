@@ -158,6 +158,43 @@ assert [f for f in sk.granska(d)[0] if f['punkt'] == '9.4' and f['sida'] == '/om
 " || { echo "FEL: byggposternas kontroller"; exit 1; }
 echo "   byggposterna ok"
 
+echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \
+  || { echo "FEL: prospektpipelinen"; tail -20 "$ROOT/kunder/rokprov-mall/prospekt-prov.log"; exit 1; }
+echo "   prospektpipelinen ok"
+
+echo "   utskicksgrinden och brevkontrollen (offline)"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, tempfile, pathlib; sys.path.insert(0, '$ROOT/kontroller'); import utskick as u, prospektfiler as pf, brev as b
+post = {'slug': 'x', 'status': 'utkast', 'fysisk_person': False, 'jurform': '49', 'jurform_text': 'Övriga aktiebolag', 'sparr': {'reklam': False, 'epost': False, 'telefon': False}, 'orgNr': '5560001234', 'sajt': {'url': 'https://x.se/'}}
+brev = {'utkast': {'amne': 'Hej', 'text': 'Brevet'}, 'godkand': {'text_sha': pf.text_sha('Hej', 'Brevet')}, 'mottagare': {'epost': 'info@x.se', 'typ': 'roll', 'bekraftad_person': False}}
+assert u.far_skickas(post, brev, [], False, True) == (True, 'ok')
+fall = [(dict(post, status='vald'), brev, [], False, True, 'inte utkast'), (post, dict(brev, godkand={}), [], False, True, 'inte godkänt'),
+        (post, dict(brev, redigerat={'amne': 'Hej', 'text': 'ändrad'}), [], False, True, 'ändrad efter'), (dict(post, fysisk_person=True), brev, [], False, True, 'MFL 19'),
+        (dict(post, jurform='10', jurform_text='Enskild näringsidkare'), brev, [], False, True, 'juridisk form'), (dict(post, sparr={'reklam': True, 'epost': False}), brev, [], False, True, 'reklamspärr'),
+        (dict(post, sparr={'reklam': False, 'epost': True}), brev, [], False, True, 'e-postspärr'), (post, dict(brev, mottagare={'epost': 'nej'}), [], False, True, 'mottagaradress'),
+        (post, brev, [{'typ': 'e-post', 'varde': 'INFO@x.se', 'skal': 'bad'}], False, True, 'spärrad'), (post, brev, [{'typ': 'doman', 'varde': 'x.se'}], False, True, 'spärrad'),
+        (post, brev, [{'typ': 'orgnr', 'varde': '556000-1234'}], False, True, 'spärrad'), (post, dict(brev, mottagare={'epost': 'anna@x.se', 'typ': 'person', 'bekraftad_person': False}), [], False, True, 'namngiven'),
+        (post, brev, [], True, True, 'redan skickat'), (post, brev, [], False, False, 'Resend-nyckeln')]
+for p_, b_, s_, uf, hf, vantat in fall:
+    ok, skal = u.far_skickas(p_, b_, s_, uf, hf); assert not ok and vantat in skal, (vantat, skal)
+assert pf.text_sha(' Ä ', 'b\\n') == pf.text_sha('Ä', 'b')
+t = b.tillatna_tal(['- LCP efter 8,4 s [lighthouse.json LCP 8423 ms]', '- Ingen kanonisk adress (7.1) [poäng: canonical_saknas]'])
+assert b.siffror_ok('laddar på 8,4 s', t)[0] and not b.siffror_ok('laddar på 7 s', t)[0]
+d = pathlib.Path(tempfile.mkdtemp()); f = d / 'resend.env'; f.write_text('RESEND_API_NYCKEL=re_x\\nAVSANDARE=A <a@x.se>\\nSVAR_TILL=a@x.se\\n'); f.chmod(0o644)
+assert not u.hemligheter_finns(f); f.chmod(0o600); assert u.hemligheter_finns(f) and 'avregistrera' in u.sidfot(u.las_hemligheter(f), post)
+" || { echo "FEL: utskicksgrinden eller brevkontrollen"; exit 1; }
+echo "   grinden och brevkontrollen ok"
+
+echo "   spanaren: normalisering, kända källor, flöden, rankning, dedupe (offline)"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/spaning/prov_spaning.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/spaning-prov.log" \
+  || { echo "FEL: spanaren"; tail -20 "$ROOT/kunder/rokprov-mall/spaning-prov.log"; exit 1; }
+"$ROOT/.venv/bin/python" -B -c "
+import sys; sys.path.insert(0, '$ROOT/kontroller'); import kallnyckel as kn
+k = kn.kanda_kallor(); assert len(k) >= 20 and any(v['dom'].startswith('ta in') for v in k.values()), 'registret ger inga kända källor'
+" || { echo "FEL: kända källor ur registret"; exit 1; }
+echo "   spanaren ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"
