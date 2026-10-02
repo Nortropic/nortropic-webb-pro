@@ -1,12 +1,13 @@
 ---
 id: B-20261002-granskarens-blinda-flackar-rost-i-enskilda-menin
-status: pagar
+status: klar
 kalla: kirurg
 kallref: kontroller/granskarforsok/ · 2026-10-02
 skapad: 2026-10-02
 prio: normal
 steg: granskaren (steg 5.6)
-andrad: 2026-10-02T18:34Z
+commit: 7dc3bf0
+andrad: 2026-10-02T19:40Z
 ---
 # Granskarens blinda fläckar: röst i enskilda meningar, första vyn på mobil, daterat innehåll, generiska listmönster
 
@@ -41,3 +42,5 @@ ingen arm ännu. Förbehåll: texten skrevs ur samma byggens fel; om den hjälpe
 kritik/GRANSKARE.md: stilrapportens mobilavsnitt och första skärmen på undersidorna (steg 3), listor och tabeller som
 mallform (originalitet), inaktuellt innehåll (funktion), och de två minst verksamhetstrogna meningarna och de två
 minst begripliga rubrikerna citerade och dömda (text).
+
+**Klar (2026-10-02):** tre av sju blinda fläckar hittas nu, inga falska blockerande; rösten i enskilda meningar och hårlinjelistor fortfarande ofunna
