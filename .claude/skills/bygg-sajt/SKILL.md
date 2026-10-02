@@ -313,7 +313,10 @@ en skärmbild var, så att ägaren väljer A eller B. Val och ja/nej ger säkrar
 `underlag/<slug>/`.
 
 **Brister i verktygen.** Hittade du en brist i en kontroll, i den här skillen eller i en kunskapsfil, lägg en vilande
-post i backloggen per brist:
+post i backloggen per brist. Ett skript i `underlag/<slug>/skript/` som inte är knutet till verksamheten (läser en
+kontrolls utdata, hämtar sidor eller bilder, räknar något) är också en brist i verktygen: posten anger skriptets
+sökväg och vilken kontroll som borde ha gjort jobbet. Tre byggen skrev var sitt nästan likadant Lighthouse-skript
+innan någon såg mönstret.
 
 ```sh
 .venv/bin/python kontroller/backlog.py ny --kalla bygge --kallref "kunder/<slug>/RAPPORT.md" --steg "<steg>" \
