@@ -166,3 +166,8 @@ Kalibrering: varje post är ägarens överprövning av en registerpost. Kirurgen
 - Kirurgens dom: parkera
 - Ägarens dom: håller inte med, borde ha blivit: nej
 - Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · JuliusBrussee/caveman · nej
+- Kirurgens dom: nej
+- Ägarens dom: håller med
+- Ägarens ord: ""
