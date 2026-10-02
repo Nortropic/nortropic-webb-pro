@@ -66,6 +66,7 @@ def finns_lokalt(root, href):
 def granska_sida(root, f, raw, lage, verksamhet, doman):
     fynd = []
     url = url_for(root, f)
+    ar_404 = f.name == '404.html'  # 404-sidan ska ha noindex och ingen canonical (byggstandarden 7.2, ägarens dom L1–L3)
     m = TITLE.search(raw)
     title = htmlmod.unescape(re.sub(r'<[^>]+>', '', m.group(1))).strip() if m else ''
     if not title:
@@ -82,7 +83,7 @@ def granska_sida(root, f, raw, lage, verksamhet, doman):
     noindex = 'noindex' in robots
     if lage == 'forhandsvisning' and not noindex:
         fynd.append(('index tillåten i förhandsvisning', 'förhandsvisningen ska bära noindex (och skydd); lanseringskonfigurationen är en annan'))
-    if lage == 'lansering' and noindex:
+    if lage == 'lansering' and noindex and not ar_404:
         fynd.append(('noindex kvar vid lansering', 'noindex ska bort i lanseringskonfigurationen, annars samlar sökkonsolen inget'))
     n_h1 = len(H1.findall(raw))
     if n_h1 != 1:
@@ -91,7 +92,9 @@ def granska_sida(root, f, raw, lage, verksamhet, doman):
         fynd.append(('html lang saknas', 'ange sidans språk'))
     links = [attrs(t) for t in LINK.findall(raw)]
     canon = [l.get('href') for l in links if l.get('rel', '').lower() == 'canonical']
-    if not canon:
+    if ar_404:
+        pass
+    elif not canon:
         fynd.append(('canonical saknas', 'absolut canonical per sida'))
     else:
         c = canon[0]

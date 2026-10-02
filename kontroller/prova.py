@@ -228,17 +228,6 @@ def prova(slug, snabb=False):
     except (OSError, ValueError, KeyError):
         g['seo'] = grind(False, 'seo_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
 
-    # byggstandarden (kunskap/byggstandard.md): de maskinkontrollerbara D-punkterna som ingen annan grind prövar
-    rc, out = kor([PY, '-B', str(KONTROLLER / 'standard_kontroll.py'), '--bygge', str(dist), '--ut', str(prov / 'standard.json'),
-                   '--md', str(prov / 'standard.md')])
-    try:
-        st = json.loads((prov / 'standard.json').read_text(encoding='utf-8'))
-        rader = ['%s %s: %s' % (x['punkt'], x['sida'], x['text']) for x in st['fel']]
-        g['standard'] = grind(not st['fel'], '%d fel, %d info' % (len(st['fel']), len(st['info'])), 'prov/standard.md',
-                              '\n'.join(r[:160] for r in rader[:15]) or None)
-    except (OSError, ValueError, KeyError):
-        g['standard'] = grind(False, 'standard_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
-
     # copy: läses i den byggda HTML:en, sida för sida. Där syns texten som besökaren ser den: uppgifter ur datafiler
     # finns med, utropstecken räknas per sida och kundcitat (blockquote, q) räknas inte (fynd från Luleå-Snickaren och
     # Sundboms 2026-10-01). Fynden pekar på sidan; rätta i källan.
@@ -320,6 +309,16 @@ def prova(slug, snabb=False):
         info['skarmbilder'] = ('prov/inspektion/<sida>/vy-<bredd>-forsta.png och vy-<bredd>-ruta-NN.png, helsidan i skärmhöga '
                                'rutor (titta på dem; ett textträd är inte bildseende). -hela.png är nedskalad och visar bara rytmen.')
 
+        # stil (info): typsnitt, färgfamiljer, kort, nästa sektion, klickytor, modellernas standardval
+        rc, out = kor([NODE, str(KONTROLLER / 'stil.mjs'), '--url=' + srv.url, '--sidor=' + lista, '--ut=' + str(prov / 'stil')], timeout=300)
+        try:
+            sj = json.loads((prov / 'stil' / 'STIL.json').read_text(encoding='utf-8'))
+            info['stil'] = 'rubriker i %s, bakgrund %s; %d varningar, %d små klickytor (prov/stil/STIL.md)' % (
+                ', '.join(sj['sammanfattning']['rubriktypsnitt']) or '-', ', '.join(sj['sammanfattning']['familjer']['bakgrund']),
+                len(sj['varningar']), len(sj['smaYtor'])) + ''.join('\n  - ' + v for v in sj['varningar'][:8])
+        except (OSError, ValueError, KeyError):
+            info['stil'] = 'kördes inte (rc %d): %s' % (rc, svans(out, 3))
+
         # utan js
         rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'utan-js.mjs'), '--adress', srv.url + '/', '--sidor', ';'.join(provsidor), '--ut', str(prov / 'utan-js')], timeout=300)
         try:
@@ -340,6 +339,21 @@ def prova(slug, snabb=False):
                 info['utforska'] = '%d fynd (prov/utforska/UTFORSKNING.md); läs och rätta det som är verkligt' % len(fynd)
             except (OSError, ValueError):
                 info['utforska'] = 'kördes inte (rc %d): %s' % (rc, svans(out, 3))
+
+    # byggstandarden (kunskap/byggstandard.md): de maskinkontrollerbara D-punkterna som ingen annan grind prövar;
+    # klickytorna (3.3) kommer ur stilrapporten, som mäter i webbläsaren
+    cmd = [PY, '-B', str(KONTROLLER / 'standard_kontroll.py'), '--bygge', str(dist), '--ut', str(prov / 'standard.json'),
+           '--md', str(prov / 'standard.md')]
+    if (prov / 'stil' / 'STIL.json').is_file():
+        cmd += ['--stil', str(prov / 'stil' / 'STIL.json')]
+    rc, out = kor(cmd)
+    try:
+        st = json.loads((prov / 'standard.json').read_text(encoding='utf-8'))
+        rader = ['%s %s: %s' % (x['punkt'], x['sida'], x['text']) for x in st['fel']]
+        g['standard'] = grind(not st['fel'], '%d fel, %d info' % (len(st['fel']), len(st['info'])), 'prov/standard.md',
+                              '\n'.join(r[:160] for r in rader[:15]) or None)
+    except (OSError, ValueError, KeyError):
+        g['standard'] = grind(False, 'standard_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
 
     # prelaunch (info)
     cmd = [PY, '-B', str(KONTROLLER / 'prelaunch.py'), '--bygge', str(dist), '--lage', 'lansering', '--ut', str(prov / 'prelaunch.json'), '--md', str(prov / 'prelaunch.md')]

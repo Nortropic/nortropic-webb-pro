@@ -206,8 +206,11 @@ Kontrollera att namn, adress och telefon på sajten, i sidfoten och i JSON-LD ä
    `kunder/<slug>/prov/copy.md` och rätta eller motivera varje fynd.
 3. **Renderingsläsning:** läs `kritik/FRAGA-renderingslasning.md` och gör läsningen själv mot skärmbilderna. Använd
    frågorna 1–6. Hoppa över allt som hör till det gamla Runtime-paketet: FILES.md, VYER/, MATT/, KUND/, UNDERLAG/,
-   BEDOMNINGSBINDNING och JSON-schemat. Skriv svaret i `underlag/<slug>/RENDERINGSLASNING.md`, en rubrik per fråga
-   med vad du såg (bild och vy) och vad som ska rättas. Rätta det du hittar.
+   BEDOMNINGSBINDNING och JSON-schemat. Pröva också två saker ur stilrapporten `kunder/<slug>/prov/stil/STIL.md`:
+   att h1 är verksamhetens namn eller ett bokstavligt erbjudande, och att nästa sektion skymtar i första vyn så att
+   besökaren ser att sidan fortsätter. Motivera varje varning i stilrapporten ur verksamhetens material, eller rätta.
+   Skriv svaret i `underlag/<slug>/RENDERINGSLASNING.md`, en rubrik per fråga med vad du såg (bild och vy) och vad
+   som ska rättas. Rätta det du hittar.
 4. **Femsekunderstest, avskärmat:** starta en subagent med Task-verktyget. Ge den bara texten i
    `kritik/FRAGA-femsekunderstest.md`, fältlistan i `kritik/SCHEMA-femsekunderstest.json` och sökvägarna till
    första-vyn-bilderna för startsidan i 390 och 1440. Säg att den ska läsa bilderna i stället för FILES.md och svara

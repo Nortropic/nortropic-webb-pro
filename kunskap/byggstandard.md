@@ -43,9 +43,9 @@ sälja: varje sida har ett tydligt nästa steg.
 
 | Punkt | Fas | Prövas av |
 |---|---|---|
-| 3.1 Designtokens för färg, typografi, avstånd och radie som CSS-variabler; en typografisk skala, ett avståndssystem. | D | granskaren |
+| 3.1 Designtokens för färg, typografi, avstånd och radie som CSS-variabler; en typografisk skala, ett avståndssystem. Stilrapporten visar typsnitt, färgfamiljer, radier, kort och modellernas namngivna standardval. | D | granskaren, stilrapporten (info) |
 | 3.2 Mobilen först (min-width), flex och grid. Flytande typografi med clamp() blandar rem och vw, annars växer texten inte med zoom. | D | info, granskaren |
-| 3.3 Ingen horisontell skroll mellan 320 och 1920 px; träffytor minst 24×24 px, primära knappar 44×44. | D | `spill`, `axe` |
+| 3.3 Ingen horisontell skroll mellan 320 och 1920 px; träffytor minst 24×24 px, primära knappar 44×44. Länkar i listor och sidfot räknas, inte bara knappar. | D | `spill`, `axe`, `standard` (mätt av stilrapporten) |
 | 3.4 Kontrast 4,5:1 för text och 3:1 för gränssnitt; synlig fokus med `:focus-visible`. | D | `axe`, inspektionen, info |
 | 3.5 `prefers-reduced-motion` respekteras när sidan har rörelse; inget rullar av sig självt. | D | `standard` |
 | 3.6 Ikoner som SVG, aldrig ikonfont. | D | `standard` |
@@ -68,7 +68,7 @@ sälja: varje sida har ett tydligt nästa steg.
 |---|---|---|
 | 5.1 Allt går med tangentbord: skiplänk först, logisk tabbordning, inga fokusfällor, fokus döljs inte av klibbigt sidhuvud. | D | `standard`, inspektionen, granskaren |
 | 5.2 Mobilmeny: aria-expanded, stängs med Esc, fokus in och tillbaka. Helst ingen gömd meny när punkterna ryms. | D | granskaren |
-| 5.3 Länktexter begripliga utan sammanhang; ikonknappar har aria-label. | D | `axe`, info |
+| 5.3 Länktexter begripliga utan sammanhang, även när de läses upp: "Ring 0920-145 55", inte "Ring0920-145 55"; ikonknappar har aria-label. | D | `axe`, `standard`, info |
 | 5.4 Formulär: kopplade etiketter, fel i text, aria-describedby eller aria-live för fel. | D om formulär | `axe`, granskaren |
 | 5.5 Ingen autoplay med ljud; inga karuseller. | D | `standard`, granskaren |
 | 5.6 axe 0 allvarliga fel. Skärmläsarkoll av startsida och formulär görs av en människa före lansering; i demon läser granskaren tillgänglighetsträdet. | D axe, L skärmläsare | `axe`, granskaren |
@@ -94,8 +94,8 @@ demon ett formulär gäller 6.1–6.2 och 5.4; resten gäller lanseringen.
 | Punkt | Fas | Prövas av |
 |---|---|---|
 | 7.1 Unik title (50–60 tecken) och description (120–155), canonical, delningsbild `og:image` 1200×630 px. | D | `seo`, `standard`, info |
-| 7.2 sitemap.xml och robots.txt som inte blockerar CSS eller JS, 404-sida med väg vidare, 301 från gamla adresser, ingen noindex i produktion. | D, 301 L | `standard`, `seo` |
-| 7.3 JSON-LD som matchar synligt innehåll: den mest specifika typen (Electrician, Plumber, RoofingContractor, HousePainter, GeneralContractor för snickare och byggare), BreadcrumbList. | D | `standard`, `seo`, info |
+| 7.2 sitemap.xml och robots.txt som inte blockerar CSS eller JS, 404-sida med väg vidare och noindex men ingen canonical, 301 från gamla adresser, ingen noindex i produktion utom på 404. | D, 301 L | `standard`, `seo` |
+| 7.3 JSON-LD som matchar synligt innehåll: den mest specifika typen (Electrician, Plumber, RoofingContractor, HousePainter, GeneralContractor för snickare och byggare), BreadcrumbList. aggregateRating ur Google-omdömen ger inga rikresultat. | D | `standard`, `seo`, info |
 | 7.4 Namn, adress och telefon identiska med Google-företagsprofilen; öppettider och serviceområde som text; länk till omdömena. | D | `seo`, steg 6, granskaren |
 | 7.5 En sida per huvudtjänst med egen h1, lokal koppling, riktiga jobbilder och nästa steg. | D | granskaren |
 | 7.6 robots.txt blockerar inte sökrobotar, inte heller AI-sök, om kunden vill synas där. llms.txt behövs inte. | D | info |

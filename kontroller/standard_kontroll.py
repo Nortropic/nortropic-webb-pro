@@ -60,7 +60,7 @@ class Sida(HTMLParser):
         elif tag == 'style':
             self._fangar, self._buf = 'css', ''
         elif tag == 'a':
-            self._a = [a.get('href', ''), '', a.get('aria-label', '')]
+            self._a = [a.get('href', ''), '', a.get('aria-label', ''), []]
 
     def handle_endtag(self, tag):
         if tag in self._djup and self._djup[tag] > 0:
@@ -69,7 +69,9 @@ class Sida(HTMLParser):
             {'ld': self.jsonld, 'js': self.inline_js, 'css': self.inline_css}[self._fangar].append(self._buf)
             self._fangar = None
         if tag == 'a' and self._a:
-            self.lanktexter.append((self._a[0], ' '.join(self._a[1].split()), self._a[2]))
+            delar = self._a[3]
+            ihop = any(x[-1:].isalnum() and y[:1].isalnum() for x, y in zip(delar, delar[1:]))
+            self.lanktexter.append((self._a[0], ' '.join(self._a[1].split()), self._a[2], ihop, ''.join(delar).strip()))
             self._a = None
 
     def handle_data(self, data):
@@ -77,6 +79,8 @@ class Sida(HTMLParser):
             self._buf += data
         if self._a:
             self._a[1] += data
+            if data.strip():
+                self._a[3].append(data)
 
 
 def matt(fil):
@@ -253,6 +257,9 @@ def granska(dist):
         if not (forsta and forsta[0] == 'a' and forsta[1].get('href', '').startswith('#') and forsta[1]['href'][1:] in p.ids):
             F('5.1', sida, 'första fokuserbara elementet är ingen skiplänk till ett id på sidan')
         # 5.3 länktexter
+        ihop = [x[4] for x in p.lanktexter if x[3] and not x[2]]
+        if ihop:
+            F('5.3', sida, 'länkens namn läses ihop utan mellanslag mellan elementen: %r; lägg mellanslag eller aria-label' % ihop[0][:50])
         generiska = [x[1] for x in p.lanktexter if x[1].lower() in GENERISKA_LANKTEXTER and not x[2]]
         if generiska:
             I('5.3', sida, 'länktexter som inte säger något utan sammanhang: ' + ', '.join(sorted(set(generiska))[:4]))
@@ -300,6 +307,8 @@ def granska(dist):
                 F('7.3', sida, 'startsidan saknar JSON-LD för verksamheten (LocalBusiness eller en mer specifik typ)')
             elif all(t in ALLMANNA_TYPER for t in lokala):
                 I('7.3', sida, 'JSON-LD-typen %s är allmän; använd den mest specifika (t.ex. GeneralContractor, Electrician, HousePainter, Plumber)' % lokala[0])
+        if any('"aggregateRating"' in blk for blk in p.jsonld):
+            I('7.3', sida, 'aggregateRating ur Google-omdömen ger inga rikresultat (Googles regel mot självbetjänade omdömen); ofarligt men onödigt')
         if 'FAQPage' in alla_typer:
             I('7.3', sida, 'FAQPage ger inga rikresultat i Google sedan 7 maj 2026; ofarligt men ger inget')
         # 8.2 CSP i demon
@@ -358,8 +367,15 @@ def granska(dist):
     f404 = dist / '404.html'
     if not f404.is_file():
         F('7.2', '(alla)', '404.html saknas')
-    elif not any(x[0] in ('/', '/index.html') for x in sidobjekt[f404].lanktexter):
-        F('7.2', '/404.html', '404-sidan saknar länk till startsidan')
+    else:
+        p404 = sidobjekt[f404]
+        if not any(x[0] in ('/', '/index.html') for x in p404.lanktexter):
+            F('7.2', '/404.html', '404-sidan saknar länk till startsidan')
+        m404 = [a for t, a, *_ in p404.el if t == 'meta']
+        if not any(m.get('name') == 'robots' and 'noindex' in m.get('content', '') for m in m404):
+            F('7.2', '/404.html', '404-sidan saknar <meta name="robots" content="noindex">')
+        if any('canonical' in a.get('rel', '').lower().split() for t, a, *_ in p404.el if t == 'link'):
+            F('7.2', '/404.html', '404-sidan har canonical; ta bort den (404-sidan ska inte indexeras)')
     # 2.5 giltig HTML, lokalt (W3C:s tjänst skulle få verksamhetens sidor skickade till sig)
     for sida, text in giltig_html(dist):
         (F if sida else I)('2.5', sida or '(alla)', text)
@@ -390,8 +406,23 @@ def giltig_html(dist):
     return fynd
 
 
-def rapport(bygge):
+def klickytor(stil):
+    """Byggstandarden 3.3 ur stilrapporten (stil.mjs mäter i webbläsaren i 390 px)."""
+    try:
+        data = json.loads(Path(stil).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    per_sida = {}
+    for y in data.get('smaYtor', []):
+        per_sida.setdefault(y['sida'], []).append(y)
+    return [{'punkt': '3.3', 'sida': s, 'text': '%d klickytor under 24 px i 390, t.ex. "%s" %d×%d' % (len(ys), ys[0]['text'], ys[0]['bredd'], ys[0]['hojd'])}
+            for s, ys in sorted(per_sida.items())]
+
+
+def rapport(bygge, stil=None):
     fel, info, n = granska(bygge)
+    if stil:
+        fel += klickytor(stil)
     summa = {}
     for x in fel:
         summa[x['punkt']] = summa.get(x['punkt'], 0) + 1
@@ -415,11 +446,12 @@ def main(argv=None):
     p.add_argument('--bygge', required=True)
     p.add_argument('--ut', required=True)
     p.add_argument('--md')
+    p.add_argument('--stil', help='STIL.json från stil.mjs, för klickytorna (3.3)')
     a = p.parse_args(argv)
     if not Path(a.bygge).is_dir():
         print('finns inte: ' + a.bygge, file=sys.stderr)
         return 2
-    r = rapport(Path(a.bygge))
+    r = rapport(Path(a.bygge), a.stil)
     Path(a.ut).write_text(json.dumps(r, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if a.md:
         Path(a.md).write_text(markdown(r), encoding='utf-8')
