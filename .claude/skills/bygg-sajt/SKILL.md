@@ -168,9 +168,16 @@ och toppsektioner som tidigare byggen redan valt, och modellens egna standardval
 upptaget val är tillåtet när verksamhetens material motiverar det; välj det aldrig av vana, och skriv skälet i
 KONCEPT.md.
 
-1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md`: två visuella riktningar härledda ur verksamheten själv (deras
-   bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Per riktning typografi, färg, rytm och
-   vad som dominerar första vyn. Välj en med skäl.
+1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md` med fyra visuella riktningar härledda ur verksamheten själv
+   (deras bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Varje riktning anger:
+   bakgrund och accent som hex, ett namngivet typsnitt med roll, toppsektionens komposition i en mening, och den sak
+   ur "Bara de har" som riktningen bygger på. Minst två typsnittskategorier (grotesk, serif, slab, display) och en
+   namngiven axel som riktningarna skiljer sig på: foto eller typografi bär, ljust eller mörkt, tätt eller luftigt.
+   Ingen halmgubbe; varje riktning ska kunna vinna. Anthropic rekommenderar fyra riktningar med just de här
+   uppgifterna för att få verkligt olika utfall. Välj en med skäl och skriv den som **exakt specifikation** innan någon
+   kod skrivs: färger som hex med roller, typsnitt och typografisk skala, radie, avståndssystem, sektionsordning per
+   sida. Modellen följer uttryckliga specifikationer precist. De två starkaste riktningarna kan bli en parvis fråga i
+   FRAGOR.json.
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
    sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
