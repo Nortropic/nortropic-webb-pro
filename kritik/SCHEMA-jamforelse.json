@@ -1,0 +1,21 @@
+{
+ "type": "object",
+ "required": [
+  "val",
+  "skal"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "val": {
+   "type": "string",
+   "enum": [
+    "A",
+    "B",
+    "lika"
+   ]
+  },
+  "skal": {
+   "type": "string"
+  }
+ }
+}

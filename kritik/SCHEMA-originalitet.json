@@ -1,0 +1,33 @@
+{
+ "type": "object",
+ "required": [
+  "betyg",
+  "visa",
+  "motivering",
+  "likhet_tidigare",
+  "sett"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "betyg": {
+   "type": "integer",
+   "minimum": 1,
+   "maximum": 10
+  },
+  "visa": {
+   "type": "boolean"
+  },
+  "motivering": {
+   "type": "string"
+  },
+  "likhet_tidigare": {
+   "type": "string"
+  },
+  "sett": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  }
+ }
+}

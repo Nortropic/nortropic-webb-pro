@@ -169,7 +169,8 @@
    "type": "object",
    "required": [
     "betyg",
-    "motivering"
+    "motivering",
+    "visa"
    ],
    "additionalProperties": false,
    "properties": {
@@ -180,6 +181,9 @@
     },
     "motivering": {
      "type": "string"
+    },
+    "visa": {
+     "type": "boolean"
     }
    }
   }

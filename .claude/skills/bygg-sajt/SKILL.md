@@ -203,9 +203,16 @@ KONCEPT.md.
 6. **Oberoende granskning.** Kör `.venv/bin/python kontroller/granska.py <slug>` direkt efter ett snabbprov, med
    Bash-tidsgränsen 600000. En egen Claude-session som inte sett ditt resonemang dömer sajten; det tar 4–15 minuter.
    Svarar kommandot att granskningen pågår: kör samma kommando igen. Läs `kunder/<slug>/granskning/GRANSKNING.md`.
-   Rätta varje blockerande fynd. Behöver riktningen väljas om, gör det. Kör snabbprovet och granskningen igen efter
-   rättningarna, tills granskaren godkänner. Är en invändning fel: skriv varför under Granskningen i rapporten.
-   Granskningarna per körning har ett tak; använd dem efter verkliga ändringar, inte för varje detalj.
+   Rätta varje blockerande fynd; acceptanskriteriet säger när det är rättat. Förbättringarna är valfria: en granskare
+   som ombeds hitta brister hittar alltid några, och att jaga varje fynd leder till överarbete. Kör snabbprovet och
+   granskningen igen efter rättningarna, tills granskaren godkänner. Är en invändning fel: skriv varför under
+   Granskningen i rapporten. Granskningarna per körning har ett tak; använd dem efter verkliga ändringar.
+   **Förfina eller byt riktning.** Efter varje granskning skriver du en rad i `underlag/<slug>/GRANSKNINGSLOGG.md`:
+   omgång, betygen, och om du förfinar riktningen eller byter, och varför. Fynd med omfattning `riktning` betyder byt.
+   Har originaliteten legat under 7 i två omgångar: byt till nästa av de fyra riktningarna i KONCEPT.md i stället för
+   att putsa vidare. **Bästa mot sista:** har du fler än en granskning, kör `.venv/bin/python kontroller/granska.py
+   <slug> --jamfor` innan du avslutar. Vinner en tidigare omgång, ta tillbaka det som gjorde den bättre och skriv det i
+   rapporten; en mellanversion är ibland den bästa.
 
 ## Steg 6 — Prov
 

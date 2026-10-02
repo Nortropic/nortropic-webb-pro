@@ -38,6 +38,9 @@ KUNDER = ROOT / 'kunder'
 UNDERLAG = ROOT / 'underlag'
 INSTRUKTION = 'kritik/GRANSKARE.md'
 SCHEMA = ROOT / 'kritik' / 'SCHEMA-granskning.json'
+SCHEMA_ORIGINALITET = ROOT / 'kritik' / 'SCHEMA-originalitet.json'
+SCHEMA_JAMFORELSE = ROOT / 'kritik' / 'SCHEMA-jamforelse.json'
+ORIGINALITETSLAGEN = ('skugga', 'avgor', 'av')  # egen domare för originalitet: bredvid, avgörande eller avstängd
 KRITERIER = ('designkvalitet', 'originalitet', 'hantverk', 'funktion', 'text')
 TROSKEL = {k: 7 for k in KRITERIER}
 MAX_RUNDOR = int(os.environ.get('NWP_GRANSKNING_MAX', '5'))
@@ -110,7 +113,8 @@ def niva(resultat):
 def godkand(resultat):
     k = resultat.get('kriterier') or {}
     betyg_ok = all(isinstance((k.get(n) or {}).get('betyg'), int) and k[n]['betyg'] >= TROSKEL[n] for n in KRITERIER)
-    return betyg_ok and not resultat.get('blockerande')
+    visa_ok = all((k.get(n) or {}).get('visa', True) is not False for n in KRITERIER)  # ja/nej utöver betyget
+    return betyg_ok and visa_ok and not resultat.get('blockerande')
 
 
 # --- underlag till granskaren ---
@@ -153,7 +157,9 @@ def referensbilder(slug):
 
 
 def tidigare_byggen(slug):
-    andra = [p for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and p.name != slug and not p.name.startswith('rokprov')]
+    syskon = (KUNDER / slug / 'AB-SYSKON').read_text().strip() if (KUNDER / slug / 'AB-SYSKON').is_file() else None
+    andra = [p for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and p.name not in (slug, syskon, 'ab')
+             and not p.name.startswith('rokprov')]
     andra.sort(key=lambda p: (p / 'prov' / 'STATUS.json').stat().st_mtime if (p / 'prov' / 'STATUS.json').is_file() else 0, reverse=True)
     ut = []
     for p in andra[:6]:
@@ -164,15 +170,31 @@ def tidigare_byggen(slug):
     return ut
 
 
-def kalibrering():
-    """Ägarens domar bredvid granskarens betyg för samma bygge: underlag för att döma som ägaren."""
-    rader = []
+def domda_byggen(utom=None):
+    """Byggen som ägaren har dömt, utom det som granskas (granskningen ska vara blind för sin egen dom)."""
     for p in sorted(KUNDER.iterdir()) if KUNDER.is_dir() else []:
         dom = (las_json(p / 'DOM.json') or {}).get('domar') or []
+        if dom and p.name != utom:
+            yield p, dom[-1].get('svar') or {}
+
+
+def bildankare(utom=None):
+    """Första vyn av dömda byggen med ägarens dom bredvid: nivåer visade med bilder, inte bara ord."""
+    ut = []
+    for p, svar in domda_byggen(utom):
+        bilder = [p / 'prov' / 'inspektion' / 'hem' / vy for vy in ('vy-390-forsta.png', 'vy-1440-forsta.png')]
+        bilder = [b for b in bilder if b.is_file()]
+        if bilder:
+            ut.append((p.name, bilder, 'ägaren: %s; gjord för just den här verksamheten %s av 5' % (svar.get('namn', '?'), svar.get('specifik', '?'))))
+    return ut[:4]
+
+
+def kalibrering(utom=None):
+    """Ägarens domar bredvid granskarens betyg för samma bygge: underlag för att döma som ägaren."""
+    rader = []
+    for p, svar in domda_byggen(utom):
+        dom = [svar]
         g = las_json(p / 'granskning' / 'GRANSKNING.json')
-        if not dom:
-            continue
-        svar = dom[-1].get('svar') or {}
         agaren = '; '.join('%s: %s' % (k, str(svar[k]).replace('\n', ' ')[:300]) for k in
                            ('namn', 'battre', 'specifik', 'mall_tecken', 'samsta', 'basta', 'en_andring') if svar.get(k) not in (None, ''))
         if g:
@@ -185,7 +207,7 @@ def kalibrering():
     return rader
 
 
-def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=()):
+def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=()):
     u = UNDERLAG / slug
     v = las_json(u / 'VERKSAMHET.json') or {}
     rad = lambda p: '- ' + (rel(p) if str(p).startswith(str(ROOT)) else str(p))  # noqa: E731
@@ -203,10 +225,12 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Ägarens domar: LARDOMAR.md', '',
         'Kalibrering, ägarens dom bredvid granskarens för tidigare byggen:',
         *(kal or ['- inga ännu']), '',
+        'Bildankare, första vyn av byggen som ägaren dömt, med domen (titta på bilderna):',
+        *(['- %s · %s: %s' % (namn, text, ', '.join(rel(b) for b in bb)) for namn, bb, text in ankare] or ['- inga ännu']), '',
         'Verksamhetens underlag:', *[rad(p) for p in underlag], '',
         'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390 och 1440 (läs varje):',
         *[rad(p) for p in bilder], '',
-        'Tillgänglighetsträdet i 390 px per sida:', *([rad(p) for p in aria] or ['- saknas']), ''
+        'Tillgänglighetsträdet i 390 px per sida:', *([rad(p) for p in aria] or ['- saknas']), '',
         'Byggstandardens maskinella fynd: %s' % (rad(rdir / 'standard.md')[2:] if (rdir / 'standard.md').is_file() else 'saknas'),
         'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'), '',
         'Referensernas skärmbilder:', *([rad(p) for p in refs] or ['- inga']), '',
@@ -237,7 +261,7 @@ def arbetare(rdir):
         claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
         with prova.Server(rdir / 'dist') as srv:
             prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                  referensbilder(slug), tidigare_byggen(slug), kalibrering(), rdir, aria)
+                                  referensbilder(slug), tidigare_byggen(slug), kalibrering(slug), rdir, aria, bildankare(slug))
             (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
             args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                     '--setting-sources', 'project,local', '--strict-mcp-config',
@@ -252,6 +276,15 @@ def arbetare(rdir):
         if p.returncode or svar.get('is_error') or not isinstance(res, dict):
             raise RuntimeError('granskarens session gav inget giltigt svar (kod %s, %s): %s' % (
                 p.returncode, svar.get('subtype'), (p.stderr or b'').decode(errors='replace')[-500:] or str(svar.get('result'))[:500]))
+        lage = upp.get('originalitet', 'skugga')
+        if lage != 'av':
+            sep = originalitet_separat(rdir, upp, slug, bilder, claude)
+            res['originalitet_separat'] = sep
+            if lage == 'avgor' and isinstance(sep, dict) and 'betyg' in sep:
+                res['originalitet_huvud'] = res['kriterier']['originalitet']
+                res['kriterier']['originalitet'] = {k: sep[k] for k in ('betyg', 'motivering', 'visa')}
+                if sep['betyg'] >= TROSKEL['originalitet'] and sep['visa']:
+                    res['blockerande'] = [f for f in res['blockerande'] if f.get('kriterium') != 'originalitet']
         post = {'schema': 1, 'slug': slug, 'runda': upp['runda'], 'korning': upp['korning'], 'tid': nu(),
                 'startad': upp['tid'], 'dist_sha256': upp['dist_sha256'], 'modell': upp['modell'], 'effort': upp['effort'],
                 'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res,
@@ -264,6 +297,39 @@ def arbetare(rdir):
         shutil.rmtree(rdir / 'dist', ignore_errors=True)
         (rdir / 'PAGAR').unlink(missing_ok=True)
     return 0
+
+
+def originalitet_separat(rdir, upp, slug, bilder, claude):
+    """En egen session som bara dömer originalitet (Anthropic: en isolerad domare per dimension). Körs i skugga bredvid
+    huvudgranskaren så att vi kan se vilken av dem som stämmer bäst med ägarens domar."""
+    hem = [b for b in bilder if b.parent.name == 'hem' and re.search(r'ruta-0[12]\.png$|forsta\.png$', b.name)]
+    under = [b for b in bilder if b.parent.name != 'hem' and re.search(r'ruta-01\.png$|forsta\.png$', b.name)][:4]
+    u = UNDERLAG / slug
+    delar = ['Du dömer bara ett kriterium: originalitet, enligt avsnittet om originalitet i %s. Läs det först.' % INSTRUKTION,
+             'Bär verksamhetens egna bilder, ord, material och plats sajten? Kunde ett annat företagsnamn sättas dit? Ankare:',
+             '3 trasigt · 5 mall · 7 professionell nivå som ägaren kan visa · 9 i nivå med de starkaste referenserna.',
+             '`visa` är ditt ja eller nej: räcker originaliteten för att ägaren ska visa sajten?', '',
+             'Verksamhetens särart: %s (läs listan Bara de har)' % (rel(u / 'RESEARCH.md') if (u / 'RESEARCH.md').is_file() else 'saknas'),
+             'Startsidan, de två första skärmarna i 390 och 1440:', *['- ' + rel(b) for b in hem],
+             'Undersidornas första skärm:', *['- ' + rel(b) for b in under],
+             'Tidigare byggens första vy:', *['- ' + rel(b) for b in tidigare_byggen(slug)],
+             'Bildankare med ägarens dom:', *['- %s · %s: %s' % (n, t, ', '.join(rel(b) for b in bb)) for n, bb, t in bildankare(slug)],
+             'Ägarens domar: LARDOMAR.md']
+    args = [claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
+            '--setting-sources', 'project,local', '--strict-mcp-config', '--model', upp['modell'], '--effort', upp['effort'],
+            '--json-schema', SCHEMA_ORIGINALITET.read_text(encoding='utf-8'), '--allowedTools', 'Read', 'Glob', 'Grep',
+            '--disallowedTools', *NEKAS]
+    try:
+        with open(rdir / 'svar-originalitet.json', 'wb') as ut:
+            p = subprocess.run(args, input='\n'.join(delar).encode(), stdout=ut, stderr=subprocess.PIPE, cwd=str(ROOT),
+                               env=ren_miljo(), timeout=900)
+        svar = las_json(rdir / 'svar-originalitet.json') or {}
+        res = svar.get('structured_output')
+        if p.returncode or not isinstance(res, dict):
+            return {'fel': 'ingen giltig dom (kod %s)' % p.returncode}
+        return {**res, 'lage': upp.get('originalitet', 'skugga'), 'turer': svar.get('num_turns')}
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return {'fel': '%s: %s' % (type(e).__name__, e)}
 
 
 def markdown(g):
@@ -289,6 +355,10 @@ def markdown(g):
             ('\n   **Acceptanskriterium:** %s' % f['acceptanskriterium']) if f.get('acceptanskriterium') else ''))
     if not g.get('blockerande'):
         rad.append('Inga.')
+    sep = g.get('originalitet_separat')
+    if isinstance(sep, dict):
+        rad += ['', '## Originalitet, egen domare (%s)' % sep.get('lage', 'skugga'), '',
+                ('Fel: ' + sep['fel']) if 'fel' in sep else '%s av 10, %s visa. %s' % (sep.get('betyg'), 'ja' if sep.get('visa') else 'nej', sep.get('motivering', ''))]
     steg = g.get('kognitiv_genomgang') or []
     if steg:
         nej = [s for s in steg if not s.get('alla_ja')]
@@ -300,6 +370,55 @@ def markdown(g):
         rad += ['', '## ' + rubrik, ''] + (['- ' + x for x in g.get(nyckel) or []] or ['Inga.'])
     rad += ['', '## Likhet med tidigare byggen', '', g.get('likhet_tidigare') or '-', '', '## Sammanfattning', '', g.get('sammanfattning') or '-', '']
     return '\n'.join(rad)
+
+
+# --- bästa mot sista omgången ---
+
+def summa(g):
+    return (bool(g.get('godkand')), sum((g.get('kriterier') or {}).get(n, {}).get('betyg', 0) for n in KRITERIER))
+
+
+def jamfor(slug):
+    """Parvis jämförelse av omgångens skärmbilder: bästa mot sista, två gånger med ombytt ordning; oenighet = lika.
+    Anthropics harness-artikel: en mellanomgång var ibland bättre än den sista."""
+    gdir = KUNDER / slug / 'granskning'
+    klara = [(r, las_json(r / 'GRANSKNING.json')) for r in rundor(gdir)]
+    klara = [(r, g) for r, g in klara if g and (r / 'sajt' / 'hem').is_dir()]
+    if len(klara) < 2:
+        print('Färre än två granskade omgångar med skärmbilder; inget att jämföra.')
+        return 0
+    sista = klara[-1]
+    basta = max(klara[:-1], key=lambda x: summa(x[1]))
+    if summa(sista[1]) >= summa(basta[1]):
+        print('Sista omgången (%s) har minst lika höga betyg som de tidigare; ingen jämförelse behövs.' % sista[0].name)
+        return 0
+    bilder = lambda r: [b for b in sorted((r / 'sajt' / 'hem').glob('vy-*-ruta-0[12].png'))] or sorted((r / 'sajt' / 'hem').glob('vy-*-forsta.png'))  # noqa: E731
+    claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
+    domar = []
+    for a, b in ((basta, sista), (sista, basta)):
+        delar = ['Två versioner av samma sajt, A och B, för samma verksamhet. Titta på varje bild med Read.',
+                 'Vilken skulle ägaren hellre visa för verksamheten? Väg helhet, originalitet ur verksamhetens material,',
+                 'hantverk och hur lätt besökaren tar kontakt. Svara A, B eller lika, med skäl. Läs %s för måttstocken.' % INSTRUKTION, '',
+                 'A, startsidans två första skärmar i 390 och 1440:', *['- ' + rel(x) for x in bilder(a[0])],
+                 'B, startsidans två första skärmar i 390 och 1440:', *['- ' + rel(x) for x in bilder(b[0])]]
+        args = [claude, '-p', '--max-turns', '20', '--permission-mode', 'dontAsk', '--output-format', 'json',
+                '--setting-sources', 'project,local', '--strict-mcp-config', '--model', 'opus[1m]', '--effort', 'high',
+                '--json-schema', SCHEMA_JAMFORELSE.read_text(encoding='utf-8'), '--allowedTools', 'Read', '--disallowedTools', *NEKAS]
+        p = subprocess.run(args, input='\n'.join(delar).encode(), capture_output=True, cwd=str(ROOT), env=ren_miljo(), timeout=600)
+        try:
+            res = json.loads(p.stdout or b'{}').get('structured_output') or {}
+        except ValueError:
+            res = {}
+        val = res.get('val')
+        domar.append({'A': a[0].name, 'B': b[0].name, 'val': val, 'vinnare': {'A': a[0].name, 'B': b[0].name}.get(val, 'lika'), 'skal': res.get('skal', '')})
+    vinnare = domar[0]['vinnare'] if domar[0]['vinnare'] == domar[1]['vinnare'] else 'lika'
+    ut = {'tid': nu(), 'basta': basta[0].name, 'sista': sista[0].name, 'vinnare': vinnare, 'domar': domar}
+    (gdir / 'JAMFORELSE-OMGANGAR.json').write_text(json.dumps(ut, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    md = ['# Bästa mot sista omgången', '', 'Bästa enligt betygen: %s · sista: %s · vinnare: **%s**' % (basta[0].name, sista[0].name, vinnare), '']
+    md += ['- Ordning A=%s, B=%s: %s. %s' % (d['A'], d['B'], d['val'] or 'inget svar', d['skal']) for d in domar]
+    (gdir / 'JAMFORELSE-OMGANGAR.md').write_text('\n'.join(md) + '\n', encoding='utf-8')
+    print('\n'.join(md))
+    return 0
 
 
 # --- kommandot ---
@@ -355,6 +474,7 @@ def main(argv=None):
     p.add_argument('--vanta', type=int, default=540)
     p.add_argument('--om', action='store_true')
     p.add_argument('--torr', action='store_true', help='bygg uppdraget och skriv det, utan att starta granskaren')
+    p.add_argument('--jamfor', action='store_true', help='jämför bästa och sista omgången parvis')
     p.add_argument('--arbetare', help=argparse.SUPPRESS)
     a = p.parse_args(argv)
     if a.arbetare:
@@ -362,6 +482,8 @@ def main(argv=None):
     if not a.slug or not SLUG.match(a.slug):
         p.print_usage()
         return 2
+    if a.jamfor:
+        return jamfor(a.slug)
     kund = KUNDER / a.slug
     dist = kund / 'sajt' / 'dist'
     status = las_json(kund / 'prov' / 'STATUS.json') or {}
@@ -384,8 +506,8 @@ def main(argv=None):
             if (kund / 'prov' / namn).is_file():
                 shutil.copy2(kund / 'prov' / namn, rdir / namn)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / 'torr', bilder,
-                              referensbilder(a.slug), tidigare_byggen(a.slug), kalibrering(), rdir,
-                              aria_trad(kund, rdir / 'sajt'))
+                              referensbilder(a.slug), tidigare_byggen(a.slug), kalibrering(a.slug), rdir,
+                              aria_trad(kund, rdir / 'sajt'), bildankare(a.slug))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         print(prompt)
         print('Torrkörning: %s. Ingen granskare startades.' % (rdir / 'PROMPT.txt'))
@@ -422,7 +544,8 @@ def main(argv=None):
     rdir.mkdir()
     upp = {'slug': a.slug, 'runda': n, 'korning': korning, 'tid': nu(), 'dist_sha256': hash_nu,
            'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
-           'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'frist': FRIST}
+           'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'frist': FRIST,
+           'originalitet': os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga') if os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga') in ORIGINALITETSLAGEN else 'skugga'}
     (rdir / 'UPPDRAG.json').write_text(json.dumps(upp, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     with open(rdir / 'arbetare.log', 'wb') as logg:
         proc = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), '--arbetare', str(rdir)],

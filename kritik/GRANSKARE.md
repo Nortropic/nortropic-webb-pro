@@ -66,6 +66,10 @@ räcker, till exempel för rörelse.
 
 ## Fem kriterier, betyg 1–10
 
+Varje kriterium får också ett **ja eller nej** (`visa`): räcker det här för att ägaren ska visa sajten för
+verksamheten? Godkänt kräver både betyget och ett ja. **Bildankarna** i uppdraget visar första vyn av byggen som
+ägaren redan har dömt, med domen bredvid; använd dem för att se var nivåerna ligger.
+
 Ankare för alla fem: **3** trasigt eller amatörmässigt · **5** fungerar men är en mall, ett annat företagsnamn kunde
 sättas dit utan större ändring · **7** professionell nivå som ägaren kan visa för verksamheten · **9** i nivå med de
 starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verksamhetens nuvarande sajt räcker inte.
