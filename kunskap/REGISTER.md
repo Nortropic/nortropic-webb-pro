@@ -686,3 +686,52 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · n8n-io/n8n · nej
+- Källa: https://github.com/n8n-io/n8n @ huvudgrenen klonad 2026-10-02 (senaste push 2026-10-02T14:14Z; commit-id inte
+  läst, `git log` nekades i körmiljön), Sustainable Use License 1.0 plus n8n Enterprise License för filer märkta `.ee`;
+  cirka 206 000 stjärnor, inte arkiverat; 30 132 filer, cirka 1,06 miljoner tokens text. Förgranskat. Läst: README,
+  LICENSE.md i helhet, content-design-skillen i helhet, de flaggade ställena i sitt sammanhang (bland dem
+  `post-build-flow/SKILL.md:449`) och namnen och storlekarna på alla 44 skills. Bild: README:ns skärmbild av
+  arbetsflödesredigeraren [BILD assets/n8n-screenshot-readme.png]. Licens-FAQ:n på docs.n8n.io gav 404 i både
+  `sida.mjs` och WebFetch; tolkningen nedan bygger bara på licenstexten. Ingen demosajt; produkten är en server.
+  Ägarens not: ingen
+- Steg: inget av de åtta direkt; närmast förfrågans mottagare vid lansering (byggstandard 6.3–6.6) och integrationer
+  efter formuläret (bokning, kundregister)
+- Jämfört med i dag: n8n är en plattform för arbetsflöden och AI-agenter som man kör själv eller i deras moln, med en
+  visuell duk och över 1 500 integrationer [REPO README.md rad 3–16]. Skärmbilden visar en duk där ett chattmeddelande
+  går till en AI-agent, sedan till ett villkor och vidare till Slack [BILD n8n-screenshot-readme.png]. Hos oss är det
+  enda flöde en sajt behöver i dag förfrågan: en serverfunktion på `/api/forfragan` som validerar, stoppar spam och
+  skickar ett mejl, med samma kontrakt som demomottagaren (`kunskap/forfragan.md:28–41`). För kontaktformulär är
+  standardvägen en befintlig formtjänst eller Tally (`kunskap/integrationer-standardvagar.md:23`), och regeln är att
+  välja lägsta nivå som uppfyller behovet (`kunskap/integrationer.md:26–27`). Med n8n skulle samma sju steg bli en
+  webhook till en n8n-server som någon måste köra, uppdatera och säkerhetskopiera, eller ett betalt molnkonto. Det är
+  fler delar för samma mejl, och kunden får en ny tjänst att ansvara för. Sämre för våra kunder, som är små
+  hantverksfirmor. Content-design-skillen har bra regler för text i gränssnitt: ett felmeddelande säger vad som hände
+  och vad man gör nu, det skyller inte på användaren, och knappar börjar med ett verb [REPO
+  .agents/skills/content-design/SKILL.md rad 210–227]. Men reglerna gäller amerikansk engelska och n8n:s egen ordlista
+  (Oxfordkomma, sammandragningar, "n8n" med gemener) [rad 118, 137–143, 254–278]. Det som går att använda för en svensk
+  sajt med tre fält bygger på GOV.UK, som vi redan läser (`kunskap/teoretisk-grund.md:84–86`). Lika i sak, och ingen
+  dom pekar på en brist i formulärets text
+- Skäl: n8n är en bra produkt för den som behöver automatisera många system, men det hjälper oss inte att bygga bättre
+  sajter, och det är inte smartare för oss. Det skulle göra förfrågan, vårt enda flöde, tyngre än den lösning som redan
+  är bestämd, och för en tvåmannafirma innebär det en server att driva. Det går emot vår regel om lägsta nivå och om
+  kundens befintliga system (`kunskap/integrationer.md:26–27, 46–50`). Licensen tillåter bruk "only for your own
+  internal business purposes or for non-commercial or personal use" [REPO LICENSE.md rad 32], och vidarespridning bara
+  utan avgift och utan kommersiellt syfte [rad 33–34]. Därför går det varken att ta in en skill i vårt publika repo
+  eller att köra n8n åt kunder som en del av en betald leverans, utan att först få licensen klarlagd. Kör en kund redan
+  n8n, är det ett befintligt system som integrationsreglerna redan täcker. Ingen dom i `LARDOMAR.md` pekar på
+  automation. Källkritik: README:n säljer molntjänsten och "Enterprise-Ready AI" [REPO README.md rad 5, 15]; 1 500
+  integrationer och 9 000 mallar är antal och säger inget om kvalitet
+- Kostnad: ingen; inget tas in. Som väg för mottagaren vore det en server eller ett molnabonnemang per kund, med
+  uppdateringar, säkerhetskopior och licensfrågan, i stället för en serverfunktion
+- Säkerhet: förgranskningen HÖG, av mängden: 22 352 skript, med `curl | sh` i README och `docker/get-n8n.sh`, nätanrop och
+  hemligheter i codespaces-skripten, och en krok i `.claude/settings.json` som kör ett node-skript efter varje
+  skillanrop. De 1 499 dolda tecknen är nollbreddsfogar i emojidata (`N8nIconPicker/emojiData.ts`) och avsiktliga
+  testfall för sanering och trunkering (`sanitize-web-content.test.ts`, `truncate.test.ts`). De 84 ställena med text
+  till agenter är n8n:s egna produktpromptar och provfall för skydd mot promptinjektion ("IGNORE PREVIOUS
+  INSTRUCTIONS" i `sanitize-mcp-schemas.test.ts`). Inget av det gömmer text eller riktar sig till kirurgen. Sex skills
+  ger sig själva behörigheter i frontmatter (Bash för gh, git, node). Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
