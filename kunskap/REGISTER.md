@@ -959,3 +959,26 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   borde ha gjort det
 - Utfall: —
 - Backlog: B-20261002-ett-allmant-hjalpskript-som-bygget-skrev-i-under (egen innovation)
+
+### 2026-10-02 · github/gitignore · nej
+- Källa: https://github.com/github/gitignore @ 62f3997 (main, senaste push 2026-09-28), CC0-1.0; läste README,
+  förgranskningen och de mallar som rör vår stack (`Node.gitignore` helt), resten som fillista. Inga bilder eller demo
+  i repot
+- Steg: inget av de åtta; möjligen arbetssättet runt dem (repots egen `.gitignore`) och lanseringen (kundrepot)
+- Jämfört med i dag: vår `.gitignore` håller redan det byggena faktiskt skapar: `underlag/` och `kunder/` (rad 2–3),
+  `.venv/`, `node_modules/`, `dist/`, `.astro/` (rad 6–9), `.DS_Store` och Python-cache (rad 12–14). Källans
+  `Node.gitignore` täcker samma sak [REPO Node.gitignore rad 41, 83, 146] plus ett fyrtiotal verktyg vi inte använder
+  (Next, Nuxt, Gatsby, Yarn, Firebase m.fl.). Det enda den har som vi saknar är `.env`-mönstren [REPO Node.gitignore
+  rad 68–71], men inget i repot läser en `.env` (sökningen träffar bara `.env.example`-kravet i `kunskap/prelaunch.md:10`,
+  `kunskap/bygge-referens.md:35` och `kontroller/prelaunch.py:57`), och byggena, där en formulärnyckel skulle kunna
+  hamna, ligger redan i ignorerade `kunder/`. Lika för vårt bruk, inte bättre
+- Skäl: en mallsamling för GitHubs väljare när man skapar ett repo [REPO README.md rad 3–5], inte en metod. Den gör
+  inga sajter bättre och sparar inget steg: vårt repo ignorerar redan det vi producerar, och den dag ett kundrepo skapas
+  enligt "GitHub-först" (`kunskap/bygge-referens.md:41`) erbjuder GitHub samma Node-mall direkt när repot skapas, så
+  inget behöver tas in i förväg. Källan är saklig och säljer inget
+- Kostnad: ingen; källan är cirka 4 100 tokens text enligt förgranskningen, inga beroenden
+- Säkerhet: förgranskningen LÅG: inga dolda tecken, ingen text till agenter, inga skript, hookar eller behörigheter.
+  Inget kördes
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
