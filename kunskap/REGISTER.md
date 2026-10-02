@@ -370,3 +370,98 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · NousResearch/hermes-agent · ta in
+- Källa: https://github.com/NousResearch/hermes-agent @ 0a374d1 (ur klonens `.git/shallow`; senaste push
+  2026-10-02T12:10Z), MIT (© Nous Research), cirka 251 000 stjärnor, inte arkiverat; cirka 5,2 miljoner tokens text,
+  ungefär 210 skills. Förgranskat. Läst själv: README, banner (`assets/banner.png`, bara namnet i pixeltypsnitt), hela
+  SKILL.md för humanizer med dess LICENSE och för adversarial-ux-test, samt `scrollcraft/references/uniqueness.md` rad
+  1–60, 230–259 och 400–449. Läst i helhet av två subagenter med belägg (domen är min): auteur, claude-design,
+  popular-web-designs (SKILL.md och tre av 54 referenser), design-md, impeccable, sketch, scrollcraft, creative-ideation,
+  dogfood, grounded-citations, blocked-page-recovery, darwinian-evolver, decision-questionnaire, simple-english,
+  hermes-agent-skill-authoring och koden bakom inlärningsslingan. Övriga skills bara som namn och beskrivning
+  (finans, ML, spel, hemautomation, blockkedjor). Ingen demosajt; produkten är ett program. Ägarens not: ingen
+- Steg: 4 (innehåll), 5.1 (riktning och upptagna val); egen innovation i 5.6 (granskarens kognitiva genomgång)
+- Jämfört med i dag: Hermes är en personlig agent med gateway till chattkanaler och en inlärningsslinga som skriver
+  egna skills [REPO README.md rad 19, 26], samma slags plattform som openclaw (nej, ovan). Slingan startar en kopia av
+  agenten var tionde verktygsiteration och skriver skills utan godkännande [REPO agent/background_review.py rad 1–4,
+  440–443; website/docs/user-guide/features/skills.md rad 674–683]; det krockar rakt med att ägarens dom blir en
+  textändring av ägarens hand (`LARDOMAR.md:3–6`). Tre delar bär, sak mot sak:
+  (1) **humanizer** (Siqi Chen, blader/humanizer v2.5.1, portad med fem tillägg) är en katalog över 34 mönster i
+  AI-text med före och efter, byggd på Wikipedias "Signs of AI writing" [REPO skills/creative/humanizer/SKILL.md rad
+  18, 645]. Vår regel mot slop är en fraslista med åtta strukturtyper (hälsningsrubrik, tankstreck, utropstecken,
+  spegelöppningar m.fl., `kunskap/copy-kontroll.md:12–20`, `kunskap/redaktionellt-pass.md:25`), och "humanisering … är
+  en läsning av texten högt, inte en regel om vissa ord" (`copy-kontroll.md:31–32`, steg 4 `bygg-sajt/SKILL.md:171–172`).
+  Det ägaren pekade ut i L1–L3 är just det fraslistan inte fångar: rytm och register. "Dagen efter, tre timmar senare"
+  som rubrik låter som en copywriter (`LARDOMAR.md:83, 92`), "Firman är två personer, och just nu letar den efter en
+  tredje" låter skrivet (`:34`), BRF-meningen låter som en byrå (`:59`). Källan namnger mönstren: dramatisk
+  fragmentering och slagfraser [SKILL.md rad 498–508], negationssvansar [rad 218–232], falska spann [rad 257–265],
+  kopulaundvikande [rad 205–215], och ett avslutande självprov, "What makes the below so obviously AI generated?"
+  [rad 51, 563–566]. Röstkalibreringen mot ett prov av personens egen text [rad 54–68] motsvarar briefens fem
+  formuleringar ur deras egna ord (`bygg-sajt/SKILL.md:127`) men gör dem till måttstock för omskrivningen. Smartare och
+  sannolikt bättre: en metod för hela texten, inte en lista över ord.
+  (2) **scrollcrafts strukturaxel** (Nate Herk, MIT): fyra byggen i fyra branscher fick samma skelett, för att
+  "The world changes how a page LOOKS. The grammar changes what a page IS." [REPO
+  optional-skills/web-development/scrollcraft/references/uniqueness.md rad 5–24, 26]. Varje bygge skrivs in med sex
+  strukturdimensioner (navigering, första vy, sektionsföljd, avslut, signatur) och nästa måste skilja sig på minst fyra
+  mot varje tidigare rad, och planen ändras, aldrig loggen [rad 413–435]. Vår `kontroller/upptagna_val.py` visar bara
+  typsnitt, färger och toppsektion (`:95`) och en lista över modellens stilval (`:26–37`). Ägarens mall-lukt i alla
+  tre byggena var strukturell, inte stilistisk: tjänstelistan som två spalter med rubrik och en mening (`LARDOMAR.md:29,
+  78`), sidfotens tre spalter (`:29`), undersidornas sektioner i exakt samma form, rubrik vänster och text höger, och
+  omdömeslistan med hårlinjer (`:54`). Riktningarna i steg 5.1 skiljer sig på färg, typsnitt och toppsektion
+  (`bygg-sajt/SKILL.md:187–197`), aldrig på resten av sidans form. Källans sätt är bättre och kostar några rader.
+  (3) **adversarial-ux-test** (Omni @ Comelse, MIT) går igenom sajten som en namngiven, besvärlig användare med en enda
+  uppgift och en situation [REPO optional-skills/dogfood/adversarial-ux-test/SKILL.md rad 43–59] och sorterar sedan
+  klagomålen med ett pragmatiskt filter: skulle en kompetent men upptagen besökare ha samma problem är det ett verkligt
+  fel [rad 111–128]. Vår granskare gör den kognitiva genomgången som "en förstagångsbesökare i mobilen"
+  (`kritik/GRANSKARE.md:50–53`), utan vem eller när. Ägarens sämsta fynd i L1 var en sådan situation, den som sitter med
+  mobilen kl 21 och vill skicka en bild (`LARDOMAR.md:32`), efter att granskaren godkänt. Wharton m.fl. (1994) börjar
+  genomgången med en beskrivning av användarna (`kunskap/teoretisk-grund.md:133–136` har bara de fyra frågorna). Det
+  blir den egna innovationen. Övrigt: popular-web-designs är 54 varumärkens exakta tokens att klistra in, mot "kopiera
+  aldrig layout, palett eller typsnitt" (`bygg-sajt/SKILL.md:223`); sämre. auteur och scrollcraft som skills kräver JS,
+  genererade bilder eller stockvideo och en intervju (krock med `:20, 70, 202`); auteurs rangordnade jämförelse med
+  referensen i gråskala [REPO optional-skills/creative/auteur/references/verify.md rad 132–134] är ett möjligt tillägg
+  till JAMFORELSE.md senare. claude-design, design-md, sketch, creative-ideation, dogfood, decision-questionnaire och
+  skill-authoring är lika det vi har eller redan intaget. grounded-citations kräver att ett citat kopieras ur den
+  sparade sidtexten, aldrig skrivs om [REPO skills/research/grounded-citations/SKILL.md rad 171]; vi kräver omdömen
+  ordagrant med källa (`bygg-sajt/SKILL.md:77–78`) men inget prövar det mot källan. Ingen dom visar ett felcitat, så det
+  registreras här och föreslås inte nu. impeccable är bara en pekare till ett annat repo och bedöms inte här
+- Skäl: som plattform är Hermes fel verktyg av samma skäl som openclaw: en ersättning för vår körmiljö, med
+  installation via `curl | bash` [REPO README.md rad 40] och en slinga som ändrar skills obevakat. Men två delar träffar
+  exakt det ägaren dömt i alla tre byggena. Humanizer ger byggets steg 4 en metod för rytm och register som fraslistan
+  saknar, och den är en sammanhängande katalog som tappar värde om den kokas ned, så den tas in som skill. Krockar att
+  namnge: mönster 19 vill ha raka citattecken, men svensk typografi använder ”…”; mönster 26 om bindestreck gäller
+  engelska; "Have opinions" och "Let some mess in" [rad 87–99] gäller inte en sajt i verksamhetens röst, och
+  exempelomskrivningen hittar på en intervjuad person [rad 602], mot "Hitta aldrig på" (`bygg-sajt/SKILL.md:20–21`).
+  Strukturaxeln är en liten textändring i steg 5.1 och i en lista vi redan har, och den följer litteraturens
+  designsystemtänkande (`kunskap/teoretisk-grund.md:34–35`) åt rätt håll: formen ska vara ett beslut. Källkritik:
+  humanizers mönster är observationer från Wikipedias städprojekt, inte mätningar; exemplen ser ut att vara hämtade ur
+  Wikipedia-sidan (CC BY-SA 4.0), så KALLA.md anger den. Scrollcrafts belägg är en anekdot om fyra egna byggen, men den
+  stämmer med vår egen erfarenhet i tre. README:n säljer Nous Portal som prenumeration [REPO README.md rad 126–141].
+  Inget i det lästa försökte styra kirurgen; agentriktad text i källan är Hermes egna promptar
+- Kostnad: humanizer cirka 14 tokens i varje session, cirka 8 500 när bygget använder den i steg 4 och 270 vid behov
+  enligt förgranskningen; inga skript, inga beroenden. Kopian följer inte källan. Strukturaxeln kostar några rader i
+  `bygg-sajt/SKILL.md` och listan i `upptagna_val.py`, inga tokens utöver det. Den egna innovationen kostar en mening i
+  granskarens uppdrag och ett A/B på cirka 18 granskarsessioner
+- Säkerhet: förgranskningen HÖG, av mängden: 11 327 skript, 285 ställen med text till agenter och 123 dolda tecken. De
+  dolda tecknen ligger, enligt listan, i arabiska lokaliseringsfiler (riktningsstyrning, `locales/ar.yaml`,
+  `apps/desktop/src/i18n/ar_boot.ts`), i en indexcache (`skills/index-cache/lobehub_index.json`, nollbreddsfogar) och i
+  modelldokumentation för unsloth; inget av det följer med. Text till agenter är i stickproven Hermes egna promptar
+  (`agent/background_review.py`). Humanizer har inga skript, inga behörigheter och ingen krok; frontmatterns
+  Hermes-fält tas bort. Inget kördes eller installerades
+- Förslag: (a) `.claude/skills/humanizer/` med SKILL.md ur `skills/creative/humanizer/` @ 0a374d1, båda licenserna
+  (Siqi Chens LICENSE och Nous Researchs) och KALLA.md (källa, commit, Wikipedia-sidan CC BY-SA 4.0, de fem
+  Hermes-tilläggen). Ta bort avsnittet "How to use it in Hermes" och frontmatterns `platforms` och `metadata`.
+  Beskrivningen säger att bygget använder den i steg 4 på INNEHALL.md efter copykontrollen, och i rapporten. KALLA.md
+  namnger krockarna: svenska citattecken ”…”, mönster 26 gäller inte svenska, rösten kommer ur verksamhetens och
+  kundernas ord, inget påhittat. En halv mening i `bygg-sajt/SKILL.md:171–172` pekar på den. (b)
+  `bygg-sajt/SKILL.md` steg 5.1 (rad 187–197): varje riktning anger också sidans form (hur tjänsterna, beviset,
+  undersidornas sektioner, sidfoten och avslutet visas), och den valda formen skrivs i specifikationen med skäl mot de
+  upptagna. `kontroller/upptagna_val.py:26–37` får de fyra strukturmönstren ur L1–L3 i listan. Egen innovation (c):
+  granskarens kognitiva genomgång (`kritik/GRANSKARE.md:50–53`) görs som en namngiven besökare ur briefens målgrupper,
+  med situation, apparat och tid på dygnet, och varje fynd sorteras med frågan om en kompetent men upptagen besökare
+  hade fastnat på samma ställe. A/B på de tre dömda byggena mot ägarens fynd i L1–L3 som facit
+- Utfall: —
+- Backlog: B-20261002-ta-in-humanizer-hermes-porten-av-blader-humanize (ta in);
+  B-20261002-riktningarna-i-steg-5-1-skiljer-sig-ocksa-pa-sid (ta in);
+  B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive (prova A/B, egen innovation)
