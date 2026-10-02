@@ -1,11 +1,12 @@
 ---
 id: B-20261002-byggsessionen-nekas-att-skriva-i-kontroller-krit
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · affaan-m/ECC
 skapad: 2026-10-02
 prio: normal
 steg: kor.sh (ramarna för körningen), stoppvakten
+andrad: 2026-10-02T15:55Z
 ---
 # Byggsessionen nekas att skriva i kontroller/, kritik/, kunskap/, mall/, .claude/ och LARDOMAR.md
 

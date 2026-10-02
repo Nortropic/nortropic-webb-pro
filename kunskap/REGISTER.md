@@ -329,7 +329,10 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   `bygg-sajt/SKILL.md:47` får en halv mening om det. (b) A/B på de tre dömda byggena: en granskare mot två isolerade
   (unionen av blockerande fynd), tre körningar per arm och bygge, ägarens fel i L1–L3 som facit, en Sonnet-domare som
   inte vet armen och byter ordning, träffar, falska blockerande fynd, överensstämmelse, tokens och tid
-- Utfall: —
+- Utfall: kor.sh nekar Edit och Write i kontroller/, kritik/, kunskap/, mall/, .claude/ och LARDOMAR.md (prövat
+  2026-10-02 med en provsession: sju försök nekade, även med absolut sökväg; kunder/ och underlag/ skrivbara).
+  Sammanfattningen varnar om de skyddade filerna ändrats under körningen (Bash når förbi reglerna). Två granskare:
+  se den posten.
 - Backlog: B-20261002-byggsessionen-nekas-att-skriva-i-kontroller-krit (ta in);
   B-20261002-a-b-tva-isolerade-granskare-per-omgang-blockeran (prova A/B)
 

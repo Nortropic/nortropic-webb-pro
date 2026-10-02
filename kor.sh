@@ -49,7 +49,12 @@ ARGS=(-p
   # Det som aldrig behövs i ett bygge nekas uttryckligen; nekande går före tillåtande. Commitvakten
   # (.claude/hooks/commitvakt.py, NWP_COMMIT_TILLATET nedan) släpper bara commits av backlog/.
   --disallowedTools "Bash(rm *)" "Bash(gh pr *)" "Bash(git rebase *)" "Bash(git checkout *)" "Bash(git reset *)"
-  "Bash(git worktree *)" "Bash(git config *)" "Bash(git push --force *)" "Bash(git push -f *)")
+  "Bash(git worktree *)" "Bash(git config *)" "Bash(git push --force *)" "Bash(git push -f *)"
+  # Bygget får inte ändra sina egna acceptansvillkor: provet, granskarens kriterier, kunskapen, mallen, krokarna
+  # och ägarens domar. Sökvägarna är relativa till reporoten, där sessionen startar (cd nedan).
+  "Edit(./kontroller/**)" "Edit(./kritik/**)" "Edit(./kunskap/**)" "Edit(./mall/**)" "Edit(./.claude/**)"
+  "Edit(./LARDOMAR.md)" "Write(./kontroller/**)" "Write(./kritik/**)" "Write(./kunskap/**)" "Write(./mall/**)"
+  "Write(./.claude/**)" "Write(./LARDOMAR.md)")
 # Bara projektets inställningar: då gäller --allowedTools som vitlista (ägarens egna allow-regler i
 # ~/.claude/settings.json läses inte). Modell och effort anges därför uttryckligen; gh får sin konfigurationsmapp.
 GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
@@ -64,16 +69,26 @@ while IFS='=' read -r namn _; do
 done < <(env)
 
 cd "$ROOT"   # projektets Stop-krok laddas bara när sessionen startar i reporoten
+# Bash når förbi Edit/Write-reglerna ovan (sed -i, cp, mv); därför jämförs de skyddade filerna före och efter.
+SKYDDAT=(kontroller kritik kunskap mall .claude LARDOMAR.md)
+skyddat() { git status --porcelain -- "${SKYDDAT[@]}"; git diff -- "${SKYDDAT[@]}" | shasum; }
+FORE="$(skyddat)"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
 printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
+if [ "$(skyddat)" != "$FORE" ]; then
+  SKYDD="$(git status --porcelain -- "${SKYDDAT[@]}")"
+  SKYDD="${SKYDD:-(arbetsträdet är rent igen, men innehållet ändrades under körningen)}"
+else
+  SKYDD=""
+fi
 
-"$ROOT/.venv/bin/python" - "$ROOT/kunder/$SLUG" "$RC" <<'PY'
+"$ROOT/.venv/bin/python" - "$ROOT/kunder/$SLUG" "$RC" "$SKYDD" <<'PY'
 import json, sys
 from pathlib import Path
-k, rc = Path(sys.argv[1]), sys.argv[2]
+k, rc, skydd = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 def las(p):
     try:
         return json.loads(p.read_text(encoding='utf-8'))
@@ -81,6 +96,9 @@ def las(p):
         return None
 s, v, g = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json'), las(k / 'granskning' / 'GRANSKNING.json')
 print('\nclaude avslutade med kod', rc)
+if skydd:
+    print('VARNING: skyddade filer (kontroller/, kritik/, kunskap/, mall/, .claude/, LARDOMAR.md) ändrades under körningen,'
+          ' av bygget eller någon annan:\n' + skydd)
 if s:
     print('Provet:', 'GRÖNT' if s.get('ok') else 'RÖTT', '—', ', '.join('%s %s' % (n, 'ok' if g['ok'] else 'RÖD') for n, g in s['grindar'].items()))
 else:
