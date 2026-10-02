@@ -2927,3 +2927,164 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   median 96) blir trösklarna i den vilande impeccable-posten när den genomförs
 - Utfall: —
 - Backlog: B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for
+
+### 2026-10-03 · AI LABS, "Insane Claude Design Skills You Need To Actually Build Beautiful Sites" (YouTube Ysr7oNDajJI) + jakubkrehel/skills · ta in
+- Källa: https://www.youtube.com/watch?v=Ysr7oNDajJI @ publicerad 2026-08-24 (AI LABS, 12:55, 277 796 visningar,
+  autogenererat engelskt transkript, sponsrad av Make/Maia [TAL 06:29–07:27; SKÄRM 06:55, 07:14] och med länk till
+  kanalens betalgemenskap [TAL 11:57–12:31; SKÄRM 12:13]). Läst och sett: hela tidslinjen och alla 41 bildrutor;
+  ungefär 25 är inspelningar av Claude Design, editor, GitHub, webbläsare eller sponsorn, resten animerade
+  illustrationer. Sju repon ur beskrivningen, alla MIT, alla klonade grunt, förgranskade och lästa (commit ur
+  `.git/shallow`; `git log` nekades av behörigheten): emilkowalski/skills @ e8a175d (pushad 2026-10-02, 42 859
+  stjärnor): `skills/animate/SKILL.md` helt, `emil-design-eng/SKILL.md` rad 1–60 och de flaggade raderna;
+  ConardLi/garden-skills @ aaf9a82 (2026-07-12, 12 716): `skills/web-design-engineer/SKILL.md` helt (493 rader),
+  `references/critique-guide.md` rad 1–80, `style-recipes/INDEX.md` rad 1–45; elayadesign/ai-design-skills @ 1c1e97c
+  (2026-07-29, 2 345): `skills/landing-page-design/SKILL.md` helt (404 rader); MengTo/Skills @ d5bd3a7 (2026-10-01,
+  6 574): `agent-skills/web-design/build-awwwards-quality-sites/SKILL.md`, `ui/no-ai-design-slop/SKILL.md` och
+  `ui/audit-ai-design-slop/SKILL.md` helt, de två flaggade raderna; jakubkrehel/skills @ 267330e (2026-08-29,
+  7 426): README, AGENTS.md, CLAUDE.md, LICENSE, åtta av elva SKILL.md (inte explain-interface, break, variant),
+  `better-layout/grouping-and-alignment.md` och `spacing-and-adaptivity.md` helt; codeswithroh/tastemaker @ e39b4bf
+  (2026-09-29, 431): `skills/tastemaker/SKILL.md` helt (250 rader); Owl-Listener/designer-skills @ 9a6930c
+  (2026-09-05, 2 820): `ui-design/skills/law-of-proximity/SKILL.md` och
+  `visual-critique/skills/critique-visual-hierarchy/SKILL.md` helt. ailabspro.io, theroundup.so och Make öppnades
+  inte. Ägarens not: ingen
+- Steg: 5 (5.1 riktning, 5.3 bygg, 5.5 Titta och JAMFORELSE.md, 5.6 granskning); runt stegen: verktygslådan
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 44–46)
+- Jämfört med i dag, källa för källa: (1) **Emil Kowalski.** Videons två mest använda är emil-design-eng och
+  animate [TAL 01:35–02:09; SKÄRM 02:15]. emil-design-eng finns redan hos oss, `kunskap/externa/
+  emil-emil-design-eng-SKILL.md` (REGISTER rad 17), läses i steg 5 (bygg-sajt rad 192), och de första 60 raderna
+  är ordagrant lika repots nuvarande fil [REPO skills/emil-design-eng/SKILL.md rad 1–60]. animate är en
+  byggsekvens för UI-rörelse: ska det alls animeras (frekvenstabell), vilket syfte, vilket verktyg, bara transform
+  och opacity, ease-out, UI under 300 ms, reduced motion och hover-grind, och en lista "Never ship" [REPO
+  skills/animate/SKILL.md rad 39–50, 85–86, 104–110, 132, 150–169, 175–193]. Vi: ingen JavaScript som inte behövs
+  (bygg-sajt rad 217), 0 kB JS i alla tre dömda byggen (`LARDOMAR.md` rad 31, 56, 87), dämpad rörelse i mallen
+  (`mall/astro/src/layouts/Bas.astro` rad 47–50; byggstandarden 3.5, rad 50), rörelse enligt briefens motion-nivå
+  (`kunskap/bygge-referens.md` rad 23). Ingen dom har pekat på rörelse. Videons eget resultat: efter Animate på
+  restaurangsidan säger berättaren själv att det "isn't that different from what Claude normally produces" [TAL
+  02:42–03:14]; det som syns är en krämvit grotesksida med Menu, Visit och Reserve [SKÄRM 02:34, 02:52]. Lika för
+  vårt behov; animate registreras, tas inte in. (2) **garden-skills web-design-engineer.** Sätter agenten som
+  "top-tier design engineer" med ribban "stunning" och Dribbble/Behance-nivå [REPO SKILL.md rad 8–10, 461; SKÄRM
+  04:26], tre stoppunkter som väntar på användarens bekräftelse [rad 148, 160, 166], 25 stilrecept knutna till
+  namngivna varumärken (Apple, Linear, Aesop, MUJI) vars palett, typografi och avstånd klistras in i
+  designsystemet [rad 68, 146; references/style-recipes/INDEX.md rad 3, 28–30; SKÄRM 04:44], React via CDN och en
+  Tweaks-panel [rad 236–246, 410–419], och en självkritik i fem dimensioner med poäng [rad 176–186;
+  critique-guide.md rad 9–80]. Vi: ingen människa svarar under körningen (bygg-sajt rad 20), riktning ur
+  verksamheten och "Kopiera aldrig layout, palett eller typsnitt" (rad 200–201, 252;
+  `kunskap/referenser-professionella.md` rad 61), statisk Astro utan JS, två oberoende granskare i stället för
+  självkritik (rad 255–262; `kunskap/teoretisk-grund.md` rad 128). Dess anti-klichétabell och placeholder-regel
+  [rad 283–317] är i sak anthropic-frontend-design hos oss. Sämre: receptbiblioteket är samma katalogmekanism som
+  ui-ux-pro-max, som ägaren höll med om nej för (`kunskap/KIRURG-OMDOMEN.md` rad 145–147). (3) **elayadesign
+  landing-page-design.** En fil med hårda regler: bara Geist, Manrope, Geist Mono eller Poppins, ett typsnitt per
+  sajt, aldrig kursiv [REPO rad 154–160]; Tailwinds typskala och en avståndstabell [rad 170–219]; gradient på
+  rubriktexten i hero [rad 249–252]; glas-pillernav, 700 ms-övergångar, "Elements never appear statically on load",
+  800 ms blur-fade [rad 269–295]; en obligatorisk "tagline reveal"-sektion där orden tänds ett i taget vid skroll
+  [rad 341–357]; strukturen trial, demo, logotyper, riskvändning och FAQ med 6–12 frågor [rad 54–70, 97]; cookie
+  consent "where the jurisdiction requires it" [rad 334]. Vi: typsnitt ur verksamheten med UPPTAGNA-VAL (bygg-sajt
+  rad 195–198), innehåll utan JS (byggstandarden 1.1), ingen JS som inte behövs, kakfritt (bygge-referens rad 37).
+  Videons resultat är en SaaS-formad växtbutik: versal eyebrow "GROWN IN HUDSON, NY", två knappar och raden
+  "11,428 boxes shipped since 2019. 98.6%" med fyra avatarcirklar [SKÄRM 06:18], samma delade första vy som
+  Inspo-posten ovan pekade ut. För en hantverkare i Luleå går varje regel åt fel håll. Sämre. (4) **MengTo/Skills.**
+  167 skills, de flesta 3D, WebGL, GSAP, spel och Codex-arbetsflöden (förgranskningens tabell).
+  build-awwwards-quality-sites kräver GSAP som primärt system, exakt en mjukskrollmotor (Lenis eller Locomotive),
+  genererad hero-bild, Three.js "med syfte" och foton på alla avatarer [REPO SKILL.md rad 20–22, 28–29, 35–36].
+  Krockar med 0 kB JS, högst 200 kB JS (byggstandarden 3.7) och egna bilder eller beställning (bygg-sajt rad 75–79;
+  L3 "hellre inga foton än stock"). Videons resultat: en svart modesida "Nocturne" [SKÄRM 08:28].
+  no-ai-design-slop och audit-ai-design-slop är däremot sakliga: slop är "a choice made by reflex rather than for
+  the product", borttagningsprovet (namnge, säg jobbet, ta bort mentalt), ingen gissning om AI och ingen
+  smakpoäng [REPO ui/no-ai-design-slop/SKILL.md rad 10–22, 89–95, 118; audit-ai-design-slop rad 12–17, 88–98]. Vi:
+  regeln mot slop som text, granskarens originalitetskriterium med AI-mönstren uppräknade (`kritik/GRANSKARE.md`
+  rad 84–91, "dekor utan funktion" rad 87), "blir sidan bättre av att stryka en tredjedel av texten, stryk"
+  (bygg-sajt rad 253–254), och impeccables fem mätningar vilande. Lika i sak. Nej till samlingen. (5)
+  **jakubkrehel/skills.** Elva skills, bara text, inga skript, LÅG. Sju domänskills med regler i exakta värden och
+  ett Före/Efter/Varför-format, och fyra användaranropade verb [REPO README.md rad 13–23; AGENTS.md rad 45–52].
+  better-layout: gruppera med luft före linjer, avståndet mellan grupper minst dubbelt mot inom (8 px inom, 16 px
+  och mer mellan), kontroller skilda från innehåll, delade kanter med ett indragssteg, 12 px mellan kantade
+  kontroller och 24 runt kantlösa, knappar indragna 16 px från kanten på mobil, innehåll blöder men kontroller
+  flyter innanför marginal och safe-area, brytpunkter där innehållet slutar få plats, inga fasta bredder på text
+  [REPO skills/better-layout/SKILL.md rad 14–56; grouping-and-alignment.md rad 13, 51–54;
+  spacing-and-adaptivity.md rad 9–15, 36–55, 117–123]. better-typography: rubriknivåer i fallande steg, radhöjd
+  per roll (1,1 rubrik, 1,5–1,6 brödtext, minst 1,4 vid tre rader), spärrning efter storlek, radlängd 60–75, fyra
+  wrap-deklarationer, understrykning ur typsnittets mått, 16 px i fält på mobil [REPO rad 44–71, 93–106].
+  better-colors: ramper med en roll per steg, primitiv mot semantisk token, en färg en betydelse inom 15°, en fylld
+  handling per vy, mät det renderade paret och ändra inte färgen [REPO rad 20–61]. better-accessibility, better-ui
+  (koncentrisk radie, optisk justering, scale 0.96 vid tryck, ikonstreck efter textvikt, rörelse aldrig enda
+  återkoppling) [REPO rad 18–24, 54–56, 74–86] och better-writing (verb först i knappar, länktext som bär utanför
+  sammanhanget, fel som säger hur, placeholder aldrig etikett) [REPO rad 44–57, 69–99]. better-interface
+  samordnar: skop först, domänskills som sanningskälla i ordning, belägg med fil och rad, HIGH-utlösare på sikt,
+  billigaste rättningen först (ta bort, plattformen, återanvänd, rätta värdet, lägg till), högst 15 fynd, aldrig
+  Approve för det som inte inspekterats [REPO rad 14–18, 46–109]. Vi: dimension 4 är en fråga utan regel
+  (`kunskap/referenser-professionella.md` rad 24–25), teoretisk-grund namnger Gestaltlagarna, CRAP, Fitts och Hick
+  som princip (rad 62–63) utan att någon fil gör dem till byggregler, bygge-referens har inga avståndsregler (rad
+  7–24), stil.mjs mäter träffytor, radlängd, radhöjd och kortmönster (rad 2, 73–74, 229) men ingen gruppering, och
+  granskarens hantverkskriterium nämner luft utan mått (`kritik/GRANSKARE.md` rad 92–94). Ägaren satte "Luft och
+  hierarki: Okej" i alla tre domarna medan de övriga dimensionerna fick Bra (`LARDOMAR.md` rad 35, 60, 84). Två
+  vilande poster angriper samma dimension med mätning efteråt (impeccables fem mönster,
+  B-20261002-stilrapporten-mater-fem-renderade-monster-ur-imp) och tre principer (Every Layout,
+  B-20261002-skriv-tre-layoutregler-i-bygge-referens-md-layou); ingen av dem ger byggaren regler med värden att
+  bygga efter i steg 5.3. Videon visar skillen göra just det: en tabell Location, Before, After, Why där ett
+  datumfält i bokningsflödet behöver 113 px men får 99 på 360 px och 79 på 320 [SKÄRM 10:02; TAL 09:45–10:02].
+  Bättre och smartare: närhetslagen ur litteraturen som byggregel med tröskel, i den dimension som bevisligen är
+  svagast. Krockar: better-typography säger 60–75 tecken mot våra 45–75 (referenser-professionella rad 20–21),
+  better-ui:s Motion-recept gäller inte utan JS, better-colors får inte bli nya paletter (bygg-sajt rad 252),
+  better-writing:s regler om "we" gäller engelska; alla löses med avsnittet överst i kopian som för humanizer.
+  interface-review kräver git-diff (`kunder/` ligger utanför git) och variant och break skriver kastbara sidor: tas
+  inte med. (6) **tastemaker.** En harness om 16 080 tokens vid användning och 124 120 vid behov, 33 skript:
+  hämtar stockfoton från Openverse automatiskt ("every section that needs a photo has a real photo"),
+  illustrationer ur ett lokalt unDraw-bibliotek, ikoner ur Iconify och logotypväggar [REPO
+  skills/tastemaker/SKILL.md rad 111–132], "A finished page with zero motion is a skipped step" och GSAP i varje
+  bygge [rad 133, 146–150], palett genererad per stämning med skript [rad 92], makrostruktur roterad mot
+  projektminne i `~/.tastemaker/` utanför repot [rad 96–106, 164], Inspo-MCP som förstahandskälla [rad 69]. Krockar
+  med egna bilder eller beställning (bygg-sajt rad 20–24, 75–79; L3), 0 kB JS, riktning ur verksamheten, och
+  skript som skriver utanför repot. Det sakliga, pixelextraktion ur en referens i stället för ordbeskrivning [rad
+  17, 91], används hos oss aldrig för att kopiera (rad 252), och sida.mjs och inspektionen ger redan designfakta
+  för varje öppnad referens. Videons resultat är en Japanresesida med ett kimonofoto som ser ut som stock [SKÄRM
+  11:17]. Nej; Inspo har sin egen A/B-post. (7) **designer-skills.** 111 mikroskills om 200–1 500 tokens var:
+  processmallar (persona, journey map, sprintplan, handoff), designlagar (Fitts, Hick, Miller, Gestalt) och sju
+  kritikskills. Videons `screen-critique` och `perception-laws` [SKÄRM 11:35, 11:54] finns inte i repot under de
+  namnen (sökt); närmast är visual-critique och ui-design/law-of-*. law-of-proximity säger samma sak som
+  better-layout men utan värde, "there is no fixed pixel value" [REPO ui-design/skills/law-of-proximity/SKILL.md
+  rad 17]; critique-visual-hierarchy frågar efter ingångspunkt, ögonväg, vikt (minst 1,5× mellan nivåer) och
+  betoning [REPO rad 10–29]. Vi: teoretisk-grund rad 62–63 namnger lagarna, granskaren kör kognitiv genomgång och
+  heuristisk utvärdering (`GRANSKARE.md` rad 55–63). Videons resultat efter perception-laws: "EVERY possible
+  FUTURE, ALPHABETISED." i versal serif med ett kursivt betonat ord [SKÄRM 11:54], det AI-mönster Hallmark-posten
+  pekade ut (rad 2714–2715). Lika eller sämre; nej
+- Skäl: videons tes är att skills ska styra modellen bort från dess eget mönster [TAL 00:00–00:32], men fem av sju
+  källor byter ett mönster mot ett annat: receptbibliotek med lånade paletter, obligatoriska skrollanimationer,
+  GSAP och genererade bilder, stockfoton hämtade automatiskt, och resultaten i bild är krämvit grotesk, mörkgrön
+  serif med bestick, svart mode och versal serif med kursivt ord [SKÄRM 02:34, 03:30, 08:28, 11:54], alla för
+  fiktiva verksamheter. Det krockar med verksamhetens egna bilder och ord, 0 kB JS och riktning ur verksamheten,
+  och ägaren har sagt nej till samma katalogmekanism förut. Emils design-eng har vi redan. Jakub Krehels sju
+  domänskills är något annat: ren text utan skript, regler med exakta värden och krav på belägg, och better-layout
+  gör Gestaltlagen om närhet, som vår litteratur namnger men ingen fil omsätter, till en byggregel i den enda
+  dimension ägaren satt Okej på tre gånger. Det ger bygget en förmåga vi saknar utan krock, och går in i
+  verktygslådan. Källkritik: sponsor och betalgemenskap; beviset för varje skill är berättarens omdöme om en fiktiv
+  sajt [TAL 04:51, 06:29, 10:52]; det enda mätta beviset i videon är better-layouts pixeltabell [SKÄRM 10:02].
+  Videon innehåller inga instruktioner riktade till agenter
+- Kostnad: jakub: 239 tokens alltid för sju beskrivningar (36, 31, 46, 47, 23, 40 och 16 ur förgranskningen),
+  1 371–2 657 vid användning per skill, 27–7 969 vid behov; 68 081 tokens text i hela repot. Inga beroenden, inga
+  skript; underhåll: sju KALLA.md och en mening i bygg-sajt. Övriga sex tas inte in; deras mått: emil 70 833
+  tokens (animate 120, 2 817, 1 981), garden 326 122 (web-design-engineer 118, 8 626, 47 686), elaya 4 950 (168,
+  3 942, 0), MengTo 409 624 (awwwards 130, 1 665, 68), tastemaker 126 389 (219, 16 080, 124 120), designer-skills
+  184 676 (111 skills om 43–90 tokens alltid var)
+- Säkerhet: jakub LÅG: inga dolda tecken, ingen text riktad till agenter, inga skript, inga hookar;
+  `disable-model-invocation: true` bara på de fyra användaranropade som inte tas med; frontmatter har bara name och
+  description. emil HÖG: fem nollbreddstecken, varav U+200D i ett ZWJ-emojitestfall [REPO
+  skills/break-ui/CATALOG.md rad 26] och U+200B före kodstaket i en mall för nästlade kodblock [REPO
+  skills/improve-animations/PLAN-TEMPLATE.md rad 19–35]; tre "ignore previous instructions" är skillens egen regel
+  att repoinnehåll är data [REPO break-ui/SKILL.md rad 36; improve-animations/SKILL.md rad 33;
+  find-animation-opportunities rad 29 inte läst]; ofarligt. garden HÖG: två U+200D i demosajtens JSON-data, inte i
+  skillen; 43 skript med nätanrop och miljönycklar (bildgenerering, TTS, release). MengTo HÖG: U+200B i en
+  demobyggfil; "Send the API key" är ElevenLabs-dokumentation [REPO agent-skills/codex/elevenlabs-tts/SKILL.md rad
+  84] och "execute this task" en Codex-standardprompt [REPO iterate-until-verified/agents/openai.yaml rad 4]; 77
+  skript med eval, nätanrop och miljöläsning. tastemaker MEDEL: 33 skript, fyra skriver utanför repot
+  (`~/.tastemaker`, `~/.ideagram`), nätanrop i foto- och ikonhämtning. designer-skills MEDEL: 7 byggskript. elaya
+  LÅG. Inget kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: sju mappar `.claude/skills/better-layout/`, `better-typography/`, `better-colors/`,
+  `better-accessibility/`, `better-ui/`, `better-writing/` och `better-interface/` ur jakubkrehel/skills @ 267330e,
+  MIT med LICENSE i varje mapp, utan `agents/openai.yaml`, med KALLA.md som för humanizer och ett avsnitt överst i
+  varje SKILL.md som löser krockarna (våra måttstockar vinner om värden, inga nya paletter, bara CSS-recept, svensk
+  text följer copy-kontroll) och svenska beskrivningar som säger när bygget använder dem. I
+  `.claude/skills/bygg-sajt/SKILL.md` steg 5 punkt 5, efter rad 252, en mening som pekar på better-layout för
+  dimension 4 och better-typography och better-ui för hantverket innan JAMFORELSE.md skrivs. interface-review,
+  variant, break och explain-interface tas inte med. Inget ur de övriga sex
+- Utfall: —
+- Backlog: B-20261002-ta-in-jakubkrehel-skills-better-layout-better-ty
