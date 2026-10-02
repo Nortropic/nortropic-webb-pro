@@ -188,13 +188,14 @@ KONCEPT.md.
 
 1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md` med fyra visuella riktningar härledda ur verksamheten själv
    (deras bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Varje riktning anger:
-   bakgrund och accent som hex, ett namngivet typsnitt med roll, toppsektionens komposition i en mening, och den sak
-   ur "Bara de har" som riktningen bygger på. Minst två typsnittskategorier (grotesk, serif, slab, display) och en
+   bakgrund och accent som hex, ett namngivet typsnitt med roll, toppsektionens komposition i en mening, **sidans
+   form** (hur tjänsterna, beviset, undersidornas sektioner, sidfoten och avslutet visas), och den sak ur "Bara de
+   har" som riktningen bygger på. Ägarens mall-lukt i L1–L3 satt i formen, inte i färgen. Minst två typsnittskategorier (grotesk, serif, slab, display) och en
    namngiven axel som riktningarna skiljer sig på: foto eller typografi bär, ljust eller mörkt, tätt eller luftigt.
    Ingen halmgubbe; varje riktning ska kunna vinna. Anthropic rekommenderar fyra riktningar med just de här
    uppgifterna för att få verkligt olika utfall. Välj en med skäl och skriv den som **exakt specifikation** innan någon
-   kod skrivs: färger som hex med roller, typsnitt och typografisk skala, radie, avståndssystem, sektionsordning per
-   sida. Modellen följer uttryckliga specifikationer precist. De två starkaste riktningarna kan bli en parvis fråga i
+   kod skrivs: färger som hex med roller, typsnitt och typografisk skala, radie, avståndssystem, sektionsordning och
+   form per sida, med skäl mot strukturmönstren i UPPTAGNA-VAL.md. Modellen följer uttryckliga specifikationer precist. De två starkaste riktningarna kan bli en parvis fråga i
    FRAGOR.json. Skriv också en rad **Visuell tes**: stämning, material och energi i en mening, som namnger ett material
    eller en plats ur "Bara de har".
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,

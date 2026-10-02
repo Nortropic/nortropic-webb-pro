@@ -37,6 +37,14 @@ MODELLENS_STANDARDVAL = [
 ]
 
 
+STRUKTURMONSTER = [  # ägarens mall-lukt i domarna L1–L3 (LARDOMAR.md)
+    'tjänstelista i två spalter med rubrik och en mening per tjänst (L1, L3)',
+    'sidfot i tre spalter (L1)',
+    'undersidor byggda av samma block om och om igen: rubrik till vänster, text till höger (L2)',
+    'omdömeslista med hårlinjer mellan citaten (L2)',
+]
+
+
 def stil_for(bygge):
     """STIL.json för ett tidigare bygge: provets om den finns, annars mätt nu i en tillfällig katalog."""
     f = bygge / 'prov' / 'stil' / 'STIL.json'
@@ -96,6 +104,10 @@ def main(argv=None):
           *(rader or ['| inga tidigare byggen | | | | | |']), '',
           '## Varningar som återkommer i tidigare byggen', '',
           *(['- %s (%s)' % (v, ', '.join(b)) for v, b in sorted(varningar.items(), key=lambda x: -len(x[1]))] or ['Inga.']), '',
+          '## Strukturmönster som gått igen', '',
+          'Ägaren pekade ut dem som mall i domarna. Använd ett av dem bara med skäl ur verksamhetens material, och skriv',
+          'skälet i KONCEPT.md.', '',
+          *['- ' + m for m in STRUKTURMONSTER], '',
           '## Modellens egna standardval', '',
           'Anthropic om Opus 5.5: ett allmänt förbud mot AI-stil byter mest en standard mot en annan; namngivna mönster',
           'fungerar. Listan byggs ut när stilrapporten visar ett nytt mönster som går igen.', '',
