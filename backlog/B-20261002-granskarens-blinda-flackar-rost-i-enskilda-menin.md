@@ -1,11 +1,12 @@
 ---
 id: B-20261002-granskarens-blinda-flackar-rost-i-enskilda-menin
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kontroller/granskarforsok/ · 2026-10-02
 skapad: 2026-10-02
 prio: normal
 steg: granskaren (steg 5.6)
+andrad: 2026-10-02T18:34Z
 ---
 # Granskarens blinda fläckar: röst i enskilda meningar, första vyn på mobil, daterat innehåll, generiska listmönster
 

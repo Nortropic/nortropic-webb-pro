@@ -36,6 +36,12 @@ def forbered(x):
     rot.mkdir(parents=True)
     arkiv = subprocess.run(['git', '-C', str(MAIN), 'archive', 'HEAD'], capture_output=True, check=True).stdout
     subprocess.run(['tar', '-x', '-C', str(rot)], input=arkiv, check=True)
+    # Det som citerar ägarens domar och som granskaren inte behöver: försöket själv (facit), backloggen, registret, besluten
+    for bort in ('kontroller/granskarforsok', 'backlog', 'BESLUT.md', 'kunskap/KIRURG-OMDOMEN.md'):
+        p = rot / bort
+        shutil.rmtree(p) if p.is_dir() else p.unlink(missing_ok=True)
+    for p in (rot / 'kunskap').glob('REGISTER*.md'):
+        p.unlink()
     (rot / '.venv').symlink_to(MAIN / '.venv')
     (rot / 'kontroller' / 'node_modules').symlink_to(MAIN / 'kontroller' / 'node_modules')
     lar = (rot / 'LARDOMAR.md').read_text(encoding='utf-8')
@@ -61,8 +67,8 @@ def forbered(x):
         shutil.copy2(MAIN / 'kunder' / y / 'granskning' / 'GRANSKNING.json', k / 'granskning' / 'GRANSKNING.json')
         for vy in ('vy-390-forsta.png', 'vy-1440-forsta.png'):
             shutil.copy2(MAIN / 'kunder' / y / 'prov' / 'inspektion' / 'hem' / vy, k / 'prov' / 'inspektion' / 'hem' / vy)
-    for arm in ('persona', 'c'):
-        shutil.copy2(KOD / ('GRANSKARE-%s.md' % arm), rot / 'kritik' / ('GRANSKARE-%s.md' % arm))
+    for variant in KOD.glob('GRANSKARE-*.md'):
+        shutil.copy2(variant, rot / 'kritik' / variant.name)
     print(x, 'kopia klar; snabbprov …', flush=True)
     r = subprocess.run([str(rot / '.venv' / 'bin' / 'python'), '-B', str(rot / 'kontroller' / 'prova.py'), x, '--snabb'],
                        cwd=str(rot), capture_output=True, text=True)

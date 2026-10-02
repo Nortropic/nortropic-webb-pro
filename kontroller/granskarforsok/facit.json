@@ -1,48 +1,208 @@
 {
  "lulea-snickaren": [
-  {"id": "L1-1", "maskin": false, "fel": "Tjänstelistan 'Det här bygger vi' på startsidan (fyra rubriklänkar med en mening var i två spalter) och sidfotens tre spalter är generiska mallmönster."},
-  {"id": "L1-2", "maskin": false, "fel": "Första vyn på mobil (390 px) visar inget foto av jobben; bilden börjar först under ringknappen. Första intrycket är lite textigt."},
-  {"id": "L1-3", "maskin": true, "fel": "Ingen skriftlig förfrågningsväg: inget formulär, bara tel: och mailto:. Den som vill höra av sig kvällstid och beskriva jobbet med en bild kan inte göra det utan mejlklient."},
-  {"id": "L1-4", "maskin": false, "fel": "Saknat mellanslag i omdömessektionen på startsidan: '(läst 1 oktober 2026).Läs dem på Hantverkskollen'."},
-  {"id": "L1-5", "maskin": false, "fel": "På /om/ i desktop börjar h1 långt ned (cirka 415 px) eftersom texten centreras mot ett stående porträtt; första vyn ser tom ut."},
-  {"id": "L1-6", "maskin": false, "fel": "Meningen 'Firman är två personer, och just nu letar den efter en tredje' låter skriven, inte som Dan själv."},
-  {"id": "L1-7", "maskin": true, "fel": "Favicon bara som PNG; SVG-favicon och apple-touch-icon saknas."},
-  {"id": "L1-8", "maskin": true, "fel": "Tjänstelänkarna i 'Det här bygger vi' är cirka 21 px höga, under 24 px klickyta."},
-  {"id": "L1-9", "maskin": false, "fel": "Försäkring nämns inte bland förtroendesignalerna."},
-  {"id": "L1-10", "maskin": true, "fel": "404-sidan har canonical i stället för noindex."},
-  {"id": "L1-11", "maskin": false, "fel": "Platsannonsen på /om/ blir inaktuell efter 30 november 2026."},
-  {"id": "L1-12", "maskin": false, "fel": "En gemensam tjänstesida i stället för en sida per huvudtjänst."}
+  {
+   "id": "L1-1",
+   "maskin": false,
+   "fel": "Tjänstelistan 'Det här bygger vi' på startsidan (fyra rubriklänkar med en mening var i två spalter) och sidfotens tre spalter är generiska mallmönster."
+  },
+  {
+   "id": "L1-2",
+   "maskin": false,
+   "fel": "Första vyn på mobil (390 px) visar inget foto av jobben; bilden börjar först under ringknappen. Första intrycket är lite textigt."
+  },
+  {
+   "id": "L1-3",
+   "maskin": true,
+   "fel": "Ingen skriftlig förfrågningsväg: inget formulär, bara tel: och mailto:. Den som vill höra av sig kvällstid och beskriva jobbet med en bild kan inte göra det utan mejlklient."
+  },
+  {
+   "id": "L1-4",
+   "maskin": true,
+   "fel": "Saknat mellanslag i omdömessektionen på startsidan: '(läst 1 oktober 2026).Läs dem på Hantverkskollen'."
+  },
+  {
+   "id": "L1-5",
+   "maskin": false,
+   "fel": "På /om/ i desktop börjar h1 långt ned (cirka 415 px) eftersom texten centreras mot ett stående porträtt; första vyn ser tom ut."
+  },
+  {
+   "id": "L1-6",
+   "maskin": false,
+   "fel": "Meningen 'Firman är två personer, och just nu letar den efter en tredje' låter skriven, inte som Dan själv."
+  },
+  {
+   "id": "L1-7",
+   "maskin": true,
+   "fel": "Favicon bara som PNG; SVG-favicon och apple-touch-icon saknas."
+  },
+  {
+   "id": "L1-8",
+   "maskin": true,
+   "fel": "Tjänstelänkarna i 'Det här bygger vi' är cirka 21 px höga, under 24 px klickyta."
+  },
+  {
+   "id": "L1-9",
+   "maskin": false,
+   "fel": "Försäkring nämns inte bland förtroendesignalerna."
+  },
+  {
+   "id": "L1-10",
+   "maskin": true,
+   "fel": "404-sidan har canonical i stället för noindex."
+  },
+  {
+   "id": "L1-11",
+   "maskin": false,
+   "fel": "Platsannonsen på /om/ blir inaktuell efter 30 november 2026."
+  },
+  {
+   "id": "L1-12",
+   "maskin": false,
+   "fel": "En gemensam tjänstesida i stället för en sida per huvudtjänst."
+  }
  ],
  "paint-it-black-maleri": [
-  {"id": "L2-1", "maskin": false, "fel": "Undersidornas sektioner har exakt samma form (rubrik till vänster, text till höger): ett generiskt mönster."},
-  {"id": "L2-2", "maskin": false, "fel": "Omdömeslistan med hårlinjer är ett generiskt mönster som skulle passa vilken hantverkare som helst."},
-  {"id": "L2-3", "maskin": false, "fel": "/tjanster/tapetsering/ har ingen bild av en tapetserad vägg; tjänstesidan är byggd av text."},
-  {"id": "L2-4", "maskin": false, "fel": "Första vyn på mobil har ingen bild och inget bevis förrän under vecket; den känns kal."},
-  {"id": "L2-5", "maskin": true, "fel": "Bildfattigdom: en enda egen bild på hela sajten; fler foton (färdiga rum, före och efter, Yoel i arbete) borde ha beställts av verksamheten."},
-  {"id": "L2-6", "maskin": false, "fel": "Fasadbilden saknar srcset/sizes och laddas i full bredd (cirka 1152 px) även på mobil."},
-  {"id": "L2-7", "maskin": true, "fel": "og:image (delningsbild) saknas på alla sidor."},
-  {"id": "L2-8", "maskin": false, "fel": "Telefontid saknas: 'Det är jag som svarar' men inte när."},
-  {"id": "L2-9", "maskin": false, "fel": "Meningen om bostadsrättsföreningar och fastighetsägare ('får du en samlad offert för hela jobbet') låter som en byrå, inte som Yoel."},
-  {"id": "L2-10", "maskin": true, "fel": "Favicon bara som PNG; SVG-favicon och apple-touch-icon saknas."},
-  {"id": "L2-11", "maskin": true, "fel": "'Läs alla omdömen på Google' (cirka 20 px) och sidfotens tel- och mejllänkar (cirka 16 px) är under 24 px klickyta."},
-  {"id": "L2-12", "maskin": true, "fel": "aggregateRating i JSON-LD bygger på Google-omdömen; självbetjänade omdömen ger inga rikresultat."},
-  {"id": "L2-13", "maskin": true, "fel": "404-sidan har canonical i stället för noindex."},
-  {"id": "L2-14", "maskin": false, "fel": "Försäkring nämns inte bland förtroendesignalerna."},
-  {"id": "L2-15", "maskin": true, "fel": "Inget formulär, bara tel: och mailto: som kontaktväg."}
+  {
+   "id": "L2-1",
+   "maskin": false,
+   "fel": "Undersidornas sektioner har exakt samma form (rubrik till vänster, text till höger): ett generiskt mönster."
+  },
+  {
+   "id": "L2-2",
+   "maskin": false,
+   "fel": "Omdömeslistan med hårlinjer är ett generiskt mönster som skulle passa vilken hantverkare som helst."
+  },
+  {
+   "id": "L2-3",
+   "maskin": false,
+   "fel": "/tjanster/tapetsering/ har ingen bild av en tapetserad vägg; tjänstesidan är byggd av text."
+  },
+  {
+   "id": "L2-4",
+   "maskin": false,
+   "fel": "Första vyn på mobil har ingen bild och inget bevis förrän under vecket; den känns kal."
+  },
+  {
+   "id": "L2-5",
+   "maskin": true,
+   "fel": "Bildfattigdom: en enda egen bild på hela sajten; fler foton (färdiga rum, före och efter, Yoel i arbete) borde ha beställts av verksamheten."
+  },
+  {
+   "id": "L2-6",
+   "maskin": false,
+   "fel": "Fasadbilden saknar srcset/sizes och laddas i full bredd (cirka 1152 px) även på mobil."
+  },
+  {
+   "id": "L2-7",
+   "maskin": true,
+   "fel": "og:image (delningsbild) saknas på alla sidor."
+  },
+  {
+   "id": "L2-8",
+   "maskin": false,
+   "fel": "Telefontid saknas: 'Det är jag som svarar' men inte när."
+  },
+  {
+   "id": "L2-9",
+   "maskin": false,
+   "fel": "Meningen om bostadsrättsföreningar och fastighetsägare ('får du en samlad offert för hela jobbet') låter som en byrå, inte som Yoel."
+  },
+  {
+   "id": "L2-10",
+   "maskin": true,
+   "fel": "Favicon bara som PNG; SVG-favicon och apple-touch-icon saknas."
+  },
+  {
+   "id": "L2-11",
+   "maskin": true,
+   "fel": "'Läs alla omdömen på Google' (cirka 20 px) och sidfotens tel- och mejllänkar (cirka 16 px) är under 24 px klickyta."
+  },
+  {
+   "id": "L2-12",
+   "maskin": true,
+   "fel": "aggregateRating i JSON-LD bygger på Google-omdömen; självbetjänade omdömen ger inga rikresultat."
+  },
+  {
+   "id": "L2-13",
+   "maskin": true,
+   "fel": "404-sidan har canonical i stället för noindex."
+  },
+  {
+   "id": "L2-14",
+   "maskin": false,
+   "fel": "Försäkring nämns inte bland förtroendesignalerna."
+  },
+  {
+   "id": "L2-15",
+   "maskin": true,
+   "fel": "Inget formulär, bara tel: och mailto: som kontaktväg."
+  }
  ],
  "sundboms-el": [
-  {"id": "L3-1", "maskin": false, "fel": "Tjänstelistan på startsidan (tvåspaltig tabell med rubrik och en mening) är ett generiskt mönster som skulle passa vilken elfirma som helst."},
-  {"id": "L3-2", "maskin": false, "fel": "Ortsrutorna 'Luleå Boden Piteå Älvsbyn' ser ut som knappar men är listpunkter utan länk: en falsk affordans."},
-  {"id": "L3-3", "maskin": true, "fel": "Inga foton alls på sajtens sidor (inte Lars och Patrik, inte bilen, inte ett jobb före och efter); de borde ha beställts av verksamheten."},
-  {"id": "L3-4", "maskin": false, "fel": "Mårten Woxbergs omdöme på startsidan berömmer att han skickade en förfrågan via hemsidan och blev uppringd, men sajten har inget formulär: citatet argumenterar för något bygget valt bort."},
-  {"id": "L3-5", "maskin": true, "fel": "Länken i faktarutan har tillgängligt namn 'Ring0920-145 55' (mellanslag saknas)."},
-  {"id": "L3-6", "maskin": true, "fel": "og:image (delningsbild) saknas på alla sidor."},
-  {"id": "L3-7", "maskin": true, "fel": "Sidfotens länkar är 18–19 px höga, under 24 px klickyta."},
-  {"id": "L3-8", "maskin": false, "fel": "Rubriken 'Dagen efter, tre timmar senare' är kryptisk och låter som en copywriter; en saklig rubrik behövs."},
-  {"id": "L3-9", "maskin": true, "fel": "Inget formulär; kontakt bara via telefon och mejl."},
-  {"id": "L3-10", "maskin": false, "fel": "Telefontid saknas."},
-  {"id": "L3-11", "maskin": false, "fel": "F-skatt och försäkring nämns inte bland förtroendesignalerna."},
-  {"id": "L3-12", "maskin": true, "fel": "Favicon bara som PNG; SVG-favicon och apple-touch-icon saknas."},
-  {"id": "L3-13", "maskin": true, "fel": "404-sidan har canonical i stället för noindex."}
+  {
+   "id": "L3-1",
+   "maskin": false,
+   "fel": "Tjänstelistan på startsidan (tvåspaltig tabell med rubrik och en mening) är ett generiskt mönster som skulle passa vilken elfirma som helst."
+  },
+  {
+   "id": "L3-2",
+   "maskin": false,
+   "fel": "Ortsrutorna 'Luleå Boden Piteå Älvsbyn' ser ut som knappar men är listpunkter utan länk: en falsk affordans."
+  },
+  {
+   "id": "L3-3",
+   "maskin": true,
+   "fel": "Inga foton alls på sajtens sidor (inte Lars och Patrik, inte bilen, inte ett jobb före och efter); de borde ha beställts av verksamheten."
+  },
+  {
+   "id": "L3-4",
+   "maskin": false,
+   "fel": "Mårten Woxbergs omdöme på startsidan berömmer att han skickade en förfrågan via hemsidan och blev uppringd, men sajten har inget formulär: citatet argumenterar för något bygget valt bort."
+  },
+  {
+   "id": "L3-5",
+   "maskin": true,
+   "fel": "Länken i faktarutan har tillgängligt namn 'Ring0920-145 55' (mellanslag saknas)."
+  },
+  {
+   "id": "L3-6",
+   "maskin": true,
+   "fel": "og:image (delningsbild) saknas på alla sidor."
+  },
+  {
+   "id": "L3-7",
+   "maskin": true,
+   "fel": "Sidfotens länkar är 18–19 px höga, under 24 px klickyta."
+  },
+  {
+   "id": "L3-8",
+   "maskin": false,
+   "fel": "Rubriken 'Dagen efter, tre timmar senare' är kryptisk och låter som en copywriter; en saklig rubrik behövs."
+  },
+  {
+   "id": "L3-9",
+   "maskin": true,
+   "fel": "Inget formulär; kontakt bara via telefon och mejl."
+  },
+  {
+   "id": "L3-10",
+   "maskin": false,
+   "fel": "Telefontid saknas."
+  },
+  {
+   "id": "L3-11",
+   "maskin": false,
+   "fel": "F-skatt och försäkring nämns inte bland förtroendesignalerna."
+  },
+  {
+   "id": "L3-12",
+   "maskin": true,
+   "fel": "Favicon bara som PNG; SVG-favicon och apple-touch-icon saknas."
+  },
+  {
+   "id": "L3-13",
+   "maskin": true,
+   "fel": "404-sidan har canonical i stället för noindex."
+  }
  ]
 }

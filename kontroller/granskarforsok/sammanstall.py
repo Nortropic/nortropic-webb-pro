@@ -56,6 +56,9 @@ def granskning(slug, namn):
     }
 
 
+ARMAR_I_LOPET = set()
+
+
 def arm_rader(arm):
     rader = []
     for slug in FACIT:
@@ -72,7 +75,7 @@ def arm_rader(arm):
                         'jaccard': len(a['traff'] & b['traff']) / len(a['traff'] | b['traff']) if a['traff'] | b['traff'] else 1.0,
                         'oeniga': a['oeniga'] + b['oeniga']}))
         else:
-            for n in range(1, 4):
+            for n in range(1, 7 if arm == 'A' and 'B' not in ARMAR_I_LOPET else 4):
                 r = granskning(slug, '%s-%d' % (arm, n))
                 if r:
                     rader.append((slug, r))
@@ -84,7 +87,10 @@ def main():
           'Falska blockerande | Blockerande | Verkliga utanför facit | Nivå 0/1/2 | Överensstämmelse | Tokens | Tid s |',
           '|' + '---|' * 12]
     per_fel = {}
-    for arm in ('A', 'B', 'persona', 'c'):
+    namn = sorted({r.name.rsplit('-', 1)[0] for s in FACIT for r in (G / s / 'rot' / 'kunder' / s / 'ab-granskare').glob('*-*')})
+    armar = ['A'] + (['B'] if all((G / s / 'rot' / 'kunder' / s / 'ab-granskare' / 'A-6').is_dir() for s in FACIT) else []) + [a for a in namn if a != 'A']
+    ARMAR_I_LOPET.update(armar)
+    for arm in armar:
         rader = arm_rader(arm)
         if not rader:
             continue
@@ -101,11 +107,12 @@ def main():
             for fid in r['traff']:
                 per_fel.setdefault(fid, {}).setdefault(arm, 0)
                 per_fel[fid][arm] += 1
-    ut += ['', '| Facitfel | Maskin | A (av 3) | B (av 3) | persona (av 3) | c (av 3) |', '|---|---|---|---|---|---|']
+    antal = {arm: len(arm_rader(arm)) // len(FACIT) for arm in armar}
+    ut += ['', '| Facitfel | Maskin | ' + ' | '.join('%s (av %d)' % (a, antal[a]) for a in armar) + ' |', '|---|---|' + '---|' * len(armar)]
     for s, fl in FACIT.items():
         for f in fl:
             p = per_fel.get(f['id'], {})
-            ut.append('| %s | %s | %s | %s | %s | %s |' % (f['id'], 'ja' if f['maskin'] else '', p.get('A', 0), p.get('B', 0), p.get('persona', 0), p.get('c', 0)))
+            ut.append('| %s | %s | ' % (f['id'], 'ja' if f['maskin'] else '') + ' | '.join(str(p.get(a, 0)) for a in armar) + ' |')
     (G / 'RESULTAT.md').write_text('\n'.join(ut) + '\n', encoding='utf-8')
     print('\n'.join(ut))
 

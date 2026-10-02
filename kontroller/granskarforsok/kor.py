@@ -18,8 +18,9 @@ G = Path(os.environ.get('NWP_FORSOK') or '/tmp/nwp-granskarforsok')  # utdata, u
 KOD = Path(__file__).resolve().parent
 PY = str(Path(__file__).resolve().parents[2] / '.venv' / 'bin' / 'python')
 BYGGEN = ['lulea-snickaren', 'sundboms-el', 'paint-it-black-maleri']
-ARMAR = {'A': 6, 'persona': 3, 'c': 3}
+# kor.py [parallellt] [arm=antal ...]: A är dagens kritik/GRANSKARE.md, övriga armar kritik/GRANSKARE-<arm>.md
 PARALLELLT = int(sys.argv[1]) if len(sys.argv) > 1 else 4
+ARMAR = {a: int(n) for a, n in (x.split('=') for x in sys.argv[2:])} or {'A': 6, 'persona': 3, 'c': 3}
 
 KORNING = r'''
 import json, sys
@@ -27,7 +28,7 @@ from pathlib import Path
 rot, slug, arm, namn, repos, hem = sys.argv[1:7]
 sys.path.insert(0, rot + '/kontroller')
 import granska as g, prova
-g.INSTRUKTION = {'A': 'kritik/GRANSKARE.md', 'persona': 'kritik/GRANSKARE-persona.md', 'c': 'kritik/GRANSKARE-c.md'}[arm]
+g.INSTRUKTION = 'kritik/GRANSKARE.md' if arm == 'A' else 'kritik/GRANSKARE-%s.md' % arm
 g.NEKAS = g.NEKAS + ['Read(/' + repos + '/**)', 'Read(/' + hem + '/.claude/**)']
 kund = Path(rot) / 'kunder' / slug
 rdir = kund / 'ab-granskare' / namn
