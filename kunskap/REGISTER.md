@@ -1057,3 +1057,47 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · AUTOMATIC1111/stable-diffusion-webui · nej
+- Källa: https://github.com/AUTOMATIC1111/stable-diffusion-webui @ 82a973c (ur klonens `.git/refs/heads/master`;
+  senaste push 2026-03-02, senaste version i CHANGELOG 1.10.1), AGPL-3.0; cirka 165 000 stjärnor, inte arkiverat.
+  Förgranskat. Läst: README helt, början av CHANGELOG, förgranskningens rapport och de flaggade ställena för
+  modellnedladdning och -inläsning (`modules/modelloader.py`, `modules/realesrgan_model.py`, `modules/sd_models.py`,
+  `modules/safe.py`). Övriga omkring 240 skript bara som fillista. Bilder: repots enda skärmbild (`screenshot.png`);
+  övriga fem bilder är testfixturer och en platshållare. Ingen demosajt; funktionsvisningen ligger i wikin och
+  öppnades inte. Ägarens not: ingen
+- Steg: inget av de åtta; närmast bilderna i steg 1 och bildbehandlingen i steg 5 (`kunskap/bild.md`)
+- Jämfört med i dag: källan är ett webbgränssnitt i Gradio för att generera och redigera bilder med Stable Diffusion:
+  text till bild, bild till bild, inmålning och utmålning [REPO README.md rad 2, 8–13], plus en flik för uppskalning och
+  ansiktsrestaurering med GFPGAN, CodeFormer och ESRGAN-familjen [REPO README.md rad 26–32]. Sak mot sak: (1)
+  **Genererade bilder** som ersättning för egna: vi tar verksamhetens egna bilder och beställer det som saknas
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 68–72, byggstandarden 9.3 och 9.4, `kunskap/byggstandard.md` rad 121–122),
+  ägaren dömde "hellre inga foton än stock" (`LARDOMAR.md` rad 90), och genererade bilder får aldrig framställas som
+  kundens arbete eller personer (`kunskap/bild.md` rad 16–19). Generering via fal.ai valdes medvetet bort ur
+  bildverktygen (`kunskap/bild.md` rad 5–8). Källans kärna går rakt emot det; sämre för oss. (2) **Uppskalning av
+  kundens små bilder**: vi normaliserar, beskär och komprimerar med `sharp` (`kunskap/bild.md` rad 49–55) och visar en
+  liten bild i den storlek den håller. En neural uppskalare hittar på detaljer som inte fanns i fotot, och
+  ansiktsrestaurering ritar om ansikten; på en bild med anspråket `depicts_client_work` eller `depicts_client_people`
+  blir det bevis som inte längre är kundens. Sämre. (3) **Inmålning** för att städa bort skräp ur ett jobbfoto: samma
+  invändning, ett ändrat bevis
+- Skäl: källan är det mest spridda verktyget för att generera bilder lokalt, och det gör det den säger, men vår regel
+  bygger på motsatsen: förtroendet bärs av verksamhetens egna bilder (Fogg m.fl. 2003, byggstandarden 9.3), och det
+  som saknas beställs i stället för att fyllas. Skärmbilden visar själv vad verktyget gör: en prompt med
+  "photorealistic" och fyra genererade bilder av en planta [BILD screenshot.png]. Den enda del som kunde verka nyttig,
+  uppskalningen, ändrar beviset och kräver dessutom PyTorch, ett grafikkort (NVidia rekommenderas, Python 3.10.6
+  [REPO README.md rad 98, 114]) och nedladdade modellvikter; körningen kan inte bedömas utan att köra källans kod.
+  Källkritik: README säljer inget, och funktionerna är verkliga, men utvecklingen har avstannat (ingen push sedan
+  mars 2026)
+- Kostnad: inget tas in. Som beroende vore det en Python 3.10-miljö med PyTorch, flera GB modellvikter, ett lokalt
+  webbgränssnitt och AGPL-3.0, som kräver att källkoden lämnas ut om verktyget görs tillgängligt över nätet.
+  Källans text är cirka 37 600 tokens enligt förgranskningen; ingen skill
+- Säkerhet: förgranskningen MEDEL, inga dolda tecken. Den enda "text till agenter" är en installationsanvisning till
+  människor [REPO README.md rad 148]. 246 skript, bland dem eval/exec och nätanrop. Verktyget laddar ner modellvikter
+  från nätet [REPO modules/modelloader.py rad 20–40; modules/realesrgan_model.py rad 71–101] och läser checkpoints
+  med `torch.load` [REPO modules/sd_models.py rad 323], skyddat av en begränsad unpickler [REPO modules/safe.py rad
+  23] som går att stänga av [REPO modules/safe.py rad 136]; README nämner också att godtycklig Python kan köras från
+  gränssnittet med en flagga [REPO README.md rad 49]. Inget kördes eller installerades. Inget försök att styra
+  kirurgen
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
