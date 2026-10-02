@@ -1607,3 +1607,92 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · JuliusBrussee/caveman · nej
+- Källa: https://github.com/JuliusBrussee/caveman @ b39c908 (ur klonens `.git/refs/heads/main`; senaste push
+  2026-10-01T19:57Z), Apache-2.0 från version 3.0.0; cirka 109 000 stjärnor, inte arkiverat; 946 textfiler, cirka
+  337 000 tokens text. Inte bedömd förut. Förgranskat. Läst: README (655 rader), CLAUDE.md, AGENTS.md,
+  SECURITY.md rad 1–80, `docs/HONEST-NUMBERS.md`, `.codex/hooks.json`, och hela SKILL.md för caveman,
+  caveman-compress, caveman-review, cavecrew, caveman-learn, caveman-evidence-review, investigate-first, lean-build
+  och verify-and-stop; de flaggade raderna i `benchmarks/run.py` och `caveman-compress/scripts/compress.py` i sitt
+  sammanhang. Övriga åtta skills (commit, help, stats, setup, discover, manage, optimize, explore, surgical-patch,
+  safe-refactor, migration) bara som namn och beskrivning i förgranskningen. Bilder: `docs/assets/learn-report.png`,
+  `docs/assets/pixel-sample.png`, `docs/assets/caveman-logo-banner.png`, `extension/store-assets/screenshot-2-compare.png`.
+  Proxyn, motorn och webbläsardelen (Go och TypeScript) lästes inte i kod; demon är ett program, inte en sajt att se.
+  Ägarens not: ingen
+- Steg: inget av de åtta; ramarna för körningen (`kor.sh`, modellens kontext) och hur A/B:n mäts (`kontroller/ab.py`)
+- Jämfört med i dag: källan är tre saker som alla sparar tokens åt den som kör en kodagent: en skill som gör agentens
+  prosa kortfattad, en lokal proxy som krymper det agenten läser (loggar, JSON, diffar, testutdata), och ett
+  mellanlager för egna appar [REPO README.md rad 84–86]. Sak mot sak. (1) **Skillen** styr agentens svar till
+  människan: stryk artiklar, utfyllnad och artighet, inga berättande rader mellan verktygsanrop, tillsammans med
+  Simplified Technical English (en idé per mening, högst 20 ord, aktiv form) [REPO skills/caveman/SKILL.md rad 19,
+  25, 27]. Allt som sparas utanför chatten (kod, dokument, commits, minnesfiler) skrivs i vanlig prosa [rad 89], och
+  kod, kommandon och felmeddelanden rörs aldrig [REPO README.md rad 70]. Hos oss läser ingen människa byggets
+  löpande svar: körningen är obevakad (`.claude/skills/bygg-sajt/SKILL.md:20`, `kor.sh:36`) och det som ska läsas
+  (RAPPORT.md, INNEHALL.md, registret) är just det källan undantar. Sajtens text får aldrig skrivas så: utan artiklar
+  och i fragment vore den inte verksamhetens röst (`bygg-sajt/SKILL.md:138`, `kunskap/copy-kontroll.md:27–29`), och
+  klarspråk och korta meningar står redan hos oss med Språkrådet och LIX som måttstock (`kunskap/teoretisk-grund.md:
+  107–108`). Inte tillämpligt för sajten; för agentens svar sparar den tokens som ingen läser ändå. JetBrains mätte
+  8,5 procent färre utdatatokens och ingen mätbar kvalitetsändring på 86 kodningsuppgifter [REPO README.md rad 205];
+  källan skriver själv att reglerna kostar indatatokens i varje anrop och att nettot beror på arbetslasten, med en
+  Cursor-mätning där tokens blev fyra gånger fler [REPO docs/HONEST-NUMBERS.md rad 30–38]. (2) **Proxyn** sitter
+  mellan Claude Code och Anthropic, krymper verktygsresultat förlustfritt för agenten (originalet sparas lokalt och kan
+  hämtas tillbaka) och släpper igenom Max-inloggningen [REPO README.md rad 108, 364]. Vinsten mättes till 33 procent
+  färre indatatokens på sex uppgifter med CSV, loggar, YAML och JSON, men HTML-fallet blev 9,9 procent dyrare [rad
+  224–238]. Våra byggen läser skärmbilder (bilder krymps inte), HTML och markdownrapporter, alltså källans svagaste
+  fall. Att sätta en proxy mellan bygget och modellen krockar med två medvetna val: inget installeras och ingen kod ur
+  källor körs (`.claude/skills/kirurg/SKILL.md`, Säkerhet; `kor.sh:61–62` laddar inte ens MCP-anslutningar i bygget), och
+  det som bygget läser (provets PROV.md, copyrapporten, granskarens fynd) ska nå det oavkortat. CLI:n skickar dessutom
+  användningsstatistik med installations-id och IP-adress tills man stänger av den [REPO README.md rad 259, 597–599].
+  Sämre för oss. (3) **caveman-compress** skickar en skilltext till Anthropics API och skriver tillbaka den utan
+  artiklar och utfyllnad, 46 procent mindre på fem fixturer utan påstående om bevarad betydelse [REPO
+  skills/caveman-compress/SKILL.md rad 12, 24–33; README.md rad 245]. Vi tog 2026-10-02 in writing-for-agents för samma
+  behov (`.claude/skills/writing-for-agents/`, registret ovan): rensa dubbletter, inaktuella lager och no-ops med
+  bibehållen mening, i den som ändrar textens hand. Det är bättre än en mekanisk förkortning, och ägaren har sagt att
+  kvalitet går före tokens. Sämre. (4) **caveman-review** ger en rad per fynd, plats, problem, rättning [REPO
+  skills/caveman-review/SKILL.md rad 12]; vår granskare kräver observation, konsekvens, standardpunkt, omfattning,
+  rättning och ett acceptanskriterium i EARS-form per blockerande fynd (`kritik/GRANSKARE.md:116–125`), för att
+  byggaren ska kunna rätta och nästa granskning pröva. Sämre. (5) **Arbetsmönstren** investigate-first, lean-build och
+  verify-and-stop är omärkta, generella regler på cirka 120 tokens för kodarbete [REPO CLAUDE.md rad 128]:
+  verify-and-stop säger "bevisa acceptansvillkoren och sluta" [REPO skills/verify-and-stop/SKILL.md rad 8–16], vilket
+  stoppvakten gör som mekanik hos oss (`bygg-sajt/SKILL.md:359–361`). Lika eller inte tillämpligt. (6) **caveman
+  learn** mäter var en agents tokens går, lokalt ur sessionsloggarna: setupfiler som laddas i varje tur, återklistrad
+  kontext, och hur djupt sessionerna går i modellens fönster, med regeln "past half the window answers tend to get
+  worse (a common rule of thumb)" [REPO README.md rad 427–447; BILD docs/assets/learn-report.png: 6 av 41 sessioner
+  över halva fönstret]. Varje rättning godkänns en i taget och ångras om mätningen inte sjunker [REPO
+  skills/caveman-learn/SKILL.md rad 46–53]. Vår A/B mäter turer, minuter och granskarens betyg ur samma slags logg
+  (`kontroller/ab.py:45–62`), men inte kontextdjupet. Våra loggar visar att byggen går djupt: i det blinda effortparet
+  nådde A (effort high) 813 339 tokens läst kontext och låg över 500 000 i 238 av 653 meddelanden
+  (`kunder/lulea-snickaren-abx/korning-20261002T122340Z.jsonl` rad 2252), B (effort medium) nådde drygt 500 000 i de
+  sista 77 av 562 (`kunder/lulea-snickaren-aby/korning-20261002T142113Z.jsonl` rad 1309, 1548), och ägaren valde B
+  blint (`LARDOMAR.md:99–104`). Ett par bevisar inget, men variabeln är värd att skriva upp. Det blir den egna
+  innovationen
+- Skäl: källan hjälper oss inte bygga bättre sajter och inte arbeta smartare. Dess hela värde är färre tokens hos
+  en människa som läser agentens svar och betalar per token; våra byggen körs obevakade på ägarens abonnemang, och
+  ägaren har sagt att kvalitet går före tokens. Det som skulle kunna spara i ett bygge, proxyn, krockar med att inget
+  installeras och ingen kod ur källor körs, är svagast på just det våra byggen läser, och ringer hem tills den tystas.
+  Att kortfatta agentens svar är ofarligt men meningslöst när ingen läser dem, och får aldrig nå sajtens text eller
+  skilltexterna, där vi redan har bättre metoder. Källkritik: projektet är ovanligt ärligt, med en röd rad som står kvar
+  i tabellen, en egen sida över när det förlorar och ett maskinskrivet förbud mot påhittade siffror [REPO README.md rad
+  238; docs/HONEST-NUMBERS.md; CLAUDE.md rad 406]; de starkaste talen (65 procent i beskrivningen) motsägs av dess
+  egen sida ("not published"). README:n säljer en väntelista till Caveman Cloud [REPO README.md rad 589] och
+  stjärnorna säger inget om nyttan. Källan innehåller instruktioner till agenter som en del av produkten: AGENTS.md
+  laddar fyra skills i varje session [REPO AGENTS.md rad 12–15], en Codex-krok skriver "CAVEMAN MODE ACTIVE" vid
+  sessionsstart [REPO .codex/hooks.json rad 9] och pluginens SessionStart-krok skjuter in regelverket som dold
+  systemtext [REPO CLAUDE.md rad 263]; inget av det gällde kirurgen och inget följdes
+- Kostnad: inget tas in. Skillen vore 59 tokens i varje session och 1 649 vid användning enligt förgranskningen;
+  proxyn ett npm-paket, en Go-binär, en SQLite-fil och en process som ska startas före varje bygge. Den egna
+  innovationen kostar några rader i `kontroller/ab.py` och inga tokens
+- Säkerhet: förgranskningen HÖG, inga dolda tecken. HÖG kommer av 497 skript: installation via `curl | bash`
+  (`install.sh`, README), en installatör på 2 120 rader som skriver utanför repot (`bin/install.js`), krokar i
+  SessionStart och UserPromptSubmit (`.claude-plugin/plugin.json`, `.codex/hooks.json`), binärnedladdare med nätanrop
+  och telemetri på som standard. De fem ställena med text till agenter är i sitt sammanhang en kommentar om att inte
+  exportera hela `.env.local` (`benchmarks/run.py` rad 30–35), en vägran att komprimera filer som ser ut att
+  innehålla hemligheter (`compress.py` rad 601–611) och testfixturer för promptinjektion. Inget kördes eller
+  installerades
+- Förslag: inget för källan. Egen innovation: `kontroller/ab.py` `matt()` (rad 45–62) läser redan körningens logg;
+  lägg till `kontext_max` (största summan av input, cache_creation och cache_read i ett meddelande) och
+  `over_halva` (antal meddelanden över halva modellens fönster), så att de står i A/B-posten och i LARDOMAR.md:s
+  AB-rad bredvid turer och minuter. Ingen regel, bara mätning: när fem par finns syns om ägarens val följer djupet
+- Utfall: —
+- Backlog: ingen för källan; egen innovation: B-20261002-mat-kontextdjupet-per-bygge-i-a-b-posten-storsta
