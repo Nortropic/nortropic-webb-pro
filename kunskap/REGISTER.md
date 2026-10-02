@@ -3160,3 +3160,98 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · DesignCode, "Opus 5.5 Is INSANE for Web Design (Complete Guide)" (YouTube PA3f3MdRc08) · nej
+- Källa: https://www.youtube.com/watch?v=PA3f3MdRc08 @ publicerad 2026-09-25 (DesignCode, 47:50, 27 453 visningar,
+  autogenererat engelskt transkript, sponsrad av Mobbin [TAL 01:47–02:56, 47:21]; berättaren är enligt sin egen
+  X-profil grundare av designcode.io och aura.build och säljer three.js-mallar på threeui.com [SKÄRM 39:28, 40:38]).
+  Läst och sett: hela tidslinjen och alla 54 bildrutor; ungefär 40 är inspelningar av Claude-appen, webbläsaren,
+  Mobbin eller X, resten 3D-scener (båten, skeppet, dalen). Rörelsen (orbit, vattenringar, shaderknappar, parallax)
+  syns inte i bildrutorna, bara lägen [SKÄRM 26:25, 26:47, 27:57, 29:06]. Sajter öppnade med `kontroller/sida.mjs`:
+  sunset-tutorial.mengto.here.now (HTTP 200; mobil första vyn och hela sidan sedda [BILD sunset-tutorial
+  mobil-forsta.png, mobil-hela.png, TEXT.md]; desktop-skärmbilden gick inte att ta inom 30 s) och
+  sunset.mengto.here.now (HTTP 200; ingen skärmbild gick att ta inom 30 s i vare sig mobil eller desktop; sedd bara i
+  videons bildrutor). Inget repo i beskrivningen; projektfilerna ligger på Google Drive och hämtades inte
+  [BESKRIVNING]. Mobbin, Higgsfield, aura.build, threeui.com och designcode.io öppnades inte. Ägarens not: ingen
+- Steg: 3 (referenserna), 5 (5.1 riktning, 5.3 bygg: 3D, bilder, ikoner, 5.6 granskning), 7 (brand guide och
+  annonser som sidospår); runt stegen: arbetsmodellen (röstprompt, timslånga körningar, parallella trådar)
+- Jämfört med i dag, metod för metod: (1) **Mobbin som referenskälla**, via en anslutning i Claude-appen: "ge mig de
+  fem bästa solcellssajterna", be om skärmbilder, blanda sektioner från olika sajter och planera sektionerna först
+  [TAL 08:33–11:56; SKÄRM 09:48, 10:39, 11:48]. Agentens plan sätter en källsajt per sektion: hero och karta ur
+  Daylight, betalsätt ur Klarna, omdömen ur Coda och Cake Equity, FAQ ur Farm Minerals, sidfot ur Daylight och Maze
+  [SKÄRM 12:57]. Vi: referensjakt i tre roller där bygget söker själv, öppnar varje referens i 390 och 1440 och
+  skriver REFERENSER.md (`.claude/skills/bygg-sajt/SKILL.md` rad 150–162; `kunskap/referensjakt.md` rad 13–27),
+  "Gallerier är sökingångar, inte facit" (bygg-sajt rad 152) och "Kopiera aldrig layout, palett eller typsnitt"
+  (rad 252). Ett kuraterat arkiv med mobil och desktop parvis, sökbart med briefen, ligger redan under prov via
+  Inspo (REGISTER rad 2845–2929; B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for), gratis, MIT och
+  hostad utan konto. Mobbin kräver inloggning och har betalplaner [SKÄRM 02:08 "Sign in", "See our plans"; TAL 08:00
+  anslutningen auktoriseras; SKÄRM 08:21 anslutningslistan], och täckningen för vår sorts verksamhet är sämre än videon låter: Mobbins
+  egen startsida säger "over 1,000 iOS & Web apps, and 200 sites" [SKÄRM 02:08], mot Inspos 832 sajter, och
+  videons egen agent svarar att Mobbin bara har två solcellsbolag, Daylight och T1 Energy, och fyller på med
+  "närmaste grannar" [SKÄRM 09:48]. Sektion-per-källsajt är dessutom närmare kopiering än vår jämförelse drag mot
+  drag (`kunskap/referenser-professionella.md` rad 40–45). Sämre än det vi redan prövar. (2) **Allt i 3D med
+  three.js**: hus, telefon, diagram i träram, vatten i sidfoten, shaderknappar, parallax, med "välj rätt medium"
+  (byggnader och landskap i 3D, människor aldrig) [TAL 13:02–16:26, 21:41–29:15; SKÄRM 24:29, 25:38, 26:25, 26:47,
+  27:57]. Vi: innehåll och navigation utan JS (`kunskap/byggstandard.md` rad 18), högst 200 kB JS (3.7, rad 52),
+  inga tredjepartsresurser vid sidladdning (4.4, rad 61), LCP 2,5 s (4.1, rad 58), reducerad rörelse (3.5, rad 50),
+  "ingen JavaScript som inte behövs" (bygg-sajt rad 217), 0 kB JS i de tre dömda byggena (`LARDOMAR.md` rad 31, 56,
+  87), och three.js dömt nej som källa (REGISTER rad 1550–1579). Videons egen agent beskriver sajten som "one
+  self-contained 10.5 MB file; only three.js loads from jsDelivr" [SKÄRM 06:02, 08:47, 15:16], laddade ner 127 MB
+  texturer för att packa till omkring 15 MB WebP för sidan [SKÄRM 29:47], och vårt verktyg fick ingen skärmbild av
+  livesajten inom 30 s. Krockar med fyra medvetna val. Sämre. (3) **Poängsätt varje element 1–10 och iterera till
+  8** [TAL 04:05–05:14, 16:00–16:26]. Bildrutan visar hur agenten gör det: två domare inne i samma session, betyg
+  per sektion i fyra omgångar, "scores plateaued at 7.0–7.1 for two rounds … within the judges' ±0.5 noise, so the
+  next gains depend on the structural decisions" [SKÄRM 04:53, 06:02]. Vi: två oberoende granskarsessioner utan
+  byggarens resonemang, fem kriterier 1–10 med ankare och trösklar (`kritik/GRANSKARE.md` rad 3–8, 72–80),
+  GRANSKNINGSLOGG per omgång, "originaliteten under 7 i två omgångar: byt riktning" och bästa mot sista (bygg-sajt
+  rad 255–268). Litteraturen ger oberoende granskare (`kunskap/teoretisk-grund.md` rad 128–131); GRANSKARE.md rad
+  3–5 säger varför en agent inte ska döma sitt eget. Samma platåregel, starkare oberoende hos oss. Lika eller
+  bättre hos oss. (4) **Människor och ornament som genererade bilder** (Aura, Higgsfield, Midjourney) och ikoner ur
+  Iconify Solar i stället för ritade [TAL 17:34–19:44, 43:26–44:33; SKÄRM 18:43, 19:52]. Resultatet är tre
+  "husägare" med AI-porträtt, namn, ort och "¥20,900 / mo saved" [SKÄRM 44:05; BILD sunset-tutorial TEXT.md rad
+  163–179], och berättaren kallar själv porträtten "a bit sloppish" [TAL 43:26–44:00]. Vi: hitta aldrig på omdömen,
+  siffror eller personer (bygg-sajt rad 20–21), genererade bilder framställs aldrig som kundens personer
+  (`kunskap/bild.md` rad 19–20), omdömen bara med källa (byggstandarden 9.3, rad 121), "hellre inga foton än stock"
+  (`LARDOMAR.md` rad 90), och det som saknas beställs (bygg-sajt rad 141–145). Ikoner som SVG har vi (3.6, rad 51)
+  och ikonuppsättningar registreras med licens (bygg-sajt rad 39–41). Krockar. (5) **Arbetsmodellen**: röstprompt
+  med all fantasi på en gång, låt agenten arbeta i en till två timmar, parallella trådar i worktrees för logotyp,
+  brand guide och annonser, en regel om högst en dollar bildgenerering utan att fråga, en enda HTML-fil och en mapp
+  med gamla projekt som agenten kan återanvända ur [TAL 15:53–16:26, 29:45–37:54; SKÄRM 31:04, 34:52, 35:17,
+  36:01]. Vi: obevakad körning som tar två timmar med granskningar (`LARDOMAR.md` rad 100–101), Astro ur mallen,
+  "Titta inte på andra byggen" (bygg-sajt rad 43) och UPPTAGNA-VAL.md som namnger val som gått igen, inga betalda
+  bild-API:er i bygget (`kunskap/bild.md` rad 6). Återbruket ur gamla projekt är motsatsen till vårt val, och
+  berättaren säger själv att han inte vet om det hände [TAL 33:00–33:18]. Brand guide och annonser ligger utanför
+  det vi bygger. Inte tillämpligt eller krockar. (6) **Den stora prompten och ThreeUI**: krav på prestanda, retina,
+  prov i webbläsaren med skärmbilder i fyra ljuslägen, konsolen utan fel, "do not wait for me to specify which
+  technologies" [SKÄRM 39:28, 40:38], och 150 fria three.js-hero-mallar att kopiera prompten ur [TAL 40:39–42:20;
+  SKÄRM 41:47]. Provdelen har vi (inspektionen, provets grindar, EARS-krav); mallarna är berättarens egen produkt
+  och krockar med rad 252. Lika respektive nej
+- Skäl: videons tes är att Opus 5.5 med Mobbin-referenser och 3D ger sajter "som inte är AI slop" [TAL 02:56,
+  45:40], och sajten sedd med egna ögon säger emot det: krämvit bakgrund (rgb 251, 245, 234), Instrument Serif i
+  rubriken med andra raden i kursiv ("Your lights don't."), spärrad versaletikett över rubriken, monospace-rad under
+  knappen, pillerknappar, terrakotta-accent, numrerade steg 01/02/03 och tre likadana kort i rad för Panels, Battery
+  och The app [BILD sunset-tutorial mobil-forsta.png, mobil-hela.png, SIDA.md; TEXT.md rad 59–73, 86–109]. Det är
+  sex av tio namngivna standardval i `kontroller/upptagna_val.py` rad 26–37, plus likadana kort i rad som
+  `kritik/GRANSKARE.md` rad 86 räknar som AI-mönster, alltså modellens husstil med ett 3D-hus under. Verksamheten är fiktiv och beviset påhittat: 4 200 hem, 31 städer, 58 MWh och tre AI-porträtt med
+  sparbelopp [TEXT.md rad 26–33, 155–179; SKÄRM 44:05], vilket är exakt det bygg-sajt rad 20–21 och byggstandarden
+  9.3 förbjuder. Det som är välgjort är texten: konkreta svar om kawara-takkrokar, tyfon och hinoki-skåp [TEXT.md
+  rad 190–216], men det är fiktion utan "Bara de har" att hämta ur. Sak för sak har vi varje metod som gäller en
+  statisk sajt, med starkare belägg (oberoende granskare i egna sessioner mot domare i samma session; Inspo-provet
+  med en fri källa mot en sponsrad betalkälla med 200 sajter), och det som är nytt, 3D överallt, genererade
+  människor, sektioner ur andras sajter, mallbibliotek och återbruk ur gamla projekt, krockar med medvetna val och
+  med three.js-domen. 3D-dalen och skeppet är imponerande hantverk [SKÄRM 00:52, 01:26, 22:11, 23:20] men spel, inte
+  sajter åt hantverkare, och berättaren säger själv att de kräver "a ton of references" och "a ton of steering"
+  [TAL 01:47]. Blir Inspo-provet vunnet och arkivets täckning gränsen, är Mobbin ändå inte nästa kandidat utan en
+  egen bedömning med konto, kostnad och de 200 sajterna framför sig. Källkritik: sponsrad av Mobbin, och
+  berättaren säljer aura.build (dömt nej, `kunskap/REGISTER-arkiv-20261001.md` rad 907–908), threeui.com och kurser;
+  "$10,000, $20,000 value" och "easily $20,000 if you were to give this to a client" är berättarens omdömen [TAL
+  00:00, 29:15]; "close to 400,000 views" är ett inläggs räckvidd, inte ett resultat [TAL 00:39]. Videon innehåller
+  inga instruktioner riktade till agenter
+- Kostnad: inget tas in. Som jämförelse: videons egen sajt är enligt agenten 10,5 MB i en fil plus three.js från CDN
+  [SKÄRM 06:02], mot vår budget 200 kB JS och 100 kB CSS (byggstandarden 3.7); en körning tog "about 1 hour" utan
+  att vara klar [TAL 42:54–43:26], vilket är i nivå med våra byggen men utan prov och granskning
+- Säkerhet: ej tillämpligt (video; inget hämtat utöver transkript, bildrutor och två sidors skärmbilder och text;
+  projektfilerna på Google Drive hämtades inte; inget kördes eller installerades)
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
