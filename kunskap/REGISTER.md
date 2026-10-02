@@ -2554,3 +2554,58 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   preferenser. Källa i raden: Bell & Pickering (2019), Every Layout
 - Utfall: —
 - Backlog: B-20261002-skriv-tre-layoutregler-i-bygge-referens-md-layou (egen innovation; domen om källan är nej)
+
+### 2026-10-02 · react-hook-form/react-hook-form · nej
+- Källa: https://github.com/react-hook-form/react-hook-form @ 7d1bce1 (ur klonens `.git/shallow`; senaste push
+  2026-10-02T08:16Z), MIT; version 7.89.0, cirka 44 900 stjärnor, inte arkiverat; 318 textfiler, cirka 59 500 tokens
+  text. Inte bedömd förut. Förgranskat. Läst: README i helhet, `package.json` i helhet, `src/form.tsx` i helhet,
+  `src/index.react-server.ts`, `src/logic/validateField.ts` rad 1–120, `examples/V7/basicValidation.tsx` i helhet,
+  fillistorna för `src/` och `examples/`. Övriga `src/logic/`, testerna och e2e bara som namn i förgranskningen.
+  Sett: `docs/logo.png` och `docs/ads-1.jpeg` (en annonsbanner), och demosajten react-hook-form.com öppnad i dag med
+  `sida.mjs`: mobilens första vy, desktops första vy och skrolläge 3 av 8. Ägarens not: ingen
+- Steg: 5 (bygge: kontaktsidans formulär); inget annat
+- Jämfört med i dag: (1) **Beroendet.** Paketet kräver React 16.8 eller senare som peer-beroende [REPO package.json
+  rad 118–121]; vår mall har `astro` och `sharp` som enda beroenden (`mall/astro/package.json` rad 10–13), steg 5
+  säger "ingen JavaScript som inte behövs" (`.claude/skills/bygg-sajt/SKILL.md` rad 217), och ägaren räknade 0 kB JS
+  till det bästa i alla tre dömda byggen (`LARDOMAR.md` rad 31, 56, 87). Samma krock som react/react i det här
+  registret. Sämre. (2) **Inskicket.** Källans `Form`-komponent skickar med `fetch` från JavaScript och sätter
+  `noValidate` på formuläret så fort det är monterat, så webbläsarens egen validering stängs av och biblioteket tar
+  över [REPO src/form.tsx rad 75–85, 146–150]. Mallens `Forfragan.astro` är en vanlig POST med `required`, `maxlength`
+  och `type="tel"` som fungerar utan JavaScript (rad 17, 22, 26, 30), vilket byggstandarden 6.3 kräver
+  (`kunskap/byggstandard.md` rad 86) och litteraturen motiverar: progressive enhancement, HTML före JS
+  (`kunskap/teoretisk-grund.md` rad 47–48). Källans väg är motsatsen. Sämre. (3) **Valideringsreglerna.** Källans
+  regler är desamma som HTML:s attribut: required, minLength, maxLength, min, max, pattern [REPO src/logic/validateField.ts
+  rad 42–56; README rad 27], alltså en omskrivning i JavaScript av det webbläsaren redan gör åt vår form. Lika i sak,
+  dyrare i väg. Ett grepp i källan är värt att låna utan biblioteket: med `shouldUseNativeValidation` skriver den
+  felbeskedet in i webbläsarens eget via `setCustomValidity` och `reportValidity` [REPO src/logic/validateField.ts
+  rad 62–76]. Byggstandarden 6.2 kräver svenska felmeddelanden vid fältet (rad 85), men mallen lämnar texten åt
+  webbläsaren, vars besked följer gränssnittsspråket, och `kontroller/standard_kontroll.py` prövar bara `type` och
+  `autocomplete` (rad 289–297, 445–455). Här är källan smartare än vi, i en detalj
+- Skäl: react-hook-form är ett formulärbibliotek för React-appar med tillstånd: hooks, kontrollerade fält, fältlistor,
+  omrenderingar [REPO README rad 1–3, 24–30; fillistan i `src/`], och demosajten säljer just det med
+  "Render Count" och "Isolate Re-renders" bredvid en kodruta [BILD rhf-sajt/desktop-skroll-03.png]. Vår kontaktsida har
+  ett formulär med tre fält och en bild; det behöver ingen tillståndsmotor, och det som biblioteket gör bättre än
+  HTML (fältlistor, asynkron validering, scheman med Zod) gäller inte ett sådant formulär. Att ta in det skulle kräva
+  React i varje bygge och flytta inskicket till JavaScript, vilket krockar med två medvetna val som ägarens domar
+  bekräftat (0 kB JS; POST utan JS, dom L1 i `kunskap/forfragan.md` rad 3–6). Litteraturen står på vår sida: rule of
+  least power och progressive enhancement (`kunskap/teoretisk-grund.md` rad 47–48, 119–120). Demosajten säger
+  inget om design för våra sajter: mörkblå bakgrund, systemtypsnitt, rosa accent, en dokumentationssajt för
+  utvecklare [BILD rhf-sajt/mobil-forsta.png; SIDA.md designfakta]. Källkritik: README:s påståenden om prestanda och
+  storlek belägger sig med en storleksgräns i CI (15 kB för CJS-paketet [REPO package.json rad 110–116]) och en
+  bundlephobia-länk; inget är anekdot, men inget mäter något vi mäter. README innehåller en annonsbanner och
+  sponsorrutor [REPO README rad 61–84; BILD docs/ads-1.jpeg], vilket är finansiering, inte vilseledning
+- Kostnad: inget tas in ur källan. Som beroende: React, en renderare och en Astro-integration per bygge, plus cirka
+  15 kB bibliotek och Reacts runtime på kontaktsidan. Egen innovation: några rader i mallens befintliga skript och en
+  rad i `kunskap/forfragan.md`, inga beroenden
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text till agenter, inga skills, hookar eller behörigheter.
+  251 skript; flaggorna "eval/exec" sitter i `src/logic/` och `src/utils/` (funktionskontroller, lästa i
+  `validateField.ts` utan att något körs dynamiskt) och i tester; "hemligheter/miljö" i Playwright- och Jest-konfig,
+  inte lästa i detalj. README:s installationsrad är användardokumentation. Inget försök att styra kirurgen; inget
+  kördes eller installerades
+- Förslag: inget ur källan. Egen innovation: `mall/astro/src/components/Forfragan.astro`, i det befintliga skriptet
+  (rad 50–65): för varje fält med `required`, lyssna på `invalid` och `input` och sätt `setCustomValidity` till ett
+  svenskt besked ur ett data-attribut på fältet när `validity.valueMissing`, annars tomt; bygget skriver beskeden i
+  verksamhetens ord. `kunskap/forfragan.md` efter rad 18: en rad om att felmeddelandena vid fältet är svenska med
+  JavaScript och webbläsarens egna utan. POST utan JS påverkas inte
+- Utfall: —
+- Backlog: B-20261002-mallens-formular-ger-svenska-felmeddelanden-vid (egen innovation; domen om källan är nej)
