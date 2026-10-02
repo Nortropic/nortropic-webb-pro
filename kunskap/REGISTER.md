@@ -465,3 +465,47 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Backlog: B-20261002-ta-in-humanizer-hermes-porten-av-blader-humanize (ta in);
   B-20261002-riktningarna-i-steg-5-1-skiljer-sig-ocksa-pa-sid (ta in);
   B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive (prova A/B, egen innovation)
+
+### 2026-10-02 · trimstray/the-book-of-secret-knowledge · nej
+- Källa: https://github.com/trimstray/the-book-of-secret-knowledge @ 7d37069 (ur klonens `.git/shallow`; senaste push
+  2024-11-19, alltså samma revision som förra bedömningen), MIT, cirka 247 000 stjärnor, inte arkiverat. Repot är en
+  README på drygt 4 400 rader plus licens, bidragsregler och en bild. Läst: inledningen (rad 1–108), alla
+  kapitelrubriker, och i sin helhet Web Tools (rad 443–710), Manuals (rad 835–1015) och Inspiring Lists (rad
+  1017–1094). Övriga kapitel (CLI- och GUI-verktyg, system, nät, containrar, bloggar, pentest, enradare för skalet) bara
+  som rubriker, och en sökning över hela filen efter design, typografi, UX, tillgänglighet, CSS, SEO, typsnitt och färg
+  gav bara träffar i skal-, nät- och säkerhetsposter. Sedd: den enda bilden, en tecknad uppslagen bok med titeln [BILD
+  static/img/the-book-of-secret-knowledge-preview.png]. Ingen demo. Bedömd förut med de gamla reglerna
+  (`REGISTER-arkiv-20261001.md:655`, nej); arkivet ligger utanför registret, så detta är en ny bedömning med dagens
+  regler.
+- Steg: inget av de åtta; närmast steg 6 (prov) och lanseringen (fas L i byggstandarden).
+- Jämfört med i dag: källan är en länklista med en mening per länk, uttryckligen för systemadministratörer, DevOps och
+  pentestare [REPO README.md rad 28, 32]. Det webbnära prövat sak mot sak. (1) Säkerhetshuvuden: securityheaders.com,
+  Mozilla Observatory och webhint [rad 491–493] betygsätter svarshuvuden; vi har CSP med hashar i demon
+  (`kunskap/byggstandard.md:109`, prövad av `kontroller/standard_kontroll.py:328–335`), rubrikerna i
+  `kontroller/prelaunch.py:31` och "säkerhetshuvuden på A-nivå" i lanseringsgrinden (`byggstandard.md:131`), alltså
+  redan betygsskalan från securityheaders. Lika; deras tjänster mäter bara en levande adress, och den har vi först vid
+  lansering. (2) Prestanda: PageSpeed Insights, web.dev och Lighthouse [rad 588–590] mot `kontroller/lighthouse.mjs` och
+  kravet 4.1 (`byggstandard.md:58`). Lika. (3) E-post och DNS: MX Toolbox, DKIM-validatorn och Zonemaster [rad 503,
+  524, 528] mot `kunskap/lansering.md:49–64`, som läser SPF, DKIM och DMARC men säger själv att den inte prövar syntax,
+  signering eller leverans (rad 59–62). Där vore en extern tjänst ett andra kvitto vid lansering; litet, och inget som
+  kräver den här listan. (4) Litteraturen: header-skanning och OWASP ASVS står redan som metoder
+  (`kunskap/teoretisk-grund.md:95–99`); källans OWASP-länkar [rad 938–946] pekar på samma ställen. (5) Generatorerna
+  föreslår AI-genererade ansikten [rad 641–642], mot "Inga stockbilder" (`.claude/skills/bygg-sajt/SKILL.md:70`) och
+  ägarens "hellre inga foton än stock" (`LARDOMAR.md:90`). Sämre.
+- Skäl: inget i listan rör det ägarens domar L1–L3 pekar på: förfrågningsvägen, bildunderlaget, förtroendet och
+  rösten. Det som rör en lokal verksamhets sajt är mätverktyg för krav vi redan har och mäter, i flera fall med samma
+  verktyg, och flera poster är döda eller föråldrade (xip.io och Panopticlick [rad 450, 513], Netcraft märkt otillgänglig
+  [rad 546]; senaste push för snart två år sedan). Den kan inte få oss att bygga bättre sajter, och den gör inget
+  smartare än det vi gör: den länkar till tjänster som en människa kör för hand. Källkritik: källan säljer inget utom en
+  Open Collective-insamling [rad 65–74]; stjärnorna är räckvidd, inte belägg, och urvalet är en persons bokmärken
+  [rad 28].
+- Kostnad: ingen; inget tas in. Hela källan är cirka 54 500 tokens text enligt förgranskningen; inga skills, skript
+  eller beroenden.
+- Säkerhet: förgranskningen LÅG över fem textfiler: inga dolda tecken, ingen text riktad till agenter, inga
+  behörigheter, krokar eller skript. Innehållet länkar till exploit-, läck- och skanningstjänster, men som listor, inte
+  som instruktioner till en agent. Inget kördes eller installerades.
+- Förslag: inget
+- Utfall: — (behöver en lansering ett andra kvitto på e-postposterna eller säkerhetshuvudena, är MX Toolbox eller
+  securityheaders.com ett handkvitto mot den levande adressen enligt `lansering.md` och `prelaunch.md`, inte en ny
+  kontroll)
+- Backlog: ingen
