@@ -333,8 +333,9 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   inte vet armen och byter ordning, träffar, falska blockerande fynd, överensstämmelse, tokens och tid
 - Utfall: kor.sh nekar Edit och Write i kontroller/, kritik/, kunskap/, mall/, .claude/ och LARDOMAR.md (prövat
   2026-10-02 med en provsession: sju försök nekade, även med absolut sökväg; kunder/ och underlag/ skrivbara).
-  Sammanfattningen varnar om de skyddade filerna ändrats under körningen (Bash når förbi reglerna). Två granskare:
-  se den posten.
+  Sammanfattningen varnar om de skyddade filerna ändrats under körningen (Bash når förbi reglerna). Två granskare
+  vann granskarförsöket 2026-10-02 i alla tre dömda byggen (omdömesfel 3,3 → 4,0 per bygge, alla fel 8,8 → 10,0, inga
+  falska blockerande) och körs nu i varje omgång; protokollet i den posten.
 - Backlog: B-20261002-byggsessionen-nekas-att-skriva-i-kontroller-krit (ta in);
   B-20261002-a-b-tva-isolerade-granskare-per-omgang-blockeran (prova A/B)
 
@@ -468,7 +469,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   med situation, apparat och tid på dygnet, och varje fynd sorteras med frågan om en kompetent men upptagen besökare
   hade fastnat på samma ställe. A/B på de tre dömda byggena mot ägarens fynd i L1–L3 som facit
 - Utfall: humanizer intagen 2026-10-02 (547a1df) i `.claude/skills/humanizer/`; bygg-sajt steg 4 pekar på den.
-  Prövas i nästa bygge.
+  Prövas i nästa bygge. Granskarens namngivna besökare (egen innovation) prövades i granskarförsöket 2026-10-02: ingen
+  skillnad mot dagens text (3,3 mot 3,3 omdömesfel per bygge); avvisad.
 - Backlog: B-20261002-ta-in-humanizer-hermes-porten-av-blader-humanize (ta in);
   B-20261002-riktningarna-i-steg-5-1-skiljer-sig-ocksa-pa-sid (ta in);
   B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive (prova A/B, egen innovation)
@@ -1212,7 +1214,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   isär; slut med var hen nästan lämnade och om hen skulle ringa eller skriva. Prövas som arm C i samma A/B: ägarens fel
   i L1–L3 som facit, tre körningar per arm och bygge, blind domare av en annan modell med ombytt ordning, oenighet
   räknas som oavgjort, tokens och tid redovisas bredvid
-- Utfall: —
+- Utfall: arm c i granskarförsöket 2026-10-02 (sökfras, jämförelseram, skärmruta för skärmruta med två röster): ingen
+  skillnad mot dagens text (3,3 mot 3,3 omdömesfel per bygge, 9,2 mot 8,8 av alla fel) och något dyrare; avvisad.
 - Backlog: B-20261002-a-b-tillagg-granskarens-namngivna-besokare-far-s (prova A/B, körs ihop med
   B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive)
 

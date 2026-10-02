@@ -6,7 +6,7 @@
 #
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
-# NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKNING_MAX (5 granskningar per körning).
+# NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång), NWP_GRANSKNING_MAX (5 per körning).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SLUG="${1:-}"

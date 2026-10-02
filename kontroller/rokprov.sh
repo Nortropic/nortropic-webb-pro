@@ -39,6 +39,13 @@ assert not g.godkand({'kriterier': {}, 'blockerande': []})
 assert g.niva({'kriterier': k, 'blockerande': []}) == 0
 assert g.niva({'kriterier': k, 'blockerande': [{'omfattning': 'detalj'}]}) == 1
 assert g.niva({'kriterier': k, 'blockerande': [{'omfattning': 'detalj'}, {'omfattning': 'riktning'}]}) == 2
+# två granskare: lägsta betyget, varje blockerande fynd och visa från båda gäller
+kv = {n: {'betyg': 8, 'motivering': '', 'visa': True} for n in g.KRITERIER}
+ja = {'kriterier': kv, 'blockerande': []}
+assert g.godkand(g.sla_ihop([ja, ja]))
+assert not g.godkand(g.sla_ihop([ja, {'kriterier': kv, 'blockerande': [{'kriterium': 'text', 'allvarlighet': 3}]}]))
+assert not g.godkand(g.sla_ihop([ja, {'kriterier': dict(kv, text={'betyg': 6, 'motivering': '', 'visa': True}), 'blockerande': []}]))
+assert not g.godkand(g.sla_ihop([ja, {'kriterier': dict(kv, text={'betyg': 9, 'motivering': '', 'visa': False}), 'blockerande': []}]))
 " || { echo "FEL: godkännandets regel"; exit 1; }
 echo "   granskaren ok"
 

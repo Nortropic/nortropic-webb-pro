@@ -186,7 +186,7 @@ formuleringar som röstprov, och kör copykontrollen igen.
 
 ## Steg 5 — Koncept och bygge (design)
 
-Läs först `kritik/GRANSKARE.md`: så bedömer den oberoende granskaren sajten, på fem kriterier med betyg och
+Läs först `kritik/GRANSKARE.md`: så bedömer de två oberoende granskarna sajten, på fem kriterier med betyg och
 trösklar. Bygg för att klara den. Läs sedan `kunskap/externa/anthropic-frontend-design-SKILL.md`,
 `kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md` (principerna i §0 och §4, inte dess stack eller skelett),
 `kunskap/externa/emil-emil-design-eng-SKILL.md`, `kunskap/bygge-referens.md`, `kunskap/bild.md`,
@@ -253,11 +253,12 @@ KONCEPT.md.
    Två prov på första vyn: fungerar den lika bra om du tänker bort bilden, är bilden för svag; blir sidan bättre av
    att stryka en tredjedel av texten, stryk.
 6. **Oberoende granskning.** Kör `.venv/bin/python kontroller/granska.py <slug>` direkt efter ett snabbprov, med
-   Bash-tidsgränsen 600000. En egen Claude-session som inte sett ditt resonemang dömer sajten; det tar 4–15 minuter.
+   Bash-tidsgränsen 600000. Två egna Claude-sessioner som inte sett ditt resonemang dömer sajten var för sig; ett
+   blockerande fynd från någon av dem gäller, och det tar 4–15 minuter. Pekar båda ut samma brist, rätta den en gång.
    Svarar kommandot att granskningen pågår: kör samma kommando igen. Läs `kunder/<slug>/granskning/GRANSKNING.md`.
    Rätta varje blockerande fynd; acceptanskriteriet säger när det är rättat. Förbättringarna är valfria: en granskare
    som ombeds hitta brister hittar alltid några, och att jaga varje fynd leder till överarbete. Kör snabbprovet och
-   granskningen igen efter rättningarna, tills granskaren godkänner. Är en invändning fel: skriv varför under
+   granskningen igen efter rättningarna, tills granskarna godkänner. Är en invändning fel: skriv varför under
    Granskningen i rapporten. Granskningarna per körning har ett tak; använd dem efter verkliga ändringar.
    **Förfina eller byt riktning.** Efter varje granskning skriver du en rad i `underlag/<slug>/GRANSKNINGSLOGG.md`:
    omgång, betygen, och om du förfinar riktningen eller byter, och varför. Fynd med omfattning `riktning` betyder byt.

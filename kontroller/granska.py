@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""granska.py — oberoende granskning av ett bygge: en egen Claude-session, utan byggarens resonemang, dömer den färdiga
-sajten efter kritik/GRANSKARE.md och sätter betyg på fem kriterier. Kritiken går tillbaka till byggaren tills sajten
+"""granska.py — oberoende granskning av ett bygge: två egna Claude-sessioner, utan byggarens resonemang och utan att se
+varandra, dömer den färdiga sajten parallellt efter kritik/GRANSKARE.md och sätter betyg på fem kriterier. Domen tar
+det lägsta betyget per kriterium och varje blockerande fynd från någon av dem, så godkänt kräver båda (granskarförsöket
+2026-10-02: två fann fler av ägarens fel än en i alla tre dömda byggen, utan falska blockerande fynd). Kritiken går tillbaka till byggaren tills sajten
 håller (generator och granskare, Anthropic "Harness design for long-running application development").
 
     .venv/bin/python kontroller/granska.py <slug> [--vanta SEK] [--om]
@@ -14,7 +16,8 @@ Resultat i kunder/<slug>/granskning/: GRANSKNING.json och GRANSKNING.md (senaste
 Exit: 0 godkänd · 1 underkänd · 2 fel i anropet eller saknat bygge · 3 taket för omgångar nått · 4 granskaren föll ·
 5 pågår, kör igen.
 
-Miljö: NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_EFFORT (high), NWP_GRANSKNING_MAX (5 omgångar per körning),
+Miljö: NWP_GRANSKARE_ANTAL (2 granskare per omgång; 1 för en), NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_EFFORT (high),
+NWP_GRANSKNING_MAX (5 omgångar per körning),
 NWP_GRANSKNING_FRIST (1500 s per session), NWP_KORNING (sätts av kor.sh; omgångarna räknas per körning).
 """
 import argparse
@@ -44,6 +47,7 @@ ORIGINALITETSLAGEN = ('skugga', 'avgor', 'av')  # egen domare för originalitet:
 KRITERIER = ('designkvalitet', 'originalitet', 'hantverk', 'funktion', 'text')
 TROSKEL = {k: 7 for k in KRITERIER}
 MAX_RUNDOR = int(os.environ.get('NWP_GRANSKNING_MAX', '5'))
+ANTAL = max(1, int(os.environ.get('NWP_GRANSKARE_ANTAL', '2')))  # isolerade granskare per omgång
 FRIST = int(os.environ.get('NWP_GRANSKNING_FRIST', '1500'))
 ARBETSROT = Path('/tmp/nwp-granskning')
 MATTSTOCKAR = [
@@ -241,6 +245,30 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
     return '\n'.join(delar) + '\n'
 
 
+def sla_ihop(delar):
+    """Isolerade granskares svar till en dom: lägsta betyget per kriterium, ja bara när alla säger ja, och varje
+    blockerande fynd från någon av dem. Godkänt kräver alltså att alla godkänner. Två granskare hittade fler av
+    ägarens fel än en i alla tre dömda byggen, utan falska blockerande fynd (granskarförsöket 2026-10-02)."""
+    if len(delar) == 1:
+        return dict(delar[0])
+    ut = {'kriterier': {}}
+    for k in KRITERIER:
+        bs = [d['kriterier'][k] for d in delar]
+        lagst = min(bs, key=lambda b: b['betyg'])
+        ut['kriterier'][k] = {'betyg': lagst['betyg'], 'motivering': lagst['motivering'], 'visa': all(b.get('visa') for b in bs)}
+    ut['blockerande'] = sorted([dict(f, granskare=i + 1) for i, d in enumerate(delar) for f in d.get('blockerande') or []],
+                               key=lambda f: -int(f.get('allvarlighet') or 0))
+    for f in ('forbattringar', 'styrkor', 'sett', 'ej_bedomt'):
+        ut[f] = list(dict.fromkeys(x for d in delar for x in d.get(f) or []))
+    ut['kognitiv_genomgang'] = [dict(r, uppgift='[%d] %s' % (i + 1, r.get('uppgift', ''))) for i, d in enumerate(delar)
+                                for r in d.get('kognitiv_genomgang') or []]
+    ut['likhet_tidigare'] = ' '.join('Granskare %d: %s' % (i + 1, d.get('likhet_tidigare', '')) for i, d in enumerate(delar))
+    ut['sammanfattning'] = ' '.join('Granskare %d: %s' % (i + 1, d.get('sammanfattning', '')) for i, d in enumerate(delar))
+    ut['enskilda'] = [{'godkand': godkand(d), 'niva': niva(d), 'blockerande': len(d.get('blockerande') or []),
+                       'betyg': {k: d['kriterier'][k]['betyg'] for k in KRITERIER}} for d in delar]
+    return ut
+
+
 # --- en omgång (körs i egen process) ---
 
 def arbetare(rdir):
@@ -257,26 +285,55 @@ def arbetare(rdir):
         aria = aria_trad(kund, rdir / 'sajt')
         if prova.dist_hash(rdir / 'dist') != upp['dist_sha256']:
             raise RuntimeError('bygget ändrades medan granskningen startade; kör provet och granskningen igen')
-        arbetskatalog = ARBETSROT / ('%s-%s' % (slug, rdir.name))
-        arbetskatalog.mkdir(parents=True, exist_ok=True)
         claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
+        antal = max(1, int(upp.get('granskare', 1)))
+        delar, sessioner, fel = [], [], []
         with prova.Server(rdir / 'dist') as srv:
-            prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                  referensbilder(slug), tidigare_byggen(slug), kalibrering(slug), rdir, aria, bildankare(slug))
-            (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
-            args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
-                    '--setting-sources', 'project,local', '--strict-mcp-config',
-                    '--model', upp['modell'], '--effort', upp['effort'],
-                    '--json-schema', SCHEMA.read_text(encoding='utf-8'), '--add-dir', str(arbetskatalog),
-                    '--allowedTools', *VERKTYG, '--disallowedTools', *NEKAS]
-            with open(rdir / 'svar.json', 'wb') as ut:
-                p = subprocess.run(args, input=prompt.encode(), stdout=ut, stderr=subprocess.PIPE, cwd=str(ROOT),
-                                   env=ren_miljo(), timeout=upp.get('frist', FRIST))
-        svar = las_json(rdir / 'svar.json') or {}
-        res = svar.get('structured_output')
-        if p.returncode or svar.get('is_error') or not isinstance(res, dict):
-            raise RuntimeError('granskarens session gav inget giltigt svar (kod %s, %s): %s' % (
-                p.returncode, svar.get('subtype'), (p.stderr or b'').decode(errors='replace')[-500:] or str(svar.get('result'))[:500]))
+            # Två granskare (eller fler) dömer var för sig med samma kriterier, parallellt, var och en i egen session
+            # och egen arbetskatalog; ingen ser den andras svar.
+            korande = []
+            for n in range(1, antal + 1):
+                arbetskatalog = ARBETSROT / ('%s-%s-%d' % (slug, rdir.name, n))
+                arbetskatalog.mkdir(parents=True, exist_ok=True)
+                prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
+                                      referensbilder(slug), tidigare_byggen(slug), kalibrering(slug), rdir, aria, bildankare(slug))
+                (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
+                args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
+                        '--setting-sources', 'project,local', '--strict-mcp-config',
+                        '--model', upp['modell'], '--effort', upp['effort'],
+                        '--json-schema', SCHEMA.read_text(encoding='utf-8'), '--add-dir', str(arbetskatalog),
+                        '--allowedTools', *VERKTYG, '--disallowedTools', *NEKAS]
+                ut = open(rdir / ('svar.json' if n == 1 else 'svar-%d.json' % n), 'wb')
+                err = open(rdir / ('stderr-%d.log' % n), 'wb')
+                proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=ut, stderr=err, cwd=str(ROOT), env=ren_miljo())
+                proc.stdin.write(prompt.encode())  # alla får sin prompt direkt, så att de verkligen går samtidigt
+                proc.stdin.close()
+                korande.append((n, proc, ut, err))
+            slut = time.time() + upp.get('frist', FRIST)
+            for n, proc, ut, err in korande:
+                try:
+                    proc.wait(timeout=max(1, slut - time.time()))
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+                ut.close()
+                err.close()
+                stderr = (rdir / ('stderr-%d.log' % n)).read_bytes()
+                svar = las_json(rdir / ('svar.json' if n == 1 else 'svar-%d.json' % n)) or {}
+                res = svar.get('structured_output')
+                if proc.returncode or svar.get('is_error') or not isinstance(res, dict):
+                    fel.append('granskare %d gav inget giltigt svar (kod %s, %s): %s' % (
+                        n, proc.returncode, svar.get('subtype'), (stderr or b'').decode(errors='replace')[-300:] or str(svar.get('result'))[:300]))
+                    continue
+                delar.append(res)
+                sessioner.append({'granskare': n, **{k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id', 'total_cost_usd')}})
+        if not delar:
+            raise RuntimeError('; '.join(fel))
+        res = sla_ihop(delar)
+        if fel:
+            res['ej_bedomt'] = list(res.get('ej_bedomt') or []) + ['En av granskarna föll, domen bygger på %d av %d: %s' % (len(delar), antal, '; '.join(fel))]
+        svar = {'num_turns': sum(s.get('num_turns') or 0 for s in sessioner), 'duration_ms': max(s.get('duration_ms') or 0 for s in sessioner),
+                'session_id': sessioner[0].get('session_id')}
         lage = upp.get('originalitet', 'skugga')
         if lage != 'av':
             sep = originalitet_separat(rdir, upp, slug, bilder, claude)
@@ -289,7 +346,7 @@ def arbetare(rdir):
         post = {'schema': 1, 'slug': slug, 'runda': upp['runda'], 'korning': upp['korning'], 'tid': nu(),
                 'startad': upp['tid'], 'dist_sha256': upp['dist_sha256'], 'modell': upp['modell'], 'effort': upp['effort'],
                 'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res,
-                'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}}
+                'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}, 'sessioner': sessioner}
         (rdir / 'GRANSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         (rdir / 'GRANSKNING.md').write_text(markdown(post), encoding='utf-8')
     except Exception as e:  # omgången ska sluta med ett besked, aldrig tyst
@@ -345,13 +402,17 @@ def markdown(g):
         x = (g.get('kriterier') or {}).get(k) or {}
         varn = '' if x.get('betyg', 0) >= g['troskel'][k] else ' (under)'
         rad.append('| %s | %s%s | %s |' % (k, x.get('betyg', '?'), varn, (x.get('motivering') or '').replace('|', '/').replace('\n', ' ')))
+    if g.get('enskilda'):
+        rad += ['', '%d granskare dömde var för sig; lägsta betyget och varje blockerande fynd gäller: %s.' % (
+            len(g['enskilda']), '; '.join('granskare %d %s, %d blockerande' % (i, 'godkänner' if e['godkand'] else 'underkänner', e['blockerande'])
+                                        for i, e in enumerate(g['enskilda'], 1)))]
     rad += ['', '## Blockerande fynd', '']
     for i, f in enumerate(g.get('blockerande') or [], 1):
         grad = ' · grad %s' % f['allvarlighet'] if f.get('allvarlighet') else ''
         punkt = ' · standard %s' % f['standardpunkt'] if f.get('standardpunkt') else ''
         punkt += ' · %s' % f['omfattning'] if f.get('omfattning') else ''
         rad.append('%d. **%s%s · %s%s.** %s Konsekvens: %s%s **Rättning:** %s%s' % (
-            i, f['kriterium'], grad, f['var'], punkt, f['observation'], f['konsekvens'],
+            i, f['kriterium'] + (' (granskare %d)' % f['granskare'] if f.get('granskare') else ''), grad, f['var'], punkt, f['observation'], f['konsekvens'],
             (' Bryter: %s.' % f['heuristik']) if f.get('heuristik') else '', f['rattning'],
             ('\n   **Acceptanskriterium:** %s' % f['acceptanskriterium']) if f.get('acceptanskriterium') else ''))
     if not g.get('blockerande'):
@@ -545,7 +606,7 @@ def main(argv=None):
     rdir.mkdir()
     upp = {'slug': a.slug, 'runda': n, 'korning': korning, 'tid': nu(), 'dist_sha256': hash_nu,
            'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
-           'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'frist': FRIST,
+           'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'frist': FRIST, 'granskare': ANTAL,
            'originalitet': os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga') if os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga') in ORIGINALITETSLAGEN else 'skugga'}
     (rdir / 'UPPDRAG.json').write_text(json.dumps(upp, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     with open(rdir / 'arbetare.log', 'wb') as logg:
