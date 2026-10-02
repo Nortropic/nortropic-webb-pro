@@ -163,6 +163,11 @@ trösklar. Bygg för att klara den. Läs sedan `kunskap/externa/anthropic-fronte
 `kunskap/externa/emil-emil-design-eng-SKILL.md`, `kunskap/bygge-referens.md`, `kunskap/bild.md`,
 `kunskap/externa/emil-mobile-native-SKILL.md`, och `kunskap/formularsakerhet.md` om sajten får formulär.
 
+Kör `.venv/bin/python kontroller/upptagna_val.py <slug>` och läs `underlag/<slug>/UPPTAGNA-VAL.md`: typsnitt, färger
+och toppsektioner som tidigare byggen redan valt, och modellens egna standardval. Du ser valen, inte sajterna. Ett
+upptaget val är tillåtet när verksamhetens material motiverar det; välj det aldrig av vana, och skriv skälet i
+KONCEPT.md.
+
 1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md`: två visuella riktningar härledda ur verksamheten själv (deras
    bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Per riktning typografi, färg, rytm och
    vad som dominerar första vyn. Välj en med skäl.

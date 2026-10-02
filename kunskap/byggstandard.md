@@ -37,7 +37,7 @@ sälja: varje sida har ett tydligt nästa steg.
 | 2.2 Knapp är `<button>`, länk är `<a href>`; inga klickhändelser på div eller span, inga inline-händelser. | D | `standard` |
 | 2.3 `lang="sv"`, viewport, unik title och description, favicon som SVG och 180×180 px apple-touch-icon, theme-color. | D | `standard`, `seo` |
 | 2.4 Alt-text (tom för dekor), width och height på varje bild, lazy under första vyn; den största bilden i första vyn laddas direkt med `fetchpriority="high"`. | D | `standard`, `seo`, info |
-| 2.5 Giltig HTML. | D | info |
+| 2.5 Giltig HTML, prövad lokalt med html-validate. | D | `standard` |
 
 ## 3. CSS och design (W+K)
 
