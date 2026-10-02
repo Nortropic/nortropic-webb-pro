@@ -15,7 +15,8 @@ slut eller ägaren säger stopp. Fråga inte om lov för varje post; ägarens or
 ```
 
 Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordningen. Läs `CLAUDE.md` och
-`backlog/README.md` en gång innan första posten.
+`backlog/README.md` en gång innan första posten, och `kunskap/teoretisk-grund.md` och `kunskap/byggstandard.md`: en
+ändring ska följa litteraturen och standarden, eller säga varför den avviker.
 
 ## Per post
 

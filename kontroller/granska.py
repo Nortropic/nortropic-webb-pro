@@ -44,6 +44,7 @@ MAX_RUNDOR = int(os.environ.get('NWP_GRANSKNING_MAX', '5'))
 FRIST = int(os.environ.get('NWP_GRANSKNING_FRIST', '1500'))
 ARBETSROT = Path('/tmp/nwp-granskning')
 MATTSTOCKAR = [
+    ('Byggstandarden (punkterna fynden hänvisar till)', 'kunskap/byggstandard.md'),
     ('De åtta dimensionerna', 'kunskap/referenser-professionella.md'),
     ('Regeln mot slop', 'kunskap/copy-kontroll.md'),
     ('Redaktionellt pass', 'kunskap/redaktionellt-pass.md'),
@@ -114,6 +115,17 @@ def skarmbilder(rot, sajtrot):
     return ut
 
 
+def aria_trad(rot, sajtrot):
+    """Tillgänglighetsträdet i 390 px per sida ur provets inspektion, kopierat till omgången."""
+    ut = []
+    for f in sorted((rot / 'prov' / 'inspektion').glob('*/vy-390-aria.txt')):
+        mal = sajtrot / f.parent.name / f.name
+        mal.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(f, mal)
+        ut.append(mal)
+    return ut
+
+
 def referensbilder(slug):
     ut = []
     for d in sorted(p for p in (UNDERLAG / slug / 'referenser').glob('*') if p.is_dir()):
@@ -156,7 +168,7 @@ def kalibrering():
     return rader
 
 
-def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir):
+def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=()):
     u = UNDERLAG / slug
     v = las_json(u / 'VERKSAMHET.json') or {}
     rad = lambda p: '- ' + (rel(p) if str(p).startswith(str(ROOT)) else str(p))  # noqa: E731
@@ -176,7 +188,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         *(kal or ['- inga ännu']), '',
         'Verksamhetens underlag:', *[rad(p) for p in underlag], '',
         'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390 och 1440 (läs varje):',
-        *[rad(p) for p in bilder], ''
+        *[rad(p) for p in bilder], '',
+        'Tillgänglighetsträdet i 390 px per sida:', *([rad(p) for p in aria] or ['- saknas']), ''
+        'Byggstandardens maskinella fynd: %s' % (rad(rdir / 'standard.md')[2:] if (rdir / 'standard.md').is_file() else 'saknas'),
         'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'), '',
         'Referensernas skärmbilder:', *([rad(p) for p in refs] or ['- inga']), '',
         'Tidigare byggens första vy:', *([rad(p) for p in tidigare] or ['- inga']), '',
@@ -194,9 +208,11 @@ def arbetare(rdir):
     kund = KUNDER / slug
     try:
         shutil.copytree(kund / 'sajt' / 'dist', rdir / 'dist')
-        if (kund / 'prov' / 'copy.md').is_file():
-            shutil.copy2(kund / 'prov' / 'copy.md', rdir / 'copy.md')
+        for namn in ('copy.md', 'standard.md'):
+            if (kund / 'prov' / namn).is_file():
+                shutil.copy2(kund / 'prov' / namn, rdir / namn)
         bilder = skarmbilder(kund, rdir / 'sajt')
+        aria = aria_trad(kund, rdir / 'sajt')
         if prova.dist_hash(rdir / 'dist') != upp['dist_sha256']:
             raise RuntimeError('bygget ändrades medan granskningen startade; kör provet och granskningen igen')
         arbetskatalog = ARBETSROT / ('%s-%s' % (slug, rdir.name))
@@ -204,7 +220,7 @@ def arbetare(rdir):
         claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
         with prova.Server(rdir / 'dist') as srv:
             prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                  referensbilder(slug), tidigare_byggen(slug), kalibrering(), rdir)
+                                  referensbilder(slug), tidigare_byggen(slug), kalibrering(), rdir, aria)
             (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
             args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                     '--setting-sources', 'project,local', '--strict-mcp-config',
@@ -245,9 +261,21 @@ def markdown(g):
         rad.append('| %s | %s%s | %s |' % (k, x.get('betyg', '?'), varn, (x.get('motivering') or '').replace('|', '/').replace('\n', ' ')))
     rad += ['', '## Blockerande fynd', '']
     for i, f in enumerate(g.get('blockerande') or [], 1):
-        rad.append('%d. **%s · %s.** %s Konsekvens: %s **Rättning:** %s' % (i, f['kriterium'], f['var'], f['observation'], f['konsekvens'], f['rattning']))
+        grad = ' · grad %s' % f['allvarlighet'] if f.get('allvarlighet') else ''
+        punkt = ' · standard %s' % f['standardpunkt'] if f.get('standardpunkt') else ''
+        rad.append('%d. **%s%s · %s%s.** %s Konsekvens: %s%s **Rättning:** %s%s' % (
+            i, f['kriterium'], grad, f['var'], punkt, f['observation'], f['konsekvens'],
+            (' Bryter: %s.' % f['heuristik']) if f.get('heuristik') else '', f['rattning'],
+            ('\n   **Acceptanskriterium:** %s' % f['acceptanskriterium']) if f.get('acceptanskriterium') else ''))
     if not g.get('blockerande'):
         rad.append('Inga.')
+    steg = g.get('kognitiv_genomgang') or []
+    if steg:
+        nej = [s for s in steg if not s.get('alla_ja')]
+        rad += ['', '## Kognitiv genomgång', '', '%d steg, %d med minst ett nej.' % (len(steg), len(nej)), '',
+                '| Uppgift | Steg | Fyra ja | Brist |', '|---|---|---|---|']
+        rad += ['| %s | %s | %s | %s |' % (s['uppgift'].replace('|', '/'), s['steg'].replace('|', '/'), 'ja' if s.get('alla_ja') else 'nej',
+                                          (s.get('brist') or '').replace('|', '/')) for s in steg]
     for rubrik, nyckel in (('Förbättringar', 'forbattringar'), ('Styrkor', 'styrkor'), ('Ej bedömt', 'ej_bedomt')):
         rad += ['', '## ' + rubrik, ''] + (['- ' + x for x in g.get(nyckel) or []] or ['Inga.'])
     rad += ['', '## Likhet med tidigare byggen', '', g.get('likhet_tidigare') or '-', '', '## Sammanfattning', '', g.get('sammanfattning') or '-', '']
@@ -332,10 +360,12 @@ def main(argv=None):
     if a.torr:
         rdir = Path(tempfile.mkdtemp(prefix='nwp-torr-'))
         bilder = skarmbilder(kund, rdir / 'sajt')
-        if (kund / 'prov' / 'copy.md').is_file():
-            shutil.copy2(kund / 'prov' / 'copy.md', rdir / 'copy.md')
+        for namn in ('copy.md', 'standard.md'):
+            if (kund / 'prov' / namn).is_file():
+                shutil.copy2(kund / 'prov' / namn, rdir / namn)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / 'torr', bilder,
-                              referensbilder(a.slug), tidigare_byggen(a.slug), kalibrering(), rdir)
+                              referensbilder(a.slug), tidigare_byggen(a.slug), kalibrering(), rdir,
+                              aria_trad(kund, rdir / 'sajt'))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         print(prompt)
         print('Torrkörning: %s. Ingen granskare startades.' % (rdir / 'PROMPT.txt'))

@@ -1,6 +1,6 @@
 {
  "type": "object",
- "required": ["kriterier", "blockerande", "forbattringar", "styrkor", "likhet_tidigare", "sett", "ej_bedomt", "sammanfattning"],
+ "required": ["kriterier", "kognitiv_genomgang", "blockerande", "forbattringar", "styrkor", "likhet_tidigare", "sett", "ej_bedomt", "sammanfattning"],
  "additionalProperties": false,
  "properties": {
   "kriterier": {
@@ -15,19 +15,37 @@
     "text": {"$ref": "#/$defs/betyg"}
    }
   },
+  "kognitiv_genomgang": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": ["uppgift", "steg", "alla_ja", "brist"],
+    "additionalProperties": false,
+    "properties": {
+     "uppgift": {"type": "string"},
+     "steg": {"type": "string"},
+     "alla_ja": {"type": "boolean"},
+     "brist": {"type": "string"}
+    }
+   }
+  },
   "blockerande": {
    "type": "array",
    "maxItems": 8,
    "items": {
     "type": "object",
-    "required": ["kriterium", "var", "observation", "konsekvens", "rattning"],
+    "required": ["kriterium", "allvarlighet", "var", "observation", "konsekvens", "standardpunkt", "heuristik", "rattning", "acceptanskriterium"],
     "additionalProperties": false,
     "properties": {
      "kriterium": {"type": "string", "enum": ["designkvalitet", "originalitet", "hantverk", "funktion", "text"]},
+     "allvarlighet": {"type": "integer", "minimum": 3, "maximum": 4},
      "var": {"type": "string"},
      "observation": {"type": "string"},
      "konsekvens": {"type": "string"},
-     "rattning": {"type": "string"}
+     "standardpunkt": {"type": "string"},
+     "heuristik": {"type": "string"},
+     "rattning": {"type": "string"},
+     "acceptanskriterium": {"type": "string"}
     }
    }
   },
