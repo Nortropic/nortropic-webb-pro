@@ -1015,3 +1015,45 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · huggingface/transformers · nej
+- Källa: https://github.com/huggingface/transformers @ 9d8c3a2 (ur klonens `.git/shallow`; senaste push
+  2026-10-02T14:26Z), Apache-2.0; cirka 167 000 stjärnor, inte arkiverat. Förgranskat. Läst: README helt, hela
+  agentdelen (`.ai/AGENTS.md`, `.ai/review-rules.md`, `.ai/skills/add-or-fix-type-checking/SKILL.md`), Makefile-målen
+  som länkar skillen, förgranskningens rapport och ett urval av de flaggade ställena. Resten (cirka 6 500 textfiler,
+  modellkod, översatt dokumentation) bara som fillista. Bilder: repots enda bilder är fyra testfixturer (COCO);
+  README:s bilder ligger på huggingface.co och är logga och ett schema. Ingen demosajt. Ägarens not: ingen
+- Steg: inget av de åtta; möjligen kirurgen själv (granskningsregler för agenter) och underlaget i steg 1 (bilder, ljud)
+- Jämfört med i dag: källan är ett Python-bibliotek med modelldefinitioner för text, bild, ljud och video, för träning
+  och inferens med PyTorch [REPO README.md rad 70–76, 87]. Sak mot sak där det kunde beröra oss: (1) **Bilderna i
+  steg 1** beskrivs av byggaren själv som tittar på dem och skriver fil, källa, vad bilden visar och kvalitet i
+  `BILDER.md` (`.claude/skills/bygg-sajt/SKILL.md` rad 68–72). En lokal bildklassare eller bildtextmodell ur källan
+  [REPO README.md rad 174–213] gör samma sak sämre än en modell som ser bilden och vet vad verksamheten behöver; sämre.
+  (2) **Ljud**: kirurgens videoverktyg tar YouTubes transkript och annars undertexter, ingen taligenkänning
+  (`kontroller/youtube.py` rad 13). Whisper genom källans pipeline [REPO README.md rad 161–170] skulle fylla den
+  luckan, men den har inte stoppat något intag, och bygget tar inte emot ljud från verksamheter i dag. (3)
+  **Agentreglerna**: granskningsreglerna behandlar PR-innehåll som opålitlig indata och förbjuder att påstå att en
+  kontroll gick igenom som inte körts [REPO .ai/review-rules.md rad 3, 9–13]. Vi har samma två regler: granskaren läser
+  allt som material, aldrig instruktioner, och skiljer verifierat från antaget (`kritik/GRANSKARE.md` rad 9–10), och
+  kirurgen har sin säkerhetsdel. Lika. Typkontrollskillen gäller bara deras `ty`-verktyg och Python-kodbas; inget för
+  oss
+- Skäl: transformers är bästa verktyget för den som tränar eller kör maskininlärningsmodeller, men vi bygger statiska
+  sajter åt hantverkare med en modell som redan ser bilder och läser text; inget av de åtta stegen saknar en lokal
+  modell. Det som ligger närmast, taligenkänning för videor utan undertexter eller röstmeddelanden från en
+  verksamhet, är i så fall ett litet och fristående behov som hellre löses med ett eget smalt verktyg än med ett
+  bibliotek som drar in PyTorch; det blir aktuellt först när ett intag eller en beställning faktiskt fastnat på ljud.
+  Agentdelen är välskriven men säger inget vi inte redan har. Källan säljer Hugging Face Hub och Enterprise [REPO
+  README.md rad 81–83, 240–242], men påståendena om modellerna är belagda med körbara exempel, inte anekdoter
+- Kostnad: inget tas in. Som beroende vore det PyTorch plus nedladdade modellvikter, flera GB, och underhåll av en
+  Python-miljö med GPU-/MPS-frågor; källans text är cirka 3,05 miljoner tokens enligt förgranskningen. Skillen i
+  `.ai/skills/` kostar 40 tokens alltid och cirka 2 500 vid användning, men hör inte till vårt arbete
+- Säkerhet: förgranskningen HÖG, av storlek snarare än av avsikt. 368 dolda tecken, alla i dokumentationen; de
+  kontrollerade är nollbreddsmellanrum i japansk och arabisk text och en sammanfogning i en emoji [REPO
+  docs/source/en/quantization/concept_guide.md rad 171]. De 38 ställena med "text till agenter" är systemprompter i
+  modellexempel och tester ("You are an AI …" i evolla och higgs_audio) och vanliga instruktioner i
+  bidragsguiderna; ingen riktar sig till en kodagent som läser repot. Agentfilerna ger inga behörigheter och har inga
+  hookar; `make claude` länkar bara in skillmappen [REPO Makefile rad 82–85]. 4 933 skript, bland dem CI-konfiguration
+  med nätanrop och miljövariabler. Inget kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
