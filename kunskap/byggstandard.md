@@ -118,7 +118,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 |---|---|---|
 | 9.1 Första vyn säger vad, var, för vem och nästa steg. Ingen karusell. | D | femsekunderstestet, granskaren |
 | 9.2 Telefonnumret som tel-länk i sidhuvudet på varje sida; nästa steg på varje sida. | D | `standard` |
-| 9.3 Förtroende: omdömen med källa, referensjobb med egna bilder, F-skatt, försäkring, certifikat, org.nr i sidfoten, ROT eller RUT där det gäller. Bara det som är belagt. | D | granskaren |
+| 9.3 Förtroende: omdömen med källa, referensjobb med egna bilder, F-skatt, försäkring, certifikat, org.nr i sidfoten, ROT eller RUT där det gäller. Bara det som är belagt; det som saknas beställs av verksamheten (`underlag/<slug>/BESTALLNING.md`), minst fem egna bilder eller en beställning. | D | `standard` (bilderna), granskaren |
 | 9.4 Konkret, aktiv text på kundens språk; inga platshållare, inga stockbilder där egna finns, rätt årtal. | D | copykontrollen, granskaren |
 | 9.5 Varje sida svarar på en fråga kunden faktiskt har: pris, tid, område eller process. | D | granskaren |
 

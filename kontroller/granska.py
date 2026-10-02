@@ -211,7 +211,7 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
     u = UNDERLAG / slug
     v = las_json(u / 'VERKSAMHET.json') or {}
     rad = lambda p: '- ' + (rel(p) if str(p).startswith(str(ROOT)) else str(p))  # noqa: E731
-    underlag = [u / f for f in ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'REFERENSER.md') if (u / f).is_file()]
+    underlag = [u / f for f in ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'REFERENSER.md', 'BESTALLNING.md') if (u / f).is_file()]
     if (u / 'bilder' / 'BILDER.md').is_file():
         underlag.append(u / 'bilder' / 'BILDER.md')
     trosklar = ', '.join('%s ≥ %d' % (k, TROSKEL[k]) for k in KRITERIER)

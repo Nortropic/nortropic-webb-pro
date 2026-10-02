@@ -94,6 +94,10 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
    Svarar varje sida på en fråga kunden faktiskt har? Fraser och strukturer enligt regeln mot slop. Ett påstående som
    saknar stöd i underlaget är ett blockerande fynd.
 
+**Saknat underlag** (ägarens domar L2 och L3): saknar sajten egna bilder, telefontid, försäkring och F-skatt eller
+svarstid, kontrollera att det står i beställningen (`BESTALLNING.md` i underlaget) och att sajten varken låtsas ha
+det eller döljer bristen med form. Beställt: en förbättring, inget blockerande fynd. Inte beställt: blockerande.
+
 ## Fynd och allvarlighet
 
 Varje fynd får en allvarlighetsgrad på Nielsens skala, bedömd efter hur många som drabbas, hur illa det blir och om

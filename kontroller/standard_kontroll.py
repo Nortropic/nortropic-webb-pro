@@ -471,10 +471,32 @@ def klickytor(stil):
             for s, ys in sorted(per_sida.items())]
 
 
-def rapport(bygge, stil=None):
+def egna_bilder(dist):
+    """Verksamhetens egna fotografier i bygget: olika rasterbilder i <img>, utan logotyper och ikoner."""
+    srcs = set()
+    for f in Path(dist).rglob('*.html'):
+        for src in re.findall(r'<img\b[^>]*\bsrc="([^"]+)"', f.read_text(encoding='utf-8', errors='replace')):
+            if re.search(r'\.(webp|avif|jpe?g|png)(\?|$)', src, re.I) and not re.search(r'logo|ikon|icon|favicon|marke', src, re.I):
+                srcs.add(re.sub(r'\.[0-9a-zA-Z_-]{6,}\.(webp|avif|jpe?g|png)$', '', src.split('?')[0]))
+    return len(srcs)
+
+
+def bestallning_finns(bestallning):
+    try:
+        return bool(bestallning) and len(Path(bestallning).read_text(encoding='utf-8').strip()) > 40
+    except OSError:
+        return False
+
+
+def rapport(bygge, stil=None, bestallning=None):
     fel, info, n = granska(bygge)
     if stil:
         fel += klickytor(stil)
+    antal = egna_bilder(bygge)
+    if antal < 5 and not bestallning_finns(bestallning):
+        fel.append({'punkt': '9.3', 'sida': '(alla)', 'text': '%d egna bilder och ingen beställning: beställ bilderna av verksamheten i underlag/<slug>/BESTALLNING.md (ägarens domar L2, L3)' % antal})
+    elif antal < 5:
+        info.append({'punkt': '9.3', 'sida': '(alla)', 'text': '%d egna bilder; beställningen finns, sajten är klar att visas men inte att lanseras' % antal})
     summa = {}
     for x in fel:
         summa[x['punkt']] = summa.get(x['punkt'], 0) + 1
@@ -499,11 +521,12 @@ def main(argv=None):
     p.add_argument('--ut', required=True)
     p.add_argument('--md')
     p.add_argument('--stil', help='STIL.json från stil.mjs, för klickytorna (3.3)')
+    p.add_argument('--bestallning', help='underlag/<slug>/BESTALLNING.md, för bildkravet (9.3)')
     a = p.parse_args(argv)
     if not Path(a.bygge).is_dir():
         print('finns inte: ' + a.bygge, file=sys.stderr)
         return 2
-    r = rapport(Path(a.bygge), a.stil)
+    r = rapport(Path(a.bygge), a.stil, a.bestallning)
     Path(a.ut).write_text(json.dumps(r, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if a.md:
         Path(a.md).write_text(markdown(r), encoding='utf-8')

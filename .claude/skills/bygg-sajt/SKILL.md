@@ -18,7 +18,10 @@ rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella
 ## Ramar för körningen
 
 - **Ingen människa svarar under körningen.** Saknas en uppgift: märk den `antagande` och fortsätt. Hitta aldrig på
-  fakta, omdömen, siffror, priser eller certifieringar.
+  fakta, omdömen, siffror, priser eller certifieringar. **Saknas något som en kund letar efter** (egna bilder,
+  telefontid, försäkring och F-skatt, svarstid, ägarens egna ord): utelämna det inte och lös det inte med form.
+  Beställ det av verksamheten i `underlag/<slug>/BESTALLNING.md` (steg 3); ägaren tar beställningen med sig.
+  Ägarens domar L2 och L3: "fråga i stället för att utelämna", "en beställning, inte ett designval".
 - **Sökvägar** (`<slug>` står i uppdraget):
   - `underlag/<slug>/` råmaterial och arbetsfiler (privat, utanför git)
   - `kunder/<slug>/sajt/` Astro-projektet
@@ -64,7 +67,9 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    dem och deras sajt är ett fynd för rapporten.
 2. **Bilder:** ladda ner verksamhetens egna bilder (från deras sajt och kanaler) med
    `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil, källa,
-   vad bilden visar, kvalitet. Inga stockbilder.
+   vad bilden visar, kvalitet. Inga stockbilder. Räkna de användbara: färre än fem, eller saknas den som kommer hem
+   till kunden, bilen eller verktyget, ett jobb före och efter eller ett färdigt resultat, så blir bilderna en
+   beställning i steg 3.
 3. **`underlag/<slug>/VERKSAMHET.json`:** formen står i `validera()` i `kontroller/verksamhetsuppgifter.py`
    (`schema: 1`, `namn`, `fiktiv: false`, `kontaktvagar` med `typ`/`varde`/`belagg`, `rackvidd`, `tjanster` och de
    valfria fälten). Sätt `webb: {"doman": "deras-doman.se"}`. Kör `.venv/bin/python
@@ -122,6 +127,11 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
 - ton: fem formuleringar ur deras egna ord eller kundernas
 - juridikflaggor (cookies, personuppgifter, bilder)
 - antaganden som behöver bekräftas av verksamheten
+- **beställning till verksamheten**, också som egen fil `underlag/<slug>/BESTALLNING.md`: det sajten behöver men
+  underlaget saknar, skrivet så att verksamheten kan svara på fem minuter. Bilder när de har färre än fem egna eller
+  saknar någon av sorterna ovan: vilka, varför och till vilken sida och sektion (3–8 stycken). Telefontid, försäkring
+  och F-skatt, svarstid för formuläret, och tre meningar i ägarens egna ord när en sektion bygger på dem. En rad per
+  sak: vad, varför, var på sajten. Inget skickas under körningen; ägaren tar beställningen med sig.
 
 Skriv också `underlag/<slug>/FRASER.txt`: en rad per fras som konkurrenterna i branschen använder och som vi därför
 inte ska använda. Briefen är en hypotes; den prövas när ägaren och verksamheten ser resultatet.
@@ -193,6 +203,9 @@ KONCEPT.md.
    specifika schema.org-typen sanningsenligt ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och
    telefonnumret som tel-länk, `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
    färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga bokning.
+   **Plats för det beställda:** specifikationen i KONCEPT.md anger var varje beställd bild ska sitta. Bygg sektionen
+   så att bilden kan läggas in i `src/assets/bestallt/` utan omdesign, och så att sektionen står rätt utan den; aldrig
+   en synlig platshållare (byggstandarden 9.4). Saknas telefontid eller svarstid: skriv inget påhittat.
    **Skriftlig förfrågan:** mallens `src/components/Forfragan.astro` på kontaktsidan, med etiketten för meddelandet i
    verksamhetens ord; tacksidan `src/pages/tack.astro` med sidhuvud, sidfot och vad som händer härnäst; integritetssidan
    `/integritet/` enligt `kunskap/forfragan.md`. Fältnamnen och fällorna ändras inte. Provets lokala server tar emot
@@ -274,11 +287,14 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
     du inte rättade, med skäl.
 12. **Byggstandarden:** att standardgrinden är grön, och varje info i `prov/standard.md` som står kvar, med skäl.
     Lanseringspunkterna (L) behöver inte redovisas.
-13. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
+13. **Beställning till verksamheten:** sammanfattningen av `underlag/<slug>/BESTALLNING.md`, och att sajten är klar
+    för att visas för verksamheten men inte klar att lanseras förrän beställningen är levererad. Ingen beställning
+    behövs: skriv det.
+14. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
     verksamheten bör rätta. Inga avvikelser: skriv det.
-14. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
+15. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
     kopplas till dem.
-15. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.
+16. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.
 
 **Dina frågor till ägaren.** Skriv `kunder/<slug>/FRAGOR.json`: tre till sex frågor om det du är mest osäker på, där
 ägarens svar skulle ändra nästa bygge mest. Dashboarden visar dem efter kärnfrågorna i frågeformuläret, och svaren blir

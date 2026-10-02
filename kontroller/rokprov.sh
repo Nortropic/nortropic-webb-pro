@@ -14,6 +14,9 @@ node "$ROOT/kontroller/ikoner.mjs" --sajt "$S" --foto "$ROOT/kontroller/rokprov/
 sed -i '' 's#https://ERSATT-MED-DOMAN.se#https://exempel-rokprov.se#' "$S/astro.config.mjs"
 [ -d "$S/node_modules" ] || (cd "$S" && npm install --no-audit --no-fund >/dev/null)
 rm -f "$ROOT/kunder/rokprov-mall/RAPPORT.md"
+# testsajten har inga foton: beställningen finns, så att bildkravet (9.3) är uppfyllt på rätt sätt
+mkdir -p "$ROOT/underlag/rokprov-mall"
+printf '# Beställning till verksamheten\n\n- Fem foton av jobb, till startsidan och tjänstesidan.\n- Telefontid.\n' > "$ROOT/underlag/rokprov-mall/BESTALLNING.md"
 
 echo "1/2 grönt prov"
 if ! "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/prova.py" rokprov-mall >/dev/null; then

@@ -261,7 +261,7 @@ def bygge(slug):
         'underlag': {namn: md(las_text(UNDERLAG / slug / fil)) for namn, fil in (
             ('Brief', 'BRIEF.md'), ('Referenser', 'REFERENSER.md'), ('Jämförelse', 'JAMFORELSE.md'),
             ('Femsekunderstest', 'FEMSEK.md'), ('Diagnos', 'DIAGNOS.md'), ('Research', 'RESEARCH.md'),
-            ('Koncept', 'KONCEPT.md'), ('Innehåll', 'INNEHALL.md')) if (UNDERLAG / slug / fil).is_file()},
+            ('Koncept', 'KONCEPT.md'), ('Innehåll', 'INNEHALL.md'), ('Beställning till verksamheten', 'BESTALLNING.md')) if (UNDERLAG / slug / fil).is_file()},
         'fragor': {'karna': KARNFRAGOR, 'egna': egna if isinstance(egna, list) else []},
         'domar': (las_json(KUNDER / slug / 'DOM.json') or {}).get('domar', []),
         'granskning': granskningen(slug, b['domd']),

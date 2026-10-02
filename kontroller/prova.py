@@ -385,6 +385,7 @@ def prova(slug, snabb=False):
            '--md', str(prov / 'standard.md')]
     if (prov / 'stil' / 'STIL.json').is_file():
         cmd += ['--stil', str(prov / 'stil' / 'STIL.json')]
+    cmd += ['--bestallning', str(underlag / 'BESTALLNING.md')]
     rc, out = kor(cmd)
     try:
         st = json.loads((prov / 'standard.json').read_text(encoding='utf-8'))
