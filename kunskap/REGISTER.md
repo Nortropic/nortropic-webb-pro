@@ -2108,3 +2108,86 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   (se backlog).
 - Utfall: —
 - Backlog: B-20261002-provet-listar-sajtens-utgaende-lankar-och-om-de (egen innovation)
+
+### 2026-10-02 · withastro/astro · prova
+- Källa: https://github.com/withastro/astro @ 4c1470a (ur klonens `.git/packed-refs`; senaste push 2026-10-02T15:20Z),
+  MIT, med MIT-delar ur sveltejs/kit och vitejs/vite [REPO LICENSE rad 1–3, 23–36]; cirka 63 000 stjärnor, inte
+  arkiverat. Monorepo med 4 485 textfiler, cirka 980 000 tokens. Det här är vår egen stack: mallen kör astro 7.3.5
+  (`mall/astro/package.json:11`) och repots paket är 7.3.5 [REPO packages/astro/package.json rad 3]; nämnt som vår
+  stack i ett tjugotal registerposter, aldrig bedömt i sig. Förgranskat. Läst: README i helhet, LICENSE,
+  `.agents/skills/astro-developer/SKILL.md` och `constraints.md`, `.agents/skills/astro-code-review/SKILL.md` rad 1–60,
+  `.agents/evals/README.md`; typsnitts-API:t i `packages/astro/src/types/public/config.ts` rad 3019–3243,
+  `assets/fonts/providers/local.ts`, `assets/fonts/core/optimize-fallbacks.ts`,
+  `assets/fonts/infra/capsize-font-metrics-resolver.ts`, `assets/fonts/vite-plugin-fonts.ts` rad 188–210 och
+  `components/Font.astro`; dev-toolbarens granskningsregler `audit/rules/perf.ts` i helhet och rubrikerna i
+  `a11y.ts`; CSP-koden `core/csp/common.ts` rad 54–104; och de dolda tecknens rader. Ett urval: kompilatorn,
+  integrationerna, exemplens kod och testerna lästes inte. Bild: README-bannern är en logotypbild, "Build the web
+  you want" på rosa-lila ringar [BILD .github/assets/banner.jpg], ingen designreferens. Ingen demosajt i repot;
+  docs.astro.build och astro.new länkas [REPO README.md rad 33–39] men öppnades inte. Ägarens not: ingen
+- Steg: 5 (bygge: mallen och typsnitten) och 6 (provet, punkt 4.3)
+- Jämfört med i dag: (1) **Ramverket.** Lika per definition: byggstandardens avsnitt 11 binder stacken till Astro
+  (`kunskap/byggstandard.md:133–138`), `ny_sajt.py` skapar varje bygge ur mallen (`bygg-sajt/SKILL.md:213–215`), och
+  den teoretiska grunden kallar Astros dokumentation vår leverantörsdokumentation (`kunskap/teoretisk-grund.md:119–120`).
+  Samma version i mallen som i repot; inget att byta. (2) **Typsnitten.** I dag skriver bygget allt för hand:
+  byggstandarden 4.3 kräver självhostad WOFF2, `font-display: swap` med size-adjust-reserv och preload av typsnittet i
+  första vyn (`kunskap/byggstandard.md:60`), filen ska ligga i `public/fonts/` (`:136`, `mall/astro/README.md:15`),
+  och typsnittet installeras från fontsource med npm och kopieras (`bygg-sajt/SKILL.md:38–42`). Utfallet i de fem
+  byggena: tre saknar reserven helt, enda träffen på "size-adjust" är `-webkit-text-size-adjust`
+  (`kunder/lulea-snickaren/sajt/src/styles/global.css:31`, `kunder/sundboms-el/sajt/src/styles/global.css:29`,
+  `kunder/paint-it-black-maleri/sajt/src/styles/sajt.css:30`); A/B-paret har reserven med handgissade mått,
+  "ungefär samma bredd och höjd": 103 %, 96 %, 32 %, 0 % (`kunder/lulea-snickaren-abx/sajt/src/styles/sajt.css:13–20`)
+  och 102 %, 96 %, 26 % (`kunder/lulea-snickaren-aby/sajt/src/layouts/Sida.astro:107–113`). Provet hoppar över
+  `local()`-block utan att kräva dem (`kontroller/standard_kontroll.py:378–379`), och saknad preload är bara info
+  (`:255–257`). Källan har sedan 6.0 ett stabilt `fonts`-fält i konfigurationen [REPO config.ts rad 3019–3035]:
+  den lokala leverantören läser vikt och stil ur filen när de inte anges [REPO providers/local.ts rad 107–146];
+  `optimizeFallbacks` skriver ett reserv-`@font-face` per systemtypsnitt bakom den generiska familjen [REPO
+  core/optimize-fallbacks.ts rad 25–107] med size-adjust, ascent-, descent- och line-gap-override räknade ur
+  typsnittets xWidthAvg, ascent, descent, lineGap och unitsPerEm [REPO capsize-font-metrics-resolver.ts rad 71–106];
+  `<Font cssVariable preload />` skriver `<style>` och preload-länkarna [REPO components/Font.astro rad 25–28];
+  display är swap som standard [REPO config.ts rad 3200–3212]; när `security.csp` är på hashas den genererade
+  stilen och font-src fylls i automatiskt [REPO vite-plugin-fonts.ts rad 197–207; core/csp/common.ts rad 54–84].
+  Källan avråder från `public/` för lokala filer, eftersom de då dubbleras i bygget [REPO providers/local.ts rad
+  31–32], vilket krockar med vår text på de två ställena ovan. Bättre: måtten kommer ur filen i stället för en
+  gissning, och reserven kommer alltid. Smartare: fyra handgrepp (font-face, reserv, preload, CSP-hash) blir en
+  konfigurationspost och en rad. Inte verifierat utan ett bygge: att provets 4.3-räkning hittar den hashade filen i
+  `dist/_astro` (rglob över dist, `standard_kontroll.py:367`, så det borde) och att CSP:n i vår form med metatagg
+  och stilattribut får hashen rätt. Mot litteraturen: CLS ≤ 0,1 (byggstandarden 4.1, `kunskap/teoretisk-grund.md`
+  avsnitt 4); en reserv med rätt mått är metoden mot layoutskift vid typsnittsbyte, och källan länkar Chrome-teamets
+  text om det [REPO config.ts rad 3104]. (3) **Dev-toolbarens granskning.** Regler för tillgänglighet (tomt href,
+  label utan kontroll, redundanta ARIA-roller, positivt tabindex) och prestanda (Image-komponenten, lazy under
+  vecket och eager över, GIF som video) [REPO audit/rules/a11y.ts rad 267–686; perf.ts rad 7–103] körs bara i `astro
+  dev` i webbläsaren. Vi mäter den byggda sajten med axe (5.6) och standardens 2.4 (lazy under första vyn,
+  fetchpriority). Lika eller täckt. (4) **`.agents/skills/`.** Tio skills för att utveckla Astro-monorepot: triage,
+  changeset, merge, PR-text, granskning av Astro-PR [REPO .agents/skills/astro-developer/SKILL.md rad 3, 8;
+  astro-code-review/SKILL.md rad 3]. Ingen handlar om att bygga sajter med Astro; inget för verktygslådan. Deras
+  skill-evals med manifest per skill, en subjektmodell och en domarmodell i en tillfällig arbetsyta [REPO
+  .agents/evals/README.md rad 3, 20–22] liknar vårt A/B-upplägg med annan domare; inget nytt. (5) i18n, env-schema,
+  incrementalBuild, svgOptimizer [REPO config.ts rad 2901–3017, 3485–3594]: problem vi inte har
+- Skäl: Astro är vår stack, så frågan är inte om, utan vilka delar av ramverket vi lämnar oanvända. En: det inbyggda
+  typsnitts-API:t gör exakt det byggstandardens 4.3 kräver och som byggena missar eller gissar, med mått ur
+  typsnittsfilen och CSP-hash på köpet, utan nya beroenden. Det syns först i ett bygge om provet och CSP:n håller,
+  så prova, inte ta in; ingen blind parjämförelse behövs, provet och mätningen avgör (ägarens kalibrering för
+  agency-agents, `kunskap/KIRURG-OMDOMEN.md:125–127`). Resten av repot är leverantörsdokumentation vi redan följer,
+  verktyg för Astros egna utvecklare, eller funktioner för större sajter. Källkritik: README:n ber om stjärnor i
+  beskrivningen och visar sponsorer [REPO README.md rad 93–103]; påståendena om API:t är kontrollerade i koden, inte
+  i marknadsföringen
+- Kostnad: inga nya beroenden; API:t ligger i astro 7.3.5 som mallen redan har, och capsize och unifont är Astros
+  egna beroenden. Vid användning: en konfigurationspost och en rad i layouten per bygge, och bygget slipper skriva
+  font-face, reserv och preload. Underhåll: följer Astros version. Källans text är cirka 980 000 tokens enligt
+  förgranskningen; inget av den tas in
+- Säkerhet: förgranskningen HÖG: 16 dolda tecken, alla U+200D, emojisammanfogare i astronautemojin i exemplens
+  README-rad "Seasoned astronaut?" [REPO examples/basics/README.md rad 15 med flera], i emojilistan i
+  `.github/workflows/congrats.yml` rad 16, i VS Code-tilläggets README och i tre testfiler som prövar just sådana
+  tecken; ingen instruktion. 12 ställen "run the following command" i CONTRIBUTING, upgrade-paketet och
+  CLI-källkoden är användarmeddelanden, inte riktade till kirurgen. 2 804 skript är väntat för ett ramverk;
+  `.gitpod/gitpod-setup.sh` har nätanrop; inga hookar, MCP-servrar eller behörigheter i skill-frontmatter.
+  `.agents/evals` kräver en Anthropic-nyckel i miljön [REPO .agents/evals/README.md rad 5]. Inget kördes eller
+  installerades
+- Förslag: mallen: `fonts` med `fontProviders.local()` i `mall/astro/astro.config.mjs` och `<Font cssVariable preload />`
+  i `Bas.astro`; texten: `mall/astro/README.md` rad 15, `kunskap/byggstandard.md` rad 136 och
+  `.claude/skills/bygg-sajt/SKILL.md` rad 38–42 flyttar filen till `src/assets/fonts/` och låter API:t skriva reserv
+  och preload. Prövas i nästa bygge mot provet, CSP-konsolen och Lighthouse-CLS (se backlog). Egen innovation: provet
+  stoppar när ett självhostat typsnitt saknar reserv med size-adjust (se backlog)
+- Utfall: —
+- Backlog: B-20261002-prova-astros-inbyggda-typsnitts-api-fonts-i-astr (prova),
+  B-20261002-provet-stoppar-nar-ett-sjalvhostat-typsnitt-sakn (egen innovation)
