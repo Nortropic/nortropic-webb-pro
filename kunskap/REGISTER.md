@@ -1362,3 +1362,75 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   Rökprovet grönt
 - Utfall: —
 - Backlog: B-20261002-stilrapporten-mater-sex-renderade-monster-ur-gst (ta in)
+
+### 2026-10-02 · nextlevelbuilder/ui-ux-pro-max-skill · nej
+- Källa: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill @ 09170ee (ur klonens `.git/refs/heads/main`; senaste
+  push 2026-09-27T11:30Z, samma commit som arkivets två bedömningar), MIT; cirka 132 500 stjärnor, inte arkiverat.
+  Bedömd två gånger med de gamla reglerna (`REGISTER-arkiv-20261001.md:8` prova A/B, `:181` nej); arkivet ligger utanför
+  registret, så det här är en ny bedömning med dagens regler, där en skill som ger bygget en förmåga vi saknar går in i
+  verktygslådan. Förgranskat. Läst: README i helhet, huvudskillens SKILL.md i helhet, `references/quick-reference.md`
+  i helhet (alla regler i tio kategorier), huvudet och de rader i `ui-reasoning.csv` som gäller hantverk och bygg,
+  fem rader ur `landing.csv`, huvudet i `google-fonts.csv`, `stack/README.md`, beskrivningarna av de sex övriga
+  skillsen och de rader i `design/SKILL.md` som rör bildmodeller. Övriga data, skript och översättningar bara som
+  fillista. Sett: `screenshots/website.png`, och demosajten uupm.cc öppnad på nytt i dag i 390 och 1440 (första vyn i
+  båda, skrolllägena 04, 05 och 08 av åtta). Ägarens not: ingen
+- Steg: 5 (riktning, typografi, färg, sektionsordning), 6 (UX-riktlinjer och leveranschecklista); de sex sidoskillsen
+  (logo, varumärke, banderoller, presentationer, tokens, shadcn/Tailwind) ligger utanför de åtta stegen
+- Jämfört med i dag: (1) **Designsystem-generatorn**, skillens kärna, krävs för varje ny sida [REPO
+  .claude/skills/ui-ux-pro-max/SKILL.md rad 73–81] och slår upp bransch → mönster, stil, palett och typsnitt. För
+  hantverkare ger regeln "Home Services (Plumber/Electrician)" Trust Blue, Safety Orange och grått i platt stil [REPO
+  data/ui-reasoning.csv rad 56], och "Construction/Architecture" 3D-modellvisare och tidslinjeanimationer [rad 52]. Vi
+  härleder fyra riktningar ur verksamheten själv, "aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md` rad
+  187–189), och kopierar aldrig palett eller typsnitt (rad 223). Ägaren valde i L3 Sundboms gult och svart ur ordmärket
+  framför marinblått från den gamla sajten (`LARDOMAR.md` rad 89), alltså mot just det som branschregeln hade gett.
+  Sämre, och krockar med ett medvetet val. (2) **Landningsmönstren** bygger in en karusell för omdömen och parallax i
+  toppen [REPO data/landing.csv rad 2–3] mot inga karuseller (`kunskap/byggstandard.md` rad 73, 119). Sämre. (3)
+  **UX-reglerna**, 119 stycken: de som gäller en statisk sajt står redan i byggstandarden och mäts i provet: träffytor
+  (3.3, rad 48), kontrast och synlig fokus (3.4, rad 49), reducerad rörelse (3.5, rad 50), fokus som inte döljs (5.1,
+  rad 69), fel vid fältet (5.4, rad 72), `type` och autocomplete (6.2, rad 85), bildformat och srcset (4.2, rad 57).
+  Resten gäller appar (Apple HIG, Material: haptik, flikrad, bottennavigation, diagram) eller går emot vår hållning:
+  cursor-pointer och fjädrande animationer på allt, toastar som försvinner efter 3–5 sekunder [REPO
+  references/quick-reference.md rad 42, 145, 169]. Lika, inget nytt att lägga till. (4) **Typsnittskatalogen** med
+  1 934 Google-typsnitt, kategori, nyckelord och popularitet [REPO README.md rad 531–533; data/google-fonts.csv rad 1]:
+  bygget installerar redan valfritt typsnitt via Fontsource och registrerar licensen (`bygg-sajt/SKILL.md` rad 38–42),
+  och `kontroller/upptagna_val.py` håller vanevalen borta (rad 182–185). En katalog sorterad på popularitet drar åt de
+  vanliga valen. Lika eller sämre. (5) **`stack/`** är ett annat projekt (YMungerDev/claude-website-design-stack)
+  inlagt i repot [REPO stack/README.md rad 26]: skärmbilder i flera bredder, granskare i sju faser, frontend-design som
+  smaklager. Vi har samma kedja med en oberoende granskare och stoppvakt (`bygg-sajt/SKILL.md` rad 217–232) och
+  frontend-design som läsning (rad 177). Lika. (6) **Sidoskillsen**: logo, företagsprofil och ikoner tas fram med
+  Googles bildmodeller och en API-nyckel [REPO .claude/skills/design/SKILL.md rad 114, 312]; vi använder
+  verksamhetens eget märke och egna bilder och beställer det som saknas (`bygg-sajt/SKILL.md` rad 20–24, 213). Sämre
+  för oss
+- Skäl: dagens regel säger att en större verktygslåda sällan är dålig, men den här skillen kan inte ligga i lådan utan
+  att krocka: dess beskrivning gör att den väljs för allt som rör gränssnitt, och dess första instruktion är att
+  hämta riktningen ur en branschtabell. Det är motsatsen till "Bara de har" och till ägarens val i L3. Bilderna visar
+  vad generatorn gör när den gör det den säljs för. Demosajten är mörk med blå och orange glöd, gradienttext i
+  rubrikerna och sex lika statistikkort [BILD uupm-20261002/desktop-forsta], och slutar med en raketemoji över
+  rubriken [BILD desktop-skroll-08] trots att den egna checklistan kräver "SVG icons (no emoji)" [BILD
+  desktop-skroll-04]. Galleriet kallar påhittade verksamheter "real-world website demos": PawSpa med brickan "#1 Pet Spa
+  in Town", stockfoto av en hund och siffrorna 5,000+, 4.9 och 10+ [BILD desktop-skroll-04, -05]. I mobil visar
+  sidhuvudet logotypens ikon, mörkt läge, stjärnantalet och Premium men ingen meny, verktygsraden är logotyper utan
+  namn, och under sidhuvudet står ett
+  tomt band [BILD mobil-forsta]. Siffrorna i första vyn (57 stilar, 95 paletter, 56 typsnittspar, 8 stackar) [BILD
+  desktop-forsta] motsäger README:s 79, 192, 74 och 22 [REPO README.md rad 191–195]. Det som inte krockar, UX-reglerna
+  och checklistan, har vi redan punkt för punkt i byggstandarden med en kontroll bakom varje punkt. Källkritik: repot
+  säljer en premiumversion och tar donationer [REPO README.md rad 23, 232–249], och stjärnantalet är räckvidd, inte
+  belägg för kvalitet
+- Kostnad: ingen; inget tas in. Som skill vore det 127 tokens i varje session och 3 845 vid användning, men drygt
+  890 000 tokens data vid behov enligt förgranskningen, plus Python-skript för sökningen; sidoskillsen kräver
+  API-nycklar till bildtjänster
+- Säkerhet: förgranskningen HÖG. Inga dolda tecken. De två agentriktade träffarna (`design/scripts/cip/generate.py` rad
+  434, och samma fil under `cli/assets/`) är en utskrift till användaren om att köra om kommandot, ingen instruktion
+  till kirurgen. HÖG kommer av 152 skript, bland dem nätanrop och miljövariabler i logo- och bakgrundsskripten, och
+  av `stack/.claude/settings.json` och `stack/.mcp.json`, som tillåter `npx playwright` och tre MCP-servrar som hämtas
+  med `npx -y …@latest`. Inga behörigheter i skillsens frontmatter. Inget kördes eller installerades. Inget försök att
+  styra kirurgen
+- Förslag: inget ur källan. Egen innovation, inspirerad av källans regler om felsammanfattning och återhämtning [REPO
+  references/quick-reference.md rad 180, 187–188]: demomottagaren skickar ett ofullständigt inskick tillbaka till
+  `/kontakt/?saknas=1#forfragan` (`kontroller/prova.py` rad 170), men varken mallens `Forfragan.astro`,
+  `kunskap/forfragan.md` (rad 22–24) eller bygg-sajt säger vad sidan ska visa då. Av de två byggen som har mallens
+  formulär visar bara lulea-snickaren-abx ett besked, och det med JavaScript. Ett felbesked i mallen som visas med
+  CSS `:target` fungerar utan JS
+- Utfall: —
+- Backlog: B-20261002-mallens-formular-visar-ett-felbesked-utan-javasc (egen innovation; en första version av posten
+  med ett felaktigt antal byggen sattes till avvisad)
