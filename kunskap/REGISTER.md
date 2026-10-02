@@ -1255,3 +1255,52 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · DietrichGebert/ponytail · nej
+- Källa: https://github.com/DietrichGebert/ponytail @ 3436438 (ur klonens `.git/shallow`; senaste push
+  2026-10-02T14:49Z), MIT; cirka 151 000 stjärnor, inte arkiverat. Förgranskat. Läst: README, de sex skillsen
+  (`skills/ponytail`, `-review`, `-audit`; de övriga tre är hjälp, skuldlista och resultattavla),
+  `docs/platform-native.md`, `examples/modal-dialog.md`, den agentiska mätningen
+  `benchmarks/results/2026-06-18-agentic.md` i helhet, krokfilen `hooks/claude-codex-hooks.json` och
+  `hooks/ponytail-activate.js`. Övriga exempel, mätrapporter och adaptrar för andra verktyg bara som fillista. Bilder:
+  delningsbilden och väntelistebanderollen (en tecknad figur, ingen produkt att se); ingen demo. Ägarens not: ingen
+- Steg: 5 (bygget av sajtens kod) och arbetssättet runt stegen (backlogsessionernas kodändringar i `kontroller/`)
+- Jämfört med i dag: källan är en regelskill som får en kodagent att stanna på första hållbara steget i en stege:
+  behövs det, finns det redan, standardbiblioteket, plattformens inbyggda funktion, ett installerat beroende, en rad,
+  först sist egen kod; aldrig på bekostnad av validering, felhantering, säkerhet eller tillgänglighet [REPO
+  skills/ponytail/SKILL.md rad 32–42, 90–95]. Sak mot sak: (1) **Sajtens kod.** Källans största vinster är att ta
+  webbläsarens inbyggda kontroll i stället för en komponent (datumväljare 404 → 23 rader) [REPO
+  benchmarks/results/2026-06-18-agentic.md rad 85, 105–108]. Våra byggen är redan där: ingen JavaScript som inte
+  behövs (`.claude/skills/bygg-sajt/SKILL.md` rad 202), formuläret är vanlig POST utan JS (`kunskap/byggstandard.md`
+  rad 86), och de tre dömda byggena har 0 kB JS, 4–10 kB CSS och FAQ i inbyggt `<details>` (`LARDOMAR.md` rad 31, 56,
+  80, 87). Lika. (2) **Plattformstabellen** [REPO docs/platform-native.md] är bred men säger på två ställen emot
+  byggstandarden: flytande typsnitt med bara vw som önskat värde [rad 36] mot vår rättelse att clamp() ska blanda rem
+  och vw för att växa med zoom (`kunskap/byggstandard.md` rad 47, 145), och en karusell med scroll-snap [rad 44] mot
+  inga karuseller (rad 73, 119); `title` som verktygstips [rad 23] når inte pekskärm eller tangentbord. Sämre för oss.
+  (3) **Systemets kod.** "Små ändringar. En dom blir en textändring, inte en ny mekanik" (`CLAUDE.md` rad 27) och "så
+  liten som posten kräver … Ny mekanik bara när … inget enklare räcker" (`.claude/skills/backlog/SKILL.md` rad 26–27)
+  är samma hållning. Lika. (4) **Granskning av överbyggnad** (`ponytail-review`, `-audit`) [REPO
+  skills/ponytail-review/SKILL.md rad 13–27]: Claude Code har redan en inbyggd förenklingsgranskning av ändrad kod
+  (`simplify`), och våra byggens kod är redan liten. Lika
+- Skäl: ponytail är ovanligt ärligt mätt för sin genre: den agentiska mätningen bygger om en tidigare uppblåst siffra
+  efter extern kritik, isolerar armarna, redovisar var skillen inte vinner och att säkerhetsskillnaden är en enda miss
+  på tjugo [REPO benchmarks/results/2026-06-18-agentic.md rad 9–24, 40–47, 109–111, 149–151, 186–198]. Men effekten
+  den mäter är kodrader på en React- och FastAPI-app med Haiku 4.5, och det problemet har vi inte: våra sajter är
+  statisk Astro utan JS, och ingen av ägarens domar L1–L3 pekar på överbyggd kod, utan på förfrågningsväg,
+  bildunderlag, förtroende och röst. Det den kunde tillföra har vi redan som regel, och dess plattformslista säger på
+  två punkter emot byggstandarden. Samma slutsats som för andrej-karpathy-skills ovan, som ägaren höll med om
+  (`kunskap/KIRURG-OMDOMEN.md` rad 55–58). Källkritik: README säljer med "100% safe" och en väntelista för en kommande
+  produkt [REPO README.md rad 33, 44]; "100% safe" gäller sex uppgifter med deterministiska prov, vilket rapporten
+  själv kallar ett golv, inte ett bevis [rad 190–191]. Stjärnantalet är räckvidd, inte belägg
+- Kostnad: ingen; inget tas in. Huvudskillen vore cirka 208 tokens i varje session och 1 420 vid användning enligt
+  förgranskningen; pluginvägen lägger dessutom regeltexten i varje session och varje underagent via krokar
+- Säkerhet: förgranskningen HÖG, av mängden: 57 skript, bland dem mätskript med nätanrop och eval/exec och krokar som
+  skriver utanför repot. Inga dolda tecken, inga behörigheter i skillsens frontmatter. Pluginen registrerar tre krokar
+  (SessionStart, SubagentStart, UserPromptSubmit) som kör Node vid varje session, skriver en flaggfil i
+  Claude-katalogen och ber agenten att självmant erbjuda en ändring i användarens `settings.json` för en statusrad
+  [REPO hooks/claude-codex-hooks.json; hooks/ponytail-activate.js rad 63–95]. Det är riktat till agenten efter
+  installation, inte till kirurgen, men är just den sortens obevakade inställningsändring vi inte vill ha. Inget
+  kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
