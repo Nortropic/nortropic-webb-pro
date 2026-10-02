@@ -1917,3 +1917,72 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   commiten. Ingen ny mekanik i `copy_kontroll.py`
 - Utfall: —
 - Backlog: B-20261002-tre-regler-ur-ai-tells-i-humanizerns-forord-tak
+
+### 2026-10-02 · gohugoio/hugo · nej
+- Källa: https://github.com/gohugoio/hugo @ 6b3ba3a (ur klonens packed-refs; senaste push 2026-10-01T17:33Z),
+  Apache-2.0; cirka 90 000 stjärnor, inte arkiverat. Nämnd en gång förut som post i awesome-go-listan
+  (`kunskap/REGISTER.md:838`), aldrig bedömd i sig. Förgranskad. Läst: README i helhet, AGENTS.md, CLAUDE.md,
+  docs/AGENTS.md, raderna med dolda tecken i `docs/data/homepagetweets.toml`, dokumentationens `about/features.md`,
+  `content-management/image-processing/index.md`, `methods/resource/Meta.md` och `Exif.md`, `templates/embedded.md`,
+  och temaskelettet `create/skeletons/theme/` (baseof, head, home, main.css). Av 1 352 textfiler och cirka 544 000
+  tokens är det ett urval; Go-koden lästes inte. Sett: gohugo.io i mobil och desktop, första vyn och skrollbild 3 av 8
+  [BILD gohugo-io/mobil-forsta.png, desktop-forsta.png, desktop-skroll-03.png]; temagalleriet themes.gohugo.io i mobil
+  och desktop, första vyn och skrollbild 2 av 8 [BILD hugo-themes/mobil-forsta.png, desktop-forsta.png,
+  desktop-skroll-02.png]. Repots egna bilder är hostingskärmdumpar och logotyper. Ägarens not: ingen
+- Steg: 5 (bygge: generatorn och mallen); 1 (bildernas metadata) för den egna innovationen
+- Jämfört med i dag: (1) **Generatorn.** Hugo är en statisk sajtgenerator i Go, optimerad för byggtid, med
+  Go-templates, taxonomier, flerspråk och egna pipelines för CSS, bilder, JS, Sass och Tailwind [REPO README.md rad
+  45–64; docs about/features.md rad 81–96]. Vi bygger statiskt i Astro: mallen har `astro` och `sharp` som enda
+  beroenden (`mall/astro/package.json:10–13`), `ny_sajt.py` skapar varje bygge ur den (`bygg-sajt/SKILL.md:213–215`),
+  och byggstandardens avsnitt 11 binder stacken till Astro (`kunskap/byggstandard.md:133–138`); den teoretiska
+  grunden säger att statisk förrendering är en tillämpning av principerna, inte en egen princip, och att
+  leverantörsdokumentationen för oss är Astro och Vercel (`kunskap/teoretisk-grund.md:119–120`). Sak mot sak för en
+  sajt på fem till sju sidor: båda ger förrenderad HTML utan klient-JS (standarden 1.1, rad 25). Hugos byggtid i
+  millisekunder [REPO docs/data/homepagetweets.toml rad 11, 53] löser ett problem vi inte har; vår byggtid är
+  försumbar mot granskningens 4–15 minuter (`bygg-sajt/SKILL.md:257`). Hugos bildpipeline (konvertera, skala,
+  beskära, cache) [REPO docs image-processing/index.md rad 8, 106–116] gör det `astro:assets` redan gör (standarden
+  4.2, `kunskap/byggstandard.md:59, 135`). Att byta generator vore samma sajt med ny verktygskedja: `mall/`,
+  `ny_sajt.py`, provet och kontrollerna omskrivna, och ingen dom i `LARDOMAR.md` pekar på en brist som generatorn
+  orsakar. Lika i resultat, sämre i kostnad. (2) **Temaskelettet och galleriet.** `hugo new theme` ger landmärkena
+  header, main och footer [REPO create/skeletons/theme/layouts/baseof.html rad 7–15] men ett head utan description,
+  canonical, theme-color eller ikoner [head.html rad 1–5] och CSS med sans-serif, #222 och blå länkar
+  [assets/css/main.css rad 4–15]; vår mall bär canonical, theme-color, favicon, delningsbild, skiplänk, CSP, dämpad
+  rörelse, sitemap, robots, 404, förfrågan och brödsmulor (`mall/astro/README.md:3–5`). Galleriet är 237 bloggteman,
+  182 "minimal", 30 "company" och 11 "contact" [BILD hugo-themes/desktop-forsta.png]; sidorna som visas är
+  porträtt-i-mitten-mallar och dokumentationssajter [BILD hugo-themes/mobil-forsta.png, desktop-skroll-02.png].
+  Ägaren dömde våra byggen 4–5 på "gjord för verksamheten" och pekade på generiska mönster som mall-lukt
+  (`LARDOMAR.md:29, 54, 78`); steg 5 härleder riktningen ur verksamheten, "aldrig ur en branschmall"
+  (`bygg-sajt/SKILL.md:200–201`). Sämre. (3) **Inbyggda mallar.** Open Graph, X-kort, schema som mikrodata, Disqus
+  och Google Analytics [REPO docs templates/embedded.md rad 10–101, 103–110, 206–213]. Vår standard kräver og:image
+  per sida och JSON-LD med den mest specifika typen ur VERKSAMHET.json (`kunskap/byggstandard.md:97, 99`), inga
+  tredjepartsresurser (4.4, rad 61) och helst kakfri analys (8.5, rad 112); Hugos schema är generiska mikrodata med
+  datum och ordantal, inte LocalBusiness. Lika eller sämre. (4) **Bildmetadata.** Hugos `Meta` läser skapandedatum,
+  GPS och orientering ur EXIF, IPTC och XMP som rutin [REPO docs methods/resource/Meta.md rad 16–18, 41–51]. Ägaren
+  räknade i L1 byggdagboken "med datum ur bilderna" som det bästa på sajten (`LARDOMAR.md:31`), men steg 1 ber bara
+  om fil, källa, vad bilden visar och kvalitet (`bygg-sajt/SKILL.md:75–77`); byggena löste det var för sig: EXIF i
+  ett, filnamn i ett, "datum okänt" i ett (`underlag/*/bilder/BILDER.md`). Smartare som rutin; inget skäl att ta in
+  Hugo, men ett förslag till steg 1 (egen innovation, backlog)
+- Skäl: källan är en sajtgenerator, inte en metod, regel eller skill för bättre sajter, och vi har redan en generator
+  som gör samma arbete med färre beroenden för våra sajter. Byggstandarden binder stacken till Astro, ett medvetet val
+  som tre dömda byggen hållit med 0 kB JS (`LARDOMAR.md:31, 56, 87`), och litteraturen avgör inte mellan två statiska
+  generatorer (`kunskap/teoretisk-grund.md:119`). Det Hugo har mer av, byggtid, flerspråk, taxonomier,
+  innehållsadaptrar, löser problem en hantverkarsajt inte har, och temagalleriet drar åt det ägaren kallat mall.
+  Källkritik: README:n och startsidan säljer "världens snabbaste" med byggtider ur citat från 2013–2019 [REPO
+  docs/data/homepagetweets.toml] och stjärnräkning [BILD gohugo-io/desktop-skroll-03.png]; inget belagt mot något vi
+  mäter. Källan innehåller instruktioner till agenter: AGENTS.md och CLAUDE.md är kodregler för bidragsgivare i Go
+  (korthet, tester, `check.sh`) [REPO AGENTS.md rad 2–19], docs/AGENTS.md ger en Tailwind-roll för
+  dokumentationssajten [REPO docs/AGENTS.md rad 4–9]; inget riktade sig till kirurgen och inget följdes. De fem
+  dolda tecknen är U+200F sist i tre namn i citatdatan [REPO docs/data/homepagetweets.toml rad 9, 72, 79], troligen
+  klistrade ur X, utan instruktion
+- Kostnad: inget tas in. Som generator vore det en Go-binär (Go 1.27 för bygge ur källa [REPO README.md rad 107]),
+  ett nytt mallspråk och omskrivning av `mall/`, `ny_sajt.py`, provet och kontrollerna; deploy-utgåvan drar in AWS-,
+  Azure- och GCP-SDK:er [REPO README.md rad 192–365]. Källans text är cirka 544 000 tokens enligt förgranskningen.
+  Förslaget i backloggen är en kolumn i steg 1 och en mening i `kunskap/bild.md`
+- Säkerhet: förgranskningen HÖG på grund av fem dolda tecken (U+200F i `docs/data/homepagetweets.toml`, se ovan) och
+  tolv ställen med text till agenter, alla "run the following command" i installations- och bidragsdokumentation;
+  inga skills, hookar eller behörigheter. 35 skript: livereload (nätanrop, eval), dokumentationens sökning (nätanrop),
+  KaTeX-bundlen (eval) och byggskript för wasm, väntat för en generator med utvecklingsserver. Inget kördes eller
+  installerades
+- Förslag: inget för Hugo. Egen innovation: fotodatum med källa per bild i steg 1 (se backlog)
+- Utfall: —
+- Backlog: B-20261002-bilder-md-anger-nar-varje-egen-bild-togs-ur-exif (egen innovation)
