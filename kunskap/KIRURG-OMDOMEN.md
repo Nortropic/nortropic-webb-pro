@@ -211,3 +211,8 @@ Kalibrering: varje post är ägarens överprövning av en registerpost. Kirurgen
 - Kirurgens dom: parkera
 - Ägarens dom: håller inte med, borde ha blivit: parkera
 - Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · AI LABS, "He Finally 10x Claude Code With This Method" (YouTube qLfSDQ5NGh0) · ta in
+- Kirurgens dom: ta in
+- Ägarens dom: håller med
+- Ägarens ord: ""
