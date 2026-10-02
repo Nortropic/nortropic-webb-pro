@@ -1,11 +1,13 @@
 ---
 id: B-20261002-a-b-tillagg-granskarens-namngivna-besokare-far-s
-status: vilande
+status: avvisad
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · msitarzewski/agency-agents
 skapad: 2026-10-02
 prio: normal
 steg: 5.6 (granskarens kognitiva genomgång), körs ihop med B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive
+commit: c49119f
+andrad: 2026-10-02T18:21Z
 ---
 # A/B-tillägg: granskarens namngivna besökare får sökfras och jämförelseram och går igenom sajten skärmruta för skärmruta med två åtskilda röster
 
@@ -18,3 +20,5 @@ steg: 5.6 (granskarens kognitiva genomgång), körs ihop med B-20261002-a-b-gran
 ## Utfall 2026-10-02
 
 Kört i granskarförsöket (protokollet i B-20261002-a-b-tva-isolerade-granskare-per-omgang-blockeran): arm c, nio granskningar: 3,3 omdömesfel och 9,2 av alla fel per bygge mot dagens 3,3 och 8,8; något dyrare (3,08 USD mot 2,83). Ingen skillnad mot dagens text på omdömesfelen (3,3 mot 3,3 per bygge) och ingen på alla fel utöver slumpen. Avvisas; texten införs inte.
+
+**Avvisad (2026-10-02):** ingen skillnad i granskarförsöket (3,3 mot 3,3), något dyrare

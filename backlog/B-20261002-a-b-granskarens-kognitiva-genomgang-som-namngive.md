@@ -1,11 +1,13 @@
 ---
 id: B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive
-status: vilande
+status: avvisad
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · NousResearch/hermes-agent
 skapad: 2026-10-02
 prio: normal
 steg: 5.6
+commit: c49119f
+andrad: 2026-10-02T18:21Z
 ---
 # A/B: granskarens kognitiva genomgång som namngiven besökare ur briefen, med situation och pragmatiskt filter
 
@@ -18,3 +20,5 @@ steg: 5.6
 ## Utfall 2026-10-02
 
 Kört i granskarförsöket (protokollet i B-20261002-a-b-tva-isolerade-granskare-per-omgang-blockeran): arm persona, nio granskningar: 3,3 omdömesfel och 9,0 av alla fel per bygge mot dagens 3,3 och 8,8. Ingen skillnad mot dagens text på omdömesfelen (3,3 mot 3,3 per bygge) och ingen på alla fel utöver slumpen. Avvisas; texten införs inte.
+
+**Avvisad (2026-10-02):** ingen skillnad i granskarförsöket (3,3 mot 3,3 omdömesfel per bygge)

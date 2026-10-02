@@ -1,11 +1,13 @@
 ---
 id: B-20261002-a-b-tva-isolerade-granskare-per-omgang-blockeran
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · affaan-m/ECC
 skapad: 2026-10-02
 prio: normal
 steg: steg 5.6 (oberoende granskning), kontroller/granska.py
+commit: c49119f
+andrad: 2026-10-02T18:21Z
 ---
 # A/B: två isolerade granskare per omgång (blockerande fynd från någon av dem gäller) mot en granskare
 
@@ -45,3 +47,5 @@ L3-8 (kryptisk rubrik). Det blir en egen vilande post.
 **Beslut:** B vinner i alla tre byggen och införs: granska.py kör två granskare parallellt i varje omgång
 (`NWP_GRANSKARE_ANTAL`, standard 2), domen tar lägsta betyget och varje blockerande fynd, godkänt kräver båda;
 kritik/GRANSKARE.md säger det i inledningen.
+
+**Klar (2026-10-02):** B vann i alla tre byggen; två parallella granskare införda; protokollet i posten
