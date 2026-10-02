@@ -171,7 +171,8 @@ Rätta varje fynd, eller motivera det om frasen är rätt i verksamhetens egen r
 rapporten är aldrig en grind). Ett kundcitat får aldrig berömma något som sajten inte har (dom L3: citatet om
 formuläret på en sajt utan formulär). Innehåll med slutdatum, som en platsannons eller ett erbjudande, får datumet
 noterat i rapporten så att det kan tas bort i tid (dom L1). Läs sedan texten högt för dig själv som en kund i orten: kunde någon mening stå hos en
-konkurrent? Skriv om den.
+konkurrent? Skriv om den. Gå sedan igenom texten med skillen `humanizer` i verktygslådan, med briefens fem
+formuleringar som röstprov, och kör copykontrollen igen.
 
 ## Steg 5 — Koncept och bygge (design)
 
