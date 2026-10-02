@@ -232,6 +232,7 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         *[rad(p) for p in bilder], '',
         'Tillgänglighetsträdet i 390 px per sida:', *([rad(p) for p in aria] or ['- saknas']), '',
         'Byggstandardens maskinella fynd: %s' % (rad(rdir / 'standard.md')[2:] if (rdir / 'standard.md').is_file() else 'saknas'),
+        'Stilrapporten: %s' % (rad(rdir / 'STIL.md')[2:] if (rdir / 'STIL.md').is_file() else 'saknas'),
         'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'), '',
         'Referensernas skärmbilder:', *([rad(p) for p in refs] or ['- inga']), '',
         'Tidigare byggens första vy:', *([rad(p) for p in tidigare] or ['- inga']), '',
@@ -249,9 +250,9 @@ def arbetare(rdir):
     kund = KUNDER / slug
     try:
         shutil.copytree(kund / 'sajt' / 'dist', rdir / 'dist')
-        for namn in ('copy.md', 'standard.md'):
+        for namn in ('copy.md', 'standard.md', 'stil/STIL.md'):
             if (kund / 'prov' / namn).is_file():
-                shutil.copy2(kund / 'prov' / namn, rdir / namn)
+                shutil.copy2(kund / 'prov' / namn, rdir / Path(namn).name)
         bilder = skarmbilder(kund, rdir / 'sajt')
         aria = aria_trad(kund, rdir / 'sajt')
         if prova.dist_hash(rdir / 'dist') != upp['dist_sha256']:
@@ -502,9 +503,9 @@ def main(argv=None):
     if a.torr:
         rdir = Path(tempfile.mkdtemp(prefix='nwp-torr-'))
         bilder = skarmbilder(kund, rdir / 'sajt')
-        for namn in ('copy.md', 'standard.md'):
+        for namn in ('copy.md', 'standard.md', 'stil/STIL.md'):
             if (kund / 'prov' / namn).is_file():
-                shutil.copy2(kund / 'prov' / namn, rdir / namn)
+                shutil.copy2(kund / 'prov' / namn, rdir / Path(namn).name)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / 'torr', bilder,
                               referensbilder(a.slug), tidigare_byggen(a.slug), kalibrering(a.slug), rdir,
                               aria_trad(kund, rdir / 'sajt'), bildankare(a.slug))

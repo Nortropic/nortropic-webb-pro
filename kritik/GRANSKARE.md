@@ -26,7 +26,8 @@ Uppdraget räknar upp sökvägarna. Du har:
 - **Referenserna** som byggaren valde, med skärmbilder.
 - **Tidigare byggens första vy**, så att du ser om det här bygget är en variant av dem.
 - **Ägarens domar**, och när de finns, de byggen där ägaren tyckte annorlunda än granskaren.
-- **Provets maskinella fynd:** byggstandardens rapport och copykontrollens. Det som redan står där behöver du inte
+- **Provets maskinella fynd:** byggstandardens rapport, stilrapporten (typsnitt, färgfamiljer, radlängd, radhöjd,
+  modellernas standardval) och copykontrollens. Det som redan står där behöver du inte
   pröva igen; döm det som kräver ögon och omdöme.
 - **Måttstockarna:** byggstandarden (`kunskap/byggstandard.md`, punkterna som fynden hänvisar till), de åtta
   dimensionerna, regeln mot slop, Anthropics frontend-design (vilka drag som läses som AI-mall), Vercels
@@ -42,7 +43,8 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
 3. **Titta på varje skärmbild med Read.** Varje sida finns uppifrån och ned i skärmhöga rutor, i 390 och 1440.
    Startsidan först, sedan varje undersida.
 4. **Se sidan som en besökare.** `node kontroller/sida.mjs '<adress>' --ut <arbetskatalog>/<namn>` ger en
-   skrollsekvens, uppmätta designfakta (typsnitt, storlekar, färger, radlängder) och sidans text. Använd den på
+   skrollsekvens, uppmätta designfakta (typsnitt, storlekar, färger) och sidans text. Radlängd och radhöjd per
+   sida står i stilrapporten. Använd den på
    startsidan och på varje sida där du tvekar. Behöver du se ett tillstånd: `node kontroller/webblasare/inspektera.mjs
    --ut <arbetskatalog>/<namn> --adress '<adress>' --vyer 390` med `--meny 'SELEKTOR'`, `--hover 'SELEKTOR'`,
    `--fokus 'SELEKTOR'` eller `--tillstand tangentbord`. Skriv `--ut` först; behörigheten kräver det. Läs

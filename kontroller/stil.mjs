@@ -39,7 +39,18 @@ function matPaSidan() {
   const text = rgb(getComputedStyle(document.querySelector('main p') || document.body).color);
   const knapp = document.querySelector('a[href^="tel:"], button, main a');
   const accent = knapp ? (rgb(getComputedStyle(knapp).backgroundColor) || rgb(getComputedStyle(knapp).color)) : null;
-  const gradient = [...document.querySelectorAll('body, body *')].some((el) => /gradient\(/.test(getComputedStyle(el).backgroundImage));
+  // En gradient räknas som toning bara när två intilliggande stopp har olika färg OCH olika position; hårda stopp
+  // (en färg slutar där nästa börjar) är två platta fält (fynd i lulea-snickaren-abx).
+  const toning = (bild) => {
+    for (const g of bild.match(/(?:repeating-)?(?:linear|radial|conic)-gradient\((.*)\)/g) || []) {
+      const stopp = [...g.matchAll(/(rgba?\([^)]*\))\s*([\d.]+(?:%|px))?/g)].map((m) => ({ farg: m[1].replace(/\s/g, ''), pos: m[2] ?? null }));
+      for (let i = 1; i < stopp.length; i++) {
+        if (stopp[i].farg !== stopp[i - 1].farg && (stopp[i].pos === null || stopp[i].pos !== stopp[i - 1].pos)) return true;
+      }
+    }
+    return false;
+  };
+  const gradient = [...document.querySelectorAll('body, body *')].some((el) => toning(getComputedStyle(el).backgroundImage));
   // radier och kort
   const radier = new Map();
   const kort = [];
@@ -71,6 +82,20 @@ function matPaSidan() {
     if (iText) continue;
     smaYtor.push({ text: (el.textContent || el.getAttribute('aria-label') || el.tagName).trim().slice(0, 40), bredd: Math.round(r.width), hojd: Math.round(r.height) });
   }
+  // sex renderade mönster ur gstacks designkatalog (lib/design-catalog.ts), trösklarna skrivna här
+  const tecken = (() => { const c = document.createElement('canvas').getContext('2d'); return (el) => { const s = getComputedStyle(el); c.font = `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`; return c.measureText('abcdefghijklmnopqrstuvwxyzåäö ').width / 30; }; })();
+  const stycken = [...document.querySelectorAll('main p')].filter((p) => synlig(p) && (p.textContent || '').trim().length > 80);
+  const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
+  const radlangd = median(stycken.map((p) => Math.round(p.getBoundingClientRect().width / tecken(p))));
+  const radhojd = median(stycken.map((p) => { const s = getComputedStyle(p); return parseFloat(s.lineHeight) / parseFloat(s.fontSize) || 1.2; }));
+  const doltIVila = [...document.querySelectorAll('main *')].filter((el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && (s.opacity === '0' || s.visibility === 'hidden') && ((el.textContent || '').trim().length > 20 || el.tagName === 'IMG'); }).length;
+  const marginaljusterad = [...document.querySelectorAll('main p, main li')].some((el) => getComputedStyle(el).textAlign === 'justify');
+  const textblock = [...document.querySelectorAll('main p, main h1, main h2, main h3, main li')].filter(synlig);
+  const centrerad = textblock.length ? textblock.filter((el) => getComputedStyle(el).textAlign === 'center').length / textblock.length : 0;
+  const rundade = [...document.querySelectorAll('main *')].filter(synlig).map((el) => Math.round(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0)).filter((r) => r > 0);
+  const vanligast = rundade.length ? Math.max(...Object.values(rundade.reduce((m, r) => (m[r] = (m[r] || 0) + 1, m), {}))) : 0;
+  const storRadie = rundade.length >= 5 ? Object.entries(rundade.reduce((m, r) => (m[r] = (m[r] || 0) + 1, m), {})).find(([r, n]) => n === vanligast && +r >= 16 && n / rundade.length > 0.8) : null;
+  const monster = { radlangd, radhojd: radhojd ? Math.round(radhojd * 100) / 100 : null, doltIVila, marginaljusterad, centrerad: Math.round(centrerad * 100), enStorRadie: storRadie ? +storRadie[0] : null };
   // modellernas namngivna standardval
   const standardval = [];
   const rubriker = [...document.querySelectorAll('h1, h2')];
@@ -83,7 +108,7 @@ function matPaSidan() {
     typsnitt, ytor: [...ytor.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k),
     bakgrund: hex(bodyBg), text: text ? hex(text) : null, accent: accent ? hex(accent) : null, gradient,
     radier: [...radier.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r, n]) => ({ px: r, antal: n })),
-    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, standardval,
+    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, standardval, monster,
   };
 }
 
@@ -142,6 +167,16 @@ if (rader.some((r) => r.gradient)) varningar.push('gradient som bakgrund');
 for (const s of alla((r) => r.standardval)) varningar.push(s + ' (namngivet standardval)');
 if (rader.some((r) => r.kortIKort > 0)) varningar.push('kort i kort');
 if (rader.some((r) => r.kortRader > 0)) varningar.push('rader med tre eller fler likadana kort');
+for (const r of rader) {
+  const m = r.monster || {};
+  const var_ = `${r.sida} @${r.vy}`;
+  if (m.doltIVila > 0) varningar.push(`innehåll dolt i vila: ${m.doltIVila} element blir synliga först vid skroll (${var_})`);
+  if (m.radlangd && (m.radlangd < 45 || m.radlangd > 75) && r.vy === '1440') varningar.push(`radlängd ${m.radlangd} tecken i brödtext, utanför 45–75 (${var_})`);
+  if (m.radhojd && m.radhojd < 1.4) varningar.push(`radhöjd ${m.radhojd} i brödtext, under 1,4 (${var_})`);
+  if (m.marginaljusterad) varningar.push(`marginaljusterad text (${var_})`);
+  if (m.centrerad > 60) varningar.push(`${m.centrerad} procent av textblocken centrerade (${var_})`);
+  if (m.enStorRadie) varningar.push(`en enda stor radie, ${m.enStorRadie} px, på nästan alla rundade element (${var_})`);
+}
 const utanSkymt = rader.filter((r) => r.sida === '/' && !r.nastaSkymtar).map((r) => r.vy);
 if (utanSkymt.length) varningar.push('nästa sektion skymtar inte i startsidans första vy (' + utanSkymt.join(', ') + ' px)');
 const sammanfattning = {
@@ -157,7 +192,10 @@ writeFileSync(join(ut, 'STIL.json'), JSON.stringify({ base, tid: new Date().toIS
 const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val att motivera ur verksamhetens material, inte förbud.', '',
   `- Typsnitt: ${sammanfattning.typsnitt.join(', ') || '-'} (rubriker: ${sammanfattning.rubriktypsnitt.join(', ') || '-'})`,
   `- Bakgrund: ${sammanfattning.bakgrund.join(', ')} (${bgFam.join(', ')}); accent: ${sammanfattning.accent.join(', ') || '-'}`,
-  `- Radier: ${sammanfattning.radier.join(', ') || 'inga'} px`, '', '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',
+  `- Radier: ${sammanfattning.radier.join(', ') || 'inga'} px`, '',
+  '## Radlängd och radhöjd i brödtext', '', '| Sida | Vy | Radlängd, tecken | Radhöjd |', '|---|---|---|---|',
+  ...rader.map((r) => `| ${r.sida} | ${r.vy} | ${r.monster?.radlangd ?? '-'} | ${r.monster?.radhojd ?? '-'} |`), '',
+  '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',
   '## Klickytor under 24 px i 390 (byggstandarden 3.3)', '', ...(smaYtor.length ? smaYtor.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), ''];
 writeFileSync(join(ut, 'STIL.md'), md.join('\n'));
 console.log(`stil: ${rader.length} mätningar, ${varningar.length} varningar, ${smaYtor.length} små klickytor`);
