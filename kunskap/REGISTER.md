@@ -561,3 +561,43 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · multica-ai/andrej-karpathy-skills · nej
+- Källa: https://github.com/multica-ai/andrej-karpathy-skills @ 2c60614 (ur klonens packed-refs; senaste push
+  2026-04-20), MIT enligt README och skillens frontmatter men ingen licensfil (`gh` visar ingen licens); cirka 217 000
+  stjärnor, inte arkiverat. Läst allt: README, CLAUDE.md, `skills/karpathy-guidelines/SKILL.md`, EXAMPLES.md, CURSOR.md
+  och Cursor-regeln är samma text i andra former. Repot har inga bilder och ingen demo. Ägarens not: ingen
+- Steg: inget av de åtta direkt; arbetssättet runt dem (hur byggsessionen och backlogsessionen beter sig)
+- Jämfört med i dag: källan är en enda regelfil med fyra principer för en kodagent, skriven av en tredje part utifrån
+  ett X-inlägg av Karpathy [REPO README.md rad 7, 13–19]. Sak mot sak: (1) "Think before coding" säger: skriv ut
+  antagandena, och fråga när något är oklart [REPO SKILL.md rad 17–21]. Våra byggen körs utan människa; saknas en
+  uppgift märks den `antagande` och det kunden letar efter beställs i BESTALLNING.md (`.claude/skills/bygg-sajt/SKILL.md:20–24`,
+  `:129–134`), och flera tolkningar blir fyra riktningar med en vald (`:187–197`). Antagandedelen är lika; "fråga och
+  stanna" krockar med obevakade byggen. (2) "Simplicity first": ingen funktion utöver det som bes om, inga abstraktioner
+  för engångskod [REPO SKILL.md rad 25–33]. Vi har det för systemet ("Små ändringar … inte en ny mekanik",
+  `CLAUDE.md:27`; `.claude/skills/backlog/SKILL.md:26–27`) och för sajten (så få sidor som toppuppgifterna kräver,
+  ingen JavaScript som inte behövs, `bygg-sajt/SKILL.md:122`, `:202`); de tre dömda byggena levererade 0 kB JS
+  (`LARDOMAR.md:31`, `:56`). Lika. (3) "Surgical changes": rör bara det som måste, varje ändrad rad ska gå att härleda
+  till uppdraget [REPO SKILL.md rad 35–49]. Samma som backlogens "så liten som posten kräver" (`backlog/SKILL.md:26`);
+  källans regel att inte städa befintligt dött material säger emot rensningen av inaktuella rader i den intagna
+  writing-for-agents (registret ovan, mattpocock/skills). Lika, med en krock. (4) "Goal-driven execution": gör om
+  uppgiften till verifierbara mål och slinga tills de håller [REPO SKILL.md rad 51–67]. Vi har det som mekanik:
+  EARS-krav som granskaren prövar (`bygg-sajt/SKILL.md:119–121`), provets grindar och granskaren tills godkänt
+  (`:226–232`), stoppvakten som inte släpper avslutet (`:324–326`), och varje backlogpost har "Klart när"
+  (`kontroller/backlog.py:81–82`). Vårt är starkare
+- Skäl: källan är allmänna riktlinjer för en kodagent med en människa vid tangentbordet, och den tillför ingen metod
+  vi saknar: tre av fyra principer har vi redan, två av dem som mekanik i stället för text, och den fjärde ("fråga när
+  du är osäker") krockar med att våra byggen körs obevakat, där vi medvetet valt antagande plus beställning. Inget i den
+  rör det som ägarens domar L1–L3 pekar på (förfrågan, bildunderlag, förtroende, rösten). Källkritik: namnet lånar
+  Karpathys auktoritet, men han är inte upphovsman; texten är en tredje parts tolkning av tre citat [REPO README.md rad
+  7, 13–19], och README:n gör reklam för upphovsmannens plattform Multica [REPO README.md rad 3]. Effekten är obelagd:
+  "How to know it's working" listar bara tecken att själv lägga märke till, inga mätningar [REPO README.md rad 140–147].
+  Stjärnantalet är räckvidd, inte belägg
+- Kostnad: ingen; inget tas in. Skillen skulle kosta cirka 59 tokens i varje session och 556 vid användning enligt
+  förgranskningen
+- Säkerhet: förgranskningen LÅG: inga dolda tecken, ingen text riktad till agenter, inga behörigheter, hookar eller
+  skript. README:n föreslår installation genom att hämta CLAUDE.md med curl till projektet; inget kördes eller
+  installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
