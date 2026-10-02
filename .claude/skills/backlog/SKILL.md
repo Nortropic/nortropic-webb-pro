@@ -25,6 +25,14 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
    för domposter, `kunder/<slug>/RAPPORT.md` för byggposter.
 3. **Gör ändringen**, så liten som posten kräver, i den fil posten pekar på. En dom blir en textändring i skillen
    `bygg-sajt` eller en fil i `kunskap/`. Ny mekanik bara när posten uttryckligen kräver det och inget enklare räcker.
+   **Välj formen efter hur bygget brast.** Läs först vad bygget gjorde och klassa felet:
+   - **utelämnade något:** en obligatorisk plats i något bygget redan fyller i (mallen, en rubrik i BRIEF eller
+     INNEHALL, en fil som BESTALLNING.md), inte en påminnelse i löptext;
+   - **rätt delar, fel form:** beskriv hur resultatet ska se ut, delarna i ordning, inte en lista med förbud;
+   - **kände regeln men hoppade över den:** förbudet plus de undanflykter bygget faktiskt använde, ur rapporten
+     eller granskningen;
+   - **ska bero på läget:** ett villkor på något som syns i underlaget (finns X, gör Y).
+   Skriv klassen på Ändring-raden. Inga brasklappar som "om möjligt" eller "vid behov": de gör regeln valfri.
    Gäller posten ett kommande bygge (en A/B-prövning) och inget bygge finns än: låt den stå vilande med en not
    (`status <id> vilande --not "väntar på bygge"`) och gå vidare.
    **En skill till verktygslådan:**
@@ -38,6 +46,13 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
    - Ändrades något i `kontroller/` eller `mall/`: kör `kontroller/rokprov.sh`. Den ska sluta grönt.
    - Ändrades en skill eller kunskapsfil: läs igenom hela den ändrade delen och kontrollera att varje sökväg och
      kommando den nämner finns.
+   - **Mikroprov av en domändring** i bygg-sajt eller en kunskapsfil: skriv en liten uppgift som frestar till felet
+     domen pekar på (till exempel ett underlag med en enda egen bild, och be om sektionen och beställningen). Arm A
+     får den gamla texten, arm B den nya; samma uppgift och samma indata, minst fem färska subagenter per arm
+     (Task-verktyget, hela skillen som sammanhang). En annan modell än byggarens läser svaren blint i ombytt
+     ordning och räknar per svar om felet finns; oenighet räknas som oavgjort. Behåll ändringen när A visar felet
+     och B tar bort det i minst fyra av fem. Visar A inte felet: skriv det på Ändring-raden och pröva i nästa
+     bygge i stället. Armarnas utfall, domarmodellen och kostnaden står på Ändring-raden.
 5. **Bokför:** för domposter skriv commit och vad som ändrades på raden `**Ändring:**` i `LARDOMAR.md`; för
    kirurgposter fyll i `Utfall:` i `kunskap/REGISTER.md`.
 6. **Commit** med postens id först i meddelandet, sedan
