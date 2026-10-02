@@ -1583,3 +1583,24 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · Reddit-inlägget "My opinionated guide to building a website with …" (r/ai_website_builder) · parkera
+- Källa: https://www.reddit.com/r/ai_website_builder/comments/1wuzspa/my_opinionated_guide_to_building_a_website_with/
+  @ 2026-10-02, licens okänd. Inte bedömd förut. Inlägget gick inte att läsa: `kontroller/sida.mjs` fick Reddits
+  robotkontroll "Prove your humanity" med reCAPTCHA i både mobil och desktop [BILD
+  reddit-opinionated/desktop-forsta.png]; old.reddit skickade till inloggning; WebFetch nekas för reddit.com;
+  webbsökning på rubriken gav ingen träff, och sökning begränsad till reddit.com vägras. Ingenting av inläggets text,
+  bilder eller kommentarer är sett. Det enda kända är subredditen och rubrikens början ur adressen; resten av rubriken
+  (vilket verktyg guiden gäller) är avkapad. Ägarens not: ingen
+- Steg: okänt; rubriken antyder steg 4–5 (design och bygge), men det är en gissning ur adressen
+- Jämfört med i dag: ingen jämförelse möjlig utan innehållet. Samma spärr mötte "How I Sold 200 Websites" 2026-10-01
+  (`kunskap/REGISTER-arkiv-20261001.md` rad 153–154), som bedömdes först när ägaren laddade upp skärmbilder
+- Skäl: domen gäller åtkomsten, inte meriterna; jag påstår inget om en text jag inte sett. Parkerad tills inlägget
+  finns i läsbar form, till exempel som skärmbilder eller inklistrad text från dashboardens uppladdning, och bedöms då
+  som en ny post. Källkritik i förväg: r/ai_website_builder är ett forum kring AI-sajtbyggare där guider ofta pekar
+  på ett visst verktyg; det vägs när texten är läst
+- Kostnad: ingen; inget tas in
+- Säkerhet: förgranskningen av den hämtade texten (robotkontrollens 367 tecken) gav inga fynd; ingen källtext lästes
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
