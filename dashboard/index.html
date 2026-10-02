@@ -129,6 +129,7 @@ details.post .innehall { padding: 0 16px 14px; }
     <a href="#/backlog" data-v="backlog">Backlog <b id="n-backlog" hidden></b></a>
     <a href="#/kirurgen" data-v="kirurgen">Kirurgen <b id="n-kirurg" hidden></b></a>
     <a href="#/lardomar" data-v="lardomar">Lärdomar</a>
+    <a href="#/ab" data-v="ab">Jämförelser</a>
     <a href="#/starta" data-v="starta">Starta</a>
   </nav>
 </div></header>
@@ -388,8 +389,28 @@ async function lardomvy() {
   aktivNav('lardomar');
   const o = await api('/api/oversikt'); raknare(o);
   const g = o.granskare || { bedomda: 0, rader: [] };
-  const gk = g.bedomda ? `<div class="kort" style="margin-bottom:12px"><div style="font-weight:560">Granskaren och du är överens om ${g.overens} av ${g.bedomda} byggen</div><p class="under" style="margin:4px 0 0">${g.rader.map((r) => `${esc(r.slug)}: granskaren ${esc(r.granskaren)}, du svarade "${esc(r.agarens_svar)}"${r.overens ? '' : ' (oense)'}`).join(' · ')}</p></div>` : '';
+  const gk = g.bedomda ? `<div class="kort" style="margin-bottom:12px"><div style="font-weight:560">Granskaren och du är överens om ${g.overens} av ${g.bedomda} byggen</div><p class="under" style="margin:4px 0 0">${g.rader.map((r) => `${esc(r.slug)}: granskaren ${esc(r.granskaren)}, du svarade "${esc(r.agarens_svar)}"${r.overens ? '' : ' (oense)'}${r.originalitet != null ? `; originalitet ${r.originalitet}${r.originalitet_separat != null ? ' (egen domare ' + r.originalitet_separat + ')' : ''}, din specificitet ${esc(String(r.agarens_specifik ?? '?'))} av 5` : ''}`).join(' · ')}</p></div>` : '';
   $('#vy').innerHTML = `<h1>Lärdomar</h1><p class="under">Dina domar, ordagrant. Varje dom blir en textändring via backloggen.</p>${gk}<div class="kort prosa">${o.lardomar}</div>`;
+}
+
+async function abvy() {
+  aktivNav('ab');
+  const lista = await api('/api/ab');
+  const kort = (j) => {
+    const kol = (b) => `<div class="kort"><div class="rad mellan"><b>${b.etikett}</b>${b.byggd ? `<a class="knapp" href="/visa/${esc(b.slug)}" target="_blank" rel="noopener">Öppna ${b.etikett}</a>` : '<span class="chip">byggs</span>'}</div>
+      <div class="bilder">${b.bilder.map((p) => bild(p, b.etikett)).join('')}</div>
+      ${b.varde != null ? `<p class="under">${esc(j.variabel)} = <b>${esc(b.varde)}</b>${b.matt ? ` · ${b.matt.minuter ?? '?'} min, ${b.matt.turer ?? '?'} turer, granskaren ${b.matt.granskning_godkand ? 'godkände' : 'underkände'} efter ${b.matt.omgangar} omgångar` : ''}</p>` : ''}</div>`;
+    const valt = j.val != null;
+    const knappar = !valt && j.byggen.every((b) => b.byggd) ? `<div class="rad" style="margin-top:10px">${j.byggen.map((b) => `<button class="knapp primar" data-ab="${esc(j.id)}" data-val="${esc(b.slug)}">${b.etikett} är bättre</button>`).join('')}<button class="knapp" data-ab="${esc(j.id)}" data-val="lika">Lika</button></div><textarea id="k-${esc(j.id)}" placeholder="Varför? Ett konkret ställe." style="margin-top:8px;min-height:56px"></textarea>` : '';
+    return `<section style="margin-bottom:24px"><h2>${esc(j.verksamhet || j.id)}</h2><p class="under">${esc(j.variabel)} · ${esc(j.status)}${valt ? ' · du valde ' + esc(j.val === 'lika' ? 'lika' : j.byggen.find((b) => b.slug === j.val)?.etikett || '?') : ' · värdena visas efter ditt val'}</p>
+      <div class="galleri" style="grid-template-columns:1fr 1fr">${j.byggen.map(kol).join('')}</div>${knappar}</section>`;
+  };
+  $('#vy').innerHTML = `<h1>Jämförelser</h1><p class="under">Samma verksamhet byggd två gånger med ett val ändrat. Titta på båda och välj utan att veta vilket som är vilket; värdena och mätningarna visas efter valet och skrivs i LARDOMAR.md. Starta en med <code>nohup .venv/bin/python kontroller/ab.py starta &lt;slug&gt; "&lt;verksamhet&gt;" &amp;</code>.</p>${lista.length ? lista.map(kort).join('') : '<div class="tom">Inga jämförelser än.</div>'}`;
+  document.querySelectorAll('[data-ab]').forEach((x) => x.onclick = async () => {
+    const id = x.dataset.ab;
+    await post('/api/ab/' + encodeURIComponent(id), { val: x.dataset.val, kommentar: (document.getElementById('k-' + id) || {}).value || '' });
+    abvy();
+  });
 }
 
 function startavy() {
@@ -412,6 +433,7 @@ async function route() {
     if (h === 'backlog') return await backlogvy();
     if (h === 'kirurgen') return await kirurgvy();
     if (h === 'lardomar') return await lardomvy();
+    if (h === 'ab') return await abvy();
     if (h === 'starta') return startavy();
     return await oversikt();
   } catch (e) { $('#vy').innerHTML = `<div class="meddelande fel">Fel: ${esc(e.message)}</div>`; }

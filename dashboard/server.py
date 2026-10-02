@@ -244,7 +244,7 @@ def byggen():
     if not KUNDER.is_dir():
         return []
     # rokprov-* är kontrollernas regressionsfixtur (kontroller/rokprov.sh), inget bygge att döma
-    ut = [sammanfattning(p.name) for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and not p.name.startswith('rokprov')]
+    ut = [sammanfattning(p.name) for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and not p.name.startswith('rokprov') and p.name != 'ab']
     return sorted(ut, key=lambda b: (not b['pagar'], b['domd'], b['slug']))
 
 
@@ -303,7 +303,11 @@ def granskare_overens():
             gtext = 'godkände' if g.get('godkand') else 'underkände'
         else:
             overens, gtext = gn == an, GRANSKARENS_NIVA[gn]
-        rader.append({'slug': p.name, 'granskaren': gtext, 'agarens_svar': namn, 'overens': overens})
+        sep = g.get('originalitet_separat') if isinstance(g.get('originalitet_separat'), dict) else {}
+        orig = (g.get('originalitet_huvud') or (g.get('kriterier') or {}).get('originalitet') or {}).get('betyg')
+        rader.append({'slug': p.name, 'granskaren': gtext, 'agarens_svar': namn, 'overens': overens,
+                      'originalitet': orig, 'originalitet_separat': sep.get('betyg'),
+                      'agarens_specifik': (dom[-1].get('svar') or {}).get('specifik')})
     return {'bedomda': len(rader), 'overens': sum(r['overens'] for r in rader), 'rader': rader}
 
 
@@ -386,6 +390,55 @@ def commit_agarens(filer, meddelande):
     return 'committad och pushad' if p.returncode == 0 else 'committad lokalt; push misslyckades: ' + (p.stderr or '').strip()[-160:]
 
 
+# --- A/B-jämförelser (kontroller/ab.py) ---
+
+AB = KUNDER / 'ab'
+
+
+def ab_lista():
+    """Jämförelserna, med värdena och mätningarna dolda tills ägaren har valt (blint, parvis)."""
+    ut = []
+    for f in sorted(AB.glob('ab-*.json'), reverse=True) if AB.is_dir() else []:
+        p = las_json(f) or {}
+        visa_svar = p.get('val') is not None
+        byggen = []
+        for i, slug in enumerate(p.get('byggen', [])):
+            b = {'slug': slug, 'etikett': 'AB'[i], 'bilder': [str(x.relative_to(ROOT)) for x in
+                 [KUNDER / slug / 'prov' / 'inspektion' / 'hem' / v for v in ('vy-390-forsta.png', 'vy-1440-forsta.png')] if x.is_file()],
+                 'byggd': (KUNDER / slug / 'sajt' / 'dist' / 'index.html').is_file()}
+            if visa_svar:
+                b['varde'] = (p.get('varden') or {}).get(slug)
+                b['matt'] = (p.get('korningar') or {}).get(slug)
+            byggen.append(b)
+        ut.append({'id': p.get('id'), 'verksamhet': p.get('verksamhet'), 'variabel': p.get('variabel'), 'status': p.get('status'),
+                   'val': p.get('val'), 'kommentar': p.get('kommentar'), 'byggen': byggen})
+    return ut
+
+
+def spara_ab(ident, data):
+    f = AB / (ident + '.json')
+    p = las_json(f) if re.fullmatch(r'ab-[a-z0-9-]+-\d{8}T\d{6}Z', ident or '') else None
+    if not p:
+        raise ValueError('okänd jämförelse')
+    if p.get('val') is not None:
+        raise ValueError('redan vald')
+    val = data.get('val')
+    if val not in p['byggen'] + ['lika']:
+        raise ValueError('välj A, B eller lika')
+    p.update(val=val, kommentar=(data.get('kommentar') or '').strip()[:4000], valt=nu(), status='vald')
+    f.write_text(json.dumps(p, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    etikett = {s: 'AB'[i] for i, s in enumerate(p['byggen'])}
+    rader = ['', '## AB · %s · %s: %s' % (p['valt'][:10], p['variabel'], ' mot '.join('%s=%s' % (etikett[s], p['varden'][s]) for s in p['byggen'])), '',
+             '- **Ägarens val (blint):** %s' % ('lika' if val == 'lika' else '%s (%s=%s)' % (etikett[val], p['variabel'], p['varden'][val])),
+             *(['- **Ägarens ord:** ' + p['kommentar'].replace('\n', ' / ')] if p['kommentar'] else []),
+             *['- %s (%s=%s): %s' % (etikett[s], p['variabel'], p['varden'][s], json.dumps((p.get('korningar') or {}).get(s, {}), ensure_ascii=False))
+               for s in p['byggen']], '']
+    lar = ROOT / 'LARDOMAR.md'
+    with open(lar, 'a', encoding='utf-8') as fh:
+        fh.write('\n'.join(rader))
+    return {'ok': True, 'git': commit_agarens(['LARDOMAR.md'], 'Ägaren: A/B %s' % p['variabel']), 'jamforelse': ab_lista()}
+
+
 # --- domen ---
 
 def spara_dom(slug, data):
@@ -431,7 +484,14 @@ def spara_dom(slug, data):
     with open(lar, 'a', encoding='utf-8') as f:
         f.write('\n'.join(rader))
     git = commit_agarens(['LARDOMAR.md', 'backlog/%s.md' % pid], 'Ägaren: dom L%d (%s)' % (n, slug))
-    return {'lardom': 'L%d' % n, 'sparad': str(fil.relative_to(ROOT)), 'backlog': pid, 'git': git}
+    gruppering = None
+    if (n + 1) % 5 == 0:  # L0 räknas: efter var femte dom grupperas domarna och granskarens fynd (kontroller/gruppera.py)
+        import subprocess
+        with open(ROOT / 'kunder' / ('gruppering-L%d.log' % n), 'wb') as logg:
+            subprocess.Popen([sys.executable, '-B', str(ROOT / 'kontroller' / 'gruppera.py')], cwd=str(ROOT), stdout=logg,
+                             stderr=subprocess.STDOUT, start_new_session=True)
+        gruppering = 'startad efter %d domar' % (n + 1)
+    return {'lardom': 'L%d' % n, 'sparad': str(fil.relative_to(ROOT)), 'backlog': pid, 'git': git, 'gruppering': gruppering}
 
 
 # --- backloggen och kirurgen ---
@@ -592,6 +652,8 @@ class H(BaseHTTPRequestHandler):
                                          'backlog_vilande': sum(1 for p in bk if p.get('status') == 'vilande'),
                                          'intag_pagar': sum(1 for x in intag_lista() if x['pagar']),
                                          'granskare': granskare_overens(), 'tid': nu()})
+            if vag == '/api/ab':
+                return self.skicka(200, ab_lista())
             if vag == '/api/backlog':
                 return self.skicka(200, backloggen())
             if vag == '/api/kirurg':
@@ -636,6 +698,9 @@ class H(BaseHTTPRequestHandler):
                     raise ValueError('från dashboarden går bara avvisad eller vilande')
                 meta = bl.satt_status(m.group(1), data['status'], not_=(data.get('not') or 'ändrad av ägaren i dashboarden'))
                 return self.skicka(200, {'id': meta['id'], 'status': meta['status']})
+            m = re.match(r'^/api/ab/([a-z0-9TZ-]+)$', vag)
+            if m:
+                return self.skicka(200, spara_ab(m.group(1), data))
             if vag == '/api/kirurg':
                 return self.skicka(200, starta_intag(data.get('url'), data.get('not'), data.get('filer')))
             if vag == '/api/kirurg/omdome':

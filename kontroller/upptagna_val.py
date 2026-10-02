@@ -73,8 +73,9 @@ def main(argv=None):
         print(__doc__.split('\n\n')[1].strip())
         return 2
     slug = argv[0]
-    andra = sorted(p for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and p.name != slug
-                   and not p.name.startswith(('rokprov', 'ab-')))
+    syskon = (KUNDER / slug / 'AB-SYSKON').read_text().strip() if (KUNDER / slug / 'AB-SYSKON').is_file() else None
+    andra = sorted(p for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and p.name not in (slug, syskon, 'ab')
+                   and not p.name.startswith('rokprov'))
     rader, varningar = [], {}
     for b in andra:
         s = stil_for(b)
