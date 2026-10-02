@@ -2299,3 +2299,62 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · JCodesMore/ai-website-cloner-template · nej
+- Källa: https://github.com/JCodesMore/ai-website-cloner-template @ f50066d (ur klonens `.git/shallow`, tagg v0.5.1;
+  senaste push 2026-09-27T04:51Z), MIT [REPO LICENSE; package.json rad 7]; cirka 35 500 stjärnor, inte arkiverat;
+  cirka 17 500 tokens text i 39 textfiler. Inte bedömd förut. Förgranskat. Läst i helhet: README, AGENTS.md,
+  CLAUDE.md, `.claude/commands/clone-website.md`, `.agents/skills/clone-website/SKILL.md` (507 rader) och
+  `references/inspection-guide.md`, package.json. Sett: `docs/design-references/comparison.png` (original mot klon av
+  instruct.ai) och demovideon "Claude Code website cloner demo" (1:14, inget transkript, inga undertexter): alla sex
+  bildrutor. Ägarens not: ingen
+- Steg: inget av de åtta. Närmast steg 2 (den tar isär en befintlig sajt) och steg 5 (den bygger), men med ett annat
+  mål: återskapa någon annans sajt pixel för pixel i Next.js
+- Jämfört med i dag: Källan är en Next.js 16-mall med shadcn och Tailwind 4 [REPO package.json rad 37–57] plus en
+  skill som läser en adress i webbläsaren, hämtar text, bilder och beräknad CSS per sektion, skriver en specfil per
+  komponent, skickar parallella byggagenter i worktrees och jämför klonen mot originalet sida vid sida [REPO SKILL.md
+  rad 148–459]. Målet står på rad 18–21: "Pixel-perfect — exact match in colors, spacing, typography, animations",
+  och utanför ramen står "SEO optimization, accessibility audit". Vi gör motsatsen på varje punkt. (1) Vi härleder
+  sajten ur verksamheten själv, aldrig ur någon annans sajt eller en mall (`.claude/skills/bygg-sajt/SKILL.md` rad
+  200–201, 252 "Kopiera aldrig layout, palett eller typsnitt"; ägarens mall-lukt i L1–L3 satt i formen, `LARDOMAR.md`
+  rad 29, 54, 78). Verksamhetens nuvarande sajt är ribba 1, det vi ska slå (SKILL.md rad 9, 115), inte något att
+  återskapa: de tre dömda byggena hade Lighthouse mobil 41–60 och 14–18 allvarliga axe-fel att lämna bakom sig
+  (`LARDOMAR.md` rad 38, 63, 87). (2) Stacken: statisk Astro utan JavaScript, högst 200 kB JS och 100 kB CSS
+  (`kunskap/byggstandard.md` rad 25, 52, 133–138 "Astro i stället för Next.js"; rule of least power i
+  `kunskap/teoretisk-grund.md` rad 47–50); de tre byggena levererade 0 kB JS (`LARDOMAR.md` rad 31, 56, 87). (3) Det
+  källan gör bra som hantverk har vi redan: "Spec Files Are the Source of Truth" [REPO SKILL.md rad 138–142]
+  motsvaras av KONCEPT.md:s exakta specifikation före kod (SKILL.md rad 207–210); "Visual QA Diff" sida vid sida
+  [REPO rad 445–459] av JAMFORELSE.md mot referenserna i åtta dimensioner (SKILL.md rad 246–252); beräknade
+  designfakta (typsnitt, storlek, färg) ur `getComputedStyle` [REPO rad 269–311] tar `kontroller/sida.mjs` fram för
+  varje referens (rad 3, 113, 121) och `hamta_sajt.py` hämtar text och bildlista ur deras sajt (SKILL.md rad 66–68);
+  "Build Must Always Compile" är snabbprovet (SKILL.md rad 237). (4) Interaktionssvepet (scroll, klick, hover,
+  tillstånd) [REPO rad 168–194] löser ett problem vi inte har: våra sajter har inga tillstånd att återskapa, och vår
+  diagnos av deras sajt använder heuristisk utvärdering och kognitiv genomgång ur litteraturen (SKILL.md rad
+  109–114), inte en inventering av animationer. Sämre på det som rör oss, lika på hantverket
+- Skäl: Källan svarar på frågan "hur kopierar jag en sajt exakt", och hela vårt arbetssätt är byggt för att aldrig
+  behöva ställa den: slop uppstår när modellen saknar något specifikt att säga (SKILL.md rad 12–13), och ett pixelkopierat
+  original är det minst specifika en hantverkare i Luleå kan få. Källans egna legitima fall, flytt av en sajt man
+  äger till ny stack [REPO README.md rad 94–96], är inte vårt erbjudande: vi ersätter deras sajt eftersom den är
+  sämre, inte flyttar den. Den krockar alltså med två medvetna val (verksamhetens egna bilder och ord; statisk Astro
+  utan JS) och hjälper oss varken bygga bättre sajter eller arbeta smartare: byggtiden hos oss går till
+  granskningsrundor, inte till att skriva kod (`LARDOMAR.md` rad 100–101: 117–126 minuter, 3–5 omgångar), så
+  parallella byggagenter i worktrees [REPO rad 405–432] skulle lägga till sammanslagningar utan att korta det som tar
+  tid. Resultatet är dessutom inte vad det lovar: i källans egen jämförelsebild har originalets kort miniatyrbilder
+  och klonens bara ikoner, och första vyns vertikala placering skiljer [BILD docs/design-references/comparison.png;
+  BILD 00:02]; mitt i körningen stannar bygget på ett saknat typsnitt ("Font file not found") [BILD 00:39]; sektionen
+  "Just describe the work" ligger nära men inte lika [BILD 00:14]. Källkritik: videon visar körningen med Opus 4.6 i
+  Claude Code [BILD 00:27, läsbart i terminalen] medan README rekommenderar Opus 5.5 [REPO README.md rad 9]; "No
+  guessing" [rad 90] och "nails it every time" [REPO SKILL.md rad 73] är egna omdömen utan belägg. README innehåller en
+  färdig uppmaning avsedd att klistras in i en agent (klona, installera, kör `npm run check`) [REPO README.md rad
+  33–41]; den följdes inte. Samma dom som för firecrawl och crawl4ai (ovan): ett verktyg för att hämta andras sajter,
+  utan plats i bygg-sajts åtta steg. Ägaren höll med om nej för dem och om nej för ui-ux-pro-max och shadcn-ui
+  (`kunskap/KIRURG-OMDOMEN.md`)
+- Kostnad: ingen; inget tas in. Skillen vore 115 tokens alltid, 8 931 vid användning och 913 vid behov, plus Next.js 16,
+  React 19, shadcn, Tailwind 4, Node 24 och en webbläsar-MCP som krav [REPO SKILL.md rad 53; README.md rad 68–78]
+- Säkerhet: förgranskningen LÅG: inga dolda tecken, ingen text riktad till agenter, inga hookar, MCP-servrar eller
+  skill-frontmatter med behörigheter; fyra skript (eslint, next, postcss, `cn()`), inga riskmönster. AGENTS.md
+  inleds med ett block som Next.js själv skriver in och som ber agenten läsa `node_modules/next/dist/docs/` [REPO
+  AGENTS.md rad 1–9]; ofarligt, hör till deras stack. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
