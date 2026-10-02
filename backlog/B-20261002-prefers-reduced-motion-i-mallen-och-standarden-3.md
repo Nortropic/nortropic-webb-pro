@@ -1,11 +1,12 @@
 ---
 id: B-20261002-prefers-reduced-motion-i-mallen-och-standarden-3
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 5
+andrad: 2026-10-02T16:54Z
 ---
 # prefers-reduced-motion i mallen, och standarden 3.5 gäller också övergångar
 

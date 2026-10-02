@@ -44,4 +44,9 @@ const bild = new URL(delningsbild, Astro.site).href;
 <style is:global>
   .skiplank { position: absolute; left: 0.5rem; top: -100%; padding: 0.75rem 1rem; background: #fff; color: #000; z-index: 1000; }
   .skiplank:focus { top: 0.5rem; }
+  /* Byggstandarden 3.5: den som har bett om mindre rörelse får inga övergångar, animationer eller mjuk skroll. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  }
 </style>

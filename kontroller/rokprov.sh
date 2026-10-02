@@ -103,6 +103,41 @@ assert [f for f in sk.granska(d)[0] if f['sida'] == '/tvaan/' and f['punkt'] == 
 " || { echo "FEL: standarden fångar inte en kvarlämnad tvåan-sida"; exit 1; }
 echo "   tvåan-regeln ok"
 
+echo "   ägarens A/B-omdöme: adress, brödsmulor, rörelse, typsnittsvikt, intern text"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, re, json, shutil, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import standard_kontroll as sk, copy_kontroll as ck
+tmp = pathlib.Path(tempfile.mkdtemp()); d = tmp / 'dist'; shutil.copytree('$S/dist', d)
+punkter = lambda: {(f['punkt'], f['sida']) for f in sk.granska(d)[0]}
+ren = punkter()
+assert not {p for p in ren if p[0] in ('3.5', '4.3', '7.3')}, ren
+# brödsmulor: utan nav på /om/ blir det fel 7.3
+om = d / 'om' / 'index.html'; html_om = om.read_text()
+om.write_text(re.sub(r'<nav class=\"brodsmulor\".*?</nav>', '', html_om, flags=re.S))
+assert ('7.3', '/om/') in punkter(); om.write_text(html_om)
+# rörelse utan prefers-reduced-motion blir fel 3.5
+sidor = {f: f.read_text() for f in d.rglob('*.html')}
+for f, t in sidor.items(): f.write_text(re.sub(r'@media \(prefers-reduced-motion[^{]*\{.*?\}\s*\}', '', t, flags=re.S))
+(d / 'rorelse.css').write_text('a{transition:color .2s}')
+assert ('3.5', '(alla)') in punkter()
+for f, t in sidor.items(): f.write_text(t)
+(d / 'rorelse.css').unlink()
+# typsnitt: 90 kB utan bredd-axel är fel 4.3, med bredd-axel information
+(d / 'tung.woff2').write_bytes(b'0' * 92 * 1024)
+assert ('4.3', '(alla)') in punkter()
+(d / 'bredd.css').write_text('h1{font-stretch:62%}')
+assert ('4.3', '(alla)') not in punkter()
+# publik adress: saknas i sidfot och JSON-LD = fel 7.4; dold adress prövas inte
+v = tmp / 'VERKSAMHET.json'
+v.write_text(json.dumps({'adress': {'gata': 'Provgatan 1', 'postnummer': '123 45', 'ort': 'Provby', 'publik': True}}))
+assert {f['punkt'] for f in sk.adress(d, v)} == {'7.4'}
+v.write_text(json.dumps({'adress': {'gata': 'Provgatan 1', 'postnummer': '123 45', 'ort': 'Provby', 'publik': False}}))
+assert sk.adress(d, v) == []
+# intern text: hänvisning till den gamla sajten
+assert any(f['typ'] == 'intern information' for f in ck.kontrollera_fil(pathlib.Path('x.html'), '<p>Tillbyggnaden, från vår gamla sajt.</p>', [])[0])
+" || { echo "FEL: kontrollerna ur ägarens A/B-omdöme"; exit 1; }
+echo "   A/B-omdömets kontroller ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"

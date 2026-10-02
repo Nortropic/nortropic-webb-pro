@@ -37,6 +37,10 @@ FRASER_SV = [
 ]
 FRASER_EN = ['unlock', 'elevate', 'seamless', 'empower', 'effortless', 'state-of-the-art', 'cutting-edge', 'world-class',
              'look no further', "we've got you covered", 'one-stop shop']
+# intern information: hänvisningar till den gamla sajten eller till bygget, som besökaren inte har någon nytta av
+# (ägarens A/B-omdöme 2026-10-02: bildtexten "från vår gamla sajt")
+INTERN = re.compile(r'\b(?:gamla|tidigare|förra) (?:sajt|sajten|hemsida|hemsidan|webbplats|webbplatsen|webbsida|webbsidan)\b'
+                    r'|\bnya (?:sajten|hemsidan|webbplatsen)\b')
 PLATSHALLARE = ['lorem ipsum', 'todo-fact', 'todo-copy', '[osäker]', 'platshållare', 'placeholder']
 TAGG = re.compile(r'<[^>]+>')
 JSX = re.compile(r'\{[^{}]*\}')
@@ -95,6 +99,8 @@ def kontrollera_fil(path, raw, extra_fraser):
         for ph in PLATSHALLARE:
             if ph in t:
                 fynd.append({'typ': 'platshållare', 'rad': i, 'text': ph, 'riktning': 'levererad text får inte bära platshållare eller osäkra fakta'})
+        for m in INTERN.finditer(t):
+            fynd.append({'typ': 'intern information', 'rad': i, 'text': m.group(0), 'riktning': 'säg vad bilden eller texten visar besökaren, inte var den kom ifrån'})
         if t.startswith('välkommen till'):
             fynd.append({'typ': 'hälsningsrubrik', 'rad': i, 'text': t[:60], 'riktning': 'första vyn säger vad som erbjuds och för vem, inte en hälsning'})
     for i, t in rows:

@@ -11,6 +11,7 @@ etiketter) upprepas inte här.
 Exit 0 = rapporten skriven; 2 = fel i anropet.
 """
 import argparse
+import html
 import json
 import re
 import shutil
@@ -160,6 +161,8 @@ def granska(dist):
         return fel, info, 0
     css_filer = {f: f.read_text(encoding='utf-8', errors='replace') for f in dist.rglob('*.css')}
     all_css = '\n'.join(css_filer.values())
+    # Astro lägger små stilmallar direkt i sidan; de räknas också
+    all_css += '\n'.join(m for f in sidor for m in re.findall(r'<style[^>]*>(.*?)</style>', f.read_text(encoding='utf-8', errors='replace'), re.S))
     sidobjekt = {}
     for f in sidor:
         p = Sida()
@@ -343,8 +346,10 @@ def granska(dist):
             F('9.2', sida, 'telefonnumret finns inte som tel-länk i sidhuvudet')
 
     # sajtövergripande
-    if re.search(r'@keyframes|scroll-behavior\s*:\s*smooth', all_css) and 'prefers-reduced-motion' not in all_css:
-        F('3.5', '(alla)', 'sidan har rörelse (@keyframes eller mjuk skroll) men ingen @media (prefers-reduced-motion)')
+    rorelse = re.search(r'@keyframes|scroll-behavior\s*:\s*smooth|(?<![\w-])(?:transition|animation)\s*:\s*(?!none\b)', all_css)
+    if rorelse and 'prefers-reduced-motion' not in all_css:
+        F('3.5', '(alla)', 'sidan har rörelse (%s) men ingen @media (prefers-reduced-motion); mallens Bas.astro har blocket'
+          % rorelse.group(0).split(':')[0].strip())
     if ':focus-visible' not in all_css:
         I('3.4', '(alla)', 'ingen :focus-visible-stil; webbläsarens standardfokus syns men följer inte designen')
     for m in re.finditer(r'font-size\s*:\s*clamp\(([^,]+),([^,]+),', all_css):
@@ -355,6 +360,15 @@ def granska(dist):
         F('3.6', '(alla)', 'ikonfont används; använd SVG')
     if re.search(r'url\(\s*["\']?(https?:)?//', all_css):
         F('4.4', '(alla)', 'CSS hämtar resurser från en annan domän (t.ex. typsnitt); självhosta')
+    # 4.3 vikt: latin-subset med bara wght-axeln är 40–50 kB; bredd-axeln kostar 40 kB till och ska bära formen
+    # (ägarens A/B-omdöme 2026-10-02: 47 kB mot 99 kB var ett skäl; L2 godtog Archivo i smal bredd)
+    bredd = re.search(r"font-stretch\s*:\s*(?!100%|normal)|'wdth'", all_css)
+    for f in sorted(dist.rglob('*.woff2')):
+        kb = f.stat().st_size // 1024
+        if kb > 120 or (kb > 80 and not bredd):
+            F('4.3', '(alla)', '%s är %d kB; ta latin-subset med bara de axlar som används (wght-axeln ensam är 40–50 kB)' % (f.name, kb))
+        elif kb > 80:
+            I('4.3', '(alla)', '%s är %d kB med bredd-axeln; behåll den bara om bredden bär formen, annars 40–50 kB med wght' % (f.name, kb))
     fontfiler = [f for f in dist.rglob('*') if f.suffix.lower() in ('.woff', '.ttf', '.otf', '.eot')]
     if fontfiler:
         F('4.3', '(alla)', '%d typsnittsfiler som inte är WOFF2, t.ex. %s' % (len(fontfiler), fontfiler[0].name))
@@ -392,6 +406,18 @@ def granska(dist):
             F('7.2', '/404.html', '404-sidan saknar <meta name="robots" content="noindex">')
         if any('canonical' in a.get('rel', '').lower().split() for t, a, *_ in p404.el if t == 'link'):
             F('7.2', '/404.html', '404-sidan har canonical; ta bort den (404-sidan ska inte indexeras)')
+    # 7.3 brödsmulor på varje indexerbar undersida: synlig navigering och BreadcrumbList (ägarens A/B-omdöme 2026-10-02)
+    for f, p in sidobjekt.items():
+        sida = sida_av(dist, f)
+        if sida in ('/', '/404.html') or f.name == '404.html':
+            continue
+        if any(a.get('name') == 'robots' and 'noindex' in a.get('content', '') for t_, a, *_ in p.el if t_ == 'meta'):
+            continue
+        smulor = any(t_ == 'nav' and re.search(r'du är här|brödsmul|breadcrumb', a.get('aria-label', ''), re.I) for t_, a, *_ in p.el)
+        if not smulor:
+            F('7.3', sida, 'brödsmulor saknas: <nav aria-label="Du är här"> med länk till startsidan (mallens Brodsmulor.astro)')
+        if not any('BreadcrumbList' in ld for ld in p.jsonld):
+            F('7.3', sida, 'BreadcrumbList saknas i JSON-LD (mallens Brodsmulor.astro)')
     # 9.4 den kastbara sidan för tvåan-riktningen (bygg-sajt steg 5) tas bort efter skärmbilderna
     if (dist / 'tvaan').exists():
         F('9.4', '/tvaan/', 'den kastbara sidan med tvåan-riktningen finns kvar; ta bort kunder/<slug>/sajt/src/pages/tvaan med kontroller/ta_bort.py')
@@ -495,8 +521,41 @@ def bestallning_finns(bestallning):
         return False
 
 
-def rapport(bygge, stil=None, bestallning=None):
+def _ihop(s):
+    return re.sub(r'\s+', '', html.unescape(re.sub(r'<[^>]+>', ' ', s)).lower())
+
+
+def adress(dist, verksamhet):
+    """7.4: gatuadressen som verksamheten själv visar (adress.publik) står i sidfoten på varje sida, på kontaktsidan och
+    som streetAddress i JSON-LD (ägarens A/B-omdöme 2026-10-02: fullständig NAP avgjorde)."""
+    try:
+        adr = json.loads(Path(verksamhet).read_text(encoding='utf-8')).get('adress') or {}
+    except (OSError, ValueError):
+        return []
+    if adr.get('publik') is not True or not adr.get('gata'):
+        return []
+    gata, fel, ld = _ihop(adr['gata']), [], False
+    for f in sorted(Path(dist).rglob('*.html')):
+        sida = sida_av(dist, f)
+        raw = f.read_text(encoding='utf-8', errors='replace')
+        if re.search(r'name="robots"[^>]*noindex', raw):
+            continue
+        fot = re.search(r'<footer\b.*?</footer>', raw, re.S)
+        if not fot or gata not in _ihop(fot.group(0)):
+            fel.append({'punkt': '7.4', 'sida': sida, 'text': 'gatuadressen "%s" saknas i sidfoten (adress.publik är sann)' % adr['gata']})
+        if 'kontakt' in sida and gata not in _ihop(re.sub(r'<(script|style)\b.*?</\1>', ' ', raw, flags=re.S)):
+            fel.append({'punkt': '7.4', 'sida': sida, 'text': 'gatuadressen "%s" saknas på kontaktsidan' % adr['gata']})
+        for m in re.finditer(r'"streetAddress"\s*:\s*"([^"]*)"', raw):
+            ld = ld or _ihop(m.group(1)) == gata
+    if not ld:
+        fel.append({'punkt': '7.4', 'sida': '(alla)', 'text': 'JSON-LD saknar streetAddress "%s" (adress.publik är sann)' % adr['gata']})
+    return fel
+
+
+def rapport(bygge, stil=None, bestallning=None, verksamhet=None):
     fel, info, n = granska(bygge)
+    if verksamhet:
+        fel += adress(bygge, verksamhet)
     if stil:
         fel += klickytor(stil)
     antal = egna_bilder(bygge)
@@ -529,11 +588,12 @@ def main(argv=None):
     p.add_argument('--md')
     p.add_argument('--stil', help='STIL.json från stil.mjs, för klickytorna (3.3)')
     p.add_argument('--bestallning', help='underlag/<slug>/BESTALLNING.md, för bildkravet (9.3)')
+    p.add_argument('--verksamhet', help='underlag/<slug>/VERKSAMHET.json, för den publika adressen (7.4)')
     a = p.parse_args(argv)
     if not Path(a.bygge).is_dir():
         print('finns inte: ' + a.bygge, file=sys.stderr)
         return 2
-    r = rapport(Path(a.bygge), a.stil, a.bestallning)
+    r = rapport(Path(a.bygge), a.stil, a.bestallning, a.verksamhet)
     Path(a.ut).write_text(json.dumps(r, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if a.md:
         Path(a.md).write_text(markdown(r), encoding='utf-8')

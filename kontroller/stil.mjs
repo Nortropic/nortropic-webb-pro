@@ -96,6 +96,18 @@ function matPaSidan() {
   const vanligast = rundade.length ? Math.max(...Object.values(rundade.reduce((m, r) => (m[r] = (m[r] || 0) + 1, m), {}))) : 0;
   const storRadie = rundade.length >= 5 ? Object.entries(rundade.reduce((m, r) => (m[r] = (m[r] || 0) + 1, m), {})).find(([r, n]) => n === vanligast && +r >= 16 && n / rundade.length > 0.8) : null;
   const monster = { radlangd, radhojd: radhojd ? Math.round(radhojd * 100) / 100 : null, doltIVila, marginaljusterad, centrerad: Math.round(centrerad * 100), enStorRadie: storRadie ? +storRadie[0] : null };
+  // mobilens första vy och kontaktvägar (ägarens A/B-omdöme 2026-10-02, L1, L2): sidhuvudets höjd, synlig meny eller
+  // hamburgare, eget foto i första skärmen, fast list längst ned med Ring och Skriv
+  const huvud = [...document.querySelectorAll('header')].find((h) => synlig(h) && h.getBoundingClientRect().top < 10);
+  const menyLankar = huvud ? [...huvud.querySelectorAll('nav a')].filter(synlig).length : 0;
+  const hamburgare = !!(huvud && [...huvud.querySelectorAll('button[aria-expanded], button[aria-controls]')].some(synlig));
+  const bilder = [...document.querySelectorAll('main img, main picture')].filter(synlig);
+  const fotoIForsta = bilder.some((b) => { const r = b.getBoundingClientRect(); return r.top < vh && r.width >= 120 && r.height >= 80; });
+  const fasta = [...document.querySelectorAll('body *')].filter((el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return (s.position === 'fixed' || s.position === 'sticky') && synlig(el) && r.bottom >= vh - 2 && r.top > vh / 2; });
+  const lankarI = (el) => (el.matches('a[href]') ? [el] : []).concat([...el.querySelectorAll('a[href]')]);
+  const fastList = fasta.length ? { ring: fasta.some((el) => lankarI(el).some((a) => a.getAttribute('href').startsWith('tel:'))),
+    skriv: fasta.some((el) => lankarI(el).some((a) => /kontakt|forfragan|#skriv/i.test(a.getAttribute('href')))) } : null;
+  const mobil = { sidhuvud: huvud ? Math.round(huvud.getBoundingClientRect().height) : null, menyLankar, hamburgare, bilder: bilder.length, fotoIForsta, fastList };
   // modellernas namngivna standardval
   const standardval = [];
   const rubriker = [...document.querySelectorAll('h1, h2')];
@@ -108,7 +120,7 @@ function matPaSidan() {
     typsnitt, ytor: [...ytor.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k),
     bakgrund: hex(bodyBg), text: text ? hex(text) : null, accent: accent ? hex(accent) : null, gradient,
     radier: [...radier.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r, n]) => ({ px: r, antal: n })),
-    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, standardval, monster,
+    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, standardval, monster, mobil,
   };
 }
 
@@ -177,6 +189,13 @@ for (const r of rader) {
   if (m.centrerad > 60) varningar.push(`${m.centrerad} procent av textblocken centrerade (${var_})`);
   if (m.enStorRadie) varningar.push(`en enda stor radie, ${m.enStorRadie} px, på nästan alla rundade element (${var_})`);
 }
+const mobilStart = rader.find((r) => r.sida === '/' && r.vy === '390')?.mobil;
+if (mobilStart) {
+  if (mobilStart.sidhuvud > 120) varningar.push(`sidhuvudet är ${mobilStart.sidhuvud} px högt i 390; en rad med namn och nummer som knapp, menyn på en rad`);
+  if (mobilStart.hamburgare) varningar.push('hamburgarmeny i 390; ägaren föredrar synliga menylänkar (L2, A/B 2026-10-02)');
+  if (mobilStart.bilder > 0 && !mobilStart.fotoIForsta) varningar.push('inget foto i startsidans första skärm i 390, fast sajten har bilder');
+  if (!mobilStart.fastList?.ring || !mobilStart.fastList?.skriv) varningar.push('ingen fast list längst ned i 390 med både Ring och Skriv');
+}
 const utanSkymt = rader.filter((r) => r.sida === '/' && !r.nastaSkymtar).map((r) => r.vy);
 if (utanSkymt.length) varningar.push('nästa sektion skymtar inte i startsidans första vy (' + utanSkymt.join(', ') + ' px)');
 const sammanfattning = {
@@ -195,6 +214,10 @@ const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val 
   `- Radier: ${sammanfattning.radier.join(', ') || 'inga'} px`, '',
   '## Radlängd och radhöjd i brödtext', '', '| Sida | Vy | Radlängd, tecken | Radhöjd |', '|---|---|---|---|',
   ...rader.map((r) => `| ${r.sida} | ${r.vy} | ${r.monster?.radlangd ?? '-'} | ${r.monster?.radhojd ?? '-'} |`), '',
+  '## Mobilens första vy (startsidan, 390)', '',
+  ...(mobilStart ? [`- Sidhuvud: ${mobilStart.sidhuvud ?? '-'} px; meny: ${mobilStart.hamburgare ? 'hamburgare' : mobilStart.menyLankar + ' synliga länkar'}`,
+    `- Eget foto i första skärmen: ${mobilStart.fotoIForsta ? 'ja' : 'nej'} (${mobilStart.bilder} bilder i main)`,
+    `- Fast list längst ned: ${mobilStart.fastList ? [mobilStart.fastList.ring && 'Ring', mobilStart.fastList.skriv && 'Skriv'].filter(Boolean).join(' och ') || 'utan Ring och Skriv' : 'ingen'}`] : ['- startsidan mättes inte']), '',
   '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',
   '## Klickytor under 24 px i 390 (byggstandarden 3.3)', '', ...(smaYtor.length ? smaYtor.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), ''];
 writeFileSync(join(ut, 'STIL.md'), md.join('\n'));

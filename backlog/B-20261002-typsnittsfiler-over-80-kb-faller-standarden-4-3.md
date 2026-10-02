@@ -1,11 +1,12 @@
 ---
 id: B-20261002-typsnittsfiler-over-80-kb-faller-standarden-4-3
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 5
+andrad: 2026-10-02T16:54Z
 ---
 # Typsnittsfiler över 80 kB fäller standarden 4.3: latin-subset och bara de axlar som används
 

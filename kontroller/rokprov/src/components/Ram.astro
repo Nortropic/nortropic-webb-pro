@@ -1,8 +1,9 @@
 ---
 // Rökprovets ram: sidhuvud med meny och telefon, main och sidfot, så att varje testsida uppfyller byggstandarden.
 import Bas from '../layouts/Bas.astro';
-interface Props { titel: string; beskrivning: string; noindex?: boolean }
-const { titel, beskrivning, noindex = false } = Astro.props;
+import Brodsmulor from './Brodsmulor.astro';
+interface Props { titel: string; beskrivning: string; noindex?: boolean; sida?: string }
+const { titel, beskrivning, noindex = false, sida } = Astro.props;
 ---
 <Bas titel={titel} beskrivning={beskrivning} tema="#0b57d0" noindex={noindex}>
   <style is:global>
@@ -16,6 +17,7 @@ const { titel, beskrivning, noindex = false } = Astro.props;
     <nav aria-label="Huvudmeny"><a href="/">Start</a> · <a href="/om/">Om provet</a> · <a href="/kontakt/">Kontakt</a></nav>
     <p><a href="tel:+46701234567">Ring 070-123 45 67</a></p>
   </header>
+  {sida && <Brodsmulor sida={sida} />}
   <main id="innehall"><slot /></main>
   <footer><p>Rökprov, fiktiv testsajt.</p></footer>
 </Bas>

@@ -1,11 +1,12 @@
 ---
 id: B-20261002-omdomen-anges-med-tjansten-dar-de-ar-skrivna-en
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 1 och 4
+andrad: 2026-10-02T17:00Z
 ---
 # Omdömen anges med tjänsten där de är skrivna, en plattform per mening, med länk dit besökaren kan läsa dem
 

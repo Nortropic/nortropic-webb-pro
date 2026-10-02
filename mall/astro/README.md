@@ -1,8 +1,8 @@
 # Mall: Astro, statisk
 
 Kopieras till `kunder/<slug>/sajt/` i steg 5. Den bär bara teknik: språk, canonical, theme-color, favicon,
-delningsbild, skiplänk, CSP, sitemap.xml, robots.txt, 404. Ingen design, inga komponenter, inga typsnitt. Allt
-synligt skrivs för verksamheten. Byggstandarden som provet prövar står i `kunskap/byggstandard.md`.
+delningsbild, skiplänk, CSP, dämpad rörelse (`prefers-reduced-motion`), sitemap.xml, robots.txt, 404, och två
+komponenter utan utseende (förfrågan och brödsmulor). Ingen design, inga typsnitt. Allt synligt skrivs för verksamheten. Byggstandarden som provet prövar står i `kunskap/byggstandard.md`.
 
 1. Byt `site` i `astro.config.mjs` mot verksamhetens domän (ur `VERKSAMHET.json`, fältet `webb.doman`).
 2. Skriv sidorna i `src/pages/` med `Bas.astro`: `titel` (50–60 tecken), `beskrivning` (120–155), `tema`
@@ -15,11 +15,13 @@ synligt skrivs för verksamheten. Byggstandarden som provet prövar står i `kun
    första vyn får `loading="eager"` och `fetchpriority="high"`. Typsnitt självhostade som WOFF2 i `public/fonts/`.
 5. Skriftlig förfrågan: `src/components/Forfragan.astro` på kontaktsidan, `src/pages/tack.astro` (noindex) och en
    integritetssida, enligt `kunskap/forfragan.md`. Provets och dashboardens server tar emot inskicket i demon.
-6. Strukturerad data: den mest specifika schema.org-typen (GeneralContractor, Electrician, HousePainter, Plumber,
+6. Brödsmulor på varje undersida: `<Brodsmulor sida="Tillbyggnad" />`, eller med `steg` för en sida under en
+   översikt. Komponenten ger synlig "Du är här" och BreadcrumbList; utseendet skrivs för verksamheten.
+7. Strukturerad data: den mest specifika schema.org-typen (GeneralContractor, Electrician, HousePainter, Plumber,
    RoofingContractor …) som JSON-LD på startsidan, med uppgifter ur `VERKSAMHET.json`.
-7. Skript och inline-händelser: CSP:n i `astro.config.mjs` släpper bara skript som Astro har hashat. Skriv skript
+8. Skript och inline-händelser: CSP:n i `astro.config.mjs` släpper bara skript som Astro har hashat. Skriv skript
    som `<script>` i komponenten, aldrig `onclick=""`. Stilattribut (`style=""`) går bra.
-8. `npm install` en gång, sedan `npm run build`. Provet bygger själv: `.venv/bin/python kontroller/prova.py <slug>`.
+9. `npm install` en gång, sedan `npm run build`. Provet bygger själv: `.venv/bin/python kontroller/prova.py <slug>`.
 
 Demon skyddas vid driftsättning (lösenord och `X-Robots-Tag: noindex` som svarshuvud), aldrig med noindex i HTML:
 då blir SEO-kontrollen och Lighthouse missvisande.

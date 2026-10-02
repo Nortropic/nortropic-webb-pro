@@ -47,7 +47,7 @@ sälja: varje sida har ett tydligt nästa steg.
 | 3.2 Mobilen först (min-width), flex och grid. Flytande typografi med clamp() blandar rem och vw, annars växer texten inte med zoom. | D | info, granskaren |
 | 3.3 Ingen horisontell skroll mellan 320 och 1920 px; träffytor minst 24×24 px, primära knappar 44×44. Länkar i listor och sidfot räknas, inte bara knappar. | D | `spill`, `axe`, `standard` (mätt av stilrapporten) |
 | 3.4 Kontrast 4,5:1 för text och 3:1 för gränssnitt; synlig fokus med `:focus-visible`. | D | `axe`, inspektionen, info |
-| 3.5 `prefers-reduced-motion` respekteras när sidan har rörelse; inget rullar av sig självt. | D | `standard` |
+| 3.5 `prefers-reduced-motion` respekteras när sidan har rörelse, också övergångar (mallens `Bas.astro` har blocket); inget rullar av sig självt. | D | `standard` |
 | 3.6 Ikoner som SVG, aldrig ikonfont. | D | `standard` |
 | 3.7 Högst 200 kB JavaScript och 100 kB CSS per sida vid första rendering. | D | `standard` |
 
@@ -57,7 +57,7 @@ sälja: varje sida har ett tydligt nästa steg.
 |---|---|---|
 | 4.1 Labb: Lighthouse prestanda ≥ 90 i mobil och desktop. Fält i mobil: LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1 vid 75:e percentilen. | D labb, L fält | `lighthouse` |
 | 4.2 Bilder i AVIF eller WebP, responsiva med srcset och sizes, rätt storlek; största bilden i första vyn under 200 kB. | D | `standard`, info |
-| 4.3 Högst två typsnittsfamiljer, självhostade WOFF2, latin-subset, `font-display: swap` med size-adjust-reserv, preload av typsnittet i första vyn. | D | `standard`, info |
+| 4.3 Högst två typsnittsfamiljer, självhostade WOFF2, latin-subset med bara de axlar som används (en fil över 80 kB kräver att bredd-axeln bär formen, över 120 kB aldrig), `font-display: swap` med size-adjust-reserv, preload av typsnittet i första vyn. | D | `standard`, info |
 | 4.4 Inga resurser från tredje part vid sidladdning; kartor som statisk bild och länk. | D | `standard` |
 | 4.5 Hashade statiska filer med lång cache, CDN, kort cache för HTML. | L | Vercel-steget |
 | 4.6 Varje ändring mäts på förhandsvisningen; regression mot 4.1 stoppar. | L | Vercel-steget |
@@ -97,7 +97,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 | 7.1 Unik title (50–60 tecken) och description (120–155), canonical, delningsbild `og:image` 1200×630 px. | D | `seo`, `standard`, info |
 | 7.2 sitemap.xml och robots.txt som inte blockerar CSS eller JS, 404-sida med väg vidare och noindex men ingen canonical, 301 från gamla adresser, ingen noindex i produktion utom på 404. | D, 301 L | `standard`, `seo` |
 | 7.3 JSON-LD som matchar synligt innehåll: den mest specifika typen (Electrician, Plumber, RoofingContractor, HousePainter, GeneralContractor för snickare och byggare), BreadcrumbList. aggregateRating ur Google-omdömen ger inga rikresultat. | D | `standard`, `seo`, info |
-| 7.4 Namn, adress och telefon identiska med Google-företagsprofilen; öppettider och serviceområde som text; länk till omdömena. | D | `seo`, steg 6, granskaren |
+| 7.4 Namn, adress och telefon identiska med Google-företagsprofilen; den gatuadress verksamheten själv visar står i sidfoten på varje sida, på kontaktsidan och i JSON-LD; öppettider och serviceområde som text; länk till omdömena. | D | `seo`, `standard` (adressen), steg 6, granskaren |
 | 7.5 En sida per huvudtjänst med egen h1, lokal koppling, riktiga jobbilder och nästa steg. | D | granskaren |
 | 7.6 robots.txt blockerar inte sökrobotar, inte heller AI-sök, om kunden vill synas där. llms.txt behövs inte. | D | info |
 

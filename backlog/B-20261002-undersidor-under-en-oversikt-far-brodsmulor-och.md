@@ -1,11 +1,12 @@
 ---
 id: B-20261002-undersidor-under-en-oversikt-far-brodsmulor-och
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 5 och 6
+andrad: 2026-10-02T16:57Z
 ---
 # Undersidor under en översikt får brödsmulor och BreadcrumbList, och standarden prövar det
 

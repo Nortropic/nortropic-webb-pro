@@ -1,0 +1,23 @@
+---
+// Brödsmulor för en undersida (byggstandarden 7.3): synlig navigering "Du är här" och BreadcrumbList i JSON-LD ur
+// samma lista. Startsidan kommer först, sidan själv sist och utan länk. Utseendet skrivs för verksamheten.
+//   <Brodsmulor sida="Tillbyggnad" />   eller   <Brodsmulor steg={[{ namn: 'Tjänster', href: '/tjanster/' }]} sida="Tak" />
+interface Steg { namn: string; href: string }
+interface Props { sida: string; steg?: Steg[] }
+const { sida, steg = [] } = Astro.props;
+const alla = [{ namn: 'Start', href: '/' }, ...steg];
+const ld = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [...alla, { namn: sida, href: Astro.url.pathname }].map((s, i) => ({
+    '@type': 'ListItem', position: i + 1, name: s.namn, item: new URL(s.href, Astro.site).href,
+  })),
+};
+---
+<nav class="brodsmulor" aria-label="Du är här">
+  <ol>
+    {alla.map((s) => <li><a href={s.href}>{s.namn}</a></li>)}
+    <li><span aria-current="page">{sida}</span></li>
+  </ol>
+</nav>
+<script is:inline type="application/ld+json" set:html={JSON.stringify(ld)} />

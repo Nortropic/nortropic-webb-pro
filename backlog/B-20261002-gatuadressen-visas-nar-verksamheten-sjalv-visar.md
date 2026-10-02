@@ -1,11 +1,12 @@
 ---
 id: B-20261002-gatuadressen-visas-nar-verksamheten-sjalv-visar
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 1 och 6
+andrad: 2026-10-02T16:56Z
 ---
 # Gatuadressen visas när verksamheten själv visar den: i sidfoten, på kontaktsidan och i JSON-LD
 

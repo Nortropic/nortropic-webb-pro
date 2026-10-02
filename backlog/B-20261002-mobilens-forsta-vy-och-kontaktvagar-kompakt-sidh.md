@@ -1,11 +1,12 @@
 ---
 id: B-20261002-mobilens-forsta-vy-och-kontaktvagar-kompakt-sidh
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 5
+andrad: 2026-10-02T16:58Z
 ---
 # Mobilens första vy och kontaktvägar: kompakt sidhuvud, synlig meny, eget foto i första skärmen, fast list med Ring och Skriv
 

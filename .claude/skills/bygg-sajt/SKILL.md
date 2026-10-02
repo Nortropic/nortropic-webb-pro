@@ -79,10 +79,14 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    beställning i steg 3.
 3. **`underlag/<slug>/VERKSAMHET.json`:** formen står i `validera()` i `kontroller/verksamhetsuppgifter.py`
    (`schema: 1`, `namn`, `fiktiv: false`, `kontaktvagar` med `typ`/`varde`/`belagg`, `rackvidd`, `tjanster` och de
-   valfria fälten). Sätt `webb: {"doman": "deras-doman.se"}`. Kör `.venv/bin/python
+   valfria fälten). Sätt `webb: {"doman": "deras-doman.se"}`. `adress.publik` är `true` när verksamheten själv visar
+   gatuadressen (egen sajt, Google-profil, annons) och `false` bara när den enbart finns i register; med `true` står
+   gatan i sidfoten på varje sida, på kontaktsidan och i JSON-LD (standarden 7.4). Kör `.venv/bin/python
    kontroller/verksamhetsuppgifter.py kontrollera underlag/<slug>/VERKSAMHET.json` tills den svarar exit 0.
 4. **`underlag/<slug>/RESEARCH.md`:** svar på kundintervjuns frågor ur underlaget. Varje påstående har källa (URL)
-   eller är märkt `antagande`. Kundernas omdömen ordagrant med källa. Konkurrenterna: vad de gör och vad som skiljer.
+   eller är märkt `antagande`. Kundernas omdömen ordagrant med källa: skriv vilken tjänst som tillhandahåller dem
+   (källan, inte katalogen som visar dem vidare; Hitta och Hantverkskollen visar till exempel Reco-omdömen), med
+   raden ur den hämtade sidan som belägg. Konkurrenterna: vad de gör och vad som skiljer.
 5. **Det specifika:** avsluta RESEARCH.md med en lista "Bara de har": minst tio konkreta saker som ingen konkurrent
    kan säga om sig själv (namn, år, plats, metod, material, citat, siffra, bild). Det är råvaran för allt som följer.
    Hittar du färre än fem: skriv det rakt, det är ett fynd.
@@ -164,7 +168,8 @@ Läs `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`, `kunskap/seo.m
 
 Skriv all text i `underlag/<slug>/INNEHALL.md` innan något ritas: per sida title (högst 60 tecken), description
 (högst 155), h1, sektioner, knappar. Under varje sektion: raden `Specifikt:` med den sak ur "Bara de har" som
-sektionen bär. Saknas den, stryk sektionen.
+sektionen bär. Saknas den, stryk sektionen. **Omdömen** står ordagrant med namnet som det står hos källan,
+plattformen och månaden; en avkortning syns med …; en plattform per mening och en länk dit besökaren kan läsa dem.
 
 Kontrollera texten:
 
@@ -213,6 +218,12 @@ KONCEPT.md.
    specifika schema.org-typen sanningsenligt ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och
    telefonnumret som tel-länk, `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
    färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga bokning.
+   **Mobilens första vy** (ägarens domar L1, L2 och A/B 2026-10-02): sidhuvudet på en rad med namn och numret som
+   knapp, menylänkarna synliga utan hamburgare (på en rad, rullbar i sidled om de inte ryms), sedan rubriken,
+   ringknappen och ett av verksamhetens egna foton i första skärmen när de har foton. En fast list längst ned på
+   mobil bär både Ring och Skriv (till formuläret) och skymmer inte sidfotens sista länk. Stilrapporten mäter det.
+   **Brödsmulor** på varje undersida med mallens `src/components/Brodsmulor.astro` (synlig "Du är här" och
+   BreadcrumbList); standarden prövar det.
    **Plats för det beställda:** specifikationen i KONCEPT.md anger var varje beställd bild ska sitta. Bygg sektionen
    så att bilden kan läggas in i `src/assets/bestallt/` utan omdesign, och så att sektionen står rätt utan den; aldrig
    en synlig platshållare (byggstandarden 9.4). Saknas telefontid eller svarstid: skriv inget påhittat.

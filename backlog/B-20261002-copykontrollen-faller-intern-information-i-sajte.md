@@ -1,11 +1,12 @@
 ---
 id: B-20261002-copykontrollen-faller-intern-information-i-sajte
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 4
+andrad: 2026-10-02T16:53Z
 ---
 # Copykontrollen fäller intern information i sajtens text: hänvisningar till den gamla sajten och till bygget
 

@@ -12,6 +12,7 @@ eller motiverar varje fynd. Ingen poäng, inget godkännande, ingen stilregel: e
 | fras | utfyllnads- och byråfraser på svenska ("vi förstår att", "skräddarsydda lösningar", "kvalitet i fokus", obevisbara superlativ) | säg vad som görs, för vem, när och till vilket pris; belägg eller stryk |
 | engelskt läckage | lånad marknadsföringsjargong (seamless, elevate, world-class …) på svensk sajt | skriv svenska |
 | platshållare | lorem ipsum, TODO-markörer, `[OSÄKER]` i levererad text | fakta beläggs eller texten tas bort |
+| intern information | hänvisningar till den gamla sajten eller till bygget ("från vår gamla sajt", "nya hemsidan") | säg vad bilden eller texten visar besökaren, inte var den kom ifrån |
 | hälsningsrubrik | "Välkommen till …" som rubrik | första vyn säger vad som erbjuds och för vem |
 | tankstreckskedja | två eller fler tankstreck i samma stycke | högst ett per stycke; variera konstruktionen (fråga, kolon, relativsats) |
 | utropstecken | fler än ett per sida | högst ett, helst inget |
