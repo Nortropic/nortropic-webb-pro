@@ -3088,3 +3088,75 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   variant, break och explain-interface tas inte med. Inget ur de övriga sex
 - Utfall: —
 - Backlog: B-20261002-ta-in-jakubkrehel-skills-better-layout-better-ty
+
+### 2026-10-03 · AI LABS, "4 Ways to Actually Build Stunning Websites with Claude Code" (YouTube HqD5a2Cae60) · nej
+- Källa: https://www.youtube.com/watch?v=HqD5a2Cae60 @ publicerad 2026-06-13 enligt metadata (AI LABS, 13:43, 12 318
+  visningar, autogenererat engelskt transkript, sponsrad av Kimi [TAL 06:13–07:19; SKÄRM 06:41, 07:01] och med länk
+  till kanalens betalgemenskap, där skillsystemet som visas ligger [TAL 04:55–05:13; SKÄRM 05:02 filträdet clone,
+  functional-ui, gsap, marketing-ui, shadcn; SKÄRM 06:01]). Inget repo i beskrivningen; länkarna är ailabspro.io,
+  sponsorn och ett nyhetsbrev [BESKRIVNING]. Läst och sett: hela tidslinjen och alla 41 bildrutor; ungefär 20 är
+  inspelningar av terminal, editor, webbläsare eller Anthropics dokumentation, resten animerade illustrationer,
+  sponsorklipp, titelkort och ett arkivklipp med en man vid en skärm [SKÄRM 05:02]. Rörelsen i GSAP-avsnittet syns
+  inte i bildrutorna, bara ett stilläge [SKÄRM 04:42]. ailabspro.io, platform.kimi.ai och theroundup.so öppnades
+  inte. Ägarens not: ingen
+- Steg: 5 (5.1 riktning, 5.3 bygg, 5.6 granskning), 1 (hämtning av deras sajt) och arbetssättet runt dem: `kor.sh`
+  (effort), spanarens källor, UPPTAGNA-VAL.md
+- Jämfört med i dag, metod för metod: (1) **Anthropics officiella frontend-design-skill** mot ett bygge utan skill
+  [TAL 00:34–01:38; SKÄRM 00:44 "Distributional convergence"; SKÄRM 01:24 utan, 01:44 med]. Vi: samma skill i
+  `kunskap/externa/anthropic-frontend-design-SKILL.md` (REGISTER rad 14), läst i steg 5 (`.claude/skills/bygg-sajt/
+  SKILL.md` rad 191). Lika. (2) **Skriv om skillen med modellens promptguide, och effort som spak** [TAL 01:38–02:10;
+  SKÄRM 02:03 inklistrad guide; TAL 04:02–04:22; SKÄRM 04:22 "Consider all effort levels"]. Vi läser samma guider som
+  spaningskälla (`kunskap/spaning-kallor.md` rad 12, 14) och har redan hämtat det som gäller bygget ur dem: fyra
+  riktningar med namngivna uppgifter och "Modellen följer uttryckliga specifikationer precist" (bygg-sajt rad
+  207–210), och listan över modellens egna standardval ur Opus 5.5-guiden (`kontroller/upptagna_val.py` rad 9–11,
+  26–37). Effort: videon säger xhigh för animationer "ger färre omtag" utan mätning [TAL 04:22]; vi har ett blint
+  par där ägaren valde medium före high (`LARDOMAR.md` rad 97–104) och medium som standard (`kor.sh` rad 62), med
+  noteringen att nästa A/B prövar det igen. Lika, och vårt belägg är starkare än deras. (3) **Opus 4.8-guidens fix:
+  be om flera riktningar först** [TAL 02:10–03:16; SKÄRM 02:43 "Design and frontend defaults"]. Vi: fyra riktningar
+  i KONCEPT.md, tvåan som byggd sida och riktningsfrågan till ägaren med en bild per alternativ (bygg-sajt rad
+  200–212, 238–245, 329–343). Lika. (4) **design.md från getdesign.md, lagd på efter att sidan genererats** [TAL
+  03:16–03:49]. Dömd nej som källa (`REGISTER-arkiv-20261001.md` rad 896–928) och som metod i DP7mgLUKN_U-posten
+  (rad 2717–2723): krockar med "Kopiera aldrig layout, palett eller typsnitt" (bygg-sajt rad 252) och riktning ur
+  verksamheten (rad 200–201). Videon säger själv att filerna "låser allt ned till typsnittet" [TAL 03:43–03:49].
+  Sämre. (5) **GSAP för marknadssidor, laddad automatiskt av en regel i deras skill** [TAL 03:49–04:55; SKÄRM 04:42].
+  Vi: ingen JavaScript som inte behövs (bygg-sajt rad 217), 0 kB JS i alla tre dömda byggen (`LARDOMAR.md` rad 31,
+  56, 87), byggstandarden 3.5 och 3.7, och den officiella skillens egen rörelseregel om en enda orkestrerad stund
+  (anthropic-frontend-design rad 32). Samma krock som Ysr7oNDajJI-posten fann (rad 2987–2990). Sämre. (6)
+  **Funktionell UI: HTML-mockuper, galleri, design.md, shadcn, Framer Motion** [TAL 05:13–06:13, 07:19–10:52; SKÄRM
+  05:42, 08:00, 08:20, 08:40, 09:20, 11:19]. Våra sajter är statiska marknadssajter åt hantverkare (bygg-sajt rad
+  8–10; byggstandarden 1.1), inga instrumentpaneler. Galleriet som visar tre mockuper sida vid sida [SKÄRM 08:40]
+  motsvaras av tvåan och riktningsfrågan med bilder (rad 238–245, 329–343) och dashboardens blinda parvisa
+  A/B-vy (`dashboard/server.py` rad 397–403). Rörelsereglerna i deras functional-ui, inget som standard, bara
+  tillståndsåterkoppling, 150–250 ms, transform och opacity, reduced motion [SKÄRM 09:20, 11:19], är sakliga och
+  samma hållning som byggstandarden 3.5, men riktade till appar. shadcn dömdes nej (rad 1449). Inte tillämpligt.
+  (7) **Självverifiering med en subagent mot design.md** [TAL 10:19–10:52; SKÄRM 10:39]. Vi: två oberoende
+  granskarsessioner utan byggarens resonemang, med brief, EARS-krav, referenser och tidigare byggens första vy
+  (`kritik/GRANSKARE.md` rad 3–8, 21–30; bygg-sajt rad 255–262); litteraturen ger oberoende granskare
+  (`kunskap/teoretisk-grund.md` rad 128–129). Starkare hos oss. (8) **Kloning: SingleFile CLI och sitemap.xml för
+  publika sidor, skärmbilder av varje läge för sidor bakom inloggning** [TAL 11:25–13:04; SKÄRM 11:58, 13:18]. Vi:
+  `kontroller/hamta_sajt.py` hämtar verksamhetens egen sajt via startsidans länkar och sitemap.xml, varje sida som
+  html och text med bildlista och kontaktvägar (rad 2–9; bygg-sajt rad 66–68), och inspektionen tar skärmbilder i
+  390 och 1440 (rad 99–101, 156). Mekaniken är lika; syftet är motsatt: videon klonar andras gränssnitt "så perfekt
+  du kan" [TAL 11:25–11:58], vi hämtar deras egen sajt för diagnos och förbjuder kopiering (rad 252);
+  ai-website-cloner-template dömdes nej (rad 2303). Krockar
+- Skäl: videons tes är att skillen ska styra modellen bort från dess medelvärde [TAL 00:34–01:06], och bilderna
+  visar motsatsen: varje "bättre" variant, med skillen [SKÄRM 01:44], efter omskrivningen [SKÄRM 02:23] och med GSAP
+  [SKÄRM 04:42], är krämvitt papper eller mörkgrönt med serif, röd eller terrakotta accent, kursiva accentord,
+  spärrade kapitäler och romerska siffror, det vill säga exakt det husstilsläge som Opus 4.8-sidan i samma video
+  beskriver [SKÄRM 02:43] och som vår lista över modellens standardval namnger (`upptagna_val.py` rad 27–34). Det
+  bevisar vår metod, inte deras: dokumentationen säger att generella instruktioner bara byter en fast palett mot en
+  annan och att konkreta specifikationer fungerar [SKÄRM 02:43], vilket är KONCEPT.md:s exakta specifikation och
+  UPPTAGNA-VAL. Sak för sak har vi varje metod som gäller en statisk sajt, ofta med bättre belägg (blint effort-par
+  mot anekdot, två oberoende granskare mot en subagent), och det som är nytt för oss, design.md, GSAP och kloning,
+  krockar med tre medvetna val. Det som är smart i videon gäller appar, inte våra sajter, och skillsystemet säljs
+  i en betalgemenskap, så det finns inget att läsa. Källkritik: sponsor och betalgemenskap; "två av tre sajter"
+  är en anekdot [TAL 02:43]; beviset är berättarens omdöme om en fiktiv plantage, och fotona i både
+  utan-versionen och GSAP-versionen visar en stadssilhuett med TV-torn och kyrkspiror under rubriker om en
+  högplatå [SKÄRM 01:24, 04:42], så bildproblemet berättaren pekade på [TAL 01:06] kvarstod i slutversionen;
+  inspelningarna körs med alla behörigheter avstängda [SKÄRM 01:04, 08:20]. Videon innehåller inga instruktioner
+  riktade till agenter
+- Kostnad: inget tas in. Skillarna går inte att mäta: de finns bara i betalgemenskapen
+- Säkerhet: ej tillämpligt (video; inget hämtat utöver transkript och bildrutor; inget kördes eller installerades)
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
