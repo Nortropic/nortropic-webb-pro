@@ -2676,3 +2676,91 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   Rökprovet ska sluta grönt, och `--torr` ska visa omgångsfynden för de befintliga byggena
 - Utfall: —
 - Backlog: B-20261002-gruppera-py-laser-granskarens-blockerande-fynd-p
+
+### 2026-10-03 · AI LABS, "How To Use Claude Code To Build Amazing Sites With Opus 5.5" (YouTube DP7mgLUKN_U) · nej
+- Källa: https://www.youtube.com/watch?v=DP7mgLUKN_U @ publicerad 2026-09-30 (AI LABS, 25:26, autogenererat engelskt
+  transkript, sponsrad av CodeRabbit och med länk till kanalens betalgemenskap [BESKRIVNING]). Fjärde bedömningen av
+  länken; de tre tidigare står i `REGISTER-arkiv-20261001.md` och räknas inte (gamla reglerna). Läst och sett: hela
+  tidslinjen; 15 bildrutor ur den tätare serien från 2026-10-01 (83 rutor) vid resultaten efter varje steg, och 1 ur
+  dagens körning (44 rutor; första försöket fick HTTP 403 från YouTube, andra gick). Repona förgranskade och lästa:
+  nutlope/hallmark (senast pushad 2026-08-06, MIT, 29 428 stjärnor; `skills/hallmark/SKILL.md` 559 rader i sin
+  helhet, `references/slop-test.md` grind 46–56) och oso95/scroll-world (senast pushad 2026-07-29, MIT, 9 644
+  stjärnor; `skills/scroll-world/SKILL.md` 763 rader i sin helhet). Sidor sedda i 390 och 1440: usehallmark.com (första
+  vyn och skrolläge 4) och aura.build (första vyn). Videons slutsajt forma-site-flame.vercel.app svarar fortfarande
+  503 `DEPLOYMENT_PAUSED` [BILD forma desktop-forsta, mobil-forsta]; ailabspro.io, theroundup.so och CodeRabbit
+  öppnades inte
+- Steg: 1–3 (planläge och CLAUDE.md), 5 (Hallmark, design.md, scroll-world), 6 (CodeRabbit), lanseringen (GitHub och
+  Vercel)
+- Jämfört med i dag, steg för steg i videons sex stadier: (1) **Planläge.** Claude frågar om stack, sektioner, stil
+  och innehåll [TAL 06:00–06:32]; sektionsfrågan är en meny med Hero, Portfolio, Services och About [SKÄRM 06:37], så
+  skelettet väljs före innehållet. Vi: RESEARCH.md med "Bara de har" (`.claude/skills/bygg-sajt/SKILL.md` rad 90–92),
+  diagnos med heuristisk utvärdering och kognitiv genomgång (rad 109–115), brief med toppuppgifter och EARS-krav
+  (rad 125–132), innehåll före form (rad 164–172). Sämre. (2) **CLAUDE.md med affärskontext** så att avsikten
+  överlever omtag [TAL 09:16–09:50]. Vi: VERKSAMHET.json och BRIEF.md per bygge (rad 80–85, 123–145), lästa i varje
+  steg. Lika. (3) **Hallmark.** Kärnan är oförändrad sedan arkivposterna: ett av 21 katalogteman väljs tyst och
+  roteras mellan byggen [REPO SKILL.md rad 38, 240, 251]; det nya som skillen själv kallar sin skillnad är
+  strukturell variation via 21 makrostrukturer och en katalog av nav- och sidfotsarketyper, med regeln bort från
+  "fyra spalter länkar + social rad" som AI-fingeravtryck [REPO rad 13, 290–294]. Vi: fyra riktningar härledda ur
+  verksamheten med sidans form specificerad (bygg-sajt rad 200–212), UPPTAGNA-VAL.md med strukturmönstren ur
+  ägarens domar, bland annat "sidfot i tre spalter (L1)" (`kontroller/upptagna_val.py` rad 40–45), och
+  stilrapportens varningar för namngivna standardval (`kontroller/stil.mjs` rad 180–204). Hallmarks grind 46 (inga
+  påhittade siffror) är bygg-sajt rad 20–21. Grind 49–51 och 55 (klickbar text på två rader, `minmax(0, 1fr)` för
+  bildspår, `overflow-wrap` på rubriker, versala rubriker med radhöjd under 1) [REPO slop-test.md rad 164–182] saknar
+  motsvarighet; vi mäter symptomet (inget spill 320–1920, `kunskap/bygge-referens.md` rad 10; byggstandarden 3.3),
+  inte orsaken. Hallmarks självkritik på sex axlar före leverans [REPO rad 46] mot våra två oberoende granskare
+  (bygg-sajt rad 255–262): litteraturen ger oberoende granskare (`kunskap/teoretisk-grund.md` rad 128–129).
+  Resultatet i videon: benvit grund, grotesk och ett portföljfilter med sex kategorier åt en enmanspraktik [SKÄRM
+  11:35]; usehallmark.com bär själv numrerade versala etiketter ("02 / EXAMPLES") [BILD usehallmark desktop-forsta]
+  och visar ett kursivt betonat ord i rubriken ("look *made*, not generated") [BILD desktop-skroll-04], två saker
+  skillen själv förbjuder [REPO rad 56, 450]. Ägarens betyg på "gjord för verksamheten" med vår metod är 5, 4 och 4
+  (`LARDOMAR.md` rad 28, 53, 77). Lika eller sämre; grind 49 är en liten sak som är smartare, se förslaget. (4)
+  **design.md från aura.build** låser färg, typsnitt och luft så att modellens standard inte smyger tillbaka [TAL
+  11:44–12:35]. Vi: exakt specifikation i KONCEPT.md före kod (bygg-sajt rad 207–210), tokens som CSS-variabler
+  (byggstandarden 3.1), stilrapporten mäter renderade typsnitt och färger i varje prov (`stil.mjs` rad 1–3),
+  DESIGN.md som riktningsfil (`bygge-referens.md` rad 44–50). I videon var filen gjord för en annan produkt,
+  "NeuroSync | Master Your Mind", och Claude noterade bytet och tillämpade den ändå [SKÄRM 13:41]; sidan blev vit med
+  Inter och pillerfilter [SKÄRM 13:59]. aura.build är en mallbutik vars egen sida sätter Inter i h1 [BILD aura
+  desktop-forsta; SIDA.md]. Krock med "Kopiera aldrig layout, palett eller typsnitt" (bygg-sajt rad 252). Sämre.
+  (5) **GitHub, Vercel och CLI:erna** [TAL 14:13–18:01]: lanseringsfasen, `bygge-referens.md` rad 39–42 och
+  `kunskap/lansering.md`. Lika; inget för demon. (6) **scroll-world.** AI-genererade stillbilder och videoklipp, N
+  stillbilder plus 2N−1 klipp, en kedja med sex scener i 1080p omkring 27 USD [REPO SKILL.md rad 28, 49, 171], en
+  skrubbmotor i JavaScript som bygger sin egen DOM [REPO rad 37–39], klipp om ungefär 8 MB vardera [REPO rad 534],
+  konstriktning och kamera ur en meny ("Flat papercraft", "Fly through the world") [SKÄRM 20:36]. Vi: egna bilder
+  eller en beställning (bygg-sajt rad 20–24, 76–79; L3 "hellre inga foton än stock", `LARDOMAR.md` rad 90),
+  innehåll utan JS (byggstandarden 0 och 1.1, provets `utan-js`), högst 200 kB JS (3.7), LCP 2,5 s (4.1).
+  Resultatet är dioramor och en påhittad arkitekt vid ritbordet [SKÄRM 21:12, 21:30, 25:07]. Krockar med fyra
+  medvetna val. (7) **CodeRabbit** granskar pull requesten, 11 fynd [SKÄRM 23:19]; samma vy visar att PR:en ersatte
+  hela sajten, 78 filer, "replaces the previous TypeScript project site". Vi committar på main (`CLAUDE.md`) och
+  granskningen är provet och de två granskarna. Betaltjänst och sponsor. Inte för oss
+- Skäl: videons egen fråga är om sajten slutar se AI-gjord ut [TAL 00:00], och bilderna svarar nej: första versionen
+  krämvit med stockfoto av en soffa märkt som ett eget projekt [SKÄRM 07:49], efter Hallmark benvit grotesk med
+  portföljfilter, efter design.md vit Inter ur en annan produkts system, och slutsajten krämvit serif med versal
+  eyebrow och AI-genererade hus. Varje stadium ersätter det förra i stället för att bygga vidare, och slutsajten
+  bärs av bilder som inte är verksamhetens. Sak för sak gör vi samma saker med mer av verksamheten i: upptäckt
+  och brief i stället för en sektionsmeny, specifikation och mätning i stället för en nedladdad design.md, egna
+  bilder eller beställning i stället för dioramor, två oberoende granskare i stället för självkritik. Det är inte
+  längre bara text hos oss: tre dömda byggen fick 5, 4 och 4 på frågan om sajten är gjord för verksamheten, och
+  ägaren höll med om nej för ui-ux-pro-max (`kunskap/KIRURG-OMDOMEN.md` rad 145–147), som bygger på samma
+  katalogmekanism som Hallmark. Hallmarks katalog av sidfots- och navformer skulle kunna vidga byggarens
+  ordförråd mot ägarens mall-lukt i L1–L3, men formen ska härledas ur verksamheten (bygg-sajt rad 200–201), och
+  UPPTAGNA-VAL.md gör redan jobbet att namnge de former som gått igen. Källkritik: sponsor, betalgemenskap och
+  egen betald design.md-planerare [TAL 12:35–13:09]; beviset för "ser inte AI-genererad ut" är berättarens omdöme
+  om en fiktiv byrå [TAL 11:27]; slutsajten går inte att öppna. Videon innehåller inga instruktioner riktade till
+  agenter
+- Kostnad: inget tas in ur källan. Förgranskningens mått, om de hade tagits in: hallmark 66 tokens alltid, 16 568
+  vid användning, 154 009 vid behov; scroll-world 232, 11 982 och 15 054, plus betal-CLI:er (monid, higgsfield) och
+  videokostnad per bygge. Det egna förslaget är några rader i `stil.mjs` utan byggkostnad
+- Säkerhet: förgranskningen MEDEL för båda repona, inget HÖG. hallmark: inga dolda tecken, ingen text riktad till
+  agenter, inga behörigheter i frontmatter; rör-till-skal i `site/_tests/02-streampipe-cli/index.html` och
+  miljöläsning i `site/examples/custom-05/script.js`, båda i exempelsajterna, inte i skillen. scroll-world: inga
+  dolda tecken, ingen text riktad till agenter; `allowed-tools: Bash, Read, Write, Edit, AskUserQuestion, Skill`;
+  nätanrop och miljöläsning i `references/scrub-engine.js` och `references/knockout.py`; skillen förutsätter
+  betal-CLI:er med inloggning. Inget kördes eller installerades
+- Förslag: inget ur källan. Eget förslag, inspirerat av Hallmarks grind 49: `kontroller/stil.mjs`, i `matPaSidan()`
+  bredvid mätningen av små klickytor, räkna raderna i varje synlig länk och knapp i 390 px och varna med elementets
+  text när de är fler än en, i samma form som varningarna på rad 201–204. Information, ingen grind. Ägaren pekade i
+  A/B 2026-10-02 ut A:s menylänkar i två rader som det som gjorde första vyn sämre (`LARDOMAR.md` rad 102); skillen
+  säger nu "menyn på en rad" (bygg-sajt rad 222) men inget mäter det, och ingen kontroll ser en knapptext eller
+  brödsmula som bryts
+- Utfall: —
+- Backlog: B-20261002-stilrapporten-varnar-nar-klickbar-text-menylank (eget förslag; ingen post för källan)
