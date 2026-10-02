@@ -1101,3 +1101,46 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · langgenius/dify · nej
+- Källa: https://github.com/langgenius/dify @ 63094c9 (ur klonens `.git/shallow`; senaste push 2026-10-02T14:02Z),
+  "Dify Open Source License", en ändrad Apache 2.0 med tilläggsvillkor; cirka 158 000 stjärnor, inte arkiverat.
+  Förgranskat. Läst: README och LICENSE i helhet, `.claude/settings.json`, namnen och storlekarna på alla sju skills,
+  frontend-code-review-skillens SKILL.md och dess tillgänglighetsregler i helhet. Bild: README:ns omslagsbild [BILD
+  images/GitHub_README_if.png]. Ingen demosajt; produkten är en server eller deras molntjänst. Ägarens not: ingen
+- Steg: inget av de åtta; närmast steg 5–6 (tillgänglighet och formulär i bygget och provet)
+- Jämfört med i dag: Dify är en plattform för att bygga AI-appar: arbetsflöden på en visuell duk, RAG över dokument,
+  agenter, modellhantering och loggar, självkörd med Docker (minst 2 kärnor och 4 GiB) eller i deras moln [REPO
+  README.md rad 64–84, 92–114]. Sak mot sak: (1) **En AI-chatt på kundens sajt**, det enda en Dify-app kunde bli hos
+  oss: våra sajter laddar inget från tredje part och håller sig under 200 kB JS (`kunskap/byggstandard.md` rad 52, 61),
+  och de dömda byggena har 0 kB JS (`LARDOMAR.md` rad 31, 56, 87). En chatt för en tvåmannafirma vore en server att
+  driva, eller ett molnkonto, för något ingen dom efterfrågat; vägen för frågor är telefonen och formuläret
+  (byggstandarden 6.1, rad 84). Sämre för oss. (2) **Tillgänglighetsreglerna i frontend-code-review** [REPO
+  .agents/skills/frontend-code-review/references/accessibility-ui.md rad 16–131] är en välskriven granskningslista,
+  men varje punkt som gäller en statisk sajt finns redan hos oss: synlig fokus (byggstandarden 3.4, rad 49), reducerad
+  rörelse (3.5, rad 50), begripliga länknamn och ikonknappar (5.3, rad 71), etiketter och fel kopplade till fältet (5.4,
+  rad 72), `type`, inputmode och autocomplete (6.2, rad 85). Listan hänvisar själv till Vercels Web Interface
+  Guidelines som bredare referens [rad 14, 135], och den har bygget redan (`.claude/skills/bygg-sajt/SKILL.md` rad 243).
+  Resten är bundet till deras React-komponenter, Tailwind och Base UI [rad 9, 120]. Lika i sak, inget nytt
+- Skäl: Dify är en kompetent plattform för den som bygger AI-appar, men det hjälper oss inte att bygga bättre sajter åt
+  små verksamheter eller att arbeta smartare: bygget behöver ingen RAG eller visuell agentduk, och en chatt på sajten
+  krockar med våra gränser för tredjepartsresurser och JS. Den enda läsbara delen för webbyggen,
+  tillgänglighetslistan, täcks redan punkt för punkt av byggstandarden och Vercels riktlinjer. Licensen kräver
+  kommersiell licens för drift med flera arbetsytor och förbjuder att logga och upphovsinfo tas bort ur gränssnittet
+  [REPO LICENSE rad 5–11], och anger att gränssnittets design är skyddad av mönsterpatent [rad 20]; att köra den åt
+  flera kunder vore alltså en licensfråga. Ingen dom i `LARDOMAR.md` pekar på AI-funktioner på sajten. Källkritik:
+  README och omslagsbilden säljer, "Build Production-ready Agentic AI Solutions" [BILD GitHub_README_if.png], och
+  "Describe the agent you want and it builds itself" [REPO README.md rad 108] är ett påstående utan belägg i repot
+- Kostnad: ingen; inget tas in. Som beroende vore det en server med databas, Redis och vektorlager per kund, eller ett
+  molnabonnemang, plus licensfrågan. Källans text är cirka 570 000 tokens enligt förgranskningen; skillsen är små
+  (74–88 tokens alltid) men gäller Difys egen kodbas
+- Säkerhet: förgranskningen HÖG, av mängden: 6 891 skript med nätanrop, hemligheter i miljövariabler och eval/exec,
+  `curl | sh` i `cli/scripts/install-cli.sh`, och en krok i `.claude/settings.json` som kör `npx` på ett paket före
+  varje Bash-anrop. 4 750 dolda tecken; de rapporten listar är nollbreddstecken i persiska översättningar
+  (`web/i18n/locales/fa-IR/`), översättningsdokument och emojisekvenser i testfall, inget som gömmer text till
+  kirurgen. De sex ställena med text till agenter är produktens egna promptmallar
+  (`api/constants/pipeline_templates.json`), ett testfall och installationsanvisningar till människor. Inga
+  behörigheter i skillsens frontmatter. Inget kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
