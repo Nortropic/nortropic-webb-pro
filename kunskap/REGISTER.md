@@ -635,3 +635,54 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · anomalyco/opencode · nej
+- Källa: https://github.com/anomalyco/opencode @ 1ddb087 (grenen `dev`, ur klonens `.git/refs/heads/dev`; senaste push
+  2026-10-02T14:03Z), MIT; cirka 211 000 stjärnor, inte arkiverat; 6 646 filer, cirka 2,1 miljoner tokens text.
+  Förgranskat. Läst: README, AGENTS.md, alla åtta kommandon i `.opencode/command/` som namn och i helhet `rmslop.md`
+  och `learn.md`, båda skills i `.opencode/skills/` (rtl-aware-development i helhet, effect som beskrivning),
+  Anthropic-prompten `packages/opencode/src/session/prompt/anthropic.txt` och namnen på de övriga promptarna. Bild:
+  README:ns skärmbild av terminalgränssnittet [BILD packages/web/src/assets/lander/screenshot.png]. Ingen demosajt;
+  produkten är ett program. Ägarens not: ingen
+- Steg: inget av de åtta; närmast arbetssättet runt dem (körmiljön i `kor.sh`, granskaren, bristposterna)
+- Jämfört med i dag: OpenCode är en kodagent i terminalen, på skrivbordet och i webbläsaren, med en agent för bygge med
+  full åtkomst och en skrivskyddad för planering [REPO README.md rad 10, 102–110], och med valfri modelleverantör
+  (skärmbilden kör Claude Opus genom deras egen tjänst Zen [BILD screenshot.png]). Det är samma slags ersättning för
+  Claude Code som openclaw, Hermes och DeepSeek Harness (alla nej som plattform, ovan). Anthropic-prompten är i allt
+  väsentligt Claude Codes egen hållning i omskrivning [REPO packages/opencode/src/session/prompt/anthropic.txt rad
+  14–21, 70–96]; ingenting nytt för oss. Tre delar prövades sak mot sak. (1) `learn` låter agenten efter en session
+  skriva in icke-uppenbara lärdomar direkt i AGENTS.md-filer [REPO .opencode/command/learn.md rad 5–30]. Vi fångar
+  samma sak, brister i kontroller, skill eller kunskap, som vilande backlogposter som ägaren släpper
+  (`.claude/skills/bygg-sajt/SKILL.md:313–321`), och bygget rör aldrig `kunskap/`, `kontroller/` eller `.claude/`
+  (`:47`). Lika i fångst, säkrare i vägen; källans sätt krockar med att ingen agent ändrar systemet obevakat. (2)
+  `rmslop` städar AI-slop i kod (överflödiga kommentarer, defensiva kontroller, `any`-omvandlingar, emoji) [REPO
+  .opencode/command/rmslop.md rad 5–13], samma sak som openclaws `deslop` (`kunskap/REGISTER.md:74–76`); vår regel
+  mot slop gäller sajtens text (`kunskap/copy-kontroll.md`), som den inte berör. Inget för oss. (3)
+  rtl-aware-development ger regler för höger-till-vänster: logiska CSS-egenskaper, `dir` och `<bdi>`, spegla bara
+  riktad betydelse [REPO .opencode/skills/rtl-aware-development/SKILL.md rad 8–14, 30–36]. Våra sajter är svenska och
+  vänster-till-höger, byggstandarden har ingen punkt om skriftriktning (`kunskap/byggstandard.md`, enda träffen på
+  "logisk" är tabbordningen rad 69), och ingen dom i `LARDOMAR.md` pekar dit. Skillen gäller dessutom deras
+  Electron-app (titelrad, fönsterkontroller) lika mycket som webben
+- Skäl: källan hjälper oss inte att bygga bättre sajter. Som körmiljö krockar den med två medvetna val: kod ur källor
+  körs inte (installation med `curl | bash`, märkt "YOLO" [REPO README.md rad 48–50]) och ingen agent ändrar systemet
+  obevakat (byggagenten har full åtkomst som standard [REPO README.md rad 104]; vi kör med vitlista och nekanden,
+  `kor.sh:36–52`). Det som går att lyfta ur repot gör vi redan, säkrare (`learn`), eller rör kod och inte sajtens text
+  (`rmslop`), eller gäller en skrift våra kunder inte använder (RTL), och inget rör det ägarens domar L1–L3 pekar på
+  (förfrågan, bildunderlag, förtroende, rösten). En tanke som källan väcker, utan ny post: OpenCode är
+  leverantörsneutral, och vår granskare kör samma modell som byggaren (`kor.sh:57`, `kontroller/granska.py:546`, båda
+  `opus[1m]`) medan A/B-regeln kräver en annan modell som domare (`.claude/skills/kirurg/SKILL.md:161`). Det prövas
+  bäst som en tredje arm i den vilande A/B:n om två granskare (B-20261002-a-b-tva-isolerade-granskare-per-omgang-blockeran)
+  med `NWP_GRANSKARE_MODELL`, utan OpenCode och utan ny nyckel. Källkritik: README:n säljer inget direkt men leder till
+  den egna betaltjänsten Zen [BILD screenshot.png]; stjärnantalet är räckvidd, inte belägg
+- Kostnad: ingen; inget tas in. Skillsen skulle kosta 17–56 tokens i varje session och 674–960 vid användning enligt
+  förgranskningen
+- Säkerhet: förgranskningen HÖG, av mängden: 2 748 skript (CI, infrastruktur, prestandaprov med eval/exec, nätanrop),
+  `curl | sh` i arbetsflöden och översatta README:er. 589 dolda tecken; läst i sitt sammanhang är de nollbreddsfogar i
+  persiska översättningar (`packages/app/src/i18n/fa.ts`), dubblerade U+200B ur maskinöversättning i danska och thailändska
+  dokument (`packages/web/src/content/docs/da/permissions.mdx:83`, `th/config.mdx:204`) och en emojifog i
+  `packages/web/README.md:14`; inget gömmer text. De 30 ställena med text till agenter är källans egna promptar och
+  exempel i dokumentationen ("You are an AI" i gitlab-sidorna). Inga behörigheter eller krokar i skillsen. Inget i det
+  lästa försökte styra kirurgen. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
