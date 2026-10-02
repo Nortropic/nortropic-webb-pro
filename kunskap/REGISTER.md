@@ -601,3 +601,37 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · vuejs/vue · nej
+- Källa: https://github.com/vuejs/vue @ 9e88707 (ur klonens `.git/shallow`; senaste push 2024-10-10), MIT; cirka
+  213 000 stjärnor, inte arkiverat men nedlagt: Vue 2.7.16, slut på underhåll 2023-12-31 [REPO README.md rad 1–5;
+  package.json rad 3]. Läst: README, förgranskningens rapport och de flaggade ställena i listan. Bilder: README visar
+  bara logga, märken och sponsorer; repots enda bild är en testfixtur i server-renderer. Demon sedd som webbsida
+  (https://v2.vuejs.org/v2/examples/): första vyn i mobil och desktop, en Markdown-editor och en lista med
+  widgetexempel [BILD vue2-examples/desktop-forsta.png, mobil-forsta.png]. Ägarens not: ingen
+- Steg: 5 (bygge), i så fall
+- Jämfört med i dag: mallen är statisk Astro med `astro` och `sharp` som enda beroenden (`mall/astro/package.json:10–13`),
+  steg 5 kräver "ingen JavaScript som inte behövs" (`.claude/skills/bygg-sajt/SKILL.md:202`), och byggstandarden säger
+  innehåll och navigation utan JS, förrenderat, helt statiskt (`kunskap/byggstandard.md:18, 25`). De tre dömda byggena
+  levererade 0 kB JS, och ägaren räknade det till det bästa (`LARDOMAR.md:31, 56, 87`). Vue 2 är ett klientramverk
+  för gränssnitt och ensidesappar [REPO README.md rad 44]; demon visar just det, interaktiva widgetar (editor,
+  rutnät, träd) och ingenting om hur en sida för en verksamhet ska se ut eller läsas [BILD desktop-forsta.png]. Dess
+  serverrendering löser ett problem vi inte har, eftersom Astro redan förrenderar allt. Sämre för oss, och dessutom
+  utan underhåll
+- Skäl: källan är källkoden till ett nedlagt UI-ramverk, inte en metod, regel eller skill för att bygga bättre sajter
+  eller arbeta smartare. Litteraturen står på vår sida: "rule of least power", HTML före JS, progressive enhancement,
+  statisk förrendering och minimal klient-JS (`kunskap/teoretisk-grund.md:47–48, 119`). Att ta in det skulle krocka
+  med ett medvetet val som ägarens domar bekräftat, och ingen dom i `LARDOMAR.md` pekar på en brist som ett
+  klientramverk löser. Samma bedömning som react/react ovan; skulle en framtida sajt behöva en interaktiv ö (kalkylator,
+  bokning med tillstånd) är det en enskild Astro-ö, och då vore Vue 3 (vuejs/core) frågan, inte Vue 2. README:n själv
+  avråder från Vue 2 för nya projekt [REPO README.md rad 7]. Källkritik: README:n säljer inget utöver ramverket och en
+  betald förlängd support för den som fastnat på Vue 2 [REPO README.md rad 7]
+- Kostnad: inget tas in. Cirka 48 000 tokens text (md/txt) enligt förgranskningen; som beroende vore det runtime och
+  hydrering på varje sida plus ett ramverk som inte längre får säkerhetsrättelser
+- Säkerhet: förgranskningen MEDEL, av mängden: 423 skript, bland dem eval/exec i kompilatorn och serverrenderaren,
+  miljövariabler i byggskript och ett nätanrop i ett klassiskt exempel (`examples/classic/commits/app.js`). Inga
+  dolda tecken, ingen text riktad till agenter, inga skills, hookar eller behörigheter. Inget försök att styra
+  kirurgen. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
