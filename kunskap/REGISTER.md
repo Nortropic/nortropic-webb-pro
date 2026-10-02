@@ -1304,3 +1304,61 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · garrytan/gstack · ta in
+- Källa: https://github.com/garrytan/gstack @ df89475 (ur klonens `.git/shallow`; senaste push 2026-10-01T20:59Z), MIT,
+  cirka 135 000 stjärnor, inte arkiverat. Bedömd förut med de gamla reglerna (`REGISTER-arkiv-20261001.md:761`, nej);
+  arkivet ligger utanför registret, så det här är en ny bedömning med dagens regler, som för ECC. Förgranskat. Läst
+  själv: README rad 1–70 och raderna citerade nedan, `lib/design-catalog.ts` rad 1–154 och 440–640,
+  `design-review/SKILL.md` rad 1130–1260, 1440–1447 och 1778–1789, de flaggade dolda tecknen. Läst i helhet av två
+  subagenter med belägg (domen är min): design-review, plan-design-review, design-consultation, design-html,
+  DESIGN.md, ETHOS.md, qa, qa-only, office-hours, benchmark, review, learn, retro, spec, scrape, careful, freeze,
+  deslop-shared-libs och landing-report. Övriga skills (ship, cso, ios-*, gbrain m.fl.) bara som namn i
+  förgranskningen. Bilder: som förra gången, bara aktivitetsgrafer och ikoner; ingen demo. Ägarens not: ingen
+- Steg: 6 (provets stilrapport) och granskaren i 5.6; inget annat
+- Jämfört med i dag: (1) **Slopkatalogen.** Förra bedömningen såg elva mönster; katalogen har nu ett sextiotal, med
+  kategori, säkerhet och ofta en mätbar tröskel, delvis hämtade ur pbakaus/impeccable (Apache-2.0) [REPO
+  lib/design-catalog.ts rad 1–2, 77–640]. Vår `kontroller/stil.mjs` prövar omkring tio: färgfamiljer, gradient,
+  accentord, numrerade och spärrade etiketter, monospace, piller, kort i kort, kortrader och nästa sektion (rad 74–81,
+  137–146). Sex mönster i katalogen går att läsa ur den renderade sidan och saknas hos oss: innehåll dolt i vila till
+  en skrollanimation [rad 488–491], radlängd utanför 45–75 tecken [rad 531–536], radhöjd under 1,4 i brödtext [rad
+  550–553], marginaljusterad text [rad 570–573], mer än 60 procent centrerade textblock [rad 102–105] och en enda radie
+  på 16 px eller mer på mer än 80 procent av elementen [rad 109–112]. Smartare: billigt, mätt i stället för bedömt, och
+  litteraturen bakom radlängden (byggstandarden 3.1, typografisk skala) står redan hos oss utan mätning. Rubriknivåer
+  utan hopp har vi redan (`kunskap/byggstandard.md:36`). (2) **Granskaren lovar ett mått som saknas.**
+  `kritik/GRANSKARE.md:45` säger att `sida.mjs` ger radlängder; den mäter bara radhöjd (`kontroller/sida.mjs:113`).
+  (3) **design-review** har en trunk test med sex frågor per sida [REPO design-review/SKILL.md rad 1137–1148] och ett
+  mått på "happy talk" i procent av orden [rad 1249–1251]. Vi har Nielsens heuristiker och den kognitiva genomgången
+  (`kritik/GRANSKARE.md:50–58`), rubriktestet (`bygg-sajt/SKILL.md:265–268`) och regeln mot välkomstfraser
+  (`kunskap/copy-kontroll.md:15`). Lika för en sajt på fem sidor; frågan om sökruta passar inte oss. (4) **qa,
+  benchmark, office-hours:** qa och design-review rättar och committar själva, en commit per fynd [REPO
+  design-review/SKILL.md rad 1780–1788; README rad 225, 229], mot vår åtskillnad mellan byggare och domare
+  (`kritik/GRANSKARE.md:3–9`). Benchmark har vi i Lighthouse-grinden och byggstandardens budgetar
+  (`kunskap/byggstandard.md:52, 58`). office-hours är frågor till en grundare som svarar, för startups; våra byggen har
+  ingen som svarar (`bygg-sajt/SKILL.md:20`). Sämre eller lika. (5) Bieffekt: `kunskap/kundintervju.md:4` pekar på
+  `verktyg/intervju.py`, som inte finns i det här repot (kvar från Digitala)
+- Skäl: som paket är gstack fel verktyg: ett interaktivt programvarukontor för grundare [REPO README.md rad 23, 29–32]
+  som rättar och committar sin egen kod, låter AI-slop väga 5 procent av designbetyget [REPO design-review/SKILL.md
+  rad 1444], tar fram skisser med OpenAI:s bildmodell och skriver i användarens CLAUDE.md och `settings.json`. Inget
+  av det ska in. Men designkatalogen har vuxit sedan förra bedömningen och har sex mönster som vår stilrapport kan mäta
+  på den renderade sidan, som information och aldrig som grind, i samma form som rapporten redan har. Det är en liten
+  ändring i en befintlig kontroll, och den rättar samtidigt ett löfte i granskaren om ett mått som inte finns. Därför
+  ta in, avgränsat till det. Källkritik: README säljer med produktivitetstal, "~810× my 2013 pace" [REPO README.md rad
+  9], och aktivitetsgrafer, inte med något byggt resultat. office-hours slutar med en personlig vädjan och öppnar
+  ansökan till Y Combinator med en ref-parameter [REPO office-hours/sections/design-and-handoff.md rad 374–377].
+  Källan innehåller instruktioner till agenter: installationsprompten ska klistras in i Claude Code och skriva i
+  CLAUDE.md [REPO README.md rad 51–53], och skillsen ber agenten att självmant välja dem. Det följdes inte
+- Kostnad: inget kopieras; ingen skill tas in. Ändringen är ett sextiotal rader i `stil.mjs` och en rad i
+  `GRANSKARE.md`; några millisekunder per sida i provet, inga tokens. Hela källan är cirka 2,1 miljoner tokens text
+- Säkerhet: förgranskningen HÖG: 23 dolda tecken, 85 ställen med text riktad till agenter, 1 655 skript, krokar i
+  frontmatter i autoplan, careful, freeze, guard och investigate. De dolda tecknen jag öppnade är teckenklasser i
+  reguljära uttryck som rensar bort nollbreddstecken [REPO browse/src/server.ts rad 122; lib/redact-engine.ts rad 100];
+  de agentriktade träffarna är mest testfixturer för repots eget skydd mot promptinjektion, och "Don't tell the user"
+  är en kodkommentar om ett felbesked [REPO lib/gbrain-local-status.ts rad 516]. Varje skill startar med en ingress
+  som söker uppdateringar över nätet och frågar om telemetri. Inget kördes eller installerades. Inget försök att styra
+  kirurgen
+- Förslag: `kontroller/stil.mjs`: de sex mönstren som varningar i STIL.md och radlängden per sida och vy;
+  `kritik/GRANSKARE.md:45` pekar på stilrapporten för radlängd. Trösklarna med egna ord, källan i filhuvudet.
+  Rökprovet grönt
+- Utfall: —
+- Backlog: B-20261002-stilrapporten-mater-sex-renderade-monster-ur-gst (ta in)
