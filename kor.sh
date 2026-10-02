@@ -5,7 +5,7 @@
 #   ./kor.sh frisor-exempel-umea "Frisör Exempel, Umeå, https://exempel.se"
 #
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
-# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (high), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
+# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
 # NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKNING_MAX (5 granskningar per körning).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -59,7 +59,7 @@ ARGS=(-p
 # ~/.claude/settings.json läses inte). Modell och effort anges därför uttryckligen; gh får sin konfigurationsmapp.
 GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
 # --strict-mcp-config utan --mcp-config: inga anslutningar (Gmail, Drive, Resend …) laddas i bygget.
-ARGS+=(--setting-sources project,local --strict-mcp-config --model "${NWP_MODELL:-opus[1m]}" --effort "${NWP_EFFORT:-high}")
+ARGS+=(--setting-sources project,local --strict-mcp-config --model "${NWP_MODELL:-opus[1m]}" --effort "${NWP_EFFORT:-medium}")
 if [ -n "$GH_DIR" ]; then ARGS+=(--settings "{\"env\":{\"GH_CONFIG_DIR\":\"$GH_DIR\"}}"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort.
