@@ -392,6 +392,9 @@ def granska(dist):
             F('7.2', '/404.html', '404-sidan saknar <meta name="robots" content="noindex">')
         if any('canonical' in a.get('rel', '').lower().split() for t, a, *_ in p404.el if t == 'link'):
             F('7.2', '/404.html', '404-sidan har canonical; ta bort den (404-sidan ska inte indexeras)')
+    # 9.4 den kastbara sidan för tvåan-riktningen (bygg-sajt steg 5) tas bort efter skärmbilderna
+    if (dist / 'tvaan').exists():
+        F('9.4', '/tvaan/', 'den kastbara sidan med tvåan-riktningen finns kvar; ta bort kunder/<slug>/sajt/src/pages/tvaan med kontroller/ta_bort.py')
     # 6 skriftlig förfrågan (ägarens dom L1: "standarden ska inte tillåta att 'ring' är enda vägen")
     forfragan = [(s, fm) for s, fm in ((sida_av(dist, f), fm) for f, p in sidobjekt.items() for fm in p.formular)
                  if fm['attr'].get('method', '').lower() == 'post' and fm['attr'].get('action') == '/api/forfragan']

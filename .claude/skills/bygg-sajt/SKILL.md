@@ -193,17 +193,18 @@ upptaget val är tillåtet när verksamhetens material motiverar det; välj det 
 KONCEPT.md.
 
 1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md` med fyra visuella riktningar härledda ur verksamheten själv
-   (deras bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Varje riktning anger:
-   bakgrund och accent som hex, ett namngivet typsnitt med roll, toppsektionens komposition i en mening, **sidans
-   form** (hur tjänsterna, beviset, undersidornas sektioner, sidfoten och avslutet visas), och den sak ur "Bara de
-   har" som riktningen bygger på. Ägarens mall-lukt i L1–L3 satt i formen, inte i färgen. Minst två typsnittskategorier (grotesk, serif, slab, display) och en
-   namngiven axel som riktningarna skiljer sig på: foto eller typografi bär, ljust eller mörkt, tätt eller luftigt.
-   Ingen halmgubbe; varje riktning ska kunna vinna. Anthropic rekommenderar fyra riktningar med just de här
-   uppgifterna för att få verkligt olika utfall. Välj en med skäl och skriv den som **exakt specifikation** innan någon
-   kod skrivs: färger som hex med roller, typsnitt och typografisk skala, radie, avståndssystem, sektionsordning och
-   form per sida, med skäl mot strukturmönstren i UPPTAGNA-VAL.md. Modellen följer uttryckliga specifikationer precist. De två starkaste riktningarna kan bli en parvis fråga i
-   FRAGOR.json. Skriv också en rad **Visuell tes**: stämning, material och energi i en mening, som namnger ett material
-   eller en plats ur "Bara de har".
+   (deras bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Varje riktning anger: bakgrund
+   och accent som hex, ett namngivet typsnitt med roll, toppsektionens komposition i en mening, **sidans form** (hur
+   tjänsterna, beviset, undersidornas sektioner, sidfoten och avslutet visas), och den sak ur "Bara de har" som
+   riktningen bygger på. Ägarens mall-lukt i L1–L3 satt i formen, inte i färgen. Minst två typsnittskategorier
+   (grotesk, serif, slab, display) och en namngiven axel som riktningarna skiljer sig på: foto eller typografi bär,
+   ljust eller mörkt, tätt eller luftigt. Ingen halmgubbe; varje riktning ska kunna vinna. Anthropic rekommenderar
+   fyra riktningar med just de här uppgifterna för att få verkligt olika utfall. Välj en med skäl och skriv den som
+   **exakt specifikation** innan någon kod skrivs: färger som hex med roller, typsnitt och typografisk skala, radie,
+   avståndssystem, sektionsordning och form per sida, med skäl mot strukturmönstren i UPPTAGNA-VAL.md. Modellen
+   följer uttryckliga specifikationer precist. De två starkaste riktningarna blir riktningsfrågan i FRAGOR.json, med
+   en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad **Visuell tes**: stämning, material och energi i en
+   mening, som namnger ett material eller en plats ur "Bara de har".
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
    sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
@@ -223,6 +224,14 @@ KONCEPT.md.
    sedan `node kontroller/ikoner.mjs --sajt kunder/<slug>/sajt --foto <ett av deras starkaste foton> --bakgrund '<hex>'`
    för apple-touch-icon och delningsbild; justera beskärningen med `--fokus 'center 30%'` och titta på resultatet.
 4. **Snabbprov ofta:** `.venv/bin/python kontroller/prova.py <slug> --snabb`. Läs `kunder/<slug>/prov/PROV.md`.
+   **Tvåan:** när startsidan står första gången, bygg den näst starkaste riktningens första vy som kastbar sida
+   `src/pages/tvaan/index.astro`: samma texter och bilder ur INNEHALL.md, riktningens egna färger, typsnitt och
+   komposition enligt KONCEPT.md, fristående från `Bas.astro`; sidhuvud, toppsektion och början av nästa sektion.
+   Kör snabbprovet en gång, kopiera `kunder/<slug>/prov/inspektion/tvaan/vy-390-forsta.png` och `vy-1440-forsta.png`
+   till `underlag/<slug>/tvaan/` (provet tömmer `prov/` varje gång), och ta bort sidan med `.venv/bin/python
+   kontroller/ta_bort.py <slug> kunder/<slug>/sajt/src/pages/tvaan` före nästa snabbprov. Ett typsnitt som bara tvåan
+   använder avinstalleras med `npm --prefix kunder/<slug>/sajt uninstall <paket>`. Snabbprovets fynd på tvåan räknas
+   inte; standarden fäller bygget om `/tvaan/` finns kvar.
 5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-ruta-NN.png` och `vy-1440-ruta-NN.png`
    med Read: varje sida uppifrån och ned i skärmhöga rutor. `-hela.png` skalas ned så mycket att detaljer försvinner;
    använd den bara för att se rytmen. Ställ dem bredvid referensernas skärmbilder och gå igenom de åtta dimensionerna i
@@ -308,16 +317,18 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 **Dina frågor till ägaren.** Skriv `kunder/<slug>/FRAGOR.json`: tre till sex frågor om det du är mest osäker på, där
 ägarens svar skulle ändra nästa bygge mest. Dashboarden visar dem efter kärnfrågorna i frågeformuläret, och svaren blir
 träningsdata. Fråga om konkreta val, aldrig "vad tycker du?". Helst parvis: två alternativ du faktiskt övervägde, med
-en skärmbild var, så att ägaren väljer A eller B. Val och ja/nej ger säkrare träningsdata än skalor. Form:
+en skärmbild var, så att ägaren väljer A eller B. Val och ja/nej ger säkrare träningsdata än skalor. Riktningsfrågan
+är alltid med: den byggda startsidan och tvåan, i mobil. Form:
 
 ```json
 [{"id": "riktning", "fraga": "Jag valde den mörka, typografiska riktningen före den ljusa och fotodrivna. Vilken hade du valt?",
   "typ": "val", "alternativ": ["Mörk, typografisk", "Ljus, fotodriven", "Ingen av dem"],
-  "bild": "prov/inspektion/hem/vy-1440-forsta.png", "varfor": "avgör om riktningen ska härledas ur bilderna eller ur tonen"}]
+  "bild": ["prov/inspektion/hem/vy-390-forsta.png", "underlag/<slug>/tvaan/vy-390-forsta.png"],
+  "varfor": "avgör om riktningen ska härledas ur bilderna eller ur tonen"}]
 ```
 
 `typ` är `val`, `skala` (med `min`, `max`, `steg`) eller `fritext`. `bild` är en sökväg under `kunder/<slug>/` eller
-`underlag/<slug>/`.
+`underlag/<slug>/`, eller en lista med en bild per alternativ i samma ordning som `alternativ`.
 
 **Brister i verktygen.** Hittade du en brist i en kontroll, i den här skillen eller i en kunskapsfil, lägg en vilande
 post i backloggen per brist. Ett skript i `underlag/<slug>/skript/` som inte är knutet till verksamheten (läser en

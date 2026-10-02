@@ -1,11 +1,12 @@
 ---
 id: B-20261002-rendera-tvaan-den-nast-starkaste-riktningens-for
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · mattpocock/skills
 skapad: 2026-10-02
 prio: normal
 steg: 5 Koncept (riktning) och 7 Frågor till ägaren
+andrad: 2026-10-02T15:59Z
 ---
 # Rendera tvåan: den näst starkaste riktningens första vy byggs på startsidan med verkligt innehåll, så att ägarens riktningsfråga får en skärmbild per alternativ
 

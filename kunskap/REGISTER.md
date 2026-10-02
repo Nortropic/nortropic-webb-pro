@@ -260,7 +260,9 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   inaktuella rader. Egen innovation: steg 5.1 bygger tvåan-riktningens första vy som kastbar sida och riktningsfrågan
   får en skärmbild per alternativ (`dashboard/index.html:255` tar en lista).
 - Utfall: writing-for-agents intagen 2026-10-02 i `.claude/skills/writing-for-agents/`; backlog-skillens steg 3
-  pekar på den och klass (c) skrivs som förbud plus målet. Rendera tvåan: se den posten.
+  pekar på den och klass (c) skrivs som förbud plus målet. Rendera tvåan införd 2026-10-02: steg 5.4 bygger tvåans
+  första vy som kastbar sida, riktningsfrågan får en bild per alternativ (dashboarden visar listan), standarden fäller
+  en kvarlämnad `/tvaan/`. Prövningen: nästa två byggen mot de tre tidigare, där ägaren valde "som byggd" varje gång.
 - Backlog: B-20261002-ta-in-mattpocock-skills-writing-for-agents-i-ver (ta in);
   B-20261002-rendera-tvaan-den-nast-starkaste-riktningens-for (prova A/B, egen innovation)
 

@@ -92,6 +92,17 @@ assert '[h1] Rubrik' in txt and 'T /' not in txt.split('---TEXT---')[1], txt
 " || { echo "FEL: hämtverktyget"; exit 1; }
 echo "   hämtverktyget ok"
 
+echo "   kvarlämnad kastbar sida (tvåan) ger fel i standarden"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, shutil, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import standard_kontroll as sk
+d = pathlib.Path(tempfile.mkdtemp()) / 'dist'; shutil.copytree('$S/dist', d)
+assert not [f for f in sk.granska(d)[0] if f['sida'] == '/tvaan/']
+(d / 'tvaan').mkdir(); shutil.copy(d / 'index.html', d / 'tvaan' / 'index.html')
+assert [f for f in sk.granska(d)[0] if f['sida'] == '/tvaan/' and f['punkt'] == '9.4']
+" || { echo "FEL: standarden fångar inte en kvarlämnad tvåan-sida"; exit 1; }
+echo "   tvåan-regeln ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"

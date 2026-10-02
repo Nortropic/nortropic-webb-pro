@@ -109,6 +109,10 @@ textarea:focus, input:focus { outline: 2px solid color-mix(in srgb, var(--accent
 @media (max-width: 520px) { .val.cell span { padding: 6px 9px; font-size: 13px; } .matris td:first-child { font-size: 13px; } }
 .matris td:first-child, .matris th:first-child { text-align: left; }
 .fraga img { max-width: 520px; width: 100%; border: 1px solid var(--linje); border-radius: 10px; margin-bottom: 10px; }
+.alt-bilder { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); max-width: 820px; margin-bottom: 10px; }
+.alt-bilder figure { margin: 0; }
+.alt-bilder img { max-width: 100%; margin-bottom: 4px; display: block; }
+.alt-bilder figcaption { font-size: 13px; color: var(--dampad); }
 .kommando { display: flex; gap: 8px; align-items: stretch; margin: 6px 0 14px; }
 .kommando code { flex: 1; display: block; padding: 10px 12px; overflow-x: auto; white-space: nowrap; }
 details.post { border: 1px solid var(--linje); border-radius: 12px; background: var(--yta); margin-bottom: 10px; }
@@ -252,7 +256,12 @@ function bKorning(k) {
 
 function falt(q) {
   const id = esc(q.id), varfor = q.varfor ? `<span class="varfor">${esc(q.varfor)}</span>` : '';
-  const bildHtml = q.bild ? `<img src="/fil/${esc(q.bild.startsWith('underlag/') || q.bild.startsWith('kunder/') ? q.bild : 'kunder/' + window._slug + '/' + q.bild)}" alt="">` : '';
+  // bild är en sökväg, eller en lista med en bild per alternativ i samma ordning (riktningsfrågan: byggd och tvåan)
+  const vag = (p) => '/fil/' + esc(p.startsWith('underlag/') || p.startsWith('kunder/') ? p : 'kunder/' + window._slug + '/' + p);
+  const bilder = (Array.isArray(q.bild) ? q.bild : [q.bild]).filter((p) => typeof p === 'string' && p);
+  const bildHtml = bilder.length > 1
+    ? `<div class="alt-bilder">${bilder.map((p, i) => `<figure><a href="${vag(p)}" target="_blank"><img loading="lazy" src="${vag(p)}" alt="${esc((q.alternativ || [])[i] || '')}"></a><figcaption>${esc((q.alternativ || [])[i] || '')}</figcaption></figure>`).join('')}</div>`
+    : bilder.length ? `<img src="${vag(bilder[0])}" alt="">` : '';
   if (q.typ === 'val') return `<div class="fraga"><div class="q">${esc(q.fraga)}${varfor}</div>${bildHtml}<div class="val">${(q.alternativ || []).map((a) => `<label><input type="radio" name="${id}" value="${esc(a)}"><span>${esc(a)}</span></label>`).join('')}</div>${q.foljd ? `<textarea name="${id}__foljd" placeholder="${esc(q.foljd)}" style="margin-top:10px;min-height:56px"></textarea>` : ''}</div>`;
   if (q.typ === 'skala') { const n = q.steg || 5; return `<div class="fraga"><div class="q">${esc(q.fraga)}${varfor}</div>${bildHtml}<div class="skala"><small>${esc(q.min || '')}</small><div class="val">${Array.from({ length: n }, (_, i) => `<label><input type="radio" name="${id}" value="${i + 1}"><span>${i + 1}</span></label>`).join('')}</div><small>${esc(q.max || '')}</small></div></div>`; }
   if (q.typ === 'matris') return `<div class="fraga"><div class="q">${esc(q.fraga)}${varfor}</div><div class="tabell"><table class="matris"><thead><tr><th></th>${q.alternativ.map((a) => `<th>${esc(a)}</th>`).join('')}</tr></thead><tbody>${q.rader.map((r) => `<tr><td>${esc(r)}</td>${q.alternativ.map((a) => `<td><div class="val cell"><label><input type="radio" name="${id}::${esc(r)}" value="${esc(a)}" aria-label="${esc(r)}: ${esc(a)}"><span>${esc(a)}</span></label></div></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
