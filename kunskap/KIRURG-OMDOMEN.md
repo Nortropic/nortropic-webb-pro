@@ -126,3 +126,8 @@ Kalibrering: varje post är ägarens överprövning av en registerpost. Kirurgen
 - Kirurgens dom: prova A/B
 - Ägarens dom: håller inte med, borde ha blivit: prova
 - Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · open-webui/open-webui · nej
+- Kirurgens dom: nej
+- Ägarens dom: håller med
+- Ägarens ord: ""
