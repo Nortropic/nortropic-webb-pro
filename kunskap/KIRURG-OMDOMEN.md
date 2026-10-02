@@ -176,3 +176,38 @@ Kalibrering: varje post är ägarens överprövning av en registerpost. Kirurgen
 - Kirurgens dom: ta in
 - Ägarens dom: håller med
 - Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · coreyhaines31/marketingskills · ta in
+- Kirurgens dom: ta in
+- Ägarens dom: håller med
+- Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · gohugoio/hugo · nej
+- Kirurgens dom: nej
+- Ägarens dom: håller med
+- Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · unclecode/crawl4ai · nej
+- Kirurgens dom: nej
+- Ägarens dom: håller med
+- Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · sdmg15/Best-websites-a-programmer-should-visit · nej
+- Kirurgens dom: nej
+- Ägarens dom: håller med
+- Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · withastro/astro · prova
+- Kirurgens dom: prova
+- Ägarens dom: håller med
+- Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · DavidHDev/react-bits · nej
+- Kirurgens dom: nej
+- Ägarens dom: håller med
+- Ägarens ord: ""
+
+### 2026-10-02 · 2026-10-02 · lissy93/web-check · parkera
+- Kirurgens dom: parkera
+- Ägarens dom: håller inte med, borde ha blivit: parkera
+- Ägarens ord: ""

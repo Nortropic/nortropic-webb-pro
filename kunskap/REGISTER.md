@@ -1811,3 +1811,617 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261002-stilrapporten-mater-fem-renderade-monster-ur-imp; egen innovation:
   B-20261002-granskaren-satter-originalitetsbetyget-innan-hen
+
+### 2026-10-02 · coreyhaines31/marketingskills · ta in
+- Källa: https://github.com/coreyhaines31/marketingskills @ 13c3832 (ur klonens `.git/logs/HEAD`; senaste push
+  2026-10-02T18:32Z; tagg v2.11.11), MIT (Corey Haines), cirka 52 000 stjärnor, inte arkiverat. 473 textfiler, cirka
+  710 000 tokens text, 50 skills. Inte bedömd förut. Förgranskat. Läst själv: README (349 rader), AGENTS.md,
+  CONTRIBUTING.md, `tools/PARTNERS.md`, `.claude-plugin/plugin.json`, `.github/workflows/validate-skill.yml`, början
+  av `.github/scripts/sync-skills.js` och `tools/clis/resend.js`, och hela SKILL.md för de tolv skills som kan röra
+  en sajt åt en verksamhet: copywriting, copy-editing, cro, seo-audit, schema, site-architecture, customer-research,
+  marketing-psychology, product-marketing, image, ai-seo och marketing-council (rad 1–70). Referenser lästa i helhet:
+  `copywriting/references/ai-tells.md` och `copy-frameworks.md`, `copy-editing/references/checklist.md`,
+  `cro/references/form.md`, `seo-audit/references/ai-writing-detection.md`, `schema/references/schema-examples.md`,
+  `site-architecture/references/site-type-templates.md`, `copywriting/evals/evals.json`, `cro/references/
+  experiments.md` rad 1–80, och den flaggade raden i `ads/references/audit-guardrails.md` i sitt sammanhang. Övriga 38
+  skills (annonser, ASO, churn, kalla mejl, paywalls, prissättning, referral, RevOps, SMS, sociala medier, video,
+  events, lanseringar …) bara som beskrivning i README och förgranskningen. Repot har inga bilder och ingen demosajt;
+  inget att se. Ägarens not: ingen
+- Steg: 4 (innehåll före form, humanizer-passet); berör också 1, 3, 5 och 6 där det visade sig lika eller sämre
+- Jämfört med i dag: källan är ett bibliotek för marknadsförare på SaaS- och B2B-bolag: 50 skills som alla först
+  läser en kontextfil om produkten [REPO README.md rad 31; product-marketing/SKILL.md rad 12], 60-talet CLI-skript mot
+  marknadsföringstjänsters API:er med nycklar ur miljön [REPO AGENTS.md rad 24; tools/clis/resend.js rad 3–8], ett
+  partnerprogram där verktyg köper disklad placering [REPO tools/PARTNERS.md rad 12, 45–50] och en Claude
+  Code-marknadsplats [REPO .claude-plugin/plugin.json]. Vi bygger sajter åt hantverkare och skickar ingenting
+  (`.claude/skills/bygg-sajt/SKILL.md:50–51`); kampanjer, utskick, prissättning och annonser finns inte i våra åtta
+  steg. Sak mot sak för det som ändå rör sajten. (1) **ai-tells.md** (copywriting) är en katalog över AI-mönster i
+  säljtext, byggd på samma Wikipedia-lista som vår humanizer plus Kobak m.fl., Juzek & Ward och EQ-Bench [REPO
+  ai-tells.md rad 248–259]. Mönstren finns redan hos oss: kontrastvändning, negationslista, tre-i-rad, tankstreck,
+  retorisk fråga, fragment (`.claude/skills/humanizer/SKILL.md:215–233, 278–286, 495–518`; `kunskap/copy-kontroll.md:
+  17`). Tre saker saknas hos oss. För det första skiljer källan **förbud** från **tak**: ett fragment och en lista på
+  tre per sektion är hantverk, två är tic [REPO ai-tells.md rad 5–9, 92–102]; humanizer säger bara "overuse" utan
+  gräns (`humanizer/SKILL.md:232–240, 495–505`). För det andra ett eget **register för kort text**: rubriker,
+  underrubriker, knappar och ingress, där tankstreck och vändningar inte får förekomma alls [REPO ai-tells.md rad
+  12–15, 104–108]; hos oss gäller samma regel för all text, och ägaren pekade i L3 ut just en rubrik ("Dagen efter,
+  tre timmar senare") som det som lät skrivet (`LARDOMAR.md:83, 92`). För det tredje regeln **variera rättningarna**:
+  blir varje vändning ", eftersom" och varje negationslista "det finns inget att", är det de nya ticen; skriv om ur
+  sakuppgiften, aldrig med synonym [REPO ai-tells.md rad 220–231]. Vi kör humanizer på hela INNEHALL.md i varje bygge
+  (`bygg-sajt/SKILL.md:184–185`) och har ingen sådan vakt mot att passet själv lämnar ett mönster. Smartare, och
+  det är tre rader i humanizerns förord. Källans bytestest, "fungerar raden oförändrad hos en konkurrent, skriv om"
+  [REPO ai-tells.md rad 224], har vi redan som läsning och FRASER.txt (`bygg-sajt/SKILL.md:147, 183`). Lika. Källans
+  `[NEED: proof]` i stället för påhitt [rad 226] är vår beställning (`bygg-sajt/SKILL.md:20–24`). Lika. (2) **Resten
+  av copywriting** är rubrikformler ("Never X again", "The {category} for {audience}"), knapptexter som "Start Free
+  Trial" och en sidstruktur med logotyprad, "10,000+ teams" och garantier [REPO copywriting/SKILL.md rad 147–151,
+  185–201; copy-frameworks.md rad 18–99, 229–243]. Det är mallar för SaaS; hos oss ska varje sektion bära en sak ur
+  "Bara de har" och rubriken vara verksamhetens namn eller ett bokstavligt erbjudande (`bygg-sajt/SKILL.md:170–172,
+  284–285`), och ägaren valde "Ring Dan" och "Ring Yoel" med numret utskrivet (`LARDOMAR.md:30, 54`). Formlerna är
+  slopens råvara för oss. Sämre. Siffrorna "+81 % konvertering, −38 % säljcykel" saknar källa [REPO copywriting/SKILL.md
+  rad 44; copy-frameworks.md rad 423–428]. (3) **copy-editing** gör sju pass i tur och ordning med återgång
+  (klarhet, röst, "so what", bevis, specifikt, känsla, noll risk) och ett expertpanelsbetyg 1–10 av tre till fem
+  personer i samma session tills alla ger 7+ [REPO copy-editing/SKILL.md rad 27–29, 259–269]. Bevis- och
+  specifikpassen är vår kvittoregel och "Specifikt:" (`kunskap/copy-kontroll.md:29–31`, `bygg-sajt/SKILL.md:170–172`);
+  passet "känsla" ("paint the before state vividly", "fear of missing out") [rad 198–211] krockar med lugn, konkret
+  svenska (`copy-kontroll.md:27–28`). Panelen i samma kontext är svagare än våra två isolerade granskare
+  (`bygg-sajt/SKILL.md:255–262`). Lika eller sämre. (4) **cro** och **form.md**: värdebudskap på fem sekunder, en
+  primär handling, förtroende nära knappen, få fält, synliga etiketter, svarstid vid formuläret [REPO cro/SKILL.md rad
+  29–60; form.md rad 36–45, 116, 218–224]. Vårt: byggstandarden 9.1 och 6.1–6.8, femsekunderstestet, tacksidan som
+  säger när (`kunskap/byggstandard.md:84–91, 119`; `kunskap/forfragan.md:13–22`; `bygg-sajt/SKILL.md:289–294`). Lika.
+  Källan vill göra telefonen valfri [REPO form.md rad 73–77]; ägaren kräver den (`LARDOMAR.md:47`). Krock, ägaren
+  gäller. (5) **seo-audit, schema, site-architecture**: lokalavsnittet säger samma NAP, lokalt schema, en sida per
+  tjänst [REPO seo-audit/SKILL.md rad 414–419; site-type-templates.md rad 258–293]; schema-skillen listar FAQPage som
+  rikresultat och en generisk LocalBusiness [REPO schema/SKILL.md rad 60–63; schema-examples.md rad 263–297], där vår
+  standard kräver den mest specifika typen och vet att FAQPage slutade ge rikresultat i maj 2026
+  (`kunskap/byggstandard.md:99, 142–144`; `kunskap/seo-lokal.md:9–14`). Lika eller vårt mer aktuellt. (6)
+  **customer-research**: ordagranna citat, aldrig parafras, inga påhittade detaljer, säkerhetsnivå efter antal
+  oberoende källor [REPO customer-research/SKILL.md rad 77–80, 97–103, 259]; vårt steg 1 kräver källa eller
+  `antagande` per påstående och omdömen ordagrant med tjänsten de är skrivna hos (`bygg-sajt/SKILL.md:86–92`). Lika.
+  (7) **marketing-psychology**: Fogg, Cialdini och Hicks lag står hos oss (`kunskap/teoretisk-grund.md:103–109`);
+  källans knapphet, ankring, lockbete och 9-priser [REPO marketing-psychology/SKILL.md rad 247–250, 262–275, 293–296]
+  är tekniker vi inte använder på en hantverkares sajt. Sämre. (8) **image** räknar stockfoto som ett alternativ
+  [REPO image/SKILL.md rad 46]; hos oss aldrig (`bygg-sajt/SKILL.md:77`). Krock. (9) **ai-seo**, 7 310 tokens om
+  AI-citeringar, llms.txt och prisfiler för SaaS; vår standard 7.6 säger att llms.txt inte behövs
+  (`kunskap/byggstandard.md:102, 153`). Inte tillämpligt. (10) Källan har **evals** per skill, prompt med påståenden
+  att pröva [REPO copywriting/evals/evals.json], men ingen körare i repot, bara CI:s formvalidering [REPO
+  .github/workflows/validate-skill.yml rad 63–66]; vår mikroprövning av domändringar är redan i backloggen
+  (`B-20261002-mikroprova-en-domandring-mot-en-kontroll-utan-an`). Lika. Att hitta och nå kunder senare: cold-email,
+  prospecting och directory-submissions gäller SaaS-listor och B2B-utskick och är inte aktuella
+- Skäl: som bibliotek nej: 50 skills för SaaS-marknadsföring, varav kanske tolv rör en sajt alls, och de tolv är
+  antingen det vi redan har i våra egna ord, mallar som skulle ge oss just den slop vi bygger bort, eller tekniker
+  som krockar med ägarens val (telefon krävs, inga stockbilder, lugn svenska). Men ai-tells.md är den skarpaste
+  formuleringen vi sett av det humanizer gör, och tre regler där saknas hos oss: tak per sektion i stället för
+  "overuse", ett strängare register för rubriker och knappar, och vakten mot att rättningen blir ett nytt mönster.
+  Den sista träffar en risk vi själva infört genom att köra humanizer i varje bygge, och ägaren har i L3 pekat på
+  rubriken som det stället där texten lät skriven. Tre rader i en fil vi redan laddar, därför ta in, avgränsat till
+  det. Källkritik: README säljer upphovsmannens byrå, nyhetsbrev, kurs och en AI-marknadschef [REPO README.md rad 5]
+  och två betalande partner står i README med disklad markering [rad 15–20]; partnerreglerna är ovanligt tydliga om
+  att pengar köper placering men inte rekommendation [REPO tools/PARTNERS.md rad 12, 33–39]. Konverteringssiffrorna
+  är obelagda; ai-tells.md:s källor är däremot verkliga och namngivna. Källan innehåller instruktioner till agenter:
+  AGENTS.md ber agenten hämta VERSIONS.md från GitHub en gång per session och köra `git pull` när användaren säger
+  "update skills" [REPO AGENTS.md rad 220–241], och rekommenderar skalkommandon som körs när skillen laddas [rad
+  251–278]; inget av det gällde kirurgen och inget följdes. Den flaggade raden i audit-guardrails.md är tvärtom en
+  vakt mot injektion i hämtade sidor [REPO ads/references/audit-guardrails.md rad 77]
+- Kostnad: inget kopieras, ingen skill tas in. Tre rader, cirka 120 tokens, i humanizerns förord, som laddas bara i
+  steg 4. Hade copywriting tagits in som skill: 239 tokens alltid, 2 477 vid användning, 11 740 vid behov enligt
+  förgranskningen. Inga beroenden, inget underhåll
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ett ställe med text till agenter (vakten ovan), inga
+  behörigheter i frontmatter, inga hookar. 69 skript: 60-talet CLI:er i `tools/clis/` som läser API-nycklar ur
+  miljön och anropar marknadsföringstjänster (Resend, Mailchimp, Google Ads, Meta Ads …), `check-versions.mjs` kör
+  `git` via `execFileSync` (förgranskningens eval/exec) och `sync-skills.js` skriver om README och marketplace.json.
+  Inget kördes eller installerades. Inget försök att styra kirurgen
+- Förslag: `.claude/skills/humanizer/SKILL.md`, avsnittet "Så används skillen i nortropic-webb-pro" (rad 10–20),
+  tre punkter efter rad 18, med egna ord: (1) tak, inte förbud, för mönster 10, 14 och 31: högst ett fragment och
+  högst en lista på tre per sektion, högst ett tankstreck per stycke i löptext; (2) kort text är strängare: i h1,
+  h2, ingress, knappar, title och description inga tankstreck, ingen "inte X utan Y", ingen fråga som besvaras i
+  nästa mening; (3) variera rättningarna: skriv om ur sakuppgiften i underlaget, aldrig med synonym, och blir samma
+  konstruktion rättning två gånger på en sida är den ett nytt mönster. `KALLA.md` får en rad om källan och
+  commiten. Ingen ny mekanik i `copy_kontroll.py`
+- Utfall: —
+- Backlog: B-20261002-tre-regler-ur-ai-tells-i-humanizerns-forord-tak
+
+### 2026-10-02 · gohugoio/hugo · nej
+- Källa: https://github.com/gohugoio/hugo @ 6b3ba3a (ur klonens packed-refs; senaste push 2026-10-01T17:33Z),
+  Apache-2.0; cirka 90 000 stjärnor, inte arkiverat. Nämnd en gång förut som post i awesome-go-listan
+  (`kunskap/REGISTER.md:838`), aldrig bedömd i sig. Förgranskad. Läst: README i helhet, AGENTS.md, CLAUDE.md,
+  docs/AGENTS.md, raderna med dolda tecken i `docs/data/homepagetweets.toml`, dokumentationens `about/features.md`,
+  `content-management/image-processing/index.md`, `methods/resource/Meta.md` och `Exif.md`, `templates/embedded.md`,
+  och temaskelettet `create/skeletons/theme/` (baseof, head, home, main.css). Av 1 352 textfiler och cirka 544 000
+  tokens är det ett urval; Go-koden lästes inte. Sett: gohugo.io i mobil och desktop, första vyn och skrollbild 3 av 8
+  [BILD gohugo-io/mobil-forsta.png, desktop-forsta.png, desktop-skroll-03.png]; temagalleriet themes.gohugo.io i mobil
+  och desktop, första vyn och skrollbild 2 av 8 [BILD hugo-themes/mobil-forsta.png, desktop-forsta.png,
+  desktop-skroll-02.png]. Repots egna bilder är hostingskärmdumpar och logotyper. Ägarens not: ingen
+- Steg: 5 (bygge: generatorn och mallen); 1 (bildernas metadata) för den egna innovationen
+- Jämfört med i dag: (1) **Generatorn.** Hugo är en statisk sajtgenerator i Go, optimerad för byggtid, med
+  Go-templates, taxonomier, flerspråk och egna pipelines för CSS, bilder, JS, Sass och Tailwind [REPO README.md rad
+  45–64; docs about/features.md rad 81–96]. Vi bygger statiskt i Astro: mallen har `astro` och `sharp` som enda
+  beroenden (`mall/astro/package.json:10–13`), `ny_sajt.py` skapar varje bygge ur den (`bygg-sajt/SKILL.md:213–215`),
+  och byggstandardens avsnitt 11 binder stacken till Astro (`kunskap/byggstandard.md:133–138`); den teoretiska
+  grunden säger att statisk förrendering är en tillämpning av principerna, inte en egen princip, och att
+  leverantörsdokumentationen för oss är Astro och Vercel (`kunskap/teoretisk-grund.md:119–120`). Sak mot sak för en
+  sajt på fem till sju sidor: båda ger förrenderad HTML utan klient-JS (standarden 1.1, rad 25). Hugos byggtid i
+  millisekunder [REPO docs/data/homepagetweets.toml rad 11, 53] löser ett problem vi inte har; vår byggtid är
+  försumbar mot granskningens 4–15 minuter (`bygg-sajt/SKILL.md:257`). Hugos bildpipeline (konvertera, skala,
+  beskära, cache) [REPO docs image-processing/index.md rad 8, 106–116] gör det `astro:assets` redan gör (standarden
+  4.2, `kunskap/byggstandard.md:59, 135`). Att byta generator vore samma sajt med ny verktygskedja: `mall/`,
+  `ny_sajt.py`, provet och kontrollerna omskrivna, och ingen dom i `LARDOMAR.md` pekar på en brist som generatorn
+  orsakar. Lika i resultat, sämre i kostnad. (2) **Temaskelettet och galleriet.** `hugo new theme` ger landmärkena
+  header, main och footer [REPO create/skeletons/theme/layouts/baseof.html rad 7–15] men ett head utan description,
+  canonical, theme-color eller ikoner [head.html rad 1–5] och CSS med sans-serif, #222 och blå länkar
+  [assets/css/main.css rad 4–15]; vår mall bär canonical, theme-color, favicon, delningsbild, skiplänk, CSP, dämpad
+  rörelse, sitemap, robots, 404, förfrågan och brödsmulor (`mall/astro/README.md:3–5`). Galleriet är 237 bloggteman,
+  182 "minimal", 30 "company" och 11 "contact" [BILD hugo-themes/desktop-forsta.png]; sidorna som visas är
+  porträtt-i-mitten-mallar och dokumentationssajter [BILD hugo-themes/mobil-forsta.png, desktop-skroll-02.png].
+  Ägaren dömde våra byggen 4–5 på "gjord för verksamheten" och pekade på generiska mönster som mall-lukt
+  (`LARDOMAR.md:29, 54, 78`); steg 5 härleder riktningen ur verksamheten, "aldrig ur en branschmall"
+  (`bygg-sajt/SKILL.md:200–201`). Sämre. (3) **Inbyggda mallar.** Open Graph, X-kort, schema som mikrodata, Disqus
+  och Google Analytics [REPO docs templates/embedded.md rad 10–101, 103–110, 206–213]. Vår standard kräver og:image
+  per sida och JSON-LD med den mest specifika typen ur VERKSAMHET.json (`kunskap/byggstandard.md:97, 99`), inga
+  tredjepartsresurser (4.4, rad 61) och helst kakfri analys (8.5, rad 112); Hugos schema är generiska mikrodata med
+  datum och ordantal, inte LocalBusiness. Lika eller sämre. (4) **Bildmetadata.** Hugos `Meta` läser skapandedatum,
+  GPS och orientering ur EXIF, IPTC och XMP som rutin [REPO docs methods/resource/Meta.md rad 16–18, 41–51]. Ägaren
+  räknade i L1 byggdagboken "med datum ur bilderna" som det bästa på sajten (`LARDOMAR.md:31`), men steg 1 ber bara
+  om fil, källa, vad bilden visar och kvalitet (`bygg-sajt/SKILL.md:75–77`); byggena löste det var för sig: EXIF i
+  ett, filnamn i ett, "datum okänt" i ett (`underlag/*/bilder/BILDER.md`). Smartare som rutin; inget skäl att ta in
+  Hugo, men ett förslag till steg 1 (egen innovation, backlog)
+- Skäl: källan är en sajtgenerator, inte en metod, regel eller skill för bättre sajter, och vi har redan en generator
+  som gör samma arbete med färre beroenden för våra sajter. Byggstandarden binder stacken till Astro, ett medvetet val
+  som tre dömda byggen hållit med 0 kB JS (`LARDOMAR.md:31, 56, 87`), och litteraturen avgör inte mellan två statiska
+  generatorer (`kunskap/teoretisk-grund.md:119`). Det Hugo har mer av, byggtid, flerspråk, taxonomier,
+  innehållsadaptrar, löser problem en hantverkarsajt inte har, och temagalleriet drar åt det ägaren kallat mall.
+  Källkritik: README:n och startsidan säljer "världens snabbaste" med byggtider ur citat från 2013–2019 [REPO
+  docs/data/homepagetweets.toml] och stjärnräkning [BILD gohugo-io/desktop-skroll-03.png]; inget belagt mot något vi
+  mäter. Källan innehåller instruktioner till agenter: AGENTS.md och CLAUDE.md är kodregler för bidragsgivare i Go
+  (korthet, tester, `check.sh`) [REPO AGENTS.md rad 2–19], docs/AGENTS.md ger en Tailwind-roll för
+  dokumentationssajten [REPO docs/AGENTS.md rad 4–9]; inget riktade sig till kirurgen och inget följdes. De fem
+  dolda tecknen är U+200F sist i tre namn i citatdatan [REPO docs/data/homepagetweets.toml rad 9, 72, 79], troligen
+  klistrade ur X, utan instruktion
+- Kostnad: inget tas in. Som generator vore det en Go-binär (Go 1.27 för bygge ur källa [REPO README.md rad 107]),
+  ett nytt mallspråk och omskrivning av `mall/`, `ny_sajt.py`, provet och kontrollerna; deploy-utgåvan drar in AWS-,
+  Azure- och GCP-SDK:er [REPO README.md rad 192–365]. Källans text är cirka 544 000 tokens enligt förgranskningen.
+  Förslaget i backloggen är en kolumn i steg 1 och en mening i `kunskap/bild.md`
+- Säkerhet: förgranskningen HÖG på grund av fem dolda tecken (U+200F i `docs/data/homepagetweets.toml`, se ovan) och
+  tolv ställen med text till agenter, alla "run the following command" i installations- och bidragsdokumentation;
+  inga skills, hookar eller behörigheter. 35 skript: livereload (nätanrop, eval), dokumentationens sökning (nätanrop),
+  KaTeX-bundlen (eval) och byggskript för wasm, väntat för en generator med utvecklingsserver. Inget kördes eller
+  installerades
+- Förslag: inget för Hugo. Egen innovation: fotodatum med källa per bild i steg 1 (se backlog)
+- Utfall: —
+- Backlog: B-20261002-bilder-md-anger-nar-varje-egen-bild-togs-ur-exif (egen innovation)
+
+### 2026-10-02 · unclecode/crawl4ai · nej
+- Källa: https://github.com/unclecode/crawl4ai @ e5d2e78 (ur klonens `.git/shallow`; senaste push 2026-09-25T06:37Z),
+  Apache-2.0, men README:n kräver därutöver en attributionsbadge eller textrad [REPO README.md rad 376–377]; version
+  0.9.4 (23 sep 2026), cirka 84 600 stjärnor, inte arkiverat; 836 textfiler, cirka 1 020 000 tokens text. Inte bedömd
+  förut. Förgranskat. Läst: README i helhet, `README-first.md` (den äldre README:n), `MISSION.md`, `pyproject.toml`,
+  `SECURITY.md` rad 140–169, `.claude/commands/c4ai-check.md` och `.claude/settings.local.json`; i dokumentationen
+  `advanced/lazy-loading.md`, `core/link-media.md`, `core/fit-markdown.md` i helhet och `core/url-seeding.md` rad
+  1–120; i koden `js_snippet/remove_consent_popups.js` rad 1–319, `js_snippet/update_image_dimensions.js`,
+  `content_scraping_strategy.py` rad 410–480, standardvärdena för robots och stealth i `async_configs.py`, och
+  `deploy/docker/job.py` rad 1–80. Bild: missionsdiagrammet [BILD docs/assets/pitch-dark.png]. Ingen demosajt;
+  README:ns banner länkar till molntjänsten. Ägarens not: ingen
+- Steg: 1 (hämta det publika, bilderna) och 2 (diagnos); inget annat
+- Jämfört med i dag: Crawl4ai hämtar sidor i en Playwright-webbläsare och ger markdown, "fit markdown" som rensar
+  menyer och sidfötter med textdensitet eller BM25 [REPO docs/md_v2/core/fit-markdown.md rad 37–38], djupkrypning
+  BFS/DFS/best-first, adressupptäckt ur sidkarta och Common Crawl, LLM-extraktion via en egen litellm-fork,
+  stealth-läge och "undetected browser", proxyer, en Docker-server med REST och MCP, och ett betalt moln [REPO
+  README.md rad 24, 72–77, 106–175]. Hos oss gör `kontroller/hamta_sajt.py` (byggt 2026-10-02 ur Firecrawl-posten
+  ovan) steg 1: bara GET, samma domän, högst 40 sidor, robots.txt enligt RFC 9309 (`hamta_sajt.py:4–9`), adresser ur
+  sidkarta och interna länkar (`:221–256, 356–365`), bilder inklusive data-src, srcset, picture, CSS-bakgrunder och
+  og:image (`:139–153, 339–350`), JSON-LD och kontaktvägar, och det körde sundbomsel.se till 40 sidor med alla 15
+  handlistade (posten om Firecrawl, raden Utfall). Diagnosen i steg 2 mäter med axe, Lighthouse och inspektionen i
+  390 och 1440 px (`.claude/skills/bygg-sajt/SKILL.md:99–101`); crawl4ai har inget av det. Sak mot sak: (1)
+  **webbläsare mot GET.** Crawl4ai ser text och bilder som bara finns efter JavaScript eller skroll [REPO
+  docs/md_v2/advanced/lazy-loading.md rad 3–7]; vårt verktyg läser HTML:en som servern skickar. Våra kunders sajter
+  är WordPress med Divi eller Elementor (`underlag/sundboms-el/RESEARCH.md:107`, `underlag/lulea-snickaren-abx/RESEARCH.md:6–7`,
+  `underlag/paint-it-black-maleri/RESEARCH.md:20`), som renderas på servern, och ingen av ägarens tre domar saknar
+  något ur underlaget (`LARDOMAR.md` L1–L3). Behövs en webbläsare har kirurgen `kontroller/sida.mjs` och bygget
+  `inspektera.mjs`. Lika för våra sajter. (2) **robots och artighet.** Crawl4ai läser robots.txt bara om man ber om
+  det, standard av [REPO crawl4ai/async_configs.py rad 1681, 1808], och erbjuder stealth [rad 941]; vårt verktyg
+  respekterar robots alltid och väntar mellan anropen. Vårt är bättre för det vi gör: vi läser en blivande kunds
+  sajt, inte en motståndares. (3) **Kakrutor.** Crawl4ais skript klickar "acceptera alla" i ett långt register av
+  kända samtyckesverktyg, med textfallback och CMP-API:er [REPO crawl4ai/js_snippet/remove_consent_popups.js rad 10–11,
+  14–165, 198–230, 304–318]; vår `sida.mjs` väljer "neka" före "acceptera" (`kontroller/sida.mjs:4, 33`). Vårt är
+  rätt för oss: ingen ska samtycka till spårning i någon annans namn. Listan över selektorer är dock bredare än vårt
+  textmönster. (4) **Bilder.** Crawl4ai sållar bort ikoner, logotyper och knappbilder på förälderns class och adressen
+  och poängsätter resten på width/height över 150, alt, srcset och picture innan de räknas [REPO
+  crawl4ai/content_scraping_strategy.py rad 428–466]; vår SIDOR.md listar alla bildadresser platt och ber bygget
+  sortera själv (`hamta_sajt.py:390–395`). Smartare hos källan, och den enda metoden värd att låna (egen innovation,
+  backlog). Mot litteraturen: steg 1 är innehållsinventeringen (Halvorson & Rach 2012,
+  `kunskap/teoretisk-grund.md:29–31`); båda gör den, och för tio till fyrtio serverrenderade sidor gör vårt
+  430-raders verktyg utan beroenden samma inventering
+- Skäl: Crawl4ai är byggt för RAG, agenter och datapipelines i stor skala [REPO README.md rad 24] och löser, som
+  Firecrawl (dömd nej, ägaren höll med, `kunskap/KIRURG-OMDOMEN.md:80–83`) och browser-use (nej, `:155–158`), problem
+  vi inte har: robotväggar, proxyer, tusentals adresser, LLM-extraktion ur sidor. Att ta in det är 34
+  körtidsberoenden, däribland en litellm-fork, patchright, playwright-stealth, numpy, nltk och shapely [REPO
+  pyproject.toml rad 15–50], ett installationsskript för webbläsaren och en Docker-server som i juni 2026 hade
+  förautentiserad fjärrkörning, hårdkodad JWT-hemlighet och SSRF som kritiska fynd [REPO SECURITY.md rad 162–168].
+  Det krockar med två medvetna val: kod ur källor körs inte, och vi hämtar som en artig besökare (robots alltid,
+  inga stealth-lägen, "neka" före "acceptera"). Det vi saknar i sajtkvalitet, enligt ägarens domar, är bilder,
+  telefontid och formulär från verksamheten (`LARDOMAR.md:63, 87`), inte fler hämtade sidor. Källkritik: README:n
+  säljer molnet i banner, badge och en rad som ber agenten lägga till deras MCP-server i Claude Code [REPO README.md
+  rad 15–20, 51–68]; `MISSION.md` handlar om "data capitalization" och en datamarknad [REPO MISSION.md rad 5–33],
+  långt från en hantverkares sajt. Källan innehåller text till agenter: `.claude/commands/c4ai-check.md` är ett
+  testflöde för bidragsgivare (skriv provfall, kör pytest, radera filen) [REPO .claude/commands/c4ai-check.md rad
+  9–89], "You are an AI" i `llms-full.txt` är promptexempel i dokumentationen; inget riktade sig till kirurgen och
+  inget följdes. Två av de tre dolda tecknen är nollbreddsmellanslag mitt i ordet "LLM" i en docstring och en
+  kommentar [REPO deploy/docker/job.py rad 2, 67], utan instruktion men utan rimligt skäl; det tredje är en
+  emojisammanfogare i sponsorrubriken [REPO README.md rad 494]
+- Kostnad: inget tas in. Som verktyg vore det 34 beroenden, en webbläsarinstallation och ett setup-skript, eller en
+  Docker-tjänst att hålla patchad; källans text är cirka 1 020 000 tokens enligt förgranskningen. Förslaget i
+  backloggen är en kolumn i `hamta_sajt.py` och två rader i steg 1
+- Säkerhet: förgranskningen HÖG: tre dolda tecken (se ovan), 22 ställen med text till agenter (promptexempel i
+  `llms-full.txt` och `extraction-*.txt`, "run the following command" i installationsdokumentation, "exfiltrat" i
+  säkerhetsnoter, "Execute this" i webbläsartilläggets kodgenerator), och 547 skript med nätanrop, eval och
+  miljövariabler, väntat för en crawler med LLM-anrop och server. `.claude/settings.local.json` ger breda
+  Bash-tillstånd (rm, curl, chmod, docker) för författarens egen maskin [REPO .claude/settings.local.json rad 4–24];
+  inga hookar, inga MCP-servrar, ingen SKILL.md. Inget kördes eller installerades
+- Förslag: inget för crawl4ai. Egen innovation: SIDOR.md sorterar bildlistan med källans billiga regler, foton först
+  (se backlog)
+- Utfall: —
+- Backlog: B-20261002-sidor-md-sorterar-bildlistan-troliga-foton-forst (egen innovation)
+
+### 2026-10-02 · sdmg15/Best-websites-a-programmer-should-visit · nej
+- Källa: https://github.com/sdmg15/Best-websites-a-programmer-should-visit @ 3f13b07 (ur klonens `.git/logs/HEAD`;
+  senaste push 2025-09-16), MIT, cirka 76 000 stjärnor, **arkiverat** enligt `gh repo view`. Repot är en README på
+  979 rader med 33 avdelningar länkar, plus bidragsregler, uppförandekod, ett `package.json` som bara kör
+  awesome-lint, en Travis-fil och en vitlista på 30 domäner för länkkontrollen. Läst: hela README:n, alla övriga
+  textfiler och förgranskningen. Repot har inga egna bilder (bara awesome-loggan från ett annat repo [REPO README.md
+  rad 3]) och ingen demo.
+- Steg: inget av de åtta; närmast steg 3 (referensjakten) och steg 5 (riktning, färg, ikoner).
+- Jämfört med i dag: källan är en allmän länklista för programmerare: nyheter, intervjuträning, jobb, kurser,
+  tävlingsprogrammering, poddar, kryptovaluta, "när du blir uttråkad" [REPO README.md rad 16–52]. Samma sorts källa
+  som vinta/awesome-python, avelino/awesome-go och the-book-of-secret-knowledge, alla dömda nej med ägarens
+  medhåll (`kunskap/KIRURG-OMDOMEN.md:15–18, 45–48, 85–88`). De webbnära posterna prövades sak mot sak. (1)
+  Palettgeneratorer Coolors och Branition Colors [REPO README.md rad 489, 500]: hos oss härleds färgen ur
+  verksamheten själv, "aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md:200–201`), "aldrig kopiering av
+  layout, palett eller typsnitt" (`kunskap/referenser-professionella.md:61`), och ägaren valde gult och svart ur
+  Sundboms ordmärke före en färdig palett (`LARDOMAR.md:89`). Sämre. (2) Figma-mallar, Tailwind-sidbyggare,
+  Open Source Web Design-mallar och UI Design Daily [REPO README.md rad 249, 501, 503, 913]: mallformen var det
+  ägaren luktade sig till i L1–L3 (`SKILL.md:204`), och våra referenser är verkliga verksamhetssajter valda för
+  kundens uppgift i tre roller (`kunskap/referensjakt.md:13–21`), där ens prisgallerier bara är sökingångar
+  (`:25–27`). Sämre. (3) Iconscout och LottieFiles [REPO README.md rad 502, 504] är marknadsplatser; vår regel är
+  ikoner som SVG, aldrig ikonfont (`kunskap/byggstandard.md:51`), inga tredjepartsresurser (`:61`), och
+  ikonuppsättningar registreras med licens i `bilder/TYPSNITT-IKONER.json` (`kunskap/bild.md:70–81`). Lika i sak,
+  men listan tillför ingen regel. (4) Can I use och MDN [REPO README.md rad 494, 715]: primärkällor vi redan läser
+  (`kunskap/prelaunch.md:39`, `kunskap/byggstandard.md:152` mot web.dev). Lika. (5) CSS-Tricks, ShopTalk Show,
+  Flexbox Froggy, en promptguide [REPO README.md rad 610, 657, 674, 837] är läsning och övning, ingen metod.
+  Mot litteraturen: steget Designa går från innehåll och informationsarkitektur till form (`kunskap/teoretisk-grund.md:34–35`);
+  listan erbjuder ingen metod, ingen utvärderingsteknik och ingen princip, bara adresser.
+- Skäl: listan svarar på "vilka sajter bör en programmerare känna till", en fråga inget av våra steg ställer; det
+  som ägarens domar pekar på (förfrågan, bildunderlag, telefontid, förtroendekvitton, `LARDOMAR.md:47, 71, 95`)
+  finns inte i den. De få webbnära posterna krockar med medvetna val (färg och form ur verksamheten, inga mallar) eller
+  är källor vi redan använder. Källan är dessutom arkiverad och åldrad: ingen push sedan 2025-09, Google Codes
+  projekthosting listas som levande [REPO README.md rad 907], ett Mozilla-program från 2016 [rad 914] och en
+  MITRE-lista från 2022 [rad 190]; bidragsreglerna tillåter en länk per PR och inga nya avdelningar [REPO
+  CONTRIBUTING.md rad 7, 16]. Källkritik: README:n ber om stjärnor [REPO README.md rad 977]; beskrivningarna är
+  sajternas egna slogans, inte observerad kvalitet. Det enda som är smartare än vårt är arbetssättet runt listan:
+  en CI-körning som kontrollerar varje länk och vitlistar de domäner som stoppar roboten [REPO .travis.yml rad
+  15–16; white_listed_sites.txt]. Vårt prov följer bara interna adresser (`kontroller/standard_kontroll.py:118`)
+  fast punkt 7.4 kräver länk till omdömena (`kunskap/byggstandard.md:100`) och ägaren i A/B-domen inte kunde se
+  vilken plattform omdömena låg på (`LARDOMAR.md:102`). Det blir en egen innovationspost, inte ett intag.
+- Kostnad: inget tas in. Källans text är cirka 25 700 tokens enligt förgranskningen. Innovationsposten är en
+  info-rad i `standard_kontroll.py` och en tabell i rapporten; nätanrop i provet, avstängda i rökprovet.
+- Säkerhet: förgranskningen HÖG på grund av tre dolda tecken; alla tre är nollbreddsfogar (U+200D) inuti sammansatta
+  emojis i avdelningsrubriker [REPO README.md rad 408, 645, 879], läst i sitt sammanhang, ingen instruktion. Ingen
+  text till agenter, inga skript med nätanrop, inga hookar, ingen SKILL.md. `.travis.yml` klonar nvm och installerar
+  gem och npm-paket i CI [REPO .travis.yml rad 9–13]; inget kördes eller installerades.
+- Förslag: inget för källan. Egen innovation: provet listar sajtens utgående länkar och om de svarar, med vitlista
+  (se backlog).
+- Utfall: —
+- Backlog: B-20261002-provet-listar-sajtens-utgaende-lankar-och-om-de (egen innovation)
+
+### 2026-10-02 · withastro/astro · prova
+- Källa: https://github.com/withastro/astro @ 4c1470a (ur klonens `.git/packed-refs`; senaste push 2026-10-02T15:20Z),
+  MIT, med MIT-delar ur sveltejs/kit och vitejs/vite [REPO LICENSE rad 1–3, 23–36]; cirka 63 000 stjärnor, inte
+  arkiverat. Monorepo med 4 485 textfiler, cirka 980 000 tokens. Det här är vår egen stack: mallen kör astro 7.3.5
+  (`mall/astro/package.json:11`) och repots paket är 7.3.5 [REPO packages/astro/package.json rad 3]; nämnt som vår
+  stack i ett tjugotal registerposter, aldrig bedömt i sig. Förgranskat. Läst: README i helhet, LICENSE,
+  `.agents/skills/astro-developer/SKILL.md` och `constraints.md`, `.agents/skills/astro-code-review/SKILL.md` rad 1–60,
+  `.agents/evals/README.md`; typsnitts-API:t i `packages/astro/src/types/public/config.ts` rad 3019–3243,
+  `assets/fonts/providers/local.ts`, `assets/fonts/core/optimize-fallbacks.ts`,
+  `assets/fonts/infra/capsize-font-metrics-resolver.ts`, `assets/fonts/vite-plugin-fonts.ts` rad 188–210 och
+  `components/Font.astro`; dev-toolbarens granskningsregler `audit/rules/perf.ts` i helhet och rubrikerna i
+  `a11y.ts`; CSP-koden `core/csp/common.ts` rad 54–104; och de dolda tecknens rader. Ett urval: kompilatorn,
+  integrationerna, exemplens kod och testerna lästes inte. Bild: README-bannern är en logotypbild, "Build the web
+  you want" på rosa-lila ringar [BILD .github/assets/banner.jpg], ingen designreferens. Ingen demosajt i repot;
+  docs.astro.build och astro.new länkas [REPO README.md rad 33–39] men öppnades inte. Ägarens not: ingen
+- Steg: 5 (bygge: mallen och typsnitten) och 6 (provet, punkt 4.3)
+- Jämfört med i dag: (1) **Ramverket.** Lika per definition: byggstandardens avsnitt 11 binder stacken till Astro
+  (`kunskap/byggstandard.md:133–138`), `ny_sajt.py` skapar varje bygge ur mallen (`bygg-sajt/SKILL.md:213–215`), och
+  den teoretiska grunden kallar Astros dokumentation vår leverantörsdokumentation (`kunskap/teoretisk-grund.md:119–120`).
+  Samma version i mallen som i repot; inget att byta. (2) **Typsnitten.** I dag skriver bygget allt för hand:
+  byggstandarden 4.3 kräver självhostad WOFF2, `font-display: swap` med size-adjust-reserv och preload av typsnittet i
+  första vyn (`kunskap/byggstandard.md:60`), filen ska ligga i `public/fonts/` (`:136`, `mall/astro/README.md:15`),
+  och typsnittet installeras från fontsource med npm och kopieras (`bygg-sajt/SKILL.md:38–42`). Utfallet i de fem
+  byggena: tre saknar reserven helt, enda träffen på "size-adjust" är `-webkit-text-size-adjust`
+  (`kunder/lulea-snickaren/sajt/src/styles/global.css:31`, `kunder/sundboms-el/sajt/src/styles/global.css:29`,
+  `kunder/paint-it-black-maleri/sajt/src/styles/sajt.css:30`); A/B-paret har reserven med handgissade mått,
+  "ungefär samma bredd och höjd": 103 %, 96 %, 32 %, 0 % (`kunder/lulea-snickaren-abx/sajt/src/styles/sajt.css:13–20`)
+  och 102 %, 96 %, 26 % (`kunder/lulea-snickaren-aby/sajt/src/layouts/Sida.astro:107–113`). Provet hoppar över
+  `local()`-block utan att kräva dem (`kontroller/standard_kontroll.py:378–379`), och saknad preload är bara info
+  (`:255–257`). Källan har sedan 6.0 ett stabilt `fonts`-fält i konfigurationen [REPO config.ts rad 3019–3035]:
+  den lokala leverantören läser vikt och stil ur filen när de inte anges [REPO providers/local.ts rad 107–146];
+  `optimizeFallbacks` skriver ett reserv-`@font-face` per systemtypsnitt bakom den generiska familjen [REPO
+  core/optimize-fallbacks.ts rad 25–107] med size-adjust, ascent-, descent- och line-gap-override räknade ur
+  typsnittets xWidthAvg, ascent, descent, lineGap och unitsPerEm [REPO capsize-font-metrics-resolver.ts rad 71–106];
+  `<Font cssVariable preload />` skriver `<style>` och preload-länkarna [REPO components/Font.astro rad 25–28];
+  display är swap som standard [REPO config.ts rad 3200–3212]; när `security.csp` är på hashas den genererade
+  stilen och font-src fylls i automatiskt [REPO vite-plugin-fonts.ts rad 197–207; core/csp/common.ts rad 54–84].
+  Källan avråder från `public/` för lokala filer, eftersom de då dubbleras i bygget [REPO providers/local.ts rad
+  31–32], vilket krockar med vår text på de två ställena ovan. Bättre: måtten kommer ur filen i stället för en
+  gissning, och reserven kommer alltid. Smartare: fyra handgrepp (font-face, reserv, preload, CSP-hash) blir en
+  konfigurationspost och en rad. Inte verifierat utan ett bygge: att provets 4.3-räkning hittar den hashade filen i
+  `dist/_astro` (rglob över dist, `standard_kontroll.py:367`, så det borde) och att CSP:n i vår form med metatagg
+  och stilattribut får hashen rätt. Mot litteraturen: CLS ≤ 0,1 (byggstandarden 4.1, `kunskap/teoretisk-grund.md`
+  avsnitt 4); en reserv med rätt mått är metoden mot layoutskift vid typsnittsbyte, och källan länkar Chrome-teamets
+  text om det [REPO config.ts rad 3104]. (3) **Dev-toolbarens granskning.** Regler för tillgänglighet (tomt href,
+  label utan kontroll, redundanta ARIA-roller, positivt tabindex) och prestanda (Image-komponenten, lazy under
+  vecket och eager över, GIF som video) [REPO audit/rules/a11y.ts rad 267–686; perf.ts rad 7–103] körs bara i `astro
+  dev` i webbläsaren. Vi mäter den byggda sajten med axe (5.6) och standardens 2.4 (lazy under första vyn,
+  fetchpriority). Lika eller täckt. (4) **`.agents/skills/`.** Tio skills för att utveckla Astro-monorepot: triage,
+  changeset, merge, PR-text, granskning av Astro-PR [REPO .agents/skills/astro-developer/SKILL.md rad 3, 8;
+  astro-code-review/SKILL.md rad 3]. Ingen handlar om att bygga sajter med Astro; inget för verktygslådan. Deras
+  skill-evals med manifest per skill, en subjektmodell och en domarmodell i en tillfällig arbetsyta [REPO
+  .agents/evals/README.md rad 3, 20–22] liknar vårt A/B-upplägg med annan domare; inget nytt. (5) i18n, env-schema,
+  incrementalBuild, svgOptimizer [REPO config.ts rad 2901–3017, 3485–3594]: problem vi inte har
+- Skäl: Astro är vår stack, så frågan är inte om, utan vilka delar av ramverket vi lämnar oanvända. En: det inbyggda
+  typsnitts-API:t gör exakt det byggstandardens 4.3 kräver och som byggena missar eller gissar, med mått ur
+  typsnittsfilen och CSP-hash på köpet, utan nya beroenden. Det syns först i ett bygge om provet och CSP:n håller,
+  så prova, inte ta in; ingen blind parjämförelse behövs, provet och mätningen avgör (ägarens kalibrering för
+  agency-agents, `kunskap/KIRURG-OMDOMEN.md:125–127`). Resten av repot är leverantörsdokumentation vi redan följer,
+  verktyg för Astros egna utvecklare, eller funktioner för större sajter. Källkritik: README:n ber om stjärnor i
+  beskrivningen och visar sponsorer [REPO README.md rad 93–103]; påståendena om API:t är kontrollerade i koden, inte
+  i marknadsföringen
+- Kostnad: inga nya beroenden; API:t ligger i astro 7.3.5 som mallen redan har, och capsize och unifont är Astros
+  egna beroenden. Vid användning: en konfigurationspost och en rad i layouten per bygge, och bygget slipper skriva
+  font-face, reserv och preload. Underhåll: följer Astros version. Källans text är cirka 980 000 tokens enligt
+  förgranskningen; inget av den tas in
+- Säkerhet: förgranskningen HÖG: 16 dolda tecken, alla U+200D, emojisammanfogare i astronautemojin i exemplens
+  README-rad "Seasoned astronaut?" [REPO examples/basics/README.md rad 15 med flera], i emojilistan i
+  `.github/workflows/congrats.yml` rad 16, i VS Code-tilläggets README och i tre testfiler som prövar just sådana
+  tecken; ingen instruktion. 12 ställen "run the following command" i CONTRIBUTING, upgrade-paketet och
+  CLI-källkoden är användarmeddelanden, inte riktade till kirurgen. 2 804 skript är väntat för ett ramverk;
+  `.gitpod/gitpod-setup.sh` har nätanrop; inga hookar, MCP-servrar eller behörigheter i skill-frontmatter.
+  `.agents/evals` kräver en Anthropic-nyckel i miljön [REPO .agents/evals/README.md rad 5]. Inget kördes eller
+  installerades
+- Förslag: mallen: `fonts` med `fontProviders.local()` i `mall/astro/astro.config.mjs` och `<Font cssVariable preload />`
+  i `Bas.astro`; texten: `mall/astro/README.md` rad 15, `kunskap/byggstandard.md` rad 136 och
+  `.claude/skills/bygg-sajt/SKILL.md` rad 38–42 flyttar filen till `src/assets/fonts/` och låter API:t skriva reserv
+  och preload. Prövas i nästa bygge mot provet, CSP-konsolen och Lighthouse-CLS (se backlog). Egen innovation: provet
+  stoppar när ett självhostat typsnitt saknar reserv med size-adjust (se backlog)
+- Utfall: —
+- Backlog: B-20261002-prova-astros-inbyggda-typsnitts-api-fonts-i-astr (prova),
+  B-20261002-provet-stoppar-nar-ett-sjalvhostat-typsnitt-sakn (egen innovation)
+
+### 2026-10-02 · DavidHDev/react-bits · nej
+- Källa: https://github.com/DavidHDev/react-bits @ e1bbb69 (ur klonens `.git/logs/HEAD`, klonad 2026-10-02; senaste push
+  2026-09-30T11:19Z), MIT + Commons Clause (får användas i en sajt, komponenterna får inte säljas eller spridas vidare
+  [REPO LICENSE.md rad 8, 15]); cirka 48 400 stjärnor, inte arkiverat; cirka 27 500 tokens text i 1 600 textfiler.
+  Inte bedömd förut. Förgranskat. Läst: README i helhet, `LICENSE.md`, `package.json`, `src/constants/Pro.js` rad
+  1–140, `src/constants/Showcase.js`, `scripts/generateLlmsText.js` rad 1–80, komponenterna `BlurText.jsx` i helhet,
+  `Aurora.jsx` rad 1–60 och `CallChip.jsx` i helhet, och de två ställena för `prefers-reduced-motion` i
+  `WarpText.jsx`. Övriga komponenter (fem kategorier: text, animationer, komponenter, mikro, bakgrunder) bara som
+  fillista. Sett: `gh-showcase.png`, `tools-readme.webp`, två av arton Pro-förhandsbilder (`skill-corporate-trust.webp`,
+  `prompt-agency.webp`), och demosajten reactbits.dev öppnad i dag i 390 och 1440: mobilens och desktops första vy
+  och skrollägena 3, 5 och 7 av åtta. Ägarens not: ingen
+- Steg: 5 (bygge: rörelse, bakgrunder och textanimationer i sidan); inget annat
+- Jämfört med i dag: react-bits är cirka 210 React-komponenter som kopieras in som källkod via ett CLI, i fyra
+  varianter (JS/TS, CSS/Tailwind) [REPO README.md rad 13, 42, 63–67; BILD reactbits-dev/mobil-forsta.png]. De bygger
+  på React plus motion, GSAP, ogl, three och matter-js [REPO package.json rad 25, 28–31, 39, 46, 49, 62]: BlurText
+  animerar varje ord med motion [REPO BlurText.jsx rad 3, 87–97], Aurora ritar en bakgrund i WebGL-shaders via ogl
+  [REPO Aurora.jsx rad 3, 8–15]. Hos oss: mallen har astro och sharp som enda beroenden
+  (`mall/astro/package.json` rad 10–13), innehåll och navigation ska fungera utan JS (`kunskap/byggstandard.md:18`),
+  bygget skriver "ingen JavaScript som inte behövs" (`.claude/skills/bygg-sajt/SKILL.md:217`), och litteraturen bakom
+  är HTML före JS och minimal klient-JS (`kunskap/teoretisk-grund.md:47–48`, 119). De tre dömda byggena hade 0 kB JS
+  (`LARDOMAR.md` rad 31, 56, 87). Astro stöds via React-öar [BILD reactbits-dev/desktop-skroll-05.png "Works with Vite,
+  Next.js, Astro and Remix"], så det går tekniskt, men varje använd komponent drar in React och ett
+  animationsbibliotek på sidan. Det enda som är bättre än vårt: 104 av komponentfilerna tar hänsyn till
+  `prefers-reduced-motion` i koden, till exempel att shadern stannar [REPO WarpText.jsx rad 305, 441–444]; vår mall
+  gör samma sak globalt i CSS (`mall/astro/src/layouts/Bas.astro` rad 47–51, standarden 3.5). Lika på den punkten,
+  sämre i övrigt, och krockar med ett medvetet val
+- Skäl: Källan är ett bibliotek för att få en sajt att "stand out" med rörliga bakgrunder, glänsande text, kuber,
+  partiklar och markörer [REPO README.md rad 11, 33; BILD reactbits-dev/desktop-skroll-03.png: ShapeGrid,
+  MagicRings, ShinyText, Dock], och dess egen sajt är det mörklila SaaS-uttrycket med Geist, 66 px rubrik och
+  "Get Pro"-knapp [BILD reactbits-dev/desktop-forsta.png; TEXT SIDA.md designfakta]. Sajterna som visar upp det är
+  utvecklarportföljer och inloggningssidor för appar [REPO Showcase.js rad 3–31]. Våra verksamheter är lokala
+  hantverkare där ägaren dömt det härledda och verkliga som det bästa (byggdagbok med egna telefonbilder, ordagranna
+  omdömen, gulmarkerad konkret del av citatet) och de generiska mönstren som det som luktar mall (`LARDOMAR.md` rad 29,
+  54, 78); riktningen ska härledas ur verksamheten, "aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md:
+  200–201`). En aurora bakom "Elektriker i Luleå" gör inte sajten mer Sundboms, den gör den mer reactbits. Mikro-
+  kategorin, som är ny, är gjord för AI-appar: CallChip visar ett verktygsanrop med "bash npm test" och
+  status running/done/failed [REPO CallChip.jsx rad 18–19, 26–28], inte en ringknapp. Pro-delen säljer dessutom en
+  "Agent Kit" med stilskills för Claude Code [REPO Pro.js rad 120–137], och förhandsbilderna är exakt det vi inte vill
+  ha: fintech-mallen "Bastion" med SOC 2-märken och tre nyckeltal [BILD skill-corporate-trust.webp] och byrån
+  "Kilter" i serif på crème [BILD prompt-agency.webp]; snyggt, men utbytbart. Samma dom som för shadcn/ui, Bootstrap
+  och three.js (ovan), och ägaren höll med i alla tre (`kunskap/KIRURG-OMDOMEN.md`). Källkritik: "largest & most
+  creative" och "ship stunning interfaces faster" [REPO README.md rad 11, 33] är egna omdömen; källan säljer Pro
+  (765 poster [REPO Pro.js rad 29–36]) och sponsorplatser till shadcn-ekosystemet [REPO README.md rad 116; BILD
+  reactbits-dev/desktop-skroll-07.png]. Komponenterna är i sig välgjorda (rörelsehänsyn, aria-live i CallChip rad
+  151–152, 208), så nej gäller passformen, inte hantverket. Ändras om en framtida kund säljer något där rörelsen är
+  varan (en byrå, en spelstudio); bedöms då med det fallet framför sig
+- Kostnad: ingen; inget tas in. Som beroende vore det React, React DOM och per komponent motion, GSAP eller ogl i
+  varje sida som använder den, mot vår budget 200 kB JS (standarden 3.7), plus versionsuppföljning av fem
+  animationsbibliotek
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text riktad till agenter, inga hookar, MCP-servrar eller
+  skill-frontmatter. 302 skript: `scripts/generateOgImages.js` har nätanrop, eval/exec och miljövariabler (bygger
+  OG-bilder för deras sajt), `src/constants/Information.js` nätanrop, `src/utils/aiExport.js` eval/exec; allt hör till
+  deras dokumentationssajt, inte komponenterna. `scripts/generateLlmsText.js` skriver en `llms.txt` med UTM-märkta
+  länkar till Pro för agenter [REPO rad 15–19]; gäller kodgenererande agenter, inte kirurgen. Inget kördes eller
+  installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
+
+### 2026-10-02 · CorentinTh/it-tools · nej
+- Källa: https://github.com/CorentinTh/it-tools @ d505845 (ur klonens `.git/refs/heads/main`, klonad 2026-10-02; senaste
+  push 2026-09-30T18:31Z), GPL-3.0 [REPO LICENSE rad 1–2; README.md rad 133]; cirka 40 700 stjärnor, inte arkiverat;
+  cirka 15 900 tokens text i 324 textfiler. Inte bedömd förut. Förgranskat. Läst: README i helhet, `package.json`,
+  `src/tools/index.ts` i helhet (verktygslistan), `src/tools/meta-tag-generator/` (alla tre filer),
+  `src/tools/svg-placeholder-generator/index.ts`, `src/plugins/plausible.plugin.ts`, och titel och beskrivning för
+  varje verktyg i `locales/en.yml` rad 75–394. Övriga verktygskataloger bara som fillista. Sett: `public/banner.png`,
+  `.github/logo-dark.png`, och demosajten it-tools.tech öppnad i dag i 390 och 1440: mobilens och desktops första vy,
+  desktop-skrolläge 4 av 8 och mobil-skrolläge 3 av 6. Ägarens not: ingen
+- Steg: inget av de åtta. Närmast steg 5 (metataggar, slug, färgkonvertering, delningsbild) och steg 6 (kontroll av
+  title och description), men som handverktyg i en webbläsare, inte som något bygget kan använda
+- Jämfört med i dag: it-tools är en Vue-app med 86 små verktyg i tio kategorier (Crypto, Converter, Web, Images and
+  videos, Development, Network, Math, Measurement, Text, Data) [REPO src/tools/index.ts rad 91–192; BILD
+  it-tools-sida/desktop-forsta.png: sidomeny och kort], där en människa klistrar in text och får ett resultat: hash,
+  UUID, JSON till YAML, chmod, crontab, JWT-parser, IBAN-kontroll [REPO locales/en.yml rad 83–394]. De fyra som rör
+  en sajt gör vi redan i kod: Open Graph-taggarna [REPO en.yml rad 309–310; meta-tag-generator.vue rad 2, 49] skriver
+  mallen själv (`mall/astro/src/layouts/Bas.astro` rad 25, 31–35: theme-color, og:title, og:image 1200×630);
+  delningsbilden och apple-touch-icon gör `kontroller/ikoner.mjs` (rad 1–4, 40) ur verksamhetens eget foto; title
+  och description prövas av `kontroller/seo_kontroll.py` (rad 77–87, längd och unikhet); slug [REPO en.yml rad
+  149–150] och färgkonvertering [rad 121–122] är engångsrader i Astro. Kontrast, som är det som faktiskt avgör en
+  färg hos oss (standarden 3.4), finns inte som verktyg i källan. Två verktyg krockar: "SVG placeholder generator"
+  [REPO en.yml rad 101–102] och "Lorem ipsum generator" [rad 249–250] gör det byggstandarden 9.4 förbjuder
+  (`kunskap/byggstandard.md:122`, "inga platshållare") och det copykontrollen flaggar (`kunskap/copy-kontroll.md:14`,
+  "lorem ipsum"). QR-koden [REPO en.yml rad 253–254] hör till verksamhetens egen vardag (be om omdömen via QR,
+  `kunskap/lokal-synlighet.md:38`), inte till sajten. Lika eller sämre på varje punkt som rör oss
+- Skäl: Källan är "handy online tools for developers" [REPO README.md rad 8; BILD it-tools-sida/desktop-forsta.png
+  rubriken "Handy tools for developers"]: ett gränssnitt för människor som behöver avkoda en JWT eller räkna ut ett
+  subnät. Vår arbetsmodell är en agent som skriver sajten som kod och prövar den med egna kontroller; allt it-tools
+  kan göra som berör en sajt gör agenten med en rad i mallen, och en webbläsarsida att klicka i är ett steg till,
+  inte ett färre. Det är varken bättre sajter eller smartare arbete. Den egna sajten är dessutom en appvy, inte en
+  referens för våra verksamheter: hamburgare, sökfält och "Buy me a coffee" i första vyn på mobil, sedan ett kort
+  "You like it-tools? Give us a star on GitHub" före innehållet [BILD it-tools-sida/mobil-forsta.png], systemtypsnitt
+  och 0 bilder [TEXT SIDA.md rad 8, 31]. Två verktyg (platshållarbilder och lorem ipsum) står emot regeln mot slop.
+  GPL-3.0 gör dessutom att kod ur repot inte kan kopieras in i en kunds sajt utan att hela sajten omfattas av
+  licensen; vi skulle ändå inte kopiera, men det stänger också dörren för "några rader ur källan". Samma slag av dom
+  som för awesome-listorna och the-book-of-secret-knowledge (ovan): en bra samling för en utvecklare, utan plats i
+  bygg-sajts åtta steg. Källkritik: "with great UX" [REPO package.json rad 6] är eget omdöme; sajten säljer inget men
+  ber om stjärnor och donationer [BILD mobil-forsta.png]; inget försöker styra agenter
+- Kostnad: ingen; inget tas in. Som självhostat verktyg vore det en Docker-container [REPO README.md rad 23–30] med
+  67 npm-beroenden [REPO package.json rad 39–106] att hålla uppdaterade, för uppgifter mallen redan löser
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text riktad till agenter, inga hookar, MCP-servrar eller
+  skill-frontmatter. 279 skript; mönstren "hemligheter/miljö" i bcrypt-, JWT-, OTP- och lösenordsverktygen är
+  verktygens egna ämnen, "eval/exec" i `regex-tester.service.ts` är regex-provaren och i `scripts/shared/commits.mjs`
+  deras släpp-skript. `plausible.plugin.ts` kopplar in Plausible-analys när konfigurationen tillåter det [REPO rad
+  24–26]; gäller deras sajt. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
+
+### 2026-10-02 · JCodesMore/ai-website-cloner-template · nej
+- Källa: https://github.com/JCodesMore/ai-website-cloner-template @ f50066d (ur klonens `.git/shallow`, tagg v0.5.1;
+  senaste push 2026-09-27T04:51Z), MIT [REPO LICENSE; package.json rad 7]; cirka 35 500 stjärnor, inte arkiverat;
+  cirka 17 500 tokens text i 39 textfiler. Inte bedömd förut. Förgranskat. Läst i helhet: README, AGENTS.md,
+  CLAUDE.md, `.claude/commands/clone-website.md`, `.agents/skills/clone-website/SKILL.md` (507 rader) och
+  `references/inspection-guide.md`, package.json. Sett: `docs/design-references/comparison.png` (original mot klon av
+  instruct.ai) och demovideon "Claude Code website cloner demo" (1:14, inget transkript, inga undertexter): alla sex
+  bildrutor. Ägarens not: ingen
+- Steg: inget av de åtta. Närmast steg 2 (den tar isär en befintlig sajt) och steg 5 (den bygger), men med ett annat
+  mål: återskapa någon annans sajt pixel för pixel i Next.js
+- Jämfört med i dag: Källan är en Next.js 16-mall med shadcn och Tailwind 4 [REPO package.json rad 37–57] plus en
+  skill som läser en adress i webbläsaren, hämtar text, bilder och beräknad CSS per sektion, skriver en specfil per
+  komponent, skickar parallella byggagenter i worktrees och jämför klonen mot originalet sida vid sida [REPO SKILL.md
+  rad 148–459]. Målet står på rad 18–21: "Pixel-perfect — exact match in colors, spacing, typography, animations",
+  och utanför ramen står "SEO optimization, accessibility audit". Vi gör motsatsen på varje punkt. (1) Vi härleder
+  sajten ur verksamheten själv, aldrig ur någon annans sajt eller en mall (`.claude/skills/bygg-sajt/SKILL.md` rad
+  200–201, 252 "Kopiera aldrig layout, palett eller typsnitt"; ägarens mall-lukt i L1–L3 satt i formen, `LARDOMAR.md`
+  rad 29, 54, 78). Verksamhetens nuvarande sajt är ribba 1, det vi ska slå (SKILL.md rad 9, 115), inte något att
+  återskapa: de tre dömda byggena hade Lighthouse mobil 41–60 och 14–18 allvarliga axe-fel att lämna bakom sig
+  (`LARDOMAR.md` rad 38, 63, 87). (2) Stacken: statisk Astro utan JavaScript, högst 200 kB JS och 100 kB CSS
+  (`kunskap/byggstandard.md` rad 25, 52, 133–138 "Astro i stället för Next.js"; rule of least power i
+  `kunskap/teoretisk-grund.md` rad 47–50); de tre byggena levererade 0 kB JS (`LARDOMAR.md` rad 31, 56, 87). (3) Det
+  källan gör bra som hantverk har vi redan: "Spec Files Are the Source of Truth" [REPO SKILL.md rad 138–142]
+  motsvaras av KONCEPT.md:s exakta specifikation före kod (SKILL.md rad 207–210); "Visual QA Diff" sida vid sida
+  [REPO rad 445–459] av JAMFORELSE.md mot referenserna i åtta dimensioner (SKILL.md rad 246–252); beräknade
+  designfakta (typsnitt, storlek, färg) ur `getComputedStyle` [REPO rad 269–311] tar `kontroller/sida.mjs` fram för
+  varje referens (rad 3, 113, 121) och `hamta_sajt.py` hämtar text och bildlista ur deras sajt (SKILL.md rad 66–68);
+  "Build Must Always Compile" är snabbprovet (SKILL.md rad 237). (4) Interaktionssvepet (scroll, klick, hover,
+  tillstånd) [REPO rad 168–194] löser ett problem vi inte har: våra sajter har inga tillstånd att återskapa, och vår
+  diagnos av deras sajt använder heuristisk utvärdering och kognitiv genomgång ur litteraturen (SKILL.md rad
+  109–114), inte en inventering av animationer. Sämre på det som rör oss, lika på hantverket
+- Skäl: Källan svarar på frågan "hur kopierar jag en sajt exakt", och hela vårt arbetssätt är byggt för att aldrig
+  behöva ställa den: slop uppstår när modellen saknar något specifikt att säga (SKILL.md rad 12–13), och ett pixelkopierat
+  original är det minst specifika en hantverkare i Luleå kan få. Källans egna legitima fall, flytt av en sajt man
+  äger till ny stack [REPO README.md rad 94–96], är inte vårt erbjudande: vi ersätter deras sajt eftersom den är
+  sämre, inte flyttar den. Den krockar alltså med två medvetna val (verksamhetens egna bilder och ord; statisk Astro
+  utan JS) och hjälper oss varken bygga bättre sajter eller arbeta smartare: byggtiden hos oss går till
+  granskningsrundor, inte till att skriva kod (`LARDOMAR.md` rad 100–101: 117–126 minuter, 3–5 omgångar), så
+  parallella byggagenter i worktrees [REPO rad 405–432] skulle lägga till sammanslagningar utan att korta det som tar
+  tid. Resultatet är dessutom inte vad det lovar: i källans egen jämförelsebild har originalets kort miniatyrbilder
+  och klonens bara ikoner, och första vyns vertikala placering skiljer [BILD docs/design-references/comparison.png;
+  BILD 00:02]; mitt i körningen stannar bygget på ett saknat typsnitt ("Font file not found") [BILD 00:39]; sektionen
+  "Just describe the work" ligger nära men inte lika [BILD 00:14]. Källkritik: videon visar körningen med Opus 4.6 i
+  Claude Code [BILD 00:27, läsbart i terminalen] medan README rekommenderar Opus 5.5 [REPO README.md rad 9]; "No
+  guessing" [rad 90] och "nails it every time" [REPO SKILL.md rad 73] är egna omdömen utan belägg. README innehåller en
+  färdig uppmaning avsedd att klistras in i en agent (klona, installera, kör `npm run check`) [REPO README.md rad
+  33–41]; den följdes inte. Samma dom som för firecrawl och crawl4ai (ovan): ett verktyg för att hämta andras sajter,
+  utan plats i bygg-sajts åtta steg. Ägaren höll med om nej för dem och om nej för ui-ux-pro-max och shadcn-ui
+  (`kunskap/KIRURG-OMDOMEN.md`)
+- Kostnad: ingen; inget tas in. Skillen vore 115 tokens alltid, 8 931 vid användning och 913 vid behov, plus Next.js 16,
+  React 19, shadcn, Tailwind 4, Node 24 och en webbläsar-MCP som krav [REPO SKILL.md rad 53; README.md rad 68–78]
+- Säkerhet: förgranskningen LÅG: inga dolda tecken, ingen text riktad till agenter, inga hookar, MCP-servrar eller
+  skill-frontmatter med behörigheter; fyra skript (eslint, next, postcss, `cn()`), inga riskmönster. AGENTS.md
+  inleds med ett block som Next.js själv skriver in och som ber agenten läsa `node_modules/next/dist/docs/` [REPO
+  AGENTS.md rad 1–9]; ofarligt, hör till deras stack. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
+
+### 2026-10-02 · lissy93/web-check · parkera
+- Källa: https://github.com/lissy93/web-check @ 0690bb3 (ur klonens `.git/refs/heads/master`; senaste push
+  2026-10-02T19:06Z), MIT, cirka 35 000 stjärnor, inte arkiverat, version 2.3.0 [REPO package.json rad 4]. Läst: README,
+  alla 48 API-kontroller som lista och i sin helhet `api/mail-config.js`, `api/http-security.js`, `api/trackers.js`,
+  `api/tech-stack.js`, `api/quality.js`, `api/cookies.js`, `api/ports.js`, `api/_common/middleware.js`, samt
+  regelmotorn `src/client/analysis/registry.ts` och reglerna för e-post, svarshuvuden och delningstaggar. Sett: 3 av 47
+  bilder, de tre helsidesskärmbilderna av instrumentpanelen för github.com, news.ycombinator.com och stackoverflow.com
+  [BILD .github/screenshots/web-check-screenshot1.png, -screenshot2.png, -screenshot10.png]. Demon web-check.xyz
+  öppnades inte: skärmbilderna visar samma vy, och verktyget skannar en domän på riktigt.
+- Steg: 2 (diagnos av nuvarande sajt) och lanseringen (fas L i byggstandarden: 6.6, 8.1, 10.3). Inget av stegen 3–7.
+- Jämfört med i dag: källan är en instrumentpanel som kör ett 40-tal uppslag mot en levande domän och visar dem som
+  kort: serverplats, certifikat, whois, DNS, svarshuvuden, HSTS, teknikstack, PageSpeed, kakor, spårare, e-postposter,
+  delningstaggar, robots, sitemap, öppna portar, traceroute, hotlistor, arkivhistorik [BILD web-check-screenshot1.png;
+  REPO registry.ts rad 33–59]. Sak mot sak. (1) Diagnosen av deras sajt: vi kör axe, Lighthouse och inspektionen i 390
+  och 1440 px och gör heuristisk utvärdering och kognitiv genomgång (`.claude/skills/bygg-sajt/SKILL.md` rad 99–114);
+  `hamta_sajt.py` läser generator-taggen (rad 132) och inspektionen loggar varje blockerad tredjepartsförfrågan
+  (`kontroller/webblasare/gemensamt.mjs` rad 84, `inspektera.mjs` rad 61). De tre dömda byggena fann WordPress/Divi,
+  WordPress/Elementor, cookiebanner och utgånget Instagramflöde den vägen (`LARDOMAR.md` rad 38, 63, 87;
+  `underlag/sundboms-el/DIAGNOS.md` rad 3). Källans Wappalyzer [REPO api/tech-stack.js rad 26] och Ghosterys
+  spårardatabas [REPO api/trackers.js rad 3–4] ger namngivna produkter i stället för domänlistor: lite bättre
+  som inventering, men inget som ändrar ribba 1, som sätts av Lighthouse, axe och första vyn. Lika i sak.
+  (2) Svarshuvuden: källan svarar bara ja eller nej per huvud [REPO api/http-security.js rad 5–23], medan
+  `kontroller/prelaunch.py` läser CSP:ns innehåll (object-src, base-uri, unsafe-inline utan hash, rad 398–409) och
+  kräver frame-ancestors och nosniff (rad 443–449). Sämre. (3) E-postposter: `kunskap/lansering.md` rad 49–64 läser SPF,
+  DKIM under en angiven selektor och DMARC och säger "saknas både SPF och DKIM blir det fynd; saknad DMARC blir
+  anmärkning; flera SPF-poster är ett fynd" (rad 59–60). Källan provar 17 vanliga DKIM-selektorer [REPO
+  api/mail-config.js rad 17–35], räknar SPF-uppslag mot gränsen 10 (rad 83–101) och dömer policyn: SPF utan -all
+  eller ~all, DMARC p=none som "monitor-only", pct under 100, sp som släpper underdomäner, DKIM-nyckel under 1 024
+  bitar [REPO src/client/analysis/rules/mail-config.ts rad 44–166]. Bättre regler än våra, på en punkt
+  (byggstandarden 6.6, `kunskap/byggstandard.md` rad 89) som prövas först vid lansering, och verktyget lansering.md
+  pekar på (`verktyg/lansering.py`, rad 20, 51) finns inte i det här repot. (4) Delningstaggar: källan flaggar saknad
+  og:image [REPO rules/social-tags.ts rad 3–8]; `seo_kontroll` och standarden prövar 7.1 på vår sajt
+  (`byggstandard.md` rad 97). Lika. (5) Litteraturen: header-skanning och OWASP står redan som metoder
+  (`kunskap/teoretisk-grund.md` rad 95–99); källan tillför ingen utvärderingsmetod, bara fler uppslag. Samma slutsats
+  som för the-book-of-secret-knowledge ovan (rad 517–519): ett andra kvitto på den levande adressen vid lansering, inte
+  en ny kontroll; ägaren höll med om den domen (`kunskap/KIRURG-OMDOMEN.md`).
+- Skäl: Inget i källan rör det ägarens domar L1–L3 pekar på: förfrågningsvägen, bildunderlaget, förtroendet och
+  rösten. Den kan inte få oss att bygga bättre sajter, och i byggena gör den inget smartare än det vi mäter
+  (`lighthouse.mjs` rad 35–42 ger samma PageSpeed-poäng som källans quality-kort, som dessutom kräver en Google-nyckel
+  [REPO api/quality.js rad 6, README rad 175]). Det som är bättre, e-postreglerna, hör till lanseringen, som inte har
+  ägt rum för något bygge och vars L-punkter inte redovisas (`SKILL.md` rad 319). Därför parkera, inte nej: när den
+  första lanseringen planeras är reglerna i `mail-config.ts` värda några rader i `lansering.md`, och en driftad
+  instans (web-check.xyz eller egen) är ett handkvitto på den levande adressen bredvid securityheaders.com. Att ta in
+  den nu vore fel på tre sätt: den är en tjänst att driftsätta (Astro + React + Svelte + Puppeteer + Chromium +
+  Wappalyzer + Express, [REPO package.json rad 23–63; README rad 213–214]), inte en skill eller en textrad, och kod ur
+  källor körs inte; den skannar portar och kör traceroute mot kundens värd [REPO api/ports.js rad 6–9,
+  api/trace-route.js] och presenterar sig som ett verktyg för att "uncover potential attack vectors" [REPO README.md
+  rad 70], vilket går utöver "bara läsning" i steg 2 (`SKILL.md` rad 114–115) och vore fel att rikta mot en
+  hantverkares webbhotell utan deras uttryckliga ja; och svarshuvudkontrollen är grundare än vår. Källkritik: README
+  bär tre sponsorer och Hostinger-länkarna är affiliate-länkar [REPO README.md rad 14–40, 128]; stjärnorna är räckvidd,
+  inte belägg; koden är välskriven och nyligen underhållen (push samma dag), och reglerna i mail-config.ts stämmer med
+  vad Gmail och DMARC-standarden kräver (`lansering.md` rad 62–64 säger samma sak om Gmail).
+- Kostnad: ingen; inget tas in. Hela källans text är cirka 9 100 tokens enligt förgranskningen; 140 skript; inga
+  skills. Vid lansering: fem till åtta rader i `lansering.md` och ett manuellt kvitto, inga beroenden.
+- Säkerhet: förgranskningen MEDEL över 171 textfiler: inga dolda tecken, ingen text riktad till agenter, inga hookar,
+  MCP-servrar eller skill-frontmatter. Riskmönstren är verktygets natur: nätanrop i sju skript, miljönycklar i tolv
+  (API-nycklar till Google, Shodan, Cloudmersive, Tranco, GitHub, CertSpotter [REPO README.md rad 173–181]), eval/exec
+  i skärmbilds- och traceroute-kontrollen. Portskanning, subdomänsökning, läckkontroll och Shodan är OSINT mot andras
+  domäner; inget kördes eller installerades. README:s installationsrader följdes inte.
+- Förslag: inget nu. Vid första planerade lansering: (a) lägg källans e-postregler som rader i `kunskap/lansering.md`
+  efter rad 60 (DMARC p=none är bara övervakning, pct under 100, sp som släpper underdomäner, SPF utan -all/~all,
+  fler än 10 SPF-uppslag, DKIM under 1 024 bitar, prova de vanliga selektorerna när leverantörens är okänd); (b) kör
+  en driftad web-check mot den levande adressen som handkvitto på e-postposter och svarshuvuden, med portskanning och
+  traceroute avstängda (`API_DISABLED_CHECKS` [REPO README.md rad 191]).
+- Utfall: — (aktuellt först när en sajt ska lanseras på riktigt; se `LARDOMAR.md` för om någon nått dit)
+- Backlog: ingen
