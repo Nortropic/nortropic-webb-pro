@@ -42,7 +42,9 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
    ägarens skäl tyngst: döm som ägaren skulle.
 2. Läs underlaget: vad är specifikt för just den här verksamheten, vilka är toppuppgifterna och kraven?
 3. **Titta på varje skärmbild med Read.** Varje sida finns uppifrån och ned i skärmhöga rutor, i 390 och 1440.
-   Startsidan först, sedan varje undersida.
+   Startsidan först, sedan varje undersida. Läs stilrapportens avsnitt om mobilens första vy (sidhuvudets höjd, eget
+   foto i första skärmen), och se första skärmen på varje undersida i 1440: står rubriken högt nog, och bär skärmen
+   något, eller är den tom?
 4. **Se sidan som en besökare.** `node kontroller/sida.mjs '<adress>' --ut <arbetskatalog>/<namn>` ger en
    skrollsekvens, uppmätta designfakta (typsnitt, storlekar, färger) och sidans text. Radlängd och radhöjd per
    sida står i stilrapporten. Använd den på
@@ -82,7 +84,8 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
 2. **Originalitet.** Finns det egna beslut, eller mallar, biblioteksstandard och AI-mönster? Bär verksamhetens egna
    bilder, ord, material och plats sajten? Kunde ett annat företagsnamn sättas dit? Straffa uttryckligen de drag
    frontend-design räknar upp som AI-mönster, och dessutom: likadana kort i rad, samma sektionsmall sektion efter
-   sektion, förtroendemärken utan källa, allt lika stort, dekor utan funktion, stockbilder. Likhet med tidigare byggen
+   sektion, förtroendemärken utan källa, allt lika stort, dekor utan funktion, stockbilder, listor och tabeller i två
+   spalter eller med tunna linjer mellan raderna som skulle passa vilken firma som helst. Likhet med tidigare byggen
    i typsnitt, toppsektion eller komposition skrivs alltid under `likhet_tidigare`. Den sänker originaliteten bara när
    den gör sajten mindre specifik för verksamheten; ägaren har godtagit ett typsnitt som återkommer när det passar
    verksamheten (LARDOMAR L1 och L2).
@@ -91,11 +94,14 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
    Vercels riktlinjer, Emils designteknik.
 4. **Funktion.** Håller kraven i briefen? Kan besökaren lösa varje toppuppgift utan att fastna i den kognitiva
    genomgången? Syns den primära handlingen i första vyn på mobil, och går den att nå med tummen? Är
-   förtroendesignalerna verkliga? Fungerar menyn, undersidorna och 404-sidan? Dimension 5, 6 och 7, byggstandarden 5
+   förtroendesignalerna verkliga? Står det något som blir inaktuellt (datum, annonser, erbjudanden, säsong, "just
+   nu"), och syns det när? Fungerar menyn, undersidorna och 404-sidan? Dimension 5, 6 och 7, byggstandarden 5
    och 9, Osmanis tillgänglighet.
 5. **Text.** Låter texten som verksamheten och dess kunder? Bär varje sektion något specifikt ur "Bara de har"?
    Svarar varje sida på en fråga kunden faktiskt har? Fraser och strukturer enligt regeln mot slop. Ett påstående som
-   saknar stöd i underlaget är ett blockerande fynd.
+   saknar stöd i underlaget är ett blockerande fynd. Citera ordagrant de två meningar på sajten som minst låter som
+   verksamhetens folk, och de två rubriker som en förstagångsbesökare minst förstår, och döm dem: säger de det
+   verksamheten skulle säga, eller låter de skrivna av en copywriter?
 
 **Saknat underlag** (ägarens domar L2 och L3): saknar sajten egna bilder, telefontid, försäkring och F-skatt eller
 svarstid, kontrollera att det står i beställningen (`BESTALLNING.md` i underlaget) och att sajten varken låtsas ha
