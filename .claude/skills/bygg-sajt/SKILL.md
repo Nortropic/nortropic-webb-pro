@@ -64,7 +64,9 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
 1. **Hämta det publika:** deras webbplats (alla sidor som spelar roll), Google-profil och omdömen, sociala kanaler,
    företagsregister för grunduppgifter, två eller tre konkurrenter i samma ort. WebFetch och WebSearch. Skriv också
    upp namn, adress och telefon exakt som de står i Google-profilen, på hitta.se och på eniro.se; avvikelser mellan
-   dem och deras sajt är ett fynd för rapporten.
+   dem och deras sajt är ett fynd för rapporten. Sök också efter verksamhetens andra domäner (namnet med .se, .com
+   och .nu, adressen på bilen och i katalogerna) och läs dem som egna källor; två levande domäner är ett fynd för
+   rapporten. I lulea-snickaren-abx låg det mesta egna materialet på den äldre domänen.
 2. **Bilder:** ladda ner verksamhetens egna bilder (från deras sajt och kanaler) med
    `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil, källa,
    vad bilden visar, kvalitet. Inga stockbilder. Räkna de användbara: färre än fem, eller saknas den som kommer hem
