@@ -735,3 +735,42 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · ultraworkers/claw-code · nej
+- Källa: https://github.com/ultraworkers/claw-code @ 08106b0 (ur klonens `.git/shallow`; senaste push
+  2026-08-16T06:18Z), MIT; cirka 195 000 stjärnor, inte arkiverat; 277 textfiler, cirka 540 000 tokens text, ingen
+  SKILL.md. Förgranskat. Läst: README, PHILOSOPHY.md, CLAUDE.md, `docs/anti-slop-triage.md` i helhet, USAGE.md:s
+  avsnitt om skills (rad 493–533), det flaggade stället i ROADMAP.md (rad 3068–3079) och namnen på alla dokument i
+  `docs/`. Bild: README:ns hjältebild [BILD assets/claw-hero.jpeg], en röd pixelfigur utan information. Ingen
+  demosajt; produkten är ett kommandoradsprogram. Ägarens not: ingen
+- Steg: inget av de åtta; närmast arbetssättet runt dem (körmiljön i `kor.sh`, kirurgens domklasser)
+- Jämfört med i dag: claw-code är en omskrivning i Rust av en kodagent i terminalen i Claude Codes form, med en
+  Python-arbetsyta för paritetskontroll bredvid [REPO README.md rad 96–111], och kräver en API-nyckel, inte en
+  prenumeration [rad 129–130, 261]. README:n kallar själv repot en museiutställning, inte det seriösa projektet, och
+  skickar den som vill arbeta vidare till två andra verktyg [REPO README.md rad 54–60]. Filosofin är att människan
+  styr från en Discord-kanal och att agenterna planerar, kodar, granskar och pushar utan att någon tittar [REPO
+  PHILOSOPHY.md rad 19–25]. Det är samma slags ersättning för Claude Code som opencode, openclaw, Hermes och DeepSeek
+  Harness (alla nej som plattform, ovan). Vi kör Claude Code med vitlista och nekanden (`kor.sh:38–51`), och en
+  oberoende granskare dömer innan stoppvakten släpper bygget (CLAUDE.md, `kontroller/granska.py`). Det enda som gick
+  att pröva sak mot sak är triagelistan mot slop i ärenden och PR:er: nio klasser, var och en med krav på belägg,
+  och regeln att automatiken inte stänger eller slår ihop något, bara föreslår [REPO docs/anti-slop-triage.md rad
+  7–29]. Kirurgen har redan fyra domklasser med samma skärpa (`.claude/skills/kirurg/SKILL.md:135`), krav på belägg
+  för varje påstående och fil och rad för "redan har" (`:164–167`), och backloggen genomförs bara när ägaren släpper
+  den. Lika; listan rör kodärenden, inte sajter
+- Skäl: källan hjälper oss inte att bygga bättre sajter eller arbeta smartare. Som körmiljö krockar den med två
+  medvetna val: kod ur källor körs inte (bygge ur källkod med cargo, och en installatör med `curl | sh`
+  [förgranskningen, install.sh]) och ingen agent ändrar systemet obevakat (filosofin är just människan utanför
+  slingan [REPO PHILOSOPHY.md rad 23–25]). Den byter dessutom prenumerationen mot API-nyckel utan att ge något vi
+  saknar. Triagelistan är välgjord men överlappar kirurgens domklasser och beläggregel, och ingen dom i
+  `LARDOMAR.md` pekar dit. Källkritik: stjärnorna speglar uppmärksamhet kring en omskrivning av Claude Code, inte
+  kvalitet; README:n säger själv att det är en utställning och leder vidare till syskonprojekt och Discord
+- Kostnad: ingen; inget tas in
+- Säkerhet: förgranskningen HÖG, av mängden och av `install.sh` (`curl | sh`, nätanrop, skriver utanför repot) samt
+  skript med eval/exec för paritetsprov. Inga dolda tecken. Det enda stället med text till agenter
+  ("exfiltrat", ROADMAP.md:3074) är en felbeskrivning om hur en krok i arbetsytans inställningar kan läcka verktygsanrop,
+  inte en instruktion. Två exempelpluginer har krokar före och efter verktygsanrop
+  (`rust/crates/plugins/bundled/*/.claude-plugin/plugin.json`). Inget i det lästa försökte styra kirurgen. Inget
+  kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
