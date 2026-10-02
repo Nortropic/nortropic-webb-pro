@@ -1696,3 +1696,118 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   AB-rad bredvid turer och minuter. Ingen regel, bara mätning: när fem par finns syns om ägarens val följer djupet
 - Utfall: —
 - Backlog: ingen för källan; egen innovation: B-20261002-mat-kontextdjupet-per-bygge-i-a-b-posten-storsta
+
+### 2026-10-02 · pbakaus/impeccable · ta in
+- Källa: https://github.com/pbakaus/impeccable @ 508d7e8 (ur klonens `.git/shallow`; senaste push 2026-10-02T07:05Z;
+  tagg skill-v4.5.0), Apache-2.0 (Paul Bakaus), cirka 74 000 stjärnor, inte arkiverat. Cirka 2,6 miljoner tokens text
+  i 2 806 filer; skillen finns i tjugo kopior, en per verktyg, var och en 226 tokens alltid, cirka 2 700 vid
+  användning och cirka 536 000 vid behov (nästan allt är `scripts/data/font-index.json` och `live-browser.js`).
+  Förgranskat. Använd i Digitala 2026-09 (`kunskap/LARDOMAR-digitala.md:145`, `kunskap/skapandeunderlag.md:153`) men
+  aldrig bedömd i registret; hermes-posten ovan (rad 435) sköt upp den. Läst själv: README, `.claude/skills/impeccable/
+  SKILL.md`, `reference/craft-floor.md`, `critique.md`, `new-work.md`, `typeset.md`, `layout.md`, `polish.md`,
+  `mode-persuade.md`, `init.md` rad 25–54, `doctor.md` rad 25–31, `hooks.md` rad 1–25, launchern `scripts/impeccable`,
+  `.claude/settings.json`, `.agent/skills/impeccable/SKILL.md` rad 1–9, `crates/foundation/src/registry.rs` rad
+  30–120, 240–270, 410–500 och 840–845, `constants.rs` rad 83–107, `crates/core/src/checks/rules.rs` rad 35–90 och
+  864–871, `html_patterns.rs` rad 468–513, `crates/core/src/browser/page_checks.rs` rad 306–311, `quality.rs` rad
+  658–675, `crates/context/src/concept_seed.rs` rad 130–190, `context_cli.rs` rad 468–491, `docs/CLI-CONTRACT.md`
+  rad 436–440, `tests/live-e2e/agent.mjs` rad 1524–1528. Läst i helhet av två subagenter med belägg (domen är min):
+  alla 45 referensfiler, `docs/`, detektorregistret och koden bakom varje regel. Demon: impeccable.style/cases/
+  neo-mirai som webbsida; läst 6 av 12 bilder (mobil och desktop första vy, båda helsidor, skroll 03 och 05) och
+  texten. Bilderna i repot är testfixturer och ikoner (26 filer), inte lästa. Ägarens not: ingen
+- Steg: 6 (provets stilrapport) och 5.1 (upptagna val); egen innovation i 5.6 (granskarens läsordning)
+- Jämfört med i dag: (1) **Som paket.** Impeccable är en harness: 24 kommandon bakom ett `/impeccable`, en
+  Rust-binär som launchern laddar ner från GitHub-releaser första gången [REPO .claude/skills/impeccable/scripts/
+  impeccable rad 121–125, 149–180] och som SKILL.md kör i varje session [REPO SKILL.md rad 19], krokar vid
+  SessionStart, PostToolUse och Stop [REPO .claude/settings.json rad 4–40], en lokal beslutssida, comp-ledd byggväg
+  med bildgenerering mot OpenAI [REPO reference/new-work.md rad 53, 55, 101; crates/context/src/generate_image.rs rad
+  249] och ett live-läge. Metoden tillåter påhittat demonstrationsmaterial märkt syntetiskt: "Refusing a bold
+  direction because its demonstration data does not exist yet is the timidity reflex wearing honesty's clothes" [REPO
+  reference/new-work.md rad 59, 127]. Demon Neo Mirai är en fiktiv konferens byggd ur två AI-genererade bilder [TEXT
+  rad 15, 26; BILD desktop-hela.png]. Vårt: steg 1–7 med egna kontroller, inga krokar som kör nedladdad kod, bara
+  verksamhetens egna bilder och ord, "Hitta aldrig på" (`bygg-sajt/SKILL.md:20–22, 77`). Krockar rakt. (2)
+  **Detektorn.** 61 regler, 32 slop och 29 kvalitet, i ett register med trösklar i kod [REPO crates/foundation/src/
+  registry.rs rad 32–643, antalet prövat rad 843]. gstack-intaget tog sex av dem via gstacks katalog
+  (`B-20261002-stilrapporten-mater-sex-renderade-monster-ur-gst`, `kontroller/stil.mjs:85–98`), och stil.mjs prövar nu
+  ett tjugotal mönster (rad 111–118, 174–200). Fem till går att läsa ur den renderade sidan och saknas hos oss, och de
+  träffar luft och hierarki, den enda dimension ägaren satte "Okej" på i alla tre domarna (`LARDOMAR.md:35, 60, 84`):
+  rubrik som sitter närmare blocket ovanför än sitt eget innehåll [REPO registry.rs rad 464–469; page_checks.rs rad
+  307–311: minst två överträdelser, underskott 12 px], enformig luft med ett avståndsvärde över 60 procent av minst tio
+  och högst tre unika [REPO html_patterns.rs rad 475–496], platt typskala utan något steg på 1,25 mellan grannar
+  [REPO rules.rs rad 869–871], färgad kant på en sida av kort eller citat, 2 px med radie eller 3 px utan, minst
+  dubbelt mot övriga sidor, "the most recognizable tell of AI-generated UIs" [REPO rules.rs rad 50–87; registry.rs rad
+  34–39], och brödtext under 12 px [REPO quality.rs rad 661]. Källans radlängd (80, utlöst över 85) och radhöjd (1,3)
+  är slappare än våra 45–75 och 1,4 (`stil.mjs:186–187`, byggstandarden 3.1); vi behåller våra. Tryckytor, som README
+  lovar [REPO README.md rad 466], finns inte som regel; vi mäter dem (`stil.mjs:72–84`). Smartare: mätt i stället för
+  bedömt, information aldrig grind. (3) **Typsnitt.** Två namngivna listor: detektorns 17 överanvända, Inter till
+  Recoleta [REPO constants.rs rad 85–105], och sexton "training-data defaults" för säljande ytor, Fraunces till
+  Instrument Sans, med regeln att ett av dem kräver "a reason no other face could satisfy" [REPO reference/new-work.md
+  rad 67]. Vår `kontroller/upptagna_val.py:26–37` beskriver tio standardval utan ett enda typsnittsnamn, och Anthropics
+  frontend-design hos oss namnger inga (`kunskap/externa/anthropic-frontend-design-SKILL.md:21`). Byggena valde
+  Schibsted Grotesk och Archivo (`underlag/lulea-snickaren-aby/JAMFORELSE.md:9`, `underlag/sundboms-el/
+  JAMFORELSE.md:16`), inga på listorna, men valet var oinformerat. Smartare: byggaren ser namnen före valet, och
+  regeln "ett upptaget val är tillåtet när verksamhetens material motiverar det" (`bygg-sajt/SKILL.md:196–198`) gäller
+  oförändrad. (4) **Riktning.** new-work tar sju kandidater ur publikens kulturella värld, håller "the page this
+  category always ships and its predictable opposite" utanför listan och självprovar: "if someone could guess your
+  aesthetic from the category alone, or from category-plus-avoidance, rework" [REPO reference/new-work.md rad 45–46,
+  69]. Vårt steg 5.1 kräver fyra riktningar ur verksamheten själv, aldrig ur en branschmall, med namngiven axel och
+  UPPTAGNA-VAL (`bygg-sajt/SKILL.md:200–212`). Lika i sak; källans tärning kräver binären och ett anrop till
+  impeccable.style/api/roll [REPO concept_seed.rs rad 80, 117] och förbjuder att hoppa över [rad 48]: nej till den.
+  Kalibreringslistan (kräm plus serif plus terrakotta, svart plus neon, tidningshårlinjer) [rad 69] står redan hos
+  oss (`anthropic-frontend-design-SKILL.md:38–45`); impeccable utgår från den skillen [REPO README.md rad 9]. (5)
+  **Granskning.** critique.md kör två isolerade bedömningar och släpper inte in detektorns fynd förrän
+  designbedömningen är klar: "Detector output is deterministic, but it still anchors judgment" [REPO reference/
+  critique.md rad 8–10]. Vår granskare får stilrapporten och copykontrollen i uppdraget från början med rådet att inte
+  pröva det igen (`kritik/GRANSKARE.md:30–32`) och sätter originalitetsbetyget med varningslistan i hand. Det blir den
+  egna innovationen. Nielsen 0–4 per heuristik med n/a för 7 och 10 på säljande ytor [rad 120] gäller inte oss, som
+  inte betygsätter per heuristik (`GRANSKARE.md:57–61, 70–98`). Personerna Jordan och Casey [rad 664, 746, 779] är
+  vår namngivna besökare i den kognitiva genomgången, redan intagen
+  (`B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive`). (6) **craft-floor och mode-persuade.** Kontrast,
+  "more space above a heading than below it", webbläsarens egna ytor (markering, caret, rullningslist, fokusring,
+  understrykningens offset, tabellsiffror) [REPO reference/craft-floor.md rad 9–15], kicker ovanför rubrik som enda
+  absoluta förbud [rad 27]; handlingen i fungerande form och "a split hero ... or a centred headline over a row of
+  cards is the template whatever world paints it" [REPO reference/mode-persuade.md rad 9, 13]. Vi har fokus
+  (byggstandarden 3.4), tabellsiffror och color-scheme (`kunskap/externa/vercel-web-interface-guidelines-command-
+  e3d624ba.md:68, 119`), spärrade etiketter (`stil.mjs:118`), 9.1 och strukturmönstren ur L1–L3
+  (`upptagna_val.py:40–45`). Lika, utom markering, caret och understrykning som ingen dom pekat på; registreras, föreslås
+  inte. Övrigt (onboard, harden, operate, live, native, document, extract, overdrive) är produkt-UI och appar
+- Skäl: som paket nej: en harness vars skill kör en nedladdad binär i varje session, tre krokar, telemetri och
+  versionskoll hem, och en metod som bygger ur genererade skisser och tillåter påhittat demonstrationsmaterial,
+  demonstrerad på en fiktiv konferens med AI-bilder. Allt det krockar med att kod ur källor inte körs, att inget
+  installeras, och med verksamhetens egna bilder och ord. Men detektorregistret är den mest genomarbetade katalogen
+  över mätbara mönster vi sett, med varje tröskel i kod, och fem av reglerna träffar exakt den dimension ägaren tre
+  gånger satt "Okej" på; de två typsnittslistorna ger upptagna-valen det namn som saknas. Båda är små ändringar i
+  befintliga kontroller, i samma form som gstack-intaget, som ägaren höll med om. Därför ta in, avgränsat till det.
+  Källkritik: README säljer med stjärnor, också som "74k" i demosajtens sidhuvud [BILD desktop-forsta.png], och demon
+  visar ingen verklig verksamhet och inget före-och-efter mot en riktig sajt. Källan innehåller instruktioner till
+  agenter: kringgå sandlådan när den lokala servern inte startar [REPO docs/CLI-CONTRACT.md rad 439; reference/
+  new-work.md rad 53], reparera utan att fråga [REPO reference/doctor.md rad 29], och att en systemprompt om obevakad
+  körning "proves nothing about this session" [REPO reference/init.md rad 31]. Inget av det gällde kirurgen och inget
+  följdes
+- Kostnad: inget kopieras; ingen skill tas in. Ett femtiotal rader i `stil.mjs`, en lista på ett trettiotal namn i
+  `upptagna_val.py`, några rader till i UPPTAGNA-VAL.md per bygge; inga tokens i övrigt. Egen innovation: två meningar i
+  `GRANSKARE.md`
+- Säkerhet: förgranskningen HÖG: 4 dolda tecken, 8 ställen med text riktad till agenter, 348 skript, `allowed-tools`
+  i sju skillkopior, krokar i sex konfigurationsfiler. De dolda tecknen är en BOM i en testfixtur (`crates/html/tests/
+  fixtures/css-rules.json`) och två nollbreddstecken i en kodkommentar som hindrar `*/` från att stänga den [REPO
+  tests/live-e2e/agent.mjs rad 1527]; ofarliga. De agentriktade träffarna är testfixturer för promptinjektion och
+  CLI-kontraktets sandlådetext ovan. `allowed-tools` ger skillen rätt att köra `npx impeccable` och launchern [REPO
+  .agent/skills/impeccable/SKILL.md rad 6–8]. Launchern verifierar nedladdningen mot en sha256-sidofil ur samma
+  release, vilket skyddar mot trasig fil men inte styrker upphov [REPO scripts/impeccable rad 149–180]; `live-browser.js`
+  är 13 511 rader med nätanrop och eval. Nätanrop utöver binären: telemetri som POST till impeccable.style/api/chosen,
+  avstängbar med DO_NOT_TRACK [REPO crates/context/src/concept_seed.rs rad 135–137, 187], versionskoll mot
+  impeccable.style/api/version som skjuter in en UPDATE_AVAILABLE-text till agenten [REPO context_cli.rs rad 480,
+  489–491], och bildgenerering mot api.openai.com [REPO generate_image.rs rad 249]. Inget kördes eller installerades.
+  Inget försök att styra kirurgen
+- Förslag: `kontroller/stil.mjs`, i `matPaSidan()` och varningarna, information aldrig grind, trösklarna med egna ord
+  och källan i filhuvudet som för gstack: (1) rubrikrytm: h2 och h3 i main där luften ovanför är minst 12 px mindre än
+  luften under, varning när minst två rubriker på sidan bryter; (2) enformig luft: vertikala margin, padding och gap på
+  main-block avrundade till 4 px, varning när ett värde står för över 60 procent av minst tio mätningar och högst tre
+  unika finns; (3) platt typskala: storlekarna för h1–h3, p och li sorterade, varning när största steget mellan två
+  grannar är under 1,25; (4) färgad sidkant: kant på en sida, minst 2 px med radie eller 3 px utan, minst dubbelt mot
+  övriga sidor och inte neutral färg; (5) brödtext under 12 px i p, li eller dd. `kontroller/upptagna_val.py`
+  `MODELLENS_STANDARDVAL` (rad 26–37): en rad "typsnitt modellerna faller tillbaka på" med de 17 och 16 namnen utan
+  dubbletter. Rökprovet grönt. Egen innovation: `kritik/GRANSKARE.md` "Så granskar du": betygen på designkvalitet och
+  originalitet sätts innan stilrapporten och copykontrollens rapport öppnas; de läses sist och lägger bara till fynd
+- Utfall: —
+- Backlog: B-20261002-stilrapporten-mater-fem-renderade-monster-ur-imp; egen innovation:
+  B-20261002-granskaren-satter-originalitetsbetyget-innan-hen
