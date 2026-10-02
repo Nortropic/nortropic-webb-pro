@@ -2425,3 +2425,64 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   traceroute avstängda (`API_DISABLED_CHECKS` [REPO README.md rad 191]).
 - Utfall: — (aktuellt först när en sajt ska lanseras på riktigt; se `LARDOMAR.md` för om någon nått dit)
 - Backlog: ingen
+
+### 2026-10-02 · jackwener/OpenCLI · nej
+- Källa: https://github.com/jackwener/OpenCLI @ 2413694 (ur klonens `.git/packed-refs`; senaste push
+  2026-09-24T18:55Z), Apache-2.0; cirka 29 800 stjärnor, inte arkiverat; 2 541 textfiler, cirka 294 000 tokens text.
+  Inte bedömd förut. Förgranskat. Läst: README i helhet, `PRIVACY.md`, `extension/manifest.json`,
+  `skills/opencli-browser/SKILL.md` i helhet, `skills/opencli-adapter-author/SKILL.md` i helhet (kinesiska),
+  `skills/opencli-usage/SKILL.md` rad 1–60, `skills/smart-search/SKILL.md` i helhet, de flaggade raderna i
+  `references/deep-recon.md` och `docs/advanced/cdp.md`, och adapterlistan i `docs/adapters/index.md` som sökning.
+  Sett: den enda bilden, butiksbilden för tillägget [BILD extension/store-assets/screenshot-1280x800.png]: terminalen
+  kör ett kommando mot Zhihu och får en tabell, bredvid samma lista i Chrome. Ingen demosajt. Ägarens not: ingen
+- Steg: 6 (prov) och granskaren, i teorin; i praktiken inget av de åtta
+- Jämfört med i dag: OpenCLI gör webbplatser till kommandon och låter en agent styra användarens inloggade Chrome
+  genom ett tillägg och en lokal daemon [REPO README.md rad 3, 15, 41–43]. Tillägget begär debugger, cookies och alla
+  adresser [REPO extension/manifest.json rad 6–17], läser kakor för den inloggade sajten så att kommandon kan agera
+  som användaren [REPO PRIVACY.md rad 23], och de inbyggda adaptrarna är Xiaohongshu, Bilibili, Zhihu, Twitter,
+  LinkedIn, Reddit, Amazon och liknande [REPO README.md rad 178–200]. Sak mot sak: (1) **Styra en sida ad hoc**
+  (`state`, `click`, `fill`, `wait`, `network`, strukturerade svar med `match_level`) [REPO
+  skills/opencli-browser/SKILL.md rad 53–71, 121–216]. Hos oss gör Playwright samma arbete utan daemon eller tillägg:
+  provet kör `kontroller/webblasare/utforska.mjs` på upp till tolv sidor (`kontroller/prova.py:378`) och
+  `inspektera.mjs` i tre vyer (`:331`), och granskaren ser tillstånd med `inspektera.mjs` och sidor med `sida.mjs`
+  (`kritik/GRANSKARE.md:48–54`). Lika i förmåga, med ett globalt npm-paket, ett Chrome-tillägg och en daemon på
+  localhost:19825 till [REPO README.md rad 33–51, 279]. (2) **Formulär.** Källans recept fyller i inloggningar och
+  skickar [REPO skills/opencli-browser/SKILL.md rad 317–328]; vårt verktyg skickar aldrig ett formulär utan uttrycklig
+  flagga och testmarkering (`kontroller/webblasare/utforska.mjs:2–4, 36–38`) och bygget får inte skicka något alls
+  (`.claude/skills/bygg-sajt/SKILL.md:50–51`). Sämre för oss. (3) **Skärmbilder.** Källan säger att skärmbilder är
+  för människor, inte agenter, och att textträdet ska användas [REPO skills/opencli-browser/SKILL.md rad 133, 414].
+  Hos oss är det tvärtom ett medvetet val: granskaren tittar på varje skärmbild i 390 och 1440 och dömer designen med
+  egna ögon (`kritik/GRANSKARE.md:44–47`), eftersom de åtta dimensionerna i `kunskap/referenser-professionella.md`
+  inte syns i ett DOM-träd. Sämre. (4) **Skriva adaptrar** för nya sajter, med rekognoscering, API-upptäckt och
+  strategival [REPO skills/opencli-adapter-author/SKILL.md rad 31–64, 145–214]: handlar om att hämta data ur andras
+  sajter, inte om att bygga en. Inget steg hos oss. (5) **Hitta kunder senare.** Adaptrarna är kinesiska och
+  amerikanska plattformar; ingen svensk katalog, ingen kartjänst [REPO docs/adapters/index.md, sökning på maps,
+  hitta, eniro, allabolag: inga träffar]. LinkedIn-adaptern kan söka, läsa profiler och skicka [REPO README.md rad
+  186], men det är skrapning genom en inloggad session, vilket inte är vår väg till kunder
+- Skäl: OpenCLI är byggt för att låta en agent agera som användaren på andras sajter: läsa flöden, publicera, följa,
+  skicka meddelanden, ladda ned [REPO README.md rad 178–200]. Ingenting i det bygger en bättre sajt, och det som
+  liknar vårt prov, att styra en sida och läsa dess tillstånd, har vi redan med Playwright utan inloggad session.
+  Det krockar med tre medvetna val: inget skickas ut, kod ur källor körs inte (skillsen förutsätter ett installerat
+  `opencli` i `allowed-tools` [REPO skills/opencli-browser/SKILL.md rad 4] och installation via npm och tillägg [REPO
+  README.md rad 36–51, 106]), och granskaren dömer design med ögonen. Dokumentationen visar dessutom hur Chromes
+  felsökningsport exponeras på internet via ngrok [REPO docs/advanced/cdp.md rad 64–74]. Smart i källan: det
+  strukturerade svaret med `matches_n` och `match_level` efter varje klick, och regeln att verifiera skrivningar med
+  `get value` [REPO skills/opencli-browser/SKILL.md rad 54, 67]; det är god agentergonomi, men vår utforskning är ett
+  skript som redan har tillgång till Playwrights egna locators och behöver inte kuvertet. Källkritik: inga
+  mätningar, bara påståenden om tillförlitlighet ("fix-frekvens 7–8 gånger" för interna API:er [REPO
+  skills/opencli-adapter-author/SKILL.md rad 62]) utan data i repot. README och skills riktar sig till agenter
+  (installera skills med `npx skills add` [REPO README.md rad 106]); det följdes inte
+- Kostnad: ingen; inget tas in. Som skills vore det 10–95 tokens var i varje session (sex skills, cirka 380 tillsammans),
+  379–7 183 vid användning och upp till 27 541 vid behov, plus Node 20, ett globalt npm-paket, ett Chrome-tillägg med
+  debugger- och cookiebehörighet och en daemon
+- Säkerhet: förgranskningen HÖG. Nio dolda tecken, alla i testdata: U+200E i kinesiska filmtitlar
+  (`clis/douban/utils.test.js` rad 192, 199, 226–227), U+200B i ett span i en fixtur som prövar filtret mot
+  skrapskydd (`clis/facebook/feed.test.js` rad 259) och U+200C i en Wikipedia-fixtur; inga instruktioner. De tre
+  agentriktade träffarna är användardokumentation ("Run this command" om ssh och ngrok i `docs/advanced/cdp.md` rad
+  56, 68) och en regel mot att exfiltrera hemligheter (`references/deep-recon.md` rad 84). HÖG kommer av 2 219 skript
+  med nätanrop, eval/exec och miljövariabler, en `curl | bash`-rad i `CHANGELOG.md` rad 238, och `allowed-tools` med
+  Bash i fyra skills. Tillägget läser kakor och använder debugger-API:et mot alla adresser [REPO extension/manifest.json
+  rad 6–17]. Inget kördes eller installerades. Inget försök att styra kirurgen utöver installationsraderna
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
