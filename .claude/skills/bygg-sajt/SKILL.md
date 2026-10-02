@@ -177,7 +177,8 @@ KONCEPT.md.
    uppgifterna för att få verkligt olika utfall. Välj en med skäl och skriv den som **exakt specifikation** innan någon
    kod skrivs: färger som hex med roller, typsnitt och typografisk skala, radie, avståndssystem, sektionsordning per
    sida. Modellen följer uttryckliga specifikationer precist. De två starkaste riktningarna kan bli en parvis fråga i
-   FRAGOR.json.
+   FRAGOR.json. Skriv också en rad **Visuell tes**: stämning, material och energi i en mening, som namnger ett material
+   eller en plats ur "Bara de har".
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
    sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
@@ -197,6 +198,8 @@ KONCEPT.md.
    referensens lösning · vad som skiljer · vad som ändras eller behålls, och varför. Rätta det som ser generiskt ut:
    där allt är lika stort, där en sektion inte bär något specifikt, där första vyn inte säger vad de gör och vad man
    gör härnäst. Kopiera aldrig layout, palett eller typsnitt.
+   Två prov på första vyn: fungerar den lika bra om du tänker bort bilden, är bilden för svag; blir sidan bättre av
+   att stryka en tredjedel av texten, stryk.
 6. **Oberoende granskning.** Kör `.venv/bin/python kontroller/granska.py <slug>` direkt efter ett snabbprov, med
    Bash-tidsgränsen 600000. En egen Claude-session som inte sett ditt resonemang dömer sajten; det tar 4–15 minuter.
    Svarar kommandot att granskningen pågår: kör samma kommando igen. Läs `kunder/<slug>/granskning/GRANSKNING.md`.
@@ -229,7 +232,11 @@ Kontrollera att namn, adress och telefon på sajten, i sidfoten och i JSON-LD ä
    med ett JSON-objekt med schemats fält. Ingen brief, inget underlag, ingen kod. Spara svaret i
    `underlag/<slug>/FEMSEK.md`. Kan läsaren inte säga vad verksamheten gör och vad besökaren ska göra härnäst: rätta
    och testa igen.
-5. Kör hela provet och granskningen igen efter sista ändringen.
+5. **Rubriktest, avskärmat:** starta en subagent till med Task-verktyget och ge den bara texten i
+   `kunder/<slug>/prov/RUBRIKER.md`, sajtens h1 och h2 per sida. Fråga: vad gör verksamheten, var, och vilka tre
+   saker kan en besökare göra eller få veta här? Inget annat underlag. Spara svaret i `underlag/<slug>/RUBRIKTEST.md`.
+   Går det inte att svara ur rubrikerna: skriv om rubrikerna så att de bär budskapet, och testa igen.
+6. Kör hela provet och granskningen igen efter sista ändringen.
 
 ## Steg 7 — Rapport
 

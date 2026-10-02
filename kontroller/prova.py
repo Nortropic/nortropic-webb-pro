@@ -355,6 +355,10 @@ def prova(slug, snabb=False):
     except (OSError, ValueError, KeyError):
         g['standard'] = grind(False, 'standard_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
 
+    # rubriker (info): underlag till det avskärmade rubriktestet i steg 6.4
+    rc, out = kor([PY, '-B', str(KONTROLLER / 'rubriker.py'), '--bygge', str(dist), '--ut', str(prov / 'RUBRIKER.md')])
+    info['rubriker'] = 'prov/RUBRIKER.md: sajtens h1 och h2 per sida, till rubriktestet' if rc == 0 else 'kördes inte: ' + svans(out, 3)
+
     # prelaunch (info)
     cmd = [PY, '-B', str(KONTROLLER / 'prelaunch.py'), '--bygge', str(dist), '--lage', 'lansering', '--ut', str(prov / 'prelaunch.json'), '--md', str(prov / 'prelaunch.md')]
     if verksamhet.is_file():
