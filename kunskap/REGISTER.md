@@ -2058,3 +2058,53 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   (se backlog)
 - Utfall: —
 - Backlog: B-20261002-sidor-md-sorterar-bildlistan-troliga-foton-forst (egen innovation)
+
+### 2026-10-02 · sdmg15/Best-websites-a-programmer-should-visit · nej
+- Källa: https://github.com/sdmg15/Best-websites-a-programmer-should-visit @ 3f13b07 (ur klonens `.git/logs/HEAD`;
+  senaste push 2025-09-16), MIT, cirka 76 000 stjärnor, **arkiverat** enligt `gh repo view`. Repot är en README på
+  979 rader med 33 avdelningar länkar, plus bidragsregler, uppförandekod, ett `package.json` som bara kör
+  awesome-lint, en Travis-fil och en vitlista på 30 domäner för länkkontrollen. Läst: hela README:n, alla övriga
+  textfiler och förgranskningen. Repot har inga egna bilder (bara awesome-loggan från ett annat repo [REPO README.md
+  rad 3]) och ingen demo.
+- Steg: inget av de åtta; närmast steg 3 (referensjakten) och steg 5 (riktning, färg, ikoner).
+- Jämfört med i dag: källan är en allmän länklista för programmerare: nyheter, intervjuträning, jobb, kurser,
+  tävlingsprogrammering, poddar, kryptovaluta, "när du blir uttråkad" [REPO README.md rad 16–52]. Samma sorts källa
+  som vinta/awesome-python, avelino/awesome-go och the-book-of-secret-knowledge, alla dömda nej med ägarens
+  medhåll (`kunskap/KIRURG-OMDOMEN.md:15–18, 45–48, 85–88`). De webbnära posterna prövades sak mot sak. (1)
+  Palettgeneratorer Coolors och Branition Colors [REPO README.md rad 489, 500]: hos oss härleds färgen ur
+  verksamheten själv, "aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md:200–201`), "aldrig kopiering av
+  layout, palett eller typsnitt" (`kunskap/referenser-professionella.md:61`), och ägaren valde gult och svart ur
+  Sundboms ordmärke före en färdig palett (`LARDOMAR.md:89`). Sämre. (2) Figma-mallar, Tailwind-sidbyggare,
+  Open Source Web Design-mallar och UI Design Daily [REPO README.md rad 249, 501, 503, 913]: mallformen var det
+  ägaren luktade sig till i L1–L3 (`SKILL.md:204`), och våra referenser är verkliga verksamhetssajter valda för
+  kundens uppgift i tre roller (`kunskap/referensjakt.md:13–21`), där ens prisgallerier bara är sökingångar
+  (`:25–27`). Sämre. (3) Iconscout och LottieFiles [REPO README.md rad 502, 504] är marknadsplatser; vår regel är
+  ikoner som SVG, aldrig ikonfont (`kunskap/byggstandard.md:51`), inga tredjepartsresurser (`:61`), och
+  ikonuppsättningar registreras med licens i `bilder/TYPSNITT-IKONER.json` (`kunskap/bild.md:70–81`). Lika i sak,
+  men listan tillför ingen regel. (4) Can I use och MDN [REPO README.md rad 494, 715]: primärkällor vi redan läser
+  (`kunskap/prelaunch.md:39`, `kunskap/byggstandard.md:152` mot web.dev). Lika. (5) CSS-Tricks, ShopTalk Show,
+  Flexbox Froggy, en promptguide [REPO README.md rad 610, 657, 674, 837] är läsning och övning, ingen metod.
+  Mot litteraturen: steget Designa går från innehåll och informationsarkitektur till form (`kunskap/teoretisk-grund.md:34–35`);
+  listan erbjuder ingen metod, ingen utvärderingsteknik och ingen princip, bara adresser.
+- Skäl: listan svarar på "vilka sajter bör en programmerare känna till", en fråga inget av våra steg ställer; det
+  som ägarens domar pekar på (förfrågan, bildunderlag, telefontid, förtroendekvitton, `LARDOMAR.md:47, 71, 95`)
+  finns inte i den. De få webbnära posterna krockar med medvetna val (färg och form ur verksamheten, inga mallar) eller
+  är källor vi redan använder. Källan är dessutom arkiverad och åldrad: ingen push sedan 2025-09, Google Codes
+  projekthosting listas som levande [REPO README.md rad 907], ett Mozilla-program från 2016 [rad 914] och en
+  MITRE-lista från 2022 [rad 190]; bidragsreglerna tillåter en länk per PR och inga nya avdelningar [REPO
+  CONTRIBUTING.md rad 7, 16]. Källkritik: README:n ber om stjärnor [REPO README.md rad 977]; beskrivningarna är
+  sajternas egna slogans, inte observerad kvalitet. Det enda som är smartare än vårt är arbetssättet runt listan:
+  en CI-körning som kontrollerar varje länk och vitlistar de domäner som stoppar roboten [REPO .travis.yml rad
+  15–16; white_listed_sites.txt]. Vårt prov följer bara interna adresser (`kontroller/standard_kontroll.py:118`)
+  fast punkt 7.4 kräver länk till omdömena (`kunskap/byggstandard.md:100`) och ägaren i A/B-domen inte kunde se
+  vilken plattform omdömena låg på (`LARDOMAR.md:102`). Det blir en egen innovationspost, inte ett intag.
+- Kostnad: inget tas in. Källans text är cirka 25 700 tokens enligt förgranskningen. Innovationsposten är en
+  info-rad i `standard_kontroll.py` och en tabell i rapporten; nätanrop i provet, avstängda i rökprovet.
+- Säkerhet: förgranskningen HÖG på grund av tre dolda tecken; alla tre är nollbreddsfogar (U+200D) inuti sammansatta
+  emojis i avdelningsrubriker [REPO README.md rad 408, 645, 879], läst i sitt sammanhang, ingen instruktion. Ingen
+  text till agenter, inga skript med nätanrop, inga hookar, ingen SKILL.md. `.travis.yml` klonar nvm och installerar
+  gem och npm-paket i CI [REPO .travis.yml rad 9–13]; inget kördes eller installerades.
+- Förslag: inget för källan. Egen innovation: provet listar sajtens utgående länkar och om de svarar, med vitlista
+  (se backlog).
+- Utfall: —
+- Backlog: B-20261002-provet-listar-sajtens-utgaende-lankar-och-om-de (egen innovation)
