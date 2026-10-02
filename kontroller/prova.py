@@ -6,6 +6,7 @@ Bygger sajten själv (npm run build i kunder/<slug>/sajt), serverar dist/ på 12
 Grindar (röd grind = sajten är inte klar):
   bygge        npm run build lyckas och dist/ har minst en sida
   seo          seo_kontroll.py i lanseringsläge: 0 fynd
+  standard     standard_kontroll.py: byggstandardens maskinkontrollerbara D-punkter (kunskap/byggstandard.md), 0 fel
   axe          0 överträdelser med påverkan serious/critical, mobil och desktop
   lighthouse   prestanda ≥ 90, tillgänglighet ≥ 95, bästa praxis ≥ 95, SEO ≥ 90, mobil och desktop
   spill        inget horisontellt spill i 390, 768 och 1440 px på någon sida
@@ -227,6 +228,17 @@ def prova(slug, snabb=False):
     except (OSError, ValueError, KeyError):
         g['seo'] = grind(False, 'seo_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
 
+    # byggstandarden (kunskap/byggstandard.md): de maskinkontrollerbara D-punkterna som ingen annan grind prövar
+    rc, out = kor([PY, '-B', str(KONTROLLER / 'standard_kontroll.py'), '--bygge', str(dist), '--ut', str(prov / 'standard.json'),
+                   '--md', str(prov / 'standard.md')])
+    try:
+        st = json.loads((prov / 'standard.json').read_text(encoding='utf-8'))
+        rader = ['%s %s: %s' % (x['punkt'], x['sida'], x['text']) for x in st['fel']]
+        g['standard'] = grind(not st['fel'], '%d fel, %d info' % (len(st['fel']), len(st['info'])), 'prov/standard.md',
+                              '\n'.join(r[:160] for r in rader[:15]) or None)
+    except (OSError, ValueError, KeyError):
+        g['standard'] = grind(False, 'standard_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
+
     # copy: läses i den byggda HTML:en, sida för sida. Där syns texten som besökaren ser den: uppgifter ur datafiler
     # finns med, utropstecken räknas per sida och kundcitat (blockquote, q) räknas inte (fynd från Luleå-Snickaren och
     # Sundboms 2026-10-01). Fynden pekar på sidan; rätta i källan.
@@ -358,7 +370,7 @@ def markdown(s):
     return '\n'.join(rad) + '\n'
 
 
-GRINDAR = ('bygge', 'seo', 'axe', 'lighthouse', 'spill', 'utan-js')
+GRINDAR = ('bygge', 'seo', 'standard', 'axe', 'lighthouse', 'spill', 'utan-js')
 
 
 def main(argv=None):

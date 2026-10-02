@@ -89,6 +89,13 @@ Inspektionen spärrar andra ursprung. Ser deras sajt trasig ut i skärmbilderna:
 
 Skriv `underlag/<slug>/DIAGNOS.md`: siffrorna per sida, vad första vyn på mobil säger och inte säger, vad som hindrar
 toppuppgifterna, och vad som fungerar och ska behållas (ord, bilder, struktur). Titta på skärmbilderna med Read.
+Granska deras sajt med två metoder ur `kunskap/teoretisk-grund.md`, avsnitt B.2 och B.3:
+
+- **Heuristisk utvärdering:** gå igenom Nielsens tio heuristiker mot startsidan, kontaktsidan och en tjänstesida.
+- **Kognitiv genomgång:** följ vägen till att ta kontakt steg för steg och svara på de fyra frågorna per steg.
+
+Varje fynd får en allvarlighetsgrad från 0 till 4 och en punkt ur `kunskap/byggstandard.md`. Bara läsning: skicka
+aldrig ett formulär och kontakta aldrig verksamheten. Diagnosen är ribba 1, det vår sajt ska slå.
 
 Har de ingen sajt: skriv det, och att ribba 1 då är deras Google-profil och sociala kanaler.
 
@@ -103,6 +110,9 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
 - tre till fem toppuppgifter i besökarens ord, rangordnade (ur omdömena och frågorna kunderna ställer)
 - en primär handling och hur den fungerar utan JavaScript (telefon, mejl eller deras befintliga bokningssystem)
 - framgångsmått
+- krav i EARS-form, tre till åtta stycken, ett per toppuppgift och ett för den primära handlingen: "När [situation],
+  ska sajten [beteende]". Exempel: "När en besökare öppnar startsidan i mobilen, ska telefonnumret synas utan skroll."
+  Granskaren prövar varje krav.
 - sajtkarta: så få sidor som toppuppgifterna kräver, oftast tre till sju
 - vilka saker ur "Bara de har" som bär vilken sida
 - ton: fem formuleringar ur deras egna ord eller kundernas
@@ -157,11 +167,16 @@ trösklar. Bygg för att klara den. Läs sedan `kunskap/externa/anthropic-fronte
    bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Per riktning typografi, färg, rytm och
    vad som dominerar första vyn. Välj en med skäl.
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
-   sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md`.
+   sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
+   `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
 3. **Bygg** sidorna ur INNEHALL.md: mobil först, semantisk HTML, en h1 per sida, självhostade typsnitt eller
-   systemtypsnitt, verksamhetens bilder via `astro:assets`, ingen JavaScript som inte behövs, JSON-LD
-   (LocalBusiness eller rätt undertyp) sanningsenligt ur VERKSAMHET.json. Formulär skickar ingenting i demon; den
-   primära handlingen går via telefon, mejl eller deras befintliga bokning.
+   systemtypsnitt, verksamhetens bilder via `astro:assets`, ingen JavaScript som inte behövs, JSON-LD med den mest
+   specifika schema.org-typen sanningsenligt ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och
+   telefonnumret som tel-länk, `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
+   färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga bokning.
+   **Ikoner och delningsbild:** skriv `public/favicon.svg` ur verksamhetens märke, enkelt nog att läsas i 16 px. Kör
+   sedan `node kontroller/ikoner.mjs --sajt kunder/<slug>/sajt --foto <ett av deras starkaste foton> --bakgrund '<hex>'`
+   för apple-touch-icon och delningsbild; justera beskärningen med `--fokus 'center 30%'` och titta på resultatet.
 4. **Snabbprov ofta:** `.venv/bin/python kontroller/prova.py <slug> --snabb`. Läs `kunder/<slug>/prov/PROV.md`.
 5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-ruta-NN.png` och `vy-1440-ruta-NN.png`
    med Read: varje sida uppifrån och ned i skärmhöga rutor. `-hela.png` skalas ned så mycket att detaljer försvinner;
@@ -186,7 +201,8 @@ Kontrollera att namn, adress och telefon på sajten, i sidfoten och i JSON-LD ä
 
 1. **Hela provet:** `.venv/bin/python kontroller/prova.py <slug>`. Rätta tills alla grindar är gröna. Grindarna och
    kraven står överst i `kontroller/prova.py`.
-2. **Utforskning och copy:** läs `kunder/<slug>/prov/utforska/UTFORSKNING.md` och rätta verkliga fynd. Läs
+2. **Utforskning, standard och copy:** läs `kunder/<slug>/prov/utforska/UTFORSKNING.md` och rätta verkliga fynd.
+   Läs `kunder/<slug>/prov/standard.md`: felen stoppar provet; varje info rättas eller motiveras i rapporten. Läs
    `kunder/<slug>/prov/copy.md` och rätta eller motivera varje fynd.
 3. **Renderingsläsning:** läs `kritik/FRAGA-renderingslasning.md` och gör läsningen själv mot skärmbilderna. Använd
    frågorna 1–6. Hoppa över allt som hör till det gamla Runtime-paketet: FILES.md, VYER/, MATT/, KUND/, UNDERLAG/,
@@ -217,11 +233,13 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 10. **Femsekunderstestets svar**, ordagrant.
 11. **Granskningen:** antal omgångar, slutbetygen per kriterium, vad du ändrade efter kritiken, och varje invändning
     du inte rättade, med skäl.
-12. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
+12. **Byggstandarden:** att standardgrinden är grön, och varje info i `prov/standard.md` som står kvar, med skäl.
+    Lanseringspunkterna (L) behöver inte redovisas.
+13. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
     verksamheten bör rätta. Inga avvikelser: skriv det.
-13. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
+14. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
     kopplas till dem.
-14. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.
+15. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.
 
 **Dina frågor till ägaren.** Skriv `kunder/<slug>/FRAGOR.json`: tre till sex frågor om det du är mest osäker på, där
 ägarens svar skulle ändra nästa bygge mest. Dashboarden visar dem efter kärnfrågorna i frågeformuläret, och svaren blir

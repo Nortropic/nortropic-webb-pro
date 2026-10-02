@@ -1,15 +1,22 @@
 ---
 import Bas from '../layouts/Bas.astro';
+const schema = { '@context': 'https://schema.org', '@type': 'LocalBusiness', name: 'Rökprov', telephone: '+46701234567', url: 'https://exempel-rokprov.se/' };
 ---
-<Bas titel="Rökprov — testsida för kontrollerna" beskrivning="En testsida som bara finns för att pröva att kontrollkedjan går från bygge till status.">
+<Bas titel="Rökprov — testsida för kontrollerna i nortropic-webb-pro" beskrivning="En testsida som bara finns för att pröva att kontrollkedjan går från bygge till status, med alla tekniska delar som byggstandarden kräver." tema="#0b57d0">
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(schema)} />
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; background: #fff; }
-    main { max-width: 40rem; margin: 0 auto; padding: 2rem 1rem; line-height: 1.6; }
+    header, main, footer { max-width: 40rem; margin: 0 auto; padding: 1rem; line-height: 1.6; }
     a { color: #0b57d0; }
   </style>
-  <main>
+  <header>
+    <nav aria-label="Huvudmeny"><a href="/">Start</a> · <a href="/om/">Om provet</a></nav>
+    <p><a href="tel:+46701234567">Ring 070-123 45 67</a></p>
+  </header>
+  <main id="innehall">
     <h1>Rökprov</h1>
     <p>Den här sidan är ett tekniskt prov av kontrollerna i nortropic-webb-pro. Den är ingen kundsajt.</p>
     <p><a href="/om/">Om provet</a></p>
   </main>
+  <footer><p>Rökprov, fiktiv testsajt.</p></footer>
 </Bas>

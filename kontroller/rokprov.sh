@@ -8,6 +8,9 @@ mkdir -p "$S"
 rsync -a --delete --exclude node_modules --exclude dist --exclude .astro "$ROOT/mall/astro/" "$S/"
 rm -f "$S/README.md"
 rsync -a "$ROOT/kontroller/rokprov/src/" "$S/src/"
+rsync -a "$ROOT/kontroller/rokprov/public/" "$S/public/"
+# apple-touch-icon och delningsbild görs av verktyget varje gång, så att verktyget också prövas
+node "$ROOT/kontroller/ikoner.mjs" --sajt "$S" --foto "$ROOT/kontroller/rokprov/foto.svg" --bakgrund '#0b57d0' >/dev/null
 sed -i '' 's#https://ERSATT-MED-DOMAN.se#https://exempel-rokprov.se#' "$S/astro.config.mjs"
 [ -d "$S/node_modules" ] || (cd "$S" && npm install --no-audit --no-fund >/dev/null)
 rm -f "$ROOT/kunder/rokprov-mall/RAPPORT.md"
@@ -20,7 +23,7 @@ echo "   grönt"
 
 echo "   granskarens uppdrag (torrt, ingen session) och godkännandets regel"
 UPPDRAG=$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/granska.py" rokprov-mall --torr)
-for krav in "kritik/GRANSKARE.md" "originalitet ≥ 7" "vy-390-ruta-01.png" "vy-1440-ruta-01.png" "kunskap/referenser-professionella.md"; do
+for krav in "kritik/GRANSKARE.md" "originalitet ≥ 7" "vy-390-ruta-01.png" "vy-1440-ruta-01.png" "kunskap/referenser-professionella.md" "kunskap/byggstandard.md" "standard.md"; do
   case "$UPPDRAG" in *"$krav"*) ;; *) echo "FEL: granskarens uppdrag saknar: $krav"; exit 1;; esac
 done
 "$ROOT/.venv/bin/python" -B -c "
@@ -44,9 +47,9 @@ set -e
 mv "$F.ren" "$F"
 SAKNAS=$("$ROOT/.venv/bin/python" -c "
 import json,sys; s=json.load(open('$ROOT/kunder/rokprov-mall/prov/STATUS.json'))
-print(' '.join(g for g in ('seo','axe','spill') if s['grindar'][g]['ok']))")
+print(' '.join(g for g in ('seo','axe','spill','standard') if s['grindar'][g]['ok']))")
 if [ "$RC" -ne 1 ] || [ -n "$SAKNAS" ]; then
-  echo "FEL: väntade rött i seo, axe och spill; gröna ändå: ${SAKNAS:-inga} (rc $RC)"; exit 1
+  echo "FEL: väntade rött i seo, axe, spill och standard; gröna ändå: ${SAKNAS:-inga} (rc $RC)"; exit 1
 fi
-echo "   rött där det skulle (seo, axe, spill)"
+echo "   rött där det skulle (seo, axe, spill, standard)"
 echo "rökprovet OK"

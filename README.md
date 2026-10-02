@@ -49,8 +49,10 @@ Bara transkriptet: `.venv/bin/python kontroller/youtube.py URL --ut video.md`.
 kontroller/rokprov.sh                                 # regressionsprov efter ändringar i kontroller/ eller mall/
 ```
 
-Grindar: bygge, seo, axe, lighthouse, spill, utan-js. Copykontrollen är en rapport, inte en grind
-(`kunskap/copy-kontroll.md`): varje fynd rättas eller motiveras i rapporten.
+Grindar: bygge, seo, standard, axe, lighthouse, spill, utan-js. Grinden standard prövar byggstandardens
+maskinkontrollerbara punkter (`kunskap/byggstandard.md`, `kontroller/standard_kontroll.py`), med giltig HTML via
+html-validate lokalt. Copykontrollen är en rapport, inte en grind (`kunskap/copy-kontroll.md`): varje fynd rättas
+eller motiveras i rapporten. Apple-touch-icon och delningsbild görs med `node kontroller/ikoner.mjs`.
 
 ## Installation (en gång per maskin)
 
