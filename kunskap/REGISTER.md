@@ -259,7 +259,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   `.claude/skills/backlog/SKILL.md` steg 3 (efter rad 26–27) som pekar på den och prövar ändringen mot dubbletter och
   inaktuella rader. Egen innovation: steg 5.1 bygger tvåan-riktningens första vy som kastbar sida och riktningsfrågan
   får en skärmbild per alternativ (`dashboard/index.html:255` tar en lista).
-- Utfall: —
+- Utfall: writing-for-agents intagen 2026-10-02 i `.claude/skills/writing-for-agents/`; backlog-skillens steg 3
+  pekar på den och klass (c) skrivs som förbud plus målet. Rendera tvåan: se den posten.
 - Backlog: B-20261002-ta-in-mattpocock-skills-writing-for-agents-i-ver (ta in);
   B-20261002-rendera-tvaan-den-nast-starkaste-riktningens-for (prova A/B, egen innovation)
 
@@ -461,7 +462,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   granskarens kognitiva genomgång (`kritik/GRANSKARE.md:50–53`) görs som en namngiven besökare ur briefens målgrupper,
   med situation, apparat och tid på dygnet, och varje fynd sorteras med frågan om en kompetent men upptagen besökare
   hade fastnat på samma ställe. A/B på de tre dömda byggena mot ägarens fynd i L1–L3 som facit
-- Utfall: —
+- Utfall: humanizer intagen 2026-10-02 (547a1df) i `.claude/skills/humanizer/`; bygg-sajt steg 4 pekar på den.
+  Prövas i nästa bygge.
 - Backlog: B-20261002-ta-in-humanizer-hermes-porten-av-blader-humanize (ta in);
   B-20261002-riktningarna-i-steg-5-1-skiljer-sig-ocksa-pa-sid (ta in);
   B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive (prova A/B, egen innovation)

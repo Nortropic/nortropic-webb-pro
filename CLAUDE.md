@@ -12,7 +12,8 @@ som beslutats: `BESLUT.md`. Ägarens domar: `LARDOMAR.md`; de gäller före allt
   backloggen automatiskt.
 - `backlog`: genomför den vilande backloggen när ägaren säger "implementera enligt backlog".
 - Övriga mappar i `.claude/skills/` är verktygslådan: skills som kirurgen tagit in och som byggena använder efter
-  behov. Var och en har `KALLA.md` med källa, commit och licens.
+  behov. Var och en har `KALLA.md` med källa, commit och licens. `writing-for-agents` är för sessioner som ändrar en
+  skill, `CLAUDE.md` eller `kunskap/`, inte för byggena.
 
 ## Var saker finns
 

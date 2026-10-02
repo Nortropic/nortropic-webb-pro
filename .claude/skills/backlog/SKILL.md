@@ -25,12 +25,14 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
    för domposter, `kunder/<slug>/RAPPORT.md` för byggposter.
 3. **Gör ändringen**, så liten som posten kräver, i den fil posten pekar på. En dom blir en textändring i skillen
    `bygg-sajt` eller en fil i `kunskap/`. Ny mekanik bara när posten uttryckligen kräver det och inget enklare räcker.
+   Ändras en skill, `CLAUDE.md`, `kritik/GRANSKARE.md` eller en fil i `kunskap/`: läs skillen `writing-for-agents`
+   först, och pröva stycket där ändringen hamnar mot dubbletter, inaktuella rader och no-ops.
    **Välj formen efter hur bygget brast.** Läs först vad bygget gjorde och klassa felet:
    - **utelämnade något:** en obligatorisk plats i något bygget redan fyller i (mallen, en rubrik i BRIEF eller
      INNEHALL, en fil som BESTALLNING.md), inte en påminnelse i löptext;
    - **rätt delar, fel form:** beskriv hur resultatet ska se ut, delarna i ordning, inte en lista med förbud;
-   - **kände regeln men hoppade över den:** förbudet plus de undanflykter bygget faktiskt använde, ur rapporten
-     eller granskningen;
+   - **kände regeln men hoppade över den:** förbudet ihop med det positiva målet, och de undanflykter bygget
+     faktiskt använde, ur rapporten eller granskningen;
    - **ska bero på läget:** ett villkor på något som syns i underlaget (finns X, gör Y).
    Skriv klassen på Ändring-raden. Inga brasklappar som "om möjligt" eller "vid behov": de gör regeln valfri.
    Gäller posten ett kommande bygge (en A/B-prövning) och inget bygge finns än: låt den stå vilande med en not
@@ -40,7 +42,7 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
    - Kopiera skillens mapp till `.claude/skills/<namn>/` med licensfilen.
    - Ta bort det posten säger. Ta alltid bort `allowed-tools` och `hooks` ur frontmatter.
    - Skriv `KALLA.md` i mappen: källa, commit, licens, datum och vad som togs bort.
-   - Låt `description` säga när ett bygge ska använda skillen.
+   - Låt `description` säga när skillen används och av vem: bygget, eller sessionen som ändrar repots texter.
    - Kör `.venv/bin/python kontroller/granska_repo.py .claude/skills/<namn>` på kopian. Den får inte bli HÖG.
 4. **Pröva:**
    - Ändrades något i `kontroller/` eller `mall/`: kör `kontroller/rokprov.sh`. Den ska sluta grönt.
