@@ -2250,3 +2250,52 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · CorentinTh/it-tools · nej
+- Källa: https://github.com/CorentinTh/it-tools @ d505845 (ur klonens `.git/refs/heads/main`, klonad 2026-10-02; senaste
+  push 2026-09-30T18:31Z), GPL-3.0 [REPO LICENSE rad 1–2; README.md rad 133]; cirka 40 700 stjärnor, inte arkiverat;
+  cirka 15 900 tokens text i 324 textfiler. Inte bedömd förut. Förgranskat. Läst: README i helhet, `package.json`,
+  `src/tools/index.ts` i helhet (verktygslistan), `src/tools/meta-tag-generator/` (alla tre filer),
+  `src/tools/svg-placeholder-generator/index.ts`, `src/plugins/plausible.plugin.ts`, och titel och beskrivning för
+  varje verktyg i `locales/en.yml` rad 75–394. Övriga verktygskataloger bara som fillista. Sett: `public/banner.png`,
+  `.github/logo-dark.png`, och demosajten it-tools.tech öppnad i dag i 390 och 1440: mobilens och desktops första vy,
+  desktop-skrolläge 4 av 8 och mobil-skrolläge 3 av 6. Ägarens not: ingen
+- Steg: inget av de åtta. Närmast steg 5 (metataggar, slug, färgkonvertering, delningsbild) och steg 6 (kontroll av
+  title och description), men som handverktyg i en webbläsare, inte som något bygget kan använda
+- Jämfört med i dag: it-tools är en Vue-app med 86 små verktyg i tio kategorier (Crypto, Converter, Web, Images and
+  videos, Development, Network, Math, Measurement, Text, Data) [REPO src/tools/index.ts rad 91–192; BILD
+  it-tools-sida/desktop-forsta.png: sidomeny och kort], där en människa klistrar in text och får ett resultat: hash,
+  UUID, JSON till YAML, chmod, crontab, JWT-parser, IBAN-kontroll [REPO locales/en.yml rad 83–394]. De fyra som rör
+  en sajt gör vi redan i kod: Open Graph-taggarna [REPO en.yml rad 309–310; meta-tag-generator.vue rad 2, 49] skriver
+  mallen själv (`mall/astro/src/layouts/Bas.astro` rad 25, 31–35: theme-color, og:title, og:image 1200×630);
+  delningsbilden och apple-touch-icon gör `kontroller/ikoner.mjs` (rad 1–4, 40) ur verksamhetens eget foto; title
+  och description prövas av `kontroller/seo_kontroll.py` (rad 77–87, längd och unikhet); slug [REPO en.yml rad
+  149–150] och färgkonvertering [rad 121–122] är engångsrader i Astro. Kontrast, som är det som faktiskt avgör en
+  färg hos oss (standarden 3.4), finns inte som verktyg i källan. Två verktyg krockar: "SVG placeholder generator"
+  [REPO en.yml rad 101–102] och "Lorem ipsum generator" [rad 249–250] gör det byggstandarden 9.4 förbjuder
+  (`kunskap/byggstandard.md:122`, "inga platshållare") och det copykontrollen flaggar (`kunskap/copy-kontroll.md:14`,
+  "lorem ipsum"). QR-koden [REPO en.yml rad 253–254] hör till verksamhetens egen vardag (be om omdömen via QR,
+  `kunskap/lokal-synlighet.md:38`), inte till sajten. Lika eller sämre på varje punkt som rör oss
+- Skäl: Källan är "handy online tools for developers" [REPO README.md rad 8; BILD it-tools-sida/desktop-forsta.png
+  rubriken "Handy tools for developers"]: ett gränssnitt för människor som behöver avkoda en JWT eller räkna ut ett
+  subnät. Vår arbetsmodell är en agent som skriver sajten som kod och prövar den med egna kontroller; allt it-tools
+  kan göra som berör en sajt gör agenten med en rad i mallen, och en webbläsarsida att klicka i är ett steg till,
+  inte ett färre. Det är varken bättre sajter eller smartare arbete. Den egna sajten är dessutom en appvy, inte en
+  referens för våra verksamheter: hamburgare, sökfält och "Buy me a coffee" i första vyn på mobil, sedan ett kort
+  "You like it-tools? Give us a star on GitHub" före innehållet [BILD it-tools-sida/mobil-forsta.png], systemtypsnitt
+  och 0 bilder [TEXT SIDA.md rad 8, 31]. Två verktyg (platshållarbilder och lorem ipsum) står emot regeln mot slop.
+  GPL-3.0 gör dessutom att kod ur repot inte kan kopieras in i en kunds sajt utan att hela sajten omfattas av
+  licensen; vi skulle ändå inte kopiera, men det stänger också dörren för "några rader ur källan". Samma slag av dom
+  som för awesome-listorna och the-book-of-secret-knowledge (ovan): en bra samling för en utvecklare, utan plats i
+  bygg-sajts åtta steg. Källkritik: "with great UX" [REPO package.json rad 6] är eget omdöme; sajten säljer inget men
+  ber om stjärnor och donationer [BILD mobil-forsta.png]; inget försöker styra agenter
+- Kostnad: ingen; inget tas in. Som självhostat verktyg vore det en Docker-container [REPO README.md rad 23–30] med
+  67 npm-beroenden [REPO package.json rad 39–106] att hålla uppdaterade, för uppgifter mallen redan löser
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text riktad till agenter, inga hookar, MCP-servrar eller
+  skill-frontmatter. 279 skript; mönstren "hemligheter/miljö" i bcrypt-, JWT-, OTP- och lösenordsverktygen är
+  verktygens egna ämnen, "eval/exec" i `regex-tester.service.ts` är regex-provaren och i `scripts/shared/commits.mjs`
+  deras släpp-skript. `plausible.plugin.ts` kopplar in Plausible-analys när konfigurationen tillåter det [REPO rad
+  24–26]; gäller deras sajt. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
