@@ -1,11 +1,13 @@
 ---
 id: B-20261002-mallens-formular-visar-ett-felbesked-utan-javasc
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · nextlevelbuilder/ui-ux-pro-max-skill
 skapad: 2026-10-02
 prio: normal
 steg: 5 (mallens formulär) och 6 (provets demomottagare)
+commit: f5abe90
+andrad: 2026-10-02T15:32Z
 ---
 # Mallens formulär visar ett felbesked utan JavaScript när ett ofullständigt inskick kommer tillbaka
 
@@ -14,3 +16,5 @@ steg: 5 (mallens formulär) och 6 (provets demomottagare)
 **Förslag:** mall/astro/src/components/Forfragan.astro: ett felbesked överst i formuläret, <p id="forfragan-saknas" class="ff-saknas" tabindex="-1">, dolt med CSS utom när det är :target, med texten att namn, telefon och meddelandet behövs och telefonnumret som väg vidare; texten som prop i verksamhetens ord. kontroller/prova.py rad 170 och kontroller/rokprov.sh rad 61: målet blir /kontakt/?saknas=1#forfragan-saknas. kunskap/forfragan.md rad 22–24: samma mål och att felbeskedet följer med mallen. Det som skrevs försvinner fortfarande; det står som känd begränsning tills serverfunktionen vid lansering kan rendera svaret.
 
 **Klart när:** Med JavaScript avstängt och fälten fyllda med bara mellanslag visar kontaktsidan efter inskick felbeskedet ovanför formuläret och sidan står skrollad till det; rokprov.sh slutar grönt.
+
+**Klar (2026-10-02):** #forfragan-saknas med :target; provat utan JS
