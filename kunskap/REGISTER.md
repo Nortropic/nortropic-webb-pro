@@ -894,3 +894,68 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · anthropics/skills · nej
+- Källa: https://github.com/anthropics/skills @ 8a1541c (ur klonens `.git/shallow`; senaste push 2026-09-29T02:20Z),
+  Apache-2.0 per skill (`skills/*/LICENSE.txt`; docx, pdf, pptx och xlsx är "source-available", inte öppen källkod
+  [REPO README.md rad 20]); `gh` visar ingen licens för repot som helhet; cirka 179 000 stjärnor, inte arkiverat.
+  Förgranskat. Läst: README, hela SKILL.md för frontend-design, skill-creator (med `agents/comparator.md`,
+  `grader.md`, `analyzer.md`), webapp-testing, theme-factory, discernment-nudge, academy-guide och canvas-design.
+  Övriga elva (docx, pdf, pptx, xlsx, claude-api, mcp-builder, brand-guidelines, internal-comms, doc-coauthoring,
+  slack-gif-creator, algorithmic-art, web-artifacts-builder) bara som namn, beskrivning och storlek i förgranskningen.
+  Repot har inga bilder och ingen demosajt. Ägarens not: ingen
+- Steg: 5 (frontend-design läses redan där); i arbetssättet hur skilltexter prövas (backlog-skillen, A/B) och steg 7
+  (brister i verktygen, den egna innovationen)
+- Jämfört med i dag: källan är Anthropics exempelsamling för skills [REPO README.md rad 16–18], uttryckligen för
+  demonstration och utbildning [rad 24]. Sak mot sak: (1) **frontend-design** är ordagrant samma text som
+  `kunskap/externa/anthropic-frontend-design-SKILL.md` (alla 72 rader jämförda), som steg 5 redan läser
+  (`.claude/skills/bygg-sajt/SKILL.md:177`); vår kopia är alltså aktuell. Lika. (2) **skill-creator** är en slinga för
+  att skriva och mäta skills: varje testfråga körs med och utan skillen i samma tur, en betygsättare prövar påståenden,
+  ett resultat visas för människan i en webbvy och hennes återkoppling styr nästa version [REPO
+  skills/skill-creator/SKILL.md rad 10–20, 169–186, 236–251]. Vår A/B-regel kräver samma indata, flera körningar per
+  arm, blind parvis jämförelse med ombytt ordning där oenighet blir oavgjort, och en annan modell som domare
+  (`.claude/skills/kirurg/SKILL.md:159–162`), och mikroprovet av domändringar (gamla mot nya texten, fem subagenter per
+  arm) ligger redan i backloggen (B-20261002-mikroprova-en-domandring-mot-en-kontroll-utan-an). Källans blinda
+  jämförare är valfri [SKILL.md rad 325–329], byter inte ordning och ska undvika oavgjort ("ties should be rare")
+  [REPO agents/comparator.md rad 85]; vår regel är strängare. Betygsättarens krav att också döma själva provet, så att
+  ett påstående som skulle passera även för fel utfall flaggas [REPO agents/grader.md rad 9, 68–79], är samma sak som
+  mikroprovets regel att en kontroll där gamla texten inte visar felet inte bevisar något. Lika. Beskrivnings-
+  optimeringen (20 frågor som ska och inte ska utlösa skillen, 60/40 tränings- och testdelning, tre körningar per
+  fråga [SKILL.md rad 333–404]) blir värdefull den dag verktygslådan har många skills som byggen hittar på
+  beskrivningen (`bygg-sajt/SKILL.md:44–45`); i dag finns inga där, och de två som ska in pekas ut uttryckligen.
+  (3) **webapp-testing** skriver Playwright-skript från fall till fall [REPO skills/webapp-testing/SKILL.md rad 9–33];
+  vi har färdiga kontroller för samma sak (`kontroller/webblasare/inspektera.mjs`, `axe.mjs`, `lighthouse.mjs`, provet).
+  Sämre för oss. (4) **theme-factory** applicerar ett av tio färdiga teman [REPO skills/theme-factory/SKILL.md rad
+  28–41], **canvas-design** gör affischkonst ur en påhittad "rörelse" [REPO skills/canvas-design/SKILL.md rad 35–51];
+  båda krockar med att formen härleds ur verksamhetens eget material (`bygg-sajt/SKILL.md:187–189`). **discernment-
+  nudge** och **academy-guide** gäller svar till en användare i chatten. Inget för oss.
+- Skäl: det som bär i källan har vi redan: frontend-design ordagrant i steg 5, och skill-creators mätslinga i en
+  strängare form i A/B-regeln och mikroprovsposten. Resten är dokumentverktyg, API-referens, konst och chattbeteende,
+  eller krockar med medvetna val: en människa i slingan [SKILL.md rad 143, 251], skript som körs ur källan
+  (`run_eval.py`, `run_loop.py` [SKILL.md rad 382–388]) och färdiga teman i stället för verksamhetens egna färger. Men
+  en princip i skill-creator gäller oss direkt: läs körningarna, och skriver flera körningar var sitt likadant
+  hjälpskript är det signalen att verktyget ska ha det [SKILL.md rad 304]. Hos oss har det redan hänt: tre byggen
+  skrev var sitt skript för LCP, CLS, TBT och sidvikt ur Lighthouse-filerna (`underlag/sundboms-el/skript/lh.py`,
+  `underlag/lulea-snickaren-abx/skript/lh.py`, `underlag/paint-it-black-maleri/skript/lh_sammandrag.py`), eftersom
+  `kontroller/lighthouse.mjs` bara skriver ut P, A, BP och SEO (rad 63) och inte sparar sidvikten (rad 37–44). Inget
+  av byggena lade en post; stycket Brister i verktygen nämner bara kontroller, skillen och kunskapsfiler
+  (`bygg-sajt/SKILL.md:313–315`). Det blir den egna innovationen. Källkritik: Anthropics egen samling, ärlig om att den
+  är exempel [README.md rad 24]; README:n ber läsaren installera repot som plugin [rad 33–49], vilket inte gjordes.
+  skill-creators betoning ("billions a year in economic value" [SKILL.md rad 306], versaler i Cowork-avsnittet [rad
+  451]) är prompthantverk, inte belägg
+- Kostnad: inget tas in. frontend-design kostar redan cirka 2 300 tokens per bygge i steg 5 enligt förgranskningen.
+  Hela källan är cirka 577 000 tokens text, varav claude-api ensam cirka 440 000 vid behov. Den egna innovationen är
+  en mening i `bygg-sajt/SKILL.md`, och en backlogpost per allmänt skript ett bygge skriver
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, inga behörigheter i frontmatter, inga hookar eller MCP. Sju
+  ställen med text till agenter, alla ofarliga i sitt sammanhang: säkerhetsregeln i skill-creator ("Principle of Lack
+  of Surprise", SKILL.md rad 113), dess egen mall för subagenternas uppgift (rad 176), en API-guide som avråder från
+  instruktioner som åsidosätter användaren (`claude-api/shared/model-migration.md:858`), ett råd om att inte tvinga på
+  användaren ett format (`claude-api/shared/evals/build-eval.md:227`) och exfiltrationsvarningar i säkerhetsavsnitt.
+  77 skript (Office-validerare, eval-körare med `claude -p`, en serverhanterare med exec); inget kördes eller
+  installerades. Inget försök att styra kirurgen
+- Förslag: inget ur källan. Egen innovation: `.claude/skills/bygg-sajt/SKILL.md` steg 7, Brister i verktygen (rad
+  313–315): ett skript i `underlag/<slug>/skript/` som inte är knutet till verksamheten (läser en kontrolls utdata,
+  hämtar bilder, räknar något) är också en brist i verktygen; posten anger skriptets sökväg och vilken kontroll som
+  borde ha gjort det
+- Utfall: —
+- Backlog: B-20261002-ett-allmant-hjalpskript-som-bygget-skrev-i-under (egen innovation)
