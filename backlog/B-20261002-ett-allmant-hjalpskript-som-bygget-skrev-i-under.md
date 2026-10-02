@@ -1,11 +1,13 @@
 ---
 id: B-20261002-ett-allmant-hjalpskript-som-bygget-skrev-i-under
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · anthropics/skills
 skapad: 2026-10-02
 prio: normal
 steg: 7 Rapport (Brister i verktygen)
+commit: c6cc7f0
+andrad: 2026-10-02T15:35Z
 ---
 # Ett allmänt hjälpskript som bygget skrev i underlag/<slug>/skript/ blir en backlogpost, så att upprepat arbete hamnar i kontroller/
 
@@ -14,3 +16,5 @@ steg: 7 Rapport (Brister i verktygen)
 **Förslag:** .claude/skills/bygg-sajt/SKILL.md steg 7, stycket Brister i verktygen (rad 313-315): lägg till en mening om att ett skript i underlag/<slug>/skript/ som inte är knutet till verksamheten (läser en kontrolls utdata, hämtar bilder, räknar något) också är en brist i verktygen, och att posten anger skriptets sökväg och vilken kontroll som borde ha gjort det. Inget annat ändras.
 
 **Klart när:** Stycket Brister i verktygen i bygg-sajt/SKILL.md nämner allmänna skript i underlag/<slug>/skript/; nästa bygge som skriver ett sådant skript har en backlogpost med kalla bygge som anger dess sökväg
+
+**Klar (2026-10-02):** steg 7 Brister i verktygen
