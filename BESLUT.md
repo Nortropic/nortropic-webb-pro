@@ -80,3 +80,48 @@ ocommittade ändringar och de tre LaunchAgents som pekade in i repona. GitHub-re
 
 Inga ändringar i Runtime, kontoret eller Digitala. Inga nya mekaniker, kvitton, förseglingar eller granskarprofiler.
 Ingen agent som arbetar obevakat på systemet. Inget utskick till verksamheterna. Ingen publicering av demosajterna.
+
+**Ändrat 2026-10-02:** "Inget utskick till verksamheterna" ersätts av tillägget nedan. Demosajterna publiceras
+fortfarande inte.
+
+## Tillägg 2026-10-02: prospekt, spanare och utskick
+
+Ägarens ord, ordagrant:
+
+- "Jag vill bygga en scraper som ersätter manuellt söka efter klienter. Systemet ska hitta businesses och checka deras
+  hemsidor för vanliga problem som slow speeds, weak SEO, poor mobile design."
+- "Jag vill även att systemet kan scrapa internet på ai webbutveckling för att hjälpa mig identifiera och utveckla mitt
+  system till att bli så bra som möjligt enligt metoder, litteratur, principer, ja helt enkelt best practices."
+- "Jag tänker mig kanske att https://github.com/Panniantong/Agent-Reach och https://github.com/firecrawl/firecrawl kan
+  vara bra för oss. Du får givetvis websearcha, söka och omvärldsbevaka ifall det finns andra verktyg eller github
+  repos, dokumentation för det."
+- "Apollo för leads, swokei för website analys, outreach campaign."
+- "Slutprodukten ska landa i min dashboard vi har (Nortropic webb-pro) http://127.0.0.1:4771/"
+- "Think hard, iterate, make no mistakes."
+- "jag vill bara nämna att vi har i en gammal repo, verkstadsgolvet en slags google business scraping med places"
+- Om publicering på Vercel, tidigare samma dag: "Okej, då väntar vi med det"
+
+Ägarens val på fyra frågor i planeringen (alternativen ordagrant):
+
+- Utskick: "Utkast + du godkänner, sänds via Resend".
+- Upptäckt och webbadress: "SCB-nyckel + DuckDuckGo + egen crawl".
+- Apollo och Swokei: "Förebilder, vi bygger eget".
+- Spanaren: "Veckovis automatiskt, du klickar 'ta in'".
+
+Beslutet: ett prospektflöde och en spanare i dashboarden (`kontroller/prospekt.py`, `dashboard/prospekt.py`,
+`kontroller/spana.py`, `kontroller/brev.py`, `kontroller/utskick.py`). Reglerna, som också står som referens i
+`kunskap/prospekt-och-utskick.md`:
+
+- Upptäckten bygger på SCB:s allmänna företagsregister (avgiftsfri nyckel) och verksamhetens egen webbplats. Innehåll
+  från Google Places lagras aldrig (Googles villkor; det var ett av skälen till att verkstadsgolvets leads-modul
+  stoppades 2026-08-24). Inga betaltjänster.
+- E-post och sms går aldrig till en fysisk person, alltså aldrig till en enskild firma (marknadsföringslagen 19 §).
+  Där ringer ägaren eller skriver brev. SCB:s reklam-, e-post- och telefonspärrar respekteras.
+- Ägaren godkänner varje brev i dashboarden. Grinden i `utskick.py` släpper inget annat, och ingen miljövariabel
+  öppnar den. Ingen automatisk utskickning, någonsin.
+- Varje iakttagelse i ett brev bygger på det vi mätt och sett (`PROSPEKT.json` och skärmbilderna). En siffra som
+  inte finns i faktalistan stoppar utkastet. Inga påhittade förevändningar.
+- Prospektdata ligger i `underlag/`, utanför git. Gallring tolv månader efter sista kontakt om verksamheten inte
+  blivit kund. Den som svarar "avregistrera" stryks samma dag (`underlag/prospekt/SPARR.json` och Resends spärrlista).
+- Spanaren körs av dashboarden en gång i veckan utan modell och visar kandidater; varje kirurgintag startar ägaren.
+- Demosajterna publiceras fortfarande inte: ett brev länkar inte till en demo utan bjuder in till femton minuter.

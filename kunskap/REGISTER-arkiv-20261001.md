@@ -175,6 +175,9 @@ bedömas med de nya reglerna.
 - Förslag: inget.
 - Utfall: ingen åtgärd. När piloten är klar och ägaren vänder sig mot kunder finns underlaget till ett ärligt första
   besked redan: DIAGNOS.md och före/efter-tabellen. Något utskicksverktyg behövs inte för det.
+- Utfall 2026-10-02: ägaren beslutade annorlunda (BESLUT.md, tillägg 2026-10-02): prospektflöde med utkast som ägaren
+  godkänner och Resend som avsändare. Villkoret i domen består och är nu kod: beskedet bygger på det vi mätt, aldrig på
+  en påhittad förevändning (kontroller/brev.py avvisar siffror utanför faktalistan); aldrig e-post till enskild firma
 - Backlog: ingen
 - Ersatt av: 2026-10-01 · Reddit-inlägget "How I Sold 200 Websites in 12 Months" med swokei.com sedd som webbsida
 
@@ -425,6 +428,9 @@ bedömas med de nya reglerna.
 - Utfall: ingen åtgärd. Villkoret i den ersatta posten står kvar: när piloten är klar och ägaren vänder sig mot kunder
   finns underlaget till ett ärligt första besked redan i DIAGNOS.md och före/efter-tabellen. Blir det aktuellt ska
   beskedet bygga på det vi faktiskt har mätt och sett, aldrig på en påhittad förevändning
+- Utfall 2026-10-02: ägaren beslutade annorlunda (BESLUT.md, tillägg 2026-10-02): prospektflöde med utkast som ägaren
+  godkänner och Resend som avsändare. Villkoret i domen består och är nu kod: beskedet bygger på det vi mätt, aldrig på
+  en påhittad förevändning (kontroller/brev.py avvisar siffror utanför faktalistan); aldrig e-post till enskild firma
 - Backlog: ingen
 
 ### 2026-10-01 · AI LABS-video: sju sätt att använda beslutsmodellen Jev i Claude Code · nej

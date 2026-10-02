@@ -40,6 +40,32 @@ utanför git.
 I dashboarden under Kirurgen, eller i en session i repots rot: `/kirurg <url>` (GitHub, artikel eller YouTube).
 Bara transkriptet: `.venv/bin/python kontroller/youtube.py URL --ut video.md`.
 
+Spanaren (`kontroller/spana.py`) letar kandidater åt kirurgen utan modell: flöden, leverantörsdokumentation, GitHub,
+Hacker News och YouTube-kanaler ur `kunskap/spaning-kallor.md`. Dashboarden kör den en gång i veckan och visar de
+rankade kandidaterna under Kirurgen; "Ta in" startar ett vanligt intag. Själv: `.venv/bin/python kontroller/spana.py
+spana --torr` visar vad den skulle hitta utan att spara.
+
+## Prospekt
+
+Hittar verksamheter i en bransch och kommun, mäter deras webbplats och rankar dem efter vad de har att vinna.
+Reglerna: `kunskap/prospekt-och-utskick.md`; beslutet: `BESLUT.md`, tillägget 2026-10-02.
+
+```sh
+.venv/bin/python kontroller/prospekt.py svep --kampanj hantverkare-lulea --kommun 2580 --bransch hantverkare
+.venv/bin/python kontroller/prospekt.py sajter --kampanj hantverkare-lulea --max 40
+.venv/bin/python kontroller/prospekt.py analysera --kampanj hantverkare-lulea --max 10
+.venv/bin/python kontroller/prospekt.py lista --kampanj hantverkare-lulea
+.venv/bin/python kontroller/utskick.py prov          # testbrev till din egen adress
+```
+
+Samma sak med knappar i dashboarden under Prospekt: kampanj, lista, kort per verksamhet, demo, brev. Ett brev skrivs
+ur det vi mätt, du godkänner det i dashboarden, och det går aldrig till en enskild firma. Allt om verksamheterna
+ligger i `underlag/prospekt/` och `underlag/<slug>/`, utanför git.
+
+Nycklar, en gång: `~/.nortropic-hemligheter/webb-pro/scb.env` med `SCB_API_NYCKEL=…` (avgiftsfri, BankID på
+registreraafr.scb.se) och `resend.env` med `RESEND_API_NYCKEL`, `AVSANDARE`, `SVAR_TILL`, `FORETAG`, `TELEFON`.
+Katalogen 0700, filerna 0600.
+
 ## Provet
 
 ```sh
@@ -58,7 +84,7 @@ eller motiveras i rapporten. Apple-touch-icon och delningsbild görs med `node k
 
 ```sh
 /opt/homebrew/bin/python3.12 -m venv .venv
-.venv/bin/python -m pip install yt-dlp youtube-transcript-api imageio-ffmpeg
+.venv/bin/python -m pip install yt-dlp youtube-transcript-api imageio-ffmpeg ddgs
 (cd kontroller && npm install)
 ```
 

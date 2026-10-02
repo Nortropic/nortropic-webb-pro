@@ -21,7 +21,8 @@ som beslutats: `BESLUT.md`. Ägarens domar: `LARDOMAR.md`; de gäller före allt
 `referenser-professionella.md`; byggstandarden med verifierbara punkter: `byggstandard.md`; litteraturen och
 metoderna bakom den: `teoretisk-grund.md`) · `kontroller/` provet och verktygen · `backlog/` vilande poster · `dashboard/`
 ägarens vy (`./dashboard.sh`, http://127.0.0.1:4771) · `underlag/` och `kunder/` privat material och byggen,
-utanför git.
+utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglerna för prospekt och utskick:
+`kunskap/prospekt-och-utskick.md`; spanarens källor: `kunskap/spaning-kallor.md`.
 
 ## Arbetssätt
 
