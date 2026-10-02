@@ -1,12 +1,13 @@
 ---
 id: B-20261002-rendera-tvaan-den-nast-starkaste-riktningens-for
-status: pagar
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · mattpocock/skills
 skapad: 2026-10-02
 prio: normal
 steg: 5 Koncept (riktning) och 7 Frågor till ägaren
-andrad: 2026-10-02T15:59Z
+commit: a41df1f
+andrad: 2026-10-02T16:05Z
 ---
 # Rendera tvåan: den näst starkaste riktningens första vy byggs på startsidan med verkligt innehåll, så att ägarens riktningsfråga får en skärmbild per alternativ
 
@@ -15,3 +16,5 @@ andrad: 2026-10-02T15:59Z
 **Förslag:** bygg-sajt steg 5.1 (rad 195–196): de två starkaste riktningarna blir en parvis fråga; den icke valda får sin startsidas första vy byggd som kastbar sida med samma INNEHALL.md, skärmbild 390 och 1440 med inspektera.mjs, och sidan tas bort med ta_bort.py före slutprovet. FRAGOR.json-formen (rad 302–311): 'bild' får vara en lista, en per alternativ. dashboard/index.html rad 255: visa en bild per alternativ när 'bild' är en lista. Prövning: två byggen med och två utan på samma sorts verksamhet; jämför hur ofta ägaren väljer bort den byggda riktningen och vad ägaren skriver i fritext, och redovisa extra tid och tokens per bygge.
 
 **Klart när:** Nästa byggs riktningsfråga visar två skärmbilder i dashboarden, en per alternativ, och den kastbara sidan finns inte kvar i sajten
+
+**Klar (2026-10-02):** införd: kastbar tvåan-sida i 5.4, bildlista i FRAGOR och dashboarden, 9.4 fäller kvarlämnad /tvaan/; Klart när syns först i nästa bygge, A/B mot de tre tidigare
