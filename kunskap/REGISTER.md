@@ -820,3 +820,39 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget för Firecrawl. Egen innovation: ett gemensamt hämtverktyg för steg 1 (se backlog)
 - Utfall: —
 - Backlog: B-20261002-ett-gemensamt-hamtverktyg-for-kundens-nuvarande (egen innovation)
+
+### 2026-10-02 · avelino/awesome-go · nej
+- Källa: https://github.com/avelino/awesome-go @ c4657b2 (ur klonens packed-refs; senaste push 2026-10-02T13:24Z),
+  MIT. Läst: README:ns innehållsförteckning (cirka 140 avsnitt, 4 100 rader) och i detalj de webbnära avsnitten
+  (Email, Forms, Images, Template Engines, Selenium and browser control tools, länkkontrollen muffet och de statiska
+  sajtbyggarna hugo och zs), AGENTS.md, CONTRIBUTING.md och huvudet i `.github/scripts/check-quality/main.go`;
+  sökning i `.github/` efter kontrollen mot säljande beskrivningar. Inga skills. awesome-go.com sedd med `sida.mjs`:
+  första vyn i mobil och desktop och skrollbild 2 av 8 lästa.
+- Steg: inget av de åtta; närmast steg 5 (bygget) och kontrollerna.
+- Jämfört med i dag: samma sorts källa som vinta/awesome-python (posten ovan, dömd nej, ägaren höll med
+  `kunskap/KIRURG-OMDOMEN.md:15–18`), men för Go: en lista över Go-bibliotek för den som skriver Go-program. Vi
+  bygger statisk Astro med Node-kontroller och Python-verktyg (`kunskap/byggstandard.md:3–4`, avsnitt 11 rad 133).
+  Sak mot sak i de webbnära delarna: formulärbiblioteken och CSRF-skydden [REPO README.md rad 1328–1343] gäller en
+  Go-server, våra formulär tas emot av en demomottagare (`kunskap/byggstandard.md:3–4`, punkt 6.1 rad 84); bildverktygen
+  [rad 1582–1630] ersätts hos oss av `astro:assets` (punkt 4.2 rad 59, avsnitt 11 rad 135); länkkontrollen muffet [rad
+  608] gör det `kontroller/seo_kontroll.py:6` redan gör (interna länkar som löser); webbläsarstyrning [rad 2770–2777]
+  har vi i Playwright via `kontroller/sida.mjs` och `kontroller/webblasare/`. Inget av det är bättre eller smartare för
+  vår stack; att byta språk för ett enskilt verktyg vore sämre. Det enda metodnära är listans regel att beskrivningar
+  ska vara korta och utan säljord [REPO CONTRIBUTING.md rad 35, 100]; vår regel mot slop är skarpare och gäller svensk
+  kundtext (`kunskap/copy-kontroll.md:12–13, 19`). Lika eller sämre
+- Skäl: listan svarar på "vilket Go-bibliotek ska jag använda", en fråga våra byggen aldrig ställer, och ingen post
+  hjälper med det ägarens domar L1–L3 pekar på (skriftlig förfrågan, bildunderlag, förtroendekvitton). Hantverket runt
+  listan är granskning av inskickade bidrag (en post per PR, alfabetisk ordning, krav på licens, release och
+  testtäckning [REPO CONTRIBUTING.md rad 28–40, 72–88]), alltså förvaltning av en öppen lista, inte sajtbygge. Sajten
+  är en lång rå lista med märken, Product Hunt-ruta och sponsorband först [BILD desktop-forsta.png; BILD
+  mobil-forsta.png]; som designreferens säger den oss inget. Källkritik: CONTRIBUTING.md listar en automatisk varning för
+  säljande beskrivningar [rad 100], men ingen sådan kontroll finns i `.github/`, och en post som "The simplest but
+  powerful way" syns på sajten [BILD desktop-skroll-02.png]; regeln står i text men verkställs för hand. AGENTS.md
+  riktar sig till agenter men gäller bara bidrag till repot själv och försökte inte styra kirurgen
+- Kostnad: ingen; inget tas in. Hela källan är cirka 113 000 tokens text enligt förgranskningen; inga skills
+- Säkerhet: förgranskningen LÅG: inga dolda tecken, ingen text riktad till agenter utöver AGENTS.md, inga behörigheter,
+  hookar eller skills. Förgranskningen räknar inte Go-filer som skript; det finns två Go-program i `.github/scripts/`
+  som anropar GitHub, pkg.go.dev och Go Report Card, och en sajtbyggare i `main.go`. Inget kördes
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
