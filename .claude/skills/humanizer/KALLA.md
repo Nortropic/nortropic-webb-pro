@@ -13,3 +13,7 @@
 - **Krockar som avsnittet överst löser:** svenska citattecken (mönster 19), engelskspecifika mönster (17, 26),
   rösten ur verksamhetens ord i stället för en påhittad personlighet, inget påhittat.
 - **Förgranskning:** `kontroller/granska_repo.py` gav LÅG på källan.
+- **Tillägg 2026-10-02:** tre punkter i förordet (tak per sektion, strängare kort text, skriv om ur sakuppgiften)
+  med egna ord ur coreyhaines31/marketingskills `skills/copywriting/references/ai-tells.md` @ 13c3832 (MIT, Corey
+  Haines 2025): skillnaden mellan förbud och tak, reglerna för kort text och rewrite-regel 8 (variera rättningarna).
+  Inget kopierat ordagrant (kunskap/REGISTER.md · 2026-10-02 · coreyhaines31/marketingskills).

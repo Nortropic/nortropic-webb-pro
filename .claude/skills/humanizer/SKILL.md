@@ -16,6 +16,13 @@ Det här avsnittet gäller före allt nedan. Källa, licens och vad som ändrats
   kortare, sann mening.
 - **Regeln mot slop gäller också:** `kunskap/copy-kontroll.md` och `kunskap/redaktionellt-pass.md`. Krockar något
   här med dem eller med ägarens domar i `LARDOMAR.md`, gäller de.
+- **Tak, inte förbud,** för mönster 10, 14 och 31: högst ett fragment och högst en uppräkning i tre led per sektion,
+  högst ett tankstreck per stycke i löptext. Ett medvetet valt grepp en gång är hantverk; samma grepp i varje stycke är
+  ett mönster.
+- **Kort text är strängare.** I h1, h2, ingress, knappar, title och description: inga tankstreck, ingen "inte X utan Y"
+  (mönster 9) och ingen fråga som besvaras i nästa mening (mönster 32).
+- **Skriv om ur sakuppgiften,** aldrig med en synonym: gå tillbaka till det som står i underlaget (vem, vad, var, hur
+  mycket) och skriv det. Blir samma konstruktion rättningen två gånger på en sida, är den ett nytt mönster.
 - **Ordningen i steg 4:** skriv INNEHALL.md, kör copykontrollen, gå sedan igenom texten med mönstren nedan och
   röstprovet, och kör copykontrollen igen.
 
