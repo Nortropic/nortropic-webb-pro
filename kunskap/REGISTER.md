@@ -982,3 +982,36 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-02 · twbs/bootstrap · nej
+- Källa: https://github.com/twbs/bootstrap @ c1f9b9d (main, senaste push 2026-10-01), MIT (dokumentationen CC BY 3.0);
+  läste README, förgranskningen, fillistan för `scss/`, standardvärdena i `scss/_variables.scss` och de flaggade
+  ställena i `js/src/`. Såg exempelsidan getbootstrap.com/docs/5.3/examples/ med `sida.mjs`: mobilens första vy och
+  två av åtta skrollägen på desktop
+- Steg: 5 (koncept och bygge); möjligen mallen `mall/astro/`
+- Jämfört med i dag: vår mall har medvetet ingen design: `mall/astro/src/layouts/Bas.astro` rad 2–3 säger att all
+  design, typografi och struktur skrivs för just den verksamheten, och steg 5 härleder fyra riktningar ur verksamheten,
+  "aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md` rad 187–188). Bootstrap ger färdiga komponenter och
+  standardval: blå `$primary`, radie .375rem, systemtypsnitt [REPO scss/_variables.scss rad 301, 547, 606], och
+  exempelsidan säljer just de sektionsmallar (Headers, Heroes, Features, Jumbotrons) som byggena ska undvika [BILD
+  desktop-skroll-02.png, desktop-skroll-03.png]. Ägaren har dömt byggena 4–5 på "gjord för verksamheten" och pekat ut
+  just generiska mönster som det som luktar mall (`LARDOMAR.md` rad 29, 54, 78); de byggena väger 4–10 kB CSS och 0 kB
+  JS (rad 31, 56, 87). Sämre för oss
+- Skäl: Bootstrap är ett välskött och tillgängligt ramverk för appar och snabba MVP:er, men att bygga med det drar
+  sajten mot biblioteksstandard, som granskaren uttryckligen straffar under originalitet (`kritik/GRANSKARE.md` rad
+  79), och mot byggstandardens 3.1 (egna designtokens per verksamhet), 3.7 (CSS-budget) och 5.5 (ingen karusell; källan
+  levererar en, `scss/_carousel.scss`). Det krockar alltså med ett medvetet val, inte med en text vi bara råkar ha.
+  Taste-skillen vi läser i steg 5 rekommenderar Bootstrap för lokala småföretag [kunskap/externa/leonxlnx-taste-SKILL-
+  ce26fc25.md rad 97], men bygg-sajt läser medvetet bara dess principer, "inte dess stack eller skelett"
+  (`bygg-sajt/SKILL.md` rad 178); den raden står sig. Det enda som kunde vara värt något, komponenternas
+  tillgänglighetsbeteende (fokusfälla, Esc i meny), täcks redan av byggstandardens 5.1–5.2 och prövas av granskaren
+  utan beroendet. Källan säljer inget utöver sin README:s egna superlativ
+- Kostnad: inget tas in. Som beroende i varje bygge vore det hela ramverkets CSS och, för meny eller modal, dess JS med
+  Popper; källans text är cirka 261 000 tokens enligt förgranskningen
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text till agenter, inga skills, hookar eller behörigheter.
+  109 skript; flaggorna "eval/exec" gäller en hjälpfunktion som heter `execute` och anropar callbacks [REPO
+  js/src/util/index.js rad 225], "hemligheter/miljö" byggkonfiguration och komponenternas datanycklar. Inget kördes
+  eller installerades. Inget försök att styra kirurgen
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
