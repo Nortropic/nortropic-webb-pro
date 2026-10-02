@@ -2841,3 +2841,89 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   faller efter det, kan beskärning i stället för sammanfattning prövas som A/B, med Jev eller med egen regel, utan
   att underlaget lämnar maskinen
 - Backlog: ingen
+
+### 2026-10-03 · AI LABS, "Github #1 Trending Skill's Author Just Fixed Claude's Design Problem" (YouTube Ow_z94c3wKk) + Nutlope/inspo · prova A/B
+- Källa: https://www.youtube.com/watch?v=Ow_z94c3wKk @ publicerad 2026-09-18 (AI LABS, 12:35, 47 637 visningar,
+  autogenererat engelskt transkript, sponsrad av Manifold/Monid [TAL 06:05–06:58] och med länk till kanalens
+  betalgemenskap [TAL 12:02]). Läst och sett: hela tidslinjen och alla 41 bildrutor; ungefär tolv är inspelningar av
+  terminal, webbläsare eller GitHub, resten animerade illustrationer, sponsorklipp och en svart övergång [SKÄRM
+  09:28]. Repot i beskrivningen: Nutlope/inspo @ 647c3b1 (klon; senast pushat 2026-10-01T22:31Z), MIT med copyright
+  Together AI, 822 stjärnor, inte arkiverat. Förgranskat. Läst: README, `apps/mcp/README.md`, `SEEDING.md`,
+  `apps/mcp/src/tools.ts` rad 125–190, 1596–1665 och 1717–1747 (vägledningstexterna, recommend-svaret och
+  serverinstruktionerna), `packages/taxonomy/src/index.ts` rad 36–89 (branschlistan),
+  `apps/mcp/bench/results/2026-09-10-agent-usage.md` (författarnas egen mätning av 30 byggen), README:s med/utan-bilder
+  och tre av exempelsajternas förhandsbilder (`apps/web/public/examples/{camera-repair,chalkline-gym,city-library}/thumb.jpg`).
+  Sajten inspomcp.dev sedd i 390 och 1440 (första vyn och skrolläge 4). ui-skills.com, ailabspro.io, theroundup.so och
+  Monid öppnades inte. Ägarens not: ingen
+- Steg: 3 (referenserna, rollen hantverk), 5.1 (riktning) och 5.5 (JAMFORELSE.md); runt stegen: `kor.sh`
+  (anslutningar i bygget) och stilrapporten
+- Jämfört med i dag: (1) **Referensjakten.** Bygget söker själv (WebSearch, gallerier som sökingångar), öppnar varje
+  vald referens i 390 och 1440 och skriver REFERENSER.md (`.claude/skills/bygg-sajt/SKILL.md` rad 150–162;
+  `kunskap/referensjakt.md` rad 13–27, 29–32). Inspo är ett arkiv om 832 riktiga sajter och 2 320 fångade sidor,
+  varje sajt i desktop och mobil, taggad med bransch, sidform och ljust/mörkt, sökbart med en brief: `recommend`
+  ger fem exempel med samma sidform, ett bevispaket över de matchade sajterna och tre miniatyrer direkt i svaret
+  [REPO README rad 22–26; `apps/mcp/README.md` rad 16–17; TAL 04:39–05:13; SKÄRM 05:13]. För hantverksrollen
+  (komposition, typografi, mobilversion av samma sida) är det smartare än vår jakt: färre steg och mobilparet finns
+  redan. För branschrollen är det sämre: branschlistan har 24 värden och ingen för hantverkare, lokala tjänster eller
+  bygg [REPO `packages/taxonomy/src/index.ts` rad 36–61]; arkivets första sida är SaaS, startups och byråer [BILD
+  inspomcp desktop-forsta]; de referenser ägaren saknade i L1–L3 var svenska hantverkarkvitton, en tidsaxel på mobil
+  och resultat med få bilder (`LARDOMAR.md` rad 37, 62, 86), som inget här täcker. Videon visar själv två felträffar på
+  bransch [TAL 11:10–11:35; SKÄRM 11:17] och fångster täckta av kakrutor [TAL 11:35–11:59]. (2) **DESIGN.md per sajt**
+  med palett, typsnitt, typskala och avstånd ur DOM:en [TAL 03:50–04:19; SKÄRM 04:01, 04:19]. Vår `kontroller/sida.mjs`
+  och inspektionen beräknar samma designfakta för varje sida vi öppnar (SIDA.md: typsnitt, storlekar, färger). Lika.
+  Det `recommend` också ger, `paletteSuggestion` och färdiga JSX-komponenter via `get_reference_jsx` [REPO
+  `tools.ts` rad 1644–1645; README rad 23], krockar med "Kopiera aldrig layout, palett eller typsnitt" (bygg-sajt rad
+  252) och tas inte med. (3) **Mätta kompositionsregler.** Avstånd mellan sektioner 80–160 px, medianens största steg
+  96 px, mätt över 671 sajter, och en första vy som ryms i 1280×800 [REPO `tools.ts` rad 132–151]. Vi: stilrapporten
+  mäter att nästa sektion skymtar (`kontroller/stil.mjs` rad 69, 207) och två vilande poster om rytmen (impeccables
+  "enformig luft", B-20261002-stilrapporten-mater-fem-renderade-monster-ur-imp; Every Layout,
+  B-20261002-skriv-tre-layoutregler-i-bygge-referens-md-layou). Inspos tal är belagda och kan bli trösklarna i den
+  första posten; regeln om första vyn är skriven för desktop, medan vår första vy är 390 px (bygg-sajt rad 221–224).
+  (4) **Mekaniken.** En MCP-server i byggsessionen. `kor.sh` rad 61–62 kör `--strict-mcp-config` utan `--mcp-config`
+  just för att inga anslutningar ska laddas i ett bygge: ett medvetet val som en A/B-arm måste göra ett uttryckligt
+  undantag från. Den hostade ändpunkten kräver ingen nyckel och inget konto, är läsande, har hastighetsgräns per IP
+  och hämtar bara källsidor server-side med SSRF-skydd [REPO `apps/mcp/README.md` rad 206–211]; ingen kod behöver
+  köras lokalt. Serverinstruktionerna läses in i varje session som har den ansluten [REPO `tools.ts` rad
+  1717–1747]. Kontextkostnad enligt författarnas egen mätning: 10,8 anrop och omkring 37 000 tokens svar per bygge
+  före bantningen, uppskattat 12 000–14 000 efter; ett `recommend` med miniatyrer omkring 41 KB [REPO
+  `bench/results/2026-09-10-agent-usage.md` rad 11–16, 97–99; `apps/mcp/README.md` rad 145–147]
+- Skäl: det här är den första källan sedan nystarten som för in en metod vi saknar snarare än en regel vi redan har:
+  en kuraterad samling riktiga sajter med mobil och desktop parvis, sökbar med briefen, och normer mätta ur arkivet i
+  stället för ur tycke. Teorin bakom våra referenser är jämförelse med öppnade exempel i jämförbara vyer
+  (`kunskap/referenser-professionella.md` rad 40–45), och det är precis det arkivet gör billigare. Det är gratis,
+  MIT och läsande. Mot det står tre saker som bara ett bygge kan väga: arkivet är inte vår marknad; agentens egna
+  exempelsajter, byggda av Fable 5.1 med Inspo som enda verktyg [REPO bench rad 3–6], delar ett och samma mönster i
+  första vyn, märkesrad över rubriken, ett färgat eller kursivt ord i h1, stycke, två knappar, tre siffror med etikett,
+  bild till höger [BILD camera-repair, chalkline-gym, city-library thumb.jpg], alltså ett eget fingeravtryck av det
+  slag ägaren kallade mall i L1–L3; och README:s med/utan-par visar två varianter av samma delade första vy [BILD
+  docs/img/with-inspo.jpg, without-inspo.jpg]. Videons resultat FORMWORK är kompetent, delad första vy, monoetiketter,
+  nedräkning, och fungerar i 402 px [SKÄRM 10:04, 10:19, 10:59], men det är en fiktiv butik med nio platshållarfoton
+  som agenten själv tonade ihop för att de hade "fem olika färgtemperaturer" [SKÄRM 09:10, 09:46]; beviset för "ser
+  inte genererad ut" är berättarens omdöme [TAL 09:14–09:28]. Källkritik: sponsor och betalgemenskap; videons
+  berättare säger att Inspo är gjort av Hallmarks upphovsperson [TAL 00:00–00:31], vilket stämmer med repots ägare,
+  och att andra sådana verktyg kostar [TAL 00:31]. Videon innehåller inga instruktioner riktade till agenter; repots
+  serverinstruktioner är riktade till agenter per konstruktion och säger bland annat att projektets egna konventioner
+  vinner vid konflikt [REPO `tools.ts` rad 1731–1732]
+- Kostnad: hostad ändpunkt, inget installerat; i A-armen 12 000–41 000 tokens per bygge i verktygssvar enligt
+  källans egen mätning, plus miniatyrerna i kontexten; underhåll: en JSON-fil och ett stycke i skillen; beroende av
+  en tredje parts drift under bygget (faller tjänsten är armen bara ett vanligt bygge)
+- Säkerhet: förgranskningen MEDEL, inga dolda tecken, ingen text riktad till agenter i md-filerna, inga behörigheter i
+  frontmatter, inga hookar. 163 skript: eval/exec i `apps/mcp/src/tools.ts`, `install.ts`, `smoke.ts` och
+  `format.ts`; nätanrop i `format.ts` och `inline-images.ts`; `install.ts` skriver utanför repot (det är
+  installationskommandot, som vi inte använder); rör-till-skal i exempelsajten
+  `apps/web/public/examples/ferrite-terminal/page.html`, inte i servern. Inget kördes eller installerades; den
+  hostade ändpunkten anropades inte
+- Förslag: A/B på samma verksamhet. **A-armen:** `kor.sh` rad 62 får, när miljövariabeln `NWP_MCP_CONFIG` är satt,
+  `--mcp-config "$NWP_MCP_CONFIG"` bredvid `--strict-mcp-config`; filen `kontroller/mcp/inspo.json` pekar på den
+  hostade ändpunkten `https://inspomcp.dev/api/mcp` (HTTP-transport, ingen npx, ingen lokal kod). I
+  `.claude/skills/bygg-sajt/SKILL.md` steg 3, efter rad 153 ("Öppna varje vald referens på riktigt"), ett stycke:
+  är Inspo anslutet används `recommend`, `search_screens` och `get_screen` för hantverksrollen och mobilparen som
+  sökingång; varje vald referens öppnas ändå på riktigt med inspektera.mjs och skrivs i REFERENSER.md med källa
+  "Inspo"; `get_reference_jsx`, `paletteSuggestion` och `heroGuidance` används aldrig (bygg-sajt rad 252 och
+  mobilen först gäller). **B-armen:** som i dag. Två körningar per arm på samma verksamhet, blind parvis jämförelse i
+  dashboarden med ombytt ordning, en annan modell än byggaren som domare, oenighet räknas som oavgjort; bredvid
+  kvaliteten redovisas tokens och minuter ur `korning-*.jsonl` och antalet Inspo-anrop. Avgörs av ägarens val och
+  JAMFORELSE.md under 1 och 4. Eget förslag ur källan utan egen post: de mätta talen (80–160 px mellan sektioner,
+  median 96) blir trösklarna i den vilande impeccable-posten när den genomförs
+- Utfall: —
+- Backlog: B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for
