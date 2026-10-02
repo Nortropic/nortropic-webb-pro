@@ -1986,3 +1986,75 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget för Hugo. Egen innovation: fotodatum med källa per bild i steg 1 (se backlog)
 - Utfall: —
 - Backlog: B-20261002-bilder-md-anger-nar-varje-egen-bild-togs-ur-exif (egen innovation)
+
+### 2026-10-02 · unclecode/crawl4ai · nej
+- Källa: https://github.com/unclecode/crawl4ai @ e5d2e78 (ur klonens `.git/shallow`; senaste push 2026-09-25T06:37Z),
+  Apache-2.0, men README:n kräver därutöver en attributionsbadge eller textrad [REPO README.md rad 376–377]; version
+  0.9.4 (23 sep 2026), cirka 84 600 stjärnor, inte arkiverat; 836 textfiler, cirka 1 020 000 tokens text. Inte bedömd
+  förut. Förgranskat. Läst: README i helhet, `README-first.md` (den äldre README:n), `MISSION.md`, `pyproject.toml`,
+  `SECURITY.md` rad 140–169, `.claude/commands/c4ai-check.md` och `.claude/settings.local.json`; i dokumentationen
+  `advanced/lazy-loading.md`, `core/link-media.md`, `core/fit-markdown.md` i helhet och `core/url-seeding.md` rad
+  1–120; i koden `js_snippet/remove_consent_popups.js` rad 1–319, `js_snippet/update_image_dimensions.js`,
+  `content_scraping_strategy.py` rad 410–480, standardvärdena för robots och stealth i `async_configs.py`, och
+  `deploy/docker/job.py` rad 1–80. Bild: missionsdiagrammet [BILD docs/assets/pitch-dark.png]. Ingen demosajt;
+  README:ns banner länkar till molntjänsten. Ägarens not: ingen
+- Steg: 1 (hämta det publika, bilderna) och 2 (diagnos); inget annat
+- Jämfört med i dag: Crawl4ai hämtar sidor i en Playwright-webbläsare och ger markdown, "fit markdown" som rensar
+  menyer och sidfötter med textdensitet eller BM25 [REPO docs/md_v2/core/fit-markdown.md rad 37–38], djupkrypning
+  BFS/DFS/best-first, adressupptäckt ur sidkarta och Common Crawl, LLM-extraktion via en egen litellm-fork,
+  stealth-läge och "undetected browser", proxyer, en Docker-server med REST och MCP, och ett betalt moln [REPO
+  README.md rad 24, 72–77, 106–175]. Hos oss gör `kontroller/hamta_sajt.py` (byggt 2026-10-02 ur Firecrawl-posten
+  ovan) steg 1: bara GET, samma domän, högst 40 sidor, robots.txt enligt RFC 9309 (`hamta_sajt.py:4–9`), adresser ur
+  sidkarta och interna länkar (`:221–256, 356–365`), bilder inklusive data-src, srcset, picture, CSS-bakgrunder och
+  og:image (`:139–153, 339–350`), JSON-LD och kontaktvägar, och det körde sundbomsel.se till 40 sidor med alla 15
+  handlistade (posten om Firecrawl, raden Utfall). Diagnosen i steg 2 mäter med axe, Lighthouse och inspektionen i
+  390 och 1440 px (`.claude/skills/bygg-sajt/SKILL.md:99–101`); crawl4ai har inget av det. Sak mot sak: (1)
+  **webbläsare mot GET.** Crawl4ai ser text och bilder som bara finns efter JavaScript eller skroll [REPO
+  docs/md_v2/advanced/lazy-loading.md rad 3–7]; vårt verktyg läser HTML:en som servern skickar. Våra kunders sajter
+  är WordPress med Divi eller Elementor (`underlag/sundboms-el/RESEARCH.md:107`, `underlag/lulea-snickaren-abx/RESEARCH.md:6–7`,
+  `underlag/paint-it-black-maleri/RESEARCH.md:20`), som renderas på servern, och ingen av ägarens tre domar saknar
+  något ur underlaget (`LARDOMAR.md` L1–L3). Behövs en webbläsare har kirurgen `kontroller/sida.mjs` och bygget
+  `inspektera.mjs`. Lika för våra sajter. (2) **robots och artighet.** Crawl4ai läser robots.txt bara om man ber om
+  det, standard av [REPO crawl4ai/async_configs.py rad 1681, 1808], och erbjuder stealth [rad 941]; vårt verktyg
+  respekterar robots alltid och väntar mellan anropen. Vårt är bättre för det vi gör: vi läser en blivande kunds
+  sajt, inte en motståndares. (3) **Kakrutor.** Crawl4ais skript klickar "acceptera alla" i ett långt register av
+  kända samtyckesverktyg, med textfallback och CMP-API:er [REPO crawl4ai/js_snippet/remove_consent_popups.js rad 10–11,
+  14–165, 198–230, 304–318]; vår `sida.mjs` väljer "neka" före "acceptera" (`kontroller/sida.mjs:4, 33`). Vårt är
+  rätt för oss: ingen ska samtycka till spårning i någon annans namn. Listan över selektorer är dock bredare än vårt
+  textmönster. (4) **Bilder.** Crawl4ai sållar bort ikoner, logotyper och knappbilder på förälderns class och adressen
+  och poängsätter resten på width/height över 150, alt, srcset och picture innan de räknas [REPO
+  crawl4ai/content_scraping_strategy.py rad 428–466]; vår SIDOR.md listar alla bildadresser platt och ber bygget
+  sortera själv (`hamta_sajt.py:390–395`). Smartare hos källan, och den enda metoden värd att låna (egen innovation,
+  backlog). Mot litteraturen: steg 1 är innehållsinventeringen (Halvorson & Rach 2012,
+  `kunskap/teoretisk-grund.md:29–31`); båda gör den, och för tio till fyrtio serverrenderade sidor gör vårt
+  430-raders verktyg utan beroenden samma inventering
+- Skäl: Crawl4ai är byggt för RAG, agenter och datapipelines i stor skala [REPO README.md rad 24] och löser, som
+  Firecrawl (dömd nej, ägaren höll med, `kunskap/KIRURG-OMDOMEN.md:80–83`) och browser-use (nej, `:155–158`), problem
+  vi inte har: robotväggar, proxyer, tusentals adresser, LLM-extraktion ur sidor. Att ta in det är 34
+  körtidsberoenden, däribland en litellm-fork, patchright, playwright-stealth, numpy, nltk och shapely [REPO
+  pyproject.toml rad 15–50], ett installationsskript för webbläsaren och en Docker-server som i juni 2026 hade
+  förautentiserad fjärrkörning, hårdkodad JWT-hemlighet och SSRF som kritiska fynd [REPO SECURITY.md rad 162–168].
+  Det krockar med två medvetna val: kod ur källor körs inte, och vi hämtar som en artig besökare (robots alltid,
+  inga stealth-lägen, "neka" före "acceptera"). Det vi saknar i sajtkvalitet, enligt ägarens domar, är bilder,
+  telefontid och formulär från verksamheten (`LARDOMAR.md:63, 87`), inte fler hämtade sidor. Källkritik: README:n
+  säljer molnet i banner, badge och en rad som ber agenten lägga till deras MCP-server i Claude Code [REPO README.md
+  rad 15–20, 51–68]; `MISSION.md` handlar om "data capitalization" och en datamarknad [REPO MISSION.md rad 5–33],
+  långt från en hantverkares sajt. Källan innehåller text till agenter: `.claude/commands/c4ai-check.md` är ett
+  testflöde för bidragsgivare (skriv provfall, kör pytest, radera filen) [REPO .claude/commands/c4ai-check.md rad
+  9–89], "You are an AI" i `llms-full.txt` är promptexempel i dokumentationen; inget riktade sig till kirurgen och
+  inget följdes. Två av de tre dolda tecknen är nollbreddsmellanslag mitt i ordet "LLM" i en docstring och en
+  kommentar [REPO deploy/docker/job.py rad 2, 67], utan instruktion men utan rimligt skäl; det tredje är en
+  emojisammanfogare i sponsorrubriken [REPO README.md rad 494]
+- Kostnad: inget tas in. Som verktyg vore det 34 beroenden, en webbläsarinstallation och ett setup-skript, eller en
+  Docker-tjänst att hålla patchad; källans text är cirka 1 020 000 tokens enligt förgranskningen. Förslaget i
+  backloggen är en kolumn i `hamta_sajt.py` och två rader i steg 1
+- Säkerhet: förgranskningen HÖG: tre dolda tecken (se ovan), 22 ställen med text till agenter (promptexempel i
+  `llms-full.txt` och `extraction-*.txt`, "run the following command" i installationsdokumentation, "exfiltrat" i
+  säkerhetsnoter, "Execute this" i webbläsartilläggets kodgenerator), och 547 skript med nätanrop, eval och
+  miljövariabler, väntat för en crawler med LLM-anrop och server. `.claude/settings.local.json` ger breda
+  Bash-tillstånd (rm, curl, chmod, docker) för författarens egen maskin [REPO .claude/settings.local.json rad 4–24];
+  inga hookar, inga MCP-servrar, ingen SKILL.md. Inget kördes eller installerades
+- Förslag: inget för crawl4ai. Egen innovation: SIDOR.md sorterar bildlistan med källans billiga regler, foton först
+  (se backlog)
+- Utfall: —
+- Backlog: B-20261002-sidor-md-sorterar-bildlistan-troliga-foton-forst (egen innovation)
