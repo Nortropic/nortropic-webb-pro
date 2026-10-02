@@ -1,12 +1,13 @@
 ---
 id: B-20261002-gatuadressen-visas-nar-verksamheten-sjalv-visar
-status: pagar
+status: klar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 1 och 6
-andrad: 2026-10-02T16:56Z
+commit: b79ae56
+andrad: 2026-10-02T17:09Z
 ---
 # Gatuadressen visas när verksamheten själv visar den: i sidfoten, på kontaktsidan och i JSON-LD
 
@@ -15,3 +16,5 @@ andrad: 2026-10-02T16:56Z
 **Förslag:** Villkor i bygg-sajt steg 1 punkt 3 och kunskap/research-underlag.md: publik=true när verksamheten själv visar gatuadressen (egen sajt, Google-profil, annons); false bara när den enbart finns i register. Standarden (7.4) med --verksamhet: när publik=true ska gatan stå i sidfoten på varje sida, på kontaktsidan och som streetAddress i JSON-LD.
 
 **Klart när:** standard_kontroll fäller en sajt där den publika adressen saknas i sidfot, på kontaktsida eller i JSON-LD; rökprovet prövar det
+
+**Klar (2026-10-02):** villkor för adress.publik i steg 1; standard 7.4 prövar sidfot, kontaktsida och JSON-LD (klass: ska bero på läget)

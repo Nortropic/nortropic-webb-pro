@@ -1,12 +1,13 @@
 ---
 id: B-20261002-prefers-reduced-motion-i-mallen-och-standarden-3
-status: pagar
+status: klar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 5
-andrad: 2026-10-02T16:54Z
+commit: b79ae56
+andrad: 2026-10-02T17:09Z
 ---
 # prefers-reduced-motion i mallen, och standarden 3.5 gäller också övergångar
 
@@ -15,3 +16,5 @@ andrad: 2026-10-02T16:54Z
 **Förslag:** Mallens Bas.astro får ett globalt @media (prefers-reduced-motion: reduce)-block som stänger av övergångar, animationer och mjuk skroll. standard_kontroll 3.5 räknar också transition och animation.
 
 **Klart när:** Mallen har blocket; standarden fäller transition utan reduced-motion; rökprovet grönt
+
+**Klar (2026-10-02):** mallen dämpar rörelse; 3.5 räknar transition och inline-CSS. B hade ingen rörelse alls och bröt alltså inte mot 3.5

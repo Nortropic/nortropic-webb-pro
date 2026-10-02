@@ -1,12 +1,13 @@
 ---
 id: B-20261002-omdomen-anges-med-tjansten-dar-de-ar-skrivna-en
-status: pagar
+status: klar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 1 och 4
-andrad: 2026-10-02T17:00Z
+commit: b79ae56
+andrad: 2026-10-02T17:09Z
 ---
 # Omdömen anges med tjänsten där de är skrivna, en plattform per mening, med länk dit besökaren kan läsa dem
 
@@ -15,3 +16,5 @@ andrad: 2026-10-02T17:00Z
 **Förslag:** bygg-sajt steg 1 punkt 4: RESEARCH.md anger vilken tjänst som tillhandahåller omdömena (källan, inte katalogen som visar dem) med belägg ur den hämtade sidan. Steg 4: omdömen ordagrant med namnet som det står, plattform och månad; avkortningar synliga med …; en plattform per mening och en länk dit besökaren kan läsa dem.
 
 **Klart när:** Skillens steg 1 och 4 säger det
+
+**Klar (2026-10-02):** steg 1 och 4; kontrollerat: Luleå-Snickarens omdömen är Reco-omdömen som Hitta och Hantverkskollen visar vidare

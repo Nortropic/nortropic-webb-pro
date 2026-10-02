@@ -1,12 +1,13 @@
 ---
 id: B-20261002-copykontrollen-faller-intern-information-i-sajte
-status: pagar
+status: klar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 4
-andrad: 2026-10-02T16:53Z
+commit: b79ae56
+andrad: 2026-10-02T17:09Z
 ---
 # Copykontrollen fäller intern information i sajtens text: hänvisningar till den gamla sajten och till bygget
 
@@ -15,3 +16,5 @@ andrad: 2026-10-02T16:53Z
 **Förslag:** copy_kontroll: fynd 'intern information' för fraser som gamla sajten/hemsidan/webbplatsen, vår tidigare hemsida, nya sajten; riktning: skriv vad bilden eller texten säger besökaren. En rad i kunskap/copy-kontroll.md.
 
 **Klart när:** Copykontrollen ger fynd på 'från vår gamla sajt'; rökprovet prövar det
+
+**Klar (2026-10-02):** typen intern information i copy_kontroll och copy-kontroll.md

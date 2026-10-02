@@ -1,12 +1,13 @@
 ---
 id: B-20261002-undersidor-under-en-oversikt-far-brodsmulor-och
-status: pagar
+status: klar
 kalla: dom
 kallref: LARDOMAR.md · AB · 2026-10-02
 skapad: 2026-10-02
 prio: hog
 steg: 5 och 6
-andrad: 2026-10-02T16:57Z
+commit: b79ae56
+andrad: 2026-10-02T17:09Z
 ---
 # Undersidor under en översikt får brödsmulor och BreadcrumbList, och standarden prövar det
 
@@ -15,3 +16,5 @@ andrad: 2026-10-02T16:57Z
 **Förslag:** standard_kontroll: varje sida två nivåer ned (till exempel /tjanster/tillbyggnad/) har en synlig brödsmulenavigering med länk till föräldern och BreadcrumbList i JSON-LD; annars fel 7.3. En rad i bygg-sajt steg 5.3.
 
 **Klart när:** Standarden fäller en undersida utan brödsmulor; rökprovet prövar det
+
+**Klar (2026-10-02):** mallens Brodsmulor.astro; standard 7.3 på varje indexerbar undersida; steg 5.3
