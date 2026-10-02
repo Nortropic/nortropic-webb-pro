@@ -19,6 +19,7 @@ import struct
 import subprocess
 import tempfile
 import sys
+from html import unescape as avkoda_html
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
@@ -406,6 +407,14 @@ def granska(dist):
             F('7.2', '/404.html', '404-sidan saknar <meta name="robots" content="noindex">')
         if any('canonical' in a.get('rel', '').lower().split() for t, a, *_ in p404.el if t == 'link'):
             F('7.2', '/404.html', '404-sidan har canonical; ta bort den (404-sidan ska inte indexeras)')
+    # 9.4 mening som löper ihop med nästa utan mellanslag ("förfrågan.Så", L1: ").Läs"), också över inline-element
+    for f in sidor:
+        raw = re.sub(r'<(script|style|head)\b.*?</\1>', ' ', f.read_text(encoding='utf-8', errors='replace'), flags=re.S | re.I)
+        raw = re.sub(r'</?(a|span|strong|em|b|i|small|abbr|time|mark|cite|q|sup|sub|bdi|data)\b[^>]*>', '', raw, flags=re.I)
+        text = avkoda_html(re.sub(r'<[^>]+>', '\n', raw))
+        for m in re.finditer(r'[a-zåäöé)\]]\.[A-ZÅÄÖ][a-zåäö]', text):
+            F('9.4', sida_av(dist, f), 'mellanslag saknas efter punkt: "%s"' % text[max(0, m.start() - 15):m.end() + 12].replace('\n', ' ').strip())
+            break
     # 7.3 brödsmulor på varje indexerbar undersida: synlig navigering och BreadcrumbList (ägarens A/B-omdöme 2026-10-02)
     for f, p in sidobjekt.items():
         sida = sida_av(dist, f)

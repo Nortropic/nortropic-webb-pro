@@ -35,7 +35,12 @@ LANG = re.compile(r'<html\b[^>]*\blang=["\']([^"\']+)["\']', re.I)
 
 
 def attrs(tag):
-    return {k.lower(): htmlmod.unescape(v) for k, v in ATTR.findall(tag)}
+    a = {k.lower(): htmlmod.unescape(v) for k, v in ATTR.findall(tag)}
+    # attribut utan värde (<img alt src=…>, som Astro skriver för alt=""): tom alt är giltig för dekor
+    utan_varden = re.sub(r'=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)', '', tag)
+    for k in re.findall(r'\s([a-zA-Z][a-zA-Z0-9-]*)', utan_varden):
+        a.setdefault(k.lower(), '')
+    return a
 
 
 def sidor(bygge):

@@ -138,6 +138,19 @@ assert any(f['typ'] == 'intern information' for f in ck.kontrollera_fil(pathlib.
 " || { echo "FEL: kontrollerna ur ägarens A/B-omdöme"; exit 1; }
 echo "   A/B-omdömets kontroller ok"
 
+echo "   byggposter: tom alt, mellanslag efter punkt, filfältets knapp"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, shutil, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import seo_kontroll as seo, standard_kontroll as sk
+assert seo.attrs('<img alt src=\"/a.webp\">').get('alt') == '' and 'alt' not in seo.attrs('<img src=\"/a b.webp\">')
+kontakt = pathlib.Path('$S/dist/kontakt/index.html').read_text()
+assert 'förfrågan. <a' in kontakt and 'Välj bild' in kontakt, 'mallens förfrågan: mellanslag eller filknapp saknas'
+d = pathlib.Path(tempfile.mkdtemp()) / 'dist'; shutil.copytree('$S/dist', d)
+(d / 'om' / 'index.html').write_text((d / 'om' / 'index.html').read_text().replace('<h1>Om provet</h1>', '<h1>Om provet</h1><p>Läst i oktober.<a href=\"/\">Läs</a> mer.</p>'))
+assert [f for f in sk.granska(d)[0] if f['punkt'] == '9.4' and f['sida'] == '/om/']
+" || { echo "FEL: byggposternas kontroller"; exit 1; }
+echo "   byggposterna ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"

@@ -29,9 +29,12 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
     <label for="ff-meddelande">{fraga}</label>
     <textarea id="ff-meddelande" name="meddelande" rows="5" required maxlength="4000"></textarea>
   </p>
-  <p>
+  <p class="ff-fil">
+    <!-- Egen knapp i stället för webbläsarens "Choose File / No file chosen"; etiketten öppnar väljaren även utan JS. -->
     <label for="ff-bild">Bild på jobbet (valfritt)</label>
-    <input id="ff-bild" name="bild" type="file" accept="image/*" />
+    <input id="ff-bild" class="ff-filfalt" name="bild" type="file" accept="image/*" aria-describedby="ff-filnamn" />
+    <label for="ff-bild" class="ff-filknapp">Välj bild</label>
+    <span id="ff-filnamn" class="ff-filnamn">Ingen bild vald</span>
   </p>
   <p class="ff-falla" aria-hidden="true">
     <label for="ff-webbplats">Lämna fältet tomt</label>
@@ -39,8 +42,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   </p>
   <input type="hidden" name="fylltid" value="" />
   <p class="ff-integritet">
-    <slot name="integritet">Vi använder uppgifterna bara för att svara på din förfrågan.
-    <a href="/integritet/">Så hanterar vi personuppgifter</a>.</slot>
+    <slot name="integritet">Vi använder uppgifterna bara för att svara på din förfrågan.{' '}<a href="/integritet/">Så hanterar vi personuppgifter</a>.</slot>
   </p>
   <button type="submit">{knapp}</button>
 </form>
@@ -50,6 +52,9 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   // (kunskap/formularsakerhet.md, princip b). Utan JavaScript står fältet tomt och mottagaren godtar inskicket.
   const start = performance.now();
   for (const f of document.querySelectorAll<HTMLFormElement>('form.forfragan')) {
+    const fil = f.querySelector<HTMLInputElement>('input[type="file"]');
+    const namn = f.querySelector<HTMLElement>('.ff-filnamn');
+    fil?.addEventListener('change', () => { if (namn) namn.textContent = fil.files?.[0]?.name || 'Ingen bild vald'; });
     f.addEventListener('submit', () => {
       const tid = f.querySelector<HTMLInputElement>('input[name="fylltid"]');
       if (tid) tid.value = String(Math.round(performance.now() - start));
@@ -63,4 +68,9 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   .ff-falla { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
   .ff-saknas { display: none; }
   .ff-saknas:target { display: block; }
+  /* Filfältet: knappen är etiketten; själva fältet är osynligt men fokuserbart, och fokus syns på knappen. */
+  .ff-filfalt { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+  .ff-filknapp { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; border: 1px solid currentColor; cursor: pointer; }
+  .ff-filfalt:focus-visible + .ff-filknapp { outline: 3px solid currentColor; outline-offset: 2px; }
+  .ff-filnamn { margin-left: 0.75rem; }
 </style>

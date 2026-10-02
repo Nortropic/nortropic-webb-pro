@@ -1,11 +1,12 @@
 ---
 id: B-20261002-seo-kontroll-raknar-tom-alt-img-alt-som-astro-sk
-status: vilande
+status: pagar
 kalla: bygge
 kallref: kunder/lulea-snickaren-aby/RAPPORT.md
 skapad: 2026-10-02
 prio: normal
 steg: 6
+andrad: 2026-10-02T17:09Z
 ---
 # seo_kontroll räknar tom alt (<img alt>, som Astro skriver för alt="") som saknad alt
 

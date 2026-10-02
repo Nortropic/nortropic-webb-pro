@@ -21,3 +21,10 @@ const ld = {
   </ol>
 </nav>
 <script is:inline type="application/ld+json" set:html={JSON.stringify(ld)} />
+
+<style>
+  /* Neutral grund som bygget skriver över: en rad med ›, ingen numrering, klickytor minst 24 px (byggstandarden 3.3). */
+  .brodsmulor ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; }
+  .brodsmulor li + li::before { content: '›'; margin-right: 0.5rem; }
+  .brodsmulor a, .brodsmulor span { display: inline-block; min-height: 24px; line-height: 24px; }
+</style>
