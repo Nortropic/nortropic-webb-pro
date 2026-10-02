@@ -2609,3 +2609,70 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   JavaScript och webbläsarens egna utan. POST utan JS påverkas inte
 - Utfall: —
 - Backlog: B-20261002-mallens-formular-ger-svenska-felmeddelanden-vid (egen innovation; domen om källan är nej)
+
+### 2026-10-02 · AI LABS, "He Finally 10x Claude Code With This Method" (YouTube qLfSDQ5NGh0) · ta in
+- Källa: https://www.youtube.com/watch?v=qLfSDQ5NGh0 @ publicerad 2026-10-02, 12:51, kanalen AI LABS, 13 701
+  visningar; YouTubes standardlicens. Läst hela det autogenererade transkriptet och alla 41 bildrutor. Länkarna i
+  beskrivningen är kanalens betalgemenskap (ailabspro.io), sponsorn Upstash och ett nyhetsbrev; skillarna som visas
+  finns bara i betalgemenskapen [TAL 12:11; BESKRIVNING], så inget repo fanns att läsa. Rörelse spelar ingen roll i
+  videon: bildrutorna är stillbilder av terminaler, filer och diagram. Ägarens not: ingen
+- Steg: 5 och 6 (granskningsloopen), 8 (ägarens dom och vad som lärs mellan byggen); arbetssättet runt dem
+  (stoppvakten, `kontroller/gruppera.py`, backloggen)
+- Jämfört med i dag: videon beskriver två slingor. **Slinga ett** är Karpathys: agenten ändrar en fil, en låst fil
+  sätter poäng, en instruktionsfil styr varje omgång, och en ändring behålls bara om poängen stiger [TAL 01:04–01:38;
+  SKÄRM 01:18 låst poängfil med poäng; SKÄRM 01:37 instruktionsfil]. Kanalens egen version: en skill skriver
+  kontrollerna före bygget, människan godkänner dem [SKÄRM 05:20 "the human approves the checks"], ett program
+  flyttar dem till en låst mapp som en nekaregel i Claude Codes inställningar skyddar [SKÄRM 05:57], de committas, och
+  en färsk byggagent per funktion bygger tills kontrollerna passerar [SKÄRM 06:16, kontext 58 %]. Sak mot sak: (1)
+  Låsta kontroller har vi starkare: `kor.sh` nekar Edit och Write i `kontroller/`, `kritik/`, `kunskap/`, `mall/`,
+  `.claude/` och `LARDOMAR.md` (rad 55–57) och jämför dessutom filerna före och efter körningen, eftersom Bash kan gå
+  förbi Edit-reglerna (rad 72–74, 81–86); videons skydd är bara nekaregeln, och körningen sker med alla behörigheter
+  avstängda [SKÄRM 07:30]. (2) Kontroller före bygget: våra EARS-krav i briefen som granskaren prövar
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 130–132), provets grindar och byggstandarden; videons kontroller godkänns
+  av en människa före bygget, vilket krockar med att våra byggen körs utan människa (rad 20). Lika i sak, olika av
+  medvetet val. (3) Behåll bara det som blev bättre: `granska.py --jamfor` jämför bästa mot sista omgången och
+  GRANSKNINGSLOGG.md är vår resultatfil per omgång (rad 263–268; `underlag/lulea-snickaren-aby/GRANSKNINGSLOGG.md`
+  rad 5–8), mot videons resultatfil med behållen/ångrad, försök och kvarvarande fel per omgång [SKÄRM 09:40]. Lika.
+  (4) Stoppvakten är vår slinga ett i mekanik: provet och granskningen körs av kroken själv tills de är gröna
+  (`.claude/hooks/stoppvakt.py` rad 2–8). Lika eller starkare. **Slinga två** är videons egen idé: en färsk agent per
+  funktion gör samma fel i varje funktion, eftersom instruktionerna är desamma [TAL 08:38–09:03]; därför läser en
+  andra skill resultatfilen efter varje funktion, letar vanor som återkommer, och skriver om avsnittet "How to work"
+  i instruktionsfilen, utan att få röra kontrollerna [TAL 09:03–09:40; SKÄRM 06:34 avsnittet "the coach rewrites this
+  section"; SKÄRM 11:13 vana ur två funktioner blir version 2 av instruktionerna]. Hos oss är den slingan delad i två:
+  ägaren dömer och domen blir en textändring (`LARDOMAR.md` rad 3–6; `bygg-sajt/SKILL.md` rad 363–367), och
+  `kontroller/gruppera.py` grupperar efter var femte dom ägarens domar och granskarens blockerande fynd i kategorier
+  och lägger den största som vilande backlogpost (`gruppera.py` rad 2–9, 50–60; `dashboard/server.py` rad 492).
+  Skillnaden i sak: gruppera.py läser bara slutfilen `kunder/<slug>/granskning/GRANSKNING.json` (rad 43), alltså
+  fynden som stod kvar när bygget godkändes. Det som granskaren fällde i omgång ett och bygget rättade syns aldrig,
+  fast det är precis videons "vana": samma fel i varje bygge, rättat varje gång, aldrig i instruktionerna. Byggena
+  visar mönstret: lulea-snickaren-abx fälldes i omgång ett för ett egenritat märke i stället för verksamhetens logga
+  (`underlag/lulea-snickaren-abx/GRANSKNINGSLOGG.md` rad 5) och skillen själv konstaterar att tre byggen skrev var
+  sitt Lighthouse-skript innan någon såg mönstret (`bygg-sajt/SKILL.md` rad 348–349). Omgångarna finns sparade med
+  blockerande fynd i `kunder/*/granskning/runda-NN/GRANSKNING.json` (14 filer i dag). Här är videon smartare.
+  Videons automatiska omskrivning av instruktionerna tar vi inte: ägaren har beslutat "Ingen agent som arbetar
+  obevakat på systemet" (`BESLUT.md` rad 82), och vår form för det är backlogposten som ägaren släpper. (5) Färsk
+  agent per funktion med liten kontext [SKÄRM 06:16]: vi kör en session per bygge med subagenter bara för
+  femsekunders- och rubriktestet (`bygg-sajt/SKILL.md` rad 289–298); en sajt är ett sammanhängande stycke, inte en
+  lista funktioner, och kontextdjupet mäts redan i en vilande post (B-20261002-mat-kontextdjupet-per-bygge). Inte
+  bättre för oss. Litteraturen: build–measure–learn (Ries 2011) är vårt steg 8 (`kunskap/teoretisk-grund.md` rad 21,
+  42); videons slinga två är samma princip körd mot varje omgång i stället för mot slutresultatet
+- Skäl: det mesta i videon har vi redan som mekanik, ofta starkare (låsta kontroller med hashjämförelse, stoppvakt,
+  bästa mot sista). Det som är nytt för oss är en liten sak med stor hävstång: vanor syns i omgångarna, inte i
+  slutresultatet. Vår gruppering läser bara slutresultatet och missar därför just de fel som varje bygge gör och
+  rättar om igen. Att låta gruppera.py läsa varje sparad omgång är en ändring i en funktion, ingen ny mekanik, och
+  gör ägarens arbete mindre: mönstret kommer som en backlogpost i stället för att ägaren ska se det själv över fem
+  domar. Källkritik: videon säljer en betalgemenskap och har en sponsor [SKÄRM 06:53–07:11; TAL 12:11]; siffrorna
+  om Karpathys 700 experiment och Shopifys 19 % är återgivna i andra hand [TAL 01:38–02:11]; det egna beviset är
+  terminalutskrifter ur kanalens egna appar [SKÄRM 11:50, 12:09], som visar att vanorna hittades men inte att
+  nästa funktion blev bättre än den hade blivit utan. Det räcker inte för en metod i bygget, men förslaget här
+  prövas gratis på data vi redan har. Videon innehåller inga instruktioner riktade till agenter
+- Kostnad: inga tokens i byggsessionen. gruppera.py körs redan efter var femte dom; uppdraget får ett tiotal rader
+  mer per bygge (fynden per omgång). Inga beroenden, inget underhåll utöver funktionen
+- Säkerhet: ej tillämpligt (video, inget hämtat utöver transkript och bildrutor; inget kördes eller installerades)
+- Förslag: `kontroller/gruppera.py`, funktionen `granskningsfynd()` (rad 40–47): läs utöver slutfilen varje
+  `kunder/<slug>/granskning/runda-NN/GRANSKNING.json` och skriv varje blockerande fynd med omgångens nummer och om
+  det var rättat i slutfilen; uppdragstexten (rad 52–55) får en mening om att ett fel som rättas inom bygget men
+  återkommer i nästa bygge räknas som en kategori, inte som löst. Docstringen (rad 2–4) nämner omgångarna.
+  Rökprovet ska sluta grönt, och `--torr` ska visa omgångsfynden för de befintliga byggena
+- Utfall: —
+- Backlog: B-20261002-gruppera-py-laser-granskarens-blockerande-fynd-p
