@@ -22,6 +22,13 @@ kundens förvaltning och driftmiljön. Det som följer är krav på resultatet o
   redigeringsflöde; annars innehåll som data i repot, inte inbakat i komponenter.
 - Sammanhängande övergångar och rörelse enligt briefens motion-nivå; `prefers-reduced-motion` respekteras alltid.
 - Fel- och 404-sidor på aktuellt språk med fungerande nästa handling.
+- **Layouten äger avståndet:** luften mellan delar sätts som `gap` på föräldern (stack, kluster, rutnät), inte som
+  marginaler på barnen. Ett undantag skrivs på barnet, så att det syns i samma fil.
+- **En skala för text och luft:** sektionsavstånd, radavstånd och rubrikstorlekar är steg ur samma bas och kvot,
+  satta som CSS-variabler (byggstandarden 3.1), så att rytmen hänger ihop mellan sektionerna och inuti dem.
+- **Varje del byter form vid sin egen tröskel:** container query eller `flex-basis` mot en bredd ur skalan, inte en
+  brytpunkt för hela fönstret. Media queries används för besökarens preferenser (färgschema, rörelse, utskrift).
+  Källa för de tre: Bell & Pickering (2019), Every Layout.
 
 ## Beprövade mönster (välj med skäl)
 
