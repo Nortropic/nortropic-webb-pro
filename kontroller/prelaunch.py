@@ -138,7 +138,7 @@ def las_matning(matning):
 
 
 def las_inspektion(inspektion):
-    """INSPEKTION.json från verktyg/webblasare/inspektera.mjs: horisontellt spill per vy (spill.spill), layoutbredd = fönster."""
+    """INSPEKTION.json från kontroller/webblasare/inspektera.mjs: horisontellt spill per vy (spill.spill), layoutbredd = fönster."""
     if not inspektion or not Path(inspektion).is_file():
         return None
     try:
@@ -238,7 +238,7 @@ def g3_responsivitet(m, inspektion=None):
         return grind('3 responsivitet', 'EJ_MATT', 'mätkvittot saknar vyer')
     belagg = 'vyer: %s; horisontell spill: %s' % (list(vyer) if isinstance(vyer, (list, dict)) else vyer, spill)
     if spill is None:
-        return grind('3 responsivitet', 'EJ_MATT', belagg + '; spill inte rapporterat — ge --inspektion INSPEKTION.json (verktyg/webblasare/inspektera.mjs, vyer 390/768/1440)')
+        return grind('3 responsivitet', 'EJ_MATT', belagg + '; spill inte rapporterat — ge --inspektion INSPEKTION.json (kontroller/webblasare/inspektera.mjs, vyer 390/768/1440)')
     dalig = any(spill.values()) if isinstance(spill, dict) else (spill if isinstance(spill, bool) else bool(spill))
     return grind('3 responsivitet', 'FAIL' if dalig else 'PASS', belagg + ('; layoutvyns bredd = fönstret i varje vy (inspektionen)' if inspektion else ''))
 
@@ -493,7 +493,7 @@ def markdown(r):
 def main(argv=None):
     p = argparse.ArgumentParser(prog='prelaunch', description=__doc__.split('\n\n')[0])
     p.add_argument('--bygge', required=True); p.add_argument('--lage', required=True, choices=('forhandsvisning', 'lansering')); p.add_argument('--repo'); p.add_argument('--verksamhet')
-    p.add_argument('--matning'); p.add_argument('--inspektion', help='INSPEKTION.json från verktyg/webblasare/inspektera.mjs (spill per vy)'); p.add_argument('--handlingar'); p.add_argument('--juridik'); p.add_argument('--huvuden'); p.add_argument('--adress'); p.add_argument('--audit'); p.add_argument('--krav')
+    p.add_argument('--matning'); p.add_argument('--inspektion', help='INSPEKTION.json från kontroller/webblasare/inspektera.mjs (spill per vy)'); p.add_argument('--handlingar'); p.add_argument('--juridik'); p.add_argument('--huvuden'); p.add_argument('--adress'); p.add_argument('--audit'); p.add_argument('--krav')
     p.add_argument('--ut', required=True); p.add_argument('--md')
     a = p.parse_args(argv)
     if not Path(a.bygge).is_dir():

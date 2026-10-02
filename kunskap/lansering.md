@@ -65,7 +65,7 @@ rekommenderar alla tre även för övriga. Volymkravet bedöms för kundens fakt
 
 ### Arkiv av den gamla sajten
 
-Före omdirigeringar och DNS-omläggning: kör `node verktyg/webblasare/arkivera.mjs
+Före omdirigeringar och DNS-omläggning: kör `node kontroller/webblasare/arkivera.mjs
 --adress https://gamla-domänen --kund KUNDMAPP --intervju INTERVJU.json --ut NY-ARKIVKATALOG`.
 Utdata måste vara en ny katalog i kundmappen utanför Digitalas repo. Verktyget förenar sitemapens
 adresser med intervjuns `migrering_adresser` (MIG1) och sparar HTML, inbäddad HAR och

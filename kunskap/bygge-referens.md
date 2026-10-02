@@ -52,7 +52,7 @@ Formatet beskriver riktningen; det bestämmer den inte.
 ## Browsergranskning under bygget
 
 Rendera och interagera i riktig webbläsare medan du bygger, inte bara efteråt: första vyn i 390 och 1440,
-tangentbordsväg genom menyn och formuläret, felvägar, konsol och nätverk (`verktyg/webblasare/`, webblasare.md).
+tangentbordsväg genom menyn och formuläret, felvägar, konsol och nätverk (`kontroller/webblasare/`, webblasare.md).
 Skärmbilder kompletterar interaktionen; ett textträd är inte bildseende. Kontrollera vilka typsnitt browsern
 faktiskt renderar samt font-/bildladdningsfel innan en avvikelse förklaras som designval. Deklarerad
 fontstack eller font-ready ensamt bevisar inte vilken familj som användes.

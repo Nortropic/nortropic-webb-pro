@@ -1,11 +1,16 @@
 # Webbläsarvägen — utvecklarinspektion, utforskande QA och avskärmat besökarprov med Playwright
 
 Professionsfil (HELHET-20260927, avsnitt 6; etapp 4). Laddas i stegen `bygge`, `qa` och `provare`. Verktygen i
-`verktyg/webblasare/` bygger på Playwright 1.63.0 och Playwright MCP 0.0.82 (båda Apache-2.0, pinnade i
+`kontroller/webblasare/` bygger på Playwright 1.63.0 och Playwright MCP 0.0.82 (båda Apache-2.0, pinnade i
 `package.json` med `package-lock.json`; MCP-paketet drar in en pinnad alfaversion av playwright-core 1.64 som eget,
 transitivt beroende; `npm ci` i katalogen; webbläsarbinären hämtas av Playwright till användarens cache). Ingen egen webbläsarmotor: Playwright är motorn, Digitala bär tre användningar, gränser och bevisform.
 Runtimes provarprofil (Puppeteer, D034) står kvar för besökarprov genom motorn; den här vägen ger utvecklaren och
 QA:n riktig interaktion och ger besökarprovet en Playwright-väg med samma avskärmning.
+
+**I det här repot** finns `inspektera.mjs`, `utforska.mjs`, `utan-js.mjs` och `arkivera.mjs` under
+`kontroller/webblasare/`. Besökarverktyget `besok.mjs` och provsviten `test_webblasare.py` hörde till Digitala och
+finns inte här. Den avskärmade uppgiftsvägen är i stället femsekunderstestet och rubriktestet i steg 6 och
+granskarens kognitiva genomgång (`kritik/GRANSKARE.md`); det som står nedan om `besok.mjs` är bakgrund.
 
 ## Tre användningar i samma instrumentarium
 
@@ -56,7 +61,7 @@ leveransen är klar; kvalitetsbilden pekar på körningen.
 
 ## Körbevis
 
-`test_webblasare.py` kör alla tre verktygen mot en lokal provsajt: inspektion med kontext, gräns, tillstånd och
+I Digitala, inte här: `test_webblasare.py` körde alla tre verktygen mot en lokal provsajt: inspektion med kontext, gräns, tillstånd och
 redigerat undantag (målet får headern, en tillåten tredje part aldrig); QA som hittar 404, dubbla h1, osynlig fokus,
 inte skickar utan tillåtelse, skickar med testmarkering och fångar dubbelt inskick, kör om regressionsprov;
 besökarprovets avskärmning, MCP-konfigurationen mot den pinnade versionens `--help`, init-page-filen körd i en riktig
@@ -73,7 +78,7 @@ lämnar filen avsiktligt).
 
 ## Modellfritt HTML-prov utan JavaScript
 
-`node verktyg/webblasare/utan-js.mjs --adress URL --ut PROVMAPP --formular 'form#kontakt'`
+`node kontroller/webblasare/utan-js.mjs --adress URL --ut PROVMAPP --formular 'form#kontakt'`
 startar den befintliga Playwright-vägen med `javaScriptEnabled: false`.
 `--sidor '/om/;/kontakt/'` anger ytterligare sidor på samma ursprung. Verktyget
 kontrollerar HTTP-svar, synligt huvudinnehåll och angivna formulär. Formulärinskick
@@ -88,7 +93,7 @@ kan saknas helt när JavaScript är avstängt. Inget nytt beroende eller modell 
 
 ## Privat arkiv inför migrering
 
-`node verktyg/webblasare/arkivera.mjs --adress https://gammal-domän --kund KUNDMAPP
+`node kontroller/webblasare/arkivera.mjs --adress https://gammal-domän --kund KUNDMAPP
 --intervju INTERVJU.json --ut NY-ARKIVKATALOG` läser gamla sajtens `/sitemap.xml`
 (annan sökväg kan anges med `--sitemap`) och intervjuns `migrering_adresser` (MIG1).
 Icke ersatta uppgifter tas med; vid motstridiga uppgifter arkiveras deras förening.
