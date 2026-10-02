@@ -93,3 +93,9 @@ och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunsk
 - **Elcentral och jordfelsbrytare fick en egen sida och en egen menypunkt, eftersom det är deras rikaste innehåll. Bättre än att ha allt under Tjänster?** Ja, egen sida och menypunkt
 
 **Ändring:** cbc5c06: samma ändring som L2; plats för beställda bilder utan platshållare (backlog B-20261002-dom-l3-sundboms-el-gor-inga-egna-foton-till-en-b)
+
+## AB · 2026-10-02 · effort: A=high mot B=medium
+
+- **Ägarens val (blint):** B (effort=medium)
+- A (effort=high): {"rc": 0, "sekunder": 7053, "turer": 468, "minuter": 117.5, "provet_gront": true, "granskning_godkand": true, "betyg": {"designkvalitet": 7, "originalitet": 7, "hantverk": 7, "funktion": 8, "text": 8}, "omgangar": 3}
+- B (effort=medium): {"rc": 0, "sekunder": 7548, "turer": 411, "minuter": 125.8, "provet_gront": true, "granskning_godkand": true, "betyg": {"designkvalitet": 8, "originalitet": 8, "hantverk": 8, "funktion": 8, "text": 8}, "omgangar": 5}
