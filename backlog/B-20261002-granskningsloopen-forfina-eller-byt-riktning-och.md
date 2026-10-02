@@ -1,11 +1,12 @@
 ---
 id: B-20261002-granskningsloopen-forfina-eller-byt-riktning-och
-status: vilande
+status: pagar
 kalla: bevakning
 kallref: code.claude.com/docs/en/best-practices, Add an adversarial review step; Harness design for long-running application development
 skapad: 2026-10-02
 prio: normal
 steg: 5
+andrad: 2026-10-02T11:50Z
 ---
 # Granskningsloopen: förfina eller byt riktning, och jämför bästa mot sista omgången
 

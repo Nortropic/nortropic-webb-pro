@@ -1,11 +1,12 @@
 ---
 id: B-20261002-granskaren-bildankare-ja-nej-per-kriterium-och-e
-status: vilande
+status: pagar
 kalla: bevakning
 kallref: OpenAI Evaluation best practices; Anthropic Demystifying evals for AI agents (2026-01-09)
 skapad: 2026-10-02
 prio: normal
 steg: granskaren
+andrad: 2026-10-02T11:48Z
 ---
 # Granskaren: bildankare, ja/nej per kriterium och en egen domare för originalitet (A/B)
 
