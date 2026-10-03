@@ -1,11 +1,12 @@
 ---
 id: B-20261002-mallens-formular-ger-svenska-felmeddelanden-vid
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · react-hook-form/react-hook-form
 skapad: 2026-10-02
 prio: normal
 steg: 5 (mallens formulär)
+andrad: 2026-10-03T00:23Z
 ---
 # Mallens formulär ger svenska felmeddelanden vid fältet med setCustomValidity, med webbläsarens egna som reserv utan JavaScript
 

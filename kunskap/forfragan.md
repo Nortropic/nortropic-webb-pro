@@ -11,7 +11,9 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
 - **Formuläret** är mallens `src/components/Forfragan.astro`, på kontaktsidan och gärna som en sektion där den
   primära handlingen står. Telefonen förblir den primära handlingen; formuläret är vägen när ingen svarar.
 - **Fälten:** namn, telefon, meddelande med etiketten i verksamhetens ord ("Vad vill du bygga?"), och en valfri bild.
-  Det valfria märks "(valfritt)"; resten krävs. Inga fler fält utan skäl ur briefen.
+  Det valfria märks "(valfritt)"; resten krävs. Inga fler fält utan skäl ur briefen. Beskedet vid ett tomt fält är
+  svenskt och i verksamhetens ord (mallens `felNamn`, `felTelefon`, `felMeddelande`) när JavaScript körs, och
+  webbläsarens eget utan.
 - **Fällorna** ändras inte: honeypoten `webbplats` (dold, `tabindex="-1"`) och tidsfällan `fylltid`, varaktigheten i
   millisekunder från laddning till inskick mätt på webbläsarens klocka (`kunskap/formularsakerhet.md`, princip b).
 - **Integritetstexten** vid knappen länkar till `/integritet/`. Integritetssidan anger personuppgiftsansvarig

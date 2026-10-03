@@ -10,24 +10,28 @@ interface Props {
   saknas?: string; // felbeskedet när ett ofullständigt inskick kommer tillbaka, i verksamhetens ord
   telefon?: string; // numret som väg vidare i felbeskedet, som tel-adress: +46...
   telefonText?: string;
+  felNamn?: string; // beskeden vid ett tomt fält, i verksamhetens ord (byggstandarden 6.2)
+  felTelefon?: string;
+  felMeddelande?: string;
 }
 const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
-  saknas = 'Namn, telefon och vad du vill ha hjälp med behövs. Fyll i dem och skicka igen.', telefon, telefonText } = Astro.props;
+  saknas = 'Namn, telefon och vad du vill ha hjälp med behövs. Fyll i dem och skicka igen.', telefon, telefonText,
+  felNamn = 'Skriv ditt namn.', felTelefon = 'Skriv ett nummer vi kan ringa.', felMeddelande = 'Skriv vad du vill ha hjälp med.' } = Astro.props;
 ---
 <form class="forfragan" id="forfragan" action="/api/forfragan" method="post" enctype="multipart/form-data">
   <!-- Felbesked utan JavaScript: mottagaren skickar ett ofullständigt inskick till #forfragan-saknas, och :target visar det. -->
   <p id="forfragan-saknas" class="ff-saknas" tabindex="-1" role="alert">{saknas}{telefon && <> Eller ring <a href={`tel:${telefon}`}>{telefonText || telefon}</a>.</>}</p>
   <p>
     <label for="ff-namn">Namn</label>
-    <input id="ff-namn" name="namn" type="text" autocomplete="name" required maxlength="100" />
+    <input id="ff-namn" name="namn" type="text" autocomplete="name" required maxlength="100" data-saknas={felNamn} />
   </p>
   <p>
     <label for="ff-telefon">Telefon</label>
-    <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40" />
+    <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40" data-saknas={felTelefon} />
   </p>
   <p>
     <label for="ff-meddelande">{fraga}</label>
-    <textarea id="ff-meddelande" name="meddelande" rows="5" required maxlength="4000"></textarea>
+    <textarea id="ff-meddelande" name="meddelande" rows="5" required maxlength="4000" data-saknas={felMeddelande}></textarea>
   </p>
   <p class="ff-fil">
     <!-- Egen knapp i stället för webbläsarens "Choose File / No file chosen"; etiketten öppnar väljaren även utan JS. -->
@@ -52,6 +56,12 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   // (kunskap/formularsakerhet.md, princip b). Utan JavaScript står fältet tomt och mottagaren godtar inskicket.
   const start = performance.now();
   for (const f of document.querySelectorAll<HTMLFormElement>('form.forfragan')) {
+    // Svenska besked vid fältet i stället för webbläsarens, som följer webbläsarens språk (byggstandarden 6.2).
+    // Utan JavaScript stoppar webbläsaren ett tomt inskick med sitt eget besked, och POST fungerar som förut.
+    for (const falt of f.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[required][data-saknas]')) {
+      falt.addEventListener('invalid', () => { if (falt.validity.valueMissing) falt.setCustomValidity(falt.dataset.saknas || ''); });
+      falt.addEventListener('input', () => falt.setCustomValidity(''));
+    }
     const fil = f.querySelector<HTMLInputElement>('input[type="file"]');
     const namn = f.querySelector<HTMLElement>('.ff-filnamn');
     fil?.addEventListener('change', () => { if (namn) namn.textContent = fil.files?.[0]?.name || 'Ingen bild vald'; });

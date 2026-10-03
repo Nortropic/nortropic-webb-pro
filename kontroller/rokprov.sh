@@ -274,6 +274,27 @@ k = kn.kanda_kallor(); assert len(k) >= 20 and any(v['dom'].startswith('ta in') 
 " || { echo "FEL: kända källor ur registret"; exit 1; }
 echo "   spanaren ok"
 
+echo "   formulärets svenska besked vid tomt fält (engelsk webbläsare, med och utan JavaScript)"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, subprocess; sys.path.insert(0, '$ROOT/kontroller'); import prova
+js = '''import { chromium } from \"playwright\";
+const b = await chromium.launch(); const ut = {};
+for (const js of [true, false]) {
+  const s = await b.newContext({ locale: \"en-US\", javaScriptEnabled: js }); const p = await s.newPage();
+  await p.goto(process.argv[1] + \"/kontakt/\"); await p.click(\"form.forfragan button[type=submit]\");
+  ut[js ? \"med\" : \"utan\"] = { besked: await p.\$eval(\"#ff-namn\", (e) => e.validationMessage), adress: p.url() };
+  await s.close();
+}
+await b.close(); console.log(JSON.stringify(ut));'''
+with prova.Server('$S/dist') as srv:
+    r = subprocess.run(['node', '--input-type=module', '-e', js, srv.url], cwd='$ROOT/kontroller', capture_output=True, text=True, timeout=120)
+import json; ut = json.loads(r.stdout.strip().splitlines()[-1])
+assert ut['med']['besked'] == 'Skriv ditt namn.', ut
+assert ut['utan']['besked'] and ut['utan']['besked'] != 'Skriv ditt namn.' and ut['utan']['adress'].endswith('/kontakt/'), ut
+print('   ', ut['med']['besked'], '|', ut['utan']['besked'])
+" || { echo "FEL: formulärets svenska besked"; exit 1; }
+echo "   formulärets besked ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"
