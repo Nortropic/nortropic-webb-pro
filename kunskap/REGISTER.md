@@ -3761,3 +3761,112 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   kvot eller facit; bygget öppnar dem som alla andra och skriver vad det såg
 - Utfall: —
 - Backlog: B-20261003-referensjakt-md-far-ett-stycke-luckor-agaren-pek (egen innovation; för videon: ingen)
+
+### 2026-10-03 · Websites for Normal People (Sebastian Koning), via ägarens genomgång i Google Docs · ta in
+- Källa: https://docs.google.com/document/d/1JCZ9XB3wpij6xP1fMPOuX0hANezDWJeYLUy1sHy_brc/edit?usp=sharing, ägarens
+  egen genomgång "Websites for Normal People – genomgång av flödet", daterad 2 oktober 2026, "@Johnny" [BILD
+  gdoc-html/desktop-forsta.png]; hämtad som mobilebasic-vy med `kontroller/sida.mjs` (77 783 tecken, cirka 19 400
+  tokens), hela texten läst och de åtta skrollbilderna sedda (löptext, tabeller och en flödesbild). Originalet:
+  https://websitesfornormalpeople.com/ (2026 edition, "Free to read, free to follow", ingen uttrycklig licens [TEXT
+  /]), startsidan sedd i mobil och desktop med alla tolv bilder, kapitlen /guide/path-a-the-site (brief och byggprompt)
+  och /guide/go-live (lanseringsprompt) lästa i original via WebFetch; de övriga 16 kapitlen, bilagorna och de tre
+  jämförelsesidorna bara genom ägarens genomgång. Ägarens not: ingen
+- Steg: 3 (brief), 4–5 (innehåll, koncept, bygge), 6 (prov), lanseringen och driften (fas L; `kunskap/forfragan.md`
+  "Vid lansering", `kunskap/lansering.md`), och arbetssättet runt dem: kor.sh:s modell, effort och behörighetsläge,
+  och hur vi når kunder senare
+- Jämfört med i dag, del för del: (1) **Nycklarna och behörigheterna** bär boken: ett valv (Bitwarden Secrets
+  Manager) som agenten läser och skriver, en bootstrap-token som låter agenten skapa sin egen Cloudflare-token med
+  Edit på alla zoner i ett år, GitHub-inloggning med delete_repo, "Bypass permissions, ja, YOLO-läget" eftersom
+  frågandet är "friktion, inte säkerhet", och en sektion i den globala `~/.claude/CLAUDE.md` som varje framtida
+  session läser [TEXT kap 04–06; TEXT Bilaga A]. Vi: byggsessionen körs med `--permission-mode dontAsk` (`kor.sh` rad
+  47), får inte röra `kontroller/`, `kunskap/`, `kritik/`, `mall/` eller `.claude/` (`.claude/skills/bygg-sajt/SKILL.md`
+  rad 48), skickar ingenting ut (rad 51–52), "Ingen agent som arbetar obevakat på systemet" och demosajterna
+  publiceras inte (`BESLUT.md` rad 82), och "Ingen session gör DNS-ändringar" (`kunskap/lansering.md` rad 11–17).
+  Litteraturen: least privilege och fail-safe defaults (Saltzer & Schroeder 1975; `kunskap/teoretisk-grund.md` rad
+  95–101). Ägarens egen genomgång ser samma sak: "en stor sprickradie", "DNS-poster och Cloudflare-resurser har ingen
+  ångra-knapp" [TEXT Reflektioner]. Krockar med fyra medvetna val. (2) **Stacken:** Next.js på Cloudflare Workers med
+  OpenNext, Payload CMS på D1 och R2, Stripe, GA4 och Tag Manager [TEXT kap 01, 09–11]. Vi: statisk Astro utan
+  klientrenderad text, högst 200 kB JS, inga tredjepartsresurser vid sidladdning (`kunskap/byggstandard.md` 1.1 rad
+  25, 3.7 rad 52, 4.4 rad 61, avsnitt 11 rad 133–138); 0 kB JS i alla tre dömda byggen (`LARDOMAR.md` rad 31, 56,
+  87). Bokens eget råd om CMS, "behöver du verkligen ett? Var ärlig" [TEXT kap 09], säger vi redan i briefen
+  (`kunskap/brief-mall.md` §3 rad 32–36). Sämre för hantverkarsajter, lika om CMS. (3) **Briefen** är ett formulär som
+  verksamheten fyller i själv: BUSINESS, VISITORS med "the ONE thing you want them to do" och "the questions they
+  always ask you before buying", PAGES, THE FEEL med tre ord som inte får vara "modern" och "clean", tre sajter man
+  älskar "and what exactly you love about each", MOTION, LANGUAGES, MATERIAL [TEXT /guide/path-a-the-site]. Vi:
+  BRIEF.md ur belägg i omdömen och underlag med toppuppgifter i besökarens ord, en primär handling, krav i EARS-form,
+  ton som fem formuleringar ur deras egna ord (bygg-sajt rad 126–148), "Bara de har" med tio saker ingen konkurrent
+  kan säga (rad 93–95), FRASER.txt (rad 150–151), referenser vi hittar och öppnar själva (rad 153–165), och en
+  Visuell tes (rad 219–220). Samma frågor; hos oss besvaras de ur bevis i stället för ur ägarens självbild, för ingen
+  människa svarar under körningen (rad 20–24). Lika i sak, vår väg passar vårt flöde. (4) **Byggprompten:** "you're the
+  designer here, not just the developer", "take a big swing", skriv DESIGN.md före bygget; hårda nej (gradient-hero,
+  "Welcome to", tre likadana kort med ikoner, emoji, stockmänniskor, falska omdömen, lorem ipsum, copy som kunde stå
+  hos en konkurrent); saknad fakta blir TODO, "Don't invent them"; innehåll i datafiler skilt från designen; CLS under
+  0,1 och 90+ i Lighthouse på staging; reduced motion; "open the staging site yourself, check every page on desktop
+  and phone sizes, and fix anything that looks off before you show me" [TEXT /guide/path-a-the-site]. Vi: KONCEPT.md
+  med fyra riktningar och exakt specifikation före kod (rad 208–220), hälsningsrubrik och platshållare i copykontrollen
+  (`kunskap/copy-kontroll.md` rad 14, 16), "kunde någon mening stå hos en konkurrent? Skriv om den" (rad 191–192),
+  mall-lukten i L1 "fyra rubriklänkar med en mening var i två spalter" (`LARDOMAR.md` rad 29), `antagande` och
+  BESTALLNING.md i stället för påhitt (rad 20–24), INNEHALL.md före något ritas (rad 177–180), 4.1, 3.5 och 9.4 i
+  standarden (rad 58, 50, 122), Titta med skärmbilder i 390 och 1440 (rad 254–264) och två oberoende granskare (rad
+  265–278). Samma regler; hos oss mäts de i provet. Lika. (5) **Granska som en kund:** mobilen först, specifik
+  återkoppling med varför, i batch, två–tre rundor, och "ny riktning: skriv om DESIGN.md först" när grunden är fel [TEXT
+  kap 07]. Vi: ägarens dom i dashboarden med "Efter fem sekunder på startsidan i mobilen" och frågorna parvis med
+  skärmbilder (rad 340–344, 374–378), femsekunderstestet avskärmat (rad 299–304), och "Förfina eller byt riktning"
+  efter två omgångar under 7 (rad 273–278). Lika. (6) **Formulär och e-post:** Turnstile, "varje inskick sparas i D1
+  FÖRST, sedan skickas mejlet, och misslyckas mejlet ska inskicket ändå vara sparat", för "e-post är delen som
+  fallerar … Om formuläret bara mejlar är leadet borta och du vet aldrig att det fanns"; befintliga SPF- och
+  DMARC-poster slås ihop, aldrig en andra [TEXT kap 08]. Vi: honeypot, tidsfälla, rate limit och Turnstile vid
+  lansering (`kunskap/forfragan.md` rad 43, byggstandarden 6.5 rad 88), SPF, DKIM och DMARC (6.6 rad 89), flera
+  SPF-poster är ett fynd (`kunskap/lansering.md` rad 59–60). Men vår mottagare svarar "303 till /tack/ först när
+  tjänsten har accepterat mejlet. Vid fel: 303 till /fel/, som visar telefonnumret" (forfragan.md rad 46–47; 6.6 rad
+  89): förfrågan som skrevs är då borta. Litteraturen: stabilitetsmönster och fail-safe defaults
+  (`kunskap/teoretisk-grund.md` rad 52–55), felåterhämtning och försvar i djupled i formulär (rad 80–86). **Bättre**,
+  och det är den enda punkten. (7) **Analys:** GA4, Tag Manager, Consent Mode v2 med banner bara i strikta regioner,
+  service account via gcloud, Search Console via API [TEXT kap 11]. Vi: "helst kakfri analys utan banner" (8.5 rad
+  112), inga tredjepartsresurser (4.4), konverteringsmål och sökkonsol vid lansering (10.1 rad 129). Bokens egen
+  startsida visar en kakbanner för Google Analytics över innehållet i mobilens första vy [BILD wfnp/mobil-forsta.png].
+  Krockar med ett medvetet val; Search Console lika. (8) **Lanseringen:** custom domains, HTTPS, en lanseringskontroll
+  (brutna länkar, unik title och description, en h1, og:image, sitemap och robots för live-domänen, 375 px utan
+  horisontell skroll, tangentbord och kontrast, Lighthouse 90+, formuläret skickar, analytics avfyras, schema.org) och
+  301 från varje gammal adress [TEXT /guide/go-live]. Vi: 10.3 Definition of Done (rad 131), 7.1–7.3 (rad 97–99),
+  301 prövade live med högst fem hopp (`kunskap/lansering.md` rad 92–95), 404 från de gamla ortsidorna i aby
+  (`LARDOMAR.md` rad 103). Lika; vår lista är längre men hänvisar till verktyg som inte finns, redan i backloggen
+  (B-20261003-skriv-om-kunskap-lansering-md-for-var-stack-den). (9) **Modell och effort:** Opus 5.5, "Effort: High för
+  setup och första bygget", "Långsammare, men värt det" [TEXT kap 06]. Vi: opus[1m] och effort medium som standard
+  efter ägarens blinda A/B där medium vann (`kor.sh` rad 8, 72; `LARDOMAR.md` rad 97–105). Bokens påstående är obelagt,
+  vårt är ett mätt par. Lika eller sämre. (10) **Erbjudandet:** 2 000 dollar för allt i boken, en revisionsrunda
+  ingår, 500 dollar per extra runda, "gillar du det inte, betala inte" [TEXT kap 14]. Vi har ingen text om pris eller
+  revisionsrundor (`kunskap/prospekt-och-utskick.md` nämner bara mötet, rad 9); det är ägarens beslut och noteras
+  här, utan förslag
+- Skäl: boken är den bästa källan i sitt slag vi sett, en genomtänkt, ärlig och fullständig väg för en ensam
+  icke-programmerare som vill ge Claude Code nycklarna och själv kliva åt sidan, och ägarens genomgång har redan gjort
+  jobbet att se var den knärrar. Men nästan allt den gör bra gör vi redan, mätt i provet och dömt av ägaren: brief
+  före bygge, designriktning före kod, de hårda nejen, inget påhitt, mobilen först, agenten tittar själv, staging före
+  produktion, lanseringskontroll och 301. Det som skiljer är medvetna val åt andra hållet: bred åtkomst och
+  bypass-läge mot vår låsta session, Next.js på Workers mot statisk Astro utan JS, GA4 med banner mot kakfri mätning,
+  effort high mot vårt mätta medium. En princip har vi inte, och den är viktig just för oss: ägaren gjorde den
+  skriftliga förfrågan obligatorisk i L1–L3, och vår egen text låter den förfrågan försvinna om mejlet fallerar.
+  "Spara först, mejla sedan" är en liten textändring, följer litteraturen om stabilitet och felåterhämtning, och
+  rör inte demon. Bokens egen sajt, sedd med egna ögon: hållningen är total (gul-svart parodi på nybörjarböckerna,
+  maskoten Keysie [BILD wfnp/desktop-forsta.png]), men brödtexten är satt i displaytypsnittet Luckiest Guy i 20 px
+  (`wfnp/SIDA.md` rad 31), mobilens första vy är knapp, skämt och maskot med kakbannern över innehållet [BILD
+  wfnp/mobil-forsta.png], och den avsiktliga pastischen är "the big swing" för en bok, inte för en elfirma i Luleå.
+  Källkritik: boken säljer ett bygge för 2 000 dollar och Claude Pro, Cloudflare och Bitwarden är valda utan
+  jämförelse ("ett verktyg per jobb, inga jämförelsetabeller") [TEXT kap 01]; bevisen för resultaten är författarens
+  egna ("en kväll", "40 minuter") [TEXT kap 00, 07]; "14 klick" är 16 rader och "17 prompts" är 16 plus ett
+  kommando, som genomgången själv påpekar [TEXT Bilaga A–B]. Inga instruktioner till agenter i något av det lästa;
+  bokens prompter riktar sig till läsaren och återges inte här
+- Kostnad: några rader i `kunskap/forfragan.md` och en punkt i `kunskap/byggstandard.md`; inga tokens i bygget, ingen
+  ny kod förrän Vercel-steget byggs, då lagring och gallring av inskick tillkommer hos värden
+- Säkerhet: förgranskningen av genomgångens text och bokens startsida: LÅG, inga dolda tecken, ingen text riktad till
+  agenter, inga skript (två körningar av `granska_repo.py`). Genomgången nämner hemligheternas namn men inga värden;
+  inget fört vidare
+- Förslag: `kunskap/forfragan.md`, "Vid lansering" punkt 5–6: varje giltigt inskick sparas i värdens egen lagring före
+  mejlet, med lagringstid som integritetssidan anger och gallring; vid mejlfel säger `/fel/` att förfrågan är
+  mottagen och sparad, med telefonnumret som väg vidare, och verksamheten kan hämta sparade inskick. `kunskap/byggstandard.md`
+  rad 89, punkt 6.6: "Inskicket sparas före sändning; 'skickat' först när mejlet accepterats; vid fel visas
+  telefonnumret och inskicket finns kvar." Demon ändras inte (mottagaren sparar och skickar ingenting, forfragan.md
+  rad 25–27; ingen egen databas, `kunskap/formularsakerhet.md` rad 19); lagringen hör till Vercel-steget. Ingen egen
+  innovation den här gången
+- Utfall: —
+- Backlog: B-20261003-mottagaren-vid-lansering-sparar-forfragan-forst
