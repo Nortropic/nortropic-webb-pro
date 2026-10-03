@@ -204,28 +204,44 @@ def typlista(nod):
     return [typnamn(x) for x in (t if isinstance(t, list) else [t]) if isinstance(x, str)]
 
 
+def _varden_av(v, konflikter):
+    """Ett värdes värdesamling: en skalär blir ett värde, en vanlig egenskapsarray sina element (JSON-LD 1.1: ett ensamt
+    värde och samma värde i en array är likvärdiga), ett @list-objekt ett enda ordnat värde. Varje element
+    normaliseras."""
+    if isinstance(v, list):
+        return [normaliserad_nod(x, konflikter) for x in v]
+    return [normaliserad_nod(v, konflikter)]
+
+
 def normaliserad_nod(nod, konflikter=None):
     """Noden med egenskapsnamn utan schema.org-prefix, också i nästlade objekt (schema:address → address, dess
     schema:postalCode → postalCode): verksamhetskontrollen läser name, telephone och address och ska se dem också när
     de är kompakta eller fullständiga IRI:er (omgång sju, F20). @-nycklar lämnas. Två stavningar av samma egenskap
-    (name och schema:name) med olika värden skriver inte över varandra: alla värden behålls i en lista och nyckeln
-    läggs i konflikter (omgång åtta, F20; JSON-LD-expansionen lägger till värden, skriver aldrig över)."""
+    (name och schema:name) skriver inte över varandra: värdesamlingarna slås samman utan extra listnivå, och bara när
+    stavningarna har olika värdesamlingar läggs nyckeln i konflikter (omgång åtta och nio, F20; "X" och ["X"] är
+    samma värde). @list-objekt behålls som ett ordnat värde."""
     if isinstance(nod, list):
         return [normaliserad_nod(x, konflikter) for x in nod]
     if not isinstance(nod, dict):
         return nod
+    if '@list' in nod:
+        return {k: (normaliserad_nod(v, konflikter) if k != '@list' else [normaliserad_nod(x, konflikter) for x in v]) for k, v in nod.items()}
     samlade = {}
     for k, v in nod.items():
         nk = k if k.startswith('@') else typnamn(k)
-        samlade.setdefault(nk, []).append(normaliserad_nod(v, konflikter))
+        samlade.setdefault(nk, []).append(_varden_av(v, konflikter))
     ut = {}
-    for nk, vs in samlade.items():
+    for nk, samlingar in samlade.items():
         olika = []
-        for v in vs:
-            if v not in olika:
-                olika.append(v)
-        if len(olika) > 1 and konflikter is not None:
-            konflikter.append(nk)
+        for samling in samlingar:
+            for x in samling:
+                if x not in olika:
+                    olika.append(x)
+        if len(samlingar) > 1 and konflikter is not None:
+            # samma egenskap i flera stavningar: en konflikt bara när deras värdesamlingar skiljer sig åt
+            mangder = [[x for x in olika if x in samling] for samling in samlingar]
+            if any(m != mangder[0] for m in mangder[1:]):
+                konflikter.append(nk)
         ut[nk] = olika[0] if len(olika) == 1 else olika
     return ut
 
@@ -313,15 +329,17 @@ def granska_verksamhetsnod(obj, typer, verksamhet):
     for adr in adresser:
         if not isinstance(adr, dict):
             continue
-        if adr.get('postalCode') and not re.match(r'^\d{3} \d{2}$', str(adr['postalCode'])):
-            fynd.append(('postalCode-form', str(adr['postalCode']) + ' ska vara "NNN NN"'))
+        for pc in varden(adr, 'postalCode'):
+            if pc and not re.match(r'^\d{3} \d{2}$', str(pc)):
+                fynd.append(('postalCode-form', str(pc) + ' ska vara "NNN NN"'))
         if n['adress_visas']:
             # fälten ska stämma med underlaget, inte bara ha rätt form (revisionen, F20)
             v_adr = verksamhet.get('adress') or {}
             slat = lambda s: re.sub(r'\s+', ' ', str(s or '')).strip().casefold()  # noqa: E731
             for falt, nyckel in (('postalCode', 'postnummer'), ('addressLocality', 'ort'), ('streetAddress', 'gata')):
-                if adr.get(falt) and v_adr.get(nyckel) and slat(adr[falt]).replace(' ', '') != slat(v_adr[nyckel]).replace(' ', ''):
-                    fynd.append(('schema address ≠ verksamhetens adress', '%s %r mot %r' % (falt, adr[falt], v_adr[nyckel])))
+                for varde in varden(adr, falt):  # också när fältet är en enelementslista (omgång nio, F20)
+                    if varde and v_adr.get(nyckel) and slat(varde).replace(' ', '') != slat(v_adr[nyckel]).replace(' ', ''):
+                        fynd.append(('schema address ≠ verksamhetens adress', '%s %r mot %r' % (falt, varde, v_adr[nyckel])))
     if obj.get('aggregateRating') and not verksamhet.get('omdomen_kalla'):
         fynd.append(('aggregateRating utan källa', 'betyg bara från verklig plattformsdata med källa i VERKSAMHET.json (omdomen_kalla)'))
     if 'offers' in obj and not obj.get('offers'):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regressionsfall ur revisionen 2026-10-03 (Codex, åtta omgångar): varje skydd prövas genom sin riktiga ingång, med ett
+"""Regressionsfall ur revisionen 2026-10-03 (Codex, nio omgångar): varje skydd prövas genom sin riktiga ingång, med ett
 positivt och ett negativt fall, isolerat och syntetiskt. Körs av kontroller/rokprov.sh. Argument: repots rot. Skriver
 bara i temporära kataloger och i /tmp/nwp-granskning (granskarens arbetskataloger)."""
 import functools
@@ -874,6 +874,34 @@ for forst, sedan in ((('address', fel), ('schema:address', ratt)), (('schema:add
 f = seo.granska_schema({'@type': 'Bakery', 'name': 'Holms Konditori', 'schema:name': 'Holms Konditori', 'address': ratt}, verk20)
 assert f == [], 'samma värde i två stavningar är ingen konflikt: %s' % f
 print('R8 F20 ok')
+
+# ---------------------------------------------------------------- omgång nio (Codex R9): -F som konsumerar -m; likvärdiga listor och skalärer i JSON-LD
+g('remote', 'add', 'origin', str(bare)); g('fetch', '-q', 'origin'); g('reset', '-q', '--hard', 'origin/main'); g('checkout', '-q', 'main')
+(repo / '-m').write_text('meddelande ur fil\n'); (repo / '--message').write_text('meddelande ur fil\n')
+for cmd, vantat in [("git commit -F -m 'backlog/*'", 2), ("git commit -F --message 'backlog/*'", 2), ("git commit -F -m -- 'backlog/*'", 2),
+                    ('git commit -F msg.txt', 0), ("git commit --file=msg.txt -- 'backlog/a.md'", 0), ("git commit -F 'm*.txt'", 2)]:
+    rc, err = vakt3(cmd); assert rc == vantat, (cmd, rc, err)
+(repo / '-m').unlink(); (repo / '--message').unlink()
+print('R9 F3 flaggvärden ok')
+
+ratt = {'@type': 'PostalAddress', 'streetAddress': 'Storgatan 1', 'postalCode': '972 31', 'addressLocality': 'Luleå'}
+fel = {'@type': 'PostalAddress', 'streetAddress': 'Storgatan 1', 'postalCode': '111 11', 'addressLocality': 'Boden'}
+ctx = {'@vocab': 'https://schema.org/', 'schema': 'https://schema.org/'}
+for forst, sedan in ((('name', ['Holms Konditori']), ('schema:name', 'Holms Konditori')), (('schema:name', 'Holms Konditori'), ('name', ['Holms Konditori']))):
+    nod = {'@context': ctx, '@type': 'Bakery', 'address': ratt}; nod[forst[0]] = forst[1]; nod[sedan[0]] = sedan[1]
+    f = seo.granska_schema(nod, verk20); assert f == [], 'skalär och enelementslista är samma värde: %s' % f
+for forst, sedan in ((('address', [ratt]), ('schema:address', ratt)), (('schema:address', ratt), ('address', [ratt]))):
+    nod = {'@context': ctx, '@type': 'Bakery', 'name': 'Holms Konditori'}; nod[forst[0]] = forst[1]; nod[sedan[0]] = sedan[1]
+    f = seo.granska_schema(nod, verk20); assert f == [], 'adress som lista och skalär: %s' % f
+f = seo.granska_schema({'@type': 'Bakery', 'name': 'Holms Konditori', 'address': {'@type': 'PostalAddress', 'streetAddress': ['Storgatan 1'], 'postalCode': ['972 31'], 'addressLocality': ['Luleå']}}, verk20)
+assert f == [], 'enelementslistor i adressens underfält: %s' % f
+f = seo.granska_schema({'@type': 'Bakery', 'name': 'Holms Konditori', 'address': {'@type': 'PostalAddress', 'streetAddress': ['Storgatan 1'], 'postalCode': ['111 11'], 'addressLocality': ['Luleå']}}, verk20)
+assert any(t_ == 'schema address ≠ verksamhetens adress' for t_, _ in f), 'fel värde i en lista ska ge fynd: %s' % f
+f = seo.granska_schema({'@context': ctx, '@type': 'Bakery', 'name': ['Holms Konditori', 'Holms'], 'schema:name': 'Holms Konditori', 'address': ratt}, verk20)
+assert any(t_ == 'JSON-LD motstridiga egenskaper' for t_, _ in f) and any(t_ == 'schema name ≠ verksamhetens namn' for t_, _ in f), 'olika värdesamlingar är fortfarande en konflikt: %s' % f
+f = seo.granska_schema({'@context': ctx, '@type': 'Bakery', 'name': 'Holms Konditori', 'address': ratt, 'knowsLanguage': {'@list': ['sv', 'en']}}, verk20)
+assert not any(t_ == 'JSON-LD motstridiga egenskaper' for t_, _ in f), '@list är ett ordnat värde: %s' % f
+print('R9 F20 ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')
