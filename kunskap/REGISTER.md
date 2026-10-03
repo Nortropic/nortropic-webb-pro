@@ -6497,3 +6497,57 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   sammansatta ord i knappar och spalter är den vy där det brister först.
 - Utfall: —
 - Backlog: ingen för domen; egen innovation B-20261003-stilrapporten-mater-text-som-inte-ryms-i-sin-ege
+
+### 2026-10-04 · Kevin Powell, "Fixing fluid typography" (YouTube q-_cIlttYBc) + Ana Tudor, "Using Container Query Units Relative to an Outer Container" (master.dev) · ta in
+- Källa: https://www.youtube.com/watch?v=q-_cIlttYBc, publicerad 2026-09-16, 9:47, autogenererat transkript; alla 41
+  bildrutor lästa. Artikeln https://blog.master.dev/using-container-query-units-relative-to-an-outer-container/
+  (2025-05-06): desktop spärrad av robotkontroll (HTTP 403), mobilen laddade men helsidan var oläslig i skärmbilden,
+  texten hämtad via WebFetch som reserv. Ingen licens angiven; inget kördes. Spanaren fann videon 2026-10-03.
+- Steg: steg 5 (bygget: typskalan i CSS), byggstandarden 3.2, standardkontrollen.
+- Jämfört med i dag: byggstandarden 3.2 (`kunskap/byggstandard.md` rad 47, rättelsen rad 145–146) kräver flytande
+  typografi med clamp() som blandar rem och vw, och `kontroller/standard_kontroll.py` rad 390–393 flaggar clamp med
+  bara vw. Alla byggen mäter den flytande delen mot fönstret (vw) medan omslaget har en maxbredd: Holms
+  `--fs-h1: clamp(2.25rem, 1.5rem + 3.2vw, 4.25rem)` (`global.css` rad 16) når sitt max först vid 1 375 px fönster,
+  men `--bredd: 72rem` (rad 17, `.inre` rad 46) stannar vid 1 152 px; mellan 1 152 och 1 375 px, där vanliga
+  laptopar ligger (1 280, 1 366), växer rubriken fast spalten inte gör det. Samma glapp i aby (h1 max vid 1 250 px,
+  omslag 75 rem = 1 200 px, `Sida.astro` rad 136 och 145); Luleå-Snickaren råkar träffa rätt (h1 max vid 1 150 px mot
+  72 rem). Det är exakt källans första problem [TAL 00:00–00:33, SKÄRM 00:02 mot 00:17: samma omslag, större text].
+  Källans lösning är två rader: omslaget blir en storleksbehållare (`container: wrapper / inline-size`) och clamp()
+  använder cqi i stället för vw [SKÄRM 01:28, 01:42]; då stannar texten där omslaget stannar [TAL 02:14, SKÄRM 02:10
+  mot 02:24]. Bättre än vårt: samma zoombarhet (rem-delen bär zoomen, som i dag), men utan ett glapp som varken
+  provets vyer 390/768/1440 eller granskaren ser. Källans andra problem, att cqi ger olika storlek i nästlade
+  behållare [SKÄRM 03:21: kortrubrikerna i tre storlekar från samma deklaration], gäller oss först när ett bygge
+  följer `better-layout/spacing-and-adaptivity.md` rad 123–130 (container queries på kortlistor); inget bygge gör det i
+  dag (ingen `container-type` i `kunder/*/sajt/src`). Lösningen, registrera stegen med `@property` (syntax length,
+  inherits true) och sätta om dem på omslagets direkta barn så att värdet räknas ut där och ärvs färdigt [SKÄRM 05:14,
+  05:43, resultatet 06:39 och 07:07: lika rubriker i olika stora kort], är Ana Tudors teknik [TAL 03:51; artikeln:
+  en registrerad egenskap löses där den definieras, inte där den används]. Mot litteraturen: hantverksdimensionen
+  (`kritik/GRANSKARE.md` rad 99, typografins roller) och konsekvens (`kunskap/referenser-professionella.md`, åttonde
+  dimensionen); källan tillför ingen ny metod, bara en precisare regel för en punkt vi redan har.
+- Skäl: ta in, för att det är klart bättre än vårt sätt på en verifierbar punkt och ändringen är två rader i
+  byggstandarden och ett villkor i standardkontrollen. Glappet finns i två av tre dömda byggen och i de bredder
+  ägarens egen laptop troligen har; vi har aldrig sett det eftersom provet mäter 390, 768 och 1 440. Resultatet i
+  videon syns med egna ögon: [SKÄRM 06:39] och [SKÄRM 07:07] visar samma rubrikstorlek i två kort med olika bredd,
+  [SKÄRM 09:01] visar hur det blir när återställningen slår på (olika igen), så påståendet är belagt av bilden, inte
+  av berättaren. Källkritik: videon säljer en kurs i beskrivningen, men tekniken är standard-CSS och demonstreras
+  live; talaren anger stödet "i alla webbläsare" [TAL 04:25], vilket stämmer med att cqi och @property ligger i
+  Baseline. Inga instruktioner till agenter. Krock: ingen; byggstandardens krav på rem i clamp() står kvar, bara
+  vw byts mot cqi när omslaget är en behållare. @property-delen tas med som en mening för det fall ett bygge inför
+  container queries på kort, så att better-layouts råd inte skapar källans andra problem hos oss.
+- Kostnad: tokens alltid 0; vid användning två rader i byggstandarden som bygget redan läser; inga beroenden; kontroll
+  i `standard_kontroll.py` (rökprovet ska vara grönt efteråt).
+- Säkerhet: video och artikel, inget körbart. Förgranskningen av artikeltexten gick inte att köra (kommandot nekades
+  av behörighetsläget); texten var två rader robotkontroll, så inget att förgranska. Inga dolda tecken i
+  transkriptet, ingen text riktad till agenter.
+- Förslag: `kunskap/byggstandard.md` rad 47 (3.2): "Flytande typografi med clamp() blandar rem och cqi mot sidans
+  omslag, som är en storleksbehållare (`container: omslag / inline-size`), så att texten slutar växa där omslaget
+  slutar; vw bara när det inte finns något omslag med maxbredd, annars växer texten inte med zoom." Rättelsen rad
+  145–146 får en mening: "Med vw som flytande del växer rubriken vidare efter omslagets maxbredd (Holms: 1 152 till
+  1 375 px); cqi mot omslaget stoppar den där." Och en rad: "Inför ett bygge container queries på kort (better-layout),
+  registreras typskalans steg med @property (syntax `<length>`, inherits true) och sätts om på omslagets direkta
+  barn, annars får samma steg olika storlek i olika kort." `kontroller/standard_kontroll.py` rad 390–393: villkoret
+  godtar cqi som flytande del, och ger information när vw används och CSS:en har ett omslag med `max-width` eller
+  `width: min(…)` i rem.
+- Utfall: —
+- Backlog: B-20261003-flytande-typografi-mater-mot-omslaget-cqi-i-en-s; egen innovation
+  B-20261003-standardkontrollen-raknar-ut-var-varje-clamp-rub
