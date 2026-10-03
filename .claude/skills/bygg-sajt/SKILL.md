@@ -68,18 +68,23 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    underlag/<slug>/kalla` (varje sida som .html och .txt; `kalla/SIDOR.md` listar sidorna, bilderna, kontaktvägarna
    och de externa domäner sajten länkar till), en andra domän med `--ut underlag/<slug>/kalla/<domän>`. Google-profil
    och omdömen, sociala kanaler, företagsregister för grunduppgifter, två eller tre konkurrenter i samma ort:
-   WebFetch och WebSearch. Skriv också upp namn, adress och telefon exakt som de står i Google-profilen, på hitta.se
-   och på eniro.se; avvikelser mellan dem och deras sajt är ett fynd för rapporten. Sök också efter verksamhetens
-   andra domäner (namnet med .se, .com och .nu, adressen på bilen och i katalogerna) och läs dem som egna källor; två
-   levande domäner är ett fynd för rapporten. I lulea-snickaren-abx låg det mesta egna materialet på den äldre
-   domänen.
-2. **Bilder:** ladda ner verksamhetens egna bilder (raderna märkta foto i `kalla/SIDOR.md`, titta på dem märkta okänd,
-   och deras kanaler) med
-   `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil, källa,
-   vad bilden visar, datum, kvalitet. Datumet och dess källa (EXIF, filnamn eller okänt) ger `.venv/bin/python
-   kontroller/bilddatum.py underlag/<slug>/bilder`; daterade jobbilder kan bära en sektion. Inga stockbilder. Räkna de användbara: färre än fem, eller saknas den som kommer hem
-   till kunden, bilen eller verktyget, ett jobb före och efter eller ett färdigt resultat, så blir bilderna en
-   beställning i steg 3.
+   WebFetch och WebSearch. Bokas verksamheten via Bokadirekt: `.venv/bin/python kontroller/hamta_bokadirekt.py <slug>
+   <profilens adress>` hämtar prislistan per prislista, vem som gör vad, avbokningsvillkoret och alla omdömen med
+   text till `kalla/extern/`. Skriv också upp namn, adress och telefon exakt som de står i Google-profilen, på
+   hitta.se och på eniro.se; avvikelser mellan dem och deras sajt är ett fynd för rapporten. Sök också efter
+   verksamhetens andra domäner (`--prova-domaner "Namn, Ort"` på hämtningen provar namnets .se, .com och .nu och
+   skriver svaren sist i SIDOR.md; adressen på bilen och i katalogerna) och läs dem som egna källor; två levande
+   domäner är ett fynd för rapporten. En enstaka extern sida (en tidningsartikel, en arkiverad sida på
+   web.archive.org): `.venv/bin/python kontroller/sida_till_text.py <url> underlag/<slug>/kalla/extern/<namn>`. I
+   lulea-snickaren-abx låg det mesta egna materialet på den äldre domänen.
+2. **Bilder:** `--bilder underlag/<slug>/bilder` på hämtningen i punkt 1 laddar ned raderna märkta foto och okänd i
+   `kalla/SIDOR.md` och provar närliggande filnamn i samma mapp (k1, k3 … ger k2; salongens bästa bild var inte
+   länkad). Titta på dem märkta okänd och ta bort det som inte är verksamhetens. Bilder ur deras kanaler laddas ned
+   med `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil,
+   källa, vad bilden visar, datum, kvalitet. Datumet och dess källa (EXIF, filnamn eller okänt) ger `.venv/bin/python
+   kontroller/bilddatum.py underlag/<slug>/bilder`; daterade jobbilder kan bära en sektion. Inga stockbilder. Räkna
+   de användbara: färre än fem, eller saknas den som kommer hem till kunden, bilen eller verktyget, ett jobb före och
+   efter eller ett färdigt resultat, så blir bilderna en beställning i steg 3.
 3. **`underlag/<slug>/VERKSAMHET.json`:** formen står i `validera()` i `kontroller/verksamhetsuppgifter.py`
    (`schema: 1`, `namn`, `fiktiv: false`, `kontaktvagar` med `typ`/`varde`/`belagg`, `rackvidd`, `tjanster` och de
    valfria fälten). Sätt `webb: {"doman": "deras-doman.se"}`. `adress.publik` är `true` när verksamheten själv visar

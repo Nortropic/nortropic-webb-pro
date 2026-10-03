@@ -11,6 +11,9 @@ externa domäner sajten länkar till (kanaler, kataloger, andra domäner).
   .venv/bin/python kontroller/hamta_sajt.py https://deras-doman.se --ut underlag/<slug>/kalla [--max 40]
 
 En andra domän hämtas till en egen katalog: --ut underlag/<slug>/kalla/<domän>.
+  --bilder underlag/<slug>/bilder     laddar ned bilderna märkta foto och okänd, och provar närliggande filnamn
+  --prova-domaner "Namn, Ort"          provar namnets .se, .com och .nu (hopskrivet, med bindestreck, med ort)
+Båda skriver sitt resultat sist i SIDOR.md.
 """
 import argparse
 import html
@@ -84,16 +87,16 @@ def doman(host):
     return (host or "").lower().removeprefix("www.")
 
 
-def hamta(url, timeout=20):
-    """En GET. Svarar med status, slutadress efter omdirigering, innehållstyp och kropp (högst MAX_BYTE)."""
+def hamta(url, timeout=20, max_byte=MAX_BYTE):
+    """En GET. Svarar med status, slutadress efter omdirigering, innehållstyp och kropp (högst max_byte)."""
     req = urllib.request.Request(url, headers={
         "User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.5",
         "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.5"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            data = r.read(MAX_BYTE + 1)
+            data = r.read(max_byte + 1)
             return {"status": r.status, "url": r.geturl(), "typ": r.headers.get_content_type(),
-                    "charset": r.headers.get_content_charset(), "data": data[:MAX_BYTE], "kapad": len(data) > MAX_BYTE}
+                    "charset": r.headers.get_content_charset(), "data": data[:max_byte], "kapad": len(data) > max_byte}
     except urllib.error.HTTPError as e:
         return {"status": e.code, "url": url, "typ": None, "charset": None, "data": b"", "kapad": False}
     except Exception as e:  # nätverksfel, tidsgräns, certifikat
@@ -236,6 +239,21 @@ class Sida(HTMLParser):
     def ren_text(self):
         t = re.sub(r"[ \t\r\f\v\u00a0]+", " ", "".join(self.text))
         return re.sub(r"\n\s*\n+", "\n", "\n".join(r.strip() for r in t.split("\n"))).strip()
+
+
+def textfil(slut, svar, p, text, lankar, kontakter, sidbilder):
+    """Sidans .txt: källa, metadata, text med rubrikmarkeringar, länkar, kontaktvägar, bilder och JSON-LD."""
+    rader = [f"KÄLLA: {slut}", f"STATUS: {svar['status']}", f"TITEL: {' '.join(p.titel.split())}",
+             f"SPRÅK: {p.lang or ''}", f"KANONISK: {p.kanonisk or ''}"]
+    rader += [f"META {k}: {v}" for k, v in sorted(p.meta.items())]
+    if svar["kapad"]:
+        rader.append(f"OBS: sidan kapad vid {MAX_BYTE} byte")
+    rader += ["---TEXT---", text, "---LÄNKAR---"]
+    rader += [f"{u}  \"{t}\"" if t else u for u, t in dict.fromkeys(lankar)]
+    rader += ["---KONTAKT---", *dict.fromkeys(kontakter), "---BILDER---"]
+    rader += [f"{u}  alt=\"{a}\"  ({k})" for u, a, k in dict.fromkeys(sidbilder)]
+    rader += ["---JSON-LD---", *[j.strip()[:6000] for j in p.jsonld if j.strip()]]
+    return "\n".join(rader) + "\n"
 
 
 def filnamn(url, tagna):
@@ -415,17 +433,7 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
             for u in sorted(kartan, key=lambda u: (bool(ARKIV.search(vag(u))), vag(u).count("/"))):
                 lagg_till(u)
 
-        rader = [f"KÄLLA: {slut}", f"STATUS: {svar['status']}", f"TITEL: {' '.join(p.titel.split())}",
-                 f"SPRÅK: {p.lang or ''}", f"KANONISK: {p.kanonisk or ''}"]
-        rader += [f"META {k}: {v}" for k, v in sorted(p.meta.items())]
-        if svar["kapad"]:
-            rader.append(f"OBS: sidan kapad vid {MAX_BYTE} byte")
-        rader += ["---TEXT---", text, "---LÄNKAR---"]
-        rader += [f"{u}  \"{t}\"" if t else u for u, t in dict.fromkeys(lankar)]
-        rader += ["---KONTAKT---", *dict.fromkeys(kontakter), "---BILDER---"]
-        rader += [f"{u}  alt=\"{a}\"  ({k})" for u, a, k in dict.fromkeys(sidbilder)]
-        rader += ["---JSON-LD---", *[j.strip()[:6000] for j in p.jsonld if j.strip()]]
-        (ut / f"{namn}.txt").write_text("\n".join(rader) + "\n", encoding="utf-8")
+        (ut / f"{namn}.txt").write_text(textfil(slut, svar, p, text, lankar, kontakter, sidbilder), encoding="utf-8")
         sidor.append({"fil": namn, "url": slut, "status": svar["status"], "ord": len(re.findall(r"\w+", text)),
                       "titel": " ".join(p.titel.split())})
 
@@ -469,7 +477,119 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
     (ut / "SIDOR.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     return {"ut": str(ut), "sidor": len(sidor), "bilder": len(bilder), "kvar": len(kvar), "nekade": len(nekade),
             "fel": len(fel), "robots": robotslage, "sidkarta": kartlogg, "generator": generator,
+            "bildlista": [{"url": u, "typ": b["typ"], "alt": b["alt"]} for u, b in bilder.items()],
             "sidlista": [{"fil": x["fil"], "url": x["url"], "status": x["status"]} for x in sidor]}
+
+
+BILD_MAX = 15_000_000
+NUMMER = re.compile(r"^(.*?)(\d{1,3})(\.(?:jpe?g|png|webp|avif))$", re.I)
+
+
+def ladda_bilder(bildlista, katalog, paus=0.5, max_prov=24):
+    """Laddar ned bilderna märkta foto eller okänd till katalogen och provar närliggande filnamn i samma mapp (k1, k3
+    … ger k2): salongens bästa bild låg på servern utan att vara länkad (salong-kreativ 2026-10-03). Bara GET,
+    robots.txt för varje värd, högst max_prov gissade adresser. Svarar med en rad per bild."""
+    katalog = Path(katalog)
+    katalog.mkdir(parents=True, exist_ok=True)
+    robots, rader, tagna = {}, [], {f.name for f in katalog.iterdir()}
+
+    def tillaten(u):
+        s = urllib.parse.urlsplit(u)
+        bas = f"{s.scheme}://{s.netloc}"
+        if bas not in robots:
+            robots[bas] = las_robots(bas)[0]
+        return robots[bas].can_fetch(UA_NAMN, u)
+
+    def spara(u, typ, gissad):
+        if not tillaten(u):
+            rader.append({"url": u, "typ": typ, "fil": "", "status": "nekad av robots.txt", "gissad": gissad})
+            return False
+        svar = hamta(u, max_byte=BILD_MAX)
+        time.sleep(paus)
+        if svar["status"] != 200 or not (svar["typ"] or "").startswith("image/"):
+            if not gissad:
+                rader.append({"url": u, "typ": typ, "fil": "", "status": str(svar["status"] or svar.get("fel")), "gissad": gissad})
+            return False
+        namn = urllib.parse.unquote(urllib.parse.urlsplit(u).path.rsplit("/", 1)[-1]) or "bild"
+        namn = re.sub(r"[^\w.\-]+", "-", namn)
+        stam, _, ext = namn.rpartition(".")
+        kandidat, n = namn, 2
+        while kandidat in tagna:
+            kandidat, n = f"{stam or namn}-{n}.{ext}" if stam else f"{namn}-{n}", n + 1
+        tagna.add(kandidat)
+        (katalog / kandidat).write_bytes(svar["data"])
+        rader.append({"url": u, "typ": typ, "fil": kandidat, "status": f"{len(svar['data'])} byte", "gissad": gissad})
+        return True
+
+    grupper = {}
+    for b in bildlista:
+        u = b["url"]
+        if b["typ"] not in ("foto", "okänd") or re.search(r"\.svg(\?|$)", u, re.I):
+            continue
+        if spara(u, b["typ"], False):
+            mapp, _, fil = urllib.parse.urlsplit(u)._replace(query="", fragment="").geturl().rpartition("/")
+            m = NUMMER.match(fil)
+            if m and not re.search(r"-\d+x\d+$", m.group(1)):  # WordPress storleksvarianter är inte en serie
+                grupper.setdefault((mapp, m.group(1), m.group(3), len(m.group(2))), set()).add(int(m.group(2)))
+    prov = 0
+    for (mapp, forled, ext, bredd), kanda in grupper.items():
+        if len(kanda) < 2:
+            continue  # en ensam numrerad bild är ingen serie
+        for n in range(1, max(kanda) + 3):
+            if n in kanda or prov >= max_prov:
+                continue
+            prov += 1
+            spara(f"{mapp}/{forled}{str(n).zfill(bredd) if bredd > 1 else n}{ext}", "gissad", True)
+    return rader
+
+
+def domankandidater(namn, egen=""):
+    """Namnets vanliga domäner: hopskrivet och med bindestreck, med och utan ort, .se, .com och .nu."""
+    namn, _, ort = namn.partition(",")
+    tr = str.maketrans("åäöéü", "aaoeu")
+    ord_ = [w for w in re.findall(r"[a-z0-9]+", namn.lower().translate(tr)) if w not in ("ab", "hb", "kb", "aktiebolag")]
+    ort_ = re.findall(r"[a-z0-9]+", ort.lower().translate(tr))
+    baser = ["".join(ord_), "-".join(ord_)]
+    if ort_:
+        baser += ["".join(ord_ + ort_), "-".join(ord_ + ort_)]
+    ut = []
+    for b in dict.fromkeys(baser):
+        for tld in ("se", "com", "nu"):
+            if b and f"{b}.{tld}" not in ut:
+                ut.append(f"{b}.{tld}")
+    return [d for d in ut if d != doman(egen)]
+
+
+def prova_domaner(namn, egen="", paus=0.3):
+    """Svarar med en rad per kandidat: domän, status, slutadress och titel. Bara en GET mot startsidan."""
+    rader = []
+    for d in domankandidater(namn, egen):
+        svar = hamta(f"https://{d}/", timeout=10)
+        if svar["status"] is None:
+            svar = hamta(f"http://{d}/", timeout=10)
+        titel = ""
+        if svar["status"] == 200:
+            m = re.search(r"<title[^>]*>(.*?)</title>", avkoda(svar), re.S | re.I)
+            titel = " ".join(html.unescape(m.group(1)).split())[:80] if m else ""
+        rader.append({"doman": d, "status": svar["status"] or svar.get("fel", "")[:60], "slut": svar["url"], "titel": titel})
+        time.sleep(paus)
+    return rader
+
+
+def lagg_till_i_sidor(ut, bilder=None, domaner=None):
+    md = []
+    if bilder is not None:
+        md += ["", f"## Nedladdade bilder (--bilder, {sum(1 for r in bilder if r['fil'])} filer)", "",
+               "Gissad = hittad genom att pröva närliggande filnamn i samma mapp; den är inte länkad från sajten.", "",
+               "| Fil | Adress | Typ | Svar |", "|---|---|---|---|"]
+        md += [f"| {r['fil'] or '–'} | {r['url']} | {r['typ']} | {r['status']} |" for r in bilder] or ["| – | – | – | inga |"]
+    if domaner is not None:
+        md += ["", "## Andra domäner (--prova-domaner)", "",
+               "Svarar en domän med 200 och en egen titel är den en källa: hämta den med --ut kalla/<domän>.", "",
+               "| Domän | Svar | Slutadress | Titel |", "|---|---|---|---|"]
+        md += [f"| {r['doman']} | {r['status']} | {r['slut']} | {r['titel'].replace('|', '/')} |" for r in domaner]
+    with open(Path(ut) / "SIDOR.md", "a", encoding="utf-8") as f:
+        f.write("\n".join(md) + "\n")
 
 
 def main():
@@ -477,10 +597,20 @@ def main():
     ap.add_argument("start", help="startadress, t.ex. https://deras-doman.se")
     ap.add_argument("--ut", required=True, help="katalog, t.ex. underlag/<slug>/kalla")
     ap.add_argument("--max", type=int, default=40, help="högst så många sidor (40)")
+    ap.add_argument("--bilder", metavar="KATALOG", help="ladda ned foto och okänd hit, t.ex. underlag/<slug>/bilder")
+    ap.add_argument("--prova-domaner", metavar="NAMN", help='pröva namnets domäner, t.ex. "Salong Kreativ, Luleå"')
     a = ap.parse_args()
     if a.max > 40:
         sys.exit("högst 40 sidor")
     r = hamta_sajt(a.start, a.ut, a.max)
+    bilder = ladda_bilder(r["bildlista"], a.bilder) if a.bilder else None
+    domaner = prova_domaner(a.prova_domaner, urllib.parse.urlsplit(a.start if "//" in a.start else "https://" + a.start).hostname) if a.prova_domaner else None
+    if bilder is not None or domaner is not None:
+        lagg_till_i_sidor(a.ut, bilder, domaner)
+        r["nedladdade"] = sum(1 for x in bilder or [] if x["fil"])
+        r["gissade"] = sum(1 for x in bilder or [] if x["fil"] and x["gissad"])
+        r["domaner"] = [x["doman"] for x in domaner or [] if x["status"] == 200]
+    r.pop("bildlista", None)
     print(json.dumps(r, ensure_ascii=False))
     sys.exit(0 if r["sidor"] else 1)
 
