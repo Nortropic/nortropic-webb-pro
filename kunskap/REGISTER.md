@@ -3266,3 +3266,64 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Create a Pro Website, "The EASY way to build a beautiful website with Claude Code (full workflow)" (YouTube fDTwHIKltpc) · nej
+- Källa: https://www.youtube.com/watch?v=fDTwHIKltpc, publicerad 2026-07-02 enligt videons metadata, 26:00, cirka
+  690 800 visningar, autogenererat engelskt transkript, YouTubes standardlicens. Läst hela transkriptet och 26 av 46
+  bildrutor: alla som visar prompten, frågorna, resultatet, redigeringen och publiceringen; de 20 övriga är talande
+  huvud, kontoinstallation och Hostingers kassa enligt tidslinjen. Länkarna i beskrivningen är de två skills videon
+  bygger på, anthropics/skills frontend-design och nextlevelbuilder/ui-ux-pro-max-skill, båda redan dömda nej (rad 908
+  och 1377) med ägarens medhåll (`kunskap/KIRURG-OMDOMEN.md` rad 95–98 och 145–148); de klonades inte på nytt. Övriga
+  länkar är kanalens egna sidor, en Udemy-kurs och en Hostinger-affiliatesida [BESKRIVNING]. Ägarens not: ingen
+- Steg: 1 (frågor till verksamheten), 3 (referenser), 4 (text), 5 (riktning, bilder, rörelse) och lanseringen
+- Jämfört med i dag: (1) **Skillsen installeras globalt ur en länk** med prompten "install this skill globally" [TAL
+  05:25–07:05]; på skärmen bygger agenten ett CLI från källkod, sätter ett eget npm-prefix och skriver en ny
+  `~/.bash_profile` med PATH [SKÄRM 09:33, 09:47]. Hos oss körs ingen kod ur källor och bygget rör inte `.claude/`
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 45–48); skillsen i sig är dömda nej. Krockar. (2) **Referensen** är en
+  skärmdump av en Dribbble-mockup, inklistrad "as inspiration" [TAL 08:44–09:17; SKÄRM 08:55, 11:26]; agenten läser
+  av den som "hero, trust bar, about, services, blog, contact" och bygger samma sektioner i samma ordning [SKÄRM
+  12:03, 13:56]. Vi: referensjakt i tre roller, riktiga sajter öppnade i 390 och 1440, "Gallerier är sökingångar,
+  inte facit" och "Kopiera aldrig layout, palett eller typsnitt" (bygg-sajt rad 153–165, 260). Sämre. (3) **"Please
+  ask me any questions"** ger fyra flervalsfrågor: märke, sektioner, filformat, tjänster [SKÄRM 12:03, 12:41, 13:18].
+  Vi: kundintervjuns frågor som checklista mot det publika underlaget, minst tio saker i "Bara de har" (rad 65,
+  93–95) och det som saknas beställs i BESTALLNING.md (rad 20–24, 144–148), eftersom ingen svarar under körningen.
+  Fyra frågor ger inget specifikt att bygga på. Sämre. (4) **Bilderna** är genererade med Higgsfield, också före och
+  efter och teamfotot [TAL 01:39–02:11, 15:22; SKÄRM 02:02, 16:26, 19:34]; agenten varnar själv att teamfotot visar
+  pikétröjor med ett annat företagsnamn [SKÄRM 14:34]. Vi: genererade bilder framställs aldrig som kundens personer
+  eller arbete (`kunskap/bild.md` rad 19–20), "Inga stockbilder" (bygg-sajt rad 80), "hellre inga foton än stock"
+  (`LARDOMAR.md` rad 90). Krockar. (5) **Resultatet med egna ögon:** Playfair Display och Inter [SKÄRM 13:56],
+  kursivt accentord "Crafted to Last", spärrad versaletikett "DESIGN · BUILD · MAINTAIN", pillerknappar, statistikrad
+  15+, 1,200+, 98 % och 5.0 stjärnor, förtroenderad med Austin Chamber, TNLA, BBB, EPA WaterSense och Houzz, sex
+  likadana tjänstekort, omdömen från "Megan R., David C., Sofia P." och tre bloggkort utan sidor bakom [SKÄRM 00:02,
+  14:34, 15:11, 18:19; TAL 15:55]. Agenten listar själv telefon, adress, omdömen, blogg och formulär som påhittade
+  platshållare [SKÄRM 14:34]. Det är fem av modellens standardval i `kontroller/upptagna_val.py` rad 26–40, siffror
+  och certifieringar som bygg-sajt rad 20–21 och byggstandarden 9.3 (`kunskap/byggstandard.md` rad 121) förbjuder, och
+  likadana kort i rad som `kritik/GRANSKARE.md` rad 88 räknar som AI-mönster. Sämre. (6) **Rörelsen:** en 36 MB
+  hero-video skrubbas av skrollen med requestAnimationFrame, och agenten säger själv att filen är för tung för en
+  startsida [SKÄRM 18:19; TAL 16:29–17:34]. Vi: reducerad rörelse, högst 200 kB JS och LCP 2,5 s (byggstandarden 3.5,
+  3.7 och 4.1, rad 50, 52, 58), 0 kB JS i tre dömda byggen (`LARDOMAR.md` rad 31, 56, 87). Krockar. (7) **En enda
+  HTML-fil med Tailwind och JS** [SKÄRM 12:41] mot Astro ur mallen med en sida per huvudtjänst (bygg-sajt rad 136–137,
+  221). Sämre. (8) **Publiceringen:** filerna zippas och laddas upp som "migrering" till Hostinger via kanalens
+  affiliatesida [TAL 20:18–25:15; SKÄRM 25:13]. Inget bygge har lanserats än; `kunskap/lansering.md` finns. Inte
+  tillämpligt och ingen fördel. (9) **Rit- och markeringsverktygen** i Claude-appens förhandsvisning [TAL
+  18:19–19:13; SKÄRM 19:34] är redigering med en människa i slingan; våra byggen körs obevakat med två oberoende
+  granskare (bygg-sajt rad 265–278). Inte tillämpligt
+- Skäl: videons löfte är en sajt som "inte ser ut som de generiska AI-byggda" [TAL 00:32], och det som syns på skärmen
+  är precis en sådan: modellens husstil med Playfair och Inter, kursivt accentord, versaletikett, statistikrad och
+  likadana kort, över genererade bilder, påhittade siffror, certifieringar och omdömen, och en blogg som inte finns
+  [SKÄRM 00:02, 14:34, 15:11]. Berättaren dömer den själv som "pretty dang impressive" efter "10 15 minuter" [TAL
+  15:49–15:55], men måttstocken är tiden, inte om något i sajten är sant eller bara Summit Ridges. De två skills som
+  ska ge resultatet är dömda nej med ägarens medhåll, och ingen av de övriga metoderna är bättre än vår: referensen
+  kopieras sektion för sektion i stället för att jämföras drag mot drag, fyra flervalsfrågor ersätter underlaget, och
+  bilderna, rörelsen och platshållarna krockar med bild.md, byggstandarden och L3. Det som är rätt i videon, att samla
+  verksamhetens märke, färger och bilder före bygget [TAL 01:39–02:44] och att låta agenten läsa färgerna ur logotypen
+  [SKÄRM 13:18], gör vi redan i steg 1 och i KONCEPT.md:s krav på riktningar härledda ur verksamhetens eget material
+  (bygg-sajt rad 76–82, 208–211). Källkritik: videon säljer Hostinger med affiliatelänk och rabattkod [BESKRIVNING; TAL
+  20:18–22:30], visningarna är räckvidd och verksamheten är påhittad med 555-nummer. Inga instruktioner till agenter
+- Kostnad: inget tas in
+- Säkerhet: ej tillämpligt (video; bara transkript och bildrutor hämtade, inget klonat, kört eller installerat).
+  Värt att se: metoden "installera den här skillen globalt" lät agenten bygga från källa och skriva skalprofilen
+  [SKÄRM 09:33, 09:47], det vi förbjuder i kirurgen och i byggena
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
