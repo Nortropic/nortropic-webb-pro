@@ -119,11 +119,12 @@ echo "   tvåan-regeln ok"
 
 echo "   ateljéns domarpanel: egen ordning per domare, summan avgör"
 "$ROOT/.venv/bin/python" -B -c "
-import sys, pathlib, tempfile
+import sys, json, pathlib, tempfile
 sys.path.insert(0, '$ROOT/kontroller'); import atelje as a
 rot = pathlib.Path(tempfile.mkdtemp()) / 'atelje'
 for n in (1, 2, 3):
     (rot / str(n)).mkdir(parents=True); (rot / str(n) / 'vy-390-ruta-01.png').write_bytes(b'x')
+(rot / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {str(n): ['vy-390-ruta-01.png'] for n in (1, 2, 3)}}))  # det här försökets riktningar (R11, F34)
 a.ROOT = rot.parent
 sedda = {}
 def attrapp(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
