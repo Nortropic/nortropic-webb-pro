@@ -4769,3 +4769,99 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Jono Catliff, "Claude Code Local SEO Agent: Automate Everything ($500K+ Earned)" (YouTube vwzV-YsVswA) · nej
+- Källa: https://www.youtube.com/watch?v=vwzV-YsVswA @ publicerad 2026-10-01 (Jono Catliff, 34:02, 11 429 visningar,
+  autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 54 bildrutor: 14 är
+  berättarens egen bildspelspresentation (sex kommandon, "Local SEO. The lowest hanging fruit", /gbp-build, /reviews,
+  /gbp-post, /local-content, /citations, "The agent is free"), resten inspelningar av Google-företagsprofilen,
+  Semrush, Skool, VS Code med Claude Code, den genererade profil-dashboarden, sajten på localhost och Blotato. Repot
+  github.com/jonocatliff/seo-test-drive är privat ("Private" [SKÄRM 03:28]; `gh repo view` hittar det inte) och
+  blueprinten med Make.com-scenarierna ligger bakom Skool-konto [SKÄRM 18:05]; kommandona kunde alltså inte läsas, bara
+  det som syns i bildrutorna. Beskrivningens 32 länkar: Skool-gemenskapen, Semrush-affiliate ("A big thanks to
+  Semrush for partnering with me on this video"), Blotato-affiliate, sexton egna affiliatelänkar "some of these make
+  me money", byrån automatable.co, konsultbokning, sociala konton och sex egna videor [BESKRIVNING]. Inget öppnades,
+  klonades eller kördes. Ägarens not: hittad av spanaren 2026-10-03 via YouTube: Jono Catliff (rss); matchade agent,
+  claude code, local seo, seo
+- Steg: 1 (research §15–16), 3 (brief, lokal synlighet), 4 (innehåll), 7 (rapport punkt 14); det mesta ligger efter
+  lanseringen (profilskötsel, omdömen, inlägg, sociala kanaler), och lanseringen är parkerad (`BESLUT.md` rad 102)
+- Jämfört med i dag, kommando för kommando: (1) **/gbp, profil-dashboarden.** Claude skriver en HTML-sida med allt
+  att klistra in i profilen fält för fält, med kopieringsknapp per fält, och överst "Stop. Three things to fix before
+  you touch the profile": telefonnumret har Los Angeles-riktnummer medan byrån ligger i Vancouver, adressen är skriven
+  på två sätt, och adressen ska förbli dold [SKÄRM 07:34; TAL 07:39–08:10]. Primär kategori väljs genom att kopiera
+  de tre bäst rankade konkurrenterna [TAL 09:15]; tjänster (upp till 50) och serviceområden (upp till 20) rankas
+  efter Semrush-volym med staden tillagd i söktermen, och bladet ger "probably like a hundred or so" tjänster att
+  välja ur [TAL 10:53–12:30; SKÄRM 10:51, 12:30]. Vi: VERKSAMHET.json som enda sanning för namn, adress, telefon,
+  öppettider, kategorier och tjänster (`kontroller/verksamhetsuppgifter.py` rad 2–5); rapportens punkt 14 om
+  avvikelser mellan sajt, profil och kataloger (`.claude/skills/bygg-sajt/SKILL.md` rad 374–376); profilens fält i
+  `kunskap/lokal-synlighet.md` rad 20–27: "primär kategori = den exakta branschkategorin, sekundära bara genuint
+  tillämpliga … tjänster ur sajtens tjänstesidor"; databladsverktyget "finns inte här" (rad 4–5).
+  Avvikelsekontrollen: lika i sak, men källans klistringsfärdiga blad är smartare för ägaren än vår rapportrad.
+  Kategori ur konkurrenterna och tjänster ur sökvolym: sämre, för tjänsterna ska vara det verksamheten gör (källan
+  säger det själv [TAL 09:46], men ger hundra förslag att välja ur), och Semrush är betalt efter 14 dagar och kopplas
+  som MCP-anslutning i claude.ai [TAL 05:58–06:31]; research §15 tillåter "ingen uppskattning av sökvolym utan
+  verktyg och källa" (`kunskap/research-underlag.md` rad 74), så ett volymverktyg vore i sig tillåtet. (2)
+  **/review-generator, omdömesmotorn.** Ett formulär med en fråga; 4–5 stjärnor skickas vidare till Googles
+  omdömeslänk, 1–3 går till Slack via Make.com och syns aldrig offentligt [TAL 13:34–14:37; SKÄRM 13:05, 17:25: "This
+  goes to the owner directly. It is not posted anywhere public"]; dessutom automatiska svar på 4–5-stjärniga omdömen
+  via Make.com [TAL 18:31–19:35; SKÄRM 19:04]. Vi: "aldrig incitament, urval eller köpta omdömen (Googles policy och
+  marknadsföringslagen)", svar inom sju dagar och sakligt vid kritik (`kunskap/lokal-synlighet.md` rad 38–40);
+  omdömen bara med källa (`kunskap/byggstandard.md` 9.3, rad 121). Urvalsgrindning är just det Googles omdömesregler
+  förbjuder: att avråda från negativa omdömen eller selektivt be om positiva. Krockar med ett medvetet val, och är
+  skadligt för kunden (profilen kan stängas av). Formuläret i demon tillhör en annan fiktiv firma än sajten
+  ("Aperture Studio · Weddings & portraits" mot Automatable) [SKÄRM 17:25, 15:26]. (3) **/gbp-posts.** Åtta utkast
+  och ett publicerat inlägg via Make.com-webhook, för att slippa Googles 14-dagars API-granskning [TAL 19:36–21:48;
+  SKÄRM 19:37, 20:42, 21:31]. Det publicerade inlägget säger "from our office on East Cordova Street" [SKÄRM 20:42]
+  medan dashboarden i samma körning säger att adressen är en delad bostadsbyggnad som aldrig får visas [SKÄRM 07:34].
+  Vi: minst ett inlägg i månaden i uppföljningen, av människa (`kunskap/lokal-synlighet.md` rad 44); utkast som
+  ägaren godkänner, ingen agent som publicerar obevakat (`BESLUT.md` rad 106); hitta aldrig på fakta (bygg-sajt rad
+  20–21). Sämre och krockar. (4) **/keyword-research, /service-page, /blog-post.** Hitta, filtrera, gruppera, bygg
+  ur Semrush; sedan en tjänstesida per tjänst gånger område ("12 service pages · one per service + area") och
+  bloggposter per lokal fråga [TAL 23:30–28:28; SKÄRM 22:20, 26:27, 27:16]. Sökordskartan är läsbar och ärlig
+  ("Volumes are order-of-magnitude only", svårighet per term, "earned over months, not weeks") [SKÄRM 26:15]. Vi: en
+  sida per tjänst med huvudorten, "en sida per ort bara med verkligt lokalt innehåll", ortnamn aldrig som stoppning
+  (`kunskap/seo-lokal.md` rad 18–20; `kunskap/seo.md` rad 23, 43); sidor motiverade av uppgifterna och
+  sökintentionen, inte av en sidmall (`kunskap/brief-mall.md` rad 34); avsikten läses ur resultatsidan (research
+  §15, rad 72–74). Ägaren tog bort tio nästan identiska ortsidor i L1: "Ja, ta bort och led vidare" (`LARDOMAR.md`
+  rad 44). Matrisen är exakt de sidorna. Bloggen "How Many Appetizers Per Person? The Real Number" med författarraden
+  "Jono Catliff · Catering & events" på en marknadsföringsbyrås sajt [SKÄRM 01:01] är text i volym om fel ämne, det
+  L0 dömer (`LARDOMAR.md` rad 18). Krockar med ägarens dom. Lika: filtret volym, svårighet och avsikt är samma
+  avsiktsläsning som §15, och "money page" mot fråga är transaktions- mot informationssökning. (5) **/build-website
+  och /publish.** Sajt ur mall, GitHub och Vercel [TAL 14:41–15:24, 28:50–29:46; SKÄRM 15:26, 28:05, 28:52]. Sajten:
+  pilleretikett "SEARCH · ADS · AUTOMATION", färgade initialer som avatarer med "60 written testimonials on record",
+  oskarp skärmbild som toppbild [SKÄRM 15:26]; berättaren: "a good template, but you're going to want to customize
+  this" [TAL 15:13]. Vi: inga mallar; pillerformade etiketter och likadana kort är upptagna val
+  (`kontroller/upptagna_val.py` rad 31–33); inga platshållare (byggstandarden 9.4, rad 122); omdömen bara med källa
+  (9.3). Publiceringen är byggstandardens Vercel-steg (4.5–4.6, rad 62–63), som ägaren parkerat. Sämre. (6)
+  **/blotato.** Bloggpost blir LinkedIn- och X-inlägg, 29 dollar i månaden [TAL 30:06–31:12; SKÄRM 29:43, 30:33].
+  Utanför kedjan: inget steg marknadsför kundens sajt i sociala kanaler. Inte tillämpligt. (7) **Citationer.** Samma
+  NAP överallt, "Audit first. Submit second. One duplicate listing found beats forty new citations", nivåer 1–4,
+  Semrush Listing Management för 150 kataloger mot månadsavgift [TAL 31:27–33:17; SKÄRM 31:22, 32:11]. Vi: nivå 1–3
+  med svenska kataloger och kvartalsvis NAP-audit (`kunskap/lokal-synlighet.md` rad 29–34, 45–47). Lika; vårt är
+  svenskt. (8) **Arbetssättet.** "Bypass permissions" på i varje inspelning, Opus 5.5 Extra high [SKÄRM 05:56, 14:57,
+  20:42]; sex slash-kommandon i ett privat repo; Semrush som MCP-anslutning. Vi: kod ur källor körs inte, inga
+  anslutningar som ger en tjänst åtkomst, bygget obevakat men i sandlåda med stoppvakt
+- Skäl: en försäljningstratt med ett lokalt SEO-recept inuti, inte en metod för bättre sajter. De tre mekanikerna som
+  bär videon krockar med medvetna val eller ägarens domar: omdömesgrindningen är det Googles regler och vår
+  lokal-synlighet förbjuder [SKÄRM 17:25]; tjänst-gånger-område-matrisen är de ortsidor ägaren lät ta bort i L1
+  [SKÄRM 26:27]; de automatiska profilinläggen hittar på en adress som samma körning sagt ska vara dold [SKÄRM 07:34,
+  20:42]. Bloggen om aptitretare på byråns sajt är slop i L0:s mening [SKÄRM 01:01]. Det som är bra, avvikelserna
+  först och "audit first, submit second", har vi med fil och rad, och själva kommandona går inte att läsa: repot är
+  privat och blueprinten ligger bakom Skool. Källkritik: Semrush är partner i videon, Blotato och sexton verktyg är
+  affiliatelänkar, GoHighLevel säljs för en dollar i betalgemenskapen [TAL 17:58]; "50 000 klick i månaden" och "half
+  a million dollars" är berättarens egna siffror om en såld verksamhet [TAL 01:04–01:36], och Search Console-vyn som
+  visas säger 11,5K klick för en vald period [SKÄRM 01:16]; demon är berättarens egen byrå och en fiktiv fotostudio.
+  Inga instruktioner till agenter i det som syns
+- Kostnad: inget tas in. Källans egna: Semrush efter 14 dagar, Blotato 29 dollar i månaden [TAL 30:06], GoHighLevel
+  97 dollar i månaden utanför gemenskapen [TAL 17:58], Make.com-scenarier att underhålla
+- Säkerhet: ej tillämpligt (video; transkript och bildrutor hämtade, inget klonat, kört eller installerat; repot
+  privat). Noterat: körningarna går med behörigheterna avstängda och Semrush kopplas som anslutning med åtkomst till
+  kontot [TAL 05:58–06:31; SKÄRM 05:56]; inget förs vidare
+- Förslag: inget för domen. Egen innovation som källan inspirerar till: rapportens punkt 14 (bygg-sajt rad 374–376)
+  får ett klistringsfärdigt profilblad ur VERKSAMHET.json (namn, primär kategori, adress eller serviceområde, telefon,
+  öppettider, tjänster ur tjänstesidorna, beskrivning ur briefen, bilder att ladda upp), med avvikelserna och det
+  beställda först, så att ägaren kan föra in profilen utan att leta i sajten; `kunskap/lokal-synlighet.md` rad 20–27
+  säger redan vad varje fält ska innehålla, men verktyget "finns inte här" (rad 4–5). Bara text i rapporten, inget
+  nytt verktyg, inget blad för fiktiv verksamhet
+- Utfall: —
+- Backlog: ingen för domen; egen innovation B-20261003-rapportens-punkt-14-far-ett-klistringsfardigt-pr
