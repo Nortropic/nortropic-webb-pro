@@ -6329,3 +6329,64 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   stöd visas det som i viloläge. Standarden behöver inte pröva det; granskaren ser det
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Chrome for Developers, "Lighthouse audits with DevTools for agents" (YouTube 2q9d7ANaXeA) · nej
+- Källa: https://www.youtube.com/watch?v=2q9d7ANaXeA @ publicerad 2026-08-06, 5:44, Matthias Rohmer (Developer
+  Relations Engineer, Google) [SKÄRM 00:02]; manuellt transkript läst i sin helhet och alla 21 bildrutor sedda. Elva är
+  talaren i bild, fem är bildspel (kategorier och poäng [SKÄRM 00:51, 01:08], verktygslistan [SKÄRM 01:22], agentic
+  browsing-panelen [SKÄRM 04:19]), fem är skärminspelningar av Antigravity med Gemini 3.5 Flash [SKÄRM 02:31, 02:47,
+  03:21, 03:37, 03:54, 04:35, 04:52]. Dokumentationslänken goo.gle/dta-lighthouse (developer.chrome.com/docs/devtools/
+  agents/use-cases/lighthouse-audit) gick inte att läsa: sida.mjs fick HTTP 429 från Googles robotkontroll i båda
+  vyerna [BILD dta-lighthouse/SIDA.md] och reservhämtningen nekades anslutning; de fem övriga länkarna är kanal- och
+  profillänkar och öppnades inte. Ägarens not: hittad av spanaren 2026-10-03 via YouTube: Chrome for Developers (rss);
+  matchade accessibility, audit, lighthouse, performance, seo, web
+- Steg: 6 Prov (Lighthouse-grinden), 5.4 snabbprovet; byggstandarden 4.1, 5.6, 7.6
+- Jämfört med i dag: källan låter en kodagent köra Lighthouse genom Chrome DevTools MCP-verktyget `lighthouse_audit`
+  (argument device och mode [SKÄRM 02:47]) på en adress i taget, läsa de underkända auditerna och rätta dem, och köra
+  om för att verifiera [TAL 01:41, 03:24–03:59; SKÄRM 03:54 "SEO Score reached 100/100", 10 filer ändrade]. Prestanda
+  tas inte med i verktyget; i stället en prestandaspårning med insikter [TAL 01:05; SKÄRM 01:22]. Sak mot sak. (1)
+  **Kör och rätta.** Vi: provet kör samma Lighthouse (pinnad 13.5.0, `kontroller/package.json` rad 15) på varje
+  provsida i mobil och desktop, upp till tre omgångar per sida, mot kraven P 90, A 95, BP 95 och SEO 90
+  (`kontroller/lighthouse.mjs` rad 4, 30, 55–66), skriver id:n för de underkända auditerna (rad 42) in i PROV.md
+  (`kontroller/prova.py` rad 389–390, 497–498), och byggaren rättar tills grinden är grön utan att någon ber om det
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 343–344). Det är källans slutna slinga, fast utan prompt, för alla sidor
+  och båda enheterna, och med tak som grind. Källans väg är en sida, en enhet, en omgång, på begäran [SKÄRM 02:47,
+  03:21]. Sämre än vårt. (2) **Agentic browsing**, den nya kategorin [TAL 04:05–04:56; SKÄRM 04:19, 04:52]. Vår
+  pinnade Lighthouse har den redan i standardkonfigurationen (`kontroller/node_modules/lighthouse/core/config/
+  default-config.js` rad 646–660: accessibility tree, tre WebMCP-audits, CLS, llms.txt, ai-catalog.json), så varje
+  sparad rapport bär den. I byggena passerar `agent-accessibility-tree` med "All audits passed" på alla sidor och
+  enheter jag kontrollerade (`kunder/lulea-snickaren/prov/lighthouse/hem-mobil.json` rad 3117–3120, `kunder/
+  paint-it-black-maleri/prov/lighthouse/hem-mobil.json` rad 2944–2949, `kunder/lulea-snickaren-aby/…/hem-mobil.json`
+  rad 3336–3341, `kunder/holms-konditori-abx/…/hem-desktop.json` rad 3332–3335); WebMCP, llms.txt och ai-catalog.json
+  är notApplicable med vikt 0 på våra sajter. Byggstandarden säger med källa att llms.txt inte behövs (`kunskap/
+  byggstandard.md` rad 102, 153), och WebMCP är tool-registrering i JavaScript för appar som källans bilkonfigurator
+  [TAL 04:34; SKÄRM 04:35], inte för en hantverkares statiska sajt utan JS. Det enda tillämpliga i kategorin prövar
+  vi redan och klarar; resten är bortvalt. Lika, med ett medvetet val emot. (3) **Prestanda som spårning i stället för
+  poäng** [TAL 01:05]. Vi: poäng som grind (4.1) plus LCP, CLS, TBT och sidvikt i lighthouse.json (`lighthouse.mjs`
+  rad 46–49) och hela rapporten med insikterna per sida och enhet (rad 67). Spårningen kräver DevTools MCP i en
+  levande Chrome; våra byggen når P 91–100 (PROV.md i fem byggen) utan den. Lika i sak. (4) **Osmanis
+  audit-skill** i verktygslådan beskriver redan både MCP-vägen och kategorin, med samma reservationer om llms.txt och
+  om att kategorin inte är SEO (`kunskap/externa/addyosmani-web-quality-audit-SKILL.md` rad 28–36, 123–130), och steg 6
+  läser den (`bygg-sajt/SKILL.md` rad 340). Mot litteraturen: lab- och fältmätning med budget som grind
+  (`kunskap/teoretisk-grund.md` rad 36–39, 68–72) är det vi gör; källan är samma labbmätning i ett annat skal
+- Skäl: videon visar en riktig och korrekt beskriven arbetsgång, men den är en MCP-förpackning av det verktyg provet
+  redan kör, med mindre täckning och mer manuell start än vår grind. Det nya, agentic browsing, ligger redan i våra
+  rapporter: det enda tillämpliga audit-fallet passerar i alla byggen jag kontrollerade, och de övriga gäller
+  WebMCP-appar och llms.txt, som standarden 7.6 avvisar med källa. Att ta in DevTools MCP vore att installera ett
+  verktyg för att få en delmängd av det vi har. Demon är Googles egen nyhetssajt och bilkonfigurator; inga siffror
+  om tid eller kvalitet ges, och SEO-rättningen är meta descriptions i tio filer [SKÄRM 03:54], det vårt
+  `seo_kontroll` fäller före Lighthouse (`kontroller/seo_kontroll.py` rad 95–97). Inte parkera: det finns inget läge där en prompt-driven engångskörning blir
+  bättre än grinden. Källkritik: Google talar för sin egen verktygskedja (Antigravity, Gemini, Chrome DevTools) och
+  säljer inget; påståendet "over 140 automated checks" [TAL 01:05] är inte kontrollerat; inga instruktioner till
+  agenter i transkriptet
+- Kostnad: inget tas in. Vid användning hade det krävt chrome-devtools-mcp som MCP-server i byggsessionen (npx vid
+  start, nätanrop) utöver den pinnade Lighthouse vi redan har
+- Säkerhet: videon har inget att förgranska utöver transkriptet, som talar till tittare. Dokumentationssidan kunde
+  inte hämtas (HTTP 429), så dess text är inte förgranskad eller läst. Inget kört eller installerat
+- Förslag: inget för domen. Egen innovation ur källans enda bärande poäng (agenten får auditens råd direkt och
+  rättar [TAL 01:41]): provets Lighthouse-grind ger byggaren titel, mätvärde och de första träffarna för varje
+  underkänd audit, inte bara id:t som i dag (`lighthouse.mjs` rad 42, `prova.py` rad 389); tre byggen har redan
+  skrivit egna skript för att läsa rapporterna (B-20261002-ett-allmant-hjalpskript). Liten ändring i två filer,
+  rökprovet avgör
+- Utfall: —
+- Backlog: ingen för domen; egen innovation B-20261003-provets-lighthouse-grind-ger-byggaren-titel-matv
