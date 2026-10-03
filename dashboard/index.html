@@ -229,7 +229,7 @@ async function byggevy(slug, behallFlik) {
   if (flik === 'korning') f.innerHTML = b.ab_dold ? '<div class="tom">Dolt tills du har valt i Jämförelser, så att jämförelsen förblir blind.</div>' : bKorning(b.korning);
   if (flik === 'prov') f.innerHTML = b.prov_md ? `<div class="prosa">${b.prov_md}</div>` : '<div class="tom">Provet har inte körts.</div>';
   if (flik === 'granskning') f.innerHTML = bGranskning(b.granskning || {});
-  if (flik === 'dom') bDom(b, f);
+  if (flik === 'dom') { if (b.ab_dold) f.innerHTML = '<div class="tom">Välj först blint i Jämförelser. Domen över varje arm öppnas när jämförelsen är avgjord, så att inget här avslöjar vilken arm som är vilken.</div>'; else bDom(b, f); }
   if (b.pagar && flik !== 'dom') timer = setTimeout(() => byggevy(slug, true), 6000);
 }
 function bild(p, text) { return p ? `<figure><a href="/fil/${esc(p)}" target="_blank"><img loading="lazy" src="/fil/${esc(p)}" alt="${esc(text)}"></a><figcaption>${esc(text)}</figcaption></figure>` : ''; }

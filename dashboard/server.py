@@ -259,7 +259,8 @@ def byggen():
 
 def ab_oavgjord(slug):
     """Är bygget en arm i en jämförelse som ägaren inte har valt i än? Då döljs allt som kan avslöja armen: koncept och
-    underlag (ateljévägen skriver sig själv i KONCEPT.md), rapporten, provets text och körningens händelser."""
+    underlag (ateljévägen skriver sig själv i KONCEPT.md), rapporten, provets text, körningens händelser och byggets
+    egna frågor (riktningsfrågan bär ateljéns bilder)."""
     if not (KUNDER / slug / 'AB-SYSKON').is_file() or not AB.is_dir():
         return False
     return any(slug in (p.get('byggen') or []) and p.get('val') is None for p in (las_json(f) or {} for f in AB.glob('ab-*.json')))
@@ -285,7 +286,9 @@ def bygge(slug):
     })
     if ab_oavgjord(slug):
         dolt = '<p>Dolt tills du har valt i Jämförelser, så att jämförelsen förblir blind.</p>'
-        b.update({'ab_dold': True, 'rapport': dolt, 'prov_md': dolt, 'underlag': {'Dolt': dolt}, 'korning': None})
+        # också byggets egna frågor: ateljéarmens riktningsfråga visar bilder ur atelje/ och avslöjar armen
+        b.update({'ab_dold': True, 'rapport': dolt, 'prov_md': dolt, 'underlag': {'Dolt': dolt}, 'korning': None,
+                  'fragor': {'karna': KARNFRAGOR, 'egna': []}})
     return b
 
 
