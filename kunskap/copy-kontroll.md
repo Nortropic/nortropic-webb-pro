@@ -13,6 +13,7 @@ eller motiverar varje fynd. Ingen poäng, inget godkännande, ingen stilregel: e
 | engelskt läckage | lånad marknadsföringsjargong (seamless, elevate, world-class …) på svensk sajt | skriv svenska |
 | platshållare | lorem ipsum, TODO-markörer, `[OSÄKER]` i levererad text | fakta beläggs eller texten tas bort |
 | intern information | hänvisningar till den gamla sajten eller till bygget ("från vår gamla sajt", "nya hemsidan") | säg vad bilden eller texten visar besökaren, inte var den kom ifrån |
+| siffra | ett tal (med +, procent eller "över") inom fem ord från kunder, uppdrag, jobb, projekt, år, omdömen, stjärnor, procent eller timmar, och årtal efter "sedan" | kvitto i `VERKSAMHET.json`, omdömessidan eller källfilen; annars stryk. En påhittad siffra är det fel som inte går att ta tillbaka |
 | hälsningsrubrik | "Välkommen till …" som rubrik | första vyn säger vad som erbjuds och för vem |
 | tankstreckskedja | två eller fler tankstreck i samma stycke | högst ett per stycke; variera konstruktionen (fråga, kolon, relativsats) |
 | utropstecken | fler än ett per sida | högst ett, helst inget |

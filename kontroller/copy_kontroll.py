@@ -41,6 +41,10 @@ FRASER_EN = ['unlock', 'elevate', 'seamless', 'empower', 'effortless', 'state-of
 # (ägarens A/B-omdöme 2026-10-02: bildtexten "från vår gamla sajt")
 INTERN = re.compile(r'\b(?:gamla|tidigare|förra) (?:sajt|sajten|hemsida|hemsidan|webbplats|webbplatsen|webbsida|webbsidan)\b'
                     r'|\bnya (?:sajten|hemsidan|webbplatsen)\b')
+# siffra: ett tal intill kunder, jobb, år, omdömen eller procent är ett bevispåstående; påhittat är det felet utan
+# återväg (kirurgens intag 2026-10-03, SlopMonster-regeln i egna ord). Rapporteras för kvitto, inte som fel.
+SIFFERORD = re.compile(r'(?:kund|uppdrag|jobb|projekt|år$|åren$|års|omdöme|recension|stjärn|procent|timm|nöjd|betyg'
+                       r'|sedan$|grundad|startade|erfarenhet|anställd|medarbetar)', re.I)
 PLATSHALLARE = ['lorem ipsum', 'todo-fact', 'todo-copy', '[osäker]', 'platshållare', 'placeholder']
 TAGG = re.compile(r'<[^>]+>')
 JSX = re.compile(r'\{[^{}]*\}')
@@ -106,6 +110,17 @@ def kontrollera_fil(path, raw, extra_fraser):
     for i, t in rows:
         if t.count('—') >= 2 or t.count(' – ') >= 2:
             fynd.append({'typ': 'tankstreckskedja', 'rad': i, 'text': t[:80], 'riktning': 'högst ett tankstreck per stycke; variera konstruktionen'})
+    for i, t in rows:
+        ord_ = t.split()
+        sedda = set()
+        for k, w in enumerate(ord_):
+            if not re.search(r'\d', w) or w in sedda:
+                continue
+            fonster = ord_[max(0, k - 5):k + 6]
+            if '%' in w or any(SIFFERORD.match(x.strip('.,;:()"»«!?–—').lower()) for x in fonster):
+                sedda.add(w)
+                fynd.append({'typ': 'siffra', 'rad': i, 'text': ' '.join(fonster)[:100],
+                             'riktning': 'kvitto i VERKSAMHET.json, omdömessidan eller källfilen; annars stryk'})
     utrop = sum(t.count('!') for _, t in rows)
     if utrop > 1:
         fynd.append({'typ': 'utropstecken', 'rad': 0, 'text': '%d utropstecken' % utrop, 'riktning': 'högst ett per sida, helst inget'})
