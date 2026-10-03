@@ -6268,3 +6268,64 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   `kontroller/standard_kontroll.py` rad 703–764)
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Chrome for Developers, "93: State queries in 2025" (CSS Podcast, YouTube nwauFPVDVEY) + Argyle, "CSS scroll-state()" · parkera
+- Källa: https://www.youtube.com/watch?v=nwauFPVDVEY @ publicerad 2026-09-24 (inspelad 2025-10-16), 17:53, Una Kravets
+  och Bramus Van Damme; manuellt transkript läst i sin helhet och alla 40 bildrutor sedda. 32 av dem är podcastens
+  stillbild (två värdar, ljudvåg), 8 visar kod med demo bredvid: grundsyntaxen för en storleksfråga [SKÄRM 02:41],
+  stuck [SKÄRM 05:16], snapped [SKÄRM 07:51, 08:17], scrollable [SKÄRM 10:52, 11:18] och anchored [SKÄRM 15:11,
+  15:37]. Av fyra länkar i beskrivningen öppnad en:
+  goo.gle/4mQDQ0M → developer.chrome.com/blog/css-scroll-state-queries (Adam Argyle, 2025-01-15; text CC BY 4.0,
+  kodexempel Apache 2.0), hela texten läst; demolänkarna (CodePen) och de tre övriga länkarna (avsnitt 59,
+  syntaxlistan, anchor queries) inte öppnade. Ägarens not: hittad av spanaren 2026-10-03 via YouTube: Chrome for
+  Developers (rss); matchade css, javascript, ui, web
+- Steg: 5.3 (bygget: sidhuvud, fasta lister, klistrande spalter); byggstandarden 0 (progressive enhancement, mindre
+  JS), 3.5, 5.1, 5.5 och 9.1
+- Jämfört med i dag: källan är tre nya tillstånd att fråga efter i CSS utan JavaScript, `container-type: scroll-state`
+  på föräldern och `@container scroll-state(...)` på barnet [TAL 04:11; TEXT]. (1) **stuck**: ett klistrat element
+  byter stil när det fastnat, till exempel skugga eller täckande bakgrund på ett sidhuvud, eller den aktiva bokstaven i
+  ett register [TAL 05:52, 06:59; SKÄRM 05:16 visar en grön list "I turn green when stuck!"]. Vi: ingen regel om
+  stil i klistrat läge; byggena använder `position: sticky` bara för textspalten bredvid bildserier på desktop
+  (`kunder/lulea-snickaren/sajt/src/pages/projekt.astro` rad 129, `kunder/paint-it-black-maleri/sajt/src/styles/sajt.css`
+  rad 456, `kunder/salong-kreativ/sajt/src/pages/farg-och-slingor.astro` rad 92), ingen av dem ligger över innehåll
+  och behöver ingen stiländring; mobilens Ring/Skriv-list är `position: fixed` (Sundboms `global.css` rad 275, Holms
+  `Ram.astro` rad 122, abx `sajt.css` rad 1123, Salong Kreativ `Sida.astro` rad 191) och fastnar aldrig. Mallen
+  (`mall/`) har varken sticky, overflow eller container-type. Inget bygge har skroll-lyssnare eller
+  IntersectionObserver (sökt i `kunder/*/sajt/src`), så det finns ingen JavaScript att ersätta. Lika i dag.
+  (2) **snapped**: det snäppta kortet i en karusell skalas upp, bildtexter visas vid snäpp [TAL 08:08, 08:42; SKÄRM
+  08:17]. Vi: inga karuseller (`kunskap/byggstandard.md` rad 73 och 119). Krockar med ett medvetet val; inte
+  tillämpligt. (3) **scrollable**: pil eller skugga visas bara när det finns mer att rulla till, och försvinner vid
+  slutet; också "till toppen"-länk som döljs när inget finns ovanför [TAL 09:35, 11:33; SKÄRM 10:52 pil synlig,
+  11:18 pil borta vid slutet]. Vi: den rad som rullar dold i sidled är förbjuden efter L4 (`.claude/skills/bygg-sajt/
+  SKILL.md` rad 280–281; fallet var Salong Kreativs meny, `Sida.astro` rad 153 och 158, med toning som enda ledtråd).
+  Källans pil hade löst exakt det L4 pekade på, men ägaren valde två rader i stället för en bättre affordans
+  (`LARDOMAR.md` L4), och ingen annan yta hos oss rullar i sidled. Bättre teknik för ett mönster vi inte bygger.
+  (4) **anchored**: stil efter vilken fallback-position ett förankrat element hamnat i, pilen på ett verktygstips
+  byter sida [TAL 14:31, 15:41; SKÄRM 15:11 och 15:37]. Bara i Chrome Canary, spec kvar att göra [TAL 15:07; SKÄRM
+  15:11 "Baseline: Experimental"]; våra sajter har inga popovers. Inte tillämpligt. Mot litteraturen: tekniken följer
+  progressive enhancement och "mindre JavaScript" (`kunskap/teoretisk-grund.md` rad 34 och 47; byggstandarden rad 18):
+  en webbläsare utan stöd kastar bara regeln [TAL 04:11; TEXT avsnittet Progressive Enhancement], och artikeln påminner
+  om prefers-reduced-motion runt rörelse [TEXT], som vår 3.5. Så långt i linje med vårt sätt
+- Skäl: en korrekt och väl förklarad genomgång av riktiga webbläsarfunktioner, från de som byggt dem, utan
+  försäljning. Men ingen av de fyra frågorna träffar något vi bygger i dag: klistrade element hos oss ligger inte över
+  innehåll, karuseller och dolda sidorullande rader är bortvalda av ägaren, popovers finns inte, och ingen JavaScript
+  finns att ersätta. Stödet gör det dessutom till en förbättring bara för en del av besökarna: Chrome och Edge 133+ och
+  Samsung Internet 29+, inte Firefox eller Safari (caniuse.com, hämtat 2026-10-03); bildrutan påstår "Baseline: Newly
+  Available … Correct as of August 2026" [SKÄRM 05:16, 08:17, 10:52], vilket inte stämmer med caniuse, och MDN:s
+  kompatibilitetstabell gick inte att läsa ut; motsägelsen är inte löst. En affordans som bara iPhone-besökaren inte
+  ser kan inte bära något som spelar roll för hantverkarens kunder. Blir aktuellt när ett bygge får ett sidhuvud eller
+  ett tabellhuvud som klistrar över innehåll (skugga i stuck-läge, utan JS, byggstandarden 5.1 i åtanke), eller när en
+  pristabell måste rullas i sidled på 390 px (pilen i scrollable-läge som tillägg till Nielsen-postens "en tabell per
+  kolumn", 2026-10-03), eller när Safari skickar stödet. Inte nej: metoden är rätt sort (CSS före JS, degraderar tyst)
+  och väger mer än ingen text den dag mönstret finns. Källkritik: Google säljer inget här men pratar för sin egen
+  motor; stödpåståendet i bilden stämmer inte med caniuse; demon är deras egen; inga instruktioner till agenter i
+  transkriptet eller artikeln
+- Kostnad: inget tas in nu. Vid användning: några rader CSS per komponent, 0 kB JavaScript, inga beroenden
+- Säkerhet: förgranskningen av artikeltexten gav LÅG, inga dolda tecken, ingen text riktad till agenter. Videon har
+  inget att förgranska utöver transkriptet, som bara talar till lyssnare. Inget kört eller installerat
+- Förslag (när det blir aktuellt): en mening i `.claude/skills/bygg-sajt/SKILL.md` steg 5.3, efter stycket **Mobilens
+  första vy** (rad 279–284): ett element som klistrar över innehåll får sin skugga eller täckande bakgrund via
+  `@container scroll-state(stuck: …)` med `container-type: scroll-state` på föräldern, aldrig via skroll-lyssnare; utan
+  stöd visas det som i viloläge. Standarden behöver inte pröva det; granskaren ser det
+- Utfall: —
+- Backlog: ingen
