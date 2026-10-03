@@ -176,6 +176,8 @@ def divergera_prompt(slug, bilder):
         '- En namngiven axel som riktningarna skiljer sig på (foto eller typografi bär, ljust eller mörkt, tätt eller luftigt),',
         '  minst två typsnittskategorier, och olika sidform: hur toppen, tjänsterna och beviset visas. Ingen halmgubbe;',
         '  varje riktning ska kunna vinna. Undvik det UPPTAGNA-VAL.md räknar upp om inte verksamhetens material motiverar det.',
+        '- Ett motiv per riktning: en form, linje eller ett material ur märket eller "Bara de har" som bär formen på tre ställen',
+        '  (listmarkör, bildmask, avslut eller sidfot), aldrig dekor utan funktion. Skriv det i riktningens beskrivning.',
         '- Riktigt innehåll: rubriker, texter och knappar ur INNEHALL.md, verksamhetens egna bilder. Inget påhittat.',
         '- Mobilens första vy enligt "Mobilens första vy" i .claude/skills/bygg-sajt/SKILL.md steg 5 punkt 3: sidhuvud på en',
         '  rad med namn och den primära handlingen som knapp, menylänkarna synliga utan hamburgare, rubrik, handling och ett',

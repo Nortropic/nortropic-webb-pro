@@ -213,16 +213,19 @@ KONCEPT.md.
 1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md` med fyra visuella riktningar härledda ur verksamheten själv
    (deras bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Varje riktning anger: bakgrund
    och accent som hex, ett namngivet typsnitt med roll, toppsektionens komposition i en mening, **sidans form** (hur
-   tjänsterna, beviset, undersidornas sektioner, sidfoten och avslutet visas), och den sak ur "Bara de har" som
-   riktningen bygger på. Ägarens mall-lukt i L1–L3 satt i formen, inte i färgen. Minst två typsnittskategorier
-   (grotesk, serif, slab, display) och en namngiven axel som riktningarna skiljer sig på: foto eller typografi bär,
-   ljust eller mörkt, tätt eller luftigt. Ingen halmgubbe; varje riktning ska kunna vinna. Anthropic rekommenderar
-   fyra riktningar med just de här uppgifterna för att få verkligt olika utfall. Välj en med skäl och skriv den som
-   **exakt specifikation** innan någon kod skrivs: färger som hex med roller, typsnitt och typografisk skala, radie,
-   avståndssystem, sektionsordning och form per sida, med skäl mot strukturmönstren i UPPTAGNA-VAL.md. Modellen
-   följer uttryckliga specifikationer precist. De två starkaste riktningarna blir riktningsfrågan i FRAGOR.json, med
-   en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad **Visuell tes**: stämning, material och energi i en
-   mening, som namnger ett material eller en plats ur "Bara de har".
+   tjänsterna, beviset, undersidornas sektioner, sidfoten och avslutet visas), den sak ur "Bara de har" som
+   riktningen bygger på, och en rad **Motiv**: en form, linje eller ett material ur märket eller "Bara de har" och de
+   tre ställen där det bär formen (listmarkör, bildmask, avslut eller sidfot), aldrig dekor utan funktion. Ägarens
+   mall-lukt i L1–L3 satt i formen, inte i färgen: tjänstelistor, sektionsformer och sidfötter som kunde stå hos
+   vilken firma som helst. Minst två typsnittskategorier (grotesk, serif, slab, display) och en namngiven axel som
+   riktningarna skiljer sig på: foto eller typografi bär, ljust eller mörkt, tätt eller luftigt. Ingen halmgubbe;
+   varje riktning ska kunna vinna. Anthropic rekommenderar fyra riktningar med just de här uppgifterna för att få
+   verkligt olika utfall. Välj en med skäl och skriv den som **exakt specifikation** innan någon kod skrivs: färger
+   som hex med roller, typsnitt och typografisk skala, radie, avståndssystem, sektionsordning och form per sida, med
+   skäl mot strukturmönstren i UPPTAGNA-VAL.md. Modellen följer uttryckliga specifikationer precist. De två starkaste
+   riktningarna blir riktningsfrågan i FRAGOR.json, med en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad
+   **Visuell tes**: stämning, material och energi i en mening, som namnger ett material eller en plats ur "Bara de
+   har".
    **Ateljévägen** (när prompten säger att riktningsateljén är på): kör punkt 2 först, sedan `.venv/bin/python
    kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så länge den svarar att ateljén
    pågår. En orkestrator tar fram riktningarna som style tile och första vy med verksamhetens riktiga innehåll, och
