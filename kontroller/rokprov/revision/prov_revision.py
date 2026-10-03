@@ -1098,7 +1098,7 @@ print('R11 F32 länkar ok')
 m18a = gr.metod_sha('ett-abx'); rdir18b = tmp / 'underlag' / 'ett-abx' / 'referenser' / 'r1'; rdir18b.mkdir(parents=True)
 (rdir18b / 'vy-390-forsta.png').write_bytes(b'bild A'); m18b = gr.metod_sha('ett-abx'); assert m18b != m18a, 'referensbilderna ska ingå i metodhashen (F18)'
 (rdir18b / 'vy-390-forsta.png').write_bytes(b'bild B'); assert gr.metod_sha('ett-abx') != m18b, 'en utbytt bild på samma sökväg ska ge ny hash (F18)'
-fr18 = gr.frysta_referenser('ett-abx', tmp / 'runda18'); assert fr18 and fr18[0].read_bytes() == b'bild B' and str(fr18[0]).startswith(str(tmp / 'runda18')), fr18
+fr18 = gr.frysta_referenser('ett-abx', tmp / 'runda18'); assert fr18 and fr18[0][0].read_bytes() == b'bild B' and str(fr18[0][0]).startswith(str(tmp / 'runda18')), fr18
 print('R11 F18 referensbilder ok')
 
 # F8: en misslyckad jämförelse blir aldrig 'lika'
@@ -1611,6 +1611,34 @@ finally:
 tider16['trad'].join(10)
 assert tider16.get('vantade') and 'status' in tider16 and tider16['status'][1] > tider16['radering'] and tider16['status'][0]['status'] == 'kund', 'statusändringen ska vänta på gallringens lås (F35): %s' % tider16
 print('R16 F35 återaktivering och lås ok')
+
+
+# ---------------------------------------------------------------- referensöverföringen (backlogposten 2026-10-03): utpekade rutor följer med
+import referensval as rv  # noqa: E402
+u_rv = tmp / 'underlag' / 'ref-abx'; (u_rv / 'referenser' / 'bluetit').mkdir(parents=True); (u_rv / 'referenser' / 'govuk').mkdir(parents=True)
+for namn_, fil_ in (('bluetit', 'vy-390-forsta.png'), ('bluetit', 'vy-1440-ruta-02.png'), ('govuk', 'vy-390-forsta.png'), ('govuk', 'vy-390-ruta-03.png')):
+    (u_rv / 'referenser' / namn_ / fil_).write_bytes(b'\x89PNG' + namn_.encode() + fil_.encode())
+(u_rv / 'REFERENSER.md').write_text('# Referenser\n\n## 1. Blue Tit (hantverk)\n\nhttps://bluetitlondon.com · prislista.\n'
+                                   'Bildval: referenser/bluetit/vy-1440-ruta-02.png — prislistan med nivåer efter erfarenhet — Fråga: syns elevpriset utan att gömma mästarpriset?\n'
+                                   'Bildval: referenser/bluetit/saknas.png — något — Fråga: finns den?\n'
+                                   'Bildval: referenser/../REFERENSER.md — utanför — Fråga: läcker?\n\n'
+                                   '## 2. GOV.UK (UX)\n\nBildval: referenser/govuk/vy-390-ruta-03.png — kontaktsidans nummer, tid och vad som händer sen — Fråga: läses det i en skärmhöjd på 390?\n'
+                                   '\n## 3. Utan bildval\n\ntext\n')
+(u_rv / 'referenser' / 'dinesen').mkdir(); (u_rv / 'referenser' / 'dinesen' / 'vy-390-forsta.png').write_bytes(b'\x89PNGdinesen')
+val_rv = rv.bildval('ref-abx', tmp / 'underlag')
+assert [v['fil'].name if v['fil'] else v['fel'] for v in val_rv] == ['vy-1440-ruta-02.png', 'filen saknas eller är ingen bild', 'utanför referenser/', 'vy-390-ruta-03.png'], val_rv
+assert val_rv[0]['referens'].startswith('1. Blue Tit') and val_rv[3]['referens'].startswith('2. GOV.UK')
+bilder_rv = rv.referensbilder('ref-abx', tmp / 'underlag')
+assert [p_.name for p_, _ in bilder_rv][:2] == ['vy-1440-ruta-02.png', 'vy-390-ruta-03.png'] and 'Fråga: syns elevpriset' in bilder_rv[0][1], bilder_rv
+assert any(p_.parent.name == 'dinesen' and t_ == 'första vyn' for p_, t_ in bilder_rv) and not any(p_.name == 'vy-390-forsta.png' and p_.parent.name == 'bluetit' for p_, _ in bilder_rv), 'första vyn bara som reserv för referenser utan bildval: %s' % bilder_rv
+(tmp / 'kunder' / 'ref-abx' / 'sajt' / 'dist').mkdir(parents=True)
+text_rv = gr.uppdrag_text('ref-abx', 'http://x', ['/'], tmp / 'arb', [], gr.referensbilder('ref-abx'), [], [], tmp / 'runda-rv')
+assert 'referenser/bluetit/vy-1440-ruta-02.png — prislistan med nivåer efter erfarenhet — Fråga: syns elevpriset' in text_rv and 'ruta eller det tillstånd' in text_rv, text_rv[-900:]
+fr_rv = gr.frysta_referenser('ref-abx', tmp / 'runda-rv'); assert fr_rv[0][0].name.endswith('vy-1440-ruta-02.png') and 'Fråga:' in fr_rv[0][1]
+filer_rv, refs_rv = a.underlag_rader('ref-abx')
+assert refs_rv and 'vy-1440-ruta-02.png — prislistan' in refs_rv[0] and 'Fråga: syns elevpriset' in refs_rv[0], refs_rv
+assert 'Bildval' in (ROOT / '.claude' / 'skills' / 'bygg-sajt' / 'SKILL.md').read_text() and 'Land-book' in (ROOT / 'kunskap' / 'referensjakt.md').read_text()
+print('referensöverföringen ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

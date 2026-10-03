@@ -37,6 +37,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402
+import referensval  # noqa: E402
 
 ROOT = prova.ROOT
 KUNDER = ROOT / 'kunder'
@@ -157,7 +158,8 @@ def underlag_rader(slug):
                              'VERKSAMHET.json') if (u / f).is_file()]
     if (u / 'bilder' / 'BILDER.md').is_file():
         filer.append(u / 'bilder' / 'BILDER.md')
-    refs = sorted(str(p.relative_to(ROOT)) for p in (u / 'referenser').rglob('vy-*-forsta.png'))[:16] if (u / 'referenser').is_dir() else []
+    # referensbeslutets utpekade rutor och tillstånd först, första vyn som reserv (kontroller/referensval.py)
+    refs = ['%s — %s' % (rel(p), text) for p, text in referensval.referensbilder(slug, UNDERLAG, 16)]
     return [str(f.relative_to(ROOT)) for f in filer], refs
 
 
@@ -175,7 +177,7 @@ def divergera_prompt(slug, bilder):
         'session jämför sida vid sida.', '',
         'Läs först: ' + ', '.join(filer) + ', ' + lardomar_vag() + ' (ägarens domar gäller före allt), kunskap/externa/anthropic-frontend-design-SKILL.md,',
         'kunskap/referenser-professionella.md, kunskap/byggstandard.md (punkterna 3 och 4) och .claude/skills/better-layout/SKILL.md.',
-        'Referensernas första vy: ' + (', '.join(refs) or 'inga') + '.',
+        'Referensernas bilder (den ruta eller det tillstånd referensbeslutet pekar ut, med jämförelsefrågan; annars första vyn): ' + ('; '.join(refs) or 'inga') + '.',
         'Verksamhetens egna bilder (de BILDER.md anger som egna) ligger kopierade i %s/src/assets/atelje/: %s.' % (s, ', '.join(bilder) or 'inga'),
         'Använd inga andra bilder; finns för få, bär typografin och det som saknas står i BESTALLNING.md.', '',
         'Regler för riktningarna:',
@@ -217,7 +219,7 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare):
         'underlag/%s/RESEARCH.md, och ägarens domar i %s, som väger tyngst. Läs dem först.' % (slug, lardomar_vag()),
         'Ribban är professionell nivå enligt referensernas första vy nedan och kunskap/referenser-professionella.md, aldrig',
         'tidigare egna byggen (ägaren 2026-10-03: de håller inte).',
-        'Referensernas första vy: ' + (', '.join(refs[:8]) or 'inga') + '.', '',
+        'Referensernas bilder (utpekad ruta eller tillstånd med jämförelsefrågan; annars första vyn): ' + ('; '.join(refs[:8]) or 'inga') + '.', '',
         'Riktningarnas skärmbilder; titta på varje med Read, mobil först:', *rader, '',
         'Rangordna alla riktningar (plats 1 bäst), med styrkor och svagheter du ser i bilderna utifrån ditt område. Knyt',
         'varje styrka och svaghet till den princip eller metod den bygger på, med källan inom parentes (till exempel',

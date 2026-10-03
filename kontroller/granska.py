@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import referensval  # noqa: E402
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402  dist_hash, sidor_i, Server
 
@@ -91,7 +92,7 @@ def metod_sha(slug=None):
     for f in filer:
         h.update(str(f.name).encode() + b'\0' + (f.read_bytes() if f.is_file() else b'') + b'\0')
     if slug:  # referensbilderna granskaren ser (omgång elva, F18: en utbytt bild på samma sökväg gav samma hash)
-        for b in referensbilder(slug):
+        for b, _ in referensbilder(slug):
             h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + (b.read_bytes() if b.is_file() else b'') + b'\0')
     h.update(json.dumps({'troskel': TROSKEL, 'kriterier': KRITERIER}, sort_keys=True).encode())
     return h.hexdigest()
@@ -232,24 +233,20 @@ def aria_trad(rot, sajtrot):
 
 
 def referensbilder(slug):
-    ut = []
-    for d in sorted(p for p in (UNDERLAG / slug / 'referenser').glob('*') if p.is_dir()):
-        for vy in ('vy-390-forsta.png', 'vy-1440-forsta.png'):
-            hit = sorted(d.rglob(vy))
-            if hit:
-                ut.append(hit[0])
-    return ut[:16]
+    """[(Path, text)]: referensbeslutets utpekade rutor och tillstånd (Bildval-raderna i REFERENSER.md) först, första vyn
+    som reserv (kontroller/referensval.py; backlogposten om referensöverföringen 2026-10-03)."""
+    return referensval.referensbilder(slug, UNDERLAG, 16)
 
 
 def frysta_referenser(slug, rdir):
     """Referensbilderna kopierade till omgången, så att domen gäller exakt de bilder granskaren såg också när underlaget
     byts senare (omgång elva, F18)."""
     ut, mapp = [], rdir / 'referenser'
-    for i, b in enumerate(referensbilder(slug), 1):
+    for i, (b, text) in enumerate(referensbilder(slug), 1):
         mapp.mkdir(parents=True, exist_ok=True)
         mal = mapp / ('%02d-%s-%s' % (i, b.parent.name, b.name))
         shutil.copy2(b, mal)
-        ut.append(mal)
+        ut.append((mal, text))
     return ut
 
 
@@ -334,7 +331,8 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Byggstandardens maskinella fynd: %s' % (rad(rdir / 'standard.md')[2:] if (rdir / 'standard.md').is_file() else 'saknas'),
         'Stilrapporten: %s' % (rad(rdir / 'STIL.md')[2:] if (rdir / 'STIL.md').is_file() else 'saknas'),
         'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'), '',
-        'Referensernas skärmbilder:', *([rad(p) for p in refs] or ['- inga']), '',
+        'Referensernas bilder: den ruta eller det tillstånd byggaren pekat ut, med jämförelsefrågan; första vyn när inget pekats ut:',
+        *([rad(p) + ' — ' + t for p, t in (x if isinstance(x, tuple) else (x, 'första vyn') for x in refs)] or ['- inga']), '',
         'Tidigare byggens första vy:', *([rad(p) for p in tidigare] or ['- inga']), '',
         'Måttstockar:', *['- %s: %s' % (namn, f) for namn, f in MATTSTOCKAR if (ROOT / f).is_file()],
     ]

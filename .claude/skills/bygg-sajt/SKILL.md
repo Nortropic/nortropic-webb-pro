@@ -174,7 +174,11 @@ node kontroller/webblasare/inspektera.mjs --adress https://REFERENS/ --ut underl
 
 Lägg till `--tillat` med referensens egna ursprung om den ser trasig ut. Titta på skärmbilderna med Read. Skriv
 `underlag/<slug>/REFERENSER.md`: per referens roll, varför den är stark för just den här frågan, vad du faktiskt
-såg, och vilket val i vår sajt den ska påverka. Ingen kvot: sluta när underlaget räcker för välgrundade val. En
+såg, och vilket val i vår sajt den ska påverka. Peka dessutom ut bilden: minst en rad per referens
+`Bildval: referenser/<namn>/<fil>.png — <vad som jämförs> — Fråga: <jämförelsefrågan>` som anger just den ruta
+(`vy-390-ruta-NN.png`, `vy-1440-ruta-NN.png`, `utsnitt-…png`) eller det tillstånd (hover, meny, reflow) som bär
+jämförelsen: tjänstesektionen, bildserien, mobilmenyn, prislistan, sidfoten. Första vyn räcker bara när referensen
+gäller just den. Ateljén och granskaren får exakt de bilderna med frågan, i den ordning du skriver dem. Ingen kvot: sluta när underlaget räcker för välgrundade val. En
 referens som inte gick att öppna märks så och ersätts.
 
 **När Mobbin eller Refero är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG` = `kontroller/mcp/mobbin.json` eller

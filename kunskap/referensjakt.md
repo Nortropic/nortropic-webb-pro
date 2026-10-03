@@ -22,8 +22,10 @@ Använd tre källroller, med uppgiftsmotiverat urval. Samma källa får bära fl
 
 Skilj marknadsposition, företagsomdömen, designutmärkelser och själv observerad kvalitet. Betyg kan ge en
 branschobservation men är inget designfilter. En utmärkelse är en sökingång, inte bevis på användarnytta.
-Gallerier som Awwwards, SiteInspire, Godly, FWA, CSS Design Awards, Httpster och One Page Love är möjliga
-sökingångar, inte en stilhierarki. Ett litet företag får ha avancerat hantverk när uppgift, budget och drift
+Gallerier som Awwwards, SiteInspire, Godly, FWA, CSS Design Awards, Httpster, One Page Love och Land-book är möjliga
+sökingångar, inte en stilhierarki. Mobbin (flöden och sektioner ur riktiga produkter; dimension 7, mobil ergonomi)
+och Refero (stilar, skärmar, flöden, med en beslutsliggare som arbetssätt) är sökingångar i rollerna hantverk och
+UX/funktion när de är anslutna; de saknar hantverkare och lokala tjänster och ger därför inte branschrollen. Ett litet företag får ha avancerat hantverk när uppgift, budget och drift
 bär det. Följ galleri till faktisk sajt när slutsatsen gäller beteende eller responsivitet.
 
 **Luckor ägaren pekat ut.** I domarna L1–L3 saknade ägaren samma slags referens (LARDOMAR.md, frågan om
