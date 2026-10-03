@@ -141,7 +141,9 @@ def main():
     if not re.match(r'https://(www\.)?bokadirekt\.se/places/', a.url):
         sys.exit('väntade en profilsida: https://www.bokadirekt.se/places/<namn>-<id>')
     ut = ROOT / 'underlag' / a.slug / 'kalla' / 'extern'
+    krav_vag(ut, 'utkatalogen')  # före mkdir: en symlänk kalla/ → annan kund skulle annars få katalogen och filerna (omgång elva, F1)
     ut.mkdir(parents=True, exist_ok=True)
+    krav_vag(ut, 'utkatalogen')  # efter: en planterad symlänk inne i katalogen får inte leda skrivningen ut
     datum = datetime.date.today().isoformat()
     html = hamta(a.url)
     (ut / 'bokadirekt.html').write_text(html, encoding='utf-8')

@@ -840,6 +840,22 @@ def visa_lan(slug):
         return VISNING_LAN[slug][0].url + '/'
 
 
+def lan_lage(slug):
+    """Läget för visningen i det lokala nätverket, utan att starta något (GET; omgång elva, F13)."""
+    with LAN_LAS:
+        post = VISNING_LAN.get(slug)
+    url = post[0].url + '/' if post else None
+    skal = None if url else ('avstängd (--utan-lan)' if not LAN['pa'] else 'inte startad')
+    return {'natverk': url, 'qr': qr.svg(url) if url else None, 'skal': skal}
+
+
+def starta_lan(slug):
+    """Startar visningen (POST från dashboardens knapp, med ursprungskontroll) och svarar med läget."""
+    url = visa_lan(slug)
+    skal = None if url else ('avstängd (--utan-lan)' if not LAN['pa'] else 'ingen adress i ett lokalt nätverk hittades')
+    return {'natverk': url, 'qr': qr.svg(url) if url else None, 'skal': skal}
+
+
 def stang_lan(bara_gamla=False):
     """Stäng visningarna på nätverksadressen: alla, eller de som stått öppna längre än LAN['tid'] (ägarfråga 5 i revisionen:
     alla på nätverket når servern, så den ska inte stå öppen i veckor). Idempotent och låst: två samtidiga anrop kan
@@ -944,12 +960,10 @@ class H(BaseHTTPRequestHandler):
             if m and (KUNDER / m.group(1)).is_dir():
                 return self.skicka(200, bygge(m.group(1)))
             m = re.match(r'^/api/visa/([a-z0-9-]{2,60})$', vag)
-            if m:
+            if m:  # GET läser bara läget; visningen startas med POST under ursprungskontrollen (omgång elva, F13)
                 if not visa(m.group(1)):
                     return self.skicka(404, {'fel': 'sajten är inte byggd än'})
-                url = visa_lan(m.group(1))
-                skal = None if url else ('avstängd (--utan-lan)' if not LAN['pa'] else 'ingen adress i ett lokalt nätverk hittades')
-                return self.skicka(200, {'natverk': url, 'qr': qr.svg(url) if url else None, 'skal': skal})
+                return self.skicka(200, lan_lage(m.group(1)))
             m = re.match(r'^/visa/([a-z0-9-]{2,60})$', vag)
             if m:
                 url = visa(m.group(1))
@@ -997,6 +1011,11 @@ class H(BaseHTTPRequestHandler):
             m = re.match(r'^/api/ab/([a-z0-9TZ-]+)$', vag)
             if m:
                 return self.skicka(200, spara_ab(m.group(1), data))
+            m = re.match(r'^/api/visa/([a-z0-9-]{2,60})$', vag)
+            if m:  # tillståndsändrande: bara POST med rätt ursprung (omgång elva, F13)
+                if not visa(m.group(1)):
+                    return self.skicka(404, {'fel': 'sajten är inte byggd än'})
+                return self.skicka(200, starta_lan(m.group(1)))
             if vag == '/api/prospekt/kampanj':
                 return self.skicka(200, pv.starta_kampanj(data))
             m = re.match(r'^/api/prospekt/([a-z0-9-]{3,60})/analysera$', vag)

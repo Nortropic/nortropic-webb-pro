@@ -10,7 +10,7 @@ Grindar (röd grind = sajten är inte klar):
   axe          0 överträdelser med påverkan serious/critical, mobil och desktop
   lighthouse   prestanda ≥ 90, tillgänglighet ≥ 95, bästa praxis ≥ 95, SEO ≥ 90, mobil och desktop
   spill        inget horisontellt spill i 390, 768 och 1440 px på någon sida
-  utan-js      sidorna läsbara utan JavaScript (inte FAIL)
+  utan-js      sidorna läsbara utan JavaScript och förfrågan skickad till demomottagaren (bara PASS är grönt)
 
 Information (visas, blockerar inte):
   copy         copy_kontroll.py på sajtens källtexter. Enligt kunskap/copy-kontroll.md är rapporten aldrig en grind:
@@ -230,6 +230,38 @@ def seo_rader(sj):
     return rader
 
 
+def spillfynd(ins, r):
+    """Spillraderna för en sida ur INSPEKTION.json: varje ordinarie vy ska vara mätt och fri från spill, och 320-vyn
+    (tillstand.reflow_320 i 390-vyn, WCAG 1.4.10 Reflow) likaså; en saknad 320-mätning är inte grön (omgång elva, F9)."""
+    ut = []
+    vyer = ins.get('vyer') or {}
+    for vy in ('390', '768', '1440'):  # varje vy ska vara mätt; en vy som föll eller saknar mätning är inte grön
+        d = vyer.get(vy)
+        if not d or d.get('fel') or not isinstance(d.get('spill'), dict) or 'spill' not in d['spill']:
+            ut.append('%s @%s: inte mätt (%s)' % (r, vy, (d or {}).get('fel') or 'ingen spillmätning'))
+    for vy, d in vyer.items():
+        if (d.get('spill') or {}).get('spill'):
+            ut.append('%s @%s (%s > %s px)' % (r, vy, d['spill'].get('scrollWidth'), d['spill'].get('clientWidth')))
+    r320 = ((vyer.get('390') or {}).get('tillstand') or {}).get('reflow_320')
+    if not isinstance(r320, dict) or 'spill' not in r320:
+        ut.append('%s @320: inte mätt (reflow_320 saknas i 390-vyn)' % r)
+    elif r320.get('spill'):
+        ut.append('%s @320 (%s > %s px)' % (r, r320.get('scrollWidth'), r320.get('clientWidth')))
+    return ut
+
+
+def utan_js_grind(u):
+    """(ok, sammanfattning, detalj) för utan-js: bara PASS är grönt. EJ_MATT betyder att formulären aldrig skickades till
+    demomottagaren, och ej mätt är inte grönt (omgång elva, F31); FAIL är rött."""
+    st, fynd = u.get('status'), u.get('fynd') or []
+    detalj = '; '.join(str(f.get('vad') or f)[:120] for f in fynd[:8]) or None
+    if st == 'PASS':
+        return True, 'PASS, %d fynd' % len(fynd), detalj
+    if st == 'EJ_MATT':
+        return False, 'EJ_MATT: formulären skickades inte till demomottagaren; ej mätt är inte grönt', detalj
+    return False, '%s, %d fynd' % (st, len(fynd)), detalj
+
+
 def grind(ok, sammanfattning, fil=None, detalj=None):
     return {'ok': bool(ok), 'sammanfattning': sammanfattning, 'fil': fil, 'detalj': detalj}
 
@@ -375,20 +407,15 @@ def prova(slug, snabb=False):
                     rutinfo.append('%s @%s: %d av %d skärmar som rutor' % (r, vy, gjorda, skarmar))
             try:
                 ins = json.loads((ut / 'INSPEKTION.json').read_text(encoding='utf-8'))
-                for vy in ('390', '768', '1440'):  # varje vy ska vara mätt; en vy som föll eller saknar mätning är inte grön
-                    d = (ins.get('vyer') or {}).get(vy)
-                    if not d or d.get('fel') or not isinstance(d.get('spill'), dict) or 'spill' not in d['spill']:
-                        spill.append('%s @%s: inte mätt (%s)' % (r, vy, (d or {}).get('fel') or 'ingen spillmätning'))
+                spill += spillfynd(ins, r)
                 for vy, d in (ins.get('vyer') or {}).items():
-                    if (d.get('spill') or {}).get('spill'):
-                        spill.append('%s @%s (%s > %s px)' % (r, vy, d['spill'].get('scrollWidth'), d['spill'].get('clientWidth')))
                     if r == '/' and d.get('h1_i_forsta_vyn') is False:
                         rutinfo.append('startsidans h1 syns inte i första vyn @%s' % vy)
                     if d.get('forsta_vyn'):
                         bilder.append(str(Path(d['forsta_vyn']).relative_to(kund)) if Path(d['forsta_vyn']).is_absolute() else d['forsta_vyn'])
             except (OSError, ValueError):
                 spill.append('%s: inspektionen kördes inte (rc %d) %s' % (r, rc, svans(out, 3)))
-        g['spill'] = grind(not spill, 'inget spill på %d sidor × 3 vyer' % len(provsidor) if not spill else '%d fall' % len(spill), 'prov/inspektion/', '; '.join(spill[:12]) or None)
+        g['spill'] = grind(not spill, 'inget spill på %d sidor × 4 vyer (390, 768, 1440 och 320)' % len(provsidor) if not spill else '%d fall' % len(spill), 'prov/inspektion/', '; '.join(spill[:12]) or None)
         if rutinfo:
             info['rutor'] = '; '.join(rutinfo)
         info['skarmbilder'] = ('prov/inspektion/<sida>/vy-<bredd>-forsta.png och vy-<bredd>-ruta-NN.png, helsidan i skärmhöga '
@@ -405,11 +432,12 @@ def prova(slug, snabb=False):
             info['stil'] = 'kördes inte (rc %d): %s' % (rc, svans(out, 3))
 
         # utan js
-        rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'utan-js.mjs'), '--adress', srv.url + '/', '--sidor', ';'.join(provsidor), '--ut', str(prov / 'utan-js')], timeout=300)
+        rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'utan-js.mjs'), '--adress', srv.url + '/', '--sidor', ';'.join(provsidor), '--ut', str(prov / 'utan-js'),
+                       '--formular-far-skickas', '--testmarkering', 'NWP-PROV'], timeout=300)
         try:
             u = json.loads((prov / 'utan-js' / 'UTAN-JS.json').read_text(encoding='utf-8'))
-            g['utan-js'] = grind(u.get('status') != 'FAIL', '%s, %d fynd' % (u.get('status'), len(u.get('fynd') or [])), 'prov/utan-js/UTAN-JS.json',
-                                 '; '.join(str(f.get('vad') or f)[:120] for f in (u.get('fynd') or [])[:8]) or None)
+            ok_u, text_u, detalj_u = utan_js_grind(u)  # inskicket går till provets demomottagare på 127.0.0.1 (omgång elva, F31)
+            g['utan-js'] = grind(ok_u, text_u, 'prov/utan-js/UTAN-JS.json', detalj_u)
         except (OSError, ValueError):
             g['utan-js'] = grind(False, 'utan-js kördes inte (rc %d)' % rc, detalj=svans(out))
 

@@ -520,6 +520,11 @@ def spana(kallor, h, torr=False, bara=None, max_per_kalla=MAX_PER_KALLA, gh_json
 def _skriv_resultat(alla, rapport, fel, snapshots, redan, start, torr, h):
     """Slå ihop med listan på disk och skriv, under låset: ägarens avfärdande under spaningen får inte återställas."""
     gamla = las_json(SPANING / 'KANDIDATER.json') or []
+    # ägarens beslut under spaningen vinner: en kandidat som avfärdats eller tagits in (KANDIDATER, SEDDA) sedan spaningen
+    # läste listorna tas inte in igen som ny (omgång elva, F25: samma id blev två poster, en ny och en avfärdad)
+    beslutade = {g['id'] for g in gamla if g.get('status') != 'ny'}
+    sedda_nu = las_json(SPANING / 'SEDDA.json') or {}
+    alla = [k for k in alla if k['id'] not in beslutade and (k.get('nyckel_override') or k.get('nyckel')) not in sedda_nu]
     behall = []
     grans = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
     nya_nycklar = {k['id'] for k in alla}

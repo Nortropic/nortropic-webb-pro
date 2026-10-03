@@ -18,7 +18,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
@@ -30,6 +30,7 @@ ATTR = re.compile(r'([a-zA-Z-]+)\s*=\s*["\']([^"\']*)["\']')
 H1 = re.compile(r'<h1\b', re.I)
 LINK = re.compile(r'<link\s+[^>]*>', re.I)
 A = re.compile(r'<a\s+[^>]*href=["\']([^"\'#?]+)[^"\']*["\']', re.I)
+BASE = re.compile(r'<base\s+[^>]*href=["\']([^"\']+)', re.I)
 IMG = re.compile(r'<img\b[^>]*>', re.I)
 JSONLD = re.compile(r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', re.S | re.I)
 LANG = re.compile(r'<html\b[^>]*\blang=["\']([^"\']+)["\']', re.I)
@@ -58,11 +59,19 @@ def url_for(root, f):
     return '/' + rel.lstrip('/')
 
 
-def finns_lokalt(root, href):
+def finns_lokalt(root, href, sida='/', bas=None, doman=None):
+    """Finns målet för en intern länk i dist? None för externa länkar och andra scheman. Relativa länkar (saknas/, ./x,
+    ../y) löses mot sidans adress och ett eventuellt <base>, och absoluta länkar till den egna domänen prövas som interna
+    (omgång elva, F32: bara /absoluta/ sökvägar prövades). Inget nätanrop: målet mappas till dist."""
     p = urlparse(href)
+    if p.scheme and p.scheme not in ('http', 'https'):
+        return None  # mailto, tel, sms, javascript …
     if p.scheme or p.netloc:
-        return None  # extern: inte kontrollerad
-    path = p.path
+        if not doman or p.netloc.lower().split(':')[0] not in (doman.lower(), 'www.' + doman.lower()):
+            return None  # extern: inte kontrollerad
+        path = p.path or '/'
+    else:
+        path = urlparse(urljoin(bas or sida or '/', href)).path or '/'
     if not path.startswith('/'):
         return None
     cands = [root / path.lstrip('/'), root / path.lstrip('/') / 'index.html', root / (path.lstrip('/').rstrip('/') + '.html'), root / (path.lstrip('/').rstrip('/') + '/index.html')]
@@ -112,8 +121,10 @@ def granska_sida(root, f, raw, lage, verksamhet, doman):
     hreflang = [(l.get('hreflang'), l.get('href')) for l in links if l.get('rel', '').lower() == 'alternate' and l.get('hreflang')]
     if hreflang and not any(h[0] == 'x-default' for h in hreflang):
         fynd.append(('hreflang utan x-default', 'varje variantuppsättning listar alla varianter och x-default'))
+    mb = BASE.search(raw)
+    bas = urljoin(url, htmlmod.unescape(mb.group(1))) if mb else url
     for href in set(A.findall(raw)):
-        ok = finns_lokalt(root, href)
+        ok = finns_lokalt(root, htmlmod.unescape(href), url, bas, doman)
         if ok is False:
             fynd.append(('intern länk löser inte', href))
     for tag in IMG.findall(raw):
@@ -383,7 +394,7 @@ def granska_sajt(root, lage, doman, omdirigeringar):
             mal = rad.get('till')
             if not mal or rad.get('status') not in (301, 308):
                 fynd.append(('omdirigering utan 301/308', rad.get('fran', '')))
-            elif finns_lokalt(root, mal) is False:
+            elif finns_lokalt(root, mal, '/', None, doman) is False:
                 fynd.append(('omdirigeringsmål saknas', '%s → %s' % (rad.get('fran'), mal)))
     return [{'typ': t, 'text': x} for t, x in fynd]
 

@@ -7,12 +7,13 @@ Tillåtet: kunder/<slug>/… och underlag/<slug>/… (efter att sökvägen löst
 vägras. Finns för att rm är spärrat i obevakade körningar.
 Exit 0 = borttaget; 2 = vägrat eller fel i anropet.
 """
+import os
 import re
 import shutil
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
+from slugvakt import krav_slug, tillaten_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,11 +25,13 @@ def main(argv=None):
         return 2
     slug, vagar = argv[0], argv[1:]
     krav_slug(slug)
-    tillatna = [(ROOT / 'kunder' / slug).resolve(), (ROOT / 'underlag' / slug).resolve()]
+    rotar = [ROOT / 'kunder' / slug, ROOT / 'underlag' / slug]
     for v in vagar:
-        p = (ROOT / v).resolve() if not Path(v).is_absolute() else Path(v).resolve()
-        if not any(p != t and p.is_relative_to(t) for t in tillatna):
-            print('vägrar: %s ligger inte i kunder/%s/ eller underlag/%s/' % (v, slug, slug), file=sys.stderr)
+        p = Path(os.path.normpath(Path(v) if Path(v).is_absolute() else ROOT / v))  # lexikalt först: ../ får inte lämna rötterna
+        # tillaten_vag: rötterna får inte själva vara symlänkar, målet ligger i rötterna också efter upplösning, och en
+        # katalog bär ingen symlänk ut (omgång elva, F1: kunder/<slug> → annan kund gjorde den andra kunden betrodd)
+        if not any(p != t and p.is_relative_to(t) for t in rotar) or not tillaten_vag(p, slug):
+            print('vägrar: %s ligger inte i kunder/%s/ eller underlag/%s/, eller når dit via en symlänk' % (v, slug, slug), file=sys.stderr)
             return 2
         if not p.exists():
             print('finns inte: %s' % v)

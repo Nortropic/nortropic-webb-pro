@@ -171,6 +171,45 @@ def hemlighet_i(diff):
     return None
 
 
+def hemlighet_i_text(data):
+    """(rad, nyckeltyp) för den första raden i en text (ett commit-meddelande) som ser ut som en hemlighet, annars None."""
+    for i, r in enumerate(rader_lf(data if isinstance(data, bytes) else data.encode('utf-8', 'replace')), 1):
+        for namn, rx in HEMLIGHET_RE:
+            if rx.search(r):
+                return i, namn
+    return None
+
+
+def commit_meddelanden(args):
+    """Meddelandetexterna på en commit-rad: värdena till -m/--message (också --message= och -mText) och innehållet i
+    filerna till -F/--file, lästa från reporoten (omgång elva, F27: diffen granskades, meddelandet inte)."""
+    ut, i = [], 0
+    while i < len(args):
+        a = args[i]
+        if a in ('-m', '--message') and i + 1 < len(args):
+            ut.append(args[i + 1].encode('utf-8', 'replace'))
+            i += 2
+            continue
+        if a in ('-F', '--file') and i + 1 < len(args):
+            try:
+                ut.append((ROOT / args[i + 1]).read_bytes())
+            except OSError:
+                ut.append(b'')
+            i += 2
+            continue
+        if a.startswith('--message='):
+            ut.append(a[len('--message='):].encode('utf-8', 'replace'))
+        elif a.startswith('--file='):
+            try:
+                ut.append((ROOT / a[len('--file='):]).read_bytes())
+            except OSError:
+                ut.append(b'')
+        elif a.startswith('-m') and len(a) > 2 and not a.startswith('--'):
+            ut.append(a[2:].encode('utf-8', 'replace'))
+        i += 1
+    return ut
+
+
 def hemlighet_i_fil(sokvag):
     """Som hemlighet_i men för en fil i arbetskopian (det som git add tar in). En fil med NUL-byte (binär) nekas: git
     visar ingen diff för den, så den går inte att granska (omgång fem, F27). En katalog expanderas till sina filer
@@ -397,6 +436,10 @@ def main():
                         break
             if tr:
                 neka('det som ska committas innehåller något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
+            for text in commit_meddelanden(args):
+                tr = hemlighet_i_text(text)
+                if tr:
+                    neka('commit-meddelandet innehåller något som ser ut som en hemlighet (%s) på rad %d; skriv aldrig nycklar i meddelanden' % (tr[1], tr[0]))
         elif sub == 'push':
             if args != ['origin', 'main']:
                 neka('bara "git push origin main" är tillåtet')
@@ -413,6 +456,12 @@ def main():
             tr = hemlighet_i(git('log', '-p', '-U0', '--no-color', '--text', '--format=', '--diff-merges=first-parent', 'origin/main..refs/heads/main'))
             if tr:
                 neka('någon utgående commit lägger till något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
+            # commit-meddelandena i varje utgående commit (omgång elva, F27: --format= utelämnade dem)
+            delar = git('log', '--format=%h%x00%B%x00', 'origin/main..refs/heads/main').split(b'\0')
+            for h_, text in zip(delar[0::2], delar[1::2]):
+                tr = hemlighet_i_text(text)
+                if tr:
+                    neka('commit %s har ett meddelande som ser ut att innehålla en hemlighet (%s) på rad %d' % (h_.decode('ascii', 'replace').strip(), tr[1], tr[0]))
     return 0
 
 

@@ -813,8 +813,12 @@ def lista(a):
 
 
 def gallra(a):
+    """Gallring efter senaste kontakt: en post utan kundrelation (status kund) tas bort när dess senaste händelse (skapad,
+    uppdaterad, utskick, svar) är äldre än gränsen; nej och avvisad krymps till en spärrpost så att verksamheten inte
+    kontaktas igen. Inga permanenta undantag: det utskicken lovar, gallring efter tolv månader utan kundrelation, gäller
+    också vald, demo, utkast, skickat och svar (omgång elva, F35)."""
     grans = (datetime.now(timezone.utc) - timedelta(days=30 * a.manader)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    behall = {'vald', 'demo', 'utkast', 'skickat', 'svar', 'kund'}
+    behall = {'kund'}
     kampanjer = [a.kampanj] if a.kampanj else [k['id'] for k in pf.kampanjer()]
     for kid in kampanjer:
         bort, krympta = [], []
@@ -822,7 +826,8 @@ def gallra(a):
         def mut(poster):
             kvar = []
             for p in poster:
-                if (p.get('uppdaterad') or p.get('skapad') or '') < grans and p.get('status') not in behall:
+                senast = max(str(p.get(k) or '') for k in ('skapad', 'uppdaterad', 'skickat_tid', 'svar_tid'))
+                if senast < grans and p.get('status') not in behall:
                     if p.get('status') in ('nej', 'avvisad'):
                         krympta.append(p['slug'])
                         kvar.append({'slug': p['slug'], 'peOrgNr': p.get('peOrgNr'), 'status': p['status'], 'uppdaterad': p.get('uppdaterad'), 'gallrad': nu()})

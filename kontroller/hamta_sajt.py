@@ -162,8 +162,9 @@ class Omdirigeringsvakt(urllib.request.HTTPRedirectHandler):
     verksamhetens egen domän; bilder får ligga på en annan), robots.txt när rp är satt, och takten (fore) hålls också
     mellan hoppen. Adressen prövas i anslutningen. Ett nekat mål följs inte; svaret blir 3xx med målet."""
 
-    def __init__(self, egen=None, rp=None, fore=None, folj=True):
+    def __init__(self, egen=None, rp=None, fore=None, folj=True, bas=None):
         self.egen, self.rp, self.fore, self.folj, self.nekad = egen, rp, fore, folj, None
+        self.bas, self.robots = bas, {}  # startens ursprung och robots per annat ursprung (omgång elva, F24)
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if not self.folj:
@@ -178,18 +179,24 @@ class Omdirigeringsvakt(urllib.request.HTTPRedirectHandler):
         if self.egen and doman(urllib.parse.urlsplit(newurl).hostname) != self.egen:
             self.nekad = f"omdirigering till annan domän följs inte: {newurl}"
             return None
-        if self.rp is not None and not self.rp.can_fetch(UA_NAMN, newurl):
-            self.nekad = f"omdirigering till {newurl} följs inte: nekad av robots.txt"
-            return None
+        if self.rp is not None:
+            s = urllib.parse.urlsplit(newurl)
+            malbas = f"{s.scheme}://{s.netloc}"
+            rp = self.rp if (self.bas is None or malbas == self.bas) else self.robots.get(malbas)
+            if rp is None:  # ursprungsbyte: målets egna regler gäller (omgång elva, F24)
+                rp = self.robots[malbas] = las_robots(malbas, self.egen)[0]
+            if not rp.can_fetch(UA_NAMN, newurl):
+                self.nekad = f"omdirigering till {newurl} följs inte: nekad av robots.txt"
+                return None
         if self.fore:
             self.fore()
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def oppnare(egen=None, rp=None, fore=None, folj=True):
+def oppnare(egen=None, rp=None, fore=None, folj=True, bas=None):
     """Öppnare med adresskontroll i anslutningen och omdirigeringsvakt. Används av varje extern hämtning i repot
     (hamta_sajt, sida_till_text, standardkontrollens länkar, prospekt, Bokadirekt)."""
-    vakt = Omdirigeringsvakt(egen, rp, fore, folj)
+    vakt = Omdirigeringsvakt(egen, rp, fore, folj, bas)
     # ProxyHandler({}): aldrig miljöns eller systemets proxy; en proxy skulle slå upp och ansluta till målet utanför
     # adresskontrollen (revisionen 2026-10-03, F5 omgång tre). Hämtaren ansluter alltid direkt.
     o = urllib.request.build_opener(urllib.request.ProxyHandler({}), _HttpHandler(), _HttpsHandler(), vakt)
@@ -245,7 +252,8 @@ def hamta(url, timeout=20, max_byte=MAX_BYTE, egen=None, rp=None, fore=None):
     req = urllib.request.Request(url, headers={
         "User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.5",
         "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.5"})
-    opener = oppnare(egen, rp, fore)
+    s0 = urllib.parse.urlsplit(url)
+    opener = oppnare(egen, rp, fore, bas=f"{s0.scheme}://{s0.netloc}")
     try:
         with opener.open(req, timeout=timeout) as r:
             data = r.read(max_byte + 1)
@@ -770,18 +778,19 @@ def ladda_bilder(bildlista, katalog, paus=0.5, max_prov=24):
     katalog.mkdir(parents=True, exist_ok=True)
     robots, rader, tagna = {}, [], {f.name for f in katalog.iterdir()}
 
-    def tillaten(u):
+    def robots_for(u):
         s = urllib.parse.urlsplit(u)
         bas = f"{s.scheme}://{s.netloc}"
         if bas not in robots:
             robots[bas] = las_robots(bas)[0]
-        return robots[bas].can_fetch(UA_NAMN, u)
+        return robots[bas]
 
     def spara(u, typ, gissad):
-        if not tillaten(u):
+        rp = robots_for(u)
+        if not rp.can_fetch(UA_NAMN, u):
             rader.append({"url": u, "typ": typ, "fil": "", "status": "nekad av robots.txt", "gissad": gissad})
             return False
-        svar = hamta(u, max_byte=BILD_MAX)
+        svar = hamta(u, max_byte=BILD_MAX, rp=rp)  # policyn följer med genom omdirigeringarna (omgång elva, F24)
         time.sleep(paus)
         if svar["status"] != 200 or not (svar["typ"] or "").startswith("image/"):
             if not gissad:

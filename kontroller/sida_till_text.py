@@ -25,7 +25,7 @@ def sida_till_text(url, ut):
     rp, lage = las_robots(f'{s.scheme}://{s.netloc}')
     if not rp.can_fetch(UA_NAMN, url):
         raise SystemExit(f'nekad av robots.txt ({lage}): {url}')
-    svar = hamta(url)
+    svar = hamta(url, rp=rp)  # robots-policyn följer med genom omdirigeringarna (omgång elva, F24)
     if svar['status'] != 200:
         raise SystemExit(f"svarade {svar['status'] or svar.get('fel')}: {url}")
     slut = svar['url']

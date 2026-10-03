@@ -22,6 +22,7 @@ import os
 import re
 import stat
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -183,6 +184,30 @@ def skriv_sparr(poster):
     pf.skriv_json(SPARR, poster)
 
 
+_SPARR_TRADLAS = threading.Lock()
+
+
+def sparr_andra(muterare):
+    """Läs–ändra–skriv på spärrlistan under ett lås mellan trådar (dashboarden) och processer (flock på en låsfil bredvid
+    SPARR.json): två samtidiga avregistreringar skrev annars över varandra och bara den sista spärren blev kvar (omgång
+    elva, F6). muterare(poster) ändrar listan på plats eller returnerar en ny; en oläsbar lista nekar."""
+    import fcntl
+    SPARR.parent.mkdir(parents=True, exist_ok=True)
+    with _SPARR_TRADLAS, open(SPARR.parent / '.sparr.las', 'w') as las:
+        fcntl.flock(las, fcntl.LOCK_EX)
+        try:
+            poster = las_sparr()
+            if poster is None:
+                raise Nekad('SPARR.json går inte att läsa; rätta filen innan en spärr läggs till, så att ingen spärr skrivs över')
+            ny = muterare(poster)
+            if ny is not None:
+                poster = ny
+            skriv_sparr(poster)
+        finally:
+            fcntl.flock(las, fcntl.LOCK_UN)
+    return poster
+
+
 def resend_anrop(h, vag, data=None, metod='POST', idempotens=None):
     import requests
     huvud = {'Authorization': 'Bearer ' + h['RESEND_API_NYCKEL'], 'Content-Type': 'application/json'}
@@ -197,13 +222,15 @@ def resend_anrop(h, vag, data=None, metod='POST', idempotens=None):
 
 
 def sparr_lagg(epost, skal, kalla='manuell', typ='e-post', spegla=True, post=None):
-    """Lägg till i SPARR.json (sanningen) och spegla e-postadresser till Resend. Returnerar posten."""
-    poster = las_sparr()
-    if poster is None:
-        raise Nekad('SPARR.json går inte att läsa; rätta filen innan en spärr läggs till, så att ingen spärr skrivs över')
+    """Lägg till i SPARR.json (sanningen) och spegla e-postadresser till Resend. Den lokala spärren skrivs först, under
+    låset; speglingen sker efteråt och dess kvitto skrivs in under låset igen (omgång elva, F6). Returnerar posten."""
     ny = {'typ': typ, 'varde': (epost or '').strip().lower(), 'skal': skal or '', 'tid': pf.nu(), 'kalla': kalla}
     if post:
         ny['slug'] = post.get('slug')
+
+    def lagg(poster):
+        return [p for p in poster if not (p.get('typ') == ny['typ'] and p.get('varde') == ny['varde'])] + [dict(ny)]
+    sparr_andra(lagg)
     if spegla and typ in ('e-post', 'epost') and ny['varde']:
         try:
             h = las_hemligheter()
@@ -214,8 +241,12 @@ def sparr_lagg(epost, skal, kalla='manuell', typ='e-post', spegla=True, post=Non
                 ny['resend_fel'] = '%s %s' % (kod, kropp)
         except Exception as e:
             ny['resend_fel'] = str(e)[:200]
-    poster = [p for p in poster if not (p.get('typ') == ny['typ'] and p.get('varde') == ny['varde'])] + [ny]
-    skriv_sparr(poster)
+
+        def kvitto(poster):
+            for p in poster:
+                if p.get('typ') == ny['typ'] and p.get('varde') == ny['varde'] and p.get('tid') == ny['tid']:
+                    p.update({k: ny[k] for k in ('resend_id', 'resend_fel') if k in ny})
+        sparr_andra(kvitto)
     return ny
 
 

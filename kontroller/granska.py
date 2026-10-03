@@ -90,6 +90,9 @@ def metod_sha(slug=None):
         filer += [UNDERLAG / slug / f for f in UNDERLAGSFILER]
     for f in filer:
         h.update(str(f.name).encode() + b'\0' + (f.read_bytes() if f.is_file() else b'') + b'\0')
+    if slug:  # referensbilderna granskaren ser (omgång elva, F18: en utbytt bild på samma sökväg gav samma hash)
+        for b in referensbilder(slug):
+            h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + (b.read_bytes() if b.is_file() else b'') + b'\0')
     h.update(json.dumps({'troskel': TROSKEL, 'kriterier': KRITERIER}, sort_keys=True).encode())
     return h.hexdigest()
 
@@ -238,6 +241,18 @@ def referensbilder(slug):
     return ut[:16]
 
 
+def frysta_referenser(slug, rdir):
+    """Referensbilderna kopierade till omgången, så att domen gäller exakt de bilder granskaren såg också när underlaget
+    byts senare (omgång elva, F18)."""
+    ut, mapp = [], rdir / 'referenser'
+    for i, b in enumerate(referensbilder(slug), 1):
+        mapp.mkdir(parents=True, exist_ok=True)
+        mal = mapp / ('%02d-%s-%s' % (i, b.parent.name, b.name))
+        shutil.copy2(b, mal)
+        ut.append(mal)
+    return ut
+
+
 def tidigare_byggen(slug):
     syskon = (KUNDER / slug / 'AB-SYSKON').read_text().strip() if (KUNDER / slug / 'AB-SYSKON').is_file() else None
     andra = [p for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and p.name not in (slug, syskon, 'ab')
@@ -379,7 +394,7 @@ def arbetare(rdir):
                 arbetskatalog = ARBETSROT / ('%s-%s-%d' % (slug, rdir.name, n))
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                      referensbilder(slug), tidigare_byggen(slug), [], rdir, aria, [], lardomar)
+                                      frysta_referenser(slug, rdir), tidigare_byggen(slug), [], rdir, aria, [], lardomar)
                 (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
                 args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config',
@@ -559,6 +574,12 @@ def jamfor(slug):
         except ValueError:
             res = {}
         val = res.get('val')
+        if p.returncode != 0 or val not in ('A', 'B', 'lika'):  # ett misslyckat anrop är ingen dom (omgång elva, F8: blev 'lika')
+            fel = 'jämförelsen %s mot %s gav inget giltigt svar (rc %d, val %r)' % (a[0].name, b[0].name, p.returncode, val)
+            ut = {'tid': nu(), 'basta': basta[0].name, 'sista': sista[0].name, 'vinnare': None, 'fel': fel, 'domar': domar}
+            (gdir / 'JAMFORELSE-OMGANGAR.json').write_text(json.dumps(ut, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            print('Jämförelsen misslyckades: %s. Ingen vinnare; kör --jamfor igen.' % fel)
+            return 3
         domar.append({'A': a[0].name, 'B': b[0].name, 'val': val, 'vinnare': {'A': a[0].name, 'B': b[0].name}.get(val, 'lika'), 'skal': res.get('skal', '')})
     vinnare = domar[0]['vinnare'] if domar[0]['vinnare'] == domar[1]['vinnare'] else 'lika'
     ut = {'tid': nu(), 'basta': basta[0].name, 'sista': sista[0].name, 'vinnare': vinnare, 'domar': domar}
@@ -668,7 +689,7 @@ def main(argv=None):
             if (kund / 'prov' / namn).is_file():
                 shutil.copy2(kund / 'prov' / namn, rdir / Path(namn).name)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / 'torr', bilder,
-                              referensbilder(a.slug), tidigare_byggen(a.slug), [], rdir,
+                              frysta_referenser(a.slug, rdir), tidigare_byggen(a.slug), [], rdir,
                               aria_trad(kund, rdir / 'sajt'), [], lardomar_utan(a.slug, rdir))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         print(prompt)

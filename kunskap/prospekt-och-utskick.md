@@ -45,8 +45,9 @@ skärmbilder av den publika webbplatsen, status i flödet och tider. Aldrig: gat
 utöver det registrerade firmanamnet, innehåll från Google Places, sidtext utöver titel, anteckningar om personer.
 Allt ligger under `underlag/`, som är utanför git; repot är publikt.
 
-Gallring: `prospekt.py gallra` tar bort poster som är äldre än tolv månader (`NWP_PROSPEKT_GALLRING_MANADER`) och
-inte är valda, demonstrerade, i brev, skickade, besvarade eller kunder. Avvisade och nej-poster krymps till
+Gallring: `prospekt.py gallra` tar bort poster vars senaste kontakt (skapad, uppdaterad, utskick, svar) är äldre än
+tolv månader (`NWP_PROSPEKT_GALLRING_MANADER`) och som inte blivit kund. Det är det brevet lovar; inga permanenta
+undantag för vald, demo, utkast, skickat eller svar (Codex 2026-10-03, F35). Avvisade och nej-poster krymps till
 organisationsnummer, status och datum, så att de aldrig läggs till igen.
 
 ## Spärrlistan

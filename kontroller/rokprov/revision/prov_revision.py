@@ -394,6 +394,7 @@ import atelje as a  # noqa: E402
 arot = tmp / 'atelje'
 for n in (1, 2, 3):
     (arot / str(n)).mkdir(parents=True); (arot / str(n) / 'vy-390-ruta-01.png').write_bytes(b'x')
+(arot / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {str(n): ['vy-390-ruta-01.png'] for n in (1, 2, 3)}}))  # det här försökets riktningar (omgång elva, F34)
 a.ROOT = tmp; a.KUNDER = k; a.UNDERLAG = tmp / 'underlag'
 svar_per_domare = {}
 
@@ -935,6 +936,251 @@ assert k == [] and n['knowsLanguage'] == {'@list': ['sv']}, ('alias med @list "s
 f = seo.granska_schema({'@context': ctx, '@type': 'Bakery', 'name': 'Holms Konditori', 'address': ratt, 'knowsLanguage': {'@list': 'sv'}, 'schema:knowsLanguage': {'@list': ['sv']}}, verk20)
 assert not any(t_ == 'JSON-LD motstridiga egenskaper' for t_, _ in f), 'alias med likvärdiga @list ger ingen konflikt: %s' % f
 print('R9 F20 ok')
+
+
+# ---------------------------------------------------------------- omgång elva (Codex R11): F1, F6, F27, F13, F36, F33, F9, F31, F32, F18, F8, F34, F35, F25, F24
+import struct  # noqa: E402
+import time  # noqa: E402
+import types  # noqa: E402
+
+# F1: ta_bort, ny_sajt och hamta_bokadirekt använder den förankrade sökvägskontrollen på sina faktiska mål
+import ta_bort as tb  # noqa: E402
+import slugvakt as sv11  # noqa: E402
+import ny_sajt as ns  # noqa: E402
+import hamta_bokadirekt as hb  # noqa: E402
+rot11 = tmp / 'rot11'; (rot11 / 'kunder' / 'annan').mkdir(parents=True); (rot11 / 'kunder' / 'annan' / 'offer.txt').write_text('x')
+(rot11 / 'underlag' / 'annan').mkdir(parents=True); (rot11 / 'kunder' / 'eget').symlink_to(rot11 / 'kunder' / 'annan'); (rot11 / 'underlag' / 'eget').symlink_to(rot11 / 'underlag' / 'annan')
+sv_root, tb.ROOT, sv11.ROOT = sv11.ROOT, rot11, rot11
+rc = tb.main(['eget', 'kunder/eget/offer.txt']); assert rc == 2 and (rot11 / 'kunder' / 'annan' / 'offer.txt').is_file(), 'en symlänkad kundrot får inte göra den andra kunden betrodd (F1)'
+ns.ROOT, hb.ROOT = rot11, rot11
+os.environ['NWP_SLUG'] = 'eget'
+try:
+    for namn, fn in (('ny_sajt', lambda: ns.main(['eget'])), ('hamta_bokadirekt', lambda: hb.main())):
+        sys.argv = ['x', 'eget', 'https://www.bokadirekt.se/places/x-1']
+        try:
+            fn(); raise AssertionError('%s ska vägra när kundkatalogen är en symlänk till en annan kund (F1)' % namn)
+        except SystemExit as e:
+            assert e.code == 2, (namn, e.code)
+finally:
+    os.environ.pop('NWP_SLUG', None)
+assert not list((rot11 / 'kunder' / 'annan').glob('sajt*')) and not (rot11 / 'underlag' / 'annan' / 'kalla').exists(), 'inget får ha skrivits hos den andra kunden'
+for led11 in ('kunder', 'underlag'):  # rötterna förankrade igen: riktiga kataloger
+    (rot11 / led11 / 'eget').unlink(); (rot11 / led11 / 'eget').mkdir()
+(rot11 / 'kunder' / 'eget' / 'ut').symlink_to(rot11 / 'kunder' / 'annan')
+rc = tb.main(['eget', 'kunder/eget/ut/offer.txt']); assert rc == 2 and (rot11 / 'kunder' / 'annan' / 'offer.txt').is_file(), 'en symlänk ut ur den egna katalogen (F1)'
+(rot11 / 'kunder' / 'eget' / 'egen.txt').write_text('x'); rc = tb.main(['eget', 'kunder/eget/egen.txt']); assert rc == 0 and not (rot11 / 'kunder' / 'eget' / 'egen.txt').exists()
+sv11.ROOT = sv_root
+print('R11 F1 förankrade mål ok')
+
+# F6: samtidiga spärrar tappas inte; speglingens kvitto skrivs in efteråt
+u.SPARR = tmp / 'sparr11' / 'SPARR.json'; (tmp / 'sparr11').mkdir(); u.SPARR.write_text('[]')
+tr6 = [threading.Thread(target=lambda i=i: u.sparr_lagg('t%02d@x.se' % i, 'prov', spegla=False)) for i in range(16)]
+for t_ in tr6:
+    t_.start()
+for t_ in tr6:
+    t_.join()
+assert len(u.las_sparr()) == 16 and (tmp / 'sparr11' / '.sparr.las').exists(), 'samtidiga avregistreringar får inte tappas (F6): %d' % len(u.las_sparr())
+u.las_hemligheter = lambda *a, **k: {'RESEND_API_NYCKEL': 'x'}; u.resend_anrop = lambda *a, **k: (201, {'id': 'r1'})
+ny6 = u.sparr_lagg('s@x.se', 'prov'); assert ny6.get('resend_id') == 'r1' and next(p_ for p_ in u.las_sparr() if p_['varde'] == 's@x.se').get('resend_id') == 'r1', 'kvittot ska skrivas in (F6)'
+print('R11 F6 spärrlistan ok')
+
+# F27: hemligheter i commit-meddelanden (commit och utgående commits vid push)
+g11 = lambda *a: subprocess.run(['git', '-C', str(repo), *a], capture_output=True, text=True)  # noqa: E731
+g11('checkout', '-q', 'main'); g11('reset', '-q', '--hard', 'origin/main'); (repo / 'backlog').mkdir(exist_ok=True); (repo / 'backlog' / 'a.md').write_text('a\n')
+rc, err = vakt3("git commit -m 'nyckel sk-ant-api03-abcdefghijklmnopqrstuvwxyz' -- backlog/a.md"); assert rc == 2 and 'commit-meddelandet' in err and 'sk-ant-api03' not in err, err
+rc, err = vakt3("git commit --message='sk-ant-api03-abcdefghijklmnopqrstuvwxyz' -- backlog/a.md"); assert rc == 2 and 'commit-meddelandet' in err, err
+(repo / 'msg-hemlig.txt').write_text('rad\nre_abcdefghijklmnopqrstuvwxyz\n')
+rc, err = vakt3('git commit -F msg-hemlig.txt -- backlog/a.md'); assert rc == 2 and 'commit-meddelandet' in err and 'rad 2' in err and 're_abcdef' not in err, err
+rc, err = vakt3("git commit -m 'rent meddelande' -- backlog/a.md"); assert rc == 0, err
+(repo / 'msg-hemlig.txt').unlink()
+g11('commit', '-q', '--allow-empty', '-m', 'push-prov sk-ant-api03-abcdefghijklmnopqrstuvwxyz')
+rc, err = vakt3('git push origin main'); assert rc == 2 and 'meddelande' in err and 'sk-ant-api03' not in err, 'hemlighet i ett utgående commit-meddelande (F27): ' + err
+g11('reset', '-q', '--hard', 'origin/main')
+print('R11 F27 commit-meddelanden ok')
+
+# F13: LAN-visningen startas bara med POST under ursprungskontrollen; GET läser läget
+dsrv13 = http.server.ThreadingHTTPServer(('127.0.0.1', 0), dash.H); threading.Thread(target=dsrv13.serve_forever, daemon=True).start()
+dport = dsrv13.server_port; dash.VARD['tillatna'] = {'127.0.0.1:%d' % dport, 'localhost:%d' % dport}  # dashboardens provserver stängdes efter sitt block
+anrop13, _visa_lan = [], dash.visa_lan
+dash.visa_lan = lambda s: anrop13.append(s) or 'http://192.0.2.1:1'
+kod, _ = begar(dport, 'GET', '/api/visa/dold-aby'); assert kod == 200 and not anrop13, 'GET får inte starta LAN-visningen (F13)'
+kod, _ = begar(dport, 'POST', '/api/visa/dold-aby', huvuden={'Origin': 'http://evil.test:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{}'); assert kod == 403 and not anrop13, kod
+kod, _ = begar(dport, 'POST', '/api/visa/dold-aby', huvuden={'Origin': 'http://127.0.0.1:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{}'); assert kod == 200 and anrop13 == ['dold-aby'], (kod, anrop13)
+dash.visa_lan = _visa_lan; dsrv13.shutdown()
+print('R11 F13 LAN via POST ok')
+
+# F36: läsande inspektion släpper inga skrivande anrop från sidans skript
+rot36 = tmp / 'sajt36'; rot36.mkdir()
+(rot36 / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>t</title></head><body><h1>Hej</h1><script>fetch("/skriv", {method: "POST", body: "x"}).catch(() => {});</script></body></html>')
+srv36, bas36 = server(rot36)
+r36 = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'inspektera.mjs'), '--adress', bas36 + '/', '--ut', str(tmp / 'ut36'), '--vyer', '390', '--tillstand', 'inga'],
+                     capture_output=True, text=True, cwd=str(ROOT), env={k_: v_ for k_, v_ in os.environ.items() if k_ != 'NWP_SLUG'}, timeout=240)
+ins36 = json.loads((tmp / 'ut36' / 'INSPEKTION.json').read_text())
+bl36 = ins36['vyer']['390']['natverk']['blockerade']
+assert any(x.get('metod') == 'POST' and 'skrivande' in (x.get('skal') or '') for x in bl36), (r36.stdout[-300:], r36.stderr[-300:], bl36)
+srv36.shutdown()
+print('R11 F36 läsande inspektion ok')
+
+# F33: GPS i en AVIF-fil, oläsbar metadata och en ren fil
+import bilddatum as bd  # noqa: E402
+
+
+def box33(typ, inneh):
+    return struct.pack('>I', 8 + len(inneh)) + typ + inneh
+
+
+def fullbox33(typ, inneh, v=0):
+    return box33(typ, bytes([v, 0, 0, 0]) + inneh)
+
+
+datum33 = b'2021:08:24 07:25:00\x00'
+ifd0_33 = struct.pack('<H', 2) + struct.pack('<HHII', 0x8769, 4, 1, 38) + struct.pack('<HHII', 0x8825, 4, 1, 56) + struct.pack('<I', 0)
+exif_33 = struct.pack('<H', 1) + struct.pack('<HHII', 0x9003, 2, len(datum33), 62) + struct.pack('<I', 0)
+tiff33 = b'II*\x00' + struct.pack('<I', 8) + ifd0_33 + exif_33 + struct.pack('<H', 0) + struct.pack('<I', 0) + datum33
+
+
+def avif33(metod=0, med_exif=True):
+    ftyp = box33(b'ftyp', b'avif' + b'\x00\x00\x00\x00' + b'avifmif1')
+    hdlr = fullbox33(b'hdlr', b'\x00' * 4 + b'pict' + b'\x00' * 13)
+    infe = fullbox33(b'infe', struct.pack('>HH', 1, 0) + b'Exif' + b'\x00', v=2)
+    iinf = fullbox33(b'iinf', struct.pack('>H', 1 if med_exif else 0) + (infe if med_exif else b''))
+
+    def iloc(off):
+        if metod == 0:
+            return fullbox33(b'iloc', bytes([0x44, 0x00]) + struct.pack('>HHHH', 1, 1, 0, 1) + struct.pack('>II', off, 4 + len(tiff33)))
+        return fullbox33(b'iloc', bytes([0x44, 0x00]) + struct.pack('>HHHHH', 1, 1, metod, 0, 1) + struct.pack('>II', off, 4 + len(tiff33)), v=1)
+    meta = fullbox33(b'meta', hdlr + iinf + iloc(0))
+    meta = fullbox33(b'meta', hdlr + iinf + iloc(len(ftyp) + len(meta) + 8))
+    return ftyp + meta + box33(b'mdat', b'\x00\x00\x00\x00' + tiff33)
+
+
+assert bd.avif_metadata(avif33())[0] == 'tiff' and bd.exif(bd.tiff_block(avif33())).get('gps'), 'EXIF ur AVIF (F33)'
+d33 = tmp / 'dist33'; shutil.copytree(d3, d33)
+(d33 / 'jobb.avif').write_bytes(avif33())
+assert any(x['punkt'] == '4.2' and x['sida'] == '/jobb.avif' and 'GPS' in x['text'] for x in sk.granska(d33)[0]), 'GPS i en AVIF ska ge fel 4.2 (F33)'
+(d33 / 'jobb.avif').write_bytes(avif33(metod=1))
+assert any(x['punkt'] == '4.2' and x['sida'] == '/jobb.avif' and 'verifieras' in x['text'] for x in sk.granska(d33)[0]), 'oläsbar metadata är inte grön (F33)'
+(d33 / 'jobb.avif').write_bytes(avif33(med_exif=False))
+assert not any(x['punkt'] == '4.2' and x['sida'] == '/jobb.avif' for x in sk.granska(d33)[0]), 'en AVIF utan metadata är ren (F33)'
+print('R11 F33 AVIF ok')
+
+# F9/F31: spillgrinden kräver 320-mätningen; utan-js är grönt bara vid PASS; skickaknappens formaction fälls
+ins_ok = {'vyer': {vy: {'spill': {'spill': False}, 'tillstand': {'reflow_320': {'spill': False}}} for vy in ('390', '768', '1440')}}
+assert prova.spillfynd(ins_ok, '/') == [], prova.spillfynd(ins_ok, '/')
+ins_320 = json.loads(json.dumps(ins_ok)); ins_320['vyer']['390']['tillstand']['reflow_320'] = {'spill': True, 'scrollWidth': 400, 'clientWidth': 320}
+assert any('@320' in x for x in prova.spillfynd(ins_320, '/')), 'spill i 320-vyn ska fälla (F9)'
+ins_utan = json.loads(json.dumps(ins_ok)); del ins_utan['vyer']['390']['tillstand']['reflow_320']
+assert any('inte mätt' in x and '320' in x for x in prova.spillfynd(ins_utan, '/')), 'en saknad 320-mätning är inte grön (F9)'
+assert prova.utan_js_grind({'status': 'PASS', 'fynd': []})[0] and not prova.utan_js_grind({'status': 'EJ_MATT', 'fynd': []})[0] and not prova.utan_js_grind({'status': 'FAIL', 'fynd': [{'vad': 'x'}]})[0], 'bara PASS är grönt (F31)'
+(d33 / 'kontakt').mkdir(exist_ok=True)
+(d33 / 'kontakt' / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Kontakt</title></head><body><main><h1>Kontakt</h1>'
+                                           '<form action="/api/forfragan" method="post"><input name="namn" type="text" autocomplete="name" aria-describedby="a">'
+                                           '<input name="telefon" type="tel" autocomplete="tel" pattern="[0-9 ]+" aria-describedby="b"><textarea name="meddelande" aria-describedby="c"></textarea>'
+                                           '<button type="submit" formaction="/finns-inte">Skicka</button></form></main></body></html>')
+assert any(x['punkt'] == '6.1' and 'överstyr' in x['text'] for x in sk.granska(d33)[0]), 'formaction på skickaknappen ska ge fel 6.1 (F31)'
+print('R11 F9/F31 grindar ok')
+
+# F32: interna länkar i alla skrivformer löses mot sidan, <base> och den egna domänen
+d32 = tmp / 'dist32'; (d32 / 'finns').mkdir(parents=True); (d32 / 'finns' / 'index.html').write_text('<html lang="sv"><head><title>Finns</title></head><body><h1>f</h1></body></html>')
+raw32 = ('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Start</title><meta name="description" content="x"></head><body><h1>s</h1>'
+         '<a href="/finns/">a</a><a href="finns/">b</a><a href="saknas/">c</a><a href="./saknas2/">d</a><a href="https://exempel.se/saknas3/">e</a>'
+         '<a href="https://www.exempel.se/finns/">e2</a><a href="https://annan.se/x/">f</a><a href="mailto:a@b.se">g</a></body></html>')
+(d32 / 'index.html').write_text(raw32)
+f32 = seo.granska_sida(d32, d32 / 'index.html', raw32, 'lansering', verk20, 'exempel.se')
+brutna32 = sorted(f_['text'] for f_ in f32['fynd'] if f_['typ'] == 'intern länk löser inte')
+assert brutna32 == ['./saknas2/', 'https://exempel.se/saknas3/', 'saknas/'], brutna32
+raw32b = raw32.replace('<head>', '<head><base href="/finns/">').replace('<a href="finns/">b</a>', '')
+f32b = seo.granska_sida(d32, d32 / 'index.html', raw32b, 'lansering', verk20, 'exempel.se')
+assert 'saknas/' in [f_['text'] for f_ in f32b['fynd'] if f_['typ'] == 'intern länk löser inte'], 'relativa länkar löses mot <base> (F32)'
+print('R11 F32 länkar ok')
+
+# F18: referensbilderna ingår i metodhashen och fryses i omgången
+m18a = gr.metod_sha('ett-abx'); rdir18b = tmp / 'underlag' / 'ett-abx' / 'referenser' / 'r1'; rdir18b.mkdir(parents=True)
+(rdir18b / 'vy-390-forsta.png').write_bytes(b'bild A'); m18b = gr.metod_sha('ett-abx'); assert m18b != m18a, 'referensbilderna ska ingå i metodhashen (F18)'
+(rdir18b / 'vy-390-forsta.png').write_bytes(b'bild B'); assert gr.metod_sha('ett-abx') != m18b, 'en utbytt bild på samma sökväg ska ge ny hash (F18)'
+fr18 = gr.frysta_referenser('ett-abx', tmp / 'runda18'); assert fr18 and fr18[0].read_bytes() == b'bild B' and str(fr18[0]).startswith(str(tmp / 'runda18')), fr18
+print('R11 F18 referensbilder ok')
+
+# F8: en misslyckad jämförelse blir aldrig 'lika'
+kj = tmp / 'kunder' / 'jamf' / 'granskning'  # gr.KUNDER är tmp/kunder
+for namn8, betyg8 in (('runda-01', 8), ('runda-02', 6)):
+    (kj / namn8 / 'sajt' / 'hem').mkdir(parents=True); (kj / namn8 / 'sajt' / 'hem' / 'vy-390-forsta.png').write_bytes(b'x')
+    (kj / namn8 / 'GRANSKNING.json').write_text(json.dumps({'godkand': True, 'kriterier': {n_: {'betyg': betyg8} for n_ in gr.KRITERIER}}))
+_run8 = gr.subprocess.run
+gr.subprocess.run = lambda *a, **kw: types.SimpleNamespace(returncode=1, stdout=b'', stderr=b'')
+try:
+    rc8 = gr.jamfor('jamf')
+finally:
+    gr.subprocess.run = _run8
+j8 = json.loads((kj / 'JAMFORELSE-OMGANGAR.json').read_text())
+assert rc8 == 3 and j8.get('fel') and j8.get('vinnare') is None, 'en misslyckad jämförelse får inte bli lika (F8): %s %s' % (rc8, j8)
+print('R11 F8 jämförelsen ok')
+
+# F34: panelen ser bara det här försökets fotograferade riktningar
+(arot / '4').mkdir(); (arot / '4' / 'vy-390-ruta-01.png').write_bytes(b'x')  # kvar från ett tidigare försök
+svar_per_domare.update(formgivning=full, funktion=full, kunden=full)
+v34 = a.panel('prov', arot); assert set(v34['poang']) == {1, 2, 3}, 'bara det här försökets riktningar (F34): %s' % v34['poang']
+(arot / '3' / 'vy-390-ruta-01.png').unlink()
+try:
+    a.panel('prov', arot); raise AssertionError('en listad riktning utan bilder ska stoppa (F34)')
+except RuntimeError as e:
+    assert 'saknar bilder' in str(e), e
+(arot / 'FOTOGRAFERADE.json').unlink()
+try:
+    a.panel('prov', arot); raise AssertionError('utan manifest ska panelen stoppa (F34)')
+except RuntimeError as e:
+    assert 'FOTOGRAFERADE' in str(e), e
+print('R11 F34 ateljén ok')
+
+# F35: gallring efter senaste kontakt; bara kund undantas permanent
+import prospekt as pr  # noqa: E402
+import prospektfiler as pf11  # noqa: E402
+pf11.PROSPEKT = tmp / 'prospekt11'; pr.ROOT = tmp
+gammal35, ny35 = '2024-01-01T00:00:00Z', pf11.nu()
+pf11.skriv_register('prov-k', lambda p_: [{'slug': 'gammal-skickad', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35},
+                                         {'slug': 'kund-gammal', 'status': 'kund', 'skapad': gammal35, 'uppdaterad': gammal35},
+                                         {'slug': 'ny-skickad', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35, 'skickat_tid': ny35},
+                                         {'slug': 'gammal-demo', 'status': 'demo', 'skapad': gammal35, 'uppdaterad': gammal35},
+                                         {'slug': 'gammal-nej', 'status': 'nej', 'skapad': gammal35, 'uppdaterad': gammal35}])
+pr.gallra(types.SimpleNamespace(manader=12, kampanj='prov-k', torr=False))
+kvar35 = {p_['slug']: p_ for p_ in pf11.las_register('prov-k')}
+assert set(kvar35) == {'kund-gammal', 'ny-skickad', 'gammal-nej'} and kvar35['gammal-nej'].get('gallrad'), 'gallring efter senaste kontakt (F35): %s' % sorted(kvar35)
+print('R11 F35 gallringen ok')
+
+# F25: en kandidat ägaren avfärdat under spaningen kommer inte tillbaka som ny
+sp._skriv_resultat([kand(6, 999)], [], [], {}, 0, time.time(), False, H())
+k06 = [x for x in sp.las_json(sp.SPANING / 'KANDIDATER.json') if x['id'] == 'k06']
+assert len(k06) == 1 and k06[0]['status'] == 'avfardad', 'en avfärdad kandidat får inte bli två poster (F25): %s' % k06
+print('R11 F25 spaningen ok')
+
+# F24: robots-policyn följer med genom omdirigeringar, också vid ursprungsbyte, i sida_till_text och ladda_bilder
+hs.TILLAT_LOKALT = True; hs._adresser.clear()
+rot24 = tmp / 'sajt24'; rot24.mkdir(); (rot24 / 'robots.txt').write_text('User-agent: *\nDisallow: /dold/\n'); (rot24 / 'index.html').write_text('<html><body><h1>a</h1></body></html>')
+(rot24 / 'dold').mkdir(); (rot24 / 'dold' / 'sida.html').write_text('<html><body>d</body></html>')
+rotB24 = tmp / 'sajtB24'; (rotB24 / 'hos-b').mkdir(parents=True); (rotB24 / 'robots.txt').write_text('User-agent: *\nDisallow: /hos-b/\n'); (rotB24 / 'hos-b' / 'x.html').write_text('<html><body>b</body></html>')
+srvB24, basB24 = server(rotB24)
+
+
+class Omd24(Tyst):
+    def do_GET(self):
+        mal = {'/till-dold': '/dold/sida.html', '/till-b': basB24 + '/hos-b/x.html'}.get(self.path.split('?')[0])
+        if mal:
+            self.send_response(302); self.send_header('Location', mal); self.send_header('Content-Length', '0'); self.end_headers(); return
+        super().do_GET()
+
+
+srv24, bas24 = server(rot24, functools.partial(Omd24, directory=str(rot24)))
+import sida_till_text as stt  # noqa: E402
+for vag24 in ('/till-dold', '/till-b'):
+    try:
+        stt.sida_till_text(bas24 + vag24, tmp / 'ut24' / ('sida' + vag24.replace('/', '-'))); raise AssertionError('omdirigering till ett robots-förbjudet mål ska stoppa (F24): ' + vag24)
+    except SystemExit as e:
+        assert '302' in str(e), (vag24, e)
+assert not list((tmp / 'ut24').glob('*.html')) if (tmp / 'ut24').exists() else True, 'inget får ha hämtats'
+rader24 = hs.ladda_bilder([{'url': bas24 + '/till-dold', 'typ': 'foto', 'alt': ''}, {'url': bas24 + '/till-b', 'typ': 'foto', 'alt': ''}], tmp / 'bilder24', paus=0) or []
+assert len(rader24) == 2 and all('302' in str(r_['status']) and not r_['fil'] for r_ in rader24), rader24
+srv24.shutdown(); srvB24.shutdown()
+print('R11 F24 robots genom hoppen ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

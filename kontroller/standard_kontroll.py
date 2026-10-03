@@ -462,10 +462,18 @@ def granska(dist):
         if any('canonical' in a.get('rel', '').lower().split() for t, a, *_ in p404.el if t == 'link'):
             F('7.2', '/404.html', '404-sidan har canonical; ta bort den (404-sidan ska inte indexeras)')
     # 4.2 GPS-läge i en publicerad bild är en personuppgift; astro:assets tar bort metadata, en fil i public/ gör det inte
-    from bilddatum import BILDER, exif, tiff_block
+    from bilddatum import BILDER, avif_metadata, exif, tiff_block
     for f in sorted(x for x in dist.rglob('*') if x.suffix.lower() in BILDER):
         try:
-            gps = exif(tiff_block(f.read_bytes())).get('gps')
+            data = f.read_bytes()
+            if f.suffix.lower() == '.avif':  # alla publiceringsformat prövas; oläsbar metadata är inte grön (omgång elva, F33)
+                lage, varde = avif_metadata(data)
+                if lage == 'oklar':
+                    F('4.2', '/' + f.relative_to(dist).as_posix(), 'bildens metadata kan inte verifieras (%s); lägg den i src/assets/ (astro:assets tar bort metadata) eller rensa den' % varde)
+                    continue
+                gps = exif(varde).get('gps') if lage == 'tiff' else False
+            else:
+                gps = exif(tiff_block(data)).get('gps')
         except Exception:  # noqa: BLE001 — en trasig bild ska inte stoppa resten av kontrollen
             gps = False
         if gps:
@@ -503,6 +511,12 @@ def granska(dist):
                  if fm['attr'].get('method', '').lower() == 'post' and fm['attr'].get('action') == '/api/forfragan']
     if not forfragan:
         F('6.1', '(alla)', 'ingen skriftlig förfrågningsväg: formulär med method="post" och action="/api/forfragan" saknas (mallens Forfragan.astro)')
+    for sida, fm in forfragan:  # det effektiva målet: en skickaknapp med formaction/formmethod överstyr formuläret (omgång elva, F31)
+        knappar = [k for k in fm.get('knappar', []) if (k.get('type') or 'submit').lower() == 'submit'] + \
+                  [x for x in fm['falt'] if x.get('_tag') == 'input' and (x.get('type') or '').lower() == 'submit']
+        for k in knappar:
+            if (k.get('formaction') and k['formaction'] != '/api/forfragan') or (k.get('formmethod') and k['formmethod'].lower() != 'post'):
+                F('6.1', sida, 'skickaknappen överstyr formulärets mål (formaction=%r, formmethod=%r); det effektiva målet ska vara POST /api/forfragan' % (k.get('formaction'), k.get('formmethod')))
     for sida, fm in forfragan[:3]:
         falt = {x.get('name'): x for x in fm['falt']}
         for namn in ('namn', 'telefon', 'meddelande'):

@@ -14,7 +14,7 @@ import struct
 import sys
 from pathlib import Path
 
-BILDER = {'.jpg', '.jpeg', '.webp', '.png'}
+BILDER = {'.jpg', '.jpeg', '.webp', '.png', '.avif'}
 FILNAMN = [
     (re.compile(r'((?:19|20)\d{2})(\d{2})(\d{2})[_-]?(\d{2})(\d{2})(\d{2})'), lambda m: '%s-%s-%s %s:%s' % m.group(1, 2, 3, 4, 5)),
     (re.compile(r'((?:19|20)\d{2})-(\d{2})-(\d{2})(?:[ _at.]+(\d{2})[.:](\d{2}))?'),
@@ -41,6 +41,9 @@ def tiff_block(data):
                 block = data[i + 8:i + 8 + langd]
                 return block[6:] if block.startswith(b'Exif\x00\x00') else block
             i += 8 + langd + (langd & 1)
+    elif data[4:8] == b'ftyp':  # AVIF/HEIF (ISOBMFF): EXIF ligger som ett Exif-objekt i meta (omgång elva, F33)
+        lage, varde = avif_metadata(data)
+        return varde if lage == 'tiff' else None
     elif data[:8] == b'\x89PNG\r\n\x1a\n':
         i = 8
         while i + 8 <= len(data):
@@ -49,6 +52,104 @@ def tiff_block(data):
                 return data[i + 8:i + 8 + langd]
             i += 12 + langd
     return None
+
+
+def _isobmff_boxar(data, start=0, slut=None):
+    """(typ, innehållsstart, innehållsslut) för boxarna i ett ISOBMFF-intervall (AVIF/HEIF)."""
+    slut = len(data) if slut is None else slut
+    i = start
+    while i + 8 <= slut:
+        storlek, typ = struct.unpack('>I4s', data[i:i + 8])
+        huvud = 8
+        if storlek == 1:
+            if i + 16 > slut:
+                return
+            storlek, huvud = struct.unpack('>Q', data[i + 8:i + 16])[0], 16
+        elif storlek == 0:
+            storlek = slut - i
+        if storlek < huvud or i + storlek > slut:
+            return
+        yield typ, i + huvud, i + storlek
+        i += storlek
+
+
+def avif_poster(data):
+    """Objekten i en AVIF/HEIF-fil ur meta (iinf och iloc): {id: {'typ', 'metod', 'extents': [(offset, längd)]}}."""
+    poster = {}
+    for typ, a, b in _isobmff_boxar(data):
+        if typ != b'meta':
+            continue
+        for t2, c, d in _isobmff_boxar(data, a + 4, b):  # meta är en FullBox: version och flaggor först
+            if t2 == b'iinf':
+                v = data[c]
+                p = c + 6 if v == 0 else c + 8
+                for t3, e, f in _isobmff_boxar(data, p, d):
+                    if t3 != b'infe' or data[e] < 2:
+                        continue
+                    if data[e] == 2:
+                        iid, typ4 = struct.unpack('>H', data[e + 4:e + 6])[0], data[e + 8:e + 12]
+                    else:
+                        iid, typ4 = struct.unpack('>I', data[e + 4:e + 8])[0], data[e + 10:e + 14]
+                    poster.setdefault(iid, {})['typ'] = typ4
+            elif t2 == b'iloc':
+                v, p = data[c], c + 4
+                os_, ls_ = data[p] >> 4, data[p] & 15
+                bos, isz = data[p + 1] >> 4, (data[p + 1] & 15 if v in (1, 2) else 0)
+                p += 2
+
+                def tal(storlek, pos):
+                    return (int.from_bytes(data[pos:pos + storlek], 'big') if storlek else 0), pos + storlek
+                n, p = tal(2 if v < 2 else 4, p)
+                for _ in range(n):
+                    iid, p = tal(2 if v < 2 else 4, p)
+                    metod = 0
+                    if v in (1, 2):
+                        m_, p = tal(2, p)
+                        metod = m_ & 15
+                    _, p = tal(2, p)  # data_reference_index
+                    bas, p = tal(bos, p)
+                    antal, p = tal(2, p)
+                    ext = []
+                    for _ in range(antal):
+                        if isz:
+                            _, p = tal(isz, p)
+                        o, p = tal(os_, p)
+                        l_, p = tal(ls_, p)
+                        ext.append((bas + o, l_))
+                    poster.setdefault(iid, {}).update(metod=metod, extents=ext)
+    return poster
+
+
+def avif_metadata(data):
+    """('ingen', None) när AVIF-filen saknar EXIF och GPS-bärande XMP; ('tiff', tiff) när EXIF-blocket gick att läsa
+    (konstruktionsmetod 0, filoffset); ('oklar', skäl) när metadata är deklarerad men inte går att verifiera, eller XMP
+    med GPS-fält finns. Omgång elva, F33: AVIF hoppades över trots att byggstandarden rekommenderar formatet."""
+    if data[4:8] != b'ftyp':
+        return 'ingen', None
+    tiff, oklar = None, None
+    for iid, post in avif_poster(data).items():
+        if post.get('typ') not in (b'Exif', b'mime'):
+            continue
+        if post.get('metod', 0) != 0 or not post.get('extents'):
+            oklar = 'metadataobjekt %s som inte går att läsa (konstruktionsmetod %s)' % (post.get('typ', b'?').decode('ascii', 'replace'), post.get('metod'))
+            continue
+        o, l_ = post['extents'][0]
+        block = data[o:o + l_]
+        if post['typ'] == b'mime':
+            if b'GPS' in block:
+                oklar = 'XMP-metadata med GPS-fält'
+            continue
+        if len(block) < 4:
+            oklar = 'EXIF-objektet är tomt eller trunkerat'
+            continue
+        kandidat = block[4 + struct.unpack('>I', block[:4])[0]:]
+        if kandidat[:2] in (b'II', b'MM'):
+            tiff = kandidat
+        else:
+            oklar = 'EXIF-objektet saknar TIFF-huvud'
+    if tiff is not None:
+        return 'tiff', tiff
+    return ('oklar', oklar) if oklar else ('ingen', None)
 
 
 def exif(tiff):

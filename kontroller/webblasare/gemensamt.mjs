@@ -68,7 +68,10 @@ export function origin(url) { return new URL(url).origin; }
  *  avbryts och loggas som blockerat), skyddsundantag som header bara mot målets ursprung (`mal`; tillåtna tredje parter
  *  får det aldrig), logg och spår. */
 // utan-js.mjs använder extra: { javaScriptEnabled: false } i samma avgränsade browserkontext.
-export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga = [], spar = null, extra = {}, mal = null }) {
+// lasande (standard): bara GET, HEAD och OPTIONS släpps igenom; ett skrivande anrop (POST, PUT, DELETE …) från sidans
+// skript avbryts och loggas. Extern inspektion klickar på främmande sajter och får aldrig skicka något (omgång elva,
+// F36). skrivbara: ursprung som får skriva ändå, till exempel provets egen lokala demomottagare.
+export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga = [], spar = null, extra = {}, mal = null, lasande = true, skrivbara = [] }) {
   const malUrsprung = mal ? origin(mal) : (tillat.length ? origin(tillat[0]) : null);
   const v = VYER[vy]; if (!v) throw new Error('okänd vy: ' + vy + ' (390, 768, 1440, 320)');
   const browser = await chromium.launch({ headless: true });
@@ -76,12 +79,18 @@ export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga
   const red = redigerare([undantag, ...hemliga].filter(Boolean));
   const logg = { konsol: [], natverk: [], blockerade: [], dialoger: [], sidfel: [] };
   const tillatna = new Set(tillat.map(o => origin(o)));
+  const LASMETODER = new Set(['GET', 'HEAD', 'OPTIONS']);
+  const skrivbaraSet = new Set(skrivbara.map(o => origin(o)));
   await ctx.route('**/*', async (route) => {
     const req = route.request(); const u = req.url();
     let o; try { o = origin(u); } catch { return route.abort('blockedbyclient'); }
     if (u.startsWith('data:') || u.startsWith('blob:')) return route.continue();
     if (tillatna.size && !tillatna.has(o)) {
       logg.blockerade.push({ metod: req.method(), url: redigeraUrl(u), typ: req.resourceType(), tid: nu() });
+      return route.abort('blockedbyclient');
+    }
+    if (lasande && !LASMETODER.has(req.method()) && !skrivbaraSet.has(o)) {
+      logg.blockerade.push({ metod: req.method(), url: redigeraUrl(u), typ: req.resourceType(), tid: nu(), skal: 'skrivande anrop under läsande inspektion' });
       return route.abort('blockedbyclient');
     }
     const headers = { ...req.headers() };

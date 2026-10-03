@@ -8,7 +8,7 @@ if (!a.adress || !a.ut || (a['formular-far-skickas'] && !a.testmarkering)) {
   console.error('--adress URL --ut DIR [--formular SELECTOR --formular-far-skickas --testmarkering TEXT]');
   process.exit(2);
 }
-const b = await oppna({ tillat: [origin(a.adress)], mal: a.adress,
+const b = await oppna({ tillat: [origin(a.adress)], mal: a.adress, lasande: !a['formular-far-skickas'],  // skrivande bara med uttrycklig tillåtelse (F36)
   undantag: lasUndantag(a['undantag-fil']), extra: { javaScriptEnabled: false } });
 const r = { schema: 1, verktyg: 'utan-js', tid: nu(), javaScriptEnabled: false, sidor: [], fynd: [],
   not: 'HTML, synligt huvudinnehåll och angivna formulär; ingen allmän användbarhetsbedömning. Inskick kräver uttrycklig tillåtelse och testmarkering.' };
@@ -54,14 +54,18 @@ try {
         if (!await field.isVisible() || !await field.isEnabled()) continue;
         const type = (await field.getAttribute('type') || 'text').toLowerCase();
         if (!['text', 'email', 'tel', 'search', 'url'].includes(type)) continue;
-        await field.fill(type === 'email' ? 'test@example.invalid' : type === 'url' ? 'https://example.invalid' : String(a.testmarkering));
+        // telefonfältet har pattern (byggstandarden 6.2): ett giltigt provnummer, annars stoppar webbläsarens validering inskicket
+        await field.fill(type === 'email' ? 'test@example.invalid' : type === 'url' ? 'https://example.invalid' : type === 'tel' ? '070-123 45 67' : String(a.testmarkering));
       }
       const response = b.page.waitForResponse(x => x.request().method() === 'POST' && x.url() === target.href, { timeout: 10000 });
       const [outcome] = await Promise.all([response.catch(() => null), submit.click({ timeout: 5000 }).catch(() => null)]);
       f.skickat = !!outcome; f.http_status = outcome?.status() ?? null;
+      await b.page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
+      f.landning = b.page.url();
+      f.tacksida = /\/tack\/?$/.test(new URL(f.landning).pathname);  // mottagaren svarar 303 till /tack/ när fälten håller (omgång elva, F31)
       // Kvittot är ett funktionellt HTTP-prov, inte bevis på leverans till människa.
-      f.status = outcome && outcome.status() >= 200 && outcome.status() < 400 ? 'PASS' : 'FAIL';
-      if (f.status === 'FAIL') r.fynd.push({ sida: url, formular: i, vad: 'vanlig form-POST gav inget lyckat svar utan JavaScript' });
+      f.status = outcome && outcome.status() >= 200 && outcome.status() < 400 && f.tacksida ? 'PASS' : 'FAIL';
+      if (f.status === 'FAIL') r.fynd.push({ sida: url, formular: i, vad: outcome && f.skickat && !f.tacksida ? 'inskicket ledde inte till tacksidan (landade på ' + f.landning + ')' : 'vanlig form-POST gav inget lyckat svar utan JavaScript' });
     }
     r.sidor.push(row);
   }

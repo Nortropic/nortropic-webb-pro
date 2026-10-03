@@ -33,6 +33,8 @@ def main(argv=None):
         print('slug: a-z, 0-9 och bindestreck', file=sys.stderr)
         return 2
     mal = ROOT / 'kunder' / a.slug / 'sajt'
+    krav_vag(mal.parent, 'kundkatalogen')  # en symlänk kunder/<slug> → annan kund skulle annars få kopian (omgång elva, F1)
+    krav_vag(mal, 'sajtkatalogen')
     if (mal / 'package.json').exists():
         print('sajten finns redan: %s (skriver inte över)' % mal.relative_to(ROOT), file=sys.stderr)
         return 2
@@ -45,6 +47,7 @@ def main(argv=None):
             doman = None
     doman = re.sub(r'^https?://', '', (doman or '')).strip('/') or 'exempel.se'
     mal.parent.mkdir(parents=True, exist_ok=True)
+    krav_vag(mal, 'sajtkatalogen')  # efter mkdir: planterade symlänker
     shutil.copytree(MALL, mal, dirs_exist_ok=True, ignore=shutil.ignore_patterns('node_modules', 'dist', '.astro', 'README.md'))
     konfig = mal / 'astro.config.mjs'
     konfig.write_text(konfig.read_text(encoding='utf-8').replace('https://ERSATT-MED-DOMAN.se', 'https://' + doman), encoding='utf-8')

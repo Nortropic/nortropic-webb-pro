@@ -665,7 +665,7 @@ document.addEventListener('click', async (e) => {
   if (!k) return;
   const d = $('#qr');
   try {
-    const v = await api('/api/visa/' + encodeURIComponent(k.dataset.qr));
+    const v = await post('/api/visa/' + encodeURIComponent(k.dataset.qr), {});  // POST: startar visningen bara från dashboardens egen sida (F13)
     d.querySelector('.innehall').innerHTML = v.natverk
       ? `${v.qr}<p><a href="${esc(v.natverk)}" target="_blank" rel="noopener">${esc(v.natverk)}</a></p><p class="under">Telefonen behöver vara på samma Wi-Fi. Bara sajten nås härifrån; dashboarden svarar bara på datorn.</p>`
       : `<p>Ingen visning i telefonen: ${esc(v.skal || '')}.</p>`;

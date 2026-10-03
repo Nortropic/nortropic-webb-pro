@@ -233,10 +233,16 @@ def panel(slug, rot):
     import threading
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import granska
-    riktningar = sorted(int(d.name) for d in rot.iterdir() if d.is_dir() and d.name.isdigit())
-    bilder = {n: [rel(f) for f in sorted((rot / str(n)).glob('vy-390-ruta-0[1-3].png')) + sorted((rot / str(n)).glob('vy-1440-ruta-0[1-2].png'))]
-              for n in riktningar}
-    riktningar = [n for n in riktningar if bilder[n]]
+    manifest = las_json(rot / 'FOTOGRAFERADE.json')  # bara det här försökets fotograferade riktningar (omgång elva, F34)
+    if not manifest or not isinstance(manifest.get('riktningar'), dict):
+        raise RuntimeError('ingen fotografering i det här försöket (FOTOGRAFERADE.json saknas); kör ateljén om')
+    riktningar = sorted(int(n) for n in manifest['riktningar'] if str(n).isdigit())
+    bilder = {}
+    for n in riktningar:
+        filer = sorted((rot / str(n)).glob('vy-390-ruta-0[1-3].png')) + sorted((rot / str(n)).glob('vy-1440-ruta-0[1-2].png'))
+        if not filer:
+            raise RuntimeError('riktning %d står som fotograferad men saknar bilder; kör ateljén om' % n)
+        bilder[n] = [rel(f) for f in filer]
     if len(riktningar) < 2:
         raise RuntimeError('färre än två fotograferade riktningar')
     ankare = []  # egna byggen är ingen måttstock (ägaren 2026-10-03)
@@ -292,7 +298,11 @@ def fotografera(slug, rot):
     rc, out = prova.kor(['npm', 'run', 'build', '--prefix', str(sajt)], timeout=600)
     if rc:
         raise RuntimeError('bygget föll efter divergensen: ' + out[-600:])
-    bildrader = []
+    (rot / 'FOTOGRAFERADE.json').unlink(missing_ok=True)
+    for d in rot.iterdir():  # gamla försök bort: panelen får bara se det här försökets bilder (omgång elva, F34)
+        if d.is_dir() and d.name.isdigit():
+            shutil.rmtree(d)
+    bildrader, fotograferade = [], {}
     with prova.Server(sajt / 'dist') as srv:
         for n in range(1, ANTAL + 1):
             if not (sajt / 'dist' / ('atelje-%d' % n) / 'index.html').is_file():
@@ -300,8 +310,13 @@ def fotografera(slug, rot):
             ut = rot / str(n)
             prova.kor([prova.NODE, str(prova.KONTROLLER / 'webblasare' / 'inspektera.mjs'), '--adress', '%s/atelje-%d/' % (srv.url, n),
                        '--ut', str(ut), '--vyer', '390,1440', '--tillstand', 'inga'], timeout=300)
-            for f in sorted(ut.glob('vy-390-ruta-0[1-3].png')) + sorted(ut.glob('vy-1440-ruta-0[1-2].png')):
+            filer = sorted(ut.glob('vy-390-ruta-0[1-3].png')) + sorted(ut.glob('vy-1440-ruta-0[1-2].png'))
+            if filer:
+                fotograferade[str(n)] = [rel(f) for f in filer]
+            for f in filer:
                 bildrader.append('- riktning %d: %s' % (n, f.relative_to(ROOT)))
+    (rot / 'FOTOGRAFERADE.json').write_text(json.dumps({'tid': nu(), 'antal': ANTAL, 'riktningar': fotograferade}, ensure_ascii=False, indent=1) + '\n',
+                                            encoding='utf-8')
     if not bildrader:
         raise RuntimeError('inga ateljésidor att fotografera')
     return bildrader
