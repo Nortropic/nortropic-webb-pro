@@ -86,6 +86,15 @@ function matPaSidan() {
     if (iText) continue;
     smaYtor.push({ text: (el.textContent || el.getAttribute('aria-label') || el.tagName).trim().slice(0, 40), bredd: Math.round(r.width), hojd: Math.round(r.height) });
   }
+  // primära handlingar under 44 px (byggstandarden 3.3: primära knappar 44×44): knappar, ring- och mejllänkar och länkar
+  // som är stilade som knappar. Vilka som är primära är en bedömning, så detta är information till granskaren, inte fel.
+  const smaKnappar = [];
+  for (const el of document.querySelectorAll('button, [role="button"], input[type="submit"], a[href^="tel:"], a[href^="mailto:"], a[class*="knapp"], a[class*="btn"], a[class*="button"], a[class*="cta"]')) {
+    if (!synlig(el)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.height >= 44 && r.width >= 44) continue;
+    smaKnappar.push({ text: (el.textContent || el.getAttribute('aria-label') || el.tagName).trim().slice(0, 40), bredd: Math.round(r.width), hojd: Math.round(r.height) });
+  }
   // sex renderade mönster ur gstacks designkatalog (lib/design-catalog.ts), trösklarna skrivna här
   const tecken = (() => { const c = document.createElement('canvas').getContext('2d'); return (el) => { const s = getComputedStyle(el); c.font = `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`; return c.measureText('abcdefghijklmnopqrstuvwxyzåäö ').width / 30; }; })();
   const stycken = [...document.querySelectorAll(`${rot} p`)].filter((p) => synlig(p) && (p.textContent || '').trim().length > 80);
@@ -194,7 +203,7 @@ function matPaSidan() {
     typsnitt, ytor: [...ytor.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k),
     bakgrund: hex(bodyBg), text: text ? hex(text) : null, accent: accent ? hex(accent) : null, gradient,
     radier: [...radier.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r, n]) => ({ px: r, antal: n })),
-    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, standardval, monster, mobil, tvaRader, impeccable,
+    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, smaKnappar, standardval, monster, mobil, tvaRader, impeccable,
   };
 }
 
@@ -299,8 +308,9 @@ const sammanfattning = {
   radier: alla((r) => r.radier.map((x) => x.px)).slice(0, 6),
 };
 const smaYtor = rader.filter((r) => r.vy === '390').flatMap((r) => r.smaYtor.map((y) => ({ sida: r.sida, ...y })));
+const smaKnappar = rader.filter((r) => r.vy === '390').flatMap((r) => (r.smaKnappar || []).map((y) => ({ sida: r.sida, ...y })));
 const toppsektion = rader.filter((r) => r.sida === '/').map((r) => ({ vy: r.vy, h1: r.typsnitt.h1, nastaSektionTopp: r.nastaSektionTopp, vyhojd: r.vyhojd }));
-writeFileSync(join(ut, 'STIL.json'), JSON.stringify({ base, tid: new Date().toISOString(), sammanfattning, toppsektion, varningar, smaYtor, fel, rader }, null, 1) + '\n');
+writeFileSync(join(ut, 'STIL.json'), JSON.stringify({ base, tid: new Date().toISOString(), sammanfattning, toppsektion, varningar, smaYtor, smaKnappar, fel, rader }, null, 1) + '\n');
 const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val att motivera ur verksamhetens material, inte förbud.', '',
   `- Typsnitt: ${sammanfattning.typsnitt.join(', ') || '-'} (rubriker: ${sammanfattning.rubriktypsnitt.join(', ') || '-'})`,
   `- Bakgrund: ${sammanfattning.bakgrund.join(', ')} (${bgFam.join(', ')}); accent: ${sammanfattning.accent.join(', ') || '-'}`,
@@ -312,6 +322,8 @@ const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val 
     `- Eget foto i första skärmen: ${mobilStart.fotoIForsta ? 'ja' : 'nej'} (${mobilStart.bilder} bilder i main)`,
     `- Fast list längst ned: ${mobilStart.fastList ? [mobilStart.fastList.ring && 'Ring', mobilStart.fastList.skriv && 'Skriv'].filter(Boolean).join(' och ') || 'utan Ring och Skriv' : 'ingen'}`] : ['- startsidan mättes inte']), '',
   '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',
-  '## Klickytor under 24 px i 390 (byggstandarden 3.3)', '', ...(smaYtor.length ? smaYtor.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), ''];
+  '## Klickytor under 24 px i 390 (byggstandarden 3.3)', '', ...(smaYtor.length ? smaYtor.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), '',
+  '## Knappar, ring- och mejllänkar under 44 px i 390 (byggstandarden 3.3, primära knappar; granskaren avgör vilka som är primära)', '',
+  ...(smaKnappar.length ? smaKnappar.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), ''];
 writeFileSync(join(ut, 'STIL.md'), md.join('\n'));
 console.log(`stil: ${rader.length} mätningar, ${fel.length} fel, ${varningar.length} varningar, ${smaYtor.length} små klickytor`);

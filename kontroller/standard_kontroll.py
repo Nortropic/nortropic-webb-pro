@@ -26,12 +26,37 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 TOM = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'}
-LOKALA_TYPER = {
+LOKALA_TYPER_RESERV = {
     'LocalBusiness', 'HomeAndConstructionBusiness', 'ProfessionalService', 'Electrician', 'GeneralContractor',
     'HVACBusiness', 'HousePainter', 'Locksmith', 'MovingCompany', 'Plumber', 'RoofingContractor', 'AutomotiveBusiness',
     'AutoRepair', 'BeautySalon', 'HairSalon', 'HealthAndBeautyBusiness', 'FoodEstablishment', 'Restaurant', 'Store',
     'LegalService', 'AccountingService', 'MedicalBusiness', 'Dentist', 'CleaningService', 'ChildCare', 'SportsActivityLocation'}
 ALLMANNA_TYPER = {'LocalBusiness', 'HomeAndConstructionBusiness', 'ProfessionalService'}
+
+
+def _lokala_typer():
+    """LocalBusiness och alla dess undertyper ur schema.org-hierarkin (kontroller/data/schemaorg.json), så att Bakery
+    och CafeOrCoffeeShop räknas (revisionen 2026-10-03, F21); den handskrivna listan är reserv om filen saknas."""
+    try:
+        kl = json.loads((Path(__file__).resolve().parent / 'data' / 'schemaorg.json').read_text(encoding='utf-8'))['klasser']
+    except (OSError, ValueError, KeyError, TypeError):
+        return set(LOKALA_TYPER_RESERV)
+    ut = set()
+    for k in kl:
+        stack, sedda = [k], set()
+        while stack:
+            x = stack.pop()
+            if x not in sedda:
+                sedda.add(x)
+                stack.extend(kl.get(x, []))
+        if 'LocalBusiness' in sedda:
+            ut.add(k)
+    return ut | set(LOKALA_TYPER_RESERV)
+
+
+LOKALA_TYPER = _lokala_typer()
+# CSP: skript bara med hash (byggstandarden 8.2); källor som släpper igenom annat gör direktivet verkningslöst
+CSP_SKRIPT_OK = re.compile(r"^('self'|'none'|'strict-dynamic'|'sha(256|384|512)-[A-Za-z0-9+/=]+'|'nonce-[A-Za-z0-9+/=_-]+')$")
 RASTER = ('.jpg', '.jpeg', '.png', '.gif')
 GENERISKA_LANKTEXTER = {'läs mer', 'klicka här', 'här', 'mer', 'länk', 'läs mer här', 'se mer', 'read more', 'click here'}
 SIPS = shutil.which('sips')
@@ -338,8 +363,12 @@ def granska(dist):
             F('8.2', sida, 'ingen CSP; slå på security.csp i astro.config.mjs (se mallen)')
         else:
             skript = re.search(r"script-src([^;]*)", csp[0])
-            if not skript or "'unsafe-inline'" in skript.group(1):
-                F('8.2', sida, "CSP:ns script-src saknas eller tillåter 'unsafe-inline'")
+            if not skript:
+                F('8.2', sida, 'CSP:ns script-src saknas')
+            else:
+                otillatna = [k for k in skript.group(1).split() if not CSP_SKRIPT_OK.match(k)]
+                if otillatna:
+                    F('8.2', sida, "CSP:ns script-src släpper igenom annat än 'self' och hashar: %s" % ' '.join(otillatna[:4]))
         # 9.2 telefon i sidhuvudet
         tel = [(a, i_h) for t, a, i_h, _m in p.el if t == 'a' and a.get('href', '').startswith('tel:')]
         if not tel:
@@ -505,7 +534,7 @@ def granska(dist):
             F('6.8', '(alla)', 'integritetssidan /integritet/ saknas (ansvarig, ändamål, rättslig grund, lagringstid, rättigheter, kontakt)')
     # 2.5 giltig HTML, lokalt (W3C:s tjänst skulle få verksamhetens sidor skickade till sig)
     for sida, text in giltig_html(dist):
-        (F if sida else I)('2.5', sida or '(alla)', text)
+        F('2.5', sida or '(alla)', text)  # också ett verktygsfel: ej mätt är inte godkänt (revisionen 2026-10-03, F9)
     return fel, info, len(sidor)
 
 
@@ -551,6 +580,19 @@ def klickytor(stil):
         per_sida.setdefault(y['sida'], []).append(y)
     return [{'punkt': '3.3', 'sida': s, 'text': '%d klickytor under 24 px i 390, t.ex. "%s" %d×%d' % (len(ys), ys[0]['text'], ys[0]['bredd'], ys[0]['hojd'])}
             for s, ys in sorted(per_sida.items())]
+
+
+def smaknappar(stil):
+    """Byggstandarden 3.3, primära knappar 44×44: information ur stilrapporten (vilka som är primära avgör granskaren)."""
+    try:
+        data = json.loads(Path(stil).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    per_sida = {}
+    for y in data.get('smaKnappar', []):
+        per_sida.setdefault(y['sida'], []).append(y)
+    return [{'punkt': '3.3', 'sida': s, 'text': '%d knappar eller ring-/mejllänkar under 44 px i 390, t.ex. "%s" %d×%d; primära knappar ska vara 44×44' % (
+        len(ys), ys[0]['text'], ys[0]['bredd'], ys[0]['hojd'])} for s, ys in sorted(per_sida.items())]
 
 
 def egna_bilder(dist):
@@ -678,6 +720,7 @@ def rapport(bygge, stil=None, bestallning=None, verksamhet=None):
         fel += adress(bygge, verksamhet)
     if stil:
         fel += klickytor(stil)
+        info += smaknappar(stil)
     antal = egna_bilder(bygge)
     if antal < 5 and not bestallning_finns(bestallning):
         fel.append({'punkt': '9.3', 'sida': '(alla)', 'text': '%d egna bilder och ingen beställning: beställ bilderna av verksamheten i underlag/<slug>/BESTALLNING.md (ägarens domar L2, L3)' % antal})

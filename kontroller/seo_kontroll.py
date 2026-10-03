@@ -183,35 +183,66 @@ def granska_vokabular(obj, v, vag=''):
     return fynd
 
 
+def noder(obj):
+    """Verksamhetsnoderna i ett JSON-LD-block: objektet självt, eller noderna i en @context/@graph-behållare (giltig form
+    enligt JSON-LD 1.1; revisionen 2026-10-03, F20). @type kan vara en sträng eller en lista."""
+    if isinstance(obj.get('@graph'), list):
+        return [n for n in obj['@graph'] if isinstance(n, dict)]
+    return [obj]
+
+
+def typlista(nod):
+    t = nod.get('@type')
+    return [x for x in (t if isinstance(t, list) else [t]) if isinstance(x, str)]
+
+
 def granska_schema(obj, verksamhet):
     fynd = []
     if not isinstance(obj, dict):
         return [('JSON-LD form', 'objekt väntades')]
-    typ = obj.get('@type')
-    if not typ:
-        fynd.append(('JSON-LD utan @type', ''))
     v = vokabular()
-    if v:
-        for graf in (obj.get('@graph') if isinstance(obj.get('@graph'), list) else [obj]):
-            if isinstance(graf, dict):
-                fynd.extend(granska_vokabular(graf, v))
-    if verksamhet and isinstance(typ, str) and (typ in ('LocalBusiness', 'Organization') or obj.get('address') or obj.get('telephone')):
-        n = vu.nap(verksamhet)
-        if obj.get('name') and obj['name'] != verksamhet['namn']:
-            fynd.append(('schema name ≠ verksamhetens namn', '%r mot %r' % (obj['name'], verksamhet['namn'])))
-        if obj.get('telephone') and n['telefon_e164'] and obj['telephone'] != n['telefon_e164']:
-            fynd.append(('schema telephone ≠ E.164 ur verksamheten', '%r mot %r' % (obj['telephone'], n['telefon_e164'])))
-        if obj.get('address') and not n['adress_visas']:
-            fynd.append(('schema bär adress fast adressen inte är publik', 'utelämna address; ange areaServed'))
-        if n['adress_visas'] and not obj.get('address') and typ != 'Organization':
-            fynd.append(('schema saknar address fast adressen är publik', 'PostalAddress med gata, postnummer NNN NN, ort, SE'))
-        adr = obj.get('address') or {}
-        if isinstance(adr, dict) and adr.get('postalCode') and not re.match(r'^\d{3} \d{2}$', str(adr['postalCode'])):
-            fynd.append(('postalCode-form', str(adr['postalCode']) + ' ska vara "NNN NN"'))
-        if obj.get('aggregateRating') and not verksamhet.get('omdomen_kalla'):
-            fynd.append(('aggregateRating utan källa', 'betyg bara från verklig plattformsdata med källa i VERKSAMHET.json (omdomen_kalla)'))
-        if 'offers' in obj and not obj.get('offers'):
-            fynd.append(('offers tomt', 'utelämna hellre än att hitta på pris'))
+    for nod in noder(obj):
+        typer = typlista(nod)
+        if not typer:
+            fynd.append(('JSON-LD utan @type', ''))
+        if v:
+            fynd.extend(granska_vokabular(nod, v))
+        lokal = any(t in ('LocalBusiness', 'Organization') or (v and 'LocalBusiness' in anor(t, v)) for t in typer)
+        if verksamhet and typer and (lokal or nod.get('address') or nod.get('telephone')):
+            fynd.extend(granska_verksamhetsnod(nod, typer, verksamhet))
+    return fynd
+
+
+def anor(typ, v):
+    """Typen och alla dess överklasser i schema.org-hierarkin."""
+    ut, stack = set(), [typ]
+    while stack:
+        k = stack.pop()
+        if k not in ut:
+            ut.add(k)
+            stack.extend(v['klasser'].get(k, []))
+    return ut
+
+
+def granska_verksamhetsnod(obj, typer, verksamhet):
+    """Namn, telefon och adress mot VERKSAMHET.json för en nod som beskriver verksamheten."""
+    fynd = []
+    n = vu.nap(verksamhet)
+    if obj.get('name') and obj['name'] != verksamhet['namn']:
+        fynd.append(('schema name ≠ verksamhetens namn', '%r mot %r' % (obj['name'], verksamhet['namn'])))
+    if obj.get('telephone') and n['telefon_e164'] and obj['telephone'] != n['telefon_e164']:
+        fynd.append(('schema telephone ≠ E.164 ur verksamheten', '%r mot %r' % (obj['telephone'], n['telefon_e164'])))
+    if obj.get('address') and not n['adress_visas']:
+        fynd.append(('schema bär adress fast adressen inte är publik', 'utelämna address; ange areaServed'))
+    if n['adress_visas'] and not obj.get('address') and 'Organization' not in typer:
+        fynd.append(('schema saknar address fast adressen är publik', 'PostalAddress med gata, postnummer NNN NN, ort, SE'))
+    adr = obj.get('address') or {}
+    if isinstance(adr, dict) and adr.get('postalCode') and not re.match(r'^\d{3} \d{2}$', str(adr['postalCode'])):
+        fynd.append(('postalCode-form', str(adr['postalCode']) + ' ska vara "NNN NN"'))
+    if obj.get('aggregateRating') and not verksamhet.get('omdomen_kalla'):
+        fynd.append(('aggregateRating utan källa', 'betyg bara från verklig plattformsdata med källa i VERKSAMHET.json (omdomen_kalla)'))
+    if 'offers' in obj and not obj.get('offers'):
+        fynd.append(('offers tomt', 'utelämna hellre än att hitta på pris'))
     return fynd
 
 

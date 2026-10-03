@@ -145,12 +145,23 @@ class Server:
     def __init__(self, dist, vard='127.0.0.1'):
         dist = str(dist)
 
+        rot = os.path.realpath(dist)
+
         class H(SimpleHTTPRequestHandler):
             def __init__(self, *a, **k):
                 super().__init__(*a, directory=dist, **k)
 
             def log_message(self, *a):
                 pass
+
+            def translate_path(self, path):
+                """Bara filer som verkligen ligger under dist/: SimpleHTTPRequestHandler följer symlänkar ut ur katalogen,
+                och visningen i telefonen lyssnar på nätverket (revisionen 2026-10-03, F4). Annat blir 404."""
+                p = super().translate_path(path)
+                verklig = os.path.realpath(p)
+                if verklig != rot and not verklig.startswith(rot + os.sep):
+                    return os.path.join(rot, '.utanfor-dist')
+                return p
 
             def do_POST(self):
                 """Demomottagare för förfrågningsformuläret (kunskap/forfragan.md): läser fälten, kontrollerar dem och
@@ -196,6 +207,16 @@ class Server:
 
     def __exit__(self, *a):
         self.httpd.shutdown()
+
+
+def seo_rader(sj):
+    """Fyndraderna ur seo.json: sajtfynden är en lista (ett sajtövergripande fynd kraschade provet; revisionen 2026-10-03,
+    F19), äldre form med {'fynd': [...]} läses också."""
+    sajtfynd = sj.get('sajt') or []
+    sajtfynd = sajtfynd.get('fynd', []) if isinstance(sajtfynd, dict) else sajtfynd
+    rader = ['sajt: %s %s' % (f.get('typ'), f.get('text', '')) for f in sajtfynd]
+    rader += ['%s: %s %s' % (x.get('sida'), f.get('typ'), f.get('text', '')) for x in sj.get('per_sida') or [] for f in x.get('fynd', [])]
+    return rader
 
 
 def grind(ok, sammanfattning, fil=None, detalj=None):
@@ -259,10 +280,9 @@ def prova(slug, snabb=False):
     try:
         sj = json.loads((prov / 'seo.json').read_text(encoding='utf-8'))
         n = sj['fynd_totalt']
-        rader = ['sajt: %s %s' % (f.get('typ'), f.get('text', '')) for f in (sj.get('sajt') or {}).get('fynd', [])]
-        rader += ['%s: %s %s' % (x.get('sida'), f.get('typ'), f.get('text', '')) for x in sj.get('per_sida') or [] for f in x.get('fynd', [])]
+        rader = seo_rader(sj)
         g['seo'] = grind(n == 0, '%d fynd' % n, 'prov/seo.md', '\n'.join(r[:160] for r in rader[:15]) or None)
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError, AttributeError, TypeError):
         g['seo'] = grind(False, 'seo_kontroll kördes inte (rc %d)' % rc, detalj=svans(out))
 
     # copy: läses i den byggda HTML:en, sida för sida. Där syns texten som besökaren ser den: uppgifter ur datafiler
@@ -300,7 +320,14 @@ def prova(slug, snabb=False):
         rc, out = kor([NODE, str(KONTROLLER / 'axe.mjs'), '--url=' + srv.url, '--sidor=' + lista, '--ut=' + str(prov / 'axe')], timeout=600)
         try:
             a = json.loads((prov / 'axe' / 'axe.json').read_text(encoding='utf-8'))
-            g['axe'] = grind(a['allvarliga'] == 0, '%d allvarliga av %d överträdelser' % (a['allvarliga'], a['totalt']), 'prov/axe/axe.json', svans(out, 15) if a['totalt'] else None)
+            # ej mätt är inte godkänt: varje sida och vy måste ha mätts utan fel (revisionen 2026-10-03, F9)
+            matfel = int(a.get('fel') or 0) + sum(1 for r in a.get('rader') or [] if r.get('fel'))
+            vantade = 2 * len(provsidor)
+            ok = a['allvarliga'] == 0 and matfel == 0 and len(a.get('rader') or []) >= vantade
+            text = '%d allvarliga av %d överträdelser' % (a['allvarliga'], a['totalt'])
+            if matfel or len(a.get('rader') or []) < vantade:
+                text += '; %d mätfel, %d av %d lägen mätta' % (matfel, len(a.get('rader') or []), vantade)
+            g['axe'] = grind(ok, text, 'prov/axe/axe.json', svans(out, 15) if a['totalt'] or not ok else None)
         except (OSError, ValueError, KeyError):
             g['axe'] = grind(False, 'axe kördes inte (rc %d)' % rc, detalj=svans(out))
 
@@ -337,6 +364,10 @@ def prova(slug, snabb=False):
                     rutinfo.append('%s @%s: %d av %d skärmar som rutor' % (r, vy, gjorda, skarmar))
             try:
                 ins = json.loads((ut / 'INSPEKTION.json').read_text(encoding='utf-8'))
+                for vy in ('390', '768', '1440'):  # varje vy ska vara mätt; en vy som föll eller saknar mätning är inte grön
+                    d = (ins.get('vyer') or {}).get(vy)
+                    if not d or d.get('fel') or not isinstance(d.get('spill'), dict) or 'spill' not in d['spill']:
+                        spill.append('%s @%s: inte mätt (%s)' % (r, vy, (d or {}).get('fel') or 'ingen spillmätning'))
                 for vy, d in (ins.get('vyer') or {}).items():
                     if (d.get('spill') or {}).get('spill'):
                         spill.append('%s @%s (%s > %s px)' % (r, vy, d['spill'].get('scrollWidth'), d['spill'].get('clientWidth')))
