@@ -3665,3 +3665,99 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   kvitto; ingen poäng, ingen grind, egna ord och ingen kod ur källan
 - Utfall: —
 - Backlog: B-20261003-copykontrollen-rapporterar-varje-siffra-bredvid (egen innovation; för videon och repot: ingen)
+
+### 2026-10-03 · RoboNuggets, "25 Tricks to Level Up Claude Design in 13 Mins" (YouTube _SVU3oC4JX8) · nej
+- Källa: https://www.youtube.com/watch?v=_SVU3oC4JX8 @ publicerad 2026-09-27 (Jay E | RoboNuggets, 13:32, 125 944
+  visningar, autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 41
+  bildrutor: omkring 30 är berättarens egna animerade illustrationer med titel, en kort text och en skärmdump i en
+  ram (Claude Design, Claude Code, galleri- och biblioteksajter, exempelprompter), fem är berättaren ensam, tre är
+  suddiga övergångar [SKÄRM 03:40, 10:50, 11:49], en är en renderingsstörd rubrik [SKÄRM 05:37] och två är sponsorns
+  Skool-sidor [SKÄRM 04:38, 04:58]. Rörelsen (SVG-animationen, Lottie, GSAP, motion graphics) syns inte i rutorna,
+  bara lägen. Beskrivningens 14 länkar är fem affiliatelänkar (Blotato, n8n, Make, ElevenLabs, Apify), berättarens
+  betalgemenskap och en gratisgrupp där PDF-guiden ligger bakom inloggning, den egna produkten Rubric
+  (getrubric.app), byråsajten och sociala kanaler [BESKRIVNING]; ingen pekar på ett repo, och ingen öppnades. De
+  sajter videon visar (styles.refero.design, 21st.dev, reactbits.dev, canvasui.dev, lordicon.com,
+  creatorstoolbox.com, Iconify, Fontshare) öppnades inte heller; reactbits är redan dömt nej (rad 2202). Ägarens
+  not: ingen
+- Steg: 3 (referenser), 4 (innehåll före form), 5 (5.1 riktning, 5.3 bygg), och arbetssättet runt dem: UPPTAGNA-VAL,
+  verktygslådan, "Titta inte på andra byggen"
+- Jämfört med i dag, trick för trick i fem grupper: (1) **Designsystem ur andras** (1, 2, 3, 4, 7, 9, 25): Claude
+  Design gör ett designsystem av ett deck, en sajt eller en skärmdump [TAL 00:32–01:06; SKÄRM 01:03], ett galleri
+  med "2000+ real design systems" från Mercury, Linear och Apple att klistra in [TAL 01:06–01:39; SKÄRM 01:23
+  paletter och typskala; SKÄRM 02:02 fyra gallerisajter], låt Claude välja tre ur galleriet för din nisch [TAL
+  01:39–02:12; SKÄRM 02:21 Olipop, Graza, sweetgreen med hexkoder], en skill per varumärke ("/Duolingo") [TAL
+  02:12–02:45], blanda två system [TAL 03:52–04:25; SKÄRM 04:19 en grön vaneapp], återanvänd förra projektets
+  system [TAL 05:30–06:04; SKÄRM 06:16], och sist ett "design operating system" där varje färdig design, bild och
+  ikon indexeras för återbruk [TAL 12:28–13:07; SKÄRM 12:48 Rubric Generations, 13:07 Rubric Elements]. Vi: fyra
+  riktningar "härledda ur verksamheten själv … aldrig ur en branschmall" och en exakt specifikation i KONCEPT.md
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 208–220), "Kopiera aldrig layout, palett eller typsnitt" (rad 260;
+  `kunskap/referenser-professionella.md` rad 61), "Titta inte på andra byggen … Varje sajt härleds ur sin egen
+  verksamhet" (rad 44), och UPPTAGNA-VAL som visar tidigare val för att inte upprepa dem (rad 203–206). Ägaren
+  höll med om nej för samma katalogmekanik i ui-ux-pro-max (`kunskap/KIRURG-OMDOMEN.md` rad 145–147), och
+  Duolingo-kopian är redan avfärdad i Jono Catliff-posten (rad 3466). Videons egna resultat visar varför: den
+  "blandade" appen är grön med rundade kort och streak-räknare, det vill säga Duolingo [SKÄRM 04:19], och
+  biblioteksexemplet är en SaaS-hero med lila knapp och rosa-orange gradientblob [SKÄRM 06:36], ett av de
+  standardval stilrapporten varnar för. Krockar med tre medvetna val. (2) **Typsnitt, ikoner och SVG** (5, 16, 17):
+  "the fastest way to spot a vibe-coded design is the font", hämta från Fontshare eller Fontesk och namnge i
+  prompten [TAL 02:45–03:19; SKÄRM 03:00 Switzer på en kaffesajt]; ladda ner en hel ikonuppsättning i en stil från
+  Iconify [TAL 08:18–08:51; SKÄRM 08:33 Lucide, ISC]; be om SVG så att ikoner skalar och kan animeras [TAL
+  08:51–09:25; SKÄRM 09:12]. Vi: typsnitt ur verksamheten, självhostade via fontsource med licens bredvid filen och
+  registrerade i TYPSNITT-IKONER.json (bygg-sajt rad 38–43; `kunskap/bild.md` rad 74–85), modellens standardtypsnitt
+  namngivna så att bygget inte faller tillbaka på dem (`kontroller/upptagna_val.py` rad 37–39), byggstandarden 4.3
+  och 3.6 "Ikoner som SVG, aldrig ikonfont" (`kunskap/byggstandard.md` rad 51, 60), favicon.svg ur märket (bygg-sajt
+  rad 242). Samma princip, hos oss med mätning i provet. Lika. (3) **Text** (6, 12): be Claude studera "the top five
+  players in your niche", lägga deras mönster som copyregler och skriva om sidan [TAL 03:19–03:52; SKÄRM 03:20];
+  en tonskill med förbjudna ord plus färdiga regler ur ASD-STE100, Googles utvecklardokumentation och Apples
+  stilguide [TAL 06:38–07:10; SKÄRM 06:55]. Vi gör motsatsen på första punkten: FRASER.txt listar branschens
+  fraser "som vi därför inte ska använda" (bygg-sajt rad 150–151), "Bara de har" kräver tio saker ingen konkurrent
+  kan säga (rad 93–95), och "kunde någon mening stå hos en konkurrent? Skriv om den" (rad 191–192). Tonen: fem
+  formuleringar ur deras och kundernas ord som röstprov i humanizer (rad 141, 192–193) och copykontrollen. De
+  färdiga guiderna är engelsk teknisk dokumentation; vår måttstock är klarspråk (`kunskap/teoretisk-grund.md` rad
+  107). Sämre på nischmönstren, lika på tonen. (4) **Bilder, komponenter och rörelse** (8, 13, 14, 15, 18, 21, 24):
+  koppla Claude till en bildgenerator [TAL 05:08–05:30; SKÄRM 05:17 "Hero image placeholder"], 21st.dev-komponenter
+  "made to be handed straight to an agent" [TAL 07:10–07:43; SKÄRM 07:34 "Animated Shader Hero", React och WebGL,
+  "Trusted by forward-thinking teams"], React Bits [SKÄRM 07:54], Canvas UI med liquid glass, shatter och
+  partiklar [TAL 07:43–08:18], Lottie-ikoner [TAL 09:12–09:32], GSAP [TAL 10:31–11:05; SKÄRM 10:50], och
+  transkript till motion graphics med Whisper och Hyperframes [TAL 11:49–12:28; SKÄRM 12:08]. Vi: egna bilder eller
+  en beställning (bygg-sajt rad 20–24, 76–82), "hellre inga foton än stock" (`LARDOMAR.md` rad 90), genererade
+  bilder aldrig som kundens (`kunskap/bild.md` rad 19–20), ingen JavaScript som inte behövs (rad 225), 0 kB JS i
+  alla dömda byggen (`LARDOMAR.md` rad 31, 56, 87), byggstandarden 3.5 och 3.7 (rad 50, 52). React Bits är dömt nej
+  med ägarens medhåll (rad 2202; KIRURG-OMDOMEN rad 205–208), GSAP tre gånger (rad 3132, 3444), Lottie som
+  marknadsplats (rad 2087). Motion graphics gäller video, inte webbplatser. Krockar med fyra medvetna val. (5)
+  **Verktyg runt arbetet** (10, 11, 19, 20, 22, 23): ett eget referensbibliotek med skärmdump och not per sparad
+  sida, som Claude kan läsa i senare byggen [TAL 06:04–06:38; SKÄRM 06:16 Dribbble, 06:36]; Impeccable [TAL
+  06:38–06:55]; Creators Toolbox med 162 resurser [SKÄRM 09:51 Inspova, Camera Shake, BlenderBuddy]; Apples Human
+  Interface Guidelines som skill "keep every number" [TAL 09:58–10:31; SKÄRM 10:31]; /design i Claude Code som
+  öppnar artboards och känner CLAUDE.md och minnet [TAL 11:05–11:38; SKÄRM 11:29]; en /tweak-skill som lägger
+  reglagepanel på en HTML-sida och bakar in värdena [TAL 11:38–11:49; SKÄRM 11:49]. Vi: referensjakt per bygge där
+  uppgiften styr urvalet och gallerier är sökingångar (`kunskap/referensjakt.md` rad 7–11, 25–27; bygg-sajt rad
+  153–165), REFERENSER.md med vad som faktiskt sågs; Impeccable är taget in och fem mönster mäts i stilrapporten
+  (rad 1701; `kontroller/stil.mjs` rad 119–160); träffytor 24 och 44 px, kontrast och WCAG 2.2 AA ur litteraturen
+  (byggstandarden 3.3–3.4, rad 48–49) och better-accessibility och better-ui i verktygslådan (rad 3091–3100);
+  Creators Toolbox är en länksamling av samma slag som Best-websites, dömd nej (rad 2068). /design och /tweak
+  förutsätter en människa som drar i reglage under bygget; hos oss svarar ingen under körningen (bygg-sajt rad 20)
+  och ägaren väljer mellan två byggda skärmbilder i riktningsfrågan (rad 340–344); garden-skills Tweaks-panel
+  avvisades på samma grund (rad 2978–2980). HIG gäller Apples plattformar och är Apples upphovsrättsskyddade text.
+  Lika eller inte tillämpligt. Referensbiblioteket är den enda idén som pekar på något vi saknar, se förslaget
+- Skäl: videon är en lista över genvägar för den som designar ensam i Claude Design med en människa vid reglagen, och
+  nästan varje genväg är det vi medvetet valt bort: andras designsystem som utgångspunkt, konkurrenternas copy som
+  regel, genererade bilder, React- och WebGL-komponenter, GSAP och Lottie, och ett bibliotek där förra kundens
+  element återanvänds. Resultaten i bild är Duolingo i grönt och en gradientblob-hero [SKÄRM 04:19, 06:36], alltså
+  de standardval vår stilrapport varnar för. Det sakliga, rätt typsnitt, en ikonuppsättning i en stil, SVG, Impeccable,
+  har vi redan med mätning i provet. Källkritik: fem affiliatelänkar, betalgemenskap med sponsorblock mitt i [TAL
+  04:25–05:08], PDF-guiden bakom inloggning, och Rubric är berättarens egen betalprodukt som bär trick 10 och 25;
+  inget resultat är mätt, allt är berättarens omdöme om fiktiva varumärken (hearth, Nexora, Summit, northwind).
+  Exempelprompterna i bild [SKÄRM 03:20, 10:31, 11:49] riktar sig till tittaren, inte till kirurgen; videon innehåller
+  inga instruktioner riktade till agenter
+- Kostnad: inget tas in. Det egna förslaget är några rader i `kunskap/referensjakt.md` utan byggkostnad
+- Säkerhet: ej tillämpligt (video; transkript och bildrutor hämtade, inget kört eller installerat, inga länkar
+  öppnade)
+- Förslag: inget ur källan. Egen innovation, inspirerad av trick 10 (ett referensbibliotek som överlever bygget):
+  ägaren har i alla tre domarna pekat ut samma saknade referens, en svensk hantverkarreferens för förtroendeblocket
+  (profil på Hantverkskollen, Reco eller Offerta; Elsäkerhetsverkets "Kolla elföretaget" för elfirmor) och två gånger
+  en referens för en bärande form (daterad bildserie på mobil, resultat med få bilder) (`LARDOMAR.md` rad 37, 62,
+  86), och ingen fil i `kunskap/` eller bygg-sajt nämner dem (sökt). Lägg i `kunskap/referensjakt.md`, efter rad 27,
+  ett stycke "Luckor ägaren pekat ut" med de tre, som sökingångar bygget ska pröva i rollen UX/funktion, inte som
+  kvot eller facit; bygget öppnar dem som alla andra och skriver vad det såg
+- Utfall: —
+- Backlog: B-20261003-referensjakt-md-far-ett-stycke-luckor-agaren-pek (egen innovation; för videon: ingen)
