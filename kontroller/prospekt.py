@@ -635,12 +635,8 @@ def sondera(url):
     ut = {'https': None, 'http_till_https': None, 'hsts': None, 'cert_fel': None, 'server': None, 'x_powered_by': None, 'last_modified': None}
     host = urllib.parse.urlsplit(url).netloc
 
-    class Ingen(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, *a, **k):
-            return None
-
-    try:
-        r = urllib.request.build_opener(Ingen).open(urllib.request.Request('http://%s/' % host, headers={'User-Agent': hs.UA}), timeout=20)
+    try:  # samma hämtare som hamta_sajt: anslutning till validerad publik adress (revisionen, F5); ingen omdirigering följs
+        r = hs.oppnare(folj=False).open(urllib.request.Request('http://%s/' % host, headers={'User-Agent': hs.UA}), timeout=20)
         ut['http_till_https'] = False
         r.close()
     except urllib.error.HTTPError as e:
@@ -649,7 +645,7 @@ def sondera(url):
     except Exception:
         ut['http_till_https'] = None
     try:
-        r = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': hs.UA}), timeout=20)
+        r = hs.oppnare().open(urllib.request.Request(url, headers={'User-Agent': hs.UA}), timeout=20)
         ut['https'] = r.geturl().lower().startswith('https://')
         ut['hsts'] = bool(r.headers.get('Strict-Transport-Security'))
         ut['server'] = (r.headers.get('Server') or None)

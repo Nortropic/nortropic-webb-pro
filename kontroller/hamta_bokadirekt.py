@@ -29,8 +29,9 @@ API = 'https://www.bokadirekt.se/api/places/getReviews/%s?page=%d&limit=100&mp-r
 
 
 def hamta(url, timeout=30):
+    import hamta_sajt as hs  # samma hämtare som resten av repot: validerad publik adress, bara bokadirekt.se (revisionen, F5)
     req = urllib.request.Request(url, headers={'User-Agent': UA, 'Accept-Language': 'sv-SE,sv;q=0.9'})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with hs.oppnare(egen='bokadirekt.se').open(req, timeout=timeout) as r:
         return r.read().decode('utf-8', errors='replace')
 
 

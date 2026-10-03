@@ -17,11 +17,13 @@ Båda skriver sitt resultat sist i SIDOR.md.
 """
 import argparse
 import html
+import http.client
 import ipaddress
 import json
 import os
 import re
 import socket
+import string
 import sys
 import time
 import urllib.error
@@ -51,8 +53,11 @@ LOGGA_IKON = re.compile(r"(icon|ikon|logo|logga|button|knapp|sprite|favicon|emoj
 HOPPA = {"script", "style", "noscript", "svg", "template", "iframe"}
 VIKTIG = re.compile(r"(kontakt|contact|om-oss|om_oss|omoss|om/|about|tjanster|tj%C3%A4nster|services)", re.I)
 # Adresser i det egna nätet (loopback, privata, länklokala) hämtas aldrig, inte heller via omdirigering: en sajt kunde
-# annars peka om hämtaren mot dashboarden eller en annan lokal tjänst (revisionen 2026-10-03, F5). Proven kör mot
-# 127.0.0.1 och sätter NWP_HAMTA_LOKALT=1.
+# annars peka om hämtaren mot dashboarden eller en annan lokal tjänst (revisionen 2026-10-03, F5). Kontrollen sker i
+# själva anslutningen: namnet slås upp en gång, adressen prövas och anslutningen görs till just den adressen (ett namn som
+# svarar olika vid kontroll och anslutning kan inte peka om, OWASP om SSRF). Proven kör mot 127.0.0.1 och sätter
+# NWP_HAMTA_LOKALT=1: då tillåts bokstavliga lokala adresser (127.0.0.1, localhost), men ett värdnamn som pekar in i det
+# egna nätet nekas fortfarande.
 TILLAT_LOKALT = os.environ.get("NWP_HAMTA_LOKALT") == "1"
 MAX_VANTAN = 10.0  # längsta crawl-delay vi följer (sekunder); längre än så ryms inte 40 sidor i ett byggsteg
 _adresser = {}
@@ -62,48 +67,130 @@ class NekadAdress(Exception):
     pass
 
 
+def _upplos(vard):
+    """Adresserna ett värdnamn pekar på; tom mängd när uppslaget misslyckas. Patchbar i prov."""
+    try:
+        return {ai[4][0] for ai in socket.getaddrinfo(vard, None)}
+    except (socket.gaierror, UnicodeError):
+        return set()
+
+
+def adress_for(vard):
+    """Adressen att ansluta till för värden, eller NekadAdress. Bokstavlig IP prövas direkt; ett värdnamn slås upp en gång
+    per process och alla dess adresser måste vara publika. Ett uppslag som misslyckas nekas (ett namn som inte går att slå
+    upp vid kontrollen men vid anslutningen är ett ompekningsförsök)."""
+    vard = (vard or "").strip().strip("[]").lower()
+    if not vard:
+        raise NekadAdress("adress utan värdnamn")
+    try:
+        ip = ipaddress.ip_address(vard)
+    except ValueError:
+        ip = None
+    if ip is not None:
+        if ip.is_global or (TILLAT_LOKALT and (ip.is_loopback or ip.is_private)):
+            return str(ip)
+        raise NekadAdress(f"{vard} är en adress i det egna nätet (loopback, privat eller länklokal); hämtas inte")
+    if vard == "localhost" and TILLAT_LOKALT:
+        return "127.0.0.1"
+    if vard not in _adresser:
+        adresser = _upplos(vard)
+        if not adresser:
+            _adresser[vard] = NekadAdress(f"{vard} gick inte att slå upp; hämtas inte")
+        else:
+            try:
+                publika = all(ipaddress.ip_address(a).is_global for a in adresser)
+            except ValueError:
+                publika = False
+            if publika:
+                # IPv4 först: den vanligaste vägen; samma adress används sedan hela anslutningen
+                _adresser[vard] = sorted(adresser, key=lambda a: (":" in a, a))[0]
+            else:
+                _adresser[vard] = NekadAdress(f"{vard} pekar in i det egna nätet (loopback, privat eller länklokal adress); hämtas inte")
+    svar = _adresser[vard]
+    if isinstance(svar, NekadAdress):
+        raise svar
+    return svar
+
+
 def adress_ok(url):
-    """Är adressens värd en publik adress? Löser upp namnet (en gång per process); ett namn som pekar in i det egna nätet
-    nekas. Ett värdnamn som inte går att lösa upp lämnas till själva hämtningen, som då faller på vanligt sätt."""
+    """Schema och värd i en adress före anropet; själva adresskontrollen görs i anslutningen (adress_for)."""
     s = urllib.parse.urlsplit(url)
     if s.scheme not in ("http", "https"):
         raise NekadAdress(f"bara http och https hämtas, inte {s.scheme or 'tom'}:")
-    if TILLAT_LOKALT:
-        return True
-    vard = (s.hostname or "").lower()
-    if not vard:
+    if not s.hostname:
         raise NekadAdress("adress utan värdnamn")
-    if vard not in _adresser:
-        try:
-            adresser = {ai[4][0] for ai in socket.getaddrinfo(vard, None)}
-        except socket.gaierror:
-            adresser = set()
-        try:
-            _adresser[vard] = all(ipaddress.ip_address(a).is_global for a in adresser)
-        except ValueError:
-            _adresser[vard] = False
-    if not _adresser[vard]:
-        raise NekadAdress(f"{vard} pekar in i det egna nätet (loopback, privat eller länklokal adress); hämtas inte")
     return True
 
 
-class Omdirigeringsvakt(urllib.request.HTTPRedirectHandler):
-    """Varje omdirigeringsmål prövas innan det hämtas: tillåten adress, och samma domän när egen är satt (sidor hämtas bara
-    från verksamhetens egen domän; bilder får ligga på en annan). Ett nekat mål följs inte; svaret blir 3xx med målet."""
+class _Anslutning(http.client.HTTPConnection):
+    """HTTP-anslutning som ansluter till den validerade adressen, inte till ett nytt uppslag."""
 
-    def __init__(self, egen=None):
-        self.egen, self.nekad = egen, None
+    def connect(self):
+        ip = adress_for(self.host)
+        self.sock = socket.create_connection((ip, self.port), self.timeout, self.source_address)
+        if self._tunnel_host:
+            self._tunnel()
+
+
+class _SakerAnslutning(http.client.HTTPSConnection):
+    """Som _Anslutning, med TLS mot värdnamnet (SNI och certifikatkontroll gäller namnet, inte adressen)."""
+
+    def connect(self):
+        ip = adress_for(self.host)
+        sock = socket.create_connection((ip, self.port), self.timeout, self.source_address)
+        if self._tunnel_host:
+            self.sock = sock
+            self._tunnel()
+            sock = self.sock
+        self.sock = self._context.wrap_socket(sock, server_hostname=self._tunnel_host or self.host)
+
+
+class _HttpHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_Anslutning, req)
+
+
+class _HttpsHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_SakerAnslutning, req, context=self._context)
+
+
+class Omdirigeringsvakt(urllib.request.HTTPRedirectHandler):
+    """Varje omdirigeringsmål prövas innan det hämtas: schema, samma domän när egen är satt (sidor hämtas bara från
+    verksamhetens egen domän; bilder får ligga på en annan), robots.txt när rp är satt, och takten (fore) hålls också
+    mellan hoppen. Adressen prövas i anslutningen. Ett nekat mål följs inte; svaret blir 3xx med målet."""
+
+    def __init__(self, egen=None, rp=None, fore=None, folj=True):
+        self.egen, self.rp, self.fore, self.folj, self.nekad = egen, rp, fore, folj, None
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not self.folj:
+            self.nekad = "omdirigeringar följs inte"
+            return None
         try:
             adress_ok(newurl)
+            adress_for(urllib.parse.urlsplit(newurl).hostname)  # före hoppet, så att målet loggas; anslutningen prövar igen
         except NekadAdress as e:
             self.nekad = f"omdirigering till {newurl} följs inte: {e}"
             return None
         if self.egen and doman(urllib.parse.urlsplit(newurl).hostname) != self.egen:
             self.nekad = f"omdirigering till annan domän följs inte: {newurl}"
             return None
+        if self.rp is not None and not self.rp.can_fetch(UA_NAMN, newurl):
+            self.nekad = f"omdirigering till {newurl} följs inte: nekad av robots.txt"
+            return None
+        if self.fore:
+            self.fore()
         return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def oppnare(egen=None, rp=None, fore=None, folj=True):
+    """Öppnare med adresskontroll i anslutningen och omdirigeringsvakt. Används av varje extern hämtning i repot
+    (hamta_sajt, sida_till_text, standardkontrollens länkar, prospekt, Bokadirekt)."""
+    vakt = Omdirigeringsvakt(egen, rp, fore, folj)
+    o = urllib.request.build_opener(_HttpHandler(), _HttpsHandler(), vakt)
+    o.vakt = vakt
+    return o
 
 
 def antal(n, en, flera):
@@ -143,10 +230,10 @@ def doman(host):
     return (host or "").lower().removeprefix("www.")
 
 
-def hamta(url, timeout=20, max_byte=MAX_BYTE, egen=None):
-    """En GET. Svarar med status, slutadress efter omdirigering, innehållstyp och kropp (högst max_byte). Adressen och varje
-    omdirigeringsmål prövas före anropet (adress_ok, Omdirigeringsvakt); med egen satt följs bara omdirigeringar inom
-    domänen. En nekad omdirigering ger svarets 3xx-status med målet som url, så att anroparen kan logga den."""
+def hamta(url, timeout=20, max_byte=MAX_BYTE, egen=None, rp=None, fore=None):
+    """En GET. Svarar med status, slutadress efter omdirigering, innehållstyp och kropp (högst max_byte). Anslutningen går
+    till en validerad publik adress; omdirigeringsmål prövas före varje hopp (schema, egen domän, robots när rp ges,
+    takten fore). En nekad omdirigering ger svarets 3xx-status med målet som url, så att anroparen kan logga den."""
     try:
         adress_ok(url)
     except NekadAdress as e:
@@ -154,18 +241,19 @@ def hamta(url, timeout=20, max_byte=MAX_BYTE, egen=None):
     req = urllib.request.Request(url, headers={
         "User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.5",
         "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.5"})
-    vakt = Omdirigeringsvakt(egen)
-    opener = urllib.request.build_opener(vakt)
+    opener = oppnare(egen, rp, fore)
     try:
         with opener.open(req, timeout=timeout) as r:
             data = r.read(max_byte + 1)
             return {"status": r.status, "url": r.geturl(), "typ": r.headers.get_content_type(),
                     "charset": r.headers.get_content_charset(), "data": data[:max_byte], "kapad": len(data) > max_byte}
     except urllib.error.HTTPError as e:
-        if vakt.nekad and 300 <= e.code < 400:
+        if opener.vakt.nekad and 300 <= e.code < 400:
             return {"status": e.code, "url": e.headers.get("Location") or url, "typ": None, "charset": None, "data": b"",
-                    "kapad": False, "fel": vakt.nekad[:200]}
+                    "kapad": False, "fel": opener.vakt.nekad[:200]}
         return {"status": e.code, "url": url, "typ": None, "charset": None, "data": b"", "kapad": False}
+    except NekadAdress as e:
+        return {"status": None, "url": url, "typ": None, "charset": None, "data": b"", "kapad": False, "fel": f"nekad: {e}"[:200]}
     except Exception as e:  # nätverksfel, tidsgräns, certifikat
         return {"status": None, "url": url, "typ": None, "charset": None, "data": b"", "kapad": False,
                 "fel": f"{type(e).__name__}: {e}"[:200]}
@@ -344,6 +432,8 @@ class Robots:
         self.grupper, self.sitemaps, self.allow_all, self.disallow_all = {}, [], False, False
 
     def parse(self, rader):
+        # En grupp är user-agent-rader följda av regler; bara allow och disallow avslutar user-agent-raderna (crawl-delay
+        # och andra poster delar inte gruppen).
         aktiva, ny_grupp = [], True
         for rad in rader:
             rad = rad.split("#", 1)[0].strip()
@@ -359,15 +449,16 @@ class Robots:
                 aktiva.append(self.grupper.setdefault(namn, {"regler": [], "delay": None}))
             elif falt == "sitemap":
                 self.sitemaps.append(varde)
-            elif falt in ("allow", "disallow", "crawl-delay"):
+            elif falt == "crawl-delay":
+                for g in aktiva:
+                    try:
+                        g["delay"] = float(varde.replace(",", "."))
+                    except ValueError:
+                        pass
+            elif falt in ("allow", "disallow"):
                 ny_grupp = True
                 for g in aktiva:
-                    if falt == "crawl-delay":
-                        try:
-                            g["delay"] = float(varde.replace(",", "."))
-                        except ValueError:
-                            pass
-                    elif varde or falt == "allow":
+                    if varde or falt == "allow":
                         g["regler"].append((falt == "allow", varde))
                     # tom Disallow betyder allt tillåtet och ger ingen regel
 
@@ -378,9 +469,23 @@ class Robots:
                 return g
         return self.grupper.get("*")
 
-    @staticmethod
-    def _normalisera(vag):
-        return urllib.parse.quote(urllib.parse.unquote(vag), safe="/:@!$&'()*+,;=-._~%?")
+    ORES = set(string.ascii_letters + string.digits + "-._~")
+
+    @classmethod
+    def _normalisera(cls, vag):
+        """RFC 9309 2.2.2: procentkodade oreserverade tecken avkodas, reserverade (och %2A, %24) behålls kodade med
+        versaler, och tecken utanför ASCII eller icke skrivbara kodas. Så skiljs ett bokstavligt * från jokertecknet."""
+        ut, i = [], 0
+        while i < len(vag):
+            c = vag[i]
+            if c == "%" and re.match(r"[0-9A-Fa-f]{2}", vag[i + 1:i + 3]):
+                tecken = chr(int(vag[i + 1:i + 3], 16))
+                ut.append(tecken if tecken in cls.ORES else "%" + vag[i + 1:i + 3].upper())
+                i += 3
+                continue
+            ut.append(c if 0x21 <= ord(c) <= 0x7E else urllib.parse.quote(c, safe=""))
+            i += 1
+        return "".join(ut)
 
     @staticmethod
     def _matchar(monster, vag):
@@ -390,6 +495,9 @@ class Robots:
         return re.match(rx, vag) is not None
 
     def can_fetch(self, ua, url):
+        s = urllib.parse.urlsplit(url)
+        if (s.path or "/") == "/robots.txt":
+            return True  # RFC 9309 2.3: robots.txt är underförstått tillåten
         if self.disallow_all:
             return False
         if self.allow_all:
@@ -397,7 +505,6 @@ class Robots:
         g = self.grupp(ua)
         if not g:
             return True
-        s = urllib.parse.urlsplit(url)
         vag = self._normalisera((s.path or "/") + (("?" + s.query) if s.query else ""))
         bast = None  # (längd, allow)
         for allow, monster in g["regler"]:
@@ -447,7 +554,7 @@ def sitemapadresser(bas, rp, logg, max_filer=10, vanta=None):
             continue
         if vanta:
             vanta()
-        svar = hamta(karta, egen=egen)
+        svar = hamta(karta, egen=egen, rp=rp, fore=vanta)
         data = svar["data"]
         if data[:2] == b"\x1f\x8b":
             import gzip
@@ -521,7 +628,7 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
             nekade.append(url)
             continue
         vanta()
-        svar = hamta(url, egen=egen)
+        svar = hamta(url, egen=egen, rp=rp, fore=vanta)
         anrop += 1
         slut = svar["url"]
         if doman(urllib.parse.urlsplit(slut).hostname) != egen:
