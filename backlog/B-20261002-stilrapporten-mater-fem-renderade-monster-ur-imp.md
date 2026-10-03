@@ -1,11 +1,12 @@
 ---
 id: B-20261002-stilrapporten-mater-fem-renderade-monster-ur-imp
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · pbakaus/impeccable
 skapad: 2026-10-02
 prio: normal
 steg: 6 (provets stilrapport) och 5.1 (upptagna val)
+andrad: 2026-10-03T00:17Z
 ---
 # Stilrapporten mäter fem renderade mönster ur impeccables detektorregister (rubrikrytm, enformig luft, platt typskala, färgad sidkant, liten brödtext) och upptagna-valen namnger modellernas standardtypsnitt
 

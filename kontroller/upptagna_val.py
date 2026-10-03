@@ -34,6 +34,9 @@ MODELLENS_STANDARDVAL = [
     'tidningslayout med hårlinjer och noll radie',
     'likadana rundade kort med samma mjuka skugga',
     'rubrik i fyra rader till vänster med ett block till höger och en ringknapp under',
+    'typsnitt modellerna faller tillbaka på: Inter, Roboto, Open Sans, Lato, Montserrat, Arial, Helvetica, Fraunces, '
+    'Instrument Sans, Instrument Serif, Geist, Mona Sans, Plus Jakarta Sans, Space Grotesk, Recoleta, Playfair Display, '
+    'Cormorant, Lora, Crimson, Newsreader, Syne, Space Mono, IBM Plex, DM Sans, DM Serif, Outfit (impeccable)',
 ]
 
 
