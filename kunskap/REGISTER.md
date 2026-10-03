@@ -4344,3 +4344,95 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   bygget redan med Read i steg 2 och 5.5
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · webstudio-is/webstudio · nej
+- Källa: https://github.com/webstudio-is/webstudio @ 3e310dd (ur klonens `.git/logs/HEAD`; senaste push
+  2026-10-03T00:38Z), AGPL-3.0-or-later för kärnan, paketet `sdk-components-animation` under egen EULA [REPO README
+  rad 25–26]; cirka 9 000 stjärnor, inte arkiverat. Monorepo med 4 367 filer, cirka 502 000 tokens text, 2 105
+  skript. Inte bedömd förut. Förgranskat. Läst själv: README, `docs/SUMMARY.md`, `docs/basics/intro.md` och
+  `FAQ.md`, `docs/university/mcp.md` rad 1–1585 av 2278, `inception.md`, `webstudio-ai.md`, `cli.md`,
+  `foundations/seo-settings.md` och `performance.md`, `core-components/webhook-form.md` och
+  `stagger-animation.md`, `self-hosting/download.md`, `craft.md`, `misc/fixing-overflow-issues.md`,
+  `how-tos/README.md`; `packages/cli/package.json`, `packages/cli/src/commands/audit.ts`,
+  `packages/cli/src/docs/mcp-vision.md`, `packages/project-build/src/runtime/audit.ts` rad 1–120 och fem
+  grep-träffar. Byggarens, databasens och runtimens kod lästes inte. Sett fyra av repots över hundra bilder: [BILD
+  docs/.gitbook/assets/builder-overview-light.png], [BILD dashboard.webp], [BILD inception-overview.webp], [BILD
+  craft-library.png]. Sett webstudio.is i desktop: första vyn och skrollbild 3 och 6 av 8 [BILD
+  webstudio-is/desktop-forsta.png, desktop-skroll-03.png, desktop-skroll-06.png]; mobilen gav 403. Demomallen
+  marketplace-crystal-cleaners.wstd.io spärrades av Cloudflares robotkontroll i båda vyerna [BILD
+  webstudio-crystal/mobil-forsta.png]; ingen mall sedd i original, bara miniatyrerna i dashboardbilden. Ägarens
+  not: ingen
+- Steg: 5 (bygge), 6 (prov), och arbetssättet i stort (var modellen skriver sajten)
+- Jämfört med i dag: (1) **Platsen i kedjan.** Källan är en visuell byggare med databas, delat redigeringsläge och
+  React-runtime, som publicerar till Cloudflare Workers med SSR [REPO docs/university/foundations/performance.md rad
+  41, 47–53; BILD builder-overview-light.png: navigator, canvas, stilpanel, brytpunkter 1440/1280/991/767/479].
+  Statisk export finns, med egna begränsningar [REPO docs/university/cli.md rad 199–205]. Vi låter modellen skriva
+  Astro direkt: statiskt, semantisk HTML, självhostade typsnitt, ingen JavaScript som inte behövs
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 222–225; `kunskap/byggstandard.md` 1.1 rad 25, 3.7 rad 51, 4.4 rad 61),
+  och tre dömda byggen ligger på 0 kB JS (`LARDOMAR.md` rad 31, 56, 87). Litteraturen: rule of least power och
+  progressive enhancement (`kunskap/teoretisk-grund.md` rad 47–50, 119–120). Att lägga en byggare, en databas och en
+  komponentruntime mellan modellen och HTML:en gör sajten tyngre och bygget mer beroende, utan att ägaren får något
+  han dömer: han dömer sajten, inte en redigeringsyta. Sämre. (2) **Design.** Deras väg till form är marknadsplatsens
+  mallar och Inception, en betald AI-tjänst med stilväljare (presets, layouter, färger, "emotions") och
+  promptförslag som "Create a hero section for an incredible coffee shop" [REPO docs/university/inception.md rad 7,
+  9, 103–107; BILD inception-overview.webp: flikarna Hero sections, Local service, Portfolio, SaaS]. Mallarnas text
+  i dashboardbilden ("Premier House and Office Cleaning Services in the Bay Area", "Trusted by Thousands of Clients",
+  "YOUR INFORMATION YOUR TOMORROW") [BILD dashboard.webp] är exakt det copykontrollen fäller
+  (`kunskap/copy-kontroll.md` rad 12) och det ägaren kallade mall i L1–L3 (`LARDOMAR.md` rad 29, 54, 78). Vi härleder
+  fyra riktningar ur verksamhetens bilder, material, plats och ton, "aldrig ur en branschmall", och varje sektion
+  bär en sak ur "Bara de har" (SKILL.md rad 93–95, 178, 208–219). Sämre. Inceptions "Improve design" med "en
+  starkare modell för kritik" [REPO inception.md rad 209] är en svart låda; våra två oberoende granskare dömer på
+  namngivna kriterier (SKILL.md rad 265–272, `kritik/GRANSKARE.md`). (3) **Agentflödet.** MCP/CLI ger en agent
+  en lång lista verktyg mot ett Webstudio-projekt, med checkpoints och regeln "Never run visual verification
+  automatically. Ask first" [REPO docs/university/mcp.md rad 30, 40–43, 376–431, 496, 502]. Hos oss är tittandet
+  obligatoriskt (SKILL.md rad 254–258) och ingen människa svarar under körningen (rad 20), så deras loop krockar
+  med vår ram i stället för att förenkla den. Smartare bara för den som redan har sajten i Webstudio; vi har ingen.
+  (4) **Granskningsverktyget.** `audit` har 55 regler i sju områden [REPO packages/project-build/src/runtime/audit.ts
+  rad 25–33, 61–117], och den renderade granskningen mäter horisontellt spill, eager-laddning under vecket, bilder
+  över dubbla renderade storleken, blockerande resurser och äldre typsnittsformat [REPO
+  packages/cli/src/docs/mcp-vision.md rad 52–73]. Nästan allt prövar vi redan: axe (duplicate-id, tabindex,
+  aria-hidden-focus, label, image-alt, heading-order, landmark-one-main, html-has-lang), standardgrinden
+  (`kontroller/standard_kontroll.py` rad 228, 240, 255, 320–331, 450–451), spill-grinden (byggstandarden 3.3 rad
+  48), WOFF2-kravet (4.3 rad 60) och Lighthouse för bildstorlek (4.1 rad 58). Lika, med ett undantag: reglerna
+  unknown-schema-org-type, unknown-schema-org-property, deprecated-schema-org-* och incompatible-schema-org-value
+  [REPO audit.ts rad 97–101]. Vår `kontroller/seo_kontroll.py` prövar bara giltig JSON och @type (rad 126–139), och
+  standardgrinden lokal typ och BreadcrumbList; ingen prövar egenskaperna mot schema.org. Det är den enda luckan
+  källan visar, och den blir en egen innovation nedan. (5) **Formulär.** Webhook Form mejlar ägaren, annan
+  mottagare är en Pro-funktion, inskick fungerar inte i förhandsvisningen, och botskyddet beskrivs som att "systemet
+  analyserar inskicksmönster" [REPO docs/university/core-components/webhook-form.md rad 20–24, 43, 109]. Vi har
+  honeypot och tidsfälla i formuläret, Turnstile vid lansering och en demomottagare som provar hela vägen
+  (byggstandarden 6.3, 6.5 rad 86–88; `kunskap/forfragan.md`). Lika i funktion, vårt är kontrollerbart.
+  (6) **Typsnitt.** Deras råd är att ladda upp WOFF2 och subsetta via Google Fonts API [REPO performance.md rad
+  72–107]; vi tar latin-subset via fontsource och Astros typsnitts-API med size-adjust-reserv (SKILL.md rad 38–43;
+  byggstandarden 4.3 rad 60). Lika; reserven med size-adjust nämner de inte. (7) **Craft.** En grammatik för
+  semantiska tokens (`--foreground-primary`), temahärledning med oklch och light-dark(), och AAA-fokus som
+  rekommendation [REPO docs/university/craft.md rad 106–135, 248–273, 340–342]. Vi har tokens som CSS-variabler
+  (byggstandarden 3.1 rad 46) och better-colors i verktygslådan; för en sajt på fem till sju sidor utan temabyte
+  tillför grammatiken inget. Lika. Mot litteraturen: källan för inte in någon utvärderingsmetod vi saknar;
+  dess egna råd om prestanda (Core Web Vitals före Lighthouse-poäng, rad 9–20) stämmer med vår 4.1 men är inget nytt
+- Skäl: Webstudio är en plattform för människor som bygger visuellt, med en databas och en React-runtime mellan
+  redigeringen och HTML:en, och dess väg till form är mallar och en betald promptbaserad stiltjänst [BILD
+  dashboard.webp; BILD inception-overview.webp]. Vi bygger statiska Astro-sajter direkt ur verksamhetens eget
+  material med 0 kB JS, och ägaren dömer sajten. Att ta in plattformen skulle göra sajterna tyngre, bygget beroende
+  av Node 22, Postgres och Cloudflare, och designen mallburen: det ägaren redan dömt ned i L1–L3. Agentgränssnittet
+  är gjort för att redigera en befintlig Webstudio-sajt och förutsätter en människa som svarar, vilket krockar med
+  vår obevakade körning. Granskningsreglerna täcker vi med axe, standardgrinden och Lighthouse, utom
+  schema.org-vokabulären, som blir en liten egen förbättring. Samma bedömning som för Hugo, Bootstrap och shadcn
+  (ägaren höll med, `kunskap/KIRURG-OMDOMEN.md`). Källkritik: sajten och dokumentationen säljer Webstudio Cloud,
+  Pro-planen och Inception-krediter [REPO inception.md rad 272–278; webhook-form.md rad 24]; "fast by default"
+  [REPO performance.md rad 7] och "considerably faster than Webflow" [BILD desktop-skroll-06.png] är påståenden utan
+  mätning. `mcp.md` är en agentmanual i imperativ ("Do not grep source files", "Ask first") riktad till agenter som
+  kör deras CLI [REPO mcp.md rad 148, 496]; inget försök att styra kirurgen
+- Kostnad: inget tas in. Som helhet: Node ≥ 22.12 [REPO packages/cli/package.json rad 39–40], Postgres, pnpm-monorepo
+  med Remix/React Router/Cloudflare-mallar (rad 77–134), hostad tjänst eller egen drift; cirka 502 000 tokens
+  dokumentation varav `mcp.md` ensam cirka 45 000
+- Säkerhet: förgranskningen HÖG på grund av tio dolda tecken; alla är U+200D i emoji-sekvenser (👨‍👨‍👦‍👦 i
+  `docs/SUMMARY.md` rad 91 och `stagger-animation.md` rad 5, 🧑‍🎨 och 🧑‍💻 i `intro.md` rad 7 och 11, 🧑‍🏫 i
+  `how-tos/README.md` rad 1), lästa i sitt sammanhang: ofarliga. Tre "run the following command" i bidragsguiden och
+  CLI-koden; rör-till-skal i `cli.md` rad 114 (NVM-installation) och `packages/cli/README.md`; 2 105 skript
+  flaggade för nätanrop, eval och miljö, vilket är väntat i en byggare med egen server och e2e-prov. Inget kört
+  eller installerat; klonen läst utifrån; inget fört vidare
+- Förslag: inget. Egen innovation: pröva JSON-LD mot schema.org:s vokabulär i `kontroller/seo_kontroll.py` (okänd
+  typ eller egenskap, utgången egenskap), som Webstudios audit gör; posten nedan
+- Utfall: —
+- Backlog: B-20261003-prova-json-ld-mot-schema-org-s-vokabular-okand-t (egen innovation)
