@@ -133,8 +133,15 @@ def avif_metadata(data):
         if post.get('metod', 0) != 0 or not post.get('extents'):
             oklar = 'metadataobjekt %s som inte går att läsa (konstruktionsmetod %s)' % (post.get('typ', b'?').decode('ascii', 'replace'), post.get('metod'))
             continue
-        o, l_ = post['extents'][0]
-        block = data[o:o + l_]
+        block = b''  # alla dataintervall, med gränskontroll: GPS kan ligga i det andra (omgång tretton, F33)
+        for o, l_ in post['extents']:
+            if o < 0 or l_ < 0 or o + l_ > len(data):
+                block = None
+                break
+            block += data[o:o + l_]
+        if block is None:
+            oklar = 'metadataobjektet pekar utanför filen (trunkerad)'
+            continue
         if post['typ'] == b'mime':
             if b'GPS' in block:
                 oklar = 'XMP-metadata med GPS-fält'
@@ -142,8 +149,17 @@ def avif_metadata(data):
         if len(block) < 4:
             oklar = 'EXIF-objektet är tomt eller trunkerat'
             continue
-        kandidat = block[4 + struct.unpack('>I', block[:4])[0]:]
+        skift = struct.unpack('>I', block[:4])[0]
+        if 4 + skift >= len(block):
+            oklar = 'EXIF-objektet är trunkerat'
+            continue
+        kandidat = block[4 + skift:]
         if kandidat[:2] in (b'II', b'MM'):
+            try:  # ett deklarerat block som inte går att tolka är inte rent (omgång tretton, F33)
+                exif(kandidat)
+            except Exception:  # noqa: BLE001
+                oklar = 'EXIF-blocket går inte att tolka (trunkerat eller skadat)'
+                continue
             tiff = kandidat
         else:
             oklar = 'EXIF-objektet saknar TIFF-huvud'

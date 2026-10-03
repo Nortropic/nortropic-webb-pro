@@ -72,12 +72,20 @@ async function provaFormular(url, i) {
   const epost = form.locator('input[type=email]').first();
   if (await epost.count()) { await epost.fill('inte-en-adress'); r.ogiltig_epost = { giltig: await epost.evaluate(e => e.checkValidity()) }; if (r.ogiltig_epost.giltig) lagg('varning', url, 'ogiltig e-post godtas av klientvalideringen', { steg: ['fyll e-post med inte-en-adress'] }, { form: i }); }
   if (farSkicka) {
-    for (const f of falt) { const typ = await f.getAttribute('type'); await f.fill(typ === 'email' ? 'test@example.com' : (markering + ' ' + UNICODE)).catch(() => null); }
+    // giltiga värden per fälttyp, annars stoppar klientvalideringen (mallens telefonmönster) inskicket (omgång tretton, F36)
+    const GILTIGT = { email: 'test@example.com', tel: '070-123 45 67', url: 'https://example.invalid', number: '1', date: '2026-01-01' };
+    for (const f of falt) { const typ = ((await f.getAttribute('type')) || 'text').toLowerCase(); await f.fill(GILTIGT[typ] || (markering + ' ' + UNICODE)).catch(() => null); }
+    // formulärets effektiva mål (action/method, med skickaknappens formaction/formmethod): bara POST dit räknas som inskick
+    const mal = await form.evaluate((el, sel) => { const k = el.querySelector(sel); return { action: k?.hasAttribute('formaction') ? k.formAction : el.action, method: ((k?.hasAttribute('formmethod') ? k.formMethod : el.method) || 'get').toLowerCase() }; },
+      'button[type=submit], input[type=submit], button:not([type])').catch(() => ({ action: null, method: 'get' }));
+    const malUrl = mal.action ? String(mal.action).split('#')[0].split('?')[0] : null;
+    r.mal = { url: malUrl, method: mal.method };
     const svarFore = b.logg.natverk.length;
     await klickSubmit(); await page.waitForTimeout(1200);
-    const nya = b.logg.natverk.slice(svarFore).filter(x => x.metod === 'POST');
-    r.post = nya.map(x => ({ url: x.url, status: x.status, fel: x.fel }));
-    r.skickat = nya.some(x => x.status !== null);  // observerat nätutfall, inte knapptryckningen (omgång tolv, F36)
+    const alla = b.logg.natverk.slice(svarFore).filter(x => x.metod === 'POST');
+    const nya = alla.filter(x => malUrl && mal.method === 'post' && String(x.url).split('#')[0].split('?')[0] === malUrl);
+    r.post = nya.map(x => ({ url: x.url, status: x.status, fel: x.fel })); r.andra_post = alla.length - nya.length;
+    r.skickat = nya.some(x => x.status !== null);  // observerat svar från formulärets mottagare, inte knapptryckningen eller andra anrop (omgång tolv och tretton, F36)
     const besked = await page.evaluate(() => document.body.innerText.slice(0, 4000));
     r.besked = /tack|mottag|skickat|vi hör av oss|fel|misslyck/i.test(besked) ? besked.match(/[^.\n]*(tack|mottag|skickat|vi hör av oss|fel|misslyck)[^.\n]*/i)?.[0]?.trim().slice(0, 160) : null;
     if (!r.besked) lagg('varning', url, 'inget synligt besked efter inskick (accepterad ≠ skickad ≠ bekräftad ska synas)', { steg: ['fyll i formuläret med testmarkering', 'skicka', 'läs sidans text'] }, { form: i });

@@ -1353,5 +1353,107 @@ assert seo.finns_lokalt(d32, 'v%C3%A5ra-tj%C3%A4nster/', '/', None, None) is Tru
 assert seo.finns_lokalt(d32, '/%2e%2e/%2e%2e/etc/passwd', '/', None, None) in (None, False), 'kodad ../ får inte lämna dist'
 print('R12 F32 procentkodade länkar ok')
 
+
+# ---------------------------------------------------------------- omgång tretton (Codex R13): F35 (gemensamt underlag), F33 (intervall, trunkering), F36 (formulärets mål)
+# F35: underlag/<slug> delas av kampanjer; gallring i en kampanj rör aldrig material som en annan kampanj har kvar
+
+
+def kampanj13(kid, poster):
+    (pf11.PROSPEKT / kid).mkdir(parents=True, exist_ok=True)
+    (pf11.PROSPEKT / kid / 'KAMPANJ.json').write_text(json.dumps({'id': kid, 'skapad': '2026-01-01'}))
+    pf11.skriv_register(kid, lambda p_: list(poster))
+
+
+for ordning in (('kamp-a', 'kamp-b'), ('kamp-b', 'kamp-a')):
+    for kid in ('kamp-a', 'kamp-b'):
+        shutil.rmtree(pf11.PROSPEKT / kid, ignore_errors=True)
+    kampanj13('kamp-a', [{'slug': 'delad', 'peOrgNr': '1', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35}])
+    kampanj13('kamp-b', [{'slug': 'delad', 'peOrgNr': '1', 'status': 'kund', 'skapad': gammal35, 'uppdaterad': gammal35}])
+    (tmp / 'underlag' / 'delad').mkdir(parents=True, exist_ok=True); (tmp / 'underlag' / 'delad' / 'x.txt').write_text('x')
+    for kid in ordning:
+        pr.gallra(types.SimpleNamespace(manader=12, kampanj=kid, torr=False))
+    assert (tmp / 'underlag' / 'delad' / 'x.txt').is_file(), 'kundens underlag i den andra kampanjen får inte raderas (F35, ordning %s)' % (ordning,)
+    assert not [p_ for p_ in pf11.las_register('kamp-a') if p_.get('slug') == 'delad'] and [p_ for p_ in pf11.las_register('kamp-b') if p_.get('slug') == 'delad'][0]['status'] == 'kund'
+    logg13 = [json.loads(x) for x in (pf11.kampanjkatalog('kamp-a') / 'logg.jsonl').read_text().splitlines()]
+    assert any(x['handelse'] == 'gallrad' and x.get('material') == 'kvar' and 'kamp-b' in (x.get('refereras_av') or []) for x in logg13), logg13[-3:]
+for kid in ('kamp-a', 'kamp-b'):
+    shutil.rmtree(pf11.PROSPEKT / kid, ignore_errors=True)
+kampanj13('kamp-a', [{'slug': 'delad2', 'peOrgNr': '2', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35}])
+kampanj13('kamp-b', [{'slug': 'delad2', 'peOrgNr': '2', 'status': 'demo', 'skapad': gammal35, 'uppdaterad': gammal35}])
+(tmp / 'underlag' / 'delad2').mkdir(parents=True, exist_ok=True); (tmp / 'underlag' / 'delad2' / 'x.txt').write_text('x')
+pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)); assert (tmp / 'underlag' / 'delad2').exists(), 'kb har posten kvar: materialet behålls'
+pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-b', torr=False)); assert not (tmp / 'underlag' / 'delad2').exists(), 'sista kampanjen gallrar materialet'
+kampanj13('kamp-c', [{'slug': 'x-firma', 'peOrgNr': '9', 'status': 'ny'}])
+assert 'x-firma' in pr.tagna_slugs([], egen_pe='8') and 'x-firma' not in pr.tagna_slugs([], egen_pe='9'), 'slugtilldelningen ser andra kampanjers slugs (F35)'
+print('R13 F35 gemensamt underlag ok')
+
+# F33: metadata i flera dataintervall, trunkerat TIFF och intervall utanför filen är inte rena
+
+
+def avif_ext(objekt):
+    """objekt: [(typ, [delar], content_type)]; varje del blir ett eget dataintervall."""
+    ftyp = box33(b'ftyp', b'avif' + b'\x00\x00\x00\x00' + b'avifmif1'); hdlr = fullbox33(b'hdlr', b'\x00' * 4 + b'pict' + b'\x00' * 13)
+    infes = b''.join(fullbox33(b'infe', struct.pack('>HH', i + 1, 0) + typ + b'\x00' + (ct + b'\x00' if ct else b''), v=2) for i, (typ, _, ct) in enumerate(objekt))
+    iinf = fullbox33(b'iinf', struct.pack('>H', len(objekt)) + infes)
+
+    def iloc(bas):
+        kropp, off = bytes([0x44, 0x00]) + struct.pack('>H', len(objekt)), bas
+        for i, (_, delar, _) in enumerate(objekt):
+            kropp += struct.pack('>HHH', i + 1, 0, len(delar))
+            for d_ in delar:
+                kropp += struct.pack('>II', off, len(d_)); off += len(d_)
+        return fullbox33(b'iloc', kropp)
+    meta = fullbox33(b'meta', hdlr + iinf + iloc(0)); meta = fullbox33(b'meta', hdlr + iinf + iloc(len(ftyp) + len(meta) + 8))
+    return ftyp + meta + box33(b'mdat', b''.join(d_ for _, delar, _ in objekt for d_ in delar))
+
+
+xmp_a, xmp_b = b'<x:xmpmeta><rdf:Description ', b'exif:GPSLatitude="65,35.2N"/></x:xmpmeta>'
+assert bd.avif_metadata(avif_ext([(b'mime', [xmp_a, xmp_b], b'application/rdf+xml')]))[0] == 'oklar', 'GPS i det andra dataintervallet (F33)'
+assert bd.avif_metadata(avif_ext([(b'Exif', [exif_rent[:6], exif_rent[6:]], None)]))[0] == 'tiff', 'ett rent EXIF i två intervall sammanfogas'
+trunk13 = b'\x00\x00\x00\x00' + b'II*\x00\x08\x00'  # TIFF-huvud utan hel IFD-pekare
+lage13, skal13 = bd.avif_metadata(avif_ext([(b'Exif', [trunk13], None)])); assert lage13 == 'oklar', (lage13, skal13)
+fil13 = avif_ext([(b'Exif', [exif_rent], None)])[:-4]  # mdat trunkerad: intervallet pekar utanför filen
+assert bd.avif_metadata(fil13)[0] == 'oklar', 'intervall utanför filen (F33)'
+jpg13 = b'\xff\xd8\xff\xe1' + struct.pack('>H', len(b'Exif\x00\x00' + trunk13[4:]) + 2) + b'Exif\x00\x00' + trunk13[4:] + b'\xff\xd9'
+(d33 / 'trasig.jpg').write_bytes(jpg13)
+assert any(x['punkt'] == '4.2' and x['sida'] == '/trasig.jpg' and 'verifieras' in x['text'] for x in sk.granska(d33)[0]), 'parserfel i deklarerad metadata ska ge 4.2 (F33)'
+(d33 / 'jobb.avif').write_bytes(avif_ext([(b'mime', [xmp_a, xmp_b], b'application/rdf+xml')]))
+assert any(x['punkt'] == '4.2' and x['sida'] == '/jobb.avif' for x in sk.granska(d33)[0]), 'delat XMP med GPS ska ge 4.2'
+print('R13 F33 intervall och trunkering ok')
+
+# F36: bara ett POST-svar från formulärets mål räknas som inskick; fälten får giltiga värden
+
+
+class Mottagare13(Tyst):
+    poster = []
+
+    def do_POST(self):
+        n_ = int(self.headers.get('Content-Length') or 0); Mottagare13.poster.append((self.path, self.rfile.read(n_).decode('utf-8', 'replace')))
+        if self.path == '/api/forfragan':
+            self.send_response(303); self.send_header('Location', '/tack/')
+        else:
+            self.send_response(204)
+        self.send_header('Content-Length', '0'); self.end_headers()
+
+
+skript13 = '<script>document.querySelector("button").addEventListener("click", () => { fetch("/annat", {method: "POST", body: "x"}).catch(() => {}); });</script>'
+tack13 = '<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Tack</title></head><body><h1>Tack</h1></body></html>'
+for namn13, falt13, vantat13 in (('a', '<input name="telefon" type="tel" pattern="[0-9+\\-\\(\\) ]{6,40}" required>', True), ('b', '<input name="kod" type="text" pattern="\\d{3}" required>', False)):
+    rot13 = tmp / ('sajt13' + namn13); (rot13 / 'tack').mkdir(parents=True); (rot13 / 'tack' / 'index.html').write_text(tack13)
+    (rot13 / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>t</title></head><body><h1>Hej</h1><form action="/api/forfragan" method="post">' + falt13 + '<button type="submit">Skicka</button></form>' + skript13 + '</body></html>')
+    srv13, bas13 = server(rot13, functools.partial(Mottagare13, directory=str(rot13)))
+    Mottagare13.poster.clear()
+    r13 = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'utforska.mjs'), '--adress', bas13 + '/', '--ut', str(tmp / ('ut13' + namn13)), '--max-sidor', '1', '--formular-far-skickas', '--testmarkering', 'NWP-PROV'],
+                         capture_output=True, text=True, cwd=str(ROOT), env={k_: v_ for k_, v_ in os.environ.items() if k_ != 'NWP_SLUG'}, timeout=300)
+    uf13 = json.loads((tmp / ('ut13' + namn13) / 'UTFORSKNING.json').read_text())
+    form13 = [f_ for s_ in uf13.get('sidor', []) for f_ in (s_.get('formular') or [])]
+    vagar13 = [v_ for v_, _ in Mottagare13.poster]
+    assert form13 and bool(form13[0].get('skickat')) == vantat13, (namn13, form13, vagar13, r13.stderr[-300:])
+    assert ('/api/forfragan' in vagar13) == vantat13, (namn13, vagar13)
+    if not vantat13:
+        assert '/annat' in vagar13 and form13[0].get('andra_post', 0) >= 1, 'det orelaterade POST-anropet ska ha skett och räknats som annat (F36): %s' % (vagar13,)
+    srv13.shutdown()
+print('R13 F36 formulärets mål ok')
+
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

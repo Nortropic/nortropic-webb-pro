@@ -314,7 +314,11 @@ def slug_for(namn, postort, orgnr, tagna):
 
 
 def tagna_slugs(poster, egen_pe=None):
+    """Upptagna slugs: kampanjens egna poster, alla andra kampanjers poster (samma slug till en annan verksamhet skulle
+    annars dela underlag/<slug>; omgång tretton, F35) och befintliga kataloger. Samma verksamhet (peOrgNr) behåller sin slug."""
     ut = {p['slug'] for p in poster if p.get('slug') and p.get('peOrgNr') != egen_pe}
+    for k in pf.kampanjer():
+        ut |= {p['slug'] for p in (pf.las_register(k['id']) or []) if p.get('slug') and p.get('peOrgNr') != egen_pe}
     for d in (ROOT / 'underlag', ROOT / 'kunder'):
         if d.is_dir():
             ut |= {x.name for x in d.iterdir() if x.is_dir()}
@@ -841,9 +845,23 @@ def gallra(a):
             mut(poster)
         else:
             pf.skriv_register(kid, mut)
-        ofullst = []
+        # underlag/<slug> är gemensamt för hela repot: har en annan kampanj posten kvar (kund eller aktiv prospektpost) tas
+        # bara kampanjposten bort, aldrig materialet (omgång tretton, F35: gallring av A raderade B:s kundunderlag)
+        andra = {}
+        for k2 in pf.kampanjer():
+            if k2['id'] == kid:
+                continue
+            for p2 in pf.las_register(k2['id']) or []:
+                if p2.get('slug') and not p2.get('gallrad'):
+                    andra.setdefault(p2['slug'], []).append((k2['id'], p2.get('status')))
+        ofullst, delade = [], []
         for slug in bort + krympta:
             if a.torr:
+                continue
+            ref = andra.get(slug) or []
+            if ref:
+                delade.append(slug)
+                pf.logga(kid, 'gallrad', slug=slug, material='kvar', refereras_av=sorted({k_ for k_, _ in ref}))
                 continue
             d = ROOT / 'underlag' / slug
             if d.is_dir():  # kundrelationen avgör (status kund gallras aldrig), inte om en kundkatalog råkar finnas (omgång tolv, F35)
@@ -852,8 +870,9 @@ def gallra(a):
             if kvar:  # demobygget innehåller verksamhetens innehåll och tas bort av ägaren (kontroller/ta_bort.py); gallringen är inte fullbordad
                 ofullst.append(slug)
             pf.logga(kid, 'gallrad' if not kvar else 'gallring-ofullstandig', slug=slug, kvar=kvar or None)
-        print('%s: %d borttagna, %d krympta%s%s' % (kid, len(bort), len(krympta), ' (torrkörning)' if a.torr else '',
-                                               '; material kvar för %s (ta bort med kontroller/ta_bort.py)' % ', '.join(ofullst) if ofullst else ''))
+        print('%s: %d borttagna, %d krympta%s%s%s' % (kid, len(bort), len(krympta), ' (torrkörning)' if a.torr else '',
+                                                 '; material kvar för %s (ta bort med kontroller/ta_bort.py)' % ', '.join(ofullst) if ofullst else '',
+                                                 '; gemensamt material behållet för %s (annan kampanj)' % ', '.join(delade) if delade else ''))
     return 0
 
 

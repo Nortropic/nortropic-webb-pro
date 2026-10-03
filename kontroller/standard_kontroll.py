@@ -471,11 +471,13 @@ def granska(dist):
                 if lage == 'oklar':
                     F('4.2', '/' + f.relative_to(dist).as_posix(), 'bildens metadata kan inte verifieras (%s); lägg den i src/assets/ (astro:assets tar bort metadata) eller rensa den' % varde)
                     continue
-                gps = exif(varde).get('gps') if lage == 'tiff' else False
+                block = varde if lage == 'tiff' else None
             else:
-                gps = exif(tiff_block(data)).get('gps')
-        except Exception:  # noqa: BLE001 — en trasig bild ska inte stoppa resten av kontrollen
-            gps = False
+                block = tiff_block(data)
+            gps = exif(block).get('gps') if block else False
+        except Exception:  # noqa: BLE001 — ett parserfel i deklarerad metadata är inte grönt (omgång tretton, F33)
+            F('4.2', '/' + f.relative_to(dist).as_posix(), 'bildens metadata kan inte verifieras (parserfel i deklarerad metadata); lägg den i src/assets/ (astro:assets tar bort metadata) eller rensa den')
+            continue
         if gps:
             F('4.2', '/' + f.relative_to(dist).as_posix(), 'bilden bär GPS-läge i sin metadata; lägg den i src/assets/ (astro:assets tar bort metadata) eller rensa den')
     # 9.4 mening som löper ihop med nästa utan mellanslag ("förfrågan.Så", L1: ").Läs"), också över inline-element
