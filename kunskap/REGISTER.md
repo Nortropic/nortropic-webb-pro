@@ -6390,3 +6390,54 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   rökprovet avgör
 - Utfall: —
 - Backlog: ingen för domen; egen innovation B-20261003-provets-lighthouse-grind-ger-byggaren-titel-matv
+
+### 2026-10-03 · Lighthouse v13.5.0 (GoogleChrome/lighthouse, release) · nej
+- Källa: https://github.com/GoogleChrome/lighthouse/releases/tag/v13.5.0 @ tagg cb853a3, utgiven 2026-09-17 av
+  TravenReese [TEXT rad 34–37; REPO changelog.md rad 2], Apache-2.0; repot 30 849 stjärnor, inte arkiverat, senast
+  pushat 2026-10-03. Läst: hela releasesidan via sida.mjs (TEXT.md, 1 256 tokens) och tre av tolv skärmbilder
+  [BILD desktop-hela.png, mobil-forsta.png, mobil-hela.png], som alla visar GitHubs egen sida bakom kakrutan; sidans
+  design är GitHubs och bedöms inte. Ur klonen: changelog.md rad 1–72 (avsnittet 13.5.0), core/audits/agentic/
+  ard-schema.js, core/config/default-config.js (vår kopia), .agents/skills/lighthouse-verification/SKILL.md.
+  Ägarens not: hittad av spanaren 2026-10-03 via Lighthouse releases (rss); matchade agent, audit, plugin, release
+- Steg: 6 Prov (Lighthouse-grinden); byggstandarden 4.1 och 7.6
+- Jämfört med i dag: releasen är exakt den version provet redan kör. `kontroller/package.json` rad 15 pinnar
+  `lighthouse` till 13.5.0, `kontroller/node_modules/lighthouse/package.json` säger 13.5.0, och varje byggs
+  `prov/lighthouse/lighthouse.json` skriver `lighthouseVersion: 13.5.0` (`kunder/salong-kreativ/prov/lighthouse/
+  lighthouse.json` rad 3). Sak mot sak. (1) **Den enda nya auditen, ard-schema** [TEXT rad 50; REPO changelog.md
+  rad 16]: validerar en ai-catalog.json mot ARD-specifikationen, men bara om sajten har filen eller pekar på den via
+  robots.txt, ett link-element eller ett svarshuvud; annars notApplicable [REPO core/audits/agentic/ard-schema.js
+  rad 64–76]. Filen ligger redan i vår kopia (`kontroller/node_modules/lighthouse/core/audits/agentic/ard-schema.js`)
+  och står som notApplicable med vikt 0 i alla sju byggens hem-mobil.json (`kunder/salong-kreativ/prov/lighthouse/
+  hem-mobil.json` rad 3366–3372, 5128–5130). Byggstandarden 7.6 avvisar llms.txt med källa (`kunskap/byggstandard.md`
+  rad 102, 153); ai-catalog.json är samma slags fil för samma slags läsare, och ingenting i releasen ger belägg för
+  att en hantverkares statiska sajt vinner på den. Lika, med ett medvetet val emot. (2) **Omgrupperingen** av
+  llms.txt och ARD under "Agent Discoverability" [TEXT rad 54] finns i vår default-config.js rad 118–122, 407–409,
+  657–658: redan i bruk. (3) **WebMCP-ändringarna** (pass i stället för n/a när alla formulär täcks, varning över
+  rekommenderat antal verktyg [TEXT rad 59–60]) gäller formulär med WebMCP-annoteringar; vårt formulär har inga, så
+  webmcp-form-coverage är notApplicable trots formuläret (`hem-mobil.json` rad 3345–3351). Inte tillämpligt. (4)
+  **Plugin-validering, plugin-version i rapportens credits, plugins i sidfoten** [TEXT rad 52–53, 62]: vi kör inga
+  Lighthouse-plugins (`kontroller/lighthouse.mjs` rad 39 anropar med standardkonfig och desktopConfig). Inte
+  tillämpligt. (5) **fetcher med svarshuvuden, user-flow som avbryter navigeringar, lightrider-bundlar, i18n, tester,
+  CI** [TEXT rad 55–58, 68–91]: inre förbättringar utan verkan på vår mätning. Spanarens träff byggde på orden
+  agent, audit, plugin och release, inte på innehållet. Mot litteraturen: labbmätning med budget som grind
+  (`kunskap/teoretisk-grund.md` rad 37, 71) är oförändrad; versionen är densamma före och efter
+- Skäl: det finns inget att ta in, för vi kör redan 13.5.0 i provet och har gjort det i alla sju dömda byggen; det
+  nya i releasen är en audit för en fil vi medvetet inte skapar (standarden 7.6) och som därför står som notApplicable
+  i varje sparad rapport. Inte parkera: en release vi redan har blir inte aktuell senare. Nästa Lighthouse-release
+  kan däremot bli en uppdateringsfråga, och det är spanaren som bör se skillnaden (se backlog). Källkritik: Googles
+  egna releasenoter, sakliga och utan säljtext; inga instruktioner till agenter i texten. Repots skill
+  `.agents/skills/lighthouse-verification` är arbetsinstruktioner för Lighthouse-utvecklare (mocha, type-check,
+  update:sample-json) och inget för oss
+- Kostnad: inget tas in; versionen är redan pinnad och installerad, ingen ändring i beroenden eller underhåll
+- Säkerhet: releasetexten LÅG, inga fynd. Klonen HÖG på grund av 47 660 dolda tecken, nästan alla riktningsstyrning
+  (U+200F, U+202E, U+202C) i `shared/localization/locales/ar-XB.json` (pseudolokal för höger-till-vänster-prov) och
+  nollbreddstecken i två testfixturer (`cli/test/fixtures/legacy-javascript.js`, `report/test/renderer/
+  text-encoding-test.js`); ingen text riktad till agenter, inga hookar eller MCP-servrar, skillen utan behörigheter.
+  Samma filer ligger redan i vår installerade kopia. Inget kört ur källan utöver vår egen förgranskning
+- Förslag: inget för domen. Egen innovation: spanaren jämför taggen i en GitHub-release med versionen i
+  `kontroller/package.json` (Lighthouse, axe-core, Playwright, och Astro i mallen) och märker lika version som
+  "redan i bruk" utan intag, nyare som "pinnad X, release Y" så att kirurgen bedömer en uppdatering i stället för
+  att läsa releasenoter blint; fyra releaseflöden i `kunskap/spaning-kallor.md` (rad 83, 100–102) gäller pinnade
+  paket
+- Utfall: —
+- Backlog: ingen för domen; egen innovation B-20261003-spanaren-jamfor-en-github-release-med-versionen
