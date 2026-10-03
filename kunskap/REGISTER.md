@@ -5575,3 +5575,45 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   heller något
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Hamel Husain, "Claude's new auto eval tool" (hamel.dev) · nej
+- Källa: https://hamel.dev/blog/posts/claude-auto-evals/ @ 2026-09-30 (publiceringsdatum på sidan), ingen licens
+  angiven; läste hela texten (`TEXT.md`, 5 751 tecken) och fem av tolv skärmbilder (mobilens första vy, desktop
+  skroll 12, 36 och 60 %), där de tre inbäddade terminalbilderna syns. Artikeln är en recension efter en livesändning
+  där författaren och Isaac Flath provade Anthropics claude-api-plugin (`build_eval`, `hill-climb`) på samtalsloggar
+  från en bostadsassistent [TEXT]. Livesändningen och Anthropics inlägg öppnades inte. Ägarens not: hittad av spanaren
+  2026-10-03 via Hamel Husain (rss); matchade claude code, evals, plugin
+- Steg: 8 (ägarens dom och hur den blir en regel), granskaren, backlog-skillens mikroprov
+- Jämfört med i dag: fyra påståenden, inget om sajter. (1) **Titta på data innan en eval skrivs; felanalys avgör
+  vilken brist som är värd en eval** [TEXT; BILD desktop-skroll-02: pluginet frågar "Which one becomes the eval?" med
+  ett rekommenderat val innan loggarna lästs]. Vi: ägaren tittar på hela sajten och rapporten i dashboarden och
+  skriver vad som är sämst, bäst och vad som ska ändras i hur vi bygger (`.claude/skills/bygg-sajt/SKILL.md:425–429`;
+  `LARDOMAR.md` L1–L6), och backlog-skillen läser först vad bygget gjorde och klassar felet innan texten ändras
+  (`.claude/skills/backlog/SKILL.md:30–36`). Ordningen är redan data före regel. Lika. (2) **Omdömen ska valideras med
+  underlaget framför sig, i en webbvy, inte som sammanräkningar i en chatt** [TEXT; BILD desktop-skroll-04: "Please
+  skim inputs.md and tell me" och tabellen med aggregat]. Vi: domen skrivs i dashboardens formulär med sajten öppen
+  bredvid (`dashboard/index.html:221`, `dashboard/server.py:8`), och dashboarden visar per bygge om granskaren och
+  ägaren landade på samma nivå (`dashboard/server.py:330–353`). Lika; att dessutom pröva granskarna på osedda exempel
+  ligger redan i backloggen (B-20261003-kalibrering-av-visuell-niva-externa-exempel-i-tr), med Anthropics egna
+  evalråd från 2026-01-09 citerade i posten. (3) **En eval per brist, kodkontroller skilda från modelldomare, och läs
+  domarens prompt** [TEXT; BILD desktop-skroll-06: fyra kontroller i en `protocol_ok`]. Vi: byggstandarden är
+  kodkontroller (`kontroller/standard_kontroll.py`), granskaren är en modelldomare med läsbar instruktion
+  (`kritik/GRANSKARE.md`), och mikroprovet prövar en brist i taget med gamla mot nya texten
+  (`.claude/skills/backlog/SKILL.md:51–57`). Lika. (4) **Pluginets styrka: att hitta brister på egen hand** [TEXT].
+  Själva pluginet bedömdes 2026-10-02 (anthropics/skills · nej, ägaren höll med), och artikeln ändrar inte det: dess
+  fynd gäller samtalsloggar, inte webbplatser. Mot litteraturen (`kunskap/teoretisk-grund.md:128–131`): artikeln
+  tillför ingen utvärderingsmetod utöver dem vi har; det den förespråkar är samma ordning som vår, människan dömer
+  materialet först och regeln kommer sedan
+- Skäl: en välskriven åsiktstext om ett verktyg vi redan sagt nej till, och de tre principerna den försvarar gör vi
+  redan i samma eller strängare form, med fil och rad ovan. Inget i den ger bättre sajter eller färre steg för
+  ägaren. Källkritik: sidan säljer författarens evalkurs i en banderoll överst ("Join 5,000+ engineers & PMs … 25 %
+  off", [BILD mobil-forsta.png, desktop-skroll-02]) och pekar på författarens egna evalskills som alternativ [TEXT];
+  beläggen är en enda livesändning på ett fall, och författaren skriver själv att pluginets upphovsman ska ändra det,
+  så recensionen har kort hållbarhet [TEXT]. Inga instruktioner till agenter
+- Kostnad: inget tas in
+- Säkerhet: texten förgranskad: LÅG, inga dolda tecken, ingen text riktad till agenter, inga skript. Inget kört eller
+  installerat; inget fört vidare
+- Förslag: inget. Ingen egen innovation: det som artikeln kunde inspirera till, att pröva domaren mot ägarens domar på
+  undanhållna fall, står redan som vilande post med hög prio
+- Utfall: —
+- Backlog: ingen
