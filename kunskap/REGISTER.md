@@ -5942,3 +5942,57 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   på. Tre textrader: 768 i steg 5.5, i GRANSKARE.md rad 23 och i granska.py:s lista
 - Utfall: —
 - Backlog: ingen; egen innovation B-20261003-byggaren-och-granskaren-laser-ocksa-provets-skar
+
+### 2026-10-03 · W3C WAI, "Crafting WCAG 3 for more accessible user experiences" (Shawn Lawton Henry, W3C-bloggen 2026-09-25) · nej
+- Källa: https://www.w3.org/WAI/news/2026-09-25/wcag3-blog/ @ 2026-09-25, W3C:s villkor för WAI-material (upphovsrätt
+  W3C 2026, "permissive license rules"). WAI-sidan är en notis på tre meningar som länkar till inlägget på
+  https://www.w3.org/blog/2026/crafting-wcag-3-for-more-accessible-user-experiences/ (samma datum, författaren är
+  WAI:s direktör). Sett: notisen hel i mobil [BILD wcag3-blog/mobil-hela.png]; inläggets första vy i mobil med
+  byline, datum, "Part of Accessibility" och en kinesisk översättning [BILD wcag3-post/mobil-forsta.png]; hela
+  inlägget i mobil bara som oläslig miniatyr (8 469 px). Desktop spärrades av Cloudflares robotkontroll på båda
+  adresserna (HTTP 403, "Utför säkerhetsverifiering") [BILD wcag3-blog/desktop-hela.png], och skript som delar upp
+  skärmbilden nekades, så inläggets text är läst via WebFetch i tre omgångar (reserven: sammanfattning med ordagranna
+  stycken), liksom WCAG 3-introduktionen den hänvisar till (https://www.w3.org/WAI/standards-guidelines/wcag/wcag3-intro/,
+  uppdaterad 2026-09-25). Inga bilder i inlägget utom författarporträttet, 0 kommentarer. Ägarens not: hittad av
+  spanaren 2026-10-03 via W3C WAI (RSS); matchade accessibility, wcag
+- Steg: 5.3 och 6 (tillgänglighet i bygge och prov); runt stegen: `kunskap/byggstandard.md` avsnitt 5 och
+  `kunskap/teoretisk-grund.md` B.1 punkt 5
+- Jämfört med i dag: (1) **Vilken standard vi bygger mot.** Byggstandarden kräver WCAG 2.2 AA som kvalitetskrav
+  (`kunskap/byggstandard.md` rad 65; rad 154–155: mikroföretag är undantagna lagen, så det är ett kvalitetskrav, inget
+  lagkrav), provet kör axe med 0 allvarliga fel och Lighthouse tillgänglighet ≥ 95 (`kontroller/prova.py` rad
+  10–11), granskaren gör ett WCAG-EM-urval (`kritik/GRANSKARE.md` rad 16–17; `kunskap/teoretisk-grund.md` rad
+  138–141), och ägaren mäter lägsta kontrast, fokusram och tryckytor i varje dom (`LARDOMAR.md` rad 37, 120).
+  Källan: septemberutkastet av WCAG 3 har en enda nivå, "core requirements", som bygger på WCAG 2.2 A och AA, därtill
+  kompletterande krav, "assertions" och rekommenderad praxis för det som inte kan mätas objektivt, taggar som
+  regelgivare kan välja med, och rapporteringsnivåer för väg mot och bortom konformans [TEXT, "A fundamental
+  shift"]. Introduktionen säger att utkastet är ofullständigt och kommer att ändras, att WCAG 3 inte väntas bli
+  färdig standard "for a few more years", att WCAG 2 inte avvecklas förrän flera år därefter, och "The best way to
+  prepare for WCAG 3 in the future, is to meet WCAG 2.2 success criteria now" [TEXT wcag3-intro]. Vårt val är alltså
+  det W3C självt rekommenderar; lika, och inget att ändra. (2) **Allvarlighet.** Källans taggar graderar krav efter
+  följd: fysisk skada, risk, hinder, friktion [TEXT wcag3-intro]. Vi graderar fynd med Nielsens skala 0–4 efter
+  frekvens, konsekvens och persistens (`kunskap/teoretisk-grund.md` rad 143–147). Taggarna är skrivna för
+  regelgivare som ska välja krav per sajttyp, inte för en granskare som prioriterar rättelser i ett bygge; för
+  vårt bruk är Nielsens skala lika eller bättre. (3) **"WCAG is a tool".** Inlägget säger att bara A och AA (eller
+  bara kärnkraven) inte räcker och att målet är tillgängliga användarupplevelser [TEXT, "WCAG is a tool"]. Hos
+  oss står samma sak: automatik hittar bara en del, manuell tangentbords- och skärmläsarkoll är obligatorisk
+  (`kunskap/teoretisk-grund.md` rad 76–77; byggstandarden 5.6, rad 74), och användartest med fem personer är det
+  vi inte gör obevakat (rad 20). Lika; källan ger ingen metod utöver det. (4) **Kontrast.** Inlägget nämner inte
+  kontrastmått; vår `better-colors/contrast.md` rad 9–11 och 24–26 använder APCA som designmått och WCAG 2 som
+  grind (rad 36). Inget i källan ändrar det. Mot litteraturen: källan är den primära normgivaren bakom vår punkt 5
+  (W3C 2023, rad 74–78) och bekräftar den; den för inte in någon metod vi saknar
+- Skäl: ett policyinlägg från standardens ägare om varför WCAG 3 blir som det blir: avvägningen mellan
+  funktionsnedsattas behov, sajtägares motstånd och lagstiftares krav på stabilitet, liknelsen linjal mot regler, och
+  septemberutkastets nya konformansmodell [TEXT]. Det hjälper oss varken bygga bättre sajter eller arbeta smartare:
+  det innehåller inga krav, tekniker eller mätmetoder, och det enda handlingsbara, att möta WCAG 2.2 nu, är redan
+  vår byggstandard. Inte parkera: när WCAG 3 blir standard om några år är det utkastet självt, inte den här essän,
+  som ska bedömas. Källkritik: W3C säljer inget och beskriver sitt eget arbete; påståendena är avsikter och
+  avvägningar, inte belagda resultat; inga instruktioner till agenter. Inlägget fick inte läsas i desktop och inte
+  i original i mobil utöver första vyn; texten är hämtad via reserven, så ordagranna citat här är WebFetchs
+  återgivning
+- Kostnad: ingen; inget tas in
+- Säkerhet: förgranskningen av de hämtade sidorna gav LÅG, men det var bara Cloudflares spärrsida (350 och 382
+  tecken); inläggets text kom via WebFetch och gick inte genom förgranskningen. Inget i den lästa texten riktar sig
+  till agenter. Inget kört eller installerat
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
