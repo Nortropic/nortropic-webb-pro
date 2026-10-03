@@ -5617,3 +5617,94 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   undanhållna fall, står redan som vilande post med hög prio
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · RoboNuggets, "3 plugins that turn Claude Code into an SEO expert" (YouTube Shorts XlRZ3tL_l9I) + AminForou/mcp-gsc, geoready.dev, openseo.so · parkera
+- Källa: https://www.youtube.com/watch?v=XlRZ3tL_l9I @ publicerad 2026-09-25 (Jay E | RoboNuggets, 0:43, 17 550
+  visningar, autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla fyra
+  bildrutor: berättaren med rubriken "You don't need expensive SEO tools" [SKÄRM 00:01], en suddig graf som inte går
+  att läsa [SKÄRM 00:13], mcp-gsc:s README-rubrik med "1,629 stars" [SKÄRM 00:26] och OpenSEO:s beskrivning med
+  "github.com/every-app" och "19,942 stars" [SKÄRM 00:38]. Inget verktyg visas i bruk; videon är tre produktnamn och
+  tre länkar, så länkarna lästes i original. (1) github.com/AminForou/mcp-gsc @ d49eea9 (ur klonens
+  `.git/logs/HEAD`; `git log` nekades av behörigheten; senaste push 2026-09-15T16:54Z), MIT, 1 833 stjärnor, inte
+  arkiverat: README, CLAUDE.md, `.mcp.json`, `.claude-plugin/plugin.json`, alla fyra skills och `gsc_server.py` rad
+  1–1375 av 1770 samt sökning i resten. (2) geoready.dev (hämtad 2026-10-03, kakruta stängd med "ACCEPT ALL"): hela
+  texten och två av tolv skärmbilder [BILD desktop-hela.png, mobil-forsta.png]; motorn
+  github.com/Auriti-Labs/geo-optimizer-skill (MIT, 976 stjärnor, senaste push 2026-09-30) klonades inte. (3)
+  openseo.so (hämtad 2026-10-03): hela texten och två av tolv skärmbilder [BILD desktop-hela.png, mobil-forsta.png];
+  repot pekas ut som github.com/every-app i bildrutan, men `gh repo view every-app/openseo` hittar inget, så koden
+  lästes inte. Inget kördes eller installerades. Ägarens not: hittad av spanaren 2026-10-03 via YouTube: RoboNuggets
+  (rss); matchade claude code, mcp, seo
+- Steg: lanseringen och tiden efter (`kunskap/lansering.md` rad 65–73 och 105–108; `kunskap/sokkonsol.md`;
+  `kunskap/uppfoljning.md` rad 29–33); steg 1 §15 (sökintention) för OpenSEO; steg 6 (`seo_kontroll`) för GeoReady.
+  Inget av stegen 3–5
+- Jämfört med i dag, verktyg för verktyg: (1) **mcp-gsc.** Tjugo MCP-verktyg mot Search Console API med OAuth i
+  webbläsaren eller servicekonto: egenskaper, sökfrågor och sidor med klick, visningar, CTR och position, jämförelse
+  mellan perioder, URL-inspektion en och tio i taget med indexeringsstatus och rikresultatfel, sitemaps [REPO README
+  rad 59–79; gsc_server.py rad 252–306]. Fyra skills på 250–290 tokens var: veckorapport 28 dagar mot föregående 28
+  med frågor som tappat över 20 % klick; kannibalisering (en fråga, flera sidor); indexeringsaudit av de tjugo
+  synligaste sidorna; "content opportunities" på position 11–20 med över 100 visningar och CTR under 3 % [REPO
+  skills/*/SKILL.md]. Vi: sökkonsolen är en checklista för en människa, "Det finns inget verktyg för sökkonsolen i
+  repot" (`kunskap/sokkonsol.md` rad 3–5), med samma läsningar som källans skills: frågor i position 5–20 med
+  visningar, visningar utan klick, "Upptäckt, för närvarande inte indexerad", rutin var 2–3 dag i två veckor och
+  sedan månadsvis (rad 25–35); och rad 39–40 säger att ett API-verktyg "byggs först när en lanserad kund behöver det
+  och verksamheten har gett åtkomst". Inget bygge är lanserat (`kunskap/lansering.md` rad 3), så ingen egenskap finns
+  och ingen data. När den dagen kommer är källan smartare än att skriva ett eget skript: samma läsningar som vår
+  tabell, 39 prov med mockade API-anrop [REPO README rad 515; CLAUDE.md rad 66], MIT, underhållet med fyra namngivna
+  bidragsgivare [REPO README rad 473–475]. Två saker att ändra i så fall: scopet är skrivande `webmasters` fast allt
+  vi behöver är läsning [REPO gsc_server.py rad 106], och README ber kunden ge servicekontot "Full access" [REPO
+  README rad 114]; vår regel är att verksamheten äger egenskapen och lägger till oss som användare (`sokkonsol.md`
+  rad 12), så OAuth med ägarens eget Google-konto är vägen, aldrig ett servicekonto på kundens egendom. Token sparas
+  i användarens konfigurationskatalog, utanför repo och `underlag/` [REPO gsc_server.py rad 78–80], vilket uppfyller
+  rad 14 i sokkonsol.md. Skillsens trösklar (över 100 visningar per fråga på 28 dagar) är satta för större sajter;
+  för en hantverkare i Luleå skulle de sannolikt ge tomma listor, och vår tabell utan tal passar bättre. Litteraturen:
+  "Fältdata (CrUX, sökkonsolen) finns först efter lansering" (`kunskap/teoretisk-grund.md` rad 21, 91). Lika i
+  läsningen, smartare i utförandet, men först efter lansering. (2) **GeoReady.** Gratis "AI visibility audit" 0–100
+  i åtta kategorier: robots.txt 18 poäng, llms.txt 18, JSON-LD 16, metataggar 14, innehåll 12, signaler 6, "AI
+  discovery" (`.well-known/ai.txt`, `/ai/*.json`) 6, varumärke 10; sedan betald bevakning 19–89 dollar i månaden och
+  en bok på 992 sidor [TEXT; BILD desktop-hela.png]. 24 av 100 poäng går till llms.txt och ai.txt, det Google säger
+  inte behövs: byggstandarden 7.6 "llms.txt behövs inte" (`kunskap/byggstandard.md` rad 102, 153) och den vilande
+  posten om Googles guide för generativ AI-sök (B-20261003-googles-linje-for-generativ-ai-sok-in-i-seo-md-s: "is
+  still SEO", ingen llms.txt, ingen särskild märkning). Det övriga prövar vi redan: title, description, canonical, en
+  h1, robots, sitemap, JSON-LD mot schema.org:s vokabulär (`kontroller/seo_kontroll.py` rad 2–7; byggstandarden 2.1,
+  2.3 och 7.1–7.3, rad 36–38 och 97–99). Sidan själv: kakruta som stängs med "ACCEPT ALL" [SIDA.md rad 4],
+  terminalestetik med "exit 0" och "POST /API/AUDIT" som dekor [TEXT; BILD desktop-hela.png], och auditen skickar
+  kundens adress till deras API [TEXT: "Submit any public website address"]. Sämre, och krockar med ett medvetet val
+  (7.6). (3) **OpenSEO.** Sökordsvolym, svårighet, SERP, konkurrentdomäner, bakåtlänkar, rankningsspårning och "AI
+  visibility" på DataForSEO-data, från 10 dollar i månaden [BESKRIVNING], via MCP och skills (`/seo-coach`,
+  `/seo-audit`, `/keyword-research`, `/competitor-analysis`) för Claude, Codex och Gemini; dessutom en egen Search
+  Console-MCP [TEXT; BILD desktop-hela.png]. Vi: sökintentionen läses ur resultatsidan, "ingen uppskattning av
+  sökvolym utan verktyg och källa" (`kunskap/research-underlag.md` rad 72–74), så ett volymverktyg vore tillåtet i
+  steg 1; rankningsspårning och bakåtlänkar hör till tiden efter lansering som ingen kund nått. Betald datatjänst med
+  konto; koden kunde inte läsas. Varken bättre eller sämre än vårt, för vi gör inte det den gör; inte aktuellt förrän
+  en kund är lanserad eller en brief kräver volymer
+- Skäl: videon själv tillför inget: 43 sekunder, tre produktnamn, inga demonstrationer, och "You don't need to pay
+  for expensive SEO tools" [TAL 00:00] leder till två tjänster som kostar 10–89 dollar i månaden. Av de tre länkarna
+  är en värd att minnas: mcp-gsc gör i tjugo verktyg exakt de läsningar vår sökkonsol-checklista beskriver för en
+  människa, med MIT-licens och prov, och sokkonsol.md rad 39–40 säger redan att ett sådant verktyg byggs när den
+  första lanserade kunden behöver det; då är det här kandidaten att pröva framför ett eget skript, med läsande scope
+  och ägarens eget konto, inloggat en gång interaktivt som för Refero och Mobbin (ägarbeslut 2026-10-03). GeoReady är
+  nej: ett poängsystem som lägger en fjärdedel av vikten på filer Google säger inte spelar roll, mot vår 7.6. OpenSEO
+  är en betald dataleverantör för volymer och rankning som ingen kund behöver förrän efter lansering. Parkera tills
+  den första kunden är lanserad och har lagt till ägaren som användare i Search Console. Källkritik: mcp-gsc:s README
+  säljer en hostad betalversion "Only 100 seats" och författarens Chrome-tillägg [REPO README rad 5–6, 465]; GeoReady
+  säljer bevakning och en bok och kallar sin egen kohort "self-selected" [TEXT]; OpenSEO:s "Trusted by 3,000+
+  entrepreneurs" är tre citat utan länk [TEXT]. Inga instruktioner till agenter i någon av källorna
+- Kostnad: inget tas in nu. mcp-gsc vid användning: fyra skills på 19–23 tokens i beskrivning och 249–291 i SKILL.md
+  (förgranskningen), serverns verktygsbeskrivningar i varje session den är ansluten, Python 3.11 och uv eller en
+  klon, ett Google Cloud-projekt med OAuth-klient och Search Console API aktiverat; `mcp` pinnat under 2.0 [REPO
+  README rad 25]. GeoReady 19–89 dollar i månaden för bevakning; OpenSEO från 10 dollar i månaden
+- Säkerhet: förgranskningen av mcp-gsc: HÖG av mönstren, inga dolda tecken, ingen text riktad till agenter, inga
+  behörigheter i skillsens frontmatter; fynden är MCP-servern i `.mcp.json` och plugin.json, `curl | sh` i README
+  (uv-installatören, rad 138), "hemligheter/miljö" (GSC_CREDENTIALS_PATH, GSC_OAUTH_CLIENT_SECRETS_FILE) och
+  "utanför repot" (token i konfigurationskatalogen). Flaggan eval/exec är API-klientens `.execute()`; sökning efter
+  `eval(`, `exec(` och `os.system` i gsc_server.py ger inget. Destruktiva verktyg (add_site, delete_site,
+  delete_sitemap) är avstängda utan GSC_ALLOW_DESTRUCTIVE [REPO gsc_server.py rad 91–93, 356–360]; `manage_sitemaps`
+  kan lämna in en sitemap utan flaggan [rad 301]. Scopet är skrivande (rad 106). geoready.dev och openseo.so: LÅG,
+  inga fynd. Inget kört, installerat eller fört vidare
+- Förslag: inget för domen. Egen innovation: `kunskap/sokkonsol.md` rad 39–40 får villkoren för API-verktyget redan
+  nu, så att den session som bygger det inte behöver välja: läsande scope (`webmasters.readonly`), ägarens eget
+  Google-konto som verksamheten lagt till som användare, aldrig ett servicekonto på kundens egendom, ingen token i
+  repo eller `underlag/`, och mcp-gsc @ d49eea9 (MIT) som första kandidat att pröva framför ett eget skript. Tre
+  rader text
+- Utfall: —
+- Backlog: ingen för domen; egen innovation B-20261003-sokkonsol-md-villkoren-for-api-verktyget-skrivs
