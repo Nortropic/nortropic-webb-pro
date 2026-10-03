@@ -1455,5 +1455,69 @@ for namn13, falt13, vantat13 in (('a', '<input name="telefon" type="tel" pattern
     srv13.shutdown()
 print('R13 F36 formulärets mål ok')
 
+
+# ---------------------------------------------------------------- omgång fjorton (Codex R14): F35 (läsfel ≠ frånvaro), F33 (strikt parser, flera EXIF-objekt), F36 (återförsök, mål med fråga)
+# F35: ett oläsbart register eller en kampanj utan läsbar KAMPANJ.json stoppar gallringen före varje ändring
+for kid in ('kamp-a', 'kamp-b', 'kamp-c'):
+    shutil.rmtree(pf11.PROSPEKT / kid, ignore_errors=True)
+kampanj13('kamp-a', [{'slug': 'delad3', 'peOrgNr': '3', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35}])
+kampanj13('kamp-b', [{'slug': 'delad3', 'peOrgNr': '3', 'status': 'kund', 'skapad': gammal35, 'uppdaterad': gammal35}])
+(tmp / 'underlag' / 'delad3').mkdir(parents=True, exist_ok=True); (tmp / 'underlag' / 'delad3' / 'x.txt').write_text('x')
+fore14 = (pf11.kampanjkatalog('kamp-a') / 'REGISTER.json').read_text()
+(pf11.kampanjkatalog('kamp-b') / 'REGISTER.json').write_text('{trasig')  # oläsbart register i B
+assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)) == 2
+assert (tmp / 'underlag' / 'delad3' / 'x.txt').is_file() and (pf11.kampanjkatalog('kamp-a') / 'REGISTER.json').read_text() == fore14, 'läsfel i B får inte tolkas som frånvaro; inget får ändras (F35)'
+kampanj13('kamp-b', [{'slug': 'delad3', 'peOrgNr': '3', 'status': 'kund', 'skapad': gammal35, 'uppdaterad': gammal35}])
+(pf11.kampanjkatalog('kamp-b') / 'KAMPANJ.json').write_text('')  # tom kampanjbeskrivning: kampanjen finns ändå
+assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)) == 0
+assert (tmp / 'underlag' / 'delad3' / 'x.txt').is_file(), 'en kampanj utan läsbar KAMPANJ.json räknas ändå (F35)'
+(pf11.kampanjkatalog('kamp-a') / 'REGISTER.json').write_text('{trasig')
+assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)) == 2 and (pf11.kampanjkatalog('kamp-a') / 'REGISTER.json').read_text() == '{trasig', 'det egna registret skrivs inte över när det inte går att läsa (F35)'
+print('R14 F35 strikt inventering ok')
+
+# F33: ofullständiga deklarerade tabeller är parserfel; GPS i något EXIF-objekt gäller för filen
+ifd_kort = b'II*\x00' + struct.pack('<I', 8) + struct.pack('<H', 2) + struct.pack('<HHII', 0x0110, 2, 4, 0)  # deklarerar två poster, har en
+for block14, vad14 in ((ifd_kort, 'en deklarerad post som saknas'), (b'II*\x00' + struct.pack('<I', 400), 'IFD-pekare utanför blocket')):
+    try:
+        bd.exif(block14); raise AssertionError('%s ska ge parserfel (F33)' % vad14)
+    except ValueError:
+        pass
+assert bd.avif_metadata(avif_ext([(b'Exif', [b'\x00\x00\x00\x00' + ifd_kort], None)]))[0] == 'oklar'
+jpg14 = b'\xff\xd8\xff\xe1' + struct.pack('>H', len(b'Exif\x00\x00' + ifd_kort) + 2) + b'Exif\x00\x00' + ifd_kort + b'\xff\xd9'
+(d33 / 'kort.jpg').write_bytes(jpg14)
+assert any(x['punkt'] == '4.2' and x['sida'] == '/kort.jpg' and 'verifieras' in x['text'] for x in sk.granska(d33)[0]), 'ofullständig tabell i JPEG ska ge 4.2 (F33)'
+assert bd.datum(d33 / 'kort.jpg')['kalla'] != 'EXIF DateTimeOriginal', 'datumet tål parserfel'
+gps_tiff = b'\x00\x00\x00\x00' + tiff33
+for ordning14 in ([(b'Exif', [gps_tiff], None), (b'Exif', [exif_rent], None)], [(b'Exif', [exif_rent], None), (b'Exif', [gps_tiff], None)]):
+    lage14, blk14 = bd.avif_metadata(avif_ext(ordning14)); assert lage14 == 'tiff' and bd.exif(blk14).get('gps'), 'GPS i något EXIF-objekt ska gälla (F33)'
+    (d33 / 'jobb.avif').write_bytes(avif_ext(ordning14))
+    assert any(x['punkt'] == '4.2' and x['sida'] == '/jobb.avif' for x in sk.granska(d33)[0]), 'GPS-objekt före eller efter ett rent objekt ska ge 4.2 (F33)'
+print('R14 F33 strikt parser ok')
+
+# F36: frågesträngen ingår i målidentiteten; återförsöket använder samma värden och samma målkorrelation
+rot14 = tmp / 'sajt14'; (rot14 / 'tack').mkdir(parents=True); (rot14 / 'tack' / 'index.html').write_text(tack13)
+(rot14 / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>t</title></head><body><h1>Hej</h1><form action="/api?op=send" method="post"><input name="kod" type="text" pattern="\\d{3}" required><button type="submit">Skicka</button></form>'
+                                  '<script>document.querySelector("button").addEventListener("click", () => { fetch("/api?op=analytics", {method: "POST", body: "x"}).catch(() => {}); });</script></body></html>')
+srv14, bas14 = server(rot14, functools.partial(Mottagare13, directory=str(rot14)))
+Mottagare13.poster.clear()
+r14 = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'utforska.mjs'), '--adress', bas14 + '/', '--ut', str(tmp / 'ut14'), '--max-sidor', '1', '--formular-far-skickas', '--testmarkering', 'NWP-PROV'],
+                     capture_output=True, text=True, cwd=str(ROOT), env={k_: v_ for k_, v_ in os.environ.items() if k_ != 'NWP_SLUG'}, timeout=300)
+uf14 = json.loads((tmp / 'ut14' / 'UTFORSKNING.json').read_text()); form14 = [f_ for s_ in uf14.get('sidor', []) for f_ in (s_.get('formular') or [])]
+assert form14 and not form14[0].get('skickat') and form14[0]['mal']['url'].endswith('/api?op=send'), (form14, r14.stderr[-300:])
+assert any(v_ == '/api?op=analytics' for v_, _ in Mottagare13.poster) and not any(v_ == '/api?op=send' for v_, _ in Mottagare13.poster), Mottagare13.poster
+srv14.shutdown()
+rot14b = tmp / 'sajt14b'; (rot14b / 'tack').mkdir(parents=True); (rot14b / 'tack' / 'index.html').write_text(tack13)
+(rot14b / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>t</title></head><body><h1>Hej</h1><form action="/api/forfragan" method="post"><input name="telefon" type="tel" pattern="[0-9+\\-\\(\\) ]{6,40}" required><button type="submit">Skicka</button></form></body></html>')
+srv14b, bas14b = server(rot14b, functools.partial(Mottagare13, directory=str(rot14b)))
+Mottagare13.poster.clear()
+r14b = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'utforska.mjs'), '--adress', bas14b + '/', '--ut', str(tmp / 'ut14b'), '--max-sidor', '1', '--formular-far-skickas', '--testmarkering', 'NWP-PROV'],
+                      capture_output=True, text=True, cwd=str(ROOT), env={k_: v_ for k_, v_ in os.environ.items() if k_ != 'NWP_SLUG'}, timeout=300)
+uf14b = json.loads((tmp / 'ut14b' / 'UTFORSKNING.json').read_text()); form14b = [f_ for s_ in uf14b.get('sidor', []) for f_ in (s_.get('formular') or [])]
+assert form14b and form14b[0].get('skickat') and form14b[0]['dubbelt'] == {'post_antal': 1, 'identiska_uppgifter': True}, (form14b, r14b.stderr[-300:])
+kroppar14 = [k_ for v_, k_ in Mottagare13.poster if v_ == '/api/forfragan']
+assert len(kroppar14) == 2 and kroppar14[0] == kroppar14[1], 'återförsöket ska skicka samma uppgifter (F36): %s' % kroppar14
+srv14b.shutdown()
+print('R14 F36 återförsök och mål ok')
+
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

@@ -55,6 +55,33 @@ def las_register(kampanj):
     return las_json(kampanjkatalog(kampanj) / 'REGISTER.json') or []
 
 
+class RegisterFel(Exception):
+    """Ett register eller en kampanjkatalog som inte går att läsa säkert."""
+
+
+def las_register_strikt(kampanj):
+    """Registret, eller RegisterFel när filen finns men inte går att läsa eller inte är en lista: ett läsfel får aldrig
+    tolkas som 'inga poster' när gallringen frågar om kundrelationer (omgång fjorton, F35)."""
+    p = kampanjkatalog(kampanj) / 'REGISTER.json'
+    if not p.exists():
+        return []
+    try:
+        d = json.loads(p.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        raise RegisterFel('%s går inte att läsa: %s' % (p, e))
+    if not isinstance(d, list):
+        raise RegisterFel('%s är inte en lista' % p)
+    return d
+
+
+def kampanjkataloger_strikt():
+    """Alla kampanjkataloger under underlag/prospekt, med eller utan läsbar KAMPANJ.json: inventeringen inför gallring
+    får inte utelämna en kampanj för att dess beskrivning är trasig (omgång fjorton, F35)."""
+    if not PROSPEKT.is_dir():
+        return []
+    return sorted(d.name for d in PROSPEKT.iterdir() if d.is_dir() and KAMPANJ_ID.match(d.name))
+
+
 def skriv_register(kampanj, muterare):
     """Lås, läs, låt muterare(poster) ändra listan på plats (eller returnera en ny), skriv, släpp. Returnerar listan."""
     kdir = kampanjkatalog(kampanj)

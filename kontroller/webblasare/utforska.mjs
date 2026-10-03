@@ -4,7 +4,7 @@
 // testmarkering; annars provas bara klientvalidering. Fynd blir regressionsprov (REGRESSION.json) som kan köras om.
 //   node utforska.mjs --adress URL --ut DIR [--max-sidor 15] [--vy 390|1440] [--tillat ORIGIN;…] [--undantag-fil F]
 //        [--formular-far-skickas --testmarkering "TEST nortropic"] [--regression REGRESSION.json]
-import { args, oppna, origin, horisontellSpill, tangentbord, skriv, nu, lasUndantag, hemligheter } from './gemensamt.mjs';
+import { redigeraUrl, args, oppna, origin, horisontellSpill, tangentbord, skriv, nu, lasUndantag, hemligheter } from './gemensamt.mjs';
 
 // Fält som en människa ser och når: hoppar över honeypots (aria-hidden-förfader, tabindex=-1, utanför synfältet eller
 // osynliga). Verktyget ska pröva formuläret som en besökare, inte som en robot (fynd ur slutprovet HELHET-20260927:
@@ -74,16 +74,22 @@ async function provaFormular(url, i) {
   if (farSkicka) {
     // giltiga värden per fälttyp, annars stoppar klientvalideringen (mallens telefonmönster) inskicket (omgång tretton, F36)
     const GILTIGT = { email: 'test@example.com', tel: '070-123 45 67', url: 'https://example.invalid', number: '1', date: '2026-01-01' };
-    for (const f of falt) { const typ = ((await f.getAttribute('type')) || 'text').toLowerCase(); await f.fill(GILTIGT[typ] || (markering + ' ' + UNICODE)).catch(() => null); }
+    const vardeFor = async (f) => GILTIGT[((await f.getAttribute('type')) || 'text').toLowerCase()] || (markering + ' ' + UNICODE);
+    const fyll = async (lista) => { const ut = []; for (const f of lista) { const v = await vardeFor(f); ut.push(v); await f.fill(v).catch(() => null); } return ut; };
+    const varden1 = await fyll(falt);
     // formulärets effektiva mål (action/method, med skickaknappens formaction/formmethod): bara POST dit räknas som inskick
     const mal = await form.evaluate((el, sel) => { const k = el.querySelector(sel); return { action: k?.hasAttribute('formaction') ? k.formAction : el.action, method: ((k?.hasAttribute('formmethod') ? k.formMethod : el.method) || 'get').toLowerCase() }; },
       'button[type=submit], input[type=submit], button:not([type])').catch(() => ({ action: null, method: 'get' }));
-    const malUrl = mal.action ? String(mal.action).split('#')[0].split('?')[0] : null;
+    // målidentiteten behåller frågesträngen (/api?op=send är inte /api?op=analytics) och redigeras som nätloggen, så att
+    // jämförelsen sker på samma form (omgång fjorton, F36)
+    const malId = mal.action ? redigeraUrl(String(mal.action).split('#')[0]) : null;
+    const malUrl = malId;
+    const arInskick = (x) => x.metod === 'POST' && malId && mal.method === 'post' && String(x.url).split('#')[0] === malId;
     r.mal = { url: malUrl, method: mal.method };
     const svarFore = b.logg.natverk.length;
     await klickSubmit(); await page.waitForTimeout(1200);
     const alla = b.logg.natverk.slice(svarFore).filter(x => x.metod === 'POST');
-    const nya = alla.filter(x => malUrl && mal.method === 'post' && String(x.url).split('#')[0].split('?')[0] === malUrl);
+    const nya = alla.filter(arInskick);
     r.post = nya.map(x => ({ url: x.url, status: x.status, fel: x.fel })); r.andra_post = alla.length - nya.length;
     r.skickat = nya.some(x => x.status !== null);  // observerat svar från formulärets mottagare, inte knapptryckningen eller andra anrop (omgång tolv och tretton, F36)
     const besked = await page.evaluate(() => document.body.innerText.slice(0, 4000));
@@ -92,12 +98,13 @@ async function provaFormular(url, i) {
     // dubbelt inskick: samma uppgifter en gång till (återförsök); mottagaren ska inte skapa ett andra ärende
     await page.goto(url, { waitUntil: 'load' }).catch(() => null);
     const form2 = page.locator('form').nth(i); const falt2 = await manskligaFalt(form2);
-    for (const f of falt2) { const typ = await f.getAttribute('type'); await f.fill(typ === 'email' ? 'test@example.com' : (markering + ' ' + UNICODE)).catch(() => null); }
+    const varden2 = await fyll(falt2);  // samma värden och samma målkorrelation som första försöket (omgång fjorton, F36)
     const submit2 = form2.locator('button[type=submit], input[type=submit], button:not([type])').first();
+    const svarFore2 = b.logg.natverk.length;
     if (await submit2.count()) { await submit2.click({ timeout: 5000, noWaitAfter: true }).catch(() => null); await page.waitForTimeout(1000); }
-    const nya2 = b.logg.natverk.slice(svarFore).filter(x => x.metod === 'POST');
-    r.dubbelt = { post_antal: nya2.length, identiska_uppgifter: true };
-    if (nya2.length > nya.length) lagg('observation', url, 'ett återförsök med identiska uppgifter gav ytterligare POST — mottagaren måste hantera dubbletter (integrationer.md)', { steg: ['skicka formuläret', 'gå tillbaka och skicka samma uppgifter igen'] }, { form: i });
+    const nya2 = b.logg.natverk.slice(svarFore2).filter(arInskick);
+    r.dubbelt = { post_antal: nya2.length, identiska_uppgifter: JSON.stringify(varden1) === JSON.stringify(varden2) };
+    if (nya2.length > 0 && r.dubbelt.identiska_uppgifter) lagg('observation', url, 'ett återförsök med identiska uppgifter gav ytterligare POST — mottagaren måste hantera dubbletter (integrationer.md)', { steg: ['skicka formuläret', 'gå tillbaka och skicka samma uppgifter igen'] }, { form: i });
   }
   r.konsolfel = b.logg.konsol.slice(konsolFore).filter(x => x.typ === 'error').length;
   return r;

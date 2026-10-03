@@ -126,7 +126,7 @@ def avif_metadata(data):
     med GPS-fält finns. Omgång elva, F33: AVIF hoppades över trots att byggstandarden rekommenderar formatet."""
     if data[4:8] != b'ftyp':
         return 'ingen', None
-    tiff, oklar = None, None
+    tiffs, oklar = [], None  # alla EXIF-objekt: ett senare rent objekt får inte dölja ett tidigare med GPS (omgång fjorton, F33)
     for iid, post in avif_poster(data).items():
         if post.get('typ') not in (b'Exif', b'mime'):
             continue
@@ -156,16 +156,19 @@ def avif_metadata(data):
         kandidat = block[4 + skift:]
         if kandidat[:2] in (b'II', b'MM'):
             try:  # ett deklarerat block som inte går att tolka är inte rent (omgång tretton, F33)
-                exif(kandidat)
+                info = exif(kandidat)
             except Exception:  # noqa: BLE001
                 oklar = 'EXIF-blocket går inte att tolka (trunkerat eller skadat)'
                 continue
-            tiff = kandidat
+            tiffs.append((bool(info.get('gps')), kandidat))
         else:
             oklar = 'EXIF-objektet saknar TIFF-huvud'
     if oklar:  # GPS i XMP eller overifierbar metadata väger tyngre än ett rent EXIF-block i samma fil (omgång tolv, F33)
         return 'oklar', oklar
-    return ('tiff', tiff) if tiff is not None else ('ingen', None)
+    if not tiffs:
+        return 'ingen', None
+    med_gps = [t for gps, t in tiffs if gps]  # GPS i något av objekten gäller för hela filen
+    return 'tiff', (med_gps[0] if med_gps else tiffs[0][1])
 
 
 def exif(tiff):
@@ -176,17 +179,19 @@ def exif(tiff):
 
     def ifd(offset):
         ut = {}
-        if offset + 2 > len(tiff):
-            return ut
+        if offset + 2 > len(tiff):  # en ofullständig deklarerad tabell är ett parserfel, inte en tom tabell (omgång fjorton, F33)
+            raise ValueError('IFD-pekaren %d ligger utanför blocket (%d byte)' % (offset, len(tiff)))
         n = struct.unpack(e + 'H', tiff[offset:offset + 2])[0]
         for k in range(n):
             p = offset + 2 + 12 * k
             if p + 12 > len(tiff):
-                break
+                raise ValueError('IFD:n deklarerar %d poster men blocket slutar efter %d' % (n, k))
             tagg, typ, antal = struct.unpack(e + 'HHI', tiff[p:p + 8])
             varde = tiff[p + 8:p + 12]
             if typ == 2:  # ASCII
                 start = struct.unpack(e + 'I', varde)[0] if antal > 4 else p + 8
+                if start + antal > len(tiff):
+                    raise ValueError('ASCII-värdet för tagg %#x ligger utanför blocket' % tagg)
                 ut[tagg] = tiff[start:start + antal].split(b'\x00')[0].decode('ascii', 'replace').strip()
             elif typ == 4:
                 ut[tagg] = struct.unpack(e + 'I', varde)[0]
@@ -201,7 +206,7 @@ def exif(tiff):
 def datum(fil):
     try:
         e = exif(tiff_block(Path(fil).read_bytes()))
-    except (OSError, struct.error, IndexError):
+    except (OSError, struct.error, IndexError, ValueError):  # datumet är en upplysning; ett parserfel lämnar det okänt
         e = {}
     norm = lambda s: re.sub(r'^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}).*$', r'\1-\2-\3 \4:\5', s)  # noqa: E731
     if e.get('original') and re.match(r'\d{4}:\d{2}:\d{2}', e['original']):

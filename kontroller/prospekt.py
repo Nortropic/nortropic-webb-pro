@@ -840,20 +840,27 @@ def gallra(a):
                 else:
                     kvar.append(p)
             return kvar
+        # underlag/<slug> är gemensamt för hela repot: har en annan kampanj posten kvar (kund eller aktiv prospektpost) tas
+        # bara kampanjposten bort, aldrig materialet (omgång tretton, F35: gallring av A raderade B:s kundunderlag).
+        # Inventeringen är strikt och görs före varje ändring: ett register eller en kampanj som inte går att läsa är en
+        # okänd referensstatus, och då raderas inget och inget register skrivs (omgång fjorton, F35)
+        andra = {}
+        try:
+            pf.las_register_strikt(kid)
+            for k2 in pf.kampanjkataloger_strikt():
+                if k2 == kid:
+                    continue
+                for p2 in pf.las_register_strikt(k2):
+                    if isinstance(p2, dict) and p2.get('slug') and not p2.get('gallrad'):
+                        andra.setdefault(p2['slug'], []).append((k2, p2.get('status')))
+        except pf.RegisterFel as e:
+            print('%s: gallringen avbruten, referensstatus okänd: %s' % (kid, e), file=sys.stderr)
+            return 2
         if a.torr:
             poster = pf.las_register(kid)
             mut(poster)
         else:
             pf.skriv_register(kid, mut)
-        # underlag/<slug> är gemensamt för hela repot: har en annan kampanj posten kvar (kund eller aktiv prospektpost) tas
-        # bara kampanjposten bort, aldrig materialet (omgång tretton, F35: gallring av A raderade B:s kundunderlag)
-        andra = {}
-        for k2 in pf.kampanjer():
-            if k2['id'] == kid:
-                continue
-            for p2 in pf.las_register(k2['id']) or []:
-                if p2.get('slug') and not p2.get('gallrad'):
-                    andra.setdefault(p2['slug'], []).append((k2['id'], p2.get('status')))
         ofullst, delade = [], []
         for slug in bort + krympta:
             if a.torr:
