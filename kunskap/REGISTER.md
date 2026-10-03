@@ -5763,3 +5763,100 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · AI LABS, "Insane GitHub Repos That 10x Your Codex And Claude Code Setup" (YouTube Ua0APTMVcb8) + edonadei/caliper · prova
+- Källa: https://www.youtube.com/watch?v=Ua0APTMVcb8 @ publicerad 2026-09-14 (AI LABS, 12:39, 68 243 visningar,
+  autogenererat engelskt transkript, sponsrad av Manufact [TAL 05:52–06:52; SKÄRM 05:52–06:46] och med länk till
+  kanalens betalgemenskap och nyhetsbrev [BESKRIVNING]). Läst och sett: hela tidslinjen och alla 41 bildrutor; femton
+  är animerade illustrationer, resten inspelningar av terminal, GitHub, VS Code och webbläsare. Åtta repon i
+  beskrivningen, sex klonade och förgranskade: reticlehq/reticle @ 9dc4307 (Apache-2.0 för SDK, FSL-1.1 för server
+  och CLI; 1 152 stjärnor), JayPokale/Chisle @ c200401 (MIT, 594), ibelick/ui-skills @ ebf5f26 (MIT, 9 358),
+  Q00/ouroboros @ dfc5307 (MIT, 6 176), edonadei/caliper @ 0f94c3f (MIT, 202, senast pushat 2026-10-03),
+  dmmulroy/anti-slop @ c44ef22 (MIT, 5 126); commit ur klonernas `.git/shallow`. img2threejs/img2threejs (Apache-2.0,
+  17 437) och FloWritesCode/fwc-swiftui-skills (MIT) bara README via `gh repo view`. Läst i caliper: README,
+  `skills/grill-skill/SKILL.md`, `skills/evaluate-skill/SKILL.md`, `docs/spec-reference.md`, `docs/adr/0027`; i
+  reticle: README, `docs/frameworks.mdx`, `skills/verify-form-validation/SKILL.md`,
+  `skills/verify-keyboard-access/SKILL.md`; i ui-skills: README och alla sju SKILL.md; i ouroboros: README rad
+  1–460; i Chisle och anti-slop: README. Inga demosajter öppnade (img2threejs.io, ui-skills.com, docs.reticle.sh).
+  Ägarens not: hittad av spanaren via RSS, matchade agent, claude code, mcp
+- Steg: 6 (prov) och arbetssättet runt stegen: verktygslådan (bygg-sajt rad 49–51), backlog-skillens mikroprov
+  (steg 4, rad 51–57) och kirurgens "prova A/B" (rad 159–163)
+- Jämfört med i dag: åtta repon, sak för sak. (1) **Caliper**: kör en skill i riktig agent med och utan, k försök
+  per uppgift, framgång per enskild körning, en egen tavla för om skillen alls aktiverades, ablation som kontroll,
+  domare på annan modell, tokens och tid per försök, JSON att diffa [REPO README rad 39–82, 392–407;
+  `docs/spec-reference.md` rad 165–183]. Vi: ab.py bygger samma verksamhet två gånger och ägaren väljer blint
+  (`kontroller/ab.py` rad 2–4), och backlog-skillens mikroprov kör minst fem subagenter per arm med hela skillen som
+  sammanhang och en annan modell som blind domare (`.claude/skills/backlog/SKILL.md` rad 51–57; använt i L4 och L6,
+  `LARDOMAR.md` rad 129, 178). Samma princip, men två mått vi saknar: skillen klistras in i prompten, så provet
+  säger inget om bygget någonsin väljer den ur beskrivningen; och verktygslådans nio skills
+  (`.claude/skills/*/KALLA.md`) har aldrig mätts med och utan. Caliper installerar skillen där agenten letar och
+  mäter aktiveringen för sig, "Fires" skilt från "Works" och "Earns" [REPO `skills/evaluate-skill/SKILL.md` rad
+  21–30]. Smartare för det vi redan gör för hand; kostar ett Python-paket och Claude Code-anrop ur kvoten. Videons
+  eget belägg visar ett försök med `successes 0, unusable 1, score null` [SKÄRM 11:03]: mätningen gav inget den
+  gången. (2) **Reticle**: SDK i appen under utveckling, MCP-server via npx, verdikt ja/nej/vet inte med fil och
+  rad [REPO README rad 10–12, 206–258]; stödjer Astro med Vite-plugin och ett script i sidhuvudet [REPO
+  `docs/frameworks.mdx` rad 29, 88–124]. Vi: provet bygger, serverar dist och kör axe, Lighthouse, standard, spill
+  och läsbarhet utan JS (`kontroller/prova.py` rad 6–19), och formuläret prövas mot provets lokala mottagare
+  (bygg-sajt rad 55–56). Våra sajter har inget klienttillstånd, inget nätverk utom formulärets POST och 0 kB JS
+  (`LARDOMAR.md` rad 31, 56, 87); det Reticle ser (store, dubbla anrop, React-commit) finns inte i dem. En sak att ta
+  med utan verktyget: webbläsarens egen validering kan maskera appens [REPO `skills/verify-form-validation/SKILL.md`
+  rad 17–19], vilket var L4:s telefonfält (`LARDOMAR.md` rad 115), redan rättat i mallen (0ba099e). Tab-ordning kan
+  verktyget inte pröva [REPO `skills/verify-keyboard-access/SKILL.md` rad 17–19]. Sämre för oss: en SDK i sajtkoden,
+  telemetri på som standard [README rad 315], curl | sh. (3) **Chisle**: kortare svar, YAGNI, hookar som
+  komprimerar verktygsutdata [REPO README rad 28, 80–117]. Samma genre som caveman och ponytail, båda nej med
+  ägarens medhåll (`kunskap/KIRURG-OMDOMEN.md` rad 135–138, 170–173; skälet i REGISTER rad 1296–1302). Kvalitet går
+  före tokens (ägaren 2026-10-02), och en krok som klipper verktygsutdata rör det bygget läser ur provet. Sämre.
+  (4) **ui-skills**: en registersajt med CLI och MCP som hämtar skills från olika författare vid behov, plus sju
+  egna [REPO README rad 9–28; `skills/*/SKILL.md`]. Vi: kirurgen bedömer varje källa, kopian får KALLA.md och
+  förgranskas (backlog-skillen rad 40–46), och bygget laddar inga anslutningar (`kor.sh` rad 110–111). En router som
+  drar in obedömda skills i bygget krockar med det. De egna: baseline-ui kräver Tailwind, motion/react och cn [REPO
+  `skills/baseline-ui/SKILL.md` rad 23–26], vilket vår Astro-mall utan JS inte har; fixing-accessibility,
+  fixing-metadata och fixing-motion-performance täcks av better-accessibility i verktygslådan, byggstandarden 7.x och
+  axe och seo_kontroll i provet; improve-ui och create-design-md är skrivna för produktrepon med tokens och
+  designsystem. Videons resultat OFFCUT är en fiktiv modebutik med tomma rutor [SKÄRM 05:52]. Lika eller sämre.
+  (5) **Ouroboros**: intervju, oföränderlig spec, bygge, trestegsgrind, evolution; MCP-server via uvx, hookar vid
+  sessionsstart och prompt, curl | sh [REPO README rad 49–59, 367–391; förgranskningen]. Vi: steg 1–3 är intervjun
+  utan människa med `antagande` och BESTALLNING.md (bygg-sajt rad 20–24), granskarna och stoppvakten är grinden.
+  Principen att byggaren inte ser domarens kriterier [TAL 07:45] har vi redan genom två oberoende granskare i egna
+  sessioner. Ett helt annat operativsystem för appbyggen; "en dom blir en textändring, inte en ny mekanik"
+  (`CLAUDE.md` rad 29). Sämre för oss. (6) **img2threejs**: ett Three.js-objekt ur en bild, byggt i etapper med egen
+  bildjämförelse [README; SKÄRM 00:59, 01:17]; demon är en svart jeep på 53 808 trianglar [SKÄRM 01:35], galleriet
+  CS2-vapen och Pikachu [README]. Krockar med 0 kB JS, prestanda ≥ 90 och verksamhetens egna bilder. Nej.
+  (7) **fwc-swiftui-skills**: iOS 26 och iPhone Duo [README]. Inte webb. (8) **anti-slop**: Oxlint-regler för
+  TypeScript [REPO README rad 5–9, 107–120]; vår mall har tre ts/mjs-filer (`mall/astro/`) och sajterna ingen
+  klient-JS. Nej. Mot litteraturen: `kunskap/teoretisk-grund.md` rad 20 räknar provets verktyg och granskarna som
+  utvärderingen av sajten; Caliper tillför en mätmetod för våra egna instruktioner, inte för sajten
+- Skäl: videon är en rundtur som säljer "10x" utan belägg, och sju av åtta repon är för appar med klienttillstånd,
+  för iOS, för React och Tailwind eller för en genre ägaren redan sagt nej till. Det enda som är smartare än vårt
+  sätt är Caliper: det vi gör för hand i backlog-skillens mikroprov, med två mått vi saknar, om skillen aktiveras
+  alls och vad den tillför mot kontrollen, och kvitton i JSON. Det syns först när ett mikroprov körs på båda sätten,
+  så prova, inte ta in: det är ett Python-paket som kör Claude Code ur kvoten, försöken är ingen säkerhetsgräns [REPO
+  `docs/adr/0027` rad 3–8], och våra skills behöver repots kunskapsfiler som fixtur. Källkritik: sponsor,
+  betalgemenskap och nyhetsbrev; Chisles och Calipers siffror är författarnas egna; videons Caliper-körning visar
+  ett oanvändbart försök [SKÄRM 11:03]; bildruta 02:49 är en annan av kanalens videor. Instruktioner till agenter:
+  Chisle har sex BOM-tecken mitt i hook- och inställningsskript (förgranskningen HÖG), Reticle femton ställen "do not
+  tell the user" i installationsskill och kod, Ouroboros åtta; inget av det lästes som instruktion. Inget kört,
+  installerat eller fört vidare
+- Kostnad: vid prövning ett Python-paket (`caliper-eval`) i en egen venv eller pipx, en specfil per prövad skill,
+  och k × uppgifter Claude Code-försök ur kvoten (k=3 och tre uppgifter = nio försök plus nio domaranrop per arm);
+  grill-skill 64 tokens alltid och 1 884 vid användning, evaluate-skill 76 och 1 808, tas inte in i verktygslådan nu.
+  Övriga sju: inget tas in
+- Säkerhet: caliper MEDEL, inga dolda tecken, ett ställe "exfiltrat" i en ADR om att försöket inte är en
+  säkerhetsgräns (läst i sitt sammanhang: en designanteckning), allowed-tools Bash respektive Bash/Read/Write/Edit
+  i de två skillsen, inga hookar, eval/exec i harness och skillfetch, nätanrop bara i hermes-harness, curl | sh i
+  `docs/backends.md`. reticle HÖG (2 611 skript, MCP-server npx i plugin, femton texter till agenter), Chisle HÖG
+  (sex BOM mitt i text, tre hookar), ouroboros HÖG (hookar UserPromptSubmit, SessionStart, PostToolUse, MCP via uvx,
+  åtta texter till agenter), ui-skills MEDEL (OAuth- och MCP-server i sajten), anti-slop MEDEL
+- Förslag: prova i nästa dompost som ändrar en verktygslådeskill eller en text i bygg-sajt: samma mikroprov som
+  backlog-skillen steg 4 beskriver körs en gång för hand och en gång med Caliper (`<skill>.eval.yaml` bredvid
+  skillen, `user_customizations: false`, `setup:` kopierar de kunskapsfiler uppgiften behöver, tre uppgifter, k=3,
+  `--ablate <skill>`, `--judge-model` på en annan modell än byggarens). Jämförs: samma dom i båda, om Caliper visar
+  att skillen aktiveras ur sin beskrivning, tokens och tid för de två sätten. Faller Caliper väl ut blir
+  backlog-skillens steg 4 ett stycke som pekar på specfilen och kommandona, och kopian av evaluate-skill utan
+  allowed-tools går in i verktygslådan för sessioner som ändrar skills. Egen innovation, egen post: räkna i
+  `kunder/<slug>/korning-*.jsonl` vilka av verktygslådans skills bygget faktiskt anropade (tool_use med namnet
+  Skill) och visa det i ab.py:s mått och dashboardens handlingar; dashboarden läser redan tool_use men inte fältet
+  skill (`dashboard/server.py` rad 219–222)
+- Utfall: —
+- Backlog: B-20261003-prova-caliper-mot-handmikroprovet-samma-domandri; egen innovation
+  B-20261003-rakna-i-korning-jsonl-vilka-av-verktygsladans-sk
