@@ -4706,3 +4706,66 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Ilm-Alan/frontend-design · nej
+- Källa: https://github.com/Ilm-Alan/frontend-design @ f8966e6 (ur klonens `.git/shallow`; `git log` nekades av
+  behörigheten; senaste push 2026-09-26, skapat 2026-01-11, 130 stjärnor, 19 förgreningar, inte arkiverat), MIT
+  (LICENSE.txt). Hela repot läst: tre filer, SKILL.md (116 rader), README.md och LICENSE.txt; inga bilder, ingen demo,
+  inga skript. Förgranskat. Ägarens not: hittad av spanaren 2026-10-03 via Frontend design-skills på GitHub
+- Steg: 5 (5.1 riktning, 5.3 bygg, 5.5 Titta); i arbetssättet verktygslådan (`.claude/skills/bygg-sajt/SKILL.md` rad
+  49–51)
+- Jämfört med i dag: (1) **Riktningen.** Källan: åtta "ankare" (Swiss, Industrial, Brutalist, Aurora, Chaotic,
+  Retro-Futuristic, Organic, Lo-Fi), var och ett låst till bestämda hex, typsnitt och texturer; bygget väljer ett per
+  brief och ska "luta mot det oväntade": skivbolag i Swiss, florist i Industrial, advokatbyrå i Chaotic [REPO SKILL.md
+  rad 8, 19, 21, 46]. Vi: fyra riktningar "härledda ur verksamheten själv (deras bilder, material, plats, ton) och
+  referenserna, aldrig ur en branschmall" (bygg-sajt rad 235–236), "Kopiera aldrig layout, palett eller typsnitt"
+  (rad 301; `kunskap/referenser-professionella.md` rad 61). Ägaren valde gult och svart ur Sundboms ordmärke
+  (`LARDOMAR.md` rad 89) och rödfärgen ur husen på bilderna (rad 41, 147); senaste byggets visuella tes kommer ur
+  tårtkartongen, gubben och tårtpapperet (`underlag/holms-konditori-abx/KONCEPT.md` rad 9–10). Anthropics
+  frontend-design, som steg 5 läser, säger att det distinkta kommer ur ämnets material och vokabulär
+  (`kunskap/externa/anthropic-frontend-design-SKILL.md` rad 13). Källan vänder på det: stilen väljs först, ur en
+  katalog, och det oväntade är målet i sig. Samma katalogmekanism som ui-ux-pro-max (bransch → stil, REGISTER rad
+  1390–1396; ägaren höll med om nej, `kunskap/KIRURG-OMDOMEN.md` rad 145–147) och garden-skills stilrecept (rad
+  2974–2985), bara åtta poster i stället för 25 eller 57. Sämre, och krockar med ett medvetet val. (2) **Tokens.**
+  Ankarnas låsta typsnitt är modellernas standardval som `kontroller/upptagna_val.py` (rad 37–39) ska hålla bygget
+  borta från: Helvetica (Swiss, Brutalist), IBM Plex Mono och Space Mono (Industrial, Retro), Inter (Aurora), Fraunces
+  (Organic) [REPO rad 50, 56, 62, 68, 80, 86]; Industrial är AI-standard 2, nära svart med en syragrön accent
+  (anthropic rad 40; upptagna_val rad 28) [REPO rad 56]. Sämre. (3) **Rörelse och textur.** Aurora kräver
+  fjäderfysik, skrollparallax och neonglöd, Organic "breathing animations" på första vyn, Retro CRT-linjer och
+  kromatisk aberration, Lo-Fi roterade element och felregistrerad text [REPO rad 68, 80, 86, 92]. Vi: ingen
+  JavaScript som inte behövs (bygg-sajt rad 262), 0 kB JS i de dömda byggena (`LARDOMAR.md` rad 31, 56, 87),
+  byggstandarden 3.5 och 3.7 (`kunskap/byggstandard.md` rad 50, 52), senaste KONCEPT.md: "Rörelse: ingen" (rad 110).
+  Krock. (4) **Litteraturen.** Chaotic Maximalism bryter om "coherent palette, single typeface, whitespace as
+  structural element" uppträder [REPO rad 76]; Brutalist kräver "margins crushed" [rad 62]. Det är motsatsen till
+  CRAP och Gestaltlagarna (`kunskap/teoretisk-grund.md` rad 62–64), heuristik 8 (rad 124–126) och dimension 4
+  (referenser-professionella rad 24–25); monospace som brödtext och text med färgförskjutning drar mot läsbarheten
+  och kontrasten. Inget ankare säger något om hierarki, radlängd eller mobil. Sämre än litteraturen, utan belägg.
+  (5) **Innehållsdisciplinen.** Källans §2: inga påhittade data, inga utfyllnadsetiketter i monoversaler eller
+  `//`-kickers, standardtext för standardhandlingar, inga unicodetecken som ikoner, "AI-slop register" [REPO rad
+  30–40]. Vi: "Hitta aldrig på fakta" och Belägg-raden per mening (bygg-sajt rad 20–21, 191–195), anthropic rad 25–28
+  och 43 (versaletiketter, eyebrows, monospace-etiketter, pil efter länktext), upptagna_val rad 31 och 33, granskarens
+  originalitetskriterium (`kritik/GRANSKARE.md` rad 86–90), better-writing för knapptexter. Lika i sak; källans
+  version är kortare och gäller appar med inloggning och telemetri. (6) **Differentiator och "Breaks if".** En
+  minnesvärd rörelse per bygge [REPO rad 20] är vår Motiv-rad (bygg-sajt rad 239–240) och anthropics "spend your
+  boldness in one place" (rad 59). Att varje ankare namnger vad som bryter det [rad 52, 58, 64 …] och prövas före
+  leverans [rad 111–115] motsvarar vår exakta specifikation i KONCEPT.md (rad 245–247), stilrapporten och dimension 8
+  (referenser-professionella rad 30), som fått Bra i alla sex domarna. Lika. (7) **Hybridförbud.** "Swiss with
+  Brutalist edge" kallas kategorifel [REPO rad 24]. Senaste bygget valde en riktning och lånade medvetet ur två
+  andra efter domarpanelens skäl (KONCEPT.md rad 12–23). Krock, och källan ger inget belägg
+- Skäl: en ren textskill utan skript och med öppen licens, men dess kärna är en stilkatalog där riktningen väljs före
+  verksamheten och det oväntade är poängen [REPO SKILL.md rad 8, 19]. Det är motsatsen till "Bara de har" och till hur
+  ägaren valt i varje dom: färg ur ordmärket, husen och tårtkartongen. Tokens som låses är till stor del de
+  AI-standardval vi redan mäter bort, och tre av åtta ankare förutsätter animationer och effekter som krockar med 0 kB
+  JS, byggstandarden 3.5 och 3.7. Två ankare säger emot Gestaltlagarna och heuristik 8 utan belägg. Det sakliga,
+  innehållsdisciplinen och "en minnesvärd rörelse", har vi redan med fil och rad. Som skill i verktygslådan skulle
+  beskrivningen "Use when building or restyling a frontend" [REPO rad 3] göra att den väljs i varje steg 5 och
+  styr riktningen åt fel håll. Källkritik: repot säljer inget, men visar inget heller: inga skärmbilder, ingen demo,
+  inga resultat; 130 stjärnor är räckvidd. Inga instruktioner riktade till agenter; README:s installationsrader är
+  dokumentation
+- Kostnad: inget tas in. Som skill vore det 67 tokens alltid, 2 530 vid användning och 847 vid behov (README) enligt
+  förgranskningen; inga beroenden, inga skript
+- Säkerhet: förgranskningen LÅG: inga dolda tecken, ingen text riktad till agenter, inga behörigheter i frontmatter,
+  inga hookar, inga skript. Inget kördes eller installerades
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
