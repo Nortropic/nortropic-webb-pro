@@ -21,8 +21,9 @@ Interaktiva sessioner påverkas inte. Läser kommandot ur hookens JSON på stdin
   - push prövar grenen main (refs/heads/main) mot origin/main, inte HEAD, går igenom varje utgående commit också på
     sidogrenar, och tar merge-commitens egen diff mot första föräldern
   - en hemlighet (API-nyckel, privat nyckel, nyckelrad ur en .env-fil) i det som ska committas (index och, vid
-    sökvägar på kommandoraden, arbetskopian) eller i någon utgående commits tillagda rader; bara fil, rad och
-    nyckeltyp rapporteras, aldrig värdet
+    sökvägar på kommandoraden, arbetskopian) eller i någon utgående commits tillagda rader; diffarna tas med --text
+    och binära filer (ingen granskbar diff) nekas; bara fil, rad och nyckeltyp rapporteras, aldrig värdet
+  - git-skrivningar bara från reporoten: relativa sökvägar tolkas annars från en annan katalog än vakten prövar
 Ett git-anrop som misslyckas eller tar för lång tid nekar; vakten håller sig inom en egen tidsbudget (BUDGET) så att
 den hinner svara innan värdens timeout (settings.json, 30 s), eftersom en krok som tar slut på tid släpper igenom.
 Bygger på forskningens råd att begränsa vad en lyckad attack kan göra, inte bara filtrera indata.
@@ -162,16 +163,32 @@ def hemlighet_i(diff):
 
 
 def hemlighet_i_fil(sokvag):
-    """Som hemlighet_i men för en fil i arbetskopian (det som git add tar in)."""
+    """Som hemlighet_i men för en fil i arbetskopian (det som git add tar in). En fil med NUL-byte (binär) nekas: git
+    visar ingen diff för den, så den går inte att granska (omgång fem, F27). En katalog expanderas till sina filer
+    (spårade och ospårade, inte ignorerade) med git ls-files."""
+    p = ROOT / sokvag
+    if p.is_dir():
+        for f in filer_z(git('ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', sokvag)):
+            tr = hemlighet_i_fil(f)
+            if tr:
+                return tr
+        return None
     try:
-        text = (ROOT / sokvag).read_text(encoding='utf-8', errors='replace')
+        data = p.read_bytes()
     except OSError:
         return None
-    for n, r in enumerate(text.splitlines(), 1):
+    if b'\0' in data:
+        return sokvag, 0, 'binär fil (NUL-byte); bara text får köas'
+    for n, r in enumerate(data.decode('utf-8', errors='replace').splitlines(), 1):
         for namn, rx in HEMLIGHET_RE:
             if rx.search(r):
                 return sokvag, n, namn
     return None
+
+
+def binara_i(numstat):
+    """Filer som git redovisar som binära i en --numstat-utskrift (-\t-\tfil): de har ingen granskbar diff."""
+    return [rad.split('\t', 2)[2] for rad in numstat.splitlines() if rad.startswith('-\t-\t')]
 
 
 def git_kommando(ord_):
@@ -231,8 +248,12 @@ def main():
             skrivningar += 1
             if sammansatt(kommando):
                 neka('git %s måste vara hela kommandot: inga andra delar före eller efter (&&, ;, |, & eller radbrytning); kör ett steg i taget' % sub)
-            if cwd and not Path(cwd).resolve().is_relative_to(ROOT):
-                neka('git-skrivningar bara i repot; sessionens arbetskatalog är %s' % cwd)
+            # exakt reporoten: relativa sökvägar i kommandot tolkas av git från sessionens katalog, men vakten prövar
+            # dem från roten (omgång fem, F3: git commit -- backlog/SKILL.md från .claude/skills avsåg skillfilen)
+            if not cwd:
+                neka('git-skrivningar kräver att kroken vet sessionens arbetskatalog (cwd saknas i anropet)')
+            if Path(cwd).resolve() != ROOT:
+                neka('git-skrivningar bara från reporoten %s; sessionens arbetskatalog är %s' % (ROOT, cwd))
         if annan_katalog:
             # Läsa i en klon (git -C /tmp/kirurg/repo log -1) är ofarligt; skriva eller starta program är det inte.
             farliga = [a for a in args if a.startswith(('--output', '--open-files-in-pager', '--ext-diff', '--textconv'))
@@ -262,9 +283,15 @@ def main():
             utanfor = [f for f in koade if not tillaten(f, prefix)]
             if utanfor:
                 neka('köade filer utanför det tillåtna (%s): %s' % (', '.join(prefix), ', '.join(utanfor)))
-            tr = hemlighet_i(git('diff', '--cached', '-U0', '--no-color'))
+            bin_ = binara_i(git('diff', '--cached', '--numstat'))
+            if bin_:
+                neka('binära filer kan inte granskas och nekas: %s' % ', '.join(bin_[:5]))
+            tr = hemlighet_i(git('diff', '--cached', '-U0', '--no-color', '--text'))  # --text: också filer git skulle kalla binära
             if not tr and vagar:  # med sökvägar committas arbetskopians innehåll, inte index
-                tr = hemlighet_i(git('diff', '-U0', '--no-color', 'HEAD', '--', *vagar))
+                for v in vagar:
+                    tr = hemlighet_i_fil(normaliserad(v))
+                    if tr:
+                        break
             if tr:
                 neka('det som ska committas innehåller något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
         elif sub == 'push':
@@ -277,7 +304,10 @@ def main():
             utanfor = sorted({f for f in ut if not tillaten(f, prefix)})
             if utanfor:
                 neka('utgående commits rör filer utanför det tillåtna (%s): %s' % (', '.join(prefix), ', '.join(utanfor)))
-            tr = hemlighet_i(git('log', '-p', '-U0', '--no-color', '--format=', '--diff-merges=first-parent', 'origin/main..refs/heads/main'))
+            bin_ = binara_i(git('log', '--numstat', '--format=', '--diff-merges=first-parent', 'origin/main..refs/heads/main'))
+            if bin_:
+                neka('utgående commits innehåller binära filer som inte kan granskas: %s' % ', '.join(sorted(set(bin_))[:5]))
+            tr = hemlighet_i(git('log', '-p', '-U0', '--no-color', '--text', '--format=', '--diff-merges=first-parent', 'origin/main..refs/heads/main'))
             if tr:
                 neka('någon utgående commit lägger till något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
     return 0
