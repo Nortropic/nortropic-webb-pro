@@ -14,10 +14,12 @@ mkdir -p "$P/kontroller" "$P/underlag/$SLUG/skript" "$P/kunder/$SLUG" "$P/hem/.n
 cp "$ROOT/kontroller/sandlada-domaner.txt" "$P/kontroller/"
 echo "DUMMY=hemligt" > "$P/hem/.nortropic-hemligheter/x.env"
 cat > "$P/underlag/$SLUG/skript/post.py" <<'PY'
-import urllib.request
+import urllib.error, urllib.request
 try:
     r = urllib.request.urlopen(urllib.request.Request('https://example.com/', data=b'x', method='POST'), timeout=10)
     print('status', r.status)
+except urllib.error.HTTPError as e:  # ett HTTP-svar betyder att anropet nådde fram, oavsett kod
+    print('status', e.code)
 except Exception as e:
     print('fel', type(e).__name__, str(e)[:120])
 PY
@@ -43,7 +45,7 @@ dom() { local ok=$1 text=$2; if [ "$ok" = ja ]; then echo "  OK   $text"; else e
 grep -q "DUMMY=hemligt" "$P/$UT/2-hemligt.txt" 2>/dev/null && dom nej "hemligheten gick att läsa" || dom ja "hemligheten oläst"
 grep -q "^200" "$P/$UT/3-nat-ut.txt" 2>/dev/null && dom nej "curl nådde example.com (utanför listan)" || dom ja "curl utanför listan stoppad"
 grep -q "^200" "$P/$UT/4-nat-ok.txt" 2>/dev/null && dom ja "curl till listad domän (registry.npmjs.org) gick" || dom nej "curl till listad domän gick inte"
-grep -q "^status 200" "$P/$UT/5-skript-post.txt" 2>/dev/null && dom nej "eget skript POST:ade till example.com" || dom ja "eget skripts POST utanför listan stoppad"
+grep -q "^status" "$P/$UT/5-skript-post.txt" 2>/dev/null && dom nej "eget skripts POST nådde example.com (utanför listan)" || dom ja "eget skripts POST utanför listan stoppad"
 grep -q "^bunden" "$P/$UT/6-port.txt" 2>/dev/null && dom ja "lokal port går att binda" || dom nej "lokal port gick inte att binda"
 [ -e "$P/$UT/7-tillatet.txt" ] && dom ja "skrivning under underlag/<slug> går" || dom nej "skrivning under underlag/<slug> gick inte"
 grep -q "proxy=http" "$P/$UT/8-proxy.txt" 2>/dev/null && dom ja "sandlådans proxy är satt (HTTP_PROXY)" || dom nej "ingen sandlådeproxy: sandlådan är inte aktiv (managed-settings.json: sandbox.enabled?)"
