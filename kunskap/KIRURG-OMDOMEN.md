@@ -216,3 +216,8 @@ Kalibrering: varje post är ägarens överprövning av en registerpost. Kirurgen
 - Kirurgens dom: ta in
 - Ägarens dom: håller med
 - Ägarens ord: ""
+
+### 2026-10-03 · 2026-10-03 · AI LABS, "Insane Claude Design Skills You Need To Actually Build Beautiful Sites" (YouTube Ysr7oNDajJI) + jakubkrehel/skills · ta in
+- Kirurgens dom: ta in
+- Ägarens dom: håller med
+- Ägarens ord: ""
