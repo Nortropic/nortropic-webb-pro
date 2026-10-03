@@ -160,6 +160,7 @@ def underlag_rader(slug):
         filer.append(u / 'bilder' / 'BILDER.md')
     # referensbeslutets utpekade rutor och tillstånd först, första vyn som reserv (kontroller/referensval.py)
     refs = ['%s — %s' % (rel(p), text) for p, text in referensval.referensbilder(slug, UNDERLAG, 16)]
+    refs += ['SAKNAS: ' + f for f in referensval.felrader(slug, UNDERLAG)]  # ett felaktigt Bildval döljs inte (F38)
     return [str(f.relative_to(ROOT)) for f in filer], refs
 
 

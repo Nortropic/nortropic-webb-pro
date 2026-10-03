@@ -41,6 +41,25 @@ def domanlista(root, extra=()):
     return ut
 
 
+TILLATNA_I_ROTEN = ('kunder', 'underlag', 'backlog')
+
+
+def nekade_skrivvagar(root, slug):
+    """Sandlådans standard är att hela arbetskatalogen får skrivas, och allowWrite bara utökar den. Därför nekas allt i
+    reporoten utom kunder/, underlag/ och backlog/, och under kunder/ och underlag/ varje syskon till byggets egen
+    katalog, plus körmiljön (.venv, kontroller/node_modules) och den fasta listan (Codex 2026-10-04, F1). Kataloger som
+    skapas under körningen bredvid byggets täcks inte; slugvakten prövar symlänkar när de används."""
+    root = Path(root)
+    namn = {p.name for p in root.iterdir()} if root.is_dir() else set()
+    ut = ['%s/%s' % (root, p) for p in SKYDDAT] + ['%s/.venv' % root, '%s/kontroller/node_modules' % root]
+    ut += sorted('%s/%s' % (root, n) for n in namn if n not in TILLATNA_I_ROTEN and n not in SKYDDAT and n != '.venv')
+    for mapp in ('kunder', 'underlag'):
+        d = root / mapp
+        if d.is_dir():
+            ut += sorted('%s/%s' % (d, p.name) for p in d.iterdir() if p.name != slug)
+    return ut
+
+
 def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=None):
     root = Path(root or ROOT)
     hem = hem or os.path.expanduser('~')
@@ -52,7 +71,7 @@ def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=N
         ut['sandbox'] = {
             'enabled': True, 'failIfUnavailable': True, 'allowUnsandboxedCommands': False, 'autoAllowBashIfSandboxed': False,
             'filesystem': {
-                'denyWrite': ['%s/%s' % (rot, p) for p in SKYDDAT],
+                'denyWrite': nekade_skrivvagar(root, slug),
                 'allowWrite': ['%s/kunder/%s' % (rot, slug), '%s/underlag/%s' % (rot, slug), '%s/backlog' % rot, '/tmp/nwp-bygge-%s' % slug,
                                '%s/.npm' % hem, '%s/.cache' % hem, '%s/Library/Caches' % hem],
                 'denyRead': [p.replace('~', hem, 1) if p.startswith('~') else p for p in HEMLIGT]},

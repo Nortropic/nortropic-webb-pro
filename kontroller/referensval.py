@@ -57,17 +57,32 @@ def forsta_vyer(slug, underlag):
     return ut
 
 
+def referensnamn(rel):
+    """Referensens identitet: första ledet i sökvägen relativt referenser/ (inte närmaste katalognamn: två referenser kan
+    båda ha en undermapp kontakt; Codex 2026-10-04, F38)."""
+    delar = [d for d in str(rel).replace('\\', '/').split('/') if d]
+    return delar[1] if len(delar) > 1 and delar[0] == 'referenser' else (delar[0] if delar else '')
+
+
+def felrader(slug, underlag):
+    """Bildval som inte gick att läsa, för uppdragstexten: bygget pekade ut en bild som saknas eller ligger fel. De ersätts
+    aldrig tyst med första vyn (Codex 2026-10-04, F38)."""
+    return ['%s: %s (%s — Fråga: %s)' % (v['rel'], v['fel'], v['vad'], v['fraga']) for v in bildval(slug, underlag) if v['fel']]
+
+
 def referensbilder(slug, underlag, tak=16):
     """Bilderna till skapare och granskare: [(Path, text)]. Bildvalen först, i byggarens ordning (den är prioriteringen när
-    taket nås), sedan första vyn för referenser som saknar bildval, upp till taket."""
-    ut, sedda, med_val = [], set(), set()
+    taket nås), sedan första vyn bara för referenser som saknar Bildval-rader helt; en referens med en felaktig rad får
+    ingen reserv, felet står i felrader()."""
+    ut, sedda, med_rad = [], set(), set()
     for v in bildval(slug, underlag):
+        med_rad.add(referensnamn(v['rel']))
         if v['fil'] and v['fil'] not in sedda:
             ut.append((v['fil'], '%s — Fråga: %s' % (v['vad'], v['fraga'])))
             sedda.add(v['fil'])
-            med_val.add(v['fil'].parent.name if v['fil'].parent.name not in ('390', '1440') else v['fil'].parents[1].name)
+    rot = Path(underlag) / slug / 'referenser'
     for p, text in forsta_vyer(slug, underlag):
-        if p not in sedda and p.parent.name not in med_val:
+        if p not in sedda and referensnamn('referenser/' + p.relative_to(rot).as_posix()) not in med_rad:
             ut.append((p, text))
             sedda.add(p)
     return ut[:tak]

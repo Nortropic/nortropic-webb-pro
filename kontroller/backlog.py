@@ -14,6 +14,7 @@ Exit 0 = klart; 2 = fel i anropet.
 """
 import argparse
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -23,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAPP = ROOT / 'backlog'
 STATUS = ('vilande', 'pagar', 'klar', 'avvisad')
 KALLOR = ('kirurg', 'dom', 'bygge', 'bevakning')
-FALT = ('id', 'status', 'kalla', 'kallref', 'skapad', 'prio', 'steg', 'sar', 'commit', 'andrad')
+FALT = ('id', 'status', 'kalla', 'kallref', 'korning', 'skapad', 'prio', 'steg', 'sar', 'commit', 'andrad')
 
 
 def _slug(t):
@@ -74,7 +75,8 @@ def ny(kalla, titel, varfor, forslag=None, klart=None, steg=None, sar=None, kall
     while (MAPP / (pid + '.md')).exists():
         pid, n = '%s-%d' % (bas, n), n + 1
     meta = {'id': pid, 'status': 'vilande', 'kalla': kalla, 'kallref': kallref, 'prio': prio if prio in ('hog', 'normal') else 'normal',
-            'skapad': datetime.now(timezone.utc).strftime('%Y-%m-%d'), 'steg': steg, 'sar': sar}
+            'skapad': datetime.now(timezone.utc).strftime('%Y-%m-%d'), 'steg': steg, 'sar': sar,
+            'korning': os.environ.get('NWP_KORNING') or None}  # byggets körning: efterkörningen publicerar bara dess egna poster (F3)
     kropp = '# %s\n\n**Varför:** %s\n' % (titel.strip(), varfor.strip())
     if forslag:
         kropp += '\n**Förslag:** %s\n' % forslag.strip()

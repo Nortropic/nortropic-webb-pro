@@ -20,6 +20,7 @@ import mimetypes
 import os
 import re
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -340,6 +341,8 @@ def fil_tillaten(rel):
         return False
     if ab_oavgjord(slug):
         return delar[0] == 'kunder' and rel.startswith('kunder/%s/prov/inspektion/' % slug) and rel.endswith('.png')
+    if slug == 'kalibrering':  # bara skärmbilderna: URVAL.txt bär hypoteserna och DOMAR.json domarna (F40)
+        return bool(KAL_FIL.match(rel))
     return True
 
 
@@ -553,6 +556,8 @@ def spara_ab(ident, data):
 
 # --- kalibreringen: ägaren dömer externa exempel blint (backlogposten om kalibrering av visuell nivå, 2026-10-03) ---
 NIVAER = ('over', 'nastan', 'generisk')
+KAL_LAS = threading.Lock()
+KAL_FIL = re.compile(r'^underlag/kalibrering/K\d{2}/(start|undersida)/vy-(390|1440)-(forsta|hela|ruta-\d{2})\.png$')
 
 
 def kalibrering_urval():
@@ -593,11 +598,26 @@ def spara_kalibrering(ident, data):
         raise ValueError('okänt exempel')
     if data.get('niva') not in NIVAER:
         raise ValueError('välj tydligt över ribban, nästan eller generisk')
+    import fcntl
     f = UNDERLAG / 'kalibrering' / 'DOMAR.json'
-    domar = las_json(f) or {}
-    domar[ident] = {'niva': data['niva'], 'skiljer': (data.get('skiljer') or '').strip()[:4000], 'tid': nu()}
     f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(json.dumps(domar, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    with KAL_LAS, open(f.parent / '.domar.las', 'w') as las:  # läs–ändra–skriv under lås, strikt läsning, atomiskt byte (F39)
+        fcntl.flock(las, fcntl.LOCK_EX)
+        try:
+            domar = {}
+            if f.exists():
+                try:
+                    domar = json.loads(f.read_text(encoding='utf-8'))
+                except (OSError, ValueError) as e:
+                    raise RuntimeError('DOMAR.json går inte att läsa (%s); rätta filen innan en dom sparas, så att ingen dom skrivs över' % e)
+                if not isinstance(domar, dict):
+                    raise RuntimeError('DOMAR.json är inte ett objekt; rätta filen innan en dom sparas')
+            domar[ident] = {'niva': data['niva'], 'skiljer': (data.get('skiljer') or '').strip()[:4000], 'tid': nu()}
+            tmp = f.with_name('.DOMAR.json.tmp%d' % os.getpid())
+            tmp.write_text(json.dumps(domar, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            os.replace(tmp, f)
+        finally:
+            fcntl.flock(las, fcntl.LOCK_UN)
     return {'ok': True, 'dom': domar[ident], 'kvar': sum(1 for e in kalibrering_urval() if e['id'] not in domar)}
 
 

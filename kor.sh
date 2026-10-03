@@ -145,8 +145,6 @@ FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"
 EFTER_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-efter"
 rm -f "$FORE_FIL" "$EFTER_FIL"   # en planterad symlänk ska inte få styra vart listorna skrivs
 skyddat > "$FORE_FIL"
-BACKLOG_FORE="$ROOT/kunder/$SLUG/prov/.backlog-fore"
-git -C "$ROOT" ls-files --others --exclude-standard backlog | sort > "$BACKLOG_FORE"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
 printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
@@ -154,15 +152,13 @@ RC=$?
 set -e
 rm -f "$EFTER_FIL"
 skyddat > "$EFTER_FIL"
-# Bygget skriver backlogposter men har ingen git: körningen committar de nya filerna i backlog/ efteråt, bara dem
-# (inte andra sessioners okommitterade poster), och pushar. Misslyckad push stoppar inte avslutet.
-NYA_BACKLOG="$(comm -13 "$BACKLOG_FORE" <(git -C "$ROOT" ls-files --others --exclude-standard backlog | sort) | grep -E '^backlog/B-[a-z0-9-]+\.md$' || true)"
-if [ -n "$NYA_BACKLOG" ]; then
-  echo "$NYA_BACKLOG" | xargs git -C "$ROOT" add -- \
-    && git -C "$ROOT" commit -q -m "Bygge $SLUG: backlogposter" -- $(echo "$NYA_BACKLOG") \
-    && { git -C "$ROOT" push -q origin main || echo "backlogposterna committade lokalt; push misslyckades"; } \
-    || echo "backlogposterna kunde inte committas: $NYA_BACKLOG"
-fi
 # Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
-# godkännande, 3 mekaniken ändrades under körningen, 4 claude föll. exec: skriptets slutkod är korsluts.
-exec "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" "$ROOT/kunder/$SLUG" "$RC" "$FORE_FIL" "$EFTER_FIL" "$STAMP"
+# godkännande, 3 mekaniken ändrades under körningen, 4 claude föll. Skriptets slutkod är korsluts.
+set +e
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" "$ROOT/kunder/$SLUG" "$RC" "$FORE_FIL" "$EFTER_FIL" "$STAMP"
+KORSLUT=$?
+# Bygget skriver backlogposter men har ingen git: efter korsluts bedömning publicerar kontroller/backlog_commit.py bara
+# byggets egna poster (märkta med körningen), med commitvaktens kontroller, aldrig vid ändrad mekanik, och pushar bara en
+# utgående historik som enbart rör backlog/ (Codex 2026-10-04, F27 och F3). Misslyckad publicering ändrar inte slutkoden.
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/backlog_commit.py" "$SLUG" "$STAMP" "$KORSLUT"
+exit $KORSLUT

@@ -332,7 +332,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Stilrapporten: %s' % (rad(rdir / 'STIL.md')[2:] if (rdir / 'STIL.md').is_file() else 'saknas'),
         'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'), '',
         'Referensernas bilder: den ruta eller det tillstånd byggaren pekat ut, med jämförelsefrågan; första vyn när inget pekats ut:',
-        *([rad(p) + ' — ' + t for p, t in (x if isinstance(x, tuple) else (x, 'första vyn') for x in refs)] or ['- inga']), '',
+        *([rad(p) + ' — ' + t for p, t in (x if isinstance(x, tuple) else (x, 'första vyn') for x in refs)] or ['- inga']),
+        *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet):']
+          + ['- ' + f for f in referensval.felrader(slug, UNDERLAG)] if referensval.felrader(slug, UNDERLAG) else []), '',
         'Tidigare byggens första vy:', *([rad(p) for p in tidigare] or ['- inga']), '',
         'Måttstockar:', *['- %s: %s' % (namn, f) for namn, f in MATTSTOCKAR if (ROOT / f).is_file()],
     ]

@@ -1690,7 +1690,10 @@ gk('init', '-q'); gk('add', '-A'); gk('commit', '-q', '-m', 'bas'); gk('branch',
 (kr / 'backlog' / 'B-20261002-annan-sessions-post.md').write_text('---\nid: B-20261002-annan-sessions-post\n---\n# annan session, okommitterad\n')
 os.symlink(ROOT / '.venv', kr / '.venv'); os.symlink(ROOT / 'kontroller' / 'node_modules', kr / 'kontroller' / 'node_modules')
 falsk_k = tmp / 'falsk-claude-kor'; falsk_k.mkdir()
-(falsk_k / 'claude').write_text('#!/bin/sh\ncat > /dev/null\nprintf -- "---\\nid: B-20261003-prov-fran-bygget\\n---\\n# post fran bygget\\n" > backlog/B-20261003-prov-fran-bygget.md\necho "{\\"type\\":\\"result\\"}"\nexit 0\n')
+(falsk_k / 'claude').write_text('#!/bin/sh\ncat > /dev/null\n'
+                                'printf -- "---\\nid: B-20261003-prov-fran-bygget\\nkalla: bygge\\nkallref: kunder/prov-bygge/RAPPORT.md\\nkorning: $NWP_KORNING\\n---\\n# post fran bygget\\n" > backlog/B-20261003-prov-fran-bygget.md\n'
+                                'printf -- "---\\nid: B-20261003-under-korningen-annan\\nkalla: kirurg\\n---\\n# annan session under korningen\\n" > backlog/B-20261003-under-korningen-annan.md\n'
+                                'echo "{\\"type\\":\\"result\\"}"\nexit 0\n')
 (falsk_k / 'claude').chmod(0o755)
 miljo_k = {k_: v_ for k_, v_ in os.environ.items() if not k_.startswith('CLAUDE_CODE_') and k_ not in ('CLAUDECODE', 'NWP_SLUG')}
 miljo_k['PATH'] = str(falsk_k) + os.pathsep + miljo_k.get('PATH', ''); miljo_k['NWP_SANDLADA'] = 'av'
@@ -1699,9 +1702,84 @@ assert rk.returncode in (0, 1), (rk.returncode, rk.stdout[-400:], rk.stderr[-400
 logg_k = gk('log', '--format=%s', '-3').stdout
 assert 'Bygge prov-bygge: backlogposter' in logg_k, (logg_k, rk.stdout[-300:], rk.stderr[-300:])
 assert gk('show', '--stat', '--format=', 'HEAD').stdout.count('backlog/') == 1 and 'B-20261003-prov-fran-bygget' in gk('show', '--stat', '--format=', 'HEAD').stdout, 'bara byggets nya post committas, inte den andra sessionens'
-assert gk('status', '--porcelain', 'backlog').stdout.strip().startswith('??'), 'den andra sessionens post är kvar okommitterad'
+okomm_k = gk('status', '--porcelain', 'backlog').stdout
+assert 'B-20261002-annan-sessions-post' in okomm_k and 'B-20261003-under-korningen-annan' in okomm_k, 'andra sessioners poster, före och under körningen, lämnas okommitterade (F3): %s' % okomm_k
 assert 'Bygge prov-bygge: backlogposter' in subprocess.run(['git', '-C', str(bare_k), 'log', '--format=%s', '-1', 'main'], capture_output=True, text=True).stdout, 'pushad'
 print('sandlådan: inställningar och backlogcommit ok')
+
+
+# ---------------------------------------------------------------- omgång arton (Codex R18): F27/F3 publicering, F1 skrivgräns, F38 bildval, F39/F40 kalibrering
+# F27/F3: backlog_commit publicerar bara byggets poster, stoppar vid hemlighet, ändrad mekanik och främmande utgående historik
+import backlog_commit as bc  # noqa: E402
+bc.ROOT = kr
+gk('checkout', '-q', 'main'); gk('reset', '-q', '--hard', 'origin/main')
+for f_ in (kr / 'backlog').glob('B-20261003-*'):
+    f_.unlink()
+stamp_k = '20261004T000000Z'
+(kr / 'backlog' / 'B-20261004-egen.md').write_text('---\nid: B-20261004-egen\nkalla: bygge\nkallref: kunder/prov-bygge/RAPPORT.md\nkorning: %s\n---\n# egen\n' % stamp_k)
+(kr / 'backlog' / 'B-20261004-annan-korning.md').write_text('---\nid: B-20261004-annan-korning\nkalla: bygge\nkallref: kunder/prov-bygge/RAPPORT.md\nkorning: 20261001T000000Z\n---\n# annan körning\n')
+(kr / 'backlog' / 'B-20261004-hemlig.md').write_text('---\nid: B-20261004-hemlig\nkalla: bygge\nkallref: kunder/prov-bygge/RAPPORT.md\nkorning: %s\n---\n# hemlig\nsk-ant-api03-abcdefghijklmnopqrstuvwxyz\n' % stamp_k)
+huvud_k = gk('rev-parse', 'HEAD').stdout
+assert bc.main(['prov-bygge', stamp_k, '3']) == 1 and gk('rev-parse', 'HEAD').stdout == huvud_k, 'ändrad mekanik (kod 3) publicerar inget (F27)'
+assert bc.main(['prov-bygge', stamp_k, '1']) == 1 and gk('rev-parse', 'HEAD').stdout == huvud_k, 'en post med hemlighet stoppar allt (F27)'
+(kr / 'backlog' / 'B-20261004-hemlig.md').unlink()
+assert bc.main(['prov-bygge', stamp_k, '1']) == 0 and gk('rev-parse', 'HEAD').stdout != huvud_k and gk('log', '--format=%s', '-1').stdout.startswith('Bygge prov-bygge'), 'byggets post publiceras'
+assert 'B-20261004-egen' in gk('show', '--stat', '--format=', 'HEAD').stdout and 'annan-korning' not in gk('show', '--stat', '--format=', 'HEAD').stdout, 'bara körningens post (F3)'
+assert 'Bygge prov-bygge' in subprocess.run(['git', '-C', str(bare_k), 'log', '--format=%s', '-1', 'main'], capture_output=True, text=True).stdout, 'pushad'
+(kr / 'README-prov.md').write_text('x'); gk('add', 'README-prov.md'); gk('commit', '-q', '-m', 'annan sessions commit utanför backlog')
+(kr / 'backlog' / 'B-20261004-egen2.md').write_text('---\nid: B-20261004-egen2\nkalla: bygge\nkallref: kunder/prov-bygge/RAPPORT.md\nkorning: %s\n---\n# egen 2\n' % stamp_k)
+assert bc.main(['prov-bygge', stamp_k, '0']) == 1 and gk('log', '--format=%s', '-1').stdout.startswith('Bygge prov-bygge'), 'committad lokalt men pushen stoppad av främmande utgående commit (F3)'
+assert 'annan sessions commit' not in subprocess.run(['git', '-C', str(bare_k), 'log', '--format=%s', '-3', 'main'], capture_output=True, text=True).stdout
+print('R18 F27/F3 publicering ok')
+
+# F1: nekandelistan räknar upp allt i roten utom byggets egna kataloger, syskonen och körmiljön
+rot1 = tmp / 'sandrot1'
+for d_ in ('kunder/eget', 'kunder/annan', 'underlag/eget', 'underlag/annan', 'backlog', '.venv/bin', 'kontroller/node_modules', 'mall'):
+    (rot1 / d_).mkdir(parents=True)
+(rot1 / 'README.md').write_text('x')
+neka1 = sl.installningar('eget', root=rot1, hem=str(tmp / 'hem'))['sandbox']['filesystem']['denyWrite']
+for v_ in ('kunder/annan', 'underlag/annan', '.venv', 'kontroller/node_modules', 'README.md', 'mall', '.git', 'kontroller'):
+    assert str(rot1 / v_) in neka1, (v_, neka1)
+for v_ in ('kunder/eget', 'underlag/eget', 'backlog', 'kunder', 'underlag'):
+    assert str(rot1 / v_) not in neka1, (v_, neka1)
+print('R18 F1 skrivgränsen ok')
+
+# F38: ett felaktigt Bildval döljs inte och ersätts inte av första vyn; identiteten ur sökvägen relativt referenser/
+u38 = tmp / 'underlag' / 'ref38'
+for d_ in ('a/kontakt', 'b/kontakt', 'c'):
+    (u38 / 'referenser' / d_).mkdir(parents=True)
+(u38 / 'referenser' / 'a' / 'kontakt' / 'vy-390-forsta.png').write_bytes(b'\x89PNGa'); (u38 / 'referenser' / 'b' / 'kontakt' / 'vy-390-forsta.png').write_bytes(b'\x89PNGb')
+(u38 / 'referenser' / 'b' / 'kontakt' / 'vy-390-ruta-02.png').write_bytes(b'\x89PNGb2'); (u38 / 'referenser' / 'c' / 'vy-390-forsta.png').write_bytes(b'\x89PNGc')
+(u38 / 'REFERENSER.md').write_text('# R\n\n## 1. A\n\nBildval: referenser/a/kontakt/saknas.png — kontaktsidan — Fråga: var är numret?\n\n## 2. B\n\nBildval: referenser/b/kontakt/vy-390-ruta-02.png — kontaktsidan — Fråga: tid och vad som händer sen?\n\n## 3. C\n\ntext\n')
+b38 = rv.referensbilder('ref38', tmp / 'underlag')
+namn38 = [rv.referensnamn('referenser/' + p_.relative_to(u38 / 'referenser').as_posix()) for p_, _ in b38]
+assert namn38 == ['b', 'c'], 'A har ett felaktigt Bildval (ingen reserv), B sin ruta, C sin första vy: %s' % namn38
+assert not any(p_.name == 'vy-390-forsta.png' and 'b/' in p_.as_posix() for p_, _ in b38), 'B:s första vy får inte följa med när B har bildval'
+fel38 = rv.felrader('ref38', tmp / 'underlag'); assert fel38 and 'referenser/a/kontakt/saknas.png' in fel38[0] and 'var är numret' in fel38[0], fel38
+(tmp / 'kunder' / 'ref38' / 'sajt' / 'dist').mkdir(parents=True)
+text38 = gr.uppdrag_text('ref38', 'http://x', ['/'], tmp / 'arb', [], gr.referensbilder('ref38'), [], [], tmp / 'runda38')
+assert 'Bildval som inte gick att läsa' in text38 and 'referenser/a/kontakt/saknas.png' in text38, text38[-700:]
+assert any(r_.startswith('SAKNAS: ') for r_ in a.underlag_rader('ref38')[1]), 'ateljén ser det felaktiga bildvalet'
+print('R18 F38 bildval ok')
+
+# F39/F40: samtidiga domar bevaras; trasig DOMAR.json stoppar utan ändring; /fil ger bara skärmbilderna
+dsrvk2 = http.server.ThreadingHTTPServer(('127.0.0.1', 0), dash.H); threading.Thread(target=dsrvk2.serve_forever, daemon=True).start()
+dport = dsrvk2.server_port; dash.VARD['tillatna'] = {'127.0.0.1:%d' % dport, 'localhost:%d' % dport}
+(kal / 'DOMAR.json').unlink(missing_ok=True)
+tr39 = [threading.Thread(target=lambda i_=i_: begar(dport, 'POST', '/api/kalibrering/K0%d' % i_, huvuden={'Origin': 'http://127.0.0.1:%d' % dport, 'Content-Type': 'application/json'}, kropp=json.dumps({'niva': 'over', 'skiljer': 'd%d' % i_}).encode())) for i_ in (1, 2)]
+for t_ in tr39:
+    t_.start()
+for t_ in tr39:
+    t_.join()
+domar39 = json.loads((kal / 'DOMAR.json').read_text()); assert set(domar39) == {'K01', 'K02'}, 'samtidiga domar får inte tappas (F39): %s' % domar39
+(kal / 'DOMAR.json').write_text('{trasig')
+kod, kropp = begar(dport, 'POST', '/api/kalibrering/K01', huvuden={'Origin': 'http://127.0.0.1:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{"niva":"nastan"}')
+assert kod >= 500 and (kal / 'DOMAR.json').read_text() == '{trasig', 'en trasig domfil skrivs inte över (F39): %s %s' % (kod, kropp[:120])
+(kal / 'DOMAR.json').write_text(json.dumps(domar39))
+assert begar(dport, 'GET', '/fil/underlag/kalibrering/URVAL.txt')[0] == 404 and begar(dport, 'GET', '/fil/underlag/kalibrering/DOMAR.json')[0] == 404, 'hypoteserna och domarna läcker inte via /fil (F40)'
+assert begar(dport, 'GET', '/fil/underlag/kalibrering/K01/start/vy-390-forsta.png')[0] == 200
+dsrvk2.shutdown()
+print('R18 F39/F40 kalibreringen ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')
