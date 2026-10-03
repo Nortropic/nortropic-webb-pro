@@ -4442,3 +4442,107 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   egenskap som inte hör till typen är fynd, utgången term information; kontroller/data/schemaorg.json, CC BY-SA 3.0.
   De sju byggenas JSON-LD gav inga fynd.
 - Backlog: B-20261003-prova-json-ld-mot-schema-org-s-vokabular-okand-t (egen innovation)
+
+### 2026-10-03 · FlorianBruniaux/claude-code-ultimate-guide · nej
+- Källa: https://github.com/FlorianBruniaux/claude-code-ultimate-guide @ senast pushat 2026-10-02T16:50Z (klonens
+  commit kunde inte läsas: git log nekades av behörigheten), CC BY-SA 4.0 för guiden och CC0 för mallarna [REPO
+  README.md rad 414], cirka 6 100 stjärnor, inte arkiverat; version 3.43.0. 1 128 textfiler, cirka 2,7 miljoner
+  tokens. Inte bedömd förut. Förgranskat. Läst själv: README och CLAUDE.md helt, `guide/README.md`,
+  `examples/workflows/bounded-loop-contract.md`, `guide/core/skill-design-patterns.md` rad 1–120 och 189–300,
+  `examples/skills/best-of-n/SKILL.md` helt, `examples/skills/landing-page-generator/SKILL.md` rad 1–30 och 156–175 med
+  `assets/styles-base.css` rad 298–310 och 848–855, `guide/core/agent-harness.md` rad 126–143 och 412–459,
+  `guide/roles/agent-evaluation.md` rad 60–81, `guide/core/context-engineering.md` rad 196–205, 1745–1761 och
+  1985–1988, `guide/workflows/design-to-code.md` rad 46–61 och 380–413, `guide/workflows/spec-first.md` rad
+  1010–1017, `docs/resource-evaluations/README.md` rad 1–40 och 121, `.agents/skills/ccguide/eval-resource.md` rad
+  90–125, `.claude/agents/guide-reviewer.md` rad 20–39, `examples/hooks/bash/unicode-injection-scanner.sh` rad
+  100–122, `examples/hooks/bash/prompt-injection-detector.sh` rad 48–77 och de två diagramraderna med
+  nollbreddstecken. Tre subagenter läste med belägg (domen är min): examples/skills och examples/hooks;
+  guide/workflows, guide/core och agent-evaluation; docs/resource-evaluations, tools/ och repots egna agentfiler.
+  Bilderna i repot är diagram om harness, finops och gateway och fyra skärmbilder av onboarding-prompten; README
+  visar ingen bild utöver märken, så ingen öppnades. Guidens egen webbplats cc.bruniaux.com öppnades inte: den är en
+  dokumentationssajt, inte ett resultat av ett byggflöde. Ägarens not: hittad av spanaren via Claude Code-skills;
+  matchade claude code, guide, hooks, mcp
+- Steg: inget av de åtta. Arbetssättet runt dem: kor.sh och stoppvakten, granskaren, A/B-verktyget, rökprovet,
+  kirurgens egen förgranskning
+- Jämfört med i dag, sak för sak: (1) **Den avgränsade slingan.** Guidens kontrakt för en agentslinga har sju fält:
+  mål, handling, observation, oberoende verifierare, budget, stoppregel och eskalering när budgeten är slut [REPO
+  examples/workflows/bounded-loop-contract.md rad 20–30], och den pekar ut slingor utan tak som felkällan [REPO
+  guide/core/agent-harness.md rad 128]. Vi: stoppvakten kör provet och granskaren själv, blockerar avslutet, har
+  taket NWP_STOPP_TAK (8) och granskningstaket, och släpper vid taket med skälet i STOPPVAKT.json så att ägaren ser
+  det (`.claude/hooks/stoppvakt.py` rad 2–11, 76–85). Lika; vårt är byggt, deras är en mall. (2) **Best-of-N.**
+  Rubriken fryses före genereringen, kandidaterna poängsätts blint med dold ordning, en sammanslagning räknas som ny
+  kandidat, verifieringen görs av någon som inte genererade, och "Majority vote is not evidence of correctness"
+  [REPO examples/skills/best-of-n/SKILL.md rad 19, 22, 27–33, 37–38]. Vi: granskarens kriterier läses före bygget
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 224–225), ab.py lottar värdena och döljer dem tills ägaren valt blint
+  (`kontroller/ab.py` rad 2–13, 91–100), ateljéns panel om tre domare ser riktningarna under egna bokstäver i
+  slumpad ordning och räknas ihop med Borda (`kontroller/atelje.py` rad 51–54, 221–222), "bästa mot sista" jämför
+  omgångarna (bygg-sajt rad 317–319), och kirurgens A/B-regel kräver en annan modell som domare än den som byggde
+  (`.claude/skills/kirurg/SKILL.md`, steg 6). Lika. (3) **Skapare och granskare.** Fem oberoendedimensioner (kontext,
+  modell, belägg, roll, eskalering) och kravet att mäta räddade fel, falska godkännanden och falska avslag [REPO
+  guide/core/agent-harness.md rad 445–455]; varje kontroll ska ha en indata som ska stoppas och en närliggande som ska
+  passera [rad 419]; "a fresh reviewer is a treatment to evaluate, not proof of independence" [REPO
+  guide/roles/agent-evaluation.md rad 63]. Vi: granskarförsöket 2026-10-02 mätte just det (omdömesfel 3,3 → 4,0 per
+  bygge, inga falska blockerande; registret, ECC-posten, Utfall), rökprovet kräver grönt på den rena testsajten och
+  rött när fem kända fel läggs in (`kontroller/rokprov.sh` rad 3, 21–23, 430–445), och granskarna får uppdraget utan
+  byggarens resonemang (bygg-sajt rad 307). Lika i sak. Det vi inte har är en annan modellfamilj som granskare; det
+  finns ingen i Claude Code, och ateljén använder redan Sonnet för kundrollen. (4) **Krokarna.** Deras
+  promptinjektionsvakt blockerar på ordlistor som "you are now" och "act as if" i allt som skrivs [REPO
+  examples/hooks/bash/prompt-injection-detector.sh rad 50–73], och unicode-vakten blockerar U+200B–200D [REPO
+  examples/hooks/bash/unicode-injection-scanner.sh rad 104–107], alltså också ZWJ i emojier; repots egna två
+  nollbreddstecken är just sådana [REPO guide/diagrams/05-mcp-ecosystem.md rad 32; 10-adoption-and-learning.md rad
+  21]. Vi: granska_repo.py letar efter samma tecken och fraser men rapporterar i stället för att blockera, och
+  kirurgen läser träffen i sitt sammanhang (`kontroller/granska_repo.py` rad 23–34; kirurg-skillen, Säkerhet);
+  skrivningar till kontroller/, kritik/, kunskap/, mall/ och .claude/ nekas i kor.sh (rad 70–74) och commitvakten
+  släpper bara registret och backloggen (`.claude/hooks/commitvakt.py` rad 2–11). Vårt är smartare för vårt behov:
+  en vakt som fäller emojier hade fällt deras egna diagram. (5) **Kontext.** Receptet "A/B-canary": 10–20 prober mot
+  gammal och ny konfiguration, cosinuslikhet först och LLM-domare under 0,85 [REPO guide/core/context-engineering.md
+  rad 1745–1761]. Vi: mikroprovet för domändringar, fem Opus-armar per arm och två blinda Sonnet-domare i omvänd
+  ordning (`LARDOMAR.md` rad 129, 178), och kontextdjupet per bygge mäts i ab.py (rad 46–55). Lika i sak; deras är
+  ett recept utan redovisad körning. Samma fil säger att fönstret är 1 M tokens på rad 198 och 200 K på rad 1987.
+  (6) **Det webbnära.** landing-page-generator gör en GitHub-sida av en README: mörkt tema som standard, MiniSearch
+  från CDN, texten lyft ur README [REPO examples/skills/landing-page-generator/SKILL.md rad 21–25, 167–173],
+  rubriken i hero som gradienttext med transparent fyllning [REPO assets/styles-base.css rad 302–310] och
+  menylänkarna dolda under 768 px utan ersättning [rad 851–853]; valideringen är en checklista utan verktyg [SKILL.md
+  rad 159–165]. Vi: verksamhetens egna ord och bilder, 0 kB JS, synliga menylänkar på mobil, kontrast och träffytor
+  mätta i provet (bygg-sajt rad 261–271; `kunskap/byggstandard.md`). Sämre, och gradienttext är ett av AI-mönstren
+  granskaren fäller. design-to-code går från Figma till kod, ett steg vi inte har; dess tal (62 %, 78 %, 75 dagar)
+  kommer från leverantörsbloggar [REPO guide/workflows/design-to-code.md rad 46–61] och den visuella jämförelsen är
+  "pixel diff or visual inspection" utan tröskel [rad 389]. Ej tillämpligt. (7) **Deras kirurg.** Externa resurser
+  får poäng 1–5 med en åtgärd per steg, utmanas av en andra agent och faktakontrolleras obligatoriskt mot källan
+  [REPO docs/resource-evaluations/README.md rad 11–24; .agents/skills/ccguide/eval-resource.md rad 92–123]. Vi:
+  fyra domar med skäl, beläggkontrollen i steg 7 och ägarens överprövning i `kunskap/KIRURG-OMDOMEN.md`, där 41 av 44
+  domar hållits. Deras eget index visar kostnaden: 192 filer på disk, 69 indexerade, "a separate maintenance
+  backlog" [REPO README.md rad 121] mot 167 i CLAUDE.md [rad 45]. Lika; en utmanaragent per intag skulle fördubbla
+  kostnaden för tre avvikelser om nyanser mellan parkera och nej. (8) **Prosan.** Deras granskare fäller tankstreck,
+  staccato (tre meningar under fem ord i rad), "Ce n'est pas X. C'est Y." mer än en gång och för perfekta slutpoänger
+  [REPO .claude/agents/guide-reviewer.md rad 28–35]. Vi: tankstreckskedja i copykontrollen (`kunskap/copy-kontroll.md`
+  rad 18; `kontroller/copy_kontroll.py` rad 111), "inte X utan Y" och staccato i humanizern
+  (`.claude/skills/humanizer/SKILL.md` rad 22, 222–224, 504). Lika. (9) **Skillmönster.** Gemensam sanningsbas
+  injicerad i varje subagent och prompten skriven till disk före anropet [REPO guide/core/skill-design-patterns.md rad
+  15–44, 269–298]. Vi: granska.py skriver PROMPT.txt innan granskaren startas och ger alla samma sidlista
+  (`kontroller/granska.py` rad 298–309). Lika. Mot litteraturen: guiden för inte in någon utvärderingsmetod vi
+  saknar; dess starkaste rader (frys oraklet, förutsäg den minsta beslutsrelevanta skillnaden, femtio oberoende
+  uppgifter ger två procentenheter [REPO guide/roles/agent-evaluation.md rad 79]) är den statistik vårt A/B redan
+  erkänner att ett enda par inte ger (`LARDOMAR.md` rad 105)
+- Skäl: det här är en handbok om Claude Code för programvaruteam: harness, kontextbudget, säkerhetskrokar,
+  metodval och ekonomi, på 2,7 miljoner tokens. Inget i den gör en sajt bättre, och det enda webbnära, en
+  landningssidegenerator ur README och ett Figma-flöde, går emot verksamhetens egna ord, synliga menyer och 0 kB JS.
+  Det som gäller vårt arbetssätt, den avgränsade slingan med budget och eskalering, best-of-N med frusen rubrik och
+  blind dom, granskare som mäts på falska godkännanden, kontroller som provas med en indata som ska fällas, prompten
+  på disk före anropet, kör vi redan som mekanik i stoppvakten, ab.py, ateljén, rökprovet och granska.py. Så
+  bedömdes också ECC och superpowers, där ägaren höll med. Källkritik: guiden lyfter författarens egna verktyg
+  (ctxharness, RTK, en MCP-server via npx) och bloggen; dess effekttal är leverantörssiffror och uppskattningar
+  märkta "estimated", och den motsäger sig om fönstrets storlek; de få egna mätningarna gäller guidens eget repo.
+  CC BY-SA kräver dessutom samma licens på det som kopieras. De 204 ställena med text till agenter är
+  detektionslistor, ändringsloggens beskrivning av dem och testdata; inget försökte styra kirurgen
+- Kostnad: inget tas in. Hela källan cirka 2,7 miljoner tokens text; den största skillen (design-patterns, GoF-mönster
+  för kod) 71 tokens alltid, 4 540 vid användning och 36 311 vid behov
+- Säkerhet: förgranskningen HÖG: två nollbreddstecken, båda U+200D i emoji-sekvenser i Mermaid-etiketter (lästa);
+  204 ställen med text riktad till agenter, i sitt sammanhang mönsterlistor i krokar, hotdatabasen, ändringsloggen och
+  en testtabell för en injektionsskanner; 228 skript, varav krokar som skriver i `~/.claude/logs` och `/tmp`, en
+  installerare med `cargo install`, och `curl … | sh` i README:s installationsrad och i två utvärderade verktyg.
+  Onboarding-prompten låter Claude hämta och följa instruktioner från en raw-URL på GitHub [REPO README.md rad
+  136–140], ett mönster vi aldrig följer. Inget kördes eller installerades; klonen läst utifrån; inget fört vidare
+- Förslag: inget. Egen innovation: ingen den här gången; det källan berör i vårt arbetssätt finns redan som mekanik
+- Utfall: —
+- Backlog: ingen
