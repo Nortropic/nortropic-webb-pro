@@ -2,7 +2,7 @@
 """korslut.py — kor.sh:s avslut: sammanfattar provet, stoppvakten och granskningen, jämför de skyddade filernas
 hashlistor före och efter körningen, och sätter slutkoden (revisionen 2026-10-03, F10 och F11).
 
-    .venv/bin/python kontroller/korslut.py <kunder/slug> <claude-kod> <hashlista-fore> <hashlista-efter>
+    .venv/bin/python kontroller/korslut.py <kunder/slug> <claude-kod> <hashlista-fore> <hashlista-efter> <korning>
 
 Slutkod: 0 provet grönt för just det bygge som ligger i dist/, RAPPORT.md finns, stoppvakten själv släppte med gröna
 kontroller och godkänd granskning, och granskningen gäller samma bygge och samma metod som nu · 1 avslutat utan det
@@ -47,7 +47,7 @@ def andrade(fore, efter):
     return sorted(x for x in set(f) | set(e) if f.get(x) != e.get(x))
 
 
-def ar_godkant(k, s, v, g):
+def ar_godkant(k, s, v, g, korning=None):
     """Godkänt bara när allt gäller det bygge som ligger i dist/ nu: provet grönt med samma dist-hash som dist/, rapporten
     finns, stoppvakten släppte med gröna kontroller och godkänd granskning (inte vid sitt tak), och granskningen är
     godkänd för samma dist-hash och samma metod som nu (omgång tre, F11)."""
@@ -65,14 +65,18 @@ def ar_godkant(k, s, v, g):
         return False, 'provet gäller inte det bygge som ligger i dist/ nu'
     if not (v and v.get('slapp') and str(v.get('skal') or '').startswith('kontrollerna gröna')):
         return False, 'stoppvakten släppte inte med gröna kontroller och godkänd granskning (%s)' % ((v or {}).get('skal') or 'ingen STOPPVAKT.json')
+    if korning and v.get('korning') != korning:
+        return False, 'stoppvaktens besked gäller en annan körning (%s, inte %s)' % (v.get('korning'), korning)
+    if v.get('dist_sha256') != nu_hash:
+        return False, 'stoppvaktens besked gäller ett annat bygge än det i dist/'
     if not (g and g.get('godkand')):
         return False, 'ingen godkänd granskning'
     if g.get('dist_sha256') != nu_hash:
         return False, 'granskningen gäller ett annat bygge än det i dist/'
     try:
         import granska
-        if g.get('metod_sha') != granska.metod_sha(k.name) or g.get('granskare') != granska.ANTAL:
-            return False, 'granskningen gjordes med en annan metod än den som gäller nu'
+        if not granska.samma_metod(g, granska.aktuell_metod(k.name)):  # samma jämförelse som granskningen själv gör
+            return False, 'granskningen gjordes med en annan metod (underlag, modell, effort, antal eller originalitetsläge) än den som gäller nu'
     except Exception as e:  # noqa: BLE001
         return False, 'kunde inte jämföra granskningsmetoden: %s' % e
     return True, ''
@@ -80,6 +84,7 @@ def ar_godkant(k, s, v, g):
 
 def main(argv):
     k, rc, fore, efter = Path(argv[1]), argv[2], argv[3], argv[4]
+    korning = argv[5] if len(argv) > 5 else None
     s, v, g = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json'), las(k / 'granskning' / 'GRANSKNING.json')
     skydd = andrade(fore, efter)
     mekanik = [f for f in skydd if f.startswith(MEKANIK)]
@@ -100,7 +105,7 @@ def main(argv):
         print('Granskningen: ingen')
     print('Rapport:', k / 'RAPPORT.md' if (k / 'RAPPORT.md').is_file() else 'saknas')
     print('Titta:  cd %s && npx astro preview' % (k / 'sajt'))
-    godkant, skal = ar_godkant(k, s, v, g)
+    godkant, skal = ar_godkant(k, s, v, g, korning)
     if not godkant and skal:
         print('Inte godkänt:', skal)
     if mekanik:
@@ -114,7 +119,7 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 5:
+    if len(sys.argv) not in (5, 6):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         sys.exit(2)
     sys.exit(main(sys.argv))

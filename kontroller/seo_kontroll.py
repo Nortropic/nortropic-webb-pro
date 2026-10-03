@@ -217,17 +217,25 @@ def granska_schema(obj, verksamhet):
 
 
 def ar_verksamhetsnod(nod, typer, verksamhet, v):
+    """En nod i LocalBusiness-trädet är alltid verksamhetens (en lokal verksamhets sajt beskriver en verksamhet) och prövas
+    mot underlaget: ett kvarlämnat mallinnehåll med annat namn, annan domän och fel telefon ska ge fynd, inte undantas
+    (omgång fyra, F20). En nod i Organization-trädet prövas bara när den är verksamheten enligt namn eller värdnamn
+    (parsat, inte delsträng); en annan organisation (memberOf, branschorganisation) lämnas."""
     lokal = any(t == 'LocalBusiness' or (v and 'LocalBusiness' in anor(t, v)) for t in typer)
+    if lokal:
+        return True
     org = any(t == 'Organization' or (v and 'Organization' in anor(t, v)) for t in typer)
-    if not (lokal or org):
+    if not org:
         return False
     namn = lambda s: re.sub(r'\s+', ' ', str(s or '')).strip().casefold()  # noqa: E731
-    doman = re.sub(r'^https?://(www\.)?', '', str((verksamhet.get('webb') or {}).get('doman') or '') if isinstance(verksamhet.get('webb'), dict) else '').strip('/').casefold()
-    egen_doman = any(doman and doman in str(nod.get(k) or '').casefold() for k in ('@id', 'url'))
-    if lokal:
-        # en LocalBusiness-nod är verksamheten om inget uttryckligen säger annat (annat namn och annan domän)
-        return egen_doman or not nod.get('name') or namn(nod.get('name')) == namn(verksamhet.get('namn')) or not any(nod.get(k) for k in ('@id', 'url'))
-    return egen_doman or namn(nod.get('name')) == namn(verksamhet.get('namn'))
+    webb = verksamhet.get('webb') if isinstance(verksamhet.get('webb'), dict) else {}
+    doman = re.sub(r'^https?://', '', str((webb or {}).get('doman') or '')).strip('/').split('/')[0].casefold().removeprefix('www.')
+    egna = set()
+    for k in ('@id', 'url'):
+        vard = (urlparse(str(nod.get(k) or '')).hostname or '').casefold().removeprefix('www.')
+        if vard:
+            egna.add(vard)
+    return (bool(doman) and doman in egna) or namn(nod.get('name')) == namn(verksamhet.get('namn'))
 
 
 def anor(typ, v):

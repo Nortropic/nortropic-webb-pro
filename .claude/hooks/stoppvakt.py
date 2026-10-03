@@ -57,7 +57,12 @@ def main():
     rapport = kund / 'RAPPORT.md'
     har_rapport = rapport.is_file() and rapport.stat().st_size > 300
 
+    try:  # beskedet binds till körningen och till det bygge provet mätte (omgång fyra, F11)
+        dist_sha = json.loads((prov / 'STATUS.json').read_text(encoding='utf-8')).get('dist_sha256')
+    except (OSError, ValueError):
+        dist_sha = None
     post = {'tid': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'forsok': n, 'tak': TAK,
+            'korning': os.environ.get('NWP_KORNING') or None, 'dist_sha256': dist_sha,
             'kontroller_grona': gront, 'rapport_finns': har_rapport}
     granskning, kritik = None, ''
     if gront and har_rapport:
