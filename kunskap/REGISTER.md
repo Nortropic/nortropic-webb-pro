@@ -4030,3 +4030,84 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   ägaren redan dömt "Bra" respektive "Okej" i tre byggen, och better-layout är redan inlagd för dimension 4
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Self-Made Web Designer (Chris Misterek), "Complete Web Design Process: What Took Me 10 Years to Learn in 12 Minutes [Free Trello Template]" (YouTube T5JglDcd54A) · nej
+- Källa: https://www.youtube.com/watch?v=T5JglDcd54A @ publicerad 2025-02-20 (12:13, 152 273 visningar, manuellt
+  engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 41 bildrutor: 27 är berättaren
+  framför bokhyllan eller vid sin skärm (tavlan med miniatyrer på skärmen är oläslig [SKÄRM 03:36, 05:57, 07:43, 10:00,
+  11:15]); sex är textplattor: processens fyra kolumner "Onboarding · Design & Dev · Launch · Offboarding" med tre
+  punkter var [SKÄRM 00:21], "Ask about: their business, hopes & dreams, frustrations with website, frustrations with
+  freelancers" [SKÄRM 01:14], "Signed contract, first payment" [SKÄRM 01:50], "24 hours to respond" [SKÄRM 03:18],
+  lanseringslistan "Filling out forms, Buying products, Signing up for lead magnets, Checking all links, 100%
+  dogfooding" [SKÄRM 09:29] och "Offboarding" [SKÄRM 09:47]; fem är stockfilm (handslag, hoprullade papper, raket,
+  hand, kalender [SKÄRM 00:39, 05:22, 09:12, 09:47, 10:58]). Två bilder visar arbete: en Loom-genomgång av en
+  startsida för en biståndsorganisation, rubriken "Sometimes hope looks like a telehealth appointment", grön knapp
+  "GET INVOLVED", tre foton, berättaren i en bubbla nere till vänster [SKÄRM 06:33]; och ett Google-dokument "Help Docs
+  and Training" med Loom-länkar och ett tjugotal länkar till Showits hjälpartiklar grupperade under blogg, länkar,
+  bilder, text och PDF [SKÄRM 10:22]. De 17 länkarna i beskrivningen [BESKRIVNING]: Trello-mallen och
+  frågeformuläret leder båda till Flodesk-formulär som kräver förnamn och e-post [BILD smwd-trello/desktop-forsta.png,
+  smwd-questionnaire/desktop-forsta.png]; inget skickat, så artefakterna är osedda. Episodsidan
+  (free-web-design-project-management-template) öppnad och läst: samma innehåll som videon i text, plus verktygen
+  Trello, Zoom, Loom och Ruttl och en lanseringslista "Test all forms and buttons, Check for broken links, Run speed
+  and SEO audits, Ensure mobile responsiveness, Verify integrations" [TEXT]. Övriga länkar: väntelista, kurs,
+  podcast, Instagram, Showit (affiliate), sex affiliatelänkar till inspelningsutrustning, och videon 1NTKwpAVcHg som
+  redan är dömd nej (posten ovan, 2026-10-03). Ägarens not: ingen
+- Steg: 1 (underlag), 3 (beställningen), 4 (innehåll före form), 5 (startsidan först), 7 (rapporten), lanseringen (L)
+  och förvaltningen, samt kundvägen efter prospektmötet
+- Jämfört med i dag, punkt för punkt: (1) **Upptäcktssamtalet** [TAL 00:35–01:31; SKÄRM 01:14]: fråga om
+  verksamheten, drömmarna, vad som stör med nuvarande sajt och med tidigare frilansare. Vi: ingen människa svarar under
+  körningen; underlaget är det publika och kundernas omdömen (`.claude/skills/bygg-sajt/SKILL.md` rad 20–24, 67–95),
+  frågebanken i `kunskap/kundintervju.md` täcker åtta områden A–H (rad 48–57), och diagnosen av deras sajt är ribba 1
+  (rad 97–118). Lika i sak; vår lista är bredare, videons är tre frågor. (2) **Kontrakt och första betalning före
+  arbete, kickoff med tidsfrister åt båda håll, "24 hours to respond" med konsekvens** [TAL 01:45–03:31; SKÄRM 01:50,
+  03:18]. Vi: ingen text om pris, avtal eller revisionsrundor; det noterades som ägarens beslut redan vid Websites for
+  Normal People (posten 2026-10-03, punkt 10), och prospektflödet slutar vid inbjudan till femton minuter
+  (`kunskap/prospekt-och-utskick.md` rad 9; `BESLUT.md` rad 127). Det som verksamheten ska leverera har vi som
+  beställning utan frist: `BESTALLNING.md` "skrivet så att verksamheten kan svara på fem minuter" och sajten "inte
+  klar att lanseras förrän beställningen är levererad" (SKILL.md rad 144–148, 330–332). Ägarens affärsvillkor, inte
+  vårt flöde. (3) **Sajtkarta och "låg lo-fi"-skisser utan designbeslut, eftersom kunden fäster sig vid platshållarens
+  typsnitt** [TAL 03:31–05:47; SKÄRM 05:22]. Vi: all text per sida och sektion skrivs i INNEHALL.md innan något ritas,
+  med `Specifikt:` per sektion (SKILL.md rad 177–180), sedan KONCEPT.md med fyra riktningar och exakt specifikation
+  före kod (rad 208–220). Samma metod, content first (Wroblewski 2011; `kunskap/teoretisk-grund.md` rad 34); hos oss
+  ser ägaren riktningarna som skärmbilder parvis (rad 340–344), inte kunden. Lika. (4) **Startsidan först, sektioner
+  återanvänds** [TAL 05:47–06:20]. Vi: tvåan byggs "när startsidan står första gången" (rad 246–253), så startsidan
+  går först hos oss också. Lika. (5) **Skicka aldrig bara en URL: en Loom som förklarar varför** [TAL 06:20–07:08;
+  SKÄRM 06:33]. Vi: rapporten till ägaren med "tre beslut som syns" och frågor parvis med skärmbild och `varfor`
+  (SKILL.md rad 316, 340–351). Lika för ägaren; för en kund finns inget ännu. (6) **En revisionsrunda per steg,
+  stängda rundor** [TAL 07:08–08:35]. Vi: ägarens affär, se punkt 2; vår egen granskningsloop har ett tak per körning
+  (rad 272). Ej jämförbart. (7) **Lansering: fyll i formulären, köp, klicka alla länkar, låg trafik** [TAL
+  08:35–09:09; SKÄRM 09:29]. Vi: Definition of Done 10.3 "formuläret prövat hela vägen med mottaget mejl"
+  (`kunskap/byggstandard.md` rad 131), demomottagaren 6.3 (rad 86), tabellen Utgående länkar i rapporten (SKILL.md rad
+  334–335), 301 prövade live (`kunskap/lansering.md` rad 90–95). Lika; vår lista är mätt, videons är manuell.
+  Tidpunkten vid låg trafik saknar vi; liten praktisk regel, ägarens när en lansering kommer. (8) **Offboarding: FAQ
+  och Loom per sajt, en nådeperiod, uppföljning för återköp** [TAL 09:09–11:51; SKÄRM 10:22, 10:58]. Vi: README vid
+  lansering är utvecklarens (byggstandarden 1.6, rad 30), och underhållsformen i `kunskap/drift.md` (rad 88–100) anger
+  vad kunden kan be om efter leverans, men den texten är ärvd från Digitala och pekar på verktyg som inte finns här.
+  Videons FAQ-dokument [SKÄRM 10:22] är länkar till Showits hjälpartiklar: kunden redigerar själv i en byggare. Våra
+  sajter är statiska utan CMS; motsvarigheten är en kundvänd text om vad som kan ändras och hur man ber om det. Det är
+  en lucka, men den ligger i fas L som ägaren väntar med (`BESLUT.md` rad 102), och den är redan i backloggen för
+  lanseringstexten (B-20261003-skriv-om-kunskap-lansering-md-for-var-stack-den). Uppföljning för återköp är en
+  kundvårdsvana, ingen metod. Mot litteraturen: processen följer A.6 "Lansera och lära" i grova drag
+  (`kunskap/teoretisk-grund.md` rad 42–43), men utan mätning, DoD eller SUS vid överlämning (rad 114–115); inget i
+  videon säger emot måttstocken, inget tillför en metod. Det enda byggda som syns, startsidan vid 06:33, är en
+  kompetent men generisk mönstersida (grotesk rubrik, grön knapp, fotokollage); första vyn säger vad och nästa steg,
+  mobil osedd. Inget att pröva mot de åtta dimensionerna
+- Skäl: videon är en frilansares kundprocess, inte en byggmetod. Allt som rör själva bygget gör vi redan i samma form
+  eller strängare: innehåll före form i stället för lo-fi-skisser, startsidan först, förklaringen av besluten i
+  rapporten, formulär och länkar prövade i provet. Det som återstår är affärsvillkor (kontrakt, betalning, frister,
+  revisionsrundor, uppföljning) som är ägarens beslut och som redan noterats utan förslag, och en kundvänd
+  överlämning som hör till lanseringen, där backloggen redan har en post. De två artefakterna som skulle kunnat väga
+  tyngre, Trello-mallen och frågeformuläret, står bakom e-postformulär och är inte sedda. Källkritik: beskrivningen
+  säljer en väntelista, en kurs och Showit med affiliatelänk, sex av sjutton länkar är affiliatelänkar till
+  utrustning [BESKRIVNING]; "double or even triple the lifelong revenue" [TAL 00:00] och "nearly a decade" [TAL
+  10:57] är berättarens erfarenhet utan mätning. Inga instruktioner till agenter
+- Kostnad: inget tas in. Innovationsposten nedan är några rader i byggstandarden vid lansering, inga tokens i bygget
+- Säkerhet: transkriptet förgranskat: tre nollbreddstecken (U+200D) på rad 53, 56 och 71 i beskrivningen; lästa i
+  sammanhang är de fogtecknen i emojierna "🙋🏼‍♂️", "👨🏼‍🎨" och "👨🏼‍💻", ingen gömd text. Episodsidans text
+  förgranskad: LÅG, inga dolda tecken. Ingen text riktad till agenter, inga skript. Sidverktyget stängde en kakruta med
+  "Accept All" på episodsidan; de två Flodesk-sidorna fick inget ifyllt. Inget kört eller installerat; inget fört vidare
+- Förslag: inget. Egen innovation, inspirerad av punkt 8: vid lansering får verksamheten en egen sida "Så ändrar du på
+  sajten" (vad de kan be om, hur, svarstid, vem som äger domän och konton i kundens ord), som en rad i
+  `kunskap/byggstandard.md` 1.6 bredvid utvecklarens README; görs tillsammans med lanseringstextens omskrivning
+- Utfall: —
+- Backlog: ingen för domen; innovationspost B-20261003-vid-lansering-far-verksamheten-en-egen-sida-sa-a
