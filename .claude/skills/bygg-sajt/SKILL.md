@@ -221,7 +221,7 @@ KONCEPT.md.
    **Ateljévägen** (när prompten säger att riktningsateljén är på): kör punkt 2 först, sedan `.venv/bin/python
    kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så länge den svarar att ateljén
    pågår. En orkestrator tar fram riktningarna som style tile och första vy med verksamhetens riktiga innehåll, och
-   en fristående domare väljer. Läs `underlag/<slug>/atelje/VAL.md`, `RIKTNINGAR.md` och bilderna i `atelje/<N>/`,
+   en domarpanel om tre väljer. Läs `underlag/<slug>/atelje/VAL.md`, `RIKTNINGAR.md` och bilderna i `atelje/<N>/`,
    och skriv specifikationen i KONCEPT.md ur den valda riktningen och det som lånas från de andra. Avinstallera
    typsnitt som bara bortvalda riktningar använde. Tvåan i punkt 4 behövs då inte; riktningsfrågan i FRAGOR.json får
    en bild per riktning ur `atelje/<N>/vy-390-forsta.png`, i samma ordning som alternativen.

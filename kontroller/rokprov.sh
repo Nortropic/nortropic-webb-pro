@@ -116,6 +116,30 @@ assert r.returncode == 2 and 'Saknas' in r.stdout, r.stdout
 " || { echo "FEL: standarden fångar inte en kvarlämnad kastbar sida, eller ateljén vägrar inte utan underlag"; exit 1; }
 echo "   tvåan-regeln ok"
 
+echo "   ateljéns domarpanel: egen ordning per domare, summan avgör"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, pathlib, tempfile
+sys.path.insert(0, '$ROOT/kontroller'); import atelje as a
+rot = pathlib.Path(tempfile.mkdtemp()) / 'atelje'
+for n in (1, 2, 3):
+    (rot / str(n)).mkdir(parents=True); (rot / str(n) / 'vy-390-ruta-01.png').write_bytes(b'x')
+a.ROOT = rot.parent
+sedda = {}
+def attrapp(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
+    # varje domare rangordnar riktning 2 först, oavsett vilken bokstav den fått
+    karta = {rad.split(':')[0].split()[-1]: rad.split('/')[-2] for rad in prompt.splitlines() if rad.startswith('- riktning ')}
+    sedda[modell + str(len(sedda))] = karta
+    plats = sorted(karta, key=lambda b: {'2': 0, '1': 1, '3': 2}[karta[b]])
+    return {'structured_output': {'rangordning': [{'riktning': b, 'plats': i + 1, 'styrkor': '', 'svagheter': ''} for i, b in enumerate(plats)],
+                                  'lana': [{'fran': plats[1], 'vad': 'typsnittet'}], 'motivering': 'prov'}}
+a.session = attrapp
+v = a.panel('prov', rot)
+assert v['val'] == 2 and v['poang'] == {1: 3, 2: 6, 3: 0}, v
+assert len({tuple(sorted(k.items())) for k in sedda.values()}) >= 2, 'domarna ska få olika ordning'
+assert all(x['fran'] == 1 for x in v['lana']), v['lana']
+" || { echo "FEL: ateljéns domarpanel"; exit 1; }
+echo "   domarpanelen ok"
+
 echo "   ägarens A/B-omdöme: adress, brödsmulor, rörelse, typsnittsvikt, intern text"
 "$ROOT/.venv/bin/python" -B -c "
 import sys, re, json, shutil, tempfile, pathlib
