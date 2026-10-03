@@ -1828,21 +1828,44 @@ finally:
 print('R19 F3/F27 kandidaten ok')
 
 import sandlada_dom as sd  # noqa: E402
-assert sd.nat('200 200 127.0.0.1 rc=0')[0] == 'nadd' and sd.nat('000 403 127.0.0.1 rc=56')[0] == 'blockerad' and sd.nat('000 000  rc=6')[0] == 'blockerad' and sd.nat('curl: command not found rc=127')[0] == 'okant'
+assert sd.nat('200 200 127.0.0.1', 0)[0] == 'nadd' and sd.nat('000 403 127.0.0.1', 56)[0] == 'blockerad' and sd.nat('000 000 ', 6)[0] == 'blockerad'
+assert sd.nat('curl: command not found', 127)[0] == 'okant' and sd.nat('000 000 ', 0)[0] == 'okant', 'okänt format eller rc 0 utan kod är provfel'
 rot28 = tmp / 'prov28'; ut28 = rot28 / 'underlag' / 'prov-bygge' / 'skript'; ut28.mkdir(parents=True)
-for namn_, inneh_ in (('1-kontroller.txt', 'touch: fel\nrc=1\n'), ('1b-annan-kund.txt', 'rc=1\n'), ('1c-annat-underlag.txt', 'rc=1\n'), ('1d-venv.txt', 'rc=1\n'), ('2-hemligt.txt', 'cat: fel\nrc=1\n'),
-                      ('3a-nat-direkt.txt', '000 000  rc=6'), ('3b-nat-proxy.txt', '000 403 127.0.0.1 rc=56'), ('4-nat-ok.txt', '200 200 127.0.0.1 rc=0'), ('5-skript-post.txt', 'fel OSError x\n'),
-                      ('6-port.txt', 'bunden 5000\n'), ('7-tillatet-rc.txt', 'rc=0\n'), ('8-proxy.txt', 'proxy=http://127.0.0.1:1\n')):
-    (ut28 / namn_).write_text(inneh_)
-(ut28 / '7-tillatet.txt').write_text('')
+
+
+def skriv28(namn, resultat, fel=''):
+    (ut28 / namn).write_text(resultat); (ut28 / namn.replace('.txt', '-fel.txt')).write_text(fel)
+
+
+def grund28():
+    for namn_ in ('1-kontroller.txt', '1b-annan-kund.txt', '1c-annat-underlag.txt', '1d-venv.txt'):
+        skriv28(namn_, 'rc=1\n', 'touch: kontroller/otillatet.txt: Operation not permitted\n')
+    skriv28('2-hemligt.txt', 'rc=1\n', 'cat: hem/.nortropic-hemligheter/x.env: Operation not permitted\n')
+    skriv28('3a-nat-direkt.txt', '000 000  rc=6', 'curl: (6) Could not resolve host: example.com\n')
+    skriv28('3b-nat-proxy.txt', '000 403 127.0.0.1 rc=56', 'curl: (56) CONNECT tunnel failed, response 403\n')  # det verkliga formatet med diagnostik i egen fil
+    skriv28('4-nat-ok.txt', '200 200 127.0.0.1 rc=0')
+    skriv28('5-skript-post.txt', 'fel OSError [Errno 65] No route to host\nrc=0\n')
+    skriv28('6-port.txt', 'bunden 5000\nrc=0\n')
+    (ut28 / '7-tillatet-rc.txt').write_text('rc=0\n'); (ut28 / '7-tillatet.txt').write_text(''); (ut28 / '8-proxy.txt').write_text('proxy=http://127.0.0.1:1\n')
+
+
+grund28()
 assert sd.doma(ut28, '0', rot28)[0] == 0, sd.doma(ut28, '0', rot28)[1]
-(ut28 / '3b-nat-proxy.txt').write_text('200 200 127.0.0.1 rc=0')  # via proxyn men målservern svarade: nått, inte blockerat
-assert sd.doma(ut28, '0', rot28)[0] == 1 and any('väntade blockerad' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1])
-(ut28 / '3b-nat-proxy.txt').write_text('curl: command not found rc=127')
-assert sd.doma(ut28, '0', rot28)[0] == 1, 'okänt körfel är provfel (F28)'
-(ut28 / '3b-nat-proxy.txt').unlink()
-assert sd.doma(ut28, '0', rot28)[0] == 1 and any('saknas' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'saknad resultatfil är provfel (F28)'
-(ut28 / '3b-nat-proxy.txt').write_text('000 403 127.0.0.1 rc=56'); assert sd.doma(ut28, '1', rot28)[0] == 1, 'claude-processens slutkod räknas'
+skriv28('3b-nat-proxy.txt', '200 200 127.0.0.1 rc=0'); assert any('väntade blockerad' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'via proxyn men målservern svarade: nått'
+skriv28('3b-nat-proxy.txt', 'curl: command not found rc=127'); assert sd.doma(ut28, '0', rot28)[0] == 1, 'okänt körfel är provfel (F28)'
+(ut28 / '3b-nat-proxy.txt').unlink(); assert any('saknas' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'saknad resultatfil är provfel (F28)'
+grund28(); assert sd.doma(ut28, '1', rot28)[0] == 1, 'claude-processens slutkod räknas'
+grund28(); skriv28('5-skript-post.txt', 'rc=1\n', '  File "post.py", line 3\n    c = http.client\nSyntaxError: invalid syntax\n')
+assert any('provfel' in r_ and 'skript' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'ett syntaxfel i skriptet är inget bevis på blockering (F28)'
+grund28(); skriv28('5-skript-post.txt', "fel FileNotFoundError [Errno 2] No such file or directory: 'post.py'\nrc=0\n")
+assert any('provfel' in r_ and 'skript' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'ett skript som inte gick att starta är inget bevis (F28)'
+grund28(); skriv28('1-kontroller.txt', 'rc=127\n', 'bash: touch: command not found\n')
+assert any('provfel' in r_ and 'kontroller/' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'ett startfel i filförsöket är inget bevis (F28)'
+grund28(); skriv28('2-hemligt.txt', 'rc=1\n', 'cat: hem/.nortropic-hemligheter/x.env: No such file or directory\n')
+assert any('provfel' in r_ and 'hemligheten' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'en hemlighet som inte finns är inget bevis (F28)'
+grund28(); skriv28('2-hemligt.txt', 'DUMMY=hemligt\nrc=0\n'); assert any('gick att läsa' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1])
+grund28(); skriv28('6-port.txt', 'rc=1\n', 'Traceback\nPermissionError: [Errno 1] Operation not permitted\n'); assert any('lokal port: provfel' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1])
+grund28()
 print('R19 F28 domen ok')
 
 u39 = tmp / 'underlag' / 'ref39'; (u39 / 'referenser').mkdir(parents=True)
