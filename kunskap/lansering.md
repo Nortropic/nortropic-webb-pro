@@ -1,127 +1,108 @@
-# Lansering — procedur, kontroll, oåterkalleligt och återgång
+# Lansering: procedur, kontroll, oåterkalleligt och återgång
 
-Professionsfil (HELHET-20260927, avsnitt 4 "Leverans, drift och förbättring"), återvunnen ur det arkiverade repots
-cutover-flöde och lanseringssteg. Laddas i steget `lansering`. Verktyg: `verktyg/lansering.py` (plan och läsande
-kontroll), `verktyg/sokkonsol.py` (sökkonsolens skrivande steg), värdplattformens CLI (driftsättning, domän, återgång).
-Lansering sker bara enligt gällande mandat: en beställning som namnger lansering och domän (MANDAT.md §2); privat
-förhandsvisning och slutrapport levereras alltid först.
+Gäller när en verksamhet har sagt ja till sajten och ägaren beslutar att den ska ut. Inget bygge har lanserats än,
+och Vercel väntar tills en kund ska ut (ägarens beslut, `BESLUT.md`). Privat förhandsvisning och slutrapport kommer
+alltid först. Verktygen i repot: `kontroller/prova.py` (provet, också mot en förhandsvisning),
+`kontroller/seo_kontroll.py --lage lansering`, `kontroller/webblasare/arkivera.mjs` (arkiv av den gamla sajten).
+Det som inget verktyg gör står som **människa**: ägaren eller verksamheten gör det, ingen session.
+
+## Vercel-steget
+
+Byggstandardens L-punkter 1.4, 4.5, 4.6 och 8.1 pekar hit. Stacken är Astro med statisk utdata; Vercel bygger
+`npm run build` och serverar `dist/`.
+
+- **Projekt och skydd (människa):** ett Vercel-projekt per verksamhet, kopplat till sajtens eget repo. Skydd för alla
+  driftsättningar slås på innan den första går ut, och lösenordet lämnas bara till verksamheten och ägaren.
+- **Grenar (1.4):** en gren per ändring; varje gren får en egen förhandsvisning; `main` är produktion. Förhandsvisningen
+  svarar med `X-Robots-Tag: noindex`. Pröva med `curl -sI <förhandsvisningens adress> | grep -i x-robots-tag`; saknas
+  huvudet läggs det i `vercel.json` under `headers` för allt utom produktionsdomänen.
+- **Cache (4.5):** filerna under `/_astro/` har hash i namnet och får `Cache-Control: public, max-age=31536000,
+  immutable`; HTML får kort cache eller `must-revalidate`, så att en rättelse syns direkt. Pröva båda med `curl -sI`.
+- **Mätning per ändring (4.6):** varje förhandsvisning prövas innan den slås ihop: `kontroller/prova.py` mot bygget,
+  och Lighthouse mot förhandsvisningens adress. En regression mot 4.1 stoppar sammanslagningen.
+- **HTTPS och värd (8.1):** Vercel ger certifikatet. En variant (med eller utan www) är kanonisk och den andra
+  omdirigerar med 308; canonical, sitemap och `site` i `astro.config.mjs` pekar på den kanoniska. HSTS
+  (`Strict-Transport-Security: max-age=63072000; includeSubDomains`) och `frame-ancestors 'none'` sätts som
+  svarshuvuden i `vercel.json`, eftersom meta-CSP:n i mallen inte kan bära `frame-ancestors`.
+- **Formuläret:** serverfunktionen på `/api/forfragan` enligt `kunskap/forfragan.md`, Vid lansering: spara först,
+  mejla sedan, `/fel/` vid mejlfel. Hemligheter (mejltjänstens nyckel) ligger i Vercels miljövariabler, aldrig i repot.
+- **Återgång:** föregående produktionsdriftsättning befordras tillbaka i Vercel (människa, eller Vercels CLI med
+  ägarens ja). Det återställer inte DNS.
 
 ## Före lanseringsdagen
 
-Först sänker en behörig människa TTL för posterna som ska ändras, exempelvis till 300 s,
-minst en gammal TTL före bytet. TTL för delegeringens NS-poster i föräldrazonen sätts av
-registret och går inte att sänka i kundens zon. Har kunden e-post på domänen är
-standardvägen att bara ändra webbposterna hos nuvarande DNS-värd. Ett namnserverbyte
-kräver att hela zonen återskapas ur en zonexport, inklusive andra namn än kontrollens urval.
-Ingen session gör DNS-ändringar. Känd gammal TTL från den auktoritativa zonen används
-för tidsplanen; den rekursiva resolverns återstående TTL är inte hela den gamla TTL:en.
+**DNS (människa).** Först sänker en behörig människa TTL för posterna som ska ändras, till exempel till 300 s, minst
+en gammal TTL före bytet. TTL för delegeringens NS-poster sätts av registret och går inte att sänka i kundens zon.
+Har kunden e-post på domänen är standardvägen att bara ändra webbposterna hos nuvarande DNS-värd. Ett
+namnserverbyte kräver att hela zonen återskapas ur en zonexport, också namn som ingen kontroll räknar upp. Ingen
+session ändrar DNS. Spara posterna före bytet (NS, MX, TXT, CAA, A och AAAA på domänen; A, AAAA och CNAME på www;
+TXT på `_dmarc`) med `dig +noall +answer <namn> <typ>` i en fil i kundmappen, och läs samma poster igen när den
+gamla TTL:en har löpt ut. Ändrad eller saknad MX, TXT eller `_dmarc` är ett fynd; webbposterna och NS ska ha
+ändrats. När bytet är bekräftat höjer den behöriga människan TTL igen.
 
-Spara sedan ögonblicksbild **före domänkopplingen** med
-`python3 -B verktyg/lansering.py dns-bild --verksamhet VERKSAMHET.json --doman DOMÄN
---mandat POST-ID --ut DNS-FORE.json`. E-postkontroll och arkiv nedan följer före bytet.
-Efter domänkopplingen och **efter att den gamla TTL:en löpt ut**:
-`python3 -B verktyg/lansering.py dns-jamfor --verksamhet VERKSAMHET.json --doman DOMÄN
---mandat POST-ID --fore DNS-FORE.json --ut DNS-JAMFORELSE.json`.
-När bytet är bekräftat höjer den behöriga människan TTL igen.
+**E-postdomänen.** Domänen som formulärets mejl skickas från: SPF (`dig TXT <domän>`), DKIM under mejltjänstens
+selektor (`dig TXT <selektor>._domainkey.<domän>`) och DMARC (`dig TXT _dmarc.<domän>`). Saknas både SPF och DKIM är
+det ett fynd; saknad DMARC en anmärkning; flera SPF-poster ett fynd. Det prövar att posterna finns, inte att
+signeringen fungerar; läs också mejltjänstens eget verifieringsbesked. Gmail kräver SPF eller DKIM av alla avsändare.
 
-DNS-kommandona återanvänder M1:s fasta Cloudflare-resolver och standardbiblioteksläsare.
-De läser NS, MX, TXT, CAA, A och AAAA på domänen; A, AAAA och CNAME på www; TXT på
-_dmarc och CNAME på autodiscover. Tid, resolver och observerad TTL sparas per post.
-TXT jämförs exakt som resolvern presenterar texten, inklusive blanksteg,
-skiftläge och citering; även en ren presentationsändring kräver mänsklig kontroll.
-Ändrad eller saknad MX, TXT, _dmarc eller autodiscover är fynd. NS, webbposterna och
-CAA listas som ändringar att bekräfta; de ger inte klart före mänsklig bedömning.
-TTL-förändringar utan innehållsändring redovisas separat. DNS-felkod, timeout eller
-ofullständigt uppslag i någon bild ger okänt och aldrig klart. Jämförelsen innehåller
-den nya bilden och kontrollsumman för den gamla. Filerna skapas privata med 0600;
-befintliga filer vägras. Fiktiv eller okänd verksamhet gör inga verkliga uppslag.
+**Arkiv av den gamla sajten.** Före omdirigeringar och DNS-byte:
 
-En läsning kan inte räkna upp alla namn i zonen. Detta är en jämförelse av urvalet,
-inte en fullständig zonexport eller prövning av e-postautentiseringens riktighet.
-Verklig domän läses bara inom beställning som namnger lansering och domän.
+```sh
+node kontroller/webblasare/arkivera.mjs --adress https://gamla-domanen.se --kund <kundmapp utanför repot> \
+  --intervju ADRESSER.json --ut <ny katalog i kundmappen>
+```
 
-Lanseringskonfiguration skild från förhandsvisningen (noindex och robots-blockering bara i förhandsvisningen);
-kanonisk domänvariant vald, den andra omdirigerar; e-postdomänen kontrollerad och den gamla sajten arkiverad enligt
-stegen nedan **före DNS-omläggning och före omdirigeringar från gammal sajt prövas**; sökkonsolens META-token
-renderad; prelaunch-rapport redo; domän och certifikat hos värden; återgångsvägen känd (föregående driftsättning
-pekas tillbaka med värdplattformens CLI).
+Verktyget vägrar kataloger inuti repot; arkivet läggs därför utanför, till exempel i `~/Arkiv/<slug>/`.
+`ADRESSER.json` är `{"migrering_adresser": ["https://gamla-domanen.se/sida/", ...]}` med de gamla adresserna som
+ska omdirigeras. Verktyget förenar dem med sidkartan och sparar HTML, HAR och helsidesbild per sida; `MANIFEST.json`
+anger varje adress, status, fel och SHA-256. Läs alla fel innan den gamla sajten försvinner. Arkivet är privat
+kundmaterial.
 
-### E-postdomän — läsande kontroll före lanseringen
-
-Kör `python3 -B verktyg/lansering.py epostkontroll --verksamhet VERKSAMHET.json
---avsandardoman kundens-avsandningsdoman --dkim-selektor leverantorens-selektor
---mandat POST-ID --ut EPOST-DNS.json` och spara det nya kvittot i kundmappen (0600; befintlig fil vägras). Domänen avser formulärnotiser eller kvitton,
-inte automatiskt webbdomänen. Verktyget läser TXT via den fasta resolvern
-`https://cloudflare-dns.com/dns-query`: SPF på domänen, DKIM under leverantörens selektor
-och `_dmarc`. Det skriver inget hos DNS- eller e-postleverantören. Fiktiv eller okänd verksamhet
-ger okänt före nätåtkomst. Uppslagsfel ger alltid »kunde inte kontrolleras« och aldrig klart.
-
-Saknas både SPF och DKIM blir det fynd; saknad DMARC blir anmärkning. Flera SPF-poster är
-ett fynd. Kontrollen avser förekomst av publicerade poster, inte fullständig syntaxvalidering,
-faktisk signering, alignment eller leverans till inkorgen. Kontrollera också leverantörens
-egna verifieringsbesked. Gmail kräver minst SPF eller DKIM av alla avsändare och SPF, DKIM
-och DMARC vid fler än 5 000 meddelanden per dygn till personliga Gmail-konton; Google
-rekommenderar alla tre även för övriga. Volymkravet bedöms för kundens faktiska utskick.
-
-### Arkiv av den gamla sajten
-
-Före omdirigeringar och DNS-omläggning: kör `node kontroller/webblasare/arkivera.mjs
---adress https://gamla-domänen --kund KUNDMAPP --intervju INTERVJU.json --ut NY-ARKIVKATALOG`.
-Utdata måste vara en ny katalog i kundmappen utanför Digitalas repo. Verktyget förenar sitemapens
-adresser med intervjuns `migrering_adresser` (MIG1) och sparar HTML, inbäddad HAR och
-helsidesskärmbild per hämtad sida. `MANIFEST.json` anger varje adress, ursprung, status, fel,
-filstorlek och SHA-256; misslyckade adresser försvinner aldrig tyst. Läs alla fel och spara
-eventuellt kompletterande material innan den gamla sajten försvinner.
-
-Arkivet är privat kundmaterial, inklusive HAR och bilder. Bara samma ursprung, GET/HEAD och
-färska webbläsarkontexter tillåts; externa resurser och WebSockets blockeras och redovisas.
-Gränserna är 500 sidor och 20 sitemapfiler med ett indexled; överskridna gränser redovisas som
-ofullständighet. Arkivet ger inget lanseringsmandat och ingen garanti att allt innehåll har
-hittats. Inget WARC-verktyg eller nytt beroende ingår. Se `webblasare.md` för begränsningar.
-
-Källor, lästa 2026-09-30: [Gmail Email sender guidelines](https://support.google.com/a/answer/81126?hl=en),
-[Cloudflare DNS JSON](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/make-api-requests/dns-json/),
-[Playwright Browser.newContext, recordHar](https://playwright.dev/docs/api/class-browser#browser-new-context).
-Omfattning och prov: OVL-20260930-dbbdd8-digitala M1–M2.
+**Lanseringskonfigurationen** är skild från förhandsvisningen: noindex och `Disallow: /` bara i förhandsvisningen,
+kanonisk värd vald, omdirigeringar från gamla adresser i `vercel.json` (301 eller 308), sökkonsolens verifieringstagg
+renderad, provet grönt mot lanseringsbygget och `kontroller/seo_kontroll.py --lage lansering` utan fynd.
 
 ## Lanseringsdagen
 
-1. Driftsätt lanseringskonfigurationen; startsidan svarar 200 med rätt innehåll.
-2. `lansering.py kontrollera --adress https://<domän>/ --omdirigeringar REDIRECTS.json --ut KONTROLL.json`:
-   noindex borta (meta och X-Robots-Tag), verifieringstaggen synlig, sitemap 200,
-   robots tillåter, kanonisk variant. Samma `gamla`-lista med `fran` och `till` som
-   SEO-kontrollens offlineprov prövas nu live med GET: första svaret ska vara
-   301/308 och högst fem hopp ska landa på exakt målet med 200. Status, slutadress,
-   hopp och fynd per gammal adress finns i kvittot (OVL-20260930-b17920-digitala).
-   Spara också bokningens, betalningens och formulärets verkliga slutadresser som
-   `forvantad_slutadress` i DRIFT.json; driftverktyget skriver dem inte åt dig.
-3. Sökkonsol: `sokkonsol.py verifiera --live`, sedan `inspektera --live` för start och de viktigaste sidorna
-   (extern åtkomst krävs, sokkonsol.md).
-4. Bing Webmaster Tools: importera egenskapen (människa). IndexNow om värden stöder det (valfritt).
-5. Mätning: konverteringshändelser syns i felsökningsläget på produktionsdomänen.
+1. Driftsätt `main`; startsidan svarar 200 med rätt innehåll.
+2. Läsande kontroll mot den riktiga domänen: noindex borta (`curl -sI` och meta), sitemap 200, robots tillåter,
+   kanonisk variant, och varje gammal adress ger 301 eller 308 och landar på sitt mål med 200 inom fem hopp
+   (`curl -sIL <gammal adress>`). Formulärets riktiga väg prövas med ett inskick från verksamheten själv, inte från oss.
+3. Sökkonsol och Bing Webmaster Tools: verifiera och lämna sitemap (människa, `kunskap/sokkonsol.md`).
+4. Mätning: konverteringshändelserna syns på produktionsdomänen.
+5. Verksamheten får sidan **Så ändrar du på sajten** (nedan).
+
+## Så ändrar du på sajten
+
+En sida till verksamheten, skriven i deras ord utan tekniska termer, överlämnad på lanseringsdagen tillsammans med
+utvecklarens README (byggstandarden 1.6). Den säger:
+
+- **vad som kan ändras utan ny beställning:** öppettider, telefon, priser, en bild, ett omdöme, en text som blivit fel;
+- **hur man ber om det:** till vem, på vilket sätt, och vad som behövs (texten eller bilden, och var den ska stå);
+- **svarstid:** när ändringen syns;
+- **vem som äger domän och konton:** domänen, Vercel-projektet, mejltjänsten, sökkonsolen, och hur de lämnas över om
+  verksamheten vill byta leverantör.
+
+Sajten är statisk utan redigeringsverktyg, så kunden kan inte ändra själv; sidan ska säga det rakt.
 
 ## Oåterkalleligt
 
-Första indexeringen av fel innehåll; ägarskap i sökkonsolen; omdirigeringar som ändrat inkommande länkars mål;
-e-post som skickats till verkliga mottagare. Därför: noindex-kontrollen före sökkonsolen, och testdata bara i
-förhandsvisning.
+Första indexeringen av fel innehåll; ägarskap i sökkonsolen; omdirigeringar som ändrat inkommande länkars mål; mejl
+som skickats till verkliga mottagare. Därför: noindex-kontrollen före sökkonsolen, och testdata bara i
+förhandsvisningen.
 
 ## Återgång
 
-Driftsättning: peka tillbaka till föregående driftsättning med värdplattformens CLI;
-återställ noindex om innehållet inte får indexeras.
+Driftsättning: befordra föregående produktionsdriftsättning i Vercel; återställ noindex om innehållet inte får
+indexeras. DNS: en behörig människa återställer posterna till filen från före bytet. Ingen session ändrar DNS.
+Återgången kan ta upp till den TTL som gällde innan; vid namnserverbyte räknas också delegeringens TTL. En återgång av
+driftsättningen återställer inte DNS. Skriv tid, orsak, vem som beslutade och vad som återställdes i kundmappen, och
+kör provet igen före nästa försök.
 
-DNS: en behörig människa återställer posterna till ögonblicksbilden eller zonexporten
-från före bytet. Ingen session ändrar DNS. Återgången kan ta upp till den TTL som
-gällde innan; vid namnserverbyte måste också delegeringens TTL räknas med. En återgång
-av driftsättningen återställer inte DNS. Bokför tid, orsak, vem som beslutade och vad
-som återställdes i `ARBETSLOGG.md`; ny prelaunch-runda före nytt försök.
-
-DNS-tillägget N1–N3: OVL-20260930-54c10b-digitala. Primärkällor lästa 2026-09-30:
-[RFC 1034 §3.6 och §4.2](https://datatracker.ietf.org/doc/html/rfc1034),
-[Cloudflare TTL](https://developers.cloudflare.com/dns/manage-dns-records/reference/ttl/).
+Källor: [RFC 1034 §3.6 och §4.2](https://datatracker.ietf.org/doc/html/rfc1034),
+[Gmail Email sender guidelines](https://support.google.com/a/answer/81126?hl=en) (lästa 2026-09-30).
 
 ## Efter lansering
 
-Veckorna 1–2: sökkonsolens indexeringsrapport var 2–3 dag; driftkontrollen (drift.md) igång; månadsrutinen
-(uppfoljning.md). Lanseringen redovisas i slutrapporten med tid, revision, driftsättning och kontrollkvittot.
+Veckorna 1–2: sökkonsolens indexeringsrapport var 2–3 dag; driftkontrollen enligt `kunskap/drift.md`; månadsrutinen
+enligt `kunskap/uppfoljning.md`. Lanseringen redovisas i slutrapporten med tid, driftsättning och kontrollerna ovan.

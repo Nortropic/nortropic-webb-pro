@@ -25,9 +25,9 @@ sälja: varje sida har ett tydligt nästa steg.
 | 1.1 Innehållssidor förrenderas; ingen klientrenderad text. Vi bygger helt statiskt (`output: 'static'`). | D | `bygge`, `utan-js` |
 | 1.2 Låst lockfile, Node LTS. TypeScript strict och linter när sajten får egen kod utöver sidor. | D/L | mallen |
 | 1.3 Hemligheter bara i miljön på servern, aldrig i klientkoden. Demon har inga hemligheter. | D | `prelaunch` (info) |
-| 1.4 En gren per ändring, förhandsvisning per ändring, main är produktion, förhandsvisningen har noindex som svarshuvud. | L | Vercel-steget |
+| 1.4 En gren per ändring, förhandsvisning per ändring, main är produktion, förhandsvisningen har noindex som svarshuvud. | L | Vercel-steget (`lansering.md`) |
 | 1.5 Få beroenden; säkerhetspatchar inom en vecka, uppdateringsrunda varje månad. | L | drift |
-| 1.6 README: stack, miljövariabler, driftsättning, DNS, vart formulärmejl går, vem som äger domän och konton. | L | lansering |
+| 1.6 README: stack, miljövariabler, driftsättning, DNS, vart formulärmejl går, vem som äger domän och konton; och en sida till verksamheten, Så ändrar du på sajten: vad som kan ändras utan ny beställning, hur man ber om det, svarstid, vem som äger domän och konton, i kundens ord utan tekniska termer. | L | lansering (`lansering.md`) |
 
 ## 2. HTML och semantik (W+K)
 
@@ -59,8 +59,8 @@ sälja: varje sida har ett tydligt nästa steg.
 | 4.2 Bilder i AVIF eller WebP, responsiva med srcset och sizes, rätt storlek; största bilden i första vyn under 200 kB; ingen publicerad bild bär GPS-läge i sin metadata (en personuppgift). | D | `standard`, info |
 | 4.3 Högst två typsnittsfamiljer, självhostade WOFF2 följda i stacken av ett reservtypsnitt med size-adjust, latin-subset med bara de axlar som används (en fil över 80 kB kräver att bredd-axeln bär formen, över 120 kB aldrig), `font-display: swap` med size-adjust-reserv, preload av typsnittet i första vyn. | D | `standard`, info |
 | 4.4 Inga resurser från tredje part vid sidladdning; kartor som statisk bild och länk. | D | `standard` |
-| 4.5 Hashade statiska filer med lång cache, CDN, kort cache för HTML. | L | Vercel-steget |
-| 4.6 Varje ändring mäts på förhandsvisningen; regression mot 4.1 stoppar. | L | Vercel-steget |
+| 4.5 Hashade statiska filer med lång cache, CDN, kort cache för HTML. | L | Vercel-steget (`lansering.md`) |
+| 4.6 Varje ändring mäts på förhandsvisningen; regression mot 4.1 stoppar. | L | Vercel-steget (`lansering.md`) |
 
 ## 5. Tillgänglighet, WCAG 2.2 AA (W)
 
@@ -105,7 +105,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 
 | Punkt | Fas | Prövas av |
 |---|---|---|
-| 8.1 HTTPS, HSTS, omdirigering till en kanonisk värd. | L | Vercel-steget |
+| 8.1 HTTPS, HSTS, omdirigering till en kanonisk värd. | L | Vercel-steget (`lansering.md`) |
 | 8.2 CSP: i demon som metatagg med hashar (Astro `security.csp`, se mallen); skript bara med hash, stilattribut tillåtna. Vid lansering som svarshuvud med frame-ancestors, plus nosniff, Referrer-Policy och Permissions-Policy. | D meta, L huvuden | `standard`, `prelaunch` |
 | 8.3 API-vägar: bara avsedd metod, validerad indata, ingen öppen CORS. | L | lansering |
 | 8.4 npm audit utan kända sårbarheter i produktion. | L | lansering |
@@ -135,7 +135,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 Originalets avsnitt om Next.js gäller inte vår stack. Motsvarigheterna i Astro: statiska sidor; `astro:assets` och
 `<Image>` för bilder (width, height, WebP och srcset); självhostade typsnitt i `src/assets/fonts/` med Astros typsnitts-API (`fonts` i `astro.config.mjs`, `<Font preload />`), som ger reserv med size-adjust och preload; metadata i layouten;
 `sitemap.xml.ts` och `robots.txt.ts` i mallen; CSP med `security.csp`. Formulär, säkerhetshuvuden och mätning på
-förhandsvisningen hör till Vercel-steget.
+förhandsvisningen hör till Vercel-steget (`kunskap/lansering.md`).
 
 ## Rättelser mot originalet (kontrollerade 2026-10-02)
 
