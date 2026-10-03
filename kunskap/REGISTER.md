@@ -5077,3 +5077,201 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   ingen avfärdas automatiskt, eftersom en sponsrad video ändå kan visa en metod
 - Utfall: —
 - Backlog: ingen för domen; egen innovation B-20261003-spanaren-marker-youtube-kandidater-vars-beskrivn
+
+### 2026-10-03 · arvindrk/extract-design-system · nej
+- Källa: https://github.com/arvindrk/extract-design-system @ 1873741 (ur klonens `.git/packed-refs`; `git log`
+  nekades av behörigheten; senaste push 2026-09-05T00:23Z, version 0.1.11 i package.json), MIT; 231 stjärnor, inte
+  arkiverat; cirka 4 200 tokens text i 65 textfiler. Inte bedömd förut. Förgranskat (MEDEL). Läst helt: README,
+  `skills/extract-design-system/SKILL.md`, `references/workflow.md`, `references/outputs.md`, package.json,
+  `.codex-plugin/plugin.json`, `src/cli.ts`, `src/mcp.ts`, `src/commands/extract.ts`, `src/commands/audit.ts`,
+  `src/adapters/dembrandt.ts`, `src/normalize/normalize.ts`, `src/generators/css-vars.ts`,
+  `src/scanners/pattern-scanner.ts`, `src/utils/paths.ts` och början av `scripts/generate-pr-description.ts`; proven
+  och GitHub-flödena bara som fillista. Repot har inga bilder och ingen demo. Själva utvinningen ligger inte i repot:
+  den görs av npm-paketet `dembrandt` 0.13.0 (MIT enligt låsfilen) som anropas som program [REPO
+  src/adapters/dembrandt.ts rad 104; package-lock.json rad 1492–1496]; det paketet är inte läst, eftersom kirurgen
+  inte installerar något. Spanarens träff 2026-10-03 (agent, css, design, skill, typography, website). Ägarens not:
+  ingen utöver det
+- Steg: 5 (koncept och bygge) i den mån andras tokens skulle styra riktningen; steg 3 (referenserna) i den mån
+  verktyget skulle ersätta sida.mjs
+- Jämfört med i dag: (1) **Vad källan gör.** En agent får en publik adress, kör `npx playwright install chromium` och
+  `npx extract-design-system <url>` [REPO SKILL.md rad 28–31], och får tillbaka `tokens.json` och `tokens.css` med
+  `--color-primary`, `--font-heading`, `--space-1 … n`, `--radius-1 … n` och `--shadow-1 … n` ur en annan sajt [REPO
+  src/generators/css-vars.ts rad 12–31]. Normaliseringen gissar nycklar (`colors.primary`, `brand`, `main`;
+  `typography.heading`, `headings`) ur det dembrandt råkar ge [REPO src/normalize/normalize.ts rad 84–105, 125–141],
+  och skalorna numreras utan roll. README:s exempel: "Extract the design system from https://stripe.com and generate
+  starter token files for this project" [REPO README.md rad 44]. Målet är alltså att starta ett projekt på en annan
+  sajts palett och typsnitt. Vi: fyra riktningar "härledda ur verksamheten själv (deras bilder, material, plats, ton)
+  och referenserna, aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md` rad 235–237) och "Kopiera aldrig
+  layout, palett eller typsnitt" (rad 301). Ägarens domar visar var färgen faktiskt kom ifrån: rödfärgen ur husen på
+  bilderna (L1, `LARDOMAR.md` rad 41), gult och svart ur ordmärket (L3, rad 89), senapsgult ur fåtöljen (L4, rad
+  123). Krock med ett medvetet val. (2) **Designfakta ur andras sajter har vi redan, för jämförelse.**
+  `kontroller/sida.mjs` räknar beräknade stilar per roll (h1, h2, brödtext, länk, knapp: typsnitt, storlek, vikt,
+  radhöjd, färg), laddade typsnitt, bakgrund och de tio mest använda färgerna viktade efter yta (rad 111–125,
+  153–156), och det används i steg 3 och 5.5 för JAMFORELSE.md, "kandidatens drag · referensens lösning · vad som
+  skiljer" (bygg-sajt rad 295–301; `kunskap/referenser-professionella.md` rad 40–45, 60–61). Källans utdata är
+  fattigare (en primärfärg, ett rubriktypsnitt, numrerade skalor) och saknar rollerna; vårt är bättre som
+  jämförelseunderlag, och källans är byggt för att användas som stilkälla, vilket vi inte gör. (3) **Tokens i
+  bygget.** Byggstandardens 3.1 kräver designtokens som CSS-variabler ur specifikationen i KONCEPT.md
+  (`kunskap/byggstandard.md` rad 46; `kunskap/bygge-referens.md` rad 28), och stilrapporten mäter typsnitt,
+  färgfamiljer, radier och modellernas standardval i den renderade sajten (`kontroller/stil.mjs` rad 1–2, 28–31,
+  185–192). Tokens finns alltså, men de kommer ur verksamheten, inte ur stripe.com. (4) **Audit-kommandot.** Det
+  söker källkoden efter hex, rgb, px-avstånd, radier, skuggor och font-family utanför `var(--…)` och föreslår
+  närmaste token [REPO src/scanners/pattern-scanner.ts rad 3–15, 17–19, 26–36; src/commands/audit.ts rad 44–71].
+  Idén, hårdkodade värden mot tokens, är sund, men i källan mäts konformitet mot den utvunna sajtens tokens, det
+  vill säga mot någon annans palett. Hos oss dömer de två granskarna konsekvens (dimension 8) och ägaren gav
+  Konsekvens Bra i alla sex domar (`LARDOMAR.md` rad 35, 60, 84, 118, 142, 167); ingen mätt brist att stänga. (5)
+  **Körsättet.** Skillen ber användaren om adress och om "extraction only or starter files too" [REPO SKILL.md rad
+  10–15] och frågar innan den ändrar filer [rad 58]; hos oss svarar ingen under körningen (bygg-sajt rad 20). Den
+  kör `npx` ur npm vid varje användning, med en headless-webbläsare som laddas ned [rad 28–31; README rad 235–236];
+  kod ur källor körs inte (`.claude/skills/kirurg/SKILL.md` rad 24–27). MCP-servern gör samma sak som verktygsanrop
+  [REPO src/mcp.ts rad 19–44]. Krock. Litteraturen: content first och design ur verksamhetens innehåll
+  (`kunskap/teoretisk-grund.md` rad 34–35, Halvorson & Rach 2012; Frost 2016 om tokens som egna byggstenar); källan
+  vänder på ordningen och börjar i någon annans form. Samma familj som JCodesMore/ai-website-cloner (rad 2310–2367),
+  superdesigns `extract-website` (rad 4987–4990) och Ilm-Alan/frontend-design (rad 4710), alla nej; ägaren höll
+  med om nej för ui-ux-pro-max och shadcn-ui i samma familj (`kunskap/KIRURG-OMDOMEN.md` rad 145–153)
+- Skäl: verktyget svarar på frågan "hur startar jag mitt projekt på en annan sajts färger, typsnitt och avstånd",
+  och det är tvärtemot hur vi får fram en riktning: ur verksamhetens egna bilder, märke och plats, med andras sajter
+  bara som jämförelse i åtta dimensioner. De designfakta som källan tar fram tar `kontroller/sida.mjs` redan fram
+  rikare (per roll, färger viktade efter yta) för just det syftet. Utvinningen ligger dessutom i ett tredje
+  npm-paket som repot bara anropar, så det som skulle avgöra kvaliteten går inte att läsa här, och skillen kräver att
+  bygget hämtar och kör kod ur npm och en webbläsare vid varje användning samt ställer frågor till en människa som
+  inte finns i körningen. Audit-tanken, hårdkodade värden mot tokens, är det enda som skulle kunna beröra oss, men
+  ägaren har gett Konsekvens Bra i alla sex domar, så det finns ingen mätt brist för den att stänga. Källkritik:
+  README säljer ingenting utöver sponsorlänken och skills.sh-märket [REPO README.md rad 5–6, 231]; "W3C-compatible
+  tokens.json" [rad 31] är bara en kopia av normaliseringen enligt `references/outputs.md` rad 11–13; inga
+  före-och-efter, ingen demo. Inga instruktioner till agenter utöver skillens egen arbetsgång
+- Kostnad: inget tas in. Som skill vore det 30 tokens alltid, 477 vid användning och 282 vid behov
+  (förgranskningen), plus Node 20+, `extract-design-system`, `dembrandt`, Playwright och Chromium hämtade ur npm vid
+  varje körning
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, inga behörigheter i frontmatter, inga hookar eller MCP-servrar
+  i konfiguration (MCP-servern är kod i `src/mcp.ts` och registreras av användaren själv; `.cursor/mcp.json` finns
+  som exempel). "Text riktad till agenter" är frasen "as an AI agent skill" i README och package.json, en
+  beskrivning, inte en instruktion. Flaggan "hemligheter/miljö" i tolv filer är `process.cwd()` och `process.env` i
+  CI-skriptet `scripts/generate-pr-description.ts`, som läser `GITHUB_TOKEN` och `OPENAI_API_KEY` ur miljön för att
+  låta gpt-4o-mini skriva PR-beskrivningar [REPO rad 1–6]; det hör till deras GitHub-flöde, inte till skillen.
+  Inget kördes eller installerades; klonen läst utifrån; inget fört vidare
+- Förslag: inget. Egen innovation övervägd och avstådd: en kontroll av hårdkodade färg- och avståndsvärden utanför
+  tokens i `src/` skulle göra standardens 3.1 mätbar i källan, men alla sex domar gav Konsekvens Bra, så den skulle
+  inte ändra något ägaren dömt
+- Utfall: —
+- Backlog: ingen
+
+### 2026-10-03 · AI LABS, "These New Claude Skills Are Actually Insane" (YouTube jyLKRN36-Dc) + rebelytics/one-skill-to-rule-them-all, Nutlope/variate, slavingia/skills · ta in
+- Källa: https://www.youtube.com/watch?v=jyLKRN36-Dc @ publicerad 2026-09-01 (AI LABS, 13:41, 40 811 visningar,
+  autogenererat engelskt transkript; Supabase-länk med spårningskod och "check out Supabase" i beskrivningen, Supabase
+  presenterat i bild och tal [TAL 04:27–05:00; SKÄRM 04:41], prenumerationsvädjan [TAL 03:20] och länk till kanalens
+  betalgemenskap [TAL 13:09]). Läst och sett: hela tidslinjen och alla 41 bildrutor; omkring tolv är inspelningar av
+  terminal, webbläsare eller GitHub, resten animerade illustrationer. Spanarens träff 2026-10-03 (agent, claude code,
+  skill, workflow). Videon tar upp sex repon. Tre är redan dömda och bedöms inte igen: coreyhaines31/marketingskills
+  (ta in, avgränsat till tre rader ur ai-tells.md, registret rad 1818), multica-ai/andrej-karpathy-skills (nej, rad
+  574) och jackwener/OpenCLI (nej, rad 2436). Tre är nya och klonade: rebelytics/one-skill-to-rule-them-all
+  ("task-observer") @ da86026 (ur klonens packed-refs; senast pushat 2026-10-02T12:59Z, tagg v3.5.0), CC BY 4.0,
+  3 123 stjärnor; läst README, hela SKILL.md (715 rader), `references/signals.md` och repots bild; `USER-GUIDE.md`,
+  övriga referenser och de tre skripten bara som fillista och förgranskning. Nutlope/variate @ 3a82377 (senast pushat
+  2026-08-20, version 3.2.0), MIT, 211 stjärnor; läst README, SKILL.md, AGENTS.md, `references/craft.md`,
+  `references/harnesses.md`, `variate.mjs` rad 1–80, `src/sidecar.mjs` rad 1–60 och fem av åtta bilder i
+  `docs/img/`; `client/card.js`, `src/check.mjs`, evals och smoke-skripten inte lästa. slavingia/skills @ eb9f57f
+  (senast pushat 2026-04-14), **ingen licensfil** (`gh` visar ingen licens), 10 837 stjärnor; läst README och fyra av
+  tio SKILL.md (validate-idea, find-community, first-customers, minimalist-review). Ägarens not: ingen utöver spanarens
+- Steg: 5.1 (riktningarna i KONCEPT.md) och 7 (riktningsfrågan i FRAGOR.json) för det som tas in; arbetssättet runt
+  stegen (hur domar och brister blir textändringar) för task-observer; hur vi skulle nå kunder senare för Lavingia
+- Jämfört med i dag: (1) **task-observer** [TAL 00:47–03:20] är en metaskill som ska köras före första verktygsanropet
+  i varje session [REPO SKILL.md rad 5], iaktta rättelser, regelbrott och luckor, skriva en observationsfil per fynd
+  under `~/.claude/skill-observations/` [rad 24–45] och i en schemalagd veckogranskning stega ändringar av skills som
+  människan installerar [README rad 48, 122]. Två regler bär den: logga agentens egna regelbrott som bevis på svag
+  efterlevnad [SKILL.md rad 323–330], och vid andra brottet mot samma regel föreslå en spärr (hook, lint,
+  förval) i stället för en omformulering [rad 332–339; signals.md rad 97–130]. Vårt sätt: ägaren dömer bygget,
+  domen blir en textändring (`LARDOMAR.md` rad 3–6; `CLAUDE.md`, Arbetssätt: "En dom blir en textändring, inte en ny
+  mekanik"), textändringen prövas i mikroprov med fem armar och blinda domare innan den räknas (`LARDOMAR.md` rad 129:
+  gamla texten brast i 4 av 5, nya i 0 av 5; rad 178 likadant), och efter fem domar grupperades felen i "kände regeln
+  men hoppade över den", "utelämnade något", "rätt delar, fel form" (`.claude/skills/bygg-sajt/SKILL.md` rad 195–197,
+  `LARDOMAR.md` rad 154, 178), vilket är källans signaltaxonomi tillämpad på riktiga domar. Spärrarna finns där ägaren
+  valt dem: stoppvakten släpper inte avslutet förrän prov och granskning är gröna (bygg-sajt rad 411–413),
+  behörigheterna nekar skrivning i `kontroller/`, `kunskap/` och `.claude/` under ett bygge (rad 52–53),
+  `standard_kontroll` ger fel när en icke-publik adress ändå står på en sida (`LARDOMAR.md` rad 178), och bygget lägger
+  brister i kontroller, skillen och kunskapen som vilande backlogposter (bygg-sajt rad 397–408). Källans "andra
+  brottet kräver en spärr" är en tumregel; vårt mikroprov mäter om texten räcker, och det är starkare belägg än
+  tumregeln. Källans egen README säger att en liten uppsättning skills "may be covered by built-in memory with less
+  overhead" [README rad 66]; vi har tolv skills. Lika eller vårt starkare; och krock: en skill som ska laddas före
+  första verktygsanropet i varje session och skriva utanför `kunder/` och `underlag/` strider mot byggets ramar (rad
+  52–53) och mot regeln att ingen agent ändrar systemet obevakat. Videons egen berättelse är en animationsskill som
+  lärde sig varifrån logotyper hämtas [TAL 02:47–03:20; SKÄRM 02:43, 03:02, 03:22]; själva loggen visas bara som
+  illustration [SKÄRM 01:43]. (2) **Marknadsföringsskillsen** i videon är onboarding, betalvägg och uppsägningsflöde
+  i en gymapp med inloggning [TAL 03:54–07:00; SKÄRM 05:41, 06:01, 06:20, 06:40]; berättaren säger själv att
+  resultatet är generiskt [TAL 06:38]. Våra sajter har ingen inloggning, betalvägg eller prenumeration; inget nytt
+  mot bedömningen på rad 1818. (3) **Karpathys fyra regler** visas som en CLAUDE.md i en överordnad mapp som alla
+  projekt ärver [TAL 07:44–08:48; SKÄRM 07:59, 08:19, 08:39, texten suddad]; inget nytt mot rad 574, och ägaren höll
+  med om nej (`kunskap/KIRURG-OMDOMEN.md` rad 55–58). (4) **OpenCLI** visas som kommandon mot inloggade konton på
+  X [TAL 08:48–10:20; SKÄRM 09:18, 09:58, 10:18]; inget nytt mot rad 2436. (5) **variate** [TAL 10:20–11:43] låter
+  agenten skriva fyra verkliga varianter av en fil i projektet; ett kort på användarens egen localhost bläddrar med
+  piltangenterna, användaren behåller en, styr med "lugnare" eller "2:ans layout med 3:ans palett", och valet går
+  tillbaka till agenten via en kö som agenten tömmer varje tur [REPO SKILL.md rad 39–74; BILD docs/img/menu.webp,
+  refine.webp; SKÄRM 10:38, 10:57, 11:17]. Metoden bakom: en fråga per runda, fyra positioner som skiljer sig
+  strukturellt, en `plan.json` skriven före varianterna där varje position har namn, **vinkel** (det enda den ändrar)
+  och **kostnad** (det den ger upp), och kostnaden står på kortet när människan väljer; en rekommendation utan kostnad
+  "reads like salesmanship" [REPO craft.md rad 6–64]. Vårt: fyra riktningar i KONCEPT.md med hex, typsnitt,
+  komposition, sidans form, "Bara de har", motiv och en namngiven axel, "ingen halmgubbe" (bygg-sajt rad 235–250), den
+  näst starkaste riktningen byggd som Tvåan (rad 286–294), ateljévägen där tre domare rangordnar med styrkor och
+  svagheter per riktning (rad 251–257; `kontroller/atelje.py` rad 84), förfina eller byt riktning efter varje
+  granskning och bästa mot sista (rad 314–319), och riktningsfrågan till ägaren med en skärmbild per alternativ (rad
+  381–391). Axeln är källans vinkel, Tvåan och ateljén är källans runda, bytet av riktning är källans "a passed-over
+  direction stays dead" (craft.md rad 84–86). Lika. Det som saknas hos oss är **kostnadsraden**: ingen riktning anger
+  vad den ger upp, och riktningsfrågan ställs utan den. Ägarens domar visar vad det kostar: i L5 valde bygget rödfärg
+  och text först och ägaren fick själv upptäcka att det kostade fotot i första vyn och pekade ut Snøhetta-lånet som det
+  som "drar åt fel håll" (`LARDOMAR.md` rad 137, 139, 144, 147); i L1 bar frågan båda riktningarnas innehåll men
+  inte deras pris (rad 40). Litteraturen i `kunskap/teoretisk-grund.md` säger evidens före åsikt och iterativ,
+  utvärderingsdriven design (rad 47–48) men inget om hur alternativ presenteras; källans rad är praxis, inte
+  litteratur, och den kostar en mening per riktning. Smartare för valet i bygget och för ägarens dom. Själva
+  verktyget är byggt för en människa vid tangentbordet under rundan: vårt bygge körs utan människa (bygg-sajt rad
+  20), kör ingen lokal server eller hook i bygget, och ägaren väljer efteråt i dashboarden, blint och parvis
+  (`LARDOMAR.md` rad 97–105). Krock för verktyget, inte för raden. Källans stilregler (inga eyebrow-etiketter, ingen
+  kursiv display, en accent, inga tankstreck, 360–1440 px, reduced motion, aldrig påhittade bevis; craft.md rad
+  99–117) har vi redan i upptagna-valen, copykontrollen, humanizer, standarden 3.5 och kvittoregeln (registret rad
+  4744–4746 för eyebrows; `kunskap/byggstandard.md` rad 50; bygg-sajt rad 20–24), och källans egna exempel bryter mot
+  dem: en versal eyebrow och ett kursivt citat i dess "editorial"-variant [BILD docs/img/state-3.webp], en versal
+  eyebrow i videons Northline-sida [SKÄRM 11:17], och Ironline-hjälten är löfte, röd prisruta och en sifferrad med
+  fyra tal [SKÄRM 10:38, 10:57], det mönster ägaren kallade mall i L1–L3. (6) **slavingia/skills** [TAL 11:43–13:09;
+  SKÄRM 12:17, 12:36, 12:56] är tio korta rådgivarskills ur boken The Minimalist Entrepreneur: börja i en gemenskap man
+  redan tillhör, tio namngivna personer med problemet och tre som vill betala innan något byggs, sälj för hand först,
+  "don't launch, sell to your first 100 customers" [REPO validate-idea/SKILL.md rad 10, 33–37; find-community rad 10;
+  first-customers rad 10, 67]. De handlar om att starta ett företag, inte om att bygga sajter. Det som rör oss är hur
+  vi når kunder: first-customers bygger på kalla mejl till enskilda personer, "thousands of times" [REPO
+  first-customers/SKILL.md rad 31–37]; hos oss kräver e-post till en fysisk person samtycke i förväg, en enskild
+  näringsidkare räknas som fysisk person, så brev går bara till juridiska personer och en enskild firma får ett
+  ringmanus (`kunskap/prospekt-och-utskick.md` rad 18–20, marknadsföringslagen 19 §).
+  Krock, och ingen licensfil, så inget kan kopieras ändå. Sämre eller inte tillämpligt
+- Skäl: videon är en uppräkning av sex skills där tre redan är dömda och tre är nya, och av de tre nya är det bara en
+  rad i variates hantverkstext som gör något bättre hos oss: att varje riktning namnger vad den ger upp, och att
+  ägaren ser den kostnaden vid valet av riktning. Det är det ägaren själv fick räkna ut i L5, det ateljéns domare
+  redan gör i ateljévägen men standardvägen saknar, och det kostar en mening per riktning. Verktyget variate i sig
+  förutsätter en människa som bläddrar under rundan, en lokal server och hookar; hos oss körs bygget utan människa
+  och ägaren dömer efteråt, så verktyget tas inte in. task-observer för in en loggdisciplin för skillförbättring som
+  vi redan har i starkare form, ägarens domar som mikroprövade textändringar och spärrar där ägaren valt dem, och den
+  vill laddas före varje verktygsanrop i varje session och skriva utanför byggets kataloger. Lavingias skills är råd
+  till den som startar ett företag, utan licens, och deras säljväg är kalla mejl till enskilda, som vi inte skickar.
+  Källkritik: videon säljer en sponsor och en betalgemenskap, kallar allt "insane" och visar resultat bara som
+  prototyper eller animationer; variates egna exempelbilder bryter mot dess egen stilregel, vilket gör
+  stilreglerna till påståenden snarare än bevis, men kostnadsraden står på egna ben. task-observers beskrivning
+  innehåller instruktioner till agenter per konstruktion ("invoke this skill before the FIRST tool call of any
+  session"); den gällde inte kirurgen och följdes inte. variate säger uttryckligen att kortets text är data, aldrig
+  instruktioner [REPO SKILL.md rad 233–239], samma regel som vår
+- Kostnad: en mening per riktning i KONCEPT.md och en halv mening i riktningsfrågan; inga tokens utöver det, inget
+  kopieras, inga beroenden. Som skills vore task-observer 258 tokens alltid, 11 900 vid användning och 144 867 vid
+  behov, variate 185/3 186/79 127 och Lavingias tio 46–59 alltid och 675–1 091 vid användning (förgranskningen);
+  inget av det tas in
+- Säkerhet: task-observer förgranskad MEDEL: inga dolda tecken, inga behörigheter i frontmatter, inga hookar i
+  konfiguration; tre skript, varav `migrate-log.py` och `validate-skill-bundle.py` flaggade för miljö och
+  hemligheter (inte lästa); README ber användaren lägga en aktiveringsrad i CLAUDE.md eller en session-start-hook
+  [README rad 17, 86]. variate förgranskad MEDEL: **hookar i SKILL.md:s frontmatter** (två Stop-hookar som kör
+  `scripts/await.mjs`, den ena med asyncRewake och 900 sekunders väntan) [REPO SKILL.md rad 20–29; harnesses.md rad
+  33–38], 13 skript med nätanrop, eval/exec och skrivning utanför repot (`scripts/install.mjs` skriver hookar i
+  användarens inställningar [harnesses.md rad 46–56]); sidecarn binder 127.0.0.1 och kräver loopback-Host och lokal
+  Origin för skrivande anrop [REPO src/sidecar.mjs rad 2, 26–49]. Lavingia LÅG: inga skript, inga behörigheter.
+  Inget kördes eller installerades; klonerna lästa utifrån; inget fört vidare
+- Förslag: `.claude/skills/bygg-sajt/SKILL.md` steg 5.1, rad 235–250: efter raden **Motiv** en rad **Kostar**: det
+  riktningen ger upp (till exempel inget foto i första vyn, svagare på 390 px, långsammare att säga vad de gör), en
+  mening, aldrig tom; valet av riktning skrivs mot kostnaderna. I avsnittet "Dina frågor till ägaren", rad 381–391:
+  riktningsfrågans text namnger båda riktningarnas Kostar-rad, så att ägaren väljer med kostnaden synlig. Ateljévägen
+  behöver inget: domarnas svagheter per riktning är redan den raden. Ingen egen innovation utöver förslaget
+- Utfall: —
+- Backlog: B-20261003-varje-riktning-i-koncept-md-och-i-riktningsfraga
