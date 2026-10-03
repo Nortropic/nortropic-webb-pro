@@ -1,11 +1,12 @@
 ---
 id: B-20261002-mat-kontextdjupet-per-bygge-i-a-b-posten-storsta
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · JuliusBrussee/caveman
 skapad: 2026-10-02
 prio: normal
 steg: A/B-mätningen (kontroller/ab.py) och ramarna för körningen
+andrad: 2026-10-02T23:55Z
 ---
 # Mät kontextdjupet per bygge i A/B-posten: största kontexten och antal meddelanden över halva fönstret
 

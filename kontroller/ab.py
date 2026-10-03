@@ -42,19 +42,35 @@ def las(p):
         return None
 
 
+def kontextdjup(rader, fonster=1_000_000):
+    """Hur djupt bygget gick i modellens fönster: största kontexten i ett meddelande (indata, skriven och läst cache)
+    och antal meddelanden över halva fönstret. Ingen regel, en variabel att ha när nästa par döms (ur caveman-intaget)."""
+    storlekar = []
+    for r in rader:
+        if r.get('type') == 'assistant':
+            u = (r.get('message') or {}).get('usage') or {}
+            storlekar.append(sum(u.get(k) or 0 for k in ('input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens')))
+    return {'kontext_max': max(storlekar, default=0), 'over_halva': sum(s > fonster // 2 for s in storlekar),
+            'meddelanden': len(storlekar)}
+
+
 def matt(slug):
-    """Tid och turer ur körningens logg och granskarens betyg, efter bygget."""
+    """Tid, turer och kontextdjup ur körningens logg och granskarens betyg, efter bygget."""
     k = KUNDER / slug
     loggar = sorted(k.glob('korning-*.jsonl'))
     resultat = {}
     if loggar:
+        rader = []
         for rad in loggar[-1].read_text(encoding='utf-8', errors='replace').splitlines():
-            if '"type":"result"' in rad.replace(' ', ''):
-                try:
-                    r = json.loads(rad)
-                    resultat = {'turer': r.get('num_turns'), 'minuter': round((r.get('duration_ms') or 0) / 60000, 1)}
-                except ValueError:
-                    pass
+            try:
+                rader.append(json.loads(rad))
+            except ValueError:
+                continue
+        slut = next((r for r in reversed(rader) if r.get('type') == 'result'), None)
+        if slut:
+            resultat = {'turer': slut.get('num_turns'), 'minuter': round((slut.get('duration_ms') or 0) / 60000, 1)}
+        fonster = max([m.get('contextWindow') or 0 for m in ((slut or {}).get('modelUsage') or {}).values()] or [0]) or 1_000_000
+        resultat.update(kontextdjup(rader, fonster))
     g = las(k / 'granskning' / 'GRANSKNING.json') or {}
     s = las(k / 'prov' / 'STATUS.json') or {}
     return {**resultat, 'provet_gront': s.get('ok'), 'granskning_godkand': g.get('godkand'),

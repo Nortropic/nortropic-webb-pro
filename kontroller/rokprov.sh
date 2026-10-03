@@ -180,6 +180,15 @@ assert [f for f in sk.granska(d)[0] if f['punkt'] == '4.2' and 'GPS' in f['text'
 " || { echo "FEL: bilddatum eller GPS-vakten"; exit 1; }
 echo "   bilddatum ok"
 
+echo "   A/B-mätningens kontextdjup"
+"$ROOT/.venv/bin/python" -B -c "
+import sys; sys.path.insert(0, '$ROOT/kontroller'); import ab
+u = lambda n: {'type': 'assistant', 'message': {'usage': {'input_tokens': 10, 'cache_creation_input_tokens': 0, 'cache_read_input_tokens': n}}}
+k = ab.kontextdjup([u(100), u(600000), {'type': 'user'}, u(499990)], 1000000)
+assert k == {'kontext_max': 600010, 'over_halva': 1, 'meddelanden': 3}, k
+" || { echo "FEL: kontextdjupet"; exit 1; }
+echo "   kontextdjupet ok"
+
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \
   || { echo "FEL: prospektpipelinen"; tail -20 "$ROOT/kunder/rokprov-mall/prospekt-prov.log"; exit 1; }
