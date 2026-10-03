@@ -309,7 +309,9 @@ def godkann(k, slug, data):
     upp = las_json(bas / 'brev' / 'UPPDRAG.json') or {}
     kontroll = brevmod.kontrollera({'amne': amne, 'text': text}, upp.get('fakta') or [x.get('pastaende', '') for x in fakta])
     brev['kontroll'] = {'copy_fynd': kontroll['copy_fynd'], 'siffror_ok': kontroll['siffror_ok'], 'siffror_fel': kontroll['siffror_fel'], 'ord': kontroll['ord']}
-    brev['godkand'] = {'tid': nu(), 'text_sha': pf.text_sha(amne, text)}
+    # godkännandet binder text, mottagare, verksamhet och bekräftelsen av en namngiven adress (utskick.far_skickas)
+    brev['godkand'] = {'tid': nu(), 'text_sha': pf.text_sha(amne, text), 'mottagare': epost.lower(), 'slug': slug,
+                       'bekraftad_person': bool(m.get('bekraftad_person'))}
     pf.skriv_json(bas / 'BREV.json', brev)
     pf.logga(k, 'brev_godkant', slug=slug, ord=kontroll['ord'], siffror_ok=kontroll['siffror_ok'], av='agaren')
     return {'slug': slug, 'godkand': True, 'kontroll': brev['kontroll']}

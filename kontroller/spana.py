@@ -15,6 +15,8 @@ Miljö: NWP_SPANING_MAX_KANDIDATER (200), NWP_SPANING_MAX_ANROP (120), NWP_SPANI
 mellan anrop till samma värd), NWP_SPANING_INTERVALL_DAGAR (7, används av dashboarden), NWP_SPANING_AV (dashboarden kör inte).
 """
 import argparse
+import contextlib
+import fcntl
 import hashlib
 import html
 import json
@@ -85,9 +87,22 @@ def las_json(p):
 def skriv_json(p, d):
     p = Path(p)
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_name(p.name + '.tmp')
+    tmp = p.with_name(p.name + '.tmp%d' % os.getpid())  # eget namn per process; två skrivare delar aldrig temporärfil
     tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     os.replace(tmp, p)
+
+
+@contextlib.contextmanager
+def last():
+    """Lås kring läs–ändra–skriv av KANDIDATER.json och SEDDA.json: spanaren och dashboardens avfärdande får inte skriva
+    över varandras status (revisionen 2026-10-03, F25)."""
+    SPANING.mkdir(parents=True, exist_ok=True)
+    with open(SPANING / '.las', 'w') as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def las_kallor(fil=None):
@@ -455,6 +470,9 @@ def spana(kallor, h, torr=False, bara=None, max_per_kalla=MAX_PER_KALLA, gh_json
     SPANING.mkdir(parents=True, exist_ok=True)
     start = time.time()
     snapshots, rapport, alla, fel = {}, [], [], []
+    kanda = kn.kanda_kallor() if kanda is None else kanda
+    nyckel = lambda x: x.get('nyckel_override') or x['nyckel']  # noqa: E731
+    redan = set()  # nycklar som sållats bort som kända, räknade en gång var
     for kalla in kallor:
         if bara and kalla['typ'] != bara:
             continue
@@ -473,6 +491,11 @@ def spana(kallor, h, torr=False, bara=None, max_per_kalla=MAX_PER_KALLA, gh_json
             k = [x for x in k if not HOPPA_VARD.search((urlsplit(x['url']).hostname or ''))]
             post['hamtade'] = len(k)
             k = [poang(x) for x in k]
+            # redan bedömda bort före antalsbegränsningen: annars tränger kända toppresultat för alltid undan nya
+            # kandidater längre ned i listan (revisionen 2026-10-03, F26)
+            fore = {nyckel(x) for x in k}
+            k, _ = dedupe(k, kanda)
+            redan |= fore - {nyckel(x) for x in k}
             k.sort(key=lambda x: (-x['poang'], x['id']))
             alla += k[:max_per_kalla]
             post['nya'] = len(k[:max_per_kalla])
@@ -486,8 +509,15 @@ def spana(kallor, h, torr=False, bara=None, max_per_kalla=MAX_PER_KALLA, gh_json
             fel.append('%s: %s' % (kalla['namn'], post['fel']))
         rapport.append(post)
     alla = sla_ihop(alla)
-    kanda = kn.kanda_kallor() if kanda is None else kanda
-    alla, redan = dedupe(alla, kanda)
+    fore = {nyckel(x) for x in alla}
+    alla, _ = dedupe(alla, kanda)
+    redan |= fore - {nyckel(x) for x in alla}
+    with last():
+        return _skriv_resultat(alla, rapport, fel, snapshots, len(redan), start, torr, h)
+
+
+def _skriv_resultat(alla, rapport, fel, snapshots, redan, start, torr, h):
+    """Slå ihop med listan på disk och skriv, under låset: ägarens avfärdande under spaningen får inte återställas."""
     gamla = las_json(SPANING / 'KANDIDATER.json') or []
     behall = []
     grans = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -518,16 +548,17 @@ def spana(kallor, h, torr=False, bara=None, max_per_kalla=MAX_PER_KALLA, gh_json
 
 
 def satt(ident, status, **falt):
-    lista = las_json(SPANING / 'KANDIDATER.json') or []
-    k = next((x for x in lista if x['id'] == ident), None)
-    if not k:
-        raise ValueError('ingen kandidat %s' % ident)
-    k['status'] = status
-    k.update(falt)
-    skriv_json(SPANING / 'KANDIDATER.json', lista)
-    sedda = las_json(SPANING / 'SEDDA.json') or {}
-    sedda[k.get('nyckel_override') or k['nyckel']] = {'status': status, 'tid': nu(), 'skal': falt.get('avfardad'), 'intag_id': falt.get('intag_id'), 'titel': k.get('titel')}
-    skriv_json(SPANING / 'SEDDA.json', sedda)
+    with last():
+        lista = las_json(SPANING / 'KANDIDATER.json') or []
+        k = next((x for x in lista if x['id'] == ident), None)
+        if not k:
+            raise ValueError('ingen kandidat %s' % ident)
+        k['status'] = status
+        k.update(falt)
+        skriv_json(SPANING / 'KANDIDATER.json', lista)
+        sedda = las_json(SPANING / 'SEDDA.json') or {}
+        sedda[k.get('nyckel_override') or k['nyckel']] = {'status': status, 'tid': nu(), 'skal': falt.get('avfardad'), 'intag_id': falt.get('intag_id'), 'titel': k.get('titel')}
+        skriv_json(SPANING / 'SEDDA.json', sedda)
     return k
 
 

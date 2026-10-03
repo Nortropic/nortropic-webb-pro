@@ -10,7 +10,10 @@ håller (generator och granskare, Anthropic "Harness design for long-running app
 Kör först `kontroller/prova.py <slug> --snabb` (eller hela provet): granskningen gäller exakt det bygge som provet
 senast byggde och tar provets skärmbilder som underlag. Granskaren körs i en egen process som överlever kommandot;
 kommandot väntar på svaret högst --vanta sekunder (540). Pågår granskningen fortfarande: kör samma kommando igen.
-Ett bygge som redan granskats svarar direkt med samma dom, utan ny session (--om tvingar en ny).
+Ett bygge som redan granskats med samma metod (kriterier, scheman, modell, effort, antal granskare, originalitetsläge)
+svarar direkt med samma dom, utan ny session (--om tvingar en ny). Granskarna får inte läsa LARDOMAR.md, byggets eller
+syskonets DOM.json och tidigare omgångars domar; de får ett utdrag ur LARDOMAR.md utan avsnitten om bygget. Svarar inte
+alla granskare giltigt blir omgången ett fel (utfall 4), aldrig en dom av de som svarade.
 
 Resultat i kunder/<slug>/granskning/: GRANSKNING.json och GRANSKNING.md (senaste), runda-NN/ per omgång.
 Exit: 0 godkänd · 1 underkänd · 2 fel i anropet eller saknat bygge · 3 taket för omgångar nått · 4 granskaren föll ·
@@ -72,6 +75,48 @@ def nu():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
+def metod_sha():
+    """Hash av granskningsmetoden: kriterierna, svarsschemana och trösklarna. En dom återanvänds bara för samma bygge och
+    samma metod (revisionen 2026-10-03, F18: ändrade kriterier, modell eller antal granskare gav annars ingen ny granskning)."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in (ROOT / INSTRUKTION, SCHEMA, SCHEMA_ORIGINALITET):
+        h.update(f.read_bytes() if f.is_file() else b'')
+    h.update(json.dumps({'troskel': TROSKEL, 'kriterier': KRITERIER}, sort_keys=True).encode())
+    return h.hexdigest()
+
+
+def samma_metod(g, upp):
+    return all(g.get(k) == upp.get(k) for k in ('metod_sha', 'modell', 'effort', 'granskare', 'originalitet'))
+
+
+def syskon_till(slug):
+    f = KUNDER / slug / 'AB-SYSKON'
+    return f.read_text().strip() if f.is_file() else None
+
+
+def lardomar_utan(slug, rdir):
+    """LARDOMAR.md utan avsnitten om det här bygget och dess A/B-syskon, skriven i omgången: granskaren får inte se
+    facit för det den dömer (revisionen 2026-10-03, F17). Returnerar sökvägen relativt repot."""
+    text = (ROOT / 'LARDOMAR.md').read_text(encoding='utf-8') if (ROOT / 'LARDOMAR.md').is_file() else ''
+    namn = [s for s in (slug, syskon_till(slug)) if s]
+    delar = re.split(r'(?m)^(?=## )', text)
+    kvar = [d for d in delar if not any(n in d for n in namn)]
+    ut = rdir / 'LARDOMAR-utan-egen-dom.md'
+    ut.write_text(''.join(kvar), encoding='utf-8')
+    return ut
+
+
+def nekas_for(slug):
+    """Granskarens egna nekanden utöver NEKAS: ägarens dom om bygget och syskonet, och tidigare omgångars domar."""
+    ut = ['Read(./LARDOMAR.md)']
+    for s in (slug, syskon_till(slug)):
+        if s:
+            ut += ['Read(./kunder/%s/DOM.json)' % s, 'Read(./kunder/%s/granskning/GRANSKNING.*)' % s,
+                   'Read(./kunder/%s/granskning/runda-*/GRANSKNING.*)' % s, 'Read(./kunder/%s/granskning/runda-*/svar*.json)' % s]
+    return ut
+
+
 def las_json(p):
     try:
         return json.loads(Path(p).read_text(encoding='utf-8'))
@@ -81,6 +126,11 @@ def las_json(p):
 
 def rel(p):
     return str(Path(p).relative_to(ROOT))
+
+
+def vag(p):
+    """Relativt repot när filen ligger där, annars absolut (torrkörningens omgång ligger i en temporär katalog)."""
+    return rel(p) if str(p).startswith(str(ROOT) + os.sep) else str(p)
 
 
 def lever(pid):
@@ -175,10 +225,12 @@ def tidigare_byggen(slug):
 
 
 def domda_byggen(utom=None):
-    """Byggen som ägaren har dömt, utom det som granskas (granskningen ska vara blind för sin egen dom)."""
+    """Byggen som ägaren har dömt, utom det som granskas och dess A/B-syskon (granskningen ska vara blind för sin egen
+    dom, och syskonets dom skulle avslöja armen)."""
+    undantag = {utom, syskon_till(utom) if utom else None} - {None}
     for p in sorted(KUNDER.iterdir()) if KUNDER.is_dir() else []:
         dom = (las_json(p / 'DOM.json') or {}).get('domar') or []
-        if dom and p.name != utom:
+        if dom and p.name not in undantag:
             yield p, dom[-1].get('svar') or {}
 
 
@@ -211,7 +263,7 @@ def kalibrering(utom=None):
     return rader
 
 
-def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=()):
+def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=(), lardomar=None):
     u = UNDERLAG / slug
     v = las_json(u / 'VERKSAMHET.json') or {}
     rad = lambda p: '- ' + (rel(p) if str(p).startswith(str(ROOT)) else str(p))  # noqa: E731
@@ -226,7 +278,7 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Sidor: %s' % ', '.join(url + s for s in sidor),
         'Din arbetskatalog för egna skärmbilder och sida.mjs-utdata: %s' % arbetskatalog,
         'Trösklar för godkänt: %s, och inga blockerande fynd. Godkännandet räknas ut av verktyget.' % trosklar, '',
-        'Ägarens domar: LARDOMAR.md', '',
+        'Ägarens domar (utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md'), '',
         'Kalibrering, ägarens dom bredvid granskarens för tidigare byggen:',
         *(kal or ['- inga ännu']), '',
         'Bildankare, första vyn av byggen som ägaren dömt, med domen (titta på bilderna):',
@@ -287,6 +339,8 @@ def arbetare(rdir):
             raise RuntimeError('bygget ändrades medan granskningen startade; kör provet och granskningen igen')
         claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
         antal = max(1, int(upp.get('granskare', 1)))
+        lardomar = lardomar_utan(slug, rdir)
+        nekas = NEKAS + nekas_for(slug)
         delar, sessioner, fel = [], [], []
         with prova.Server(rdir / 'dist') as srv:
             # Två granskare (eller fler) dömer var för sig med samma kriterier, parallellt, var och en i egen session
@@ -296,13 +350,13 @@ def arbetare(rdir):
                 arbetskatalog = ARBETSROT / ('%s-%s-%d' % (slug, rdir.name, n))
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                      referensbilder(slug), tidigare_byggen(slug), kalibrering(slug), rdir, aria, bildankare(slug))
+                                      referensbilder(slug), tidigare_byggen(slug), kalibrering(slug), rdir, aria, bildankare(slug), lardomar)
                 (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
                 args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config',
                         '--model', upp['modell'], '--effort', upp['effort'],
                         '--json-schema', SCHEMA.read_text(encoding='utf-8'), '--add-dir', str(arbetskatalog),
-                        '--allowedTools', *VERKTYG, '--disallowedTools', *NEKAS]
+                        '--allowedTools', *VERKTYG, '--disallowedTools', *nekas]
                 ut = open(rdir / ('svar.json' if n == 1 else 'svar-%d.json' % n), 'wb')
                 err = open(rdir / ('stderr-%d.log' % n), 'wb')
                 proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=ut, stderr=err, cwd=str(ROOT), env=ren_miljo())
@@ -327,16 +381,16 @@ def arbetare(rdir):
                     continue
                 delar.append(res)
                 sessioner.append({'granskare': n, **{k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id', 'total_cost_usd')}})
-        if not delar:
-            raise RuntimeError('; '.join(fel))
+        if len(delar) < antal:
+            # alla konfigurerade granskare måste ha svarat giltigt: en ensam granskare får inte godkänna det två skulle
+            # dömt (revisionen 2026-10-03, F8). Omgången slutar med fel; stoppvakten startar en ny.
+            raise RuntimeError('ofullständig granskning, %d av %d granskare svarade; ingen dom: %s' % (len(delar), antal, '; '.join(fel)))
         res = sla_ihop(delar)
-        if fel:
-            res['ej_bedomt'] = list(res.get('ej_bedomt') or []) + ['En av granskarna föll, domen bygger på %d av %d: %s' % (len(delar), antal, '; '.join(fel))]
         svar = {'num_turns': sum(s.get('num_turns') or 0 for s in sessioner), 'duration_ms': max(s.get('duration_ms') or 0 for s in sessioner),
                 'session_id': sessioner[0].get('session_id')}
         lage = upp.get('originalitet', 'skugga')
         if lage != 'av':
-            sep = originalitet_separat(rdir, upp, slug, bilder, claude)
+            sep = originalitet_separat(rdir, upp, slug, bilder, claude, lardomar, nekas)
             res['originalitet_separat'] = sep
             if lage == 'avgor' and isinstance(sep, dict) and 'betyg' in sep:
                 res['originalitet_huvud'] = res['kriterier']['originalitet']
@@ -345,6 +399,7 @@ def arbetare(rdir):
                     res['blockerande'] = [f for f in res['blockerande'] if f.get('kriterium') != 'originalitet']
         post = {'schema': 1, 'slug': slug, 'runda': upp['runda'], 'korning': upp['korning'], 'tid': nu(),
                 'startad': upp['tid'], 'dist_sha256': upp['dist_sha256'], 'modell': upp['modell'], 'effort': upp['effort'],
+                'metod_sha': upp.get('metod_sha'), 'granskare': antal, 'originalitet': lage,
                 'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res,
                 'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}, 'sessioner': sessioner}
         (rdir / 'GRANSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
@@ -357,7 +412,7 @@ def arbetare(rdir):
     return 0
 
 
-def originalitet_separat(rdir, upp, slug, bilder, claude):
+def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=NEKAS):
     """En egen session som bara dömer originalitet (Anthropic: en isolerad domare per dimension). Körs i skugga bredvid
     huvudgranskaren så att vi kan se vilken av dem som stämmer bäst med ägarens domar."""
     hem = [b for b in bilder if b.parent.name == 'hem' and re.search(r'ruta-0[12]\.png$|forsta\.png$', b.name)]
@@ -372,11 +427,11 @@ def originalitet_separat(rdir, upp, slug, bilder, claude):
              'Undersidornas första skärm:', *['- ' + rel(b) for b in under],
              'Tidigare byggens första vy:', *['- ' + rel(b) for b in tidigare_byggen(slug)],
              'Bildankare med ägarens dom:', *['- %s · %s: %s' % (n, t, ', '.join(rel(b) for b in bb)) for n, bb, t in bildankare(slug)],
-             'Ägarens domar: LARDOMAR.md']
+             'Ägarens domar (utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md')]
     args = [claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--model', upp['modell'], '--effort', upp['effort'],
             '--json-schema', SCHEMA_ORIGINALITET.read_text(encoding='utf-8'), '--allowedTools', 'Read', 'Glob', 'Grep',
-            '--disallowedTools', *NEKAS]
+            '--disallowedTools', *nekas]
     try:
         with open(rdir / 'svar-originalitet.json', 'wb') as ut:
             p = subprocess.run(args, input='\n'.join(delar).encode(), stdout=ut, stderr=subprocess.PIPE, cwd=str(ROOT),
@@ -569,7 +624,7 @@ def main(argv=None):
                 shutil.copy2(kund / 'prov' / namn, rdir / Path(namn).name)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / 'torr', bilder,
                               referensbilder(a.slug), tidigare_byggen(a.slug), kalibrering(a.slug), rdir,
-                              aria_trad(kund, rdir / 'sajt'), bildankare(a.slug))
+                              aria_trad(kund, rdir / 'sajt'), bildankare(a.slug), lardomar_utan(a.slug, rdir))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         print(prompt)
         print('Torrkörning: %s. Ingen granskare startades.' % (rdir / 'PROMPT.txt'))
@@ -589,11 +644,15 @@ def main(argv=None):
                     pass
             (r / 'FEL.txt').write_text('avbruten: bygget ändrades eller processen dog\n', encoding='utf-8')
             pagar.unlink(missing_ok=True)
+    lage = os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga')
+    metod = {'metod_sha': metod_sha(), 'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
+             'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'granskare': ANTAL,
+             'originalitet': lage if lage in ORIGINALITETSLAGEN else 'skugga'}
     if not a.om:
         for r in reversed(rundor(gdir)):
             g = las_json(r / 'GRANSKNING.json')
-            if g and g.get('dist_sha256') == hash_nu:
-                print('(Samma bygge är redan granskat i %s; ingen ny session.)' % r.name)
+            if g and g.get('dist_sha256') == hash_nu and samma_metod(g, metod):
+                print('(Samma bygge är redan granskat med samma metod i %s; ingen ny session.)' % r.name)
                 return svara(gdir, r, g)
 
     egna = [r for r in rundor(gdir) if (las_json(r / 'UPPDRAG.json') or {}).get('korning') == korning]
@@ -604,10 +663,7 @@ def main(argv=None):
     n = max([int(r.name.split('-')[1]) for r in rundor(gdir)] or [0]) + 1
     rdir = gdir / ('runda-%02d' % n)
     rdir.mkdir()
-    upp = {'slug': a.slug, 'runda': n, 'korning': korning, 'tid': nu(), 'dist_sha256': hash_nu,
-           'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
-           'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'frist': FRIST, 'granskare': ANTAL,
-           'originalitet': os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga') if os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga') in ORIGINALITETSLAGEN else 'skugga'}
+    upp = {'slug': a.slug, 'runda': n, 'korning': korning, 'tid': nu(), 'dist_sha256': hash_nu, 'frist': FRIST, **metod}
     (rdir / 'UPPDRAG.json').write_text(json.dumps(upp, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     with open(rdir / 'arbetare.log', 'wb') as logg:
         proc = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), '--arbetare', str(rdir)],

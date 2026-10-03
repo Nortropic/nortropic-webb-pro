@@ -10,6 +10,8 @@ texten i dashboarden och mottagaren är en juridisk person utan spärr; en enski
 
 Exit: 0 skickat eller klart · 2 fel i anropet · 3 grinden nekade eller sändningen föll (ingen UTSKICK.json skrivs) ·
 4 hemligheterna saknas eller har fel rättigheter.
+Godkännandet (BREV.json godkand) binder ämne och text (text_sha), mottagaradressen, verksamhetens slug och om en namngiven
+adress bekräftats; ändras något av det krävs nytt godkännande. En oläsbar spärrlista nekar, den räknas aldrig som tom.
 Miljö: NWP_UTSKICK=torr skriver UTSKICK.json med resend_id "torr" utan HTTP (gör bara säkrare; öppnar aldrig grinden);
 NWP_UTSKICK_HEMLIGHETER pekar på en annan hemlighetsfil än ~/.nortropic-hemligheter/webb-pro/resend.env.
 Hemlighetsfilen (0600): RESEND_API_NYCKEL=…, AVSANDARE=Namn <adress@nortropic.se>, SVAR_TILL=…, FORETAG=…, TELEFON=…
@@ -113,6 +115,8 @@ def far_skickas(post, brev, sparr, utskick_finns, hemligheter_finns):
     post, brev = post or {}, brev or {}
     if post.get('status') != 'utkast':
         return False, 'status är %s, inte utkast' % (post.get('status') or 'okänd')
+    if sparr is None:  # oläsbar lista är inte en tom lista (revisionen 2026-10-03, F6)
+        return False, 'spärrlistan (underlag/prospekt/SPARR.json) gick inte att läsa; inget skickas förrän den är hel'
     g = brev.get('godkand') or {}
     if not g.get('text_sha'):
         return False, 'brevet är inte godkänt'
@@ -134,6 +138,9 @@ def far_skickas(post, brev, sparr, utskick_finns, hemligheter_finns):
     epost = (m.get('epost') or '').strip()
     if not EPOST.match(epost):
         return False, 'ingen giltig mottagaradress'
+    # godkännandet gäller mottagaren och verksamheten också, inte bara texten (revisionen 2026-10-03, F7)
+    if g.get('mottagare') != epost.lower() or g.get('slug') != post.get('slug') or bool(g.get('bekraftad_person')) != bool(m.get('bekraftad_person')):
+        return False, 'godkännandet gäller en annan mottagare eller verksamhet; godkänn brevet igen'
     tr = i_sparrlista(sparr, epost, post)
     if tr:
         return False, 'spärrad (%s %s): %s' % (tr.get('typ'), tr.get('varde'), tr.get('skal') or 'utan skäl')
@@ -164,7 +171,11 @@ def sidfot(h, post):
 
 
 def las_sparr():
-    return pf.las_json(SPARR) or []
+    """Spärrlistan; [] när filen inte finns än, None när den finns men inte är en läsbar lista (då nekar grinden)."""
+    if not SPARR.is_file():
+        return []
+    d = pf.las_json(SPARR)
+    return d if isinstance(d, list) else None
 
 
 def skriv_sparr(poster):
@@ -187,6 +198,8 @@ def resend_anrop(h, vag, data=None, metod='POST', idempotens=None):
 def sparr_lagg(epost, skal, kalla='manuell', typ='e-post', spegla=True, post=None):
     """Lägg till i SPARR.json (sanningen) och spegla e-postadresser till Resend. Returnerar posten."""
     poster = las_sparr()
+    if poster is None:
+        raise Nekad('SPARR.json går inte att läsa; rätta filen innan en spärr läggs till, så att ingen spärr skrivs över')
     ny = {'typ': typ, 'varde': (epost or '').strip().lower(), 'skal': skal or '', 'tid': pf.nu(), 'kalla': kalla}
     if post:
         ny['slug'] = post.get('slug')

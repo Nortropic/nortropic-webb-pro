@@ -9,7 +9,9 @@ och visas först efter valet.
 Variabler: effort (NWP_EFFORT), modell (NWP_MODELL), originalitet (NWP_GRANSKNING_ORIGINALITET: skugga, avgor),
 inspo (NWP_MCP_CONFIG: av, kontroller/mcp/inspo.json), atelje (NWP_ATELJE: av, pa).
 Byggena heter <slug>-abx och <slug>-aby; vilket värde som hör till x och y lottas och sparas i kunder/ab/<id>.json,
-som dashboarden döljer tills ägaren har valt. Syskonbygget räknas inte som tidigare bygge (upptagna val, granskaren),
+som dashboarden döljer tills ägaren har valt. Finns katalogerna redan vägrar starten: ett nytt försök får en ny slug.
+Byggets dist-hash sparas när armen är klar; dashboarden låter ägaren välja först när båda körningarna avslutats och
+bara om byggena är oförändrade sedan dess. Syskonbygget räknas inte som tidigare bygge (upptagna val, granskaren),
 så att det ena bygget inte påverkar det andra. Körningen tar två fulla byggen; starta den med nohup.
 Källa: Anthropic, Prompting Claude Opus 5.5 (mät effort mot egna utvärderingar); OpenAI, Evaluation best practices
 (parvis jämförelse är tillförlitligare än skalor).
@@ -74,7 +76,7 @@ def matt(slug):
         resultat.update(kontextdjup(rader, fonster))
     g = las(k / 'granskning' / 'GRANSKNING.json') or {}
     s = las(k / 'prov' / 'STATUS.json') or {}
-    return {**resultat, 'provet_gront': s.get('ok'), 'granskning_godkand': g.get('godkand'),
+    return {**resultat, 'provet_gront': s.get('ok'), 'granskning_godkand': g.get('godkand'), 'dist_sha256': s.get('dist_sha256'),
             'betyg': {n: x.get('betyg') for n, x in (g.get('kriterier') or {}).items()},
             'omgangar': len(list((k / 'granskning').glob('runda-*'))) if (k / 'granskning').is_dir() else 0}
 
@@ -86,11 +88,17 @@ def starta(a):
     if a.variabel not in VARIABLER:
         print('variabel ska vara en av ' + ', '.join(VARIABLER))
         return 2
+    x, y = a.slug + '-abx', a.slug + '-aby'
+    # Varje försök får egna arbetskataloger: ett nytt försök med samma slug skulle annars ärva kod, underlag, domar och
+    # granskningar från det förra, och äldre jämförelser skulle peka på mappar som ändrats (revisionen 2026-10-03, F16).
+    upptagna = [str(d.relative_to(ROOT)) for s in (x, y) for d in (KUNDER / s, ROOT / 'underlag' / s) if d.exists()]
+    if upptagna:
+        print('finns redan från ett tidigare försök: %s. Välj en ny slug (till exempel %s-2) så att försöken inte blandas.' % (', '.join(upptagna), a.slug))
+        return 2
     AB.mkdir(parents=True, exist_ok=True)
     ident = 'ab-%s-%s' % (a.slug, datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     varden = [a.a, a.b]
     random.shuffle(varden)
-    x, y = a.slug + '-abx', a.slug + '-aby'
     post = {'schema': 1, 'id': ident, 'verksamhet': a.verksamhet, 'variabel': a.variabel, 'varden': {x: varden[0], y: varden[1]},
             'byggen': [x, y], 'startad': nu(), 'status': 'bygger', 'val': None}
     fil = AB / (ident + '.json')

@@ -45,6 +45,7 @@ MODELL = os.environ.get('NWP_ATELJE_MODELL') or 'claude-fable-5-1'
 EFFORT = os.environ.get('NWP_ATELJE_EFFORT') or 'max'
 ANTAL = max(2, min(4, int(os.environ.get('NWP_ATELJE_ANTAL') or 3)))
 FRIST = int(os.environ.get('NWP_ATELJE_FRIST') or 2400)
+MIN_DOMARE = max(1, int(os.environ.get('NWP_ATELJE_MIN_DOMARE') or 2))  # giltiga domare som panelen minst kräver
 NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(git *)', 'Bash(curl *)',
          'Edit(./kontroller/**)', 'Edit(./kritik/**)', 'Edit(./kunskap/**)', 'Edit(./mall/**)', 'Edit(./.claude/**)',
          'Write(./kontroller/**)', 'Write(./kritik/**)', 'Write(./kunskap/**)', 'Write(./mall/**)', 'Write(./.claude/**)']
@@ -254,18 +255,27 @@ def panel(slug, rot):
         tr.start()
     for tr in tradar:
         tr.join()
-    if not resultat:
-        raise RuntimeError('ingen domare gav svar: ' + '; '.join(fel))
+    # Bara fullständiga rangordningar räknas: varje riktning exakt en gång, platserna exakt 1..n (revisionen 2026-10-03,
+    # F23: ett tomt svar valde riktning 1, en dubblerad förstaplats gav dubbla poäng). Minst MIN_DOMARE giltiga domare.
+    for namn in list(resultat):
+        r = resultat[namn]['rangordning']
+        sedda, platser = [x.get('riktning') for x in r], sorted(x.get('plats') for x in r)
+        if sorted(sedda, key=lambda x: (x is None, x)) != sorted(riktningar) or platser != list(range(1, len(riktningar) + 1)):
+            fel.append('%s: ogiltig rangordning (riktningar %s, platser %s), räknas inte' % (namn, sedda, platser))
+            resultat[namn]['ogiltig'] = True
+    giltiga = {n: r for n, r in resultat.items() if not r.get('ogiltig')}
+    if len(giltiga) < MIN_DOMARE:
+        raise RuntimeError('färre än %d giltiga domare (%d): %s' % (MIN_DOMARE, len(giltiga), '; '.join(fel)))
     poang = {n: 0 for n in riktningar}
     platser = {n: [] for n in riktningar}
-    for r in resultat.values():
+    for r in giltiga.values():
         for x in r['rangordning']:
             if x['riktning'] in poang:
                 poang[x['riktning']] += len(riktningar) - x['plats']
                 platser[x['riktning']].append(x['plats'])
     val = max(riktningar, key=lambda n: (poang[n], -max(platser[n] or [99])))
     return {'val': val, 'poang': poang, 'platser': platser, 'panel': resultat, 'fel': fel,
-            'lana': [dict(x, domare=d) for d, r in resultat.items() for x in r['lana'] if x.get('fran') != val]}
+            'lana': [dict(x, domare=d) for d, r in giltiga.items() for x in r['lana'] if x.get('fran') != val]}
 
 
 def fotografera(slug, rot):

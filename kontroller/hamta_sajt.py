@@ -17,14 +17,16 @@ Båda skriver sitt resultat sist i SIDOR.md.
 """
 import argparse
 import html
+import ipaddress
 import json
+import os
 import re
+import socket
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import urllib.robotparser
 from collections import deque
 from datetime import datetime, timezone
 from html.parser import HTMLParser
@@ -48,6 +50,60 @@ LOGGA_IKON = re.compile(r"(icon|ikon|logo|logga|button|knapp|sprite|favicon|emoj
                         r"payment|betal|swish|klarna|visa-|mastercard|trustpilot|rating|star|stjarn)", re.I)
 HOPPA = {"script", "style", "noscript", "svg", "template", "iframe"}
 VIKTIG = re.compile(r"(kontakt|contact|om-oss|om_oss|omoss|om/|about|tjanster|tj%C3%A4nster|services)", re.I)
+# Adresser i det egna nätet (loopback, privata, länklokala) hämtas aldrig, inte heller via omdirigering: en sajt kunde
+# annars peka om hämtaren mot dashboarden eller en annan lokal tjänst (revisionen 2026-10-03, F5). Proven kör mot
+# 127.0.0.1 och sätter NWP_HAMTA_LOKALT=1.
+TILLAT_LOKALT = os.environ.get("NWP_HAMTA_LOKALT") == "1"
+MAX_VANTAN = 10.0  # längsta crawl-delay vi följer (sekunder); längre än så ryms inte 40 sidor i ett byggsteg
+_adresser = {}
+
+
+class NekadAdress(Exception):
+    pass
+
+
+def adress_ok(url):
+    """Är adressens värd en publik adress? Löser upp namnet (en gång per process); ett namn som pekar in i det egna nätet
+    nekas. Ett värdnamn som inte går att lösa upp lämnas till själva hämtningen, som då faller på vanligt sätt."""
+    s = urllib.parse.urlsplit(url)
+    if s.scheme not in ("http", "https"):
+        raise NekadAdress(f"bara http och https hämtas, inte {s.scheme or 'tom'}:")
+    if TILLAT_LOKALT:
+        return True
+    vard = (s.hostname or "").lower()
+    if not vard:
+        raise NekadAdress("adress utan värdnamn")
+    if vard not in _adresser:
+        try:
+            adresser = {ai[4][0] for ai in socket.getaddrinfo(vard, None)}
+        except socket.gaierror:
+            adresser = set()
+        try:
+            _adresser[vard] = all(ipaddress.ip_address(a).is_global for a in adresser)
+        except ValueError:
+            _adresser[vard] = False
+    if not _adresser[vard]:
+        raise NekadAdress(f"{vard} pekar in i det egna nätet (loopback, privat eller länklokal adress); hämtas inte")
+    return True
+
+
+class Omdirigeringsvakt(urllib.request.HTTPRedirectHandler):
+    """Varje omdirigeringsmål prövas innan det hämtas: tillåten adress, och samma domän när egen är satt (sidor hämtas bara
+    från verksamhetens egen domän; bilder får ligga på en annan). Ett nekat mål följs inte; svaret blir 3xx med målet."""
+
+    def __init__(self, egen=None):
+        self.egen, self.nekad = egen, None
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        try:
+            adress_ok(newurl)
+        except NekadAdress as e:
+            self.nekad = f"omdirigering till {newurl} följs inte: {e}"
+            return None
+        if self.egen and doman(urllib.parse.urlsplit(newurl).hostname) != self.egen:
+            self.nekad = f"omdirigering till annan domän följs inte: {newurl}"
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def antal(n, en, flera):
@@ -87,17 +143,28 @@ def doman(host):
     return (host or "").lower().removeprefix("www.")
 
 
-def hamta(url, timeout=20, max_byte=MAX_BYTE):
-    """En GET. Svarar med status, slutadress efter omdirigering, innehållstyp och kropp (högst max_byte)."""
+def hamta(url, timeout=20, max_byte=MAX_BYTE, egen=None):
+    """En GET. Svarar med status, slutadress efter omdirigering, innehållstyp och kropp (högst max_byte). Adressen och varje
+    omdirigeringsmål prövas före anropet (adress_ok, Omdirigeringsvakt); med egen satt följs bara omdirigeringar inom
+    domänen. En nekad omdirigering ger svarets 3xx-status med målet som url, så att anroparen kan logga den."""
+    try:
+        adress_ok(url)
+    except NekadAdress as e:
+        return {"status": None, "url": url, "typ": None, "charset": None, "data": b"", "kapad": False, "fel": f"nekad: {e}"[:200]}
     req = urllib.request.Request(url, headers={
         "User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.5",
         "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.5"})
+    vakt = Omdirigeringsvakt(egen)
+    opener = urllib.request.build_opener(vakt)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with opener.open(req, timeout=timeout) as r:
             data = r.read(max_byte + 1)
             return {"status": r.status, "url": r.geturl(), "typ": r.headers.get_content_type(),
                     "charset": r.headers.get_content_charset(), "data": data[:max_byte], "kapad": len(data) > max_byte}
     except urllib.error.HTTPError as e:
+        if vakt.nekad and 300 <= e.code < 400:
+            return {"status": e.code, "url": e.headers.get("Location") or url, "typ": None, "charset": None, "data": b"",
+                    "kapad": False, "fel": vakt.nekad[:200]}
         return {"status": e.code, "url": url, "typ": None, "charset": None, "data": b"", "kapad": False}
     except Exception as e:  # nätverksfel, tidsgräns, certifikat
         return {"status": None, "url": url, "typ": None, "charset": None, "data": b"", "kapad": False,
@@ -267,35 +334,120 @@ def filnamn(url, tagna):
     return kandidat
 
 
-def las_robots(bas):
+class Robots:
+    """robots.txt enligt RFC 9309 (urllib.robotparser kan inte * och $; revisionen 2026-10-03, F24): grupper per
+    user-agent, den grupp som nämner vårt produktnamn gäller, annars *; i mönstren betyder * vad som helst och $ slutet;
+    den längsta matchande regeln vinner, och Allow vinner när Allow och Disallow är lika långa. Sitemap och Crawl-delay
+    läses också (Crawl-delay är en konvention utanför RFC:n)."""
+
+    def __init__(self):
+        self.grupper, self.sitemaps, self.allow_all, self.disallow_all = {}, [], False, False
+
+    def parse(self, rader):
+        aktiva, ny_grupp = [], True
+        for rad in rader:
+            rad = rad.split("#", 1)[0].strip()
+            if not rad or ":" not in rad:
+                continue
+            falt, _, varde = rad.partition(":")
+            falt, varde = falt.strip().lower(), varde.strip()
+            if falt == "user-agent":
+                if ny_grupp:
+                    aktiva = []
+                    ny_grupp = False
+                namn = varde.lower()
+                aktiva.append(self.grupper.setdefault(namn, {"regler": [], "delay": None}))
+            elif falt == "sitemap":
+                self.sitemaps.append(varde)
+            elif falt in ("allow", "disallow", "crawl-delay"):
+                ny_grupp = True
+                for g in aktiva:
+                    if falt == "crawl-delay":
+                        try:
+                            g["delay"] = float(varde.replace(",", "."))
+                        except ValueError:
+                            pass
+                    elif varde or falt == "allow":
+                        g["regler"].append((falt == "allow", varde))
+                    # tom Disallow betyder allt tillåtet och ger ingen regel
+
+    def grupp(self, ua):
+        ua = (ua or "").lower()
+        for namn, g in self.grupper.items():
+            if namn == ua:
+                return g
+        return self.grupper.get("*")
+
+    @staticmethod
+    def _normalisera(vag):
+        return urllib.parse.quote(urllib.parse.unquote(vag), safe="/:@!$&'()*+,;=-._~%?")
+
+    @staticmethod
+    def _matchar(monster, vag):
+        slut = monster.endswith("$")
+        delar = [re.escape(d) for d in monster.rstrip("$").split("*")]
+        rx = "^" + ".*".join(delar) + ("$" if slut else "")
+        return re.match(rx, vag) is not None
+
+    def can_fetch(self, ua, url):
+        if self.disallow_all:
+            return False
+        if self.allow_all:
+            return True
+        g = self.grupp(ua)
+        if not g:
+            return True
+        s = urllib.parse.urlsplit(url)
+        vag = self._normalisera((s.path or "/") + (("?" + s.query) if s.query else ""))
+        bast = None  # (längd, allow)
+        for allow, monster in g["regler"]:
+            m = self._normalisera(monster)
+            if self._matchar(m, vag):
+                kand = (len(m), allow)
+                if bast is None or kand[0] > bast[0] or (kand[0] == bast[0] and allow and not bast[1]):
+                    bast = kand
+        return True if bast is None else bast[1]
+
+    def crawl_delay(self, ua):
+        g = self.grupp(ua)
+        return g["delay"] if g else None
+
+    def site_maps(self):
+        return self.sitemaps or None
+
+
+def las_robots(bas, egen=None):
     """robots.txt enligt RFC 9309: 4xx = allt tillåtet, 5xx eller nätverksfel = inget tillåtet."""
-    rp = urllib.robotparser.RobotFileParser()
-    svar = hamta(urllib.parse.urljoin(bas, "/robots.txt"))
+    rp = Robots()
+    svar = hamta(urllib.parse.urljoin(bas, "/robots.txt"), egen=egen)
     if svar["status"] == 200:
         rp.parse(avkoda(svar).splitlines())
         return rp, "hittad"
     if svar["status"] and 400 <= svar["status"] < 500:
-        rp.parse([])
         rp.allow_all = True
         return rp, f"saknas ({svar['status']}), allt tillåtet"
     rp.disallow_all = True
     return rp, f"kunde inte läsas ({svar['status'] or svar.get('fel')}), inget hämtas"
 
 
-def sitemapadresser(bas, rp, logg, max_filer=10):
-    """Adresserna i sitemap.xml, sitemap-index och robots.txt:s Sitemap-rader. Sidkartor med 'page' läses först."""
+def sitemapadresser(bas, rp, logg, max_filer=10, vanta=None):
+    """Adresserna i sitemap.xml, sitemap-index och robots.txt:s Sitemap-rader. Sidkartor med 'page' läses först.
+    vanta() anropas före varje hämtning så att sidkartorna följer samma takt som sidorna."""
     gissade = [urllib.parse.urljoin(bas, v) for v in ("/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml")]
     ko = deque(rp.site_maps() or gissade)
     lasta, adresser = set(), []
+    egen = doman(urllib.parse.urlsplit(bas).hostname)
     while ko and len(lasta) < max_filer:
         karta = ko.popleft()
-        if karta in lasta or doman(urllib.parse.urlsplit(karta).hostname) != doman(urllib.parse.urlsplit(bas).hostname):
+        if karta in lasta or doman(urllib.parse.urlsplit(karta).hostname) != egen:
             continue
         lasta.add(karta)
         if not rp.can_fetch(UA_NAMN, karta):
             logg.append(f"{karta}: nekad av robots.txt")
             continue
-        svar = hamta(karta)
+        if vanta:
+            vanta()
+        svar = hamta(karta, egen=egen)
         data = svar["data"]
         if data[:2] == b"\x1f\x8b":
             import gzip
@@ -326,9 +478,16 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
     tid = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     if not urllib.parse.urlsplit(start).scheme:
         start = "https://" + start
-    rp, robotslage = las_robots(start)
-    vantan = max(paus, min(float(rp.crawl_delay(UA_NAMN) or 0), 5.0))
     egen = doman(urllib.parse.urlsplit(start).hostname)
+    rp, robotslage = las_robots(start, egen=egen)
+    vantan = max(paus, min(float(rp.crawl_delay(UA_NAMN) or 0), MAX_VANTAN))
+    senaste = {"tid": time.monotonic()}  # robots.txt räknas: takten gäller alla anrop mot värden, sidkartor också
+
+    def vanta():
+        kvar = senaste["tid"] + vantan - time.monotonic()
+        if kvar > 0:
+            time.sleep(kvar)
+        senaste["tid"] = time.monotonic()
     kartlogg = []
     sidor, bilder, kontakt, externa, dokument = [], {}, {}, {}, {}
     nekade, fel, fragestrangar, andra = [], [], set(), []
@@ -361,9 +520,8 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
         if not rp.can_fetch(UA_NAMN, url):
             nekade.append(url)
             continue
-        if sidor or fel:
-            time.sleep(vantan)
-        svar = hamta(url)
+        vanta()
+        svar = hamta(url, egen=egen)
         anrop += 1
         slut = svar["url"]
         if doman(urllib.parse.urlsplit(slut).hostname) != egen:
@@ -426,7 +584,7 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
             vag_ = lambda u: urllib.parse.urlsplit(u).path
             meny = sorted(ko, key=lambda u: 0 if VIKTIG.search(vag_(u)) else 1)
             ko.clear()
-            kartan = sitemapadresser(slut, rp, kartlogg)
+            kartan = sitemapadresser(slut, rp, kartlogg, vanta=vanta)
             for u in meny:
                 ko.append(u)
             vag = lambda u: urllib.parse.urlsplit(u).path.strip("/")
@@ -438,9 +596,11 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
                       "titel": " ".join(p.titel.split())})
 
     kvar = list(ko)
+    delay = rp.crawl_delay(UA_NAMN)
     md = [f"# Sidor hämtade från {start} ({tid})", "",
           f"Verktyg: `kontroller/hamta_sajt.py`, bara GET, samma domän, högst {max_sidor} sidor, "
-          f"{vantan:g} s mellan anropen. robots.txt: {robotslage}. Sidkarta: "
+          f"{vantan:g} s mellan anropen" + (f" (robots.txt begär {delay:g} s; vi följer högst {MAX_VANTAN:g})" if delay and delay > MAX_VANTAN else "")
+          + f". robots.txt: {robotslage}. Sidkarta: "
           + ("; ".join(kartlogg) if kartlogg else "ingen hittad") + ".",
           f"Hämtade {antal(len(sidor), 'sida', 'sidor')}" + (f"; {antal(len(kvar), 'adress', 'adresser')} kvar i kön när taket nåddes (listade sist)."
                                            if kvar else "; inga adresser kvar i kön."), "",
