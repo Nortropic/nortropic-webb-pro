@@ -204,23 +204,32 @@ def binara_i(numstat):
     return [rad.split('\t', 2)[2] for rad in rader_lf(numstat) if rad.startswith('-\t-\t')]
 
 
+MEDDELANDE_RAD = re.compile(r"(?:^|\s)(?:-m|--message)(?:\s+|=)('[^']*'|\"[^\"]*\"|\S+)")
+
+
 def utan_expansion(sub, args, kommando):
     """Skrivande git får inga argument som skalet expanderar (glob, klammer, tilde, variabel, pathspec-magi) och ingen
-    kommandosubstitution: vakten och skalet skulle annars pröva olika sökvägar (omgång sex, F3 och F27). Commit-
-    meddelandets värde undantas."""
-    if '$(' in kommando or '`' in kommando:
-        neka('git %s med kommandosubstitution nekas' % sub)
+    kommando- eller processubstitution: vakten och skalet skulle annars pröva olika sökvägar (omgång sex och sju, F3
+    och F27). Commit-meddelandet undantas bara när det är bokstavligt i den råa kommandoraden: enkelcitat, eller
+    dubbelcitat utan $ och backtick; ett ociterat meddelande prövas som vilket argument som helst, eftersom skalet
+    annars kan expandera och dela det i flera ord (ett nytt ord blir en sökväg). Filargumentet efter -F undantas inte."""
+    if '$(' in kommando or '`' in kommando or '<(' in kommando or '>(' in kommando or '$' in kommando:
+        neka('git %s med $ (variabel, kommando- eller processubstitution) eller backtick nekas; skriv värdena bokstavligt' % sub)
+    for m in MEDDELANDE_RAD.finditer(kommando):  # meddelandet i den råa raden: citerat = bokstavligt, annars expanderbart
+        v = m.group(1)
+        if not (v.startswith("'") or v.startswith('"')) and EXPANSION.search(v):
+            neka('git %s: ett ociterat commit-meddelande med %r kan expanderas och delas av skalet; citera det' % (sub, v))
     hoppa = False
     for a in args:
         if hoppa:
             hoppa = False
             continue
-        if a in ('-m', '--message', '-F', '--file'):
-            hoppa = True
+        if a in ('-m', '--message'):
+            hoppa = True  # värdet prövades ovan i den råa raden
             continue
-        if a.startswith(('--message=', '--file=', '-m')) and len(a) > 2 and not a.startswith('--') and a[:2] == '-m':
+        if a.startswith('--message='):
             continue
-        if a.startswith(('--message=', '--file=')):
+        if a.startswith('-m') and len(a) > 2 and not a.startswith('--'):
             continue
         if EXPANSION.search(a):
             neka('git %s med %r nekas: ange filerna bokstavligt, utan glob, klammer, tilde, variabler eller pathspec-magi' % (sub, a))
