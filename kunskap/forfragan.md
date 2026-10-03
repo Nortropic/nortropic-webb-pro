@@ -18,7 +18,7 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
   millisekunder från laddning till inskick mätt på webbläsarens klocka (`kunskap/formularsakerhet.md`, princip b).
 - **Integritetstexten** vid knappen länkar till `/integritet/`. Integritetssidan anger personuppgiftsansvarig
   (verksamhetens namn, org.nr och kontakt), ändamål (svara på förfrågan), rättslig grund (berättigat intresse eller
-  avtal), lagringstid, rättigheter och vart man vänder sig.
+  avtal), lagringstid (vid lansering också för det sparade inskicket, se nedan), rättigheter och vart man vänder sig.
 - **Tacksidan** `/tack/` har noindex och säger vad som händer härnäst och när, ur underlaget ("Lars ringer upp inom en
   timme på vardagar" om omdömena belägger det). Är svarstiden okänd: beställ den (`underlag/<slug>/BESTALLNING.md`) och
   lova inget du inte vet.
@@ -41,8 +41,13 @@ En serverfunktion på `/api/forfragan` tar över med samma kontrakt:
    eller 0 (ingen JavaScript, direkt POST) godtas; fältet är ett botfilter, inte autentisering. Jämför aldrig en
    klientstämpel med serverns klocka.
 4. Begränsning: högst 3 inskick per 10 minuter och IP-adress; Turnstile om spam ändå kommer igenom.
-5. Mejl till verksamheten via en dedikerad tjänst med SPF, DKIM och DMARC på domänen; allt innehåll escapas i mallen;
+5. Spara varje giltigt inskick i värdens egen lagring innan mejlet går, med fälten och bilden. Mejlet är den del som
+   fallerar (leverantören har en dålig dag, en DNS-post ändras, mejlet hamnar i skräpposten), och utan lagring är
+   förfrågan borta utan att någon vet att den fanns (kirurgens intag 2026-10-03, Websites for Normal People).
+   Inskicket gallras när integritetssidans lagringstid har gått; ingen annan läser det.
+6. Mejl till verksamheten via en dedikerad tjänst med SPF, DKIM och DMARC på domänen; allt innehåll escapas i mallen;
    bilden som bilaga.
-6. Svara 303 till `/tack/` först när tjänsten har accepterat mejlet. Vid fel: 303 till `/fel/`, som visar telefonnumret
-   som väg vidare. Fel loggas utan personuppgifter.
-7. Konverteringshändelser för skickad förfrågan och telefonklick, i kakfri mätning.
+7. Svara 303 till `/tack/` först när tjänsten har accepterat mejlet. Vid mejlfel: 303 till `/fel/`, som säger att
+   förfrågan är mottagen och att verksamheten hör av sig, med telefonnumret som väg vidare; inskicket finns kvar i
+   lagringen och verksamheten kan hämta det. Fel loggas utan personuppgifter.
+8. Konverteringshändelser för skickad förfrågan och telefonklick, i kakfri mätning.
