@@ -152,8 +152,7 @@ def granska_vokabular(obj, v, vag=''):
     """Varje @type ska vara en klass, varje egenskap finnas och höra till typen eller en förälder (domainIncludes);
     utgången term ger en rad med ersättaren (webstudio-intaget 2026-10-03). Inbäddade objekt prövas också."""
     fynd = []
-    typer = [x.removeprefix('https://schema.org/').removeprefix('http://schema.org/') for x in
-             (obj.get('@type') if isinstance(obj.get('@type'), list) else [obj.get('@type')]) if isinstance(x, str)]
+    typer = typlista(obj)  # samma normalisering som verksamhetsnoden: också schema:Bakery (omgång sex, F20)
     kanda = [x for x in typer if x in v['klasser']]
     for x in typer:
         if x not in v['klasser']:
@@ -170,6 +169,7 @@ def granska_vokabular(obj, v, vag=''):
     for nyckel, varde in obj.items():
         if nyckel.startswith('@'):
             continue
+        nyckel = typnamn(nyckel)  # egenskaper kan också vara kompakta IRI:er (schema:name)
         if nyckel not in v['egenskaper']:
             fynd.append(('JSON-LD okänd egenskap', '%s%s finns inte i schema.org' % (vag, nyckel)))
             continue
