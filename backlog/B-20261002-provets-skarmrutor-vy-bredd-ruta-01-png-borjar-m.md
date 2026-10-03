@@ -11,7 +11,7 @@ andrad: 2026-10-02T15:27Z
 ---
 # Provets skärmrutor vy-<bredd>-ruta-01.png börjar mitt på sidan, inte överst
 
-**Varför:** I lulea-snickaren-abx visade hem/vy-390-ruta-01.png tjänstebilderna och Dan-sektionen, inte sidhuvudet och h1. Granskaren skrev i alla tre omgångarna att ruta-01 börjar mitt på sidan och fick ta egna skärmbilder med sida.mjs för att bedöma första vyn.
+**Varför:** I lulea-snickaren-abx visade hem/vy-390-ruta-01.png tjänstebilderna och sektionen om [ägaren], inte sidhuvudet och h1. Granskaren skrev i alla tre omgångarna att ruta-01 börjar mitt på sidan och fick ta egna skärmbilder med sida.mjs för att bedöma första vyn.
 
 **Förslag:** kontroller/webblasare/inspektera.mjs (eller den del av prova.py som delar helsidan i rutor): numrera rutorna uppifrån och ned från scrollY 0, och pröva att ruta-01 innehåller sidans h1 på startsidan.
 

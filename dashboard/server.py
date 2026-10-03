@@ -5,7 +5,8 @@
 
 Visar byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag, körningens senaste händelser),
 lärdomarna, kirurgens register och kommandona. Skriver bara när ägaren skickar frågeformuläret efter ett bygge:
-kunder/<slug>/DOM.json (strukturerat, privat) och en post i LARDOMAR.md (ordagrant, i git).
+kunder/<slug>/DOM.json (strukturerat, privat), underlag/LARDOMAR-original.md (ordagrant, privat) och en post utan
+personuppgifter i LARDOMAR.md (i git): bara betygen och valen; lärdomen skriver sessionen som gör ändringen (BESLUT.md 2026-10-03).
 Lyssnar bara på 127.0.0.1. POST kräver samma ursprung. Undantaget är visningen av en byggd sajt i telefonen: knappen
 I telefonen startar en statisk server för kunder/<slug>/sajt/dist på datorns adress i det lokala nätverket och visar
 den som QR-kod (dashboard/qr.py, ritad lokalt). Den servern visar bara sajten; --utan-lan stänger av den.
@@ -432,6 +433,27 @@ def commit_agarens(filer, meddelande):
     return 'committad och pushad' if p.returncode == 0 else 'committad lokalt; push misslyckades: ' + (p.stderr or '').strip()[-160:]
 
 
+def lardomar_original():
+    """Ägarens domar ordagrant, privat under underlag/ (utanför git). Den publika LARDOMAR.md får bara betyg, val och
+    lärdomar utan personuppgifter (ägarens beslut 2026-10-03, BESLUT.md)."""
+    return UNDERLAG / 'LARDOMAR-original.md'
+
+
+def skriv_original(rader):
+    """Lägger en post sist i den privata filen; skapar den med ingress om den saknas."""
+    f = lardomar_original()
+    if not f.is_file():
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text('# Lärdomar — ägarens domar, ordagrant (privat)\n\nUnder underlag/, utanför git: varje dom som ägaren skrev den. Den '
+                     'publika LARDOMAR.md har samma poster utan personuppgifter (ägarens beslut 2026-10-03, BESLUT.md).\n', encoding='utf-8')
+        try:
+            f.chmod(0o600)
+        except OSError:
+            pass
+    with open(f, 'a', encoding='utf-8') as fh:
+        fh.write('\n'.join(rader))
+
+
 # --- A/B-jämförelser (kontroller/ab.py) ---
 
 AB = KUNDER / 'ab'
@@ -491,9 +513,10 @@ def spara_ab(ident, data):
              *(['- **Ägarens ord:** ' + p['kommentar'].replace('\n', ' / ')] if p['kommentar'] else []),
              *['- %s (%s=%s): %s' % (etikett[s], p['variabel'], p['varden'][s], json.dumps((p.get('korningar') or {}).get(s, {}), ensure_ascii=False))
                for s in p['byggen']], '']
-    lar = ROOT / 'LARDOMAR.md'
-    with open(lar, 'a', encoding='utf-8') as fh:
-        fh.write('\n'.join(rader))
+    skriv_original(rader)  # ordagrant, privat (BESLUT.md 2026-10-03)
+    publika = [r if not r.startswith('- **Ägarens ord:**') else '- **Ägarens ord:** ordagrant i `underlag/LARDOMAR-original.md` (privat)' for r in rader]
+    with open(ROOT / 'LARDOMAR.md', 'a', encoding='utf-8') as fh:
+        fh.write('\n'.join(publika))
     return {'ok': True, 'git': commit_agarens(['LARDOMAR.md'], 'Ägaren: A/B %s' % p['variabel']), 'jamforelse': ab_lista()}
 
 
@@ -520,27 +543,41 @@ def spara_dom(slug, data):
     befintlig = las_text(lar) or '# Lärdomar — ägarens domar\n'
     n = max([int(x) for x in re.findall(r'^## L(\d+) ', befintlig, re.M)] or [-1]) + 1
     alla = {f['id']: f for f in KARNFRAGOR + (post['fragor']['egna'] if isinstance(post['fragor']['egna'], list) else []) if isinstance(f, dict) and 'id' in f}
-    rader = ['', '## L%d · %s · %s' % (n, post['tid'][:10], slug), '']
+    fasta = {f['id'] for f in KARNFRAGOR if f.get('typ') in ('val', 'skala', 'matris')}  # fasta svar utan fritext: får stå publikt
+    rader = ['', '## L%d · %s · %s' % (n, post['tid'][:10], slug), '']  # ordagrant: privat (BESLUT.md 2026-10-03)
+    publika = list(rader)  # bara betygen och valen: publikt, i git
     for fid, v in svar.items():
         if v in (None, '', {}, []):
             continue
         fraga = (alla.get(fid) or {}).get('fraga', fid)
         if isinstance(v, dict):
             v = ', '.join('%s: %s' % (k, x) for k, x in v.items() if x)
-        rader.append('- **%s** %s' % (fraga, str(v).replace('\n', ' / ')))
+        rad = '- **%s** %s' % (fraga, str(v).replace('\n', ' / '))
+        rader.append(rad)
+        if fid in fasta:
+            publika.append(rad)
     rader += ['', '**Ändring:** väntar', '']
-    # Domen blir automatiskt en vilande post i backloggen (loop 3): en session ägaren startar gör textändringen.
-    kort = (svar.get('en_andring') or svar.get('samsta') or svar.get('mall_tecken') or 'se domen').strip().replace('\n', ' ')
-    sammandrag = '; '.join('%s: %s' % ((alla.get(k) or {}).get('fraga', k), svar[k]) for k in ('namn', 'battre', 'specifik', 'samsta', 'mall_tecken', 'en_andring')
-                           if isinstance(svar.get(k), (str, int)) and str(svar.get(k)).strip())
-    pid = bl.ny('dom', 'Dom L%d (%s): %s' % (n, slug, kort[:90]), sammandrag or 'Ägarens dom, se LARDOMAR.md.',
-                forslag='Läs domen i LARDOMAR.md (L%d) och kunder/%s/DOM.json. Gör en textändring i skillen bygg-sajt eller en fil i '
-                        'kunskap/ som svarar mot det ägaren pekar på. En ändring, liten nog att läsa på fem minuter.' % (n, slug),
-                klart='Ändringen är committad och raden Ändring under L%d i LARDOMAR.md pekar på commiten.' % n,
+    publika += ['', '**Ägarens ord:** ordagrant i `underlag/LARDOMAR-original.md` (privat) och `kunder/%s/DOM.json`' % slug,
+                '**Lärdom:** skrivs utan personuppgifter av sessionen som gör ändringen', '**Ändring:** väntar', '']
+    # Domen blir automatiskt en vilande post i backloggen (loop 3): en session ägaren startar gör textändringen. Posten
+    # och den publika raden får inga fritextsvar (personuppgifter; BESLUT.md 2026-10-03).
+    betyg = '; '.join('%s: %s' % ((alla.get(k) or {}).get('fraga', k), svar[k]) for k in ('namn', 'battre', 'specifik')
+                      if isinstance(svar.get(k), (str, int)) and str(svar.get(k)).strip())
+    pid = bl.ny('dom', 'Dom L%d (%s)' % (n, slug),
+                'Ägarens dom L%d om %s: ordagrant i underlag/LARDOMAR-original.md (privat, utanför git) och kunder/%s/DOM.json. %s'
+                % (n, slug, slug, betyg or 'Betygen står i LARDOMAR.md.'),
+                forslag='Läs domen ordagrant i underlag/LARDOMAR-original.md (L%d, privat) och kunder/%s/DOM.json. Gör en textändring i '
+                        'skillen bygg-sajt eller en fil i kunskap/ som svarar mot det ägaren pekar på. En ändring, liten nog att läsa på '
+                        'fem minuter. Skriv sedan lärdomen på raden Lärdom under L%d i LARDOMAR.md utan personuppgifter: företagsnamn '
+                        'får stå, inte privatpersoners namn, nummer, adresser eller hälsa.' % (n, slug, n),
+                klart='Ändringen är committad, raden Lärdom under L%d i LARDOMAR.md är skriven utan personuppgifter och raden Ändring '
+                      'pekar på commiten.' % n,
                 sar='L%d' % n, kallref='LARDOMAR.md L%d' % n)
     rader[-2] = '**Ändring:** väntar (backlog %s)' % pid
+    publika[-2] = rader[-2]
+    skriv_original(rader)
     with open(lar, 'a', encoding='utf-8') as f:
-        f.write('\n'.join(rader))
+        f.write('\n'.join(publika))
     git = commit_agarens(['LARDOMAR.md', 'backlog/%s.md' % pid], 'Ägaren: dom L%d (%s)' % (n, slug))
     gruppering = None
     if (n + 1) % 5 == 0:  # L0 räknas: efter var femte dom grupperas domarna och granskarens fynd (kontroller/gruppera.py)
@@ -876,7 +913,7 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8')
             if vag == '/api/oversikt':
                 bk = backloggen()
-                return self.skicka(200, {'byggen': byggen(), 'lardomar': md(las_text(ROOT / 'LARDOMAR.md')),
+                return self.skicka(200, {'byggen': byggen(), 'lardomar': md(las_text(lardomar_original()) or las_text(ROOT / 'LARDOMAR.md')),
                                          'backlog_vilande': sum(1 for p in bk if p.get('status') == 'vilande'),
                                          'intag_pagar': sum(1 for x in intag_lista() if x['pagar']),
                                          'prospekt_vantar': pv.raknare(),

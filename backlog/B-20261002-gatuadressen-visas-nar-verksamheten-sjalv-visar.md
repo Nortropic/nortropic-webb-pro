@@ -11,7 +11,7 @@ andrad: 2026-10-02T17:09Z
 ---
 # Gatuadressen visas när verksamheten själv visar den: i sidfoten, på kontaktsidan och i JSON-LD
 
-**Varför:** Ägaren (AB 2026-10-02): B har fullständig NAP, Tallundsvägen 21 i sidfoten, på kontaktsidan och i JSON-LD, medan A saknar gatuadress överallt (7.4). A satte adress.publik=false och roll hemvist, fast verksamheten själv visar adressen på luleasnickaren.com och i platsannonsen.
+**Varför:** Ägaren (AB 2026-10-02): B har fullständig NAP, [sajtens adress] i sidfoten, på kontaktsidan och i JSON-LD, medan A saknar gatuadress överallt (7.4). A satte adress.publik=false och roll hemvist, fast verksamheten själv visar adressen på luleasnickaren.com och i platsannonsen.
 
 **Förslag:** Villkor i bygg-sajt steg 1 punkt 3 och kunskap/research-underlag.md: publik=true när verksamheten själv visar gatuadressen (egen sajt, Google-profil, annons); false bara när den enbart finns i register. Standarden (7.4) med --verksamhet: när publik=true ska gatan stå i sidfoten på varje sida, på kontaktsidan och som streetAddress i JSON-LD.
 

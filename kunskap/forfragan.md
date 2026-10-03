@@ -2,7 +2,7 @@
 
 Ägarens dom L1 (2026-10-02): "Bygg alltid in en skriftlig förfrågningsväg som fungerar utan mejlklient: ett formulär
 med tre fält (namn, telefon, vad du vill bygga + valfri bild) som fungerar med vanlig POST utan JS, honeypot +
-tidsfälla, och en bekräftelse som säger när Dan ringer (A6.1–6.3, 6.5–6.7). Telefonen får förbli primär, men
+tidsfälla, och en bekräftelse som säger när ägaren ringer (A6.1–6.3, 6.5–6.7). Telefonen får förbli primär, men
 standarden ska inte tillåta att 'ring' är enda vägen." Domarna L2 och L3 sa samma sak. Byggstandardens avsnitt 6
 gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblewski, GOV.UK).
 
@@ -20,7 +20,7 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
 - **Integritetstexten** vid knappen länkar till `/integritet/`. Integritetssidan anger personuppgiftsansvarig
   (verksamhetens namn, org.nr och kontakt), ändamål (svara på förfrågan), rättslig grund (berättigat intresse eller
   avtal), lagringstid (vid lansering också för det sparade inskicket, se nedan), rättigheter och vart man vänder sig.
-- **Tacksidan** `/tack/` har noindex och säger vad som händer härnäst och när, ur underlaget ("Lars ringer upp inom en
+- **Tacksidan** `/tack/` har noindex och säger vad som händer härnäst och när, ur underlaget ("ägaren ringer upp inom en
   timme på vardagar" om omdömena belägger det). Är svarstiden okänd: beställ den (`underlag/<slug>/BESTALLNING.md`) och
   lova inget du inte vet.
 - **Mottagaren i demon** är provets och dashboardens lokala server: den läser fälten, skickar en ifylld honeypot

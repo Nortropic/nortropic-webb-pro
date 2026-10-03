@@ -54,8 +54,12 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
      (Task-verktyget, hela skillen som sammanhang). En annan modell än byggarens läser svaren blint i ombytt
      ordning och räknar per svar om felet finns; oenighet räknas som oavgjort. Behåll ändringen när A visar felet
      och B tar bort det i minst fyra av fem. Visar A inte felet: skriv det på Ändring-raden och pröva i nästa
-     bygge i stället. Armarnas utfall, domarmodellen och kostnaden står på Ändring-raden.
-5. **Bokför:** för domposter skriv commit och vad som ändrades på raden `**Ändring:**` i `LARDOMAR.md`; för
+     bygge i stället. Armarnas utfall, domarmodellen och kostnaden står på Ändring-raden. Mikroprovet belägger bara den
+     lokala rättningen: att B tar bort felet i uppgiften. Det säger inget om att sajterna blev bättre; generell
+     förbättring döms enbart i blind A/B av hela byggen (ägarens beslut 2026-10-03, BESLUT.md).
+5. **Bokför:** för domposter skriv lärdomen på raden `**Lärdom:**` under domen i `LARDOMAR.md`, utan personuppgifter
+   (läs domen ordagrant i `underlag/LARDOMAR-original.md`; företagsnamn får stå, inte privatpersoners namn, nummer,
+   adresser eller hälsa; BESLUT.md 2026-10-03), och commit och vad som ändrades på raden `**Ändring:**`; för
    kirurgposter fyll i `Utfall:` i `kunskap/REGISTER.md`.
 6. **Commit** med postens id först i meddelandet, sedan
    `.venv/bin/python kontroller/backlog.py status <id> klar --commit <kort sha> --not "<vad som gjordes>"` och en

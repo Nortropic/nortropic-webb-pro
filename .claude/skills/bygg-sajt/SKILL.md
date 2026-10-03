@@ -13,7 +13,8 @@ description: Bygg en webbplats åt en riktig verksamhet enligt litteraturens åt
 specifika ur en riktig verksamhet och låta det bära sajten. Regeln mot slop finns redan och kommer ur Nortropics
 gamla antislop-skill: `kunskap/copy-kontroll.md` (fraser och strukturer, med `kontroller/copy_kontroll.py` som
 rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella.md` (åtta jämförelsedimensioner).
-Ägarens domar i `LARDOMAR.md` gäller före allt annat här.
+Ägarens domar gäller före allt annat här: ordagrant i `underlag/LARDOMAR-original.md` (privat) när den finns, annars
+`LARDOMAR.md` (utan personuppgifter).
 
 ## Ramar för körningen
 
@@ -60,7 +61,7 @@ rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella
 
 ## Uppstart
 
-Läs, i den här ordningen: `LARDOMAR.md` (varje dom), `kunskap/copy-kontroll.md`,
+Läs, i den här ordningen: `underlag/LARDOMAR-original.md` om den finns, annars `LARDOMAR.md` (varje dom), `kunskap/copy-kontroll.md`,
 `kunskap/referenser-professionella.md`. Lägg upp de åtta stegen som uppgifter med TaskCreate och bocka av dem med
 TaskUpdate.
 
@@ -428,6 +429,7 @@ försök igen.
 
 ## Steg 8 — Dom (ägaren, utanför körningen)
 
-Ägaren tittar på sajten och rapporten i dashboarden och skriver sin dom där; den hamnar ordagrant i `LARDOMAR.md`:
+Ägaren tittar på sajten och rapporten i dashboarden och skriver sin dom där; den hamnar ordagrant i `underlag/LARDOMAR-original.md` (privat) och
+utan personuppgifter i `LARDOMAR.md`:
 bättre än deras? nära referenserna? vad är fel? I en senare session blir varje dom en textändring i rätt fil (den här
 skillen eller en fil i `kunskap/`). En ändring per dom, så att ägaren kan läsa den på fem minuter.

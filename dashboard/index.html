@@ -290,7 +290,7 @@ function bDom(b, f) {
   f.innerHTML = `
     ${tidigare ? `<h2 style="margin-top:0">Tidigare domar</h2>${tidigare}` : ''}
     <h2 ${tidigare ? '' : 'style="margin-top:0"'}>${b.domd ? 'Döm igen' : 'Din dom'}</h2>
-    <p class="under">Titta på sajten först (Öppna vår sajt), och i telefonen (I telefonen). Svaren sparas ordagrant i LARDOMAR.md och blir en vilande post i backloggen. Hoppa över det du inte har en åsikt om.</p>
+    <p class="under">Titta på sajten först (Öppna vår sajt), och i telefonen (I telefonen). Svaren sparas ordagrant i underlag/LARDOMAR-original.md (privat, utanför git), som betyg utan personuppgifter i LARDOMAR.md, och blir en vilande post i backloggen. Hoppa över det du inte har en åsikt om.</p>
     <form id="domform" class="kort">
       ${b.fragor.karna.map(falt).join('')}
       ${b.fragor.egna.length ? `<h3 style="margin-top:22px">Byggets egna frågor</h3><p class="under" style="margin:0">Det bygget själv var mest osäkert på.</p>${b.fragor.egna.map(falt).join('')}` : ''}
@@ -309,7 +309,7 @@ function bDom(b, f) {
     e.target.querySelector('button').disabled = true;
     try {
       const r = await post('/api/dom/' + b.slug, { svar });
-      f.insertAdjacentHTML('afterbegin', `<div class="meddelande">Tack. Domen sparades som ${esc(r.lardom)} i LARDOMAR.md och som backlogpost <a href="#/backlog">${esc(r.backlog)}</a>.</div>`);
+      f.insertAdjacentHTML('afterbegin', `<div class="meddelande">Tack. Domen sparades som ${esc(r.lardom)}: ordagrant i underlag/LARDOMAR-original.md, utan personuppgifter i LARDOMAR.md, och som backlogpost <a href="#/backlog">${esc(r.backlog)}</a>.</div>`);
       setTimeout(() => byggevy(b.slug, true), 1800);
     } catch (err) { $('#domsvar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; e.target.querySelector('button').disabled = false; }
   };
@@ -458,7 +458,7 @@ async function lardomvy() {
   const o = await api('/api/oversikt'); raknare(o);
   const g = o.granskare || { bedomda: 0, rader: [] };
   const gk = g.bedomda ? `<div class="kort" style="margin-bottom:12px"><div style="font-weight:560">Granskaren och du är överens om ${g.overens} av ${g.bedomda} byggen</div><p class="under" style="margin:4px 0 0">${g.rader.map((r) => `${esc(r.slug)}: granskaren ${esc(r.granskaren)}, du svarade "${esc(r.agarens_svar)}"${r.overens ? '' : ' (oense)'}${r.originalitet != null ? `; originalitet ${r.originalitet}${r.originalitet_separat != null ? ' (egen domare ' + r.originalitet_separat + ')' : ''}, din specificitet ${esc(String(r.agarens_specifik ?? '?'))} av 5` : ''}`).join(' · ')}</p></div>` : '';
-  $('#vy').innerHTML = `<h1>Lärdomar</h1><p class="under">Dina domar, ordagrant. Varje dom blir en textändring via backloggen.</p>${gk}<div class="kort prosa">${o.lardomar}</div>`;
+  $('#vy').innerHTML = `<h1>Lärdomar</h1><p class="under">Dina domar, ordagrant ur den privata filen när den finns. Varje dom blir en textändring via backloggen.</p>${gk}<div class="kort prosa">${o.lardomar}</div>`;
 }
 
 async function abvy() {
@@ -473,7 +473,7 @@ async function abvy() {
     return `<section style="margin-bottom:24px"><h2>${esc(j.verksamhet || j.id)}</h2><p class="under">${esc(j.variabel)} · ${esc(j.status)}${valt ? ' · du valde ' + esc(j.val === 'lika' ? 'lika' : j.byggen.find((b) => b.slug === j.val)?.etikett || '?') : j.klar ? ' · värdena visas efter ditt val' : ' · välj när båda byggena är avslutade (granskning och rättningar kan pågå fast sidan går att öppna)'}</p>
       <div class="galleri" style="grid-template-columns:1fr 1fr">${j.byggen.map(kol).join('')}</div>${knappar}</section>`;
   };
-  $('#vy').innerHTML = `<h1>Jämförelser</h1><p class="under">Samma verksamhet byggd två gånger med ett val ändrat. Titta på båda och välj utan att veta vilket som är vilket; värdena och mätningarna visas efter valet och skrivs i LARDOMAR.md. Starta en med <code>nohup .venv/bin/python kontroller/ab.py starta &lt;slug&gt; "&lt;verksamhet&gt;" &amp;</code>.</p>${lista.length ? lista.map(kort).join('') : '<div class="tom">Inga jämförelser än.</div>'}`;
+  $('#vy').innerHTML = `<h1>Jämförelser</h1><p class="under">Samma verksamhet byggd två gånger med ett val ändrat. Titta på båda och välj utan att veta vilket som är vilket; värdena och mätningarna visas efter valet och skrivs i LARDOMAR.md (dina ord bara i den privata filen). Starta en med <code>nohup .venv/bin/python kontroller/ab.py starta &lt;slug&gt; "&lt;verksamhet&gt;" &amp;</code>.</p>${lista.length ? lista.map(kort).join('') : '<div class="tom">Inga jämförelser än.</div>'}`;
   document.querySelectorAll('[data-ab]').forEach((x) => x.onclick = async () => {
     const id = x.dataset.ab;
     await post('/api/ab/' + encodeURIComponent(id), { val: x.dataset.val, kommentar: (document.getElementById('k-' + id) || {}).value || '' });

@@ -1857,7 +1857,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   Trial" och en sidstruktur med logotyprad, "10,000+ teams" och garantier [REPO copywriting/SKILL.md rad 147–151,
   185–201; copy-frameworks.md rad 18–99, 229–243]. Det är mallar för SaaS; hos oss ska varje sektion bära en sak ur
   "Bara de har" och rubriken vara verksamhetens namn eller ett bokstavligt erbjudande (`bygg-sajt/SKILL.md:170–172,
-  284–285`), och ägaren valde "Ring Dan" och "Ring Yoel" med numret utskrivet (`LARDOMAR.md:30, 54`). Formlerna är
+  284–285`), och ägaren valde "Ring [ägaren]" (i två byggen) med numret utskrivet (`LARDOMAR.md:30, 54`). Formlerna är
   slopens råvara för oss. Sämre. Siffrorna "+81 % konvertering, −38 % säljcykel" saknar källa [REPO copywriting/SKILL.md
   rad 44; copy-frameworks.md rad 423–428]. (3) **copy-editing** gör sju pass i tur och ordning med återgång
   (klarhet, röst, "so what", bevis, specifikt, känsla, noll risk) och ett expertpanelsbetyg 1–10 av tre till fem
@@ -4963,7 +4963,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   Vi låter modellen skriva Astro själv i repot och låter två oberoende granskare döma på namngivna kriterier
   (`.claude/skills/bygg-sajt/SKILL.md:224`; `kritik/GRANSKARE.md`); verksamheternas material ligger i `underlag/` och
   `kunder/` utanför git (CLAUDE.md), och prospektflödets regel lyder "Inga betaltjänster" (`BESLUT.md:117`). Att skicka
-  Holms konditoris bilder och Dan Sandbergs logga till en amerikansk tjänst för att få tillbaka HTML vi inte ser
+  Holms konditoris bilder och [ägarens] logga till en amerikansk tjänst för att få tillbaka HTML vi inte ser
   byggas är sämre, och krockar med två medvetna val. (2) **Människan i loopen.** Skillen frågar i flera rundor om krav
   och smak [REPO SUPERDESIGN.md rad 108–111; README rad 128, 139], ber användaren välja mellan "designa i superdesign
   eller implementera direkt" [README rad 130], och "Only generate after the user picks, since every generation spends

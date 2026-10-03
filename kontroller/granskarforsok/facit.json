@@ -28,7 +28,7 @@
   {
    "id": "L1-6",
    "maskin": false,
-   "fel": "Meningen 'Firman är två personer, och just nu letar den efter en tredje' låter skriven, inte som Dan själv."
+   "fel": "Meningen 'Firman är två personer, och just nu letar den efter en tredje' låter skriven, inte som [ägaren] själv."
   },
   {
    "id": "L1-7",
@@ -85,7 +85,7 @@
   {
    "id": "L2-5",
    "maskin": true,
-   "fel": "Bildfattigdom: en enda egen bild på hela sajten; fler foton (färdiga rum, före och efter, Yoel i arbete) borde ha beställts av verksamheten."
+   "fel": "Bildfattigdom: en enda egen bild på hela sajten; fler foton (färdiga rum, före och efter, [ägaren] i arbete) borde ha beställts av verksamheten."
   },
   {
    "id": "L2-6",
@@ -105,7 +105,7 @@
   {
    "id": "L2-9",
    "maskin": false,
-   "fel": "Meningen om bostadsrättsföreningar och fastighetsägare ('får du en samlad offert för hela jobbet') låter som en byrå, inte som Yoel."
+   "fel": "Meningen om bostadsrättsföreningar och fastighetsägare ('får du en samlad offert för hela jobbet') låter som en byrå, inte som [ägaren]."
   },
   {
    "id": "L2-10",
@@ -152,17 +152,17 @@
   {
    "id": "L3-3",
    "maskin": true,
-   "fel": "Inga foton alls på sajtens sidor (inte Lars och Patrik, inte bilen, inte ett jobb före och efter); de borde ha beställts av verksamheten."
+   "fel": "Inga foton alls på sajtens sidor (inte [de två elektrikerna], inte bilen, inte ett jobb före och efter); de borde ha beställts av verksamheten."
   },
   {
    "id": "L3-4",
    "maskin": false,
-   "fel": "Mårten Woxbergs omdöme på startsidan berömmer att han skickade en förfrågan via hemsidan och blev uppringd, men sajten har inget formulär: citatet argumenterar för något bygget valt bort."
+   "fel": "[en kunds] omdöme på startsidan berömmer att han skickade en förfrågan via hemsidan och blev uppringd, men sajten har inget formulär: citatet argumenterar för något bygget valt bort."
   },
   {
    "id": "L3-5",
    "maskin": true,
-   "fel": "Länken i faktarutan har tillgängligt namn 'Ring0920-145 55' (mellanslag saknas)."
+   "fel": "Länken i faktarutan har tillgängligt namn 'Ring[numret]' (mellanslag saknas)."
   },
   {
    "id": "L3-6",

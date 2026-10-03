@@ -34,8 +34,14 @@ def las(p):
         return None
 
 
+def lardomar_fil():
+    """Ägarens domar: ordagrant i underlag/LARDOMAR-original.md när den finns (privat), annars den publika LARDOMAR.md."""
+    p = ROOT / 'underlag' / 'LARDOMAR-original.md'
+    return p if p.is_file() else ROOT / 'LARDOMAR.md'
+
+
 def antal_domar():
-    return len(re.findall(r'^## L\d+ ', (ROOT / 'LARDOMAR.md').read_text(encoding='utf-8'), re.M))
+    return len(re.findall(r'^## L\d+ ', lardomar_fil().read_text(encoding='utf-8'), re.M))
 
 
 def granskningsfynd():
@@ -68,9 +74,11 @@ def uppdrag():
     return '\n'.join([
         'Gruppera fynden nedan i kategorier. Arbeta i två steg: sätt först en fri etikett på varje fynd (vad gick fel, med',
         'egna ord), samla sedan etiketterna i 4–10 kategorier med antal. En kategori är ett återkommande problem i hur vi',
-        'bygger, inte ett enskilt bygge. Källorna är ägarens domar i LARDOMAR.md (läs hela filen, varje L-post och AB-post)',
+        'bygger, inte ett enskilt bygge. Källorna är ägarens domar i %s (läs hela filen, varje L-post och AB-post)' % lardomar_fil().relative_to(ROOT),
         'och granskarens blockerande fynd nedan, från varje omgång. Ägarens domar väger tyngst. Ett fel som rättas inom',
         'ett bygge men återkommer i nästa bygge är en kategori, inte ett löst problem.', '',
+        'Resultatet blir publikt (kunskap/GRUPPERING.md): skriv inga personuppgifter ur domarna. Företagsnamn får stå, inte',
+        'privatpersoners namn, nummer, adresser eller hälsa (BESLUT.md 2026-10-03).', '',
         'Föreslå en enda ändring mot den största kategorin: vilken fil (helst .claude/skills/bygg-sajt/SKILL.md, en fil i',
         'kunskap/ eller kritik/GRANSKARE.md), vad som ändras, varför och hur man ser att det är gjort. Liten nog att läsa',
         'på fem minuter. Läs gärna kunskap/byggstandard.md och kunskap/teoretisk-grund.md för att knyta förslaget till en',

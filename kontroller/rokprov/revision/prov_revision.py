@@ -102,6 +102,18 @@ except ValueError as e:
 p['korningar']['dold-aby']['dist_sha256'] = dist_hash(dash.KUNDER / 'dold-aby' / 'sajt' / 'dist'); j.write_text(json.dumps(p))
 r = dash.spara_ab(p['id'], {'val': 'dold-abx', 'kommentar': 'A'})
 assert r['ok'] and '- **Byggen:** dold-abx, dold-aby' in (tmp / 'LARDOMAR.md').read_text(), 'A/B-avsnittet ska namnge byggena (F17)'
+# ägarbeslut 2026-10-03: ägarens ord bara i den privata filen, betygen publikt, backlogposten utan fritext
+assert 'Ägarens ord:** A' not in (tmp / 'LARDOMAR.md').read_text() and 'Ägarens ord:** A' in (tmp / 'underlag' / 'LARDOMAR-original.md').read_text(), 'A/B-kommentaren ska bara stå privat'
+dash.bl.MAPP = tmp / 'backlog'
+r = dash.spara_dom('normal', {'svar': {'namn': 'Ja, som den är', 'battre': 'Mycket bättre', 'specifik': 4, 'samsta': 'Ring Dan 070-123 45 67', 'en_andring': 'Beställ foton av Dan Sandberg'}})
+pub, priv = (tmp / 'LARDOMAR.md').read_text(), (tmp / 'underlag' / 'LARDOMAR-original.md').read_text()
+post = (tmp / 'backlog' / (r['backlog'] + '.md')).read_text()
+assert '## L0 · ' in pub and 'Mycket bättre' in pub and 'Dan' not in pub and '070-123' not in pub and 'LARDOMAR-original.md' in pub, pub
+assert 'Beställ foton av Dan Sandberg' in priv and 'Ring Dan 070-123 45 67' in priv and '## L0 · ' in priv, priv
+assert 'Dan' not in post and '070-123' not in post and 'LARDOMAR-original.md' in post and 'Mycket bättre' in post, post
+assert '**Ändring:** väntar (backlog %s)' % r['backlog'] in pub and r['backlog'] in priv, (pub, priv)
+(dash.KUNDER / 'normal' / 'DOM.json').unlink()  # domen får inte påverka granskarproven nedan (domda_byggen)
+print('ägarbeslut 1: dom och A/B privat/publikt ok')
 assert begar(dport, 'GET', '/fil/kunder/dold-abx/RAPPORT.md')[0] == 200, 'efter valet är armen öppen'
 # ab.py hash: äldre jämförelse utan hash får den uttryckligen
 import ab  # noqa: E402
@@ -272,13 +284,16 @@ gr.KUNDER, gr.UNDERLAG, gr.ROOT = k, tmp / 'underlag', tmp
 gr.SCHEMA, gr.SCHEMA_ORIGINALITET = tmp / 'kritik' / 'SCHEMA-granskning.json', tmp / 'kritik' / 'SCHEMA-originalitet.json'
 (tmp / 'kunskap').mkdir(exist_ok=True); (tmp / 'kunskap' / 'byggstandard.md').write_text('standard v1')
 assert [p.name for p, _ in gr.domda_byggen('ett-abx')] == ['annat'], 'syskonets dom ska undantas'
+(tmp / 'underlag' / 'LARDOMAR-original.md').write_text((tmp / 'LARDOMAR.md').read_text().replace('- bra', '- bra (privat-ord)'))
 rdir0 = tmp / 'runda0'; rdir0.mkdir()
 text = gr.lardomar_utan('ett-abx', rdir0).read_text()
+assert 'privat-ord' in text, 'utdraget ska komma ur den privata originalfilen när den finns (ägarbeslut 2026-10-03)'
 assert 'facit' not in text and 'ett-aby' not in text and '## L1' in text, text
 assert 'effort: A=medium' not in text, 'omärkt A/B-avsnitt ska bort (F17)'
 assert 'atelje: A=av' in text, 'märkt A/B-avsnitt om andra byggen ska vara kvar'
 assert 'atelje: A=av' not in gr.lardomar_utan('tva-abx', rdir0).read_text(), 'märkt A/B-avsnitt om bygget ska bort'
 assert 'Read(./LARDOMAR.md)' in gr.nekas_for('ett-abx') and any('ett-aby/DOM.json' in x for x in gr.nekas_for('ett-abx'))
+assert 'Read(./underlag/LARDOMAR-original.md)' in gr.nekas_for('ett-abx'), 'granskaren får inte läsa den privata originalfilen'
 m1 = gr.metod_sha('ett-abx')
 (tmp / 'kritik' / 'GRANSKARE.md').write_text('k2'); m2 = gr.metod_sha('ett-abx'); assert m2 != m1, 'ändrade kriterier ska ge ny metodhash'
 (tmp / 'kunskap' / 'byggstandard.md').write_text('standard v2'); m3 = gr.metod_sha('ett-abx'); assert m3 != m2, 'ändrad byggstandard ska ge ny metodhash (F18)'

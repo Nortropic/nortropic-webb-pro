@@ -1,7 +1,8 @@
 # nortropic-webb-pro — för sessioner i det här repot
 
 Bygger webbplatser åt riktiga verksamheter enligt litteraturens åtta steg. Ägaren dömer resultatet. Varför och vad
-som beslutats: `BESLUT.md`. Ägarens domar: `LARDOMAR.md`; de gäller före allt annat.
+som beslutats: `BESLUT.md`. Ägarens domar: `LARDOMAR.md` (publik, utan personuppgifter) och ordagrant i
+`underlag/LARDOMAR-original.md` (privat); de gäller före allt annat.
 
 ## Skills
 
@@ -30,7 +31,7 @@ utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglern
 - Python med `.venv/bin/python`, Node med `node`. Kommandon från repots rot.
 - Efter ändringar i `kontroller/` eller `mall/`: `kontroller/rokprov.sh` ska sluta grönt.
 - Commit direkt på `main` och `git push origin main`. Repot är publikt: inga hemligheter, inget ur `underlag/` eller
-  `kunder/`.
+  `kunder/`, inga personuppgifter ur ägarens domar (privatpersoners namn, nummer, adresser, hälsa; BESLUT.md 2026-10-03).
 - De gamla repona (Nortropic Runtime, nortropic-projektkontor, nortropic-digitala, kund-demo-norrglanta) är borttagna
   lokalt sedan 2026-10-02 (ägarens beslut, `BESLUT.md`). Historiken finns på GitHub och som git-bundles i
   `~/Arkiv/nortropic-gamla-20261002/`.

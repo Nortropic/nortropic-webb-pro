@@ -161,6 +161,11 @@ def underlag_rader(slug):
     return [str(f.relative_to(ROOT)) for f in filer], refs
 
 
+def lardomar_vag():
+    """Ägarens domar: ordagrant i underlag/LARDOMAR-original.md när den finns (privat), annars LARDOMAR.md (BESLUT.md 2026-10-03)."""
+    return 'underlag/LARDOMAR-original.md' if (ROOT / 'underlag' / 'LARDOMAR-original.md').is_file() else 'LARDOMAR.md'
+
+
 def divergera_prompt(slug, bilder):
     filer, refs = underlag_rader(slug)
     s = 'kunder/%s/sajt' % slug
@@ -168,7 +173,7 @@ def divergera_prompt(slug, bilder):
         'Du är ateljén i ett bygge åt en riktig verksamhet. Din uppgift är divergens: ta fram %d visuella riktningar som ser' % ANTAL,
         'och känns tydligt olika, innan sajten byggs. Du bygger inte sajten; du bygger ett prov per riktning som en annan',
         'session jämför sida vid sida.', '',
-        'Läs först: ' + ', '.join(filer) + ', LARDOMAR.md (ägarens domar gäller före allt), kunskap/externa/anthropic-frontend-design-SKILL.md,',
+        'Läs först: ' + ', '.join(filer) + ', ' + lardomar_vag() + ' (ägarens domar gäller före allt), kunskap/externa/anthropic-frontend-design-SKILL.md,',
         'kunskap/referenser-professionella.md, kunskap/byggstandard.md (punkterna 3 och 4) och .claude/skills/better-layout/SKILL.md.',
         'Referensernas första vy: ' + (', '.join(refs) or 'inga') + '.',
         'Verksamhetens egna bilder (de BILDER.md anger som egna) ligger kopierade i %s/src/assets/atelje/: %s.' % (s, ', '.join(bilder) or 'inga'),
@@ -209,7 +214,7 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare):
         'Du sitter i domarpanelen i ateljén för ett bygge åt en riktig verksamhet. %d riktningar har tagits fram som första vy' % len(bokstaver),
         'och style tile; panelen väljer vilken som ska byggas. ' + uppdrag, '',
         'Målen du dömer mot: toppuppgifterna och den primära handlingen i underlag/%s/BRIEF.md, listan "Bara de har" i' % slug,
-        'underlag/%s/RESEARCH.md, och ägarens domar i LARDOMAR.md, som väger tyngst. Läs dem först.' % slug,
+        'underlag/%s/RESEARCH.md, och ägarens domar i %s, som väger tyngst. Läs dem först.' % (slug, lardomar_vag()),
         'Ribban är professionell nivå enligt referensernas första vy nedan och kunskap/referenser-professionella.md, aldrig',
         'tidigare egna byggen (ägaren 2026-10-03: de håller inte).',
         'Referensernas första vy: ' + (', '.join(refs[:8]) or 'inga') + '.', '',

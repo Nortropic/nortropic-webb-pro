@@ -68,7 +68,7 @@ sälja: varje sida har ett tydligt nästa steg.
 |---|---|---|
 | 5.1 Allt går med tangentbord: skiplänk först, logisk tabbordning, inga fokusfällor, fokus döljs inte av klibbigt sidhuvud. | D | `standard`, inspektionen, granskaren |
 | 5.2 Mobilmeny: aria-expanded, stängs med Esc, fokus in och tillbaka. Helst ingen gömd meny när punkterna ryms. | D | granskaren |
-| 5.3 Länktexter begripliga utan sammanhang, även när de läses upp: "Ring 0920-145 55", inte "Ring0920-145 55"; ikonknappar har aria-label. | D | `axe`, `standard`, info |
+| 5.3 Länktexter begripliga utan sammanhang, även när de läses upp: "Ring 070-123 45 67", inte "Ring070-123 45 67"; ikonknappar har aria-label. | D | `axe`, `standard`, info |
 | 5.4 Formulär: kopplade etiketter, fel i text, aria-describedby eller aria-live för fel. | D om formulär | `axe`, granskaren |
 | 5.5 Ingen autoplay med ljud; inga karuseller. | D | `standard`, granskaren |
 | 5.6 axe 0 allvarliga fel. Skärmläsarkoll av startsida och formulär görs av en människa före lansering; i demon läser granskaren tillgänglighetsträdet. | D axe, L skärmläsare | `axe`, granskaren |

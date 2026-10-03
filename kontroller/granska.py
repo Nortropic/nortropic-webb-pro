@@ -115,8 +115,13 @@ def syskon_till(slug):
 def lardomar_utan(slug, rdir):
     """LARDOMAR.md utan avsnitten om det här bygget och dess A/B-syskon, skriven i omgången: granskaren får inte se
     facit för det den dömer (revisionen 2026-10-03, F17). A/B-avsnitt behålls bara när de namnger sina byggen
-    (raden Byggen:) och inget av dem är det här; äldre omärkta A/B-avsnitt tas bort. Returnerar sökvägen."""
-    text = (ROOT / 'LARDOMAR.md').read_text(encoding='utf-8') if (ROOT / 'LARDOMAR.md').is_file() else ''
+    (raden Byggen:) och inget av dem är det här; äldre omärkta A/B-avsnitt tas bort. Källan är den privata originalfilen
+    underlag/LARDOMAR-original.md när den finns (ordagrant; utdraget stannar under kunder/), annars den publika
+    LARDOMAR.md (BESLUT.md 2026-10-03). Returnerar sökvägen."""
+    kalla = UNDERLAG / 'LARDOMAR-original.md'
+    if not kalla.is_file():
+        kalla = ROOT / 'LARDOMAR.md'
+    text = kalla.read_text(encoding='utf-8') if kalla.is_file() else ''
     namn = [s for s in (slug, syskon_till(slug)) if s]
     kvar = []
     for d in re.split(r'(?m)^(?=## )', text):
@@ -132,7 +137,7 @@ def lardomar_utan(slug, rdir):
 
 def nekas_for(slug):
     """Granskarens egna nekanden utöver NEKAS: ägarens dom om bygget och syskonet, och tidigare omgångars domar."""
-    ut = ['Read(./LARDOMAR.md)']
+    ut = ['Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)']
     for s in (slug, syskon_till(slug)):
         if s:
             ut += ['Read(./kunder/%s/DOM.json)' % s, 'Read(./kunder/%s/granskning/GRANSKNING.*)' % s,
