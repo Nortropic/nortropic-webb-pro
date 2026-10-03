@@ -21,6 +21,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 LANK = re.compile(r'https?://\S+')
 
@@ -171,6 +173,7 @@ def main(argv=None):
     p.add_argument('--avsnitt', action='append', default=[], help='MM:SS-MM:SS, en bildruta varannan sekund; får upprepas')
     p.add_argument('--sprak', default='sv,en')
     a = p.parse_args(argv)
+    krav_vag(a.ut, "--ut")
     vid = video_id(a.url)
     adress = 'https://www.youtube.com/watch?v=' + vid if vid else a.url
     meta, fel = metadata(adress)

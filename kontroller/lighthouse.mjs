@@ -11,11 +11,13 @@ import * as chromeLauncher from 'chrome-launcher';
 import lighthouse from 'lighthouse';
 import desktopConfig from 'lighthouse/core/config/desktop-config.js';
 import { chromium } from 'playwright';
+import { vakta } from './slugvakt.mjs';
 
 const arg = (namn) => process.argv.find((a) => a.startsWith(`--${namn}=`))?.slice(namn.length + 3);
 const base = (arg('url') || '').replace(/\/$/, '');
 const sidor = (arg('sidor') || '/').split(',').filter(Boolean);
 const ut = arg('ut');
+vakta(ut);
 if (!base || !ut) { console.error('användning: --url=URL --sidor=/,/a/ --ut=KATALOG'); process.exit(2); }
 const omgangar = Math.max(1, parseInt(arg('omgangar') || '3', 10) || 3);
 const enheter = arg('enheter') || 'båda';

@@ -11,6 +11,8 @@ import re
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 
 class Rubriker(HTMLParser):
@@ -39,6 +41,7 @@ def main(argv=None):
     p.add_argument('--bygge', required=True)
     p.add_argument('--ut', required=True)
     a = p.parse_args(argv)
+    krav_vag(a.ut, "--ut")
     dist = Path(a.bygge)
     sidor = sorted((f for f in dist.rglob('index.html')), key=lambda f: (len(f.relative_to(dist).parts), str(f)))
     rad = ['# Rubrikerna, sida för sida', '', 'Bara h1 och h2, i den ordning de står. Inget annat från sidorna.', '']

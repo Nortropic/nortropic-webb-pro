@@ -24,6 +24,8 @@ from html import unescape as avkoda_html
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 TOM = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'}
 LOKALA_TYPER_RESERV = {
@@ -548,7 +550,8 @@ def csp_skriptkallor(policy):
         if bitar:
             direktiv.setdefault(bitar[0].lower(), bitar[1:])
     reserv = direktiv.get('script-src', direktiv.get('default-src'))
-    return {'script-src-elem': direktiv.get('script-src-elem', reserv), 'script-src-attr': direktiv.get('script-src-attr', reserv)}
+    # script-src självt styr fortfarande 'unsafe-eval' och är reserv för båda; det prövas också (omgång tre, F22)
+    return {'script-src': reserv, 'script-src-elem': direktiv.get('script-src-elem', reserv), 'script-src-attr': direktiv.get('script-src-attr', reserv)}
 
 
 def sida_av(dist, f):
@@ -782,6 +785,8 @@ def main(argv=None):
     p.add_argument('--bestallning', help='underlag/<slug>/BESTALLNING.md, för bildkravet (9.3)')
     p.add_argument('--verksamhet', help='underlag/<slug>/VERKSAMHET.json, för den publika adressen (7.4)')
     a = p.parse_args(argv)
+    krav_vag(a.ut, "--ut")
+    krav_vag(getattr(a, "md", None), "--md")
     if not Path(a.bygge).is_dir():
         print('finns inte: ' + a.bygge, file=sys.stderr)
         return 2

@@ -9,11 +9,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { vakta } from './slugvakt.mjs';
 
 const argv = process.argv.slice(2);
 const url = argv.find((a) => /^https?:\/\//.test(a));
 const flagga = (n, std) => { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : std; };
 const ut = flagga('ut');
+vakta(ut);
 const antalSkroll = Math.max(0, Math.min(20, parseInt(flagga('skroll', '8'), 10) || 0));
 if (!url || !ut) { console.error("användning: node kontroller/sida.mjs 'URL' --ut KATALOG [--skroll 8]"); process.exit(2); }
 // Utdata får aldrig hamna i repot: en styrd session ska inte kunna skriva över kod som sedan pushas.

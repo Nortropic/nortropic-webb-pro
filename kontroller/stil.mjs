@@ -10,11 +10,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { VYER } from './webblasare/gemensamt.mjs';
+import { vakta } from './slugvakt.mjs';
 
 const arg = (n) => process.argv.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3);
 const base = (arg('url') || '').replace(/\/$/, '');
 const sidor = (arg('sidor') || '/').split(',').filter(Boolean);
 const ut = arg('ut');
+vakta(ut);
 if (!base || !ut) { console.error('användning: --url=URL --sidor=/,/a/ --ut=KATALOG'); process.exit(2); }
 mkdirSync(ut, { recursive: true });
 

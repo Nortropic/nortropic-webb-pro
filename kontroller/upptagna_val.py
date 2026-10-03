@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402
 
 ROOT = prova.ROOT
@@ -84,6 +85,7 @@ def main(argv=None):
         print(__doc__.split('\n\n')[1].strip())
         return 2
     slug = argv[0]
+    krav_slug(slug)
     syskon = (KUNDER / slug / 'AB-SYSKON').read_text().strip() if (KUNDER / slug / 'AB-SYSKON').is_file() else None
     andra = sorted(p for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and p.name not in (slug, syskon, 'ab')
                    and not p.name.startswith('rokprov'))

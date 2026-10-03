@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402  dist_hash, sidor_i, Server
 
 ROOT = prova.ROOT
@@ -248,7 +249,8 @@ def domda_byggen(utom=None):
 
 
 def bildankare(utom=None):
-    """Första vyn av dömda byggen med ägarens dom bredvid: nivåer visade med bilder, inte bara ord."""
+    """Första vyn av dömda byggen med ägarens dom bredvid. Används inte längre i uppdragen: egna byggen är ingen måttstock
+    (ägaren 2026-10-03: "våra hemsidor är dåliga och håller inte"); kvar för dashboardens överensstämmelse."""
     ut = []
     for p, svar in domda_byggen(utom):
         bilder = [p / 'prov' / 'inspektion' / 'hem' / vy for vy in ('vy-390-forsta.png', 'vy-1440-forsta.png')]
@@ -259,7 +261,8 @@ def bildankare(utom=None):
 
 
 def kalibrering(utom=None):
-    """Ägarens domar bredvid granskarens betyg för samma bygge: underlag för att döma som ägaren."""
+    """Ägarens domar bredvid granskarens betyg för samma bygge. Används inte längre i uppdragen (se bildankare); ribban
+    ska komma från externa professionella exempel som ägaren dömt (backloggen: kalibrering av visuell nivå)."""
     rader = []
     for p, svar in domda_byggen(utom):
         dom = [svar]
@@ -292,10 +295,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Din arbetskatalog för egna skärmbilder och sida.mjs-utdata: %s' % arbetskatalog,
         'Trösklar för godkänt: %s, och inga blockerande fynd. Godkännandet räknas ut av verktyget.' % trosklar, '',
         'Ägarens domar (utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md'), '',
-        'Kalibrering, ägarens dom bredvid granskarens för tidigare byggen:',
-        *(kal or ['- inga ännu']), '',
-        'Bildankare, första vyn av byggen som ägaren dömt, med domen (titta på bilderna):',
-        *(['- %s · %s: %s' % (namn, text, ', '.join(rel(b) for b in bb)) for namn, bb, text in ankare] or ['- inga ännu']), '',
+        'Ribban är professionell nivå enligt referensernas skärmbilder nedan och exemplaren i kunskap/referenser-professionella.md.',
+        'Tidigare egna byggen är ingen måttstock, inte heller när ägaren godkänt dem (ägaren 2026-10-03: de håller inte);',
+        'de visas bara för att du ska se om det här bygget är en variant av dem.', '',
         'Verksamhetens underlag:', *[rad(p) for p in underlag], '',
         'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390 och 1440 (läs varje):',
         *[rad(p) for p in bilder], '',
@@ -363,7 +365,7 @@ def arbetare(rdir):
                 arbetskatalog = ARBETSROT / ('%s-%s-%d' % (slug, rdir.name, n))
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                      referensbilder(slug), tidigare_byggen(slug), kalibrering(slug), rdir, aria, bildankare(slug), lardomar)
+                                      referensbilder(slug), tidigare_byggen(slug), [], rdir, aria, [], lardomar)
                 (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
                 args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config',
@@ -441,8 +443,8 @@ def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=N
              'Verksamhetens särart: %s (läs listan Bara de har)' % (rel(u / 'RESEARCH.md') if (u / 'RESEARCH.md').is_file() else 'saknas'),
              'Startsidan, de två första skärmarna i 390 och 1440:', *['- ' + rel(b) for b in hem],
              'Undersidornas första skärm:', *['- ' + rel(b) for b in under],
-             'Tidigare byggens första vy:', *['- ' + rel(b) for b in tidigare_byggen(slug)],
-             'Bildankare med ägarens dom:', *['- %s · %s: %s' % (n, t, ', '.join(rel(b) for b in bb)) for n, bb, t in bildankare(slug)],
+             'Tidigare byggens första vy (ingen måttstock, bara för att se om det här är en variant av dem):', *['- ' + rel(b) for b in tidigare_byggen(slug)],
+             'Ribban är professionell nivå enligt referenserna och kunskap/referenser-professionella.md, aldrig tidigare egna byggen (ägaren 2026-10-03).',
              'Ägarens domar (utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md')]
     args = [claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--model', upp['modell'], '--effort', upp['effort'],
@@ -610,6 +612,8 @@ def main(argv=None):
     p.add_argument('--jamfor', action='store_true', help='jämför bästa och sista omgången parvis')
     p.add_argument('--arbetare', help=argparse.SUPPRESS)
     a = p.parse_args(argv)
+    if a.slug:
+        krav_slug(a.slug)
     if a.arbetare:
         return arbetare(a.arbetare)
     if not a.slug or not SLUG.match(a.slug):
@@ -639,31 +643,32 @@ def main(argv=None):
             if (kund / 'prov' / namn).is_file():
                 shutil.copy2(kund / 'prov' / namn, rdir / Path(namn).name)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / 'torr', bilder,
-                              referensbilder(a.slug), tidigare_byggen(a.slug), kalibrering(a.slug), rdir,
-                              aria_trad(kund, rdir / 'sajt'), bildankare(a.slug), lardomar_utan(a.slug, rdir))
+                              referensbilder(a.slug), tidigare_byggen(a.slug), [], rdir,
+                              aria_trad(kund, rdir / 'sajt'), [], lardomar_utan(a.slug, rdir))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         print(prompt)
         print('Torrkörning: %s. Ingen granskare startades.' % (rdir / 'PROMPT.txt'))
         return 0
 
+    lage = os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga')
+    metod = {'metod_sha': metod_sha(a.slug), 'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
+             'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'granskare': ANTAL,
+             'originalitet': lage if lage in ORIGINALITETSLAGEN else 'skugga'}
     for r in reversed(rundor(gdir)):
         upp = las_json(r / 'UPPDRAG.json') or {}
         pagar = r / 'PAGAR'
         if pagar.is_file() and not utfall(r):
             pid = int(pagar.read_text().strip() or 0)
-            if lever(pid) and upp.get('dist_sha256') == hash_nu:
+            # en pågående omgång återanvänds bara för samma bygge och samma metod (omgång tre, F18)
+            if lever(pid) and upp.get('dist_sha256') == hash_nu and samma_metod(upp, metod):
                 return vanta(gdir, r, a.vanta)
-            if lever(pid):  # granskar ett äldre bygge: avbryt den
+            if lever(pid):  # granskar ett äldre bygge eller med en annan metod: avbryt den
                 try:
                     os.killpg(pid, signal.SIGTERM)
                 except OSError:
                     pass
-            (r / 'FEL.txt').write_text('avbruten: bygget ändrades eller processen dog\n', encoding='utf-8')
+            (r / 'FEL.txt').write_text('avbruten: bygget eller metoden ändrades, eller processen dog\n', encoding='utf-8')
             pagar.unlink(missing_ok=True)
-    lage = os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga')
-    metod = {'metod_sha': metod_sha(a.slug), 'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
-             'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'granskare': ANTAL,
-             'originalitet': lage if lage in ORIGINALITETSLAGEN else 'skugga'}
     if not a.om:
         for r in reversed(rundor(gdir)):
             g = las_json(r / 'GRANSKNING.json')

@@ -8,8 +8,10 @@
 import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER } from './gemensamt.mjs';
 import { readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
+import { vakta } from '../slugvakt.mjs';
 
 const a = args(process.argv.slice(2));
+vakta(a.ut);
 if (!a.adress || !a.ut) { console.error('användning: --adress URL --ut DIR [...]'); process.exit(2); }
 // --tillat-alla: inga ursprungsgränser (främmande sajter i prospektanalysen lastar typsnitt, bilder och skript från CDN:er)
 const tillat = a['tillat-alla'] ? [] : [origin(a.adress), ...(a.tillat ? String(a.tillat).split(';').filter(Boolean) : [])];

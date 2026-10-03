@@ -25,8 +25,10 @@ async function manskligaFalt(form) {
 }
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { vakta } from '../slugvakt.mjs';
 
 const a = args(process.argv.slice(2));
+vakta(a.ut);
 if (!a.adress || !a.ut) { console.error('användning: --adress URL --ut DIR [...]'); process.exit(2); }
 const bas = origin(a.adress);
 const tillat = [bas, ...(a.tillat ? String(a.tillat).split(';').filter(Boolean) : [])];

@@ -4,9 +4,11 @@ import { args, oppna, origin, sha256, nu } from './gemensamt.mjs';
 import { readFileSync, writeFileSync, mkdirSync, realpathSync, existsSync, chmodSync } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { vakta } from '../slugvakt.mjs';
 
 process.umask(0o077);
 const a = args(process.argv.slice(2));
+vakta(a.ut);
 const MAX_ADRESSER = 500, MAX_KARTOR = 20;
 let out, report;
 function inside(path, root) { return path === root || path.startsWith(root+sep); }

@@ -15,6 +15,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 ROOT = Path(__file__).resolve().parents[1]
 MALL = ROOT / 'mall' / 'astro'
@@ -26,6 +28,7 @@ def main(argv=None):
     p.add_argument('--doman')
     p.add_argument('--installera', action='store_true')
     a = p.parse_args(argv)
+    krav_slug(a.slug)
     if not re.fullmatch(r'[a-z0-9-]{2,60}', a.slug):
         print('slug: a-z, 0-9 och bindestreck', file=sys.stderr)
         return 2

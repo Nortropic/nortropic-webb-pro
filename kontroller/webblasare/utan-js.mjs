@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Modellfritt HTML-prov. Inga formulär skickas utan explicit tillåtelse och testmarkering.
 import { args, oppna, origin, skriv, nu, lasUndantag } from './gemensamt.mjs';
+import { vakta } from '../slugvakt.mjs';
 const a = args(process.argv.slice(2));
+vakta(a.ut);
 if (!a.adress || !a.ut || (a['formular-far-skickas'] && !a.testmarkering)) {
   console.error('--adress URL --ut DIR [--formular SELECTOR --formular-far-skickas --testmarkering TEXT]');
   process.exit(2);

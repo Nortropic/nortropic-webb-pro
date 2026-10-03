@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402
 
 ROOT = prova.ROOT
@@ -207,8 +208,8 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare):
         'och style tile; panelen väljer vilken som ska byggas. ' + uppdrag, '',
         'Målen du dömer mot: toppuppgifterna och den primära handlingen i underlag/%s/BRIEF.md, listan "Bara de har" i' % slug,
         'underlag/%s/RESEARCH.md, och ägarens domar i LARDOMAR.md, som väger tyngst. Läs dem först.' % slug,
-        'Bildankare, första vyn av byggen som ägaren dömt, med domen (titta på bilderna för att se var nivåerna ligger):',
-        *(['- %s · %s: %s' % (n, txt, ', '.join(rel(b) for b in bb)) for n, bb, txt in ankare] or ['- inga ännu']),
+        'Ribban är professionell nivå enligt referensernas första vy nedan och kunskap/referenser-professionella.md, aldrig',
+        'tidigare egna byggen (ägaren 2026-10-03: de håller inte).',
         'Referensernas första vy: ' + (', '.join(refs[:8]) or 'inga') + '.', '',
         'Riktningarnas skärmbilder; titta på varje med Read, mobil först:', *rader, '',
         'Rangordna alla riktningar (plats 1 bäst), med styrkor och svagheter du ser i bilderna utifrån ditt område. Knyt',
@@ -231,7 +232,7 @@ def panel(slug, rot):
     riktningar = [n for n in riktningar if bilder[n]]
     if len(riktningar) < 2:
         raise RuntimeError('färre än två fotograferade riktningar')
-    ankare = granska.bildankare(slug)
+    ankare = []  # egna byggen är ingen måttstock (ägaren 2026-10-03)
     resultat, fel = {}, []
 
     def doma(namn, modell, uppdrag):
@@ -397,6 +398,7 @@ def main(argv=None):
     p.add_argument('--bara-domare', action='store_true', help='döm om de befintliga skärmbilderna med panelen')
     p.add_argument('--arbetare', action='store_true', help=argparse.SUPPRESS)
     a = p.parse_args(argv)
+    krav_slug(a.slug)
     if not SLUG.match(a.slug):
         p.print_usage()
         return 2

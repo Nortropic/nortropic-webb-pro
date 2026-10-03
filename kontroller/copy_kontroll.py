@@ -14,6 +14,8 @@ import json
 import re
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 SUFFIX = {'.html', '.htm', '.md', '.mdx', '.txt', '.tsx', '.jsx', '.ts', '.js', '.astro', '.vue', '.svelte'}
 HOPPA = {'node_modules', '.next', '.git', 'dist', 'build', '.vercel', 'out', '.scratch'}
@@ -197,6 +199,8 @@ def main(argv=None):
     p.add_argument('--ut', required=True)
     p.add_argument('--md')
     a = p.parse_args(argv)
+    krav_vag(a.ut, "--ut")
+    krav_vag(getattr(a, "md", None), "--md")
     r = rapport(a.kalla, a.fraser, a.krav)
     Path(a.ut).write_text(json.dumps(r, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if a.md:

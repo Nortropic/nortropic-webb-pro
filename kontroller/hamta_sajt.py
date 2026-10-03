@@ -33,6 +33,8 @@ from collections import deque
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 UA = "Mozilla/5.0 (compatible; nortropic-webb-pro/1; +https://github.com/Nortropic/nortropic-webb-pro)"
 UA_NAMN = "nortropic-webb-pro"
@@ -188,7 +190,9 @@ def oppnare(egen=None, rp=None, fore=None, folj=True):
     """Öppnare med adresskontroll i anslutningen och omdirigeringsvakt. Används av varje extern hämtning i repot
     (hamta_sajt, sida_till_text, standardkontrollens länkar, prospekt, Bokadirekt)."""
     vakt = Omdirigeringsvakt(egen, rp, fore, folj)
-    o = urllib.request.build_opener(_HttpHandler(), _HttpsHandler(), vakt)
+    # ProxyHandler({}): aldrig miljöns eller systemets proxy; en proxy skulle slå upp och ansluta till målet utanför
+    # adresskontrollen (revisionen 2026-10-03, F5 omgång tre). Hämtaren ansluter alltid direkt.
+    o = urllib.request.build_opener(urllib.request.ProxyHandler({}), _HttpHandler(), _HttpsHandler(), vakt)
     o.vakt = vakt
     return o
 
@@ -472,9 +476,11 @@ class Robots:
     ORES = set(string.ascii_letters + string.digits + "-._~")
 
     @classmethod
-    def _normalisera(cls, vag):
-        """RFC 9309 2.2.2: procentkodade oreserverade tecken avkodas, reserverade (och %2A, %24) behålls kodade med
-        versaler, och tecken utanför ASCII eller icke skrivbara kodas. Så skiljs ett bokstavligt * från jokertecknet."""
+    def _normalisera(cls, vag, uri=False):
+        """RFC 9309 2.2.2–2.2.3: procentkodade oreserverade tecken avkodas, reserverade (och %2A, %24) behålls kodade med
+        versaler, och tecken utanför ASCII eller icke skrivbara kodas. I en URI kodas dessutom bokstavliga * och $ till
+        %2A och %24, så att mönstrets jokertecken och slutmarkör bara matchar som sådana (Disallow: /file%2A.html ska
+        träffa /file*.html; omgång tre, F24)."""
         ut, i = [], 0
         while i < len(vag):
             c = vag[i]
@@ -483,7 +489,10 @@ class Robots:
                 ut.append(tecken if tecken in cls.ORES else "%" + vag[i + 1:i + 3].upper())
                 i += 3
                 continue
-            ut.append(c if 0x21 <= ord(c) <= 0x7E else urllib.parse.quote(c, safe=""))
+            if uri and c in "*$":
+                ut.append("%%%02X" % ord(c))
+            else:
+                ut.append(c if 0x21 <= ord(c) <= 0x7E else urllib.parse.quote(c, safe=""))
             i += 1
         return "".join(ut)
 
@@ -505,7 +514,7 @@ class Robots:
         g = self.grupp(ua)
         if not g:
             return True
-        vag = self._normalisera((s.path or "/") + (("?" + s.query) if s.query else ""))
+        vag = self._normalisera((s.path or "/") + (("?" + s.query) if s.query else ""), uri=True)
         bast = None  # (längd, allow)
         for allow, monster in g["regler"]:
             m = self._normalisera(monster)
@@ -524,9 +533,10 @@ class Robots:
 
 
 def las_robots(bas, egen=None):
-    """robots.txt enligt RFC 9309: 4xx = allt tillåtet, 5xx eller nätverksfel = inget tillåtet."""
+    """robots.txt enligt RFC 9309: 4xx = allt tillåtet, 5xx eller nätverksfel = inget tillåtet. Omdirigeringar av
+    robots.txt följs också till en annan värd (RFC 9309 2.3.1.2), med adresskontrollen kvar; egen används inte här."""
     rp = Robots()
-    svar = hamta(urllib.parse.urljoin(bas, "/robots.txt"), egen=egen)
+    svar = hamta(urllib.parse.urljoin(bas, "/robots.txt"))
     if svar["status"] == 200:
         rp.parse(avkoda(svar).splitlines())
         return rp, "hittad"
@@ -867,6 +877,8 @@ def main():
     ap.add_argument("--bilder", metavar="KATALOG", help="ladda ned foto och okänd hit, t.ex. underlag/<slug>/bilder")
     ap.add_argument("--prova-domaner", metavar="NAMN", help='pröva namnets domäner, t.ex. "Salong Kreativ, Luleå"')
     a = ap.parse_args()
+    krav_vag(a.ut, "--ut")
+    krav_vag(a.bilder, "--bilder")
     if a.max > 40:
         sys.exit("högst 40 sidor")
     r = hamta_sajt(a.start, a.ut, a.max)

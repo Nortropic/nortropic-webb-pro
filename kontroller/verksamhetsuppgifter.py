@@ -15,6 +15,8 @@ import json
 import re
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 SCHEMA = 1
 KONTAKTTYPER = ('telefon', 'formular', 'dm', 'bokning', 'plats', 'e-post')
@@ -263,6 +265,7 @@ def main(argv=None):
     p.add_argument('fil')
     p.add_argument('--ut')
     a = p.parse_args(argv)
+    krav_vag(a.ut, "--ut")
     try:
         v = las(a.fil)
         if a.kommando == 'kontrollera':

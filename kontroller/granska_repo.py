@@ -19,6 +19,8 @@ import json
 import re
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 DOLDA = {
     'nollbredd': re.compile('[\u200b\u200c\u200d\u2060\u180e]'),
@@ -104,6 +106,7 @@ def main(argv=None):
     p.add_argument('sokvag')
     p.add_argument('--ut')
     a = p.parse_args(argv)
+    krav_vag(a.ut, "--ut")
     rot = Path(a.sokvag).expanduser()
     if not rot.exists():
         print('finns inte: %s' % rot, file=sys.stderr)

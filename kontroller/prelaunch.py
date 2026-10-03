@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import seo_kontroll as sk  # noqa: E402
 import copy_kontroll as ck  # noqa: E402
 import stegbevis  # noqa: E402
@@ -496,6 +497,8 @@ def main(argv=None):
     p.add_argument('--matning'); p.add_argument('--inspektion', help='INSPEKTION.json från kontroller/webblasare/inspektera.mjs (spill per vy)'); p.add_argument('--handlingar'); p.add_argument('--juridik'); p.add_argument('--huvuden'); p.add_argument('--adress'); p.add_argument('--audit'); p.add_argument('--krav')
     p.add_argument('--ut', required=True); p.add_argument('--md')
     a = p.parse_args(argv)
+    krav_vag(a.ut, "--ut")
+    krav_vag(getattr(a, "md", None), "--md")
     if not Path(a.bygge).is_dir():
         print(json.dumps({'fel': 'bygget är ingen katalog'})); return 2
     r = rapport(a)

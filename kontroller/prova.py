@@ -39,6 +39,8 @@ from email import policy as email_policy
 from email.parser import BytesParser
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 ROOT = Path(__file__).resolve().parents[1]
 KONTROLLER = ROOT / 'kontroller'
@@ -154,14 +156,22 @@ class Server:
             def log_message(self, *a):
                 pass
 
-            def translate_path(self, path):
+            def send_head(self):
                 """Bara filer som verkligen ligger under dist/: SimpleHTTPRequestHandler följer symlänkar ut ur katalogen,
-                och visningen i telefonen lyssnar på nätverket (revisionen 2026-10-03, F4). Annat blir 404."""
-                p = super().translate_path(path)
+                och visningen i telefonen lyssnar på nätverket (revisionen 2026-10-03, F4). Den fil som faktiskt skulle
+                öppnas (också en katalogs index.html) prövas mot den upplösta roten; annat får ett riktigt 404-svar före
+                öppningen, aldrig en ersättningssökväg."""
+                p = self.translate_path(self.path)
+                if os.path.isdir(p):
+                    for index in ('index.html', 'index.htm'):
+                        if os.path.isfile(os.path.join(p, index)):
+                            p = os.path.join(p, index)
+                            break
                 verklig = os.path.realpath(p)
                 if verklig != rot and not verklig.startswith(rot + os.sep):
-                    return os.path.join(rot, '.utanfor-dist')
-                return p
+                    self.send_error(404)
+                    return None
+                return super().send_head()
 
             def do_POST(self):
                 """Demomottagare för förfrågningsformuläret (kunskap/forfragan.md): läser fälten, kontrollerar dem och
@@ -472,6 +482,7 @@ def main(argv=None):
     p.add_argument('slug')
     p.add_argument('--snabb', action='store_true')
     a = p.parse_args(argv)
+    krav_slug(a.slug)
     if not re.fullmatch(r'[a-z0-9-]{2,60}', a.slug):
         print('slug: a-z, 0-9 och bindestreck', file=sys.stderr)
         return 2

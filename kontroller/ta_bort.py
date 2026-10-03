@@ -11,6 +11,8 @@ import re
 import shutil
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +23,7 @@ def main(argv=None):
         print('användning: ta_bort.py <slug> <sökväg> [...]', file=sys.stderr)
         return 2
     slug, vagar = argv[0], argv[1:]
+    krav_slug(slug)
     tillatna = [(ROOT / 'kunder' / slug).resolve(), (ROOT / 'underlag' / slug).resolve()]
     for v in vagar:
         p = (ROOT / v).resolve() if not Path(v).is_absolute() else Path(v).resolve()

@@ -21,6 +21,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import verksamhetsuppgifter as vu  # noqa: E402
 
 TITLE = re.compile(r'<title[^>]*>(.*?)</title>', re.S | re.I)
@@ -207,12 +208,26 @@ def granska_schema(obj, verksamhet):
             fynd.append(('JSON-LD utan @type', ''))
         if v:
             fynd.extend(granska_vokabular(nod, v))
-        # verksamhetsnoden känns igen på typen (LocalBusiness- eller Organization-trädet), inte på att den råkar bära
-        # telefon eller adress: en Person-nod (författare, ägare) ska inte prövas mot företagets uppgifter (revisionen, F20)
-        lokal = any(t in ('LocalBusiness', 'Organization') or (v and anor(t, v) & {'LocalBusiness', 'Organization'}) for t in typer)
-        if verksamhet and lokal:
+        # verksamhetsnoden känns igen på typ och identitet, inte på att den råkar bära telefon eller adress (revisionen,
+        # F20): en Person-nod prövas aldrig, och en annan organisation i grafen (memberOf, en branschorganisation) bara
+        # när den har verksamhetens namn eller ligger på verksamhetens domän (@id eller url).
+        if verksamhet and ar_verksamhetsnod(nod, typer, verksamhet, v):
             fynd.extend(granska_verksamhetsnod(nod, typer, verksamhet))
     return fynd
+
+
+def ar_verksamhetsnod(nod, typer, verksamhet, v):
+    lokal = any(t == 'LocalBusiness' or (v and 'LocalBusiness' in anor(t, v)) for t in typer)
+    org = any(t == 'Organization' or (v and 'Organization' in anor(t, v)) for t in typer)
+    if not (lokal or org):
+        return False
+    namn = lambda s: re.sub(r'\s+', ' ', str(s or '')).strip().casefold()  # noqa: E731
+    doman = re.sub(r'^https?://(www\.)?', '', str((verksamhet.get('webb') or {}).get('doman') or '') if isinstance(verksamhet.get('webb'), dict) else '').strip('/').casefold()
+    egen_doman = any(doman and doman in str(nod.get(k) or '').casefold() for k in ('@id', 'url'))
+    if lokal:
+        # en LocalBusiness-nod är verksamheten om inget uttryckligen säger annat (annat namn och annan domän)
+        return egen_doman or not nod.get('name') or namn(nod.get('name')) == namn(verksamhet.get('namn')) or not any(nod.get(k) for k in ('@id', 'url'))
+    return egen_doman or namn(nod.get('name')) == namn(verksamhet.get('namn'))
 
 
 def anor(typ, v):
@@ -335,6 +350,8 @@ def main(argv=None):
     p.add_argument('--ut', required=True)
     p.add_argument('--md')
     a = p.parse_args(argv)
+    krav_vag(a.ut, "--ut")
+    krav_vag(getattr(a, "md", None), "--md")
     if not Path(a.bygge).is_dir():
         print(json.dumps({'fel': 'bygget är ingen katalog: ' + a.bygge}))
         return 2

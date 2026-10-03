@@ -10,6 +10,7 @@ import urllib.parse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 from hamta_sajt import UA_NAMN, Sida, avkoda, hamta, las_robots, textfil  # noqa: E402
 
 
@@ -45,4 +46,5 @@ def sida_till_text(url, ut):
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         raise SystemExit(__doc__)
+    krav_vag(sys.argv[2], "utkatalogen")
     print(sida_till_text(sys.argv[1], sys.argv[2]))

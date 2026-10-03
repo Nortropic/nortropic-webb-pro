@@ -21,6 +21,8 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 
 ROOT = Path(__file__).resolve().parent.parent
 UA = 'Mozilla/5.0 (compatible; nortropic-webb-pro/1; +https://github.com/Nortropic/nortropic-webb-pro)'
@@ -133,6 +135,7 @@ def main():
     p.add_argument('url', help='profilsidan, https://www.bokadirekt.se/places/<namn>-<id>')
     p.add_argument('--max-sidor', type=int, default=40, help='omdömessidor om 100 (standard 40)')
     a = p.parse_args()
+    krav_slug(a.slug)
     if not re.fullmatch(r'[a-z0-9-]{2,60}', a.slug):
         sys.exit('ogiltig slug')
     if not re.match(r'https://(www\.)?bokadirekt\.se/places/', a.url):
