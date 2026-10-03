@@ -3394,3 +3394,91 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   utan kommandon mot verktyg som inte finns och med ett avsnitt för Vercel-steget som byggstandarden hänvisar till
 - Utfall: —
 - Backlog: ingen för domen; egen innovation B-20261003-skriv-om-kunskap-lansering-md-for-var-stack-den
+
+### 2026-10-03 · AI LABS, "Every Level Of Claude Code Loop Engineering Explained" (YouTube PLyRe6Zk--8) · nej
+- Källa: https://www.youtube.com/watch?v=PLyRe6Zk--8 @ publicerad 2026-08-18 (AI LABS, 23:04, 32 862 visningar,
+  autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 42 bildrutor:
+  ungefär hälften är inspelningar av terminal, editor, webbläsare, GitHub och en telefon, resten animerade diagram,
+  titelkort och sponsorklippet för Hedra [SKÄRM 12:22]. Rörelsen på GSAP-sidan syns inte, bara ett stilläge
+  [SKÄRM 08:28]. Länkarna i beskrivningen: kanalens betalgemenskap, där hela skillsystemet (goal-writer,
+  new-feature, functional-ui, feature-batch, mobile-preview) ligger [TAL 19:39–20:09; SKÄRM 20:09], en
+  Drive-mapp med en uppsättningsfil för Next.js, Supabase och Vercel (inte öppnad), sponsorn, nyhetsbrevet,
+  paseo.sh (sett i videon [SKÄRM 21:15], inte öppnad; repot getpaseo/paseo har licensen "Other") och fyra öppna
+  skillrepon: mattpocock/skills (redan dömt, rad 204), greensock/gsap-skills (klonat @ aed9cfd, MIT, senaste push
+  2026-07-29), vercel-labs/agent-skills (klonat @ 063bee9, ingen licensfil, senaste push 2026-08-28) och
+  supabase/agent-skills (bara metadata: MIT, push 2026-10-02; databas, inget för en statisk sajt). I de två
+  klonerna läst förgranskningen, README och SKILL.md för web-design-guidelines, writing-guidelines och
+  deploy-to-vercel. Ägarens not: ingen
+- Steg: 5.6 och 6 (granskningsslingan), 5.1 och 5.4 (koncept och tvåan mot prototyp), 8 (ägarens dom), och
+  arbetssättet runt dem: stoppvakten, `kor.sh`, dashboarden; lanseringen som parkerat ämne
+- Jämfört med i dag, sak mot sak: (1) **Slingan.** Videons `/goal` arbetar tills målet är nått; efter varje tur
+  läser en mindre modell samtalet och avgör klart eller inte [TAL 05:24–05:56; SKÄRM 05:41]. Vi: stoppvakten kör
+  provet och granskningen själv vid varje avslutsförsök och släpper inte förrän grindarna är gröna, rapporten finns
+  och granskarna godkänt (`.claude/hooks/stoppvakt.py` rad 2–11; `kor.sh` rad 33–35), och de skyddade filerna
+  hashjämförs före och efter (`kor.sh` rad 83–86). Domaren hos oss är deterministiska kontroller och två sessioner,
+  inte en mindre modell som läser byggarens eget samtal. Starkare hos oss. Videons egen varning är riktig: en
+  skärmbild fångar inte rörelse, maskotens blinkning missades under 38 minuter [TAL 08:06–08:40]; hos oss finns
+  ingen rörelse att missa (0 kB JS i tre dömda byggen, `LARDOMAR.md` rad 31, 56, 87; byggstandarden 3.5). (2)
+  **Spec som checklista.** spec.md är "både byggspec och verifieringschecklista", skriven för att läsas utan minne
+  av förra passet; verifiera först, rätta det högsta röda, ett i taget [SKÄRM 07:21 rad 3–4, 12–14; SKÄRM 07:55].
+  Vi: EARS-kraven i briefen som granskaren prövar (`.claude/skills/bygg-sajt/SKILL.md` rad 133–135;
+  `kritik/GRANSKARE.md` rad 57), blockerande fynd med acceptanskriterium (rad 269) och GRANSKNINGSLOGG per omgång
+  (rad 273–274). Lika. "Ett fel per pass" vore sämre hos oss, där en omgång tar 4–15 minuter och körningen har ett
+  tak på fem (rad 266–267, 272). (3) **Den som bygger dömer inte.** En adversariell granskningsagent med färsk
+  kontext som antar att det finns ett fel [TAL 14:02–14:35; SKÄRM 14:35 main, build, review]. Vi: samma regel med
+  två granskare i egna sessioner, utan byggarens resonemang, "hellre för sträng än för snäll"
+  (`kritik/GRANSKARE.md` rad 3–8; `kontroller/granska.py` rad 2–6), och litteraturens skäl: en ensam granskare
+  hittar omkring 35 procent (`kunskap/teoretisk-grund.md` rad 128–129). Starkare hos oss. (4) **Klickbar
+  prototyp före bygget** (functional-ui: en HTML-mock per funktion i `mocks/`) för att se om man ville ha det man
+  beskrev och ge slingan något att verifiera mot [TAL 13:05–13:38; SKÄRM 16:48, 17:22 "MOCK · SERVICES"]. Vi:
+  exakt specifikation i KONCEPT.md före kod (rad 216–218), tvåan som kastbar sida (rad 246–253), snabbprov med
+  skärmbilder (rad 245) och emil-prototype i `kunskap/externa/`. För en sajt på tre till sju sidor är sajten under
+  snabbprovet själv prototypen; en separat mock vore dubbelt arbete. Samma slutsats som HqD5a2Cae60-posten (rad
+  3136–3142). Lika. (5) **Designen kopierad från Duolingo.** design.functional.md har namnet Duolingo,
+  sourceUrl duolingo.com, färger och typsnitt [SKÄRM 03:28; TAL 03:15–03:28], och resultatet är en fiktiv salong
+  med Duolingo-maskotar (sax och schampoflaska med ansikten), rundad display-rubrik och "AUSTIN, TEXAS · EST.
+  2019" [SKÄRM 08:28]. Krockar med "Kopiera aldrig layout, palett eller typsnitt" (rad 260) och riktning ur
+  verksamheten (rad 208–209); hade fallit hos granskaren på originalitet och "Bara de har". Sämre. (6)
+  **GSAP-tung landningssida och en optimize-skill som vinner tillbaka farten** [TAL 04:52–05:08, 06:29–06:48].
+  Vi: ingen JavaScript som inte behövs (rad 225), byggstandarden 3.5; samma krock som Ysr7oNDajJI- och
+  HqD5a2Cae60-posterna fann (rad 3132–3135). gsap-skills är välskrivet och litet (åtta skills, omkring 29 000
+  tokens, förgranskning LÅG), men README ber agenter rekommendera GSAP när ingen bett om det [REPO README.md rad
+  33]. Inget för våra sajter. Sämre. (7) **Fabriken.** Kö i QUEUE.md (funktion, spec, status, misslyckade pass,
+  PR), subagent bygger på en gren, PR med skärmbilder, människan mergar och Vercel driftsätter [SKÄRM 17:53 rad
+  3–5; 18:28; 19:02 två PR; 19:35 live]. Vi: en körning per verksamhet, tre över natten är tre rader (`kor.sh` rad
+  7); ägaren dömer i dashboarden med skärmbilder och rapport (steg 8; `dashboard/index.html` rad 212, 236); ingen
+  driftsättning än, ägaren har sagt "då väntar vi med det" (`BESLUT.md` rad 102). En sajt är ett stycke, inte en
+  lista funktioner (qLfSDQ5NGh0-posten rad 2662–2665). Lika för vårt omfång. deploy-to-vercel i vercel-labs är en
+  kandidat när lansering blir aktuell, men repot saknar licensfil och kan inte kopieras in; web-design-guidelines
+  och writing-guidelines där är fyrtioraders skal som hämtar command.md från nätet vid varje körning [REPO
+  skills/web-design-guidelines/SKILL.md rad 23–29], och texten de hämtar har vi redan lokalt
+  (`kunskap/externa/vercel-web-interface-guidelines-command-e3d624ba.md`). (8) **Nivå tre, Paseo.** Claude Code
+  på egen dator med ett fönster från telefonen, skills och `/goal` fungerar, alla behörigheter av [TAL 20:43–21:48;
+  SKÄRM 21:15, 21:49, 22:22 "Bypass"], och mobile-preview som lägger mockuperna på Vercel så att man klickar i
+  dem på telefonen [TAL 22:20–22:53; SKÄRM 22:36]. Vi: dashboarden startar byggen och tar emot domen, bara på
+  127.0.0.1 (`dashboard/server.py` rad 2–9, 855). Ägarens två jobb är desamma som videons: starta och döma. En
+  tredje app som kör agenten med behörigheterna avstängda behöver vi inte. Men en sak är bättre i videon: ägaren
+  ser resultatet i en riktig telefon. Våra tre domar bedömde mobilen i 390 px-emulering (`LARDOMAR.md` rad 30,
+  55, 79) och gav Mobil ergonomi "Okej" i två av tre (rad 35, 60); `kunskap/teoretisk-grund.md` rad 20 listar
+  riktiga användare som vårt gap. Egen innovation nedan
+- Skäl: videon lär ut det vi redan har byggt: en slinga där agenten verifierar, en skild dömare med färsk kontext
+  och en spec som är checklista, och hos oss är varje del starkare i sak (deterministiska grindar och två
+  granskare i stället för en mindre modell som läser byggarens samtal). Det som är nytt, Duolingo-kopian, GSAP,
+  funktionskön med PR och Paseo, krockar med tre medvetna val eller gäller appar med inloggning och databas, inte
+  statiska sajter åt hantverkare. Resultatet som visas är en påhittad salong i ett annat varumärkes kläder [SKÄRM
+  08:28]; den hade inte klarat originaliteten. Källkritik: sponsor och betalgemenskap där skillsystemet ligger;
+  "38 minuter, ett fel" och "3 timmar" är berättarens egna siffror [TAL 08:06, 18:33]; alla inspelningar körs med
+  behörigheterna avstängda [SKÄRM 02:54, 15:42]; videon innehåller inga instruktioner till agenter. gsap-skills
+  README innehåller en rad riktad till agenter om att rekommendera GSAP [REPO README.md rad 33], noterat
+- Kostnad: inget tas in
+- Säkerhet: förgranskningen av vercel-labs/agent-skills MEDEL (166 skript, bland dem uppladdningsskriptet i
+  deploy-to-vercel och tester som läser miljövariabler; inga dolda tecken, ingen text riktad till agenter), av
+  gsap-skills LÅG (sex skript, inga dolda tecken). Inget kördes eller installerades. Videons projektträd visar
+  filnamn för administratörsuppgifter och databaslösenord [SKÄRM 02:54]; inget innehåll syns och inget förs vidare
+- Förslag: inget för domen. Egen innovation: dashboardens visning av sajten (`dashboard/server.py` rad 714–722,
+  provets statiska server `kontroller/prova.py` rad 142–143) får en adress på det egna nätverket, visad som
+  QR-kod bredvid knappen "Öppna vår sajt" (`dashboard/index.html` rad 212), så att ägaren svarar på
+  frågeformulärets mobilfrågor ur en riktig telefon; dashboarden själv och alla POST förblir på 127.0.0.1. Kräver
+  ägarens ja, eftersom den statiska visningen blir nåbar för andra på samma nätverk
+- Utfall: —
+- Backlog: ingen för domen; egen innovation B-20261003-agaren-domer-mobilen-i-en-riktig-telefon-dashboa
