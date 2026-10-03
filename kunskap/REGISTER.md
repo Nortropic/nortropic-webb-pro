@@ -4288,3 +4288,59 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   upprepas (stil 5), ligger redan i backloggen sedan förra videon
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · emilwallner/Screenshot-to-code · nej
+- Källa: https://github.com/emilwallner/Screenshot-to-code @ senast pushat 2024-08-16 (klonens commit kunde inte
+  läsas: git log nekades av commitvakten), 16 534 stjärnor, inte arkiverat; MIT för repots egna filer, Apache 2.0
+  (pix2code) för kompilatorn och datasetet [REPO LICENSE]. Läst README, licensen, kompilatorn (`Compiler.py`),
+  ordförrådet (`bootstrap.vocab`, 17 tokens; README säger 16), en DSL-fil ur `eval_light/`, en av de fem träningssidorna
+  (`HTML/html/86.html`) och förgranskningen. Sett fem bilder: modellskissen [BILD README_images/Bootstrap_model.png],
+  exempelresultatet [BILD Bootstrap/resources/example.png], en träningsskärmbild [BILD HTML/images/86.jpg],
+  Hello World-skärmbilden [BILD Hello_world/screenshot.jpg] och demo-giffen [BILD README_images/html_display.gif].
+  README:s två imgur-bilder, tutorialen på Medium och FloydHub-länkarna (arbetsyta, dataset, vikter) inte öppnade;
+  FloydHub-tjänsten är nedlagd såvitt jag vet (inte verifierat i sessionen), så vikterna är troligen inte hämtbara. De tre notebookarna inte
+  lästa (koden körs inte). Ägarens not: ingen
+- Steg: 2 (diagnos av nuvarande sajt) och 5 (koncept och bygge), i den mån något alls
+- Jämfört med i dag: källan är en forskningsdemo från 2017 som tränar ett CNN+LSTM-nät (Keras/TensorFlow) att
+  översätta en skärmbild av en Bootstrap-mockup till 17 domänspecifika tokens (header, row, quadruple, btn-orange,
+  small-title, text …) [REPO Bootstrap/resources/bootstrap.vocab; REPO eval_light/*.gui], som en kompilator från
+  pix2code sedan renderar till Bootstrap-HTML där varje rubrik, text och knapp fylls med slumpbokstäver [REPO
+  Bootstrap/compiler/classes/Compiler.py rad 8–17, 71]. Resultatet syns i [BILD example.png]: fyra grå kort med
+  "Iysyt", "wfv tuuk ppg" och orange knappar, Bootstrap 3-stil rakt av. HTML-varianten tränas på fem gratismallar från
+  OS Templates med lorem ipsum och "Text Link" [REPO HTML/html/86.html rad 18–22, 35; BILD HTML/images/86.jpg], och
+  README säger själv att bara Bootstrap-versionen generaliserar och att datasetet är "homogeneous and small" [TEXT].
+  (1) **Startpunkt:** källan utgår från en färdig designbild och vill fram till kod. Vi utgår från verksamheten:
+  innehåll före form i steg 4 (`.claude/skills/bygg-sajt/SKILL.md` rad 172–194; content first, Halvorson & Rach
+  2012, `kunskap/teoretisk-grund.md` rad 34, 90), fyra riktningar härledda ur deras bilder, material, plats och ton,
+  "aldrig ur en branschmall" (SKILL.md rad 208–209), och en exakt specifikation innan någon kod skrivs (rad 215–217).
+  Vi har ingen mockup att översätta, och vill inte ha någon; källan löser ett steg vi inte har. Ej tillämpligt. (2)
+  **Resultatets kvalitet:** Bootstrap-kort med slumptext mot våra "Bara de har" per sektion (rad 178), copykontrollen
+  och byggstandardens 9.4 om platshållare (`kunskap/byggstandard.md` rad 122), 0 kB JavaScript och självhostade typsnitt
+  (SKILL.md rad 224–225). Ägarens mall-lukt i L1–L3 satt i just tvåspaltiga tjänstelistor och generiska kort
+  (`LARDOMAR.md` rad 29, 54, 78); källans hela utrymme är sådana kort. Sämre. (3) **Att läsa en skärmbild:** det
+  källan behövde ett tränat nät för gör modellen i bygget redan med Read: steg 2 tittar på deras sajts skärmbilder
+  och skriver DIAGNOS.md (SKILL.md rad 110–111), steg 5.5 läser varje skärmhög ruta av kandidaten och referenserna och
+  jämför mot de åtta dimensionerna (rad 254–258). Ett multimodalt språkmodellsanrop slår en 18-tokens-DSL på varje
+  punkt: ser text, färg, typsnitt och hierarki, inte bara "quadruple, btn-orange". Vårt är bättre. (4)
+  **Underhåll och körbarhet:** sista pushen är från 2024-08; koden är Keras från 2017, vikterna låg på
+  FloydHub, och README:s installationsväg är `pip install` plus Jupyter [TEXT], vilket kirurgen inte
+  kör. Mot litteraturen: källan vänder på ordningen content first och mobile first (`kunskap/teoretisk-grund.md` rad
+  34) och tillför ingen utvärderingsmetod. Nostalgiskt intressant som den första generationen av "bild till kod",
+  inget mer
+- Skäl: repot löser en uppgift vi inte har (mockup till kod) med en teknik som multimodala modeller gjort överflödig,
+  och det enda det kan producera är Bootstrap-kort med slumptext [BILD example.png], det vill säga det som ägaren
+  dömt som mall i L1–L3 och som byggstandardens 9.4 och copykontrollen fäller. Vårt steg 5 bygger från verksamhetens
+  eget material till en exakt specifikation och först därefter kod; källan går andra vägen. Koden är nio år gammal
+  Keras, vikterna låg hos en tjänst som troligen inte finns kvar, och licensen är blandad MIT/Apache utan att det spelar roll eftersom
+  inget tas in. Källkritik: README gör reklam för författarens betalda guide "No ML Degree" och FloydHub med
+  utm-parametrar [TEXT rad 7, 38]; "97% accuracy" gäller tokenprecision på ett homogent syntetiskt dataset, inte
+  sajtkvalitet [TEXT rad 13]. Inga instruktioner till agenter
+- Kostnad: inget tas in
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text riktad till agenter, ingen SKILL.md, inga hookar;
+  åtta skript flaggade, varav `Compiler.py` för "hemligheter/miljö" (läst: det är en modulkonstant, inget
+  miljöanrop) och `html5shiv.js` för eval (ett IE8-polyfill från 2012 i en träningsmall). Inget kört eller
+  installerat; klonen läst utifrån; inget fört vidare
+- Förslag: inget. Egen innovation: ingen den här gången; det källan berör (skärmbilden som indata till design) gör
+  bygget redan med Read i steg 2 och 5.5
+- Utfall: —
+- Backlog: ingen
