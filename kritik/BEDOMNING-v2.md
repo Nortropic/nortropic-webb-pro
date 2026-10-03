@@ -43,7 +43,8 @@ Vid ny formgivning och kvalitetsomarbetning ingår professionell referensjämfö
 utelämnade den. Välj relevanta referenser utifrån uppgiften; inget fast antal eller ensam stilförebild gäller.
 Öppna aktuella renderade bilder och ange källa, tid, vy och vilket konkret drag som jämförs. En länklista, HTML
 eller laddat filnamn är inte en sedd bild. Skriv kandidatens lösning, referensens lösning, skillnaden, och vad som
-behålls/ändras med skäl. Referenser är jämförelser, inte licens att kopiera eller ändra kundfakta.
+behålls/ändras med skäl. Referensens palett, layout och typsnitt får kopieras som utgångspunkt, med vår touch och
+verksamhetens material ovanpå; en referens är aldrig licens att ändra kundfakta.
 
 ## Dom och underlag
 

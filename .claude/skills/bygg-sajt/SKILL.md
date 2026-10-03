@@ -243,7 +243,9 @@ upptaget val är tillåtet när verksamhetens material motiverar det; välj det 
 KONCEPT.md.
 
 1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md` med fyra visuella riktningar härledda ur verksamheten själv
-   (deras bilder, material, plats, ton) och referenserna, aldrig ur en branschmall. Varje riktning anger: bakgrund
+   (deras bilder, material, plats, ton) och referenserna. Palett, layout och typsnitt får kopieras från en namngiven
+   referens som utgångspunkt; vår touch och verksamhetens material läggs sedan på det. En branschmall är ingen
+   referens. Varje riktning anger: bakgrund
    och accent som hex, ett namngivet typsnitt med roll, toppsektionens komposition i en mening, **sidans form** (hur
    tjänsterna, beviset, undersidornas sektioner, sidfoten och avslutet visas), den sak ur "Bara de har" som
    riktningen bygger på, och en rad **Motiv**: en form, linje eller ett material ur märket eller "Bara de har" och de
@@ -308,7 +310,9 @@ KONCEPT.md.
    i `kunskap/referenser-professionella.md`. Skriv `underlag/<slug>/JAMFORELSE.md` i dess form: kandidatens drag ·
    referensens lösning · vad som skiljer · vad som ändras eller behålls, och varför. Rätta det som ser generiskt ut:
    där allt är lika stort, där en sektion inte bär något specifikt, där första vyn inte säger vad de gör och vad man
-   gör härnäst. Kopiera aldrig layout, palett eller typsnitt. För luft och hierarki (dimension 4): gå igenom varje
+   gör härnäst. Layout, palett och typsnitt får kopieras från referensen; vårt och deras är touchen och materialet
+   ovanpå (bilder, ord, plats, "Bara de har"), så skriv i JAMFORELSE.md vad som kopierades och vad som lades till.
+   För luft och hierarki (dimension 4): gå igenom varje
    sida med better-layout i verktygslådan, och detaljerna med better-typography och better-ui, innan JAMFORELSE.md
    skrivs.
    Två prov på första vyn: fungerar den lika bra om du tänker bort bilden, är bilden för svag; blir sidan bättre av

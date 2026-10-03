@@ -39,7 +39,7 @@ passade:
 - **Resultat med få bilder** (en eller två egna foton): en sajt där typografi, kvitton eller ett motiv bär sidan när
   bilderna inte räcker.
 
-Ingen kvot och inget facit: luckan är en plats att leta på, inte en referens att kopiera.
+Ingen kvot och inget facit: luckan är en plats att leta på, inte själv en referens.
 
 ## Läs och se på riktigt
 
@@ -65,7 +65,8 @@ Webbreferensernas skärmbilder är privat jämförelseunderlag, inte licens att 
 För in observationerna i research.md §13 och det valda urvalet i SKAPARUNDERLAG.json enligt
 skapandeunderlag.md. Brief §7 förklarar sambandet behov → observerat drag → egen lösning → prövning.
 Ett moodboard med bara färg, serif och rundningar räcker inte: visa även innehåll, hierarki, rytm,
-bildbeskärning och relevant interaktion. Kopiera inte identitet, texter eller egenart.
+bildbeskärning och relevant interaktion. Palett, layout och typsnitt får kopieras som utgångspunkt, med vår touch och
+verksamhetens material ovanpå; identitet, texter och bilder kopieras inte.
 
 Bildinventeringen i research §7 skiljer kundmaterial, licensierat material och syntetiska illustrationer.
 Dokumentera rättigheter och tänkt roll innan användning; genererad bild är inte verkligt kundbevis.

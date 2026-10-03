@@ -87,7 +87,9 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
 1. **Designkvalitet.** Känns sajten som en helhet snarare än en samling delar? Hållning, hierarki, luft, rytm och
    konsekvens genom första vyn, sektionerna, undersidorna och sidfoten. Dimension 1, 4 och 8.
 2. **Originalitet.** Finns det egna beslut, eller mallar, biblioteksstandard och AI-mönster? Bär verksamhetens egna
-   bilder, ord, material och plats sajten? Kunde ett annat företagsnamn sättas dit? Straffa uttryckligen de drag
+   bilder, ord, material och plats sajten? Kunde ett annat företagsnamn sättas dit? En palett, layout eller ett typsnitt
+   som kopierats från en av byggarens referenser är inget minus i sig (ägarens beslut 2026-10-03): döm om vår touch och
+   verksamhetens eget material lagts på så att sajten blivit deras. Straffa uttryckligen de drag
    frontend-design räknar upp som AI-mönster, och dessutom: likadana kort i rad, samma sektionsmall sektion efter
    sektion, förtroendemärken utan källa, allt lika stort, dekor utan funktion, stockbilder, listor och tabeller i två
    spalter eller med tunna linjer mellan raderna som skulle passa vilken firma som helst. Likhet med tidigare byggen

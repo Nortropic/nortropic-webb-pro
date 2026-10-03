@@ -73,7 +73,8 @@ nyhet för nyhetens skull. Motion-nivå (`ingen`, `subtil`, `uttrycksfull`) med 
 den valda upplevelsen och prövas renderade. Externa råd tillämpas enligt skapandeunderlag.md, inte som en
 automatisk stilstandard. Referensöversättning: per
 referens ursprung, källtyp, öppnad, vad som tas, vad som förkastas och varför (`referensjakt.md`). Externa
-professionella referenser för jämförelse, inte kopiering (`referenser-professionella.md`).
+professionella referenser för jämförelse; palett, layout och typsnitt får kopieras som utgångspunkt, med vår touch
+och verksamhetens material ovanpå (`referenser-professionella.md`).
 
 ## §8 Bild
 

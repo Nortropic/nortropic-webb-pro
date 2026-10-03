@@ -1,4 +1,4 @@
-# Externa professionella referenser — jämförelse med motivering, inte kopiering
+# Externa professionella referenser — jämförelse med motivering; kopiera gärna, lägg sedan vårt på det
 
 Professionsfil (HELHET-20260927, avsnitt 5), återvunnen ur det arkiverade repots premiumchecklista och
 exemplarlista (verifierade renderbara 2026-07-27; adresserna kan ha ändrats), omgjord från kriterier med poäng till
@@ -58,4 +58,6 @@ tom-, laddnings- och redaktörslägen; en välgjord hero bevisar inte en sammanh
 
 Dimension 7 (mobil ergonomi) saknar exempel i källan; välj uppgiftsrelevant faktiskt öppnat beteende, exempelvis ur ett mönsterbibliotek, med
 motivering. Jämförelsen skrivs som: kandidatens drag · exemplarets lösning · vad som skiljer · vad som ändras eller
-behålls, och varför. Aldrig kopiering av layout, palett eller typsnitt.
+behålls, och varför. Layout, palett och typsnitt får kopieras från en referens som utgångspunkt (ägarens beslut
+2026-10-03); sedan läggs vår touch och verksamhetens eget material på det (deras bilder, ord, plats och "Bara de
+har"), och det är det som gör sajten deras. Skriv vilken referens som kopierades och vad som lades till.
