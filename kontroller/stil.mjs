@@ -1,6 +1,9 @@
 // stil.mjs — stilrapport för den renderade sajten: typsnitt som faktiskt används, färgfamiljer, radier och kort,
 // om nästa sektion skymtar i första vyn, klickytor under 24 px, och de standardval som modellerna själva namnger
-// (Anthropic: Prompting Claude Opus 5.5, Frontend design defaults; OpenAI: Frontend prompt instructions).
+// (Anthropic: Prompting Claude Opus 5.5, Frontend design defaults; OpenAI: Frontend prompt instructions), klickbar text som
+// bryts på två rader (Hallmark, grind 49), och fem renderade mönster ur impeccables detektorregister (pbakaus/impeccable
+// @ 508d7e8, crates/foundation/src/registry.rs: heading-rhythm, monotonous-spacing, side-tab, tiny-text; platt
+// typskala ur dess typografiregler), med trösklarna skrivna här.
 //   node kontroller/stil.mjs --url=http://127.0.0.1:PORT --sidor=/,/om/ --ut=KATALOG
 // Skriver KATALOG/STIL.json och STIL.md. Rapporten är information; klickytorna läses av standardkontrollen (3.3).
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -97,6 +100,64 @@ function matPaSidan() {
   const vanligast = rundade.length ? Math.max(...Object.values(rundade.reduce((m, r) => (m[r] = (m[r] || 0) + 1, m), {}))) : 0;
   const storRadie = rundade.length >= 5 ? Object.entries(rundade.reduce((m, r) => (m[r] = (m[r] || 0) + 1, m), {})).find(([r, n]) => n === vanligast && +r >= 16 && n / rundade.length > 0.8) : null;
   const monster = { radlangd, radhojd: radhojd ? Math.round(radhojd * 100) / 100 : null, doltIVila, marginaljusterad, centrerad: Math.round(centrerad * 100), enStorRadie: storRadie ? +storRadie[0] : null };
+  // klickbar text som bryts på två rader (menylänk, knapp, sidfotslänk, brödsmula), utom länkar i löpande text
+  const tvaRader = [];
+  for (const el of document.querySelectorAll('a[href], button')) {
+    if (!synlig(el)) continue;
+    const s = getComputedStyle(el);
+    const forald = el.parentElement;
+    const iText = forald && /^(P|SPAN|EM|STRONG|BLOCKQUOTE|FIGCAPTION|TD|DD|SMALL|CITE)$/.test(forald.tagName) && (forald.textContent || '').trim().length > (el.textContent || '').trim().length + 3;
+    if (iText || !(el.textContent || '').trim()) continue;
+    // raderna räknas på textens egna rutor, så att en knapps minsta höjd eller utfyllnad inte räknas som en rad till
+    const radhojd = parseFloat(s.lineHeight) || parseFloat(s.fontSize) * 1.2;
+    const omr = document.createRange();
+    omr.selectNodeContents(el);
+    const toppar = [...omr.getClientRects()].filter((r) => r.width > 1 && r.height > 1).map((r) => r.top).sort((a, b) => a - b);
+    const rader = toppar.filter((y, i) => i === 0 || y - toppar[i - 1] > radhojd * 0.5).length;
+    if (rader > 1) tvaRader.push((el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40));
+  }
+  // fem mönster ur impeccable
+  const mainEl = document.querySelector('main');
+  const iMain = mainEl ? [...mainEl.querySelectorAll('*')].filter(synlig) : [];
+  //   (1) rubrikrytm: luften ovanför en rubrik ska vara större än luften under den
+  let trangaRubriker = 0;
+  for (const h of iMain.filter((el) => /^H[23]$/.test(el.tagName))) {
+    const fore = h.previousElementSibling, efter = h.nextElementSibling;
+    if (!fore || !efter || !synlig(fore) || !synlig(efter)) continue;
+    const r = h.getBoundingClientRect();
+    if (efter.getBoundingClientRect().top - r.bottom - (r.top - fore.getBoundingClientRect().bottom) >= 12) trangaRubriker++;
+  }
+  //   (2) enformig luft: samma avstånd överallt
+  const luft = [];
+  for (const el of iMain) {
+    const s = getComputedStyle(el);
+    if (!/^(block|flex|grid|list-item)$/.test(s.display)) continue;
+    for (const v of [s.marginTop, s.marginBottom, s.paddingTop, s.paddingBottom, s.rowGap]) {
+      const px = Math.round((parseFloat(v) || 0) / 4) * 4;
+      if (px > 0) luft.push(px);
+    }
+  }
+  const luftAntal = luft.reduce((m, v) => (m[v] = (m[v] || 0) + 1, m), {});
+  const vanligastLuft = Math.max(0, ...Object.values(luftAntal));
+  const enformigLuft = luft.length >= 10 && Object.keys(luftAntal).length <= 3 && vanligastLuft / luft.length > 0.6 ? +Object.keys(luftAntal).find((k) => luftAntal[k] === vanligastLuft) : null;
+  //   (3) platt typskala: största steget mellan två grannstorlekar under 1,25
+  const storlekar = [...new Set([...document.querySelectorAll('h1, h2, h3, main p, main li')].filter(synlig).map((el) => Math.round(parseFloat(getComputedStyle(el).fontSize))))].sort((a, b) => a - b);
+  const storstaSteg = storlekar.length >= 2 ? Math.max(...storlekar.slice(1).map((v, i) => v / storlekar[i])) : null;
+  //   (4) färgad sidkant: tjock färgad kant på en sida av ett element
+  const neutral = (c) => { if (!c) return true; const [h, s] = (() => { const [r, g, b] = c.map((v) => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b); const l = (mx + mn) / 2; return [0, mx === mn ? 0 : (mx - mn) / (l > 0.5 ? 2 - mx - mn : mx + mn)]; })(); return s < 0.15; };
+  const sidkanter = [];
+  for (const el of iMain) {
+    const s = getComputedStyle(el);
+    const sidor = ['Left', 'Right', 'Top', 'Bottom'].map((k) => ({ k, w: parseFloat(s['border' + k + 'Width']) || 0, c: rgb(s['border' + k + 'Color']), st: s['border' + k + 'Style'] }));
+    const radie = parseFloat(s.borderTopLeftRadius) > 0;
+    for (const sd of sidor) {
+      const ovriga = Math.max(...sidor.filter((x) => x.k !== sd.k).map((x) => x.w));
+      if (sd.st !== 'none' && sd.w >= (radie ? 2 : 3) && sd.w >= 2 * Math.max(ovriga, 0.5) && !neutral(sd.c)) { sidkanter.push(el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '')); break; }
+    }
+  }
+  //   (5) liten brödtext
+  const litenText = [...document.querySelectorAll('main p, main li, main dd')].filter((el) => synlig(el) && (el.textContent || '').trim().length > 20 && parseFloat(getComputedStyle(el).fontSize) < 12).length;
+  const impeccable = { trangaRubriker, enformigLuft, luftMatningar: luft.length, storstaSteg: storstaSteg ? Math.round(storstaSteg * 100) / 100 : null, sidkanter: [...new Set(sidkanter)].slice(0, 4), litenText };
   // mobilens första vy och kontaktvägar (ägarens A/B-omdöme 2026-10-02, L1, L2): sidhuvudets höjd, synlig meny eller
   // hamburgare, eget foto i första skärmen, fast list längst ned med Ring och Skriv
   const huvud = [...document.querySelectorAll('header')].find((h) => synlig(h) && h.getBoundingClientRect().top < 10);
@@ -121,7 +182,7 @@ function matPaSidan() {
     typsnitt, ytor: [...ytor.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k),
     bakgrund: hex(bodyBg), text: text ? hex(text) : null, accent: accent ? hex(accent) : null, gradient,
     radier: [...radier.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r, n]) => ({ px: r, antal: n })),
-    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, standardval, monster, mobil,
+    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, standardval, monster, mobil, tvaRader, impeccable,
   };
 }
 
@@ -195,6 +256,16 @@ for (const r of rader) {
   if (m.marginaljusterad) varningar.push(`marginaljusterad text (${var_})`);
   if (m.centrerad > 60) varningar.push(`${m.centrerad} procent av textblocken centrerade (${var_})`);
   if (m.enStorRadie) varningar.push(`en enda stor radie, ${m.enStorRadie} px, på nästan alla rundade element (${var_})`);
+}
+for (const r of rader) {
+  const var_ = `${r.sida} @${r.vy}`;
+  if (r.vy === '390' && r.tvaRader?.length) varningar.push(`klickbar text bryts på två rader: ${r.tvaRader.slice(0, 4).map((x) => '"' + x + '"').join(', ')} (${var_})`);
+  const im = r.impeccable || {};
+  if (im.trangaRubriker >= 2) varningar.push(`${im.trangaRubriker} rubriker står närmare blocket ovanför än sitt eget innehåll (${var_})`);
+  if (im.enformigLuft) varningar.push(`enformig luft: ${im.enformigLuft} px står för över 60 procent av ${im.luftMatningar} avstånd (${var_})`);
+  if (im.storstaSteg && im.storstaSteg < 1.25) varningar.push(`platt typskala: största steget mellan två textstorlekar är ${im.storstaSteg} (${var_})`);
+  if (im.sidkanter?.length) varningar.push(`färgad sidkant på ${im.sidkanter.join(', ')} (${var_})`);
+  if (im.litenText) varningar.push(`${im.litenText} textblock under 12 px (${var_})`);
 }
 const mobilStart = rader.find((r) => r.sida === '/' && r.vy === '390')?.mobil;
 if (mobilStart) {

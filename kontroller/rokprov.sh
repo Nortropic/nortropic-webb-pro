@@ -220,6 +220,23 @@ assert not fel(), 'Astros variabelstack ska gå igenom'
 " || { echo "FEL: reservtypsnittet"; exit 1; }
 echo "   reservtypsnittet ok"
 
+echo "   stilrapporten: bruten klickbar text och fem mönster ur impeccable"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, json, subprocess, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import prova
+d = pathlib.Path(tempfile.mkdtemp())
+(d / 'index.html').write_text('<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>P</title><style>body{margin:0;font:16px sans-serif}nav a{display:inline-block;width:90px}h1{font-size:18px}h2{font-size:17px;margin:0 0 40px}.kant{border-left:4px solid #d00}.liten{font-size:11px}</style></head><body><header><nav><a href=\"/\">Start</a> <a href=\"/a/\">Våra tjänster inom el och data</a></nav></header><main><h1>Rubrik</h1><p>Inledning som är lång nog att räknas här.</p><h2>Andra</h2><p>Text efter rubriken som är lång nog.</p><h2>Tredje</h2><p>Mer text efter rubriken, lång nog.</p><div class=\"kant\">Citat med färgad kant.</div><p class=\"liten\">Mycket liten brödtext, längre än tjugo tecken.</p></main></body></html>')
+(d / 'platt').mkdir(); (d / 'platt' / 'index.html').write_text('<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><title>P</title><style>h1{font-size:18px}h2{font-size:17px}p{font-size:16px}main div{margin:16px 0;padding:16px 0}</style></head><body><main><h1>Platt</h1><p>Brödtext som är lång nog att räknas.</p><h2>Under</h2><p>Mer brödtext som är lång nog.</p><div>a</div><div>b</div><div>c</div><div>d</div></main></body></html>')
+with prova.Server(d) as srv:
+    subprocess.run(['node', '$ROOT/kontroller/stil.mjs', '--url=' + srv.url, '--sidor=/,/platt/', '--ut=' + str(d / 'ut')], check=True, capture_output=True)
+v = ' '.join(json.loads((d / 'ut' / 'STIL.json').read_text())['varningar'])
+for krav in ('bryts på två rader: \"Våra tjänster', 'rubriker står närmare', 'färgad sidkant', 'under 12 px', 'platt typskala', 'enformig luft'):
+    assert krav in v, krav
+ren = json.loads(pathlib.Path('$ROOT/kunder/rokprov-mall/prov/stil/STIL.json').read_text())
+assert not [r for r in ren['rader'] if r.get('tvaRader')], 'rökprovets knappar och länkar ska inte räknas som brutna'
+" || { echo "FEL: stilrapportens nya mätningar"; exit 1; }
+echo "   stilrapporten ok"
+
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \
   || { echo "FEL: prospektpipelinen"; tail -20 "$ROOT/kunder/rokprov-mall/prospekt-prov.log"; exit 1; }

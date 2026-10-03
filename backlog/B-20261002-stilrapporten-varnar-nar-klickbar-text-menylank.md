@@ -1,11 +1,12 @@
 ---
 id: B-20261002-stilrapporten-varnar-nar-klickbar-text-menylank
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS, "How To Use Claude Code To Build Amazing Sites With Opus 5.5" (YouTube DP7mgLUKN_U)
 skapad: 2026-10-02
 prio: normal
 steg: 6 (prov); kontroller/stil.mjs
+andrad: 2026-10-03T00:17Z
 ---
 # Stilrapporten varnar när klickbar text (menylänk, knapp, sidfotslänk, brödsmula) bryts på två rader i 390 px
 
