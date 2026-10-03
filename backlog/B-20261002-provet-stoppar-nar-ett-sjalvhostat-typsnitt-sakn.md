@@ -1,12 +1,13 @@
 ---
 id: B-20261002-provet-stoppar-nar-ett-sjalvhostat-typsnitt-sakn
-status: pagar
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · withastro/astro
 skapad: 2026-10-02
 prio: normal
 steg: 6 (provet): kontroller/standard_kontroll.py punkt 4.3
-andrad: 2026-10-03T00:12Z
+commit: 3296528
+andrad: 2026-10-03T00:16Z
 ---
 # Provet stoppar när ett självhostat typsnitt saknar reservtypsnitt med size-adjust (byggstandarden 4.3)
 
@@ -15,3 +16,5 @@ andrad: 2026-10-03T00:12Z
 **Förslag:** kontroller/standard_kontroll.py efter rad 386: för varje @font-face med url() i all_css kräv ett @font-face-block i samma CSS med local() och size-adjust eller ascent-override (Astros fonts-API ger block med namnet '<familj> fallback: <systemtypsnitt>' som också matchar); annars F('4.3', '(alla)', 'typsnittet <familj> saknar reservtypsnitt med size-adjust; se mallen'). Ett provfall i rökprovet för varje utfall.
 
 **Klart när:** kontroller/rokprov.sh grönt; ett bygge utan reserv faller på 4.3 och ett med handskriven reserv eller Astros fonts-API går igenom.
+
+**Klar (2026-10-03):** 4.3 läser stacken; tre äldre byggen fälls, abx/aby och Astros form går igenom; rökprov med tre fall
