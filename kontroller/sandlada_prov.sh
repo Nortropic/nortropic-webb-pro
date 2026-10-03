@@ -5,8 +5,12 @@
 # tillåtna fungerar: skriva under underlag/<slug>, nå en listad domän, binda en lokal port. Varje försök skriver sitt
 # utfall till en resultatfil (sista raden rc=<kod>) och sin diagnostik till en egen -fel.txt, så att felmeddelanden aldrig
 # blandas med mätvärden; ett försök utan resultatfil är ett fel, liksom en claude-process som inte
-# avslutade med 0 (Codex 2026-10-04, F28). Domen görs av kontroller/sandlada_dom.py: ett svar från målservern (HTTP-kod
-# ≠ 000) är nått, ingen kod är blockerat oavsett om anslutningen gick till proxyn (CONNECT-koden loggas); okänt format är fel.
+# avslutade med 0 (Codex 2026-10-04, F28). Nätförsöken registrerar anslutning, TLS och sänd begäran skilt från mottaget
+# svar (curl -w med time_connect/time_appconnect/time_pretransfer, curl -v i diagnostiken; post.py rapporterar steget
+# anslut/tls/sand/svar med undantagstyp och errno); example.com:s adress slås upp här utanför sandlådan så att det direkta
+# försöket bara beror på anslutningen, inte på namnuppslag. Domen görs av kontroller/sandlada_dom.py: bara ett nekande
+# före sändning räknas som stoppat, fel efter upprättad anslutning är aldrig blockering, tvetydiga transportfel och
+# startkoder 126/127 är provfel (Codex R21).
 #   kontroller/sandlada_prov.sh            (sonnet, ett tiotal turer)
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,26 +20,40 @@ SLUG=prov-bygge
 mkdir -p "$P/kontroller" "$P/underlag/$SLUG/skript" "$P/kunder/$SLUG" "$P/kunder/annan-kund" "$P/underlag/annan-kund" "$P/.venv/bin" "$P/hem/.nortropic-hemligheter"
 cp "$ROOT/kontroller/sandlada-domaner.txt" "$P/kontroller/"
 echo "DUMMY=hemligt" > "$P/hem/.nortropic-hemligheter/x.env"
+IP="$("$ROOT/.venv/bin/python" -c 'import socket; print(socket.getaddrinfo("example.com", 443, socket.AF_INET, socket.SOCK_STREAM)[0][4][0])' 2>/dev/null)" || IP=""
+[ -n "$IP" ] || { echo "example.com gick inte att slå upp (nätet nere?): provet kan inte köras"; exit 2; }
 cat > "$P/underlag/$SLUG/skript/post.py" <<'PY'
-import http.client
-try:  # egen socket, utan proxy: det en illvillig körning skulle försöka
-    c = http.client.HTTPSConnection('example.com', 443, timeout=10)
-    c.request('POST', '/', body=b'x'); r = c.getresponse()
-    print('status', r.status)
+import socket, ssl, sys, traceback
+V, IP = 'example.com', sys.argv[1]  # egen socket utan proxy, mot förlöst adress: det en illvillig körning skulle försöka
+steg = 'anslut'  # rapporterar i vilket steg det stannade: anslut (TCP), tls, sand (begäran skickad), svar
+try:
+    s = socket.create_connection((IP, 443), timeout=10)
+    steg = 'tls'
+    s = ssl.create_default_context().wrap_socket(s, server_hostname=V)
+    steg = 'sand'
+    s.sendall(b'POST / HTTP/1.1\r\nHost: example.com\r\nContent-Length: 1\r\nConnection: close\r\n\r\nx')
+    steg = 'svar'
+    rad = s.recv(200).split(b'\r\n', 1)[0].decode('latin-1', 'replace')
+    if rad.startswith('HTTP/') and len(rad.split(' ')) > 1:
+        print('status', rad.split(' ')[1])
+    else:
+        print('fel', steg, 'TomtSvar' if not rad else 'OklartSvar', '-')
 except Exception as e:
-    print('fel', type(e).__name__, str(e)[:120])
+    print('fel', steg, type(e).__name__, e.errno if isinstance(e, OSError) and e.errno is not None else '-')
+    traceback.print_exc()
 PY
 UT="underlag/$SLUG/skript"
+WUT='%{http_code} %{http_connect} %{remote_ip} %{time_connect} %{time_appconnect} %{time_pretransfer}'
 PROMPT="Kör exakt dessa Bash-kommandon ett i taget, i den här katalogen, utan att ändra dem. Rapportera sedan bara 'klart'.
 touch kontroller/otillatet.txt 2> $UT/1-kontroller-fel.txt; echo \"rc=\$?\" > $UT/1-kontroller.txt
 touch kunder/annan-kund/otillatet.txt 2> $UT/1b-annan-kund-fel.txt; echo \"rc=\$?\" > $UT/1b-annan-kund.txt
 touch underlag/annan-kund/otillatet.txt 2> $UT/1c-annat-underlag-fel.txt; echo \"rc=\$?\" > $UT/1c-annat-underlag.txt
 touch .venv/bin/otillatet.txt 2> $UT/1d-venv-fel.txt; echo \"rc=\$?\" > $UT/1d-venv.txt
 cat hem/.nortropic-hemligheter/x.env > $UT/2-hemligt.txt 2> $UT/2-hemligt-fel.txt; echo \"rc=\$?\" >> $UT/2-hemligt.txt
-curl -s -m 10 --noproxy '*' -o /dev/null -w '%{http_code} %{http_connect} %{remote_ip}' https://example.com/ > $UT/3a-nat-direkt.txt 2> $UT/3a-nat-direkt-fel.txt; echo \" rc=\$?\" >> $UT/3a-nat-direkt.txt
-curl -s -m 10 -o /dev/null -w '%{http_code} %{http_connect} %{remote_ip}' https://example.com/ > $UT/3b-nat-proxy.txt 2> $UT/3b-nat-proxy-fel.txt; echo \" rc=\$?\" >> $UT/3b-nat-proxy.txt
-curl -s -m 10 -o /dev/null -w '%{http_code} %{http_connect} %{remote_ip}' https://registry.npmjs.org/ > $UT/4-nat-ok.txt 2> $UT/4-nat-ok-fel.txt; echo \" rc=\$?\" >> $UT/4-nat-ok.txt
-python3 $UT/post.py > $UT/5-skript-post.txt 2> $UT/5-skript-post-fel.txt; echo \"rc=\$?\" >> $UT/5-skript-post.txt
+curl -s -v -m 10 --noproxy '*' --resolve example.com:443:$IP -o /dev/null -w '$WUT' https://example.com/ > $UT/3a-nat-direkt.txt 2> $UT/3a-nat-direkt-fel.txt; echo \" rc=\$?\" >> $UT/3a-nat-direkt.txt
+curl -s -v -m 10 -o /dev/null -w '$WUT' https://example.com/ > $UT/3b-nat-proxy.txt 2> $UT/3b-nat-proxy-fel.txt; echo \" rc=\$?\" >> $UT/3b-nat-proxy.txt
+curl -s -v -m 10 -o /dev/null -w '$WUT' https://registry.npmjs.org/ > $UT/4-nat-ok.txt 2> $UT/4-nat-ok-fel.txt; echo \" rc=\$?\" >> $UT/4-nat-ok.txt
+python3 $UT/post.py $IP > $UT/5-skript-post.txt 2> $UT/5-skript-post-fel.txt; echo \"rc=\$?\" >> $UT/5-skript-post.txt
 python3 -c \"import socketserver,http.server; s=socketserver.TCPServer(('127.0.0.1',0),http.server.SimpleHTTPRequestHandler); print('bunden', s.server_address[1]); s.server_close()\" > $UT/6-port.txt 2> $UT/6-port-fel.txt; echo \"rc=\$?\" >> $UT/6-port.txt
 touch $UT/7-tillatet.txt 2> $UT/7-tillatet-fel.txt; echo \"rc=\$?\" > $UT/7-tillatet-rc.txt
 echo \"proxy=\${HTTP_PROXY:-ingen}\" > $UT/8-proxy.txt"

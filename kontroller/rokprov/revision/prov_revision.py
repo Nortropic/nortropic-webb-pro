@@ -1828,8 +1828,43 @@ finally:
 print('R19 F3/F27 kandidaten ok')
 
 import sandlada_dom as sd  # noqa: E402
-assert sd.nat('200 200 127.0.0.1', 0)[0] == 'nadd' and sd.nat('000 403 127.0.0.1', 56)[0] == 'blockerad' and sd.nat('000 000 ', 6)[0] == 'blockerad'
-assert sd.nat('curl: command not found', 127)[0] == 'okant' and sd.nat('000 000 ', 0)[0] == 'okant', 'okänt format eller rc 0 utan kod är provfel'
+# curl -w '<http_code> <http_connect> <remote_ip> <time_connect> <time_appconnect> <time_pretransfer>' + rc + läge + diagnostik
+# (mätt 2026-10-04 med lokal proxy, lokal server och sandbox-exec deny network-outbound; Codex R21: bara nekande före sändning är stoppat)
+NEKAD = '*   Trying 104.20.23.154:443...\n* Immediate connect fail for 104.20.23.154: Operation not permitted\n* Failed to connect to example.com port 443 after 0 ms: Couldn\'t connect to server\n* Closing connection\n'
+VAGRAD = '* connect to 127.0.0.1 port 1 from 127.0.0.1 port 61204 failed: Connection refused\n* Failed to connect to 127.0.0.1 port 1 after 0 ms: Couldn\'t connect to server\n* Closing connection\n'
+assert sd.nat('200 200 127.0.0.1 0.000300 0.040000 0.040100', 0, 'proxy')[0] == 'nadd'
+assert sd.nat('000 403 127.0.0.1 0.000304 0.000000 0.000000', 56, 'proxy', '* CONNECT tunnel failed, response 403\n')[0] == 'blockerad'
+assert sd.nat('000 000  0.000000 0.000000 0.000000', 7, 'direkt', NEKAD)[0] == 'blockerad', 'nekad anslutning före sändning är stoppad'
+assert sd.nat('000 000  0.000000 0.000000 0.000000', 7, 'direkt', VAGRAD)[0] == 'okant', 'nekad port är tvetydig: provfel (R21)'
+assert sd.nat('000 000  0.000000 0.000000 0.000000', 6, 'direkt', '* Could not resolve host: example.com\n')[0] == 'okant', 'namnuppslag är tvetydigt (R21)'
+assert sd.nat('000 000 127.0.0.1 0.000275 0.000000 0.000304', 52, 'direkt', '* Request completely sent off\n* Empty reply from server\n')[0] == 'ansluten', 'tomt svar efter sänd begäran är aldrig blockering (R21)'
+assert sd.nat('000 200 127.0.0.1 0.000275 0.030000 0.030300', 52, 'proxy')[0] == 'ansluten', 'tunnel 200 + tomt svar är aldrig blockering (R21)'
+assert sd.nat('000 000 127.0.0.1 0.000255 0.000000 0.000280', 28, 'direkt')[0] == 'ansluten', 'timeout efter sändning är tvetydigt, aldrig blockering (R21)'
+assert sd.nat('000 000 127.0.0.1 0.000255 0.000000 0.000000', 35, 'direkt')[0] == 'ansluten', 'TLS-fel efter anslutning är inte blockering'
+assert sd.nat('000 000  0.000000 0.000000 0.000000', 7, 'proxy')[0] == 'okant', 'onåbar proxy är provfel'
+assert sd.nat('000 000 127.0.0.1 0.000255 0.000000 0.000000', 56, 'proxy')[0] == 'okant', 'anslutning till proxyn utan CONNECT-svar är provfel'
+assert sd.nat('curl: command not found', 127, 'direkt')[0] == 'okant' and sd.nat('000 000  0.000000 0.000000 0.000000', 0, 'direkt')[0] == 'okant'
+assert sd.nat('000 000  0.000000 0.000000 0.000000', 126, 'direkt', NEKAD)[0] == 'okant', 'startkod 126 är provfel även med rättighetstext (R21)'
+assert sd.nat('000 403 127.0.0.1', 56, 'proxy')[0] == 'okant', 'det gamla trefältsformatet är provfel'
+# post.py: 'status <kod>' eller 'fel <steg> <Undantag> <errno>' (mätt 2026-10-04: sandbox-exec deny network-outbound → 'fel anslut PermissionError 1')
+assert sd.socketforsok('fel anslut PermissionError 1', 0, 'PermissionError: [Errno 1] Operation not permitted\n')[0] == 'blockerad'
+assert sd.socketforsok('fel anslut PermissionError 13', 0, '')[0] == 'blockerad', 'EACCES vid anslutningen är stoppad (R21)'
+assert sd.socketforsok('fel anslut ConnectionRefusedError 61', 0, '')[0] == 'okant', 'nekad port är tvetydig: provfel (R21)'
+assert sd.socketforsok('fel anslut TimeoutError -', 0, '')[0] == 'okant' and sd.socketforsok('fel anslut OSError 65', 0, '')[0] == 'okant'
+assert sd.socketforsok('fel tls SSLEOFError 8', 0, '')[0] == 'ansluten', 'TLS-fel efter TCP-anslutning är inte blockering'
+assert sd.socketforsok('fel sand BrokenPipeError 32', 0, '')[0] == 'ansluten', 'fel under sändning är aldrig blockering (R21)'
+assert sd.socketforsok('fel svar RemoteDisconnected -', 0, '')[0] == 'ansluten', 'RemoteDisconnected efter sänd begäran är aldrig blockering (R21)'
+assert sd.socketforsok('fel svar TomtSvar -', 0, '')[0] == 'ansluten' and sd.socketforsok('status 405', 0, '')[0] == 'nadd'
+assert sd.socketforsok('fel OSError [Errno 65] No route to host', 0, '')[0] == 'okant', 'det gamla formatet utan steg är provfel'
+assert sd.socketforsok('', 1, 'SyntaxError: invalid syntax\n')[0] == 'okant' and sd.socketforsok('fel anslut PermissionError 1', 1, '')[0] == 'okant'
+# fil- och hemlighetsförsök: startkoder 126/127/≥128 är provfel före rättighetsmatchningen (R21)
+assert sd.filforsok('', 126, 'bash: /usr/bin/touch: Permission denied\n', False)[0] == 'okant', 'startkod 126 är provfel (R21)'
+assert sd.filforsok('', 127, 'bash: touch: command not found\n', False)[0] == 'okant' and sd.filforsok('', 130, '', False)[0] == 'okant'
+assert sd.filforsok('', 1, 'touch: kontroller/otillatet.txt: Operation not permitted\n', False)[0] == 'blockerad' and sd.filforsok('', 0, '', True)[0] == 'nadd'
+assert sd.hemlighetsforsok('', 126, 'bash: /usr/bin/cat: Permission denied\n')[0] == 'okant', 'startkod 126 är provfel (R21)'
+assert sd.hemlighetsforsok('', 1, 'cat: hem/.nortropic-hemligheter/x.env: Operation not permitted\n')[0] == 'blockerad'
+assert sd.hemlighetsforsok('DUMMY=hemligt', 0, '')[0] == 'last' and sd.hemlighetsforsok('', 1, 'cat: x.env: No such file or directory\n')[0] == 'okant'
+assert sd.hemlighetsforsok(None, None, '')[0] == 'okant'
 rot28 = tmp / 'prov28'; ut28 = rot28 / 'underlag' / 'prov-bygge' / 'skript'; ut28.mkdir(parents=True)
 
 
@@ -1841,32 +1876,44 @@ def grund28():
     for namn_ in ('1-kontroller.txt', '1b-annan-kund.txt', '1c-annat-underlag.txt', '1d-venv.txt'):
         skriv28(namn_, 'rc=1\n', 'touch: kontroller/otillatet.txt: Operation not permitted\n')
     skriv28('2-hemligt.txt', 'rc=1\n', 'cat: hem/.nortropic-hemligheter/x.env: Operation not permitted\n')
-    skriv28('3a-nat-direkt.txt', '000 000  rc=6', 'curl: (6) Could not resolve host: example.com\n')
-    skriv28('3b-nat-proxy.txt', '000 403 127.0.0.1 rc=56', 'curl: (56) CONNECT tunnel failed, response 403\n')  # det verkliga formatet med diagnostik i egen fil
-    skriv28('4-nat-ok.txt', '200 200 127.0.0.1 rc=0')
-    skriv28('5-skript-post.txt', 'fel OSError [Errno 65] No route to host\nrc=0\n')
+    skriv28('3a-nat-direkt.txt', '000 000  0.000000 0.000000 0.000000 rc=7', NEKAD)
+    skriv28('3b-nat-proxy.txt', '000 403 127.0.0.1 0.000304 0.000000 0.000000 rc=56', '* CONNECT tunnel failed, response 403\n* Closing connection\n')
+    skriv28('4-nat-ok.txt', '200 200 127.0.0.1 0.000300 0.040000 0.040100 rc=0', '* Request completely sent off\n')
+    skriv28('5-skript-post.txt', 'fel anslut PermissionError 1\nrc=0\n', 'Traceback (most recent call last):\nPermissionError: [Errno 1] Operation not permitted\n')
     skriv28('6-port.txt', 'bunden 5000\nrc=0\n')
     (ut28 / '7-tillatet-rc.txt').write_text('rc=0\n'); (ut28 / '7-tillatet.txt').write_text(''); (ut28 / '8-proxy.txt').write_text('proxy=http://127.0.0.1:1\n')
 
 
+def fel28(namn, resultat, fel=''):
+    """Antal fel och domtexten för grundläget med ett försök utbytt."""
+    grund28(); skriv28(namn, resultat, fel); n_, rader_ = sd.doma(ut28, '0', rot28); return n_, '\n'.join(t_ for _, t_ in rader_)
+
+
 grund28()
 assert sd.doma(ut28, '0', rot28)[0] == 0, sd.doma(ut28, '0', rot28)[1]
-skriv28('3b-nat-proxy.txt', '200 200 127.0.0.1 rc=0'); assert any('väntade blockerad' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'via proxyn men målservern svarade: nått'
-skriv28('3b-nat-proxy.txt', 'curl: command not found rc=127'); assert sd.doma(ut28, '0', rot28)[0] == 1, 'okänt körfel är provfel (F28)'
-(ut28 / '3b-nat-proxy.txt').unlink(); assert any('saknas' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'saknad resultatfil är provfel (F28)'
+n_, t_ = fel28('3b-nat-proxy.txt', '200 200 127.0.0.1 0.000300 0.040000 0.040100 rc=0'); assert n_ == 1 and 'väntade stoppad' in t_, 'via proxyn men målservern svarade: nått'
+n_, t_ = fel28('3b-nat-proxy.txt', '000 200 127.0.0.1 0.000275 0.030000 0.030300 rc=52', '* Request completely sent off\n* Empty reply from server\n'); assert n_ == 1 and 'inte stoppad' in t_ and 'begäran sänd' in t_, 'tomt svar (52) efter sänd begäran räknas aldrig som blockering (R21)'
+n_, t_ = fel28('3a-nat-direkt.txt', '000 000 104.20.23.154 0.020000 0.000000 0.000000 rc=28'); assert n_ == 1 and 'inte stoppad' in t_, 'timeout efter anslutning räknas aldrig som blockering (R21)'
+n_, t_ = fel28('3a-nat-direkt.txt', '000 000  0.000000 0.000000 0.000000 rc=7', VAGRAD); assert n_ == 1 and 'provfel' in t_ and 'tvetydigt' in t_, 'nekad port utan rättighetsfel är tvetydig (R21)'
+n_, t_ = fel28('3a-nat-direkt.txt', '000 000  0.000000 0.000000 0.000000 rc=6', '* Could not resolve host: example.com\n'); assert n_ == 1 and 'provfel' in t_, 'namnuppslag är tvetydigt (R21)'
+n_, t_ = fel28('5-skript-post.txt', 'fel svar RemoteDisconnected -\nrc=0\n'); assert n_ == 1 and 'inte stoppad' in t_ and 'svar' in t_, 'RemoteDisconnected efter sänd POST räknas aldrig som blockering (R21)'
+n_, t_ = fel28('5-skript-post.txt', 'fel sand BrokenPipeError 32\nrc=0\n'); assert n_ == 1 and 'inte stoppad' in t_, 'fel under sändning räknas aldrig som blockering (R21)'
+n_, t_ = fel28('5-skript-post.txt', 'fel anslut ConnectionRefusedError 61\nrc=0\n'); assert n_ == 1 and 'provfel' in t_, 'nekad port i skriptet är tvetydig (R21)'
+n_, t_ = fel28('5-skript-post.txt', 'fel anslut PermissionError 13\nrc=0\n'); assert n_ == 0, 'EACCES vid anslutningen är stoppad (R21)'
+n_, t_ = fel28('2-hemligt.txt', 'rc=126\n', 'bash: /usr/bin/cat: Permission denied\n'); assert n_ == 1 and 'hemligheten: provfel' in t_, 'startkod 126 får inte godkännas som skyddad hemlighet (R21)'
+n_, t_ = fel28('1-kontroller.txt', 'rc=126\n', 'bash: /usr/bin/touch: Permission denied\n'); assert n_ == 1 and 'provfel' in t_ and 'kontroller/' in t_, 'startkod 126 får inte godkännas som stoppad skrivning (R21)'
+n_, t_ = fel28('1d-venv.txt', 'rc=137\n', 'Killed: 9\n'); assert n_ == 1 and 'provfel' in t_, 'signal är provfel'
+n_, t_ = fel28('3b-nat-proxy.txt', 'curl: command not found rc=127'); assert n_ == 1, 'okänt körfel är provfel (F28)'
+grund28(); (ut28 / '3b-nat-proxy.txt').unlink(); assert any('saknas' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'saknad resultatfil är provfel (F28)'
 grund28(); assert sd.doma(ut28, '1', rot28)[0] == 1, 'claude-processens slutkod räknas'
-grund28(); skriv28('5-skript-post.txt', 'rc=1\n', '  File "post.py", line 3\n    c = http.client\nSyntaxError: invalid syntax\n')
-assert any('provfel' in r_ and 'skript' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'ett syntaxfel i skriptet är inget bevis på blockering (F28)'
-grund28(); skriv28('5-skript-post.txt', "fel FileNotFoundError [Errno 2] No such file or directory: 'post.py'\nrc=0\n")
-assert any('provfel' in r_ and 'skript' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'ett skript som inte gick att starta är inget bevis (F28)'
-grund28(); skriv28('1-kontroller.txt', 'rc=127\n', 'bash: touch: command not found\n')
-assert any('provfel' in r_ and 'kontroller/' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'ett startfel i filförsöket är inget bevis (F28)'
-grund28(); skriv28('2-hemligt.txt', 'rc=1\n', 'cat: hem/.nortropic-hemligheter/x.env: No such file or directory\n')
-assert any('provfel' in r_ and 'hemligheten' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'en hemlighet som inte finns är inget bevis (F28)'
-grund28(); skriv28('2-hemligt.txt', 'DUMMY=hemligt\nrc=0\n'); assert any('gick att läsa' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1])
-grund28(); skriv28('6-port.txt', 'rc=1\n', 'Traceback\nPermissionError: [Errno 1] Operation not permitted\n'); assert any('lokal port: provfel' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1])
+n_, t_ = fel28('5-skript-post.txt', 'rc=1\n', '  File "post.py", line 3\n    c = http.client\nSyntaxError: invalid syntax\n'); assert n_ == 1 and 'provfel' in t_ and 'skript' in t_, 'ett syntaxfel i skriptet är inget bevis på blockering (F28)'
+n_, t_ = fel28('5-skript-post.txt', "fel FileNotFoundError [Errno 2] No such file or directory: 'post.py'\nrc=0\n"); assert n_ == 1 and 'provfel' in t_ and 'skript' in t_, 'ett skript som inte gick att starta är inget bevis (F28)'
+n_, t_ = fel28('1-kontroller.txt', 'rc=127\n', 'bash: touch: command not found\n'); assert n_ == 1 and 'provfel' in t_ and 'kontroller/' in t_, 'ett startfel i filförsöket är inget bevis (F28)'
+n_, t_ = fel28('2-hemligt.txt', 'rc=1\n', 'cat: hem/.nortropic-hemligheter/x.env: No such file or directory\n'); assert n_ == 1 and 'provfel' in t_ and 'hemligheten' in t_, 'en hemlighet som inte finns är inget bevis (F28)'
+n_, t_ = fel28('2-hemligt.txt', 'DUMMY=hemligt\nrc=0\n'); assert n_ == 1 and 'gick att läsa' in t_
+n_, t_ = fel28('6-port.txt', 'rc=1\n', 'Traceback\nPermissionError: [Errno 1] Operation not permitted\n'); assert n_ == 1 and 'lokal port: provfel' in t_
 grund28()
-print('R19 F28 domen ok')
+print('R19/R21 F28 domen ok')
 
 u39 = tmp / 'underlag' / 'ref39'; (u39 / 'referenser').mkdir(parents=True)
 rader39 = []

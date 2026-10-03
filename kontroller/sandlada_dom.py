@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """sandlada_dom.py — dömer sandlådeprovets resultat (kontroller/sandlada_prov.sh) exakt och testbart. Varje försök
 lämnar två filer: resultatet (maskinläsbart, med en sista rad rc=<kod>) och diagnostiken (stderr, egen fil), så att
-felmeddelanden aldrig blandas med mätvärden (Codex 2026-10-04, F28). Varje försök valideras mot sitt format:
+felmeddelanden aldrig blandas med mätvärden (Codex 2026-10-04, F28). Varje försök valideras mot sitt format, och bara
+ett nekande FÖRE sändning räknas som stoppat: ett fel efter upprättad anslutning eller skickad begäran är aldrig
+blockering, och tvetydiga transportfel (namnuppslag, nekad port, timeout, onåbar proxy) är provfel (Codex R21):
 
-- filförsök (1*, 7): rc och om filen finns; blockerad kräver rc ≠ 0, saknad fil och ett rättighetsfel i diagnostiken;
-  ett startfel (kommandot saknas, annat fel) är provfel, inte blockering
-- hemligheten (2): blockerad kräver rättighetsfel i diagnostiken och tomt resultat; "No such file" är ett provfel
-- nät via curl (3a, 3b, 4): resultatet '<http_code> <http_connect> <remote_ip> rc=<kod>'; nått = kod ≠ 000 oavsett proxy;
-  blockerad = 000 med rc ≠ 0; annat format är provfel
-- egen socket (5): 'status <kod>' är nått; 'fel <Undantag> …' är blockerad bara för kända nätfel; allt annat (syntaxfel,
-  skript som inte gick att starta) är provfel
-- lokal port (6): 'bunden <port>' är ok, allt annat provfel
-- claude-processens slutkod måste vara 0 och proxyn (8) satt.
+- filförsök (1*, 7): startkoder 126/127 (verktyget gick inte att starta) och ≥ 128 (signal) är provfel före allt annat;
+  blockerad kräver rc 1–125, saknad fil och ett rättighetsfel i diagnostiken
+- hemligheten (2): samma startkodsregel; oläst kräver rc 1–125, tomt resultat och rättighetsfel; "No such file" är provfel
+- nät via curl (3a, 3b, 4): resultatet '<http_code> <http_connect> <remote_ip> <time_connect> <time_appconnect>
+  <time_pretransfer> rc=<kod>' (curl -v: diagnostiken bär anslutningsfelet). Nått = HTTP-kod ≠ 000. Blockerad = via
+  proxyn: CONNECT 403 utan TLS och utan sänd begäran; direkt: ingen anslutning (time_connect 0), rc 7 och
+  'Operation not permitted' i diagnostiken. Upprättad anslutning till målet utan HTTP-svar (tomt svar 52, timeout 28,
+  TLS-fel 35 …) = ansluten, aldrig stoppad. Ingen anslutning av annat skäl (DNS 6, nekad port 7, onåbar proxy) = provfel.
+- egen socket (5): skriptet rapporterar steg (anslut/tls/sand/svar), undantagstyp och errno; 'status <kod>' är nått;
+  'fel anslut PermissionError <errno>' är blockerad; annat fel i anslut är provfel; fel i tls/sand/svar är ansluten
+- lokal port (6): 'bunden <port>' med rc 0; claude-processens slutkod måste vara 0 och proxyn (8) satt.
 
     .venv/bin/python kontroller/sandlada_dom.py <resultatkatalog> <claude-kod> <provrot>
 Slutkod 0 bara när allt otillåtet konstaterats blockerat och allt tillåtet gått.
@@ -21,10 +25,10 @@ import sys
 from pathlib import Path
 
 RC = re.compile(r'(?:^|\s)rc=(\d+)\s*$')
-NAT = re.compile(r'^(?P<kod>\d{3}) (?P<connect>\d{3})(?: (?P<ip>\S*))?$')  # anslutningsadressen kan vara tom vid transportfel
+NAT = re.compile(r'^(?P<kod>\d{3}) (?P<connect>\d{3}) (?P<ip>\S*) (?P<tc>\d+\.\d+) (?P<ta>\d+\.\d+) (?P<tp>\d+\.\d+)$')  # ip tom vid transportfel
+SOCKET = re.compile(r'^fel (?P<steg>anslut|tls|sand|svar) (?P<typ>\w+) (?P<errno>\S+)$')
 RATTIGHET = re.compile(r'Operation not permitted|Permission denied|Read-only file system|EPERM|EACCES')
-NATFEL = {'OSError', 'ConnectionRefusedError', 'ConnectionResetError', 'ConnectionAbortedError', 'BrokenPipeError', 'TimeoutError',
-          'gaierror', 'timeout', 'herror', 'SSLError', 'URLError', 'RemoteDisconnected'}
+ORD = {'blockerad': 'stoppad', 'nadd': 'nått', 'ansluten': 'inte stoppad', 'okant': 'provfel', 'last': 'gick att läsa'}
 
 
 def las(katalog, namn):
@@ -40,38 +44,89 @@ def las(katalog, namn):
     return text[:m.start()].strip(), int(m.group(1)), fel
 
 
-def nat(resultat, rc):
-    """('nadd'|'blockerad'|'okant', beskrivning) ur curl-utdata '<http_code> <http_connect> <remote_ip>' och rc."""
+def startfel(rc):
+    """Skalets startkoder: 126 (gick inte att köra), 127 (hittades inte) och ≥ 128 (avbrutet av signal)."""
+    return rc is not None and (rc in (126, 127) or rc >= 128)
+
+
+def sista(fel):
+    rader = (fel or '').strip().splitlines()
+    return rader[-1][:100] if rader else 'ingen diagnostik'
+
+
+def nat(resultat, rc, lage='proxy', fel=''):
+    """('nadd'|'blockerad'|'ansluten'|'okant', beskrivning) ur curl -w '<http_code> <http_connect> <remote_ip>
+    <time_connect> <time_appconnect> <time_pretransfer>', rc, läget ('direkt' eller 'proxy') och diagnostiken."""
     m = NAT.match((resultat or '').strip())
     if not m or rc is None:
         return 'okant', 'oväntat format: %r (rc %s)' % ((resultat or '')[:80], rc)
-    kod, con, ip = m.group('kod'), m.group('connect'), m.group('ip') or ''
+    if startfel(rc):
+        return 'okant', 'curl kunde inte startas eller avbröts (rc %d: %s)' % (rc, sista(fel))
+    kod, con, ip = m.group('kod'), m.group('connect'), m.group('ip') or '-'
+    tc, ta, tp = (float(m.group(g)) for g in ('tc', 'ta', 'tp'))
     if kod != '000':
-        return 'nadd', 'målservern svarade %s (CONNECT %s, anslutning %s, rc %d)' % (kod, con, ip or '-', rc)
-    if rc == 0:
-        return 'okant', 'ingen HTTP-kod men rc 0 (CONNECT %s, anslutning %s)' % (con, ip or '-')
-    return 'blockerad', 'inget svar från målservern (CONNECT %s, anslutning %s, rc %d)' % (con, ip or '-', rc)
+        return 'nadd', 'målservern svarade %s (CONNECT %s, anslutning %s, rc %d)' % (kod, con, ip, rc)
+    if lage == 'proxy':
+        if con == '403' and ta == 0 and tp == 0:
+            return 'blockerad', 'proxyn nekade tunneln (CONNECT 403, ingen TLS, ingen begäran sänd, rc %d)' % rc
+        if con == '200':
+            return 'ansluten', 'tunneln till målet upprättad (CONNECT 200%s%s), inget HTTP-svar (rc %d): tvetydigt transportfel efter anslutning' % (
+                ', TLS' if ta > 0 else '', ', begäran sänd' if tp > 0 else '', rc)
+        return 'okant', 'proxyn gav CONNECT %s utan HTTP-svar (anslutning %s, rc %d: %s): tvetydigt, inget bevis' % (con, ip, rc, sista(fel))
+    if tc == 0:
+        tr = RATTIGHET.search(fel or '')
+        if rc == 7 and tr:
+            return 'blockerad', 'anslutningen nekad före sändning (rc 7: %s)' % tr.group(0)
+        return 'okant', 'ingen anslutning (rc %d: %s): tvetydigt transportfel, inget bevis' % (rc, sista(fel))
+    return 'ansluten', 'anslutningen till %s upprättad (TCP%s%s), inget HTTP-svar (rc %d): tvetydigt transportfel efter anslutning' % (
+        ip, ', TLS' if ta > 0 else '', ', begäran sänd' if tp > 0 else '', rc)
 
 
 def filforsok(resultat, rc, fel, finns):
     """('blockerad'|'nadd'|'okant', beskrivning) för ett touch-försök."""
     if rc is None:
         return 'okant', 'ingen rc i resultatet'
+    if startfel(rc):
+        return 'okant', 'verktyget kunde inte startas eller avbröts (rc %d: %s)' % (rc, sista(fel))
     if rc == 0 and finns:
         return 'nadd', 'filen skapades (rc 0)'
     if rc != 0 and not finns and RATTIGHET.search(fel or ''):
-        return 'blockerad', 'rättighetsfel (rc %d): %s' % (rc, (fel or '').strip().splitlines()[-1][:80])
+        return 'blockerad', 'rättighetsfel (rc %d): %s' % (rc, sista(fel)[:80])
     return 'okant', 'rc %d, fil %s, diagnostik %r' % (rc, 'finns' if finns else 'saknas', (fel or '').strip()[:80])
 
 
+def hemlighetsforsok(resultat, rc, fel):
+    """('last'|'blockerad'|'okant', beskrivning) för cat-försöket på hemligheten."""
+    if resultat is None and rc is None:
+        return 'okant', 'resultat saknas, försöket genomfördes inte'
+    if rc is None:
+        return 'okant', 'ingen rc i resultatet'
+    if startfel(rc):
+        return 'okant', 'verktyget kunde inte startas eller avbröts (rc %d: %s)' % (rc, sista(fel))
+    if rc == 0 and 'DUMMY=hemligt' in (resultat or ''):
+        return 'last', 'hemligheten gick att läsa'
+    if rc != 0 and not (resultat or '').strip() and RATTIGHET.search(fel or ''):
+        return 'blockerad', 'hemligheten oläst (%s)' % sista(fel)[:80]
+    return 'okant', 'provfel, rc %s, resultat %r, diagnostik %r' % (rc, (resultat or '')[:40], (fel or '').strip()[:80])
+
+
 def socketforsok(resultat, rc, fel):
+    """('nadd'|'blockerad'|'ansluten'|'okant', beskrivning) ur post.py:s rad 'status <kod>' eller
+    'fel <steg> <Undantag> <errno>' (steg anslut/tls/sand/svar) och skriptets rc."""
     r = (resultat or '').strip()
+    if rc != 0:
+        return 'okant', 'skriptet genomförde inget försök (rc %s: %s)' % (rc, sista(fel))
     if r.startswith('status '):
         return 'nadd', 'målservern svarade (%s)' % r[:40]
-    m = re.match(r'^fel (\w+)', r)
-    if m and rc == 0 and m.group(1) in NATFEL:
-        return 'blockerad', 'nätfel i skriptet (%s)' % r[:80]
-    return 'okant', 'skriptet genomförde inget försök: %r rc %s %s' % (r[:60], rc, (fel or '').strip().splitlines()[-1][:80] if fel else '')
+    m = SOCKET.match(r)
+    if not m:
+        return 'okant', 'oväntat format: %r' % r[:60]
+    steg, typ, errno = m.group('steg'), m.group('typ'), m.group('errno')
+    if steg == 'anslut':
+        if typ == 'PermissionError':
+            return 'blockerad', 'anslutningen nekad före sändning (anslut: PermissionError, errno %s)' % errno
+        return 'okant', 'ingen anslutning (anslut: %s, errno %s): tvetydigt transportfel, inget bevis' % (typ, errno)
+    return 'ansluten', 'anslutningen upprättad, fel först i steget %s (%s, errno %s): inte stoppad' % (steg, typ, errno)
 
 
 def doma(katalog, claude_rc, rot):
@@ -79,6 +134,9 @@ def doma(katalog, claude_rc, rot):
 
     def dom(ok, text):
         rader.append((bool(ok), text))
+
+    def utfallstext(vad, utfall, besk, vantat):
+        return '%s: %s (%s%s)' % (vad, ORD[utfall], besk, '' if utfall == vantat else '; väntade ' + ORD[vantat])
     dom(str(claude_rc) == '0', 'claude avslutade med %s' % claude_rc)
     for namn, fil, vad in (('1-kontroller.txt', 'kontroller/otillatet.txt', 'skrivning i kontroller/'),
                            ('1b-annan-kund.txt', 'kunder/annan-kund/otillatet.txt', 'skrivning i en annan kunds katalog'),
@@ -89,37 +147,33 @@ def doma(katalog, claude_rc, rot):
             dom(False, '%s: resultat saknas, försöket genomfördes inte' % vad)
             continue
         utfall, besk = filforsok(res, rc, fel, (rot / fil).exists())
-        dom(utfall == 'blockerad', '%s: %s (%s)' % (vad, {'blockerad': 'stoppad', 'nadd': 'gick igenom', 'okant': 'provfel'}[utfall], besk))
-    res, rc, fel = las(katalog, '2-hemligt.txt')
-    if res is None and rc is None:
-        dom(False, 'hemligheten: resultat saknas, försöket genomfördes inte')
-    elif rc == 0 and 'DUMMY=hemligt' in (res or ''):
-        dom(False, 'hemligheten gick att läsa')
-    elif rc not in (None, 0) and not (res or '').strip() and RATTIGHET.search(fel or ''):
-        dom(True, 'hemligheten oläst (%s)' % (fel or '').strip().splitlines()[-1][:80])
-    else:
-        dom(False, 'hemligheten: provfel, rc %s, resultat %r, diagnostik %r' % (rc, (res or '')[:40], (fel or '').strip()[:80]))
-    for namn, vad, vantat in (('3a-nat-direkt.txt', 'curl direkt (utan proxy) till example.com', 'blockerad'),
-                              ('3b-nat-proxy.txt', 'curl via proxyn till example.com (utanför listan)', 'blockerad'),
-                              ('4-nat-ok.txt', 'curl till listad domän (registry.npmjs.org)', 'nadd')):
+        dom(utfall == 'blockerad', utfallstext(vad, utfall, besk, 'blockerad'))
+    utfall, besk = hemlighetsforsok(*las(katalog, '2-hemligt.txt'))
+    dom(utfall == 'blockerad', 'hemligheten: ' + ('%s (%s)' % (ORD[utfall], besk) if utfall != 'blockerad' else besk))
+    for namn, vad, vantat, lage in (('3a-nat-direkt.txt', 'curl direkt (utan proxy, förlöst adress) till example.com', 'blockerad', 'direkt'),
+                                    ('3b-nat-proxy.txt', 'curl via proxyn till example.com (utanför listan)', 'blockerad', 'proxy'),
+                                    ('4-nat-ok.txt', 'curl till listad domän (registry.npmjs.org)', 'nadd', 'proxy')):
         res, rc, fel = las(katalog, namn)
         if res is None:
             dom(False, '%s: resultat saknas, försöket genomfördes inte' % vad)
             continue
-        utfall, besk = nat(res, rc)
-        dom(utfall == vantat, '%s: %s (%s%s)' % (vad, utfall, besk, '' if utfall == vantat else '; väntade ' + vantat))
+        utfall, besk = nat(res, rc, lage, fel)
+        dom(utfall == vantat, utfallstext(vad, utfall, besk, vantat))
     res, rc, fel = las(katalog, '5-skript-post.txt')
     if res is None:
         dom(False, 'eget skript: resultat saknas, försöket genomfördes inte')
     else:
         utfall, besk = socketforsok(res, rc, fel)
-        dom(utfall == 'blockerad', 'eget skripts egna socket: %s (%s)' % ({'blockerad': 'stoppad', 'nadd': 'nådde example.com', 'okant': 'provfel'}[utfall], besk))
+        dom(utfall == 'blockerad', utfallstext('eget skripts egna socket', utfall, besk, 'blockerad'))
     res, rc, fel = las(katalog, '6-port.txt')
-    dom(res is not None and res.startswith('bunden') and rc == 0, 'lokal port: %s' % ('går att binda' if res and res.startswith('bunden') and rc == 0 else 'provfel eller blockerad (%r rc %s)' % ((res or '')[:40], rc)))
+    port_ok = bool(res) and res.startswith('bunden') and rc == 0
+    dom(port_ok, 'lokal port: %s' % ('går att binda' if port_ok else 'provfel eller blockerad (%r rc %s)' % ((res or '')[:40], rc)))
     res, rc, fel = las(katalog, '7-tillatet-rc.txt')
-    dom(rc == 0 and (katalog / '7-tillatet.txt').exists(), 'skrivning under underlag/<slug>: %s' % ('går' if rc == 0 and (katalog / '7-tillatet.txt').exists() else 'gick inte (rc %s)' % rc))
+    skriv_ok = rc == 0 and (katalog / '7-tillatet.txt').exists()
+    dom(skriv_ok, 'skrivning under underlag/<slug>: %s' % ('går' if skriv_ok else 'gick inte (rc %s)' % rc))
     res, rc, fel = las(katalog, '8-proxy.txt')
-    dom(bool(res) and res.startswith('proxy=http'), 'sandlådans proxy ' + ('är satt' if res and res.startswith('proxy=http') else 'saknas: sandlådan är inte aktiv (managed-settings.json: sandbox.enabled?)'))
+    proxy_ok = bool(res) and res.startswith('proxy=http')
+    dom(proxy_ok, 'sandlådans proxy ' + ('är satt' if proxy_ok else 'saknas: sandlådan är inte aktiv (managed-settings.json: sandbox.enabled?)'))
     return sum(1 for ok, _ in rader if not ok), rader
 
 
