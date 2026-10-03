@@ -105,6 +105,8 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | web.dev | https://web.dev/feed.xml | Core Web Vitals | 1.5 | provet |
 | rss | SpeedCurve | https://www.speedcurve.com/blog/rss/ | prestanda | 1.2 | provet |
 | rss | Google Search Central | https://feeds.feedburner.com/blogspot/amDG | lokal SEO, rikresultat | 1.5 | lokal synlighet |
+| sida | Google: AI-optimeringsguiden | https://developers.google.com/search/docs/fundamentals/ai-optimization-guide | Googles linje för AI Overviews och AI Mode (publicerad 2026-05-15, uppdaterad 2026-07-10) | 1.5 | lokal synlighet |
+| sida | Google: AI-funktioner och din webbplats | https://developers.google.com/search/docs/appearance/ai-features | krav och kontroller för AI Overviews och AI Mode | 1.5 | lokal synlighet |
 | rss | Google Search Status | https://status.search.google.com/en/feed.atom | rankinguppdateringar | 1.5 | lokal synlighet |
 | rss | Sterling Sky | https://www.sterlingsky.ca/feed/ | Google-företagsprofilen | 1.3 | lokal synlighet |
 | rss | Search Engine Roundtable | https://www.seroundtable.com/index.rdf | daglig SEO-nyhet, brusig | 0.9 | lokal synlighet |
