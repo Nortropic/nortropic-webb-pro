@@ -4941,3 +4941,90 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   källans driftkontroll behövs inte heller som idé
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · superdesigndev/superdesign-skill · nej
+- Källa: https://github.com/superdesigndev/superdesign-skill @ f9f05cd (ur klonens `.git/packed-refs`; `git log`
+  nekades av behörigheten; senaste push 2026-08-21T05:23Z, version 0.6.0 i plugin.json), MIT; 621 stjärnor, inte
+  arkiverat; cirka 47 300 tokens text i 30 filer. Inte bedömd förut. Förgranskat (MEDEL). Läst helt: README, SKILL.md,
+  `references/SUPERDESIGN.md`, `INIT.md`, `WEBSITE.md`, `GRAPHIC.md`, `ASSET_GENERATION.md`,
+  `design-with-your-model.md`, DESIGN.md, AGENTS.md, CHANGELOG, INSTALL.md, `.claude-plugin/plugin.json`,
+  `agents/openai.yaml` och `dsh/index.js`; `COMPONENTS.md`, `PRESENTATION.md` och `RESUME.md` bara som fillista.
+  Repot har inga bilder utom ikonen. Sett: demovideon README länkar till (AI Jason, "Superdesign CLI Skill Tutorial",
+  YouTube AZYJWyWZ6pQ, 4:33, autogenererat transkript, 7 av 20 bildrutor lästa: 02:19–03:38 där resultaten visas), och
+  superdesign.dev i mobil och desktop (första vyn i båda, skrollbild 03, 05 och 07 av 8). Spanarens träff 2026-10-03
+  (agent, claude code, design, frontend, skill, ui). Ägarens not: ingen utöver det
+- Steg: 5 (riktning, variationer, bygge); steg 2 i den mån "extract-website" ersätter research; steg 3 (bilder)
+- Jämfört med i dag: (1) **Platsen i kedjan.** Skillen är ett skal runt en hostad tjänst: varje session börjar med att
+  hämta och köra `@superdesign/cli@latest` ur npm och logga in [REPO skills/superdesign/SKILL.md rad 26, 97–109],
+  `create-project` öppnar webbläsaren [rad 141], varje generering drar krediter [rad 149; SUPERDESIGN.md rad 203], och
+  användarens text "is shared with SuperDesign and stored server-side" [REPO SUPERDESIGN.md rad 363]. Logotyp,
+  typsnitt och bilder laddas upp som "Brand Assets" till deras lager [rad 80–81, 92]. Själva designen görs av deras
+  modell; landningssidans promptruta visar Gemini 3 Flash som vald modell [BILD superdesign-dev/desktop-forsta.png].
+  Vi låter modellen skriva Astro själv i repot och låter två oberoende granskare döma på namngivna kriterier
+  (`.claude/skills/bygg-sajt/SKILL.md:224`; `kritik/GRANSKARE.md`); verksamheternas material ligger i `underlag/` och
+  `kunder/` utanför git (CLAUDE.md), och prospektflödets regel lyder "Inga betaltjänster" (`BESLUT.md:117`). Att skicka
+  Holms konditoris bilder och Dan Sandbergs logga till en amerikansk tjänst för att få tillbaka HTML vi inte ser
+  byggas är sämre, och krockar med två medvetna val. (2) **Människan i loopen.** Skillen frågar i flera rundor om krav
+  och smak [REPO SUPERDESIGN.md rad 108–111; README rad 128, 139], ber användaren välja mellan "designa i superdesign
+  eller implementera direkt" [README rad 130], och "Only generate after the user picks, since every generation spends
+  credits" [REPO SKILL.md rad 149]. Hos oss svarar ingen människa under körningen (bygg-sajt rad 20). Krock. (3)
+  **Riktningen.** Utan referenssajt hämtas stilen ur deras promptbibliotek: `search-prompts --tags "style"`, "pick the
+  most suitable" [REPO SUPERDESIGN.md rad 263–266]. Biblioteket på landningssidan är stilrecept: Glassmorphism Style,
+  Red Noir Style, Deep Red Style, Animated Aurora Background Hero, Hyper-Saturated Fluid, Kinetic Orange Style [BILD
+  superdesign-dev/desktop-skroll-03.png, -05.png, -07.png; TEXT.md rad 43–153], med mörka sidor, glöd och gradienttext
+  som de mest remixade. Vi härleder fyra riktningar ur verksamheten själv, "aldrig ur en branschmall" (bygg-sajt rad
+  235–236), och mäter bort modellens standardval (rad 230–233). Samma katalogmekanism som ui-ux-pro-max (rad
+  1390–1396) och Ilm-Alan/frontend-design (rad 4717–4729), båda nej; ägaren höll med om det första
+  (`kunskap/KIRURG-OMDOMEN.md:145–147`). Sämre. (4) **Variationer.** Grenläge med två varianter som standard [REPO
+  SUPERDESIGN.md rad 197–203] och regeln att alltid skicka med designsystemet, annars hittar modellen på "random
+  fonts, random colors" [rad 304–313]. Vi: fyra riktningar som exakt specifikation före kod, "Modellen följer
+  uttryckliga specifikationer precist" (bygg-sajt rad 245–247), ateljén som tar fram riktningarna som style tile och
+  första vy med verksamhetens riktiga innehåll och låter en domarpanel om tre välja (rad 251–257), och Tvåan (rad
+  287–294). Lika i idé; vårt kör med riktigt innehåll och domare utan att lämna repot. (5) **Bilder.** Skillen
+  genererar "a hero or campaign key visual" med bildmodell, och video "when motion itself is the asset" [REPO
+  ASSET_GENERATION.md rad 9–14, 18–23; GRAPHIC.md rad 7]. Vi: verksamhetens egna bilder, det som saknas beställs
+  (bygg-sajt rad 21–24, 276–278); ägarens L3 "hellre inga foton än stock" (`LARDOMAR.md:90`). Krock. (6) **Andras
+  sajter.** `extract-website` hämtar en sajts "design DNA" för att designa "in the style of linear.app" eller
+  "redesign framer.com in apple.com's style" [REPO WEBSITE.md rad 17–21]. Vi: "Kopiera aldrig layout, palett eller
+  typsnitt" (bygg-sajt rad 301); `kontroller/sida.mjs` tar designfakta ur referenserna för jämförelsen i
+  JAMFORELSE.md, inte som stilkälla. Samma dom som ai-website-cloner (rad 2341–2358). Krock. (7) **Kodbasen.** Init
+  skriver sex filer med fullständig källkod för React-komponenter, Tailwind-config och routes [REPO INIT.md rad
+  17–31, 59–68], och en pixelexakt reproduktion av befintlig sida är obligatorisk före varje ändring [REPO
+  SUPERDESIGN.md rad 167–176]. Det är gjort för att ändra i en befintlig produkt-UI; vi bygger nya statiska sajter
+  ur mallen (bygg-sajt rad 258–260). Ej tillämpligt. (8) **Resultatet i videon.** Uppgiften är en "Book demo"-sektion
+  på deras egen SaaS-startsida: fyra varianter av banderoll och toast [BILD 02:46], fyra toaststilar [BILD 03:12],
+  och flödesprompten beställer "social proof section showing 3 small company logos or 'Trusted by 500+ teams' badge"
+  [BILD 03:25], exakt det copykontrollen fäller (`kunskap/copy-kontroll.md`). Slutresultatet är en modal "Your
+  details" med Name, Company, Role och knappen Book Demo [BILD 03:38]: korrekt, generisk produkt-UI, inget som rör en
+  hantverkare i Luleå. Kommandot i videon kör med TLS-verifieringen avstängd (`NODE_TLS_REJECT_UNAUTHORIZED=0`,
+  läsbart i terminalen) [BILD 02:32]. (9) **Deras egen sajt.** I desktopstillbilden står rubriken som "it. it.":
+  orden Think och Explore är animerade bort [BILD superdesign-dev/desktop-forsta.png]; i mobilen syns hela raden
+  [BILD mobil-forsta.png]. Inter, brödtext 14 px i grått (SIDA.md rad 27, 31). "Export Code: Get production-ready
+  code" [TEXT.md rad 162–164] visas inte. Litteraturen: källan för inte in någon utvärderingsmetod; dess
+  "pixel-perfect reproduction" och "design system as hard constraint" är specifikation före form, som vi redan gör
+  (bygg-sajt rad 245–247), och DESIGN.md:s idé om en designsystemfil som agenten läser [REPO DESIGN.md rad 9–20] är
+  vår KONCEPT.md
+- Skäl: en skill utan egen designkunskap: dess innehåll är hur en agent kör ett betal-CLI mot en hostad kanvas, och
+  det som avgör sajtens kvalitet, modellen och promptbiblioteket, ligger på deras server. Att ta in den vore att
+  köra kod ur en källa i varje bygge, skicka verksamheternas bilder och ord till tredje part, låta en modell vi inte
+  granskar göra formen, och hämta riktningen ur ett stilbibliotek där de mest remixade recepten är mörker, glöd och
+  gradienttext, vilket ägaren kallat slop i L0 och mall i L1–L3. Flödet förutsätter dessutom en människa som svarar i
+  flera rundor och betalar per variant, mot vår obevakade körning. Det källan gör bra, specifikation som hård gräns
+  och variationer sida vid sida, gör ateljén och Tvåan redan med verksamhetens riktiga innehåll. Videon visar vad
+  den är byggd för: toastar, banderoller och en demomodal på en SaaS-startsida, med "Trusted by 500+ teams" i
+  prompten. Källkritik: README säljer superdesign.dev ("Stop shipping AI-slop UI", "Powered by superdesign.dev")
+  [REPO README.md rad 3, 7] utan ett enda före-och-efter; 621 stjärnor är räckvidd. INSTALL.md är en färdig
+  agentprompt ("Do EVERY step below in order, automatically", "Do NOT stop at login") [REPO INSTALL.md rad 3–5] som
+  förgranskningen inte fångade; den följdes inte. Samma dom som för webstudio (rad 4417–4429), ai-website-cloner och
+  ui-ux-pro-max
+- Kostnad: inget tas in. Som skill vore det 150 tokens alltid, 3 951 vid användning och 31 956 vid behov
+  (förgranskningen), plus Node och npx, `@superdesign/cli` hämtad ur npm vid varje körning, ett konto och krediter
+  per generering
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text riktad till agenter enligt mönstren, inga
+  behörigheter i frontmatter, inga hookar. Flaggan eval/exec i `dsh/index.js` är `RegExp.exec` på frontmatter [REPO
+  dsh/index.js rad 42, 44], ingen kodkörning; filen registrerar skillen i DeepSeek Harness. Det förgranskningen inte
+  fångade: INSTALL.md är en agentprompt (ovan), och SKILL.md instruerar agenten att hämta och köra `@latest` ur npm
+  och logga in i varje session [REPO SKILL.md rad 97–108]. Inget kördes eller installerades; inget fört vidare
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
