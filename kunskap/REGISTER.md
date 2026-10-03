@@ -5028,3 +5028,52 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Jack Roberts, "Claude Code + TinyFish = Unlimited FREE Scraping" (YouTube qqRo3vwAoPw) · nej
+- Källa: https://www.youtube.com/watch?v=qqRo3vwAoPw @ publicerad 2026-09-30 (Jack Roberts, 0:44, 5 165 visningar,
+  autogenererat engelskt transkript); YouTubes standardlicens. Beskrivningen slutar med "Paid partnership with
+  TinyFish." [BESKRIVNING]. Läst hela tidslinjen (två talstycken) och sett alla fyra bildrutor. Beskrivningen har
+  inga länkar; ansökningslänken ligger enligt berättaren i en fäst kommentar [TAL 00:33] och öppnades inte, och
+  TinyFishs egen sajt öppnades inte heller, så vad produkten faktiskt gör är bara berättarens och beskrivningens ord.
+  Ägarens not: hittad av spanaren 2026-10-03 via YouTube: Jack Roberts (rss); matchade agent, claude code, forms,
+  web
+- Steg: 1 (hämta det publika), och arbetssättet runt stegen: prospekt och spaning. Inget av de åtta stegen i sak
+- Jämfört med i dag: Videon säger att TinyFish tar över när en agent når en inloggningssida, loggar in med
+  användarens egna uppgifter och låter agenten läsa "the entire web, not just public websites" [TAL 00:00–00:33];
+  beskrivningen lägger till portaler, bokningssystem och interna verktyg, gratis "Search and Fetch" och en
+  gemenskap med krediter, presentkort och certifikat [BESKRIVNING]. I bild: berättaren framför en kuliss av
+  kodfönster ("RETRY 4/10", "CONTEXT COMPRESSION") som inte har med TinyFish att göra [SKÄRM 00:01], berättaren
+  ensam [SKÄRM 00:14, 00:39], och en stiliserad illustration med en flik "Insurance…", ett webbläsarfönster med
+  fliken "Claude" och en adress som börjar "portal.ab", och bakom dem ett kontoutdrag med belopp [SKÄRM 00:26]. Det
+  är en tecknad bild, ingen körning; inget formulär, ingen inloggning och inget resultat visas. Spanarens träff på
+  "forms" är ordet i beskrivningen ("everything behind forms, logins, and auth walls"), inte ett webbformulär. Vi:
+  steg 1 hämtar verksamhetens nuvarande sajt med `kontroller/hamta_sajt.py` (`.claude/skills/bygg-sajt/SKILL.md`
+  rad 71–73): bara GET, bara samma domän, högst 40 sidor, robots.txt respekteras (`kontroller/hamta_sajt.py` rad
+  4), och Bokadirekt-profilen, som är publik, med `hamta_bokadirekt.py` (rad 75–77). Det bygget inte kan läsa
+  beställs av verksamheten (BESTALLNING.md, `LARDOMAR.md` rad 71, 95). Prospektflödet bygger på "verksamhetens
+  egna och publika" uppgifter och säger "Inga betaltjänster för leads eller analys" (`kunskap/prospekt-och-utskick.md`
+  rad 11–12, 73). Ingen kund, inget underlag och ingen prospekt hos oss ligger bakom en inloggning. Sämre: löser
+  ett problem vi inte har, och det som följer med krockar
+- Skäl: en 44 sekunders betald annons för en molntjänst vars kärna är att en agent loggar in hos tredje part med
+  användarens egna lösenord. Vi bygger sajter åt små verksamheter vars material är publikt, och det som saknas
+  beställer vi i stället för att hämta det bakom en inloggning; prospektflödet är medvetet byggt på publika
+  register och egen hämtning utan betaltjänster. Att lämna ägarens eller en kunds inloggningsuppgifter till en
+  molntjänst är dessutom just det slags beroende och säkerhetsrisk som kirurgens regler håller borta ("Kör aldrig
+  kod från en källa", "Installera inget", `.claude/skills/kirurg/SKILL.md` rad 24, 27). Samma familj som Firecrawl
+  (rad 787), browser-use (rad 1498) och crawl4ai (rad 1995), alla nej med ägarens medhåll (`kunskap/KIRURG-OMDOMEN.md`
+  rad 80–83, 155–158, 190–193). Källkritik: betalt partnerskap enligt beskrivningen, titeln lovar "Unlimited FREE"
+  medan beskrivningen talar om "free credits" och "generous rate limits" [BESKRIVNING], "Don't build another AI
+  agent until you fix this" är annonsens påstående utan belägg [TAL 00:00], och ingenting i bild visar tjänsten i
+  bruk. Källan innehåller inga instruktioner till agenter; uppmaningen att ansöka om konto riktar sig till
+  tittaren
+- Kostnad: inget tas in. Som tjänst vore det ett konto, krediter och inloggningsuppgifter hos en tredje part
+- Säkerhet: ej tillämpligt (video; transkript och bildrutor hämtade, inget kört, inga länkar öppnade). Inget fört
+  vidare
+- Förslag: inget ur källan. Egen innovation (backlog nedan): spanaren läser hela beskrivningen ur YouTubes flöde
+  innan den kapas till 600 tecken (`kontroller/spana.py` rad 219–222, 181), men letar inte efter YouTubes egen
+  märkning av betalt innehåll ("Paid partnership", "includes paid promotion", "sponsored", "#ad"). Den här
+  annonsen gick till kirurgen på fyra ordträffar. En rad i `rss()` som sätter varningen "betalt partnerskap" på
+  kandidaten när den fulla beskrivningen matchar, så att dashboarden visar det och ägaren kan sålla före intag;
+  ingen avfärdas automatiskt, eftersom en sponsrad video ändå kan visa en metod
+- Utfall: —
+- Backlog: ingen för domen; egen innovation B-20261003-spanaren-marker-youtube-kandidater-vars-beskrivn
