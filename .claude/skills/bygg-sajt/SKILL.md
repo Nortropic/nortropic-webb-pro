@@ -405,7 +405,7 @@ innan någon såg mönstret.
   --titel "<bristen, en mening>" --varfor "<vad som hände i bygget>" --forslag "<fil och ändring>"
 ```
 
-Committa bara de nya filerna i `backlog/`, med meddelandet `Bygge <slug>: backlogposter`, och `git push origin main`.
+Committa bara de nya filerna i `backlog/`, med meddelandet `Bygge <slug>: backlogposter`, och `git push origin main`. Ett git-kommando per Bash-anrop: add, commit och push var för sig, utan `&&`; commitvakten nekar kedjor och git bakom omslag.
 Inget annat committas av en byggkörning; `underlag/` och `kunder/` ligger utanför git.
 
 Avsluta sedan. Stoppvakten (`.claude/hooks/stoppvakt.py`) kör hela provet och granskningen själv och släpper inte

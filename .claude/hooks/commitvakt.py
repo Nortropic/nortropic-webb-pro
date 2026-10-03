@@ -13,6 +13,11 @@ Interaktiva sessioner påverkas inte. Läser kommandot ur hookens JSON på stdin
   - git push som inte är "git push origin main", eller när någon utgående commit rör annat än de tillåtna
     sökvägarna (varje commit räknas, inte bara skillnaden mellan slutträden)
   - git -c (en inställning kan starta program); -C, --git-dir och --work-tree bara för läsande kommandon
+  - git bakom ett omslag (command, env, nice, exec …) prövas som git; git inuti ett inbäddat skal (sh -c, eval, xargs)
+    nekas; cd i samma kommando som en git-skrivning nekas, och git-skrivningar nekas när sessionens arbetskatalog
+    ligger utanför repot (hookens cwd); högst en git-skrivning (add, commit eller push) per kommando, så att varje steg
+    prövas mot det tillstånd som gäller när det körs; andra skrivande underkommandon (merge, stash, rm, pull …) nekas
+  - push prövar grenen main (refs/heads/main) mot origin/main, inte HEAD, och räknar in merge-commits
   - en hemlighet (API-nyckel, privat nyckel, nyckelrad ur en .env-fil) i det som ska committas (index och, vid
     sökvägar på kommandoraden, arbetskopian) eller i någon utgående commits tillagda rader; bara fil, rad och
     nyckeltyp rapporteras, aldrig värdet
@@ -42,6 +47,9 @@ HEMLIGHETER = [('Resend-nyckel', r're_[A-Za-z0-9]{24,}'), ('Anthropic-nyckel', r
                ('privat nyckel', r'-----BEGIN [A-Z ]*PRIVATE KEY-----'),
                ('nyckelrad', r'\b(RESEND_API_NYCKEL|SCB_API_NYCKEL|[A-Z_]*API_KEY|[A-Z_]*SECRET[A-Z_]*|[A-Z_]*TOKEN)=\S{8,}')]
 HEMLIGHET_RE = [(namn, re.compile(rx)) for namn, rx in HEMLIGHETER]
+OMSLAG = {'command', 'builtin', 'exec', 'env', 'nice', 'nohup', 'time', 'caffeinate', 'ionice'}  # tillåtna ord före git
+SKRIVANDE = {'add', 'commit', 'push'}  # de enda skrivande underkommandona som prövas; alla andra nekas
+INBADDAT = re.compile(r'(^|[\s"\'`;&|(])git\s')
 BUDGET = float(os.environ.get('NWP_COMMITVAKT_BUDGET') or 20.0)  # sekunder för hela vakten; settings.json ger kroken 30
 GIT_FRIST = 6  # sekunder per git-anrop
 SLUT = time.monotonic() + BUDGET
@@ -121,21 +129,49 @@ def commit_sokvagar(args):
 
 def hemlighet_i(diff):
     """(fil, rad, nyckeltyp) för den första tillagda raden som ser ut som en hemlighet, annars None. Värdet rapporteras
-    aldrig: det hade annars hamnat i sessionens logg."""
-    fil, rad = '?', 0
+    aldrig: det hade annars hamnat i sessionens logg. Filhuvuden (---/+++) finns bara mellan 'diff --git' och första
+    '@@'; inne i en hunk är en rad som börjar med '+++' innehåll (omgång tre, F27)."""
+    fil, rad, i_huvud = '?', 0, True
     for r in diff.splitlines():
-        if r.startswith('+++ '):
+        if r.startswith('diff --git '):
+            i_huvud = True
+        elif i_huvud and r.startswith('+++ '):
             fil = r[4:].removeprefix('b/').strip()
         elif r.startswith('@@'):
+            i_huvud = False
             m = re.search(r'\+(\d+)', r)
             rad = int(m.group(1)) - 1 if m else 0
-        elif r.startswith('+') and not r.startswith('+++'):
+        elif not i_huvud and r.startswith('+'):
             rad += 1
             for namn, rx in HEMLIGHET_RE:
                 if rx.search(r):
                     return fil, rad, namn
-        elif not r.startswith('-') and not r.startswith('\\'):
+        elif not i_huvud and not r.startswith('-') and not r.startswith('\\'):
             rad += 1
+    return None
+
+
+def hemlighet_i_fil(sokvag):
+    """Som hemlighet_i men för en fil i arbetskopian (det som git add tar in)."""
+    try:
+        text = (ROOT / sokvag).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return None
+    for n, r in enumerate(text.splitlines(), 1):
+        for namn, rx in HEMLIGHET_RE:
+            if rx.search(r):
+                return sokvag, n, namn
+    return None
+
+
+def git_kommando(ord_):
+    """(index för ordet git, ja/nej inbäddat) i en kommandorads ord; omslag före git måste vara kända."""
+    for i, o in enumerate(ord_):
+        if Path(o).name == 'git':
+            for f in ord_[:i]:
+                if not (f in OMSLAG or f.startswith('-') or re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*=.*', f) or f.isdigit()):
+                    neka('git bakom %r nekas; bara direkta git-kommandon (eller command, env, nice, nohup, time) prövas' % f)
+            return i
     return None
 
 
@@ -149,15 +185,22 @@ def main():
     kommando = (data.get('tool_input') or {}).get('command') or ''
     if re.search(r'\bgh\s+api\b', kommando):
         neka('gh api nekas i obevakade körningar (det kan ändra och radera); använd gh repo view för metadata')
-    for del_ in delkommandon(kommando):
+    delar = delkommandon(kommando)
+    skrivningar = 0
+    cwd = data.get('cwd')
+    for del_ in delar:
         try:
             ord_ = shlex.split(del_)
         except ValueError:
             ord_ = del_.split()
-        while ord_ and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*=.*', ord_[0]):
-            ord_ = ord_[1:]  # miljötilldelningar före kommandot
-        if not ord_ or Path(ord_[0]).name != 'git':
+        if not ord_:
             continue
+        gi = git_kommando(ord_)
+        if gi is None:
+            if INBADDAT.search(del_) or any(INBADDAT.search(o) for o in ord_ if ' ' in o):
+                neka('git inuti ett inbäddat skal eller en sträng (sh -c, eval, xargs …) nekas')
+            continue
+        ord_ = ord_[gi:]
         i, annan_katalog = 1, False
         while i < len(ord_) and ord_[i].startswith('-'):  # gits globala flaggor före underkommandot
             f = ord_[i]
@@ -172,6 +215,16 @@ def main():
         if i >= len(ord_):
             continue
         sub, args = ord_[i], ord_[i + 1:]
+        if sub not in LASANDE and sub not in SKRIVANDE:
+            neka('git %s nekas i obevakade körningar; tillåtet att skriva: add, commit, push' % sub)
+        if sub in SKRIVANDE:
+            skrivningar += 1
+            if skrivningar > 1:
+                neka('högst en git-skrivning (add, commit eller push) per kommando, så att varje steg prövas mot det som gäller när det körs')
+            if any(Path(shlex.split(d)[0] if d else '').name == 'cd' for d in delar if d.strip()):
+                neka('cd i samma kommando som en git-skrivning nekas')
+            if cwd and not Path(cwd).resolve().is_relative_to(ROOT):
+                neka('git-skrivningar bara i repot; sessionens arbetskatalog är %s' % cwd)
         if annan_katalog:
             # Läsa i en klon (git -C /tmp/kirurg/repo log -1) är ofarligt; skriva eller starta program är det inte.
             farliga = [a for a in args if a.startswith(('--output', '--open-files-in-pager', '--ext-diff', '--textconv'))
@@ -188,6 +241,10 @@ def main():
             utanfor = [v for v in vagar if not tillaten(v, prefix)]
             if utanfor:
                 neka('git add utanför det tillåtna (%s): %s' % (', '.join(prefix), ', '.join(utanfor)))
+            for v in vagar:  # det som köas prövas redan här: nästa kommando ser bara ett rent index
+                tr = hemlighet_i_fil(normaliserad(v))
+                if tr:
+                    neka('filen som ska köas innehåller något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
         elif sub == 'commit':
             vagar = commit_sokvagar(args)
             utanfor = [v for v in vagar if not tillaten(v, prefix)]
@@ -205,11 +262,12 @@ def main():
         elif sub == 'push':
             if args != ['origin', 'main']:
                 neka('bara "git push origin main" är tillåtet')
-            ut = filer_z(git('log', '--format=', '--name-only', '-z', 'origin/main..HEAD'))
+            # grenen main är det som pushas (inte HEAD); -m --first-parent tar med vad en merge-commit själv tillför
+            ut = filer_z(git('log', '--format=', '--name-only', '-z', '-m', '--first-parent', 'origin/main..refs/heads/main'))
             utanfor = sorted({f for f in ut if not tillaten(f, prefix)})
             if utanfor:
                 neka('utgående commits rör filer utanför det tillåtna (%s): %s' % (', '.join(prefix), ', '.join(utanfor)))
-            tr = hemlighet_i(git('log', '-p', '-U0', '--no-color', '--format=', 'origin/main..HEAD'))  # varje commits tillägg, inte nettodiffen
+            tr = hemlighet_i(git('log', '-p', '-U0', '--no-color', '--format=', '-m', '--first-parent', 'origin/main..refs/heads/main'))
             if tr:
                 neka('någon utgående commit lägger till något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
     return 0

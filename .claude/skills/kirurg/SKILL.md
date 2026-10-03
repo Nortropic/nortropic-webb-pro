@@ -202,7 +202,7 @@ Skriv postens id i registrets rad "Backlog". Vid "parkera" eller "nej" skapas in
 Posten genomförs aldrig av dig: ägaren startar en session och säger "implementera enligt backlog".
 
 **3. Commit.** Committa bara `kunskap/REGISTER.md` och en eventuell ny fil i `backlog/`, med meddelandet
-`Kirurg: <namn> <dom>`, och `git push origin main`. Inga andra filer.
+`Kirurg: <namn> <dom>`, och `git push origin main`. Inga andra filer. Ett git-kommando per Bash-anrop: add, commit och push var för sig, utan `&&`; commitvakten nekar kedjor och git bakom omslag.
 
 Egen innovation är välkommen: föreslå förbättringar av vårt arbetssätt som källan inspirerar till, även sådant ingen
 bett om. Högst ett sådant förslag per intag, som en egen backlogpost med `--kalla kirurg`.
