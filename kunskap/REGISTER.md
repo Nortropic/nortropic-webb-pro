@@ -3392,7 +3392,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   här
 - Förslag: inget för domen. Egen innovation: `kunskap/lansering.md` skrivs om för vår stack när en kund ska ut,
   utan kommandon mot verktyg som inte finns och med ett avsnitt för Vercel-steget som byggstandarden hänvisar till
-- Utfall: —
+- Utfall: kunskap/lansering.md omskriven för vår stack med avsnittet Vercel-steget 2026-10-03 (da5b58d); inget
+  driftsatt.
 - Backlog: ingen för domen; egen innovation B-20261003-skriv-om-kunskap-lansering-md-for-var-stack-den
 
 ### 2026-10-03 · AI LABS, "Every Level Of Claude Code Loop Engineering Explained" (YouTube PLyRe6Zk--8) · nej
@@ -3480,7 +3481,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   QR-kod bredvid knappen "Öppna vår sajt" (`dashboard/index.html` rad 212), så att ägaren svarar på
   frågeformulärets mobilfrågor ur en riktig telefon; dashboarden själv och alla POST förblir på 127.0.0.1. Kräver
   ägarens ja, eftersom den statiska visningen blir nåbar för andra på samma nätverk
-- Utfall: —
+- Utfall: knappen I telefonen i dashboarden 2026-10-03 (da2dd45): sajten på datorns nätverksadress som QR-kod, ritad
+  lokalt; dashboarden själv svarar bara på 127.0.0.1.
 - Backlog: ingen för domen; egen innovation B-20261003-agaren-domer-mobilen-i-en-riktig-telefon-dashboa
 
 ### 2026-10-03 · Jono Catliff, "Claude Code Web Design: 10 Years Covered In 66 Minutes" (YouTube 2Gda_ZvV1V4) · nej
@@ -3663,7 +3665,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget för videon eller repot. Egen innovation (backlog nedan): en fyndtyp "siffra" i copykontrollen som
   listar varje tal intill kunder, jobb, år, omdömen och procent med rad, så att det redaktionella passet kan kräva
   kvitto; ingen poäng, ingen grind, egna ord och ingen kod ur källan
-- Utfall: —
+- Utfall: fyndtypen siffra i copykontrollen 2026-10-03 (52cf90f): ett tal intill kunder, jobb, år, omdömen eller
+  procent rapporteras med rad för kvitto; ingen grind.
 - Backlog: B-20261003-copykontrollen-rapporterar-varje-siffra-bredvid (egen innovation; för videon och repot: ingen)
 
 ### 2026-10-03 · RoboNuggets, "25 Tricks to Level Up Claude Design in 13 Mins" (YouTube _SVU3oC4JX8) · nej
@@ -3759,7 +3762,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   86), och ingen fil i `kunskap/` eller bygg-sajt nämner dem (sökt). Lägg i `kunskap/referensjakt.md`, efter rad 27,
   ett stycke "Luckor ägaren pekat ut" med de tre, som sökingångar bygget ska pröva i rollen UX/funktion, inte som
   kvot eller facit; bygget öppnar dem som alla andra och skriver vad det såg
-- Utfall: —
+- Utfall: stycket Luckor ägaren pekat ut i kunskap/referensjakt.md 2026-10-03 (c3d91a2).
 - Backlog: B-20261003-referensjakt-md-far-ett-stycke-luckor-agaren-pek (egen innovation; för videon: ingen)
 
 ### 2026-10-03 · Websites for Normal People (Sebastian Koning), via ägarens genomgång i Google Docs · ta in
@@ -3868,7 +3871,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   telefonnumret och inskicket finns kvar." Demon ändras inte (mottagaren sparar och skickar ingenting, forfragan.md
   rad 25–27; ingen egen databas, `kunskap/formularsakerhet.md` rad 19); lagringen hör till Vercel-steget. Ingen egen
   innovation den här gången
-- Utfall: —
+- Utfall: spara först, mejla sedan, i kunskap/forfragan.md och byggstandarden 6.6 2026-10-03 (bab673e); demon
+  oförändrad.
 - Backlog: B-20261003-mottagaren-vid-lansering-sparar-forfragan-forst
 
 ### 2026-10-03 · Jack Roberts, "Claude Design Now Builds Beautiful $10,000 Websites (NO AI Slop)" (YouTube VwGrXe2ricE) + mshumer/Claude-of-Duty · nej
@@ -4109,7 +4113,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget. Egen innovation, inspirerad av punkt 8: vid lansering får verksamheten en egen sida "Så ändrar du på
   sajten" (vad de kan be om, hur, svarstid, vem som äger domän och konton i kundens ord), som en rad i
   `kunskap/byggstandard.md` 1.6 bredvid utvecklarens README; görs tillsammans med lanseringstextens omskrivning
-- Utfall: —
+- Utfall: kundens sida Så ändrar du på sajten i byggstandarden 1.6 och kunskap/lansering.md 2026-10-03 (da5b58d).
 - Backlog: ingen för domen; innovationspost B-20261003-vid-lansering-far-verksamheten-en-egen-sida-sa-a
 
 ### 2026-10-03 · Self-Made Web Designer (Chris Misterek), "6 EASY Tips to 10x Any Site's Design" (YouTube pbhLsV-Dyho) · nej
@@ -4195,7 +4199,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   Ägarens mall-lukt i L1–L3 satt i tjänstelistor, sektionsformer och sidfötter som "skulle passa vilken firma som
   helst" (`LARDOMAR.md` rad 29, 54, 78); ett motiv ur märket i just de elementen är det minsta som gör dem till
   verksamhetens
-- Utfall: —
+- Utfall: raden Motiv per riktning i bygg-sajt steg 5.1 och i ateljéns orkestratorprompt 2026-10-03 (376f7a0).
 - Backlog: ingen för domen; innovationspost B-20261003-varje-riktning-i-koncept-md-namnger-ett-aterkomm
 
 ### 2026-10-03 · Self-Made Web Designer (Chris Misterek), "The ONLY 6 Web Design Styles that Matter (2026)" (YouTube N1Cl5cYmegE) · nej
@@ -4434,5 +4438,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   eller installerat; klonen läst utifrån; inget fört vidare
 - Förslag: inget. Egen innovation: pröva JSON-LD mot schema.org:s vokabulär i `kontroller/seo_kontroll.py` (okänd
   typ eller egenskap, utgången egenskap), som Webstudios audit gör; posten nedan
-- Utfall: —
+- Utfall: SEO-kontrollen prövar JSON-LD mot schema.org:s vokabulär 2026-10-03 (1118d03): okänd typ eller egenskap och
+  egenskap som inte hör till typen är fynd, utgången term information; kontroller/data/schemaorg.json, CC BY-SA 3.0.
+  De sju byggenas JSON-LD gav inga fynd.
 - Backlog: B-20261003-prova-json-ld-mot-schema-org-s-vokabular-okand-t (egen innovation)

@@ -1,11 +1,13 @@
 ---
 id: B-20261003-copykontrollen-rapporterar-varje-siffra-bredvid
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Jack Roberts, Opus 5.5 Just 10X'd Claude Design (YouTube HOXrLsVqinY) + ItsssssJack/SlopMonster
 skapad: 2026-10-03
 prio: normal
 steg: steg 4 (innehåll före form), kontroller/copy_kontroll.py
+commit: 52cf90f
+andrad: 2026-10-03T09:50Z
 ---
 # Copykontrollen rapporterar varje siffra bredvid kunder, år, jobb, omdömen och procent med rad, så att det redaktionella passet kan kräva kvitto
 
@@ -14,3 +16,5 @@ steg: steg 4 (innehåll före form), kontroller/copy_kontroll.py
 **Förslag:** kontroller/copy_kontroll.py: en ny fyndtyp 'siffra' som rapporterar varje tal (inklusive +, procent och 'över') inom fem ord från kunder, uppdrag, jobb, projekt, år, omdömen, stjärnor, procent eller timmar, med riktningen 'kvitto i VERKSAMHET.json, omdömessidan eller källfilen; annars stryk'. En rad i tabellen i kunskap/copy-kontroll.md. Ingen poäng, ingen grind, som övriga fynd. Egna ord, ingen kod ur SlopMonster.
 
 **Klart när:** copy_kontroll.py på en INNEHALL.md med 'över 500 nöjda kunder' och 'sedan 2012' ger två fynd av typen siffra med rad; kontroller/rokprov.sh grönt; raden finns i copy-kontroll.md
+
+**Klar (2026-10-03):** fyndtypen siffra

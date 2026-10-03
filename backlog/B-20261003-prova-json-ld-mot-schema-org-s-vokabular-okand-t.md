@@ -1,11 +1,13 @@
 ---
 id: B-20261003-prova-json-ld-mot-schema-org-s-vokabular-okand-t
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · webstudio-is/webstudio
 skapad: 2026-10-03
 prio: normal
 steg: 6 (prov: seo_kontroll.py, byggstandarden 7.3)
+commit: 1118d03
+andrad: 2026-10-03T09:50Z
 ---
 # Pröva JSON-LD mot schema.org:s vokabulär: okänd typ, okänd eller utgången egenskap, egenskap som inte hör till typen
 
@@ -14,3 +16,5 @@ steg: 6 (prov: seo_kontroll.py, byggstandarden 7.3)
 **Förslag:** kontroller/seo_kontroll.py: hämta schema.org:s vokabulär en gång till kontroller/data/schemaorg.jsonld (CC BY-SA 3.0, licensen bredvid), och pröva varje @type mot klasserna och varje egenskap mot typen och dess föräldrar (rdfs:subClassOf, schema:domainIncludes); okänd typ eller egenskap = fel, utgången (schema:supersededBy) = info. Lägg en rad i kunskap/byggstandard.md 7.3 om att egenskaperna prövas mot vokabulären.
 
 **Klart när:** kontroller/rokprov.sh är grönt; ett JSON-LD-block med en påhittad egenskap (t.ex. telefonnummer) ger fel i seo_kontroll, och mallens BreadcrumbList och LocalBusiness-blocket passerar.
+
+**Klar (2026-10-03):** vokabulären i kontroller/data, CC BY-SA 3.0; sju byggen utan fynd

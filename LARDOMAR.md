@@ -126,7 +126,7 @@ och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunsk
 - **Bokadirekt visar att Sofia inte lägger ut tider för tillfället (skälet är en hälsouppgift, och den står inte på sajten). Sajten skriver 'Välj Sofia Lantz i bokningen. Syns inga tider hos henne, ring 0920-198 88.' Är det rätt nivå?** Nej, fråga salongen först
 - **På mobil står menyns sex länkar på en rad som rullar i sidled, med en toning i högerkanten. Alternativet är två rader, vilket gör sidhuvudet ungefär 160 px högt. Vilket?** Två rader
 
-**Ändring:** väntar (backlog B-20261003-dom-l4-salong-kreativ-nar-sajten-speglar-en-uppg)
+**Ändring:** 0ba099e och 3240409. Speglade uppgifter (utelämnade något): en uppgift som ägs av ett annat system eller en person står med källa och datum, rapporten anger regeln för hur den hålls aktuell, och en persons tider skrivs bara med verksamhetens beslut (steg 4). Mobilmenyn (rätt delar, fel form): korta etiketter på en rad, annars två rader, aldrig en rad som rullar dold i sidled; samma handling inte två gånger i första vyn när den fasta listen syns, numret högst två gånger (steg 5.3); stilrapporten mäter dolda menylänkar, numret och dubbla länkar i första vyn (på salong-kreativ: tre dolda länkar, numret tre gånger, Bokadirekt två gånger). Mallen (utelämnade något): sitemap utan noindex-sidor, telefonfältets pattern, felbesked som text vid fälten med aria-describedby, brödsmulorna före <main>; standarden prövar 6.2, 7.2 och 7.3. Öppettider eller telefontid på kontaktsidan, annars beställda. Mikroprov, fem Opus-armar per arm, två blinda Sonnet-domare i omvänd ordning: gamla texten brast i 4 av 5 (1 oavgjord), nya i 0 av 5 (1 oavgjord); cirka 0,8 M Opus- och 0,2 M Sonnet-tokens.
 
 ## L5 · 2026-10-03 · lulea-snickaren-abx
 
@@ -151,7 +151,7 @@ och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunsk
 - **På mobil syns numret i ringknappen och i den fasta listen längst ned, men inte i sidhuvudet (för att det annars stod tre gånger). Rätt?** Ja, dölj det i sidhuvudet
 - **Deras sajt säger Tallundsvägen 21, Luleå; Bolagsverket och hitta.se säger Tallvägen 22, Gammelstad (Dans hemadress). Jag visar ingen gatuadress och har beställt svaret. Rätt val, eller hade du visat sajtens adress?** Rätt, dölj tills bekräftad
 
-**Ändring:** väntar (backlog B-20261003-dom-l5-lulea-snickaren-abx-infor-en-kallkontroll)
+**Ändring:** 0ba099e. Tredje part (kände regeln men hoppade över den): varje mening som nämner en plattform, ett register, en certifiering, en leverantör eller en kund har sin källa i RESEARCH.md och länken går till samma källa; ett omdöme anges med den plattform länken går till (steg 4). Adressen (ska bero på läget): adress.publik är false när källorna säger olika eller den ena är en hemadress, och adressen beställs (steg 1, research-underlag.md, byggstandarden 7.4). Sidhuvudet: korta etiketter på en rad (steg 5.3, stilrapporten). Mikroprovet för adressen, se L6.
 
 ## L6 · 2026-10-03 · lulea-snickaren-aby
 
@@ -175,4 +175,4 @@ och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunsk
 - **/renovering/ har ingen toppbild; byggserien från Trundön börjar direkt under rubriken, så att samma foto inte står två gånger. Rätt?** Ja, serien räcker
 - **Tacksidan lovar 'Dan ringer upp dig, oftast inom en till två arbetsdagar', från deras gamla sajt (2021), och svarstiden står i beställningen. Ska ett bygge använda en sådan gammal uppgift i väntan på svar, eller hellre skriva 'Dan ringer upp dig' utan tid?** Använd deras gamla uppgift och beställ bekräftelse
 
-**Ändring:** väntar (backlog B-20261003-dom-l6-lulea-snickaren-aby-publicera-aldrig-en-u)
+**Ändring:** 0ba099e. Obekräftade uppgifter (ska bero på läget): en uppgift som bygget självt har flaggat som obekräftad står inte på sajten eller i JSON-LD förrän svaret kommit; verksamhetens egna gamla uppgifter får stå medan bekräftelsen är beställd (Ramar i bygg-sajt). standard_kontroll ger fel 7.4 när en adress som inte är publik ändå står på en sida. "Från vår gamla sajt" fångas redan av copykontrollens intern information (b79ae56). Mikroprov, fem Opus-armar per arm, två blinda Sonnet-domare: gamla texten publicerade den obekräftade adressen i 4 av 5 (1 oavgjord, en domare läste fel), nya i 0 av 5; cirka 0,7 M Opus- och 0,14 M Sonnet-tokens.

@@ -1,11 +1,13 @@
 ---
 id: B-20261003-referensjakt-md-far-ett-stycke-luckor-agaren-pek
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · RoboNuggets, 25 Tricks to Level Up Claude Design (YouTube _SVU3oC4JX8)
 skapad: 2026-10-03
 prio: normal
 steg: 3 (referenser), kunskap/referensjakt.md
+commit: c3d91a2
+andrad: 2026-10-03T09:50Z
 ---
 # referensjakt.md får ett stycke 'Luckor ägaren pekat ut': svensk hantverkarreferens för förtroendeblocket, daterad bildserie på mobil och resultat med få bilder, som sökingångar i rollen UX/funktion
 
@@ -14,3 +16,5 @@ steg: 3 (referenser), kunskap/referensjakt.md
 **Förslag:** kunskap/referensjakt.md, efter rad 27 (stycket om gallerier som sökingångar): ett stycke 'Luckor ägaren pekat ut' med de tre, skrivna som sökingångar bygget prövar i rollen UX/funktion när briefen bär ett förtroendeblock, en daterad bildserie eller få bilder; ingen kvot, inget facit; bygget öppnar dem med inspektera.mjs som alla andra och skriver i REFERENSER.md vad det såg.
 
 **Klart när:** Stycket finns i kunskap/referensjakt.md; nästa bygge åt en hantverkare redovisar i REFERENSER.md en svensk förtroendereferens eller skriver varför ingen passade.
+
+**Klar (2026-10-03):** stycket Luckor ägaren pekat ut
