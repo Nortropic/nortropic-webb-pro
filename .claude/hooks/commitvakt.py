@@ -14,10 +14,12 @@ Interaktiva sessioner påverkas inte. Läser kommandot ur hookens JSON på stdin
     sökvägarna (varje commit räknas, inte bara skillnaden mellan slutträden)
   - git -c (en inställning kan starta program); -C, --git-dir och --work-tree bara för läsande kommandon
   - git bakom ett omslag (command, env, nice, exec …) prövas som git; git inuti ett inbäddat skal (sh -c, eval, xargs)
-    nekas; cd i samma kommando som en git-skrivning nekas, och git-skrivningar nekas när sessionens arbetskatalog
-    ligger utanför repot (hookens cwd); högst en git-skrivning (add, commit eller push) per kommando, så att varje steg
-    prövas mot det tillstånd som gäller när det körs; andra skrivande underkommandon (merge, stash, rm, pull …) nekas
-  - push prövar grenen main (refs/heads/main) mot origin/main, inte HEAD, och räknar in merge-commits
+    nekas; en git-skrivning (add, commit eller push) måste vara hela kommandot, utan andra delar före eller efter
+    (inget &&, ;, |, & eller radbrytning), så att varje steg prövas mot det tillstånd som gäller när det körs och inget
+    cd kan smugglas in i samma anrop; git-skrivningar nekas när sessionens arbetskatalog ligger utanför repot (hookens
+    cwd); andra skrivande underkommandon (merge, stash, rm, pull …) nekas
+  - push prövar grenen main (refs/heads/main) mot origin/main, inte HEAD, går igenom varje utgående commit också på
+    sidogrenar, och tar merge-commitens egen diff mot första föräldern
   - en hemlighet (API-nyckel, privat nyckel, nyckelrad ur en .env-fil) i det som ska committas (index och, vid
     sökvägar på kommandoraden, arbetskopian) eller i någon utgående commits tillagda rader; bara fil, rad och
     nyckeltyp rapporteras, aldrig värdet
@@ -94,9 +96,17 @@ def filer_z(ut):
     return [f for f in ut.split('\0') if f]
 
 
+AVGRANSARE = re.compile(r'&&|\|\||;|\||&|\n')  # samma avgränsare som Claude Codes egen behörighetskontroll, också ensamt &
+
+
 def delkommandon(kommando):
-    # Dela på ; && || | och radbrytning; varje del prövas för sig.
-    return [d.strip() for d in re.split(r'&&|\|\||;|\||\n', kommando) if d.strip()]
+    # Dela på ; && || | & och radbrytning; varje del prövas för sig (omgång fyra, F3: ensamt & räknas).
+    return [d.strip() for d in AVGRANSARE.split(kommando) if d.strip()]
+
+
+def sammansatt(kommando):
+    """Har kommandot någon avgränsare alls, också en avslutande (git push origin main & körs i bakgrunden)?"""
+    return len(AVGRANSARE.split(kommando)) > 1
 
 
 def commit_sokvagar(args):
@@ -219,10 +229,8 @@ def main():
             neka('git %s nekas i obevakade körningar; tillåtet att skriva: add, commit, push' % sub)
         if sub in SKRIVANDE:
             skrivningar += 1
-            if skrivningar > 1:
-                neka('högst en git-skrivning (add, commit eller push) per kommando, så att varje steg prövas mot det som gäller när det körs')
-            if any(Path(shlex.split(d)[0] if d else '').name == 'cd' for d in delar if d.strip()):
-                neka('cd i samma kommando som en git-skrivning nekas')
+            if sammansatt(kommando):
+                neka('git %s måste vara hela kommandot: inga andra delar före eller efter (&&, ;, |, & eller radbrytning); kör ett steg i taget' % sub)
             if cwd and not Path(cwd).resolve().is_relative_to(ROOT):
                 neka('git-skrivningar bara i repot; sessionens arbetskatalog är %s' % cwd)
         if annan_katalog:
@@ -262,12 +270,14 @@ def main():
         elif sub == 'push':
             if args != ['origin', 'main']:
                 neka('bara "git push origin main" är tillåtet')
-            # grenen main är det som pushas (inte HEAD); -m --first-parent tar med vad en merge-commit själv tillför
-            ut = filer_z(git('log', '--format=', '--name-only', '-z', '-m', '--first-parent', 'origin/main..refs/heads/main'))
+            # grenen main är det som pushas (inte HEAD); varje utgående commit räknas, också på sidogrenar, och en
+            # merge-commit visar sin egen diff mot första föräldern (--diff-merges, inte --first-parent: det senare hoppar
+            # över sidogrenens commits; omgång fyra, F27)
+            ut = filer_z(git('log', '--format=', '--name-only', '-z', '--diff-merges=first-parent', 'origin/main..refs/heads/main'))
             utanfor = sorted({f for f in ut if not tillaten(f, prefix)})
             if utanfor:
                 neka('utgående commits rör filer utanför det tillåtna (%s): %s' % (', '.join(prefix), ', '.join(utanfor)))
-            tr = hemlighet_i(git('log', '-p', '-U0', '--no-color', '--format=', '-m', '--first-parent', 'origin/main..refs/heads/main'))
+            tr = hemlighet_i(git('log', '-p', '-U0', '--no-color', '--format=', '--diff-merges=first-parent', 'origin/main..refs/heads/main'))
             if tr:
                 neka('någon utgående commit lägger till något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
     return 0
