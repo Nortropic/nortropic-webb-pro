@@ -1694,7 +1694,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   lägg till `kontext_max` (största summan av input, cache_creation och cache_read i ett meddelande) och
   `over_halva` (antal meddelanden över halva modellens fönster), så att de står i A/B-posten och i LARDOMAR.md:s
   AB-rad bredvid turer och minuter. Ingen regel, bara mätning: när fem par finns syns om ägarens val följer djupet
-- Utfall: —
+- Utfall: ab.py mäter kontext_max och over_halva 2026-10-03; paret lulea-snickaren-abx/-aby 694 131/243 och 563
+  203/79 ur loggarna.
 - Backlog: ingen för källan; egen innovation: B-20261002-mat-kontextdjupet-per-bygge-i-a-b-posten-storsta
 
 ### 2026-10-02 · pbakaus/impeccable · ta in
@@ -1808,7 +1809,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   `MODELLENS_STANDARDVAL` (rad 26–37): en rad "typsnitt modellerna faller tillbaka på" med de 17 och 16 namnen utan
   dubbletter. Rökprovet grönt. Egen innovation: `kritik/GRANSKARE.md` "Så granskar du": betygen på designkvalitet och
   originalitet sätts innan stilrapporten och copykontrollens rapport öppnas; de läses sist och lägger bara till fynd
-- Utfall: —
+- Utfall: fem renderade mönster i stilrapporten och modellernas standardtypsnitt i UPPTAGNA-VAL.md 2026-10-03.
+  Betygsordningen (egen innovation): se den posten.
 - Backlog: B-20261002-stilrapporten-mater-fem-renderade-monster-ur-imp; egen innovation:
   B-20261002-granskaren-satter-originalitetsbetyget-innan-hen
 
@@ -1915,7 +1917,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   nästa mening; (3) variera rättningarna: skriv om ur sakuppgiften i underlaget, aldrig med synonym, och blir samma
   konstruktion rättning två gånger på en sida är den ett nytt mönster. `KALLA.md` får en rad om källan och
   commiten. Ingen ny mekanik i `copy_kontroll.py`
-- Utfall: —
+- Utfall: tre regler i humanizerns förord 2026-10-03 (tak per sektion, strängare kort text, skriv om ur
+  sakuppgiften); KALLA.md nämner ai-tells @ 13c3832.
 - Backlog: B-20261002-tre-regler-ur-ai-tells-i-humanizerns-forord-tak
 
 ### 2026-10-02 · gohugoio/hugo · nej
@@ -1984,7 +1987,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   KaTeX-bundlen (eval) och byggskript för wasm, väntat för en generator med utvecklingsserver. Inget kördes eller
   installerades
 - Förslag: inget för Hugo. Egen innovation: fotodatum med källa per bild i steg 1 (se backlog)
-- Utfall: —
+- Utfall: kontroller/bilddatum.py 2026-10-03 (EXIF DateTimeOriginal, telefonens filnamn, GPS-notering) och
+  datumkolumn i BILDER.md; standarden 4.2 fäller publicerade bilder med GPS-läge.
 - Backlog: B-20261002-bilder-md-anger-nar-varje-egen-bild-togs-ur-exif (egen innovation)
 
 ### 2026-10-02 · unclecode/crawl4ai · nej
@@ -2056,7 +2060,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   inga hookar, inga MCP-servrar, ingen SKILL.md. Inget kördes eller installerades
 - Förslag: inget för crawl4ai. Egen innovation: SIDOR.md sorterar bildlistan med källans billiga regler, foton först
   (se backlog)
-- Utfall: —
+- Utfall: SIDOR.md sorterar bildlistan efter trolig typ 2026-10-03 (foto, okänd, logga/ikon); luleasnickaren.se 16
+  foto, 1 okänd, 6 logga/ikon.
 - Backlog: B-20261002-sidor-md-sorterar-bildlistan-troliga-foton-forst (egen innovation)
 
 ### 2026-10-02 · sdmg15/Best-websites-a-programmer-should-visit · nej
@@ -2106,7 +2111,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   gem och npm-paket i CI [REPO .travis.yml rad 9–13]; inget kördes eller installerades.
 - Förslag: inget för källan. Egen innovation: provet listar sajtens utgående länkar och om de svarar, med vitlista
   (se backlog).
-- Utfall: —
+- Utfall: provet listar utgående länkar och deras svar 2026-10-03 (standard.md, STATUS.json, rapportens punkt 14).
 - Backlog: B-20261002-provet-listar-sajtens-utgaende-lankar-och-om-de (egen innovation)
 
 ### 2026-10-02 · withastro/astro · prova
@@ -2188,7 +2193,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   `.claude/skills/bygg-sajt/SKILL.md` rad 38–42 flyttar filen till `src/assets/fonts/` och låter API:t skriva reserv
   och preload. Prövas i nästa bygge mot provet, CSP-konsolen och Lighthouse-CLS (se backlog). Egen innovation: provet
   stoppar när ett självhostat typsnitt saknar reserv med size-adjust (se backlog)
-- Utfall: —
+- Utfall: standarden 4.3 kräver reservtypsnitt med size-adjust i stacken, och mallen använder Astros typsnitts-API
+  2026-10-03 (provbygge grönt, CSP 0, CLS 0, reserv 104,5 % ur filen).
 - Backlog: B-20261002-prova-astros-inbyggda-typsnitts-api-fonts-i-astr (prova),
   B-20261002-provet-stoppar-nar-ett-sjalvhostat-typsnitt-sakn (egen innovation)
 
@@ -2552,7 +2558,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   text och luft delar en skala ur bas och kvot som CSS-variabler (byggstandarden 3.1); en sektion byter form vid sin
   egen tröskel (container query eller flex-basis mot en bredd ur skalan), media queries bara för besökarens
   preferenser. Källa i raden: Bell & Pickering (2019), Every Layout
-- Utfall: —
+- Utfall: tre layoutregler ur Every Layout i kunskap/bygge-referens.md 2026-10-03.
 - Backlog: B-20261002-skriv-tre-layoutregler-i-bygge-referens-md-layou (egen innovation; domen om källan är nej)
 
 ### 2026-10-02 · react-hook-form/react-hook-form · nej
@@ -2607,7 +2613,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   svenskt besked ur ett data-attribut på fältet när `validity.valueMissing`, annars tomt; bygget skriver beskeden i
   verksamhetens ord. `kunskap/forfragan.md` efter rad 18: en rad om att felmeddelandena vid fältet är svenska med
   JavaScript och webbläsarens egna utan. POST utan JS påverkas inte
-- Utfall: —
+- Utfall: mallens formulär ger svenska besked vid tomt fält med setCustomValidity 2026-10-03, prövat i engelsk
+  webbläsare med och utan JavaScript.
 - Backlog: B-20261002-mallens-formular-ger-svenska-felmeddelanden-vid (egen innovation; domen om källan är nej)
 
 ### 2026-10-02 · AI LABS, "He Finally 10x Claude Code With This Method" (YouTube qLfSDQ5NGh0) · ta in
@@ -2674,7 +2681,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   det var rättat i slutfilen; uppdragstexten (rad 52–55) får en mening om att ett fel som rättas inom bygget men
   återkommer i nästa bygge räknas som en kategori, inte som löst. Docstringen (rad 2–4) nämner omgångarna.
   Rökprovet ska sluta grönt, och `--torr` ska visa omgångsfynden för de befintliga byggena
-- Utfall: —
+- Utfall: gruppera.py läser varje omgångs blockerande fynd 2026-10-03, med omgång och om felet rättades före sista
+  omgången.
 - Backlog: B-20261002-gruppera-py-laser-granskarens-blockerande-fynd-p
 
 ### 2026-10-03 · AI LABS, "How To Use Claude Code To Build Amazing Sites With Opus 5.5" (YouTube DP7mgLUKN_U) · nej
@@ -2762,7 +2770,7 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   A/B 2026-10-02 ut A:s menylänkar i två rader som det som gjorde första vyn sämre (`LARDOMAR.md` rad 102); skillen
   säger nu "menyn på en rad" (bygg-sajt rad 222) men inget mäter det, och ingen kontroll ser en knapptext eller
   brödsmula som bryts
-- Utfall: —
+- Utfall: stilrapporten varnar för klickbar text på två rader i 390 2026-10-03.
 - Backlog: B-20261002-stilrapporten-varnar-nar-klickbar-text-menylank (eget förslag; ingen post för källan)
 
 ### 2026-10-03 · AI LABS, "Insane Jev Use Cases You Need To Use Right Now" (YouTube 2nc_QMuNp18) · nej
@@ -2925,7 +2933,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   kvaliteten redovisas tokens och minuter ur `korning-*.jsonl` och antalet Inspo-anrop. Avgörs av ägarens val och
   JAMFORELSE.md under 1 och 4. Eget förslag ur källan utan egen post: de mätta talen (80–160 px mellan sektioner,
   median 96) blir trösklarna i den vilande impeccable-posten när den genomförs
-- Utfall: —
+- Utfall: reglaget NWP_MCP_CONFIG och variabeln inspo i ab.py 2026-10-03 (av som standard, tre läsande verktyg);
+  A/B:n väntar på ägaren.
 - Backlog: B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for
 
 ### 2026-10-03 · AI LABS, "Insane Claude Design Skills You Need To Actually Build Beautiful Sites" (YouTube Ysr7oNDajJI) + jakubkrehel/skills · ta in
@@ -3086,7 +3095,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   `.claude/skills/bygg-sajt/SKILL.md` steg 5 punkt 5, efter rad 252, en mening som pekar på better-layout för
   dimension 4 och better-typography och better-ui för hantverket innan JAMFORELSE.md skrivs. interface-review,
   variant, break och explain-interface tas inte med. Inget ur de övriga sex
-- Utfall: —
+- Utfall: sju better-skills i verktygslådan 2026-10-03 med svenskt förord, LÅG i förgranskningen; steg 5.5 pekar på
+  better-layout, better-typography och better-ui.
 - Backlog: B-20261002-ta-in-jakubkrehel-skills-better-layout-better-ty
 
 ### 2026-10-03 · AI LABS, "4 Ways to Actually Build Stunning Websites with Claude Code" (YouTube HqD5a2Cae60) · nej
