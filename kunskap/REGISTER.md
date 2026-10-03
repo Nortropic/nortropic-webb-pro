@@ -3327,3 +3327,70 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Mikey No Code, "The Easiest Way to Build & Host a Website with Claude Code (Full Tutorial)" (YouTube 8F953MNwqII) · nej
+- Källa: https://www.youtube.com/watch?v=8F953MNwqII, publicerad 2026-08-14 enligt videons metadata, 35:17, cirka
+  120 900 visningar, autogenererat engelskt transkript, YouTubes standardlicens. Läst hela transkriptet och 35 av 63
+  bildrutor: alla som visar prompterna, agentens svar, sajten, hosting.com, WHM, Cloudflare och cPanel; de övriga är
+  talande huvud eller textplanscher enligt tidslinjen. Dessutom 15 av 43 täta rutor 28:15–29:39 (mobilprovet) och 6 av
+  36 täta rutor 31:30–32:40 (den publicerade sajten). Enda länken i beskrivningen är en affiliatelänk till hosting.com
+  med rabattkod; den öppnades inte. Ägarens not: ingen
+- Steg: 5 (bygge), 6 (prov) och lanseringen (fas L i byggstandarden, `kunskap/lansering.md`)
+- Jämfört med i dag: (1) **Värden:** en ohanterad Linux-VPS hos hosting.com med WHM och cPanel, där ägaren själv
+  ansvarar för rootlösenord, uppdateringar och säkerhetskopior [TAL 02:51–03:58, 15:44–16:16; SKÄRM 06:22, 13:48,
+  15:30], och sajten laddas upp genom att dra filerna till public_html [TAL 29:33–30:39; SKÄRM 29:58, 30:42]. Vi:
+  statisk Astro med förhandsvisning per gren och noindex som svarshuvud, CDN och hashade filer, HSTS och kanonisk
+  värd i Vercel-steget (`kunskap/byggstandard.md` 1.4, 4.5, 4.6, 8.1, rad 28, 62–63, 108), återgång genom att peka
+  tillbaka till föregående driftsättning (`kunskap/lansering.md` rad 111–112). En VPS flyttar månadens patchrunda
+  (1.5, rad 29) och säkerhetshuvudena (8.2, rad 109) till ägaren och ger ingen förhandsvisning per ändring. Sämre, och
+  sponsrat. (2) **DNS:** namnservrarna flyttas till Cloudflare, A-post för roten och ett jokertecken, proxyn av [TAL
+  07:16–10:51; SKÄRM 08:36, 10:24]. Vi: standardvägen är att bara ändra webbposterna hos nuvarande DNS-värd,
+  ett namnserverbyte kräver att hela zonen återskapas ur en zonexport, TTL sänks före bytet och ingen session gör
+  DNS-ändringar (`kunskap/lansering.md` rad 11–17). För en hantverkare med e-post på domänen är videons väg den
+  riskablare. Sämre. (3) **Bygget:** fyra prompter i lager, toppsektion, om och kunskaper, projekt och kontakt, meny
+  och sidfot, med "match the existing design and do not change the hero" [TAL 18:25–18:58, 21:13–28:15; SKÄRM 22:19,
+  24:42, 26:34, 28:16], och innehållet sist: "replace the placeholder content with your own real bio" [TAL 34:13].
+  Vi: innehåll före form (steg 4, `.claude/skills/bygg-sajt/SKILL.md` rad 172–193), KONCEPT.md med fyra riktningar och
+  exakt specifikation före kod (rad 208–220), alla sidor ur INNEHALL.md (rad 224). Litteraturen säger content first
+  och mobile first (Wroblewski 2011; Halvorson & Rach 2012; `kunskap/teoretisk-grund.md` rad 34–35). Lagerprompterna
+  är ett sätt för en människa att styra i små steg; obevakat bygger vår byggare ur specifikationen och itererar mot
+  snabbprov och granskare. Sämre. (4) **Resultatet med egna ögon:** mörkblå bakgrund med elektriskt blå accent, Inter
+  från Google Fonts, animerad partikelcanvas, spärrad versaletikett "HI, MY NAME IS", gradienttonat namn, numrerade
+  rubriker 01–04, tolv likadana kunskapskort och tre likadana projektkort där "View Project" länkar till # [SKÄRM
+  22:45, 23:10, 24:42, 26:34, 28:16, 32:08, 32:16]. Det är modellens standardval 2, 4 och 7 i
+  `kontroller/upptagna_val.py` rad 28, 30, 33 och "likadana kort i rad" i `kritik/GRANSKARE.md` rad 88; Google Fonts
+  är en tredjepartsresurs vid sidladdning (4.4, rad 61). Agenten skriver själv att projekten är platshållare och att
+  formuläret "doesn't send anywhere yet" [SKÄRM 28:16]; allt innehåll är fiktivt, Alex Morgan med sex års erfarenhet
+  och "thousands of users" [SKÄRM 32:00]. Sämre. (5) **Formuläret:** klientsidig validering i JS utan mottagare
+  [SKÄRM 28:16, 32:24]. Vi: vanlig POST utan JS till demomottagaren, honeypot och tidsfälla, tacksida (6.1–6.7, rad
+  84–90). Sämre. (6) **Provet:** agenten tar skärmbild och läser konsolen i Claude Browser och skrev en egen statisk
+  server när file:// inte laddade CSS [SKÄRM 22:45, 23:10]; berättaren klickar igenom menylänkarna [TAL 28:27–29:33].
+  Mobilprovet som talet beskriver syns inte i någon av de 43 rutorna varannan sekund 28:15–29:39: skärmen visar
+  desktopvyn av kunskapskorten och sedan berättaren. Vi: axe, Lighthouse, spill 320–1920, standardgrinden,
+  stilrapporten och två oberoende granskare (bygg-sajt rad 265–272, 287). Sämre. (7) **Lanseringsgapet** är videons
+  bärande poäng: "every other tutorial stops" vid localhost [TAL 00:00–01:08]. Hos oss är det sant att inget bygge
+  har lanserats, att `kunskap/lansering.md` hänvisar till verktyg som inte finns i repot (verktyg/lansering.py,
+  verktyg/sokkonsol.py, MANDAT.md; sökt 2026-10-03) och att "Vercel-steget" nämns fem gånger i byggstandarden utan
+  egen text. Ägaren har sagt "då väntar vi med det" om Vercel (`BESLUT.md` rad 102). Videons lösning är ändå fel väg;
+  gapet stängs med vår egen text, som egen backlogpost nedan
+- Skäl: videon lovar "a complete, professional portfolio website" [TAL 18:25] och ägnar sexton minuter åt att köpa en
+  server, flytta namnservrar och klicka i WHM och cPanel, allt för en värd som sponsrar videon [BESKRIVNING; TAL
+  05:37, 34:29]. Det som sedan byggs på tretton minuter är modellens husstil med fiktivt innehåll: en ensidig
+  portfölj i mörkblått med partiklar, Inter, versaletikett, numrerade rubriker och femton likadana kort, där agenten
+  själv kallar projekten platshållare och formuläret oanslutet [SKÄRM 28:16, 32:08, 32:16]. Sak för sak är varje
+  metod sämre än vår eller krockar med ett medvetet val: en VPS i stället för statisk värd med förhandsvisning och
+  återgång, namnserverflytt i stället för webbposter hos nuvarande värd, form före innehåll i stället för innehåll
+  före form, JS-formulär utan mottagare i stället för POST utan JS, ögonmått i stället för prov och oberoende
+  granskare. Det enda som är rätt, att en sajt inte är klar förrän den svarar på en riktig domän, är ett gap hos oss
+  också, men det löses med en text för vår stack, inte med videons. Källkritik: sponsrad av hosting.com med
+  affiliatelänk och rabattkod, verksamheten är påhittad, "thousands of people" är berättarens ord [TAL 00:00], och
+  mobilprovet påstås men visas inte. Inga instruktioner till agenter
+- Kostnad: inget tas in. Som jämförelse: Pro-planen visade "Approaching session usage limit" efter fyra prompter på en
+  ensidig sajt [SKÄRM 28:16, 28:17]; modellen i appen var Fable 5 på hög nivå [SKÄRM 22:19, 22:45]
+- Säkerhet: ej tillämpligt (video; bara transkript och bildrutor hämtade, inget klonat, kört eller installerat).
+  Videon visar serverns IP-adress och var rootlösenordet står i värdens panel [SKÄRM 06:22]; inget av det förs vidare
+  här
+- Förslag: inget för domen. Egen innovation: `kunskap/lansering.md` skrivs om för vår stack när en kund ska ut,
+  utan kommandon mot verktyg som inte finns och med ett avsnitt för Vercel-steget som byggstandarden hänvisar till
+- Utfall: —
+- Backlog: ingen för domen; egen innovation B-20261003-skriv-om-kunskap-lansering-md-for-var-stack-den
