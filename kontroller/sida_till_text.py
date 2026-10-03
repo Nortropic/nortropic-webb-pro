@@ -15,6 +15,10 @@ from hamta_sajt import UA_NAMN, Sida, avkoda, hamta, las_robots, textfil  # noqa
 
 
 def sida_till_text(url, ut):
+    ut = Path(ut)
+    html_fil, txt_fil = ut.with_suffix('.html'), ut.with_suffix('.txt')  # samma objekt prövas och skrivs (omgång sju, F1)
+    krav_vag(html_fil, 'utfilen')  # före robots och hämtning: skrivmålen är kända redan här
+    krav_vag(txt_fil, 'utfilen')
     s = urllib.parse.urlsplit(url)
     if s.scheme not in ('http', 'https'):
         raise SystemExit('väntade en http(s)-adress')
@@ -35,17 +39,15 @@ def sida_till_text(url, ut):
             lankar.append((urllib.parse.urldefrag(urllib.parse.urljoin(slut, href))[0], ltext))
     bilder = [(urllib.parse.urljoin(slut, src.strip()), alt, kalla) for src, alt, kalla in p.bilder
               if src and not src.strip().startswith(('data:', '#'))]
-    ut = Path(ut)
     ut.parent.mkdir(parents=True, exist_ok=True)
-    ut.with_suffix('.html').write_bytes(svar['data'])
+    html_fil.write_bytes(svar['data'])
     text = p.ren_text()
-    ut.with_suffix('.txt').write_text(textfil(slut, svar, p, text, lankar, kontakter, bilder), encoding='utf-8')
-    return {'ut': str(ut.with_suffix('.txt')), 'ord': len(text.split()), 'titel': ' '.join(p.titel.split())}
+    txt_fil.write_text(textfil(slut, svar, p, text, lankar, kontakter, bilder), encoding='utf-8')
+    return {'ut': str(txt_fil), 'ord': len(text.split()), 'titel': ' '.join(p.titel.split())}
 
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         raise SystemExit(__doc__)
-    for mal in (sys.argv[2], sys.argv[2] + '.html', sys.argv[2] + '.txt'):  # de faktiska skrivmålen (omgång sex, F1)
-        krav_vag(mal, "utfilen")
+    krav_vag(sys.argv[2], "utkatalogen")  # de faktiska filerna prövas inne i funktionen, med samma with_suffix som skriver dem
     print(sida_till_text(sys.argv[1], sys.argv[2]))

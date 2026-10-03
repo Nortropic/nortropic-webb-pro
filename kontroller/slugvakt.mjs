@@ -16,22 +16,28 @@ function arLank(p) {
   try { return lstatSync(p).isSymbolicLink(); } catch { return false; }
 }
 
-// Den verkliga sökvägen: varje led prövas med lstat; en symlänk byts mot sitt innehåll (relativt sin katalog) och
-// upplösningen fortsätter därifrån, också när målet inte finns (omgång sex, F1: existsSync såg en hängande länk som ett
-// nytt namn). path.resolve följer inga symlänkar alls.
+// Den verkliga sökvägen, led för led som filsystemet gör det: inget förenklas i förväg. Varje led prövas med lstat; en
+// symlänk byts mot sitt innehålls led (absolut: från roten; relativ: från länkens katalog) och . och .. hanteras först
+// när de nås, efter föregående symlänk (omgång sju, F1: resolve() tog bort .. innan länkarna följts, så upp/../annat
+// såg ut att stanna i katalogen). Målet behöver inte finnas (omgång sex: hängande länkar).
+function led(p) {
+  return String(p).split(sep).filter((x) => x.length > 0);
+}
+
 function verklig(p) {
-  let kvar = resolve(String(p)).split(sep).filter(Boolean);
+  const s = String(p);
+  let kvar = isAbsolute(s) ? led(s) : led(process.cwd()).concat(led(s));
   let cur = sep;
   let lankar = 0;
   while (kvar.length) {
-    const led = kvar.shift();
-    const nxt = join(cur, led);
+    const namn = kvar.shift();
+    if (namn === '.') continue;
+    if (namn === '..') { cur = cur === sep ? sep : dirname(cur); continue; }
+    const nxt = cur === sep ? sep + namn : cur + sep + namn;
     if (arLank(nxt)) {
       if (++lankar > MAX_LANKAR) throw new Error('för många symlänkar i ' + p);
       const mal = readlinkSync(nxt);
-      const absolut = isAbsolute(mal) ? mal : join(cur, mal);
-      kvar = resolve(absolut).split(sep).filter(Boolean).concat(kvar);
-      cur = sep;
+      if (isAbsolute(mal)) { cur = sep; kvar = led(mal).concat(kvar); } else { kvar = led(mal).concat(kvar); }
       continue;
     }
     cur = nxt;
