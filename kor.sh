@@ -57,7 +57,13 @@ if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
     "$ROOT/kontroller/mcp/mobbin.json") INSPO=(mcp__mobbin__search_screens mcp__mobbin__search_flows mcp__mobbin__search_sections);;
     "$ROOT/kontroller/mcp/refero.json") INSPO=(mcp__refero__refero_search_styles mcp__refero__refero_get_style mcp__refero__refero_search_screens
                                                mcp__refero__refero_get_screen mcp__refero__refero_get_similar_screens mcp__refero__refero_get_screen_image
-                                               mcp__refero__refero_search_flows mcp__refero__refero_get_flow);;
+                                               mcp__refero__refero_search_flows mcp__refero__refero_get_flow)
+      # Refero ansluts med en personlig nyckel (ingen webbläsarinloggning): anslutningsfilen bär ${REFERO_MCP_TOKEN},
+      # värdet ligger i ägarens hemlighetsmapp och exporteras bara till byggets claude-process. Aldrig i repot.
+      REFERO_ENV="$HOME/.nortropic-hemligheter/webb-pro/refero.env"
+      [ -f "$REFERO_ENV" ] || { echo "Refero: $REFERO_ENV saknas (REFERO_MCP_TOKEN=…, chmod 600)"; exit 2; }
+      set -a; . "$REFERO_ENV"; set +a
+      [ -n "${REFERO_MCP_TOKEN:-}" ] || { echo "Refero: REFERO_MCP_TOKEN saknas i $REFERO_ENV"; exit 2; };;
     *) echo "NWP_MCP_CONFIG: okänd anslutning $MCP_VERKLIG; kända: $ROOT/kontroller/mcp/inspo.json, mobbin.json, refero.json"; exit 2;;
   esac
 fi
