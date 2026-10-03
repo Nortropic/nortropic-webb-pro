@@ -72,7 +72,8 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    andra domäner (namnet med .se, .com och .nu, adressen på bilen och i katalogerna) och läs dem som egna källor; två
    levande domäner är ett fynd för rapporten. I lulea-snickaren-abx låg det mesta egna materialet på den äldre
    domänen.
-2. **Bilder:** ladda ner verksamhetens egna bilder (bildlistan i `kalla/SIDOR.md` och deras kanaler) med
+2. **Bilder:** ladda ner verksamhetens egna bilder (raderna märkta foto i `kalla/SIDOR.md`, titta på dem märkta okänd,
+   och deras kanaler) med
    `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil, källa,
    vad bilden visar, datum, kvalitet. Datumet och dess källa (EXIF, filnamn eller okänt) ger `.venv/bin/python
    kontroller/bilddatum.py underlag/<slug>/bilder`; daterade jobbilder kan bära en sektion. Inga stockbilder. Räkna de användbara: färre än fem, eller saknas den som kommer hem

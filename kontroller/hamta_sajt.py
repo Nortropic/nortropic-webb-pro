@@ -40,12 +40,38 @@ BLOCK = {"p", "div", "section", "article", "header", "footer", "main", "nav", "a
 ARKIV = re.compile(r"(^|/)(author|tags?|categor(y|ies)|kategori|etikett|arkiv|archives?|page/\d+)(/|$)|_(category|tag)(/|$)",
                    re.I)
 DOKUMENT = re.compile(r"\.(pdf|docx?|xlsx?|pptx?|odt)$", re.I)
+TOMMA = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+LOGGA_IKON = re.compile(r"(icon|ikon|logo|logga|button|knapp|sprite|favicon|emoji|avatar|badge|arrow|pil|social|flagga|"
+                        r"payment|betal|swish|klarna|visa-|mastercard|trustpilot|rating|star|stjarn)", re.I)
 HOPPA = {"script", "style", "noscript", "svg", "template", "iframe"}
 VIKTIG = re.compile(r"(kontakt|contact|om-oss|om_oss|omoss|om/|about|tjanster|tj%C3%A4nster|services)", re.I)
 
 
 def antal(n, en, flera):
     return f"{n} {en if n == 1 else flera}"
+
+
+def trolig_typ(url, alt, kalla, tecken):
+    """Foto, logga/ikon eller okänd ur billiga tecken i HTML (crawl4ai-intaget): namn och klass med icon, logo, button
+    och liknande, svg, angivna mått under 150 px, och srcset, picture eller en jpg/webp-adress som tecken på foto."""
+    t = tecken or {}
+    vag = urllib.parse.urlsplit(url).path.lower()
+    if LOGGA_IKON.search(vag.rsplit("/", 1)[-1]) or LOGGA_IKON.search(t.get("klass", "")) or LOGGA_IKON.search(alt or ""):
+        return "logga/ikon"
+    if vag.endswith((".svg", ".ico", ".gif")):
+        return "logga/ikon"
+    try:
+        if t.get("bredd") and t.get("hojd") and int(t["bredd"]) < 150 and int(t["hojd"]) < 150:
+            return "logga/ikon"
+    except ValueError:
+        pass
+    if t.get("ram"):
+        return "logga/ikon"  # i sidhuvud, meny eller sidfot: sajtens ram
+    if vag.endswith((".jpg", ".jpeg", ".webp", ".avif", ".heic")):
+        return "foto"
+    if t.get("srcset") and not vag.endswith(".png"):  # WordPress sätter srcset på alla bilder, också PNG-loggor
+        return "foto"
+    return "okänd"
 
 
 def kortlista(sidor, n=5):
@@ -114,9 +140,24 @@ class Sida(HTMLParser):
         self.i_jsonld = False
         self.css = []
         self.i_style = False
+        self.stack = []        # öppna element med klass, för förälderns klass vid en bild
+        self.bildtecken = {}   # bildadress → klasser, mått och srcset, för den troliga typen i SIDOR.md
 
     def handle_starttag(self, tag, attrs):
         a = {k: (v or "") for k, v in attrs}
+        if tag in ("img", "source"):
+            foralder = next((c for _, c in reversed(self.stack) if c), "")
+            ram = any(tg in ("header", "nav", "footer") for tg, _ in self.stack)
+            for k in ("src", "data-src", "data-lazy-src", "data-original", "srcset", "data-srcset", "data-lazy-srcset"):
+                if a.get(k):
+                    src = storsta_i_srcset(a[k]) if "srcset" in k else a[k]
+                    if src:
+                        self.bildtecken.setdefault(src, {"klass": (a.get("class", "") + " " + foralder + " " + a.get("id", "")).lower(),
+                                                         "bredd": a.get("width", ""), "hojd": a.get("height", ""),
+                                                         "srcset": bool(a.get("srcset") or a.get("data-srcset")) or tag == "source",
+                                                         "ram": ram})
+        elif tag not in TOMMA:
+            self.stack.append((tag, a.get("class", "")))
         if tag == "html":
             self.lang = a.get("lang")
         if tag == "title":
@@ -160,6 +201,10 @@ class Sida(HTMLParser):
             self.text.append(f"\n[{tag}] ")
 
     def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                break
         if tag == "title":
             self.i_titel = False
         if tag == "script":
@@ -350,7 +395,8 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
             if not re.search(r"\.(jpe?g|png|webp|avif|gif|svg)(\?|$)", abs_, re.I) and not kalla.startswith(("img", "picture", "og", "twitter")):
                 continue  # CSS-url() till typsnitt och liknande
             sidbilder.append((abs_, alt, kalla))
-            post = bilder.setdefault(abs_, {"sida": namn, "alt": alt, "kalla": kalla, "sidor": set()})
+            post = bilder.setdefault(abs_, {"sida": namn, "alt": alt, "kalla": kalla, "sidor": set(),
+                                            "typ": trolig_typ(abs_, alt, kalla, p.bildtecken.get(src))})
             post["sidor"].add(namn)
             if alt and not post["alt"]:
                 post["alt"] = alt
@@ -395,9 +441,15 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
     md += ["", f"## Bilder ({len(bilder)} unika)", "",
            "Alla bildadresser som sidorna pekar på, med första sida och alt. Ladda ner verksamhetens egna med curl;",
            "ikoner, logotyper från andra och stockbilder hör inte till bildunderlaget.", "",
-           "| Bild | Första sida | Sidor | Alt | Källa |", "|---|---|---|---|---|"]
-    md += [f"| {u} | {b['sida']} | {len(b['sidor'])} | {b['alt'].replace('|', '/')} | {b['kalla']} |"
-           for u, b in bilder.items()]
+           "Sorterad efter trolig typ: foto först, okänd sedan, logga/ikon sist (gissat ur namn, klass, mått och filtyp).",
+           "Ladda ner ur raderna märkta foto och titta på dem märkta okänd.", "",
+           "| Bild | Trolig typ | Första sida | Sidor | Alt | Källa |", "|---|---|---|---|---|---|"]
+    ordning = {"foto": 0, "okänd": 1, "logga/ikon": 2}
+    for b in bilder.values():  # en bild på nästan varje sida hör till sajtens ram (logga, märke), inte till jobben
+        if len(sidor) >= 3 and len(b["sidor"]) >= 0.8 * len(sidor):
+            b["typ"] = "logga/ikon"
+    md += [f"| {u} | {b['typ']} | {b['sida']} | {len(b['sidor'])} | {b['alt'].replace('|', '/')} | {b['kalla']} |"
+           for u, b in sorted(bilder.items(), key=lambda x: (ordning[x[1]['typ']], -len(x[1]['sidor'])))]
     md += ["", "## Dokument på sajten", ""]
     md += [f"- {u} (sida {s}, \"{lt}\")" for u, (s, lt) in dokument.items()] or ["- inga"]
     md += ["", "## Kontaktvägar på sajten", ""]

@@ -1,11 +1,12 @@
 ---
 id: B-20261002-sidor-md-sorterar-bildlistan-troliga-foton-forst
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · unclecode/crawl4ai
 skapad: 2026-10-02
 prio: normal
 steg: 1 (underlag: bilderna)
+andrad: 2026-10-03T00:05Z
 ---
 # SIDOR.md sorterar bildlistan: troliga foton först, ikoner, logotyper och knappbilder för sig, så att steg 1.2 hittar verksamhetens egna bilder snabbare
 
