@@ -140,9 +140,9 @@ class TystServer(ThreadingHTTPServer):
 
 
 class Server:
-    """Statisk server för dist/ på 127.0.0.1. Saknad sida ger 404.html med status 404."""
+    """Statisk server för dist/ på 127.0.0.1 (eller en given adress). Saknad sida ger 404.html med status 404."""
 
-    def __init__(self, dist):
+    def __init__(self, dist, vard='127.0.0.1'):
         dist = str(dist)
 
         class H(SimpleHTTPRequestHandler):
@@ -186,8 +186,8 @@ class Server:
                     return
                 super().send_error(code, message, explain)
 
-        self.httpd = TystServer(('127.0.0.1', 0), H)
-        self.url = 'http://127.0.0.1:%d' % self.httpd.server_address[1]
+        self.httpd = TystServer((vard, 0), H)
+        self.url = 'http://%s:%d' % (vard, self.httpd.server_address[1])
         self.trad = threading.Thread(target=self.httpd.serve_forever, daemon=True)
 
     def __enter__(self):

@@ -346,6 +346,57 @@ print('   ', ut['med']['besked'], '|', ut['utan']['besked'])
 " || { echo "FEL: formulärets svenska besked"; exit 1; }
 echo "   formulärets besked ok"
 
+echo "   backloggens verktyg: siffror i copy, schema.org-vokabulären, Bokadirekt, bilder och domäner, sida som text, QR"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, json, hashlib, pathlib, tempfile, threading, functools, http.server
+sys.path.insert(0, '$ROOT/kontroller'); sys.path.insert(0, '$ROOT/dashboard')
+import copy_kontroll as ck, seo_kontroll as seo, hamta_bokadirekt as hb, hamta_sajt as hs, sida_till_text as st, qr
+# copy: två siffror som behöver kvitto, med rad; telefonnumret är ingen siffra i den meningen
+sf = [x for x in ck.kontrollera_fil(pathlib.Path('INNEHALL.md'), 'Över 500 nöjda kunder.\n\nVi har målat sedan 2012.\n\nRing 070-123 45 67.', [])[0] if x['typ'] == 'siffra']
+assert [x['rad'] for x in sf] == [1, 3], sf
+# schema.org: påhittad egenskap och okänd typ ger fynd, utgången egenskap information, mallens typer passerar
+f = seo.granska_schema({'@context': 'https://schema.org', '@type': 'HairSalon', 'telefonnummer': '1', 'serviceArea': 'Luleå'}, None)
+assert ('JSON-LD okänd egenskap', 'telefonnummer finns inte i schema.org') in f and any(t == 'JSON-LD utgången egenskap' for t, _ in f), f
+assert any(t == 'JSON-LD okänd typ' for t, _ in seo.granska_schema({'@type': 'Frisorsalong'}, None))
+assert seo.granska_schema({'@type': 'BreadcrumbList', 'itemListElement': [{'@type': 'ListItem', 'position': 1, 'name': 'Start', 'item': 'https://x.se/'}]}, None) == []
+# Bokadirekt: tillståndet ur sidan, utan personalens kontakt och lösenordsfält; pris per prislista och vem
+plats = {'id': 1, 'about': {'name': 'Prov', 'book': {'cancel': 1440}}, 'employees': [
+    {'id': 1, 'about': {'name': 'Anna', 'priceListId': 'M'}, 'services': [10], 'contact': {'phone': 'x'}, 'password': 'y'},
+    {'id': 2, 'about': {'name': 'Ellen (Elev)', 'priceListId': 'E'}, 'services': [10]}],
+    'services': [{'name': 'Klippning', 'services': [{'id': 10, 'name': 'Kort hår', 'about': {'description': 'Rad ett\r\nrad två'},
+        'priceType': {'prices': {'M': 520, 'E': 380}, 'durations': {'M': 2700, 'E': 3600}}}]}]}
+html_ = '<script>window.__PRELOADED_STATE__ = ' + json.dumps({'place': plats}) + ';</script>'
+p_ = hb.las_state(html_)
+assert all('contact' not in e and 'password' not in e for e in p_['employees'])
+tj = hb.tjanster_text(p_, 'https://www.bokadirekt.se/places/prov-1', '2026-10-03')
+assert '- Kort hår | 520 kr / 45 min | 380 kr / 60 min | Anna, Ellen (Elev) | Rad ett / rad två' in tj and 'Avbokning senast 24 timmar' in tj, tj
+om = hb.omdomen_text([{'createdAt': '2026-10-01T10:00:00Z', 'review': {'score': 5, 'text': 'Bra'}, 'author': {'name': 'A.'}, 'subject': {'employee': {'name': 'Anna'}}}], 'x', 'd')
+assert om.splitlines()[2] == '2026-10-01 | 5 | A. | Anna |  | Bra', om
+# hämtverktyget: bilderna laddas ned och k2 hittas genom filnamnsmönstret; sida_till_text ger samma textformat
+class Tyst(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *a): pass
+d = pathlib.Path(tempfile.mkdtemp()); (d / 'up').mkdir()
+for n in (1, 2, 3): (d / 'up' / ('k%d.jpg' % n)).write_bytes(b'\xff\xd8\xff' + b'0' * 64)
+(d / 'index.html').write_text('<html><head><title>Prov</title></head><body><main><h1>Prov</h1><img src=\"/up/k1.jpg\" alt=\"Fasad\" width=\"800\" height=\"600\"><img src=\"/up/k3.jpg\" alt=\"Tak\" width=\"800\" height=\"600\"></main></body></html>')
+srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Tyst, directory=str(d)))
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+bas = 'http://127.0.0.1:%d' % srv.server_port; ut = pathlib.Path(tempfile.mkdtemp())
+r = hs.hamta_sajt(bas, ut / 'kalla', 3, paus=0)
+rader = hs.ladda_bilder(r['bildlista'], ut / 'bilder', paus=0)
+assert {x['fil'] for x in rader if x['fil']} >= {'k1.jpg', 'k2.jpg', 'k3.jpg'} and any(x['fil'] == 'k2.jpg' and x['gissad'] for x in rader), rader
+hs.lagg_till_i_sidor(ut / 'kalla', rader, [])
+assert '## Nedladdade bilder' in (ut / 'kalla' / 'SIDOR.md').read_text()
+assert 'salong-kreativ-lulea.se' in hs.domankandidater('Salong Kreativ, Luleå', 'salongkreativ.se')
+st.sida_till_text(bas + '/index.html', ut / 'extern' / 'artikel')
+assert (ut / 'extern' / 'artikel.txt').read_text().startswith('KÄLLA: ' + bas)
+srv.shutdown()
+# QR: version 1 jämförd med Project Nayuki:s referens (qrcodegen) 2026-10-03; fingeravtrycket vaktar mot regression
+m = qr.matris('x')
+assert len(m) == 21 and hashlib.sha256(''.join('1' if v else '0' for r in m for v in r).encode()).hexdigest()[:16] == '38232e7e263ef0ca'
+assert qr.svg('http://192.168.1.23:51234/').startswith('<svg')
+" || { echo "FEL: backloggens verktyg"; exit 1; }
+echo "   backloggens verktyg ok"
+
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"

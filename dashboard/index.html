@@ -66,6 +66,9 @@ h3 { font-size: 15px; margin: 18px 0 6px; }
 .knapp:hover { border-color: var(--dampad); }
 .knapp.primar { background: var(--accent); border-color: var(--accent); color: var(--yta); font-weight: 560; }
 .knapp:disabled { opacity: .5; cursor: default; }
+#qr { border: 1px solid var(--linje); border-radius: 12px; background: var(--yta); color: var(--text); padding: 16px; max-width: 360px; }
+#qr svg { display: block; width: 100%; height: auto; margin-top: 12px; }
+#qr::backdrop { background: rgb(0 0 0 / .4); }
 .flikar { display: flex; gap: 2px; border-bottom: 1px solid var(--linje); margin: 22px 0 18px; overflow-x: auto; }
 .flikar button { appearance: none; border: 0; background: none; font: inherit; font-size: 14px; color: var(--dampad); padding: 9px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .flikar button.aktiv { color: var(--text); border-color: var(--text); }
@@ -145,6 +148,7 @@ label.rad { gap: 6px; }
   </nav>
 </div></header>
 <main id="vy"><p class="under">Laddar …</p></main>
+<dialog id="qr" aria-label="Sajten i telefonen"><form method="dialog" class="rad mellan"><b>Sajten i telefonen</b><button class="knapp">Stäng</button></form><div class="innehall"></div></dialog>
 
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -209,7 +213,7 @@ async function byggevy(slug, behallFlik) {
     <p class="under" style="margin-bottom:6px"><a href="#/">Översikt</a></p>
     <div class="rad mellan"><div><h1>${esc(b.namn)}</h1><div class="under" style="margin:0">${esc([b.ort, b.doman].filter(Boolean).join(' · ') || b.slug)}</div></div>
       <div class="rad">${statuschip(b)}
-        ${b.steg[4].klar ? `<a class="knapp primar" href="/visa/${esc(b.slug)}" target="_blank" rel="noopener">Öppna vår sajt</a>` : ''}
+        ${b.steg[4].klar ? `<a class="knapp primar" href="/visa/${esc(b.slug)}" target="_blank" rel="noopener">Öppna vår sajt</a><button class="knapp" data-qr="${esc(b.slug)}">I telefonen</button>` : ''}
         ${b.doman ? `<a class="knapp" href="https://${esc(b.doman)}" target="_blank" rel="noopener">Deras sajt</a>` : ''}</div></div>
     <div class="steglista">${b.steg.map((s, i) => `<div class="${s.klar ? 'klar' : ''}">${i + 1}. ${esc(s.namn)}</div>`).join('')}</div>
     <div class="flikar">${flikar.map(([k, n]) => `<button class="${flik === k ? 'aktiv' : ''}" data-f="${k}">${esc(n)}</button>`).join('')}</div>
@@ -281,7 +285,7 @@ function bDom(b, f) {
   f.innerHTML = `
     ${tidigare ? `<h2 style="margin-top:0">Tidigare domar</h2>${tidigare}` : ''}
     <h2 ${tidigare ? '' : 'style="margin-top:0"'}>${b.domd ? 'Döm igen' : 'Din dom'}</h2>
-    <p class="under">Titta på sajten först (Öppna vår sajt). Svaren sparas ordagrant i LARDOMAR.md och blir en vilande post i backloggen. Hoppa över det du inte har en åsikt om.</p>
+    <p class="under">Titta på sajten först (Öppna vår sajt), och i telefonen (I telefonen). Svaren sparas ordagrant i LARDOMAR.md och blir en vilande post i backloggen. Hoppa över det du inte har en åsikt om.</p>
     <form id="domform" class="kort">
       ${b.fragor.karna.map(falt).join('')}
       ${b.fragor.egna.length ? `<h3 style="margin-top:22px">Byggets egna frågor</h3><p class="under" style="margin:0">Det bygget själv var mest osäkert på.</p>${b.fragor.egna.map(falt).join('')}` : ''}
@@ -444,7 +448,7 @@ async function abvy() {
   aktivNav('ab');
   const lista = await api('/api/ab');
   const kort = (j) => {
-    const kol = (b) => `<div class="kort"><div class="rad mellan"><b>${b.etikett}</b>${b.byggd ? `<a class="knapp" href="/visa/${esc(b.slug)}" target="_blank" rel="noopener">Öppna ${b.etikett}</a>` : '<span class="chip">byggs</span>'}</div>
+    const kol = (b) => `<div class="kort"><div class="rad mellan"><b>${b.etikett}</b>${b.byggd ? `<span class="rad"><a class="knapp" href="/visa/${esc(b.slug)}" target="_blank" rel="noopener">Öppna ${b.etikett}</a><button class="knapp" data-qr="${esc(b.slug)}">I telefonen</button></span>` : '<span class="chip">byggs</span>'}</div>
       <div class="bilder">${b.bilder.map((p) => bild(p, b.etikett)).join('')}</div>
       ${b.varde != null ? `<p class="under">${esc(j.variabel)} = <b>${esc(b.varde)}</b>${b.matt ? ` · ${b.matt.minuter ?? '?'} min, ${b.matt.turer ?? '?'} turer, granskaren ${b.matt.granskning_godkand ? 'godkände' : 'underkände'} efter ${b.matt.omgangar} omgångar` : ''}</p>` : ''}</div>`;
     const valt = j.val != null;
@@ -637,6 +641,22 @@ function startavy() {
       <h3>Kirurgen i en session</h3>${kommando('/kirurg https://…')}
       <h3>Rökprov efter ändringar i kontrollerna</h3>${kommando('kontroller/rokprov.sh')}</div>`;
 }
+
+// I telefonen: sajten på datorns adress i det lokala nätverket, som QR-kod (ritad på servern, inget tredjepartsanrop)
+document.addEventListener('click', async (e) => {
+  const k = e.target.closest('[data-qr]');
+  if (!k) return;
+  const d = $('#qr');
+  try {
+    const v = await api('/api/visa/' + encodeURIComponent(k.dataset.qr));
+    d.querySelector('.innehall').innerHTML = v.natverk
+      ? `${v.qr}<p><a href="${esc(v.natverk)}" target="_blank" rel="noopener">${esc(v.natverk)}</a></p><p class="under">Telefonen behöver vara på samma Wi-Fi. Bara sajten nås härifrån; dashboarden svarar bara på datorn.</p>`
+      : `<p>Ingen visning i telefonen: ${esc(v.skal || '')}.</p>`;
+  } catch (err) {
+    d.querySelector('.innehall').innerHTML = `<p>${esc(String(err.message || err))}</p>`;
+  }
+  d.showModal();
+});
 
 async function route() {
   clearTimeout(timer);

@@ -6,10 +6,14 @@
 Visar byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag, körningens senaste händelser),
 lärdomarna, kirurgens register och kommandona. Skriver bara när ägaren skickar frågeformuläret efter ett bygge:
 kunder/<slug>/DOM.json (strukturerat, privat) och en post i LARDOMAR.md (ordagrant, i git).
-Lyssnar bara på 127.0.0.1. POST kräver samma ursprung.
+Lyssnar bara på 127.0.0.1. POST kräver samma ursprung. Undantaget är visningen av en byggd sajt i telefonen: knappen
+I telefonen startar en statisk server för kunder/<slug>/sajt/dist på datorns adress i det lokala nätverket och visar
+den som QR-kod (dashboard/qr.py, ritad lokalt). Den servern visar bara sajten; --utan-lan stänger av den.
 """
 import argparse
 import html
+import ipaddress
+import socket
 import json
 import mimetypes
 import os
@@ -31,6 +35,7 @@ import backlog as bl  # noqa: E402  (samma backlog-format som kirurgen och bygge
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import prospektvy as pv  # noqa: E402  (prospekten: kampanjer, kort, brev; heter inte prospekt eftersom kontroller/prospekt.py ligger först på sys.path)
 import kallnyckel  # noqa: E402  (spanarens nyckel: är länken redan bedömd?)
+import qr  # noqa: E402  (QR-koden till visningen i telefonen, ritad lokalt)
 
 STEG = [
     ('Underlag', lambda s: (UNDERLAG / s / 'RESEARCH.md').is_file()),
@@ -54,7 +59,7 @@ KARNFRAGOR = [
     {'id': 'specifik', 'fraga': 'Känns den gjord för just den här verksamheten, eller som en mall?', 'typ': 'skala',
      'min': 'Mall', 'max': 'Bara de', 'steg': 5},
     {'id': 'mall_tecken', 'fraga': 'Om något känns som mall eller AI: peka på det. Var på sidan, och vad?', 'typ': 'fritext'},
-    {'id': 'forsta_intryck', 'fraga': 'Efter fem sekunder på startsidan i mobilen: vad säger sajten till dig?', 'typ': 'fritext'},
+    {'id': 'forsta_intryck', 'fraga': 'Efter fem sekunder på startsidan i telefonen (knappen I telefonen ger en QR-kod; svara på mobilfrågorna ur telefonen, inte ur en emulering): vad säger sajten till dig?', 'typ': 'fritext'},
     {'id': 'basta', 'fraga': 'Det bästa med sajten. Ett konkret ställe.', 'typ': 'fritext'},
     {'id': 'samsta', 'fraga': 'Det sämsta med sajten. Ett konkret ställe.', 'typ': 'fritext'},
     {'id': 'rost', 'fraga': 'Låter texten som verksamheten?', 'typ': 'val', 'alternativ': ['Ja', 'Delvis', 'Nej'],
@@ -709,6 +714,35 @@ pv.koppla(siffror=siffror, bilder=bilder, korning=korning, byggen=byggen)
 # --- http ---
 
 VISNING = {}
+VISNING_LAN = {}
+LAN = {'pa': True}
+
+
+def natverksadress():
+    """Datorns adress i det lokala nätverket (privat IPv4), eller None. UDP-anslutningen skickar inget paket; den
+    frågar bara routingtabellen vilken adress som används utåt."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('192.0.2.1', 80))
+            ip = s.getsockname()[0]
+    except OSError:
+        return None
+    a = ipaddress.ip_address(ip)
+    return ip if a.is_private and not a.is_loopback and not a.is_link_local else None
+
+
+def visa_lan(slug):
+    """Sajten på nätverksadressen, för ägarens telefon på samma Wi-Fi (backloggposten om mobilen i en riktig telefon).
+    Bara den statiska sajten och dess demomottagare för formuläret (sparar och skickar ingenting)."""
+    dist = KUNDER / slug / 'sajt' / 'dist'
+    ip = natverksadress() if LAN['pa'] else None
+    if not ip or not (dist / 'index.html').is_file():
+        return None
+    if slug not in VISNING_LAN:
+        srv = Server(dist, vard=ip)
+        srv.__enter__()
+        VISNING_LAN[slug] = srv
+    return VISNING_LAN[slug].url + '/'
 
 
 def visa(slug):
@@ -778,6 +812,13 @@ class H(BaseHTTPRequestHandler):
             m = re.match(r'^/api/bygge/([a-z0-9-]{2,60})$', vag)
             if m and (KUNDER / m.group(1)).is_dir():
                 return self.skicka(200, bygge(m.group(1)))
+            m = re.match(r'^/api/visa/([a-z0-9-]{2,60})$', vag)
+            if m:
+                if not visa(m.group(1)):
+                    return self.skicka(404, {'fel': 'sajten är inte byggd än'})
+                url = visa_lan(m.group(1))
+                skal = None if url else ('avstängd (--utan-lan)' if not LAN['pa'] else 'ingen adress i ett lokalt nätverk hittades')
+                return self.skicka(200, {'natverk': url, 'qr': qr.svg(url) if url else None, 'skal': skal})
             m = re.match(r'^/visa/([a-z0-9-]{2,60})$', vag)
             if m:
                 url = visa(m.group(1))
@@ -851,7 +892,9 @@ class H(BaseHTTPRequestHandler):
 def main():
     p = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     p.add_argument('--port', type=int, default=4771)
+    p.add_argument('--utan-lan', action='store_true', help='ingen visning av sajten på nätverksadressen (I telefonen)')
     a = p.parse_args()
+    LAN['pa'] = not a.utan_lan
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
     print('Dashboard: http://127.0.0.1:%d' % a.port, flush=True)
     try:
