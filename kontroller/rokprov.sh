@@ -189,6 +189,20 @@ assert k == {'kontext_max': 600010, 'over_halva': 1, 'meddelanden': 3}, k
 " || { echo "FEL: kontextdjupet"; exit 1; }
 echo "   kontextdjupet ok"
 
+echo "   grupperingen läser varje omgång"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, json, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import gruppera as gr
+k = pathlib.Path(tempfile.mkdtemp())
+for n, block in ((1, [{'kriterium': 'originalitet', 'standardpunkt': '2.3', 'allvarlighet': 3, 'observation': 'egenritat märke'}]), (2, [])):
+    d = k / 'prov-bygge' / 'granskning' / ('runda-%02d' % n); d.mkdir(parents=True)
+    (d / 'GRANSKNING.json').write_text(json.dumps({'runda': n, 'blockerande': block}))
+gr.KUNDER = k
+rader = gr.granskningsfynd()
+assert rader == ['- granskning prov-bygge omgång 1 (rättat före sista omgången): [originalitet, grad 3] egenritat märke'], rader
+" || { echo "FEL: grupperingen"; exit 1; }
+echo "   grupperingen ok"
+
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \
   || { echo "FEL: prospektpipelinen"; tail -20 "$ROOT/kunder/rokprov-mall/prospekt-prov.log"; exit 1; }

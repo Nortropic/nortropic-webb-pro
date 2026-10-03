@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gruppera.py — ägarens domar och granskarens blockerande fynd grupperade i kategorier med antal; den största
+"""gruppera.py — ägarens domar och granskarens blockerande fynd från varje omgång grupperade i kategorier med antal; den största
 kategorin blir en vilande backlogpost (OpenAI Cookbook, evaluation flywheel: fria etiketter först, sedan kategorier
 med antal, och den största styr nästa ändring).
 
@@ -38,12 +38,28 @@ def antal_domar():
 
 
 def granskningsfynd():
+    """Varje omgångs blockerande fynd, inte bara slutfilens: ett fel som byggaren rättar i varje bygge men gör om i
+    nästa syns först när omgångarna läses (AI LABS, loop engineering: läs resultatet av varje varv)."""
     rader = []
     for p in sorted(KUNDER.iterdir()) if KUNDER.is_dir() else []:
-        g = las(p / 'granskning' / 'GRANSKNING.json')
-        for f in (g or {}).get('blockerande') or []:
-            rader.append('- granskning %s: [%s%s] %s' % (p.name, f.get('kriterium'), ', grad %s' % f['allvarlighet'] if f.get('allvarlighet') else '',
-                                                         ' '.join(str(f.get('observation', '')).split())[:400]))
+        if not p.is_dir() or p.name.startswith('rokprov'):
+            continue
+        rundor = sorted((p / 'granskning').glob('runda-*/GRANSKNING.json')) if (p / 'granskning').is_dir() else []
+        if not rundor and (p / 'granskning' / 'GRANSKNING.json').is_file():
+            rundor = [p / 'granskning' / 'GRANSKNING.json']
+        sista = las(rundor[-1]) if rundor else None
+        kvar = {(f.get('kriterium'), f.get('standardpunkt')) for f in (sista or {}).get('blockerande') or []}
+        for fil in rundor:
+            g = las(fil) or {}
+            omgang = g.get('runda') or fil.parent.name.replace('runda-', '')
+            for f in g.get('blockerande') or []:
+                if fil == rundor[-1]:
+                    lage = 'sista omgången'
+                else:
+                    lage = 'kvar i sista omgången' if (f.get('kriterium'), f.get('standardpunkt')) in kvar else 'rättat före sista omgången'
+                rader.append('- granskning %s omgång %s (%s): [%s%s] %s' % (
+                    p.name, omgang, lage, f.get('kriterium'), ', grad %s' % f['allvarlighet'] if f.get('allvarlighet') else '',
+                    ' '.join(str(f.get('observation', '')).split())[:400]))
     return rader
 
 
@@ -52,7 +68,8 @@ def uppdrag():
         'Gruppera fynden nedan i kategorier. Arbeta i två steg: sätt först en fri etikett på varje fynd (vad gick fel, med',
         'egna ord), samla sedan etiketterna i 4–10 kategorier med antal. En kategori är ett återkommande problem i hur vi',
         'bygger, inte ett enskilt bygge. Källorna är ägarens domar i LARDOMAR.md (läs hela filen, varje L-post och AB-post)',
-        'och granskarens blockerande fynd nedan. Ägarens domar väger tyngst.', '',
+        'och granskarens blockerande fynd nedan, från varje omgång. Ägarens domar väger tyngst. Ett fel som rättas inom',
+        'ett bygge men återkommer i nästa bygge är en kategori, inte ett löst problem.', '',
         'Föreslå en enda ändring mot den största kategorin: vilken fil (helst .claude/skills/bygg-sajt/SKILL.md, en fil i',
         'kunskap/ eller kritik/GRANSKARE.md), vad som ändras, varför och hur man ser att det är gjort. Liten nog att läsa',
         'på fem minuter. Läs gärna kunskap/byggstandard.md och kunskap/teoretisk-grund.md för att knyta förslaget till en',

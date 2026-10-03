@@ -1,11 +1,12 @@
 ---
 id: B-20261002-gruppera-py-laser-granskarens-blockerande-fynd-p
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · AI LABS, He Finally 10x Claude Code With This Method (YouTube qLfSDQ5NGh0)
 skapad: 2026-10-02
 prio: normal
 steg: 8 och arbetssättet runt: kontroller/gruppera.py
+andrad: 2026-10-03T00:01Z
 ---
 # gruppera.py läser granskarens blockerande fynd per sparad omgång, inte bara slutfilen, så att fel som rättas i varje bygge men återkommer i nästa syns som en kategori
 
