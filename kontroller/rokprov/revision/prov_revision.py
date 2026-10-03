@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regressionsfall ur revisionen 2026-10-03 (Codex, fyra omgångar): varje skydd prövas genom sin riktiga ingång, med ett
+"""Regressionsfall ur revisionen 2026-10-03 (Codex, fem omgångar): varje skydd prövas genom sin riktiga ingång, med ett
 positivt och ett negativt fall, isolerat och syntetiskt. Körs av kontroller/rokprov.sh. Argument: repots rot. Skriver
 bara i temporära kataloger och i /tmp/nwp-granskning (granskarens arbetskataloger)."""
 import functools
@@ -125,7 +125,7 @@ hook = repo / '.claude' / 'hooks'; hook.mkdir(parents=True); shutil.copy(ROOT / 
 
 
 def vakt(cmd, **env):
-    p = subprocess.run([PY, '-B', str(hook / 'commitvakt.py')], input=json.dumps({'tool_name': 'Bash', 'tool_input': {'command': cmd}}),
+    p = subprocess.run([PY, '-B', str(hook / 'commitvakt.py')], input=json.dumps({'tool_name': 'Bash', 'tool_input': {'command': cmd}, 'cwd': str(repo)}),
                        capture_output=True, text=True, env={**os.environ, 'NWP_COMMIT_TILLATET': 'backlog/', **env})
     return p.returncode, p.stderr.strip()
 
@@ -443,9 +443,14 @@ assert dash.stang_lan() == 0
 print('F29 LAN-stängningen ok')
 
 # ---------------------------------------------------------------- omgång tre (Codex R3): omslag, kedjor, cwd, merge, ++, sentinel, slutkod, proxy, slugvakt, metod, identitet, unsafe-eval, bokstavliga * och $
-def vakt3(cmd, cwd=None, **env):
+REPO_CWD = object()
+
+
+def vakt3(cmd, cwd=REPO_CWD, **env):
     data = {'tool_name': 'Bash', 'tool_input': {'command': cmd}}
-    if cwd:
+    if cwd is REPO_CWD:
+        data['cwd'] = str(repo)  # hookens cwd är sessionens; proven står i reporoten om inget annat sägs
+    elif cwd:
         data['cwd'] = cwd
     p = subprocess.run([PY, '-B', str(hook / 'commitvakt.py')], input=json.dumps(data), capture_output=True, text=True,
                        env={**os.environ, 'NWP_COMMIT_TILLATET': 'backlog/', **env})
@@ -459,7 +464,8 @@ for cmd, vantat in [('command git commit -am audit', 2), ('command git push orig
                     ('cd backlog && git push origin main', 2), ('git stash', 2), ('git merge gren', 2), ('git pull', 2), ('git rm backlog/a.md', 2), ('git status && git log -1', 0)]:
     rc, err = vakt3(cmd); assert rc == vantat, (cmd, rc, err)
 rc, err = vakt3('git push origin main', cwd='/tmp'); assert rc == 2 and 'arbetskatalog' in err, err
-rc, err = vakt3('git push origin main', cwd=str(repo / 'backlog')); assert rc == 0, err
+rc, err = vakt3('git push origin main', cwd=str(repo / 'backlog')); assert rc == 2 and 'reporoten' in err, 'bara exakt reporoten (omgång fem, F3): ' + err
+rc, err = vakt3('git push origin main', cwd=str(repo)); assert rc == 0, err
 # push gäller refs/heads/main, inte HEAD
 g('checkout', '-q', '-b', 'annan'); (repo / 'CLAUDE.md').write_text('annan\n'); g('commit', '-q', '-am', 'på annan')
 rc, err = vakt3('git push origin main'); assert rc == 0, 'HEAD på en annan gren med ändrad CLAUDE.md ska inte stoppa push av en ren main: ' + err
@@ -617,31 +623,41 @@ for cmd, vantat in [('git status & git commit -am audit', 2), ('git status & git
 (repo / 'backlog' / 'side.md').write_text('bas\n'); g('add', 'backlog/side.md'); g('commit', '-q', '-m', 'bas'); g('push', '-q', 'origin', 'main')
 g('checkout', '-q', '-b', 'sida'); (repo / 'backlog' / 'side.md').write_text('bas\nsk-ant-api03-abcdefghijklmnopqrstuvwxyz\n'); g('commit', '-q', '-am', 'nyckel in')
 (repo / 'backlog' / 'side.md').write_text('bas\n'); g('commit', '-q', '-am', 'nyckel ut')
-(repo / 'CLAUDE.md').write_text('sida\n'); g('commit', '-q', '-am', 'otillåten fil på sidogren'); (repo / 'CLAUDE.md').write_text('x\n'); g('commit', '-q', '-am', 'återställd')
 g('checkout', '-q', 'main'); g('merge', '-q', '--no-ff', '-m', 'merge sida', 'sida')
 assert g('diff', '--name-only', 'origin/main..main').stdout.strip() == '', 'slutträdet ska vara rent'
 assert 'sk-ant' not in g('log', '-p', '--format=', '--first-parent', 'origin/main..main').stdout, 'med --first-parent syns inte sidogrenen'
-rc, err = vakt3('git push origin main'); assert rc == 2 and ('CLAUDE.md' in err or 'hemlighet' in err) and 'sk-ant-api03' not in err, err
+rc, err = vakt3('git push origin main'); assert rc == 2 and 'hemlighet' in err and 'sk-ant-api03' not in err, 'hemligheten på sidogrenen: ' + err
 g('reset', '-q', '--hard', 'origin/main'); g('branch', '-q', '-D', 'sida')
+g('checkout', '-q', '-b', 'sida2'); (repo / 'CLAUDE.md').write_text('sida\n'); g('commit', '-q', '-am', 'otillåten fil på sidogren'); (repo / 'CLAUDE.md').write_text('x\n'); g('commit', '-q', '-am', 'återställd')
+g('checkout', '-q', 'main'); g('merge', '-q', '--no-ff', '-m', 'merge sida2', 'sida2')
+rc, err = vakt3('git push origin main'); assert rc == 2 and 'CLAUDE.md' in err, 'den otillåtna filen på sidogrenen: ' + err
+g('reset', '-q', '--hard', 'origin/main'); g('branch', '-q', '-D', 'sida2')
 print('R4 F3/F27 commitvakten ok')
 
-# F1: tmp-området är körningens eget; symlänkar följs i Node; arbetaringången är bunden
+# F1: tmp-området är körningens eget; symlänkar följs i Node; arbetaringången är bunden. Allt i en temporär repokopia
+# (omgång fem, F28: provet skapade och raderade kunder/eget-bygge i det riktiga repot).
 import slugvakt as sv  # noqa: E402
-assert sv.tillaten_vag('/tmp/nwp-eget-bygge/x.png', 'eget-bygge') and not sv.tillaten_vag('/tmp/nwp-granskning/annat-runda-01-1/x.png', 'eget-bygge') and not sv.tillaten_vag('/tmp/x', 'eget-bygge')
-lank = tmp / 'lank-till-annat'; os.symlink(tmp / 'annat-bygge-mapp', lank); (tmp / 'annat-bygge-mapp').mkdir()
-r = subprocess.run(['node', '--input-type=module', '-e', "import { vakta } from %r; vakta(process.argv[1]); console.log('ok')" % str(ROOT / 'kontroller' / 'slugvakt.mjs'), '--', str(ROOT / 'kunder' / 'eget-bygge' / 'ut')],
-                   capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'})
-assert r.returncode == 0 and 'ok' in r.stdout, r.stderr
-(ROOT / 'kunder' / 'eget-bygge').mkdir(parents=True, exist_ok=True); os.symlink(tmp / 'annat-bygge-mapp', ROOT / 'kunder' / 'eget-bygge' / 'lank')
-try:
-    r = subprocess.run(['node', '--input-type=module', '-e', "import { vakta } from %r; vakta(process.argv[1]); console.log('ok')" % str(ROOT / 'kontroller' / 'slugvakt.mjs'), '--', str(ROOT / 'kunder' / 'eget-bygge' / 'lank' / 'ut.png')],
-                       capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'})
-    assert r.returncode == 2 and 'slugvakten' in r.stderr, 'en symlänk under det egna området som leder ut ska nekas: ' + r.stdout + r.stderr
-    r = subprocess.run(['node', '--input-type=module', '-e', "import { vakta } from %r; vakta(process.argv[1]); console.log('ok')" % str(ROOT / 'kontroller' / 'slugvakt.mjs'), '--', '/tmp/nwp-granskning/annat-runda-01-1'],
-                       capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'})
-    assert r.returncode == 2, 'hela tmp ska inte vara tillåtet i Node'
-finally:
-    (ROOT / 'kunder' / 'eget-bygge' / 'lank').unlink(); shutil.rmtree(ROOT / 'kunder' / 'eget-bygge', ignore_errors=True)
+kopia = tmp / 'repo-kopia'; (kopia / 'kontroller').mkdir(parents=True); (kopia / 'kunder' / 'eget-bygge').mkdir(parents=True); (kopia / 'underlag').mkdir()
+shutil.copy(ROOT / 'kontroller' / 'slugvakt.mjs', kopia / 'kontroller' / 'slugvakt.mjs')
+sv_rot_orig = sv.ROOT; sv.ROOT = kopia
+assert sv.tillaten_vag('/tmp/nwp-bygge-eget-bygge/x.png', 'eget-bygge') and not sv.tillaten_vag('/tmp/nwp-granskning/annat-runda-01-1/x.png', 'eget-bygge') and not sv.tillaten_vag('/tmp/x', 'eget-bygge')
+assert not sv.tillaten_vag('/tmp/nwp-granskning/annat-runda-01-1', 'granskning'), 'sluggen granskning ska inte nå granskarnas rot (omgång fem)'
+(tmp / 'annat-bygge-mapp').mkdir(); os.symlink(tmp / 'annat-bygge-mapp', kopia / 'kunder' / 'eget-bygge' / 'lank')
+assert not sv.tillaten_vag(kopia / 'kunder' / 'eget-bygge' / 'lank' / 'ut.png', 'eget-bygge'), 'symlänk ut ur eget område (Python)'
+assert not sv.tillaten_vag(kopia / 'kunder' / 'eget-bygge', 'eget-bygge'), 'en utkatalog med en planterad symlänk ut ska vägras (Python)'
+(kopia / 'kunder' / 'eget-bygge' / 'lank').unlink(); assert sv.tillaten_vag(kopia / 'kunder' / 'eget-bygge', 'eget-bygge')
+sv.ROOT = sv_rot_orig
+node_vakta = lambda vag: subprocess.run(['node', '--input-type=module', '-e', "import { vakta } from %r; vakta(process.argv[1]); console.log('ok')" % str(kopia / 'kontroller' / 'slugvakt.mjs'), '--', str(vag)], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'})  # noqa: E731
+r = node_vakta(kopia / 'kunder' / 'eget-bygge' / 'ut'); assert r.returncode == 0 and 'ok' in r.stdout, r.stderr
+os.symlink(tmp / 'annat-bygge-mapp', kopia / 'kunder' / 'eget-bygge' / 'lank')
+r = node_vakta(kopia / 'kunder' / 'eget-bygge' / 'lank' / 'ut.png'); assert r.returncode == 2 and 'slugvakten' in r.stderr, 'symlänk ut (Node): ' + r.stdout + r.stderr
+r = node_vakta(kopia / 'kunder' / 'eget-bygge'); assert r.returncode == 2 and 'symlänken' in r.stderr, 'planterad symlänk i utkatalogen (Node): ' + r.stdout + r.stderr
+(kopia / 'kunder' / 'eget-bygge' / 'lank').unlink()
+r = node_vakta('/tmp/nwp-granskning/annat-runda-01-1'); assert r.returncode == 2, 'hela tmp ska inte vara tillåtet i Node'
+r = subprocess.run(['node', '--input-type=module', '-e', "import { vakta } from %r; vakta(process.argv[1]); console.log('ok')" % str(kopia / 'kontroller' / 'slugvakt.mjs'), '--', '/tmp/nwp-granskning/annat-runda-01-1'], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'granskning'})
+assert r.returncode == 2, 'sluggen granskning ska inte nå granskarnas rot (Node)'
+assert sv.tmp_katalog.__doc__ and (lambda d: d.startswith('/tmp/nwp-bygge-eget-bygge/') or d.startswith(tempfile.gettempdir()))((lambda: (os.environ.__setitem__('NWP_SLUG', 'eget-bygge'), sv.tmp_katalog('prov-'))[1])())
+os.environ.pop('NWP_SLUG', None)
 r = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'granska.py'), '--arbetare', str(kund / 'granskning' / 'runda-02')], capture_output=True, text=True,
                    env={**os.environ, 'NWP_SLUG': 'annat-bygge'}, cwd=str(ROOT))
 assert r.returncode == 2 and 'slugvakten' in r.stderr, 'arbetaringången ska bindas till körningens slug: ' + r.stdout + r.stderr
@@ -678,6 +694,50 @@ assert f == [], 'kundens domän i en frågesträng gör inte en extern organisat
 f = seo.granska_schema({'@type': 'Organization', 'url': 'https://www.holmskonditori.se/', 'name': 'Fel namn'}, verk20)
 assert any(t == 'schema name ≠ verksamhetens namn' for t, _ in f), 'www.-värden är kundens: %s' % f
 print('R4 F20 ok')
+
+# ---------------------------------------------------------------- omgång fem (Codex R5): binärt innehåll, kataloger till git add, exakt reporot, tmp-namnkonflikt, IRI-typer, upptagna_val
+g('remote', 'add', 'origin', str(bare)); g('fetch', '-q', 'origin'); g('reset', '-q', '--hard', 'origin/main'); g('checkout', '-q', 'main')
+nyckelbytes = b'RESEND_API_NYCKEL=re_abcdefghijklmnopqrstuvwxyz0123\n'
+# binär fil (NUL) med nyckel: nekas vid add, vid commit (index) och vid push (historik)
+(repo / 'backlog' / 'bin.md').write_bytes(b'\x00' + nyckelbytes)
+rc, err = vakt3('git add backlog/bin.md', cwd=str(repo)); assert rc == 2 and 'binär' in err and 're_abcdef' not in err, 'binär fil vid add: ' + err
+g('add', 'backlog/bin.md')
+rc, err = vakt3('git commit -m x', cwd=str(repo)); assert rc == 2 and ('binär' in err or 'hemlighet' in err) and 're_abcdef' not in err, 'binär fil i index: ' + err
+g('commit', '-q', '-m', 'binär smugglad')
+assert 'Binary files' in g('diff', 'origin/main..main').stdout, 'git ser filen som binär'
+rc, err = vakt3('git push origin main', cwd=str(repo)); assert rc == 2 and ('binär' in err or 'hemlighet' in err) and 're_abcdef' not in err, 'binär fil i historiken: ' + err
+g('reset', '-q', '--hard', 'origin/main')
+# katalog som argument till git add: filerna i den prövas
+(repo / 'backlog' / 'ny').mkdir(); (repo / 'backlog' / 'ny' / 'post.md').write_bytes(nyckelbytes)
+rc, err = vakt3('git add backlog/', cwd=str(repo)); assert rc == 2 and 'hemlighet' in err and 'backlog/ny/post.md' in err, 'katalog till add: ' + err
+rc, err = vakt3('git add backlog', cwd=str(repo)); assert rc == 2, err
+shutil.rmtree(repo / 'backlog' / 'ny')
+rc, err = vakt3('git add backlog/', cwd=str(repo)); assert rc == 0, 'ren katalog går: ' + err
+# exakt reporot: relativa sökvägar från en underkatalog avser andra filer
+rc, err = vakt3('git commit -m audit -- backlog/SKILL.md', cwd=str(repo / '.claude')); assert rc == 2 and 'reporoten' in err, err
+rc, err = vakt3('git commit -m audit', cwd=None); assert rc == 2 and 'cwd' in err, 'utan cwd nekas skrivning: ' + err
+print('R5 F27/F3 commitvakten ok')
+
+# F20: fullständiga IRI-typer
+f = seo.granska_schema({'@type': 'https://schema.org/Bakery', 'name': 'Mallbageriet', 'telephone': '+46700000000'}, verk20)
+assert any(t == 'schema name ≠ verksamhetens namn' for t, _ in f) and any(t == 'schema telephone ≠ E.164 ur verksamheten' for t, _ in f), 'IRI-typ ska prövas som Bakery: %s' % f
+assert sk.typer({'@type': ['https://schema.org/Bakery', 'schema:LocalBusiness']}) == ['Bakery', 'LocalBusiness']
+d5 = tmp / 'dist5'; d5.mkdir()
+(d5 / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>x</title><script type="application/ld+json">{"@type": "https://schema.org/Bakery", "name": "x"}</script></head><body><main><h1>x</h1></main></body></html>')
+assert not any(x['punkt'] == '7.3' and 'saknar JSON-LD' in x['text'] for x in sk.granska(d5)[0]), 'standardkontrollen ska känna igen IRI-typen'
+print('R5 F20 ok')
+
+# F30: upptagna_val mäter ett tidigare bygge utan stilrapport också med NWP_SLUG satt (stil.mjs ärver sluggen)
+import upptagna_val as uv  # noqa: E402
+k30 = tmp / 'kunder30'; (k30 / 'gammalt' / 'sajt' / 'dist').mkdir(parents=True); (k30 / 'eget-bygge').mkdir()
+(k30 / 'gammalt' / 'sajt' / 'dist' / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>G</title><style>body{margin:0;font:16px sans-serif}</style></head><body><main><h1>Gammalt bygge</h1><p>Text som är lång nog att räknas som brödtext här.</p></main></body></html>')
+os.environ['NWP_SLUG'] = 'eget-bygge'
+try:
+    s30 = uv.stil_for(k30 / 'gammalt')
+finally:
+    os.environ.pop('NWP_SLUG', None)
+assert s30 and 'sammanfattning' in s30, 'stil.mjs ska få skriva i körningens tmp-område: %r' % (s30,)
+print('R5 F30 upptagna_val ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')
