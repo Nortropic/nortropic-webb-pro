@@ -256,16 +256,24 @@ def utan_expansion(sub, args, kommando):
     if '$(' in kommando or '`' in kommando or '<(' in kommando or '>(' in kommando or '$' in kommando:
         neka('git %s med $ (variabel, kommando- eller processubstitution) eller backtick nekas; skriv värdena bokstavligt' % sub)
     ord_ = skalord(kommando)
-    vantar_meddelande = False
+    vantar = None  # vilken flagga som konsumerar nästa ord: 'meddelande' (-m/--message) eller 'fil' (-F/--file)
     for frag in ord_:
         helt = ''.join(x for x, _ in frag)
-        if vantar_meddelande:
-            vantar_meddelande = False
+        if vantar == 'meddelande':
+            vantar = None
             if not bokstavligt(frag):
                 neka('git %s: commit-meddelandet %r är inte ett helt citerat eller helt bokstavligt ord; citera hela meddelandet' % (sub, helt))
             continue
+        if vantar == 'fil':  # värdet till -F är ett filnamn, också när det råkar heta -m (omgång nio, F3); prövas som vanligt ord
+            vantar = None
+            if len(frag) != 1 or EXPANSION.search(helt):
+                neka('git %s: filargumentet %r till -F nekas; ange filen bokstavligt' % (sub, helt))
+            continue
         if len(frag) == 1 and frag[0][1] is None and helt in ('-m', '--message'):
-            vantar_meddelande = True
+            vantar = 'meddelande'
+            continue
+        if len(frag) == 1 and frag[0][1] is None and helt in ('-F', '--file'):
+            vantar = 'fil'
             continue
         if helt.startswith('-m') and len(helt) > 2 and not helt.startswith('--'):
             neka('git %s: skriv meddelandet som -m "text", inte hopskrivet (%r)' % (sub, helt[:12]))
