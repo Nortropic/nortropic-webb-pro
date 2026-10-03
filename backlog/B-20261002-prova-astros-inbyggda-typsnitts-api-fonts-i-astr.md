@@ -1,11 +1,12 @@
 ---
 id: B-20261002-prova-astros-inbyggda-typsnitts-api-fonts-i-astr
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · withastro/astro
 skapad: 2026-10-02
 prio: normal
 steg: 5 (bygge: mallen och typsnitten), byggstandarden 4.3
+andrad: 2026-10-03T00:45Z
 ---
 # Pröva Astros inbyggda typsnitts-API (fonts i astro.config.mjs och <Font preload />) i mallen i stället för handskrivna @font-face, reservtypsnitt och preload
 

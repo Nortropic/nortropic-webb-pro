@@ -35,9 +35,10 @@ rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella
   `.venv/bin/python underlag/<slug>/skript/<namn>.py`. Hämta sidor med WebFetch eller `curl -sSL -o FIL 'URL'`.
 - **Ta bort filer** med `.venv/bin/python kontroller/ta_bort.py <slug> <sökväg>`; det fungerar bara i
   `kunder/<slug>/` och `underlag/<slug>/` (rm är spärrat).
-- **Typsnitt** installeras med npm i sajten, i ett kommando: `npm install --prefix kunder/<slug>/sajt
-  @fontsource/<namn>` (eller `@fontsource-variable/<namn>`), och importeras i layouten, eller kopieras som woff2 från
-  `node_modules` med cp. Packa aldrig upp arkiv med tar. Registrera varje typsnittsfil och ikonuppsättning i
+- **Typsnitt** hämtas med npm i sajten, i ett kommando: `npm install --prefix kunder/<slug>/sajt
+  @fontsource-variable/<namn>` (eller `@fontsource/<namn>`), och woff2-filen med latin-subset kopieras med cp till
+  `src/assets/fonts/`; Astros typsnitts-API i `astro.config.mjs` skriver @font-face, reserv och preload (mallens
+  README, punkt 4). Packa aldrig upp arkiv med tar. Registrera varje typsnittsfil och ikonuppsättning i
   `kunder/<slug>/sajt/public/bilder/TYPSNITT-IKONER.json` (formen står i `kunskap/bild.md`) och lägg licensen bredvid
   filen; prelaunch läser registret.
 - **Titta inte på andra byggen** i `kunder/` eller `underlag/`. Varje sajt härleds ur sin egen verksamhet.

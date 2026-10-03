@@ -1,11 +1,12 @@
 ---
 id: B-20261002-granskaren-satter-originalitetsbetyget-innan-hen
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · pbakaus/impeccable (egen innovation)
 skapad: 2026-10-02
 prio: normal
 steg: 5.6 (den oberoende granskningen)
+andrad: 2026-10-03T00:39Z
 ---
 # Granskaren sätter originalitetsbetyget innan hen läser stilrapporten och copykontrollen, så att mätningarna inte förankrar omdömet
 

@@ -133,7 +133,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 ## 11. Astro i stället för Next.js
 
 Originalets avsnitt om Next.js gäller inte vår stack. Motsvarigheterna i Astro: statiska sidor; `astro:assets` och
-`<Image>` för bilder (width, height, WebP och srcset); självhostade typsnitt i `public/fonts/`; metadata i layouten;
+`<Image>` för bilder (width, height, WebP och srcset); självhostade typsnitt i `src/assets/fonts/` med Astros typsnitts-API (`fonts` i `astro.config.mjs`, `<Font preload />`), som ger reserv med size-adjust och preload; metadata i layouten;
 `sitemap.xml.ts` och `robots.txt.ts` i mallen; CSP med `security.csp`. Formulär, säkerhetshuvuden och mätning på
 förhandsvisningen hör till Vercel-steget.
 
