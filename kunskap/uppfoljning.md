@@ -1,7 +1,7 @@
 # Mätning och uppföljning — händelser, konverteringskedja, kampanjmärkning, felsökning och återkoppling
 
 Professionsfil (HELHET-20260927, avsnitt 4 "Mätning och uppföljning"). Laddas i steget `uppfoljning` och vid
-leverans (bedömningsplanen). Verktyg: `verktyg/uppfoljning.py` (mätplan, kontroll mot bygget, UTM, läsning av
+leverans (bedömningsplanen). Verktyg: `verktyg/uppfoljning.py` (Digitalas verktyg, finns inte här) (mätplan, kontroll mot bygget, UTM, läsning av
 export). Verklig affärsnytta (offert, bokning, besvarat samtal, köp) hålls isär från proxyvärden (sidvisningar,
 klick, tid på sidan).
 

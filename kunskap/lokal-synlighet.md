@@ -2,7 +2,7 @@
 
 Professionsfil (HELHET-20260927, avsnitt 4 "Google Business Profile och lokal synlighet"), återvunnen ur det
 arkiverade repots profilchecklista och kataloglista. Laddas i steget `lokal-synlighet`. Verktyg:
-`verktyg/lokal_synlighet.py` (datablad ur verksamhetsuppgifterna; NAP-kontroll mot sajten).
+`verktyg/lokal_synlighet.py` (Digitalas verktyg, finns inte här) (datablad ur verksamhetsuppgifterna; NAP-kontroll mot sajten).
 
 ## Tillämplighet först
 

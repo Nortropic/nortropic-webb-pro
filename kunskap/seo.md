@@ -2,7 +2,7 @@
 
 Professionsfil (HELHET-20260927, avsnitt 4 "SEO"), återvunnen och generaliserad ur det arkiverade repots lokala
 SEO-skill. Laddas i steget `seo`. Metadata eller Lighthouse-SEO ensamt är ingen SEO-funktion; SEO-läget väljs i
-briefen §5: `lokal`, `varumärke/portfölj`, `hybrid` eller `ingen`. Verktyg: `verktyg/seo_kontroll.py` (rapport).
+briefen §5: `lokal`, `varumärke/portfölj`, `hybrid` eller `ingen`. Verktyg: `kontroller/seo_kontroll.py` (rapport).
 
 ## Sökintention och informationsstruktur
 

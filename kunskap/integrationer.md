@@ -53,7 +53,7 @@ från kundlösningens driftmiljö. Övervakning, ansvar och återgång står i d
 ## Körbara etablerade standardvägar – 2026-09-28
 
 Vid relevant behov används [integrationer-standardvagar.md](integrationer-standardvagar.md) och
-[exempel/integrationer/README.md](../exempel/integrationer/README.md). `verktyg/integrationer.py`
+[exempel/integrationer/README.md](../exempel/integrationer/README.md). `verktyg/integrationer.py` (Digitalas verktyg, finns inte här)
 kopplar val, testad mottagning och provideradaptrar till befintliga kanalverktyg. En gratis
 leverantörsvy är inte gratis API eller verifierad kundintegration. Kundens befintliga system
 och riktiga krav styr valet; gruppkapacitet/resursdelning prövas separat när de behövs.

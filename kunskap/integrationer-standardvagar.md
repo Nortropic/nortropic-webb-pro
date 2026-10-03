@@ -106,7 +106,7 @@ val till dessa kvoter; läs om den valda planen före kundaktivering.
 
 ## Körbar väg
 
-`python3 -B verktyg/integrationer.py --help` ger de ordinarie kommandona.
+`python3 -B verktyg/integrationer.py --help` (Digitalas verktyg, finns inte här) ger de ordinarie kommandona.
 `exempel/integrationer/README.md` innehåller exakta lokala kommandon och
 kontrakt. Verktyget kan bereda leverantörslänkar, köra Resend-test till syntetisk
 mottagare, skapa/återläsa Stripe Checkout i testläge, återläsa Cal-bokning och

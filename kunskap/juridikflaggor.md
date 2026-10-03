@@ -24,7 +24,7 @@ Regler:
    av människa), `utanför uppdraget` (rekommenderad hänvisning).
 3. Juridiska fynd rättas aldrig automatiskt; en text som påstår något som inte kan beläggas tas bort eller märks
    som förslag tills belägg finns, vilket är en redaktionell rättelse, inte en juridisk bedömning.
-4. Prelaunch-kontrollen (`verktyg/prelaunch.py`) listar basens punkter och varje satt flagga med fyndrad; den
+4. Prelaunch-kontrollen (`kontroller/prelaunch.py`) listar basens punkter och varje satt flagga med fyndrad; den
    godkänner aldrig juridik på egen auktoritet.
 
 

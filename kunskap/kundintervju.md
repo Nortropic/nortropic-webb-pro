@@ -1,7 +1,7 @@
 # Kundintervju — förstå innan lösningen bestäms
 
 Professionsfil (ägarens tillägg 2, 2026-09-27: "jag vill att digitala förstår detta genom att intervjua kunden samt egen
-research"). Laddas i steget `intervju`. Verktyg: `verktyg/intervju.py` (frågeomgångar, följdfrågor ur svaren,
+research"). Laddas i steget `intervju`. Verktyg: `verktyg/intervju.py` (Digitalas verktyg, finns inte här) (frågeomgångar, följdfrågor ur svaren,
 svar ordagrant, fakta med status, motsägelser, avsnitt 19 till research.md). Digitala leder intervjun; kontoret
 bidrar med problemformulering, metodstöd, mandat och proportion; ägaren är varken intervjuare eller översättare.
 
@@ -29,7 +29,7 @@ sessionen skickar den genom kanalen och registrerar svaren ordagrant (`svar`). E
 (repot `Nortropic/nortropic-kundstart`, KUNDSTART-20260927 och KUNDSTART-DIALOG-20260928): en intervjuagent för samtalet
 på webben med egna följdfrågor, där frågebanken i detta verktyg är internt täckningsstöd och inte manus; kunden ser och
 rättar samma ärende i översikten "Ditt uppdrag" och tar ställning till tillval (alla integrationsområden, också egen domän
-med kontroll av domänens öppna DNS-uppgifter), och `verktyg/kundstart.py` skapar ärendet ur kundmappen (`skapa`, länken skrivs 0600 i `~/.nortropic-hemligheter/<kund>/` och
+med kontroll av domänens öppna DNS-uppgifter), och `verktyg/kundstart.py` (Digitalas verktyg, finns inte här) skapar ärendet ur kundmappen (`skapa`, länken skrivs 0600 i `~/.nortropic-hemligheter/<kund>/` och
 lämnas genom beställningens kanal) och för in exporten i `INTERVJU.json` genom detta verktygs egna funktioner (`hamta`:
 svar ordagrant, AI-tolkningar som `tolkning`, rättelser som `kunden uppger`, material i kundmappens `KUNDSTART/`; i
 intervjuformatet (Kundstart 2026-10-01) även intervjuarens återkoppling och frågans roll på frågeraden, Kundstarts

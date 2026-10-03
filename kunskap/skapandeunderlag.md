@@ -123,7 +123,7 @@ not eller uppdraget och i bedömningsmanifestet när bilden används i kritik. S
 Ordinarie överföring från en avskild utförarmiljö: skriv brief, uppdrag, nya bilagor och
 SKAPARUNDERLAG.json i den laddade arbetsytan. Välj befintliga bilagor med deras laddade
 sökväg (`underlag/kund/...`) eller kundrelativa namn. Kör därefter
-`python3 -B verktyg/fortsatt.py overfor --fall FALL --steg brief` före beviskontroll och
+`python3 -B verktyg/fortsatt.py overfor --fall FALL --steg brief` (Digitalas verktyg, finns inte här) före beviskontroll och
 `klart`. Överföraren läser valda bytes, fyller endast `null` i hashfält, kontrollerar
 angivna hashvärden och använder nästa konsuments paketvalidering innan kundfiler skrivs.
 Originalet, gamla målbytes och kvittot bevaras i fallet; en avbruten överföring återupptas

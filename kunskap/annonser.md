@@ -1,7 +1,7 @@
 # Annonser (Google Ads och Meta Ads) — kanal- och kampanjberedning utan spendering
 
 Professionsfil (HELHET-20260927, avsnitt 4 "Google Ads och Meta Ads"; nytt, fanns inte i det arkiverade repot).
-Laddas i steget `annonsberedning`. Verktyg: `verktyg/annonsberedning.py` (utkast/pausade objekt ur en kanalplan;
+Laddas i steget `annonsberedning`. Verktyg: `verktyg/annonsberedning.py` (Digitalas verktyg, finns inte här) (utkast/pausade objekt ur en kanalplan;
 resultatläsning ur export). Ingen automatisk annonseringsstart eller spendering utan befintligt uttryckligt mandat
 (ordern avsnitt 4 och 9): allt som byggs har status PAUSED, och en beställning som namnger budget och period krävs
 före aktivering. En fiktiv verksamhet får kampanjutkast för systemprov men aldrig en verklig överföring.

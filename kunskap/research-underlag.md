@@ -88,7 +88,7 @@ RESEARCH-KONTROLL v1 | org=<ja|nej> | kontaktvag=<ja|nej> | erbjudande=<ja|nej> 
 `status=KOMPLETT` kräver `ja` på org, kontaktvag, erbjudande och rackvidd; `osakra` och `konflikter` nollställs
 aldrig av sig själva; OFULLSTÄNDIG skrivs överst i filen; ett oundersökt fält är `OSÄKER`, aldrig `nej`.
 
-19. **Intervju och status per uppgift** (sist i filen) — skrivs av `verktyg/intervju.py research`: kanal, omgångar,
+19. **Intervju och status per uppgift** (sist i filen) — skrivs av `verktyg/intervju.py research` (Digitalas verktyg, finns inte här): kanal, omgångar,
     kundens svar ordagrant per område A–H, fakta med status och källa, motsägelser, luckor som påverkar lösningen
     (även ställda frågor utan svar), följdregler som utlöstes, och svaren på de fyra användbarhetsfrågorna: vilken
     uppgift är viktigast; vad måste formuläret åstadkomma efter inskick; vilket befintligt system ska ta emot; vad vet

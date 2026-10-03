@@ -1,6 +1,6 @@
 # Bild — val, licens, autenticitet, art direction, beskärning, storlekar och optimering
 
-Professionsfil (HELHET-20260927, avsnitt 5). Laddas i steget `brief` (§8) och `bygge`. Verktygen i `verktyg/bild/`
+Professionsfil (HELHET-20260927, avsnitt 5). Laddas i steget `brief` (§8) och `bygge`. Verktygen i `verktyg/bild/` (Digitalas verktyg, finns inte här)
 (`treatment.mjs`, `brand.mjs`) är återvunna ur det arkiverade repot (revision `e4c8c52`, 2026-09-10) som körbara
 verktyg, oförändrade i kod; fyra kommentarsrader om det gamla sammanhanget (nodnummer, slot-schema.md, launch.js) är ersatta; körbevis 2026-09-27 med `sharp` 0.34.4 (Apache-2.0, libvips 8.17.2). Inte återinförda: anskaffning
 genom bildgenereringstjänst (`fetch-images.mjs`, fal.ai: kräver konto och kostnad, ägarbeslut per kund) och den
@@ -49,6 +49,10 @@ som beskriver innehållet (tom alt bara för dekor).
   metadata; en fil som läggs direkt i `public/` gör det inte, och standarden (4.2) fäller den.
 
 ## Verktygen (som de är; flaggor skrivs `--flagga=värde`)
+
+De två verktygen nedan fanns i Digitala och finns inte i det här repot; de förutsatte Next.js. Här gör Astros
+`astro:assets` bildformaten och storlekarna, och `kontroller/ikoner.mjs` apple-touch-ikonen och delningsbilden.
+Beskrivningen står kvar som referens om något av dem tas in igen.
 
 - `node verktyg/bild/treatment.mjs --in=raw --ref=ref --out=public/images [--stage=both|normalise|look]
   [--preset=duotone|dokumentar|ljus] [--ink=#hex --accent=#hex] [--compare]` — normalisering (vitbalans, exponering)

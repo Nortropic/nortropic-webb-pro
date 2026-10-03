@@ -27,6 +27,6 @@ fast pris, år) och en kontaktväg, omkring 155 tecken. Inga superlativ.
 
 ## Kontroller
 
-`verktyg/seo_kontroll.py --verksamhet VERKSAMHET.json` prövar schema mot verksamhetsuppgifterna;
-`verktyg/lokal_synlighet.py kontrollera` prövar NAP över sajtens alla scheman; `verktyg/copy_kontroll.py --krav`
+`kontroller/seo_kontroll.py --verksamhet VERKSAMHET.json` prövar schema mot verksamhetsuppgifterna;
+`verktyg/lokal_synlighet.py kontrollera` (Digitalas verktyg, finns inte här) prövar NAP över sajtens alla scheman; `kontroller/copy_kontroll.py --krav`
 prövar att telefon, organisationsnummer, serviceområde och publik adress står i texten.

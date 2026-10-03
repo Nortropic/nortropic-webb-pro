@@ -2,7 +2,7 @@
 
 Professionsfil (HELHET-20260927, avsnitt 4–5), återvunnen ur det arkiverade repots copy-blocklista och
 content-designerns regler, omgjord från lag till rapport. Laddas i steget `redaktionellt-pass` tillsammans med
-`redaktionellt-pass.md`. Verktyget `verktyg/copy_kontroll.py` skriver rapporten; människan eller sessionen rättar
+`redaktionellt-pass.md`. Verktyget `kontroller/copy_kontroll.py` skriver rapporten; människan eller sessionen rättar
 eller motiverar varje fynd. Ingen poäng, inget godkännande, ingen stilregel: en fras kan vara rätt i en kunds röst.
 
 ## Vad rapporten tar upp
@@ -19,7 +19,7 @@ eller motiverar varje fynd. Ingen poäng, inget godkännande, ingen stilregel: e
 | utropstecken | fler än ett per sida | högst ett, helst inget |
 | spegelöppningar | tre stycken i rad som börjar med "Vi" | skriv om besökaren och uppgiften; variera subjektet |
 | metalängd | title över 60 tecken, description över 155 | sanningsenlig och kort; inga superlativ i metadata |
-| saknat element | obligatoriska element ur verksamhetsuppgifterna saknas (telefon på varje sida, organisationsnummer, serviceområde, publik adress) | elementen kommer ur `VERKSAMHET.json` (`verktyg/verksamhetsuppgifter.py krav`), inte ur en branschmall |
+| saknat element | obligatoriska element ur verksamhetsuppgifterna saknas (telefon på varje sida, organisationsnummer, serviceområde, publik adress) | elementen kommer ur `VERKSAMHET.json` (`kontroller/verksamhetsuppgifter.py krav`), inte ur en branschmall |
 
 Bransch- och kundspecifika fraser (briefens §6) ges som `--fraser FIL`, en fras per rad; de rapporteras som
 "kund-/branschfras ur briefen".
