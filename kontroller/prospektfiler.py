@@ -71,6 +71,9 @@ def las_register_strikt(kampanj):
         raise RegisterFel('%s går inte att läsa: %s' % (p, e))
     if not isinstance(d, list):
         raise RegisterFel('%s är inte en lista' % p)
+    for i, post in enumerate(d):  # varje post måste bära referensfälten: null eller en post utan slug är okänd status (omgång femton, F35)
+        if not isinstance(post, dict) or not isinstance(post.get('slug'), str) or not SLUG.match(post['slug']) or not isinstance(post.get('status'), str):
+            raise RegisterFel('%s: post %d saknar giltig slug eller status' % (p, i))
     return d
 
 
@@ -83,13 +86,15 @@ def kampanjkataloger_strikt():
 
 
 def skriv_register(kampanj, muterare):
-    """Lås, läs, låt muterare(poster) ändra listan på plats (eller returnera en ny), skriv, släpp. Returnerar listan."""
+    """Lås, läs strikt, låt muterare(poster) ändra listan på plats (eller returnera en ny), skriv, släpp. Returnerar listan.
+    Läsningen inne i låset är strikt: ett läsfel får aldrig bli en tom lista som skrivs tillbaka (omgång femton, F35);
+    RegisterFel höjs före varje skrivning."""
     kdir = kampanjkatalog(kampanj)
     kdir.mkdir(parents=True, exist_ok=True)
     with open(kdir / '.las', 'w') as las:
         fcntl.flock(las, fcntl.LOCK_EX)
         try:
-            poster = las_json(kdir / 'REGISTER.json') or []
+            poster = las_register_strikt(kampanj)
             ny = muterare(poster)
             if ny is not None:
                 poster = ny

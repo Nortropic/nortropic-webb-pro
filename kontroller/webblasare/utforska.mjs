@@ -4,7 +4,7 @@
 // testmarkering; annars provas bara klientvalidering. Fynd blir regressionsprov (REGRESSION.json) som kan köras om.
 //   node utforska.mjs --adress URL --ut DIR [--max-sidor 15] [--vy 390|1440] [--tillat ORIGIN;…] [--undantag-fil F]
 //        [--formular-far-skickas --testmarkering "TEST nortropic"] [--regression REGRESSION.json]
-import { redigeraUrl, args, oppna, origin, horisontellSpill, tangentbord, skriv, nu, lasUndantag, hemligheter } from './gemensamt.mjs';
+import { sha256, redigeraUrl, args, oppna, origin, horisontellSpill, tangentbord, skriv, nu, lasUndantag, hemligheter } from './gemensamt.mjs';
 
 // Fält som en människa ser och når: hoppar över honeypots (aria-hidden-förfader, tabindex=-1, utanför synfältet eller
 // osynliga). Verktyget ska pröva formuläret som en besökare, inte som en robot (fynd ur slutprovet HELHET-20260927:
@@ -82,9 +82,11 @@ async function provaFormular(url, i) {
       'button[type=submit], input[type=submit], button:not([type])').catch(() => ({ action: null, method: 'get' }));
     // målidentiteten behåller frågesträngen (/api?op=send är inte /api?op=analytics) och redigeras som nätloggen, så att
     // jämförelsen sker på samma form (omgång fjorton, F36)
-    const malId = mal.action ? redigeraUrl(String(mal.action).split('#')[0]) : null;
-    const malUrl = malId;
-    const arInskick = (x) => x.metod === 'POST' && malId && mal.method === 'post' && String(x.url).split('#')[0] === malId;
+    // målidentiteten är hashen av den omaskerade adressen utan fragment (nätloggens id); rapporten visar bara den maskerade
+    // adressen (omgång femton, F36: maskningen gjorde /api?key=form och /api?key=analytics identiska)
+    const malHash = mal.action ? sha256(String(mal.action).split('#')[0]) : null;
+    const malUrl = mal.action ? redigeraUrl(String(mal.action).split('#')[0]) : null;
+    const arInskick = (x) => x.metod === 'POST' && malHash && mal.method === 'post' && x.id === malHash;
     r.mal = { url: malUrl, method: mal.method };
     const svarFore = b.logg.natverk.length;
     await klickSubmit(); await page.waitForTimeout(1200);

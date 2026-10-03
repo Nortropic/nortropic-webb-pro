@@ -850,17 +850,16 @@ def gallra(a):
             for k2 in pf.kampanjkataloger_strikt():
                 if k2 == kid:
                     continue
-                for p2 in pf.las_register_strikt(k2):
-                    if isinstance(p2, dict) and p2.get('slug') and not p2.get('gallrad'):
+                for p2 in pf.las_register_strikt(k2):  # varje post validerad: slug och status finns
+                    if not p2.get('gallrad'):
                         andra.setdefault(p2['slug'], []).append((k2, p2.get('status')))
+            if a.torr:
+                mut(pf.las_register_strikt(kid))
+            else:
+                pf.skriv_register(kid, mut)  # läser strikt igen inne i låset; ett läsfel där skriver inget (omgång femton, F35)
         except pf.RegisterFel as e:
             print('%s: gallringen avbruten, referensstatus okänd: %s' % (kid, e), file=sys.stderr)
             return 2
-        if a.torr:
-            poster = pf.las_register(kid)
-            mut(poster)
-        else:
-            pf.skriv_register(kid, mut)
         ofullst, delade = [], []
         for slug in bort + krympta:
             if a.torr:

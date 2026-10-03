@@ -101,8 +101,10 @@ export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga
     p.on('console', m => logg.konsol.push({ typ: m.type(), text: red(m.text()).slice(0, 500), tid: nu() }));
     p.on('pageerror', e => logg.sidfel.push({ text: red(e.message).slice(0, 500), tid: nu() }));
     p.on('dialog', async d => { logg.dialoger.push({ typ: d.type(), text: red(d.message()).slice(0, 200) }); await d.dismiss().catch(() => {}); });
-    p.on('response', r => logg.natverk.push({ metod: r.request().method(), url: redigeraUrl(r.url()), status: r.status(), typ: r.request().resourceType() }));
-    p.on('requestfailed', r => logg.natverk.push({ metod: r.method(), url: redigeraUrl(r.url()), status: null, fel: r.failure()?.errorText, typ: r.resourceType() }));
+    // id: hash av den omaskerade adressen utan fragment, så att ett anrop kan knytas till ett mål utan att hemliga parametrar
+    // hamnar i rapporten; maskningen gör annars /api?key=a och /api?key=b identiska (omgång femton, F36)
+    p.on('response', r => logg.natverk.push({ metod: r.request().method(), url: redigeraUrl(r.url()), id: sha256(String(r.url()).split('#')[0]), status: r.status(), typ: r.request().resourceType() }));
+    p.on('requestfailed', r => logg.natverk.push({ metod: r.method(), url: redigeraUrl(r.url()), id: sha256(String(r.url()).split('#')[0]), status: null, fel: r.failure()?.errorText, typ: r.resourceType() }));
   });
   if (spar) await ctx.tracing.start({ screenshots: true, snapshots: true, sources: false });
   const page = await ctx.newPage();

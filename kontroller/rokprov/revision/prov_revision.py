@@ -1361,7 +1361,7 @@ print('R12 F32 procentkodade länkar ok')
 def kampanj13(kid, poster):
     (pf11.PROSPEKT / kid).mkdir(parents=True, exist_ok=True)
     (pf11.PROSPEKT / kid / 'KAMPANJ.json').write_text(json.dumps({'id': kid, 'skapad': '2026-01-01'}))
-    pf11.skriv_register(kid, lambda p_: list(poster))
+    pf11.skriv_json(pf11.kampanjkatalog(kid) / 'REGISTER.json', list(poster))  # fixtur: skriver rakt, också över en avsiktligt trasig fil
 
 
 for ordning in (('kamp-a', 'kamp-b'), ('kamp-b', 'kamp-a')):
@@ -1518,6 +1518,60 @@ kroppar14 = [k_ for v_, k_ in Mottagare13.poster if v_ == '/api/forfragan']
 assert len(kroppar14) == 2 and kroppar14[0] == kroppar14[1], 'återförsöket ska skicka samma uppgifter (F36): %s' % kroppar14
 srv14b.shutdown()
 print('R14 F36 återförsök och mål ok')
+
+
+# ---------------------------------------------------------------- omgång femton (Codex R15): F35 (läsning i låset, ogiltiga poster), F36 (maskade mål)
+# F35: ett läsfel vid skrivningen skriver inget; ogiltiga poster inuti en lista är okänd status
+for kid in ('kamp-a', 'kamp-b', 'kamp-c'):
+    shutil.rmtree(pf11.PROSPEKT / kid, ignore_errors=True)
+kampanj13('kamp-a', [{'slug': 'delad4', 'peOrgNr': '4', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35}, {'slug': 'kund4', 'peOrgNr': '5', 'status': 'kund', 'skapad': gammal35, 'uppdaterad': gammal35}])
+kampanj13('kamp-b', [{'slug': 'delad4', 'peOrgNr': '4', 'status': 'kund', 'skapad': gammal35, 'uppdaterad': gammal35}])
+(tmp / 'underlag' / 'delad4').mkdir(parents=True, exist_ok=True); (tmp / 'underlag' / 'delad4' / 'x.txt').write_text('x')
+fore15 = (pf11.kampanjkatalog('kamp-a') / 'REGISTER.json').read_text()
+_strikt, rakn15 = pf11.las_register_strikt, {'n': 0}
+
+
+def andra_lasningen_faller(kampanj):  # förkontrollen lyckas; läsningen inne i låset simulerar ett rättighetsfel
+    rakn15['n'] += 1
+    if kampanj == 'kamp-a' and rakn15['n'] > 1:
+        raise pf11.RegisterFel('PermissionError: simulerat')
+    return _strikt(kampanj)
+
+
+pf11.las_register_strikt = andra_lasningen_faller
+try:
+    assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)) == 2
+finally:
+    pf11.las_register_strikt = _strikt
+assert (pf11.kampanjkatalog('kamp-a') / 'REGISTER.json').read_text() == fore15 and (tmp / 'underlag' / 'delad4' / 'x.txt').is_file(), 'ett läsfel vid skrivningen får inte skriva ett tomt register (F35)'
+assert any(p_['slug'] == 'kund4' for p_ in pf11.las_register('kamp-a')), 'kundposten ska finnas kvar'
+for trasigt in ('[null]', '[{"status": "kund"}]', '[{"slug": "delad4"}]', '[{"slug": "Fel Slug", "status": "kund"}]'):
+    (pf11.kampanjkatalog('kamp-b') / 'REGISTER.json').write_text(trasigt)
+    assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)) == 2, trasigt
+    assert (tmp / 'underlag' / 'delad4' / 'x.txt').is_file() and (pf11.kampanjkatalog('kamp-a') / 'REGISTER.json').read_text() == fore15, 'ogiltig post i B är okänd status (F35): %s' % trasigt
+try:
+    pf11.las_register_strikt('kamp-b'); raise AssertionError('ogiltig post ska ge RegisterFel')
+except pf11.RegisterFel:
+    pass
+print('R15 F35 strikt läsning i låset ok')
+
+# F36: maskade hemliga parametrar får inte göra två mål identiska; rapporten visar bara den maskade adressen
+for namn15, falt15, vantat15 in (('a', '<input name="kod" type="text" pattern="\\d{3}" required>', False), ('b', '<input name="telefon" type="tel" pattern="[0-9+\\-\\(\\) ]{6,40}" required>', True)):
+    rot15 = tmp / ('sajt15' + namn15); (rot15 / 'tack').mkdir(parents=True); (rot15 / 'tack' / 'index.html').write_text(tack13)
+    (rot15 / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>t</title></head><body><h1>Hej</h1><form action="/api?key=form-a" method="post">' + falt15 + '<button type="submit">Skicka</button></form>'
+                                      '<script>document.querySelector("button").addEventListener("click", () => { fetch("/api?key=analytics-b", {method: "POST", body: "x"}).catch(() => {}); });</script></body></html>')
+    srv15, bas15 = server(rot15, functools.partial(Mottagare13, directory=str(rot15)))
+    Mottagare13.poster.clear()
+    r15 = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'utforska.mjs'), '--adress', bas15 + '/', '--ut', str(tmp / ('ut15' + namn15)), '--max-sidor', '1', '--formular-far-skickas', '--testmarkering', 'NWP-PROV'],
+                         capture_output=True, text=True, cwd=str(ROOT), env={k_: v_ for k_, v_ in os.environ.items() if k_ != 'NWP_SLUG'}, timeout=300)
+    rapport15 = (tmp / ('ut15' + namn15) / 'UTFORSKNING.json').read_text()
+    uf15 = json.loads(rapport15); form15 = [f_ for s_ in uf15.get('sidor', []) for f_ in (s_.get('formular') or [])]
+    assert form15 and bool(form15[0].get('skickat')) == vantat15, (namn15, form15, r15.stderr[-300:])
+    assert 'analytics-b' not in rapport15 and 'form-a' not in rapport15, 'hemliga parametrar maskas i rapporten'
+    if not vantat15:
+        assert any(v_ == '/api?key=analytics-b' for v_, _ in Mottagare13.poster) and form15[0].get('andra_post', 0) >= 1 and form15[0]['dubbelt']['post_antal'] == 0, (form15, Mottagare13.poster)
+    srv15.shutdown()
+print('R15 F36 maskade mål ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')
