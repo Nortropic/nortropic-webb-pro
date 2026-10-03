@@ -3870,3 +3870,101 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   innovation den här gången
 - Utfall: —
 - Backlog: B-20261003-mottagaren-vid-lansering-sparar-forfragan-forst
+
+### 2026-10-03 · Jack Roberts, "Claude Design Now Builds Beautiful $10,000 Websites (NO AI Slop)" (YouTube VwGrXe2ricE) + mshumer/Claude-of-Duty · nej
+- Källa: https://www.youtube.com/watch?v=VwGrXe2ricE @ publicerad 2026-08-17 (Jack Roberts, 22:17, 241 548 visningar,
+  autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 53 bildrutor:
+  berättarens egen sammanställningssida på localhost:4402 (sex "levels" med tecknade plattor), Refero Styles med
+  Duolingos DESIGN.md, Claude Desktop med Opus 5 och Fable 5, den byggda sajten "Neuro" i tre versioner på
+  file://, duolingo.com/log-in, Higgsfields MCP-sida, Skool-klassrummet, en Notion-sida "The Design Loop: Free
+  Guide", fontsinuse.com och berättarens Hermes-app. Rörelsen (loopande figurer, videor) syns inte i rutorna, bara
+  lägen. Beskrivningens tio länkar: fem bit.ly (Glaido med rabattkod, Higgsfield, "how I generated the images", "ALL
+  Systems", "Free Skill From Video"), claude.ai, fontsinuse.com, github.com, nousresearch.com och
+  styles.refero.design [BESKRIVNING]; förkortningarna gick inte att slå upp (uppslagningen nekades) och Skool-sidan
+  kräver medlemskap [SKÄRM 07:56], så skillen "design loop" finns inte att läsa. Notion-sidan hämtad med WebFetch:
+  tom (bara rubriken "Notion"). Loopens ursprung enligt Notion-sidan är Matt Shumers "Gauntlet loop" [SKÄRM 08:11];
+  originalrepot klonat och förgranskat: https://github.com/mshumer/Claude-of-Duty @ senaste push 2026-07-25 (MIT,
+  3 446 stjärnor; commit-id gick inte att läsa, git log nekades), läst prompt.md, README.md rad 70–126 och
+  ARCHITECTURE.md rad 168. Inget kört. Ägarens not: ingen
+- Steg: 3 (referenser), 4 (innehåll före form), 5 (5.1 riktning, 5.3 bygg, 5.6 granskning), och arbetssättet runt
+  dem: granskarna, humanizer, UPPTAGNA-VAL
+- Jämfört med i dag, nivå för nivå: (1) **"Hand it a design system, not an adjective"** [SKÄRM 01:31]: hämta en
+  annan sajts DESIGN.md ur Refero Styles ("2,000+ real product design systems", [SKÄRM 02:16]) och be Claude bygga
+  "the Duolingo of AI" med den [TAL 04:21–05:27; SKÄRM 04:25 Duolingos tokens och typsnitt; SKÄRM 04:57 "risks
+  reading as a Duolingo clone"]. Resultatet, sett med egna ögon: utkast ett är duolingo.com/log-in med annat namn,
+  samma komposition (illustration vänster, rubrik och två staplade knappar höger, språkremsa i botten), samma rubrik
+  "The most fun way to learn …", tomma rutor "HERO ILLUSTRATION" och "SUPER MASCOT ART", och gradienttexten "POWER UP
+  WITH SUPER NEURO" [SKÄRM 05:30, 05:47 mot 08:53, 09:15]. Vi: fyra riktningar "härledda ur verksamheten själv …
+  aldrig ur en branschmall" och en exakt specifikation i KONCEPT.md (`.claude/skills/bygg-sajt/SKILL.md` rad
+  208–217), "Kopiera aldrig layout, palett eller typsnitt" (rad 260), och granskaren straffar mallar och "kunde ett
+  annat företagsnamn sättas dit" (`kritik/GRANSKARE.md` rad 86–88). Samma mekanik dömd nej i Jono Catliff-posten
+  (rad 3437–3441) och RoboNuggets-posten (rad 3684–3700), med ägarens medhåll om katalogmekaniken i ui-ux-pro-max
+  (`kunskap/KIRURG-OMDOMEN.md` rad 145–147). Krockar. Principen bakom, specifikation före kod, har vi redan: "Modellen
+  följer uttryckliga specifikationer precist" (rad 217). (2) **Genererade figurer och videor via Higgsfield**
+  [TAL 07:03–12:56; SKÄRM 07:39, 10:52 "≈$2/video", 11:07 figurkast]. Slutsajten: tecknade 3D-barn med mobiler,
+  en robotuggla, eldflammor och ädelstenar [SKÄRM 11:56, 12:28, 21:04], och i första vyn "4.8 out of 5" samt
+  "TRUSTED BY LEARNERS AT" med IBM:s, OpenAI:s, Anthropics, Nvidias och Googles logotyper [SKÄRM 11:56, 21:04], för
+  en app som inte finns. Vi: hitta aldrig på omdömen eller siffror (SKILL.md rad 20–22), genererade bilder aldrig
+  som kundens (`kunskap/bild.md` rad 19–20), "hellre inga foton än stock" (`LARDOMAR.md` rad 90), förtroende bara
+  belagt (`kunskap/byggstandard.md` 9.3, rad 121), "förtroendemärken utan källa" sänker originaliteten och ett
+  påstående utan stöd är blockerande (`kritik/GRANSKARE.md` rad 89, 103–104). Berättaren om samma bild: "I'm about
+  to get my credit card out" [TAL 15:44]; hos oss hade den fallit på två blockerande fynd. Higgsfield är dömt nej
+  två gånger (rad 3220–3223, 3290). Krockar. (3) **Design loop / Gauntlet loop** [TAL 07:54–10:51; SKÄRM 08:11]:
+  "Claude Design has taste. It just can't judge its own work", så domarna körs i färska kontexter mot ett "gold
+  standard"-exempel tills de godkänner. Shumers original är en prompt på tre stycken: subagenter per del, en "really
+  harsh critic" som jämför "side by side blind" med riktiga Call of Duty, loopa tills den är "utterly wowed" [REPO
+  prompt.md rad 6–10]. Vi: två granskare i egna sessioner utan byggarens resonemang, "en agent som bedömer sitt eget
+  arbete berömmer det även när det är medelmåttigt" (`kritik/GRANSKARE.md` rad 3–8), de får referenserna med
+  skärmbilder (rad 27) och betyget 9 betyder "i nivå med de starkaste referenserna" (rad 81); stoppvakten släpper
+  inte förrän de godkänt (SKILL.md rad 370–372); litteraturen: en ensam granskare hittar omkring 35 procent, flera
+  oberoende omkring 75 (`kunskap/teoretisk-grund.md` rad 128–131). Lika; samma slutsats som loop-posterna (rad
+  3414–3431). Shumers egen rapport väger dessutom mot metoden: elva kritiker gav 3,59 till 5,05 av 10, "every critic
+  in every round picked the real Call of Duty frame", och "Sequential single-owner passes beat parallel fan-out
+  decisively" eftersom isolerade agenter bröt varandras antaganden [REPO README.md rad 89–94, 114–119]. Det stöder
+  vårt val av en session per bygge (qLfSDQ5NGh0-posten rad 2662–2665). (4) **Typsnitt** [TAL 13:01–15:29]: "fonts
+  change everything", sex fria förslag (Instrument Serif, Switzer, Gambarino, Bricolage Grotesque, Cabinet Grotesk,
+  PP Editorial New) och "what the default gives you: Inter, Poppins, Montserrat, Space Grotesk, Playfair Display,
+  Roboto" [SKÄRM 13:21]; en väljare i det egna designsystemet med poäng per typsnitt och "RECOMMENDED" [SKÄRM 14:37,
+  15:10]; fontsinuse.com som sökingång [SKÄRM 14:05]. Vi: typsnitt ur verksamheten, självhostade med licens
+  (SKILL.md rad 38–43; byggstandarden 4.3, rad 60), och modellens standardtypsnitt namngivna så att bygget inte
+  faller tillbaka på dem (`kontroller/upptagna_val.py` rad 37–38), en lista som också innehåller videons eget
+  förslag Instrument Serif. Ägaren gav Typografi "Bra" i alla tre domarna (`LARDOMAR.md` rad 35, 60, 84). Lika;
+  ingen lucka att fylla. (5) **Copysystemet** [TAL 16:49–20:26; SKÄRM 17:19, 17:51, 18:14, 19:27, 20:00]: Wikipedias
+  "Signs of AI writing" plus blader/humanizer och harshaneel/humanize [SKÄRM 16:11], en regexlint med "65 words · 8
+  shapes" som "exits red below 5/5", en andra modellfamilj (GPT 5.6) som "cleanse", "world-class copy benchmarked
+  live against the category's best, headlines quoted verbatim", och fem principer: Don't make me think, name the
+  pain first (Priestley), specific or silent, one ask per screen, under five minutes. Före och efter per rad: "Get
+  started" → "Start free", "five minutes, wherever you are" → "five minutes on the train counts" [SKÄRM 19:27, 20:00].
+  Vi: samma rot i humanizer (`.claude/skills/humanizer/KALLA.md` rad 3–6) med röstprov ur verksamhetens ord (SKILL.md
+  rad 192–193), copykontrollen som rapport, aldrig grind (`kunskap/copy-kontroll.md` rad 37–38), Krug i
+  måttstocken (`kunskap/teoretisk-grund.md` rad 103), "specific or silent" är vår `antagande`-regel och "Bara de
+  har" (SKILL.md rad 20–22, 93–95). Motsatt på en punkt: konkurrenternas rubriker som förlaga mot vår FRASER.txt
+  med branschens fraser "som vi därför inte ska använda" (rad 150–151) och "kunde någon mening stå hos en
+  konkurrent? Skriv om den" (rad 191–192). Den andra modellfamiljen är redan vägd i SlopMonster-posten (rad
+  3638–3642): inget belägg, inte nu. Lika eller krockar. (6) **"One section, one screen, one thought"** [SKÄRM
+  20:28; TAL 18:55–19:27]: sektioner i skärmhöjd med en handling var. Videons eget verktyg säger emot: "stretching
+  them to a full viewport opens a dead void on tall screens" [SKÄRM 20:28, 08:40]. Vi prövar att nästa sektion
+  skymtar i första vyn så att besökaren ser att sidan fortsätter (SKILL.md rad 295–296). Sämre. (7) Hermes-appen
+  och "Agentic Operating System" [SKÄRM 16:46; TAL 16:16–16:46] är berättarens betalkurs; inte webbplatser
+- Skäl: videons fyra nivåer är var och en antingen redan dömd nej (ett annat varumärkes designsystem som
+  utgångspunkt, Higgsfield-genererade figurer), lika med det vi har (oberoende dömare i färsk kontext mot
+  referenser, humanizer ur samma Wikipedia-katalog, specifikation före kod) eller motsatt ett medvetet val
+  (konkurrenternas copy som förlaga, grind på copypoäng, skärmhöga sektioner). Resultatet sett med egna ögon fäller
+  det: utkast ett är Duolingos inloggningssida med nytt namn [SKÄRM 05:30 mot 09:15], och slutsajten har genererade
+  figurer, ett betyg utan källa och fem storbolagslogotyper som förtroendemärken för en app som inte finns [SKÄRM
+  21:04]; det är precis det ägaren kallade "ai slope skit" (L0, `LARDOMAR.md` rad 18) och det granskaren fäller.
+  Källkritik: titelns "$10,000" har inget belägg i videon; fem förkortade länkar varav Glaido är berättarens egen
+  produkt och Higgsfield ger rabattkod; skillen ligger bakom Skool-medlemskap; allt omdöme om resultatet är
+  berättarens eget ("I'm really, really impressed", "Honestly, I'm 2 seconds away from buying it" [TAL 11:58, 15:44]).
+  Loopens upphovsman redovisar själv att metoden förlorade varje blind jämförelse och att parallella agenter gjorde
+  resultatet sämre [REPO README.md rad 89–94, 114–119]. Inga instruktioner till agenter i videon; prompt.md i repot är
+  en prompt till läsaren, inte till kirurgen
+- Kostnad: inget tas in. Berättaren: Higgsfield "≈$2/video" [SKÄRM 10:52]; "lean pilot" 8 generationer, full
+  animationspass "20+" [SKÄRM 10:52]
+- Säkerhet: videons transkript förgranskat: LÅG, inga dolda tecken, ingen text riktad till agenter. Claude-of-Duty
+  förgranskat: MEDEL (173 skript, varav aicost.mjs och bootframes.mjs med eval/exec; inga dolda tecken, ingen text
+  riktad till agenter, inga skills, hookar eller behörigheter). Inget kört eller installerat; inget fört vidare
+- Förslag: inget. Ingen egen innovation den här gången: de två luckor videon rör (typsnittsval, oberoende dömare)
+  har ägaren dömt "Bra" respektive vi har starkare i mekanik
+- Utfall: —
+- Backlog: ingen
