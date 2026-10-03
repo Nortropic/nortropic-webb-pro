@@ -362,13 +362,13 @@ def granska(dist):
         if not csp:
             F('8.2', sida, 'ingen CSP; slå på security.csp i astro.config.mjs (se mallen)')
         else:
-            skript = re.search(r"script-src([^;]*)", csp[0])
-            if not skript:
-                F('8.2', sida, 'CSP:ns script-src saknas')
-            else:
-                otillatna = [k for k in skript.group(1).split() if not CSP_SKRIPT_OK.match(k)]
+            for namn, kallor in csp_skriptkallor(csp[0]).items():
+                if kallor is None:
+                    F('8.2', sida, 'CSP:ns %s saknas (och ingen script-src eller default-src att falla tillbaka på)' % namn)
+                    continue
+                otillatna = [k for k in kallor if not CSP_SKRIPT_OK.match(k)]
                 if otillatna:
-                    F('8.2', sida, "CSP:ns script-src släpper igenom annat än 'self' och hashar: %s" % ' '.join(otillatna[:4]))
+                    F('8.2', sida, "CSP:ns %s släpper igenom annat än 'self' och hashar: %s" % (namn, ' '.join(otillatna[:4])))
         # 9.2 telefon i sidhuvudet
         tel = [(a, i_h) for t, a, i_h, _m in p.el if t == 'a' and a.get('href', '').startswith('tel:')]
         if not tel:
@@ -538,6 +538,19 @@ def granska(dist):
     return fel, info, len(sidor)
 
 
+def csp_skriptkallor(policy):
+    """Den effektiva skriptpolicyn per direktiv: webbläsaren läser script-src-elem för skriptelement och script-src-attr
+    för händelseattribut, var och en med script-src och sist default-src som reserv (revisionen 2026-10-03, F22: ett
+    separat script-src-elem gick förbi kontrollen av script-src). Värdet None betyder att inget direktiv gäller."""
+    direktiv = {}
+    for del_ in policy.split(';'):
+        bitar = del_.split()
+        if bitar:
+            direktiv.setdefault(bitar[0].lower(), bitar[1:])
+    reserv = direktiv.get('script-src', direktiv.get('default-src'))
+    return {'script-src-elem': direktiv.get('script-src-elem', reserv), 'script-src-attr': direktiv.get('script-src-attr', reserv)}
+
+
 def sida_av(dist, f):
     rel = f.relative_to(dist)
     if rel.name == 'index.html':
@@ -570,16 +583,21 @@ def giltig_html(dist):
 
 
 def klickytor(stil):
-    """Byggstandarden 3.3 ur stilrapporten (stil.mjs mäter i webbläsaren i 390 px)."""
+    """Byggstandarden 3.3 ur stilrapporten (stil.mjs mäter i webbläsaren i 390 px). Ej mätt är inte godkänt: saknad eller
+    oläsbar rapport, och en sida vars 390-mätning föll, ger fel (revisionen 2026-10-03, F9)."""
     try:
         data = json.loads(Path(stil).read_text(encoding='utf-8'))
     except (OSError, ValueError):
-        return []
+        return [{'punkt': '3.3', 'sida': '(alla)', 'text': 'klickytorna är inte mätta: stilrapporten (prov/stil/STIL.json) saknas eller är oläsbar'}]
+    ut = [{'punkt': '3.3', 'sida': f.get('sida', '?'), 'text': 'klickytorna är inte mätta i 390: %s' % (f.get('fel') or 'mätningen föll')}
+          for f in data.get('fel') or [] if f.get('vy') == '390']
+    if not any(r.get('vy') == '390' for r in data.get('rader') or []):
+        ut.append({'punkt': '3.3', 'sida': '(alla)', 'text': 'klickytorna är inte mätta: ingen sida mätt i 390'})
     per_sida = {}
     for y in data.get('smaYtor', []):
         per_sida.setdefault(y['sida'], []).append(y)
-    return [{'punkt': '3.3', 'sida': s, 'text': '%d klickytor under 24 px i 390, t.ex. "%s" %d×%d' % (len(ys), ys[0]['text'], ys[0]['bredd'], ys[0]['hojd'])}
-            for s, ys in sorted(per_sida.items())]
+    return ut + [{'punkt': '3.3', 'sida': s, 'text': '%d klickytor under 24 px i 390, t.ex. "%s" %d×%d' % (len(ys), ys[0]['text'], ys[0]['bredd'], ys[0]['hojd'])}
+                 for s, ys in sorted(per_sida.items())]
 
 
 def smaknappar(stil):
@@ -677,17 +695,24 @@ def utgaende(dist, tidsgrans=8):
             if urlparse(href).hostname and urlparse(href).hostname != egen:
                 lankar.setdefault(href, []).append(sida_av(dist, f))
 
+    import hamta_sajt as hs  # adresskontroll i anslutningen: en länk i sajten får inte nå det egna nätet (revisionen, F5)
+
     def pröva(url):
         vard = (urlparse(url).hostname or '').lower()
         if any(vard == d.rstrip('.') or vard.endswith('.' + d.rstrip('.')) or (d.endswith('.') and (vard.startswith(d) or ('.' + d) in vard)) for d in EJ_PROVADE):
             return 'ej prövad (stoppar robotar)'
         if os.environ.get('PROV_OFFLINE'):
             return 'ej prövad (offline)'
+        try:
+            hs.adress_ok(url)
+            hs.adress_for(urlparse(url).hostname)  # bara publika adresser prövas; anslutningen prövar igen
+        except hs.NekadAdress as e:
+            return 'ej prövad (%s)' % e
         svar = None
         for metod in ('HEAD', 'GET'):
             try:
                 req = urllib.request.Request(url, method=metod, headers={'User-Agent': 'Mozilla/5.0 (compatible; nortropic-webb-pro/1)'})
-                with urllib.request.urlopen(req, timeout=tidsgrans) as r:
+                with hs.oppnare().open(req, timeout=tidsgrans) as r:
                     return str(r.status)
             except urllib.error.HTTPError as e:
                 if metod == 'GET' or e.code not in (400, 403, 404, 405, 501):
@@ -701,7 +726,7 @@ def utgaende(dist, tidsgrans=8):
         try:
             req = urllib.request.Request(url, headers={'User-Agent': WEBBLASARE, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
                                                        'Accept-Language': 'sv-SE,sv;q=0.9'})
-            with urllib.request.urlopen(req, timeout=tidsgrans) as r:
+            with hs.oppnare().open(req, timeout=tidsgrans) as r:
                 return '%d med webbläsarhuvud, nekar robotar (%s)' % (r.status, svar)
         except Exception:  # noqa: BLE001 — då gäller robotens svar
             return svar

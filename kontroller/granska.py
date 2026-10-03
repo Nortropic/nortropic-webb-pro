@@ -75,13 +75,20 @@ def nu():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
-def metod_sha():
-    """Hash av granskningsmetoden: kriterierna, svarsschemana och trösklarna. En dom återanvänds bara för samma bygge och
-    samma metod (revisionen 2026-10-03, F18: ändrade kriterier, modell eller antal granskare gav annars ingen ny granskning)."""
+UNDERLAGSFILER = ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'REFERENSER.md', 'BESTALLNING.md', 'bilder/BILDER.md')
+
+
+def metod_sha(slug=None):
+    """Hash av granskningsunderlaget: kriterierna, svarsschemana, trösklarna, måttstockarna (byggstandarden med flera) och
+    verksamhetens underlag (brief, research, beställning). En dom återanvänds bara för samma bygge och samma underlag
+    (revisionen 2026-10-03, F18). Ägarens domar och kalibreringen ingår inte: de är ankare, inte kriterier."""
     import hashlib
     h = hashlib.sha256()
-    for f in (ROOT / INSTRUKTION, SCHEMA, SCHEMA_ORIGINALITET):
-        h.update(f.read_bytes() if f.is_file() else b'')
+    filer = [ROOT / INSTRUKTION, SCHEMA, SCHEMA_ORIGINALITET] + [ROOT / f for _, f in MATTSTOCKAR]
+    if slug:
+        filer += [UNDERLAG / slug / f for f in UNDERLAGSFILER]
+    for f in filer:
+        h.update(str(f.name).encode() + b'\0' + (f.read_bytes() if f.is_file() else b'') + b'\0')
     h.update(json.dumps({'troskel': TROSKEL, 'kriterier': KRITERIER}, sort_keys=True).encode())
     return h.hexdigest()
 
@@ -97,11 +104,17 @@ def syskon_till(slug):
 
 def lardomar_utan(slug, rdir):
     """LARDOMAR.md utan avsnitten om det här bygget och dess A/B-syskon, skriven i omgången: granskaren får inte se
-    facit för det den dömer (revisionen 2026-10-03, F17). Returnerar sökvägen relativt repot."""
+    facit för det den dömer (revisionen 2026-10-03, F17). A/B-avsnitt behålls bara när de namnger sina byggen
+    (raden Byggen:) och inget av dem är det här; äldre omärkta A/B-avsnitt tas bort. Returnerar sökvägen."""
     text = (ROOT / 'LARDOMAR.md').read_text(encoding='utf-8') if (ROOT / 'LARDOMAR.md').is_file() else ''
     namn = [s for s in (slug, syskon_till(slug)) if s]
-    delar = re.split(r'(?m)^(?=## )', text)
-    kvar = [d for d in delar if not any(n in d for n in namn)]
+    kvar = []
+    for d in re.split(r'(?m)^(?=## )', text):
+        if any(n in d for n in namn):
+            continue
+        if d.startswith('## AB') and 'Byggen:' not in d:
+            continue
+        kvar.append(d)
     ut = rdir / 'LARDOMAR-utan-egen-dom.md'
     ut.write_text(''.join(kvar), encoding='utf-8')
     return ut
@@ -392,6 +405,9 @@ def arbetare(rdir):
         if lage != 'av':
             sep = originalitet_separat(rdir, upp, slug, bilder, claude, lardomar, nekas)
             res['originalitet_separat'] = sep
+            if lage == 'avgor' and not (isinstance(sep, dict) and isinstance(sep.get('betyg'), int)):
+                # den avgörande domaren får inte falla bort tyst: då skulle huvudgranskarnas betyg avgöra (revisionen, F8)
+                raise RuntimeError('originalitetsdomaren gav ingen giltig dom i läget avgor; ingen dom: %s' % (sep or {}).get('fel', 'okänt'))
             if lage == 'avgor' and isinstance(sep, dict) and 'betyg' in sep:
                 res['originalitet_huvud'] = res['kriterier']['originalitet']
                 res['kriterier']['originalitet'] = {k: sep[k] for k in ('betyg', 'motivering', 'visa')}
@@ -645,7 +661,7 @@ def main(argv=None):
             (r / 'FEL.txt').write_text('avbruten: bygget ändrades eller processen dog\n', encoding='utf-8')
             pagar.unlink(missing_ok=True)
     lage = os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga')
-    metod = {'metod_sha': metod_sha(), 'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
+    metod = {'metod_sha': metod_sha(a.slug), 'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
              'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'granskare': ANTAL,
              'originalitet': lage if lage in ORIGINALITETSLAGEN else 'skugga'}
     if not a.om:

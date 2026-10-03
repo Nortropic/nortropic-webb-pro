@@ -186,7 +186,8 @@ class Server:
 
             def send_error(self, code, message=None, explain=None):
                 sida = Path(dist) / '404.html'
-                if code == 404 and sida.is_file():
+                # felsidan prövas som alla andra filer: en symlänk ut ur dist får inte lämna ut målet (revisionen, F4)
+                if code == 404 and sida.is_file() and os.path.realpath(sida).startswith(rot + os.sep):
                     body = sida.read_bytes()
                     self.send_response(404)
                     self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -418,8 +419,7 @@ def prova(slug, snabb=False):
     # klickytorna (3.3) kommer ur stilrapporten, som mäter i webbläsaren
     cmd = [PY, '-B', str(KONTROLLER / 'standard_kontroll.py'), '--bygge', str(dist), '--ut', str(prov / 'standard.json'),
            '--md', str(prov / 'standard.md')]
-    if (prov / 'stil' / 'STIL.json').is_file():
-        cmd += ['--stil', str(prov / 'stil' / 'STIL.json')]
+    cmd += ['--stil', str(prov / 'stil' / 'STIL.json')]  # alltid: saknad eller fallen stilmätning är ett fel i 3.3, inte grönt
     cmd += ['--bestallning', str(underlag / 'BESTALLNING.md'), '--verksamhet', str(verksamhet)]
     rc, out = kor(cmd)
     try:

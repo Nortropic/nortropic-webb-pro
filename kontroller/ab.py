@@ -5,6 +5,7 @@ och visas först efter valet.
 
     .venv/bin/python kontroller/ab.py starta <slug> "<verksamhet>" [--variabel effort] [--a medium] [--b high]
     .venv/bin/python kontroller/ab.py lista
+    .venv/bin/python kontroller/ab.py hash <id>      # äldre jämförelse utan dist-hash: sätt den ur armarnas nuvarande dist
 
 Variabler: effort (NWP_EFFORT), modell (NWP_MODELL), originalitet (NWP_GRANSKNING_ORIGINALITET: skugga, avgor),
 inspo (NWP_MCP_CONFIG: av, kontroller/mcp/inspo.json), atelje (NWP_ATELJE: av, pa).
@@ -26,6 +27,9 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import prova  # noqa: E402  dist_hash: armens slutversion fastställs av ab.py självt
 
 ROOT = Path(__file__).resolve().parents[1]
 KUNDER = ROOT / 'kunder'
@@ -76,7 +80,9 @@ def matt(slug):
         resultat.update(kontextdjup(rader, fonster))
     g = las(k / 'granskning' / 'GRANSKNING.json') or {}
     s = las(k / 'prov' / 'STATUS.json') or {}
-    return {**resultat, 'provet_gront': s.get('ok'), 'granskning_godkand': g.get('godkand'), 'dist_sha256': s.get('dist_sha256'),
+    dist = k / 'sajt' / 'dist'
+    return {**resultat, 'provet_gront': s.get('ok'), 'granskning_godkand': g.get('godkand'),
+            'dist_sha256': prova.dist_hash(dist) if (dist / 'index.html').is_file() else None,  # slutversionen, mätt här
             'betyg': {n: x.get('betyg') for n, x in (g.get('kriterier') or {}).items()},
             'omgangar': len(list((k / 'granskning').glob('runda-*'))) if (k / 'granskning').is_dir() else 0}
 
@@ -129,6 +135,36 @@ def lista(_a):
     return 0
 
 
+def hash_(a):
+    """Sätt saknad dist-hash för en äldre, ovald jämförelse ur armarnas nuvarande dist (uttrycklig åtgärd, så att en
+    jämförelse utan hash aldrig verifieras tyst; revisionen 2026-10-03, F15)."""
+    fil = AB / (a.id + '.json')
+    p = las(fil)
+    if not p:
+        print('ingen jämförelse %s' % a.id)
+        return 2
+    if p.get('val') is not None:
+        print('redan vald; hashen behövs inte')
+        return 2
+    if not p.get('klar'):
+        print('jämförelsen är inte klar; vänta tills båda armarna är avslutade')
+        return 2
+    for slug in p.get('byggen', []):
+        post = p.setdefault('korningar', {}).setdefault(slug, {})
+        dist = KUNDER / slug / 'sajt' / 'dist'
+        if post.get('dist_sha256'):
+            print('%s: hash finns redan' % slug)
+        elif (dist / 'index.html').is_file():
+            post['dist_sha256'] = prova.dist_hash(dist)
+            post['dist_sha256_satt_i_efterhand'] = nu()
+            print('%s: hash satt ur nuvarande dist (%s)' % (slug, post['dist_sha256'][:12]))
+        else:
+            print('%s: inget dist att hasha' % slug)
+            return 1
+    fil.write_text(json.dumps(p, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog='ab', description=__doc__.split('\n\n')[0])
     sub = p.add_subparsers(dest='kommando', required=True)
@@ -139,8 +175,10 @@ def main(argv=None):
     s.add_argument('--a', default='medium')
     s.add_argument('--b', default='high')
     sub.add_parser('lista')
+    h = sub.add_parser('hash', help='sätt saknad dist-hash för en äldre, ovald jämförelse')
+    h.add_argument('id')
     a = p.parse_args(argv)
-    return {'starta': starta, 'lista': lista}[a.kommando](a)
+    return {'starta': starta, 'lista': lista, 'hash': hash_}[a.kommando](a)
 
 
 if __name__ == '__main__':

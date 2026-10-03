@@ -207,8 +207,10 @@ def granska_schema(obj, verksamhet):
             fynd.append(('JSON-LD utan @type', ''))
         if v:
             fynd.extend(granska_vokabular(nod, v))
-        lokal = any(t in ('LocalBusiness', 'Organization') or (v and 'LocalBusiness' in anor(t, v)) for t in typer)
-        if verksamhet and typer and (lokal or nod.get('address') or nod.get('telephone')):
+        # verksamhetsnoden känns igen på typen (LocalBusiness- eller Organization-trädet), inte på att den råkar bära
+        # telefon eller adress: en Person-nod (författare, ägare) ska inte prövas mot företagets uppgifter (revisionen, F20)
+        lokal = any(t in ('LocalBusiness', 'Organization') or (v and anor(t, v) & {'LocalBusiness', 'Organization'}) for t in typer)
+        if verksamhet and lokal:
             fynd.extend(granska_verksamhetsnod(nod, typer, verksamhet))
     return fynd
 
@@ -239,6 +241,13 @@ def granska_verksamhetsnod(obj, typer, verksamhet):
     adr = obj.get('address') or {}
     if isinstance(adr, dict) and adr.get('postalCode') and not re.match(r'^\d{3} \d{2}$', str(adr['postalCode'])):
         fynd.append(('postalCode-form', str(adr['postalCode']) + ' ska vara "NNN NN"'))
+    if isinstance(adr, dict) and n['adress_visas']:
+        # fälten ska stämma med underlaget, inte bara ha rätt form (revisionen, F20)
+        v_adr = verksamhet.get('adress') or {}
+        slat = lambda s: re.sub(r'\s+', ' ', str(s or '')).strip().casefold()  # noqa: E731
+        for falt, nyckel in (('postalCode', 'postnummer'), ('addressLocality', 'ort'), ('streetAddress', 'gata')):
+            if adr.get(falt) and v_adr.get(nyckel) and slat(adr[falt]).replace(' ', '') != slat(v_adr[nyckel]).replace(' ', ''):
+                fynd.append(('schema address ≠ verksamhetens adress', '%s %r mot %r' % (falt, adr[falt], v_adr[nyckel])))
     if obj.get('aggregateRating') and not verksamhet.get('omdomen_kalla'):
         fynd.append(('aggregateRating utan källa', 'betyg bara från verklig plattformsdata med källa i VERKSAMHET.json (omdomen_kalla)'))
     if 'offers' in obj and not obj.get('offers'):

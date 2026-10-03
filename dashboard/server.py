@@ -477,12 +477,16 @@ def spara_ab(ident, data):
     for s in p['byggen']:  # valet gäller exakt de byggen som blev klara (revisionen 2026-10-03, F15)
         sparad = (p.get('korningar') or {}).get(s, {}).get('dist_sha256')
         d = KUNDER / s / 'sajt' / 'dist'
-        if sparad and (not d.is_dir() or dist_hash(d) != sparad):
+        if not sparad:
+            raise ValueError('jämförelsen saknar byggets hash för %s och kan inte verifieras; en äldre jämförelse får hashen med '
+                             '.venv/bin/python kontroller/ab.py hash %s' % (s, p.get('id')))
+        if not d.is_dir() or dist_hash(d) != sparad:
             raise ValueError('bygget %s har ändrats sedan jämförelsen blev klar; kör inte vidare i armarna efter kedjan' % s)
     p.update(val=val, kommentar=(data.get('kommentar') or '').strip()[:4000], valt=nu(), status='vald')
     f.write_text(json.dumps(p, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     etikett = {s: 'AB'[i] for i, s in enumerate(p['byggen'])}
     rader = ['', '## AB · %s · %s: %s' % (p['valt'][:10], p['variabel'], ' mot '.join('%s=%s' % (etikett[s], p['varden'][s]) for s in p['byggen'])), '',
+             '- **Byggen:** %s' % ', '.join(p['byggen']),  # granskaren filtrerar bort avsnittet för dessa byggen (granska.lardomar_utan)
              '- **Ägarens val (blint):** %s' % ('lika' if val == 'lika' else '%s (%s=%s)' % (etikett[val], p['variabel'], p['varden'][val])),
              *(['- **Ägarens ord:** ' + p['kommentar'].replace('\n', ' / ')] if p['kommentar'] else []),
              *['- %s (%s=%s): %s' % (etikett[s], p['variabel'], p['varden'][s], json.dumps((p.get('korningar') or {}).get(s, {}), ensure_ascii=False))
@@ -761,9 +765,12 @@ pv.koppla(siffror=siffror, bilder=bilder, korning=korning, byggen=byggen)
 
 # --- http ---
 
+import threading  # noqa: E402
+
 VISNING = {}
 VISNING_LAN = {}
 LAN = {'pa': True, 'tid': 2 * 3600}  # visningen i telefonen stängs efter två timmar; knappen startar den igen
+LAN_LAS = threading.Lock()
 VARD = {'tillatna': set()}  # Host-värden dashboarden svarar på (sätts i main); annat är DNS-rebinding eller fel adress
 
 
@@ -788,23 +795,40 @@ def visa_lan(slug):
     if not ip or not (dist / 'index.html').is_file():
         return None
     stang_lan(bara_gamla=True)
-    if slug not in VISNING_LAN:
-        srv = Server(dist, vard=ip)
-        srv.__enter__()
-        VISNING_LAN[slug] = (srv, time.time())
-    return VISNING_LAN[slug][0].url + '/'
+    with LAN_LAS:
+        if slug not in VISNING_LAN:
+            srv = Server(dist, vard=ip)
+            srv.__enter__()
+            VISNING_LAN[slug] = (srv, time.time())
+        return VISNING_LAN[slug][0].url + '/'
 
 
 def stang_lan(bara_gamla=False):
     """Stäng visningarna på nätverksadressen: alla, eller de som stått öppna längre än LAN['tid'] (ägarfråga 5 i revisionen:
-    alla på nätverket når servern, så den ska inte stå öppen i veckor)."""
-    for slug, (srv, start) in list(VISNING_LAN.items()):
-        if not bara_gamla or time.time() - start > LAN['tid']:
-            try:
-                srv.__exit__(None, None, None)
-            except Exception:
-                pass
-            del VISNING_LAN[slug]
+    alla på nätverket når servern, så den ska inte stå öppen i veckor). Idempotent och låst: två samtidiga anrop kan
+    inte ta bort samma post två gånger (revisionen, F29). Returnerar antalet stängda."""
+    stangda = 0
+    with LAN_LAS:
+        for slug in list(VISNING_LAN):
+            post = VISNING_LAN.get(slug)
+            if post and (not bara_gamla or time.time() - post[1] > LAN['tid']):
+                VISNING_LAN.pop(slug, None)
+                try:
+                    post[0].__exit__(None, None, None)
+                except Exception:
+                    pass
+                stangda += 1
+    return stangda
+
+
+def lan_klocka():
+    """Varje minut: stäng visningar som passerat sin tid, så att gränsen är två timmar och inte upp till tre."""
+    while True:
+        try:
+            stang_lan(bara_gamla=True)
+        except Exception as e:  # noqa: BLE001 — underhållet får aldrig ta med sig tråden
+            print('kunde inte stänga visningen: %s' % e, flush=True)
+        time.sleep(60)
 
 
 def visa(slug):
@@ -896,9 +920,11 @@ class H(BaseHTTPRequestHandler):
                     return self.skicka(302, '', extra={'Location': url})
                 return self.skicka(404, '<p>Sajten är inte byggd än.</p>', 'text/html; charset=utf-8')
             m = re.match(r'^/fil/((?:kunder|underlag)/[a-z0-9-]{2,60}/.+)$', vag)
-            if m and fil_tillaten(m.group(1)):
-                p = (ROOT / m.group(1)).resolve()
-                if (p.is_relative_to(KUNDER.resolve()) or p.is_relative_to(UNDERLAG.resolve())) and p.is_file() \
+            if m:
+                p = (ROOT / m.group(1)).resolve()  # den verkliga filen avgör, inte den begärda sökvägen (revisionen, F14)
+                rotar = [r for r in (KUNDER.resolve(), UNDERLAG.resolve()) if p.is_relative_to(r)]
+                rel = (Path(rotar[0].name) / p.relative_to(rotar[0])).as_posix() if rotar else ''
+                if rotar and fil_tillaten(rel) and p.is_file() \
                         and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.svg', '.md', '.json', '.txt', '.log'):
                     typ = mimetypes.guess_type(p.name)[0] or 'text/plain'
                     if typ.startswith('text/') or typ.endswith('json'):
@@ -979,10 +1005,9 @@ def main():
                 spaning_vid_behov()
             except Exception as e:  # en klocka som dör ska inte ta med servern
                 print('spaningen startade inte: %s' % e, flush=True)
-            stang_lan(bara_gamla=True)
             time.sleep(3600)
-    import threading
     threading.Thread(target=spaningsklocka, daemon=True).start()
+    threading.Thread(target=lan_klocka, daemon=True).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
