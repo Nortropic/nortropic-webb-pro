@@ -5860,3 +5860,85 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261003-prova-caliper-mot-handmikroprovet-samma-domandri; egen innovation
   B-20261003-rakna-i-korning-jsonl-vilka-av-verktygsladans-sk
+
+### 2026-10-03 · waybarrios/opencode-power-pack · nej
+- Källa: https://github.com/waybarrios/opencode-power-pack @ 4b476b8 (ur klonens `.git/shallow`; `git log` nekades
+  av commitvakten; senaste push 2026-09-30T19:10Z), MIT för omslaget, Apache-2.0 och MIT för de 54 inpackade skillsen
+  (`UPSTREAMS.json`, `THIRD_PARTY_NOTICES.md`); 531 stjärnor, inte arkiverat, v0.5.0. Förgranskat. Läst: README,
+  `docs/sandbox-compatibility.md`, `sandbox/contract.json` och `bin/sandbox/policy.mjs` (början), `UPSTREAMS.json`
+  för de två designskillsen, hela SKILL.md för frontend-design, ai-slop, mcp-builder, agents-md-improver,
+  agents-md-revise och början av code-review; `sharp-edges/references/lang-swift.md` rad 96 (de dolda tecknen).
+  Övriga 46 (säkerhet, Hugging Face, Codex-paketering) bara som namn, beskrivning och storlek i förgranskningen.
+  Sett: repots båda skärmbilder, `docs/validation/frontend-design/nebula-01-hero.png` och `nebula-02-pricing.png`;
+  ingen text i repot förklarar dem. Ingen demosajt. Ägarens not: hittad av spanaren 2026-10-03 via Frontend
+  design-skills (github); matchade audit, design, frontend, mcp
+- Steg: 5 (frontend-design, ai-slop), 5.6 och granskaren (ai-slop som rubrik), arbetssättet runt bygget (sandlådan
+  i backloggen, dom till textändring)
+- Jämfört med i dag: källan är ett paketeringsrepo: Anthropics plugins och skills, en säkerhetssamling och Hugging
+  Faces skills, inpackade för Claude Code, Codex, OpenCode och Pi med en npm-installerare och en sandlådekörare
+  [REPO README.md rad 5–9, 244–250, 618–629]. Sak mot sak: (1) **frontend-design** är en äldre Anthropic-version
+  (claude-plugins-official bdca23e8, 2026-04-24 [REPO UPSTREAMS.json rad 202–212]) med egna tillägg. Den säger
+  "Pick an extreme", vill ha "Asymmetry. Overlap. Diagonal flow", "gradient meshes, noise textures … custom cursors,
+  and grain overlays" och räknar upp Fraunces, Playfair Display, Clash Display och Satoshi som typsnitt att ta till
+  [REPO skills/frontend-design/SKILL.md rad 28, 48–49, 63]. Vår kopia är den nyare (anthropics/skills, ordagrant
+  jämförd 2026-10-02, REGISTER rad 920–922): "Spend your boldness in one place", "remove one accessory", och fem
+  AI-kluster att undvika, bland dem nära svart med syragrön accent och spärrade versaletiketter
+  (`kunskap/externa/anthropic-frontend-design-SKILL.md` rad 38–43, 59). Fraunces, Playfair Display, Space Grotesk och
+  IBM Plex står hos oss i listan över typsnitt modellen faller tillbaka på (`kontroller/upptagna_val.py` rad 38–40).
+  Källans egna valideringsbilder visar vad dess skill ger: nära svart med syragrön accent, serif-display, spärrade
+  versaletiketter, numrerade etiketter ("01 | DIGITAL"), monospace-etiketter och tre likadana priskort i rad
+  [BILD docs/validation/frontend-design/nebula-01-hero.png, nebula-02-pricing.png]. Det är Anthropics kluster 2 och
+  5 och fem av stilrapportens varningar (`kontroller/stil.mjs` rad 200–203, 267, 272). Sämre; samma krock som
+  Ilm-Alan/frontend-design (REGISTER rad 4710, nej med ägarens medhåll). (2) **ai-slop** (ur LePro10/omp-designer,
+  MIT [REPO UPSTREAMS.json rad 59–69]) är en rubrik i femton dimensioner med substitutionstest, skälstest, tre
+  artefakter (PRODUCT.md, DESIGN.md, EVIDENCE.md), sex granskningssteg, två skilda resultat, en viktad slopsiffra
+  0–100 och tidsbundna regler med omprövningsdatum [REPO skills/ai-slop/SKILL.md rad 30–31, 33–49, 59–63, 65–74,
+  76–81, 87–96]. Hos oss: substitutionstestet är granskarens ankare 5 och originalitetsfrågan "Kunde ett annat
+  företagsnamn sättas dit?" (`kritik/GRANSKARE.md` rad 83–84, 89–92); skälstestet är KONCEPT.md:s skäl per riktning
+  och "aldrig dekor utan funktion" (`.claude/skills/bygg-sajt/SKILL.md` rad 242–243, 252, 257–259); de tre
+  artefakterna är BRIEF.md med "Bara de har", KONCEPT.md:s exakta specifikation och Belägg-raden under varje sektion
+  (rad 200–207); de sex stegen är provet, utforskningen och den kognitiva genomgången, skärmbilderna, granskaren,
+  `granska.py --jamfor` och ägarens dom (rad 320–333, 342–364, 429–433); två resultat är betyget och `visa` ja/nej
+  per kriterium (GRANSKARE rad 79–80); tidsbundna standardval är `upptagna_val.py` och stilrapporten, och principen
+  att ett förbud bara byter ett standardval mot ett annat står redan där ur Anthropics prompting-guide
+  (`upptagna_val.py` rad 9–11). Lika. Sämre: slopsiffran 0–100 slår ihop till ett tal, det vi avstått
+  (`kunskap/referenser-professionella.md` rad 4–5, 9), och rubriken är skriven för produkter, dashboards och
+  e-handel med ett designsystem i repot [SKILL.md rad 7, 39, 61–62]. Mot litteraturen: granskaren bygger på
+  heuristisk utvärdering, kognitiv genomgång och WCAG-EM (`kunskap/teoretisk-grund.md` B.2–B.4); ai-slop anger
+  ingen metod bakom sina dimensioner. (3) **Sandlådan** är ett omslag kring Anthropics `@anthropic-ai/sandbox-runtime`
+  0.0.73 [REPO package.json rad 71] med fyra profiler och fail-closed, men kontraktet är "advisory" och ingen
+  värd kopplar in den automatiskt [REPO sandbox/contract.json rad 4; docs/sandbox-compatibility.md rad 26, 33,
+  70]. Vår backlogpost B-20261003-grans-pa-processniva-for-byggsessionen-sandlada pekar redan på Claude Codes
+  inbyggda sandlåda, samma runtime, med denyWrite, denyRead och allowedDomains i inställningarna. Källan säger själv
+  att Claudes sandlåda bara gäller Bash och att Read, Edit, Write och WebFetch kräver egna behörigheter [rad 33];
+  det är posten redan medveten om. Lika i sak, ett globalt npm-paket mer. (4) **mcp-builder, code-review,
+  code-explorer, code-architect, agents-md-improver och agents-md-revise** gäller kodrepon: MCP-servrar,
+  PR-granskning, AGENTS.md-vård med människa som godkänner varje diff [REPO skills/agents-md-revise/SKILL.md rad
+  99–101]. Vår dom-till-textändring (`LARDOMAR.md`, backlog-skillen, writing-for-agents i verktygslådan) gör samma
+  sak för våra texter. Sajterna har ingen klientkod att granska. Inget för oss. (5) Säkerhets- och
+  Hugging Face-skillsen (semgrep, codeql, sharp-edges, träning, Spaces, SageMaker) gäller programvara och ML. Inget
+  för oss
+- Skäl: det enda i källan som rör sajtbygge är två skills, och båda ligger under det vi har: frontend-design är
+  en äldre text som ber om precis de drag vår nyare kopia och stilrapporten varnar för, och repots egna
+  valideringsbilder bevisar det [BILD nebula-01-hero.png, nebula-02-pricing.png]; ai-slop är en ordentlig rubrik,
+  men varje bärande del finns redan hos oss med fil och rad, förankrad i litteraturen, och det nya (en viktad
+  siffra, artefakter för produktrepon) är sådant vi valt bort. Sandlådan är samma Anthropic-runtime som backloggen
+  redan pekar på. Resten är kod, säkerhet och ML. Källkritik: README säljer "rigorous" och "10x"-genren utan belägg;
+  bilderna som ska visa kvalitet visar motsatsen; "Execute the following" i code-review [SKILL.md rad 21] är
+  skillens egen stegordning, inte ett försök att styra; tio ställen "exfiltrat" är säkerhetsvarningar i sitt
+  sammanhang. Inget kört, installerat eller fört vidare
+- Kostnad: inget tas in. frontend-design 104 tokens alltid och 2 973 vid användning, ai-slop 85 och 3 531; hela
+  källan cirka 437 000 tokens text. Sandlådan skulle kräva ett globalt npm-paket och Node 20.11
+- Säkerhet: förgranskningen HÖG: tre dolda tecken, alla U+200D inne i ett familjeemoji i ett Swift-exempel
+  [REPO skills/sharp-edges/references/lang-swift.md rad 96], ofarligt; tio ställen text till agenter, alla
+  säkerhetsvarningar eller egen stegordning; inga behörigheter i frontmatter, inga hookar eller MCP-servrar i
+  konfiguration; 78 skript, eval/exec och nätanrop i sandlådekörningen, installeraren och Hugging Face-skripten;
+  curl | sh i tre referensfiler. Inget försök att styra kirurgen
+- Förslag: inget ur källan. Egen innovation: provet tar redan skärmrutor i 768 px (`kontroller/prova.py` rad 369;
+  `kunder/holms-konditori-abx/prov/inspektion/hem/vy-768-ruta-01.png` … `06.png`) och prövar spill i den bredden,
+  men byggaren läser bara 390 och 1440 (`bygg-sajt/SKILL.md` rad 307–308) och granskaren får bara dem
+  (`kritik/GRANSKARE.md` rad 23; `kontroller/granska.py` rad 204, 311). ai-slop namnger rubrikspill i mellanbredder
+  och en desktop som bara staplats som slopsignaler [SKILL.md rad 38, 46]; de syns i 768-rutorna som ingen tittar
+  på. Tre textrader: 768 i steg 5.5, i GRANSKARE.md rad 23 och i granska.py:s lista
+- Utfall: —
+- Backlog: ingen; egen innovation B-20261003-byggaren-och-granskaren-laser-ocksa-provets-skar
