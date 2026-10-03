@@ -4,6 +4,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 S="$ROOT/kunder/rokprov-mall/sajt"
+export NWP_HAMTA_LOKALT=1   # provens sajter ligger på 127.0.0.1; hämtaren nekar annars adresser i det egna nätet
 mkdir -p "$S"
 rsync -a --delete --exclude node_modules --exclude dist --exclude .astro "$ROOT/mall/astro/" "$S/"
 rm -f "$S/README.md"
@@ -297,14 +298,15 @@ echo "   utskicksgrinden och brevkontrollen (offline)"
 "$ROOT/.venv/bin/python" -B -c "
 import sys, tempfile, pathlib; sys.path.insert(0, '$ROOT/kontroller'); import utskick as u, prospektfiler as pf, brev as b
 post = {'slug': 'x', 'status': 'utkast', 'fysisk_person': False, 'jurform': '49', 'jurform_text': 'Övriga aktiebolag', 'sparr': {'reklam': False, 'epost': False, 'telefon': False}, 'orgNr': '5560001234', 'sajt': {'url': 'https://x.se/'}}
-brev = {'utkast': {'amne': 'Hej', 'text': 'Brevet'}, 'godkand': {'text_sha': pf.text_sha('Hej', 'Brevet')}, 'mottagare': {'epost': 'info@x.se', 'typ': 'roll', 'bekraftad_person': False}}
+brev = {'utkast': {'amne': 'Hej', 'text': 'Brevet'}, 'godkand': {'text_sha': pf.text_sha('Hej', 'Brevet'), 'mottagare': 'info@x.se', 'slug': 'x', 'bekraftad_person': False}, 'mottagare': {'epost': 'info@x.se', 'typ': 'roll', 'bekraftad_person': False}}
 assert u.far_skickas(post, brev, [], False, True) == (True, 'ok')
 fall = [(dict(post, status='vald'), brev, [], False, True, 'inte utkast'), (post, dict(brev, godkand={}), [], False, True, 'inte godkänt'),
         (post, dict(brev, redigerat={'amne': 'Hej', 'text': 'ändrad'}), [], False, True, 'ändrad efter'), (dict(post, fysisk_person=True), brev, [], False, True, 'MFL 19'),
         (dict(post, jurform='10', jurform_text='Enskild näringsidkare'), brev, [], False, True, 'juridisk form'), (dict(post, sparr={'reklam': True, 'epost': False}), brev, [], False, True, 'reklamspärr'),
         (dict(post, sparr={'reklam': False, 'epost': True}), brev, [], False, True, 'e-postspärr'), (post, dict(brev, mottagare={'epost': 'nej'}), [], False, True, 'mottagaradress'),
         (post, brev, [{'typ': 'e-post', 'varde': 'INFO@x.se', 'skal': 'bad'}], False, True, 'spärrad'), (post, brev, [{'typ': 'doman', 'varde': 'x.se'}], False, True, 'spärrad'),
-        (post, brev, [{'typ': 'orgnr', 'varde': '556000-1234'}], False, True, 'spärrad'), (post, dict(brev, mottagare={'epost': 'anna@x.se', 'typ': 'person', 'bekraftad_person': False}), [], False, True, 'namngiven'),
+        (post, brev, [{'typ': 'orgnr', 'varde': '556000-1234'}], False, True, 'spärrad'),
+        (post, dict(brev, godkand=dict(brev['godkand'], mottagare='anna@x.se'), mottagare={'epost': 'anna@x.se', 'typ': 'person', 'bekraftad_person': False}), [], False, True, 'namngiven'),
         (post, brev, [], True, True, 'redan skickat'), (post, brev, [], False, False, 'Resend-nyckeln')]
 for p_, b_, s_, uf, hf, vantat in fall:
     ok, skal = u.far_skickas(p_, b_, s_, uf, hf); assert not ok and vantat in skal, (vantat, skal)
@@ -426,6 +428,11 @@ assert len(m) == 21 and hashlib.sha256(''.join('1' if v else '0' for r in m for 
 assert qr.svg('http://192.168.1.23:51234/').startswith('<svg')
 " || { echo "FEL: backloggens verktyg"; exit 1; }
 echo "   backloggens verktyg ok"
+
+echo "   revisionens regressionsfall (2026-10-03): commitvakt, markdown, symlänk, hämtare, utskick, granskare, seo, ateljé, spanare"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_revision.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/revision-prov.log" \
+  || { echo "FEL: revisionens regressionsfall"; tail -20 "$ROOT/kunder/rokprov-mall/revision-prov.log"; exit 1; }
+echo "   revisionens fall ok"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
