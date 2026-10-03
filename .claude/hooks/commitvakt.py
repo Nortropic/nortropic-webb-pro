@@ -81,20 +81,29 @@ def tillaten(sokvag, prefix):
     return any(s == p.rstrip('/') or (p.endswith('/') and s.startswith(p)) for p in prefix)
 
 
-def git(*args, indata=None):
-    """git i reporoten; misslyckat anrop, tidsgräns eller slut på budgeten nekar (en vakt som inte vet säger nej)."""
+def git(*args):
+    """git i reporoten, som bytes: textläget skulle normalisera CR och göra radindelningen annan än gits (omgång sex,
+    F27). Misslyckat anrop, tidsgräns eller slut på budgeten nekar (en vakt som inte vet säger nej)."""
     kvar = SLUT - time.monotonic()
     if kvar <= 0.5:
         neka('tidsbudgeten är slut; försök igen')
-    p = subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True, text=True, input=indata,
-                       timeout=min(GIT_FRIST, kvar))
+    p = subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True, timeout=min(GIT_FRIST, kvar))
     if p.returncode:
-        neka('git %s misslyckades (%s); kommandot nekas' % (args[0], (p.stderr or '').strip()[-200:] or 'kod %d' % p.returncode))
+        neka('git %s misslyckades (%s); kommandot nekas' % (args[0], p.stderr.decode('utf-8', 'replace').strip()[-200:] or 'kod %d' % p.returncode))
     return p.stdout
 
 
 def filer_z(ut):
-    return [f for f in ut.split('\0') if f]
+    return [f.decode('utf-8', 'replace') for f in ut.split(b'\0') if f]
+
+
+def rader_lf(data):
+    """Rader delade bara på LF, som git själv delar dem: splitlines() delar också på VT, FF, CR och U+2028, och då
+    tappar en del av en tillagd rad sitt plus (omgång sex, F27)."""
+    return [r.decode('utf-8', 'replace') for r in data.split(b'\n')]
+
+
+EXPANSION = re.compile(r'[*?\[\]{}~]|^:|\$')  # skalets expansioner: glob, klammer, tilde, pathspec-magi, variabler
 
 
 AVGRANSARE = re.compile(r'&&|\|\||;|\||&|\n')  # samma avgränsare som Claude Codes egen behörighetskontroll, också ensamt &
@@ -141,9 +150,9 @@ def commit_sokvagar(args):
 def hemlighet_i(diff):
     """(fil, rad, nyckeltyp) för den första tillagda raden som ser ut som en hemlighet, annars None. Värdet rapporteras
     aldrig: det hade annars hamnat i sessionens logg. Filhuvuden (---/+++) finns bara mellan 'diff --git' och första
-    '@@'; inne i en hunk är en rad som börjar med '+++' innehåll (omgång tre, F27)."""
+    '@@'; inne i en hunk är en rad som börjar med '+++' innehåll (omgång tre, F27). Diffen är bytes, raderna LF."""
     fil, rad, i_huvud = '?', 0, True
-    for r in diff.splitlines():
+    for r in rader_lf(diff):
         if r.startswith('diff --git '):
             i_huvud = True
         elif i_huvud and r.startswith('+++ '):
@@ -173,13 +182,17 @@ def hemlighet_i_fil(sokvag):
             if tr:
                 return tr
         return None
+    if not p.exists():
+        return None  # inget innehåll att granska; git add själv faller på en sökväg som inte finns
+    if p.is_symlink():
+        return None  # git köar länken som text (dess mål), inte målets innehåll
     try:
         data = p.read_bytes()
-    except OSError:
-        return None
+    except OSError as e:  # en fil som finns men inte går att läsa är inte granskad; det nekar (omgång sex, F27)
+        return sokvag, 0, 'kunde inte läsas (%s)' % type(e).__name__
     if b'\0' in data:
         return sokvag, 0, 'binär fil (NUL-byte); bara text får köas'
-    for n, r in enumerate(data.decode('utf-8', errors='replace').splitlines(), 1):
+    for n, r in enumerate(rader_lf(data), 1):
         for namn, rx in HEMLIGHET_RE:
             if rx.search(r):
                 return sokvag, n, namn
@@ -188,7 +201,29 @@ def hemlighet_i_fil(sokvag):
 
 def binara_i(numstat):
     """Filer som git redovisar som binära i en --numstat-utskrift (-\t-\tfil): de har ingen granskbar diff."""
-    return [rad.split('\t', 2)[2] for rad in numstat.splitlines() if rad.startswith('-\t-\t')]
+    return [rad.split('\t', 2)[2] for rad in rader_lf(numstat) if rad.startswith('-\t-\t')]
+
+
+def utan_expansion(sub, args, kommando):
+    """Skrivande git får inga argument som skalet expanderar (glob, klammer, tilde, variabel, pathspec-magi) och ingen
+    kommandosubstitution: vakten och skalet skulle annars pröva olika sökvägar (omgång sex, F3 och F27). Commit-
+    meddelandets värde undantas."""
+    if '$(' in kommando or '`' in kommando:
+        neka('git %s med kommandosubstitution nekas' % sub)
+    hoppa = False
+    for a in args:
+        if hoppa:
+            hoppa = False
+            continue
+        if a in ('-m', '--message', '-F', '--file'):
+            hoppa = True
+            continue
+        if a.startswith(('--message=', '--file=', '-m')) and len(a) > 2 and not a.startswith('--') and a[:2] == '-m':
+            continue
+        if a.startswith(('--message=', '--file=')):
+            continue
+        if EXPANSION.search(a):
+            neka('git %s med %r nekas: ange filerna bokstavligt, utan glob, klammer, tilde, variabler eller pathspec-magi' % (sub, a))
 
 
 def git_kommando(ord_):
@@ -246,6 +281,7 @@ def main():
             neka('git %s nekas i obevakade körningar; tillåtet att skriva: add, commit, push' % sub)
         if sub in SKRIVANDE:
             skrivningar += 1
+            utan_expansion(sub, args, kommando)
             if sammansatt(kommando):
                 neka('git %s måste vara hela kommandot: inga andra delar före eller efter (&&, ;, |, & eller radbrytning); kör ett steg i taget' % sub)
             # exakt reporoten: relativa sökvägar i kommandot tolkas av git från sessionens katalog, men vakten prövar
