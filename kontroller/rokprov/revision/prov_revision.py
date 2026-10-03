@@ -1661,5 +1661,47 @@ kod, _ = begar(dport, 'POST', '/api/kalibrering/K09', huvuden={'Origin': 'http:/
 dsrvk.shutdown()
 print('kalibreringen ok')
 
+
+# ---------------------------------------------------------------- sandlådan (backlogposten om gräns på processnivå, F1): inställningarna, och körningen committar backloggen själv
+import sandlada as sl  # noqa: E402
+(tmp / 'sandrot' / 'kontroller').mkdir(parents=True); (tmp / 'sandrot' / 'kontroller' / 'sandlada-domaner.txt').write_text('# standing\nregistry.npmjs.org\n*.npmjs.org\n')
+inst = sl.installningar('prov-bygge', ['https://www.Exempel.se/', 'annan.se'], gh_dir='/gh', root=tmp / 'sandrot', hem=str(tmp / 'hem'))
+sb = inst['sandbox']
+assert inst['env'] == {'GH_CONFIG_DIR': '/gh'} and sb['enabled'] and sb['failIfUnavailable'] and sb['allowUnsandboxedCommands'] is False
+assert str(tmp / 'sandrot' / 'kontroller') in sb['filesystem']['denyWrite'] and str(tmp / 'sandrot' / '.git') in sb['filesystem']['denyWrite']
+assert str(tmp / 'sandrot' / 'kunder' / 'prov-bygge') in sb['filesystem']['allowWrite'] and str(tmp / 'hem' / '.nortropic-hemligheter') in sb['filesystem']['denyRead']
+dom_ = sb['network']['allowedDomains']
+assert {'registry.npmjs.org', '*.npmjs.org', 'www.exempel.se', 'exempel.se', 'annan.se', 'www.annan.se'} <= set(dom_) and sb['network']['allowLocalBinding'], dom_
+assert sb['credentials']['envVars'][0] == {'name': 'REFERO_MCP_TOKEN', 'mode': 'deny'}
+assert sl.installningar('p', sandlada=False) == {} and json.dumps(inst)
+kor_text = (ROOT / 'kor.sh').read_text()
+assert 'Bash(git commit *)' not in kor_text and 'Bash(git push origin main)' not in kor_text and 'sandlada.py' in kor_text, 'ingen git i bygget; sandlådan kopplad'
+# kor.sh i en kopia med en falsk claude som skriver en backlogpost: körningen committar den och pushar
+kr, bare_k = tmp / 'kor-repo', tmp / 'kor-bare.git'
+subprocess.run(['git', 'init', '-q', '--bare', str(bare_k)], check=True)
+for namn_ in ('kor.sh', 'CLAUDE.md', 'BESLUT.md', 'LARDOMAR.md', '.gitignore', 'dashboard.sh'):
+    if (ROOT / namn_).exists():
+        shutil.copy2(ROOT / namn_, kr / namn_) if kr.exists() else (kr.mkdir(), shutil.copy2(ROOT / namn_, kr / namn_))
+for mapp_ in ('kontroller', '.claude', 'kritik', 'kunskap', 'mall', 'dashboard'):
+    shutil.copytree(ROOT / mapp_, kr / mapp_, ignore=shutil.ignore_patterns('node_modules', '__pycache__', 'rokprov'), symlinks=True)
+(kr / 'backlog').mkdir(); (kr / 'backlog' / 'B-20261001-gammal.md').write_text('---\nid: B-20261001-gammal\n---\n# gammal\n')
+gk = lambda *a: subprocess.run(['git', '-C', str(kr), *a], capture_output=True, text=True)  # noqa: E731
+gk('init', '-q'); gk('add', '-A'); gk('commit', '-q', '-m', 'bas'); gk('branch', '-M', 'main'); gk('remote', 'add', 'origin', str(bare_k)); gk('push', '-q', 'origin', 'main')
+(kr / 'backlog' / 'B-20261002-annan-sessions-post.md').write_text('---\nid: B-20261002-annan-sessions-post\n---\n# annan session, okommitterad\n')
+os.symlink(ROOT / '.venv', kr / '.venv'); os.symlink(ROOT / 'kontroller' / 'node_modules', kr / 'kontroller' / 'node_modules')
+falsk_k = tmp / 'falsk-claude-kor'; falsk_k.mkdir()
+(falsk_k / 'claude').write_text('#!/bin/sh\ncat > /dev/null\nprintf -- "---\\nid: B-20261003-prov-fran-bygget\\n---\\n# post fran bygget\\n" > backlog/B-20261003-prov-fran-bygget.md\necho "{\\"type\\":\\"result\\"}"\nexit 0\n')
+(falsk_k / 'claude').chmod(0o755)
+miljo_k = {k_: v_ for k_, v_ in os.environ.items() if not k_.startswith('CLAUDE_CODE_') and k_ not in ('CLAUDECODE', 'NWP_SLUG')}
+miljo_k['PATH'] = str(falsk_k) + os.pathsep + miljo_k.get('PATH', ''); miljo_k['NWP_SANDLADA'] = 'av'
+rk = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_k, timeout=300)
+assert rk.returncode in (0, 1), (rk.returncode, rk.stdout[-400:], rk.stderr[-400:])
+logg_k = gk('log', '--format=%s', '-3').stdout
+assert 'Bygge prov-bygge: backlogposter' in logg_k, (logg_k, rk.stdout[-300:], rk.stderr[-300:])
+assert gk('show', '--stat', '--format=', 'HEAD').stdout.count('backlog/') == 1 and 'B-20261003-prov-fran-bygget' in gk('show', '--stat', '--format=', 'HEAD').stdout, 'bara byggets nya post committas, inte den andra sessionens'
+assert gk('status', '--porcelain', 'backlog').stdout.strip().startswith('??'), 'den andra sessionens post är kvar okommitterad'
+assert 'Bygge prov-bygge: backlogposter' in subprocess.run(['git', '-C', str(bare_k), 'log', '--format=%s', '-1', 'main'], capture_output=True, text=True).stdout, 'pushad'
+print('sandlådan: inställningar och backlogcommit ok')
+
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

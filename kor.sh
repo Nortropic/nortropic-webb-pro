@@ -93,9 +93,9 @@ ARGS=(-p
   "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" "Bash(cp *)" "Bash(mv *)" "Bash(find *)"
   "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)"
   "Bash(sort *)" "Bash(uniq *)" "Bash(sed *)" "Bash(tr *)" "Bash(cut *)"
-  "Bash(git add backlog/*)" "Bash(git commit *)" "Bash(git push origin main)"
-  # Det som aldrig behövs i ett bygge nekas uttryckligen; nekande går före tillåtande. Commitvakten
-  # (.claude/hooks/commitvakt.py, NWP_COMMIT_TILLATET nedan) släpper bara commits av backlog/.
+  # Ingen git i bygget: backlogposterna committas av körningen efteråt, utanför sandlådan (nedan). Commitvakten
+  # (.claude/hooks/commitvakt.py, NWP_COMMIT_TILLATET nedan) står kvar som andra spärr om git ändå nås.
+  # Det som aldrig behövs i ett bygge nekas uttryckligen; nekande går före tillåtande.
   --disallowedTools "Bash(rm *)" "Bash(gh pr *)" "Bash(git rebase *)" "Bash(git checkout *)" "Bash(git reset *)"
   "Bash(git worktree *)" "Bash(git config *)" "Bash(git push --force *)" "Bash(git push -f *)"
   "Bash(sed -i*)" "Bash(find * -exec*)" "Bash(find * -ok*)" "Bash(find * -delete*)" "Bash(npx astro add *)"
@@ -110,7 +110,21 @@ GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.
 # --strict-mcp-config utan --mcp-config: inga anslutningar (Gmail, Drive, Resend …) laddas i bygget.
 ARGS+=(--setting-sources project,local --strict-mcp-config --model "${NWP_MODELL:-opus[1m]}" --effort "${NWP_EFFORT:-medium}")
 if [ ${#INSPO[@]} -gt 0 ]; then ARGS+=(--mcp-config "$NWP_MCP_CONFIG"); fi
-if [ -n "$GH_DIR" ]; then ARGS+=(--settings "{\"env\":{\"GH_CONFIG_DIR\":\"$GH_DIR\"}}"); fi
+# Sandlådan (backlogposten om gräns på processnivå, F1): NWP_SANDLADA=pa ger claude Claude Codes inbyggda sandlåda för
+# Bash och dess barn: skrivning bara i kunder/<slug>, underlag/<slug>, backlog/ och tmp; mekaniken och .git skrivskyddade;
+# hemligheter olästa; nätet bara till verksamhetens domän (ur uppdragstexten), NWP_NAT_DOMANER (kommaseparerat) och
+# kontroller/sandlada-domaner.txt. Prova först med kontroller/sandlada_prov.sh. Kräver att managed-settings.json inte
+# låser sandbox.enabled till false (kontroller/sandlada.py). Standard av tills ett helt bygge körts med den på.
+SANDLADA=()
+if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
+  for d in $(printf '%s' "$VERKSAMHET" | tr 'A-Z' 'a-z' | grep -oE '[a-z0-9][a-z0-9.-]*\.[a-z]{2,}' | sort -u) $(printf '%s' "${NWP_NAT_DOMANER:-}" | tr ',' ' '); do
+    SANDLADA+=(--doman "$d")
+  done
+else
+  SANDLADA+=(--av)
+fi
+SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} "${SANDLADA[@]}")" || { echo "inställningarna (kontroller/sandlada.py) kunde inte skapas"; exit 2; }
+if [ "$SETTINGS" != "{}" ]; then ARGS+=(--settings "$SETTINGS"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort.
 RENSA=(-u CLAUDECODE)
@@ -131,6 +145,8 @@ FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"
 EFTER_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-efter"
 rm -f "$FORE_FIL" "$EFTER_FIL"   # en planterad symlänk ska inte få styra vart listorna skrivs
 skyddat > "$FORE_FIL"
+BACKLOG_FORE="$ROOT/kunder/$SLUG/prov/.backlog-fore"
+git -C "$ROOT" ls-files --others --exclude-standard backlog | sort > "$BACKLOG_FORE"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
 printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
@@ -138,6 +154,15 @@ RC=$?
 set -e
 rm -f "$EFTER_FIL"
 skyddat > "$EFTER_FIL"
+# Bygget skriver backlogposter men har ingen git: körningen committar de nya filerna i backlog/ efteråt, bara dem
+# (inte andra sessioners okommitterade poster), och pushar. Misslyckad push stoppar inte avslutet.
+NYA_BACKLOG="$(comm -13 "$BACKLOG_FORE" <(git -C "$ROOT" ls-files --others --exclude-standard backlog | sort) | grep -E '^backlog/B-[a-z0-9-]+\.md$' || true)"
+if [ -n "$NYA_BACKLOG" ]; then
+  echo "$NYA_BACKLOG" | xargs git -C "$ROOT" add -- \
+    && git -C "$ROOT" commit -q -m "Bygge $SLUG: backlogposter" -- $(echo "$NYA_BACKLOG") \
+    && { git -C "$ROOT" push -q origin main || echo "backlogposterna committade lokalt; push misslyckades"; } \
+    || echo "backlogposterna kunde inte committas: $NYA_BACKLOG"
+fi
 # Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
 # godkännande, 3 mekaniken ändrades under körningen, 4 claude föll. exec: skriptets slutkod är korsluts.
 exec "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" "$ROOT/kunder/$SLUG" "$RC" "$FORE_FIL" "$EFTER_FIL" "$STAMP"

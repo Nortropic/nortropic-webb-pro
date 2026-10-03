@@ -1,0 +1,32 @@
+# Nät som ett bygge får nå från Bash när sandlådan är på (kor.sh, NWP_SANDLADA=pa). Verksamhetens egen domän läggs till
+# per körning ur uppdragstexten, och NWP_NAT_DOMANER (kommaseparerat) lägger till fler. WebFetch och MCP-tjänsterna
+# (Mobbin, Refero, Inspo) går utanför sandlådan och berörs inte. En referenssajt utanför listan går inte att öppna med
+# inspektera.mjs: välj en annan källa eller lägg till domänen i NWP_NAT_DOMANER innan körningen.
+registry.npmjs.org
+*.npmjs.org
+github.com
+objects.githubusercontent.com
+raw.githubusercontent.com
+cdn.jsdelivr.net
+unpkg.com
+fonts.googleapis.com
+fonts.gstatic.com
+awwwards.com
+siteinspire.com
+land-book.com
+godly.website
+httpster.net
+onepagelove.com
+cssdesignawards.com
+thefwa.com
+mobbin.com
+refero.design
+hantverkskollen.se
+reco.se
+hitta.se
+bokadirekt.se
+eniro.se
+allabolag.se
+bolagsverket.se
+google.com
+maps.google.com
