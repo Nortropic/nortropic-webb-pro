@@ -42,7 +42,7 @@ Bara transkriptet: `.venv/bin/python kontroller/youtube.py URL --ut video.md`.
 
 Spanaren (`kontroller/spana.py`) letar kandidater åt kirurgen utan modell: flöden, leverantörsdokumentation, GitHub,
 Hacker News och YouTube-kanaler ur `kunskap/spaning-kallor.md`. Dashboarden kör den en gång i veckan och visar de
-rankade kandidaterna under Kirurgen; "Ta in" startar ett vanligt intag. Själv: `.venv/bin/python kontroller/spana.py
+rankade kandidaterna under Kirurgen; "Skicka till kirurgen" startar ett vanligt intag. Själv: `.venv/bin/python kontroller/spana.py
 spana --torr` visar vad den skulle hitta utan att spara.
 
 ## Prospekt
