@@ -30,7 +30,7 @@ KUNDER = ROOT / 'kunder'
 UNDERLAG = ROOT / 'underlag'
 SLUG = re.compile(r'^[a-z0-9-]{2,60}$')
 sys.path.insert(0, str(ROOT / 'kontroller'))
-from prova import Server  # noqa: E402  (samma statiska server som provet använder)
+from prova import Server, dist_hash  # noqa: E402  (samma statiska server som provet använder; hashen binder A/B-valet)
 import backlog as bl  # noqa: E402  (samma backlog-format som kirurgen och byggena skriver)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import prospektvy as pv  # noqa: E402  (prospekten: kampanjer, kort, brev; heter inte prospekt eftersom kontroller/prospekt.py ligger först på sys.path)
@@ -94,7 +94,8 @@ def las_text(p):
 # --- markdown → html (det som repots egna filer använder; allt annat blir text) ---
 
 def _inline(t):
-    t = html.escape(t, quote=False)
+    # quote=True: citattecken i en adress ska inte kunna stänga href-attributet (revisionen 2026-10-03, F2)
+    t = html.escape(t)
     t = re.sub(r'`([^`]+)`', r'<code>\1</code>', t)
     t = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', t)
     t = re.sub(r'(?<![*\w])\*([^*\n]+)\*(?!\w)', r'<em>\1</em>', t)
@@ -238,8 +239,11 @@ def sammanfattning(slug):
     s = las_json(KUNDER / slug / 'prov' / 'STATUS.json')
     k = korning(slug)
     steg = [{'namn': n, 'klar': bool(f(slug))} for n, f in STEG]
+    sv = las_json(KUNDER / slug / 'prov' / 'STOPPVAKT.json') or {}
     return {
         'slug': slug, 'namn': v.get('namn') or slug,
+        # avslutat är inte godkänt: stoppvakten släpper vid sitt tak också utan godkänd granskning (ägarfråga 2 i revisionen)
+        'slappt_utan_godkannande': bool(sv.get('slapp')) and not str(sv.get('skal') or '').startswith('kontrollerna gröna'),
         'ort': ', '.join(((v.get('rackvidd') or {}).get('orter') or [])[:2]) or ((v.get('adress') or {}).get('ort') or ''),
         'doman': (v.get('webb') or {}).get('doman') if isinstance(v.get('webb'), dict) else None,
         'steg': steg, 'steg_klara': sum(x['klar'] for x in steg),
@@ -288,8 +292,23 @@ def bygge(slug):
         dolt = '<p>Dolt tills du har valt i Jämförelser, så att jämförelsen förblir blind.</p>'
         # också byggets egna frågor: ateljéarmens riktningsfråga visar bilder ur atelje/ och avslöjar armen
         b.update({'ab_dold': True, 'rapport': dolt, 'prov_md': dolt, 'underlag': {'Dolt': dolt}, 'korning': None,
-                  'fragor': {'karna': KARNFRAGOR, 'egna': []}})
+                  'fragor': {'karna': KARNFRAGOR, 'egna': []}, 'stoppvakt': None, 'status': None,
+                  'bilder': dict(b['bilder'], deras=[], referenser=[])})
     return b
+
+
+def fil_tillaten(rel):
+    """/fil/<rel>: aldrig jämförelsernas facit (kunder/ab/), och för en arm som ägaren inte valt i än bara provets
+    skärmbilder, som den blinda jämförelsen behöver (revisionen 2026-10-03, F14)."""
+    delar = rel.split('/')
+    if len(delar) < 3 or delar[1] == 'ab':
+        return False
+    slug = delar[1]
+    if not SLUG.match(slug):
+        return False
+    if ab_oavgjord(slug):
+        return delar[0] == 'kunder' and rel.startswith('kunder/%s/prov/inspektion/' % slug) and rel.endswith('.png')
+    return True
 
 
 def granskningen(slug, domd):
@@ -434,8 +453,13 @@ def ab_lista():
                 b['matt'] = (p.get('korningar') or {}).get(slug)
             byggen.append(b)
         ut.append({'id': p.get('id'), 'verksamhet': p.get('verksamhet'), 'variabel': p.get('variabel'), 'status': p.get('status'),
-                   'val': p.get('val'), 'kommentar': p.get('kommentar'), 'byggen': byggen})
+                   'val': p.get('val'), 'kommentar': p.get('kommentar'), 'byggen': byggen, 'klar': ab_klar(p)})
     return ut
+
+
+def ab_klar(p):
+    """Båda körningarna avslutade (ab.py skriver korningar per arm och klar sist); valet får inte göras förrän dess."""
+    return bool(p.get('klar')) and all(s in (p.get('korningar') or {}) for s in p.get('byggen') or [])
 
 
 def spara_ab(ident, data):
@@ -445,9 +469,16 @@ def spara_ab(ident, data):
         raise ValueError('okänd jämförelse')
     if p.get('val') is not None:
         raise ValueError('redan vald')
+    if not ab_klar(p):
+        raise ValueError('båda byggena måste vara avslutade innan du väljer; granskning och rättningar kan fortfarande pågå')
     val = data.get('val')
     if val not in p['byggen'] + ['lika']:
         raise ValueError('välj A, B eller lika')
+    for s in p['byggen']:  # valet gäller exakt de byggen som blev klara (revisionen 2026-10-03, F15)
+        sparad = (p.get('korningar') or {}).get(s, {}).get('dist_sha256')
+        d = KUNDER / s / 'sajt' / 'dist'
+        if sparad and (not d.is_dir() or dist_hash(d) != sparad):
+            raise ValueError('bygget %s har ändrats sedan jämförelsen blev klar; kör inte vidare i armarna efter kedjan' % s)
     p.update(val=val, kommentar=(data.get('kommentar') or '').strip()[:4000], valt=nu(), status='vald')
     f.write_text(json.dumps(p, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     etikett = {s: 'AB'[i] for i, s in enumerate(p['byggen'])}
@@ -732,7 +763,8 @@ pv.koppla(siffror=siffror, bilder=bilder, korning=korning, byggen=byggen)
 
 VISNING = {}
 VISNING_LAN = {}
-LAN = {'pa': True}
+LAN = {'pa': True, 'tid': 2 * 3600}  # visningen i telefonen stängs efter två timmar; knappen startar den igen
+VARD = {'tillatna': set()}  # Host-värden dashboarden svarar på (sätts i main); annat är DNS-rebinding eller fel adress
 
 
 def natverksadress():
@@ -755,11 +787,24 @@ def visa_lan(slug):
     ip = natverksadress() if LAN['pa'] else None
     if not ip or not (dist / 'index.html').is_file():
         return None
+    stang_lan(bara_gamla=True)
     if slug not in VISNING_LAN:
         srv = Server(dist, vard=ip)
         srv.__enter__()
-        VISNING_LAN[slug] = srv
-    return VISNING_LAN[slug].url + '/'
+        VISNING_LAN[slug] = (srv, time.time())
+    return VISNING_LAN[slug][0].url + '/'
+
+
+def stang_lan(bara_gamla=False):
+    """Stäng visningarna på nätverksadressen: alla, eller de som stått öppna längre än LAN['tid'] (ägarfråga 5 i revisionen:
+    alla på nätverket når servern, så den ska inte stå öppen i veckor)."""
+    for slug, (srv, start) in list(VISNING_LAN.items()):
+        if not bara_gamla or time.time() - start > LAN['tid']:
+            try:
+                srv.__exit__(None, None, None)
+            except Exception:
+                pass
+            del VISNING_LAN[slug]
 
 
 def visa(slug):
@@ -792,8 +837,16 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(kropp)
 
+    def vard_ok(self):
+        """Host måste vara dashboardens egen adress och port (revisionen 2026-10-03, F13: Origin lika med Host räcker inte,
+        en sida på ett annat namn som pekar om till 127.0.0.1 skulle annars läsa och skriva som ägaren)."""
+        vard = (self.headers.get('Host') or '').strip().lower()
+        return not VARD['tillatna'] or vard in VARD['tillatna']
+
     def do_GET(self):
         vag = unquote(urlsplit(self.path).path)
+        if not self.vard_ok():
+            return self.skicka(421, {'fel': 'fel värd: använd http://127.0.0.1:<port>'})
         try:
             if vag in ('/', '/index.html'):
                 return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8')
@@ -843,23 +896,28 @@ class H(BaseHTTPRequestHandler):
                     return self.skicka(302, '', extra={'Location': url})
                 return self.skicka(404, '<p>Sajten är inte byggd än.</p>', 'text/html; charset=utf-8')
             m = re.match(r'^/fil/((?:kunder|underlag)/[a-z0-9-]{2,60}/.+)$', vag)
-            if m:
+            if m and fil_tillaten(m.group(1)):
                 p = (ROOT / m.group(1)).resolve()
                 if (p.is_relative_to(KUNDER.resolve()) or p.is_relative_to(UNDERLAG.resolve())) and p.is_file() \
                         and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.svg', '.md', '.json', '.txt', '.log'):
                     typ = mimetypes.guess_type(p.name)[0] or 'text/plain'
                     if typ.startswith('text/') or typ.endswith('json'):
                         typ += '; charset=utf-8'
-                    return self.skicka(200, p.read_bytes(), typ)
+                    extra = {}
+                    if p.suffix.lower() == '.svg':  # en SVG kan bära skript; öppnad direkt från samma ursprung får den inte köra något
+                        extra['Content-Security-Policy'] = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'"
+                    return self.skicka(200, p.read_bytes(), typ, extra)
             return self.skicka(404, {'fel': 'finns inte'})
         except Exception as e:  # dashboarden ska visa felet, inte dö
             return self.skicka(500, {'fel': '%s: %s' % (type(e).__name__, e)})
 
     def do_POST(self):
         vag = urlsplit(self.path).path
-        ursprung = self.headers.get('Origin') or ''
-        vard = self.headers.get('Host') or ''
-        if urlsplit(ursprung).netloc != vard:
+        if not self.vard_ok():
+            return self.skicka(421, {'fel': 'fel värd: använd http://127.0.0.1:<port>'})
+        ursprung = urlsplit(self.headers.get('Origin') or '')
+        vard = (self.headers.get('Host') or '').strip().lower()
+        if ursprung.scheme != 'http' or ursprung.netloc.lower() != vard:
             return self.skicka(403, {'fel': 'fel ursprung'})
         try:
             n = int(self.headers.get('Content-Length') or 0)
@@ -912,6 +970,7 @@ def main():
     p.add_argument('--utan-lan', action='store_true', help='ingen visning av sajten på nätverksadressen (I telefonen)')
     a = p.parse_args()
     LAN['pa'] = not a.utan_lan
+    VARD['tillatna'] = {'127.0.0.1:%d' % a.port, 'localhost:%d' % a.port}
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
     print('Dashboard: http://127.0.0.1:%d' % a.port, flush=True)
     def spaningsklocka():
@@ -920,6 +979,7 @@ def main():
                 spaning_vid_behov()
             except Exception as e:  # en klocka som dör ska inte ta med servern
                 print('spaningen startade inte: %s' % e, flush=True)
+            stang_lan(bara_gamla=True)
             time.sleep(3600)
     import threading
     threading.Thread(target=spaningsklocka, daemon=True).start()

@@ -176,8 +176,10 @@ function grindchips(prov) {
 }
 function statuschip(b) {
   if (b.pagar) return '<span class="chip acc puls">Körning pågår</span>';
-  if (b.domd) return '<span class="chip">Dömd</span>';
-  if (b.prov && b.steg[6].klar) return '<span class="chip gul">Väntar på din dom</span>';
+  // avslutat är inte godkänt: stoppvakten släppte vid sitt tak (rött prov, saknad rapport eller underkänd granskning)
+  const utan = b.slappt_utan_godkannande ? '<span class="chip rod">Avslutat utan godkännande</span>' : '';
+  if (b.domd) return utan + '<span class="chip">Dömd</span>';
+  if (b.prov && b.steg[6].klar) return utan + '<span class="chip gul">Väntar på din dom</span>';
   if (b.prov) return `<span class="chip ${b.prov.ok ? 'ok' : 'rod'}">${b.prov.ok ? 'Grönt' : 'Rött'}</span>`;
   return '<span class="chip">Påbörjad</span>';
 }
@@ -467,8 +469,8 @@ async function abvy() {
       <div class="bilder">${b.bilder.map((p) => bild(p, b.etikett)).join('')}</div>
       ${b.varde != null ? `<p class="under">${esc(j.variabel)} = <b>${esc(b.varde)}</b>${b.matt ? ` · ${b.matt.minuter ?? '?'} min, ${b.matt.turer ?? '?'} turer, granskaren ${b.matt.granskning_godkand ? 'godkände' : 'underkände'} efter ${b.matt.omgangar} omgångar` : ''}</p>` : ''}</div>`;
     const valt = j.val != null;
-    const knappar = !valt && j.byggen.every((b) => b.byggd) ? `<div class="rad" style="margin-top:10px">${j.byggen.map((b) => `<button class="knapp primar" data-ab="${esc(j.id)}" data-val="${esc(b.slug)}">${b.etikett} är bättre</button>`).join('')}<button class="knapp" data-ab="${esc(j.id)}" data-val="lika">Lika</button></div><textarea id="k-${esc(j.id)}" placeholder="Varför? Ett konkret ställe." style="margin-top:8px;min-height:56px"></textarea>` : '';
-    return `<section style="margin-bottom:24px"><h2>${esc(j.verksamhet || j.id)}</h2><p class="under">${esc(j.variabel)} · ${esc(j.status)}${valt ? ' · du valde ' + esc(j.val === 'lika' ? 'lika' : j.byggen.find((b) => b.slug === j.val)?.etikett || '?') : ' · värdena visas efter ditt val'}</p>
+    const knappar = !valt && j.klar ? `<div class="rad" style="margin-top:10px">${j.byggen.map((b) => `<button class="knapp primar" data-ab="${esc(j.id)}" data-val="${esc(b.slug)}">${b.etikett} är bättre</button>`).join('')}<button class="knapp" data-ab="${esc(j.id)}" data-val="lika">Lika</button></div><textarea id="k-${esc(j.id)}" placeholder="Varför? Ett konkret ställe." style="margin-top:8px;min-height:56px"></textarea>` : '';
+    return `<section style="margin-bottom:24px"><h2>${esc(j.verksamhet || j.id)}</h2><p class="under">${esc(j.variabel)} · ${esc(j.status)}${valt ? ' · du valde ' + esc(j.val === 'lika' ? 'lika' : j.byggen.find((b) => b.slug === j.val)?.etikett || '?') : j.klar ? ' · värdena visas efter ditt val' : ' · välj när båda byggena är avslutade (granskning och rättningar kan pågå fast sidan går att öppna)'}</p>
       <div class="galleri" style="grid-template-columns:1fr 1fr">${j.byggen.map(kol).join('')}</div>${knappar}</section>`;
   };
   $('#vy').innerHTML = `<h1>Jämförelser</h1><p class="under">Samma verksamhet byggd två gånger med ett val ändrat. Titta på båda och välj utan att veta vilket som är vilket; värdena och mätningarna visas efter valet och skrivs i LARDOMAR.md. Starta en med <code>nohup .venv/bin/python kontroller/ab.py starta &lt;slug&gt; "&lt;verksamhet&gt;" &amp;</code>.</p>${lista.length ? lista.map(kort).join('') : '<div class="tom">Inga jämförelser än.</div>'}`;
