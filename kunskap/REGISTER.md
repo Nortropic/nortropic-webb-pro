@@ -4197,3 +4197,94 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   verksamhetens
 - Utfall: —
 - Backlog: ingen för domen; innovationspost B-20261003-varje-riktning-i-koncept-md-namnger-ett-aterkomm
+
+### 2026-10-03 · Self-Made Web Designer (Chris Misterek), "The ONLY 6 Web Design Styles that Matter (2026)" (YouTube N1Cl5cYmegE) · nej
+- Källa: https://www.youtube.com/watch?v=N1Cl5cYmegE @ publicerad 2026-06-17 (13:25, 62 764 visningar, manuellt
+  engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 41 bildrutor: tio är berättaren
+  framför bokhyllan [SKÄRM 00:02, 00:43, 02:59, 05:15, 07:50, 08:09, 08:44, 09:08, 10:06, 10:42]; elva är textplattor
+  ("I want something clean" [SKÄRM 01:22], Saint-Exupéry-citatet [SKÄRM 02:01], "The Jensen: No fuss · Stability ·
+  Means Business" [SKÄRM 03:38], "Put Together > Stand Out" [SKÄRM 03:57], två kundfrågor [SKÄRM 04:36], tre
+  pixelikoner [SKÄRM 04:55], "Girl Next Door / Non-Judgy Friend" [SKÄRM 05:34], "Swiss: Grid systems / Editorial:
+  Kinfolk" [SKÄRM 08:29], "The Nolan: Design · UX · Coding" [SKÄRM 11:43], "Clients" [SKÄRM 12:41], "The High Profit
+  Process" [SKÄRM 13:00]); fyra är kändisfoton (Steve Jobs med siluett [SKÄRM 02:14], Jensen Huang i läderjacka
+  [SKÄRM 02:39, 03:18], Zendaya [SKÄRM 07:11]); en är en AI-renderad rymdstationslägenhet [SKÄRM 01:41]; elva visar
+  främmande sajter (Landbook-galleriet [SKÄRM 00:24]; "Fire your financial adviser" med telefon i hand och knappen
+  "Get early access" [SKÄRM 01:02]; en robotsajt "Create new experiences. Shipping today." med Boston Dynamics- och UC
+  San Diego-loggor [SKÄRM 05:53]; Fruitful "Get paired with a Guide" med två videoporträtt och gröna knappar [SKÄRM
+  06:13]; Reome, hudvård med stora porträtt och "Shop now" [SKÄRM 07:31]; "LIQUID, yield-bearing BITCOIN" i serif på
+  svart [SKÄRM 09:27]; The Obsidian Assembly "Nothing Shown First" med en skimrande sten och "Seek admission" [SKÄRM
+  09:46]; en exploderad 3D-kameralins [SKÄRM 11:04]; Igloo, en 3D-igloo i snö med "Sound: Off" och ett manifest om
+  community, AI och crypto [SKÄRM 11:23]; Harmonic State med lila partiklar och menyn "Websites · Installations · XR /
+  VR / AI" [SKÄRM 12:02]; Splines scen "Nexus" med en hjärna och "Remix this scene" [SKÄRM 12:22]); fyra visar
+  berättarens egna Showit-sajter: en SaaS-sida "Automate Your Work. Accelerate Your Team." med stockfoto och "Start
+  Free Trial" [SKÄRM 04:16], Gatherwell "A private membership for creative business owners" med fem stockfoton i rad
+  [SKÄRM 06:32, 06:52] och Relentless Co "Determined Focused Relentless" i Anton 200 px med gul knapp [SKÄRM 10:25].
+  Sajterna Melrose AI, Still Agency och Active Theory nämns [TAL 03:20, 07:43, 11:20] men faller mellan bildrutorna;
+  inte sedda. De sex länkarna i beskrivningen: väntelista för berättarens kurs, nyhetsbrev, Showit (affiliate),
+  Instagram, medlemskap och videon pbhLsV-Dyho som redan är dömd nej (posten ovan, 2026-10-03) [BESKRIVNING]; ingen
+  leder till ett repo eller en byggd sajt, ingen öppnad. Ägarens not: ingen
+- Steg: 5 (5.1 riktning) och granskaren
+- Jämfört med i dag, stil för stil: (0) **Grundidén: sex stilar som en katalog att välja ur, med en kändis per stil
+  och kundens fras som nyckel ("I just want something clean" [TAL 01:09; SKÄRM 01:22], "I want a wow factor" [TAL
+  11:40])**. Vi: fyra riktningar "härledda ur verksamheten själv (deras bilder, material, plats, ton) och
+  referenserna, aldrig ur en branschmall", med en namngiven axel och den sak ur "Bara de har" som riktningen bygger på
+  (`.claude/skills/bygg-sajt/SKILL.md` rad 208–220); upptagna val och modellens standardval läses före valet (rad
+  203–206); granskaren frågar "Kunde ett annat företagsnamn sättas dit?" (`kritik/GRANSKARE.md` rad 86–87). Ägarens
+  mall-lukt i L1–L3 satt i just det som "skulle passa vilken firma som helst" (`LARDOMAR.md` rad 29, 54, 78). En
+  stilkatalog är utgångspunkten i en mall; vår utgångspunkt är verksamheten. Sämre. (1) **Steve Jobs: luft, system,
+  skala bort** [TAL 00:34–02:12; SKÄRM 01:02, 02:01]. Vi: apple.com/se som exemplar för dimension 4
+  (`kunskap/referenser-professionella.md` rad 54), gestaltlagar och CRAP i måttstocken (`kunskap/teoretisk-grund.md`
+  rad 62–63), provet "stryk en tredjedel av texten" (SKILL.md rad 263–264). Lika; vår är prövbar. (2) **Jensen Huang:
+  SaaS-grid för AI-bolag som söker investerare, "function over form"** [TAL 02:52–04:35; SKÄRM 03:38, 03:57, 04:16].
+  Målgruppen är "almost always some kind of SaaS company … their main goal is to try and get new investors" [TAL
+  03:05]; våra verksamheter är hantverkare och en salong i Luleå. Principen funktion före form har vi i byggstandardens
+  principer (`kunskap/byggstandard.md` rad 18–19). Ej tillämpligt. (3) **Drew Barrymore: varm, oförställd, och när
+  kundens bilder är dåliga "subsidize that" med rundade hörn på kort och bilder och en varm palett** [TAL 06:26–06:52;
+  SKÄRM 06:13, 06:32]. Vi: "utelämna det inte och lös det inte med form … Beställ det av verksamheten" (SKILL.md rad
+  20–24; ägarens domar L2 och L3, `LARDOMAR.md` rad 71, 95); "one border-radius on everything regardless of hierarchy"
+  är ett AI-mönster (`kunskap/externa/anthropic-frontend-design-SKILL.md` rad 42) som granskaren straffar
+  (`kritik/GRANSKARE.md` rad 87–89). Resultatet berättaren visar [SKÄRM 06:32] är fem stockfoton i rad under en
+  centrerad rubrik: just det mönstret. Krockar med ett medvetet val; sämre. (4) **Zendaya: editorial och Swiss, "scale
+  back the font size", layouter som inte följer "common principles", "we know you gotta bounce your eyes to read
+  different paragraphs, but hey, we're too busy being cool"** [TAL 07:38–08:29; SKÄRM 07:31, 08:29]. Vi: kontrast
+  4,5:1 och synlig fokus (`kunskap/byggstandard.md` 3.4, rad 49), träffytor (3.3, rad 48), läsbar radlängd och
+  avsiktliga radbrytningar (`kunskap/referenser-professionella.md` rad 20–21), WCAG 2.2 AA som kvalitetskrav (rad
+  154–155). Grilli Type som exemplar (rad 52) visar att typografin kan bära hierarkin utan att offra läsningen.
+  Krockar; sämre. (5) **Virgil Abloh: ett visuellt element som bär och upprepas med smak, "contrast, not bigness"**
+  [TAL 09:27–10:38; SKÄRM 09:46, 10:25]. Vi: Visuell tes som namnger ett material eller en plats ur "Bara de har"
+  (SKILL.md rad 219–220), "Open with the most characteristic thing in the subject's world" (frontend-design rad 17),
+  och innovationsposten från förra videon om ett motiv ur märket på tre ställen
+  (B-20261003-varje-riktning-i-koncept-md-namnger-ett-aterkomm). Lika i princip; de exempel som visas är en 3D-sten
+  på en brun toning under rubriken "Nothing Shown First" [SKÄRM 09:46] och ordet "Relentless" i 200 px i Showit
+  [SKÄRM 10:25], inget av dem ur en verksamhets eget material. (6) **Christopher Nolan: "something moves, something
+  morphs", interaktion "almost every inch", 3D ur Unicorn Studio eller Spline** [TAL 10:40–12:23; SKÄRM 11:04, 11:23,
+  12:02, 12:22]. Vi: helt statiskt (`kunskap/byggstandard.md` 1.1, rad 25), prefers-reduced-motion och "inget rullar
+  av sig självt" (3.5, rad 50), högst 200 kB JavaScript (3.7, rad 52), Lighthouse ≥ 90 i mobil (4.1, rad 58), inga
+  resurser från tredje part (4.4, rad 61), ingen autoplay med ljud (5.5, rad 73); rule of least power och progressive
+  enhancement i måttstocken (`kunskap/teoretisk-grund.md` rad 47–50). Igloo-sajten har en ljudknapp [SKÄRM 11:23] och
+  Spline-scener laddas som tredjepartsskript. Krockar med sex punkter i standarden; sämre. **Sett med egna ögon mot de
+  åtta dimensionerna:** de elva främmande sajterna är SaaS, fintech, kryptovaluta, hudvård och byråer, ingen är ett
+  litet företag med en telefon att ringa, och alla visas bara på desktop; mobil osedd. Berättarens egna tre sajter
+  [SKÄRM 04:16, 06:32, 10:25] faller på hållning (ett annat namn kunde sättas dit), substans ("Automate Your Work.
+  Accelerate Your Team.", "Fitness for the average person who wants to dig deep and crush their goals") och stockbilder.
+  **Mot litteraturen:** katalogen tillför ingen metod; närmast ligger estetik–användbarhet-effekten (Kurosu &
+  Kashimura 1995, `kunskap/teoretisk-grund.md` rad 64), som ingen av stilarna nämner. Stil 4 säger emot läsbarheten
+  och stil 6 emot svarstidsgränserna och Web Vitals (rad 68–72) utan belägg; "99% of the websites clients want"
+  [BESKRIVNING] är ett påstående utan mätning
+- Skäl: videon är en stilkatalog, och hela vårt steg 5 är byggt för motsatsen: riktningen härleds ur verksamheten, och
+  granskaren straffar det som kunde passa vilken firma som helst. Två av de sex stilarna gör vi redan (Steve Jobs är
+  vårt Apple-exemplar, Virgil är vår Visuella tes), en gäller AI-bolag som söker investerare, och tre krockar med
+  medvetna val: dålig bild löses med beställning och inte med rundade hörn (L2, L3), läsbarheten offras inte för
+  editorial look (WCAG 2.2 AA), och rörelse, 3D och tredjepartsskript bryter sex punkter i byggstandarden. Det som
+  faktiskt visas byggt av berättaren är stockfoton och byråcopy i Showit. Källkritik: nästan två minuter av 13 säljer
+  väntelistan till berättarens kurs [TAL 04:42–05:16, 12:23–13:10; SKÄRM 13:00], beskrivningen länkar Showit med
+  affiliatelänk, medlemskap och nyhetsbrev [BESKRIVNING]; "Harrison, if you're watching" [TAL 11:47] är en anekdot.
+  Inga instruktioner till agenter
+- Kostnad: inget tas in
+- Säkerhet: transkriptet förgranskat: HÖG på grund av ett nollbreddstecken (U+200D) på rad 43 i beskrivningen; läst i
+  sammanhang är det fogtecknet i emojin "🧑‍💻" före "6 EASY Tips", ingen gömd text. Ingen text riktad till agenter,
+  inga skript. Inget kört eller installerat; inget fört vidare
+- Förslag: inget. Ingen egen innovation den här gången: det enda som tål att tas vidare, ett bärande motiv som
+  upprepas (stil 5), ligger redan i backloggen sedan förra videon
+- Utfall: —
+- Backlog: ingen
