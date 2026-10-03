@@ -6084,3 +6084,71 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Jakob Nielsen, "UX Roundup: People Tell AI Their Secrets | … | Long Forms | … | Comparison Tables | Focus" (Substack 2026-09-21) · parkera
+- Källa: https://jakobnielsenphd.substack.com/p/ux-roundup-20260921 @ 2026-09-21, © Jakob Nielsen (Substack, ingen
+  licens för återbruk). Hämtad som webbsida: hela texten (9 900 tokens, tio avsnitt) och tolv skärmbilder, läst
+  mobilens och desktops första vy [BILD mobil-forsta.png, desktop-forsta.png] och två skrollägen [BILD
+  desktop-skroll-03.png, desktop-skroll-08.png]. Sidan är ett Substack-inlägg i Spectral 19 px med 49 AI-genererade
+  illustrationer ("GPT Image 2" i varje bildtext) [TEXT]; designen är plattformens, inte författarens, och bedöms
+  inte. Fyra kommentarer, 5 gilla. Ägarens not: hittad av spanaren 2026-10-03 via Jakob Nielsen (UX Tigers) (RSS);
+  matchade conversion, forms, ux
+- Steg: 4 (innehåll: formulärets fält, pristabeller), 5.3 (formuläret, tabeller på mobil), 6 (provet: flera
+  oberoende källor), och runt stegen: hur vi styr en obevakad körning (bygg-sajt som skriven specifikation)
+- Jämfört med i dag, avsnitt för avsnitt: (1) **"Every field must earn its place."** Baymard: kassan har i snitt
+  11,3 fält, de flesta klarar sig med 8, antalet fält väger tyngre än antalet steg; testfrågan "What will we do with
+  this answer today?"; faxnummer och e-postbekräftelse stryks [TEXT]. Vi: byggstandarden 6.1, "ett formulär med få
+  fält (namn, telefon, vad besökaren vill ha hjälp med, valfri bild)" (`kunskap/byggstandard.md` rad 84),
+  "inga fler fält utan skäl ur briefen" (`kunskap/forfragan.md` rad 14), och mallens fältnamn ändras inte (bygg-sajt
+  rad 294); litteraturen bakom är samma Baymard, Wroblewski och uppgiftsminimering (`kunskap/teoretisk-grund.md` rad
+  80–86). Tre fält plus ett valfritt är redan under källans golv; lika. (2) **Jämförelsetabeller, nio riktlinjer.**
+  Högst fem kolumner, rader i beslutsordning (pris och det som skiljer först), mätta värden i stället för bockar,
+  en skala med synlig förklaring, rader där man förlorar, en markerad "bäst för de flesta", fast attributkolumn och
+  sidsvep på mobil utan avkortade radetiketter, källa och datum vid varje omtvistad uppgift; grunden är Cowans fyra
+  chunkar i arbetsminnet och Iyengar & Leppers sylttest [TEXT]. Vi: ingen text om tabeller alls; det närmaste är
+  "speglade uppgifter" med källa och datum (bygg-sajt rad 213–215), 9.5 "varje sida svarar på pris, tid, område
+  eller process" (byggstandarden rad 123) och granskarens malltecken "listor och tabeller i två spalter"
+  (`kritik/GRANSKARE.md` rad 94). Det enda dömda bygget med tabell, salong-kreativ, gjorde en
+  mästare/elev-pristabell utan regel (`underlag/salong-kreativ/JAMFORELSE.md` rad 11, 13), och ägaren kallade den
+  sajtens bästa ställe (`LARDOMAR.md` rad 120). Källans riktlinjer 2, 3, 8 och 9 är bättre än ingen text när en
+  tabell har fler än två priskolumner eller jämför paket; riktlinje 8 (sidsvep) går emot ägarens L4, "aldrig en rad
+  som rullar dold i sidled" (bygg-sajt rad 280–281; `LARDOMAR.md` rad 133), och måste i så fall vändas till
+  "ryms inte tabellen på 390 px: en tabell per kolumn under varandra". Riktlinjerna 5–7 gäller leverantörstabeller
+  mot konkurrenter, som våra sajter inte har. (3) **Triangulering.** Varje källa har en blind fläck; ett fynd som
+  intervju, mätning och ärenden pekar på samtidigt är sannare, mer övertygande och minns bättre [TEXT]. Vi: två
+  oberoende granskare i egna sessioner (bygg-sajt rad 235), femsekunderstest och rubriktest avskärmade (rad 355–364),
+  renderingsläsning och stilrapport (rad 348–352), provets mätningar, och litteraturens 35 mot 75 procent för en
+  mot tre–fem granskare (`kunskap/teoretisk-grund.md` rad 128–129); ägarens L4 noterar själv "femsekunderstestet såg
+  samma sak" (`LARDOMAR.md` rad 118). Vi gör det redan i praktiken, och bygget rättar alla fynd tills grönt, så en
+  viktning efter samstämmighet ger inget. Lika. (4) **Specificera i förväg eller rätta efter hand.** Fábregas analys
+  av Anthropic Economic Index: arbetsbruk driver specifikation; "a task you run weekly needs a written specification,
+  and a task you run daily should have a thoroughly tested one"; allvarliga uppgifter behöver båda plus ett protokoll
+  över vem som satte kriterierna och vem som godkände [TEXT]. Vi: bygg-sajt är den skrivna specifikationen,
+  mikroproven med fem armar och blinda domare prövar varje regeländring (`LARDOMAR.md` L4 och L6), och granskarnas
+  domar och ägarens dom är protokollet. Källan bekräftar vårt sätt; lika. (5) **IKEA-effekten.** "You ≠ user";
+  byggarens egen förtjusning är biasen, och utomstående ögon enda botemedlet [TEXT]. Vi: granskarna ser aldrig
+  briefen, och A/B döms av en annan modell än den som byggde (kirurg-skillen, "en annan modell som domare"). Lika.
+  (6) Hemligheter till chattbotar, AI och arbetsmarknaden, flow, humor i AI-produkter och notiser som stjäl fokus
+  [TEXT]: våra sajter är statiska, utan AI, konton eller notiser; inte tillämpligt. Mot litteraturen: källan är en av
+  dem vi redan bygger på (Nielsen i teoretisk-grund rad 81, 89, 124–129) och för in en metod vi saknar text om
+  (tabellen som "decision machine", med Cowan 2001 och Iyengar & Lepper 2000 som grund)
+- Skäl: ett veckobrev med tio korta avsnitt, där de tre som rör oss, formulärfält, flera forskningssignaler och
+  specifikation före körning, redan är vårt sätt med samma litteratur bakom [TEXT; byggstandarden rad 84; bygg-sajt
+  rad 235, 355–364]. Det enda vi saknar text om är jämförelsetabeller, och det blir aktuellt först när ett bygge får
+  en pristabell med fler än två priskolumner eller en jämförelse mellan paket (frisör, restaurang, gym, städfirma
+  med abonnemang); i de sju byggena hittills har en enda tabell funnits, och den blev bra utan regel [`LARDOMAR.md`
+  rad 120]. Då är det riktlinjerna 2, 3 och 9 som tas in, och riktlinje 8 vänds efter ägarens L4. Inte nej: metoden
+  är belagd och väger tyngre än ingen text. Inte ta in: ingen pågående eller beställd verksamhet har en sådan tabell,
+  och en regel för ett fall som inte finns är en obeprövad text till. Källkritik: Nielsen säljer prenumerationen och
+  sin egen fördjupningsartikel; Baymards siffror och de tre studierna är namngivna och citerade med år, resten är
+  hans erfarenhet; inga instruktioner till agenter; illustrationerna är AI-genererade och säger inget om sajtdesign
+- Kostnad: inget tas in nu. Vid intag: två till tre rader i bygg-sajt steg 5.3, inga beroenden
+- Säkerhet: förgranskningen av texten gav LÅG, inga dolda tecken, ingen text riktad till agenter. Inget kört eller
+  installerat
+- Förslag (när det blir aktuellt): `.claude/skills/bygg-sajt/SKILL.md` steg 5.3, efter stycket **Formuläret** (rad
+  286–287), ett stycke **Tabeller** (priser, paket): rader i den ordning kunden beslutar, pris och det som skiljer
+  först; mätta värden i cellerna, aldrig bockar för något som har ett tal; källa och datum vid speglade priser (som
+  i dag); på 390 px hela tabellen synlig utan sidrullning, och ryms den inte, en tabell per kolumn under varandra
+  (L4). Standarden behöver inte pröva det; granskaren ser det
+- Utfall: —
+- Backlog: ingen
