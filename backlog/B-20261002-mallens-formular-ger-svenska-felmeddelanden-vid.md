@@ -1,12 +1,13 @@
 ---
 id: B-20261002-mallens-formular-ger-svenska-felmeddelanden-vid
-status: pagar
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · react-hook-form/react-hook-form
 skapad: 2026-10-02
 prio: normal
 steg: 5 (mallens formulär)
-andrad: 2026-10-03T00:23Z
+commit: a455af7
+andrad: 2026-10-03T00:28Z
 ---
 # Mallens formulär ger svenska felmeddelanden vid fältet med setCustomValidity, med webbläsarens egna som reserv utan JavaScript
 
@@ -15,3 +16,5 @@ andrad: 2026-10-03T00:23Z
 **Förslag:** mall/astro/src/components/Forfragan.astro, i det befintliga skriptet (rad 50–65): för varje fält med required i form.forfragan, lyssna på invalid och input, och sätt setCustomValidity till ett svenskt besked ur ett data-attribut på fältet (till exempel data-saknas="Skriv ditt namn") när validity.valueMissing, annars tomt; bygget skriver beskeden i verksamhetens ord. kunskap/forfragan.md efter rad 18: en rad om att felmeddelandena vid fältet är svenska med JavaScript och webbläsarens egna utan. Inga nya beroenden, inga nya fält.
 
 **Klart när:** I en webbläsare med engelskt gränssnitt visar ett tomt namnfält det svenska beskedet vid inskick; med JavaScript avstängt stoppar webbläsaren inskicket med sitt eget besked och POST utan JS fungerar som förut; kontroller/rokprov.sh slutar grönt.
+
+**Klar (2026-10-03):** setCustomValidity med data-saknas; prövat i engelsk webbläsare med och utan JS; rökprov grönt
