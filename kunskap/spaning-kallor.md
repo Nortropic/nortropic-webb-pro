@@ -30,6 +30,7 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | sida | OpenAI cookbook | https://developers.openai.com/cookbook | evals, agenter | 0.9 | granskning |
 | sida | OpenAI Academy | https://academy.openai.com/ | guider | 0.8 | modeller och guider |
 | rss | OpenAI news | https://openai.com/news/rss.xml | bred, termfiltret sållar | 1.0 | modeller och guider |
+| rss | Latent Space | https://www.latent.space/feed | AI-ingenjörskap, AINews | 0.8 | modeller och guider |
 | sida | xAI release notes | https://docs.x.ai/developers/release-notes | Grok: modeller och verktyg | 0.7 | modeller och guider |
 | sida | Gemini API release notes | https://ai.google.dev/gemini-api/docs/changelog | Google: modeller och verktyg | 0.7 | modeller och guider |
 | sida | Anthropic frontend-design | https://raw.githubusercontent.com/anthropics/skills/main/skills/frontend-design/SKILL.md | vår kopia i kunskap/externa; ändringar i originalet | 1.5 | ai-webbdesign |
@@ -51,6 +52,13 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | YouTube: Jono Catliff | https://www.youtube.com/feeds/videos.xml?channel_id=UCnzxPyNnn8jk4bHFk3JUBhA | webbdesign med Claude Code | 0.9 | ai-webbdesign |
 | rss | YouTube: Create a Pro Website | https://www.youtube.com/feeds/videos.xml?channel_id=UCZw_mKFPJMpvIWKWWwWpuVA | webbdesign med Claude Code | 0.9 | ai-webbdesign |
 | rss | YouTube: Mikey No Code | https://www.youtube.com/feeds/videos.xml?channel_id=UCde0vB0fTwC8AT3sJofFV0w | bygga och publicera | 0.8 | ai-webbdesign |
+| rss | Reddit: AI-webbdesign | https://www.reddit.com/r/ClaudeAI+ClaudeCode+vibecoding+ai_website_builder+ChatGPTCoding/top/.rss?t=week | AV TILLS VIDARE: spanaren hoppar över reddit.com och kirurgen kan inte läsa Reddits sidor (registret 2026-10-02); slås på när kirurgen läser trådar via Reddits RSS. veckans mest lästa trådar; Reddit tål ett anrop per ~20 s utan inloggning, så raderna står långt isär | 0 | ai-webbdesign |
+| rss | Design with AI | https://designwithai.substack.com/feed | designers som arbetar med Claude Code | 1.0 | ai-webbdesign |
+| rss | AI First Designer (ADPList) | https://adplist.substack.com/feed | designarbete med AI | 0.9 | ai-webbdesign |
+| rss | Lovable-bloggen | https://lovable.dev/blog/rss.xml | AI-sajtbyggare: vad de inför | 0.7 | ai-webbdesign |
+| sida | Figma release notes | https://www.figma.com/release-notes/ | Figma Make | 0.7 | ai-webbdesign |
+| sida | Framer updates | https://www.framer.com/updates | AI-sajtbyggare | 0.6 | ai-webbdesign |
+| sida | v0 changelog | https://v0.app/changelog | AI-sajtbyggare (Vercel) | 0.6 | ai-webbdesign |
 | rss | YouTube: Anthropic | https://www.youtube.com/feeds/videos.xml?channel_id=UCrDwWp7EBBv4NwvScIpBDOA | | 1.1 | modeller och guider |
 | rss | YouTube: DesignCourse | https://www.youtube.com/feeds/videos.xml?channel_id=UCVyRiMvfUNMA1UPlDPzG5Ow | UI | 0.9 | form och typografi |
 | rss | Gerry McGovern | https://gerrymcgovern.com/feed/ | toppuppgifter, innehåll | 1.2 | innehåll och copy |
@@ -58,12 +66,17 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | GDS-bloggen | https://gds.blog.gov.uk/feed/ | innehållsdesign, tjänster | 1.2 | innehåll och copy |
 | rss | NN/g | https://www.nngroup.com/feed/rss/ | måttstocken | 1.3 | ux och forskning |
 | rss | GOV.UK design notes | https://designnotes.blog.gov.uk/feed/ | mönster prövade på riktiga användare | 1.3 | ux och forskning |
+| rss | Jakob Nielsen (UX Tigers) | https://jakobnielsenphd.substack.com/feed | AI och användbarhet; heuristikernas upphovsman | 1.3 | ux och forskning |
+| rss | Luke Wroblewski | https://www.lukew.com/rss.xml | formulär, mobil, AI-gränssnitt; källa i forfragan.md | 1.2 | ux och forskning |
+| rss | Reddit: webbdesign och UX | https://www.reddit.com/r/web_design+webdev+Frontend+UXDesign+userexperience+typography+astrojs/top/.rss?t=week | AV TILLS VIDARE: spanaren hoppar över reddit.com och kirurgen kan inte läsa Reddits sidor (registret 2026-10-02); slås på när kirurgen läser trådar via Reddits RSS. veckans mest lästa trådar | 0 | ux och forskning |
+| rss | UX Collective | https://uxdesign.cc/feed | brett, termfiltret sållar | 0.7 | ux och forskning |
 | sida | Baymard blog | https://baymard.com/blog | formulär, konvertering | 1.3 | ux och forskning |
 | rss | Jeremy Keith | https://adactio.com/journal/rss | progressive enhancement, hantverk | 1.0 | ux och forskning |
 | rss | Smashing Magazine | https://www.smashingmagazine.com/feed/ | | 1.2 | ux och forskning |
 | rss | A List Apart | https://alistapart.com/main/feed/ | | 0.8 | ux och forskning |
 | rss | Josh Comeau | https://www.joshwcomeau.com/rss.xml | CSS, layout | 1.1 | form och typografi |
 | rss | Ahmad Shadeed | https://ishadeed.com/feed.xml | layout, komponenter | 1.1 | form och typografi |
+| rss | Sidebar | https://sidebar.io/feed.xml | fem utvalda designlänkar om dagen | 1.0 | form och typografi |
 | sida | Typewolf | https://www.typewolf.com/ | typsnitt i bruk | 0.9 | form och typografi |
 | rss | Piccalilli | https://piccalil.li/feed.xml | CSS, progressive enhancement | 1.2 | form och typografi |
 | rss | Sara Soueidan | https://www.sarasoueidan.com/blog/index.xml | | 1.2 | tillgänglighet |
@@ -78,6 +91,8 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | YouTube: Theo | https://www.youtube.com/feeds/videos.xml?channel_id=UCbRP3c757lWg9M-U7TyEkXA | åsikter, brus | 0.5 | stacken |
 | rss | CSS-Tricks | https://css-tricks.com/feed/ | | 1.0 | stacken |
 | rss | HTMHell | https://www.htmhell.dev/feed.xml | semantik | 1.1 | stacken |
+| rss | CSS Weekly | https://feedpress.me/cssweekly | veckans CSS | 1.1 | stacken |
+| rss | Frontend Focus | https://frontendfoc.us/rss | webbläsar- och plattformsnytt | 1.1 | stacken |
 | rss | W3C WAI | https://www.w3.org/WAI/feed.xml | WCAG, standarder | 1.5 | tillgänglighet |
 | rss | Deque | https://www.deque.com/feed/ | axe:s utgivare | 1.2 | tillgänglighet |
 | rss | GOV.UK tillgänglighet | https://accessibility.blog.gov.uk/feed/ | | 1.2 | tillgänglighet |
@@ -93,6 +108,7 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | Google Search Status | https://status.search.google.com/en/feed.atom | rankinguppdateringar | 1.5 | lokal synlighet |
 | rss | Sterling Sky | https://www.sterlingsky.ca/feed/ | Google-företagsprofilen | 1.3 | lokal synlighet |
 | rss | Search Engine Roundtable | https://www.seroundtable.com/index.rdf | daglig SEO-nyhet, brusig | 0.9 | lokal synlighet |
+| rss | Reddit: lokal SEO, copy och tillgänglighet | https://www.reddit.com/r/SEO+LocalSEO+copywriting+accessibility+smallbusiness/top/.rss?t=week | AV TILLS VIDARE: spanaren hoppar över reddit.com och kirurgen kan inte läsa Reddits sidor (registret 2026-10-02); slås på när kirurgen läser trådar via Reddits RSS. veckans mest lästa trådar | 0 | lokal synlighet |
 | sida | IMY | https://www.imy.se/nyheter/ | GDPR, integritetssidan | 1.3 | juridik och förtroende |
 | sida | Konsumentverket | https://www.konsumentverket.se/aktuellt/ | marknadsföring, omdömen, priser | 1.3 | juridik och förtroende |
 | sida | PTS | https://pts.se/sv/nyheter/ | kakor, e-post | 1.2 | juridik och förtroende |
