@@ -6551,3 +6551,75 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261003-flytande-typografi-mater-mot-omslaget-cqi-i-en-s; egen innovation
   B-20261003-standardkontrollen-raknar-ut-var-varje-clamp-rub
+
+### 2026-10-04 · Create a Pro Website, "How to Build a $10K Website in Minutes (Step-by-Step Claude AI)" (YouTube HI1Eb0jTBjw) · nej
+- Källa: https://www.youtube.com/watch?v=HI1Eb0jTBjw, publicerad 2026-09-25 enligt videons metadata, 24:05, cirka
+  14 600 visningar, autogenererat engelskt transkript, YouTubes standardlicens. Läst hela transkriptet, alla 44 jämna
+  bildrutor och 16 av 56 täta bildrutor ur sajtvisningen 18:45–20:35 (varje sektion av sajten; de övriga är
+  mellanlägen av samma skroll). Beskrivningens elva länkar: skillen ligger på en Notion-sida som spärrade verktygen
+  (kakrutan gick inte att kvittera, sedan HTTP 429), så skillens text är bedömd ur bildrutorna där den visas i
+  Finder, delvis läsbar [SKÄRM 04:47, 05:21]; övriga är kanalens egna sidor, Hostingers affiliatesida, en Udemy-kurs
+  och fyra av kanalens videor [BESKRIVNING]. Samma kanal och samma metod är dömd nej 2026-10-03 (fDTwHIKltpc, rad
+  3270); den här videon är en ny version med en annan skill (en CLAUDE.md i sex faser) och en annan sorts sajt
+  (produkt i stället för tjänsteföretag), därför en egen post. Ägarens not: hittad av spanaren via kanalens RSS,
+  matchade images, skill, website
+- Steg: 1 (underlag), 3 (brief, bilder), 5 (bygge, rörelse, bilder), 6 (prov) och lanseringen; dessutom hur bygget
+  körs (anslutningar och behörigheter)
+- Jämfört med i dag: (1) **Skillen är en CLAUDE.md i projektmappen** som styr sex faser med "svara next" mellan dem
+  [TAL 04:20–05:25, 09:16; SKÄRM 04:47, 05:21, 08:50]: brand kit, hero-film, media, bygge, revisioner, publicering.
+  Faserna 1–4 motsvarar våra steg 1–5 men körs med en människa som svarar vid varje grind; våra byggen körs obevakat
+  med underlaget i stället för svar (bygg-sajt rad 156–161: det som saknas blir en beställning). Lika i tanken,
+  sämre för oss eftersom ingen svarar under körningen. (2) **Briefen** är elva frågor som ägaren besvarar genom att
+  klistra in en text: namn, slogan, produkt, pris, målgrupp, färger som hexkoder, mål, kontakt [SKÄRM 07:41, 08:16];
+  berättaren säger själv att färgerna är "totally made up" [TAL 08:10]. Vi hämtar det publika underlaget och listan
+  "Bara de har" (bygg-sajt rad 85–92) och härleder riktningarna ur verksamheten. Sämre: svaren är påhittade och
+  verksamheten är fiktiv [TAL 13:05]. (3) **Bilderna och filmen genereras i Higgsfield via MCP:** tre referensbilder,
+  sedan en 18 sekunders film ur dem för 126 krediter [TAL 15:41–16:55; SKÄRM 15:43, 16:23, 16:58, 17:14]. Agenten
+  godtar själv att "the opening frame has a wood-plank surface and unlit displays that should be fine at that
+  distance" [SKÄRM 15:43], och berättaren ser att remmen "seems like it's coming off" i slutet men går vidare [TAL
+  17:29]. Tre riktiga produktfoton ur mappen används bara i sektionen med färgvarianter [SKÄRM 19:41]. Hos oss:
+  genererade bilder framställs aldrig som kundens produkt eller arbete (`kunskap/bild.md` rad 14–20), "Inga
+  stockbilder" (bygg-sajt rad 90), "hellre inga foton än stock" (`LARDOMAR.md` rad 96), och genereringstjänst kräver
+  ägarbeslut per kund (`bild.md` rad 5–6). Krockar. (4) **Rörelsen:** filmen laddas som en Blob på 11 MB och skrubbas
+  av skrollen med en egen `main.js`; mobilen får bara en stillbild [SKÄRM 18:43: "Film loads as a Blob at 11 MB",
+  "Phone width shows the poster still, never downloads the video"; SKÄRM 00:43: "took about ten seconds to arrive"].
+  Byggstandarden: högst 200 kB JS (3.7, rad 52), LCP 2,5 s (4.1, rad 58), reducerad rörelse och "inget rullar av sig
+  självt" (3.5, rad 50), mobil först (bygg-sajt rad 278, `teoretisk-grund.md` rad 34). Sajtens bärande upplevelse
+  finns alltså bara på desktop och väger 55 gånger JS-budgeten. Krockar. (5) **Anslutningar och behörigheter i
+  bygget:** Higgsfield och Hostinger som MCP i Claude Desktop, körningen i "bypass permissions" [TAL 06:31–06:50;
+  SKÄRM 03:02, 06:31], och Hostinger-anslutningen får rätt att "manage websites, hosting, domains, subscriptions"
+  [SKÄRM 14:39]. Hos oss laddas inga anslutningar i bygget utom namngivna läsverktyg hos referenstjänsterna (`kor.sh`
+  rad 47–60, 110), och bygget rör inte `.claude/` (bygg-sajt rad 53–55). Krockar. (6) **Publiceringen** går via
+  Hostingers affiliatesida med rabattkod och en zip-uppladdning genom anslutningen [TAL 10:42–15:14, 22:15–23:30;
+  SKÄRM 11:10, 11:45, 12:19, 22:46, 23:21]. BESLUT.md rad 82: ingen publicering av demosajterna; `kunskap/lansering.md`
+  rad 3–4: Vercel väntar tills en kund ska ut. Inte tillämpligt. (7) **Revisionerna** sker genom att berättaren
+  pekar ut en sektion i appens förhandsvisning och ber om "something a bit more clean and sleek" [TAL 20:37–21:52;
+  SKÄRM 21:02, 21:37]; det är redigering med en människa i slingan, som i fDTwHIKltpc-posten. Inte tillämpligt.
+  (8) **Resultatet med egna ögon:** första vyn är stark som bild, en genererad klocka på mörk yta med rubrik, pris
+  och två knappar [SKÄRM 00:02, 19:13]; texten är kortare och konkretare än i kanalens förra video, utan statistikrad,
+  påhittade omdömen eller blogg [SKÄRM 18:43, 19:25, 19:45]. Men sektionerna är kort i rad: tre likadana glasrutor
+  under den digitala delen [SKÄRM 19:25], fyra likadana displaykort, tre likadana produktkort på vit botten [SKÄRM
+  19:41], och berättaren kallar själv rutan i rörelsesektionen "AI generic looking boxes" [SKÄRM 21:02]. Det är det
+  `kritik/GRANSKARE.md` rad 93–95 straffar. Sämre. (9) Det som är rätt i skillen, att stanna och visa kostnaden före
+  varje generering [SKÄRM 16:23] och att agenten listar vad den verifierade på den publicerade adressen (HTTPS 200,
+  konsolen ren, filmen från den riktiga värden) [SKÄRM 00:43, 18:43], gäller en tjänst vi inte använder respektive
+  en lansering vi inte gör än; det senare finns redan som procedur i `kunskap/lansering.md`
+- Skäl: videons bärande idé är en skrollstyrd AI-film som sajtens ryggrad, och allt runt den (brand kit ur inklistrad
+  text, Higgsfield, Hostinger) är dömt nej förut med samma skäl (rad 3270, 3488, 3878, 3331). Det nya här är att
+  skillen är bättre skriven än förra gången, med en tydlig fasordning, kostnadsgrindar och ett verifieringsavsnitt,
+  och att resultatet är renare i texten; men det resultatet syns bara på desktop, väger 11 MB, består av genererade
+  bilder av en påhittad produkt och faller på kort i rad [SKÄRM 18:43, 19:25, 19:41]. För en riktig verksamhet med
+  egna foton tillför metoden inget vi saknar, och det den tillför krockar med bild.md, byggstandarden 3.5, 3.7 och
+  4.1, L3 och kor.sh:s regel om anslutningar. Måttstocken i videon är tid och "how clean that was" [TAL 19:40], inte
+  om något i sajten är sant; ägaren var strängare än kirurgen om en liknande AI-guide (`kunskap/KIRURG-OMDOMEN.md`
+  rad 165–168). Källkritik: videon säljer Hostinger och Higgsfield med affiliatelänkar och rabattkod [BESKRIVNING;
+  TAL 01:38–02:11, 10:53–12:19], produkten och domänen är påhittade [TAL 08:10, 13:05], och skillen ligger bakom en
+  sida som verktygen inte kunde läsa. Inga instruktioner till agenter i transkriptet
+- Kostnad: inget tas in
+- Säkerhet: ej tillämpligt (video; transkript och bildrutor hämtade, inget klonat, kört eller installerat; skillens
+  Notion-sida spärrad, så dess fulla text är inte granskad). Värt att se: körningen går i "bypass permissions" med
+  två anslutningar som kan generera mot kredit och ändra hosting, domäner och abonnemang [SKÄRM 06:31, 14:39], det
+  vi stänger med `--strict-mcp-config` (`kor.sh` rad 110)
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
