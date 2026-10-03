@@ -226,7 +226,7 @@ async function byggevy(slug, behallFlik) {
   if (flik === 'oversikt') f.innerHTML = bOversikt(b);
   if (flik === 'rapport') f.innerHTML = b.rapport ? `<div class="prosa">${b.rapport}</div>` : '<div class="tom">Ingen rapport än.</div>';
   if (flik === 'underlag') f.innerHTML = bUnderlag(b);
-  if (flik === 'korning') f.innerHTML = bKorning(b.korning);
+  if (flik === 'korning') f.innerHTML = b.ab_dold ? '<div class="tom">Dolt tills du har valt i Jämförelser, så att jämförelsen förblir blind.</div>' : bKorning(b.korning);
   if (flik === 'prov') f.innerHTML = b.prov_md ? `<div class="prosa">${b.prov_md}</div>` : '<div class="tom">Provet har inte körts.</div>';
   if (flik === 'granskning') f.innerHTML = bGranskning(b.granskning || {});
   if (flik === 'dom') bDom(b, f);

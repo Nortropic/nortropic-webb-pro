@@ -257,6 +257,14 @@ def byggen():
     return sorted(ut, key=lambda b: (not b['pagar'], b['domd'], b['slug']))
 
 
+def ab_oavgjord(slug):
+    """Är bygget en arm i en jämförelse som ägaren inte har valt i än? Då döljs allt som kan avslöja armen: koncept och
+    underlag (ateljévägen skriver sig själv i KONCEPT.md), rapporten, provets text och körningens händelser."""
+    if not (KUNDER / slug / 'AB-SYSKON').is_file() or not AB.is_dir():
+        return False
+    return any(slug in (p.get('byggen') or []) and p.get('val') is None for p in (las_json(f) or {} for f in AB.glob('ab-*.json')))
+
+
 def bygge(slug):
     b = sammanfattning(slug)
     s = las_json(KUNDER / slug / 'prov' / 'STATUS.json')
@@ -275,6 +283,9 @@ def bygge(slug):
         'domar': (las_json(KUNDER / slug / 'DOM.json') or {}).get('domar', []),
         'granskning': granskningen(slug, b['domd']),
     })
+    if ab_oavgjord(slug):
+        dolt = '<p>Dolt tills du har valt i Jämförelser, så att jämförelsen förblir blind.</p>'
+        b.update({'ab_dold': True, 'rapport': dolt, 'prov_md': dolt, 'underlag': {'Dolt': dolt}, 'korning': None})
     return b
 
 
