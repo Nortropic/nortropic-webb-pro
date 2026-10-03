@@ -1,12 +1,13 @@
 ---
 id: B-20261002-granskaren-satter-originalitetsbetyget-innan-hen
-status: pagar
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · pbakaus/impeccable (egen innovation)
 skapad: 2026-10-02
 prio: normal
 steg: 5.6 (den oberoende granskningen)
-andrad: 2026-10-03T00:39Z
+commit: a612831
+andrad: 2026-10-03T01:47Z
 ---
 # Granskaren sätter originalitetsbetyget innan hen läser stilrapporten och copykontrollen, så att mätningarna inte förankrar omdömet
 
@@ -37,3 +38,5 @@ Betygen blev något högre när mätningarna inte förankrade dem, vilket är av
 fler tokens och en minut längre per granskning.
 
 **Beslut:** regeln håller; texten står i kritik/GRANSKARE.md.
+
+**Klar (2026-10-03):** prövad i granskarförsöket (4,1 -> 4,3 omdömesfel, 0 falska); införd i GRANSKARE.md
