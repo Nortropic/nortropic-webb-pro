@@ -9,7 +9,8 @@
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
 # NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång), NWP_GRANSKNING_MAX (5 per
-# körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json ansluter Inspo i A/B-prövningen), NWP_ATELJE (av; pa = ateljén
+# körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json ansluter en referenstjänst i
+# A/B-prövningen), NWP_ATELJE (av; pa = ateljén
 # i steg 5.1, med NWP_ATELJE_MODELL, NWP_ATELJE_EFFORT och NWP_ATELJE_ANTAL).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -43,12 +44,18 @@ if [ "${NWP_ATELJE:-av}" = "pa" ]; then
 Riktningsateljén är på (NWP_ATELJE=pa): följ ateljévägen i steg 5.1."
 fi
 
-# Inspo (A/B-posten B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for): bara när NWP_MCP_CONFIG pekar på en
-# fil ansluts den, och bara tre läsande verktyg släpps igenom; annars laddas inga anslutningar alls.
+# Referenstjänster via MCP (A/B-posterna om Inspo och om Refero/Mobbin): bara när NWP_MCP_CONFIG pekar på en av filerna i
+# kontroller/mcp/ ansluts tjänsten, och bara dess läsande verktyg släpps igenom; annars laddas inga anslutningar alls.
+# Alla tre är hostade ändpunkter (ingen lokal kod); inloggningen (OAuth) gör ägaren en gång i en interaktiv session.
 INSPO=()
 if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
   [ -f "$NWP_MCP_CONFIG" ] || { echo "NWP_MCP_CONFIG pekar inte på en fil: $NWP_MCP_CONFIG"; exit 2; }
-  INSPO=(mcp__inspo__recommend mcp__inspo__search_screens mcp__inspo__get_screen)
+  case "$(basename "$NWP_MCP_CONFIG")" in
+    inspo.json)  INSPO=(mcp__inspo__recommend mcp__inspo__search_screens mcp__inspo__get_screen);;
+    mobbin.json) INSPO=(mcp__mobbin__search_screens mcp__mobbin__search_flows mcp__mobbin__search_sections);;
+    refero.json) INSPO=(mcp__refero);;   # verktygsnamnen är inte dokumenterade; alla är läsande forskningsverktyg
+    *) echo "NWP_MCP_CONFIG: okänd anslutning $(basename "$NWP_MCP_CONFIG"); kända: kontroller/mcp/inspo.json, mobbin.json, refero.json"; exit 2;;
+  esac
 fi
 
 ARGS=(-p
