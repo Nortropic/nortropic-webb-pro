@@ -8,9 +8,11 @@ en utkatalog med en symlänk som leder ut därifrån vägras också. Utan NWP_SL
 kirurgen, ägaren i terminalen) gör vakten ingenting. Processisoleringen (backloggen) är den fullständiga gränsen; det
 här är argumentkontrollen som kompletterar den.
 
-    from slugvakt import krav_slug, krav_vag
+    from slugvakt import krav_slug, krav_vag, inte_i_bygge
     krav_slug(a.slug)            # avslutar med kod 2 när sluggen inte är körningens
-    krav_vag(a.ut, 'utkatalogen')  # avslutar med kod 2 när sökvägen ligger utanför det egna bygget
+    krav_vag(a.ut, 'utkatalogen')  # avslutar med kod 2 när sökvägen ligger utanför det egna bygget, eller när
+                                 # genomgången av den inte gick att göra färdigt (ofullständig = inte godkänd)
+    inte_i_bygge('prospekt.py')  # administrativa verktyg vägrar helt när NWP_SLUG är satt
 """
 import os
 import sys
@@ -24,8 +26,7 @@ def egen_slug():
     return os.environ.get('NWP_SLUG') or None
 
 
-HOPPA = {'node_modules', '.git', '.astro'}
-MAX_POSTER = 20000
+MAX_POSTER = 20000  # en genomgång som inte hinner klart räknas som misslyckad, aldrig som ren (omgång sex, F1)
 
 
 def tmp_omrade(slug):
@@ -47,31 +48,65 @@ def tmp_katalog(prefix='nwp-'):
 
 
 def symlank_ut(katalog, rotar):
-    """Första symlänk under katalogen vars mål ligger utanför de tillåtna rötterna, annars None. Ett verktyg skriver filer
-    under sin utkatalog; en planterad länk där skulle annars leda skrivningen till ett annat bygge (omgång fem, F1)."""
-    sedda = 0
-    for mapp, mappar, filer in os.walk(katalog, followlinks=False):
-        mappar[:] = [m for m in mappar if m not in HOPPA]
+    """Vad en genomgång av katalogen ger: ('ren', None), ('ut', symlänken) för första symlänk vars mål ligger utanför de
+    tillåtna rötterna, ('ofullständig', None) när taket nås, eller ('fel', sökväg) när något inte gick att läsa. Varje
+    post prövas som symlänk innan något undantas; inget hoppas över (omgång sex, F1). Ett verktyg skriver filer under sin
+    utkatalog; en planterad länk där skulle annars leda skrivningen till ett annat bygge."""
+    sedda, fel = 0, []
+
+    def onerror(e):
+        fel.append(getattr(e, 'filename', None) or str(e))
+
+    for mapp, mappar, filer in os.walk(katalog, followlinks=False, onerror=onerror):
+        if fel:
+            return 'fel', fel[0]
         for namn in mappar + filer:
             sedda += 1
             if sedda > MAX_POSTER:
-                return None
+                return 'ofullständig', None
             v = Path(mapp) / namn
             if v.is_symlink():
-                mal = v.resolve()
+                mal = Path(os.path.realpath(v))  # också en länk vars mål inte finns än
                 if not any(mal == r or mal.is_relative_to(r) for r in rotar):
-                    return v
-    return None
+                    return 'ut', v
+    return ('fel', fel[0]) if fel else ('ren', None)
+
+
+def forankrad(slug):
+    """De tillåtna rötterna, bara när ingen av dem eller deras föräldrar själv är en symlänk: kunder/eget → kunder/annat
+    skulle annars göra den andra kundens katalog betrodd (omgång sex, F1). None när förankringen inte håller."""
+    kedjor = [[ROOT / 'kunder', ROOT / 'kunder' / slug], [ROOT / 'underlag', ROOT / 'underlag' / slug]]
+    rotar = []
+    for kedja in kedjor:
+        for led in kedja:
+            if led.is_symlink():
+                return None
+        rotar.append(kedja[-1].resolve())
+    for t in tmp_omrade(slug):
+        if t.is_symlink():  # själva området; föräldern är systemets tmp (en symlänk på macOS) och betrodd
+            return None
+        rotar.append(Path(os.path.realpath(t)))
+    return rotar
 
 
 def tillaten_vag(p, slug):
-    r = Path(p).resolve()  # följer symlänkar i de delar som finns; målet prövas, inte namnet
-    rotar = [t.resolve() for t in [ROOT / 'kunder' / slug, ROOT / 'underlag' / slug] + tmp_omrade(slug)]
+    rotar = forankrad(slug)
+    if rotar is None:
+        return False
+    r = Path(os.path.realpath(p))  # följer symlänkar i hela kedjan, också en länk vars mål inte finns än
     if not any(r == t or r.is_relative_to(t) for t in rotar):
         return False
     if r.is_dir():  # en planterad symlänk under utkatalogen får inte leda skrivningen ut
-        return symlank_ut(r, rotar) is None
+        return symlank_ut(r, rotar)[0] == 'ren'
     return True
+
+
+def inte_i_bygge(verktyg):
+    """Administrativa verktyg (prospekt, utskick, A/B, spaning …) körs aldrig inne i ett bygge (omgång sex, F1)."""
+    e = egen_slug()
+    if e:
+        print('slugvakten: %s körs inte inne i ett bygge (NWP_SLUG=%s); vägrar' % (verktyg, e), file=sys.stderr)
+        sys.exit(2)
 
 
 def krav_slug(slug, vad='slug'):

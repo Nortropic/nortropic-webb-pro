@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import prova  # noqa: E402  dist_hash: armens slutversion fastställs av ab.py självt
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -178,6 +179,7 @@ def main(argv=None):
     h = sub.add_parser('hash', help='sätt saknad dist-hash för en äldre, ovald jämförelse')
     h.add_argument('id')
     a = p.parse_args(argv)
+    inte_i_bygge('ab.py')
     return {'starta': starta, 'lista': lista, 'hash': hash_}[a.kommando](a)
 
 

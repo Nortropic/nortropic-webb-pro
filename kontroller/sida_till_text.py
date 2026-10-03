@@ -46,5 +46,6 @@ def sida_till_text(url, ut):
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         raise SystemExit(__doc__)
-    krav_vag(sys.argv[2], "utkatalogen")
+    for mal in (sys.argv[2], sys.argv[2] + '.html', sys.argv[2] + '.txt'):  # de faktiska skrivmålen (omgång sex, F1)
+        krav_vag(mal, "utfilen")
     print(sida_till_text(sys.argv[1], sys.argv[2]))

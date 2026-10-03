@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import prospektfiler as pf  # noqa: E402
 
 ROOT = pf.ROOT
@@ -282,6 +283,7 @@ def main(argv=None):
     s.add_argument('--skal', default='')
     s.add_argument('--lista', action='store_true')
     a = p.parse_args(argv)
+    inte_i_bygge('utskick.py')
     try:
         if a.kommando == 'skicka':
             if not pf.SLUG.match(a.slug):

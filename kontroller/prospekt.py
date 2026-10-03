@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import prospektfiler as pf  # noqa: E402
 import hamta_sajt as hs  # noqa: E402
 import prospekt_poang as pp  # noqa: E402
@@ -876,6 +877,7 @@ def main(argv=None):
     s.add_argument('--manader', type=int, default=GALLRING)
     s.add_argument('--torr', action='store_true')
     a = p.parse_args(argv)
+    inte_i_bygge('prospekt.py')
     try:
         return {'svep': svep, 'sajter': sajter, 'analysera': analysera, 'poangsatt': poangsatt, 'lista': lista, 'gallra': gallra}[a.kommando](a)
     except Avbrott as e:

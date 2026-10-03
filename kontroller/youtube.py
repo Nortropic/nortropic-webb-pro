@@ -174,6 +174,8 @@ def main(argv=None):
     p.add_argument('--sprak', default='sv,en')
     a = p.parse_args(argv)
     krav_vag(a.ut, "--ut")
+    for mal in (str(Path(a.ut).with_suffix('.md')), str(Path(a.ut).parent / (Path(a.ut).stem + '-bilder'))):  # de faktiska skrivmålen (omgång sex, F1)
+        krav_vag(mal, "utfilen")
     vid = video_id(a.url)
     adress = 'https://www.youtube.com/watch?v=' + vid if vid else a.url
     meta, fel = metadata(adress)

@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import prospektfiler as pf  # noqa: E402
 
 ROOT = pf.ROOT
@@ -36,6 +37,7 @@ def main(argv=None):
     p.add_argument('--max', type=int, default=10)
     p.add_argument('--sajter-max', type=int, default=40)
     a = p.parse_args(argv)
+    inte_i_bygge('prospekt_jobb.py')
     kdir = pf.kampanjkatalog(a.kampanj)
     kdir.mkdir(parents=True, exist_ok=True)
     if a.lage == 'kampanj' and not (a.kommun and a.bransch):

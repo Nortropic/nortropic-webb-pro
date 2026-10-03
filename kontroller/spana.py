@@ -33,6 +33,7 @@ from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import kallnyckel as kn  # noqa: E402
 
 try:
@@ -581,6 +582,7 @@ def main(argv=None):
     s = sub.add_parser('sedd')
     s.add_argument('id')
     a = p.parse_args(argv)
+    inte_i_bygge('spana.py')
     if a.kommando == 'spana':
         SPANING.mkdir(parents=True, exist_ok=True)
         pagar = SPANING / 'PAGAR'

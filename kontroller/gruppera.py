@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 KUNDER = ROOT / 'kunder'
 sys.path.insert(0, str(ROOT / 'kontroller'))
+from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import backlog as bl  # noqa: E402
 
 SCHEMA = ROOT / 'kritik' / 'SCHEMA-gruppering.json'
@@ -82,6 +83,7 @@ def main(argv=None):
     p.add_argument('--torr', action='store_true')
     p.add_argument('--prov', action='store_true')
     a = p.parse_args(argv)
+    inte_i_bygge('gruppera.py')
     text = uppdrag()
     if a.torr:
         print(text)

@@ -10,7 +10,7 @@ import { vakta } from './slugvakt.mjs';
 
 const arg = (n, std) => { const i = process.argv.indexOf('--' + n); return i >= 0 ? process.argv[i + 1] : std; };
 const sajt = arg('sajt');
-vakta(sajt, 'sajten');
+// sajten själv genomgås inte (node_modules är för stor); de faktiska skrivmålen prövas nedan (omgång sex, F1)
 const foto = arg('foto');
 const bakgrund = arg('bakgrund', '#ffffff');
 const fokus = arg('fokus', 'center');

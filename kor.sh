@@ -75,7 +75,14 @@ ARGS=(-p
   # verktygen i kontroller/, egna skript under underlag/<slug>/skript/, npx bara för astro, curl bara för att spara en fil
   # under underlag/<slug>/. Ett egenskrivet skript når ändå förbi Edit- och Write-reglerna; gränsen på processnivå
   # (sandlådan) är ett eget steg i backloggen.
-  "Bash(npx astro *)" "Bash(node kontroller/*)" "Bash(.venv/bin/python kontroller/*)" "Bash(.venv/bin/python -B kontroller/*)"
+  # bara de verktyg ett bygge behöver (omgång sex, F1: prospekt.py gallra och andra administrativa verktyg nådde annat)
+  "Bash(npx astro *)" "Bash(node kontroller/*)"
+  "Bash(.venv/bin/python kontroller/prova.py *)" "Bash(.venv/bin/python kontroller/granska.py *)" "Bash(.venv/bin/python kontroller/atelje.py *)"
+  "Bash(.venv/bin/python kontroller/ny_sajt.py *)" "Bash(.venv/bin/python kontroller/hamta_sajt.py *)" "Bash(.venv/bin/python kontroller/hamta_bokadirekt.py *)"
+  "Bash(.venv/bin/python kontroller/sida_till_text.py *)" "Bash(.venv/bin/python kontroller/copy_kontroll.py *)" "Bash(.venv/bin/python kontroller/verksamhetsuppgifter.py *)"
+  "Bash(.venv/bin/python kontroller/upptagna_val.py *)" "Bash(.venv/bin/python kontroller/ta_bort.py *)" "Bash(.venv/bin/python kontroller/backlog.py *)"
+  "Bash(.venv/bin/python kontroller/rubriker.py *)" "Bash(.venv/bin/python kontroller/bilddatum.py *)" "Bash(.venv/bin/python kontroller/seo_kontroll.py *)"
+  "Bash(.venv/bin/python kontroller/standard_kontroll.py *)" "Bash(.venv/bin/python kontroller/prelaunch.py *)" "Bash(.venv/bin/python kontroller/stegbevis.py *)"
   "Bash(.venv/bin/python underlag/$SLUG/skript/*)" "Bash(curl -sSL -o underlag/$SLUG/*)"
   "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" "Bash(cp *)" "Bash(mv *)" "Bash(find *)"
   "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)"
