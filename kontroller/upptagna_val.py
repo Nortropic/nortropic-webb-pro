@@ -57,7 +57,10 @@ def stil_for(bygge):
     dist = bygge / 'sajt' / 'dist'
     if not (dist / 'index.html').is_file():
         return None
-    with tempfile.TemporaryDirectory() as tmp, prova.Server(dist) as srv:
+    import shutil
+    from slugvakt import tmp_katalog
+    tmp = tmp_katalog('upptagna-')  # under körningens tillåtna område när NWP_SLUG är satt: stil.mjs ärver NWP_SLUG (omgång fem, F30)
+    with prova.Server(dist) as srv:
         p = subprocess.run([prova.NODE, str(ROOT / 'kontroller' / 'stil.mjs'), '--url=' + srv.url,
                             '--sidor=' + ','.join(prova.sidor_i(dist)[:4]), '--ut=' + tmp], capture_output=True, text=True, timeout=300)
         try:
@@ -65,6 +68,8 @@ def stil_for(bygge):
         except (OSError, ValueError):
             print('kunde inte mäta %s: %s' % (bygge.name, p.stderr[-200:]), file=sys.stderr)
             return None
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 def rad(namn, s):

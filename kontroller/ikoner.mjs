@@ -16,6 +16,9 @@ const bakgrund = arg('bakgrund', '#ffffff');
 const fokus = arg('fokus', 'center');
 if (!sajt || !foto) { console.error("användning: node kontroller/ikoner.mjs --sajt kunder/<slug>/sajt --foto <egen bild> [--bakgrund '#hex'] [--fokus 'center 30%']"); process.exit(2); }
 const pub = resolve(sajt, 'public');
+vakta(pub, 'public-katalogen');  // det faktiska skrivmålet: en symlänkad public får inte leda till ett annat bygge (omgång fem, F1)
+vakta(join(pub, 'apple-touch-icon.png'), 'ikonfilen');
+vakta(join(pub, 'delningsbild.png'), 'delningsbilden');
 const favicon = join(pub, 'favicon.svg');
 if (!existsSync(favicon)) { console.error('saknar ' + favicon + ' — skriv verksamhetens favicon som SVG först'); process.exit(2); }
 if (!existsSync(foto)) { console.error('saknar fotot ' + foto); process.exit(2); }

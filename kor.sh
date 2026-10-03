@@ -50,11 +50,15 @@ fi
 INSPO=()
 if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
   [ -f "$NWP_MCP_CONFIG" ] || { echo "NWP_MCP_CONFIG pekar inte på en fil: $NWP_MCP_CONFIG"; exit 2; }
-  case "$(basename "$NWP_MCP_CONFIG")" in
-    inspo.json)  INSPO=(mcp__inspo__recommend mcp__inspo__search_screens mcp__inspo__get_screen);;
-    mobbin.json) INSPO=(mcp__mobbin__search_screens mcp__mobbin__search_flows mcp__mobbin__search_sections);;
-    refero.json) INSPO=(mcp__refero);;   # verktygsnamnen är inte dokumenterade; alla är läsande forskningsverktyg
-    *) echo "NWP_MCP_CONFIG: okänd anslutning $(basename "$NWP_MCP_CONFIG"); kända: kontroller/mcp/inspo.json, mobbin.json, refero.json"; exit 2;;
+  # bara filerna i kontroller/mcp/ (den verkliga sökvägen, inte bara namnet), och bara tjänstens namngivna läsverktyg
+  MCP_VERKLIG="$(cd "$(dirname "$NWP_MCP_CONFIG")" && pwd -P)/$(basename "$NWP_MCP_CONFIG")"
+  case "$MCP_VERKLIG" in
+    "$ROOT/kontroller/mcp/inspo.json")  INSPO=(mcp__inspo__recommend mcp__inspo__search_screens mcp__inspo__get_screen);;
+    "$ROOT/kontroller/mcp/mobbin.json") INSPO=(mcp__mobbin__search_screens mcp__mobbin__search_flows mcp__mobbin__search_sections);;
+    "$ROOT/kontroller/mcp/refero.json") INSPO=(mcp__refero__refero_search_styles mcp__refero__refero_get_style mcp__refero__refero_search_screens
+                                               mcp__refero__refero_get_screen mcp__refero__refero_get_similar_screens mcp__refero__refero_get_screen_image
+                                               mcp__refero__refero_search_flows mcp__refero__refero_get_flow);;
+    *) echo "NWP_MCP_CONFIG: okänd anslutning $MCP_VERKLIG; kända: $ROOT/kontroller/mcp/inspo.json, mobbin.json, refero.json"; exit 2;;
   esac
 fi
 
@@ -112,12 +116,14 @@ skyddat() {
 mkdir -p "$ROOT/kunder/$SLUG/prov"
 FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"
 EFTER_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-efter"
+rm -f "$FORE_FIL" "$EFTER_FIL"   # en planterad symlänk ska inte få styra vart listorna skrivs
 skyddat > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
 printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
+rm -f "$EFTER_FIL"
 skyddat > "$EFTER_FIL"
 # Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
 # godkännande, 3 mekaniken ändrades under körningen, 4 claude föll. exec: skriptets slutkod är korsluts.

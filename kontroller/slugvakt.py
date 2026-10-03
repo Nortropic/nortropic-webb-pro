@@ -3,7 +3,8 @@
 köra ta_bort.py eller prova.py med en annan kunds slug, eller skriva med --ut i en annan kunds katalog).
 
 När NWP_SLUG är satt (kor.sh sätter den för bygget och stoppvakten) får ett verktyg bara ta den sluggen som argument
-och bara skriva under kunder/<slug>/, underlag/<slug>/ eller körningens eget temporära område <tmp>/nwp-<slug>/. Utan NWP_SLUG (dashboarden,
+och bara skriva under kunder/<slug>/, underlag/<slug>/ eller körningens eget temporära område <tmp>/nwp-bygge-<slug>/;
+en utkatalog med en symlänk som leder ut därifrån vägras också. Utan NWP_SLUG (dashboarden,
 kirurgen, ägaren i terminalen) gör vakten ingenting. Processisoleringen (backloggen) är den fullständiga gränsen; det
 här är argumentkontrollen som kompletterar den.
 
@@ -23,16 +24,54 @@ def egen_slug():
     return os.environ.get('NWP_SLUG') or None
 
 
+HOPPA = {'node_modules', '.git', '.astro'}
+MAX_POSTER = 20000
+
+
 def tmp_omrade(slug):
-    """Körningens eget temporära område: <tmp>/nwp-<slug>/. Hela tmp tilläts förut, vilket nådde andra granskares
-    arbetskataloger under /tmp/nwp-granskning (omgång fyra, F1)."""
-    return [Path('/tmp') / ('nwp-' + slug), Path(tempfile.gettempdir()) / ('nwp-' + slug)]
+    """Körningens eget temporära område: <tmp>/nwp-bygge-<slug>/. Hela tmp tilläts förut, vilket nådde andra granskares
+    arbetskataloger under /tmp/nwp-granskning (omgång fyra, F1); prefixet bygge- skiljer det från granskarnas rot också
+    när en slug råkar heta granskning (omgång fem)."""
+    return [Path('/tmp') / ('nwp-bygge-' + slug), Path(tempfile.gettempdir()) / ('nwp-bygge-' + slug)]
+
+
+def tmp_katalog(prefix='nwp-'):
+    """En temporär katalog som vakten tillåter: under körningens eget område när NWP_SLUG är satt, annars systemets.
+    Verktyg som startar barnprocesser (upptagna_val → stil.mjs) måste använda den (omgång fem, F30)."""
+    e = egen_slug()
+    if e:
+        rot = tmp_omrade(e)[0]
+        rot.mkdir(parents=True, exist_ok=True)
+        return tempfile.mkdtemp(prefix=prefix, dir=str(rot))
+    return tempfile.mkdtemp(prefix=prefix)
+
+
+def symlank_ut(katalog, rotar):
+    """Första symlänk under katalogen vars mål ligger utanför de tillåtna rötterna, annars None. Ett verktyg skriver filer
+    under sin utkatalog; en planterad länk där skulle annars leda skrivningen till ett annat bygge (omgång fem, F1)."""
+    sedda = 0
+    for mapp, mappar, filer in os.walk(katalog, followlinks=False):
+        mappar[:] = [m for m in mappar if m not in HOPPA]
+        for namn in mappar + filer:
+            sedda += 1
+            if sedda > MAX_POSTER:
+                return None
+            v = Path(mapp) / namn
+            if v.is_symlink():
+                mal = v.resolve()
+                if not any(mal == r or mal.is_relative_to(r) for r in rotar):
+                    return v
+    return None
 
 
 def tillaten_vag(p, slug):
     r = Path(p).resolve()  # följer symlänkar i de delar som finns; målet prövas, inte namnet
-    rotar = [ROOT / 'kunder' / slug, ROOT / 'underlag' / slug] + tmp_omrade(slug)
-    return any(r == t.resolve() or r.is_relative_to(t.resolve()) for t in rotar)
+    rotar = [t.resolve() for t in [ROOT / 'kunder' / slug, ROOT / 'underlag' / slug] + tmp_omrade(slug)]
+    if not any(r == t or r.is_relative_to(t) for t in rotar):
+        return False
+    if r.is_dir():  # en planterad symlänk under utkatalogen får inte leda skrivningen ut
+        return symlank_ut(r, rotar) is None
+    return True
 
 
 def krav_slug(slug, vad='slug'):
@@ -47,5 +86,6 @@ def krav_vag(p, vad='utkatalogen'):
     if not p or not e:
         return
     if not tillaten_vag(p, e):
-        print('slugvakten: %s %s ligger inte i kunder/%s/, underlag/%s/ eller /tmp/nwp-%s/ (NWP_SLUG); vägrar' % (vad, p, e, e, e), file=sys.stderr)
+        print('slugvakten: %s %s ligger inte i kunder/%s/, underlag/%s/ eller /tmp/nwp-bygge-%s/ (NWP_SLUG), eller innehåller en symlänk '
+              'som leder ut därifrån; vägrar' % (vad, p, e, e, e), file=sys.stderr)
         sys.exit(2)
