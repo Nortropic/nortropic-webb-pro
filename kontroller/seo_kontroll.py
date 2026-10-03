@@ -219,13 +219,18 @@ def normaliserad_nod(nod, konflikter=None):
     de är kompakta eller fullständiga IRI:er (omgång sju, F20). @-nycklar lämnas. Två stavningar av samma egenskap
     (name och schema:name) skriver inte över varandra: värdesamlingarna slås samman utan extra listnivå, och bara när
     stavningarna har olika värdesamlingar läggs nyckeln i konflikter (omgång åtta och nio, F20; "X" och ["X"] är
-    samma värde). @list-objekt behålls som ett ordnat värde."""
+    samma värde). @list-objekt behålls som ett ordnat värde; @list får i JSON-LD 1.1 vara en array, ett ensamt värde
+    (skalär, nod- eller värdeobjekt) eller null, som blir en lista med ett eller inget element i bevarad ordning
+    (omgång tio, F20)."""
     if isinstance(nod, list):
         return [normaliserad_nod(x, konflikter) for x in nod]
     if not isinstance(nod, dict):
         return nod
     if '@list' in nod:
-        return {k: (normaliserad_nod(v, konflikter) if k != '@list' else [normaliserad_nod(x, konflikter) for x in v]) for k, v in nod.items()}
+        lista = nod['@list']
+        element = [] if lista is None else lista if isinstance(lista, list) else [lista]
+        return {k: (normaliserad_nod(v, konflikter) if k != '@list' else [normaliserad_nod(x, konflikter) for x in element])
+                for k, v in nod.items()}
     samlade = {}
     for k, v in nod.items():
         nk = k if k.startswith('@') else typnamn(k)

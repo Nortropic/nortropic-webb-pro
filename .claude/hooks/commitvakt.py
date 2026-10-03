@@ -252,7 +252,9 @@ def utan_expansion(sub, args, kommando):
     """Skrivande git får inga argument som skalet expanderar och ingen kommando-, variabel- eller processubstitution:
     vakten (shlex) och skalet skulle annars pröva olika ord (omgång sex till åtta, F3 och F27). Varje skalord prövas
     som helhet med sin citering: commit-meddelandet får vara ett helt citerat ord eller ett ociterat ord utan
-    expansionstecken; sammansatta ord ('a'*, ''{x,y}) och den hopskrivna formen -mVärde nekas. -F undantas inte."""
+    expansionstecken; sammansatta ord ('a'*, ''{x,y}) och den hopskrivna formen -mVärde nekas. -F undantas inte.
+    Flaggornas roll bestäms av det avciterade ordet, som git ser det: '-F' och "--file" är samma flagga som -F
+    (omgång tio, F3); citeringen styr bara prövningen av värdena."""
     if '$(' in kommando or '`' in kommando or '<(' in kommando or '>(' in kommando or '$' in kommando:
         neka('git %s med $ (variabel, kommando- eller processubstitution) eller backtick nekas; skriv värdena bokstavligt' % sub)
     ord_ = skalord(kommando)
@@ -269,10 +271,10 @@ def utan_expansion(sub, args, kommando):
             if len(frag) != 1 or EXPANSION.search(helt):
                 neka('git %s: filargumentet %r till -F nekas; ange filen bokstavligt' % (sub, helt))
             continue
-        if len(frag) == 1 and frag[0][1] is None and helt in ('-m', '--message'):
+        if len(frag) == 1 and helt in ('-m', '--message'):  # också citerat: skalet tar bort citaten innan git ser ordet
             vantar = 'meddelande'
             continue
-        if len(frag) == 1 and frag[0][1] is None and helt in ('-F', '--file'):
+        if len(frag) == 1 and helt in ('-F', '--file'):
             vantar = 'fil'
             continue
         if helt.startswith('-m') and len(helt) > 2 and not helt.startswith('--'):

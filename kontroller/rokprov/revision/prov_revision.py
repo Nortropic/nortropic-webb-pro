@@ -879,7 +879,11 @@ print('R8 F20 ok')
 g('remote', 'add', 'origin', str(bare)); g('fetch', '-q', 'origin'); g('reset', '-q', '--hard', 'origin/main'); g('checkout', '-q', 'main')
 (repo / '-m').write_text('meddelande ur fil\n'); (repo / '--message').write_text('meddelande ur fil\n')
 for cmd, vantat in [("git commit -F -m 'backlog/*'", 2), ("git commit -F --message 'backlog/*'", 2), ("git commit -F -m -- 'backlog/*'", 2),
-                    ('git commit -F msg.txt', 0), ("git commit --file=msg.txt -- 'backlog/a.md'", 0), ("git commit -F 'm*.txt'", 2)]:
+                    ('git commit -F msg.txt', 0), ("git commit --file=msg.txt -- 'backlog/a.md'", 0), ("git commit -F 'm*.txt'", 2),
+                    # omgång tio, F3: en citerad flagga är samma flagga när skalet tagit bort citaten
+                    ("git commit '-F' -m 'backlog/*'", 2), ('git commit "--file" -m \'backlog/*\'', 2), ("git commit '-F' --message 'backlog/*'", 2),
+                    ("git commit '-F' '-m' -- 'backlog/*'", 2), ("git commit '-F' 'm*.txt'", 2), ("git commit \"-F\" msg.txt", 0),
+                    ("git commit '-m' 'meddelande med citat'", 0), ("git commit '--message' meddelande", 0)]:
     rc, err = vakt3(cmd); assert rc == vantat, (cmd, rc, err)
 (repo / '-m').unlink(); (repo / '--message').unlink()
 print('R9 F3 flaggvärden ok')
@@ -901,6 +905,20 @@ f = seo.granska_schema({'@context': ctx, '@type': 'Bakery', 'name': ['Holms Kond
 assert any(t_ == 'JSON-LD motstridiga egenskaper' for t_, _ in f) and any(t_ == 'schema name ≠ verksamhetens namn' for t_, _ in f), 'olika värdesamlingar är fortfarande en konflikt: %s' % f
 f = seo.granska_schema({'@context': ctx, '@type': 'Bakery', 'name': 'Holms Konditori', 'address': ratt, 'knowsLanguage': {'@list': ['sv', 'en']}}, verk20)
 assert not any(t_ == 'JSON-LD motstridiga egenskaper' for t_, _ in f), '@list är ett ordnat värde: %s' % f
+# omgång tio, F20: @list får vara null, en skalär eller ett objekt; värdena bevaras i ordning och alias ger ingen konflikt
+objekt = {'@type': 'Language', 'name': 'svenska'}
+for lista, vantat in ((None, []), ('sv', ['sv']), (['sv'], ['sv']), (objekt, [objekt]), ([objekt], [objekt]), (['b', 'a'], ['b', 'a']),
+                      ({'@value': 'sv'}, [{'@value': 'sv'}])):
+    n = seo.normaliserad_nod({'@list': lista}); assert n == {'@list': vantat}, (lista, n)
+    f = seo.granska_schema({'@context': ctx, '@type': 'Bakery', 'name': 'Holms Konditori', 'address': ratt, 'knowsLanguage': {'@list': lista}}, verk20)
+    assert not any(t_ in ('JSON-LD motstridiga egenskaper', 'JSON-LD form') for t_, _ in f), ('@list med %r: %s' % (lista, f))
+n = seo.normaliserad_nod({'@context': ctx, '@type': 'Bakery', 'knowsLanguage': {'@list': objekt}})
+assert n['knowsLanguage'] == {'@list': [objekt]}, 'ett nodobjekt i @list är ett element, inte sina nycklar: %s' % n
+k = []
+n = seo.normaliserad_nod({'@context': ctx, 'knowsLanguage': {'@list': 'sv'}, 'schema:knowsLanguage': {'@list': ['sv']}}, k)
+assert k == [] and n['knowsLanguage'] == {'@list': ['sv']}, ('alias med @list "sv" och ["sv"] är samma värde', k, n)
+f = seo.granska_schema({'@context': ctx, '@type': 'Bakery', 'name': 'Holms Konditori', 'address': ratt, 'knowsLanguage': {'@list': 'sv'}, 'schema:knowsLanguage': {'@list': ['sv']}}, verk20)
+assert not any(t_ == 'JSON-LD motstridiga egenskaper' for t_, _ in f), 'alias med likvärdiga @list ger ingen konflikt: %s' % f
 print('R9 F20 ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
