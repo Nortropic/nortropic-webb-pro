@@ -1,12 +1,13 @@
 ---
 id: B-20261002-stilrapporten-varnar-nar-klickbar-text-menylank
-status: pagar
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS, "How To Use Claude Code To Build Amazing Sites With Opus 5.5" (YouTube DP7mgLUKN_U)
 skapad: 2026-10-02
 prio: normal
 steg: 6 (prov); kontroller/stil.mjs
-andrad: 2026-10-03T00:17Z
+commit: da5de78
+andrad: 2026-10-03T00:23Z
 ---
 # Stilrapporten varnar när klickbar text (menylänk, knapp, sidfotslänk, brödsmula) bryts på två rader i 390 px
 
@@ -15,3 +16,5 @@ andrad: 2026-10-03T00:17Z
 **Förslag:** kontroller/stil.mjs, i matPaSidan() bredvid mätningen av små klickytor: för varje synlig a och button i 390 px, räkna antalet rader (getClientRects().length för inline-element, annars höjd delad med radhöjd); fler än en rad ger en varning per sida med elementets text, i samma form som varningarna på rad 201–204. Information, ingen grind; standardkontrollen rörs inte.
 
 **Klart när:** STIL.md för ett bygge med en avsiktligt lång menylänk i 390 px visar varningen med länktexten; ett bygge utan brutna länkar visar ingen; kontroller/rokprov.sh slutar grönt.
+
+**Klar (2026-10-03):** varning per sida i 390; provsida visar länktexten, rökprovets sajt ingen
