@@ -3,9 +3,9 @@
 lokala filer) mot brief och verksamhetsuppgifter. Rapport, inga rankningslöften: metadata eller Lighthouse-SEO ensamt är
 ingen SEO-funktion (ordern avsnitt 4). Kontrollerar per sida: title och description (längd, unika), en h1, canonical,
 robots/noindex-läge mot avsett läge (förhandsvisning: noindex; lansering: index), hreflang-par, JSON-LD (giltig JSON,
-typ, sanningsenlighet mot VERKSAMHET.json: namn, telefon, adress bara när publik, öppettider), interna länkar som
-löser, bildalt; per sajt: sitemap.xml och robots.txt finns och stämmer, kanonisk domän, omdirigeringskarta vid
-migrering (--omdirigeringar FIL: gamla URL:er ska finnas som mål eller 301-rad).
+typ och egenskaper mot schema.org:s vokabulär, sanningsenlighet mot VERKSAMHET.json: namn, telefon, adress bara när
+publik, öppettider), interna länkar som löser, bildalt; per sajt: sitemap.xml och robots.txt finns och stämmer, kanonisk
+domän, omdirigeringskarta vid migrering (--omdirigeringar FIL: gamla URL:er ska finnas som mål eller 301-rad).
 
     python3 -B verktyg/seo_kontroll.py --bygge KATALOG --lage forhandsvisning|lansering [--verksamhet VERKSAMHET.json]
         [--doman example.se] [--omdirigeringar REDIRECTS.json] --ut RAPPORT.json [--md RAPPORT.md]
@@ -127,7 +127,60 @@ def granska_sida(root, f, raw, lage, verksamhet, doman):
             continue
         for obj in (data if isinstance(data, list) else [data]):
             fynd.extend(granska_schema(obj, verksamhet))
-    return {'sida': url, 'title': title, 'noindex': noindex, 'fynd': [{'typ': t, 'text': x} for t, x in fynd]}
+    # utgångna schema.org-termer fungerar än; de är information, inte fynd (räknas inte i grinden)
+    return {'sida': url, 'title': title, 'noindex': noindex, 'fynd': [{'typ': t, 'text': x} for t, x in fynd if t not in INFO_TYPER],
+            'info': [{'typ': t, 'text': x} for t, x in fynd if t in INFO_TYPER]}
+
+
+_VOKABULAR = None
+INFO_TYPER = {'JSON-LD utgången typ', 'JSON-LD utgången egenskap'}
+
+
+def vokabular():
+    """schema.org:s klasser och egenskaper (kontroller/data/schemaorg.json, CC BY-SA 3.0); None om filen saknas."""
+    global _VOKABULAR
+    if _VOKABULAR is None:
+        try:
+            _VOKABULAR = json.loads((Path(__file__).parent / 'data' / 'schemaorg.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            _VOKABULAR = {}
+    return _VOKABULAR or None
+
+
+def granska_vokabular(obj, v, vag=''):
+    """Varje @type ska vara en klass, varje egenskap finnas och höra till typen eller en förälder (domainIncludes);
+    utgången term ger en rad med ersättaren (webstudio-intaget 2026-10-03). Inbäddade objekt prövas också."""
+    fynd = []
+    typer = [x.removeprefix('https://schema.org/').removeprefix('http://schema.org/') for x in
+             (obj.get('@type') if isinstance(obj.get('@type'), list) else [obj.get('@type')]) if isinstance(x, str)]
+    kanda = [x for x in typer if x in v['klasser']]
+    for x in typer:
+        if x not in v['klasser']:
+            fynd.append(('JSON-LD okänd typ', '%s%s finns inte i schema.org' % (vag, x)))
+        elif x in v['ersatt']:
+            fynd.append(('JSON-LD utgången typ', '%s%s; använd %s' % (vag, x, v['ersatt'][x])))
+    anor = set()
+    stack = list(kanda)
+    while stack:
+        k = stack.pop()
+        if k not in anor:
+            anor.add(k)
+            stack.extend(v['klasser'].get(k, []))
+    for nyckel, varde in obj.items():
+        if nyckel.startswith('@'):
+            continue
+        if nyckel not in v['egenskaper']:
+            fynd.append(('JSON-LD okänd egenskap', '%s%s finns inte i schema.org' % (vag, nyckel)))
+            continue
+        if nyckel in v['ersatt']:
+            fynd.append(('JSON-LD utgången egenskap', '%s%s; använd %s' % (vag, nyckel, v['ersatt'][nyckel])))
+        if kanda and v['egenskaper'][nyckel] and not anor & set(v['egenskaper'][nyckel]):
+            fynd.append(('JSON-LD egenskap hör inte till typen', '%s%s på %s (hör till %s)' % (
+                vag, nyckel, '/'.join(kanda), ', '.join(v['egenskaper'][nyckel][:4]))))
+        for barn in (varde if isinstance(varde, list) else [varde]):
+            if isinstance(barn, dict):
+                fynd.extend(granska_vokabular(barn, v, '%s%s.' % (vag, nyckel)))
+    return fynd
 
 
 def granska_schema(obj, verksamhet):
@@ -137,6 +190,11 @@ def granska_schema(obj, verksamhet):
     typ = obj.get('@type')
     if not typ:
         fynd.append(('JSON-LD utan @type', ''))
+    v = vokabular()
+    if v:
+        for graf in (obj.get('@graph') if isinstance(obj.get('@graph'), list) else [obj]):
+            if isinstance(graf, dict):
+                fynd.extend(granska_vokabular(graf, v))
     if verksamhet and isinstance(typ, str) and (typ in ('LocalBusiness', 'Organization') or obj.get('address') or obj.get('telephone')):
         n = vu.nap(verksamhet)
         if obj.get('name') and obj['name'] != verksamhet['namn']:
@@ -214,7 +272,7 @@ def rapport(bygge, lage, verksamhet_fil=None, doman=None, omdirigeringar=None):
     antal = sum(len(p['fynd']) for p in pages) + len(sajt)
     return {'schema': 1, 'bygge': str(root), 'lage': lage, 'doman': doman, 'sidor': len(pages), 'fynd_totalt': antal,
             'sajt': sajt, 'per_sida': pages, 'uppgiftsvarningar': vu.validera(verksamhet) if verksamhet else ['verksamhetsuppgifter ej lämnade; teknisk räckvidd'], 'kontaktberedskap': 'ofullständig' if verksamhet is not None and not verksamhet.get('kontaktvagar') else 'faktisk kontaktresa ej prövad', 'verksamhet': verksamhet['namn'] if verksamhet else None,
-            'not': 'rapport över teknisk och innehållsmässig SEO-beredskap; inga rankningslöften; strukturerad data prövas mot verksamhetsuppgifterna, inte mot Googles verktyg'}
+            'not': 'rapport över teknisk och innehållsmässig SEO-beredskap; inga rankningslöften; strukturerad data prövas mot verksamhetsuppgifterna och schema.org:s vokabulär (kontroller/data/schemaorg.json, CC BY-SA 3.0), inte mot Googles verktyg'}
 
 
 def markdown(r):
@@ -223,6 +281,7 @@ def markdown(r):
     for p in r['per_sida']:
         lines += ['', '## %s — %s%s' % (p['sida'], p['title'] or '(ingen title)', ' [noindex]' if p['noindex'] else '')]
         lines += ['- %s: %s' % (x['typ'], x['text']) for x in p['fynd']] or ['- inga fynd']
+        lines += ['- (information) %s: %s' % (x['typ'], x['text']) for x in p.get('info', [])]
     return '\n'.join(lines) + '\n\n' + r['not'] + '\n'
 
 
