@@ -164,13 +164,15 @@ def srcset_adresser(v):
 
 
 def typer(ld):
+    """Alla @type i ett JSON-LD-block, också i @graph, utan schema.org-prefix (https://schema.org/Bakery räknas som
+    Bakery; omgång fem, F20)."""
     ut = []
     for d in (ld if isinstance(ld, list) else [ld]):
         if isinstance(d, dict):
             if '@graph' in d:
                 ut += typer(d['@graph'])
             t = d.get('@type')
-            ut += (t if isinstance(t, list) else [t]) if t else []
+            ut += [re.sub(r'^(https?://schema\.org/|schema:)', '', str(x)) for x in ((t if isinstance(t, list) else [t]) if t else [])]
     return ut
 
 

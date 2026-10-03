@@ -192,9 +192,16 @@ def noder(obj):
     return [obj]
 
 
+def typnamn(t):
+    """Typnamnet utan schema.org-prefix: https://schema.org/Bakery, http://schema.org/Bakery och schema:Bakery är giltiga
+    IRI-former i JSON-LD och ska prövas som Bakery (omgång fem, F20)."""
+    s = str(t).strip()
+    return re.sub(r'^(https?://schema\.org/|schema:)', '', s)
+
+
 def typlista(nod):
     t = nod.get('@type')
-    return [x for x in (t if isinstance(t, list) else [t]) if isinstance(x, str)]
+    return [typnamn(x) for x in (t if isinstance(t, list) else [t]) if isinstance(x, str)]
 
 
 def granska_schema(obj, verksamhet):

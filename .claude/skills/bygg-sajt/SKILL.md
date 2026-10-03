@@ -181,7 +181,10 @@ referens som inte gick att öppna märks så och ersätts.
 riktiga produkter (flöden för bokning och kontakt, sektioner för tjänster och omdömen); Referos verktyg ger stilar,
 skärmar och flöden i den ordningen, och varje beslut skrivs med sin källa i REFERENSER.md som i Referos liggare. Varje
 vald referens öppnas ändå med inspektera.mjs och skrivs i REFERENSER.md med källa; bedöm bilden, aldrig bara
-beskrivningen. Dessa tjänster saknar hantverkare och lokala tjänster: de ger hantverks- och UX-rollen, inte branschen.
+beskrivningen. Skilj den arkiverade skärmbilden från produktens levande webbplats: ett bokningssteg eller ett inloggat
+läge i arkivet går ofta inte att återskapa vid ett besök, så skriv vilken bild du bedömde (arkivets, med datum, eller
+din egen inspektion) och låt arkivbilden gälla för det läget. Dessa tjänster saknar hantverkare och lokala tjänster:
+de ger hantverks- och UX-rollen, inte branschen.
 
 **När Inspo är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG`): `recommend` och `search_screens` med briefen är en
 sökingång för hantverksrollen och mobilparen, och `get_screen` visar en skärm. Varje vald referens öppnas ändå med
