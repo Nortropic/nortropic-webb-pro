@@ -1,11 +1,12 @@
 ---
 id: B-20261002-provet-listar-sajtens-utgaende-lankar-och-om-de
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · sdmg15/Best-websites-a-programmer-should-visit
 skapad: 2026-10-02
 prio: normal
 steg: steg 6 (prov), kontroller/standard_kontroll.py
+andrad: 2026-10-03T00:28Z
 ---
 # Provet listar sajtens utgående länkar och om de svarar, med vitlista för domäner som stoppar robotar
 

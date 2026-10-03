@@ -323,7 +323,8 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
     för att visas för verksamheten men inte klar att lanseras förrän beställningen är levererad. Ingen beställning
     behövs: skriv det.
 14. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
-    verksamheten bör rätta. Inga avvikelser: skriv det.
+    verksamheten bör rätta. Inga avvikelser: skriv det. Lägg till tabellen Utgående länkar ur `prov/standard.md`: varje
+    adress och svar; en länk som inte svarar rättas eller förklaras.
 15. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
     kopplas till dem.
 16. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.

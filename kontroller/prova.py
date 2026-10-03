@@ -393,6 +393,7 @@ def prova(slug, snabb=False):
     rc, out = kor(cmd)
     try:
         st = json.loads((prov / 'standard.json').read_text(encoding='utf-8'))
+        status['utgaende_lankar'] = st.get('utgaende') or []
         rader = ['%s %s: %s' % (x['punkt'], x['sida'], x['text']) for x in st['fel']]
         g['standard'] = grind(not st['fel'], '%d fel, %d info' % (len(st['fel']), len(st['info'])), 'prov/standard.md',
                               '\n'.join(r[:160] for r in rader[:15]) or None)

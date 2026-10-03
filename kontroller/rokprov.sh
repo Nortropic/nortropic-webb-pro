@@ -274,6 +274,28 @@ k = kn.kanda_kallor(); assert len(k) >= 20 and any(v['dom'].startswith('ta in') 
 " || { echo "FEL: kända källor ur registret"; exit 1; }
 echo "   spanaren ok"
 
+echo "   utgående länkar: felstavad omdömeslänk ger information, vitlistade prövas inte"
+"$ROOT/.venv/bin/python" -B -c "
+import os, sys, shutil, tempfile, threading, functools, pathlib, http.server
+sys.path.insert(0, '$ROOT/kontroller'); import standard_kontroll as sk
+class Tyst(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *a): pass
+tom = tempfile.mkdtemp(); srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Tyst, directory=tom))
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+d = pathlib.Path(tempfile.mkdtemp()) / 'dist'; shutil.copytree('$S/dist', d)
+om = d / 'om' / 'index.html'
+om.write_text(om.read_text().replace('<h1>Om provet</h1>', '<h1>Om provet</h1><p><a href=\"http://127.0.0.1:%d/omdomen-felstavat\">Omdömen</a> <a href=\"https://www.facebook.com/prov\">Facebook</a></p>' % srv.server_port))
+r = sk.rapport(d)
+svar = {x['url'].split('/')[-1]: x['svar'] for x in r['utgaende']}
+assert svar.get('omdomen-felstavat') == '404' and svar.get('prov', '').startswith('ej prövad'), svar
+assert [i for i in r['info'] if 'omdomen-felstavat' in i['text']], r['info']
+os.environ['PROV_OFFLINE'] = '1'
+assert all(x['svar'].startswith('ej prövad') for x in sk.rapport(d)['utgaende'])
+assert 'Utgående länkar' in sk.markdown(r)
+srv.shutdown()
+" || { echo "FEL: utgående länkar"; exit 1; }
+echo "   utgående länkar ok"
+
 echo "   formulärets svenska besked vid tomt fält (engelsk webbläsare, med och utan JavaScript)"
 "$ROOT/.venv/bin/python" -B -c "
 import sys, subprocess; sys.path.insert(0, '$ROOT/kontroller'); import prova

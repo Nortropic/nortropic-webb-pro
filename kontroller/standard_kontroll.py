@@ -13,6 +13,7 @@ Exit 0 = rapporten skriven; 2 = fel i anropet.
 import argparse
 import html
 import json
+import os
 import re
 import shutil
 import struct
@@ -582,8 +583,56 @@ def adress(dist, verksamhet):
     return fel
 
 
+# Domäner som stoppar robotar eller kräver inloggning: listas men prövas inte (sdmg15-intaget: vitlista i länkkontrollen)
+EJ_PROVADE = ('google.', 'goo.gl', 'facebook.com', 'fb.com', 'instagram.com', 'linkedin.com', 'youtube.com', 'youtu.be',
+              'tiktok.com', 'twitter.com', 'x.com', 'messenger.com', 'wa.me', 'whatsapp.com')
+
+
+def utgaende(dist, tidsgrans=8):
+    """Sajtens utgående länkar och om de svarar: HEAD, och GET som reserv. Ingen grind, bara information (7.4: en
+    felaktig omdömes- eller kataloglänk är ett förtroendefel). PROV_OFFLINE hoppar över nätet."""
+    import concurrent.futures
+    import urllib.request
+    egen = None
+    start = Path(dist) / 'index.html'
+    if start.is_file():
+        m = re.search(r'<link[^>]+rel="canonical"[^>]+href="([^"]+)"', start.read_text(encoding='utf-8', errors='replace'))
+        egen = urlparse(m.group(1)).hostname if m else None
+    lankar = {}
+    for f in sorted(Path(dist).rglob('*.html')):
+        for href in re.findall(r'<a\b[^>]*href="(https?://[^"#]+)', f.read_text(encoding='utf-8', errors='replace')):
+            href = html.unescape(href)
+            if urlparse(href).hostname and urlparse(href).hostname != egen:
+                lankar.setdefault(href, []).append(sida_av(dist, f))
+
+    def pröva(url):
+        vard = (urlparse(url).hostname or '').lower()
+        if any(vard == d.rstrip('.') or vard.endswith('.' + d.rstrip('.')) or (d.endswith('.') and (vard.startswith(d) or ('.' + d) in vard)) for d in EJ_PROVADE):
+            return 'ej prövad (stoppar robotar)'
+        if os.environ.get('PROV_OFFLINE'):
+            return 'ej prövad (offline)'
+        for metod in ('HEAD', 'GET'):
+            try:
+                req = urllib.request.Request(url, method=metod, headers={'User-Agent': 'Mozilla/5.0 (compatible; nortropic-webb-pro/1)'})
+                with urllib.request.urlopen(req, timeout=tidsgrans) as r:
+                    return str(r.status)
+            except urllib.error.HTTPError as e:
+                if metod == 'GET' or e.code not in (400, 403, 405, 501):
+                    return str(e.code)
+            except Exception as e:  # noqa: BLE001 — nätfel är ett svar i sig
+                if metod == 'GET':
+                    return 'svarar inte (%s)' % type(e).__name__
+    with concurrent.futures.ThreadPoolExecutor(8) as ex:
+        svar = dict(zip(lankar, ex.map(pröva, lankar)))
+    return [{'url': u, 'svar': svar[u], 'sidor': sorted(set(s))} for u, s in lankar.items()]
+
+
 def rapport(bygge, stil=None, bestallning=None, verksamhet=None):
     fel, info, n = granska(bygge)
+    lankar = utgaende(bygge)
+    for x in lankar:
+        if x['svar'].startswith(('4', '5', 'svarar inte')):
+            info.append({'punkt': '7.4', 'sida': x['sidor'][0], 'text': 'utgående länk svarar %s: %s' % (x['svar'], x['url'])})
     if verksamhet:
         fel += adress(bygge, verksamhet)
     if stil:
@@ -596,7 +645,7 @@ def rapport(bygge, stil=None, bestallning=None, verksamhet=None):
     summa = {}
     for x in fel:
         summa[x['punkt']] = summa.get(x['punkt'], 0) + 1
-    return {'schema': 1, 'bygge': str(bygge), 'sidor': n, 'fel': fel, 'info': info, 'fel_per_punkt': summa,
+    return {'schema': 1, 'bygge': str(bygge), 'sidor': n, 'fel': fel, 'info': info, 'fel_per_punkt': summa, 'utgaende': lankar,
             'standard': 'kunskap/byggstandard.md',
             'not': 'fel = entydiga avsteg från D-punkterna; info = kräver omdöme. Övriga punkter prövas av seo, axe, lighthouse, spill, utan-js och granskaren.'}
 
@@ -608,6 +657,10 @@ def markdown(r):
         rad += ['## ' + rubrik, '']
         rad += ['| Punkt | Sida | Fynd |', '|---|---|---|'] + ['| %s | %s | %s |' % (x['punkt'], x['sida'], x['text'].replace('|', '/')) for x in lista] if lista else ['Inga.']
         rad.append('')
+    rad += ['## Utgående länkar', '']
+    rad += (['| Adress | Svar | Sidor |', '|---|---|---|'] + ['| %s | %s | %s |' % (x['url'], x['svar'], ', '.join(x['sidor'][:4])) for x in r.get('utgaende') or []]
+            if r.get('utgaende') else ['Inga.'])
+    rad.append('')
     return '\n'.join(rad)
 
 
