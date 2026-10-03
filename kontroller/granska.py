@@ -390,11 +390,14 @@ def arbetare(rdir):
             # Två granskare (eller fler) dömer var för sig med samma kriterier, parallellt, var och en i egen session
             # och egen arbetskatalog; ingen ser den andras svar.
             korande = []
+            frysta = frysta_referenser(slug, rdir)  # en gång, före loopen: alla granskare ser samma kopior (omgång tolv, F18)
+            if upp.get('metod_sha') and metod_sha(slug) != upp['metod_sha']:
+                raise RuntimeError('underlaget (referensbilder eller texter) ändrades mellan bokföringen och starten; kör granskningen igen')
             for n in range(1, antal + 1):
                 arbetskatalog = ARBETSROT / ('%s-%s-%d' % (slug, rdir.name, n))
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                      frysta_referenser(slug, rdir), tidigare_byggen(slug), [], rdir, aria, [], lardomar)
+                                      frysta, tidigare_byggen(slug), [], rdir, aria, [], lardomar)
                 (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
                 args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config',

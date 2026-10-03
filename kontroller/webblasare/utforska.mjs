@@ -41,7 +41,7 @@ if (farSkicka && !markering) { console.error('--formular-far-skickas kräver --t
 const regression = a.regression ? JSON.parse(readFileSync(a.regression, 'utf8')) : null;
 const fynd = []; const sidor = []; const ko = [a.adress]; const sedda = new Set();
 const lagg = (typ, sida, vad, repro, extra = {}) => fynd.push({ typ, sida, vad, repro, ...extra });
-const b = await oppna({ vy: a.vy || '390', tillat, undantag, hemliga, spar: true, mal: a.adress });
+const b = await oppna({ vy: a.vy || '390', tillat, undantag, hemliga, spar: true, mal: a.adress, lasande: !farSkicka });  // skrivande bara med flaggan (omgång tolv, F36)
 const page = b.page;
 const LANGT = 'x'.repeat(2000); const SCRIPT = '<script>alert(1)</script>'; const UNICODE = 'Åsa Öberg-Ärlig ✓ 🌱';
 
@@ -76,7 +76,8 @@ async function provaFormular(url, i) {
     const svarFore = b.logg.natverk.length;
     await klickSubmit(); await page.waitForTimeout(1200);
     const nya = b.logg.natverk.slice(svarFore).filter(x => x.metod === 'POST');
-    r.skickat = true; r.post = nya.map(x => ({ url: x.url, status: x.status, fel: x.fel }));
+    r.post = nya.map(x => ({ url: x.url, status: x.status, fel: x.fel }));
+    r.skickat = nya.some(x => x.status !== null);  // observerat nätutfall, inte knapptryckningen (omgång tolv, F36)
     const besked = await page.evaluate(() => document.body.innerText.slice(0, 4000));
     r.besked = /tack|mottag|skickat|vi hör av oss|fel|misslyck/i.test(besked) ? besked.match(/[^.\n]*(tack|mottag|skickat|vi hör av oss|fel|misslyck)[^.\n]*/i)?.[0]?.trim().slice(0, 160) : null;
     if (!r.besked) lagg('varning', url, 'inget synligt besked efter inskick (accepterad ≠ skickad ≠ bekräftad ska synas)', { steg: ['fyll i formuläret med testmarkering', 'skicka', 'läs sidans text'] }, { form: i });

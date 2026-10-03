@@ -15,10 +15,11 @@ Exit 0 (rapport skriven), 2 vid felaktiga argument. Ingen nätåtkomst: läser f
 import argparse
 import html as htmlmod
 import json
+import posixpath
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
@@ -72,7 +73,8 @@ def finns_lokalt(root, href, sida='/', bas=None, doman=None):
         path = p.path or '/'
     else:
         path = urlparse(urljoin(bas or sida or '/', href)).path or '/'
-    if not path.startswith('/'):
+    path = posixpath.normpath(unquote(path))  # procentkodade sökvägar (v%C3%A5ra-tj%C3%A4nster) och ./ ../ (omgång tolv, F32)
+    if not path.startswith('/') or path.startswith('/..'):
         return None
     cands = [root / path.lstrip('/'), root / path.lstrip('/') / 'index.html', root / (path.lstrip('/').rstrip('/') + '.html'), root / (path.lstrip('/').rstrip('/') + '/index.html')]
     return any(c.is_file() for c in cands)

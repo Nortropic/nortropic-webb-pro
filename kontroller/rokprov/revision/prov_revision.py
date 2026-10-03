@@ -322,7 +322,7 @@ kund = k / 'ett-abx'; (kund / 'sajt' / 'dist').mkdir(parents=True); (kund / 'saj
 def omgang(n, fall, originalitet):
     rdir = kund / 'granskning' / ('runda-%02d' % n); rdir.mkdir(parents=True)
     (rdir / 'UPPDRAG.json').write_text(json.dumps({'slug': 'ett-abx', 'runda': 1, 'korning': 'prov', 'tid': gr.nu(), 'dist_sha256': prova.dist_hash(kund / 'sajt' / 'dist'),
-                                                   'modell': 'm', 'effort': 'e', 'frist': 60, 'granskare': 2, 'originalitet': originalitet, 'metod_sha': m1}))
+                                                   'modell': 'm', 'effort': 'e', 'frist': 60, 'granskare': 2, 'originalitet': originalitet, 'metod_sha': gr.metod_sha('ett-abx')}))  # bokförd nu: underlaget ändrades efter m1 (omgång tolv, F18)
     os.environ['PROV_FALL'] = fall
     gr.arbetare(rdir)
     return rdir
@@ -337,7 +337,7 @@ assert (r3 / 'FEL.txt').is_file() and 'originalitetsdomaren' in (r3 / 'FEL.txt')
 r4 = omgang(4, 'originalitet', 'skugga')
 assert json.loads((r4 / 'GRANSKNING.json').read_text())['godkand'] is True, 'i skugga är bortfallet bara information'
 r5 = omgang(5, 'ingen', 'avgor')
-g5 = json.loads((r5 / 'GRANSKNING.json').read_text()); assert g5['godkand'] is True and g5['originalitet'] == 'avgor' and g5['metod_sha'] == m1
+g5 = json.loads((r5 / 'GRANSKNING.json').read_text()); assert g5['godkand'] is True and g5['originalitet'] == 'avgor' and g5['metod_sha'] == gr.metod_sha('ett-abx')
 os.environ.pop('PROV_FALL', None)
 print('F8/F17/F18 granskaren ok')
 
@@ -393,8 +393,8 @@ print('F19–F22 seo/standard ok')
 import atelje as a  # noqa: E402
 arot = tmp / 'atelje'
 for n in (1, 2, 3):
-    (arot / str(n)).mkdir(parents=True); (arot / str(n) / 'vy-390-ruta-01.png').write_bytes(b'x')
-(arot / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {str(n): ['vy-390-ruta-01.png'] for n in (1, 2, 3)}}))  # det här försökets riktningar (omgång elva, F34)
+    (arot / str(n)).mkdir(parents=True); (arot / str(n) / 'vy-390-ruta-01.png').write_bytes(b'x'); (arot / str(n) / 'vy-1440-ruta-01.png').write_bytes(b'x')
+(arot / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {str(n): ['vy-390-ruta-01.png', 'vy-1440-ruta-01.png'] for n in (1, 2, 3)}}))  # det här försökets riktningar (omgång elva, F34)
 a.ROOT = tmp; a.KUNDER = k; a.UNDERLAG = tmp / 'underlag'
 svar_per_domare = {}
 
@@ -1117,7 +1117,7 @@ assert rc8 == 3 and j8.get('fel') and j8.get('vinnare') is None, 'en misslyckad 
 print('R11 F8 jämförelsen ok')
 
 # F34: panelen ser bara det här försökets fotograferade riktningar
-(arot / '4').mkdir(); (arot / '4' / 'vy-390-ruta-01.png').write_bytes(b'x')  # kvar från ett tidigare försök
+(arot / '4').mkdir(); (arot / '4' / 'vy-390-ruta-01.png').write_bytes(b'x'); (arot / '4' / 'vy-1440-ruta-01.png').write_bytes(b'x')  # kvar från ett tidigare försök
 svar_per_domare.update(formgivning=full, funktion=full, kunden=full)
 v34 = a.panel('prov', arot); assert set(v34['poang']) == {1, 2, 3}, 'bara det här försökets riktningar (F34): %s' % v34['poang']
 (arot / '3' / 'vy-390-ruta-01.png').unlink()
@@ -1125,6 +1125,11 @@ try:
     a.panel('prov', arot); raise AssertionError('en listad riktning utan bilder ska stoppa (F34)')
 except RuntimeError as e:
     assert 'saknar bilder' in str(e), e
+(arot / '3' / 'vy-390-ruta-01.png').write_bytes(b'x'); (arot / '3' / 'vy-1440-ruta-01.png').unlink()
+try:
+    a.panel('prov', arot); raise AssertionError('en riktning utan 1440-bild ska stoppa (omgång tolv, F34)')
+except RuntimeError as e:
+    assert 'båda bredderna' in str(e), e
 (arot / 'FOTOGRAFERADE.json').unlink()
 try:
     a.panel('prov', arot); raise AssertionError('utan manifest ska panelen stoppa (F34)')
@@ -1181,6 +1186,172 @@ rader24 = hs.ladda_bilder([{'url': bas24 + '/till-dold', 'typ': 'foto', 'alt': '
 assert len(rader24) == 2 and all('302' in str(r_['status']) and not r_['fil'] for r_ in rader24), rader24
 srv24.shutdown(); srvB24.shutdown()
 print('R11 F24 robots genom hoppen ok')
+
+
+# ---------------------------------------------------------------- omgång tolv (Codex R12): F37, F1, F33, F35, F27, F31, F36, F34, F18, F32
+# F37: en egen fråga med en kärnfrågas id publicerar inte fritext; bara giltiga fasta svar publiceras
+(dash.KUNDER / 'normal' / 'FRAGOR.json').write_text(json.dumps([{'id': 'sakerhet', 'fraga': 'Egen fritext under kärn-id', 'typ': 'fritext'}, {'id': 'egen_val', 'fraga': 'Egen', 'typ': 'val', 'alternativ': ['A', 'B']}]))
+assert [f_['id'] for f_ in dash.egna_fragor('normal')] == ['egen_val'], 'kärnfrågornas id är reserverade (F37)'
+assert [f_['id'] for f_ in dash.bygge('normal')['fragor']['egna']] == ['egen_val']
+r37 = dash.spara_dom('normal', {'svar': {'sakerhet': 'Hemlig fritext om Dan', 'specifik': 'sju', 'namn': 'Påhittat alternativ', 'battre': 'Mycket bättre',
+                                         'dimensioner': {'Hållning': 'Bra', 'Påhittad rad': 'Bra'}, 'egen_val': 'A'}})
+pub37, priv37 = (tmp / 'LARDOMAR.md').read_text(), (tmp / 'underlag' / 'LARDOMAR-original.md').read_text()
+post37 = (tmp / 'backlog' / (r37['backlog'] + '.md')).read_text()
+assert 'Hemlig fritext' not in pub37 and 'Hemlig fritext' not in post37 and 'Hemlig fritext' in priv37, 'fritext under ett kärn-id får aldrig publiceras (F37)'
+assert 'Påhittat alternativ' not in pub37 and 'sju' not in pub37 and 'Påhittad rad' not in pub37 and 'Mycket bättre' in pub37, pub37
+assert dash.publikt_varde({'typ': 'skala', 'steg': 5}, 3) == 3 and dash.publikt_varde({'typ': 'skala', 'steg': 5}, 9) is None and dash.publikt_varde({'typ': 'skala', 'steg': 5}, True) is None
+(dash.KUNDER / 'normal' / 'DOM.json').unlink(); (dash.KUNDER / 'normal' / 'FRAGOR.json').unlink()
+print('R12 F37 fasta svar ok')
+
+# F1: en tillåten kataloglänk som i sin tur länkar ut passerar inte genomgången; ny_sajt kopierar inte till den andra kunden
+rot12 = tmp / 'rot12'
+for d_ in ('kunder/eget/sajt', 'kunder/annan', 'underlag/eget/x'):
+    (rot12 / d_).mkdir(parents=True)
+(rot12 / 'kunder' / 'eget' / 'sajt' / 'src').symlink_to(rot12 / 'underlag' / 'eget' / 'x')  # tillåten kataloglänk …
+(rot12 / 'underlag' / 'eget' / 'x' / 'pages').symlink_to(rot12 / 'kunder' / 'annan')  # … som länkar vidare ut
+sv_root12, sv11.ROOT = sv11.ROOT, rot12
+assert sv11.symlank_ut(rot12 / 'kunder' / 'eget' / 'sajt', sv11.forankrad('eget'))[0] == 'ut', 'den indirekta länken ska upptäckas (F1)'
+assert not sv11.tillaten_vag(rot12 / 'kunder' / 'eget' / 'sajt', 'eget')
+(rot12 / 'underlag' / 'eget' / 'x' / 'pages').unlink(); (rot12 / 'underlag' / 'eget' / 'x' / 'pages').mkdir()
+assert sv11.tillaten_vag(rot12 / 'kunder' / 'eget' / 'sajt', 'eget'), 'en kataloglänk inom rötterna utan vidare länk är ren'
+(rot12 / 'underlag' / 'eget' / 'x' / 'pages').rmdir(); (rot12 / 'underlag' / 'eget' / 'x' / 'pages').symlink_to(rot12 / 'kunder' / 'annan')
+(rot12 / 'underlag' / 'eget' / 'x' / 'cykel').symlink_to(rot12 / 'underlag' / 'eget')  # cykel: får inte låsa genomgången
+assert sv11.symlank_ut(rot12 / 'kunder' / 'eget' / 'sajt', sv11.forankrad('eget'))[0] == 'ut'
+ns.ROOT = rot12; os.environ['NWP_SLUG'] = 'eget'
+try:
+    ns.main(['eget']); raise AssertionError('ny_sajt ska vägra när sajtkatalogen länkar vidare till en annan kund (F1)')
+except SystemExit as e:
+    assert e.code == 2, e.code
+finally:
+    os.environ.pop('NWP_SLUG', None)
+assert not any((rot12 / 'kunder' / 'annan').iterdir()), 'inget får ha kopierats till den andra kunden (F1)'
+sv11.ROOT = sv_root12
+print('R12 F1 indirekta kataloglänkar ok')
+
+# F33: rent EXIF plus GPS-XMP i samma AVIF ger rött, oavsett objektordning
+
+
+def avif_flera(objekt):
+    """objekt: [(typ, nyttolast, content_type)] i given ordning."""
+    ftyp = box33(b'ftyp', b'avif' + b'\x00\x00\x00\x00' + b'avifmif1')
+    hdlr = fullbox33(b'hdlr', b'\x00' * 4 + b'pict' + b'\x00' * 13)
+    infes = b''.join(fullbox33(b'infe', struct.pack('>HH', i + 1, 0) + typ + b'\x00' + (ct + b'\x00' if ct else b''), v=2) for i, (typ, _, ct) in enumerate(objekt))
+    iinf = fullbox33(b'iinf', struct.pack('>H', len(objekt)) + infes)
+
+    def iloc(bas):
+        kropp, off = bytes([0x44, 0x00]) + struct.pack('>H', len(objekt)), bas
+        for i, (_, last, _) in enumerate(objekt):
+            kropp += struct.pack('>HHH', i + 1, 0, 1) + struct.pack('>II', off, len(last)); off += len(last)
+        return fullbox33(b'iloc', kropp)
+    meta = fullbox33(b'meta', hdlr + iinf + iloc(0)); meta = fullbox33(b'meta', hdlr + iinf + iloc(len(ftyp) + len(meta) + 8))
+    return ftyp + meta + box33(b'mdat', b''.join(last for _, last, _ in objekt))
+
+
+exif_rent = b'\x00\x00\x00\x00' + b'II*\x00' + struct.pack('<I', 8) + struct.pack('<H', 0) + struct.pack('<I', 0)
+xmp_gps = b'<x:xmpmeta><rdf:Description exif:GPSLatitude="65,35.2N"/></x:xmpmeta>'
+for ordning in ([(b'Exif', exif_rent, None), (b'mime', xmp_gps, b'application/rdf+xml')], [(b'mime', xmp_gps, b'application/rdf+xml'), (b'Exif', exif_rent, None)]):
+    lage33, skal33 = bd.avif_metadata(avif_flera(ordning))
+    assert lage33 == 'oklar' and 'GPS' in skal33, (lage33, skal33)
+assert bd.avif_metadata(avif_flera([(b'Exif', exif_rent, None), (b'mime', b'<x:xmpmeta/>', b'application/rdf+xml')]))[0] == 'tiff', 'rent EXIF och XMP utan GPS är rent'
+(d33 / 'jobb.avif').write_bytes(avif_flera([(b'Exif', exif_rent, None), (b'mime', xmp_gps, b'application/rdf+xml')]))
+assert any(x['punkt'] == '4.2' and x['sida'] == '/jobb.avif' for x in sk.granska(d33)[0]), 'GPS i XMP bakom rent EXIF ska ge fel 4.2 (F33)'
+print('R12 F33 XMP bakom EXIF ok')
+
+# F35: underlaget tas bort oavsett kundkatalog; blir material kvar bokförs gallringen som ofullständig
+pf11.skriv_register('prov-k', lambda p_: [{'slug': 'demo-med-bygge', 'status': 'demo', 'skapad': gammal35, 'uppdaterad': gammal35},
+                                         {'slug': 'demo-utan-bygge', 'status': 'demo', 'skapad': gammal35, 'uppdaterad': gammal35}])
+for d_ in ('underlag/demo-med-bygge', 'kunder/demo-med-bygge', 'underlag/demo-utan-bygge'):
+    (tmp / d_).mkdir(parents=True, exist_ok=True); (tmp / d_ / 'x.txt').write_text('x')
+pr.gallra(types.SimpleNamespace(manader=12, kampanj='prov-k', torr=False))
+assert not (tmp / 'underlag' / 'demo-med-bygge').exists() and not (tmp / 'underlag' / 'demo-utan-bygge').exists() and (tmp / 'kunder' / 'demo-med-bygge').exists(), 'underlaget ska bort oavsett kundkatalog (F35)'
+logg35 = [json.loads(x) for x in (pf11.kampanjkatalog('prov-k') / 'logg.jsonl').read_text().splitlines()]
+assert any(x['handelse'] == 'gallring-ofullstandig' and x['slug'] == 'demo-med-bygge' and 'kunder/demo-med-bygge' in (x.get('kvar') or []) for x in logg35), logg35[-4:]
+assert any(x['handelse'] == 'gallrad' and x['slug'] == 'demo-utan-bygge' for x in logg35), logg35[-4:]
+print('R12 F35 gallringen ok')
+
+# F27: den hopskrivna formen -Ffilnamn
+g11('checkout', '-q', 'main'); g11('reset', '-q', '--hard', 'origin/main'); (repo / 'backlog').mkdir(exist_ok=True); (repo / 'backlog' / 'a.md').write_text('a\n')
+(repo / 'msg-hemlig.txt').write_text('rad\nre_abcdefghijklmnopqrstuvwxyz\n')
+rc, err = vakt3('git commit -Fmsg-hemlig.txt -- backlog/a.md'); assert rc == 2 and 'commit-meddelandet' in err and 're_abcdef' not in err, err
+(repo / 'msg-hemlig.txt').unlink()
+print('R12 F27 -Ffilnamn ok')
+
+# F31: demomottagaren nekar ett ofullständigt inskick med tom honeypot; utan-js fyller aldrig honeypoten
+import urllib.request as ur  # noqa: E402
+import urllib.parse as up  # noqa: E402
+d31 = tmp / 'dist31'; d31.mkdir(); (d31 / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>t</title></head><body><h1>Hej</h1></body></html>')
+(d31 / 'tack').mkdir(); (d31 / 'tack' / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Tack</title></head><body><h1>Tack</h1></body></html>')
+(d31 / 'kontakt').mkdir(); (d31 / 'kontakt' / 'index.html').write_text(
+    '<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Kontakt</title><style>.falla{position:absolute;left:-9999px}</style></head><body><h1>Kontakt</h1>'
+    '<form action="/api/forfragan" method="post"><input name="namn" type="text"><input name="telefon" type="tel" pattern="[0-9+\\-\\(\\) ]{6,40}"><textarea name="meddelande"></textarea>'
+    '<p class="falla"><input name="webbplats" type="text" tabindex="-1" autocomplete="off"></p><button type="submit">Skicka</button></form></body></html>')
+with prova.Server(d31) as srv31:
+    def posta(falt):
+        req = ur.Request(srv31.url + '/api/forfragan', data=up.urlencode(falt).encode(), method='POST', headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        try:
+            return ur.urlopen(ur.build_opener(ur.HTTPRedirectHandler) and ur.OpenerDirector() and ur.Request(srv31.url + '/'), timeout=5) and None
+        except Exception:
+            pass
+    class UtanFoljning(ur.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):
+            return None
+    opp = ur.build_opener(UtanFoljning)
+    def posta(falt):  # noqa: F811
+        req = ur.Request(srv31.url + '/api/forfragan', data=up.urlencode(falt).encode(), method='POST', headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        try:
+            return opp.open(req, timeout=5).headers.get('Location')
+        except ur.HTTPError as e:
+            return e.headers.get('Location')
+    assert posta({'namn': 'A', 'telefon': '070-123 45 67', 'meddelande': '', 'webbplats': ''}).startswith('/kontakt/?saknas=1'), 'ett ofullständigt inskick med tom honeypot ska avvisas (F31)'
+    assert posta({'namn': 'A', 'telefon': '070-123 45 67', 'meddelande': 'hej', 'webbplats': ''}) == '/tack/'
+    # utan-js mot mottagaren: honeypoten lämnas tom, de riktiga fälten fylls, landning på tacksidan
+    r31 = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'utan-js.mjs'), '--adress', srv31.url + '/', '--sidor', '/kontakt/', '--ut', str(tmp / 'ut31'),
+                          '--formular-far-skickas', '--testmarkering', 'NWP-PROV'], capture_output=True, text=True, cwd=str(ROOT), env={k_: v_ for k_, v_ in os.environ.items() if k_ != 'NWP_SLUG'}, timeout=240)
+    u31 = json.loads((tmp / 'ut31' / 'UTAN-JS.json').read_text())
+    f31 = [f_ for s_ in u31['sidor'] for f_ in s_['formular']]
+    assert u31['status'] == 'PASS' and f31 and f31[0]['skickat'] and f31[0]['tacksida'], (r31.stdout[-300:], r31.stderr[-300:], u31.get('fynd'), f31)
+print('R12 F31 honeypot ok')
+
+# F36: utforska skickar bara med flaggan, och sändningen läses ur nätutfallet
+
+
+class Mottagare36(Tyst):
+    poster = []
+
+    def do_POST(self):
+        n_ = int(self.headers.get('Content-Length') or 0); Mottagare36.poster.append(self.rfile.read(n_).decode('utf-8', 'replace'))
+        self.send_response(303); self.send_header('Location', '/tack/'); self.send_header('Content-Length', '0'); self.end_headers()
+
+
+rot36b = tmp / 'sajt36b'; rot36b.mkdir(); (rot36b / 'tack').mkdir()
+(rot36b / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>t</title></head><body><h1>Hej</h1><form action="/api/forfragan" method="post"><input name="namn" type="text"><button type="submit">Skicka</button></form></body></html>')
+(rot36b / 'tack' / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Tack</title></head><body><h1>Tack</h1></body></html>')
+srv36b, bas36b = server(rot36b, functools.partial(Mottagare36, directory=str(rot36b)))
+for flagga, vantat in ((False, 0), (True, 1)):
+    Mottagare36.poster.clear()
+    extra36 = ['--formular-far-skickas', '--testmarkering', 'NWP-PROV'] if flagga else []
+    r36b = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'utforska.mjs'), '--adress', bas36b + '/', '--ut', str(tmp / ('ut36b-%d' % flagga)), '--max-sidor', '1', *extra36],
+                          capture_output=True, text=True, cwd=str(ROOT), env={k_: v_ for k_, v_ in os.environ.items() if k_ != 'NWP_SLUG'}, timeout=300)
+    uf36 = json.loads((tmp / ('ut36b-%d' % flagga) / 'UTFORSKNING.json').read_text())
+    form36 = [f_ for s_ in uf36.get('sidor', []) for f_ in (s_.get('formular') or [])]
+    assert (len(Mottagare36.poster) >= 1) == flagga, (flagga, Mottagare36.poster, r36b.stderr[-300:])  # med flaggan också ett återförsök (dubblettprovet)
+    assert form36 and bool(form36[0].get('skickat')) == flagga, (flagga, form36, r36b.stdout[-300:])
+srv36b.shutdown()
+print('R12 F36 utforska ok')
+
+# F18: omgången avbryts när underlaget ändrats sedan bokföringen (referenserna fryses före granskarloopen)
+r18b = gdir18 / 'runda-12'; r18b.mkdir()
+(r18b / 'UPPDRAG.json').write_text(json.dumps({'slug': 'ett-abx', 'runda': 12, 'korning': 'prov', 'tid': gr.nu(), 'dist_sha256': prova.dist_hash(kund / 'sajt' / 'dist'),
+                                              'modell': 'opus[1m]', 'effort': 'high', 'frist': 60, 'granskare': gr.ANTAL, 'originalitet': 'skugga', 'metod_sha': 'bokford-metod'}))
+rc18b = gr.arbetare(r18b)
+assert (r18b / 'FEL.txt').is_file() and 'ändrades' in (r18b / 'FEL.txt').read_text() and not (r18b / 'PROMPT.txt').exists(), 'ändrat underlag mellan bokföring och start ska avbryta omgången (F18)'
+print('R12 F18 frysning före loopen ok')
+
+# F32: procentkodade interna länkar
+(d32 / 'våra-tjänster').mkdir(); (d32 / 'våra-tjänster' / 'index.html').write_text('<html lang="sv"><head><title>v</title></head><body><h1>v</h1></body></html>')
+assert seo.finns_lokalt(d32, 'v%C3%A5ra-tj%C3%A4nster/', '/', None, None) is True and seo.finns_lokalt(d32, '/v%C3%A5ra-tj%C3%A4nster/', '/', None, None) is True, 'procentkodad länk ska hittas (F32)'
+assert seo.finns_lokalt(d32, '/%2e%2e/%2e%2e/etc/passwd', '/', None, None) in (None, False), 'kodad ../ får inte lämna dist'
+print('R12 F32 procentkodade länkar ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

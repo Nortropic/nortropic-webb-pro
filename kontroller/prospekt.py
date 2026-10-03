@@ -841,14 +841,19 @@ def gallra(a):
             mut(poster)
         else:
             pf.skriv_register(kid, mut)
+        ofullst = []
         for slug in bort + krympta:
+            if a.torr:
+                continue
             d = ROOT / 'underlag' / slug
-            if d.is_dir() and not (ROOT / 'kunder' / slug).exists():
-                if not a.torr:
-                    shutil.rmtree(d, ignore_errors=True)
-            if not a.torr:
-                pf.logga(kid, 'gallrad', slug=slug)
-        print('%s: %d borttagna, %d krympta%s' % (kid, len(bort), len(krympta), ' (torrkörning)' if a.torr else ''))
+            if d.is_dir():  # kundrelationen avgör (status kund gallras aldrig), inte om en kundkatalog råkar finnas (omgång tolv, F35)
+                shutil.rmtree(d, ignore_errors=True)
+            kvar = [x for x in ('underlag/%s' % slug, 'kunder/%s' % slug) if (ROOT / x).exists()]
+            if kvar:  # demobygget innehåller verksamhetens innehåll och tas bort av ägaren (kontroller/ta_bort.py); gallringen är inte fullbordad
+                ofullst.append(slug)
+            pf.logga(kid, 'gallrad' if not kvar else 'gallring-ofullstandig', slug=slug, kvar=kvar or None)
+        print('%s: %d borttagna, %d krympta%s%s' % (kid, len(bort), len(krympta), ' (torrkörning)' if a.torr else '',
+                                               '; material kvar för %s (ta bort med kontroller/ta_bort.py)' % ', '.join(ofullst) if ofullst else ''))
     return 0
 
 

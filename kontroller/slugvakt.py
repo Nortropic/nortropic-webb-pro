@@ -53,22 +53,28 @@ def symlank_ut(katalog, rotar):
     post prövas som symlänk innan något undantas; inget hoppas över (omgång sex, F1). Ett verktyg skriver filer under sin
     utkatalog; en planterad länk där skulle annars leda skrivningen till ett annat bygge."""
     sedda, fel = 0, []
+    besokta, ko = {os.path.realpath(katalog)}, [Path(katalog)]
 
     def onerror(e):
         fel.append(getattr(e, 'filename', None) or str(e))
 
-    for mapp, mappar, filer in os.walk(katalog, followlinks=False, onerror=onerror):
-        if fel:
-            return 'fel', fel[0]
-        for namn in mappar + filer:
-            sedda += 1
-            if sedda > MAX_POSTER:
-                return 'ofullständig', None
-            v = Path(mapp) / namn
-            if v.is_symlink():
-                mal = Path(os.path.realpath(v))  # också en länk vars mål inte finns än
-                if not any(mal == r or mal.is_relative_to(r) for r in rotar):
-                    return 'ut', v
+    while ko:  # en kataloglänk till en tillåten katalog följs också: den kan i sin tur länka ut (omgång tolv, F1)
+        start = ko.pop()
+        for mapp, mappar, filer in os.walk(start, followlinks=False, onerror=onerror):
+            if fel:
+                return 'fel', fel[0]
+            for namn in mappar + filer:
+                sedda += 1
+                if sedda > MAX_POSTER:
+                    return 'ofullständig', None
+                v = Path(mapp) / namn
+                if v.is_symlink():
+                    mal = Path(os.path.realpath(v))  # också en länk vars mål inte finns än
+                    if not any(mal == r or mal.is_relative_to(r) for r in rotar):
+                        return 'ut', v
+                    if mal.is_dir() and str(mal) not in besokta:
+                        besokta.add(str(mal))
+                        ko.append(mal)
     return ('fel', fel[0]) if fel else ('ren', None)
 
 

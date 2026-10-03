@@ -52,11 +52,16 @@ try {
       if (!a['formular-far-skickas']) continue;
       for (const field of await form.locator('input:not([type=hidden]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea').all()) {
         if (!await field.isVisible() || !await field.isEnabled()) continue;
+        // honeypot: fält utanför vyn, utanför tabbordningen eller dolda för hjälpmedel fylls aldrig (omgång tolv, F31); isVisible
+        // räcker inte, Playwright räknar ett element utanför vyn som synligt
+        if (await field.evaluate(e => e.tabIndex < 0 || e.getAttribute('aria-hidden') === 'true' || (() => { const r = e.getBoundingClientRect(); return r.right <= 0 || r.bottom <= 0 || r.left >= window.innerWidth; })())) continue;
         const type = (await field.getAttribute('type') || 'text').toLowerCase();
         if (!['text', 'email', 'tel', 'search', 'url'].includes(type)) continue;
         // telefonfältet har pattern (byggstandarden 6.2): ett giltigt provnummer, annars stoppar webbläsarens validering inskicket
         await field.fill(type === 'email' ? 'test@example.invalid' : type === 'url' ? 'https://example.invalid' : type === 'tel' ? '070-123 45 67' : String(a.testmarkering));
       }
+      const fallor = await form.evaluate(f => [...f.querySelectorAll('input,textarea')].filter(e => e.tabIndex < 0 || e.getAttribute('aria-hidden') === 'true').map(e => ({ namn: e.name, tom: !e.value })));
+      if (fallor.some(x => !x.tom)) { f.status = 'FAIL'; r.fynd.push({ sida: url, formular: i, vad: 'ett honeypot-fält är ifyllt före inskick; provet avbryts' }); continue; }
       const response = b.page.waitForResponse(x => x.request().method() === 'POST' && x.url() === target.href, { timeout: 10000 });
       const [outcome] = await Promise.all([response.catch(() => null), submit.click({ timeout: 5000 }).catch(() => null)]);
       f.skickat = !!outcome; f.http_status = outcome?.status() ?? null;

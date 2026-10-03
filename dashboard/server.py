@@ -72,6 +72,37 @@ KARNFRAGOR = [
     {'id': 'en_andring', 'fraga': 'Om du fick ändra en sak i hur vi bygger, vad skulle det vara?', 'typ': 'fritext'},
     {'id': 'sakerhet', 'fraga': 'Hur säker är du på din dom?', 'typ': 'val', 'alternativ': ['Säker', 'Ganska säker', 'Osäker']},
 ]
+KARN_ID = {f['id'] for f in KARNFRAGOR}
+
+
+def egna_fragor(slug):
+    """Byggets egna frågor ur kunder/<slug>/FRAGOR.json: bara poster med eget id. Ett id som krockar med en kärnfråga skulle
+    annars låta en fritextfråga skriva över ett fast svar som publiceras (omgång tolv, F37)."""
+    egna = las_json(KUNDER / slug / 'FRAGOR.json')
+    if not isinstance(egna, list):
+        return []
+    return [f for f in egna if isinstance(f, dict) and isinstance(f.get('id'), str) and f['id'] not in KARN_ID]
+
+
+def publikt_varde(f, v):
+    """Det fasta svaret om det är giltigt mot kärnfrågans alternativ, skala eller matris, annars None: bara sådana värden
+    får stå i den publika LARDOMAR.md (omgång tolv, F37)."""
+    typ = f.get('typ')
+    if typ == 'val':
+        return v if isinstance(v, str) and v in (f.get('alternativ') or []) else None
+    if typ == 'skala':
+        if isinstance(v, bool):
+            return None
+        try:
+            n = int(v)
+        except (TypeError, ValueError):
+            return None
+        return n if 1 <= n <= int(f.get('steg') or 5) else None
+    if typ == 'matris':
+        if not isinstance(v, dict) or not all(k in (f.get('rader') or []) and x in (f.get('alternativ') or []) for k, x in v.items() if x):
+            return None
+        return ', '.join('%s: %s' % (k, x) for k, x in v.items() if x) or None
+    return None
 
 
 def nu():
@@ -274,7 +305,7 @@ def ab_oavgjord(slug):
 def bygge(slug):
     b = sammanfattning(slug)
     s = las_json(KUNDER / slug / 'prov' / 'STATUS.json')
-    egna = las_json(KUNDER / slug / 'FRAGOR.json')
+    egna = egna_fragor(slug)
     b.update({
         'status': s, 'stoppvakt': las_json(KUNDER / slug / 'prov' / 'STOPPVAKT.json'),
         'fore': siffror(UNDERLAG / slug / 'diagnos'), 'efter': siffror(KUNDER / slug / 'prov'),
@@ -285,7 +316,7 @@ def bygge(slug):
             ('Brief', 'BRIEF.md'), ('Referenser', 'REFERENSER.md'), ('Jämförelse', 'JAMFORELSE.md'),
             ('Femsekunderstest', 'FEMSEK.md'), ('Diagnos', 'DIAGNOS.md'), ('Research', 'RESEARCH.md'),
             ('Koncept', 'KONCEPT.md'), ('Innehåll', 'INNEHALL.md'), ('Beställning till verksamheten', 'BESTALLNING.md')) if (UNDERLAG / slug / fil).is_file()},
-        'fragor': {'karna': KARNFRAGOR, 'egna': egna if isinstance(egna, list) else []},
+        'fragor': {'karna': KARNFRAGOR, 'egna': egna},
         'domar': (las_json(KUNDER / slug / 'DOM.json') or {}).get('domar', []),
         'granskning': granskningen(slug, b['domd']),
     })
@@ -533,7 +564,7 @@ def spara_dom(slug, data):
         raise ValueError('för långa svar')
     s = las_json(KUNDER / slug / 'prov' / 'STATUS.json') or {}
     post = {'tid': nu(), 'bygge_dist': (s.get('dist_sha256') or '')[:12], 'svar': svar,
-            'fragor': {'karna': KARNFRAGOR, 'egna': las_json(KUNDER / slug / 'FRAGOR.json') or []}}
+            'fragor': {'karna': KARNFRAGOR, 'egna': egna_fragor(slug)}}
     fil = KUNDER / slug / 'DOM.json'
     allt = las_json(fil) or {'schema': 1, 'slug': slug, 'domar': []}
     allt['domar'].append(post)
@@ -543,6 +574,7 @@ def spara_dom(slug, data):
     befintlig = las_text(lar) or '# Lärdomar — ägarens domar\n'
     n = max([int(x) for x in re.findall(r'^## L(\d+) ', befintlig, re.M)] or [-1]) + 1
     alla = {f['id']: f for f in KARNFRAGOR + (post['fragor']['egna'] if isinstance(post['fragor']['egna'], list) else []) if isinstance(f, dict) and 'id' in f}
+    karn = {f['id']: f for f in KARNFRAGOR}
     fasta = {f['id'] for f in KARNFRAGOR if f.get('typ') in ('val', 'skala', 'matris')}  # fasta svar utan fritext: får stå publikt
     rader = ['', '## L%d · %s · %s' % (n, post['tid'][:10], slug), '']  # ordagrant: privat (BESLUT.md 2026-10-03)
     publika = list(rader)  # bara betygen och valen: publikt, i git
@@ -550,19 +582,19 @@ def spara_dom(slug, data):
         if v in (None, '', {}, []):
             continue
         fraga = (alla.get(fid) or {}).get('fraga', fid)
+        pv = publikt_varde(karn[fid], v) if fid in fasta else None  # publikt bara ett giltigt fast svar, under kärnfrågans rubrik (F37)
         if isinstance(v, dict):
             v = ', '.join('%s: %s' % (k, x) for k, x in v.items() if x)
-        rad = '- **%s** %s' % (fraga, str(v).replace('\n', ' / '))
-        rader.append(rad)
-        if fid in fasta:
-            publika.append(rad)
+        rader.append('- **%s** %s' % (fraga, str(v).replace('\n', ' / ')))
+        if pv is not None:
+            publika.append('- **%s** %s' % (karn[fid]['fraga'], pv))
     rader += ['', '**Ändring:** väntar', '']
     publika += ['', '**Ägarens ord:** ordagrant i `underlag/LARDOMAR-original.md` (privat) och `kunder/%s/DOM.json`' % slug,
                 '**Lärdom:** skrivs utan personuppgifter av sessionen som gör ändringen', '**Ändring:** väntar', '']
     # Domen blir automatiskt en vilande post i backloggen (loop 3): en session ägaren startar gör textändringen. Posten
     # och den publika raden får inga fritextsvar (personuppgifter; BESLUT.md 2026-10-03).
-    betyg = '; '.join('%s: %s' % ((alla.get(k) or {}).get('fraga', k), svar[k]) for k in ('namn', 'battre', 'specifik')
-                      if isinstance(svar.get(k), (str, int)) and str(svar.get(k)).strip())
+    betyg = '; '.join('%s: %s' % (karn[k]['fraga'], publikt_varde(karn[k], svar.get(k))) for k in ('namn', 'battre', 'specifik')
+                      if publikt_varde(karn[k], svar.get(k)) is not None)
     pid = bl.ny('dom', 'Dom L%d (%s)' % (n, slug),
                 'Ägarens dom L%d om %s: ordagrant i underlag/LARDOMAR-original.md (privat, utanför git) och kunder/%s/DOM.json. %s'
                 % (n, slug, slug, betyg or 'Betygen står i LARDOMAR.md.'),

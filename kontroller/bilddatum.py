@@ -147,9 +147,9 @@ def avif_metadata(data):
             tiff = kandidat
         else:
             oklar = 'EXIF-objektet saknar TIFF-huvud'
-    if tiff is not None:
-        return 'tiff', tiff
-    return ('oklar', oklar) if oklar else ('ingen', None)
+    if oklar:  # GPS i XMP eller overifierbar metadata väger tyngre än ett rent EXIF-block i samma fil (omgång tolv, F33)
+        return 'oklar', oklar
+    return ('tiff', tiff) if tiff is not None else ('ingen', None)
 
 
 def exif(tiff):

@@ -206,6 +206,11 @@ def commit_meddelanden(args):
                 ut.append(b'')
         elif a.startswith('-m') and len(a) > 2 and not a.startswith('--'):
             ut.append(a[2:].encode('utf-8', 'replace'))
+        elif a.startswith('-F') and len(a) > 2 and not a.startswith('--'):  # -Ffilnamn (omgång tolv, F27)
+            try:
+                ut.append((ROOT / a[2:]).read_bytes())
+            except OSError:
+                ut.append(b'')
         i += 1
     return ut
 
