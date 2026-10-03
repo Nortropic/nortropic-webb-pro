@@ -3575,3 +3575,93 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Jack Roberts, "Opus 5.5 Just 10X'd Claude Design…" (YouTube HOXrLsVqinY) + ItsssssJack/SlopMonster · nej
+- Källa: https://www.youtube.com/watch?v=HOXrLsVqinY @ publicerad 2026-09-24 (Jack Roberts, 22:19, 51 644 visningar,
+  autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 48 bildrutor:
+  berättarens egen sammanställningssida på localhost (sju "levels" med flikar för story, idé, prompt och resultat),
+  Firecrawls lekplats, Notion-guiden "The RISE method" (bara rubriker syns), den egna appen "Agentic OS" med Motion
+  Library, savee.com, Instagram och GitHub. Rörelsen (loopar, logotypanimationer, jinglar) syns inte i bildrutorna,
+  bara lägen; omdömet om rörelsen är berättarens. Beskrivningens nio länkar: tre bit.ly (Firecrawl, "the vault",
+  betalsystem med Motion Library), claude.ai, dribbble, savee, pinterest, Glaido (berättarens egen produkt) och ett
+  repo [BESKRIVNING]. Repot klonat och förgranskat: https://github.com/ItsssssJack/SlopMonster @ 3fc9787 (senaste
+  push 2026-09-26, MIT, 582 stjärnor; videon visar 526 stjärnor och 14 commits [SKÄRM 17:20]); läst README, SKILL.md,
+  references/ (tre filer), prompts/cleanse.txt, tools/deslop.py och tools/cleanse.sh i helhet,
+  examples/ridgeline-roofing.md, början av examples/jasper-live-run.md och .github/workflows/slop.yml. Inget kört.
+  Firecrawl är dömt nej 2026-10-02 (rad 787) och ägaren höll med (`kunskap/KIRURG-OMDOMEN.md` rad 80–83). Ägarens
+  not: ingen
+- Steg: 4 (innehåll före form), 5 (5.3 bygg), 3 (referenser); bildspel och sociala medier ligger utanför de åtta
+  stegen
+- Jämfört med i dag, nivå för nivå: (1) **Animerade bildspel** [TAL 00:46–02:14; SKÄRM 00:40, 01:12, 01:44]: en loop
+  på tio sekunder att exportera till PowerPoint. Inte en webbplats; inget hos oss motsvarar det och inget behöver
+  det. (2) **Varumärke ur en URL med Firecrawl** [TAL 02:28–04:04; SKÄRM 02:49, 03:21, 10:53]: logga, favicon,
+  delningsbild, knappar, färger som hex, typsnitt, basenhet, radie och en "personality" med ton och målgrupp. Vi:
+  `kontroller/hamta_sajt.py` hämtar deras sidor, `farg.mjs` och `typsnitt.py` läser logotypens färg och typsnitt
+  (Firecrawl-posten rad 805–809). Lika i sak; "personality" är en modells gissning om verksamheten, och riktningen
+  ska komma "ur verksamheten själv … aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md` rad 208–209).
+  (3) **Sajter som "kommer till liv"** [TAL 04:04–06:16; SKÄRM 04:26, 04:58, 05:30, 06:02, 07:07, 07:32]: en animerad
+  hero på Glaidos sajt med en påhittad blå figur vars tal blir fåglar som blir text, en sidfot som bygger sig själv
+  och en produktdemo på 25 sekunder med jingel. Det är dekor i första vyn, en genererad figur i stället för
+  verksamhetens egna bilder, och rörelse som startar av sig själv. Vi: första vyn säger vad, var, för vem och nästa
+  steg (`kunskap/byggstandard.md` 9.1, rad 119), verksamhetens eget foto i första skärmen (SKILL.md rad 229–231),
+  "hellre inga foton än stock" (`LARDOMAR.md` rad 90), genererade bilder aldrig som kundens (`kunskap/bild.md` rad
+  19), inget rullar av sig självt och reducerad rörelse (byggstandarden 3.5, rad 50; `mall/astro/src/layouts/Bas.astro`
+  rad 48), ingen JavaScript som inte behövs (SKILL.md rad 225). Krockar med fyra medvetna val; ägarens L0 ("ai slope
+  skit", `LARDOMAR.md` rad 18) gäller just sådant. Glaidos egen hero-text "Save 20+ hours a month" [SKÄRM 07:07] är
+  för övrigt precis det tal utan kvitto som repots bevisregel flaggar (punkt 6). (4) **Reels, B-roll i alla format,
+  animerade logotyper med jingel** [TAL 08:13–15:17; SKÄRM 09:16, 09:48, 11:25, 11:57, 12:30, 13:34, 14:07, 14:39]:
+  innehåll för Instagram och TikTok, och Notions, Duolingos, Spotifys och Nikes logotyper animerade. Berättaren om
+  sitt eget resultat: "I don't like how crowded it is" och typsnittet "has got the clawed fingerprints all over it"
+  [TAL 09:16–09:49]. Inte webbplatser. En animerad logotyp vid presentationen för kunden är en tanke för steg 7, men
+  våra kunder är en snickare, en målare och en elfirma med ordmärken; en roterande kub av Notions logga [SKÄRM 14:07]
+  säger inget om vad Sundboms gula skugga skulle bli, och ägaren dömer sajten, inte presentationen. (5)
+  **Stilreferens från Savee till rörelse** [TAL 15:17–18:57; SKÄRM 15:43, 16:16, 16:48, 17:52, 18:25]: en bild ur ett
+  galleri och regeln "Borrow the style, never the picture" [SKÄRM 16:48]. Resultaten: ett orange typografiskt kort
+  där bokstäverna i RISE faller [SKÄRM 16:48], en 80-talssol som berättaren kallar "goodish, good enough, but not
+  perfect" [TAL 17:52–18:00], och en rosa surfplatta med Glaidos adress [SKÄRM 18:25]. Vi: referensjakt med riktiga
+  sajter öppnade, "Gallerier är sökingångar, inte facit" (SKILL.md rad 155), "Kopiera aldrig layout, palett eller
+  typsnitt" (rad 260; `kunskap/referenser-professionella.md` rad 61). Lika i princip, sämre i utfall. (6)
+  **SlopMonster** [TAL 16:55–17:24; SKÄRM 17:20]: en Python-regex över fem kategorier (ordlista, konstruktioner,
+  tankstreck och bindestreckskedjor, tretal, tal intill kundsubstantiv) som ger poäng av 5 och avslutar med fel under
+  5, och ett skalskript som skickar texten till en annan modellfamilj via Codex- eller Claude-CLI för en andra
+  redigering [REPO README.md rad 5–16, 91–101; tools/deslop.py rad 25–45, 76–100, 113–127; tools/cleanse.sh rad
+  2–20]. Katalogen är Wikipedias "Signs of AI writing" plus blader/humanizer, samma rot som vår `humanizer`
+  (`.claude/skills/humanizer/KALLA.md` rad 3–6; [REPO references/sources.md rad 10–21]). Reglerna är engelska utan
+  språkdetektering, "Text in another language can score 5/5" [REPO README.md rad 140–141], så verktyget ser
+  ingenting i en svensk sajt. Vi: `kontroller/copy_kontroll.py` med svenska fraser och engelskt läckage (rad 20–39),
+  strukturer och saknade element (`kunskap/copy-kontroll.md` rad 10–21), humanizer med röstprov i steg 4 (SKILL.md
+  rad 182–193), och fynden är en rapport, aldrig en grind (copy-kontroll.md rad 37–38): ett medvetet val mot
+  SlopMonsters felkod. Krockar på grinden, sämre på språket. Två saker i repot är bra: regeln att ett tal intill
+  "customers" är det enda felet utan återväg [REPO tools/deslop.py rad 102–104; SKILL.md rad 112–117], och exemplet
+  Ridgeline Roofing där en specifikation ("Six nails per shingle") ersätter tre adjektiv [REPO
+  examples/ridgeline-roofing.md rad 10–13], vilket är vår "Bara de har" och `Specifikt:` (SKILL.md rad 177–179; L0).
+  Den andra modellfamiljen: repot säger självt att det "does not establish that a second model will produce a better
+  edit" [REPO references/sources.md rad 44–45]; hos oss går bygge och granskning i samma modell (`kor.sh` rad 8–9)
+  men i två granskarsessioner som inte ser varandra (`kritik/GRANSKARE.md` rad 7), och A/B-protokollet kräver redan
+  en annan modell som domare (`.claude/skills/kirurg/SKILL.md` steg 6). En andra modellfamilj som copyredaktör
+  vore ett A/B, men kedjan i kor.sh har ingen sådan, och källan har inget belägg för att det hjälper; inte nu. (7)
+  **Hundra sajter in, hundra filmer ut** och Agentic OS med 103 stilar [TAL 19:08–21:50; SKÄRM 06:18, 06:35, 19:10,
+  19:29, 20:02, 20:34, 21:55]: en vägg av logotyper med varsin färgexplosion, och en betald app som skriver prompten
+  och öppnar Claude eller Codex. Vi bygger en sajt i taget med dom (kvalitet före volym, kirurgens SKILL.md rad 127);
+  en stilkatalog att välja ur är en mall. Krockar
+- Skäl: videon handlar om rörlig grafik för bildspel, sociala medier och logotyper, inte om webbplatser åt riktiga
+  verksamheter; den enda sajtnivån är en genererad figur som animeras i första vyn på berättarens egen produkt, och
+  det är precis det ägaren kallat slop och det byggstandarden stänger ute. Varumärkesuttaget går via Firecrawl som
+  redan är dömt nej. SlopMonster är en engelsk regexgrind över samma Wikipedia-katalog som vår humanizer bygger på,
+  blind för svenska och med en grindmekanik vi medvetet valt bort. Källkritik: tre affiliatelänkar och en betalprodukt
+  i beskrivningen, berättaren använder sin egen produkt Glaido som exempel genom hela videon, "40% cheaper and 30%
+  faster" och "one shot" är berättarens ord [TAL 00:00–01:08], och de svagaste resultaten bedöms av honom själv
+  ("needs a little bit of work" [TAL 09:16]). Inga instruktioner till agenter i källan; repots SKILL.md är vanlig
+  skilltext
+- Kostnad: inget tas in. Berättaren: "hundreds of dollars worth of credits" [TAL 00:00–00:34]; Firecrawl-kontot visar
+  5 334 krediter kvar [SKÄRM 02:49]. SlopMonster: 66 token i beskrivningen, 1 430 vid användning, 18 774 vid behov
+  (förgranskningen); inga beroenden utöver Python
+- Säkerhet: videon ej tillämpligt (transkript och bildrutor hämtade, inget kört). SlopMonster förgranskat: MEDEL; inga
+  dolda tecken, ingen text riktad till agenter, inga behörigheter eller hookar; fyra skript, varav cleanse.sh läser
+  miljön och startar en extern CLI utanför repot, och test_deslop.py använder exec. GitHub-workflowen kör bara
+  testerna och lintern. Inget fört vidare
+- Förslag: inget för videon eller repot. Egen innovation (backlog nedan): en fyndtyp "siffra" i copykontrollen som
+  listar varje tal intill kunder, jobb, år, omdömen och procent med rad, så att det redaktionella passet kan kräva
+  kvitto; ingen poäng, ingen grind, egna ord och ingen kod ur källan
+- Utfall: —
+- Backlog: B-20261003-copykontrollen-rapporterar-varje-siffra-bredvid (egen innovation; för videon och repot: ingen)
