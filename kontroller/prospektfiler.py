@@ -14,7 +14,9 @@ import hashlib
 import json
 import os
 import re
+import threading
 import unicodedata
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -85,13 +87,39 @@ def kampanjkataloger_strikt():
     return sorted(d.name for d in PROSPEKT.iterdir() if d.is_dir() and KAMPANJ_ID.match(d.name))
 
 
+_REGISTER_TRAD = threading.RLock()
+_REGISTER_LAS = {'djup': 0, 'fil': None}
+
+
+@contextmanager
+def register_las():
+    """Ett lås för alla registerskrivningar och hela gallringen (inventering, beslut, radering): flock på
+    underlag/prospekt/.register.las mellan processer och ett RLock mellan trådar, återinträdbart i samma tråd. Utan det
+    kunde en statusändring lyckas mellan gallringens beslut och raderingen (omgång sexton, F35)."""
+    with _REGISTER_TRAD:
+        if _REGISTER_LAS['djup'] == 0:
+            PROSPEKT.mkdir(parents=True, exist_ok=True)
+            f = open(PROSPEKT / '.register.las', 'w')
+            fcntl.flock(f, fcntl.LOCK_EX)
+            _REGISTER_LAS['fil'] = f
+        _REGISTER_LAS['djup'] += 1
+        try:
+            yield
+        finally:
+            _REGISTER_LAS['djup'] -= 1
+            if _REGISTER_LAS['djup'] == 0:
+                fcntl.flock(_REGISTER_LAS['fil'], fcntl.LOCK_UN)
+                _REGISTER_LAS['fil'].close()
+                _REGISTER_LAS['fil'] = None
+
+
 def skriv_register(kampanj, muterare):
     """Lås, läs strikt, låt muterare(poster) ändra listan på plats (eller returnera en ny), skriv, släpp. Returnerar listan.
     Läsningen inne i låset är strikt: ett läsfel får aldrig bli en tom lista som skrivs tillbaka (omgång femton, F35);
     RegisterFel höjs före varje skrivning."""
     kdir = kampanjkatalog(kampanj)
     kdir.mkdir(parents=True, exist_ok=True)
-    with open(kdir / '.las', 'w') as las:
+    with register_las(), open(kdir / '.las', 'w') as las:  # samma lås som gallringen håller (omgång sexton, F35)
         fcntl.flock(las, fcntl.LOCK_EX)
         try:
             poster = las_register_strikt(kampanj)
@@ -124,6 +152,8 @@ def satt_status(kampanj, slug, status, **falt):
         if p:
             p['status'] = status
             p.update(falt)
+            if status not in ('nej', 'avvisad'):  # återaktivering: en minimerad post som blir kund är ingen gallringsrest (omgång sexton, F35)
+                p.pop('gallrad', None)
             p['uppdaterad'] = nu()
             ut['post'] = p
     skriv_register(kampanj, mut)

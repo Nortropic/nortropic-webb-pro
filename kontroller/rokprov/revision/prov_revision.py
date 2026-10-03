@@ -1573,5 +1573,44 @@ for namn15, falt15, vantat15 in (('a', '<input name="kod" type="text" pattern="\
     srv15.shutdown()
 print('R15 F36 maskade mål ok')
 
+
+# ---------------------------------------------------------------- omgång sexton (Codex R16): F35 (återaktiverad kund, statusändring under gallringen)
+for kid in ('kamp-a', 'kamp-b', 'kamp-c'):
+    shutil.rmtree(pf11.PROSPEKT / kid, ignore_errors=True)
+kampanj13('kamp-a', [{'slug': 'delad5', 'peOrgNr': '6', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35}])
+kampanj13('kamp-b', [{'slug': 'delad5', 'peOrgNr': '6', 'status': 'nej', 'skapad': gammal35, 'uppdaterad': gammal35}])
+(tmp / 'underlag' / 'delad5').mkdir(parents=True, exist_ok=True); (tmp / 'underlag' / 'delad5' / 'x.txt').write_text('x')
+assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-b', torr=False)) == 0
+assert [p_ for p_ in pf11.las_register('kamp-b') if p_['slug'] == 'delad5'][0].get('gallrad'), 'nej-posten är minimerad med markör'
+post16 = pf11.satt_status('kamp-b', 'delad5', 'kund')
+assert post16 and 'gallrad' not in post16, 'återaktivering tar bort gallringsmarkören (F35)'
+assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)) == 0
+assert (tmp / 'underlag' / 'delad5' / 'x.txt').is_file(), 'en återaktiverad kund skyddar materialet (F35)'
+pf11.skriv_json(pf11.kampanjkatalog('kamp-b') / 'REGISTER.json', [{'slug': 'delad5', 'peOrgNr': '6', 'status': 'kund', 'gallrad': gammal35, 'uppdaterad': gammal35}])
+kampanj13('kamp-a', [{'slug': 'delad5', 'peOrgNr': '6', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35}])
+assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)) == 0 and (tmp / 'underlag' / 'delad5' / 'x.txt').is_file(), 'kundstatus väger tyngre än en kvarlämnad markör (F35)'
+# en statusändring under gallringen väntar tills gallringen är klar: låset omfattar inventering, beslut och radering
+kampanj13('kamp-a', [{'slug': 'delad6', 'peOrgNr': '7', 'status': 'skickat', 'skapad': gammal35, 'uppdaterad': gammal35}])
+kampanj13('kamp-b', [{'slug': 'delad6', 'peOrgNr': '7', 'status': 'nej', 'skapad': gammal35, 'uppdaterad': gammal35, 'gallrad': gammal35}])
+(tmp / 'underlag' / 'delad6').mkdir(parents=True, exist_ok=True); (tmp / 'underlag' / 'delad6' / 'x.txt').write_text('x')
+tider16, _rmtree16 = {}, pr.shutil.rmtree
+
+
+def rmtree_med_konkurrent(d_, **kw):
+    tr_ = threading.Thread(target=lambda: tider16.update(status=(pf11.satt_status('kamp-b', 'delad6', 'kund'), time.monotonic())))
+    tr_.start(); tider16['trad'] = tr_; time.sleep(0.5)
+    tider16['radering'] = time.monotonic(); tider16['vantade'] = tr_.is_alive()
+    return _rmtree16(d_, **kw)
+
+
+pr.shutil.rmtree = rmtree_med_konkurrent
+try:
+    assert pr.gallra(types.SimpleNamespace(manader=12, kampanj='kamp-a', torr=False)) == 0
+finally:
+    pr.shutil.rmtree = _rmtree16
+tider16['trad'].join(10)
+assert tider16.get('vantade') and 'status' in tider16 and tider16['status'][1] > tider16['radering'] and tider16['status'][0]['status'] == 'kund', 'statusändringen ska vänta på gallringens lås (F35): %s' % tider16
+print('R16 F35 återaktivering och lås ok')
+
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

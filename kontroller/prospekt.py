@@ -840,45 +840,48 @@ def gallra(a):
                 else:
                     kvar.append(p)
             return kvar
-        # underlag/<slug> är gemensamt för hela repot: har en annan kampanj posten kvar (kund eller aktiv prospektpost) tas
-        # bara kampanjposten bort, aldrig materialet (omgång tretton, F35: gallring av A raderade B:s kundunderlag).
-        # Inventeringen är strikt och görs före varje ändring: ett register eller en kampanj som inte går att läsa är en
-        # okänd referensstatus, och då raderas inget och inget register skrivs (omgång fjorton, F35)
-        andra = {}
-        try:
-            pf.las_register_strikt(kid)
-            for k2 in pf.kampanjkataloger_strikt():
-                if k2 == kid:
+        with pf.register_las():  # inventering, beslut och radering under samma lås som varje statusändring (omgång sexton, F35)
+            # underlag/<slug> är gemensamt för hela repot: har en annan kampanj posten kvar (kund eller aktiv prospektpost) tas
+            # bara kampanjposten bort, aldrig materialet (omgång tretton, F35: gallring av A raderade B:s kundunderlag).
+            # Inventeringen är strikt och görs före varje ändring: ett register eller en kampanj som inte går att läsa är en
+            # okänd referensstatus, och då raderas inget och inget register skrivs (omgång fjorton, F35)
+            andra = {}
+            try:
+                pf.las_register_strikt(kid)
+                for k2 in pf.kampanjkataloger_strikt():
+                    if k2 == kid:
+                        continue
+                    for p2 in pf.las_register_strikt(k2):  # varje post validerad: slug och status finns
+                        # en gallringsrest (nej/avvisad med markör) refererar inte; varje annan status gör det, också en
+                        # återaktiverad kund som fått behålla markören (omgång sexton, F35)
+                        if not p2.get('gallrad') or p2.get('status') not in ('nej', 'avvisad'):
+                            andra.setdefault(p2['slug'], []).append((k2, p2.get('status')))
+                if a.torr:
+                    mut(pf.las_register_strikt(kid))
+                else:
+                    pf.skriv_register(kid, mut)  # läser strikt igen inne i låset; ett läsfel där skriver inget (omgång femton, F35)
+            except pf.RegisterFel as e:
+                print('%s: gallringen avbruten, referensstatus okänd: %s' % (kid, e), file=sys.stderr)
+                return 2
+            ofullst, delade = [], []
+            for slug in bort + krympta:
+                if a.torr:
                     continue
-                for p2 in pf.las_register_strikt(k2):  # varje post validerad: slug och status finns
-                    if not p2.get('gallrad'):
-                        andra.setdefault(p2['slug'], []).append((k2, p2.get('status')))
-            if a.torr:
-                mut(pf.las_register_strikt(kid))
-            else:
-                pf.skriv_register(kid, mut)  # läser strikt igen inne i låset; ett läsfel där skriver inget (omgång femton, F35)
-        except pf.RegisterFel as e:
-            print('%s: gallringen avbruten, referensstatus okänd: %s' % (kid, e), file=sys.stderr)
-            return 2
-        ofullst, delade = [], []
-        for slug in bort + krympta:
-            if a.torr:
-                continue
-            ref = andra.get(slug) or []
-            if ref:
-                delade.append(slug)
-                pf.logga(kid, 'gallrad', slug=slug, material='kvar', refereras_av=sorted({k_ for k_, _ in ref}))
-                continue
-            d = ROOT / 'underlag' / slug
-            if d.is_dir():  # kundrelationen avgör (status kund gallras aldrig), inte om en kundkatalog råkar finnas (omgång tolv, F35)
-                shutil.rmtree(d, ignore_errors=True)
-            kvar = [x for x in ('underlag/%s' % slug, 'kunder/%s' % slug) if (ROOT / x).exists()]
-            if kvar:  # demobygget innehåller verksamhetens innehåll och tas bort av ägaren (kontroller/ta_bort.py); gallringen är inte fullbordad
-                ofullst.append(slug)
-            pf.logga(kid, 'gallrad' if not kvar else 'gallring-ofullstandig', slug=slug, kvar=kvar or None)
-        print('%s: %d borttagna, %d krympta%s%s%s' % (kid, len(bort), len(krympta), ' (torrkörning)' if a.torr else '',
-                                                 '; material kvar för %s (ta bort med kontroller/ta_bort.py)' % ', '.join(ofullst) if ofullst else '',
-                                                 '; gemensamt material behållet för %s (annan kampanj)' % ', '.join(delade) if delade else ''))
+                ref = andra.get(slug) or []
+                if ref:
+                    delade.append(slug)
+                    pf.logga(kid, 'gallrad', slug=slug, material='kvar', refereras_av=sorted({k_ for k_, _ in ref}))
+                    continue
+                d = ROOT / 'underlag' / slug
+                if d.is_dir():  # kundrelationen avgör (status kund gallras aldrig), inte om en kundkatalog råkar finnas (omgång tolv, F35)
+                    shutil.rmtree(d, ignore_errors=True)
+                kvar = [x for x in ('underlag/%s' % slug, 'kunder/%s' % slug) if (ROOT / x).exists()]
+                if kvar:  # demobygget innehåller verksamhetens innehåll och tas bort av ägaren (kontroller/ta_bort.py); gallringen är inte fullbordad
+                    ofullst.append(slug)
+                pf.logga(kid, 'gallrad' if not kvar else 'gallring-ofullstandig', slug=slug, kvar=kvar or None)
+            print('%s: %d borttagna, %d krympta%s%s%s' % (kid, len(bort), len(krympta), ' (torrkörning)' if a.torr else '',
+                                                     '; material kvar för %s (ta bort med kontroller/ta_bort.py)' % ', '.join(ofullst) if ofullst else '',
+                                                     '; gemensamt material behållet för %s (annan kampanj)' % ', '.join(delade) if delade else ''))
     return 0
 
 
