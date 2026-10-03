@@ -3482,3 +3482,96 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   ägarens ja, eftersom den statiska visningen blir nåbar för andra på samma nätverk
 - Utfall: —
 - Backlog: ingen för domen; egen innovation B-20261003-agaren-domer-mobilen-i-en-riktig-telefon-dashboa
+
+### 2026-10-03 · Jono Catliff, "Claude Code Web Design: 10 Years Covered In 66 Minutes" (YouTube 2Gda_ZvV1V4) · nej
+- Källa: https://www.youtube.com/watch?v=2Gda_ZvV1V4 @ publicerad 2026-05-19 (Jono Catliff, 1:06:59, 24 404
+  visningar, autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 63
+  bildrutor: omkring 20 är berättarens egen bildspelspresentation ("Part 1–9", 32 sidor), resten inspelningar av
+  Claude Design, Antigravity med Claude Code, den byggda sajten på localhost, Google Fonts, Spline, Higgsfield,
+  GitHub och Vercel. Rörelsen (hover, skrollavslöjanden, marquee, räknare, 3D-scenen) syns inte i bildrutorna, bara
+  lägen. Beskrivningens 30 länkar: kanalens betalgemenskap på Skool, en "free blueprint" bakom Skool-konto, sexton
+  affiliatelänkar märkta "some of these make me money", en förkortad Higgsfield-länk, byrån automatable.co,
+  konsultbokning, sociala konton och tre egna videor [BESKRIVNING]; inget repo. Inget öppnades, klonades eller
+  kördes. Ägarens not: ingen
+- Steg: 3 (referenser), 4 (innehåll före form), 5 (5.1 riktning, 5.3 bygg, 5.5 Titta), 6 (prov); lanseringen som
+  parkerat ämne
+- Jämfört med i dag, metod för metod: (1) **"Steal from Stripe":** skärmdumpar av stripe.com in i Claude Design som
+  designsystem, tokens ur getdesign.md:s design.md och en Dribbble-skärmdump för sidstrukturen [TAL 00:32–03:52,
+  06:36–07:45; SKÄRM 01:01, 02:00, 03:06, 03:37, 06:51]. Vi: fyra riktningar "härledda ur verksamheten själv …
+  aldrig ur en branschmall" (`.claude/skills/bygg-sajt/SKILL.md` rad 208–209), referensjakt i tre roller med riktiga
+  sajter öppnade i 390 och 1440 och "Gallerier är sökingångar, inte facit" (rad 153–165), "Kopiera aldrig layout,
+  palett eller typsnitt" (rad 260; `kunskap/referenser-professionella.md` rad 61). getdesign.md är dömt nej som källa
+  (`REGISTER-arkiv-20261001.md` rad 896–928) och som metod (HqD5a2Cae60-posten, rad 3128–3132); en
+  Dribbble-skärmdump som struktur dömdes sämre i fDTwHIKltpc-posten (rad 3282–3286). Resultatet bär det: Stripes
+  indigo, Inter och gradientmesh på en fiktiv SEO-byrå [SKÄRM 08:04, 55:17]. Krockar. (2) **Prototyp först, "pixel
+  for pixel":** fem sidor ur en prompt i Claude Design, lämnade till Claude Code med Next.js och Tailwind [TAL
+  05:30–06:04, 13:41–14:33; SKÄRM 05:39, 13:43, 14:55]. Texten skrivs av modellen in i formen; Claude Designs egen
+  sidopanel listar "Real client logos … (currently text marks)", "Swap placeholder team initials for photos" och
+  "Wire the contact form to a real endpoint" som nästa steg [SKÄRM 09:24, 10:04], och efter layoutpasset skriver
+  agenten att bilden i första vyn fortfarande är ett platshållarblock [SKÄRM 21:22]. Vi: innehåll före form i
+  INNEHALL.md med `Specifikt:` per sektion (rad 172–193), exakt specifikation i KONCEPT.md före kod (rad 215–218),
+  inga platshållare (`kunskap/byggstandard.md` 9.4, rad 122), Astro ur mallen (rad 221). Litteraturen: content first
+  och progressive enhancement (`kunskap/teoretisk-grund.md` rad 34, 47–48). Sämre. (3) **CLAUDE.md som "senior UI
+  designer"** med "premium, modern, elegant interfaces … No emoji icons. No generic gradients" [SKÄRM 13:11; TAL
+  12:49–13:09] och front-end-design-pluginet [TAL 13:09–13:41]. Vi: samma officiella skill i
+  `kunskap/externa/anthropic-frontend-design-SKILL.md` (rad 198) och, viktigare, modellens standardval uppräknade
+  så att bygget väljer bort dem (`kontroller/upptagna_val.py` rad 26–40). Videons sajt är just de valen: Inter,
+  färgat accentord "searching", pilleretikett "FREE AUDIT", likadana kort, tre omdömen i rad [SKÄRM 00:32, 14:55,
+  59:34, 61:44]; typsnitten som prompten ber om och Claude Design svarar med är Inter, Inter Tight och JetBrains
+  Mono [SKÄRM 21:22, 53:40], tre familjer mot byggstandardens högst två (4.3, rad 60). Trots raden "No generic
+  gradients" lägger videon sedan på gradienttext, "purple, magenta, and ruby blobs", prickraster, rutnät och glas
+  [TAL 25:08–25:43, 31:48–33:28; SKÄRM 30:02, 32:41]. Lika i verktyg, sämre i utfall. (4) **Designordlistan:** sex
+  layoutbeslut (riktning, spaltförhållande, bredd, sektionsrytm, padding mot margin, linjering), tre textslag med
+  olika typsnittsfamilj per slag, mörkare rubrik och ljusare brödtext, radie, kant och skugga [TAL 17:01–20:44,
+  22:56–24:36, 33:28–35:42; SKÄRM 18:09, 19:46, 22:59, 24:36, 33:29, 34:17]. Vi: better-layout, better-typography
+  och better-ui på varje sida före JAMFORELSE.md (rad 260–262), dimensionerna 2 och 4 i referenser-professionella
+  (rad 20–25), Gestalt och CRAP i teoretisk-grund (rad 62–66). Lika; "olika familj per textslag" säger emot 4.3.
+  (5) **Bilder:** stockfoton hämtade av agenten ur Pixabay (bildspelet säger Pexels), också stockansikten på
+  omdömena, med berättarens egen brasklapp att man inte ska göra så [TAL 27:54–29:10; SKÄRM 26:29, 29:27, 59:34],
+  illustrationer ur Freepik/Magnific [TAL 27:19]. Vi: "Inga stockbilder" (rad 80), det som saknas beställs (rad
+  20–24, 235–237; byggstandarden 9.3, rad 121), "hellre inga foton än stock" (`LARDOMAR.md` rad 90), genererade
+  eller köpta bilder aldrig som kundens personer (`kunskap/bild.md` rad 19). Krockar. (6) **"The expensive-feeling
+  layer" och "make it feel alive":** gradienter, brus, blobbar, glas, hover med skala 1,1 och inverterade färger på
+  300 ms, klibbig frostad meny med rullgardin och hamburgare, mörkt läge med knapp, skrollavslöjanden, marquee,
+  räknare, shimmer, sidövergångar, en Spline-scen på omkring 5 MB i första vyn och en AI-video på en exploderande
+  telefon via Higgsfield-MCP [TAL 30:00–33:28, 37:31–49:38, 49:51–59:08; SKÄRM 31:04, 37:31, 42:22, 45:00, 46:59,
+  47:12, 48:49, 53:40, 55:17, 58:30, 59:34]. Vi: ingen JavaScript som inte behövs (rad 225), 0 kB JS i tre dömda
+  byggen (`LARDOMAR.md` rad 31, 56, 87), inget rullar av sig självt och reducerad rörelse (byggstandarden 3.5, rad
+  50; `mall/astro/src/layouts/Bas.astro` rad 48), högst 200 kB JS (3.7, rad 52), LCP 2,5 s (4.1, rad 58), inga
+  tredjepartsresurser (4.4, rad 61), inga karuseller (5.5, rad 73); three.js dömt nej (rad 1550), samma krock som
+  PA3f3MdRc08- och Ysr7oNDajJI-posterna fann (rad 3203–3212, 2996–3000). Fokusringen med offset [SKÄRM 40:45] är
+  `:focus-visible` hos oss (3.4, rad 49): lika. Krockar med fem medvetna val. (7) **Mobilen sist:** berättaren säger
+  att 70 procent kommer på mobil och att man ska designa mobilen först, och gör den som näst sista steg med en
+  prompt; mellanvarianten visar menyn ovanpå rubriken i 509 px [TAL 43:33–44:07, 59:44–1:01:23; SKÄRM 43:59,
+  60:07], och efteråt "I'm not going to say this is perfect". Vi: mobilen först (rad 224; byggstandarden 3.2, rad
+  47), mobilens första vy ur ägarens domar (rad 229–232), inget spill 320–1920 (3.3, rad 48). Litteraturen:
+  Wroblewski (2011). Sämre. (8) **Provet:** ögonmått i webbläsaren, "Bypass permissions" på i varje inspelning
+  [SKÄRM 21:22, 39:08, 45:36, 59:34]; i sista devtools-bilden visar varningsräknaren ett tresiffrigt tal [SKÄRM
+  61:44]. Vi: axe, Lighthouse, standarden, stilrapporten och två oberoende granskare (rad 265–269;
+  `kunskap/teoretisk-grund.md` rad 128–129). Starkare hos oss. (9) **Lanseringen:** privat GitHub-repo,
+  Vercel-import med Next.js-preset, domän via Vercel eller Namecheap [TAL 1:01:57–1:05:17; SKÄRM 63:21, 64:58].
+  Samma väg som byggstandardens Vercel-steg (4.5–4.6, rad 62–63); ägaren har sagt "då väntar vi med det"
+  (`BESLUT.md` rad 102) och texten skrivs om i B-20261003-skriv-om-kunskap-lansering-md-for-var-stack-den. Inget
+  nytt. (10) **Påhittat bevis:** logotyprad med Linear, Ramp, Vercel, Retool, Supabase och Notion, "Compound
+  38,047+ search visits a month" som räknare, "Domain Rating +14", fem stjärnor och namn som Emma Reyes och
+  Charlotte Voss [SKÄRM 29:27, 48:49, 55:17, 59:34]. Vi: hitta aldrig på fakta, omdömen eller siffror (rad 20–21),
+  omdömen bara med källa (9.3), likadana kort i rad som AI-mönster (`kritik/GRANSKARE.md` rad 88). Krockar
+- Skäl: videon är en verktygsrundtur och en grundordlista, inte en metod: välj ett varumärkes kläder, låt Claude
+  Design rita, be Claude Code kopiera pixel för pixel, lägg på lager av effekter och gör mobilen sist. Det som visas
+  är en påhittad SEO-byrå i Stripes indigo med stockansikten, påhittade kunder och siffror, en 3D-scen på fem
+  megabyte och en AI-video på en exploderande telefon mitt bland omdömena [SKÄRM 55:17, 59:34]; den hade fallit hos
+  granskaren på originalitet, förtroende och substans, och hos ägaren på "känns den gjord för verksamheten". Varje
+  metod är antingen redan hos oss (designordlistan, fokusringen, Vercel-vägen), sämre (prototyp före innehåll,
+  mobilen sist, ögonmått i stället för prov) eller krockar med ett medvetet val (kopiera Stripe, stock, JS-effekter,
+  påhittat bevis). Källkritik: sexton affiliatelänkar, betalgemenskap, byrå och konsultbokning i beskrivningen;
+  "10 years, 50 websites" och "20 hours" är berättarens ord [TAL 00:00–00:32, 14:33]; verksamheten är fiktiv;
+  beskrivningen säger själv att Antigravity tagit bort Claude Code-tillägget sedan inspelningen [BESKRIVNING].
+  Inga instruktioner till agenter i källan
+- Kostnad: inget tas in. Berättaren själv: Claude Designs veckokvot tar slut snabbt [TAL 09:25–09:59], Spline-scener
+  väger omkring 5 MB per sida [TAL 54:42], Higgsfield kostar från 15 dollar i månaden [TAL 55:19–55:50]
+- Säkerhet: ej tillämpligt (video; bara transkript och bildrutor hämtade, inget klonat, kört eller installerat).
+  Noterat: körningarna går med behörigheterna avstängda och Higgsfield-anslutningen sätts till "always allow" på
+  allt [TAL 57:29–58:03]; inget förs vidare
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
