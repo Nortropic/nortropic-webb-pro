@@ -4590,3 +4590,58 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget. Egen innovation: ingen den här gången
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · anthropics/claude-code, release v2.1.280 · nej
+- Källa: https://github.com/anthropics/claude-code/releases/tag/v2.1.280 @ tagg v2.1.280, commit 56f3653, publicerad av
+  ashwin-ant, oföränderlig release, binärerna två veckor gamla vid hämtningen [TEXT rad 34–39; BILD desktop-forsta.png];
+  repot utan licens på GitHub, 149 044 stjärnor, pushat 2026-10-03T10:32Z (gh repo view). Läste hela release-noten
+  (114 punkter, TEXT.md) och två skärmbilder (desktop första vyn, skroll 12 %); inget repo klonades, eftersom källan är
+  en ändringslogg för det verktyg vi redan kör. Inte bedömd förut. Ägarens not: hittad av spanaren 2026-10-03 via
+  Claude Code releases (rss); matchade mcp, plugin, skill
+- Steg: körmiljön runt stegen (`kor.sh`, `kontroller/granska.py`, `kontroller/atelje.py`, `kontroller/ab.py`), inte
+  något av de åtta
+- Jämfört med i dag: det avgörande först. Alla sju körningar sedan 1 oktober (lulea-snickaren, sundboms-el,
+  paint-it-black-maleri, lulea-snickaren-abx/-aby, salong-kreativ, holms-konditori-abx) loggar
+  `"claude_code_version":"2.1.280"` i sin första rad (`kunder/*/korning-*.jsonl` rad 1). Vi kör alltså redan
+  precis den här versionen, och varje rättelse i noten är i kraft hos oss. Sak mot sak, de punkter som rör vårt
+  flöde: (1) **Opus 5.5 som standard-Opus, 1M-kontext** [TEXT rad 41]: `kor.sh` rad 79 och `granska.py` rad 608
+  anger `opus[1m]`, så bygget och granskarna går redan på den; våra stilregler citerar redan Anthropics text om
+  Opus 5.5 (`kontroller/stil.mjs` rad 3, 201). Lika. (2) **Subagenter**: en färdig subagents rapport gick förlorad
+  om samtalet komprimerades innan den lästs, och meddelanden till bakgrundssubagenter föll bort i huvudlösa
+  sessioner [TEXT rad 79–80]. Bygg-sajt startar två avskärmade subagenter i steg 6 (`SKILL.md` rad 340–346) i en
+  huvudlös session (`kor.sh` rad 52) som når 560–690 k tokens i största kontext (`LARDOMAR.md` rad 102). Rättelsen
+  gäller oss, men den sitter redan i versionen vi kör. (3) **Skrivning via symbolisk länk** bedöms nu efter var
+  skrivningen landar, inte efter stavningen i trädet [TEXT rad 45]. `kor.sh` rad 72–74 nekar Edit/Write mot
+  kontroller/, kritik/, kunskap/, mall/, .claude/ och LARDOMAR.md, och rad 90–92 jämför de skyddade filerna före
+  och efter körningen just för att reglerna inte räcker. Rättelsen tätar luckan på harnessens sida; vår jämförelse
+  står kvar som andra lås. Lika, i kraft. (4) **Effort**: en sparad effortnivå gäller inte nyare modeller, och
+  Opus 4.7, 4.8 och Fable 5 håller inte längre sin lanseringsnivå över `--effort` i `-p` [TEXT rad 119–120]. Vi
+  skickar `--effort` uttryckligen i varje anrop (`kor.sh` rad 79, `granska.py` rad 303 och 377, `atelje.py` rad
+  114), och ateljén kör `claude-fable-5-1` med max (`atelje.py` rad 44–45). Punkten visar att effort-hanteringen
+  har ändrats mellan versioner, vilket gör harnessversionen till en variabel i våra A/B-mätningar; se egen
+  innovation nedan. (5) **Hookar**: PermissionRequest-hookar av agenttyp körs inte längre, och timeoutbeskedet för
+  UserPromptSubmit namnger hooken [TEXT rad 113, 125]. Vi har bara PreToolUse (commitvakten) och Stop (stoppvakten)
+  av kommandotyp (`.claude/settings.json` rad 3–25). Berör oss inte. (6) **Bakgrundsskal** som rapporterade grep
+  utan träff som fel [TEXT rad 82]: bygget kör grep via Bash (`kor.sh` rad 63), men inte som bakgrundsuppgift.
+  Berör oss knappt. (7) **MCP-beskrivningarnas tak** på 2 048 tecken kan höjas [TEXT rad 43]: Inspo-anslutningen i
+  A/B-posten laddar tre verktyg (`kor.sh` rad 49); inget har visat att taket klipper dem. Berör oss inte nu.
+  (8) Resten (VS Code, webben, Slack, Windows, dialoger, tangenter, Artifact, /ultrareview) gäller gränssnitt och
+  kanaler som byggena inte använder. Mot litteraturen: inget; källan är inte en metod för att bygga eller utvärdera
+  en sajt
+- Skäl: en ändringslogg för det verktyg vi redan kör, i den version vi redan kör. Punkterna som berör oss
+  (subagenters rapporter vid komprimering, meddelanden i huvudlösa sessioner, symlänkade skrivningar, effort i
+  `-p`) är rättelser som verkar av sig själva i varje bygge sedan 1 oktober [kunder/*/korning-*.jsonl rad 1], så det
+  finns ingen textändring att göra och inget att pröva i ett bygge. Ingen punkt ger en förmåga vi saknar. Att
+  Claude Code uppdateras är rutin, inte ett intag. Samma slags bedömning som för claude-code-ultimate-guide
+  (handbok om verktyget, inte om sajten), där ägaren höll med. Källkritik: officiell release-not från Anthropic, varje
+  punkt är en konkret ändring utan säljspråk; verifierat mot våra egna loggar att versionen är den vi kör
+- Kostnad: inget tas in; inga tokens, beroenden eller underhåll
+- Säkerhet: förgranskningen av texten LÅG (inga dolda tecken, ingen text riktad till agenter, inga skript). Inget
+  kördes, installerades eller fördes vidare
+- Förslag: inget. Egen innovation: `kontroller/ab.py` `matt()` (rad 58–79) läser bara result-raden ur loggen och
+  bokför turer, minuter och kontextdjup; init-raden med `claude_code_version` och `model` läses inte. Eftersom
+  effort-hanteringen i `-p` har ändrats mellan versioner [TEXT rad 119–120] bör varje arm i en jämförelse bokföra
+  harnessversion och modell ur init-raden, så att två armar som körts på olika versioner inte jämförs som lika.
+  Backlogpost nedan
+- Utfall: —
+- Backlog: ingen för källan; egen innovation: B-20261003-ab-py-bokfor-harnessversion-och-modell-ur-loggen
