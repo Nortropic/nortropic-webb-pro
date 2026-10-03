@@ -5708,3 +5708,58 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   rader text
 - Utfall: —
 - Backlog: ingen för domen; egen innovation B-20261003-sokkonsol-md-villkoren-for-api-verktyget-skrivs
+
+### 2026-10-03 · devdotfast/whiteboard · nej
+- Källa: https://github.com/devdotfast/whiteboard @ 91a5f97 (ur klonens `refs/heads/main`; `git log` nekades av
+  behörigheten; senaste push 2026-10-03T04:35Z), MIT (den vendorade Code OSS-forken behåller Microsofts MIT), 2 641
+  stjärnor, inte arkiverat, 7 254 filer varav merparten är en kopia av VS Code under `apps/review-desktop/code-oss/`.
+  Läst: README, `packages/review/README.md`, agentpluginen för Claude (`plugin.json`, `.mcp.json`) och Pi-skillen
+  (`SKILL.md`, 10 rader), förgranskningsrapporten. Sett: demo-gif:en [BILD .github/assets/whiteboard-demo.gif],
+  demovideon https://www.youtube.com/watch?v=ChPn3ftULWE (1:46, publicerad 2026-09-24, 6 015 visningar,
+  autogenererat transkript) med hela tidslinjen och alla 8 bildrutor, och dev.fast (hämtad 2026-10-03) med hela
+  texten och två av tolv skärmbilder [BILD desktop-hela.png, mobil-forsta.png]. Inget kördes eller installerades.
+  Ägarens not: hittad av spanaren 2026-10-03 via HN: AI-webbdesign; matchade agent, claude code, design
+- Steg: inget av de åtta. Närmast steg 7 (rapporten) och steg 8 (ägarens dom), som också handlar om hur ägaren tar
+  del av vad agenten gjort; och i någon mån kirurgen själv, om vi någon gång granskar vårt eget repos kodändringar
+- Jämfört med i dag: källan är en skrivbordsapp (en vendorad VS Code) där en kodagent via MCP ritar en "whiteboard"
+  över en kodändring: innehållsförteckning och prosa, sekvensdiagram med länkar in i koden, anropsträd, en semantisk
+  AST-diff i Rust där långa funktioner visas som pseudokod och tester och dokumentation fälls ihop, och en
+  Trace-flik med agentens egna beslut [SKÄRM 00:03, 00:54, 01:19, 01:32; TAL 00:00–01:32; BILD desktop-hela.png].
+  "Design" i spanarens träff betyder mjukvaruarkitektur, inte webbdesign: inte en enda sajt, layout eller sida visas
+  i README, videon eller på dev.fast. Vi: produkten är en renderad sajt, och ägaren dömer den och RAPPORT.md i
+  dashboarden (`.claude/skills/bygg-sajt/SKILL.md` rad 362–389 och 425–430); rapporten bär redan "tre beslut som
+  syns" (rad 367), antaganden (rad 373) och granskningens omgångar med varje orättad invändning (rad 377–378), och
+  granskarna dömer sajten, inte diffen (`CLAUDE.md`, avsnittet Skills). Ägarens sex domar i `LARDOMAR.md` (L1–L6)
+  handlar om första vyn på 390 px, bilder, text, adress och omdömesplattform, aldrig om byggets kodbeslut. En
+  arkitekturvy över Astro-diffen hade alltså inte gett ägaren något att döma på; varken bättre eller smartare för
+  oss, för den löser ett problem vi inte har. Litteraturen (`kunskap/teoretisk-grund.md`, avsnitt A och B.2–B.5)
+  utvärderar sajten med heuristiker, kognitiv genomgång och WCAG-EM, inte kodens struktur. Sidan dev.fast själv, sedd
+  med egna ögon: tmux- och man-sida-estetik, IBM Plex Mono som brödtext, Newsreader i rubriker, blå accent och en
+  animerad produktdemo i första vyn [BILD desktop-hela.png, mobil-forsta.png; SIDA.md designfakta]; rätt för en
+  utvecklarpublik, ingen referens för en hantverkare i Luleå
+- Skäl: nej, för att verktyget hjälper oss varken bygga bättre sajter eller arbeta smartare: det är ett
+  kodgranskningsverktyg för diffar och agentspår, och vårt flöde slutar i en sajt som döms på det som syns. Dessutom
+  krockar intaget med tre medvetna val. Det kräver en installerad skrivbordsapp som vid start skriver ett shim till
+  `~/.local/bin`, registrerar MCP-servrar hos Claude Code och Codex, och vid spårning lägger en git-hook-dispatcher
+  i repot och laddar upp sessionsspår till S3/R2 eller deras hostade lagring [REPO packages/review/README.md rad
+  69–93]; installationsvägen för sökmotorn fff är `curl | bash` [rad 115]. Vår regel är att ingen agent ändrar
+  systemet obevakat och att kod ur källor inte körs. Pi-skillen säger också att appen "serves its own instructions":
+  agenten ska hämta sina instruktioner från det körande programmet [REPO packages/agent-plugins/pi/skills/whiteboard/SKILL.md
+  rad 10], så det som styr agenten går inte att läsa i repot. Källkritik: ett YC W26-bolag som säljer en kommande
+  hostad teamprodukt [TEXT "COMING SOON hosted whiteboard"; BILD desktop-hela.png] och rekommenderar "GPT-6 Sol and
+  Claude Opus 5.5" i README [REPO README rad 40]; påståendena om semantisk diff och diagram är belagda av det som
+  syns i videon, resten är beskrivning. Egen innovation: ingen; det vårt flöde kunde låna, en beslutslogg för ägaren,
+  finns redan i rapportens punkt 2, 7 och 11
+- Kostnad: inget tas in. Vid användning hade det kostat en skrivbordsapp, Node 24, en MCP-server i varje ansluten
+  session och underhåll av en VS Code-kopia på över 7 000 filer; Pi-skillen 55 tokens alltid, 105 vid användning
+  (förgranskningen)
+- Säkerhet: förgranskningen HÖG av mönstren: 21 dolda tecken (BOM mitt i yaml-grammatiker och en licensfil,
+  nollbreddstecken i `vscode.d.ts`, `vscode.proposed.findFiles2.d.ts` och en koreansk tangentbordslayout), alla i
+  filer under den vendorade `code-oss/`, inga i Whiteboards egna paket; nio ställen "text riktad till agenter", alla
+  i Code OSS och Copilot-typningar eller testfiler, inga i README eller skillen; MCP-servrar i `.mcp.json` för Claude
+  (`sh -c exec $HOME/.local/bin/whiteboard mcp`) och Codex; `launch.sh` i Code OSS-skillen med nätanrop och miljö;
+  `curl | sh` i `packages/review/README.md` och `connect-prompts.ts`. dev.fast: LÅG, inga fynd. Inga instruktioner
+  till mig i det jag läste. Inget kört, installerat eller fört vidare
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
