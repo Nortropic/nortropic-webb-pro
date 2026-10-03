@@ -5407,3 +5407,102 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261003-ta-in-googlechrome-modern-web-guidance-i-verktyg (A och B) och
   B-20261003-mallens-formular-visar-det-svenska-felbeskedet-s (egen innovation)
+
+### 2026-10-03 · Frontend Focus 759 (nyhetsbrev 2026-09-23) + Polypane, Matuzovic, WebKit Safari 27 · ta in
+- Källa: https://frontendfoc.us/issues/759 @ 2026-09-23 (Cooper Press; upphovsrättsskyddad, inget att kopiera). Läst
+  hela nyhetsbrevet (TEXT.md och fyra skärmbilder: mobil-forsta, mobil-hela, desktop-forsta, desktop-hela) och åtta
+  av de tjugo länkade originalen i sin helhet med `sida.mjs`: WebKit "WebKit Features for Safari 27.0" (17 sep, de
+  400 första raderna av texten fram till WKWebView), Polypane "The root scroller and how not to lose it" (23 sep,
+  text och en skärmbild av demon), Matuzovic "19½ things you didn't know about accessibility in HTML and CSS"
+  (noti.st, 86 bilder med talmanus; texten och första vyn), Copes "12 CSS features you can use today with no build
+  step" (21 sep), Brosset "Blurry before beautiful" (22 sep), Bell "A decent custom checkbox pattern" (17 sep),
+  Leatherman "AI, make the website good" (21 sep) och Chrome 155 beta (16 sep). De tolv övriga posterna (DevTools,
+  Edge/WebMCP, scroll-triggered animations, responsive iframes, wobbly spinners, web dev education, Critical 9.0,
+  Plotly 4, Semfont, Slidev, periodic table, tre annonser) bedömda ur nyhetsbrevets egna sammanfattningar. Ägarens
+  not: hittad av spanaren 2026-10-03 via Frontend Focus (rss)
+- Steg: 5.3 (bygg) och 6 (prov); byggstandarden 3.3, 4.2 och 5.1; kontrollerna (inspektionen, stilrapporten)
+- Jämfört med i dag: (1) **Fasta element vid zoom.** Vi: bygg-sajt kräver en fast list längst ned på mobil med Ring
+  och Skriv (`.claude/skills/bygg-sajt/SKILL.md` rad 279–281), stilrapporten mäter att den finns (`kontroller/stil.mjs`
+  rad 179–182), inspektionen prövar reflow i 320×640 (`kontroller/webblasare/inspektera.mjs` rad 60), och
+  better-accessibility kräver 200 % och 320 px men nämner inte fasta element (`motion-and-zoom.md` rad 63–66).
+  Byggena: Sundboms ringlist (`global.css` rad 275, 63 px enligt L3), Holms listen (`Ram.astro` rad 122), abx
+  mobillist (`sajt.css` rad 1123), Salong Kreativ fast-list (`Sida.astro` rad 191). Källan: vid 400 % zoom täcker
+  ett fast sidhuvud nära hälften av skärmen, eftersom webbläsaren krymper den inre vyn (2000 → 500 px) och
+  mediefrågorna följer den; lösningen är `position: fixed` bara i en mediefråga på minsta höjd, 500 px valt för
+  hand [TEXT Matuzovic bild 6–9]. Räknat på vår standardskärm 1280×720 är vyn vid 400 % 320×180 px, och en list
+  på 63 px tar 35 % av höjden; provet ser det inte eftersom reflowbilden är 640 px hög. Bättre, en rad, och
+  mätbart. (2) **Rotskrollaren.** Vi: ingen regel; byggena håller den eftersom html och body bara har
+  text-size-adjust och tap-highlight (Paint It Black `sajt.css` rad 29–40, Sundboms `global.css` rad 27–38, Holms
+  rad 25–30, abx `sajt.css` rad 58–69, Luleå-Snickaren rad 30–41; mallens `Bas.astro` rad 44–52 rör inte dem).
+  Källan: `html, body { height: 100%; overflow-x: hidden }` gör body till skrollbehållare genom
+  overflow-propagering, och sidan förlorar återställd skrollposition, tangentbordsskroll, adressfältets kollaps,
+  tryck-på-statusraden och utskrift av mer än en sida; botemedel `min-height: 100svh`, `overflow-x: clip`, och
+  detektion: `window.scrollY` är 0 efter skroll [TEXT Polypane; BILD ff759-rotskroll/desktop-skroll-04.png visar
+  koden och body-ramen som inte trycks ned]. Lika i dag, men utan vakt; en rad i standarden fångar det nästa gång
+  ett bygge vill dölja spill. Smartare. (3) **sizes="auto".** Vi: standarden 4.2 kräver srcset och sizes (rad 59)
+  och byggena skriver sizes för hand per bild (aby `index.astro` rad 59 och 107, abx `index.astro` rad 87–111,
+  Paint It Black `FasadBild.astro` rad 22–23). Källan: `sizes="auto"` med `loading="lazy"` låter webbläsaren mäta
+  bredden ur layouten, nu i Safari 27 [TEXT WebKit rad 158–171], sedan tidigare i Chrome; Firefox kontrolleras mot
+  MDN. Med listan som reserv efter auto gäller den i äldre webbläsare. Smartare för bilderna under första vyn;
+  första vyns bild laddas ivrigt och behåller sin lista. (4) **Copes tolv.** Nesting, :has(), container queries,
+  subgrid, oklch, aspect-ratio, lager, :is(), scroll-driven, svh, logiska egenskaper, @starting-style, med
+  Baseline-status och metoden "läs MDN-märket, lägg det osäkra i @supports" [TEXT Copes rad 45, 351]. Vi:
+  better-layout har container queries (`spacing-and-adaptivity.md` rad 127), better-colors oklch
+  (`color-formats.md` rad 12), de övriga ligger i modern-web-guidance-urvalet och i standardens kommande rad 3.8
+  (backlog B-20261003-ta-in-googlechrome-modern-web-guidance-i-verktyg); scroll-driven och @starting-style rör
+  rörelse och popover som våra sajter inte har. Lika. (5) **Matuzovic i övrigt.** aria-haspopup gör en navigation
+  till en meny med tangentbordskrav; aria-expanded eller popover i stället [bild 11–16]; SVG i en knapp behöver
+  aria-labelledby mot sin title för VoiceOver [bild 29–30]; en h2 inne i en button tappar rubriken [bild 40–43].
+  Vi: standarden 5.2 kräver aria-expanded (rad 70), better-accessibility har title med aria-labelledby
+  (`screen-readers.md` rad 86) och namnordningen (`semantics-and-aria.md` rad 44–46); FAQ byggs med details
+  (L3). Lika. reading-flow, headingoffset, focusgroup och geolocation är experimentella eller bakom flaggor
+  [bild 44, 71, 83]: inget nu. (6) **Safari MCP.** Agenten ser sin kod renderad i Safari genom safaridriver, lokalt
+  utan nätanrop [TEXT WebKit rad 55–93]. Vi: alla webbläsarprov renderar i Chromium (`kontroller/sida.mjs` rad 11,
+  `stil.mjs` rad 11, `webblasare/gemensamt.mjs` rad 74, `axe.mjs` rad 8, `lighthouse.mjs` rad 5–27), och orden
+  Safari, WebKit och iPhone finns inte i byggstandarden, `kritik/GRANSKARE.md` eller bygg-sajt (sökt). Byggena är
+  mobil-först och mobilen är i praktiken Safari; ingen sajt har setts i WebKit före ägarens dom. MCP:n kräver
+  Safari-inställningar och en inloggad Mac-session; Playwright 1.63.0, som vi redan pinnar (`kunskap/webblasare.md`
+  rad 4), bär WebKit utan nytt npm-beroende, men binären är inte hämtad (ingen webkit-katalog i Playwright-cachen).
+  Egen innovation. (7) **previewsrc** är ett förslag utan webbläsare [TEXT Brosset rad 72–84]; vår största bild
+  laddas ivrigt med width och height (standarden 2.4), inget att göra. (8) **Bells kryssruta:** mallens formulär
+  har ingen kryssruta (`mall/astro/src/components/Forfragan.astro`: namn, telefon, meddelande, bild; standarden 6.8
+  förbjuder en förikryssad ruta, inte en ruta). Gäller inte. (9) **Leatherman:** åsikt i linje med vårt, med ett
+  belägg: Speedlify visar 12 av 13 AI-bolags sajter underkända i Lighthouse och axe [TEXT rad 64]; standarden 4.1
+  och 5.6 kräver redan måtten. Lika. (10) **Chrome 155:** symbols(), corner-shape, text-decoration-skip-spaces,
+  margin-trim, JPEG XL [TEXT Chrome rad 40–90]: inget rör en småföretagssajt nu; 4.2 säger AVIF eller WebP.
+  (11) Customizable select, model, iframes, scroll-triggered animations, Critical, Plotly, Semfont, Slidev: inget
+  vi har eller behöver (inga select, inga iframes, ingen rörelse, CSS under 15 kB). Mot litteraturen: WCAG 2.2
+  1.4.4 och 1.4.10 och Inclusive Design Principles "ge kontroll" (`kunskap/teoretisk-grund.md` rad 74–78) bär
+  punkt 1; progressiv förbättring och "rule of least power" (rad 47) bär 2 och 3; punkt 6 är processmodellens
+  "utvärdera" (rad 38–39) i den webbläsare kunden faktiskt har. Källkritik: Polypane säljer sitt verktyg (artikeln
+  slutar i en provknapp) men mekaniken är spec-belagd och demon syns; Matuzovic säger själv att 500 px är valt
+  för hand; WebKit-posten är primärkälla; nyhetsbrevets tre annonser (Tiger Data, Expo, SurveyJS) bedömdes inte
+- Skäl: nyhetsbrevet är en länklista, och det mesta rör appar, 3D, ramverk och verktyg vi inte använder. Tre saker
+  är bättre eller smartare än vår text: Matuzovics regel för fasta element vid zoom, som träffar den fasta listen
+  i varje bygge och som vårt reflowprov inte ser; Polypanes rotskrollarregel som vakt mot ett vanligt CSS-grepp vi
+  hittills undvikit utan regel; och sizes="auto" på lata bilder nu när Safari 27 har det. Alla tre är rader i
+  befintliga filer och en liten mätning. Safari 27-noterna visar dessutom en lucka i arbetssättet: ingen sajt har
+  renderats i WebKit före domen, fast mobilen är Safari; det blir en egen post. Resten är lika med det vi har,
+  experimentellt eller irrelevant
+- Kostnad: tre textrader och en andra reflowbild per sida (320×180); WebKit-passet en nedladdad webbläsare (ägaren
+  hämtar den en gång) och en körning till per snabbprov; inga nya npm-beroenden; underhåll: inget, källorna
+  kopieras inte
+- Säkerhet: förgranskningen HÖG, enbart för ett nollbreddstecken (U+200B) i TEXT.md rad 11 inne i numret "#759" i
+  nyhetsbrevets huvud [TEXT rad 11]; det är ett typografiskt tecken i källans HTML, ingen dold text, och ingen text
+  riktad till agenter. Originalen innehåller konsolkommandon (Polypane) och WebKit-posten kommandon för att lägga
+  till en MCP-server i Claude Code och Codex [TEXT WebKit rad 71–90]; inget kördes, installerades eller lades till
+- Förslag: **A.** `.claude/skills/bygg-sajt/SKILL.md` rad 279–281, efter "skymmer inte sidfotens sista länk":
+  "Listen och ett klibbigt sidhuvud är fasta bara när vyn är minst 500 px hög, `@media (min-height: 31.25rem)`; i
+  lägre vyer (400 % zoom) står de i flödet." `kunskap/byggstandard.md` 3.3 (rad 48), tillägg: "Fasta och klibbiga
+  element bara i vyer minst 500 px höga. Sidan skrollar i rotskrollaren: html och body får ingen fast höjd med
+  overflow; spill i sidled döljs med `overflow-x: clip`, inte hidden; `min-height: 100svh`, aldrig `height:
+  100vh`." Prövas av standard (K, info: html eller body med height och overflow) och inspektionen: `inspektera.mjs`
+  rad 60 tar en andra reflowbild i 320×180 och mäter andelen av höjden som fasta element täcker; stilrapporten
+  varnar över 25 %. **B.** `kunskap/byggstandard.md` 4.2 (rad 59), tillägg: "Bilder under första vyn med
+  `loading="lazy"` får `sizes="auto, <lista>"` så att webbläsaren mäter bredden själv (Chrome 126, Safari 27;
+  Firefox kontrolleras mot MDN) och äldre webbläsare använder listan." Samma mening i `mall/astro/README.md` rad
+  14–15. Egen innovation, egen post: mobilvyn 390 px prövas också i WebKit (Playwrights webkit) när binären finns,
+  med en skillnadsrad i PROV.md; mätt först på ett dömt bygge innan det blir mer än en skärmbild
+- Utfall: —
+- Backlog: B-20261003-fasta-lister-och-klibbiga-sidhuvuden-star-i-flod (A och B) och
+  B-20261003-mobilvyn-390-px-provas-ocksa-i-webkit-playwright (egen innovation)
