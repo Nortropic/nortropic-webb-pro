@@ -3968,3 +3968,65 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   har ägaren dömt "Bra" respektive vi har starkare i mekanik
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Self-Made Web Designer (Chris Misterek), "Give Me 7 Minutes & Your Web Design Skills Will Take Off" (YouTube 1NTKwpAVcHg) · nej
+- Källa: https://www.youtube.com/watch?v=1NTKwpAVcHg @ publicerad 2025-02-13 (7:14, 467 742 visningar, manuellt
+  engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 22 bildrutor: 16 är berättaren i
+  bild framför en bokhylla, med textplattor "STOP USING GHOST BUTTONS" [SKÄRM 01:57], "ACCESSIBILITY" [SKÄRM 02:18]
+  och "① Clarity ② Scanability" [SKÄRM 05:26]; tre visar andra sajter (SLR:s startsida med serifrubrik, grön yta och
+  liten limegrön knapp [SKÄRM 00:33]; Showits startsida med fylld grön knapp "CREATE YOUR SITE" och textlänken "VIEW
+  TEMPLATES" under [SKÄRM 04:03]; en vit sida med blå streckillustrationer och ett textstycke [SKÄRM 04:24]); sex
+  visar berättarens egen sajt "How to become a web designer fast" på hans skärm, för liten för att läsa knapptexterna
+  [SKÄRM 00:54, 01:36, 02:39, 03:42, 05:47, 06:02]. Inget bygge, ingen process, inget resultat att bedöma. De 14
+  länkarna i beskrivningen: väntelista för berättarens kurs, hans sajt, sex affiliatelänkar till inspelningsutrustning,
+  Showit (affiliate), podcast, Instagram och två egna videor [BESKRIVNING]; ingen öppnad, ingen leder till ett repo.
+  Ägarens not: ingen
+- Steg: 5 (5.1 riktning, 5.3 bygg, 5.5 titta), 6 (prov), och granskaren
+- Jämfört med i dag, punkt för punkt: (1) **Visuell hierarki i stället för F-mönstret** [TAL 00:34–01:43; SKÄRM
+  01:15 "YOU'LL READ THIS FIRST / this next / you'll read this last"]: "forcing them to pay attention in an F pattern
+  might actually cause them to miss important information" [TAL 00:34]. Vi: luft och hierarki är dimension 4
+  (`kunskap/referenser-professionella.md` rad 24–25), varje sida gås igenom med better-layout före JAMFORELSE.md och
+  "där allt är lika stort" rättas (`.claude/skills/bygg-sajt/SKILL.md` rad 258–262), gestaltlagar och CRAP i
+  måttstocken (`kunskap/teoretisk-grund.md` rad 62–64). F-mönstret står hos oss som skanningsbeteende (Nielsen 2006;
+  Redish 2012, rad 89–90), inte som layoutmall; videons "bogus" gäller en halmgubbe och ges inget belägg. Lika i
+  sak; källan säger emot litteraturen utan belägg. (2) **Knappen med hög kontrast, inga spökknappar** [TAL
+  01:08–01:57]. Vi: better-colors "one primary action gets it and peers stay neutral … A filled button reads as
+  primary across the room" (`.claude/skills/better-colors/SKILL.md` rad 71), kontrast 3:1 för gränssnitt
+  (`kunskap/byggstandard.md` 3.4, rad 49), primära knappar 44 px (3.3, rad 48), nästa steg på varje sida (9.2, rad
+  120). Ägarens tre domar beskriver fyllda knappar: röd, svart, vit på gult (`LARDOMAR.md` rad 30, 55, 79). Lika.
+  (3) **Kontrast med coolors.co** [TAL 02:18–02:54]. Vi: axe och inspektionen mäter kontrasten i den byggda sidan
+  (byggstandarden 3.4), och lägsta uppmätta kontrast stod i alla tre domarna, 6,86:1, 7,38:1 och 7,5:1
+  (`LARDOMAR.md` rad 31, 56, 87). Att pröva paletten i ett externt verktyg före bygget är ett steg mindre exakt än att
+  mäta den renderade sidan. Sämre. (4) **60-30-10-regeln** [TAL 02:54–03:29]: 60 procent neutralt, 30 brand, 10
+  accent, "especially when you're first getting started". Vi: färgen härleds ur verksamheten med roller som hex i
+  KONCEPT.md (SKILL.md rad 208–217), dimension 3 frågar om "varje färgad yta en funktion" och om en accent bär
+  handlingarna konsekvent (`kunskap/referenser-professionella.md` rad 22–23), better-colors "one neutral ramp, one
+  accent ramp" (rad 38). Ett procenttal är en nybörjarregel; vår fråga är strängare och gäller per yta. Lika eller
+  sämre. (5) **Typografi: h1, h2, brödtext utan dekorativt typsnitt** [TAL 03:29–04:24]. Vi: exakt en h1 och
+  rubriknivåer utan hopp (byggstandarden 2.1, rad 36), typskala och radlängd i better-typography, dimension 2 "bär
+  typsnittens roller hierarkin" (rad 20–21); Typografi "Bra" i alla tre domarna (`LARDOMAR.md` rad 35, 60, 84).
+  Lika. (6) **Konvertering: clarity, scannability, motivating** [TAL 04:42–05:47; SKÄRM 05:26]. Vi: första vyn säger
+  vad, var, för vem och nästa steg (byggstandarden 9.1, rad 119), femsekunderstestet och Krugs självklara sidor i
+  måttstocken (`kunskap/teoretisk-grund.md` rad 103–109), Foggs motivation × förmåga × trigger (rad 105–106). Videons
+  anekdot om sajten där "sales plummeted" [TAL 04:38] har ingen uppgift om vad som ändrades. Lika; vi har
+  litteraturen bakom, källan en anekdot. (7) **Designa för målgruppen, inte för dig eller kunden** [TAL 05:47–06:21].
+  Vi: briefen bygger på kundernas och verksamhetens egna ord och omdömena ersätter JTBD-intervjuer
+  (`kunskap/teoretisk-grund.md` rad 16). Lika. (8) **"Never stop learning"** [TAL 06:21–06:55] är ett råd till
+  frilansare, inte en metod
+- Skäl: videon är sju minuters nybörjarråd utan ett enda byggt resultat att döma, och varje råd finns redan hos oss i
+  mer prövbar form: hierarki som dimension och skillgenomgång, fylld primärknapp med mätt kontrast, färgroller per
+  yta i stället för procent, rubriknivåer som standardpunkt, första vyn som femsekunderstest. Det enda videon lägger
+  till, att F-mönstret är "bogus" [TAL 00:34], säger emot Nielsen (2006) och Redish (2012) i vår måttstock utan
+  belägg, och träffar inte oss eftersom vi inte använder F-mönstret som layout. Det som syns på skärmen är tre
+  främmande sajter och berättarens egen i oläslig storlek [SKÄRM 00:33, 04:03, 04:24, 00:54], så det finns inget
+  att pröva mot de åtta dimensionerna. Källkritik: beskrivningen säljer en väntelista, ett kursbibliotek och
+  Showit med affiliatelänk, och sex av fjorton länkar är affiliatelänkar till inspelningsutrustning [BESKRIVNING];
+  påståendena är berättarens erfarenhet, inga mätningar. Inga instruktioner till agenter
+- Kostnad: inget tas in
+- Säkerhet: transkriptet förgranskat: HÖG på grund av ett nollbreddstecken (U+200D) på rad 64 i beskrivningen; läst i
+  sammanhang är det fogtecknet i emojin "👨🏼‍💻" före "My favorite website builder", ingen gömd text. Ingen text
+  riktad till agenter, inga skript. Inget kört eller installerat; inget fört vidare
+- Förslag: inget. Ingen egen innovation: de två ställen videon rör (primärknappens synlighet, hierarki per sida) har
+  ägaren redan dömt "Bra" respektive "Okej" i tre byggen, och better-layout är redan inlagd för dimension 4
+- Utfall: —
+- Backlog: ingen
