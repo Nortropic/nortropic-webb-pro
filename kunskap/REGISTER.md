@@ -4645,3 +4645,64 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   Backlogpost nedan
 - Utfall: —
 - Backlog: ingen för källan; egen innovation: B-20261003-ab-py-bokfor-harnessversion-och-modell-ur-loggen
+
+### 2026-10-03 · Jack Roberts, "Stop Making 'AI Slop' Websites: The Kombai Gallery" (YouTube M-VCherhLHQ) + kombai.com/gallery · nej
+- Källa: https://www.youtube.com/watch?v=M-VCherhLHQ @ publicerad 2026-10-02 (Jack Roberts, 00:34, 7 434 visningar,
+  autogenererat engelskt transkript). En short: hela tidslinjen och alla tre bildrutor sedda [SKÄRM 00:01, 00:13,
+  00:25]. Länken i beskrivningen öppnad med `kontroller/sida.mjs`: https://kombai.com/gallery/web/ (startsidan i 390
+  och 1440, hela sidan och skrolläge 4), https://kombai.com/gallery/web/landing-pages/ (390 och 1440, skrolläge 3)
+  och https://kombai.com/gallery/ (text), alla HTTP 200 och sedda 2026-10-03 [BILD kombai-gallery desktop-forsta,
+  desktop-hela, mobil-forsta, desktop-skroll-04; kombai-landing desktop-forsta, desktop-skroll-03; TEXT.md för alla
+  tre]. Ingen enskild post öppnades; ingen kod hämtades. Ägarens not: hittad av spanaren via YouTube-flödet
+- Steg: 3 (referenserna), 5.1 (riktning); i förlängningen 5.3 (bygget mot en skärmbild)
+- Jämfört med i dag: (1) **Galleriet som referenskälla.** Videon: "20,000 real websites and app screens", "pick a
+  landing page that you like, give a screenshot to Claude or Codex and it builds that site for you" [BESKRIVNING;
+  TAL 00:00–00:20]. Galleriets egen text säger något annat: "140 open-source Landing Pages templates … Every
+  template ships with production-ready code built on modern stacks like React, Next.js and Tailwind CSS" och
+  "remix its layout and components to match your product, and export clean code" [TEXT kombai-landing rad 46,
+  82–86]; posterna heter Midnight Studio, POPH, Lucid, Prism, Lumen, Vesper, St. Aldwyn's [TEXT rad 47–61] och är
+  ritade mallar med fiktiva märken, inte verksamheter [BILD kombai-landing desktop-forsta, desktop-skroll-03]. Vi:
+  referenser är "verkliga starka verksamhetssajter" i tre roller, öppnade i 390 och 1440 och jämförda drag mot drag
+  (`kunskap/referensjakt.md` rad 13–27; `.claude/skills/bygg-sajt/SKILL.md` rad 165–177), "Gallerier är
+  sökingångar, inte facit" (rad 167) och "Kopiera aldrig layout, palett eller typsnitt" (rad 301;
+  `kunskap/referenser-professionella.md` rad 61). Ett mallbibliotek med kod är inte en sökingång till verkliga
+  sajter utan ett facit att kopiera. Sämre. (2) **Sökbarhet.** Galleriet är ordnat efter komponent: Hero 370,
+  Dashboard 381, Footer 251, Forms 198, Toggle switch, QR code, Pagination [TEXT kombai-gallery rad 16–45], och
+  sökrutan söker kategorier, inte bransch [TEXT rad 13]. Ingen ingång för hantverkare, lokala tjänster eller
+  sidform på en liten firma. Inspo, som redan ligger som A/B (REGISTER rad 2854–2929;
+  B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for), har 832 riktiga sajter med mobil och desktop
+  parvis och 24 branscher och dömdes ändå som för smalt för vår marknad; Kombai saknar både verkliga sajter och
+  branschtaggar och är svagare på just de axlarna. Mobbin dömdes nej på samma grund (REGISTER rad 3189–3203). Sämre
+  än det vi redan prövar. (3) **Metoden: skärmbild in, sajt ut.** Bildrutan visar Kombais design-till-kod med
+  markeringsramar över en mall ("Wealth managed like a family office") [SKÄRM 00:25], och videon lovar att
+  layouten, typsnitten och avstånden byggs om [TAL 00:20–00:30]. Vi: färgerna, formen och första vyn kommer ur
+  verksamheten och KONCEPT.md (bygg-sajt rad 181–182, 236), "Bara de har" och verksamhetens egna bilder (L0–L6,
+  `LARDOMAR.md` rad 18–22), det som saknas beställs i stället för att lösas med form (bygg-sajt rad 20–23).
+  Litteraturen: trovärdighet kommer ur riktiga bilder, org.nr och omdömen (Fogg m.fl. 2003,
+  `kunskap/teoretisk-grund.md` rad 103–105); en mall med fiktivt märke bär inget av det. Krockar med ett medvetet
+  val. (4) **Det galleriet visar.** Startsidans första poster är en toggle, en videospelare, en skivkarusell och en
+  polaroidslinga [BILD kombai-gallery desktop-forsta, desktop-hela]; landningssidorna har AI-genererade
+  stämningsbilder (komet över ett fält, katedral, modell i orange glasögon) med en serif och ett kursivt ord i
+  rubriken ("in focus", "proud of.", "Places.", "desktop.") [BILD kombai-landing desktop-forsta,
+  desktop-skroll-03]; galleriets eget sidhuvud har ett kursivt skriptord i h1 ("standout") på nära svart med
+  grön accent och pillerknappar [BILD kombai-gallery desktop-forsta; SIDA.md designfakta]. Det är tre av de
+  namngivna standardvalen i `kontroller/upptagna_val.py` rad 28–32 och det granskaren fäller som AI-mönster
+  (`kritik/GRANSKARE.md` rad 86–88). Referensmaterialet är husstilen själv. Sämre
+- Skäl: en 34 sekunders short som läser upp Kombais egen marknadsföring, och påståendet den bygger på,
+  "20,000 real websites", motsägs av galleriets egen text: det är mallar med kod och fiktiva märken, ordnade efter
+  komponent, gjorda för att remixas i Kombais produkt [TEXT kombai-landing rad 82–86]. För oss är det motsatsen
+  till referensjakten: inget verkligt företag att lära av, ingen bransch att söka på, inget mobilpar, och
+  metoden är att kopiera en mall rakt av, vilket bygg-sajt rad 301 och referenser-professionella rad 61
+  förbjuder och som ägaren kallat mall i L1–L3. Mallarna själva ser ut som det regeln mot slop och granskaren
+  stänger ute [BILD kombai-landing desktop-forsta, desktop-skroll-03]. Inspo är redan under A/B som den bättre
+  varianten av samma idé, med riktiga sajter och branschtaggar; faller den på täckningen är Kombai inte nästa
+  kandidat. Källkritik: Kombai säljer ett verktyg (Pricing, "Get Started for Free", affiliateprogram, nyhetsbrev)
+  [TEXT kombai-gallery rad 5–8, 77–82, 123] och galleriet är ingången till det; videon visar inget resultat, bara
+  galleriet och produktens markeringsramar [SKÄRM 00:13, 00:25]. Samma kanal har två tidigare domar nej (REGISTER
+  rad 3581, 3878). Videon innehåller inga instruktioner riktade till agenter
+- Kostnad: inget tas in; inga tokens, beroenden eller underhåll
+- Säkerhet: videon ej tillämpligt (transkript och bildrutor, inget kört). Galleriets text förgranskad: LÅG, inga
+  dolda tecken, ingen text riktad till agenter. Inget installerades eller fördes vidare
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
