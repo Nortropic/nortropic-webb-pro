@@ -50,7 +50,10 @@ def frontmatter(p):
 def byggets_poster(slug, korning):
     """Ospårade poster i backlog/ som bär körningens stämpel och byggets slug; allt annat lämnas."""
     ut, lamnade = [], []
-    for rel in git('ls-files', '--others', '--exclude-standard', '--', 'backlog').stdout.splitlines():
+    inv = git('ls-files', '--others', '--exclude-standard', '--', 'backlog')
+    if inv.returncode:  # en inventering som inte vet säger inte 'inga poster' (Codex 2026-10-04, F3)
+        raise RuntimeError('git ls-files misslyckades: %s' % inv.stderr.strip()[-200:])
+    for rel in inv.stdout.splitlines():
         p = ROOT / rel
         if not POST.match(rel) or p.is_symlink() or not p.is_file():
             lamnade.append(rel)
@@ -76,7 +79,11 @@ def main(argv=None):
     if kod not in ('0', '1'):
         print('backlog: publicerar inget efter slutkod %s (mekaniken ändrad eller claude föll)' % kod)
         return 1
-    poster, lamnade = byggets_poster(slug, korning)
+    try:
+        poster, lamnade = byggets_poster(slug, korning)
+    except RuntimeError as e:
+        print('backlog: stoppat, %s' % e)
+        return 1
     if not poster:
         print('backlog: inga egna poster att publicera' + (' (%d andra okommitterade lämnas)' % len(lamnade) if lamnade else ''))
         return 0
@@ -87,14 +94,27 @@ def main(argv=None):
             if tr:
                 print('backlog: stoppat, %s innehåller något som ser ut som en hemlighet (%s) rad %d; inget committas' % (tr[0], tr[2], tr[1]))
                 return 1
+        gren = git('symbolic-ref', '-q', 'HEAD')
+        if gren.returncode or gren.stdout.strip() != 'refs/heads/main':  # commiten ska hamna på main, inte på en annan utcheckad gren (F3)
+            print('backlog: stoppat, %s är utcheckad i stället för main; inget committas' % (gren.stdout.strip() or 'ingen gren'))
+            return 1
         if git('add', '--', *poster).returncode or git('commit', '-q', '-m', 'Bygge %s: backlogposter' % slug, '--', *poster).returncode:
             print('backlog: commit misslyckades; inget publicerat')
             return 1
-        print('backlog: committade %s' % ', '.join(poster))
+        kand = git('rev-parse', 'HEAD').stdout.strip()  # kandidaten låses till ett commit-ID: kontrollen och pushen gäller exakt den (F3/F27)
+        med = git('show', '--name-only', '--format=', kand).stdout.split()
+        if not kand or any(rel not in med for rel in poster):
+            print('backlog: stoppat, kandidaten %s innehåller inte posterna; inget pushas' % kand[:12])
+            return 1
+        print('backlog: committade %s som %s' % (', '.join(poster), kand[:12]))
         if git('remote', 'get-url', 'origin').returncode:
             print('backlog: ingen origin; ingen push')
             return 0
-        omrade = 'origin/main..refs/heads/main'
+        bas = git('rev-parse', '--verify', '-q', 'origin/main').stdout.strip()
+        if not bas:
+            print('backlog: origin/main okänd; ingen push')
+            return 1
+        omrade = '%s..%s' % (bas, kand)
         ut = v.filer_z(v.git('log', '--format=', '--name-only', '-z', '--diff-merges=first-parent', omrade))
         utanfor = sorted({f for f in ut if not f.startswith('backlog/')})
         if utanfor:
@@ -117,11 +137,11 @@ def main(argv=None):
     except SystemExit as e:  # commitvaktens neka(): en vakt som inte vet säger nej
         print('backlog: stoppat av commitvaktens kontroll (kod %s)' % e.code)
         return 1
-    p = git('push', '-q', 'origin', 'main')
+    p = git('push', '-q', 'origin', '%s:refs/heads/main' % kand)  # exakt den kontrollerade kandidaten, inte den rörliga main
     if p.returncode:
         print('backlog: committad lokalt; push misslyckades: %s' % (p.stderr.strip()[-200:] or 'okänt fel'))
         return 1
-    print('backlog: pushad')
+    print('backlog: pushad (%s)' % kand[:12])
     return 0
 
 

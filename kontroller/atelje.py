@@ -160,8 +160,8 @@ def underlag_rader(slug):
         filer.append(u / 'bilder' / 'BILDER.md')
     # referensbeslutets utpekade rutor och tillstånd först, första vyn som reserv (kontroller/referensval.py)
     refs = ['%s — %s' % (rel(p), text) for p, text in referensval.referensbilder(slug, UNDERLAG, 16)]
-    refs += ['SAKNAS: ' + f for f in referensval.felrader(slug, UNDERLAG)]  # ett felaktigt Bildval döljs inte (F38)
-    return [str(f.relative_to(ROOT)) for f in filer], refs
+    fel = referensval.felrader(slug, UNDERLAG)  # ett felaktigt Bildval döljs inte, och kapas aldrig med bilderna (F38)
+    return [str(f.relative_to(ROOT)) for f in filer], refs, fel
 
 
 def lardomar_vag():
@@ -170,7 +170,7 @@ def lardomar_vag():
 
 
 def divergera_prompt(slug, bilder):
-    filer, refs = underlag_rader(slug)
+    filer, refs, fel = underlag_rader(slug)
     s = 'kunder/%s/sajt' % slug
     return '\n'.join([
         'Du är ateljén i ett bygge åt en riktig verksamhet. Din uppgift är divergens: ta fram %d visuella riktningar som ser' % ANTAL,
@@ -179,6 +179,7 @@ def divergera_prompt(slug, bilder):
         'Läs först: ' + ', '.join(filer) + ', ' + lardomar_vag() + ' (ägarens domar gäller före allt), kunskap/externa/anthropic-frontend-design-SKILL.md,',
         'kunskap/referenser-professionella.md, kunskap/byggstandard.md (punkterna 3 och 4) och .claude/skills/better-layout/SKILL.md.',
         'Referensernas bilder (den ruta eller det tillstånd referensbeslutet pekar ut, med jämförelsefrågan; annars första vyn): ' + ('; '.join(refs) or 'inga') + '.',
+        *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel): ' + '; '.join(fel)] if fel else []),
         'Verksamhetens egna bilder (de BILDER.md anger som egna) ligger kopierade i %s/src/assets/atelje/: %s.' % (s, ', '.join(bilder) or 'inga'),
         'Använd inga andra bilder; finns för få, bär typografin och det som saknas står i BESTALLNING.md.', '',
         'Regler för riktningarna:',
@@ -209,7 +210,7 @@ def divergera_prompt(slug, bilder):
 
 
 def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare):
-    filer, refs = underlag_rader(slug)
+    filer, refs, fel = underlag_rader(slug)
     rader = []
     for b, n in bokstaver:
         rader += ['- riktning %s: %s' % (b, f) for f in bilder_per_riktning[n]]
@@ -220,7 +221,8 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare):
         'underlag/%s/RESEARCH.md, och ägarens domar i %s, som väger tyngst. Läs dem först.' % (slug, lardomar_vag()),
         'Ribban är professionell nivå enligt referensernas första vy nedan och kunskap/referenser-professionella.md, aldrig',
         'tidigare egna byggen (ägaren 2026-10-03: de håller inte).',
-        'Referensernas bilder (utpekad ruta eller tillstånd med jämförelsefrågan; annars första vyn): ' + ('; '.join(refs[:8]) or 'inga') + '.', '',
+        'Referensernas bilder (utpekad ruta eller tillstånd med jämförelsefrågan; annars första vyn): ' + ('; '.join(refs[:8]) or 'inga') + '.',
+        *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet): ' + '; '.join(fel)] if fel else []), '',
         'Riktningarnas skärmbilder; titta på varje med Read, mobil först:', *rader, '',
         'Rangordna alla riktningar (plats 1 bäst), med styrkor och svagheter du ser i bilderna utifrån ditt område. Knyt',
         'varje styrka och svaghet till den princip eller metod den bygger på, med källan inom parentes (till exempel',

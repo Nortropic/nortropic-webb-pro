@@ -1635,7 +1635,7 @@ assert any(p_.parent.name == 'dinesen' and t_ == 'första vyn' for p_, t_ in bil
 text_rv = gr.uppdrag_text('ref-abx', 'http://x', ['/'], tmp / 'arb', [], gr.referensbilder('ref-abx'), [], [], tmp / 'runda-rv')
 assert 'referenser/bluetit/vy-1440-ruta-02.png — prislistan med nivåer efter erfarenhet — Fråga: syns elevpriset' in text_rv and 'ruta eller det tillstånd' in text_rv, text_rv[-900:]
 fr_rv = gr.frysta_referenser('ref-abx', tmp / 'runda-rv'); assert fr_rv[0][0].name.endswith('vy-1440-ruta-02.png') and 'Fråga:' in fr_rv[0][1]
-filer_rv, refs_rv = a.underlag_rader('ref-abx')
+filer_rv, refs_rv, _ = a.underlag_rader('ref-abx')
 assert refs_rv and 'vy-1440-ruta-02.png — prislistan' in refs_rv[0] and 'Fråga: syns elevpriset' in refs_rv[0], refs_rv
 assert 'Bildval' in (ROOT / '.claude' / 'skills' / 'bygg-sajt' / 'SKILL.md').read_text() and 'Land-book' in (ROOT / 'kunskap' / 'referensjakt.md').read_text()
 print('referensöverföringen ok')
@@ -1759,7 +1759,7 @@ fel38 = rv.felrader('ref38', tmp / 'underlag'); assert fel38 and 'referenser/a/k
 (tmp / 'kunder' / 'ref38' / 'sajt' / 'dist').mkdir(parents=True)
 text38 = gr.uppdrag_text('ref38', 'http://x', ['/'], tmp / 'arb', [], gr.referensbilder('ref38'), [], [], tmp / 'runda38')
 assert 'Bildval som inte gick att läsa' in text38 and 'referenser/a/kontakt/saknas.png' in text38, text38[-700:]
-assert any(r_.startswith('SAKNAS: ') for r_ in a.underlag_rader('ref38')[1]), 'ateljén ser det felaktiga bildvalet'
+assert a.underlag_rader('ref38')[2] and 'referenser/a/kontakt/saknas.png' in a.underlag_rader('ref38')[2][0], 'ateljén ser det felaktiga bildvalet'
 print('R18 F38 bildval ok')
 
 # F39/F40: samtidiga domar bevaras; trasig DOMAR.json stoppar utan ändring; /fil ger bara skärmbilderna
@@ -1780,6 +1780,87 @@ assert begar(dport, 'GET', '/fil/underlag/kalibrering/URVAL.txt')[0] == 404 and 
 assert begar(dport, 'GET', '/fil/underlag/kalibrering/K01/start/vy-390-forsta.png')[0] == 200
 dsrvk2.shutdown()
 print('R18 F39/F40 kalibreringen ok')
+
+
+# ---------------------------------------------------------------- omgång nitton (Codex R19): F3/F27 kandidat-ID, F28 domen, F38 panelens tak, F18/F38 fryst felstatus
+gk('checkout', '-q', 'main'); gk('reset', '-q', '--hard', 'origin/main')
+for f_ in (kr / 'backlog').glob('B-20261004-*'):
+    f_.unlink()
+stamp19 = '20261004T010000Z'
+(kr / 'backlog' / 'B-20261004-kand.md').write_text('---\nid: B-20261004-kand\nkalla: bygge\nkallref: kunder/prov-bygge/RAPPORT.md\nkorning: %s\n---\n# kand\n' % stamp19)
+_git19 = bc.git
+
+
+def git_med_kapplopning(*a_):
+    if a_ and a_[0] == 'push':  # en annan session committar på main precis före pushen
+        (kr / 'backlog' / 'B-20261004-smyg.md').write_text('---\nid: B-20261004-smyg\nkalla: kirurg\n---\n# smyg\nsk-ant-api03-abcdefghijklmnopqrstuvwxyz\n')
+        _git19('add', 'backlog/B-20261004-smyg.md'); _git19('commit', '-q', '-m', 'smyg')
+    return _git19(*a_)
+
+
+bc.git = git_med_kapplopning
+try:
+    rc19 = bc.main(['prov-bygge', stamp19, '0'])
+finally:
+    bc.git = _git19
+fjarr19 = subprocess.run(['git', '-C', str(bare_k), 'log', '--format=%s', '-2', 'main'], capture_output=True, text=True).stdout
+assert rc19 == 0 and fjarr19.startswith('Bygge prov-bygge') and 'smyg' not in fjarr19, 'bara den kontrollerade kandidaten pushas (F3/F27): %s' % fjarr19
+assert gk('log', '--format=%s', '-1').stdout.strip() == 'smyg', 'den främmande commiten är kvar lokalt, opushad'
+gk('reset', '-q', '--hard', 'origin/main')
+gk('checkout', '-q', '-b', 'annan19')
+(kr / 'backlog' / 'B-20261004-gren.md').write_text('---\nid: B-20261004-gren\nkalla: bygge\nkallref: kunder/prov-bygge/RAPPORT.md\nkorning: %s\n---\n# gren\n' % stamp19)
+huvud19 = gk('rev-parse', 'HEAD').stdout
+assert bc.main(['prov-bygge', stamp19, '0']) == 1 and gk('rev-parse', 'HEAD').stdout == huvud19, 'på en annan gren committas inget (F3)'
+(kr / 'backlog' / 'B-20261004-gren.md').unlink(); gk('checkout', '-q', 'main'); gk('branch', '-q', '-D', 'annan19')
+
+
+def git_ls_faller(*a_):
+    if a_ and a_[0] == 'ls-files':
+        return types.SimpleNamespace(returncode=128, stdout='', stderr='fatal: simulerat')
+    return _git19(*a_)
+
+
+bc.git = git_ls_faller
+try:
+    assert bc.main(['prov-bygge', stamp19, '0']) == 1, 'ett inventeringsfel är inte "inga poster" (F3)'
+finally:
+    bc.git = _git19
+print('R19 F3/F27 kandidaten ok')
+
+import sandlada_dom as sd  # noqa: E402
+assert sd.nat('200 200 127.0.0.1 rc=0')[0] == 'nadd' and sd.nat('000 403 127.0.0.1 rc=56')[0] == 'blockerad' and sd.nat('000 000  rc=6')[0] == 'blockerad' and sd.nat('curl: command not found rc=127')[0] == 'okant'
+rot28 = tmp / 'prov28'; ut28 = rot28 / 'underlag' / 'prov-bygge' / 'skript'; ut28.mkdir(parents=True)
+for namn_, inneh_ in (('1-kontroller.txt', 'touch: fel\nrc=1\n'), ('1b-annan-kund.txt', 'rc=1\n'), ('1c-annat-underlag.txt', 'rc=1\n'), ('1d-venv.txt', 'rc=1\n'), ('2-hemligt.txt', 'cat: fel\nrc=1\n'),
+                      ('3a-nat-direkt.txt', '000 000  rc=6'), ('3b-nat-proxy.txt', '000 403 127.0.0.1 rc=56'), ('4-nat-ok.txt', '200 200 127.0.0.1 rc=0'), ('5-skript-post.txt', 'fel OSError x\n'),
+                      ('6-port.txt', 'bunden 5000\n'), ('7-tillatet-rc.txt', 'rc=0\n'), ('8-proxy.txt', 'proxy=http://127.0.0.1:1\n')):
+    (ut28 / namn_).write_text(inneh_)
+(ut28 / '7-tillatet.txt').write_text('')
+assert sd.doma(ut28, '0', rot28)[0] == 0, sd.doma(ut28, '0', rot28)[1]
+(ut28 / '3b-nat-proxy.txt').write_text('200 200 127.0.0.1 rc=0')  # via proxyn men målservern svarade: nått, inte blockerat
+assert sd.doma(ut28, '0', rot28)[0] == 1 and any('väntade blockerad' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1])
+(ut28 / '3b-nat-proxy.txt').write_text('curl: command not found rc=127')
+assert sd.doma(ut28, '0', rot28)[0] == 1, 'okänt körfel är provfel (F28)'
+(ut28 / '3b-nat-proxy.txt').unlink()
+assert sd.doma(ut28, '0', rot28)[0] == 1 and any('saknas' in r_ for _, r_ in sd.doma(ut28, '0', rot28)[1]), 'saknad resultatfil är provfel (F28)'
+(ut28 / '3b-nat-proxy.txt').write_text('000 403 127.0.0.1 rc=56'); assert sd.doma(ut28, '1', rot28)[0] == 1, 'claude-processens slutkod räknas'
+print('R19 F28 domen ok')
+
+u39 = tmp / 'underlag' / 'ref39'; (u39 / 'referenser').mkdir(parents=True)
+rader39 = []
+for i_ in range(9):
+    (u39 / 'referenser' / ('r%d' % i_)).mkdir(); (u39 / 'referenser' / ('r%d' % i_) / 'vy-390-ruta-01.png').write_bytes(b'\x89PNG' + str(i_).encode())
+    rader39.append('## %d. R%d\n\nBildval: referenser/r%d/vy-390-ruta-01.png — sektion %d — Fråga: hur?\n' % (i_, i_, i_, i_))
+rader39.append('## 9. Saknad\n\nBildval: referenser/r0/saknas.png — tjänstesektionen — Fråga: var?\n')
+(u39 / 'REFERENSER.md').write_text('# R\n\n' + '\n'.join(rader39))
+prompt39 = a.domar_prompt('ref39', 'uppdrag', [('A', 1), ('B', 2)], {1: ['x.png'], 2: ['y.png']}, [])
+assert 'Bildval som inte gick att läsa' in prompt39 and 'referenser/r0/saknas.png' in prompt39, 'felraden kapas inte bort ur panelens prompt (F38)'
+assert 'referenser/r8/' not in prompt39 and 'referenser/r7/' in prompt39, 'bildtaket (8) gäller bara bilderna'
+print('R19 F38 panelens tak ok')
+
+text39 = gr.uppdrag_text('ref38', 'http://x', ['/'], tmp / 'arb', [], [], [], [], tmp / 'runda39', felrader=['FRYST: referenser/x.png: saknas'])
+assert 'FRYST: referenser/x.png' in text39 and 'referenser/a/kontakt/saknas.png' not in text39, 'den frysta felstatusen gäller, inte en ny läsning (F18/F38)'
+assert 'referenser/a/kontakt/saknas.png' in gr.uppdrag_text('ref38', 'http://x', ['/'], tmp / 'arb', [], [], [], [], tmp / 'runda39'), 'utan fryst status räknas den (torrkörning)'
+print('R19 F18/F38 fryst felstatus ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

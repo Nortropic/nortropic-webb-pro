@@ -305,7 +305,11 @@ def kalibrering(utom=None):
     return rader
 
 
-def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=(), lardomar=None):
+def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=(), lardomar=None, felrader=None):
+    """felrader: Bildval som inte gick att läsa, frysta av anroparen tillsammans med bilderna så att alla granskare får samma
+    underlag (Codex 2026-10-04, F18/F38); None räknar dem här (torrkörning)."""
+    if felrader is None:
+        felrader = referensval.felrader(slug, UNDERLAG)
     u = UNDERLAG / slug
     v = las_json(u / 'VERKSAMHET.json') or {}
     rad = lambda p: '- ' + (rel(p) if str(p).startswith(str(ROOT)) else str(p))  # noqa: E731
@@ -334,7 +338,7 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Referensernas bilder: den ruta eller det tillstånd byggaren pekat ut, med jämförelsefrågan; första vyn när inget pekats ut:',
         *([rad(p) + ' — ' + t for p, t in (x if isinstance(x, tuple) else (x, 'första vyn') for x in refs)] or ['- inga']),
         *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet):']
-          + ['- ' + f for f in referensval.felrader(slug, UNDERLAG)] if referensval.felrader(slug, UNDERLAG) else []), '',
+          + ['- ' + f for f in felrader] if felrader else []), '',
         'Tidigare byggens första vy:', *([rad(p) for p in tidigare] or ['- inga']), '',
         'Måttstockar:', *['- %s: %s' % (namn, f) for namn, f in MATTSTOCKAR if (ROOT / f).is_file()],
     ]
@@ -391,13 +395,14 @@ def arbetare(rdir):
             # och egen arbetskatalog; ingen ser den andras svar.
             korande = []
             frysta = frysta_referenser(slug, rdir)  # en gång, före loopen: alla granskare ser samma kopior (omgång tolv, F18)
+            frysta_fel = referensval.felrader(slug, UNDERLAG)  # felstatusen fryses med bilderna, före metodkontrollen (F18/F38)
             if upp.get('metod_sha') and metod_sha(slug) != upp['metod_sha']:
                 raise RuntimeError('underlaget (referensbilder eller texter) ändrades mellan bokföringen och starten; kör granskningen igen')
             for n in range(1, antal + 1):
                 arbetskatalog = ARBETSROT / ('%s-%s-%d' % (slug, rdir.name, n))
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                      frysta, tidigare_byggen(slug), [], rdir, aria, [], lardomar)
+                                      frysta, tidigare_byggen(slug), [], rdir, aria, [], lardomar, felrader=frysta_fel)
                 (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
                 args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config',
