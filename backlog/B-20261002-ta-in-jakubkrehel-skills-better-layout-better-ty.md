@@ -1,11 +1,12 @@
 ---
 id: B-20261002-ta-in-jakubkrehel-skills-better-layout-better-ty
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS, Insane Claude Design Skills (YouTube Ysr7oNDajJI) + jakubkrehel/skills
 skapad: 2026-10-02
 prio: normal
 steg: 5 (bygge, punkt 3 och 5), verktygslådan
+andrad: 2026-10-03T00:35Z
 ---
 # Ta in jakubkrehel/skills better-layout, better-typography, better-colors, better-accessibility, better-ui, better-writing och better-interface i verktygslådan, och peka på better-layout i bygg-sajt steg 5.5 för luft och hierarki
 

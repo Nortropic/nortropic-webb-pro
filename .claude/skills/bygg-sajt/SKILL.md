@@ -245,13 +245,15 @@ KONCEPT.md.
    kontroller/ta_bort.py <slug> kunder/<slug>/sajt/src/pages/tvaan` före nästa snabbprov. Ett typsnitt som bara tvåan
    använder avinstalleras med `npm --prefix kunder/<slug>/sajt uninstall <paket>`. Snabbprovets fynd på tvåan räknas
    inte; standarden fäller bygget om `/tvaan/` finns kvar.
-5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-ruta-NN.png` och `vy-1440-ruta-NN.png`
-   med Read: varje sida uppifrån och ned i skärmhöga rutor. `-hela.png` skalas ned så mycket att detaljer försvinner;
-   använd den bara för att se rytmen. Ställ dem bredvid referensernas skärmbilder och gå igenom de åtta dimensionerna i
-   `kunskap/referenser-professionella.md`. Skriv `underlag/<slug>/JAMFORELSE.md` i dess form: kandidatens drag ·
+5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-ruta-NN.png` och `vy-1440-ruta-NN.png` med
+   Read: varje sida uppifrån och ned i skärmhöga rutor. `-hela.png` skalas ned så mycket att detaljer försvinner;
+   använd den bara för att se rytmen. Ställ dem bredvid referensernas skärmbilder och gå igenom de åtta dimensionerna
+   i `kunskap/referenser-professionella.md`. Skriv `underlag/<slug>/JAMFORELSE.md` i dess form: kandidatens drag ·
    referensens lösning · vad som skiljer · vad som ändras eller behålls, och varför. Rätta det som ser generiskt ut:
    där allt är lika stort, där en sektion inte bär något specifikt, där första vyn inte säger vad de gör och vad man
-   gör härnäst. Kopiera aldrig layout, palett eller typsnitt.
+   gör härnäst. Kopiera aldrig layout, palett eller typsnitt. För luft och hierarki (dimension 4): gå igenom varje
+   sida med better-layout i verktygslådan, och detaljerna med better-typography och better-ui, innan JAMFORELSE.md
+   skrivs.
    Två prov på första vyn: fungerar den lika bra om du tänker bort bilden, är bilden för svag; blir sidan bättre av
    att stryka en tredjedel av texten, stryk.
 6. **Oberoende granskning.** Kör `.venv/bin/python kontroller/granska.py <slug>` direkt efter ett snabbprov, med
