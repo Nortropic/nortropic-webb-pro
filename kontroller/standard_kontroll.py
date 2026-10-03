@@ -590,6 +590,9 @@ EJ_PROVADE = ('google.', 'goo.gl', 'facebook.com', 'fb.com', 'instagram.com', 'l
               'tiktok.com', 'twitter.com', 'x.com', 'messenger.com', 'wa.me', 'whatsapp.com')
 
 
+WEBBLASARE = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
+
+
 def utgaende(dist, tidsgrans=8):
     """Sajtens utgående länkar och om de svarar: HEAD, och GET som reserv. Ingen grind, bara information (7.4: en
     felaktig omdömes- eller kataloglänk är ett förtroendefel). PROV_OFFLINE hoppar över nätet."""
@@ -613,17 +616,28 @@ def utgaende(dist, tidsgrans=8):
             return 'ej prövad (stoppar robotar)'
         if os.environ.get('PROV_OFFLINE'):
             return 'ej prövad (offline)'
+        svar = None
         for metod in ('HEAD', 'GET'):
             try:
                 req = urllib.request.Request(url, method=metod, headers={'User-Agent': 'Mozilla/5.0 (compatible; nortropic-webb-pro/1)'})
                 with urllib.request.urlopen(req, timeout=tidsgrans) as r:
                     return str(r.status)
             except urllib.error.HTTPError as e:
-                if metod == 'GET' or e.code not in (400, 403, 405, 501):
-                    return str(e.code)
+                if metod == 'GET' or e.code not in (400, 403, 404, 405, 501):
+                    svar = str(e.code)
+                    break
+                svar = str(e.code)
             except Exception as e:  # noqa: BLE001 — nätfel är ett svar i sig
-                if metod == 'GET':
-                    return 'svarar inte (%s)' % type(e).__name__
+                svar = 'svarar inte (%s)' % type(e).__name__
+        # En del sajter nekar robotar men svarar en webbläsare (imy.se gav 404 här och 200 i webbläsaren samma minut,
+        # salong-kreativ 2026-10-03): pröva en gång till med webbläsarhuvud innan felet skrivs.
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': WEBBLASARE, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+                                                       'Accept-Language': 'sv-SE,sv;q=0.9'})
+            with urllib.request.urlopen(req, timeout=tidsgrans) as r:
+                return '%d med webbläsarhuvud, nekar robotar (%s)' % (r.status, svar)
+        except Exception:  # noqa: BLE001 — då gäller robotens svar
+            return svar
     with concurrent.futures.ThreadPoolExecutor(8) as ex:
         svar = dict(zip(lankar, ex.map(pröva, lankar)))
     return [{'url': u, 'svar': svar[u], 'sidor': sorted(set(s))} for u, s in lankar.items()]
