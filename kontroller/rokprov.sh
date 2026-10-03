@@ -264,7 +264,7 @@ assert not fel(), 'Astros variabelstack ska gå igenom'
 " || { echo "FEL: reservtypsnittet"; exit 1; }
 echo "   reservtypsnittet ok"
 
-echo "   stilrapporten: bruten klickbar text och fem mönster ur impeccable"
+echo "   stilrapporten: bruten klickbar text, fem mönster ur impeccable, dolda menylänkar och dubbla handlingar"
 "$ROOT/.venv/bin/python" -B -c "
 import sys, json, subprocess, tempfile, pathlib
 sys.path.insert(0, '$ROOT/kontroller'); import prova
@@ -278,6 +278,13 @@ for krav in ('bryts på två rader: \"Våra tjänster', 'rubriker står närmare
     assert krav in v, krav
 ren = json.loads(pathlib.Path('$ROOT/kunder/rokprov-mall/prov/stil/STIL.json').read_text())
 assert not [r for r in ren['rader'] if r.get('tvaRader')], 'rökprovets knappar och länkar ska inte räknas som brutna'
+# dom L4: menylänkar som rullar dolda i sidled, numret tre gånger och samma knapp två gånger i första vyn
+(d / 'meny').mkdir(); (d / 'meny' / 'index.html').write_text('<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>P</title><style>body{margin:0;font:16px sans-serif}nav ul{display:flex;overflow-x:auto;white-space:nowrap;margin:0;padding:0;list-style:none}nav a{display:inline-block;padding:12px 20px}.fast{position:fixed;bottom:0;left:0;right:0;background:#fff}</style></head><body><header><a href=\"tel:+46701234567\">070-123 45 67</a><nav><ul><li><a href=\"/\">Start</a></li><li><a href=\"/a/\">Klippning</a></li><li><a href=\"/b/\">Färg och slingor</a></li><li><a href=\"/c/\">Permanent</a></li><li><a href=\"/d/\">Bryn och fransar</a></li><li><a href=\"/e/\">Kontakt</a></li></ul></nav></header><main><h1>Rubrik</h1><a href=\"https://boka.example/x\">Boka</a> <a href=\"tel:+46701234567\">Ring</a></main><div class=\"fast\"><a href=\"https://boka.example/x\">Boka</a> <a href=\"tel:+46701234567\">Ring</a> <a href=\"/kontakt/\">Skriv</a></div></body></html>')
+with prova.Server(d) as srv:
+    subprocess.run(['node', '$ROOT/kontroller/stil.mjs', '--url=' + srv.url, '--sidor=/meny/', '--ut=' + str(d / 'ut2')], check=True, capture_output=True)
+m = next(x for x in json.loads((d / 'ut2' / 'STIL.json').read_text())['rader'] if x['vy'] == '390')['mobil']
+assert len(m['menyDolda']) >= 2 and m['telIForsta'] == 3 and m['dubbla'] == ['https://boka.example/x'], m
+assert not ren['varningar'] or not any('utanför skärmen' in v or 'gånger i startsidans' in v or 'två gånger' in v for v in ren['varningar']), ren['varningar']
 " || { echo "FEL: stilrapportens nya mätningar"; exit 1; }
 echo "   stilrapporten ok"
 
