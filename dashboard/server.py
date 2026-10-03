@@ -617,7 +617,8 @@ def starta_intag(url, not_, filer=None):
 
 # --- spanaren: kandidater åt kirurgen, utan modell (kontroller/spana.py) ---
 SPANING = INTAG / 'spaning'
-SPANING_INTERVALL = int(os.environ.get('NWP_SPANING_INTERVALL_DAGAR') or 7)
+# Varje dygn under piloten (ägaren 2026-10-03: "jag vill ha den frekventare"); 7 när piloten är över.
+SPANING_INTERVALL = float(os.environ.get('NWP_SPANING_INTERVALL_DAGAR') or 1)
 
 
 def spaning_pagar():
@@ -633,7 +634,7 @@ def spaning_lista():
     lista = las_json(SPANING / 'KANDIDATER.json') or []
     nya = [k for k in lista if k.get('status') == 'ny']
     return {'kandidater': nya[:20], 'antal': len(nya), 'senast': las_json(SPANING / 'SENAST.json'), 'pagar': bool(spaning_pagar()),
-            'av': bool(os.environ.get('NWP_SPANING_AV'))}
+            'av': bool(os.environ.get('NWP_SPANING_AV')), 'intervall_dagar': SPANING_INTERVALL}
 
 
 def starta_spaning(skal='ägaren'):
@@ -642,6 +643,7 @@ def starta_spaning(skal='ägaren'):
         raise ValueError('en spaning pågår redan')
     SPANING.mkdir(parents=True, exist_ok=True)
     env = {k: v for k, v in os.environ.items() if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_') and (not k.startswith('NWP_') or k.startswith('NWP_SPANING_'))}
+    env.setdefault('NWP_SPANING_MAX_ANROP', '200')  # 97 källor ger ~100 anrop; spanarens tak är 120
     gh = ((las_json(Path.home() / '.claude' / 'settings.json') or {}).get('env') or {}).get('GH_CONFIG_DIR')
     if gh:
         env['GH_CONFIG_DIR'] = gh
@@ -653,8 +655,9 @@ def starta_spaning(skal='ägaren'):
 
 
 def spaning_vid_behov():
-    """Veckovis spaning utan schemaläggare: vid serverstart och vid varje läsning av /api/kirurg, om den senaste är äldre än
-    intervallet. Misslyckade försök väntar sex timmar (FORSOK) så att en död källa inte startar om vid varje poll."""
+    """Spaning utan schemaläggare: vid serverstart, varje timme (spaningsklocka) och vid varje läsning av /api/kirurg, om
+    den senaste är äldre än intervallet. Misslyckade försök väntar sex timmar (FORSOK) så att en död källa inte startar
+    om vid varje poll. Sover datorn tas spaningen igen när den vaknar."""
     if os.environ.get('NWP_SPANING_AV') or spaning_pagar():
         return
     try:
@@ -669,7 +672,7 @@ def spaning_vid_behov():
         return
     SPANING.mkdir(parents=True, exist_ok=True)
     (SPANING / 'FORSOK').write_text(nu())
-    starta_spaning('automatisk, veckovis')
+    starta_spaning('automatisk, var %g dygn' % SPANING_INTERVALL)
 
 
 def kandidat(ident):
@@ -897,10 +900,15 @@ def main():
     LAN['pa'] = not a.utan_lan
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
     print('Dashboard: http://127.0.0.1:%d' % a.port, flush=True)
-    try:
-        spaning_vid_behov()
-    except Exception as e:
-        print('spaningen startade inte: %s' % e, flush=True)
+    def spaningsklocka():
+        while True:
+            try:
+                spaning_vid_behov()
+            except Exception as e:  # en klocka som dör ska inte ta med servern
+                print('spaningen startade inte: %s' % e, flush=True)
+            time.sleep(3600)
+    import threading
+    threading.Thread(target=spaningsklocka, daemon=True).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

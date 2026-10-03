@@ -69,6 +69,9 @@ h3 { font-size: 15px; margin: 18px 0 6px; }
 #qr { border: 1px solid var(--linje); border-radius: 12px; background: var(--yta); color: var(--text); padding: 16px; max-width: 360px; }
 #qr svg { display: block; width: 100%; height: auto; margin-top: 12px; }
 #qr::backdrop { background: rgb(0 0 0 / .4); }
+details.mer { display: inline; }
+details.mer summary { display: inline; cursor: pointer; color: var(--accent); }
+details.mer[open] { display: block; margin-top: 4px; }
 .flikar { display: flex; gap: 2px; border-bottom: 1px solid var(--linje); margin: 22px 0 18px; overflow-x: auto; }
 .flikar button { appearance: none; border: 0; background: none; font: inherit; font-size: 14px; color: var(--dampad); padding: 9px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .flikar button.aktiv { color: var(--text); border-color: var(--text); }
@@ -390,6 +393,18 @@ async function kirurgvy(baraLista) {
   const o = await api('/api/oversikt'); raknare(o);
 }
 
+// Sammanfattningen kapas vid ett meningsslut, aldrig mitt i ett ord; resten under Visa mer. Spanaren sparar högst
+// 600 tecken: slutar texten där utan skiljetecken markeras det med … (ägaren 2026-10-03: "texten blir avkapad").
+function sammanfattning(s) {
+  let t = String(s || '').trim();
+  if (t.length >= 590 && !/[.!?…)"”']$/.test(t)) t = t.replace(/\s+\S*$/, '') + ' …';
+  if (t.length <= 340) return esc(t);
+  const m = t.slice(0, 340).match(/^[\s\S]*[.!?](?=\s)/);
+  const forsta = m ? m[0] : t.slice(0, 340).replace(/\s+\S*$/, '');
+  const rest = t.slice(forsta.length).trim();
+  return `${esc(forsta)}${m ? '' : ' …'} <details class="mer"><summary>Visa mer</summary>${esc(rest)}</details>`;
+}
+
 async function spaningvy() {
   const el = $('#spaning'); if (!el) return;
   const d = await api('/api/spaning').catch(() => null); if (!d) return;
@@ -397,11 +412,11 @@ async function spaningvy() {
   const kort = (k) => `<div class="kort" style="margin-bottom:10px"><div class="rad mellan"><div class="titel" style="font-weight:560">${/^https?:\/\//.test(k.url) ? `<a href="${esc(k.url)}" target="_blank" rel="noopener">${esc(k.titel || k.url)}</a>` : esc(k.titel || k.url)}</div>
       <div class="chips"><span class="chip">${esc(k.kalla)}</span><span class="chip acc">${esc(String(k.poang ?? ''))}</span>${k.publicerad ? `<span class="chip">${esc(k.publicerad)}</span>` : ''}${(k.varning || []).map((v) => `<span class="chip gul">${esc(v)}</span>`).join('')}</div></div>
       <div class="under" style="margin:6px 0">${esc((k.varfor || []).join(' · '))}</div>
-      ${k.sammanfattning ? `<div style="font-size:14px">${esc(k.sammanfattning.slice(0, 300))}</div>` : ''}
+      ${k.sammanfattning ? `<div style="font-size:14px">${sammanfattning(k.sammanfattning)}</div>` : ''}
       <div class="rad" style="margin-top:10px">${k.ny_version ? `<button class="knapp" data-sp="form" data-url="${esc(k.url)}">Fyll i formuläret (dömd nej tidigare)</button>` : `<button class="knapp primar" data-sp="ta-in" data-id="${esc(k.id)}">Skicka till kirurgen</button>`}
         <button class="knapp" data-sp="avfarda" data-id="${esc(k.id)}">Avfärda</button><span class="under sp-svar"></span></div></div>`;
   el.innerHTML = `<h2>Spaning</h2><div class="rad" style="margin-bottom:12px">${d.pagar ? '<span class="chip acc puls">Spanar …</span>' : sen ? `<span class="chip">senast ${tid(sen.slut)}</span><span class="chip">${d.antal} kandidater</span>${sen.fel?.length ? `<span class="chip gul">${sen.fel.length} av ${sen.kallor.length} källor svarade inte</span>` : ''}` : '<span class="chip">ingen spaning än</span>'}
-      ${d.av ? '<span class="chip">automatiken är av (NWP_SPANING_AV)</span>' : '<span class="chip">körs en gång i veckan</span>'}<button class="knapp" id="spana-nu" ${d.pagar ? 'disabled' : ''}>Spana nu</button><span id="spana-svar" class="under"></span></div>
+      ${d.av ? '<span class="chip">automatiken är av (NWP_SPANING_AV)</span>' : `<span class="chip">körs ${d.intervall_dagar === 1 ? 'en gång per dygn' : 'var ' + d.intervall_dagar + ' dygn'}</span>`}<button class="knapp" id="spana-nu" ${d.pagar ? 'disabled' : ''}>Spana nu</button><span id="spana-svar" class="under"></span></div>
     <p class="under">Spanaren letar utan modell i flöden, leverantörsdokumentation, GitHub och Hacker News (<code>kunskap/spaning-kallor.md</code>), rensar texten och rankar mot våra termer. Kandidaterna är data; varje intag startar du.</p>
     ${d.kandidater.length ? d.kandidater.map(kort).join('') : '<div class="tom">Inga kandidater just nu.</div>'}`;
   $('#spana-nu').onclick = async () => { $('#spana-nu').disabled = true; try { await post('/api/spaning/kor', {}); setTimeout(spaningvy, 1500); } catch (err) { $('#spana-svar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; $('#spana-nu').disabled = false; } };
