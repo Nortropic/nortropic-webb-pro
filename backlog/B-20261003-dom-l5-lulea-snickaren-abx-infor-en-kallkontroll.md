@@ -1,11 +1,12 @@
 ---
 id: B-20261003-dom-l5-lulea-snickaren-abx-infor-en-kallkontroll
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md L5
 skapad: 2026-10-03
 prio: normal
 sar: L5
+andrad: 2026-10-03T09:06Z
 ---
 # Dom L5 (lulea-snickaren-abx): Inför en källkontroll för varje påstående som nämner en tredje part: ett omdöme får bara e
 

@@ -12,26 +12,33 @@ interface Props {
   telefonText?: string;
   felNamn?: string; // beskeden vid ett tomt fält, i verksamhetens ord (byggstandarden 6.2)
   felTelefon?: string;
+  felTelefonFormat?: string; // beskedet när numret har bokstäver eller är för kort (byggstandarden 6.2, ägarens dom L4)
   felMeddelande?: string;
 }
 const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   saknas = 'Namn, telefon och vad du vill ha hjälp med behövs. Fyll i dem och skicka igen.', telefon, telefonText,
-  felNamn = 'Skriv ditt namn.', felTelefon = 'Skriv ett nummer vi kan ringa.', felMeddelande = 'Skriv vad du vill ha hjälp med.' } = Astro.props;
+  felNamn = 'Skriv ditt namn.', felTelefon = 'Skriv ett nummer vi kan ringa.',
+  felTelefonFormat = 'Skriv numret med siffror, till exempel 070-123 45 67.', felMeddelande = 'Skriv vad du vill ha hjälp med.' } = Astro.props;
 ---
 <form class="forfragan" id="forfragan" action="/api/forfragan" method="post" enctype="multipart/form-data">
   <!-- Felbesked utan JavaScript: mottagaren skickar ett ofullständigt inskick till #forfragan-saknas, och :target visar det. -->
   <p id="forfragan-saknas" class="ff-saknas" tabindex="-1" role="alert">{saknas}{telefon && <> Eller ring <a href={`tel:${telefon}`}>{telefonText || telefon}</a>.</>}</p>
   <p>
     <label for="ff-namn">Namn</label>
-    <input id="ff-namn" name="namn" type="text" autocomplete="name" required maxlength="100" data-saknas={felNamn} />
+    <span id="ff-namn-fel" class="ff-fel"></span>
+    <input id="ff-namn" name="namn" type="text" autocomplete="name" required maxlength="100" aria-describedby="ff-namn-fel" data-saknas={felNamn} />
   </p>
   <p>
     <label for="ff-telefon">Telefon</label>
-    <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40" data-saknas={felTelefon} />
+    <span id="ff-telefon-fel" class="ff-fel"></span>
+    <!-- Siffror, mellanslag, +, - och parenteser, minst sex tecken: "abc" går inte igenom (byggstandarden 6.2). -->
+    <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40"
+      pattern="[0-9+\-\(\) ]{6,40}" aria-describedby="ff-telefon-fel" data-saknas={felTelefon} data-format={felTelefonFormat} />
   </p>
   <p>
     <label for="ff-meddelande">{fraga}</label>
-    <textarea id="ff-meddelande" name="meddelande" rows="5" required maxlength="4000" data-saknas={felMeddelande}></textarea>
+    <span id="ff-meddelande-fel" class="ff-fel"></span>
+    <textarea id="ff-meddelande" name="meddelande" rows="5" required maxlength="4000" aria-describedby="ff-meddelande-fel" data-saknas={felMeddelande}></textarea>
   </p>
   <p class="ff-fil">
     <!-- Egen knapp i stället för webbläsarens "Choose File / No file chosen"; etiketten öppnar väljaren även utan JS. -->
@@ -56,11 +63,24 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   // (kunskap/formularsakerhet.md, princip b). Utan JavaScript står fältet tomt och mottagaren godtar inskicket.
   const start = performance.now();
   for (const f of document.querySelectorAll<HTMLFormElement>('form.forfragan')) {
-    // Svenska besked vid fältet i stället för webbläsarens, som följer webbläsarens språk (byggstandarden 6.2).
-    // Utan JavaScript stoppar webbläsaren ett tomt inskick med sitt eget besked, och POST fungerar som förut.
+    // Svenska besked som text vid fältet (aria-describedby) i stället för webbläsarens bubbla, som följer
+    // webbläsarens språk (byggstandarden 6.2, ägarens dom L4). Första felaktiga fältet får fokus. Utan JavaScript
+    // stoppar webbläsaren inskicket med sitt eget besked, och POST fungerar som förut.
+    let forsta = true;
     for (const falt of f.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[required][data-saknas]')) {
-      falt.addEventListener('invalid', () => { if (falt.validity.valueMissing) falt.setCustomValidity(falt.dataset.saknas || ''); });
-      falt.addEventListener('input', () => falt.setCustomValidity(''));
+      const fel = document.getElementById(falt.getAttribute('aria-describedby') || '');
+      falt.addEventListener('invalid', (e) => {
+        e.preventDefault();
+        const besked = (falt.validity.patternMismatch && falt.dataset.format) || falt.dataset.saknas || '';
+        falt.setCustomValidity(besked);
+        falt.setAttribute('aria-invalid', 'true');
+        if (fel) fel.textContent = besked;
+        if (forsta) { forsta = false; falt.focus(); setTimeout(() => { forsta = true; }); }
+      });
+      falt.addEventListener('input', () => {
+        falt.setCustomValidity('');
+        if (falt.validity.valid) { falt.removeAttribute('aria-invalid'); if (fel) fel.textContent = ''; }
+      });
     }
     const fil = f.querySelector<HTMLInputElement>('input[type="file"]');
     const namn = f.querySelector<HTMLElement>('.ff-filnamn');
@@ -78,6 +98,8 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   .ff-falla { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
   .ff-saknas { display: none; }
   .ff-saknas:target { display: block; }
+  .ff-fel { display: block; font-weight: 600; }
+  .ff-fel:empty { display: none; }
   /* Filfältet: knappen är etiketten; själva fältet är osynligt men fokuserbart, och fokus syns på knappen. */
   .ff-filfalt { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
   .ff-filknapp { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; border: 1px solid currentColor; cursor: pointer; }

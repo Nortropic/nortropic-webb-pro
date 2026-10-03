@@ -1,11 +1,12 @@
 ---
 id: B-20261003-dom-l4-salong-kreativ-nar-sajten-speglar-en-uppg
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md L4
 skapad: 2026-10-03
 prio: normal
 sar: L4
+andrad: 2026-10-03T09:06Z
 ---
 # Dom L4 (salong-kreativ): När sajten speglar en uppgift som ägs av ett annat system eller en person (Bokadirekts 36
 

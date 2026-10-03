@@ -1,11 +1,12 @@
 ---
 id: B-20261003-dom-l6-lulea-snickaren-aby-publicera-aldrig-en-u
-status: vilande
+status: pagar
 kalla: dom
 kallref: LARDOMAR.md L6
 skapad: 2026-10-03
 prio: normal
 sar: L6
+andrad: 2026-10-03T09:06Z
 ---
 # Dom L6 (lulea-snickaren-aby): Publicera aldrig en uppgift som bygget självt har flaggat som obekräftad: när beställninge
 

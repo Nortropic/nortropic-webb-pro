@@ -1,11 +1,16 @@
 import type { APIRoute } from 'astro';
 
-// Alla .astro-sidor utom 404 och dynamiska rutter. Lägg till sidor ur innehållssamlingar här om sajten får sådana.
-const sidor = Object.keys(import.meta.glob('./**/*.astro'));
+// Alla .astro-sidor utom 404, dynamiska rutter och sidor med noindex (tacksidan och andra som inte ska hittas;
+// byggstandarden 7.2, ägarens dom L4: /tack/ stod i sitemap.xml trots noindex). Lägg till sidor ur
+// innehållssamlingar här om sajten får sådana.
+const kallor = import.meta.glob('./**/*.astro', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+// noindex som egenskap på sidans ram (<Bas noindex>, <Ram noindex>); noindex={false} räknas inte.
+const noindex = /<[A-Z][\w.]*\s[^>]*\bnoindex\b(?!\s*=\s*\{\s*false)/;
 
 export const GET: APIRoute = ({ site }) => {
-  const rutter = sidor
-    .map((f) => f.replace(/^\.\//, '').replace(/\.astro$/, ''))
+  const rutter = Object.entries(kallor)
+    .filter(([, kod]) => !noindex.test(kod))
+    .map(([f]) => f.replace(/^\.\//, '').replace(/\.astro$/, ''))
     .filter((f) => !f.startsWith('404') && !f.includes('['))
     .map((f) => (f === 'index' ? '/' : '/' + f.replace(/\/?index$/, '') + '/'));
   const rader = rutter.map((r) => `  <url><loc>${new URL(r, site).href}</loc></url>`).join('\n');

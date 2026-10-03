@@ -1,10 +1,11 @@
 ---
 id: B-20261003-gruppering-efter-5-domar-den-storsta-ar-sajten-s
-status: vilande
+status: pagar
 kalla: dom
 kallref: kunskap/GRUPPERING.md 2026-10-03
 skapad: 2026-10-03
 prio: hog
+andrad: 2026-10-03T09:06Z
 ---
 # Gruppering efter 5 domar: Den största är sajten som säger mer än underlaget belägger (11 fynd). Byggstanda
 

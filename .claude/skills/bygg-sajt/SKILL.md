@@ -22,6 +22,10 @@ rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella
   telefontid, försäkring och F-skatt, svarstid, ägarens egna ord): utelämna det inte och lös det inte med form.
   Beställ det av verksamheten i `underlag/<slug>/BESTALLNING.md` (steg 3); ägaren tar beställningen med sig.
   Ägarens domar L2 och L3: "fråga i stället för att utelämna", "en beställning, inte ett designval".
+- **En uppgift som bygget självt har flaggat som obekräftad** (källorna säger olika, eller beställningen frågar om
+  den) står inte på sajten eller i strukturerad data förrän svaret kommit; abx gjorde rätt som dolde adressen
+  (ägarens domar L5 och L6). En uppgift som verksamheten själv har publicerat, även en gammal, får stå medan
+  bekräftelsen är beställd (L6, svarstiden på tacksidan).
 - **Sökvägar** (`<slug>` står i uppdraget):
   - `underlag/<slug>/` råmaterial och arbetsfiler (privat, utanför git)
   - `kunder/<slug>/sajt/` Astro-projektet
@@ -88,9 +92,11 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
 3. **`underlag/<slug>/VERKSAMHET.json`:** formen står i `validera()` i `kontroller/verksamhetsuppgifter.py`
    (`schema: 1`, `namn`, `fiktiv: false`, `kontaktvagar` med `typ`/`varde`/`belagg`, `rackvidd`, `tjanster` och de
    valfria fälten). Sätt `webb: {"doman": "deras-doman.se"}`. `adress.publik` är `true` när verksamheten själv visar
-   gatuadressen (egen sajt, Google-profil, annons) och `false` bara när den enbart finns i register; med `true` står
-   gatan i sidfoten på varje sida, på kontaktsidan och i JSON-LD (standarden 7.4). Kör `.venv/bin/python
-   kontroller/verksamhetsuppgifter.py kontrollera underlag/<slug>/VERKSAMHET.json` tills den svarar exit 0.
+   gatuadressen (egen sajt, Google-profil, annons) och ingen annan källa (Google-profil, Hitta, Bolagsverket) anger
+   en annan; säger källorna olika, eller är den ena en hemadress, är den `false` och adressen beställs (ägarens domar
+   L5 och L6). Med `true` står gatan i sidfoten på varje sida, på kontaktsidan och i JSON-LD (standarden 7.4). Kör
+   `.venv/bin/python kontroller/verksamhetsuppgifter.py kontrollera underlag/<slug>/VERKSAMHET.json` tills den svarar
+   exit 0.
 4. **`underlag/<slug>/RESEARCH.md`:** svar på kundintervjuns frågor ur underlaget. Varje påstående har källa (URL)
    eller är märkt `antagande`. Kundernas omdömen ordagrant med källa: skriv vilken tjänst som tillhandahåller dem
    (källan, inte katalogen som visar dem vidare; Hitta och Hantverkskollen visar till exempel Reco-omdömen), med
@@ -150,7 +156,8 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
   underlaget saknar, skrivet så att verksamheten kan svara på fem minuter. Bilder när de har färre än fem egna eller
   saknar någon av sorterna ovan: vilka, varför och till vilken sida och sektion (3–8 stycken). Telefontid, försäkring
   och F-skatt, svarstid för formuläret, och tre meningar i ägarens egna ord när en sektion bygger på dem. En rad per
-  sak: vad, varför, var på sajten. Inget skickas under körningen; ägaren tar beställningen med sig.
+  sak: vad, varför, var på sajten. En förenklad form av loggan föreslås bara som fråga här, aldrig på sajten (L5).
+  Inget skickas under körningen; ägaren tar beställningen med sig.
 
 Skriv också `underlag/<slug>/FRASER.txt`: en rad per fras som konkurrenterna i branschen använder och som vi därför
 inte ska använda. Briefen är en hypotes; den prövas när ägaren och verksamheten ser resultatet.
@@ -181,8 +188,22 @@ Läs `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`, `kunskap/seo.m
 
 Skriv all text i `underlag/<slug>/INNEHALL.md` innan något ritas: per sida title (högst 60 tecken), description
 (högst 155), h1, sektioner, knappar. Under varje sektion: raden `Specifikt:` med den sak ur "Bara de har" som
-sektionen bär. Saknas den, stryk sektionen. **Omdömen** står ordagrant med namnet som det står hos källan,
-plattformen och månaden; en avkortning syns med …; en plattform per mening och en länk dit besökaren kan läsa dem.
+sektionen bär. Saknas den, stryk sektionen. Under `Specifikt:` står raden `Belägg:` med källan i underlaget (fil och
+avsnitt, URL, eller omdömets namn och datum) för varje mening som säger hur verksamheten arbetar (vem som kommer,
+hembesök, pris, öppettider), vad den gjorde i ett jobb, vem som gör vad eller vad en kund sagt, också ord som
+"senast", "alltid", "två gånger" och "nyckelfärdigt". Saknas källan: skriv det källan faktiskt säger, eller stryk
+meningen och beställ uppgiften. Ett belägg ur ett enda jobb eller omdöme bär bara det jobbet: skriv var och när det
+var, och gör det aldrig till ett steg i hur verksamheten alltid arbetar. En hänvisning ("se Bokadirekt") ersätter
+aldrig en uppgift som saknas (grupperingen efter fem domar: den största kategorin var en sajt som säger mer än
+underlaget belägger). **Omdömen** står ordagrant med namnet som det står hos källan, plattformen och månaden; en
+avkortning syns med …; en plattform per mening och en länk dit besökaren kan läsa dem. **Tredje part:** varje mening
+som nämner en plattform, ett register, en certifiering, en leverantör eller en kund har sin källa i RESEARCH.md, och
+länken på sajten går till samma källa; ett omdöme anges med den plattform länken går till (ägarens dom L5: tre byggen
+av samma firma sade tre olika plattformar). **Speglade uppgifter:** när sajten visar en uppgift som ägs av ett annat
+system eller en person (prislistan i bokningssystemet, öppettider i Google-profilen, någons lediga tider) står källan
+och datumet vid uppgiften, och rapporten anger regeln för hur den hålls aktuell (hämtas vid varje bygge, eller
+kontrolleras var tredje månad). En persons tider eller frånvaro skrivs bara med verksamhetens beslut i beställningen
+(ägarens dom L4).
 
 Kontrollera texten:
 
@@ -193,9 +214,10 @@ Kontrollera texten:
 Rätta varje fynd, eller motivera det om frasen är rätt i verksamhetens egen röst (`kunskap/copy-kontroll.md`:
 rapporten är aldrig en grind). Ett kundcitat får aldrig berömma något som sajten inte har (dom L3: citatet om
 formuläret på en sajt utan formulär). Innehåll med slutdatum, som en platsannons eller ett erbjudande, får datumet
-noterat i rapporten så att det kan tas bort i tid (dom L1). Läs sedan texten högt för dig själv som en kund i orten: kunde någon mening stå hos en
-konkurrent? Skriv om den. Gå sedan igenom texten med skillen `humanizer` i verktygslådan, med briefens fem
-formuleringar som röstprov, och kör copykontrollen igen.
+noterat i rapporten så att det kan tas bort i tid (dom L1). Läs sedan texten högt för dig själv som en kund i orten:
+kunde någon mening stå hos en konkurrent? Skriv om den. Gå sedan igenom texten med skillen `humanizer` i
+verktygslådan, med briefens fem formuleringar som röstprov, och kör copykontrollen igen. Gå igenom Belägg-raderna en
+sista gång: rösten får ändra orden, aldrig vad som påstås.
 
 ## Steg 5 — Koncept och bygge (design)
 
@@ -242,11 +264,15 @@ KONCEPT.md.
    telefonnumret som tel-länk, `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
    färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga bokning.
    **Mobilens första vy** (ägarens domar L1, L2 och A/B 2026-10-02): sidhuvudet på en rad med namn och numret som
-   knapp, menylänkarna synliga utan hamburgare (på en rad, rullbar i sidled om de inte ryms), sedan rubriken,
-   ringknappen och ett av verksamhetens egna foton i första skärmen när de har foton. En fast list längst ned på
-   mobil bär både Ring och Skriv (till formuläret) och skymmer inte sidfotens sista länk. Stilrapporten mäter det.
+   knapp, menylänkarna synliga utan hamburgare med korta etiketter på en rad, och ryms de inte, två rader, aldrig en
+   rad som rullar dold i sidled (L4), sedan rubriken, ringknappen och ett av verksamhetens egna foton i första
+   skärmen när de har foton. En fast list längst ned på mobil bär både Ring och Skriv (till formuläret) och skymmer
+   inte sidfotens sista länk. När listen syns står samma handling inte som knapp en gång till i första vyn, och
+   numret står högst två gånger: listen bär det, sidhuvudet behöver det inte (L4, L5). Stilrapporten mäter det.
    **Brödsmulor** på varje undersida med mallens `src/components/Brodsmulor.astro` (synlig "Du är här" och
-   BreadcrumbList); standarden prövar det.
+   BreadcrumbList), mellan sidhuvudet och `<main>`; standarden prövar det. **Formuläret** behåller mallens
+   felbesked vid fälten och telefonfältets `pattern`; etiketterna och beskeden skrivs i verksamhetens ord.
+   **Öppettider eller telefontid** står på kontaktsidan när underlaget har dem; annars är de beställda (L4).
    **Plats för det beställda:** specifikationen i KONCEPT.md anger var varje beställd bild ska sitta. Bygg sektionen
    så att bilden kan läggas in i `src/assets/bestallt/` utan omdesign, och så att sektionen står rätt utan den; aldrig
    en synlig platshållare (byggstandarden 9.4). Saknas telefontid eller svarstid: skriv inget påhittat.

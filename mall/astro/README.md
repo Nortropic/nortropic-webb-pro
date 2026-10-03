@@ -20,7 +20,8 @@ komponenter utan utseende (förfrågan och brödsmulor). Ingen design, inga typs
 5. Skriftlig förfrågan: `src/components/Forfragan.astro` på kontaktsidan, `src/pages/tack.astro` (noindex) och en
    integritetssida, enligt `kunskap/forfragan.md`. Provets och dashboardens server tar emot inskicket i demon.
 6. Brödsmulor på varje undersida: `<Brodsmulor sida="Tillbyggnad" />`, eller med `steg` för en sida under en
-   översikt. Komponenten ger synlig "Du är här" och BreadcrumbList; utseendet skrivs för verksamheten.
+   översikt, mellan sidhuvudet och `<main>`. Komponenten ger synlig "Du är här" och BreadcrumbList; utseendet
+   skrivs för verksamheten.
 7. Strukturerad data: den mest specifika schema.org-typen (GeneralContractor, Electrician, HousePainter, Plumber,
    RoofingContractor …) som JSON-LD på startsidan, med uppgifter ur `VERKSAMHET.json`.
 8. Skript och inline-händelser: CSP:n i `astro.config.mjs` släpper bara skript som Astro har hashat. Skriv skript

@@ -408,6 +408,14 @@ def granska(dist):
             F('7.2', '(alla)', 'robots.txt blockerar hela sajten för alla')
     if not (dist / 'sitemap.xml').is_file():
         F('7.2', '(alla)', 'sitemap.xml saknas')
+    else:
+        # en sida med noindex hör inte hemma i sitemap.xml (ägarens dom L4: /tack/ stod där)
+        for loc in re.findall(r'<loc>\s*([^<\s]+)\s*</loc>', (dist / 'sitemap.xml').read_text(encoding='utf-8', errors='replace')):
+            vag = urlparse(loc).path or '/'
+            fil = dist / vag.lstrip('/') / 'index.html' if vag.endswith('/') else dist / vag.lstrip('/')
+            sp = sidobjekt.get(fil)
+            if sp and any(a.get('name') == 'robots' and 'noindex' in a.get('content', '') for t_, a, *_ in sp.el if t_ == 'meta'):
+                F('7.2', vag, 'sidan har noindex men står i sitemap.xml; ta bort den ur sitemap (mallens sitemap.xml.ts hoppar över noindex)')
     f404 = dist / '404.html'
     if not f404.is_file():
         F('7.2', '(alla)', '404.html saknas')
@@ -447,6 +455,9 @@ def granska(dist):
         smulor = any(t_ == 'nav' and re.search(r'du är här|brödsmul|breadcrumb', a.get('aria-label', ''), re.I) for t_, a, *_ in p.el)
         if not smulor:
             F('7.3', sida, 'brödsmulor saknas: <nav aria-label="Du är här"> med länk till startsidan (mallens Brodsmulor.astro)')
+        elif any(t_ == 'nav' and i_main and re.search(r'du är här|brödsmul|breadcrumb', a.get('aria-label', ''), re.I)
+                 for t_, a, _h, i_main in p.el):
+            I('7.3', sida, 'brödsmulorna står inne i <main>; lägg dem mellan sidhuvudet och <main> (GOV.UK), så hamnar varken länkarna eller JSON-LD i huvudinnehållet (ägarens dom L4)')
         if not any('BreadcrumbList' in ld for ld in p.jsonld):
             F('7.3', sida, 'BreadcrumbList saknas i JSON-LD (mallens Brodsmulor.astro)')
     # 9.4 den kastbara sidan för tvåan-riktningen (bygg-sajt steg 5) tas bort efter skärmbilderna
@@ -467,6 +478,11 @@ def granska(dist):
         tel = falt.get('telefon') or {}
         if tel and (tel.get('type') != 'tel' or tel.get('autocomplete') != 'tel'):
             F('6.2', sida, 'telefonfältet ska ha type="tel" och autocomplete="tel"')
+        if tel and not tel.get('pattern'):
+            F('6.2', sida, 'telefonfältet saknar pattern; "abc" går igenom (ägarens dom L4, mallens Forfragan.astro)')
+        utan_fel = [n for n in ('namn', 'telefon', 'meddelande') if n in falt and not (falt[n].get('aria-describedby') or '').strip()]
+        if utan_fel:
+            F('6.2', sida, 'felbeskedet som text vid fältet (aria-describedby) saknas för %s; bara webbläsarens bubbla räcker inte (ägarens dom L4)' % ', '.join(utan_fel))
         if (falt.get('namn') or {}) and (falt.get('namn') or {}).get('autocomplete') != 'name':
             F('6.2', sida, 'namnfältet ska ha autocomplete="name"')
         if (falt.get('webbplats') or {}).get('tabindex') != '-1':
@@ -560,13 +576,22 @@ def _ihop(s):
 
 def adress(dist, verksamhet):
     """7.4: gatuadressen som verksamheten själv visar (adress.publik) står i sidfoten på varje sida, på kontaktsidan och
-    som streetAddress i JSON-LD (ägarens A/B-omdöme 2026-10-02: fullständig NAP avgjorde)."""
+    som streetAddress i JSON-LD (ägarens A/B-omdöme 2026-10-02: fullständig NAP avgjorde). Är den inte publik står den
+    ingenstans (domarna L5 och L6)."""
     try:
         adr = json.loads(Path(verksamhet).read_text(encoding='utf-8')).get('adress') or {}
     except (OSError, ValueError):
         return []
-    if adr.get('publik') is not True or not adr.get('gata'):
+    if not adr.get('gata'):
         return []
+    if adr.get('publik') is not True:
+        # obekräftad eller enbart registrerad adress står ingenstans, inte heller i JSON-LD (ägarens domar L5 och L6)
+        gata, fel = _ihop(adr['gata']), []
+        for f in sorted(Path(dist).rglob('*.html')):
+            if gata in _ihop(f.read_text(encoding='utf-8', errors='replace')):
+                fel.append({'punkt': '7.4', 'sida': sida_av(dist, f),
+                            'text': 'gatuadressen "%s" står på sidan fast adress.publik är falsk (obekräftad eller bara i register)' % adr['gata']})
+        return fel
     gata, fel, ld = _ihop(adr['gata']), [], False
     for f in sorted(Path(dist).rglob('*.html')):
         sida = sida_av(dist, f)

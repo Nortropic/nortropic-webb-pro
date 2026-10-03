@@ -43,8 +43,10 @@ eller "inte undersökt").
 1. **Organisation och typade kontaktvägar.** Juridiskt namn, organisationsform, organisationsnummer om det finns;
    varje kontaktväg typad (telefon · formulär · direktmeddelande · bokningssystem · fysisk plats) med belägg;
    adressens roll (verksamhetsställe, besöksadress, enbart registrerad hemvist) och om adressen får visas: den får
-   visas när verksamheten själv visar gatuadressen (egen sajt, Google-profil, annons); en adress som bara finns i
-   register visas inte.
+   visas när verksamheten själv visar gatuadressen (egen sajt, Google-profil, annons) och ingen annan källa anger en
+   annan; en adress som bara finns i register visas inte. Säger källorna olika (egen sajt mot Hitta, Google eller
+   Bolagsverket), eller är den ena en hemadress: skriv båda med källa, visa ingen och beställ svaret (ägarens domar
+   L5 och L6).
 2. **Erbjudande** i organisationens egna ord.
 3. **Användare och målgrupper** — vilka som faktiskt kommer, med belägg; segment som antas märks.
 4. **Toppuppgifter och handlingskandidater** — vad besökaren vill göra; kandidater till sajtens viktigaste

@@ -140,7 +140,7 @@ assert all(x['fran'] == 1 for x in v['lana']), v['lana']
 " || { echo "FEL: ateljéns domarpanel"; exit 1; }
 echo "   domarpanelen ok"
 
-echo "   ägarens A/B-omdöme: adress, brödsmulor, rörelse, typsnittsvikt, intern text"
+echo "   ägarens A/B-omdöme och L4–L6: adress, brödsmulor, sitemap, telefonfältet, rörelse, typsnittsvikt, intern text"
 "$ROOT/.venv/bin/python" -B -c "
 import sys, re, json, shutil, tempfile, pathlib
 sys.path.insert(0, '$ROOT/kontroller'); import standard_kontroll as sk, copy_kontroll as ck
@@ -164,12 +164,27 @@ for f, t in sidor.items(): f.write_text(t)
 assert ('4.3', '(alla)') in punkter()
 (d / 'bredd.css').write_text('h1{font-stretch:62%}')
 assert ('4.3', '(alla)') not in punkter()
-# publik adress: saknas i sidfot och JSON-LD = fel 7.4; dold adress prövas inte
+# publik adress: saknas i sidfot och JSON-LD = fel 7.4
 v = tmp / 'VERKSAMHET.json'
 v.write_text(json.dumps({'adress': {'gata': 'Provgatan 1', 'postnummer': '123 45', 'ort': 'Provby', 'publik': True}}))
 assert {f['punkt'] for f in sk.adress(d, v)} == {'7.4'}
 v.write_text(json.dumps({'adress': {'gata': 'Provgatan 1', 'postnummer': '123 45', 'ort': 'Provby', 'publik': False}}))
 assert sk.adress(d, v) == []
+# dold (obekräftad) adress som ändå står på en sida = fel 7.4 där (domarna L5 och L6)
+om.write_text(html_om.replace('<h1>Om provet</h1>', '<h1>Om provet</h1><p>Provgatan 1, Provby</p>'))
+assert [f['sida'] for f in sk.adress(d, v)] == ['/om/'], sk.adress(d, v); om.write_text(html_om)
+# dom L4: mallens sitemap har inte /tack/; står en noindex-sida där blir det fel 7.2
+sm = d / 'sitemap.xml'; xml = sm.read_text()
+assert '/tack/' not in xml and '/om/' in xml, xml
+assert not {p for p in ren if p[0] in ('7.2', '6.2')}, ren
+sm.write_text(xml.replace('</urlset>', '<url><loc>https://exempel.se/tack/</loc></url></urlset>'))
+assert ('7.2', '/tack/') in punkter(); sm.write_text(xml)
+# dom L4: brödsmulor inne i main ger information, telefonfält utan pattern och fält utan felbesked ger fel 6.2
+om.write_text(re.sub(r'(<nav class=\"brodsmulor\".*?</nav>)(.*?<main[^>]*>)', r'\2\1', html_om, flags=re.S))
+assert any(i['punkt'] == '7.3' and 'main' in i['text'] for i in sk.granska(d)[1]); om.write_text(html_om)
+kf = d / 'kontakt' / 'index.html'; html_k = kf.read_text()
+kf.write_text(re.sub(r'\spattern=\"[^\"]*\"', '', html_k)); assert ('6.2', '/kontakt/') in punkter()
+kf.write_text(html_k.replace('aria-describedby=\"ff-namn-fel\"', '')); assert ('6.2', '/kontakt/') in punkter(); kf.write_text(html_k)
 # intern text: hänvisning till den gamla sajten
 assert any(f['typ'] == 'intern information' for f in ck.kontrollera_fil(pathlib.Path('x.html'), '<p>Tillbyggnaden, från vår gamla sajt.</p>', [])[0])
 " || { echo "FEL: kontrollerna ur ägarens A/B-omdöme"; exit 1; }
@@ -325,7 +340,7 @@ srv.shutdown()
 " || { echo "FEL: utgående länkar"; exit 1; }
 echo "   utgående länkar ok"
 
-echo "   formulärets svenska besked vid tomt fält (engelsk webbläsare, med och utan JavaScript)"
+echo "   formulärets svenska besked vid fältet och telefonfältets mönster (engelsk webbläsare, med och utan JavaScript)"
 "$ROOT/.venv/bin/python" -B -c "
 import sys, subprocess; sys.path.insert(0, '$ROOT/kontroller'); import prova
 js = '''import { chromium } from \"playwright\";
@@ -333,15 +348,23 @@ const b = await chromium.launch(); const ut = {};
 for (const js of [true, false]) {
   const s = await b.newContext({ locale: \"en-US\", javaScriptEnabled: js }); const p = await s.newPage();
   await p.goto(process.argv[1] + \"/kontakt/\"); await p.click(\"form.forfragan button[type=submit]\");
-  ut[js ? \"med\" : \"utan\"] = { besked: await p.\$eval(\"#ff-namn\", (e) => e.validationMessage), adress: p.url() };
+  const r = { besked: await p.\$eval(\"#ff-namn\", (e) => e.validationMessage), adress: p.url(),
+    vid: await p.textContent(\"#ff-namn-fel\"), fokus: await p.evaluate(() => document.activeElement?.id) };
+  await p.fill(\"#ff-namn\", \"Prov\"); await p.fill(\"#ff-telefon\", \"abc\"); await p.fill(\"#ff-meddelande\", \"Hej\");
+  await p.click(\"form.forfragan button[type=submit]\");
+  r.format = await p.\$eval(\"#ff-telefon\", (e) => e.validity.patternMismatch); r.tel = await p.textContent(\"#ff-telefon-fel\");
+  r.namnKvar = await p.textContent(\"#ff-namn-fel\"); r.kvar = p.url();
+  ut[js ? \"med\" : \"utan\"] = r;
   await s.close();
 }
 await b.close(); console.log(JSON.stringify(ut));'''
 with prova.Server('$S/dist') as srv:
     r = subprocess.run(['node', '--input-type=module', '-e', js, srv.url], cwd='$ROOT/kontroller', capture_output=True, text=True, timeout=120)
 import json; ut = json.loads(r.stdout.strip().splitlines()[-1])
-assert ut['med']['besked'] == 'Skriv ditt namn.', ut
+assert ut['med']['besked'] == 'Skriv ditt namn.' and ut['med']['vid'] == 'Skriv ditt namn.' and ut['med']['fokus'] == 'ff-namn', ut
+assert ut['med']['format'] and ut['med']['tel'].startswith('Skriv numret med siffror') and ut['med']['namnKvar'] == '' and ut['med']['kvar'].endswith('/kontakt/'), ut
 assert ut['utan']['besked'] and ut['utan']['besked'] != 'Skriv ditt namn.' and ut['utan']['adress'].endswith('/kontakt/'), ut
+assert ut['utan']['format'] and ut['utan']['kvar'].endswith('/kontakt/'), ut
 print('   ', ut['med']['besked'], '|', ut['utan']['besked'])
 " || { echo "FEL: formulärets svenska besked"; exit 1; }
 echo "   formulärets besked ok"
