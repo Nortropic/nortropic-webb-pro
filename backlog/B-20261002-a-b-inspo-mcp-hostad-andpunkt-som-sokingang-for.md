@@ -1,12 +1,13 @@
 ---
 id: B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for
-status: pagar
+status: vilande
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS Ow_z94c3wKk + Nutlope/inspo
 skapad: 2026-10-02
 prio: normal
 steg: 3 (referenser, hantverksrollen); kor.sh (anslutningar i bygget)
-andrad: 2026-10-03T00:53Z
+commit: 29ccdc4
+andrad: 2026-10-03T00:58Z
 ---
 # A/B: Inspo MCP (hostad ändpunkt) som sökingång för referenser i steg 3, mot dagens egna referensjakt
 
@@ -15,3 +16,5 @@ andrad: 2026-10-03T00:53Z
 **Förslag:** A-armen: kor.sh rad 62 får, när NWP_MCP_CONFIG är satt, --mcp-config "$NWP_MCP_CONFIG" bredvid --strict-mcp-config; ny fil kontroller/mcp/inspo.json med den hostade HTTP-ändpunkten https://inspomcp.dev/api/mcp (ingen npx, ingen lokal kod). .claude/skills/bygg-sajt/SKILL.md steg 3, efter rad 153: ett stycke om att recommend, search_screens och get_screen används för hantverksrollen och mobilparen som sökingång när Inspo är anslutet; varje vald referens öppnas ändå med inspektera.mjs och skrivs i REFERENSER.md med källa Inspo; get_reference_jsx, paletteSuggestion och heroGuidance används aldrig (rad 252 och mobilen först gäller). B-armen: som i dag. Två körningar per arm på samma verksamhet; blind parvis jämförelse i dashboarden med ombytt ordning; en annan modell än byggaren som domare; oenighet = oavgjort; tokens, minuter och antal Inspo-anrop ur korning-*.jsonl redovisas bredvid kvaliteten.
 
 **Klart när:** Fyra körningar klara (två per arm), AB-post i LARDOMAR.md med ägarens blinda val och domarens, kostnad per arm redovisad, och beslut om stycket i steg 3 och NWP_MCP_CONFIG står kvar eller tas bort.
+
+**Vilande (2026-10-03):** reglaget klart (29ccdc4); väntar på ägarens A/B: två gånger 'ab.py starta <slug> "<verksamhet>" --variabel inspo --a av --b kontroller/mcp/inspo.json' och blinda val
