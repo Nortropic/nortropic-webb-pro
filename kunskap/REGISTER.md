@@ -4111,3 +4111,89 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   `kunskap/byggstandard.md` 1.6 bredvid utvecklarens README; görs tillsammans med lanseringstextens omskrivning
 - Utfall: —
 - Backlog: ingen för domen; innovationspost B-20261003-vid-lansering-far-verksamheten-en-egen-sida-sa-a
+
+### 2026-10-03 · Self-Made Web Designer (Chris Misterek), "6 EASY Tips to 10x Any Site's Design" (YouTube pbhLsV-Dyho) · nej
+- Källa: https://www.youtube.com/watch?v=pbhLsV-Dyho @ publicerad 2026-03-05 (15:30, 265 073 visningar, manuellt
+  engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 41 bildrutor: 13 är berättaren
+  framför bokhyllan; nio är textplattor (sex kort med ikoner [SKÄRM 00:18], "Level 1 Just one font · Level 2
+  Superfamilies · Level 3 Font combos" [SKÄRM 01:12], Source Sans/Serif/Code Pro som superfamilj [SKÄRM 00:50],
+  "Too Similar: Georgia, Times" [SKÄRM 02:19], "Visual Rhymes: shapes, colors, textures" [SKÄRM 08:18], Materials
+  opacitetstabell 87/60/38 % [SKÄRM 12:25], "Version 1 → 1.1, 1.2, 1.3" [SKÄRM 13:54], Sanderson-bilder [SKÄRM 06:04,
+  06:26]); fyra visar främmande sajter (Fonts In Use [SKÄRM 02:42, 03:27, 03:49], "Rank: Community-powered wealth"
+  med solfjäder av porträtt [SKÄRM 05:19], "iru: Collapse the stack" med gradientstaplar [SKÄRM 05:41], Flecto
+  "Unlock your rental business" med nyckelformad grön yta och sedan taggar och naggade bildhörn [SKÄRM 09:03,
+  09:25]); en är Unsplash-sökningen "orange gradient vertical lines" [SKÄRM 07:11]; åtta visar berättarens egen
+  Figma-fil före och efter: en mörk SaaS-toppsektion "Streamlined operations, maximized revenue." i Instrument
+  Serif, orange knapp "Start with a Free Trial", ett stockfoto från en frisörsalong och en ruta "10x Increase in
+  First Time Appointments" [SKÄRM 03:04, 04:12, 07:33, 09:48, 10:10, 10:33, 12:47, 13:10]. De åtta länkarna i
+  beskrivningen: väntelista för berättarens kurs, nyhetsbrev, Showit (affiliate), Instagram, medlemskap och tre egna
+  videor [BESKRIVNING]; ingen leder till ett repo eller en byggd sajt, ingen öppnad. Ägarens not: ingen
+- Steg: 5 (5.1 riktning, 5.3 bygg, 5.5 titta) och granskaren
+- Jämfört med i dag, tips för tips: (1) **Typografi: ankarfont ur rubriken, par med kontrast, slå upp i Fonts In
+  Use** [TAL 00:00–04:34; SKÄRM 01:12, 02:19, 03:27]. Vi: varje riktning anger ett namngivet typsnitt med roll och
+  riktningarna skiljer sig i minst två typsnittskategorier (`.claude/skills/bygg-sajt/SKILL.md` rad 210–213),
+  "Pair for contrast, not similarity … two near-identical sans-serifs read as a mistake"
+  (`.claude/skills/better-typography/choosing-fonts.md` rad 25), högst två familjer och mätt filstorlek
+  (`kunskap/byggstandard.md` 4.3, rad 60); Typografi "Bra" i alla tre domarna (`LARDOMAR.md` rad 35, 60, 84). Fonts In
+  Use som uppslag för par är det enda nya, en sökingång bredvid referensjakten; ingen metod. Lika. (2) **"Star of the
+  show", ett element som bär sidan och växer ur verksamhetens berättelse** [TAL 04:34–08:17; SKÄRM 05:41, 07:11,
+  07:33]. Vi: varje riktning bygger på en sak ur "Bara de har" och raden Visuell tes namnger ett material eller en
+  plats ur den (SKILL.md rad 211, 219–220); frontend-design: "Open with the most characteristic thing in the
+  subject's world" (`kunskap/externa/anthropic-frontend-design-SKILL.md` rad 17). Principen är densamma; utförandet
+  i videon är ett abstrakt orange gradientfoto från Unsplash, vänt och maskat [SKÄRM 07:11, 07:33], ovanpå ett
+  stockfoto från en salong [SKÄRM 03:04], vilket krockar med verksamhetens egna bilder som medvetet val (ägaren L3:
+  "hellre inga foton än stock", `LARDOMAR.md` rad 90; granskaren straffar stockbilder, `kritik/GRANSKARE.md` rad
+  89). Lika i princip, sämre i utförande. (3) **Visuella rim: ett motiv ur loggan som återkommer i meny, bildmask och
+  utropsruta** [TAL 08:17–10:42; SKÄRM 08:18, 09:03, 09:25, 10:33]. Vi: dimension 8 Konsekvens "håller draget genom
+  första vyn, en sektion till och sidfoten" (`kunskap/referenser-professionella.md` rad 30) med notion.com som
+  exemplar (rad 57), CRAP-regelns repetition i måttstocken (`kunskap/teoretisk-grund.md` rad 62–63), och bygget
+  Sundboms gjorde det av sig självt: "formen är härledd ur ordmärket (svart kontur, hård förskjuten skugga)"
+  (`LARDOMAR.md` rad 78); Konsekvens "Bra" i alla tre domarna (rad 35, 60, 84). Videons är en metod att skapa
+  konsekvensen, vår är en fråga som prövar den. Lika i resultat; innovationsposten nedan tar metoden. (4) **Djup:
+  brus, texturer och glaseffekt på kort och meny** [TAL 10:42–12:23; ingen bildruta visar effekten, 11:17 och 12:02
+  är berättaren]. Vi: ytor och skuggor med
+  funktion i better-ui (`.claude/skills/better-ui/surfaces.md` rad 180: 1 px kontur med låg opacitet för jämnt djup),
+  brus bara som botemedel mot banding i stora toningar (`.claude/skills/better-colors/color-usage.md` rad 83),
+  stilrapporten varnar för toning som bakgrund (`kontroller/stil.mjs` rad 246), frontend-design räknar "gradient
+  washes as decoration" och samma mjuka skugga under varje kort som AI-mönster (rad 42), granskaren straffar "dekor
+  utan funktion" (`kritik/GRANSKARE.md` rad 89). Glas på kort och brus på en gradient är just det utseende regeln mot
+  slop pekar ut. Sämre. (5) **Hierarki med opacitet: rubrik 100 %, underrubrik 70 %, efter Materials 87/60/38**
+  [TAL 12:23–13:33; SKÄRM 12:25, 13:10]. Vi: dämpad text som egen solid token, eftersom "a color carrying alpha cannot
+  be contrast-checked against a static background" (`.claude/skills/better-colors/token-naming.md` rad 97), och
+  kontrasten mäts i den renderade sidan, 4,5:1 för text (`kunskap/byggstandard.md` 3.4, rad 49). Opacitet över ett
+  foto eller en toning, som i videons exempel, ger en kontrast som beror på vad som råkar ligga bakom. Före- och
+  efterbilden [SKÄRM 13:10] visar två toppsektioner som på skärmen inte går att skilja åt. Sämre. (6) **Gör radikalt
+  olika varianter i stället för att putsa den första; tolv versioner av stjärnan** [TAL 13:33–14:59; SKÄRM 13:54].
+  Vi: fyra riktningar med namngiven axel, "ingen halmgubbe; varje riktning ska kunna vinna" (SKILL.md rad 208–218),
+  tvåan som renderad andra riktning (rad 246–253), byt riktning när originaliteten legat under 7 i två omgångar och
+  bästa mot sista (rad 273–278). Samma princip, hos oss som arbetssätt med prov; videons tolv varianter är ett
+  påstående, en syns [SKÄRM 13:54 visar tre rutor "Version 1.1–1.3", inga sajter]. Lika. Resultatet mot de åtta
+  dimensionerna, sett med egna ögon [SKÄRM 10:33, 13:10]: hållning saknas, ett annat produktnamn kunde sättas dit;
+  substans saknas, "Streamlined operations, maximized revenue" och "Empower your business with cutting-edge software
+  solutions designed to optimize efficiency and boost profitability" [SKÄRM 03:49] säger inte vad, för vem eller hur
+  och är byråfraser enligt `kunskap/copy-kontroll.md` rad 12; förtroende: siffran "10x Increase in First Time
+  Appointments" står utan källa; bilderna är två stockbilder; mobil osedd, inget byggt, bara Figma. Mot
+  litteraturen: tipsen rör CRAP (Williams 2015) och estetik–användbarhet (Kurosu & Kashimura 1995) i måttstocken
+  (`kunskap/teoretisk-grund.md` rad 62–66) utan att nämna dem; "websites that convert" [TAL 00:00] är ett påstående
+  utan mätning, och inget tillför en utvärderingsmetod
+- Skäl: fyra av sex tips finns redan hos oss i prövbar form (par med kontrast i better-typography, bärande element
+  ur "Bara de har" och Visuell tes, Konsekvens som dimension, fyra riktningar och tvåan i stället för att putsa den
+  första), och de två som är nya, glas och brus som djup och opacitet som hierarki, krockar med regeln mot slop och
+  med mätt kontrast på solida token. Det som visas på skärmen är en generisk SaaS-toppsektion byggd på två stockbilder
+  och byråcopy, som skulle falla på hållning, substans och stockbilder i granskningen. Källkritik: beskrivningen
+  säljer en väntelista, ett medlemskap och Showit med affiliatelänk [BESKRIVNING]; "10x" i titeln och "websites
+  that convert" [TAL 00:00] är obelagda; de tre sajterna som visas som förebilder [SKÄRM 05:19, 05:41, 09:03] är
+  kompetenta men inte bedömda i mobil. Inga instruktioner till agenter
+- Kostnad: inget tas in. Innovationsposten nedan är en rad i steg 5.1, inga nya tokens i bygget utöver en rad per
+  riktning i KONCEPT.md
+- Säkerhet: transkriptet förgranskat: HÖG på grund av ett nollbreddstecken (U+200D) på rad 41 i beskrivningen; läst
+  i sammanhang är det fogtecknet i emojin "👨🏼‍💻" före "Try out Showit", ingen gömd text. Ingen text riktad till
+  agenter, inga skript. Inget kört eller installerat; inget fört vidare
+- Förslag: inget. Egen innovation, inspirerad av punkt 3: varje riktning i KONCEPT.md namnger ett motiv ur märket
+  eller "Bara de har" och de tre ställen där det bär formen (listmarkör, bildmask, avslut eller sidfot), aldrig dekor
+  utan funktion (frontend-design rad 30), som en rad i `.claude/skills/bygg-sajt/SKILL.md` steg 5.1 rad 210–212.
+  Ägarens mall-lukt i L1–L3 satt i tjänstelistor, sektionsformer och sidfötter som "skulle passa vilken firma som
+  helst" (`LARDOMAR.md` rad 29, 54, 78); ett motiv ur märket i just de elementen är det minsta som gör dem till
+  verksamhetens
+- Utfall: —
+- Backlog: ingen för domen; innovationspost B-20261003-varje-riktning-i-koncept-md-namnger-ett-aterkomm
