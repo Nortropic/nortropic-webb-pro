@@ -6441,3 +6441,59 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   paket
 - Utfall: —
 - Backlog: ingen för domen; egen innovation B-20261003-spanaren-jamfor-en-github-release-med-versionen
+
+### 2026-10-03 · OpenAI, "Frontend prompt instructions" (developers.openai.com, guide för GPT-5.5) · nej
+- Källa: https://developers.openai.com/api/docs/guides/frontend-prompt, läst 2026-10-03 (sidan saknar datum och
+  licens; prompten är skriven för att kopieras [TEXT rad 48, 53]). Läst: hela sidtexten (TEXT.md, 95 rader) och
+  skärmbilderna mobil-forsta, desktop-forsta [BILD]; de 14 skrollbilderna visar samma kodruta längre ned och lästes inte
+  var för sig. Sidan är en dokumentationssida med en enda kopierbar prompt, 29 punkter under "Build with empathy" och
+  "Design instructions", inga bilder av resultat [BILD desktop-forsta.png]. Ägarens not: spanaren fann den på orden
+  agent, frontend, prompt.
+- Steg: 5 (koncept och bygge) och 6 (stilrapporten, renderingsläsningen).
+- Jämfört med i dag: **källan är redan intagen, via bevakningen, inte kirurgen.** Backlogposten
+  `backlog/B-20261002-stilrapport-i-provet-renderade-typsnitt-fargfami.md` (rad 5, 14, 20) har exakt den här adressen
+  som källa, status klar, commit 442ed69 (2026-10-02: `kontroller/stil.mjs` ny, prova.py, standard_kontroll.py,
+  byggstandarden 3.1 och 3.3), och `kunskap/spaning-kallor.md` rad 28 för källan som "gav en post". Sak för sak: (1)
+  **Skanna färgerna och revidera om sidan läses som lila, beige/cream, mörkblå/skiffer eller brun/orange** [TEXT rad
+  85]: `kontroller/stil.mjs` rad 3 namnger källan, rad 212–235 delar in bakgrund och accent i familjer, rad 266–268
+  varnar för just de fyra. Lika. (2) **Nästa sektions innehåll skymtar under toppsektionen i varje vy** [TEXT rad 74]:
+  stil.mjs rad 74–77 och 303–304, `bygg-sajt/SKILL.md` rad 351–352. Lika. (3) **H1 är namnet, platsen eller ett
+  bokstavligt erbjudande, värdeorden i stödtexten** [TEXT rad 75]: SKILL.md rad 351. Lika. (4) **Inga kort i kort, inga
+  sektioner som flytande kort, kort bara för upprepade objekt** [TEXT rad 79]: stil.mjs rad 60–73, 271–272, och
+  `kritik/GRANSKARE.md` rad 93 straffar likadana kort under originalitet; `anthropic-frontend-design-SKILL.md` rad 42
+  och taste rad 214–216 säger samma sak i steg 5. Lika. (5) **Inga gradientorbar eller bokeh** [TEXT rad 80]: stil.mjs
+  rad 48–59 och 269 (gradient som bakgrund), taste rad 39, 296. Lika. (6) **Riktiga bilder av platsen, varan och
+  personen, inga stockliknande eller atmosfäriska** [TEXT rad 76]: steg 1 punkt 2 "Inga stockbilder" (SKILL.md rad 90),
+  byggstandarden 9.3 (rad 121), ägarens L3 "hellre inga foton än stock". Lika. (7) **Playwright-skärmbilder i mobil och
+  desktop före leverans** [TEXT rad 78]: provets inspektion i 390 och 1440 (SKILL.md rad 308–311). Lika. (8) **Stabila
+  mått så att inget skiftar** [TEXT rad 83]: width och height på bilder (2.4) och CLS ≤ 0,1 (4.1). Lika. (9) **Text ska
+  rymmas i sitt element på varje vy och inget får överlappa** [TEXT rad 81, 86]: vi mäter horisontellt spill på
+  dokumentnivå (`kontroller/webblasare/gemensamt.mjs` rad 120–121, `utforska.mjs` rad 124) och klickbar text som bryts
+  på två rader (stil.mjs rad 285); överskjutande text inne i en ruta ser bara granskaren. **Det enda som återstår**,
+  se egen innovation. Krockar: (10) **ingen flytande typografi med viewportbredd och spatiering 0, aldrig negativ** [TEXT
+  rad 84] mot byggstandarden 3.2 (rad 47) som kräver clamp() med rem och vw för zoom (rättelsen rad 145–146, WCAG
+  1.4.4) och better-typography (rad 71–73) som tillåter lätt negativ spatiering i stora rubriker; vi behåller vårt,
+  källan ger inget skäl. (11) **Text över en helbildsbakgrund i toppsektionen, aldrig delad text/bild-layout** [TEXT
+  rad 73] mot ägarens L6 (`LARDOMAR.md` rad 175: Dinesens lärdom att inte sätta text på bild) och Holms
+  (`JAMFORELSE.md` punkt 4: "lägger aldrig text på foto"); våra dömda byggen använder delad layout utan kort och
+  ägaren godkände dem. Vi behåller vårt. Gäller inte oss: ikoner i knappar och lucide [TEXT rad 67–69], tooltips,
+  segmenterade kontroller, "bygg aldrig en landningssida" [TEXT rad 72], Three.js [TEXT rad 78], dev-server [TEXT
+  rad 88]: prompten är skriven för appar och verktyg, vi bygger just den sorts sida den ber modellen undvika. Mot
+  litteraturen: Krugs självklara sida och skanning (`kunskap/teoretisk-grund.md` rad 103) bär punkterna 2, 3 och 9; de
+  står redan hos oss.
+- Skäl: domen är nej för att det inte finns något att ta in nu: allt i prompten som gör en sajt bättre togs in
+  2026-10-02 (stilrapporten, H1-regeln, nästa sektion skymtar, kortvarningarna, färgfamiljerna) och har sedan verkat i
+  Holms (`JAMFORELSE.md` punkt 3: botten byttes från krämvitt till vitt när stilrapporten flaggade cream), det som
+  återstår krockar med medvetna val (zoombar typografi, ingen text på foto) eller gäller appar. Inte parkera: en
+  prompt för en annan leverantörs modell blir inte aktuell senare, och nästa version av guiden får spanaren se som en
+  ändring mot B-20261002, inte som ny källa. Källkritik: leverantörens egen dokumentation, utan belägg för att
+  punkterna ger bättre resultat; inga påståenden om effekt, inga instruktioner till agenter utöver att prompten
+  självklart är skriven i du-form till en modell [TEXT rad 56]. Den styr inte den som läser.
+- Kostnad: inget tas in. Sidtexten är omkring 2 050 tokens om någon läser den (förgranskningen); inga beroenden.
+- Säkerhet: förgranskningen LÅG, inga dolda tecken, ingen text riktad till agenter, inga skript. Inget kördes.
+- Förslag: inget för domen. Egen innovation: stilrapporten mäter text som inte ryms i sitt eget element i 390 och 320
+  px (scrollWidth mot clientWidth per textbärande element, och det längsta ordets bredd mot elementets), som
+  information; punkt 9 ovan är det enda ur prompten som varken provet eller stilrapporten mäter, och svenska
+  sammansatta ord i knappar och spalter är den vy där det brister först.
+- Utfall: —
+- Backlog: ingen för domen; egen innovation B-20261003-stilrapporten-mater-text-som-inte-ryms-i-sin-ege
