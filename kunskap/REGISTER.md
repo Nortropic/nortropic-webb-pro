@@ -5506,3 +5506,72 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: —
 - Backlog: B-20261003-fasta-lister-och-klibbiga-sidhuvuden-star-i-flod (A och B) och
   B-20261003-mobilvyn-390-px-provas-ocksa-i-webkit-playwright (egen innovation)
+
+### 2026-10-03 · Self-Made Web Designer (Chris Misterek), "11 years of web design knowledge in 7 minutes" (YouTube ityZtG3FMgw) · nej
+- Källa: https://www.youtube.com/watch?v=ityZtG3FMgw @ publicerad 2026-08-27 (7:14, 25 471 visningar, manuellt
+  engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 22 bildrutor. Videon är en
+  nyinspelning av 1NTKwpAVcHg, "Give Me 7 Minutes & Your Web Design Skills Will Take Off", som dömdes nej tidigare i
+  dag (posten 2026-10-03 ovan): samma längd, samma tio kapitel och samma manus nästan ord för ord ("That's actually
+  bogus" [TAL 00:35], "stop using ghost buttons" [TAL 01:45], 60-30-10 [TAL 02:54], "sales plummeted" [TAL 05:11],
+  "fancy designs are mostly made for designers, not users" [TAL 05:49]). Det nya är grafiken: sex bildrutor är
+  berättaren framför bokhyllan [SKÄRM 00:23, 00:44, 01:26, 05:16, 06:32, 06:50]; en är introt med en gul hjärna
+  [SKÄRM 00:02]; sex är textplattor ("YOU'LL READ THIS FIRST / then this / then maybe this" [SKÄRM 01:05], sex
+  typsnittskategorier [SKÄRM 03:21], Vignelli-citatet [SKÄRM 03:42], "GOOD DESIGN ≠ CONVERSION" [SKÄRM 05:03],
+  "CONVERSION = Reducing Friction" [SKÄRM 05:37], "Fancy designs are mostly made for designers, not users." [SKÄRM
+  06:19]); en är en pixelikon av en dator med ett hjärta [SKÄRM 05:58]; en är Coolors kontrastmatris [SKÄRM 02:39];
+  sju visar främmande sajter på desktop: Teak, "The retention engine behind irresistible games", med en gul fylld knapp
+  "Book a demo" inringad och siffror "30%+ Higher CTR" under [SKÄRM 01:47]; Clevr, gul bakgrund, "Summer sale, Up to
+  50% off", med paletten i fem rutor bredvid [SKÄRM 02:04]; en mörk gymsajt "OUR STORY" där grå brödtext på svart är
+  inringad som dålig kontrast [SKÄRM 02:18]; Jitter, "Super fast motion for every team", med pilarna 60, 30 och 10 mot
+  bakgrund, text och lila knapp [SKÄRM 03:00]; Beyond, "We build the technology that powers business growth", med H1,
+  H2 och P handskrivet i marginalen och siffrorna "600+ 15+ 500+" [SKÄRM 04:03, 04:24]; och Meridian Group,
+  "Marketing that moves markets", med ett stockfoto av tre personer i kostym inringat som exempel på "random people
+  smiling" [SKÄRM 04:44]. Inget eget bygge, ingen process, inget resultat av berättaren att bedöma; mobil osedd. De
+  tre länkarna i beskrivningen: nyhetsbrev, Instagram och videon T5JglDcd54A som redan är dömd nej (2026-10-03)
+  [BESKRIVNING]; ingen öppnad, ingen leder till ett repo. Ägarens not: hittad av spanaren 2026-10-03 via YouTube
+  (Self-Made Web Designer, rss); matchade color, conversion, design, images, typography, web
+- Steg: 5 (5.1 riktning, 5.3 bygg, 5.5 titta), 6 (femsekunderstestet) och granskaren
+- Jämfört med i dag: punkt för punkt samma åtta råd som i posten om 1NTKwpAVcHg, och jämförelsen där gäller
+  (hierarki som dimension 4 och better-layout per sida, fylld primärknapp med mätt kontrast, färgroller per yta i
+  stället för procent, rubriknivåer som standardpunkt 2.1, första vyn som femsekunderstest). Det som bildrutorna
+  lägger till: (1) **Tre frågor per sektion: var landar ögat först, vad ses sedan, vad missas helt; och provet "visa
+  den för någon i några sekunder och fråga vad de minns i ordning"** [TAL 01:10; SKÄRM 01:05]. Vi: femsekunderstestet
+  frågar "Vad såg du allra först, i vilken ordning?" om startsidans första vy i 390 och 1440
+  (`kritik/FRAGA-femsekunderstest.md` rad 3; `.claude/skills/bygg-sajt/SKILL.md` rad 350–355), och varje sida gås
+  igenom med better-layout för luft och hierarki innan JAMFORELSE.md skrivs (rad 311–313). Videons prov gäller varje
+  sektion, vårt första vyn plus en genomgång per sida. Lika i sak. (2) **Knappen som syns** [SKÄRM 01:47]: Teaks
+  gula fyllda knapp är det videon kallar rätt; samma regel står i better-colors: "one primary action gets it and peers
+  stay neutral … A filled button reads as primary across the room" (`.claude/skills/better-colors/SKILL.md` rad 71),
+  och ägarens tre första domar beskriver fyllda knappar i röd, svart och vit på gult (`LARDOMAR.md` rad 30, 55, 79).
+  Lika. Siffrorna "30%+ Higher CTR" under knappen står utan källa; hos oss faller en sådan rad i copykontrollen
+  (`kunskap/copy-kontroll.md` rad 16). (3) **Dålig kontrast som negativt exempel** [SKÄRM 02:18] och Coolors som
+  verktyg [SKÄRM 02:39]. Vi: 4,5:1 för text mätt med axe i den renderade sidan (`kunskap/byggstandard.md` 3.4, rad
+  49); att pröva paletten i ett externt verktyg före bygget är ett steg mindre exakt. Sämre. (4) **Paletten ur
+  märket och bildens färger ska stämma med sajtens** [TAL 01:45–02:19, 04:36; SKÄRM 02:04]. Vi: riktningarna
+  härleds ur verksamheten själv, "deras bilder, material, plats, ton", med bakgrund och accent som hex (SKILL.md rad
+  245–247). Lika. (5) **"Random people smiling" är inte en bild med syfte** [TAL 04:36; SKÄRM 04:44]. Vi: inga
+  stockbilder (SKILL.md rad 89), ägaren L3 "hellre inga foton än stock" (`LARDOMAR.md` rad 90), granskaren straffar
+  stockbilder (`kritik/GRANSKARE.md` rad 92), och det som saknas beställs (SKILL.md rad 20–24). Lika; vår regel
+  säger också vad som ska stå i stället. (6) **H1, H2, P på Beyond** [SKÄRM 04:03, 04:24]: exakt en h1 och
+  rubriknivåer utan hopp (byggstandarden 2.1, rad 36), rubriktestet (SKILL.md rad 356–359). Lika. Sett med egna
+  ögon mot de åtta dimensionerna: de sju sajterna är SaaS, e-handel, ett gym, en teknikbyrå och en marknadsbyrå, alla
+  på desktop; ingen är ett litet företag med ett nummer att ringa, och ingen är byggd av berättaren. Mot
+  litteraturen: F-mönstret kallas "bogus" utan belägg [TAL 00:35] mot Nielsen (2006) och Redish (2012) i måttstocken
+  (`kunskap/teoretisk-grund.md` rad 89–90), som hos oss gäller skanningsbeteende, inte layout; råden om hierarki,
+  knapp och färg är CRAP (Williams 2015, rad 62–63) och Foggs trigger (rad 105–106) utan att nämnas; ingen
+  utvärderingsmetod tillförs utöver det femsekunderstest vi redan kör
+- Skäl: samma manus som 1NTKwpAVcHg med ny grafik, och domen är densamma: sju nybörjarråd som alla finns hos oss i
+  mer prövbar form, och det enda som säger emot vår måttstock, att F-mönstret är "bogus", ges inget belägg. De nya
+  bilderna visar sju främmande desktopsajter och en kontrastmatris, inget berättaren byggt och inget i mobil, så det
+  finns inget att pröva mot de åtta dimensionerna. Källkritik: beskrivningen säljer nyhetsbrevet och leder vidare
+  till berättarens processvideo [BESKRIVNING]; "sales plummeted" [TAL 05:11] saknar uppgift om vad som ändrades;
+  siffrorna på de visade sajterna står utan källa [SKÄRM 01:47, 04:24]. Inga instruktioner till agenter
+- Kostnad: inget tas in
+- Säkerhet: transkriptet förgranskat: HÖG på grund av ett nollbreddstecken (U+200D) på rad 37 i beskrivningen; läst
+  i sammanhang är det fogtecknet i emojin "🧑‍💻" före "My full web design project process", ingen gömd text. Ingen
+  text riktad till agenter, inga skript. Inget kört eller installerat; inget fört vidare
+- Förslag: inget. Ingen egen innovation: det enda som kunde tas vidare, frågan "vad missas helt" per sektion, täcks
+  av better-layout per sida och femsekunderstestets "i vilken ordning", och förra posten om samma manus gav inte
+  heller något
+- Utfall: —
+- Backlog: ingen
