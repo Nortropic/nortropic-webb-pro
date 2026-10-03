@@ -26,6 +26,21 @@ Gallerier som Awwwards, SiteInspire, Godly, FWA, CSS Design Awards, Httpster och
 sökingångar, inte en stilhierarki. Ett litet företag får ha avancerat hantverk när uppgift, budget och drift
 bär det. Följ galleri till faktisk sajt när slutsatsen gäller beteende eller responsivitet.
 
+**Luckor ägaren pekat ut.** I domarna L1–L3 saknade ägaren samma slags referens (LARDOMAR.md, frågan om
+referenserna). Pröva dessa sökingångar i rollen UX/funktion när briefen bär något av följande, öppna dem med
+`kontroller/webblasare/inspektera.mjs` som alla andra och skriv i REFERENSER.md vad du såg, eller varför ingen
+passade:
+
+- **Förtroendeblocket hos en svensk hantverkare** (F-skatt, försäkring, org.nr, behörighet, omdömen): hur en svensk
+  firma visar det på sin egen sajt, och hur Hantverkskollen, Reco och Offerta visar en profil; för elfirmor
+  Elsäkerhetsverkets "Kolla elföretaget".
+- **En daterad bildserie på 390 px** (jobb med ort och datum, före och efter): hur en serie läses i mobilens bredd utan
+  att bli ett galleri.
+- **Resultat med få bilder** (en eller två egna foton): en sajt där typografi, kvitton eller ett motiv bär sidan när
+  bilderna inte räcker.
+
+Ingen kvot och inget facit: luckan är en plats att leta på, inte en referens att kopiera.
+
 ## Läs och se på riktigt
 
 Öppna de utvalda sajterna i riktig webbläsare på relevant mobil och större vy. Läs representativt innehåll,
