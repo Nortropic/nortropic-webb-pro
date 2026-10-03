@@ -5996,3 +5996,91 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Jono Catliff, "Claude Code SEO Audit: Fix Your Whole Website In 1 Prompt (Steal This)" (YouTube M2KJ5-sFbbg) · nej
+- Källa: https://www.youtube.com/watch?v=M2KJ5-sFbbg @ publicerad 2026-08-30 (Jono Catliff, 19:38, 23 947 visningar,
+  autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 45 bildrutor: elva
+  är berättarens eget bildspel (fem lager, rapport eller rapport+fix, datakällor, loopen, Lighthouse, doorway pages,
+  prospektkörningen), resten inspelningar av den genererade HTML-rapporten, VS Code med Claude Code, Semrush, Search
+  Console, Google-företagsprofilen, en rörmokarsajt och Skool. Repot github.com/jonocatliff/seo-audit visas som
+  "Private" [SKÄRM 06:10] och `gh repo view` hittar det inte; den "fria blueprinten" ligger bakom Skool-inloggning
+  (sidan hamnade på gruppens about-sida, "Private · 24.7k members" [BILD skool-blueprint/desktop-forsta.png]).
+  Kommandot `/audit` kunde alltså inte läsas, bara filträdet (.claude/commands, code, references, CLAUDE.md,
+  README.md, prompt.md; HTML 91,9 %, Python 8,1 %) [SKÄRM 06:10] och det som syns i rapporten. Beskrivningens 30
+  länkar: Skool, Semrush-affiliate ("A big thanks to Semrush for partnering with me on this video"), sexton egna
+  affiliatelänkar, byrån, konsultbokning, sociala konton och fyra egna videor [BESKRIVNING]. Inget klonat, kört eller
+  installerat. Ägarens not: hittad av spanaren 2026-10-03 via YouTube: Jono Catliff (rss); matchade audit, claude
+  code, prompt, seo, website
+- Steg: 2 (diagnos av nuvarande sajt), 6 (prov), 7 (rapport, före och efter), lanseringen (sökkonsol, 301), och
+  prospektflödet (`kunskap/prospekt-och-utskick.md`)
+- Jämfört med i dag, lager för lager: (1) **Datakällor.** Sajten, Semrush site audit som MCP-anslutning i claude.ai,
+  Search Console-export och tre inklistrade delar ur företagsprofilen [SKÄRM 03:43, 08:30, 09:34, 10:03; TAL
+  03:48–04:21, 08:28–10:26]. Vi: `hamta_sajt.py` hämtar hela deras sajt (sitemap, interna länkar, status och ordantal
+  per adress, bilder, kontaktvägar; `kontroller/hamta_sajt.py` rad 2–9, bygg-sajt rad 72–84); diagnosen kör axe,
+  Lighthouse och inspektionen på deras sidor (bygg-sajt rad 113–116). Semrush är betalt efter provperioden och en
+  anslutning som ger en tjänst åtkomst till kontot; prospektflödet säger uttryckligen "inga betaltjänster för leads
+  eller analys" (`kunskap/prospekt-och-utskick.md` rad 74). Search Console kräver ägarens konto, och vi kontaktar
+  aldrig verksamheten före bygget (bygg-sajt rad 129–130); fältdata hör till tiden efter lansering
+  (`kunskap/teoretisk-grund.md` rad 21, 42). Krockar. (2) **On-page, 80 kontroller.** Title 50–60, description
+  140–160, canonical, ett h1, rubrikordning, alt under 125 tecken, WebP under 100 kB, width och height, lazy men
+  aldrig LCP-bilden, "no generic AI phrasing" [SKÄRM 12:53, 13:21]. Vi: byggstandarden 2.1, 2.3, 2.4, 4.2, 7.1
+  (`kunskap/byggstandard.md` rad 36–39, 59, 97) prövade av `standard` och `seo`; copykontrollen för fraserna. Lika i
+  sak, men en tredjedel av källans kontroller är sökordsplacering: "primary keyword sits near the front of the
+  title", "in the slug", "in the first 100 words", "cluster keyword variants woven into H2/H3" [SKÄRM 12:53]. Vi
+  skriver "sanningsenliga, utan superlativ och utan ortstoppning" och "ingen text för sökmotorer som inte är för
+  läsare" (`kunskap/seo.md` rad 22–23, 44). Sämre. Och i källans egen körning står "Exactly one H1, and it contains
+  the primary keyword · FAILING 1 page" kvar efter fixen [SKÄRM 12:53, 13:21]. (3) **Teknik.** Lighthouse per mall,
+  loopen "score it, fix it, score it again" tills nära 100 [SKÄRM 14:18, 15:43; TAL 13:45–14:19]. Vi: 4.1 ≥ 90 i
+  mobil och desktop som grind (rad 58), provet och granskningen körs om tills grönt (bygg-sajt rad 343, 365). Lika;
+  källans resultat visar best practices 79 oförändrat på alla fyra mallar trots "near perfect" [SKÄRM 15:43]. (4)
+  **AI overviews, 38 kontroller.** De första 40–100 orden under varje h2, tabeller, FAQ-block [TAL 15:28–15:57;
+  SKÄRM 00:29: "12 FAQ answers, 7 tables, llms.txt, author page"]. Vi: FAQ på den sida frågorna hör till (`seo.md`
+  rad 12–13), och rättelserna att FAQPage inte längre ger rikresultat och att llms.txt inte behövs (byggstandarden
+  rad 142–144, 153, 7.6 rad 102). Exemplet som berättaren visar som vinnare är en rörmokarsida med stockfoto och ett
+  första stycke där sökfrasen upprepas ("how much does a plumber cost Ottawa homeowners should expect …") [SKÄRM
+  15:15]; han säger själv "that's definitely not a stock image" med ironi [TAL 14:47]. Det är 9.4 (rad 122) och
+  L0 (`LARDOMAR.md` rad 23) hos oss. Sämre. (5) **Doorway pages.** Fyrtio ortsidor med bara ortnamnet bytt är en sida
+  i Googles ögon; en riktig ortsida har något som bara gäller där, ett lokalt omdöme, en lokal FAQ; "merge the rest,
+  redirect the addresses" [SKÄRM 16:40; TAL 16:01–16:56]. Vi: "en sida per ort bara med verkligt lokalt innehåll"
+  (`seo-lokal.md` rad 19; `seo.md` rad 10–12), 301 från gamla adresser (7.2 rad 98; `seo.md` rad 26–27), och ägarens
+  dom L1: "Ja, ta bort och led vidare" (`LARDOMAR.md` rad 50). Lika; redan dömt. (6) **Företagsprofilen.** Text per
+  fält att klistra in på fem minuter [SKÄRM 16:58; TAL 17:08–17:33]. Samma mekanik som i vwzV-YsVswA-posten (rad
+  4773), där den redan blev en egen innovation: backlog B-20261003-rapportens-punkt-14-far-ett-klistringsfardigt-pr.
+  (7) **Indexhygien.** Rapportens tabell "What else it changed": ej indexerade sidor med Googles skäl, disallow använt
+  som noindex, startsidans varianter, tunna hjälpsidor i indexet, gamla WordPress-adresser som Google ännu listar,
+  404 → 301 [SKÄRM 17:35, 18:05]. Vi: 7.2 (sitemap utan noindex-sidor, 404 med noindex utan canonical, 301, rad 98),
+  kanonisk variant (`seo.md` rad 21), `seo_kontroll.py --omdirigeringar` (rad 8–11), lanseringens arkiv av gamla
+  sajten och kontroll av varje gammal adress (`kunskap/lansering.md` rad 48, 62, 69), och prospektmätningens
+  signaler `noindex_start`, `canonical_saknas`, `sidkarta_saknas`, `titlar_dubbla` (`kontroller/prospekt_poang.py` rad
+  44–46). Lika. (8) **Rapporten.** En HTML-sida med ett tal per sida och en "Before and after"-ring 61 → 83 → 97, där
+  97 förutsätter "with local changes fixed" [SKÄRM 00:02, 00:29]. Vi: rapportens före-och-efter-tabell med axe,
+  Lighthouse och SEO-fynd (bygg-sajt rad 374–375) utan sammanvägt tal. Ett enda tal är ett säljgrepp; byggstandarden
+  har grindar per punkt, och det är mer verifierbart. Lika eller sämre. (9) **"Run it on a prospect, before the
+  call."** Samma kommando på en främmande sajt, "the lost number becomes the price", "~$4,180 likely lost/mo",
+  "estimates · say so out loud, it raises your credibility" [SKÄRM 18:34; TAL 18:38–19:16]. Vi: brevet bygger bara på
+  faktalistan och skärmbilderna, `brev.py` avvisar ett utkast med en siffra utanför faktalistan
+  (`prospekt-och-utskick.md` rad 67–69); "en påhittad siffra är det fel som inte går att ta tillbaka"
+  (`copy-kontroll.md` rad 16). Krockar med ett medvetet val. (10) **Arbetssättet.** "Bypass permissions" på i varje
+  inspelning, Semrush som anslutning, "rerun the same thing again and again" [SKÄRM 06:44, 09:02; TAL 11:30–12:34].
+  Vi: bygget obevakat men i sandlåda med stoppvakt, inga anslutningar som ger en tjänst åtkomst, kod ur källor körs
+  inte. Mot litteraturen: källans lager 2 är lab-mätning (Walton 2020) och lager 7 crawl-audit (teoretisk-grund rad
+  71, 91), båda hos oss; den för inte in någon metod vi saknar
+- Skäl: det som går att se är vårt steg 2, 6 och 7 omgjort till en säljbar enhet: ett tal, en loop och en rapport,
+  med Semrush som partner och ett prospektblad som sätter ett påhittat dollarbelopp på kundens förlust [SKÄRM 18:34].
+  Själva kommandot är oläsbart (privat repo, Skool bakom inloggning), så det enda vi kunde ta in är kontrollistorna i
+  rapporten, och de vi kan läsa är antingen våra byggstandardpunkter eller sökordsplacering vi medvetet valt bort
+  [SKÄRM 12:53]. De tre resultaten videon visar talar emot den: h1-kontrollen faller fortfarande efter fixen, best
+  practices står kvar på 79 på alla mallar, och vinnarexemplet för AI overviews är en stockfotosida med sökfrasen i
+  första meningen [SKÄRM 13:21, 15:43, 15:15]. Doorway-lärdomen är ägarens L1 ordagrant, och profilbladet ligger
+  redan i backloggen. Inte parkera: inget blir aktuellt senare som inte redan står hos oss. Källkritik: Semrush är
+  partner i videon, sexton verktyg är affiliatelänkar, betalgemenskapen är slutmålet [SKÄRM 19:02]; "61 till 97",
+  "50 000 klick" och "half a million dollars" är berättarens egna siffror [TAL 00:00–01:36], och rapportens 97
+  förutsätter ändringar som inte var gjorda [SKÄRM 00:29]. Inga instruktioner till agenter i det som syns
+- Kostnad: inget tas in. Källans egna: Semrush efter provperioden, Claude Max (berättarens banner visar 91 % av
+  kvoten använd [SKÄRM 06:44]), betalgemenskapen efter sju dagar [TAL 19:19]
+- Säkerhet: ej tillämpligt (video; transkript och bildrutor hämtade, Skool-sidan öppnad som webbsida, inget klonat,
+  kört eller installerat; repot privat). Noterat: körningarna går med behörigheterna avstängda och Semrush kopplas
+  som anslutning med åtkomst till kontot [SKÄRM 06:44, 08:30]; inget förs vidare
+- Förslag: inget
+- Utfall: —
+- Backlog: ingen
