@@ -204,35 +204,83 @@ def binara_i(numstat):
     return [rad.split('\t', 2)[2] for rad in rader_lf(numstat) if rad.startswith('-\t-\t')]
 
 
-MEDDELANDE_RAD = re.compile(r"(?:^|\s)(?:-m|--message)(?:\s+|=)('[^']*'|\"[^\"]*\"|\S+)")
+def skalord(kommando):
+    """Kommandoraden delad i skalord, varje ord som fragment (text, citattyp) där citattypen är ', " eller None. Så syns
+    om ett ord är helt citerat, helt ociterat eller sammansatt ('a'* eller ''{x,y}): skalet behandlar bara det citerade
+    fragmentet bokstavligt, resten expanderas (omgång åtta, F3). Backslash utanför citat nekas: den behövs aldrig."""
+    ord_, frag, text, citat, i = [], [], '', None, 0
+    while i < len(kommando):
+        c = kommando[i]
+        if citat:
+            if c == citat:
+                frag.append((text, citat)); text, citat = '', None
+            else:
+                text += c
+        elif c in ('"', "'"):
+            if text:
+                frag.append((text, None)); text = ''
+            citat = c
+        elif c == '\\':
+            neka('backslash i ett skrivande git-kommando nekas; skriv värdena utan skaltecken')
+        elif c.isspace():
+            if text:
+                frag.append((text, None)); text = ''
+            if frag:
+                ord_.append(frag); frag = []
+        else:
+            text += c
+        i += 1
+    if citat:
+        neka('ett citat som inte stängs i ett skrivande git-kommando nekas')
+    if text:
+        frag.append((text, None))
+    if frag:
+        ord_.append(frag)
+    return ord_
+
+
+def bokstavligt(fragment):
+    """Är skalordet ett enda fragment som skalet lämnar orört: helt enkelciterat, helt dubbelciterat (utan $ och backtick,
+    som nekas för hela raden) eller ociterat utan expansionstecken?"""
+    if len(fragment) != 1:
+        return False
+    text, citat = fragment[0]
+    return citat is not None or not EXPANSION.search(text)
 
 
 def utan_expansion(sub, args, kommando):
-    """Skrivande git får inga argument som skalet expanderar (glob, klammer, tilde, variabel, pathspec-magi) och ingen
-    kommando- eller processubstitution: vakten och skalet skulle annars pröva olika sökvägar (omgång sex och sju, F3
-    och F27). Commit-meddelandet undantas bara när det är bokstavligt i den råa kommandoraden: enkelcitat, eller
-    dubbelcitat utan $ och backtick; ett ociterat meddelande prövas som vilket argument som helst, eftersom skalet
-    annars kan expandera och dela det i flera ord (ett nytt ord blir en sökväg). Filargumentet efter -F undantas inte."""
+    """Skrivande git får inga argument som skalet expanderar och ingen kommando-, variabel- eller processubstitution:
+    vakten (shlex) och skalet skulle annars pröva olika ord (omgång sex till åtta, F3 och F27). Varje skalord prövas
+    som helhet med sin citering: commit-meddelandet får vara ett helt citerat ord eller ett ociterat ord utan
+    expansionstecken; sammansatta ord ('a'*, ''{x,y}) och den hopskrivna formen -mVärde nekas. -F undantas inte."""
     if '$(' in kommando or '`' in kommando or '<(' in kommando or '>(' in kommando or '$' in kommando:
         neka('git %s med $ (variabel, kommando- eller processubstitution) eller backtick nekas; skriv värdena bokstavligt' % sub)
-    for m in MEDDELANDE_RAD.finditer(kommando):  # meddelandet i den råa raden: citerat = bokstavligt, annars expanderbart
-        v = m.group(1)
-        if not (v.startswith("'") or v.startswith('"')) and EXPANSION.search(v):
-            neka('git %s: ett ociterat commit-meddelande med %r kan expanderas och delas av skalet; citera det' % (sub, v))
-    hoppa = False
-    for a in args:
-        if hoppa:
-            hoppa = False
+    ord_ = skalord(kommando)
+    vantar_meddelande = False
+    for frag in ord_:
+        helt = ''.join(x for x, _ in frag)
+        if vantar_meddelande:
+            vantar_meddelande = False
+            if not bokstavligt(frag):
+                neka('git %s: commit-meddelandet %r är inte ett helt citerat eller helt bokstavligt ord; citera hela meddelandet' % (sub, helt))
             continue
-        if a in ('-m', '--message'):
-            hoppa = True  # värdet prövades ovan i den råa raden
+        if len(frag) == 1 and frag[0][1] is None and helt in ('-m', '--message'):
+            vantar_meddelande = True
             continue
-        if a.startswith('--message='):
+        if helt.startswith('-m') and len(helt) > 2 and not helt.startswith('--'):
+            neka('git %s: skriv meddelandet som -m "text", inte hopskrivet (%r)' % (sub, helt[:12]))
+        if helt.startswith('--message='):
+            varde = frag[:]  # fragmenten efter likhetstecknet: första fragmentet börjar med --message=
+            forsta, citat = varde[0]
+            varde[0] = (forsta[len('--message='):], citat)
+            varde = [f for f in varde if f[0] or f[1]]
+            if not bokstavligt(varde or [('', None)]):
+                neka('git %s: --message= med sammansatt eller expanderbart värde nekas; citera hela meddelandet' % sub)
             continue
-        if a.startswith('-m') and len(a) > 2 and not a.startswith('--'):
-            continue
-        if EXPANSION.search(a):
-            neka('git %s med %r nekas: ange filerna bokstavligt, utan glob, klammer, tilde, variabler eller pathspec-magi' % (sub, a))
+        if len(frag) != 1:
+            neka('git %s: sammansatt skalord %r nekas; skriv argumenten som hela ord' % (sub, helt))
+        if EXPANSION.search(helt):
+            neka('git %s med %r nekas: ange filerna bokstavligt, utan glob, klammer, tilde, variabler eller pathspec-magi' % (sub, helt))
 
 
 def git_kommando(ord_):
