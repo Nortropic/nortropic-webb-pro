@@ -6152,3 +6152,119 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   (L4). Standarden behöver inte pröva det; granskaren ser det
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · Jono Catliff, "Claude Code SEO Agent: Automate Everything ($500K+ Earned)" (YouTube _0wKlt1vHLY) · nej
+- Källa: https://www.youtube.com/watch?v=_0wKlt1vHLY @ publicerad 2026-09-06 (Jono Catliff, 22:40, 37 660 visningar,
+  autogenererat engelskt transkript); YouTubes standardlicens. Läst hela tidslinjen och sett alla 47 bildrutor: tolv
+  är berättarens eget bildspel (sex kommandon, filtret, tjänst-gånger-ort-matrisen, plattformsnivåerna, tidvattnet
+  och båtarna, bloggkommandots fem steg, 80 kontroller, publiceringen, auditens poängkort), resten inspelningar av VS
+  Code med Claude Code, Semrush, Google-sökningar, byråns egen mallsajt på Vercel och localhost, den genererade
+  sökordskartan och auditrapporten. Samma agent som i vwzV-YsVswA-posten (rad 4773): repot
+  github.com/jonocatliff/seo-test-drive visas som "Private" med 72 driftsättningar [SKÄRM 02:05] och `gh repo view`
+  hittar det inte; "blueprinten" ligger bakom Skool [BESKRIVNING]. Kommandona kunde alltså inte läsas, bara deras
+  utskrifter i bildrutorna. Beskrivningens 31 länkar: Skool, Semrush-affiliate ("A big thanks to Semrush for
+  partnering with me on this video"), sexton egna affiliatelänkar, byrån, konsultbokning, sociala konton och sex egna
+  videor, däribland auditvideon M2KJ5-sFbbg som redan är dömd (rad 6000) [BESKRIVNING]. Inget klonat, kört eller
+  installerat. Ägarens not: hittad av spanaren 2026-10-03 via YouTube: Jono Catliff (rss); matchade agent, audit,
+  claude code, seo
+- Steg: 1 (research §15 sökintention, konkurrenter), 3 (sajtkarta), 4 (innehåll och röst), 5 (mallsajt), 6 (prov),
+  7 (rapport); lanseringen (publicering, sökkonsol) ligger i L-fasen som prövas först när en sajt ska ut
+  (`kunskap/byggstandard.md` rad 7–8)
+- Jämfört med i dag, kommando för kommando: (1) **/keyword-research.** Ett frö ger 4 812 sökord, fyra filter
+  behåller 340 (volym 50+, svårighet under "din DA + 30", informationsavsikt blir blogg, köpavsikt blir tjänstesida,
+  tjänstesidor kräver CPC 0,10 dollar eller mer), kluster ger 19 sidor, en prioriterad byggordning [SKÄRM 05:03,
+  07:42; TAL 03:17–03:51, 06:04–07:09]; data ur Semrush Keyword Magic Tool kopplad som anslutning i Claude [SKÄRM
+  05:58, 06:41; TAL 04:25–04:58]. Vi: research §15, sökningarna ordagrant, avsikten per sökning, vad resultatsidan
+  innehåller, vilka sidor som svarar mot vilken avsikt, "ingen uppskattning av sökvolym utan verktyg och källa"
+  (`kunskap/research-underlag.md` rad 72–74), och sidor bara med genuint innehåll, "fem verkliga sidor slår tjugofem
+  spunna" (`kunskap/seo.md` rad 9–10). Avsiktsläsningen är densamma (redan sagt i rad 4820–4829); volym och CPC
+  kräver Semrush, betalt efter provperioden och med åtkomst till kontot. Källans egen karta gäller en
+  marknadsföringsbyrå i USA, "local seo services 27 100 sökningar" [SKÄRM 05:35]; för en snickare i Luleå är det
+  resultatsidan, inte volymen, som avgör sajtkartan. Lika i metod, sämre i beroende. (2) **Tjänst gånger ort.**
+  Tre tjänster gånger fyra orter blir tolv sidor, "finish one service, then the next" [SKÄRM 15:52; TAL 07:43],
+  och i den föregående videons tes "Service x city matrix · Programmatic zipper" [SKÄRM 01:39]. Vi: en sida per ort
+  bara med verkligt lokalt innehåll (`kunskap/seo-lokal.md` rad 19; `seo.md` rad 11–12), och ägarens L1: "Ja, ta
+  bort och led vidare" (`LARDOMAR.md` rad 50). Dömt två gånger (rad 4818–4828, 6042–6046). Källans egen bloggtext
+  säger samma sak som vi: "Copy-pasting one city page with the town name swapped. Google notices, and so does the
+  customer" [SKÄRM 12:41], medan bildspelet säljer matrisen. Krockar med ägarens dom. (3) **/build-website.**
+  Samma mall som i vwzV-YsVswA: pilleretikett "GOOGLE ADS · SEO · AUTOMATION", initialer som avatarer med "60+
+  written client testimonials", stockbild på en laptop med diagram [SKÄRM 09:58, 18:09]; dömd sämre i rad 4829–4835.
+  Nytt är utskriften efteråt [SKÄRM 12:25]: "Filled from real data" med källa och datum ("from the homepage FAQ
+  record, dated 19 August 2026"), "Reviews – word for word from testimonials.json, none written by me", och
+  "Deliberately left placeholder – I need these from you": telefonnummer, antal omdömen och betyg ("Say the number,
+  or it stays off the site"), porträtt ("never a stock face as a team member"). Det är vår BESTALLNING.md (bygg-sajt
+  rad 156–159), speglade uppgifter med källa och datum (L4) och 9.3 "bara det som är belagt" (`byggstandard.md` rad
+  121). Lika i princip; men den lokalt byggda startsidan visar ändå "60+ written client testimonials" [SKÄRM 18:09],
+  och samma utskrift innehåller en affiliatelänk: "No GHL yet? It is $1 a month here: claim GHL" [SKÄRM 12:25].
+  (4) **/blog-post, tidvattnet.** Bloggar är tidvattnet och tjänstesidorna båtarna; fler "högkvalitativa" inlägg
+  höjer domänen så att pengasidorna stiger [SKÄRM 11:03; TAL 09:55–10:30]; 30 källor, skanna de tre översta
+  träffarna, "whoever wins, we copy it", generera, "your voice" [SKÄRM 11:36, 12:09; TAL 11:05–12:10]; inlägg
+  schemaläggs "2 to 3 a week" [SKÄRM 15:25]. Vi: ingen blogg i kedjan; sajtkartan är så få sidor som toppuppgifterna
+  kräver, oftast tre till sju (bygg-sajt rad 148); frågan kunden faktiskt har (pris, tid, område, process) besvaras
+  på den sida den hör till (9.5, rad 123; `seo.md` rad 12–13), som "Vad det kostar" på tjänstesidorna i L5. Mot
+  litteraturen: content first och findability (teoretisk-grund rad 88–91) säger inget om volym; Fogg 2003 om
+  förtjänad trovärdighet (rad 103–105) talar för verkligt innehåll. För en firma på två personer är tre inlägg i
+  veckan text i volym som ingen underhåller, L0:s "ai slope" (`LARDOMAR.md` rad 24) och L4:s regel om hur speglade
+  uppgifter hålls aktuella. Att kopiera "den vinnande formeln" från de tre översta är motsatsen till vårt steg 1:
+  konkurrenterna läses för att hitta det som skiljer, "Bara de har" (bygg-sajt rad 75, 104–107), deras fraser hamnar
+  i FRASER.txt för att undvikas (rad 163), och "kunde någon mening stå hos en konkurrent? Skriv om den" (rad 229).
+  Krockar med ett medvetet val. (5) **Humorn.** "Content is king", Google belönar sidor folk stannar på, och humor
+  är berättarens sätt att hålla kvar läsaren; kommandot har en kontroll "sections below the humour floor: 0"
+  [SKÄRM 15:25; TAL 12:45–14:25]. Texten som visas är berättarens egen röst, "I'm not a plumber. I'm a redheaded
+  Canadian …", med dodgeball-liknelsen om kartpaketet, under en stockbild på rörmokarhandskar [SKÄRM 13:47, 14:20,
+  00:40]. Vi: rösten är verksamhetens, fem formuleringar ur deras egna ord i briefen (bygg-sajt rad 153) och
+  humanizer med dem som röstprov (rad 229–230); ägaren dömer röst efter "så pratar en elfirma" och mot "låter som en
+  byrå" (`LARDOMAR.md` rad 65, 89). En humorgräns som regel för en målare i Luleå är sämre. Att "SEO är en svart
+  låda med 200 indikatorer" [TAL 12:45] är berättarens ord utan källa. (6) **/service-page.** Skanna de tre
+  översta, "write with persuasion", formulär överst och nederst, en bevisrad "$45K a year saved", FAQ "built from
+  real buyer objections", två riktiga foton ur bevisbiblioteket, ett formulärprov med 303 till tacksidan och
+  mottagning i GoHighLevel [SKÄRM 16:57; TAL 14:59–15:33]. Vi: 6.1–6.3 (formulär, POST utan JS, tacksida), 7.5
+  (en sida per huvudtjänst med egna bilder), 9.3 (`byggstandard.md` rad 84–86, 101, 121), demomottagaren i stället
+  för en CRM-tjänst. Lika i delarna; beroendet på GoHighLevel är nytt och säljs i samma utskrift. (7) **De egna
+  kontrollerna.** Efter varje kommando skrivs provrader: platshållare 0, döda interna länkar 0, title 58 tecken,
+  description 152, en h1, giltigt schema, externa citat 14 som alla svarar 200, förbjudna fraser 0, tankstreck 0,
+  skärmbilder i 1440 och 390 px utan vågrätt spill, "frame labels surviving 0 · template strings 0" [SKÄRM 12:25,
+  15:25, 16:57]. Vi: standarden 2.1, 2.3, 3.3, 7.1, 9.4 (`byggstandard.md` rad 36, 38, 48, 97, 122), copykontrollens
+  fras, platshållare och tankstreckskedja (`kunskap/copy-kontroll.md` rad 12, 14, 18), spillgrinden, interna länkar
+  i `kontroller/seo_kontroll.py` rad 64–72 och utgående länkar i `kontroller/standard_kontroll.py` rad 703–764
+  (7.4, info). Lika; redan gjort. (8) **/seo-optimization, 80 kontroller.** On-page, teknik, AI-översikter med
+  svarsblock på 40–60 ord, "LLM SEO" med GPTBot, ClaudeBot och llms.txt [SKÄRM 16:31, 17:36; TAL 16:09–16:41]; körs
+  flera gånger "it just improves every single time" [TAL 17:15]. Utskriften säger själv att typsnitten är inlinade
+  från Google Fonts och "has a shelf life", att länkkontrasten i tabellen ligger nära 4,5:1 som ett valfritt råd, och
+  ber användaren klistra in sökkonsolens tal som baslinje [SKÄRM 19:15]. Vi: självhostade typsnitt och inga
+  tredjepartsresurser (4.3–4.4, rad 60–61), kontrast som grind (3.4, rad 49), llms.txt behövs inte (7.6, rad 102 och
+  153), FAQPage ger inga rikresultat (rad 142–144), och fältdata hör till tiden efter lansering (teoretisk-grund rad
+  21). Lighthouse 98/96/96/100 på bloggsidan [SKÄRM 00:40, 17:53] är i nivå med 4.1 (rad 58). Lika eller sämre; dömt
+  i rad 6024–6036. (9) **/publish och sökkonsolen.** GitHub och Vercel, eller WordPress via Novamira; sitemap med sex
+  adresser [SKÄRM 18:42, 20:20; TAL 18:22–20:03]. Vi: L-fasen, prövas när en sajt ska ut. Inte tillämpligt nu. (10)
+  **/audit.** "It doesn't hand you a list. It works the list", 127 poster, 46 → 71 → 100 [SKÄRM 20:34]; rapporten
+  visar "Doorway pages: No doorway sets found" och "The map pack 20/100" för byråns egen profil [SKÄRM 21:26]. Samma
+  kommando som M2KJ5-sFbbg, dömt i rad 6000–6086. (11) **Arbetssättet.** "Bypass permissions" på i varje inspelning,
+  Fable 5.1 High med Remote Control, Semrush som anslutning [SKÄRM 09:25, 12:25, 15:25, 16:57, 19:15]. Vi: bygget
+  obevakat men i sandlåda med stoppvakt, inga anslutningar som ger en tjänst åtkomst, kod ur källor körs inte
+- Skäl: videon är den "plug-and-play"-sammanfattning som berättaren själv kallar den [TAL 01:05], av samma privata
+  agent vars delar redan är dömda två gånger i dag: ortsmatrisen (L1), mallsajten och bloggvolymen (vwzV-YsVswA, rad
+  4773) och auditen med poängloopen (M2KJ5-sFbbg, rad 6000). Det som är nytt att se, filtret med fyra regler, tesen om
+  tidvattnet och humorgränsen, är antingen vår egen avsiktsläsning med ett betalt beroende ovanpå [SKÄRM 05:03] eller
+  rakt emot ägarens domar om röst och volym: att kopiera de tre översta träffarnas formel och skriva tre inlägg i
+  veckan i berättarens röst är det L0 och L4 dömer, och vårt steg 1 går åt andra hållet [SKÄRM 11:36, 15:25]. Det
+  som är bra, utskriftens "I need these from you" och de egna provraderna, har vi med fil och rad (BESTALLNING.md,
+  standarden, copykontrollen, länkkontrollen) [SKÄRM 12:25, 15:25]. Källan motsäger sig själv på två ställen:
+  bloggen varnar för ortsidor med bara ortnamnet bytt medan bildspelet säljer matrisen [SKÄRM 12:41, 15:52], och
+  utskriften säger att omdömesantalet hålls utanför sajten tills det anges medan startsidan visar "60+" [SKÄRM
+  12:25, 18:09]. Inte parkera: inget blir aktuellt senare som inte redan står hos oss. Källkritik: Semrush är
+  partner, sexton verktyg är affiliatelänkar, GoHighLevel säljs inne i agentens egen utskrift [SKÄRM 12:25],
+  betalgemenskapen med "16 skills" är slutmålet [TAL 09:22, 21:46]; "50 000 klick" och "half a million dollars" är
+  berättarens egna siffror om en såld verksamhet [TAL 01:05]; Lighthouse-talen är det enda belägget som faktiskt
+  syns. Inga instruktioner till agenter i det som syns
+- Kostnad: inget tas in. Källans egna: Semrush efter provperioden (7 eller 14 dagar), GoHighLevel, Vercel och
+  GitHub-konton, betalgemenskapen; körningarna med Fable 5.1 High
+- Säkerhet: ej tillämpligt (video; transkript och bildrutor hämtade, inget klonat, kört eller installerat; repot
+  privat). Noterat: körningarna går med behörigheterna avstängda och Semrush kopplas som anslutning med åtkomst
+  till kontot [SKÄRM 09:25; TAL 04:25–04:58]; agentens utskrift ber användaren klistra in en webhook-adress till en
+  CRM-tjänst [SKÄRM 12:25]; inget förs vidare
+- Förslag: inget. Ingen egen innovation: den enda idén källan väckte, att provet kontrollerar att varje utgående länk
+  svarar, är redan genomförd (backlog B-20261002-provet-listar-sajtens-utgaende-lankar-och-om-de, status klar;
+  `kontroller/standard_kontroll.py` rad 703–764)
+- Utfall: —
+- Backlog: ingen
