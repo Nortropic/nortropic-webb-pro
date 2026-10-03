@@ -58,13 +58,14 @@ ARGS=(-p
   --allowedTools Read Write Edit Glob Grep WebFetch WebSearch Skill Task TaskCreate TaskUpdate TaskList TaskGet
   ${INSPO[@]+"${INSPO[@]}"}
   # npm bara mot byggets egen sajt: målarbygget 2026-10-01 installerade först ett typsnitt i repots rot.
-  "Bash(npm install --prefix kunder/*)" "Bash(npm ci --prefix kunder/*)" "Bash(npm run build --prefix kunder/*)"
-  "Bash(npm --prefix kunder/*)" "Bash(npm view *)" "Bash(npm ls *)" "Bash(npm pack *)"
-  # Tolkar och hämtare bara i de former skillen använder (revisionen 2026-10-03, F1): verktygen i kontroller/, byggets
-  # egna skript under underlag/<slug>/skript/, npx bara för astro, curl bara för att spara en fil under underlag/.
-  # Ett generellt python, node eller curl når förbi varje Edit- och Write-regel; gränsen på processnivå är ett eget steg.
+  "Bash(npm install --prefix kunder/$SLUG/*)" "Bash(npm ci --prefix kunder/$SLUG/*)" "Bash(npm run build --prefix kunder/$SLUG/*)"
+  "Bash(npm --prefix kunder/$SLUG/*)" "Bash(npm view *)" "Bash(npm ls *)" "Bash(npm pack *)"
+  # Tolkar och hämtare bara i de former skillen använder och bara mot det egna bygget (revisionen 2026-10-03, F1):
+  # verktygen i kontroller/, egna skript under underlag/<slug>/skript/, npx bara för astro, curl bara för att spara en fil
+  # under underlag/<slug>/. Ett egenskrivet skript når ändå förbi Edit- och Write-reglerna; gränsen på processnivå
+  # (sandlådan) är ett eget steg i backloggen.
   "Bash(npx astro *)" "Bash(node kontroller/*)" "Bash(.venv/bin/python kontroller/*)" "Bash(.venv/bin/python -B kontroller/*)"
-  "Bash(.venv/bin/python underlag/*)" "Bash(curl -sSL -o underlag/*)"
+  "Bash(.venv/bin/python underlag/$SLUG/skript/*)" "Bash(curl -sSL -o underlag/$SLUG/*)"
   "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" "Bash(cp *)" "Bash(mv *)" "Bash(find *)"
   "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)"
   "Bash(sort *)" "Bash(uniq *)" "Bash(sed *)" "Bash(tr *)" "Bash(cut *)"
@@ -101,61 +102,16 @@ skyddat() {
   find "${SKYDDAT[@]}" -type f ! -path '*/node_modules/*' ! -path '*/__pycache__/*' ! -name '.DS_Store' -print0 2>/dev/null \
     | sort -z | xargs -0 shasum -a 256
 }
-FORE="$(skyddat)"
+mkdir -p "$ROOT/kunder/$SLUG/prov"
+FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"
+EFTER_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-efter"
+skyddat > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
 printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
-EFTER="$(skyddat)"
-if [ "$EFTER" != "$FORE" ]; then
-  # filerna vars hash eller närvaro skiljer sig; (committad eller inte spelar ingen roll, innehållet räknas)
-  SKYDD="$(diff <(printf '%s\n' "$FORE") <(printf '%s\n' "$EFTER") | grep '^[<>]' | awk '{print $NF}' | sort -u | head -40)"
-  SKYDD="${SKYDD:-(innehållet ändrades under körningen)}"
-else
-  SKYDD=""
-fi
-
-# Slutkod (revisionen 2026-10-03, F11): 0 provet grönt och granskningen godkänd · 1 avslutat utan det (rött, saknad
-# rapport, underkänd eller tak) · 3 skyddade filer ändrades · 4 claude föll (kod ≠ 0) · 2 fel i anropet (ovan).
-"$ROOT/.venv/bin/python" - "$ROOT/kunder/$SLUG" "$RC" "$SKYDD" <<'PY'
-import json, sys
-from pathlib import Path
-k, rc, skydd = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-def las(p):
-    try:
-        return json.loads(p.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return None
-s, v, g = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json'), las(k / 'granskning' / 'GRANSKNING.json')
-print('\nclaude avslutade med kod', rc)
-# Mekaniken (provet, kriterierna, mallen, krokarna, kor.sh, dashboarden) får aldrig ändras under en körning: slutkod 3.
-# Texterna (kunskap/, LARDOMAR.md, skills) skrivs också av kirurgens intag och ägarens domar i dashboarden: bara varning.
-MEKANIK = ('kontroller/', 'kritik/', 'mall/', '.claude/hooks/', '.claude/settings', 'kor.sh', 'dashboard/', 'dashboard.sh',
-           'CLAUDE.md', 'BESLUT.md', '.gitignore')
-mekanik = [f for f in skydd.splitlines() if f.startswith(MEKANIK)]
-if skydd:
-    print('VARNING: skyddade filer ändrades under körningen, av bygget eller någon annan (kirurgen, ägarens dom):\n' + skydd)
-if s:
-    print('Provet:', 'GRÖNT' if s.get('ok') else 'RÖTT', '—', ', '.join('%s %s' % (n, 'ok' if g['ok'] else 'RÖD') for n, g in s['grindar'].items()))
-else:
-    print('Provet: inget STATUS.json (provet kördes aldrig)')
-if v:
-    print('Stoppvakten:', v.get('skal'), '(försök %s av %s)' % (v.get('forsok'), v.get('tak')))
-if g:
-    print('Granskningen:', 'GODKÄND' if g.get('godkand') else 'UNDERKÄND', '(omgång %s)' % g.get('runda'), '—',
-          ', '.join('%s %s' % (n, x.get('betyg')) for n, x in (g.get('kriterier') or {}).items()))
-else:
-    print('Granskningen: ingen')
-print('Rapport:', k / 'RAPPORT.md' if (k / 'RAPPORT.md').is_file() else 'saknas')
-print('Titta:  cd %s && npx astro preview' % (k / 'sajt'))
-godkant = bool(s and s.get('ok')) and (k / 'RAPPORT.md').is_file() and bool(g and g.get('godkand'))
-if mekanik:
-    print('Slutkod 3: mekaniken ändrades under körningen:', ', '.join(mekanik))
-    sys.exit(3)
-if rc != '0':
-    print('Slutkod 4: claude avslutade med kod', rc)
-    sys.exit(4)
-print('Slutkod', 0 if godkant else 1, ':', 'godkänt bygge' if godkant else 'avslutat utan grönt prov och godkänd granskning')
-sys.exit(0 if godkant else 1)
-PY
+skyddat > "$EFTER_FIL"
+# Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
+# godkännande, 3 mekaniken ändrades under körningen, 4 claude föll. exec: skriptets slutkod är korsluts.
+exec "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" "$ROOT/kunder/$SLUG" "$RC" "$FORE_FIL" "$EFTER_FIL"

@@ -4,14 +4,18 @@
 Aktiv bara när NWP_COMMIT_TILLATET är satt (kirurgens intag: "kunskap/REGISTER.md,backlog/"; byggen: "backlog/").
 Interaktiva sessioner påverkas inte. Läser kommandot ur hookens JSON på stdin och nekar (exit 2, skäl på stderr):
   - gh api (kan ändra och radera; använd gh repo view för metadata)
-  - git add av något annat än de tillåtna sökvägarna, eller -A, --all, -u, .; sökvägar normaliseras, så att
+  - git add med någon flagga alls, eller av något annat än de tillåtna sökvägarna; sökvägar normaliseras, så att
     backlog/../CLAUDE.md inte räknas som backlog/
-  - git commit med -a/--all, --amend, --include, --interactive eller --patch, med sökvägar utanför det tillåtna på
-    kommandoraden (git commit -- FIL går förbi index), eller när något utanför det tillåtna är köat
+  - git commit med andra flaggor än -m/--message, -F/--file, -q/--quiet, -v/--verbose, --no-edit och --no-status (så
+    att --pathspec-from-file, -a, --amend, --include, --only, --interactive med flera aldrig prövas en i taget), med
+    sökvägar utanför det tillåtna på kommandoraden (git commit -- FIL går förbi index), eller när något utanför det
+    tillåtna är köat
   - git push som inte är "git push origin main", eller när någon utgående commit rör annat än de tillåtna
     sökvägarna (varje commit räknas, inte bara skillnaden mellan slutträden)
   - git -c (en inställning kan starta program); -C, --git-dir och --work-tree bara för läsande kommandon
-  - en hemlighet (API-nyckel, privat nyckel, nyckelrad ur en .env-fil) i det som köas eller pushas
+  - en hemlighet (API-nyckel, privat nyckel, nyckelrad ur en .env-fil) i det som ska committas (index och, vid
+    sökvägar på kommandoraden, arbetskopian) eller i någon utgående commits tillagda rader; bara fil, rad och
+    nyckeltyp rapporteras, aldrig värdet
 Ett git-anrop som misslyckas eller tar för lång tid nekar; vakten håller sig inom en egen tidsbudget (BUDGET) så att
 den hinner svara innan värdens timeout (settings.json, 30 s), eftersom en krok som tar slut på tid släpper igenom.
 Bygger på forskningens råd att begränsa vad en lyckad attack kan göra, inte bara filtrera indata.
@@ -29,14 +33,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 LASANDE = {'log', 'show', 'status', 'diff', 'rev-parse', 'ls-files', 'ls-tree', 'cat-file', 'describe', 'shortlog',
            'blame', 'grep', 'rev-list', 'for-each-ref', 'count-objects'}
-# commit-flaggor vars värde är nästa ord (eller sitter ihop med flaggan för de korta)
-VARDE_FLAGGOR = {'-m', '--message', '-F', '--file', '-C', '--reuse-message', '-c', '--reedit-message', '-t', '--template',
-                 '--author', '--date', '--cleanup', '--trailer', '--fixup', '--squash', '--gpg-sign', '-S'}
-HEMLIGHET = re.compile(r'(re_[A-Za-z0-9]{24,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{32,}|ghp_[A-Za-z0-9]{30,}|'
-                       r'github_pat_[A-Za-z0-9_]{20,}|gho_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|'
-                       r'-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(RESEND_API_NYCKEL|SCB_API_NYCKEL|[A-Z_]*API_KEY|[A-Z_]*SECRET[A-Z_]*|'
-                       r'[A-Z_]*TOKEN)=\S{8,})')
-BUDGET = 20.0  # sekunder för hela vakten; settings.json ger kroken 30
+# commit-flaggor som tillåts; de med värde tar nästa ord (eller värdet ihopskrivet för de korta). Allt annat nekas.
+COMMIT_MED_VARDE = {'-m', '--message', '-F', '--file'}
+COMMIT_UTAN_VARDE = {'-q', '--quiet', '-v', '--verbose', '--no-edit', '--no-status'}
+HEMLIGHETER = [('Resend-nyckel', r're_[A-Za-z0-9]{24,}'), ('Anthropic-nyckel', r'sk-ant-[A-Za-z0-9_-]{20,}'),
+               ('sk-nyckel', r'\bsk-[A-Za-z0-9]{32,}'), ('GitHub-token', r'\b(ghp|gho)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}'),
+               ('AWS-nyckel', r'\bAKIA[0-9A-Z]{16}'), ('Slack-token', r'\bxox[baprs]-[A-Za-z0-9-]{10,}'),
+               ('privat nyckel', r'-----BEGIN [A-Z ]*PRIVATE KEY-----'),
+               ('nyckelrad', r'\b(RESEND_API_NYCKEL|SCB_API_NYCKEL|[A-Z_]*API_KEY|[A-Z_]*SECRET[A-Z_]*|[A-Z_]*TOKEN)=\S{8,}')]
+HEMLIGHET_RE = [(namn, re.compile(rx)) for namn, rx in HEMLIGHETER]
+BUDGET = float(os.environ.get('NWP_COMMITVAKT_BUDGET') or 20.0)  # sekunder för hela vakten; settings.json ger kroken 30
 GIT_FRIST = 6  # sekunder per git-anrop
 SLUT = time.monotonic() + BUDGET
 
@@ -86,7 +92,9 @@ def delkommandon(kommando):
 
 
 def commit_sokvagar(args):
-    """Sökvägarna på en commit-kommandorad (efter -- eller lösa), med flaggornas värden borträknade."""
+    """Sökvägarna på en commit-kommandorad (efter -- eller lösa). Varje flagga måste vara en av de tillåtna; annars nekas
+    kommandot (en kort tillåten lista går att kontrollera, en växande förbudslista inte: --pathspec-from-file,
+    --only, --include, -a, --amend …)."""
     vagar, i, efter = [], 0, False
     while i < len(args):
         a = args[i]
@@ -94,16 +102,40 @@ def commit_sokvagar(args):
             vagar.append(a)
         elif a == '--':
             efter = True
-        elif a in VARDE_FLAGGOR:
+        elif a.startswith('--'):
+            namn, har_varde = a.split('=', 1)[0], '=' in a
+            if namn in COMMIT_MED_VARDE:
+                if not har_varde:
+                    i += 1
+            elif namn not in COMMIT_UTAN_VARDE:
+                neka('git commit med flaggan %s nekas; tillåtet: %s' % (namn, ', '.join(sorted(COMMIT_MED_VARDE | COMMIT_UTAN_VARDE))))
+        elif a in COMMIT_MED_VARDE:
             i += 1  # värdet är nästa ord
+        elif a[:2] in COMMIT_MED_VARDE and len(a) > 2:
+            pass  # värdet ihopskrivet: -mText
+        elif a not in COMMIT_UTAN_VARDE:
+            neka('git commit med flaggan %s nekas; tillåtet: %s' % (a, ', '.join(sorted(COMMIT_MED_VARDE | COMMIT_UTAN_VARDE))))
         i += 1
     return vagar
 
 
 def hemlighet_i(diff):
-    for rad in diff.splitlines():
-        if rad.startswith('+') and not rad.startswith('+++') and HEMLIGHET.search(rad):
-            return rad[:80]
+    """(fil, rad, nyckeltyp) för den första tillagda raden som ser ut som en hemlighet, annars None. Värdet rapporteras
+    aldrig: det hade annars hamnat i sessionens logg."""
+    fil, rad = '?', 0
+    for r in diff.splitlines():
+        if r.startswith('+++ '):
+            fil = r[4:].removeprefix('b/').strip()
+        elif r.startswith('@@'):
+            m = re.search(r'\+(\d+)', r)
+            rad = int(m.group(1)) - 1 if m else 0
+        elif r.startswith('+') and not r.startswith('+++'):
+            rad += 1
+            for namn, rx in HEMLIGHET_RE:
+                if rx.search(r):
+                    return fil, rad, namn
+        elif not r.startswith('-') and not r.startswith('\\'):
+            rad += 1
     return None
 
 
@@ -149,16 +181,14 @@ def main():
             neka('git -C/--git-dir/--work-tree tillåts bara för läsande kommandon (%s) utan --output, -O och --ext-diff'
                  % ', '.join(sorted(LASANDE)))
         if sub == 'add':
+            flaggor = [a for a in args if a.startswith('-') and a != '--']
             vagar = [a for a in args if not a.startswith('-')]
-            if any(a in ('-A', '--all', '-u', '--update', '.', '*') for a in args) or not vagar:
-                neka('git add måste namnge filerna; tillåtet: ' + ', '.join(prefix))
+            if flaggor or not vagar or any(a in ('.', '*') for a in vagar):
+                neka('git add tar bara filnamn, inga flaggor; tillåtet: ' + ', '.join(prefix))
             utanfor = [v for v in vagar if not tillaten(v, prefix)]
             if utanfor:
                 neka('git add utanför det tillåtna (%s): %s' % (', '.join(prefix), ', '.join(utanfor)))
         elif sub == 'commit':
-            if any(a in ('--all', '--amend', '--include', '--interactive', '--patch') or
-                   (re.fullmatch(r'-[A-Za-z]+', a) and set(a[1:]) & set('aip')) for a in args):
-                neka('git commit med -a, --amend, --include, --interactive eller --patch nekas; köa filerna med git add först')
             vagar = commit_sokvagar(args)
             utanfor = [v for v in vagar if not tillaten(v, prefix)]
             if utanfor:
@@ -168,8 +198,10 @@ def main():
             if utanfor:
                 neka('köade filer utanför det tillåtna (%s): %s' % (', '.join(prefix), ', '.join(utanfor)))
             tr = hemlighet_i(git('diff', '--cached', '-U0', '--no-color'))
+            if not tr and vagar:  # med sökvägar committas arbetskopians innehåll, inte index
+                tr = hemlighet_i(git('diff', '-U0', '--no-color', 'HEAD', '--', *vagar))
             if tr:
-                neka('det köade innehåller något som ser ut som en hemlighet: %s' % tr)
+                neka('det som ska committas innehåller något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
         elif sub == 'push':
             if args != ['origin', 'main']:
                 neka('bara "git push origin main" är tillåtet')
@@ -177,9 +209,9 @@ def main():
             utanfor = sorted({f for f in ut if not tillaten(f, prefix)})
             if utanfor:
                 neka('utgående commits rör filer utanför det tillåtna (%s): %s' % (', '.join(prefix), ', '.join(utanfor)))
-            tr = hemlighet_i(git('diff', '-U0', '--no-color', 'origin/main..HEAD'))
+            tr = hemlighet_i(git('log', '-p', '-U0', '--no-color', '--format=', 'origin/main..HEAD'))  # varje commits tillägg, inte nettodiffen
             if tr:
-                neka('de utgående commitarna innehåller något som ser ut som en hemlighet: %s' % tr)
+                neka('någon utgående commit lägger till något som ser ut som en hemlighet (%s) i %s rad %d' % (tr[2], tr[0], tr[1]))
     return 0
 
 
