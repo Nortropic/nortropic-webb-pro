@@ -1810,7 +1810,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   dubbletter. Rökprovet grönt. Egen innovation: `kritik/GRANSKARE.md` "Så granskar du": betygen på designkvalitet och
   originalitet sätts innan stilrapporten och copykontrollens rapport öppnas; de läses sist och lägger bara till fynd
 - Utfall: fem renderade mönster i stilrapporten och modellernas standardtypsnitt i UPPTAGNA-VAL.md 2026-10-03.
-  Betygsordningen (egen innovation): se den posten.
+  Betygsordningen (egen innovation) prövad i granskarförsöket: omdömesfel 4,1 → 4,3 per bygge, inga falska
+  blockerande; införd i GRANSKARE.md.
 - Backlog: B-20261002-stilrapporten-mater-fem-renderade-monster-ur-imp; egen innovation:
   B-20261002-granskaren-satter-originalitetsbetyget-innan-hen
 
