@@ -5275,3 +5275,135 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   behöver inget: domarnas svagheter per riktning är redan den raden. Ingen egen innovation utöver förslaget
 - Utfall: —
 - Backlog: B-20261003-varje-riktning-i-koncept-md-och-i-riktningsfraga
+
+### 2026-10-03 · Chrome for Developers, "Modern Web Guidance: Swipe to remove" (YouTube 9U4D5m24mhc) + GoogleChrome/modern-web-guidance · ta in
+- Källa: https://www.youtube.com/watch?v=9U4D5m24mhc @ publicerad 2026-09-22 (Chrome for Developers, 1:36, 14 522
+  visningar, manuellt engelskt transkript), avsnitt i en veckovis serie om åtta ("8-part series on Modern Web
+  Guidance") [BESKRIVNING]. Sett alla 7 bildrutor och 13 täta ur 01:10–01:36. Beskrivningens länk goo.gle/mwg följdes
+  inte (curl nekades); repot står i bildrutan [SKÄRM 00:16]: https://github.com/GoogleChrome/modern-web-guidance @
+  84ae725 (ur klonens `.git/logs/HEAD`; `git log` nekades), tagg v0.0.191, senaste push 2026-09-28, Apache-2.0,
+  2 380 stjärnor, inte arkiverat, "preview release" [REPO README.md rad 11–12], underhållet av Chrome- och
+  Edge-teamen [rad 9]. Förgranskat LÅG. Läst själv: README helt (529 rader), `skills/modern-web-guidance/SKILL.md`
+  helt, package.json, `.claude-plugin/plugin.json`, `policies/modern-web-guidance.toml`, LICENSE; guiderna `css/css.md`
+  helt (528 rader), `accessibility/accessibility.md` helt (464), `visual-design/improve-text-layout-and-legibility.md`
+  och `visually-stable-font-fallbacks.md` helt, `ui-behaviors/swipe-to-remove.md` rad 1–40 och 430–489,
+  `forms/forms.md` rad 1–60 och 95–139, `forms/validate-input-after-interaction.md` rad 1–85,
+  `forms/required-field-feedback.md` rad 40–80, `performance/performance.md` rad 1–60, 185–209 och 286–300,
+  `css/css-layout.md` rad 1–70 och 205–216, `html/html.md` rad 15–44, `security/security.md` rad 1–40. En subagent
+  räknade mapparna (162 guider i 16 mappar), läste tio guider till med radbelägg och sökte styrtext, CDN-anrop och
+  Baseline-rader i alla; domen är min. Ägarens not: hittad av spanaren 2026-10-03 via Chrome for Developers (RSS)
+- Steg: 5.3 (bygg) och 5.5 (titta); mallen (`mall/astro/`); byggstandarden avsnitt 0 och 3; runt stegen:
+  verktygslådan (`.claude/skills/bygg-sajt/SKILL.md` rad 49–51)
+- Jämfört med i dag: (1) **Videon.** 96 sekunder: installation med npx [SKÄRM 00:16], prompten "swipe to delete"
+  i Antigravity sida vid sida [SKÄRM 00:30, 00:44], en tabell med fem kryss utan guiden och fem bockar med [SKÄRM
+  01:26], och svepet [SKÄRM 01:18–01:24]: utan guiden glider raden iväg som ett löst kort med en glipa under [SKÄRM
+  01:22, vänster], med guiden ligger raden kvar i listan och ett rött fält avslöjas i högerkanten [SKÄRM 01:24,
+  höger]. Berättarens "much smoother finish" [TAL 01:10] syns inte i stillbilder; rörelsen bedömer jag inte.
+  Korgsidan (serifrubrik, krämvitt kort, bokomslag) är identisk på båda sidor [SKÄRM 01:18], så videon säger inget om
+  designkvalitet, och svep-för-att-ta-bort är ett appmönster för listor som ingen av våra sajter har; guiden kräver
+  JavaScript för att raden alls ska bli svepbar [REPO guides/ui-behaviors/swipe-to-remove.md rad 33]. Inte
+  tillämpligt. (2) **Repot som skill.** Beskrivningen 246 tokens alltid, SKILL.md 1 425 vid användning, 162 guider
+  286 851 vid behov (förgranskningen). Mekanismen är `npx -y modern-web-guidance@latest search` och `retrieve` [REPO
+  SKILL.md rad 38, 75]: en opinnad npm-binär som inte ligger i repot (package.json rad 27 pekar på
+  `modern-web.mjs`, som saknas i klonen; förgranskningen: inga skript), söker med en lokal modell [REPO README.md rad
+  368] och skickar sökfraser och guide-id till Google [rad 506]. Beskrivningen är skriven som tvång: "MANDATORY:
+  Execute FIRST for all HTML/CSS and clientside JS tasks" [REPO SKILL.md rad 4], och rad 96 ber agenten själv begära
+  nätbehörighet i förväg. Vi kör ingen kod ur en källa, och ett bygge som anropar nätet för varje CSS-fråga är
+  varken smartare eller säkrare. Krock med mekanismen; guiderna är vanlig markdown under Apache-2.0 och kan
+  kopieras. (3) **Guidernas innehåll mot vårt.** Av 162 guider rör 30 sådant vi aldrig använder (inbyggd AI,
+  passkeys, webbkomponenter, PWA, Wasm, WebMCP, analys, SPA) och ett 25-tal till är app- eller JS-mönster (Temporal,
+  canvas, svep, scrollytelling, INP); omkring 30 kan beröra en statisk småföretagssajt. Sak mot sak: *css.md*:
+  fokus med `:focus-visible`, `outline` och `outline-offset` [REPO css.md rad 210–213], träffytor 24 px med
+  `min-block-size` och större vid `pointer: coarse` [rad 217–218], inga globala resets på `*` [rad 177–179],
+  `clamp()` som blandar rem och vw [rad 311], `dvh` och `aspect-ratio` [rad 306–307], `text-wrap` på rubriker och
+  brödtext men aldrig på `*` [rad 322–325], forced-colors [rad 245–251], `:user-invalid` i stället för `:invalid`
+  [rad 278], rörelse bara på transform och opacity [rad 443]. Vi: byggstandarden 3.2–3.5
+  (`kunskap/byggstandard.md` rad 47–50) och better-accessibility och better-typography har samma punkter som krav
+  men inte som CSS-recept; mallens `Bas.astro` rad 48–51 gör det css.md avråder från, `animation-duration: 0.01ms`
+  på `*` [REPO css.md rad 479], ett medvetet val (standarden 3.5: ingen rörelse alls) som vi behåller. Lika i
+  kraven, bättre som recept. *forms*: `:user-invalid` visar felet först när besökaren lämnat fältet eller försökt
+  skicka, i ren CSS med texten i DOM:en [REPO forms/validate-input-after-interaction.md rad 9, 66–74;
+  required-field-feedback.md rad 52–59]; ledtext ovanför fältet så att mobiltangentbordet inte täcker den
+  [validate-input-after-interaction.md rad 28]; skicka-knappen aldrig avstängd före inskick [forms.md rad 105]. Vi:
+  `mall/astro/src/components/Forfragan.astro` rad 66–83 visar svenska besked via JavaScript vid `invalid`, utan JS
+  webbläsarens bubbla på webbläsarens språk (backlog B-20261002-mallens-formular-ger-svenska-felmeddelanden-vid, klar).
+  Källans CSS-väg ger det svenska beskedet som text vid fältet också utan JS, vilket 6.2 kräver (byggstandarden rad
+  85). Bättre, och en liten ändring i mallen; `aria-invalid` kräver JS även hos källan [required-field-feedback.md
+  rad 70], vilket vårt skript redan sätter (rad 76). *performance*: `fetchpriority="high"` på LCP-bilden, lazy under
+  vyn, `sizes` alltid med `srcset`, `width` och `height` [REPO performance.md rad 55–58, 191–198]; preload bara av
+  det kritiska typsnittet, med `crossorigin`, aldrig `fetchpriority` på typsnitt [rad 293–298]. Vi: standarden 2.4,
+  4.2 och 4.3 (rad 39, 59–60) och mallens README rad 15. Lika. Men rad 11 och 43 förordar `preconnect` till
+  typsnittstjänster och tredjeparts-API:er och rad 29 ett inline `onload`; standarden 4.4 (rad 61) och 8.2 (rad 109)
+  vinner. *typografi*: `text-wrap: balance` och `pretty` samt `font-size-adjust: from-font` som reserv [REPO
+  visual-design/improve-text-layout-and-legibility.md rad 32–49; visually-stable-font-fallbacks.md rad 12, 27]. Vi:
+  better-typography rad 83–84 har text-wrap; size-adjust-reserven ger Astros typsnitts-API (standarden 4.3 och
+  avsnitt 11). Lika. *accessibility.md*: landmärken, skiplänk med fokuserbart mål, inga rubriker i `<summary>`,
+  Safari tappar listsemantiken vid `list-style: none` så `role="list"` krävs [REPO accessibility.md rad 15–26, 71],
+  etikett med `for` och `id` även när fältet ligger i etiketten [rad 82], 80 tecken radlängd [rad 349]. Vi:
+  better-accessibility täcker allt utom Safari-undantaget; standarden 3.1 har 45–75 tecken och vinner. Lika.
+  **Det vi saknar:** en uttalad webbläsarpolicy. Varje guide anger Baseline-status och en reserv per funktion [REPO
+  swipe-to-remove.md rad 446–484; improve-text-layout-and-legibility.md rad 68–75], och SKILL.md rad 109–123 säger
+  att "Widely available" används utan reserv och allt nyare med guidens reserv eller enligt en policy projektet
+  skrivit ned. Hos oss finns progressiv förbättring som princip (`kunskap/teoretisk-grund.md` rad 34, 47) men ingen
+  rad som säger vilket stöd ett bygge bygger för; byggena har valt (hash-CSP, details-meny, inga view transitions)
+  utan regel. Smartare: en rad i byggstandarden. **Källkritik på Baseline-raderna:** de är maskingenererade i fast
+  form och minst två är fel: anchor positioning "Supported by: Safari 27. Unsupported in: Chrome, Edge, and Firefox"
+  [REPO css-layout.md rad 212–214] när Chrome haft det sedan 125 (2024), och `overscroll-behavior` "Chrome 144 (Jan
+  2026) … Unsupported in: Safari" [swipe-to-remove.md rad 465–467] när det funnits i Chrome 63 och Safari 16. En
+  rad får inte avgöra en reserv utan kontroll mot MDN. (4) **Evalerna.** Källan redovisar ett mått ingen annan
+  skill-källa i registret har visat: 132 uppgifter med Playwright-domare kalibrerade mot ett guldexempel (måste
+  passera) och ett negativt (måste falla), körda med och utan skillen i tre agenter, uplift +21 till +35
+  procentenheter [REPO README.md rad 454–490]. Egenrapporterat, och delvis på uppgifter som inte är våra (svep,
+  dialoger, INP), men metoden är densamma som vårt mikroprov (`LARDOMAR.md` rad 129, 178): samma uppgift, med och
+  utan, oberoende domare. Belägg, inte anekdot. Mot litteraturen: progressiv förbättring och "rule of least power"
+  (`kunskap/teoretisk-grund.md` rad 34, 47) är exakt källans linje, CSS före JS och reserv per funktion; källan gör
+  principen operativ per funktion, vilket vi inte har
+- Skäl: videon är reklam för en skill, och det den visar, svep i en applista, rör oss inte. Repot bakom är något
+  annat: Chrome- och Edge-teamens egna recept för modern HTML, CSS och formulär, med webbläsarstöd och reserv per
+  funktion och ett evalmått som liknar vårt mikroprov, under en licens som tillåter kopiering. Våra byggen klarar
+  kraven i standarden redan, men de har inga recept för hur ett formulärfel visas utan JS, hur en reserv väljs,
+  eller vilket webbläsarstöd som gäller; där är ett trettiotal av guiderna bättre eller smartare än vår text, och
+  resten är irrelevant eller krockar (npx som laddar opinnad kod, telemetri, preconnect till tredje part,
+  CDN-polyfills, karuseller). Som verktygslåda, kopierad utan mekanismen och utan de guider som inte rör en statisk
+  sajt, ger den bygget en förmåga vi saknar utan att krocka med en regel: ta in. Två Baseline-rader som är fel gör
+  att kopian måste säga att raderna kontrolleras mot MDN. Kommande avsnitt i serien bedöms mot den här posten;
+  ny bedömning bara om ett avsnitt visar en guide i urvalet som gör något annat än det jag läst
+- Kostnad: kopian cirka 250 tokens alltid, cirka 1 500 vid användning (nytt SKILL.md med index) och uppskattningsvis
+  80 000 vid behov för ett trettiotal guider (hela skillen är 286 851); inga beroenden, inget körs; underhåll:
+  källan är "preview" och uppdateras ofta, kopian fryses vid 84ae725 i KALLA.md och uppdateras bara genom ett nytt
+  kirurgintag
+- Säkerhet: förgranskningen LÅG: inga dolda tecken, ingen text riktad till agenter enligt mönstren, inga skript i
+  repot, inga hookar. Själv funnet: SKILL.md rad 4 kräver att skillen körs först i varje webbuppgift och rad 96 ber
+  agenten begära nätbehörighet i förväg; `policies/modern-web-guidance.toml` rad 1–6 ber Gemini CLI fråga före varje
+  modern-web-kommando i planläge; README rad 506 beskriver telemetri av sökfraser till Google; 39 hänvisningar
+  mellan guider är skrivna som `npx -y … retrieve`-kommandon i 17 filer, och sex guider som inte kopieras hämtar
+  polyfills och bibliotek från unpkg, jsdelivr eller esm.sh (subagentens genomgång). Inget följdes, kördes eller
+  installerades; klonen läst utifrån
+- Förslag: **A. Verktygslådan:** `.claude/skills/modern-web-guidance/` ur GoogleChrome/modern-web-guidance @
+  84ae725 (v0.0.191), Apache-2.0: `LICENSE` kopieras och KALLA.md tar med attributionsraden (README rad 528: MDN, W3C,
+  WHATWG, IETF). Nytt `SKILL.md` på svenska: beskrivning "Recept med webbläsarstöd och reserv per funktion för
+  modern HTML, CSS och formulär ur Chrome- och Edge-teamens guider. Används i bygg-sajt steg 5.3 och 5.5 när bygget
+  skriver en komponent utanför mallen: formulärfel, bilder, rubriker, menyer, övergångar, kontrast, typsnittsreserv";
+  avsnittet "Så används skillen i nortropic-webb-pro" överst: standarden och domarna vinner; inget npx, ingen
+  sökning, ingen telemetri, bygget letar med Grep i `guides/` och läser filen; Baseline-raderna kontrolleras mot MDN
+  innan en reserv byggs eller hoppas över (två kända fel); `preconnect`, CDN, polyfills och inline-händelser i
+  guiderna gäller inte (standarden 4.4 och 8.2); dark mode bara när KONCEPT.md säger det; karuseller aldrig (5.5);
+  sedan ett index med en rad per guide ur README rad 155–345. Guiderna kopieras oförändrade i urval: css (css,
+  css-layout, fluid-scaling, style-parent-with-has, content-based-styling, size-aware-styling,
+  animate-to-intrinsic-sizes), forms (forms, required-field-feedback, validate-input-after-interaction,
+  autofill-address-form, brand-consistent-forms, form-fields-automatically-fit-contents), html (html), accessibility
+  (accessibility, accessible-error-announcement), performance (performance, optimize-image-priority,
+  optimize-preload-priority, deliver-optimized-decorative-images, improve-next-page-load-performance), visual-design
+  (improve-text-layout-and-legibility, visually-stable-font-fallbacks, precise-text-alignment, contrast-color,
+  dark-mode), ui-behaviors (cross-document-transitions, consistent-cross-document-transitions, search-hidden-content,
+  animate-element-entry-exit), ui-atoms (responsive-table, state-aware-sticky-headers), security (security), privacy
+  (privacy). Tas bort: frontmatterns tvångsbeskrivning och npx-instruktionerna, `.claude-plugin/` och de övriga
+  pluginmanifesten, `policies/`, skillen chrome-extensions och de 130 övriga guiderna. **B. Byggstandarden:**
+  `kunskap/byggstandard.md`, ny rad 3.8 efter rad 52: "Webbläsarstöd: funktioner med Baseline Widely available
+  används utan reserv; Newly available bara som förbättring som kan falla bort utan att något går sönder (text-wrap,
+  view transitions, font-size-adjust) eller med en reserv; begränsat stöd aldrig för menyn, formuläret eller första
+  vyn. Status kontrolleras mot MDN." Fas D, prövas av granskaren. Egen innovation, egen post: mallens formulär visar
+  det svenska felbeskedet som text vid fältet utan JavaScript med `:user-invalid`
+- Utfall: —
+- Backlog: B-20261003-ta-in-googlechrome-modern-web-guidance-i-verktyg (A och B) och
+  B-20261003-mallens-formular-visar-det-svenska-felbeskedet-s (egen innovation)
