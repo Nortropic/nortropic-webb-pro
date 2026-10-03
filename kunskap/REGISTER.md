@@ -4865,3 +4865,79 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   nytt verktyg, inget blad för fiktiv verksamhet
 - Utfall: —
 - Backlog: ingen för domen; egen innovation B-20261003-rapportens-punkt-14-far-ett-klistringsfardigt-pr
+
+### 2026-10-03 · h3nryprod01/design-taste · nej
+- Källa: https://github.com/h3nryprod01/design-taste @ e0f7e23 (ur klonens `.git/packed-refs`; `git log` nekades av
+  behörigheten; senaste push 2026-09-25T03:52Z, tagg v2.1.0), MIT och Apache-2.0 med NOTICE per fil (Nguyễn Phú
+  Cường), 63 stjärnor, inte arkiverat. Förgranskat (MEDEL). Läst: README, SKILL.md, CHANGELOG, NOTICE, plugin.json,
+  `reference/anti-slop.md`, `core-rules.md`, `design-systems.md`, `interaction-states.md` och `pre-flight.md` helt,
+  `motion.md` som rubriklista mot vår Emil-kopia, `scripts/preflight.mjs` och `upstream-drift.sh` helt, testskripten
+  med sökning. Repot har inga bilder och ingen demo. Spanarens träff 2026-10-03 (claude code, color, design, frontend,
+  skill, typography). Ägarens not: ingen utöver det
+- Steg: 5 (koncept och bygge), 6 (provets stilrapport)
+- Jämfört med i dag: källan är uttryckligen en sammanslagning av tre skills, "a synthesis of three community design
+  skills, deduplicated and merged" [REPO README.md rad 7], med varje del spårad till sin källa och commit [REPO
+  NOTICE rad 37–156]. (1) **Taste-skill.** Allt som porterats (§0 brieflässning, dialerna, designsystemkartan,
+  §4.1–4.2, 4.4, 4.8, 4.9, 4.11, §8, §9 AI tells, §11 redesign, §14 pre-flight) [REPO NOTICE rad 93–150] står redan i
+  vår fullständiga kopia `kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md` (REGISTER rad 18; rubrikerna §0–§14 rad
+  13–920), som bygget läser i steg 5 med avgränsningen "principerna i §0 och §4, inte dess stack eller skelett"
+  (`.claude/skills/bygg-sajt/SKILL.md:226`). Källans core-rules.md tar in 4.8, som sätter bildgenerering först och
+  picsum-platshållare därefter [REPO reference/core-rules.md rad 66–71], mot vårt "Inga stockbilder" (bygg-sajt rad
+  89), beställning av egna bilder (rad 155–159) och ägarens L3 "hellre inga foton än stock" (`LARDOMAR.md:90`).
+  Lika där vi filtrerar, sämre där den lyfter in det vi filtrerat bort. (2) **Emil Kowalski.** `motion.md` har samma
+  avsnitt som `kunskap/externa/emil-emil-design-eng-SKILL.md` (REGISTER rad 17; bygg-sajt rad 227), med numrerade
+  rubriker omdöpta och granskningsformatet flyttat [REPO NOTICE rad 63–71]. Lika. (3) **Impeccable.** Bedömd
+  2026-10-02 (rad 1701–1809, ägaren höll med, `kunskap/KIRURG-OMDOMEN.md:175–178`): harnessen nej, fem mätbara mönster
+  och typsnittslistorna in. De står nu i `kontroller/stil.mjs:119–160` (rubrikrytm, enformig luft, platt typskala,
+  färgad sidkant, liten brödtext). Källans Part 1-förbud [REPO reference/anti-slop.md rad 11–26] täcks av stilrapporten
+  som mätning på renderad sida: sidkant (rad 146–157), gradient (rad 57), kort i kort och tre likadana kort (rad 70–71),
+  spärrade versaletiketter och numrerade etiketter (rad 189–192), och av granskarens originalitetskriterium
+  (`kritik/GRANSKARE.md:86–90`) och Anthropics kalibreringslista (`kunskap/externa/anthropic-frontend-design-SKILL.md:
+  38–45`). Åtta tillstånd, fokusring, etikett ovanför fält, fel med aria-describedby [REPO interaction-states.md rad
+  3–45] är byggstandarden 3.4, 5.1, 5.4 och 6.2 (`kunskap/byggstandard.md:49, 69, 72, 85`); dialog, popover,
+  ankarpositionering och roving tabindex [rad 51–172] är produkt-UI som en statisk småföretagssajt inte har. Lika.
+  (4) **Det egna.** Tre saker är källans egna [REPO NOTICE rad 37–60, 151–156; CHANGELOG rad 7–16]: ett kort
+  SKILL.md-kärna om 2 700 tokens, en registertabell per yta (Persuade, Operate, Read, Experience) med dialvärden och
+  pre-flight-tillägg [REPO SKILL.md rad 94–110], och `preflight.mjs`, en beroendefri källkodsskanner. Kärnan bakar
+  in det vi medvetet filtrerar: nollförbud mot tankstreck [REPO SKILL.md rad 84; anti-slop.md rad 130–146], där svensk
+  text sätter tankstreck med mellanslag och vår copykontroll tillåter ett per stycke (`kunskap/copy-kontroll.md:18`,
+  `kontroller/copy_kontroll.py:111–112`); dubbelt läge via prefers-color-scheme som standard och "scenmotivering" för
+  ett enda läge [REPO SKILL.md rad 61; core-rules.md rad 163], där alla sex dömda byggen är ljusa enläges-sajter som
+  ägaren godtagit; serif "very discouraged as a default" [REPO SKILL.md rad 55; core-rules.md rad 17–25], där
+  riktningen hos oss härleds ur verksamheten (bygg-sajt rad 235–247) och Holms konditori bär Young Serif ur ateljén
+  (`underlag/holms-konditori-abx/JAMFORELSE.md:14`); OKLCH, Tailwind-klasser som stenografi och React/Motion/GSAP som
+  standardstack [REPO SKILL.md rad 60; core-rules.md rad 3; design-systems.md rad 118–129], där vi bygger statisk Astro
+  utan JS (byggstandarden 1.1, 3.7; 0 kB JS i L1–L3, `LARDOMAR.md:31, 56, 80`). Ytregistret gäller inte oss: alla
+  våra sajter är samma yta. Skannern läser källkod, inte renderad sida [REPO scripts/preflight.mjs rad 42–55,
+  125–283]; dess hårda regler gäller tankstreck, `transition: all`, `scale(0)`, scroll-lyssnare, gradienttext,
+  sidkant, repeterande gradient, feTurbulence och egen muspekare [rad 6–15], varav sidkant och gradient redan mäts
+  renderat, resten är JS-animation vi inte skeppar eller tankstrecksregeln ovan; varningarna (fler än tre
+  typsnittsfamiljer, Google Fonts-länk, 100vh, rent svart eller vitt, versaletiketter) [rad 17–24] är byggstandarden
+  4.3 och 4.4 (rad 60–61), stilrapportens "nästa sektion skymtar" (stil.mjs rad 292–293) och versaletiketter (rad 192);
+  rent svart eller vitt är ett val ägaren godtagit i L2 och L3 ("svart på kalkvit", gult och svart, `LARDOMAR.md:65,
+  89`). Smartare: nej, mätt renderat slår skannat i källan, och ingen dom eller granskarfynd i sex byggen pekar på
+  något den mäter som vi saknar. Litteraturen: källans "Iron Law", bygg, kritisera själv, förfina [REPO SKILL.md rad
+  22–30], är självkritik; vi kör två oberoende granskare (bygg-sajt rad 306–319) därför att en ensam granskare hittar
+  omkring 35 procent av problemen (`kunskap/teoretisk-grund.md:128–129`). Bättre hos oss
+- Skäl: ett omsorgsfullt paketerat omtag av tre källor vi redan har: två i fulltext i `kunskap/externa/` och lästa i
+  steg 5 i sex dömda byggen där ägaren satt 4–5 av 5 på "gjord för just den här verksamheten" (`LARDOMAR.md:28, 53,
+  77, 111, 135, 160`), den tredje bedömd 2026-10-02 med det mätbara intaget. Det källan själv tillför, en kärna som
+  gör stackens och engelskans regler till allmänna förbud, ett ytregister för produkt-UI och en källkodsskanner, är
+  antingen lika med det stilrapporten mäter renderat eller krockar med medvetna val: svensk tankstreckssättning,
+  ljusa enläges-sajter, riktning ur verksamheten i stället för typsnittsförbud, inga platshållarbilder, Astro utan JS.
+  Vår egen avgränsning "§0 och §4, inte dess stack eller skelett" är exakt det urval den här sammanslagningen inte gör.
+  Källkritik: README säljer med "elite" och "premium" [REPO README.md rad 3] men visar ingen demo, inga bilder och
+  inget före-och-efter; tells-listornas belägg är taste-skills egna "real LLM-generated landing-page tests" utan
+  publicerad data [REPO anti-slop.md rad 77]. Ärligt i upphov och licens; inget försök att styra agenten
+- Kostnad: inget tas in. Hade skillen tagits in: 154 tokens alltid, 2 724 vid användning, 49 481 vid behov
+  (förgranskningen); inga beroenden för läsning, Node 22 för skannern [REPO CHANGELOG rad 20]
+- Säkerhet: förgranskningen MEDEL: inga dolda tecken, ingen text riktad till agenter, inga behörigheter i frontmatter,
+  inga hookar. Fyra skript flaggade: `preflight.mjs` läser filer och skriver till stdout, ingen nätåtkomst, "miljö" är
+  argv och exit [REPO scripts/preflight.mjs rad 39, 286–311]; testskripten kör skannern och driftkontrollen som
+  barnprocesser [REPO preflight.test.mjs rad 12, 22, 516]; `upstream-drift.sh` hämtar fem uppströmsfiler från
+  raw.githubusercontent.com och jämför hashar, läsande, avslutar alltid med 0 [REPO scripts/upstream-drift.sh rad
+  24–28, 42–43, 78]. Inget kördes eller installerades
+- Förslag: inget. Spanaren bevakar redan de tre uppströmskällorna via RSS (`kunskap/spaning-kallor.md:38–41`), så
+  källans driftkontroll behövs inte heller som idé
+- Utfall: —
+- Backlog: ingen
