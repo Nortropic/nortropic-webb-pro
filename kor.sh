@@ -7,13 +7,14 @@
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
 # NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång), NWP_GRANSKNING_MAX (5 per
-# körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json ansluter Inspo i A/B-prövningen).
+# körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json ansluter Inspo i A/B-prövningen), NWP_ATELJE (av; pa = ateljén
+# i steg 5.1, med NWP_ATELJE_MODELL, NWP_ATELJE_EFFORT och NWP_ATELJE_ANTAL).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SLUG="${1:-}"
 VERKSAMHET="${2:-}"
 if [[ ! "$SLUG" =~ ^[a-z0-9-]{2,60}$ || -z "$VERKSAMHET" ]]; then
-  sed -n '2,10p' "$0"
+  sed -n '2,11p' "$0"
   exit 2
 fi
 [ -x "$ROOT/.venv/bin/python" ] || { echo "saknar .venv — se README.md, Installation"; exit 2; }
@@ -33,6 +34,12 @@ kunder/$SLUG/sajt/, rapporten i kunder/$SLUG/RAPPORT.md. Ingen människa svarar 
 märk den antagande och fortsätt. Avsluta först när .venv/bin/python kontroller/prova.py $SLUG är grönt, rapporten är
 skriven och den oberoende granskaren (kontroller/granska.py) har godkänt sajten. Stoppvakten kör provet och
 granskningen själv när du försöker avsluta."
+# Riktningsateljén (A/B-posten B-20261003-a-b-riktningsatelje-i-steg-5-1-dar-en-orkestrato): av som standard.
+if [ "${NWP_ATELJE:-av}" = "pa" ]; then
+  PROMPT="$PROMPT
+
+Riktningsateljén är på (NWP_ATELJE=pa): följ ateljévägen i steg 5.1."
+fi
 
 # Inspo (A/B-posten B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for): bara när NWP_MCP_CONFIG pekar på en
 # fil ansluts den, och bara tre läsande verktyg släpps igenom; annars laddas inga anslutningar alls.

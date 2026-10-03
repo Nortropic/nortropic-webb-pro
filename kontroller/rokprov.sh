@@ -108,7 +108,12 @@ d = pathlib.Path(tempfile.mkdtemp()) / 'dist'; shutil.copytree('$S/dist', d)
 assert not [f for f in sk.granska(d)[0] if f['sida'] == '/tvaan/']
 (d / 'tvaan').mkdir(); shutil.copy(d / 'index.html', d / 'tvaan' / 'index.html')
 assert [f for f in sk.granska(d)[0] if f['sida'] == '/tvaan/' and f['punkt'] == '9.4']
-" || { echo "FEL: standarden fångar inte en kvarlämnad tvåan-sida"; exit 1; }
+(d / 'atelje-2').mkdir(); shutil.copy(d / 'index.html', d / 'atelje-2' / 'index.html')
+assert [f for f in sk.granska(d)[0] if f['sida'] == '/atelje-2/' and f['punkt'] == '9.4']
+import subprocess
+r = subprocess.run([sys.executable, '-B', '$ROOT/kontroller/atelje.py', 'saknas-helt-prov'], capture_output=True, text=True)
+assert r.returncode == 2 and 'Saknas' in r.stdout, r.stdout
+" || { echo "FEL: standarden fångar inte en kvarlämnad kastbar sida, eller ateljén vägrar inte utan underlag"; exit 1; }
 echo "   tvåan-regeln ok"
 
 echo "   ägarens A/B-omdöme: adress, brödsmulor, rörelse, typsnittsvikt, intern text"

@@ -218,6 +218,13 @@ KONCEPT.md.
    följer uttryckliga specifikationer precist. De två starkaste riktningarna blir riktningsfrågan i FRAGOR.json, med
    en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad **Visuell tes**: stämning, material och energi i en
    mening, som namnger ett material eller en plats ur "Bara de har".
+   **Ateljévägen** (när prompten säger att riktningsateljén är på): kör punkt 2 först, sedan `.venv/bin/python
+   kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så länge den svarar att ateljén
+   pågår. En orkestrator tar fram riktningarna som style tile och första vy med verksamhetens riktiga innehåll, och
+   en fristående domare väljer. Läs `underlag/<slug>/atelje/VAL.md`, `RIKTNINGAR.md` och bilderna i `atelje/<N>/`,
+   och skriv specifikationen i KONCEPT.md ur den valda riktningen och det som lånas från de andra. Avinstallera
+   typsnitt som bara bortvalda riktningar använde. Tvåan i punkt 4 behövs då inte; riktningsfrågan i FRAGOR.json får
+   en bild per riktning ur `atelje/<N>/vy-390-forsta.png`, i samma ordning som alternativen.
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
    sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.

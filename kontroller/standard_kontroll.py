@@ -452,6 +452,8 @@ def granska(dist):
     # 9.4 den kastbara sidan för tvåan-riktningen (bygg-sajt steg 5) tas bort efter skärmbilderna
     if (dist / 'tvaan').exists():
         F('9.4', '/tvaan/', 'den kastbara sidan med tvåan-riktningen finns kvar; ta bort kunder/<slug>/sajt/src/pages/tvaan med kontroller/ta_bort.py')
+    for kvar in sorted(dist.glob('atelje-*')):
+        F('9.4', '/%s/' % kvar.name, 'en kastbar ateljésida finns kvar; ta bort kunder/<slug>/sajt/src/pages/%s med kontroller/ta_bort.py' % kvar.name)
     # 6 skriftlig förfrågan (ägarens dom L1: "standarden ska inte tillåta att 'ring' är enda vägen")
     forfragan = [(s, fm) for s, fm in ((sida_av(dist, f), fm) for f, p in sidobjekt.items() for fm in p.formular)
                  if fm['attr'].get('method', '').lower() == 'post' and fm['attr'].get('action') == '/api/forfragan']
