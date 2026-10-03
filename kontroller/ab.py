@@ -6,7 +6,8 @@ och visas först efter valet.
     .venv/bin/python kontroller/ab.py starta <slug> "<verksamhet>" [--variabel effort] [--a medium] [--b high]
     .venv/bin/python kontroller/ab.py lista
 
-Variabler: effort (NWP_EFFORT), modell (NWP_MODELL), originalitet (NWP_GRANSKNING_ORIGINALITET: skugga, avgor).
+Variabler: effort (NWP_EFFORT), modell (NWP_MODELL), originalitet (NWP_GRANSKNING_ORIGINALITET: skugga, avgor),
+inspo (NWP_MCP_CONFIG: av, kontroller/mcp/inspo.json).
 Byggena heter <slug>-abx och <slug>-aby; vilket värde som hör till x och y lottas och sparas i kunder/ab/<id>.json,
 som dashboarden döljer tills ägaren har valt. Syskonbygget räknas inte som tidigare bygge (upptagna val, granskaren),
 så att det ena bygget inte påverkar det andra. Körningen tar två fulla byggen; starta den med nohup.
@@ -27,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 KUNDER = ROOT / 'kunder'
 AB = KUNDER / 'ab'
-VARIABLER = {'effort': 'NWP_EFFORT', 'modell': 'NWP_MODELL', 'originalitet': 'NWP_GRANSKNING_ORIGINALITET'}
+VARIABLER = {'effort': 'NWP_EFFORT', 'modell': 'NWP_MODELL', 'originalitet': 'NWP_GRANSKNING_ORIGINALITET', 'inspo': 'NWP_MCP_CONFIG'}
 SLUG = re.compile(r'^[a-z0-9-]{2,52}$')
 
 

@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "inspo": { "type": "http", "url": "https://inspomcp.dev/api/mcp" }
+  }
+}

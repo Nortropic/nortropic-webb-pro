@@ -164,6 +164,11 @@ Lägg till `--tillat` med referensens egna ursprung om den ser trasig ut. Titta 
 såg, och vilket val i vår sajt den ska påverka. Ingen kvot: sluta när underlaget räcker för välgrundade val. En
 referens som inte gick att öppna märks så och ersätts.
 
+**När Inspo är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG`): `recommend` och `search_screens` med briefen är en
+sökingång för hantverksrollen och mobilparen, och `get_screen` visar en skärm. Varje vald referens öppnas ändå med
+inspektera.mjs ovan och skrivs i REFERENSER.md med källa Inspo. Färgerna, formen och första vyn kommer ur
+verksamheten och specifikationen i KONCEPT.md, inte ur arkivets förslag.
+
 ## Steg 4 — Innehåll före form
 
 Läs `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`, `kunskap/seo.md` och, om verksamheten är lokal,

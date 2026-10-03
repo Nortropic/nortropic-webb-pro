@@ -6,13 +6,14 @@
 #
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
-# NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång), NWP_GRANSKNING_MAX (5 per körning).
+# NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång), NWP_GRANSKNING_MAX (5 per
+# körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json ansluter Inspo i A/B-prövningen).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SLUG="${1:-}"
 VERKSAMHET="${2:-}"
 if [[ ! "$SLUG" =~ ^[a-z0-9-]{2,60}$ || -z "$VERKSAMHET" ]]; then
-  sed -n '2,9p' "$0"
+  sed -n '2,10p' "$0"
   exit 2
 fi
 [ -x "$ROOT/.venv/bin/python" ] || { echo "saknar .venv — se README.md, Installation"; exit 2; }
@@ -33,11 +34,20 @@ märk den antagande och fortsätt. Avsluta först när .venv/bin/python kontroll
 skriven och den oberoende granskaren (kontroller/granska.py) har godkänt sajten. Stoppvakten kör provet och
 granskningen själv när du försöker avsluta."
 
+# Inspo (A/B-posten B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for): bara när NWP_MCP_CONFIG pekar på en
+# fil ansluts den, och bara tre läsande verktyg släpps igenom; annars laddas inga anslutningar alls.
+INSPO=()
+if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
+  [ -f "$NWP_MCP_CONFIG" ] || { echo "NWP_MCP_CONFIG pekar inte på en fil: $NWP_MCP_CONFIG"; exit 2; }
+  INSPO=(mcp__inspo__recommend mcp__inspo__search_screens mcp__inspo__get_screen)
+fi
+
 ARGS=(-p
   --max-turns "${NWP_MAX_TURNS:-400}"
   --permission-mode dontAsk
   --output-format stream-json --verbose
   --allowedTools Read Write Edit Glob Grep WebFetch WebSearch Skill Task TaskCreate TaskUpdate TaskList TaskGet
+  ${INSPO[@]+"${INSPO[@]}"}
   # npm bara mot byggets egen sajt: målarbygget 2026-10-01 installerade först ett typsnitt i repots rot.
   "Bash(npm install --prefix kunder/*)" "Bash(npm ci --prefix kunder/*)" "Bash(npm run build --prefix kunder/*)"
   "Bash(npm --prefix kunder/*)" "Bash(npm view *)" "Bash(npm ls *)" "Bash(npm pack *)"
@@ -60,6 +70,7 @@ ARGS=(-p
 GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
 # --strict-mcp-config utan --mcp-config: inga anslutningar (Gmail, Drive, Resend …) laddas i bygget.
 ARGS+=(--setting-sources project,local --strict-mcp-config --model "${NWP_MODELL:-opus[1m]}" --effort "${NWP_EFFORT:-medium}")
+if [ ${#INSPO[@]} -gt 0 ]; then ARGS+=(--mcp-config "$NWP_MCP_CONFIG"); fi
 if [ -n "$GH_DIR" ]; then ARGS+=(--settings "{\"env\":{\"GH_CONFIG_DIR\":\"$GH_DIR\"}}"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort.

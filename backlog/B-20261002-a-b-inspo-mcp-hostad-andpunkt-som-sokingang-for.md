@@ -1,11 +1,12 @@
 ---
 id: B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS Ow_z94c3wKk + Nutlope/inspo
 skapad: 2026-10-02
 prio: normal
 steg: 3 (referenser, hantverksrollen); kor.sh (anslutningar i bygget)
+andrad: 2026-10-03T00:53Z
 ---
 # A/B: Inspo MCP (hostad ändpunkt) som sökingång för referenser i steg 3, mot dagens egna referensjakt
 
