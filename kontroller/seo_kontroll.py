@@ -204,12 +204,24 @@ def typlista(nod):
     return [typnamn(x) for x in (t if isinstance(t, list) else [t]) if isinstance(x, str)]
 
 
+def normaliserad_nod(nod):
+    """Noden med egenskapsnamn utan schema.org-prefix, också i nästlade objekt (schema:address → address, dess
+    schema:postalCode → postalCode): verksamhetskontrollen läser name, telephone och address och ska se dem också när
+    de är kompakta eller fullständiga IRI:er (omgång sju, F20). @-nycklar lämnas."""
+    if isinstance(nod, list):
+        return [normaliserad_nod(x) for x in nod]
+    if not isinstance(nod, dict):
+        return nod
+    return {(k if k.startswith('@') else typnamn(k)): normaliserad_nod(v) for k, v in nod.items()}
+
+
 def granska_schema(obj, verksamhet):
     fynd = []
     if not isinstance(obj, dict):
         return [('JSON-LD form', 'objekt väntades')]
     v = vokabular()
     for nod in noder(obj):
+        nod = normaliserad_nod(nod)
         typer = typlista(nod)
         if not typer:
             fynd.append(('JSON-LD utan @type', ''))
