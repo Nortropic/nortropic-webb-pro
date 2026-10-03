@@ -551,6 +551,56 @@ def spara_ab(ident, data):
     return {'ok': True, 'git': commit_agarens(['LARDOMAR.md'], 'Ägaren: A/B %s' % p['variabel']), 'jamforelse': ab_lista()}
 
 
+# --- kalibreringen: ägaren dömer externa exempel blint (backlogposten om kalibrering av visuell nivå, 2026-10-03) ---
+NIVAER = ('over', 'nastan', 'generisk')
+
+
+def kalibrering_urval():
+    """Exemplen ur underlag/kalibrering/URVAL.txt: id · nivå (agentens hypotes) · adress · roll. Adress och hypotes visas
+    för ägaren först efter domen, så att bedömningen är blind."""
+    f = UNDERLAG / 'kalibrering' / 'URVAL.txt'
+    ut = []
+    for rad in (las_text(f) or '').splitlines():
+        if not rad.strip() or rad.startswith('#'):
+            continue
+        delar = [d.strip() for d in rad.split('·')]
+        if len(delar) < 3 or not re.fullmatch(r'K\d{2}', delar[0]):
+            continue
+        ut.append({'id': delar[0], 'hypotes': delar[1], 'url': delar[2], 'roll': delar[3] if len(delar) > 3 else ''})
+    return ut
+
+
+def kalibrering_lista():
+    domar = las_json(UNDERLAG / 'kalibrering' / 'DOMAR.json') or {}
+    ut = []
+    for e in kalibrering_urval():
+        bas = UNDERLAG / 'kalibrering' / e['id']
+        bilder = {}
+        for mapp in ('start', 'undersida'):
+            for fil in ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-390-hela.png'):
+                if (bas / mapp / fil).is_file():
+                    bilder['%s-%s' % (mapp, fil[3:-4])] = 'underlag/kalibrering/%s/%s/%s' % (e['id'], mapp, fil)
+        post = {'id': e['id'], 'bilder': bilder, 'dom': domar.get(e['id'])}
+        if post['dom']:  # avslöjas efter domen
+            post.update(url=e['url'], roll=e['roll'], hypotes=e['hypotes'])
+        ut.append(post)
+    return ut
+
+
+def spara_kalibrering(ident, data):
+    """Ägarens dom över ett exempel: nivå och vad som skiljer. Privat (underlag/kalibrering/DOMAR.json), ingen git."""
+    if ident not in {e['id'] for e in kalibrering_urval()}:
+        raise ValueError('okänt exempel')
+    if data.get('niva') not in NIVAER:
+        raise ValueError('välj tydligt över ribban, nästan eller generisk')
+    f = UNDERLAG / 'kalibrering' / 'DOMAR.json'
+    domar = las_json(f) or {}
+    domar[ident] = {'niva': data['niva'], 'skiljer': (data.get('skiljer') or '').strip()[:4000], 'tid': nu()}
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(domar, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return {'ok': True, 'dom': domar[ident], 'kvar': sum(1 for e in kalibrering_urval() if e['id'] not in domar)}
+
+
 # --- domen ---
 
 def spara_dom(slug, data):
@@ -968,6 +1018,8 @@ class H(BaseHTTPRequestHandler):
                                          'granskare': granskare_overens(), 'tid': nu()})
             if vag == '/api/ab':
                 return self.skicka(200, ab_lista())
+            if vag == '/api/kalibrering':
+                return self.skicka(200, kalibrering_lista())
             if vag == '/api/backlog':
                 return self.skicka(200, backloggen())
             if vag == '/api/kirurg':
@@ -1043,6 +1095,9 @@ class H(BaseHTTPRequestHandler):
             m = re.match(r'^/api/ab/([a-z0-9TZ-]+)$', vag)
             if m:
                 return self.skicka(200, spara_ab(m.group(1), data))
+            m = re.match(r'^/api/kalibrering/(K\d{2})$', vag)
+            if m:
+                return self.skicka(200, spara_kalibrering(m.group(1), data))
             m = re.match(r'^/api/visa/([a-z0-9-]{2,60})$', vag)
             if m:  # tillståndsändrande: bara POST med rätt ursprung (omgång elva, F13)
                 if not visa(m.group(1)):

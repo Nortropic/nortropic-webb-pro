@@ -1639,6 +1639,27 @@ filer_rv, refs_rv = a.underlag_rader('ref-abx')
 assert refs_rv and 'vy-1440-ruta-02.png — prislistan' in refs_rv[0] and 'Fråga: syns elevpriset' in refs_rv[0], refs_rv
 assert 'Bildval' in (ROOT / '.claude' / 'skills' / 'bygg-sajt' / 'SKILL.md').read_text() and 'Land-book' in (ROOT / 'kunskap' / 'referensjakt.md').read_text()
 print('referensöverföringen ok')
+# ---------------------------------------------------------------- kalibreringen (backlogposten 2026-10-03): ägaren dömer externa exempel blint i dashboarden
+kal = tmp / 'underlag' / 'kalibrering'; (kal / 'K01' / 'start').mkdir(parents=True); (kal / 'K02' / 'start').mkdir(parents=True)
+(kal / 'URVAL.txt').write_text('# id · nivå · adress · roll\nK01 · over · https://exempel-a.test/ · hållning\nK02 · generisk · https://exempel-b.test/ · nuvarande sajt\n')
+for kid_ in ('K01', 'K02'):
+    for fil_ in ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-390-hela.png'):
+        (kal / kid_ / 'start' / fil_).write_bytes(b'\x89PNG')
+dsrvk = http.server.ThreadingHTTPServer(('127.0.0.1', 0), dash.H); threading.Thread(target=dsrvk.serve_forever, daemon=True).start()
+dport = dsrvk.server_port; dash.VARD['tillatna'] = {'127.0.0.1:%d' % dport, 'localhost:%d' % dport}
+kod, kropp = begar(dport, 'GET', '/api/kalibrering'); lista_k = json.loads(kropp)
+assert kod == 200 and [e_['id'] for e_ in lista_k] == ['K01', 'K02'] and all('url' not in e_ and not e_['dom'] for e_ in lista_k), 'blint före domen: ingen adress, ingen hypotes'
+assert lista_k[0]['bilder']['start-390-forsta'] == 'underlag/kalibrering/K01/start/vy-390-forsta.png' and begar(dport, 'GET', '/fil/' + lista_k[0]['bilder']['start-390-forsta'])[0] == 200
+kod, _ = begar(dport, 'POST', '/api/kalibrering/K01', huvuden={'Origin': 'http://evil.test:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{"niva":"over"}'); assert kod == 403
+kod, _ = begar(dport, 'POST', '/api/kalibrering/K01', huvuden={'Origin': 'http://127.0.0.1:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{"niva":"fel"}'); assert kod >= 400, kod
+kod, kropp = begar(dport, 'POST', '/api/kalibrering/K01', huvuden={'Origin': 'http://127.0.0.1:%d' % dport, 'Content-Type': 'application/json'}, kropp=json.dumps({'niva': 'over', 'skiljer': 'bildvalet och rytmen'}).encode())
+assert kod == 200 and json.loads(kropp)['kvar'] == 1, kropp
+domar_k = json.loads((kal / 'DOMAR.json').read_text()); assert domar_k['K01']['niva'] == 'over' and domar_k['K01']['skiljer'] == 'bildvalet och rytmen'
+kod, kropp = begar(dport, 'GET', '/api/kalibrering'); lista_k = json.loads(kropp)
+assert lista_k[0]['url'] == 'https://exempel-a.test/' and lista_k[0]['hypotes'] == 'over' and lista_k[0]['dom']['niva'] == 'over' and 'url' not in lista_k[1], 'adress och hypotes visas först efter domen'
+kod, _ = begar(dport, 'POST', '/api/kalibrering/K09', huvuden={'Origin': 'http://127.0.0.1:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{"niva":"over"}'); assert kod >= 400, 'okänt exempel'
+dsrvk.shutdown()
+print('kalibreringen ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

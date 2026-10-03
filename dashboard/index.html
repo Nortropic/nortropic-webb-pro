@@ -147,6 +147,7 @@ label.rad { gap: 6px; }
     <a href="#/prospekt" data-v="prospekt">Prospekt <b id="n-prospekt" hidden></b></a>
     <a href="#/lardomar" data-v="lardomar">Lärdomar</a>
     <a href="#/ab" data-v="ab">Jämförelser</a>
+    <a href="#/kalibrering" data-v="kalibrering">Kalibrering</a>
     <a href="#/starta" data-v="starta">Starta</a>
   </nav>
 </div></header>
@@ -461,6 +462,29 @@ async function lardomvy() {
   $('#vy').innerHTML = `<h1>Lärdomar</h1><p class="under">Dina domar, ordagrant ur den privata filen när den finns. Varje dom blir en textändring via backloggen.</p>${gk}<div class="kort prosa">${o.lardomar}</div>`;
 }
 
+// Kalibrering: ägaren dömer externa sajter blint (tydligt över ribban, nästan, generisk) och skriver vad som skiljer
+const NIVA = { over: 'Tydligt över ribban', nastan: 'Nästan', generisk: 'Generisk' };
+async function kalibreringvy() {
+  aktivNav('kalibrering');
+  const lista = await api('/api/kalibrering');
+  const kort = (e) => {
+    const b = e.bilder || {};
+    const rad = (namn, rubrik) => (b[namn + '-390-forsta'] || b[namn + '-1440-forsta']) ? `<div><b>${rubrik}</b><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b[namn + '-390-forsta'], 'mobil 390')}${bild(b[namn + '-1440-forsta'], 'dator 1440')}</div>${b[namn + '-390-hela'] ? `<details><summary>Hela sidan (390, nedskalad: rytmen)</summary>${bild(b[namn + '-390-hela'], 'hela sidan 390')}</details>` : ''}</div>` : '';
+    const form = e.dom ? `<p class="under">Din dom: <b>${esc(NIVA[e.dom.niva] || e.dom.niva)}</b>${e.dom.skiljer ? ' · ' + esc(e.dom.skiljer) : ''}</p><p class="under">Adress: <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a> · roll: ${esc(e.roll || '')} · agentens hypotes: ${esc(NIVA[e.hypotes] || e.hypotes)}</p>`
+      : `<div class="rad" style="margin-top:10px;flex-wrap:wrap;gap:12px">${Object.keys(NIVA).map((n) => `<label><input type="radio" name="niva-${e.id}" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
+         <textarea id="sk-${e.id}" rows="3" style="width:100%;margin-top:8px" placeholder="Vad skiljer nivån? Bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete."></textarea>
+         <div class="rad" style="margin-top:8px"><button class="knapp primar" data-kal="${e.id}">Spara domen</button></div>`;
+    return `<section class="kort" style="margin-bottom:24px"><h2>${esc(e.id)}</h2>${rad('start', 'Startsidan')}${rad('undersida', 'En undersida')}${form}</section>`;
+  };
+  $('#vy').innerHTML = `<h1>Kalibrering</h1><p class="under">Externa sajter utan namn. Döm var och en på mobil och dator: tydligt över ribban, nästan, eller generisk, och skriv exakt vad som skiljer. Adressen och agentens hypotes visas efter din dom. Domarna sparas privat (underlag/kalibrering/DOMAR.json); hälften blir ankare för granskarna, hälften hålls undan för att pröva dem.</p>${lista.map(kort).join('') || '<p>Inga exempel fångade än.</p>'}`;
+  document.querySelectorAll('[data-kal]').forEach((k) => k.onclick = async () => {
+    const id = k.dataset.kal; const niva = (document.querySelector(`input[name="niva-${id}"]:checked`) || {}).value;
+    if (!niva) { alert('Välj nivå först.'); return; }
+    k.disabled = true;
+    try { await post('/api/kalibrering/' + encodeURIComponent(id), { niva, skiljer: $('#sk-' + id).value }); kalibreringvy(); } catch (e) { alert(e.message); k.disabled = false; }
+  });
+}
+
 async function abvy() {
   aktivNav('ab');
   const lista = await api('/api/ab');
@@ -684,6 +708,7 @@ async function route() {
     if (h === 'kirurgen') return await kirurgvy();
     if (h === 'lardomar') return await lardomvy();
     if (h === 'ab') return await abvy();
+    if (h === 'kalibrering') return await kalibreringvy();
     if (h.startsWith('prospekt')) { const d = h.split('/'); return d[2] ? await prospektkortvy(decodeURIComponent(d[1]), decodeURIComponent(d[2])) : d[1] ? await kampanjvy(decodeURIComponent(d[1])) : await prospektvy(); }
     if (h === 'starta') return startavy();
     return await oversikt();
