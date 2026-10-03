@@ -4546,3 +4546,47 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget. Egen innovation: ingen den här gången; det källan berör i vårt arbetssätt finns redan som mekanik
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-03 · DesignCourse (Gary Simon), "Elevenlabs MCP + Claude is the Ultimate Creative Unlock" (YouTube SdumUqJ3EN0) · nej
+- Källa: https://www.youtube.com/watch?v=SdumUqJ3EN0 @ publicerad 2026-09-14, 9:35, cirka 16 500 visningar; YouTubes
+  standardlicens. Läst hela det autogenererade transkriptet och alla 40 bildrutor. Länkarna i beskrivningen är
+  kanalens sociala konton, designcourse.com, Discord och en sponsorlänk till Elevenlabs med gratis krediter
+  [BESKRIVNING]; inget repo, så ingen öppnades. Inte bedömd förut. Ägarens not: hittad av spanaren 2026-10-03 via
+  YouTube: DesignCourse (rss); matchade claude code, mcp, ui, ux
+- Steg: närmast bilderna i steg 1 och första vyn i steg 5; i praktiken inget av de åtta
+- Jämfört med i dag: videon visar hur talaren, i samarbete med Elevenlabs [TAL 00:00], låter Claude Code anropa
+  Elevenlabs MCP-server för att göra reklammaterial till sin egen app FusionCue: en stillbild av ett biljardbord med
+  projektor [SKÄRM 01:40] blir en åtta sekunder lång genererad video med Veo 3.1 i Elevenlabs flödesvy [SKÄRM 02:49,
+  03:17], sedan ett varv med loggan på bordet [SKÄRM 04:54, 06:17], en genererad röst med pauser som justeras i tre
+  omgångar [TAL 06:42–07:15; SKÄRM 06:59], uppskalning till 1080p via Topaz [SKÄRM 07:54] och till sist videon som
+  självspelande, loopande bakgrund i en sidas första vy under rubriken MAKE IT COME ALIVE [TAL 08:23; SKÄRM 08:50].
+  Sak mot sak: (1) **Genererad rörlig bild i stället för egen.** Vi bygger på verksamhetens egna bilder och beställer
+  det som saknas (`.claude/skills/bygg-sajt/SKILL.md` rad 20–24, 89–91; byggstandarden 9.3 och 9.4,
+  `kunskap/byggstandard.md` rad 121–122), ägaren dömde "hellre inga foton än stock" (`LARDOMAR.md` rad 90),
+  genererat material får aldrig framställas som kundens (`kunskap/bild.md` rad 19–20), och generering via tjänst
+  valdes medvetet bort ur bildverktygen (`kunskap/bild.md` rad 5–8). Källans kärna är just det; sämre för oss.
+  (2) **Självspelande video i första vyn.** Vi: ingen autoplay med ljud, inget rullar av sig självt,
+  prefers-reduced-motion i mallen (`kunskap/byggstandard.md` rad 50, 73; `mall/astro/src/layouts/Bas.astro` rad 48).
+  Källans sida loopar videon så länge den syns [TAL 08:23]; det är dekor utan funktion, ett av mönstren granskaren
+  fäller (`kritik/GRANSKARE.md` rad 89). Sämre. (3) **MCP-anslutningar i bygget.** Vi laddar inga anslutningar i
+  bygget (`kor.sh` rad 78–79), och kod ur källor körs inte (kirurg-skillen, Säkerhet). Källan kräver konto och
+  krediter hos Elevenlabs och körs med "Bypass permissions" på [SKÄRM 02:08]. Krock. Mot litteraturen: förtroendet
+  på en liten verksamhets sajt bärs av bevis, egna jobbfoton med datum, inte av producerat intryck (Fogg 2003,
+  byggstandarden 9.3); L1, L5 och L6 lyfte byggdagboken med telefonbilder som sajtens bästa ställe. En genererad
+  film av ett biljardbord ger inget sådant bevis
+- Skäl: det här är en sponsrad demonstration av en tjänst för att generera video, röst och ljud, gjord för talarens
+  egen produktlansering, inte för en verksamhet med egna bilder och kunder. Resultatet är tekniskt snyggt [SKÄRM 06:17,
+  08:22] men behövde tre omgångar för att hålla bordets proportioner och sluta med rätt bild [TAL 05:02, 05:34], och
+  det landar i en första vy med versalrubrik över en loopande partikelfilm [SKÄRM 08:50], precis den mall- och
+  AI-estetik som regeln mot slop och granskaren ska stoppa. För en snickare, en målare eller en salong i Luleå är
+  genererad video motsatsen till det som dömts bäst i våra byggen: daterade egna foton. Samma bedömning som för
+  stable-diffusion-webui, där ägaren höll med. Källkritik: talaren säger själv att videon görs tillsammans med
+  Elevenlabs [TAL 00:00] och leder till en sponsorlänk [BESKRIVNING]; vad som visas är verkligt men är ett
+  reklamfall, inte en kundsajt
+- Kostnad: inget tas in. Som arbetssätt vore det ett Elevenlabs-konto med krediter (gratiskrediterna är en
+  kampanj), en MCP-server i bygget, Veo och Topaz som tredjepartsmodeller bakom tjänsten, och minuter av väntan per
+  försök [SKÄRM 02:21, 06:03]
+- Säkerhet: ej tillämpligt (ingen kod, inget repo). Inget kördes, installerades eller fördes vidare
+- Förslag: inget. Egen innovation: ingen den här gången
+- Utfall: —
+- Backlog: ingen
