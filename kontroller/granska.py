@@ -98,6 +98,15 @@ def samma_metod(g, upp):
     return all(g.get(k) == upp.get(k) for k in ('metod_sha', 'modell', 'effort', 'granskare', 'originalitet'))
 
 
+def aktuell_metod(slug):
+    """Den metod som gäller nu för bygget: underlagshash, modell, effort, antal granskare och originalitetsläge ur miljön.
+    Samma funktion används av granskningen och av korslut (omgång fyra, F11: slutkontrollen jämförde bara hash och antal)."""
+    lage = os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga')
+    return {'metod_sha': metod_sha(slug), 'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
+            'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'granskare': ANTAL,
+            'originalitet': lage if lage in ORIGINALITETSLAGEN else 'skugga'}
+
+
 def syskon_till(slug):
     f = KUNDER / slug / 'AB-SYSKON'
     return f.read_text().strip() if f.is_file() else None
@@ -615,6 +624,17 @@ def main(argv=None):
     if a.slug:
         krav_slug(a.slug)
     if a.arbetare:
+        # arbetarens katalog är kunder/<slug>/granskning/runda-NN; sluggen ur UPPDRAG.json binds till körningen (omgång
+        # fyra, F1: --arbetare mot en annan pågående omgång skrev FEL.txt, raderade dess dist och tog bort PAGAR)
+        upp = las_json(Path(a.arbetare) / 'UPPDRAG.json') or {}
+        if not upp.get('slug') or not SLUG.match(upp['slug']):
+            print('arbetare: %s saknar ett giltigt UPPDRAG.json' % a.arbetare)
+            return 2
+        krav_slug(upp['slug'], 'arbetarens bygge')
+        krav_vag(a.arbetare, 'arbetarens katalog')
+        if Path(a.arbetare).resolve().parent.parent != (KUNDER / upp['slug']).resolve():
+            print('arbetare: %s ligger inte i kunder/%s/granskning/' % (a.arbetare, upp['slug']))
+            return 2
         return arbetare(a.arbetare)
     if not a.slug or not SLUG.match(a.slug):
         p.print_usage()
@@ -650,10 +670,7 @@ def main(argv=None):
         print('Torrkörning: %s. Ingen granskare startades.' % (rdir / 'PROMPT.txt'))
         return 0
 
-    lage = os.environ.get('NWP_GRANSKNING_ORIGINALITET', 'skugga')
-    metod = {'metod_sha': metod_sha(a.slug), 'modell': os.environ.get('NWP_GRANSKARE_MODELL') or 'opus[1m]',
-             'effort': os.environ.get('NWP_GRANSKARE_EFFORT') or 'high', 'granskare': ANTAL,
-             'originalitet': lage if lage in ORIGINALITETSLAGEN else 'skugga'}
+    metod = aktuell_metod(a.slug)
     for r in reversed(rundor(gdir)):
         upp = las_json(r / 'UPPDRAG.json') or {}
         pagar = r / 'PAGAR'

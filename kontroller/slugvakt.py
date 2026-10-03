@@ -3,7 +3,7 @@
 köra ta_bort.py eller prova.py med en annan kunds slug, eller skriva med --ut i en annan kunds katalog).
 
 När NWP_SLUG är satt (kor.sh sätter den för bygget och stoppvakten) får ett verktyg bara ta den sluggen som argument
-och bara skriva under kunder/<slug>/, underlag/<slug>/ eller det temporära området. Utan NWP_SLUG (dashboarden,
+och bara skriva under kunder/<slug>/, underlag/<slug>/ eller körningens eget temporära område <tmp>/nwp-<slug>/. Utan NWP_SLUG (dashboarden,
 kirurgen, ägaren i terminalen) gör vakten ingenting. Processisoleringen (backloggen) är den fullständiga gränsen; det
 här är argumentkontrollen som kompletterar den.
 
@@ -23,10 +23,16 @@ def egen_slug():
     return os.environ.get('NWP_SLUG') or None
 
 
+def tmp_omrade(slug):
+    """Körningens eget temporära område: <tmp>/nwp-<slug>/. Hela tmp tilläts förut, vilket nådde andra granskares
+    arbetskataloger under /tmp/nwp-granskning (omgång fyra, F1)."""
+    return [Path('/tmp') / ('nwp-' + slug), Path(tempfile.gettempdir()) / ('nwp-' + slug)]
+
+
 def tillaten_vag(p, slug):
-    r = Path(p).resolve()
-    rotar = [ROOT / 'kunder' / slug, ROOT / 'underlag' / slug, Path('/tmp'), Path('/private/tmp'), Path(tempfile.gettempdir())]
-    return any(r == t.resolve() or r.is_relative_to(t.resolve()) for t in rotar if t.exists() or str(t).startswith('/'))
+    r = Path(p).resolve()  # följer symlänkar i de delar som finns; målet prövas, inte namnet
+    rotar = [ROOT / 'kunder' / slug, ROOT / 'underlag' / slug] + tmp_omrade(slug)
+    return any(r == t.resolve() or r.is_relative_to(t.resolve()) for t in rotar)
 
 
 def krav_slug(slug, vad='slug'):
@@ -41,5 +47,5 @@ def krav_vag(p, vad='utkatalogen'):
     if not p or not e:
         return
     if not tillaten_vag(p, e):
-        print('slugvakten: %s %s ligger inte i kunder/%s/, underlag/%s/ eller det temporära området (NWP_SLUG); vägrar' % (vad, p, e, e), file=sys.stderr)
+        print('slugvakten: %s %s ligger inte i kunder/%s/, underlag/%s/ eller /tmp/nwp-%s/ (NWP_SLUG); vägrar' % (vad, p, e, e, e), file=sys.stderr)
         sys.exit(2)
