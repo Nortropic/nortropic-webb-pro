@@ -204,15 +204,38 @@ def typlista(nod):
     return [typnamn(x) for x in (t if isinstance(t, list) else [t]) if isinstance(x, str)]
 
 
-def normaliserad_nod(nod):
+def normaliserad_nod(nod, konflikter=None):
     """Noden med egenskapsnamn utan schema.org-prefix, också i nästlade objekt (schema:address → address, dess
     schema:postalCode → postalCode): verksamhetskontrollen läser name, telephone och address och ska se dem också när
-    de är kompakta eller fullständiga IRI:er (omgång sju, F20). @-nycklar lämnas."""
+    de är kompakta eller fullständiga IRI:er (omgång sju, F20). @-nycklar lämnas. Två stavningar av samma egenskap
+    (name och schema:name) med olika värden skriver inte över varandra: alla värden behålls i en lista och nyckeln
+    läggs i konflikter (omgång åtta, F20; JSON-LD-expansionen lägger till värden, skriver aldrig över)."""
     if isinstance(nod, list):
-        return [normaliserad_nod(x) for x in nod]
+        return [normaliserad_nod(x, konflikter) for x in nod]
     if not isinstance(nod, dict):
         return nod
-    return {(k if k.startswith('@') else typnamn(k)): normaliserad_nod(v) for k, v in nod.items()}
+    samlade = {}
+    for k, v in nod.items():
+        nk = k if k.startswith('@') else typnamn(k)
+        samlade.setdefault(nk, []).append(normaliserad_nod(v, konflikter))
+    ut = {}
+    for nk, vs in samlade.items():
+        olika = []
+        for v in vs:
+            if v not in olika:
+                olika.append(v)
+        if len(olika) > 1 and konflikter is not None:
+            konflikter.append(nk)
+        ut[nk] = olika[0] if len(olika) == 1 else olika
+    return ut
+
+
+def varden(obj, nyckel):
+    """Alla värden för en egenskap som lista: ett värde, en JSON-LD-lista, eller flera när två stavningar kolliderade."""
+    v = obj.get(nyckel)
+    if v is None:
+        return []
+    return v if isinstance(v, list) else [v]
 
 
 def granska_schema(obj, verksamhet):
@@ -221,7 +244,10 @@ def granska_schema(obj, verksamhet):
         return [('JSON-LD form', 'objekt väntades')]
     v = vokabular()
     for nod in noder(obj):
-        nod = normaliserad_nod(nod)
+        konflikter = []
+        nod = normaliserad_nod(nod, konflikter)
+        for k in sorted(set(konflikter)):
+            fynd.append(('JSON-LD motstridiga egenskaper', '%s anges med två stavningar (t.ex. %s och schema:%s) och olika värden' % (k, k, k)))
         typer = typlista(nod)
         if not typer:
             fynd.append(('JSON-LD utan @type', ''))
@@ -251,10 +277,11 @@ def ar_verksamhetsnod(nod, typer, verksamhet, v):
     doman = re.sub(r'^https?://', '', str((webb or {}).get('doman') or '')).strip('/').split('/')[0].casefold().removeprefix('www.')
     egna = set()
     for k in ('@id', 'url'):
-        vard = (urlparse(str(nod.get(k) or '')).hostname or '').casefold().removeprefix('www.')
-        if vard:
-            egna.add(vard)
-    return (bool(doman) and doman in egna) or namn(nod.get('name')) == namn(verksamhet.get('namn'))
+        for v in varden(nod, k):
+            vard = (urlparse(str(v or '')).hostname or '').casefold().removeprefix('www.')
+            if vard:
+                egna.add(vard)
+    return (bool(doman) and doman in egna) or any(namn(n_) == namn(verksamhet.get('namn')) for n_ in varden(nod, 'name'))
 
 
 def anor(typ, v):
@@ -272,24 +299,29 @@ def granska_verksamhetsnod(obj, typer, verksamhet):
     """Namn, telefon och adress mot VERKSAMHET.json för en nod som beskriver verksamheten."""
     fynd = []
     n = vu.nap(verksamhet)
-    if obj.get('name') and obj['name'] != verksamhet['namn']:
-        fynd.append(('schema name ≠ verksamhetens namn', '%r mot %r' % (obj['name'], verksamhet['namn'])))
-    if obj.get('telephone') and n['telefon_e164'] and obj['telephone'] != n['telefon_e164']:
-        fynd.append(('schema telephone ≠ E.164 ur verksamheten', '%r mot %r' % (obj['telephone'], n['telefon_e164'])))
-    if obj.get('address') and not n['adress_visas']:
+    for namn_ in varden(obj, 'name'):  # varje värde prövas, också när två stavningar gav flera (omgång åtta, F20)
+        if namn_ and namn_ != verksamhet['namn']:
+            fynd.append(('schema name ≠ verksamhetens namn', '%r mot %r' % (namn_, verksamhet['namn'])))
+    for tel in varden(obj, 'telephone'):
+        if tel and n['telefon_e164'] and tel != n['telefon_e164']:
+            fynd.append(('schema telephone ≠ E.164 ur verksamheten', '%r mot %r' % (tel, n['telefon_e164'])))
+    adresser = [a for a in varden(obj, 'address') if a]
+    if adresser and not n['adress_visas']:
         fynd.append(('schema bär adress fast adressen inte är publik', 'utelämna address; ange areaServed'))
-    if n['adress_visas'] and not obj.get('address') and 'Organization' not in typer:
+    if n['adress_visas'] and not adresser and 'Organization' not in typer:
         fynd.append(('schema saknar address fast adressen är publik', 'PostalAddress med gata, postnummer NNN NN, ort, SE'))
-    adr = obj.get('address') or {}
-    if isinstance(adr, dict) and adr.get('postalCode') and not re.match(r'^\d{3} \d{2}$', str(adr['postalCode'])):
-        fynd.append(('postalCode-form', str(adr['postalCode']) + ' ska vara "NNN NN"'))
-    if isinstance(adr, dict) and n['adress_visas']:
-        # fälten ska stämma med underlaget, inte bara ha rätt form (revisionen, F20)
-        v_adr = verksamhet.get('adress') or {}
-        slat = lambda s: re.sub(r'\s+', ' ', str(s or '')).strip().casefold()  # noqa: E731
-        for falt, nyckel in (('postalCode', 'postnummer'), ('addressLocality', 'ort'), ('streetAddress', 'gata')):
-            if adr.get(falt) and v_adr.get(nyckel) and slat(adr[falt]).replace(' ', '') != slat(v_adr[nyckel]).replace(' ', ''):
-                fynd.append(('schema address ≠ verksamhetens adress', '%s %r mot %r' % (falt, adr[falt], v_adr[nyckel])))
+    for adr in adresser:
+        if not isinstance(adr, dict):
+            continue
+        if adr.get('postalCode') and not re.match(r'^\d{3} \d{2}$', str(adr['postalCode'])):
+            fynd.append(('postalCode-form', str(adr['postalCode']) + ' ska vara "NNN NN"'))
+        if n['adress_visas']:
+            # fälten ska stämma med underlaget, inte bara ha rätt form (revisionen, F20)
+            v_adr = verksamhet.get('adress') or {}
+            slat = lambda s: re.sub(r'\s+', ' ', str(s or '')).strip().casefold()  # noqa: E731
+            for falt, nyckel in (('postalCode', 'postnummer'), ('addressLocality', 'ort'), ('streetAddress', 'gata')):
+                if adr.get(falt) and v_adr.get(nyckel) and slat(adr[falt]).replace(' ', '') != slat(v_adr[nyckel]).replace(' ', ''):
+                    fynd.append(('schema address ≠ verksamhetens adress', '%s %r mot %r' % (falt, adr[falt], v_adr[nyckel])))
     if obj.get('aggregateRating') and not verksamhet.get('omdomen_kalla'):
         fynd.append(('aggregateRating utan källa', 'betyg bara från verklig plattformsdata med källa i VERKSAMHET.json (omdomen_kalla)'))
     if 'offers' in obj and not obj.get('offers'):

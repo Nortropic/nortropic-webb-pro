@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regressionsfall ur revisionen 2026-10-03 (Codex, sju omgångar): varje skydd prövas genom sin riktiga ingång, med ett
+"""Regressionsfall ur revisionen 2026-10-03 (Codex, åtta omgångar): varje skydd prövas genom sin riktiga ingång, med ett
 positivt och ett negativt fall, isolerat och syntetiskt. Körs av kontroller/rokprov.sh. Argument: repots rot. Skriver
 bara i temporära kataloger och i /tmp/nwp-granskning (granskarens arbetskataloger)."""
 import functools
@@ -848,6 +848,32 @@ f = seo.granska_schema({'@type': 'https://schema.org/Bakery', 'https://schema.or
                         'https://schema.org/address': {'@type': 'https://schema.org/PostalAddress', 'https://schema.org/streetAddress': 'Storgatan 1', 'https://schema.org/postalCode': '972 31', 'https://schema.org/addressLocality': 'Luleå'}}, verk20)
 assert f == [], 'rätt uppgifter med fullständiga IRI:er ska vara rena: %s' % f
 print('R7 F20 ok')
+
+# ---------------------------------------------------------------- omgång åtta (Codex R8): hela skalordet och dess citering; kolliderande egenskapsnamn
+g('remote', 'add', 'origin', str(bare)); g('fetch', '-q', 'origin'); g('reset', '-q', '--hard', 'origin/main'); g('checkout', '-q', 'main')
+for cmd, vantat in [("git commit -m 'a'*", 2), ("git commit -m ''{message,extra}", 2), ("git commit -m*", 2), ("git commit -m ''{meddelande,--,CLAUDE.md}", 2),
+                    ('git commit -mText', 2), ('git commit --message=""{a,b}', 2), ("git commit -m 'a' 'b'", 2), ('git commit -m "a"b', 2), ('git commit -m x -- back\\log/a.md', 2),
+                    ("git commit -m 'a * b'", 0), ('git commit -m "a * b {c}"', 0), ('git commit --message="x * y"', 0), ("git commit --message='x'", 0), ('git commit -m enkelt', 0),
+                    ("git commit -m 'x' -- 'backlog/a.md'", 0), ("git add 'backlog/a b.md'", 0), ("git add 'backlog/*'", 2)]:
+    rc, err = vakt3(cmd); assert rc == vantat, (cmd, rc, err)
+print('R8 F3 skalorden ok')
+
+# F20: name och schema:name med olika värden i båda ordningarna ger namnfynd och ett konfliktfynd; nästlade adresser likaså
+for forst, sedan in ((('name', 'Fel namn'), ('schema:name', 'Holms Konditori')), (('schema:name', 'Holms Konditori'), ('name', 'Fel namn'))):
+    nod = {'@context': {'@vocab': 'https://schema.org/', 'schema': 'https://schema.org/'}, '@type': 'Bakery'}
+    nod[forst[0]] = forst[1]; nod[sedan[0]] = sedan[1]
+    f = seo.granska_schema(nod, verk20); typer_f = [t_ for t_, _ in f]
+    assert 'schema name ≠ verksamhetens namn' in typer_f and 'JSON-LD motstridiga egenskaper' in typer_f, (forst, sedan, f)
+ratt = {'@type': 'PostalAddress', 'streetAddress': 'Storgatan 1', 'postalCode': '972 31', 'addressLocality': 'Luleå'}
+fel = {'@type': 'PostalAddress', 'streetAddress': 'Storgatan 1', 'postalCode': '111 11', 'addressLocality': 'Boden'}
+for forst, sedan in ((('address', fel), ('schema:address', ratt)), (('schema:address', ratt), ('address', fel))):
+    nod = {'@context': {'@vocab': 'https://schema.org/', 'schema': 'https://schema.org/'}, '@type': 'Bakery', 'name': 'Holms Konditori'}
+    nod[forst[0]] = forst[1]; nod[sedan[0]] = sedan[1]
+    f = seo.granska_schema(nod, verk20); typer_f = [t_ for t_, _ in f]
+    assert typer_f.count('schema address ≠ verksamhetens adress') == 2 and 'JSON-LD motstridiga egenskaper' in typer_f, (forst[0], f)
+f = seo.granska_schema({'@type': 'Bakery', 'name': 'Holms Konditori', 'schema:name': 'Holms Konditori', 'address': ratt}, verk20)
+assert f == [], 'samma värde i två stavningar är ingen konflikt: %s' % f
+print('R8 F20 ok')
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')
