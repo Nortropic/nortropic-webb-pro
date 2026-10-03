@@ -12,7 +12,11 @@ komponenter utan utseende (förfrågan och brödsmulor). Ingen design, inga typs
    `node kontroller/ikoner.mjs --sajt kunder/<slug>/sajt --foto <eget foto> --bakgrund '<hex>'`, som gör
    `public/apple-touch-icon.png` (180×180) och `public/delningsbild.png` (1200×630).
 4. Bilder i `src/assets/` och `<Image>` från `astro:assets` (WebP, width och height, srcset). Den största bilden i
-   första vyn får `loading="eager"` och `fetchpriority="high"`. Typsnitt självhostade som WOFF2 i `public/fonts/`.
+   första vyn får `loading="eager"` och `fetchpriority="high"`. Typsnitt självhostade som WOFF2 i `public/fonts/`,
+   vart och ett följt i stacken av ett reservtypsnitt så att texten inte hoppar när det laddats (standarden 4.3):
+   `@font-face { font-family: "Familj reserv"; src: local(Arial); size-adjust: 102%; ascent-override: 96%;
+   descent-override: 26%; }` och `font-family: "Familj", "Familj reserv", sans-serif`. Måtten räknas ur typsnittets
+   x-höjd och teckenbredd mot reserven.
 5. Skriftlig förfrågan: `src/components/Forfragan.astro` på kontaktsidan, `src/pages/tack.astro` (noindex) och en
    integritetssida, enligt `kunskap/forfragan.md`. Provets och dashboardens server tar emot inskicket i demon.
 6. Brödsmulor på varje undersida: `<Brodsmulor sida="Tillbyggnad" />`, eller med `steg` för en sida under en

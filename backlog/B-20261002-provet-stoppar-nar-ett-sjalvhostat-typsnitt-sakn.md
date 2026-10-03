@@ -1,11 +1,12 @@
 ---
 id: B-20261002-provet-stoppar-nar-ett-sjalvhostat-typsnitt-sakn
-status: vilande
+status: pagar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-02 · withastro/astro
 skapad: 2026-10-02
 prio: normal
 steg: 6 (provet): kontroller/standard_kontroll.py punkt 4.3
+andrad: 2026-10-03T00:12Z
 ---
 # Provet stoppar när ett självhostat typsnitt saknar reservtypsnitt med size-adjust (byggstandarden 4.3)
 

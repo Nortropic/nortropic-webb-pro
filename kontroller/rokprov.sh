@@ -204,6 +204,22 @@ assert rader == ['- granskning prov-bygge omgång 1 (rättat före sista omgång
 " || { echo "FEL: grupperingen"; exit 1; }
 echo "   grupperingen ok"
 
+echo "   reservtypsnitt med size-adjust (4.3)"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, shutil, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import standard_kontroll as sk
+d = pathlib.Path(tempfile.mkdtemp()) / 'dist'; shutil.copytree('$S/dist', d)
+typ = '@font-face{font-family:Provsans;src:url(/fonts/p.woff2)format(\"woff2\");font-display:swap}'
+fel = lambda: [f for f in sk.granska(d)[0] if f['punkt'] == '4.3' and 'reserv' in f['text']]
+(d / 't.css').write_text(typ + 'body{font-family:Provsans,sans-serif}')
+assert fel(), 'utan reserv ska ge fel'
+(d / 't.css').write_text(typ + '@font-face{font-family:Prov reserv;src:local(Arial);size-adjust:102%}body{font-family:Provsans,\"Prov reserv\",sans-serif}')
+assert not fel(), 'handskriven reserv ska gå igenom'
+(d / 't.css').write_text(typ + '@font-face{font-family:\"Provsans fallback: Arial\";src:local(\"Arial\");size-adjust:101%;ascent-override:95%}:root{--typsnitt:\"Provsans\",\"Provsans fallback: Arial\",sans-serif}')
+assert not fel(), 'Astros variabelstack ska gå igenom'
+" || { echo "FEL: reservtypsnittet"; exit 1; }
+echo "   reservtypsnittet ok"
+
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \
   || { echo "FEL: prospektpipelinen"; tail -20 "$ROOT/kunder/rokprov-mall/prospekt-prov.log"; exit 1; }

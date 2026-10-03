@@ -384,6 +384,18 @@ def granska(dist):
             F('4.3', '(alla)', '@font-face för %s saknar font-display' % (fam.group(1).strip() if fam else '?'))
     if len(familjer) > 2:
         F('4.3', '(alla)', '%d typsnittsfamiljer (%s); högst två' % (len(familjer), ', '.join(sorted(familjer))))
+    # 4.3 reserv: varje självhostat typsnitt följs i sin stack av ett reservtypsnitt med local() och size-adjust eller
+    # ascent-override, så att texten inte hoppar när typsnittet laddats. Stacken kan stå i font-family eller i en
+    # CSS-variabel (Astros typsnitts-API skriver '"Familj", "Familj fallback: Arial", sans-serif' i en variabel).
+    namn = lambda s: s.strip().strip('"\'').strip().lower()  # noqa: E731
+    reserver = {namn(m.group(1)) for blk in re.findall(r'@font-face\s*{([^}]*)}', all_css)
+                if 'local(' in blk and re.search(r'size-adjust|ascent-override', blk)
+                for m in [re.search(r'font-family\s*:\s*([^;]+)', blk)] if m}
+    stackar = [[namn(x) for x in v.split(',')] for v in re.findall(r'(?:font-family|--[\w-]+)\s*:\s*([^;{}]+)', re.sub(r'@font-face\s*{[^}]*}', '', all_css)) if ',' in v]
+    for fam in sorted(familjer):
+        f = fam.lower()
+        if not any(f in s and set(s[s.index(f) + 1:]) & reserver for s in stackar):
+            F('4.3', '(alla)', 'typsnittet %s saknar reservtypsnitt med size-adjust i sin stack (@font-face med local() och size-adjust efter det); se mallens README' % fam)
     robots = dist / 'robots.txt'
     if not robots.is_file():
         F('7.2', '(alla)', 'robots.txt saknas')
