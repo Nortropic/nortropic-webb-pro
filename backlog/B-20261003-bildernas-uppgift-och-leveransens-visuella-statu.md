@@ -4,7 +4,7 @@ status: vilande
 kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
-prio: normal
+prio: hog
 ---
 # Bildernas uppgift och leveransens visuella status: färdig mot begränsad av saknat material
 
