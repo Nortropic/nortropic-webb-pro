@@ -15,3 +15,12 @@ __pycache__/
 
 # Kirurgens intagsloggar från dashboarden
 kirurgen/
+
+# Hemligheter (revisionen 2026-10-03, F27): nyckelfiler ska ligga i ~/.nortropic-hemligheter/, aldrig i repot
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.p12
+*.pfx

@@ -3,6 +3,8 @@
 #
 #   ./kor.sh <slug> "<verksamhetens namn, ort och gärna webbadress>"
 #   ./kor.sh frisor-exempel-umea "Frisör Exempel, Umeå, https://exempel.se"
+# Slutkod: 0 grönt prov och godkänd granskning · 1 avslutat utan det · 2 fel i anropet · 3 skyddade filer ändrades under
+# körningen · 4 claude föll.
 #
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
@@ -58,7 +60,11 @@ ARGS=(-p
   # npm bara mot byggets egen sajt: målarbygget 2026-10-01 installerade först ett typsnitt i repots rot.
   "Bash(npm install --prefix kunder/*)" "Bash(npm ci --prefix kunder/*)" "Bash(npm run build --prefix kunder/*)"
   "Bash(npm --prefix kunder/*)" "Bash(npm view *)" "Bash(npm ls *)" "Bash(npm pack *)"
-  "Bash(npx *)" "Bash(node *)" "Bash(.venv/bin/python *)" "Bash(curl *)"
+  # Tolkar och hämtare bara i de former skillen använder (revisionen 2026-10-03, F1): verktygen i kontroller/, byggets
+  # egna skript under underlag/<slug>/skript/, npx bara för astro, curl bara för att spara en fil under underlag/.
+  # Ett generellt python, node eller curl når förbi varje Edit- och Write-regel; gränsen på processnivå är ett eget steg.
+  "Bash(npx astro *)" "Bash(node kontroller/*)" "Bash(.venv/bin/python kontroller/*)" "Bash(.venv/bin/python -B kontroller/*)"
+  "Bash(.venv/bin/python underlag/*)" "Bash(curl -sSL -o underlag/*)"
   "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" "Bash(cp *)" "Bash(mv *)" "Bash(find *)"
   "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)"
   "Bash(sort *)" "Bash(uniq *)" "Bash(sed *)" "Bash(tr *)" "Bash(cut *)"
@@ -67,6 +73,7 @@ ARGS=(-p
   # (.claude/hooks/commitvakt.py, NWP_COMMIT_TILLATET nedan) släpper bara commits av backlog/.
   --disallowedTools "Bash(rm *)" "Bash(gh pr *)" "Bash(git rebase *)" "Bash(git checkout *)" "Bash(git reset *)"
   "Bash(git worktree *)" "Bash(git config *)" "Bash(git push --force *)" "Bash(git push -f *)"
+  "Bash(sed -i*)" "Bash(find * -exec*)" "Bash(find * -ok*)" "Bash(find * -delete*)" "Bash(npx astro add *)"
   # Bygget får inte ändra sina egna acceptansvillkor: provet, granskarens kriterier, kunskapen, mallen, krokarna
   # och ägarens domar. Sökvägarna är relativa till reporoten, där sessionen startar (cd nedan).
   "Edit(./kontroller/**)" "Edit(./kritik/**)" "Edit(./kunskap/**)" "Edit(./mall/**)" "Edit(./.claude/**)"
@@ -87,22 +94,30 @@ while IFS='=' read -r namn _; do
 done < <(env)
 
 cd "$ROOT"   # projektets Stop-krok laddas bara när sessionen startar i reporoten
-# Bash når förbi Edit/Write-reglerna ovan (sed -i, cp, mv); därför jämförs de skyddade filerna före och efter.
-SKYDDAT=(kontroller kritik kunskap mall .claude LARDOMAR.md)
-skyddat() { git status --porcelain -- "${SKYDDAT[@]}"; git diff -- "${SKYDDAT[@]}" | shasum; }
+# Bash når förbi Edit/Write-reglerna ovan (cp, mv, egna skript); därför jämförs de skyddade filernas innehåll före och
+# efter, fil för fil, oavsett om en ändring committats under körningen (revisionen 2026-10-03, F10).
+SKYDDAT=(kontroller kritik kunskap mall .claude dashboard kor.sh dashboard.sh CLAUDE.md BESLUT.md LARDOMAR.md .gitignore)
+skyddat() {
+  find "${SKYDDAT[@]}" -type f ! -path '*/node_modules/*' ! -path '*/__pycache__/*' ! -name '.DS_Store' -print0 2>/dev/null \
+    | sort -z | xargs -0 shasum -a 256
+}
 FORE="$(skyddat)"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
 printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
-if [ "$(skyddat)" != "$FORE" ]; then
-  SKYDD="$(git status --porcelain -- "${SKYDDAT[@]}")"
-  SKYDD="${SKYDD:-(arbetsträdet är rent igen, men innehållet ändrades under körningen)}"
+EFTER="$(skyddat)"
+if [ "$EFTER" != "$FORE" ]; then
+  # filerna vars hash eller närvaro skiljer sig; (committad eller inte spelar ingen roll, innehållet räknas)
+  SKYDD="$(diff <(printf '%s\n' "$FORE") <(printf '%s\n' "$EFTER") | grep '^[<>]' | awk '{print $NF}' | sort -u | head -40)"
+  SKYDD="${SKYDD:-(innehållet ändrades under körningen)}"
 else
   SKYDD=""
 fi
 
+# Slutkod (revisionen 2026-10-03, F11): 0 provet grönt och granskningen godkänd · 1 avslutat utan det (rött, saknad
+# rapport, underkänd eller tak) · 3 skyddade filer ändrades · 4 claude föll (kod ≠ 0) · 2 fel i anropet (ovan).
 "$ROOT/.venv/bin/python" - "$ROOT/kunder/$SLUG" "$RC" "$SKYDD" <<'PY'
 import json, sys
 from pathlib import Path
@@ -114,9 +129,13 @@ def las(p):
         return None
 s, v, g = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json'), las(k / 'granskning' / 'GRANSKNING.json')
 print('\nclaude avslutade med kod', rc)
+# Mekaniken (provet, kriterierna, mallen, krokarna, kor.sh, dashboarden) får aldrig ändras under en körning: slutkod 3.
+# Texterna (kunskap/, LARDOMAR.md, skills) skrivs också av kirurgens intag och ägarens domar i dashboarden: bara varning.
+MEKANIK = ('kontroller/', 'kritik/', 'mall/', '.claude/hooks/', '.claude/settings', 'kor.sh', 'dashboard/', 'dashboard.sh',
+           'CLAUDE.md', 'BESLUT.md', '.gitignore')
+mekanik = [f for f in skydd.splitlines() if f.startswith(MEKANIK)]
 if skydd:
-    print('VARNING: skyddade filer (kontroller/, kritik/, kunskap/, mall/, .claude/, LARDOMAR.md) ändrades under körningen,'
-          ' av bygget eller någon annan:\n' + skydd)
+    print('VARNING: skyddade filer ändrades under körningen, av bygget eller någon annan (kirurgen, ägarens dom):\n' + skydd)
 if s:
     print('Provet:', 'GRÖNT' if s.get('ok') else 'RÖTT', '—', ', '.join('%s %s' % (n, 'ok' if g['ok'] else 'RÖD') for n, g in s['grindar'].items()))
 else:
@@ -130,4 +149,13 @@ else:
     print('Granskningen: ingen')
 print('Rapport:', k / 'RAPPORT.md' if (k / 'RAPPORT.md').is_file() else 'saknas')
 print('Titta:  cd %s && npx astro preview' % (k / 'sajt'))
+godkant = bool(s and s.get('ok')) and (k / 'RAPPORT.md').is_file() and bool(g and g.get('godkand'))
+if mekanik:
+    print('Slutkod 3: mekaniken ändrades under körningen:', ', '.join(mekanik))
+    sys.exit(3)
+if rc != '0':
+    print('Slutkod 4: claude avslutade med kod', rc)
+    sys.exit(4)
+print('Slutkod', 0 if godkant else 1, ':', 'godkänt bygge' if godkant else 'avslutat utan grönt prov och godkänd granskning')
+sys.exit(0 if godkant else 1)
 PY
