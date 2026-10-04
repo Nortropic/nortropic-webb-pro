@@ -18,6 +18,10 @@ Kopierat när repot skapades, utan ändringar i innehållet:
 | `leonxlnx-taste-SKILL-ce26fc25.md` | Leonxlnx/taste-skill | MIT |
 
   Utelämnade för att licensfil saknas: hallmark, canvas-design, google design.md README.
+- **Kompletterat 2026-10-05** (intagskrav 1, Codex 2026-10-04): `addyosmani-web-quality-MEASUREMENT-c6b06ad.md` ur
+  addyosmani/web-quality-skills @ `c6b06ad`, `skills/performance/references/MEASUREMENT.md`, oförändrad. Texten
+  `addyosmani-web-quality-audit-SKILL.md` är samma commit byte för byte och länkar dit som
+  `../performance/references/MEASUREMENT.md`. MIT; licensen är `addyosmani-web-quality-LICENSE.txt`.
 - **Kontroller** (`kontroller/`): `seo_kontroll.py`, `copy_kontroll.py`, `verksamhetsuppgifter.py`, `prelaunch.py`,
   `stegbevis.py` och `webblasare/*.mjs` ur nortropic-digitala @ `69e0b01`. `axe.mjs` och `lighthouse.mjs` är generella
   omskrivningar av `kund-demo-norrglanta/scripts/prov/` @ `200d604` (sidorna som argument, inga kundspecifika
