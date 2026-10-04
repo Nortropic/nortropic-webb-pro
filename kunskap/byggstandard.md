@@ -7,8 +7,8 @@ emot av en demomottagare som inte sparar eller skickar något, ingen driftsättn
 **Fas.** **D** gäller varje bygge och prövas innan bygget får avslutas. **L** gäller lanseringen och prövas först när
 en sajt ska ut på riktigt; i demon står den som underlag.
 
-**Prövas av.** `standard` är grinden `kontroller/standard_kontroll.py` i provet. `seo`, `axe`, `lighthouse`, `spill`
-och `utan-js` är provets övriga grindar. *info* betyder att provet rapporterar utan att stoppa. *granskaren* betyder
+**Prövas av.** `standard` är grinden `kontroller/standard_kontroll.py` i provet. `seo`, `axe`, `lighthouse`, `spill`,
+`utan-js`, `design` och `resor` är provets övriga grindar. *info* betyder att provet rapporterar utan att stoppa. *granskaren* betyder
 att den oberoende granskaren (`kritik/GRANSKARE.md`) bedömer det med egna ögon.
 
 Rättelser mot originalet, med källa, står sist.
@@ -55,7 +55,7 @@ sälja: varje sida har ett tydligt nästa steg.
 
 | Punkt | Fas | Prövas av |
 |---|---|---|
-| 4.1 Labb: Lighthouse prestanda ≥ 90 i mobil och desktop. Fält i mobil: LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1 vid 75:e percentilen. | D labb, L fält | `lighthouse` |
+| 4.1 Labb: Lighthouse prestanda ≥ 90 i mobil och desktop, som median av tre mätningar på startsidan, kontaktsidan och den tyngsta sidan (metoden i `prov/lighthouse/METOD.json`). Fält i mobil: LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1 vid 75:e percentilen. | D labb, L fält | `lighthouse` |
 | 4.2 Bilder i AVIF eller WebP, responsiva med srcset och sizes, rätt storlek; största bilden i första vyn under 200 kB; ingen publicerad bild bär GPS-läge i sin metadata (en personuppgift). | D | `standard`, info |
 | 4.3 Högst två typsnittsfamiljer, självhostade WOFF2 följda i stacken av ett reservtypsnitt med size-adjust, latin-subset med bara de axlar som används (en fil över 80 kB kräver att bredd-axeln bär formen, över 120 kB aldrig), `font-display: swap` med size-adjust-reserv, preload av typsnittet i första vyn. | D | `standard`, info |
 | 4.4 Inga resurser från tredje part vid sidladdning; kartor som statisk bild och länk. | D | `standard` |
@@ -71,7 +71,7 @@ sälja: varje sida har ett tydligt nästa steg.
 | 5.3 Länktexter begripliga utan sammanhang, även när de läses upp: "Ring 070-123 45 67", inte "Ring070-123 45 67"; ikonknappar har aria-label. | D | `axe`, `standard`, info |
 | 5.4 Formulär: kopplade etiketter, fel i text, aria-describedby eller aria-live för fel. | D om formulär | `axe`, granskaren |
 | 5.5 Ingen autoplay med ljud; inga karuseller. | D | `standard`, granskaren |
-| 5.6 axe 0 allvarliga fel. Skärmläsarkoll av startsida och formulär görs av en människa före lansering; i demon läser granskaren tillgänglighetsträdet. | D axe, L skärmläsare | `axe`, granskaren |
+| 5.6 axe 0 allvarliga fel, också med menyn öppen och med formulärets felbesked framkallade. Skärmläsarkoll av startsida och formulär görs av en människa före lansering, liksom en kontroll på riktig iPhone (provet kör WebKit, Safaris motor, men ingen riktig enhet); i demon läser granskaren tillgänglighetsträdet. | D axe, L skärmläsare och iPhone | `axe`, `resor`, granskaren |
 
 ## 6. Formulär (W+K)
 

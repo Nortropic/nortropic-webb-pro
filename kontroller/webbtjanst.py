@@ -60,8 +60,8 @@ VERKTYG = {
     # referenstjanster: Refero/Mobbin via egna sessioner utanför byggsessionen; belägg ur sessionsloggen, bilder till paketet
     'referenstjanster': {'kmd': (PY, '-B', 'kontroller/referenstjanster.py'), 'slug': True, 'flaggor': {'uppdrag': 'vag', 'torr': 'flagga'}},
     'lighthouse': {'kmd': ('node', 'kontroller/lighthouse.mjs'), 'slug': False,  # Chrome utan route-vakt: bara byggets lokala server
-                   'flaggor': {'url': 'lokal_url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text'}},
-    'axe': {'kmd': ('node', 'kontroller/axe.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag'}},
+                   'flaggor': {'url': 'lokal_url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text', 'representativa': 'text'}},
+    'axe': {'kmd': ('node', 'kontroller/axe.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag', 'tillstand': 'text'}},
     'stil': {'kmd': ('node', 'kontroller/stil.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag'}},
     'sida': {'kmd': ('node', 'kontroller/sida.mjs'), 'slug': False, 'positionella': ('url',), 'flaggor': {'ut': 'vag', 'skroll': 'tal'}},
     'ikoner': {'kmd': ('node', 'kontroller/ikoner.mjs'), 'slug': False, 'flaggor': {'sajt': 'vag', 'foto': 'vag', 'bakgrund': 'text', 'fokus': 'text'}},
@@ -71,7 +71,7 @@ VERKTYG = {
                    'flaggor': {'adress': 'url', 'ut': 'vag', 'vyer': 'text', 'tillat': 'ursprung', 'hemligheter': 'vag', 'kontext': 'vagar',
                                'hover': 'text', 'fokus': 'text', 'meny': 'text', 'tillstand': 'text', 'undantag-fil': 'vag', 'extrahera': 'text'}},
     'resor': {'kmd': ('node', 'kontroller/webblasare/resor.mjs'), 'slug': False,  # briefens resor mot provets egen server
-              'flaggor': {'adress': 'lokal_url', 'resor': 'vag', 'ut': 'vag', 'testmarkering': 'text'}},
+              'flaggor': {'adress': 'lokal_url', 'resor': 'vag', 'ut': 'vag', 'testmarkering': 'text', 'motorer': 'text'}},
     'utan-js': {'kmd': ('node', 'kontroller/webblasare/utan-js.mjs'), 'slug': False,
                 'flaggor': {'adress': 'url', 'ut': 'vag', 'formular': 'text', 'sidor': 'text', 'testmarkering': 'text',
                             'formular-far-skickas': 'flagga', 'undantag-fil': 'vag'}},

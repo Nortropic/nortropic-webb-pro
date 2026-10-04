@@ -282,6 +282,9 @@ def frys_bygget(kund, rdir):
         f = kund / 'prov' / namn
         if f.exists() or f.is_symlink():
             shutil.copy2(sakert_original(f, kund), rdir / Path(namn).name)
+    w = kund / 'prov' / 'resor' / 'startsida-webkit-390.png'  # startsidan i Safaris motor (provets resor med webkit)
+    if w.exists() or w.is_symlink():
+        shutil.copy2(sakert_original(w, kund), rdir / w.name)
 
 
 def skarmbilder(rot, sajtrot):
@@ -520,7 +523,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Stilrapporten: %s' % (rad(rdir / 'STIL.md')[2:] if (rdir / 'STIL.md').is_file() else 'saknas'),
         'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'),
         'Briefens resor i webbläsaren (provets grind resor; handling, synligt resultat, inmatningsfel och rättning): %s' % (
-            rad(rdir / 'RESOR.md')[2:] if (rdir / 'RESOR.md').is_file() else 'saknas'), '',
+            rad(rdir / 'RESOR.md')[2:] if (rdir / 'RESOR.md').is_file() else 'saknas'),
+        *(['Startsidan i WebKit, Safaris motor, i 390 px (iPhone 14-profil; belägg för layout, inte en riktig iPhone): %s' % rad(rdir / 'startsida-webkit-390.png')[2:]]
+          if (rdir / 'startsida-webkit-390.png').is_file() else []), '',
         'Referensernas bilder: den ruta eller det tillstånd byggaren pekat ut, med jämförelsefrågan; första vyn när inget pekats ut:',
         *([rad(p) + ' — ' + t for p, t in (x if isinstance(x, tuple) else (x, 'första vyn') for x in refs)] or ['- inga']),
         *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet):']

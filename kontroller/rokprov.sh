@@ -32,7 +32,18 @@ fi
 import json; s = json.load(open('$ROOT/kunder/rokprov-mall/prov/STATUS.json'))
 assert s['ok'] and s['grindar']['design']['ok'] and s['grindar']['resor']['ok'], (s['grindar'].get('design'), s['grindar'].get('resor'))
 r = json.load(open('$ROOT/kunder/rokprov-mall/prov/resor/RESOR.json'))
-assert [x['id'] for x in r['resor']] == ['ring', 'skriv', 'skriv-fel-och-ratta'] and all(x['ok'] for x in r['resor']) and [k['id'] for k in r['kvar']] == ['mottagen-forfragan'], r
+ids = [x['id'] for x in r['resor'] if x['motor'] == 'chromium']
+assert ids == ['ring', 'skriv', 'skriv-fel-och-ratta'] and all(x['ok'] for x in r['resor']) and [k['id'] for k in r['kvar']] == ['mottagen-forfragan'], r
+assert sorted((x['id'], x['motor']) for x in r['resor']) == sorted((i, m) for i in ids for m in ('chromium', 'webkit')), 'varje resa i båda motorerna'
+assert not r['startsida']['webkit']['spill'] and r['startsida']['webkit']['konsolfel'] == 0 and 'WebKit' in s['info'].get('webkit', ''), (r.get('startsida'), s['info'].get('webkit'))
+# mätmetoden: Lighthouse med fastställd metod och median på de representativa sidorna; axe också i tillstånd
+import pathlib
+lh = json.load(open('$ROOT/kunder/rokprov-mall/prov/lighthouse/lighthouse.json'))
+assert pathlib.Path('$ROOT/kunder/rokprov-mall/prov/lighthouse/METOD.json').is_file() and lh['metod']['representativa'][:2] == ['/', '/kontakt/'], lh.get('metod')
+assert all(len(x['forsok']) == 3 and x['matt'] == 'median' and x['spridning'][0] <= x['prestanda'] <= x['spridning'][1] for x in lh['rader'] if x['representativ']), lh['rader']
+assert all(len(x['forsok']) in (1, 3) for x in lh['rader'] if not x['representativ']), lh['rader']
+ax = json.load(open('$ROOT/kunder/rokprov-mall/prov/axe/axe.json'))
+assert ax['tillstand'] == ['meny', 'formularfel'] and any(x['tillstand'] == 'formularfel' and x['sida'] == '/kontakt/' and x.get('ogiltiga_falt', 0) > 0 for x in ax['rader']), [(x['vy'], x['sida'], x['tillstand']) for x in ax['rader']]
 x = json.load(open('$ROOT/kunder/rokprov-mall/prov/inspektion/hem/vy-1440-extrakt.json'))
 assert x.get('element') and any(e.get('typsnitt', {}).get('renderat') for e in x['element']), 'startsidans mätning saknar renderade typsnitt'
 assert str(s['info'].get('designavvikelser', '')).startswith('inga'), s['info'].get('designavvikelser')
@@ -337,6 +348,42 @@ assert all(pathlib.Path(s['bild']).is_file() for x in r['resor'] for s in x['ste
 assert p2.returncode == 2 and 'lokala server' in p2.stderr, p2.stderr
 " || { echo "FEL: resorna som inte håller"; exit 1; }
 echo "   resorna ok"
+
+echo "   mätmetoden och motorerna: axe i tillstånd, Lighthouse-metoden, WebKit-spill och JavaScript-fel"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, json, subprocess, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import prova
+d = pathlib.Path(tempfile.mkdtemp())
+sajt = d / 'sajt'
+for n in ('meny', 'fel', 'tung', 'kontakt'): (sajt / n).mkdir(parents=True)
+huvud = '<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>P</title></head><body>'
+(sajt / 'index.html').write_text(huvud + '<main><h1>Bred</h1><div style=\"width:600px\">Bred rad</div></main></body></html>')
+(sajt / 'meny' / 'index.html').write_text(huvud + '<header><nav><details><summary>Meny</summary><a href=\"/\">Start</a></details></nav></header><main><h1>Meny</h1></main></body></html>')
+(sajt / 'fel' / 'index.html').write_text(huvud + '<main><h1>Fel</h1></main><script>throw new Error(\"provfel\")</script></body></html>')
+(sajt / 'tung' / 'index.html').write_text(huvud + '<main><h1>Tung</h1>' + '<img src=\"/x.png\" alt=\"\">' * 3 + '</main></body></html>')
+(sajt / 'kontakt' / 'index.html').write_text(huvud + '<main><h1>Kontakt</h1></main></body></html>')
+assert prova.representativa_sidor(sajt, ['/', '/fel/', '/kontakt/', '/meny/', '/tung/']) == ['/', '/kontakt/', '/tung/']
+(d / 'RESOR.json').write_text(json.dumps({'resor': [
+    {'id': 'bred', 'uppgift': 'startsidan spiller i sidled', 'start': '/', 'forvantat': [{'text': 'Bred'}]},
+    {'id': 'jsfel', 'uppgift': 'sidan kastar ett fel', 'start': '/fel/', 'forvantat': [{'text': 'Fel'}]}]}))
+with prova.Server(sajt) as srv:
+    p = subprocess.run(['node', '$ROOT/kontroller/webblasare/resor.mjs', '--adress', srv.url + '/', '--resor', str(d / 'RESOR.json'), '--ut', str(d / 'ut'), '--motorer', 'chromium,webkit'], capture_output=True, text=True)
+    ax = subprocess.run(['node', '$ROOT/kontroller/axe.mjs', '--url=' + srv.url, '--sidor=/meny/', '--ut=' + str(d / 'axe'), '--tillstand=meny,formularfel'], capture_output=True, text=True)
+    lh = subprocess.run(['node', '$ROOT/kontroller/lighthouse.mjs', '--url=' + srv.url, '--sidor=/', '--representativa=/finns-inte/', '--ut=' + str(d / 'lh')], capture_output=True, text=True)
+ax2 = subprocess.run(['node', '$ROOT/kontroller/axe.mjs', '--url=https://example.com', '--sidor=/', '--ut=' + str(d / 'axe2'), '--tillstand=meny'], capture_output=True, text=True)
+ax3 = subprocess.run(['node', '$ROOT/kontroller/axe.mjs', '--url=http://127.0.0.1:1', '--sidor=/', '--ut=' + str(d / 'axe3'), '--tillstand=hover'], capture_output=True, text=True)
+r = json.loads((d / 'ut' / 'RESOR.json').read_text())
+o = {(x['id'], x['motor']): x for x in r['resor']}
+assert p.returncode == 1 and o[('bred', 'chromium')]['ok'] and not o[('bred', 'webkit')]['ok'] and 'spiller i sidled i WebKit' in o[('bred', 'webkit')]['skal'], r['resor']
+assert all(not o[('jsfel', m)]['ok'] and 'JavaScript-fel' in o[('jsfel', m)]['skal'] and 'provfel' in o[('jsfel', m)]['skal'] for m in ('chromium', 'webkit')), r['resor']
+assert r['startsida']['webkit']['spill'] and any('startsidan spiller i sidled i WebKit' in f for f in r['fel']) and pathlib.Path(r['startsida']['webkit']['bild']).is_file(), r.get('startsida')
+a = json.loads((d / 'axe' / 'axe.json').read_text())
+assert any(x['tillstand'] == 'meny' and x.get('oppen') for x in a['rader']), [(x['vy'], x['tillstand'], x.get('oppen'), x.get('fel')) for x in a['rader']]
+assert ax2.returncode == 2 and 'lokala server' in ax2.stderr, ax2.stderr
+assert ax3.returncode == 2 and 'okänt tillstånd' in ax3.stderr, ax3.stderr
+assert lh.returncode == 2 and 'representativa' in lh.stderr, lh.stderr
+" || { echo "FEL: mätmetoden och motorerna"; exit 1; }
+echo "   mätmetoden och motorerna ok"
 
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \

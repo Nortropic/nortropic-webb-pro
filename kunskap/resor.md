@@ -31,6 +31,12 @@ besökaren rättar det. För bokning skiljs länken (lokalt: rätt adress till r
 (testintegration); för kontakt skiljs formulärets godkännande (lokalt: tacksidan) från en mottagen förfrågan
 (verklig leverans). Ett kontrollerat serverfel prövas där sajten har en felsida för det (byggstandarden 6.6).
 
+Provet kör varje resa i Chromium och i WebKit, Safaris motor (390 px som Playwrights iPhone 14-profil). I WebKit
+fäller sidled-spill på resans startsida resan, och i båda motorerna fäller ett JavaScript-fel under resan den.
+Startsidan fotograferas i 390 px i båda motorerna (`startsida-<motor>-390.png`, med innehållets höjd, spill, laddade
+typsnitt och konsolfel); granskaren får WebKit-bilden. Det är belägg för layout och JavaScript i Safaris motor, inte
+för en riktig iPhone: kontrollen på riktig telefon före lansering består.
+
 Provet skriver `prov/resor/RESOR.md` med varje steg, vad som inte höll (steget står med i skälet) och en skärmbild
 per steg; granskaren får den. Resorna som står kvar till lanseringen förs in i RAPPORT.md (steg 7, punkt 12) och i
 lanseringens checklista (`kunskap/lansering.md`, Före lanseringsdagen).

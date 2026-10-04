@@ -1,7 +1,7 @@
 // Gemensamt för Digitalas webbläsarväg (Playwright 1.63, pinnad i package.json): start, vyer, värdverkställd
 // ursprungsgräns, logg med redigerade hemligheter, spår. Ingen modell här; modellen (utvecklare, QA eller avskärmad
 // besökare) sitter i sessionen som anropar verktygen.
-import { chromium } from 'playwright';
+import { chromium, webkit, devices } from 'playwright';
 import { createHash } from 'node:crypto';
 import http from 'node:http';
 import net from 'node:net';
@@ -264,6 +264,9 @@ export function hopphuvuden(huvuden, sammaUrsprung) {
  *  omdirigeringshopp prövat; ett skrivande anrop som förs vidare med 307/308 följs här, hopp för hopp, bara till
  *  skrivbara ursprung (Codex R24: lokal POST → 307 lokalt → 307 extern domän stoppas). */
 async function installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, malUrsprung, logg }) {
+  // WebKit låter inte route.fulfill svara med en omdirigering (3xx): där blir ett prövat läsande hopp i en navigering en
+  // sida som går vidare med meta refresh, och ett hopp i ett skript-anrop följs här; nästa anrop prövas av samma vakt
+  const webkitMotor = ctx.browser()?.browserType().name() === 'webkit';
   const blockera = (req, skal) => { logg.blockerade.push({ metod: req.method(), url: redigeraUrl(req.url()), typ: req.resourceType(), tid: nu(), ...(skal ? { skal } : {}) }); };
   await ctx.routeWebSocket('**/*', (ws) => { logg.blockerade.push({ metod: 'WS', url: redigeraUrl(ws.url()), typ: 'websocket', tid: nu(), skal: 'websocket blockerad' }); });
   await ctx.route('**/*', async (route) => {
@@ -284,7 +287,17 @@ async function installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, m
       logg.omdirigeringar.push({ metod: req.method(), fran: redigeraUrl(aktuell), till: redigeraUrl(mal), status: svar.status(), tid: nu() });
       if (!vardTillaten(m.hostname, policy) || (tillatna.size && !tillatna.has(m.origin))) { blockera(req, 'omdirigering till ' + redigeraUrl(mal) + ' utanför tillåtna ursprung'); return route.abort('blockedbyclient'); }
       const nasta = nastaMetod(svar.status(), metodNu);
-      if (LAS.has(nasta)) return route.fulfill({ status: svar.status(), headers: { location: mal, 'cache-control': 'no-store' }, body: '' });  // webbläsaren följer läsande genom proxyn
+      if (LAS.has(nasta) && !webkitMotor) return route.fulfill({ status: svar.status(), headers: { location: mal, 'cache-control': 'no-store' }, body: '' });  // webbläsaren följer läsande genom proxyn
+      if (LAS.has(nasta) && req.isNavigationRequest()) {
+        const html = '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=' + mal.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">';
+        return route.fulfill({ status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }, body: html });
+      }
+      if (LAS.has(nasta)) {  // WebKit, skript-anrop: läsande hopp följs här, varje hopp prövat som ovan
+        if (++hopp > 10) { blockera(req, 'för många omdirigeringar'); return route.abort('blockedbyclient'); }
+        const h3 = hopphuvuden(req.headers(), m.origin === o); if (undantag && m.origin === malUrsprung) h3['x-vercel-protection-bypass'] = undantag;
+        try { svar = await route.fetch({ url: mal, method: nasta, headers: h3, maxRedirects: 0 }); } catch (e) { return route.abort('failed'); }
+        aktuell = mal; metodNu = nasta; continue;
+      }
       // ett skrivande anrop som förs vidare (POST vid 307/308, PUT/PATCH/DELETE också vid 301/302): varje hopp måste gå till ett skrivbart ursprung och följs här
       if (!skrivbaraSet.has(m.origin)) { blockera(req, 'skrivande omdirigering (' + nasta + ') till ' + redigeraUrl(mal)); return route.abort('blockedbyclient'); }
       if (++hopp > 10) { blockera(req, 'för många omdirigeringar'); return route.abort('blockedbyclient'); }
@@ -344,18 +357,31 @@ export async function viaTjanst(verktyg, argv) {
 // lasande (standard): bara GET, HEAD och OPTIONS släpps igenom; ett skrivande anrop (POST, PUT, DELETE …) från sidans
 // skript avbryts och loggas. Extern inspektion klickar på främmande sajter och får aldrig skicka något (omgång elva,
 // F36). skrivbara: ursprung som får skriva ändå, till exempel provets egen lokala demomottagare.
-export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga = [], spar = null, extra = {}, mal = null, lasande = true, skrivbara = [] }) {
+/** Vyn i WebKit: 390 px blir Playwrights iPhone 14-profil (390 × 664, iPhone-webbläsarsträng, pekskärm), övriga vyer
+ *  samma mått som i Chromium. Belägg för layout och JavaScript i Safaris motor, inte för en riktig iPhone. */
+export function webkitVy(vy) {
+  const v = VYER[vy]; if (!v) return null;
+  if (vy !== '390') return { ...v, namn: v.namn + ', WebKit' };
+  const d = devices['iPhone 14'];
+  return { viewport: d.viewport, deviceScaleFactor: d.deviceScaleFactor, isMobile: true, hasTouch: true, userAgent: d.userAgent,
+           namn: 'iPhone 14-profil i WebKit (emulerad, inte fysisk enhet)' };
+}
+
+export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga = [], spar = null, extra = {}, mal = null, lasande = true, skrivbara = [], motor = 'chromium' }) {
   const malUrsprung = mal ? origin(mal) : (tillat.length ? origin(tillat[0]) : null);
-  const v = VYER[vy]; if (!v) throw new Error('okänd vy: ' + vy + ' (390, 768, 1440, 320)');
+  if (!['chromium', 'webkit'].includes(motor)) throw new Error('okänd motor: ' + motor + ' (chromium, webkit)');
+  const v = motor === 'webkit' ? webkitVy(vy) : VYER[vy]; if (!v) throw new Error('okänd vy: ' + vy + ' (390, 768, 1440, 320)');
   const red = redigerare([undantag, ...hemliga].filter(Boolean));
   const logg = { konsol: [], natverk: [], blockerade: [], dialoger: [], sidfel: [], omdirigeringar: [] };
   const policy = natpolicy();
   const tillatna = new Set(tillat.map(o => origin(o)));
   const skrivbaraSet = new Set(skrivbara.map(o => origin(o)).filter((o) => arLokal(o)));  // skrivande anrop bara till provets lokala mottagare (F36)
   const proxy = await startaProxy(anslutningsvakt(policy, tillatna), (metod, url, skal) => logg.blockerade.push({ metod, url: redigeraUrl(url), typ: 'proxy', tid: nu(), skal: (skal || 'utanför tillåtna ursprung') + ' (nätgränsen)' }), ursprungsvakt(skrivbaraSet, false));
-  const browser = await chromium.launch({ headless: true, proxy: { server: proxy.server, bypass: '<-loopback>' } });
+  // <-loopback> är Chromiums sätt att tvinga också localhost genom proxyn; i WebKit vaktar route-vakten nedan varje anrop
+  const browser = motor === 'webkit' ? await webkit.launch({ headless: true, proxy: { server: proxy.server } })
+    : await chromium.launch({ headless: true, proxy: { server: proxy.server, bypass: '<-loopback>' } });
   // serviceWorkers: 'block': en service worker skulle annars kunna göra anrop förbi route-vakten
-  const ctx = await browser.newContext({ viewport: v.viewport, deviceScaleFactor: v.deviceScaleFactor, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'sv-SE', timezoneId: 'Europe/Stockholm', serviceWorkers: 'block', ...extra });
+  const ctx = await browser.newContext({ viewport: v.viewport, deviceScaleFactor: v.deviceScaleFactor, isMobile: v.isMobile, hasTouch: v.hasTouch, ...(v.userAgent ? { userAgent: v.userAgent } : {}), locale: 'sv-SE', timezoneId: 'Europe/Stockholm', serviceWorkers: 'block', ...extra });
   await installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, malUrsprung, logg });
   ctx.on('page', p => {
     p.on('console', m => logg.konsol.push({ typ: m.type(), text: red(m.text()).slice(0, 500), tid: nu() }));

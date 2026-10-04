@@ -177,6 +177,21 @@ def sidor_i(dist):
     return rutter
 
 
+def representativa_sidor(dist, sidor):
+    """Sidorna Lighthouse mäter med median, valda efter funktion och sidtyp före mätningen (Codex helhetsbedömning
+    2026-10-04, punkt 7): startsidan, kontaktsidan och den tyngsta övriga sidan (flest bilder i HTML:en)."""
+    val = [r for r in sidor if r == '/'][:1]
+    val += [r for r in sidor if 'kontakt' in r and r not in val][:1]
+    def bilder(r):
+        p = dist / r.strip('/') / 'index.html'
+        t = p.read_text(encoding='utf-8', errors='replace') if p.is_file() else ''
+        return len(re.findall(r'<img\b|background-image', t))
+    ovriga = [r for r in sidor if r not in val]
+    if ovriga:
+        val.append(max(ovriga, key=lambda r: (bilder(r), -ovriga.index(r))))
+    return val
+
+
 def las_formular(ctype, kropp):
     """Textfälten ur ett inskickat formulär (multipart eller urlencoded). Filer läses inte."""
     if ctype.startswith('multipart/form-data'):
@@ -434,16 +449,22 @@ def prova(slug, snabb=False):
     with Server(dist) as srv:
         lista = ','.join(provsidor)
         # axe
-        rc, out = kor([NODE, str(KONTROLLER / 'axe.mjs'), '--url=' + srv.url, '--sidor=' + lista, '--ut=' + str(prov / 'axe')], timeout=600)
+        # också med menyn öppen och med formulärets felbesked framkallade (Codex helhetsbedömning 2026-10-04, punkt 7)
+        rc, out = kor([NODE, str(KONTROLLER / 'axe.mjs'), '--url=' + srv.url, '--sidor=' + lista, '--ut=' + str(prov / 'axe'),
+                       '--tillstand=meny,formularfel'], timeout=600)
         try:
             a = json.loads((prov / 'axe' / 'axe.json').read_text(encoding='utf-8'))
+            rader_ax = a.get('rader') or []
             # ej mätt är inte godkänt: varje sida och vy måste ha mätts utan fel (revisionen 2026-10-03, F9)
-            matfel = int(a.get('fel') or 0) + sum(1 for r in a.get('rader') or [] if r.get('fel'))
+            matfel = int(a.get('fel') or 0) + sum(1 for r in rader_ax if r.get('fel'))
+            bas = [r for r in rader_ax if r.get('tillstand', 'sida') == 'sida']
             vantade = 2 * len(provsidor)
-            ok = a['allvarliga'] == 0 and matfel == 0 and len(a.get('rader') or []) >= vantade
+            ok = a['allvarliga'] == 0 and matfel == 0 and len(bas) >= vantade
             text = '%d allvarliga av %d överträdelser' % (a['allvarliga'], a['totalt'])
-            if matfel or len(a.get('rader') or []) < vantade:
-                text += '; %d mätfel, %d av %d lägen mätta' % (matfel, len(a.get('rader') or []), vantade)
+            if matfel or len(bas) < vantade:
+                text += '; %d mätfel, %d av %d lägen mätta' % (matfel, len(bas), vantade)
+            tl = sorted({'%s %s' % (r['tillstand'], r.get('vy')) for r in rader_ax if r.get('tillstand', 'sida') != 'sida'})
+            text += '; tillstånd: ' + (', '.join(tl) if tl else 'ingen menyknapp eller inget formulär hittades')
             g['axe'] = grind(ok, text, 'prov/axe/axe.json', svans(out, 15) if a['totalt'] or not ok else None)
         except (OSError, ValueError, KeyError):
             g['axe'] = grind(False, 'axe kördes inte (rc %d)' % rc, detalj=svans(out))
@@ -454,13 +475,19 @@ def prova(slug, snabb=False):
         else:
             # sidor med noindex med avsikt (tacksidan) mäts inte: Lighthouse sänker SEO för noindex
             lh = [r for r in provsidor if not re.search(r'<meta[^>]+name="robots"[^>]+noindex', (dist / r.strip('/') / 'index.html').read_text(encoding='utf-8', errors='replace') if (dist / r.strip('/') / 'index.html').is_file() else '')]
-            rc, out = kor([NODE, str(KONTROLLER / 'lighthouse.mjs'), '--url=' + srv.url, '--sidor=' + ','.join(lh), '--ut=' + str(prov / 'lighthouse')], timeout=900)
+            # metoden står fast före mätningen: representativa sidor tre mätningar och medianen, övriga en (lighthouse.mjs)
+            rep_sidor = representativa_sidor(dist, lh)
+            rc, out = kor([NODE, str(KONTROLLER / 'lighthouse.mjs'), '--url=' + srv.url, '--sidor=' + ','.join(lh), '--ut=' + str(prov / 'lighthouse'),
+                           '--omgangar=3', '--representativa=' + ','.join(rep_sidor)], timeout=900)
             try:
                 lh = json.loads((prov / 'lighthouse' / 'lighthouse.json').read_text(encoding='utf-8'))
                 rader = lh['rader']
                 lag = lambda k: min(r[k] for r in rader)
-                text = 'lägst P %d, A %d, BP %d, SEO %d (%d mätningar)' % (lag('prestanda'), lag('tillganglighet'), lag('bastaPraxis'), lag('seo'), len(rader))
+                text = 'lägst P %d, A %d, BP %d, SEO %d (%d sidlägen; median av 3 på %s)' % (
+                    lag('prestanda'), lag('tillganglighet'), lag('bastaPraxis'), lag('seo'), len(rader), ', '.join(rep_sidor))
                 under = ['%s %s: %s' % (r['form'], r['sida'], ','.join(r['underkanda'][:8])) for r in rader if not r['ok']]
+                under += ['%s %s: P %d (median, spridning %d–%d)' % (r['form'], r['sida'], r['prestanda'], *r['spridning'])
+                          for r in rader if r.get('matt') == 'median' and r['spridning'][1] - r['spridning'][0] >= 10]
                 g['lighthouse'] = grind(lh['ok'], text, 'prov/lighthouse/lighthouse.json', '\n'.join(under) or None)
             except (OSError, ValueError, KeyError):
                 g['lighthouse'] = grind(False, 'lighthouse kördes inte (rc %d)' % rc, detalj=svans(out))
@@ -534,14 +561,24 @@ def prova(slug, snabb=False):
         if not resfil.is_file():
             g['resor'] = grind(False, 'underlag/%s/RESOR.json saknas: skriv briefens viktigaste resor (kunskap/resor.md)' % slug)
         else:
+            # i Chromium och i WebKit, Safaris motor (Codex helhetsbedömning 2026-10-04, punkt 7): belägg för layout och
+            # JavaScript, inte för en riktig iPhone; den mänskliga kontrollen på riktig telefon före lansering består
             rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'resor.mjs'), '--adress', srv.url + '/', '--resor', str(resfil),
-                           '--ut', str(prov / 'resor'), '--testmarkering', 'NWP-PROV'], timeout=600)
+                           '--ut', str(prov / 'resor'), '--testmarkering', 'NWP-PROV', '--motorer', 'chromium,webkit'], timeout=600)
             try:
                 rj = json.loads((prov / 'resor' / 'RESOR.json').read_text(encoding='utf-8'))
                 hollnt = [x for x in rj.get('resor', []) if not x.get('ok')]
-                g['resor'] = grind(bool(rj.get('ok')), '%d av %d resor höll%s' % (len(rj.get('resor', [])) - len(hollnt), len(rj.get('resor', [])),
+                g['resor'] = grind(bool(rj.get('ok')), '%d av %d resor höll (%s)%s' % (len(rj.get('resor', [])) - len(hollnt), len(rj.get('resor', [])),
+                                   ' och '.join(rj.get('motorer') or ['chromium']),
                                    ', %d kvar till lanseringen' % len(rj.get('kvar', [])) if rj.get('kvar') else ''), 'prov/resor/RESOR.md',
-                                   '\n'.join(['%s: %s' % (x.get('id'), x.get('skal')) for x in hollnt] + rj.get('fel', [])) or None)
+                                   '\n'.join(['%s (%s): %s' % (x.get('id'), x.get('motor', 'chromium'), x.get('skal')) for x in hollnt] + rj.get('fel', [])) or None)
+                st_ = rj.get('startsida') or {}
+                if st_.get('webkit') and st_.get('chromium') and not st_['webkit'].get('fel') and not st_['chromium'].get('fel'):
+                    wk_, ch_ = st_['webkit'], st_['chromium']
+                    info['webkit'] = ('startsidan i 390 px: innehållets höjd %d px i WebKit mot %d i Chromium, spill %s, konsolfel %d, typsnitt %s '
+                                      '(prov/resor/startsida-webkit-390.png; Safaris motor, inte en riktig iPhone)') % (
+                        wk_['hojd'], ch_['hojd'], 'ja' if wk_['spill'] else 'nej', wk_['konsolfel'],
+                        'samma' if wk_['typsnitt'] == ch_['typsnitt'] else '%s mot %s' % (', '.join(wk_['typsnitt']) or '–', ', '.join(ch_['typsnitt']) or '–'))
             except (OSError, ValueError, KeyError, AttributeError, TypeError) as e:
                 g['resor'] = grind(False, 'resorna kördes inte (rc %d): %s' % (rc, e), detalj=svans(out, 3))
 
