@@ -821,6 +821,48 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     st = json.loads((rot2 / 'STATUS.json').read_text())
     assert st['steg'] == 'fel' and 'huvudreferensen saknas' in st['fel'] and not prompter, st
     (u / 'REFERENSER.md').write_text(ref_text)
+    # tidsgränsen (designprovet 2026-10-05): sidor som hann skrivas fotograferas och döms ändå; utan en enda sida faller
+    # ateljén; vid fel sparas koden som hann skrivas innan städningen tar bort sidorna
+    sidor_hr = k / 'provhr' / 'sajt' / 'src' / 'pages'
+
+
+    def tidsgrans_(prompt, verktyg, ut, **kw):
+        prompter.append(prompt)
+        (sidor_hr / 'atelje-1').mkdir(parents=True, exist_ok=True); (sidor_hr / 'atelje-1' / 'index.astro').write_text('<p>1</p>')
+        raise subprocess.TimeoutExpired('claude', 3600)
+
+
+    fotograferat_ = []
+    a.session = tidsgrans_
+    a.fotografera = lambda slug, rot: fotograferat_.append(slug) or []
+    utfall = iter([1]); prompter.clear()
+    a.arbetare('provhr')
+    st = json.loads((rot2 / 'STATUS.json').read_text())
+    assert st['steg'] == 'klar' and fotograferat_ == ['provhr'] and 'TimeoutExpired' in st.get('divergera_avbruten', '') \
+        and st['divergera'].get('riktningar_som_fanns') == [1], st
+
+
+    def foll_(prompt, verktyg, ut, **kw):
+        (sidor_hr / 'atelje-2').mkdir(parents=True, exist_ok=True); (sidor_hr / 'atelje-2' / 'index.astro').write_text('<p>2</p>')
+        raise RuntimeError('sessionen föll')
+
+
+    def bygget_foll_(slug, rot):
+        raise RuntimeError('bygget föll efter divergensen')
+
+
+    a.session = foll_
+    a.fotografera = bygget_foll_
+    a.arbetare('provhr')
+    st = json.loads((rot2 / 'STATUS.json').read_text())
+    assert st['steg'] == 'fel' and 'bygget föll' in st['fel'] and any(x.endswith('/2/kod') for x in st.get('sparad_kod', [])) \
+        and (rot2 / '2' / 'kod' / 'index.astro').read_text() == '<p>2</p>', st
+    shutil.rmtree(sidor_hr / 'atelje-1'); shutil.rmtree(sidor_hr / 'atelje-2')
+    a.session = lambda prompt, verktyg, ut, **kw: (_ for _ in ()).throw(subprocess.TimeoutExpired('claude', 3600))
+    a.arbetare('provhr')
+    st = json.loads((rot2 / 'STATUS.json').read_text())
+    assert st['steg'] == 'fel' and 'TimeoutExpired' in st['fel'] and 'sparad_kod' not in st, 'utan en enda sida faller ateljén'
+    assert a.FRIST >= 3000 or os.environ.get('NWP_ATELJE_FRIST'), 'tre riktningar behöver mer än 40 min med Fable på max'
     for n, fn in gamla.items():
         setattr(a, n, fn)
     # bildjämförelsen mot vinnaren (jamfor.mjs + prova.vinnarjamforelse): förändring, inte kvalitet

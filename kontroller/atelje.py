@@ -51,7 +51,9 @@ SLUG = re.compile(r'^[a-z0-9-]{2,60}$')
 MODELL = os.environ.get('NWP_ATELJE_MODELL') or 'claude-fable-5-1'
 EFFORT = os.environ.get('NWP_ATELJE_EFFORT') or 'max'
 ANTAL = max(2, min(4, int(os.environ.get('NWP_ATELJE_ANTAL') or 3)))
-FRIST = int(os.environ.get('NWP_ATELJE_FRIST') or 2400)
+# Divergensen gör ANTAL hela startsidor med undersida och stiltavla. Med Fable på max tog tre riktningar 43 min
+# (designprovet 2026-10-05, 117 turer), så gränsen växer med antalet; domarna har samma gräns men slutar långt före.
+FRIST = int(os.environ.get('NWP_ATELJE_FRIST') or (1200 + 800 * ANTAL))
 MIN_DOMARE = max(1, int(os.environ.get('NWP_ATELJE_MIN_DOMARE') or 2))  # giltiga domare som panelen minst kräver
 OMGANGAR = max(1, min(3, int(os.environ.get('NWP_ATELJE_OMGANGAR') or 2)))  # divergensomgångar innan bygget stannar (designprovet punkt 4)
 NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(git *)', 'Bash(curl *)',
@@ -738,8 +740,17 @@ def arbetare(slug):
             krav_huvudreferens(slug)  # varje omgång: ingen divergens utan huvudreferens med bilder (granskningen av r53, punkt 10)
             status.update(steg='divergera', omgang=omgang)
             skriv()
-            d = session(divergera_prompt(slug, bilder, kritik), verktyg, rot / 'svar-divergera.json')
-            status.update(steg='fotografera', divergera={k: d.get(k) for k in ('num_turns', 'duration_ms', 'total_cost_usd')})
+            try:
+                d = session(divergera_prompt(slug, bilder, kritik), verktyg, rot / 'svar-divergera.json')
+            except (subprocess.TimeoutExpired, RuntimeError) as e:
+                # sidorna som hann skrivas fotograferas och döms ändå: en tidsgräns eller en session som föll i slutet ska
+                # inte kasta färdiga förslag (designprovet 2026-10-05); en riktning utan undersida blir ofullständig
+                finns = [n for n in range(1, ANTAL + 1) if (KUNDER / slug / 'sajt' / 'src' / 'pages' / ('atelje-%d' % n) / 'index.astro').is_file()]
+                if not finns:
+                    raise
+                d = {'avbruten': '%s: %s' % (type(e).__name__, str(e)[:300]), 'riktningar_som_fanns': finns}
+                status['divergera_avbruten'] = d['avbruten']
+            status.update(steg='fotografera', divergera={k: d.get(k) for k in ('num_turns', 'duration_ms', 'total_cost_usd', 'avbruten', 'riktningar_som_fanns') if d.get(k) is not None})
             skriv()
             fotografera(slug, rot)
             status['steg'] = 'konvergera'
@@ -760,6 +771,12 @@ def arbetare(slug):
             status.update(steg='forkastad', klar=nu(), val=None, omgangar=OMGANGAR, skal='panelen förkastade alla riktningar i %d omgångar; bygget stannar här' % OMGANGAR)
     except Exception as e:  # ateljén slutar alltid med ett besked
         status.update(steg='fel', fel='%s: %s' % (type(e).__name__, e))
+        try:  # koden som hann skrivas sparas före städningen, så att inget förslag går förlorat (designprovet 2026-10-05)
+            sparade = [n for n in range(1, ANTAL + 1) if spara_kod(slug, rot, n)]
+            if sparade:
+                status['sparad_kod'] = ['%s/%d/kod' % (rel(rot), n) for n in sparade]
+        except Exception as e2:  # noqa: BLE001 — sparandet får aldrig dölja det första felet
+            status['sparad_kod_fel'] = '%s: %s' % (type(e2).__name__, str(e2)[:200])
     finally:
         stada(slug)
         status.pop('pid', None)
