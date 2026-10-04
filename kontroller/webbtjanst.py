@@ -333,11 +333,12 @@ def kanonisera_argv(argv, kanon, kanon_pos=()):
 
 
 def verktygsmiljo(slug, korning=None, tillatna=(), adress=None, nyckel=None):
-    """Verktygens miljö: tjänstens egen utan proxyvariabler och Refero-nyckeln, med NWP_I_TJANSTEN, sluggen, körningen,
-    domänlistan (NWP_NAT_TILLATNA, verkställs i webbläsarhjälparen) och tjänstens adress (så att granskarnas egna
-    sandlådade sessioner kan delegera sina webbläsarsteg)."""
+    """Verktygens miljö: tjänstens egen utan proxyvariabler och Refero-nyckeln, med NWP_I_TJANSTEN, NWP_SANDLADA=pa,
+    sluggen, körningen, domänlistan (NWP_NAT_TILLATNA, verkställs i webbläsarhjälparen) och tjänstens adress (så att
+    granskarnas egna sandlådade sessioner kan delegera sina webbläsarsteg)."""
     miljo = {k: v for k, v in os.environ.items() if not k.upper().endswith('_PROXY') and k != 'REFERO_MCP_TOKEN'}
     miljo['NWP_I_TJANSTEN'] = '1'
+    miljo['NWP_SANDLADA'] = 'pa'  # tjänsten finns bara i sandlådat läge: granskningsarbetaren ger granskarna sin sandlåda och tjänstens adress (Codex R26, F1/F28)
     miljo['NWP_SLUG'] = slug
     miljo['NWP_NAT_TILLATNA'] = ','.join(sorted(tillatna))
     if korning:

@@ -142,7 +142,10 @@ export async function uppslag(host) {
   if (net.isIP(h)) return privatAdress(h) ? { fel: 'adress i det egna nätet' } : { ip: h };
   let adresser;
   const prov = provuppslag();
-  if (prov) { if (!prov.has(h)) return { fel: 'gick inte att slå upp (provuppslag)' }; adresser = [prov.get(h)]; }
+  if (prov) {
+    const ms = Number(process.env.NWP_PROV_UPPSLAG_FORDROJNING || 0); if (ms > 0) await new Promise((r) => setTimeout(r, ms));  // bara rökprovet: ett sent svar
+    if (!prov.has(h)) return { fel: 'gick inte att slå upp (provuppslag)' }; adresser = [prov.get(h)];
+  }
   else {
     try { adresser = (await dns.promises.lookup(h, { all: true })).map((x) => x.address); } catch { return { fel: 'gick inte att slå upp' }; }
   }
@@ -160,24 +163,29 @@ const LAS = new Set(['GET', 'HEAD', 'OPTIONS']);
  *  Omdirigeringar och annat som route-vakten inte ser (Playwright följer dem utan ny kontroll) stoppas här (Codex R23/R24). */
 async function startaProxy(tillaten, blockera, skrivbar = () => false) {
   const socklar = new Set();  // alla socklar, också överlämnade CONNECT-tunnlar: server.close() väntar annars för evigt på dem (exit 13)
+  const anrop = new Set();    // pågående utgående http-anrop: förstörs vid stängning (Codex R26, F28)
+  let stangd = false;         // prövas efter varje väntat uppslag: inget nytt utgående efter stang()
   const folj = (c) => { socklar.add(c); c.on('close', () => socklar.delete(c)); return c; };
   const srv = http.createServer(async (req, res) => {
     let u; try { u = new URL(req.url); } catch { res.writeHead(400); return res.end(); }
     const port = u.port || '80';
-    const neka = (kod, skal) => { blockera(req.method, u.toString(), skal); res.writeHead(kod, { 'content-type': 'text/plain' }); res.end('blockerad'); };
+    const neka = (kod, skal) => { blockera(req.method, u.toString(), skal); try { res.writeHead(kod, { 'content-type': 'text/plain' }); res.end('blockerad'); } catch {} };
     if (!tillaten(u.hostname, port, 'http:')) return neka(403, 'utanför tillåtna ursprung');
     if (!LAS.has(req.method) && !skrivbar(u.hostname, port, 'http:')) return neka(405, 'skrivande anrop till ett ursprung som inte är skrivbart');
     const upp = await uppslag(u.hostname);
+    if (stangd) return neka(503, 'proxyn stängd');
     if (!upp.ip) return neka(403, upp.fel);
     const p = http.request({ host: upp.ip, port: Number(port), method: req.method, path: u.pathname + u.search, headers: { ...req.headers, host: u.host } }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
+    anrop.add(p); p.on('close', () => anrop.delete(p));
     p.on('error', () => { try { res.writeHead(502); res.end(); } catch {} });
     req.pipe(p);
   });
   srv.on('connect', async (req, sock, head) => {
     const i = req.url.lastIndexOf(':'); const host = (i > 0 ? req.url.slice(0, i) : req.url).replace(/^\[|\]$/g, ''); const port = i > 0 ? req.url.slice(i + 1) : '443';
-    const neka = (skal) => { blockera('CONNECT', 'https://' + req.url + '/', skal); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); sock.destroy(); };
+    const neka = (skal) => { blockera('CONNECT', 'https://' + req.url + '/', skal); try { sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); } catch {} sock.destroy(); };
     if (!tillaten(host, port, 'https:')) return neka('utanför tillåtna ursprung');
     const upp = await uppslag(host);
+    if (stangd) return neka('proxyn stängd');
     if (!upp.ip) return neka(upp.fel);
     const s = folj(net.connect(Number(port) || 443, upp.ip, () => { sock.write('HTTP/1.1 200 Connection Established\r\n\r\n'); if (head && head.length) s.write(head); s.pipe(sock); sock.pipe(s); }));
     folj(sock);
@@ -188,6 +196,8 @@ async function startaProxy(tillaten, blockera, skrivbar = () => false) {
   const stang = () => new Promise((r) => {
     let klar = false; const slut = () => { if (!klar) { klar = true; clearTimeout(t); r(); } };
     const t = setTimeout(slut, 2000);  // stängningen ska alltid bli klar: skriptets top-level await får aldrig lämnas hängande
+    stangd = true;
+    for (const p of anrop) p.destroy();
     for (const c of socklar) c.destroy();
     if (srv.closeAllConnections) srv.closeAllConnections();
     srv.close(slut);
@@ -233,6 +243,22 @@ export async function natgrans(ursprung = [], skrivbara = []) {
   return { server: proxy.server, playwright: { proxy: { server: proxy.server, bypass: '<-loopback>' } }, chromeFlags: ['--proxy-server=' + server, '--proxy-bypass-list=<-loopback>'], blockerade, stang: proxy.stang };
 }
 
+// Huvuden som följer kroppen vid ett metodbevarande hopp (307/308): innehållstypen och det allmänna, som webbläsaren
+// själv skulle skicka; ursprungsbundna huvuden (cookie, authorization, skyddsundantaget, origin, referer) bara när hoppet
+// stannar i samma ursprung; host och content-length sätts om av hämtningen (Codex R26, F31/F36).
+const URSPRUNGSBUNDNA = new Set(['cookie', 'authorization', 'proxy-authorization', 'x-vercel-protection-bypass', 'origin', 'referer']);
+const BORT_VID_HOPP = new Set(['host', 'content-length', 'connection', 'keep-alive', 'transfer-encoding', 'upgrade', 'te']);
+export function hopphuvuden(huvuden, sammaUrsprung) {
+  const ut = {};
+  for (const [k, v] of Object.entries(huvuden || {})) {
+    const n = k.toLowerCase();
+    if (BORT_VID_HOPP.has(n) || n.startsWith(':')) continue;
+    if (URSPRUNGSBUNDNA.has(n) && !sammaUrsprung) continue;
+    ut[n] = v;
+  }
+  return ut;
+}
+
 /** Route-vakten: samma regler i oppna och i skript som skapar sina kontexter själva (lasvakt). Värd mot policyn,
  *  ursprung mot skriptets lista, skrivande anrop bara till skrivbara (lokala) ursprung, WebSockets blockerade, varje
  *  omdirigeringshopp prövat; ett skrivande anrop som förs vidare med 307/308 följs här, hopp för hopp, bara till
@@ -262,7 +288,7 @@ async function installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, m
       // ett skrivande anrop som förs vidare (POST vid 307/308, PUT/PATCH/DELETE också vid 301/302): varje hopp måste gå till ett skrivbart ursprung och följs här
       if (!skrivbaraSet.has(m.origin)) { blockera(req, 'skrivande omdirigering (' + nasta + ') till ' + redigeraUrl(mal)); return route.abort('blockedbyclient'); }
       if (++hopp > 10) { blockera(req, 'för många omdirigeringar'); return route.abort('blockedbyclient'); }
-      const h2 = {}; if (undantag && m.origin === malUrsprung) h2['x-vercel-protection-bypass'] = undantag;
+      const h2 = hopphuvuden(req.headers(), m.origin === o); if (undantag && m.origin === malUrsprung) h2['x-vercel-protection-bypass'] = undantag;
       try { svar = await route.fetch({ url: mal, method: nasta, headers: h2, maxRedirects: 0 }); } catch (e) { return route.abort('failed'); }
       aktuell = mal; metodNu = nasta;
     }
@@ -284,13 +310,21 @@ async function fullborda(route, svar) {
   return route.fulfill({ status: svar.status(), headers, body: await svar.body() });
 }
 
-/** Sandlådat bygge (kor.sh NWP_SANDLADA=pa): Chromium kan inte starta inne i Claude Codes sandlåda (mach-register nekas),
- *  så skriptet körs av kontroller/webbtjanst.py utanför sandlådan, bundet till sluggen, domänlistan och byggets kataloger.
- *  Delegerar bara när tjänsten är anvisad, sandlådans proxy är satt och vi inte redan är inne i tjänsten; skriver
- *  verktygets utskrift och avslutar med dess slutkod. Node:s fetch går aldrig via proxyvariablerna. */
+/** Samma delegeringsvillkor som webbtjanst.delegeras: sandlådans proxy satt eller stoppkrokens processgräns
+ *  (kontroller/processgrans.py, NWP_PROCESSGRANS=1), och inte redan inne i tjänsten (Codex R26, F1/F28). */
+export function delegeras() {
+  return Boolean(process.env.NWP_WEBBTJANST) && !process.env.NWP_I_TJANSTEN
+    && Boolean(process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.NWP_PROCESSGRANS === '1');
+}
+
+/** Sandlådat bygge (kor.sh NWP_SANDLADA=pa): Chromium kan inte starta inne i Claude Codes sandlåda (mach-register nekas)
+ *  eller stoppkrokens processgräns (nät bara till localhost), så skriptet körs av kontroller/webbtjanst.py utanför dem,
+ *  bundet till sluggen, domänlistan och byggets kataloger. Delegerar bara när tjänsten är anvisad, sandlådans proxy
+ *  eller processgränsens markör är satt och vi inte redan är inne i tjänsten; skriver verktygets utskrift och avslutar
+ *  med dess slutkod. Node:s fetch går aldrig via proxyvariablerna. */
 export async function viaTjanst(verktyg, argv) {
   const bas = (process.env.NWP_WEBBTJANST || '').replace(/\/$/, '');
-  if (!bas || process.env.NWP_I_TJANSTEN || !(process.env.HTTP_PROXY || process.env.HTTPS_PROXY)) return;
+  if (!bas || process.env.NWP_I_TJANSTEN || !delegeras()) return;
   let svar;
   try {
     const r = await fetch(bas + '/kor', { method: 'POST', headers: { 'content-type': 'application/json', 'x-nyckel': process.env.NWP_WEBBTJANST_NYCKEL || '' },

@@ -2061,7 +2061,7 @@ assert ga('okant', [])[1] and ga('granska', 'x')[1] and ga('inspektera', ['--adr
 # tjänsten mot en stubbrot: klienten skriver verktygets utskrift och ger dess slutkod; miljön saknar proxy, bär slug, körning, domänlista och tjänstens adress
 (rot_w / 'kontroller' / 'webblasare').mkdir(parents=True); (rot_w / '.venv' / 'bin').mkdir(parents=True)
 os.symlink(ROOT / '.venv' / 'bin' / 'python', rot_w / '.venv' / 'bin' / 'python'); shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_w / 'kontroller')
-(rot_w / 'kontroller' / 'granska.py').write_text("import os, sys\nprint('stub granska', sys.argv[1:], 'i_tjansten=%s proxy=%s slug=%s korning=%s tjanst=%s tillatna=%s' % (os.environ.get('NWP_I_TJANSTEN'), 'satt' if os.environ.get('HTTP_PROXY') else 'ingen', os.environ.get('NWP_SLUG'), os.environ.get('NWP_KORNING'), 'satt' if os.environ.get('NWP_WEBBTJANST') and os.environ.get('NWP_WEBBTJANST_NYCKEL') else 'ingen', 'exempel.se' in os.environ.get('NWP_NAT_TILLATNA', '')))\nsys.exit(3)\n")
+(rot_w / 'kontroller' / 'granska.py').write_text("import os, sys\nprint('stub granska', sys.argv[1:], 'i_tjansten=%s proxy=%s slug=%s korning=%s tjanst=%s tillatna=%s' % (os.environ.get('NWP_I_TJANSTEN'), 'satt' if os.environ.get('HTTP_PROXY') else 'ingen', os.environ.get('NWP_SLUG'), os.environ.get('NWP_KORNING'), 'satt' if os.environ.get('NWP_WEBBTJANST') and os.environ.get('NWP_WEBBTJANST_NYCKEL') else 'ingen', 'exempel.se' in os.environ.get('NWP_NAT_TILLATNA', '')), 'sandlada=%s' % os.environ.get('NWP_SANDLADA'))\nsys.exit(3)\n")
 (rot_w / 'kontroller' / 'webblasare' / 'arkivera.mjs').write_text("console.log('stub arkivera', process.argv.slice(2).join(' '), 'i_tjansten=' + (process.env.NWP_I_TJANSTEN || ''));\nprocess.exit(0);\n")
 kv_w = tmp / 'wt-kvitto'
 wts = subprocess.Popen([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'serve', '--slug', 'prov-bygge', '--kvitto', str(kv_w), '--root', str(rot_w), '--doman', 'exempel.se', '--korning', 'K1'],
@@ -2076,11 +2076,22 @@ try:
     miljo_w = dict(os.environ, NWP_WEBBTJANST='http://127.0.0.1:' + port_w, NWP_WEBBTJANST_NYCKEL=nyckel_w, HTTP_PROXY='http://x:y@localhost:1')
     miljo_w.pop('NWP_I_TJANSTEN', None)
     rw = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'kor', 'granska', '--arbetare', 'kunder/prov-bygge/granskning/runda-03'], capture_output=True, text=True, env=miljo_w, timeout=60)
-    assert rw.returncode == 3 and "stub granska ['--arbetare', 'kunder/prov-bygge/granskning/runda-03'] i_tjansten=1 proxy=ingen slug=prov-bygge korning=K1 tjanst=satt tillatna=True" in rw.stdout, (rw.returncode, rw.stdout, rw.stderr)
+    assert rw.returncode == 3 and "stub granska ['--arbetare', 'kunder/prov-bygge/granskning/runda-03'] i_tjansten=1 proxy=ingen slug=prov-bygge korning=K1 tjanst=satt tillatna=True sandlada=pa" in rw.stdout, (rw.returncode, rw.stdout, rw.stderr)
     rw = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'arkivera.mjs'), '--adress', 'HTTPS://Exempel.se', '--ut', 'kunder/prov-bygge/arkiv'], capture_output=True, text=True, env=miljo_w, timeout=60, cwd=str(ROOT))
     assert rw.returncode == 0 and 'stub arkivera --adress https://exempel.se/ --ut kunder/prov-bygge/arkiv i_tjansten=1' in rw.stdout, (rw.returncode, rw.stdout, rw.stderr[-300:])
     rw = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'arkivera.mjs'), '--adress', 'https://evil.example/', '--ut', 'kunder/prov-bygge/arkiv'], capture_output=True, text=True, env=miljo_w, timeout=60, cwd=str(ROOT))
     assert rw.returncode == 2 and 'vägrar' in rw.stderr and 'domänlista' in rw.stderr, (rw.returncode, rw.stderr[-300:])
+    # Node-verktygen delegerar också från processgränsens miljö: bara markören NWP_PROCESSGRANS=1, inga proxyvariabler (Codex R26, F1/F28)
+    miljo_pg = {k_: v_ for k_, v_ in miljo_w.items() if not k_.upper().endswith('_PROXY')}; miljo_pg['NWP_PROCESSGRANS'] = '1'
+    rw = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'arkivera.mjs'), '--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/arkiv'], capture_output=True, text=True, env=miljo_pg, timeout=60, cwd=str(ROOT))
+    assert rw.returncode == 0 and 'stub arkivera --adress https://exempel.se/ --ut kunder/prov-bygge/arkiv i_tjansten=1' in rw.stdout, ('markören räcker för Node', rw.returncode, rw.stdout, rw.stderr[-300:])
+    for extra_, vantat_ in (({}, True), ({'HTTP_PROXY': ''}, False), ({'HTTP_PROXY': '', 'NWP_PROCESSGRANS': '1'}, True), ({'HTTP_PROXY': '', 'NWP_PROCESSGRANS': '0'}, False), ({'NWP_PROCESSGRANS': '1', 'NWP_I_TJANSTEN': '1'}, False)):
+        m_ = dict(miljo_w, **extra_)
+        for k_, v_ in list(m_.items()):
+            if v_ == '':
+                m_.pop(k_)
+        rd = subprocess.run(['node', '-e', "import(%r).then((m) => console.log(m.delegeras()))" % str(ROOT / 'kontroller' / 'webblasare' / 'gemensamt.mjs')], capture_output=True, text=True, env=m_, cwd=str(ROOT), timeout=60)
+        assert rd.stdout.strip() == str(vantat_).lower(), ('delegeras i Node', extra_, rd.stdout, rd.stderr[-200:])
     rw = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'kor', 'prova', 'prov-bygge'], capture_output=True, text=True, env=miljo_w, timeout=60)
     assert rw.returncode == 2 and 'okänt verktyg' in rw.stderr, (rw.returncode, rw.stderr[-300:])
     import urllib.request as ur_
@@ -2090,7 +2101,7 @@ try:
         assert e_.code == 403
     with ur_.build_opener(ur_.ProxyHandler({})).open(ur_.Request('http://127.0.0.1:%s/halsa' % port_w, headers={'X-Nyckel': nyckel_w}), timeout=10) as r_:
         assert json.loads(r_.read())['slug'] == 'prov-bygge'
-    for extra_, vantat_ in (({}, True), ({'HTTP_PROXY': ''}, False), ({'NWP_I_TJANSTEN': '1'}, False), ({'NWP_WEBBTJANST': ''}, False)):
+    for extra_, vantat_ in (({}, True), ({'HTTP_PROXY': ''}, False), ({'NWP_I_TJANSTEN': '1'}, False), ({'NWP_WEBBTJANST': ''}, False), ({'HTTP_PROXY': '', 'NWP_PROCESSGRANS': '1'}, True)):
         m_ = dict(miljo_w, **extra_)
         for k_, v_ in list(m_.items()):
             if v_ == '':
@@ -2116,7 +2127,10 @@ function server(st, html) {
   return new Promise((res) => {
     st.srv = http.createServer((req, r) => {
       let body = ''; req.on('data', (d) => body += d); req.on('end', () => {
-        st.traffar.push({ metod: req.method, url: req.url, bypass: req.headers['x-vercel-protection-bypass'] || null, body });
+        st.traffar.push({ metod: req.method, url: req.url, bypass: req.headers['x-vercel-protection-bypass'] || null, body, ct: req.headers['content-type'] || null, cookie: req.headers.cookie || null, xprov: req.headers['x-prov'] || null });
+        if (req.url === '/langsam') { st.langsam = r; req.on('close', () => { st.langsamStangd = true; }); return; }  // svarar aldrig
+        if (req.url === '/post307-lokal') { r.writeHead(307, { Location: '/mottagare' }); return r.end(); }
+        if (req.url === '/post307b') { r.writeHead(307, { Location: html.BL + '/final' }); return r.end(); }  // B under namnet localhost: kakan för 127.0.0.1 skickas inte ur kakburken
         if (req.url === '/start') { r.writeHead(302, { Location: html.B + '/landning' }); return r.end(); }
         if (req.url === '/till-b-sida') { r.writeHead(302, { Location: html.B + '/landning' }); return r.end(); }
         if (req.url === '/post307') { r.writeHead(307, { Location: '/relay307' }); return r.end(); }
@@ -2128,8 +2142,8 @@ function server(st, html) {
     }).listen(0, '127.0.0.1', () => res('http://127.0.0.1:' + st.srv.address().port));
   });
 }
-const html = { B: '', sida: '' };
-const b = await server(B, html); html.B = b;
+const html = { B: '', BL: '', sida: '' };
+const b = await server(B, html); html.B = b; html.BL = 'http://localhost:' + B.srv.address().port;
 const a = await server(A, html);
 html.sida = `<html><body><img src="${b}/x.png"><script>try { new WebSocket('ws://127.0.0.1:${A.srv.address().port}/ws'); } catch (e) {}</script>
 <form method="post" action="/post"><input name="n" value="x"><button type="submit">s</button></form></body></html>`;
@@ -2200,6 +2214,21 @@ const fraga2 = (path, method = 'GET') => new Promise((res) => { const r = http.r
 ut.postSkrivbar = await fraga2(a + '/post', 'POST'); ut.postAnnanLokal = await fraga2(b + '/post', 'POST'); ut.getAnnanLokal = await fraga2(b + '/x', 'GET');
 ut.getOlistadLokal = await fraga2('http://127.0.0.1:1/', 'GET');
 await grans2.stang(); delete process.env.NWP_NAT_TILLATNA;
+// 6c. stängningen avbryter pågående hämtningar (R26): ett påbörjat http-anrop förstörs (mottagaren ser socketen stängas), och ett
+//     uppslag som blir klart efter stängningen (fördröjt provuppslag) ger ingen ny anslutning, varken http eller CONNECT
+process.env.NWP_NAT_TILLATNA = 'sen.example'; process.env.NWP_PROV_UPPSLAG = 'sen.example=203.0.113.9'; process.env.NWP_PROV_UPPSLAG_FORDROJNING = '400';
+const grans3 = await natgrans([]);
+const pp3 = new URL(grans3.server);
+const fraga3 = (path, method = 'GET') => new Promise((res) => { const r = http.request({ host: pp3.hostname, port: pp3.port, method, path, headers: { host: new URL(path).host } }, (s) => { s.resume(); s.on('end', () => res(s.statusCode)); }); r.on('error', () => res('fel')); r.on('close', () => res('stängd')); r.end(); });
+const connect3 = (mal) => new Promise((res) => { const s = net.connect(Number(pp3.port), pp3.hostname, () => s.write('CONNECT ' + mal + ' HTTP/1.1\r\nHost: ' + mal + '\r\n\r\n')); let d = ''; s.on('data', (x) => { d += x; }); s.on('close', () => res(d.split(' ')[1] || 'stängd')); s.on('error', () => res('fel')); setTimeout(() => s.destroy(), 3000); });
+A.langsamStangd = false;
+const langsamSvar = fraga3(a + '/langsam'); const senSvar = fraga3('http://sen.example/x'); const senConnect = connect3('sen.example:443');
+await new Promise((r) => setTimeout(r, 150));
+const t3 = Date.now(); await grans3.stang(); ut.stang3Ms = Date.now() - t3;
+await new Promise((r) => setTimeout(r, 700));
+ut.langsamStangd = A.langsamStangd; ut.langsamSvar = await langsamSvar; ut.senSvar = await senSvar; ut.senConnect = await senConnect;
+ut.stangdSkal = grans3.blockerade.filter((x) => x.skal === 'proxyn stängd').map((x) => x.metod).sort();
+delete process.env.NWP_NAT_TILLATNA; delete process.env.NWP_PROV_UPPSLAG; delete process.env.NWP_PROV_UPPSLAG_FORDROJNING;
 // 7. ett skrivande anrop som förs vidare med 307: varje hopp måste gå till ett skrivbart ursprung (lokal POST → 307 lokalt → 307 till B stoppas)
 A.traffar.length = 0; B.traffar.length = 0;
 o = await oppna({ tillat: [a, b], mal: a + '/', skrivbara: [a] });
@@ -2217,6 +2246,21 @@ ut.patchB = B.traffar.filter((t) => t.metod === 'PATCH').length; ut.patchBlocker
 await o.page.evaluate(() => fetch('/post302', { method: 'POST', body: 'x' }).catch(() => {})).catch(() => {});
 await o.page.waitForTimeout(800);
 ut.post302B = B.traffar.map((t) => t.metod + ' ' + t.url);
+await o.stang();
+// 7c. ett metodbevarande hopp behåller kroppen, dess innehållstyp och allmänna huvuden; ursprungsbundna huvuden (cookie,
+//     skyddsundantaget) följer bara inom samma ursprung, aldrig till ett annat skrivbart ursprung (R26, F31/F36). B nås här som
+//     localhost (annan värd än A:s 127.0.0.1), så att en kaka hos B bara kan komma ur hoppets huvuden, inte ur kakburken.
+A.traffar.length = 0; B.traffar.length = 0;
+o = await oppna({ tillat: [a, html.BL], mal: a + '/', skrivbara: [a, html.BL], undantag: 'HEMLIG' });
+await o.page.goto(a + '/sida', { timeout: 10000 });
+await o.page.evaluate(() => { document.cookie = 'k=v'; document.forms[0].action = '/post307-lokal'; document.forms[0].submit(); }).catch(() => {});
+await o.page.waitForTimeout(1000);
+ut.lokalHopp = A.traffar.filter((t) => t.metod === 'POST').map((t) => [t.url, t.ct, t.body, t.cookie, t.bypass]);
+await o.page.goto(a + '/sida', { timeout: 10000 });
+await o.page.evaluate(() => fetch('/post307b', { method: 'POST', body: '{"a":1}', headers: { 'content-type': 'application/json', 'x-prov': '1' } }).catch(() => {})).catch(() => {});
+await o.page.waitForTimeout(1000);
+ut.hoppA = A.traffar.filter((t) => t.url === '/post307b').map((t) => [t.ct, t.cookie, t.xprov, t.bypass]);
+ut.hoppB = B.traffar.filter((t) => t.metod === 'POST').map((t) => [t.metod, t.url, t.ct, t.body, t.cookie, t.xprov, t.bypass]);
 await o.stang();
 ut.ip = [privatAdress('198.18.0.5'), privatAdress('192.0.2.1'), privatAdress('8.8.8.8'), privatAdress('2001:db8::1'), privatAdress('64:ff9b:1::1'), privatAdress('100::1'),
          privatAdress('2001:4860:4860::8888'), privatAdress('::ffff:10.0.0.1'), privatAdress('::ffff:8.8.8.8'), privatAdress('fe80::1'), privatAdress('203.0.113.9'), privatAdress('x')];
@@ -2242,7 +2286,10 @@ assert ug['kedjaA'] == ['/post307', '/relay307'] and ug['kedjaB'] == 0 and ug['k
 assert ug['patchB'] == 0 and ug['patchBlockerad'] and 'GET /final' in ug['post302B'] and all(x_.startswith('GET ') for x_ in ug['post302B']), 'PATCH vid 302 behåller metoden och stoppas; POST vid 302 blir GET (R25): %s' % ug
 assert ug['ip'] == [True, True, False, True, True, True, False, True, False, True, True, True], 'IP-klassning (R25): %s' % ug['ip']
 assert ug['metoder'] == ['GET', 'PATCH', 'GET', 'POST', 'PUT'], ug['metoder']
-print('webbläsarhjälparen: omdirigering, header, WebSocket, inskick och policy ok')
+assert ug['lokalHopp'] == [['/post307-lokal', 'application/x-www-form-urlencoded', 'n=x', 'k=v', 'HEMLIG'], ['/mottagare', 'application/x-www-form-urlencoded', 'n=x', 'k=v', 'HEMLIG']], 'lokalt 307-hopp behåller kropp, innehållstyp, cookie och undantag inom samma ursprung (R26): %s' % ug['lokalHopp']
+assert ug['hoppA'] == [['application/json', 'k=v', '1', 'HEMLIG']] and ug['hoppB'] == [['POST', '/final', 'application/json', '{"a":1}', None, '1', None]], 'hopp till annat skrivbart ursprung: kropp, innehållstyp och eget huvud med; cookie och undantag inte (R26): %s %s' % (ug['hoppA'], ug['hoppB'])
+assert ug['langsamStangd'] and ug['stang3Ms'] < 1500 and ug['stangdSkal'] == ['CONNECT', 'GET'], 'stängningen avbryter påbörjade anrop och sena uppslag ger inget nytt (R26): %s' % {k_: ug[k_] for k_ in ('langsamStangd', 'stang3Ms', 'stangdSkal', 'langsamSvar', 'senSvar', 'senConnect')}
+print('webbläsarhjälparen: omdirigering, header, WebSocket, inskick, hopphuvuden, stängning och policy ok')
 
 
 # ---------------------------------------------------------------- hamta_sajt i sandlådan: via proxyn, ingen egen adresskontroll (2026-10-04)
@@ -2327,14 +2374,42 @@ forsok('las-env', lambda: open(os.path.join(T, 'kunder/prov-bygge/.env')).read()
 forsok('nat-lokalt', lambda: urllib.request.urlopen('http://127.0.0.1:%d/', timeout=5).status)
 forsok('nat-ut', lambda: socket.create_connection(('1.1.1.1', 80), timeout=5) and 'ansluten')
 forsok('bind', lambda: (lambda s: (s.bind(('127.0.0.1', 0)), s.close(), 'ok')[2])(socket.socket()))
-ut.append('processgrans=%%s' %% os.environ.get('NWP_PROCESSGRANS'))
+forsok('skriv-tmpdir', lambda: open(os.path.join(os.environ.get('TMPDIR', '/nonexistent'), 'x.txt'), 'w').write('x') and 'ok')
+forsok('skriv-systemtemp', lambda: open(os.path.join(%r, 'nwp-pg-prov.txt'), 'w').write('x') and 'ok')
+ut.append('processgrans=%%s refero=%%s proxy=%%s tmpdir=%%s' %% (os.environ.get('NWP_PROCESSGRANS'), os.environ.get('REFERO_MCP_TOKEN'), os.environ.get('HTTP_PROXY') or os.environ.get('https_proxy'), os.environ.get('TMPDIR')))
 print(' | '.join(ut))
-''' % srv_pg.server_address[1])
-rpg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--root', str(rot_pg), '--hem', str(rot_pg / 'hem'), '--', PY, str(rot_pg / 'prov.py'), str(rot_pg)], capture_output=True, text=True, timeout=120)
+''' % (srv_pg.server_address[1], tempfile.gettempdir()))
+shutil.rmtree('/tmp/nwp-bygge-prov-bygge', ignore_errors=True)
+rpg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--root', str(rot_pg), '--hem', str(rot_pg / 'hem'), '--', PY, str(rot_pg / 'prov.py'), str(rot_pg)], capture_output=True, text=True, timeout=120,
+                     env=dict(os.environ, REFERO_MCP_TOKEN='prov-hemlig', HTTP_PROXY='http://x:y@localhost:1', https_proxy='http://x:y@localhost:1'))
 srv_pg.shutdown()
 assert rpg.returncode == 0 and 'processgräns: sandbox-exec' in rpg.stderr, (rpg.returncode, rpg.stderr[-300:])
-for vantat_ in ('skriv-inne: ok', 'skriv-ute: PermissionError', 'skriv-underlag: ok', 'las-hemlig: PermissionError', 'las-env: PermissionError', 'nat-lokalt: 200', 'nat-ut: PermissionError', 'bind: ok', 'processgrans=1'):
-    assert vantat_ in rpg.stdout, (vantat_, rpg.stdout)
+for vantat_ in ('skriv-inne: ok', 'skriv-ute: PermissionError', 'skriv-underlag: ok', 'las-hemlig: PermissionError', 'las-env: PermissionError', 'nat-lokalt: 200', 'nat-ut: PermissionError', 'bind: ok',
+                'skriv-tmpdir: ok', 'skriv-systemtemp: PermissionError', 'processgrans=1 refero=None proxy=None tmpdir=/tmp/nwp-bygge-prov-bygge/tmp'):
+    assert vantat_ in rpg.stdout, (vantat_, rpg.stdout)  # miljön rensad (R26 F1/F27), temp bara körningens egen (R26 F1)
+assert not (Path(tempfile.gettempdir()) / 'nwp-pg-prov.txt').exists()
+# en repokopia under den tillåtna tempkatalogen: policyns skrivförbud följer med (R26, F1): mekaniken skrivskyddad, byggets kataloger skrivbara
+rot_k = Path('/tmp/nwp-bygge-prov-bygge/tmp/kopia')
+for d_ in ('kunder/prov-bygge', 'kunder/annan', 'underlag/prov-bygge', 'kontroller', '.claude/hooks', 'backlog', 'kritik'):
+    (rot_k / d_).mkdir(parents=True)
+shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_k / 'kontroller')
+prof_k = pg_.profil('prov-bygge', root=rot_k, hem=str(rot_pg / 'hem'))
+neka_k = '(deny file-write* (subpath "%s/kontroller"))' % rot_k
+assert neka_k in prof_k and prof_k.index(neka_k) > prof_k.index('(allow file-write* (subpath "/tmp/nwp-bygge-prov-bygge/tmp"))'), 'skrivförbuden står efter tillåtelserna (sista regeln gäller)'
+(rot_k / 'prov.py').write_text('''import os, sys
+T = sys.argv[1]; ut = []
+for namn, vag in (('kontroller', 'kontroller/x.txt'), ('hooks', '.claude/hooks/x.py'), ('kritik', 'kritik/x.md'), ('annan-kund', 'kunder/annan/x.txt'), ('egen-kund', 'kunder/prov-bygge/x.txt'), ('backlog', 'backlog/x.md')):
+    try:
+        open(os.path.join(T, vag), 'w').write('x'); ut.append(namn + ': ok')
+    except Exception as e:
+        ut.append('%s: %s' % (namn, type(e).__name__))
+print(' | '.join(ut))
+''')
+rk = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--root', str(rot_k), '--hem', str(rot_pg / 'hem'), '--', PY, str(rot_k / 'prov.py'), str(rot_k)], capture_output=True, text=True, timeout=120)
+assert rk.returncode == 0, (rk.returncode, rk.stderr[-300:])
+for vantat_ in ('kontroller: PermissionError', 'hooks: PermissionError', 'kritik: PermissionError', 'annan-kund: PermissionError', 'egen-kund: ok', 'backlog: ok'):
+    assert vantat_ in rk.stdout, (vantat_, rk.stdout)
+assert not (rot_k / 'kontroller' / 'x.txt').exists() and (rot_k / 'kunder' / 'prov-bygge' / 'x.txt').is_file()
 assert 'kontroller/x.txt' not in [x.name for x in (rot_pg / 'kontroller').iterdir()] and (rot_pg / 'kunder' / 'prov-bygge' / 'x.txt').is_file()
 assert subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--root', str(rot_pg)], capture_output=True, text=True).returncode == 2, 'utan kommando: slutkod 2'
 # stoppkroken går via processgränsen med sandlådan på: provet körs under seatbelt och kroken blockerar (inget bygge)
@@ -2345,6 +2420,40 @@ rsv = subprocess.run([PY, '-B', str(ROOT / '.claude' / 'hooks' / 'stoppvakt.py')
 assert rsv.returncode == 2 and (kund_sv / 'prov' / 'STATUS.json').is_file(), (rsv.returncode, rsv.stdout[-300:], rsv.stderr[-400:])
 assert json.loads((kund_sv / 'prov' / 'STATUS.json').read_text())['ok'] is False, 'provet kördes (rött utan sajt) innanför processgränsen'
 shutil.rmtree(kund_sv, ignore_errors=True)
+# avslutskedjan utan proxyvariabler (Codex R26, F1/F28): drivaren innanför processgränsen, som stoppkroken startar den, med
+# den riktiga tjänsten anvisad och bara markören; arbetaren ska delegeras till tjänsten (utanför gränsen), granskarna (den
+# falska claude i PATH) svara, och domen komma tillbaka till drivaren. Inget tidigare godkännande finns att återanvända.
+kund_sv.mkdir(parents=True); (kund_sv / 'sajt' / 'dist').mkdir(parents=True); (kund_sv / 'prov' / 'inspektion' / 'hem').mkdir(parents=True)
+(kund_sv / 'sajt' / 'dist' / 'index.html').write_text('<html><body><p>prov</p></body></html>')
+(kund_sv / 'prov' / 'inspektion' / 'hem' / 'vy-390-forsta.png').write_bytes(b'\x89PNG')
+(kund_sv / 'prov' / 'STATUS.json').write_text(json.dumps({'ok': True, 'dist_sha256': prova.dist_hash(kund_sv / 'sajt' / 'dist')}))
+underlag_sv = ROOT / 'underlag' / 'prov-bygge'; underlag_sv.mkdir(parents=True, exist_ok=True)
+shutil.rmtree('/tmp/nwp-granskning/prov-bygge', ignore_errors=True)
+kv_k = tmp / 'wt-kedja'; os.environ['PROV_FALL'] = 'ingen'
+wtk = subprocess.Popen([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'serve', '--slug', 'prov-bygge', '--kvitto', str(kv_k), '--doman', 'exempel.se', '--korning', 'K2'],
+                       stdout=open(tmp / 'wt-kedja.log', 'w'), stderr=subprocess.STDOUT, cwd=str(ROOT))
+try:
+    for _ in range(50):
+        if kv_k.is_file() and len(kv_k.read_text().splitlines()) >= 2:
+            break
+        time.sleep(0.1)
+    port_k, nyckel_k = kv_k.read_text().splitlines()[:2]
+    miljo_kedja = {k_: v_ for k_, v_ in os.environ.items() if not k_.upper().endswith('_PROXY') and not k_.startswith('CLAUDE_CODE_') and k_ != 'CLAUDECODE' and not k_.startswith('NWP_')}
+    miljo_kedja.update({'NWP_SANDLADA': 'pa', 'NWP_SLUG': 'prov-bygge', 'NWP_KORNING': 'K2', 'NWP_WEBBTJANST': 'http://127.0.0.1:' + port_k, 'NWP_WEBBTJANST_NYCKEL': nyckel_k, 'REFERO_MCP_TOKEN': 'prov-hemlig'})
+    rk2 = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--', PY, '-B', str(ROOT / 'kontroller' / 'granska.py'), 'prov-bygge', '--vanta', '240'],
+                         capture_output=True, text=True, env=miljo_kedja, cwd=str(ROOT), timeout=400)
+    runda_k = kund_sv / 'granskning' / 'runda-01'
+    logg_k = (tmp / 'wt-kedja.log').read_text()
+    arb_k = (runda_k / 'arbetare.log').read_text()[-600:] if (runda_k / 'arbetare.log').is_file() else 'ingen arbetarlogg'
+    assert rk2.returncode == 0 and 'processgräns: sandbox-exec' in rk2.stderr, (rk2.returncode, rk2.stdout[-600:], rk2.stderr[-600:], arb_k, logg_k[-600:])
+    assert 'START granska --arbetare ' + str(runda_k) in logg_k and 'KLART granska rc=0' in logg_k, ('arbetaren gick via tjänsten', logg_k[-800:], arb_k)
+    g_k = json.loads((runda_k / 'GRANSKNING.json').read_text()); assert g_k['godkand'] is True and len(g_k['enskilda']) == 2, g_k
+    assert not list(Path('/tmp/nwp-granskning/prov-bygge').glob('*/.env')) and 'prov-hemlig' not in arb_k
+finally:
+    wtk.terminate(); wtk.wait(timeout=10)
+    os.environ.pop('PROV_FALL', None)
+shutil.rmtree(kund_sv, ignore_errors=True); shutil.rmtree(underlag_sv, ignore_errors=True)
+shutil.rmtree('/tmp/nwp-granskning/prov-bygge', ignore_errors=True); shutil.rmtree('/tmp/nwp-bygge-prov-bygge', ignore_errors=True)
 shutil.rmtree(rot_pg, ignore_errors=True)
 print('processgränsen från stoppkroken ok')
 import granska as gr_  # noqa: E402

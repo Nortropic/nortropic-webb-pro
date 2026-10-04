@@ -186,6 +186,21 @@ def ren_miljo():
     return m
 
 
+TRANSPORT = ('NWP_WEBBTJANST', 'NWP_WEBBTJANST_NYCKEL', 'NWP_PROCESSGRANS', 'NWP_SANDLADA')
+
+
+def transportmiljo():
+    """Arbetarens miljö från drivaren: modellens rensade miljö plus styrningen till webbtjänsten, så att arbetaren
+    delegerar dit innan den startar granskarnas sessioner. Drivaren körs innanför stoppkrokens processgräns
+    (NWP_PROCESSGRANS=1, utan proxyvariabler); utan markören blev arbetaren kvar där och försökte starta modellen
+    med nät bara till localhost (Codex R26, F1/F28)."""
+    m = ren_miljo()
+    for k in TRANSPORT:
+        if os.environ.get(k):
+            m[k] = os.environ[k]
+    return m
+
+
 def granskarsandlada(slug, arbetskatalog=None):
     """Med sandlådan på (kor.sh NWP_SANDLADA=pa) får granskarens session samma sandlåda som bygget, plus sin egen
     arbetskatalog skrivbar: modellprocesser stannar i processisoleringen (Codex R23). Annars inget."""
@@ -805,7 +820,7 @@ def main(argv=None):
     (rdir / 'UPPDRAG.json').write_text(json.dumps(upp, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     with open(rdir / 'arbetare.log', 'wb') as logg:
         proc = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), '--arbetare', str(rdir)],
-                                cwd=str(ROOT), env=ren_miljo(), stdin=subprocess.DEVNULL, stdout=logg,
+                                cwd=str(ROOT), env=transportmiljo(), stdin=subprocess.DEVNULL, stdout=logg,
                                 stderr=subprocess.STDOUT, start_new_session=True)
     (rdir / 'PAGAR').write_text(str(proc.pid))
     print('Granskningen startad: %s (%s, %s). Väntar högst %d s.' % (rdir.name, upp['modell'], upp['effort'], a.vanta), flush=True)
