@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex helhetsbedömning 2026-10-04 punkt 8 (byggförmågan), 9; rekommenderad ordning 5
 skapad: 2026-10-04
 prio: mellan
-andrad: 2026-10-04T20:19Z
+andrad: 2026-10-04T23:40Z
 ---
 # Jämförbara byggen på varierade kundfall, och autonomins mått: acceptans utan omdesign, total kostnad, ägarens minuter, variation, bevarade kandidater
 
@@ -14,3 +14,5 @@ andrad: 2026-10-04T20:19Z
 **Förslag:** Tre till fem fiktiva eller verkliga kundfall med olika förutsättningar som fast förmågeprov (kunskap/formageprov.md: fallen, färdigkriteriet, kostnadsramen). Kvittot per bygge får: accepterat utan mänsklig omdesign (ägarens dom), total körtid och kostnad inklusive underagenter och omtag, ägarens nedlagda minuter (ägaren anger), återkommande fel, och om iterationen förbättrade eller försämrade den bästa tidigare kandidaten (bevarade kandidater per omgång: dist-hash och granskning, aldrig bara sista). ab.py sammanställer dessa mått per arm.
 
 **Klart när:** Förmågeprovet har körts på de varierade fallen med samma metod; sammanställningen visar acceptansandel, kostnad och variation per fall; de bästa kandidaterna är bevarade och jämförbara.
+
+**Vilande (2026-10-04):** väntar på bygge: måtten är klara (kontroller/autonomi.py, kunskap/autonomi.md, ägarens minuter i dashboarden); förmågeprovet körs när designprovet dömts och granskaren prövats på K14–K19
