@@ -8,7 +8,7 @@ import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
 
-import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
+import { viaTjanst, natgrans, lasvakt } from './webblasare/gemensamt.mjs';
 await viaTjanst('ikoner', process.argv.slice(2));  // sandlådat bygge: Chromium kan inte starta i sandlådan, tjänsten ritar ikonerna
 const arg = (n, std) => { const i = process.argv.indexOf('--' + n); return i >= 0 ? process.argv[i + 1] : std; };
 const sajt = arg('sajt');
@@ -26,6 +26,7 @@ if (!existsSync(favicon)) { console.error('saknar ' + favicon + ' — skriv verk
 if (!existsSync(foto)) { console.error('saknar fotot ' + foto); process.exit(2); }
 if (!/^#[0-9a-fA-F]{3,8}$/.test(bakgrund)) { console.error('--bakgrund ska vara en hexfärg'); process.exit(2); }
 if (!/^[a-z0-9% .-]+$/i.test(fokus)) { console.error('--fokus ska vara en CSS object-position, t.ex. center 30%'); process.exit(2); }
+vakta(sajt, 'sajtkatalogen'); vakta(foto, 'fotot');  // med NWP_SLUG: bara byggets egna kataloger, också som läskälla (Codex R24)
 
 const TYP = { '.svg': 'image/svg+xml', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.avif': 'image/avif' };
 const data = (f) => `data:${TYP[extname(f).toLowerCase()] || 'application/octet-stream'};base64,${readFileSync(f).toString('base64')}`;
@@ -34,7 +35,9 @@ mkdirSync(pub, { recursive: true });
 const grans = await natgrans([]);  // i tjänstens läge: inga nätanrop alls utanför domänpolicyn
 const browser = await chromium.launch(grans ? grans.playwright : {});
 try {
-  const sida = await browser.newPage({ viewport: { width: 180, height: 180 }, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport: { width: 180, height: 180 }, deviceScaleFactor: 1, serviceWorkers: 'block' });
+  await lasvakt(ctx, []);  // inga nätanrop: bara data-adresser
+  const sida = await ctx.newPage();
   // Ikonen: märket centrerat med luft runt om, på en hel bakgrund.
   await sida.setContent(`<html><body style="margin:0;background:${bakgrund};display:grid;place-items:center;width:180px;height:180px">
     <img src="${data(favicon)}" style="width:136px;height:136px;object-fit:contain"></body></html>`);

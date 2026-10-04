@@ -12,7 +12,7 @@ import { chromium } from 'playwright';
 import { VYER } from './webblasare/gemensamt.mjs';
 import { vakta } from './slugvakt.mjs';
 
-import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
+import { viaTjanst, natgrans, lasvakt } from './webblasare/gemensamt.mjs';
 await viaTjanst('stil', process.argv.slice(2));  // sandlådat bygge: Chromium kan inte starta i sandlådan, tjänsten kör mätningen
 const arg = (n) => process.argv.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3);
 const base = (arg('url') || '').replace(/\/$/, '');
@@ -241,7 +241,8 @@ const browser = await chromium.launch(grans ? grans.playwright : {});
 const matningar = [];
 try {
   for (const vy of ['390', '1440']) {
-    const ctx = await browser.newContext(VYER[vy]);
+    const ctx = await browser.newContext({ ...VYER[vy], serviceWorkers: 'block' });
+    await lasvakt(ctx, [base]);  // läsande: sidans skript får inte skriva till någon sajt (F36, Codex R24)
     for (const sida of sidor) {
       const page = await ctx.newPage();
       try {

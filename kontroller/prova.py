@@ -156,6 +156,11 @@ class Server:
             def log_message(self, *a):
                 pass
 
+            def end_headers(self):
+                # provets mottagare kännetecknar sig: webbtjänsten släpper inskick bara till den (Codex R24)
+                self.send_header('X-NWP-Mottagare', os.environ.get('NWP_KORNING') or 'prov')
+                super().end_headers()
+
             def send_head(self):
                 """Bara filer som verkligen ligger under dist/: SimpleHTTPRequestHandler följer symlänkar ut ur katalogen,
                 och visningen i telefonen lyssnar på nätverket (revisionen 2026-10-03, F4). Den fil som faktiskt skulle

@@ -1,5 +1,6 @@
 // slugvakt.mjs — samma gräns som slugvakt.py för Node-verktygen: med NWP_SLUG satt får en utkatalog eller sajt bara ligga
-// under kunder/<slug>/, underlag/<slug>/ eller körningens eget tmp-område /tmp/nwp-bygge-<slug>/ (revisionen 2026-10-03,
+// under kunder/<slug>/, underlag/<slug>/, körningens eget tmp-område /tmp/nwp-bygge-<slug>/ eller granskarnas
+// arbetskataloger /tmp/nwp-granskning/<slug>-… (revisionen 2026-10-03,
 // F1, omgång fem och sex). Symlänkar följs led för led, också länkar vars mål inte finns än; en utkatalog med en symlänk
 // som leder ut vägras; en genomgång som inte hinner klart eller inte går att läsa räknas som misslyckad, inte ren; och
 // rötterna är betrodda bara när varken de eller deras föräldrar är symlänkar.
@@ -87,11 +88,14 @@ export function vakta(p, vad = 'utkatalogen') {
   if (!rotar) neka('kan inte prövas: kunder/, underlag/ eller slugkatalogen är en symlänk');
   let r;
   try { r = verklig(p); } catch (err) { neka('kan inte lösas upp: ' + err.message); }
-  if (!rotar.some((t) => r === t || r.startsWith(t + sep))) neka(`ligger inte i kunder/${e}/, underlag/${e}/ eller /tmp/nwp-bygge-${e}/`);
+  // granskarnas arbetskataloger /tmp/nwp-granskning/<slug>-… (granska.ARBETSROT) hör också till bygget (Codex R24, F28)
+  let granskning = null; try { granskning = verklig(join('/tmp', 'nwp-granskning')); } catch { granskning = null; }
+  const iGranskning = granskning !== null && r.startsWith(granskning + sep + e + '-');
+  if (!rotar.some((t) => r === t || r.startsWith(t + sep)) && !iGranskning) neka(`ligger inte i kunder/${e}/, underlag/${e}/, /tmp/nwp-bygge-${e}/ eller /tmp/nwp-granskning/${e}-*/`);
   let dir = false;
   try { dir = lstatSync(r).isDirectory(); } catch { dir = false; }
   if (dir) {
-    const g = genomgang(r, rotar);
+    const g = genomgang(r, iGranskning ? [...rotar, r] : rotar);
     if (g.status === 'ut') neka('innehåller symlänken ' + g.var + ' som leder ut');
     if (g.status === 'ofullständig') neka('är för stor att gå igenom (över ' + MAX_POSTER + ' poster); peka på en mindre katalog');
     if (g.status === 'fel') neka('gick inte att gå igenom vid ' + g.var);

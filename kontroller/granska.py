@@ -220,6 +220,41 @@ def godkand(resultat):
 
 # --- underlag till granskaren ---
 
+def sakert_original(p, rot):
+    """Filen p som källa för en kopia: aldrig en symlänk, aldrig utanför rot. Arbetaren kopierar utanför sandlådan, så en
+    planterad symlänk i prov/ eller underlag/ skulle annars läsa en skyddad fil in i omgången (Codex R24, F1)."""
+    p, rot = Path(p), Path(rot).resolve()
+    if p.is_symlink() or not p.is_file():
+        raise RuntimeError('planterad symlänk eller saknad fil som källa: %s' % p)
+    verklig = p.resolve()
+    if verklig != rot and rot not in verklig.parents:
+        raise RuntimeError('källan %s ligger utanför %s' % (p, rot))
+    return p
+
+
+def kopiera_trad_sakert(kalla, mal):
+    """Kopierar ett träd utan att följa symlänkar; finns en symlänk i det kopierade trädet är det ett fel och kopian tas bort."""
+    shutil.copytree(kalla, mal, symlinks=True)
+    for d, mappar, filer in os.walk(mal):
+        for n in mappar + filer:
+            if (Path(d) / n).is_symlink():
+                shutil.rmtree(mal, ignore_errors=True)
+                raise RuntimeError('planterad symlänk i %s: %s' % (kalla, Path(d) / n))
+
+
+FRYSTA_FILER = ('copy.md', 'standard.md', 'stil/STIL.md')
+
+
+def frys_bygget(kund, rdir):
+    """Fryser bygget i omgången: dist/ och provets rapporter kopieras av drivaren (inne i sandlådan när bygget är
+    sandlådat), med förankrade källor; arbetaren utanför sandlådan får bara redan kontrollerade filer (Codex R24)."""
+    kopiera_trad_sakert(kund / 'sajt' / 'dist', rdir / 'dist')
+    for namn in FRYSTA_FILER:
+        f = kund / 'prov' / namn
+        if f.exists() or f.is_symlink():
+            shutil.copy2(sakert_original(f, kund), rdir / Path(namn).name)
+
+
 def skarmbilder(rot, sajtrot):
     """Provets skärmbilder kopierade till omgången (provet tömmer sin mapp vid nästa körning). Skärmhöga rutor när
     provet har gjort dem; annars första vyn och den nedskalade helsidan."""
@@ -227,11 +262,11 @@ def skarmbilder(rot, sajtrot):
     for sida in sorted(p for p in (rot / 'prov' / 'inspektion').glob('*') if p.is_dir()):
         rutor = sorted(sida.glob('vy-390-ruta-*.png')) + sorted(sida.glob('vy-1440-ruta-*.png'))
         for f in rutor or [sida / vy for vy in VYER]:
-            if f.is_file():
+            if f.is_file() or f.is_symlink():
                 vy = f.name
                 mal = sajtrot / sida.name / vy
                 mal.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(f, mal)
+                shutil.copy2(sakert_original(f, rot), mal)
                 ut.append(mal)
     return ut
 
@@ -242,7 +277,7 @@ def aria_trad(rot, sajtrot):
     for f in sorted((rot / 'prov' / 'inspektion').glob('*/vy-390-aria.txt')):
         mal = sajtrot / f.parent.name / f.name
         mal.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(f, mal)
+        shutil.copy2(sakert_original(f, rot), mal)
         ut.append(mal)
     return ut
 
@@ -260,7 +295,7 @@ def frysta_referenser(slug, rdir):
     for i, (b, text) in enumerate(referensbilder(slug), 1):
         mapp.mkdir(parents=True, exist_ok=True)
         mal = mapp / ('%02d-%s-%s' % (i, b.parent.name, b.name))
-        shutil.copy2(b, mal)
+        shutil.copy2(sakert_original(b, UNDERLAG / slug), mal)
         ut.append((mal, text))
     return ut
 
@@ -392,10 +427,12 @@ def arbetare(rdir):
     slug = upp['slug']
     kund = KUNDER / slug
     try:
-        shutil.copytree(kund / 'sajt' / 'dist', rdir / 'dist')
-        for namn in ('copy.md', 'standard.md', 'stil/STIL.md'):
-            if (kund / 'prov' / namn).is_file():
-                shutil.copy2(kund / 'prov' / namn, rdir / Path(namn).name)
+        if not (rdir / 'dist').is_dir():  # drivaren fryser bygget före arbetaren (frys_bygget); arbetaren kopierar inte själv
+            raise RuntimeError('omgången saknar fryst dist/; starta granskningen via drivaren')
+        for d_, mappar_, filer_ in os.walk(rdir / 'dist'):
+            for n_ in mappar_ + filer_:
+                if (Path(d_) / n_).is_symlink():
+                    raise RuntimeError('planterad symlänk i den frysta kopian: %s' % (Path(d_) / n_))
         bilder = skarmbilder(kund, rdir / 'sajt')
         aria = aria_trad(kund, rdir / 'sajt')
         if prova.dist_hash(rdir / 'dist') != upp['dist_sha256']:
@@ -716,9 +753,9 @@ def main(argv=None):
     if a.torr:
         rdir = Path(tempfile.mkdtemp(prefix='nwp-torr-'))
         bilder = skarmbilder(kund, rdir / 'sajt')
-        for namn in ('copy.md', 'standard.md', 'stil/STIL.md'):
-            if (kund / 'prov' / namn).is_file():
-                shutil.copy2(kund / 'prov' / namn, rdir / Path(namn).name)
+        for namn in FRYSTA_FILER:
+            if (kund / 'prov' / namn).exists():
+                shutil.copy2(sakert_original(kund / 'prov' / namn, kund), rdir / Path(namn).name)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / 'torr', bilder,
                               frysta_referenser(a.slug, rdir), tidigare_byggen(a.slug), [], rdir,
                               aria_trad(kund, rdir / 'sajt'), [], lardomar_utan(a.slug, rdir))
@@ -758,6 +795,12 @@ def main(argv=None):
     n = max([int(r.name.split('-')[1]) for r in rundor(gdir)] or [0]) + 1
     rdir = gdir / ('runda-%02d' % n)
     rdir.mkdir()
+    try:
+        frys_bygget(kund, rdir)
+    except (RuntimeError, OSError) as e:
+        (rdir / 'FEL.txt').write_text('frysningen av bygget misslyckades: %s\n' % e, encoding='utf-8')
+        print('Granskningen startades inte: %s' % e)
+        return 2
     upp = {'slug': a.slug, 'runda': n, 'korning': korning, 'tid': nu(), 'dist_sha256': hash_nu, 'frist': FRIST, **metod}
     (rdir / 'UPPDRAG.json').write_text(json.dumps(upp, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     with open(rdir / 'arbetare.log', 'wb') as logg:

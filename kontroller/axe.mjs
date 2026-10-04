@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
-import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
+import { viaTjanst, natgrans, lasvakt } from './webblasare/gemensamt.mjs';
 
 await viaTjanst('axe', process.argv.slice(2));  // sandlådat bygge: Chromium kan inte starta i sandlådan, tjänsten kör mätningen
 const arg = (namn) => process.argv.find((a) => a.startsWith(`--${namn}=`))?.slice(namn.length + 3);
@@ -33,7 +33,8 @@ const grans = await natgrans([base]);  // i tjänstens läge: nätgränsen (dom�
 const browser = await chromium.launch(grans ? grans.playwright : {});
 try {
   for (const [vy, opt] of Object.entries(VYER)) {
-    const ctx = await browser.newContext({ ...opt, locale: 'sv-SE', reducedMotion: 'reduce' });
+    const ctx = await browser.newContext({ ...opt, locale: 'sv-SE', reducedMotion: 'reduce', serviceWorkers: 'block' });
+    await lasvakt(ctx, [base]);  // läsande: sidans skript får inte skriva till någon sajt (F36, Codex R24)
     const page = await ctx.newPage();
     for (const sida of [...sidor, '/finns-inte-nwp']) {
       try {

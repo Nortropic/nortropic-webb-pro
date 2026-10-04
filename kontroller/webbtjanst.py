@@ -18,8 +18,11 @@ Gränsen i tjänsten: bara verktygen i VERKTYG med kända flaggor; sluggen måst
 utkatalogerna via NWP_SLUG); varje adress och tillåtet ursprung kanoniseras strikt (bara http(s), inget användarnamn,
 inga omvända snedstreck eller blanktecken, värdnamn i IDNA-form) och måste ligga på localhost eller i byggets domänlista
 (samma lista som sandlådans proxy); verktygen får samma lista i NWP_NAT_TILLATNA och webbläsarhjälparen verkställer den
-per anrop, också vid omdirigering. --tillat-alla vägras; --formular-far-skickas bara mot provets lokala mottagare;
-sökvägar under kunder/<slug>, underlag/<slug>, /tmp/nwp-bygge-<slug> eller granskarnas /tmp/nwp-granskning/<slug>-*.
+per anrop och i sin egen proxy (värdnamnet slås upp där och bara publika adresser ansluts; skrivande http bara lokalt),
+också vid omdirigering. En flagga som ges mer än en gång vägras (verktygen läser första eller sista olika).
+--tillat-alla vägras; --formular-far-skickas bara mot provets egen mottagare (prova.Server märker sina svar med
+X-NWP-Mottagare: <körning>, som tjänsten kontrollerar); lighthouse bara mot byggets lokala server; sökvägar under
+kunder/<slug>, underlag/<slug>, /tmp/nwp-bygge-<slug> eller granskarnas /tmp/nwp-granskning/<slug>-*.
 Nyckeln (X-Nyckel) skiljer tjänsten från annan lokal programvara; proxyvariablerna tas bort ur verktygens miljö.
 
     .venv/bin/python kontroller/webbtjanst.py serve --slug <slug> --kvitto <fil> [--doman d …] [--korning K] [--root R]
@@ -27,6 +30,7 @@ Nyckeln (X-Nyckel) skiljer tjänsten från annan lokal programvara; proxyvariabl
 """
 import argparse
 import hmac
+import http.client
 import re
 import json
 import os
@@ -50,8 +54,8 @@ VERKTYG = {
     # granska: bara arbetaren (granskarnas sessioner, egen sandlåda) och jämförelsen; drivaren körs i byggets sandlåda
     'granska': {'kmd': (PY, '-B', 'kontroller/granska.py'), 'slug': 'granska',
                 'flaggor': {'arbetare': 'granskningsvag', 'jamfor': 'flagga'}},
-    'lighthouse': {'kmd': ('node', 'kontroller/lighthouse.mjs'), 'slug': False,
-                   'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text'}},
+    'lighthouse': {'kmd': ('node', 'kontroller/lighthouse.mjs'), 'slug': False,  # Chrome utan route-vakt: bara byggets lokala server
+                   'flaggor': {'url': 'lokal_url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text'}},
     'axe': {'kmd': ('node', 'kontroller/axe.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag'}},
     'stil': {'kmd': ('node', 'kontroller/stil.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag'}},
     'sida': {'kmd': ('node', 'kontroller/sida.mjs'), 'slug': False, 'positionella': ('url',), 'flaggor': {'ut': 'vag', 'skroll': 'tal'}},
@@ -75,12 +79,16 @@ def nu():
 
 
 def tolka(argv):
-    """Samma tolkning som webblasare/gemensamt.mjs args(): --k=v, --k v, --k; övrigt positionellt."""
+    """(flaggor, positionella, fel): samma tolkning som webblasare/gemensamt.mjs args() (--k=v, --k v, --k; övrigt
+    positionellt). En flagga som ges mer än en gång är ett fel: verktygen läser första eller sista förekomsten olika,
+    och tjänsten ska aldrig godkänna ett värde verktyget inte använder (Codex R24, dubbla --foto)."""
     ut, pos, i = {}, [], 0
     while i < len(argv):
         a = argv[i]
         if a.startswith('--'):
             k, sep, v = a[2:].partition('=')
+            if k in ut:
+                return ut, pos, 'flaggan --%s ges mer än en gång' % k
             if sep:
                 ut[k] = v
             elif i + 1 < len(argv) and not argv[i + 1].startswith('--'):
@@ -91,7 +99,28 @@ def tolka(argv):
         else:
             pos.append(a)
         i += 1
-    return ut, pos
+    return ut, pos, None
+
+
+def mottagare_ok(adress, korning=None, timeout=5):
+    """Är adressen provets egen mottagare? prova.Server märker varje svar med X-NWP-Mottagare: <körning>; bara dit
+    släpps inskick (Codex R24: valfri localhost-port, till exempel dashboarden, får inte ta emot POST från verktygen)."""
+    s = urllib.parse.urlsplit(adress)
+    if idna(s.hostname) not in LOKALA:
+        return False, 'inte en lokal adress'
+    try:
+        c = http.client.HTTPConnection('127.0.0.1', s.port or 80, timeout=timeout)
+        c.request('HEAD', '/')
+        r = c.getresponse()
+        marke = r.getheader('X-NWP-Mottagare')
+        c.close()
+    except (OSError, http.client.HTTPException) as e:
+        return False, 'mottagaren svarar inte (%s)' % e
+    if not marke:
+        return False, 'adressen är inte provets mottagare (X-NWP-Mottagare saknas)'
+    if korning and marke != korning:
+        return False, 'mottagaren hör till en annan körning (%s)' % marke
+    return True, None
 
 
 def idna(vard):
@@ -183,7 +212,7 @@ def granska_vag(v, slug, root, granskning=False):
     return 'sökvägen %s ligger utanför byggets kataloger' % v
 
 
-def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
+def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT, korning=None, mottagare=mottagare_ok):
     """(kommando, None) när anropet ligger inom gränsen, annars (None, skäl)."""
     spec = VERKTYG.get(verktyg) if isinstance(verktyg, str) else None
     if not spec:
@@ -192,7 +221,9 @@ def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
         return None, 'argumenten måste vara en lista av strängar'
     if any('\n' in a or '\x00' in a or len(a) > 2000 for a in argv):
         return None, 'argument med radbrytning, nulltecken eller över 2000 tecken'
-    fl, pos = tolka(argv)
+    fl, pos, fel = tolka(argv)
+    if fel:
+        return None, fel
     if spec['slug'] == 'granska':
         # bara arbetaren (ingen slug, --arbetare <kunder/slug/granskning/runda-NN>) eller jämförelsen (slug --jamfor)
         if 'arbetare' in fl and not pos and set(fl) == {'arbetare'}:
@@ -229,16 +260,18 @@ def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
             return None, '--%s måste vara ett tal' % k
         if typ == 'text' and len(v) > 500:
             return None, '--%s är för lång' % k
-        if typ in ('url', 'ursprung'):
+        if typ in ('url', 'lokal_url', 'ursprung'):
             delar = []
-            for u in ([v] if typ == 'url' else [x for x in v.split(';') if x]):
+            for u in ([v] if typ != 'ursprung' else [x for x in v.split(';') if x]):
                 ku, fel = kanon_url(u, tillatna)
                 if fel:
                     return None, '--%s: %s' % (k, fel)
+                if typ == 'lokal_url' and idna(urllib.parse.urlsplit(ku).hostname) not in LOKALA:
+                    return None, '--%s: %s via tjänsten mäter bara byggets lokala server' % (k, verktyg)
                 delar.append(ku)
             if not delar:
                 return None, '--%s är tom' % k
-            kanon[k] = delar[0] if typ == 'url' else ';'.join(delar)
+            kanon[k] = delar[0] if typ != 'ursprung' else ';'.join(delar)
         if typ in ('vag', 'vagar'):
             for x in ([v] if typ == 'vag' else [x for x in v.split(',') if x]):
                 fel = granska_vag(x, slug, root)
@@ -256,6 +289,9 @@ def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
         adress = kanon.get('adress', '')
         if not adress or idna(urllib.parse.urlsplit(adress).hostname) not in LOKALA:
             return None, '--formular-far-skickas bara mot provets lokala mottagare (127.0.0.1), inte %s' % (adress or 'utan adress')
+        ok, skal = mottagare(adress, korning)
+        if not ok:
+            return None, '--formular-far-skickas bara mot provets egen mottagare: %s' % skal
     return list(spec['kmd']) + kanonisera_argv(argv, kanon, kanon_pos), None
 
 
@@ -366,7 +402,7 @@ def servera(slug, kvitto, domaner=(), root=ROOT, korning=None, port=0):
             except (ValueError, UnicodeDecodeError):
                 return self.svar(400, {'fel': 'ogiltig JSON'})
             verktyg, argv = (b.get('verktyg'), b.get('args')) if isinstance(b, dict) else (None, None)
-            kmd, fel = granska_anrop(verktyg, argv, slug, tillatna, root)
+            kmd, fel = granska_anrop(verktyg, argv, slug, tillatna, root, korning)
             if fel:
                 print('%s NEKAT %r %r: %s' % (nu(), verktyg, argv, fel), flush=True)
                 return self.svar(400, {'fel': 'webbtjänsten vägrar: ' + fel})

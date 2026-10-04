@@ -63,9 +63,38 @@ VIKTIG = re.compile(r"(kontakt|contact|om-oss|om_oss|omoss|om/|about|tjanster|tj
 TILLAT_LOKALT = os.environ.get("NWP_HAMTA_LOKALT") == "1"
 # Sandlådat bygge (kor.sh NWP_SANDLADA=pa): inne i Claude Codes sandlåda kan namn inte slås upp och direkta anslutningar
 # nekas; all trafik går genom sandlådans proxy, som är nätgränsen (byggets domänlista, kontroller/sandlada.py, och Claude
-# Codes kontroll av värdnamn som pekar på lokala adresser). Då gör öppnaren inte adresskontrollen själv utan går via
-# proxyn (helbygget i kopian 2026-10-04: hamta_sajt nekade luleasnickaren.com som "gick inte att slå upp").
-I_SANDLADA = bool(os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY"))
+# Codes kontroll av värdnamn som pekar på lokala adresser). Bara en proxy på den egna maskinen (loopback) räknas som
+# betrodd transport: då går öppnaren via den för allt som inte undantas av NO_PROXY, och adresskontrollen behålls för
+# undantagen (loopback-adresser kräver fortfarande NWP_HAMTA_LOKALT). En godtycklig proxyvariabel som pekar någon
+# annanstans stänger inte av något: hämtaren ansluter då direkt med adresskontroll som förut (Codex R24, F5).
+
+
+def _betrodd_proxy():
+    """(värd, port) för miljöns proxy när den ligger på loopback, annars None."""
+    for namn in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"):
+        v = os.environ.get(namn)
+        if v:
+            s = urllib.parse.urlsplit(v if "://" in v else "http://" + v)
+            vard = (s.hostname or "").lower()
+            if vard in ("localhost", "127.0.0.1", "::1"):
+                try:
+                    return vard, s.port or 80
+                except ValueError:
+                    return None
+            return None
+    return None
+
+
+BETRODD_PROXY = _betrodd_proxy()
+VIA_PROXY = BETRODD_PROXY is not None
+
+
+def _bypass(vard):
+    """Går värden förbi proxyn (NO_PROXY)? Då gäller adresskontrollen som utan proxy."""
+    try:
+        return bool(urllib.request.proxy_bypass(vard or ""))
+    except (OSError, ValueError):
+        return False
 MAX_VANTAN = 10.0  # längsta crawl-delay vi följer (sekunder); längre än så ryms inte 40 sidor i ett byggsteg
 _adresser = {}
 
@@ -129,11 +158,18 @@ def adress_ok(url):
     return True
 
 
+def _anslutningsadress(host, port):
+    """Adressen att ansluta till: den betrodda proxyn själv (loopback, bokstavligen) eller den validerade adressen."""
+    if VIA_PROXY and (host or "").lower() == BETRODD_PROXY[0] and int(port) == BETRODD_PROXY[1]:
+        return "127.0.0.1" if BETRODD_PROXY[0] != "::1" else "::1"
+    return adress_for(host)
+
+
 class _Anslutning(http.client.HTTPConnection):
     """HTTP-anslutning som ansluter till den validerade adressen, inte till ett nytt uppslag."""
 
     def connect(self):
-        ip = adress_for(self.host)
+        ip = _anslutningsadress(self.host, self.port)
         self.sock = socket.create_connection((ip, self.port), self.timeout, self.source_address)
         if self._tunnel_host:
             self._tunnel()
@@ -143,7 +179,7 @@ class _SakerAnslutning(http.client.HTTPSConnection):
     """Som _Anslutning, med TLS mot värdnamnet (SNI och certifikatkontroll gäller namnet, inte adressen)."""
 
     def connect(self):
-        ip = adress_for(self.host)
+        ip = _anslutningsadress(self.host, self.port)
         sock = socket.create_connection((ip, self.port), self.timeout, self.source_address)
         if self._tunnel_host:
             self.sock = sock
@@ -177,7 +213,9 @@ class Omdirigeringsvakt(urllib.request.HTTPRedirectHandler):
             return None
         try:
             adress_ok(newurl)
-            adress_for(urllib.parse.urlsplit(newurl).hostname)  # före hoppet, så att målet loggas; anslutningen prövar igen
+            vard = urllib.parse.urlsplit(newurl).hostname
+            if not VIA_PROXY or _bypass(vard):  # via den betrodda proxyn slås inget upp här (Codex R24); undantagen prövas som förut
+                adress_for(vard)  # före hoppet, så att målet loggas; anslutningen prövar igen
         except NekadAdress as e:
             self.nekad = f"omdirigering till {newurl} följs inte: {e}"
             return None
@@ -202,9 +240,10 @@ def oppnare(egen=None, rp=None, fore=None, folj=True, bas=None):
     """Öppnare med adresskontroll i anslutningen och omdirigeringsvakt. Används av varje extern hämtning i repot
     (hamta_sajt, sida_till_text, standardkontrollens länkar, prospekt, Bokadirekt)."""
     vakt = Omdirigeringsvakt(egen, rp, fore, folj, bas)
-    if I_SANDLADA:
-        # sandlådans proxy (miljön) är gränsen; NO_PROXY omfattar localhost, så provens lokala servrar nås direkt
-        o = urllib.request.build_opener(urllib.request.ProxyHandler(), vakt)
+    if VIA_PROXY:
+        # den betrodda proxyn på loopback är nätgränsen; de validerande anslutningarna behålls (proxyn själv släpps
+        # bokstavligen, allt som NO_PROXY undantar prövas som utan proxy)
+        o = urllib.request.build_opener(urllib.request.ProxyHandler(), _HttpHandler(), _HttpsHandler(), vakt)
     else:
         # ProxyHandler({}): aldrig miljöns eller systemets proxy; en proxy skulle slå upp och ansluta till målet utanför
         # adresskontrollen (revisionen 2026-10-03, F5 omgång tre). Hämtaren ansluter alltid direkt.

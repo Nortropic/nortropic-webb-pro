@@ -12,7 +12,7 @@ import lighthouse from 'lighthouse';
 import desktopConfig from 'lighthouse/core/config/desktop-config.js';
 import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
-import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
+import { viaTjanst, natgrans, natpolicy, arLokal } from './webblasare/gemensamt.mjs';
 
 await viaTjanst('lighthouse', process.argv.slice(2));  // sandlådat bygge: Chrome kan inte starta i sandlådan, tjänsten kör mätningen
 
@@ -22,6 +22,7 @@ const sidor = (arg('sidor') || '/').split(',').filter(Boolean);
 const ut = arg('ut');
 vakta(ut);
 if (!base || !ut) { console.error('användning: --url=URL --sidor=/,/a/ --ut=KATALOG'); process.exit(2); }
+if (natpolicy() !== null && !arLokal(base)) { console.error('lighthouse i tjänstens läge mäter bara byggets lokala server (Chrome utan route-vakt)'); process.exit(2); }  // F36, Codex R24
 const omgangar = Math.max(1, parseInt(arg('omgangar') || '3', 10) || 3);
 const enheter = arg('enheter') || 'båda';
 const FORMER = enheter === 'mobil' ? ['mobil'] : enheter === 'desktop' ? ['desktop'] : ['mobil', 'desktop'];
