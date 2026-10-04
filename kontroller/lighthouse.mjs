@@ -37,7 +37,7 @@ const slug = (s) => (s === '/' ? 'hem' : s.replace(/^\/|\/$/g, '').replaceAll('/
 mkdirSync(ut, { recursive: true });
 const profil = mkdtempSync(join(tmpdir(), 'nwp-lh-'));
 const grans = await natgrans([base]);  // i tjänstens läge: nätgränsen (domänpolicyn) också för sidans underresurser
-const chrome = await chromeLauncher.launch({ chromePath, userDataDir: profil, chromeFlags: ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-extensions', ...(grans ? [grans.chromeFlag] : [])] });
+const chrome = await chromeLauncher.launch({ chromePath, userDataDir: profil, chromeFlags: ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-extensions', ...(grans ? grans.chromeFlags : [])] });
 const rader = [];
 try {
   const mat = async (form, sida) => {

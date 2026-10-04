@@ -80,6 +80,23 @@ function forankrade(e) {
   return rotar;
 }
 
+function iGranskningsrot(r, e) {
+  let g = null; try { g = verklig(join('/tmp', 'nwp-granskning', e)); } catch { return false; }
+  return r === g || r.startsWith(g + sep);
+}
+
+/** Som vakta, men utan genomgång av innehållet: för en katalog som bara ska ligga rätt (en sajt med node_modules). */
+export function inom(p, vad = 'katalogen') {
+  const e = process.env.NWP_SLUG;
+  if (!e || !p) return;
+  const neka = (skal) => { console.error(`slugvakten: ${vad} ${p} ${skal} (NWP_SLUG=${e}); vägrar`); process.exit(2); };
+  const rotar = forankrade(e);
+  if (!rotar) neka('kan inte prövas: kunder/, underlag/ eller slugkatalogen är en symlänk');
+  let r;
+  try { r = verklig(p); } catch (err) { neka('kan inte lösas upp: ' + err.message); }
+  if (!rotar.some((t) => r === t || r.startsWith(t + sep)) && !iGranskningsrot(r, e)) neka(`ligger inte i kunder/${e}/, underlag/${e}/, /tmp/nwp-bygge-${e}/ eller /tmp/nwp-granskning/${e}/`);
+}
+
 export function vakta(p, vad = 'utkatalogen') {
   const e = process.env.NWP_SLUG;
   if (!e || !p) return;
@@ -88,10 +105,10 @@ export function vakta(p, vad = 'utkatalogen') {
   if (!rotar) neka('kan inte prövas: kunder/, underlag/ eller slugkatalogen är en symlänk');
   let r;
   try { r = verklig(p); } catch (err) { neka('kan inte lösas upp: ' + err.message); }
-  // granskarnas arbetskataloger /tmp/nwp-granskning/<slug>-… (granska.ARBETSROT) hör också till bygget (Codex R24, F28)
-  let granskning = null; try { granskning = verklig(join('/tmp', 'nwp-granskning')); } catch { granskning = null; }
-  const iGranskning = granskning !== null && r.startsWith(granskning + sep + e + '-');
-  if (!rotar.some((t) => r === t || r.startsWith(t + sep)) && !iGranskning) neka(`ligger inte i kunder/${e}/, underlag/${e}/, /tmp/nwp-bygge-${e}/ eller /tmp/nwp-granskning/${e}-*/`);
+  // granskarnas arbetskataloger /tmp/nwp-granskning/<slug>/… (granska.ARBETSROT) hör också till bygget; sluggen är ett eget
+  // led så att eget och eget-annat aldrig överlappar (Codex R24 F28, R25)
+  const iGranskning = iGranskningsrot(r, e);
+  if (!rotar.some((t) => r === t || r.startsWith(t + sep)) && !iGranskning) neka(`ligger inte i kunder/${e}/, underlag/${e}/, /tmp/nwp-bygge-${e}/ eller /tmp/nwp-granskning/${e}/`);
   let dir = false;
   try { dir = lstatSync(r).isDirectory(); } catch { dir = false; }
   if (dir) {

@@ -196,7 +196,7 @@ done
 { skyddat; grans; } > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
-printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" ${WT_ENV[@]+"${WT_ENV[@]}"} claude "${ARGS[@]}" > "$LOGG" 2>&1
+printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" NWP_SANDLADA="${NWP_SANDLADA:-av}" ${WT_ENV[@]+"${WT_ENV[@]}"} claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
 rm -f "$EFTER_FIL"

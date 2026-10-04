@@ -22,7 +22,7 @@ per anrop och i sin egen proxy (värdnamnet slås upp där och bara publika adre
 också vid omdirigering. En flagga som ges mer än en gång vägras (verktygen läser första eller sista olika).
 --tillat-alla vägras; --formular-far-skickas bara mot provets egen mottagare (prova.Server märker sina svar med
 X-NWP-Mottagare: <körning>, som tjänsten kontrollerar); lighthouse bara mot byggets lokala server; sökvägar under
-kunder/<slug>, underlag/<slug>, /tmp/nwp-bygge-<slug> eller granskarnas /tmp/nwp-granskning/<slug>-*.
+kunder/<slug>, underlag/<slug>, /tmp/nwp-bygge-<slug> eller granskarnas /tmp/nwp-granskning/<slug>/.
 Nyckeln (X-Nyckel) skiljer tjänsten från annan lokal programvara; proxyvariablerna tas bort ur verktygens miljö.
 
     .venv/bin/python kontroller/webbtjanst.py serve --slug <slug> --kvitto <fil> [--doman d …] [--korning K] [--root R]
@@ -49,7 +49,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 ROOT = Path(__file__).resolve().parents[1]
 LOKALA = {'localhost', '127.0.0.1', '::1'}
 PY = '.venv/bin/python'
-GRANSKNINGSROT = Path('/tmp/nwp-granskning')  # granska.ARBETSROT: granskarnas arbetskataloger <slug>-runda-NN-n
+GRANSKNINGSROT = Path('/tmp/nwp-granskning')  # granska.ARBETSROT: granskarnas arbetskataloger <slug>/runda-NN-n
 VERKTYG = {
     # granska: bara arbetaren (granskarnas sessioner, egen sandlåda) och jämförelsen; drivaren körs i byggets sandlåda
     'granska': {'kmd': (PY, '-B', 'kontroller/granska.py'), 'slug': 'granska',
@@ -104,10 +104,13 @@ def tolka(argv):
 
 def mottagare_ok(adress, korning=None, timeout=5):
     """Är adressen provets egen mottagare? prova.Server märker varje svar med X-NWP-Mottagare: <körning>; bara dit
-    släpps inskick (Codex R24: valfri localhost-port, till exempel dashboarden, får inte ta emot POST från verktygen)."""
+    släpps inskick och lighthouse (Codex R24: valfri localhost-port, till exempel dashboarden, får inte ta emot POST
+    från verktygen). Kontrollen gäller exakt det ursprung som används: http och adressens port (Codex R25)."""
     s = urllib.parse.urlsplit(adress)
     if idna(s.hostname) not in LOKALA:
         return False, 'inte en lokal adress'
+    if s.scheme != 'http':
+        return False, 'provets mottagare är http, inte %s' % s.scheme
     try:
         c = http.client.HTTPConnection('127.0.0.1', s.port or 80, timeout=timeout)
         c.request('HEAD', '/')
@@ -202,8 +205,8 @@ def granska_vag(v, slug, root, granskning=False):
     if any(p == t or t in p.parents for t in tillatna):
         return None
     try:
-        g = GRANSKNINGSROT.resolve()
-        if (p.parent == g and p.name.startswith(slug + '-')) or any(x.parent == g and x.name.startswith(slug + '-') for x in p.parents):
+        g = (GRANSKNINGSROT / slug).resolve()  # sluggen som eget led (Codex R25)
+        if p == g or g in p.parents:
             return None
         if granskning and p.parent.parent == (Path(root) / 'kunder').resolve() and p.parent.name == slug and p.name == 'granskning':
             return None
@@ -266,8 +269,12 @@ def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT, korning=None, mottag
                 ku, fel = kanon_url(u, tillatna)
                 if fel:
                     return None, '--%s: %s' % (k, fel)
-                if typ == 'lokal_url' and idna(urllib.parse.urlsplit(ku).hostname) not in LOKALA:
-                    return None, '--%s: %s via tjänsten mäter bara byggets lokala server' % (k, verktyg)
+                if typ == 'lokal_url':
+                    if idna(urllib.parse.urlsplit(ku).hostname) not in LOKALA:
+                        return None, '--%s: %s via tjänsten mäter bara byggets lokala server' % (k, verktyg)
+                    ok, skal = mottagare(ku, korning)  # bara provets registrerade server, inte valfri lokal port (Codex R25)
+                    if not ok:
+                        return None, '--%s: %s via tjänsten mäter bara provets egen server: %s' % (k, verktyg, skal)
                 delar.append(ku)
             if not delar:
                 return None, '--%s är tom' % k
@@ -427,9 +434,10 @@ def servera(slug, kvitto, domaner=(), root=ROOT, korning=None, port=0):
 
 
 def delegeras():
-    """Sant inne i ett sandlådat bygge: tjänsten anvisad, sandlådans proxy satt, och inte redan inne i tjänsten."""
+    """Sant inne i ett sandlådat bygge: tjänsten anvisad, sandlådans proxy satt (eller stoppkrokens processgräns,
+    kontroller/processgrans.py, NWP_PROCESSGRANS=1), och inte redan inne i tjänsten."""
     return bool(os.environ.get('NWP_WEBBTJANST')) and not os.environ.get('NWP_I_TJANSTEN') \
-        and bool(os.environ.get('HTTP_PROXY') or os.environ.get('HTTPS_PROXY'))
+        and bool(os.environ.get('HTTP_PROXY') or os.environ.get('HTTPS_PROXY') or os.environ.get('NWP_PROCESSGRANS') == '1')
 
 
 def via_tjanst(verktyg, argv, timeout=3600):

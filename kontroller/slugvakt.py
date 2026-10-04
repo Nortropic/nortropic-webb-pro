@@ -105,8 +105,8 @@ def tillaten_vag(p, slug):
     if rotar is None:
         return False
     r = Path(os.path.realpath(p))  # följer symlänkar i hela kedjan, också en länk vars mål inte finns än
-    g = granskningsrot()
-    i_granskning = (r.parent == g and r.name.startswith(slug + '-')) or any(x.parent == g and x.name.startswith(slug + '-') for x in r.parents)
+    g = granskningsrot() / slug  # sluggen som eget led: eget och eget-annat överlappar aldrig (Codex R25)
+    i_granskning = r == g or g in r.parents
     if not any(r == t or r.is_relative_to(t) for t in rotar) and not i_granskning:
         return False
     if r.is_dir():  # en planterad symlänk under utkatalogen får inte leda skrivningen ut
@@ -134,6 +134,6 @@ def krav_vag(p, vad='utkatalogen'):
     if not p or not e:
         return
     if not tillaten_vag(p, e):
-        print('slugvakten: %s %s ligger inte i kunder/%s/, underlag/%s/, /tmp/nwp-bygge-%s/ eller /tmp/nwp-granskning/<slug>-… (NWP_SLUG), eller innehåller en symlänk '
+        print('slugvakten: %s %s ligger inte i kunder/%s/, underlag/%s/, /tmp/nwp-bygge-%s/ eller /tmp/nwp-granskning/<slug>/ (NWP_SLUG), eller innehåller en symlänk '
               'som leder ut därifrån; vägrar' % (vad, p, e, e, e), file=sys.stderr)
         sys.exit(2)

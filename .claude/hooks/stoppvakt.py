@@ -19,6 +19,15 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+def byggsteg(slug, args):
+    """Provet och granskningens drivare från kroken: med sandlådan på (NWP_SANDLADA=pa) innanför processgränsen
+    kontroller/processgrans.py (seatbelt med byggets policy), eftersom Claude Codes sandlåda inte omfattar krokar och
+    prova.py kör kundens npm run build (Codex R25, F1). Annars direkt, som förut."""
+    if os.environ.get('NWP_SANDLADA') == 'pa':
+        return [sys.executable, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), slug, '--', *args]
+    return args
+
 ROOT = Path(__file__).resolve().parents[2]
 TAK = int(os.environ.get('NWP_STOPP_TAK', '8'))
 FRIST = 780  # provet; inställningens timeout är 2700 s
@@ -48,7 +57,7 @@ def main():
     raknare.write_text(str(n))
 
     try:
-        p = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'prova.py'), slug],
+        p = subprocess.run(byggsteg(slug, [sys.executable, '-B', str(ROOT / 'kontroller' / 'prova.py'), slug]),
                            capture_output=True, text=True, timeout=FRIST, cwd=str(ROOT))
         rc, ut = p.returncode, p.stdout + p.stderr
     except subprocess.TimeoutExpired:
@@ -70,7 +79,7 @@ def main():
             granskning = 'avstängd'
         else:
             try:
-                g = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'granska.py'), slug, '--vanta', '1700'],
+                g = subprocess.run(byggsteg(slug, [sys.executable, '-B', str(ROOT / 'kontroller' / 'granska.py'), slug, '--vanta', '1700']),
                                    capture_output=True, text=True, timeout=GRANSKNING_FRIST, cwd=str(ROOT))
                 grc, kritik = g.returncode, (g.stdout + g.stderr).strip()
             except subprocess.TimeoutExpired:

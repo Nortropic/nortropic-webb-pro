@@ -69,24 +69,37 @@ TILLAT_LOKALT = os.environ.get("NWP_HAMTA_LOKALT") == "1"
 # annanstans stänger inte av något: hämtaren ansluter då direkt med adresskontroll som förut (Codex R24, F5).
 
 
-def _betrodd_proxy():
-    """(värd, port) för miljöns proxy när den ligger på loopback, annars None."""
-    for namn in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"):
-        v = os.environ.get(namn)
-        if v:
-            s = urllib.parse.urlsplit(v if "://" in v else "http://" + v)
+def _betrodda_proxyer():
+    """(proxykarta, godkända (värd, port)) när varje satt proxyvariabel (http/https, versaler och gemener) pekar på
+    loopback; annars (None, tom). Kartan ges uttryckligen till ProxyHandler, så transporten använder exakt de validerade
+    adresserna och inte vad miljön råkar innehålla vid anropet (Codex R25: HTTPS_PROXY på loopback och HTTP_PROXY någon
+    annanstans, eller versal mot gemen)."""
+    karta, par = {}, set()
+    for proto in ("http", "https"):
+        vald = None
+        for namn in (proto + "_proxy", proto.upper() + "_PROXY"):  # urllib läser gemener först; alla satta måste vara loopback
+            w = os.environ.get(namn)
+            if not w:
+                continue
+            u = w if "://" in w else "http://" + w
+            s = urllib.parse.urlsplit(u)
             vard = (s.hostname or "").lower()
-            if vard in ("localhost", "127.0.0.1", "::1"):
-                try:
-                    return vard, s.port or 80
-                except ValueError:
-                    return None
-            return None
-    return None
+            if vard not in ("localhost", "127.0.0.1", "::1"):
+                return None, set()
+            try:
+                port = s.port or 80
+            except ValueError:
+                return None, set()
+            par.add((vard, port))
+            if vald is None:
+                vald = u
+        if vald:
+            karta[proto] = vald
+    return (karta or None), par
 
 
-BETRODD_PROXY = _betrodd_proxy()
-VIA_PROXY = BETRODD_PROXY is not None
+PROXYKARTA, BETRODDA_PAR = _betrodda_proxyer()
+VIA_PROXY = PROXYKARTA is not None
 
 
 def _bypass(vard):
@@ -159,9 +172,9 @@ def adress_ok(url):
 
 
 def _anslutningsadress(host, port):
-    """Adressen att ansluta till: den betrodda proxyn själv (loopback, bokstavligen) eller den validerade adressen."""
-    if VIA_PROXY and (host or "").lower() == BETRODD_PROXY[0] and int(port) == BETRODD_PROXY[1]:
-        return "127.0.0.1" if BETRODD_PROXY[0] != "::1" else "::1"
+    """Adressen att ansluta till: en av de betrodda proxyerna själva (loopback, bokstavligen) eller den validerade adressen."""
+    if VIA_PROXY and ((host or "").lower(), int(port)) in BETRODDA_PAR:
+        return "::1" if (host or "").lower() == "::1" else "127.0.0.1"
     return adress_for(host)
 
 
@@ -241,9 +254,9 @@ def oppnare(egen=None, rp=None, fore=None, folj=True, bas=None):
     (hamta_sajt, sida_till_text, standardkontrollens länkar, prospekt, Bokadirekt)."""
     vakt = Omdirigeringsvakt(egen, rp, fore, folj, bas)
     if VIA_PROXY:
-        # den betrodda proxyn på loopback är nätgränsen; de validerande anslutningarna behålls (proxyn själv släpps
-        # bokstavligen, allt som NO_PROXY undantar prövas som utan proxy)
-        o = urllib.request.build_opener(urllib.request.ProxyHandler(), _HttpHandler(), _HttpsHandler(), vakt)
+        # de betrodda proxyerna på loopback är nätgränsen, givna uttryckligen (inte miljön på nytt); de validerande
+        # anslutningarna behålls (proxyn själv släpps bokstavligen, allt som NO_PROXY undantar prövas som utan proxy)
+        o = urllib.request.build_opener(urllib.request.ProxyHandler(dict(PROXYKARTA)), _HttpHandler(), _HttpsHandler(), vakt)
     else:
         # ProxyHandler({}): aldrig miljöns eller systemets proxy; en proxy skulle slå upp och ansluta till målet utanför
         # adresskontrollen (revisionen 2026-10-03, F5 omgång tre). Hämtaren ansluter alltid direkt.

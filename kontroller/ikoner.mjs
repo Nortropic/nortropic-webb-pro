@@ -9,6 +9,7 @@ import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
 
 import { viaTjanst, natgrans, lasvakt } from './webblasare/gemensamt.mjs';
+import { inom } from './slugvakt.mjs';
 await viaTjanst('ikoner', process.argv.slice(2));  // sandlådat bygge: Chromium kan inte starta i sandlådan, tjänsten ritar ikonerna
 const arg = (n, std) => { const i = process.argv.indexOf('--' + n); return i >= 0 ? process.argv[i + 1] : std; };
 const sajt = arg('sajt');
@@ -26,7 +27,7 @@ if (!existsSync(favicon)) { console.error('saknar ' + favicon + ' — skriv verk
 if (!existsSync(foto)) { console.error('saknar fotot ' + foto); process.exit(2); }
 if (!/^#[0-9a-fA-F]{3,8}$/.test(bakgrund)) { console.error('--bakgrund ska vara en hexfärg'); process.exit(2); }
 if (!/^[a-z0-9% .-]+$/i.test(fokus)) { console.error('--fokus ska vara en CSS object-position, t.ex. center 30%'); process.exit(2); }
-vakta(sajt, 'sajtkatalogen'); vakta(foto, 'fotot');  // med NWP_SLUG: bara byggets egna kataloger, också som läskälla (Codex R24)
+inom(sajt, 'sajtkatalogen'); vakta(foto, 'fotot');  // sajten prövas utan trädgenomgång (node_modules); fotot som läskälla (Codex R24/R25)
 
 const TYP = { '.svg': 'image/svg+xml', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.avif': 'image/avif' };
 const data = (f) => `data:${TYP[extname(f).toLowerCase()] || 'application/octet-stream'};base64,${readFileSync(f).toString('base64')}`;

@@ -451,7 +451,7 @@ def arbetare(rdir):
             if upp.get('metod_sha') and metod_sha(slug) != upp['metod_sha']:
                 raise RuntimeError('underlaget (referensbilder eller texter) ändrades mellan bokföringen och starten; kör granskningen igen')
             for n in range(1, antal + 1):
-                arbetskatalog = ARBETSROT / ('%s-%s-%d' % (slug, rdir.name, n))
+                arbetskatalog = ARBETSROT / slug / ('%s-%d' % (rdir.name, n))  # sluggen som eget led (Codex R25)
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
                                       frysta, tidigare_byggen(slug), [], rdir, aria, [], lardomar, felrader=frysta_fel)
@@ -756,7 +756,7 @@ def main(argv=None):
         for namn in FRYSTA_FILER:
             if (kund / 'prov' / namn).exists():
                 shutil.copy2(sakert_original(kund / 'prov' / namn, kund), rdir / Path(namn).name)
-        prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / 'torr', bilder,
+        prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / a.slug / 'torr', bilder,
                               frysta_referenser(a.slug, rdir), tidigare_byggen(a.slug), [], rdir,
                               aria_trad(kund, rdir / 'sajt'), [], lardomar_utan(a.slug, rdir))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')

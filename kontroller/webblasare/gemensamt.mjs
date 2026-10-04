@@ -86,16 +86,45 @@ export function arLokal(url) { try { return LOKALA.has(new URL(url).hostname.toL
 
 const OMDIRIGERING = new Set([301, 302, 303, 307, 308]);
 function arOmdirigering(svar) { return OMDIRIGERING.has(svar.status()) && svar.headers()['location'] !== undefined; }
+/** Metoden webbläsaren använder efter ett hopp (Fetch-standarden): 303 ger GET (HEAD består), 301/302 byter bara POST
+ *  till GET, 307/308 behåller metoden. PUT, PATCH och DELETE förs alltså vidare också vid 301/302 (Codex R25). */
+export function nastaMetod(status, metod) {
+  const m = String(metod).toUpperCase();
+  if (status === 303) return m === 'HEAD' ? 'HEAD' : 'GET';
+  if ((status === 301 || status === 302) && m === 'POST') return 'GET';
+  return m;
+}
 
-/** Adress i det egna nätet (loopback, privat, länklokal, multicast, IPv6-motsvarigheter)? */
+// Icke-globalt nåbara block enligt IANA:s register över specialadresser (IPv4 och IPv6); allt som inte går att tolka
+// räknas som icke-globalt (Codex R25: 198.18.0.0/15 med flera saknades).
+const V4_ICKE_GLOBALA = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.0.2.0/24',
+                         '192.88.99.0/24', '192.168.0.0/16', '198.18.0.0/15', '198.51.100.0/24', '203.0.113.0/24', '224.0.0.0/4', '240.0.0.0/4'];
+const V6_ICKE_GLOBALA = ['::/128', '::1/128', '64:ff9b:1::/48', '100::/64', '2001::/32', '2001:2::/48', '2001:10::/28', '2001:20::/28', '2001:db8::/32',
+                         '2002::/16', '3fff::/20', '5f00::/16', 'fc00::/7', 'fe80::/10', 'fec0::/10', 'ff00::/8'];
+function v4Tal(ip) { const d = ip.split('.').map(Number); return (((d[0] << 24) >>> 0) + (d[1] << 16) + (d[2] << 8) + d[3]) >>> 0; }
+function v6Tal(ip) {
+  let s = ip.toLowerCase().replace(/%.*$/, '');
+  const m = s.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  if (m) { if (!net.isIPv4(m[2])) return null; const v = v4Tal(m[2]); s = m[1] + (v >>> 16).toString(16) + ':' + (v & 0xffff).toString(16); }
+  const delar = s.split('::'); if (delar.length > 2) return null;
+  const a = delar[0] ? delar[0].split(':') : [], b = delar.length === 2 && delar[1] ? delar[1].split(':') : [];
+  const n = 8 - a.length - b.length; if (n < 0 || (delar.length === 1 && n !== 0)) return null;
+  const grupper = [...a, ...Array(delar.length === 2 ? n : 0).fill('0'), ...b]; if (grupper.length !== 8) return null;
+  let t = 0n; for (const g of grupper) { if (!/^[0-9a-f]{1,4}$/.test(g)) return null; t = (t << 16n) + BigInt(parseInt(g, 16)); } return t;
+}
+function iBlock4(t, cidr) { const [p, len] = cidr.split('/'); const skift = 32 - Number(len); return skift >= 32 ? true : (t >>> skift) === (v4Tal(p) >>> skift); }
+function iBlock6(t, cidr) { const [p, len] = cidr.split('/'); const skift = 128n - BigInt(len); return (t >> skift) === (v6Tal(p) >> skift); }
+/** Adress som inte är globalt nåbar (loopback, privat, länklokal, CGNAT, dokumentation, benchmark, multicast, reserverat,
+ *  IPv6-motsvarigheter, ::ffff:-mappade IPv4)? Okänt format räknas som icke-globalt. */
 export function privatAdress(ip) {
   const v = String(ip).toLowerCase();
-  if (net.isIPv4(v)) {
-    const [a, b] = v.split('.').map(Number);
-    return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a >= 224;
+  if (net.isIPv4(v)) { const t = v4Tal(v); return V4_ICKE_GLOBALA.some((c) => iBlock4(t, c)); }
+  if (net.isIPv6(v)) {
+    const t = v6Tal(v); if (t === null) return true;
+    if ((t >> 32n) === 0xffffn) return V4_ICKE_GLOBALA.some((c) => iBlock4(Number(t & 0xffffffffn), c));  // ::ffff:a.b.c.d
+    return V6_ICKE_GLOBALA.some((c) => iBlock6(t, c));
   }
-  const m = v.match(/^(?:::ffff:)?(\d+\.\d+\.\d+\.\d+)$/); if (m) return privatAdress(m[1]);
-  return v === '::1' || v === '::' || v.startsWith('fe80:') || v.startsWith('fc') || v.startsWith('fd') || v.startsWith('ff');
+  return true;
 }
 
 // Provuppslag (bara i rökprovet): NWP_PROV_UPPSLAG="värd=ip;värd=ip" ersätter DNS, så att adresskontrollen kan prövas utan nät.
@@ -129,13 +158,15 @@ const LAS = new Set(['GET', 'HEAD', 'OPTIONS']);
  *  anslutningen görs till den godkända, publika adressen (Host-huvudet och TLS-namnet är värdnamnet); skrivande
  *  http-anrop till annat än localhost nekas (för https sköter route-vakten metoden). Allt nekat får 403/405 och loggas.
  *  Omdirigeringar och annat som route-vakten inte ser (Playwright följer dem utan ny kontroll) stoppas här (Codex R23/R24). */
-async function startaProxy(tillaten, blockera) {
+async function startaProxy(tillaten, blockera, skrivbar = () => false) {
+  const socklar = new Set();  // alla socklar, också överlämnade CONNECT-tunnlar: server.close() väntar annars för evigt på dem (exit 13)
+  const folj = (c) => { socklar.add(c); c.on('close', () => socklar.delete(c)); return c; };
   const srv = http.createServer(async (req, res) => {
     let u; try { u = new URL(req.url); } catch { res.writeHead(400); return res.end(); }
     const port = u.port || '80';
     const neka = (kod, skal) => { blockera(req.method, u.toString(), skal); res.writeHead(kod, { 'content-type': 'text/plain' }); res.end('blockerad'); };
     if (!tillaten(u.hostname, port, 'http:')) return neka(403, 'utanför tillåtna ursprung');
-    if (!LOKALA.has(u.hostname.toLowerCase()) && !LAS.has(req.method)) return neka(405, 'skrivande anrop till annan sajt');
+    if (!LAS.has(req.method) && !skrivbar(u.hostname, port, 'http:')) return neka(405, 'skrivande anrop till ett ursprung som inte är skrivbart');
     const upp = await uppslag(u.hostname);
     if (!upp.ip) return neka(403, upp.fel);
     const p = http.request({ host: upp.ip, port: Number(port), method: req.method, path: u.pathname + u.search, headers: { ...req.headers, host: u.host } }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
@@ -148,35 +179,58 @@ async function startaProxy(tillaten, blockera) {
     if (!tillaten(host, port, 'https:')) return neka('utanför tillåtna ursprung');
     const upp = await uppslag(host);
     if (!upp.ip) return neka(upp.fel);
-    const s = net.connect(Number(port) || 443, upp.ip, () => { sock.write('HTTP/1.1 200 Connection Established\r\n\r\n'); if (head && head.length) s.write(head); s.pipe(sock); sock.pipe(s); });
+    const s = folj(net.connect(Number(port) || 443, upp.ip, () => { sock.write('HTTP/1.1 200 Connection Established\r\n\r\n'); if (head && head.length) s.write(head); s.pipe(sock); sock.pipe(s); }));
+    folj(sock);
     s.on('error', () => sock.destroy()); sock.on('error', () => s.destroy());
   });
+  srv.on('connection', folj);
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
-  return { server: 'http://127.0.0.1:' + srv.address().port, stang: () => new Promise((r) => srv.close(() => r())) };
+  const stang = () => new Promise((r) => {
+    let klar = false; const slut = () => { if (!klar) { klar = true; clearTimeout(t); r(); } };
+    const t = setTimeout(slut, 2000);  // stängningen ska alltid bli klar: skriptets top-level await får aldrig lämnas hängande
+    for (const c of socklar) c.destroy();
+    if (srv.closeAllConnections) srv.closeAllConnections();
+    srv.close(slut);
+  });
+  return { server: 'http://127.0.0.1:' + srv.address().port, stang };
 }
 
-// värd:port tillåten för proxyn: localhost alltid; annars domänpolicyn och, när skriptet angett ursprung, just de ursprungen
-function anslutningsvakt(policy, tillatna) {
+// värd:port mot en mängd ursprung: lokala värdnamn jämförs på port (localhost och 127.0.0.1 är samma mottagare)
+function ursprungsvakt(tillatna, alltLokaltUtanLista) {
+  const lokalaPortar = new Set([...tillatna].filter((o) => arLokal(o)).map((o) => { const u = new URL(o); return u.port || (u.protocol === 'https:' ? '443' : '80'); }));
   return (host, port, protokoll) => {
     const h = String(host).toLowerCase();
-    if (LOKALA.has(h)) return true;
-    if (!vardTillaten(h, policy)) return false;
-    if (!tillatna.size) return true;
+    if (LOKALA.has(h)) return (alltLokaltUtanLista && !tillatna.size) || lokalaPortar.has(String(port));
+    if (!tillatna.size) return alltLokaltUtanLista;
     const std = protokoll === 'https:' ? '443' : '80';
     return tillatna.has(protokoll + '//' + h + (String(port) === std ? '' : ':' + port));
+  };
+}
+
+// värd:port tillåten för proxyn: domänpolicyn och, när skriptet angett ursprung, just de ursprungen (också lokala portar:
+// webbläsaren tvingas genom proxyn för loopback, så en sida kan inte nå andra lokala tjänster; Codex R25)
+function anslutningsvakt(policy, tillatna) {
+  const inom = ursprungsvakt(tillatna, true);
+  return (host, port, protokoll) => {
+    const h = String(host).toLowerCase();
+    if (!LOKALA.has(h) && !vardTillaten(h, policy)) return false;
+    return inom(host, port, protokoll);
   };
 }
 
 /** Nätgränsen för skript som startar Chromium själva (axe, stil, sida, ikoner, lighthouse): i tjänstens läge
  *  (NWP_NAT_TILLATNA satt, kontroller/webbtjanst.py) en filtrerande proxy enligt domänpolicyn och de givna ursprungen,
  *  som Chromium startas genom (playwright-alternativ eller Chrome-flagga); annars null och allt som förut. */
-export async function natgrans(ursprung = []) {
+export async function natgrans(ursprung = [], skrivbara = []) {
   const policy = natpolicy();
   if (policy === null) return null;
   const tillatna = new Set(ursprung.filter(Boolean).map((o) => origin(o)));
+  const skrivbaraSet = new Set(skrivbara.filter(Boolean).map((o) => origin(o)).filter((o) => arLokal(o)));
   const blockerade = [];
-  const proxy = await startaProxy(anslutningsvakt(policy, tillatna), (metod, url, skal) => blockerade.push({ metod, url: redigeraUrl(url), tid: nu(), skal }));
-  return { server: proxy.server, playwright: { proxy: { server: proxy.server } }, chromeFlag: '--proxy-server=' + proxy.server.replace(/^http:\/\//, ''), blockerade, stang: proxy.stang };
+  const proxy = await startaProxy(anslutningsvakt(policy, tillatna), (metod, url, skal) => blockerade.push({ metod, url: redigeraUrl(url), tid: nu(), skal }), ursprungsvakt(skrivbaraSet, false));
+  const server = proxy.server.replace(/^http:\/\//, '');
+  // <-loopback>: också localhost går genom proxyn, annars kringgår webbläsaren den för lokala adresser
+  return { server: proxy.server, playwright: { proxy: { server: proxy.server, bypass: '<-loopback>' } }, chromeFlags: ['--proxy-server=' + server, '--proxy-bypass-list=<-loopback>'], blockerade, stang: proxy.stang };
 }
 
 /** Route-vakten: samma regler i oppna och i skript som skapar sina kontexter själva (lasvakt). Värd mot policyn,
@@ -198,18 +252,19 @@ async function installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, m
     let svar;
     try { svar = await route.fetch({ headers, maxRedirects: 0 }); }
     catch (e) { logg.natverk.push({ metod: req.method(), url: redigeraUrl(u), id: sha256(String(u).split('#')[0]), status: null, fel: String(e.message).slice(0, 200), tid: nu() }); return route.abort('failed'); }
-    let aktuell = u, hopp = 0;
+    let aktuell = u, hopp = 0, metodNu = req.method();
     while (arOmdirigering(svar)) {
       let mal, m; try { mal = new URL(svar.headers()['location'], aktuell).toString(); m = new URL(mal); } catch { blockera(req, 'ogiltig omdirigering'); return route.abort('blockedbyclient'); }
       logg.omdirigeringar.push({ metod: req.method(), fran: redigeraUrl(aktuell), till: redigeraUrl(mal), status: svar.status(), tid: nu() });
       if (!vardTillaten(m.hostname, policy) || (tillatna.size && !tillatna.has(m.origin))) { blockera(req, 'omdirigering till ' + redigeraUrl(mal) + ' utanför tillåtna ursprung'); return route.abort('blockedbyclient'); }
-      const skrivandeVidare = [307, 308].includes(svar.status()) && !LAS.has(req.method());
-      if (!skrivandeVidare) return route.fulfill({ status: svar.status(), headers: { location: mal, 'cache-control': 'no-store' }, body: '' });  // webbläsaren följer med GET genom proxyn
-      if (!skrivbaraSet.has(m.origin)) { blockera(req, 'skrivande omdirigering till ' + redigeraUrl(mal)); return route.abort('blockedbyclient'); }
+      const nasta = nastaMetod(svar.status(), metodNu);
+      if (LAS.has(nasta)) return route.fulfill({ status: svar.status(), headers: { location: mal, 'cache-control': 'no-store' }, body: '' });  // webbläsaren följer läsande genom proxyn
+      // ett skrivande anrop som förs vidare (POST vid 307/308, PUT/PATCH/DELETE också vid 301/302): varje hopp måste gå till ett skrivbart ursprung och följs här
+      if (!skrivbaraSet.has(m.origin)) { blockera(req, 'skrivande omdirigering (' + nasta + ') till ' + redigeraUrl(mal)); return route.abort('blockedbyclient'); }
       if (++hopp > 10) { blockera(req, 'för många omdirigeringar'); return route.abort('blockedbyclient'); }
       const h2 = {}; if (undantag && m.origin === malUrsprung) h2['x-vercel-protection-bypass'] = undantag;
-      try { svar = await route.fetch({ url: mal, headers: h2, maxRedirects: 0 }); } catch (e) { return route.abort('failed'); }
-      aktuell = mal;
+      try { svar = await route.fetch({ url: mal, method: nasta, headers: h2, maxRedirects: 0 }); } catch (e) { return route.abort('failed'); }
+      aktuell = mal; metodNu = nasta;
     }
     return fullborda(route, svar);
   });
@@ -262,12 +317,11 @@ export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga
   const logg = { konsol: [], natverk: [], blockerade: [], dialoger: [], sidfel: [], omdirigeringar: [] };
   const policy = natpolicy();
   const tillatna = new Set(tillat.map(o => origin(o)));
-  const proxy = await startaProxy(anslutningsvakt(policy, tillatna), (metod, url, skal) => logg.blockerade.push({ metod, url: redigeraUrl(url), typ: 'proxy', tid: nu(), skal: (skal || 'utanför tillåtna ursprung') + ' (nätgränsen)' }));
-  const browser = await chromium.launch({ headless: true, proxy: { server: proxy.server } });
+  const skrivbaraSet = new Set(skrivbara.map(o => origin(o)).filter((o) => arLokal(o)));  // skrivande anrop bara till provets lokala mottagare (F36)
+  const proxy = await startaProxy(anslutningsvakt(policy, tillatna), (metod, url, skal) => logg.blockerade.push({ metod, url: redigeraUrl(url), typ: 'proxy', tid: nu(), skal: (skal || 'utanför tillåtna ursprung') + ' (nätgränsen)' }), ursprungsvakt(skrivbaraSet, false));
+  const browser = await chromium.launch({ headless: true, proxy: { server: proxy.server, bypass: '<-loopback>' } });
   // serviceWorkers: 'block': en service worker skulle annars kunna göra anrop förbi route-vakten
   const ctx = await browser.newContext({ viewport: v.viewport, deviceScaleFactor: v.deviceScaleFactor, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'sv-SE', timezoneId: 'Europe/Stockholm', serviceWorkers: 'block', ...extra });
-  // skrivande anrop (POST …) bara till lokala ursprung: provets egen demomottagare; aldrig till andras sajter (F36)
-  const skrivbaraSet = new Set(skrivbara.map(o => origin(o)).filter((o) => arLokal(o)));
   await installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, malUrsprung, logg });
   ctx.on('page', p => {
     p.on('console', m => logg.konsol.push({ typ: m.type(), text: red(m.text()).slice(0, 500), tid: nu() }));
