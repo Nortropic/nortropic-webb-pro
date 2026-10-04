@@ -2718,6 +2718,7 @@ for dalig_, skal_ in (({'kandidater': []}, 'saknar kandidater'), ({'kandidater':
 assert rf_.kanon_adress('https://Exempel.SE/sida?x=1#f')[0] == 'https://exempel.se/sida?x=1' and rf_.kanon_adress('https://xn--lule-snickaren-oib.se/')[1] is None and rf_.kanon_adress('ftp://x.se/')[1]
 assert rf_.tillatet_resursursprung(c_ref + '/b.png', lok_ref) is None and rf_.tillatet_resursursprung(b_ref + '/b.png', lok_ref) == b_ref and rf_.tillatet_resursursprung('https://cdn.exempel.se/f.woff2', ()) == 'https://cdn.exempel.se' and rf_.tillatet_resursursprung('https://www.google-analytics.com/x.js', ()) is None and rf_.tillatet_resursursprung('http://0x7f000001/x', ()) is None
 assert rf_.sidkatalog(1, '/a/b') == '02-a-b' and rf_.sidkatalog(2, '/a-b') == '03-a-b' and rf_.sidkatalog(0, '/') == '01-start'
+assert rf_.tvillingar('dinesen.com') == {'dinesen.com', 'www.dinesen.com'} and rf_.tvillingar('www.gov.uk') == {'www.gov.uk', 'gov.uk'} and rf_.tvillingar('127.0.0.1') == {'127.0.0.1'} and rf_.kandidat_ursprung('https://dinesen.com/x') == ['https://dinesen.com', 'https://www.dinesen.com'] and rf_.kandidat_ursprung(a_ref + '/') == [a_ref], 'www- och bartvillingen hör till kandidaten (bygge 4: dinesen → www blockerades)'
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--uppdrag', str(tmp / 'utanfor.json')]) == 2, 'uppdraget måste ligga under underlag/<slug>'
 # skrivmålet förankras före första skrivningen, också i torrkörning: en länkad referenser/ vägras
 ute_ref = tmp / 'ref-ute'; ute_ref.mkdir(); (u_ref / 'prov-ref' / 'referenser').symlink_to(ute_ref)

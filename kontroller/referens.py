@@ -182,6 +182,22 @@ def ursprung(u):
     return '%s://%s' % (d.scheme, d.netloc)
 
 
+def tvillingar(vard):
+    """www och bar domän är samma verksamhet (som i sandlada.domanlista): en kandidat som svarar med en omdirigering
+    mellan dem får inte stoppas av policyn (bygge 4: dinesen.com → www blockerades)."""
+    vard = vard.lower()
+    if vard == '127.0.0.1' or vard.count('.') < 1:
+        return {vard}
+    return {vard, vard[4:] if vard.startswith('www.') else 'www.' + vard}
+
+
+def kandidat_ursprung(adress):
+    """Kandidatens egna ursprung: adressens, plus www-/bartvillingen i samma schema."""
+    d = urllib.parse.urlsplit(adress)
+    port = ':%d' % d.port if d.port else ''
+    return ['%s://%s%s' % (d.scheme, v, port) for v in sorted(tvillingar(d.hostname), key=lambda v: v != d.hostname)]
+
+
 def tillatet_resursursprung(u, lokala_portar):
     """Ursprunget för en blockerad resurs, om det får tillåtas i pass 2: riktigt värdnamn (samma regler som kandidater),
     aldrig spårare, lokala bara med uttryckligt provundantag (Codex R32)."""
@@ -343,15 +359,15 @@ def samla(slug, uppdrag, underlag=None, torr=False, lokala_portar=()):
             post['ok'] = True
             res['kandidater'].append(post)
             continue
-        eget = ursprung(k['adress'])
-        varden = {urllib.parse.urlsplit(eget).hostname}
+        egna = kandidat_ursprung(k['adress'])  # adressens ursprung och www-/bartvillingen
+        varden = tvillingar(urllib.parse.urlsplit(k['adress']).hostname)
         # pass 1 på första sidan: vilka resursursprung behöver sajten?
         forsta = k['adress'] if k['sidor'][0] == '/' else k['adress'].rstrip('/') + k['sidor'][0]
         pass1 = katalog / '.pass1'
-        rc1, rapport1, _ = kor_inspektera(forsta, pass1, [eget], {}, miljo_for(varden))
-        resurser = blockerade_ursprung(rapport1, lokala_portar)
+        rc1, rapport1, _ = kor_inspektera(forsta, pass1, egna, {}, miljo_for(varden))
+        resurser = [o for o in blockerade_ursprung(rapport1, lokala_portar) if o not in egna]
         shutil.rmtree(pass1, ignore_errors=True)
-        tillat = [eget] + resurser
+        tillat = egna + resurser
         varden |= {urllib.parse.urlsplit(o).hostname for o in resurser}
         post['resursursprung'] = resurser
         # pass 2 på varje sida med resursursprungen tillåtna, bara för den här inspektionen
