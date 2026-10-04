@@ -1,11 +1,11 @@
 ---
 id: B-20261004-intagsmetoden-hela-arbetsmoment-och-provade-intag
-status: pagar
+status: vilande
 kalla: bevakning
 kallref: Codex tillägg 2026-10-04 (intagen för begränsade); ägarmandat 2026-10-04
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-04T23:29Z
+andrad: 2026-10-04T23:40Z
 ---
 # Intagsmetoden: hela fungerande arbetsmoment med beroenden, prövade i den verkliga byggmiljön mot baslinjen
 
@@ -16,3 +16,5 @@ andrad: 2026-10-04T23:29Z
 **Klart när:** Kirurgens SKILL.md har de fem kraven; Emils prototype och Impeccables designflöde har var sitt avgränsat försök i den verkliga byggmiljön med jämförelse mot baslinjen (samma brief och material, upprepade körningar, ägarens blinda dom) och ett beslut om standard; web-quality-audit har sin MEASUREMENT.md.
 
 **Pagar (2026-10-04):** Kraven och omprövningsreglerna står i kirurgens SKILL.md, och web-quality-audit har fått sin MEASUREMENT.md (c6b06ad, byte för byte). Kvar: de avgränsade försöken med Emils prototype och Impeccables designflöde, efter ägarens dom över designprovet.
+
+**Vilande (2026-10-04):** väntar på bygge: kraven står i kirurgens SKILL.md och web-quality-audit har sin MEASUREMENT.md; kvar är de avgränsade försöken med Emils prototype och Impeccables designflöde, efter ägarens dom över designprovet
