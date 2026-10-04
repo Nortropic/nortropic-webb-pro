@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex tillägg 2026-10-04 (skillkandidater)
 skapad: 2026-10-04
 prio: mellan
-andrad: 2026-10-04T21:06Z
+andrad: 2026-10-04T23:50Z
 ---
 # Skillkandidater i prioritetsordning: Dembrandt extract-design, Google extract-design-md, skill-creator, dogfood, performance, customer-research
 
@@ -14,3 +14,5 @@ andrad: 2026-10-04T21:06Z
 **Förslag:** Ordning: (1) prototypens kodöverföring (ateljén, levererad 2026-10-04); (2) Dembrandt prövas på referensunderlaget genom det avgränsade referenssteget, jämfört med vår egen extraktion (kontroller/webblasare/extrahera.mjs) och kontrollerat mot skärmbilderna, och kravet är att extraktionen leder till valda roller, CSS och komponenter i bygget; (3) extract-design-md körs på en accepterad prototyp (ateljéns vinnare) och kontrolleras mot renderingen; aldrig på ett svagt bygge; (4) dogfood med egna testbyggen och testmottagare, täckning av besökaruppgifterna, utan originalets 5–10 fynd (en fyndkvot styr granskaren fel); (5) performance med mätmetodens stödmaterial; (6) customer-research när underlaget är stort. Skill-creator används parallellt utanför kundbyggena för aktiveringstester mot baslinje, med blindningen kvar. Varje kandidat följer intagskraven (posten om intagsmetoden).
 
 **Klart när:** Dembrandt och extract-design-md har körts i var sitt avgränsat försök med belägg (vad som extraherades, vad som valdes, vad som fanns kvar i bygget); dogfood-resor finns som prov; skill-creator har mätt aktiveringen av minst de installerade better-* och humanizer mot baslinjen.
+
+**Vilande (2026-10-04):** Dembrandt 0.38.0 prövad avgränsat 2026-10-05 på huvudreferensen Ashton Bespoke, över CDP mot provets Chromium utan nyckel: samma färger och rubrikstorlekar som vår extraktion; lägger till brödtext, avståndsskala, radie, brytpunkter, rörelse och en DESIGN.md i Googles format; --mobile verkar inte över CDP (viewport 1920×1080), så mobilens värden kommer ur extrahera.mjs. Komplement, inte ersättning. Kvar: referenssteget kör Dembrandt bredvid extraktionen och ett bygge visar om värdena blir valda roller och CSS; extract-design-md på ateljéns vinnare; dogfood; skill-creator.
