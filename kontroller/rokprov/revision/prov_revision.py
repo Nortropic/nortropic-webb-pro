@@ -702,6 +702,20 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     shutil_hr.rmtree(sidor / 'atelje-2')
     mal = a.bevara_vinnare('provhr', arot_b, 2)
     assert (mal / 'kod' / 'stiltavla' / 'index.astro').read_text() == 'tavla', 'vinnaren ur den sparade koden'
+    # verksamhetens egna bilder ur BILDER.md i skillens format (fil, källa, vad, datum, kvalitet), med eller utan kolumnen Egen
+    ub = tmp / 'underlag-bilder'; (ub / 'bild-prov' / 'bilder').mkdir(parents=True)
+    for fn in ('a.jpg', 'b.jpg', 'c.jpg', 'logo.png'):
+        (ub / 'bild-prov' / 'bilder' / fn).write_bytes(b'x')
+    (ub / 'bild-prov' / 'bilder' / 'BILDER.md').write_text('| Fil | Källa | Vad | Datum | Kvalitet |\n|---|---|---|---|---|\n| a.jpg | sajten | huset | okänt | skarp |\n| b.jpg | sajten | stockfoto från Envato | okänt | ok |\n| logo.png | sajten | loggan | — | vit |\n\n**Borttagna:** c.jpg (stock)\n')
+    gu_b = a.UNDERLAG; a.UNDERLAG = ub
+    try:
+        assert a.egna_bilder('bild-prov') == ['a.jpg', 'logo.png'], 'skillens format: varje listad fil utom stock (%s)' % a.egna_bilder('bild-prov')
+        (ub / 'bild-prov' / 'bilder' / 'BILDER.md').write_text('| Fil | Vad | Egen |\n|---|---|---|\n| a.jpg | huset | ja |\n| c.jpg | lånad | nej |\n')
+        assert a.egna_bilder('bild-prov') == ['a.jpg'], 'kolumnen Egen gäller när den finns'
+        (ub / 'bild-prov' / 'bilder' / 'BILDER.md').unlink()
+        assert a.egna_bilder('bild-prov') == ['a.jpg', 'b.jpg', 'c.jpg', 'logo.png'], 'utan BILDER.md alla bilder'
+    finally:
+        a.UNDERLAG = gu_b
     # konsolfel gör en riktning ofullständig (Emils prototypmodul: varje variant fungerar helt)
     (tmp / 'insp-k').mkdir()
     (tmp / 'insp-k' / 'INSPEKTION.json').write_text(json.dumps({'vyer': {'390': {'konsol': [{'typ': 'error', 'text': 'Failed to load resource: 404'}, {'typ': 'log', 'text': 'ok'}], 'sidfel': [{'text': 'x is not defined'}]}}}))
@@ -727,6 +741,7 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
         rc_main = a.main(['provhr'])
     assert rc_main == 2 and 'inga läsbara Bildval-bilder' in ut_main.getvalue() and rv_hr.huvudreferens('provhr', tmp / 'underlag')['bilder'] == [], 'Sni träffar inte Snick: exakt rubriknamn (%s)' % ut_main.getvalue()
     assert rv_hr.rubriknamn('## **Snick** — snickeri') == 'snick' and rv_hr.rubriknamn('Snickarglädje: kök') == 'snickarglädje' and rv_hr.rubriknamn('Annan') == 'annan'
+    assert rv_hr.rubriknamn('Ashton Bespoke · bransch · https://www.ashtonbespoke.co.uk/') == 'ashton bespoke', 'rubrikformen namn · roll · adress'
     (u / 'REFERENSER.md').write_text((u / 'REFERENSER.md').read_text().replace('Huvudreferens: Sni — komposition', 'Huvudreferens: Snick — komposition, typografi och bildbehandling'))
     hr = rv_hr.huvudreferens('provhr', tmp / 'underlag')
     assert hr['namn'] == 'Snick' and hr['vad'] == 'komposition, typografi och bildbehandling' and [t for _, t in hr['bilder']] == ['första vyn — Fråga: bär vår lika mycket?'], hr
@@ -3172,6 +3187,11 @@ gr.SCHEMA = ROOT / 'kritik' / 'SCHEMA-granskning.json'  # det riktiga schemat (F
 und_ = kf_.undanhallna(kal_u); assert [e['id'] for e in und_] == ['K02', 'K04']
 ut_kf = tmp / 'forsok'
 rc_kf = kf_.main(['--torr', '--ut', str(ut_kf), '--underlag', str(kal_u)]); assert rc_kf == 0
+# ett nytt orört urval prövas för sig (--bara): bara de valda, och ett id utan dom eller som är ankare vägras
+ut_bara = tmp / 'forsok-bara'
+assert kf_.main(['--torr', '--ut', str(ut_bara), '--underlag', str(kal_u), '--bara', 'K04']) == 0 and sorted(p_.name for p_ in ut_bara.iterdir() if p_.is_dir()) == ['K04']
+assert kf_.main(['--torr', '--ut', str(ut_bara), '--underlag', str(kal_u), '--bara', 'K01']) == 2, 'ett ankare är inget undanhållet exempel'
+assert kf_.main(['--torr', '--ut', str(ut_bara), '--underlag', str(kal_u), '--bara', 'K99']) == 2 and kf_.main(['--torr', '--ut', str(ut_bara), '--underlag', str(kal_u), '--bara', 'x']) == 2
 for ident_ in ('K02', 'K04'):
     pr_ = (ut_kf / ident_ / 'PROMPT.txt').read_text()
     assert 'kalibreringsförsök' in pr_ and 'K01 · tydligt över ribban' in pr_ and 'K03 · generisk' in pr_ and 'GENRETROGEN' not in pr_ and 'HÅRLINJER' not in pr_, pr_[:600]

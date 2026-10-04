@@ -140,20 +140,34 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
 
 
 def egna_bilder(slug):
-    """Filerna som BILDER.md anger som verksamhetens egna (sista kolumnen börjar med ja); stockbilder följer inte med.
-    Saknas BILDER.md används alla bilder i underlaget."""
+    """Verksamhetens egna bilder enligt BILDER.md. Har tabellen en kolumn Egen gäller den (ja = egen); annars är varje
+    listad fil som finns i bilder/ egen, eftersom skillens format bara listar verksamhetens bilder (stock tas bort och
+    står under Borttagna). En rad som nämner stock eller genererad bild tas aldrig med. Saknas BILDER.md används alla
+    bilder i underlaget."""
     lista = UNDERLAG / slug / 'bilder' / 'BILDER.md'
     alla = sorted(f.name for f in (UNDERLAG / slug / 'bilder').glob('*') if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp', '.avif')) \
         if (UNDERLAG / slug / 'bilder').is_dir() else []
     if not lista.is_file():
         return alla
-    egna = set()
+    egna, egen_kolumn, rubrik = set(), None, None
     for rad in lista.read_text(encoding='utf-8').splitlines():
+        if not rad.strip().startswith('|'):
+            rubrik = None if rad.strip() else rubrik  # en ny tabell börjar med en ny rubrikrad
+            continue
         celler = [c.strip() for c in rad.strip().strip('|').split('|')]
-        if len(celler) < 2 or not celler[0] or set(celler[0]) <= set('-: '):
+        if not celler or not celler[0] or set(celler[0]) <= set('-: '):
+            continue
+        if rubrik is None:  # tabellens första rad är rubriken
+            rubrik = [c.lower().strip('* ') for c in celler]
+            egen_kolumn = next((i for i, c in enumerate(rubrik) if c.startswith('egen')), None)
             continue
         fil = celler[0].strip('`* ')
-        if re.match(r'^\W*ja\b', celler[-1].replace('*', ''), re.I) and fil in alla:
+        if fil not in alla or any(re.search(r'\bstock|genererad', c, re.I) for c in celler[1:]):
+            continue
+        if egen_kolumn is not None:
+            if egen_kolumn < len(celler) and re.match(r'^\W*ja\b', celler[egen_kolumn].replace('*', ''), re.I):
+                egna.add(fil)
+        else:
             egna.add(fil)
     return sorted(egna)
 

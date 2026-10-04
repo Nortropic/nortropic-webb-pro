@@ -60,10 +60,11 @@ def huvudreferens_fel(slug, underlag):
 
 
 def rubriknamn(rubrik):
-    """Referensens namn ur rubriken: delen före ' — ', ' – ', ' - ' eller ': ' ('## Snick — snickeri i Umeå' → 'snick'),
-    gemener. Huvudreferensen matchas exakt mot den, så att 'Snick' inte träffar 'Snickarglädje'."""
+    """Referensens namn ur rubriken: delen före ' — ', ' – ', ' - ', ' · ' eller ': ' ('## Snick — snickeri i Umeå' och
+    '## Snick · bransch · https://…' → 'snick'), gemener. Huvudreferensen matchas exakt mot den, så att 'Snick' inte
+    träffar 'Snickarglädje'."""
     r = str(rubrik).strip().lstrip('#').strip().strip('*`').strip()
-    return re.split(r'\s+[—–-]+\s+|:\s+', r, maxsplit=1)[0].strip().strip('*`').strip().lower()
+    return re.split(r'\s+[—–·-]+\s+|:\s+', r, maxsplit=1)[0].strip().strip('*`').strip().lower()
 
 
 def bildval(slug, underlag):

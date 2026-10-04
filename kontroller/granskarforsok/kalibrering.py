@@ -314,9 +314,20 @@ def main(argv=None):
     p.add_argument('--frist', type=int, default=1500)
     p.add_argument('--ut', default=None, help='utdatakatalog (standard $NWP_FORSOK/kalibrering)')
     p.add_argument('--underlag', default=None, help=argparse.SUPPRESS)
+    p.add_argument('--bara', default=None, help='bara dessa exempel, kommaseparerade id (K14,K15,…): ett nytt orört urval prövas för sig')
     a = p.parse_args(argv)
     mal = Path(a.ut) if a.ut else G
     exempel = undanhallna(a.underlag)
+    if a.bara:  # ett oberoende mått: bara det orörda urvalet, aldrig blandat med utvecklingsexemplen (Codex helhetsbedömning, ordning 3)
+        onskade = [x.strip() for x in a.bara.split(',') if x.strip()]
+        if not all(re.fullmatch(r'K\d{2}', x) for x in onskade):
+            print('--bara tar id som K14,K15')
+            return 2
+        saknas = [x for x in onskade if x not in {e['id'] for e in exempel}]
+        if saknas:
+            print('saknar dom, bilder eller är ankare: %s (ägaren dömer i dashboardens Kalibrering)' % ', '.join(saknas))
+            return 2
+        exempel = [e for e in exempel if e['id'] in onskade]
     if not exempel:
         print('inga undanhållna exempel med dom och bilder (underlag/kalibrering/DOMAR.json, ANKARE.txt)')
         return 2
