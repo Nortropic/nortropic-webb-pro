@@ -2779,7 +2779,46 @@ antal_ref = len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*')))
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 2 and len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))) == antal_ref, 'nästlad länk i arvskällan: vägrat, inget paket'
 assert 'HEMLIGT' not in ''.join(p_.read_text(errors='replace') for p_ in (u_ref / 'prov-ref' / 'referenser').rglob('*.txt') if not p_.is_symlink())
 (paket4 / 'andra' / '01-start' / 'lank.txt').unlink()
-(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [kand_ref], 'kompletterar': 'paket-v09'}))
+# Codex R34: ett adressbyte under samma kandidatnamn vägras utan ersatt (annars blandas två sajter); www-/bartvilling och http→https är samma referens
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'lokal', 'adress': b_ref + '/', 'roll': 'hantverk', 'varfor': 'byte', 'sidor': ['/']}], 'kompletterar': 'paket-v04'}))
+antal_ref = len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*')))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 2 and len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))) == antal_ref, 'adressbyte under samma namn vägras'
+assert rf_.samma_referens('http://dinesen.com/', 'https://www.dinesen.com/') and not rf_.samma_referens('https://a.se/', 'https://b.se/') and not rf_.samma_referens(a_ref + '/', b_ref + '/')
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'lokal', 'adress': b_ref + '/', 'roll': 'hantverk', 'varfor': 'byte', 'sidor': ['/'], 'ersatt': True}], 'kompletterar': 'paket-v04'}))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 0, 'med ersatt: true får kandidaten byta referens'
+# Codex R34: en saknad inspektionsrapport är en dokumenterad brist i ett sparat paket (slutkod 1), inte ett raderat paket
+kor_orig_ = rf_.kor_inspektera
+def kor_utan_rapport_(adress, ut, tillat, tillstand, miljo):
+    if adress.endswith('/a-b'):
+        return 1, {}, 'simulerad: ingen rapport'
+    return kor_orig_(adress, ut, tillat, tillstand, miljo)
+rf_.kor_inspektera = kor_utan_rapport_
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'hel', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'fångas', 'sidor': ['/']}, {'namn': 'utan', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'ingen rapport', 'sidor': ['/a-b']}]}))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]) == 1
+rf_.kor_inspektera = kor_orig_
+paket_sr = sorted((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))[-1]; k_sr = {k_['namn']: k_ for k_ in json.load(open(paket_sr / 'PAKET.json'))['kandidater']}
+assert k_sr['hel']['ok'] and (paket_sr / 'hel' / '01-start' / 'vy-390-forsta.png').is_file() and not k_sr['utan']['ok'] and k_sr['utan']['sidor'][0]['fel_resurser'] == [] and any('ingen rapport' in b_ for b_ in k_sr['utan']['sidor'][0]['begransningar']), k_sr['utan']
+# Codex R34: ofullständigt arv godkänns aldrig: inventeringsfel, saknad deklarerad bild och saknad orörd kandidat vägras
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'lokal', 'adress': a_ref + '/', 'roll': 'hantverk', 'varfor': 'x', 'sidor': ['/']}], 'kompletterar': 'paket-v04'}))
+antal_ref = len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*')))
+os.chmod(paket4 / 'andra' / '01-start', 0o000)
+try:
+    rc_arv = rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref])
+finally:
+    os.chmod(paket4 / 'andra' / '01-start', 0o755)
+assert rc_arv == 2 and len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))) == antal_ref, 'inventeringsfel i arvskällan vägras'
+bild_arv = paket4 / 'andra' / '01-start' / 'vy-1440-forsta.png'; bild_arv.rename(bild_arv.with_suffix('.borta'))
+try:
+    assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 2 and len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))) == antal_ref, 'saknad deklarerad bild i arvet vägras'
+finally:
+    bild_arv.with_suffix('.borta').rename(bild_arv)
+shutil.move(str(paket4 / 'andra'), str(tmp / 'andra-undan'))
+try:
+    assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 2 and len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))) == antal_ref, 'saknad orörd kandidat i arvet vägras, hoppas inte över'
+finally:
+    shutil.move(str(tmp / 'andra-undan'), str(paket4 / 'andra'))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 0, 'återställt arv går igenom'
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [kand_ref], 'kompletterar': 'paket-v19'}))
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 2, 'ett paket som inte finns kan inte kompletteras'
 # Bildval i REFERENSER.md pekar in i den nya versionen, också för det ärvda materialet, och löses av referensval
 (u_ref / 'prov-ref' / 'REFERENSER.md').write_text('## andra\n\nBildval: referenser/paket-v04/andra/01-start/vy-390-ruta-01.png — startsidan — Fråga: hur tät är listan?\n## lokal\n\nBildval: referenser/paket-v04/lokal/01-start/vy-390-meny.png — mobilmenyn — Fråga: hur öppnas den?\n')

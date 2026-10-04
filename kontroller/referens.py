@@ -348,13 +348,19 @@ def observationer(rapport, ut, bestallda=()):
     return obs
 
 
-def kopiera_sakert(kalla, mal, rot):
+def kopiera_sakert(kalla, mal, rot, vantade=()):
     """Kopierar ett träd ur ett tidigare paket utan att följa länkar: varje post måste vara en vanlig fil eller katalog
     (ingen länk, ingenting utanför rot); bryter en post mot det kopieras ingenting (Codex R33: copytree följde nästlade
-    länkar och kunde läsa utanför referensområdet)."""
+    länkar och kunde läsa utanför referensområdet). Ett inventeringsfel avbryter, och de förväntade filerna (vantade,
+    relativt mal) verifieras i kopian innan arvet godkänns (Codex R34)."""
     kalla, mal, rot = Path(kalla), Path(mal), Path(rot).resolve()
+    if kalla.is_symlink() or not kalla.is_dir():
+        raise RuntimeError('arvskällan %s är ingen katalog' % kalla)
     poster = []
-    for d, mappar, filer in os.walk(kalla, followlinks=False):
+
+    def fel(e):
+        raise RuntimeError('arvskällan kunde inte inventeras: %s' % e)
+    for d, mappar, filer in os.walk(kalla, onerror=fel, followlinks=False):
         for n in mappar + filer:
             p = Path(d) / n
             if p.is_symlink():
@@ -365,8 +371,6 @@ def kopiera_sakert(kalla, mal, rot):
             if not (p.is_dir() or p.is_file()):
                 raise RuntimeError('oväntad post i arvskällan: %s' % p)
             poster.append(p)
-    if kalla.is_symlink() or not kalla.is_dir():
-        raise RuntimeError('arvskällan %s är ingen katalog' % kalla)
     mal.mkdir(parents=True, exist_ok=False)
     for p in poster:
         m = mal / p.relative_to(kalla)
@@ -374,10 +378,36 @@ def kopiera_sakert(kalla, mal, rot):
             m.mkdir(exist_ok=True)
         else:
             shutil.copyfile(p, m)  # copyfile följer inga länkar här: posten är redan prövad som vanlig fil
-    for d, mappar, filer in os.walk(mal):
+    for d, mappar, filer in os.walk(mal, onerror=fel):
         for n in mappar + filer:
             if (Path(d) / n).is_symlink():
                 raise RuntimeError('länk i kopian: %s' % (Path(d) / n))
+    saknas = [v for v in vantade if not (mal / v).is_file() or (mal / v).stat().st_size == 0]
+    if saknas:
+        raise RuntimeError('arvet är ofullständigt, filer saknas i %s: %s' % (kalla, ', '.join(saknas[:5])))
+
+
+def samma_referens(a, b):
+    """Två adresser gäller samma referens när värden är densamma eller dess www-/bartvilling (http och https räknas lika);
+    en lokal provadress bara med samma port. Ett byte av referens under samma kandidatnamn vägras utan ersatt (Codex R34)."""
+    da, db = urllib.parse.urlsplit(a), urllib.parse.urlsplit(b)
+    if da.hostname == '127.0.0.1' or db.hostname == '127.0.0.1':
+        return da.hostname == db.hostname and da.port == db.port
+    return bool(tvillingar(da.hostname or '') & tvillingar(db.hostname or ''))
+
+
+def filer_for(post, sidor=None):
+    """De filer ett paketinlägg deklarerar (relativt paketet), för verifiering av arvet."""
+    ut = []
+    for fs in (post.get('sidor') or []) if sidor is None else sidor:
+        if isinstance(fs, dict):
+            ut += [x for x in fs.get('filer') or [] if isinstance(x, str) and not x.startswith('/') and '..' not in x]
+    return ut
+
+
+def tom_observation(skal):
+    """Observationer för en sida utan rapport: samma fält som vanliga observationer, bristen dokumenterad, aldrig fångad."""
+    return {'vyer': {}, 'kvar_blockerade': [], 'fel_resurser': [], 'begransningar': [skal], 'ok': False}
 
 
 def las_paket(rot, version):
@@ -424,10 +454,13 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         # komplettering av samma kandidat: oförändrade sidor ärvs från föregående paket (sida för sida, med sin katalog);
         # ersatt: true betyder fullständig ersättning utan arv (Codex R33)
         forra_k = arv.get(k['namn']) if arv_fran is not None and not k.get('ersatt') else None
+        if forra_k and not samma_referens(str(forra_k.get('adress') or ''), k['adress']):
+            raise RuntimeError('kandidaten %s byter referens (%s → %s): sätt ersatt: true eller ge den ett nytt namn' % (k['namn'], forra_k.get('adress'), k['adress']))
         arvda_sidor = []
         for fs in (forra_k or {}).get('sidor') or []:
-            if isinstance(fs, dict) and fs.get('sida') not in k['sidor'] and isinstance(fs.get('katalog'), str) and fs['katalog'].startswith(k['namn'] + '/'):
-                kopiera_sakert(arv_fran / fs['katalog'], paket / fs['katalog'], rot)
+            if isinstance(fs, dict) and fs.get('sida') not in k['sidor'] and isinstance(fs.get('katalog'), str) and fs['katalog'].startswith(k['namn'] + '/') and '..' not in fs['katalog']:
+                vantade = [x[len(fs['katalog']) + 1:] for x in filer_for(forra_k, [fs]) if x.startswith(fs['katalog'] + '/')]
+                kopiera_sakert(arv_fran / fs['katalog'], paket / fs['katalog'], rot, vantade)
                 arvda_sidor.append(dict(fs, arv=arv_fran.name))
         if forra_k:
             post['resursursprung'] = list(forra_k.get('resursursprung') or [])
@@ -455,9 +488,16 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
             while str(ut.relative_to(paket)) in upptagna:  # krockar aldrig med en ärvd sidkatalog
                 ut = ut.with_name(ut.name + '-ny')
             tillstand = k['tillstand'] if i == 0 else {}
-            rc, rapport, utskrift = kor_inspektera(adress, ut, tillat, tillstand, miljo_for(varden))
-            obs = observationer(rapport, ut, tuple(tillstand)) if rapport else {'vyer': {}, 'kvar_blockerade': [], 'begransningar': ['inspektionen gav ingen rapport: ' + utskrift[-300:]], 'ok': False}
+            try:
+                rc, rapport, utskrift = kor_inspektera(adress, ut, tillat, tillstand, miljo_for(varden))
+                obs = observationer(rapport, ut, tuple(tillstand)) if rapport else tom_observation('inspektionen gav ingen rapport: ' + utskrift[-300:])
+            except Exception as e:  # en fallerad inspektion är en brist i paketet, aldrig ett borttaget paket (Codex R34)
+                rc, obs = 1, tom_observation('inspektionen föll: %s' % str(e)[:300])
             filer = sorted(str(p.relative_to(paket)) for p in ut.rglob('*') if p.is_file() and p.suffix in ('.png', '.txt', '.md', '.json')) if ut.is_dir() else []
+            for vy_, o_ in obs['vyer'].items():  # bildfilerna som inlägget deklarerar ska finnas: annars ingen fångst
+                for fil_, finns_ in (o_.get('bildfiler') or {}).items():
+                    if finns_ and str((ut / fil_).relative_to(paket)) not in filer:
+                        o_['bildfiler'][fil_] = False
             sida_ok = rc == 0 and obs['ok']
             post['sidor'].append({'sida': sida, 'adress': adress, 'katalog': str(ut.relative_to(paket)), 'tillstand': tillstand, 'rc': rc, 'ok': sida_ok,
                                   'observationer': obs['vyer'], 'kvar_blockerade': obs['kvar_blockerade'], 'fel_resurser': obs['fel_resurser'],
@@ -469,9 +509,12 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         res['kandidater'].append(post)
     # komplettering: orörda kandidater ärvs hela från föregående paket, så att varje Bildval kan peka på den nya versionen
     for namn, post in arv.items():
-        if namn in nya or not (arv_fran / namn).is_dir() or (arv_fran / namn).is_symlink():
+        if namn in nya:
             continue
-        kopiera_sakert(arv_fran / namn, paket / namn, rot)
+        if not (arv_fran / namn).is_dir() or (arv_fran / namn).is_symlink():
+            raise RuntimeError('kandidaten %s saknas i %s; arvet kan inte godkännas' % (namn, arv_fran.name))
+        vantade = [x[len(namn) + 1:] for x in filer_for(post) if x.startswith(namn + '/')]
+        kopiera_sakert(arv_fran / namn, paket / namn, rot, vantade)
         arvd = dict(post, arv=arv_fran.name)
         res['kandidater'].append(arvd)
         alla_ok = alla_ok and bool(post.get('ok'))
