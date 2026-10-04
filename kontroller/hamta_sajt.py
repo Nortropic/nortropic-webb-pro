@@ -61,6 +61,11 @@ VIKTIG = re.compile(r"(kontakt|contact|om-oss|om_oss|omoss|om/|about|tjanster|tj
 # NWP_HAMTA_LOKALT=1: då tillåts bokstavliga lokala adresser (127.0.0.1, localhost), men ett värdnamn som pekar in i det
 # egna nätet nekas fortfarande.
 TILLAT_LOKALT = os.environ.get("NWP_HAMTA_LOKALT") == "1"
+# Sandlådat bygge (kor.sh NWP_SANDLADA=pa): inne i Claude Codes sandlåda kan namn inte slås upp och direkta anslutningar
+# nekas; all trafik går genom sandlådans proxy, som är nätgränsen (byggets domänlista, kontroller/sandlada.py, och Claude
+# Codes kontroll av värdnamn som pekar på lokala adresser). Då gör öppnaren inte adresskontrollen själv utan går via
+# proxyn (helbygget i kopian 2026-10-04: hamta_sajt nekade luleasnickaren.com som "gick inte att slå upp").
+I_SANDLADA = bool(os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY"))
 MAX_VANTAN = 10.0  # längsta crawl-delay vi följer (sekunder); längre än så ryms inte 40 sidor i ett byggsteg
 _adresser = {}
 
@@ -197,9 +202,13 @@ def oppnare(egen=None, rp=None, fore=None, folj=True, bas=None):
     """Öppnare med adresskontroll i anslutningen och omdirigeringsvakt. Används av varje extern hämtning i repot
     (hamta_sajt, sida_till_text, standardkontrollens länkar, prospekt, Bokadirekt)."""
     vakt = Omdirigeringsvakt(egen, rp, fore, folj, bas)
-    # ProxyHandler({}): aldrig miljöns eller systemets proxy; en proxy skulle slå upp och ansluta till målet utanför
-    # adresskontrollen (revisionen 2026-10-03, F5 omgång tre). Hämtaren ansluter alltid direkt.
-    o = urllib.request.build_opener(urllib.request.ProxyHandler({}), _HttpHandler(), _HttpsHandler(), vakt)
+    if I_SANDLADA:
+        # sandlådans proxy (miljön) är gränsen; NO_PROXY omfattar localhost, så provens lokala servrar nås direkt
+        o = urllib.request.build_opener(urllib.request.ProxyHandler(), vakt)
+    else:
+        # ProxyHandler({}): aldrig miljöns eller systemets proxy; en proxy skulle slå upp och ansluta till målet utanför
+        # adresskontrollen (revisionen 2026-10-03, F5 omgång tre). Hämtaren ansluter alltid direkt.
+        o = urllib.request.build_opener(urllib.request.ProxyHandler({}), _HttpHandler(), _HttpsHandler(), vakt)
     o.vakt = vakt
     return o
 

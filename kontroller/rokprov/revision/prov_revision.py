@@ -2040,5 +2040,35 @@ finally:
 print('webbtjänsten ok')
 
 
+# ---------------------------------------------------------------- hamta_sajt i sandlådan: via proxyn, ingen egen adresskontroll (2026-10-04)
+# Inne i sandlådan kan namn inte slås upp och direkta anslutningar nekas; proxyn är nätgränsen. Med HTTPS_PROXY satt går
+# öppnaren via den (falsk proxy här ser den absoluta adressen), utan den pinnas den uppslagna adressen som förut.
+import http.server as hs_  # noqa: E402
+import threading as th_  # noqa: E402
+sedda_proxy = []
+
+
+class FalskProxy(hs_.BaseHTTPRequestHandler):
+    def do_GET(self):
+        sedda_proxy.append(self.path)
+        data = b'proxy-svar'
+        self.send_response(200); self.send_header('Content-Type', 'text/plain'); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
+
+    def log_message(self, *a):
+        pass
+
+
+fp_srv = hs_.HTTPServer(('127.0.0.1', 0), FalskProxy); th_.Thread(target=fp_srv.serve_forever, daemon=True).start()
+hp = subprocess.run([PY, '-c', 'import sys; sys.path.insert(0, %r); import hamta_sajt as h; print(h.I_SANDLADA); print(h.oppnare().open("http://exempel.test/", timeout=10).read().decode())' % str(ROOT / 'kontroller')],
+                    capture_output=True, text=True, env=dict(os.environ, HTTPS_PROXY='http://127.0.0.1:%d' % fp_srv.server_address[1], HTTP_PROXY='http://127.0.0.1:%d' % fp_srv.server_address[1], NO_PROXY='localhost,127.0.0.1'), timeout=60)
+assert hp.stdout.splitlines() == ['True', 'proxy-svar'] and sedda_proxy == ['http://exempel.test/'], (hp.stdout, hp.stderr[-300:], sedda_proxy)
+miljo_hp = {k_: v_ for k_, v_ in os.environ.items() if not k_.upper().endswith('_PROXY')}
+hp2 = subprocess.run([PY, '-c', 'import sys; sys.path.insert(0, %r); import hamta_sajt as h; print(h.I_SANDLADA)\ntry:\n    h.oppnare().open("http://finns-inte.exempel.test/", timeout=10)\nexcept Exception as e:\n    print(type(e).__name__, str(e)[:80])' % str(ROOT / 'kontroller')],
+                     capture_output=True, text=True, env=miljo_hp, timeout=60)
+assert hp2.stdout.startswith('False\n') and 'slå upp' in hp2.stdout and len(sedda_proxy) == 1, (hp2.stdout, hp2.stderr[-300:])
+fp_srv.shutdown()
+print('hamta_sajt via sandlådans proxy ok')
+
+
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')
