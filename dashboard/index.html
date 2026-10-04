@@ -476,12 +476,23 @@ async function kalibreringvy() {
          <div class="rad" style="margin-top:8px"><button class="knapp primar" data-kal="${e.id}">Spara domen</button></div>`;
     return `<section class="kort" style="margin-bottom:24px"><h2>${esc(e.id)}</h2>${rad('start', 'Startsidan')}${rad('undersida', 'En undersida')}${form}</section>`;
   };
-  $('#vy').innerHTML = `<h1>Kalibrering</h1><p class="under">Externa sajter utan namn. Döm var och en på mobil och dator: tydligt över ribban, nästan, eller generisk, och skriv exakt vad som skiljer. Adressen och agentens hypotes visas efter din dom. Domarna sparas privat (underlag/kalibrering/DOMAR.json); hälften blir ankare för granskarna, hälften hålls undan för att pröva dem.</p>${lista.map(kort).join('') || '<p>Inga exempel fångade än.</p>'}`;
+  $('#vy').innerHTML = `<h1>Kalibrering</h1><p class="under">Externa sajter utan namn. Döm var och en på mobil och dator: tydligt över ribban, nästan, eller generisk, och skriv exakt vad som skiljer. Adressen och agentens hypotes visas efter din dom. Domarna sparas privat (underlag/kalibrering/DOMAR.json) när du trycker Spara domen; tills dess ligger nivån och texten kvar som utkast i den här webbläsaren, också efter omladdning. Hälften blir ankare för granskarna, hälften hålls undan för att pröva dem.</p>${lista.map(kort).join('') || '<p>Inga exempel fångade än.</p>'}`;
+  // utkast per exempel i localStorage (ägaren 2026-10-04: texten försvann vid omladdning innan domen var sparad)
+  const utkastNyckel = (id) => 'kalibrering-utkast-' + id;
+  for (const e of lista.filter((x) => !x.dom)) {
+    let u = null; try { u = JSON.parse(localStorage.getItem(utkastNyckel(e.id)) || 'null'); } catch {}
+    const ta = $('#sk-' + e.id); if (!ta) continue;
+    if (u && typeof u.skiljer === 'string') ta.value = u.skiljer;
+    if (u && u.niva) { const r = document.querySelector(`input[name="niva-${e.id}"][value="${u.niva}"]`); if (r) r.checked = true; }
+    const spara = () => { try { localStorage.setItem(utkastNyckel(e.id), JSON.stringify({ niva: (document.querySelector(`input[name="niva-${e.id}"]:checked`) || {}).value || '', skiljer: ta.value })); } catch {} };
+    ta.addEventListener('input', spara);
+    document.querySelectorAll(`input[name="niva-${e.id}"]`).forEach((r) => r.addEventListener('change', spara));
+  }
   document.querySelectorAll('[data-kal]').forEach((k) => k.onclick = async () => {
     const id = k.dataset.kal; const niva = (document.querySelector(`input[name="niva-${id}"]:checked`) || {}).value;
     if (!niva) { alert('Välj nivå först.'); return; }
     k.disabled = true;
-    try { await post('/api/kalibrering/' + encodeURIComponent(id), { niva, skiljer: $('#sk-' + id).value }); kalibreringvy(); } catch (e) { alert(e.message); k.disabled = false; }
+    try { await post('/api/kalibrering/' + encodeURIComponent(id), { niva, skiljer: $('#sk-' + id).value }); try { localStorage.removeItem(utkastNyckel(id)); } catch {} kalibreringvy(); } catch (e) { alert(e.message); k.disabled = false; }
   });
 }
 

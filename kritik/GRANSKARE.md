@@ -77,8 +77,10 @@ räcker, till exempel för rörelse.
 ## Fem kriterier, betyg 1–10
 
 Varje kriterium får också ett **ja eller nej** (`visa`): räcker det här för att ägaren ska visa sajten för
-verksamheten? Godkänt kräver både betyget och ett ja. **Bildankarna** i uppdraget visar första vyn av byggen som
-ägaren redan har dömt, med domen bredvid; använd dem för att se var nivåerna ligger.
+verksamheten? Godkänt kräver både betyget och ett ja. **Kalibreringsankarna** i uppdraget visar första vyn (390 och 1440) av
+externa sajter som ägaren dömt blint i tre nivåer, med ägarens ord om vad som skiljer (kalibrering.md i omgången):
+tydligt över ribban = 8–9, nästan = 6 (under tröskeln), generisk = 5 eller lägre. Använd dem för att se var nivåerna
+ligger; kännetecknen per nivå står i kunskap/visuell-niva.md. Tidigare egna byggen är ingen måttstock.
 
 Ankare för alla fem: **3** trasigt eller amatörmässigt · **5** fungerar men är en mall, ett annat företagsnamn kunde
 sättas dit utan större ändring · **7** professionell nivå som ägaren kan visa för verksamheten · **9** i nivå med de

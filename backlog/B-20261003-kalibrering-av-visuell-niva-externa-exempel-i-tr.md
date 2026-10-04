@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-03T22:09Z
+andrad: 2026-10-04T13:30Z
 ---
 # Kalibrering av visuell nivå: externa exempel i tre nivåer, granskarna prövade på osedda exempel
 
@@ -18,3 +18,5 @@ andrad: 2026-10-03T22:09Z
 **Klart när:** kunskap/visuell-niva.md med exemplen och skälen; GRANSKARE.md pekar på ankarna; granskarförsöket rapporterar falska godkännanden på de undanhållna exemplen, och siffran står i LARDOMAR.md.
 
 **Pagar (2026-10-03):** steg 1 klart (dc21ecb): 13 exempel i tre nivåer fångade (underlag/kalibrering, start + undersida, 390/1440), dashboardvyn Kalibrering sparar ägarens dom privat; väntar på ägarens domar, sedan kunskap/visuell-niva.md, ankare i GRANSKARE.md och granskarförsöket på de undanhållna
+
+**Pågår (2026-10-04T13:30Z):** steg 2. Ägaren dömde alla 13 exempel 2026-10-04 (privat: underlag/kalibrering/DOMAR.json och DOMAR-original-20261004.md; fördelning 4 över, 4 nästan, 5 generisk). Delningen i underlag/kalibrering/ANKARE.txt: sju ankare (K03, K05, K06, K07, K08, K09, K12), sex undanhållna (K01, K02, K04, K10, K11, K13). granska.py fryser ankarna i varje omgång (kalibrering/ med första vyn 390 och 1440, kalibrering.md med ägarens ord ordagrant) och uppdraget pekar på dem; kritik/GRANSKARE.md förklarar nivåerna som betyg (över 8–9, nästan 6, generisk ≤ 5); kunskap/visuell-niva.md har kännetecknen per nivå utan sajternas namn; kontroller/granskarforsok/kalibrering.py prövar granskaren på de undanhållna och räknar falska godkännanden och falska underkännanden. Kvar: köra försöket och skriva siffran i LARDOMAR.md; fånga om K03:s undersida (samma sida som startsidan) och de hela-bilder som kakdialogen tömde (K01, K04).

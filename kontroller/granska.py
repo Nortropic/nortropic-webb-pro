@@ -339,6 +339,60 @@ def domda_byggen(utom=None):
             yield p, dom[-1].get('svar') or {}
 
 
+KALIBRERING_NIVAER = {'over': 'tydligt över ribban', 'nastan': 'nästan', 'generisk': 'generisk'}
+KALIBRERING_SKALA = 'tydligt över ribban = 8–9 (godkänd nivå), nästan = 6 (under tröskeln), generisk = 5 eller lägre'
+
+
+def kalibreringsexempel(underlag=None):
+    """Ägarens blint dömda externa exempel (backlogposten om kalibrering av visuell nivå, 2026-10-03): id, nivå och ägarens
+    ord ur underlag/kalibrering/DOMAR.json, delade i ankare (ANKARE.txt: en rad per id, `K06 · ankare`) och undanhållna
+    (resten med dom; granskarförsöket, kontroller/granskarforsok/kalibrering.py). Allt är privat under underlag/: exemplen
+    är namngivna sajter, några av dem lokala verksamheters; i uppdraget fryses bara ankarna (frysta_ankare)."""
+    rot = Path(underlag or UNDERLAG) / 'kalibrering'
+    domar = las_json(rot / 'DOMAR.json') or {}
+    ankare = set()
+    f = rot / 'ANKARE.txt'
+    if f.is_file():
+        for rad in f.read_text(encoding='utf-8').splitlines():
+            delar = [d.strip() for d in rad.split('·')]
+            if len(delar) >= 2 and re.fullmatch(r'K\d{2}', delar[0]) and delar[1] == 'ankare':
+                ankare.add(delar[0])
+    ut = []
+    for ident in sorted(domar) if isinstance(domar, dict) else []:
+        d = domar[ident]
+        if not re.fullmatch(r'K\d{2}', ident) or not isinstance(d, dict) or d.get('niva') not in KALIBRERING_NIVAER:
+            continue
+        bilder = [rot / ident / 'start' / v for v in ('vy-390-forsta.png', 'vy-1440-forsta.png') if (rot / ident / 'start' / v).is_file()]
+        ut.append({'id': ident, 'niva': d['niva'], 'skiljer': (d.get('skiljer') or '').strip(), 'bilder': bilder, 'ankare': ident in ankare})
+    return ut
+
+
+def frysta_ankare(rdir, underlag=None):
+    """Kalibreringsankarna kopierade till omgången: första vyn 390 och 1440 under kalibrering/ och ägarens ord ordagrant i
+    kalibrering.md (ägaren 2026-10-04: texterna är skrivna för att klistras in ordagrant som måttstock), så att alla granskare
+    ser samma underlag och domen gäller det som visades. Ger (md, [(Path, text)]) eller None utan ankare."""
+    ankare = [e for e in kalibreringsexempel(underlag) if e['ankare'] and e['bilder']]
+    if not ankare:
+        return None
+    rdir = Path(rdir)
+    rot = Path(underlag or UNDERLAG) / 'kalibrering'
+    mapp = rdir / 'kalibrering'
+    mapp.mkdir(parents=True, exist_ok=True)
+    bilder = []
+    rader = ['# Kalibreringsankare — ägarens ord om externa sajter, dömda blint', '',
+             'Nivåer: %s. Bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete; "Drar ner" är det som' % KALIBRERING_SKALA,
+             'ändå inte fällde nivån, "Mått" är regeln ägaren drar.', '']
+    for e in ankare:
+        for b in e['bilder']:
+            mal = mapp / ('%s-%s' % (e['id'], b.name))
+            shutil.copy2(sakert_original(b, rot), mal)
+            bilder.append((mal, '%s · %s' % (e['id'], KALIBRERING_NIVAER[e['niva']])))
+        rader += ['## %s · %s' % (e['id'], KALIBRERING_NIVAER[e['niva']]), '', e['skiljer'], '']
+    md = rdir / 'kalibrering.md'
+    md.write_text('\n'.join(rader), encoding='utf-8')
+    return md, bilder
+
+
 def bildankare(utom=None):
     """Första vyn av dömda byggen med ägarens dom bredvid. Används inte längre i uppdragen: egna byggen är ingen måttstock
     (ägaren 2026-10-03: "våra hemsidor är dåliga och håller inte"); kvar för dashboardens överensstämmelse."""
@@ -370,7 +424,7 @@ def kalibrering(utom=None):
     return rader
 
 
-def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=(), lardomar=None, felrader=None):
+def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=None, lardomar=None, felrader=None):
     """felrader: Bildval som inte gick att läsa, frysta av anroparen tillsammans med bilderna så att alla granskare får samma
     underlag (Codex 2026-10-04, F18/F38); None räknar dem här (torrkörning)."""
     if felrader is None:
@@ -390,9 +444,12 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Din arbetskatalog för egna skärmbilder och sida.mjs-utdata: %s' % arbetskatalog,
         'Trösklar för godkänt: %s, och inga blockerande fynd. Godkännandet räknas ut av verktyget.' % trosklar, '',
         'Ägarens domar (utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md'), '',
-        'Ribban är professionell nivå enligt referensernas skärmbilder nedan och exemplaren i kunskap/referenser-professionella.md.',
+        'Ribban är professionell nivå enligt kalibreringsankarna, referensernas skärmbilder nedan och exemplaren i kunskap/referenser-professionella.md.',
         'Tidigare egna byggen är ingen måttstock, inte heller när ägaren godkänt dem (ägaren 2026-10-03: de håller inte);',
         'de visas bara för att du ska se om det här bygget är en variant av dem.', '',
+        *(['Kalibreringsankare: externa sajter som ägaren dömt blint (%s). Ägarens ord om vad som skiljer, ordagrant: %s' % (KALIBRERING_SKALA, rad(ankare[0])[2:]),
+           'Första vyn 390 och 1440 per sajt (läs varje, med ägarens ord bredvid):', *[rad(p) + ' — ' + t for p, t in ankare[1]], '']
+          if ankare else []),
         'Verksamhetens underlag:', *[rad(p) for p in underlag], '',
         'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390 och 1440 (läs varje):',
         *[rad(p) for p in bilder], '',
@@ -463,13 +520,14 @@ def arbetare(rdir):
             korande = []
             frysta = frysta_referenser(slug, rdir)  # en gång, före loopen: alla granskare ser samma kopior (omgång tolv, F18)
             frysta_fel = referensval.felrader(slug, UNDERLAG)  # felstatusen fryses med bilderna, före metodkontrollen (F18/F38)
+            ankare = frysta_ankare(rdir)  # kalibreringsankarna fryses en gång, lika för alla granskare
             if upp.get('metod_sha') and metod_sha(slug) != upp['metod_sha']:
                 raise RuntimeError('underlaget (referensbilder eller texter) ändrades mellan bokföringen och starten; kör granskningen igen')
             for n in range(1, antal + 1):
                 arbetskatalog = ARBETSROT / slug / ('%s-%d' % (rdir.name, n))  # sluggen som eget led (Codex R25)
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                      frysta, tidigare_byggen(slug), [], rdir, aria, [], lardomar, felrader=frysta_fel)
+                                      frysta, tidigare_byggen(slug), [], rdir, aria, ankare, lardomar, felrader=frysta_fel)
                 (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
                 args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config',
@@ -773,7 +831,7 @@ def main(argv=None):
                 shutil.copy2(sakert_original(kund / 'prov' / namn, kund), rdir / Path(namn).name)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / a.slug / 'torr', bilder,
                               frysta_referenser(a.slug, rdir), tidigare_byggen(a.slug), [], rdir,
-                              aria_trad(kund, rdir / 'sajt'), [], lardomar_utan(a.slug, rdir))
+                              aria_trad(kund, rdir / 'sajt'), frysta_ankare(rdir), lardomar_utan(a.slug, rdir))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         print(prompt)
         print('Torrkörning: %s. Ingen granskare startades.' % (rdir / 'PROMPT.txt'))

@@ -2553,6 +2553,64 @@ except RuntimeError as e_:
 assert 'HEMLIGT' not in ''.join(p_.read_text() for p_ in [x for x in rdir_g3.rglob('*') if x.is_file()] + [x for x in rdir_g2.rglob('*') if x.is_file()]), 'ingen hemlighet i någon omgång'
 print('slugvakterna och granskas frysning ok')
 
+# ---------------------------------------------------------------- kalibreringsankarna (backlogposten om kalibrering av visuell nivå, steg 2, 2026-10-04):
+# ägarens domar privata; ankarna fryses i omgången med ägarens ord ordagrant, undanhållna syns aldrig i uppdraget; försöket mäter
+import importlib.util as ilu_
+kal_u = tmp / 'kal-underlag'; kal_r = kal_u / 'kalibrering'
+png_ = b'\x89PNG\r\n\x1a\n' + b'\x00' * 32
+for ident_, niva_ in (('K01', 'over'), ('K02', 'nastan'), ('K03', 'generisk'), ('K04', 'over')):
+    for sida_ in ('start', 'undersida'):
+        (kal_r / ident_ / sida_).mkdir(parents=True)
+        for v_ in ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-390-hela.png', 'vy-390-ruta-01.png'):
+            (kal_r / ident_ / sida_ / v_).write_bytes(png_)
+        (kal_r / ident_ / sida_ / 'vy-390-aria.txt').write_text('träd')
+(kal_r / 'DOMAR.json').write_text(json.dumps({'K01': {'niva': 'over', 'skiljer': 'ETIKETTERNA bär allt', 'tid': 't'}, 'K02': {'niva': 'nastan', 'skiljer': 'GENRETROGEN polering', 'tid': 't'},
+                                               'K03': {'niva': 'generisk', 'skiljer': 'IKONRUTNÄT och garantikort', 'tid': 't'}, 'K04': {'niva': 'over', 'skiljer': 'HÅRLINJER', 'tid': 't'}, 'K99': {'niva': 'fel'}}))
+(kal_r / 'ANKARE.txt').write_text('# delning\nK01 · ankare\nK03 · ankare\nK02 · undanhållen\nK04 · undanhållen\n')
+ex_ = gr.kalibreringsexempel(kal_u)
+assert [(e['id'], e['niva'], e['ankare'], len(e['bilder'])) for e in ex_] == [('K01', 'over', True, 2), ('K02', 'nastan', False, 2), ('K03', 'generisk', True, 2), ('K04', 'over', False, 2)], ex_
+runda_kal = tmp / 'runda-kal'; runda_kal.mkdir()
+fr_ = gr.frysta_ankare(runda_kal, kal_u)
+md_kal, bilder_kal = fr_
+text_kal = md_kal.read_text()
+assert 'ETIKETTERNA bär allt' in text_kal and 'IKONRUTNÄT och garantikort' in text_kal and 'GENRETROGEN' not in text_kal and 'HÅRLINJER' not in text_kal, 'bara ankarnas ord, ordagrant'
+assert [p_.name for p_, _ in bilder_kal] == ['K01-vy-390-forsta.png', 'K01-vy-1440-forsta.png', 'K03-vy-390-forsta.png', 'K03-vy-1440-forsta.png'] and all(p_.read_bytes() == png_ for p_, _ in bilder_kal)
+assert [t_ for _, t_ in bilder_kal] == ['K01 · tydligt över ribban', 'K01 · tydligt över ribban', 'K03 · generisk', 'K03 · generisk']
+upp_kal = gr.uppdrag_text('ref38', 'http://x', ['/'], tmp / 'arb', [], [], [], [], runda_kal, (), fr_)
+assert 'Kalibreringsankare' in upp_kal and 'K01-vy-390-forsta.png — K01 · tydligt över ribban' in upp_kal and 'ordagrant: ' in upp_kal and md_kal.name in upp_kal.split('ordagrant: ')[1].split('\n')[0] and 'K02' not in upp_kal and 'K04' not in upp_kal, upp_kal[-1500:]  # vägen relativ när omgången ligger under ROOT
+assert 'kalibreringsankarna' in upp_kal.split('Verksamhetens underlag')[0]
+upp_utan = gr.uppdrag_text('ref38', 'http://x', ['/'], tmp / 'arb', [], [], [], [], runda_kal)
+assert 'Kalibreringsankare' not in upp_utan and 'ankare' not in upp_utan.split('Verksamhetens underlag')[0].replace('kalibreringsankarna', '')
+assert gr.frysta_ankare(tmp / 'runda-kal2', tmp / 'finns-inte') is None, 'utan underlag: inga ankare'
+(kal_r / 'K01' / 'start' / 'vy-390-forsta.png').unlink(); (kal_r / 'K01' / 'start' / 'vy-390-forsta.png').symlink_to(tmp / 'hemlig.txt')
+try:
+    gr.frysta_ankare(tmp / 'runda-kal3', kal_u); assert False, 'en planterad symlänk bland ankarbilderna får inte kopieras'
+except RuntimeError as e_:
+    assert 'symlänk' in str(e_)
+(kal_r / 'K01' / 'start' / 'vy-390-forsta.png').unlink(); (kal_r / 'K01' / 'start' / 'vy-390-forsta.png').write_bytes(png_)
+# försöket: undanhållna förbereds med egna bilder och ankarna, uppdraget nämner inte de undanhållnas ord; jämförelsen räknar rätt
+spec_ = ilu_.spec_from_file_location('kalforsok', ROOT / 'kontroller' / 'granskarforsok' / 'kalibrering.py'); kf_ = ilu_.module_from_spec(spec_); spec_.loader.exec_module(kf_)
+und_ = kf_.undanhallna(kal_u); assert [e['id'] for e in und_] == ['K02', 'K04']
+ut_kf = tmp / 'forsok'
+rc_kf = kf_.main(['--torr', '--ut', str(ut_kf), '--underlag', str(kal_u)]); assert rc_kf == 0
+for ident_ in ('K02', 'K04'):
+    pr_ = (ut_kf / ident_ / 'PROMPT.txt').read_text()
+    assert 'kalibreringsförsök' in pr_ and 'K01 · tydligt över ribban' in pr_ and 'K03 · generisk' in pr_ and 'GENRETROGEN' not in pr_ and 'HÅRLINJER' not in pr_, pr_[:600]
+    assert (ut_kf / ident_ / 'sajt' / 'start' / 'vy-390-forsta.png').is_file() and (ut_kf / ident_ / 'sajt' / 'undersida' / 'vy-390-ruta-01.png').is_file() and (ut_kf / ident_ / 'kalibrering.md').is_file()
+    assert 'ETIKETTERNA' in (ut_kf / ident_ / 'kalibrering.md').read_text() and 'GENRETROGEN' not in (ut_kf / ident_ / 'kalibrering.md').read_text()
+    assert str(ut_kf / ident_ / 'sajt' / 'start' / 'vy-390-aria.txt') in pr_
+krit_ok = {n_: {'betyg': 8, 'motivering': '', 'visa': True} for n_ in gr.KRITERIER}
+krit_lagt = dict(krit_ok, designkvalitet={'betyg': 5, 'motivering': '', 'visa': False})
+rader_kf, s_kf = kf_.jamfor(und_, {'K02': {'kriterier': krit_ok, 'blockerande': []}, 'K04': {'kriterier': krit_lagt, 'blockerande': []}})
+assert [r_['utfall'] for r_ in rader_kf] == ['falskt godkännande', 'falskt underkännande'] and s_kf == {'undanhallna': 2, 'svar': 2, 'falska_godkannanden': 1, 'av_ej_over': 1, 'falska_underkannanden': 1, 'av_over': 1}, (rader_kf, s_kf)
+rader_kf2, s_kf2 = kf_.jamfor(und_, {'K02': {'kriterier': krit_lagt, 'blockerande': []}, 'K04': None})
+assert [r_['utfall'] for r_ in rader_kf2] == ['rätt', 'inget giltigt svar'] and s_kf2['svar'] == 1 and s_kf2['falska_godkannanden'] == 0
+rap_ = kf_.rapport(rader_kf, s_kf, ut_kf, 'm', 'e'); assert 'Falska godkännanden: 1 av 1' in rap_.read_text() and (ut_kf / 'RAPPORT.json').is_file()
+assert 'visuell-niva.md' in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'Kalibreringsankarna' in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'Bildankarna' not in (ROOT / 'kritik' / 'GRANSKARE.md').read_text()
+vn_ = (ROOT / 'kunskap' / 'visuell-niva.md').read_text().lower()
+assert all(x_ not in vn_ for x_ in ('oatly', 'koto', 'aman', 'dinesen', 'belvia', 'blue tit', 'sparky', 'vardehaugen', 'snickaren', 'paint it', 'sundbom', 'salong kreativ', 'grilli')), 'den publika filen namnger inga sajter'
+print('kalibreringsankarna och försöket ok')
+
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')
