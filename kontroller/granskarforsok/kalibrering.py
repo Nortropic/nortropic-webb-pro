@@ -13,12 +13,16 @@ bara när manifestet är identiskt och svaret validerar mot hela schemat (Codex 
 aldrig som domar: de redovisas separat som ofullständigt försök och ger slutkod 1. Granskaren får bara se exemplets frysta
 bilder, ankarna och mekaniken; underlag/, kunder/, LARDOMAR.md och hemmets .claude nekas. Siffran (utan sajternas namn)
 skrivs av sessionen i LARDOMAR.md. Måttstocken kunskap/visuell-niva.md byggs enbart ur ankarhalvan; ett oberoende slutmått
-kräver ett nytt, orört urval (Codex R30: testdata får inte påverka reglerna som utvärderas).
+kräver ett nytt, orört urval (Codex R30: testdata får inte påverka reglerna som utvärderas). Metoden fryses med bilderna
+(Codex R31): granskartexten, schemana och måttstockarna kopieras till <exempel>/metod/ och granskaren körs därifrån, med
+schemat ur kopian och det riktiga repot oläsbart, så att manifestet beskriver exakt det granskaren såg. Svaret valideras
+mot hela schemat (typer, obligatoriska fält, enum, gränser, nästlade objekt); ett oläsbart schema är ett försöksfel.
 """
 import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -33,7 +37,8 @@ ROOT = Path(__file__).resolve().parents[2]
 HEM = str(Path.home())
 G = Path(os.environ.get('NWP_FORSOK') or '/tmp/nwp-granskarforsok') / 'kalibrering'
 VYER = ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-390-hela.png')
-NEKAS_EXTRA = ['Read(./underlag/**)', 'Read(./kunder/**)', 'Read(./LARDOMAR.md)', 'Read(%s/.claude/**)' % HEM]
+NEKAS_EXTRA = ['Read(%s/**)' % ROOT, 'Read(%s/.claude/**)' % HEM]  # granskaren ser bara sin katalog: bilderna, ankarna och metodkopian
+METODFILER_MONSTER = r'(?:kunskap|kritik)/[A-Za-z0-9_./-]+\.(?:md|json)'
 
 
 def undanhallna(underlag=None):
@@ -67,7 +72,8 @@ def uppdrag(e, ut, bilder, aria, ankare):
         'Det här är ett kalibreringsförsök: sajten är en befintlig extern webbplats, inte vårt bygge, och den finns inte live',
         'här. Döm den från skärmbilderna och tillgänglighetsträden nedan, som ägaren gjorde, på samma fem kriterier. Inget',
         'underlag om verksamheten finns; döm verksamhetens egen närvaro ur sajten. Skriv "ej tillämpligt" under likhet_tidigare.', '',
-        'Din arbetskatalog: %s' % ut,
+        'Din arbetskatalog: %s. Metoden (granskartexten, måttstockarna, schemat) ligger fryst i %s, som är din arbetsrot;' % (ut, Path(ut) / 'metod'),
+        'läs den därifrån och ingenting utanför din arbetskatalog.',
         'Trösklar för godkänt: %s, och inga blockerande fynd. Godkännandet räknas ut av verktyget.' % trosklar, '',
         'Ribban är professionell nivå enligt kalibreringsankarna och exemplaren i kunskap/referenser-professionella.md.', '',
         *(['Kalibreringsankare: externa sajter som ägaren dömt blint (%s). Ägarens ord om vad som skiljer, ordagrant: %s' % (gr.KALIBRERING_SKALA, ankare[0]),
@@ -85,12 +91,113 @@ def hash_fil(p):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 
-def manifest(ut, modell, effort, prompt, bilder, aria, ankare):
-    """Det ett svar är bundet till: modell, effort och hashar av uppdraget, bedömningsreglerna (granskartexten, schemat,
-    måttstockarna), exemplets bilder och ankarna. Bara ett identiskt manifest får återanvända ett svar (Codex R30)."""
+def metodfiler():
+    """Granskartexten, schemana, måttstockarna och de kunskaps- och kritikfiler de pekar på (ett led): det granskaren
+    får läsa om metoden, alla relativt repots rot."""
+    ut = [gr.INSTRUKTION, 'kritik/' + gr.SCHEMA.name, 'kritik/' + gr.SCHEMA_ORIGINALITET.name] + [f for _, f in gr.MATTSTOCKAR]  # schemana ligger i kritik/ (namnen ur granska, vägarna relativt repot)
+    for f in list(ut):
+        p = ROOT / f
+        if p.is_file() and p.suffix == '.md':
+            ut += [m for m in re.findall(METODFILER_MONSTER, p.read_text(encoding='utf-8', errors='replace'))]
+    return [f for f in dict.fromkeys(ut) if (ROOT / f).is_file()]
+
+
+def frys_metod(ut):
+    """Metoden kopierad till ut/metod/ med samma relativa vägar som i repot: granskaren körs med den katalogen som
+    arbetsrot, läser 'kritik/GRANSKARE.md' därifrån och får schemat ur kopian. Ger {relativ väg: fryst Path}."""
+    mal = Path(ut) / 'metod'
+    frysta = {}
+    for f in metodfiler():
+        kopia = mal / f
+        kopia.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(gr.sakert_original(ROOT / f, ROOT), kopia)
+        frysta[f] = kopia
+    return frysta
+
+
+def fryst_schema(ut):
+    return Path(ut) / 'metod' / 'kritik' / gr.SCHEMA.name
+
+
+def las_schema(p):
+    """Schemat som ett objekt; oläsbart eller ogiltigt schema är ett försöksfel, aldrig ett godkänt svar (Codex R31)."""
+    try:
+        schema = json.loads(Path(p).read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        raise RuntimeError('schemat %s går inte att läsa: %s' % (p, e))
+    if not isinstance(schema, dict) or not isinstance(schema.get('required'), list) or 'properties' not in schema:
+        raise RuntimeError('schemat %s saknar required/properties' % p)
+    return schema
+
+
+TYPER = {'object': dict, 'array': list, 'string': str, 'boolean': bool, 'null': type(None)}
+
+
+def schemafel(schema, varde, rot=None, vag='$'):
+    """Första avvikelsen från schemat (type, required, properties, additionalProperties, items, maxItems, enum,
+    minimum, maximum, $ref till #/$defs/…), eller None. Täcker det SCHEMA-granskning.json använder."""
+    rot = schema if rot is None else rot
+    if '$ref' in schema:
+        ref = schema['$ref']
+        if not ref.startswith('#/'):
+            return '%s: okänd referens %s' % (vag, ref)
+        mal = rot
+        for led in ref[2:].split('/'):
+            mal = mal.get(led) if isinstance(mal, dict) else None
+        if not isinstance(mal, dict):
+            return '%s: referensen %s saknas' % (vag, ref)
+        return schemafel(mal, varde, rot, vag)
+    typ = schema.get('type')
+    if typ is not None:
+        typer = typ if isinstance(typ, list) else [typ]
+        ok = False
+        for t in typer:
+            if t == 'integer':
+                ok = ok or (isinstance(varde, int) and not isinstance(varde, bool))
+            elif t == 'number':
+                ok = ok or (isinstance(varde, (int, float)) and not isinstance(varde, bool))
+            elif t in TYPER:
+                ok = ok or isinstance(varde, TYPER[t])
+        if not ok:
+            return '%s: fel typ (väntade %s)' % (vag, typ)
+    if 'enum' in schema and varde not in schema['enum']:
+        return '%s: värdet ingår inte i %s' % (vag, schema['enum'])
+    if isinstance(varde, (int, float)) and not isinstance(varde, bool):
+        if 'minimum' in schema and varde < schema['minimum']:
+            return '%s: under %s' % (vag, schema['minimum'])
+        if 'maximum' in schema and varde > schema['maximum']:
+            return '%s: över %s' % (vag, schema['maximum'])
+    if isinstance(varde, dict):
+        for k in schema.get('required', []):
+            if k not in varde:
+                return '%s: fältet %s saknas' % (vag, k)
+        egenskaper = schema.get('properties', {})
+        for k, v in varde.items():
+            if k in egenskaper:
+                fel = schemafel(egenskaper[k], v, rot, '%s.%s' % (vag, k))
+                if fel:
+                    return fel
+            elif schema.get('additionalProperties') is False:
+                return '%s: okänt fält %s' % (vag, k)
+    if isinstance(varde, list):
+        if 'maxItems' in schema and len(varde) > schema['maxItems']:
+            return '%s: fler än %d poster' % (vag, schema['maxItems'])
+        if 'minItems' in schema and len(varde) < schema['minItems']:
+            return '%s: färre än %d poster' % (vag, schema['minItems'])
+        if isinstance(schema.get('items'), dict):
+            for i, v in enumerate(varde):
+                fel = schemafel(schema['items'], v, rot, '%s[%d]' % (vag, i))
+                if fel:
+                    return fel
+    return None
+
+
+def manifest(ut, modell, effort, prompt, bilder, aria, ankare, frysta):
+    """Det ett svar är bundet till: modell, effort och hashar av uppdraget, den frysta metoden (granskartexten, schemana,
+    måttstockarna som kopierats till ut/metod och som granskaren faktiskt läser), exemplets bilder och ankarna. Bara ett
+    identiskt manifest får återanvända ett svar (Codex R30/R31)."""
     ut = Path(ut)
-    regler = {f: hash_fil(ROOT / f) for f in [gr.INSTRUKTION] + [f for _, f in gr.MATTSTOCKAR] if (ROOT / f).is_file()}
-    regler['SCHEMA'] = hash_fil(gr.SCHEMA)
+    regler = {f: hash_fil(p) for f, p in sorted(frysta.items())}
     ank = {}
     if ankare:
         ank[str(ankare[0].relative_to(ut))] = hash_fil(ankare[0])
@@ -99,10 +206,10 @@ def manifest(ut, modell, effort, prompt, bilder, aria, ankare):
             'bilder': {str(p.relative_to(ut)): hash_fil(p) for p in list(bilder) + list(aria)}, 'ankare': ank}
 
 
-def validera(svar):
-    """Hela svaret prövas före återanvändning och jämförelse: anropet lyckat (ingen is_error, subtype success), ett
-    strukturerat svar med schemats obligatoriska fält, alla fem kriterier med heltalsbetyg 1–10, motivering och visa (bool),
-    blockerande som lista. Ger (structured_output, None) eller (None, fel)."""
+def validera(svar, schema):
+    """Hela svaret prövas före återanvändning och jämförelse: anropet lyckat (ingen is_error, subtype success) och ett
+    strukturerat svar som följer hela schemat (typer, obligatoriska fält, enum, gränser, nästlade objekt, inga okända fält),
+    plus de fem kriterierna med betyg 1–10 som granskningen räknar på. Ger (structured_output, None) eller (None, fel)."""
     if not isinstance(svar, dict):
         return None, 'inget svar'
     if svar.get('is_error') or svar.get('subtype') not in (None, 'success'):
@@ -110,58 +217,56 @@ def validera(svar):
     res = svar.get('structured_output')
     if not isinstance(res, dict):
         return None, 'inget strukturerat svar'
-    try:
-        kravda = json.loads(gr.SCHEMA.read_text(encoding='utf-8')).get('required') or []
-    except (OSError, ValueError):
-        kravda = []
-    for falt in kravda:
-        if falt not in res:
-            return None, 'fältet %s saknas' % falt
-    k = res.get('kriterier')
-    if not isinstance(k, dict):
-        return None, 'kriterier är inte ett objekt'
+    fel = schemafel(schema, res)
+    if fel:
+        return None, 'svaret följer inte schemat: ' + fel
+    k = res.get('kriterier') or {}
     for n in gr.KRITERIER:
         b = k.get(n)
         if (not isinstance(b, dict) or not isinstance(b.get('betyg'), int) or isinstance(b.get('betyg'), bool)
                 or not 1 <= b['betyg'] <= 10 or not isinstance(b.get('visa'), bool) or not isinstance(b.get('motivering'), str)):
             return None, 'kriteriet %s är ofullständigt' % n
-    if not isinstance(res.get('blockerande'), list):
-        return None, 'blockerande är inte en lista'
     return res, None
 
 
 def giltigt_svar(ut):
-    """Exemplets svar om anropet lyckades (KORNING.json: slutkod 0) och svaret validerar; annars (None, fel)."""
+    """Exemplets svar om anropet lyckades (KORNING.json: slutkod 0) och svaret validerar mot det frysta schemat; annars
+    (None, fel). Ett oläsbart fryst schema är ett försöksfel (RuntimeError)."""
     korning = gr.las_json(Path(ut) / 'KORNING.json') or {}
     if korning.get('slutkod') != 0:
         return None, 'anropet gav slutkod %s' % korning.get('slutkod', 'okänd')
-    return validera(gr.las_json(Path(ut) / 'svar.json'))
+    return validera(gr.las_json(Path(ut) / 'svar.json'), las_schema(fryst_schema(ut)))
+
+
+def claude_args(ut, modell, effort, claude):
+    """Granskarens anrop: schemat ur den frysta kopian, arbetsroten metodkopian (cwd), bara exemplets katalog läsbar."""
+    return [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
+            '--setting-sources', 'project,local', '--strict-mcp-config', '--model', modell, '--effort', effort,
+            '--json-schema', fryst_schema(ut).read_text(encoding='utf-8'), '--add-dir', str(ut),
+            '--allowedTools', 'Read', 'Glob', 'Grep', 'Bash(ls *)', '--disallowedTools', *gr.NEKAS, *NEKAS_EXTRA]
 
 
 def kor_en(e, ut, modell, effort, frist, claude):
     prompt = (ut / 'PROMPT.txt').read_text(encoding='utf-8')
-    args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
-            '--setting-sources', 'project,local', '--strict-mcp-config', '--model', modell, '--effort', effort,
-            '--json-schema', gr.SCHEMA.read_text(encoding='utf-8'), '--add-dir', str(ut),
-            '--allowedTools', 'Read', 'Glob', 'Grep', 'Bash(ls *)', '--disallowedTools', *gr.NEKAS, *NEKAS_EXTRA]
+    args = claude_args(ut, modell, effort, claude)
     t0 = time.time()
     slutkod = None
     with open(ut / 'svar.json', 'wb') as sv, open(ut / 'stderr.log', 'wb') as err:
         try:
-            slutkod = subprocess.run(args, input=prompt.encode(), stdout=sv, stderr=err, cwd=str(ROOT), env=gr.ren_miljo(), timeout=frist).returncode
+            slutkod = subprocess.run(args, input=prompt.encode(), stdout=sv, stderr=err, cwd=str(ut / 'metod'), env=gr.ren_miljo(), timeout=frist).returncode
         except subprocess.TimeoutExpired:
             slutkod = 'tidsgräns'
     (ut / 'KORNING.json').write_text(json.dumps({'slutkod': slutkod, 'sekunder': round(time.time() - t0), 'tid': gr.nu()}) + '\n', encoding='utf-8')
     return e['id'], round(time.time() - t0)
 
 
-def jamfor(exempel, svar):
+def jamfor(exempel, svar, schema=None):
     """Granskarens utfall mot ägarens nivå. svar: {id: hela svaret från claude (eller (structured_output, fel))}. Ett svar som
-    inte validerar räknas som ofullständigt försök, aldrig som dom. Ger (rader, sammanfattning)."""
+    inte validerar mot schemat räknas som ofullständigt försök, aldrig som dom. Ger (rader, sammanfattning)."""
     rader = []
     for e in exempel:
         v = svar.get(e['id'])
-        res, fel = v if isinstance(v, tuple) else validera(v)
+        res, fel = v if isinstance(v, tuple) else validera(v, schema if schema is not None else las_schema(gr.SCHEMA))
         if fel:
             rader.append({'id': e['id'], 'agaren': e['niva'], 'granskaren': None, 'utfall': 'ofullständigt: ' + fel})
             continue
@@ -226,9 +331,11 @@ def main(argv=None):
             shutil.rmtree(ut)
         ut.mkdir(parents=True)
         bilder, aria, ankare = forbered(e, ut, a.underlag)
+        frysta = frys_metod(ut)
+        las_schema(fryst_schema(ut))  # oläsbart schema är ett försöksfel, före varje anrop
         prompt = uppdrag(e, ut, bilder, aria, ankare)
         (ut / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
-        nytt = manifest(ut, a.modell, a.effort, prompt, bilder, aria, ankare)
+        nytt = manifest(ut, a.modell, a.effort, prompt, bilder, aria, ankare, frysta)
         (ut / 'MANIFEST.json').write_text(json.dumps(nytt, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         if gammalt_manifest == nytt and 'svar.json' in gammalt and 'KORNING.json' in gammalt:
             for n in ('svar.json', 'KORNING.json', 'stderr.log'):

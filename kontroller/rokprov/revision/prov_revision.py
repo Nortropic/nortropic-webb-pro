@@ -2611,13 +2611,30 @@ assert rader_kf2[0]['utfall'] == 'rätt' and rader_kf2[1]['utfall'] == 'ofullst�
 rap_ = kf_.rapport(rader_kf, s_kf, ut_kf, 'm', 'e'); assert 'Falska godkännanden: 1 av 1' in rap_.read_text() and (ut_kf / 'RAPPORT.json').is_file()
 # validering (Codex R30): anropsfel och ofullständiga svar är aldrig domar; ett svar återanvänds bara med identiskt manifest
 helt_ = {'kriterier': krit_ok, 'kognitiv_genomgang': [], 'blockerande': [], 'forbattringar': [], 'styrkor': [], 'likhet_tidigare': '', 'sett': [], 'ej_bedomt': [], 'sammanfattning': ''}
-assert kf_.validera({'subtype': 'success', 'structured_output': helt_})[1] is None
+schema_ = kf_.las_schema(ROOT / 'kritik' / 'SCHEMA-granskning.json')
+block_ok = {'kriterium': 'text', 'allvarlighet': 3, 'var': 'x', 'observation': 'x', 'konsekvens': 'x', 'standardpunkt': 'x', 'heuristik': 'x', 'omfattning': 'detalj', 'rattning': 'x', 'acceptanskriterium': 'x'}
+assert kf_.validera({'subtype': 'success', 'structured_output': helt_}, schema_)[1] is None
+assert kf_.validera({'subtype': 'success', 'structured_output': dict(helt_, blockerande=[block_ok], kognitiv_genomgang=[{'uppgift': 'u', 'steg': 's', 'alla_ja': True, 'brist': ''}])}, schema_)[1] is None
+# hela schemat (Codex R31): null i obligatoriska fält, tomma eller felaktiga blockerande poster, okända fält, enum och gränser
 for svar_, vantat_ in (({'is_error': True, 'structured_output': helt_}, 'anropet misslyckades'), ({'subtype': 'error_max_turns', 'structured_output': helt_}, 'anropet misslyckades'),
-                       ({'structured_output': {'kriterier': {}}}, 'saknas'), ({'structured_output': dict(helt_, kriterier={})}, 'ofullständigt'),
-                       ({'structured_output': dict(helt_, kriterier=dict(krit_ok, text={'betyg': 11, 'motivering': '', 'visa': True}))}, 'ofullständigt'),
-                       ({'structured_output': dict(helt_, blockerande=None)}, 'lista'), (None, 'inget svar'), ({'structured_output': 'x'}, 'strukturerat')):
-    res_, fel_ = kf_.validera(svar_); assert res_ is None and vantat_ in fel_, (svar_, fel_)
-rader_kf3, s_kf3 = kf_.jamfor(und_, {'K02': {'is_error': True, 'structured_output': helt_}, 'K04': {'subtype': 'success', 'structured_output': helt_}})
+                       ({'structured_output': {'kriterier': {}}}, 'saknas'), ({'structured_output': dict(helt_, kriterier={})}, 'saknas'),
+                       ({'structured_output': dict(helt_, kriterier=dict(krit_ok, text={'betyg': 11, 'motivering': '', 'visa': True}))}, 'över 10'),
+                       ({'structured_output': dict(helt_, blockerande=None)}, 'fel typ'), (None, 'inget svar'), ({'structured_output': 'x'}, 'strukturerat'),
+                       ({'structured_output': dict(helt_, sammanfattning=None)}, 'fel typ'), ({'structured_output': dict(helt_, styrkor=None)}, 'fel typ'),
+                       ({'structured_output': dict(helt_, blockerande=[{}])}, 'blockerande[0]: fältet'), ({'structured_output': dict(helt_, blockerande=[None])}, 'blockerande[0]: fel typ'),
+                       ({'structured_output': dict(helt_, blockerande=[dict(block_ok, kriterium='annat')])}, 'ingår inte'), ({'structured_output': dict(helt_, blockerande=[dict(block_ok, allvarlighet=5)])}, 'över 4'),
+                       ({'structured_output': dict(helt_, blockerande=[dict(block_ok, extra=1)])}, 'okänt fält'), ({'structured_output': dict(helt_, extra=1)}, 'okänt fält'),
+                       ({'structured_output': dict(helt_, kriterier=dict(krit_ok, text={'betyg': 7, 'motivering': '', 'visa': 'ja'}))}, 'fel typ')):
+    res_, fel_ = kf_.validera(svar_, schema_); assert res_ is None and vantat_ in fel_, (svar_, fel_)
+for dalig_ in ('x', '{"required": ["a"]}', '[]'):
+    (tmp / 'dalig-schema.json').write_text(dalig_)
+    try:
+        kf_.las_schema(tmp / 'dalig-schema.json'); assert False, 'oläsbart schema ska vara ett försöksfel'
+    except RuntimeError:
+        pass
+rader_kf3, s_kf3 = kf_.jamfor(und_, {'K02': {'is_error': True, 'structured_output': helt_}, 'K04': {'subtype': 'success', 'structured_output': helt_}}, schema_)
+rader_kf4, s_kf4 = kf_.jamfor(und_, {'K02': {'subtype': 'success', 'structured_output': dict(helt_, blockerande=[None])}, 'K04': {'subtype': 'success', 'structured_output': dict(helt_, sett=None)}}, schema_)
+assert s_kf4['ofullstandiga'] == 2 and all(r_['utfall'].startswith('ofullständigt') for r_ in rader_kf4), 'ogiltiga poster kraschar inte sammanställningen utan blir ofullständiga'
 assert rader_kf3[0]['utfall'].startswith('ofullständigt') and rader_kf3[0]['granskaren'] is None and rader_kf3[1]['utfall'] == 'rätt' and s_kf3['ofullstandiga'] == 1 and s_kf3['svar'] == 1 and s_kf3['falska_godkannanden'] == 0, (rader_kf3, s_kf3)
 assert 'ofullständigt' in kf_.rapport(rader_kf3, s_kf3, ut_kf, 'm', 'e').read_text()
 import contextlib as cl_, io as io_
@@ -2627,6 +2644,19 @@ def torr_(*extra_):
         rc_ = kf_.main(['--torr', '--ut', str(ut_kf), '--underlag', str(kal_u), *extra_])
     return rc_, buf_.getvalue()
 assert (ut_kf / 'K02' / 'MANIFEST.json').is_file()
+# metoden fryses med bilderna (Codex R31): granskartext, schema och måttstockar i exemplets metod/, uppdraget och anropet pekar dit, manifestet hashar kopiorna
+fryst_ = ut_kf / 'K02' / 'metod'
+assert (fryst_ / 'kritik' / 'GRANSKARE.md').is_file() and (fryst_ / 'kritik' / 'SCHEMA-granskning.json').is_file() and (fryst_ / 'kunskap' / 'visuell-niva.md').is_file() and (fryst_ / 'kunskap' / 'teoretisk-grund.md').is_file()
+man_ = json.loads((ut_kf / 'K02' / 'MANIFEST.json').read_text())
+assert man_['regler']['kritik/GRANSKARE.md'] == kf_.hash_fil(fryst_ / 'kritik' / 'GRANSKARE.md') and 'kunskap/visuell-niva.md' in man_['regler'] and 'kritik/SCHEMA-granskning.json' in man_['regler']
+assert str(fryst_) in (ut_kf / 'K02' / 'PROMPT.txt').read_text()
+args_ = kf_.claude_args(ut_kf / 'K02', 'm', 'e', 'claude')
+assert (fryst_ / 'kritik' / 'SCHEMA-granskning.json').read_text() in args_ and ('Read(%s/**)' % kf_.ROOT) in args_ and '--add-dir' in args_
+(fryst_ / 'kritik' / 'SCHEMA-granskning.json').write_text('x'); (ut_kf / 'K02' / 'svar.json').write_text(json.dumps({'subtype': 'success', 'structured_output': helt_})); (ut_kf / 'K02' / 'KORNING.json').write_text(json.dumps({'slutkod': 0}))
+try:
+    kf_.giltigt_svar(ut_kf / 'K02'); assert False, 'oläsbart fryst schema ska vara ett försöksfel'
+except RuntimeError:
+    pass
 (ut_kf / 'K02' / 'svar.json').write_text(json.dumps({'subtype': 'success', 'structured_output': helt_})); (ut_kf / 'K02' / 'KORNING.json').write_text(json.dumps({'slutkod': 0}))
 rc_, ut_text = torr_(); assert rc_ == 0 and 'återanvända (identiskt manifest, giltigt svar): 1; att köra: 1' in ut_text and (ut_kf / 'K02' / 'svar.json').is_file(), ut_text
 rc_, ut_text = torr_('--modell', 'annan'); assert 'återanvända (identiskt manifest, giltigt svar): 0; att köra: 2' in ut_text and not (ut_kf / 'K02' / 'svar.json').exists(), ('annan modell: inget återanvänds', ut_text)
