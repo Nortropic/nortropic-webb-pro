@@ -110,6 +110,19 @@ def nu():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
+def minuter_sedan(startad):
+    """Ägarens minuter från att vyn öppnades (vyns tidsstämpel, startad) till att domen sparades: autonomins mått
+    (Codex helhetsbedömning 2026-10-04, punkt 9). None när tidsstämpeln saknas eller är orimlig (över ett dygn)."""
+    try:
+        t = datetime.fromisoformat(str(startad).replace('Z', '+00:00'))
+    except (TypeError, ValueError):
+        return None
+    if t.tzinfo is None:
+        return None
+    m = (datetime.now(timezone.utc) - t).total_seconds() / 60
+    return round(m, 1) if 0 < m < 24 * 60 else None
+
+
 def las_json(p):
     try:
         return json.loads(Path(p).read_text(encoding='utf-8'))
@@ -343,8 +356,12 @@ def fil_tillaten(rel):
         return delar[0] == 'kunder' and rel.startswith('kunder/%s/prov/inspektion/' % slug) and rel.endswith('.png')
     if slug == 'kalibrering':  # bara skärmbilderna: URVAL.txt bär hypoteserna och DOMAR.json domarna (F40)
         return bool(KAL_FIL.match(rel))
-    if rel.startswith('underlag/%s/atelje/' % slug) and not designprov_domt(slug):
-        return bool(DP_FIL.match(rel))  # designprovet: bara förslagens bilder tills ägaren dömt alla (panelens dom döljs)
+    if rel.startswith('underlag/%s/atelje/' % slug):
+        # designprovet: bara förslagens bilder tills ägaren dömt alla förslag i omgången (panelens dom döljs per omgång)
+        runda = DP_RUNDA.match(delar[3]) if len(delar) > 4 else None
+        kat = UNDERLAG / slug / 'atelje' / (delar[3] if runda else '')
+        if not designprov_domt(slug, kat if runda else None):
+            return bool(DP_FIL.match(rel))
     return True
 
 
@@ -625,24 +642,54 @@ def spara_kalibrering(ident, data):
 
 # --- designprovet: ägaren dömer ateljéns förslag blint, bredvid huvudreferensen (designprovet, ägarbeslut 2026-10-04) ---
 DP_LAS = threading.Lock()
-DP_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/(\d|vinnare/bilder)/(undersida/|stiltavla/)?vy-(390|1440)-(forsta|hela|ruta-\d{2})\.png$')
+DP_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/(omgang-\d{1,2}/)?(\d|vinnare/bilder)/(undersida/|stiltavla/)?vy-(390|1440)-(forsta|hela|ruta-\d{2})\.png$')
+DP_RUNDA = re.compile(r'^omgang-(\d{1,2})$')
 DP_REF = re.compile(r'^underlag/([a-z0-9-]{2,60})/referenser/[A-Za-z0-9._/-]+\.(png|jpe?g|webp)$')
 
 
 def designprov_slugar():
-    """Byggen med en fotograferad ateljé (underlag/<slug>/atelje/FOTOGRAFERADE.json)."""
-    return sorted(p.parent.parent.name for p in UNDERLAG.glob('*/atelje/FOTOGRAFERADE.json') if SLUG.match(p.parent.parent.name))
+    """Byggen med en fotograferad ateljéomgång (underlag/<slug>/atelje/FOTOGRAFERADE.json eller atelje/omgang-N/)."""
+    rotter = list(UNDERLAG.glob('*/atelje/FOTOGRAFERADE.json')) + list(UNDERLAG.glob('*/atelje/omgang-*/FOTOGRAFERADE.json'))
+    slugar = {(p.parents[1] if p.parent.name == 'atelje' else p.parents[2]).name for p in rotter}
+    return sorted(s_ for s_ in slugar if SLUG.match(s_))
 
 
-def designprov_ordning(slug, riktningar):
-    """Blind ordning: stabil per bygge, oberoende av riktningsnumren (A, B, C …)."""
-    import hashlib
-    return sorted(riktningar, key=lambda n: hashlib.sha256(('designprov-%s-%d' % (slug, n)).encode()).hexdigest())
-
-
-def designprov_domt(slug):
-    """Har ägaren dömt alla förslag i bygget? (utan fotograferad ateljé finns inget att dölja)"""
+def designprov_rundor(slug):
+    """Ateljékörningens fotograferade omgångar, äldst först: [(id, nummer, katalog, aktuell)]. Ateljén flyttar en
+    förkastad omgång till atelje/omgang-N/ och kör nästa i roten; ägaren dömer varje omgång för sig, och domen följer
+    omgångens katalog. Rotens nummer är ett mer än den högsta arkiverade, så att bokstäverna består när den arkiveras."""
     rot = UNDERLAG / slug / 'atelje'
+    arkiv = []
+    for p in rot.glob('omgang-*'):
+        m = DP_RUNDA.match(p.name)
+        if m and p.is_dir() and not p.is_symlink() and (p / 'FOTOGRAFERADE.json').is_file():
+            arkiv.append((p.name, int(m.group(1)), p, False))
+    arkiv.sort(key=lambda x: x[1])
+    if (rot / 'FOTOGRAFERADE.json').is_file():
+        nr = max([x[1] for x in arkiv] or [0]) + 1
+        arkiv.append(('omgang-%d' % nr, nr, rot, True))
+    return arkiv
+
+
+def designprov_runda(slug, ident=None):
+    """En omgång: ident None är den aktuella i roten, annars 'omgang-N'."""
+    for r in designprov_rundor(slug):
+        if (ident is None and r[3]) or (ident is not None and r[0] == ident):
+            return r
+    return None
+
+
+def designprov_ordning(slug, riktningar, nummer=1):
+    """Blind ordning: stabil per bygge och omgång, oberoende av riktningsnumren (A, B, C …); omgångens nummer i nyckeln
+    gör att en avslöjad omgång inte avslöjar nästa."""
+    import hashlib
+    return sorted(riktningar, key=lambda n: hashlib.sha256(('designprov-%s-omgang-%d-%d' % (slug, nummer, n)).encode()).hexdigest())
+
+
+def designprov_domt(slug, katalog=None):
+    """Har ägaren dömt alla förslag i omgången (standard: den aktuella i roten)? Utan fotograferad omgång finns inget
+    att dölja."""
+    rot = katalog or (UNDERLAG / slug / 'atelje')
     manifest = las_json(rot / 'FOTOGRAFERADE.json') or {}
     riktningar = [n for n in (manifest.get('riktningar') or {}) if str(n).isdigit()]
     if not riktningar:
@@ -651,43 +698,59 @@ def designprov_domt(slug):
     return all(b in domar for b in 'ABCDE'[:len(riktningar)])
 
 
-def designprov(slug):
-    """Förslagen under bokstäver, med startsidans första vy och helsida i båda bredderna och undersidans början, och
-    huvudreferensens bilder. Vilken riktning en bokstav är, och panelens dom, visas först när ägaren dömt alla."""
-    import referensval
-    rot = UNDERLAG / slug / 'atelje'
-    manifest = las_json(rot / 'FOTOGRAFERADE.json') or {}
+def designprov_omgang(slug, ident, nummer, kat, aktuell):
+    """En omgångs förslag under bokstäver, med startsidans första vy och helsida i båda bredderna och undersidans början.
+    Vilken riktning en bokstav är, och panelens dom, visas först när ägaren dömt alla förslag i omgången."""
+    manifest = las_json(kat / 'FOTOGRAFERADE.json') or {}
     riktningar = sorted(int(n) for n in (manifest.get('riktningar') or {}) if str(n).isdigit())
-    domar = las_json(rot / 'AGARENS-DOM.json') or {}
+    domar = las_json(kat / 'AGARENS-DOM.json') or {}
+    prefix = 'underlag/%s/atelje/%s' % (slug, '' if aktuell else ident + '/')
+    ordning = designprov_ordning(slug, riktningar, nummer)
     forslag = []
-    for b, n in zip('ABCDE', designprov_ordning(slug, riktningar)):
+    for b, n in zip('ABCDE', ordning):
         bilder = {}
         for namn, fil in (('390-forsta', 'vy-390-forsta.png'), ('1440-forsta', 'vy-1440-forsta.png'), ('390-hela', 'vy-390-hela.png'),
                           ('1440-hela', 'vy-1440-hela.png'), ('undersida-390', 'undersida/vy-390-forsta.png'), ('undersida-1440', 'undersida/vy-1440-forsta.png')):
-            if (rot / str(n) / fil).is_file():
-                bilder[namn] = 'underlag/%s/atelje/%d/%s' % (slug, n, fil)
+            if (kat / str(n) / fil).is_file():
+                bilder[namn] = '%s%d/%s' % (prefix, n, fil)
         forslag.append({'bokstav': b, 'bilder': bilder, 'dom': domar.get(b)})
-    hr = referensval.huvudreferens(slug, UNDERLAG)
-    svar = {'slug': slug, 'forslag': forslag,
-            'huvudreferens': {'namn': hr['namn'], 'vad': hr['vad'], 'bilder': [{'fil': str(p.relative_to(ROOT)), 'text': t} for p, t in hr['bilder']]} if hr else None}
+    ut = {'id': ident, 'nummer': nummer, 'aktuell': aktuell, 'forslag': forslag}
     if forslag and all(f['dom'] for f in forslag):
-        val = las_json(rot / 'VAL.json') or {}
-        svar['avslojat'] = {'karta': {b: n for b, n in zip('ABCDE', designprov_ordning(slug, riktningar))},
-                            'panelens_val': val.get('val'), 'ribban': val.get('ribban'), 'nivaer': val.get('nivaer'), 'poang': val.get('poang'),
-                            'val_md': md(las_text(rot / 'VAL.md') or '')}
+        val = las_json(kat / 'VAL.json') or {}
+        ut['avslojat'] = {'karta': {b: n for b, n in zip('ABCDE', ordning)},
+                          'panelens_val': val.get('val'), 'ribban': val.get('ribban'), 'nivaer': val.get('nivaer'), 'poang': val.get('poang'),
+                          'val_md': md(las_text(kat / 'VAL.md') or '')}
+    return ut
+
+
+def designprov(slug):
+    """Ateljékörningens omgångar (äldst först) och huvudreferensens bilder. forslag och avslojat på toppnivån är den
+    aktuella omgången, som förut; rundor har alla, också de som panelen förkastade och ateljén arkiverade."""
+    import referensval
+    rundor = [designprov_omgang(slug, *r) for r in designprov_rundor(slug)]
+    aktuell = next((r for r in rundor if r['aktuell']), None)
+    hr = referensval.huvudreferens(slug, UNDERLAG)
+    svar = {'slug': slug, 'forslag': aktuell['forslag'] if aktuell else [], 'rundor': rundor,
+            'huvudreferens': {'namn': hr['namn'], 'vad': hr['vad'], 'bilder': [{'fil': str(p.relative_to(ROOT)), 'text': t} for p, t in hr['bilder']]} if hr else None}
+    if aktuell and aktuell.get('avslojat'):
+        svar['avslojat'] = aktuell['avslojat']
     return svar
 
 
-def spara_designprov(slug, bokstav, data):
-    """Ägarens dom över ett förslag: håller ribban, nivå och vad som skiljer. Privat (underlag/<slug>/atelje/AGARENS-DOM.json)."""
+def spara_designprov(slug, bokstav, data, omgang=None, minuter=None):
+    """Ägarens dom över ett förslag: håller ribban, nivå och vad som skiljer. Privat, i omgångens katalog
+    (underlag/<slug>/atelje/AGARENS-DOM.json för den aktuella, atelje/omgang-N/AGARENS-DOM.json för en arkiverad)."""
     import fcntl
     if slug not in designprov_slugar():
         raise ValueError('okänt designprov')
-    if bokstav not in {f['bokstav'] for f in designprov(slug)['forslag']}:
+    runda = designprov_runda(slug, omgang)
+    if not runda:
+        raise ValueError('okänd omgång')
+    if bokstav not in {f['bokstav'] for f in designprov_omgang(slug, *runda)['forslag']}:
         raise ValueError('okänt förslag')
     if data.get('niva') not in NIVAER or not isinstance(data.get('haller'), bool):
         raise ValueError('välj nivå och om förslaget håller ribban')
-    f = UNDERLAG / slug / 'atelje' / 'AGARENS-DOM.json'
+    f = runda[2] / 'AGARENS-DOM.json'
     with DP_LAS, open(f.parent / '.agarens-dom.las', 'w') as las:
         fcntl.flock(las, fcntl.LOCK_EX)
         try:
@@ -697,7 +760,8 @@ def spara_designprov(slug, bokstav, data):
                     domar = json.loads(f.read_text(encoding='utf-8'))
                 except (OSError, ValueError) as e:
                     raise RuntimeError('AGARENS-DOM.json går inte att läsa (%s); rätta filen innan en dom sparas' % e)
-            domar[bokstav] = {'haller': data['haller'], 'niva': data['niva'], 'skiljer': (data.get('skiljer') or '').strip()[:4000], 'tid': nu()}
+            domar[bokstav] = {'haller': data['haller'], 'niva': data['niva'], 'skiljer': (data.get('skiljer') or '').strip()[:4000], 'tid': nu(),
+                              **({'minuter': minuter} if minuter is not None else {})}
             tmp = f.with_name('.AGARENS-DOM.json.tmp%d' % os.getpid())
             tmp.write_text(json.dumps(domar, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
             os.replace(tmp, f)
@@ -720,6 +784,9 @@ def spara_dom(slug, data):
     s = las_json(KUNDER / slug / 'prov' / 'STATUS.json') or {}
     post = {'tid': nu(), 'bygge_dist': (s.get('dist_sha256') or '')[:12], 'svar': svar,
             'fragor': {'karna': KARNFRAGOR, 'egna': egna_fragor(slug)}}
+    minuter = minuter_sedan(data.get('startad'))  # från att byggets sida öppnades till domen (kontroller/autonomi.py)
+    if minuter is not None:
+        post['minuter'] = minuter
     fil = KUNDER / slug / 'DOM.json'
     allt = las_json(fil) or {'schema': 1, 'slug': slug, 'domar': []}
     allt['domar'].append(post)
@@ -1210,9 +1277,9 @@ class H(BaseHTTPRequestHandler):
             m = re.match(r'^/api/kalibrering/(K\d{2})$', vag)
             if m:
                 return self.skicka(200, spara_kalibrering(m.group(1), data))
-            m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})/([A-E])$', vag)
+            m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})/(?:(omgang-\d{1,2})/)?([A-E])$', vag)
             if m:
-                return self.skicka(200, spara_designprov(m.group(1), m.group(2), data))
+                return self.skicka(200, spara_designprov(m.group(1), m.group(3), data, omgang=m.group(2), minuter=minuter_sedan(data.get('startad'))))
             m = re.match(r'^/api/visa/([a-z0-9-]{2,60})$', vag)
             if m:  # tillståndsändrande: bara POST med rätt ursprung (omgång elva, F13)
                 if not visa(m.group(1)):

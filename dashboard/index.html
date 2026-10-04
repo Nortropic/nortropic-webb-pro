@@ -288,6 +288,7 @@ function falt(q) {
 }
 function bDom(b, f) {
   window._slug = b.slug;
+  const startad = new Date().toISOString();  // ägarens minuter till domen (kontroller/autonomi.py)
   const tidigare = (b.domar || []).map((d) => `<details class="post"><summary><span class="titel">Dom ${tid(d.tid)}</span><span class="chip">${esc(d.svar.namn || '')}</span></summary><div class="innehall"><table>${Object.entries(d.svar).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(typeof v === 'object' ? Object.entries(v).map(([a, c]) => a + ': ' + c).join(', ') : v)}</td></tr>`).join('')}</table></div></details>`).join('');
   f.innerHTML = `
     ${tidigare ? `<h2 style="margin-top:0">Tidigare domar</h2>${tidigare}` : ''}
@@ -310,7 +311,7 @@ function bDom(b, f) {
     if (!Object.keys(svar).length) { $('#domsvar').innerHTML = '<span class="rod-text">Svara på minst en fråga.</span>'; return; }
     e.target.querySelector('button').disabled = true;
     try {
-      const r = await post('/api/dom/' + b.slug, { svar });
+      const r = await post('/api/dom/' + b.slug, { svar, startad });
       f.insertAdjacentHTML('afterbegin', `<div class="meddelande">Tack. Domen sparades som ${esc(r.lardom)}: ordagrant i underlag/LARDOMAR-original.md, utan personuppgifter i LARDOMAR.md, och som backlogpost <a href="#/backlog">${esc(r.backlog)}</a>.</div>`);
       setTimeout(() => byggevy(b.slug, true), 1800);
     } catch (err) { $('#domsvar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; e.target.querySelector('button').disabled = false; }
@@ -506,29 +507,34 @@ async function designprovvy(slug) {
     return;
   }
   const d = await api('/api/designprov/' + encodeURIComponent(slug));
+  const startad = new Date().toISOString();  // ägarens minuter per dom (kontroller/autonomi.py)
   const hr = d.huvudreferens;
   const ref = hr ? `<section class="kort" style="margin-bottom:24px"><h2>Huvudreferensen: ${esc(hr.namn)}</h2><p class="under">${esc(hr.vad)}</p><div class="galleri">${hr.bilder.map((b) => bild(b.fil, b.text)).join('')}</div></section>` : '<p class="under">Ingen huvudreferens utpekad.</p>';
-  const kort = (f) => {
+  const kort = (f, r) => {
     const b = f.bilder || {};
+    const k = r.id + '-' + f.bokstav;
     const form = f.dom ? `<p class="under">Din dom: <b>${f.dom.haller ? 'håller ribban' : 'håller inte'}</b> · ${esc(NIVA[f.dom.niva] || f.dom.niva)}${f.dom.skiljer ? ' · ' + esc(f.dom.skiljer) : ''}</p>`
-      : `<div class="rad" style="margin-top:10px;flex-wrap:wrap;gap:12px"><label><input type="radio" name="dp-h-${f.bokstav}" value="ja"> Håller ribban</label><label><input type="radio" name="dp-h-${f.bokstav}" value="nej"> Håller inte</label></div>
-         <div class="rad" style="margin-top:6px;flex-wrap:wrap;gap:12px">${Object.keys(NIVA).map((n) => `<label><input type="radio" name="dp-n-${f.bokstav}" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
-         <textarea id="dp-sk-${f.bokstav}" rows="3" style="width:100%;margin-top:8px" placeholder="Vad skiljer? Bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete; och hur nära huvudreferensen det är."></textarea>
-         <div class="rad" style="margin-top:8px"><button class="knapp primar" data-dp="${f.bokstav}">Spara domen</button></div>`;
+      : `<div class="rad" style="margin-top:10px;flex-wrap:wrap;gap:12px"><label><input type="radio" name="dp-h-${k}" value="ja"> Håller ribban</label><label><input type="radio" name="dp-h-${k}" value="nej"> Håller inte</label></div>
+         <div class="rad" style="margin-top:6px;flex-wrap:wrap;gap:12px">${Object.keys(NIVA).map((n) => `<label><input type="radio" name="dp-n-${k}" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
+         <textarea id="dp-sk-${k}" rows="3" style="width:100%;margin-top:8px" placeholder="Vad skiljer? Bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete; och hur nära huvudreferensen det är."></textarea>
+         <div class="rad" style="margin-top:8px"><button class="knapp primar" data-dp="${esc(f.bokstav)}" data-omgang="${esc(r.aktuell ? '' : r.id)}" data-k="${esc(k)}">Spara domen</button></div>`;
     return `<section class="kort" style="margin-bottom:24px"><h2>Förslag ${esc(f.bokstav)}</h2>
       <div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['390-forsta'], 'mobil 390, första vyn')}${bild(b['1440-forsta'], 'dator 1440, första vyn')}</div>
       <details><summary>Hela startsidan (390 och 1440)</summary><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['390-hela'], 'hela sidan 390')}${bild(b['1440-hela'], 'hela sidan 1440')}</div></details>
       <details><summary>Början av en undersida</summary><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['undersida-390'], 'undersida 390')}${bild(b['undersida-1440'], 'undersida 1440')}</div></details>${form}</section>`;
   };
-  const avsl = d.avslojat ? `<section class="kort"><h2>Avslöjat</h2><p class="under">${Object.entries(d.avslojat.karta).map(([b, n]) => `${esc(b)} = riktning ${esc(String(n))}`).join(' · ')} · panelens val: ${d.avslojat.panelens_val == null ? '<b>alla förkastade</b>' : 'riktning ' + esc(String(d.avslojat.panelens_val))}</p><div class="prosa">${d.avslojat.val_md}</div></section>` : '';
-  $('#vy').innerHTML = `<h1>Designprov · ${esc(slug)}</h1><p class="under">Döm varje förslag på mobil och dator, hela sidan: håller det ribban, vilken nivå, och vad skiljer. Domarna sparas privat (underlag/${esc(slug)}/atelje/AGARENS-DOM.json). Panelens dom och vilken riktning som är vilken visas när du dömt alla.</p>${ref}${d.forslag.map(kort).join('')}${avsl}`;
-  document.querySelectorAll('[data-dp]').forEach((k) => k.onclick = async () => {
-    const b = k.dataset.dp;
-    const h = (document.querySelector(`input[name="dp-h-${b}"]:checked`) || {}).value;
-    const n = (document.querySelector(`input[name="dp-n-${b}"]:checked`) || {}).value;
+  const avsl = (r) => r.avslojat ? `<section class="kort"><h2>Avslöjat · omgång ${esc(String(r.nummer))}</h2><p class="under">${Object.entries(r.avslojat.karta).map(([b, n]) => `${esc(b)} = riktning ${esc(String(n))}`).join(' · ')} · panelens val: ${r.avslojat.panelens_val == null ? '<b>alla förkastade</b>' : 'riktning ' + esc(String(r.avslojat.panelens_val))}</p><div class="prosa">${r.avslojat.val_md}</div></section>` : '';
+  // senaste omgången först; varje omgång döms för sig och avslöjas när alla dess förslag är dömda
+  const rundor = (d.rundor || []).slice().reverse();
+  const omgang = (r) => `<h2 style="margin-top:28px">Omgång ${esc(String(r.nummer))}${r.aktuell ? '' : ' (tidigare omgång i samma körning)'}</h2>${r.forslag.map((f) => kort(f, r)).join('')}${avsl(r)}`;
+  $('#vy').innerHTML = `<h1>Designprov · ${esc(slug)}</h1><p class="under">Döm varje förslag på mobil och dator, hela sidan: håller det ribban, vilken nivå, och vad skiljer. Domarna sparas privat per omgång (underlag/${esc(slug)}/atelje/). Panelens dom och vilken riktning som är vilken visas för en omgång när du dömt alla dess förslag.</p>${ref}${rundor.map(omgang).join('') || '<p>Ingen omgång fotograferad än.</p>'}`;
+  document.querySelectorAll('[data-dp]').forEach((knapp) => knapp.onclick = async () => {
+    const b = knapp.dataset.dp, k = knapp.dataset.k, om = knapp.dataset.omgang;
+    const h = (document.querySelector(`input[name="dp-h-${k}"]:checked`) || {}).value;
+    const n = (document.querySelector(`input[name="dp-n-${k}"]:checked`) || {}).value;
     if (!h || !n) { alert('Välj om förslaget håller ribban och vilken nivå.'); return; }
-    k.disabled = true;
-    try { await post('/api/designprov/' + encodeURIComponent(slug) + '/' + b, { haller: h === 'ja', niva: n, skiljer: $('#dp-sk-' + b).value }); designprovvy(slug); } catch (e) { alert(e.message); k.disabled = false; }
+    knapp.disabled = true;
+    try { await post('/api/designprov/' + encodeURIComponent(slug) + '/' + (om ? encodeURIComponent(om) + '/' : '') + b, { haller: h === 'ja', niva: n, skiljer: $('#dp-sk-' + k).value, startad }); designprovvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
   });
 }
 

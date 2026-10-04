@@ -2,6 +2,7 @@
 """Regressionsfall ur revisionen 2026-10-03 (Codex, nio omgångar): varje skydd prövas genom sin riktiga ingång, med ett
 positivt och ett negativt fall, isolerat och syntetiskt. Körs av kontroller/rokprov.sh. Argument: repots rot. Skriver
 bara i temporära kataloger och i /tmp/nwp-granskning (granskarens arbetskataloger)."""
+import datetime
 import functools
 import http.client
 import http.server
@@ -2314,8 +2315,61 @@ d_ = json.loads(begar(dport, 'GET', '/api/designprov/dp-prov')[1])
 assert d_['avslojat']['panelens_val'] == 2 and sorted(d_['avslojat']['karta'].values()) == [1, 2, 3] and 'Vald riktning' in d_['avslojat']['val_md'], d_.get('avslojat')
 assert begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/VAL.md')[0] == 200, 'efter ägarens dom är panelens dom synlig'
 dom_ = json.loads((dp_ / 'AGARENS-DOM.json').read_text()); assert dom_['B'] == dict(dom_['B'], haller=True, niva='over', skiljer='prov B'), dom_
+# omgångarna (designprovet 2026-10-05): en förkastad omgång som ateljén arkiverat döms för sig, blint, och avslöjas för sig
+o1_ = dp_ / 'omgang-1'
+for n_ in (1, 2, 3):
+    (o1_ / str(n_)).mkdir(parents=True)
+    for fil_ in ('vy-390-forsta.png', 'vy-1440-forsta.png'):
+        (o1_ / str(n_) / fil_).write_bytes(b'\x89PNG')
+(o1_ / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {'1': [], '2': [], '3': []}}))
+(o1_ / 'VAL.json').write_text(json.dumps({'val': None})); (o1_ / 'VAL.md').write_text('# Ateljéns val\n\nAlla riktningar förkastade\n')
+d_ = json.loads(begar(dport, 'GET', '/api/designprov/dp-prov')[1])
+assert [(r_['id'], r_['nummer'], r_['aktuell']) for r_ in d_['rundor']] == [('omgang-1', 1, False), ('omgang-2', 2, True)], d_['rundor']
+assert d_['forslag'] == d_['rundor'][1]['forslag'] and 'avslojat' in d_ and 'avslojat' not in d_['rundor'][0], 'toppnivån är den aktuella omgången, som förut'
+r1_ = d_['rundor'][0]
+assert r1_['forslag'][0]['bilder']['390-forsta'].startswith('underlag/dp-prov/atelje/omgang-1/') and begar(dport, 'GET', '/fil/' + r1_['forslag'][0]['bilder']['390-forsta'])[0] == 200
+assert begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/omgang-1/VAL.md')[0] != 200, 'den arkiverade omgångens panel är dold tills ägaren dömt den'
+for b_ in ('A', 'B'):
+    assert begar(dport, 'POST', '/api/designprov/dp-prov/omgang-1/' + b_, huvuden=ok_h, kropp=json.dumps({'haller': b_ == 'A', 'niva': 'nastan', 'startad': '2000-01-01T00:00:00Z'}).encode())[0] == 200
+assert begar(dport, 'POST', '/api/designprov/dp-prov/omgang-9/A', huvuden=ok_h, kropp=b'{"haller":true,"niva":"over"}')[0] >= 400, 'okänd omgång'
+assert 'avslojat' not in json.loads(begar(dport, 'GET', '/api/designprov/dp-prov')[1])['rundor'][0], 'två av tre dömda i omgång 1: fortfarande blint'
+startad_ = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0) - datetime.timedelta(minutes=3)
+assert begar(dport, 'POST', '/api/designprov/dp-prov/omgang-1/C', huvuden=ok_h, kropp=json.dumps({'haller': False, 'niva': 'generisk', 'startad': startad_.isoformat().replace('+00:00', 'Z')}).encode())[0] == 200
+d_ = json.loads(begar(dport, 'GET', '/api/designprov/dp-prov')[1])
+assert d_['rundor'][0]['avslojat']['panelens_val'] is None and 'förkastade' in d_['rundor'][0]['avslojat']['val_md'], d_['rundor'][0]
+assert begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/omgang-1/VAL.md')[0] == 200
+dom1_ = json.loads((o1_ / 'AGARENS-DOM.json').read_text())
+assert set(dom1_) == {'A', 'B', 'C'} and 'minuter' not in dom1_['A'] and 2.5 <= dom1_['C']['minuter'] <= 4, 'minuterna mäts från vyns start; en orimlig start ger inga minuter'
+assert set(json.loads((dp_ / 'AGARENS-DOM.json').read_text())) == {'A', 'B', 'C'}, 'den aktuella omgångens domar rörs inte'
 dsrvd.shutdown()
 print('designprovet i dashboarden ok')
+
+# ---------------------------------------------------------------- autonomins mått (Codex helhetsbedömning 2026-10-04, punkt 9)
+import autonomi as au  # noqa: E402
+au_k = tmp / 'au-kunder'; au.KUNDER = au_k; au.UNDERLAG = tmp / 'au-underlag'
+b1_ = au_k / 'prov-bygge'; (b1_ / 'sajt').mkdir(parents=True); (b1_ / 'prov').mkdir()
+(b1_ / 'korning-20261005T010000Z.jsonl').write_text('{"type":"system"}\n{"type": "result", "num_turns": 100, "duration_ms": 600000, "total_cost_usd": 10.5}\n')
+for nr_, (godk_, block_, betyg_) in enumerate(((False, 2, 6), (True, 0, 8), (True, 1, 7)), 1):
+    r_ = b1_ / 'granskning' / ('runda-%02d' % nr_); r_.mkdir(parents=True)
+    (r_ / 'GRANSKNING.json').write_text(json.dumps({'godkand': godk_, 'blockerande': [{}] * block_, 'kriterier': {'text': {'betyg': betyg_}}}))
+    (r_ / 'svar.json').write_text(json.dumps({'num_turns': 10, 'duration_ms': 60000, 'total_cost_usd': 1.0}))
+(b1_ / 'prov' / 'historik.jsonl').write_text('\n'.join(json.dumps(x_) for x_ in (
+    {'ok': False, 'snabb': True, 'grindar': {'seo': False, 'axe': True}}, {'ok': True, 'snabb': False, 'grindar': {'seo': True, 'axe': True}})) + '\n')
+(b1_ / 'DOM.json').write_text(json.dumps({'domar': [{'tid': '2026-10-05T02:00:00Z', 'svar': {'namn': 'Ja, efter små ändringar'}, 'minuter': 12.5}]}))
+(au_k / 'rokprov-mall' / 'sajt').mkdir(parents=True)
+assert au.byggen() == ['prov-bygge'], au.byggen()
+bb_ = au.bygge('prov-bygge')
+assert bb_['bygget'] == {'sessioner': 1, 'turer': 100, 'minuter': 10.0, 'listpris_usd': 10.5} and bb_['totalt'] == {'minuter': 13.0, 'turer': 130, 'listpris_usd': 13.5}, bb_
+assert bb_['granskning']['omgangar'] == 3 and bb_['granskning']['basta_runda'] == 'runda-02' and not bb_['granskning']['sista_ar_basta'] and bb_['granskning']['forsamrade_rundor'] == ['runda-03'], bb_['granskning']
+assert bb_['provet'] == {'korningar': 2, 'roda_grindar': {'seo': 1}, 'forsta_hela_grona': 2} and bb_['agaren']['accepterad'] and bb_['agaren']['minuter'] == 12.5, bb_
+sm_ = au.sammanstall([bb_])
+assert sm_['andel_accepterade'] == 1.0 and sm_['agarens_minuter'] == 12.5 and sm_['sista_inte_basta'] == ['prov-bygge'], sm_
+import contextlib, io  # noqa: E401,E402
+with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+    assert au.main(['--ut', str(tmp / 'utanfor.json')]) == 2, 'utfilerna stannar i kunder/ (privat)'
+    assert au.main(['--ut', str(au_k / 'AUTONOMI.json'), '--md', str(au_k / 'AUTONOMI.md')]) == 0
+assert 'Accepterade utan större ändringar | 1 (100 %' in (au_k / 'AUTONOMI.md').read_text() and sm_['tydligt_daliga'] == 0
+print('autonomins mått ok')
 
 
 # ---------------------------------------------------------------- sandlådan (backlogposten om gräns på processnivå, F1): inställningarna, och körningen committar backloggen själv
