@@ -356,6 +356,8 @@ def fil_tillaten(rel):
         return delar[0] == 'kunder' and rel.startswith('kunder/%s/prov/inspektion/' % slug) and rel.endswith('.png')
     if slug == 'kalibrering':  # bara skärmbilderna: URVAL.txt bär hypoteserna och DOMAR.json domarna (F40)
         return bool(KAL_FIL.match(rel))
+    if rel.startswith('underlag/%s/atelje/foregaende/' % slug):
+        return False  # tidigare ateljékörningar: arkiv, inget dashboarden visar (deras panelers domar döljs)
     if rel.startswith('underlag/%s/atelje/' % slug):
         # designprovet: bara förslagens bilder tills ägaren dömt alla förslag i omgången (panelens dom döljs per omgång)
         runda = DP_RUNDA.match(delar[3]) if len(delar) > 4 else None
@@ -717,7 +719,7 @@ def designprov_omgang(slug, ident, nummer, kat, aktuell):
     ut = {'id': ident, 'nummer': nummer, 'aktuell': aktuell, 'forslag': forslag}
     if forslag and all(f['dom'] for f in forslag):
         val = las_json(kat / 'VAL.json') or {}
-        ut['avslojat'] = {'karta': {b: n for b, n in zip('ABCDE', ordning)},
+        ut['avslojat'] = {'karta': {b: n for b, n in zip('ABCDE', ordning)}, 'panel_saknas': not (kat / 'VAL.json').is_file(),
                           'panelens_val': val.get('val'), 'ribban': val.get('ribban'), 'nivaer': val.get('nivaer'), 'poang': val.get('poang'),
                           'val_md': md(las_text(kat / 'VAL.md') or '')}
     return ut

@@ -2341,6 +2341,11 @@ assert begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/omgang-1/VAL.md')[0] ==
 dom1_ = json.loads((o1_ / 'AGARENS-DOM.json').read_text())
 assert set(dom1_) == {'A', 'B', 'C'} and 'minuter' not in dom1_['A'] and 2.5 <= dom1_['C']['minuter'] <= 4, 'minuterna mäts från vyns start; en orimlig start ger inga minuter'
 assert set(json.loads((dp_ / 'AGARENS-DOM.json').read_text())) == {'A', 'B', 'C'}, 'den aktuella omgångens domar rörs inte'
+# den aktuella omgången nås också med sitt id (klienten skickar alltid omgångens id), och arkivet under foregaende/ visas inte
+assert begar(dport, 'POST', '/api/designprov/dp-prov/omgang-2/A', huvuden=ok_h, kropp=json.dumps({'haller': True, 'niva': 'over', 'skiljer': 'om igen'}).encode())[0] == 200
+assert json.loads((dp_ / 'AGARENS-DOM.json').read_text())['A']['skiljer'] == 'om igen'
+(dp_ / 'foregaende' / 'gammal').mkdir(parents=True); (dp_ / 'foregaende' / 'gammal' / 'VAL.md').write_text('# gammal panel')
+assert begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/foregaende/gammal/VAL.md')[0] != 200, 'tidigare ateljékörningar serveras inte'
 dsrvd.shutdown()
 print('designprovet i dashboarden ok')
 
@@ -2357,10 +2362,22 @@ for nr_, (godk_, block_, betyg_) in enumerate(((False, 2, 6), (True, 0, 8), (Tru
     {'ok': False, 'snabb': True, 'grindar': {'seo': False, 'axe': True}}, {'ok': True, 'snabb': False, 'grindar': {'seo': True, 'axe': True}})) + '\n')
 (b1_ / 'DOM.json').write_text(json.dumps({'domar': [{'tid': '2026-10-05T02:00:00Z', 'svar': {'namn': 'Ja, efter små ändringar'}, 'minuter': 12.5}]}))
 (au_k / 'rokprov-mall' / 'sajt').mkdir(parents=True)
+# en omgång utan dom rangordnas inte men räknas i modellanvändningen; ateljéns arkiverade omgångar räknas
+r4_ = b1_ / 'granskning' / 'runda-04'; r4_.mkdir(); (r4_ / 'UTFALL.json').write_text(json.dumps({'status': 'fel'}))
+(r4_ / 'svar.json').write_text(json.dumps({'num_turns': 5, 'duration_ms': 60000, 'total_cost_usd': 0.5}))
+au_a = tmp / 'au-underlag' / 'prov-bygge' / 'atelje' / 'omgang-1'; au_a.mkdir(parents=True)
+(au_a / 'svar-divergera.json').write_text(json.dumps({'num_turns': 50, 'duration_ms': 120000, 'total_cost_usd': 4.0}))
+# en körning utan resultatrad (avbruten): ej mätt, utanför medianerna
+b2_ = au_k / 'avbrutet'; (b2_ / 'sajt').mkdir(parents=True)
+(b2_ / 'korning-20261005T020000Z.jsonl').write_text('{"type":"system"}\n')
+au2_ = au.bygge('avbrutet'); assert au2_['loggar_utan_resultat'] == 1 and not au.matt(au2_), au2_
+assert au.sammanstall([au2_])['median_minuter'] is None and au.sammanstall([au2_])['ej_matta'] == ['avbrutet']
+shutil.rmtree(b2_)
 assert au.byggen() == ['prov-bygge'], au.byggen()
 bb_ = au.bygge('prov-bygge')
-assert bb_['bygget'] == {'sessioner': 1, 'turer': 100, 'minuter': 10.0, 'listpris_usd': 10.5} and bb_['totalt'] == {'minuter': 13.0, 'turer': 130, 'listpris_usd': 13.5}, bb_
+assert bb_['bygget'] == {'sessioner': 1, 'turer': 100, 'minuter': 10.0, 'listpris_usd': 10.5} and bb_['totalt'] == {'minuter': 16.0, 'turer': 185, 'listpris_usd': 18.0}, bb_
 assert bb_['granskning']['omgangar'] == 3 and bb_['granskning']['basta_runda'] == 'runda-02' and not bb_['granskning']['sista_ar_basta'] and bb_['granskning']['forsamrade_rundor'] == ['runda-03'], bb_['granskning']
+assert [x['runda'] for x in bb_['granskning']['fallna_rundor']] == ['runda-04'] and bb_['ateljen']['turer'] == 50, bb_
 assert bb_['provet'] == {'korningar': 2, 'roda_grindar': {'seo': 1}, 'forsta_hela_grona': 2} and bb_['agaren']['accepterad'] and bb_['agaren']['minuter'] == 12.5, bb_
 sm_ = au.sammanstall([bb_])
 assert sm_['andel_accepterade'] == 1.0 and sm_['agarens_minuter'] == 12.5 and sm_['sista_inte_basta'] == ['prov-bygge'], sm_

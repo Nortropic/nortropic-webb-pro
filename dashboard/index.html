@@ -517,13 +517,13 @@ async function designprovvy(slug) {
       : `<div class="rad" style="margin-top:10px;flex-wrap:wrap;gap:12px"><label><input type="radio" name="dp-h-${k}" value="ja"> Håller ribban</label><label><input type="radio" name="dp-h-${k}" value="nej"> Håller inte</label></div>
          <div class="rad" style="margin-top:6px;flex-wrap:wrap;gap:12px">${Object.keys(NIVA).map((n) => `<label><input type="radio" name="dp-n-${k}" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
          <textarea id="dp-sk-${k}" rows="3" style="width:100%;margin-top:8px" placeholder="Vad skiljer? Bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete; och hur nära huvudreferensen det är."></textarea>
-         <div class="rad" style="margin-top:8px"><button class="knapp primar" data-dp="${esc(f.bokstav)}" data-omgang="${esc(r.aktuell ? '' : r.id)}" data-k="${esc(k)}">Spara domen</button></div>`;
+         <div class="rad" style="margin-top:8px"><button class="knapp primar" data-dp="${esc(f.bokstav)}" data-omgang="${esc(r.id)}" data-k="${esc(k)}">Spara domen</button></div>`;
     return `<section class="kort" style="margin-bottom:24px"><h2>Förslag ${esc(f.bokstav)}</h2>
       <div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['390-forsta'], 'mobil 390, första vyn')}${bild(b['1440-forsta'], 'dator 1440, första vyn')}</div>
       <details><summary>Hela startsidan (390 och 1440)</summary><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['390-hela'], 'hela sidan 390')}${bild(b['1440-hela'], 'hela sidan 1440')}</div></details>
       <details><summary>Början av en undersida</summary><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['undersida-390'], 'undersida 390')}${bild(b['undersida-1440'], 'undersida 1440')}</div></details>${form}</section>`;
   };
-  const avsl = (r) => r.avslojat ? `<section class="kort"><h2>Avslöjat · omgång ${esc(String(r.nummer))}</h2><p class="under">${Object.entries(r.avslojat.karta).map(([b, n]) => `${esc(b)} = riktning ${esc(String(n))}`).join(' · ')} · panelens val: ${r.avslojat.panelens_val == null ? '<b>alla förkastade</b>' : 'riktning ' + esc(String(r.avslojat.panelens_val))}</p><div class="prosa">${r.avslojat.val_md}</div></section>` : '';
+  const avsl = (r) => r.avslojat ? `<section class="kort"><h2>Avslöjat · omgång ${esc(String(r.nummer))}</h2><p class="under">${Object.entries(r.avslojat.karta).map(([b, n]) => `${esc(b)} = riktning ${esc(String(n))}`).join(' · ')} · panelens val: ${r.avslojat.panel_saknas ? '<b>panelen dömde inte</b>' : r.avslojat.panelens_val == null ? '<b>alla förkastade</b>' : 'riktning ' + esc(String(r.avslojat.panelens_val))}</p><div class="prosa">${r.avslojat.val_md}</div></section>` : '';
   // senaste omgången först; varje omgång döms för sig och avslöjas när alla dess förslag är dömda
   const rundor = (d.rundor || []).slice().reverse();
   const omgang = (r) => `<h2 style="margin-top:28px">Omgång ${esc(String(r.nummer))}${r.aktuell ? '' : ' (tidigare omgång i samma körning)'}</h2>${r.forslag.map((f) => kort(f, r)).join('')}${avsl(r)}`;

@@ -16,8 +16,9 @@ byggens loggar och domar och ändrar ingenting:
   (2026-10-03).
 - **Modelltid, turer och listpris** per bygge: byggets sessioner med omtag, granskarnas omgångar och ateljén.
   Listpriset (`total_cost_usd`) är ett mått på kvoten, inte en kostnad.
-- **Ägarens minuter:** från att byggets sida eller designprovet öppnades i dashboarden till att domen sparades
-  (sparas med domen sedan 2026-10-05).
+- **Ägarens minuter:** från att byggets sida öppnades i dashboarden till att domen sparades (sparas med domen sedan
+  2026-10-05). I designprovet räknas minuterna per förslag från att vyn öppnades eller förra domen sparades; måttet
+  i `autonomi.py` gäller domarna över byggen.
 - **Återkommande fel:** hur ofta varje grind var röd över provets körningar.
 - **Iterationens effekt:** om en granskningsomgång försämrade den bästa tidigare (godkänd före underkänd, färre
   blockerande fynd, högre betyg) och om den sista omgången var den bästa. Mer iteration är en hypotes om förbättring;

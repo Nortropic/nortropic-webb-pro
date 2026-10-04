@@ -67,25 +67,31 @@ def summa(svar):
 
 
 def granskningen(k):
-    """Omgångarna: betyg, blockerande fynd och modellanvändning per omgång, och om den sista var den bästa."""
-    rundor = []
+    """Omgångarna: betyg, blockerande fynd och modellanvändning per omgång, och om den sista var den bästa. En omgång
+    utan dom (ingen GRANSKNING.json, eller UTFALL.json som säger fel eller avbruten) rangordnas inte men räknas i
+    modellanvändningen: dess sessioner körde (granskningen av r60, punkt 3)."""
+    rundor, fallna = [], []
     for r in sorted((k / 'granskning').glob('runda-*')) if (k / 'granskning').is_dir() else []:
-        g = las_json(r / 'GRANSKNING.json') or {}
-        betyg = {n: (x or {}).get('betyg') for n, x in (g.get('kriterier') or {}).items()}
+        g = las_json(r / 'GRANSKNING.json')
+        utfall = (las_json(r / 'UTFALL.json') or {}).get('status')
         svar = [las_json(p) for p in sorted(r.glob('svar*.json'))]
+        if not isinstance(g, dict) or utfall in ('fel', 'avbruten', 'pagar'):
+            fallna.append({'runda': r.name, 'utfall': utfall or 'ingen dom', **summa(svar)})
+            continue
+        betyg = {n: (x or {}).get('betyg') for n, x in (g.get('kriterier') or {}).items()}
         rundor.append({'runda': r.name, 'godkand': g.get('godkand'), 'betyg': betyg,
                        'betygssumma': sum(b for b in betyg.values() if isinstance(b, (int, float))),
                        'blockerande': len(g.get('blockerande') or []), **summa(svar)})
+    modell = summa([{'num_turns': x['turer'], 'duration_ms': x['minuter'] * 60000, 'total_cost_usd': x['listpris_usd']} for x in rundor + fallna])
     if not rundor:
-        return {'omgangar': 0}
+        return {'omgangar': 0, 'fallna_rundor': fallna, 'modell': modell}
     # bäst: godkänd före underkänd, sedan färre blockerande fynd, sedan högre betygssumma
     nyckel = lambda x: (bool(x['godkand']), -x['blockerande'], x['betygssumma'])  # noqa: E731
     basta = max(range(len(rundor)), key=lambda i: (nyckel(rundor[i]), i))
     forsamringar = [rundor[i]['runda'] for i in range(1, len(rundor)) if nyckel(rundor[i]) < max(nyckel(x) for x in rundor[:i])]
     return {'omgangar': len(rundor), 'godkand': rundor[-1]['godkand'], 'sista_betyg': rundor[-1]['betyg'],
             'basta_runda': rundor[basta]['runda'], 'sista_ar_basta': nyckel(rundor[-1]) >= nyckel(rundor[basta]),
-            'forsamrade_rundor': forsamringar, 'rundor': rundor,
-            **{'modell': summa([{'num_turns': x['turer'], 'duration_ms': x['minuter'] * 60000, 'total_cost_usd': x['listpris_usd']} for x in rundor])}}
+            'forsamrade_rundor': forsamringar, 'rundor': rundor, 'fallna_rundor': fallna, 'modell': modell}
 
 
 def provet(k):
@@ -119,12 +125,17 @@ def agaren(k):
 def bygge(slug):
     k = KUNDER / slug
     loggar = sorted(k.glob('korning-*.jsonl'))
-    korningar = [r for r in (sessionsresultat(f) for f in loggar) if r]
-    ateljen = [las_json(p) for p in sorted((UNDERLAG / slug / 'atelje').glob('svar-*.json'))] if (UNDERLAG / slug / 'atelje').is_dir() else []
+    resultat = [sessionsresultat(f) for f in loggar]
+    korningar = [r for r in resultat if r]
+    # ateljéns alla sessioner: roten, arkiverade omgångar (omgang-N/) och tidigare körningar (foregaende/)
+    a = UNDERLAG / slug / 'atelje'
+    ateljen = [las_json(p) for p in sorted(a.rglob('svar-*.json')) if not p.is_symlink()] if a.is_dir() and not a.is_symlink() else []
     g = granskningen(k)
     sv = las_json(k / 'prov' / 'STOPPVAKT.json') or {}
-    b = {'slug': slug, 'start': (re.search(r'korning-(\d{8}T\d{6}Z)', loggar[0].name).group(1) if loggar else None),
+    start = re.search(r'korning-(\d{8}T\d{6}Z)', loggar[0].name) if loggar else None
+    b = {'slug': slug, 'start': start.group(1) if start else None,
          'bygget': summa(korningar), 'omtag': max(0, len(loggar) - 1), 'granskning': g,
+         'loggar_utan_resultat': sum(1 for r in resultat if not r),  # avbruten körning: modelltiden är inte mätt
          'ateljen': summa(ateljen) if ateljen else None, 'provet': provet(k),
          'stoppvakt': {x: sv.get(x) for x in ('slapp', 'forsok', 'tak', 'granskning', 'skal')} if sv else None,
          'agaren': agaren(k), 'ab_syskon': ((k / 'AB-SYSKON').read_text(encoding='utf-8').strip() if (k / 'AB-SYSKON').is_file() else None)}
@@ -138,6 +149,11 @@ def bygge(slug):
 def byggen():
     return sorted(p.name for p in KUNDER.iterdir()
                   if p.is_dir() and p.name not in INTE_BYGGEN and ((p / 'sajt').is_dir() or list(p.glob('korning-*.jsonl'))))
+
+
+def matt(b):
+    """Byggets modellanvändning är mätt: varje körningslogg har ett resultat (en avbruten körning ger 0, inte sanningen)."""
+    return not b.get('loggar_utan_resultat')
 
 
 def median(xs):
@@ -165,9 +181,10 @@ def sammanstall(alla):
     return {'byggen': len(alla), 'domda': len(domda), 'accepterade': len(acc),
             'andel_accepterade': round(len(acc) / len(domda), 2) if domda else None,
             'tydligt_daliga': sum(1 for b in domda if b['agaren'].get('namn') in TYDLIGT_DALIG),
-            'median_minuter': median([b['totalt']['minuter'] for b in alla]),
-            'median_listpris_usd': median([b['totalt']['listpris_usd'] for b in alla]),
-            'median_minuter_accepterade': median([b['totalt']['minuter'] for b in acc]),
+            'median_minuter': median([b['totalt']['minuter'] for b in alla if matt(b)]),
+            'median_listpris_usd': median([b['totalt']['listpris_usd'] for b in alla if matt(b)]),
+            'median_minuter_accepterade': median([b['totalt']['minuter'] for b in acc if matt(b)]),
+            'ej_matta': [b['slug'] for b in alla if not matt(b)],
             'agarens_minuter': median([b['agaren'].get('minuter') for b in domda]),
             'vanligaste_roda_grindar': dict(roda.most_common(8)),
             'granskningen_forsamrade': [b['slug'] for b in alla if b['granskning'].get('forsamrade_rundor')],
@@ -193,7 +210,8 @@ def markdown(r):
              '| Median modelltid per accepterat bygge | %s min |' % (s['median_minuter_accepterade'] if s['median_minuter_accepterade'] is not None else '–'),
              '| Ägarens minuter per dom (median) | %s |' % (s['agarens_minuter'] if s['agarens_minuter'] is not None else 'ej mätt än'),
              '| Granskningen försämrade den bästa tidigare omgången | %s |' % (', '.join(s['granskningen_forsamrade']) or 'inget bygge'),
-             '| Sista omgången var inte den bästa | %s |' % (', '.join(s['sista_inte_basta']) or 'inget bygge'), '',
+             '| Sista omgången var inte den bästa | %s |' % (', '.join(s['sista_inte_basta']) or 'inget bygge'),
+             '| Ej mätta (körningslogg utan resultat, utanför medianerna) | %s |' % (', '.join(s['ej_matta']) or 'inga'), '',
              '## Röda grindar i provet, över alla körningar', '',
              ', '.join('%s %d' % (g, n) for g, n in s['vanligaste_roda_grindar'].items()) or 'Inga.', '',
              '## Per bygge', '',
@@ -201,8 +219,9 @@ def markdown(r):
              '|---|---|---|---|---|---|---|---|---|---|']
     for b in r['per_bygge']:
         g = b['granskning']
-        rader.append('| %s | %s | %d | %s | %d | %s | %d | %s | %d | %s |' % (
-            b['slug'], b['start'] or '–', b['omtag'], b['totalt']['minuter'], b['totalt']['turer'], b['totalt']['listpris_usd'],
+        rader.append('| %s | %s | %d | %s | %s | %s | %d | %s | %d | %s |' % (
+            b['slug'], b['start'] or '–', b['omtag'], b['totalt']['minuter'] if matt(b) else 'ej mätt', b['totalt']['turer'] if matt(b) else 'ej mätt',
+            b['totalt']['listpris_usd'] if matt(b) else 'ej mätt',
             g.get('omgangar', 0), {True: 'ja', False: 'nej'}.get(g.get('godkand'), '–'), b['provet']['korningar'],
             b['agaren'].get('namn') or ('ej dömt' if not b['agaren'].get('domd') else '–')))
     if s['ab_par']:
