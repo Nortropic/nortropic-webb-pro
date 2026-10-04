@@ -157,6 +157,9 @@ def main(argv):
     if rc != '0':
         print('Slutkod 4: claude avslutade med kod', rc)
         return 4
+    if v and v.get('ateljen_forkastad') and v.get('slapp'):
+        print('Slutkod 6: ateljén förkastade alla riktningar och bygget stannade utan sajt (ägarbeslut 2026-10-04); panelens dom i underlag/%s/atelje/VAL.md' % k.name)
+        return 6
     print('Slutkod', 0 if godkant else 1, ':', 'godkänt bygge' if godkant else 'avslutat utan grönt prov och godkänd granskning')
     return 0 if godkant else 1
 

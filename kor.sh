@@ -204,7 +204,8 @@ rm -f "$EFTER_FIL"
 { skyddat; grans; } > "$EFTER_FIL"
 chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true
 # Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
-# godkännande, 3 mekaniken ändrades under körningen, 4 claude föll. Skriptets slutkod är korsluts.
+# godkännande, 3 mekaniken ändrades under körningen, 4 claude föll, 6 ateljén förkastade alla riktningar och bygget
+# stannade utan sajt (designprovet, ägarbeslut 2026-10-04). Skriptets slutkod är korsluts.
 set +e
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" "$ROOT/kunder/$SLUG" "$RC" "$FORE_FIL" "$EFTER_FIL" "$STAMP"
 KORSLUT=$?

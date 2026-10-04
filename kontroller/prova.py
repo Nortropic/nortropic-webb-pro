@@ -87,41 +87,55 @@ def bildmatt(p):
 def vinnarjamforelse(vinnare, hem, ut):
     """Byggets startsida mot ateljéns vinnare, pixel för pixel (kontroller/webblasare/jamfor.mjs): första vyn och helsidan i
     390 och 1440. Mäter förändring, inte kvalitet (Codex 2026-10-04, steg 4): avvikelsen är underlag för granskaren, som ser
-    båda bildserierna och avgör om det är en försämring. Skriver ut/VINNARJAMFORELSE.json och .md; ger info-raden."""
-    ut = Path(ut)
+    båda bildserierna och avgör om det är en försämring. Vinnarens bilder prövas först mot hasharna i VINNARE.json (en
+    utbytt måttstock flaggas). Skriver ut/VINNARJAMFORELSE.json och .md; ger info-raden."""
+    vinnare, hem, ut = Path(vinnare), Path(hem), Path(ut)
     ut.mkdir(parents=True, exist_ok=True)
+    hashfel = []
+    try:
+        filer = json.loads((vinnare.parent.parent / 'VINNARE.json').read_text(encoding='utf-8')).get('filer') or {}
+    except (OSError, ValueError, AttributeError):
+        filer, hashfel = {}, ['VINNARE.json kunde inte läsas']
+    for p in sorted(vinnare.glob('*.png')):
+        sha = filer.get('bilder/' + p.name)
+        if p.is_symlink() or not sha or hashlib.sha256(p.read_bytes()).hexdigest() != sha:
+            hashfel.append('%s stämmer inte med VINNARE.json' % p.name)
     par = []
     for vy in ('390', '1440'):
         for namn in ('vy-%s-ruta-01.png' % vy, 'vy-%s-hela.png' % vy):
-            v, b = Path(vinnare) / namn, Path(hem) / namn
+            v, b = vinnare / namn, hem / namn
             post = {'bild': namn, 'vinnare': str(v), 'bygget': str(b)}
-            if not v.is_file() or not b.is_file():
-                post['fel'] = 'saknas: ' + ('vinnarens bild' if not v.is_file() else 'byggets bild')
+            saknas = [x for x, p in (('vinnarens bild', v), ('byggets bild', b)) if not p.is_file()]
+            if saknas:
+                post['fel'] = 'saknas: ' + ' och '.join(saknas)
             else:
                 skillnad = ut / ('skillnad-' + namn)
                 rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'jamfor.mjs'), '--a', str(v), '--b', str(b), '--ut', str(skillnad)], timeout=120)
                 rad = next((r for r in reversed(out.strip().splitlines()) if r.startswith('{')), '')
                 try:
-                    res = json.loads(rad)
+                    res = json.loads(rad) if rad else {'fel': 'inget svar'}
                     if rc != 0 or 'fel' in res:
-                        raise ValueError(res.get('fel') or 'rc %d' % rc)
+                        raise ValueError('%s (rc %d)' % (res.get('fel') or 'okänt fel', rc))
                     post.update(res)
                     post['skillnadsbild'] = str(skillnad)
                 except ValueError as e:
-                    post['fel'] = 'jämförelsen kördes inte: %s' % e
+                    post['fel'] = 'jämförelsen kördes inte: %s; %s' % (e, svans(out, 3).replace('\n', ' ')[:300])
             par.append(post)
-    (ut / 'VINNARJAMFORELSE.json').write_text(json.dumps({'tid': nu(), 'par': par}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    (ut / 'VINNARJAMFORELSE.json').write_text(json.dumps({'tid': nu(), 'par': par, 'hashfel': hashfel}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
 
     def text(p):
         if p.get('fel'):
             return '%s: %s' % (p['bild'], p['fel'])
-        return '%s: %.1f %% olika pixlar över gemensam yta%s' % (p['bild'], 100 * (p.get('andel') or 0), ', höjd %+d px' % p['hojdskillnad'] if p.get('hojdskillnad') else '')
+        storlek = ''.join([', höjd %+d px' % p['hojdskillnad'] if p.get('hojdskillnad') else '', ', bredd %+d px' % p['breddskillnad'] if p.get('breddskillnad') else ''])
+        return '%s: %.1f %% olika pixlar över gemensam yta%s' % (p['bild'], 100 * (p.get('andel') or 0), storlek)
     rader = ['# Bygget mot ateljéns vinnare', '', 'Pixeljämförelse av startsidans första vy och helsida i 390 och 1440 (kontroller/webblasare/jamfor.mjs).',
              'Måttet är förändring, inte kvalitet: en hög avvikelse kan vara en förbättring eller en försämring; granskaren avgör med båda bildserierna.', '']
+    if hashfel:
+        rader += ['**Vinnarens bilder stämmer inte med VINNARE.json:** ' + '; '.join(hashfel[:6]) + '. Måttstocken kan vara utbytt.', '']
     rader += ['- ' + text(p) for p in par]
     rader += ['', 'Skillnadsbilder (röda pixlar skiljer): ' + (', '.join(p['skillnadsbild'] for p in par if p.get('skillnadsbild')) or 'inga')]
     (ut / 'VINNARJAMFORELSE.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
-    return '; '.join(text(p) for p in par) + ' (prov/vinnare/VINNARJAMFORELSE.md; förändring, inte kvalitet)'
+    return ('VINNARENS BILDER STÄMMER INTE MED VINNARE.JSON; ' if hashfel else '') + '; '.join(text(p) for p in par) + ' (prov/vinnare/VINNARJAMFORELSE.md; förändring, inte kvalitet)'
 
 
 def rutor(mapp, vy):
@@ -467,7 +481,10 @@ def prova(slug, snabb=False):
                                'rutor (titta på dem; ett textträd är inte bildseende). -hela.png är nedskalad och visar bara rytmen.')
         # bygget mot ateljéns vinnare (designprovet 2026-10-04, steg 4): startsidans första vy och helsida, pixel för pixel
         if (underlag / 'atelje' / 'VINNARE.json').is_file():
-            info['vinnare'] = vinnarjamforelse(underlag / 'atelje' / 'vinnare' / 'bilder', prov / 'inspektion' / 'hem', prov / 'vinnare')
+            try:  # informationssteg: ett fel här fäller aldrig hela provet
+                info['vinnare'] = vinnarjamforelse(underlag / 'atelje' / 'vinnare' / 'bilder', prov / 'inspektion' / 'hem', prov / 'vinnare')
+            except (OSError, ValueError) as e:
+                info['vinnare'] = 'jämförelsen med ateljéns vinnare kördes inte: %s' % e
 
         # stil (info): typsnitt, färgfamiljer, kort, nästa sektion, klickytor, modellernas standardval
         rc, out = kor([NODE, str(KONTROLLER / 'stil.mjs'), '--url=' + srv.url, '--sidor=' + lista, '--ut=' + str(prov / 'stil')], timeout=300)

@@ -18,22 +18,45 @@ from pathlib import Path
 RAD = re.compile(r'^Bildval:\s*(?P<fil>referenser/\S+)\s+[—–-]+\s+(?P<vad>.+?)\s+[—–-]+\s+Fråga:\s*(?P<fraga>.+?)\s*$', re.M | re.I)  # tankstreck med mellanslag runt; filnamn saknar mellanslag
 RUBRIK = re.compile(r'^#{1,3}\s+(.+?)\s*$', re.M)
 BILD = {'.png', '.jpg', '.jpeg', '.webp'}
-HUVUD = re.compile(r'^Huvudreferens:\s*(?P<namn>.+?)\s+[—–-]+\s+(?P<vad>.+?)\s*$', re.M | re.I)  # en rad: namn — vad den bär
+HUVUD = re.compile(r'^\s*(?:[-*]\s+)?\**Huvudreferens\**:?\**\s*(?P<namn>.+?)\s+[—–-]+\s+(?P<vad>.+?)\s*$', re.I)  # en rad: namn — vad den bär
 
 
 def huvudreferens(slug, underlag):
     """Den sammanhängande huvudreferensen för komposition, typografi, proportioner och bildbehandling (designprovet,
     ägarbeslut 2026-10-04): raden `Huvudreferens: <referensens rubrik> — <vad den bär>` i REFERENSER.md, och dess Bildval-
     bilder (raderna under referensens rubrik). Ger {'namn', 'vad', 'bilder': [(Path, text)]} eller None."""
-    u = Path(underlag) / slug
-    text = (u / 'REFERENSER.md').read_text(encoding='utf-8') if (u / 'REFERENSER.md').is_file() else ''
-    m = HUVUD.search(text)
-    if not m:
-        return None
-    namn = m.group('namn').strip().strip('*`').strip()
+    rader = huvudreferensrader(slug, underlag)
+    if len({n.lower() for n, _ in rader}) != 1:
+        return None  # ingen eller flera olika: tvetydigt, aldrig den första som råkar stå överst
+    namn, vad = rader[0]
     bilder = [(v['fil'], '%s — Fråga: %s' % (v['vad'], v['fraga'])) for v in bildval(slug, underlag)
               if v['fil'] and rubriknamn(v['referens']) == namn.lower()]
-    return {'namn': namn, 'vad': m.group('vad').strip(), 'bilder': bilder}
+    return {'namn': namn, 'vad': vad, 'bilder': bilder}
+
+
+def huvudreferensrader(slug, underlag):
+    """Alla Huvudreferens-rader i REFERENSER.md utanför kodstaket: [(namn, vad)]. Godtar fet stil och listprefix."""
+    f = Path(underlag) / slug / 'REFERENSER.md'
+    ut, staket = [], False
+    for rad in (f.read_text(encoding='utf-8').splitlines() if f.is_file() else []):
+        if rad.lstrip().startswith(('```', '~~~')):
+            staket = not staket
+            continue
+        m = None if staket else HUVUD.match(rad)
+        if m:
+            ut.append((m.group('namn').strip().strip('*`').strip(), m.group('vad').strip().strip('*').strip()))
+    return ut
+
+
+def huvudreferens_fel(slug, underlag):
+    """Varför huvudreferensen inte kan läsas, eller None."""
+    rader = huvudreferensrader(slug, underlag)
+    namn = sorted({n for n, _ in rader}, key=str.lower)
+    if not rader:
+        return 'ingen rad "Huvudreferens: <referens> — <vad den bär>"'
+    if len({n.lower() for n in namn}) > 1:
+        return 'flera olika huvudreferenser: %s' % ', '.join(namn)
+    return None
 
 
 def rubriknamn(rubrik):

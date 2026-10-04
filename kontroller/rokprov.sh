@@ -123,13 +123,16 @@ import sys, json, pathlib, tempfile
 sys.path.insert(0, '$ROOT/kontroller'); import atelje as a
 rot = pathlib.Path(tempfile.mkdtemp()) / 'atelje'
 for n in (1, 2, 3):
-    (rot / str(n)).mkdir(parents=True); (rot / str(n) / 'vy-390-ruta-01.png').write_bytes(b'x'); (rot / str(n) / 'vy-1440-ruta-01.png').write_bytes(b'x')
+    (rot / str(n) / 'undersida').mkdir(parents=True)
+    for fil in ('vy-390-ruta-01.png', 'vy-1440-ruta-01.png', 'vy-390-hela.png', 'vy-1440-hela.png', 'undersida/vy-390-ruta-01.png', 'undersida/vy-1440-ruta-01.png'):
+        (rot / str(n) / fil).write_bytes(b'x')
 (rot / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {str(n): ['vy-390-ruta-01.png', 'vy-1440-ruta-01.png'] for n in (1, 2, 3)}}))  # det här försökets riktningar (R11, F34)
 a.ROOT = rot.parent; a.UNDERLAG = rot.parent / 'underlag'  # inga kalibreringsankare i provet
 sedda = {}
 def attrapp(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
     # varje domare rangordnar riktning 2 först, oavsett vilken bokstav den fått
-    karta = {rad.split(':')[0].split()[-1]: rad.split('/')[-2] for rad in prompt.splitlines() if rad.startswith('- riktning ')}
+    import re
+    karta = {m.group(1): m.group(2) for m in (re.match(r'- riktning ([A-F]): .*?atelje/(\\d)/', rad) for rad in prompt.splitlines()) if m}
     sedda[modell + str(len(sedda))] = karta
     plats = sorted(karta, key=lambda b: {'2': 0, '1': 1, '3': 2}[karta[b]])
     return {'structured_output': {'rangordning': [{'riktning': b, 'plats': i + 1, 'styrkor': '', 'svagheter': '', 'haller_ribban': True, 'niva': 'over'} for i, b in enumerate(plats)],

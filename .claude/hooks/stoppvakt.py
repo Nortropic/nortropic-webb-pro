@@ -6,7 +6,8 @@ Gäller bara när NWP_SLUG är satt (kor.sh sätter den). Interaktiva sessioner 
 Kör kontroller/prova.py själv och litar inte på en STATUS.json som sessionen kan ha skrivit. När provet är grönt och
 rapporten finns kör den kontroller/granska.py, som återanvänder en granskning av exakt samma bygge eller startar en ny
 i en egen session. Underkänd granskning blockerar med granskarens kritik.
-Exit 0 = får avsluta. Exit 2 = blockerad; skälet går till sessionen på stderr.
+Exit 0 = får avsluta. Exit 2 = blockerad; skälet går till sessionen på stderr. Har ateljén förkastat alla riktningar
+(designprovet) släpps avslutet när RAPPORT.md finns, utan prov: bygget stannar utan sajt.
 Tak: efter NWP_STOPP_TAK blockeringar (standard 8), eller när granskningarna i körningen nått sitt tak
 (NWP_GRANSKNING_MAX), släpps avslutet ändå, och kunder/<slug>/prov/STOPPVAKT.json säger det, så att ägaren ser det.
 NWP_GRANSKNING=av stänger av granskningen (till exempel i rökprov).
@@ -35,6 +36,26 @@ GRANSKNING_FRIST = 1750  # granskningen väntar högst 1700 s; provet och gransk
 UTFALL = {0: 'godkänd', 1: 'underkänd', 2: 'kunde inte startas', 3: 'taket för granskningar nått', 4: 'granskaren föll', 5: 'pågår'}
 
 
+def ateljen_forkastad(root, slug):
+    """Skälet när ateljén i den här körningen förkastade alla riktningar, annars None (designprovet, ägarbeslut 2026-10-04:
+    bäst av undermåliga blir aldrig godkänt, bygget stannar). Läget måste hålla ihop: STATUS.json säger forkastad, VAL.json
+    har ingen vald riktning och minst två domare, och sandlådan är av (ateljén körs aldrig sandlådad, så ett sådant läge
+    där är inte ateljéns)."""
+    if os.environ.get('NWP_SANDLADA') == 'pa':
+        return None
+    rot = Path(root) / 'underlag' / slug / 'atelje'
+    try:
+        st = json.loads((rot / 'STATUS.json').read_text(encoding='utf-8'))
+        val = json.loads((rot / 'VAL.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(st, dict) or not isinstance(val, dict) or st.get('steg') != 'forkastad' or st.get('pid'):
+        return None
+    if val.get('val') is not None or not val.get('forkastade') or len(val.get('panel') or {}) < 2:
+        return None
+    return st.get('skal') or 'panelen förkastade alla riktningar'
+
+
 def main():
     try:
         json.load(sys.stdin)
@@ -55,6 +76,22 @@ def main():
     except (OSError, ValueError):
         n = 1
     raknare.write_text(str(n))
+
+    forkastad = ateljen_forkastad(ROOT, slug)
+    if forkastad:  # bygget stannar utan sajt; provet körs inte (det finns ingen godkänd riktning att bygga)
+        rapport = kund / 'RAPPORT.md'
+        post = {'tid': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'forsok': n, 'tak': TAK,
+                'korning': os.environ.get('NWP_KORNING') or None, 'ateljen_forkastad': True,
+                'rapport_finns': rapport.is_file() and rapport.stat().st_size > 300}
+        if post['rapport_finns']:
+            post.update(slapp=True, skal='ateljén förkastade alla riktningar (%s); bygget stannade utan sajt enligt ägarbeslutet 2026-10-04' % forkastad)
+            (prov / 'STOPPVAKT.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            return 0
+        post.update(slapp=False, skal='ateljén förkastade alla riktningar; rapporten saknas')
+        (prov / 'STOPPVAKT.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        print('Ateljén förkastade alla riktningar (underlag/%s/atelje/VAL.md): bygg ingen sajt utan en godkänd riktning. '
+              'Skriv kunder/%s/RAPPORT.md (varför, panelens kritik ur VAL.md, vad som behövs för ett nytt försök) och avsluta.' % (slug, slug), file=sys.stderr)
+        return 2
 
     try:
         p = subprocess.run(byggsteg(slug, [sys.executable, '-B', str(ROOT / 'kontroller' / 'prova.py'), slug]),

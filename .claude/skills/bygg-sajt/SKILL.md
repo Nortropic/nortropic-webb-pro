@@ -290,20 +290,28 @@ KONCEPT.md.
    har".
    **Ateljévägen** (när prompten säger att riktningsateljén är på): kör punkt 2 först, sedan `.venv/bin/python
    kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så länge den svarar att ateljén
-   pågår. En orkestrator tar fram riktningarna som hela startsidor med verksamhetens riktiga innehåll, alla efter
-   huvudreferensen i REFERENSER.md, och en domarpanel om tre dömer varje riktning mot ägarens kalibreringsankare:
-   håller den ribban eller inte. Ingen riktning som en majoritet håller över ribban = alla förkastade; ateljén körs då
-   om en gång med panelens kritik och stannar sedan med slutkod 6: skriv då rapporten om varför och avsluta utan
-   sajt. Bäst av tre undermåliga förslag blir aldrig vald. Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/`
-   (koden i `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och vinnarens startsida står redan som
-   `src/pages/index.astro`: bygg vidare ur den (flytta dess stil till Bas.astro och gemensam CSS när de andra sidorna
-   behöver den, utan att ändra hur startsidan ser ut), bygg undersidorna ur `kod/undersida/` och värdena i
-   `kod/stiltavla/`, och håll dig till riktningen. Provet jämför startsidan pixel för pixel mot vinnaren
-   (`prov/vinnare/VINNARJAMFORELSE.md`; förändring, inte kvalitet); granskaren jämför den mot vinnarens bilder, och en
-   annan riktning utan ny ateljéomgång är ett blockerande fynd. Läs `underlag/<slug>/atelje/VAL.md`, `RIKTNINGAR.md` och bilderna i `atelje/<N>/`, och skriv
-   specifikationen i KONCEPT.md ur den valda riktningen och det som lånas från de andra. Avinstallera typsnitt som
-   bara bortvalda riktningar använde. Tvåan i punkt 4 behövs då inte; riktningsfrågan i FRAGOR.json får en bild per
-   riktning ur `atelje/<N>/vy-390-forsta.png`, i samma ordning som alternativen.
+   pågår. En orkestrator tar fram riktningarna som hela startsidor med början av en undersida, med verksamhetens
+   riktiga innehåll, alla efter huvudreferensen i REFERENSER.md och skilda på en axel inom den, och en domarpanel om
+   tre dömer hela sidan mot ägarens kalibreringsankare: håller riktningen ribban eller inte. I obevakade byggen väljer
+   panelen (Emils prototypmodul låter människan välja; här är det panelen, med rätt att förkasta); i ett designprov
+   dömer ägaren förslagen blint efteråt, och ägarens dom går före panelens. Ingen riktning som en majoritet håller
+   över ribban = alla förkastade; ateljén gör då en omgång till med panelens kritik och stannar sedan med slutkod 6:
+   bygg ingen sajt, skriv RAPPORT.md (varför, panelens kritik ur `atelje/VAL.md`, vad som behövs för ett nytt
+   försök) och avsluta; stoppvakten släpper avslutet och körningen slutar med kod 6. Bäst av tre undermåliga förslag
+   blir aldrig vald, och en ny ateljé efter en förkastning startas av ägaren, inte inifrån bygget (`--bara-domare`
+   och `--om` efter en förkastning vägras där). Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/` (koden i
+   `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och när vinnarens startsida bygger på sin nya plats står
+   den redan som `src/pages/index.astro` (`VINNARE.json`: `overford`); annars säger `overford` varför, och du bygger
+   startsidan ur `kod/index.astro` för hand utan att ändra riktningen. Bygg vidare ur den (flytta dess stil till
+   Bas.astro och gemensam CSS när de andra sidorna behöver den, utan att ändra hur startsidan ser ut), bygg
+   undersidorna ur `kod/undersida/` och värdena i `kod/stiltavla/`, och håll dig till riktningen. Provet jämför
+   startsidan pixel för pixel mot vinnaren (`prov/vinnare/VINNARJAMFORELSE.md`; förändring, inte kvalitet);
+   granskaren jämför den mot vinnarens bilder, och en annan riktning utan ny ateljéomgång är ett blockerande fynd.
+   Läs `underlag/<slug>/atelje/VAL.md`, `RIKTNINGAR.md` och bilderna i `atelje/<N>/`, och skriv i KONCEPT.md de
+   prövade riktningarna, beslutet och varför de andra förkastades; det som lånas från de andra gäller undersidorna
+   och detaljerna, aldrig startsidans riktning. Avinstallera typsnitt som bara bortvalda riktningar använde. Tvåan i
+   punkt 4 behövs då inte; riktningsfrågan i FRAGOR.json får en bild per riktning ur `atelje/<N>/vy-390-forsta.png`,
+   i samma ordning som alternativen.
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
    sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
@@ -363,9 +371,10 @@ KONCEPT.md.
    granskningen igen efter rättningarna, tills granskarna godkänner. Är en invändning fel: skriv varför under
    Granskningen i rapporten. Granskningarna per körning har ett tak; använd dem efter verkliga ändringar.
    **Förfina eller byt riktning.** Efter varje granskning skriver du en rad i `underlag/<slug>/GRANSKNINGSLOGG.md`:
-   omgång, betygen, och om du förfinar riktningen eller byter, och varför. Fynd med omfattning `riktning` betyder byt.
-   Har originaliteten legat under 7 i två omgångar: byt till nästa av de fyra riktningarna i KONCEPT.md i stället för
-   att putsa vidare. **Bästa mot sista:** har du fler än en granskning, kör `.venv/bin/python kontroller/granska.py
+   omgång, betygen, och om du förfinar riktningen eller byter, och varför. Fynd med omfattning `riktning` betyder byt:
+   på ateljévägen med en ny ateljéomgång (`.venv/bin/python kontroller/atelje.py <slug> --om`; förkastar den alla
+   riktningar stannar bygget), annars till en annan av de prövade riktningarna i KONCEPT.md. Har originaliteten legat
+   under 7 i två omgångar: byt på samma sätt i stället för att putsa vidare. **Bästa mot sista:** har du fler än en granskning, kör `.venv/bin/python kontroller/granska.py
    <slug> --jamfor` innan du avslutar. Vinner en tidigare omgång, ta tillbaka det som gjorde den bättre och skriv det i
    rapporten; en mellanversion är ibland den bästa.
 

@@ -69,7 +69,8 @@ MATTSTOCKAR = [
 ]
 VERKTYG = ['Read', 'Glob', 'Grep', 'Bash(node kontroller/sida.mjs *)',
            'Bash(node kontroller/webblasare/inspektera.mjs --ut /tmp/nwp-granskning/*)', 'Bash(ls *)']
-NEKAS = ['Write', 'Edit', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Task', 'Bash(git *)', 'Bash(rm *)', 'Bash(curl *)']
+NEKAS = ['Write', 'Edit', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Task', 'Bash(git *)', 'Bash(rm *)', 'Bash(curl *)',
+         'Read(./underlag/kalibrering/**)']  # de undanhållna kalibreringsexemplen; ankarna fryses in i omgången
 VYER = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
 SLUG = re.compile(r'^[a-z0-9-]{2,60}$')
 
@@ -85,7 +86,8 @@ def metod_sha(slug=None):
     """Hash av granskningsunderlaget: kriterierna, svarsschemana, trösklarna, måttstockarna (byggstandarden med flera) och
     verksamhetens underlag (brief, research, beställning). En dom återanvänds bara för samma bygge och samma underlag
     (revisionen 2026-10-03, F18). Ägarens domar och kalibreringsankarna ingår inte: de är ankare, inte kriterier; nivåfilen
-    kunskap/visuell-niva.md ingår (måttstock som granskartexten kräver; Codex R30)."""
+    kunskap/visuell-niva.md ingår (måttstock som granskartexten kräver; Codex R30), liksom ateljéns vinnare (VINNARE.json
+    och vinnarens bilder: startsidans måttstock, designprovet 2026-10-04)."""
     import hashlib
     h = hashlib.sha256()
     filer = [ROOT / INSTRUKTION, SCHEMA, SCHEMA_ORIGINALITET] + [ROOT / f for _, f in MATTSTOCKAR]
@@ -96,8 +98,10 @@ def metod_sha(slug=None):
     if slug:  # referensbilderna granskaren ser (omgång elva, F18: en utbytt bild på samma sökväg gav samma hash)
         for b, _ in referensbilder(slug):
             h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + (b.read_bytes() if b.is_file() else b'') + b'\0')
-        v = UNDERLAG / slug / 'atelje' / 'VINNARE.json'  # ateljéns vinnare (med bildhashar) är startsidans måttstock (designprovet punkt 5)
+        v = UNDERLAG / slug / 'atelje' / 'VINNARE.json'  # ateljéns vinnare är startsidans måttstock (designprovet punkt 5)
         h.update(b'atelje/VINNARE.json\0' + (v.read_bytes() if v.is_file() else b'') + b'\0')
+        for b in sorted((UNDERLAG / slug / 'atelje' / 'vinnare' / 'bilder').glob('*.png')):  # bilderna själva, inte bara deras hashar
+            h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + b.read_bytes() + b'\0')
     h.update(json.dumps({'troskel': TROSKEL, 'kriterier': KRITERIER}, sort_keys=True).encode())
     return h.hexdigest()
 
@@ -268,6 +272,9 @@ def frys_bygget(kund, rdir):
     """Fryser bygget i omgången: dist/ och provets rapporter kopieras av drivaren (inne i sandlådan när bygget är
     sandlådat), med förankrade källor; arbetaren utanför sandlådan får bara redan kontrollerade filer (Codex R24)."""
     kopiera_trad_sakert(kund / 'sajt' / 'dist', rdir / 'dist')
+    for p in sorted((kund / 'prov' / 'vinnare').glob('skillnad-*.png')):  # skillnadsbilderna mot ateljéns vinnare följer jämförelsen
+        (rdir / 'vinnarjamforelse').mkdir(exist_ok=True)
+        shutil.copy2(sakert_original(p, kund), rdir / 'vinnarjamforelse' / p.name)
     for namn in FRYSTA_FILER:
         f = kund / 'prov' / namn
         if f.exists() or f.is_symlink():
@@ -366,13 +373,14 @@ def kalibreringsexempel(underlag=None):
         d = domar[ident]
         if not re.fullmatch(r'K\d{2}', ident) or not isinstance(d, dict) or d.get('niva') not in KALIBRERING_NIVAER:
             continue
-        bilder = [rot / ident / 'start' / v for v in ('vy-390-forsta.png', 'vy-1440-forsta.png') if (rot / ident / 'start' / v).is_file()]
+        # första vyn i båda bredderna och helsidan i 1440: ribban gäller hela sidan, inte bara första vyn (granskningen av r53)
+        bilder = [rot / ident / 'start' / v for v in ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-1440-hela.png') if (rot / ident / 'start' / v).is_file()]
         ut.append({'id': ident, 'niva': d['niva'], 'skiljer': (d.get('skiljer') or '').strip(), 'bilder': bilder, 'ankare': ident in ankare})
     return ut
 
 
 def frysta_ankare(rdir, underlag=None):
-    """Kalibreringsankarna kopierade till omgången: första vyn 390 och 1440 under kalibrering/ och ägarens ord ordagrant i
+    """Kalibreringsankarna kopierade till omgången: första vyn 390 och 1440 och helsidan i 1440 under kalibrering/ och ägarens ord ordagrant i
     kalibrering.md (ägaren 2026-10-04: texterna är skrivna för att klistras in ordagrant som måttstock), så att alla granskare
     ser samma underlag och domen gäller det som visades. Ger (md, [(Path, text)]) eller None utan ankare."""
     ankare = [e for e in kalibreringsexempel(underlag) if e['ankare'] and e['bilder']]
@@ -397,14 +405,40 @@ def frysta_ankare(rdir, underlag=None):
     return md, bilder
 
 
+def vinnarfel(rot, v):
+    """Skillnader mellan vinnarens filer på disken och hasharna i VINNARE.json (granskningen av r53, punkt 5: en utbytt
+    måttstock ska synas). Ger en lista med fel; tom när allt stämmer."""
+    import hashlib
+    fel = []
+    filer = v.get('filer') if isinstance(v.get('filer'), dict) else {}
+    for namn, sha in sorted(filer.items()):
+        if namn.startswith('overford/'):
+            continue
+        p = Path(rot) / 'vinnare' / namn
+        if p.is_symlink() or not p.is_file():
+            fel.append('%s saknas' % namn)
+        elif hashlib.sha256(p.read_bytes()).hexdigest() != sha:
+            fel.append('%s är ändrad efter ateljén' % namn)
+    for p in sorted((Path(rot) / 'vinnare' / 'bilder').glob('*')):
+        if 'bilder/' + p.name not in filer:
+            fel.append('bilder/%s finns inte i VINNARE.json' % p.name)
+    if not any(n.startswith('bilder/') for n in filer):
+        fel.append('VINNARE.json saknar bilder')
+    return fel
+
+
 def frysta_vinnare(slug, rdir):
     """Ateljéns vinnare (underlag/<slug>/atelje/VINNARE.json och vinnare/bilder/*.png) kopierad till omgången som vinnare/,
-    så att alla granskare jämför startsidan mot samma bilder (designprovet punkt 5, ägarbeslut 2026-10-04).
+    så att alla granskare jämför startsidan mot samma bilder (designprovet punkt 5, ägarbeslut 2026-10-04). Bilderna och
+    koden prövas mot hasharna i VINNARE.json först: en utbytt måttstock stoppar granskningen.
     Ger (VINNARE.json som dict, [Path]) eller None när ateljén inte kördes."""
     rot = UNDERLAG / slug / 'atelje'
     v = las_json(rot / 'VINNARE.json')
     if not isinstance(v, dict) or not isinstance(v.get('riktning'), int):
         return None
+    fel = vinnarfel(rot, v)
+    if fel:
+        raise RuntimeError('ateljéns vinnare stämmer inte med VINNARE.json (%s); kör ateljén om eller återställ vinnaren' % '; '.join(fel[:6]))
     mapp = Path(rdir) / 'vinnare'
     mapp.mkdir(parents=True, exist_ok=True)
     bilder = []
@@ -470,7 +504,7 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Tidigare egna byggen är ingen måttstock, inte heller när ägaren godkänt dem (ägaren 2026-10-03: de håller inte);',
         'de visas bara för att du ska se om det här bygget är en variant av dem.', '',
         *(['Kalibreringsankare: externa sajter som ägaren dömt blint (%s). Ägarens ord om vad som skiljer, ordagrant: %s' % (KALIBRERING_SKALA, rad(ankare[0])[2:]),
-           'Första vyn 390 och 1440 per sajt (läs varje, med ägarens ord bredvid):', *[rad(p) + ' — ' + t for p, t in ankare[1]], '']
+           'Första vyn 390 och 1440 och helsidan i 1440 per sajt (läs varje, med ägarens ord bredvid):', *[rad(p) + ' — ' + t for p, t in ankare[1]], '']
           if ankare else []),
         'Verksamhetens underlag:', *[rad(p) for p in underlag], '',
         'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390 och 1440 (läs varje):',
@@ -487,7 +521,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
            'riktningen genomförd: jämför startsidan ruta för ruta mot vinnarens bilder; en annan riktning, komposition, typografi eller',
            'bildbehandling utan ny ateljéomgång är ett blockerande fynd.', *([rad(p) for p in vinnare[1]] or ['- bilder saknas']),
            *(['Avvikelsen mot vinnaren mätt pixel för pixel (förändring, inte kvalitet; du avgör): %s' % rad(rdir / 'VINNARJAMFORELSE.md')[2:]]
-             if (rdir / 'VINNARJAMFORELSE.md').is_file() else []), '']
+             if (rdir / 'VINNARJAMFORELSE.md').is_file() else []),
+           *(['Skillnadsbilderna (röda pixlar skiljer):'] + [rad(p) for p in sorted((rdir / 'vinnarjamforelse').glob('*.png'))]
+             if (rdir / 'vinnarjamforelse').is_dir() else []), '']
           if vinnare else []),
         'Tidigare byggens första vy:', *([rad(p) for p in tidigare] or ['- inga']), '',
         'Måttstockar:', *['- %s: %s' % (namn, f) for namn, f in MATTSTOCKAR if (ROOT / f).is_file()],
