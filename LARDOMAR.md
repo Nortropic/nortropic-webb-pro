@@ -182,3 +182,17 @@ och pekar på den befintliga regeln mot slop (`kunskap/copy-kontroll.md`, `kunsk
 - **Tacksidan lovar '[ägaren] ringer upp dig, oftast inom en till två arbetsdagar', från deras gamla sajt (2021), och svarstiden står i beställningen. Ska ett bygge använda en sådan gammal uppgift i väntan på svar, eller hellre skriva '[ägaren] ringer upp dig' utan tid?** Använd deras gamla uppgift och beställ bekräftelse
 
 **Ändring:** 0ba099e. Obekräftade uppgifter (ska bero på läget): en uppgift som bygget självt har flaggat som obekräftad står inte på sajten eller i JSON-LD förrän svaret kommit; verksamhetens egna gamla uppgifter får stå medan bekräftelsen är beställd (Ramar i bygg-sajt). standard_kontroll ger fel 7.4 när en adress som inte är publik ändå står på en sida. "Från vår gamla sajt" fångas redan av copykontrollens intern information (b79ae56). Mikroprov, fem Opus-armar per arm, två blinda Sonnet-domare: gamla texten publicerade den obekräftade adressen i 4 av 5 (1 oavgjord, en domare läste fel), nya i 0 av 5; cirka 0,7 M Opus- och 0,14 M Sonnet-tokens.
+
+## Kalibrering · 2026-10-04 · granskarförsöket på de undanhållna exemplen
+
+Ägaren dömde tretton externa sajter blint i tre nivåer (tydligt över ribban, nästan, generisk) och skrev vad som
+skiljer; kännetecknen står i `kunskap/visuell-niva.md`, exemplen och orden privat i `underlag/kalibrering/`. Sju av
+exemplen är ankare i granskarens uppdrag, sex hölls undan och granskaren (opus[1m], effort high, dagens
+`kritik/GRANSKARE.md` med ankarna) dömde dem från samma skärmbilder som ägaren (`kontroller/granskarforsok/kalibrering.py`).
+
+- **Falska godkännanden: 0 av 4** (K02 och K04 "nästan", K10 och K11 "generisk": alla underkända).
+- **Falska underkännanden: 0 av 2** (K01 och K13 "tydligt över ribban": båda godkända, betyg 8 9 7 7 8 och 8 9 7 7 7).
+- Nivåerna skildes också i betygen: "nästan" fick 5–7 med 5–6 blockerande fynd, "generisk" 2–5 med 6–7 blockerande.
+- Mått: granskaren drar ägarens gräns på de undanhållna exemplen. Nästa prövning när nya exempel eller en ny
+  granskartext kommer; siffran gäller den här uppsättningen och den här modellen.
+
