@@ -1,11 +1,13 @@
 ---
 id: B-20261003-mobilvyn-390-px-provas-ocksa-i-webkit-playwright
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Frontend Focus 759 (nyhetsbrev 2026-09-23) + Polypane, Matuzovic, WebKit Safari 27 (egen innovation)
 skapad: 2026-10-03
 prio: normal
 steg: bygg-sajt steg 6 (prov); kontroller/webblasare/, kontroller/stil.mjs
+commit: 1058556
+andrad: 2026-10-04T23:25Z
 ---
 # Mobilvyn 390 px prövas också i WebKit (Playwrights webkit), eftersom iPhone är Safari och alla våra webbläsarprov i dag körs i Chromium
 
@@ -14,3 +16,5 @@ steg: bygg-sajt steg 6 (prov); kontroller/webblasare/, kontroller/stil.mjs
 **Förslag:** kontroller/webblasare/gemensamt.mjs rad 74: motorn väljs med --motor webkit|chromium (standard chromium); inspektera.mjs tar vy-390-forsta i båda motorerna när webkit finns installerad och skriver vy-390-forsta-webkit.png bredvid; PROV.md listar skillnader i sidhöjd, horisontellt spill, konsolfel och typsnitt (document.fonts) mellan motorerna som information. kunskap/webblasare.md rad 4–6: WebKit-binären hämtas en gång av ägaren med Playwrights install-kommando för webkit (ingen körning i bygget); saknas den hoppar provet över passet och säger det. GRANSKARE.md: granskaren läser webkit-bilden när den finns. Mät först på ett dömt bygge (lulea-snickaren-aby) om passet hittar något Chromium inte visar; gör det inte det, stanna vid skärmbilden.
 
 **Klart när:** prova.py --snabb på ett bygge ger vy-390-forsta-webkit.png och en skillnadsrad i PROV.md när webkit är installerad, och ett tydligt 'webkit saknas, passet hoppat över' annars; kontroller/rokprov.sh slutar grönt i båda lägena.
+
+**Klar (2026-10-04):** Genomfört som resorna i WebKit (iPhone 14-profil) och startsidan i båda motorerna (prov/resor/startsida-webkit-390.png, raden webkit i PROV.md); granskaren får WebKit-bilden
