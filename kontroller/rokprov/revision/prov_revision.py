@@ -855,14 +855,33 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     a.fotografera = bygget_foll_
     a.arbetare('provhr')
     st = json.loads((rot2 / 'STATUS.json').read_text())
-    assert st['steg'] == 'fel' and 'bygget föll' in st['fel'] and any(x.endswith('/2/kod') for x in st.get('sparad_kod', [])) \
-        and (rot2 / '2' / 'kod' / 'index.astro').read_text() == '<p>2</p>', st
-    shutil.rmtree(sidor_hr / 'atelje-1'); shutil.rmtree(sidor_hr / 'atelje-2')
+    # bygget föll också sedan den ofullständiga riktningen 2 flyttats undan: dess kod står i ofullstandig-2/, riktning 1:s i 1/kod
+    assert st['steg'] == 'fel' and 'bygget föll' in st['fel'] and any(x.endswith('/1/kod') for x in st.get('sparad_kod', [])) \
+        and (rot2 / 'ofullstandig-2' / 'kod' / 'index.astro').read_text() == '<p>2</p>' and st.get('ofullstandiga_sparade') == ['ofullstandig-2'], st
+    shutil.rmtree(sidor_hr / 'atelje-1', ignore_errors=True); shutil.rmtree(sidor_hr / 'atelje-2', ignore_errors=True)
     a.session = lambda prompt, verktyg, ut, **kw: (_ for _ in ()).throw(subprocess.TimeoutExpired('claude', 3600))
     a.arbetare('provhr')
     st = json.loads((rot2 / 'STATUS.json').read_text())
     assert st['steg'] == 'fel' and 'TimeoutExpired' in st['fel'] and 'sparad_kod' not in st, 'utan en enda sida faller ateljén'
-    assert a.FRIST >= 3000 or os.environ.get('NWP_ATELJE_FRIST'), 'tre riktningar behöver mer än 40 min med Fable på max'
+    assert a.FRIST == 1200 + 800 * a.ANTAL or os.environ.get('NWP_ATELJE_FRIST'), 'gränsen växer med antalet riktningar'
+    # bygget föll efter en avbruten divergens: den ofullständiga riktningen flyttas undan och resten fotograferas
+    (sidor_hr / 'atelje-1').mkdir(parents=True, exist_ok=True); (sidor_hr / 'atelje-1' / 'index.astro').write_text('<p>1</p>')
+    (sidor_hr / 'atelje-1' / 'undersida').mkdir(exist_ok=True); (sidor_hr / 'atelje-1' / 'undersida' / 'index.astro').write_text('<p>u</p>')
+    (sidor_hr / 'atelje-2').mkdir(parents=True, exist_ok=True); (sidor_hr / 'atelje-2' / 'index.astro').write_text('<p>trasig')
+    forsok_ = []
+
+
+    def bygger_utan_2(slug, rot):
+        forsok_.append(sorted(p.name for p in sidor_hr.glob('atelje-*')))
+        if (sidor_hr / 'atelje-2').exists():
+            raise RuntimeError('bygget föll efter divergensen: trasig sida')
+        return []
+
+
+    a.fotografera = bygger_utan_2
+    assert a.fotografera_det_som_bygger('provhr', rot2) == [2] and forsok_ == [['atelje-1', 'atelje-2'], ['atelje-1']], forsok_
+    assert (rot2 / 'ofullstandig-2' / 'kod' / 'index.astro').read_text() == '<p>trasig' and not (sidor_hr / 'atelje-2').exists()
+    shutil.rmtree(sidor_hr / 'atelje-1'); shutil.rmtree(rot2 / 'ofullstandig-2')
     for n, fn in gamla.items():
         setattr(a, n, fn)
     # bildjämförelsen mot vinnaren (jamfor.mjs + prova.vinnarjamforelse): förändring, inte kvalitet

@@ -52,8 +52,10 @@ MODELL = os.environ.get('NWP_ATELJE_MODELL') or 'claude-fable-5-1'
 EFFORT = os.environ.get('NWP_ATELJE_EFFORT') or 'max'
 ANTAL = max(2, min(4, int(os.environ.get('NWP_ATELJE_ANTAL') or 3)))
 # Divergensen gör ANTAL hela startsidor med undersida och stiltavla. Med Fable på max tog tre riktningar 43 min
-# (designprovet 2026-10-05, 117 turer), så gränsen växer med antalet; domarna har samma gräns men slutar långt före.
+# (designprovet 2026-10-05, 117 turer), så gränsen växer med antalet. Domarna (sessioner med svarsschema) tog 9 min
+# parallellt och har en egen, kortare gräns, så att en domare som hänger inte håller panelen i en timme.
 FRIST = int(os.environ.get('NWP_ATELJE_FRIST') or (1200 + 800 * ANTAL))
+FRIST_DOMARE = int(os.environ.get('NWP_ATELJE_FRIST_DOMARE') or 1500)
 MIN_DOMARE = max(1, int(os.environ.get('NWP_ATELJE_MIN_DOMARE') or 2))  # giltiga domare som panelen minst kräver
 OMGANGAR = max(1, min(3, int(os.environ.get('NWP_ATELJE_OMGANGAR') or 2)))  # divergensomgångar innan bygget stannar (designprovet punkt 4)
 NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(git *)', 'Bash(curl *)',
@@ -131,13 +133,24 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
             '--allowedTools', *verktyg, '--disallowedTools', *NEKAS]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
+    # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
+    # krockar med fotograferingens bygge i samma katalog; granskningen av r59, punkt 2)
     with open(ut, 'wb') as f:
-        p = subprocess.run(args, input=prompt.encode(), stdout=f, stderr=subprocess.PIPE, cwd=str(ROOT), env=ren_miljo(),
-                           timeout=FRIST)
+        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=f, stderr=subprocess.PIPE, cwd=str(ROOT), env=ren_miljo(),
+                             start_new_session=True)
+        try:
+            _, fel = p.communicate(input=prompt.encode(), timeout=FRIST_DOMARE if schema else FRIST)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                p.kill()
+            p.communicate()
+            raise
     svar = las_json(ut) or {}
     if p.returncode or svar.get('is_error'):
         raise RuntimeError('sessionen föll (kod %s, %s): %s' % (p.returncode, svar.get('subtype'),
-                                                                (p.stderr or b'').decode(errors='replace')[-400:] or str(svar.get('result'))[:400]))
+                                                                (fel or b'').decode(errors='replace')[-400:] or str(svar.get('result'))[:400]))
     return svar
 
 
@@ -738,6 +751,8 @@ def arbetare(slug):
         kritik = None
         for omgang in range(1, OMGANGAR + 1):
             krav_huvudreferens(slug)  # varje omgång: ingen divergens utan huvudreferens med bilder (granskningen av r53, punkt 10)
+            for k in ('divergera_avbruten', 'borttagna_riktningar'):  # gäller bara omgången de skrevs i
+                status.pop(k, None)
             status.update(steg='divergera', omgang=omgang)
             skriv()
             try:
@@ -752,7 +767,10 @@ def arbetare(slug):
                 status['divergera_avbruten'] = d['avbruten']
             status.update(steg='fotografera', divergera={k: d.get(k) for k in ('num_turns', 'duration_ms', 'total_cost_usd', 'avbruten', 'riktningar_som_fanns') if d.get(k) is not None})
             skriv()
-            fotografera(slug, rot)
+            if status.get('divergera_avbruten'):
+                status['borttagna_riktningar'] = fotografera_det_som_bygger(slug, rot)
+            else:
+                fotografera(slug, rot)
             status['steg'] = 'konvergera'
             skriv()
             val = skriv_val(slug, rot)
@@ -775,6 +793,9 @@ def arbetare(slug):
             sparade = [n for n in range(1, ANTAL + 1) if spara_kod(slug, rot, n)]
             if sparade:
                 status['sparad_kod'] = ['%s/%d/kod' % (rel(rot), n) for n in sparade]
+            undan = sorted(p.name for p in rot.glob('ofullstandig-*') if p.is_dir())
+            if undan:  # riktningar som flyttades undan för att bygget skulle gå igenom (fotografera_det_som_bygger)
+                status['ofullstandiga_sparade'] = undan
         except Exception as e2:  # noqa: BLE001 — sparandet får aldrig dölja det första felet
             status['sparad_kod_fel'] = '%s: %s' % (type(e2).__name__, str(e2)[:200])
     finally:
@@ -782,6 +803,35 @@ def arbetare(slug):
         status.pop('pid', None)
         skriv()
     return 0
+
+
+def fotografera_det_som_bygger(slug, rot):
+    """Efter en avbruten divergens: Astros bygge är allt eller inget, och den riktning sessionen skrev på när den
+    stoppades bygger kanske inte. Fotografera; föll bygget, flytta undan en ofullständig riktning (utan undersida
+    först, annars den med högst nummer; koden sparas i atelje/ofullstandig-N/kod) och försök igen, så länge minst
+    en riktning finns kvar (granskningen av r59, punkt 1). Ger de undanflyttade riktningarnas nummer."""
+    sidor = KUNDER / slug / 'sajt' / 'src' / 'pages'
+    borttagna = []
+    while True:
+        try:
+            fotografera(slug, rot)
+            return borttagna
+        except RuntimeError as e:
+            if 'bygget föll' not in str(e):
+                raise
+            kvar = [n for n in range(1, ANTAL + 1) if (sidor / ('atelje-%d' % n) / 'index.astro').is_file()]
+            if len(kvar) <= 1:
+                raise
+            utan = [n for n in kvar if not (sidor / ('atelje-%d' % n) / 'undersida' / 'index.astro').is_file()]
+            n = max(utan or kvar)
+            kod = spara_kod(slug, rot, n)
+            mal = rot / ('ofullstandig-%d' % n)
+            shutil.rmtree(mal, ignore_errors=True)
+            mal.mkdir(parents=True)
+            if kod:
+                shutil.move(str(kod), str(mal / 'kod'))
+            shutil.rmtree(sidor / ('atelje-%d' % n), ignore_errors=True)
+            borttagna.append(n)
 
 
 def bara_domare(slug, rot, st):

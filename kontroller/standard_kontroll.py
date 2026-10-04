@@ -651,12 +651,17 @@ def konsolfel(inspektion):
             ut.append({'punkt': '8.7', 'sida': sida, 'text': 'inspektionen är oläsbar: %s' % f.name})
             continue
         sida = urlparse(str(d.get('adress') or '')).path or sida  # sidans väg ur adressen, inte katalognamnet
-        fel = []
+        # bara felen på den här sidan (inspektionens bakåt/framåt besöker en länkad sida), och varje text en gång
+        egen = lambda x: not x.get('url') or urlparse(str(x['url'])).path == sida  # noqa: E731
+        fel = {}
         for vy, r in sorted((d.get('vyer') or {}).items()):
-            fel += ['%s: %s' % (vy, str(x.get('text', ''))[:160]) for x in r.get('konsol') or [] if x.get('typ') == 'error']
-            fel += ['%s sidfel: %s' % (vy, str(x.get('text', ''))[:160]) for x in r.get('sidfel') or []]
+            for x in [x for x in r.get('konsol') or [] if x.get('typ') == 'error' and egen(x)]:
+                fel.setdefault(str(x.get('text', ''))[:160], []).append(vy)
+            for x in [x for x in r.get('sidfel') or [] if egen(x)]:
+                fel.setdefault('sidfel: ' + str(x.get('text', ''))[:150], []).append(vy)
         if fel:
-            ut.append({'punkt': '8.7', 'sida': sida, 'text': '%d fel i webbläsarens konsol, t.ex. %s' % (len(fel), fel[0])})
+            ut.append({'punkt': '8.7', 'sida': sida, 'text': '%d olika fel i webbläsarens konsol: %s' % (
+                len(fel), '; '.join('%s (%s)' % (t, ', '.join(sorted(set(v)))) for t, v in list(fel.items())[:3]))})
     return ut
 
 

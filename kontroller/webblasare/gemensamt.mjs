@@ -389,8 +389,9 @@ export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga
   const ctx = await browser.newContext({ viewport: v.viewport, deviceScaleFactor: v.deviceScaleFactor, isMobile: v.isMobile, hasTouch: v.hasTouch, ...(v.userAgent ? { userAgent: v.userAgent } : {}), locale: 'sv-SE', timezoneId: 'Europe/Stockholm', serviceWorkers: 'block', ...extra });
   await installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, malUrsprung, logg });
   ctx.on('page', p => {
-    p.on('console', m => logg.konsol.push({ typ: m.type(), text: red(m.text()).slice(0, 500), tid: nu() }));
-    p.on('pageerror', e => logg.sidfel.push({ text: red(e.message).slice(0, 500), tid: nu() }));
+    // sidans adress följer med, så att ett fel från en länkad sida (inspektionens bakåt/framåt) inte läggs på den inspekterade
+    p.on('console', m => logg.konsol.push({ typ: m.type(), text: red(m.text()).slice(0, 500), tid: nu(), url: redigeraUrl(p.url()) }));
+    p.on('pageerror', e => logg.sidfel.push({ text: red(e.message).slice(0, 500), tid: nu(), url: redigeraUrl(p.url()) }));
     p.on('dialog', async d => { logg.dialoger.push({ typ: d.type(), text: red(d.message()).slice(0, 200) }); await d.dismiss().catch(() => {}); });
     // id: hash av den omaskerade adressen utan fragment, så att ett anrop kan knytas till ett mål utan att hemliga parametrar
     // hamnar i rapporten; maskningen gör annars /api?key=a och /api?key=b identiska (omgång femton, F36)
