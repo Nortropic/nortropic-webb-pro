@@ -84,8 +84,10 @@ def ar_godkant(k, s, v, g, korning=None):
 
 
 def vald_granskning(k, korning):
-    """(dom, slutlig dist, senaste giltiga dom oavsett körning): domen för det slutliga bygget härledd ur giltiga omgångar
-    (kontroller/granska.py valj_sammanfattning), aldrig ur rotfilen, som kan vara inaktuell (Codex R38, F11)."""
+    """(dom, slutlig dist, senaste giltiga dom oavsett bygge och metod, fel): domen för det slutliga bygget härledd ur
+    giltiga omgångar med hela identiteten (körning, dist, aktuell metod; kontroller/granska.py valj_sammanfattning), aldrig
+    ur rotfilen när omgångar finns. Kan omgångarna inte läsas eller valideras är det ett fel som nekar godkännande; rotfilen
+    är reserv bara när inga omgångar finns (Codex R38/R39, F11)."""
     dist = k / 'sajt' / 'dist'
     try:
         import prova
@@ -95,20 +97,30 @@ def vald_granskning(k, korning):
     gdir = k / 'granskning'
     try:
         import granska
-        if gdir.is_dir() and granska.rundor(gdir):
-            val = granska.valj_sammanfattning(gdir, korning, nu_hash)
-            alla = granska.valj_sammanfattning(gdir, None, nu_hash)
-            return (val[1] if val else None), nu_hash, (alla[1] if alla else None)
-    except Exception:  # noqa: BLE001
-        pass
-    return las(gdir / 'GRANSKNING.json'), nu_hash, None  # inga omgångar (manuellt underlag): rotfilen är det enda som finns
+        finns = gdir.is_dir() and bool(granska.rundor(gdir))
+    except Exception as e:  # noqa: BLE001
+        return None, nu_hash, None, 'omgångarna kunde inte listas: %s' % e
+    if not finns:
+        return las(gdir / 'GRANSKNING.json'), nu_hash, None, None  # inga omgångar (manuellt underlag): rotfilen är det enda som finns
+    try:
+        metod = granska.aktuell_metod(k.name)
+        val = granska.valj_sammanfattning(gdir, korning, nu_hash, metod)
+        alla = granska.valj_sammanfattning(gdir, None, None)
+    except Exception as e:  # noqa: BLE001
+        return None, nu_hash, None, 'omgångarna kunde inte läsas eller valideras: %s' % e
+    g = val[1] if val else None
+    if g and not (g.get('dist_sha256') == nu_hash and granska.samma_metod(g, metod)):
+        g_hel = None  # ingen giltig omgång med hela identiteten: visas som senaste, men godkänner inget
+    else:
+        g_hel = g
+    return g_hel, nu_hash, (val[1] if val else None) if g_hel is None else (alla[1] if alla and alla[0] != val[0] else None), None
 
 
 def main(argv):
     k, rc, fore, efter = Path(argv[1]), argv[2], argv[3], argv[4]
     korning = argv[5] if len(argv) > 5 else None
     s, v = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json')
-    g, nu_hash, senaste = vald_granskning(k, korning)
+    g, nu_hash, senaste, gfel = vald_granskning(k, korning)
     skydd = andrade(fore, efter)
     mekanik = [f for f in skydd if f.startswith(MEKANIK)]
     print('\nclaude avslutade med kod', rc)
@@ -121,16 +133,17 @@ def main(argv):
         print('Provet: inget STATUS.json (provet kördes aldrig)')
     if v:
         print('Stoppvakten:', v.get('skal'), '(försök %s av %s)' % (v.get('forsok'), v.get('tak')))
-    if g:
-        # sammanfattningen är den senaste giltiga omgången för det slutliga bygget; en dom om ett annat bygge sägs som sådan (Codex R38, F11)
-        samma = bool(nu_hash) and g.get('dist_sha256') == nu_hash
-        print('Granskningen:', 'GODKÄND' if g.get('godkand') else 'UNDERKÄND', '(omgång %s, dist %s%s)' % (
-            g.get('runda'), (g.get('dist_sha256') or '')[:12], ' = slutliga bygget' if samma else ' ≠ slutliga bygget %s, som inte är granskat' % (nu_hash or '?')[:12]), '—',
-              ', '.join('%s %s' % (n, x.get('betyg')) for n, x in (g.get('kriterier') or {}).items()))
-    elif senaste:
-        print('Granskningen: ingen giltig omgång i den här körningen; senaste giltiga är omgång %s (%s)' % (senaste.get('runda'), 'godkänd' if senaste.get('godkand') else 'underkänd'))
+    if gfel:
+        print('Granskningen: omgångarna kunde inte läsas eller valideras, inget godkännande:', gfel)
+    elif g:
+        # domen med hela identiteten (körning, slutlig dist, aktuell metod); en dom om ett annat bygge sägs som sådan (Codex R38/R39, F11)
+        print('Granskningen:', 'GODKÄND' if g.get('godkand') else 'UNDERKÄND', '(omgång %s, dist %s = slutliga bygget, aktuell metod)' % (
+            g.get('runda'), (g.get('dist_sha256') or '')[:12]), '—', ', '.join('%s %s' % (n, x.get('betyg')) for n, x in (g.get('kriterier') or {}).items()))
     else:
-        print('Granskningen: ingen')
+        print('Granskningen: ingen giltig omgång för det slutliga bygget %s med aktuell metod; slutliga bygget är inte granskat' % (nu_hash or '?')[:12])
+    if senaste and (not g or senaste.get('runda') != g.get('runda')):
+        print('Senaste dom oavsett bygge och metod: %s (omgång %s, dist %s%s)' % ('godkänd' if senaste.get('godkand') else 'underkänd', senaste.get('runda'), (senaste.get('dist_sha256') or '')[:12],
+              '' if senaste.get('dist_sha256') == nu_hash else ' ≠ slutliga bygget'))
     print('Rapport:', k / 'RAPPORT.md' if (k / 'RAPPORT.md').is_file() else 'saknas')
     print('Titta:  cd %s && npx astro preview' % (k / 'sajt'))
     godkant, skal = ar_godkant(k, s, v, g, korning)

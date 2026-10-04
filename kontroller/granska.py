@@ -508,7 +508,7 @@ def arbetare(rdir):
                 if (Path(d_) / n_).is_symlink():
                     raise RuntimeError('planterad symlänk i den frysta kopian: %s' % (Path(d_) / n_))
         u0 = las_utfall(rdir)
-        if u0:  # omgången har redan ett slutligt utfall (avbruten av drivaren): inga granskare startas
+        if u0 and u0['status'] in SLUTLIGA:  # omgången har redan ett slutligt utfall (avbruten av drivaren): inga granskare startas
             raise RuntimeError('omgången är redan %s: %s' % (u0['status'], u0.get('skal') or ''))
         bilder = skarmbilder(kund, rdir / 'sajt')
         aria = aria_trad(kund, rdir / 'sajt')
@@ -587,9 +587,11 @@ def arbetare(rdir):
                 'metod_sha': upp.get('metod_sha'), 'granskare': antal, 'originalitet': lage,
                 'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res,
                 'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}, 'sessioner': sessioner}
-        def skriv_dom():
-            (rdir / 'GRANSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-            (rdir / 'GRANSKNING.md').write_text(markdown(post), encoding='utf-8')
+        def skriv_dom():  # inne i låset: tmp + replace, och tillståndet blir klar först efteråt; en läsare ser pagar till dess
+            for namn, text in (('GRANSKNING.json', json.dumps(post, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', markdown(post))):
+                tmp = rdir / ('.%s.tmp%d' % (namn, os.getpid()))
+                tmp.write_text(text, encoding='utf-8')
+                os.replace(tmp, rdir / namn)
         u = satt_utfall(rdir, 'klar', 'dom publicerad', publicera=skriv_dom)
         if u['status'] != 'klar':  # drivaren avbröt omgången medan granskarna arbetade: domen läggs åt sidan, publiceras aldrig
             (rdir / 'GRANSKNING-sen.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
@@ -744,19 +746,22 @@ def rundor(gdir):
     return sorted(p for p in gdir.glob('runda-*') if p.is_dir())
 
 
-UTFALL = ('klar', 'avbruten', 'fel')
+UTFALL = ('pagar', 'klar', 'avbruten', 'fel')  # pagar är startläget (formatmarkör), de tre andra är slutliga
+SLUTLIGA = ('klar', 'avbruten', 'fel')
 
 
 def las_utfall(rdir):
-    """Omgångens slutliga tillstånd ur UTFALL.json: {'status': klar|avbruten|fel, 'tid', 'skal'} eller None."""
+    """Omgångens tillstånd ur UTFALL.json: {'status': pagar|klar|avbruten|fel, 'tid', 'skal'} eller None (äldre omgång)."""
     u = las_json(Path(rdir) / 'UTFALL.json')
     return u if isinstance(u, dict) and u.get('status') in UTFALL else None
 
 
 def satt_utfall(rdir, status, skal='', publicera=None):
-    """Ett enda slutligt utfall per omgång, skrivet atomiskt under lås: den första skrivaren vinner, en senare ändrar
-    ingenting (Codex R38, F47: en avbruten omgång fick senare en giltig dom från arbetaren i tjänsten). publicera() körs
-    inne i låset bara om vi vinner, så att domen och tillståndet aldrig går isär. Ger det gällande utfallet."""
+    """Ett enda slutligt utfall per omgång, skrivet atomiskt under lås: den första slutliga skrivaren vinner, en senare
+    ändrar ingenting (Codex R38, F47: en avbruten omgång fick senare en giltig dom från arbetaren i tjänsten). Startläget
+    pagar skrivs av drivaren när omgången skapas (formatmarkör, Codex R39): domen får användas först när tillståndet är
+    klar. publicera() körs inne i låset bara om vi vinner, så att domen och tillståndet aldrig går isär. Ger det
+    gällande utfallet."""
     import fcntl
     rdir = Path(rdir)
     assert status in UTFALL
@@ -764,7 +769,9 @@ def satt_utfall(rdir, status, skal='', publicera=None):
         fcntl.flock(las, fcntl.LOCK_EX)
         try:
             u = las_utfall(rdir)
-            if u:
+            if u and u['status'] in SLUTLIGA:
+                return u
+            if u and status == 'pagar':
                 return u
             if publicera:
                 publicera()
@@ -778,11 +785,13 @@ def satt_utfall(rdir, status, skal='', publicera=None):
 
 
 def utfall(rdir):
-    """Omgångens utfall: domen bara när tillståndet är klar (eller, för omgångar utan UTFALL.json, när ingen FEL.txt finns);
-    ett avbrott eller fel gäller före en sen dom (Codex R38, F47)."""
+    """Omgångens utfall: domen bara när tillståndet är klar (pagar ger None, också om en dom råkar ligga där); avbrott och fel
+    gäller före en sen dom (Codex R38/R39, F47). Äldre omgångar utan UTFALL.json: FEL.txt före dom."""
     rdir = Path(rdir)
     u = las_utfall(rdir)
     if u:
+        if u['status'] == 'pagar':
+            return None
         if u['status'] == 'klar':
             g = las_json(rdir / 'GRANSKNING.json')
             return g if g else {'fel': 'omgången är klar men domen saknas'}
@@ -806,10 +815,14 @@ def giltiga_rundor(gdir, korning=None):
     return ut
 
 
-def valj_sammanfattning(gdir, korning=None, dist=None):
-    """Den dom sammanfattningen ska visa: den senaste giltiga omgången för det angivna bygget (dist) och körningen, annars
-    den senaste giltiga; bunden till omgång, dist, metod och körning (Codex R38, F11). Ger (rdir, dom) eller None."""
+def valj_sammanfattning(gdir, korning=None, dist=None, metod=None):
+    """Den dom sammanfattningen ska visa: den senaste giltiga omgången med hela identiteten (körning, dist och aktuell
+    metod), annars för dist, annars den senaste giltiga (Codex R38/R39, F11). Ger (rdir, dom) eller None."""
     giltiga = giltiga_rundor(gdir, korning)
+    if dist and metod:
+        traff = [x for x in giltiga if x[1].get('dist_sha256') == dist and samma_metod(x[1], metod)]
+        if traff:
+            return traff[-1]
     if dist:
         traff = [x for x in giltiga if x[1].get('dist_sha256') == dist]
         if traff:
@@ -971,8 +984,8 @@ def main(argv=None):
             pagar.unlink(missing_ok=True)
     if not a.om:
         for r in reversed(rundor(gdir)):
-            g = las_json(r / 'GRANSKNING.json')
-            if g and g.get('dist_sha256') == hash_nu and samma_metod(g, metod):
+            g = utfall(r)  # samma terminalkontroll som vid väntan: en avbruten eller fallen omgång räknas aldrig (Codex R39)
+            if g and 'fel' not in g and g.get('dist_sha256') == hash_nu and samma_metod(g, metod):
                 print('(Samma bygge är redan granskat med samma metod i %s; ingen ny session.)' % r.name)
                 return svara(gdir, r, g)
 
@@ -984,6 +997,7 @@ def main(argv=None):
     n = max([int(r.name.split('-')[1]) for r in rundor(gdir)] or [0]) + 1
     rdir = gdir / ('runda-%02d' % n)
     rdir.mkdir()
+    satt_utfall(rdir, 'pagar', 'startad av drivaren')  # formatmarkör: domen får användas först när tillståndet är klar (Codex R39)
     try:
         frys_bygget(kund, rdir)
     except (RuntimeError, OSError) as e:

@@ -323,6 +323,7 @@ kund = k / 'ett-abx'; (kund / 'sajt' / 'dist').mkdir(parents=True); (kund / 'saj
 
 def omgang(n, fall, originalitet):
     rdir = kund / 'granskning' / ('runda-%02d' % n); rdir.mkdir(parents=True)
+    gr.satt_utfall(rdir, 'pagar', 'prov')  # som drivaren: formatmarkören före start (Codex R39)
     gr.frys_bygget(kund, rdir)  # som drivaren: bygget fryses förankrat före arbetaren (Codex R24)
     (rdir / 'UPPDRAG.json').write_text(json.dumps({'slug': 'ett-abx', 'runda': 1, 'korning': 'prov', 'tid': gr.nu(), 'dist_sha256': prova.dist_hash(kund / 'sajt' / 'dist'),
                                                    'modell': 'm', 'effort': 'e', 'frist': 60, 'granskare': 2, 'originalitet': originalitet, 'metod_sha': gr.metod_sha('ett-abx')}))  # bokförd nu: underlaget ändrades efter m1 (omgång tolv, F18)
@@ -371,6 +372,28 @@ rot_fore_ = (kund / 'granskning' / 'GRANSKNING.json').read_text(); gr.svara(kund
 assert (kund / 'granskning' / 'GRANSKNING.json').read_text() == rot_fore_, 'svara() läser bara'
 pub_ = gr.publicera(kund / 'granskning', 'prov'); assert pub_[0].name == 'runda-08' and json.loads((kund / 'granskning' / 'GRANSKNING.json').read_text())['sammanfattning_av']['runda'] == 'runda-08'
 shutil.rmtree(r8); gr.publicera(kund / 'granskning', 'prov')
+# Codex R39: en dom i en omgång som ännu är pagar används inte; cacheträffen i main() går genom samma terminalkontroll
+r9 = kund / 'granskning' / 'runda-09'; r9.mkdir(); gr.satt_utfall(r9, 'pagar', 'prov')
+metod_ettabx = gr.aktuell_metod('ett-abx')
+g9 = {'godkand': True, 'runda': 9, 'korning': 'prov', 'tid': gr.nu(), 'dist_sha256': prova.dist_hash(kund / 'sajt' / 'dist'), 'kriterier': {n_: {'betyg': 8, 'motivering': '', 'visa': True} for n_ in gr.KRITERIER}, 'blockerande': [], 'slug': 'ett-abx', 'modell': metod_ettabx['modell'], 'effort': metod_ettabx['effort'], 'troskel': gr.TROSKEL, **metod_ettabx}
+(r9 / 'GRANSKNING.json').write_text(json.dumps(g9)); (r9 / 'GRANSKNING.md').write_text('# r9\n')
+assert gr.utfall(r9) is None, 'pagar: domen får inte användas före slutstatus'
+assert gr.satt_utfall(r9, 'pagar', 'igen')['status'] == 'pagar' and gr.satt_utfall(r9, 'klar', 'dom')['status'] == 'klar' and gr.satt_utfall(r9, 'pagar', 'x')['status'] == 'klar', 'pagar ersätts bara av ett slutligt utfall'
+(kund / 'prov' / 'STATUS.json').write_text(json.dumps({'ok': True, 'dist_sha256': prova.dist_hash(kund / 'sajt' / 'dist')}))
+max_orig_ = gr.MAX_RUNDOR; gr.MAX_RUNDOR = 1; os.environ['NWP_KORNING'] = 'prov'
+import contextlib as cl9_, io as io9_
+def driv_():
+    buf_ = io9_.StringIO()
+    with cl9_.redirect_stdout(buf_):
+        rc_ = gr.main(['ett-abx', '--vanta', '5'])
+    return rc_, buf_.getvalue()
+rc9, ut9 = driv_(); assert rc9 == 0 and 'redan granskat' in ut9, ('cacheträff på en klar godkänd omgång', rc9, ut9[-300:])
+(r9 / 'UTFALL.json').write_text(json.dumps({'status': 'avbruten', 'tid': gr.nu(), 'skal': 'prov'}))  # samma dom, men omgången avbruten
+rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9 and 'Taket' in ut9, ('avbruten omgång ger ingen cacheträff (vidare till taket)', rc9, ut9[-300:])
+(r9 / 'UTFALL.json').write_text(json.dumps({'status': 'fel', 'tid': gr.nu(), 'skal': 'prov'})); rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9
+(r9 / 'UTFALL.json').unlink(); (r9 / 'FEL.txt').write_text('avbruten: äldre omgång\n'); rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9, 'äldre FEL.txt: ingen cacheträff'
+(r9 / 'FEL.txt').unlink(); rc9, ut9 = driv_(); assert rc9 == 0 and 'redan granskat' in ut9, 'äldre omgång utan fel: cacheträff'
+gr.MAX_RUNDOR = max_orig_; os.environ.pop('NWP_KORNING', None); shutil.rmtree(r9); (kund / 'prov' / 'STATUS.json').unlink(); gr.publicera(kund / 'granskning', 'prov')
 os.environ.pop('PROV_FALL', None)
 print('F8/F17/F18 granskaren ok')
 
@@ -750,9 +773,32 @@ assert p38.returncode == 0 and 'GODKÄND (omgång 1' in p38.stdout and '= slutli
 (kk2 / 'prov' / 'STATUS.json').write_text(json.dumps({'ok': True, 'dist_sha256': h4, 'grindar': {'bygge': {'ok': True}}}))
 (kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'släppt utan godkänd granskning: taket för granskningar i körningen är nått', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h4}))
 p38 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
-assert p38.returncode == 1 and 'UNDERKÄND (omgång 2' in p38.stdout and '≠ slutliga bygget' in p38.stdout and 'GODKÄND' not in p38.stdout.split('Rapport:')[0], ('det slutliga bygget är ogranskat: senaste giltiga visas som annat bygge, inte den avbrutna godkända', p38.returncode, p38.stdout[-600:])
+assert p38.returncode == 1 and 'inte granskat' in p38.stdout and 'Senaste dom oavsett bygge och metod: underkänd (omgång 2' in p38.stdout and '≠ slutliga bygget' in p38.stdout and 'GODKÄND' not in p38.stdout.split('Rapport:')[0], ('det slutliga bygget är ogranskat: senaste giltiga visas separat som annat bygge, inte den avbrutna godkända', p38.returncode, p38.stdout[-600:])
 shutil.rmtree(gdir38); gdir38.mkdir(); (kk2 / 'sajt' / 'dist' / 'index.html').write_text('<p>v3</p>')
 (kk2 / 'prov' / 'STATUS.json').write_text(json.dumps({'ok': True, 'dist_sha256': h3, 'grindar': {'bygge': {'ok': True}}}))
+# Codex R39: sluturvalet med hela identiteten (körning, dist, aktuell metod); senaste dom visas separat; läsfel nekar godkännande
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h3}))
+def runda39_(n, dist, godkand, metod, status='klar'):
+    r_ = gdir38 / ('runda-%02d' % n); r_.mkdir(exist_ok=True)
+    (r_ / 'GRANSKNING.json').write_text(json.dumps({'godkand': godkand, 'runda': n, 'kriterier': {'designkvalitet': {'betyg': 7 if godkand else 5}}, 'dist_sha256': dist, 'korning': 'k1', 'tid': gr38.nu(), **metod}))
+    (r_ / 'UTFALL.json').write_text(json.dumps({'status': status, 'tid': gr38.nu(), 'skal': ''}))
+    return r_
+runda39_(1, h3, True, metod3); runda39_(2, h3, False, dict(metod3, modell='gammal'))  # M1 godkänd, M2 underkänd, aktuell metod = M1
+p39 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
+assert p39.returncode == 0 and 'GODKÄND (omgång 1' in p39.stdout and 'aktuell metod' in p39.stdout and 'Senaste dom oavsett bygge och metod: underkänd (omgång 2' in p39.stdout, (p39.returncode, p39.stdout[-600:])
+(gdir38 / 'GRANSKNING.json').write_text(json.dumps({'godkand': True, 'runda': 1, 'kriterier': {}, 'dist_sha256': h3, **metod3}))  # gammal godkänd rotfil
+r39c = runda39_(3, h3, True, metod3); (r39c / 'GRANSKNING.json').write_text('{trasig')  # felaktigt formad dom i en klar omgång
+p39 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
+assert p39.returncode == 0 and 'GODKÄND (omgång 1' in p39.stdout, ('en trasig omgång hoppas över, den giltiga gäller', p39.returncode, p39.stdout[-400:])
+shutil.rmtree(gdir38 / 'runda-01'); p39 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
+assert p39.returncode == 1 and 'ingen giltig omgång' in p39.stdout and 'GODKÄND' not in p39.stdout.split('Rapport:')[0], ('bara trasig + underkänd: rotfilen används inte', p39.returncode, p39.stdout[-400:])
+(r39c / 'FEL.txt').write_text('x'); (r39c / 'UTFALL.json').unlink(); os.chmod(r39c / 'FEL.txt', 0o000)
+try:
+    p39 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
+finally:
+    os.chmod(r39c / 'FEL.txt', 0o644)
+assert p39.returncode == 1 and 'kunde inte läsas' in p39.stdout, ('ett läsfel i en omgång nekar godkännande, rotfilen är ingen reserv', p39.returncode, p39.stdout[-400:])
+shutil.rmtree(gdir38); gdir38.mkdir()
 print('R4 F11 korslut ok')
 
 # F20: en ensam LocalBusiness med fel uppgifter prövas; värdnamn jämförs parsat
