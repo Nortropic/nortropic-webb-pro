@@ -16,7 +16,9 @@ webbläsarprofil per vy. Paketet underlag/<slug>/referenser/paket-vNN/ (skrivmå
 också i torrkörning) har PAKET.json (adress, tidpunkt, tillåtna resursursprung, observationer, begränsningar, filer) och
 PAKET.md. En sida räknas som fångad bara när båda vyerna finns med status 200, bildfilerna finns, de beställda
 tillstånden lyckades och inga egna resurser (bilder, typsnitt, stilar) förblev blockerade eller misslyckades; en kandidat
-bara när alla beställda sidor fångades. En komplettering är ett nytt uppdrag (fältet kompletterar = föregående paket)
+bara när alla beställda sidor fångades. Ett fel i första passet (resursursprungen) fäller inte kandidaten i sig: ett
+fullständigt andra pass är en återhämtning och felet står som anmärkning; saknade resursursprung syns då som blockerade
+egna resurser och fäller sidan där. En komplettering är ett nytt uppdrag (fältet kompletterar = föregående paket)
 och ger en ny, komplett version: orörda kandidater och, för en kandidat som kompletteras, dess orörda sidor ärvs från
 föregående paket (kopierade utan att följa länkar), så att alla Bildval kan peka på den nya versionen; ersatt: true på
 en kandidat betyder fullständig ersättning utan arv.
@@ -491,13 +493,16 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         # pass 1 på första sidan: vilka resursursprung behöver sajten?
         forsta = sidadress(k['adress'], k['sidor'][0])
         pass1 = katalog / '.pass1'
-        post['begransningar'] = []
+        post['anmarkningar'] = []
         try:
             rc1, rapport1, _ = kor_inspektera(forsta, pass1, egna, {}, miljo_for(varden))
             resurser = [o for o in blockerade_ursprung(rapport1, lokala_portar) if o not in egna]
-        except Exception as e:  # ett fel i första passet är en brist, aldrig ett borttaget paket (Codex R35)
+        except Exception as e:
+            # kontraktet (Codex R35/R36): ett fel i första passet fäller inte kandidaten i sig; lyckas andra passet fullständigt
+            # (inga egna resurser blockerade eller misslyckade) är det en återhämtning, och felet står som anmärkning. Saknas
+            # resursursprung som sajten behövde syns det i andra passet som blockerade egna resurser, och då fälls sidan där.
             resurser = []
-            post['begransningar'].append('första passet (resursursprung) föll: %s' % str(e)[:300])
+            post['anmarkningar'].append('första passet (resursursprung) föll: %s; andra passet kördes med bara sajtens egna ursprung' % str(e)[:300])
         shutil.rmtree(pass1, ignore_errors=True)
         tillat = egna + resurser
         varden |= {urllib.parse.urlsplit(o).hostname for o in resurser}
@@ -563,8 +568,8 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
                 len(s['kvar_blockerade']), len(s['filer'])))
             for b in s['begransningar']:
                 rader.append('  - begränsning: ' + b)
-        for b in post.get('begransningar') or []:
-            rader.append('- begränsning: ' + b)
+        for b in post.get('anmarkningar') or []:
+            rader.append('- anmärkning (fäller inte i sig): ' + b)
         if post['resursursprung']:
             rader.append('- resursursprung tillåtna för inspektionen: ' + ', '.join(post['resursursprung']))
         rader.append('')

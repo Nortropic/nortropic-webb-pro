@@ -2691,8 +2691,9 @@ class RefA_(hs_.BaseHTTPRequestHandler):
         if self.path == '/saknas' or self.path.endswith('.png'):
             self.send_response(404); self.send_header('Content-Length', '0'); self.end_headers(); return
         bild = c_ref if self.path == '/c' else (a_ref if self.path == '/trasig' else b_ref)
+        img = '' if self.path == '/egen' else '<img src="%s/bild.png" width="200" height="100" alt="bild">' % bild  # /egen: bara egna resurser
         html = ('<html><head><title>Lokal referens</title></head><body><h1>%s</h1><p>Vi använder cookies. <button id="godkann">Godkänn alla</button></p>'
-                '<nav><button id="meny">Meny</button></nav><img src="%s/bild.png" width="200" height="100" alt="bild"><p>%s</p></body></html>' % (self.path, bild, 'text ' * 200)).encode()
+                '<nav><button id="meny">Meny</button></nav>%s<p>%s</p></body></html>' % (self.path, img, 'text ' * 200)).encode()
         self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(html))); self.end_headers(); self.wfile.write(html)
     def log_message(self, *a): pass
 srv_ra = hs_.HTTPServer(('127.0.0.1', 0), RefA_); th_.Thread(target=srv_ra.serve_forever, daemon=True).start()
@@ -2818,16 +2819,25 @@ try:
 finally:
     shutil.move(str(tmp / 'andra-undan'), str(paket4 / 'andra'))
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 0, 'återställt arv går igenom'
-# Codex R35: ett fel i första passet (resursursprungen) är en brist i ett sparat paket, aldrig ett borttaget paket; tidigare fångster bevaras
+# Codex R35/R36, kontraktet för första passet: ett fel där raderar aldrig paketet och fäller inte kandidaten i sig. En sida med bara egna
+# resurser återhämtar sig i andra passet (fångad, med anmärkning); en sida som behövde ett resursursprung som inte upptäcktes fälls i andra
+# passet av den blockerade egna resursen, inte av första-pass-felet. Tidigare fångster bevaras.
 def kor_pass1_faller_(adress, ut, tillat, tillstand, miljo):
-    if str(ut).endswith('.pass1') and '/a-b' in adress:
+    if str(ut).endswith('.pass1') and ('/a-b' in adress or '/egen' in adress):
         raise subprocess.TimeoutExpired(['node'], 1)
     return kor_orig_(adress, ut, tillat, tillstand, miljo)
 rf_.kor_inspektera = kor_pass1_faller_
-(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'hel', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'fångas', 'sidor': ['/']}, {'namn': 'pass1', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'pass 1 faller', 'sidor': ['/a-b']}]}))
-rc_p1 = rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]); rf_.kor_inspektera = kor_orig_
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'hel', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'fångas', 'sidor': ['/']},
+    {'namn': 'pass1', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'pass 1 faller, bild från annat ursprung', 'sidor': ['/a-b']},
+    {'namn': 'pass1egen', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'pass 1 faller, bara egna resurser', 'sidor': ['/egen']}]}))
+rc_p1 = rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref])
 paket_p1 = sorted((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))[-1]; k_p1 = {k_['namn']: k_ for k_ in json.load(open(paket_p1 / 'PAKET.json'))['kandidater']}
-assert rc_p1 == 1 and k_p1['hel']['ok'] and (paket_p1 / 'hel' / '01-start' / 'vy-390-forsta.png').is_file() and not k_p1['pass1']['ok'] and any('första passet' in b_ for b_ in k_p1['pass1']['begransningar']) and k_p1['pass1']['resursursprung'] == [] and 'första passet' in (paket_p1 / 'PAKET.md').read_text(), k_p1['pass1']
+assert rc_p1 == 1 and k_p1['hel']['ok'] and (paket_p1 / 'hel' / '01-start' / 'vy-390-forsta.png').is_file(), 'paketet sparat, första fångsten kvar'
+assert not k_p1['pass1']['ok'] and k_p1['pass1']['resursursprung'] == [] and k_p1['pass1']['sidor'][0]['kvar_blockerade'] and any('första passet' in b_ for b_ in k_p1['pass1']['anmarkningar']), ('fälls av den blockerade egna resursen i andra passet', k_p1['pass1'])
+assert k_p1['pass1egen']['ok'] and k_p1['pass1egen']['sidor'][0]['kvar_blockerade'] == [] and any('första passet' in b_ for b_ in k_p1['pass1egen']['anmarkningar']) and 'anmärkning (fäller inte i sig): första passet' in (paket_p1 / 'PAKET.md').read_text(), ('återhämtning i andra passet', k_p1['pass1egen'])
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'pass1egen', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'bara egna resurser', 'sidor': ['/egen']}]}))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]) == 0, 'bara egna resurser: första-pass-felet ensamt ger slutkod 0'
+rf_.kor_inspektera = kor_orig_
 # Codex R35: en bild som försvinner mellan observationen och inventeringen fäller sidan, och bristen dokumenteras
 obs_orig_ = rf_.observationer
 def obs_tar_bort_bild_(rapport, ut, bestallda=()):
