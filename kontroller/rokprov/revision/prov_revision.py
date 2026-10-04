@@ -2135,7 +2135,7 @@ kor_text_w = (ROOT / 'kor.sh').read_text()
 assert 'webbtjanst.py' in kor_text_w and 'NWP_WEBBTJANST' in kor_text_w, 'kor.sh startar tjänsten med sandlådan på'
 assert 'via_tjanst' not in (ROOT / 'kontroller' / 'prova.py').read_text(), 'prova delegerar inte längre: npm och servering stannar i sandlådan'
 assert 'via_tjanst' not in (ROOT / 'kontroller' / 'atelje.py').read_text(), 'ateljén delegerar inte; den vägrar i sandlådat läge'
-assert set(wt.VERKTYG) == {'granska', 'lighthouse', 'arkivera', 'inspektera', 'utan-js', 'utforska', 'axe', 'stil', 'sida', 'ikoner', 'referens'}, 'bara webbläsaroperationer, granskarnas sessioner och referenssteget (ägarbeslut 2026-10-04)'
+assert set(wt.VERKTYG) == {'granska', 'lighthouse', 'arkivera', 'inspektera', 'utan-js', 'utforska', 'axe', 'stil', 'sida', 'ikoner', 'referens', 'referenstjanster'}, 'bara webbläsaroperationer, granskarnas sessioner, referenssteget och referenstjänsterna (ägarbeslut 2026-10-04)'
 for namn_ in ('axe', 'stil', 'sida', 'ikoner', 'lighthouse'):  # alla Chromium-skript delegerar och går genom nätgränsen i tjänstens läge
     txt_ = (ROOT / 'kontroller' / (namn_ + '.mjs')).read_text()
     assert "viaTjanst('%s'" % namn_ in txt_ and 'natgrans(' in txt_ and 'grans.stang()' in txt_, namn_
@@ -3018,6 +3018,54 @@ assert wt.tillaten_vard('assets.awwwards.com', wt.tillatna_varden(sl_ref.domanli
 assert 'referens.py' in (ROOT / 'kor.sh').read_text() and 'REFERENSUPPDRAG.json' in (ROOT / '.claude' / 'skills' / 'bygg-sajt' / 'SKILL.md').read_text()
 srv_ra.shutdown(); srv_rb.shutdown(); srv_rc.shutdown()
 print('referenssteget ok')
+
+# ---------------------------------------------------------------- referenstjänsterna som belägg (designprovets punkt 1): anropen räknas ur sessionsloggen, inte ur
+# modellens uppgift; bilder laddas bara från tjänstens egna bildvärdar (här: lokalt provundantag) och landar i paketet; utan verkliga anrop ingen ok
+import referenstjanster as rt_  # noqa: E402
+srv_rt = hs_.HTTPServer(('127.0.0.1', 0), RefBild_); th_.Thread(target=srv_rt.serve_forever, daemon=True).start()
+rt_port = srv_rt.server_address[1]; rt_bild = 'http://127.0.0.1:%d/skarm.png' % rt_port
+u_rt = tmp / 'rt-underlag'; (u_rt / 'prov-rt').mkdir(parents=True)
+(u_rt / 'prov-rt' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Provfirman'}))
+def logg_rt_(logg, anrop, traffar, subtype='success'):
+    rader = [json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': n, 'input': {}}]}}) for n in anrop]
+    rader.append(json.dumps({'type': 'result', 'subtype': subtype, 'is_error': subtype != 'success', 'num_turns': len(anrop) + 1, 'structured_output': {'anrop': [{'verktyg': 'påstått', 'argument': 'x', 'resultat_typ': 'json'}] * 9, 'traffar': traffar, 'anmarkning': 'prov'}}))
+    Path(logg).write_text('\n'.join(rader) + '\n')
+def kor_rt_ok_(tjanst, prompt, logg, modell):
+    assert 'Provfirman' in prompt and tjanst in ('refero', 'mobbin')
+    bildvard = rt_bild if tjanst == 'mobbin' else 'https://images.refero.design/skarm.png'
+    logg_rt_(logg, ['mcp__%s__%s' % (tjanst, 'search_screens' if tjanst == 'mobbin' else 'refero_search_screens')] * 2,
+             [{'id': 'A 1', 'titel': 'Träff', 'sida_url': 'https://x.se/', 'bild_url': bildvard, 'beskrivning': 'b', 'fraga': 'f'},
+              {'id': 'B', 'titel': 'Främmande', 'sida_url': 'https://y.se/', 'bild_url': 'http://127.0.0.1:1/x.png', 'beskrivning': 'b', 'fraga': 'f'},
+              {'id': 'C', 'titel': 'Utan bild', 'sida_url': 'https://z.se/', 'bild_url': '', 'beskrivning': 'b', 'fraga': 'f'}])
+    return 0, ''
+upp_rt = {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form', 'syfte': 'x'}, {'tjanst': 'refero', 'fraga': 'editorial', 'syfte': ''}]}
+assert rt_.las_uppdrag(tmp / 'finns-inte.json')[1], 'saknat uppdrag vägras'
+(u_rt / 'prov-rt' / 'TJANSTEUPPDRAG.json').write_text(json.dumps(upp_rt))
+for dalig_, skal_ in (({'fragor': []}, 'behöver'), ({'fragor': [{'tjanst': 'okand', 'fraga': 'x'}]}, 'tjanst'), ({'fragor': [{'tjanst': 'mobbin', 'fraga': 'x'}]}, 'tecken'), ({'fragor': [{'tjanst': 'mobbin', 'fraga': 'x' * 300}]}, 'tecken')):
+    (u_rt / 'prov-rt' / 'DALIGT.json').write_text(json.dumps(dalig_)); assert skal_ in (rt_.las_uppdrag(u_rt / 'prov-rt' / 'DALIGT.json')[1] or ''), dalig_
+rot_rt, res_rt = rt_.samla('prov-rt', upp_rt, u_rt, lokala_portar=(rt_port,), kor=kor_rt_ok_)
+m_ = res_rt['tjanster']['mobbin']; r_ = res_rt['tjanster']['refero']
+assert m_['ok'] and m_['anrop'] == {'mcp__mobbin__search_screens': 2} and m_['bilder'] == 1, m_
+assert [(t_['id'], bool(t_['fil']), t_['fel']) for t_ in m_['traffar']] == [('A-1', True, None), ('B', False, 'bildadressen ligger inte på tjänstens bildvärd; laddas inte'), ('C', False, 'ingen bildadress från tjänsten')], m_['traffar']
+assert (u_rt / 'prov-rt' / m_['traffar'][0]['fil']).read_bytes() == png_ref and m_['traffar'][0]['sha256'] and 'påstått' not in json.dumps(m_['anrop'])
+assert not r_['ok'] and r_['anrop'] == {'mcp__refero__refero_search_screens': 2} and r_['bilder'] == 0 and any('inga bilder' in a_ for a_ in r_['anmarkningar']), 'refero-bilden ligger på riktig bildvärd som provet inte når: brist, inte ok'
+assert not res_rt['alla_ok'] and (rot_rt / 'TJANSTER.json').is_file() and 'anrop: search_screens ×2' in (rot_rt / 'TJANSTER.md').read_text()
+def kor_rt_tom_(tjanst, prompt, logg, modell):
+    logg_rt_(logg, [], [{'id': 'X', 'titel': 't', 'sida_url': 'https://x.se/', 'bild_url': rt_bild, 'beskrivning': 'b', 'fraga': 'f'}]); return 0, ''
+rot_rt, res_rt = rt_.samla('prov-rt', {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form', 'syfte': ''}]}, u_rt, lokala_portar=(rt_port,), kor=kor_rt_tom_)
+assert not res_rt['tjanster']['mobbin']['ok'] and any('inga verkliga verktygsanrop' in a_ for a_ in res_rt['tjanster']['mobbin']['anmarkningar']), 'påstådda anrop utan logg räknas inte'
+def kor_rt_faller_(tjanst, prompt, logg, modell):
+    Path(logg).write_text(''); return 1, 'sessionen föll'
+rot_rt, res_rt = rt_.samla('prov-rt', {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form', 'syfte': ''}]}, u_rt, lokala_portar=(rt_port,), kor=kor_rt_faller_)
+assert not res_rt['tjanster']['mobbin']['ok'] and any('inget giltigt svar' in a_ for a_ in res_rt['tjanster']['mobbin']['anmarkningar'])
+rot_rt, res_rt = rt_.samla('prov-rt', upp_rt, u_rt, torr=True, kor=kor_rt_faller_); assert res_rt['torr'] and not res_rt['alla_ok']
+assert rt_.tillaten_bild('https://images.refero.design/a.png', 'refero') and not rt_.tillaten_bild('https://images.refero.design.evil/a.png', 'refero') and not rt_.tillaten_bild('http://images.refero.design/a.png', 'refero') and rt_.tillaten_bild('https://mobbin.com/api/mcp/short/x', 'mobbin') and not rt_.tillaten_bild('https://mobbin.com/x', 'refero')
+assert rt_.main(['prov-rt', '--underlag', str(u_rt), '--uppdrag', str(tmp / 'utanfor.json')]) == 2
+ga_rt = lambda a_: wt.granska_anrop('referenstjanster', a_, 'prov-bygge', ['exempel.se'], rot_ref, 'K1', lambda adr_, k_: (True, None))  # noqa: E731
+(rot_ref / 'underlag' / 'prov-bygge' / 'TJANSTEUPPDRAG.json').write_text('{}')
+assert ga_rt(['prov-bygge', '--uppdrag', 'underlag/prov-bygge/TJANSTEUPPDRAG.json'])[1] is None and ga_rt(['annan'])[1] and ga_rt(['prov-bygge', '--modell', 'x'])[1]
+srv_rt.shutdown()
+print('referenstjänsterna ok')
 
 
 shutil.rmtree(tmp, ignore_errors=True)

@@ -57,6 +57,8 @@ VERKTYG = {
     # referens: det förberedande referenssteget (kontroller/referens.py) utanför byggsessionen: uppdraget under underlag/<slug>,
     # paketet under underlag/<slug>/referenser/; kandidaternas värdar öppnas bara av det steget, aldrig av byggsessionen
     'referens': {'kmd': (PY, '-B', 'kontroller/referens.py'), 'slug': True, 'flaggor': {'uppdrag': 'vag', 'torr': 'flagga'}},
+    # referenstjanster: Refero/Mobbin via egna sessioner utanför byggsessionen; belägg ur sessionsloggen, bilder till paketet
+    'referenstjanster': {'kmd': (PY, '-B', 'kontroller/referenstjanster.py'), 'slug': True, 'flaggor': {'uppdrag': 'vag', 'torr': 'flagga'}},
     'lighthouse': {'kmd': ('node', 'kontroller/lighthouse.mjs'), 'slug': False,  # Chrome utan route-vakt: bara byggets lokala server
                    'flaggor': {'url': 'lokal_url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text'}},
     'axe': {'kmd': ('node', 'kontroller/axe.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag'}},
