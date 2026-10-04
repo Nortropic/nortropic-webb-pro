@@ -12,6 +12,7 @@ unpkg.com
 fonts.googleapis.com
 fonts.gstatic.com
 awwwards.com
+*.awwwards.com
 siteinspire.com
 land-book.com
 godly.website

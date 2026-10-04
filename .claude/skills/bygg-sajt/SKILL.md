@@ -163,23 +163,35 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
 Skriv också `underlag/<slug>/FRASER.txt`: en rad per fras som konkurrenterna i branschen använder och som vi därför
 inte ska använda. Briefen är en hypotes; den prövas när ägaren och verksamheten ser resultatet.
 
-**Referenser — du hittar dem själv.** Läs `kunskap/referensjakt.md` och följ den. Sök efter vad toppuppgifterna
-kräver, i tre roller: bransch (starka verkliga sajter i samma sorts verksamhet, även utanför Sverige), hantverk
-(komposition, typografi, bild, rytm, även andra branscher) och UX/funktion. Gallerier är sökingångar, inte facit.
-Öppna varje vald referens på riktigt:
+**Referenser — du hittar dem själv, och undersöker innan du låser urvalet.** Läs `kunskap/referensjakt.md` och följ
+den. Utgå från researchen och briefen: sök efter vad toppuppgifterna kräver, i tre roller: bransch (starka verkliga
+sajter i samma sorts verksamhet, även utanför Sverige), hantverk (komposition, typografi, bild, rytm, även andra
+branscher) och UX/funktion. Gallerier (Awwwards, SiteInspire, Godly, Land-book) är sökingångar, inte facit; en galleribild
+räcker inte för att avgöra om den verkliga sajten är en bra referens. Skriv kandidaterna i
+`underlag/<slug>/REFERENSUPPDRAG.json` (6–10 stycken, fler än du tänker behålla): per kandidat `namn`, `adress`,
+`roll` (bransch, hantverk, ux), `varfor` (ur researchen: vilken fråga den ska svara på), `sidor` (de undersidor beslutet
+gäller, till exempel `/priser`) och vid behov `meny`, `hover`, `fokus` som CSS-väljare för de tillstånd du vill se.
+Samla sedan paketet:
 
 ```sh
-node kontroller/webblasare/inspektera.mjs --adress https://REFERENS/ --ut underlag/<slug>/referenser/<namn> --vyer 390,1440
+.venv/bin/python kontroller/referens.py <slug>
 ```
 
-Lägg till `--tillat` med referensens egna ursprung om den ser trasig ut. Titta på skärmbilderna med Read. Skriv
-`underlag/<slug>/REFERENSER.md`: per referens roll, varför den är stark för just den här frågan, vad du faktiskt
-såg, och vilket val i vår sajt den ska påverka. Peka dessutom ut bilden: minst en rad per referens
-`Bildval: referenser/<namn>/<fil>.png — <vad som jämförs> — Fråga: <jämförelsefrågan>` som anger just den ruta
-(`vy-390-ruta-NN.png`, `vy-1440-ruta-NN.png`, `utsnitt-…png`) eller det tillstånd (hover, meny, reflow) som bär
+Steget öppnar varje kandidat på riktigt, avgränsat och läsande (med sandlådan på körs det av webbtjänsten utanför din
+session; ditt eget nät öppnas aldrig), tillåter sajtens resursdomäner bara för den inspektionen så att bilder och
+typsnitt är laddade, och skriver `underlag/<slug>/referenser/paket-vNN/` med skärmbilder per sida och vy, tillstånden,
+`PAKET.json` (adress, tidpunkt, resursursprung, observationer, begränsningar) och `PAKET.md`. Titta på bilderna med
+Read och läs begränsningarna (kakdialog, blockerade resurser, tomma bilder) innan du väljer; en kandidat som inte
+fångades hela ersätts eller kompletteras. Välj de användbara och skriv `underlag/<slug>/REFERENSER.md`: per referens
+roll, varför den är stark för just den här frågan, vad du faktiskt såg, och vilket val i vår sajt den ska påverka.
+Peka dessutom ut bilden: minst en rad per referens
+`Bildval: referenser/paket-vNN/<namn>/<sida>/<fil>.png — <vad som jämförs> — Fråga: <jämförelsefrågan>` som anger
+just den ruta (`vy-390-ruta-NN.png`, `vy-1440-ruta-NN.png`) eller det tillstånd (hover, meny, reflow) som bär
 jämförelsen: tjänstesektionen, bildserien, mobilmenyn, prislistan, sidfoten. Första vyn räcker bara när referensen
-gäller just den. Ateljén och granskaren får exakt de bilderna med frågan, i den ordning du skriver dem. Ingen kvot: sluta när underlaget räcker för välgrundade val. En
-referens som inte gick att öppna märks så och ersätts.
+gäller just den. Ateljén och granskaren får exakt de bilderna med frågan, i den ordning du skriver dem, och omgången
+fryser dem. Behöver du senare se mer (mobilmenyn, prislistan, ett annat tillstånd): skriv ett nytt uppdrag med bara
+det, sätt `"kompletterar": "paket-vNN"`, kör steget igen och peka på filer i den nya versionen; inom en omgång pekar
+alla Bildval-rader på samma version. Ingen kvot: sluta när underlaget räcker för välgrundade val.
 
 **När Mobbin eller Refero är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG` = `kontroller/mcp/mobbin.json` eller
 `refero.json`): Mobbins `search_screens`, `search_flows` och `search_sections` söker skärmar, flöden och sektioner ur

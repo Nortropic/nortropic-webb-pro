@@ -73,3 +73,14 @@ verksamhetens material ovanpå; identitet, texter och bilder kopieras inte.
 Bildinventeringen i research §7 skiljer kundmaterial, licensierat material och syntetiska illustrationer.
 Dokumentera rättigheter och tänkt roll innan användning; genererad bild är inte verkligt kundbevis.
 Referensbild och publicerbar tillgång är olika roller. Läs bild.md för bearbetning och responsiva leveranser.
+
+## Insamlingen är ett eget, avgränsat steg
+
+Kandidaterna undersöks innan urvalet låses (ägarbeslut 2026-10-04): byggaren skriver REFERENSUPPDRAG.json ur
+researchen, och `kontroller/referens.py` öppnar varje kandidat läsande med en färsk webbläsarprofil, prövar värden
+(publik adress, omdirigeringar hopp för hopp) och tillåter sajtens egna resursdomäner bara för den inspektionen, så att
+bilder och typsnitt är laddade. Paketet `underlag/<slug>/referenser/paket-vNN/` bär adress, tidpunkt, observationer
+(status, laddade bilder och typsnitt, kvarvarande blockeringar) och begränsningar (kakdialog, tomma bilder).
+Byggare, ateljé och granskare pekar på samma version; en komplettering ger en ny version och öppnar aldrig
+byggsessionens nät. Med sandlådan på körs steget av webbtjänsten med uppdraget och utkatalogen som enda
+beröringspunkter; dess behörigheter är skilda från byggsessionens.

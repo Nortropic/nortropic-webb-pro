@@ -62,7 +62,7 @@ for (const vy of vyer) {
     if (tillstand.has('reload')) { const s2 = await b.page.reload({ waitUntil: 'load' }); r.tillstand.reload_status = s2?.status() ?? null; }
     if (tillstand.has('bakat')) { const lank = b.page.locator('a[href^="/"], a[href^="' + origin(a.adress) + '"]').first(); if (await lank.count()) { const href = await lank.getAttribute('href'); await lank.click({ timeout: 5000 }).catch(() => null); await b.page.waitForLoadState('load').catch(() => null); const efter = b.page.url(); await b.page.goBack({ waitUntil: 'load' }).catch(() => null); const tillbaka = b.page.url(); await b.page.goForward({ waitUntil: 'load' }).catch(() => null); r.tillstand.bakat = { lank: href, efter_klick: efter, efter_bakat: tillbaka, efter_framat: b.page.url() }; } }
   } catch (e) { r.fel = String(e.message).slice(0, 300); }
-  r.konsol = b.logg.konsol; r.sidfel = b.logg.sidfel; r.dialoger = b.logg.dialoger; r.natverk = { antal: b.logg.natverk.length, fel: b.logg.natverk.filter(x => x.status === null || x.status >= 400), blockerade: b.logg.blockerade };
+  r.konsol = b.logg.konsol; r.sidfel = b.logg.sidfel; r.dialoger = b.logg.dialoger; r.natverk = { antal: b.logg.natverk.length, fel: b.logg.natverk.filter(x => x.status === null || x.status >= 400), blockerade: b.logg.blockerade, laddade: b.logg.natverk.filter(x => x.status === 200).reduce((m, x) => { m[x.typ || 'other'] = (m[x.typ || 'other'] || 0) + 1; return m; }, {}) };  // laddade per typ: referenspaketet verifierar att bilder och typsnitt kom med
   r.spar = join(a.ut, `vy-${vy}-spar.zip`); await b.stang(r.spar);
   rapport.vyer[vy] = r;
 }

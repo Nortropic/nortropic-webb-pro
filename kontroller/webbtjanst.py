@@ -54,6 +54,9 @@ VERKTYG = {
     # granska: bara arbetaren (granskarnas sessioner, egen sandlåda) och jämförelsen; drivaren körs i byggets sandlåda
     'granska': {'kmd': (PY, '-B', 'kontroller/granska.py'), 'slug': 'granska',
                 'flaggor': {'arbetare': 'granskningsvag', 'jamfor': 'flagga'}},
+    # referens: det förberedande referenssteget (kontroller/referens.py) utanför byggsessionen: uppdraget under underlag/<slug>,
+    # paketet under underlag/<slug>/referenser/; kandidaternas värdar öppnas bara av det steget, aldrig av byggsessionen
+    'referens': {'kmd': (PY, '-B', 'kontroller/referens.py'), 'slug': True, 'flaggor': {'uppdrag': 'vag', 'torr': 'flagga'}},
     'lighthouse': {'kmd': ('node', 'kontroller/lighthouse.mjs'), 'slug': False,  # Chrome utan route-vakt: bara byggets lokala server
                    'flaggor': {'url': 'lokal_url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text'}},
     'axe': {'kmd': ('node', 'kontroller/axe.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag'}},

@@ -103,6 +103,7 @@ ARGS=(-p
   # bara de verktyg ett bygge behöver (omgång sex, F1: prospekt.py gallra och andra administrativa verktyg nådde annat)
   "Bash(npx astro *)" "Bash(node kontroller/*)"
   "Bash(.venv/bin/python kontroller/prova.py *)" "Bash(.venv/bin/python kontroller/granska.py *)" "Bash(.venv/bin/python kontroller/atelje.py *)"
+  "Bash(.venv/bin/python kontroller/referens.py *)"
   "Bash(.venv/bin/python kontroller/ny_sajt.py *)" "Bash(.venv/bin/python kontroller/hamta_sajt.py *)" "Bash(.venv/bin/python kontroller/hamta_bokadirekt.py *)"
   "Bash(.venv/bin/python kontroller/sida_till_text.py *)" "Bash(.venv/bin/python kontroller/copy_kontroll.py *)" "Bash(.venv/bin/python kontroller/verksamhetsuppgifter.py *)"
   "Bash(.venv/bin/python kontroller/upptagna_val.py *)" "Bash(.venv/bin/python kontroller/ta_bort.py *)" "Bash(.venv/bin/python kontroller/backlog.py *)"
