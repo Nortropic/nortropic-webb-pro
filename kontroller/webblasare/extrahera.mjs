@@ -12,7 +12,20 @@
 export const STANDARD = ['h1', 'h2', 'h3', 'main p', 'main a', 'nav a', 'a[href^="tel:"]', 'a[href^="mailto:"]', 'button', 'header', 'footer'];
 
 function matSidan(selektorer) {
-  const rgb = (s) => { const m = (s || '').match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/); return m && (m[4] === undefined || +m[4] > 0.05) ? [+m[1], +m[2], +m[3]] : null; };
+  const duk = document.createElement('canvas').getContext('2d');
+  const rgb = (s) => {
+    s = s || '';
+    let m = s.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+    if (m) return m[4] === undefined || +m[4] > 0.05 ? [+m[1], +m[2], +m[3]] : null;
+    m = s.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/);
+    if (m) return m[4] === undefined || +m[4] > 0.05 ? [+m[1] * 255, +m[2] * 255, +m[3] * 255] : null;
+    if (!s || s === 'transparent' || !duk) return null;
+    duk.fillStyle = '#000'; duk.fillStyle = s;  // oklch, lab m.fl.: canvas skriver tillbaka sRGB (hex eller rgba)
+    const t = String(duk.fillStyle);
+    if (t.startsWith('#')) return [1, 3, 5].map((i) => parseInt(t.slice(i, i + 2), 16));
+    m = t.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+    return m && (m[4] === undefined || +m[4] > 0.05) ? [+m[1], +m[2], +m[3]] : null;
+  };
   const hex = (c) => c ? '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('') : null;
   const synlig = (el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && +s.opacity > 0; };
   const bakgrund = (el) => { for (let e = el; e; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c) return hex(c); } return '#ffffff'; };
@@ -34,13 +47,16 @@ function matSidan(selektorer) {
     if (rad.length) ut.push(rad.join(' '));
     return ut;
   };
-  const element = [];
+  const element = []; const ogiltiga = [];
   for (const sel of selektorer) {
-    const alla = Array.from(document.querySelectorAll(sel)).filter(synlig).slice(0, sel === 'main p' || sel === 'nav a' ? 3 : 2);  // få per väljare: de första synliga bär rollen
+    let traffar = [];
+    try { traffar = Array.from(document.querySelectorAll(sel)); } catch (e) { ogiltiga.push(sel); continue; }
+    const alla = traffar.filter(synlig).slice(0, sel === 'main p' || sel === 'nav a' ? 3 : 2);  // få per väljare: de första synliga bär rollen
     alla.forEach((el, i) => {
       const s = getComputedStyle(el);
       const r = rader(el);
-      el.setAttribute('data-nwp-extrakt', String(element.length));  // exakt matchning för det renderade typsnittet (CDP)
+      const tidigare = el.getAttribute('data-nwp-extrakt');  // exakt matchning för det renderade typsnittet (CDP); flera väljare kan träffa samma nod
+      el.setAttribute('data-nwp-extrakt', tidigare ? tidigare + ',' + element.length : String(element.length));
       const tecken = r.length ? Math.round(r.reduce((a, x) => a + x.length, 0) / r.length) : 0;
       element.push({ sel, nr: i, id: `${sel}#${i}`, tagg: el.tagName.toLowerCase(), text: (el.innerText || '').trim().slice(0, 160), ruta: ruta(el),
         typsnitt: { deklarerat: s.fontFamily, storlek: s.fontSize, vikt: s.fontWeight, stil: s.fontStyle, radavstand: s.lineHeight, teckenavstand: s.letterSpacing,
@@ -53,10 +69,11 @@ function matSidan(selektorer) {
   const delar = [document.querySelector('body > header, header'), ...Array.from(rot.children), document.querySelector('body > footer, footer')].filter((e, i, a) => e && a.indexOf(e) === i && synlig(e) && e.getBoundingClientRect().height > 24);
   const sektioner = delar.slice(0, 24).map((el, i) => {
     const s = getComputedStyle(el); const r = ruta(el);
-    const barn = Array.from(el.querySelectorAll('h1, h2, h3, p, img, picture, a, li')).filter(synlig);
+    const barn = Array.from(el.querySelectorAll('h1, h2, h3, p, img, a, li')).filter(synlig);
     const vanster = [...new Set(barn.map((b) => Math.round(b.getBoundingClientRect().left / 4) * 4))].sort((a, b) => a - b).slice(0, 8);
-    const textyta = barn.filter((b) => /^(H1|H2|H3|P|LI)$/.test(b.tagName)).reduce((a, b) => { const q = b.getBoundingClientRect(); return a + q.width * q.height; }, 0);
-    const bildyta = barn.filter((b) => /^(IMG|PICTURE)$/.test(b.tagName)).reduce((a, b) => { const q = b.getBoundingClientRect(); return a + q.width * q.height; }, 0);
+    const blad = (b) => /^(H1|H2|H3|P)$/.test(b.tagName) || (b.tagName === 'LI' && !b.querySelector('h1, h2, h3, p'));  // bladblock: ingen dubbelräkning
+    const textyta = barn.filter(blad).reduce((a, b) => { const q = b.getBoundingClientRect(); return a + q.width * q.height; }, 0);
+    const bildyta = barn.filter((b) => b.tagName === 'IMG').reduce((a, b) => { const q = b.getBoundingClientRect(); return a + q.width * q.height; }, 0);  // img, inte picture runt den
     const yta = Math.max(1, r.b * r.h);
     return { nr: i, tagg: el.tagName.toLowerCase(), id: el.id || null, ruta: r, bakgrund: bakgrund(el), luft: { topp: s.paddingTop, botten: s.paddingBottom },
              vanstra_linjer: vanster, textandel: +(textyta / yta).toFixed(3), bildandel: +(bildyta / yta).toFixed(3), tomrum: +Math.max(0, 1 - (textyta + bildyta) / yta).toFixed(3),
@@ -89,7 +106,7 @@ function matSidan(selektorer) {
     return { src: (img.currentSrc || img.src || '').slice(0, 200), alt: (img.alt || '').slice(0, 120), ruta: r, naturlig: nat, proportion: r.h ? +(r.b / r.h).toFixed(3) : null,
              object_fit: s.objectFit, object_position: s.objectPosition, beskuren: !!beskuren, andel_av_bredd: +(r.b / innerWidth).toFixed(3) };
   });
-  return { bredd: innerWidth, hojd: document.documentElement.scrollHeight, element, sektioner, linjer, farger, bilder };
+  return { bredd: innerWidth, hojd: document.documentElement.scrollHeight, element, sektioner, linjer, farger, bilder, ogiltiga_valjare: ogiltiga };
 }
 
 export async function extrahera(page, selektorer = STANDARD) {
@@ -103,10 +120,10 @@ export async function extrahera(page, selektorer = STANDARD) {
     const { nodeIds } = await cdp.send('DOM.querySelectorAll', { nodeId: root.nodeId, selector: '[data-nwp-extrakt]' });
     for (const nodeId of nodeIds) {
       const { attributes } = await cdp.send('DOM.getAttributes', { nodeId });
-      const i = Number(attributes[attributes.indexOf('data-nwp-extrakt') + 1]);
-      const e = x.element[i]; if (!e) continue;
+      const index = String(attributes[attributes.indexOf('data-nwp-extrakt') + 1] || '').split(',').map(Number);
       const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId }).catch(() => ({ fonts: [] }));
-      e.typsnitt.renderat = (fonts || []).map((f) => ({ familj: f.familyName, postscript: f.postScriptName, eget: f.isCustomFont, tecken: f.glyphCount }));
+      const renderat = (fonts || []).map((f) => ({ familj: f.familyName, postscript: f.postScriptName, eget: f.isCustomFont, tecken: f.glyphCount }));
+      for (const i of index) if (x.element[i]) x.element[i].typsnitt.renderat = renderat;
     }
     await cdp.detach().catch(() => {});
   } catch (e) { x.renderat_fel = String(e.message || e).slice(0, 200); }

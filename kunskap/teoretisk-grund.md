@@ -229,6 +229,14 @@ Wroblewski, L. (2011). Mobile First. A Book Apart.
 Yablonski, J. (2024). Laws of UX. 2 uppl. O'Reilly.
 Zeldman, J. & Marcotte, E. (2009). Designing with Web Standards. 3 uppl. New Riders.
 
+Tillagda 2026-10-04 ur Codex genomgångar (designöverföringen och helhetsbedömningen), som analysfrågor i extraktionen
+och prövningen, inte som fler allmänna regler (Every Layout står redan ovan, Bell & Pickering 2019: pröva mellanbredder):
+Albers, J. (1963/2013). Interaction of Color. Yale University Press. (färg i sitt sammanhang: roll och balans följer värdet)
+Lupton, E. (2010). Thinking with Type. 2 uppl. Princeton Architectural Press. (hierarki, mellanrum, textens form och radbrytning)
+Müller-Brockmann, J. (1981). Grid Systems in Graphic Design. Niggli. (linjering och proportioner som håller ihop sidan)
+Nielsen Norman Group (2024). Synthetic Users: If, When, and How to Use AI-Generated "Research". nngroup.com. (syntetiska användare ger hypoteser, inte observationer)
+Anthropic (2025). Erfarenheter av designloopar med modellgranskning (Codex 2026-10-04): mellanversioner var ibland bättre än slutversionen, och ordval i bedömningskriterier kan få genererade designer att konvergera.
+
 Regelverk och riktlinjer: Lag (2023:254) om vissa produkters och tjänsters tillgänglighet; förordning (EU) 2016/679
 (GDPR); lag (2022:482) om elektronisk kommunikation; ETSI EN 301 549 V3.2.1 (2021); DIGG, Webbriktlinjer; GOV.UK
 Design System; Baymard Institute; Google Search Central.

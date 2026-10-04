@@ -3568,6 +3568,20 @@ def designkontraktet():
         fel_dz = ' | '.join(dz.validera(ond))
         for krav_dz in ('farger.yta: varde ska vara hex', 'typsnitt.rubrik: familj', 'vikt ska vara', 'typsnitt.brodtext: kalla', 'spalter.mobil', 'kontrast: varje par', 'matt ska vara'):
             assert krav_dz in fel_dz, (krav_dz, fel_dz)
+        # normeringen följer minifierarens omskrivningar (Vite/lightningcss): granskningen av r54b, punkt 1
+        for a_, b_ in (('0.5rem', '.5rem'), ('-0.02em', '-.02em'), ('1.50', '1.5'), ('#ffd700', 'gold'), ('#FFFFFF', '#fff'), ('0px', '0'),
+                       ("'Fraunces Variable', Georgia, serif", '"Fraunces Variable",Georgia,serif'), ('clamp(0.875rem, 0.8rem + 0.3vw, 1rem)', 'clamp(.875rem,.8rem + .3vw,1rem)')):
+            assert dz.normera('x', a_) == dz.normera('x', b_), (a_, b_)
+        assert dz.normera('x', '#cc0000') != dz.normera('x', 'red') and dz.normera('x', '1.5rem') != dz.normera('x', '15rem')
+        assert dz.validera(dict(v_dz, avstand={'s': '.5rem', 'h': '100svh'})) == [], 'kortformer och nya enheter godtas'
+        trasig = dict(v_dz, farger=[{'varde': '#fff'}])
+        (sajt_dz / 'DESIGN.md').write_text(md_dz(trasig)); k_tr = dz.kontroll('dz')
+        assert not k_tr['ok'] and k_tr['fel'], 'en lista i stället för objekt ger en röd grind, aldrig ett undantag'
+        (sajt_dz / 'DESIGN.md').write_bytes(b'\xff\xfe trasig')
+        assert 'kunde inte läsas' in dz.kontroll('dz')['fel'][0]
+        (sajt_dz / 'DESIGN.md').write_text(md_dz(v_dz).replace('\n', '\r\n'))
+        assert dz.las((sajt_dz / 'DESIGN.md').read_text())[1] == [], 'CRLF läses'
+        (sajt_dz / 'DESIGN.md').unlink()
         lag = json.loads(json.dumps(v_dz)); lag['farger']['text']['varde'] = '#dddddd'
         assert any('under 4.5:1' in x for x in dz.validera(lag)), 'kontrastparet prövas'
         assert dz.las('ingen kod')[1] and dz.las(md_dz(v_dz) + md_dz(v_dz))[1] and dz.las('```json design\n[1]\n```\n')[1], 'exakt ett block, ett objekt'
@@ -3614,6 +3628,9 @@ def designkontraktet():
                                                                 'farger': [{'varde': '#000000', 'andel': 0.6}, {'varde': '#ffffff', 'andel': 0.3}]}))
         avv = dz.jamfor(v_dz, ex_dz)
         assert any('rubrik' in x and 'Times' in x for x in avv) and any('#000000' in x for x in avv) and not any('#ffffff' in x for x in avv), avv
+        assert not any('brodtext' in x for x in avv), 'system-ui i DESIGN.md matchar plattformens systemtypsnitt (eget: false)'
+        kort = json.loads(json.dumps(v_dz)); kort['farger']['yta']['varde'] = '#fff'
+        assert not any('#ffffff' in x for x in dz.jamfor(kort, ex_dz)), '#fff i DESIGN.md är samma yta som #ffffff i mätningen'
     finally:
         dz.KUNDER, dz.UNDERLAG = gamla_dz
     # mallen bär en tom design.css som Bas.astro importerar; rökprovets testsajt har en riktig DESIGN.md

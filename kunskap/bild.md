@@ -20,7 +20,7 @@ med plats och syfte ("ta en sådan här, fast er egen"). En form som byggs i kod
 
 ## Varje viktig bildplats har ett syfte och prövat material
 
-Platsplanen står i KONCEPT.md och DESIGN.md: bildplats (`hero-*`, `env-*`, `proof-*`, `people-*`, `detail-*`), sida,
+Inventeringen står i briefen (§8); de beslutade bildplatserna står i DESIGN.md under Bildbehandling: bildplats (`hero-*`, `env-*`, `proof-*`, `people-*`, `detail-*`), sida,
 syfte (vad besökaren ska se eller förstå där), fil ur `underlag/<slug>/bilder/` (BILDER.md), anspråk, och hur
 bilden prövats i kompositionen (ateljéns rendering eller byggets skärmbilder). En plats utan verkligt material står
 tom i designen, typografin bär, och platsen står i beställningen; den fylls aldrig med en ersättare. Granskaren

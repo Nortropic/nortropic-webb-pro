@@ -223,7 +223,7 @@ de ger hantverks- och UX-rollen, inte branschen.
 **När Inspo är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG`): `recommend` och `search_screens` med briefen är en
 sökingång för hantverksrollen och mobilparen, och `get_screen` visar en skärm. Varje vald referens öppnas ändå med
 inspektera.mjs ovan och skrivs i REFERENSER.md med källa Inspo. Färgerna, formen och första vyn kommer ur
-verksamheten och specifikationen i KONCEPT.md, inte ur arkivets förslag.
+verksamheten och DESIGN.md (den aktuella designen; KONCEPT.md har alternativen och beslutet), inte ur arkivets förslag.
 
 ## Steg 4 — Innehåll före form
 
@@ -354,7 +354,7 @@ KONCEPT.md.
    BreadcrumbList), mellan sidhuvudet och `<main>`; standarden prövar det. **Formuläret** behåller mallens
    felbesked vid fälten och telefonfältets `pattern`; etiketterna och beskeden skrivs i verksamhetens ord.
    **Öppettider eller telefontid** står på kontaktsidan när underlaget har dem; annars är de beställda (L4).
-   **Plats för det beställda:** specifikationen i KONCEPT.md anger var varje beställd bild ska sitta. Bygg sektionen
+   **Plats för det beställda:** DESIGN.md (Bildbehandling) anger var varje beställd bild ska sitta. Bygg sektionen
    så att bilden kan läggas in i `src/assets/bestallt/` utan omdesign, och så att sektionen står rätt utan den; aldrig
    en synlig platshållare (byggstandarden 9.4). Saknas telefontid eller svarstid: skriv inget påhittat.
    **Skriftlig förfrågan:** mallens `src/components/Forfragan.astro` på kontaktsidan, med etiketten för meddelandet i

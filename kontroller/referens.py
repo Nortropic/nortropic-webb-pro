@@ -312,10 +312,19 @@ def observationer(rapport, ut, bestallda=()):
         bilder = {fil: (Path(ut) / fil).is_file() and (Path(ut) / fil).stat().st_size > 0 for fil in ('vy-%s-forsta.png' % vy, 'vy-%s-hela.png' % vy)}
         t_ok = tillstand_utfall(r.get('tillstand') or {}, bestallda)
         extrakt = Path(ut) / ('vy-%s-extrakt.json' % vy)
-        if r.get('extrakt') and not (extrakt.is_file() and extrakt.stat().st_size > 0):
-            obs['begransningar'].append('vy %s: extraktionen gav inga mätvärden' % vy)
+        ex_ok = False
+        if r.get('extrakt'):  # en fil med fel eller utan element är ingen mätning (granskningen av r54, punkt 6)
+            try:
+                ex = json.loads(extrakt.read_text(encoding='utf-8'))
+                ex_ok = isinstance(ex, dict) and not ex.get('fel') and bool(ex.get('element'))
+            except (OSError, ValueError):
+                ex = {}
+            if not ex_ok:
+                obs['begransningar'].append('vy %s: extraktionen gav inga mätvärden%s' % (vy, (': ' + str(ex.get('fel'))[:160]) if isinstance(ex, dict) and ex.get('fel') else ''))
+            if r.get('extrakt_ogiltiga'):
+                obs['begransningar'].append('vy %s: ogiltiga väljare i extrahera: %s' % (vy, ', '.join(r['extrakt_ogiltiga'])[:200]))
         obs['vyer'][vy] = {'status': r.get('status'), 'titel': r.get('titel'), 'h1': r.get('h1'), 'skarmar': r.get('skarmar'),
-                           'extrakt': extrakt.is_file(),
+                           'extrakt': ex_ok,
                            'bilder_laddade': int(laddade.get('image') or 0), 'typsnitt_laddade': int(laddade.get('font') or 0),
                            'stilar_laddade': int(laddade.get('stylesheet') or 0), 'blockerade': len(nat.get('blockerade') or []),
                            'bildfiler': bilder, 'tillstand': t_ok, 'fel': r.get('fel')}

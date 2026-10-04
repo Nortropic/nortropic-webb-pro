@@ -161,3 +161,25 @@ revisioner med codex". De tre rekommendationerna är därmed beslut:
    enbart i blind A/B av hela byggen (`.claude/skills/backlog/SKILL.md` steg 4).
 
 Nästa steg, omstarten av A/B-kedjan, väntar: revisionen med Codex fortsätter först.
+
+## Tillägg 2026-10-04: referenssteget, designprovet, ägarmandatet
+
+1. **Referenssteget** (efter Codex R31). Ägarens ord: "Kör referenssteget enligt backloggen, med avgränsad
+   inspektion, verifierat fullständiga fångster och möjlighet till versionsstyrda kompletteringar. Referensvalet ska
+   utgå från kundresearchen. Byggare, ateljé och granskare ska få samma frysta paket. Därefter prövar vi designnyttan
+   under fryst metod." Gallerierna som sökingångar: Awwwards, SiteInspire, Godly, Land-book, Mobbin och Refero (de två
+   sista via MCP). Byggt som `kontroller/referens.py` och `kontroller/referenstjanster.py`.
+2. **Designprovet.** Ägaren såg bygge 4 och underkände utseendet kraftigt (förmedlat i Codex R40). Uppdraget före
+   nästa helbygge, i sex punkter: verifiera referenstjänsternas anrop och bildleverans; välj en sammanhängande
+   huvudreferens för komposition, typografi, proportioner och bildbehandling; ta fram tre renderade startsideförslag
+   med kundens verkliga material på mobil och dator och bedöm hela sidan; urvalet får förkasta samtliga, och bäst av
+   tre undermåliga förslag blir aldrig godkänt; bevara vinnarkoden och jämför fortsatt implementation visuellt mot
+   den; använd ägarens befintliga ankare, och frånvaro av gradienter, ikoner eller kort är inget kvalitetsbevis.
+   Byggt i ateljén (`kontroller/atelje.py`), provet (`kontroller/prova.py`, vinnarjämförelsen), granskaren och
+   dashboardens designprovsvy.
+3. **Ägarmandatet.** Ägarens ord: "Du har fullt autonomt mandat nu att arbeta med nuvarande och Codex verbatims saves
+   som du gör. Du behöver inte skicka till codex fram och tillbaka." Codex genomgångar 2026-10-04 (överföringen
+   referens → gestaltning, helhetsbedömningen i tio punkter, intagen, skillkandidaterna) är programmet och står som
+   backlogposter; varje sammanslagning föregås av en oberoende granskning (en granskande session som läser ändringen
+   mot färdigkriteriet) i stället för ett Codex-varv. Det som kräver ägarens omdöme (blinda domar över designförslag
+   och kalibreringsexempel) förbereds i dashboarden.

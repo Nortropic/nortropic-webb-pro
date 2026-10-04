@@ -67,8 +67,9 @@ DOMARE = [
      'Ditt område är formgivningen, dömd med webbdesignens litteratur och metoder. Läs och tillämpa: '
      'kunskap/teoretisk-grund.md avsnitt B "3 CSS och design" (Gestaltlagarna, CRAP, Fitts och Hicks lagar, chunking, '
      'estetik–användbarhet-effekten, intrinsisk layout) och B.2 (Nielsens heuristik 8, estetisk och minimalistisk design); '
-     'de åtta dimensionerna i kunskap/referenser-professionella.md; listan över AI-mönster i '
-     'kunskap/externa/anthropic-frontend-design-SKILL.md; och reglerna i .claude/skills/better-layout/SKILL.md, '
+     'de åtta dimensionerna i kunskap/referenser-professionella.md; standardvalen i '
+     'kunskap/externa/anthropic-frontend-design-SKILL.md (döm hur de används och genomförs, inte att de förekommer); '
+     'och reglerna i .claude/skills/better-layout/SKILL.md, '
      'better-typography/SKILL.md och better-colors/SKILL.md. Döm hierarki, typografins roller och skala, färg och '
      'kontrast, gruppering och luft, rytm, och om riktningen är ett eget beslut eller en mall: kunde ett annat '
      'företagsnamn sättas dit?'),

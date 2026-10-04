@@ -7,6 +7,7 @@ Ansvar per artefakt: referenspaketet (underlag/<slug>/referenser/paket-vNN/) har
 (EXTRAKT), källor och begränsningar; KONCEPT.md har prövade alternativ, beslut och varför andra förkastades; DESIGN.md
 (kunder/<slug>/sajt/DESIGN.md) är den aktuella designen; den valda prototypen (ateljéns vinnare) är körbar gestaltning
 som förs vidare. DESIGN.md har prosa (komposition, bildbehandling, responsiva regler, avsiktliga avvikelser från
+huvudreferensen, under rubrikerna Komposition, Typografi, Bildbehandling, Responsiva regler och Avvikelser från
 huvudreferensen) och exakt ett kodblock ```json design``` med värdena; varje värde har `kalla` som börjar med
 `uppmätt:` (med var det mättes), `uppskattat:` (ur bilden) eller `valt:` (för kunden, med skäl). Värdena genererar
 src/styles/design.css (CSS-variablerna sajten använder); layouten bor i koden.
@@ -34,7 +35,7 @@ BLOCK = re.compile(r'^```json design[ \t]*\n(.*?)^```[ \t]*$', re.M | re.S)
 NAMN = re.compile(r'^[a-z][a-z0-9-]{0,30}$')
 HEX = re.compile(r'^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$')
 KALLA = re.compile(r'^(uppmätt|uppskattat|valt):\s*\S')
-LANGD = re.compile(r'^(?:0|-?\d+(?:\.\d+)?(?:px|rem|em|ch|vw|vh|%)|(?:clamp|min|max|calc)\([0-9a-z.+\-*/%, ()]+\))$')
+LANGD = re.compile(r'^(?:0|-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|ch|ex|lh|rlh|vw|vh|svh|lvh|dvh|vmin|vmax|cqi|cqw|%)|(?:clamp|min|max|calc)\([0-9a-z.+\-*/%, ()]+\))$')
 FARLIGT = re.compile(r'[;{}<>\\]|/\*|\*/')
 GENERISKA = {'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace',
              'ui-rounded', 'math', 'emoji', 'fangsong'}
@@ -46,7 +47,7 @@ HUVUD = '/* Genererad av kontroller/design.py ur DESIGN.md (sha256 %s). Ändra D
 
 def las(text):
     """(värden, fel): exakt ett ```json design```-block, giltig JSON-objekt."""
-    block = BLOCK.findall(text)
+    block = BLOCK.findall(text.replace('\r\n', '\n'))
     if len(block) != 1:
         return None, ['DESIGN.md ska ha exakt ett kodblock ```json design``` (har %d)' % len(block)]
     try:
@@ -133,6 +134,8 @@ def validera(v):
         if k < p[2]:
             fel.append('kontrast: %s på %s är %.2f:1, under %s:1' % (p[0], p[1], k, p[2]))
     for bredd, sp in (v.get('spalter') or {}).items():
+        if bredd == 'kalla':
+            continue
         if not re.fullmatch(r'\d{3,4}', str(bredd)) or not isinstance(sp, dict):
             fel.append('spalter.%s: nyckeln är en bredd i px (390, 1440) och värdet ett objekt' % bredd)
             continue
@@ -166,7 +169,9 @@ def css(v):
         rader.append('  --farg-%s: %s;' % (n, f['varde']))
     for n, t in v['typsnitt'].items():
         familj = t['familj'] if t['familj'].lower() in GENERISKA else "'%s'" % t['familj']  # generiska nyckelord citeras aldrig
-        rader.append('  --typ-%s-familj: %s%s;' % (n, familj, ', ' + t['reserv'] if t.get('reserv') else ''))
+        reserv = ', '.join(x if x.lower() in GENERISKA or re.fullmatch(r'[A-Za-z][A-Za-z-]*', x) else "'%s'" % x
+                           for x in (r.strip() for r in str(t.get('reserv') or '').split(',')) if x)
+        rader.append('  --typ-%s-familj: %s%s;' % (n, familj, ', ' + reserv if reserv else ''))
         rader.append('  --typ-%s-vikt: %s;' % (n, t['vikt']))
         rader.append('  --typ-%s-storlek: %s;' % (n, t['storlek']))
         rader.append('  --typ-%s-radavstand: %s;' % (n, t['radavstand']))
@@ -179,7 +184,7 @@ def css(v):
             if n != 'kalla':
                 rader.append('  --%s-%s: %s;' % (prefix, n, x))
     for bredd, s in (v.get('spalter') or {}).items():
-        if isinstance(s, dict):
+        if bredd != 'kalla' and isinstance(s, dict):
             for n, x in s.items():
                 if n != 'kalla' and NAMN.match(str(n)):
                     rader.append('  --spalt-%s-%s: %s;' % (bredd, n, x))
@@ -210,12 +215,57 @@ def startsidans_css(dist):
     return '\n'.join(delar)
 
 
+FARGNAMN = {  # CSS-färgnamnen (CSS Color 4): minifieraren byter #rrggbb mot ett kortare namn när det finns (#ffd700 → gold)
+    'aliceblue': 'f0f8ff', 'antiquewhite': 'faebd7', 'aqua': '00ffff', 'aquamarine': '7fffd4', 'azure': 'f0ffff', 'beige': 'f5f5dc',
+    'bisque': 'ffe4c4', 'black': '000000', 'blanchedalmond': 'ffebcd', 'blue': '0000ff', 'blueviolet': '8a2be2', 'brown': 'a52a2a',
+    'burlywood': 'deb887', 'cadetblue': '5f9ea0', 'chartreuse': '7fff00', 'chocolate': 'd2691e', 'coral': 'ff7f50',
+    'cornflowerblue': '6495ed', 'cornsilk': 'fff8dc', 'crimson': 'dc143c', 'cyan': '00ffff', 'darkblue': '00008b', 'darkcyan': '008b8b',
+    'darkgoldenrod': 'b8860b', 'darkgray': 'a9a9a9', 'darkgreen': '006400', 'darkgrey': 'a9a9a9', 'darkkhaki': 'bdb76b',
+    'darkmagenta': '8b008b', 'darkolivegreen': '556b2f', 'darkorange': 'ff8c00', 'darkorchid': '9932cc', 'darkred': '8b0000',
+    'darksalmon': 'e9967a', 'darkseagreen': '8fbc8f', 'darkslateblue': '483d8b', 'darkslategray': '2f4f4f', 'darkslategrey': '2f4f4f',
+    'darkturquoise': '00ced1', 'darkviolet': '9400d3', 'deeppink': 'ff1493', 'deepskyblue': '00bfff', 'dimgray': '696969',
+    'dimgrey': '696969', 'dodgerblue': '1e90ff', 'firebrick': 'b22222', 'floralwhite': 'fffaf0', 'forestgreen': '228b22',
+    'fuchsia': 'ff00ff', 'gainsboro': 'dcdcdc', 'ghostwhite': 'f8f8ff', 'gold': 'ffd700', 'goldenrod': 'daa520', 'gray': '808080',
+    'green': '008000', 'greenyellow': 'adff2f', 'grey': '808080', 'honeydew': 'f0fff0', 'hotpink': 'ff69b4', 'indianred': 'cd5c5c',
+    'indigo': '4b0082', 'ivory': 'fffff0', 'khaki': 'f0e68c', 'lavender': 'e6e6fa', 'lavenderblush': 'fff0f5', 'lawngreen': '7cfc00',
+    'lemonchiffon': 'fffacd', 'lightblue': 'add8e6', 'lightcoral': 'f08080', 'lightcyan': 'e0ffff', 'lightgoldenrodyellow': 'fafad2',
+    'lightgray': 'd3d3d3', 'lightgreen': '90ee90', 'lightgrey': 'd3d3d3', 'lightpink': 'ffb6c1', 'lightsalmon': 'ffa07a',
+    'lightseagreen': '20b2aa', 'lightskyblue': '87cefa', 'lightslategray': '778899', 'lightslategrey': '778899', 'lightsteelblue': 'b0c4de',
+    'lightyellow': 'ffffe0', 'lime': '00ff00', 'limegreen': '32cd32', 'linen': 'faf0e6', 'magenta': 'ff00ff', 'maroon': '800000',
+    'mediumaquamarine': '66cdaa', 'mediumblue': '0000cd', 'mediumorchid': 'ba55d3', 'mediumpurple': '9370db', 'mediumseagreen': '3cb371',
+    'mediumslateblue': '7b68ee', 'mediumspringgreen': '00fa9a', 'mediumturquoise': '48d1cc', 'mediumvioletred': 'c71585',
+    'midnightblue': '191970', 'mintcream': 'f5fffa', 'mistyrose': 'ffe4e1', 'moccasin': 'ffe4b5', 'navajowhite': 'ffdead', 'navy': '000080',
+    'oldlace': 'fdf5e6', 'olive': '808000', 'olivedrab': '6b8e23', 'orange': 'ffa500', 'orangered': 'ff4500', 'orchid': 'da70d6',
+    'palegoldenrod': 'eee8aa', 'palegreen': '98fb98', 'paleturquoise': 'afeeee', 'palevioletred': 'db7093', 'papayawhip': 'ffefd5',
+    'peachpuff': 'ffdab9', 'peru': 'cd853f', 'pink': 'ffc0cb', 'plum': 'dda0dd', 'powderblue': 'b0e0e6', 'purple': '800080',
+    'rebeccapurple': '663399', 'red': 'ff0000', 'rosybrown': 'bc8f8f', 'royalblue': '4169e1', 'saddlebrown': '8b4513', 'salmon': 'fa8072',
+    'sandybrown': 'f4a460', 'seagreen': '2e8b57', 'seashell': 'fff5ee', 'sienna': 'a0522d', 'silver': 'c0c0c0', 'skyblue': '87ceeb',
+    'slateblue': '6a5acd', 'slategray': '708090', 'slategrey': '708090', 'snow': 'fffafa', 'springgreen': '00ff7f', 'steelblue': '4682b4',
+    'tan': 'd2b48c', 'teal': '008080', 'thistle': 'd8bfd8', 'tomato': 'ff6347', 'turquoise': '40e0d0', 'violet': 'ee82ee', 'wheat': 'f5deb3',
+    'white': 'ffffff', 'whitesmoke': 'f5f5f5', 'yellow': 'ffff00', 'yellowgreen': '9acd32'}
+
+
+def _tal(m):
+    """Ett tal i kanonisk form: inga inledande nollor före decimalpunkten, inga avslutande decimalnollor (0.50 → .5, -0.02 → -.02, 2.0 → 2)."""
+    t = ('%.6f' % float(m.group(0))).rstrip('0').rstrip('.')
+    if t.startswith('0.'):
+        t = t[1:]
+    elif t.startswith('-0.'):
+        t = '-' + t[2:]
+    return '0' if t in ('', '-', '-0') else t
+
+
 def normera(namn, varde):
-    """Jämförbart värde: hex utskrivet i sex gemena tecken, citattecken och blanksteg bort (minifieraren skriver om dem)."""
+    """Jämförbart värde, lika för DESIGN.md:s värde och minifierarens utskrift: gemener, citattecken och blanksteg bort,
+    hex i sex tecken, färgnamn som hex, tal i kanonisk form, nollängder utan enhet (granskningen av r54: Vite/lightningcss
+    skriver 0.5rem som .5rem, #ffffff som #fff och #ffd700 som gold)."""
     v = str(varde).strip().lower().replace('"', '').replace("'", '')
     v = re.sub(r'\s+', '', v)
-    m = re.fullmatch(r'#([0-9a-f]{3})', v)
-    return '#' + ''.join(c * 2 for c in m.group(1)) if m else v
+    v = re.sub(r'#([0-9a-f])([0-9a-f])([0-9a-f])(?![0-9a-f])', lambda m: '#' + ''.join(c * 2 for c in m.groups()), v)
+    v = re.sub(r'(?<![\w#-])([a-z]+)(?![\w-])', lambda m: '#' + FARGNAMN[m.group(1)] if m.group(1) in FARGNAMN else m.group(1), v)
+    v = re.sub(r'(?<![\w#.])-?(?:\d+\.?\d*|\.\d+)', _tal, v)
+    v = re.sub(r'(?<![\w.#])0(?:px|rem|em|%)(?![\w])', '0', v)
+    return v
 
 
 def definitioner(dist):
@@ -245,7 +295,10 @@ def kontroll(slug, kunder=None, underlag=None):
     md, cssfil = sajt / 'DESIGN.md', sajt / 'src' / 'styles' / 'design.css'
     if not md.is_file():
         return {'ok': False, 'fel': ['kunder/%s/sajt/DESIGN.md saknas: den aktuella designen ska stå där (steg 5)' % slug], 'info': [], 'sha': None}
-    v, fel = las(md.read_text(encoding='utf-8'))
+    try:
+        v, fel = las(md.read_text(encoding='utf-8'))
+    except (OSError, UnicodeDecodeError) as e:
+        return {'ok': False, 'fel': ['DESIGN.md kunde inte läsas: %s' % e], 'info': [], 'sha': None}
     if v is None:
         return {'ok': False, 'fel': fel, 'info': [], 'sha': None}
     fel = validera(v)
@@ -280,7 +333,7 @@ def kontroll(slug, kunder=None, underlag=None):
     hr = referensval.huvudreferens(slug, underlag or UNDERLAG)
     if hr and str(v.get('huvudreferens') or '').strip().lower() != hr['namn'].lower():
         fel.append('DESIGN.md:s huvudreferens (%r) är inte REFERENSER.md:s (%r)' % (v.get('huvudreferens'), hr['namn']))
-    matt = sum(1 for g in ('farger', 'typsnitt') for x in (v.get(g) or {}).values() if isinstance(x, dict) and str(x.get('kalla', '')).startswith('uppmätt'))
+    matt = sum(1 for g in ('farger', 'typsnitt') for x in ((v.get(g) or {}).values() if isinstance(v.get(g), dict) else []) if isinstance(x, dict) and str(x.get('kalla', '')).startswith('uppmätt'))
     info.append('källor: %d uppmätta värden, avvikelser från referensen: %d' % (matt, len(v.get('avvikelser') or [])))
     return {'ok': not fel, 'fel': fel, 'info': info, 'sha': sha}
 
@@ -289,7 +342,7 @@ def jamfor(v, extrakt_kat):
     """Byggets uppmätta extrakt (vy-<bredd>-extrakt.json) mot DESIGN.md: renderat typsnitt för rubrik (h1/h2) och
     brödtext (main p), och om sidans största ytor finns bland DESIGN.md:s färger. Underlag, ingen dom."""
     ut = []
-    farger = {f['varde'].lower() for f in v['farger'].values() if HEX.match(str(f.get('varde', '')))}
+    farger = {normera('farg', f['varde']) for f in v['farger'].values() if isinstance(f, dict) and HEX.match(str(f.get('varde', '')))}
     norm = lambda s: re.sub(r'[^a-z0-9]', '', str(s).lower().replace('variable', ''))  # noqa: E731
     for f in sorted(Path(extrakt_kat).glob('vy-*-extrakt.json')):
         try:
@@ -304,10 +357,13 @@ def jamfor(v, extrakt_kat):
             if not t or not e:
                 continue
             ren = [r['familj'] for r in e['typsnitt']['renderat']]
+            if str(t.get('familj', '')).lower() in GENERISKA:  # ett generiskt val (system-ui, serif) matchar plattformens egna typsnitt
+                if any(r.get('eget') is False for r in e['typsnitt']['renderat']):
+                    continue
             if not any(norm(t.get('familj')) and norm(t.get('familj')) in norm(r) or norm(r) in norm(t.get('familj')) for r in ren):
                 ut.append('%s px, %s (%s): renderat %s, DESIGN.md säger %s' % (vy, roll, e.get('id'), ', '.join(ren), t.get('familj')))
         for yta in (x.get('farger') or [])[:3]:
-            if yta.get('andel', 0) >= 0.1 and yta.get('varde', '').lower() not in farger:
+            if yta.get('andel', 0) >= 0.1 and normera('farg', yta.get('varde', '')) not in farger:
                 ut.append('%s px: ytan %s (%.0f %% av sidan) finns inte bland DESIGN.md:s färger' % (vy, yta['varde'], 100 * yta['andel']))
     return ut
 

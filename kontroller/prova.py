@@ -363,7 +363,10 @@ def prova(slug, snabb=False):
     # och sajtens CSS använder variablerna; när REFERENSER.md pekar ut en huvudreferens bär DESIGN.md samma
     sys.path.insert(0, str(KONTROLLER))
     import design as designkontrakt
-    dk = designkontrakt.kontroll(slug)
+    try:
+        dk = designkontrakt.kontroll(slug)
+    except Exception as e:  # noqa: BLE001 — ett fel i kontrollen är en röd grind, aldrig ett avbrutet prov
+        dk = {'ok': False, 'fel': ['designkontrollen föll: %s: %s' % (type(e).__name__, e)], 'info': [], 'sha': None}
     g['design'] = grind(dk['ok'], 'DESIGN.md giltig, design.css aktuell, variablerna används' if dk['ok'] else '%d fel' % len(dk['fel']),
                         'sajt/DESIGN.md', '\n'.join(dk['fel'] + dk['info']) or None)
     status['design_sha256'] = dk.get('sha')

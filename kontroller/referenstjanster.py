@@ -45,7 +45,7 @@ TJANSTER = {
     'mobbin': {'verktyg': ['mcp__mobbin__search_screens', 'mcp__mobbin__search_flows', 'mcp__mobbin__search_sections'],
                'bildvardar': ('mobbin.com', 'www.mobbin.com'), 'nyckel': False},
 }
-SCHEMA = {'type': 'object', 'required': ['anrop', 'traffar', 'anmarkning'], 'additionalProperties': False, 'properties': {
+SCHEMA = {'type': 'object', 'required': ['anrop', 'traffar', 'stilar', 'anmarkning'], 'additionalProperties': False, 'properties': {
     'anrop': {'type': 'array', 'items': {'type': 'object', 'required': ['verktyg', 'argument', 'resultat_typ'], 'additionalProperties': False,
                                          'properties': {'verktyg': {'type': 'string'}, 'argument': {'type': 'string'}, 'resultat_typ': {'type': 'string'}}}},
     'traffar': {'type': 'array', 'items': {'type': 'object', 'required': ['id', 'titel', 'sida_url', 'bild_url', 'beskrivning', 'fraga'], 'additionalProperties': False,
@@ -55,7 +55,6 @@ SCHEMA = {'type': 'object', 'required': ['anrop', 'traffar', 'anmarkning'], 'add
                                           'additionalProperties': False,
                                           'properties': {k: {'type': 'string'} for k in ('id', 'titel', 'sida_url', 'bild_url', 'typografi', 'farger', 'layout', 'rytm', 'komponenter', 'fraga')}}},
     'anmarkning': {'type': 'string'}}}
-SCHEMA['required'] = ['anrop', 'traffar', 'stilar', 'anmarkning']
 MAX_FRAGOR, MAX_TRAFFAR, MAX_BILD_BYTE = 8, 40, 8 * 1024 * 1024
 
 
@@ -241,12 +240,18 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell='sonnet', lokala_port
                         post['bilder'] += 1
                     else:
                         stil['fel'] = fel_
-                if not any(n.endswith('refero_get_style') for n in post['anrop']):
-                    stil['fel'] = (stil['fel'] + '; ' if stil['fel'] else '') + 'inget get_style-anrop i loggen: värdena är inte belagda'
+                n_get = sum(v for n, v in post['anrop'].items() if n.endswith('refero_get_style'))
+                if i >= n_get:  # varje belagd stil kräver sitt eget get_style-anrop i loggen
+                    stil['fel'] = (stil['fel'] + '; ' if stil['fel'] else '') + ('inget get_style-anrop i loggen' if not n_get else 'fler stilar än get_style-anrop i loggen') + ': värdena är inte belagda'
+                stil['belagd'] = i < n_get
                 post['stilar'].append(stil)
             if any(f.get('typ') == 'stil' for f in fragor) and not any(n.endswith('refero_get_style') for n in post['anrop']):
                 post['anmarkningar'].append('stilfrågan besvarades utan refero_get_style i sessionsloggen')
-        post['ok'] = bool(post['anrop']) and post['bilder'] > 0 and not (any(f.get('typ') == 'stil' for f in fragor) and not any(n.endswith('refero_get_style') for n in post['anrop']))
+        stilfraga = any(f.get('typ') == 'stil' for f in fragor)
+        belagda = sum(1 for x in post['stilar'] if x.get('belagd'))
+        # ok: verkliga anrop och levererat material; stilar räknas som material när deras värden är belagda (en
+        # förhandsbild som inte gick att ladda fäller inte belagda värden), och en stilfråga kräver minst en belagd stil
+        post['ok'] = bool(post['anrop']) and (post['bilder'] > 0 or belagda > 0) and (not stilfraga or belagda > 0)
         if not post['anrop']:
             post['anmarkningar'].append('inga verkliga verktygsanrop till %s i sessionsloggen' % tjanst)
         if post['anrop'] and post['bilder'] == 0:

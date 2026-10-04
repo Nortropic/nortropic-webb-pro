@@ -59,7 +59,8 @@ for (const vy of vyer) {
       const x = await extrahera(b.page, extraktSel).catch((e) => ({ fel: String(e.message || e).slice(0, 200) }));
       x.kallbilder = { forsta: r.forsta_vyn, rutor: r.rutor, hela: r.hela_sidan }; x.vy = vy; x.adress = a.adress; x.tid = nu(); x.matning = 'uppmätt';
       r.extrakt = skriv(a.ut, `vy-${vy}-extrakt.json`, x);
-      if (!x.fel) extraktMd.push(sammanfatta(vy, x, basename(r.forsta_vyn)));
+      if (x.fel) r.extrakt_fel = x.fel; else extraktMd.push(sammanfatta(vy, x, basename(r.forsta_vyn)));
+      if (x.ogiltiga_valjare && x.ogiltiga_valjare.length) r.extrakt_ogiltiga = x.ogiltiga_valjare;
     }
     r.tillganglighetstrad = skriv(a.ut, `vy-${vy}-aria.txt`, await b.page.locator('body').ariaSnapshot());
     r.h1 = await b.page.locator('h1').count();

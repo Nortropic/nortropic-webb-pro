@@ -9,7 +9,8 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
 ## I varje bygge (demo)
 
 - **Formuläret** är mallens `src/components/Forfragan.astro`, på kontaktsidan och gärna som en sektion där den
-  primära handlingen står. Telefonen förblir den primära handlingen; formuläret är vägen när ingen svarar.
+  primära handlingen står. Den primära handlingen följer briefen (ring, boka, begär offert, beställ); formuläret är den
+  skriftliga vägen bredvid den, också när ingen svarar i telefon.
 - **Fälten:** namn, telefon, meddelande med etiketten i verksamhetens ord ("Vad vill du bygga?"), och en valfri bild.
   Det valfria märks "(valfritt)"; resten krävs. Inga fler fält utan skäl ur briefen. Beskedet vid ett tomt fält och
   vid ett nummer med bokstäver är svenskt, i verksamhetens ord (mallens `felNamn`, `felTelefon`, `felTelefonFormat`,

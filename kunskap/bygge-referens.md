@@ -66,7 +66,8 @@ huvudreferensen) och exakt ett kodblock märkt `json design`:
 {
   "schema": 1,
   "huvudreferens": "<samma namn som raden Huvudreferens: i REFERENSER.md>",
-  "farger": {"yta": {"varde": "#f3eee6", "roll": "sidans bakgrund, största ytan", "kalla": "uppmätt: paket-v02/<namn>/01-start EXTRAKT 1440"}},
+  "farger": {"yta": {"varde": "#f3eee6", "roll": "sidans bakgrund, största ytan", "kalla": "uppmätt: paket-v02/<namn>/01-start EXTRAKT 1440"},
+             "text": {"varde": "#1d1b18", "roll": "brödtext och rubriker", "kalla": "valt: kontrast mot ytan"}},
   "typsnitt": {"rubrik": {"familj": "<typsnitt>", "reserv": "Georgia, serif", "vikt": 600, "storlek": "clamp(2.25rem, 1.2rem + 4.5vw, 4.75rem)",
                           "radavstand": "1.05", "teckenavstand": "-0.02em", "kalla": "uppskattat: ur huvudreferensens första vy"},
                "brodtext": {"familj": "<typsnitt>", "reserv": "system-ui, sans-serif", "vikt": 400, "storlek": "1.0625rem", "radavstand": "1.55",
@@ -85,7 +86,9 @@ men ger inga säkra CSS-värden; märk därför ärligt. `.venv/bin/python kontr
 blocket (roller, hex, CSS-längder, typsnittsnamn, kontrastparen) och skriver `src/styles/design.css` med
 CSS-variablerna (`--farg-<namn>`, `--typ-<roll>-familj|vikt|storlek|radavstand|teckenavstand|matt`,
 `--avstand-<namn>`, `--radie-<namn>`, `--spalt-<bredd>-<namn>`), som `Bas.astro` importerar och sidornas CSS
-använder. Layouten bor i koden (ateljéns vinnare), inte i variablerna. Provets grind `design` kräver att DESIGN.md
+använder. Layouten bor i koden (ateljéns vinnare), inte i variablerna. Variablerna definieras bara i design.css:
+en omdefinition (också i en @media-regel för mörkt läge) fäller grinden, så en variant skrivs som en egen variabel i
+DESIGN.md. Provets grind `design` kräver att DESIGN.md
 är giltig, att design.css är genererad ur den aktuella DESIGN.md, att färg- och typvariablerna används, och att
 huvudreferensen är densamma som i REFERENSER.md; granskaren får DESIGN.md fryst och dömer avvikelser från den, men
 en sajt som följer en svag DESIGN.md underkänns ändå. Googles DESIGN.md-format (`@google/design.md`, alpha) är
@@ -107,7 +110,7 @@ att en annan utförare kan fortsätta (etapp 5: start/fortsätt-vägen läser de
 
 ## Börja med den bärande upplevelsen
 
-Följ skapandeunderlag.md: bygg tidigt representativt riktigt innehåll och relevant interaktion, jämför
+Bygg tidigt representativt riktigt innehåll och relevant interaktion (ateljén: hela startsidan och början av en undersida), jämför
 med öppnade referenser och utveckla sedan helheten. Olika kundbehov får ge olika visuella lösningar.
 Undersidor, språk, redaktörsytor och efterled håller samma hantverksnivå; tekniskt fungerande är inte
 ensamt professionellt tillräckligt. För varje viktigt val ska behov, resurs och faktisk påverkan gå att följa.

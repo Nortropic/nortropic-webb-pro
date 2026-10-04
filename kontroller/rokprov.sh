@@ -29,7 +29,10 @@ fi
 "$ROOT/.venv/bin/python" -c "
 import json; s = json.load(open('$ROOT/kunder/rokprov-mall/prov/STATUS.json'))
 assert s['ok'] and s['grindar']['design']['ok'], s['grindar'].get('design')
-" || { echo "FEL: designkontraktets grind är inte grön på testsajten"; exit 1; }
+x = json.load(open('$ROOT/kunder/rokprov-mall/prov/inspektion/hem/vy-1440-extrakt.json'))
+assert x.get('element') and any(e.get('typsnitt', {}).get('renderat') for e in x['element']), 'startsidans mätning saknar renderade typsnitt'
+assert str(s['info'].get('designavvikelser', '')).startswith('inga'), s['info'].get('designavvikelser')
+" || { echo "FEL: designkontraktets grind, startsidans mätning eller jämförelsen med DESIGN.md på testsajten"; exit 1; }
 echo "   grönt (designgrinden med)"
 
 echo "   granskarens uppdrag (torrt, ingen session) och godkännandets regel"
