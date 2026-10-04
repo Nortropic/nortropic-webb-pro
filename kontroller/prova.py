@@ -13,6 +13,8 @@ Grindar (röd grind = sajten är inte klar):
   lighthouse   prestanda ≥ 90, tillgänglighet ≥ 95, bästa praxis ≥ 95, SEO ≥ 90, mobil och desktop
   spill        inget horisontellt spill i 390, 768 och 1440 px på någon sida
   utan-js      sidorna läsbara utan JavaScript och förfrågan skickad till demomottagaren (bara PASS är grönt)
+  resor        briefens viktigaste besökaruppgifter (underlag/<slug>/RESOR.json, kunskap/resor.md) på nivån lokalt prov
+               håller i webbläsaren: handling, synligt resultat, inmatningsfel och rättning
 
 Information (visas, blockerar inte):
   copy         copy_kontroll.py på sajtens källtexter. Enligt kunskap/copy-kontroll.md är rapporten aldrig en grind:
@@ -524,8 +526,24 @@ def prova(slug, snabb=False):
             u = json.loads((prov / 'utan-js' / 'UTAN-JS.json').read_text(encoding='utf-8'))
             ok_u, text_u, detalj_u = utan_js_grind(u)  # inskicket går till provets demomottagare på 127.0.0.1 (omgång elva, F31)
             g['utan-js'] = grind(ok_u, text_u, 'prov/utan-js/UTAN-JS.json', detalj_u)
-        except (OSError, ValueError):
-            g['utan-js'] = grind(False, 'utan-js kördes inte (rc %d)' % rc, detalj=svans(out))
+        except (OSError, ValueError, KeyError):
+            g['utan-js'] = grind(False, 'utan-js kördes inte (rc %d)' % rc, detalj=svans(out, 3))
+
+        # resor (Codex helhetsbedömning 2026-10-04, punkt 6): briefens viktigaste uppgifter i webbläsaren, på provets egen server
+        resfil = underlag / 'RESOR.json'
+        if not resfil.is_file():
+            g['resor'] = grind(False, 'underlag/%s/RESOR.json saknas: skriv briefens viktigaste resor (kunskap/resor.md)' % slug)
+        else:
+            rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'resor.mjs'), '--adress', srv.url + '/', '--resor', str(resfil),
+                           '--ut', str(prov / 'resor'), '--testmarkering', 'NWP-PROV'], timeout=600)
+            try:
+                rj = json.loads((prov / 'resor' / 'RESOR.json').read_text(encoding='utf-8'))
+                hollnt = [x for x in rj.get('resor', []) if not x.get('ok')]
+                g['resor'] = grind(bool(rj.get('ok')), '%d av %d resor höll%s' % (len(rj.get('resor', [])) - len(hollnt), len(rj.get('resor', [])),
+                                   ', %d kvar till lanseringen' % len(rj.get('kvar', [])) if rj.get('kvar') else ''), 'prov/resor/RESOR.md',
+                                   '\n'.join(['%s: %s' % (x.get('id'), x.get('skal')) for x in hollnt] + rj.get('fel', [])) or None)
+            except (OSError, ValueError, KeyError, AttributeError, TypeError) as e:
+                g['resor'] = grind(False, 'resorna kördes inte (rc %d): %s' % (rc, e), detalj=svans(out, 3))
 
         # utforska (info)
         if snabb:
@@ -588,12 +606,12 @@ def markdown(s):
     return '\n'.join(rad) + '\n'
 
 
-GRINDAR = ('bygge', 'design', 'seo', 'standard', 'axe', 'lighthouse', 'spill', 'utan-js')
+GRINDAR = ('bygge', 'design', 'seo', 'standard', 'axe', 'lighthouse', 'spill', 'utan-js', 'resor')
 
 
 def main(argv=None):
     # Sandlådat bygge: provet körs här inne (npm install, npm run build och serveringen av dist/ stannar i sandlådan);
-    # bara webbläsarstegen (inspektera, utan-js, utforska, lighthouse) delegerar själva till kontroller/webbtjanst.py (Codex R23).
+    # bara webbläsarstegen (inspektera, utan-js, utforska, resor, axe, stil, lighthouse) delegerar själva till kontroller/webbtjanst.py (Codex R23).
     p = argparse.ArgumentParser(prog='prova', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
     p.add_argument('--snabb', action='store_true')

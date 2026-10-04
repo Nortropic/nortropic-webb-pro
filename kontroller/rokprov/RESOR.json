@@ -1,0 +1,17 @@
+{
+ "schema": 1,
+ "resor": [
+  {"id": "ring", "uppgift": "Jag vill ringa: numret syns och går att trycka på", "niva": "lokalt prov", "start": "/",
+   "forvantat": [{"lank": {"valjare": "a[href^='tel:']", "borjar": "tel:+46701234567"}}]},
+  {"id": "skriv", "uppgift": "Jag vill skriva när ingen svarar", "niva": "lokalt prov", "start": "/integritet/",
+   "steg": [{"klicka": "nav a[href='/kontakt/']"}, {"forvanta": {"url": "/kontakt/"}},
+            {"fyll": {"#ff-namn": "Prov Provsson", "#ff-telefon": "070-123 45 67", "#ff-meddelande": "{markering}: ett prov av resan"}},
+            {"skicka": "#forfragan"}],
+   "forvantat": [{"url": "/tack/"}]},
+  {"id": "skriv-fel-och-ratta", "uppgift": "Jag glömmer ett fält, förstår felet och rättar", "niva": "lokalt prov", "start": "/kontakt/",
+   "steg": [{"fyll": {"#ff-namn": "Prov Provsson", "#ff-meddelande": "{markering}: utan nummer"}}, {"skicka": "#forfragan"},
+            {"forvanta": {"fel_vid_falt": "#ff-telefon"}}, {"fyll": {"#ff-telefon": "070-123 45 67"}}, {"skicka": "#forfragan"}],
+   "forvantat": [{"url": "/tack/"}]},
+  {"id": "mottagen-forfragan", "uppgift": "Förfrågan kommer fram till verksamheten", "niva": "verklig leverans"}
+ ]
+}

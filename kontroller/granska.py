@@ -265,7 +265,7 @@ def kopiera_trad_sakert(kalla, mal):
                 raise RuntimeError('planterad symlänk i %s: %s' % (kalla, Path(d) / n))
 
 
-FRYSTA_FILER = ('copy.md', 'standard.md', 'stil/STIL.md', 'vinnare/VINNARJAMFORELSE.md')  # den sista bara när ateljén kördes
+FRYSTA_FILER = ('copy.md', 'standard.md', 'stil/STIL.md', 'vinnare/VINNARJAMFORELSE.md', 'resor/RESOR.md')  # vinnaren bara när ateljén kördes
 
 
 def frys_bygget(kund, rdir):
@@ -518,7 +518,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'avsiktliga avvikelser är ett fynd; att sajten följer DESIGN.md säger inget om att designen är bra.',
         'Byggstandardens maskinella fynd: %s' % (rad(rdir / 'standard.md')[2:] if (rdir / 'standard.md').is_file() else 'saknas'),
         'Stilrapporten: %s' % (rad(rdir / 'STIL.md')[2:] if (rdir / 'STIL.md').is_file() else 'saknas'),
-        'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'), '',
+        'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'),
+        'Briefens resor i webbläsaren (provets grind resor; handling, synligt resultat, inmatningsfel och rättning): %s' % (
+            rad(rdir / 'RESOR.md')[2:] if (rdir / 'RESOR.md').is_file() else 'saknas'), '',
         'Referensernas bilder: den ruta eller det tillstånd byggaren pekat ut, med jämförelsefrågan; första vyn när inget pekats ut:',
         *([rad(p) + ' — ' + t for p, t in (x if isinstance(x, tuple) else (x, 'första vyn') for x in refs)] or ['- inga']),
         *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet):']

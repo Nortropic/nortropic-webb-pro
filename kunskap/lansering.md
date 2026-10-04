@@ -31,6 +31,11 @@ Byggstandardens L-punkter 1.4, 4.5, 4.6 och 8.1 pekar hit. Stacken är Astro med
 
 ## Före lanseringsdagen
 
+**Resorna som står kvar.** `prov/resor/RESOR.md` listar under "Kvar till lanseringen" de resor som provet inte kan
+köra lokalt (`kunskap/resor.md`): nivån testintegration (till exempel en genomförd bokning i tjänstens testmiljö) och
+verklig leverans (en förfrågan som kommer fram till verksamheten). Var och en genomförs och kvitteras, med datum och
+vem som såg resultatet, innan lanseringen.
+
 **DNS (människa).** Först sänker en behörig människa TTL för posterna som ska ändras, till exempel till 300 s, minst
 en gammal TTL före bytet. TTL för delegeringens NS-poster sätts av registret och går inte att sänka i kundens zon.
 Har kunden e-post på domänen är standardvägen att bara ändra webbposterna hos nuvarande DNS-värd. Ett

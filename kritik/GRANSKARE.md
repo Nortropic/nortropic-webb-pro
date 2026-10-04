@@ -113,7 +113,9 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
    kvalitet och placering; detaljer i knappar, länkar, fokus och tillstånd. Dimension 2 och 3, byggstandarden 3 och 4,
    Vercels riktlinjer, Emils designteknik.
 4. **Funktion.** Håller kraven i briefen? Kan besökaren lösa varje toppuppgift utan att fastna i den kognitiva
-   genomgången? Syns den primära handlingen i första vyn på mobil, och går den att nå med tummen? Är
+   genomgången? Provets resor (`RESOR.md` i omgången) visar vad som höll i webbläsaren, steg för steg; en resa som
+   saknas för en toppuppgift är ett fynd, och likaså en bokningsuppgift som bara prövas som länk utan att den
+   genomförda bokningen står kvar till lanseringen (testintegration) i samma fil. Syns den primära handlingen i första vyn på mobil, och går den att nå med tummen? Är
    förtroendesignalerna verkliga? Står det något som blir inaktuellt (datum, annonser, erbjudanden, säsong, "just
    nu"), och syns det när? Fungerar menyn, undersidorna och 404-sidan? Dimension 5, 6 och 7, byggstandarden 5
    och 9, Osmanis tillgänglighet.

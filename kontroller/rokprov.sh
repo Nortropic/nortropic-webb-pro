@@ -21,6 +21,8 @@ rm -f "$ROOT/kunder/rokprov-mall/RAPPORT.md"
 # testsajten har inga foton: beställningen finns, så att bildkravet (9.3) är uppfyllt på rätt sätt
 mkdir -p "$ROOT/underlag/rokprov-mall"
 printf '# Beställning till verksamheten\n\n- Fem foton av jobb, till startsidan och tjänstesidan.\n- Telefontid.\n' > "$ROOT/underlag/rokprov-mall/BESTALLNING.md"
+# briefens resor (kunskap/resor.md): ringa, skriva, glömma ett fält och rätta; grinden resor kör dem i webbläsaren
+cp "$ROOT/kontroller/rokprov/RESOR.json" "$ROOT/underlag/rokprov-mall/RESOR.json"
 
 echo "1/2 grönt prov"
 if ! "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/prova.py" rokprov-mall >/dev/null; then
@@ -28,7 +30,9 @@ if ! "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/prova.py" rokprov-mall >/dev/
 fi
 "$ROOT/.venv/bin/python" -c "
 import json; s = json.load(open('$ROOT/kunder/rokprov-mall/prov/STATUS.json'))
-assert s['ok'] and s['grindar']['design']['ok'], s['grindar'].get('design')
+assert s['ok'] and s['grindar']['design']['ok'] and s['grindar']['resor']['ok'], (s['grindar'].get('design'), s['grindar'].get('resor'))
+r = json.load(open('$ROOT/kunder/rokprov-mall/prov/resor/RESOR.json'))
+assert [x['id'] for x in r['resor']] == ['ring', 'skriv', 'skriv-fel-och-ratta'] and all(x['ok'] for x in r['resor']) and [k['id'] for k in r['kvar']] == ['mottagen-forfragan'], r
 x = json.load(open('$ROOT/kunder/rokprov-mall/prov/inspektion/hem/vy-1440-extrakt.json'))
 assert x.get('element') and any(e.get('typsnitt', {}).get('renderat') for e in x['element']), 'startsidans mätning saknar renderade typsnitt'
 assert str(s['info'].get('designavvikelser', '')).startswith('inga'), s['info'].get('designavvikelser')
@@ -304,6 +308,36 @@ assert not ren['varningar'] or not any('utanför skärmen' in v or 'gånger i st
 " || { echo "FEL: stilrapportens nya mätningar"; exit 1; }
 echo "   stilrapporten ok"
 
+echo "   resor som inte håller: fel steg, skärmbild per steg, ingen skrivning utanför provets server"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, json, subprocess, tempfile, pathlib
+sys.path.insert(0, '$ROOT/kontroller'); import prova
+d = pathlib.Path(tempfile.mkdtemp())
+(d / 'RESOR.json').write_text(json.dumps({'resor': [
+    {'id': 'fel-text', 'uppgift': 'texten finns inte', 'start': '/', 'forvantat': [{'text': 'Det här står ingenstans'}]},
+    {'id': 'fel-lank', 'uppgift': 'fel nummer', 'start': '/', 'forvantat': [{'lank': {'valjare': 'a[href^=\"tel:\"]', 'borjar': 'tel:+4699'}}]},
+    {'id': 'tomt-formular', 'uppgift': 'tomt formulär stoppas med besked', 'start': '/kontakt/', 'steg': [{'skicka': '#forfragan'}], 'forvantat': [{'fel_vid_falt': '#ff-namn'}]},
+    {'id': 'fel-url', 'uppgift': 'startsidan väntas men resan står på kontaktsidan', 'start': '/kontakt/', 'forvantat': [{'url': '/'}]},
+    {'id': 'falt-utan-inskick', 'uppgift': 'kontrollen framkallar inget fel själv', 'start': '/kontakt/', 'forvantat': [{'fel_vid_falt': '#ff-namn'}]},
+    {'id': 'klicka-tel', 'uppgift': 'en tel-länk klickas', 'start': '/', 'steg': [{'klicka': 'a[href^=\"tel:\"]'}]},
+    {'id': 'Versal', 'uppgift': 'okänd nivå', 'niva': 'Testintegration'},
+    {'id': 'fel-vy', 'uppgift': 'okänd vy', 'vy': '1024', 'start': '/'}]}))
+with prova.Server(pathlib.Path('$S') / 'dist') as srv:
+    p = subprocess.run(['node', '$ROOT/kontroller/webblasare/resor.mjs', '--adress', srv.url + '/', '--resor', str(d / 'RESOR.json'), '--ut', str(d / 'ut')], capture_output=True, text=True)
+    p2 = subprocess.run(['node', '$ROOT/kontroller/webblasare/resor.mjs', '--adress', 'https://example.com/', '--resor', str(d / 'RESOR.json'), '--ut', str(d / 'ut2')], capture_output=True, text=True)
+r = json.loads((d / 'ut' / 'RESOR.json').read_text())
+o = {x['id']: x for x in r['resor']}
+assert p.returncode == 1 and not r['ok'] and not o['fel-text']['ok'] and 'syns inte' in o['fel-text']['skal'] and not o['fel-lank']['ok'] and 'länken går till tel:+46701234567' in o['fel-lank']['skal'], r
+assert o['tomt-formular']['ok'], o['tomt-formular']
+assert not o['fel-url']['ok'] and 'adressen är /kontakt/, väntade /' in o['fel-url']['skal'], o['fel-url']
+assert not o['falt-utan-inskick']['ok'] and 'inte markerat' in o['falt-utan-inskick']['skal'], o['falt-utan-inskick']
+assert not o['klicka-tel']['ok'] and 'förväntan lank' in o['klicka-tel']['skal'] and 'klicka' in o['klicka-tel']['skal'], o['klicka-tel']
+assert any(x.startswith('versal: okänd nivå') for x in r['fel']) and any(x.startswith('fel-vy: okänd vy') for x in r['fel']) and 'fel-vy' not in o, r['fel']
+assert all(pathlib.Path(s['bild']).is_file() for x in r['resor'] for s in x['steg'] if s.get('bild')) and 'HÖLL INTE' in (d / 'ut' / 'RESOR.md').read_text()
+assert p2.returncode == 2 and 'lokala server' in p2.stderr, p2.stderr
+" || { echo "FEL: resorna som inte håller"; exit 1; }
+echo "   resorna ok"
+
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \
   || { echo "FEL: prospektpipelinen"; tail -20 "$ROOT/kunder/rokprov-mall/prospekt-prov.log"; exit 1; }
@@ -453,6 +487,7 @@ echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"
 mv "$S/DESIGN.md" "$S/DESIGN.md.ren"  # designkontraktet brutet: grinden design ska bli röd
+mv "$ROOT/underlag/rokprov-mall/RESOR.json" "$ROOT/underlag/rokprov-mall/RESOR.json.ren"  # inga resor: grinden resor ska bli röd
 sed -i '' 's#<p><a href="/">Tillbaka</a></p>#<p style="color:\#bbb">Ljusgrå text.</p><div style="width:1800px">Bred.</div><img src="/finns-inte.png"><p><a href="/saknas/">Trasig</a></p><p><a href="/">Tillbaka</a></p>#' "$F"
 set +e
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/prova.py" rokprov-mall --snabb >/dev/null
@@ -460,11 +495,12 @@ RC=$?
 set -e
 mv "$F.ren" "$F"
 mv "$S/DESIGN.md.ren" "$S/DESIGN.md"
+mv "$ROOT/underlag/rokprov-mall/RESOR.json.ren" "$ROOT/underlag/rokprov-mall/RESOR.json"
 SAKNAS=$("$ROOT/.venv/bin/python" -c "
 import json,sys; s=json.load(open('$ROOT/kunder/rokprov-mall/prov/STATUS.json'))
-print(' '.join(g for g in ('seo','axe','spill','standard','design') if s['grindar'][g]['ok']))")
+print(' '.join(g for g in ('seo','axe','spill','standard','design','resor') if s['grindar'][g]['ok']))")
 if [ "$RC" -ne 1 ] || [ -n "$SAKNAS" ]; then
-  echo "FEL: väntade rött i seo, axe, spill, standard och design; gröna ändå: ${SAKNAS:-inga} (rc $RC)"; exit 1
+  echo "FEL: väntade rött i seo, axe, spill, standard, design och resor; gröna ändå: ${SAKNAS:-inga} (rc $RC)"; exit 1
 fi
-echo "   rött där det skulle (seo, axe, spill, standard, design)"
+echo "   rött där det skulle (seo, axe, spill, standard, design, resor)"
 echo "rökprovet OK"

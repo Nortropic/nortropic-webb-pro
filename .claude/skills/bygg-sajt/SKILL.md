@@ -169,6 +169,11 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
   sak: vad, varför, var på sajten. En förenklad form av loggan föreslås bara som fråga här, aldrig på sajten (L5).
   Inget skickas under körningen; ägaren tar beställningen med sig.
 
+Skriv `underlag/<slug>/RESOR.json` ur toppuppgifterna (`kunskap/resor.md`): den primära handlingen och den skriftliga
+vägen som resor med startläge, steg och förväntat synligt resultat, ett inmatningsfel och hur besökaren rättar det, och
+nivån (lokalt prov körs i provets grind `resor`; testintegration och verklig leverans står kvar till lanseringen).
+Väljarna beror på den byggda HTML:en: se över dem när sidorna finns (steg 5–6) och kör `prova.py --snabb`.
+
 Skriv också `underlag/<slug>/FRASER.txt`: en rad per fras som konkurrenterna i branschen använder och som vi därför
 inte ska använda. Briefen är en hypotes; den prövas när ägaren och verksamheten ser resultatet.
 
@@ -450,8 +455,9 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 10. **Femsekunderstestets svar**, ordagrant.
 11. **Granskningen:** antal omgångar, slutbetygen per kriterium, vad du ändrade efter kritiken, och varje invändning
     du inte rättade, med skäl.
-12. **Byggstandarden:** att standardgrinden är grön, och varje info i `prov/standard.md` som står kvar, med skäl.
-    Lanseringspunkterna (L) behöver inte redovisas.
+12. **Byggstandarden och resorna:** att standardgrinden är grön, och varje info i `prov/standard.md` som står kvar,
+    med skäl. Lanseringspunkterna (L) behöver inte redovisas. Ur `prov/resor/RESOR.md`: resorna som höll, och de som
+    står kvar till lanseringen (testintegration, verklig leverans).
 13. **Beställning till verksamheten:** sammanfattningen av `underlag/<slug>/BESTALLNING.md`, och att sajten är klar
     för att visas för verksamheten men inte klar att lanseras förrän beställningen är levererad. Ingen beställning
     behövs: skriv det.

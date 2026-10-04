@@ -6,7 +6,7 @@ Chromium (Playwright) kan inte starta inne i Claude Codes sandlåda: dess proces
 (allow mach-register …); mätt 2026-10-04 med seatbelt-profiler som nekar en operation i taget, och i källan
 anthropic-experimental/sandbox-runtime. Därför startar kor.sh, med NWP_SANDLADA=pa, den här tjänsten utanför
 sandlådan på 127.0.0.1. Bara avgränsade webbläsaroperationer delegeras (Codex R23): webbläsarskripten (arkivera,
-inspektera, utan-js, utforska), axe, stil, sida, ikoner, lighthouse och granskarnas sessioner (granska.py --arbetare,
+inspektera, utan-js, utforska, resor), axe, stil, sida, ikoner, lighthouse och granskarnas sessioner (granska.py --arbetare,
 --jamfor), som körs med egen sandlåda. Skripten startar Chromium genom webbläsarhjälparens nätgräns (natgrans), så
 också sidornas underresurser håller sig inom domänlistan. Byggsteg (npm
 install, npm run build, servering av dist/) och byggets egen modellprocess stannar i sandlådan: prova.py körs därinne
@@ -21,7 +21,7 @@ inga omvända snedstreck eller blanktecken, värdnamn i IDNA-form) och måste li
 per anrop och i sin egen proxy (värdnamnet slås upp där och bara publika adresser ansluts; skrivande http bara lokalt),
 också vid omdirigering. En flagga som ges mer än en gång vägras (verktygen läser första eller sista olika).
 --tillat-alla vägras; --formular-far-skickas bara mot provets egen mottagare (prova.Server märker sina svar med
-X-NWP-Mottagare: <körning>, som tjänsten kontrollerar); lighthouse bara mot byggets lokala server; sökvägar under
+X-NWP-Mottagare: <körning>, som tjänsten kontrollerar); lighthouse och resor bara mot byggets lokala server; sökvägar under
 kunder/<slug>, underlag/<slug>, /tmp/nwp-bygge-<slug> eller granskarnas /tmp/nwp-granskning/<slug>/.
 Nyckeln (X-Nyckel) skiljer tjänsten från annan lokal programvara; proxyvariablerna tas bort ur verktygens miljö.
 
@@ -70,6 +70,8 @@ VERKTYG = {
     'inspektera': {'kmd': ('node', 'kontroller/webblasare/inspektera.mjs'), 'slug': False,
                    'flaggor': {'adress': 'url', 'ut': 'vag', 'vyer': 'text', 'tillat': 'ursprung', 'hemligheter': 'vag', 'kontext': 'vagar',
                                'hover': 'text', 'fokus': 'text', 'meny': 'text', 'tillstand': 'text', 'undantag-fil': 'vag', 'extrahera': 'text'}},
+    'resor': {'kmd': ('node', 'kontroller/webblasare/resor.mjs'), 'slug': False,  # briefens resor mot provets egen server
+              'flaggor': {'adress': 'lokal_url', 'resor': 'vag', 'ut': 'vag', 'testmarkering': 'text'}},
     'utan-js': {'kmd': ('node', 'kontroller/webblasare/utan-js.mjs'), 'slug': False,
                 'flaggor': {'adress': 'url', 'ut': 'vag', 'formular': 'text', 'sidor': 'text', 'testmarkering': 'text',
                             'formular-far-skickas': 'flagga', 'undantag-fil': 'vag'}},

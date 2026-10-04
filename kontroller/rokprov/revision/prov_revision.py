@@ -2588,7 +2588,7 @@ kor_text_w = (ROOT / 'kor.sh').read_text()
 assert 'webbtjanst.py' in kor_text_w and 'NWP_WEBBTJANST' in kor_text_w, 'kor.sh startar tjänsten med sandlådan på'
 assert 'via_tjanst' not in (ROOT / 'kontroller' / 'prova.py').read_text(), 'prova delegerar inte längre: npm och servering stannar i sandlådan'
 assert 'via_tjanst' not in (ROOT / 'kontroller' / 'atelje.py').read_text(), 'ateljén delegerar inte; den vägrar i sandlådat läge'
-assert set(wt.VERKTYG) == {'granska', 'lighthouse', 'arkivera', 'inspektera', 'utan-js', 'utforska', 'axe', 'stil', 'sida', 'ikoner', 'referens', 'referenstjanster'}, 'bara webbläsaroperationer, granskarnas sessioner, referenssteget och referenstjänsterna (ägarbeslut 2026-10-04)'
+assert set(wt.VERKTYG) == {'granska', 'lighthouse', 'arkivera', 'inspektera', 'utan-js', 'utforska', 'axe', 'stil', 'sida', 'ikoner', 'referens', 'referenstjanster', 'resor'}, 'bara webbläsaroperationer, granskarnas sessioner, referenssteget och referenstjänsterna (ägarbeslut 2026-10-04)'
 for namn_ in ('axe', 'stil', 'sida', 'ikoner', 'lighthouse'):  # alla Chromium-skript delegerar och går genom nätgränsen i tjänstens läge
     txt_ = (ROOT / 'kontroller' / (namn_ + '.mjs')).read_text()
     assert "viaTjanst('%s'" % namn_ in txt_ and 'natgrans(' in txt_ and 'grans.stang()' in txt_, namn_
@@ -2599,6 +2599,12 @@ rot_w = tmp / 'wt-rot'; (rot_w / 'kunder' / 'prov-bygge' / 'granskning' / 'runda
 ga = lambda v_, a_: wt.granska_anrop(v_, a_, 'prov-bygge', till_, rot_w, 'K1', lambda adr_, k_: (True, None))  # noqa: E731  mottagaren stubbad
 ga_riktig = lambda v_, a_: wt.granska_anrop(v_, a_, 'prov-bygge', till_, rot_w, 'K1')  # noqa: E731  riktig mottagarkontroll
 assert ga('prova', ['prov-bygge'])[1] and ga('atelje', ['prov-bygge', '--arbetare'])[1], 'prova och ateljén går inte via tjänsten (byggsteg utanför sandlådan)'
+# resorna via tjänsten: bara mot provets egen lokala server, med vägar inom bygget
+assert ga('resor', ['--adress', 'https://example.com/', '--resor', 'underlag/prov-bygge/RESOR.json', '--ut', 'kunder/prov-bygge/prov/resor'])[1], 'resor mot en främmande adress vägras'
+assert ga('resor', ['--adress', 'http://127.0.0.1:4100/', '--resor', '/etc/passwd', '--ut', 'kunder/prov-bygge/prov/resor'])[1], 'resor ur en väg utanför bygget vägras'
+(rot_w / 'underlag' / 'prov-bygge' / 'RESOR.json').write_text('{"resor": []}')
+assert ga('resor', ['--adress', 'http://127.0.0.1:4100/', '--resor', 'underlag/prov-bygge/RESOR.json', '--ut', 'kunder/prov-bygge/prov/resor',
+                    '--testmarkering', 'NWP-PROV'])[1] is None, 'provets eget anrop (prova.py) går igenom tjänsten'
 assert ga('granska', ['--arbetare', 'kunder/prov-bygge/granskning/runda-03'])[0][-2:] == ['--arbetare', 'kunder/prov-bygge/granskning/runda-03']
 assert ga('granska', ['prov-bygge', '--jamfor'])[1] is None and ga('granska', ['prov-bygge'])[1] and ga('granska', ['prov-bygge', '--om'])[1] \
     and ga('granska', ['--arbetare', 'kunder/annan/granskning/runda-01'])[1] and ga('granska', ['--arbetare', 'kunder/prov-bygge/granskning'])[1] \
