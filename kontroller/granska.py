@@ -175,9 +175,24 @@ def lever(pid):
 
 def ren_miljo():
     """Granskaren är en egen session: inga variabler från en omgivande Claude-session eller från bygget (NWP_SLUG
-    skulle annars väcka stoppvakten i granskarens egen session)."""
-    return {k: v for k, v in os.environ.items()
-            if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_') and not k.startswith('NWP_')}
+    skulle annars väcka stoppvakten i granskarens egen session). Med sandlådan på får sessionen ändå webbtjänstens
+    adress, så att dess egna sandlådade webbläsarsteg kan delegera dit."""
+    m = {k: v for k, v in os.environ.items()
+         if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_') and not k.startswith('NWP_')}
+    if os.environ.get('NWP_SANDLADA') == 'pa':
+        for k in ('NWP_WEBBTJANST', 'NWP_WEBBTJANST_NYCKEL'):
+            if os.environ.get(k):
+                m[k] = os.environ[k]
+    return m
+
+
+def granskarsandlada(slug, arbetskatalog=None):
+    """Med sandlådan på (kor.sh NWP_SANDLADA=pa) får granskarens session samma sandlåda som bygget, plus sin egen
+    arbetskatalog skrivbar: modellprocesser stannar i processisoleringen (Codex R23). Annars inget."""
+    if os.environ.get('NWP_SANDLADA') != 'pa':
+        return []
+    import sandlada
+    return ['--settings', json.dumps(sandlada.installningar(slug, extra_skriv=[str(arbetskatalog)] if arbetskatalog else ()))]
 
 
 NIVAER = ('godkänd', 'detaljrättning', 'ny riktning')
@@ -408,7 +423,7 @@ def arbetare(rdir):
                         '--setting-sources', 'project,local', '--strict-mcp-config',
                         '--model', upp['modell'], '--effort', upp['effort'],
                         '--json-schema', SCHEMA.read_text(encoding='utf-8'), '--add-dir', str(arbetskatalog),
-                        '--allowedTools', *VERKTYG, '--disallowedTools', *nekas]
+                        '--allowedTools', *VERKTYG, '--disallowedTools', *nekas, *granskarsandlada(slug, arbetskatalog)]
                 ut = open(rdir / ('svar.json' if n == 1 else 'svar-%d.json' % n), 'wb')
                 err = open(rdir / ('stderr-%d.log' % n), 'wb')
                 proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=ut, stderr=err, cwd=str(ROOT), env=ren_miljo())
@@ -486,7 +501,7 @@ def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=N
     args = [claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--model', upp['modell'], '--effort', upp['effort'],
             '--json-schema', SCHEMA_ORIGINALITET.read_text(encoding='utf-8'), '--allowedTools', 'Read', 'Glob', 'Grep',
-            '--disallowedTools', *nekas]
+            '--disallowedTools', *nekas, *granskarsandlada(slug)]
     try:
         with open(rdir / 'svar-originalitet.json', 'wb') as ut:
             p = subprocess.run(args, input='\n'.join(delar).encode(), stdout=ut, stderr=subprocess.PIPE, cwd=str(ROOT),
@@ -647,10 +662,6 @@ def vanta(gdir, rdir, sekunder, proc=None):
 
 
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else list(argv)
-    import webbtjanst
-    if webbtjanst.delegeras():  # sandlådat bygge: granskarna och deras webbläsare körs av tjänsten utanför sandlådan
-        return webbtjanst.via_tjanst('granska', argv)
     p = argparse.ArgumentParser(prog='granska', description=__doc__.split('\n\n')[0])
     p.add_argument('slug', nargs='?')
     p.add_argument('--vanta', type=int, default=540)
@@ -659,6 +670,14 @@ def main(argv=None):
     p.add_argument('--jamfor', action='store_true', help='jämför bästa och sista omgången parvis')
     p.add_argument('--arbetare', help=argparse.SUPPRESS)
     a = p.parse_args(argv)
+    import webbtjanst
+    if webbtjanst.delegeras():
+        # Sandlådat bygge: drivaren körs här inne; arbetaren (granskarnas sessioner, som behöver claude utanför sandlådan
+        # men själva får egen sandlåda) och jämförelsen körs av kontroller/webbtjanst.py (Codex R23).
+        if a.arbetare:
+            return webbtjanst.via_tjanst('granska', ['--arbetare', a.arbetare])
+        if a.jamfor and a.slug:
+            return webbtjanst.via_tjanst('granska', [a.slug, '--jamfor'])
     if a.slug:
         krav_slug(a.slug)
     if a.arbetare:

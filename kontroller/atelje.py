@@ -423,10 +423,10 @@ def vanta(rot, sekunder):
 
 
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else list(argv)
     import webbtjanst
-    if webbtjanst.delegeras():  # sandlådat bygge: ateljéns skärmbilder tas av tjänsten utanför sandlådan
-        return webbtjanst.via_tjanst('atelje', argv)
+    if webbtjanst.delegeras():  # ateljéns modellsessioner och byggsteg har ingen egen sandlåda än (Codex R23); inget körs utanför
+        print('ateljén körs inte i sandlådat läge än (NWP_SANDLADA=pa): dess sessioner och byggsteg behöver egen sandlåda; se backloggen', file=sys.stderr)
+        return 2
     p = argparse.ArgumentParser(prog='atelje', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
     p.add_argument('--vanta', type=int, default=540)

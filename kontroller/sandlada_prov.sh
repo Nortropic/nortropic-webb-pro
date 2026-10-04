@@ -19,6 +19,11 @@ P="$(mktemp -d /tmp/nwp-sandlada-prov.XXXXXX)"
 SLUG=prov-bygge
 mkdir -p "$P/kontroller" "$P/underlag/$SLUG/skript" "$P/kunder/$SLUG" "$P/kunder/annan-kund" "$P/underlag/annan-kund" "$P/.venv/bin" "$P/hem/.nortropic-hemligheter"
 cp "$ROOT/kontroller/sandlada-domaner.txt" "$P/kontroller/"
+# Tjänstens verktyg i provroten (riktiga skript, modulerna via symlänk): utan-js körs genom tjänsten från sandlådan.
+mkdir -p "$P/kontroller/webblasare" "$P/underlag/$SLUG/skript/sida"
+cp "$ROOT"/kontroller/webblasare/*.mjs "$P/kontroller/webblasare/"; cp "$ROOT/kontroller/slugvakt.mjs" "$P/kontroller/"
+ln -s "$ROOT/kontroller/node_modules" "$P/kontroller/node_modules"
+printf '<html><body><h1>Prov</h1><img src="https://example.com/x.png"><form method="post" action="/"><input name="n"><button>s</button></form></body></html>' > "$P/underlag/$SLUG/skript/sida/index.html"
 # Som kor.sh: kunder/ och underlag/ låsta mot nya poster under körningen (flaggan uchg; Codex 2026-10-04, F1).
 chflags uchg "$P/kunder" "$P/underlag"
 # Som kor.sh: webbtjänsten (kontroller/webbtjanst.py) utanför sandlådan; provet visar att den nås från sandlådan (localhost).
@@ -67,11 +72,14 @@ python3 $UT/post.py $IP > $UT/5-skript-post.txt 2> $UT/5-skript-post-fel.txt; ec
 python3 -c \"import socketserver,http.server; s=socketserver.TCPServer(('127.0.0.1',0),http.server.SimpleHTTPRequestHandler); print('bunden', s.server_address[1]); s.server_close()\" > $UT/6-port.txt 2> $UT/6-port-fel.txt; echo \"rc=\$?\" >> $UT/6-port.txt
 touch $UT/7-tillatet.txt 2> $UT/7-tillatet-fel.txt; echo \"rc=\$?\" > $UT/7-tillatet-rc.txt
 echo \"proxy=\${HTTP_PROXY:-ingen}\" > $UT/8-proxy.txt
-curl -s -m 5 -H \"X-Nyckel: \$NWP_WEBBTJANST_NYCKEL\" \"\$NWP_WEBBTJANST/halsa\" > $UT/9-tjanst.txt 2> $UT/9-tjanst-fel.txt; echo \" rc=\$?\" >> $UT/9-tjanst.txt"
+curl -s -m 5 -H \"X-Nyckel: \$NWP_WEBBTJANST_NYCKEL\" \"\$NWP_WEBBTJANST/halsa\" > $UT/9-tjanst.txt 2> $UT/9-tjanst-fel.txt; echo \" rc=\$?\" >> $UT/9-tjanst.txt
+python3 -m http.server 8777 --bind 127.0.0.1 --directory $UT/sida > /dev/null 2>&1 & S=\$!; sleep 1; node kontroller/webblasare/utan-js.mjs --adress http://127.0.0.1:8777/ --ut $UT/utanjs > $UT/10-tjanst-utanjs.txt 2> $UT/10-tjanst-utanjs-fel.txt; echo \"rc=\$?\" >> $UT/10-tjanst-utanjs.txt; kill \$S
+node kontroller/webblasare/inspektera.mjs --adress https://example.com/ --ut $UT/insp > $UT/11-tjanst-nekad.txt 2> $UT/11-tjanst-nekad-fel.txt; echo \"rc=\$?\" >> $UT/11-tjanst-nekad.txt
+node kontroller/webblasare/utan-js.mjs --adress https://registry.npmjs.org/ --ut $UT/x --formular-far-skickas --testmarkering NWP-PROV > $UT/12-tjanst-inskick.txt 2> $UT/12-tjanst-inskick-fel.txt; echo \"rc=\$?\" >> $UT/12-tjanst-inskick.txt"
 SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" --root "$P" --hem "$P/hem")"
 RENSA=(-u CLAUDECODE)
 while IFS='=' read -r namn _; do case "$namn" in CLAUDE_CODE_*) RENSA+=(-u "$namn");; esac; done < <(env)
-( cd "$P" && printf '%s' "$PROMPT" | env "${RENSA[@]}" "${WT_ENV[@]}" claude -p --model sonnet --max-turns 24 --permission-mode dontAsk --output-format json \
+( cd "$P" && printf '%s' "$PROMPT" | env "${RENSA[@]}" "${WT_ENV[@]}" claude -p --model sonnet --max-turns 30 --permission-mode dontAsk --output-format json \
     --setting-sources project,local --strict-mcp-config --allowedTools "Bash(*)" --settings "$SETTINGS" > "$P/claude.json" 2>&1 )
 CLAUDE_RC=$?
 echo "sandlådeprov i $P"

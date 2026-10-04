@@ -17,7 +17,8 @@ blockering, och tvetydiga transportfel (namnuppslag, nekad port, timeout, onåba
 - egen socket (5): skriptet rapporterar steg (anslut/tls/sand/svar), undantagstyp och errno; 'status <kod>' är nått;
   'fel anslut PermissionError <errno>' är blockerad; annat fel i anslut är provfel; fel i tls/sand/svar är ansluten
 - lokal port (6): 'bunden <port>' med rc 0; claude-processens slutkod måste vara 0 och proxyn (8) satt; webbtjänsten (9,
-  kontroller/webbtjanst.py utanför sandlådan) måste svara på /halsa från sandlådan med byggets slug.
+  kontroller/webbtjanst.py utanför sandlådan) måste svara på /halsa från sandlådan med byggets slug; genom tjänsten måste
+  utan-js mot en lokal sida gå (10), inspektera av en olistad domän vägras (11) och inskick mot extern adress vägras (12).
 
     .venv/bin/python kontroller/sandlada_dom.py <resultatkatalog> <claude-kod> <provrot>
 Slutkod 0 bara när allt otillåtet konstaterats blockerat och allt tillåtet gått.
@@ -180,6 +181,15 @@ def doma(katalog, claude_rc, rot):
     res, rc, fel = las(katalog, '9-tjanst.txt')
     tjanst_ok = rc == 0 and '"slug": "prov-bygge"' in (res or '')
     dom(tjanst_ok, 'webbtjänsten nås från sandlådan (localhost, utan proxy): %s' % ('ja' if tjanst_ok else 'nej (%r rc %s %s)' % ((res or '')[:60], rc, sista(fel))))
+    res, rc, fel = las(katalog, '10-tjanst-utanjs.txt')
+    kedja_ok = rc == 0 and (katalog / 'utanjs' / 'UTAN-JS.json').is_file()
+    dom(kedja_ok, 'utan-js genom tjänsten mot en lokal sida (sandlåda → tjänst → Chromium → localhost): %s' % ('gick' if kedja_ok else 'gick inte (rc %s: %s)' % (rc, sista(fel))))
+    res, rc, fel = las(katalog, '11-tjanst-nekad.txt')
+    nekad_ok = rc == 2 and 'domänlista' in (fel or '')
+    dom(nekad_ok, 'inspektera av olistad domän genom tjänsten: %s' % ('vägrad' if nekad_ok else 'inte vägrad (rc %s: %s)' % (rc, sista(fel))))
+    res, rc, fel = las(katalog, '12-tjanst-inskick.txt')
+    inskick_ok = rc == 2 and 'lokala mottagare' in (fel or '')
+    dom(inskick_ok, 'inskick mot extern adress genom tjänsten: %s' % ('vägrat' if inskick_ok else 'inte vägrat (rc %s: %s)' % (rc, sista(fel))))
     return sum(1 for ok, _ in rader if not ok), rader
 
 

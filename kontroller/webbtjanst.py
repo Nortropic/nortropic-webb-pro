@@ -5,14 +5,19 @@ Chromium (Playwright) kan inte starta inne i Claude Codes sandlåda: dess proces
 (bootstrap_check_in av org.chromium.Chromium.MachPortRendezvousServer.<pid>) och sandlådeprofilen avger aldrig
 (allow mach-register …); mätt 2026-10-04 med seatbelt-profiler som nekar en operation i taget, och i källan
 anthropic-experimental/sandbox-runtime. Därför startar kor.sh, med NWP_SANDLADA=pa, den här tjänsten utanför
-sandlådan på 127.0.0.1, och prova.py, granska.py, atelje.py och webbläsarskripten delegerar till den när de körs
-sandlådade (NWP_WEBBTJANST satt, HTTP_PROXY satt av sandlådan, NWP_I_TJANSTEN inte satt). Modellen märker inget:
-samma kommandon, samma utskrift, samma slutkod. Krokarna (stoppvakten) körs utanför sandlådan och delegerar inte.
+sandlådan på 127.0.0.1. Bara avgränsade webbläsaroperationer delegeras (Codex R23): de fyra webbläsarskripten,
+lighthouse och granskarnas sessioner (granska.py --arbetare, --jamfor), som körs med egen sandlåda. Byggsteg (npm
+install, npm run build, servering av dist/) och byggets egen modellprocess stannar i sandlådan: prova.py körs därinne
+och bara dess webbläsarsteg går via tjänsten; ateljén stöds inte i sandlådat läge än. Verktygen delegerar själva när de
+körs sandlådade (NWP_WEBBTJANST satt, HTTP_PROXY satt av sandlådan, NWP_I_TJANSTEN inte satt). Krokarna (stoppvakten)
+körs utanför sandlådan och delegerar inte.
 
-Gränsen flyttar till tjänsten: bara de sju verktygen och deras kända flaggor; sluggen måste vara byggets (slugvakten
-binder dessutom alla utkataloger till kunder/<slug> och underlag/<slug> via NWP_SLUG); varje adress och varje tillåtet
-ursprung måste ligga på localhost eller i byggets domänlista (samma lista som sandlådans proxy, kontroller/sandlada.py);
---tillat-alla och --arbetare vägras; sökvägar måste ligga under kunder/<slug>, underlag/<slug> eller /tmp/nwp-bygge-<slug>.
+Gränsen i tjänsten: bara verktygen i VERKTYG med kända flaggor; sluggen måste vara byggets (slugvakten binder dessutom
+utkatalogerna via NWP_SLUG); varje adress och tillåtet ursprung kanoniseras strikt (bara http(s), inget användarnamn,
+inga omvända snedstreck eller blanktecken, värdnamn i IDNA-form) och måste ligga på localhost eller i byggets domänlista
+(samma lista som sandlådans proxy); verktygen får samma lista i NWP_NAT_TILLATNA och webbläsarhjälparen verkställer den
+per anrop, också vid omdirigering. --tillat-alla vägras; --formular-far-skickas bara mot provets lokala mottagare;
+sökvägar under kunder/<slug>, underlag/<slug>, /tmp/nwp-bygge-<slug> eller granskarnas /tmp/nwp-granskning/<slug>-*.
 Nyckeln (X-Nyckel) skiljer tjänsten från annan lokal programvara; proxyvariablerna tas bort ur verktygens miljö.
 
     .venv/bin/python kontroller/webbtjanst.py serve --slug <slug> --kvitto <fil> [--doman d …] [--korning K] [--root R]
@@ -20,6 +25,7 @@ Nyckeln (X-Nyckel) skiljer tjänsten från annan lokal programvara; proxyvariabl
 """
 import argparse
 import hmac
+import re
 import json
 import os
 import secrets
@@ -37,12 +43,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 ROOT = Path(__file__).resolve().parents[1]
 LOKALA = {'localhost', '127.0.0.1', '::1'}
 PY = '.venv/bin/python'
+GRANSKNINGSROT = Path('/tmp/nwp-granskning')  # granska.ARBETSROT: granskarnas arbetskataloger <slug>-runda-NN-n
 VERKTYG = {
-    'prova': {'kmd': (PY, '-B', 'kontroller/prova.py'), 'slug': True, 'flaggor': {'snabb': 'flagga'}},
-    'granska': {'kmd': (PY, '-B', 'kontroller/granska.py'), 'slug': True,
-                'flaggor': {'vanta': 'tal', 'om': 'flagga', 'torr': 'flagga', 'jamfor': 'flagga'}},
-    'atelje': {'kmd': (PY, '-B', 'kontroller/atelje.py'), 'slug': True,
-               'flaggor': {'vanta': 'tal', 'om': 'flagga', 'bara-domare': 'flagga'}},
+    # granska: bara arbetaren (granskarnas sessioner, egen sandlåda) och jämförelsen; drivaren körs i byggets sandlåda
+    'granska': {'kmd': (PY, '-B', 'kontroller/granska.py'), 'slug': 'granska',
+                'flaggor': {'arbetare': 'granskningsvag', 'jamfor': 'flagga'}},
+    'lighthouse': {'kmd': ('node', 'kontroller/lighthouse.mjs'), 'slug': False,
+                   'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text'}},
     'arkivera': {'kmd': ('node', 'kontroller/webblasare/arkivera.mjs'), 'slug': False,
                  'flaggor': {'adress': 'url', 'ut': 'vag', 'intervju': 'vag', 'kund': 'text', 'sitemap': 'url'}},
     'inspektera': {'kmd': ('node', 'kontroller/webblasare/inspektera.mjs'), 'slug': False,
@@ -81,24 +88,74 @@ def tolka(argv):
     return ut, pos
 
 
+def idna(vard):
+    """Värdnamn i IDNA-form (små bokstäver, punycode), eller None när det inte går."""
+    v = (vard or '').strip().rstrip('.').lower()
+    try:
+        return v.encode('idna').decode('ascii') if v else None
+    except UnicodeError:
+        return None
+
+
+def tillatna_varden(domaner):
+    """Domänlistan i IDNA-form; '*.x' täcker varje underdomän till x."""
+    ut = set()
+    for d in domaner:
+        d = (d or '').strip().lower()
+        if d.startswith('*.'):
+            k = idna(d[2:])
+            if k:
+                ut.add('*.' + k)
+        else:
+            k = idna(d)
+            if k:
+                ut.add(k)
+    return ut
+
+
 def tillaten_vard(vard, tillatna):
-    v = (vard or '').lower().rstrip('.')
-    return bool(v) and (v in LOKALA or v in tillatna)
+    v = idna(vard)
+    if not v:
+        return False
+    if v in LOKALA or v in tillatna:
+        return True
+    return any(v.endswith('.' + m[2:]) or v == m[2:] for m in tillatna if m.startswith('*.'))
 
 
-def granska_url(u, tillatna):
+VARDNAMN = re.compile(r'^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?)*$')
+
+
+def kanon_url(u, tillatna):
+    """(kanonisk adress, None) eller (None, skäl). Strikt: bara http(s), inget användarnamn eller lösenord, inga
+    omvända snedstreck, blanktecken eller styrtecken, värdnamn i IDNA-form; Python och Node ska läsa samma värd
+    (Codex R23, F5: http://reference.example\\@localhost/ tolkas olika av urlsplit och WHATWG)."""
+    if not isinstance(u, str) or not u or len(u) > 2000:
+        return None, 'tom eller för lång adress'
+    if any(c in u for c in '\\\t\r\n') or any(ord(c) < 0x20 or c == ' ' for c in u):
+        return None, 'adressen innehåller omvänt snedstreck, blanktecken eller styrtecken'
     try:
         s = urllib.parse.urlsplit(u)
     except ValueError:
-        return 'ogiltig adress'
-    if s.scheme not in ('http', 'https') or not s.hostname:
-        return 'adressen måste vara http(s) med värdnamn'
-    if not tillaten_vard(s.hostname, tillatna):
-        return 'värden %s ligger inte i byggets domänlista' % s.hostname
-    return None
+        return None, 'ogiltig adress'
+    if s.scheme not in ('http', 'https'):
+        return None, 'adressen måste vara http eller https'
+    if s.username is not None or s.password is not None or '@' in s.netloc:
+        return None, 'adressen får inte bära användarnamn eller lösenord'
+    vard = idna(s.hostname)
+    if not vard or (vard not in LOKALA and not VARDNAMN.match(vard) and not re.fullmatch(r'\[[0-9a-f:]+\]', vard)):
+        return None, 'adressen måste ha ett giltigt värdnamn'
+    try:
+        port = s.port
+    except ValueError:
+        return None, 'ogiltig port'
+    if not tillaten_vard(vard, tillatna):
+        return None, 'värden %s ligger inte i byggets domänlista' % vard
+    netloc = vard + (':%d' % port if port else '')
+    return urllib.parse.urlunsplit((s.scheme, netloc, s.path or '/', s.query, '')), None
 
 
-def granska_vag(v, slug, root):
+def granska_vag(v, slug, root, granskning=False):
+    """None när sökvägen ligger under byggets kataloger (eller, för granskarna, under /tmp/nwp-granskning/<slug>-*)."""
     if not v or '\x00' in v:
         return 'tom sökväg'
     p = Path(v) if os.path.isabs(v) else Path(root) / v
@@ -107,9 +164,17 @@ def granska_vag(v, slug, root):
     except (OSError, RuntimeError):
         return 'sökvägen %s går inte att lösa upp' % v
     tillatna = [(Path(root) / 'kunder' / slug).resolve(), (Path(root) / 'underlag' / slug).resolve(), Path('/tmp/nwp-bygge-' + slug).resolve()]
-    if not any(p == t or t in p.parents for t in tillatna):
-        return 'sökvägen %s ligger utanför byggets kataloger' % v
-    return None
+    if any(p == t or t in p.parents for t in tillatna):
+        return None
+    try:
+        g = GRANSKNINGSROT.resolve()
+        if (p.parent == g and p.name.startswith(slug + '-')) or any(x.parent == g and x.name.startswith(slug + '-') for x in p.parents):
+            return None
+        if granskning and p.parent.parent == (Path(root) / 'kunder').resolve() and p.parent.name == slug and p.name == 'granskning':
+            return None
+    except (OSError, RuntimeError):
+        pass
+    return 'sökvägen %s ligger utanför byggets kataloger' % v
 
 
 def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
@@ -122,11 +187,20 @@ def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
     if any('\n' in a or '\x00' in a or len(a) > 2000 for a in argv):
         return None, 'argument med radbrytning, nulltecken eller över 2000 tecken'
     fl, pos = tolka(argv)
-    if spec['slug']:
+    if spec['slug'] == 'granska':
+        # bara arbetaren (ingen slug, --arbetare <kunder/slug/granskning/runda-NN>) eller jämförelsen (slug --jamfor)
+        if 'arbetare' in fl and not pos and set(fl) == {'arbetare'}:
+            pass
+        elif 'jamfor' in fl and pos == [slug] and set(fl) == {'jamfor'}:
+            pass
+        else:
+            return None, 'granska via tjänsten tar bara --arbetare <katalog under kunder/%s/granskning/> eller %s --jamfor' % (slug, slug)
+    elif spec['slug']:
         if pos != [slug]:
             return None, 'sluggen måste vara byggets (%s), fick %r' % (slug, pos)
     elif pos:
         return None, 'inga positionella argument för %s: %r' % (verktyg, pos)
+    kanon = {}  # flagga → kanoniskt värde som ersätter modellens
     for k, v in fl.items():
         typ = spec['flaggor'].get(k)
         if not typ:
@@ -142,25 +216,71 @@ def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
         if typ == 'text' and len(v) > 500:
             return None, '--%s är för lång' % k
         if typ in ('url', 'ursprung'):
+            delar = []
             for u in ([v] if typ == 'url' else [x for x in v.split(';') if x]):
-                fel = granska_url(u, tillatna)
+                ku, fel = kanon_url(u, tillatna)
                 if fel:
                     return None, '--%s: %s' % (k, fel)
+                delar.append(ku)
+            if not delar:
+                return None, '--%s är tom' % k
+            kanon[k] = delar[0] if typ == 'url' else ';'.join(delar)
         if typ in ('vag', 'vagar'):
             for x in ([v] if typ == 'vag' else [x for x in v.split(',') if x]):
                 fel = granska_vag(x, slug, root)
                 if fel:
                     return None, '--%s: %s' % (k, fel)
-    return list(spec['kmd']) + list(argv), None
+        if typ == 'granskningsvag':
+            p = Path(v) if os.path.isabs(v) else Path(root) / v
+            try:
+                p = p.resolve()
+            except (OSError, RuntimeError):
+                return None, '--%s: sökvägen går inte att lösa upp' % k
+            if p.parent != (Path(root) / 'kunder' / slug / 'granskning').resolve() or not re.fullmatch(r'runda-\d{2,}', p.name):
+                return None, '--%s måste vara en omgång under kunder/%s/granskning/' % (k, slug)
+    if 'formular-far-skickas' in fl:
+        adress = kanon.get('adress', '')
+        if not adress or idna(urllib.parse.urlsplit(adress).hostname) not in LOKALA:
+            return None, '--formular-far-skickas bara mot provets lokala mottagare (127.0.0.1), inte %s' % (adress or 'utan adress')
+    return list(spec['kmd']) + kanonisera_argv(argv, kanon), None
 
 
-def verktygsmiljo(slug, korning=None):
-    """Verktygens miljö: tjänstens egen utan proxyvariabler och Refero-nyckeln, med NWP_I_TJANSTEN och sluggen."""
+def kanonisera_argv(argv, kanon):
+    """Samma argument, med url-flaggornas värden ersatta av de kanoniska formerna (samma värd i Python och Node)."""
+    ut, i = [], 0
+    while i < len(argv):
+        a = argv[i]
+        if a.startswith('--'):
+            k, sep, v = a[2:].partition('=')
+            if k in kanon:
+                if sep:
+                    ut.append('--%s=%s' % (k, kanon[k]))
+                else:
+                    ut.append(a)
+                    if i + 1 < len(argv) and not argv[i + 1].startswith('--'):
+                        ut.append(kanon[k])
+                        i += 1
+                i += 1
+                continue
+        ut.append(a)
+        i += 1
+    return ut
+
+
+def verktygsmiljo(slug, korning=None, tillatna=(), adress=None, nyckel=None):
+    """Verktygens miljö: tjänstens egen utan proxyvariabler och Refero-nyckeln, med NWP_I_TJANSTEN, sluggen, körningen,
+    domänlistan (NWP_NAT_TILLATNA, verkställs i webbläsarhjälparen) och tjänstens adress (så att granskarnas egna
+    sandlådade sessioner kan delegera sina webbläsarsteg)."""
     miljo = {k: v for k, v in os.environ.items() if not k.upper().endswith('_PROXY') and k != 'REFERO_MCP_TOKEN'}
     miljo['NWP_I_TJANSTEN'] = '1'
     miljo['NWP_SLUG'] = slug
+    miljo['NWP_NAT_TILLATNA'] = ','.join(sorted(tillatna))
     if korning:
         miljo['NWP_KORNING'] = korning
+    if adress:
+        miljo['NWP_WEBBTJANST'] = adress
+    if nyckel:
+        miljo['NWP_WEBBTJANST_NYCKEL'] = nyckel
     return miljo
 
 
@@ -185,8 +305,9 @@ class Tjanst(ThreadingHTTPServer):
 def servera(slug, kvitto, domaner=(), root=ROOT, korning=None, port=0):
     import sandlada
     root = Path(root)
-    tillatna = set(sandlada.domanlista(root, domaner))
+    tillatna = tillatna_varden(sandlada.domanlista(root, domaner))
     nyckel = secrets.token_hex(16)
+    adress = {'v': None}
 
     class Hanterare(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -229,11 +350,12 @@ def servera(slug, kvitto, domaner=(), root=ROOT, korning=None, port=0):
                 return self.svar(400, {'fel': 'webbtjänsten vägrar: ' + fel})
             t0 = time.time()
             print('%s START %s %s' % (nu(), verktyg, ' '.join(argv)), flush=True)
-            rc, ut = kor_verktyg(kmd, verktygsmiljo(slug, korning), root)
+            rc, ut = kor_verktyg(kmd, verktygsmiljo(slug, korning, tillatna, adress['v'], nyckel), root)
             print('%s KLART %s rc=%s %.0f s' % (nu(), verktyg, rc, time.time() - t0), flush=True)
             self.svar(200, {'rc': rc, 'ut': ut})
 
     srv = Tjanst(('127.0.0.1', port), Hanterare)
+    adress['v'] = 'http://127.0.0.1:%d' % srv.server_address[1]
     p = Path(kvitto)
     p.write_text('%d\n%s\n' % (srv.server_address[1], nyckel), encoding='utf-8')
     os.chmod(p, 0o600)

@@ -3,6 +3,8 @@
 // besökare) sitter i sessionen som anropar verktygen.
 import { chromium } from 'playwright';
 import { createHash } from 'node:crypto';
+import http from 'node:http';
+import net from 'node:net';
 import { readFileSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -64,6 +66,53 @@ export function redigeraUrl(url) {
 
 export function origin(url) { return new URL(url).origin; }
 
+const LOKALA = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+/** Tjänstens domänpolicy (NWP_NAT_TILLATNA, kommaseparerad, '*.x' täcker underdomäner): satt när skriptet körs av
+ *  kontroller/webbtjanst.py. Localhost är alltid tillåtet; utan variabeln gäller bara skriptets egna ursprung (tillat). */
+export function natpolicy() {
+  const v = process.env.NWP_NAT_TILLATNA;
+  if (v === undefined) return null;
+  return v.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+}
+export function vardTillaten(hostname, policy) {
+  const h = String(hostname || '').toLowerCase().replace(/\.$/, '');
+  if (!h) return false;
+  if (LOKALA.has(h)) return true;
+  if (!policy) return true;
+  return policy.some((m) => (m.startsWith('*.') ? (h === m.slice(2) || h.endsWith(m.slice(1))) : h === m));
+}
+export function arLokal(url) { try { return LOKALA.has(new URL(url).hostname.toLowerCase()); } catch { return false; } }
+
+const OMDIRIGERING = new Set([301, 302, 303, 307, 308]);
+function arOmdirigering(svar) { return OMDIRIGERING.has(svar.status()) && svar.headers()['location'] !== undefined; }
+
+/** Nätgränsen för webbläsaren: en filtrerande proxy på 127.0.0.1 som Chromium startas med. Varje anslutning (http och
+ *  CONNECT för https) prövas mot tjänstens domänpolicy och skriptets tillåtna ursprung; allt annat får 403 och loggas.
+ *  Omdirigeringar och annat som route-vakten inte ser (Playwright följer dem utan ny kontroll) stoppas här (Codex R23). */
+async function startaProxy(tillaten, blockera) {
+  const srv = http.createServer((req, res) => {
+    let u; try { u = new URL(req.url); } catch { res.writeHead(400); return res.end(); }
+    if (!tillaten(u.hostname, u.port || '80', 'http:')) { blockera(req.method, u.toString()); res.writeHead(403, { 'content-type': 'text/plain' }); return res.end('blockerad'); }
+    const p = http.request({ host: u.hostname, port: u.port || 80, method: req.method, path: u.pathname + u.search, headers: req.headers }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
+    p.on('error', () => { try { res.writeHead(502); res.end(); } catch {} });
+    req.pipe(p);
+  });
+  srv.on('connect', (req, sock, head) => {
+    const i = req.url.lastIndexOf(':'); const host = i > 0 ? req.url.slice(0, i) : req.url; const port = i > 0 ? req.url.slice(i + 1) : '443';
+    if (!tillaten(host.replace(/^\[|\]$/g, ''), port, 'https:')) { blockera('CONNECT', 'https://' + req.url + '/'); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); return sock.destroy(); }
+    const s = net.connect(Number(port) || 443, host.replace(/^\[|\]$/g, ''), () => { sock.write('HTTP/1.1 200 Connection Established\r\n\r\n'); if (head && head.length) s.write(head); s.pipe(sock); sock.pipe(s); });
+    s.on('error', () => sock.destroy()); sock.on('error', () => s.destroy());
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  return { server: 'http://127.0.0.1:' + srv.address().port, stang: () => new Promise((r) => srv.close(() => r())) };
+}
+// Svaret lämnas till webbläsaren med kroppen redan avkodad: kodnings- och längdhuvuden tas bort.
+async function fullborda(route, svar) {
+  const headers = {};
+  for (const [k, v] of Object.entries(svar.headers())) if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(k.toLowerCase())) headers[k] = v;
+  return route.fulfill({ status: svar.status(), headers, body: await svar.body() });
+}
+
 /** Sandlådat bygge (kor.sh NWP_SANDLADA=pa): Chromium kan inte starta inne i Claude Codes sandlåda (mach-register nekas),
  *  så skriptet körs av kontroller/webbtjanst.py utanför sandlådan, bundet till sluggen, domänlistan och byggets kataloger.
  *  Delegerar bara när tjänsten är anvisad, sandlådans proxy är satt och vi inte redan är inne i tjänsten; skriver
@@ -93,28 +142,56 @@ export async function viaTjanst(verktyg, argv) {
 export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga = [], spar = null, extra = {}, mal = null, lasande = true, skrivbara = [] }) {
   const malUrsprung = mal ? origin(mal) : (tillat.length ? origin(tillat[0]) : null);
   const v = VYER[vy]; if (!v) throw new Error('okänd vy: ' + vy + ' (390, 768, 1440, 320)');
-  const browser = await chromium.launch({ headless: true });
-  const ctx = await browser.newContext({ viewport: v.viewport, deviceScaleFactor: v.deviceScaleFactor, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'sv-SE', timezoneId: 'Europe/Stockholm', ...extra });
   const red = redigerare([undantag, ...hemliga].filter(Boolean));
-  const logg = { konsol: [], natverk: [], blockerade: [], dialoger: [], sidfel: [] };
+  const logg = { konsol: [], natverk: [], blockerade: [], dialoger: [], sidfel: [], omdirigeringar: [] };
+  const policy = natpolicy();
   const tillatna = new Set(tillat.map(o => origin(o)));
+  // värd:port tillåten för proxyn: localhost alltid; annars domänpolicyn och, när skriptet angett ursprung, just de ursprungen
+  const tillatenAnslutning = (host, port, protokoll) => {
+    const h = String(host).toLowerCase();
+    if (LOKALA.has(h)) return true;
+    if (!vardTillaten(h, policy)) return false;
+    if (!tillatna.size) return true;
+    const std = protokoll === 'https:' ? '443' : '80';
+    return tillatna.has(protokoll + '//' + h + (String(port) === std ? '' : ':' + port));
+  };
+  const proxy = await startaProxy(tillatenAnslutning, (metod, url) => logg.blockerade.push({ metod, url: redigeraUrl(url), typ: 'proxy', tid: nu(), skal: 'utanför tillåtna ursprung (nätgränsen)' }));
+  const browser = await chromium.launch({ headless: true, proxy: { server: proxy.server } });
+  // serviceWorkers: 'block': en service worker skulle annars kunna göra anrop förbi route-vakten
+  const ctx = await browser.newContext({ viewport: v.viewport, deviceScaleFactor: v.deviceScaleFactor, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'sv-SE', timezoneId: 'Europe/Stockholm', serviceWorkers: 'block', ...extra });
   const LASMETODER = new Set(['GET', 'HEAD', 'OPTIONS']);
-  const skrivbaraSet = new Set(skrivbara.map(o => origin(o)));
+  // skrivande anrop (POST …) bara till lokala ursprung: provets egen demomottagare; aldrig till andras sajter (F36)
+  const skrivbaraSet = new Set(skrivbara.map(o => origin(o)).filter((o) => arLokal(o)));
+  const blockera = (req, skal) => { logg.blockerade.push({ metod: req.method(), url: redigeraUrl(req.url()), typ: req.resourceType(), tid: nu(), ...(skal ? { skal } : {}) }); };
+  // WebSockets går inte genom route-vakten; de når aldrig servern (ingen connectToServer) utan loggas som blockerade
+  await ctx.routeWebSocket('**/*', (ws) => { logg.blockerade.push({ metod: 'WS', url: redigeraUrl(ws.url()), typ: 'websocket', tid: nu(), skal: 'websocket blockerad' }); });
   await ctx.route('**/*', async (route) => {
     const req = route.request(); const u = req.url();
-    let o; try { o = origin(u); } catch { return route.abort('blockedbyclient'); }
+    let o, vard; try { const p = new URL(u); o = p.origin; vard = p.hostname; } catch { return route.abort('blockedbyclient'); }
     if (u.startsWith('data:') || u.startsWith('blob:')) return route.continue();
-    if (tillatna.size && !tillatna.has(o)) {
-      logg.blockerade.push({ metod: req.method(), url: redigeraUrl(u), typ: req.resourceType(), tid: nu() });
-      return route.abort('blockedbyclient');
-    }
+    if (!vardTillaten(vard, policy)) { blockera(req, 'utanför tjänstens domänlista'); return route.abort('blockedbyclient'); }
+    if (tillatna.size && !tillatna.has(o)) { blockera(req); return route.abort('blockedbyclient'); }
     if (lasande && !LASMETODER.has(req.method()) && !skrivbaraSet.has(o)) {
-      logg.blockerade.push({ metod: req.method(), url: redigeraUrl(u), typ: req.resourceType(), tid: nu(), skal: 'skrivande anrop under läsande inspektion' });
-      return route.abort('blockedbyclient');
+      blockera(req, 'skrivande anrop under läsande inspektion'); return route.abort('blockedbyclient');
     }
     const headers = { ...req.headers() };
     if (undantag && o === malUrsprung) headers['x-vercel-protection-bypass'] = undantag;  // bara målets ursprung, aldrig tredje part
-    return route.continue({ headers });
+    // Varje omdirigeringshopp prövas här (Codex R23: Playwright följer omdirigeringar, också fullbordade 3xx-svar, utan ny
+    // kontroll och tog med skyddsundantaget till nästa ursprung): svaret hämtas utan att följa hopp; en navigering får en
+    // egen ny navigering till ett godkänt mål (den går genom vakten), en underresurs följs hopp för hopp här.
+    let svar;
+    try { svar = await route.fetch({ headers, maxRedirects: 0 }); }
+    catch (e) { logg.natverk.push({ metod: req.method(), url: redigeraUrl(u), id: sha256(String(u).split('#')[0]), status: null, fel: String(e.message).slice(0, 200), tid: nu() }); return route.abort('failed'); }
+    if (!arOmdirigering(svar)) return fullborda(route, svar);
+    // Omdirigering: målet prövas mot policyn och ursprungen, och webbläsaren får ett eget 3xx-svar att följa (utan
+    // skriptets headrar); det hoppet går inte genom route-vakten men genom proxyn, som är nätgränsen. En 307/308 som
+    // skulle föra ett skrivande anrop vidare till annat än ett lokalt ursprung stoppas.
+    let mal; try { mal = new URL(svar.headers()['location'], u).toString(); } catch { blockera(req, 'ogiltig omdirigering'); return route.abort('blockedbyclient'); }
+    logg.omdirigeringar.push({ metod: req.method(), fran: redigeraUrl(u), till: redigeraUrl(mal), status: svar.status(), tid: nu() });  // svaret självt loggas av sidans response-händelse
+    let m; try { m = new URL(mal); } catch { blockera(req, 'ogiltig omdirigering'); return route.abort('blockedbyclient'); }
+    if (!vardTillaten(m.hostname, policy) || (tillatna.size && !tillatna.has(m.origin))) { blockera(req, 'omdirigering till ' + redigeraUrl(mal) + ' utanför tillåtna ursprung'); return route.abort('blockedbyclient'); }
+    if ([307, 308].includes(svar.status()) && !LASMETODER.has(req.method()) && !skrivbaraSet.has(m.origin)) { blockera(req, 'skrivande omdirigering till ' + redigeraUrl(mal)); return route.abort('blockedbyclient'); }
+    return route.fulfill({ status: svar.status(), headers: { location: mal, 'cache-control': 'no-store' }, body: '' });
   });
   ctx.on('page', p => {
     p.on('console', m => logg.konsol.push({ typ: m.type(), text: red(m.text()).slice(0, 500), tid: nu() }));
@@ -132,7 +209,7 @@ export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga
       if (spar && sparFil) await ctx.tracing.stop({ path: sparFil });
       else if (spar) await ctx.tracing.stop();
       await ctx.close(); // Flush context-owned HAR recordings before closing the browser.
-    } finally { await browser.close(); }
+    } finally { await browser.close(); await proxy.stang(); }
   } };
 }
 

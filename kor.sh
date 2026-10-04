@@ -38,7 +38,8 @@ fi
 chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true   # kvarlämnad flagga efter en avbruten körning
 echo $$ > "$LAS"
 WT_PID=""
-trap 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null; rm -f "$LAS"; [ -n "${WT_PID:-}" ] && kill "$WT_PID" 2>/dev/null' EXIT
+# städningen får aldrig ändra slutkoden (set -e gäller också i trapen): varje steg tål att misslyckas
+trap 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true; rm -f "$LAS"; [ -z "${WT_PID:-}" ] || kill "$WT_PID" 2>/dev/null || true' EXIT
 mkdir -p "$ROOT/kunder/$SLUG" "$ROOT/underlag/$SLUG"
 rm -f "$ROOT/kunder/$SLUG/prov/.stoppvakt-antal"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -53,6 +54,9 @@ märk den antagande och fortsätt. Avsluta först när .venv/bin/python kontroll
 skriven och den oberoende granskaren (kontroller/granska.py) har godkänt sajten. Stoppvakten kör provet och
 granskningen själv när du försöker avsluta."
 # Riktningsateljén (A/B-posten B-20261003-a-b-riktningsatelje-i-steg-5-1-dar-en-orkestrato): av som standard.
+if [ "${NWP_ATELJE:-av}" = "pa" ] && [ "${NWP_SANDLADA:-av}" = "pa" ]; then
+  echo "ateljén (NWP_ATELJE=pa) stöds inte tillsammans med sandlådan (NWP_SANDLADA=pa) än: dess sessioner och byggsteg behöver egen sandlåda"; exit 2
+fi
 if [ "${NWP_ATELJE:-av}" = "pa" ]; then
   PROMPT="$PROMPT
 
@@ -166,8 +170,9 @@ grans() {
 }
 mkdir -p "$ROOT/kunder/$SLUG/prov"
 # Webbtjänsten (kontroller/webbtjanst.py): Chromium kan inte starta inne i sandlådan (mach-register nekas; mätt 2026-10-04),
-# så med sandlådan på körs prova, granska, ateljén och webbläsarskripten av en tjänst utanför sandlådan, bunden till
-# sluggen, domänlistan och byggets kataloger; verktygen delegerar själva när de körs sandlådade (NWP_WEBBTJANST).
+# så med sandlådan på körs bara webbläsarskripten, lighthouse och granskarnas sessioner (med egen sandlåda) av en tjänst
+# utanför sandlådan, bunden till sluggen, domänlistan och byggets kataloger; byggsteg (npm, servering) och byggets modell
+# stannar i sandlådan. Verktygen delegerar själva när de körs sandlådade (NWP_WEBBTJANST).
 WT_ENV=()
 if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
   WT_KVITTO="$ROOT/kunder/$SLUG/prov/.webbtjanst"; rm -f "$WT_KVITTO"
@@ -181,7 +186,12 @@ fi
 FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"
 EFTER_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-efter"
 rm -f "$FORE_FIL" "$EFTER_FIL"   # en planterad symlänk ska inte få styra vart listorna skrivs
-chflags uchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || echo "varning: kunder/ och underlag/ kunde inte låsas mot nya kataloger (chflags)"
+# Misslyckad låsning stoppar bygget före modellstarten, och flaggorna verifieras uttryckligen (Codex R23: ett olåst
+# tillstånd fick annars bli förebild, och slutkontrollen såg ingen skillnad).
+chflags uchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || { echo "kunder/ och underlag/ kunde inte låsas mot nya kataloger (chflags uchg); bygget startas inte"; exit 2; }
+for d in kunder underlag; do
+  stat -f %Sf "$ROOT/$d" 2>/dev/null | grep -q uchg || { echo "$d/ är inte låst (flaggan uchg saknas efter chflags); bygget startas inte"; exit 2; }
+done
 { skyddat; grans; } > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e

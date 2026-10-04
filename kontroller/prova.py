@@ -506,10 +506,8 @@ GRINDAR = ('bygge', 'seo', 'standard', 'axe', 'lighthouse', 'spill', 'utan-js')
 
 
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else list(argv)
-    import webbtjanst
-    if webbtjanst.delegeras():  # sandlådat bygge: Chromium kan inte starta i sandlådan, tjänsten kör provet utanför
-        return webbtjanst.via_tjanst('prova', argv)
+    # Sandlådat bygge: provet körs här inne (npm install, npm run build och serveringen av dist/ stannar i sandlådan);
+    # bara webbläsarstegen (inspektera, utan-js, utforska, lighthouse) delegerar själva till kontroller/webbtjanst.py (Codex R23).
     p = argparse.ArgumentParser(prog='prova', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
     p.add_argument('--snabb', action='store_true')

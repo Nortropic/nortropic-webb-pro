@@ -1883,7 +1883,10 @@ def grund28():
     skriv28('5-skript-post.txt', 'fel anslut PermissionError 1\nrc=0\n', 'Traceback (most recent call last):\nPermissionError: [Errno 1] Operation not permitted\n')
     skriv28('6-port.txt', 'bunden 5000\nrc=0\n')
     (ut28 / '7-tillatet-rc.txt').write_text('rc=0\n'); (ut28 / '7-tillatet.txt').write_text(''); (ut28 / '8-proxy.txt').write_text('proxy=http://127.0.0.1:1\n')
-    skriv28('9-tjanst.txt', '{"slug": "prov-bygge", "verktyg": ["arkivera", "atelje"]} rc=0')
+    skriv28('9-tjanst.txt', '{"slug": "prov-bygge", "verktyg": ["arkivera", "granska"]} rc=0')
+    skriv28('10-tjanst-utanjs.txt', 'rc=0\n'); (ut28 / 'utanjs').mkdir(exist_ok=True); (ut28 / 'utanjs' / 'UTAN-JS.json').write_text('{"schema": 1}')
+    skriv28('11-tjanst-nekad.txt', 'rc=2\n', 'webbtjänsten nekade (400): {"fel": "webbtjänsten vägrar: --adress: värden example.com ligger inte i byggets domänlista"}\n')
+    skriv28('12-tjanst-inskick.txt', 'rc=2\n', 'webbtjänsten nekade (400): {"fel": "webbtjänsten vägrar: --formular-far-skickas bara mot provets lokala mottagare (127.0.0.1), inte https://registry.npmjs.org/"}\n')
 
 
 def fel28(namn, resultat, fel=''):
@@ -1970,35 +1973,63 @@ fore_g.write_text('uchg  flagga:kunder\npost  syskon:kunder/a\n'); efter_g.write
 pg = subprocess.run([PY, '-B', str(korslut), str(kr / 'kunder' / 'prov-bygge'), '0', str(fore_g), str(efter_g)], capture_output=True, text=True)
 assert pg.returncode == 3 and 'flagga:kunder' in pg.stdout and 'syskon:kunder/b' in pg.stdout, pg.stdout[-300:]
 efter_g.write_text(fore_g.read_text()); assert subprocess.run([PY, '-B', str(korslut), str(kr / 'kunder' / 'prov-bygge'), '0', str(fore_g), str(efter_g)]).returncode != 3, 'oförändrad gräns är inte slutkod 3'
+# misslyckad eller overksam låsning stoppar bygget före modellstarten (Codex R23)
+falsk_cf = tmp / 'falsk-chflags'; falsk_cf.mkdir(); (falsk_cf / 'chflags').write_text('#!/bin/sh\nexit 0\n'); (falsk_cf / 'chflags').chmod(0o755)
+miljo_cf = dict(miljo_k); miljo_cf['PATH'] = str(falsk_cf) + os.pathsep + miljo_k['PATH']
+rc_cf = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_cf, timeout=120)
+assert rc_cf.returncode == 2 and 'inte låst' in rc_cf.stdout and not (kr / 'kunder' / '.bygge-pid').exists(), (rc_cf.returncode, rc_cf.stdout[-300:])
+(falsk_cf / 'chflags').write_text('#!/bin/sh\nexit 1\n')
+rc_cf = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_cf, timeout=120)
+assert rc_cf.returncode == 2 and 'kunde inte låsas' in rc_cf.stdout, (rc_cf.returncode, rc_cf.stdout[-300:])
 print('gränsen för syskonkataloger ok')
 
 
-# ---------------------------------------------------------------- webbtjänsten: webbläsarverktygen utanför sandlådan (2026-10-04)
-# Chromium kan inte starta inne i Claude Codes sandlåda (mach-register nekas), så kontroller/webbtjanst.py kör prova, granska,
-# ateljén och webbläsarskripten utanför den, bundna till sluggen, domänlistan och byggets kataloger; verktygen delegerar själva.
+# ---------------------------------------------------------------- webbtjänsten: avgränsade webbläsaroperationer utanför sandlådan (Codex R23)
+# Chromium kan inte starta inne i Claude Codes sandlåda (mach-register nekas). kontroller/webbtjanst.py kör bara webbläsarskripten,
+# lighthouse och granskarnas sessioner utanför den; byggsteg och byggets modell stannar i sandlådan. Adresser kanoniseras strikt,
+# domänlistan går med till verktygen, inskick bara lokalt.
 import webbtjanst as wt  # noqa: E402
-assert 'webbtjanst.py' in (ROOT / 'kor.sh').read_text() and 'NWP_WEBBTJANST' in (ROOT / 'kor.sh').read_text(), 'kor.sh startar tjänsten med sandlådan på'
-till_ = {'exempel.se', 'www.exempel.se'}
-rot_w = tmp / 'wt-rot'; (rot_w / 'kunder' / 'prov-bygge').mkdir(parents=True); (rot_w / 'underlag' / 'prov-bygge').mkdir(parents=True)
+kor_text_w = (ROOT / 'kor.sh').read_text()
+assert 'webbtjanst.py' in kor_text_w and 'NWP_WEBBTJANST' in kor_text_w, 'kor.sh startar tjänsten med sandlådan på'
+assert 'via_tjanst' not in (ROOT / 'kontroller' / 'prova.py').read_text(), 'prova delegerar inte längre: npm och servering stannar i sandlådan'
+assert 'via_tjanst' not in (ROOT / 'kontroller' / 'atelje.py').read_text(), 'ateljén delegerar inte; den vägrar i sandlådat läge'
+assert set(wt.VERKTYG) == {'granska', 'lighthouse', 'arkivera', 'inspektera', 'utan-js', 'utforska'}, 'bara webbläsaroperationer och granskarnas sessioner'
+till_ = wt.tillatna_varden(['exempel.se', 'www.exempel.se', '*.npmjs.org', 'Luleå-snickaren.se'])
+assert 'xn--lule-snickaren-oib.se' in till_ and wt.tillaten_vard('registry.npmjs.org', till_) and wt.tillaten_vard('npmjs.org', till_) \
+    and not wt.tillaten_vard('npmjs.org.evil', till_) and not wt.tillaten_vard('evilnpmjs.org', till_) and wt.tillaten_vard('LULEÅ-SNICKAREN.se', till_), 'domänlistan: jokertecken och IDNA'
+rot_w = tmp / 'wt-rot'; (rot_w / 'kunder' / 'prov-bygge' / 'granskning' / 'runda-03').mkdir(parents=True); (rot_w / 'underlag' / 'prov-bygge').mkdir(parents=True)
 ga = lambda v_, a_: wt.granska_anrop(v_, a_, 'prov-bygge', till_, rot_w)  # noqa: E731
-assert ga('prova', ['prov-bygge', '--snabb'])[0][-3:] == ['kontroller/prova.py', 'prov-bygge', '--snabb']
-assert ga('prova', ['annan'])[1] and 'byggets' in ga('prova', ['annan'])[1], 'fel slug vägras'
-assert ga('prova', [])[1] and ga('granska', ['prov-bygge', '--arbetare', 'x'])[1] and ga('atelje', ['prov-bygge', '--arbetare'])[1], 'arbetarflaggan vägras'
-assert ga('granska', ['prov-bygge', '--vanta', '1700', '--om'])[1] is None and ga('granska', ['prov-bygge', '--vanta', 'x'])[1], 'tal krävs'
-assert ga('inspektera', ['--adress', 'http://127.0.0.1:4321/', '--ut', 'kunder/prov-bygge/prov/x', '--vyer', '390,1440'])[1] is None, 'lokal adress och byggets katalog går'
-assert ga('inspektera', ['--adress', 'https://www.exempel.se/', '--ut', 'underlag/prov-bygge/ref', '--tillat', 'https://exempel.se;https://www.exempel.se'])[1] is None
-assert 'domänlista' in ga('inspektera', ['--adress', 'https://evil.example/', '--ut', 'kunder/prov-bygge/x'])[1], 'värd utanför listan vägras'
-assert 'domänlista' in ga('inspektera', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--tillat', 'https://exempel.se;https://evil.example'])[1], 'tillåtna ursprung prövas var för sig'
-assert 'tillat-alla' in ga('inspektera', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--tillat-alla'])[1], '--tillat-alla vägras'
+assert ga('prova', ['prov-bygge'])[1] and ga('atelje', ['prov-bygge', '--arbetare'])[1], 'prova och ateljén går inte via tjänsten (byggsteg utanför sandlådan)'
+assert ga('granska', ['--arbetare', 'kunder/prov-bygge/granskning/runda-03'])[0][-2:] == ['--arbetare', 'kunder/prov-bygge/granskning/runda-03']
+assert ga('granska', ['prov-bygge', '--jamfor'])[1] is None and ga('granska', ['prov-bygge'])[1] and ga('granska', ['prov-bygge', '--om'])[1] \
+    and ga('granska', ['--arbetare', 'kunder/annan/granskning/runda-01'])[1] and ga('granska', ['--arbetare', 'kunder/prov-bygge/granskning'])[1] \
+    and ga('granska', ['annan', '--jamfor'])[1] and ga('granska', ['--arbetare', 'kunder/prov-bygge/granskning/runda-03', '--jamfor'])[1], 'granska: bara arbetaren i en omgång eller jämförelsen för byggets slug'
+assert ga('lighthouse', ['--url=http://127.0.0.1:4321', '--sidor=/,/om/', '--ut=kunder/prov-bygge/prov/lighthouse'])[0][-3:] == ['--url=http://127.0.0.1:4321/', '--sidor=/,/om/', '--ut=kunder/prov-bygge/prov/lighthouse']
+assert 'domänlista' in ga('lighthouse', ['--url=https://evil.example', '--ut=kunder/prov-bygge/x'])[1]
+# strikt kanonisk adress: samma värd för Python och Node (F5)
+assert wt.kanon_url('http://reference.example\\@localhost/', till_)[0] is None and 'snedstreck' in wt.kanon_url('http://reference.example\\@localhost/', till_)[1], 'omvänt snedstreck vägras'
+assert 'användarnamn' in wt.kanon_url('http://exempel.se@localhost/', till_)[1] and 'användarnamn' in wt.kanon_url('http://a:b@exempel.se/', till_)[1]
+assert 'blanktecken' in wt.kanon_url('http://exempel.se/ x', till_)[1] and wt.kanon_url('ftp://exempel.se/', till_)[0] is None and wt.kanon_url('http:///x', till_)[0] is None
+assert wt.kanon_url('HTTP://EXEMPEL.se/Sida?q=1#f', till_)[0] == 'http://exempel.se/Sida?q=1' and wt.kanon_url('https://exempel.se', till_)[0] == 'https://exempel.se/'
+assert wt.kanon_url('http://127.0.0.1:4321/x', till_)[0] == 'http://127.0.0.1:4321/x' and wt.kanon_url('https://Luleå-snickaren.se/om', till_)[0] == 'https://xn--lule-snickaren-oib.se/om'
+assert 'domänlista' in wt.kanon_url('https://evil.example/', till_)[1] and wt.kanon_url('http://exempel.se:99999/', till_)[0] is None
+assert ga('inspektera', ['--adress', 'HTTP://EXEMPEL.se', '--ut', 'kunder/prov-bygge/x', '--tillat', 'https://exempel.se;https://registry.npmjs.org/'])[0][-5:] == \
+    ['--adress', 'http://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--tillat'] + [] or True
+kmd_i, _ = ga('inspektera', ['--adress', 'HTTP://EXEMPEL.se', '--ut', 'kunder/prov-bygge/x', '--tillat', 'https://exempel.se;https://registry.npmjs.org/'])
+assert kmd_i[-6:] == ['--adress', 'http://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--tillat', 'https://exempel.se/;https://registry.npmjs.org/'], kmd_i
+assert 'domänlista' in ga('inspektera', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--tillat', 'https://exempel.se;https://evil.example'])[1]
+assert 'tillat-alla' in ga('inspektera', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--tillat-alla'])[1]
 assert 'utanför' in ga('arkivera', ['--adress', 'https://exempel.se/', '--ut', 'kunder/annan/x'])[1] and 'utanför' in ga('arkivera', ['--adress', 'https://exempel.se/', '--ut', '../x'])[1]
-assert 'utanför' in ga('arkivera', ['--adress', 'https://exempel.se/', '--ut', '/etc/x'])[1] and ga('arkivera', ['--adress', 'https://exempel.se/', '--ut', '/tmp/nwp-bygge-prov-bygge/x'])[1] is None
-assert ga('utforska', ['--adress', 'ftp://exempel.se/', '--ut', 'kunder/prov-bygge/x'])[1] and ga('utan-js', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', 'extra'])[1], 'bara http(s), inga positionella'
-assert ga('utan-js', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--sidor', '/kontakt/;/om/', '--formular-far-skickas', '--testmarkering', 'NWP-PROV'])[1] is None
-assert ga('okant', [])[1] and ga('prova', 'prov-bygge')[1] and ga('prova', ['prov-bygge\nx'])[1] and ga(None, [])[1], 'okänt verktyg, fel typ och radbrytning vägras'
-# tjänsten mot en stubbrot: klienten skriver verktygets utskrift och ger dess slutkod; miljön saknar proxy, bär slug och körning
+assert ga('inspektera', ['--adress', 'http://127.0.0.1:4321/', '--ut', '/tmp/nwp-granskning/prov-bygge-runda-03-1/insp'])[1] is None and 'utanför' in ga('inspektera', ['--adress', 'http://127.0.0.1:4321/', '--ut', '/tmp/nwp-granskning/annan-runda-01-1/x'])[1], 'granskarnas arbetskataloger'
+# inskick bara till provets lokala mottagare (F36)
+assert ga('utan-js', ['--adress', 'http://127.0.0.1:4321/', '--ut', 'kunder/prov-bygge/x', '--formular-far-skickas', '--testmarkering', 'NWP-PROV'])[1] is None
+assert 'lokala mottagare' in ga('utan-js', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--formular-far-skickas', '--testmarkering', 'NWP-PROV'])[1]
+assert 'lokala mottagare' in ga('utforska', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--formular-far-skickas', '--testmarkering', 'x'])[1]
+assert ga('okant', [])[1] and ga('granska', 'x')[1] and ga('inspektera', ['--adress', 'http://127.0.0.1/\nx', '--ut', 'kunder/prov-bygge/x'])[1] and ga(None, [])[1]
+# tjänsten mot en stubbrot: klienten skriver verktygets utskrift och ger dess slutkod; miljön saknar proxy, bär slug, körning, domänlista och tjänstens adress
 (rot_w / 'kontroller' / 'webblasare').mkdir(parents=True); (rot_w / '.venv' / 'bin').mkdir(parents=True)
 os.symlink(ROOT / '.venv' / 'bin' / 'python', rot_w / '.venv' / 'bin' / 'python'); shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_w / 'kontroller')
-(rot_w / 'kontroller' / 'prova.py').write_text("import os, sys\nprint('stub prova', sys.argv[1:], 'i_tjansten=%s proxy=%s slug=%s korning=%s' % (os.environ.get('NWP_I_TJANSTEN'), 'satt' if os.environ.get('HTTP_PROXY') else 'ingen', os.environ.get('NWP_SLUG'), os.environ.get('NWP_KORNING')))\nsys.exit(3)\n")
+(rot_w / 'kontroller' / 'granska.py').write_text("import os, sys\nprint('stub granska', sys.argv[1:], 'i_tjansten=%s proxy=%s slug=%s korning=%s tjanst=%s tillatna=%s' % (os.environ.get('NWP_I_TJANSTEN'), 'satt' if os.environ.get('HTTP_PROXY') else 'ingen', os.environ.get('NWP_SLUG'), os.environ.get('NWP_KORNING'), 'satt' if os.environ.get('NWP_WEBBTJANST') and os.environ.get('NWP_WEBBTJANST_NYCKEL') else 'ingen', 'exempel.se' in os.environ.get('NWP_NAT_TILLATNA', '')))\nsys.exit(3)\n")
 (rot_w / 'kontroller' / 'webblasare' / 'arkivera.mjs').write_text("console.log('stub arkivera', process.argv.slice(2).join(' '), 'i_tjansten=' + (process.env.NWP_I_TJANSTEN || ''));\nprocess.exit(0);\n")
 kv_w = tmp / 'wt-kvitto'
 wts = subprocess.Popen([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'serve', '--slug', 'prov-bygge', '--kvitto', str(kv_w), '--root', str(rot_w), '--doman', 'exempel.se', '--korning', 'K1'],
@@ -2012,14 +2043,14 @@ try:
     assert oct(kv_w.stat().st_mode & 0o777) == '0o600', 'kvittot är privat'
     miljo_w = dict(os.environ, NWP_WEBBTJANST='http://127.0.0.1:' + port_w, NWP_WEBBTJANST_NYCKEL=nyckel_w, HTTP_PROXY='http://x:y@localhost:1')
     miljo_w.pop('NWP_I_TJANSTEN', None)
-    rw = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'kor', 'prova', 'prov-bygge', '--snabb'], capture_output=True, text=True, env=miljo_w, timeout=60)
-    assert rw.returncode == 3 and "stub prova ['prov-bygge', '--snabb'] i_tjansten=1 proxy=ingen slug=prov-bygge korning=K1" in rw.stdout, (rw.returncode, rw.stdout, rw.stderr)
-    rw = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'arkivera.mjs'), '--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/arkiv'], capture_output=True, text=True, env=miljo_w, timeout=60, cwd=str(ROOT))
+    rw = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'kor', 'granska', '--arbetare', 'kunder/prov-bygge/granskning/runda-03'], capture_output=True, text=True, env=miljo_w, timeout=60)
+    assert rw.returncode == 3 and "stub granska ['--arbetare', 'kunder/prov-bygge/granskning/runda-03'] i_tjansten=1 proxy=ingen slug=prov-bygge korning=K1 tjanst=satt tillatna=True" in rw.stdout, (rw.returncode, rw.stdout, rw.stderr)
+    rw = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'arkivera.mjs'), '--adress', 'HTTPS://Exempel.se', '--ut', 'kunder/prov-bygge/arkiv'], capture_output=True, text=True, env=miljo_w, timeout=60, cwd=str(ROOT))
     assert rw.returncode == 0 and 'stub arkivera --adress https://exempel.se/ --ut kunder/prov-bygge/arkiv i_tjansten=1' in rw.stdout, (rw.returncode, rw.stdout, rw.stderr[-300:])
     rw = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'arkivera.mjs'), '--adress', 'https://evil.example/', '--ut', 'kunder/prov-bygge/arkiv'], capture_output=True, text=True, env=miljo_w, timeout=60, cwd=str(ROOT))
     assert rw.returncode == 2 and 'vägrar' in rw.stderr and 'domänlista' in rw.stderr, (rw.returncode, rw.stderr[-300:])
-    rw = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'kor', 'prova', 'annan'], capture_output=True, text=True, env=miljo_w, timeout=60)
-    assert rw.returncode == 2 and 'byggets' in rw.stderr, (rw.returncode, rw.stderr[-300:])
+    rw = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'kor', 'prova', 'prov-bygge'], capture_output=True, text=True, env=miljo_w, timeout=60)
+    assert rw.returncode == 2 and 'okänt verktyg' in rw.stderr, (rw.returncode, rw.stderr[-300:])
     import urllib.request as ur_
     try:
         ur_.build_opener(ur_.ProxyHandler({})).open(ur_.Request('http://127.0.0.1:%s/halsa' % port_w, headers={'X-Nyckel': 'fel'}), timeout=10); assert False, 'fel nyckel släpptes in'
@@ -2027,7 +2058,6 @@ try:
         assert e_.code == 403
     with ur_.build_opener(ur_.ProxyHandler({})).open(ur_.Request('http://127.0.0.1:%s/halsa' % port_w, headers={'X-Nyckel': nyckel_w}), timeout=10) as r_:
         assert json.loads(r_.read())['slug'] == 'prov-bygge'
-    # delegeras bara i sandlådan: utan proxyvariabel eller inne i tjänsten körs verktyget direkt
     for extra_, vantat_ in (({}, True), ({'HTTP_PROXY': ''}, False), ({'NWP_I_TJANSTEN': '1'}, False), ({'NWP_WEBBTJANST': ''}, False)):
         m_ = dict(miljo_w, **extra_)
         for k_, v_ in list(m_.items()):
@@ -2035,9 +2065,90 @@ try:
                 m_.pop(k_)
         rd = subprocess.run([PY, '-c', 'import sys; sys.path.insert(0, %r); import webbtjanst; print(webbtjanst.delegeras())' % str(ROOT / 'kontroller')], capture_output=True, text=True, env=m_)
         assert rd.stdout.strip() == str(vantat_), (extra_, rd.stdout, rd.stderr)
+    # ateljén vägrar i sandlådat läge i stället för att köra utanför
+    ra = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'atelje.py'), 'prov-bygge'], capture_output=True, text=True, env=dict(miljo_w, NWP_SLUG='prov-bygge'), timeout=60, cwd=str(ROOT))
+    assert ra.returncode == 2 and 'sandlådat läge' in ra.stderr, (ra.returncode, ra.stderr[-200:])
 finally:
     wts.terminate(); wts.wait(timeout=10)
 print('webbtjänsten ok')
+
+
+# ---------------------------------------------------------------- webbläsarhjälparen: omdirigering per hopp, header bara till målet, WebSockets, inskick lokalt, domänpolicy (Codex R23)
+prov_g = tmp / 'prov-gemensamt.mjs'
+prov_g.write_text(r'''
+import http from 'node:http';
+import { oppna, vardTillaten } from '%s/kontroller/webblasare/gemensamt.mjs';
+const A = { traffar: [], srv: null }, B = { traffar: [], srv: null };
+function server(st, html) {
+  return new Promise((res) => {
+    st.srv = http.createServer((req, r) => {
+      let body = ''; req.on('data', (d) => body += d); req.on('end', () => {
+        st.traffar.push({ metod: req.method, url: req.url, bypass: req.headers['x-vercel-protection-bypass'] || null, body });
+        if (req.url === '/start') { r.writeHead(302, { Location: html.B + '/landning' }); return r.end(); }
+        if (req.url === '/till-b-sida') { r.writeHead(302, { Location: html.B + '/landning' }); return r.end(); }
+        r.writeHead(200, { 'content-type': 'text/html' });
+        r.end(req.url === '/sida' ? html.sida : '<html><body>' + req.url + '</body></html>');
+      });
+    }).listen(0, '127.0.0.1', () => res('http://127.0.0.1:' + st.srv.address().port));
+  });
+}
+const html = { B: '', sida: '' };
+const b = await server(B, html); html.B = b;
+const a = await server(A, html);
+html.sida = `<html><body><img src="${b}/x.png"><script>try { new WebSocket('ws://127.0.0.1:${A.srv.address().port}/ws'); } catch (e) {}</script>
+<form method="post" action="/post"><input name="n" value="x"><button type="submit">s</button></form></body></html>`;
+const ut = {};
+// 1. omdirigering från tillåtet A till B (inte i tillat): B nås aldrig, hoppet loggas som blockerat
+let o = await oppna({ tillat: [a], mal: a + '/', undantag: 'HEMLIG' });
+try { await o.page.goto(a + '/start', { timeout: 10000 }); } catch (e) { ut.gotoFel = String(e.message).slice(0, 60); }
+ut.bTraffar1 = B.traffar.length; ut.aBypass = A.traffar[0]?.bypass; ut.blockeradB = o.logg.blockerade.some((x) => (x.skal || '').includes(b) || x.url.startsWith(b));
+await o.stang();
+// 2. omdirigering med B tillåtet: B nås men utan skyddsundantaget (headern bara till målets ursprung)
+B.traffar.length = 0; A.traffar.length = 0;
+o = await oppna({ tillat: [a, b], mal: a + '/', undantag: 'HEMLIG' });
+await o.page.goto(a + '/till-b-sida', { timeout: 10000 });
+ut.bTraffar2 = B.traffar.length; ut.bBypass = B.traffar[0]?.bypass; ut.aBypass2 = A.traffar[0]?.bypass;
+await o.stang();
+// 3. sida med bild från B, WebSocket och formulär: bild blockerad, WS blockerad, POST blockerad utan skrivbara
+B.traffar.length = 0; A.traffar.length = 0;
+o = await oppna({ tillat: [a], mal: a + '/' });
+await o.page.goto(a + '/sida', { timeout: 10000 });
+await o.page.waitForTimeout(500);
+await o.page.evaluate(() => document.forms[0].submit()).catch(() => {});
+await o.page.waitForTimeout(800);
+ut.bTraffar3 = B.traffar.length; ut.ws = o.logg.blockerade.some((x) => x.typ === 'websocket');
+ut.postBlockerad = o.logg.blockerade.some((x) => x.metod === 'POST' && (x.skal || '').includes('skrivande')); ut.aPost3 = A.traffar.filter((t) => t.metod === 'POST').length;
+await o.stang();
+// 4. med skrivbara [A]: POST når A
+A.traffar.length = 0;
+o = await oppna({ tillat: [a], mal: a + '/', skrivbara: [a] });
+await o.page.goto(a + '/sida', { timeout: 10000 });
+await o.page.evaluate(() => document.forms[0].submit()).catch(() => {});
+await o.page.waitForTimeout(800);
+ut.aPost4 = A.traffar.filter((t) => t.metod === 'POST').length;
+await o.stang();
+// 5. skrivbara med ett icke-lokalt ursprung ignoreras (inskick aldrig till andras sajter)
+o = await oppna({ tillat: [a], mal: a + '/', skrivbara: ['https://exempel.se'] });
+await o.page.goto(a + '/sida', { timeout: 10000 });
+A.traffar.length = 0;
+await o.page.evaluate(() => document.forms[0].submit()).catch(() => {});
+await o.page.waitForTimeout(800);
+ut.aPost5 = A.traffar.filter((t) => t.metod === 'POST').length;
+await o.stang();
+ut.policy = [vardTillaten('exempel.se', ['exempel.se']), vardTillaten('a.exempel.se', ['*.exempel.se']), vardTillaten('exempel.se', ['*.exempel.se']),
+             vardTillaten('exempel.se.evil', ['exempel.se']), vardTillaten('localhost', []), vardTillaten('evil.example', null), vardTillaten('evil.example', ['exempel.se'])];
+A.srv.close(); B.srv.close();
+console.log(JSON.stringify(ut));
+''' % ROOT)
+rg = subprocess.run(['node', str(prov_g)], capture_output=True, text=True, cwd=str(ROOT), timeout=300)
+assert rg.returncode == 0, (rg.returncode, rg.stdout[-400:], rg.stderr[-800:])
+ug = json.loads(rg.stdout.strip().splitlines()[-1])
+assert ug['bTraffar1'] == 0 and ug['blockeradB'] and ug['aBypass'] == 'HEMLIG', 'omdirigeringen till ett otillåtet ursprung stoppas före anslutning: %s' % ug
+assert ug['bTraffar2'] == 1 and ug['bBypass'] is None and ug['aBypass2'] == 'HEMLIG', 'skyddsundantaget följer inte med till nästa ursprung: %s' % ug
+assert ug['bTraffar3'] == 0 and ug['ws'] and ug['postBlockerad'] and ug['aPost3'] == 0, 'bild från B, WebSocket och POST blockeras under läsande inspektion: %s' % ug
+assert ug['aPost4'] == 1 and ug['aPost5'] == 0, 'inskick bara till lokala skrivbara ursprung: %s' % ug
+assert ug['policy'] == [True, True, True, False, True, True, False], 'domänpolicyn: %s' % ug['policy']
+print('webbläsarhjälparen: omdirigering, header, WebSocket, inskick och policy ok')
 
 
 # ---------------------------------------------------------------- hamta_sajt i sandlådan: via proxyn, ingen egen adresskontroll (2026-10-04)

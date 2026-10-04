@@ -12,6 +12,9 @@ import lighthouse from 'lighthouse';
 import desktopConfig from 'lighthouse/core/config/desktop-config.js';
 import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
+import { viaTjanst } from './webblasare/gemensamt.mjs';
+
+await viaTjanst('lighthouse', process.argv.slice(2));  // sandlådat bygge: Chrome kan inte starta i sandlådan, tjänsten kör mätningen
 
 const arg = (namn) => process.argv.find((a) => a.startsWith(`--${namn}=`))?.slice(namn.length + 3);
 const base = (arg('url') || '').replace(/\/$/, '');

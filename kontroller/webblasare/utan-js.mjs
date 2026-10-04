@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Modellfritt HTML-prov. Inga formulär skickas utan explicit tillåtelse och testmarkering.
-import { args, oppna, origin, skriv, nu, lasUndantag, viaTjanst } from './gemensamt.mjs';
+import { args, oppna, origin, skriv, nu, lasUndantag, viaTjanst, arLokal } from './gemensamt.mjs';
 import { vakta } from '../slugvakt.mjs';
 await viaTjanst('utan-js', process.argv.slice(2));
 const a = args(process.argv.slice(2));
@@ -9,7 +9,11 @@ if (!a.adress || !a.ut || (a['formular-far-skickas'] && !a.testmarkering)) {
   console.error('--adress URL --ut DIR [--formular SELECTOR --formular-far-skickas --testmarkering TEXT]');
   process.exit(2);
 }
-const b = await oppna({ tillat: [origin(a.adress)], mal: a.adress, lasande: !a['formular-far-skickas'],  // skrivande bara med uttrycklig tillåtelse (F36)
+if (a['formular-far-skickas'] && !arLokal(a.adress)) {  // inskick bara till provets lokala mottagare, aldrig till andras sajter (F36, Codex R23)
+  console.error('--formular-far-skickas gäller bara provets lokala mottagare (127.0.0.1), inte ' + origin(a.adress));
+  process.exit(2);
+}
+const b = await oppna({ tillat: [origin(a.adress)], mal: a.adress, lasande: true, skrivbara: a['formular-far-skickas'] ? [origin(a.adress)] : [],  // skrivande bara lokalt och med flaggan (F36)
   undantag: lasUndantag(a['undantag-fil']), extra: { javaScriptEnabled: false } });
 const r = { schema: 1, verktyg: 'utan-js', tid: nu(), javaScriptEnabled: false, sidor: [], fynd: [],
   not: 'HTML, synligt huvudinnehåll och angivna formulär; ingen allmän användbarhetsbedömning. Inskick kräver uttrycklig tillåtelse och testmarkering.' };

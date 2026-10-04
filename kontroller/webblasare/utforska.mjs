@@ -4,7 +4,7 @@
 // testmarkering; annars provas bara klientvalidering. Fynd blir regressionsprov (REGRESSION.json) som kan köras om.
 //   node utforska.mjs --adress URL --ut DIR [--max-sidor 15] [--vy 390|1440] [--tillat ORIGIN;…] [--undantag-fil F]
 //        [--formular-far-skickas --testmarkering "TEST nortropic"] [--regression REGRESSION.json]
-import { sha256, redigeraUrl, args, oppna, origin, horisontellSpill, tangentbord, skriv, nu, lasUndantag, hemligheter, viaTjanst } from './gemensamt.mjs';
+import { sha256, redigeraUrl, args, oppna, origin, horisontellSpill, tangentbord, skriv, nu, lasUndantag, hemligheter, viaTjanst, arLokal } from './gemensamt.mjs';
 await viaTjanst('utforska', process.argv.slice(2));
 
 // Fält som en människa ser och når: hoppar över honeypots (aria-hidden-förfader, tabindex=-1, utanför synfältet eller
@@ -39,10 +39,11 @@ const maxSidor = parseInt(a['max-sidor'] || '15', 10);
 const farSkicka = !!a['formular-far-skickas'];
 const markering = a.testmarkering ? String(a.testmarkering) : null;
 if (farSkicka && !markering) { console.error('--formular-far-skickas kräver --testmarkering TEXT'); process.exit(2); }
+if (farSkicka && !arLokal(a.adress)) { console.error('--formular-far-skickas gäller bara provets lokala mottagare (127.0.0.1), inte ' + origin(a.adress)); process.exit(2); }  // F36, Codex R23
 const regression = a.regression ? JSON.parse(readFileSync(a.regression, 'utf8')) : null;
 const fynd = []; const sidor = []; const ko = [a.adress]; const sedda = new Set();
 const lagg = (typ, sida, vad, repro, extra = {}) => fynd.push({ typ, sida, vad, repro, ...extra });
-const b = await oppna({ vy: a.vy || '390', tillat, undantag, hemliga, spar: true, mal: a.adress, lasande: !farSkicka });  // skrivande bara med flaggan (omgång tolv, F36)
+const b = await oppna({ vy: a.vy || '390', tillat, undantag, hemliga, spar: true, mal: a.adress, lasande: true, skrivbara: farSkicka ? [origin(a.adress)] : [] });  // skrivande bara med flaggan (omgång tolv, F36)
 const page = b.page;
 const LANGT = 'x'.repeat(2000); const SCRIPT = '<script>alert(1)</script>'; const UNICODE = 'Åsa Öberg-Ärlig ✓ 🌱';
 

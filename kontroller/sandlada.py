@@ -64,7 +64,8 @@ def nekade_skrivvagar(root, slug):
     return ut
 
 
-def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=None):
+def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=None, extra_skriv=()):
+    """extra_skriv: ytterligare skrivbara kataloger, till exempel en granskares arbetskatalog under /tmp/nwp-granskning."""
     root = Path(root or ROOT)
     hem = hem or os.path.expanduser('~')
     rot = str(root)
@@ -77,7 +78,7 @@ def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=N
             'filesystem': {
                 'denyWrite': nekade_skrivvagar(root, slug),
                 'allowWrite': ['%s/kunder/%s' % (rot, slug), '%s/underlag/%s' % (rot, slug), '%s/backlog' % rot, '/tmp/nwp-bygge-%s' % slug,
-                               '%s/.npm' % hem, '%s/.cache' % hem, '%s/Library/Caches' % hem],
+                               '%s/.npm' % hem, '%s/.cache' % hem, '%s/Library/Caches' % hem] + [str(x) for x in extra_skriv],
                 'denyRead': [p.replace('~', hem, 1) if p.startswith('~') else p for p in HEMLIGT]},
             'network': {'allowedDomains': domanlista(root, domaner), 'allowLocalBinding': True},
             'credentials': {'envVars': [{'name': 'REFERO_MCP_TOKEN', 'mode': 'deny'}]}}
