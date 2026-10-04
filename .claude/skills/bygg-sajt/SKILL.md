@@ -168,9 +168,11 @@ den. Utgå från researchen och briefen: sök efter vad toppuppgifterna kräver,
 sajter i samma sorts verksamhet, även utanför Sverige), hantverk (komposition, typografi, bild, rytm, även andra
 branscher) och UX/funktion. Gallerier (Awwwards, SiteInspire, Godly, Land-book) är sökingångar, inte facit; en galleribild
 räcker inte för att avgöra om den verkliga sajten är en bra referens. Skriv kandidaterna i
-`underlag/<slug>/REFERENSUPPDRAG.json` (6–10 stycken, fler än du tänker behålla): per kandidat `namn`, `adress`,
-`roll` (bransch, hantverk, ux), `varfor` (ur researchen: vilken fråga den ska svara på), `sidor` (de undersidor beslutet
-gäller, till exempel `/priser`) och vid behov `meny`, `hover`, `fokus` som CSS-väljare för de tillstånd du vill se.
+`underlag/<slug>/REFERENSUPPDRAG.json` (6–10 stycken, fler än du tänker behålla): per kandidat `namn`, `adress`
+(sajtens ursprung, `https://värd/`, aldrig med sökväg), `roll` (bransch, hantverk, ux), `varfor` (ur researchen: vilken
+fråga den ska svara på), `sidor` (rotrelativa vägar som löses mot ursprunget, till exempel `/priser` eller
+`/hantverkare/snickare/…`; `/` är startsidan) och vid behov `meny`, `hover`, `fokus` som CSS-väljare för de tillstånd du
+vill se.
 Samla sedan paketet:
 
 ```sh
@@ -191,7 +193,9 @@ jämförelsen: tjänstesektionen, bildserien, mobilmenyn, prislistan, sidfoten. 
 gäller just den. Ateljén och granskaren får exakt de bilderna med frågan, i den ordning du skriver dem, och omgången
 fryser dem. Behöver du senare se mer (mobilmenyn, prislistan, ett annat tillstånd): skriv ett nytt uppdrag med bara
 det, sätt `"kompletterar": "paket-vNN"` och kör steget igen: den nya versionen ärver allt oförändrat material från den
-förra och är komplett, så att alla Bildval-rader kan peka på den nya versionen; inom en omgång pekar de på samma version.
+förra (orörda kandidater, och för en kandidat du kompletterar dess orörda sidor) och är komplett, så att alla
+Bildval-rader kan peka på den nya versionen; `"ersatt": true` på en kandidat byter ut den helt utan arv. Inom en omgång
+pekar raderna på samma version.
 En kandidat räknas som fångad bara när båda vyerna, bildfilerna och de beställda tillstånden finns och inga egna
 resurser förblev blockerade (PAKET.json: ok per sida); brister står under begränsningar. Ingen kvot: sluta när underlaget räcker för välgrundade val.
 

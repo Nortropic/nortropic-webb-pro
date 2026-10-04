@@ -5,8 +5,9 @@
     .venv/bin/python kontroller/referens.py <slug> [--uppdrag underlag/<slug>/REFERENSUPPDRAG.json] [--torr]
 
 Uppdraget (JSON, skrivet av byggaren efter research och brief) listar kandidater: namn, adress, roll, varför, sidor och
-de tillstånd beslutet gäller (meny, hover, fokus som CSS-väljare). Adresser är http(s) till riktiga värdnamn (aldrig
-IP-adresser, lokala namn eller användaruppgifter; Codex R32). Varje kandidat inspekteras med
+de tillstånd beslutet gäller (meny, hover, fokus som CSS-väljare). Adressen är sajtens ursprung (https://värd/), ett
+riktigt värdnamn (aldrig IP-adresser, lokala namn, användaruppgifter eller sökväg; Codex R32/R33); sidorna är
+rotrelativa vägar som löses mot ursprunget; http → https och www-/bartvillingen hör till kandidaten. Varje kandidat inspekteras med
 kontroller/webblasare/inspektera.mjs i två pass: först med bara sajtens eget ursprung (resursdomänerna som sajten
 behöver syns då som blockerade), sedan med dessa resursdomäner tillåtna (bara för den inspektionen; spårare och lokala
 adresser aldrig), så att bilder och typsnitt är laddade i fångsten. Nätet går genom hjälparens proxy: varje värd slås
@@ -14,9 +15,11 @@ upp och måste vara publik, omdirigeringar prövas hopp för hopp, bara läsande
 webbläsarprofil per vy. Paketet underlag/<slug>/referenser/paket-vNN/ (skrivmålet förankras före första skrivningen,
 också i torrkörning) har PAKET.json (adress, tidpunkt, tillåtna resursursprung, observationer, begränsningar, filer) och
 PAKET.md. En sida räknas som fångad bara när båda vyerna finns med status 200, bildfilerna finns, de beställda
-tillstånden lyckades och inga egna resurser (bilder, typsnitt, stilar) förblev blockerade; en kandidat bara när alla
-beställda sidor fångades. En komplettering är ett nytt uppdrag (fältet kompletterar = föregående paket) och ger en ny,
-komplett version: oförändrat material ärvs från föregående paket, så att alla Bildval kan peka på den nya versionen.
+tillstånden lyckades och inga egna resurser (bilder, typsnitt, stilar) förblev blockerade eller misslyckades; en kandidat
+bara när alla beställda sidor fångades. En komplettering är ett nytt uppdrag (fältet kompletterar = föregående paket)
+och ger en ny, komplett version: orörda kandidater och, för en kandidat som kompletteras, dess orörda sidor ärvs från
+föregående paket (kopierade utan att följa länkar), så att alla Bildval kan peka på den nya versionen; ersatt: true på
+en kandidat betyder fullständig ersättning utan arv.
 Med sandlådan på körs steget av webbtjänsten utanför byggsessionen (kontroller/webbtjanst.py, verktyget referens) med
 uppdraget och utkatalogen som enda beröringspunkter; byggsessionens eget nät öppnas aldrig. Slutkod 0 när varje kandidat
 fångades helt, annars 1 (paketet skrivs ändå, med bristerna i PAKET.json); 2 vid ogiltigt uppdrag eller oförankrat mål.
@@ -68,7 +71,9 @@ def lokal_adress(u, lokala_portar):
     """(adress, None) för http://127.0.0.1:<port>/… när porten är ett uttryckligt provundantag, annars (None, skäl)."""
     d = urllib.parse.urlsplit(u)
     if d.scheme == 'http' and d.hostname == '127.0.0.1' and d.port in set(lokala_portar) and not d.username and not d.password:
-        return urllib.parse.urlunsplit(('http', '127.0.0.1:%d' % d.port, d.path or '/', d.query, '')), None
+        if d.path not in ('', '/') or d.query or d.fragment:
+            return None, 'adressen ska vara sajtens ursprung; lägg sökvägen under sidor'
+        return 'http://127.0.0.1:%d/' % d.port, None
     return None, 'lokal adress utan provundantag'
 
 
@@ -94,7 +99,9 @@ def kanon_adress(u, lokala_portar=()):
         return None, 'ogiltig port'
     if port is not None and port not in (80, 443):
         return None, 'bara standardportar (80, 443)'
-    return urllib.parse.urlunsplit((d.scheme, vard + (':%d' % port if port else ''), d.path or '/', d.query, '')), None
+    if d.path not in ('', '/') or d.query or d.fragment:
+        return None, 'adressen ska vara sajtens ursprung (https://värd/); lägg sökvägen under sidor (Codex R33: tvetydiga uppdrag vägras)'
+    return urllib.parse.urlunsplit((d.scheme, vard + (':%d' % port if port else ''), '/', '', '')), None
 
 
 def las_uppdrag(fil, slug, lokala_portar=()):
@@ -123,8 +130,10 @@ def las_uppdrag(fil, slug, lokala_portar=()):
         if k.get('roll') not in ('bransch', 'hantverk', 'ux'):
             return None, '%s: roll måste vara bransch, hantverk eller ux' % k['namn']
         sidor = k.get('sidor') or ['/']
-        if not isinstance(sidor, list) or len(sidor) > MAX_SIDOR or not all(isinstance(s, str) and s.startswith('/') and len(s) < 200 and not any(c in s for c in '\\\n\r\t\x00 ') for s in sidor):
-            return None, '%s: sidor är högst %d vägar som börjar med /' % (k['namn'], MAX_SIDOR)
+        if not isinstance(sidor, list) or len(sidor) > MAX_SIDOR or not all(isinstance(s, str) and s.startswith('/') and not s.startswith('//') and len(s) < 200 and not any(c in s for c in '\\\n\r\t\x00 #') for s in sidor):
+            return None, '%s: sidor är högst %d rotrelativa vägar som börjar med / (löses mot ursprunget)' % (k['namn'], MAX_SIDOR)
+        if k.get('ersatt') not in (None, True, False):
+            return None, '%s: ersatt är sant eller falskt' % k['namn']
         tillstand = {}
         for t in ('meny', 'hover', 'fokus'):
             v = k.get(t)
@@ -133,7 +142,7 @@ def las_uppdrag(fil, slug, lokala_portar=()):
                     return None, '%s: %s måste vara en CSS-väljare' % (k['namn'], t)
                 tillstand[t] = v
         kandidater.append({'namn': k['namn'], 'adress': adress, 'roll': k['roll'], 'varfor': str(k.get('varfor') or '')[:1000],
-                           'sidor': list(dict.fromkeys(sidor)), 'tillstand': tillstand})
+                           'sidor': list(dict.fromkeys(sidor)), 'tillstand': tillstand, 'ersatt': bool(k.get('ersatt'))})
     return {'kandidater': kandidater, 'fragor': [str(f)[:500] for f in (u.get('fragor') or [])][:20], 'kompletterar': u.get('kompletterar')}, None
 
 
@@ -192,10 +201,19 @@ def tvillingar(vard):
 
 
 def kandidat_ursprung(adress):
-    """Kandidatens egna ursprung: adressens, plus www-/bartvillingen i samma schema."""
+    """Kandidatens egna ursprung: adressens värd och www-/bartvillingen, i båda scheman med standardport (en accepterad
+    http-adress som omdirigerar till https på samma domän får inte stoppas; Codex R33). Lokala provadresser: bara den egna."""
     d = urllib.parse.urlsplit(adress)
-    port = ':%d' % d.port if d.port else ''
-    return ['%s://%s%s' % (d.scheme, v, port) for v in sorted(tvillingar(d.hostname), key=lambda v: v != d.hostname)]
+    if d.hostname == '127.0.0.1':
+        return ['http://127.0.0.1:%d' % d.port]
+    varden = sorted(tvillingar(d.hostname), key=lambda v: v != d.hostname)
+    scheman = [d.scheme] + [x for x in ('https', 'http') if x != d.scheme]
+    return ['%s://%s' % (sch, v) for sch in scheman for v in varden]
+
+
+def sidadress(adress, sida):
+    """Sidans adress: den rotrelativa vägen löst mot ursprunget (Codex R33: ingen strängsammanfogning)."""
+    return urllib.parse.urljoin(adress, sida)
 
 
 def tillatet_resursursprung(u, lokala_portar):
@@ -276,7 +294,7 @@ def observationer(rapport, ut, bestallda=()):
     egna resurser, tillståndens utfall, bildfilerna, tecken på kakdialog, misstänkt tomma bilder; och om sidan är
     fångad: båda vyerna med status 200 utan fel, bildfilerna på plats, tillstånden lyckade, inga egna resurser kvar
     blockerade (Codex R32)."""
-    obs = {'vyer': {}, 'kvar_blockerade': [], 'begransningar': [], 'ok': False}
+    obs = {'vyer': {}, 'kvar_blockerade': [], 'fel_resurser': [], 'begransningar': [], 'ok': False}
     vyer = rapport.get('vyer') or {}
     for vy, r in vyer.items():
         nat = r.get('natverk') or {}
@@ -293,6 +311,12 @@ def observationer(rapport, ut, bestallda=()):
                 if any(vard == s or vard.endswith('.' + s) for s in SPARARE):
                     continue
                 obs['kvar_blockerade'].append({'vy': vy, 'typ': b.get('typ'), 'url': (b.get('url') or '')[:200]})
+        for e in nat.get('fel') or []:  # misslyckade anrop (status null eller ≥ 400) av egna resurser: felorsaken bevaras (Codex R33)
+            if e.get('typ') in EGNA_RESURSER:
+                vard = (urllib.parse.urlsplit(e.get('url') or '').hostname or '').lower()
+                if any(vard == s or vard.endswith('.' + s) for s in SPARARE):
+                    continue
+                obs['fel_resurser'].append({'vy': vy, 'typ': e.get('typ'), 'url': (e.get('url') or '')[:200], 'status': e.get('status'), 'fel': (e.get('fel') or '')[:120]})
         aria = Path(ut) / ('vy-%s-aria.txt' % vy)
         if aria.is_file():
             text = aria.read_text(encoding='utf-8', errors='replace').lower()
@@ -317,9 +341,43 @@ def observationer(rapport, ut, bestallda=()):
     egna_kvar = [b for b in obs['kvar_blockerade'] if b['typ'] in EGNA_RESURSER]
     if egna_kvar:
         obs['begransningar'].append('%d egna resurser (bild, typsnitt, stil) förblev blockerade' % len(egna_kvar))
-    obs['ok'] = (all(vy in vyer for vy in VYER) and not egna_kvar
+    if obs['fel_resurser']:
+        obs['begransningar'].append('%d egna resurser (bild, typsnitt, stil) misslyckades: %s' % (len(obs['fel_resurser']), '; '.join('%s %s %s' % (e['typ'], e['status'] if e['status'] is not None else e['fel'], e['url']) for e in obs['fel_resurser'][:5])))
+    obs['ok'] = (all(vy in vyer for vy in VYER) and not egna_kvar and not obs['fel_resurser']
                  and all(o['status'] == 200 and not o['fel'] and all(o['bildfiler'].values()) and all(o['tillstand'].values()) for o in obs['vyer'].values()))
     return obs
+
+
+def kopiera_sakert(kalla, mal, rot):
+    """Kopierar ett träd ur ett tidigare paket utan att följa länkar: varje post måste vara en vanlig fil eller katalog
+    (ingen länk, ingenting utanför rot); bryter en post mot det kopieras ingenting (Codex R33: copytree följde nästlade
+    länkar och kunde läsa utanför referensområdet)."""
+    kalla, mal, rot = Path(kalla), Path(mal), Path(rot).resolve()
+    poster = []
+    for d, mappar, filer in os.walk(kalla, followlinks=False):
+        for n in mappar + filer:
+            p = Path(d) / n
+            if p.is_symlink():
+                raise RuntimeError('länk i arvskällan: %s' % p)
+            v = p.resolve()
+            if v != rot and rot not in v.parents:
+                raise RuntimeError('arvskällan pekar utanför referensområdet: %s' % p)
+            if not (p.is_dir() or p.is_file()):
+                raise RuntimeError('oväntad post i arvskällan: %s' % p)
+            poster.append(p)
+    if kalla.is_symlink() or not kalla.is_dir():
+        raise RuntimeError('arvskällan %s är ingen katalog' % kalla)
+    mal.mkdir(parents=True, exist_ok=False)
+    for p in poster:
+        m = mal / p.relative_to(kalla)
+        if p.is_dir():
+            m.mkdir(exist_ok=True)
+        else:
+            shutil.copyfile(p, m)  # copyfile följer inga länkar här: posten är redan prövad som vanlig fil
+    for d, mappar, filer in os.walk(mal):
+        for n in mappar + filer:
+            if (Path(d) / n).is_symlink():
+                raise RuntimeError('länk i kopian: %s' % (Path(d) / n))
 
 
 def las_paket(rot, version):
@@ -346,6 +404,14 @@ def samla(slug, uppdrag, underlag=None, torr=False, lokala_portar=()):
             raise RuntimeError('paketet som kompletteras (%s) finns inte eller går inte att läsa' % uppdrag['kompletterar'])
         arv = {k['namn']: k for k in forra.get('kandidater') or [] if isinstance(k, dict) and NAMN.match(str(k.get('namn', '')))}
     paket = ny_version(rot)
+    try:
+        return _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar)
+    except Exception:
+        shutil.rmtree(paket, ignore_errors=True)  # ett vägrat arv lämnar inget halvt paket efter sig
+        raise
+
+
+def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
     res = {'schema': 2, 'slug': slug, 'version': paket.name, 'tid': nu(), 'kompletterar': uppdrag.get('kompletterar'),
            'uppdrag_sha256': hashlib.sha256(json.dumps(uppdrag, sort_keys=True, ensure_ascii=False).encode()).hexdigest(),
            'fragor': uppdrag['fragor'], 'kandidater': [], 'torr': torr}
@@ -355,40 +421,57 @@ def samla(slug, uppdrag, underlag=None, torr=False, lokala_portar=()):
         post = {'namn': k['namn'], 'adress': k['adress'], 'roll': k['roll'], 'varfor': k['varfor'], 'sidor': [], 'resursursprung': [], 'ok': False}
         katalog = paket / k['namn']
         katalog.mkdir()
+        # komplettering av samma kandidat: oförändrade sidor ärvs från föregående paket (sida för sida, med sin katalog);
+        # ersatt: true betyder fullständig ersättning utan arv (Codex R33)
+        forra_k = arv.get(k['namn']) if arv_fran is not None and not k.get('ersatt') else None
+        arvda_sidor = []
+        for fs in (forra_k or {}).get('sidor') or []:
+            if isinstance(fs, dict) and fs.get('sida') not in k['sidor'] and isinstance(fs.get('katalog'), str) and fs['katalog'].startswith(k['namn'] + '/'):
+                kopiera_sakert(arv_fran / fs['katalog'], paket / fs['katalog'], rot)
+                arvda_sidor.append(dict(fs, arv=arv_fran.name))
+        if forra_k:
+            post['resursursprung'] = list(forra_k.get('resursursprung') or [])
         if torr:
+            post['sidor'] = arvda_sidor
             post['ok'] = True
             res['kandidater'].append(post)
             continue
-        egna = kandidat_ursprung(k['adress'])  # adressens ursprung och www-/bartvillingen
+        egna = kandidat_ursprung(k['adress'])  # adressens ursprung, www-/bartvillingen, båda scheman
         varden = tvillingar(urllib.parse.urlsplit(k['adress']).hostname)
         # pass 1 på första sidan: vilka resursursprung behöver sajten?
-        forsta = k['adress'] if k['sidor'][0] == '/' else k['adress'].rstrip('/') + k['sidor'][0]
+        forsta = sidadress(k['adress'], k['sidor'][0])
         pass1 = katalog / '.pass1'
         rc1, rapport1, _ = kor_inspektera(forsta, pass1, egna, {}, miljo_for(varden))
         resurser = [o for o in blockerade_ursprung(rapport1, lokala_portar) if o not in egna]
         shutil.rmtree(pass1, ignore_errors=True)
         tillat = egna + resurser
         varden |= {urllib.parse.urlsplit(o).hostname for o in resurser}
-        post['resursursprung'] = resurser
+        post['resursursprung'] = list(dict.fromkeys(post['resursursprung'] + resurser))
         # pass 2 på varje sida med resursursprungen tillåtna, bara för den här inspektionen
+        upptagna = {fs['katalog'] for fs in arvda_sidor}
         for i, sida in enumerate(k['sidor']):
-            adress = k['adress'] if sida == '/' else k['adress'].rstrip('/') + sida
+            adress = sidadress(k['adress'], sida)
             ut = katalog / sidkatalog(i, sida)
+            while str(ut.relative_to(paket)) in upptagna:  # krockar aldrig med en ärvd sidkatalog
+                ut = ut.with_name(ut.name + '-ny')
             tillstand = k['tillstand'] if i == 0 else {}
             rc, rapport, utskrift = kor_inspektera(adress, ut, tillat, tillstand, miljo_for(varden))
             obs = observationer(rapport, ut, tuple(tillstand)) if rapport else {'vyer': {}, 'kvar_blockerade': [], 'begransningar': ['inspektionen gav ingen rapport: ' + utskrift[-300:]], 'ok': False}
             filer = sorted(str(p.relative_to(paket)) for p in ut.rglob('*') if p.is_file() and p.suffix in ('.png', '.txt', '.md', '.json')) if ut.is_dir() else []
             sida_ok = rc == 0 and obs['ok']
             post['sidor'].append({'sida': sida, 'adress': adress, 'katalog': str(ut.relative_to(paket)), 'tillstand': tillstand, 'rc': rc, 'ok': sida_ok,
-                                  'observationer': obs['vyer'], 'kvar_blockerade': obs['kvar_blockerade'], 'begransningar': obs['begransningar'], 'filer': filer})
-        post['ok'] = bool(post['sidor']) and len(post['sidor']) == len(k['sidor']) and all(s['ok'] for s in post['sidor'])
+                                  'observationer': obs['vyer'], 'kvar_blockerade': obs['kvar_blockerade'], 'fel_resurser': obs['fel_resurser'],
+                                  'begransningar': obs['begransningar'], 'filer': filer})
+        nya_ok = len(post['sidor']) == len(k['sidor']) and all(s['ok'] for s in post['sidor'])
+        post['sidor'] += arvda_sidor
+        post['ok'] = bool(post['sidor']) and nya_ok and all(bool(s.get('ok')) for s in arvda_sidor)
         alla_ok = alla_ok and post['ok']
         res['kandidater'].append(post)
-    # komplettering: oförändrat material ärvs från föregående paket, så att varje Bildval kan peka på den nya versionen
+    # komplettering: orörda kandidater ärvs hela från föregående paket, så att varje Bildval kan peka på den nya versionen
     for namn, post in arv.items():
         if namn in nya or not (arv_fran / namn).is_dir() or (arv_fran / namn).is_symlink():
             continue
-        shutil.copytree(arv_fran / namn, paket / namn, symlinks=False)
+        kopiera_sakert(arv_fran / namn, paket / namn, rot)
         arvd = dict(post, arv=arv_fran.name)
         res['kandidater'].append(arvd)
         alla_ok = alla_ok and bool(post.get('ok'))
@@ -402,6 +485,8 @@ def samla(slug, uppdrag, underlag=None, torr=False, lokala_portar=()):
               '`Bildval: referenser/%s/<kandidat>/<NN-sida>/<fil>.png — … — Fråga: …`.' % paket.name, '']
     for post in res['kandidater']:
         rader += ['## %s · %s · %s%s' % (post['namn'], post['roll'], post['adress'], ' · ärvd från %s' % post['arv'] if post.get('arv') else ''), '', post['varfor'] or '(ingen motivering)', '']
+        if not post.get('arv') and any(s.get('arv') for s in post['sidor']):
+            rader.append('- sidor ärvda från %s: %s' % (', '.join(sorted({s['arv'] for s in post['sidor'] if s.get('arv')})), ', '.join(s['sida'] for s in post['sidor'] if s.get('arv'))))
         if not post['sidor']:
             rader.append('- torrkörning: inget fångat' if torr else '- inget fångat')
         for s in post['sidor']:
