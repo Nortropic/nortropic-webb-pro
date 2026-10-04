@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // Private migration archive. Fresh browser contexts; GET/HEAD only, same origin, no logins.
-import { args, oppna, origin, sha256, nu } from './gemensamt.mjs';
+import { args, oppna, origin, sha256, nu, viaTjanst } from './gemensamt.mjs';
 import { readFileSync, writeFileSync, mkdirSync, realpathSync, existsSync, chmodSync } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { vakta } from '../slugvakt.mjs';
 
+await viaTjanst('arkivera', process.argv.slice(2));
 process.umask(0o077);
 const a = args(process.argv.slice(2));
 vakta(a.ut);

@@ -647,6 +647,10 @@ def vanta(gdir, rdir, sekunder, proc=None):
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    import webbtjanst
+    if webbtjanst.delegeras():  # sandlådat bygge: granskarna och deras webbläsare körs av tjänsten utanför sandlådan
+        return webbtjanst.via_tjanst('granska', argv)
     p = argparse.ArgumentParser(prog='granska', description=__doc__.split('\n\n')[0])
     p.add_argument('slug', nargs='?')
     p.add_argument('--vanta', type=int, default=540)

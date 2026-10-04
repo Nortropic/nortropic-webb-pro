@@ -5,11 +5,12 @@
 // är inte bildseende — bedöm layout i bilderna.
 //   node inspektera.mjs --adress URL --ut DIR [--vyer 390,1440] [--tillat ORIGIN;ORIGIN | --tillat-alla] [--undantag-fil F]
 //        [--hemligheter FIL] [--kontext FIL,FIL] [--hover SEL] [--fokus SEL] [--meny SEL] [--tillstand tangentbord,reflow,reload,bakat]
-import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER } from './gemensamt.mjs';
+import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER, viaTjanst } from './gemensamt.mjs';
 import { readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { vakta } from '../slugvakt.mjs';
 
+await viaTjanst('inspektera', process.argv.slice(2));
 const a = args(process.argv.slice(2));
 vakta(a.ut);
 if (!a.adress || !a.ut) { console.error('användning: --adress URL --ut DIR [...]'); process.exit(2); }

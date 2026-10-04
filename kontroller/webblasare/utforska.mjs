@@ -4,7 +4,8 @@
 // testmarkering; annars provas bara klientvalidering. Fynd blir regressionsprov (REGRESSION.json) som kan köras om.
 //   node utforska.mjs --adress URL --ut DIR [--max-sidor 15] [--vy 390|1440] [--tillat ORIGIN;…] [--undantag-fil F]
 //        [--formular-far-skickas --testmarkering "TEST nortropic"] [--regression REGRESSION.json]
-import { sha256, redigeraUrl, args, oppna, origin, horisontellSpill, tangentbord, skriv, nu, lasUndantag, hemligheter } from './gemensamt.mjs';
+import { sha256, redigeraUrl, args, oppna, origin, horisontellSpill, tangentbord, skriv, nu, lasUndantag, hemligheter, viaTjanst } from './gemensamt.mjs';
+await viaTjanst('utforska', process.argv.slice(2));
 
 // Fält som en människa ser och når: hoppar över honeypots (aria-hidden-förfader, tabindex=-1, utanför synfältet eller
 // osynliga). Verktyget ska pröva formuläret som en besökare, inte som en robot (fynd ur slutprovet HELHET-20260927:

@@ -21,7 +21,13 @@ mkdir -p "$P/kontroller" "$P/underlag/$SLUG/skript" "$P/kunder/$SLUG" "$P/kunder
 cp "$ROOT/kontroller/sandlada-domaner.txt" "$P/kontroller/"
 # Som kor.sh: kunder/ och underlag/ låsta mot nya poster under körningen (flaggan uchg; Codex 2026-10-04, F1).
 chflags uchg "$P/kunder" "$P/underlag"
-trap 'chflags nouchg "$P/kunder" "$P/underlag" 2>/dev/null' EXIT
+# Som kor.sh: webbtjänsten (kontroller/webbtjanst.py) utanför sandlådan; provet visar att den nås från sandlådan (localhost).
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/webbtjanst.py" serve --slug "$SLUG" --kvitto "$P/wt-kvitto" --root "$P" > "$P/webbtjanst.log" 2>&1 &
+WT_PID=$!
+trap 'chflags nouchg "$P/kunder" "$P/underlag" 2>/dev/null; kill "$WT_PID" 2>/dev/null' EXIT
+for _ in $(seq 1 50); do [ -s "$P/wt-kvitto" ] && break; sleep 0.2; done
+[ -s "$P/wt-kvitto" ] || { echo "webbtjänsten startade inte ($P/webbtjanst.log)"; exit 2; }
+WT_ENV=(NWP_WEBBTJANST="http://127.0.0.1:$(sed -n 1p "$P/wt-kvitto")" NWP_WEBBTJANST_NYCKEL="$(sed -n 2p "$P/wt-kvitto")")
 echo "DUMMY=hemligt" > "$P/hem/.nortropic-hemligheter/x.env"
 IP="$("$ROOT/.venv/bin/python" -c 'import socket; print(socket.getaddrinfo("example.com", 443, socket.AF_INET, socket.SOCK_STREAM)[0][4][0])' 2>/dev/null)" || IP=""
 [ -n "$IP" ] || { echo "example.com gick inte att slå upp (nätet nere?): provet kan inte köras"; exit 2; }
@@ -60,11 +66,12 @@ curl -s -v -m 10 -o /dev/null -w '$WUT' https://registry.npmjs.org/ > $UT/4-nat-
 python3 $UT/post.py $IP > $UT/5-skript-post.txt 2> $UT/5-skript-post-fel.txt; echo \"rc=\$?\" >> $UT/5-skript-post.txt
 python3 -c \"import socketserver,http.server; s=socketserver.TCPServer(('127.0.0.1',0),http.server.SimpleHTTPRequestHandler); print('bunden', s.server_address[1]); s.server_close()\" > $UT/6-port.txt 2> $UT/6-port-fel.txt; echo \"rc=\$?\" >> $UT/6-port.txt
 touch $UT/7-tillatet.txt 2> $UT/7-tillatet-fel.txt; echo \"rc=\$?\" > $UT/7-tillatet-rc.txt
-echo \"proxy=\${HTTP_PROXY:-ingen}\" > $UT/8-proxy.txt"
+echo \"proxy=\${HTTP_PROXY:-ingen}\" > $UT/8-proxy.txt
+curl -s -m 5 -H \"X-Nyckel: \$NWP_WEBBTJANST_NYCKEL\" \"\$NWP_WEBBTJANST/halsa\" > $UT/9-tjanst.txt 2> $UT/9-tjanst-fel.txt; echo \" rc=\$?\" >> $UT/9-tjanst.txt"
 SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" --root "$P" --hem "$P/hem")"
 RENSA=(-u CLAUDECODE)
 while IFS='=' read -r namn _; do case "$namn" in CLAUDE_CODE_*) RENSA+=(-u "$namn");; esac; done < <(env)
-( cd "$P" && printf '%s' "$PROMPT" | env "${RENSA[@]}" claude -p --model sonnet --max-turns 24 --permission-mode dontAsk --output-format json \
+( cd "$P" && printf '%s' "$PROMPT" | env "${RENSA[@]}" "${WT_ENV[@]}" claude -p --model sonnet --max-turns 24 --permission-mode dontAsk --output-format json \
     --setting-sources project,local --strict-mcp-config --allowedTools "Bash(*)" --settings "$SETTINGS" > "$P/claude.json" 2>&1 )
 CLAUDE_RC=$?
 echo "sandlådeprov i $P"

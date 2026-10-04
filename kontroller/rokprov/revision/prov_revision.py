@@ -1883,6 +1883,7 @@ def grund28():
     skriv28('5-skript-post.txt', 'fel anslut PermissionError 1\nrc=0\n', 'Traceback (most recent call last):\nPermissionError: [Errno 1] Operation not permitted\n')
     skriv28('6-port.txt', 'bunden 5000\nrc=0\n')
     (ut28 / '7-tillatet-rc.txt').write_text('rc=0\n'); (ut28 / '7-tillatet.txt').write_text(''); (ut28 / '8-proxy.txt').write_text('proxy=http://127.0.0.1:1\n')
+    skriv28('9-tjanst.txt', '{"slug": "prov-bygge", "verktyg": ["arkivera", "atelje"]} rc=0')
 
 
 def fel28(namn, resultat, fel=''):
@@ -1970,6 +1971,73 @@ pg = subprocess.run([PY, '-B', str(korslut), str(kr / 'kunder' / 'prov-bygge'), 
 assert pg.returncode == 3 and 'flagga:kunder' in pg.stdout and 'syskon:kunder/b' in pg.stdout, pg.stdout[-300:]
 efter_g.write_text(fore_g.read_text()); assert subprocess.run([PY, '-B', str(korslut), str(kr / 'kunder' / 'prov-bygge'), '0', str(fore_g), str(efter_g)]).returncode != 3, 'oförändrad gräns är inte slutkod 3'
 print('gränsen för syskonkataloger ok')
+
+
+# ---------------------------------------------------------------- webbtjänsten: webbläsarverktygen utanför sandlådan (2026-10-04)
+# Chromium kan inte starta inne i Claude Codes sandlåda (mach-register nekas), så kontroller/webbtjanst.py kör prova, granska,
+# ateljén och webbläsarskripten utanför den, bundna till sluggen, domänlistan och byggets kataloger; verktygen delegerar själva.
+import webbtjanst as wt  # noqa: E402
+assert 'webbtjanst.py' in (ROOT / 'kor.sh').read_text() and 'NWP_WEBBTJANST' in (ROOT / 'kor.sh').read_text(), 'kor.sh startar tjänsten med sandlådan på'
+till_ = {'exempel.se', 'www.exempel.se'}
+rot_w = tmp / 'wt-rot'; (rot_w / 'kunder' / 'prov-bygge').mkdir(parents=True); (rot_w / 'underlag' / 'prov-bygge').mkdir(parents=True)
+ga = lambda v_, a_: wt.granska_anrop(v_, a_, 'prov-bygge', till_, rot_w)  # noqa: E731
+assert ga('prova', ['prov-bygge', '--snabb'])[0][-3:] == ['kontroller/prova.py', 'prov-bygge', '--snabb']
+assert ga('prova', ['annan'])[1] and 'byggets' in ga('prova', ['annan'])[1], 'fel slug vägras'
+assert ga('prova', [])[1] and ga('granska', ['prov-bygge', '--arbetare', 'x'])[1] and ga('atelje', ['prov-bygge', '--arbetare'])[1], 'arbetarflaggan vägras'
+assert ga('granska', ['prov-bygge', '--vanta', '1700', '--om'])[1] is None and ga('granska', ['prov-bygge', '--vanta', 'x'])[1], 'tal krävs'
+assert ga('inspektera', ['--adress', 'http://127.0.0.1:4321/', '--ut', 'kunder/prov-bygge/prov/x', '--vyer', '390,1440'])[1] is None, 'lokal adress och byggets katalog går'
+assert ga('inspektera', ['--adress', 'https://www.exempel.se/', '--ut', 'underlag/prov-bygge/ref', '--tillat', 'https://exempel.se;https://www.exempel.se'])[1] is None
+assert 'domänlista' in ga('inspektera', ['--adress', 'https://evil.example/', '--ut', 'kunder/prov-bygge/x'])[1], 'värd utanför listan vägras'
+assert 'domänlista' in ga('inspektera', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--tillat', 'https://exempel.se;https://evil.example'])[1], 'tillåtna ursprung prövas var för sig'
+assert 'tillat-alla' in ga('inspektera', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--tillat-alla'])[1], '--tillat-alla vägras'
+assert 'utanför' in ga('arkivera', ['--adress', 'https://exempel.se/', '--ut', 'kunder/annan/x'])[1] and 'utanför' in ga('arkivera', ['--adress', 'https://exempel.se/', '--ut', '../x'])[1]
+assert 'utanför' in ga('arkivera', ['--adress', 'https://exempel.se/', '--ut', '/etc/x'])[1] and ga('arkivera', ['--adress', 'https://exempel.se/', '--ut', '/tmp/nwp-bygge-prov-bygge/x'])[1] is None
+assert ga('utforska', ['--adress', 'ftp://exempel.se/', '--ut', 'kunder/prov-bygge/x'])[1] and ga('utan-js', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', 'extra'])[1], 'bara http(s), inga positionella'
+assert ga('utan-js', ['--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x', '--sidor', '/kontakt/;/om/', '--formular-far-skickas', '--testmarkering', 'NWP-PROV'])[1] is None
+assert ga('okant', [])[1] and ga('prova', 'prov-bygge')[1] and ga('prova', ['prov-bygge\nx'])[1] and ga(None, [])[1], 'okänt verktyg, fel typ och radbrytning vägras'
+# tjänsten mot en stubbrot: klienten skriver verktygets utskrift och ger dess slutkod; miljön saknar proxy, bär slug och körning
+(rot_w / 'kontroller' / 'webblasare').mkdir(parents=True); (rot_w / '.venv' / 'bin').mkdir(parents=True)
+os.symlink(ROOT / '.venv' / 'bin' / 'python', rot_w / '.venv' / 'bin' / 'python'); shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_w / 'kontroller')
+(rot_w / 'kontroller' / 'prova.py').write_text("import os, sys\nprint('stub prova', sys.argv[1:], 'i_tjansten=%s proxy=%s slug=%s korning=%s' % (os.environ.get('NWP_I_TJANSTEN'), 'satt' if os.environ.get('HTTP_PROXY') else 'ingen', os.environ.get('NWP_SLUG'), os.environ.get('NWP_KORNING')))\nsys.exit(3)\n")
+(rot_w / 'kontroller' / 'webblasare' / 'arkivera.mjs').write_text("console.log('stub arkivera', process.argv.slice(2).join(' '), 'i_tjansten=' + (process.env.NWP_I_TJANSTEN || ''));\nprocess.exit(0);\n")
+kv_w = tmp / 'wt-kvitto'
+wts = subprocess.Popen([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'serve', '--slug', 'prov-bygge', '--kvitto', str(kv_w), '--root', str(rot_w), '--doman', 'exempel.se', '--korning', 'K1'],
+                       stdout=open(tmp / 'wt.log', 'w'), stderr=subprocess.STDOUT)
+try:
+    for _ in range(50):
+        if kv_w.is_file() and len(kv_w.read_text().splitlines()) >= 2:
+            break
+        time.sleep(0.1)
+    port_w, nyckel_w = kv_w.read_text().splitlines()[:2]
+    assert oct(kv_w.stat().st_mode & 0o777) == '0o600', 'kvittot är privat'
+    miljo_w = dict(os.environ, NWP_WEBBTJANST='http://127.0.0.1:' + port_w, NWP_WEBBTJANST_NYCKEL=nyckel_w, HTTP_PROXY='http://x:y@localhost:1')
+    miljo_w.pop('NWP_I_TJANSTEN', None)
+    rw = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'kor', 'prova', 'prov-bygge', '--snabb'], capture_output=True, text=True, env=miljo_w, timeout=60)
+    assert rw.returncode == 3 and "stub prova ['prov-bygge', '--snabb'] i_tjansten=1 proxy=ingen slug=prov-bygge korning=K1" in rw.stdout, (rw.returncode, rw.stdout, rw.stderr)
+    rw = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'arkivera.mjs'), '--adress', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/arkiv'], capture_output=True, text=True, env=miljo_w, timeout=60, cwd=str(ROOT))
+    assert rw.returncode == 0 and 'stub arkivera --adress https://exempel.se/ --ut kunder/prov-bygge/arkiv i_tjansten=1' in rw.stdout, (rw.returncode, rw.stdout, rw.stderr[-300:])
+    rw = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'arkivera.mjs'), '--adress', 'https://evil.example/', '--ut', 'kunder/prov-bygge/arkiv'], capture_output=True, text=True, env=miljo_w, timeout=60, cwd=str(ROOT))
+    assert rw.returncode == 2 and 'vägrar' in rw.stderr and 'domänlista' in rw.stderr, (rw.returncode, rw.stderr[-300:])
+    rw = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'kor', 'prova', 'annan'], capture_output=True, text=True, env=miljo_w, timeout=60)
+    assert rw.returncode == 2 and 'byggets' in rw.stderr, (rw.returncode, rw.stderr[-300:])
+    import urllib.request as ur_
+    try:
+        ur_.build_opener(ur_.ProxyHandler({})).open(ur_.Request('http://127.0.0.1:%s/halsa' % port_w, headers={'X-Nyckel': 'fel'}), timeout=10); assert False, 'fel nyckel släpptes in'
+    except urllib.error.HTTPError as e_:
+        assert e_.code == 403
+    with ur_.build_opener(ur_.ProxyHandler({})).open(ur_.Request('http://127.0.0.1:%s/halsa' % port_w, headers={'X-Nyckel': nyckel_w}), timeout=10) as r_:
+        assert json.loads(r_.read())['slug'] == 'prov-bygge'
+    # delegeras bara i sandlådan: utan proxyvariabel eller inne i tjänsten körs verktyget direkt
+    for extra_, vantat_ in (({}, True), ({'HTTP_PROXY': ''}, False), ({'NWP_I_TJANSTEN': '1'}, False), ({'NWP_WEBBTJANST': ''}, False)):
+        m_ = dict(miljo_w, **extra_)
+        for k_, v_ in list(m_.items()):
+            if v_ == '':
+                m_.pop(k_)
+        rd = subprocess.run([PY, '-c', 'import sys; sys.path.insert(0, %r); import webbtjanst; print(webbtjanst.delegeras())' % str(ROOT / 'kontroller')], capture_output=True, text=True, env=m_)
+        assert rd.stdout.strip() == str(vantat_), (extra_, rd.stdout, rd.stderr)
+finally:
+    wts.terminate(); wts.wait(timeout=10)
+print('webbtjänsten ok')
 
 
 shutil.rmtree(tmp, ignore_errors=True)

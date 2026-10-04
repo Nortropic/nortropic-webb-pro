@@ -64,6 +64,25 @@ export function redigeraUrl(url) {
 
 export function origin(url) { return new URL(url).origin; }
 
+/** Sandlådat bygge (kor.sh NWP_SANDLADA=pa): Chromium kan inte starta inne i Claude Codes sandlåda (mach-register nekas),
+ *  så skriptet körs av kontroller/webbtjanst.py utanför sandlådan, bundet till sluggen, domänlistan och byggets kataloger.
+ *  Delegerar bara när tjänsten är anvisad, sandlådans proxy är satt och vi inte redan är inne i tjänsten; skriver
+ *  verktygets utskrift och avslutar med dess slutkod. Node:s fetch går aldrig via proxyvariablerna. */
+export async function viaTjanst(verktyg, argv) {
+  const bas = (process.env.NWP_WEBBTJANST || '').replace(/\/$/, '');
+  if (!bas || process.env.NWP_I_TJANSTEN || !(process.env.HTTP_PROXY || process.env.HTTPS_PROXY)) return;
+  let svar;
+  try {
+    const r = await fetch(bas + '/kor', { method: 'POST', headers: { 'content-type': 'application/json', 'x-nyckel': process.env.NWP_WEBBTJANST_NYCKEL || '' },
+                                         body: JSON.stringify({ verktyg, args: argv }) });
+    const text = await r.text();
+    if (!r.ok) { console.error('webbtjänsten nekade (' + r.status + '): ' + text.slice(0, 300)); process.exit(2); }
+    svar = JSON.parse(text);
+  } catch (e) { console.error('webbtjänsten nås inte (' + bas + '): ' + e.message); process.exit(2); }
+  process.stdout.write(svar.ut || '');
+  process.exit(Number.isInteger(svar.rc) ? svar.rc : 1);
+}
+
 /** Startar webbläsare + kontext för en vy med värdverkställd ursprungsgräns (route-nivå: allt utanför tillåtna ursprung
  *  avbryts och loggas som blockerat), skyddsundantag som header bara mot målets ursprung (`mal`; tillåtna tredje parter
  *  får det aldrig), logg och spår. */

@@ -37,7 +37,8 @@ if [ -f "$LAS" ] && kill -0 "$(cat "$LAS" 2>/dev/null)" 2>/dev/null; then
 fi
 chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true   # kvarlämnad flagga efter en avbruten körning
 echo $$ > "$LAS"
-trap 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null; rm -f "$LAS"' EXIT
+WT_PID=""
+trap 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null; rm -f "$LAS"; [ -n "${WT_PID:-}" ] && kill "$WT_PID" 2>/dev/null' EXIT
 mkdir -p "$ROOT/kunder/$SLUG" "$ROOT/underlag/$SLUG"
 rm -f "$ROOT/kunder/$SLUG/prov/.stoppvakt-antal"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -128,7 +129,8 @@ if [ ${#INSPO[@]} -gt 0 ]; then ARGS+=(--mcp-config "$NWP_MCP_CONFIG"); fi
 # Bash och dess barn: skrivning bara i kunder/<slug>, underlag/<slug>, backlog/ och tmp; mekaniken och .git skrivskyddade;
 # hemligheter olästa; nätet bara till verksamhetens domän (ur uppdragstexten), NWP_NAT_DOMANER (kommaseparerat) och
 # kontroller/sandlada-domaner.txt. Prova först med kontroller/sandlada_prov.sh. Kräver att managed-settings.json inte
-# låser sandbox.enabled till false (kontroller/sandlada.py). Standard av tills ett helt bygge körts med den på.
+# låser sandbox.enabled till false (kontroller/sandlada.py). Webbläsarverktygen går via kontroller/webbtjanst.py utanför
+# sandlådan (startas nedan). Standard av tills ett helt bygge körts med den på.
 SANDLADA=()
 if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
   for d in $(printf '%s' "$VERKSAMHET" | tr 'A-Z' 'a-z' | grep -oE '[a-z0-9][a-z0-9.-]*\.[a-z]{2,}' | sort -u) $(printf '%s' "${NWP_NAT_DOMANER:-}" | tr ',' ' '); do
@@ -137,7 +139,7 @@ if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
 else
   SANDLADA+=(--av)
 fi
-SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} "${SANDLADA[@]}")" || { echo "inställningarna (kontroller/sandlada.py) kunde inte skapas"; exit 2; }
+SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} ${SANDLADA[@]+"${SANDLADA[@]}"})" || { echo "inställningarna (kontroller/sandlada.py) kunde inte skapas"; exit 2; }
 if [ "$SETTINGS" != "{}" ]; then ARGS+=(--settings "$SETTINGS"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort.
@@ -163,6 +165,19 @@ grans() {
   done
 }
 mkdir -p "$ROOT/kunder/$SLUG/prov"
+# Webbtjänsten (kontroller/webbtjanst.py): Chromium kan inte starta inne i sandlådan (mach-register nekas; mätt 2026-10-04),
+# så med sandlådan på körs prova, granska, ateljén och webbläsarskripten av en tjänst utanför sandlådan, bunden till
+# sluggen, domänlistan och byggets kataloger; verktygen delegerar själva när de körs sandlådade (NWP_WEBBTJANST).
+WT_ENV=()
+if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
+  WT_KVITTO="$ROOT/kunder/$SLUG/prov/.webbtjanst"; rm -f "$WT_KVITTO"
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/webbtjanst.py" serve --slug "$SLUG" --kvitto "$WT_KVITTO" --korning "$STAMP" \
+    ${SANDLADA[@]+"${SANDLADA[@]}"} > "$ROOT/kunder/$SLUG/prov/webbtjanst.log" 2>&1 &
+  WT_PID=$!
+  for _ in $(seq 1 50); do [ -s "$WT_KVITTO" ] && break; sleep 0.2; done
+  [ -s "$WT_KVITTO" ] || { echo "webbtjänsten startade inte (kunder/$SLUG/prov/webbtjanst.log)"; exit 2; }
+  WT_ENV=(NWP_WEBBTJANST="http://127.0.0.1:$(sed -n 1p "$WT_KVITTO")" NWP_WEBBTJANST_NYCKEL="$(sed -n 2p "$WT_KVITTO")")
+fi
 FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"
 EFTER_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-efter"
 rm -f "$FORE_FIL" "$EFTER_FIL"   # en planterad symlänk ska inte få styra vart listorna skrivs
@@ -170,7 +185,7 @@ chflags uchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || echo "varning: kunde
 { skyddat; grans; } > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
-printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
+printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" ${WT_ENV[@]+"${WT_ENV[@]}"} claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
 rm -f "$EFTER_FIL"

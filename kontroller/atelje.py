@@ -423,6 +423,10 @@ def vanta(rot, sekunder):
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    import webbtjanst
+    if webbtjanst.delegeras():  # sandlådat bygge: ateljéns skärmbilder tas av tjänsten utanför sandlådan
+        return webbtjanst.via_tjanst('atelje', argv)
     p = argparse.ArgumentParser(prog='atelje', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
     p.add_argument('--vanta', type=int, default=540)

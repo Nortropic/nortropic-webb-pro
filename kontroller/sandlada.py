@@ -9,7 +9,8 @@ hemligheter (~/.nortropic-hemligheter, ~/.ssh, .env …) är olästa; nätet gå
 NWP_NAT_DOMANER och listan i kontroller/sandlada-domaner.txt; REFERO_MCP_TOKEN syns inte för Bash. --av ger bara
 env-delen (GH_CONFIG_DIR). Backlogposten om gräns på processnivå (Codex-revisionen 2026-10-03, F1); docs:
 code.claude.com/docs/en/sandboxing. Sandlådan gäller Bash och dess barn, inte Read/Write/Edit, MCP eller krokar:
-tillåtelselistorna i kor.sh behövs fortfarande.
+tillåtelselistorna i kor.sh behövs fortfarande. Chromium kan inte starta inne i sandlådan (mach-register nekas), så
+webbläsarverktygen körs av kontroller/webbtjanst.py utanför den, med samma domänlista (domanlista) som proxyn.
 """
 import argparse
 import json

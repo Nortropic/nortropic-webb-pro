@@ -16,7 +16,8 @@ blockering, och tvetydiga transportfel (namnuppslag, nekad port, timeout, onåba
   TLS-fel 35 …) = ansluten, aldrig stoppad. Ingen anslutning av annat skäl (DNS 6, nekad port 7, onåbar proxy) = provfel.
 - egen socket (5): skriptet rapporterar steg (anslut/tls/sand/svar), undantagstyp och errno; 'status <kod>' är nått;
   'fel anslut PermissionError <errno>' är blockerad; annat fel i anslut är provfel; fel i tls/sand/svar är ansluten
-- lokal port (6): 'bunden <port>' med rc 0; claude-processens slutkod måste vara 0 och proxyn (8) satt.
+- lokal port (6): 'bunden <port>' med rc 0; claude-processens slutkod måste vara 0 och proxyn (8) satt; webbtjänsten (9,
+  kontroller/webbtjanst.py utanför sandlådan) måste svara på /halsa från sandlådan med byggets slug.
 
     .venv/bin/python kontroller/sandlada_dom.py <resultatkatalog> <claude-kod> <provrot>
 Slutkod 0 bara när allt otillåtet konstaterats blockerat och allt tillåtet gått.
@@ -176,6 +177,9 @@ def doma(katalog, claude_rc, rot):
     res, rc, fel = las(katalog, '8-proxy.txt')
     proxy_ok = bool(res) and res.startswith('proxy=http')
     dom(proxy_ok, 'sandlådans proxy ' + ('är satt' if proxy_ok else 'saknas: sandlådan är inte aktiv (managed-settings.json: sandbox.enabled?)'))
+    res, rc, fel = las(katalog, '9-tjanst.txt')
+    tjanst_ok = rc == 0 and '"slug": "prov-bygge"' in (res or '')
+    dom(tjanst_ok, 'webbtjänsten nås från sandlådan (localhost, utan proxy): %s' % ('ja' if tjanst_ok else 'nej (%r rc %s %s)' % ((res or '')[:60], rc, sista(fel))))
     return sum(1 for ok, _ in rader if not ok), rader
 
 
