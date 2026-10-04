@@ -148,6 +148,7 @@ label.rad { gap: 6px; }
     <a href="#/lardomar" data-v="lardomar">Lärdomar</a>
     <a href="#/ab" data-v="ab">Jämförelser</a>
     <a href="#/kalibrering" data-v="kalibrering">Kalibrering</a>
+    <a href="#/designprov" data-v="designprov">Designprov</a>
     <a href="#/starta" data-v="starta">Starta</a>
   </nav>
 </div></header>
@@ -496,6 +497,41 @@ async function kalibreringvy() {
   });
 }
 
+// Designprov: ägaren dömer ateljéns förslag blint, bredvid huvudreferensen (designprovet, ägarbeslut 2026-10-04)
+async function designprovvy(slug) {
+  aktivNav('designprov');
+  if (!slug) {
+    const lista = await api('/api/designprov');
+    $('#vy').innerHTML = `<h1>Designprov</h1><p class="under">Ateljéns förslag per bygge, blint under bokstäver. Panelens dom och vilken riktning som är vilken visas när du dömt alla.</p>${lista.map((s) => `<p><a href="#/designprov/${esc(s)}">${esc(s)}</a></p>`).join('') || '<p>Inget designprov fotograferat än.</p>'}`;
+    return;
+  }
+  const d = await api('/api/designprov/' + encodeURIComponent(slug));
+  const hr = d.huvudreferens;
+  const ref = hr ? `<section class="kort" style="margin-bottom:24px"><h2>Huvudreferensen: ${esc(hr.namn)}</h2><p class="under">${esc(hr.vad)}</p><div class="galleri">${hr.bilder.map((b) => bild(b.fil, b.text)).join('')}</div></section>` : '<p class="under">Ingen huvudreferens utpekad.</p>';
+  const kort = (f) => {
+    const b = f.bilder || {};
+    const form = f.dom ? `<p class="under">Din dom: <b>${f.dom.haller ? 'håller ribban' : 'håller inte'}</b> · ${esc(NIVA[f.dom.niva] || f.dom.niva)}${f.dom.skiljer ? ' · ' + esc(f.dom.skiljer) : ''}</p>`
+      : `<div class="rad" style="margin-top:10px;flex-wrap:wrap;gap:12px"><label><input type="radio" name="dp-h-${f.bokstav}" value="ja"> Håller ribban</label><label><input type="radio" name="dp-h-${f.bokstav}" value="nej"> Håller inte</label></div>
+         <div class="rad" style="margin-top:6px;flex-wrap:wrap;gap:12px">${Object.keys(NIVA).map((n) => `<label><input type="radio" name="dp-n-${f.bokstav}" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
+         <textarea id="dp-sk-${f.bokstav}" rows="3" style="width:100%;margin-top:8px" placeholder="Vad skiljer? Bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete; och hur nära huvudreferensen det är."></textarea>
+         <div class="rad" style="margin-top:8px"><button class="knapp primar" data-dp="${f.bokstav}">Spara domen</button></div>`;
+    return `<section class="kort" style="margin-bottom:24px"><h2>Förslag ${esc(f.bokstav)}</h2>
+      <div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['390-forsta'], 'mobil 390, första vyn')}${bild(b['1440-forsta'], 'dator 1440, första vyn')}</div>
+      <details><summary>Hela startsidan (390 och 1440)</summary><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['390-hela'], 'hela sidan 390')}${bild(b['1440-hela'], 'hela sidan 1440')}</div></details>
+      <details><summary>Början av en undersida</summary><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['undersida-390'], 'undersida 390')}${bild(b['undersida-1440'], 'undersida 1440')}</div></details>${form}</section>`;
+  };
+  const avsl = d.avslojat ? `<section class="kort"><h2>Avslöjat</h2><p class="under">${Object.entries(d.avslojat.karta).map(([b, n]) => `${esc(b)} = riktning ${esc(String(n))}`).join(' · ')} · panelens val: ${d.avslojat.panelens_val == null ? '<b>alla förkastade</b>' : 'riktning ' + esc(String(d.avslojat.panelens_val))}</p><div class="prosa">${d.avslojat.val_md}</div></section>` : '';
+  $('#vy').innerHTML = `<h1>Designprov · ${esc(slug)}</h1><p class="under">Döm varje förslag på mobil och dator, hela sidan: håller det ribban, vilken nivå, och vad skiljer. Domarna sparas privat (underlag/${esc(slug)}/atelje/AGARENS-DOM.json). Panelens dom och vilken riktning som är vilken visas när du dömt alla.</p>${ref}${d.forslag.map(kort).join('')}${avsl}`;
+  document.querySelectorAll('[data-dp]').forEach((k) => k.onclick = async () => {
+    const b = k.dataset.dp;
+    const h = (document.querySelector(`input[name="dp-h-${b}"]:checked`) || {}).value;
+    const n = (document.querySelector(`input[name="dp-n-${b}"]:checked`) || {}).value;
+    if (!h || !n) { alert('Välj om förslaget håller ribban och vilken nivå.'); return; }
+    k.disabled = true;
+    try { await post('/api/designprov/' + encodeURIComponent(slug) + '/' + b, { haller: h === 'ja', niva: n, skiljer: $('#dp-sk-' + b).value }); designprovvy(slug); } catch (e) { alert(e.message); k.disabled = false; }
+  });
+}
+
 async function abvy() {
   aktivNav('ab');
   const lista = await api('/api/ab');
@@ -720,6 +756,7 @@ async function route() {
     if (h === 'lardomar') return await lardomvy();
     if (h === 'ab') return await abvy();
     if (h === 'kalibrering') return await kalibreringvy();
+    if (h === 'designprov' || h.startsWith('designprov/')) return await designprovvy(decodeURIComponent(h.slice(11)));
     if (h.startsWith('prospekt')) { const d = h.split('/'); return d[2] ? await prospektkortvy(decodeURIComponent(d[1]), decodeURIComponent(d[2])) : d[1] ? await kampanjvy(decodeURIComponent(d[1])) : await prospektvy(); }
     if (h === 'starta') return startavy();
     return await oversikt();

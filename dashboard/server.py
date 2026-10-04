@@ -343,6 +343,8 @@ def fil_tillaten(rel):
         return delar[0] == 'kunder' and rel.startswith('kunder/%s/prov/inspektion/' % slug) and rel.endswith('.png')
     if slug == 'kalibrering':  # bara skärmbilderna: URVAL.txt bär hypoteserna och DOMAR.json domarna (F40)
         return bool(KAL_FIL.match(rel))
+    if rel.startswith('underlag/%s/atelje/' % slug) and not designprov_domt(slug):
+        return bool(DP_FIL.match(rel))  # designprovet: bara förslagens bilder tills ägaren dömt alla (panelens dom döljs)
     return True
 
 
@@ -619,6 +621,89 @@ def spara_kalibrering(ident, data):
         finally:
             fcntl.flock(las, fcntl.LOCK_UN)
     return {'ok': True, 'dom': domar[ident], 'kvar': sum(1 for e in kalibrering_urval() if e['id'] not in domar)}
+
+
+# --- designprovet: ägaren dömer ateljéns förslag blint, bredvid huvudreferensen (designprovet, ägarbeslut 2026-10-04) ---
+DP_LAS = threading.Lock()
+DP_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/(\d|vinnare/bilder)/(undersida/|stiltavla/)?vy-(390|1440)-(forsta|hela|ruta-\d{2})\.png$')
+DP_REF = re.compile(r'^underlag/([a-z0-9-]{2,60})/referenser/[A-Za-z0-9._/-]+\.(png|jpe?g|webp)$')
+
+
+def designprov_slugar():
+    """Byggen med en fotograferad ateljé (underlag/<slug>/atelje/FOTOGRAFERADE.json)."""
+    return sorted(p.parent.parent.name for p in UNDERLAG.glob('*/atelje/FOTOGRAFERADE.json') if SLUG.match(p.parent.parent.name))
+
+
+def designprov_ordning(slug, riktningar):
+    """Blind ordning: stabil per bygge, oberoende av riktningsnumren (A, B, C …)."""
+    import hashlib
+    return sorted(riktningar, key=lambda n: hashlib.sha256(('designprov-%s-%d' % (slug, n)).encode()).hexdigest())
+
+
+def designprov_domt(slug):
+    """Har ägaren dömt alla förslag i bygget? (utan fotograferad ateljé finns inget att dölja)"""
+    rot = UNDERLAG / slug / 'atelje'
+    manifest = las_json(rot / 'FOTOGRAFERADE.json') or {}
+    riktningar = [n for n in (manifest.get('riktningar') or {}) if str(n).isdigit()]
+    if not riktningar:
+        return True
+    domar = las_json(rot / 'AGARENS-DOM.json') or {}
+    return all(b in domar for b in 'ABCDE'[:len(riktningar)])
+
+
+def designprov(slug):
+    """Förslagen under bokstäver, med startsidans första vy och helsida i båda bredderna och undersidans början, och
+    huvudreferensens bilder. Vilken riktning en bokstav är, och panelens dom, visas först när ägaren dömt alla."""
+    import referensval
+    rot = UNDERLAG / slug / 'atelje'
+    manifest = las_json(rot / 'FOTOGRAFERADE.json') or {}
+    riktningar = sorted(int(n) for n in (manifest.get('riktningar') or {}) if str(n).isdigit())
+    domar = las_json(rot / 'AGARENS-DOM.json') or {}
+    forslag = []
+    for b, n in zip('ABCDE', designprov_ordning(slug, riktningar)):
+        bilder = {}
+        for namn, fil in (('390-forsta', 'vy-390-forsta.png'), ('1440-forsta', 'vy-1440-forsta.png'), ('390-hela', 'vy-390-hela.png'),
+                          ('1440-hela', 'vy-1440-hela.png'), ('undersida-390', 'undersida/vy-390-forsta.png'), ('undersida-1440', 'undersida/vy-1440-forsta.png')):
+            if (rot / str(n) / fil).is_file():
+                bilder[namn] = 'underlag/%s/atelje/%d/%s' % (slug, n, fil)
+        forslag.append({'bokstav': b, 'bilder': bilder, 'dom': domar.get(b)})
+    hr = referensval.huvudreferens(slug, UNDERLAG)
+    svar = {'slug': slug, 'forslag': forslag,
+            'huvudreferens': {'namn': hr['namn'], 'vad': hr['vad'], 'bilder': [{'fil': str(p.relative_to(ROOT)), 'text': t} for p, t in hr['bilder']]} if hr else None}
+    if forslag and all(f['dom'] for f in forslag):
+        val = las_json(rot / 'VAL.json') or {}
+        svar['avslojat'] = {'karta': {b: n for b, n in zip('ABCDE', designprov_ordning(slug, riktningar))},
+                            'panelens_val': val.get('val'), 'ribban': val.get('ribban'), 'nivaer': val.get('nivaer'), 'poang': val.get('poang'),
+                            'val_md': md(las_text(rot / 'VAL.md') or '')}
+    return svar
+
+
+def spara_designprov(slug, bokstav, data):
+    """Ägarens dom över ett förslag: håller ribban, nivå och vad som skiljer. Privat (underlag/<slug>/atelje/AGARENS-DOM.json)."""
+    import fcntl
+    if slug not in designprov_slugar():
+        raise ValueError('okänt designprov')
+    if bokstav not in {f['bokstav'] for f in designprov(slug)['forslag']}:
+        raise ValueError('okänt förslag')
+    if data.get('niva') not in NIVAER or not isinstance(data.get('haller'), bool):
+        raise ValueError('välj nivå och om förslaget håller ribban')
+    f = UNDERLAG / slug / 'atelje' / 'AGARENS-DOM.json'
+    with DP_LAS, open(f.parent / '.agarens-dom.las', 'w') as las:
+        fcntl.flock(las, fcntl.LOCK_EX)
+        try:
+            domar = {}
+            if f.exists():
+                try:
+                    domar = json.loads(f.read_text(encoding='utf-8'))
+                except (OSError, ValueError) as e:
+                    raise RuntimeError('AGARENS-DOM.json går inte att läsa (%s); rätta filen innan en dom sparas' % e)
+            domar[bokstav] = {'haller': data['haller'], 'niva': data['niva'], 'skiljer': (data.get('skiljer') or '').strip()[:4000], 'tid': nu()}
+            tmp = f.with_name('.AGARENS-DOM.json.tmp%d' % os.getpid())
+            tmp.write_text(json.dumps(domar, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            os.replace(tmp, f)
+        finally:
+            fcntl.flock(las, fcntl.LOCK_UN)
+    return {'ok': True, 'dom': domar[bokstav]}
 
 
 # --- domen ---
@@ -1040,6 +1125,13 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, ab_lista())
             if vag == '/api/kalibrering':
                 return self.skicka(200, kalibrering_lista())
+            if vag == '/api/designprov':
+                return self.skicka(200, designprov_slugar())
+            m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})$', vag)
+            if m:
+                if m.group(1) not in designprov_slugar():
+                    return self.skicka(404, {'fel': 'inget designprov för bygget'})
+                return self.skicka(200, designprov(m.group(1)))
             if vag == '/api/backlog':
                 return self.skicka(200, backloggen())
             if vag == '/api/kirurg':
@@ -1118,6 +1210,9 @@ class H(BaseHTTPRequestHandler):
             m = re.match(r'^/api/kalibrering/(K\d{2})$', vag)
             if m:
                 return self.skicka(200, spara_kalibrering(m.group(1), data))
+            m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})/([A-E])$', vag)
+            if m:
+                return self.skicka(200, spara_designprov(m.group(1), m.group(2), data))
             m = re.match(r'^/api/visa/([a-z0-9-]{2,60})$', vag)
             if m:  # tillståndsändrande: bara POST med rätt ursprung (omgång elva, F13)
                 if not visa(m.group(1)):

@@ -2205,6 +2205,41 @@ assert lista_k[0]['url'] == 'https://exempel-a.test/' and lista_k[0]['hypotes'] 
 kod, _ = begar(dport, 'POST', '/api/kalibrering/K09', huvuden={'Origin': 'http://127.0.0.1:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{"niva":"over"}'); assert kod >= 400, 'okänt exempel'
 dsrvk.shutdown()
 print('kalibreringen ok')
+# ---------------------------------------------------------------- designprovet i dashboarden: ägaren dömer förslagen blint bredvid huvudreferensen
+dp_ = tmp / 'underlag' / 'dp-prov' / 'atelje'
+for n_ in (1, 2, 3):
+    (dp_ / str(n_) / 'undersida').mkdir(parents=True)
+    for fil_ in ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-390-hela.png', 'vy-1440-hela.png', 'undersida/vy-390-forsta.png'):
+        (dp_ / str(n_) / fil_).write_bytes(b'\x89PNG')
+(dp_ / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {'1': [], '2': [], '3': []}}))
+(dp_ / 'VAL.json').write_text(json.dumps({'val': 2, 'ribban': {}, 'nivaer': {}, 'poang': {'1': 1, '2': 4, '3': 1}}))
+(dp_ / 'VAL.md').write_text('# Ateljéns val\n\nVald riktning: **2**\n')
+ref_dp = tmp / 'underlag' / 'dp-prov' / 'referenser' / 'paket-v01' / 'snick' / '01-start'; ref_dp.mkdir(parents=True); (ref_dp / 'vy-390-ruta-01.png').write_bytes(b'\x89PNG')
+(tmp / 'underlag' / 'dp-prov' / 'REFERENSER.md').write_text('## Snick — snickeri\n\nBildval: referenser/paket-v01/snick/01-start/vy-390-ruta-01.png — första vyn — Fråga: bär vår lika mycket?\n\nHuvudreferens: Snick — komposition och bildbehandling\n')
+dsrvd = http.server.ThreadingHTTPServer(('127.0.0.1', 0), dash.H); threading.Thread(target=dsrvd.serve_forever, daemon=True).start()
+dport = dsrvd.server_port; dash.VARD['tillatna'] = {'127.0.0.1:%d' % dport, 'localhost:%d' % dport}
+assert 'dp-prov' in json.loads(begar(dport, 'GET', '/api/designprov')[1])
+kod, kropp = begar(dport, 'GET', '/api/designprov/dp-prov'); d_ = json.loads(kropp)
+assert kod == 200 and [f_['bokstav'] for f_ in d_['forslag']] == ['A', 'B', 'C'] and 'avslojat' not in d_ and not any(f_['dom'] for f_ in d_['forslag']), d_
+assert d_['huvudreferens']['namn'] == 'Snick' and d_['huvudreferens']['bilder'][0]['fil'] == 'underlag/dp-prov/referenser/paket-v01/snick/01-start/vy-390-ruta-01.png', d_['huvudreferens']
+assert set(d_['forslag'][0]['bilder']) == {'390-forsta', '1440-forsta', '390-hela', '1440-hela', 'undersida-390'}
+assert begar(dport, 'GET', '/fil/' + d_['forslag'][0]['bilder']['390-forsta'])[0] == 200 and begar(dport, 'GET', '/fil/' + d_['huvudreferens']['bilder'][0]['fil'])[0] == 200
+assert begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/VAL.md')[0] != 200 and begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/VAL.json')[0] != 200, 'panelens dom är dold tills ägaren dömt alla'
+assert begar(dport, 'GET', '/api/designprov/okand')[0] == 404
+ok_h = {'Origin': 'http://127.0.0.1:%d' % dport, 'Content-Type': 'application/json'}
+assert begar(dport, 'POST', '/api/designprov/dp-prov/A', huvuden={'Origin': 'http://evil.test:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{"haller":true,"niva":"over"}')[0] == 403
+assert begar(dport, 'POST', '/api/designprov/dp-prov/A', huvuden=ok_h, kropp=b'{"haller":"ja","niva":"over"}')[0] >= 400, 'haller är sant eller falskt'
+assert begar(dport, 'POST', '/api/designprov/dp-prov/D', huvuden=ok_h, kropp=b'{"haller":true,"niva":"over"}')[0] >= 400, 'okänt förslag'
+for b_, h_, n_ in (('A', False, 'nastan'), ('B', True, 'over')):
+    assert begar(dport, 'POST', '/api/designprov/dp-prov/' + b_, huvuden=ok_h, kropp=json.dumps({'haller': h_, 'niva': n_, 'skiljer': 'prov ' + b_}).encode())[0] == 200
+assert 'avslojat' not in json.loads(begar(dport, 'GET', '/api/designprov/dp-prov')[1]) and begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/VAL.md')[0] != 200, 'två av tre dömda: fortfarande blint'
+assert begar(dport, 'POST', '/api/designprov/dp-prov/C', huvuden=ok_h, kropp=json.dumps({'haller': False, 'niva': 'generisk'}).encode())[0] == 200
+d_ = json.loads(begar(dport, 'GET', '/api/designprov/dp-prov')[1])
+assert d_['avslojat']['panelens_val'] == 2 and sorted(d_['avslojat']['karta'].values()) == [1, 2, 3] and 'Vald riktning' in d_['avslojat']['val_md'], d_.get('avslojat')
+assert begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/VAL.md')[0] == 200, 'efter ägarens dom är panelens dom synlig'
+dom_ = json.loads((dp_ / 'AGARENS-DOM.json').read_text()); assert dom_['B'] == dict(dom_['B'], haller=True, niva='over', skiljer='prov B'), dom_
+dsrvd.shutdown()
+print('designprovet i dashboarden ok')
 
 
 # ---------------------------------------------------------------- sandlådan (backlogposten om gräns på processnivå, F1): inställningarna, och körningen committar backloggen själv
