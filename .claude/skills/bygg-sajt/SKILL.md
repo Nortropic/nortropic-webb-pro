@@ -185,13 +185,15 @@ Read och läs begränsningarna (kakdialog, blockerade resurser, tomma bilder) in
 fångades hela ersätts eller kompletteras. Välj de användbara och skriv `underlag/<slug>/REFERENSER.md`: per referens
 roll, varför den är stark för just den här frågan, vad du faktiskt såg, och vilket val i vår sajt den ska påverka.
 Peka dessutom ut bilden: minst en rad per referens
-`Bildval: referenser/paket-vNN/<namn>/<sida>/<fil>.png — <vad som jämförs> — Fråga: <jämförelsefrågan>` som anger
+`Bildval: referenser/paket-vNN/<namn>/<NN-sida>/<fil>.png — <vad som jämförs> — Fråga: <jämförelsefrågan>` som anger
 just den ruta (`vy-390-ruta-NN.png`, `vy-1440-ruta-NN.png`) eller det tillstånd (hover, meny, reflow) som bär
 jämförelsen: tjänstesektionen, bildserien, mobilmenyn, prislistan, sidfoten. Första vyn räcker bara när referensen
 gäller just den. Ateljén och granskaren får exakt de bilderna med frågan, i den ordning du skriver dem, och omgången
 fryser dem. Behöver du senare se mer (mobilmenyn, prislistan, ett annat tillstånd): skriv ett nytt uppdrag med bara
-det, sätt `"kompletterar": "paket-vNN"`, kör steget igen och peka på filer i den nya versionen; inom en omgång pekar
-alla Bildval-rader på samma version. Ingen kvot: sluta när underlaget räcker för välgrundade val.
+det, sätt `"kompletterar": "paket-vNN"` och kör steget igen: den nya versionen ärver allt oförändrat material från den
+förra och är komplett, så att alla Bildval-rader kan peka på den nya versionen; inom en omgång pekar de på samma version.
+En kandidat räknas som fångad bara när båda vyerna, bildfilerna och de beställda tillstånden finns och inga egna
+resurser förblev blockerade (PAKET.json: ok per sida); brister står under begränsningar. Ingen kvot: sluta när underlaget räcker för välgrundade val.
 
 **När Mobbin eller Refero är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG` = `kontroller/mcp/mobbin.json` eller
 `refero.json`): Mobbins `search_screens`, `search_flows` och `search_sections` söker skärmar, flöden och sektioner ur

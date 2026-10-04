@@ -2674,67 +2674,102 @@ vn_ = (ROOT / 'kunskap' / 'visuell-niva.md').read_text().lower()
 assert all(x_ not in vn_ for x_ in ('oatly', 'koto', 'aman', 'dinesen', 'belvia', 'blue tit', 'sparky', 'vardehaugen', 'snickaren', 'paint it', 'sundbom', 'salong kreativ', 'grilli')), 'den publika filen namnger inga sajter'
 print('kalibreringsankarna och försöket ok')
 
-# ---------------------------------------------------------------- referenssteget (ägarbeslut 2026-10-04): uppdraget validerat, två pass med resursursprung bara
-# för inspektionen, paket med observationer och begränsningar, versioner och kompletteringar, tjänstens verktyg, delegering i sandlådat läge
+# ---------------------------------------------------------------- referenssteget (ägarbeslut 2026-10-04; Codex R32): uppdraget validerat (riktiga värdnamn,
+# aldrig IP-former eller lokala namn; lokala provundantag bara för uttryckliga portar), skrivmålet förankrat, två pass med resursursprung bara för
+# inspektionen, fullständig fångst krävs (båda vyerna, bildfiler, tillstånd, egna resurser), kollisionsfria sidkataloger, kompletteringar med arv
 import referens as rf_  # noqa: E402
 png_ref = b'\x89PNG\r\n\x1a\n' + bytes.fromhex('0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8cfc0000000020001e221bc330000000049454e44ae426082')
-class RefB_(hs_.BaseHTTPRequestHandler):
+class RefBild_(hs_.BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200); self.send_header('Content-Type', 'image/png'); self.send_header('Content-Length', str(len(png_ref))); self.end_headers(); self.wfile.write(png_ref)
     def log_message(self, *a): pass
-srv_rb = hs_.HTTPServer(('127.0.0.1', 0), RefB_); th_.Thread(target=srv_rb.serve_forever, daemon=True).start()
-b_ref = 'http://127.0.0.1:%d' % srv_rb.server_address[1]
+srv_rb = hs_.HTTPServer(('127.0.0.1', 0), RefBild_); th_.Thread(target=srv_rb.serve_forever, daemon=True).start()   # B: resursursprung som får tillåtas
+srv_rc = hs_.HTTPServer(('127.0.0.1', 0), RefBild_); th_.Thread(target=srv_rc.serve_forever, daemon=True).start()   # C: lokalt ursprung utan provundantag
+b_ref = 'http://127.0.0.1:%d' % srv_rb.server_address[1]; c_ref = 'http://127.0.0.1:%d' % srv_rc.server_address[1]
 class RefA_(hs_.BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path == '/saknas':
+            self.send_response(404); self.send_header('Content-Length', '0'); self.end_headers(); return
+        bild = c_ref if self.path == '/c' else b_ref
         html = ('<html><head><title>Lokal referens</title></head><body><h1>%s</h1><p>Vi använder cookies. <button id="godkann">Godkänn alla</button></p>'
-                '<nav><button id="meny">Meny</button></nav><img src="%s/bild.png" width="200" height="100" alt="bild"><p>%s</p></body></html>' % (self.path, b_ref, 'text ' * 200)).encode()
+                '<nav><button id="meny">Meny</button></nav><img src="%s/bild.png" width="200" height="100" alt="bild"><p>%s</p></body></html>' % (self.path, bild, 'text ' * 200)).encode()
         self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(html))); self.end_headers(); self.wfile.write(html)
     def log_message(self, *a): pass
 srv_ra = hs_.HTTPServer(('127.0.0.1', 0), RefA_); th_.Thread(target=srv_ra.serve_forever, daemon=True).start()
 a_ref = 'http://127.0.0.1:%d' % srv_ra.server_address[1]
+portar_ref = '%d,%d' % (srv_ra.server_address[1], srv_rb.server_address[1])
+lok_ref = (srv_ra.server_address[1], srv_rb.server_address[1])
 u_ref = tmp / 'ref-underlag'; (u_ref / 'prov-ref').mkdir(parents=True)
-upp_ref = {'kandidater': [{'namn': 'lokal', 'adress': a_ref + '/', 'roll': 'hantverk', 'varfor': 'prov', 'sidor': ['/', '/priser'], 'meny': '#meny'}], 'fragor': ['hur ser priser ut?']}
+kand_ref = {'namn': 'lokal', 'adress': a_ref + '/', 'roll': 'hantverk', 'varfor': 'prov', 'sidor': ['/', '/a/b', '/a-b'], 'meny': '#meny'}
+upp_ref = {'kandidater': [kand_ref, {'namn': 'andra', 'adress': a_ref + '/', 'roll': 'bransch', 'varfor': 'prov två', 'sidor': ['/']}], 'fragor': ['hur ser priser ut?']}
 (u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps(upp_ref))
-# ogiltiga uppdrag vägras (slutkod 2) innan något öppnas
-for dalig_, skal_ in (({'kandidater': []}, 'saknar kandidater'), ({'kandidater': [dict(upp_ref['kandidater'][0], namn='Fel Namn')]}, 'namn'),
-                      ({'kandidater': [dict(upp_ref['kandidater'][0], adress='https://user:pw@exempel.se/')]}, 'användaruppgifter'),
-                      ({'kandidater': [dict(upp_ref['kandidater'][0], adress='http://10.0.0.5/')]}, 'lokal eller en IP'),
-                      ({'kandidater': [dict(upp_ref['kandidater'][0], roll='annat')]}, 'roll'), ({'kandidater': [dict(upp_ref['kandidater'][0], sidor=['priser'])]}, 'börjar med /'),
-                      ({'kandidater': [dict(upp_ref['kandidater'][0], meny='x' * 300)]}, 'CSS-väljare'), ({'kandidater': [dict(upp_ref['kandidater'][0], namn='k%d' % i_) for i_ in range(13)]}, 'högst'),
-                      ({'kandidater': [upp_ref['kandidater'][0]], 'kompletterar': 'x'}, 'paket-vNN')):
+# ogiltiga uppdrag vägras (slutkod 2) innan något öppnas; IP-former, lokala namn och icke-standardportar aldrig
+for dalig_, skal_ in (({'kandidater': []}, 'saknar kandidater'), ({'kandidater': [dict(kand_ref, namn='Fel Namn')]}, 'namn'),
+                      ({'kandidater': [dict(kand_ref, adress='https://user:pw@exempel.se/')]}, 'användaruppgifter'),
+                      ({'kandidater': [dict(kand_ref, adress='http://10.0.0.5/')]}, 'riktigt värdnamn'), ({'kandidater': [dict(kand_ref, adress='http://0x7f000001:4999/x')]}, 'riktigt värdnamn'),
+                      ({'kandidater': [dict(kand_ref, adress='http://127.1/')]}, 'riktigt värdnamn'), ({'kandidater': [dict(kand_ref, adress='http://localhost/')]}, 'riktigt värdnamn'),
+                      ({'kandidater': [dict(kand_ref, adress='http://exempel.local/')]}, 'riktigt värdnamn'), ({'kandidater': [dict(kand_ref, adress='https://exempel.se:8443/')]}, 'standardportar'),
+                      ({'kandidater': [dict(kand_ref, adress='http://127.0.0.1:%d/' % srv_rc.server_address[1])]}, 'provundantag'),
+                      ({'kandidater': [dict(kand_ref, roll='annat')]}, 'roll'), ({'kandidater': [dict(kand_ref, sidor=['priser'])]}, 'börjar med /'),
+                      ({'kandidater': [dict(kand_ref, meny='x' * 300)]}, 'CSS-väljare'), ({'kandidater': [dict(kand_ref, namn='k%d' % i_) for i_ in range(13)]}, 'högst'),
+                      ({'kandidater': [kand_ref], 'kompletterar': 'x'}, 'paket-vNN')):
     (u_ref / 'prov-ref' / 'DALIGT.json').write_text(json.dumps(dalig_))
-    u_, fel_ = rf_.las_uppdrag(u_ref / 'prov-ref' / 'DALIGT.json', 'prov-ref', lokalt_ok=True); assert u_ is None and skal_ in fel_, (dalig_, fel_)
-assert rf_.kanon_adress('https://Exempel.SE/sida?x=1#f')[0] == 'https://exempel.se/sida?x=1' and rf_.kanon_adress('http://127.0.0.1/')[1] and rf_.kanon_adress('ftp://x.se/')[1]
+    u_, fel_ = rf_.las_uppdrag(u_ref / 'prov-ref' / 'DALIGT.json', 'prov-ref', lok_ref); assert u_ is None and skal_ in fel_, (dalig_, fel_)
+assert rf_.kanon_adress('https://Exempel.SE/sida?x=1#f')[0] == 'https://exempel.se/sida?x=1' and rf_.kanon_adress('https://xn--lule-snickaren-oib.se/')[1] is None and rf_.kanon_adress('ftp://x.se/')[1]
+assert rf_.tillatet_resursursprung(c_ref + '/b.png', lok_ref) is None and rf_.tillatet_resursursprung(b_ref + '/b.png', lok_ref) == b_ref and rf_.tillatet_resursursprung('https://cdn.exempel.se/f.woff2', ()) == 'https://cdn.exempel.se' and rf_.tillatet_resursursprung('https://www.google-analytics.com/x.js', ()) is None and rf_.tillatet_resursursprung('http://0x7f000001/x', ()) is None
+assert rf_.sidkatalog(1, '/a/b') == '02-a-b' and rf_.sidkatalog(2, '/a-b') == '03-a-b' and rf_.sidkatalog(0, '/') == '01-start'
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--uppdrag', str(tmp / 'utanfor.json')]) == 2, 'uppdraget måste ligga under underlag/<slug>'
+# skrivmålet förankras före första skrivningen, också i torrkörning: en länkad referenser/ vägras
+ute_ref = tmp / 'ref-ute'; ute_ref.mkdir(); (u_ref / 'prov-ref' / 'referenser').symlink_to(ute_ref)
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 2 and not list(ute_ref.iterdir()), 'länkat skrivmål: inget skrivs'
+(u_ref / 'prov-ref' / 'referenser').unlink()
 # torrkörning: paketet skapas utan att sajterna öppnas
-assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt']) == 0
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 0
 pk0 = json.load(open(u_ref / 'prov-ref' / 'referenser' / 'paket-v01' / 'PAKET.json')); assert pk0['torr'] and pk0['kandidater'][0]['sidor'] == [] and (u_ref / 'prov-ref' / 'referenser' / 'paket-v01' / 'lokal').is_dir()
-# riktig insamling mot de lokala servrarna: pass 1 hittar bildservern som resursursprung, pass 2 laddar bilden, tillståndet meny fångas, kakdialogen noteras
-rc_ref = rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt']); assert rc_ref == 0, rc_ref
+# riktig insamling mot de lokala servrarna: pass 1 hittar bildservern som resursursprung, pass 2 laddar bilden, menytillståndet fångas,
+# kakdialogen noteras, /a/b och /a-b får egna kataloger, båda kandidaterna fångade
+rc_ref = rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]); assert rc_ref == 0, rc_ref
 paket_ref = u_ref / 'prov-ref' / 'referenser' / 'paket-v02'
 pk = json.load(open(paket_ref / 'PAKET.json')); k_ref = pk['kandidater'][0]
-assert pk['version'] == 'paket-v02' and pk['alla_ok'] and k_ref['ok'] and k_ref['resursursprung'] == [b_ref], k_ref
-assert [s_['sida'] for s_ in k_ref['sidor']] == ['/', '/priser'] and k_ref['sidor'][0]['tillstand'] == {'meny': '#meny'} and k_ref['sidor'][1]['tillstand'] == {}
+assert pk['version'] == 'paket-v02' and pk['alla_ok'] and k_ref['ok'] and k_ref['resursursprung'] == [b_ref] and pk['kandidater'][1]['ok'], pk
+assert [s_['katalog'] for s_ in k_ref['sidor']] == ['lokal/01-start', 'lokal/02-a-b', 'lokal/03-a-b'] and k_ref['sidor'][0]['tillstand'] == {'meny': '#meny'} and k_ref['sidor'][1]['tillstand'] == {}
 for s_ in k_ref['sidor']:
-    assert s_['ok'] and s_['kvar_blockerade'] == [] and all(o_['status'] == 200 and o_['bilder_laddade'] >= 1 for o_ in s_['observationer'].values()), s_
+    assert s_['ok'] and s_['kvar_blockerade'] == [] and all(o_['status'] == 200 and o_['bilder_laddade'] >= 1 and all(o_['bildfiler'].values()) for o_ in s_['observationer'].values()), s_
     assert any('kakdialog' in b_ for b_ in s_['begransningar']) and 'vy-390-forsta.png' in ' '.join(s_['filer']) and 'vy-1440-ruta-01.png' in ' '.join(s_['filer'])
-assert (paket_ref / 'lokal' / 'start' / 'vy-390-forsta.png').is_file() and (paket_ref / 'lokal' / 'priser' / 'INSPEKTION.json').is_file() and not (paket_ref / 'lokal' / '.pass1').exists()
-assert 'meny' in json.dumps(json.load(open(paket_ref / 'lokal' / 'start' / 'INSPEKTION.json'))['vyer']['390']['tillstand'])
+assert k_ref['sidor'][0]['observationer']['390']['tillstand'] == {'meny': True}
+assert (paket_ref / 'lokal' / '01-start' / 'vy-390-meny.png').is_file() and (paket_ref / 'lokal' / '03-a-b' / 'INSPEKTION.json').is_file() and not (paket_ref / 'lokal' / '.pass1').exists()
+assert json.load(open(paket_ref / 'lokal' / '02-a-b' / 'INSPEKTION.json'))['adress'].endswith('/a/b') and json.load(open(paket_ref / 'lokal' / '03-a-b' / 'INSPEKTION.json'))['adress'].endswith('/a-b')
 md_ref = (paket_ref / 'PAKET.md').read_text(); assert 'Bildval: referenser/paket-v02/' in md_ref and 'resursursprung tillåtna' in md_ref and b_ref in md_ref
-# komplettering: nytt uppdrag med bara det som saknas ger en ny version som pekar på den förra
+# ofullständiga fångster rapporteras som brister, inte som kompletta: 404 på en beställd sida, ett tillstånd som inte lyckas,
+# en egen resurs från ett lokalt ursprung utan provundantag (förblir blockerad)
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [
+    {'namn': 'fyra', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': '404', 'sidor': ['/', '/saknas']},
+    {'namn': 'meny', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'tillstånd', 'sidor': ['/'], 'meny': '#finns-inte'},
+    {'namn': 'cres', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'resurs', 'sidor': ['/c']}]}))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]) == 1
+pk3 = json.load(open(u_ref / 'prov-ref' / 'referenser' / 'paket-v03' / 'PAKET.json')); k3 = {k_['namn']: k_ for k_ in pk3['kandidater']}
+assert not pk3['alla_ok'] and not k3['fyra']['ok'] and k3['fyra']['sidor'][0]['ok'] and not k3['fyra']['sidor'][1]['ok'] and any('status 404' in b_ for b_ in k3['fyra']['sidor'][1]['begransningar']), k3['fyra']
+assert not k3['meny']['ok'] and k3['meny']['sidor'][0]['observationer']['390']['tillstand'] == {'meny': False} and any('tillståndet meny' in b_ for b_ in k3['meny']['sidor'][0]['begransningar']), k3['meny']
+assert not k3['cres']['ok'] and k3['cres']['resursursprung'] == [] and k3['cres']['sidor'][0]['kvar_blockerade'] and any('förblev blockerade' in b_ for b_ in k3['cres']['sidor'][0]['begransningar']), k3['cres']
+# komplettering: ett nytt uppdrag med bara det som saknas ger en komplett ny version som ärver oförändrat material från den förra
 (u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'lokal', 'adress': a_ref + '/', 'roll': 'hantverk', 'varfor': 'mobilmenyn', 'sidor': ['/'], 'meny': '#meny'}], 'kompletterar': 'paket-v02'}))
-assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt']) == 0
-pk3 = json.load(open(u_ref / 'prov-ref' / 'referenser' / 'paket-v03' / 'PAKET.json')); assert pk3['kompletterar'] == 'paket-v02' and pk3['alla_ok']
-# Bildval i REFERENSER.md pekar in i paketet och löses av referensval
-(u_ref / 'prov-ref' / 'REFERENSER.md').write_text('## lokal\n\nBildval: referenser/paket-v02/lokal/priser/vy-390-ruta-01.png — prislistan — Fråga: hur tät är listan?\n')
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]) == 0
+paket4 = u_ref / 'prov-ref' / 'referenser' / 'paket-v04'; pk4 = json.load(open(paket4 / 'PAKET.json')); k4 = {k_['namn']: k_ for k_ in pk4['kandidater']}
+assert pk4['kompletterar'] == 'paket-v02' and pk4['alla_ok'] and set(k4) == {'lokal', 'andra'} and k4['andra'].get('arv') == 'paket-v02' and 'arv' not in k4['lokal']
+assert (paket4 / 'andra' / '01-start' / 'vy-390-forsta.png').is_file() and len(k4['lokal']['sidor']) == 1 and (paket4 / 'lokal' / '01-start' / 'vy-390-meny.png').is_file() and not (paket4 / 'lokal' / '02-a-b').exists()
+assert 'ärvd från paket-v02' in (paket4 / 'PAKET.md').read_text()
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [kand_ref], 'kompletterar': 'paket-v09'}))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 2, 'ett paket som inte finns kan inte kompletteras'
+# Bildval i REFERENSER.md pekar in i den nya versionen, också för det ärvda materialet, och löses av referensval
+(u_ref / 'prov-ref' / 'REFERENSER.md').write_text('## andra\n\nBildval: referenser/paket-v04/andra/01-start/vy-390-ruta-01.png — startsidan — Fråga: hur tät är listan?\n## lokal\n\nBildval: referenser/paket-v04/lokal/01-start/vy-390-meny.png — mobilmenyn — Fråga: hur öppnas den?\n')
 import referensval as rv_ref  # noqa: E402
-bv_ = rv_ref.bildval('prov-ref', u_ref); assert len(bv_) == 1 and bv_[0]['fel'] is None and bv_[0]['fil'].is_file() and rv_ref.referensnamn(bv_[0]['rel']) == 'paket-v02'
+bv_ = rv_ref.bildval('prov-ref', u_ref); assert len(bv_) == 2 and all(b_['fel'] is None and b_['fil'].is_file() for b_ in bv_) and rv_ref.referensnamn(bv_[0]['rel']) == 'paket-v04'
 # tjänstens verktyg referens: byggets slug och uppdrag under underlag/<slug>; annat vägras
 rot_ref = tmp / 'ref-rot'; (rot_ref / 'underlag' / 'prov-bygge').mkdir(parents=True); (rot_ref / 'kunder' / 'prov-bygge').mkdir(parents=True)
 (rot_ref / 'underlag' / 'prov-bygge' / 'REFERENSUPPDRAG.json').write_text('{}')
 ga_ref = lambda a_: wt.granska_anrop('referens', a_, 'prov-bygge', ['exempel.se'], rot_ref, 'K1', lambda adr_, k_: (True, None))  # noqa: E731
 kmd_ref, fel_ref = ga_ref(['prov-bygge', '--uppdrag', 'underlag/prov-bygge/REFERENSUPPDRAG.json']); assert fel_ref is None and 'referens.py' in ' '.join(kmd_ref), fel_ref
-assert ga_ref(['annan', '--uppdrag', 'underlag/prov-bygge/REFERENSUPPDRAG.json'])[1] and ga_ref(['prov-bygge', '--uppdrag', '/etc/passwd'])[1] and ga_ref(['prov-bygge', '--underlag', str(tmp)])[1] and ga_ref(['prov-bygge', '--tillat-lokalt'])[1]
+assert ga_ref(['annan', '--uppdrag', 'underlag/prov-bygge/REFERENSUPPDRAG.json'])[1] and ga_ref(['prov-bygge', '--uppdrag', '/etc/passwd'])[1] and ga_ref(['prov-bygge', '--underlag', str(tmp)])[1] and ga_ref(['prov-bygge', '--tillat-lokalt', '80'])[1]
 assert ga_ref(['prov-bygge', '--torr'])[1] is None
 # sandlådat läge: steget delegeras till tjänsten i stället för att köras i byggsessionen (här: tjänsten nås inte → slutkod 2, inget paket)
 r_del = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'referens.py'), 'prov-ref'], capture_output=True, text=True, cwd=str(ROOT), timeout=60,
@@ -2743,7 +2778,7 @@ assert r_del.returncode == 2 and 'nås inte' in (r_del.stdout + r_del.stderr), (
 import sandlada as sl_ref  # noqa: E402
 assert wt.tillaten_vard('assets.awwwards.com', wt.tillatna_varden(sl_ref.domanlista(ROOT))) and not wt.tillaten_vard('evil.example', wt.tillatna_varden(sl_ref.domanlista(ROOT))), 'jokertecknet för awwwards (belagt behov)'
 assert 'referens.py' in (ROOT / 'kor.sh').read_text() and 'REFERENSUPPDRAG.json' in (ROOT / '.claude' / 'skills' / 'bygg-sajt' / 'SKILL.md').read_text()
-srv_ra.shutdown(); srv_rb.shutdown()
+srv_ra.shutdown(); srv_rb.shutdown(); srv_rc.shutdown()
 print('referenssteget ok')
 
 
