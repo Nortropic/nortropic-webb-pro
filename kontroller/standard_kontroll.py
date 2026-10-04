@@ -634,6 +634,32 @@ def smaknappar(stil):
         len(ys), ys[0]['text'], ys[0]['bredd'], ys[0]['hojd'])} for s, ys in sorted(per_sida.items())]
 
 
+def konsolfel(inspektion):
+    """Byggstandarden 8.7 ur provets inspektion (inspektera.mjs per sida och vy): inga fel i webbläsarens konsol och
+    inga sidfel. En CSP-överträdelse, ett skript, typsnitt eller en bild som inte laddas syns där (designprovet
+    2026-10-05: inbäddade typsnitt som CSP:n vägrade). Ej mätt är inte godkänt."""
+    rot = Path(inspektion)
+    filer = sorted(rot.glob('*/INSPEKTION.json'))
+    if not filer:
+        return [{'punkt': '8.7', 'sida': '(alla)', 'text': 'konsolen är inte läst: provets inspektion (prov/inspektion/*/INSPEKTION.json) saknas'}]
+    ut = []
+    for f in filer:
+        sida = '/' if f.parent.name == 'hem' else '/%s/' % f.parent.name
+        try:
+            d = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            ut.append({'punkt': '8.7', 'sida': sida, 'text': 'inspektionen är oläsbar: %s' % f.name})
+            continue
+        sida = urlparse(str(d.get('adress') or '')).path or sida  # sidans väg ur adressen, inte katalognamnet
+        fel = []
+        for vy, r in sorted((d.get('vyer') or {}).items()):
+            fel += ['%s: %s' % (vy, str(x.get('text', ''))[:160]) for x in r.get('konsol') or [] if x.get('typ') == 'error']
+            fel += ['%s sidfel: %s' % (vy, str(x.get('text', ''))[:160]) for x in r.get('sidfel') or []]
+        if fel:
+            ut.append({'punkt': '8.7', 'sida': sida, 'text': '%d fel i webbläsarens konsol, t.ex. %s' % (len(fel), fel[0])})
+    return ut
+
+
 def egna_bilder(dist):
     """Verksamhetens egna fotografier i bygget: olika rasterbilder i <img>, utan logotyper och ikoner."""
     srcs = set()
@@ -756,7 +782,7 @@ def utgaende(dist, tidsgrans=8):
     return [{'url': u, 'svar': svar[u], 'sidor': sorted(set(s))} for u, s in lankar.items()]
 
 
-def rapport(bygge, stil=None, bestallning=None, verksamhet=None):
+def rapport(bygge, stil=None, bestallning=None, verksamhet=None, inspektion=None):
     fel, info, n = granska(bygge)
     lankar = utgaende(bygge)
     for x in lankar:
@@ -767,6 +793,8 @@ def rapport(bygge, stil=None, bestallning=None, verksamhet=None):
     if stil:
         fel += klickytor(stil)
         info += smaknappar(stil)
+    if inspektion:
+        fel += konsolfel(inspektion)
     antal = egna_bilder(bygge)
     if antal < 5 and not bestallning_finns(bestallning):
         fel.append({'punkt': '9.3', 'sida': '(alla)', 'text': '%d egna bilder och ingen beställning: beställ bilderna av verksamheten i underlag/<slug>/BESTALLNING.md (ägarens domar L2, L3)' % antal})
@@ -802,13 +830,14 @@ def main(argv=None):
     p.add_argument('--stil', help='STIL.json från stil.mjs, för klickytorna (3.3)')
     p.add_argument('--bestallning', help='underlag/<slug>/BESTALLNING.md, för bildkravet (9.3)')
     p.add_argument('--verksamhet', help='underlag/<slug>/VERKSAMHET.json, för den publika adressen (7.4)')
+    p.add_argument('--inspektion', help='prov/inspektion/ med INSPEKTION.json per sida, för konsolen (8.7)')
     a = p.parse_args(argv)
     krav_vag(a.ut, "--ut")
     krav_vag(getattr(a, "md", None), "--md")
     if not Path(a.bygge).is_dir():
         print('finns inte: ' + a.bygge, file=sys.stderr)
         return 2
-    r = rapport(Path(a.bygge), a.stil, a.bestallning, a.verksamhet)
+    r = rapport(Path(a.bygge), a.stil, a.bestallning, a.verksamhet, a.inspektion)
     Path(a.ut).write_text(json.dumps(r, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if a.md:
         Path(a.md).write_text(markdown(r), encoding='utf-8')

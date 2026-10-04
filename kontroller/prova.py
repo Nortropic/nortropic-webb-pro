@@ -601,6 +601,7 @@ def prova(slug, snabb=False):
     cmd = [PY, '-B', str(KONTROLLER / 'standard_kontroll.py'), '--bygge', str(dist), '--ut', str(prov / 'standard.json'),
            '--md', str(prov / 'standard.md')]
     cmd += ['--stil', str(prov / 'stil' / 'STIL.json')]  # alltid: saknad eller fallen stilmätning är ett fel i 3.3, inte grönt
+    cmd += ['--inspektion', str(prov / 'inspektion')]  # alltid: konsolen läses ur inspektionen (8.7); saknad inspektion är ett fel
     cmd += ['--bestallning', str(underlag / 'BESTALLNING.md'), '--verksamhet', str(verksamhet)]
     rc, out = kor(cmd)
     try:

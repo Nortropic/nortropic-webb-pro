@@ -14,6 +14,10 @@ export default defineConfig({
   //   provider: fontProviders.local(), name: 'Familj', cssVariable: '--typsnitt', fallbacks: ['sans-serif'],
   //   options: { variants: [{ src: ['./src/assets/fonts/familj-latin-wght-normal.woff2'], weight: '400 900', style: 'normal' }] },
   // }],
+  // Typsnittsfiler bäddas aldrig in som data:-adresser i CSS: CSP:n nedan (default-src 'self') vägrar dem, och en liten
+  // delmängd (latin-ext, kyrilliska) laddas ändå bara när sidan använder de tecknen. Designprovet 2026-10-05: två av
+  // ateljéns tre riktningar fick konsolfel av inbäddade delmängder ur @fontsource (byggstandarden 8.7).
+  vite: { build: { assetsInlineLimit: (fil) => (/\.(woff2?|ttf|otf|eot)$/i.test(fil) ? false : undefined) } },
   // CSP som metatagg med hashar (byggstandarden 8.2): skript bara med hash, allt från egen domän, stilattribut
   // tillåtna (style="" används för bildförhållanden och variabler). Provad 2026-10-02 på ett riktigt bygge: 0 överträdelser.
   security: {

@@ -559,5 +559,10 @@ print(' '.join(g for g in ('seo','axe','spill','standard','design','resor') if s
 if [ "$RC" -ne 1 ] || [ -n "$SAKNAS" ]; then
   echo "FEL: väntade rött i seo, axe, spill, standard, design och resor; gröna ändå: ${SAKNAS:-inga} (rc $RC)"; exit 1
 fi
-echo "   rött där det skulle (seo, axe, spill, standard, design, resor)"
+"$ROOT/.venv/bin/python" -c "
+import json; st = json.load(open('$ROOT/kunder/rokprov-mall/prov/standard.json'))
+k = [x for x in st['fel'] if x['punkt'] == '8.7']
+assert any(x['sida'] == '/om/' and '404' in x['text'] for x in k) and not any(x['sida'] != '/om/' for x in k), k
+" || { echo "FEL: konsolens fel (8.7) syns inte i standarden för den trasiga bilden på /om/"; exit 1; }
+echo "   rött där det skulle (seo, axe, spill, standard, design, resor; konsolen 8.7 på /om/)"
 echo "rökprovet OK"

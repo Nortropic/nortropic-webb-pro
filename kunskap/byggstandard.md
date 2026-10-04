@@ -111,6 +111,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 | 8.4 npm audit utan kända sårbarheter i produktion. | L | lansering |
 | 8.5 Inga icke-nödvändiga kakor före samtycke; helst kakfri analys utan banner. | D, L | `standard` (inga tredjepartsresurser), juridik |
 | 8.6 Integritetspolicy med ansvarig, ändamål, rättslig grund, lagringstid, rättigheter och kontakt. | L | lansering |
+| 8.7 Inga fel i webbläsarens konsol och inga sidfel på någon sida i provets vyer: en CSP-överträdelse, ett skript, typsnitt eller en bild som inte laddas syns där. Typsnittsfiler bäddas inte in som data:-adresser (mallens `astro.config.mjs`). | D | `standard` (ur provets inspektion) |
 
 ## 9. Innehåll och konvertering (W)
 
