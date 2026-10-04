@@ -102,9 +102,10 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    eller är märkt `antagande`. Kundernas omdömen ordagrant med källa: skriv vilken tjänst som tillhandahåller dem
    (källan, inte katalogen som visar dem vidare; Hitta och Hantverkskollen visar till exempel Reco-omdömen), med
    raden ur den hämtade sidan som belägg. Konkurrenterna: vad de gör och vad som skiljer.
-5. **Det specifika:** avsluta RESEARCH.md med en lista "Bara de har": minst tio konkreta saker som ingen konkurrent
-   kan säga om sig själv (namn, år, plats, metod, material, citat, siffra, bild). Det är råvaran för allt som följer.
-   Hittar du färre än fem: skriv det rakt, det är ett fynd.
+5. **Det specifika:** avsluta RESEARCH.md med en lista "Bara de har": sök efter minst tio konkreta saker som ingen
+   konkurrent kan säga om sig själv (namn, år, plats, metod, material, citat, siffra, bild). Den är råvaran för
+   positioneringen, bildspråket och gestaltningen. Hittar du färre än fem: skriv det rakt, det är ett fynd. Listan är
+   ett researchmål, ingen strykregel: en sektion som svarar på en praktisk fråga behöver inte bära något ur den.
 
 ## Steg 2 — Diagnos av nuvarande sajt
 
@@ -133,6 +134,11 @@ Har de ingen sajt: skriv det, och att ribba 1 då är deras Google-profil och so
 
 ## Steg 3 — Brief (definition)
 
+**Prospektdemo eller kunduppdrag.** Finns `underlag/<slug>/UPPDRAG.md` (`kunskap/uppdrag-mall.md`) är det ett beställt
+kunduppdrag: läs det först; målgruppen och uppgiften, det lyckade resultatet, de bekräftade fakta, materialet och
+integrationerna och den primära handlingen där styr briefen och skrivs aldrig om till antaganden. Annars är det en
+prospektdemo: briefen är en hypotes ur offentligt material, och skriv det överst i den.
+
 Läs `kunskap/brief-mall.md`, `kunskap/beredning.md` och `kunskap/juridikflaggor.md`, och `kunskap/lokal-synlighet.md`
 om verksamheten är lokal (hoppa över verktygen och profilskapandet där; det som gäller bygget är samma namn, adress
 och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRIEF.md`:
@@ -140,15 +146,18 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
 - verksamhetsmål och vad sajten ska ändra
 - målgrupper, med belägg ur omdömen och underlag
 - tre till fem toppuppgifter i besökarens ord, rangordnade (ur omdömena och frågorna kunderna ställer)
-- en primär handling och hur den fungerar utan JavaScript (telefon, mejl eller deras befintliga bokningssystem)
+- en primär handling som följer den viktigaste toppuppgiften (ring, boka, begär offert, beställ, hitta hit), med
+  skäl ur underlaget, och hur den fungerar utan JavaScript (telefonen, mejlen eller deras befintliga boknings- eller
+  beställningssystem). Telefonen är primär när kunderna ringer; en verksamhet där kunderna bokar eller beställer
+  får bokningen eller beställningen som primär handling
 - framgångsmått
 - krav i EARS-form, tre till åtta stycken, ett per toppuppgift och ett för den primära handlingen: "När [situation],
   ska sajten [beteende]". Exempel: "När en besökare öppnar startsidan i mobilen, ska telefonnumret synas utan skroll."
   Granskaren prövar varje krav.
 - sajtkarta: så få sidor som toppuppgifterna kräver, oftast tre till sju, men en egen sida per huvudtjänst
   (byggstandarden 7.5), plus kontaktsidan med formuläret, tacksidan och integritetssidan
-- skriftlig förfrågan: telefonen är den primära handlingen, men den får aldrig vara den enda vägen. Formuläret på
-  kontaktsidan följer `kunskap/forfragan.md`; skriv vad tacksidan lovar och när, ur underlaget
+- skriftlig förfrågan: den primära handlingen får aldrig vara den enda vägen; telefonen och en skriftlig väg finns
+  alltid. Formuläret på kontaktsidan följer `kunskap/forfragan.md`; skriv vad tacksidan lovar och när, ur underlaget
 - vilka saker ur "Bara de har" som bär vilken sida
 - ton: fem formuleringar ur deras egna ord eller kundernas
 - juridikflaggor (cookies, personuppgifter, bilder)
@@ -222,8 +231,11 @@ Läs `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`, `kunskap/seo.m
 `kunskap/seo-lokal.md`.
 
 Skriv all text i `underlag/<slug>/INNEHALL.md` innan något ritas: per sida title (högst 60 tecken), description
-(högst 155), h1, sektioner, knappar. Under varje sektion: raden `Specifikt:` med den sak ur "Bara de har" som
-sektionen bär. Saknas den, stryk sektionen. Under `Specifikt:` står raden `Belägg:` med källan i underlaget (fil och
+(högst 155), h1, sektioner, knappar. Under varje sektion: raden `Fråga:` med den fråga besökaren har som sektionen
+svarar på (ur toppuppgifterna, omdömena eller frågorna kunderna ställer); en sektion utan en sådan fråga stryks. När
+sektionens uppgift är att visa varför just de (första vyn, beviset, om) står raden `Specifikt:` med den sak ur
+"Bara de har" som den bär. En praktisk sektion (hur en offert går till, vilka orter, priser, hur en bokning ändras)
+får likna konkurrenternas när svaret är korrekt, belagt och användbart. Under raderna står `Belägg:` med källan i underlaget (fil och
 avsnitt, URL, eller omdömets namn och datum) för varje mening som säger hur verksamheten arbetar (vem som kommer,
 hembesök, pris, öppettider), vad den gjorde i ett jobb, vem som gör vad eller vad en kund sagt, också ord som
 "senast", "alltid", "två gånger" och "nyckelfärdigt". Saknas källan: skriv det källan faktiskt säger, eller stryk
@@ -250,14 +262,16 @@ Rätta varje fynd, eller motivera det om frasen är rätt i verksamhetens egen r
 rapporten är aldrig en grind). Ett kundcitat får aldrig berömma något som sajten inte har (dom L3: citatet om
 formuläret på en sajt utan formulär). Innehåll med slutdatum, som en platsannons eller ett erbjudande, får datumet
 noterat i rapporten så att det kan tas bort i tid (dom L1). Läs sedan texten högt för dig själv som en kund i orten:
-kunde någon mening stå hos en konkurrent? Skriv om den. Gå sedan igenom texten med skillen `humanizer` i
+kunde en mening som ska säga varför just de stå hos en konkurrent? Skriv om den. Ett praktiskt svar skrivs inte om
+för att låta annorlunda; det ska vara rätt och lätt att använda. Gå sedan igenom texten med skillen `humanizer` i
 verktygslådan, med briefens fem formuleringar som röstprov, och kör copykontrollen igen. Gå igenom Belägg-raderna en
 sista gång: rösten får ändra orden, aldrig vad som påstås.
 
 ## Steg 5 — Koncept och bygge (design)
 
 Läs först `kritik/GRANSKARE.md`: så bedömer de två oberoende granskarna sajten, på fem kriterier med betyg och
-trösklar. Bygg för att klara den. Läs sedan `kunskap/externa/anthropic-frontend-design-SKILL.md`,
+trösklar. Bygg för att klara den. Metodreglerna nedan står med källa, vår tolkning och försök i
+`kunskap/metodregler.md`; en regel märkt oprövad är en hypotes, inte ett facit. Läs sedan `kunskap/externa/anthropic-frontend-design-SKILL.md`,
 `kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md` (principerna i §0 och §4, inte dess stack eller skelett),
 `kunskap/externa/emil-emil-design-eng-SKILL.md`, `kunskap/bygge-referens.md`, `kunskap/bild.md`,
 `kunskap/externa/emil-mobile-native-SKILL.md`, och `kunskap/formularsakerhet.md` om sajten får formulär.
@@ -281,10 +295,15 @@ KONCEPT.md.
    bär, ljust eller mörkt, tätt eller luftigt. Antal typsnittskategorier, motivets platser och sektionsformer är inga
    punkter att bocka av: de prövas mot kompositionen, och en riktning bedöms på vad den gör för sidan, inte på
    uppfyllda instruktioner (Codex 2026-10-04: fasta recept belönar uppfyllda punkter utan att förbättra
-   kompositionen). Ingen halmgubbe; varje riktning ska kunna vinna. Välj en med skäl och skriv den som **exakt
-   specifikation** innan någon kod skrivs: färger
-   som hex med roller, typsnitt och typografisk skala, radie, avståndssystem, sektionsordning och form per sida, med
-   skäl mot strukturmönstren i UPPTAGNA-VAL.md. Modellen följer uttryckliga specifikationer precist. De två starkaste
+   kompositionen). Ingen halmgubbe; varje riktning ska kunna vinna. Välj en med skäl i KONCEPT.md och skriv den
+   valda som **DESIGN.md** innan någon sida byggs (designkontraktet i `kunskap/bygge-referens.md`):
+   `kunder/<slug>/sajt/DESIGN.md` med färger som hex med roller, typsnitt och typografisk skala per roll, radie,
+   avståndssystem och spalter per bredd i blocket `json design`, och i prosan kompositionen, sektionsordningen och
+   formen per sida, bildbehandlingen, de responsiva reglerna och de avsiktliga avvikelserna från huvudreferensen,
+   med skäl mot strukturmönstren i UPPTAGNA-VAL.md. Varje värde märks `uppmätt:` (med var, ur referenspaketets
+   EXTRAKT), `uppskattat:` (ur en bild) eller `valt:` (för kunden, med skäl). Kör `.venv/bin/python
+   kontroller/design.py <slug> --skriv`: värdena blir `src/styles/design.css`, och sidornas CSS använder
+   variablerna (provets grind `design`). Ändras designen under bygget ändras DESIGN.md först. De två starkaste
    riktningarna blir riktningsfrågan i FRAGOR.json, med en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad
    **Visuell tes**: stämning, material och energi i en mening, som namnger ett material eller en plats ur "Bara de
    har".
@@ -302,8 +321,10 @@ KONCEPT.md.
    och `--om` efter en förkastning vägras där). Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/` (koden i
    `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och när vinnarens startsida bygger på sin nya plats står
    den redan som `src/pages/index.astro` (`VINNARE.json`: `overford`); annars säger `overford` varför, och du bygger
-   startsidan ur `kod/index.astro` för hand utan att ändra riktningen. Bygg vidare ur den (flytta dess stil till
-   Bas.astro och gemensam CSS när de andra sidorna behöver den, utan att ändra hur startsidan ser ut), bygg
+   startsidan ur `kod/index.astro` för hand utan att ändra riktningen. Skriv DESIGN.md ur vinnarens stiltavla och
+   startsida (värdena märkta `uppmätt:` med var i vinnarens kod de står) och kör `kontroller/design.py <slug>
+   --skriv`. Bygg vidare ur startsidan (flytta dess stil till Bas.astro och gemensam CSS med DESIGN.md:s variabler
+   när de andra sidorna behöver den, utan att ändra hur startsidan ser ut), bygg
    undersidorna ur `kod/undersida/` och värdena i `kod/stiltavla/`, och håll dig till riktningen. Provet jämför
    startsidan pixel för pixel mot vinnaren (`prov/vinnare/VINNARJAMFORELSE.md`; förändring, inte kvalitet);
    granskaren jämför den mot vinnarens bilder, och en annan riktning utan ny ateljéomgång är ett blockerande fynd.
@@ -319,13 +340,16 @@ KONCEPT.md.
    systemtypsnitt, verksamhetens bilder via `astro:assets`, ingen JavaScript som inte behövs, JSON-LD med den mest
    specifika schema.org-typen sanningsenligt ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och
    telefonnumret som tel-länk, `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
-   färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga bokning.
-   **Mobilens första vy** (ägarens domar L1, L2 och A/B 2026-10-02): sidhuvudet på en rad med namn och numret som
-   knapp, menylänkarna synliga utan hamburgare med korta etiketter på en rad, och ryms de inte, två rader, aldrig en
-   rad som rullar dold i sidled (L4), sedan rubriken, ringknappen och ett av verksamhetens egna foton i första
-   skärmen när de har foton. En fast list längst ned på mobil bär både Ring och Skriv (till formuläret) och skymmer
-   inte sidfotens sista länk. När listen syns står samma handling inte som knapp en gång till i första vyn, och
-   numret står högst två gånger: listen bär det, sidhuvudet behöver det inte (L4, L5). Stilrapporten mäter det.
+   färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga
+   boknings- eller beställningssystem.
+   **Mobilens första vy** (ägarens domar L1, L2 och A/B 2026-10-02): sidhuvudet på en rad med namn och den primära
+   handlingen som knapp (numret när kunderna ringer, bokningen när de bokar), menylänkarna synliga utan hamburgare
+   med korta etiketter på en rad, och ryms de inte, två rader, aldrig en rad som rullar dold i sidled (L4), sedan
+   rubriken, den primära handlingen och ett av verksamhetens egna foton i första skärmen när de har foton. En fast
+   list längst ned på mobil bär den primära handlingen och Skriv (till formuläret), och Ring när den primära
+   handlingen är en annan, och skymmer inte sidfotens sista länk. När listen syns står samma handling inte som knapp
+   en gång till i första vyn, och numret står högst två gånger: listen bär det, sidhuvudet behöver det inte (L4, L5).
+   Stilrapporten mäter det.
    **Brödsmulor** på varje undersida med mallens `src/components/Brodsmulor.astro` (synlig "Du är här" och
    BreadcrumbList), mellan sidhuvudet och `<main>`; standarden prövar det. **Formuläret** behåller mallens
    felbesked vid fälten och telefonfältets `pattern`; etiketterna och beskeden skrivs i verksamhetens ord.

@@ -1,0 +1,2 @@
+/* Ingen design än. Skriv kunder/<slug>/sajt/DESIGN.md (kunskap/bygge-referens.md, Designkontraktet) och kör
+   .venv/bin/python kontroller/design.py <slug> --skriv: den här filen blir då CSS-variablerna ur DESIGN.md. */

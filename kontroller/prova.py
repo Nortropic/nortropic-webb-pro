@@ -5,6 +5,8 @@ Bygger sajten själv (npm run build i kunder/<slug>/sajt), serverar dist/ på 12
 
 Grindar (röd grind = sajten är inte klar):
   bygge        npm run build lyckas och dist/ har minst en sida
+  design       DESIGN.md giltig, design.css genererad ur den, variablerna i bygget med DESIGN.md:s värden och använda av
+               startsidan (kontroller/design.py; designkontraktet, Codex 2026-10-04)
   seo          seo_kontroll.py i lanseringsläge: 0 fynd
   standard     standard_kontroll.py: byggstandardens maskinkontrollerbara D-punkter (kunskap/byggstandard.md), 0 fel
   axe          0 överträdelser med påverkan serious/critical, mobil och desktop
@@ -357,6 +359,14 @@ def prova(slug, snabb=False):
         g['bygge'] = grind(False, 'npm run build misslyckades' if rc else 'dist/ saknar sidor', 'prov/bygge.log', svans(out))
         return status
     g['bygge'] = grind(True, '%d sidor: %s' % (len(rutter), ', '.join(rutter)), 'prov/bygge.log')
+    # designkontraktet (Codex 2026-10-04, glapp 1): DESIGN.md är den aktuella designen, design.css är genererad ur den
+    # och sajtens CSS använder variablerna; när REFERENSER.md pekar ut en huvudreferens bär DESIGN.md samma
+    sys.path.insert(0, str(KONTROLLER))
+    import design as designkontrakt
+    dk = designkontrakt.kontroll(slug)
+    g['design'] = grind(dk['ok'], 'DESIGN.md giltig, design.css aktuell, variablerna används' if dk['ok'] else '%d fel' % len(dk['fel']),
+                        'sajt/DESIGN.md', '\n'.join(dk['fel'] + dk['info']) or None)
+    status['design_sha256'] = dk.get('sha')
     status['dist_sha256'] = dist_hash(dist)
     status['sidor'] = rutter
     provsidor = rutter[:MAX_SIDOR]
@@ -457,7 +467,8 @@ def prova(slug, snabb=False):
         for r in provsidor:
             namn = 'hem' if r == '/' else r.strip('/').replace('/', '-')
             ut = prov / 'inspektion' / namn
-            rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'inspektera.mjs'), '--adress', srv.url + r, '--ut', str(ut), '--vyer', '390,768,1440'], timeout=300)
+            rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'inspektera.mjs'), '--adress', srv.url + r, '--ut', str(ut), '--vyer', '390,768,1440']
+                          + (['--extrahera', 'standard'] if r == '/' else []), timeout=300)  # startsidan mäts för jämförelsen med DESIGN.md
             for vy in ('390', '1440'):
                 if (ut / ('vy-%s-ruta-01.png' % vy)).is_file():
                     continue  # inspektionen har skrollat fram rutorna själv
@@ -479,6 +490,13 @@ def prova(slug, snabb=False):
             info['rutor'] = '; '.join(rutinfo)
         info['skarmbilder'] = ('prov/inspektion/<sida>/vy-<bredd>-forsta.png och vy-<bredd>-ruta-NN.png, helsidan i skärmhöga '
                                'rutor (titta på dem; ett textträd är inte bildseende). -hela.png är nedskalad och visar bara rytmen.')
+        # startsidans uppmätta typsnitt och ytor mot DESIGN.md (underlag för granskaren, ingen dom)
+        if dk.get('ok') or dk.get('sha'):
+            try:
+                avv = designkontrakt.jamfor(designkontrakt.las((sajt / 'DESIGN.md').read_text(encoding='utf-8'))[0] or {}, prov / 'inspektion' / 'hem')
+                info['designavvikelser'] = ('%d avvikelser mellan startsidans mätning och DESIGN.md' % len(avv) + ''.join('\n  - ' + x for x in avv[:10])) if avv else 'inga: startsidans renderade typsnitt och största ytor stämmer med DESIGN.md'
+            except (OSError, ValueError, KeyError, TypeError) as e:
+                info['designavvikelser'] = 'kunde inte jämföras: %s' % e
         # bygget mot ateljéns vinnare (designprovet 2026-10-04, steg 4): startsidans första vy och helsida, pixel för pixel
         if (underlag / 'atelje' / 'VINNARE.json').is_file():
             try:  # informationssteg: ett fel här fäller aldrig hela provet
@@ -567,7 +585,7 @@ def markdown(s):
     return '\n'.join(rad) + '\n'
 
 
-GRINDAR = ('bygge', 'seo', 'standard', 'axe', 'lighthouse', 'spill', 'utan-js')
+GRINDAR = ('bygge', 'design', 'seo', 'standard', 'axe', 'lighthouse', 'spill', 'utan-js')
 
 
 def main(argv=None):

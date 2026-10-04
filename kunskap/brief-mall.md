@@ -76,12 +76,19 @@ referens ursprung, källtyp, öppnad, vad som tas, vad som förkastas och varfö
 professionella referenser för jämförelse; palett, layout och typsnitt får kopieras som utgångspunkt, med vår touch
 och verksamhetens material ovanpå (`referenser-professionella.md`).
 
+Riktningen dokumenteras i fyra artefakter med var sitt ansvar (Codex 2026-10-04): referenspaketet
+(`underlag/<slug>/referenser/paket-vNN/`) med frysta observationer, bilder, mätvärden, källor och begränsningar, och
+REFERENSER.md med huvudreferensen och Bildval; `KONCEPT.md` med prövade alternativ, beslutet och varför de andra
+förkastades; `kunder/<slug>/sajt/DESIGN.md` med den aktuella designen: exakta värden (som genererar sajtens
+CSS-variabler, `kontroller/design.py`), komposition, bildbehandling, responsiva regler och avsiktliga avvikelser från
+huvudreferensen; och den valda prototypen (ateljéns vinnare) som körbar gestaltning som förs vidare.
+
 ## §8 Bild
 
 Bildinventering (källa, kategori, upplösning, användbar i första vyn, rättigheter, anspråk), bildspår (foto-först,
 bevis-först, typografi-först) med skäl, behandling som val (`bild.md`), platsplan (bildplats · sida · källa ·
-anspråk · status), fotouppdrag till kunden när material saknas. Genererade eller köpta bilder framställs aldrig som
-kundens verkliga personer, projekt, meriter eller omdömen.
+anspråk · status), fotouppdrag till kunden när material saknas. Stockbilder och genererade bilder används inte
+(ägarens dom, `bild.md`): saknas egna bilder bär typografin och bilderna beställs.
 
 ## §9 Teknik
 
@@ -115,13 +122,13 @@ behöver inte invänta hela kundprojektets ramar; okända sakfakta får samtidig
 
 ## Skapandeöverlämning och konsekvens
 
-Vid ny formgivning eller större omarbetning producerar briefarbetet SKAPARUPPDRAG.md och
-SKAPARUNDERLAG.json enligt skapandeunderlag.md. Gör behov → källa/status → motiverad lösning → resurs →
-prövning läsbart; kundens behovs-id och aktuella intervju/exportrevision följer med när de finns. Den korta
-skapandeingången skiljer fasta fakta, öppna frågor och fria designhypoteser. Referensrollerna bransch,
-hantverk och UX får överlappa; urvalsskäl och faktisk observation ersätter lokalitets-/betygsfilter.
+Gör behov → källa/status → motiverad lösning → resurs → prövning läsbart i briefen; skilj fasta fakta, öppna
+frågor och fria designhypoteser. Ett beställt kunduppdrag har dessutom `underlag/<slug>/UPPDRAG.md`
+(`kunskap/uppdrag-mall.md`) med det kunden bekräftat; i en prospektdemo är briefen en hypotes ur offentligt
+material. Referensrollerna bransch, hantverk och UX får överlappa; urvalsskäl och faktisk observation ersätter
+lokalitets-/betygsfilter.
 
 Planera första representativa rendering med riktigt innehåll, bild och relevant interaktion på mobil och
-större vy. Pröva olika riktningar efter osäkerheten; varken enaxelmetod eller visst antal är obligatoriskt.
-Senare rättning beskriver direkt/indirekt påverkan i GRANSKNINGSFOKUS.md enligt konsekvensgranskning.md.
+större vy (ateljén: hela startsidan och början av en undersida). Pröva olika riktningar efter osäkerheten; varken
+enaxelmetod eller visst antal är obligatoriskt, och alla förslag ska kunna underkännas.
 Kärnpaketet hålls fokuserat, med källor och nödvändig fördjupning tillgängliga.

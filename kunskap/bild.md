@@ -1,79 +1,63 @@
-# Bild — val, licens, autenticitet, art direction, beskärning, storlekar och optimering
+# Bild — funktion, äkthet, rättigheter, beskärning, storlekar och optimering
 
-Professionsfil (HELHET-20260927, avsnitt 5). Laddas i steget `brief` (§8) och `bygge`. Verktygen i `verktyg/bild/` (Digitalas verktyg, finns inte här)
-(`treatment.mjs`, `brand.mjs`) är återvunna ur det arkiverade repot (revision `e4c8c52`, 2026-09-10) som körbara
-verktyg, oförändrade i kod; fyra kommentarsrader om det gamla sammanhanget (nodnummer, slot-schema.md, launch.js) är ersatta; körbevis 2026-09-27 med `sharp` 0.34.4 (Apache-2.0, libvips 8.17.2). Inte återinförda: anskaffning
-genom bildgenereringstjänst (`fetch-images.mjs`, fal.ai: kräver konto och kostnad, ägarbeslut per kund) och den
-mekaniska gallringen `score.mjs` (fasta trösklar som gav en poäng och ett "godkänd"; hade ingen användning utan
-genereringen och strider mot regeln om automatisk stilpoäng).
+Professionsfil, läses i steg 5 i `.claude/skills/bygg-sajt/SKILL.md`. Ägarens regler gäller före allt annat här
+(LARDOMAR.md): verksamhetens egna bilder, eller inga foton ("hellre inga foton än stock"); en saknad bild är en
+beställning, inte ett designval ("gör 'inga egna foton' till en beställning"); ett foto av kundens arbete är just
+kundens arbete. Samma regel står i skillens steg 1 punkt 2 ("Inga stockbilder") och i granskarens kriterium 2.
 
-## Anspråk avgör vad en bild får vara
+## Vad en bild får vara
 
-| Anspråk (`claim`) | Betyder | Får komma från |
+| Anspråk | Betyder | Får komma från |
 |---|---|---|
-| `none` | dekor, stämning | kundens foton, licensierad stock, generering |
-| `illustrative` | illustrerar tjänsten eller miljön utan att påstå att det är kundens | kundens foton, licensierad stock, generering, alltid märkt i platsplanen |
-| `depicts_client_work` | visar kundens faktiska arbete | bara kundens egna foton med rättigheter |
-| `depicts_client_people` | visar kundens personer | bara kundens egna foton med samtycke |
+| `depicts_client_work` | visar verksamhetens faktiska arbete | bara verksamhetens egna foton, med rätt att publicera |
+| `depicts_client_people` | visar verksamhetens personer | bara verksamhetens egna foton, med samtycke |
+| `illustrative` / `none` | miljö, stämning eller form utan påstående | verksamhetens egna foton, eller form i koden (SVG ur märket, en karta, typografi) |
 
-Genererade eller köpta bilder framställs aldrig som kundens verkliga personer, projekt, meriter eller omdömen
-(ordern avsnitt 5). Ett fotouppdrag till kunden ("ta en sådan här, fast er egen") skrivs när material saknas.
+Stockbilder och genererade bilder används inte på sajten, inte heller som stämning: ägarens dom gäller alla
+bildplatser. När egna bilder saknas bär typografin, färgen och formen, och bilderna beställs i `BESTALLNING.md`
+med plats och syfte ("ta en sådan här, fast er egen"). En form som byggs i koden (en linje ur märket, en karta
+över orterna) är ingen bild i den här meningen och får användas när den har en funktion.
 
-## Val och licens
+## Varje viktig bildplats har ett syfte och prövat material
 
-Kundens eget material först; rättighetsläget per bild (vem tog den, vem äger den, får den publiceras, finns
-samtycke). Stock med licens som tillåter kommersiell webbpublicering; licensen sparas i kundmappen
-(`bilder/LICENSER.md`). Bilder med okänt ursprung används inte.
+Platsplanen står i KONCEPT.md och DESIGN.md: bildplats (`hero-*`, `env-*`, `proof-*`, `people-*`, `detail-*`), sida,
+syfte (vad besökaren ska se eller förstå där), fil ur `underlag/<slug>/bilder/` (BILDER.md), anspråk, och hur
+bilden prövats i kompositionen (ateljéns rendering eller byggets skärmbilder). En plats utan verkligt material står
+tom i designen, typografin bär, och platsen står i beställningen; den fylls aldrig med en ersättare. Granskaren
+bedömer två saker var för sig: om bristen är rätt identifierad och beställd, och om sajten som den visas nu ändå
+håller nivån (`kritik/GRANSKARE.md`, Saknat underlag).
+
+## Val och rättigheter
+
+Kundens eget material: rättighetsläget per bild (vem tog den, vem äger den, får den publiceras, finns samtycke för
+personerna). Bilder med okänt ursprung används inte. Licenser för typsnitt och ikoner står i registret nedan.
 
 ## Art direction
 
 Bildspår ur briefen: foto-först (kunden har bärande foton), bevis-först (arbetet talar: före/efter, resultat,
-detaljer), typografi-först (bilder är stöd, typografin bär). Ett spår är ett val med skäl, inte en tröskeltabell.
-Presetbehandling (`duotone`, `dokumentar`, `ljus` i `treatment.mjs`) är alternativ som ger sammanhållning över
-bilder av olika ursprung; ett kundmaterial som redan håller ihop behandlas inte. Verktygets egen standard när ingen
-preset ges är `dokumentar` (kodens "osäkerhetsval"), och verktyget bär en tabell som föreslår look per bransch
-(`PRESETS`): båda är det gamla flödets val, inte Digitalas — briefen §8 anger preset uttryckligen, eller ingen
-behandling alls.
+detaljer), typografi-först (bilderna är stöd, typografin bär). Ett spår är ett val med skäl, inte en tröskeltabell.
+Huvudreferensens bildbehandling (REFERENSER.md, `Huvudreferens:`) är utgångspunkten och anpassas till kundens
+material: en komposition som förutsätter arkitekturfoto av hög klass byts mot en som bär kundens faktiska bilder
+(Codex 2026-10-04). Behandling (beskärning, ton, kontrast) ger sammanhållning när bilderna har olika ursprung; ett
+material som redan håller ihop behandlas inte.
 
 ## Beskärning, storlekar och optimering
 
-Platsplan i briefen §8: bildplats (`hero-*`, `env-*`, `proof-*`, `people-*`, `detail-*`), sida, källa, anspråk,
-status. Filnamn `<plats>__<beskrivning>.<ext>`. Beskärningar per plats (första vyn 16:9 och 4:5 för mobil, 3:2 för
-miljö, kvadrat för porträtt) och responsiva storlekar med `sizes`; AVIF/WebP med kvalitetsloop mot en viktbudget
-(förslag: första vyns bild ≤ 150 kB, porträtt ≤ 100 kB, övriga ≤ 120 kB; budgeten sätts i briefen §9, inte här).
-Explicita mått på varje bild (ingen layoutförskjutning), `loading="lazy"` utom första vyns bild, alt-text på svenska
-som beskriver innehållet (tom alt bara för dekor).
+Filnamn `<plats>__<beskrivning>.<ext>`. Beskärningar per plats (första vyn 16:9 och 4:5 för mobil, 3:2 för miljö,
+kvadrat för porträtt) med fokuspunkten på det bilden ska visa, och responsiva storlekar med `sizes`; `astro:assets`
+gör AVIF/WebP. Förslag till viktbudget: första vyns bild ≤ 150 kB, porträtt ≤ 100 kB, övriga ≤ 120 kB. Explicita
+mått på varje bild (ingen layoutförskjutning), `loading="lazy"` utom första vyns bild, alt-text på svenska som
+beskriver innehållet (tom alt bara för dekor).
 
 - **Metadata stannar i underlaget.** Tagningsdatum och kamera läses där (`kontroller/bilddatum.py`) och kan bära
   en daterad sektion; GPS-läget är en personuppgift och följer aldrig med till sajten. `astro:assets` tar bort
   metadata; en fil som läggs direkt i `public/` gör det inte, och standarden (4.2) fäller den.
 
-## Verktygen (som de är; flaggor skrivs `--flagga=värde`)
+## Verktygen här
 
-De två verktygen nedan fanns i Digitala och finns inte i det här repot; de förutsatte Next.js. Här gör Astros
-`astro:assets` bildformaten och storlekarna, och `kontroller/ikoner.mjs` apple-touch-ikonen och delningsbilden.
-Beskrivningen står kvar som referens om något av dem tas in igen.
-
-- `node verktyg/bild/treatment.mjs --in=raw --ref=ref --out=public/images [--stage=both|normalise|look]
-  [--preset=duotone|dokumentar|ljus] [--ink=#hex --accent=#hex] [--compare]` — normalisering (vitbalans, exponering)
-  en gång från `--in` till `--ref` (hoppas när ref är nyare än råfilen), sedan look och beskärning per bildplats till
-  `--out` (AVIF och WebP, kvalitetsloop mot budget); `BILDRAPPORT.json` i arbetskatalogen bär budgetvarningar. Filnamn
-  i `--in` ska bära bildplats-id (`hero-01__namn.jpg`); okänt prefix vägras. Palettens läsordning: flaggorna, annars
-  `--nortropic-ink`/`--nortropic-accent` i `src/app/globals.css` eller `app/globals.css`, annars `tokens` i
-  `SLOTS.json`; utan palett körs overlay i svart och duotone som gråskala med varning — aldrig gissad färg.
-  Standardkatalogerna (`public/images/raw`, `public/images/ref`, `public/images`) och tokennamnen är det gamla
-  flödets konventioner; kundrepot väljer sina egna genom flaggorna eller genom att sätta tokens med de namnen.
-- `node verktyg/bild/brand.mjs [--marke=monogram|symbol] [--markfil=fil.svg] [--namn="Företag AB"] [--initialer=AB]
-  [--display=typsnitt]` (körs i kundrepots rot) — läser kundens logotyp ur `public/images/raw/brand__*` (utan logotyp:
-  monogram), skriver ikoner, favicon, webbmanifest och logotypfiler på Next.js-konventionens platser (`app/icon.svg`,
-  `app/favicon.ico`, `app/apple-icon.png`, `app/manifest.webmanifest`, `public/icon-192.png`, `public/icon-512.png`,
-  `public/brand/logo*.svg`; `src/app/` när den finns) och läser paletten bara ur `globals.css`-tokens eller `SLOTS.json`
-  (inga palettflaggor); utan tokens akromatisk degradering med varning. Bindningen till Next.js-platserna är en
-  begränsning: för en annan stack används verktyget inte, eller utfilerna flyttas för hand.
-- Beroende: `sharp` i kundrepot, pinnad version i kundrepots `package.json` (körbeviset: 0.34.4); valfria
-  `rembg`/`vtracer` för rastervektorisering i `brand.mjs` (utan dem behålls rastern med rapportrad).
-
-Verktygen är körbara instrument, inte krav: en kund med färdig bildbank och egen bildbehandling behöver dem inte.
+`astro:assets` gör format och storlekar, `kontroller/ikoner.mjs` apple-touch-ikonen och delningsbilden,
+`kontroller/bilddatum.py` datumen. Digitalas bildverktyg (normalisering och märkesfiler för Next.js) finns inte
+här och används inte.
 
 ## Typsnitt och ikonuppsättningar (2026-09-30, b35d4f-digitala)
 

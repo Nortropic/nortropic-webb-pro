@@ -140,11 +140,15 @@ def las_uppdrag(fil, slug, lokala_portar=()):
         for t in ('meny', 'hover', 'fokus'):
             v = k.get(t)
             if v is not None:
-                if not isinstance(v, str) or not 0 < len(v) <= 200 or '\n' in v:
-                    return None, '%s: %s måste vara en CSS-väljare' % (k['namn'], t)
+                if not isinstance(v, str) or not 0 < len(v) <= 200 or '\n' in v or v.lstrip().startswith('-'):
+                    return None, '%s: %s måste vara en CSS-väljare (börjar aldrig med -)' % (k['namn'], t)
                 tillstand[t] = v
+        extrahera = k.get('extrahera', 'standard')  # riktad designextraktion i samma session (Codex 2026-10-04, glapp 2)
+        if extrahera != 'standard' and not (isinstance(extrahera, list) and 0 < len(extrahera) <= 24 and all(
+                isinstance(x, str) and 0 < len(x) <= 200 and not any(c in x for c in ';\n\r') and not x.lstrip().startswith('-') for x in extrahera)):
+            return None, '%s: extrahera är "standard" eller en lista med högst 24 CSS-väljare' % k['namn']
         kandidater.append({'namn': k['namn'], 'adress': adress, 'roll': k['roll'], 'varfor': str(k.get('varfor') or '')[:1000],
-                           'sidor': list(dict.fromkeys(sidor)), 'tillstand': tillstand, 'ersatt': bool(k.get('ersatt'))})
+                           'sidor': list(dict.fromkeys(sidor)), 'tillstand': tillstand, 'ersatt': bool(k.get('ersatt')), 'extrahera': extrahera})
     return {'kandidater': kandidater, 'fragor': [str(f)[:500] for f in (u.get('fragor') or [])][:20], 'kompletterar': u.get('kompletterar')}, None
 
 
@@ -256,12 +260,16 @@ def blockerade_ursprung(rapport, lokala_portar=()):
     return ut[:MAX_RESURSVARDAR]
 
 
-def kor_inspektera(adress, ut, tillat, tillstand, miljo):
-    args = ['node', str(INSPEKTERA), '--adress', adress, '--ut', str(ut), '--vyer', ','.join(VYER), '--tillstand', 'tangentbord,reflow']
+def kor_inspektera(adress, ut, tillat, tillstand, miljo, extrahera=None):
+    # varje flagga som en enda token --namn=värde: ett värde ur uppdraget kan aldrig tolkas som en egen flagga av
+    # inspektera.mjs (args() läser ett --… efter en flagga som en ny flagga; referenssteget körs utanför sandlådan)
+    args = ['node', str(INSPEKTERA), '--adress=' + adress, '--ut=' + str(ut), '--vyer=' + ','.join(VYER), '--tillstand=tangentbord,reflow']
+    if extrahera:  # mätta värden (EXTRAKT.md, vy-<bredd>-extrakt.json) i samma session som skärmbilderna
+        args.append('--extrahera=' + ('standard' if extrahera == 'standard' else ';'.join(extrahera)))
     if tillat:
-        args += ['--tillat', ';'.join(tillat)]
+        args.append('--tillat=' + ';'.join(tillat))
     for t, v in tillstand.items():
-        args += ['--' + t, v]
+        args.append('--%s=%s' % (t, v))
     r = subprocess.run(args, cwd=str(ROOT), env=miljo, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=600)
     rapport = {}
     try:
@@ -303,7 +311,11 @@ def observationer(rapport, ut, bestallda=()):
         laddade = nat.get('laddade') or {}
         bilder = {fil: (Path(ut) / fil).is_file() and (Path(ut) / fil).stat().st_size > 0 for fil in ('vy-%s-forsta.png' % vy, 'vy-%s-hela.png' % vy)}
         t_ok = tillstand_utfall(r.get('tillstand') or {}, bestallda)
+        extrakt = Path(ut) / ('vy-%s-extrakt.json' % vy)
+        if r.get('extrakt') and not (extrakt.is_file() and extrakt.stat().st_size > 0):
+            obs['begransningar'].append('vy %s: extraktionen gav inga mätvärden' % vy)
         obs['vyer'][vy] = {'status': r.get('status'), 'titel': r.get('titel'), 'h1': r.get('h1'), 'skarmar': r.get('skarmar'),
+                           'extrakt': extrakt.is_file(),
                            'bilder_laddade': int(laddade.get('image') or 0), 'typsnitt_laddade': int(laddade.get('font') or 0),
                            'stilar_laddade': int(laddade.get('stylesheet') or 0), 'blockerade': len(nat.get('blockerade') or []),
                            'bildfiler': bilder, 'tillstand': t_ok, 'fel': r.get('fel')}
@@ -516,7 +528,7 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
                 ut = ut.with_name(ut.name + '-ny')
             tillstand = k['tillstand'] if i == 0 else {}
             try:
-                rc, rapport, utskrift = kor_inspektera(adress, ut, tillat, tillstand, miljo_for(varden))
+                rc, rapport, utskrift = kor_inspektera(adress, ut, tillat, tillstand, miljo_for(varden), k.get('extrahera', 'standard'))
                 obs = observationer(rapport, ut, tuple(tillstand)) if rapport else tom_observation('inspektionen gav ingen rapport: ' + utskrift[-300:])
             except Exception as e:  # en fallerad inspektion är en brist i paketet, aldrig ett borttaget paket (Codex R34)
                 rc, obs = 1, tom_observation('inspektionen föll: %s' % str(e)[:300])
@@ -553,7 +565,9 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         rader.append('Kompletterar %s; oförändrat material är ärvt därifrån, så alla Bildval kan peka på %s.' % (uppdrag['kompletterar'], paket.name))
     rader += ['Fångat med kontroller/referens.py: två pass per kandidat (eget ursprung, sedan sajtens resursursprung tillåtna bara för',
               'inspektionen), läsande, publika adresser, färsk webbläsarprofil. Peka ut bilder i REFERENSER.md som',
-              '`Bildval: referenser/%s/<kandidat>/<NN-sida>/<fil>.png — … — Fråga: …`.' % paket.name, '']
+              '`Bildval: referenser/%s/<kandidat>/<NN-sida>/<fil>.png — … — Fråga: …`. Mätta värden per sida står i' % paket.name,
+              '`<kandidat>/<NN-sida>/EXTRAKT.md` (renderade typsnitt, radbrytningar, färgytor, rytm, bilder); de är uppmätta, tolkningen',
+              'skrivs i REFERENSER.md och DESIGN.md som uppskattat eller valt.', '']
     for post in res['kandidater']:
         rader += ['## %s · %s · %s%s' % (post['namn'], post['roll'], post['adress'], ' · ärvd från %s' % post['arv'] if post.get('arv') else ''), '', post['varfor'] or '(ingen motivering)', '']
         if not post.get('arv') and any(s.get('arv') for s in post['sidor']):
@@ -565,7 +579,7 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
             rader.append('- %s (%s): %s · status %s · bilder laddade %s · typsnitt %s · blockerade kvar %d · filer %d' % (
                 s['sida'], s['katalog'], 'fångad' if s['ok'] else 'brister', ','.join(str(v.get('status')) for v in vy.values()),
                 '/'.join(str(v.get('bilder_laddade')) for v in vy.values()), '/'.join(str(v.get('typsnitt_laddade')) for v in vy.values()),
-                len(s['kvar_blockerade']), len(s['filer'])))
+                len(s['kvar_blockerade']), len(s['filer'])) + (' · extrakt %s/EXTRAKT.md' % s['katalog'] if any(f_.endswith('EXTRAKT.md') for f_ in s['filer']) else ''))
             for b in s['begransningar']:
                 rader.append('  - begränsning: ' + b)
         for b in post.get('anmarkningar') or []:

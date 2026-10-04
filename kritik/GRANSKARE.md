@@ -25,6 +25,9 @@ Uppdraget räknar upp sökvägarna. Du har:
 - **Verksamhetens underlag:** uppgifterna, researchen med listan "Bara de har", briefen med toppuppgifterna, den
   primära handlingen och kraven i EARS-form, och förteckningen över deras egna bilder.
 - **Referenserna** som byggaren valde, med skärmbilder.
+- **Den beslutade designen** (`DESIGN.md`, fryst i omgången): värdena, kompositionen, bildbehandlingen, de responsiva
+  reglerna och de avsiktliga avvikelserna från huvudreferensen. En avvikelse i sajten som inte står där är ett fynd.
+  Att sajten följer DESIGN.md säger inget om att designen håller: en väl genomförd men svag design underkänns ändå.
 - **Ateljéns vinnare**, när riktningsateljén kördes: den riktning domarpanelen valde som hela startsida, med bilderna
   byggaren hade att bygga ur. Jämför startsidan ruta för ruta mot dem; en annan riktning, komposition, typografi eller
   bildbehandling utan ny ateljéomgång är ett blockerande fynd (designprovet, ägarbeslut 2026-10-04).
@@ -94,10 +97,15 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
 2. **Originalitet.** Finns det egna beslut, eller mallar, biblioteksstandard och AI-mönster? Bär verksamhetens egna
    bilder, ord, material och plats sajten? Kunde ett annat företagsnamn sättas dit? En palett, layout eller ett typsnitt
    som kopierats från en av byggarens referenser är inget minus i sig (ägarens beslut 2026-10-03): döm om vår touch och
-   verksamhetens eget material lagts på så att sajten blivit deras. Straffa uttryckligen de drag
-   frontend-design räknar upp som AI-mönster, och dessutom: likadana kort i rad, samma sektionsmall sektion efter
-   sektion, förtroendemärken utan källa, allt lika stort, dekor utan funktion, stockbilder, listor och tabeller i två
-   spalter eller med tunna linjer mellan raderna som skulle passa vilken firma som helst. Likhet med tidigare byggen
+   verksamhetens eget material lagts på så att sajten blivit deras. Granska de drag frontend-design räknar upp som
+   standardval, och dessutom likadana kort i rad, samma sektionsmall sektion efter sektion, allt lika stort, dekor
+   utan funktion, och listor och tabeller med tunna linjer mellan raderna. Källan säger att dragen kan vara rätt för
+   vissa uppdrag men är standard snarare än val (`kunskap/externa/anthropic-frontend-design-SKILL.md`): ett sådant
+   drag sänker originaliteten när det står där av vana, utan skäl i verksamheten eller briefen, eller gör sajten
+   utbytbar mot vilken firma som helst; inte när det är ett motiverat val som är väl genomfört. En tunn linje, en
+   standardknapp eller en återkommande layout är inte i sig ett fel: döm användningen och utförandet. Alltid fel är
+   förtroendemärken utan källa och stockbilder eller genererade bilder (ägarens dom: hellre inga foton än stock):
+   det är påståenden och ägarens regel, inte stil. Likhet med tidigare byggen
    i typsnitt, toppsektion eller komposition skrivs alltid under `likhet_tidigare`. Den sänker originaliteten bara när
    den gör sajten mindre specifik för verksamheten; ägaren har godtagit ett typsnitt som återkommer när det passar
    verksamheten (LARDOMAR L1 och L2).
@@ -109,15 +117,19 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
    förtroendesignalerna verkliga? Står det något som blir inaktuellt (datum, annonser, erbjudanden, säsong, "just
    nu"), och syns det när? Fungerar menyn, undersidorna och 404-sidan? Dimension 5, 6 och 7, byggstandarden 5
    och 9, Osmanis tillgänglighet.
-5. **Text.** Låter texten som verksamheten och dess kunder? Bär varje sektion något specifikt ur "Bara de har"?
-   Svarar varje sida på en fråga kunden faktiskt har? Fraser och strukturer enligt regeln mot slop. Ett påstående som
+5. **Text.** Låter texten som verksamheten och dess kunder? Svarar varje sektion på en fråga besökaren har, med ett
+   belagt svar i en form som passar frågan? Bär positioneringen (första vyn, beviset, om) något specifikt ur "Bara de
+   har"? Ett praktiskt svar som liknar konkurrenternas är inget fel när det är rätt och användbart. Fraser och strukturer enligt regeln mot slop. Ett påstående som
    saknar stöd i underlaget är ett blockerande fynd. Citera ordagrant de två meningar på sajten som minst låter som
    verksamhetens folk, och de två rubriker som en förstagångsbesökare minst förstår, och döm dem: säger de det
    verksamheten skulle säga, eller låter de skrivna av en copywriter?
 
 **Saknat underlag** (ägarens domar L2 och L3): saknar sajten egna bilder, telefontid, försäkring och F-skatt eller
-svarstid, kontrollera att det står i beställningen (`BESTALLNING.md` i underlaget) och att sajten varken låtsas ha
-det eller döljer bristen med form. Beställt: en förbättring, inget blockerande fynd. Inte beställt: blockerande.
+svarstid, bedöm två saker var för sig. (a) **Hanteringen:** står bristen i beställningen (`BESTALLNING.md` i
+underlaget), och varken låtsas sajten ha det eller döljer bristen med form? Inte beställt, låtsat eller dolt:
+blockerande fynd. Beställt: hanteringen är rätt, och beställningen skrivs som förbättring. (b) **Nivån:** håller
+sajten som den visas nu, utan det beställda, ändå nivån? Beställningen ursäktar inte (b): betygen för designkvalitet,
+originalitet och hantverk sätts på sajten som den är.
 
 ## Fynd och allvarlighet
 

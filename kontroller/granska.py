@@ -275,6 +275,9 @@ def frys_bygget(kund, rdir):
     for p in sorted((kund / 'prov' / 'vinnare').glob('skillnad-*.png')):  # skillnadsbilderna mot ateljéns vinnare följer jämförelsen
         (rdir / 'vinnarjamforelse').mkdir(exist_ok=True)
         shutil.copy2(sakert_original(p, kund), rdir / 'vinnarjamforelse' / p.name)
+    d = kund / 'sajt' / 'DESIGN.md'  # den beslutade designen (designkontraktet) fryses med bygget
+    if d.exists() or d.is_symlink():
+        shutil.copy2(sakert_original(d, kund), rdir / 'DESIGN.md')
     for namn in FRYSTA_FILER:
         f = kund / 'prov' / namn
         if f.exists() or f.is_symlink():
@@ -510,6 +513,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390 och 1440 (läs varje):',
         *[rad(p) for p in bilder], '',
         'Tillgänglighetsträdet i 390 px per sida:', *([rad(p) for p in aria] or ['- saknas']), '',
+        'Den beslutade designen (DESIGN.md, designkontraktet): %s. Jämför sajten med den: en avvikelse som inte står under' % (
+            rad(rdir / 'DESIGN.md')[2:] if (rdir / 'DESIGN.md').is_file() else 'saknas, vilket i sig är ett fynd'),
+        'avsiktliga avvikelser är ett fynd; att sajten följer DESIGN.md säger inget om att designen är bra.',
         'Byggstandardens maskinella fynd: %s' % (rad(rdir / 'standard.md')[2:] if (rdir / 'standard.md').is_file() else 'saknas'),
         'Stilrapporten: %s' % (rad(rdir / 'STIL.md')[2:] if (rdir / 'STIL.md').is_file() else 'saknas'),
         'Copykontrollens fynd: %s' % (rad(rdir / 'copy.md')[2:] if (rdir / 'copy.md').is_file() else 'saknas'), '',

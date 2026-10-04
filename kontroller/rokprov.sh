@@ -10,6 +10,9 @@ rsync -a --delete --exclude node_modules --exclude dist --exclude .astro "$ROOT/
 rm -f "$S/README.md"
 rsync -a "$ROOT/kontroller/rokprov/src/" "$S/src/"
 rsync -a "$ROOT/kontroller/rokprov/public/" "$S/public/"
+# designkontraktet: testsajtens DESIGN.md genererar CSS-variablerna som testsidorna använder (grinden design)
+cp "$ROOT/kontroller/rokprov/DESIGN.md" "$S/DESIGN.md"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/design.py" rokprov-mall --skriv >/dev/null
 # apple-touch-icon och delningsbild görs av verktyget varje gång, så att verktyget också prövas
 node "$ROOT/kontroller/ikoner.mjs" --sajt "$S" --foto "$ROOT/kontroller/rokprov/foto.svg" --bakgrund '#0b57d0' >/dev/null
 sed -i '' 's#https://ERSATT-MED-DOMAN.se#https://exempel-rokprov.se#' "$S/astro.config.mjs"
@@ -23,7 +26,11 @@ echo "1/2 grönt prov"
 if ! "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/prova.py" rokprov-mall >/dev/null; then
   echo "FEL: provet blev rött på den rena testsajten"; sed -n '1,20p' "$ROOT/kunder/rokprov-mall/prov/PROV.md"; exit 1
 fi
-echo "   grönt"
+"$ROOT/.venv/bin/python" -c "
+import json; s = json.load(open('$ROOT/kunder/rokprov-mall/prov/STATUS.json'))
+assert s['ok'] and s['grindar']['design']['ok'], s['grindar'].get('design')
+" || { echo "FEL: designkontraktets grind är inte grön på testsajten"; exit 1; }
+echo "   grönt (designgrinden med)"
 
 echo "   granskarens uppdrag (torrt, ingen session) och godkännandets regel"
 UPPDRAG=$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/granska.py" rokprov-mall --torr)
@@ -442,17 +449,19 @@ echo "   revisionens fall ok"
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"
 cp "$F" "$F.ren"
+mv "$S/DESIGN.md" "$S/DESIGN.md.ren"  # designkontraktet brutet: grinden design ska bli röd
 sed -i '' 's#<p><a href="/">Tillbaka</a></p>#<p style="color:\#bbb">Ljusgrå text.</p><div style="width:1800px">Bred.</div><img src="/finns-inte.png"><p><a href="/saknas/">Trasig</a></p><p><a href="/">Tillbaka</a></p>#' "$F"
 set +e
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/prova.py" rokprov-mall --snabb >/dev/null
 RC=$?
 set -e
 mv "$F.ren" "$F"
+mv "$S/DESIGN.md.ren" "$S/DESIGN.md"
 SAKNAS=$("$ROOT/.venv/bin/python" -c "
 import json,sys; s=json.load(open('$ROOT/kunder/rokprov-mall/prov/STATUS.json'))
-print(' '.join(g for g in ('seo','axe','spill','standard') if s['grindar'][g]['ok']))")
+print(' '.join(g for g in ('seo','axe','spill','standard','design') if s['grindar'][g]['ok']))")
 if [ "$RC" -ne 1 ] || [ -n "$SAKNAS" ]; then
-  echo "FEL: väntade rött i seo, axe, spill och standard; gröna ändå: ${SAKNAS:-inga} (rc $RC)"; exit 1
+  echo "FEL: väntade rött i seo, axe, spill, standard och design; gröna ändå: ${SAKNAS:-inga} (rc $RC)"; exit 1
 fi
-echo "   rött där det skulle (seo, axe, spill, standard)"
+echo "   rött där det skulle (seo, axe, spill, standard, design)"
 echo "rökprovet OK"

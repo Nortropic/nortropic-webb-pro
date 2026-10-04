@@ -1,8 +1,9 @@
 # Mall: Astro, statisk
 
 Kopieras till `kunder/<slug>/sajt/` i steg 5. Den bär bara teknik: språk, canonical, theme-color, favicon,
-delningsbild, skiplänk, CSP, dämpad rörelse (`prefers-reduced-motion`), sitemap.xml, robots.txt, 404, och två
-komponenter utan utseende (förfrågan och brödsmulor). Ingen design, inga typsnitt. Allt synligt skrivs för verksamheten. Byggstandarden som provet prövar står i `kunskap/byggstandard.md`.
+delningsbild, skiplänk, CSP, dämpad rörelse (`prefers-reduced-motion`), sitemap.xml, robots.txt, 404, två
+komponenter utan utseende (förfrågan och brödsmulor) och en tom `src/styles/design.css` som designkontraktet fyller.
+Ingen design, inga typsnitt. Allt synligt skrivs för verksamheten. Byggstandarden som provet prövar står i `kunskap/byggstandard.md`.
 
 1. Byt `site` i `astro.config.mjs` mot verksamhetens domän (ur `VERKSAMHET.json`, fältet `webb.doman`).
 2. Skriv sidorna i `src/pages/` med `Bas.astro`: `titel` (50–60 tecken), `beskrivning` (120–155), `tema`
@@ -26,7 +27,11 @@ komponenter utan utseende (förfrågan och brödsmulor). Ingen design, inga typs
    RoofingContractor …) som JSON-LD på startsidan, med uppgifter ur `VERKSAMHET.json`.
 8. Skript och inline-händelser: CSP:n i `astro.config.mjs` släpper bara skript som Astro har hashat. Skriv skript
    som `<script>` i komponenten, aldrig `onclick=""`. Stilattribut (`style=""`) går bra.
-9. `npm install` en gång, sedan `npm run build`. Provet bygger själv: `.venv/bin/python kontroller/prova.py <slug>`.
+9. Designen: skriv `DESIGN.md` i sajtens rot (kontraktet i `kunskap/bygge-referens.md`) och kör
+   `.venv/bin/python kontroller/design.py <slug> --skriv`, som gör `src/styles/design.css` med CSS-variablerna
+   (`Bas.astro` importerar den). Sidornas CSS använder variablerna (`var(--farg-…)`, `var(--typ-…)`); provets grind
+   `design` kräver att filen är genererad ur den aktuella DESIGN.md och att variablerna används.
+10. `npm install` en gång, sedan `npm run build`. Provet bygger själv: `.venv/bin/python kontroller/prova.py <slug>`.
 
 Demon skyddas vid driftsättning (lösenord och `X-Robots-Tag: noindex` som svarshuvud), aldrig med noindex i HTML:
 då blir SEO-kontrollen och Lighthouse missvisande.

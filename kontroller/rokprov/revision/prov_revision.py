@@ -3365,15 +3365,25 @@ assert rf_.samma_referens('http://dinesen.com/', 'https://www.dinesen.com/') and
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 0, 'med ersatt: true får kandidaten byta referens'
 # Codex R34: en saknad inspektionsrapport är en dokumenterad brist i ett sparat paket (slutkod 1), inte ett raderat paket
 kor_orig_ = rf_.kor_inspektera
-def kor_utan_rapport_(adress, ut, tillat, tillstand, miljo):
+def kor_utan_rapport_(adress, ut, tillat, tillstand, miljo, extrahera=None):
     if adress.endswith('/a-b'):
         return 1, {}, 'simulerad: ingen rapport'
-    return kor_orig_(adress, ut, tillat, tillstand, miljo)
+    return kor_orig_(adress, ut, tillat, tillstand, miljo, extrahera)
 rf_.kor_inspektera = kor_utan_rapport_
 (u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'hel', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'fångas', 'sidor': ['/']}, {'namn': 'utan', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'ingen rapport', 'sidor': ['/a-b']}]}))
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]) == 1
 rf_.kor_inspektera = kor_orig_
 paket_sr = sorted((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))[-1]; k_sr = {k_['namn']: k_ for k_ in json.load(open(paket_sr / 'PAKET.json'))['kandidater']}
+# riktad designextraktion i samma session som fångsten (Codex 2026-10-04, glapp 2): standard för varje kandidat, uppmätt med källbild
+ex_sr = json.loads((paket_sr / 'hel' / '01-start' / 'vy-390-extrakt.json').read_text())
+assert ex_sr['matning'] == 'uppmätt' and ex_sr['kallbilder']['forsta'].endswith('vy-390-forsta.png') and ex_sr['element'] and 'sektioner' in ex_sr and 'farger' in ex_sr, list(ex_sr)
+assert any(e_.get('typsnitt', {}).get('renderat') for e_ in ex_sr['element']), 'det renderade typsnittet ur Chromium, inte bara den deklarerade stacken'
+assert (paket_sr / 'hel' / '01-start' / 'EXTRAKT.md').is_file() and 'extrakt hel/01-start/EXTRAKT.md' in (paket_sr / 'PAKET.md').read_text()
+for dalig_x in (['--tillat-alla'], ['-x'], 'allt', ['a;b']):
+    (u_ref / 'prov-ref' / 'DALIG.json').write_text(json.dumps({'kandidater': [{'namn': 'x', 'adress': a_ref + '/', 'roll': 'ux', 'extrahera': dalig_x}]}))
+    assert rf_.las_uppdrag(u_ref / 'prov-ref' / 'DALIG.json', 'prov-ref', tuple(int(x_) for x_ in portar_ref.split(',')))[1], 'väljare som börjar med - eller innehåller ; vägras: %r' % (dalig_x,)
+(u_ref / 'prov-ref' / 'DALIG.json').write_text(json.dumps({'kandidater': [{'namn': 'x', 'adress': a_ref + '/', 'roll': 'ux', 'meny': '--undantag-fil=/x'}]}))
+assert rf_.las_uppdrag(u_ref / 'prov-ref' / 'DALIG.json', 'prov-ref', tuple(int(x_) for x_ in portar_ref.split(',')))[1], 'ett tillstånd som börjar med - vägras'
 assert k_sr['hel']['ok'] and (paket_sr / 'hel' / '01-start' / 'vy-390-forsta.png').is_file() and not k_sr['utan']['ok'] and k_sr['utan']['sidor'][0]['fel_resurser'] == [] and any('ingen rapport' in b_ for b_ in k_sr['utan']['sidor'][0]['begransningar']), k_sr['utan']
 # Codex R34: ofullständigt arv godkänns aldrig: inventeringsfel, saknad deklarerad bild och saknad orörd kandidat vägras
 (u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'lokal', 'adress': a_ref + '/', 'roll': 'hantverk', 'varfor': 'x', 'sidor': ['/']}], 'kompletterar': 'paket-v04'}))
@@ -3398,10 +3408,10 @@ assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokal
 # Codex R35/R36, kontraktet för första passet: ett fel där raderar aldrig paketet och fäller inte kandidaten i sig. En sida med bara egna
 # resurser återhämtar sig i andra passet (fångad, med anmärkning); en sida som behövde ett resursursprung som inte upptäcktes fälls i andra
 # passet av den blockerade egna resursen, inte av första-pass-felet. Tidigare fångster bevaras.
-def kor_pass1_faller_(adress, ut, tillat, tillstand, miljo):
+def kor_pass1_faller_(adress, ut, tillat, tillstand, miljo, extrahera=None):
     if str(ut).endswith('.pass1') and ('/a-b' in adress or '/egen' in adress):
         raise subprocess.TimeoutExpired(['node'], 1)
-    return kor_orig_(adress, ut, tillat, tillstand, miljo)
+    return kor_orig_(adress, ut, tillat, tillstand, miljo, extrahera)
 rf_.kor_inspektera = kor_pass1_faller_
 (u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'hel', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'fångas', 'sidor': ['/']},
     {'namn': 'pass1', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'pass 1 faller, bild från annat ursprung', 'sidor': ['/a-b']},
@@ -3464,9 +3474,10 @@ srv_rt = hs_.HTTPServer(('127.0.0.1', 0), RefBild_); th_.Thread(target=srv_rt.se
 rt_port = srv_rt.server_address[1]; rt_bild = 'http://127.0.0.1:%d/skarm.png' % rt_port
 u_rt = tmp / 'rt-underlag'; (u_rt / 'prov-rt').mkdir(parents=True)
 (u_rt / 'prov-rt' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Provfirman'}))
+stilar_rt_ = []
 def logg_rt_(logg, anrop, traffar, subtype='success'):
     rader = [json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': n, 'input': {}}]}}) for n in anrop]
-    rader.append(json.dumps({'type': 'result', 'subtype': subtype, 'is_error': subtype != 'success', 'num_turns': len(anrop) + 1, 'structured_output': {'anrop': [{'verktyg': 'påstått', 'argument': 'x', 'resultat_typ': 'json'}] * 9, 'traffar': traffar, 'anmarkning': 'prov'}}))
+    rader.append(json.dumps({'type': 'result', 'subtype': subtype, 'is_error': subtype != 'success', 'num_turns': len(anrop) + 1, 'structured_output': {'anrop': [{'verktyg': 'påstått', 'argument': 'x', 'resultat_typ': 'json'}] * 9, 'traffar': traffar, 'stilar': stilar_rt_, 'anmarkning': 'prov'}}))
     Path(logg).write_text('\n'.join(rader) + '\n')
 def kor_rt_ok_(tjanst, prompt, logg, modell):
     assert 'Provfirman' in prompt and tjanst in ('refero', 'mobbin')
@@ -3502,8 +3513,117 @@ assert rt_.main(['prov-rt', '--underlag', str(u_rt), '--uppdrag', str(tmp / 'uta
 ga_rt = lambda a_: wt.granska_anrop('referenstjanster', a_, 'prov-bygge', ['exempel.se'], rot_ref, 'K1', lambda adr_, k_: (True, None))  # noqa: E731
 (rot_ref / 'underlag' / 'prov-bygge' / 'TJANSTEUPPDRAG.json').write_text('{}')
 assert ga_rt(['prov-bygge', '--uppdrag', 'underlag/prov-bygge/TJANSTEUPPDRAG.json'])[1] is None and ga_rt(['annan'])[1] and ga_rt(['prov-bygge', '--modell', 'x'])[1]
+# Referos stilar (Codex 2026-10-04, glapp 3): typen stil bara hos refero; värdena strukturerade; belagda bara med get_style i loggen
+(u_rt / 'prov-rt' / 'STIL.json').write_text(json.dumps({'fragor': [{'tjanst': 'mobbin', 'fraga': 'warm craft', 'typ': 'stil'}]}))
+assert 'stil finns bara hos refero' in (rt_.las_uppdrag(u_rt / 'prov-rt' / 'STIL.json')[1] or ''), 'mobbin har inga stilar'
+(u_rt / 'prov-rt' / 'STIL.json').write_text(json.dumps({'fragor': [{'tjanst': 'refero', 'fraga': 'warm editorial craft', 'typ': 'stil'}]}))
+upp_stil, fel_stil = rt_.las_uppdrag(u_rt / 'prov-rt' / 'STIL.json'); assert not fel_stil and upp_stil['fragor'][0]['typ'] == 'stil'
+assert 'refero_get_style' in rt_.prompt_for('refero', upp_stil['fragor'], 'Provfirman') and 'refero_get_style' not in rt_.prompt_for('refero', [dict(upp_stil['fragor'][0], typ='skarm')], 'Provfirman')
+stilar_rt_[:] = [{'id': 'S 1', 'titel': 'GTE', 'sida_url': 'https://www.gte.xyz', 'bild_url': rt_bild, 'typografi': 'serif display 72/1.0, mono labels 12', 'farger': 'carbon #111, polar #fff, turbo orange accent',
+                  'layout': 'centered hero, two-column blocks', 'rytm': 'dense hero, airy blocks', 'komponenter': 'soft-bordered cards', 'fraga': 'warm editorial craft'}]
+def kor_rt_stil_(tjanst, prompt, logg, modell):
+    logg_rt_(logg, ['mcp__refero__refero_search_styles', 'mcp__refero__refero_get_style'], []); return 0, ''
+rot_rt, res_rt = rt_.samla('prov-rt', upp_stil, u_rt, lokala_portar=(rt_port,), kor=kor_rt_stil_)
+st_ = res_rt['tjanster']['refero']
+assert st_['ok'] and st_['stilar'][0]['typografi'].startswith('serif display') and st_['stilar'][0]['fil'] and not st_['stilar'][0]['fel'], st_
+assert '### Stil: GTE' in (rot_rt / 'TJANSTER.md').read_text() and '- färger: carbon #111' in (rot_rt / 'TJANSTER.md').read_text()
+def kor_rt_stil_utan_(tjanst, prompt, logg, modell):
+    logg_rt_(logg, ['mcp__refero__refero_search_styles'], []); return 0, ''
+rot_rt, res_rt = rt_.samla('prov-rt', upp_stil, u_rt, lokala_portar=(rt_port,), kor=kor_rt_stil_utan_)
+st_ = res_rt['tjanster']['refero']
+assert not st_['ok'] and 'inget get_style-anrop' in st_['stilar'][0]['fel'] and any('utan refero_get_style' in a_ for a_ in st_['anmarkningar']), 'påstådda stilvärden utan get_style är inte belagda'
+stilar_rt_[:] = []
 srv_rt.shutdown()
 print('referenstjänsterna ok')
+
+# ---------------------------------------------------------------- designkontraktet (Codex 2026-10-04, glapp 1): DESIGN.md → design.css → sajtens CSS
+
+
+def designkontraktet():
+    import design as dz
+    import referensval as rv_dz
+    kz, uz = tmp / 'kunder-dz', tmp / 'underlag-dz'
+    sajt_dz = kz / 'dz' / 'sajt'
+    (sajt_dz / 'dist').mkdir(parents=True)
+    gamla_dz = (dz.KUNDER, dz.UNDERLAG)
+    dz.KUNDER, dz.UNDERLAG = kz, uz
+    try:
+        v_dz = {'schema': 1, 'huvudreferens': 'Snick',
+                'farger': {'yta': {'varde': '#ffffff', 'roll': 'yta', 'kalla': 'uppmätt: paket-v01/snick/01-start EXTRAKT 1440'},
+                           'text': {'varde': '#111111', 'roll': 'text', 'kalla': 'valt: kontrast'},
+                           'svag': {'varde': '#eeeeee', 'roll': 'linjer', 'kalla': 'uppskattat: ur bilden'}},
+                'typsnitt': {'rubrik': {'familj': 'Fraunces Variable', 'reserv': 'Georgia, serif', 'vikt': 600, 'storlek': 'clamp(2rem, 1rem + 4vw, 4rem)', 'radavstand': '1.05', 'kalla': 'uppskattat: ur bilden'},
+                             'brodtext': {'familj': 'system-ui', 'reserv': 'sans-serif', 'vikt': 400, 'storlek': '1rem', 'radavstand': '1.5', 'kalla': 'valt: läsbarhet'}},
+                'avstand': {'m': '1rem'}, 'spalter': {'1440': {'antal': 12, 'maxbredd': '1280px'}},
+                'kontrast': [['text', 'yta', 4.5]], 'avvikelser': []}
+        md_dz = lambda v: '# DESIGN.md\n\nProsa.\n\n```json design\n%s\n```\n' % json.dumps(v, ensure_ascii=False, indent=1)  # noqa: E731
+        assert dz.validera(v_dz) == [], dz.validera(v_dz)
+        css_dz = dz.css(v_dz)
+        assert "--typ-rubrik-familj: 'Fraunces Variable', Georgia, serif;" in css_dz and '--typ-brodtext-familj: system-ui, sans-serif;' in css_dz, 'generiska nyckelord citeras aldrig'
+        assert '--farg-yta: #ffffff;' in css_dz and '--spalt-1440-antal: 12;' in css_dz and dz.blockhash(v_dz) in css_dz.splitlines()[0]
+        # fientliga och ofullständiga värden
+        ond = json.loads(json.dumps(v_dz))
+        ond['farger']['yta']['varde'] = 'red;}body{x'; ond['typsnitt']['rubrik']['familj'] = "x'; } body {"; ond['typsnitt']['rubrik']['vikt'] = 950
+        ond['typsnitt']['brodtext']['kalla'] = 'gissat'; ond['spalter'] = {'mobil': 1}; ond['kontrast'] = [['text', 'saknas', 3]]; ond['typsnitt']['brodtext']['matt'] = 'url(x)'
+        fel_dz = ' | '.join(dz.validera(ond))
+        for krav_dz in ('farger.yta: varde ska vara hex', 'typsnitt.rubrik: familj', 'vikt ska vara', 'typsnitt.brodtext: kalla', 'spalter.mobil', 'kontrast: varje par', 'matt ska vara'):
+            assert krav_dz in fel_dz, (krav_dz, fel_dz)
+        lag = json.loads(json.dumps(v_dz)); lag['farger']['text']['varde'] = '#dddddd'
+        assert any('under 4.5:1' in x for x in dz.validera(lag)), 'kontrastparet prövas'
+        assert dz.las('ingen kod')[1] and dz.las(md_dz(v_dz) + md_dz(v_dz))[1] and dz.las('```json design\n[1]\n```\n')[1], 'exakt ett block, ett objekt'
+        # kontrollen som provets grind använder
+        assert not dz.kontroll('dz')['ok'] and 'saknas' in dz.kontroll('dz')['fel'][0]
+        (sajt_dz / 'DESIGN.md').write_text(md_dz(v_dz))
+        k1 = dz.kontroll('dz')
+        assert not k1['ok'] and any('design.css saknas' in x for x in k1['fel']), k1
+        assert dz.main(['dz', '--skriv']) == 0 and not dz.kontroll('dz')['ok'] and dz.main(['dz']) == 1, 'skrivningen lyckas; giltig men oanvänd: kontrollen röd'
+        assert (sajt_dz / 'src' / 'styles' / 'design.css').read_text() == css_dz
+        (sajt_dz / 'dist' / 'index.html').write_text('<style>body{color:var(--farg-text);background:var(--farg-yta);font-family:var(--typ-brodtext-familj)}h1{font-size:var(--typ-rubrik-storlek)}</style>')
+        assert any('följer inte med i bygget' in x for x in dz.kontroll('dz')['fel']), 'variablerna måste vara definierade i den byggda CSS:en'
+        (sajt_dz / 'dist' / '_astro').mkdir()
+        minifierad = css_dz.split('\n', 1)[1].replace('#ffffff', '#fff').replace(': ', ':').replace(', ', ',').replace('\n', '')  # som Vite skriver om den
+        (sajt_dz / 'dist' / '_astro' / 'Bas.abc.css').write_text(minifierad)
+        (sajt_dz / 'dist' / 'index.html').write_text('<link rel="stylesheet" href="/_astro/Bas.abc.css"><style>body{color:var(--farg-text);background:var(--farg-yta);font-family:var(--typ-brodtext-familj)}h1{font-size:var(--typ-rubrik-storlek)}</style>')
+        k2 = dz.kontroll('dz')
+        assert k2['ok'] and any('svag' in x for x in k2['info']) and k2['sha'] == dz.blockhash(v_dz), k2
+        (sajt_dz / 'dist' / 'om').mkdir(); (sajt_dz / 'dist' / 'om' / 'index.html').write_text('<style>:root{--farg-text:#222222}</style>')
+        assert any('omdefinierade' in x and 'farg-text' in x for x in dz.kontroll('dz')['fel']), 'en omdefinierad variabel fälls (granskningen av r54, punkt 4)'
+        (sajt_dz / 'dist' / 'om' / 'index.html').write_text('<style>p{color:var(--farg-text);font-family:var(--typ-brodtext-familj)}</style>')
+        (sajt_dz / 'dist' / 'index.html').write_text('<link rel="stylesheet" href="/_astro/Bas.abc.css"><style>body{color:#111}</style>')
+        assert any('startsidans CSS' in x for x in dz.kontroll('dz')['fel']), 'variablerna måste användas av startsidan, inte bara av en undersida'
+        (sajt_dz / 'dist' / 'index.html').write_text('<link rel="stylesheet" href="/_astro/Bas.abc.css"><style>body{color:var(--farg-text);background:var(--farg-yta);font-family:var(--typ-brodtext-familj)}h1{font-size:var(--typ-rubrik-storlek)}</style>')
+        assert dz.kontroll('dz')['ok']
+        (sajt_dz / 'src' / 'styles' / 'design.css').write_text(css_dz.replace('#ffffff', '#fefefe'))
+        assert any('inte genererad ur den aktuella' in x for x in dz.kontroll('dz')['fel']), 'handredigerad design.css fälls'
+        dz.main(['dz', '--skriv'])
+        bevara_dz = (sajt_dz / 'dist' / 'index.html').read_text(); (sajt_dz / 'dist' / 'om' / 'index.html').unlink()
+        (sajt_dz / 'dist' / 'index.html').write_text('<style>body{color:#111}</style>')
+        assert any('använder inte DESIGN.md:s variabler' in x for x in dz.kontroll('dz')['fel'])
+        (sajt_dz / 'dist' / 'index.html').write_text(bevara_dz)
+        # huvudreferensen i REFERENSER.md måste vara DESIGN.md:s
+        (uz / 'dz' / 'referenser' / 'paket-v01' / 'snick' / '01-start').mkdir(parents=True)
+        (uz / 'dz' / 'referenser' / 'paket-v01' / 'snick' / '01-start' / 'vy-390-ruta-01.png').write_bytes(b'x')
+        (uz / 'dz' / 'REFERENSER.md').write_text('## Annan — x\n\nBildval: referenser/paket-v01/snick/01-start/vy-390-ruta-01.png — v — Fråga: f\n\nHuvudreferens: Annan — allt\n')
+        assert rv_dz.huvudreferens('dz', uz)['namn'] == 'Annan' and any('huvudreferens' in x for x in dz.kontroll('dz')['fel']), 'fel huvudreferens fälls'
+        (uz / 'dz' / 'REFERENSER.md').write_text('## Snick — x\n\nBildval: referenser/paket-v01/snick/01-start/vy-390-ruta-01.png — v — Fråga: f\n\nHuvudreferens: Snick — allt\n')
+        assert dz.kontroll('dz')['ok'], dz.kontroll('dz')
+        # jämförelsen med byggets mätning: renderat typsnitt och stora ytor
+        ex_dz = tmp / 'extrakt-dz'; ex_dz.mkdir()
+        (ex_dz / 'vy-1440-extrakt.json').write_text(json.dumps({'element': [{'id': 'h1#0', 'tagg': 'h1', 'typsnitt': {'renderat': [{'familj': 'Times', 'eget': False}]}},
+                                                                           {'id': 'main p#0', 'tagg': 'p', 'typsnitt': {'renderat': [{'familj': 'System Font', 'eget': False}]}}],
+                                                                'farger': [{'varde': '#000000', 'andel': 0.6}, {'varde': '#ffffff', 'andel': 0.3}]}))
+        avv = dz.jamfor(v_dz, ex_dz)
+        assert any('rubrik' in x and 'Times' in x for x in avv) and any('#000000' in x for x in avv) and not any('#ffffff' in x for x in avv), avv
+    finally:
+        dz.KUNDER, dz.UNDERLAG = gamla_dz
+    # mallen bär en tom design.css som Bas.astro importerar; rökprovets testsajt har en riktig DESIGN.md
+    assert 'Ingen design än' in (ROOT / 'mall' / 'astro' / 'src' / 'styles' / 'design.css').read_text() and "import '../styles/design.css'" in (ROOT / 'mall' / 'astro' / 'src' / 'layouts' / 'Bas.astro').read_text()
+    v_rp, fel_rp = dz.las((ROOT / 'kontroller' / 'rokprov' / 'DESIGN.md').read_text())
+    assert not fel_rp and dz.validera(v_rp) == [], 'rökprovets DESIGN.md är giltig'
+    print('designkontraktet ok')
+
+
+designkontraktet()
 
 
 shutil.rmtree(tmp, ignore_errors=True)

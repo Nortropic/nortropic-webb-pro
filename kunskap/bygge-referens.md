@@ -48,13 +48,49 @@ kundens förvaltning och driftmiljön. Det som följer är krav på resultatet o
 - **GitHub-först**: kundrepot privat under organisationen; huvudgren skyddad; driftsättning från huvudgren;
   förhandsvisning per gren.
 
-## Riktningsfil och lint
+## Designkontraktet (DESIGN.md)
 
-Briefens §7 dokumenteras som `DESIGN.md` i kundrepot. `@google/design.md` (README i `kunskap/externa/`)
-är ett valbart format/lint när uppgiften motiverar det, så att
-tokens, typografi, färg och komponentregler är läsbara för varje utförare; `npx -p @google/design.md@0.4.0 designmd lint
---format json DESIGN.md` hittar föräldralösa tokens och kontrastvarningar (i Norrgläntas etapp 4, DIGITALA-1-ETAPP4-RESULTAT-20260927, fann linten två föräldralösa tokens och en kontrastvarning).
-Formatet beskriver riktningen; det bestämmer den inte.
+Codex 2026-10-04 (glapp 1): en enda aktuell designspecifikation, med tydligt ansvar för varje artefakt.
+
+| Artefakt | Ansvar |
+|---|---|
+| Referenspaketet (`underlag/<slug>/referenser/paket-vNN/`) | frysta observationer, bilder, mätvärden (EXTRAKT), källor och begränsningar |
+| `underlag/<slug>/KONCEPT.md` | prövade alternativ, beslutet och varför de andra förkastades |
+| `kunder/<slug>/sajt/DESIGN.md` | den aktuella designen: exakta värden, komposition, bildbehandling, responsiva regler och avsiktliga avvikelser från huvudreferensen |
+| Den valda prototypen (`underlag/<slug>/atelje/vinnare/`) | körbar gestaltning som förs vidare till bygget (startsidan överförs) |
+
+DESIGN.md har prosa under fem rubriker (Komposition, Typografi, Bildbehandling, Responsiva regler, Avvikelser från
+huvudreferensen) och exakt ett kodblock märkt `json design`:
+
+```json design
+{
+  "schema": 1,
+  "huvudreferens": "<samma namn som raden Huvudreferens: i REFERENSER.md>",
+  "farger": {"yta": {"varde": "#f3eee6", "roll": "sidans bakgrund, största ytan", "kalla": "uppmätt: paket-v02/<namn>/01-start EXTRAKT 1440"}},
+  "typsnitt": {"rubrik": {"familj": "<typsnitt>", "reserv": "Georgia, serif", "vikt": 600, "storlek": "clamp(2.25rem, 1.2rem + 4.5vw, 4.75rem)",
+                          "radavstand": "1.05", "teckenavstand": "-0.02em", "kalla": "uppskattat: ur huvudreferensens första vy"},
+               "brodtext": {"familj": "<typsnitt>", "reserv": "system-ui, sans-serif", "vikt": 400, "storlek": "1.0625rem", "radavstand": "1.55",
+                            "matt": "65ch", "kalla": "valt: läsbarhet på 390 px"}},
+  "avstand": {"s": "0.5rem", "m": "1rem", "l": "2.5rem", "xl": "6rem"},
+  "radier": {"knapp": "0"},
+  "spalter": {"390": {"marginal": "1.25rem"}, "1440": {"antal": 12, "maxbredd": "1280px"}},
+  "kontrast": [["text", "yta", 4.5]],
+  "avvikelser": [{"fran": "huvudreferensens mörka helbild", "till": "ljus yta med kundens foto", "varfor": "kundens bilder är ljusa dagsljusfoton"}]
+}
+```
+
+Varje värde har `kalla`: `uppmätt:` (var det mättes, ur referenspaketets EXTRAKT eller byggets egen mätning),
+`uppskattat:` (ur en bild, utan mätning) eller `valt:` (för kunden, med skäl). En skärmbild visar en komposition
+men ger inga säkra CSS-värden; märk därför ärligt. `.venv/bin/python kontroller/design.py <slug> --skriv` validerar
+blocket (roller, hex, CSS-längder, typsnittsnamn, kontrastparen) och skriver `src/styles/design.css` med
+CSS-variablerna (`--farg-<namn>`, `--typ-<roll>-familj|vikt|storlek|radavstand|teckenavstand|matt`,
+`--avstand-<namn>`, `--radie-<namn>`, `--spalt-<bredd>-<namn>`), som `Bas.astro` importerar och sidornas CSS
+använder. Layouten bor i koden (ateljéns vinnare), inte i variablerna. Provets grind `design` kräver att DESIGN.md
+är giltig, att design.css är genererad ur den aktuella DESIGN.md, att färg- och typvariablerna används, och att
+huvudreferensen är densamma som i REFERENSER.md; granskaren får DESIGN.md fryst och dömer avvikelser från den, men
+en sajt som följer en svag DESIGN.md underkänns ändå. Googles DESIGN.md-format (`@google/design.md`, alpha) är
+förebilden för att kombinera maskinläsbara värden med förklarande text; vi använder det inte som beroende, och dess
+lint bedömer inte estetisk kvalitet.
 
 ## Browsergranskning under bygget
 

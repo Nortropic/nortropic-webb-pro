@@ -10,6 +10,7 @@ interface Props {
   delningsbild?: string;
   noindex?: boolean; // 404-sidan: noindex och ingen canonical (byggstandarden 7.2)
 }
+import '../styles/design.css';  // CSS-variablerna ur DESIGN.md (kontroller/design.py --skriv); tom tills designen är skriven
 const { titel, beskrivning, tema, delningsbild = '/delningsbild.png', noindex = false } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const bild = new URL(delningsbild, Astro.site).href;

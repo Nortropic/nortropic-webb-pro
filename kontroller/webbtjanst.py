@@ -69,7 +69,7 @@ VERKTYG = {
                  'flaggor': {'adress': 'url', 'ut': 'vag', 'intervju': 'vag', 'kund': 'text', 'sitemap': 'url'}},
     'inspektera': {'kmd': ('node', 'kontroller/webblasare/inspektera.mjs'), 'slug': False,
                    'flaggor': {'adress': 'url', 'ut': 'vag', 'vyer': 'text', 'tillat': 'ursprung', 'hemligheter': 'vag', 'kontext': 'vagar',
-                               'hover': 'text', 'fokus': 'text', 'meny': 'text', 'tillstand': 'text', 'undantag-fil': 'vag'}},
+                               'hover': 'text', 'fokus': 'text', 'meny': 'text', 'tillstand': 'text', 'undantag-fil': 'vag', 'extrahera': 'text'}},
     'utan-js': {'kmd': ('node', 'kontroller/webblasare/utan-js.mjs'), 'slug': False,
                 'flaggor': {'adress': 'url', 'ut': 'vag', 'formular': 'text', 'sidor': 'text', 'testmarkering': 'text',
                             'formular-far-skickas': 'flagga', 'undantag-fil': 'vag'}},

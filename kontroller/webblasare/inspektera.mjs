@@ -5,10 +5,12 @@
 // är inte bildseende — bedöm layout i bilderna.
 //   node inspektera.mjs --adress URL --ut DIR [--vyer 390,1440] [--tillat ORIGIN;ORIGIN | --tillat-alla] [--undantag-fil F]
 //        [--hemligheter FIL] [--kontext FIL,FIL] [--hover SEL] [--fokus SEL] [--meny SEL] [--tillstand tangentbord,reflow,reload,bakat]
+//        [--extrahera standard | 'SEL;SEL'] — riktad designextraktion i samma session (extrahera.mjs): vy-<bredd>-extrakt.json och EXTRAKT.md
 import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER, viaTjanst } from './gemensamt.mjs';
 import { readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { vakta } from '../slugvakt.mjs';
+import { extrahera, sammanfatta, STANDARD } from './extrahera.mjs';
 
 await viaTjanst('inspektera', process.argv.slice(2));
 const a = args(process.argv.slice(2));
@@ -21,6 +23,8 @@ const hemliga = hemligheter(a.hemligheter);
 const vyer = String(a.vyer || '390,1440').split(',');
 const tillstand = new Set(String(a.tillstand || 'tangentbord,reflow,reload,bakat').split(',').filter(Boolean));
 const kontext = (a.kontext ? String(a.kontext).split(',') : []).map(f => ({ fil: f, namn: basename(f), sha256: sha256(readFileSync(f)), byte: readFileSync(f).length }));
+const extraktSel = a.extrahera ? (String(a.extrahera) === 'standard' || a.extrahera === true ? STANDARD : String(a.extrahera).split(';').map((x) => x.trim()).filter(Boolean).slice(0, 24)) : null;
+const extraktMd = [];
 const rapport = { schema: 1, verktyg: 'inspektera', adress: a.adress, tid: nu(), tillatna_ursprung: tillat.length ? tillat : 'alla', undantag: !!undantag, kontext, vyer: {}, not: 'utvecklarinspektion med kontext; skärmbilderna avgör layout (textträdet är inte bildseende); mobilvyerna är emulerade, inte fysisk enhet' };
 for (const vy of vyer) {
   const b = await oppna({ vy, tillat, undantag, hemliga, spar: true, mal: a.adress });
@@ -51,6 +55,12 @@ for (const vy of vyer) {
     await b.page.evaluate(() => scrollTo(0, 0));
     r.skarmar = Math.ceil(sidhojd / skarmhojd);
     r.h1_i_forsta_vyn = await b.page.evaluate((h) => { const e = document.querySelector('h1'); return !!e && e.getBoundingClientRect().top < h; }, skarmhojd);
+    if (extraktSel) {  // före tillstånden (hover, meny, reflow) som ändrar sidan; källbilden är vyns första ruta och helsida
+      const x = await extrahera(b.page, extraktSel).catch((e) => ({ fel: String(e.message || e).slice(0, 200) }));
+      x.kallbilder = { forsta: r.forsta_vyn, rutor: r.rutor, hela: r.hela_sidan }; x.vy = vy; x.adress = a.adress; x.tid = nu(); x.matning = 'uppmätt';
+      r.extrakt = skriv(a.ut, `vy-${vy}-extrakt.json`, x);
+      if (!x.fel) extraktMd.push(sammanfatta(vy, x, basename(r.forsta_vyn)));
+    }
     r.tillganglighetstrad = skriv(a.ut, `vy-${vy}-aria.txt`, await b.page.locator('body').ariaSnapshot());
     r.h1 = await b.page.locator('h1').count();
     r.spill = await horisontellSpill(b.page);
@@ -69,6 +79,7 @@ for (const vy of vyer) {
 rapport.spar_privat = !!undantag;
 if (undantag) rapport.not += '; spårfilerna bär skyddsundantaget i nätverksposter och är privata (delas aldrig); JSON-loggen är redigerad';
 skriv(a.ut, 'INSPEKTION.json', rapport);
+if (extraktSel) skriv(a.ut, 'EXTRAKT.md', ['# Extrakt — ' + a.adress + ' (' + rapport.tid + ')', '', 'Uppmätt i samma webbläsarsession som skärmbilderna (kontroller/webblasare/extrahera.mjs). Värdena är mätningar; tolkningen (uppskattat, valt för kunden) skrivs i REFERENSER.md och DESIGN.md.', '', ...extraktMd].join('\n') + '\n');
 const md = ['# Inspektion — ' + a.adress + ' (' + rapport.tid + ')', '', 'Kontext bifogad: ' + (kontext.map(k => k.namn + ' ' + k.sha256.slice(0, 12)).join(', ') || 'ingen'), ''];
 for (const [vy, r] of Object.entries(rapport.vyer)) md.push(`## Vy ${vy} — ${r.namn}`, '', `- status ${r.status}, titel "${r.titel}", h1 ${r.h1}, horisontell spill ${r.spill?.spill}`, `- konsol ${r.konsol.length} (fel: ${r.konsol.filter(x => x.typ === 'error').length}), sidfel ${r.sidfel.length}, nätverksfel ${r.natverk.fel.length}, blockerade ${r.natverk.blockerade.length}`, `- tangentbord: ${r.tillstand.tangentbord?.length ?? '-'} steg, utan synlig fokus ${r.tillstand.tangentbord_utan_synlig_fokus ?? '-'}; reflow 320 spill ${r.tillstand.reflow_320?.spill ?? '-'}`, `- bilder: ${r.forsta_vyn}, ${r.hela_sidan}; träd ${r.tillganglighetstrad}; spår ${r.spar}`, '');
 md.push(rapport.not);
