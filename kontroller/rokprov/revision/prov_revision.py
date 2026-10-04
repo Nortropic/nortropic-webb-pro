@@ -393,6 +393,32 @@ rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9 and 'Taket' 
 (r9 / 'UTFALL.json').write_text(json.dumps({'status': 'fel', 'tid': gr.nu(), 'skal': 'prov'})); rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9
 (r9 / 'UTFALL.json').unlink(); (r9 / 'FEL.txt').write_text('avbruten: äldre omgång\n'); rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9, 'äldre FEL.txt: ingen cacheträff'
 (r9 / 'FEL.txt').unlink(); rc9, ut9 = driv_(); assert rc9 == 0 and 'redan granskat' in ut9, 'äldre omgång utan fel: cacheträff'
+# Codex R40: en befintlig men oläsbar eller ogiltig tillståndsfil är inte äldre format: domen används inte, tillståndet ändras inte, ingen cacheträff
+(r9 / 'UTFALL.json').write_text('{trasig')
+try:
+    gr.satt_utfall(r9, 'klar', 'x'); assert False, 'ogiltig tillståndsfil: ingen tillståndsändring'
+except gr.Overifierad:
+    pass
+assert (r9 / 'UTFALL.json').read_text() == '{trasig' and gr.utfall(r9).get('overifierad') and 'fel' in gr.utfall(r9)
+rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9, ('ogiltig tillståndsfil: ingen cacheträff', rc9, ut9[-300:])
+(r9 / 'UTFALL.json').write_text(json.dumps({'status': 'okant'})); assert gr.utfall(r9).get('overifierad'); rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9
+(r9 / 'UTFALL.json').write_text(json.dumps({'status': 'klar', 'tid': gr.nu(), 'skal': ''})); os.chmod(r9 / 'UTFALL.json', 0o000)
+try:
+    assert gr.utfall(r9).get('overifierad'), 'oläsbar tillståndsfil'
+    try:
+        gr.satt_utfall(r9, 'avbruten', 'x'); assert False
+    except gr.Overifierad:
+        pass
+    rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9, ('oläsbar tillståndsfil: ingen cacheträff', rc9, ut9[-300:])
+finally:
+    os.chmod(r9 / 'UTFALL.json', 0o644)
+os.chmod(r9 / 'GRANSKNING.json', 0o000)
+try:
+    assert gr.utfall(r9).get('overifierad') and 'kan inte verifieras' in gr.utfall(r9)['fel'], 'klar men oläsbar dom'
+    rc9, ut9 = driv_(); assert rc9 == 3 and 'redan granskat' not in ut9, ('klar men oläsbar dom: ingen cacheträff', rc9, ut9[-300:])
+finally:
+    os.chmod(r9 / 'GRANSKNING.json', 0o644)
+rc9, ut9 = driv_(); assert rc9 == 0 and 'redan granskat' in ut9, 'återställd omgång: cacheträff igen'
 gr.MAX_RUNDOR = max_orig_; os.environ.pop('NWP_KORNING', None); shutil.rmtree(r9); (kund / 'prov' / 'STATUS.json').unlink(); gr.publicera(kund / 'granskning', 'prov')
 os.environ.pop('PROV_FALL', None)
 print('F8/F17/F18 granskaren ok')
@@ -789,15 +815,31 @@ assert p39.returncode == 0 and 'GODKÄND (omgång 1' in p39.stdout and 'aktuell 
 (gdir38 / 'GRANSKNING.json').write_text(json.dumps({'godkand': True, 'runda': 1, 'kriterier': {}, 'dist_sha256': h3, **metod3}))  # gammal godkänd rotfil
 r39c = runda39_(3, h3, True, metod3); (r39c / 'GRANSKNING.json').write_text('{trasig')  # felaktigt formad dom i en klar omgång
 p39 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
-assert p39.returncode == 0 and 'GODKÄND (omgång 1' in p39.stdout, ('en trasig omgång hoppas över, den giltiga gäller', p39.returncode, p39.stdout[-400:])
-shutil.rmtree(gdir38 / 'runda-01'); p39 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
-assert p39.returncode == 1 and 'ingen giltig omgång' in p39.stdout and 'GODKÄND' not in p39.stdout.split('Rapport:')[0], ('bara trasig + underkänd: rotfilen används inte', p39.returncode, p39.stdout[-400:])
+assert p39.returncode == 1 and 'kunde inte läsas eller valideras' in p39.stdout and 'GODKÄND' not in p39.stdout.split('Rapport:')[0], ('en omgång märkt klar med en dom som inte kan verifieras nekar (Codex R40), den tidigare godkända återupplivas inte', p39.returncode, p39.stdout[-400:])
+shutil.rmtree(gdir38 / 'runda-03'); shutil.rmtree(gdir38 / 'runda-01'); p39 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
+assert p39.returncode == 1 and 'ingen giltig omgång' in p39.stdout and 'GODKÄND' not in p39.stdout.split('Rapport:')[0], ('bara underkänd: rotfilen används inte', p39.returncode, p39.stdout[-400:])
+r39c = runda39_(3, h3, True, metod3)
 (r39c / 'FEL.txt').write_text('x'); (r39c / 'UTFALL.json').unlink(); os.chmod(r39c / 'FEL.txt', 0o000)
 try:
     p39 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
 finally:
     os.chmod(r39c / 'FEL.txt', 0o644)
 assert p39.returncode == 1 and 'kunde inte läsas' in p39.stdout, ('ett läsfel i en omgång nekar godkännande, rotfilen är ingen reserv', p39.returncode, p39.stdout[-400:])
+# Codex R40: en senare omgång märkt klar vars dom inte kan läsas återupplivar ingen tidigare godkänd; ett uttryckligt avbrott gör det;
+# en oläsbar eller ogiltig tillståndsfil nekar också
+runda39_(1, h3, True, metod3); r40b = runda39_(2, h3, False, metod3)
+os.chmod(r40b / 'GRANSKNING.json', 0o000)
+try:
+    p40 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
+finally:
+    os.chmod(r40b / 'GRANSKNING.json', 0o644)
+assert p40.returncode == 1 and 'kunde inte läsas eller valideras' in p40.stdout and 'GODKÄND' not in p40.stdout.split('Rapport:')[0], ('oläsbar senare dom återupplivar inget', p40.returncode, p40.stdout[-500:])
+(r40b / 'UTFALL.json').write_text(json.dumps({'status': 'avbruten', 'tid': gr38.nu(), 'skal': 'drivaren'}))
+p40 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
+assert p40.returncode == 0 and 'GODKÄND (omgång 1' in p40.stdout, ('ett uttryckligt avbrott lämnar den tidigare godkända domen i kraft', p40.returncode, p40.stdout[-400:])
+(r40b / 'UTFALL.json').write_text('{trasig')
+p40 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
+assert p40.returncode == 1 and 'kunde inte läsas eller valideras' in p40.stdout, ('ogiltig tillståndsfil nekar', p40.returncode, p40.stdout[-400:])
 shutil.rmtree(gdir38); gdir38.mkdir()
 print('R4 F11 korslut ok')
 

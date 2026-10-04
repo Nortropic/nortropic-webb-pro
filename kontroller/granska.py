@@ -599,8 +599,13 @@ def arbetare(rdir):
         else:
             publicera(rdir.parent, upp.get('korning'))  # sammanfattningen ur giltiga omgångar, nu när den här är klar
     except Exception as e:  # omgången ska sluta med ett besked, aldrig tyst
-        u = satt_utfall(rdir, 'fel', '%s: %s' % (type(e).__name__, e))
-        if u['status'] != 'klar':
+        try:
+            u = satt_utfall(rdir, 'fel', '%s: %s' % (type(e).__name__, e))
+            klar_ = u['status'] == 'klar'
+        except Overifierad as e2:  # tillståndet kan inte ändras: beskedet skrivs ändå, omgången är ogiltig
+            print('omgången %s: %s' % (rdir.name, e2))
+            klar_ = False
+        if not klar_:
             (rdir / 'FEL.txt').write_text('%s: %s\n' % (type(e).__name__, e), encoding='utf-8')
     finally:
         shutil.rmtree(rdir / 'dist', ignore_errors=True)
@@ -750,10 +755,36 @@ UTFALL = ('pagar', 'klar', 'avbruten', 'fel')  # pagar är startläget (formatma
 SLUTLIGA = ('klar', 'avbruten', 'fel')
 
 
+class Overifierad(RuntimeError):
+    """En omgångs tillstånd eller dom finns men kan inte läsas eller valideras: domen får inte användas, tillståndet inte
+    ändras, och ett slutgodkännande får inte ges på den (Codex R40)."""
+
+
+def las_strikt(p):
+    """JSON-objekt ur filen; None bara när filen saknas. Oläsbar eller ogiltig fil ger Overifierad."""
+    p = Path(p)
+    if not p.exists():
+        return None
+    try:
+        d = json.loads(p.read_text(encoding='utf-8'))
+    except OSError as e:
+        raise Overifierad('%s kan inte läsas: %s' % (p.name, e))
+    except ValueError as e:
+        raise Overifierad('%s är ogiltig JSON: %s' % (p.name, e))
+    if not isinstance(d, dict):
+        raise Overifierad('%s är inte ett objekt' % p.name)
+    return d
+
+
 def las_utfall(rdir):
-    """Omgångens tillstånd ur UTFALL.json: {'status': pagar|klar|avbruten|fel, 'tid', 'skal'} eller None (äldre omgång)."""
-    u = las_json(Path(rdir) / 'UTFALL.json')
-    return u if isinstance(u, dict) and u.get('status') in UTFALL else None
+    """Omgångens tillstånd ur UTFALL.json: {'status': pagar|klar|avbruten|fel, 'tid', 'skal'}; None bara när filen saknas
+    (äldre omgång). En befintlig oläsbar eller ogiltig tillståndsfil ger Overifierad (Codex R40)."""
+    u = las_strikt(Path(rdir) / 'UTFALL.json')
+    if u is None:
+        return None
+    if u.get('status') not in UTFALL:
+        raise Overifierad('UTFALL.json har ett okänt tillstånd: %r' % (u.get('status'),))
+    return u
 
 
 def satt_utfall(rdir, status, skal='', publicera=None):
@@ -788,25 +819,45 @@ def utfall(rdir):
     """Omgångens utfall: domen bara när tillståndet är klar (pagar ger None, också om en dom råkar ligga där); avbrott och fel
     gäller före en sen dom (Codex R38/R39, F47). Äldre omgångar utan UTFALL.json: FEL.txt före dom."""
     rdir = Path(rdir)
-    u = las_utfall(rdir)
+    try:
+        u = las_utfall(rdir)
+    except Overifierad as e:
+        return {'fel': str(e), 'overifierad': True}
     if u:
         if u['status'] == 'pagar':
             return None
         if u['status'] == 'klar':
-            g = las_json(rdir / 'GRANSKNING.json')
-            return g if g else {'fel': 'omgången är klar men domen saknas'}
+            try:
+                g = las_strikt(rdir / 'GRANSKNING.json')
+            except Overifierad as e:  # märkt klar men domen kan inte verifieras: aldrig en giltig dom, nekar slutgodkännande
+                return {'fel': 'omgången är klar men domen kan inte verifieras: %s' % e, 'overifierad': True}
+            return g if g else {'fel': 'omgången är klar men domen saknas', 'overifierad': True}
         return {'fel': ('%s: %s' % (u['status'], u.get('skal') or '')).strip(': ')}
-    if (rdir / 'FEL.txt').is_file():
-        return {'fel': (rdir / 'FEL.txt').read_text(encoding='utf-8').strip()}
-    g = las_json(rdir / 'GRANSKNING.json')
+    try:
+        if (rdir / 'FEL.txt').is_file():
+            return {'fel': (rdir / 'FEL.txt').read_text(encoding='utf-8').strip()}
+        g = las_strikt(rdir / 'GRANSKNING.json')
+    except (OSError, Overifierad) as e:
+        return {'fel': 'omgången kan inte verifieras: %s' % e, 'overifierad': True}
     return g if g else None
 
 
-def giltiga_rundor(gdir, korning=None):
-    """[(rdir, dom)] för omgångar med giltig dom (utfall klar), i omgångsordning; bara en körning när den anges."""
+def giltiga_rundor(gdir, korning=None, strikt=False):
+    """[(rdir, dom)] för omgångar med giltig dom (utfall klar), i omgångsordning; bara en körning när den anges. Med strikt
+    (slutkvittot) är en omgång som inte kan verifieras (oläsbart tillstånd eller dom som inte går att läsa) ett fel som
+    nekar godkännande, i stället för att hoppas över så att en tidigare dom återupplivas (Codex R40, F11)."""
     ut = []
     for r in rundor(Path(gdir)):
         g = utfall(r)
+        if g and g.get('overifierad'):
+            upp = {}
+            try:
+                upp = las_strikt(r / 'UPPDRAG.json') or {}
+            except Overifierad:
+                pass
+            if strikt and (not korning or upp.get('korning') in (None, korning)):
+                raise Overifierad('omgången %s kan inte verifieras: %s' % (r.name, g['fel']))
+            continue
         if not g or 'fel' in g:
             continue
         if korning and g.get('korning') != korning:
@@ -815,10 +866,10 @@ def giltiga_rundor(gdir, korning=None):
     return ut
 
 
-def valj_sammanfattning(gdir, korning=None, dist=None, metod=None):
+def valj_sammanfattning(gdir, korning=None, dist=None, metod=None, strikt=False):
     """Den dom sammanfattningen ska visa: den senaste giltiga omgången med hela identiteten (körning, dist och aktuell
     metod), annars för dist, annars den senaste giltiga (Codex R38/R39, F11). Ger (rdir, dom) eller None."""
-    giltiga = giltiga_rundor(gdir, korning)
+    giltiga = giltiga_rundor(gdir, korning, strikt)
     if dist and metod:
         traff = [x for x in giltiga if x[1].get('dist_sha256') == dist and samma_metod(x[1], metod)]
         if traff:
@@ -886,10 +937,13 @@ def vanta(gdir, rdir, sekunder, proc=None):
             g = utfall(rdir)
             if g:
                 return svara(gdir, rdir, g)
-            u = satt_utfall(rdir, 'fel', 'granskarens process avslutades utan svar; se %s' % rel(rdir / 'arbetare.log'))
-            if u['status'] != 'klar':
-                (rdir / 'FEL.txt').write_text('%s\n' % u.get('skal', ''), encoding='utf-8')
-            return svara(gdir, rdir, utfall(rdir))
+            try:
+                u = satt_utfall(rdir, 'fel', 'granskarens process avslutades utan svar; se %s' % rel(rdir / 'arbetare.log'))
+                if u['status'] != 'klar':
+                    (rdir / 'FEL.txt').write_text('%s\n' % u.get('skal', ''), encoding='utf-8')
+            except Overifierad as e:
+                print('omgången %s: %s' % (rdir.name, e))
+            return svara(gdir, rdir, utfall(rdir) or {'fel': 'inget utfall'})
         time.sleep(5)
     print('Granskningen pågår (%s, startad %s). Kör samma kommando igen för att vänta vidare.' % (
         rdir.name, (las_json(rdir / 'UPPDRAG.json') or {}).get('tid', '?')))
@@ -978,9 +1032,12 @@ def main(argv=None):
                     pass
             # avbrottet är omgångens slutliga utfall (första skrivaren vinner): arbetaren i tjänsten läser det före
             # publiceringen och lägger en sen dom åt sidan (Codex R38, F47)
-            u = satt_utfall(r, 'avbruten', 'bygget eller metoden ändrades, eller processen dog')
-            if u['status'] == 'avbruten':
-                (r / 'FEL.txt').write_text('avbruten: bygget eller metoden ändrades, eller processen dog\n', encoding='utf-8')
+            try:
+                u = satt_utfall(r, 'avbruten', 'bygget eller metoden ändrades, eller processen dog')
+                if u['status'] == 'avbruten':
+                    (r / 'FEL.txt').write_text('avbruten: bygget eller metoden ändrades, eller processen dog\n', encoding='utf-8')
+            except Overifierad as e:  # tillståndet kan inte ändras; omgången är ogiltig redan av det skälet
+                print('omgången %s: %s; den räknas som ogiltig' % (r.name, e))
             pagar.unlink(missing_ok=True)
     if not a.om:
         for r in reversed(rundor(gdir)):

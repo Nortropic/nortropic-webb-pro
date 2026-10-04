@@ -104,7 +104,7 @@ def vald_granskning(k, korning):
         return las(gdir / 'GRANSKNING.json'), nu_hash, None, None  # inga omgångar (manuellt underlag): rotfilen är det enda som finns
     try:
         metod = granska.aktuell_metod(k.name)
-        val = granska.valj_sammanfattning(gdir, korning, nu_hash, metod)
+        val = granska.valj_sammanfattning(gdir, korning, nu_hash, metod, strikt=True)  # en overifierbar omgång i körningen nekar (Codex R40)
         alla = granska.valj_sammanfattning(gdir, None, None)
     except Exception as e:  # noqa: BLE001
         return None, nu_hash, None, 'omgångarna kunde inte läsas eller valideras: %s' % e
