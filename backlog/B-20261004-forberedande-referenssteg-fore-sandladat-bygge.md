@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex R27-uppföljning 2026-10-04; bygge 3 i sandlådat läge (kopia3, 759a547); code.claude.com/docs/en/sandboxing
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-04T12:46Z
+andrad: 2026-10-04T13:02Z
 ---
 # Förberedande referenssteg före det sandlådade bygget: välj sajterna, tillåt deras resursdomäner, frys bilder och tillstånd
 
@@ -13,4 +13,4 @@ andrad: 2026-10-04T12:46Z
 
 **Förslag:** Ett eget steg före byggsessionen, utanför sandlådan men avgränsat som webbtjänsten (sluggen, byggets kataloger, läsande inspektion): (1) jakten väljer de faktiska referenssajterna (gallerierna i referensjakt.md plus ägarens luckor) och skriver REFERENSER.md med roll, sektion och tillstånd; (2) steget inspekterar dem en gång med inspektera.mjs (390/1440, hover/fokus/meny där det är utpekat) och fryser bilderna och de observerade tillstånden under underlag/<slug>/referenser/; (3) resursdomänerna som sajterna behöver (typsnitt, bilder, cdn) tillåts bara under den inspektionen, aldrig för bygget; (4) det sandlådade bygget, ateljén och granskaren läser de frysta bilderna och behöver inte nå sajterna. Gallerierna får jokertecken i sandlada-domaner.txt (*.awwwards.com och motsvarande) för att själva jakten ska fungera. Ordning enligt Codex: först bygge 3:s slutresultat (prov, granskning, stoppkrok och slutkod mot samma slutliga bygge), sedan detta steg, sedan designförbättringarna under samma frysta metod.
 
-**Klart när:** Ett sandlådat bygge visar inga nekanden i referenssteget; REFERENSER.md och de frysta bilderna finns före byggsessionen och är det ateljén och granskaren ser; jokertecknen står i sandlada-domaner.txt med ett rökprovsfall; LARDOMAR.md noterar om referensbilderna gjorde skillnad i ägarens dom.
+**Klart när:** I ett sandlådat bygge är varje vald referens fångad med de bilder, typsnitt och tillstånd som referensbeslutet pekar ut (REFERENSER.md och de frysta bilderna finns före byggsessionen och är det ateljén och granskaren ser), oavsett korrekt blockerade sidoförfrågningar under inspektionen; jokertecknen står i sandlada-domaner.txt med ett rökprovsfall; LARDOMAR.md noterar om referensbilderna gjorde skillnad i ägarens dom.

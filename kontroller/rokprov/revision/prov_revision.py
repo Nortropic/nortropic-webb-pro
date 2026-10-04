@@ -2362,10 +2362,16 @@ import processgrans as pg_  # noqa: E402
 sl_pg = 'prov-bygge-%d' % os.getpid()
 tmp_pg = Path('/tmp/nwp-bygge-' + sl_pg); gr_pg = Path('/tmp/nwp-granskning') / sl_pg
 rot_kedja = tmp / 'kedja'
-rot_pg = srv_pg = wtk = None
-try:  # allt nedan städas i finally, också när ett tidigare påstående faller (Codex R27, uppföljning)
-    assert not tmp_pg.exists() and not gr_pg.exists() and not (ROOT / 'kunder' / sl_pg).exists() and not (ROOT / 'underlag' / sl_pg).exists()
-    rot_pg = Path(tempfile.mkdtemp(prefix='nwp-pg-', dir='/tmp'))  # utanför sessionens temp och körningens egna kataloger, annars prövas inget
+# bara det provet själv skapat exklusivt registreras och städas (Codex R28): finns en katalog redan (t.ex. återanvänt PID) faller
+# provet här, före try, och rör den inte; föräldern /tmp/nwp-granskning delas med riktiga byggen och registreras inte
+egna_pg = []
+for egen_ in (tmp_pg, rot_kedja):
+    egen_.mkdir(); egna_pg.append(egen_)
+gr_pg.mkdir(parents=True); egna_pg.append(gr_pg)
+assert not (ROOT / 'kunder' / sl_pg).exists() and not (ROOT / 'underlag' / sl_pg).exists()
+rot_pg = Path(tempfile.mkdtemp(prefix='nwp-pg-', dir='/tmp')); egna_pg.append(rot_pg)  # exklusivt skapad; utanför sessionens temp och körningens egna kataloger, annars prövas inget
+srv_pg = wtk = None; klart_pg = False
+try:  # allt nedan städas i finally, steg för steg, också när ett tidigare påstående faller (Codex R27/R28)
     (rot_pg / 'kunder' / sl_pg).mkdir(parents=True); (rot_pg / 'underlag' / sl_pg).mkdir(parents=True); (rot_pg / 'kontroller').mkdir()
     (rot_pg / 'hem' / '.nortropic-hemligheter').mkdir(parents=True); (rot_pg / 'hem' / '.nortropic-hemligheter' / 'x.env').write_text('DUMMY=hemligt'); (rot_pg / 'kunder' / sl_pg / '.env').write_text('X=1')
     shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_pg / 'kontroller')
@@ -2422,7 +2428,6 @@ print(' | '.join(ut))
     assert not (rot_k / 'kontroller' / 'x.txt').exists() and (rot_k / 'kunder' / sl_pg / 'x.txt').is_file()
     # stoppkroken och avslutskedjan prövas i en isolerad repokopia: mekaniken kopierad (som kor.sh-provet), körmiljön länkad, egna
     # tomma kunder/, underlag/ och backlog/. Kopians krok, processgräns, tjänst och granskning hittar sin rot från sina egna filer.
-    rot_kedja.mkdir()
     for namn_ in ('kor.sh', 'CLAUDE.md', 'BESLUT.md', 'LARDOMAR.md', '.gitignore', 'dashboard.sh'):
         if (ROOT / namn_).is_file():
             shutil.copy2(ROOT / namn_, rot_kedja / namn_)
@@ -2465,17 +2470,37 @@ print(' | '.join(ut))
     assert rk2.returncode == 0 and 'processgräns: sandbox-exec' in rk2.stderr, (rk2.returncode, rk2.stdout[-600:], rk2.stderr[-600:], arb_k, logg_k[-600:])
     assert 'START granska --arbetare ' + str(runda_k.resolve()) in logg_k and 'KLART granska rc=0' in logg_k, ('arbetaren gick via tjänsten', logg_k[-800:], arb_k)  # tjänsten loggar den upplösta vägen (kopian ligger under en symlänkad temp)
     g_k = json.loads((runda_k / 'GRANSKNING.json').read_text()); assert g_k['godkand'] is True and len(g_k['enskilda']) == 2, g_k
-    assert gr_pg.is_dir() and not list(gr_pg.glob('*/.env')) and 'prov-hemlig' not in arb_k
+    assert not list(gr_pg.glob('*/.env')) and 'prov-hemlig' not in arb_k
     assert not (ROOT / 'kunder' / sl_pg).exists() and not (ROOT / 'underlag' / sl_pg).exists(), 'det riktiga repot rörs inte'
+    klart_pg = True
 finally:
-    if wtk is not None:
-        wtk.terminate(); wtk.wait(timeout=10)
-    if srv_pg is not None:
-        srv_pg.shutdown(); srv_pg.server_close()
-    os.environ.pop('PROV_FALL', None)
-    for egen_ in (rot_kedja, gr_pg, tmp_pg, rot_pg):  # bara provets egna kataloger
-        if egen_ is not None:
-            shutil.rmtree(egen_, ignore_errors=True)
+    # varje resurs städas för sig, så att ett fel i en (t.ex. en tjänst som inte svarar på terminate) inte hoppar över de andra;
+    # felen rapporteras efteråt och fäller provet bara om själva provet gick igenom (Codex R28)
+    fel_pg = []
+
+    def stada_(namn_, steg_):
+        try:
+            steg_()
+        except Exception as e_:
+            fel_pg.append('%s: %r' % (namn_, e_))
+
+    def stoppa_tjansten_():
+        if wtk is None:
+            return
+        wtk.terminate()
+        try:
+            wtk.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            wtk.kill(); wtk.wait(timeout=10)
+    stada_('tjänsten', stoppa_tjansten_)
+    stada_('provservern', lambda: (srv_pg.shutdown(), srv_pg.server_close()) if srv_pg is not None else None)
+    stada_('PROV_FALL', lambda: os.environ.pop('PROV_FALL', None))
+    for egen_ in egna_pg:
+        stada_('katalogen %s' % egen_, lambda e_=egen_: shutil.rmtree(e_))
+    if fel_pg:
+        print('städningen efter processgränsblocket: ' + '; '.join(fel_pg))
+        if klart_pg:
+            raise AssertionError('städningen misslyckades: %s' % fel_pg)
 print('processgränsen från stoppkroken ok')
 import granska as gr_  # noqa: E402
 kund_g = tmp / 'kund-g'; (kund_g / 'sajt' / 'dist').mkdir(parents=True); (kund_g / 'prov').mkdir()
