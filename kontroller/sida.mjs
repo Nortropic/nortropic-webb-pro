@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
 
+import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
+await viaTjanst('sida', process.argv.slice(2));  // sandlådad session (granskare i egen sandlåda): tjänsten kör sidan utanför
 const argv = process.argv.slice(2);
 const url = argv.find((a) => /^https?:\/\//.test(a));
 const flagga = (n, std) => { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : std; };
@@ -72,7 +74,8 @@ async function skrollsekvens(page, vy, s, antal) {
   }
 }
 
-const browser = await chromium.launch();
+const grans = await natgrans([url]);  // i tjänstens läge: tredjepartsresurser bara inom domänpolicyn
+const browser = await chromium.launch(grans ? grans.playwright : {});
 try {
   for (const [vy, opt] of Object.entries(VYER)) {
     const ctx = await browser.newContext({ ...opt, locale: 'sv-SE', timezoneId: 'Europe/Stockholm',
@@ -140,6 +143,7 @@ try {
   }
 } finally {
   await browser.close();
+  if (grans) await grans.stang();
 }
 
 const d = rapport.vyer.desktop?.design;

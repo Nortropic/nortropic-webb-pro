@@ -8,6 +8,8 @@ import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
 
+import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
+await viaTjanst('ikoner', process.argv.slice(2));  // sandlådat bygge: Chromium kan inte starta i sandlådan, tjänsten ritar ikonerna
 const arg = (n, std) => { const i = process.argv.indexOf('--' + n); return i >= 0 ? process.argv[i + 1] : std; };
 const sajt = arg('sajt');
 // sajten själv genomgås inte (node_modules är för stor); de faktiska skrivmålen prövas nedan (omgång sex, F1)
@@ -29,7 +31,8 @@ const TYP = { '.svg': 'image/svg+xml', '.webp': 'image/webp', '.jpg': 'image/jpe
 const data = (f) => `data:${TYP[extname(f).toLowerCase()] || 'application/octet-stream'};base64,${readFileSync(f).toString('base64')}`;
 mkdirSync(pub, { recursive: true });
 
-const browser = await chromium.launch();
+const grans = await natgrans([]);  // i tjänstens läge: inga nätanrop alls utanför domänpolicyn
+const browser = await chromium.launch(grans ? grans.playwright : {});
 try {
   const sida = await browser.newPage({ viewport: { width: 180, height: 180 }, deviceScaleFactor: 1 });
   // Ikonen: märket centrerat med luft runt om, på en hel bakgrund.
@@ -45,4 +48,5 @@ try {
   console.log('skrev ' + join(pub, 'apple-touch-icon.png') + ' (180×180) och ' + join(pub, 'delningsbild.png') + ' (1200×630)');
 } finally {
   await browser.close();
+  if (grans) await grans.stang();
 }

@@ -175,12 +175,13 @@ mkdir -p "$ROOT/kunder/$SLUG/prov"
 # stannar i sandlådan. Verktygen delegerar själva när de körs sandlådade (NWP_WEBBTJANST).
 WT_ENV=()
 if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
-  WT_KVITTO="$ROOT/kunder/$SLUG/prov/.webbtjanst"; rm -f "$WT_KVITTO"
+  # kvitto och logg utanför prov/, som provet rensar vid varje körning (helbygget 2026-10-04)
+  WT_KVITTO="$ROOT/kunder/$SLUG/.webbtjanst-$STAMP"; rm -f "$WT_KVITTO"
   "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/webbtjanst.py" serve --slug "$SLUG" --kvitto "$WT_KVITTO" --korning "$STAMP" \
-    ${SANDLADA[@]+"${SANDLADA[@]}"} > "$ROOT/kunder/$SLUG/prov/webbtjanst.log" 2>&1 &
+    ${SANDLADA[@]+"${SANDLADA[@]}"} > "$ROOT/kunder/$SLUG/webbtjanst-$STAMP.log" 2>&1 &
   WT_PID=$!
   for _ in $(seq 1 50); do [ -s "$WT_KVITTO" ] && break; sleep 0.2; done
-  [ -s "$WT_KVITTO" ] || { echo "webbtjänsten startade inte (kunder/$SLUG/prov/webbtjanst.log)"; exit 2; }
+  [ -s "$WT_KVITTO" ] || { echo "webbtjänsten startade inte (kunder/$SLUG/webbtjanst-$STAMP.log)"; exit 2; }
   WT_ENV=(NWP_WEBBTJANST="http://127.0.0.1:$(sed -n 1p "$WT_KVITTO")" NWP_WEBBTJANST_NYCKEL="$(sed -n 2p "$WT_KVITTO")")
 fi
 FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"

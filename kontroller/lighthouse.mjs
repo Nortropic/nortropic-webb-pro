@@ -12,7 +12,7 @@ import lighthouse from 'lighthouse';
 import desktopConfig from 'lighthouse/core/config/desktop-config.js';
 import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
-import { viaTjanst } from './webblasare/gemensamt.mjs';
+import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
 
 await viaTjanst('lighthouse', process.argv.slice(2));  // sandlådat bygge: Chrome kan inte starta i sandlådan, tjänsten kör mätningen
 
@@ -35,7 +35,8 @@ const slug = (s) => (s === '/' ? 'hem' : s.replace(/^\/|\/$/g, '').replaceAll('/
 
 mkdirSync(ut, { recursive: true });
 const profil = mkdtempSync(join(tmpdir(), 'nwp-lh-'));
-const chrome = await chromeLauncher.launch({ chromePath, userDataDir: profil, chromeFlags: ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-extensions'] });
+const grans = await natgrans([base]);  // i tjänstens läge: nätgränsen (domänpolicyn) också för sidans underresurser
+const chrome = await chromeLauncher.launch({ chromePath, userDataDir: profil, chromeFlags: ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-extensions', ...(grans ? [grans.chromeFlag] : [])] });
 const rader = [];
 try {
   const mat = async (form, sida) => {
@@ -75,6 +76,7 @@ try {
   }
 } finally {
   await chrome.kill();
+  if (grans) await grans.stang();
   rmSync(profil, { recursive: true, force: true });
 }
 const ok = rader.length > 0 && rader.every((r) => r.ok);

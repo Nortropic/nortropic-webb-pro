@@ -7,7 +7,9 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { vakta } from './slugvakt.mjs';
+import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
 
+await viaTjanst('axe', process.argv.slice(2));  // sandlådat bygge: Chromium kan inte starta i sandlådan, tjänsten kör mätningen
 const arg = (namn) => process.argv.find((a) => a.startsWith(`--${namn}=`))?.slice(namn.length + 3);
 const base = (arg('url') || '').replace(/\/$/, '');
 const sidor = (arg('sidor') || '/').split(',').filter(Boolean);
@@ -27,7 +29,8 @@ const VYER = {
 
 mkdirSync(ut, { recursive: true });
 const rader = [];
-const browser = await chromium.launch();
+const grans = await natgrans([base]);  // i tjänstens läge: nätgränsen (domänpolicyn) också för sidans underresurser
+const browser = await chromium.launch(grans ? grans.playwright : {});
 try {
   for (const [vy, opt] of Object.entries(VYER)) {
     const ctx = await browser.newContext({ ...opt, locale: 'sv-SE', reducedMotion: 'reduce' });
@@ -52,6 +55,7 @@ try {
   }
 } finally {
   await browser.close();
+  if (grans) await grans.stang();
 }
 const allvarliga = rader.reduce((n, r) => n + r.overtradelser.filter((v) => ALLVARLIG.has(v.impact)).length, 0);
 const totalt = rader.reduce((n, r) => n + r.overtradelser.length, 0);

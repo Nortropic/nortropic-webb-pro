@@ -1993,7 +1993,10 @@ kor_text_w = (ROOT / 'kor.sh').read_text()
 assert 'webbtjanst.py' in kor_text_w and 'NWP_WEBBTJANST' in kor_text_w, 'kor.sh startar tjänsten med sandlådan på'
 assert 'via_tjanst' not in (ROOT / 'kontroller' / 'prova.py').read_text(), 'prova delegerar inte längre: npm och servering stannar i sandlådan'
 assert 'via_tjanst' not in (ROOT / 'kontroller' / 'atelje.py').read_text(), 'ateljén delegerar inte; den vägrar i sandlådat läge'
-assert set(wt.VERKTYG) == {'granska', 'lighthouse', 'arkivera', 'inspektera', 'utan-js', 'utforska'}, 'bara webbläsaroperationer och granskarnas sessioner'
+assert set(wt.VERKTYG) == {'granska', 'lighthouse', 'arkivera', 'inspektera', 'utan-js', 'utforska', 'axe', 'stil', 'sida', 'ikoner'}, 'bara webbläsaroperationer och granskarnas sessioner'
+for namn_ in ('axe', 'stil', 'sida', 'ikoner', 'lighthouse'):  # alla Chromium-skript delegerar och går genom nätgränsen i tjänstens läge
+    txt_ = (ROOT / 'kontroller' / (namn_ + '.mjs')).read_text()
+    assert "viaTjanst('%s'" % namn_ in txt_ and 'natgrans(' in txt_ and 'grans.stang()' in txt_, namn_
 till_ = wt.tillatna_varden(['exempel.se', 'www.exempel.se', '*.npmjs.org', 'Luleå-snickaren.se'])
 assert 'xn--lule-snickaren-oib.se' in till_ and wt.tillaten_vard('registry.npmjs.org', till_) and wt.tillaten_vard('npmjs.org', till_) \
     and not wt.tillaten_vard('npmjs.org.evil', till_) and not wt.tillaten_vard('evilnpmjs.org', till_) and wt.tillaten_vard('LULEÅ-SNICKAREN.se', till_), 'domänlistan: jokertecken och IDNA'
@@ -2006,6 +2009,11 @@ assert ga('granska', ['prov-bygge', '--jamfor'])[1] is None and ga('granska', ['
     and ga('granska', ['annan', '--jamfor'])[1] and ga('granska', ['--arbetare', 'kunder/prov-bygge/granskning/runda-03', '--jamfor'])[1], 'granska: bara arbetaren i en omgång eller jämförelsen för byggets slug'
 assert ga('lighthouse', ['--url=http://127.0.0.1:4321', '--sidor=/,/om/', '--ut=kunder/prov-bygge/prov/lighthouse'])[0][-3:] == ['--url=http://127.0.0.1:4321/', '--sidor=/,/om/', '--ut=kunder/prov-bygge/prov/lighthouse']
 assert 'domänlista' in ga('lighthouse', ['--url=https://evil.example', '--ut=kunder/prov-bygge/x'])[1]
+assert ga('axe', ['--url=http://127.0.0.1:4321', '--sidor=/,/om/', '--ut=kunder/prov-bygge/prov/axe'])[1] is None and ga('stil', ['--url=http://127.0.0.1:4321', '--sidor=/', '--ut=kunder/prov-bygge/prov/stil'])[1] is None
+assert ga('sida', ['HTTPS://Exempel.se/om', '--ut', '/tmp/nwp-granskning/prov-bygge-runda-01-1/sida', '--skroll', '4'])[0][-5:] == ['https://exempel.se/om', '--ut', '/tmp/nwp-granskning/prov-bygge-runda-01-1/sida', '--skroll', '4'], 'positionell adress kanoniseras'
+assert ga('sida', ['--ut', '/tmp/nwp-granskning/prov-bygge-runda-01-1/sida', 'https://exempel.se/'])[0][-3:] == ['--ut', '/tmp/nwp-granskning/prov-bygge-runda-01-1/sida', 'https://exempel.se/']
+assert 'domänlista' in ga('sida', ['https://evil.example/', '--ut', '/tmp/nwp-granskning/prov-bygge-runda-01-1/sida'])[1] and ga('sida', ['--ut', 'kunder/prov-bygge/x'])[1] and ga('sida', ['https://exempel.se/', 'https://exempel.se/', '--ut', 'kunder/prov-bygge/x'])[1], 'sida: exakt en adress'
+assert ga('ikoner', ['--sajt', 'kunder/prov-bygge/sajt', '--foto', 'underlag/prov-bygge/bilder/x.jpg', '--bakgrund', '#1b1b1b'])[1] is None and 'utanför' in ga('ikoner', ['--sajt', 'kunder/annan/sajt', '--foto', 'underlag/prov-bygge/bilder/x.jpg'])[1]
 # strikt kanonisk adress: samma värd för Python och Node (F5)
 assert wt.kanon_url('http://reference.example\\@localhost/', till_)[0] is None and 'snedstreck' in wt.kanon_url('http://reference.example\\@localhost/', till_)[1], 'omvänt snedstreck vägras'
 assert 'användarnamn' in wt.kanon_url('http://exempel.se@localhost/', till_)[1] and 'användarnamn' in wt.kanon_url('http://a:b@exempel.se/', till_)[1]
@@ -2077,7 +2085,8 @@ print('webbtjänsten ok')
 prov_g = tmp / 'prov-gemensamt.mjs'
 prov_g.write_text(r'''
 import http from 'node:http';
-import { oppna, vardTillaten } from '%s/kontroller/webblasare/gemensamt.mjs';
+import net from 'node:net';
+import { oppna, vardTillaten, natgrans } from '%s/kontroller/webblasare/gemensamt.mjs';
 const A = { traffar: [], srv: null }, B = { traffar: [], srv: null };
 function server(st, html) {
   return new Promise((res) => {
@@ -2137,6 +2146,14 @@ ut.aPost5 = A.traffar.filter((t) => t.metod === 'POST').length;
 await o.stang();
 ut.policy = [vardTillaten('exempel.se', ['exempel.se']), vardTillaten('a.exempel.se', ['*.exempel.se']), vardTillaten('exempel.se', ['*.exempel.se']),
              vardTillaten('exempel.se.evil', ['exempel.se']), vardTillaten('localhost', []), vardTillaten('evil.example', null), vardTillaten('evil.example', ['exempel.se'])];
+// 6. nätgränsen för skript som startar Chromium själva: proxyn nekar olistad värd utan att slå upp den, släpper lokalt, nekar CONNECT
+process.env.NWP_NAT_TILLATNA = 'exempel.se';
+const grans = await natgrans([a]);
+const pp = new URL(grans.server);
+const fraga = (path) => new Promise((res) => { const r = http.request({ host: pp.hostname, port: pp.port, method: 'GET', path, headers: { host: new URL(path).host } }, (s) => { s.resume(); s.on('end', () => res(s.statusCode)); }); r.on('error', () => res('fel')); r.end(); });
+ut.proxyEvil = await fraga('http://evil.example/x'); ut.proxyLokal = await fraga(a + '/sida');
+ut.proxyConnect = await new Promise((res) => { const s = net.connect(Number(pp.port), pp.hostname, () => s.write('CONNECT evil.example:443 HTTP/1.1\r\nHost: evil.example:443\r\n\r\n')); let d = ''; s.on('data', (x) => { d += x; }); s.on('close', () => res(d.split(' ')[1] || d.slice(0, 20))); s.on('error', () => res('fel')); setTimeout(() => s.destroy(), 3000); });
+ut.proxyBlockerade = grans.blockerade.length; await grans.stang(); delete process.env.NWP_NAT_TILLATNA;
 A.srv.close(); B.srv.close();
 console.log(JSON.stringify(ut));
 ''' % ROOT)
@@ -2148,6 +2165,7 @@ assert ug['bTraffar2'] == 1 and ug['bBypass'] is None and ug['aBypass2'] == 'HEM
 assert ug['bTraffar3'] == 0 and ug['ws'] and ug['postBlockerad'] and ug['aPost3'] == 0, 'bild från B, WebSocket och POST blockeras under läsande inspektion: %s' % ug
 assert ug['aPost4'] == 1 and ug['aPost5'] == 0, 'inskick bara till lokala skrivbara ursprung: %s' % ug
 assert ug['policy'] == [True, True, True, False, True, True, False], 'domänpolicyn: %s' % ug['policy']
+assert ug['proxyEvil'] == 403 and ug['proxyLokal'] == 200 and ug['proxyConnect'] == '403' and ug['proxyBlockerade'] == 2, 'nätgränsens proxy: %s' % ug
 print('webbläsarhjälparen: omdirigering, header, WebSocket, inskick och policy ok')
 
 

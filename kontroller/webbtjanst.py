@@ -5,8 +5,10 @@ Chromium (Playwright) kan inte starta inne i Claude Codes sandlåda: dess proces
 (bootstrap_check_in av org.chromium.Chromium.MachPortRendezvousServer.<pid>) och sandlådeprofilen avger aldrig
 (allow mach-register …); mätt 2026-10-04 med seatbelt-profiler som nekar en operation i taget, och i källan
 anthropic-experimental/sandbox-runtime. Därför startar kor.sh, med NWP_SANDLADA=pa, den här tjänsten utanför
-sandlådan på 127.0.0.1. Bara avgränsade webbläsaroperationer delegeras (Codex R23): de fyra webbläsarskripten,
-lighthouse och granskarnas sessioner (granska.py --arbetare, --jamfor), som körs med egen sandlåda. Byggsteg (npm
+sandlådan på 127.0.0.1. Bara avgränsade webbläsaroperationer delegeras (Codex R23): webbläsarskripten (arkivera,
+inspektera, utan-js, utforska), axe, stil, sida, ikoner, lighthouse och granskarnas sessioner (granska.py --arbetare,
+--jamfor), som körs med egen sandlåda. Skripten startar Chromium genom webbläsarhjälparens nätgräns (natgrans), så
+också sidornas underresurser håller sig inom domänlistan. Byggsteg (npm
 install, npm run build, servering av dist/) och byggets egen modellprocess stannar i sandlådan: prova.py körs därinne
 och bara dess webbläsarsteg går via tjänsten; ateljén stöds inte i sandlådat läge än. Verktygen delegerar själva när de
 körs sandlådade (NWP_WEBBTJANST satt, HTTP_PROXY satt av sandlådan, NWP_I_TJANSTEN inte satt). Krokarna (stoppvakten)
@@ -50,6 +52,10 @@ VERKTYG = {
                 'flaggor': {'arbetare': 'granskningsvag', 'jamfor': 'flagga'}},
     'lighthouse': {'kmd': ('node', 'kontroller/lighthouse.mjs'), 'slug': False,
                    'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text'}},
+    'axe': {'kmd': ('node', 'kontroller/axe.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag'}},
+    'stil': {'kmd': ('node', 'kontroller/stil.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag'}},
+    'sida': {'kmd': ('node', 'kontroller/sida.mjs'), 'slug': False, 'positionella': ('url',), 'flaggor': {'ut': 'vag', 'skroll': 'tal'}},
+    'ikoner': {'kmd': ('node', 'kontroller/ikoner.mjs'), 'slug': False, 'flaggor': {'sajt': 'vag', 'foto': 'vag', 'bakgrund': 'text', 'fokus': 'text'}},
     'arkivera': {'kmd': ('node', 'kontroller/webblasare/arkivera.mjs'), 'slug': False,
                  'flaggor': {'adress': 'url', 'ut': 'vag', 'intervju': 'vag', 'kund': 'text', 'sitemap': 'url'}},
     'inspektera': {'kmd': ('node', 'kontroller/webblasare/inspektera.mjs'), 'slug': False,
@@ -198,9 +204,17 @@ def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
     elif spec['slug']:
         if pos != [slug]:
             return None, 'sluggen måste vara byggets (%s), fick %r' % (slug, pos)
-    elif pos:
-        return None, 'inga positionella argument för %s: %r' % (verktyg, pos)
-    kanon = {}  # flagga → kanoniskt värde som ersätter modellens
+    elif len(pos) != len(spec.get('positionella', ())):
+        return None, '%s tar %d positionella argument, fick %r' % (verktyg, len(spec.get('positionella', ())), pos)
+    kanon, kanon_pos = {}, []  # flagga → kanoniskt värde som ersätter modellens; positionella i ordning
+    for v, typ in zip(pos, spec.get('positionella', ())):
+        if typ == 'url':
+            ku, fel = kanon_url(v, tillatna)
+            if fel:
+                return None, 'adressen: %s' % fel
+            kanon_pos.append(ku)
+        else:
+            kanon_pos.append(v)
     for k, v in fl.items():
         typ = spec['flaggor'].get(k)
         if not typ:
@@ -242,12 +256,13 @@ def granska_anrop(verktyg, argv, slug, tillatna, root=ROOT):
         adress = kanon.get('adress', '')
         if not adress or idna(urllib.parse.urlsplit(adress).hostname) not in LOKALA:
             return None, '--formular-far-skickas bara mot provets lokala mottagare (127.0.0.1), inte %s' % (adress or 'utan adress')
-    return list(spec['kmd']) + kanonisera_argv(argv, kanon), None
+    return list(spec['kmd']) + kanonisera_argv(argv, kanon, kanon_pos), None
 
 
-def kanonisera_argv(argv, kanon):
-    """Samma argument, med url-flaggornas värden ersatta av de kanoniska formerna (samma värd i Python och Node)."""
-    ut, i = [], 0
+def kanonisera_argv(argv, kanon, kanon_pos=()):
+    """Samma argument, med url-flaggornas och de positionella värdena ersatta av de kanoniska formerna (samma värd i
+    Python och Node)."""
+    ut, i, pos_i, kanon_pos = [], 0, 0, list(kanon_pos)
     while i < len(argv):
         a = argv[i]
         if a.startswith('--'):
@@ -262,7 +277,14 @@ def kanonisera_argv(argv, kanon):
                         i += 1
                 i += 1
                 continue
-        ut.append(a)
+            ut.append(a)
+            if not sep and i + 1 < len(argv) and not argv[i + 1].startswith('--'):
+                ut.append(argv[i + 1])
+                i += 1
+            i += 1
+            continue
+        ut.append(kanon_pos[pos_i] if pos_i < len(kanon_pos) else a)
+        pos_i += 1
         i += 1
     return ut
 

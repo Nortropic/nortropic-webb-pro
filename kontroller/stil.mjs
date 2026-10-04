@@ -12,6 +12,8 @@ import { chromium } from 'playwright';
 import { VYER } from './webblasare/gemensamt.mjs';
 import { vakta } from './slugvakt.mjs';
 
+import { viaTjanst, natgrans } from './webblasare/gemensamt.mjs';
+await viaTjanst('stil', process.argv.slice(2));  // sandlådat bygge: Chromium kan inte starta i sandlådan, tjänsten kör mätningen
 const arg = (n) => process.argv.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3);
 const base = (arg('url') || '').replace(/\/$/, '');
 const sidor = (arg('sidor') || '/').split(',').filter(Boolean);
@@ -234,7 +236,8 @@ function familjAv(h) {
   return 'blå';
 }
 
-const browser = await chromium.launch();
+const grans = await natgrans([base]);  // i tjänstens läge: nätgränsen också för sidans underresurser
+const browser = await chromium.launch(grans ? grans.playwright : {});
 const matningar = [];
 try {
   for (const vy of ['390', '1440']) {
@@ -256,6 +259,7 @@ try {
   }
 } finally {
   await browser.close();
+  if (grans) await grans.stang();
 }
 const fel = matningar.filter((r) => r.fel);
 const rader = matningar.filter((r) => !r.fel);

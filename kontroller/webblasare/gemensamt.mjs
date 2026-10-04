@@ -106,6 +106,30 @@ async function startaProxy(tillaten, blockera) {
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   return { server: 'http://127.0.0.1:' + srv.address().port, stang: () => new Promise((r) => srv.close(() => r())) };
 }
+
+// värd:port tillåten för proxyn: localhost alltid; annars domänpolicyn och, när skriptet angett ursprung, just de ursprungen
+function anslutningsvakt(policy, tillatna) {
+  return (host, port, protokoll) => {
+    const h = String(host).toLowerCase();
+    if (LOKALA.has(h)) return true;
+    if (!vardTillaten(h, policy)) return false;
+    if (!tillatna.size) return true;
+    const std = protokoll === 'https:' ? '443' : '80';
+    return tillatna.has(protokoll + '//' + h + (String(port) === std ? '' : ':' + port));
+  };
+}
+
+/** Nätgränsen för skript som startar Chromium själva (axe, stil, sida, ikoner, lighthouse): i tjänstens läge
+ *  (NWP_NAT_TILLATNA satt, kontroller/webbtjanst.py) en filtrerande proxy enligt domänpolicyn och de givna ursprungen,
+ *  som Chromium startas genom (playwright-alternativ eller Chrome-flagga); annars null och allt som förut. */
+export async function natgrans(ursprung = []) {
+  const policy = natpolicy();
+  if (policy === null) return null;
+  const tillatna = new Set(ursprung.filter(Boolean).map((o) => origin(o)));
+  const blockerade = [];
+  const proxy = await startaProxy(anslutningsvakt(policy, tillatna), (metod, url) => blockerade.push({ metod, url: redigeraUrl(url), tid: nu() }));
+  return { server: proxy.server, playwright: { proxy: { server: proxy.server } }, chromeFlag: '--proxy-server=' + proxy.server.replace(/^http:\/\//, ''), blockerade, stang: proxy.stang };
+}
 // Svaret lämnas till webbläsaren med kroppen redan avkodad: kodnings- och längdhuvuden tas bort.
 async function fullborda(route, svar) {
   const headers = {};
@@ -146,16 +170,7 @@ export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga
   const logg = { konsol: [], natverk: [], blockerade: [], dialoger: [], sidfel: [], omdirigeringar: [] };
   const policy = natpolicy();
   const tillatna = new Set(tillat.map(o => origin(o)));
-  // värd:port tillåten för proxyn: localhost alltid; annars domänpolicyn och, när skriptet angett ursprung, just de ursprungen
-  const tillatenAnslutning = (host, port, protokoll) => {
-    const h = String(host).toLowerCase();
-    if (LOKALA.has(h)) return true;
-    if (!vardTillaten(h, policy)) return false;
-    if (!tillatna.size) return true;
-    const std = protokoll === 'https:' ? '443' : '80';
-    return tillatna.has(protokoll + '//' + h + (String(port) === std ? '' : ':' + port));
-  };
-  const proxy = await startaProxy(tillatenAnslutning, (metod, url) => logg.blockerade.push({ metod, url: redigeraUrl(url), typ: 'proxy', tid: nu(), skal: 'utanför tillåtna ursprung (nätgränsen)' }));
+  const proxy = await startaProxy(anslutningsvakt(policy, tillatna), (metod, url) => logg.blockerade.push({ metod, url: redigeraUrl(url), typ: 'proxy', tid: nu(), skal: 'utanför tillåtna ursprung (nätgränsen)' }));
   const browser = await chromium.launch({ headless: true, proxy: { server: proxy.server } });
   // serviceWorkers: 'block': en service worker skulle annars kunna göra anrop förbi route-vakten
   const ctx = await browser.newContext({ viewport: v.viewport, deviceScaleFactor: v.deviceScaleFactor, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'sv-SE', timezoneId: 'Europe/Stockholm', serviceWorkers: 'block', ...extra });
