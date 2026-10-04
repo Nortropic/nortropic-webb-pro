@@ -3,7 +3,8 @@
 #
 #   ./kor.sh <slug> "<verksamhetens namn, ort och gärna webbadress>"
 #   ./kor.sh frisor-exempel-umea "Frisör Exempel, Umeå, https://exempel.se"
-# Slutkod: 0 grönt prov och godkänd granskning · 1 avslutat utan det · 2 fel i anropet · 3 skyddade filer ändrades under
+# Slutkod: 0 grönt prov och godkänd granskning · 1 avslutat utan det · 2 fel i anropet (eller ett bygge pågår redan) ·
+# 3 skyddade filer eller gränsen (nya kataloger direkt under kunder/ eller underlag/, lyft flagga) ändrades under
 # körningen · 4 claude föll.
 #
 # Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
@@ -24,6 +25,19 @@ fi
 [ -d "$ROOT/kontroller/node_modules" ] || { echo "saknar kontroller/node_modules — kör: (cd kontroller && npm install)"; exit 2; }
 command -v claude >/dev/null || { echo "claude saknas i PATH"; exit 2; }
 
+# Ett bygge i taget, och inga nya kataloger direkt under kunder/ eller underlag/ medan det pågår (Codex 2026-10-04, F1:
+# sandlådans skrivförbud räknas upp vid starten, så en katalog som skapades under körningen bredvid byggets vore
+# skrivbar). Flaggan uchg på de två katalogerna stoppar varje process (bygget, dashboarden, en kampanj) från att skapa,
+# döpa om eller ta bort poster där; byggets kommandolista släpper inte igenom chflags, och är flaggan ändå borta
+# efteråt eller en post tillkommen räknar korslut det som ändrad mekanik (slutkod 3). Flaggorna tas bort vid avslut.
+LAS="$ROOT/kunder/.bygge-pid"
+mkdir -p "$ROOT/kunder" "$ROOT/underlag"
+if [ -f "$LAS" ] && kill -0 "$(cat "$LAS" 2>/dev/null)" 2>/dev/null; then
+  echo "ett bygge pågår redan (pid $(cat "$LAS")): ett i taget"; exit 2
+fi
+chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true   # kvarlämnad flagga efter en avbruten körning
+echo $$ > "$LAS"
+trap 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null; rm -f "$LAS"' EXIT
 mkdir -p "$ROOT/kunder/$SLUG" "$ROOT/underlag/$SLUG"
 rm -f "$ROOT/kunder/$SLUG/prov/.stoppvakt-antal"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -140,18 +154,28 @@ skyddat() {
   find "${SKYDDAT[@]}" -type f ! -path '*/node_modules/*' ! -path '*/__pycache__/*' ! -name '.DS_Store' -print0 2>/dev/null \
     | sort -z | xargs -0 shasum -a 256
 }
+# Gränsen i samma listformat (värde, två blanksteg, namn): flaggan på kunder/ och underlag/ och varje post direkt under
+# dem; korslut räknar en skillnad här som ändrad mekanik (slutkod 3).
+grans() {
+  for d in kunder underlag; do
+    printf '%s  flagga:%s\n' "$(stat -f %Sf "$ROOT/$d" 2>/dev/null | grep -o uchg || echo utan)" "$d"
+    for n in "$ROOT/$d"/* "$ROOT/$d"/.[!.]*; do [ -e "$n" ] || [ -L "$n" ] || continue; printf 'post  syskon:%s/%s\n' "$d" "$(basename "$n")"; done
+  done
+}
 mkdir -p "$ROOT/kunder/$SLUG/prov"
 FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"
 EFTER_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-efter"
 rm -f "$FORE_FIL" "$EFTER_FIL"   # en planterad symlänk ska inte få styra vart listorna skrivs
-skyddat > "$FORE_FIL"
+chflags uchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || echo "varning: kunder/ och underlag/ kunde inte låsas mot nya kataloger (chflags)"
+{ skyddat; grans; } > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
 printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
 rm -f "$EFTER_FIL"
-skyddat > "$EFTER_FIL"
+{ skyddat; grans; } > "$EFTER_FIL"
+chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true
 # Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
 # godkännande, 3 mekaniken ändrades under körningen, 4 claude föll. Skriptets slutkod är korsluts.
 set +e

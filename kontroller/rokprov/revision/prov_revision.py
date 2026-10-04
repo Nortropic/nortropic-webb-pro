@@ -1875,6 +1875,7 @@ def skriv28(namn, resultat, fel=''):
 def grund28():
     for namn_ in ('1-kontroller.txt', '1b-annan-kund.txt', '1c-annat-underlag.txt', '1d-venv.txt'):
         skriv28(namn_, 'rc=1\n', 'touch: kontroller/otillatet.txt: Operation not permitted\n')
+    skriv28('1e-nytt-syskon.txt', 'rc=1\n', 'mkdir: kunder/ny-kund: Operation not permitted\n')
     skriv28('2-hemligt.txt', 'rc=1\n', 'cat: hem/.nortropic-hemligheter/x.env: Operation not permitted\n')
     skriv28('3a-nat-direkt.txt', '000 000  0.000000 0.000000 0.000000 rc=7', NEKAD)
     skriv28('3b-nat-proxy.txt', '000 403 127.0.0.1 0.000304 0.000000 0.000000 rc=56', '* CONNECT tunnel failed, response 403\n* Closing connection\n')
@@ -1931,6 +1932,45 @@ text39 = gr.uppdrag_text('ref38', 'http://x', ['/'], tmp / 'arb', [], [], [], []
 assert 'FRYST: referenser/x.png' in text39 and 'referenser/a/kontakt/saknas.png' not in text39, 'den frysta felstatusen gäller, inte en ny läsning (F18/F38)'
 assert 'referenser/a/kontakt/saknas.png' in gr.uppdrag_text('ref38', 'http://x', ['/'], tmp / 'arb', [], [], [], [], tmp / 'runda39'), 'utan fryst status räknas den (torrkörning)'
 print('R19 F18/F38 fryst felstatus ok')
+
+# ---------------------------------------------------------------- gränsen för syskonkataloger (Codex 2026-10-04, F1 efter R21)
+# kor.sh låser kunder/ och underlag/ med flaggan uchg under körningen, vägrar ett andra bygge, och räknar lyft flagga eller
+# ny post direkt under dem som ändrad mekanik (slutkod 3) via grans() i före/efter-listorna. Mätt: nekande går före
+# tillåtande i sandlådans skrivregler, så uppräkningen av befintliga syskon består och flaggan täcker de nya.
+kor_text = (ROOT / 'kor.sh').read_text()
+assert 'chflags uchg' in kor_text and 'grans()' in kor_text and '.bygge-pid' in kor_text, 'kor.sh låser kunder/ och underlag/ under körningen'
+falsk_s = tmp / 'falsk-claude-syskon'; falsk_s.mkdir()
+(falsk_s / 'claude').write_text('#!/bin/sh\ncat > /dev/null\n'
+                                'stat -f %Sf kunder > kunder/prov-bygge/FLAGGA-UNDER\n'
+                                'mkdir kunder/nykund 2> kunder/prov-bygge/NYKUND-FEL; echo "rc=$?" > kunder/prov-bygge/NYKUND-RC\n'
+                                'chflags nouchg kunder underlag\n'
+                                'mkdir kunder/smyg\n'
+                                'echo "{\\"type\\":\\"result\\"}"\nexit 0\n')
+(falsk_s / 'claude').chmod(0o755)
+miljo_s = dict(miljo_k); miljo_s['PATH'] = str(falsk_s) + os.pathsep + os.environ.get('PATH', '')
+rs = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_s, timeout=300)
+assert rs.returncode == 3, (rs.returncode, rs.stdout[-500:], rs.stderr[-300:])
+assert 'uchg' in (kr / 'kunder' / 'prov-bygge' / 'FLAGGA-UNDER').read_text(), 'kunder/ är låst med uchg under körningen'
+assert 'rc=1' in (kr / 'kunder' / 'prov-bygge' / 'NYKUND-RC').read_text() and 'Operation not permitted' in (kr / 'kunder' / 'prov-bygge' / 'NYKUND-FEL').read_text() \
+    and not (kr / 'kunder' / 'nykund').exists(), 'en ny katalog direkt under kunder/ stoppas av flaggan'
+assert (kr / 'kunder' / 'smyg').is_dir() and 'syskon:kunder/smyg' in rs.stdout and 'flagga:kunder' in rs.stdout, 'lyft flagga och insmugen katalog är ändrad mekanik: %s' % rs.stdout[-400:]
+assert 'uchg' not in subprocess.run(['stat', '-f', '%Sf', str(kr / 'kunder')], capture_output=True, text=True).stdout and not (kr / 'kunder' / '.bygge-pid').exists(), 'flaggan och låset tas bort vid avslut'
+shutil.rmtree(kr / 'kunder' / 'smyg')
+(kr / 'kunder' / '.bygge-pid').write_text('%d\n' % os.getpid())  # ett andra bygge medan det första pågår vägras
+rv = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_s, timeout=60)
+assert rv.returncode == 2 and 'pågår redan' in rv.stdout, (rv.returncode, rv.stdout[-200:])
+assert (kr / 'kunder' / '.bygge-pid').read_text().strip() == str(os.getpid()), 'den vägrade körningen rör inte låset'
+(kr / 'kunder' / '.bygge-pid').write_text('999999\n'); subprocess.run(['chflags', 'uchg', str(kr / 'kunder')], check=True)  # avbruten körning: död pid, kvar flagga
+rs2 = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_k, timeout=300)
+assert rs2.returncode in (0, 1) and not (kr / 'kunder' / '.bygge-pid').exists() and 'uchg' not in subprocess.run(['stat', '-f', '%Sf', str(kr / 'kunder')], capture_output=True, text=True).stdout, \
+    (rs2.returncode, rs2.stdout[-300:])
+fore_g, efter_g = tmp / 'grans-fore', tmp / 'grans-efter'  # korslut: en skillnad i gränsraderna är slutkod 3
+fore_g.write_text('uchg  flagga:kunder\npost  syskon:kunder/a\n'); efter_g.write_text('utan  flagga:kunder\npost  syskon:kunder/a\npost  syskon:kunder/b\n')
+pg = subprocess.run([PY, '-B', str(korslut), str(kr / 'kunder' / 'prov-bygge'), '0', str(fore_g), str(efter_g)], capture_output=True, text=True)
+assert pg.returncode == 3 and 'flagga:kunder' in pg.stdout and 'syskon:kunder/b' in pg.stdout, pg.stdout[-300:]
+efter_g.write_text(fore_g.read_text()); assert subprocess.run([PY, '-B', str(korslut), str(kr / 'kunder' / 'prov-bygge'), '0', str(fore_g), str(efter_g)]).returncode != 3, 'oförändrad gräns är inte slutkod 3'
+print('gränsen för syskonkataloger ok')
+
 
 shutil.rmtree(tmp, ignore_errors=True)
 print('revisionens regressionsfall: alla ok')

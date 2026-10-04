@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex-revision 2026-10-03, F1; code.claude.com/docs/en/sandboxing
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-03T22:09Z
+andrad: 2026-10-04T07:01Z
 ---
 # Gräns på processnivå för byggsessionen: sandlåda för filskrivning och nät (revisionen F1)
 
@@ -16,3 +16,5 @@ andrad: 2026-10-03T22:09Z
 **Klart när:** Ett fullt bygge (prov grönt, granskning godkänd) har körts med sandlådan på, och ett syntetiskt försök att skriva i kontroller/ och att POST:a till en extern adress från ett skript under underlag/<slug>/skript/ nekas av sandlådan, inte av vakten efteråt.
 
 **Pagar (2026-10-03):** steg 1 (gren sandlada-20261003): kontroller/sandlada.py, sandlada-domaner.txt, sandlada_prov.sh, kor.sh NWP_SANDLADA, ingen git i bygget. Blockerat: managed-settings.json låser sandbox.enabled=false och går före --settings; provet visar ingen proxy och inget stoppat. Ägaren ändrar filen (sudo), sedan fullt bygge i kopia
+
+**Pågår (2026-10-04):** sandlådan verifierad på riktigt efter ägarens ändring av managed-settings.json (enabled, allowUnsandboxedCommands och allowManagedDomainsOnly borttagna/avslagna): kontroller/sandlada_prov.sh 0 fel (skrivning i kontroller/, annan kund, annat underlag, .venv stoppad; hemligheten oläst; curl direkt och via proxyn stoppade före sändning; listad domän nådd; eget skripts socket stoppad; port och eget underlag går). Syskonkataloger som skapas under körningen: mätt att nekande går före tillåtande i skrivreglerna (kunder/ kan inte nekas med byggets katalog undantagen), så kor.sh låser kunder/ och underlag/ med flaggan uchg under körningen, vägrar ett andra bygge (kunder/.bygge-pid) och räknar lyft flagga eller ny post som ändrad mekanik (slutkod 3). Kvar: helbygget i en förskjuten kopia med NWP_SANDLADA=pa, därefter standard på.

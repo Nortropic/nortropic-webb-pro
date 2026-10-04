@@ -47,8 +47,11 @@ TILLATNA_I_ROTEN = ('kunder', 'underlag', 'backlog')
 def nekade_skrivvagar(root, slug):
     """Sandlådans standard är att hela arbetskatalogen får skrivas, och allowWrite bara utökar den. Därför nekas allt i
     reporoten utom kunder/, underlag/ och backlog/, och under kunder/ och underlag/ varje syskon till byggets egen
-    katalog, plus körmiljön (.venv, kontroller/node_modules) och den fasta listan (Codex 2026-10-04, F1). Kataloger som
-    skapas under körningen bredvid byggets täcks inte; slugvakten prövar symlänkar när de används."""
+    katalog, plus körmiljön (.venv, kontroller/node_modules) och den fasta listan (Codex 2026-10-04, F1). Listan räknas
+    upp vid starten; att inga nya kataloger kan tillkomma bredvid byggets under körningen sköter kor.sh (flaggan uchg
+    på kunder/ och underlag/, lyft flagga eller ny post = slutkod 3). Nekande går före tillåtande i sandlådans
+    skrivregler (mätt 2026-10-04), så kunder/ och underlag/ kan inte nekas som helhet med byggets katalog undantagen.
+    Slugvakten prövar symlänkar när de används."""
     root = Path(root)
     namn = {p.name for p in root.iterdir()} if root.is_dir() else set()
     ut = ['%s/%s' % (root, p) for p in SKYDDAT] + ['%s/.venv' % root, '%s/kontroller/node_modules' % root]

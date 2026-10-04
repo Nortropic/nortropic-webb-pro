@@ -19,6 +19,9 @@ P="$(mktemp -d /tmp/nwp-sandlada-prov.XXXXXX)"
 SLUG=prov-bygge
 mkdir -p "$P/kontroller" "$P/underlag/$SLUG/skript" "$P/kunder/$SLUG" "$P/kunder/annan-kund" "$P/underlag/annan-kund" "$P/.venv/bin" "$P/hem/.nortropic-hemligheter"
 cp "$ROOT/kontroller/sandlada-domaner.txt" "$P/kontroller/"
+# Som kor.sh: kunder/ och underlag/ låsta mot nya poster under körningen (flaggan uchg; Codex 2026-10-04, F1).
+chflags uchg "$P/kunder" "$P/underlag"
+trap 'chflags nouchg "$P/kunder" "$P/underlag" 2>/dev/null' EXIT
 echo "DUMMY=hemligt" > "$P/hem/.nortropic-hemligheter/x.env"
 IP="$("$ROOT/.venv/bin/python" -c 'import socket; print(socket.getaddrinfo("example.com", 443, socket.AF_INET, socket.SOCK_STREAM)[0][4][0])' 2>/dev/null)" || IP=""
 [ -n "$IP" ] || { echo "example.com gick inte att slå upp (nätet nere?): provet kan inte köras"; exit 2; }
@@ -49,6 +52,7 @@ touch kontroller/otillatet.txt 2> $UT/1-kontroller-fel.txt; echo \"rc=\$?\" > $U
 touch kunder/annan-kund/otillatet.txt 2> $UT/1b-annan-kund-fel.txt; echo \"rc=\$?\" > $UT/1b-annan-kund.txt
 touch underlag/annan-kund/otillatet.txt 2> $UT/1c-annat-underlag-fel.txt; echo \"rc=\$?\" > $UT/1c-annat-underlag.txt
 touch .venv/bin/otillatet.txt 2> $UT/1d-venv-fel.txt; echo \"rc=\$?\" > $UT/1d-venv.txt
+mkdir kunder/ny-kund 2> $UT/1e-nytt-syskon-fel.txt; echo \"rc=\$?\" > $UT/1e-nytt-syskon.txt
 cat hem/.nortropic-hemligheter/x.env > $UT/2-hemligt.txt 2> $UT/2-hemligt-fel.txt; echo \"rc=\$?\" >> $UT/2-hemligt.txt
 curl -s -v -m 10 --noproxy '*' --resolve example.com:443:$IP -o /dev/null -w '$WUT' https://example.com/ > $UT/3a-nat-direkt.txt 2> $UT/3a-nat-direkt-fel.txt; echo \" rc=\$?\" >> $UT/3a-nat-direkt.txt
 curl -s -v -m 10 -o /dev/null -w '$WUT' https://example.com/ > $UT/3b-nat-proxy.txt 2> $UT/3b-nat-proxy-fel.txt; echo \" rc=\$?\" >> $UT/3b-nat-proxy.txt
@@ -64,6 +68,7 @@ while IFS='=' read -r namn _; do case "$namn" in CLAUDE_CODE_*) RENSA+=(-u "$nam
     --setting-sources project,local --strict-mcp-config --allowedTools "Bash(*)" --settings "$SETTINGS" > "$P/claude.json" 2>&1 )
 CLAUDE_RC=$?
 echo "sandlådeprov i $P"
+chflags nouchg "$P/kunder" "$P/underlag" 2>/dev/null
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada_dom.py" "$P/$UT" "$CLAUDE_RC" "$P"
 RC=$?
 echo "detaljer i $P/$UT/"

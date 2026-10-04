@@ -7,7 +7,8 @@ hashlistor före och efter körningen, och sätter slutkoden (revisionen 2026-10
 Slutkod: 0 provet grönt för just det bygge som ligger i dist/, RAPPORT.md finns, stoppvakten själv släppte med gröna
 kontroller och godkänd granskning, och granskningen gäller samma bygge och samma metod som nu · 1 avslutat utan det
 (också när en äldre godkänd granskningsfil ligger kvar; omgång tre, F11) · 3 mekaniken (provet, kriterierna, mallen,
-krokarna, kor.sh, dashboarden) ändrades under körningen · 4 claude avslutade med annan kod än 0.
+krokarna, kor.sh, dashboarden) eller gränsen (en post tillkom eller försvann direkt under kunder/ eller underlag/, eller
+flaggan uchg lyftes; kor.sh:s grans(), Codex 2026-10-04 F1) ändrades under körningen · 4 claude avslutade med annan kod än 0.
 Texterna (kunskap/, LARDOMAR.md, skills) skrivs också av kirurgens intag och ägarens domar i dashboarden medan ett
 bygge pågår; ändringar där ger bara en varning. Hela fillistan klassificeras; bara utskriften kapas.
 """
@@ -18,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 MEKANIK = ('kontroller/', 'kritik/', 'mall/', '.claude/hooks/', '.claude/settings', 'kor.sh', 'dashboard/', 'dashboard.sh',
-           'CLAUDE.md', 'BESLUT.md', '.gitignore')
+           'CLAUDE.md', 'BESLUT.md', '.gitignore', 'syskon:', 'flagga:')
 
 
 def las(p):
@@ -109,7 +110,7 @@ def main(argv):
     if not godkant and skal:
         print('Inte godkänt:', skal)
     if mekanik:
-        print('Slutkod 3: mekaniken ändrades under körningen:', ', '.join(mekanik[:20]))
+        print('Slutkod 3: mekaniken eller gränsen ändrades under körningen:', ', '.join(mekanik[:20]))
         return 3
     if rc != '0':
         print('Slutkod 4: claude avslutade med kod', rc)

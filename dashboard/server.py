@@ -1146,6 +1146,8 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, ta_in_kandidat(m.group(1)) if m.group(2) == 'ta-in' else avfarda_kandidat(m.group(1), data.get('skal')))
             return self.skicka(404, {'fel': 'finns inte'})
         except (ValueError, json.JSONDecodeError, OSError) as e:
+            if isinstance(e, PermissionError) and (KUNDER / '.bygge-pid').exists():  # kor.sh låser kunder/ och underlag/ under ett bygge
+                return self.skicka(400, {'fel': 'ett bygge pågår: kunder/ och underlag/ tar inga nya kataloger förrän det är klart (%s)' % e})
             return self.skicka(400, {'fel': str(e)})
         except Exception as e:  # ett oväntat fel ska bli ett svar, inte en bruten förbindelse
             import subprocess
