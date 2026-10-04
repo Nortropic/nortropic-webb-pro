@@ -507,6 +507,9 @@ def arbetare(rdir):
             for n_ in mappar_ + filer_:
                 if (Path(d_) / n_).is_symlink():
                     raise RuntimeError('planterad symlänk i den frysta kopian: %s' % (Path(d_) / n_))
+        u0 = las_utfall(rdir)
+        if u0:  # omgången har redan ett slutligt utfall (avbruten av drivaren): inga granskare startas
+            raise RuntimeError('omgången är redan %s: %s' % (u0['status'], u0.get('skal') or ''))
         bilder = skarmbilder(kund, rdir / 'sajt')
         aria = aria_trad(kund, rdir / 'sajt')
         if prova.dist_hash(rdir / 'dist') != upp['dist_sha256']:
@@ -584,10 +587,19 @@ def arbetare(rdir):
                 'metod_sha': upp.get('metod_sha'), 'granskare': antal, 'originalitet': lage,
                 'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res,
                 'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}, 'sessioner': sessioner}
-        (rdir / 'GRANSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-        (rdir / 'GRANSKNING.md').write_text(markdown(post), encoding='utf-8')
+        def skriv_dom():
+            (rdir / 'GRANSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            (rdir / 'GRANSKNING.md').write_text(markdown(post), encoding='utf-8')
+        u = satt_utfall(rdir, 'klar', 'dom publicerad', publicera=skriv_dom)
+        if u['status'] != 'klar':  # drivaren avbröt omgången medan granskarna arbetade: domen läggs åt sidan, publiceras aldrig
+            (rdir / 'GRANSKNING-sen.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            print('omgången %s var redan %s när domen kom; domen sparad som GRANSKNING-sen.json och räknas inte' % (rdir.name, u['status']))
+        else:
+            publicera(rdir.parent, upp.get('korning'))  # sammanfattningen ur giltiga omgångar, nu när den här är klar
     except Exception as e:  # omgången ska sluta med ett besked, aldrig tyst
-        (rdir / 'FEL.txt').write_text('%s: %s\n' % (type(e).__name__, e), encoding='utf-8')
+        u = satt_utfall(rdir, 'fel', '%s: %s' % (type(e).__name__, e))
+        if u['status'] != 'klar':
+            (rdir / 'FEL.txt').write_text('%s: %s\n' % (type(e).__name__, e), encoding='utf-8')
     finally:
         shutil.rmtree(rdir / 'dist', ignore_errors=True)
         (rdir / 'PAGAR').unlink(missing_ok=True)
@@ -732,23 +744,119 @@ def rundor(gdir):
     return sorted(p for p in gdir.glob('runda-*') if p.is_dir())
 
 
+UTFALL = ('klar', 'avbruten', 'fel')
+
+
+def las_utfall(rdir):
+    """Omgångens slutliga tillstånd ur UTFALL.json: {'status': klar|avbruten|fel, 'tid', 'skal'} eller None."""
+    u = las_json(Path(rdir) / 'UTFALL.json')
+    return u if isinstance(u, dict) and u.get('status') in UTFALL else None
+
+
+def satt_utfall(rdir, status, skal='', publicera=None):
+    """Ett enda slutligt utfall per omgång, skrivet atomiskt under lås: den första skrivaren vinner, en senare ändrar
+    ingenting (Codex R38, F47: en avbruten omgång fick senare en giltig dom från arbetaren i tjänsten). publicera() körs
+    inne i låset bara om vi vinner, så att domen och tillståndet aldrig går isär. Ger det gällande utfallet."""
+    import fcntl
+    rdir = Path(rdir)
+    assert status in UTFALL
+    with open(rdir / '.utfall.las', 'w') as las:
+        fcntl.flock(las, fcntl.LOCK_EX)
+        try:
+            u = las_utfall(rdir)
+            if u:
+                return u
+            if publicera:
+                publicera()
+            u = {'status': status, 'tid': nu(), 'skal': skal}
+            tmp = rdir / ('.UTFALL.json.tmp%d' % os.getpid())
+            tmp.write_text(json.dumps(u, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            os.replace(tmp, rdir / 'UTFALL.json')
+            return u
+        finally:
+            fcntl.flock(las, fcntl.LOCK_UN)
+
+
 def utfall(rdir):
-    g = las_json(rdir / 'GRANSKNING.json')
-    if g:
-        return g
+    """Omgångens utfall: domen bara när tillståndet är klar (eller, för omgångar utan UTFALL.json, när ingen FEL.txt finns);
+    ett avbrott eller fel gäller före en sen dom (Codex R38, F47)."""
+    rdir = Path(rdir)
+    u = las_utfall(rdir)
+    if u:
+        if u['status'] == 'klar':
+            g = las_json(rdir / 'GRANSKNING.json')
+            return g if g else {'fel': 'omgången är klar men domen saknas'}
+        return {'fel': ('%s: %s' % (u['status'], u.get('skal') or '')).strip(': ')}
     if (rdir / 'FEL.txt').is_file():
         return {'fel': (rdir / 'FEL.txt').read_text(encoding='utf-8').strip()}
-    return None
+    g = las_json(rdir / 'GRANSKNING.json')
+    return g if g else None
+
+
+def giltiga_rundor(gdir, korning=None):
+    """[(rdir, dom)] för omgångar med giltig dom (utfall klar), i omgångsordning; bara en körning när den anges."""
+    ut = []
+    for r in rundor(Path(gdir)):
+        g = utfall(r)
+        if not g or 'fel' in g:
+            continue
+        if korning and g.get('korning') != korning:
+            continue
+        ut.append((r, g))
+    return ut
+
+
+def valj_sammanfattning(gdir, korning=None, dist=None):
+    """Den dom sammanfattningen ska visa: den senaste giltiga omgången för det angivna bygget (dist) och körningen, annars
+    den senaste giltiga; bunden till omgång, dist, metod och körning (Codex R38, F11). Ger (rdir, dom) eller None."""
+    giltiga = giltiga_rundor(gdir, korning)
+    if dist:
+        traff = [x for x in giltiga if x[1].get('dist_sha256') == dist]
+        if traff:
+            return traff[-1]
+    return giltiga[-1] if giltiga else None
+
+
+def publicera(gdir, korning=None):
+    """Sammanfattningen i kunder/<slug>/granskning/GRANSKNING.json och .md: härledd ur giltiga omgångar (senaste giltiga
+    för körningen), skriven atomiskt under lås, med fältet sammanfattning (omgång, dist, metod, körning, tid). Enda
+    skrivaren av rotfilerna; svara() läser bara (Codex R38, F11). Ger den valda (rdir, dom) eller None."""
+    import fcntl
+    gdir = Path(gdir)
+    gdir.mkdir(exist_ok=True)
+    with open(gdir / '.publicera.las', 'w') as las:
+        fcntl.flock(las, fcntl.LOCK_EX)
+        try:
+            val = valj_sammanfattning(gdir, korning)
+            if not val:
+                return None
+            r, g = val
+            g = dict(g, sammanfattning_av={'runda': r.name, 'dist_sha256': g.get('dist_sha256'), 'metod_sha': g.get('metod_sha'),
+                                           'korning': g.get('korning'), 'tid': g.get('tid'), 'publicerad': nu()})
+            if (r / 'GRANSKNING.md').is_file():
+                md = (r / 'GRANSKNING.md').read_text(encoding='utf-8')
+            else:
+                try:
+                    md = markdown(g)
+                except (KeyError, TypeError):  # ofullständig dom (manuellt underlag): en kort sammanfattning i stället för ingen
+                    md = '# Granskning · %s · omgång %s\n' % ('GODKÄND' if g.get('godkand') else 'UNDERKÄND', r.name)
+            for namn, text in (('GRANSKNING.json', json.dumps(g, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', md)):
+                tmp = gdir / ('.%s.tmp%d' % (namn, os.getpid()))
+                tmp.write_text(text, encoding='utf-8')
+                os.replace(tmp, gdir / namn)
+            return r, g
+        finally:
+            fcntl.flock(las, fcntl.LOCK_UN)
 
 
 def svara(gdir, rdir, g):
+    """Skriver domen till den som väntar; ändrar inga filer (sammanfattningen publiceras bara av publicera())."""
     if 'fel' in g:
         print('Granskaren föll i %s: %s' % (rdir.name, g['fel']))
         return 4
-    shutil.copy2(rdir / 'GRANSKNING.json', gdir / 'GRANSKNING.json')
-    shutil.copy2(rdir / 'GRANSKNING.md', gdir / 'GRANSKNING.md')
-    print((rdir / 'GRANSKNING.md').read_text(encoding='utf-8'))
-    print('Hela granskningen: %s' % rel(gdir / 'GRANSKNING.md'))
+    if (rdir / 'GRANSKNING.md').is_file():
+        print((rdir / 'GRANSKNING.md').read_text(encoding='utf-8'))
+    print('Hela granskningen: %s' % rel(rdir / 'GRANSKNING.md'))
     return 0 if g['godkand'] else 1
 
 
@@ -765,7 +873,9 @@ def vanta(gdir, rdir, sekunder, proc=None):
             g = utfall(rdir)
             if g:
                 return svara(gdir, rdir, g)
-            (rdir / 'FEL.txt').write_text('granskarens process avslutades utan svar; se %s\n' % rel(rdir / 'arbetare.log'), encoding='utf-8')
+            u = satt_utfall(rdir, 'fel', 'granskarens process avslutades utan svar; se %s' % rel(rdir / 'arbetare.log'))
+            if u['status'] != 'klar':
+                (rdir / 'FEL.txt').write_text('%s\n' % u.get('skal', ''), encoding='utf-8')
             return svara(gdir, rdir, utfall(rdir))
         time.sleep(5)
     print('Granskningen pågår (%s, startad %s). Kör samma kommando igen för att vänta vidare.' % (
@@ -853,7 +963,11 @@ def main(argv=None):
                     os.killpg(pid, signal.SIGTERM)
                 except OSError:
                     pass
-            (r / 'FEL.txt').write_text('avbruten: bygget eller metoden ändrades, eller processen dog\n', encoding='utf-8')
+            # avbrottet är omgångens slutliga utfall (första skrivaren vinner): arbetaren i tjänsten läser det före
+            # publiceringen och lägger en sen dom åt sidan (Codex R38, F47)
+            u = satt_utfall(r, 'avbruten', 'bygget eller metoden ändrades, eller processen dog')
+            if u['status'] == 'avbruten':
+                (r / 'FEL.txt').write_text('avbruten: bygget eller metoden ändrades, eller processen dog\n', encoding='utf-8')
             pagar.unlink(missing_ok=True)
     if not a.om:
         for r in reversed(rundor(gdir)):

@@ -83,10 +83,32 @@ def ar_godkant(k, s, v, g, korning=None):
     return True, ''
 
 
+def vald_granskning(k, korning):
+    """(dom, slutlig dist, senaste giltiga dom oavsett körning): domen för det slutliga bygget härledd ur giltiga omgångar
+    (kontroller/granska.py valj_sammanfattning), aldrig ur rotfilen, som kan vara inaktuell (Codex R38, F11)."""
+    dist = k / 'sajt' / 'dist'
+    try:
+        import prova
+        nu_hash = prova.dist_hash(dist) if (dist / 'index.html').is_file() else None
+    except Exception:  # noqa: BLE001
+        nu_hash = None
+    gdir = k / 'granskning'
+    try:
+        import granska
+        if gdir.is_dir() and granska.rundor(gdir):
+            val = granska.valj_sammanfattning(gdir, korning, nu_hash)
+            alla = granska.valj_sammanfattning(gdir, None, nu_hash)
+            return (val[1] if val else None), nu_hash, (alla[1] if alla else None)
+    except Exception:  # noqa: BLE001
+        pass
+    return las(gdir / 'GRANSKNING.json'), nu_hash, None  # inga omgångar (manuellt underlag): rotfilen är det enda som finns
+
+
 def main(argv):
     k, rc, fore, efter = Path(argv[1]), argv[2], argv[3], argv[4]
     korning = argv[5] if len(argv) > 5 else None
-    s, v, g = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json'), las(k / 'granskning' / 'GRANSKNING.json')
+    s, v = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json')
+    g, nu_hash, senaste = vald_granskning(k, korning)
     skydd = andrade(fore, efter)
     mekanik = [f for f in skydd if f.startswith(MEKANIK)]
     print('\nclaude avslutade med kod', rc)
@@ -100,8 +122,13 @@ def main(argv):
     if v:
         print('Stoppvakten:', v.get('skal'), '(försök %s av %s)' % (v.get('forsok'), v.get('tak')))
     if g:
-        print('Granskningen:', 'GODKÄND' if g.get('godkand') else 'UNDERKÄND', '(omgång %s)' % g.get('runda'), '—',
+        # sammanfattningen är den senaste giltiga omgången för det slutliga bygget; en dom om ett annat bygge sägs som sådan (Codex R38, F11)
+        samma = bool(nu_hash) and g.get('dist_sha256') == nu_hash
+        print('Granskningen:', 'GODKÄND' if g.get('godkand') else 'UNDERKÄND', '(omgång %s, dist %s%s)' % (
+            g.get('runda'), (g.get('dist_sha256') or '')[:12], ' = slutliga bygget' if samma else ' ≠ slutliga bygget %s, som inte är granskat' % (nu_hash or '?')[:12]), '—',
               ', '.join('%s %s' % (n, x.get('betyg')) for n, x in (g.get('kriterier') or {}).items()))
+    elif senaste:
+        print('Granskningen: ingen giltig omgång i den här körningen; senaste giltiga är omgång %s (%s)' % (senaste.get('runda'), 'godkänd' if senaste.get('godkand') else 'underkänd'))
     else:
         print('Granskningen: ingen')
     print('Rapport:', k / 'RAPPORT.md' if (k / 'RAPPORT.md').is_file() else 'saknas')
