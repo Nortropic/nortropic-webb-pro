@@ -24,6 +24,8 @@ mkdir -p "$P/kontroller/webblasare" "$P/underlag/$SLUG/skript/sida"
 cp "$ROOT"/kontroller/webblasare/*.mjs "$P/kontroller/webblasare/"; cp "$ROOT/kontroller/slugvakt.mjs" "$P/kontroller/"
 ln -s "$ROOT/kontroller/node_modules" "$P/kontroller/node_modules"
 printf '<html><body><h1>Prov</h1><img src="https://example.com/x.png"><form method="post" action="/"><input name="n"><button>s</button></form></body></html>' > "$P/underlag/$SLUG/skript/sida/index.html"
+# Hemligheten läses med python, inte cat: Claude Code tillämpar sessionens Read-nekning (sandlada.py, Codex R24) också på
+# cat i Bash, och då skrivs ingen resultatfil; provet ska mäta sandlådans eget läsförbud (EPERM i python).
 # Som kor.sh: kunder/ och underlag/ låsta mot nya poster under körningen (flaggan uchg; Codex 2026-10-04, F1).
 chflags uchg "$P/kunder" "$P/underlag"
 # Som kor.sh: webbtjänsten (kontroller/webbtjanst.py) utanför sandlådan; provet visar att den nås från sandlådan (localhost).
@@ -64,7 +66,7 @@ touch kunder/annan-kund/otillatet.txt 2> $UT/1b-annan-kund-fel.txt; echo \"rc=\$
 touch underlag/annan-kund/otillatet.txt 2> $UT/1c-annat-underlag-fel.txt; echo \"rc=\$?\" > $UT/1c-annat-underlag.txt
 touch .venv/bin/otillatet.txt 2> $UT/1d-venv-fel.txt; echo \"rc=\$?\" > $UT/1d-venv.txt
 mkdir kunder/ny-kund 2> $UT/1e-nytt-syskon-fel.txt; echo \"rc=\$?\" > $UT/1e-nytt-syskon.txt
-cat hem/.nortropic-hemligheter/x.env > $UT/2-hemligt.txt 2> $UT/2-hemligt-fel.txt; echo \"rc=\$?\" >> $UT/2-hemligt.txt
+python3 -c 'import sys; sys.stdout.write(open(\"hem/.nortropic-hemligheter/x.env\").read())' > $UT/2-hemligt.txt 2> $UT/2-hemligt-fel.txt; echo \"rc=\$?\" >> $UT/2-hemligt.txt
 curl -s -v -m 10 --noproxy '*' --resolve example.com:443:$IP -o /dev/null -w '$WUT' https://example.com/ > $UT/3a-nat-direkt.txt 2> $UT/3a-nat-direkt-fel.txt; echo \" rc=\$?\" >> $UT/3a-nat-direkt.txt
 curl -s -v -m 10 -o /dev/null -w '$WUT' https://example.com/ > $UT/3b-nat-proxy.txt 2> $UT/3b-nat-proxy-fel.txt; echo \" rc=\$?\" >> $UT/3b-nat-proxy.txt
 curl -s -v -m 10 -o /dev/null -w '$WUT' https://registry.npmjs.org/ > $UT/4-nat-ok.txt 2> $UT/4-nat-ok-fel.txt; echo \" rc=\$?\" >> $UT/4-nat-ok.txt
