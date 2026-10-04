@@ -2128,7 +2128,7 @@ function server(st, html) {
     st.srv = http.createServer((req, r) => {
       let body = ''; req.on('data', (d) => body += d); req.on('end', () => {
         st.traffar.push({ metod: req.method, url: req.url, bypass: req.headers['x-vercel-protection-bypass'] || null, body, ct: req.headers['content-type'] || null, cookie: req.headers.cookie || null, xprov: req.headers['x-prov'] || null });
-        if (req.url === '/langsam') { st.langsam = r; req.on('close', () => { st.langsamStangd = true; }); return; }  // svarar aldrig
+        if (req.url === '/langsam') { st.langsam = r; st.langsamSocket = req.socket; req.socket.on('close', () => { st.langsamStangd = true; }); return; }  // svarar aldrig; socketen, inte begäran, bevisar stängningen (R27)
         if (req.url === '/post307-lokal') { r.writeHead(307, { Location: '/mottagare' }); return r.end(); }
         if (req.url === '/post307b') { r.writeHead(307, { Location: html.BL + '/final' }); return r.end(); }  // B under namnet localhost: kakan för 127.0.0.1 skickas inte ur kakburken
         if (req.url === '/start') { r.writeHead(302, { Location: html.B + '/landning' }); return r.end(); }
@@ -2224,6 +2224,7 @@ const connect3 = (mal) => new Promise((res) => { const s = net.connect(Number(pp
 A.langsamStangd = false;
 const langsamSvar = fraga3(a + '/langsam'); const senSvar = fraga3('http://sen.example/x'); const senConnect = connect3('sen.example:443');
 await new Promise((r) => setTimeout(r, 150));
+ut.langsamOppen = Boolean(A.langsamSocket) && !A.langsamSocket.destroyed && A.langsamSocket.readyState === 'open' && !A.langsamStangd;  // etablerad och öppen före stängningen
 const t3 = Date.now(); await grans3.stang(); ut.stang3Ms = Date.now() - t3;
 await new Promise((r) => setTimeout(r, 700));
 ut.langsamStangd = A.langsamStangd; ut.langsamSvar = await langsamSvar; ut.senSvar = await senSvar; ut.senConnect = await senConnect;
@@ -2288,7 +2289,7 @@ assert ug['ip'] == [True, True, False, True, True, True, False, True, False, Tru
 assert ug['metoder'] == ['GET', 'PATCH', 'GET', 'POST', 'PUT'], ug['metoder']
 assert ug['lokalHopp'] == [['/post307-lokal', 'application/x-www-form-urlencoded', 'n=x', 'k=v', 'HEMLIG'], ['/mottagare', 'application/x-www-form-urlencoded', 'n=x', 'k=v', 'HEMLIG']], 'lokalt 307-hopp behåller kropp, innehållstyp, cookie och undantag inom samma ursprung (R26): %s' % ug['lokalHopp']
 assert ug['hoppA'] == [['application/json', 'k=v', '1', 'HEMLIG']] and ug['hoppB'] == [['POST', '/final', 'application/json', '{"a":1}', None, '1', None]], 'hopp till annat skrivbart ursprung: kropp, innehållstyp och eget huvud med; cookie och undantag inte (R26): %s %s' % (ug['hoppA'], ug['hoppB'])
-assert ug['langsamStangd'] and ug['stang3Ms'] < 1500 and ug['stangdSkal'] == ['CONNECT', 'GET'], 'stängningen avbryter påbörjade anrop och sena uppslag ger inget nytt (R26): %s' % {k_: ug[k_] for k_ in ('langsamStangd', 'stang3Ms', 'stangdSkal', 'langsamSvar', 'senSvar', 'senConnect')}
+assert ug['langsamOppen'] and ug['langsamStangd'] and ug['stang3Ms'] < 1500 and ug['stangdSkal'] == ['CONNECT', 'GET'], 'stängningen stänger mottagarens öppna socket och sena uppslag ger inget nytt (R26/R27): %s' % {k_: ug[k_] for k_ in ('langsamOppen', 'langsamStangd', 'stang3Ms', 'stangdSkal', 'langsamSvar', 'senSvar', 'senConnect')}
 print('webbläsarhjälparen: omdirigering, header, WebSocket, inskick, hopphuvuden, stängning och policy ok')
 
 
@@ -2354,23 +2355,28 @@ rv_ = subprocess.run(['node', '-e', "import(%r).then((m) => { m.inom(process.arg
 assert rv_.returncode == 0, ('inom utan genomgång', rv_.stderr[-200:])
 ik_ = (ROOT / 'kontroller' / 'ikoner.mjs').read_text(); assert 'inom(sajt' in ik_ and 'vakta(sajt' not in ik_, 'ikoner prövar sajten utan trädgenomgång (R25)'
 assert "ARBETSROT / slug / " in (ROOT / 'kontroller' / 'granska.py').read_text(), 'granskarnas arbetskataloger under eget led'
-# processgränsen från stoppkroken (R25): seatbelt med byggets policy, på riktigt
+# processgränsen från stoppkroken (R25): seatbelt med byggets policy, på riktigt. Sluggen är unik per körning och allt sker i egna
+# kataloger (en tom provrot, /tmp/nwp-bygge-<slug>, /tmp/nwp-granskning/<slug>, en isolerad repokopia): det riktiga repots
+# kunder/ och underlag/ rörs aldrig, och städningen tar bara det provet skapade (Codex R27, F28)
 import processgrans as pg_  # noqa: E402
-rot_pg = Path(tempfile.mkdtemp(prefix='nwp-pg-', dir='/tmp'))  # utanför sessionens temp (som policyn tillåter helt), annars prövas inget
-(rot_pg / 'kunder' / 'prov-bygge').mkdir(parents=True); (rot_pg / 'underlag' / 'prov-bygge').mkdir(parents=True); (rot_pg / 'kontroller').mkdir()
-(rot_pg / 'hem' / '.nortropic-hemligheter').mkdir(parents=True); (rot_pg / 'hem' / '.nortropic-hemligheter' / 'x.env').write_text('DUMMY=hemligt'); (rot_pg / 'kunder' / 'prov-bygge' / '.env').write_text('X=1')
+sl_pg = 'prov-bygge-%d' % os.getpid()
+tmp_pg = Path('/tmp/nwp-bygge-' + sl_pg); gr_pg = Path('/tmp/nwp-granskning') / sl_pg
+assert not tmp_pg.exists() and not gr_pg.exists() and not (ROOT / 'kunder' / sl_pg).exists() and not (ROOT / 'underlag' / sl_pg).exists()
+rot_pg = Path(tempfile.mkdtemp(prefix='nwp-pg-', dir='/tmp'))  # utanför sessionens temp och körningens egna kataloger, annars prövas inget
+(rot_pg / 'kunder' / sl_pg).mkdir(parents=True); (rot_pg / 'underlag' / sl_pg).mkdir(parents=True); (rot_pg / 'kontroller').mkdir()
+(rot_pg / 'hem' / '.nortropic-hemligheter').mkdir(parents=True); (rot_pg / 'hem' / '.nortropic-hemligheter' / 'x.env').write_text('DUMMY=hemligt'); (rot_pg / 'kunder' / sl_pg / '.env').write_text('X=1')
 shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_pg / 'kontroller')
 srv_pg = hs_.HTTPServer(('127.0.0.1', 0), hs_.SimpleHTTPRequestHandler); th_.Thread(target=srv_pg.serve_forever, daemon=True).start()
 (rot_pg / 'prov.py').write_text('''import os, socket, sys, urllib.request
-T = sys.argv[1]; ut = []
+T = sys.argv[1]; S = sys.argv[2]; ut = []
 def forsok(namn, f):
     try: r = f(); ut.append('%%s: %%s' %% (namn, r))
     except Exception as e: ut.append('%%s: %%s' %% (namn, type(e).__name__))
-forsok('skriv-inne', lambda: open(os.path.join(T, 'kunder/prov-bygge/x.txt'), 'w').write('x') and 'ok')
+forsok('skriv-inne', lambda: open(os.path.join(T, 'kunder', S, 'x.txt'), 'w').write('x') and 'ok')
 forsok('skriv-ute', lambda: open(os.path.join(T, 'kontroller/x.txt'), 'w').write('x') and 'ok')
-forsok('skriv-underlag', lambda: open(os.path.join(T, 'underlag/prov-bygge/y.txt'), 'w').write('y') and 'ok')
+forsok('skriv-underlag', lambda: open(os.path.join(T, 'underlag', S, 'y.txt'), 'w').write('y') and 'ok')
 forsok('las-hemlig', lambda: open(os.path.join(T, 'hem/.nortropic-hemligheter/x.env')).read()[:5])
-forsok('las-env', lambda: open(os.path.join(T, 'kunder/prov-bygge/.env')).read())
+forsok('las-env', lambda: open(os.path.join(T, 'kunder', S, '.env')).read())
 forsok('nat-lokalt', lambda: urllib.request.urlopen('http://127.0.0.1:%d/', timeout=5).status)
 forsok('nat-ut', lambda: socket.create_connection(('1.1.1.1', 80), timeout=5) and 'ansluten')
 forsok('bind', lambda: (lambda s: (s.bind(('127.0.0.1', 0)), s.close(), 'ok')[2])(socket.socket()))
@@ -2379,59 +2385,68 @@ forsok('skriv-systemtemp', lambda: open(os.path.join(%r, 'nwp-pg-prov.txt'), 'w'
 ut.append('processgrans=%%s refero=%%s proxy=%%s tmpdir=%%s' %% (os.environ.get('NWP_PROCESSGRANS'), os.environ.get('REFERO_MCP_TOKEN'), os.environ.get('HTTP_PROXY') or os.environ.get('https_proxy'), os.environ.get('TMPDIR')))
 print(' | '.join(ut))
 ''' % (srv_pg.server_address[1], tempfile.gettempdir()))
-shutil.rmtree('/tmp/nwp-bygge-prov-bygge', ignore_errors=True)
-rpg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--root', str(rot_pg), '--hem', str(rot_pg / 'hem'), '--', PY, str(rot_pg / 'prov.py'), str(rot_pg)], capture_output=True, text=True, timeout=120,
+rpg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg), '--hem', str(rot_pg / 'hem'), '--', PY, str(rot_pg / 'prov.py'), str(rot_pg), sl_pg], capture_output=True, text=True, timeout=120,
                      env=dict(os.environ, REFERO_MCP_TOKEN='prov-hemlig', HTTP_PROXY='http://x:y@localhost:1', https_proxy='http://x:y@localhost:1'))
 srv_pg.shutdown()
 assert rpg.returncode == 0 and 'processgräns: sandbox-exec' in rpg.stderr, (rpg.returncode, rpg.stderr[-300:])
 for vantat_ in ('skriv-inne: ok', 'skriv-ute: PermissionError', 'skriv-underlag: ok', 'las-hemlig: PermissionError', 'las-env: PermissionError', 'nat-lokalt: 200', 'nat-ut: PermissionError', 'bind: ok',
-                'skriv-tmpdir: ok', 'skriv-systemtemp: PermissionError', 'processgrans=1 refero=None proxy=None tmpdir=/tmp/nwp-bygge-prov-bygge/tmp'):
+                'skriv-tmpdir: ok', 'skriv-systemtemp: PermissionError', 'processgrans=1 refero=None proxy=None tmpdir=%s' % (tmp_pg / 'tmp')):
     assert vantat_ in rpg.stdout, (vantat_, rpg.stdout)  # miljön rensad (R26 F1/F27), temp bara körningens egen (R26 F1)
 assert not (Path(tempfile.gettempdir()) / 'nwp-pg-prov.txt').exists()
+assert 'kontroller/x.txt' not in [x.name for x in (rot_pg / 'kontroller').iterdir()] and (rot_pg / 'kunder' / sl_pg / 'x.txt').is_file()
+assert subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg)], capture_output=True, text=True).returncode == 2, 'utan kommando: slutkod 2'
 # en repokopia under den tillåtna tempkatalogen: policyns skrivförbud följer med (R26, F1): mekaniken skrivskyddad, byggets kataloger skrivbara
-rot_k = Path('/tmp/nwp-bygge-prov-bygge/tmp/kopia')
-for d_ in ('kunder/prov-bygge', 'kunder/annan', 'underlag/prov-bygge', 'kontroller', '.claude/hooks', 'backlog', 'kritik'):
+rot_k = tmp_pg / 'tmp' / 'kopia'
+for d_ in ('kunder/' + sl_pg, 'kunder/annan', 'underlag/' + sl_pg, 'kontroller', '.claude/hooks', 'backlog', 'kritik'):
     (rot_k / d_).mkdir(parents=True)
 shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_k / 'kontroller')
-prof_k = pg_.profil('prov-bygge', root=rot_k, hem=str(rot_pg / 'hem'))
+prof_k = pg_.profil(sl_pg, root=rot_k, hem=str(rot_pg / 'hem'))
 neka_k = '(deny file-write* (subpath "%s/kontroller"))' % rot_k
-assert neka_k in prof_k and prof_k.index(neka_k) > prof_k.index('(allow file-write* (subpath "/tmp/nwp-bygge-prov-bygge/tmp"))'), 'skrivförbuden står efter tillåtelserna (sista regeln gäller)'
+assert neka_k in prof_k and prof_k.index(neka_k) > prof_k.index('(allow file-write* (subpath "%s"))' % (tmp_pg / 'tmp')), 'skrivförbuden står efter tillåtelserna (sista regeln gäller)'
 (rot_k / 'prov.py').write_text('''import os, sys
-T = sys.argv[1]; ut = []
-for namn, vag in (('kontroller', 'kontroller/x.txt'), ('hooks', '.claude/hooks/x.py'), ('kritik', 'kritik/x.md'), ('annan-kund', 'kunder/annan/x.txt'), ('egen-kund', 'kunder/prov-bygge/x.txt'), ('backlog', 'backlog/x.md')):
+T = sys.argv[1]; S = sys.argv[2]; ut = []
+for namn, vag in (('kontroller', 'kontroller/x.txt'), ('hooks', '.claude/hooks/x.py'), ('kritik', 'kritik/x.md'), ('annan-kund', 'kunder/annan/x.txt'), ('egen-kund', 'kunder/' + S + '/x.txt'), ('backlog', 'backlog/x.md')):
     try:
         open(os.path.join(T, vag), 'w').write('x'); ut.append(namn + ': ok')
     except Exception as e:
         ut.append('%s: %s' % (namn, type(e).__name__))
 print(' | '.join(ut))
 ''')
-rk = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--root', str(rot_k), '--hem', str(rot_pg / 'hem'), '--', PY, str(rot_k / 'prov.py'), str(rot_k)], capture_output=True, text=True, timeout=120)
+rk = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_k), '--hem', str(rot_pg / 'hem'), '--', PY, str(rot_k / 'prov.py'), str(rot_k), sl_pg], capture_output=True, text=True, timeout=120)
 assert rk.returncode == 0, (rk.returncode, rk.stderr[-300:])
 for vantat_ in ('kontroller: PermissionError', 'hooks: PermissionError', 'kritik: PermissionError', 'annan-kund: PermissionError', 'egen-kund: ok', 'backlog: ok'):
     assert vantat_ in rk.stdout, (vantat_, rk.stdout)
-assert not (rot_k / 'kontroller' / 'x.txt').exists() and (rot_k / 'kunder' / 'prov-bygge' / 'x.txt').is_file()
-assert 'kontroller/x.txt' not in [x.name for x in (rot_pg / 'kontroller').iterdir()] and (rot_pg / 'kunder' / 'prov-bygge' / 'x.txt').is_file()
-assert subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--root', str(rot_pg)], capture_output=True, text=True).returncode == 2, 'utan kommando: slutkod 2'
+assert not (rot_k / 'kontroller' / 'x.txt').exists() and (rot_k / 'kunder' / sl_pg / 'x.txt').is_file()
+# stoppkroken och avslutskedjan prövas i en isolerad repokopia: mekaniken kopierad (som kor.sh-provet), körmiljön länkad, egna
+# tomma kunder/, underlag/ och backlog/. Kopians krok, processgräns, tjänst och granskning hittar sin rot från sina egna filer.
+rot_kedja = tmp / 'kedja'; rot_kedja.mkdir()
+for namn_ in ('kor.sh', 'CLAUDE.md', 'BESLUT.md', 'LARDOMAR.md', '.gitignore', 'dashboard.sh'):
+    if (ROOT / namn_).is_file():
+        shutil.copy2(ROOT / namn_, rot_kedja / namn_)
+for mapp_ in ('kontroller', '.claude', 'kritik', 'kunskap', 'mall'):
+    shutil.copytree(ROOT / mapp_, rot_kedja / mapp_, ignore=shutil.ignore_patterns('node_modules', '__pycache__', 'rokprov'), symlinks=True)
+for mapp_ in ('kunder', 'underlag', 'backlog'):
+    (rot_kedja / mapp_).mkdir()
+os.symlink(ROOT / '.venv', rot_kedja / '.venv'); os.symlink(ROOT / 'kontroller' / 'node_modules', rot_kedja / 'kontroller' / 'node_modules')
+hook_ = (rot_kedja / '.claude' / 'hooks' / 'stoppvakt.py').read_text(); assert 'processgrans.py' in hook_ and "NWP_SANDLADA" in hook_, 'stoppvakten går via processgränsen'
 # stoppkroken går via processgränsen med sandlådan på: provet körs under seatbelt och kroken blockerar (inget bygge)
-hook_ = (ROOT / '.claude' / 'hooks' / 'stoppvakt.py').read_text(); assert 'processgrans.py' in hook_ and "NWP_SANDLADA" in hook_, 'stoppvakten går via processgränsen'
-kund_sv = ROOT / 'kunder' / 'prov-bygge'; kund_sv.mkdir(parents=True, exist_ok=True)
-rsv = subprocess.run([PY, '-B', str(ROOT / '.claude' / 'hooks' / 'stoppvakt.py')], input='{}', capture_output=True, text=True, cwd=str(ROOT), timeout=600,
-                     env={k_: v_ for k_, v_ in os.environ.items() if not k_.startswith('CLAUDE_CODE_') and k_ != 'CLAUDECODE'} | {'NWP_SLUG': 'prov-bygge', 'NWP_SANDLADA': 'pa', 'NWP_GRANSKNING': 'av', 'NWP_STOPP_TAK': '8'})
+kund_sv = rot_kedja / 'kunder' / sl_pg; kund_sv.mkdir()
+rsv = subprocess.run([PY, '-B', str(rot_kedja / '.claude' / 'hooks' / 'stoppvakt.py')], input='{}', capture_output=True, text=True, cwd=str(rot_kedja), timeout=600,
+                     env={k_: v_ for k_, v_ in os.environ.items() if not k_.startswith('CLAUDE_CODE_') and k_ != 'CLAUDECODE'} | {'NWP_SLUG': sl_pg, 'NWP_SANDLADA': 'pa', 'NWP_GRANSKNING': 'av', 'NWP_STOPP_TAK': '8'})
 assert rsv.returncode == 2 and (kund_sv / 'prov' / 'STATUS.json').is_file(), (rsv.returncode, rsv.stdout[-300:], rsv.stderr[-400:])
 assert json.loads((kund_sv / 'prov' / 'STATUS.json').read_text())['ok'] is False, 'provet kördes (rött utan sajt) innanför processgränsen'
-shutil.rmtree(kund_sv, ignore_errors=True)
+shutil.rmtree(kund_sv)
 # avslutskedjan utan proxyvariabler (Codex R26, F1/F28): drivaren innanför processgränsen, som stoppkroken startar den, med
 # den riktiga tjänsten anvisad och bara markören; arbetaren ska delegeras till tjänsten (utanför gränsen), granskarna (den
 # falska claude i PATH) svara, och domen komma tillbaka till drivaren. Inget tidigare godkännande finns att återanvända.
-kund_sv.mkdir(parents=True); (kund_sv / 'sajt' / 'dist').mkdir(parents=True); (kund_sv / 'prov' / 'inspektion' / 'hem').mkdir(parents=True)
+kund_sv.mkdir(); (kund_sv / 'sajt' / 'dist').mkdir(parents=True); (kund_sv / 'prov' / 'inspektion' / 'hem').mkdir(parents=True)
 (kund_sv / 'sajt' / 'dist' / 'index.html').write_text('<html><body><p>prov</p></body></html>')
 (kund_sv / 'prov' / 'inspektion' / 'hem' / 'vy-390-forsta.png').write_bytes(b'\x89PNG')
 (kund_sv / 'prov' / 'STATUS.json').write_text(json.dumps({'ok': True, 'dist_sha256': prova.dist_hash(kund_sv / 'sajt' / 'dist')}))
-underlag_sv = ROOT / 'underlag' / 'prov-bygge'; underlag_sv.mkdir(parents=True, exist_ok=True)
-shutil.rmtree('/tmp/nwp-granskning/prov-bygge', ignore_errors=True)
+(rot_kedja / 'underlag' / sl_pg).mkdir()
 kv_k = tmp / 'wt-kedja'; os.environ['PROV_FALL'] = 'ingen'
-wtk = subprocess.Popen([PY, '-B', str(ROOT / 'kontroller' / 'webbtjanst.py'), 'serve', '--slug', 'prov-bygge', '--kvitto', str(kv_k), '--doman', 'exempel.se', '--korning', 'K2'],
-                       stdout=open(tmp / 'wt-kedja.log', 'w'), stderr=subprocess.STDOUT, cwd=str(ROOT))
+wtk = subprocess.Popen([PY, '-B', str(rot_kedja / 'kontroller' / 'webbtjanst.py'), 'serve', '--slug', sl_pg, '--kvitto', str(kv_k), '--doman', 'exempel.se', '--korning', 'K2'],
+                       stdout=open(tmp / 'wt-kedja.log', 'w'), stderr=subprocess.STDOUT, cwd=str(rot_kedja))
 try:
     for _ in range(50):
         if kv_k.is_file() and len(kv_k.read_text().splitlines()) >= 2:
@@ -2439,22 +2454,22 @@ try:
         time.sleep(0.1)
     port_k, nyckel_k = kv_k.read_text().splitlines()[:2]
     miljo_kedja = {k_: v_ for k_, v_ in os.environ.items() if not k_.upper().endswith('_PROXY') and not k_.startswith('CLAUDE_CODE_') and k_ != 'CLAUDECODE' and not k_.startswith('NWP_')}
-    miljo_kedja.update({'NWP_SANDLADA': 'pa', 'NWP_SLUG': 'prov-bygge', 'NWP_KORNING': 'K2', 'NWP_WEBBTJANST': 'http://127.0.0.1:' + port_k, 'NWP_WEBBTJANST_NYCKEL': nyckel_k, 'REFERO_MCP_TOKEN': 'prov-hemlig'})
-    rk2 = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), 'prov-bygge', '--', PY, '-B', str(ROOT / 'kontroller' / 'granska.py'), 'prov-bygge', '--vanta', '240'],
-                         capture_output=True, text=True, env=miljo_kedja, cwd=str(ROOT), timeout=400)
+    miljo_kedja.update({'NWP_SANDLADA': 'pa', 'NWP_SLUG': sl_pg, 'NWP_KORNING': 'K2', 'NWP_WEBBTJANST': 'http://127.0.0.1:' + port_k, 'NWP_WEBBTJANST_NYCKEL': nyckel_k, 'REFERO_MCP_TOKEN': 'prov-hemlig'})
+    rk2 = subprocess.run([PY, '-B', str(rot_kedja / 'kontroller' / 'processgrans.py'), sl_pg, '--', PY, '-B', str(rot_kedja / 'kontroller' / 'granska.py'), sl_pg, '--vanta', '240'],
+                         capture_output=True, text=True, env=miljo_kedja, cwd=str(rot_kedja), timeout=400)
     runda_k = kund_sv / 'granskning' / 'runda-01'
     logg_k = (tmp / 'wt-kedja.log').read_text()
     arb_k = (runda_k / 'arbetare.log').read_text()[-600:] if (runda_k / 'arbetare.log').is_file() else 'ingen arbetarlogg'
     assert rk2.returncode == 0 and 'processgräns: sandbox-exec' in rk2.stderr, (rk2.returncode, rk2.stdout[-600:], rk2.stderr[-600:], arb_k, logg_k[-600:])
-    assert 'START granska --arbetare ' + str(runda_k) in logg_k and 'KLART granska rc=0' in logg_k, ('arbetaren gick via tjänsten', logg_k[-800:], arb_k)
+    assert 'START granska --arbetare ' + str(runda_k.resolve()) in logg_k and 'KLART granska rc=0' in logg_k, ('arbetaren gick via tjänsten', logg_k[-800:], arb_k)  # tjänsten loggar den upplösta vägen (kopian ligger under en symlänkad temp)
     g_k = json.loads((runda_k / 'GRANSKNING.json').read_text()); assert g_k['godkand'] is True and len(g_k['enskilda']) == 2, g_k
-    assert not list(Path('/tmp/nwp-granskning/prov-bygge').glob('*/.env')) and 'prov-hemlig' not in arb_k
+    assert gr_pg.is_dir() and not list(gr_pg.glob('*/.env')) and 'prov-hemlig' not in arb_k
+    assert not (ROOT / 'kunder' / sl_pg).exists() and not (ROOT / 'underlag' / sl_pg).exists(), 'det riktiga repot rörs inte'
 finally:
     wtk.terminate(); wtk.wait(timeout=10)
     os.environ.pop('PROV_FALL', None)
-shutil.rmtree(kund_sv, ignore_errors=True); shutil.rmtree(underlag_sv, ignore_errors=True)
-shutil.rmtree('/tmp/nwp-granskning/prov-bygge', ignore_errors=True); shutil.rmtree('/tmp/nwp-bygge-prov-bygge', ignore_errors=True)
-shutil.rmtree(rot_pg, ignore_errors=True)
+    for egen_ in (rot_kedja, gr_pg, tmp_pg, rot_pg):  # bara provets egna kataloger
+        shutil.rmtree(egen_, ignore_errors=True)
 print('processgränsen från stoppkroken ok')
 import granska as gr_  # noqa: E402
 kund_g = tmp / 'kund-g'; (kund_g / 'sajt' / 'dist').mkdir(parents=True); (kund_g / 'prov').mkdir()
