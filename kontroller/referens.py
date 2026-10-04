@@ -393,7 +393,22 @@ def samma_referens(a, b):
     da, db = urllib.parse.urlsplit(a), urllib.parse.urlsplit(b)
     if da.hostname == '127.0.0.1' or db.hostname == '127.0.0.1':
         return da.hostname == db.hostname and da.port == db.port
-    return bool(tvillingar(da.hostname or '') & tvillingar(db.hostname or ''))
+    va, vb = (da.hostname or '').lower().rstrip('.'), (db.hostname or '').lower().rstrip('.')
+    return bool(va) and (va == vb or va == 'www.' + vb or vb == 'www.' + va)  # direkt relation, inte överlapp via en tredje värd (Codex R35)
+
+
+def arvd_ok(sidor):
+    """Ärvt material räknas som fångat bara när varje sida var fångad, har en fillista och deklarerar båda vyernas
+    bildfiler som befintliga (Codex R35: ett torrpaket eller ett inlägg utan filer får inte ärvas som färdig fångst)."""
+    if not sidor:
+        return False
+    for fs in sidor:
+        if not isinstance(fs, dict) or not fs.get('ok') or not fs.get('filer'):
+            return False
+        vyer = fs.get('observationer') or {}
+        if set(vyer) != set(VYER) or not all(all((o.get('bildfiler') or {}).values()) and (o.get('bildfiler') or {}) for o in vyer.values()):
+            return False
+    return True
 
 
 def filer_for(post, sidor=None):
@@ -432,6 +447,8 @@ def samla(slug, uppdrag, underlag=None, torr=False, lokala_portar=()):
         arv_fran, forra = las_paket(rot, uppdrag['kompletterar'])
         if arv_fran is None or not isinstance(forra, dict):
             raise RuntimeError('paketet som kompletteras (%s) finns inte eller går inte att läsa' % uppdrag['kompletterar'])
+        if forra.get('torr') and not torr:
+            raise RuntimeError('paketet som kompletteras (%s) är en torrkörning utan fångster; kör om fullständigt i stället för att ärva' % uppdrag['kompletterar'])
         arv = {k['namn']: k for k in forra.get('kandidater') or [] if isinstance(k, dict) and NAMN.match(str(k.get('namn', '')))}
     paket = ny_version(rot)
     try:
@@ -474,8 +491,13 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         # pass 1 på första sidan: vilka resursursprung behöver sajten?
         forsta = sidadress(k['adress'], k['sidor'][0])
         pass1 = katalog / '.pass1'
-        rc1, rapport1, _ = kor_inspektera(forsta, pass1, egna, {}, miljo_for(varden))
-        resurser = [o for o in blockerade_ursprung(rapport1, lokala_portar) if o not in egna]
+        post['begransningar'] = []
+        try:
+            rc1, rapport1, _ = kor_inspektera(forsta, pass1, egna, {}, miljo_for(varden))
+            resurser = [o for o in blockerade_ursprung(rapport1, lokala_portar) if o not in egna]
+        except Exception as e:  # ett fel i första passet är en brist, aldrig ett borttaget paket (Codex R35)
+            resurser = []
+            post['begransningar'].append('första passet (resursursprung) föll: %s' % str(e)[:300])
         shutil.rmtree(pass1, ignore_errors=True)
         tillat = egna + resurser
         varden |= {urllib.parse.urlsplit(o).hostname for o in resurser}
@@ -498,13 +520,14 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
                 for fil_, finns_ in (o_.get('bildfiler') or {}).items():
                     if finns_ and str((ut / fil_).relative_to(paket)) not in filer:
                         o_['bildfiler'][fil_] = False
-            sida_ok = rc == 0 and obs['ok']
+                        obs['begransningar'].append('%s saknas i inventeringen' % fil_)
+            sida_ok = rc == 0 and obs['ok'] and all(all((o_.get('bildfiler') or {}).values()) for o_ in obs['vyer'].values())  # efter sista bildkontrollen (Codex R35)
             post['sidor'].append({'sida': sida, 'adress': adress, 'katalog': str(ut.relative_to(paket)), 'tillstand': tillstand, 'rc': rc, 'ok': sida_ok,
                                   'observationer': obs['vyer'], 'kvar_blockerade': obs['kvar_blockerade'], 'fel_resurser': obs['fel_resurser'],
                                   'begransningar': obs['begransningar'], 'filer': filer})
         nya_ok = len(post['sidor']) == len(k['sidor']) and all(s['ok'] for s in post['sidor'])
         post['sidor'] += arvda_sidor
-        post['ok'] = bool(post['sidor']) and nya_ok and all(bool(s.get('ok')) for s in arvda_sidor)
+        post['ok'] = bool(post['sidor']) and nya_ok and (not arvda_sidor or arvd_ok(arvda_sidor))
         alla_ok = alla_ok and post['ok']
         res['kandidater'].append(post)
     # komplettering: orörda kandidater ärvs hela från föregående paket, så att varje Bildval kan peka på den nya versionen
@@ -515,9 +538,9 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
             raise RuntimeError('kandidaten %s saknas i %s; arvet kan inte godkännas' % (namn, arv_fran.name))
         vantade = [x[len(namn) + 1:] for x in filer_for(post) if x.startswith(namn + '/')]
         kopiera_sakert(arv_fran / namn, paket / namn, rot, vantade)
-        arvd = dict(post, arv=arv_fran.name)
+        arvd = dict(post, arv=arv_fran.name, ok=bool(post.get('ok')) and arvd_ok(post.get('sidor')))
         res['kandidater'].append(arvd)
-        alla_ok = alla_ok and bool(post.get('ok'))
+        alla_ok = alla_ok and arvd['ok']
     res['alla_ok'] = alla_ok
     (paket / 'PAKET.json').write_text(json.dumps(res, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     rader = ['# Referenspaket %s · %s · %s' % (paket.name, slug, res['tid']), '']
@@ -540,6 +563,8 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
                 len(s['kvar_blockerade']), len(s['filer'])))
             for b in s['begransningar']:
                 rader.append('  - begränsning: ' + b)
+        for b in post.get('begransningar') or []:
+            rader.append('- begränsning: ' + b)
         if post['resursursprung']:
             rader.append('- resursursprung tillåtna för inspektionen: ' + ', '.join(post['resursursprung']))
         rader.append('')

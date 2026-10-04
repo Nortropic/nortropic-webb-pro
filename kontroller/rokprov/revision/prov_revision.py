@@ -2818,7 +2818,37 @@ try:
 finally:
     shutil.move(str(tmp / 'andra-undan'), str(paket4 / 'andra'))
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 0, 'återställt arv går igenom'
-(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [kand_ref], 'kompletterar': 'paket-v19'}))
+# Codex R35: ett fel i första passet (resursursprungen) är en brist i ett sparat paket, aldrig ett borttaget paket; tidigare fångster bevaras
+def kor_pass1_faller_(adress, ut, tillat, tillstand, miljo):
+    if str(ut).endswith('.pass1') and '/a-b' in adress:
+        raise subprocess.TimeoutExpired(['node'], 1)
+    return kor_orig_(adress, ut, tillat, tillstand, miljo)
+rf_.kor_inspektera = kor_pass1_faller_
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'hel', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'fångas', 'sidor': ['/']}, {'namn': 'pass1', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'pass 1 faller', 'sidor': ['/a-b']}]}))
+rc_p1 = rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]); rf_.kor_inspektera = kor_orig_
+paket_p1 = sorted((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))[-1]; k_p1 = {k_['namn']: k_ for k_ in json.load(open(paket_p1 / 'PAKET.json'))['kandidater']}
+assert rc_p1 == 1 and k_p1['hel']['ok'] and (paket_p1 / 'hel' / '01-start' / 'vy-390-forsta.png').is_file() and not k_p1['pass1']['ok'] and any('första passet' in b_ for b_ in k_p1['pass1']['begransningar']) and k_p1['pass1']['resursursprung'] == [] and 'första passet' in (paket_p1 / 'PAKET.md').read_text(), k_p1['pass1']
+# Codex R35: en bild som försvinner mellan observationen och inventeringen fäller sidan, och bristen dokumenteras
+obs_orig_ = rf_.observationer
+def obs_tar_bort_bild_(rapport, ut, bestallda=()):
+    o_ = obs_orig_(rapport, ut, bestallda)
+    (Path(ut) / 'vy-390-forsta.png').unlink(missing_ok=True)
+    return o_
+rf_.observationer = obs_tar_bort_bild_
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'bildbort', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'x', 'sidor': ['/']}]}))
+rc_bb = rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]); rf_.observationer = obs_orig_
+k_bb = json.load(open(sorted((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))[-1] / 'PAKET.json'))['kandidater'][0]
+assert rc_bb == 1 and not k_bb['ok'] and k_bb['sidor'][0]['observationer']['390']['bildfiler']['vy-390-forsta.png'] is False and any('saknas i inventeringen' in b_ for b_ in k_bb['sidor'][0]['begransningar']), k_bb['sidor'][0]
+# Codex R35: ett torrpaket kan inte ärvas som fångst i en riktig insamling; ärvt inlägg utan filer räknas aldrig som fångat
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'ta', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'x', 'sidor': ['/']}, {'namn': 'tb', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'x', 'sidor': ['/']}]}))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 0
+torr_v = sorted((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))[-1].name
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'ta', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'x', 'sidor': ['/']}], 'kompletterar': torr_v}))
+antal_ref = len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*')))
+assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]) == 2 and len(list((u_ref / 'prov-ref' / 'referenser').glob('paket-v*'))) == antal_ref, 'torrpaket som arvskälla vägras'
+assert not rf_.arvd_ok([]) and not rf_.arvd_ok([{'ok': True, 'filer': [], 'observationer': {}}]) and rf_.arvd_ok(k4['andra']['sidor'])
+assert not rf_.samma_referens('https://a.se/', 'https://www.www.a.se/') and rf_.samma_referens('https://a.se/', 'https://www.a.se/') and rf_.samma_referens('http://www.a.se/', 'https://a.se/'), 'bara den direkta www-tvillingrelationen (R35)'
+(u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [kand_ref], 'kompletterar': 'paket-v29'}))
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 2, 'ett paket som inte finns kan inte kompletteras'
 # Bildval i REFERENSER.md pekar in i den nya versionen, också för det ärvda materialet, och löses av referensval
 (u_ref / 'prov-ref' / 'REFERENSER.md').write_text('## andra\n\nBildval: referenser/paket-v04/andra/01-start/vy-390-ruta-01.png — startsidan — Fråga: hur tät är listan?\n## lokal\n\nBildval: referenser/paket-v04/lokal/01-start/vy-390-meny.png — mobilmenyn — Fråga: hur öppnas den?\n')
