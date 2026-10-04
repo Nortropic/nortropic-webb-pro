@@ -2362,16 +2362,47 @@ import processgrans as pg_  # noqa: E402
 sl_pg = 'prov-bygge-%d' % os.getpid()
 tmp_pg = Path('/tmp/nwp-bygge-' + sl_pg); gr_pg = Path('/tmp/nwp-granskning') / sl_pg
 rot_kedja = tmp / 'kedja'
-# bara det provet själv skapat exklusivt registreras och städas (Codex R28): finns en katalog redan (t.ex. återanvänt PID) faller
-# provet här, före try, och rör den inte; föräldern /tmp/nwp-granskning delas med riktiga byggen och registreras inte
+
+
+def egna_kataloger_(kataloger, lista):
+    """Skapar varje katalog exklusivt (mkdir utan exist_ok) och registrerar den i lista först när den skapats: finns en redan
+    (t.ex. återanvänt PID) lämnas den orörd och skapandet avbryts, medan de tidigare egna står i listan för städning
+    (Codex R28/R29). En delad förälder (/tmp/nwp-granskning) skapas vid behov men registreras inte."""
+    for p_ in kataloger:
+        p_.mkdir(parents=True); lista.append(p_)
+
+
+def stada_egna_(lista):
+    """Tar bort bara de registrerade katalogerna, var och en för sig; ger felen i stället för att avbryta."""
+    fel_ = []
+    for p_ in lista:
+        try:
+            shutil.rmtree(p_)
+        except Exception as e_:
+            fel_.append('katalogen %s: %r' % (p_, e_))
+    return fel_
+
+
+# regressionsfall (Codex R29): faller det andra eller tredje skapandet på en befintlig katalog ska de tidigare egna städas,
+# den befintliga förbli orörd och inget senare skapas
+r29 = tmp / 'r29'; r29.mkdir(); (r29 / 'finns').mkdir(); (r29 / 'finns' / 'x.txt').write_text('befintligt')
+for ordning_, egna_vantade_ in (([r29 / 'a', r29 / 'finns', r29 / 'b'], [r29 / 'a']), ([r29 / 'c', r29 / 'd', r29 / 'finns'], [r29 / 'c', r29 / 'd'])):
+    lista_r29 = []
+    try:
+        egna_kataloger_(ordning_, lista_r29); assert False, 'en befintlig katalog ska avbryta skapandet'
+    except FileExistsError:
+        pass
+    assert lista_r29 == egna_vantade_ and all(p_.is_dir() for p_ in egna_vantade_) and not any(p_.exists() for p_ in ordning_ if p_ not in egna_vantade_ and p_ != r29 / 'finns'), lista_r29
+    assert stada_egna_(lista_r29) == [] and not any(p_.exists() for p_ in egna_vantade_) and (r29 / 'finns' / 'x.txt').read_text() == 'befintligt'
+shutil.rmtree(r29)
+# ägarlistan finns före try och är tom; skapandet och registreringen sker innanför, så att ett avbrutet skapande städar de tidigare
+# egna katalogerna och lämnar den befintliga orörd (Codex R29); finally städar bara listan
 egna_pg = []
-for egen_ in (tmp_pg, rot_kedja):
-    egen_.mkdir(); egna_pg.append(egen_)
-gr_pg.mkdir(parents=True); egna_pg.append(gr_pg)
-assert not (ROOT / 'kunder' / sl_pg).exists() and not (ROOT / 'underlag' / sl_pg).exists()
-rot_pg = Path(tempfile.mkdtemp(prefix='nwp-pg-', dir='/tmp')); egna_pg.append(rot_pg)  # exklusivt skapad; utanför sessionens temp och körningens egna kataloger, annars prövas inget
-srv_pg = wtk = None; klart_pg = False
+rot_pg = srv_pg = wtk = None; klart_pg = False
 try:  # allt nedan städas i finally, steg för steg, också när ett tidigare påstående faller (Codex R27/R28)
+    egna_kataloger_([tmp_pg, rot_kedja, gr_pg], egna_pg)
+    assert not (ROOT / 'kunder' / sl_pg).exists() and not (ROOT / 'underlag' / sl_pg).exists()
+    rot_pg = Path(tempfile.mkdtemp(prefix='nwp-pg-', dir='/tmp')); egna_pg.append(rot_pg)  # exklusivt skapad; utanför sessionens temp och körningens egna kataloger, annars prövas inget
     (rot_pg / 'kunder' / sl_pg).mkdir(parents=True); (rot_pg / 'underlag' / sl_pg).mkdir(parents=True); (rot_pg / 'kontroller').mkdir()
     (rot_pg / 'hem' / '.nortropic-hemligheter').mkdir(parents=True); (rot_pg / 'hem' / '.nortropic-hemligheter' / 'x.env').write_text('DUMMY=hemligt'); (rot_pg / 'kunder' / sl_pg / '.env').write_text('X=1')
     shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_pg / 'kontroller')
@@ -2495,8 +2526,7 @@ finally:
     stada_('tjänsten', stoppa_tjansten_)
     stada_('provservern', lambda: (srv_pg.shutdown(), srv_pg.server_close()) if srv_pg is not None else None)
     stada_('PROV_FALL', lambda: os.environ.pop('PROV_FALL', None))
-    for egen_ in egna_pg:
-        stada_('katalogen %s' % egen_, lambda e_=egen_: shutil.rmtree(e_))
+    fel_pg += stada_egna_(egna_pg)
     if fel_pg:
         print('städningen efter processgränsblocket: ' + '; '.join(fel_pg))
         if klart_pg:
