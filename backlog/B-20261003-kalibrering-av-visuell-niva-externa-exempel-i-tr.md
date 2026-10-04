@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-04T14:00Z
+andrad: 2026-10-04T20:19Z
 ---
 # Kalibrering av visuell nivå: externa exempel i tre nivåer, granskarna prövade på osedda exempel
 
@@ -24,3 +24,5 @@ andrad: 2026-10-04T14:00Z
 **Pågår (2026-10-04T13:53Z):** försöket kört (opus[1m] high, sex undanhållna): falska godkännanden 0 av 4, falska underkännanden 0 av 2, svar 6 av 6; siffran i LARDOMAR.md (Kalibrering · 2026-10-04), rapporten privat i underlag/kalibrering/FORSOK-20261004/. Färdigkriteriets fyra delar är uppfyllda. Kvar innan posten sätts klar: fånga om K03:s undersida (samma sida som startsidan) och K01/K04:s hela-bilder bakom kakdialogen, så att ankarna är hela; sedan ägarens dom om posten.
 
 **Pågår (2026-10-04T14:00Z, efter Codex R30):** försökets siffra nedgraderad till utvecklingsdata: kunskap/visuell-niva.md var byggd ur alla tretton domarna (testläckage) och är nu byggd enbart ur ankarhalvan; filen ingår i metodhashen; försöket binder varje svar till ett manifest (modell, effort, hashar av uppdrag, regler, bilder, ankare) och validerar hela svaret, anropsfel ger ofullständigt försök. Kvar för ett oberoende slutmått: ett nytt, orört urval (sex sajter i tre nivåer, fångade med inspektera.mjs, start och undersida) som ägaren dömer blint i dashboarden, som hålls undan från nivåfilen och granskartexten, och ett nytt försök på dem; dessutom omfångning av K03/K01/K04.
+
+**Tillägg (2026-10-04T20:19Z, Codex helhetsbedömning punkt 8 och ordning 3):** det oberoende slutmåttet på det nya orörda urvalet ska svara på två saker som Codex skiljer: att granskaren upptäcker svag design (falska godkännanden) och att den inte avvisar bra design av mekaniska skäl (falska underkännanden, med skälen lästa: standarddrag, tunna linjer eller återkommande layout får inte fälla en väl använd form). Granskarens träffsäkerhet mäts här; byggförmågan mäts separat (posten om varierade kundfall) och verkliga besökares förståelse är en tredje fråga som ett modellbaserat femsekunderstest inte besvarar (hypoteser, inte observationer).

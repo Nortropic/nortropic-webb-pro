@@ -18,6 +18,29 @@ from pathlib import Path
 RAD = re.compile(r'^Bildval:\s*(?P<fil>referenser/\S+)\s+[—–-]+\s+(?P<vad>.+?)\s+[—–-]+\s+Fråga:\s*(?P<fraga>.+?)\s*$', re.M | re.I)  # tankstreck med mellanslag runt; filnamn saknar mellanslag
 RUBRIK = re.compile(r'^#{1,3}\s+(.+?)\s*$', re.M)
 BILD = {'.png', '.jpg', '.jpeg', '.webp'}
+HUVUD = re.compile(r'^Huvudreferens:\s*(?P<namn>.+?)\s+[—–-]+\s+(?P<vad>.+?)\s*$', re.M | re.I)  # en rad: namn — vad den bär
+
+
+def huvudreferens(slug, underlag):
+    """Den sammanhängande huvudreferensen för komposition, typografi, proportioner och bildbehandling (designprovet,
+    ägarbeslut 2026-10-04): raden `Huvudreferens: <referensens rubrik> — <vad den bär>` i REFERENSER.md, och dess Bildval-
+    bilder (raderna under referensens rubrik). Ger {'namn', 'vad', 'bilder': [(Path, text)]} eller None."""
+    u = Path(underlag) / slug
+    text = (u / 'REFERENSER.md').read_text(encoding='utf-8') if (u / 'REFERENSER.md').is_file() else ''
+    m = HUVUD.search(text)
+    if not m:
+        return None
+    namn = m.group('namn').strip().strip('*`').strip()
+    bilder = [(v['fil'], '%s — Fråga: %s' % (v['vad'], v['fraga'])) for v in bildval(slug, underlag)
+              if v['fil'] and rubriknamn(v['referens']) == namn.lower()]
+    return {'namn': namn, 'vad': m.group('vad').strip(), 'bilder': bilder}
+
+
+def rubriknamn(rubrik):
+    """Referensens namn ur rubriken: delen före ' — ', ' – ', ' - ' eller ': ' ('## Snick — snickeri i Umeå' → 'snick'),
+    gemener. Huvudreferensen matchas exakt mot den, så att 'Snick' inte träffar 'Snickarglädje'."""
+    r = str(rubrik).strip().lstrip('#').strip().strip('*`').strip()
+    return re.split(r'\s+[—–-]+\s+|:\s+', r, maxsplit=1)[0].strip().strip('*`').strip().lower()
 
 
 def bildval(slug, underlag):

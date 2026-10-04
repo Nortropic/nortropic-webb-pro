@@ -1,0 +1,16 @@
+---
+id: B-20261004-jamforbara-byggen-pa-varierade-kundfall-och-autonomins-matt
+status: vilande
+kalla: bevakning
+kallref: Codex helhetsbedömning 2026-10-04 punkt 8 (byggförmågan), 9; rekommenderad ordning 5
+skapad: 2026-10-04
+prio: mellan
+andrad: 2026-10-04T20:19Z
+---
+# Jämförbara byggen på varierade kundfall, och autonomins mått: acceptans utan omdesign, total kostnad, ägarens minuter, variation, bevarade kandidater
+
+**Varför:** Flera omtag av samma snickarfirma kan inte belägga bredden; byggförmågan behöver varierade kundfall (innehållsmängd, bildkvalitet, kontaktvägar, designbehov) och både genomsnitt och hur ofta ett bygge blir tydligt dåligt. A/B-sammanställningen (ab.py:65) visar tid, turer och betyg men inte hela kostnaden för ett resultat ägaren faktiskt accepterar. Anthropic rapporterar att mellanversioner ibland var bättre än slutversionen; mer iteration är en hypotes som måste kontrolleras. Regressionsprov (rökprovet) och förmågeprov (kan systemet lösa en svår kunduppgift) ska hållas isär.
+
+**Förslag:** Tre till fem fiktiva eller verkliga kundfall med olika förutsättningar som fast förmågeprov (kunskap/formageprov.md: fallen, färdigkriteriet, kostnadsramen). Kvittot per bygge får: accepterat utan mänsklig omdesign (ägarens dom), total körtid och kostnad inklusive underagenter och omtag, ägarens nedlagda minuter (ägaren anger), återkommande fel, och om iterationen förbättrade eller försämrade den bästa tidigare kandidaten (bevarade kandidater per omgång: dist-hash och granskning, aldrig bara sista). ab.py sammanställer dessa mått per arm.
+
+**Klart när:** Förmågeprovet har körts på de varierade fallen med samma metod; sammanställningen visar acceptansandel, kostnad och variation per fall; de bästa kandidaterna är bevarade och jämförbara.

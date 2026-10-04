@@ -129,6 +129,8 @@ def main(argv):
               + '\n'.join(skydd[:40]) + ('\n… %d till' % (len(skydd) - 40) if len(skydd) > 40 else ''))
     if s:
         print('Provet:', 'GRÖNT' if s.get('ok') else 'RÖTT', '—', ', '.join('%s %s' % (n, 'ok' if x['ok'] else 'RÖD') for n, x in s['grindar'].items()))
+        if (s.get('info') or {}).get('vinnare'):
+            print('Ateljéns vinnare mot bygget:', s['info']['vinnare'])
     else:
         print('Provet: inget STATUS.json (provet kördes aldrig)')
     if v:

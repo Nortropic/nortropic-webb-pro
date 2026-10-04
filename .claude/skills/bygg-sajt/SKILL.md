@@ -186,7 +186,9 @@ typsnitt är laddade, och skriver `underlag/<slug>/referenser/paket-vNN/` med sk
 Read och läs begränsningarna (kakdialog, blockerade resurser, tomma bilder) innan du väljer; en kandidat som inte
 fångades hela ersätts eller kompletteras. Välj de användbara och skriv `underlag/<slug>/REFERENSER.md`: per referens
 roll, varför den är stark för just den här frågan, vad du faktiskt såg, och vilket val i vår sajt den ska påverka.
-Peka dessutom ut bilden: minst en rad per referens
+Peka ut **en** sammanhängande huvudreferens för komposition, typografi, proportioner och bildbehandling, med raden
+`Huvudreferens: <referensens rubrik> — <vad den bär>` (designprovet 2026-10-04): ateljén startar inte utan den, och
+alla riktningar följer den; de andra referenserna svarar på avgränsade frågor. Peka dessutom ut bilden: minst en rad per referens
 `Bildval: referenser/paket-vNN/<namn>/<NN-sida>/<fil>.png — <vad som jämförs> — Fråga: <jämförelsefrågan>` som anger
 just den ruta (`vy-390-ruta-NN.png`, `vy-1440-ruta-NN.png`) eller det tillstånd (hover, meny, reflow) som bär
 jämförelsen: tjänstesektionen, bildserien, mobilmenyn, prislistan, sidfoten. Första vyn räcker bara när referensen
@@ -265,19 +267,22 @@ och toppsektioner som tidigare byggen redan valt, och modellens egna standardval
 upptaget val är tillåtet när verksamhetens material motiverar det; välj det aldrig av vana, och skriv skälet i
 KONCEPT.md.
 
-1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md` med fyra visuella riktningar härledda ur verksamheten själv
-   (deras bilder, material, plats, ton) och referenserna. Palett, layout och typsnitt får kopieras från en namngiven
+1. **Riktning.** Skriv `underlag/<slug>/KONCEPT.md` med de visuella riktningar osäkerheten motiverar (två till fyra;
+   en när valet är givet av materialet), härledda ur verksamheten själv (deras bilder, material, plats, ton) och
+   referenserna. KONCEPT.md är platsen för prövade alternativ, beslutet och varför de andra förkastades. Palett, layout och typsnitt får kopieras från en namngiven
    referens som utgångspunkt; vår touch och verksamhetens material läggs sedan på det. En branschmall är ingen
    referens. Varje riktning anger: bakgrund
    och accent som hex, ett namngivet typsnitt med roll, toppsektionens komposition i en mening, **sidans form** (hur
    tjänsterna, beviset, undersidornas sektioner, sidfoten och avslutet visas), den sak ur "Bara de har" som
-   riktningen bygger på, och en rad **Motiv**: en form, linje eller ett material ur märket eller "Bara de har" och de
-   tre ställen där det bär formen (listmarkör, bildmask, avslut eller sidfot), aldrig dekor utan funktion. Ägarens
-   mall-lukt i L1–L3 satt i formen, inte i färgen: tjänstelistor, sektionsformer och sidfötter som kunde stå hos
-   vilken firma som helst. Minst två typsnittskategorier (grotesk, serif, slab, display) och en namngiven axel som
-   riktningarna skiljer sig på: foto eller typografi bär, ljust eller mörkt, tätt eller luftigt. Ingen halmgubbe;
-   varje riktning ska kunna vinna. Anthropic rekommenderar fyra riktningar med just de här uppgifterna för att få
-   verkligt olika utfall. Välj en med skäl och skriv den som **exakt specifikation** innan någon kod skrivs: färger
+   riktningen bygger på, och en rad **Motiv**: en form, linje eller ett material ur märket eller "Bara de har" och
+   var det bär formen (listmarkör, bildmask, avslut eller sidfot; ett ställe räcker om det bär), aldrig dekor utan
+   funktion. Ägarens mall-lukt i L1–L3 satt i formen, inte i färgen: tjänstelistor, sektionsformer och sidfötter
+   som kunde stå hos vilken firma som helst. En namngiven axel som riktningarna skiljer sig på: foto eller typografi
+   bär, ljust eller mörkt, tätt eller luftigt. Antal typsnittskategorier, motivets platser och sektionsformer är inga
+   punkter att bocka av: de prövas mot kompositionen, och en riktning bedöms på vad den gör för sidan, inte på
+   uppfyllda instruktioner (Codex 2026-10-04: fasta recept belönar uppfyllda punkter utan att förbättra
+   kompositionen). Ingen halmgubbe; varje riktning ska kunna vinna. Välj en med skäl och skriv den som **exakt
+   specifikation** innan någon kod skrivs: färger
    som hex med roller, typsnitt och typografisk skala, radie, avståndssystem, sektionsordning och form per sida, med
    skäl mot strukturmönstren i UPPTAGNA-VAL.md. Modellen följer uttryckliga specifikationer precist. De två starkaste
    riktningarna blir riktningsfrågan i FRAGOR.json, med en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad
@@ -285,11 +290,20 @@ KONCEPT.md.
    har".
    **Ateljévägen** (när prompten säger att riktningsateljén är på): kör punkt 2 först, sedan `.venv/bin/python
    kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så länge den svarar att ateljén
-   pågår. En orkestrator tar fram riktningarna som style tile och första vy med verksamhetens riktiga innehåll, och
-   en domarpanel om tre väljer. Läs `underlag/<slug>/atelje/VAL.md`, `RIKTNINGAR.md` och bilderna i `atelje/<N>/`,
-   och skriv specifikationen i KONCEPT.md ur den valda riktningen och det som lånas från de andra. Avinstallera
-   typsnitt som bara bortvalda riktningar använde. Tvåan i punkt 4 behövs då inte; riktningsfrågan i FRAGOR.json får
-   en bild per riktning ur `atelje/<N>/vy-390-forsta.png`, i samma ordning som alternativen.
+   pågår. En orkestrator tar fram riktningarna som hela startsidor med verksamhetens riktiga innehåll, alla efter
+   huvudreferensen i REFERENSER.md, och en domarpanel om tre dömer varje riktning mot ägarens kalibreringsankare:
+   håller den ribban eller inte. Ingen riktning som en majoritet håller över ribban = alla förkastade; ateljén körs då
+   om en gång med panelens kritik och stannar sedan med slutkod 6: skriv då rapporten om varför och avsluta utan
+   sajt. Bäst av tre undermåliga förslag blir aldrig vald. Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/`
+   (koden i `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och vinnarens startsida står redan som
+   `src/pages/index.astro`: bygg vidare ur den (flytta dess stil till Bas.astro och gemensam CSS när de andra sidorna
+   behöver den, utan att ändra hur startsidan ser ut), bygg undersidorna ur `kod/undersida/` och värdena i
+   `kod/stiltavla/`, och håll dig till riktningen. Provet jämför startsidan pixel för pixel mot vinnaren
+   (`prov/vinnare/VINNARJAMFORELSE.md`; förändring, inte kvalitet); granskaren jämför den mot vinnarens bilder, och en
+   annan riktning utan ny ateljéomgång är ett blockerande fynd. Läs `underlag/<slug>/atelje/VAL.md`, `RIKTNINGAR.md` och bilderna i `atelje/<N>/`, och skriv
+   specifikationen i KONCEPT.md ur den valda riktningen och det som lånas från de andra. Avinstallera typsnitt som
+   bara bortvalda riktningar använde. Tvåan i punkt 4 behövs då inte; riktningsfrågan i FRAGOR.json får en bild per
+   riktning ur `atelje/<N>/vy-390-forsta.png`, i samma ordning som alternativen.
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
    sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.

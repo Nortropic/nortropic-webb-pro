@@ -84,6 +84,46 @@ def bildmatt(p):
     return (int(m['Width']), int(m['Height'])) if rc == 0 and len(m) == 2 else (0, 0)
 
 
+def vinnarjamforelse(vinnare, hem, ut):
+    """Byggets startsida mot ateljéns vinnare, pixel för pixel (kontroller/webblasare/jamfor.mjs): första vyn och helsidan i
+    390 och 1440. Mäter förändring, inte kvalitet (Codex 2026-10-04, steg 4): avvikelsen är underlag för granskaren, som ser
+    båda bildserierna och avgör om det är en försämring. Skriver ut/VINNARJAMFORELSE.json och .md; ger info-raden."""
+    ut = Path(ut)
+    ut.mkdir(parents=True, exist_ok=True)
+    par = []
+    for vy in ('390', '1440'):
+        for namn in ('vy-%s-ruta-01.png' % vy, 'vy-%s-hela.png' % vy):
+            v, b = Path(vinnare) / namn, Path(hem) / namn
+            post = {'bild': namn, 'vinnare': str(v), 'bygget': str(b)}
+            if not v.is_file() or not b.is_file():
+                post['fel'] = 'saknas: ' + ('vinnarens bild' if not v.is_file() else 'byggets bild')
+            else:
+                skillnad = ut / ('skillnad-' + namn)
+                rc, out = kor([NODE, str(KONTROLLER / 'webblasare' / 'jamfor.mjs'), '--a', str(v), '--b', str(b), '--ut', str(skillnad)], timeout=120)
+                rad = next((r for r in reversed(out.strip().splitlines()) if r.startswith('{')), '')
+                try:
+                    res = json.loads(rad)
+                    if rc != 0 or 'fel' in res:
+                        raise ValueError(res.get('fel') or 'rc %d' % rc)
+                    post.update(res)
+                    post['skillnadsbild'] = str(skillnad)
+                except ValueError as e:
+                    post['fel'] = 'jämförelsen kördes inte: %s' % e
+            par.append(post)
+    (ut / 'VINNARJAMFORELSE.json').write_text(json.dumps({'tid': nu(), 'par': par}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+
+    def text(p):
+        if p.get('fel'):
+            return '%s: %s' % (p['bild'], p['fel'])
+        return '%s: %.1f %% olika pixlar över gemensam yta%s' % (p['bild'], 100 * (p.get('andel') or 0), ', höjd %+d px' % p['hojdskillnad'] if p.get('hojdskillnad') else '')
+    rader = ['# Bygget mot ateljéns vinnare', '', 'Pixeljämförelse av startsidans första vy och helsida i 390 och 1440 (kontroller/webblasare/jamfor.mjs).',
+             'Måttet är förändring, inte kvalitet: en hög avvikelse kan vara en förbättring eller en försämring; granskaren avgör med båda bildserierna.', '']
+    rader += ['- ' + text(p) for p in par]
+    rader += ['', 'Skillnadsbilder (röda pixlar skiljer): ' + (', '.join(p['skillnadsbild'] for p in par if p.get('skillnadsbild')) or 'inga')]
+    (ut / 'VINNARJAMFORELSE.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
+    return '; '.join(text(p) for p in par) + ' (prov/vinnare/VINNARJAMFORELSE.md; förändring, inte kvalitet)'
+
+
 def rutor(mapp, vy):
     """Helsidesbilden delad i skärmhöga rutor, vy-<bredd>-ruta-NN.png, uppifrån och ned. En helsida på över 8000 px
     skalas ned så mycket när en modell läser den att text och detaljer försvinner (fynd 2026-10-02: startsidan i 390
@@ -425,6 +465,9 @@ def prova(slug, snabb=False):
             info['rutor'] = '; '.join(rutinfo)
         info['skarmbilder'] = ('prov/inspektion/<sida>/vy-<bredd>-forsta.png och vy-<bredd>-ruta-NN.png, helsidan i skärmhöga '
                                'rutor (titta på dem; ett textträd är inte bildseende). -hela.png är nedskalad och visar bara rytmen.')
+        # bygget mot ateljéns vinnare (designprovet 2026-10-04, steg 4): startsidans första vy och helsida, pixel för pixel
+        if (underlag / 'atelje' / 'VINNARE.json').is_file():
+            info['vinnare'] = vinnarjamforelse(underlag / 'atelje' / 'vinnare' / 'bilder', prov / 'inspektion' / 'hem', prov / 'vinnare')
 
         # stil (info): typsnitt, färgfamiljer, kort, nästa sektion, klickytor, modellernas standardval
         rc, out = kor([NODE, str(KONTROLLER / 'stil.mjs'), '--url=' + srv.url, '--sidor=' + lista, '--ut=' + str(prov / 'stil')], timeout=300)

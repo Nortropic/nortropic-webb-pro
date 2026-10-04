@@ -25,6 +25,9 @@ Uppdraget räknar upp sökvägarna. Du har:
 - **Verksamhetens underlag:** uppgifterna, researchen med listan "Bara de har", briefen med toppuppgifterna, den
   primära handlingen och kraven i EARS-form, och förteckningen över deras egna bilder.
 - **Referenserna** som byggaren valde, med skärmbilder.
+- **Ateljéns vinnare**, när riktningsateljén kördes: den riktning domarpanelen valde som hela startsida, med bilderna
+  byggaren hade att bygga ur. Jämför startsidan ruta för ruta mot dem; en annan riktning, komposition, typografi eller
+  bildbehandling utan ny ateljéomgång är ett blockerande fynd (designprovet, ägarbeslut 2026-10-04).
 - **Tidigare byggens första vy**, bara så att du ser om det här bygget är en variant av dem. De är ingen måttstock,
   inte heller de ägaren godkänt: ägaren har sagt (2026-10-03) att våra egna byggen inte håller. Ribban är professionell
   nivå enligt referenserna och måttstockarna.

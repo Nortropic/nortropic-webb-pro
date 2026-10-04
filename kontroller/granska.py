@@ -96,6 +96,8 @@ def metod_sha(slug=None):
     if slug:  # referensbilderna granskaren ser (omgång elva, F18: en utbytt bild på samma sökväg gav samma hash)
         for b, _ in referensbilder(slug):
             h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + (b.read_bytes() if b.is_file() else b'') + b'\0')
+        v = UNDERLAG / slug / 'atelje' / 'VINNARE.json'  # ateljéns vinnare (med bildhashar) är startsidans måttstock (designprovet punkt 5)
+        h.update(b'atelje/VINNARE.json\0' + (v.read_bytes() if v.is_file() else b'') + b'\0')
     h.update(json.dumps({'troskel': TROSKEL, 'kriterier': KRITERIER}, sort_keys=True).encode())
     return h.hexdigest()
 
@@ -259,7 +261,7 @@ def kopiera_trad_sakert(kalla, mal):
                 raise RuntimeError('planterad symlänk i %s: %s' % (kalla, Path(d) / n))
 
 
-FRYSTA_FILER = ('copy.md', 'standard.md', 'stil/STIL.md')
+FRYSTA_FILER = ('copy.md', 'standard.md', 'stil/STIL.md', 'vinnare/VINNARJAMFORELSE.md')  # den sista bara när ateljén kördes
 
 
 def frys_bygget(kund, rdir):
@@ -395,6 +397,24 @@ def frysta_ankare(rdir, underlag=None):
     return md, bilder
 
 
+def frysta_vinnare(slug, rdir):
+    """Ateljéns vinnare (underlag/<slug>/atelje/VINNARE.json och vinnare/bilder/*.png) kopierad till omgången som vinnare/,
+    så att alla granskare jämför startsidan mot samma bilder (designprovet punkt 5, ägarbeslut 2026-10-04).
+    Ger (VINNARE.json som dict, [Path]) eller None när ateljén inte kördes."""
+    rot = UNDERLAG / slug / 'atelje'
+    v = las_json(rot / 'VINNARE.json')
+    if not isinstance(v, dict) or not isinstance(v.get('riktning'), int):
+        return None
+    mapp = Path(rdir) / 'vinnare'
+    mapp.mkdir(parents=True, exist_ok=True)
+    bilder = []
+    for b in sorted((rot / 'vinnare' / 'bilder').glob('vy-*.png')):
+        mal = mapp / b.name
+        shutil.copy2(sakert_original(b, rot), mal)
+        bilder.append(mal)
+    return v, bilder
+
+
 def bildankare(utom=None):
     """Första vyn av dömda byggen med ägarens dom bredvid. Används inte längre i uppdragen: egna byggen är ingen måttstock
     (ägaren 2026-10-03: "våra hemsidor är dåliga och håller inte"); kvar för dashboardens överensstämmelse."""
@@ -426,7 +446,7 @@ def kalibrering(utom=None):
     return rader
 
 
-def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=None, lardomar=None, felrader=None):
+def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=None, lardomar=None, felrader=None, vinnare=None):
     """felrader: Bildval som inte gick att läsa, frysta av anroparen tillsammans med bilderna så att alla granskare får samma
     underlag (Codex 2026-10-04, F18/F38); None räknar dem här (torrkörning)."""
     if felrader is None:
@@ -463,6 +483,12 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         *([rad(p) + ' — ' + t for p, t in (x if isinstance(x, tuple) else (x, 'första vyn') for x in refs)] or ['- inga']),
         *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet):']
           + ['- ' + f for f in felrader] if felrader else []), '',
+        *(['Ateljéns vinnare: riktning %s, vald av domarpanelen som hela startsida (designprovet 2026-10-04). Bygget ska vara den' % vinnare[0].get('riktning'),
+           'riktningen genomförd: jämför startsidan ruta för ruta mot vinnarens bilder; en annan riktning, komposition, typografi eller',
+           'bildbehandling utan ny ateljéomgång är ett blockerande fynd.', *([rad(p) for p in vinnare[1]] or ['- bilder saknas']),
+           *(['Avvikelsen mot vinnaren mätt pixel för pixel (förändring, inte kvalitet; du avgör): %s' % rad(rdir / 'VINNARJAMFORELSE.md')[2:]]
+             if (rdir / 'VINNARJAMFORELSE.md').is_file() else []), '']
+          if vinnare else []),
         'Tidigare byggens första vy:', *([rad(p) for p in tidigare] or ['- inga']), '',
         'Måttstockar:', *['- %s: %s' % (namn, f) for namn, f in MATTSTOCKAR if (ROOT / f).is_file()],
     ]
@@ -526,13 +552,14 @@ def arbetare(rdir):
             frysta = frysta_referenser(slug, rdir)  # en gång, före loopen: alla granskare ser samma kopior (omgång tolv, F18)
             frysta_fel = referensval.felrader(slug, UNDERLAG)  # felstatusen fryses med bilderna, före metodkontrollen (F18/F38)
             ankare = frysta_ankare(rdir)  # kalibreringsankarna fryses en gång, lika för alla granskare
+            vinnare = frysta_vinnare(slug, rdir)  # ateljéns vinnare, måttstocken för startsidan (designprovet punkt 5)
             if upp.get('metod_sha') and metod_sha(slug) != upp['metod_sha']:
                 raise RuntimeError('underlaget (referensbilder eller texter) ändrades mellan bokföringen och starten; kör granskningen igen')
             for n in range(1, antal + 1):
                 arbetskatalog = ARBETSROT / slug / ('%s-%d' % (rdir.name, n))  # sluggen som eget led (Codex R25)
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                      frysta, tidigare_byggen(slug), [], rdir, aria, ankare, lardomar, felrader=frysta_fel)
+                                      frysta, tidigare_byggen(slug), [], rdir, aria, ankare, lardomar, felrader=frysta_fel, vinnare=vinnare)
                 (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
                 args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config',
@@ -1010,7 +1037,7 @@ def main(argv=None):
                 shutil.copy2(sakert_original(kund / 'prov' / namn, kund), rdir / Path(namn).name)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / a.slug / 'torr', bilder,
                               frysta_referenser(a.slug, rdir), tidigare_byggen(a.slug), [], rdir,
-                              aria_trad(kund, rdir / 'sajt'), frysta_ankare(rdir), lardomar_utan(a.slug, rdir))
+                              aria_trad(kund, rdir / 'sajt'), frysta_ankare(rdir), lardomar_utan(a.slug, rdir), vinnare=frysta_vinnare(a.slug, rdir))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         print(prompt)
         print('Torrkörning: %s. Ingen granskare startades.' % (rdir / 'PROMPT.txt'))

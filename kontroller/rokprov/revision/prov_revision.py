@@ -488,9 +488,10 @@ def attrapp(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=N
 
 
 a.session = attrapp
-full = lambda bok: {'rangordning': [{'riktning': bok['2'], 'plats': 1, 'styrkor': '', 'svagheter': ''}, {'riktning': bok['1'], 'plats': 2, 'styrkor': '', 'svagheter': ''}, {'riktning': bok['3'], 'plats': 3, 'styrkor': '', 'svagheter': ''}], 'lana': [], 'motivering': ''}  # noqa: E731
+RB = {'styrkor': '', 'svagheter': '', 'haller_ribban': True, 'niva': 'over'}  # ribbdomen per riktning (designprovet 2026-10-04)
+full = lambda bok: {'rangordning': [dict(RB, riktning=bok['2'], plats=1), dict(RB, riktning=bok['1'], plats=2), dict(RB, riktning=bok['3'], plats=3)], 'lana': [], 'motivering': ''}  # noqa: E731
 tom = lambda bok: {'rangordning': [], 'lana': [], 'motivering': ''}  # noqa: E731
-dubbel = lambda bok: {'rangordning': [{'riktning': bok['1'], 'plats': 1, 'styrkor': '', 'svagheter': ''}, {'riktning': bok['1'], 'plats': 1, 'styrkor': '', 'svagheter': ''}, {'riktning': bok['3'], 'plats': 2, 'styrkor': '', 'svagheter': ''}], 'lana': [], 'motivering': ''}  # noqa: E731
+dubbel = lambda bok: {'rangordning': [dict(RB, riktning=bok['1'], plats=1), dict(RB, riktning=bok['1'], plats=1), dict(RB, riktning=bok['3'], plats=2)], 'lana': [], 'motivering': ''}  # noqa: E731
 svar_per_domare.update(formgivning=full, funktion=full, kunden=dubbel)
 v = a.panel('prov', arot)
 assert v['val'] == 2 and v['poang'] == {1: 2, 2: 4, 3: 0} and v['panel']['kunden'].get('ogiltig'), v
@@ -500,6 +501,227 @@ try:
 except RuntimeError as e:
     assert 'giltiga domare' in str(e), e
 print('F23 ateljén ok')
+
+# ---------------------------------------------------------------- F23b: designprovet (ägarbeslut 2026-10-04 via Codex R40; Codex 2026-10-04 glapp 5)
+
+
+def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svitens moduler och variabler
+    import shutil as shutil_hr
+    arot_b = tmp / 'atelje-f23b'  # egen kopia av ateljéroten: F34 nedan räknar med F23:s orörda bilder
+    shutil_hr.copytree(arot, arot_b)
+    import re  # noqa: E402
+    import io  # noqa: E402
+    import contextlib  # noqa: E402
+    import zlib  # noqa: E402
+    import struct  # noqa: E402
+    import referensval as rv_hr  # noqa: E402
+    import prova as pv_hr  # noqa: E402
+    for n in (1, 2, 3):
+        d = arot_b / str(n)
+        for i in range(2, 10):
+            (d / ('vy-390-ruta-%02d.png' % i)).write_bytes(b'x')
+        for i in range(2, 6):
+            (d / ('vy-1440-ruta-%02d.png' % i)).write_bytes(b'x')
+        (d / 'vy-390-hela.png').write_bytes(b'x'); (d / 'vy-1440-hela.png').write_bytes(b'x'); (d / 'vy-390-forsta.png').write_bytes(b'x')
+        if n != 3:
+            (d / 'undersida').mkdir()
+            for fn in ('vy-390-ruta-01.png', 'vy-390-ruta-02.png', 'vy-390-ruta-03.png', 'vy-1440-ruta-01.png', 'vy-1440-ruta-02.png'):
+                (d / 'undersida' / fn).write_bytes(b'x')
+    pb = [p.name for p in a.panelbilder(arot_b / '1')]
+    assert pb.count('vy-390-ruta-08.png') == 1 and 'vy-390-ruta-09.png' not in pb and 'vy-1440-ruta-04.png' in pb and 'vy-1440-ruta-05.png' not in pb, pb
+    assert pb[-3:] == ['vy-390-ruta-01.png', 'vy-390-ruta-02.png', 'vy-1440-ruta-01.png'] and str(a.panelbilder(arot_b / '1')[-1].relative_to(arot_b / '1')) == 'undersida/vy-1440-ruta-01.png', pb
+    assert 'vy-390-hela.png' in pb and 'vy-1440-hela.png' in pb and 'vy-390-forsta.png' not in pb and len(a.panelbilder(arot_b / '3')) == 14, pb
+    (arot_b / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {str(n): [] for n in (1, 2, 3)}, 'ofullstandiga': {'3': 'undersidans början saknas'}}))
+    prompter = []
+
+
+    def attrapp2(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
+        prompter.append(prompt)
+        karta = {}
+        for rad in prompt.splitlines():
+            m = re.match(r'- riktning ([A-F]): .*?atelje[^/]*/(\d)/', rad)
+            if m:
+                karta[m.group(1)] = m.group(2)
+        namn = ut.name.replace('svar-domare-', '').replace('.json', '')
+        return {'structured_output': svar_per_domare[namn]({v: b for b, v in karta.items()})}
+
+
+    a.session = attrapp2
+    rb = lambda bok, ja, ordning=(2, 1, 3): {'rangordning': [{'riktning': bok[str(n)], 'plats': i + 1, 'styrkor': '', 'svagheter': '', 'haller_ribban': ja[n], 'niva': 'over' if ja[n] else 'nastan'} for i, n in enumerate(ordning)], 'lana': [], 'motivering': ''}  # noqa: E731
+    ingen, bara2 = {1: False, 2: False, 3: False}, {1: False, 2: True, 3: False}
+    svar_per_domare.update(formgivning=lambda bok: rb(bok, ingen), funktion=lambda bok: rb(bok, bara2), kunden=lambda bok: rb(bok, ingen))
+    v = a.panel('prov', arot_b)
+    assert v['val'] is None and v['forkastade'] and v['godkanda'] == [] and v['poang'][2] == 6, 'bäst av tre undermåliga får aldrig bli vald: en domare av tre räcker inte (%s)' % v
+    assert v['ribban'][2] == {'formgivning': False, 'funktion': True, 'kunden': False} and v['nivaer'][2] == {'formgivning': 'nastan', 'funktion': 'over', 'kunden': 'nastan'} and v['ankare'] is False and v['ofullstandiga'] == {'3': 'undersidans början saknas'}, v
+    p = prompter[-1]
+    assert 'atelje-f23b/1/vy-390-hela.png' in p and 'atelje-f23b/1/undersida/vy-390-ruta-01.png' in p and 'vy-390-ruta-08.png' in p and 'vy-390-ruta-09.png' not in p and 'vy-1440-ruta-05.png' not in p, p
+    assert 'Ofullständiga riktningar' in p and 'undersidans början saknas' in p and 'kalibreringsankare saknas' in p and 'Frånvaro av gradienter' in p and 'haller_ribban' in p and 'Huvudreferensen' not in p, p
+    # majoriteten håller riktning 2 över ribban: vald; riktning 3 hålls av alla men är ofullständig: aldrig godkänd
+    alla3 = {1: False, 2: True, 3: True}
+    svar_per_domare.update(formgivning=lambda bok: rb(bok, alla3, (3, 2, 1)), funktion=lambda bok: rb(bok, alla3, (3, 2, 1)), kunden=lambda bok: rb(bok, {1: False, 2: False, 3: True}, (3, 2, 1)))
+    v = a.panel('prov', arot_b)
+    assert v['val'] == 2 and v['godkanda'] == [2] and not v['forkastade'] and v['poang'][3] > v['poang'][2], 'ofullständig riktning får inte vinna fast alla håller den; majoriteten räcker för 2 (%s)' % v
+    # en domare utan ribbdom räknas inte
+    utan = lambda bok: {'rangordning': [{'riktning': bok[str(n)], 'plats': i + 1, 'styrkor': '', 'svagheter': ''} for i, n in enumerate((2, 1, 3))], 'lana': [], 'motivering': ''}  # noqa: E731
+    svar_per_domare.update(formgivning=utan, funktion=lambda bok: rb(bok, bara2), kunden=lambda bok: rb(bok, bara2))
+    v = a.panel('prov', arot_b)
+    assert v['panel']['formgivning'].get('ogiltig') and any('ribbdom' in f for f in v['fel']) and v['val'] == 2, v
+    # VAL.md säger förkastat respektive valt
+    svar_per_domare.update(formgivning=lambda bok: rb(bok, ingen), funktion=lambda bok: rb(bok, ingen), kunden=lambda bok: rb(bok, ingen))
+    assert a.skriv_val('prov', arot_b)['val'] is None and 'Alla riktningar förkastade' in (arot_b / 'VAL.md').read_text() and 'Ofullständiga riktningar' in (arot_b / 'VAL.md').read_text()
+    svar_per_domare.update(formgivning=lambda bok: rb(bok, bara2), funktion=lambda bok: rb(bok, bara2), kunden=lambda bok: rb(bok, ingen))
+    assert a.skriv_val('prov', arot_b)['val'] == 2 and 'Vald riktning: **2**' in (arot_b / 'VAL.md').read_text() and '| 2 | 2 av 3 |' in (arot_b / 'VAL.md').read_text(), (arot_b / 'VAL.md').read_text()
+    # ägarens kalibreringsankare fryses till panelen; bara ankarhalvan, ägarens ord ordagrant
+    ua = tmp / 'underlag-ankare'
+    (ua / 'kalibrering' / 'K01' / 'start').mkdir(parents=True); (ua / 'kalibrering' / 'K02' / 'start').mkdir(parents=True)
+    for kid in ('K01', 'K02'):
+        for vy in ('390', '1440'):
+            (ua / 'kalibrering' / kid / 'start' / ('vy-%s-forsta.png' % vy)).write_bytes(b'x')
+    (ua / 'kalibrering' / 'DOMAR.json').write_text(json.dumps({'K01': {'niva': 'over', 'skiljer': 'ägarens ord om K01'}, 'K02': {'niva': 'generisk', 'skiljer': 'undanhållen K02'}}))
+    (ua / 'kalibrering' / 'ANKARE.txt').write_text('K01 · ankare\n')
+    a.UNDERLAG = ua
+    v = a.panel('prov', arot_b)
+    a.UNDERLAG = tmp / 'underlag'
+    assert v['ankare'] is True and 'Ägarens kalibreringsankare' in prompter[-1] and 'atelje-f23b/ankare/kalibrering/K01-vy-390-forsta.png' in prompter[-1] and 'K02' not in prompter[-1], prompter[-1]
+    assert 'ägarens ord om K01' in (arot_b / 'ankare' / 'kalibrering.md').read_text() and 'undanhållen' not in (arot_b / 'ankare' / 'kalibrering.md').read_text()
+    # vinnaren bevaras och överförs till sajten (glapp 5)
+    sidor = k / 'provhr' / 'sajt' / 'src' / 'pages'
+    (sidor / 'atelje-2' / 'undersida').mkdir(parents=True, exist_ok=True)
+    kod = "---\nimport b from '../../assets/atelje/x.jpg';\n---\n<img src=\"../../assets/y.png\"><style>@import url(../../x.css);</style>"
+    (sidor / 'atelje-2' / 'index.astro').write_text(kod); (sidor / 'atelje-2' / 'undersida' / 'index.astro').write_text('u')
+    (sidor / 'index.astro').write_text('gammal')
+    mal = a.bevara_vinnare('provhr', arot_b, 2)
+    vj = json.loads((arot_b / 'VINNARE.json').read_text())
+    assert vj['riktning'] == 2 and (mal / 'kod' / 'index.astro').read_text() == kod and (mal / 'kod' / 'undersida' / 'index.astro').read_text() == 'u', vj
+    assert sorted(p.name for p in (mal / 'bilder').iterdir()) == sorted(p.name for p in (arot_b / '2').glob('vy-*.png')) and 'bilder/vy-390-hela.png' in vj['filer'] and 'kod/index.astro' in vj['filer']
+    ny = (sidor / 'index.astro').read_text()
+    assert ny == kod.replace('../../', '../') and "'../assets/atelje/x.jpg'" in ny and 'overford/src/pages/index.astro' in vj['filer'] and (arot_b / 'index-ersatt.astro').read_text() == 'gammal', ny
+    # koden sparas per riktning vid fotograferingen; vinnaren tas därifrån även när sidorna är städade (--bara-domare)
+    (sidor / 'atelje-2' / 'stiltavla').mkdir(); (sidor / 'atelje-2' / 'stiltavla' / 'index.astro').write_text('tavla')
+    (sidor / 'atelje-2' / 'lank.astro').symlink_to('/etc/hosts')
+    sk = a.spara_kod('provhr', arot_b, 2)
+    assert sorted(str(p.relative_to(sk)) for p in sk.rglob('*') if p.is_file()) == ['index.astro', 'stiltavla/index.astro', 'undersida/index.astro'], 'koden sparas utan symlänkar'
+    assert a.spara_kod('provhr', arot_b, 3) is None, 'ingen sida, ingen kod'
+    shutil_hr.rmtree(sidor / 'atelje-2')
+    (sidor / 'index.astro').write_text('gammal igen')
+    mal = a.bevara_vinnare('provhr', arot_b, 2)
+    assert (mal / 'kod' / 'stiltavla' / 'index.astro').read_text() == 'tavla' and (sidor / 'index.astro').read_text() == kod.replace('../../', '../'), 'vinnaren ur den sparade koden'
+    # huvudreferensen ur REFERENSER.md; ateljén startar inte utan den
+    u = tmp / 'underlag' / 'provhr'
+    for namn in ('BRIEF.md', 'RESEARCH.md', 'INNEHALL.md'):
+        (u / namn).parent.mkdir(parents=True, exist_ok=True); (u / namn).write_text('x')
+    (k / 'provhr' / 'sajt').mkdir(parents=True, exist_ok=True); (k / 'provhr' / 'sajt' / 'package.json').write_text('{}')
+    (u / 'referenser' / 'paket-v01' / 'snick' / '01-start').mkdir(parents=True)
+    (u / 'referenser' / 'paket-v01' / 'snick' / '01-start' / 'vy-390-ruta-01.png').write_bytes(b'x')
+    (u / 'referenser' / 'paket-v01' / 'annan' / '01-start').mkdir(parents=True)
+    (u / 'referenser' / 'paket-v01' / 'annan' / '01-start' / 'vy-390-ruta-02.png').write_bytes(b'x')
+    (u / 'REFERENSER.md').write_text('# Referenser\n\n## Snick — snickeri i Umeå\n\nBildval: referenser/paket-v01/snick/01-start/vy-390-ruta-01.png — första vyn — Fråga: bär vår lika mycket?\n\n## Annan\n\nBildval: referenser/paket-v01/annan/01-start/vy-390-ruta-02.png — tjänsterna — Fråga: lika tydlig?\n')
+    assert rv_hr.huvudreferens('provhr', tmp / 'underlag') is None
+    ut_main = io.StringIO()
+    with contextlib.redirect_stdout(ut_main):
+        rc_main = a.main(['provhr'])
+    assert rc_main == 2 and 'Huvudreferens' in ut_main.getvalue(), ut_main.getvalue()
+    (u / 'REFERENSER.md').write_text((u / 'REFERENSER.md').read_text() + '\nHuvudreferens: Sni — komposition\n')
+    ut_main = io.StringIO()
+    with contextlib.redirect_stdout(ut_main):
+        rc_main = a.main(['provhr'])
+    assert rc_main == 2 and 'inga läsbara Bildval-bilder' in ut_main.getvalue() and rv_hr.huvudreferens('provhr', tmp / 'underlag')['bilder'] == [], 'Sni träffar inte Snick: exakt rubriknamn (%s)' % ut_main.getvalue()
+    assert rv_hr.rubriknamn('## **Snick** — snickeri') == 'snick' and rv_hr.rubriknamn('Snickarglädje: kök') == 'snickarglädje' and rv_hr.rubriknamn('Annan') == 'annan'
+    (u / 'REFERENSER.md').write_text((u / 'REFERENSER.md').read_text().replace('Huvudreferens: Sni — komposition', 'Huvudreferens: Snick — komposition, typografi och bildbehandling'))
+    hr = rv_hr.huvudreferens('provhr', tmp / 'underlag')
+    assert hr['namn'] == 'Snick' and hr['vad'] == 'komposition, typografi och bildbehandling' and [t for _, t in hr['bilder']] == ['första vyn — Fråga: bär vår lika mycket?'], hr
+    dp = a.divergera_prompt('provhr', [])
+    assert 'Huvudreferensen är Snick: komposition, typografi och bildbehandling' in dp and 'Dess bilder: underlag/provhr/referenser/paket-v01/snick/01-start/vy-390-ruta-01.png — första vyn — Fråga: bär vår lika mycket?.' in dp, dp
+    assert 'undersida/index.astro' in dp and 'stiltavla/index.astro' in dp and 'Under sidan en style tile' not in dp and '/src/assets/atelje/' in dp and 'Förra omgången' not in dp, dp
+    assert 'Förra omgången förkastades' in a.divergera_prompt('provhr', [], 'kritik: platt') and 'kritik: platt' in a.divergera_prompt('provhr', [], 'kritik: platt')
+    dmp = a.domar_prompt('provhr', 'uppdraget', [('A', 1), ('B', 2)], {1: ['x'], 2: ['y']}, None)
+    assert 'Huvudreferensen som alla riktningar ska bära i komposition, typografi, proportioner och bildbehandling: Snick' in dmp and 'kalibreringsankare saknas' in dmp, dmp
+    # divergensomgångar: förkastat → ny omgång med kritiken, sedan stopp (slutkod 6 i vanta)
+    gamla = {n: getattr(a, n) for n in ('session', 'fotografera', 'skriv_val', 'bevara_vinnare', 'stada', 'egna_bilder', 'OMGANGAR')}
+    rot2 = u / 'atelje'
+    rot2.mkdir(parents=True, exist_ok=True)
+    utfall = iter([None, 2])
+    prompter.clear()
+    a.session = lambda prompt, verktyg, ut, **kw: (prompter.append(prompt), {})[1]
+    a.fotografera = lambda slug, rot: []
+
+
+    def falskt_val(slug, rot):
+        vv = next(utfall)
+        (rot / 'VAL.md').write_text('# val\n\nkritik: för platt' if vv is None else '# val\n\nVald riktning: **2**')
+        return {'val': vv}
+
+
+    a.skriv_val = falskt_val
+    bevarade = []
+    a.bevara_vinnare = lambda slug, rot, n: bevarade.append(n)
+    a.stada = lambda slug: None
+    a.egna_bilder = lambda slug: []
+    a.OMGANGAR = 2
+    a.arbetare('provhr')
+    st = json.loads((rot2 / 'STATUS.json').read_text())
+    assert st['steg'] == 'klar' and st['val'] == 2 and st['omgangar'] == 2 and bevarade == [2], st
+    assert len(prompter) == 2 and 'Förra omgången förkastades' in prompter[1] and 'kritik: för platt' in prompter[1] and 'Förra omgången' not in prompter[0], prompter
+    assert (rot2 / 'VAL-forkastad-1.md').is_file()
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert a.vanta(rot2, 1) == 0
+    utfall = iter([None, None])
+    bevarade.clear(); prompter.clear()
+    a.arbetare('provhr')
+    st = json.loads((rot2 / 'STATUS.json').read_text())
+    assert st['steg'] == 'forkastad' and st['val'] is None and bevarade == [] and len(prompter) == 2 and 'stannar' in st['skal'], st
+    ut_v = io.StringIO()
+    with contextlib.redirect_stdout(ut_v):
+        assert a.vanta(rot2, 1) == 6
+    assert 'förkastade alla riktningar' in ut_v.getvalue()
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert a.main(['provhr']) == 6, 'ett förkastat resultat startar ingen ny ateljé utan --om'
+    for n, fn in gamla.items():
+        setattr(a, n, fn)
+    # bildjämförelsen mot vinnaren (jamfor.mjs + prova.vinnarjamforelse): förändring, inte kvalitet
+
+
+    def png_hr(p, w, h, f):
+        rader = b''.join(b'\x00' + bytes(c for x in range(w) for c in f(x, y)) for y in range(h))
+        chunk = lambda t, b: struct.pack('>I', len(b)) + t + b + struct.pack('>I', zlib.crc32(t + b) & 0xffffffff)  # noqa: E731
+        p.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rader)) + chunk(b'IEND', b''))
+
+
+    vd, hd, ud = tmp / 'vinn', tmp / 'hem', tmp / 'ut-vinnare'
+    vd.mkdir(); hd.mkdir()
+    gra = lambda x, y: (200, 200, 200, 255)  # noqa: E731
+    png_hr(vd / 'vy-390-ruta-01.png', 40, 20, gra); png_hr(hd / 'vy-390-ruta-01.png', 40, 20, lambda x, y: (200, 200, 200, 255) if x >= 10 else (20, 20, 20, 255))
+    png_hr(vd / 'vy-390-hela.png', 40, 20, gra); png_hr(hd / 'vy-390-hela.png', 40, 30, gra)
+    png_hr(vd / 'vy-1440-ruta-01.png', 40, 20, gra)
+    png_hr(hd / 'vy-1440-hela.png', 40, 20, gra)
+    text_v = pv_hr.vinnarjamforelse(vd, hd, ud)
+    jv = json.loads((ud / 'VINNARJAMFORELSE.json').read_text())
+    assert jv['par'][0]['andel'] == 0.25 and jv['par'][1]['hojdskillnad'] == 10 and jv['par'][1]['andel'] == 0, jv
+    assert 'saknas: byggets bild' in jv['par'][2]['fel'] and 'saknas: vinnarens bild' in jv['par'][3]['fel'] and (ud / 'skillnad-vy-390-ruta-01.png').is_file(), jv
+    assert '25.0 % olika' in text_v and 'höjd +10 px' in text_v and 'förändring, inte kvalitet' in text_v and (ud / 'VINNARJAMFORELSE.md').read_text().count('\n- ') == 4, text_v
+    # granskaren: vinnaren fryses in i omgången, står i uppdraget och ingår i metodhashen
+    gu_hr = gr.UNDERLAG
+    gr.UNDERLAG = tmp / 'underlag'
+    rdirv = tmp / 'rdir-vinnare'
+    rdirv.mkdir()
+    assert gr.frysta_vinnare('provhr', rdirv) is None
+    (u / 'atelje' / 'vinnare' / 'bilder').mkdir(parents=True, exist_ok=True)
+    (u / 'atelje' / 'vinnare' / 'bilder' / 'vy-390-ruta-01.png').write_bytes(b'x')
+    h0 = gr.metod_sha('provhr')
+    (u / 'atelje' / 'VINNARE.json').write_text(json.dumps({'riktning': 2, 'filer': {}}))
+    assert gr.metod_sha('provhr') != h0, 'vinnaren ingår i metodhashen'
+    vv = gr.frysta_vinnare('provhr', rdirv)
+    assert vv[0]['riktning'] == 2 and [p.name for p in vv[1]] == ['vy-390-ruta-01.png'] and (rdirv / 'vinnare' / 'vy-390-ruta-01.png').is_file(), vv
+    (rdirv / 'VINNARJAMFORELSE.md').write_text('x')
+    pt = gr.uppdrag_text('provhr', 'http://x', ['/'], tmp / 'ak', [], [], [], None, rdirv, vinnare=vv)
+    assert 'Ateljéns vinnare: riktning 2' in pt and 'blockerande fynd' in pt and 'vinnare/vy-390-ruta-01.png' in pt and 'VINNARJAMFORELSE.md' in pt, pt
+    assert 'Ateljéns vinnare' not in gr.uppdrag_text('provhr', 'http://x', ['/'], tmp / 'ak', [], [], [], None, rdirv)
+    gr.UNDERLAG = gu_hr
+    a.session = attrapp  # F23:s attrapp tillbaka till F34
+    print('F23b designprovet ok')
+
+
+f23b()
 
 # ---------------------------------------------------------------- F25/F26: spanaren
 import spana as sp  # noqa: E402
