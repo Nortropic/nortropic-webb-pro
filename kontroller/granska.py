@@ -58,6 +58,7 @@ ARBETSROT = Path('/tmp/nwp-granskning')
 MATTSTOCKAR = [
     ('Byggstandarden (punkterna fynden hänvisar till)', 'kunskap/byggstandard.md'),
     ('De åtta dimensionerna', 'kunskap/referenser-professionella.md'),
+    ('Ribban i tre nivåer ur ägarens kalibrering', 'kunskap/visuell-niva.md'),
     ('Regeln mot slop', 'kunskap/copy-kontroll.md'),
     ('Redaktionellt pass', 'kunskap/redaktionellt-pass.md'),
     ('AI-mönster och designprinciper', 'kunskap/externa/anthropic-frontend-design-SKILL.md'),
@@ -83,7 +84,8 @@ UNDERLAGSFILER = ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'REFERENSER.md',
 def metod_sha(slug=None):
     """Hash av granskningsunderlaget: kriterierna, svarsschemana, trösklarna, måttstockarna (byggstandarden med flera) och
     verksamhetens underlag (brief, research, beställning). En dom återanvänds bara för samma bygge och samma underlag
-    (revisionen 2026-10-03, F18). Ägarens domar och kalibreringen ingår inte: de är ankare, inte kriterier."""
+    (revisionen 2026-10-03, F18). Ägarens domar och kalibreringsankarna ingår inte: de är ankare, inte kriterier; nivåfilen
+    kunskap/visuell-niva.md ingår (måttstock som granskartexten kräver; Codex R30)."""
     import hashlib
     h = hashlib.sha256()
     filer = [ROOT / INSTRUKTION, SCHEMA, SCHEMA_ORIGINALITET] + [ROOT / f for _, f in MATTSTOCKAR]

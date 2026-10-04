@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-04T13:53Z
+andrad: 2026-10-04T14:00Z
 ---
 # Kalibrering av visuell nivå: externa exempel i tre nivåer, granskarna prövade på osedda exempel
 
@@ -22,3 +22,5 @@ andrad: 2026-10-04T13:53Z
 **Pågår (2026-10-04T13:30Z):** steg 2. Ägaren dömde alla 13 exempel 2026-10-04 (privat: underlag/kalibrering/DOMAR.json och DOMAR-original-20261004.md; fördelning 4 över, 4 nästan, 5 generisk). Delningen i underlag/kalibrering/ANKARE.txt: sju ankare (K03, K05, K06, K07, K08, K09, K12), sex undanhållna (K01, K02, K04, K10, K11, K13). granska.py fryser ankarna i varje omgång (kalibrering/ med första vyn 390 och 1440, kalibrering.md med ägarens ord ordagrant) och uppdraget pekar på dem; kritik/GRANSKARE.md förklarar nivåerna som betyg (över 8–9, nästan 6, generisk ≤ 5); kunskap/visuell-niva.md har kännetecknen per nivå utan sajternas namn; kontroller/granskarforsok/kalibrering.py prövar granskaren på de undanhållna och räknar falska godkännanden och falska underkännanden. Kvar: köra försöket och skriva siffran i LARDOMAR.md; fånga om K03:s undersida (samma sida som startsidan) och de hela-bilder som kakdialogen tömde (K01, K04).
 
 **Pågår (2026-10-04T13:53Z):** försöket kört (opus[1m] high, sex undanhållna): falska godkännanden 0 av 4, falska underkännanden 0 av 2, svar 6 av 6; siffran i LARDOMAR.md (Kalibrering · 2026-10-04), rapporten privat i underlag/kalibrering/FORSOK-20261004/. Färdigkriteriets fyra delar är uppfyllda. Kvar innan posten sätts klar: fånga om K03:s undersida (samma sida som startsidan) och K01/K04:s hela-bilder bakom kakdialogen, så att ankarna är hela; sedan ägarens dom om posten.
+
+**Pågår (2026-10-04T14:00Z, efter Codex R30):** försökets siffra nedgraderad till utvecklingsdata: kunskap/visuell-niva.md var byggd ur alla tretton domarna (testläckage) och är nu byggd enbart ur ankarhalvan; filen ingår i metodhashen; försöket binder varje svar till ett manifest (modell, effort, hashar av uppdrag, regler, bilder, ankare) och validerar hela svaret, anropsfel ger ofullständigt försök. Kvar för ett oberoende slutmått: ett nytt, orört urval (sex sajter i tre nivåer, fångade med inspektera.mjs, start och undersida) som ägaren dömer blint i dashboarden, som hålls undan från nivåfilen och granskartexten, och ett nytt försök på dem; dessutom omfångning av K03/K01/K04.

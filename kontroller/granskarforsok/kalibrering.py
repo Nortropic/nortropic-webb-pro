@@ -7,11 +7,16 @@ underkänner tydligt över ribban).
     .venv/bin/python kontroller/granskarforsok/kalibrering.py [--torr] [--parallellt N] [--modell M] [--effort E] [--frist S]
 
 Utdata utanför repot, under $NWP_FORSOK eller /tmp/nwp-granskarforsok, i kalibrering/: per exempel de frysta bilderna,
-ankarna, PROMPT.txt och svar.json; RAPPORT.json och RAPPORT.md med måtten. Återupptagbart: exempel med giltigt svar hoppas
-över. Granskaren får bara se exemplets frysta bilder, ankarna och mekaniken; underlag/, kunder/, LARDOMAR.md och hemmets
-.claude nekas. Siffran (utan sajternas namn) skrivs av sessionen i LARDOMAR.md.
+ankarna, PROMPT.txt, MANIFEST.json (modell, effort och hashar av uppdraget, bedömningsreglerna, bilderna och ankarna),
+KORNING.json (anropets slutkod) och svar.json; RAPPORT.json och RAPPORT.md med måtten. Återupptagbart: ett svar återanvänds
+bara när manifestet är identiskt och svaret validerar mot hela schemat (Codex R30). Anropsfel och ofullständiga svar räknas
+aldrig som domar: de redovisas separat som ofullständigt försök och ger slutkod 1. Granskaren får bara se exemplets frysta
+bilder, ankarna och mekaniken; underlag/, kunder/, LARDOMAR.md och hemmets .claude nekas. Siffran (utan sajternas namn)
+skrivs av sessionen i LARDOMAR.md. Måttstocken kunskap/visuell-niva.md byggs enbart ur ankarhalvan; ett oberoende slutmått
+kräver ett nytt, orört urval (Codex R30: testdata får inte påverka reglerna som utvärderas).
 """
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -76,6 +81,63 @@ def uppdrag(e, ut, bilder, aria, ankare):
     return '\n'.join(delar) + '\n'
 
 
+def hash_fil(p):
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+def manifest(ut, modell, effort, prompt, bilder, aria, ankare):
+    """Det ett svar är bundet till: modell, effort och hashar av uppdraget, bedömningsreglerna (granskartexten, schemat,
+    måttstockarna), exemplets bilder och ankarna. Bara ett identiskt manifest får återanvända ett svar (Codex R30)."""
+    ut = Path(ut)
+    regler = {f: hash_fil(ROOT / f) for f in [gr.INSTRUKTION] + [f for _, f in gr.MATTSTOCKAR] if (ROOT / f).is_file()}
+    regler['SCHEMA'] = hash_fil(gr.SCHEMA)
+    ank = {}
+    if ankare:
+        ank[str(ankare[0].relative_to(ut))] = hash_fil(ankare[0])
+        ank.update({str(p.relative_to(ut)): hash_fil(p) for p, _ in ankare[1]})
+    return {'modell': modell, 'effort': effort, 'prompt': hashlib.sha256(prompt.encode('utf-8')).hexdigest(), 'regler': regler,
+            'bilder': {str(p.relative_to(ut)): hash_fil(p) for p in list(bilder) + list(aria)}, 'ankare': ank}
+
+
+def validera(svar):
+    """Hela svaret prövas före återanvändning och jämförelse: anropet lyckat (ingen is_error, subtype success), ett
+    strukturerat svar med schemats obligatoriska fält, alla fem kriterier med heltalsbetyg 1–10, motivering och visa (bool),
+    blockerande som lista. Ger (structured_output, None) eller (None, fel)."""
+    if not isinstance(svar, dict):
+        return None, 'inget svar'
+    if svar.get('is_error') or svar.get('subtype') not in (None, 'success'):
+        return None, 'anropet misslyckades (%s)' % (svar.get('subtype') or 'is_error')
+    res = svar.get('structured_output')
+    if not isinstance(res, dict):
+        return None, 'inget strukturerat svar'
+    try:
+        kravda = json.loads(gr.SCHEMA.read_text(encoding='utf-8')).get('required') or []
+    except (OSError, ValueError):
+        kravda = []
+    for falt in kravda:
+        if falt not in res:
+            return None, 'fältet %s saknas' % falt
+    k = res.get('kriterier')
+    if not isinstance(k, dict):
+        return None, 'kriterier är inte ett objekt'
+    for n in gr.KRITERIER:
+        b = k.get(n)
+        if (not isinstance(b, dict) or not isinstance(b.get('betyg'), int) or isinstance(b.get('betyg'), bool)
+                or not 1 <= b['betyg'] <= 10 or not isinstance(b.get('visa'), bool) or not isinstance(b.get('motivering'), str)):
+            return None, 'kriteriet %s är ofullständigt' % n
+    if not isinstance(res.get('blockerande'), list):
+        return None, 'blockerande är inte en lista'
+    return res, None
+
+
+def giltigt_svar(ut):
+    """Exemplets svar om anropet lyckades (KORNING.json: slutkod 0) och svaret validerar; annars (None, fel)."""
+    korning = gr.las_json(Path(ut) / 'KORNING.json') or {}
+    if korning.get('slutkod') != 0:
+        return None, 'anropet gav slutkod %s' % korning.get('slutkod', 'okänd')
+    return validera(gr.las_json(Path(ut) / 'svar.json'))
+
+
 def kor_en(e, ut, modell, effort, frist, claude):
     prompt = (ut / 'PROMPT.txt').read_text(encoding='utf-8')
     args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
@@ -83,21 +145,25 @@ def kor_en(e, ut, modell, effort, frist, claude):
             '--json-schema', gr.SCHEMA.read_text(encoding='utf-8'), '--add-dir', str(ut),
             '--allowedTools', 'Read', 'Glob', 'Grep', 'Bash(ls *)', '--disallowedTools', *gr.NEKAS, *NEKAS_EXTRA]
     t0 = time.time()
+    slutkod = None
     with open(ut / 'svar.json', 'wb') as sv, open(ut / 'stderr.log', 'wb') as err:
         try:
-            subprocess.run(args, input=prompt.encode(), stdout=sv, stderr=err, cwd=str(ROOT), env=gr.ren_miljo(), timeout=frist)
+            slutkod = subprocess.run(args, input=prompt.encode(), stdout=sv, stderr=err, cwd=str(ROOT), env=gr.ren_miljo(), timeout=frist).returncode
         except subprocess.TimeoutExpired:
-            pass
+            slutkod = 'tidsgräns'
+    (ut / 'KORNING.json').write_text(json.dumps({'slutkod': slutkod, 'sekunder': round(time.time() - t0), 'tid': gr.nu()}) + '\n', encoding='utf-8')
     return e['id'], round(time.time() - t0)
 
 
 def jamfor(exempel, svar):
-    """Granskarens utfall mot ägarens nivå. svar: {id: structured_output}. Ger (rader, sammanfattning)."""
+    """Granskarens utfall mot ägarens nivå. svar: {id: hela svaret från claude (eller (structured_output, fel))}. Ett svar som
+    inte validerar räknas som ofullständigt försök, aldrig som dom. Ger (rader, sammanfattning)."""
     rader = []
     for e in exempel:
-        res = svar.get(e['id'])
-        if not isinstance(res, dict) or not isinstance(res.get('kriterier'), dict):
-            rader.append({'id': e['id'], 'agaren': e['niva'], 'granskaren': None, 'utfall': 'inget giltigt svar'})
+        v = svar.get(e['id'])
+        res, fel = v if isinstance(v, tuple) else validera(v)
+        if fel:
+            rader.append({'id': e['id'], 'agaren': e['niva'], 'granskaren': None, 'utfall': 'ofullständigt: ' + fel})
             continue
         godk = gr.godkand(res)
         betyg = {k: (res['kriterier'].get(k) or {}).get('betyg') for k in gr.KRITERIER}
@@ -111,7 +177,7 @@ def jamfor(exempel, svar):
                       'betyg': betyg, 'blockerande': len(res.get('blockerande') or []), 'utfall': utfall})
     ej_over = [r for r in rader if r['agaren'] != 'over' and r['granskaren']]
     over = [r for r in rader if r['agaren'] == 'over' and r['granskaren']]
-    s = {'undanhallna': len(exempel), 'svar': sum(1 for r in rader if r['granskaren']),
+    s = {'undanhallna': len(exempel), 'svar': sum(1 for r in rader if r['granskaren']), 'ofullstandiga': sum(1 for r in rader if not r['granskaren']),
          'falska_godkannanden': sum(1 for r in ej_over if r['utfall'] == 'falskt godkännande'), 'av_ej_over': len(ej_over),
          'falska_underkannanden': sum(1 for r in over if r['utfall'] == 'falskt underkännande'), 'av_over': len(over)}
     return rader, s
@@ -121,8 +187,10 @@ def rapport(rader, s, mal, modell, effort):
     (mal / 'RAPPORT.json').write_text(json.dumps({'tid': gr.nu(), 'modell': modell, 'effort': effort, 'rader': rader, 'sammanfattning': s},
                                                  ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     txt = ['# Kalibreringsförsöket %s · %s %s' % (gr.nu(), modell, effort), '',
-           'Undanhållna exempel: %d, svar: %d. Falska godkännanden: %d av %d (ägaren: nästan eller generisk). Falska underkännanden: %d av %d (ägaren: tydligt över ribban).' % (
-               s['undanhallna'], s['svar'], s['falska_godkannanden'], s['av_ej_over'], s['falska_underkannanden'], s['av_over']), '',
+           'Undanhållna exempel: %d, giltiga svar: %d, ofullständiga: %d. Falska godkännanden: %d av %d (ägaren: nästan eller generisk). Falska underkännanden: %d av %d (ägaren: tydligt över ribban).' % (
+               s['undanhallna'], s['svar'], s['ofullstandiga'], s['falska_godkannanden'], s['av_ej_over'], s['falska_underkannanden'], s['av_over']),
+           ('Försöket är ofullständigt: %s.' % ', '.join('%s (%s)' % (r['id'], r['utfall']) for r in rader if not r['granskaren'])) if s['ofullstandiga'] else 'Försöket är fullständigt.',
+           'Måttet gäller en enskild granskare som dömer från bilder med dagens granskartext och ankare, inte produktionsgrinden med två granskare och levande funktioner.', '',
            '| id | ägaren | granskaren | nivå | betyg | blockerande | utfall |', '|---|---|---|---|---|---|---|']
     for r in rader:
         b = r.get('betyg') or {}
@@ -151,32 +219,43 @@ def main(argv=None):
     klara, att_kora = [], []
     for e in exempel:
         ut = mal / e['id']
-        res = (gr.las_json(ut / 'svar.json') or {}).get('structured_output')
-        if isinstance(res, dict) and isinstance(res.get('kriterier'), dict):
-            klara.append(e)
-            continue
+        # det gamla svaret och dess manifest läses före ombyggnaden; svaret återanvänds bara om det nya manifestet är identiskt
+        gammalt = {n: (ut / n).read_bytes() for n in ('svar.json', 'KORNING.json', 'MANIFEST.json', 'stderr.log') if (ut / n).is_file()}
+        gammalt_manifest = gr.las_json(ut / 'MANIFEST.json') if 'MANIFEST.json' in gammalt else None
         if ut.is_dir():
             shutil.rmtree(ut)
         ut.mkdir(parents=True)
         bilder, aria, ankare = forbered(e, ut, a.underlag)
-        (ut / 'PROMPT.txt').write_text(uppdrag(e, ut, bilder, aria, ankare), encoding='utf-8')
+        prompt = uppdrag(e, ut, bilder, aria, ankare)
+        (ut / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
+        nytt = manifest(ut, a.modell, a.effort, prompt, bilder, aria, ankare)
+        (ut / 'MANIFEST.json').write_text(json.dumps(nytt, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        if gammalt_manifest == nytt and 'svar.json' in gammalt and 'KORNING.json' in gammalt:
+            for n in ('svar.json', 'KORNING.json', 'stderr.log'):
+                if n in gammalt:
+                    (ut / n).write_bytes(gammalt[n])
+            if giltigt_svar(ut)[1] is None:
+                klara.append(e)
+                continue
+            for n in ('svar.json', 'KORNING.json', 'stderr.log'):  # ogiltigt gammalt svar körs om
+                (ut / n).unlink(missing_ok=True)
         att_kora.append(e)
-    print('undanhållna: %s; ankare: %d; redan klara: %d; att köra: %d' % (
+    print('undanhållna: %s; ankare: %d; återanvända (identiskt manifest, giltigt svar): %d; att köra: %d' % (
         ', '.join('%s (%s)' % (e['id'], gr.KALIBRERING_NIVAER[e['niva']]) for e in exempel),
         sum(1 for x in gr.kalibreringsexempel(a.underlag) if x['ankare']), len(klara), len(att_kora)))
     if a.torr:
-        print('Torrkörning: uppdragen ligger i %s. Ingen granskare startades.' % mal)
+        print('Torrkörning: uppdragen och manifesten ligger i %s. Ingen granskare startades.' % mal)
         return 0
     claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
     with ThreadPoolExecutor(max_workers=max(1, a.parallellt)) as pool:
         for ident, sek in pool.map(lambda e: kor_en(e, mal / e['id'], a.modell, a.effort, a.frist, claude), att_kora):
             print('%s klar efter %d s' % (ident, sek), flush=True)
-    svar = {e['id']: (gr.las_json(mal / e['id'] / 'svar.json') or {}).get('structured_output') for e in exempel}
+    svar = {e['id']: giltigt_svar(mal / e['id']) for e in exempel}
     rader, s = jamfor(exempel, svar)
     f = rapport(rader, s, mal, a.modell, a.effort)
-    print('Falska godkännanden: %d av %d · falska underkännanden: %d av %d · svar %d av %d · %s' % (
-        s['falska_godkannanden'], s['av_ej_over'], s['falska_underkannanden'], s['av_over'], s['svar'], s['undanhallna'], f))
-    return 0 if s['svar'] == s['undanhallna'] else 1
+    print('Falska godkännanden: %d av %d · falska underkännanden: %d av %d · giltiga svar %d av %d (ofullständiga %d) · %s' % (
+        s['falska_godkannanden'], s['av_ej_over'], s['falska_underkannanden'], s['av_over'], s['svar'], s['undanhallna'], s['ofullstandiga'], f))
+    return 0 if s['ofullstandiga'] == 0 else 1
 
 
 if __name__ == '__main__':

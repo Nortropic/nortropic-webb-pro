@@ -193,6 +193,9 @@ exemplen är ankare i granskarens uppdrag, sex hölls undan och granskaren (opus
 - **Falska godkännanden: 0 av 4** (K02 och K04 "nästan", K10 och K11 "generisk": alla underkända).
 - **Falska underkännanden: 0 av 2** (K01 och K13 "tydligt över ribban": båda godkända, betyg 8 9 7 7 8 och 8 9 7 7 7).
 - Nivåerna skildes också i betygen: "nästan" fick 5–7 med 5–6 blockerande fynd, "generisk" 2–5 med 6–7 blockerande.
-- Mått: granskaren drar ägarens gräns på de undanhållna exemplen. Nästa prövning när nya exempel eller en ny
-  granskartext kommer; siffran gäller den här uppsättningen och den här modellen.
+- **Siffran är utvecklingsdata, inte ett oberoende mått** (Codex R30): vid försöket var kännetecknen i
+  `kunskap/visuell-niva.md` destillerade ur alla tretton domarna, också de undanhållna, så granskaren hade sett
+  testfacit genom instruktionerna. Filen är nu byggd enbart ur ankarhalvan (main efter 25a2d85), och ett oberoende
+  slutmått kräver ett nytt, orört urval som ägaren dömer blint. Försöket mäter dessutom en enskild granskare från
+  bilder, inte produktionsgrinden med två granskare och levande funktioner.
 

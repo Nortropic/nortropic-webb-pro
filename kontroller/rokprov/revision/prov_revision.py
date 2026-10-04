@@ -298,6 +298,8 @@ m1 = gr.metod_sha('ett-abx')
 (tmp / 'kritik' / 'GRANSKARE.md').write_text('k2'); m2 = gr.metod_sha('ett-abx'); assert m2 != m1, 'ändrade kriterier ska ge ny metodhash'
 (tmp / 'kunskap' / 'byggstandard.md').write_text('standard v2'); m3 = gr.metod_sha('ett-abx'); assert m3 != m2, 'ändrad byggstandard ska ge ny metodhash (F18)'
 (tmp / 'underlag' / 'ett-abx' / 'BRIEF.md').write_text('krav'); assert gr.metod_sha('ett-abx') != m3, 'ändrad brief ska ge ny metodhash (F18)'
+m4 = gr.metod_sha('ett-abx'); (tmp / 'kunskap' / 'visuell-niva.md').write_text('nivå v1'); m5 = gr.metod_sha('ett-abx'); assert m5 != m4, 'nivåfilen ingår i metodhashen (Codex R30)'
+(tmp / 'kunskap' / 'visuell-niva.md').write_text('nivå v2'); assert gr.metod_sha('ett-abx') != m5, 'ändrad nivåfil ska ge ny metodhash'
 upp = {'metod_sha': m1, 'modell': 'opus[1m]', 'effort': 'high', 'granskare': 2, 'originalitet': 'skugga'}
 assert gr.samma_metod(dict(upp), upp) and not gr.samma_metod(dict(upp, granskare=1), upp) and not gr.samma_metod({}, upp)
 # falsk claude: svarar som granskare; PROV_FALL styr vem som faller
@@ -2590,6 +2592,7 @@ except RuntimeError as e_:
 (kal_r / 'K01' / 'start' / 'vy-390-forsta.png').unlink(); (kal_r / 'K01' / 'start' / 'vy-390-forsta.png').write_bytes(png_)
 # försöket: undanhållna förbereds med egna bilder och ankarna, uppdraget nämner inte de undanhållnas ord; jämförelsen räknar rätt
 spec_ = ilu_.spec_from_file_location('kalforsok', ROOT / 'kontroller' / 'granskarforsok' / 'kalibrering.py'); kf_ = ilu_.module_from_spec(spec_); spec_.loader.exec_module(kf_)
+gr.SCHEMA = ROOT / 'kritik' / 'SCHEMA-granskning.json'  # det riktiga schemat (F8-blocket bytte till ett tomt): de obligatoriska fälten prövas, och manifestet är stabilt genom blocket
 und_ = kf_.undanhallna(kal_u); assert [e['id'] for e in und_] == ['K02', 'K04']
 ut_kf = tmp / 'forsok'
 rc_kf = kf_.main(['--torr', '--ut', str(ut_kf), '--underlag', str(kal_u)]); assert rc_kf == 0
@@ -2601,11 +2604,41 @@ for ident_ in ('K02', 'K04'):
     assert str(ut_kf / ident_ / 'sajt' / 'start' / 'vy-390-aria.txt') in pr_
 krit_ok = {n_: {'betyg': 8, 'motivering': '', 'visa': True} for n_ in gr.KRITERIER}
 krit_lagt = dict(krit_ok, designkvalitet={'betyg': 5, 'motivering': '', 'visa': False})
-rader_kf, s_kf = kf_.jamfor(und_, {'K02': {'kriterier': krit_ok, 'blockerande': []}, 'K04': {'kriterier': krit_lagt, 'blockerande': []}})
-assert [r_['utfall'] for r_ in rader_kf] == ['falskt godkännande', 'falskt underkännande'] and s_kf == {'undanhallna': 2, 'svar': 2, 'falska_godkannanden': 1, 'av_ej_over': 1, 'falska_underkannanden': 1, 'av_over': 1}, (rader_kf, s_kf)
-rader_kf2, s_kf2 = kf_.jamfor(und_, {'K02': {'kriterier': krit_lagt, 'blockerande': []}, 'K04': None})
-assert [r_['utfall'] for r_ in rader_kf2] == ['rätt', 'inget giltigt svar'] and s_kf2['svar'] == 1 and s_kf2['falska_godkannanden'] == 0
+rader_kf, s_kf = kf_.jamfor(und_, {'K02': ({'kriterier': krit_ok, 'blockerande': []}, None), 'K04': ({'kriterier': krit_lagt, 'blockerande': []}, None)})  # redan validerade svar som (res, None)
+assert [r_['utfall'] for r_ in rader_kf] == ['falskt godkännande', 'falskt underkännande'] and s_kf == {'undanhallna': 2, 'svar': 2, 'ofullstandiga': 0, 'falska_godkannanden': 1, 'av_ej_over': 1, 'falska_underkannanden': 1, 'av_over': 1}, (rader_kf, s_kf)
+rader_kf2, s_kf2 = kf_.jamfor(und_, {'K02': ({'kriterier': krit_lagt, 'blockerande': []}, None), 'K04': None})
+assert rader_kf2[0]['utfall'] == 'rätt' and rader_kf2[1]['utfall'] == 'ofullständigt: inget svar' and s_kf2['svar'] == 1 and s_kf2['ofullstandiga'] == 1 and s_kf2['falska_godkannanden'] == 0
 rap_ = kf_.rapport(rader_kf, s_kf, ut_kf, 'm', 'e'); assert 'Falska godkännanden: 1 av 1' in rap_.read_text() and (ut_kf / 'RAPPORT.json').is_file()
+# validering (Codex R30): anropsfel och ofullständiga svar är aldrig domar; ett svar återanvänds bara med identiskt manifest
+helt_ = {'kriterier': krit_ok, 'kognitiv_genomgang': [], 'blockerande': [], 'forbattringar': [], 'styrkor': [], 'likhet_tidigare': '', 'sett': [], 'ej_bedomt': [], 'sammanfattning': ''}
+assert kf_.validera({'subtype': 'success', 'structured_output': helt_})[1] is None
+for svar_, vantat_ in (({'is_error': True, 'structured_output': helt_}, 'anropet misslyckades'), ({'subtype': 'error_max_turns', 'structured_output': helt_}, 'anropet misslyckades'),
+                       ({'structured_output': {'kriterier': {}}}, 'saknas'), ({'structured_output': dict(helt_, kriterier={})}, 'ofullständigt'),
+                       ({'structured_output': dict(helt_, kriterier=dict(krit_ok, text={'betyg': 11, 'motivering': '', 'visa': True}))}, 'ofullständigt'),
+                       ({'structured_output': dict(helt_, blockerande=None)}, 'lista'), (None, 'inget svar'), ({'structured_output': 'x'}, 'strukturerat')):
+    res_, fel_ = kf_.validera(svar_); assert res_ is None and vantat_ in fel_, (svar_, fel_)
+rader_kf3, s_kf3 = kf_.jamfor(und_, {'K02': {'is_error': True, 'structured_output': helt_}, 'K04': {'subtype': 'success', 'structured_output': helt_}})
+assert rader_kf3[0]['utfall'].startswith('ofullständigt') and rader_kf3[0]['granskaren'] is None and rader_kf3[1]['utfall'] == 'rätt' and s_kf3['ofullstandiga'] == 1 and s_kf3['svar'] == 1 and s_kf3['falska_godkannanden'] == 0, (rader_kf3, s_kf3)
+assert 'ofullständigt' in kf_.rapport(rader_kf3, s_kf3, ut_kf, 'm', 'e').read_text()
+import contextlib as cl_, io as io_
+def torr_(*extra_):
+    buf_ = io_.StringIO()
+    with cl_.redirect_stdout(buf_):
+        rc_ = kf_.main(['--torr', '--ut', str(ut_kf), '--underlag', str(kal_u), *extra_])
+    return rc_, buf_.getvalue()
+assert (ut_kf / 'K02' / 'MANIFEST.json').is_file()
+(ut_kf / 'K02' / 'svar.json').write_text(json.dumps({'subtype': 'success', 'structured_output': helt_})); (ut_kf / 'K02' / 'KORNING.json').write_text(json.dumps({'slutkod': 0}))
+rc_, ut_text = torr_(); assert rc_ == 0 and 'återanvända (identiskt manifest, giltigt svar): 1; att köra: 1' in ut_text and (ut_kf / 'K02' / 'svar.json').is_file(), ut_text
+rc_, ut_text = torr_('--modell', 'annan'); assert 'återanvända (identiskt manifest, giltigt svar): 0; att köra: 2' in ut_text and not (ut_kf / 'K02' / 'svar.json').exists(), ('annan modell: inget återanvänds', ut_text)
+rc_, ut_text = torr_('--modell', 'annan'); assert 'återanvända (identiskt manifest, giltigt svar): 0' in ut_text  # inget svar finns längre
+(ut_kf / 'K02' / 'svar.json').write_text(json.dumps({'subtype': 'success', 'structured_output': helt_})); (ut_kf / 'K02' / 'KORNING.json').write_text(json.dumps({'slutkod': 0}))
+(kal_r / 'K01' / 'start' / 'vy-390-forsta.png').write_bytes(png_ + b'ny')  # en ankarbild ändrad: manifestet skiljer sig
+rc_, ut_text = torr_('--modell', 'annan'); assert 'återanvända (identiskt manifest, giltigt svar): 0; att köra: 2' in ut_text, ('ändrad ankarbild: inget återanvänds', ut_text)
+(ut_kf / 'K02' / 'svar.json').write_text(json.dumps({'is_error': True, 'structured_output': helt_})); (ut_kf / 'K02' / 'KORNING.json').write_text(json.dumps({'slutkod': 0}))
+rc_, ut_text = torr_('--modell', 'annan'); assert 'återanvända (identiskt manifest, giltigt svar): 0; att köra: 2' in ut_text and not (ut_kf / 'K02' / 'svar.json').exists(), ('felmarkerat svar körs om', ut_text)
+(ut_kf / 'K02' / 'svar.json').write_text(json.dumps({'subtype': 'success', 'structured_output': helt_})); (ut_kf / 'K02' / 'KORNING.json').write_text(json.dumps({'slutkod': 1}))
+rc_, ut_text = torr_('--modell', 'annan'); assert 'att köra: 2' in ut_text, ('slutkod 1 körs om', ut_text)
+assert kf_.giltigt_svar(ut_kf / 'K04')[1] is not None
 assert 'visuell-niva.md' in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'Kalibreringsankarna' in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'Bildankarna' not in (ROOT / 'kritik' / 'GRANSKARE.md').read_text()
 vn_ = (ROOT / 'kunskap' / 'visuell-niva.md').read_text().lower()
 assert all(x_ not in vn_ for x_ in ('oatly', 'koto', 'aman', 'dinesen', 'belvia', 'blue tit', 'sparky', 'vardehaugen', 'snickaren', 'paint it', 'sundbom', 'salong kreativ', 'grilli')), 'den publika filen namnger inga sajter'
