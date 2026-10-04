@@ -282,7 +282,12 @@ def frys_bygget(kund, rdir):
         f = kund / 'prov' / namn
         if f.exists() or f.is_symlink():
             shutil.copy2(sakert_original(f, kund), rdir / Path(namn).name)
-    w = kund / 'prov' / 'resor' / 'startsida-webkit-390.png'  # startsidan i Safaris motor (provets resor med webkit)
+    frys_motorbild(kund, rdir)
+
+
+def frys_motorbild(kund, rdir):
+    """Startsidan i Safaris motor (provets resor med webkit) till omgången, också i torrkörningen."""
+    w = kund / 'prov' / 'resor' / 'startsida-webkit-390.png'
     if w.exists() or w.is_symlink():
         shutil.copy2(sakert_original(w, kund), rdir / w.name)
 
@@ -1084,6 +1089,7 @@ def main(argv=None):
         for namn in FRYSTA_FILER:
             if (kund / 'prov' / namn).exists():
                 shutil.copy2(sakert_original(kund / 'prov' / namn, kund), rdir / Path(namn).name)
+        frys_motorbild(kund, rdir)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / a.slug / 'torr', bilder,
                               frysta_referenser(a.slug, rdir), tidigare_byggen(a.slug), [], rdir,
                               aria_trad(kund, rdir / 'sajt'), frysta_ankare(rdir), lardomar_utan(a.slug, rdir), vinnare=frysta_vinnare(a.slug, rdir))

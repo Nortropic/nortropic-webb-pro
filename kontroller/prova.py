@@ -475,15 +475,17 @@ def prova(slug, snabb=False):
         else:
             # sidor med noindex med avsikt (tacksidan) mäts inte: Lighthouse sänker SEO för noindex
             lh = [r for r in provsidor if not re.search(r'<meta[^>]+name="robots"[^>]+noindex', (dist / r.strip('/') / 'index.html').read_text(encoding='utf-8', errors='replace') if (dist / r.strip('/') / 'index.html').is_file() else '')]
-            # metoden står fast före mätningen: representativa sidor tre mätningar och medianen, övriga en (lighthouse.mjs)
+            # metoden står fast före mätningen: representativa sidor tre mätningar i mobil och medianen, övriga en mätning
+            # och under kravet tre (lighthouse.mjs); desktop varierar mindre och mäts en gång, så att provet ryms i
+            # stoppvaktens tid (granskningen av r58, punkt 5)
             rep_sidor = representativa_sidor(dist, lh)
             rc, out = kor([NODE, str(KONTROLLER / 'lighthouse.mjs'), '--url=' + srv.url, '--sidor=' + ','.join(lh), '--ut=' + str(prov / 'lighthouse'),
-                           '--omgangar=3', '--representativa=' + ','.join(rep_sidor)], timeout=900)
+                           '--omgangar=3', '--representativa=' + ','.join(rep_sidor), '--medianformer=mobil'], timeout=900)
             try:
                 lh = json.loads((prov / 'lighthouse' / 'lighthouse.json').read_text(encoding='utf-8'))
                 rader = lh['rader']
                 lag = lambda k: min(r[k] for r in rader)
-                text = 'lägst P %d, A %d, BP %d, SEO %d (%d sidlägen; median av 3 på %s)' % (
+                text = 'lägst P %d, A %d, BP %d, SEO %d (%d sidlägen; median av 3 i mobil på %s)' % (
                     lag('prestanda'), lag('tillganglighet'), lag('bastaPraxis'), lag('seo'), len(rader), ', '.join(rep_sidor))
                 under = ['%s %s: %s' % (r['form'], r['sida'], ','.join(r['underkanda'][:8])) for r in rader if not r['ok']]
                 under += ['%s %s: P %d (median, spridning %d–%d)' % (r['form'], r['sida'], r['prestanda'], *r['spridning'])
@@ -575,9 +577,9 @@ def prova(slug, snabb=False):
                 st_ = rj.get('startsida') or {}
                 if st_.get('webkit') and st_.get('chromium') and not st_['webkit'].get('fel') and not st_['chromium'].get('fel'):
                     wk_, ch_ = st_['webkit'], st_['chromium']
-                    info['webkit'] = ('startsidan i 390 px: innehållets höjd %d px i WebKit mot %d i Chromium, spill %s, konsolfel %d, typsnitt %s '
+                    info['webkit'] = ('startsidan: innehållets höjd %d px i WebKit (vy %s) mot %d i Chromium (vy %s), spill %s, konsolfel %d, typsnitt %s '
                                       '(prov/resor/startsida-webkit-390.png; Safaris motor, inte en riktig iPhone)') % (
-                        wk_['hojd'], ch_['hojd'], 'ja' if wk_['spill'] else 'nej', wk_['konsolfel'],
+                        wk_['hojd'], wk_.get('vyMatt', '390'), ch_['hojd'], ch_.get('vyMatt', '390'), 'ja' if wk_['spill'] else 'nej', wk_['konsolfel'],
                         'samma' if wk_['typsnitt'] == ch_['typsnitt'] else '%s mot %s' % (', '.join(wk_['typsnitt']) or '–', ', '.join(ch_['typsnitt']) or '–'))
             except (OSError, ValueError, KeyError, AttributeError, TypeError) as e:
                 g['resor'] = grind(False, 'resorna kördes inte (rc %d): %s' % (rc, e), detalj=svans(out, 3))

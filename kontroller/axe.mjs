@@ -26,8 +26,9 @@ const okanda = [...tillstand].filter((t) => !KANDA_TILLSTAND.includes(t));
 if (okanda.length) { console.error('okänt tillstånd: ' + okanda.join(', ') + ' (kända: ' + KANDA_TILLSTAND.join(', ') + ')'); process.exit(2); }
 if (tillstand.size && !arLokal(base)) { console.error('tillstånden (meny, formularfel) klickar på sidan och prövas bara mot byggets lokala server, inte ' + base); process.exit(2); }
 // en stängd meny: knapp med aria-expanded, eller details/summary, i sidhuvudet eller navigationen
-const MENYKNAPP = ['header button[aria-expanded="false"]', 'nav button[aria-expanded="false"]', 'button[aria-controls][aria-expanded="false"]',
+const MENYKNAPP = ['header button[aria-expanded="false"]', 'nav button[aria-expanded="false"]',
   'header details:not([open]) > summary', 'nav details:not([open]) > summary'].join(', ');
+const menysida = sidor.includes('/') ? '/' : sidor[0];  // startsidan om den mäts, annars första sidan
 
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
@@ -71,8 +72,8 @@ try {
         continue;
       }
       if (sida === '/finns-inte-nwp') continue;
-      // menyn: bara på första sidan (sidhuvudet är gemensamt), i varje vy där en stängd menyknapp syns
-      if (tillstand.has('meny') && nr === 0) {
+      // menyn: bara på startsidan (sidhuvudet är gemensamt), i varje vy där en stängd menyknapp syns
+      if (tillstand.has('meny') && sida === menysida) {
         // elementet hålls fast före klicket: väljaren slutar matcha när menyn är öppen (aria-expanded, open)
         const knapp = await page.locator(MENYKNAPP).filter({ visible: true }).first().elementHandle({ timeout: 1000 }).catch(() => null);
         if (knapp) {
@@ -80,7 +81,8 @@ try {
             await knapp.click({ timeout: 5000 });
             await page.waitForTimeout(400);
             const oppen = await knapp.evaluate((e) => e.getAttribute('aria-expanded') === 'true' || !!e.closest('details')?.open).catch(() => false);
-            rader.push({ vy, sida, tillstand: 'meny', http: svar?.status() ?? null, oppen, ...await korAxe(page) });
+            const etikett = await knapp.evaluate((e) => (e.getAttribute('aria-label') || e.innerText || '').trim().slice(0, 60)).catch(() => '');
+            rader.push({ vy, sida, tillstand: 'meny', http: svar?.status() ?? null, oppen, knapp: etikett, ...await korAxe(page) });
           } catch (e) {
             rader.push({ vy, sida, tillstand: 'meny', http: null, fel: 'menyn gick inte att öppna: ' + String(e.message).split('\n')[0].slice(0, 160), overtradelser: [], ofullstandiga: [], godkanda: 0 });
           }
@@ -93,9 +95,18 @@ try {
         const knapp = form.locator('button[type=submit], button:not([type]), input[type=submit]').filter({ visible: true }).first();
         if (await form.count() && await knapp.count()) {
           try {
+            const fore = page.url();
             await knapp.click({ timeout: 5000 });
             await page.waitForTimeout(400);
             await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
+            if (page.url() !== fore) {
+              // inskicket gick iväg (inget fält stoppade det tomt): det finns inget feltillstånd att pröva, och sidan som
+              // visas nu (svaret, eller webbläsarens felsida när läsvakten stoppat inskicket) är inte sajtens
+              rader.push({ vy, sida, tillstand: 'formularfel', matt: false, adress: page.url().slice(0, 200), overtradelser: [], ofullstandiga: [], godkanda: 0,
+                skal: 'formuläret skickades tomt utan att något fält stoppade det; inget feltillstånd att pröva' });
+              await ga(sida).catch(() => {});
+              continue;
+            }
             const ogiltiga = await page.evaluate(() => document.querySelectorAll('[aria-invalid="true"], form :invalid').length).catch(() => 0);
             rader.push({ vy, sida, tillstand: 'formularfel', http: svar?.status() ?? null, ogiltiga_falt: ogiltiga, ...await korAxe(page) });
           } catch (e) {

@@ -1,12 +1,14 @@
 // Lighthouse (pinnad) på varje sida, mobil och desktop. Generell form av kund-demo-norrglanta/scripts/prov/lighthouse.mjs.
 //   node kontroller/lighthouse.mjs --url=http://127.0.0.1:PORT --sidor=/,/om/ --ut=KATALOG [--omgangar=3]
-//        [--representativa=/,/kontakt/] [--enheter=mobil|desktop|båda]
+//        [--representativa=/,/kontakt/] [--medianformer=mobil,desktop] [--enheter=mobil|desktop|båda]
 // Metoden står fast före körningen och skrivs först till METOD.json (Codex helhetsbedömning 2026-10-04, punkt 7;
 // Lighthouse om variabilitet: upprepade mätningar och medianen): en representativ sida mäts --omgangar gånger och
 // medianen av prestandan gäller; en övrig sida mäts en gång, och hamnar den under kravet mäts den tills --omgangar
 // mätningar finns och medianen gäller. Aldrig bästa av flera. Utan --representativa är alla sidor representativa.
-// Tillgänglighet, bästa praxis och SEO tas som den lägsta över sidans mätningar. Spridningen (lägst–högst prestanda)
-// och datorns belastning står vid varje rad.
+// --medianformer begränsar de representativa sidornas upprepade mätningar till de formerna (provet: mobil, den
+// strängare och mer varierande; desktop mäts en gång och mäts om under kravet), så att provet ryms i stoppvaktens tid.
+// Tillgänglighet, bästa praxis och SEO tas som den lägsta över sidans mätningar, och de underkända granskningarna ur
+// alla mätningar. Spridningen (lägst–högst prestanda) och datorns belastning står vid varje rad.
 // Prospektanalysen (kontroller/prospekt.py) kör en omgång och bara mobil: en främmande sajt ska mätas, inte nå kravet.
 // Krav (planen 2026-10-01): prestanda ≥ 90, tillgänglighet ≥ 95, bästa praxis ≥ 95, SEO ≥ 90 i båda formerna.
 // Chrome: CHROME_PATH, annars systemets Google Chrome, annars Playwrights chromium.
@@ -33,6 +35,7 @@ if (natpolicy() !== null && !arLokal(base)) { console.error('lighthouse i tjäns
 const omgangar = Math.max(1, parseInt(arg('omgangar') || '3', 10) || 3);
 const repArg = arg('representativa');
 const representativa = new Set(repArg === undefined ? sidor : repArg.split(',').filter(Boolean));
+const medianformer = new Set((arg('medianformer') || 'mobil,desktop').split(',').map((x) => x.trim()).filter(Boolean));
 const okandaRep = [...representativa].filter((x) => !sidor.includes(x));
 if (okandaRep.length) { console.error('--representativa måste vara sidor ur --sidor: ' + okandaRep.join(', ')); process.exit(2); }
 const enheter = arg('enheter') || 'båda';
@@ -47,8 +50,8 @@ const slug = (s) => (s === '/' ? 'hem' : s.replace(/^\/|\/$/g, '').replaceAll('/
 
 // medianen: mittvärdet av de sorterade mätningarna; vid jämnt antal det lägre av de två mittersta (aldrig det gynnsammare)
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor((s.length - 1) / 2)]; };
-const METOD = { omgangar, representativa: [...representativa],  // i given ordning: startsidan, kontaktsidan, tyngsta sidan
-  regel: `representativa sidor: ${omgangar} mätningar, medianen av prestandan gäller; övriga sidor: en mätning, under kravet ${omgangar} mätningar och medianen gäller; aldrig bästa av flera`,
+const METOD = { omgangar, representativa: [...representativa], medianformer: [...medianformer],  // representativa i given ordning: startsidan, kontaktsidan, tyngsta övriga sidan
+  regel: `representativa sidor i ${[...medianformer].join(' och ')}: ${omgangar} mätningar, medianen av prestandan gäller; övriga sidor och former: en mätning, under prestandakravet ${omgangar} mätningar och medianen gäller; aldrig bästa av flera`,
   ovriga: 'tillgänglighet, bästa praxis och SEO: lägsta över sidans mätningar', krav: KRAV, lighthouseVersion: lhVersion };
 
 mkdirSync(ut, { recursive: true });
@@ -79,7 +82,7 @@ try {
     for (const sida of sidor) {
       // Prestanda varierar med datorns belastning (samma bygge gav P 93 och P 77, fynd 2026-10-01): metoden ovan avgör
       // antalet mätningar, och medianen gäller; varje mätning och belastningen står i resultatet.
-      const rep = representativa.has(sida);
+      const rep = representativa.has(sida) && medianformer.has(form);
       const matningar = [await mat(form, sida)];
       if (rep || matningar[0].rad.prestanda < KRAV.prestanda) while (matningar.length < omgangar) matningar.push(await mat(form, sida));
       const p = median(matningar.map((m) => m.rad.prestanda));
@@ -87,6 +90,7 @@ try {
       writeFileSync(join(ut, `${slug(sida)}-${form}.json`), mitt.rapport);
       const lagst = (k) => Math.min(...matningar.map((m) => m.rad[k]));
       const rad = { ...mitt.rad, prestanda: p, tillganglighet: lagst('tillganglighet'), bastaPraxis: lagst('bastaPraxis'), seo: lagst('seo'),
+        underkanda: [...new Set(matningar.flatMap((m) => m.rad.underkanda))],
         representativ: rep, matt: matningar.length > 1 ? 'median' : 'en mätning',
         spridning: [Math.min(...matningar.map((m) => m.rad.prestanda)), Math.max(...matningar.map((m) => m.rad.prestanda))],
         forsok: matningar.map((m) => ({ prestanda: m.rad.prestanda, tillganglighet: m.rad.tillganglighet, bastaPraxis: m.rad.bastaPraxis, seo: m.rad.seo, lcpMs: m.rad.lcpMs, belastning: m.rad.belastning })) };

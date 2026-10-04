@@ -289,13 +289,18 @@ async function installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, m
       const nasta = nastaMetod(svar.status(), metodNu);
       if (LAS.has(nasta) && !webkitMotor) return route.fulfill({ status: svar.status(), headers: { location: mal, 'cache-control': 'no-store' }, body: '' });  // webbläsaren följer läsande genom proxyn
       if (LAS.has(nasta) && req.isNavigationRequest()) {
-        const html = '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=' + mal.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">';
+        // märkt, så att efterOmdirigering() kan vänta förbi den: goto och load löser annars ut på mellansidan
+        const html = '<!doctype html><meta charset="utf-8"><meta name="nwp-omdirigering" content="1"><meta http-equiv="refresh" content="0;url=' + mal.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">';
         return route.fulfill({ status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }, body: html });
       }
       if (LAS.has(nasta)) {  // WebKit, skript-anrop: läsande hopp följs här, varje hopp prövat som ovan
         if (++hopp > 10) { blockera(req, 'för många omdirigeringar'); return route.abort('blockedbyclient'); }
         const h3 = hopphuvuden(req.headers(), m.origin === o); if (undantag && m.origin === malUrsprung) h3['x-vercel-protection-bypass'] = undantag;
-        try { svar = await route.fetch({ url: mal, method: nasta, headers: h3, maxRedirects: 0 }); } catch (e) { return route.abort('failed'); }
+        // byter hoppet metod (303, eller POST vid 301/302) följer kroppen inte med (Fetch-standarden), inte heller dess huvuden
+        const byter = nasta !== metodNu;
+        if (byter) for (const n of Object.keys(h3)) if (/^content-(type|length|encoding|language)$/i.test(n)) delete h3[n];
+        // route.fetch skulle återanvända originalets kropp; kontextens egen förfrågan gör ett rent anrop med samma vägar
+        try { svar = byter ? await ctx.request.fetch(mal, { method: nasta, headers: h3, maxRedirects: 0 }) : await route.fetch({ url: mal, method: nasta, headers: h3, maxRedirects: 0 }); } catch (e) { return route.abort('failed'); }
         aktuell = mal; metodNu = nasta; continue;
       }
       // ett skrivande anrop som förs vidare (POST vid 307/308, PUT/PATCH/DELETE också vid 301/302): varje hopp måste gå till ett skrivbart ursprung och följs här
@@ -401,6 +406,17 @@ export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga
       await ctx.close(); // Flush context-owned HAR recordings before closing the browser.
     } finally { await browser.close(); await proxy.stang(); }
   } };
+}
+
+/** Väntar förbi vaktens omdirigeringssida (WebKit, där route.fulfill inte kan svara med 3xx): så länge sidan är den
+ *  märkta mellansidan har navigeringen inte landat, och goto/load har löst ut för tidigt. Högst ms millisekunder. */
+export async function efterOmdirigering(page, ms = 5000) {
+  const slut = Date.now() + ms;
+  while (Date.now() < slut) {
+    const mellan = await page.evaluate(() => !!document.querySelector('meta[name="nwp-omdirigering"]')).catch(() => true);
+    if (!mellan) { await page.waitForLoadState('load', { timeout: Math.max(1000, slut - Date.now()) }).catch(() => {}); return; }
+    await page.waitForTimeout(100);
+  }
 }
 
 export async function horisontellSpill(page) {

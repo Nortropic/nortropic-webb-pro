@@ -55,7 +55,7 @@ sälja: varje sida har ett tydligt nästa steg.
 
 | Punkt | Fas | Prövas av |
 |---|---|---|
-| 4.1 Labb: Lighthouse prestanda ≥ 90 i mobil och desktop, som median av tre mätningar på startsidan, kontaktsidan och den tyngsta sidan (metoden i `prov/lighthouse/METOD.json`). Fält i mobil: LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1 vid 75:e percentilen. | D labb, L fält | `lighthouse` |
+| 4.1 Labb: Lighthouse prestanda ≥ 90 i mobil och desktop, i mobil som median av tre mätningar på startsidan, kontaktsidan och den tyngsta övriga sidan (flest bilder i HTML:en), övriga mätningar en gång och under kravet tre (metoden i `prov/lighthouse/METOD.json`). Fält i mobil: LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1 vid 75:e percentilen. | D labb, L fält | `lighthouse` |
 | 4.2 Bilder i AVIF eller WebP, responsiva med srcset och sizes, rätt storlek; största bilden i första vyn under 200 kB; ingen publicerad bild bär GPS-läge i sin metadata (en personuppgift). | D | `standard`, info |
 | 4.3 Högst två typsnittsfamiljer, självhostade WOFF2 följda i stacken av ett reservtypsnitt med size-adjust, latin-subset med bara de axlar som används (en fil över 80 kB kräver att bredd-axeln bär formen, över 120 kB aldrig), `font-display: swap` med size-adjust-reserv, preload av typsnittet i första vyn. | D | `standard`, info |
 | 4.4 Inga resurser från tredje part vid sidladdning; kartor som statisk bild och länk. | D | `standard` |

@@ -355,20 +355,25 @@ import sys, json, subprocess, tempfile, pathlib
 sys.path.insert(0, '$ROOT/kontroller'); import prova
 d = pathlib.Path(tempfile.mkdtemp())
 sajt = d / 'sajt'
-for n in ('meny', 'fel', 'tung', 'kontakt'): (sajt / n).mkdir(parents=True)
+for n in ('meny', 'fel', 'tung', 'kontakt', 'skriv', 'tack', 'nyhetsbrev'): (sajt / n).mkdir(parents=True)
 huvud = '<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>P</title></head><body>'
 (sajt / 'index.html').write_text(huvud + '<main><h1>Bred</h1><div style=\"width:600px\">Bred rad</div></main></body></html>')
 (sajt / 'meny' / 'index.html').write_text(huvud + '<header><nav><details><summary>Meny</summary><a href=\"/\">Start</a></details></nav></header><main><h1>Meny</h1></main></body></html>')
 (sajt / 'fel' / 'index.html').write_text(huvud + '<main><h1>Fel</h1></main><script>throw new Error(\"provfel\")</script></body></html>')
 (sajt / 'tung' / 'index.html').write_text(huvud + '<main><h1>Tung</h1>' + '<img src=\"/x.png\" alt=\"\">' * 3 + '</main></body></html>')
 (sajt / 'kontakt' / 'index.html').write_text(huvud + '<main><h1>Kontakt</h1></main></body></html>')
+(sajt / 'skriv' / 'index.html').write_text(huvud + '<main><h1>Skriv</h1><form id=\"f\" method=\"post\" action=\"/api/forfragan\"><input name=\"namn\" value=\"A\" aria-label=\"Namn\"><input name=\"telefon\" value=\"070\" aria-label=\"Telefon\"><textarea name=\"meddelande\" aria-label=\"Meddelande\">m</textarea><button type=\"submit\">Skicka</button></form></main></body></html>')
+(sajt / 'tack' / 'index.html').write_text(huvud + '<main><h1>Tack för din förfrågan</h1></main></body></html>')
+(sajt / 'nyhetsbrev' / 'index.html').write_text(huvud + '<main><h1>Nyhetsbrev</h1><form method=\"post\" action=\"/api/forfragan\"><input name=\"epost\" aria-label=\"E-post\"><button type=\"submit\">Prenumerera</button></form></main></body></html>')
 assert prova.representativa_sidor(sajt, ['/', '/fel/', '/kontakt/', '/meny/', '/tung/']) == ['/', '/kontakt/', '/tung/']
 (d / 'RESOR.json').write_text(json.dumps({'resor': [
     {'id': 'bred', 'uppgift': 'startsidan spiller i sidled', 'start': '/', 'forvantat': [{'text': 'Bred'}]},
-    {'id': 'jsfel', 'uppgift': 'sidan kastar ett fel', 'start': '/fel/', 'forvantat': [{'text': 'Fel'}]}]}))
+    {'id': 'jsfel', 'uppgift': 'sidan kastar ett fel', 'start': '/fel/', 'forvantat': [{'text': 'Fel'}]},
+    {'id': 'snedstreck', 'uppgift': 'en adress utan snedstreck omdirigeras', 'start': '/kontakt', 'forvantat': [{'text': 'Kontakt'}]},
+    {'id': 'skicka', 'uppgift': 'inskicket landar på tacksidan', 'start': '/skriv/', 'steg': [{'skicka': '#f'}], 'forvantat': [{'text': 'Tack för din förfrågan'}, {'url': '/tack/'}]}]}))
 with prova.Server(sajt) as srv:
     p = subprocess.run(['node', '$ROOT/kontroller/webblasare/resor.mjs', '--adress', srv.url + '/', '--resor', str(d / 'RESOR.json'), '--ut', str(d / 'ut'), '--motorer', 'chromium,webkit'], capture_output=True, text=True)
-    ax = subprocess.run(['node', '$ROOT/kontroller/axe.mjs', '--url=' + srv.url, '--sidor=/meny/', '--ut=' + str(d / 'axe'), '--tillstand=meny,formularfel'], capture_output=True, text=True)
+    ax = subprocess.run(['node', '$ROOT/kontroller/axe.mjs', '--url=' + srv.url, '--sidor=/meny/,/nyhetsbrev/', '--ut=' + str(d / 'axe'), '--tillstand=meny,formularfel'], capture_output=True, text=True)
     lh = subprocess.run(['node', '$ROOT/kontroller/lighthouse.mjs', '--url=' + srv.url, '--sidor=/', '--representativa=/finns-inte/', '--ut=' + str(d / 'lh')], capture_output=True, text=True)
 ax2 = subprocess.run(['node', '$ROOT/kontroller/axe.mjs', '--url=https://example.com', '--sidor=/', '--ut=' + str(d / 'axe2'), '--tillstand=meny'], capture_output=True, text=True)
 ax3 = subprocess.run(['node', '$ROOT/kontroller/axe.mjs', '--url=http://127.0.0.1:1', '--sidor=/', '--ut=' + str(d / 'axe3'), '--tillstand=hover'], capture_output=True, text=True)
@@ -376,9 +381,14 @@ r = json.loads((d / 'ut' / 'RESOR.json').read_text())
 o = {(x['id'], x['motor']): x for x in r['resor']}
 assert p.returncode == 1 and o[('bred', 'chromium')]['ok'] and not o[('bred', 'webkit')]['ok'] and 'spiller i sidled i WebKit' in o[('bred', 'webkit')]['skal'], r['resor']
 assert all(not o[('jsfel', m)]['ok'] and 'JavaScript-fel' in o[('jsfel', m)]['skal'] and 'provfel' in o[('jsfel', m)]['skal'] for m in ('chromium', 'webkit')), r['resor']
+# WebKit: vaktens omdirigeringssida väntas förbi (301 för /kontakt, 303 efter inskicket), som i Chromium
+assert all(o[(i, m)]['ok'] for i in ('snedstreck', 'skicka') for m in ('chromium', 'webkit')), [(k, v['skal']) for k, v in o.items() if k[0] in ('snedstreck', 'skicka')]
 assert r['startsida']['webkit']['spill'] and any('startsidan spiller i sidled i WebKit' in f for f in r['fel']) and pathlib.Path(r['startsida']['webkit']['bild']).is_file(), r.get('startsida')
 a = json.loads((d / 'axe' / 'axe.json').read_text())
-assert any(x['tillstand'] == 'meny' and x.get('oppen') for x in a['rader']), [(x['vy'], x['tillstand'], x.get('oppen'), x.get('fel')) for x in a['rader']]
+assert any(x['tillstand'] == 'meny' and x.get('oppen') and x.get('knapp') == 'Meny' for x in a['rader']), [(x['vy'], x['tillstand'], x.get('oppen'), x.get('fel')) for x in a['rader']]
+# ett formulär utan fält som stoppar ett tomt inskick: inget feltillstånd att mäta, och webbläsarens felsida mäts inte
+nb = [x for x in a['rader'] if x['sida'] == '/nyhetsbrev/' and x['tillstand'] == 'formularfel']
+assert nb and all(x.get('matt') is False and not x.get('fel') and not x['overtradelser'] for x in nb) and a['allvarliga'] == sum(1 for x in a['rader'] for v in x['overtradelser'] if v['impact'] in ('serious', 'critical')), nb
 assert ax2.returncode == 2 and 'lokala server' in ax2.stderr, ax2.stderr
 assert ax3.returncode == 2 and 'okänt tillstånd' in ax3.stderr, ax3.stderr
 assert lh.returncode == 2 and 'representativa' in lh.stderr, lh.stderr

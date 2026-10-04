@@ -21,7 +21,7 @@
 // En väljare pekar på det första SYNLIGA elementet: en dold mobilmeny först i HTML:en fäller inte resan.
 // klicka följer bara länkar inom sajten i samma fönster; tel:, mailto:, sms:, nytt fönster och andra webbplatser prövas
 // med förväntan lank. {markering} blir provets testmarkering i fyll och i text.
-import { args, oppna, origin, skriv, nu, viaTjanst, arLokal, VYER, horisontellSpill } from './gemensamt.mjs';
+import { args, oppna, origin, skriv, nu, viaTjanst, arLokal, VYER, horisontellSpill, efterOmdirigering } from './gemensamt.mjs';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { vakta } from '../slugvakt.mjs';
@@ -115,6 +115,7 @@ for (const [nr, resa] of resor.entries()) {
   try {
     b = await oppna({ vy, tillat: [origin(a.adress)], mal: a.adress, lasande: true, skrivbara: [origin(a.adress)], motor });
     await b.page.goto(new URL(resa.start || '/', a.adress).href, { waitUntil: 'load', timeout: 30000 });
+    await efterOmdirigering(b.page);  // WebKit: en omdirigering (t.ex. /kontakt → /kontakt/) går via vaktens mellansida
     let fel = null;
     ut.spill = await horisontellSpill(b.page).catch(() => null);
     if (motor === 'webkit' && ut.spill?.spill) {
@@ -127,7 +128,7 @@ for (const [nr, resa] of resor.entries()) {
     for (const [i, s] of (fel ? [] : forvantningar).entries()) {
       const post = { nr: i + 1, steg: s };
       try {
-        if (s.ga) await b.page.goto(new URL(s.ga, a.adress).href, { waitUntil: 'load', timeout: 30000 });
+        if (s.ga) { await b.page.goto(new URL(s.ga, a.adress).href, { waitUntil: 'load', timeout: 30000 }); await efterOmdirigering(b.page); }
         else if (s.klicka) {
           const el = synligt(b.page, s.klicka);
           if (!await el.count()) throw new Error(`inget synligt element för ${s.klicka}`);
@@ -138,6 +139,7 @@ for (const [nr, resa] of resor.entries()) {
           if (lank && lank.annan) throw new Error(`${s.klicka} leder till en annan webbplats (${lank.href}); pröva den med förväntan lank`);
           await el.click({ timeout: 5000 });
           await b.page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
+          await efterOmdirigering(b.page);
         }
         else if (s.fyll) { for (const [sel, varde] of Object.entries(s.fyll)) await synligt(b.page, sel).fill(markera(varde), { timeout: 5000 }); }
         else if (s.skicka) {
@@ -145,6 +147,7 @@ for (const [nr, resa] of resor.entries()) {
           const knapp = form.locator('button[type=submit], button:not([type]), input[type=submit]').filter({ visible: true }).first();
           await knapp.click({ timeout: 5000 });
           await b.page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
+          await efterOmdirigering(b.page);  // demomottagarens 303 till tacksidan går i WebKit via mellansidan
         } else if (s.tangent) await b.page.keyboard.press(s.tangent);
         else if (s.vanta) await synligt(b.page, s.vanta).waitFor({ state: 'visible', timeout: 5000 });
         else if (s.forvanta) { const k = await kontrollera(b.page, s.forvanta); if (k) throw new Error(k); }
@@ -178,6 +181,7 @@ if (MOTORER.includes('webkit')) {
     try {
       b = await oppna({ vy: '390', tillat: [origin(a.adress)], mal: a.adress, lasande: true, motor });
       await b.page.goto(new URL('/', a.adress).href, { waitUntil: 'load', timeout: 30000 });
+      await efterOmdirigering(b.page);
       await b.page.evaluate(() => document.fonts.ready).catch(() => {});
       // innehållets höjd (understa elementets nederkant), inte dokumentets: det fylls ut till vyn, som skiljer mellan motorerna
       const m = await b.page.evaluate(() => ({ hojd: Math.ceil(Math.max(0, ...[...document.body.children].map((e) => e.getBoundingClientRect().bottom + scrollY))),
@@ -187,7 +191,7 @@ if (MOTORER.includes('webkit')) {
       const konsolfel = b.logg.konsol.filter((x) => x.typ === 'error').length;
       const bild = join(a.ut, `startsida-${motor}-390.png`);
       await b.page.screenshot({ path: bild });
-      r.startsida[motor] = { vy: b.vy.namn, bild, hojd: m.hojd, typsnitt: m.typsnitt, spill: spill.spill, scrollWidth: spill.scrollWidth,
+      r.startsida[motor] = { vy: b.vy.namn, vyMatt: `${b.vy.viewport.width}×${b.vy.viewport.height}`, bild, hojd: m.hojd, typsnitt: m.typsnitt, spill: spill.spill, scrollWidth: spill.scrollWidth,
         konsolfel, sidfel: b.logg.sidfel.length };
       if (motor === 'webkit' && spill.spill) r.fel.push(`startsidan spiller i sidled i WebKit (scrollWidth ${spill.scrollWidth} > ${spill.clientWidth})`);
       if (b.logg.sidfel.length) r.fel.push(`startsidan kastar ett JavaScript-fel i ${motor}: ${b.logg.sidfel[0].text.split('\n')[0].slice(0, 160)}`);
