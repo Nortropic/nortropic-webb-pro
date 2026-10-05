@@ -55,7 +55,7 @@ ANTAL = max(2, min(4, int(os.environ.get('NWP_ATELJE_ANTAL') or 3)))
 # Divergensen gör ANTAL hela startsidor med undersida och stiltavla. Med Fable på max tog tre riktningar 43 min
 # (designprovet 2026-10-05, 117 turer), så gränsen växer med antalet. Domarna (sessioner med svarsschema) tog 9 min
 # parallellt och har en egen, kortare gräns, så att en domare som hänger inte håller panelen i en timme.
-FRIST = int(os.environ.get('NWP_ATELJE_FRIST') or (1200 + 800 * ANTAL))
+FRIST = int(os.environ.get('NWP_ATELJE_FRIST') or (1200 + 1400 * ANTAL))  # med förhandsvisningen: minst två varv per riktning
 FRIST_DOMARE = int(os.environ.get('NWP_ATELJE_FRIST_DOMARE') or 1500)
 MIN_DOMARE = max(1, int(os.environ.get('NWP_ATELJE_MIN_DOMARE') or 2))  # giltiga domare som panelen minst kräver
 OMGANGAR = max(1, min(3, int(os.environ.get('NWP_ATELJE_OMGANGAR') or 2)))  # divergensomgångar innan bygget stannar (designprovet punkt 4)
@@ -811,8 +811,8 @@ def arbetare(slug):
                 status.pop(k, None)
             status.update(steg='divergera', omgang=omgang)
             skriv()
-            try:
-                d = session(divergera_prompt(slug, bilder, kritik), verktyg, rot / 'svar-divergera.json')
+            try:  # 400 turer: förhandsvisningen och läsningen av bilderna kostar omkring 20 turer per riktning och varv
+                d = session(divergera_prompt(slug, bilder, kritik), verktyg, rot / 'svar-divergera.json', max_turer=400)
             except (subprocess.TimeoutExpired, RuntimeError) as e:
                 # sidorna som hann skrivas fotograferas och döms ändå: en tidsgräns eller en session som föll i slutet ska
                 # inte kasta färdiga förslag (designprovet 2026-10-05); en riktning utan undersida blir ofullständig

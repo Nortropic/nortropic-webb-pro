@@ -939,7 +939,7 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     a.arbetare('provhr')
     st = json.loads((rot2 / 'STATUS.json').read_text())
     assert st['steg'] == 'fel' and 'TimeoutExpired' in st['fel'] and 'sparad_kod' not in st, 'utan en enda sida faller ateljén'
-    assert a.FRIST == 1200 + 800 * a.ANTAL or os.environ.get('NWP_ATELJE_FRIST'), 'gränsen växer med antalet riktningar'
+    assert a.FRIST == 1200 + 1400 * a.ANTAL or os.environ.get('NWP_ATELJE_FRIST'), 'gränsen växer med antalet riktningar och förhandsvarven'
     # bygget föll efter en avbruten divergens: den ofullständiga riktningen flyttas undan och resten fotograferas
     (sidor_hr / 'atelje-1').mkdir(parents=True, exist_ok=True); (sidor_hr / 'atelje-1' / 'index.astro').write_text('<p>1</p>')
     (sidor_hr / 'atelje-1' / 'undersida').mkdir(exist_ok=True); (sidor_hr / 'atelje-1' / 'undersida' / 'index.astro').write_text('<p>u</p>')
@@ -2454,21 +2454,29 @@ pt.UNDERLAG, pt.KUNDER, pt.ROOT = tmp / 'pt-underlag', tmp / 'pt-kunder', tmp
 pt_u = pt.UNDERLAG / 'pt-prov'; (pt_u / 'bilder').mkdir(parents=True)
 assert any('VERKSAMHET.json' in x for x in pt.saknas('pt-prov')), 'saknat underlag sägs'
 vk_ = pt.verktyg('pt-prov')
-assert 'Bash(.venv/bin/python kontroller/forhandsvisa.py pt-prov *)' in vk_ and 'Write(./kunder/pt-prov/sajt/src/**)' in vk_ and 'Write(./underlag/pt-prov/prototyp/**)' in vk_
+assert 'Bash(.venv/bin/python kontroller/forhandsvisa.py pt-prov *)' in vk_ and 'Write(./kunder/pt-prov/sajt/src/**)' in vk_ and 'Write(./underlag/pt-prov/prototyp/LOGG.md)' in vk_
+assert not any(v.endswith('/prototyp/**)') for v in vk_), 'körningens egna filer (STATUS, svar, ankare) ligger utanför skaparens skrivrätt'
 assert not any(v.startswith(('Bash(git', 'Bash(rm', 'Bash(curl', 'WebFetch')) for v in vk_), vk_
-(pt_u / 'TEXTUNDERLAG.md').write_text('# text'); (pt_u / 'VERKSAMHET.json').write_text('{}')
+(pt_u / 'TEXTUNDERLAG.md').write_text('# text')
+(pt_u / 'VERKSAMHET.json').write_text(json.dumps({'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33', 'belagg': 'x'}]}))
 pr_text = pt.skapar_prompt('pt-prov', pt_u / 'prototyp', ['a.jpg'], None)
-for krav_ in ('kontroller/forhandsvisa.py pt-prov', 'LOGG.md', 'minst %d varv' % pt.MIN_VARV, 'Huvudrubriken är inte låst', 'ändras aldrig', 'PROTOTYP.md', 'mobilens första vy'):
+for krav_ in ('kontroller/forhandsvisa.py pt-prov', 'LOGG.md', 'minst %d varv' % pt.MIN_VARV, 'Huvudrubriken är inte låst', 'ändras aldrig', 'PROTOTYP.md', 'mobilens första vy',
+              '070-111 22 33', '600000 ms', 'forhand/start'):
     assert krav_ in pr_text, krav_
+assert '46738397421' not in pr_text, 'inget nummer skrivet i koden'
 # läsningen per varv ur transkriptet: varv-01 och varv-02 sedda, varv-03 inte
 for v_ in ('varv-01', 'varv-02', 'varv-03'):
-    (pt_u / 'forhand' / v_).mkdir(parents=True)
+    (pt_u / 'forhand' / 'start' / v_).mkdir(parents=True)
 pt_kat = tmp / 'pt-projekt' / '-x'; pt_kat.mkdir(parents=True); bk_pt.PROJEKT, bk_pt.ROOT = pt_kat.parent, tmp
 sid_pt = '00000000-0000-4000-8000-000000000055'
 (pt_kat / (sid_pt + '.jsonl')).write_text('\n'.join(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Read', 'input': {
-    'file_path': str(pt_u / 'forhand' / v_ / n_)}}]}}) for v_ in ('varv-01', 'varv-02') for n_ in pt.FORHAND_LAS) + '\n')
+    'file_path': str(pt_u / 'forhand' / 'start' / v_ / n_)}}]}}) for v_ in ('varv-01', 'varv-02') for n_ in pt.FORHAND_LAS) + '\n')
 las_pt = pt.lasning('pt-prov', {'session_id': sid_pt})
 assert las_pt['varv'] == 3 and las_pt['sedda_varv'] == ['varv-01', 'varv-02'] and las_pt['verifierad'], las_pt
+import forhandsvisa as fh_pt  # noqa: E402
+(pt_u / 'forhand' / 'start' / 'varv-100').mkdir()
+assert [p.name for p in fh_pt.varv(pt_u / 'forhand' / 'start')][-1] == 'varv-100' and fh_pt.nasta_varv(pt_u / 'forhand' / 'start').name == 'varv-101'
+assert fh_pt.sidnamn('/') == 'start' and fh_pt.sidnamn('/atelje-1/undersida/') == 'atelje-1-undersida' and not fh_pt.hela(pt_u / 'forhand' / 'start' / 'varv-01')
 os.environ['NWP_SLUG'] = 'pt-prov'
 try:
     with contextlib.redirect_stderr(io.StringIO()):

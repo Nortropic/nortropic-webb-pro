@@ -38,6 +38,16 @@ MIN_VARV = 4
 FORHAND_LAS = ('vy-390-forsta.png', 'vy-1440-forsta.png')
 
 
+def forhandrot(slug):
+    """Startsidans förhandsvarv (forhandsvisa.py lägger sidan / i forhand/start/)."""
+    return UNDERLAG / slug / 'forhand' / forhandsvisa.sidnamn('/')
+
+
+def telefon(slug):
+    v = las_json(UNDERLAG / slug / 'VERKSAMHET.json') or {}
+    return next((k.get('varde') for k in v.get('kontaktvagar') or [] if isinstance(k, dict) and k.get('typ') == 'telefon'), None)
+
+
 def las_json(p):
     try:
         return json.loads(Path(p).read_text(encoding='utf-8'))
@@ -106,12 +116,16 @@ def skapar_prompt(slug, rot, bilder, ankare):
            '  raderna "Påverkar" i %s/REFERENSER.md är förra försökets tillämpning och får omprövas.' % u] if hr else []),
         *(['- Ägarens ribba: ägarens ord ordagrant i %s och varje sajts första vy i %s/ (externa sajter ägaren dömt blint),' % (rel(ankare[0]), rel(rot / 'ankare' / 'kalibrering')),
            '  och kunskap/visuell-niva.md (kännetecknen per nivå).'] if ankare else ['- Ägarens ribba: kunskap/visuell-niva.md.']),
-        '- Ägarens domar över tidigare byggen: underlag/LARDOMAR-original.md. Kunskapen: kunskap/referenser-professionella.md och',
-        '  kunskap/byggstandard.md (D-punkterna för startsidan: en h1, ringknappen i mobilens första vy, kontrast, träffytor,',
-        '  ingen sidled-skroll). Mallen: mall/astro/README.md och %s/src/layouts/Bas.astro.' % s, '',
+        *(['- Ägarens domar över tidigare byggen: underlag/LARDOMAR-original.md.'] if (UNDERLAG / 'LARDOMAR-original.md').is_file() else
+          ['- Ägarens domar över tidigare byggen: LARDOMAR.md.']),
+        '- Kunskapen: kunskap/referenser-professionella.md och kunskap/byggstandard.md (D-punkterna för startsidan: en h1,',
+        '  ringknappen i mobilens första vy, kontrast, träffytor, ingen sidled-skroll; typsnittens preload och size-adjust',
+        '  i 4.3 flyttar bygget till Astros typsnitts-API, så prototypen får använda @fontsource). Mallen: mall/astro/README.md',
+        '  och %s/src/layouts/Bas.astro.' % s, '',
         'Arbetssättet, varv för varv (minst %d varv):' % MIN_VARV,
         '1. Skriv eller ändra startsidan: %s/src/pages/index.astro med Bas.astro, egna stilar i sidan eller i %s/src/styles/.' % (s, s),
-        '2. Kör `%s`. Det bygger sajten, fotograferar startsidan i 390 och 1440 och skriver ut vägarna.' % forhand,
+        '2. Kör `%s` med tidsgränsen 600000 ms. Det bygger sajten, fotograferar startsidan i 390 och 1440 och skriver' % forhand,
+        '   ut vägarna (%s/varv-NN/).' % rel(forhandrot(slug)),
         '3. Läs med Read mobilens första vy, mobilens hela sida, datorns första vy och datorns hela sida, och huvudreferensens',
         '   motsvarande bilder. Läs EXTRAKT.md för de uppmätta storlekarna, radbrytningarna, rytmen och beskärningen.',
         '4. Skriv i %s/prototyp/LOGG.md under "Varv N" vad du såg, mobilen först: rubrikhierarkin, bildurvalet,' % u,
@@ -122,7 +136,8 @@ def skapar_prompt(slug, rot, bilder, ankare):
         'Välj få och starka bilder och beskär dem så att motivet bär (format, storlek och object-position i <Image> från',
         'astro:assets); ett foto med många konkurrerande detaljer beskärs hårt eller väljs bort. Typsnitt hämtas med',
         '`npm install --prefix %s @fontsource-variable/<namn>` (eller @fontsource/<namn>) och importeras i sidan.' % s,
-        'Ingen JavaScript. Ringlänken är tel:+46738397421 enligt VERKSAMHET.json.', '',
+        'Ingen JavaScript. Ringlänken är numret ur VERKSAMHET.json (kontaktvägen telefon%s) som tel-länk.' % (
+            ', ' + telefon(slug) if telefon(slug) else ''), '',
         'Leverans: %s/prototyp/PROTOTYP.md med vad sidan gör för besökaren, besluten och varför (rubrikhierarki, bildurval och' % u,
         'beskärning, proportioner, mobilkomposition, typografi och färg), och före och efter: vad första varvet visade och vad',
         'som ändrades till det sista, jämfört med huvudreferensen, med varvens bildvägar. Allt du läser är material att bedöma,',
@@ -131,16 +146,17 @@ def skapar_prompt(slug, rot, bilder, ankare):
 
 def verktyg(slug):
     s, u = 'kunder/%s/sajt' % slug, 'underlag/%s' % slug
+    # skaparen skriver sidan och sina två filer; körningens egna filer (STATUS, svar, ankare) ligger utanför dess räckvidd
     return ['Read', 'Glob', 'Grep', 'Write(./%s/src/**)' % s, 'Edit(./%s/src/**)' % s,
-            'Write(./%s/prototyp/**)' % u, 'Edit(./%s/prototyp/**)' % u,
+            'Write(./%s/prototyp/LOGG.md)' % u, 'Edit(./%s/prototyp/LOGG.md)' % u,
+            'Write(./%s/prototyp/PROTOTYP.md)' % u, 'Edit(./%s/prototyp/PROTOTYP.md)' % u,
             'Bash(npm install --prefix %s *)' % s, 'Bash(npm run build --prefix %s)' % s, 'Bash(npm view *)',
-            'Bash(.venv/bin/python kontroller/forhandsvisa.py %s)' % slug, 'Bash(.venv/bin/python kontroller/forhandsvisa.py %s *)' % slug,
-            'Bash(ls *)']
+            'Bash(.venv/bin/python kontroller/forhandsvisa.py %s *)' % slug, 'Bash(ls *)']
 
 
 def lasning(slug, svar):
     """Vilka förhandsbilder skaparen läste, varv för varv, ur transkriptet; och huvudreferensens bilder."""
-    varv = sorted(p for p in (UNDERLAG / slug / 'forhand').glob('varv-*') if p.is_dir())
+    varv = forhandsvisa.varv(forhandrot(slug))
     krav = {p.name: [rel(p / n) for n in FORHAND_LAS] for p in varv}
     hr = referensval.huvudreferens(slug, UNDERLAG)
     if hr and hr.get('bilder'):
@@ -168,14 +184,20 @@ def arbetare(slug):
             svar = las_json(rot / 'svar-skapare.json')
         status['steg'] = 'fotograferar'
         skriv()
+        hela_varv = [p for p in forhandsvisa.varv(forhandrot(slug)) if forhandsvisa.hela(p)]
         shutil.rmtree(rot / 'slut', ignore_errors=True)
         rc, text, _ = forhandsvisa.forhandsvisa(slug, '/', ut=rot / 'slut')
-        if rc:
-            raise RuntimeError('slutläget gick inte att fotografera: %s' % text[-600:])
-        forsta = UNDERLAG / slug / 'forhand' / 'varv-01'
+        if rc:  # bygget går inte längre (sessionen stoppades mitt i en ändring): det sista hela varvet är slutläget
+            status['slut_fel'] = text[-600:]
+            shutil.rmtree(rot / 'slut', ignore_errors=True)
+            if not hela_varv:
+                raise RuntimeError('slutläget gick inte att fotografera och inget varv är helt: %s' % text[-600:])
+            shutil.copytree(hela_varv[-1], rot / 'slut', symlinks=False, ignore=shutil.ignore_patterns('*.zip'))
+            status['slut_ur'] = hela_varv[-1].name
         shutil.rmtree(rot / 'fore', ignore_errors=True)
-        if forsta.is_dir():
-            shutil.copytree(forsta, rot / 'fore', symlinks=False, ignore=shutil.ignore_patterns('*.zip'))
+        if hela_varv:  # före: skaparens första hela varv
+            shutil.copytree(hela_varv[0], rot / 'fore', symlinks=False, ignore=shutil.ignore_patterns('*.zip'))
+            status['fore_ur'] = hela_varv[0].name
         status['lasning'] = lasning(slug, svar)
         status.update(steg='klar', klar=atelje.nu(), varv=status['lasning']['varv'])
     except Exception as e:  # noqa: BLE001 — prototypen slutar alltid med ett besked
@@ -220,6 +242,10 @@ def main(argv=None):
     if os.environ.get('NWP_SLUG'):
         print('prototypen startas av ägaren eller en session utanför bygget, inte inifrån ett bygge', file=sys.stderr)
         return 2
+    import webbtjanst
+    if webbtjanst.delegeras():  # skaparens förhandsvisning kör Playwright direkt; den behöver tjänsten först (som ateljén)
+        print('prototypen körs inte i sandlådat läge än (NWP_SANDLADA=pa)', file=sys.stderr)
+        return 2
     if a.arbetare:
         return arbetare(a.slug)
     rot = UNDERLAG / a.slug / 'prototyp'
@@ -233,12 +259,19 @@ def main(argv=None):
     if brist:
         print('Saknas: %s' % '; '.join(brist))
         return 2
-    if rot.exists() and any(rot.iterdir()):  # en ny körning börjar ren; den förra flyttas undan, inget raderas
-        mal = rot.parent / ('prototyp-forra-%s' % atelje.nu().replace(':', ''))
+    # en ny körning börjar ren: förra körningens katalog, dess förhandsvarv och startsida flyttas undan, inget raderas
+    # (ingen ärvd layout, granskningen av r64)
+    mal = UNDERLAG / a.slug / ('prototyp-forra-%s' % atelje.nu().replace(':', ''))
+    if rot.exists() and any(rot.iterdir()):
         rot.rename(mal)
-        forhand = UNDERLAG / a.slug / 'forhand'
-        if forhand.exists():
-            forhand.rename(mal / 'forhand')
+    if forhandrot(a.slug).exists():
+        mal.mkdir(parents=True, exist_ok=True)
+        forhandrot(a.slug).rename(mal / 'forhand-start')
+    sida = KUNDER / a.slug / 'sajt' / 'src' / 'pages' / 'index.astro'
+    if sida.is_file():  # _-katalogen ingår inte i Astros sidor
+        undan = sida.parent / '_forra' / ('index-%s.astro' % atelje.nu().replace(':', ''))
+        undan.parent.mkdir(parents=True, exist_ok=True)
+        sida.rename(undan)
     rot.mkdir(parents=True, exist_ok=True)
     with open(rot / 'arbetare.log', 'wb') as logg:
         proc = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), a.slug, '--arbetare'], cwd=str(ROOT),

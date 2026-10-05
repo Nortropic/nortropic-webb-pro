@@ -9,8 +9,9 @@ skaparen själv får köra.
     .venv/bin/python kontroller/forhandsvisa.py <slug> [--sida /]
 
 Bygger kunder/<slug>/sajt (npm run build), serverar dist/ lokalt och kör inspektera.mjs i 390 och 1440 med mätningen av
-typografi, färger, rytm och bilder (EXTRAKT.md). Bilderna hamnar i underlag/<slug>/forhand/varv-NN/ (nästa lediga
-nummer). Skriver ut vägarna att läsa med Read, mobil först, och konsolfel och sidled-spill. Ändrar ingenting i sajten.
+typografi, färger, rytm och bilder (EXTRAKT.md). Bilderna hamnar i underlag/<slug>/forhand/<sida>/varv-NN/ (sidan
+"start" för /, annars vägen med bindestreck; nästa lediga nummer), så att prototypens och ateljéns varv hålls isär.
+Skriver ut vägarna att läsa med Read, mobil först, och konsolfel och sidled-spill. Ändrar ingenting i sajten.
 """
 import argparse
 import json
@@ -36,9 +37,24 @@ def las_json(p):
         return None
 
 
+def sidnamn(sida):
+    return 'start' if sida == '/' else sida.strip('/').replace('/', '-')
+
+
+def varv(rot):
+    """Varvens kataloger i nummerordning (varv-01, varv-02 … varv-100)."""
+    nr = [(int(m.group(1)), p) for p in Path(rot).glob('varv-*') if p.is_dir() and (m := re.match(r'^varv-(\d{2,})$', p.name))]
+    return [p for _, p in sorted(nr)]
+
+
+def hela(kat):
+    """Varvet har alla fyra bilderna (en fotografering som föll lämnar en halv katalog)."""
+    return all((Path(kat) / n).is_file() for n in LAS)
+
+
 def nasta_varv(rot):
-    nr = [int(m.group(1)) for p in rot.glob('varv-*') if (m := re.match(r'^varv-(\d{2})$', p.name))]
-    return rot / ('varv-%02d' % (max(nr or [0]) + 1))
+    nr = [int(p.name.split('-')[1]) for p in varv(rot)]
+    return Path(rot) / ('varv-%02d' % (max(nr or [0]) + 1))
 
 
 def forhandsvisa(slug, sida='/', ut=None):
@@ -52,7 +68,7 @@ def forhandsvisa(slug, sida='/', ut=None):
         return 2, 'bygget föll (rc %d); rätta och kör igen:\n%s' % (rc, prova.svans(out, 30)), None
     if not (sajt / 'dist' / sida.strip('/') / 'index.html').is_file():
         return 2, 'sidan %s finns inte i bygget (dist%sindex.html saknas)' % (sida, sida), None
-    ut = Path(ut) if ut else nasta_varv(UNDERLAG / slug / 'forhand')
+    ut = Path(ut) if ut else nasta_varv(UNDERLAG / slug / 'forhand' / sidnamn(sida))
     ut.mkdir(parents=True, exist_ok=True)
     insp = str(prova.KONTROLLER / 'webblasare' / 'inspektera.mjs')
     with prova.Server(sajt / 'dist') as srv:
@@ -72,6 +88,7 @@ def forhandsvisa(slug, sida='/', ut=None):
     rel = lambda p: str(Path(p).relative_to(ROOT)) if str(p).startswith(str(ROOT)) else str(p)  # noqa: E731
     rader = ['# Förhandsvisning %s · %s%s' % (ut.name, slug, sida), '',
              'Läs med Read, i den här ordningen: mobilens första vy, mobilens hela sida, datorns första vy, datorns hela sida.',
+             '(Ge kommandot tidsgränsen 600000 ms: bygget och fotograferingen tar en till två minuter.)',
              *['- ' + rel(ut / n) for n in LAS],
              'Skärmhöga rutor uppifrån och ned (läs dem för detaljerna): ' + (', '.join(rutor) or 'inga'),
              'Mätningen (typografi, färger, rytm, bilder och beskärning): ' + rel(ut / 'EXTRAKT.md'),

@@ -399,9 +399,9 @@ echo "   förhandsvisningen: skaparen bygger och fotograferar sin egen sida"
 rm -rf "$ROOT/underlag/rokprov-mall/forhand"
 FH=$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/forhandsvisa.py" rokprov-mall) || { echo "FEL: förhandsvisningen föll: $FH"; exit 1; }
 for f in vy-390-forsta.png vy-390-hela.png vy-1440-forsta.png vy-1440-hela.png EXTRAKT.md FORHAND.md; do
-  [ -s "$ROOT/underlag/rokprov-mall/forhand/varv-01/$f" ] || { echo "FEL: förhandsvisningen saknar $f"; exit 1; }
+  [ -s "$ROOT/underlag/rokprov-mall/forhand/start/varv-01/$f" ] || { echo "FEL: förhandsvisningen saknar $f"; exit 1; }
 done
-case "$FH" in *"underlag/rokprov-mall/forhand/varv-01/vy-390-forsta.png"*"Konsolfel: inga"*) ;; *) echo "FEL: förhandsvisningens utskrift: $FH"; exit 1;; esac
+case "$FH" in *"underlag/rokprov-mall/forhand/start/varv-01/vy-390-forsta.png"*"Konsolfel: inga"*) ;; *) echo "FEL: förhandsvisningens utskrift: $FH"; exit 1;; esac
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/forhandsvisa.py" rokprov-mall --sida /finns-inte/ >/dev/null 2>&1 && { echo "FEL: en sida som inte finns ska ge rc 2"; exit 1; }
 echo "   förhandsvisningen ok"
 
