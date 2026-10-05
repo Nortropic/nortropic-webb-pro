@@ -140,11 +140,11 @@ FRIST = int(os.environ.get('NWP_TJANST_FRIST') or 1800)
 def kor_session(tjanst, prompt, logg, modell, frist=FRIST):
     """En tjänstesession: tjänstens verktyg öppnas bara av kundvakten (kontroller/kundvakt.py), anrop för anrop, och
     sessionen kan inte läsa filer (kundens uppgifter i underlag/ når aldrig frågorna; den oberoende granskningen
-    2026-10-05, fynd 6). Kunden och underlaget ur loggens plats: <underlag>/<slug>/referenser/tjanster/<tjänst>/."""
+    2026-10-05, fynd 6). Kunden och underlaget ur loggens plats: <underlag>/<slug>/referenser/<katalog>/<tjänst>/."""
     import kundvakt
     p_ = Path(logg).resolve()
-    if p_.parents[1].name != 'tjanster' or p_.parents[2].name != 'referenser':
-        raise ValueError('loggen ligger inte under <underlag>/<slug>/referenser/tjanster/: kundvakten kan inte sättas')
+    if p_.parents[2].name != 'referenser':
+        raise ValueError('loggen ligger inte under <underlag>/<slug>/referenser/<katalog>/: kundvakten kan inte sättas')
     claude = os.environ.get('NWP_CLAUDE') or 'claude'
     args = [claude, '-p', '--max-turns', '90', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--mcp-config', str(MCP / ('%s.json' % tjanst)),
@@ -260,9 +260,10 @@ def ladda_bild(u, mal, lokala_portar=()):
     return fil, None
 
 
-def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar=(), kor=kor_session):
+def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar=(), kor=kor_session, katalog='tjanster'):
+    """katalog: undermappen under referenser/ (tjanster för researchen, uppdrag för uppdragens material)."""
     underlag = Path(underlag or UNDERLAG)
-    rot = underlag / slug / 'referenser' / 'tjanster'
+    rot = underlag / slug / 'referenser' / katalog
     rot.mkdir(parents=True, exist_ok=True)
     try:
         kat = json.loads((underlag / slug / 'VERKSAMHET.json').read_text(encoding='utf-8')).get('kategorier') or []
@@ -282,7 +283,7 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
         for n in ('TJANSTER.json', 'TJANSTER.md'):
             if (rot / n).is_file() and not (rot / n).is_symlink():
                 os.replace(rot / n, tidigare / ('%s-%s' % (stampel, n)))
-        res['tidigare'] = 'referenser/tjanster/tidigare/%s-TJANSTER.md' % stampel
+        res['tidigare'] = 'referenser/%s/tidigare/%s-TJANSTER.md' % (katalog, stampel)
     # kundens namn, orter och nummer går aldrig till tjänsterna, också om en fråga skulle nämna dem (granskningen V9)
     import skapande
     forbjudna = skapande.forbjudna_termer(slug, underlag)
@@ -404,7 +405,7 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
     (rot / (namn_ut + '.json')).write_text(json.dumps(res, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     rader = ['# Referenstjänster · %s · %s' % (slug, res['tid']), '',
              'Undersökningen gjord %s för %s (ny i den här körningen%s).' % (res['tid'], slug, '; den förra ligger i ' + res['tidigare'] if res['tidigare'] else ''),
-             'Belägg: anropen räknas ur sessionsloggen (session-<tid>.jsonl per tjänst), bilderna är nedladdade till referenser/tjanster/<tjänst>/,',
+             'Belägg: anropen räknas ur sessionsloggen (session-<tid>.jsonl per tjänst), bilderna är nedladdade till referenser/%s/<tjänst>/,' % katalog,
              'och tjänsternas svar ligger ordagrant i ra-<tid>/; varje Refero-stil har sitt hela dokument (stil-<namn>.md: tema, tokens,',
              'komponenter, Do\'s and Don\'ts, Imagery, Layout). Det som mätts på en originalsajt står i referenspaketets EXTRAKT.md; det här',
              'är vad tjänsten beskriver; vad vi väljer står i kandidaternas RIKTNING.md.', '']

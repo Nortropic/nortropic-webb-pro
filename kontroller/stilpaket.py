@@ -147,14 +147,11 @@ def sajtkatalog(slug, kandidat=None):
     return KUNDER / slug / ('kandidater/%s/sajt' % kandidat if kandidat else 'sajt')
 
 
-def hamta(slug, stil_id, kandidat=None, namn=None, klient=None, underlag=None, sajt=None):
-    """Hämtar stilen, bevarar originalet och lägger variablerna i sajten. Ger en dict med filerna och DESIGN.md-raden."""
+def hamta_original(slug, stil_id, klient=None, underlag=None):
+    """Hämtar stilen ur Refero och bevarar originalet (underlag/<slug>/referenser/stilar/<uuid>/). Ger (stil, ORIGINAL)."""
     if not UUID.match(str(stil_id)):
         raise ValueError('stilens id ska vara Referos uuid')
     underlag = Path(underlag or UNDERLAG)
-    sajt = Path(sajt or sajtkatalog(slug, kandidat))
-    if not (sajt / 'package.json').is_file():
-        raise ValueError('%s är ingen sajt (package.json saknas)' % sajt)
     k = klient or refero_mcp.Klient()
     if klient is None:
         k.starta()
@@ -169,45 +166,74 @@ def hamta(slug, stil_id, kandidat=None, namn=None, klient=None, underlag=None, s
                 break
     except refero_mcp.ReferoFel:
         pass
-    tid = nu()
-    rot = underlag / slug / 'referenser' / 'stilar' / stil_id
+    rot = originalkatalog(slug, stil_id, underlag)
     stil_json = json.dumps(stil, ensure_ascii=False, indent=1) + '\n'
     gammal = (json.loads((rot / 'ORIGINAL.json').read_text(encoding='utf-8')) if (rot / 'ORIGINAL.json').is_file() else None)
     if gammal and gammal.get('filer', {}).get('STIL.json') != sha(stil_json):
         undan = rot / 'tidigare' / gammal.get('tid', 'okand').replace(':', '')
         undan.mkdir(parents=True, exist_ok=True)
-        for p in list(rot.iterdir()):
-            if p.name != 'tidigare':
-                shutil.move(str(p), str(undan / p.name))
+        for p_ in list(rot.iterdir()):
+            if p_.name != 'tidigare':
+                shutil.move(str(p_), str(undan / p_.name))
         gammal = None
     if not gammal:
         rot.mkdir(parents=True, exist_ok=True)
         (rot / 'STIL.json').write_text(stil_json, encoding='utf-8')
         (rot / 'STIL.md').write_text(md if md.endswith('\n') else md + '\n', encoding='utf-8')
-        bilder = []
         if preview:
-            for i in range(3):
+            for i_ in range(3):
                 try:
-                    bilder.append(refero_mcp.ladda_bild(re.sub(r'preview_\d', 'preview_%d' % i, preview), rot / ('preview_%d' % i)).name)
+                    refero_mcp.ladda_bild(re.sub(r'preview_\d', 'preview_%d' % i_, preview), rot / ('preview_%d' % i_))
                 except refero_mcp.ReferoFel:
                     break
-        filer = {p.name: sha(p.read_bytes()) for p in sorted(rot.iterdir()) if p.is_file()}
-        (rot / 'ORIGINAL.json').write_text(json.dumps({'stil': stil_id, 'titel': titel, 'url': url, 'preview_url': preview, 'tid': tid,
+        filer = {p_.name: sha(p_.read_bytes()) for p_ in sorted(rot.iterdir()) if p_.is_file()}
+        (rot / 'ORIGINAL.json').write_text(json.dumps({'stil': stil_id, 'titel': titel, 'url': url, 'preview_url': preview, 'tid': nu(),
                                                        'kalla': 'Referos MCP-server (refero_get_style, json och md)', 'filer': filer},
                                                       ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         gammal = json.loads((rot / 'ORIGINAL.json').read_text(encoding='utf-8'))
+    return stil, gammal
+
+
+def originalkatalog(slug, stil_id, underlag=None):
+    return Path(underlag or UNDERLAG) / slug / 'referenser' / 'stilar' / stil_id
+
+
+def till_sajt(slug, stil_id, sajt, namn=None, underlag=None):
+    """Variablerna, temat och beskrivningen i sajten ur det sparade originalet (inget nät). Ger en dict med filerna och
+    DESIGN.md-raden; ValueError när originalet saknas eller har ändrats sedan hämtningen."""
+    rot = originalkatalog(slug, stil_id, underlag)
+    try:
+        orig = json.loads((rot / 'ORIGINAL.json').read_text(encoding='utf-8'))
+        data = (rot / 'STIL.json').read_bytes()
+    except (OSError, ValueError):
+        raise ValueError('stilens original saknas (%s): hämta det först' % rot)
+    if sha(data) != orig.get('filer', {}).get('STIL.json'):
+        raise ValueError('stilens original har ändrats sedan hämtningen (%s)' % rot)
+    stil = json.loads(data)
+    sajt = Path(sajt)
+    if not (sajt / 'package.json').is_file():
+        raise ValueError('%s är ingen sajt (package.json saknas)' % sajt)
+    titel = stil.get('title') or stil_id
     namn = slugga(namn or titel)
     stilkat = sajt / 'src' / 'styles' / 'stil'
     stilkat.mkdir(parents=True, exist_ok=True)
-    css = css_text(stil, stil_id, gammal['tid'])
+    css = css_text(stil, stil_id, orig['tid'])
     (stilkat / ('%s.css' % namn)).write_text(css, encoding='utf-8')
-    tema = css_text(stil, stil_id, gammal['tid'], block='@theme')
-    (stilkat / ('%s.tema.css' % namn)).write_text(tema, encoding='utf-8')
-    (stilkat / ('%s.STILPAKET.md' % namn)).write_text(beskrivning(stil, stil_id, namn, sha(css), url), encoding='utf-8')
+    (stilkat / ('%s.tema.css' % namn)).write_text(css_text(stil, stil_id, orig['tid'], block='@theme'), encoding='utf-8')
+    (stilkat / ('%s.STILPAKET.md' % namn)).write_text(beskrivning(stil, stil_id, namn, sha(css), orig.get('url')), encoding='utf-8')
     rad = {'fil': 'src/styles/stil/%s.css' % namn, 'kalla': 'refero: %s %s (kontroller/stilpaket.py)' % (titel, stil_id), 'sha256': sha(css)}
-    return {'stil': stil_id, 'titel': titel, 'original': str(rot), 'css': str(stilkat / ('%s.css' % namn)), 'tema': str(stilkat / ('%s.tema.css' % namn)),
-            'beskrivning': str(stilkat / ('%s.STILPAKET.md' % namn)), 'import': rad, 'tokens': len(tokens(stil)),
-            'bilder': sorted(p.name for p in rot.glob('preview_*'))}
+    return {'stil': stil_id, 'titel': titel, 'namn': namn, 'original': str(rot), 'css': str(stilkat / ('%s.css' % namn)),
+            'tema': str(stilkat / ('%s.tema.css' % namn)), 'beskrivning': str(stilkat / ('%s.STILPAKET.md' % namn)), 'import': rad,
+            'tokens': len(tokens(stil)), 'bilder': sorted(p_.name for p_ in rot.glob('preview_*'))}
+
+
+def hamta(slug, stil_id, kandidat=None, namn=None, klient=None, underlag=None, sajt=None):
+    """Hämtar stilen, bevarar originalet och lägger variablerna i sajten. Ger en dict med filerna och DESIGN.md-raden."""
+    sajt = Path(sajt or sajtkatalog(slug, kandidat))
+    if not (sajt / 'package.json').is_file():
+        raise ValueError('%s är ingen sajt (package.json saknas)' % sajt)
+    hamta_original(slug, stil_id, klient=klient, underlag=underlag)
+    return till_sajt(slug, stil_id, sajt, namn=namn, underlag=underlag)
 
 
 def main(argv=None):

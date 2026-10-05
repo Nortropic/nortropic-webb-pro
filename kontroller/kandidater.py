@@ -258,6 +258,118 @@ def forbered_projekt(slug, kid):
     return mal
 
 
+UPPDRAGSMATERIAL = 'UPPDRAGSMATERIAL.json'
+
+
+def stilid(text):
+    """Referos stil-id ur planen: <uuid> eller stil-<uuid> (researchens beteckning); annars None."""
+    import stilpaket
+    s = str(text or '').strip().lower()
+    s = s[len('stil-'):] if s.startswith('stil-') else s
+    return s if stilpaket.UUID.match(s) else None
+
+
+def uppdragsmaterial(slug, klient=None):
+    """Huvudreferensens stilpaket och Mobbins skärmar för besökarens uppgift, per uppdrag (ägarens uppdrag 2026-10-05
+    18:53Z: Referos stilpaket till skaparen och in i CSS:en; Mobbins skärmar per uppgift med vad de bidrar med). Stilens
+    original hämtas en gång och bevaras (kontroller/stilpaket.py) och läggs i kandidatens projekt vid varje försök; Mobbin
+    får en session med en sökfras per uppdrag, genom kundvakten, och svaren hamnar i referenser/uppdrag/ (researchens
+    rapport står kvar). Bara stilens id och de allmänna sökfraserna går till tjänsterna."""
+    import refero_mcp
+    import referenstjanster
+    import stilpaket
+    r = rot(slug)
+    kand = (atelje.las_json(r / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}
+    ut = {kid: {} for kid in kand}
+    hamtade = {}
+    for kid, k in kand.items():
+        radt = str(k.get('refero_stil') or '').strip()
+        if not radt:
+            continue
+        stil = stilid(radt)
+        if not stil:
+            ut[kid]['stil'] = {'id': radt[:60], 'fel': 'inte ett id ur Referos stilar'}
+            continue
+        if stil not in hamtade:
+            try:
+                _st, orig = stilpaket.hamta_original(slug, stil, klient=klient, underlag=atelje.UNDERLAG)
+                hamtade[stil] = {'id': stil, 'titel': orig.get('titel'), 'original': rel(stilpaket.originalkatalog(slug, stil, atelje.UNDERLAG))}
+            except (refero_mcp.ReferoFel, ValueError, OSError) as e:
+                hamtade[stil] = {'id': stil, 'fel': str(e)[:200]}
+        ut[kid]['stil'] = hamtade[stil]
+    fragor = {}  # frasen utan skillnad i versaler och mellanslag → (frasen, uppdragen som delar den)
+    for kid, k in kand.items():
+        f = ' '.join(str(k.get('mobbin_fraga') or '').split())[:160]
+        if f:
+            fragor.setdefault(f.lower(), (f, []))[1].append(kid)
+            ut[kid]['mobbin_fraga'] = f
+    mobbin = {}
+    if fragor:
+        try:
+            _rot, res = referenstjanster.samla(slug, {'fragor': [{'tjanst': 'mobbin', 'fraga': f, 'syfte': 'uppdragens uppgifter', 'typ': 'skarm'}
+                                                                 for f, _k in fragor.values()]}, underlag=atelje.UNDERLAG, katalog='uppdrag')
+            m = (res.get('tjanster') or {}).get('mobbin') or {}
+            for tr in m.get('traffar') or []:
+                nyckel = ' '.join(str(tr.get('fraga') or '').lower().split())
+                if nyckel not in fragor or not tr.get('fil'):
+                    continue
+                for kid in fragor[nyckel][1]:
+                    ut[kid].setdefault('mobbin', []).append({'fil': 'underlag/%s/%s' % (slug, tr['fil']), 'titel': str(tr.get('titel') or '')[:200],
+                                                             'beskrivning': ' '.join(str(tr.get('beskrivning') or '').split())[:400]})
+            mobbin = {'ok': bool(m.get('ok')), 'bilder': m.get('bilder') or 0, 'anmarkningar': m.get('anmarkningar') or [],
+                      'stoppade_fragor': len(res.get('slappta') or [])}
+        except Exception as e:  # noqa: BLE001 — utan Mobbins skärmar fortsätter skisserna, och det står i redovisningen
+            mobbin = {'ok': False, 'fel': '%s: %s' % (type(e).__name__, str(e)[:200])}
+    for kid, v in ut.items():
+        if v.get('mobbin_fraga') and not v.get('mobbin'):
+            v['mobbin_fel'] = mobbin.get('fel') or 'inga skärmar kunde knytas till sökfrasen'
+    (r / UPPDRAGSMATERIAL).write_text(json.dumps({'tid': nu(), 'kandidater': ut, 'mobbin': mobbin}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return {kid: {'stil': bool(v.get('stil') and not v['stil'].get('fel')), 'mobbin': len(v.get('mobbin') or [])} for kid, v in ut.items()}
+
+
+def stilpaket_i_projekt(slug, kid):
+    """Stilpaketet i kandidatens projekt ur det sparade originalet (inget nät), vid varje försök. Ger paketets beskrivning
+    för prompten, eller None."""
+    import stilpaket
+    v = ((atelje.las_json(rot(slug) / UPPDRAGSMATERIAL) or {}).get('kandidater') or {}).get(kid) or {}
+    s = v.get('stil') or {}
+    if not s.get('id') or s.get('fel'):
+        return None
+    try:
+        res = stilpaket.till_sajt(slug, s['id'], ksajt(slug, kid), underlag=atelje.UNDERLAG)
+    except (ValueError, OSError) as e:
+        satt_status(slug, kid, las_status(slug, kid).get('status') or 'under_arbete', 'stilpaketet kunde inte läggas i projektet: %s' % str(e)[:160])
+        return None
+    return res
+
+
+def uppdragsmaterial_rader(slug, kid):
+    """Raderna om stilpaketet och Mobbins skärmar i skaparens uppdrag."""
+    v = ((atelje.las_json(rot(slug) / UPPDRAGSMATERIAL) or {}).get('kandidater') or {}).get(kid) or {}
+    s_ = rel(ksajt(slug, kid))
+    ut = []
+    s = v.get('stil') or {}
+    if s.get('id') and not s.get('fel'):
+        import stilpaket
+        namn = stilpaket.slugga(s.get('titel') or s['id'])
+        ut += ['- huvudreferensens stilpaket ur Refero (%s): %s/src/styles/stil/%s.css är originalet med stilens variabler' % (s.get('titel'), s_, namn),
+               '  (färgerna, typsnitten, typskalan, avstånden, radierna och skuggorna i Referos namn; ändra aldrig filen, importera',
+               '  den i layouten eller sidan), %s.tema.css samma värden som Tailwind-tema, och %s.STILPAKET.md färgernas roller,' % (namn, namn),
+               '  typsnitten med fria ersättare, typskalan, layouten, bildspråket och gör och gör inte; stilens egna sidor i',
+               '  %s/preview_0..2.jpg. Bygg typografin, färgerna och avstånden på variablerna, skriv kundens anpassning i' % s.get('original'),
+               '  %s.anpassning.css, och lägg raden ur STILPAKET.md i DESIGN.md:s "import";' % namn]
+    elif s.get('fel'):
+        ut += ['- huvudreferensens stil i Refero (%s) kunde inte hämtas (%s): bygg på huvudreferensens bilder;' % (s.get('id'), s['fel'])]
+    if v.get('mobbin'):
+        ut += ['- Mobbins skärmar för besökarens uppgift ("%s"), titta på dem med Read:' % v.get('mobbin_fraga')]
+        ut += ['  - %s: %s. %s' % (m['fil'], m['titel'], m['beskrivning']) for m in v['mobbin'][:8]]
+        ut += ['  Skriv i RIKTNING.md under rubriken "Mobbin" vad du tog från varje skärm (ett mönster, en ordning, ett',
+               '  formulärsteg) eller varför den inte passade;']
+    elif v.get('mobbin_fraga'):
+        ut += ['- Mobbin gav inga skärmar för sökfrasen "%s" (%s);' % (v['mobbin_fraga'], v.get('mobbin_fel') or 'okänt skäl')]
+    return ut
+
+
 def undersidor(slug, kid):
     """Kandidatens egna sidor utöver startsidan: vägarna (/projekt/dalbo/ …) till index.astro i katalogerna under pages."""
     pages = ksajt(slug, kid) / 'src' / 'pages'
@@ -504,6 +616,7 @@ PLANFALT = (('titel', None), ('hypotes', 'Hypotesen: varför lösningen passar v
             ('ordning', 'Innehållshierarki, informationsordning och rytm'), ('fortroende', 'Hur förtroende byggs'),
             ('bilder', 'Bildstrategin: bildernas uppgifter, storlekar och beskärning'), ('typografi', 'Typografiskt system'),
             ('farg', 'Färgernas funktion'), ('navigation', 'Navigation och interaktioner'), ('huvudreferens', 'Huvudreferens'),
+            ('refero_stil', 'Referos stil för huvudreferensen'), ('mobbin_fraga', 'Mobbins sökfras för besökarens uppgift'),
             ('referens_kvalitet', 'Kvaliteten i referensen som återskapas'), ('referens_kraver', 'Vad den kvaliteten kräver'),
             ('material_mot_referens', 'Kundens material mot det referensen kräver'),
             ('antaganden', 'Antagandena om besökarna som uppdraget vilar på'), ('undersida', 'Undersidan eller tillståndet'),
@@ -588,6 +701,12 @@ def plan_prompt(slug, n, skiss=False):
         'arbetsbilder, långa svenska rubriker och många tjänster ändrar förutsättningarna); när det inte gör det, hur uppdraget',
         'anpassas (kunskap/bild.md, art direction) och vad som beställs. Ange 1–4 referensbilder (sökvägar under',
         'underlag/%s/referenser/) som visar kvaliteten.' % slug,
+        'Ange i "refero_stil" stilens id när huvudreferensen är en stil ur Referos stilar i researchen (TJANSTER.md, stil-<id>),',
+        'annars en tom sträng: flödet hämtar då stilens paket (färgerna med roller, typsnitten, typskalan, avstånden, skuggorna och',
+        'komponenternas variabler) till skaparens projekt, och skaparen bygger på det (kontroller/stilpaket.py).',
+        'Skriv i "mobbin_fraga" en kort engelsk sökfras för Mobbin om besökarens viktiga uppgift i just det uppdraget (till',
+        'exempel "quote request form for a renovation company" eller "project gallery with categories"), utan kundens namn,',
+        'orter, adress eller nummer: flödet hämtar skärmar för den till skaparen, som skriver vad de bidrog med.',
         'Ange i "sektion" den viktigaste innehållssektionen efter första vyn för just den idén (den skissen visar), och varför.',
         'En referens som en förkastad eller underkänd riktning redan byggt på (historiken) väljs bara med ett skäl i "skillnad"',
         'som svarar på kritiken. Ange vilken undersida eller vilket tillstånd som visar idén bäst (ett projekt, en tjänst,',
@@ -690,6 +809,7 @@ def skapar_prompt(slug, kid, kritik=None, komplettering=None, forbattra=None, er
         *historik_rader(slug),
         *regel_rader(), *metod_rader(slug, 'skapa'), '',
         *material_rader(slug),
+        *uppdragsmaterial_rader(slug, kid),
         'Bilderna ligger i ditt projekt under %s/src/assets/atelje/; importera dem med sökväg från projektroten' % s,
         '(/src/assets/atelje/<fil>) och visa dem med <Image> från astro:assets, med format, storlek och object-position efter',
         'bildens uppgift.', '',
@@ -761,7 +881,8 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         '- materialet: %s; bilderna ligger i ditt projekt under %s/src/assets/atelje/: importera dem från' % (rel(u / 'bilder' / 'BILDER.md'), s_),
         '  /src/assets/atelje/<fil> och visa dem med <Image> från astro:assets, beskurna efter bildens uppgift;',
         '- metoden: %s (kvalitetskraven, besluten som gäller med räckvidd, avgörandena mellan motstridiga råd och en' % ', '.join(m['delar']['före']),
-        '  förteckning över utdrag ur skills och kunskapsfiler som du slår upp när uppgiften behöver dem).',
+        '  förteckning över utdrag ur skills och kunskapsfiler som du slår upp när uppgiften behöver dem);',
+        *uppdragsmaterial_rader(slug, kid),
         *([''] + aktuella if aktuella else []), '',
         *historik_rader(slug), '',
         'Sanningen: använd kundens verifierade material. Där material saknas står ett tydligt märkt utkast ("Utkast: …") eller',
@@ -858,6 +979,7 @@ def skapa(slug, kid):
     st = las_status(slug, kid)
     forsok = int(st.get('forsok') or 0) + 1
     forbered_projekt(slug, kid)
+    stilpaket_i_projekt(slug, kid)
     tidigare = st.get('skal') if st.get('status') in ('under_arbete', 'avbruten', 'fel', 'ofullstandig') and forsok > 1 else None
     satt_status(slug, kid, 'under_arbete', 'skaparsession %d' % forsok, forsok=forsok, startad=nu(), metod={'skapa': metodinfo(slug, 'skapa')['sha']})
     d = kdir(slug, kid)
@@ -912,6 +1034,7 @@ def skissa(slug, kid, fel=None):
     frist = FRIST_SKISS_OMFORSOK if fel else FRIST_SKISS
     start, startad = time.monotonic(), nu()  # försöket räknas från början, förberedelsen och fotograferingen inräknade (S8)
     forbered_projekt(slug, kid)
+    stilpaket_i_projekt(slug, kid)
     satt_status(slug, kid, 'under_arbete', 'skiss, försök %d' % forsok, forsok=forsok, startad=startad, frist=frist,
                 metod=dict(st.get('metod') or {}, skiss=metodinfo(slug, 'skiss')['sha']), ta_bort=('tekniskt_fel',))
     d = kdir(slug, kid)
@@ -1186,7 +1309,7 @@ def planprovning(slug):
     ids = sorted(plan.get('kandidater') or {})
     # titel, hypotes och huvudreferens är låsta: hypotesen och titeln visas för ägaren före det blinda valet, och en ny
     # huvudreferens saknar sina referensbilder (granskning 4, G8)
-    lasta = ('titel', 'hypotes', 'huvudreferens')
+    lasta = ('titel', 'hypotes', 'huvudreferens', 'refero_stil')  # stilen hör till huvudreferensen
     falt = [f for f, _ in PLANFALT if f not in lasta]
     prompt = '\n'.join([
         'Du är specialisterna för art direction och UX i skapandeflödet (kunskap/skapandeflodet.md) för en riktig verksamhet.',
@@ -1872,6 +1995,11 @@ def kor(slug, status, skriv, n=None):
         planera(slug, n, lage)
         tider['plan'] = nu()
     ids = lista(slug)
+    if not (r / UPPDRAGSMATERIAL).is_file() and all(las_status(slug, k).get('status') == 'planerad' for k in ids):
+        status['steg'] = 'material'  # huvudreferensens stilpaket och Mobbins skärmar per uppdrag, före skaparna
+        skriv()
+        status['uppdragsmaterial'] = uppdragsmaterial(slug)
+        tider['material'] = nu()
     if lage == 'skiss' and not (r / 'PLANPROVNING.json').is_file() and all(las_status(slug, k).get('status') == 'planerad' for k in ids):
         status['steg'] = 'planprovning'  # specialisterna prövar planerarens designval innan någon bygger
         skriv()

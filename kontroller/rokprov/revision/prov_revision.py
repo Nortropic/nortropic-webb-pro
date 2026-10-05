@@ -5969,6 +5969,12 @@ st_ = res_rt['tjanster']['refero']
 assert not st_['ok'] and 'hämtades inte med get_style' in st_['stilar'][0]['fel'] and any('utan refero_get_style' in a_ for a_ in st_['anmarkningar']), 'påstådda stilvärden utan get_style är inte belagda'
 assert 'aldrig Thumbnail URL' in rt_.prompt_for('refero', [{'tjanst': 'refero', 'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'P') and 'ingen platform-' in rt_.prompt_for('mobbin', [{'tjanst': 'mobbin', 'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'P')
 stilar_rt_[:] = []
+# uppdragens material i en egen katalog: researchens rapport står orörd (ägarens uppdrag 2026-10-05 18:53Z, Mobbin per uppgift)
+fore_rt_ = (rot_rt / 'TJANSTER.json').read_bytes()
+rot_up_, res_up_ = rt_.samla('prov-rt', {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form', 'syfte': ''}]}, u_rt, lokala_portar=(rt_port,),
+                             kor=kor_rt_tom_, katalog='uppdrag')
+assert rot_up_ == u_rt / 'prov-rt' / 'referenser' / 'uppdrag' and (rot_up_ / 'TJANSTER.json').is_file() and (rot_rt / 'TJANSTER.json').read_bytes() == fore_rt_
+assert res_up_['tjanster']['mobbin']['logg'].startswith('referenser/uppdrag/mobbin/session-'), res_up_['tjanster']['mobbin']['logg']
 srv_rt.shutdown()
 print('referenstjänsterna ok')
 
@@ -6147,6 +6153,77 @@ def stilpaketet():
     finally:
         rm_.ladda_bild = spara_bild
     print('stilpaketet ok')
+
+
+def uppdragsmaterialet():
+    """Huvudreferensens stilpaket och Mobbins skärmar per uppdrag (ägarens uppdrag 2026-10-05 18:53Z): ett felaktigt
+    stil-id redovisas, samma sökfras blir en fråga, svaren knyts till uppdragen, researchens rapport står kvar, och paketet
+    hamnar i kandidatens projekt och i skaparens uppdrag."""
+    import inspect
+    import kandidater as kd_
+    import atelje as at_
+    import referenstjanster as rt2_
+    import refero_mcp as rm2_
+    SID = '00000000-1111-2222-3333-555555555555'
+    spara_ = (at_.UNDERLAG, at_.KUNDER, rt2_.samla, rm2_.ladda_bild)
+    at_.UNDERLAG, at_.KUNDER = tmp / 'um-u', tmp / 'um-k'
+    try:
+        slug_ = 'um-kund'
+        r_ = kd_.rot(slug_)
+        r_.mkdir(parents=True)
+        (r_ / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {
+            'k01': {'titel': 'Ett', 'refero_stil': 'stil-' + SID, 'mobbin_fraga': 'Quote request form'},
+            'k02': {'titel': 'Två', 'refero_stil': 'abc', 'mobbin_fraga': 'quote  request FORM'},
+            'k03': {'titel': 'Tre', 'refero_stil': '', 'mobbin_fraga': ''}}}))
+        anrop_ = []
+
+        def samla_(slug, uppdrag, underlag=None, katalog='tjanster', **kw):
+            anrop_.append((slug, uppdrag, katalog))
+            return None, {'slappta': [], 'tjanster': {'mobbin': {'ok': True, 'bilder': 2, 'anmarkningar': [], 'traffar': [
+                {'fraga': 'quote request form', 'fil': 'referenser/uppdrag/mobbin/bilder-x/a.png', 'titel': 'Formulär', 'beskrivning': 'Tre steg.'},
+                {'fraga': 'något annat', 'fil': 'referenser/uppdrag/mobbin/bilder-x/b.png', 'titel': 'Annat', 'beskrivning': 'x'}]}}}
+        rt2_.samla = samla_
+
+        def bild_(url, mal, max_byte=0):
+            f_ = Path(str(mal) + '.jpg')
+            f_.write_bytes(b'\xff\xd8\xff')
+            return f_
+        rm2_.ladda_bild = bild_
+
+        class Klient_:
+            def json(self, namn, args):
+                if namn == 'refero_search_styles':
+                    return {'records': [{'uuid': SID, 'preview_url': 'https://images.refero.design/styles/x/%s/preview_0.jpg' % SID}]}
+                return {'title': 'Provstil', 'colors': [{'hex': '#fff3e7', 'name': 'Canvas', 'role': 'yta'}],
+                        'components': [{'html': '<style>:root { --color-canvas: #fff3e7; }</style>'}]}
+
+            def kalla(self, namn, args):
+                return '# Provstil\n'
+        sammanf_ = kd_.uppdragsmaterial(slug_, klient=Klient_())
+        assert sammanf_ == {'k01': {'stil': True, 'mobbin': 1}, 'k02': {'stil': False, 'mobbin': 1}, 'k03': {'stil': False, 'mobbin': 0}}, sammanf_
+        assert len(anrop_) == 1 and anrop_[0][2] == 'uppdrag' and [f_['fraga'] for f_ in anrop_[0][1]['fragor']] == ['Quote request form'], anrop_
+        assert 'Ett' not in json.dumps(anrop_) and all(f_['syfte'] == 'uppdragens uppgifter' for f_ in anrop_[0][1]['fragor']), 'bara frasen går till Mobbin'
+        mat_ = json.loads((r_ / kd_.UPPDRAGSMATERIAL).read_text())['kandidater']
+        assert mat_['k01']['stil']['id'] == SID and mat_['k02']['stil']['fel'] and mat_['k02']['mobbin'][0]['fil'] == 'underlag/um-kund/referenser/uppdrag/mobbin/bilder-x/a.png'
+        (kd_.ksajt(slug_, 'k01')).mkdir(parents=True)
+        (kd_.ksajt(slug_, 'k01') / 'package.json').write_text('{}')
+        paket_ = kd_.stilpaket_i_projekt(slug_, 'k01')
+        assert paket_ and Path(paket_['css']).is_file() and '--color-canvas: #fff3e7;' in Path(paket_['css']).read_text()
+        assert kd_.stilpaket_i_projekt(slug_, 'k02') is None and kd_.stilpaket_i_projekt(slug_, 'k03') is None
+        rad1_, rad2_, rad3_ = (kd_.uppdragsmaterial_rader(slug_, k_) for k_ in ('k01', 'k02', 'k03'))
+        assert any('stilpaket ur Refero (Provstil)' in x_ for x_ in rad1_) and any('a.png: Formulär. Tre steg.' in x_ for x_ in rad1_) \
+            and any('rubriken "Mobbin"' in x_ for x_ in rad1_), rad1_
+        assert any('kunde inte hämtas' in x_ for x_ in rad2_) and rad3_ == [], (rad2_, rad3_)
+        assert {'refero_stil', 'mobbin_fraga'} <= set(kd_.PLAN_SCHEMA['properties']['kandidater']['items']['required'])
+        assert 'uppdragsmaterial_rader(slug, kid)' in inspect.getsource(kd_.skiss_prompt) and 'uppdragsmaterial_rader(slug, kid)' in inspect.getsource(kd_.skapar_prompt)
+        assert "'refero_stil')" in inspect.getsource(kd_.planprovning), 'stilen är låst med huvudreferensen'
+        assert kd_.stilid('STIL-' + SID.upper()) == SID and kd_.stilid('abc') is None
+    finally:
+        at_.UNDERLAG, at_.KUNDER, rt2_.samla, rm2_.ladda_bild = spara_
+    print('uppdragsmaterialet ok')
+
+
+uppdragsmaterialet()
 
 
 stilpaketet()
