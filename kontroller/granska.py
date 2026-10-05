@@ -647,9 +647,11 @@ def arbetare(rdir):
                 sessioner.append({'granskare': n, **{k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id', 'total_cost_usd')}})
         # bildkedjan (Codex 2026-10-05): vad varje granskare läste av ankarna, referensernas bildval och startsidans första
         # rutor, ur transkriptet. Bokförs i domen; ännu inget krav (ateljéns panel har kravet).
-        krav_g = granskarkrav(ankare, frysta, bilder)
         for s_ in sessioner:
-            s_['lasning'] = bildkedja.lasning(s_.get('session_id'), krav_g)
+            try:  # en iakttagelse får aldrig fälla en giltig dom
+                s_['lasning'] = bildkedja.lasning(s_.get('session_id'), granskarkrav(ankare, frysta, bilder))
+            except Exception as e:  # noqa: BLE001
+                s_['lasning'] = {'verifierad': False, 'grupper': {}, 'bilder_lasta': None, 'skal': 'bildkedjan föll: %s' % e}
         if len(delar) < antal:
             # alla konfigurerade granskare måste ha svarat giltigt: en ensam granskare får inte godkänna det två skulle
             # dömt (revisionen 2026-10-03, F8). Omgången slutar med fel; stoppvakten startar en ny.
@@ -791,7 +793,7 @@ def markdown(g):
     if lasningar:
         rad += ['', '## Granskarnas läsning', '', 'Ur transkripten (kontroller/bildkedja.py): ankarna, referensernas bildval och startsidans första rutor.', '']
         for n_, las in lasningar:
-            rad.append('- granskare %s: %s' % (n_, ', '.join('%s %d av %d' % (k, x['lasta'], x['kravda']) for k, x in las['grupper'].items())
+            rad.append('- granskare %s: %s' % (n_, (', '.join('%s %d av %d' % (k, x['lasta'], x['kravda']) for k, x in las['grupper'].items()) or 'inget att pröva')
                                                 if las.get('verifierad') else 'kunde inte verifieras (%s)' % las.get('skal', 'inget transkript')))
     rad += ['', '## Likhet med tidigare byggen', '', g.get('likhet_tidigare') or '-', '', '## Sammanfattning', '', g.get('sammanfattning') or '-', '']
     return '\n'.join(rad)
