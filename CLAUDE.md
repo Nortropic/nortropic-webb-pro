@@ -1,8 +1,10 @@
 # nortropic-webb-pro — för sessioner i det här repot
 
-Bygger webbplatser åt riktiga verksamheter enligt litteraturens åtta steg. Ägaren dömer resultatet. Varför och vad
-som beslutats: `BESLUT.md`. Ägarens domar: `LARDOMAR.md` (publik, utan personuppgifter) och ordagrant i
-`underlag/LARDOMAR-original.md` (privat); de gäller före allt annat.
+Bygger webbplatser åt riktiga verksamheter enligt litteraturens åtta steg. Ägaren dömer resultatet. Det som gäller nu,
+med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens beslut) och kundens aktuella domar i
+`underlag/<slug>/DESIGNDOMAR.jsonl`. Historiken bevaras och slås upp när den besvarar en konkret fråga: varför och vad
+som beslutats i `BESLUT.md`, ägarens domar över tidigare byggen i `LARDOMAR.md` (publik, utan personuppgifter) och
+ordagrant i `underlag/LARDOMAR-original.md` (privat). En äldre smakdom är ett exempel, ingen regel för en ny kund.
 
 ## Skills
 

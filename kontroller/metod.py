@@ -36,9 +36,9 @@ LAS = ROOT / 'kunskap' / 'metodkarta.lock.json'
 SKILLS = ROOT / '.claude' / 'skills'
 MAX_TECKEN = 30000  # per levererad fil: ett Read utan offset och limit, med god marginal till 25 000 token
 MAX_RADER = 1500  # och under Reads 2 000 rader
-STEG = {'forska': 'Research', 'plan': 'Plan', 'skapa': 'Skapa', 'granska': 'Granska', 'forfina': 'Förfina', 'text': 'Text'}
+STEG = {'forska': 'Research', 'plan': 'Plan', 'skapa': 'Skapa', 'skiss': 'Skiss', 'granska': 'Granska', 'forfina': 'Förfina', 'text': 'Text'}
 RAD = re.compile(r'^(?P<vag>[A-Za-z0-9_./-]+\.(?:md|csv|txt))(?:\s+rad\s+(?P<rader>[0-9][0-9–\-, ]*))?(?:\s+#\s*(?P<rubrik>.+?))?\s*$')
-BLOCK = re.compile(r'^```utdrag(?:[ \t]+(?P<del>före|varv))?[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
+BLOCK = re.compile(r'^```utdrag(?:[ \t]+(?P<del>före|varv|uppslag))?[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
 
 
 class MetodFel(Exception):
@@ -158,7 +158,7 @@ def prova(karta_text=None, las=None):
     except MetodFel as e:
         return [str(e)], {}
     for rubrik in STEG.values():
-        for del_ in ('före', 'varv'):
+        for del_ in ('före', 'varv', 'uppslag'):
             try:
                 rader = stegets_rader(karta, rubrik, del_)
             except MetodFel as e:
@@ -208,8 +208,9 @@ def packa(huvud, block, fortsattning):
 
 def leverera(steg, katalog):
     """Stegets metod som filer i katalogen: METOD-<steg>.md (läses före första ändringen), METOD-<steg>-varv.md (i
-    varven) och METOD-<steg>-text.md (texten), med kartans text för steget, avgörandena och utdragen; en del större än
-    en läsning delas i -2, -3 …. MetodFel när kartan inte håller (prova)."""
+    varven), METOD-<steg>-text.md (texten) och METOD-<steg>-uppslag.md (utdrag att slå upp när uppgiften behöver dem,
+    med en förteckning i METOD-<steg>.md), med kartans text för steget, avgörandena och utdragen; en del större än en
+    läsning delas i -2, -3 …. MetodFel när kartan inte håller (prova)."""
     rubrik = STEG[steg]
     text = KARTA.read_text(encoding='utf-8')
     fel, kallor = prova(text)
@@ -219,40 +220,71 @@ def leverera(steg, katalog):
     katalog = Path(katalog)
     katalog.mkdir(parents=True, exist_ok=True)
     for gammal in katalog.glob('METOD-%s*.md' % steg):  # en tidigare leverans med fler delar lämnar inga gamla delar kvar
-        if re.fullmatch(r'METOD-%s(?:-varv|-text)?(?:-\d+)?\.md' % re.escape(steg), gammal.name):
+        if re.fullmatch(r'METOD-%s(?:-varv|-text|-uppslag)?(?:-\d+)?\.md' % re.escape(steg), gammal.name):
             gammal.unlink()
     regler = (ROOT / 'kunskap' / 'designregler.md').read_text(encoding='utf-8')
-    filer = []
     hanv = [r[1:].strip() for d_ in ('före', 'varv') for r in karta[rubrik]['block'].get(d_, []) if r.startswith('@')]
     med_text = 'Text' in hanv and rubrik != 'Text'  # textens utdrag i en egen fil
-    for del_, stam in (('före', 'METOD-%s' % steg), ('varv', 'METOD-%s-varv' % steg), ('text', 'METOD-%s-text' % steg)):
+    utom = ('Text',) if med_text else ()
+
+    def block_for(rader):
+        ut = []
+        for r in rader:
+            u = utdrag(r)
+            ut.append(('### %s · %s · sha %s' % (u['vag'], ', '.join('rad %d–%d' % ab for ab in u['intervall']), u['sha'][:12]), u['text']))
+        return ut
+
+    def namn_for(stam, i, n):
+        return '%s%s.md' % (stam, '-%d' % i if i > 1 else '')
+
+    def titel_for(del_):
+        return '# Metoden: %s%s' % (rubrik, {'varv': ' — i varven', 'text': ' — texten', 'uppslag': ' — att slå upp'}.get(del_, ''))
+
+    def huvud_for(del_, titel, extra=()):
+        h = [titel, '',
+             'Levererad ur kunskap/metodkarta.md (sha %s) med designregler.md (sha %s). Utdragen nedan är exakt de avsnitt'
+             % (sha(text)[:12], sha(regler)[:12]),
+             'kartan anger, med källa, rader och källans hash. Där ett utdrag säger emot avgörandena gäller avgörandena.', '']
+        if del_ == 'före':
+            h += ['## Steget', '', karta[rubrik]['prosa'], '', '## Avgöranden', '', karta['Avgöranden']['prosa'], ''] + list(extra)
+        elif del_ == 'text':
+            h += ['## Texten', '', karta['Text']['prosa'], '']
+        elif del_ == 'uppslag':
+            h += ['Slå upp det avsnitt uppgiften behöver; filen läses inte i förväg.', '']
+        return h + ['## Utdragen', '', '']
+
+    texter, index = {}, []
+    up_rader = stegets_rader(karta, rubrik, 'uppslag', utom=utom)
+    if up_rader:  # uppslaget först: förteckningen i före-filen pekar på filen där varje utdrag står
+        titel = titel_for('uppslag')
+        delar = packa('\n'.join(huvud_for('uppslag', titel)), ['%s\n\n%s' % b for b in block_for(up_rader)], titel + '\n\n## Utdragen (fortsättning)\n\n')
+        texter['uppslag'] = (titel, delar)
+        for i, t_ in enumerate(delar, 1):
+            for rubrikrad in re.findall(r'^### (.+?) · sha [0-9a-f]+$', t_, re.M):
+                index.append('- %s → %s' % (rubrikrad, namn_for('METOD-%s-uppslag' % steg, i, len(delar))))
+    for del_ in ('före', 'varv', 'text'):
         if del_ == 'text':
             if not med_text:
                 continue
             rader = stegets_rader(karta, 'Text', 'före') + stegets_rader(karta, 'Text', 'varv')
         else:
-            rader = stegets_rader(karta, rubrik, del_, utom=('Text',) if med_text else ())
-        if not rader and del_ == 'varv':
+            rader = stegets_rader(karta, rubrik, del_, utom=utom)
+        if not rader and del_ != 'före':
             continue
-        titel = '# Metoden: %s%s' % (rubrik, {'varv': ' — i varven', 'text': ' — texten'}.get(del_, ''))
-        huvud = [titel, '',
-                 'Levererad ur kunskap/metodkarta.md (sha %s) med designregler.md (sha %s). Utdragen nedan är exakt de avsnitt'
-                 % (sha(text)[:12], sha(regler)[:12]),
-                 'kartan anger, med källa, rader och källans hash. Där ett utdrag säger emot avgörandena gäller avgörandena.', '']
-        if del_ == 'före':
-            huvud += ['## Steget', '', karta[rubrik]['prosa'], '', '## Avgöranden', '', karta['Avgöranden']['prosa'], '']
-        elif del_ == 'text':
-            huvud += ['## Texten', '', karta['Text']['prosa'], '']
-        huvud += ['## Utdragen', '', '']
-        block = []
-        for r in rader:
-            u = utdrag(r)
-            block.append('### %s · %s · sha %s\n\n%s' % (u['vag'], ', '.join('rad %d–%d' % ab for ab in u['intervall']), u['sha'][:12], u['text']))
-        texter = packa('\n'.join(huvud), block, titel + '\n\n## Utdragen (fortsättning)\n\n')
-        for i, innehall in enumerate(texter, 1):
-            namn = '%s%s.md' % (stam, '-%d' % i if i > 1 else '')
-            if len(texter) > 1:
-                innehall = innehall.replace(titel, '%s (fil %d av %d)' % (titel, i, len(texter)), 1)
+        titel = titel_for(del_)
+        extra = (['## Att slå upp', '', 'Utdragen ur skills och kunskapsfiler nedan slår du upp när uppgiften behöver dem; de läses inte i förväg:', '']
+                 + index + ['']) if del_ == 'före' and index else ()
+        texter[del_] = (titel, packa('\n'.join(huvud_for(del_, titel, extra)), ['%s\n\n%s' % b for b in block_for(rader)],
+                                     titel + '\n\n## Utdragen (fortsättning)\n\n'))
+    filer = []
+    for del_, stam in (('före', 'METOD-%s' % steg), ('varv', 'METOD-%s-varv' % steg), ('text', 'METOD-%s-text' % steg), ('uppslag', 'METOD-%s-uppslag' % steg)):
+        if del_ not in texter:
+            continue
+        titel, delar = texter[del_]
+        for i, innehall in enumerate(delar, 1):
+            if len(delar) > 1:
+                innehall = innehall.replace(titel, '%s (fil %d av %d)' % (titel, i, len(delar)), 1)
+            namn = namn_for(stam, i, len(delar))
             (katalog / namn).write_text(innehall, encoding='utf-8')
             filer.append({'fil': katalog / namn, 'del': del_, 'sha': sha(innehall)})
     return {'filer': filer, 'sha': sha(''.join(f['sha'] for f in filer)), 'karta': sha(text), 'kallor': kallor}

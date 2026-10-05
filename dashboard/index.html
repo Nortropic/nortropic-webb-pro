@@ -566,7 +566,7 @@ async function prototypvy(slug) {
   if (!slug) {
     const lista = await api('/api/prototyp');
     if (lista.length === 1) { location.hash = '#/prototyp/' + encodeURIComponent(lista[0]); return; }
-    $('#vy').innerHTML = `<h1>Prototyp</h1><p class="under">Startsidor ur skapandeflödet: skilda grundidéer, panelens val, förfiningen och slutdomen.</p>${lista.map((s) => `<p><a href="#/prototyp/${esc(s)}">${esc(s)}</a></p>`).join('') || '<p>Ingen körning än.</p>'}`;
+    $('#vy').innerHTML = `<h1>Prototyp</h1><p class="under">Startsidor ur skapandeflödet: skilda förslag, ditt val, fördjupningen och godkännandet.</p>${lista.map((s) => `<p><a href="#/prototyp/${esc(s)}">${esc(s)}</a></p>`).join('') || '<p>Ingen körning än.</p>'}`;
     return;
   }
   const d = await api('/api/prototyp/' + encodeURIComponent(slug));
@@ -657,6 +657,7 @@ async function kandidatvy(slug, d) {
       ${ram(k, kBredd, kHela)}
       <div class="rad">${oppna(k)}</div>
       <label class="markera"><input type="checkbox" data-markera="${esc(k.id)}"${markerade.has(k.id) ? ' checked' : ''}> Markera</label>
+      ${(k.brister || []).length ? `<p class="under rod-text" style="margin:6px 0">Snabba kontroller: ${esc(k.brister.join('; '))}</p>` : (d.kandidatlage === 'skiss' ? '<p class="under" style="margin:6px 0">Snabba kontroller: inga brister.</p>' : '')}
       ${k.hypotes ? `<details><summary>Hypotesen</summary><p class="under" style="margin:6px 0">${esc(k.hypotes)}</p></details>` : ''}
       <details${delar[k.id] ? ' open' : ''}><summary>Det jag gillar här</summary><textarea data-del="${esc(k.id)}" placeholder="Till exempel: hur projekten visas, rubrikernas tyngd, mobilens första vy.">${esc(delar[k.id] || '')}</textarea></details>
       ${forklaring(k)}</section>`;
@@ -668,7 +669,7 @@ async function kandidatvy(slug, d) {
   const valbara = Object.keys(KBESLUT).filter((b) => (b === 'putsa' || b === 'godkand') ? forfinade : true);
   const tidigare = (d.domar || []).map((x) => `<p class="under">${tid(x.tid)} · ${esc(x.kalla)} · <b>${esc((KBESLUT[x.beslut] || BESLUT[x.beslut] || x.beslut).split(':')[0])}</b>${(x.kandidater || []).length ? ' · ' + esc(x.kandidater.map((k) => k.etikett || k.id).join(', ')) : ''}: ${esc(String(x.text || '').slice(0, 300))}</p>`).join('');
   $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1>
-    <p class="under">${lage} ${d.godkand ? `<b>Godkänd för helbygge ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : 'Förslagen har neutrala namn i slumpad ordning. Panelens granskning, idéerna och redovisningen visas efter ditt första beslut.'}</p>
+    <p class="under">${lage} ${d.godkand ? `<b>Godkänd för helbygge ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : d.kandidatlage === 'skiss' && d.fas !== 'forfining' ? 'Skisser: första vyn och den viktigaste sektionen, i mobil och dator. Förslagen har neutrala namn i slumpad ordning, och ingen modell har bedömt eller rangordnat dem; de snabba kontrollerna visar bara tekniska brister. Idéerna och redovisningen visas efter ditt första beslut, och de du väljer fördjupas till hela startsidan, undersidan och besökarens flöde.' : 'Förslagen har neutrala namn i slumpad ordning. Panelens granskning, idéerna och redovisningen visas efter ditt första beslut.'}</p>
     ${forsiktig}
     <div class="kverktyg" role="group" aria-label="Bredd">
       ${['390', '768', '1440'].map((b) => `<button class="knapp" data-bredd="${b}" aria-pressed="${b === kBredd}">${{ 390: 'Mobil 390', 768: 'Surfplatta 768', 1440: 'Dator 1440' }[b]}</button>`).join('')}

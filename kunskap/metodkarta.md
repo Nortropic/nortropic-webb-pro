@@ -158,6 +158,46 @@ taste/SKILL.md rad 630–680, 682–683
 @Text
 ```
 
+## Skiss
+
+**Fråga:** visar första vyn och den viktigaste innehållssektionen, med kundens riktiga material, en egen idé om hur
+besökaren förstår verksamheten och löser sin viktigaste uppgift, i mobil och dator?
+
+**Underlag:** UPPDRAG.md (designuppdraget, besökarens uppgift, referensbilderna och vad de ska lära), kundens fakta
+(VERKSAMHET.json, textunderlaget) och bilder (BILDER.md), och den här filen: kvalitetskraven, besluten med räckvidd och
+avgörandena. Utdragen ur skills och kunskapsfiler står i förteckningen nedan och slås upp när uppgiften behöver dem;
+ägarens domar över tidigare byggen och kundens historik slås upp när de besvarar en konkret fråga.
+
+**Till nästa steg:** en byggd skiss (första vyn, den viktigaste sektionen, navigationen och de interaktioner som behövs
+för att förstå förslaget), skärmbilder i 390, 768 och 1440, de snabba kontrollerna (bygget, konsolen, spill, axe,
+siffror utan belägg, menyn) och RIKTNING.md med huvudreferensen, hypotesen, vad referensen lärde, varven och
+materialet. Hela startsidan, undersidan och besökarens centrala flöde byggs först när ägaren valt (Förfina).
+
+**Visar:** grundidén syns i den renderade skissen och skiljer sig från de andra i hur kundens information presenteras och
+uppgiften löses, inte bara i färg; kundens material bär kompositionen, eller ett tydligt märkt utkast eller en
+platshållare står där material saknas; mobilen och datorn är genomarbetade. Inget fast antal varv: varje varv åtgärdar
+en brist skaparen sett i sina egna bilder eller vid jämförelsen med referensen.
+
+```utdrag före
+kunskap/designregler.md
+kunskap/bild.md
+kunskap/visuell-niva.md
+```
+
+```utdrag uppslag
+frontend-design/SKILL.md
+taste/SKILL.md rad 15–31, 38–39, 166–167, 179, 183, 213–260, 298–331, 599–613
+impeccable/reference/craft-floor.md rad 5–42
+impeccable/reference/new-work.md rad 126–127, 130, 132–134, 140
+emil-design-eng/SKILL.md rad 62–145, 197–266, 525–555
+better-layout/SKILL.md
+better-typography/SKILL.md
+better-accessibility/SKILL.md
+better-ui/SKILL.md
+emil-mobile-native/SKILL.md rad 57–144, 167–187
+@Text
+```
+
 ## Granska
 
 **Fråga:** vad uppfattar en besökare, går den viktigaste uppgiften att genomföra, vilka avvikelser är objektiva fel och

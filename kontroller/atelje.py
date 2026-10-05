@@ -157,13 +157,22 @@ def claude():
     return shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
 
 
-def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=()):
-    """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger)."""
+def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=()):
+    """Argumenten till en nästlad session. Ren arbetsbänk (ägarens uppdrag 2026-10-05 16:25Z): sessionen ser bara de
+    inbyggda verktyg den får använda (--tools, ur verktygens namn) och ingen skill-lista (--disable-slash-commands);
+    skillsens innehåll når flödet genom metodkartans utdrag. Prenumerationen: ingen API-nyckel (nastlad.miljo)."""
+    namn = sorted({str(v).split('(', 1)[0] for v in verktyg} | {'Read', 'Glob', 'Grep'})
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--model', modell or MODELL, '--effort', effort or EFFORT,
-            '--allowedTools', *verktyg, '--disallowedTools', *NEKAS, *nekas]
+            '--tools', ','.join(namn), '--disable-slash-commands', '--allowedTools', *verktyg, '--disallowedTools', *NEKAS, *nekas]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
+    return args
+
+
+def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=()):
+    """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger)."""
+    args = session_args(verktyg, schema, max_turer, modell, effort, nekas)
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
     # krockar med fotograferingens bygge i samma katalog; granskningen av r59, punkt 2)
     with open(ut, 'wb') as f:
@@ -1629,7 +1638,7 @@ def redovisa(slug, rot, status):
 AVSLUTADE = ('klar', 'forkastad', 'tillbaka', 'klar_for_bedomning')
 BARS = ('val', 'omgang', 'omgangar', 'overford', 'overforing', 'kompletteringar')  # följer med vid --fortsatt och --putsa
 BARS_FORTSATT = ('putsning', 'forfina_start')  # och vid --fortsatt det som gör en avbruten putsning och förfining hel
-BARS_KANDIDAT = ('kandidatflode', 'valda', 'dom', 'fas', 'forra_lage')  # och i kandidatflödet var körningen var (granskning 2, N1)
+BARS_KANDIDAT = ('kandidatflode', 'valda', 'dom', 'fas', 'forra_lage', 'kandidatlage', 'tider')  # och i kandidatflödet var körningen var (granskning 2, N1)
 
 
 TILLBAKA_KRITIK = 'Skaparen lämnade den valda riktningen under förfiningen; grundidén bar inte (TILLBAKA.md):\n'
@@ -2091,7 +2100,11 @@ def main(argv=None):
         skriv_status(rot, dict(nu_st, pid=proc.pid))
     if gammal.get('kandidatflode'):
         import kandidater
-        print('Skapandeflödet startat (%s, %s, kandidatflödet med %d kandidater, läge %s). Väntar högst %d s.' % (MODELL, EFFORT, kandidater.ANTAL, lage, a.vanta), flush=True)
+        kl = kandidater.korlage(a.slug, gammal)
+        print('Skapandeflödet startat (%s, kandidatflödet med %d kandidater i %s, läge %s). Väntar högst %d s.' % (
+            MODELL, kandidater.ANTAL, 'skissläget (effort %s, högst %d samtidigt, %d min per försök)' % (
+                kandidater.EFFORT_SKISS, min(kandidater.PARALLELLT, kandidater.MAX_PARALLELLT_SKISS), kandidater.FRIST_SKISS // 60)
+            if kl == 'skiss' else 'läget full (%s)' % EFFORT, lage, a.vanta), flush=True)
     else:
         print('Ateljén startad (%s, %s, %d riktningar, läge %s). Väntar högst %d s.' % (MODELL, EFFORT, ANTAL, lage, a.vanta), flush=True)
     return vanta(rot, a.vanta)

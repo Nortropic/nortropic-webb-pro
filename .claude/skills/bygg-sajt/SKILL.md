@@ -13,8 +13,10 @@ description: Bygg en webbplats åt en riktig verksamhet enligt litteraturens åt
 specifika ur en riktig verksamhet och låta det bära sajten. Regeln mot slop finns redan och kommer ur Nortropics
 gamla antislop-skill: `kunskap/copy-kontroll.md` (fraser och strukturer, med `kontroller/copy_kontroll.py` som
 rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella.md` (åtta jämförelsedimensioner).
-Ägarens domar gäller före allt annat här: ordagrant i `underlag/LARDOMAR-original.md` (privat) när den finns, annars
-`LARDOMAR.md` (utan personuppgifter).
+Det som gäller i bygget, med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens beslut), kundens aktuella
+domar i domloggen och, efter ett godkännande, den godkända kandidatens kod och DESIGN.md. Ägarens domar över tidigare
+byggen (`LARDOMAR.md`, ordagrant i det privata `underlag/LARDOMAR-original.md`) är exempel och smakdomar: slå upp dem när
+de besvarar en konkret fråga; de blir aldrig regler för en ny kund.
 
 ## Ramar för körningen
 
@@ -62,9 +64,10 @@ rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella
 
 ## Uppstart
 
-Läs, i den här ordningen: `underlag/LARDOMAR-original.md` om den finns, annars `LARDOMAR.md` (varje dom), `kunskap/copy-kontroll.md`,
-`kunskap/referenser-professionella.md`. Lägg upp de åtta stegen som uppgifter med TaskCreate och bocka av dem med
-TaskUpdate.
+Läs, i den här ordningen: `kunskap/designregler.md`, kundens aktuella domar i `underlag/<slug>/DESIGNDOMAR.jsonl`
+(från den senaste som begärde en ny riktning eller förkastade förslagen; de äldre är historik), `kunskap/copy-kontroll.md`
+och `kunskap/referenser-professionella.md`. Ägarens domar över tidigare byggen slår du upp i `LARDOMAR.md` när de
+besvarar en konkret fråga. Lägg upp de åtta stegen som uppgifter med TaskCreate och bocka av dem med TaskUpdate.
 
 ## Steg 1 — Underlag (upptäckt)
 

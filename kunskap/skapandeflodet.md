@@ -11,9 +11,46 @@ steg använder står i `kontroller/skapande.py`. Ingångarna:
   själv.
 
 Sammanhållningen följer ett välgrundat val, och iterationen får ändra grundidén. Därför utforskas skilda grundidéer
-först, och huvudreferensen blir den valda riktningens referens efteråt. Ägaren väljer själv bland genomarbetade
-förslag innan något förfinas (ägarens uppdrag via Codex 2026-10-05): panelen granskar och rekommenderar, men utser ingen
-vinnare.
+först, och huvudreferensen blir den valda riktningens referens efteråt. Ägaren väljer själv bland förslagen innan
+något fördjupas (ägarens uppdrag via Codex 2026-10-05); ingen panel utser en vinnare.
+
+## Skissläget (standard): full verktygslåda, ren arbetsbänk
+
+Ägarens uppdrag 2026-10-05 16:25Z: kortare väg till professionella, tydligt olika kundanpassade förslag. Första omgången
+ger cirka tio skisser: första vyn, den viktigaste innehållssektionen, navigationen och de interaktioner som behövs för
+att förstå förslaget, genomarbetade i mobil och dator. De skiljer sig i hur kundens information presenteras och
+besökarens uppgift löses; färgbyten på samma layout är inga olika förslag.
+
+- **Ren arbetskontext.** Skaparen får uppdraget (designuppdraget, besökarens uppgift, den viktigaste sektionen,
+  referensbilderna och vad de ska lära), kundens verifierade fakta och material, kundens aktuella domar och metodens
+  kärna (`METOD-skiss.md`: kvalitetskraven, besluten med räckvidd, avgörandena mellan motstridiga råd och en
+  förteckning över utdrag att slå upp i). Historiken, `LARDOMAR.md`, det privata originalet och beslutshistoriken slås
+  upp när de besvarar en konkret fråga; de läses inte i förväg (`kunskap/designregler.md`, historik och smakdomar).
+  Samma gäller `CLAUDE.md`, som laddas i varje nästlad session, och helbyggets uppstart.
+- **Hela verktygslådan finns kvar:** skills med källa och licens, Refero, Mobbin, referensinsamlingen,
+  webbläsarverktygen och kontrollerna. Uppgiften avgör vad som slås upp; inget krav på att allt läses.
+- **Researchen** är gemensam före planen och återanvänder kundens befintliga referenspaket och tjänsterapport; nytt
+  hämtas bara där materialet saknar något (högst fyra sajter och sex frågor). En skapare kan begära en avgränsad
+  komplettering en gång, inom sitt försöks tid.
+- **Budgeten** är ett försöksvillkor: högst tre skisser samtidigt, högst 30 minuter per inledande skaparförsök med
+  verktygsväntan, ett omförsök på 15 minuter bara vid ett identifierat tekniskt fel (bygget föll, bilderna saknas,
+  sessionen föll), ingen förlängning för att nå antalet. Inget fast antal varv: varje varv åtgärdar en brist skaparen
+  sett i sina bilder eller vid jämförelsen med referensen. En skiss som inte blir klar redovisas som ofullständig med
+  skälet och det sparade arbetet; ett avbrutet försök sparas i `forsok-<n>/` och startas om i ett nytt projekt.
+- **Före ägarens val** ingen granskningspanel och ingen förbättringsrunda. De snabba kontrollerna (bygget, konsolen,
+  spill, axe, siffror utan belägg i underlaget, menyns knapp, huvudreferensraden) markerar brister och ändrar aldrig
+  uttrycket. Vyn visar skisserna neutralt, utan rekommendation eller poäng; ofullständiga står med.
+- **Efter ägarens val** fördjupas de valda: hela startsidan, den relevanta undersidan och besökarens centrala flöde, med
+  DESIGN.md i takt med koden. Den godkända kandidatens kod blir leveransens startpunkt (`installera_godkand`, bygg-sajt
+  steg 5.1), så att ingen nästa agent återskapar designen.
+- **Redovisningen** (REDOVISNING.md) har total väntan, tid till första valbara skissen, tid och försök per kandidat,
+  bristerna, det som tillfördes varje uppdrag och verktygen som användes, de ofullständiga och det som behöver
+  mänsklig bedömning. Antalet lästa filer, anrop eller varv är inget betyg.
+
+`NWP_KANDIDATLAGE=full` är en tillfällig växel till det tidigare förvalet (granskning i två pass och förbättringsrunda
+före ägarens val, hela startsidan och undersidan, minst tre varv), för jämförelse och återställning. Växeln tas bort när
+ägaren dömt skissläget (BESLUT.md 2026-10-05, kväll). Körningens läge står i planen, så en återupptagning följer
+körningen.
 
 ## Stegen (kandidatflödet, `kontroller/kandidater.py`)
 

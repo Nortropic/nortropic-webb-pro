@@ -29,6 +29,11 @@ En skills standardråd står under alla fyra.
 - **Den primära handlingen nås:** den syns i första vyn på mobilen och går att nå med tummen. Hur den löses (sidhuvud,
   list, sektion) är riktningens val.
 - **Bilder med uppgift:** alt-text efter bildens uppgift, inga bilder som utger sig för att vara något de inte är.
+- **Säkerhet och kunddata:** kundens namn, orter, nummer och e-post går aldrig till externa tjänster (Refero, Mobbin);
+  inga hemligheter i kod, underlag eller rapporter; paket bara genom `kontroller/typsnitt.py` och byggen innanför
+  processgränsen.
+- **Utkast är märkta:** där kundens material saknas står ett tydligt märkt textutkast eller en platshållare som säger vad
+  som saknas; omdömen, meriter, certifieringar, resultat och siffror hittas aldrig på.
 
 ## Nortropics produkt- och ägarbeslut
 
@@ -43,7 +48,7 @@ En skills standardråd står under alla fyra.
 | Bäst av tre undermåliga godkänns aldrig (2026-10-04) | panelen och granskningen |
 | Ägaren dömer blint och först; panelens omdöme visas efter (2026-10-03–04) | dashboardens vyer |
 | Den godkända prototypen gäller i bygget; en annan riktning utan nytt godkännande är ett blockerande fynd | byggen efter ett godkännande |
-| Domloggens domar för en kund; den senaste går före | den kunden |
+| Domloggens aktuella domar för en kund (från den senaste som begärde en ny riktning eller förkastade förslagen); den senaste går före | den kunden |
 
 ## Kundens behov
 
@@ -74,6 +79,16 @@ En skills standardråd står under alla fyra.
 | Standarddrag bedöms efter användning | frontend-design | panelen och granskningen |
 
 Det finns ingen fast sektionsordning: ordningen är riktningens val och motiveras ur besökarens frågor.
+
+## Historik och smakdomar (slås upp, gäller inte automatiskt)
+
+Ägarens domar över tidigare byggen (`LARDOMAR.md`, ordagrant i det privata `underlag/LARDOMAR-original.md`), kundens
+äldre domar i domloggen, riktningshistoriken (`underlag/<slug>/RIKTNINGSHISTORIK.json`), kalibreringen och
+beslutshistoriken i `BESLUT.md` är exempel, smakdomar och ersatta beslut. De bevaras och slås upp när de besvarar en
+konkret fråga; de läses inte i förväg och blir aldrig regler för en ny kund. Ett gammalt färgval, en uppskattad
+mobilmeny eller en viss rubrikstil är ett exempel ur ett bygge, ingen designregel. Det som gäller nu står ovan: ett
+uttryckligt ägarbeslut med sin räckvidd i tabellen, och kundens aktuella domar (från den senaste domen som begärde en ny
+riktning eller förkastade förslagen, och de efter den) i domloggen.
 
 ## Research: observation, rekommendation, belagd effekt
 

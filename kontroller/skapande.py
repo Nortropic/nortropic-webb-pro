@@ -149,12 +149,25 @@ def senaste(slug, kallor=AGAREN, underlag=None):
     return next((d for d in reversed(domar(slug, underlag)) if d.get('kalla') in kallor), None)
 
 
-def kritikrader(slug, antal=3, underlag=None):
-    """Ägarens senaste domar ordagrant, nyast först, med vad de återöppnar: prompternas första underlag."""
-    egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN][-antal:]
+AKTUELL_START = ('ny_riktning', 'forkasta')  # en dom som börjar en ny linje för kunden: det före är historik
+
+
+def aktuella_domar(slug, underlag=None):
+    """Kundens aktuella domar: från den senaste ägardomen som begärde en ny riktning eller förkastade förslagen, och de
+    efter den; utan en sådan alla ägarens domar. Det äldre är historik som slås upp (ägarens uppdrag 2026-10-05 16:25Z)."""
+    egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN]
+    start = max((i for i, d in enumerate(egna) if d.get('beslut') in AKTUELL_START), default=0)
+    return egna[start:]
+
+
+def kritikrader(slug, antal=3, underlag=None, aktuella=False):
+    """Ägarens senaste domar ordagrant, nyast först, med vad de återöppnar: prompternas första underlag. aktuella: bara
+    kundens aktuella domar (aktuella_domar), i kandidatflödet; den äldre utforskningen får de senaste oavsett."""
+    egna = (aktuella_domar(slug, underlag) if aktuella else [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN])[-antal:]
     if not egna:
         return []
-    rader = ['Ägarens senaste domar över designen (underlag/%s/%s), nyast först. De väger tyngst av allt du läser; en senare' % (slug, DOMLOGG),
+    rader = ['Ägarens %s domar över designen (underlag/%s/%s), nyast först. De väger tyngst av allt du läser; en senare' % (
+                 'aktuella' if aktuella else 'senaste', slug, DOMLOGG),
              'dom går före en tidigare, och före äldre lärdomar och tidigare designval:']
     for d in reversed(egna):
         rader.append('- %s, %s, beslut %s%s:' % (d.get('tid', '?'), d.get('kalla'), d['beslut'],
@@ -529,7 +542,8 @@ def main(argv=None):
         lagg_till_historik(a.slug, [{k: getattr(a, k) for k in ('kalla', 'namn', 'drag', 'utfall', 'kritik')} | ({'tid': a.tid} if a.tid else {})])
         print('historiken har %d poster' % len(historik(a.slug)))
     else:
-        print('\n'.join(kritikrader(a.slug) + [''] + historikrader(a.slug)) or 'tomt')
+        aktuella = kritikrader(a.slug, aktuella=True)  # det som gäller; historiken under, som uppslag
+        print('\n'.join((aktuella or ['Inga aktuella domar för kunden.']) + ['', 'Historik (slås upp, inga regler):'] + (historikrader(a.slug) or ['tom'])))
     return 0
 
 

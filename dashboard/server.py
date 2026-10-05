@@ -863,7 +863,8 @@ def kandidatvy(slug, st):
     jamf = las_json(rot / 'JAMFORELSE.json') if domd else None
     namn = {k['id']: k['etikett'] for k in kand}
     import atelje
-    return {'slug': slug, 'kandidatflode': True, 'steg': st.get('steg'), 'fas': st.get('fas'), 'lage': st.get('lage'), 'startad': st.get('startad'),
+    return {'slug': slug, 'kandidatflode': True, 'kandidatlage': kandidater.korlage(slug, st), 'tider': st.get('tider') or {},
+            'steg': st.get('steg'), 'fas': st.get('fas'), 'lage': st.get('lage'), 'startad': st.get('startad'),
             'klar': st.get('klar'), 'fel': st.get('fel'), 'skal': st.get('skal'), 'domd': domd, 'kandidater': kand, 'avbruten': atelje.avbruten(st),
             'antal': (las_json(rot / 'KANDIDATPLAN.json') or {}).get('antal') or len(kand),
             'forbattring_agaren': (las_json(rot / 'FORBATTRING-AGAREN.json') or []) if domd else [],

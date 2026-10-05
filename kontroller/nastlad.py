@@ -12,8 +12,13 @@ import os
 AV = {'CLAUDE_CODE_DISABLE_AUTO_MEMORY': '1'}
 
 
+API = ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL')  # de nästlade sessionerna går på prenumerationen
+
+
 def miljo(bas=None, behall=None):
-    """bas (os.environ) utan CLAUDECODE, CLAUDE_CODE_* och NWP_* (utom det behall(k) godtar), med automatiskt minne av."""
+    """bas (os.environ) utan CLAUDECODE, CLAUDE_CODE_* och NWP_* (utom det behall(k) godtar), med automatiskt minne av.
+    API-nyckel, token och bas-URL följer aldrig med: en nästlad session byter aldrig själv till API-debitering (ägarens
+    uppdrag 2026-10-05 16:25Z, punkt 7)."""
     bas = os.environ if bas is None else bas
     return {k: v for k, v in bas.items()
-            if (behall and behall(k)) or (k != 'CLAUDECODE' and not k.startswith(('CLAUDE_CODE_', 'NWP_')))} | AV
+            if k not in API and ((behall and behall(k)) or (k != 'CLAUDECODE' and not k.startswith(('CLAUDE_CODE_', 'NWP_'))))} | AV

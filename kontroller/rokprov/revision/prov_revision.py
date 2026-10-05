@@ -3361,7 +3361,8 @@ assert at_pt.kandidatflode_pa(), 'kandidatflödet är standard för en ny utfors
 os.environ['NWP_KANDIDATFLODE'] = 'av'
 kd_u, kd_k = tmp / 'kd-underlag', tmp / 'kd-kunder'
 spara_at_kd = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT)
-spara_kd = {n: getattr(kd, n) for n in ('designkontroll', 'PARALLELLT', 'fotografera', 'leverera_metod', 'forfina_valda')}
+spara_kd = {n: getattr(kd, n) for n in ('designkontroll', 'PARALLELLT', 'fotografera', 'leverera_metod', 'forfina_valda', 'LAGE')}
+kd.LAGE = 'full'  # det här avsnittet prövar förvalet bakom den tillfälliga växeln; skissläget prövas i nästa avsnitt
 spara_bk_kd = bk_pt.ROOT
 bk_pt.ROOT = tmp  # metodkvittot räknar raderna i de levererade filerna under provets rot
 import uuid as uuid_kd  # noqa: E402
@@ -3543,7 +3544,8 @@ try:
     klara_kd = kd.kor(sl_kd, st_kd, lambda: None, n=3)
     plan_kd = json.loads((kd.rot(sl_kd) / 'KANDIDATPLAN.json').read_text())  # planens tid före provets domar (fröet för etiketterna)
     (kd.rot(sl_kd) / 'KANDIDATPLAN.json').write_text(json.dumps(dict(plan_kd, tid='2026-10-05T10:30:00Z')))
-    assert set(st_kd['metod']) == {'forska', 'plan', 'skapa', 'granska', 'forfina'} and (kd.metodkatalog(sl_kd) / 'METOD-skapa-varv.md').is_file(), st_kd.get('metod')
+    assert set(st_kd['metod']) == {'forska', 'plan', 'skapa', 'skiss', 'granska', 'forfina'} and (kd.metodkatalog(sl_kd) / 'METOD-skapa-varv.md').is_file(), st_kd.get('metod')
+    assert json.loads((kd.rot(sl_kd) / 'KANDIDATPLAN.json').read_text())['lage'] == 'full' and st_kd['kandidatlage'] == 'full', 'planen bär körningens läge'
     fo_ = json.loads((kd.rot(sl_kd) / 'FORSKNING.json').read_text())
     assert fo_['nytt']['paket'] == 'paket-v02' and fo_['nytt']['sajter'] == ['ny'] and len(fo_['antaganden']) == 1, fo_
     assert any('nämner kundens' in x_ for x_ in fo_['slappta']) and any('inte-https' in x_ and 'adressen' in x_ for x_ in fo_['slappta']), fo_['slappta']
@@ -3968,6 +3970,210 @@ finally:
     dash.UNDERLAG, dash.KUNDER, dash.ROOT = spara_dash_kd
     bk_pt.ROOT = spara_bk_kd
 print('kandidatflödet ok')
+
+# ---------------------------------------------------------------- skissläget (ägarens uppdrag 2026-10-05 16:25Z: full verktygslåda, ren arbetsbänk)
+import threading as thr_sk  # noqa: E402
+import nastlad as nl_sk  # noqa: E402
+sk_u, sk_k = tmp / 'sk-underlag', tmp / 'sk-kunder'
+spara_at_sk = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT)
+spara_sk = {n: getattr(kd, n) for n in ('PARALLELLT', 'LAGE', 'FRIST_SKISS', 'FRIST_SKISS_OMFORSOK')}
+spara_prova_sk = (prova.bygg_inom_grans, prova.kor, prova.Server)
+spara_komp_sk = sk.komplettera
+spara_dash_sk = (dash.UNDERLAG, dash.KUNDER, dash.ROOT)
+spara_bk_sk = bk_pt.ROOT
+at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.ROOT, bk_pt.ROOT = sk_u, sk_k, tmp / 'sk-arkiv', tmp, tmp
+sl_sk = 'sk-prov'
+u_sk, huvud_sk = sk_u / sl_sk, sk_k / sl_sk / 'sajt'
+try:
+    # --- underlaget med befintlig research (ett referenspaket och tjänsternas rapport), och sajten ur mallen ---
+    (u_sk / 'bilder').mkdir(parents=True)
+    (u_sk / 'bilder' / 'a.jpg').write_bytes(b'jpg')
+    (u_sk / 'bilder' / 'BILDER.md').write_text('# Bilder\n\n- a.jpg: ett kök, helbild\n')
+    (u_sk / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Skissfirman Bygg AB', 'adress': {'ort': 'Piteå', 'postnummer': '123 45'},
+                                                       'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33'}], 'kategorier': ['Snickare'],
+                                                       'oppettider': [{'dag': 'man', 'oppnar': '07:00', 'stanger': '16:00'}]}))
+    for f_, t_ in (('BRIEF.md', '# Brief\n\n## §2 Målgrupper och toppuppgifter\n\n1. Se liknande jobb\n'), ('RESEARCH.md', '# Research\n\nGrundat 1998.\n'),
+                   ('TEXTUNDERLAG.md', '# Text\n\nVi bygger kök och altaner.\n')):
+        (u_sk / f_).write_text(t_)
+    (u_sk / 'referenser' / 'paket-v01' / 'x').mkdir(parents=True)
+    (u_sk / 'referenser' / 'paket-v01' / 'x' / 'vy.png').write_bytes(b'png')
+    (u_sk / 'referenser' / 'paket-v01' / 'PAKET.md').write_text('# Paket\n\n## Xref\n')
+    (u_sk / 'referenser' / 'tjanster').mkdir(); (u_sk / 'referenser' / 'tjanster' / 'TJANSTER.md').write_text('# tjänsterna')
+    (u_sk / sk.DOMLOGG).write_text('\n'.join(json.dumps(d_) for d_ in (
+        {'tid': '2026-10-01T10:00:00Z', 'kalla': 'ägaren', 'beslut': 'putsa', 'text': 'GAMMAL SMAKDOM: mörkgrönt'},
+        {'tid': '2026-10-02T10:00:00Z', 'kalla': 'ägaren', 'beslut': 'ny_riktning', 'text': 'AKTUELL: pröva nya grundidéer'})) + '\n')
+    for f_, t_ in (('package.json', '{}'), ('astro.config.mjs', 'export default {}'), ('src/pages/index.astro', 'mallens start'), ('src/pages/404.astro', '404')):
+        (huvud_sk / f_).parent.mkdir(parents=True, exist_ok=True)
+        (huvud_sk / f_).write_text(t_)
+    (huvud_sk / 'node_modules').mkdir()
+
+    # --- kundens aktuella domar: från den senaste nya riktningen; det äldre är historik ---
+    akt_ = '\n'.join(sk.kritikrader(sl_sk, underlag=sk_u, aktuella=True))
+    assert 'AKTUELL' in akt_ and 'GAMMAL SMAKDOM' not in akt_ and 'GAMMAL SMAKDOM' in '\n'.join(sk.kritikrader(sl_sk, underlag=sk_u)), akt_
+
+    # --- metoden: skissens kärna med en förteckning, utdragen att slå upp i egna filer ---
+    lev_sk = md_kd.leverera('skiss', tmp / 'sk-metod')
+    fore_sk = [f_ for f_ in lev_sk['filer'] if f_['del'] == 'före']
+    upp_sk = [f_ for f_ in lev_sk['filer'] if f_['del'] == 'uppslag']
+    assert len(fore_sk) == 1 and upp_sk and '## Att slå upp' in fore_sk[0]['fil'].read_text() and 'METOD-skiss-uppslag.md' in fore_sk[0]['fil'].read_text()
+    assert '### kunskap/designregler.md' in fore_sk[0]['fil'].read_text() and '### frontend-design/SKILL.md' not in fore_sk[0]['fil'].read_text()
+    assert any('### frontend-design/SKILL.md' in f_['fil'].read_text() for f_ in upp_sk) and any('### humanizer/SKILL.md' in f_['fil'].read_text() for f_ in upp_sk)
+
+    # --- instruktionsvägarna: CLAUDE.md (laddas i varje nästlad session), helbyggets uppstart och miljön ---
+    claude_md_ = (ROOT / 'CLAUDE.md').read_text()
+    assert 'gäller före allt annat' not in claude_md_ and 'designregler.md' in claude_md_ and 'slås upp' in claude_md_
+    bygg_md_ = (ROOT / '.claude' / 'skills' / 'bygg-sajt' / 'SKILL.md').read_text()
+    assert '(varje dom)' not in bygg_md_ and 'gäller före allt annat' not in bygg_md_ and 'kunskap/designregler.md' in bygg_md_
+    assert 'ANTHROPIC_API_KEY' not in nl_sk.miljo({'ANTHROPIC_API_KEY': 'x', 'ANTHROPIC_BASE_URL': 'y', 'PATH': '/bin'}) and 'PATH' in nl_sk.miljo({'PATH': '/bin'})
+    a_sk = at_pt.session_args(kd.verktyg(sl_sk, 'k01'), None, 10, 'm', 'high', ())  # bara de egna verktygen, ingen skill-lista
+    assert a_sk[a_sk.index('--tools') + 1] == 'Bash,Edit,Glob,Grep,Read,Write' and '--disable-slash-commands' in a_sk and '--bare' not in a_sk, a_sk
+    a_sk = at_pt.session_args(kd.LASVERKTYG, {'type': 'object'}, 10, 'm', 'high', ())
+    assert a_sk[a_sk.index('--tools') + 1] == 'Glob,Grep,Read' and '--json-schema' in a_sk
+
+    # --- bygget, webbläsaren och sessionerna ersatta; den riktiga fotograferingen och de snabba kontrollerna körs ---
+    def bygg_sk(sajt, timeout=900):
+        pages, dist = Path(sajt) / 'src' / 'pages', Path(sajt) / 'dist'
+        if not (pages / 'index.astro').is_file() or 'TRASIG' in (pages / 'index.astro').read_text():
+            return 1, 'bygget föll: TRASIG'
+        for p_ in pages.rglob('index.astro'):
+            m_ = dist / p_.relative_to(pages).parent / 'index.html'; m_.parent.mkdir(parents=True, exist_ok=True); m_.write_text(p_.read_text())
+        return 0, 'byggt'
+    inspekterat_sk = []
+
+    def kor_sk(cmd, cwd=None, timeout=900):
+        cmd = [str(x) for x in cmd]
+        if any(x.endswith('inspektera.mjs') for x in cmd):
+            inspekterat_sk.append(cmd)
+            ut_ = Path(cmd[cmd.index('--ut') + 1]); ut_.mkdir(parents=True, exist_ok=True)
+            for n_ in BILDER_KD:
+                (ut_ / n_).write_bytes(b'png')
+            k01_ = '/k01/' in str(ut_)
+            (ut_ / 'INSPEKTION.json').write_text(json.dumps({'vyer': {'390': {'konsol': [{'typ': 'error', 'text': 'Uncaught X'}] if k01_ else [], 'spill': {'spill': False},
+                                                                                 'tillstand': {'meny': {'klickad': True, 'expanded': 'false' if k01_ else 'true'}}}}}))
+            return 0, ''
+        if any(x.endswith('axe.mjs') for x in cmd):
+            ut_ = Path(next(x for x in cmd if x.startswith('--ut='))[5:]); ut_.mkdir(parents=True, exist_ok=True)
+            (ut_ / 'axe.json').write_text(json.dumps({'allvarliga': 0, 'totalt': 1, 'axeVersion': 'x', 'rader': []}))
+            return 0, ''
+        return spara_prova_sk[1](cmd, cwd=cwd, timeout=timeout)
+    prova.bygg_inom_grans, prova.kor, prova.Server = bygg_sk, kor_sk, SrvKd
+    sess_sk, samtidiga_sk, max_sk, las_sk = [], [0], [0], thr_sk.Lock()
+    trasig_k03, dod_k05 = [True], [True]
+
+    def sess_sk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=()):
+        sess_sk.append({'prompt': prompt, 'verktyg': verktyg, 'ut': Path(ut).name, 'schema': schema, 'effort': effort, 'frist': frist, 'nekas': list(nekas)})
+        so = None
+        if schema is kd.FORSKA_SCHEMA_SKISS:
+            so = {'varfor': 'befintligt material räcker', 'riktningar': 'fem grunder', 'sajter': [], 'fragor': [],
+                  'antaganden': [{'antagande': 'besökaren vill se jobb', 'underlag': 'ännu inte observerat', 'provning': 'uppgift', 'om_fel': 'kontakt först'}]}
+        elif schema is kd.PLAN_SCHEMA:
+            so = {'variation': 'fem grunder', 'kandidater': [dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/sk-prov/referenser/paket-v01/x/vy.png'])
+                                                            for i_ in range(5)]}
+        elif schema is None:  # en skissare
+            kid_ = re.search(r'Du gör\nEN skiss, (k\d\d)|EN skiss, (k\d\d)', prompt)
+            kid_ = kid_.group(1) or kid_.group(2)
+            with las_sk:
+                samtidiga_sk[0] += 1; max_sk[0] = max(max_sk[0], samtidiga_sk[0])
+            try:
+                time.sleep(0.05)
+                pages_ = kd.ksajt(sl_sk, kid_) / 'src' / 'pages'
+                if kid_ == 'k04':  # tiden tar slut med en sida som inte bygger: ofullständig, inget omförsök (ingen förlängning)
+                    (pages_ / 'index.astro').write_text('TRASIG halvfärdig')
+                    raise subprocess.TimeoutExpired('claude', frist)
+                if kid_ == 'k05' and dod_k05[0]:  # processen dör mitt i försöket
+                    dod_k05[0] = False
+                    (pages_ / 'index.astro').write_text('<h1>halv skiss</h1>')
+                    raise KeyboardInterrupt('processen dog')
+                text_ = {'k02': '<h1>Skiss</h1><p>Med 25 år i branschen. Ring 070-111 22 33, vardagar 07:00–16:00.</p>'}.get(kid_, '<h1>Skiss</h1><p>Kök och altaner. Utkast: om oss.</p>')
+                (pages_ / 'index.astro').write_text('TRASIG' if kid_ == 'k03' and trasig_k03[0] else text_)
+                if kid_ == 'k03':
+                    trasig_k03[0] = False
+                (kd.kdir(sl_sk, kid_) / 'RIKTNING.md').write_text('Huvudreferens: Xref — kompositionen\n\n## Varv 1\n\nrubriken för stor\n\n## Material\n\nFler foton.\n')
+            finally:
+                with las_sk:
+                    samtidiga_sk[0] -= 1
+        svar_ = {'structured_output': so, 'num_turns': 5, 'duration_ms': 60000, 'total_cost_usd': 0.5, 'session_id': 's'}
+        Path(ut).write_text(json.dumps(svar_))
+        return svar_
+    at_pt.session = sess_sk_
+    sk.komplettera = lambda *a, **k: (_ for _ in ()).throw(AssertionError('skissläget hämtar inget när materialet räcker'))
+    kd.PARALLELLT, kd.LAGE = 5, 'skiss'
+
+    # --- hela omgången: k05:s process dör mitt i försöket och körningen tas upp igen ---
+    st_sk = {'startad': '2026-10-05T09:00:00Z', 'lage': 'ny', 'modell': 'm', 'effort': 'max'}  # före klockan: tiderna jämförs med loggen
+    spara_hook_sk = thr_sk.excepthook
+    thr_sk.excepthook = lambda a_: None  # k05:s tråd dör mitt i försöket, som processen skulle
+    try:
+        kd.kor(sl_sk, st_sk, lambda: None, n=5)
+    finally:
+        thr_sk.excepthook = spara_hook_sk
+    assert kd.las_status(sl_sk, 'k05')['status'] == 'under_arbete'
+    kd.LAGE = 'full'  # en återupptagning följer körningens plan, inte miljön
+    klara_sk = kd.kor(sl_sk, st_sk, lambda: None, n=5)
+    kd.LAGE = 'skiss'
+    plan_sk = json.loads((kd.rot(sl_sk) / 'KANDIDATPLAN.json').read_text())
+    assert plan_sk['lage'] == 'skiss' and st_sk['kandidatlage'] == 'skiss' and st_sk['steg'] == 'klar_for_bedomning', st_sk
+    assert sorted(klara_sk) == ['k01', 'k02', 'k03', 'k05'], klara_sk
+    fo_sk = json.loads((kd.rot(sl_sk) / 'FORSKNING.json').read_text())
+    assert fo_sk['fel'] is None and fo_sk['fore']['paket'] == 'paket-v01' and not fo_sk['nytt']['paket'], 'det befintliga materialet återanvänds'
+    schemor_ = [s_['schema'] for s_ in sess_sk]
+    assert kd.KRITIK_A_SCHEMA not in schemor_ and kd.KRITIK_B_SCHEMA not in schemor_ and kd.JAMFOR_SCHEMA not in schemor_, 'ingen panel före ägarens val'
+    assert not any('Förbättringsrundan' in s_['prompt'] for s_ in sess_sk), 'ingen förbättringsrunda före ägarens val'
+    assert max_sk[0] <= 3, 'högst tre skisser samtidigt (%d)' % max_sk[0]
+    plan_p_ = next(s_['prompt'] for s_ in sess_sk if s_['schema'] is kd.PLAN_SCHEMA)
+    assert 'skisser (första vyn' in plan_p_ and 'sektion' in plan_p_ and 'LARDOMAR-original' not in plan_p_ and 'AKTUELL' in plan_p_ and 'GAMMAL SMAKDOM' not in plan_p_
+    forska_p_ = next(s_['prompt'] for s_ in sess_sk if s_['schema'] is kd.FORSKA_SCHEMA_SKISS)
+    assert 'Återanvänd researchen' in forska_p_ and 'högst 4 sajter och 6 frågor' in forska_p_
+    up_sk = (kd.kdir(sl_sk, 'k01') / 'UPPDRAG.md').read_text()
+    assert 'Den viktigaste innehållssektionen' in up_sk and 'sektion 0' in up_sk
+    # --- skaparens rena arbetskontext ---
+    sk_p = [s_ for s_ in sess_sk if s_['schema'] is None]
+    p1_ = next(s_ for s_ in sk_p if 'EN skiss, k01' in s_['prompt'])
+    for krav_ in ('Omfattningen: första vyn', 'METOD-skiss.md', 'VERKSAMHET.json', 'TEXTUNDERLAG.md', 'BILDER.md', 'UPPDRAG.md', 'Historiken slås upp',
+                  'Hitta aldrig på omdömen', 'Inget fast antal varv', 'högst 30 minuter', 'AKTUELL'):
+        assert krav_ in p1_['prompt'], krav_
+    for inte_ in ('LARDOMAR-original', 'Arbetsregeln är minst', 'GAMMAL SMAKDOM', 'METOD-skiss-uppslag.md', 'undersidan eller tillståndet som uppdraget anger'):
+        assert inte_ not in p1_['prompt'], inte_
+    assert p1_['effort'] == kd.EFFORT_SKISS and p1_['frist'] <= kd.FRIST_SKISS and 'Read(./kunder/sk-prov/kandidater/k02/**)' in p1_['nekas'], (p1_['effort'], p1_['frist'], p1_['nekas'][:4])
+    assert 'Skill' not in p1_['verktyg'] and any('forhandsvisa.py sk-prov --kandidat k01' in v_ for v_ in p1_['verktyg'])
+    # --- de snabba kontrollerna: bristerna markeras, skissen går att bedöma ---
+    s1_, s2_, s3_, s4_, s5_ = (kd.las_status(sl_sk, k_) for k_ in ('k01', 'k02', 'k03', 'k04', 'k05'))
+    assert s1_['status'] == 'klar' and any('konsolfel' in b_ for b_ in s1_['brister']) and any('menyns knapp' in b_ for b_ in s1_['brister']), s1_.get('brister')
+    assert s2_['status'] == 'klar' and any('siffror' in b_ and '25' in b_ for b_ in s2_['brister']) and not any('070' in b_ or '16' in b_ for b_ in s2_['brister']), s2_.get('brister')
+    assert all('--meny' in c_ for c_ in inspekterat_sk) and not any('/undersidor/' in ' '.join(c_) for c_ in inspekterat_sk), 'bara startsidan, med menyns knapp'
+    # k03: bygget föll i första försöket (ett tekniskt fel): ett omförsök med kortare tid och felet
+    assert s3_['status'] == 'klar' and s3_['forsok'] == 2 and [x_['omforsok'] for x_ in s3_['forsok_tider']] == [False, True], s3_.get('forsok_tider')
+    p3b_ = [s_ for s_ in sk_p if 'EN skiss, k03' in s_['prompt']][-1]
+    assert 'tekniskt fel' in p3b_['prompt'] and 'bygget föll' in p3b_['prompt'] and p3b_['frist'] <= kd.FRIST_SKISS_OMFORSOK
+    # k04: tiden tog slut innan något byggts: ofullständig med skälet, inget omförsök
+    assert s4_['status'] == 'ofullstandig' and s4_['forsok'] == 1 and s4_['forsok_tider'][0]['tidsgrans'] and 'bygget föll' in s4_['skal'] and not s4_['tekniskt_fel'], s4_
+    # k05: det avbrutna försöket sparades och startades om i ett nytt projekt
+    assert s5_['status'] == 'klar' and s5_['forsok'] == 2 and (kd.kdir(sl_sk, 'k05') / 'forsok-1' / 'projekt' / 'src' / 'pages' / 'index.astro').read_text() == '<h1>halv skiss</h1>', s5_
+    assert 'halv' not in (kd.ksajt(sl_sk, 'k05') / 'src' / 'pages' / 'index.astro').read_text()
+    # --- tiderna och redovisningen ---
+    t_sk = st_sk['tider']
+    assert all(t_sk.get(k_) for k_ in ('start', 'forskning', 'plan', 'forsta_valbara', 'klar')) and t_sk['start'] <= t_sk['forsta_valbara'] <= t_sk['klar'], t_sk
+    rd_sk = kd.redovisa(sl_sk, st_sk).read_text()
+    for krav_ in ('## Tiderna', 'väntan till första valbara skissen', '## Ofullständiga och fallna', 'k04', 'Ingen modell har bedömt', 'Utkast och platshållare',
+                  'METOD-skiss.md', 'siffror i texten som inte finns i underlaget: 25', '1 + 2 (omförsök)', '1 (tiden slut)'):
+        assert krav_ in rd_sk, krav_
+    # --- vyn: neutral, med bristerna; ingen granskning ---
+    blind_sk = kd.sammanstall(sl_sk)
+    assert all('kritik' not in k_ and 'titel' not in k_ for k_ in blind_sk) and any(k_['brister'] for k_ in blind_sk if k_['id'] == 'k01')
+    dash.UNDERLAG, dash.KUNDER, dash.ROOT = sk_u, sk_k, tmp
+    (kd.rot(sl_sk) / 'STATUS.json').write_text(json.dumps(dict(st_sk, kandidatflode=True)))
+    vy_sk = dash.prototyp(sl_sk)
+    assert vy_sk['kandidatlage'] == 'skiss' and vy_sk['tider']['forsta_valbara'] and not vy_sk['domd'] and vy_sk['redovisning_md'] is None
+    assert 'ingen modell har bedömt eller rangordnat dem' in (ROOT / 'dashboard' / 'index.html').read_text()
+finally:
+    at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT = spara_at_sk
+    for n_, v_ in spara_sk.items():
+        setattr(kd, n_, v_)
+    prova.bygg_inom_grans, prova.kor, prova.Server = spara_prova_sk
+    sk.komplettera = spara_komp_sk
+    dash.UNDERLAG, dash.KUNDER, dash.ROOT = spara_dash_sk
+    bk_pt.ROOT = spara_bk_sk
+print('skissläget ok')
 
 # ---------------------------------------------------------------- autonomins mått (Codex helhetsbedömning 2026-10-04, punkt 9)
 import autonomi as au  # noqa: E402
