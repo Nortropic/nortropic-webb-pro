@@ -1,11 +1,11 @@
 ---
 id: B-20261004-designprov-tre-startsideforslag-med-huvudreferens
-status: pagar
+status: vilande
 kalla: bevakning
 kallref: ägarens dom om bygge 4 (2026-10-04, "underkänner utseendet kraftigt"); Codex R40:s sex punkter för ett avgränsat designprov
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-04T20:19Z
+andrad: 2026-10-05T00:45Z
 ---
 # Designprovet: verifierade referenstjänster, en huvudreferens, tre renderade startsideförslag som får förkastas, och bevarad vinnare
 
@@ -18,3 +18,5 @@ andrad: 2026-10-04T20:19Z
 **Läge 2026-10-04T20:19Z (worktree r53, ateljén):** byggt och provat i sviten (F23b) och rökprovets panelprov: (2) `Huvudreferens: <referens> — <vad den bär>` i REFERENSER.md läses av `referensval.huvudreferens()`; ateljén startar inte utan den och varje riktning följer den. (3) Riktningarna är hela startsidor plus början av en undersida (`atelje-N/undersida/`), fotograferade som alla skärmhöga rutor och helsidesbilden i 390 och 1440; panelen ser de första 8 respektive 4 rutorna, helsidorna och undersidans början, bedömer hela sidan. (4) Varje domare sätter `haller_ribban` och `niva` (over/nastan/generisk) per riktning; en riktning är godkänd bara när en majoritet av de giltiga domarna håller den över ribban, och bland de godkända avgör summan; ingen godkänd = alla förkastade, en ny divergensomgång med panelens kritik (NWP_ATELJE_OMGANGAR, 2), sedan stannar bygget med slutkod 6. En riktning utan undersidans början är ofullständig och kan inte godkännas. (6) Panelen får ägarens kalibreringsankare frysta (`atelje/ankare/`, bara ankarhalvan, ägarens ord ordagrant) och kunskap/visuell-niva.md; prompten säger att frånvaro av gradienter, ikoner eller kort inte är kvalitetsbevis. (5) Vinnarens kod och bilder bevaras i `atelje/vinnare/` med hashar i VINNARE.json, startsidan överförs till `src/pages/index.astro` (Codex 2026-10-04, glapp 5: återanvänd kod, inte återskapad ur text), provet jämför byggets första vy och helsida pixel för pixel mot vinnaren (`kontroller/webblasare/jamfor.mjs`, `prov/vinnare/VINNARJAMFORELSE.md`; förändring, inte kvalitet), granskaren får vinnarens bilder och jämförelsen med regeln att en annan riktning utan ny ateljéomgång är ett blockerande fynd, och VINNARE.json ingår i metodhashen. Skillens steg 3 och 5.1 beskriver kedjan; de fasta recepten (fyra riktningar, två typsnittskategorier, motiv på tre ställen) är borttagna som krav (Codex glapp 4).
 
 **Kvar före den riktiga körningen (Codex 2026-10-04, femstegsuppdraget och ordning 1–3):** ett entydigt designkontrakt (DESIGN.md: aktuella värden som genererar sajtens CSS-variabler; KONCEPT.md: alternativ och beslut) och riktad designextraktion ur referensfångsten med uppmätt/visuellt uppskattat/valt för kunden, Refero `get_style` i tjänsteuppdraget (egen post: designkontraktet); därefter designprovet för Luleå-Snickaren i en ren kopia med NWP_ATELJE=pa: tjänstebelägg, referenspaket, huvudreferens, tre riktningar, panelens dom med ägarens ankare, vinnaren bredvid sina referenser till ägaren. Granskaren prövas separat på nya undanhållna exempel (kalibreringsposten). Punkt (1) är levererad (kontroller/referenstjanster.py, main 7cea708).
+
+**Vilande (2026-10-05):** väntar på ägarens dom: ateljén körde två omgångar 2026-10-05 (tre hela startsidor med undersida och stiltavla per omgång, huvudreferens Ashton Bespoke); panelen förkastade alla, bäst riktning 2 i omgång 2 med 1 av 3 domare över ribban. Båda omgångarna står blint i dashboardens Designprov. Domarna läste 0–5 av 21 ankarbilder; panelen kräver nu läsningen (bildkedja.py).
