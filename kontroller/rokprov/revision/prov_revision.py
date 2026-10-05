@@ -317,12 +317,8 @@ gr.SCHEMA, gr.SCHEMA_ORIGINALITET = tmp / 'kritik' / 'SCHEMA-granskning.json', t
 assert [p.name for p, _ in gr.domda_byggen('ett-abx')] == ['annat'], 'syskonets dom ska undantas'
 (tmp / 'underlag' / 'LARDOMAR-original.md').write_text((tmp / 'LARDOMAR.md').read_text().replace('- bra', '- bra (privat-ord)'))
 rdir0 = tmp / 'runda0'; rdir0.mkdir()
-text = gr.lardomar_utan('ett-abx', rdir0).read_text()
-assert 'privat-ord' in text, 'utdraget ska komma ur den privata originalfilen när den finns (ägarbeslut 2026-10-03)'
-assert 'facit' not in text and 'ett-aby' not in text and '## L1' in text, text
-assert 'effort: A=medium' not in text, 'omärkt A/B-avsnitt ska bort (F17)'
-assert 'atelje: A=av' in text, 'märkt A/B-avsnitt om andra byggen ska vara kvar'
-assert 'atelje: A=av' not in gr.lardomar_utan('tva-abx', rdir0).read_text(), 'märkt A/B-avsnitt om bygget ska bort'
+# ägarens domar över tidigare byggen är historik och når inte granskaren (rensningen inför Nortropic 2.0, 2026-10-06)
+assert not hasattr(gr, 'lardomar_utan') and 'LARDOMAR' not in gr.uppdrag_text('ett-abx', 'http://x', ['/'], tmp / 'ak0', [], [], [], None, rdir0)
 assert 'Read(./LARDOMAR.md)' in gr.nekas_for('ett-abx') and any('ett-aby/DOM.json' in x for x in gr.nekas_for('ett-abx'))
 assert 'Read(./underlag/LARDOMAR-original.md)' in gr.nekas_for('ett-abx'), 'granskaren får inte läsa den privata originalfilen'
 m1 = gr.metod_sha('ett-abx')
@@ -540,13 +536,14 @@ for f_ins, gammal_ in ((S_, 'Saknas den, stryk sektionen'), (S_, 'deras befintli
                        (B_, 'verktyg/bild/'), (B_, 'licensierad stock'), (M_, 'Genererade eller köpta bilder framställs aldrig som kundens verkliga'),
                        # bildregeln 2026-10-05 (Codex via ägaren, punkt 3): äkthet i stället för ett förbud mot allt
                        (B_, 'Stockbilder och genererade bilder används inte på sajten, inte heller som stämning'),
-                       (M_, 'Stockbilder och genererade bilder används inte'), (G_, 'stockbilder eller genererade bilder (ägarens dom: hellre inga foton än stock)')):
+                       (M_, 'Stockbilder och genererade bilder används inte'), (G_, 'stockbilder eller genererade bilder (ägarens dom: hellre inga foton än stock)'),
+                       (S_, 'sidhuvudet på en rad med namn och den primära handlingen som knapp'), (S_, 'list längst ned på mobil bär den primära handlingen och Skriv')):
     assert gammal_ not in text_ins[f_ins], ('gammal mening kvar', f_ins, gammal_)
 for f_ins, ny_ in ((S_, 'Under varje sektion: raden `Fråga:` med den fråga besökaren har som sektionen svarar på'),
                    (S_, 'en primär handling som följer den viktigaste toppuppgiften (ring, boka, begär offert, beställ, hitta hit)'),
                    (S_, 'Telefonen är primär när kunderna ringer; en verksamhet där kunderna bokar eller beställer får bokningen eller beställningen som primär handling'),
-                   (S_, 'sidhuvudet på en rad med namn och den primära handlingen som knapp'),
-                   (S_, 'list längst ned på mobil bär den primära handlingen och Skriv (till formuläret), och Ring när den primära handlingen är en annan'),
+                   # rensningen inför Nortropic 2.0 (2026-10-06): mobilens första vy är riktningens, inte A/B-formen
+                   (S_, 'Mobilens första vy** är riktningens: den godkända kandidatens kod och DESIGN.md (eller KONCEPT.md) avgör sidhuvud'),
                    (S_, 'Listan är ett researchmål, ingen strykregel'),
                    (S_, 'den primära handlingen får aldrig vara den enda vägen; telefonen och en skriftlig väg finns alltid'),
                    (G_, 'döm användningen och utförandet'), (G_, 'Beställningen ursäktar inte (b)'),
@@ -1202,12 +1199,15 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     (u / 'atelje' / 'vinnare' / 'bilder' / 'vy-390-ruta-01.png').write_bytes(b'x')
     h0 = gr.metod_sha('provhr')
     (u / 'atelje' / 'VINNARE.json').write_text(json.dumps({'riktning': 2, 'filer': {}}))
+    assert gr.frysta_vinnare('provhr', rdirv) is None, 'en vinnare som ägaren inte godkänt är ingen måttstock (rensningen inför 2.0)'
+    (u / 'atelje' / 'VINNARE.json').write_text(json.dumps({'riktning': 2, 'filer': {}, 'godkand': {'tid': '2026-10-06T00:00:00Z'}}))
     assert gr.metod_sha('provhr') != h0, 'vinnaren ingår i metodhashen'
     try:
         gr.frysta_vinnare('provhr', rdirv); raise AssertionError('en bild som inte står i VINNARE.json stoppar granskningen')
     except RuntimeError as e:
         assert 'stämmer inte med VINNARE.json' in str(e), e
-    (u / 'atelje' / 'VINNARE.json').write_text(json.dumps({'riktning': 2, 'filer': {'bilder/vy-390-ruta-01.png': hl_hr.sha256(b'x').hexdigest()}}))
+    (u / 'atelje' / 'VINNARE.json').write_text(json.dumps({'riktning': 2, 'filer': {'bilder/vy-390-ruta-01.png': hl_hr.sha256(b'x').hexdigest()},
+                                                          'godkand': {'tid': '2026-10-06T00:00:00Z'}}))
     h1 = gr.metod_sha('provhr')
     vv = gr.frysta_vinnare('provhr', rdirv)
     (u / 'atelje' / 'vinnare' / 'bilder' / 'vy-390-ruta-01.png').write_bytes(b'y')
@@ -1220,8 +1220,8 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     assert vv[0]['riktning'] == 2 and [p.name for p in vv[1]] == ['vy-390-ruta-01.png'] and (rdirv / 'vinnare' / 'vy-390-ruta-01.png').is_file(), vv
     (rdirv / 'VINNARJAMFORELSE.md').write_text('x')
     pt = gr.uppdrag_text('provhr', 'http://x', ['/'], tmp / 'ak', [], [], [], None, rdirv, vinnare=vv)
-    assert 'Ateljéns vinnare: riktning 2' in pt and 'blockerande fynd' in pt and 'vinnare/vy-390-ruta-01.png' in pt and 'VINNARJAMFORELSE.md' in pt, pt
-    assert 'Ateljéns vinnare' not in gr.uppdrag_text('provhr', 'http://x', ['/'], tmp / 'ak', [], [], [], None, rdirv)
+    assert 'Ägarens godkända startsida ur ateljén: riktning 2' in pt and 'blockerande fynd' in pt and 'vinnare/vy-390-ruta-01.png' in pt and 'VINNARJAMFORELSE.md' in pt, pt
+    assert 'godkända startsida' not in gr.uppdrag_text('provhr', 'http://x', ['/'], tmp / 'ak', [], [], [], None, rdirv)
     (rdirv / 'vinnarjamforelse').mkdir(); (rdirv / 'vinnarjamforelse' / 'skillnad-vy-390-ruta-01.png').write_bytes(b'd')
     assert 'vinnarjamforelse/skillnad-vy-390-ruta-01.png' in gr.uppdrag_text('provhr', 'http://x', ['/'], tmp / 'ak', [], [], [], None, rdirv, vinnare=vv), 'skillnadsbilderna står i uppdraget'
     gr.UNDERLAG = gu_hr
@@ -4169,7 +4169,7 @@ try:
     # --- skaparens rena arbetskontext ---
     sk_p = [s_ for s_ in sess_sk if s_['schema'] is None]
     p1_ = next(s_ for s_ in sk_p if 'EN skiss, k01' in s_['prompt'])
-    for krav_ in ('Omfattningen: första vyn', 'METOD-skiss.md', 'VERKSAMHET.json', 'TEXTUNDERLAG.md', 'BILDER.md', 'UPPDRAG.md', 'Historiken slås upp',
+    for krav_ in ('Omfattningen: första vyn', 'METOD-skiss.md', 'VERKSAMHET.json', 'TEXTUNDERLAG.md', 'BILDER.md', 'UPPDRAG.md', 'Kundens historik slås upp',
                   'Hitta aldrig på omdömen', 'Inget fast antal varv', 'försöket högst 30 minuter', 'AKTUELL'):
         assert krav_ in p1_['prompt'], krav_
     for inte_ in ('LARDOMAR-original', 'Arbetsregeln är minst', 'GAMMAL SMAKDOM', 'METOD-skiss-uppslag.md', 'undersidan eller tillståndet som uppdraget anger'):
@@ -4460,8 +4460,8 @@ import inspect as insp_k3  # noqa: E402
 assert 'En skill som inte lästs' not in insp_k3.getsource(kd.metod_rader)
 # S15: helbygget går på prenumerationen
 assert '-u ANTHROPIC_API_KEY' in (ROOT / 'kor.sh').read_text()
-# S7: granskarnas text: ägarens domar över andra byggen är exempel, inte regler
-assert 'ägarens skäl väger tyngst' not in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'inga regler för den här kunden' in (ROOT / 'kontroller' / 'granska.py').read_text()
+# S7, skärpt i rensningen inför Nortropic 2.0: ägarens domar över andra byggen når inte granskarna alls
+assert 'ägarens skäl väger tyngst' not in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'aldrig en måttstock' in (ROOT / 'kontroller' / 'granska.py').read_text()
 assert 'gäller före allt' not in (ROOT / 'kontroller' / 'atelje.py').read_text()
 # S16: förteckningen pekar på alla filer ett långt utdrag fortsätter i
 lev_k3 = md_kd.leverera('forska', tmp / 'k3-metod')
@@ -6221,6 +6221,46 @@ def uppdragsmaterialet():
     finally:
         at_.UNDERLAG, at_.KUNDER, rt2_.samla, rm2_.ladda_bild = spara_
     print('uppdragsmaterialet ok')
+
+
+def gammal_styrning():
+    """Rensningen inför Nortropic 2.0 (ägarens uppdrag 2026-10-05 ~21:11Z): ersatta beslut och gamla kundsmakdomar når
+    inga agenter, inte heller genom metodens utdrag, mallen eller en körnings cache; en återinförd regel fångas."""
+    import styrning as sty_
+    fynd_ = sty_.prova()
+    assert not fynd_, ['%s:%s %s' % (x['kalla'], x['rad'], x['vad']) for x in fynd_[:8]]
+    for rad_ in ('- Värdena är startpunkter. Ägarens domar i `LARDOMAR.md` gäller före allt.', 'Sidhuvud på en rad (ägarens A/B 2026-10-02).',
+                 'Ägarens domar över tidigare byggen är exempel på vad ägaren värderar.', 'Typsnittet godtogs (ägarens dom L2).',
+                 'Använd inga andra bilder.', 'Telefonnumret som tel-länk i sidhuvudet på varje sida.'):
+        assert sty_.fynd_i(rad_, 'prov'), rad_
+    assert not sty_.fynd_i('Ersatt 2026-10-05: "Telefonnumret som tel-länk i sidhuvudet på varje sida"', 'prov'), 'märkt historik räknas inte'
+    rot_ = tmp / 'sty-rot'
+    (rot_ / 'underlag' / 'sty-kund' / 'atelje' / 'metod').mkdir(parents=True)
+    (rot_ / 'underlag' / 'sty-kund' / 'atelje' / 'metod' / 'METOD-skiss.md').write_text('Ägarens domar i LARDOMAR.md gäller före allt.\n')
+    (rot_ / 'underlag' / 'sty-kund' / 'UPPTAGNA-VAL.md').write_text('Ägaren godtog Archivo för målaren i dom L2.\n')
+    cache_ = sty_.prova('sty-kund', root=rot_, med_metod=False)
+    assert {Path(x['kalla']).name for x in cache_} == {'METOD-skiss.md', 'UPPTAGNA-VAL.md'} and all('cache' in x['vad'] for x in cache_), cache_
+    # agenterna får inte läsa ägarens domar över tidigare byggen eller andra kunders mappar
+    import atelje as at_s
+    assert {'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)'} <= set(at_s.NEKAS)
+    spara_s = (at_s.KUNDER, at_s.UNDERLAG)
+    at_s.KUNDER, at_s.UNDERLAG = tmp / 'sty-k', tmp / 'sty-u'
+    try:
+        for d_ in ('sty-k/egen', 'sty-k/annan', 'sty-u/egen', 'sty-u/annan', 'sty-u/startkontroll'):
+            (tmp / d_).mkdir(parents=True)
+        assert at_s.andra_kunder_nekas('egen') == ['Read(./kunder/annan/**)', 'Read(./underlag/annan/**)'], at_s.andra_kunder_nekas('egen')
+        assert at_s.andra_kunder_nekas(None) == []
+        args_s = at_s.session_args(['Read'], None, 10, 'm', 'high', (), 'egen')
+        assert 'Read(./kunder/annan/**)' in args_s and 'Read(./LARDOMAR.md)' in args_s
+    finally:
+        at_s.KUNDER, at_s.UNDERLAG = spara_s
+    # en upptagna-val-fil från före rensningen läses inte
+    import upptagna_val as uv_s
+    assert uv_s.VERSION and 'Archivo' not in Path(uv_s.__file__).read_text()
+    print('gammal styrning ok')
+
+
+gammal_styrning()
 
 
 uppdragsmaterialet()

@@ -241,9 +241,11 @@ assert ('4.3', '(alla)') in punkter(), 'typsnittens summa räknas mot budgeten'
 v = tmp / 'VERKSAMHET.json'
 v.write_text(json.dumps({'adress': {'gata': 'Provgatan 1', 'postnummer': '123 45', 'ort': 'Provby', 'publik': True}}))
 assert {f['punkt'] for f in sk.adress(d, v)} == {'7.4'}
+assert all(f.get('niva') == 'info' for f in sk.adress(d, v) if 'sidfoten' in f['text']) and any('JSON-LD' in f['text'] and f.get('niva') != 'info' for f in sk.adress(d, v)), \
+    'sidfoten är riktningens val (information); kontaktsidan och JSON-LD är fel'
 v.write_text(json.dumps({'adress': {'gata': 'Provgatan 1', 'postnummer': '123 45', 'ort': 'Provby', 'publik': False}}))
 assert sk.adress(d, v) == []
-# dold (obekräftad) adress som ändå står på en sida = fel 7.4 där (domarna L5 och L6)
+# dold (obekräftad) adress som ändå står på en sida = fel 7.4 där
 om.write_text(html_om.replace('<h1>Om provet</h1>', '<h1>Om provet</h1><p>Provgatan 1, Provby</p>'))
 assert [f['sida'] for f in sk.adress(d, v)] == ['/om/'], sk.adress(d, v); om.write_text(html_om)
 # dom L4: mallens sitemap har inte /tack/; står en noindex-sida där blir det fel 7.2

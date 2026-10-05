@@ -2,8 +2,7 @@
 
 Professionsfil, läses i steg 5 i `.claude/skills/bygg-sajt/SKILL.md` och av rollen design och komposition
 (`kunskap/metodkarta.md`). Kvalitetskravet äkthet (`kunskap/designregler.md`) gäller före allt annat här: en bild som
-visar verksamheten är verksamhetens egen, och en saknad sådan bild är en beställning, inte ett designval (ägarens dom
-L3: "gör 'inga egna foton' till en beställning"). Material som inte utger sig för att dokumentera verksamheten är
+visar verksamheten är verksamhetens egen, och en saknad sådan bild är en beställning, inte ett designval. Material som inte utger sig för att dokumentera verksamheten är
 tillåtet med källa och licens. Samma regel står i byggskillens steg 1 punkt 2 och i granskarens kriterium 2.
 
 ## Vad en bild får vara

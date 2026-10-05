@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 
 // Alla .astro-sidor utom 404, dynamiska rutter och sidor med noindex (tacksidan och andra som inte ska hittas;
-// byggstandarden 7.2, ägarens dom L4: /tack/ stod i sitemap.xml trots noindex). Lägg till sidor ur
+// byggstandarden 7.2: en noindex-sida som /tack/ står aldrig i sitemap.xml). Lägg till sidor ur
 // innehållssamlingar här om sajten får sådana.
 const kallor = import.meta.glob('./**/*.astro', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 // noindex som egenskap på sidans ram (<Bas noindex>, <Ram noindex>); noindex={false} räknas inte.

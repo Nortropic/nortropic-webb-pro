@@ -41,11 +41,12 @@ MODELLENS_STANDARDVAL = [
 ]
 
 
-STRUKTURMONSTER = [  # ägarens mall-lukt i domarna L1–L3 (LARDOMAR.md)
-    'tjänstelista i två spalter med rubrik och en mening per tjänst (L1, L3)',
-    'sidfot i tre spalter (L1)',
-    'undersidor byggda av samma block om och om igen: rubrik till vänster, text till höger (L2)',
-    'omdömeslista med hårlinjer mellan citaten (L2)',
+VERSION = 'upptagna-val v2'  # en äldre fil (med domcitat och ett gammalt bygge som förebild) läses inte (rensningen inför 2.0)
+STRUKTURMONSTER = [  # former som gjort tidigare byggen generiska
+    'tjänstelista i två spalter med rubrik och en mening per tjänst',
+    'sidfot i tre spalter',
+    'undersidor byggda av samma block om och om igen: rubrik till vänster, text till höger',
+    'omdömeslista med hårlinjer mellan citaten',
 ]
 
 
@@ -104,10 +105,11 @@ def main(argv=None):
             varningar.setdefault(v, []).append(b.name)
     ut = ROOT / 'underlag' / slug / 'UPPTAGNA-VAL.md'
     ut.parent.mkdir(parents=True, exist_ok=True)
-    md = ['# Upptagna val', '',
-          'Det här har tidigare byggen redan valt, och det här faller modellen tillbaka på när ingen riktning ges. Du ser',
-          'valen, inte sajterna. Ett upptaget val är tillåtet när verksamhetens eget material motiverar det (ägaren',
-          'godtog Archivo för målaren i dom L2); välj det aldrig av vana. Skriv i KONCEPT.md, för varje val härifrån som du',
+    md = ['# Upptagna val', '', '<!-- %s -->' % VERSION, '',
+          'Det här har tidigare byggen redan valt, och det här faller modellen tillbaka på när ingen riktning ges. Inget',
+          'bygge hittills har varit bra nog (ägaren 2026-10-05): valen är generiska mönster att undvika, aldrig förebilder.',
+          'Du ser valen, inte sajterna. Ett upptaget val är tillåtet när verksamhetens eget material motiverar det; välj det',
+          'aldrig av vana. Skriv i KONCEPT.md, för varje val härifrån som du',
           'ändå gör, varför just den här verksamheten.', '',
           '## Tidigare byggen', '',
           '| Bygge | Rubriktypsnitt | Brödtext | Bakgrund | Accent | Toppsektion |', '|---|---|---|---|---|---|',

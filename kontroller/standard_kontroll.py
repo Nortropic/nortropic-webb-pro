@@ -903,9 +903,10 @@ def _ihop(s):
 
 
 def adress(dist, verksamhet):
-    """7.4: gatuadressen som verksamheten själv visar (adress.publik) står i sidfoten på varje sida, på kontaktsidan och
-    som streetAddress i JSON-LD (ägarens A/B-omdöme 2026-10-02: fullständig NAP avgjorde). Är den inte publik står den
-    ingenstans (domarna L5 och L6)."""
+    """7.4: gatuadressen som verksamheten själv visar (adress.publik) står på kontaktsidan och som streetAddress i JSON-LD;
+    var den står i övrigt (sidfoten på varje sida är ett vanligt val) är riktningens, och en sida utan den redovisas som
+    information (niva: info), inte fel (rensningen inför Nortropic 2.0: en kunds smakdom blir ingen regel). Är den inte
+    publik står den ingenstans: en obekräftad uppgift publiceras inte."""
     try:
         adr = json.loads(Path(verksamhet).read_text(encoding='utf-8')).get('adress') or {}
     except (OSError, ValueError):
@@ -913,7 +914,7 @@ def adress(dist, verksamhet):
     if not adr.get('gata'):
         return []
     if adr.get('publik') is not True:
-        # obekräftad eller enbart registrerad adress står ingenstans, inte heller i JSON-LD (ägarens domar L5 och L6)
+        # obekräftad eller enbart registrerad adress står ingenstans, inte heller i JSON-LD
         gata, fel = _ihop(adr['gata']), []
         for f in sorted(Path(dist).rglob('*.html')):
             if gata in _ihop(f.read_text(encoding='utf-8', errors='replace')):
@@ -928,7 +929,8 @@ def adress(dist, verksamhet):
             continue
         fot = re.search(r'<footer\b.*?</footer>', raw, re.S)
         if not fot or gata not in _ihop(fot.group(0)):
-            fel.append({'punkt': '7.4', 'sida': sida, 'text': 'gatuadressen "%s" saknas i sidfoten (adress.publik är sann)' % adr['gata']})
+            fel.append({'punkt': '7.4', 'sida': sida, 'niva': 'info',
+                        'text': 'gatuadressen "%s" står inte i sidfoten (riktningens val; kontaktsidan och JSON-LD prövas)' % adr['gata']})
         if 'kontakt' in sida and gata not in _ihop(re.sub(r'<(script|style)\b.*?</\1>', ' ', raw, flags=re.S)):
             fel.append({'punkt': '7.4', 'sida': sida, 'text': 'gatuadressen "%s" saknas på kontaktsidan' % adr['gata']})
         for m in re.finditer(r'"streetAddress"\s*:\s*"([^"]*)"', raw):
@@ -1013,7 +1015,9 @@ def rapport(bygge, stil=None, bestallning=None, verksamhet=None, inspektion=None
         if x['svar'].startswith(('4', '5', 'svarar inte')):
             info.append({'punkt': '7.4', 'sida': x['sidor'][0], 'text': 'utgående länk svarar %s: %s' % (x['svar'], x['url'])})
     if verksamhet:
-        fel += adress(bygge, verksamhet)
+        a_ = adress(bygge, verksamhet)
+        fel += [x for x in a_ if x.get('niva') != 'info']
+        info += [{k: v for k, v in x.items() if k != 'niva'} for x in a_ if x.get('niva') == 'info']
     if stil:
         fel += klickytor(stil)
         info += smaknappar(stil)
@@ -1021,7 +1025,7 @@ def rapport(bygge, stil=None, bestallning=None, verksamhet=None, inspektion=None
         fel += konsolfel(inspektion)
     antal = egna_bilder(bygge)
     if antal < 5 and not bestallning_finns(bestallning):
-        fel.append({'punkt': '9.3', 'sida': '(alla)', 'text': '%d egna bilder och ingen beställning: beställ bilderna av verksamheten i underlag/<slug>/BESTALLNING.md (ägarens domar L2, L3)' % antal})
+        fel.append({'punkt': '9.3', 'sida': '(alla)', 'text': '%d egna bilder och ingen beställning: beställ bilderna av verksamheten i underlag/<slug>/BESTALLNING.md' % antal})
     elif antal < 5:
         info.append({'punkt': '9.3', 'sida': '(alla)', 'text': '%d egna bilder; beställningen finns, sajten är klar att visas men inte att lanseras' % antal})
     summa = {}

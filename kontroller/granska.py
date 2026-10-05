@@ -129,29 +129,6 @@ def syskon_till(slug):
     return f.read_text().strip() if f.is_file() else None
 
 
-def lardomar_utan(slug, rdir):
-    """LARDOMAR.md utan avsnitten om det här bygget och dess A/B-syskon, skriven i omgången: granskaren får inte se
-    facit för det den dömer (revisionen 2026-10-03, F17). A/B-avsnitt behålls bara när de namnger sina byggen
-    (raden Byggen:) och inget av dem är det här; äldre omärkta A/B-avsnitt tas bort. Källan är den privata originalfilen
-    underlag/LARDOMAR-original.md när den finns (ordagrant; utdraget stannar under kunder/), annars den publika
-    LARDOMAR.md (BESLUT.md 2026-10-03). Returnerar sökvägen."""
-    kalla = UNDERLAG / 'LARDOMAR-original.md'
-    if not kalla.is_file():
-        kalla = ROOT / 'LARDOMAR.md'
-    text = kalla.read_text(encoding='utf-8') if kalla.is_file() else ''
-    namn = [s for s in (slug, syskon_till(slug)) if s]
-    kvar = []
-    for d in re.split(r'(?m)^(?=## )', text):
-        if any(n in d for n in namn):
-            continue
-        if d.startswith('## AB') and 'Byggen:' not in d:
-            continue
-        kvar.append(d)
-    ut = rdir / 'LARDOMAR-utan-egen-dom.md'
-    ut.write_text(''.join(kvar), encoding='utf-8')
-    return ut
-
-
 def nekas_for(slug):
     """Granskarens egna nekanden utöver NEKAS: ägarens dom om bygget och syskonet, och tidigare omgångars domar."""
     ut = ['Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)']
@@ -452,6 +429,8 @@ def frysta_vinnare(slug, rdir):
     v = las_json(rot / 'VINNARE.json')
     if not isinstance(v, dict) or not isinstance(v.get('riktning'), int):
         return None
+    if not v.get('godkand'):  # bara ägarens godkända startsida är en måttstock, aldrig panelens val (rensningen inför 2.0)
+        return None
     fel = vinnarfel(rot, v)
     if fel:
         raise RuntimeError('ateljéns vinnare stämmer inte med VINNARE.json (%s); kör ateljén om eller återställ vinnaren' % '; '.join(fel[:6]))
@@ -496,7 +475,7 @@ def kalibrering(utom=None):
     return rader
 
 
-def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=None, lardomar=None, felrader=None, vinnare=None):
+def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, rdir, aria=(), ankare=None, felrader=None, vinnare=None):
     """felrader: Bildval som inte gick att läsa, frysta av anroparen tillsammans med bilderna så att alla granskare får samma
     underlag (Codex 2026-10-04, F18/F38); None räknar dem här (torrkörning)."""
     if felrader is None:
@@ -515,10 +494,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Sidor: %s' % ', '.join(url + s for s in sidor),
         'Din arbetskatalog för egna skärmbilder och sida.mjs-utdata: %s' % arbetskatalog,
         'Trösklar för godkänt: %s, och inga blockerande fynd. Godkännandet räknas ut av verktyget.' % trosklar, '',
-        'Ägarens domar över tidigare byggen (exempel på vad ägaren värderar, inga regler för den här kunden; utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md'), '',
         'Ribban är professionell nivå enligt kalibreringsankarna, referensernas skärmbilder nedan och exemplaren i kunskap/referenser-professionella.md.',
-        'Tidigare egna byggen är ingen måttstock, inte heller när ägaren godkänt dem (ägaren 2026-10-03: de håller inte);',
-        'de visas bara för att du ska se om det här bygget är en variant av dem.', '',
+        'Tidigare egna byggen är exempel på det generiska som ska undvikas, aldrig en måttstock (ägaren 2026-10-05: inget',
+        'bygge hittills har varit bra nog); de visas bara för att du ska se om det här bygget är en variant av dem.', '',
         *(['Kalibreringsankare: externa sajter som ägaren dömt blint (%s). Ägarens ord om vad som skiljer, ordagrant: %s' % (KALIBRERING_SKALA, rad(ankare[0])[2:]),
            'Första vyn 390 och 1440 och helsidan i 1440 per sajt (läs varje, med ägarens ord bredvid):', *[rad(p) + ' — ' + t for p, t in ankare[1]], '']
           if ankare else []),
@@ -543,11 +521,11 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
           + ['- ' + f for f in felrader] if felrader else []), '',
         *([('Ägarens godkända startsida: %s (%s, kandidat %s ur kandidatflödet), vald och godkänd av ägaren som hela startsida med'
             % (vinnare[0].get('etikett') or 'kandidaten', vinnare[0].get('titel') or '–', vinnare[0].get('kandidat'))) if vinnare[0].get('kandidat') else
-           'Ateljéns vinnare: riktning %s, vald av domarpanelen som hela startsida (designprovet 2026-10-04). Bygget ska vara den' % vinnare[0].get('riktning'),
+           'Ägarens godkända startsida ur ateljén: riktning %s, godkänd som hela startsida. Bygget ska vara den' % vinnare[0].get('riktning'),
            ('sina undersidor. Bygget ska vara den riktningen genomförd: jämför startsidan ruta för ruta mot bilderna; en annan riktning,' if vinnare[0].get('kandidat') else
             'riktningen genomförd: jämför startsidan ruta för ruta mot vinnarens bilder; en annan riktning, komposition, typografi eller'),
            ('komposition, typografi eller bildbehandling utan ett nytt godkännande är ett blockerande fynd.' if vinnare[0].get('kandidat') else
-            'bildbehandling utan ny ateljéomgång är ett blockerande fynd.'), *([rad(p) for p in vinnare[1]] or ['- bilder saknas']),
+            'bildbehandling utan ett nytt godkännande är ett blockerande fynd.'), *([rad(p) for p in vinnare[1]] or ['- bilder saknas']),
            *(['Avvikelsen mot vinnaren mätt pixel för pixel (förändring, inte kvalitet; du avgör): %s' % rad(rdir / 'VINNARJAMFORELSE.md')[2:]]
              if (rdir / 'VINNARJAMFORELSE.md').is_file() else []),
            *(['Skillnadsbilderna (röda pixlar skiljer):'] + [rad(p) for p in sorted((rdir / 'vinnarjamforelse').glob('*.png'))]
@@ -606,7 +584,6 @@ def arbetare(rdir):
             raise RuntimeError('bygget ändrades medan granskningen startade; kör provet och granskningen igen')
         claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
         antal = max(1, int(upp.get('granskare', 1)))
-        lardomar = lardomar_utan(slug, rdir)
         nekas = NEKAS + nekas_for(slug)
         delar, sessioner, fel = [], [], []
         with prova.Server(rdir / 'dist') as srv:
@@ -623,7 +600,7 @@ def arbetare(rdir):
                 arbetskatalog = ARBETSROT / slug / ('%s-%d' % (rdir.name, n))  # sluggen som eget led (Codex R25)
                 arbetskatalog.mkdir(parents=True, exist_ok=True)
                 prompt = uppdrag_text(slug, srv.url, prova.sidor_i(rdir / 'dist'), arbetskatalog, bilder,
-                                      frysta, tidigare_byggen(slug), [], rdir, aria, ankare, lardomar, felrader=frysta_fel, vinnare=vinnare)
+                                      frysta, tidigare_byggen(slug), [], rdir, aria, ankare, felrader=frysta_fel, vinnare=vinnare)
                 (rdir / ('PROMPT.txt' if n == 1 else 'PROMPT-%d.txt' % n)).write_text(prompt, encoding='utf-8')
                 args = [claude, '-p', '--max-turns', '120', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config',
@@ -670,7 +647,7 @@ def arbetare(rdir):
                 'session_id': sessioner[0].get('session_id')}
         lage = upp.get('originalitet', 'skugga')
         if lage != 'av':
-            sep = originalitet_separat(rdir, upp, slug, bilder, claude, lardomar, nekas)
+            sep = originalitet_separat(rdir, upp, slug, bilder, claude, nekas=nekas)
             res['originalitet_separat'] = sep
             if lage == 'avgor' and not (isinstance(sep, dict) and isinstance(sep.get('betyg'), int)):
                 # den avgörande domaren får inte falla bort tyst: då skulle huvudgranskarnas betyg avgöra (revisionen, F8)
@@ -734,7 +711,7 @@ def originalitetsbilder(bilder):
     return hem, under
 
 
-def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=NEKAS):
+def originalitet_separat(rdir, upp, slug, bilder, claude, nekas=NEKAS):
     """En egen session som bara dömer originalitet (Anthropic: en isolerad domare per dimension). Körs i skugga bredvid
     huvudgranskaren så att vi kan se vilken av dem som stämmer bäst med ägarens domar."""
     hem, under = originalitetsbilder(bilder)
@@ -746,9 +723,10 @@ def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=N
              'Verksamhetens särart: %s (läs listan Bara de har)' % (rel(u / 'RESEARCH.md') if (u / 'RESEARCH.md').is_file() else 'saknas'),
              'Startsidan, de två första skärmarna i 390 och 1440:', *['- ' + rel(b) for b in hem],
              'Undersidornas första skärm:', *['- ' + rel(b) for b in under],
-             'Tidigare byggens första vy (ingen måttstock, bara för att se om det här är en variant av dem):', *['- ' + rel(b) for b in tidigare_byggen(slug)],
-             'Ribban är professionell nivå enligt referenserna och kunskap/referenser-professionella.md, aldrig tidigare egna byggen (ägaren 2026-10-03).',
-             'Ägarens domar över tidigare byggen (exempel på vad ägaren värderar, inga regler för den här kunden; utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md')]
+             'Tidigare byggens första vy (exempel på det generiska som ska undvikas, aldrig en måttstock; bara för att se om det',
+             'här är en variant av dem):', *['- ' + rel(b) for b in tidigare_byggen(slug)],
+             'Ribban är professionell nivå enligt referenserna och kunskap/referenser-professionella.md, aldrig tidigare egna byggen',
+             '(ägaren 2026-10-05: inget bygge hittills har varit bra nog).']
     args = [claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--model', upp['modell'], '--effort', upp['effort'],
             '--json-schema', SCHEMA_ORIGINALITET.read_text(encoding='utf-8'), '--allowedTools', 'Read', 'Glob', 'Grep',
@@ -1234,7 +1212,7 @@ def main(argv=None):
         frys_motorbild(kund, rdir)
         prompt = uppdrag_text(a.slug, 'http://127.0.0.1:PORT', prova.sidor_i(dist), ARBETSROT / a.slug / 'torr', bilder,
                               frysta_referenser(a.slug, rdir), tidigare_byggen(a.slug), [], rdir,
-                              aria_trad(kund, rdir / 'sajt'), frysta_ankare(rdir), lardomar_utan(a.slug, rdir), vinnare=frysta_vinnare(a.slug, rdir))
+                              aria_trad(kund, rdir / 'sajt'), frysta_ankare(rdir), vinnare=frysta_vinnare(a.slug, rdir))
         (rdir / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         print(prompt)
         print('Torrkörning: %s. Ingen granskare startades.' % (rdir / 'PROMPT.txt'))

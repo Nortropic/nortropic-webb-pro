@@ -451,13 +451,13 @@ def metod_rader(slug, steg):
 
 
 def historik_rader(slug):
-    """Historiken slås upp, den läses inte i förväg (ägarens uppdrag 2026-10-05 16:25Z, punkt 2): ägarens domar över
-    tidigare byggen, kundens äldre domar och riktningshistoriken är exempel och smakdomar, inga regler."""
+    """Kundens historik slås upp, den läses inte i förväg (ägarens uppdrag 2026-10-05 16:25Z, punkt 2). Ägarens domar
+    över andra kunders byggen nämns inte: de är historik och styr inga agenter (rensningen inför Nortropic 2.0)."""
     u = rel(atelje.UNDERLAG / slug)
-    return ['Historiken slås upp, den läses inte i förväg: ägarens domar över tidigare byggen (LARDOMAR.md), kundens äldre',
-            'domar (%s/%s) och prövade grundidéer (%s/%s) är exempel och smakdomar, inga regler; de aktuella besluten står' % (
-                u, skapande.DOMLOGG, u, skapande.HISTORIK),
-            'med räckvidd i kunskap/designregler.md. Öppna historiken när den besvarar en konkret fråga.']
+    return ['Kundens historik slås upp, den läses inte i förväg: kundens äldre domar (%s/%s) och prövade grundidéer' % (u, skapande.DOMLOGG),
+            '(%s/%s) är historik, inga regler; de aktuella besluten står med räckvidd i kunskap/designregler.md och i' % (u, skapande.HISTORIK),
+            'kundens aktuella domar ovan. Tidigare byggen åt andra kunder är aldrig förebilder (ägaren 2026-10-05: inget bygge',
+            'hittills har varit bra nog).']
 
 
 def regel_rader():
@@ -1777,7 +1777,7 @@ def kritik(slug, kid, namn='KRITIK.json'):
         'första pass: bedöm det en besökare uppfattar, ur bilderna och sidans struktur, mot besökarens uppgift. Uppdraget',
         'och skaparens motivering läser du inte nu (de bedöms i ett andra pass). Ribban: kunskap/visuell-niva.md och',
         'ägarens domar nedan.',
-        *skapande.kritikrader(slug, underlag=atelje.UNDERLAG), '',
+        *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *regel_rader(), *metod_rader(slug, 'granska'), '',
         'Besökarens uppgifter och den primära handlingen: %s (§2 målgrupper och toppuppgifter, §4 primär handling).' % rel(brief),
         'Titta på varje bild med Read: startsidan i första vyn och hela i 390, 768 och 1440, rutorna och undersidan.',
@@ -2198,7 +2198,7 @@ def forfina_prompt(slug, kid, dom):
            'tillståndet") och besökarens centrala flöde (till exempel förfrågan: formuläret med felbesked vid fälten och',
            '/tack/), i mobil och dator. Det skissen redan visar ändras bara där ägarens ord eller en brist du ser kräver det.', '']
           if korlage(slug) == 'skiss' else []),
-        *skapande.kritikrader(slug, underlag=atelje.UNDERLAG), '',
+        *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *(['Det ägaren gillade (ta in en del ur en annan kandidat bara när den passar idén; anpassa den till kandidatens',
            'typografi, färger och rytm i stället för att klistra in den, och skriv i RIKTNING.md hur och varför):', *delar, '']
           if delar else []),

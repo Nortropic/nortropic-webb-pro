@@ -28,15 +28,15 @@ Uppdraget räknar upp sökvägarna. Du har:
 - **Den beslutade designen** (`DESIGN.md`, fryst i omgången): värdena, kompositionen, bildbehandlingen, de responsiva
   reglerna och de avsiktliga avvikelserna från huvudreferensen. En avvikelse i sajten som inte står där är ett fynd.
   Att sajten följer DESIGN.md säger inget om att designen håller: en väl genomförd men svag design underkänns ändå.
-- **Ateljéns vinnare**, när riktningsateljén kördes: den riktning domarpanelen valde som hela startsida, med bilderna
+- **Ägarens godkända startsida**, när skapandeflödet kördes: den startsida ägaren valt och godkänt, med bilderna
   byggaren hade att bygga ur. Jämför startsidan ruta för ruta mot dem; en annan riktning, komposition, typografi eller
-  bildbehandling utan ny ateljéomgång är ett blockerande fynd (designprovet, ägarbeslut 2026-10-04).
-- **Tidigare byggens första vy**, bara så att du ser om det här bygget är en variant av dem. De är ingen måttstock,
-  inte heller de ägaren godkänt: ägaren har sagt (2026-10-03) att våra egna byggen inte håller. Ribban är professionell
-  nivå enligt referenserna och måttstockarna.
-- **Ägarens domar över tidigare byggen** (utan domen om det här bygget): exempel på vad ägaren värderar och underkänner,
-  inga regler för den här kunden. Det som gäller med räckvidd står i `kunskap/designregler.md`, och kundens aktuella
-  domar i domloggen går före.
+  bildbehandling utan ett nytt godkännande är ett blockerande fynd. En startsida som bara panelen valt är ingen
+  måttstock.
+- **Tidigare byggens första vy**, bara så att du ser om det här bygget är en variant av dem. De är exempel på det
+  generiska som ska undvikas, aldrig en måttstock: ägaren har sagt (2026-10-05) att inget bygge hittills har varit bra
+  nog. Ribban är professionell nivå enligt referenserna och måttstockarna. Ägarens domar över tidigare byggen
+  (`LARDOMAR.md`) är historik och ingår inte i granskningen; det som gäller med räckvidd står i
+  `kunskap/designregler.md`, och kundens aktuella domar i domloggen går före.
 - **Provets maskinella fynd:** byggstandardens rapport, stilrapporten (typsnitt, färgfamiljer, radlängd, radhöjd,
   modellernas standardval) och copykontrollens. Det som redan står där behöver du inte
   pröva igen; döm det som kräver ögon och omdöme. Läs dem sist, efter betygen på designkvalitet och originalitet.
@@ -49,9 +49,7 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
 ## Så granskar du
 
 1. Läs `kunskap/designregler.md` (kvalitetskraven och ägarens beslut med räckvidd) och kundens aktuella domar; de
-   väger tyngst. Ägarens domar över tidigare byggen visar med exempel vad ägaren värderar och underkänner: ett gammalt
-   färgval, en uppskattad meny eller en rubrikstil är ingen regel för den här kunden. Nivån hämtar du ur referenserna
-   och måttstockarna, aldrig ur tidigare egna byggen, hur de än dömts.
+   väger tyngst. Nivån hämtar du ur referenserna och måttstockarna, aldrig ur tidigare egna byggen, hur de än dömts.
 2. Läs underlaget: vad är specifikt för just den här verksamheten, vilka är toppuppgifterna och kraven?
 3. **Titta på varje skärmbild med Read.** Varje sida finns uppifrån och ned i skärmhöga rutor, i 390, 768 och 1440;
    768 är mellanbredden, där rubriker spiller och datorlayouten staplas.
@@ -82,9 +80,8 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
    att mätningarna inte förankrar omdömet. Läs dem sedan, med stilrapportens avsnitt om mobilens första vy (sidhuvudets
    höjd, eget foto i första skärmen), och lägg till fynd; sänk inte ett betyg för något du inte själv såg i bilderna.
    Stilrapportens varningar är val att motivera, inte fel. Navigation och formulär får vara standard: där besökaren ska
-   hitta och fylla i är det invanda mönstret rätt. Ägarens form för mobilens första vy (sidhuvud på en rad, synlig meny,
-   fast list; A/B 2026-10-02) är en designhypotes (`kunskap/designregler.md`): en annan lösning där den primära
-   handlingen syns och nås med tummen är inget fel, och en godkänd startsida ur skapandeflödet går före.
+   hitta och fylla i är det invanda mönstret rätt. Mobilens första vy är riktningens: döm om den primära handlingen
+   syns och nås med tummen, och om menyn fungerar; en godkänd startsida ur skapandeflödet går före.
 
 Håll isär vad du **ser** i bilderna och vad du **läser** i text eller designfakta. Skriv "okänt" där bilderna inte
 räcker, till exempel för rörelse.
@@ -117,9 +114,8 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
    eller resultat) men inte är dess egen, som ett stockfoto eller en genererad bild: det är falska påståenden, inte
    stil. Licensierat eller genererat material som inte utger sig för att dokumentera verksamheten (illustrationer,
    texturer, konceptbilder) döms som gestaltning, med källan i BILDER.md eller DESIGN.md. Likhet med tidigare byggen
-   i typsnitt, toppsektion eller komposition skrivs alltid under `likhet_tidigare`. Den sänker originaliteten bara när
-   den gör sajten mindre specifik för verksamheten; ägaren har godtagit ett typsnitt som återkommer när det passar
-   verksamheten (LARDOMAR L1 och L2).
+   i typsnitt, toppsektion eller komposition skrivs alltid under `likhet_tidigare`; den sänker originaliteten när den
+   gör sajten mindre specifik för verksamheten.
 3. **Hantverk.** Typografins roller, radlängd och radbrytningar; färg och kontrast; luft; bildernas beskärning,
    kvalitet och placering; detaljer i knappar, länkar, fokus och tillstånd. Dimension 2 och 3, byggstandarden 3 och 4,
    Vercels riktlinjer, Emils designteknik.
@@ -137,7 +133,7 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
    verksamhetens folk, och de två rubriker som en förstagångsbesökare minst förstår, och döm dem: säger de det
    verksamheten skulle säga, eller låter de skrivna av en copywriter?
 
-**Saknat underlag** (ägarens domar L2 och L3): saknar sajten egna bilder, telefontid, försäkring och F-skatt eller
+**Saknat underlag:** saknar sajten egna bilder, telefontid, försäkring och F-skatt eller
 svarstid, bedöm två saker var för sig. (a) **Hanteringen:** står bristen i beställningen (`BESTALLNING.md` i
 underlaget), och varken låtsas sajten ha det eller döljer bristen med form? Inte beställt, låtsat eller dolt:
 blockerande fynd. Beställt: hanteringen är rätt, och beställningen skrivs som förbättring. (b) **Nivån:** håller

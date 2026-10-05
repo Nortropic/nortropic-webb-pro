@@ -90,6 +90,8 @@ NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(gi
          # förhandsvisningen, innanför processgränsen (omgranskningen av skapandeflödet, fynd 8)
          'Bash(npm *)', 'Bash(npx *)', 'Bash(node *)',
          'Read(./underlag/kalibrering/**)',  # de undanhållna kalibreringsexemplen; ankarna får panelen frysta i atelje/ankare/
+         # ägarens domar över tidigare byggen är historik och styr inga agenter (rensningen inför Nortropic 2.0, 2026-10-06)
+         'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)', 'Read(./kunskap/LARDOMAR-digitala.md)',
          # hemligheterna: --setting-sources project,local läser inte ägarens egna regler, så sandlådans lista nekas här
          # (omgranskning 3, fynd 3); Read-regler gäller också Grep och Glob
          *[r for p_ in sandlada.HEMLIGT for r in (
@@ -120,8 +122,8 @@ DOMARE = [
      '(träffytor); och .claude/skills/better-accessibility/SKILL.md och better-writing/SKILL.md. Döm hela sidan: om första '
      'vyn löser toppuppgiften och sidan sedan leder vidare (tjänsterna, beviset, kontakten, undersidans början) utan att '
      'besökaren fastnar, om den primära handlingen syns och nås med tummen, om kvittona är verkliga (egna bilder, omdömen '
-     'med källa), och hur mobilen löser kontakten (ägarens form ur A/B 2026-10-02, kompakt sidhuvud, synlig meny och fast '
-     'list, är en designhypotes i kunskap/designregler.md: en annan lösning som klarar samma behov är lika giltig).'),
+     'med källa), och hur mobilen löser kontakten (riktningens val; den primära handlingen ska synas och nås med tummen, och '
+     'menyn ska fungera).'),
     ('kunden', os.environ.get('NWP_ATELJE_DOMARE_KUND') or 'sonnet',
      'Ditt område är förstaintrycket, dömt med femsekunderstestets metod (kritik/FRAGA-femsekunderstest.md; NN/g om '
      'förstaintryck och visuell testning). Du är en förstagångsbesökare ur briefens målgrupp: se först varje riktnings '
@@ -174,6 +176,21 @@ def kundvakt(slug):
     return kundvakt_mod.installningar(slug, UNDERLAG)
 
 
+def andra_kunder_nekas(slug):
+    """Läsförbud för andra kunders byggen och underlag: varje sajt härleds ur sin egen verksamhet, och tidigare byggen är
+    aldrig förebilder (rensningen inför Nortropic 2.0; tidigare stod det bara i text). Utan slug: inga."""
+    if not slug:
+        return []
+    ut = []
+    for rot, namn in ((KUNDER, 'kunder'), (UNDERLAG, 'underlag')):
+        try:
+            andra = sorted(p.name for p in rot.iterdir() if p.is_dir() and p.name != slug and not p.name.startswith('.'))
+        except OSError:
+            andra = []
+        ut += ['Read(./%s/%s/**)' % (namn, a) for a in andra if a not in ('startkontroll',)]
+    return ut
+
+
 def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None):
     """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
     slug ser sessionen alla skills (skillverktyget) och användarens MCP-servrar, och kundvakten prövar varje anrop till
@@ -184,7 +201,8 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local'] + (['--settings', kundvakt(slug)] if slug else ['--strict-mcp-config']) + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
-            '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools', *NEKAS, *nekas]
+            '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools', *NEKAS,
+            *andra_kunder_nekas(slug), *nekas]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
     return args
@@ -296,6 +314,9 @@ def underlag_rader(slug):
     u = UNDERLAG / slug
     filer = [u / f for f in ('BRIEF.md', 'RESEARCH.md', skapande.textfil(slug, UNDERLAG).name, 'BESTALLNING.md', 'REFERENSER.md', 'UPPTAGNA-VAL.md',
                              'VERKSAMHET.json') if (u / f).is_file()]
+    # en UPPTAGNA-VAL.md från före rensningen (domcitat, ett gammalt bygge som förebild) läses inte förrän den skrivits om
+    import upptagna_val
+    filer = [f for f in filer if f.name != 'UPPTAGNA-VAL.md' or upptagna_val.VERSION in f.read_text(encoding='utf-8', errors='replace')]
     if (u / 'bilder' / 'BILDER.md').is_file():
         filer.append(u / 'bilder' / 'BILDER.md')
     # referensbeslutets utpekade rutor och tillstånd först, första vyn som reserv (kontroller/referensval.py)
@@ -343,11 +364,6 @@ def riktningsavsnitt(rot):
     return {k: (v[0], '\n'.join(v[1]).strip()) for k, v in ut.items()}
 
 
-def lardomar_vag():
-    """Ägarens domar: ordagrant i underlag/LARDOMAR-original.md när den finns (privat), annars LARDOMAR.md (BESLUT.md 2026-10-03)."""
-    return 'underlag/LARDOMAR-original.md' if (ROOT / 'underlag' / 'LARDOMAR-original.md').is_file() else 'LARDOMAR.md'
-
-
 def referensblock(slug):
     """Kandidaterna att bygga riktningar på, eller uppdraget att välja dem ur paketet när urvalet saknas."""
     kand = referensval.kandidater(slug, UNDERLAG)
@@ -390,9 +406,9 @@ def divergera_prompt(slug, bilder, kritik=None, komplettering=None, ankare=None)
            '(KOMPLETTERING.json nedan). En kandidat från förra omgången används igen bara med ett skäl i riktningens avsnitt i',
            'RIKTNINGAR.md som svarar på kritiken.', ''] if kritik else []),
         *skapande.fakta_rader(slug, UNDERLAG), '',
-        'Läs först: ' + ', '.join(filer) + '. Ägarens domar över tidigare byggen (%s) är exempel och smakdomar: slå upp dem när' % lardomar_vag(),
-        'de besvarar en konkret fråga; det som gäller med räckvidd står i kunskap/designregler.md och i ägarens aktuella domar ovan,',
-        'och kunskap/byggstandard.md (punkterna 3 och 4).',
+        'Läs först: ' + ', '.join(filer) + '. Det som gäller med räckvidd står i kunskap/designregler.md och i ägarens aktuella',
+        'domar ovan, och kunskap/byggstandard.md (punkterna 3 och 4). Tidigare byggen och ägarens domar över dem är historik,',
+        'aldrig förebilder (ägaren 2026-10-05: inget bygge hittills har varit bra nog).',
         'Metoden, som du läser innan du skriver en sida och prövar riktningarna mot (transkriptet visar om du gjorde det):',
         *skapande.metodrader('utforska'),
         *(['Ribban: ägarens kalibreringsankare, som panelen dömer mot. Läs ägarens ord i %s och varje sajts första vy:' % rel(ankare[0]),
@@ -419,9 +435,8 @@ def divergera_prompt(slug, bilder, kritik=None, komplettering=None, ankare=None)
         '  behövs (listmarkör, bildmask, avslut eller sidfot; ett ställe räcker om det bär), aldrig dekor utan funktion.',
         '- Riktigt innehåll: sakuppgifter, citat och knappar ur %s, verksamhetens egna bilder. Inget påhittat.' % rel(skapande.textfil(slug, UNDERLAG)),
         '- Reglerna i fyra slag (kunskap/designregler.md): kvalitetskraven binder, ägarens och Nortropics beslut gäller inom',
-        '  sin räckvidd, kundens behov ur underlaget bestämmer vad sidan måste klara, och designhypoteserna (bland dem ägarens',
-        '  form för mobilens första vy ur A/B 2026-10-02: sidhuvud på en rad, synlig meny, fast list) är utgångspunkter som',
-        '  riktningen får lösa annorlunda med skäl.', '',
+        '  sin räckvidd, kundens behov ur underlaget bestämmer vad sidan måste klara, och designhypoteserna är utgångspunkter',
+        '  som riktningen får lösa annorlunda med skäl.', '',
         'Skriv för varje riktning N (1–%d) en sida %s/src/pages/atelje-N/index.astro, utan Bas.astro, med egen <html lang="sv">' % (ANTAL, s),
         'och riktningens egna stilar (egen CSS, stilpaketets variabler eller Tailwind ur kunskap/beroenden.md): hela startsidan byggd på riktigt, med de sektioner och den ordning riktningen motiverar',
         'ur besökarens frågor (sidhuvud med namn, meny och den primära handlingen; tjänsterna, beviset, om och kontakt i den',
@@ -511,10 +526,9 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare, ofullsta
         *(['Panelen pekade vid valet ut de här svagheterna i riktningen; säg för varje version vilka som fortfarande syns:',
            *['- ' + x for x in svagheter], ''] if slut and svagheter else []),
         'Målen du dömer mot: toppuppgifterna och den primära handlingen i underlag/%s/BRIEF.md, listan "Bara de har" i' % slug,
-        'underlag/%s/RESEARCH.md och ägarens aktuella domar ovan; den senaste domen väger tyngst. Ägarens domar över tidigare' % slug,
-        'byggen (%s) är exempel på vad ägaren värderar, inga regler för den här kunden.' % lardomar_vag(),
+        'underlag/%s/RESEARCH.md och ägarens aktuella domar ovan; den senaste domen väger tyngst.' % slug,
         'Ribban är professionell nivå enligt referensernas första vy och kunskap/referenser-professionella.md, aldrig',
-        'tidigare egna byggen (ägaren 2026-10-03: de håller inte).',
+        'tidigare egna byggen (ägaren 2026-10-05: inget bygge hittills har varit bra nog).',
         *([] if slut else ['Referensernas bilder (utpekad ruta eller tillstånd med jämförelsefrågan; annars första vyn): ' + ('; '.join(refs[:8]) or 'inga') + '.']),
         *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet): ' + '; '.join(fel)] if fel and not slut else []), '',
         ('Versionernas skärmbilder: startsidans första rutor uppifrån och ned i 390 och 1440 och hela sidan som en bild per bredd'

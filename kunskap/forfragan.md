@@ -1,6 +1,6 @@
 # Skriftlig förfrågan: formuläret och dess mottagare
 
-Ägarens dom L1 (2026-10-02): "Bygg alltid in en skriftlig förfrågningsväg som fungerar utan mejlklient: ett formulär
+Ägarens ord 2026-10-02, uttryckt som en regel för alla sajter: "Bygg alltid in en skriftlig förfrågningsväg som fungerar utan mejlklient: ett formulär
 med tre fält (namn, telefon, vad du vill bygga + valfri bild) som fungerar med vanlig POST utan JS, honeypot +
 tidsfälla, och en bekräftelse som säger när ägaren ringer (A6.1–6.3, 6.5–6.7). Telefonen får förbli primär, men
 standarden ska inte tillåta att 'ring' är enda vägen." Domarna L2 och L3 sa samma sak. Byggstandardens avsnitt 6
@@ -14,7 +14,7 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
 - **Fälten:** namn, telefon, meddelande med etiketten i verksamhetens ord ("Vad vill du bygga?"), och en valfri bild.
   Det valfria märks "(valfritt)"; resten krävs. Inga fler fält utan skäl ur briefen. Beskedet vid ett tomt fält och
   vid ett nummer med bokstäver är svenskt, i verksamhetens ord (mallens `felNamn`, `felTelefon`, `felTelefonFormat`,
-  `felMeddelande`) och står som text vid fältet med `aria-describedby` när JavaScript körs (ägarens dom L4);
+  `felMeddelande`) och står som text vid fältet med `aria-describedby` när JavaScript körs (WCAG 3.3.1);
   utan JavaScript stoppar telefonfältets `pattern` bokstäverna med webbläsarens eget besked.
 - **Fällorna** ändras inte: honeypoten `webbplats` (dold, `tabindex="-1"`) och tidsfällan `fylltid`, varaktigheten i
   millisekunder från laddning till inskick mätt på webbläsarens klocka (`kunskap/formularsakerhet.md`, princip b).

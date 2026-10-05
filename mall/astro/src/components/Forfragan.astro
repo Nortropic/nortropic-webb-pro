@@ -1,5 +1,5 @@
 ---
-// Skriftlig förfrågan (byggstandarden 6, ägarens dom L1: "standarden ska inte tillåta att 'ring' är enda vägen").
+// Skriftlig förfrågan (byggstandarden 6: en skriftlig väg bredvid telefonen).
 // Fungerar med vanlig POST utan JavaScript; honeypot och tidsfälla mot spam. Mottagaren är /api/forfragan/ (med snedstreck: sajten har avslutande snedstreck, och utan det svarar Vercel 308 och webbläsaren skickar inskicket två gånger): i demon
 // svarar provets och dashboardens server och visar /tack/ utan att spara eller skicka något; vid lansering tar en
 // serverfunktion över med samma kontrakt (kunskap/forfragan.md). Bygget stylar formuläret och skriver etiketterna i
@@ -12,7 +12,7 @@ interface Props {
   telefonText?: string;
   felNamn?: string; // beskeden vid ett tomt fält, i verksamhetens ord (byggstandarden 6.2)
   felTelefon?: string;
-  felTelefonFormat?: string; // beskedet när numret har bokstäver eller är för kort (byggstandarden 6.2, ägarens dom L4)
+  felTelefonFormat?: string; // beskedet när numret har bokstäver eller är för kort (byggstandarden 6.2, WCAG 3.3.1)
   felMeddelande?: string;
   felBild?: string; // beskedet när bilden inte kan tas emot (över 4 MB eller inte en bild), i verksamhetens ord
 }
@@ -69,7 +69,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   const start = performance.now();
   for (const f of document.querySelectorAll<HTMLFormElement>('form.forfragan')) {
     // Svenska besked som text vid fältet (aria-describedby) i stället för webbläsarens bubbla, som följer
-    // webbläsarens språk (byggstandarden 6.2, ägarens dom L4). Första felaktiga fältet får fokus. Utan JavaScript
+    // webbläsarens språk (byggstandarden 6.2, WCAG 3.3.1). Första felaktiga fältet får fokus. Utan JavaScript
     // stoppar webbläsaren inskicket med sitt eget besked, och POST fungerar som förut.
     let forsta = true;
     for (const falt of f.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[required][data-saknas]')) {

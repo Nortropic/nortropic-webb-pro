@@ -194,8 +194,16 @@ def ersatta_regler():
     return ut
 
 
-def regler(servrar):
+def regler(servrar, slug=None):
     ut = []
+    import styrning  # rensningen inför Nortropic 2.0: ersatta beslut och gamla kundsmakdomar i det som når agenterna
+    try:
+        gamla = styrning.prova(slug)
+        ut.append(post('regler', 'gammal styrning i agentuppdragen, metoden och körningens cache', 'fel' if gamla else 'ok',
+                       detalj='; '.join('%s:%s %s' % (x['kalla'], x['rad'], x['vad']) for x in gamla[:6]) or
+                       'inga ersatta beslut eller gamla kundsmakdomar (kontroller/styrning.py)'))
+    except Exception as e:  # noqa: BLE001
+        ut.append(post('regler', 'gammal styrning i agentuppdragen', 'okand', detalj='%s: %s' % (type(e).__name__, str(e)[:160])))
     texter = {}
     for f in AKTIVA_UPPDRAG:
         try:
@@ -333,7 +341,7 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=180):
     formaga, servrar = prova_formagan(k, version)
     rader += formaga
     rader += kunskap(k)
-    rader += regler(servrar)
+    rader += regler(servrar, slug)
     rader += uppdraget(slug)
     if not fick:
         rader.append(post('underhåll', 'intag', 'okand', detalj='ett intag i underhållet pågick fortfarande efter %d s; kontrollen gjordes ändå' % vanta_intag))

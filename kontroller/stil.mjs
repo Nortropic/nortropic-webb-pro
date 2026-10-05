@@ -171,8 +171,8 @@ function matPaSidan() {
   //   (5) liten brödtext
   const litenText = [...document.querySelectorAll('main p, main li, main dd')].filter((el) => synlig(el) && (el.textContent || '').trim().length > 20 && parseFloat(getComputedStyle(el).fontSize) < 12).length;
   const impeccable = { trangaRubriker, enformigLuft, luftMatningar: luft.length, storstaSteg: storstaSteg ? Math.round(storstaSteg * 100) / 100 : null, sidkanter: [...new Set(sidkanter)].slice(0, 4), litenText };
-  // mobilens första vy och kontaktvägar (ägarens A/B-omdöme 2026-10-02, L1, L2): sidhuvudets höjd, synlig meny eller
-  // hamburgare, eget foto i första skärmen, fast list längst ned med Ring och Skriv
+  // mobilens första vy och kontaktvägar, uppmätt som underlag (riktningens val, inga varningar; rensningen inför 2.0):
+  // sidhuvudets höjd, synlig meny eller hamburgare, eget foto i första skärmen, fast list längst ned med Ring och Skriv
   const huvud = [...document.querySelectorAll('header')].find((h) => synlig(h) && h.getBoundingClientRect().top < 10);
   const menyLankar = huvud ? [...huvud.querySelectorAll('nav a')].filter(synlig).length : 0;
   const hamburgare = !!(huvud && [...huvud.querySelectorAll('button[aria-expanded], button[aria-controls]')].some(synlig));
@@ -182,7 +182,7 @@ function matPaSidan() {
   const lankarI = (el) => (el.matches('a[href]') ? [el] : []).concat([...el.querySelectorAll('a[href]')]);
   const fastList = fasta.length ? { ring: fasta.some((el) => lankarI(el).some((a) => a.getAttribute('href').startsWith('tel:'))),
     skriv: fasta.some((el) => lankarI(el).some((a) => /kontakt|forfragan|#skriv/i.test(a.getAttribute('href')))) } : null;
-  // menylänkar utanför skärmen (en rad som rullar dold i sidled, L4) och samma handling flera gånger i första vyn (L4, L5)
+  // menylänkar utanför skärmen (en rad som rullar dold i sidled: varning) och samma handling flera gånger i första vyn (mått)
   const vw = document.documentElement.clientWidth;
   const menyDolda = huvud ? [...huvud.querySelectorAll('nav a')].filter((a) => { const r = a.getBoundingClientRect(); return r.width > 0 && r.height > 0 && (r.right > vw + 1 || r.left < -1); }).map((a) => (a.textContent || '').trim()) : [];
   const iForsta = [...document.querySelectorAll('a[href]')].filter((a) => { const r = a.getBoundingClientRect(); return synlig(a) && r.top < vh && r.bottom > 0 && r.left < vw && r.right > 0; });
@@ -297,13 +297,7 @@ for (const r of rader) {
 }
 const mobilStart = rader.find((r) => r.sida === '/' && r.vy === '390')?.mobil;
 if (mobilStart) {
-  if (mobilStart.sidhuvud > 120) varningar.push(`sidhuvudet är ${mobilStart.sidhuvud} px högt i 390; en rad med namn och nummer som knapp, menyn med korta etiketter på en rad, annars två (L4, L5)`);
   if (mobilStart.menyDolda?.length) varningar.push(`${mobilStart.menyDolda.length} menylänkar ligger utanför skärmen i 390 (${mobilStart.menyDolda.slice(0, 3).map((x) => '"' + x + '"').join(', ')}): en rad som rullar dold i sidled; korta etiketterna eller lägg menyn på två rader (L4)`);
-  if (mobilStart.telIForsta >= 3) varningar.push(`numret står ${mobilStart.telIForsta} gånger i startsidans första vy i 390; den fasta listen bär det, högst två (L4)`);
-  if (mobilStart.dubbla?.length) varningar.push(`samma länk står två gånger i startsidans första vy i 390: ${mobilStart.dubbla.slice(0, 3).join(', ')}; när den fasta listen bär handlingen behövs ingen knapp till (L4)`);
-  if (mobilStart.hamburgare) varningar.push('hamburgarmeny i 390; ägaren föredrar synliga menylänkar (L2, A/B 2026-10-02)');
-  if (mobilStart.bilder > 0 && !mobilStart.fotoIForsta) varningar.push('inget foto i startsidans första skärm i 390, fast sajten har bilder');
-  if (!mobilStart.fastList?.ring || !mobilStart.fastList?.skriv) varningar.push('ingen fast list längst ned i 390 med både Ring och Skriv');
 }
 const utanSkymt = rader.filter((r) => r.sida === '/' && !r.nastaSkymtar).map((r) => r.vy);
 if (utanSkymt.length) varningar.push('nästa sektion skymtar inte i startsidans första vy (' + utanSkymt.join(', ') + ' px)');
@@ -325,7 +319,7 @@ const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val 
   '## Radlängd och radhöjd i brödtext', '', '| Sida | Vy | Radlängd, tecken | Radhöjd |', '|---|---|---|---|',
   ...rader.map((r) => `| ${r.sida} | ${r.vy} | ${r.monster?.radlangd ?? '-'} | ${r.monster?.radhojd ?? '-'} |`), '',
   '## Mobilens första vy (startsidan, 390)', '',
-  ...(mobilStart ? [`- Sidhuvud: ${mobilStart.sidhuvud ?? '-'} px; meny: ${mobilStart.hamburgare ? 'hamburgare' : mobilStart.menyLankar + ' synliga länkar'}`,
+  ...(mobilStart ? [`- Sidhuvud: ${mobilStart.sidhuvud ?? '-'} px; meny: ${mobilStart.hamburgare ? 'hamburgare' : mobilStart.menyLankar + ' synliga länkar'}; numret ${mobilStart.telIForsta ?? 0} gånger och ${mobilStart.dubbla?.length ?? 0} upprepade länkar i första vyn`,
     `- Eget foto i första skärmen: ${mobilStart.fotoIForsta ? 'ja' : 'nej'} (${mobilStart.bilder} bilder i main)`,
     `- Fast list längst ned: ${mobilStart.fastList ? [mobilStart.fastList.ring && 'Ring', mobilStart.fastList.skriv && 'Skriv'].filter(Boolean).join(' och ') || 'utan Ring och Skriv' : 'ingen'}`] : ['- startsidan mättes inte']), '',
   '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',

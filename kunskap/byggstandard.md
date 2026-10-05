@@ -75,14 +75,14 @@ sälja: varje sida har ett tydligt nästa steg.
 
 ## 6. Formulär (W+K)
 
-Varje sajt har en skriftlig förfrågningsväg utöver telefonen (ägarens dom L1–L3). Formuläret, tacksidan och
+Varje sajt har en skriftlig förfrågningsväg utöver telefonen (ägarens ord 2026-10-02 om alla sajter, `kunskap/forfragan.md`). Formuläret, tacksidan och
 integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid lansering. Kontraktet står i
 `kunskap/forfragan.md`.
 
 | Punkt | Fas | Prövas av |
 |---|---|---|
 | 6.1 Ett formulär med få fält (namn, telefon, vad besökaren vill ha hjälp med, valfri bild); det valfria märks, resten krävs. Telefonen får inte vara enda vägen. | D | `standard`, granskaren |
-| 6.2 `type="tel"`, inputmode, autocomplete och `pattern` (bokstäver går inte igenom); svenska felmeddelanden som text vid fältet med `aria-describedby`, inte bara webbläsarens bubbla (ägarens dom L4). | D | `standard`, `axe` |
+| 6.2 `type="tel"`, inputmode, autocomplete och `pattern` (bokstäver går inte igenom); svenska felmeddelanden som text vid fältet med `aria-describedby`, inte bara webbläsarens bubbla (WCAG 3.3.1). | D | `standard`, `axe` |
 | 6.3 Vanlig POST till `/api/forfragan/` fungerar utan JS; knappen låses under sändning; tacksidan säger vad som händer härnäst och när. | D formulär och tacksida, L mottagare | `standard`, demomottagaren |
 | 6.4 Servern validerar allt igen, begränsar längd, escapar i mejlmallen. | L | lansering |
 | 6.5 Spamskydd i lager: honeypot och tidsfälla i formuläret; rate limit och Turnstile i mottagaren. | D fällor, L resten | `standard`, lansering |
@@ -97,7 +97,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 | 7.1 Unik title (50–60 tecken) och description (120–155), canonical, delningsbild `og:image` 1200×630 px. | D | `seo`, `standard`, info |
 | 7.2 sitemap.xml utan sidor med noindex (tacksidan) och robots.txt som inte blockerar CSS eller JS, 404-sida med väg vidare och noindex men ingen canonical, 301 från gamla adresser, ingen noindex i produktion utom på 404. | D, 301 L | `standard`, `seo` |
 | 7.3 JSON-LD som matchar synligt innehåll: den mest specifika typen (Electrician, Plumber, RoofingContractor, HousePainter, GeneralContractor för snickare och byggare); BreadcrumbList bara med synliga brödsmulor, och när DESIGN.md:s struktur har brödsmulor (`"struktur": {"brodsmulor": true}`) finns båda på varje indexerbar undersida, mellan sidhuvudet och `<main>`. Brödsmulor är en designhypotes, inget krav. aggregateRating ur Google-omdömen ger inga rikresultat. Typer och egenskaper finns i schema.org:s vokabulär och hör till typen; en utgången term byts mot sin ersättare. | D | `standard`, `seo` (vokabulären), info |
-| 7.4 Namn, adress och telefon identiska med Google-företagsprofilen; den gatuadress verksamheten själv visar, och som ingen annan källa motsäger, står i sidfoten på varje sida, på kontaktsidan och i JSON-LD; säger källorna olika står adressen ingenstans förrän verksamheten svarat (ägarens domar L5 och L6); öppettider eller telefontid och serviceområde som text, eller beställda; länk till omdömena. | D | `seo`, `standard` (adressen), steg 6, granskaren |
+| 7.4 Namn, adress och telefon identiska med Google-företagsprofilen; den gatuadress verksamheten själv visar, och som ingen annan källa motsäger, står på kontaktsidan och i JSON-LD (var den står i övrigt, till exempel sidfoten, är riktningens val); säger källorna olika står adressen ingenstans förrän verksamheten svarat; öppettider eller telefontid och serviceområde som text, eller beställda; länk till omdömena. | D | `seo`, `standard` (adressen), steg 6, granskaren |
 | 7.5 En sida per huvudtjänst med egen h1, lokal koppling, riktiga jobbilder och nästa steg. | D | granskaren |
 | 7.6 robots.txt blockerar inte sökrobotar, inte heller AI-sök, om kunden vill synas där. llms.txt behövs inte. | D | info |
 

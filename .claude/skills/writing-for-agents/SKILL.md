@@ -17,7 +17,8 @@ Det här avsnittet gäller före allt nedan. Källa, licens och vad som ändrats
   skillens klass "kände regeln men hoppade över den" blir förbudet, målet och undanflykterna bygget använde.
 - **Ledord** väljs på svenska när texten är svensk, ord som redan bär mening för modellen (slop, förstavy, upptagna
   val); engelska fackord som saknar bra svensk motsvarighet behålls.
-- **Ordning:** ägarens domar i `LARDOMAR.md` och "Små ändringar" i `CLAUDE.md` gäller före. Rensa i det stycke
+- **Ordning:** ägarens aktuella beslut (`kunskap/designregler.md`, `BESLUT.md`) och "Små ändringar" i `CLAUDE.md` gäller
+  före; `LARDOMAR.md` är historik. Rensa i det stycke
   ändringen rör; en större rensning av en skill är en egen backlogpost.
 
 # Writing for agents

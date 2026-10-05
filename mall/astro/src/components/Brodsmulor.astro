@@ -2,7 +2,7 @@
 // Brödsmulor för en undersida (byggstandarden 7.3): synlig navigering "Du är här" och BreadcrumbList i JSON-LD ur
 // samma lista. Startsidan kommer först, sidan själv sist och utan länk. Utseendet skrivs för verksamheten.
 // Placeras mellan sidhuvudet och <main> (GOV.UK): då hoppar länken "Till innehållet" över dem, och varken
-// länkarna eller JSON-LD hamnar i huvudinnehållet (ägarens dom L4).
+// länkarna eller JSON-LD hamnar i huvudinnehållet (byggstandarden 7.3).
 //   <Brodsmulor sida="Tillbyggnad" />   eller   <Brodsmulor steg={[{ namn: 'Tjänster', href: '/tjanster/' }]} sida="Tak" />
 interface Steg { namn: string; href: string }
 interface Props { sida: string; steg?: Steg[] }

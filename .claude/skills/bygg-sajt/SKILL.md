@@ -15,20 +15,19 @@ gamla antislop-skill: `kunskap/copy-kontroll.md` (fraser och strukturer, med `ko
 rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella.md` (åtta jämförelsedimensioner).
 Det som gäller i bygget, med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens beslut), kundens aktuella
 domar i domloggen och, efter ett godkännande, den godkända kandidatens kod och DESIGN.md. Ägarens domar över tidigare
-byggen (`LARDOMAR.md`, ordagrant i det privata `underlag/LARDOMAR-original.md`) är exempel och smakdomar: slå upp dem när
-de besvarar en konkret fråga; de blir aldrig regler för en ny kund.
+byggen (`LARDOMAR.md`) är historik: inget bygge hittills har varit bra nog (ägaren 2026-10-05), så de är varken
+förebilder eller regler för en ny kund, och bygget läser dem inte.
 
 ## Ramar för körningen
 
 - **Ingen människa svarar under körningen.** Saknas en uppgift: märk den `antagande` och fortsätt. Hitta aldrig på
   fakta, omdömen, siffror, priser eller certifieringar. **Saknas något som en kund letar efter** (egna bilder,
   telefontid, försäkring och F-skatt, svarstid, ägarens egna ord): utelämna det inte och lös det inte med form.
-  Beställ det av verksamheten i `underlag/<slug>/BESTALLNING.md` (steg 3); ägaren tar beställningen med sig.
-  Ägarens domar L2 och L3: "fråga i stället för att utelämna", "en beställning, inte ett designval".
+  Beställ det av verksamheten i `underlag/<slug>/BESTALLNING.md` (steg 3); ägaren tar beställningen med sig: fråga i
+  stället för att utelämna; det saknade är en beställning, inte ett designval.
 - **En uppgift som bygget självt har flaggat som obekräftad** (källorna säger olika, eller beställningen frågar om
-  den) står inte på sajten eller i strukturerad data förrän svaret kommit; abx gjorde rätt som dolde adressen
-  (ägarens domar L5 och L6). En uppgift som verksamheten själv har publicerat, även en gammal, får stå medan
-  bekräftelsen är beställd (L6, svarstiden på tacksidan).
+  den) står inte på sajten eller i strukturerad data förrän svaret kommit. En uppgift som verksamheten själv har
+  publicerat, även en gammal, får stå medan bekräftelsen är beställd.
 - **Sökvägar** (`<slug>` står i uppdraget):
   - `underlag/<slug>/` råmaterial och arbetsfiler (privat, utanför git)
   - `kunder/<slug>/sajt/` Astro-projektet
@@ -51,8 +50,8 @@ de besvarar en konkret fråga; de blir aldrig regler för en ny kund.
 - **Titta inte på andra byggen** i `kunder/` eller `underlag/`. Varje sajt härleds ur sin egen verksamhet.
 - **Verktygslådan.** Skills i `.claude/skills/` utöver bygg-sajt, kirurg och backlog är intagna med källa i KALLA.md.
   Vilka av dem, och vilka avsnitt, som stöder ett steg, och hur motsägande råd avgörs, står i `kunskap/metodkarta.md`;
-  använd dem därifrån. Vid krock gäller ägarens domar, regeln mot slop och verksamhetens egna bilder och ord före
-  skillen.
+  använd dem därifrån. Vid krock gäller ägarens aktuella beslut (`kunskap/designregler.md`) och kundens domar, regeln
+  mot slop och verksamhetens egna bilder och ord före skillen.
 - **Rör inte** `kontroller/`, `kunskap/`, `kritik/`, `mall/`, `.claude/` eller `LARDOMAR.md` under en körning
   (behörigheterna nekar Edit och Write där, och sammanfattningen efter körningen visar varje ändring). Verkar en
   kontroll fel: skriv det i rapporten under "Kontroller som verkar fel".
@@ -66,8 +65,7 @@ de besvarar en konkret fråga; de blir aldrig regler för en ny kund.
 
 Läs, i den här ordningen: `kunskap/designregler.md`, kundens aktuella domar i `underlag/<slug>/DESIGNDOMAR.jsonl`
 (från den senaste som begärde en ny riktning; de äldre är historik, utom uttryckliga beslut om annat än designen), `kunskap/copy-kontroll.md`
-och `kunskap/referenser-professionella.md`. Ägarens domar över tidigare byggen slår du upp i `LARDOMAR.md` när de
-besvarar en konkret fråga. Lägg upp de åtta stegen som uppgifter med TaskCreate och bocka av dem med TaskUpdate.
+och `kunskap/referenser-professionella.md`. Lägg upp de åtta stegen som uppgifter med TaskCreate och bocka av dem med TaskUpdate.
 
 ## Steg 1 — Underlag (upptäckt)
 
@@ -84,11 +82,11 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    verksamhetens andra domäner (`--prova-domaner "Namn, Ort"` på hämtningen provar namnets .se, .com och .nu och
    skriver svaren sist i SIDOR.md; adressen på bilen och i katalogerna) och läs dem som egna källor; två levande
    domäner är ett fynd för rapporten. En enstaka extern sida (en tidningsartikel, en arkiverad sida på
-   web.archive.org): `.venv/bin/python kontroller/sida_till_text.py <url> underlag/<slug>/kalla/extern/<namn>`. I
-   lulea-snickaren-abx låg det mesta egna materialet på den äldre domänen.
+   web.archive.org): `.venv/bin/python kontroller/sida_till_text.py <url> underlag/<slug>/kalla/extern/<namn>`. Det egna
+   materialet kan ligga på en äldre domän.
 2. **Bilder:** `--bilder underlag/<slug>/bilder` på hämtningen i punkt 1 laddar ned raderna märkta foto och okänd i
-   `kalla/SIDOR.md` och provar närliggande filnamn i samma mapp (k1, k3 … ger k2; salongens bästa bild var inte
-   länkad). Titta på dem märkta okänd och ta bort det som inte är verksamhetens. Bilder ur deras kanaler laddas ned
+   `kalla/SIDOR.md` och provar närliggande filnamn i samma mapp (k1, k3 … ger k2; en bra bild
+   är inte alltid länkad). Titta på dem märkta okänd och ta bort det som inte är verksamhetens. Bilder ur deras kanaler laddas ned
    med `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil,
    källa, vad bilden visar, datum, kvalitet. Datumet och dess källa (EXIF, filnamn eller okänt) ger `.venv/bin/python
    kontroller/bilddatum.py underlag/<slug>/bilder`; daterade jobbilder kan bära en sektion. Bilder som visar
@@ -99,8 +97,8 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    (`schema: 1`, `namn`, `fiktiv: false`, `kontaktvagar` med `typ`/`varde`/`belagg`, `rackvidd`, `tjanster` och de
    valfria fälten). Sätt `webb: {"doman": "deras-doman.se"}`. `adress.publik` är `true` när verksamheten själv visar
    gatuadressen (egen sajt, Google-profil, annons) och ingen annan källa (Google-profil, Hitta, Bolagsverket) anger
-   en annan; säger källorna olika, eller är den ena en hemadress, är den `false` och adressen beställs (ägarens domar
-   L5 och L6). Med `true` står gatan i sidfoten på varje sida, på kontaktsidan och i JSON-LD (standarden 7.4). Kör
+   en annan; säger källorna olika, eller är den ena en hemadress, är den `false` och adressen beställs. Med `true`
+   står gatan på kontaktsidan och i JSON-LD, och där riktningen visar kontaktuppgifterna (standarden 7.4). Kör
    `.venv/bin/python kontroller/verksamhetsuppgifter.py kontrollera underlag/<slug>/VERKSAMHET.json` tills den svarar
    exit 0.
 4. **`underlag/<slug>/RESEARCH.md`:** svar på kundintervjuns frågor ur underlaget. Varje påstående har källa (URL)
@@ -171,7 +169,7 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
   underlaget saknar, skrivet så att verksamheten kan svara på fem minuter. Bilder när de har färre än fem egna eller
   saknar någon av sorterna ovan: vilka, varför och till vilken sida och sektion (3–8 stycken). Telefontid, försäkring
   och F-skatt, svarstid för formuläret, och tre meningar i ägarens egna ord när en sektion bygger på dem. En rad per
-  sak: vad, varför, var på sajten. En förenklad form av loggan föreslås bara som fråga här, aldrig på sajten (L5).
+  sak: vad, varför, var på sajten. En förenklad form av loggan föreslås bara som fråga här, aldrig på sajten.
   Inget skickas under körningen; ägaren tar beställningen med sig.
 
 Skriv `underlag/<slug>/RESOR.json` ur toppuppgifterna (`kunskap/resor.md`): den primära handlingen och den skriftliga
@@ -264,12 +262,10 @@ aldrig en uppgift som saknas (grupperingen efter fem domar: den största kategor
 underlaget belägger). **Omdömen** står ordagrant med namnet som det står hos källan, plattformen och månaden; en
 avkortning syns med …; en plattform per mening och en länk dit besökaren kan läsa dem. **Tredje part:** varje mening
 som nämner en plattform, ett register, en certifiering, en leverantör eller en kund har sin källa i RESEARCH.md, och
-länken på sajten går till samma källa; ett omdöme anges med den plattform länken går till (ägarens dom L5: tre byggen
-av samma firma sade tre olika plattformar). **Speglade uppgifter:** när sajten visar en uppgift som ägs av ett annat
+länken på sajten går till samma källa; ett omdöme anges med den plattform länken går till. **Speglade uppgifter:** när sajten visar en uppgift som ägs av ett annat
 system eller en person (prislistan i bokningssystemet, öppettider i Google-profilen, någons lediga tider) står källan
 och datumet vid uppgiften, och rapporten anger regeln för hur den hålls aktuell (hämtas vid varje bygge, eller
-kontrolleras var tredje månad). En persons tider eller frånvaro skrivs bara med verksamhetens beslut i beställningen
-(ägarens dom L4).
+kontrolleras var tredje månad). En persons tider eller frånvaro skrivs bara med verksamhetens beslut i beställningen.
 
 Kontrollera texten:
 
@@ -278,9 +274,8 @@ Kontrollera texten:
 ```
 
 Rätta varje fynd, eller motivera det om frasen är rätt i verksamhetens egen röst (`kunskap/copy-kontroll.md`:
-rapporten är aldrig en grind). Ett kundcitat får aldrig berömma något som sajten inte har (dom L3: citatet om
-formuläret på en sajt utan formulär). Innehåll med slutdatum, som en platsannons eller ett erbjudande, får datumet
-noterat i rapporten så att det kan tas bort i tid (dom L1). Läs sedan texten högt för dig själv som en kund i orten:
+rapporten är aldrig en grind). Ett kundcitat får aldrig berömma något som sajten inte har. Innehåll med slutdatum, som en
+platsannons eller ett erbjudande, får datumet noterat i rapporten så att det kan tas bort i tid. Läs sedan texten högt för dig själv som en kund i orten:
 kunde en mening som ska säga varför just de stå hos en konkurrent? Skriv om den. Ett praktiskt svar skrivs inte om
 för att låta annorlunda; det ska vara rätt och lätt att använda. Gå sedan igenom texten med skillen `humanizer` i
 verktygslådan, med briefens fem formuleringar som röstprov, och kör copykontrollen igen. Gå igenom Belägg-raderna en
@@ -308,7 +303,7 @@ KONCEPT.md.
    tjänsterna, beviset, undersidornas sektioner, sidfoten och avslutet visas), den sak ur "Bara de har" som
    riktningen bygger på, och en rad **Motiv**: en form, linje eller ett material ur märket eller "Bara de har" och
    var det bär formen (listmarkör, bildmask, avslut eller sidfot; ett ställe räcker om det bär), aldrig dekor utan
-   funktion. Ägarens mall-lukt i L1–L3 satt i formen, inte i färgen: tjänstelistor, sektionsformer och sidfötter
+   funktion. Mall-lukt sitter i formen, inte i färgen: tjänstelistor, sektionsformer och sidfötter
    som kunde stå hos vilken firma som helst. En namngiven axel som riktningarna skiljer sig på: foto eller typografi
    bär, ljust eller mörkt, tätt eller luftigt. Antal typsnittskategorier, motivets platser och sektionsformer är inga
    punkter att bocka av: de prövas mot kompositionen, och en riktning bedöms på vad den gör för sidan, inte på
@@ -375,21 +370,15 @@ KONCEPT.md.
    kontaktmodellen telefonen: numret som tel-länk), `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
    färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga
    boknings- eller beställningssystem.
-   **Mobilens första vy** (ägarens domar L1, L2 och A/B 2026-10-02; en designhypotes enligt
-   `kunskap/designregler.md`: utgångspunkten i bygget, och en godkänd prototyp som löser kontakten annorlunda går
-   före): sidhuvudet på en rad med namn och den primära handlingen som knapp (numret när kunderna ringer, bokningen
-   när de bokar), menylänkarna synliga utan hamburgare
-   med korta etiketter på en rad, och ryms de inte, två rader, aldrig en rad som rullar dold i sidled (L4), sedan
-   rubriken, den primära handlingen och ett av verksamhetens egna foton i första skärmen när de har foton. En fast
-   list längst ned på mobil bär den primära handlingen och Skriv (till formuläret), och Ring när den primära
-   handlingen är en annan, och skymmer inte sidfotens sista länk. När listen syns står samma handling inte som knapp
-   en gång till i första vyn, och numret står högst två gånger: listen bär det, sidhuvudet behöver det inte (L4, L5).
-   Stilrapporten mäter det.
+   **Mobilens första vy** är riktningens: den godkända kandidatens kod och DESIGN.md (eller KONCEPT.md) avgör sidhuvud,
+   meny, primär handling och bild. Kvalitetskraven gäller: den primära handlingen nås från första vyn, menyn fungerar
+   med tangentbord och skärmläsare och rullar aldrig dold i sidled, kontaktvägarna följer BRIEF.md §4, och en fast
+   list skymmer aldrig innehåll. Stilrapporten redovisar mått (sidhuvudets höjd, hur ofta numret står) som underlag.
    **Brödsmulor** när DESIGN.md:s struktur har dem (`"struktur": {"brodsmulor": true}`): mallens
    `src/components/Brodsmulor.astro` (synlig "Du är här" och BreadcrumbList) mellan sidhuvudet och `<main>` på varje
    indexerbar undersida; standarden prövar det. **Formuläret** behåller mallens
    felbesked vid fälten och telefonfältets `pattern`; etiketterna och beskeden skrivs i verksamhetens ord.
-   **Öppettider eller telefontid** står på kontaktsidan när underlaget har dem; annars är de beställda (L4).
+   **Öppettider eller telefontid** står på kontaktsidan när underlaget har dem; annars är de beställda.
    **Plats för det beställda:** DESIGN.md (Bildbehandling) anger var varje beställd bild ska sitta. Bygg sektionen
    så att bilden kan läggas in i `src/assets/bestallt/` utan omdesign, och så att sektionen står rätt utan den; aldrig
    en synlig platshållare (byggstandarden 9.4). Saknas telefontid eller svarstid: skriv inget påhittat.

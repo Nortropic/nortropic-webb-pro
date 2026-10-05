@@ -15,7 +15,7 @@ Det här avsnittet gäller före allt nedan. Källa, licens och vad som ändrats
 - **Inget påhittat.** Inga personer, citat, siffror, studier eller källor som inte finns i underlaget. Hellre en
   kortare, sann mening.
 - **Regeln mot slop gäller också:** `kunskap/copy-kontroll.md` och `kunskap/redaktionellt-pass.md`. Krockar något
-  här med dem eller med ägarens domar i `LARDOMAR.md`, gäller de.
+  här med dem eller med ägarens aktuella beslut (`kunskap/designregler.md`), gäller de.
 - **Tak, inte förbud,** för mönster 10, 14 och 31: högst ett fragment och högst en uppräkning i tre led per sektion,
   högst ett tankstreck per stycke i löptext. Ett medvetet valt grepp en gång är hantverk; samma grepp i varje stycke är
   ett mönster.

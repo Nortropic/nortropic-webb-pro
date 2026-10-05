@@ -11,10 +11,10 @@ Det här avsnittet gäller före allt nedan. Källa, licens och vad som ändrats
   och typografin är uppdragets (huvudreferensen eller verksamhetens material).
 - **När:** bygg-sajt steg 4 och 5, för knappar, länkar, etiketter och felbesked.
 - **Värdena är startpunkter.** Byggstandarden (`kunskap/byggstandard.md`) vinner där de krockar: radlängd 45–75 tecken
-  (3.1), träffytor minst 24 px och primära knappar 44 px (3.3), dämpad rörelse (3.5). Ägarens domar i `LARDOMAR.md`
-  gäller före allt.
-- **Stacken är Astro, statisk, utan JavaScript som inte behövs.** Skriv rättningarna i byggets egen CSS; recept för
-  Tailwind, React eller ett animationsbibliotek översätts till vanlig CSS.
+  (3.1), träffytor minst 24 px och primära knappar 44 px (3.3), dämpad rörelse (3.5). Ägarens aktuella
+  beslut (`kunskap/designregler.md`) och kundens domar (`DESIGNDOMAR.jsonl`) går före; äldre domar i `LARDOMAR.md` är historik.
+- **Stacken är Astro med de låsta beroendena** (`kunskap/beroenden.md`): egen CSS, Tailwind 4, React-öar och Motion där
+  riktningen behöver dem; innehållet och navigationen fungerar utan JavaScript.
 - **Rapportformatet** (tabellen och Block/Approve) är till för en fristående granskning. I ett bygge skrivs fynd och
   rättningar i `underlag/<slug>/JAMFORELSE.md`; den oberoende granskningen gör `kontroller/granska.py`.
 - **Texten är svensk** och följer `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md` och humanizer-skillen;

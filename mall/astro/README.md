@@ -1,4 +1,4 @@
-# Mall: Astro, statisk
+# Mall: Astro med de låsta beroendena
 
 Kopieras till `kunder/<slug>/sajt/` i steg 5. Den bär bara teknik: språk, canonical, theme-color, favicon,
 delningsbild, skiplänk, CSP, dämpad rörelse (`prefers-reduced-motion`), sitemap.xml, robots.txt, 404, två
@@ -7,8 +7,9 @@ Ingen design, inga typsnitt. Allt synligt skrivs för verksamheten. Byggstandard
 
 1. Byt `site` i `astro.config.mjs` mot verksamhetens domän (ur `VERKSAMHET.json`, fältet `webb.doman`).
 2. Skriv sidorna i `src/pages/` med `Bas.astro`: `titel` (50–60 tecken), `beskrivning` (120–155), `tema`
-   (verksamhetens bärande färg som hex). Varje sida har `<header>` med `<nav>` och telefonnumret som tel-länk,
-   `<main id="innehall">`, en h1 och `<footer>`. Skriv om `404.astro` med samma sidhuvud och sidfot.
+   (verksamhetens bärande färg som hex). Varje sida har `<header>` med `<nav>` och kundens kontaktvägar ur BRIEF.md §4
+   (var de står är riktningens val), `<main id="innehall">`, en h1 och `<footer>`. Skriv om `404.astro` med samma
+   sidhuvud och sidfot. Beroendena (egen CSS, Tailwind, React-öar, Motion) står i `kunskap/beroenden.md`.
 3. Skapa `public/favicon.svg` ur verksamhetens märke. Kör sedan
    `node kontroller/ikoner.mjs --sajt kunder/<slug>/sajt --foto <eget foto> --bakgrund '<hex>'`, som gör
    `public/apple-touch-icon.png` (180×180) och `public/delningsbild.png` (1200×630).

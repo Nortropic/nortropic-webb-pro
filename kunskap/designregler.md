@@ -3,8 +3,8 @@
 Ägarens uppdrag via Codex 2026-10-05, punkt 2, och synpunkterna på metodkartan samma dag, punkt 2: reglerna för
 formgivningen delas i fyra slag, och varje regel gäller inom sin räckvidd. Den här filen säger vilket slag en regel är
 och vad som går före vad. Källan, vår tolkning och försöken per regel står i `kunskap/metodregler.md`; vilka skills och
-avsnitt varje steg använder, och hur deras motsägelser avgörs, i `kunskap/metodkarta.md`. Ägarens domar står ordagrant
-i `LARDOMAR.md` och domloggen `underlag/<slug>/DESIGNDOMAR.jsonl`.
+avsnitt varje steg använder, och hur deras motsägelser avgörs, i `kunskap/metodkarta.md`. Kundens domar står i domloggen
+`underlag/<slug>/DESIGNDOMAR.jsonl`; ägarens domar över tidigare byggen (`LARDOMAR.md`) är historik (avsnittet sist).
 
 ## Ordningen
 
@@ -20,7 +20,7 @@ En skills standardråd står under alla fyra.
 ## Gemensamma kvalitetskrav
 
 - **Sanning:** namn, nummer, orter, år, tjänster, omdömenas ordalydelse och varje påstående om hur verksamheten
-  arbetar har belägg i underlaget; saknas källan stryks eller beställs uppgiften (ägarens domar L1–L6).
+  arbetar har belägg i underlaget; saknas källan stryks eller beställs uppgiften.
 - **Läsbarhet:** kontrast för brödtext minst 4,5:1 (WCAG 2.2 AA), radlängd och radhöjd som går att läsa, rubriker i
   ordning med en h1 per sida, `lang="sv"`.
 - **Fungerande interaktion:** varje länk och knapp leder dit den säger, formulär har etiketter och felbesked vid
@@ -75,22 +75,23 @@ En skills standardråd står under alla fyra.
 
 | Hypotes | Ursprung | Som utgångspunkt i |
 |---|---|---|
-| Sidhuvud på en rad med den primära handlingen som knapp, menylänkarna synliga utan hamburgare, fast list längst ned med den primära handlingen och Skriv, numret högst två gånger i första vyn | ägarens A/B 2026-10-02 och domarna L1, L2, L4, L5 (två hantverks- och salongsbyggen) | bygget (stilrapporten mäter, varnar, fäller inte); i kandidatflödet en lösning bland flera |
-| Brödsmulor på varje undersida | ägarens A/B-omdöme 2026-10-02 | en lösning bland flera; DESIGN.md:s struktur säger om sajten har dem, och då prövar byggstandarden 7.3 att de finns |
+| Brödsmulor på varje undersida | ett omdöme över ett tidigare bygge (historik) | en lösning bland flera; DESIGN.md:s struktur säger om sajten har dem, och då prövar byggstandarden 7.3 att de finns |
 | Högst två typsnittsfamiljer | prestanda (byggstandarden 4.3) och läsbarhet | bygget; en godkänd DESIGN.md med fler roller avgör |
 | En huvudreferens bär helheten | ägarbeslut 2026-10-04, Codex via ägaren 2026-10-05 | varje kandidat har sin egen |
 | Ett motiv ur märket eller "Bara de har" | Anthropic frontend-design | utforskningen |
-| Undvik de upptagna valen (`UPPTAGNA-VAL.md`) om inte verksamhetens material motiverar dem | våra egna byggens mönster | utforskningen |
+| Undvik de upptagna valen (`UPPTAGNA-VAL.md`) om inte verksamhetens material motiverar dem | våra egna byggens generiska mönster (inget bygge hittills har varit bra nog) | utforskningen |
 | Standarddrag bedöms efter användning | frontend-design | panelen och granskningen |
 
 Det finns ingen fast sektionsordning: ordningen är riktningens val och motiveras ur besökarens frågor.
 
 ## Historik och smakdomar (slås upp, gäller inte automatiskt)
 
-Ägarens domar över tidigare byggen (`LARDOMAR.md`, ordagrant i det privata `underlag/LARDOMAR-original.md`), kundens
-äldre domar i domloggen, riktningshistoriken (`underlag/<slug>/RIKTNINGSHISTORIK.json`), kalibreringen och
-beslutshistoriken i `BESLUT.md` är exempel, smakdomar och ersatta beslut. De bevaras och slås upp när de besvarar en
-konkret fråga; de läses inte i förväg och blir aldrig regler för en ny kund. Ett gammalt färgval, en uppskattad
+Ägarens domar över tidigare byggen (`LARDOMAR.md`, ordagrant i det privata `underlag/LARDOMAR-original.md`) är
+historik: inget bygge hittills har varit bra nog, allt har varit generiskt (ägaren 2026-10-05). De bevaras men läses
+inte av agenterna (läsförbud i sessionerna, rensningen inför Nortropic 2.0) och blir aldrig regler eller förebilder.
+Kundens äldre domar i domloggen, riktningshistoriken (`underlag/<slug>/RIKTNINGSHISTORIK.json`), kalibreringen och
+beslutshistoriken i `BESLUT.md` bevaras och slås upp när de besvarar en konkret fråga; de läses inte i förväg och blir
+aldrig regler för en ny kund. Ett gammalt färgval, en uppskattad
 mobilmeny eller en viss rubrikstil är ett exempel ur ett bygge, ingen designregel. Det som gäller nu står ovan: ett
 uttryckligt ägarbeslut med sin räckvidd i tabellen, och kundens aktuella domar (från den senaste domen som begärde en ny
 riktning, och de efter den) i domloggen; ett uttryckligt beslut i en äldre dom om annat än designen gäller tills en

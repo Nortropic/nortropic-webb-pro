@@ -1,5 +1,9 @@
 # Lärdomar — ägarens domar
 
+**Historik sedan 2026-10-06 (rensningen inför Nortropic 2.0, `kunskap/rensning-nortropic-2.md`):** inget bygge hittills
+har varit bra nog, allt har varit generiskt (ägaren 2026-10-05). Domarna här bevaras men styr inga agenter: skapare,
+planerare, granskare och bygget har läsförbud för filen, och inget bygge här är en förebild.
+
 Loop 3: ägaren tittar på en sajt och dess rapport och dömer med egna ord, i dashboardens frågeformulär eller direkt
 här. Domen står ordagrant i `underlag/LARDOMAR-original.md` (privat, utanför git) och i `kunder/<slug>/DOM.json`. Här,
 i det publika repot, står domen utan personuppgifter: företagsnamn får stå; privatpersoners namn, telefonnummer,
