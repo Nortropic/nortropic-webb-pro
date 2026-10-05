@@ -58,12 +58,12 @@ granskningen själv när du försöker avsluta."
 # Skapandeflödet (kunskap/skapandeflodet.md; Codex via ägaren 2026-10-05: ett designflöde, inte tre) är standard i
 # steg 5.1. En startsida som ägaren godkänt tas över som ateljévinnaren; skapandeflödet körs utanför sandlådan, så ett
 # sandlådat bygge kräver en godkänd startsida. NWP_ATELJE=av är nödvägen utan ateljé (byggarens eget KONCEPT.md).
-GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import json, sys
-try:
-    v = json.load(open(sys.argv[1], encoding="utf-8"))
-except (OSError, ValueError):
-    v = {}
-print("ja" if isinstance(v, dict) and isinstance(v.get("godkand"), dict) and v["godkand"].get("tid") else "")' "$ROOT/underlag/$SLUG/atelje/VINNARE.json" 2>/dev/null || true)"
+# Godkännandet gäller bara när ägarens senaste dom i domloggen är just det och startsidan och DESIGN.md är oförändrade
+# (kontroller/skapande.py godkand_giltig; granskningen av skapandeflödet, punkt 2).
+GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+import skapande
+ok, skal = skapande.godkand_giltig(sys.argv[2])
+print("ja" if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 if [ -n "$GODKAND" ]; then
   PROMPT="$PROMPT
 
@@ -137,7 +137,9 @@ ARGS=(-p
   # och ägarens domar. Sökvägarna är relativa till reporoten, där sessionen startar (cd nedan).
   "Edit(./kontroller/**)" "Edit(./kritik/**)" "Edit(./kunskap/**)" "Edit(./mall/**)" "Edit(./.claude/**)"
   "Edit(./LARDOMAR.md)" "Write(./kontroller/**)" "Write(./kritik/**)" "Write(./kunskap/**)" "Write(./mall/**)"
-  "Write(./.claude/**)" "Write(./LARDOMAR.md)")
+  "Write(./.claude/**)" "Write(./LARDOMAR.md)"
+  # ägarens domar över designen och godkännandet skrivs bara av ägaren (dashboarden), aldrig av bygget
+  "Write(./underlag/$SLUG/DESIGNDOMAR.jsonl)" "Edit(./underlag/$SLUG/DESIGNDOMAR.jsonl)")
 # Bara projektets inställningar: då gäller --allowedTools som vitlista (ägarens egna allow-regler i
 # ~/.claude/settings.json läses inte). Modell och effort anges därför uttryckligen; gh får sin konfigurationsmapp.
 GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
@@ -171,9 +173,11 @@ done < <(env)
 cd "$ROOT"   # projektets Stop-krok laddas bara när sessionen startar i reporoten
 # Bash når förbi Edit/Write-reglerna ovan (cp, mv, egna skript); därför jämförs de skyddade filernas innehåll före och
 # efter, fil för fil, oavsett om en ändring committats under körningen (revisionen 2026-10-03, F10).
-SKYDDAT=(kontroller kritik kunskap mall .claude dashboard kor.sh dashboard.sh CLAUDE.md BESLUT.md LARDOMAR.md .gitignore)
+SKYDDAT=(kontroller kritik kunskap mall .claude dashboard kor.sh dashboard.sh CLAUDE.md BESLUT.md LARDOMAR.md .gitignore
+         "underlag/$SLUG/DESIGNDOMAR.jsonl")  # ägarens domlogg: en ändring under bygget är ändrad mekanik (slutkod 3)
 skyddat() {
-  find "${SKYDDAT[@]}" -type f ! -path '*/node_modules/*' ! -path '*/__pycache__/*' ! -name '.DS_Store' -print0 2>/dev/null \
+  # en post som saknas (domloggen före ägarens första dom) får inte fälla skriptet; skapas den under bygget syns den efteråt
+  { find "${SKYDDAT[@]}" -type f ! -path '*/node_modules/*' ! -path '*/__pycache__/*' ! -name '.DS_Store' -print0 2>/dev/null || true; } \
     | sort -z | xargs -0 shasum -a 256
 }
 # Gränsen i samma listformat (värde, två blanksteg, namn): flaggan på kunder/ och underlag/ och varje post direkt under

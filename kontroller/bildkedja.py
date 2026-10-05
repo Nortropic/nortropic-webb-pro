@@ -78,11 +78,18 @@ def relativ(v):
     return v
 
 
+def utan_punkt(v):
+    """Ett inledande ./ bort, aldrig punkten i .claude/ (granskningen av skapandeflödet, punkt 3: lstrip('./') tog den)."""
+    while v.startswith('./'):
+        v = v[2:]
+    return v
+
+
 def last(krav, lasta_):
     """Är just den krävda filen läst? Samma fil: samma väg relativt repots rot (en absolut väg under roten räknas om),
     aldrig bara samma slut; en kopia under en annan rot är en annan fil (granskningen av r62, punkt 1)."""
     k = relativ(krav).strip('/')
-    return any(relativ(x).lstrip('./') == k for x in lasta_)
+    return any(utan_punkt(relativ(x)) == k for x in lasta_)
 
 
 def lasning(session_id, krav):
@@ -204,7 +211,7 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
         if forsta is None and skrivprefix and x[2] in ('Write', 'Edit', 'MultiEdit') and relativ(x[3].get('file_path', '')).startswith(skrivprefix):
             forsta = i
         if x[2] == 'Read' and isinstance(x[3].get('file_path'), str):
-            sedda.setdefault(relativ(x[3]['file_path']).lstrip('./'), i)
+            sedda.setdefault(utan_punkt(relativ(x[3]['file_path'])), i)
         elif x[2] == 'Skill' and isinstance(x[3].get('skill'), str):
             anrop.append(x[3]['skill'])
             sedda.setdefault('.claude/skills/%s/SKILL.md' % x[3]['skill'].split(':')[-1], i)

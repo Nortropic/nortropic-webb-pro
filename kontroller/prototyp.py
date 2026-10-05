@@ -30,6 +30,14 @@ def lage(slug):
     if not st.get('steg'):
         if dom and dom['beslut'] == 'ny_riktning':
             return 'ny-riktning', 'ingen körning i skapandeflödet än, och ägarens senaste dom (%s) säger ny riktning' % dom['tid']
+        u = atelje.UNDERLAG / slug
+        gamla = [n for n, p in (('prototyp/', u / 'prototyp'), ('REFERENSER.md med huvudreferens', u / 'REFERENSER.md'),
+                                ('startsidan', atelje.KUNDER / slug / 'sajt' / 'src' / 'pages' / 'index.astro'))
+                 if p.exists() and (n != 'REFERENSER.md med huvudreferens' or atelje.referensval.huvudreferensrader(slug, atelje.UNDERLAG))]
+        if gamla and not dom:  # granskningen av skapandeflödet, punkt 1: inget tyst omtag över gamla designbeslut
+            return 'stopp', ('tidigare designbeslut finns (%s) men ingen dom i domloggen: lägg in ägarens dom med '
+                             '.venv/bin/python kontroller/skapande.py dom %s --kalla ... --beslut ... --fil ..., eller välj '
+                             '--ny-riktning eller --om uttryckligen' % (', '.join(gamla), slug))
         return 'om', 'ingen körning än'
     efter = dom if dom and dom.get('tid', '') > (st.get('klar') or st.get('startad') or '') else None
     if efter:
@@ -56,6 +64,9 @@ def main(argv=None):
         return 2
     vald, skal = ('ny-riktning', 'flaggan') if a.ny_riktning else ('putsa', 'flaggan') if a.putsa else ('om', 'flaggan') if a.om else lage(a.slug)
     print('Prototyp %s: %s (%s).' % (a.slug, vald, skal), flush=True)
+    if vald == 'stopp':
+        print(skal)
+        return 2
     if vald == 'godkand':
         print('Ägaren har godkänt startsidan; bygget tar vid från underlag/%s/atelje/vinnare/ (./kor.sh %s "<verksamhet>").' % (a.slug, a.slug))
         return 0

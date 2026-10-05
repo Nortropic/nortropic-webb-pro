@@ -811,7 +811,7 @@ def prototyp(slug):
     namn = atelje.riktningsavsnitt(rot)
     refs = atelje.riktningsreferenser(slug, rot)
     riktningar = [{'n': int(d.name), 'namn': namn.get(int(d.name), ('riktning %s' % d.name, ''))[0], 'referens': (refs.get(int(d.name)) or {}).get('namn'),
-                   'bilder': bilder(d.name), 'vald': vinnare.get('riktning') == int(d.name)}
+                   'bilder': bilder(d.name), 'vald': domd and vinnare.get('riktning') == int(d.name)}
                   for d in sorted(rot.glob('[0-9]'), key=lambda x: int(x.name)) if d.is_dir() and not d.is_symlink()]
     hr = referensval.huvudreferens(slug, UNDERLAG)
     md_ = lambda n: md(las_text(rot / n) or '') if (rot / n).is_file() else ''  # noqa: E731
@@ -819,7 +819,7 @@ def prototyp(slug):
             'skal': st.get('skal'), 'omgangar': st.get('omgangar'), 'faser': sorted((st.get('faser') or {}).keys()), 'domd': domd,
             'riktningar': riktningar, 'fore': bilder('slutdom/1'), 'efter': bilder('slutdom/2'),
             'huvudreferens': {'namn': hr['namn'], 'vad': hr['vad'], 'bilder': [{'fil': str(p.relative_to(ROOT)), 'text': t_} for p, t_ in hr['bilder']]} if hr else None,
-            'riktningar_md': md_('RIKTNINGAR.md'), 'forfining_md': md_('FORFINING.md'),
+            'riktningar_md': md_('RIKTNINGAR.md'), 'forfining_md': md_('FORFINING.md') if domd else None,
             'val_md': md_('VAL.md') if domd else None, 'slutdom_md': md_('SLUTDOM.md') if domd else None, 'redovisning_md': md_('REDOVISNING.md') if domd else None,
             'domar': list(reversed(skapande.domar(slug, UNDERLAG))), 'godkand': vinnare.get('godkand')}
 
@@ -849,6 +849,8 @@ def spara_prototyp(slug, data, minuter=None):
                                      underlag=UNDERLAG, **({'niva': data['niva']} if data.get('niva') else {}), **({'minuter': minuter} if minuter is not None else {}))
         if data['beslut'] == 'godkand':
             atelje.godkann(slug, dom)
+        else:
+            atelje.aterkalla(slug)  # en senare dom drar tillbaka ett tidigare godkännande
     return {'ok': True, 'dom': dom}
 
 

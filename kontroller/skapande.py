@@ -217,6 +217,10 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None):
     if not isinstance(begaran, dict) or begaran.get('fel'):
         ut['fel'] = (begaran or {}).get('fel') if isinstance(begaran, dict) else 'begäran är inget JSON-objekt'
         return ut
+    sidor = [s for k in ((begaran.get('referens') or {}).get('kandidater') or []) if isinstance(k, dict) for s in (k.get('sidor') or [])]
+    if any(not isinstance(s, str) or '?' in s or '#' in s for s in sidor):  # inga frågesträngar ut ur skaparens session
+        ut['fel'] = 'sidvägarna i en komplettering får inte ha frågesträng eller fragment'
+        return ut
     if isinstance(begaran.get('referens'), dict):
         upp = dict(begaran['referens'])
         forra = senaste_paket(slug, underlag)
@@ -267,3 +271,71 @@ def kompletteringsrader(svar):
         rader.append('- referenstjänsterna (slutkod %s): %s med träffarnas bilder' % (r.get('rc'), r.get('rapport', '?')))
     rader.append('Läs resultatet med Read och bedöm bilderna, inte bara beskrivningarna, innan du använder det.')
     return rader
+
+
+# --- godkännandet (granskningen av skapandeflödet, punkt 2) ---
+
+def sha256_fil(p):
+    import hashlib
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+def godkand_giltig(slug, underlag=None, kunder=None):
+    """(giltig, skäl): ägarens godkännande i atelje/VINNARE.json gäller bara när ägarens senaste dom i domloggen är just
+    det godkännandet och startsidan (och DESIGN.md) är oförändrade sedan dess. kor.sh tar vid först då."""
+    u = Path(underlag or UNDERLAG) / slug
+    sajt = Path(kunder or (ROOT / 'kunder')) / slug / 'sajt'
+    g = (las_json(u / 'atelje' / 'VINNARE.json') or {}).get('godkand')
+    if not isinstance(g, dict) or not g.get('tid'):
+        return False, 'inget godkännande i VINNARE.json'
+    egna = [d for d in domar(slug, u.parent) if d.get('kalla') == 'ägaren']
+    if not egna or egna[-1].get('beslut') != 'godkand' or egna[-1].get('tid') != g['tid']:
+        return False, 'ägarens senaste dom i domloggen är inte godkännandet'
+    sida = sajt / 'src' / 'pages' / 'index.astro'
+    if not sida.is_file() or sida.is_symlink() or sha256_fil(sida) != g.get('sha_index'):
+        return False, 'startsidan är ändrad sedan godkännandet'
+    if g.get('sha_design') and (not (sajt / 'DESIGN.md').is_file() or sha256_fil(sajt / 'DESIGN.md') != g['sha_design']):
+        return False, 'DESIGN.md är ändrad sedan godkännandet'
+    return True, 'godkänd %s' % g['tid']
+
+
+def main(argv=None):
+    """Ägarens domar och historiken utanför dashboarden: en dom som kom via Codex eller i en session förs in ordagrant
+    (granskningen av skapandeflödet, punkt 1). Aldrig inifrån ett bygge."""
+    import argparse
+    p = argparse.ArgumentParser(prog='skapande', description='domloggen och riktningshistoriken för skapandeflödet')
+    sub = p.add_subparsers(dest='cmd', required=True)
+    d = sub.add_parser('dom', help='lägg till en dom i underlag/<slug>/DESIGNDOMAR.jsonl')
+    d.add_argument('slug')
+    d.add_argument('--kalla', required=True, choices=KALLOR)
+    d.add_argument('--beslut', required=True, choices=BESLUT)
+    d.add_argument('--fil', required=True, help='textfil med domen ordagrant')
+    d.add_argument('--avser', default='')
+    d.add_argument('--tid', default=None)
+    h = sub.add_parser('historik', help='lägg till en prövad grundidé i underlag/<slug>/RIKTNINGSHISTORIK.json')
+    h.add_argument('slug')
+    for f in ('kalla', 'namn', 'drag', 'utfall', 'kritik'):
+        h.add_argument('--' + f, required=f != 'kritik', default='')
+    h.add_argument('--tid', default=None)
+    l = sub.add_parser('visa', help='domloggen och historiken som prompterna ser dem')
+    l.add_argument('slug')
+    a = p.parse_args(argv)
+    if os.environ.get('NWP_SLUG'):
+        print('domloggen och historiken skrivs av ägaren eller en session utanför bygget, aldrig inifrån ett bygge', file=sys.stderr)
+        return 2
+    if not re.fullmatch(r'[a-z0-9-]{2,60}', a.slug) or not (UNDERLAG / a.slug).is_dir():
+        print('okänt underlag: underlag/%s' % a.slug, file=sys.stderr)
+        return 2
+    if a.cmd == 'dom':
+        post = lagg_till_dom(a.slug, a.kalla, a.beslut, Path(a.fil).read_text(encoding='utf-8'), avser=a.avser, tid=a.tid)
+        print('domen tillagd: %s, %s, %s' % (post['tid'], post['kalla'], post['beslut']))
+    elif a.cmd == 'historik':
+        lagg_till_historik(a.slug, [{k: getattr(a, k) for k in ('kalla', 'namn', 'drag', 'utfall', 'kritik')} | ({'tid': a.tid} if a.tid else {})])
+        print('historiken har %d poster' % len(historik(a.slug)))
+    else:
+        print('\n'.join(kritikrader(a.slug) + [''] + historikrader(a.slug)) or 'tomt')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

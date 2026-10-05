@@ -80,6 +80,9 @@ MAX_KOMPLETTERINGAR = 2  # research på begäran per omgång och fas (Codex 2026
 FRIST_FORFINA = int(os.environ.get('NWP_ATELJE_FRIST_FORFINA') or 4800)  # förfiningen: minst tre förhandsvarv med Fable på max
 MIN_VARV_FORFINA = 3
 NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(git *)', 'Bash(curl *)',
+         # npm bara ur registret: inga paket från adresser, git eller lokala kataloger (granskningen av skapandeflödet, punkt 8)
+         'Bash(npm install * http*)', 'Bash(npm install * git*)', 'Bash(npm install * file:*)', 'Bash(npm install * ./*)',
+         'Bash(npm install * ../*)', 'Bash(npm install * /*)', 'Bash(npm install * ~*)',
          'Read(./underlag/kalibrering/**)',  # de undanhållna kalibreringsexemplen; ankarna får panelen frysta i atelje/ankare/
          'Edit(./kontroller/**)', 'Edit(./kritik/**)', 'Edit(./kunskap/**)', 'Edit(./mall/**)', 'Edit(./.claude/**)',
          'Write(./kontroller/**)', 'Write(./kritik/**)', 'Write(./kunskap/**)', 'Write(./mall/**)', 'Write(./.claude/**)']
@@ -279,14 +282,16 @@ def referensblock(slug):
     if len(kand) >= ANTAL:
         return ['Huvudreferenskandidaterna i underlag/%s/REFERENSER.md, en per tänkbar grundidé. Välj en per riktning; läs bilderna med Read:' % slug,
                 *['- %s: %s. Bilder: %s' % (k['namn'], k['vad'], '; '.join('%s — %s' % (rel(p), t_) for p, t_ in k['bilder']) or 'inga Bildval-rader under rubriken') for k in kand],
-                'Resten av referensmaterialet (för lån till avgränsade delar, eller en bättre kandidat med skäl): %s.' % material]
+                'Resten av referensmaterialet (för lån till avgränsade delar, eller en bättre kandidat med skäl): %s. Raderna om' % material,
+                'varför en kandidat fångades i PAKET.md är den tidigare researchens skäl, inga beslut.']
     return ['Referensurvalet %s. Välj ur referensmaterialet (%s): titta på bilderna med Read och skriv underlag/%s/REFERENSER.md' % (
                 'saknas' if not (UNDERLAG / slug / 'REFERENSER.md').is_file() else 'har färre kandidater än riktningarna (%d av %d)' % (len(kand), ANTAL), material, slug),
             'innan någon sida: överst en rad `Huvudreferenskandidat: <rubrikens namn> — <vad den bär>` per grundidé du vill pröva',
             '(minst %d, olika i komposition, typografi och bildbehandling), och per referens en rubrik "## <Namn> — <roll>" med varför' % ANTAL,
             'den är stark för just den här verksamheten, vad du såg, och raderna `Bildval: referenser/paket-vNN/<namn>/<NN-sida>/<fil>.png',
             '— <vad som jämförs> — Fråga: <jämförelsefrågan>` för rutorna som bär jämförelsen (formatet i .claude/skills/bygg-sajt/SKILL.md',
-            'steg 3). Ett tidigare urval som ägarens dom återöppnat är inget underlag; en referens därifrån behöver ett nytt skäl.']
+            'steg 3). Ett tidigare urval som ägarens dom återöppnat är inget underlag; en referens därifrån behöver ett nytt skäl.',
+            'Raderna om varför en kandidat fångades i PAKET.md är den tidigare researchens skäl, inga beslut.']
 
 
 def divergera_prompt(slug, bilder, kritik=None, komplettering=None, ankare=None):
@@ -299,7 +304,10 @@ def divergera_prompt(slug, bilder, kritik=None, komplettering=None, ankare=None)
         'ägaren dömer resultatet.', '',
         *skapande.kritikrader(slug, underlag=UNDERLAG), *([''] if skapande.kritikrader(slug, underlag=UNDERLAG) else []),
         *skapande.historikrader(slug, UNDERLAG), *([''] if skapande.historikrader(slug, UNDERLAG) else []),
-        *(['Förra omgången förkastades av panelen. Dess kritik, som varje ny riktning ska svara på:', kritik, ''] if kritik else []),
+        *(['Förra omgången förkastades (av panelen, eller av skaparen under förfiningen). Kritiken, som varje ny riktning ska svara på:', kritik,
+           'Pröva nya kandidater i den här omgången: lägg till kandidater ur referensmaterialet i REFERENSER.md, eller begär research',
+           '(KOMPLETTERING.json nedan). En kandidat från förra omgången används igen bara med ett skäl i riktningens avsnitt i',
+           'RIKTNINGAR.md som svarar på kritiken.', ''] if kritik else []),
         *skapande.fakta_rader(slug, UNDERLAG), '',
         'Läs först: ' + ', '.join(filer) + ', ' + lardomar_vag() + ' (ägarens domar gäller före allt utom ägarens senare domar ovan)',
         'och kunskap/byggstandard.md (punkterna 3 och 4).',
@@ -598,6 +606,7 @@ def spara_kod(slug, rot, n):
     if not kalla.is_dir() or kalla.is_symlink():
         return None
     saker_vag(kalla, KUNDER / slug)
+    saker_vag(rot / str(n) / 'kod', rot)
     mal = rot / str(n) / 'kod'
     if mal.is_symlink():
         mal.unlink()
@@ -622,6 +631,23 @@ def konsolfel(ut):
         ut_ += ['%s: %s' % (vy, str(k.get('text'))[:120]) for k in d.get('konsol') or [] if k.get('typ') == 'error']
         ut_ += ['%s: sidfel %s' % (vy, str(e.get('text'))[:120]) for e in d.get('sidfel') or []]
     return ut_
+
+
+def referensbrister(egna, riktningar):
+    """{n: brist} för riktningarna (nycklar som strängar): en riktning utan huvudreferens med bilder, och en som delar
+    referens med en tidigare riktning (två riktningar på samma referens är ingen utforskning; granskningen av
+    skapandeflödet, punkt 6), är ofullständiga."""
+    ut, forsta_med = {}, {}
+    for n in sorted(riktningar, key=int):
+        if int(n) not in egna:
+            ut[n] = 'ingen huvudreferens med Bildval-bilder (raden "Huvudreferens %s:" i RIKTNINGAR.md mot en rubrik i REFERENSER.md)' % n
+            continue
+        namn = egna[int(n)]['namn'].lower()
+        if namn in forsta_med:
+            ut[n] = 'delar huvudreferens (%s) med riktning %s' % (egna[int(n)]['namn'], forsta_med[namn])
+        else:
+            forsta_med[namn] = n
+    return ut
 
 
 def fotografera(slug, rot):
@@ -667,10 +693,8 @@ def fotografera(slug, rot):
             fotograferade[str(n)] = [rel(f) for f in filer]
             for f in filer:
                 bildrader.append('- riktning %d: %s' % (n, f.relative_to(ROOT)))
-    egna = riktningsreferenser(slug, rot)  # varje riktning bär sin egen huvudreferens (raden Huvudreferens N i RIKTNINGAR.md)
-    for n in fotograferade:
-        if int(n) not in egna:
-            ofullstandiga[n] = '; '.join(filter(None, [ofullstandiga.get(n), 'ingen huvudreferens med Bildval-bilder (raden "Huvudreferens %s:" i RIKTNINGAR.md mot en rubrik i REFERENSER.md)' % n]))
+    for n, brist in referensbrister(riktningsreferenser(slug, rot), fotograferade).items():
+        ofullstandiga[n] = '; '.join(filter(None, [ofullstandiga.get(n), brist]))
     (rot / 'FOTOGRAFERADE.json').write_text(json.dumps({'tid': nu(), 'antal': ANTAL, 'riktningar': fotograferade, 'ofullstandiga': ofullstandiga}, ensure_ascii=False, indent=1) + '\n',
                                             encoding='utf-8')
     if misslyckade:
@@ -988,10 +1012,11 @@ def utforska_verktyg(slug):
     """Utforskningens verktyg: Skill för metoden, sidorna under atelje-N/, ateljékatalogen och urvalet i REFERENSER.md,
     bygget och förhandsvisningen (skaparen ser sina sidor, 2026-10-05). Inget nät; research går genom KOMPLETTERING.json."""
     s = 'kunder/%s/sajt' % slug
+    u = 'underlag/%s' % slug
     return ['Read', 'Glob', 'Grep', 'Skill', 'Write(./%s/src/pages/atelje-*/**)' % s, 'Edit(./%s/src/pages/atelje-*/**)' % s,
-            'Write(./underlag/%s/atelje/**)' % slug, 'Edit(./underlag/%s/atelje/**)' % slug,
-            'Write(./underlag/%s/REFERENSER.md)' % slug, 'Edit(./underlag/%s/REFERENSER.md)' % slug,
-            'Bash(npm install --prefix %s *)' % s, 'Bash(npm run build --prefix %s)' % s, 'Bash(ls *)',
+            'Write(./%s/atelje/RIKTNINGAR.md)' % u, 'Edit(./%s/atelje/RIKTNINGAR.md)' % u, 'Write(./%s/atelje/%s)' % (u, skapande.KOMPLETTERING),
+            'Write(./%s/REFERENSER.md)' % u, 'Edit(./%s/REFERENSER.md)' % u,
+            'Bash(npm install --prefix %s @fontsource*)' % s, 'Bash(npm run build --prefix %s)' % s, 'Bash(ls *)',
             'Bash(.venv/bin/python kontroller/forhandsvisa.py %s *)' % slug]
 
 
@@ -1002,7 +1027,7 @@ def forfina_verktyg(slug):
     return ['Read', 'Glob', 'Grep', 'Skill', 'Write(./%s/src/**)' % s, 'Edit(./%s/src/**)' % s,
             'Write(./%s/DESIGN.md)' % s, 'Edit(./%s/DESIGN.md)' % s,
             'Write(./%s/FORFINING.md)' % u, 'Edit(./%s/FORFINING.md)' % u, 'Write(./%s/TILLBAKA.md)' % u,
-            'Write(./%s/%s)' % (u, skapande.KOMPLETTERING), 'Bash(npm install --prefix %s *)' % s,
+            'Write(./%s/%s)' % (u, skapande.KOMPLETTERING), 'Bash(npm install --prefix %s @fontsource*)' % s,
             'Bash(npm run build --prefix %s)' % s, 'Bash(npm view *)', 'Bash(ls *)',
             'Bash(.venv/bin/python kontroller/design.py %s *)' % slug,
             'Bash(.venv/bin/python kontroller/forhandsvisa.py %s *)' % slug]
@@ -1061,7 +1086,7 @@ def utforska_och_valj(slug, rot, status, skriv, bilder, kritik=None, forsta=1):
         text = (rot / 'VAL.md').read_text(encoding='utf-8')
         kritik = text if len(text) <= 12000 else text[:2500] + '\n…\n' + text[-9500:]  # början har beslutet och de ofullständiga
         if omgang < OMGANGAR:  # omgångens bilder, val och domar bevaras; den sista står kvar i roten
-            arkivera(rot, rot / ('omgang-%d' % omgang), utom=('omgang-',))
+            arkivera(rot, ledigt_namn(rot, 'omgang-%d' % omgang), utom=('omgang-',))
         stada(slug)
     status.update(steg='forkastad', klar=nu(), val=None, omgangar=OMGANGAR, skal='panelen förkastade alla riktningar i %d omgångar; bygget stannar här' % OMGANGAR)
     return None, OMGANGAR
@@ -1124,6 +1149,12 @@ def forfina_prompt(slug, rot, komplettering=None):
 def forfina(slug, rot, status, skriv):
     """Steg 5: den valda startsidan förfinas i egna sessioner (research på begäran emellan). Ger 'klar' eller 'tillbaka'."""
     status['steg'] = 'forfina'
+    status.pop('forfina_avbruten', None)  # gäller bara den här förfiningen (granskningen av skapandeflödet, punkt 5)
+    status['forfina_start'] = time.time()
+    if (rot / 'TILLBAKA.md').exists() or (rot / 'TILLBAKA.md').is_symlink():  # bara förfiningen själv får lämna grundidén
+        undan = rot / 'kompletteringar'
+        undan.mkdir(exist_ok=True)
+        shutil.move(str(rot / 'TILLBAKA.md'), str(undan / ('TILLBAKA-fore-forfiningen-%s.md' % nu().replace(':', ''))))
     skriv()
     verktyg = forfina_verktyg(slug)
     res, sessioner = None, []
@@ -1162,8 +1193,12 @@ def slutdom(slug, rot, status, skriv):
     (sd / '2').mkdir()
     v = las_json(rot / 'VINNARE.json') or {}
     n = v.get('riktning')
-    fore = rot / str(n) if n is not None and (rot / str(n)).is_dir() else rot / 'vinnare' / 'bilder'
-    saker_vag(fore, rot)
+    putsad = ROOT / status['putsning'] / 'slutdom' / '2' if status.get('putsning') else None
+    if putsad is not None and putsad.is_dir() and not putsad.is_symlink():
+        fore = putsad  # vid putsning: versionen ägaren dömde (granskningen av skapandeflödet, punkt 4)
+    else:
+        fore = rot / str(n) if n is not None and (rot / str(n)).is_dir() else rot / 'vinnare' / 'bilder'
+        saker_vag(fore, rot)
     for p in sorted(fore.glob('vy-*.png')):
         granska.sakert_original(p, fore)
         shutil.copyfile(p, sd / '1' / p.name)
@@ -1202,23 +1237,28 @@ def slutdom(slug, rot, status, skriv):
     if val['fel']:
         rader += ['', 'Domare som föll eller röster som inte räknades: ' + '; '.join(val['fel'])]
     (rot / 'SLUTDOM.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
-    uppdatera_vinnare(slug, rot, sd / '2', utfall)
+    uppdatera_vinnare(slug, rot, sd / '2', utfall, status.get('forfina_start'))
     status.setdefault('faser', {})['slutdom'] = utfall
     skriv()
     return utfall
 
 
-def uppdatera_vinnare(slug, rot, efter, utfall):
+def uppdatera_vinnare(slug, rot, efter, utfall, forfina_start=None):
     """Vinnaren blir den förfinade startsidan: koden (src/pages/index.astro) och bilderna, med hashar, så att bygget tar
-    vid därifrån och granskaren jämför mot den (samma överlämning som ateljévinnaren)."""
+    vid därifrån och granskaren jämför mot den (samma överlämning som ateljévinnaren). Ett tidigare godkännande gäller
+    inte den nya versionen; DESIGN.md följer med bara om den skrevs under förfiningen (granskningen av skapandeflödet,
+    punkt 2 och 5)."""
     import hashlib
     mal = rot / 'vinnare'
     post = las_json(rot / 'VINNARE.json') or {}
     if not mal.is_dir() or mal.is_symlink() or not post:
         return None
+    saker_vag(mal, rot)
+    post.pop('godkand', None)
     sida = saker_vag(KUNDER / slug / 'sajt' / 'src' / 'pages' / 'index.astro', KUNDER / slug)
     filer = dict(post.get('filer') or {})
     if sida.is_file() and not sida.is_symlink():
+        saker_vag(mal / 'kod', rot)
         (mal / 'kod').mkdir(exist_ok=True)
         if (mal / 'kod' / 'index.astro').is_file() and not (mal / 'kod' / 'index-utforskning.astro').exists():
             shutil.copyfile(mal / 'kod' / 'index.astro', mal / 'kod' / 'index-utforskning.astro')  # valets version
@@ -1228,19 +1268,26 @@ def uppdatera_vinnare(slug, rot, efter, utfall):
         post['overford'] = dict(post.get('overford') or {}, ok=True, skal='den förfinade startsidan står i src/pages/index.astro',
                                 sha256=hashlib.sha256(sida.read_bytes()).hexdigest())
         filer['overford/src/pages/index.astro'] = post['overford']['sha256']
+    bilder = saker_vag(mal / 'bilder', rot)
+    for p in sorted(bilder.glob('vy-*.png')):  # förra startsidans bilder bort: inga blandade rutor med giltig hash (punkt 9)
+        p.unlink()
+        filer.pop('bilder/' + p.name, None)
     for p in sorted(Path(efter).glob('vy-*.png')):
         granska.sakert_original(p, Path(efter))
-        shutil.copyfile(p, mal / 'bilder' / p.name)
-        filer['bilder/' + p.name] = sha256_fil(mal / 'bilder' / p.name)
+        shutil.copyfile(p, bilder / p.name)
+        filer['bilder/' + p.name] = sha256_fil(bilder / p.name)
     design = saker_vag(KUNDER / slug / 'sajt' / 'DESIGN.md', KUNDER / slug)
-    if design.is_file() and not design.is_symlink():  # designbesluten följer startsidan till bygget (Codex 2026-10-05, ordning 2)
+    fardig = design.is_file() and not design.is_symlink() and (forfina_start is None or design.stat().st_mtime >= forfina_start)
+    if fardig:  # designbesluten följer startsidan till bygget (Codex 2026-10-05, ordning 2)
         import design as design_
         shutil.copyfile(design, mal / 'DESIGN.md')
         filer['DESIGN.md'] = sha256_fil(mal / 'DESIGN.md')
         v_, fel_ = design_.las(design.read_text(encoding='utf-8'))
         post['design'] = {'giltig': v_ is not None and not design_.validera(v_), 'fel': (fel_ if v_ is None else design_.validera(v_))[:6]}
     else:
-        post['design'] = {'giltig': False, 'fel': ['kunder/%s/sajt/DESIGN.md saknas efter förfiningen' % slug]}
+        (mal / 'DESIGN.md').unlink(missing_ok=True)
+        filer.pop('DESIGN.md', None)
+        post['design'] = {'giltig': False, 'fel': ['kunder/%s/sajt/DESIGN.md skrevs inte under förfiningen' % slug]}
     post.update(filer=filer, forfinad={'tid': nu(), 'slutdom': {k: utfall.get(k) for k in ('over_ribban', 'battre', 'poang', 'nivaer')}})
     skriv_vinnare(rot, post)
     return mal
@@ -1253,9 +1300,53 @@ def godkann(slug, dom):
     post = las_json(rot / 'VINNARE.json')
     if not post:
         raise ValueError('ingen vald startsida att godkänna (underlag/%s/atelje/VINNARE.json saknas)' % slug)
-    post['godkand'] = {'tid': dom['tid'], 'av': dom['kalla'], 'text': str(dom.get('text') or '')[:2000]}
+    sajt = KUNDER / slug / 'sajt'
+    sida = saker_vag(sajt / 'src' / 'pages' / 'index.astro', KUNDER / slug)
+    if not sida.is_file() or sida.is_symlink():
+        raise ValueError('startsidan saknas (kunder/%s/sajt/src/pages/index.astro)' % slug)
+    post['godkand'] = {'tid': dom['tid'], 'av': dom['kalla'], 'text': str(dom.get('text') or '')[:2000], 'sha_index': sha256_fil(sida),
+                       **({'sha_design': sha256_fil(sajt / 'DESIGN.md')} if (sajt / 'DESIGN.md').is_file() and not (sajt / 'DESIGN.md').is_symlink() else {})}
     skriv_vinnare(rot, post)
     return post
+
+
+def aterkalla(slug):
+    """En senare dom (putsa, ny riktning) eller en ny förfining drar tillbaka godkännandet i VINNARE.json."""
+    rot = UNDERLAG / slug / 'atelje'
+    post = las_json(rot / 'VINNARE.json')
+    if isinstance(post, dict) and post.pop('godkand', None) is not None:
+        skriv_vinnare(rot, post)
+        return True
+    return False
+
+
+def lamna_sajtfiler(slug, mal):
+    """Efter TILLBAKA: den lämnade riktningens startsida, DESIGN.md och design.css flyttas ur sajten till mal (radera
+    inget), så att nästa utforskning inte ärver dem (granskningen av skapandeflödet, punkt 5)."""
+    sajt = KUNDER / slug / 'sajt'
+    flyttade = []
+    for p in (sajt / 'src' / 'pages' / 'index.astro', sajt / 'DESIGN.md', sajt / 'src' / 'styles' / 'design.css'):
+        saker_vag(p, KUNDER / slug)
+        if p.is_symlink():
+            p.unlink()
+        elif p.is_file():
+            mal.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(p), str(mal / p.name))
+            flyttade.append(p.name)
+    return flyttade
+
+
+def arkivera_putsning(rot):
+    """--putsa: förra slutdomen, redovisningen och förfiningens svar flyttas till foregaende/<tid>-putsa/ (radera inget);
+    FORFINING.md står kvar och förlängs. Ger arkivkatalogen."""
+    mal = ledigt_namn(rot / 'foregaende', nu().replace(':', '') + '-putsa')
+    mal.mkdir(parents=True)
+    for p in [rot / 'slutdom', rot / 'SLUTDOM.md', rot / 'REDOVISNING.md'] + sorted(rot.glob('svar-forfina*.json')):
+        if p.is_symlink():
+            p.unlink()
+        elif p.exists():
+            shutil.move(str(p), str(mal / p.name))
+    return mal
 
 
 def tillbaka_i_historiken(slug, rot, text, omgang):
@@ -1320,7 +1411,7 @@ def arbetare(slug, lage='ny'):
     forra = (las_json(rot / 'STATUS.json') or {}) if lage in ('fortsatt', 'putsa') else {}
     status = {'slug': slug, 'startad': nu(), 'modell': MODELL, 'effort': EFFORT, 'antal': ANTAL, 'lage': lage, 'steg': 'divergera', 'pid': os.getpid(),
               'faser': dict(forra.get('faser') or {}) if lage == 'fortsatt' else {}}
-    for k in ('val', 'omgangar', 'overford', 'overforing', 'kompletteringar'):
+    for k in ('val', 'omgang', 'omgangar', 'overford', 'overforing', 'kompletteringar'):
         if k in forra:
             status.setdefault(k, forra[k])
     skriv = lambda: (rot / 'STATUS.json').write_text(json.dumps(status, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')  # noqa: E731
@@ -1329,7 +1420,9 @@ def arbetare(slug, lage='ny'):
         skriv()
         if lage == 'ny':
             status['foregaende'] = rel(arkivera_forra(rot)) if any(p.name not in ('STATUS.json', 'arbetare.log', 'foregaende') for p in rot.iterdir()) else None
-        assets = KUNDER / slug / 'sajt' / 'src' / 'assets' / 'atelje'
+        elif lage == 'putsa':  # det ägaren dömde arkiveras och blir slutdomens före (granskningen av skapandeflödet, punkt 4)
+            status['putsning'] = rel(arkivera_putsning(rot))
+        assets = saker_vag(KUNDER / slug / 'sajt' / 'src' / 'assets' / 'atelje', KUNDER / slug)
         assets.mkdir(parents=True, exist_ok=True)
         for namn in egna_bilder(slug):
             if not (assets / namn).exists():
@@ -1339,6 +1432,10 @@ def arbetare(slug, lage='ny'):
         if hoppa and not (rot / 'VINNARE.json').is_file():
             raise RuntimeError('ingen vald riktning att förfina: underlag/%s/atelje/VINNARE.json saknas' % slug)
         kritik, omgang = None, int(status.get('omgangar') or 0) if hoppa else 0
+        if lage == 'fortsatt' and not hoppa and status.get('omgang'):  # återuppta omgången som föll, inte omgång 1
+            omgang = int(status['omgang']) - 1
+            forra_val = rot / ('omgang-%d' % omgang) / 'VAL.md'
+            kritik = forra_val.read_text(encoding='utf-8')[-12000:] if omgang and forra_val.is_file() else None
         while True:
             if not hoppa:
                 val_n, omgang = utforska_och_valj(slug, rot, status, skriv, bilder, kritik, omgang + 1)
@@ -1351,7 +1448,9 @@ def arbetare(slug, lage='ny'):
                     tillbaka_i_historiken(slug, rot, text, omgang)
                     if omgang < OMGANGAR and lage != 'putsa':  # grundidén bar inte: ny utforskning med skaparens skäl som kritik
                         kritik = 'Skaparen lämnade den valda riktningen under förfiningen; grundidén bar inte (TILLBAKA.md):\n' + text
-                        arkivera(rot, rot / ('omgang-%d' % omgang), utom=('omgang-',))
+                        mal = ledigt_namn(rot, 'omgang-%d' % omgang)
+                        arkivera(rot, mal, utom=('omgang-',))
+                        lamna_sajtfiler(slug, mal / 'lamnad')  # den lämnade riktningens presentationsfiler följer inte med
                         status['faser'] = {}
                         continue
                     status.update(steg='tillbaka', klar=nu(), skal='skaparen fann under förfiningen att grundidén inte bär, och omgångarna är slut (TILLBAKA.md); en ny utforskning behövs')
@@ -1457,9 +1556,13 @@ def vanta(rot, sekunder):
     while time.time() < slut:
         st = las_json(rot / 'STATUS.json') or {}
         if st.get('steg') == 'klar':
-            print((rot / 'VAL.md').read_text(encoding='utf-8') if (rot / 'VAL.md').is_file() else '')
-            if (rot / 'SLUTDOM.md').is_file():
-                print((rot / 'SLUTDOM.md').read_text(encoding='utf-8'))
+            if os.environ.get('NWP_SLUG'):  # byggaren tar vid ur panelens val och slutdom
+                print((rot / 'VAL.md').read_text(encoding='utf-8') if (rot / 'VAL.md').is_file() else '')
+                if (rot / 'SLUTDOM.md').is_file():
+                    print((rot / 'SLUTDOM.md').read_text(encoding='utf-8'))
+            else:  # ägaren dömer först, panelens dom visas efter (dashboardens vy Prototyp)
+                print('Skapandeflödet är klart (underlag/%s/atelje/). Döm startsidan i dashboardens vy Prototyp; panelens val och '
+                      'slutdom visas där efter din dom.' % st.get('slug'))
             return 0
         if st.get('steg') == 'tillbaka':
             print('Skaparen fann under förfiningen att grundidén inte bär (underlag/%s/atelje/TILLBAKA.md), och omgångarna är slut: %s' % (st.get('slug'), st.get('skal')))
@@ -1491,12 +1594,25 @@ def arkivera_beslut(slug):
     Kvar står fakta, bilder, källor, texten, referenspaketen och tjänsternas material, domloggen och historiken. Den
     förra valda riktningen förs in i historiken med ägarens senaste dom innan den flyttas. Ger (arkivkatalog, flyttade)."""
     u, k = UNDERLAG / slug, KUNDER / slug
+    if u.is_symlink() or k.is_symlink():
+        raise RuntimeError('underlag/%s eller kunder/%s är en länk; inget flyttas' % (slug, slug))
     dom = skapande.senaste(slug, underlag=UNDERLAG)
     v = las_json(u / 'atelje' / 'VINNARE.json') or {}
-    if v.get('riktning') is not None and dom and dom['beslut'] == 'ny_riktning':
+    domd_tid = ((las_json(u / 'atelje' / 'STATUS.json') or {}).get('klar') or (las_json(u / 'prototyp' / 'STATUS.json') or {}).get('klar') or '')
+    galler = bool(dom and dom['beslut'] == 'ny_riktning' and dom.get('tid', '') > domd_tid)  # domen kom efter körningen den dömer
+    tidigare = skapande.historik(slug, UNDERLAG)
+    if any(h.get('utfall', '').startswith('underkänd') and h.get('tid', '') >= domd_tid for h in tidigare):
+        galler = False  # den dömda körningen står redan i historiken (förd för hand ur domen)
+    if galler and v.get('riktning') is not None:
         namn, text = riktningsavsnitt(u / 'atelje').get(v['riktning'], ('riktning %s' % v['riktning'], ''))
-        if not any(h.get('namn') == namn and h.get('utfall', '').startswith('underkänd') for h in skapande.historik(slug, UNDERLAG)):
+        if not any(h.get('namn') == namn and h.get('utfall', '').startswith('underkänd') for h in tidigare):
             skapande.lagg_till_historik(slug, [{'kalla': 'ateljén, vald och förfinad', 'namn': namn, 'drag': sammandrag(text),
+                                                'utfall': 'underkänd av %s' % dom['kalla'], 'kritik': re.sub(r'\s+', ' ', dom['text'])[:900]}], UNDERLAG)
+    elif galler and referensval.huvudreferensrader(slug, UNDERLAG):  # en äldre väg (prototyp/) utan ateljévinnare
+        namn_, vad_ = referensval.huvudreferensrader(slug, UNDERLAG)[0]
+        namn = 'riktningen på huvudreferensen %s' % namn_
+        if not any(h.get('namn') == namn for h in tidigare):
+            skapande.lagg_till_historik(slug, [{'kalla': 'tidigare designbeslut (REFERENSER.md)', 'namn': namn, 'drag': vad_,
                                                 'utfall': 'underkänd av %s' % dom['kalla'], 'kritik': re.sub(r'\s+', ' ', dom['text'])[:900]}], UNDERLAG)
     mal = ledigt_namn(ARKIV, '%s-%s' % (slug, nu().replace(':', '')))
     mal.mkdir(parents=True)
@@ -1559,6 +1675,15 @@ def main(argv=None):
     if (a.ny_riktning or a.putsa) and os.environ.get('NWP_SLUG'):
         print('--ny-riktning och --putsa följer ägarens dom (domloggen); de startas av ägaren eller en session utanför bygget, inte inifrån ett bygge')
         return 2
+    if st.get('steg') == 'fel' and not (a.om or a.ny_riktning or a.putsa or a.fortsatt):
+        print('Förra körningen föll: %s. --fortsatt tar vid efter den senaste klara fasen; --om gör en ny körning.' % str(st.get('fel'))[:400])
+        return 4
+    if os.environ.get('NWP_SLUG') and st.get('steg') == 'klar':
+        dom = skapande.senaste(a.slug, kallor=('ägaren',), underlag=UNDERLAG)
+        if dom and dom['beslut'] in ('putsa', 'ny_riktning') and dom.get('tid', '') > (st.get('klar') or ''):
+            print('Ägaren har dömt startsidan efter körningen (%s, %s): den ska inte byggas vidare. Skriv rapporten och avsluta; '
+                  'ägaren startar nästa försök (kontroller/prototyp.py).' % (dom['tid'], dom['beslut']))
+            return 6
     if st.get('steg') in ('klar', 'forkastad', 'tillbaka') and not (a.om or a.ny_riktning or a.putsa or a.fortsatt):
         print('(Ateljén är redan %s; --om gör en ny, --ny-riktning ett omtag efter ägarens dom.)' % {
             'klar': 'klar', 'forkastad': 'avslutad med alla riktningar förkastade', 'tillbaka': 'avslutad utan bärande grundidé'}[st['steg']])

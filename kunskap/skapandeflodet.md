@@ -22,6 +22,8 @@ först, och huvudreferensen blir den valda riktningens referens efteråt.
    typografiskt system, bildstrategi och palettens källa. Varje riktning bygger på sin egen huvudreferens, och
    RIKTNINGAR.md anger den med raden `Huvudreferens N: <rubrik i REFERENSER.md> — <vad den bär>`. Per riktning byggs
    hela startsidan, början av en undersida och en stiltavla, och skaparen förhandsvisar minst två varv per riktning.
+   Två riktningar på samma referens är ingen utforskning: den andra blir ofullständig. Efter en förkastning prövas nya
+   kandidater, eller en gammal med ett skäl som svarar på kritiken.
    När urvalet saknas, till exempel efter ett omtag, väljer skaparen ur referenspaketet och skriver REFERENSER.md med en
    rad `Huvudreferenskandidat: <rubrik> — <vad den bär>` per grundidé.
 3. **Välj.** Tre isolerade domare (formgivning, funktion och kunden, med andra modeller än skaparen) dömer varje riktning
@@ -34,23 +36,32 @@ först, och huvudreferensen blir den valda riktningens referens efteråt.
    panelens svagheter, och huvudreferensens bilder i varje varv. FORFINING.md anger per varv de synliga bristerna och
    regeln som rättade dem. Bär grundidén inte med verksamhetens material skriver skaparen TILLBAKA.md, och en ny
    utforskning startar med det som kritik.
-5. **Slutdom.** Samma panel dömer startsidan före förfiningen (den panelen valde) mot efter, blint. Domen svarar på två
-   frågor: håller den ribban, och blev den synligt bättre (SLUTDOM.md). Vinnaren blir den förfinade.
+5. **Slutdom.** Samma panel dömer startsidan före förfiningen mot efter, blint. Före är den panelen valde, eller vid
+   putsning versionen ägaren dömde. Domen svarar på två frågor: håller den ribban, och blev den synligt bättre
+   (SLUTDOM.md). Vinnaren blir den förfinade, med DESIGN.md om förfiningen skrev den.
 6. **Ägaren.** Vyn Prototyp visar före och efter bredvid huvudreferensen och riktningarna som prövades. Panelens val,
-   slutdomen och redovisningen visas först när ägaren dömt, så att ägarens dom är oberoende. Domen går till domloggen.
-7. **Överlämning.** Ägarens godkännande skrivs i VINNARE.json (`godkand`). Bygget tar vid därifrån som från en
-   ateljévinnare: startsidan och koden, bilderna, och DESIGN.md ur vinnaren (bygg-sajt steg 5.1).
+   slutdomen, förfiningens logg och redovisningen visas först när ägaren dömt, så att ägarens dom är oberoende. Domen
+   går till domloggen.
+7. **Överlämning.** Ägarens godkännande skrivs i VINNARE.json (`godkand`, med hashen för startsidan och DESIGN.md).
+   Bygget tar vid därifrån som från en ateljévinnare: startsidan och koden, bilderna, och DESIGN.md (bygg-sajt steg 5.1).
+   Godkännandet gäller bara när ägarens senaste dom i domloggen är just det och filerna är oförändrade
+   (`skapande.godkand_giltig`). En senare dom och en ny förfining drar tillbaka det.
 
 ## Domloggen och vad en dom återöppnar
 
 `underlag/<slug>/DESIGNDOMAR.jsonl` har en rad per dom: tid, källa (ägaren, ägaren via Codex, panelen), beslut och text
-ordagrant. Loggen arkiveras aldrig. Nästa körning läser den själv, och prompterna börjar med de senaste domarna.
+ordagrant. Loggen arkiveras aldrig. Nästa körning läser den själv, och prompterna börjar med de senaste domarna. Vyn
+Prototyp skriver ägarens dom. En dom som kom på annat sätt, via Codex eller i en session, förs in ordagrant med
+`.venv/bin/python kontroller/skapande.py dom <slug> --kalla … --beslut … --fil <text>`. Ett bygge skriver aldrig i
+loggen: den är nekad i byggets verktyg, och en ändring under bygget ger slutkod 3. Finns tidigare designbeslut men
+ingen dom, vägrar prototypen att gissa läget.
 
 - `ny_riktning` återöppnar alla designbeslut, aldrig fakta. `kontroller/atelje.py <slug> --ny-riktning` (eller
   prototyp.py) flyttar REFERENSER.md, KONCEPT.md, ateljén, äldre prototyper, förhandsvarven och hela
   `kunder/<slug>/sajt` till `~/Arkiv/nortropic-webb-pro-skapande/`. Inget raderas. Sajten görs om ur mallen, och den
   dömda riktningen förs in i historiken med domen.
-- `putsa` behåller riktningen: förfiningen och slutdomen körs igen, med domen som kritik.
+- `putsa` behåller riktningen: förfiningen och slutdomen körs igen, med domen som kritik. Förra slutdomen och
+  redovisningen arkiveras först.
 - `godkand` lämnar över till bygget.
 
 Ett tidigare designval, till exempel en färg, är inget förbud. Ett drag ur en underkänd grundidé behöver ett skäl ur
@@ -63,7 +74,7 @@ omtaget skriver ägarens dom.
 ## Research på begäran
 
 Skaparen skriver `underlag/<slug>/atelje/KOMPLETTERING.json` (varför, och ett referensuppdrag och/eller frågor till
-Refero och Mobbin) och avslutar sessionen. Orkestratorn kör det befintliga referenssteget: `kontroller/referens.py` ger
+Refero och Mobbin, utan frågesträngar i sidvägarna) och avslutar sessionen. Orkestratorn kör det befintliga referenssteget: `kontroller/referens.py` ger
 en ny, komplett paketversion som ärver den förra, och `kontroller/referenstjanster.py` söker i tjänsterna med belägg.
 Sedan startar en ny session med resultatet. Det får ske högst två gånger per omgång och fas. Skaparens egna sessioner
 har inget eget nät.
@@ -97,6 +108,8 @@ huvudreferensen om i varje varv. Ett räknat antal bildläsningar är inget bel�
 ## Sandlådan
 
 Skapandeflödets sessioner och byggsteg har ingen egen sandlåda än: flödet körs utanför den, före bygget. Sessionerna
-har bara sina namngivna verktyg, inget eget nät, och research går genom referenssteget. Ett sandlådat bygge
+har bara sina namngivna verktyg och inget eget nät utöver npm-registret för typsnittspaketen (`@fontsource*`; paket från
+adresser, git eller lokala kataloger nekas). Research går genom referenssteget. Utforskningen skriver bara sidorna,
+RIKTNINGAR.md, KOMPLETTERING.json och urvalet; förfiningen bara sajtens src/, DESIGN.md och sina tre filer. Ett sandlådat bygge
 (`NWP_SANDLADA=pa`) kräver därför en godkänd startsida och tar vid från den. Nästlade sessioner skriver aldrig i
 ägarens automatiska minne (`kontroller/nastlad.py`).

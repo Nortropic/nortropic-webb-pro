@@ -574,7 +574,7 @@ async function prototypvy(slug) {
   const efter = d.domd ? `${d.val_md ? `<details style="margin-top:24px"><summary>Panelens val (VAL.md)</summary><div class="prosa">${d.val_md}</div></details>` : ''}
     ${d.slutdom_md ? `<details><summary>Slutdomen: före mot efter (SLUTDOM.md)</summary><div class="prosa">${d.slutdom_md}</div></details>` : ''}
     ${d.redovisning_md ? `<details><summary>Vad körningen använde (REDOVISNING.md)</summary><div class="prosa">${d.redovisning_md}</div></details>` : ''}`
-    : (klar ? '<p class="under" style="margin-top:16px">Panelens val och slutdom och redovisningen ur körspåret visas när du har dömt.</p>' : '');
+    : (klar ? '<p class="under" style="margin-top:16px">Panelens val och slutdom, förfiningens logg och redovisningen ur körspåret visas när du har dömt.</p>' : '');
   $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1><p class="under">${lage} ${d.godkand ? `<b>Godkänd ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : 'Döm efter-bilderna mot huvudreferensen; före är startsidan som panelen valde, innan förfiningen.'}</p>${ref}
     ${Object.keys(d.efter || {}).length ? `<section class="kort"><div class="galleri" style="grid-template-columns:1fr 1fr;gap:24px">${kol('Före · panelens val', d.fore || {})}${kol('Efter · förfinad', d.efter || {})}</div></section>` : ''}
     ${riktn}${form}${efter}

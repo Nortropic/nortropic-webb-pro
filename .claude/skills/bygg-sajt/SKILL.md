@@ -329,9 +329,10 @@ KONCEPT.md.
    Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/` (koden i
    `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och när vinnarens startsida bygger på sin nya plats står
    den redan som `src/pages/index.astro` (`VINNARE.json`: `overford`); annars säger `overford` varför, och du bygger
-   startsidan ur `kod/index.astro` för hand utan att ändra riktningen. Skriv DESIGN.md ur vinnarens stiltavla och
-   startsida (värdena märkta `uppmätt:` med var i vinnarens kod de står) och kör `kontroller/design.py <slug>
-   --skriv`. Bygg vidare ur startsidan (flytta dess stil till Bas.astro och gemensam CSS med DESIGN.md:s variabler
+   startsidan ur `kod/index.astro` för hand utan att ändra riktningen. Finns `vinnare/DESIGN.md` (förfiningen skrev
+   den ur den förfinade startsidan; `VINNARE.json`: `design`) utgår du från den och prövar den mot startsidan; annars
+   skriver du DESIGN.md ur vinnarens stiltavla och startsida (värdena märkta `uppmätt:` med var i vinnarens kod de står).
+   Kör sedan `kontroller/design.py <slug> --skriv`. Bygg vidare ur startsidan (flytta dess stil till Bas.astro och gemensam CSS med DESIGN.md:s variabler
    när de andra sidorna behöver den, utan att ändra hur startsidan ser ut), bygg
    undersidorna ur `kod/undersida/` och värdena i `kod/stiltavla/`, och håll dig till riktningen. Provet jämför
    startsidan pixel för pixel mot vinnaren (`prov/vinnare/VINNARJAMFORELSE.md`; förändring, inte kvalitet);

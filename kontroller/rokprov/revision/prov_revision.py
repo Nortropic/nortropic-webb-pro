@@ -2501,7 +2501,7 @@ assert 'pr-prov' in json.loads(begar(dport, 'GET', '/api/prototyp')[1]), 'varje 
 d_ = json.loads(begar(dport, 'GET', '/api/prototyp/pr-prov')[1])
 assert d_['steg'] == 'klar' and set(d_['fore']) == set(d_['efter']) == {'390-forsta', '390-hela', '1440-forsta', '1440-hela'} and not d_['domd'], d_
 assert d_['efter']['390-forsta'] == 'underlag/pr-prov/atelje/slutdom/2/vy-390-forsta.png' and begar(dport, 'GET', '/fil/' + d_['efter']['390-forsta'])[0] == 200
-assert d_['huvudreferens']['namn'] == 'Snick' and 'Rubriken kortades' in d_['forfining_md'] and d_['domar'] == [] and d_['val_md'] is None, d_
+assert d_['huvudreferens']['namn'] == 'Snick' and d_['forfining_md'] is None and d_['domar'] == [] and d_['val_md'] is None, 'förfiningens logg och panelens val döljs tills ägaren dömt'
 assert begar(dport, 'GET', '/api/prototyp/okand')[0] == 404
 assert begar(dport, 'POST', '/api/prototyp/pr-prov', huvuden=ok_h, kropp=b'{"beslut":"ja","text":"x"}')[0] >= 400, 'beslutet är godkand, putsa eller ny_riktning'
 assert begar(dport, 'POST', '/api/prototyp/pr-prov', huvuden={'Origin': 'http://evil.test:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{"beslut":"putsa","text":"x"}')[0] == 403
@@ -2510,7 +2510,7 @@ assert begar(dport, 'POST', '/api/prototyp/pr-prov', huvuden=ok_h, kropp=json.du
 dom_pr = [json.loads(r_) for r_ in (tmp / 'underlag' / 'pr-prov' / 'DESIGNDOMAR.jsonl').read_text().splitlines()]
 assert len(dom_pr) == 1 and dom_pr[0]['kalla'] == 'ägaren' and dom_pr[0]['beslut'] == 'putsa' and dom_pr[0]['text'] == 'bildvalet' and 5 <= dom_pr[0]['minuter'] <= 7, dom_pr
 d_ = json.loads(begar(dport, 'GET', '/api/prototyp/pr-prov')[1])
-assert d_['domar'][0]['beslut'] == 'putsa' and d_['domd'] and d_['val_md'], 'efter ägarens dom visas panelens val'
+assert d_['domar'][0]['beslut'] == 'putsa' and d_['domd'] and d_['val_md'] and 'Rubriken kortades' in d_['forfining_md'], 'efter ägarens dom visas panelens val och förfiningens logg'
 dsrvd.shutdown()
 print('designprovet i dashboarden ok')
 
@@ -2583,6 +2583,7 @@ at_pt.historik_efter_val('pt-prov', pt_u / 'atelje', dict(json.loads((pt_u / 'at
 h_pt = sk.historik('pt-prov', pt_und)
 assert [x['utfall'] for x in h_pt[-2:]] == ['vald av panelen', 'förkastad av panelen'] and h_pt[-2]['kritik'] == 'formgivning: luften glesar', h_pt[-2:]
 # ägarens godkännande lämnar över till bygget
+(at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src' / 'pages').mkdir(parents=True, exist_ok=True); (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src' / 'pages' / 'index.astro').write_text('<p>s</p>')
 at_pt.godkann('pt-prov', sk.domar('pt-prov', pt_und)[-1])
 assert json.loads((pt_u / 'atelje' / 'VINNARE.json').read_text())['godkand']['av'] == 'ägaren'
 # research på begäran: begäran till referenssteget (nytt paket ärver det förra), tjänsternas förra rapport sparas
@@ -2610,10 +2611,15 @@ fr_rot = pt_u / 'atelje-fr'; fr_rot.mkdir()
 anrop_fr = []
 
 
+lamna_fr = []
+
+
 def sess_fr(prompt, verktyg, ut, **kw):
     anrop_fr.append(prompt)
     if len(anrop_fr) == 1:
         (fr_rot / sk.KOMPLETTERING).write_text('{}')
+    if lamna_fr:
+        (fr_rot / 'TILLBAKA.md').write_text('grundidén bär inte')
     return {'session_id': None, 'num_turns': 3}
 
 
@@ -2623,11 +2629,13 @@ at_pt.komplettera = lambda slug, fil, rot: (Path(fil).unlink(), {'tid': 't', 'va
 try:
     st_fr = {'faser': {}}
     assert at_pt.forfina('pt-prov', fr_rot, st_fr, lambda: None) == 'klar'
-    (fr_rot / 'TILLBAKA.md').write_text('bär inte')
+    (fr_rot / 'TILLBAKA.md').write_text('skriven av någon annan')  # en främmande TILLBAKA.md räknas inte; den flyttas undan
+    assert at_pt.forfina('pt-prov', fr_rot, {'faser': {}}, lambda: None) == 'klar' and list((fr_rot / 'kompletteringar').glob('TILLBAKA-fore-forfiningen-*.md'))
+    lamna_fr.append(1)  # förfiningens egen TILLBAKA.md gäller
     assert at_pt.forfina('pt-prov', fr_rot, {'faser': {}}, lambda: None) == 'tillbaka'
 finally:
     at_pt.session, at_pt.komplettera = gamla_fr
-assert len(anrop_fr) == 3 and 'Researchen du begärde' in anrop_fr[1] and st_fr['kompletteringar'][0]['fas'] == 'forfina' and st_fr['faser']['forfina']['sessioner'][0]['num_turns'] == 3, st_fr
+assert len(anrop_fr) == 4 and 'Researchen du begärde' in anrop_fr[1] and st_fr['kompletteringar'][0]['fas'] == 'forfina' and st_fr['faser']['forfina']['sessioner'][0]['num_turns'] == 3, st_fr
 # slutdomen: före (valets bilder) mot efter (den förfinade startsidan) med samma panel; vinnaren blir den förfinade med DESIGN.md
 sd_rot = pt_u / 'atelje-sd'; (sd_rot / '1').mkdir(parents=True); (sd_rot / 'vinnare' / 'bilder').mkdir(parents=True)
 for n_ in ('vy-390-ruta-01.png', 'vy-1440-ruta-01.png', 'vy-390-hela.png', 'vy-1440-hela.png'):
@@ -2723,20 +2731,24 @@ for d_ in ('1', '2'):
 (ad_ / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'lage': 'ny', 'startad': '2026-10-05T09:30:00Z', 'klar': '2026-10-05T10:00:00Z', 'faser': {'slutdom': {}}}))
 (ad_ / 'VAL.md').write_text('# val'); (ad_ / 'SLUTDOM.md').write_text('# slut'); (ad_ / 'REDOVISNING.md').write_text('# red')
 (ad_ / 'VINNARE.json').write_text(json.dumps({'riktning': 1}))
+(ad_ / '1').mkdir(exist_ok=True); (ad_ / '1' / 'vy-390-forsta.png').write_bytes(b'x')  # en prövad riktning, den valda
 (ad_ / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {'1': [], '2': []}}))
 try:
     assert dash.prototyp_slugar() == ['pt-prov']
     d_ = dash.prototyp('pt-prov')
     assert d_['efter']['390-forsta'].endswith('slutdom/2/vy-390-forsta.png') and d_['val_md'] is None and d_['slutdom_md'] is None and not d_['domd'], 'panelens dom döljs tills ägaren dömt'
+    assert d_['forfining_md'] is None and [r_['vald'] for r_ in d_['riktningar']] == [False], 'förfiningens logg och valet döljs också'
     assert dash.fil_tillaten('underlag/pt-prov/atelje/slutdom/2/vy-390-forsta.png') and not dash.fil_tillaten('underlag/pt-prov/atelje/VAL.md'), 'bilderna visas, panelens dom inte'
     try:
         dash.spara_prototyp('pt-prov', {'beslut': 'putsa', 'text': ''}); raise AssertionError('putsa utan text vägras')
     except ValueError:
         pass
+    (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src' / 'pages').mkdir(parents=True, exist_ok=True); (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src' / 'pages' / 'index.astro').write_text('<p>ny</p>')
     r_ = dash.spara_prototyp('pt-prov', {'beslut': 'godkand', 'text': '', 'niva': 'over'}, minuter=3.5)
     assert r_['dom']['text'] == 'Godkänd.' and r_['dom']['minuter'] == 3.5 and json.loads((ad_ / 'VINNARE.json').read_text())['godkand']['tid'] == r_['dom']['tid']
     d_ = dash.prototyp('pt-prov')
-    assert d_['domd'] and d_['val_md'] and d_['slutdom_md'] and d_['redovisning_md'] and d_['godkand'] and d_['domar'][0]['beslut'] == 'godkand', d_
+    assert d_['domd'] and d_['val_md'] and d_['slutdom_md'] and d_['redovisning_md'] and d_['godkand'] and d_['domar'][0]['beslut'] == 'godkand' and [r_['vald'] for r_ in d_['riktningar']] == [True], d_
+    assert dash.spara_prototyp('pt-prov', {'beslut': 'putsa', 'text': 'Rubriken.'})['ok'] and 'godkand' not in json.loads((ad_ / 'VINNARE.json').read_text()), 'en senare dom drar tillbaka godkännandet'
 finally:
     dash.UNDERLAG, dash.ROOT = gu_d
 # nästlade sessioner skriver aldrig i ägarens automatiska minne
@@ -2755,6 +2767,96 @@ import forhandsvisa as fh_pt  # noqa: E402
 (pt_u / 'forhand' / 'start' / 'varv-01').mkdir(parents=True); (pt_u / 'forhand' / 'start' / 'varv-100').mkdir()
 assert [p.name for p in fh_pt.varv(pt_u / 'forhand' / 'start')][-1] == 'varv-100' and fh_pt.nasta_varv(pt_u / 'forhand' / 'start').name == 'varv-101'
 assert fh_pt.sidnamn('/') == 'start' and fh_pt.sidnamn('/atelje-1/undersida/') == 'atelje-1-undersida' and not fh_pt.hela(pt_u / 'forhand' / 'start' / 'varv-01')
+# --- granskningen av skapandeflödet (2026-10-05): rättningarna prövas
+# (1) prototypen gissar inte läget när gamla designbeslut finns men domloggen är tom
+pt_g = pt_und / 'pt-gammal'; (pt_g / 'prototyp').mkdir(parents=True)
+assert pt.lage('pt-gammal')[0] == 'stopp' and 'skapande.py dom' in pt.lage('pt-gammal')[1], pt.lage('pt-gammal')
+with contextlib.redirect_stdout(io.StringIO()):
+    assert pt.main(['pt-gammal']) == 2, 'inget tyst omtag över gamla beslut'
+(pt_g / 'dom.txt').write_text('Ashton-systemet bär inte.')
+with contextlib.redirect_stdout(io.StringIO()):
+    assert sk.main(['dom', 'pt-gammal', '--kalla', 'ägaren via Codex', '--beslut', 'ny_riktning', '--fil', str(pt_g / 'dom.txt')]) == 2, 'okänt underlag i den riktiga roten vägras'
+gu_sk = sk.UNDERLAG; sk.UNDERLAG = pt_und
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert sk.main(['dom', 'pt-gammal', '--kalla', 'ägaren via Codex', '--beslut', 'ny_riktning', '--fil', str(pt_g / 'dom.txt')]) == 0
+    os.environ['NWP_SLUG'] = 'pt-gammal'
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            assert sk.main(['dom', 'pt-gammal', '--kalla', 'ägaren', '--beslut', 'godkand', '--fil', str(pt_g / 'dom.txt')]) == 2, 'aldrig inifrån ett bygge'
+    finally:
+        del os.environ['NWP_SLUG']
+finally:
+    sk.UNDERLAG = gu_sk
+assert pt.lage('pt-gammal')[0] == 'ny-riktning'
+# omtaget från prototyp/ utan ateljévinnare: den tidigare huvudreferensens riktning in i historiken, en gång
+(pt_g / 'prototyp' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-05T05:00:00Z'}))
+(pt_g / 'REFERENSER.md').write_text('Huvudreferens: Ashton — stenduk och falurött\n')
+at_pt.arkivera_beslut('pt-gammal')
+h_g = sk.historik('pt-gammal', pt_und)
+assert [x['namn'] for x in h_g] == ['riktningen på huvudreferensen Ashton'] and h_g[0]['drag'] == 'stenduk och falurött' and 'bär inte' in h_g[0]['kritik'], h_g
+(pt_g / 'REFERENSER.md').write_text('Huvudreferens: Ashton — stenduk och falurött\n')
+at_pt.arkivera_beslut('pt-gammal')
+assert len(sk.historik('pt-gammal', pt_und)) == 1, 'samma dom bokför inte samma riktning två gånger'
+# (2) godkännandet: bundet till sidans hash och domloggen, dras tillbaka av en senare dom och en ny förfining
+ga_ = pt_und / 'pt-godk'; (ga_ / 'atelje' / 'vinnare' / 'bilder').mkdir(parents=True)
+(ga_ / 'atelje' / 'VINNARE.json').write_text(json.dumps({'riktning': 1, 'filer': {}}))
+sajt_g = at_pt.KUNDER / 'pt-godk' / 'sajt'; (sajt_g / 'src' / 'pages').mkdir(parents=True); (sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>godkänd</p>')
+dg_ = sk.lagg_till_dom('pt-godk', 'ägaren', 'godkand', 'Godkänd.', underlag=pt_und)
+at_pt.godkann('pt-godk', dg_)
+gk_ = (pt_und, at_pt.KUNDER)
+assert sk.godkand_giltig('pt-godk', *gk_) == (True, 'godkänd %s' % dg_['tid'])
+(sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>ändrad</p>')
+assert sk.godkand_giltig('pt-godk', *gk_)[1] == 'startsidan är ändrad sedan godkännandet'
+(sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>godkänd</p>')
+sk.lagg_till_dom('pt-godk', 'ägaren', 'putsa', 'Rubriken för stor.', underlag=pt_und, tid='2999-01-01T00:00:00Z')
+assert sk.godkand_giltig('pt-godk', *gk_)[1] == 'ägarens senaste dom i domloggen är inte godkännandet'
+assert at_pt.aterkalla('pt-godk') and 'godkand' not in json.loads((ga_ / 'atelje' / 'VINNARE.json').read_text()) and not at_pt.aterkalla('pt-godk')
+# (3) metodkvittot räknar en skill som lästs med Read (lstrip tog punkten i .claude)
+sid_m = '00000000-0000-4000-8000-000000000056'
+(pt_kat / (sid_m + '.jsonl')).write_text('\n'.join([rad_({'type': 'tool_use', 'id': 'q1', 'name': 'Read', 'input': {'file_path': str(tmp / '.claude/skills/better-layout/SKILL.md')}}),
+                                                    rad_({'type': 'tool_use', 'id': 'q2', 'name': 'Write', 'input': {'file_path': str(tmp / 'kunder/pt-prov/sajt/src/pages/index.astro')}})]) + '\n')
+bk_pt.ROOT = tmp
+try:
+    ml2_ = bk_pt.metodlasning(sid_m, [], ['better-layout'], 'kunder/pt-prov/sajt/src/')
+    assert ml2_['fore'] == ['.claude/skills/better-layout/SKILL.md'] and not ml2_['saknas'], ml2_
+    assert bk_pt.last('.claude/skills/better-layout/SKILL.md', [str(tmp / '.claude/skills/better-layout/SKILL.md')]) and bk_pt.utan_punkt('./a/b') == 'a/b'
+finally:
+    bk_pt.ROOT = rot_bk
+# (4) putsning: förra slutdomen och redovisningen arkiveras; FORFINING.md står kvar
+pu_ = pt_und / 'pt-puts' / 'atelje'; (pu_ / 'slutdom' / '2').mkdir(parents=True)
+for n_ in ('SLUTDOM.md', 'REDOVISNING.md', 'svar-forfina.json', 'FORFINING.md'):
+    (pu_ / n_).write_text('x')
+ark_pu = at_pt.arkivera_putsning(pu_)
+assert (ark_pu / 'slutdom' / '2').is_dir() and (ark_pu / 'SLUTDOM.md').is_file() and (ark_pu / 'svar-forfina.json').is_file() and (pu_ / 'FORFINING.md').is_file() and not (pu_ / 'slutdom').exists()
+# (5) TILLBAKA: den lämnade riktningens startsida, DESIGN.md och design.css flyttas ur sajten
+(sajt_g / 'DESIGN.md').write_text('d'); (sajt_g / 'src' / 'styles').mkdir(); (sajt_g / 'src' / 'styles' / 'design.css').write_text('c')
+fl_l = at_pt.lamna_sajtfiler('pt-godk', tmp / 'lamnad-g')
+assert sorted(fl_l) == ['DESIGN.md', 'design.css', 'index.astro'] and not (sajt_g / 'DESIGN.md').exists() and (tmp / 'lamnad-g' / 'index.astro').read_text() == '<p>godkänd</p>'
+# (6) två riktningar på samma referens: den andra är ofullständig; en utan referens likaså
+assert at_pt.referensbrister({1: {'namn': 'Ashton'}, 2: {'namn': 'ashton'}, 3: {'namn': 'F'}}, {'1': [], '2': [], '3': [], '4': []}) == {
+    '2': 'delar huvudreferens (ashton) med riktning 1', '4': 'ingen huvudreferens med Bildval-bilder (raden "Huvudreferens 4:" i RIKTNINGAR.md mot en rubrik i REFERENSER.md)'}
+# (7) ett fel startar aldrig en ny hel körning av sig själv; ägarens senare dom stoppar bygget
+fe_ = pt_und / 'pt-fel' / 'atelje'; fe_.mkdir(parents=True)
+(fe_ / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'fel': 'slutdomen föll', 'klar': '2026-10-05T10:00:00Z'}))
+with contextlib.redirect_stdout(io.StringIO()) as ut_fe:
+    assert at_pt.main(['pt-fel']) == 4
+assert '--fortsatt' in ut_fe.getvalue()
+(fe_ / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-05T10:00:00Z', 'slug': 'pt-fel'}))
+sk.lagg_till_dom('pt-fel', 'ägaren', 'ny_riktning', 'Inte den här.', underlag=pt_und, tid='2026-10-05T11:00:00Z')
+os.environ['NWP_SLUG'] = 'pt-fel'
+try:
+    with contextlib.redirect_stdout(io.StringIO()) as ut_fe:
+        assert at_pt.main(['pt-fel']) == 6 and 'ska inte byggas vidare' in ut_fe.getvalue()
+finally:
+    del os.environ['NWP_SLUG']
+# (8) skrivrätten och nätet: utforskningen skriver inte ateljékatalogen fritt; npm bara typsnittspaket; inga frågesträngar
+vu_ = at_pt.utforska_verktyg('pt-prov')
+assert not any(v.endswith('/atelje/**)') for v in vu_) and 'Write(./underlag/pt-prov/atelje/RIKTNINGAR.md)' in vu_ and 'Bash(npm install --prefix kunder/pt-prov/sajt @fontsource*)' in vu_, vu_
+assert 'Bash(npm install * http*)' in at_pt.NEKAS and 'Bash(npm install * git*)' in at_pt.NEKAS
+(pt_u / 'atelje-fr' / 'KOMPLETTERING.json').write_text(json.dumps({'referens': {'kandidater': [{'namn': 'x', 'adress': 'https://exempel.se/', 'roll': 'ux', 'sidor': ['/?q=hemlig']}]}}))
+fq_ = sk.komplettera('pt-prov', pt_u / 'atelje-fr' / 'KOMPLETTERING.json', pt_u / 'atelje-fr', pt_und, kor=lambda a_, t_: (_ for _ in ()).throw(AssertionError('ingen körning')))
+assert 'frågesträng' in fq_['fel'], fq_
 at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV = gu_at
 print('skapandeflödet ok')
 
