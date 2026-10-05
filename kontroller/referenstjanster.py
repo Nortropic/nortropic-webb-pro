@@ -32,6 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import krav_slug  # noqa: E402
+import nastlad  # noqa: E402  (nästlade sessioner: inget automatiskt minne)
 
 ROOT = Path(__file__).resolve().parents[1]
 UNDERLAG = ROOT / 'underlag'
@@ -105,7 +106,7 @@ def prompt_for(tjanst, fragor, verksamhet):
 
 
 def miljo_for(tjanst):
-    m = {k: v for k, v in os.environ.items() if k != 'CLAUDECODE' and not k.startswith(('CLAUDE_CODE_', 'NWP_')) and not k.upper().endswith('_PROXY')}
+    m = {k: v for k, v in nastlad.miljo().items() if not k.upper().endswith('_PROXY')}
     m.pop('REFERO_MCP_TOKEN', None)
     if TJANSTER[tjanst]['nyckel']:
         if not REFERO_ENV.is_file():

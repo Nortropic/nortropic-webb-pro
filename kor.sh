@@ -11,8 +11,10 @@
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
 # NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång), NWP_GRANSKNING_MAX (5 per
 # körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json ansluter en referenstjänst i
-# A/B-prövningen), NWP_ATELJE (av; pa = ateljén
-# i steg 5.1, med NWP_ATELJE_MODELL, NWP_ATELJE_EFFORT och NWP_ATELJE_ANTAL).
+# A/B-prövningen), NWP_ATELJE (pa: skapandeflödet i steg 5.1, kontroller/atelje.py, med NWP_ATELJE_MODELL,
+# NWP_ATELJE_EFFORT och NWP_ATELJE_ANTAL; av = nödvägen utan ateljé). En startsida som ägaren godkänt i dashboardens vy
+# Prototyp (underlag/<slug>/atelje/VINNARE.json, fältet godkand) tas över utan ny ateljé; ett sandlådat bygge kräver
+# en sådan (skapandeflödet körs utanför sandlådan, före bygget: kunskap/skapandeflodet.md).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SLUG="${1:-}"
@@ -53,14 +55,26 @@ kunder/$SLUG/sajt/, rapporten i kunder/$SLUG/RAPPORT.md. Ingen människa svarar 
 märk den antagande och fortsätt. Avsluta först när .venv/bin/python kontroller/prova.py $SLUG är grönt, rapporten är
 skriven och den oberoende granskaren (kontroller/granska.py) har godkänt sajten. Stoppvakten kör provet och
 granskningen själv när du försöker avsluta."
-# Riktningsateljén (A/B-posten B-20261003-a-b-riktningsatelje-i-steg-5-1-dar-en-orkestrato): av som standard.
-if [ "${NWP_ATELJE:-av}" = "pa" ] && [ "${NWP_SANDLADA:-av}" = "pa" ]; then
-  echo "ateljén (NWP_ATELJE=pa) stöds inte tillsammans med sandlådan (NWP_SANDLADA=pa) än: dess sessioner och byggsteg behöver egen sandlåda"; exit 2
-fi
-if [ "${NWP_ATELJE:-av}" = "pa" ]; then
+# Skapandeflödet (kunskap/skapandeflodet.md; Codex via ägaren 2026-10-05: ett designflöde, inte tre) är standard i
+# steg 5.1. En startsida som ägaren godkänt tas över som ateljévinnaren; skapandeflödet körs utanför sandlådan, så ett
+# sandlådat bygge kräver en godkänd startsida. NWP_ATELJE=av är nödvägen utan ateljé (byggarens eget KONCEPT.md).
+GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import json, sys
+try:
+    v = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError):
+    v = {}
+print("ja" if isinstance(v, dict) and isinstance(v.get("godkand"), dict) and v["godkand"].get("tid") else "")' "$ROOT/underlag/$SLUG/atelje/VINNARE.json" 2>/dev/null || true)"
+if [ -n "$GODKAND" ]; then
   PROMPT="$PROMPT
 
-Riktningsateljén är på (NWP_ATELJE=pa): följ ateljévägen i steg 5.1."
+Ägaren har godkänt startsidan i skapandeflödet (underlag/$SLUG/atelje/VINNARE.json, fältet godkand): ta vid efter valet
+i steg 5.1, som från ateljévinnaren. Kör inte ateljén; startsidan står i kunder/$SLUG/sajt/src/pages/index.astro."
+elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ "${NWP_SANDLADA:-av}" = "pa" ]; then
+  echo "skapandeflödet (ateljén) körs utanför sandlådan, före bygget: kör .venv/bin/python kontroller/prototyp.py $SLUG och godkänn startsidan i dashboardens vy Prototyp; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
+elif [ "${NWP_ATELJE:-pa}" = "pa" ]; then
+  PROMPT="$PROMPT
+
+Riktningsateljén är på (skapandeflödet, standard): följ ateljévägen i steg 5.1."
 fi
 
 # Referenstjänster via MCP (A/B-posterna om Inspo och om Refero/Mobbin): bara när NWP_MCP_CONFIG pekar på en av filerna i
@@ -147,7 +161,8 @@ fi
 SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} ${SANDLADA[@]+"${SANDLADA[@]}"})" || { echo "inställningarna (kontroller/sandlada.py) kunde inte skapas"; exit 2; }
 if [ "$SETTINGS" != "{}" ]; then ARGS+=(--settings "$SETTINGS"); fi
 
-# Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort.
+# Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort; bygget skriver
+# aldrig i ägarens automatiska minne (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 nedan, kontroller/nastlad.py).
 RENSA=(-u CLAUDECODE)
 while IFS='=' read -r namn _; do
   case "$namn" in CLAUDE_CODE_*) RENSA+=(-u "$namn");; esac
@@ -197,7 +212,7 @@ done
 { skyddat; grans; } > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
-printf '%s' "$PROMPT" | env "${RENSA[@]}" NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" NWP_SANDLADA="${NWP_SANDLADA:-av}" ${WT_ENV[@]+"${WT_ENV[@]}"} claude "${ARGS[@]}" > "$LOGG" 2>&1
+printf '%s' "$PROMPT" | env "${RENSA[@]}" CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" NWP_SANDLADA="${NWP_SANDLADA:-av}" ${WT_ENV[@]+"${WT_ENV[@]}"} claude "${ARGS[@]}" > "$LOGG" 2>&1
 RC=$?
 set -e
 rm -f "$EFTER_FIL"

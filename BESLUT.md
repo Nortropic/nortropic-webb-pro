@@ -202,3 +202,29 @@ loopen rendera, titta, rätta och titta igen saknades. Huvudrubriken var dessuto
    fakta och originalmaterial men utan ärvd layout eller låst rubrik; text och form bearbetas tillsammans och
    sakuppgifterna ändras inte. Före och efter visas bredvid huvudreferensen i dashboardens vy Prototyp. Ägaren dömer
    prototypen innan något helt bygge startas.
+
+## Tillägg 2026-10-05: ett skapandeflöde i stället för tre
+
+Ägaren förmedlade tre Codex-texter samma morgon, efter den första startsidesprototypen. Det fanns tre designflöden:
+det ordinarie bygget, ateljén och prototypen. Förbättringarna följde inte med mellan dem, och gamla designbeslut låstes
+tidigt. Prototypens omtag matades med förra försökets huvudreferens, inklusive "oxblod som här blir falurött". Skaparen
+läste inga designskills, ingen oberoende kritik kunde förkasta grundidén, och ägarens dom fördes inte vidare.
+Bildkvittot räknade läsningar över hela sessionen. Rådet om en huvudreferens korrigerades: sammanhållningen ska följa
+ett välgrundat val, och iterationen ska kunna ändra grundidén.
+
+1. **Ett skapandeflöde** (`kunskap/skapandeflodet.md`): ateljén är orkestratorn för både byggets steg 5.1 och ägarens
+   prototyp. Flödet utforskar skilda grundidéer, var och en på sin egen huvudreferenskandidat. Panelen väljer eller
+   förkastar alla. Den valda förfinas med designskillsen i förhandsvarv och döms före mot efter av samma panel.
+   `kontroller/prototyp.py` är ett alias, och ateljén är standard i `kor.sh`.
+2. **Ägarens dom följer med och återöppnar beslut.** Domloggen `underlag/<slug>/DESIGNDOMAR.jsonl` och
+   riktningshistoriken går in i varje prompt. Ny riktning arkiverar designbesluten (urval, koncept, presentationsfiler)
+   ur arbetsytan, utan att radera något; fakta står kvar. Inget färgförbud: ett drag ur en underkänd grundidé behöver
+   skäl.
+3. **Research på begäran** genom det befintliga referenssteget (KOMPLETTERING.json), och körspåret redovisas ur
+   transkripten: metoden före första skrivningen och läsningen per varv i ordning.
+4. **Överlämningen:** ägarens godkännande i vyn Prototyp skrivs i VINNARE.json, och bygget tar vid därifrån som från
+   ateljévinnaren. Ett sandlådat bygge kräver en godkänd startsida, eftersom skapandeflödet körs utanför sandlådan.
+5. **Nästlade sessioner** skriver aldrig i ägarens automatiska minne (`kontroller/nastlad.py`). Prototypens skapare
+   hade skrivit om minnesindexet.
+6. **Inga helbyggen** medan backloggen stäms av mot koden och det sammanhängande paketet för designflödet och
+   byggvägen färdigställs (Codex via ägaren, tredje texten).

@@ -1,11 +1,11 @@
 ---
 id: B-20261004-intagsmetoden-hela-arbetsmoment-och-provade-intag
-status: vilande
+status: ersatt
 kalla: bevakning
 kallref: Codex tillägg 2026-10-04 (intagen för begränsade); ägarmandat 2026-10-04
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-04T23:40Z
+andrad: 2026-10-05T06:55Z
 ---
 # Intagsmetoden: hela fungerande arbetsmoment med beroenden, prövade i den verkliga byggmiljön mot baslinjen
 
@@ -18,3 +18,5 @@ andrad: 2026-10-04T23:40Z
 **Pagar (2026-10-04):** Kraven och omprövningsreglerna står i kirurgens SKILL.md, och web-quality-audit har fått sin MEASUREMENT.md (c6b06ad, byte för byte). Kvar: de avgränsade försöken med Emils prototype och Impeccables designflöde, efter ägarens dom över designprovet.
 
 **Vilande (2026-10-04):** väntar på bygge: kraven står i kirurgens SKILL.md och web-quality-audit har sin MEASUREMENT.md; kvar är de avgränsade försöken med Emils prototype och Impeccables designflöde, efter ägarens dom över designprovet
+
+**Ersatt (2026-10-05):** Metoddelen uppfylld (avstämningen 2026-10-05): intagskraven 1–5 står i kirurgens SKILL.md, MEASUREMENT-filen finns, och Emils prototypmodul lever i ateljén. Försöken (Emil mot skapandeflödet, Impeccable) är sammanförda i B-20261004-skillkandidater-dembrandt-extract-design-md-skill-creator-dogfood.

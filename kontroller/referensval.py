@@ -18,38 +18,79 @@ from pathlib import Path
 RAD = re.compile(r'^Bildval:\s*(?P<fil>referenser/\S+)\s+[—–-]+\s+(?P<vad>.+?)\s+[—–-]+\s+Fråga:\s*(?P<fraga>.+?)\s*$', re.M | re.I)  # tankstreck med mellanslag runt; filnamn saknar mellanslag
 RUBRIK = re.compile(r'^#{1,3}\s+(.+?)\s*$', re.M)
 BILD = {'.png', '.jpg', '.jpeg', '.webp'}
-HUVUD = re.compile(r'^\s*(?:[-*]\s+)?\**Huvudreferens\**:?\**\s*(?P<namn>.+?)\s+[—–-]+\s+(?P<vad>.+?)\s*$', re.I)  # en rad: namn — vad den bär
+HUVUD = re.compile(r'^\s*(?:[-*]\s+)?\**Huvudreferens(?![a-zåäö])\**:?\**\s*(?P<namn>.+?)\s+[—–-]+\s+(?P<vad>.+?)\s*$', re.I)  # en rad: namn — vad den bär
+# en kandidat per grundidé (Codex via ägaren 2026-10-05: sammanhållningen ska följa ett välgrundat val, inte låsas före
+# utforskningen); ateljén väljer riktning, och den valda riktningens referens blir huvudreferensen (VINNARE.json)
+KANDIDAT = re.compile(r'^\s*(?:[-*]\s+)?\**Huvudreferenskandidat\**:?\**\s*(?P<namn>.+?)\s+[—–-]+\s+(?P<vad>.+?)\s*$', re.I)
 
 
 def huvudreferens(slug, underlag):
-    """Den sammanhängande huvudreferensen för komposition, typografi, proportioner och bildbehandling (designprovet,
-    ägarbeslut 2026-10-04): raden `Huvudreferens: <referensens rubrik> — <vad den bär>` i REFERENSER.md, och dess Bildval-
-    bilder (raderna under referensens rubrik). Ger {'namn', 'vad', 'bilder': [(Path, text)]} eller None."""
+    """Den sammanhängande huvudreferensen för komposition, typografi, proportioner och bildbehandling, med sina Bildval-
+    bilder (raderna under referensens rubrik). Efter ateljéns val är det den valda riktningens referens
+    (underlag/<slug>/atelje/VINNARE.json, fältet huvudreferens): sammanhållningen följer valet (Codex via ägaren
+    2026-10-05). Före ett val: raden `Huvudreferens: <referensens rubrik> — <vad den bär>` i REFERENSER.md (designprovet,
+    ägarbeslut 2026-10-04). Ger {'namn', 'vad', 'bilder': [(Path, text)], 'kalla'} eller None."""
+    v = vald(slug, underlag)
+    if v:
+        return dict(referens(slug, underlag, v['namn']), vad=v['vad'], kalla='ateljéns val (VINNARE.json)')
     rader = huvudreferensrader(slug, underlag)
     if len({n.lower() for n, _ in rader}) != 1:
         return None  # ingen eller flera olika: tvetydigt, aldrig den första som råkar stå överst
     namn, vad = rader[0]
-    bilder = [(v['fil'], '%s — Fråga: %s' % (v['vad'], v['fraga'])) for v in bildval(slug, underlag)
-              if v['fil'] and rubriknamn(v['referens']) == namn.lower()]
-    return {'namn': namn, 'vad': vad, 'bilder': bilder}
+    return dict(referens(slug, underlag, namn), vad=vad, kalla='REFERENSER.md')
 
 
-def huvudreferensrader(slug, underlag):
-    """Alla Huvudreferens-rader i REFERENSER.md utanför kodstaket: [(namn, vad)]. Godtar fet stil och listprefix."""
+def referens(slug, underlag, namn):
+    """En referens ur REFERENSER.md med sina Bildval-bilder, matchad exakt på rubrikens namn: {'namn', 'bilder'}."""
+    return {'namn': namn, 'bilder': [(v['fil'], '%s — Fråga: %s' % (v['vad'], v['fraga'])) for v in bildval(slug, underlag)
+                                     if v['fil'] and rubriknamn(v['referens']) == str(namn).strip().lower()]}
+
+
+def vald(slug, underlag):
+    """Ateljéns valda huvudreferens ({'namn', 'vad'}) ur underlag/<slug>/atelje/VINNARE.json, eller None."""
+    try:
+        import json
+        h = json.loads((Path(underlag) / slug / 'atelje' / 'VINNARE.json').read_text(encoding='utf-8')).get('huvudreferens')
+    except (OSError, ValueError, AttributeError):
+        return None
+    if isinstance(h, dict) and isinstance(h.get('namn'), str) and h['namn'].strip():
+        return {'namn': h['namn'].strip(), 'vad': str(h.get('vad') or '').strip()}
+    return None
+
+
+def _rader(slug, underlag, monster):
     f = Path(underlag) / slug / 'REFERENSER.md'
     ut, staket = [], False
     for rad in (f.read_text(encoding='utf-8').splitlines() if f.is_file() else []):
         if rad.lstrip().startswith(('```', '~~~')):
             staket = not staket
             continue
-        m = None if staket else HUVUD.match(rad)
+        m = None if staket else monster.match(rad)
         if m:
             ut.append((m.group('namn').strip().strip('*`').strip(), m.group('vad').strip().strip('*').strip()))
     return ut
 
 
+def huvudreferensrader(slug, underlag):
+    """Alla Huvudreferens-rader i REFERENSER.md utanför kodstaket: [(namn, vad)]. Godtar fet stil och listprefix."""
+    return _rader(slug, underlag, HUVUD)
+
+
+def kandidater(slug, underlag):
+    """Huvudreferenskandidaterna (en per grundidé) och en Huvudreferens-rad, i filens ordning, en gång per namn:
+    [{'namn', 'vad', 'bilder'}]. Ateljéns riktningar bygger var och en på sin kandidat."""
+    sedda, ut = set(), []
+    for namn, vad in _rader(slug, underlag, KANDIDAT) + huvudreferensrader(slug, underlag):
+        if namn.lower() not in sedda:
+            sedda.add(namn.lower())
+            ut.append(dict(referens(slug, underlag, namn), vad=vad))
+    return ut
+
+
 def huvudreferens_fel(slug, underlag):
     """Varför huvudreferensen inte kan läsas, eller None."""
+    if vald(slug, underlag):
+        return None
     rader = huvudreferensrader(slug, underlag)
     namn = sorted({n for n, _ in rader}, key=str.lower)
     if not rader:

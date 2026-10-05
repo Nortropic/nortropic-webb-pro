@@ -5,7 +5,7 @@
         [--steg S] [--sar S] [--kallref R] [--prio hog|normal]
     .venv/bin/python kontroller/backlog.py lista [--status vilande] [--json]
     .venv/bin/python kontroller/backlog.py visa ID
-    .venv/bin/python kontroller/backlog.py status ID vilande|pagar|klar|avvisad [--commit SHA] [--not TEXT]
+    .venv/bin/python kontroller/backlog.py status ID vilande|pagar|klar|avvisad|ersatt [--commit SHA] [--not TEXT]
 
 Poster skapas alltid vilande, automatiskt av kirurgen (dom "ta in" eller "prova A/B"), av dashboarden när ägaren
 dömer ett bygge, och av en byggkörning som hittar en brist i verktyg, skill eller kunskap. Ingen post genomförs av
@@ -22,7 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MAPP = ROOT / 'backlog'
-STATUS = ('vilande', 'pagar', 'klar', 'avvisad')
+STATUS = ('vilande', 'pagar', 'klar', 'avvisad', 'ersatt')  # ersatt: av ett senare beslut eller sammanförd i en annan post
 KALLOR = ('kirurg', 'dom', 'bygge', 'bevakning')
 FALT = ('id', 'status', 'kalla', 'kallref', 'korning', 'skapad', 'prio', 'steg', 'sar', 'commit', 'andrad')
 

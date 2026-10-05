@@ -19,7 +19,7 @@ som beslutats: `BESLUT.md`. Ägarens domar: `LARDOMAR.md` (publik, utan personup
 ## Var saker finns
 
 `kunskap/` professionstexter (regeln mot slop: `copy-kontroll.md`, `redaktionellt-pass.md`,
-`referenser-professionella.md`; ribban i tre nivåer ur ägarens kalibrering: `visuell-niva.md`; byggstandarden med verifierbara punkter: `byggstandard.md`; litteraturen och
+`referenser-professionella.md`; ribban i tre nivåer ur ägarens kalibrering: `visuell-niva.md`; designflödet för startsidan, ett för alla ingångar: `skapandeflodet.md`; byggstandarden med verifierbara punkter: `byggstandard.md`; litteraturen och
 metoderna bakom den: `teoretisk-grund.md`) · `kontroller/` provet och verktygen · `backlog/` vilande poster · `dashboard/`
 ägarens vy (`./dashboard.sh`, http://127.0.0.1:4771) · `underlag/` och `kunder/` privat material och byggen,
 utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglerna för prospekt och utskick:

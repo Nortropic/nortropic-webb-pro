@@ -644,7 +644,7 @@ def spara_kalibrering(ident, data):
 
 # --- designprovet: ägaren dömer ateljéns förslag blint, bredvid huvudreferensen (designprovet, ägarbeslut 2026-10-04) ---
 DP_LAS = threading.Lock()
-DP_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/(omgang-\d{1,2}/)?(\d|vinnare/bilder)/(undersida/|stiltavla/)?vy-(390|1440)-(forsta|hela|ruta-\d{2})\.png$')
+DP_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/(omgang-\d{1,2}/)?(\d|vinnare/bilder|slutdom/[12])/(undersida/|stiltavla/)?vy-(390|1440)-(forsta|hela|ruta-\d{2})\.png$')
 DP_RUNDA = re.compile(r'^omgang-(\d{1,2})$')
 DP_REF = re.compile(r'^underlag/([a-z0-9-]{2,60})/referenser/[A-Za-z0-9._/-]+\.(png|jpe?g|webp)$')
 
@@ -772,58 +772,83 @@ def spara_designprov(slug, bokstav, data, omgang=None, minuter=None):
     return {'ok': True, 'dom': domar[bokstav]}
 
 
-# --- startsidesprototypen: före och efter bredvid huvudreferensen, ägarens dom (Codex via ägaren 2026-10-05) ---
+# --- prototypen: skapandeflödets startsida före och efter bredvid huvudreferensen, ägarens dom i domloggen ---
+# (kunskap/skapandeflodet.md; Codex via ägaren 2026-10-05: ägarens dom förs vidare automatiskt till nästa körning)
 PR_LAS = threading.Lock()
 PR_BILDER = (('390-forsta', 'vy-390-forsta.png'), ('390-hela', 'vy-390-hela.png'), ('1440-forsta', 'vy-1440-forsta.png'), ('1440-hela', 'vy-1440-hela.png'))
+PR_BESLUT = ('godkand', 'putsa', 'ny_riktning')
 
 
 def prototyp_slugar():
-    """Byggen med en startsidesprototyp (underlag/<slug>/prototyp/STATUS.json)."""
-    return sorted(p.parent.parent.name for p in UNDERLAG.glob('*/prototyp/STATUS.json') if SLUG.match(p.parent.parent.name))
+    """Byggen med en körning i skapandeflödet (underlag/<slug>/atelje/STATUS.json med läge)."""
+    ut = []
+    for p in UNDERLAG.glob('*/atelje/STATUS.json'):
+        st = las_json(p) or {}
+        if SLUG.match(p.parent.parent.name) and st.get('lage'):
+            ut.append(p.parent.parent.name)
+    return sorted(ut)
+
+
+def prototyp_domd(slug, st):
+    """Har ägaren dömt den här körningen? En dom ur vyn bär körningens starttid i avser (spara_prototyp)."""
+    import skapande
+    return bool(st.get('startad')) and any(d.get('kalla') == 'ägaren' and st['startad'] in str(d.get('avser') or '')
+                                             for d in skapande.domar(slug, UNDERLAG))
 
 
 def prototyp(slug):
-    """Prototypens läge: första varvet (före) och slutläget (efter) i 390 och 1440, huvudreferensens bilder, skaparens
-    logg och beslut, hur många varv skaparen faktiskt såg (transkriptet), och ägarens domar."""
+    """Skapandeflödets läge: riktningarna som prövades, startsidan före och efter förfiningen i 390 och 1440, den valda
+    huvudreferensen, skaparens varv och ägarens domar. Panelens val och slutdom och redovisningen visas först när ägaren
+    dömt körningen, så att ägarens dom är oberoende (som granskarens dom över byggen)."""
+    import atelje
     import referensval
-    rot = UNDERLAG / slug / 'prototyp'
+    import skapande
+    rot = UNDERLAG / slug / 'atelje'
     st = las_json(rot / 'STATUS.json') or {}
-    bilder = lambda kat: {n: 'underlag/%s/prototyp/%s/%s' % (slug, kat, fil) for n, fil in PR_BILDER if (rot / kat / fil).is_file()}  # noqa: E731
-    las = st.get('lasning') or {}
+    domd = prototyp_domd(slug, st)
+    bilder = lambda kat: {n: 'underlag/%s/atelje/%s/%s' % (slug, kat, fil) for n, fil in PR_BILDER if (rot / kat / fil).is_file()}  # noqa: E731
+    vinnare = las_json(rot / 'VINNARE.json') or {}
+    namn = atelje.riktningsavsnitt(rot)
+    refs = atelje.riktningsreferenser(slug, rot)
+    riktningar = [{'n': int(d.name), 'namn': namn.get(int(d.name), ('riktning %s' % d.name, ''))[0], 'referens': (refs.get(int(d.name)) or {}).get('namn'),
+                   'bilder': bilder(d.name), 'vald': vinnare.get('riktning') == int(d.name)}
+                  for d in sorted(rot.glob('[0-9]'), key=lambda x: int(x.name)) if d.is_dir() and not d.is_symlink()]
     hr = referensval.huvudreferens(slug, UNDERLAG)
-    return {'slug': slug, 'steg': st.get('steg'), 'startad': st.get('startad'), 'klar': st.get('klar'), 'fel': st.get('fel'), 'avbruten': st.get('avbruten'),
-            'varv': las.get('varv'), 'sedda_varv': len(las.get('sedda_varv') or []), 'verifierad': las.get('verifierad'),
-            'fore': bilder('fore'), 'efter': bilder('slut'),
-            'huvudreferens': {'namn': hr['namn'], 'vad': hr['vad'], 'bilder': [{'fil': str(p.relative_to(ROOT)), 'text': t} for p, t in hr['bilder']]} if hr else None,
-            'prototyp_md': md(las_text(rot / 'PROTOTYP.md') or ''), 'logg_md': md(las_text(rot / 'LOGG.md') or ''),
-            'domar': (las_json(rot / 'AGARENS-DOM.json') or {}).get('domar', [])}
+    md_ = lambda n: md(las_text(rot / n) or '') if (rot / n).is_file() else ''  # noqa: E731
+    return {'slug': slug, 'steg': st.get('steg'), 'lage': st.get('lage'), 'startad': st.get('startad'), 'klar': st.get('klar'), 'fel': st.get('fel'),
+            'skal': st.get('skal'), 'omgangar': st.get('omgangar'), 'faser': sorted((st.get('faser') or {}).keys()), 'domd': domd,
+            'riktningar': riktningar, 'fore': bilder('slutdom/1'), 'efter': bilder('slutdom/2'),
+            'huvudreferens': {'namn': hr['namn'], 'vad': hr['vad'], 'bilder': [{'fil': str(p.relative_to(ROOT)), 'text': t_} for p, t_ in hr['bilder']]} if hr else None,
+            'riktningar_md': md_('RIKTNINGAR.md'), 'forfining_md': md_('FORFINING.md'),
+            'val_md': md_('VAL.md') if domd else None, 'slutdom_md': md_('SLUTDOM.md') if domd else None, 'redovisning_md': md_('REDOVISNING.md') if domd else None,
+            'domar': list(reversed(skapande.domar(slug, UNDERLAG))), 'godkand': vinnare.get('godkand')}
 
 
 def spara_prototyp(slug, data, minuter=None):
-    """Ägarens dom över prototypen: håller ribban, nivå och vad som skiljer. Privat (underlag/<slug>/prototyp/AGARENS-DOM.json)."""
-    import fcntl
+    """Ägarens dom över körningen till domloggen (underlag/<slug>/DESIGNDOMAR.jsonl, privat): beslut godkand, putsa eller
+    ny_riktning, med ägarens ord. Nästa körning läser den själv (kontroller/prototyp.py); godkand lämnar över till bygget
+    (VINNARE.json, kor.sh)."""
+    import atelje
+    import skapande
     if slug not in prototyp_slugar():
         raise ValueError('ingen prototyp för bygget')
-    if data.get('niva') not in NIVAER or not isinstance(data.get('haller'), bool):
-        raise ValueError('välj nivå och om prototypen håller ribban')
-    f = UNDERLAG / slug / 'prototyp' / 'AGARENS-DOM.json'
-    with PR_LAS, open(f.parent / '.agarens-dom.las', 'w') as las:
-        fcntl.flock(las, fcntl.LOCK_EX)
-        try:
-            allt = {'domar': []}
-            if f.exists():
-                try:
-                    allt = json.loads(f.read_text(encoding='utf-8'))
-                except (OSError, ValueError) as e:
-                    raise RuntimeError('AGARENS-DOM.json går inte att läsa (%s); rätta filen innan en dom sparas' % e)
-            dom = {'haller': data['haller'], 'niva': data['niva'], 'skiljer': (data.get('skiljer') or '').strip()[:4000], 'tid': nu(),
-                   **({'minuter': minuter} if minuter is not None else {})}
-            allt.setdefault('domar', []).append(dom)
-            tmp = f.with_name('.AGARENS-DOM.json.tmp%d' % os.getpid())
-            tmp.write_text(json.dumps(allt, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-            os.replace(tmp, f)
-        finally:
-            fcntl.flock(las, fcntl.LOCK_UN)
+    st = las_json(UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
+    if st.get('steg') not in ('klar', 'forkastad', 'tillbaka'):
+        raise ValueError('körningen är inte klar (steg %s)' % st.get('steg'))
+    if data.get('beslut') not in PR_BESLUT:
+        raise ValueError('välj godkänd, putsa vidare eller ny riktning')
+    if data.get('niva') is not None and data['niva'] not in NIVAER:
+        raise ValueError('okänd nivå')
+    text = (data.get('text') or '').strip() or ('Godkänd.' if data['beslut'] == 'godkand' else '')
+    if not text:
+        raise ValueError('skriv vad som ska ändras: domen är nästa körnings kritik')
+    if data['beslut'] == 'godkand' and st.get('steg') != 'klar':
+        raise ValueError('bara en klar körning kan godkännas')
+    with PR_LAS:
+        dom = skapande.lagg_till_dom(slug, 'ägaren', data['beslut'], text[:20000], avser='skapandeflödet, körningen %s' % st.get('startad'),
+                                     underlag=UNDERLAG, **({'niva': data['niva']} if data.get('niva') else {}), **({'minuter': minuter} if minuter is not None else {}))
+        if data['beslut'] == 'godkand':
+            atelje.godkann(slug, dom)
     return {'ok': True, 'dom': dom}
 
 
@@ -908,7 +933,7 @@ def backloggen():
         kropp = p.pop('kropp', '')
         p['html'] = md(re.sub(r'^# .+\n', '', kropp, count=1, flags=re.M))
         ut.append(p)
-    ordning = {'pagar': 0, 'vilande': 1, 'klar': 2, 'avvisad': 3}
+    ordning = {'pagar': 0, 'vilande': 1, 'klar': 2, 'ersatt': 3, 'avvisad': 4}
     return sorted(ut, key=lambda p: (ordning.get(p.get('status'), 9), p.get('prio') != 'hog', p.get('skapad', '')))
 
 

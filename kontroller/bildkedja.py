@@ -119,6 +119,102 @@ def brister(las):
     return ['%s %d av %d' % (g, x['lasta'], x['kravda']) for g, x in las['grupper'].items() if x['saknas']]
 
 
+def handelser(fil):
+    """Transkriptets verktygsanrop och svar i ordning: ('anrop', id, namn, input) och ('svar', tool_use_id, text, fel)."""
+    ut = []
+    try:
+        with open(fil, encoding='utf-8', errors='replace') as f:
+            for rad in f:
+                if '"tool_use"' not in rad and '"tool_result"' not in rad:
+                    continue
+                try:
+                    r = json.loads(rad)
+                except ValueError:
+                    continue
+                innehall = (r.get('message') or {}).get('content') if isinstance(r, dict) else None
+                for c in innehall if isinstance(innehall, list) else []:
+                    if not isinstance(c, dict):
+                        continue
+                    if c.get('type') == 'tool_use':
+                        ut.append(('anrop', c.get('id'), c.get('name'), c.get('input') or {}))
+                    elif c.get('type') == 'tool_result':
+                        x = c.get('content')
+                        text = x if isinstance(x, str) else ' '.join(y.get('text', '') for y in x if isinstance(y, dict)) if isinstance(x, list) else ''
+                        ut.append(('svar', c.get('tool_use_id'), text, c.get('is_error') is True))
+    except OSError:
+        return []
+    return ut
+
+
+VARVVAG = re.compile(r'(underlag/[a-z0-9-]+/forhand/(?:[a-z0-9-]+/)?varv-\d{2,})/vy-390-forsta\.png')  # sidans led kom 2026-10-05
+VARVBILDER = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
+
+
+def varvordning(session_id, slug, referens=()):
+    """Läsningen per förhandsvarv, i ordning (Codex 2026-10-05, glapp 5: ett räknat antal läsningar över hela sessionen
+    visar inte att varvet jämfördes). Ett varv börjar när förhandsvisa.py svarat med varvets vägar och slutar vid nästa
+    ändring i kunder/<slug>/sajt/src/ eller nästa förhandsvisning. Inom fönstret ska varvets fyra bilder ha lästs, och
+    minst en av referensbilderna (huvudreferensen läses om varje varv: Claude Codes medietak tränger undan de äldsta
+    bilderna ur kontexten). Ger {'verifierad', 'varv': [{'varv', 'kravda', 'lasta', 'saknas', 'slutar'}]}."""
+    t = transkript(session_id)
+    if t is None:
+        return {'verifierad': False, 'varv': [], 'skal': 'transkriptet saknas'}
+    h = handelser(t)
+    bash = {i: x[3].get('command', '') for i, x in ((x[1], x) for x in h if x[0] == 'anrop' and x[2] == 'Bash')}
+    felade = {x[1] for x in h if x[0] == 'svar' and x[3]}
+    src = 'kunder/%s/sajt/src/' % slug
+    ut = []
+    for k, x in enumerate(h):
+        if x[0] != 'svar' or x[3] or 'kontroller/forhandsvisa.py' not in bash.get(x[1], ''):
+            continue
+        m = VARVVAG.search(x[2])
+        if not m:
+            continue
+        lasta_, slutar = [], 'sessionens slut'
+        for y in h[k + 1:]:
+            if y[0] != 'anrop':
+                continue
+            if y[2] in ('Write', 'Edit', 'MultiEdit') and relativ(y[3].get('file_path', '')).startswith(src):
+                slutar = 'en ändring i %s' % relativ(y[3].get('file_path', ''))
+                break
+            if y[2] == 'Bash' and 'kontroller/forhandsvisa.py' in y[3].get('command', ''):
+                slutar = 'nästa förhandsvisning'
+                break
+            if y[2] == 'Read' and y[1] not in felade and isinstance(y[3].get('file_path'), str):
+                lasta_.append(y[3]['file_path'])
+        krav = [m.group(1) + '/' + n for n in VARVBILDER] + ([[relativ(r) for r in referens]] if referens else [])
+        saknas = [relativ(a[0] if isinstance(a, list) else a) for a in krav
+                  if not any(last(v, lasta_) for v in (a if isinstance(a, list) else [a]))]
+        ut.append({'varv': m.group(1).rsplit('/', 1)[-1], 'kravda': len(krav), 'lasta': len(krav) - len(saknas), 'saknas': saknas, 'slutar': slutar})
+    return {'verifierad': True, 'varv': ut, 'transkript': t.name}
+
+
+def metodlasning(session_id, filer, skills=(), skrivprefix=None):
+    """Metodkvittot (Codex 2026-10-05, glapp 2: prototypens skapare läste inga designskills): vilka av metodfilerna
+    sessionen läste med Read och vilka skills den anropade med Skill, och om det skedde före första skrivningen under
+    skrivprefix (en väg relativt roten, till exempel kunder/<slug>/sajt/src/). En skill räknas också som läst när dess
+    SKILL.md lästes. Ger {'verifierad', 'fore': [...], 'efter': [...], 'saknas': [...], 'skill_anrop': [...]}."""
+    t = transkript(session_id)
+    if t is None:
+        return {'verifierad': False, 'skal': 'transkriptet saknas'}
+    forsta, sedda, anrop = None, {}, []
+    for i, x in enumerate(handelser(t)):
+        if x[0] != 'anrop':
+            continue
+        if forsta is None and skrivprefix and x[2] in ('Write', 'Edit', 'MultiEdit') and relativ(x[3].get('file_path', '')).startswith(skrivprefix):
+            forsta = i
+        if x[2] == 'Read' and isinstance(x[3].get('file_path'), str):
+            sedda.setdefault(relativ(x[3]['file_path']).lstrip('./'), i)
+        elif x[2] == 'Skill' and isinstance(x[3].get('skill'), str):
+            anrop.append(x[3]['skill'])
+            sedda.setdefault('.claude/skills/%s/SKILL.md' % x[3]['skill'].split(':')[-1], i)
+    krav = [relativ(f).strip('/') for f in filer] + ['.claude/skills/%s/SKILL.md' % s for s in skills]
+    fore = [k for k in krav if k in sedda and (forsta is None or sedda[k] < forsta)]
+    efter = [k for k in krav if k in sedda and k not in fore]
+    return {'verifierad': True, 'fore': fore, 'efter': efter, 'saknas': [k for k in krav if k not in sedda], 'skill_anrop': anrop,
+            'forsta_skrivning': forsta is not None}
+
+
 def klass(v):
     v = relativ(v)
     if '/atelje/ankare/' in v or '/kalibrering/' in v:

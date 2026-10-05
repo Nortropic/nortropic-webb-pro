@@ -6,6 +6,7 @@ kallref: kunskap/REGISTER.md · 2026-10-03 · Jack Roberts, "Claude Code + TinyF
 skapad: 2026-10-03
 prio: normal
 steg: spaningen (kontroller/spana.py, dashboarden)
+andrad: 2026-10-05T06:55Z
 ---
 # Spanaren märker YouTube-kandidater vars beskrivning anger betalt partnerskap
 
@@ -13,4 +14,6 @@ steg: spaningen (kontroller/spana.py, dashboarden)
 
 **Förslag:** kontroller/spana.py, rss(): efter att media:description lästs (rad 219–222) och före kandidat() kapar till 600 tecken, matcha den fulla texten mot ett mönster för 'Paid partnership', 'includes paid promotion', 'sponsored' och '#ad' (skiftlägesokänsligt) och lägg varningen 'betalt partnerskap' i kandidatens varning-lista via extra. Ingen kandidat avfärdas automatiskt; dashboarden visar varningen som de andra. Ett prov med en fixtur ur ett YouTube-Atom-flöde med raden 'Paid partnership with X.' sist i beskrivningen.
 
-**Klart när:** Spaningen av Jack Roberts flöde ger kandidaten qqRo3vwAoPw varningen 'betalt partnerskap' i dashboarden, provet är grönt och kontroller/rokprov.sh slutar grönt.
+**Klart när:** En YouTube-post vars fulla beskrivning anger betalt partnerskap får varningen "betalt partnerskap" (fixturen atom-youtube.xml, assert i prov_spaning.py).
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord. Det skarpa exemplet är dömt och sållas bort, så kriteriet pekar på fixturen. Färdigkriteriet omskrivet i avstämningen; tidigare: "Spaningen av Jack Roberts flöde ger kandidaten qqRo3vwAoPw varningen 'betalt partnerskap' i dashboarden, provet är grönt och kontroller/rokprov.sh slutar grönt."

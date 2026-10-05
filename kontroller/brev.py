@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
+import nastlad  # noqa: E402  (nästlade sessioner: inget automatiskt minne)
 import prospektfiler as pf  # noqa: E402
 import copy_kontroll as ck  # noqa: E402
 
@@ -33,7 +34,7 @@ ROLLER_RE = re.compile(r'^(info|kontakt|hej|hello|mail|post|office|kansli|boknin
 
 
 def ren_miljo():
-    return {k: v for k, v in os.environ.items() if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_') and not k.startswith('NWP_')}
+    return nastlad.miljo()
 
 
 def modell_och_effort():

@@ -1,13 +1,13 @@
 ---
 id: B-20261002-a-b-inspo-mcp-hostad-andpunkt-som-sokingang-for
-status: vilande
+status: ersatt
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS Ow_z94c3wKk + Nutlope/inspo
 skapad: 2026-10-02
 prio: normal
 steg: 3 (referenser, hantverksrollen); kor.sh (anslutningar i bygget)
 commit: 29ccdc4
-andrad: 2026-10-03T00:58Z
+andrad: 2026-10-05T06:55Z
 ---
 # A/B: Inspo MCP (hostad ändpunkt) som sökingång för referenser i steg 3, mot dagens egna referensjakt
 
@@ -18,3 +18,5 @@ andrad: 2026-10-03T00:58Z
 **Klart när:** Fyra körningar klara (två per arm), AB-post i LARDOMAR.md med ägarens blinda val och domarens, kostnad per arm redovisad, och beslut om stycket i steg 3 och NWP_MCP_CONFIG står kvar eller tas bort.
 
 **Vilande (2026-10-03):** reglaget klart (29ccdc4); väntar på ägarens A/B: två gånger 'ab.py starta <slug> "<verksamhet>" --variabel inspo --a av --b kontroller/mcp/inspo.json' och blinda val
+
+**Ersatt (2026-10-05):** Sammanförd i B-20261003-referenstjanster-i-befintligt-flode-inspo-a-b-fo (avstämningen 2026-10-05). Reglaget är levererat (kor.sh, kontroller/mcp/inspo.json, ab.py), men Inspo saknas i det verifierade tjänstesteget (referenstjanster.py) och i beslutet om sökingångar 2026-10-04. En A/B per tjänst prövas där, Inspo sist om Refero och Mobbin inte räcker.

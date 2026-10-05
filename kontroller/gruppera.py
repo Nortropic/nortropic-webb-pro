@@ -22,6 +22,7 @@ KUNDER = ROOT / 'kunder'
 sys.path.insert(0, str(ROOT / 'kontroller'))
 from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import backlog as bl  # noqa: E402
+import nastlad  # noqa: E402  (nästlade sessioner: inget automatiskt minne)
 
 SCHEMA = ROOT / 'kritik' / 'SCHEMA-gruppering.json'
 UT = ROOT / 'kunskap' / 'GRUPPERING.md'
@@ -97,7 +98,7 @@ def main(argv=None):
         print(text)
         return 0
     claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
-    miljo = {k: v for k, v in __import__('os').environ.items() if k != 'CLAUDECODE' and not k.startswith(('CLAUDE_CODE_', 'NWP_'))}
+    miljo = nastlad.miljo()
     r = subprocess.run([claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config', '--model', 'opus[1m]', '--effort', 'high',
                         '--json-schema', SCHEMA.read_text(encoding='utf-8'), '--allowedTools', 'Read', 'Glob', 'Grep',

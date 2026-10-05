@@ -6,6 +6,7 @@ kallref: https://developers.google.com/search/docs/fundamentals/ai-optimization-
 skapad: 2026-10-03
 prio: hog
 steg: steg 4, lansering, sökkonsolen
+andrad: 2026-10-05T06:55Z
 ---
 # Googles linje för generativ AI-sök in i seo.md, sokkonsol.md och lansering.md: AI-sök är SEO, inkludering i Search Console, AI-rapporten och företagsprofilen
 
@@ -13,4 +14,6 @@ steg: steg 4, lansering, sökkonsolen
 
 **Förslag:** Efter A/B-kedjan, eftersom byggena läser kunskap/. (1) kunskap/seo.md: ett stycke Generativ AI i Google Sök med Googles linje, listan över vad som inte behövs, länkarna och datumet. (2) kunskap/sokkonsol.md, lanseringsdagen: slå på inkluderingen i generativa AI-funktioner; i tolkningen och rutinen: Generative AI performance report. (3) kunskap/lansering.md, lanseringsdagen: Google-företagsprofilen uppdateras samma dag (webbadress, öppettider och adress enligt byggstandarden 7.4).
 
-**Klart när:** seo.md, sokkonsol.md och lansering.md har raderna med länk och datum; grep efter llms.txt i kunskap/ visar bara Googles avfärdande.
+**Klart när:** seo.md har stycket om AI-sök som SEO med källa och datum, sokkonsol.md och lansering.md har raderna; grep efter llms.txt i kunskap/ (utom REGISTER*.md) visar bara Googles avfärdande, och byggstandardens 7.6 bär länken.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord (seo.md saknar AI-sök, sokkonsol.md saknar inkluderingen, lansering.md saknar företagsprofilen). Byggstandardens 7.6 ska bära länken och datumet för avfärdandet av llms.txt. Färdigkriteriet omskrivet i avstämningen; tidigare: "seo.md, sokkonsol.md och lansering.md har raderna med länk och datum; grep efter llms.txt i kunskap/ visar bara Googles avfärdande."

@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex helhetsbedömning 2026-10-04 punkt 1, 2, 3, 5; rekommenderad ordning 1
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-04T23:41Z
+andrad: 2026-10-05T06:55Z
 ---
 # Kund-, innehålls- och designinstruktionerna samordnas: kundens uppgift styr, motsägande generella regler löses, varje metodregel får källa, tolkning och försök
 
@@ -16,3 +16,5 @@ andrad: 2026-10-04T23:41Z
 **Klart när:** Skillen, GRANSKARE.md, bild.md och brief-mallen säger inte emot varandra på de fem punkterna (prövas med en textkontroll i sviten: inga av de gamla formuleringarna kvar); ett kunduppdrags underlag finns som mall och används av byggvägen; metodreglerna har källa/tolkning/försök-rader; ett bygge med bokning som uppgift får bokningen som primär handling.
 
 **Vilande (2026-10-04):** väntar på bygge: textändringarna, uppdragsmallen och metodreglerna levererades i 6c8c90f och 915b85e; kvar är ett bygge med bokning som uppgift som får bokningen som primär handling
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: textändringar, uppdragsmall och metodregler levererade (6c8c90f, 915b85e). Codex 2026-10-05 (ägarens senaste kritik till nästa uppdrag, återöppnade designbeslut, skills kopplade till skaparen) levereras i skapandeflödet (kontroller/skapande.py: domloggen, ATEROPPNAR, METOD). Kvar: implementation (paketet före nästa helbygge): textkontrollen i sviten; verifiering: ett bygge med bokning som uppgift.

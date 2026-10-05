@@ -322,7 +322,7 @@ function bDom(b, f) {
 async function backlogvy() {
   aktivNav('backlog');
   const lista = await api('/api/backlog');
-  const KALLA = { kirurg: 'Kirurgen', dom: 'Din dom', bygge: 'Bygge', bevakning: 'Omvärldsbevakning' }, STATUS = { vilande: 'Vilande', pagar: 'Pågår', klar: 'Klar', avvisad: 'Avvisad' };
+  const KALLA = { kirurg: 'Kirurgen', dom: 'Din dom', bygge: 'Bygge', bevakning: 'Omvärldsbevakning' }, STATUS = { vilande: 'Vilande', pagar: 'Pågår', klar: 'Klar', ersatt: 'Ersatt', avvisad: 'Avvisad' };
   const grupp = (s) => lista.filter((p) => p.status === s);
   const post_ = (p) => `<details class="post"><summary><span class="titel">${esc(p.titel)}</span>
       <span class="chip ${p.status === 'klar' ? 'ok' : p.status === 'pagar' ? 'acc' : p.status === 'avvisad' ? '' : 'gul'}">${STATUS[p.status] || esc(p.status)}</span>
@@ -337,7 +337,7 @@ async function backlogvy() {
       <p class="under" style="margin:4px 0 8px">Starta en Claude Code-session i repot och skriv:</p>
       ${kommando('implementera enligt backlog')}
       <p class="under" style="margin:0">Sessionen tar de vilande posterna en i taget, prövar, committar och sätter dem till klar.</p></div>
-    ${['pagar', 'vilande', 'klar', 'avvisad'].map((s) => grupp(s).length ? `<h2>${STATUS[s]} (${grupp(s).length})</h2>${grupp(s).map(post_).join('')}` : '').join('') || '<div class="tom">Backloggen är tom.</div>'}`;
+    ${['pagar', 'vilande', 'klar', 'ersatt', 'avvisad'].map((s) => grupp(s).length ? `<h2>${STATUS[s]} (${grupp(s).length})</h2>${grupp(s).map(post_).join('')}` : '').join('') || '<div class="tom">Backloggen är tom.</div>'}`;
   document.querySelectorAll('[data-id]').forEach((k) => k.onclick = async () => { k.disabled = true; await post(`/api/backlog/${k.dataset.id}/status`, { status: k.dataset.s }); backlogvy(); });
   const o = await api('/api/oversikt'); raknare(o);
 }
@@ -539,13 +539,16 @@ async function designprovvy(slug) {
   });
 }
 
-// Startsidesprototypen: skaparen har sett och rättat sin sida i varv; före (första varvet) och efter bredvid huvudreferensen
+// Prototypen: skapandeflödets startsida (kunskap/skapandeflodet.md). Riktningarna som prövades, före och efter förfiningen
+// bredvid huvudreferensen, och ägarens dom till domloggen: godkänd, putsa vidare eller ny riktning. Panelens val och slutdom
+// visas först när ägaren dömt, så att domen är oberoende.
+const BESLUT = { godkand: 'Godkänd: bygget tar vid från den här startsidan', putsa: 'Putsa vidare: samma riktning, med min kritik', ny_riktning: 'Ny riktning: designbesluten arkiveras och utforskningen börjar om' };
 async function prototypvy(slug) {
   aktivNav('prototyp');
   if (!slug) {
     const lista = await api('/api/prototyp');
     if (lista.length === 1) { location.hash = '#/prototyp/' + encodeURIComponent(lista[0]); return; }
-    $('#vy').innerHTML = `<h1>Prototyp</h1><p class="under">Startsidor som skaparen förhandsvisat och rättat i varv innan någon dömer.</p>${lista.map((s) => `<p><a href="#/prototyp/${esc(s)}">${esc(s)}</a></p>`).join('') || '<p>Ingen prototyp än.</p>'}`;
+    $('#vy').innerHTML = `<h1>Prototyp</h1><p class="under">Startsidor ur skapandeflödet: skilda grundidéer, panelens val, förfiningen och slutdomen.</p>${lista.map((s) => `<p><a href="#/prototyp/${esc(s)}">${esc(s)}</a></p>`).join('') || '<p>Ingen körning än.</p>'}`;
     return;
   }
   const d = await api('/api/prototyp/' + encodeURIComponent(slug));
@@ -554,25 +557,38 @@ async function prototypvy(slug) {
   const ref = hr ? `<section class="kort" style="margin-bottom:24px"><h2>Huvudreferensen: ${esc(hr.namn)}</h2><p class="under">${esc(hr.vad)}</p><div class="galleri">${hr.bilder.map((b) => bild(b.fil, b.text)).join('')}</div></section>` : '';
   const kol = (rubrik, b) => `<div><h3>${rubrik}</h3><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['390-forsta'], 'mobil 390, första vyn')}${bild(b['1440-forsta'], 'dator 1440, första vyn')}</div>
       <details><summary>Hela sidan (390 och 1440)</summary><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(b['390-hela'], 'hela sidan 390')}${bild(b['1440-hela'], 'hela sidan 1440')}</div></details></div>`;
-  const lage = d.steg === 'klar' ? `${esc(String(d.varv || 0))} varv; skaparen läste sina förhandsbilder i ${esc(String(d.sedda_varv))} av dem${d.verifierad === false ? ' (kunde inte verifieras)' : ''}.`
-    : d.steg === 'fel' ? `Prototypen föll: ${esc(d.fel || '')}` : `Pågår (steg ${esc(d.steg || '')}, startad ${esc(d.startad || '')}).`;
-  const tidigare = (d.domar || []).map((x) => `<p class="under">Din dom ${tid(x.tid)}: <b>${x.haller ? 'håller ribban' : 'håller inte'}</b> · ${esc(NIVA[x.niva] || x.niva)}${x.skiljer ? ' · ' + esc(x.skiljer) : ''}</p>`).join('');
-  const form = d.steg === 'klar' ? `<section class="kort" style="margin-top:24px"><h2>${(d.domar || []).length ? 'Döm igen' : 'Din dom'}</h2>${tidigare}
-      <div class="rad" style="margin-top:10px;flex-wrap:wrap;gap:12px"><label><input type="radio" name="pr-h" value="ja"> Håller ribban</label><label><input type="radio" name="pr-h" value="nej"> Håller inte</label></div>
-      <div class="rad" style="margin-top:6px;flex-wrap:wrap;gap:12px">${Object.keys(NIVA).map((n) => `<label><input type="radio" name="pr-n" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
-      <textarea id="pr-sk" rows="4" style="width:100%;margin-top:8px" placeholder="Vad skiljer från huvudreferensen och från en sida du skulle visa verksamheten? Rubriker, bildval, beskärning, proportioner, mobilens komposition, luft."></textarea>
-      <div class="rad" style="margin-top:8px"><button class="knapp primar" id="pr-spara">Spara domen</button></div></section>` : '';
-  $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1><p class="under">${lage} Skaparen förhandsvisade startsidan, läste bilderna i mobil och dator och rättade i varv. Döm efter-bilderna mot huvudreferensen; före är första varvet.</p>${ref}
-    <section class="kort"><div class="galleri" style="grid-template-columns:1fr 1fr;gap:24px">${kol('Före · första varvet', d.fore || {})}${kol('Efter · sista varvet', d.efter || {})}</div></section>${form}
-    ${d.prototyp_md ? `<details style="margin-top:24px"><summary>Skaparens beslut (PROTOTYP.md)</summary><div class="prosa">${d.prototyp_md}</div></details>` : ''}
-    ${d.logg_md ? `<details><summary>Varven (LOGG.md)</summary><div class="prosa">${d.logg_md}</div></details>` : ''}`;
+  const klar = ['klar', 'forkastad', 'tillbaka'].includes(d.steg);
+  const lage = d.steg === 'klar' ? `Klar ${tid(d.klar)} (läge ${esc(d.lage || '')}, ${esc(String(d.omgangar || 1))} omgång${d.omgangar > 1 ? 'ar' : ''}).`
+    : d.steg === 'fel' ? `Körningen föll: ${esc(d.fel || '')}` : d.steg === 'forkastad' || d.steg === 'tillbaka' ? `Ingen startsida att döma: ${esc(d.skal || d.steg)}`
+    : `Pågår (steg ${esc(d.steg || '')}, startad ${tid(d.startad)}).`;
+  const riktn = (d.riktningar || []).length ? `<details style="margin-top:24px"${d.steg === 'forkastad' ? ' open' : ''}><summary>Riktningarna som prövades (${d.riktningar.length})</summary><div class="galleri" style="grid-template-columns:repeat(${Math.min(d.riktningar.length, 3)},1fr);gap:18px">${d.riktningar.map((r) => `<div><h3>${esc(r.namn)}${r.vald ? ' · vald' : ''}</h3><p class="under">${r.referens ? 'bygger på ' + esc(r.referens) : 'ingen huvudreferens'}</p><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(r.bilder['390-forsta'], 'mobil')}${bild(r.bilder['1440-forsta'], 'dator')}</div></div>`).join('')}</div></details>` : '';
+  const tidigare = (d.domar || []).map((x) => `<p class="under">${tid(x.tid)} · ${esc(x.kalla)} · <b>${esc((BESLUT[x.beslut] || x.beslut).split(':')[0])}</b>${x.niva ? ' · ' + esc(NIVA[x.niva] || x.niva) : ''}: ${esc(String(x.text || '').slice(0, 400))}${String(x.text || '').length > 400 ? '…' : ''}</p>`).join('');
+  const form = klar ? `<section class="kort" style="margin-top:24px"><h2>${d.domd ? 'Döm igen' : 'Din dom'}</h2>
+      <p class="under">Domen sparas i domloggen och läses av nästa körning: putsa vidare förfinar samma riktning med din text som kritik, ny riktning arkiverar designbesluten och börjar om med en ny utforskning, godkänd lämnar över till bygget.</p>
+      <div style="margin-top:10px">${Object.keys(BESLUT).filter((b) => b !== 'godkand' || d.steg === 'klar').map((b) => `<div><label><input type="radio" name="pr-b" value="${b}"> ${esc(BESLUT[b])}</label></div>`).join('')}</div>
+      <div class="rad" style="margin-top:8px;flex-wrap:wrap;gap:12px"><span class="under">Nivå (valfritt):</span>${Object.keys(NIVA).map((n) => `<label><input type="radio" name="pr-n" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
+      <textarea id="pr-text" rows="5" style="width:100%;margin-top:8px" placeholder="Vad håller inte, och vad ska nästa försök pröva? Rubriker, bildval, beskärning, proportioner, mobilens komposition, färg, typografi. Dina ord följer med ordagrant."></textarea>
+      <div class="rad" style="margin-top:8px"><button class="knapp primar" id="pr-spara">Spara domen</button></div>
+      ${tidigare ? `<details style="margin-top:12px"><summary>Domloggen (${d.domar.length})</summary>${tidigare}</details>` : ''}</section>`
+    : (tidigare ? `<details style="margin-top:24px"><summary>Domloggen (${d.domar.length})</summary>${tidigare}</details>` : '');
+  const efter = d.domd ? `${d.val_md ? `<details style="margin-top:24px"><summary>Panelens val (VAL.md)</summary><div class="prosa">${d.val_md}</div></details>` : ''}
+    ${d.slutdom_md ? `<details><summary>Slutdomen: före mot efter (SLUTDOM.md)</summary><div class="prosa">${d.slutdom_md}</div></details>` : ''}
+    ${d.redovisning_md ? `<details><summary>Vad körningen använde (REDOVISNING.md)</summary><div class="prosa">${d.redovisning_md}</div></details>` : ''}`
+    : (klar ? '<p class="under" style="margin-top:16px">Panelens val och slutdom och redovisningen ur körspåret visas när du har dömt.</p>' : '');
+  $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1><p class="under">${lage} ${d.godkand ? `<b>Godkänd ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : 'Döm efter-bilderna mot huvudreferensen; före är startsidan som panelen valde, innan förfiningen.'}</p>${ref}
+    ${Object.keys(d.efter || {}).length ? `<section class="kort"><div class="galleri" style="grid-template-columns:1fr 1fr;gap:24px">${kol('Före · panelens val', d.fore || {})}${kol('Efter · förfinad', d.efter || {})}</div></section>` : ''}
+    ${riktn}${form}${efter}
+    ${d.riktningar_md ? `<details style="margin-top:24px"><summary>Riktningarna (RIKTNINGAR.md)</summary><div class="prosa">${d.riktningar_md}</div></details>` : ''}
+    ${d.forfining_md ? `<details><summary>Förfiningens varv (FORFINING.md)</summary><div class="prosa">${d.forfining_md}</div></details>` : ''}`;
   const knapp = $('#pr-spara');
   if (knapp) knapp.onclick = async () => {
-    const h = (document.querySelector('input[name="pr-h"]:checked') || {}).value;
+    const b = (document.querySelector('input[name="pr-b"]:checked') || {}).value;
     const n = (document.querySelector('input[name="pr-n"]:checked') || {}).value;
-    if (!h || !n) { alert('Välj om prototypen håller ribban och vilken nivå.'); return; }
+    const text = $('#pr-text').value;
+    if (!b) { alert('Välj godkänd, putsa vidare eller ny riktning.'); return; }
+    if (b !== 'godkand' && !text.trim()) { alert('Skriv vad som ska ändras: din text är nästa körnings kritik.'); return; }
     knapp.disabled = true;
-    try { await post('/api/prototyp/' + encodeURIComponent(slug), { haller: h === 'ja', niva: n, skiljer: $('#pr-sk').value, startad }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
+    try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, niva: n || null, text, startad }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
   };
 }
 

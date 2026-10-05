@@ -6,6 +6,7 @@ kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS, Insane GitHub Repos That 
 skapad: 2026-10-03
 prio: normal
 steg: runt stegen: verktygslådan, ab.py:s mått och dashboardens handlingar
+andrad: 2026-10-05T06:55Z
 ---
 # Räkna i korning-*.jsonl vilka av verktygslådans skills bygget faktiskt anropade och visa det i ab.py:s mått och dashboarden
 
@@ -14,3 +15,5 @@ steg: runt stegen: verktygslådan, ab.py:s mått och dashboardens handlingar
 **Förslag:** kontroller/ab.py matt(): räkna per bygge tool_use med name == 'Skill' ur korning-*.jsonl och lägg {'skills': {namn: antal}} i måtten (kontrollera formen i en riktig logg först). dashboard/server.py rad 219–222: ta med inp.get('skill') i mal så att handlingen visar vilken skill som anropades. Rapportera i rokprov om ab.py:s prov rör måtten.
 
 **Klart när:** ab.py:s mått för ett avslutat bygge innehåller skills: {namn: antal} (tomt objekt när inget anropades) och dashboardens handlingar visar skillnamnet; rokprov.sh grönt
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: formen är belagd (tool_use Skill, input.skill); ett arkiverat bygge anropade bara bygg-sajt och humanizer. Skapandeflödets metodkvitto räknar Skill-anrop och lästa metodfiler i sina sessioner (bildkedja.metodlasning). Kvar (paketet före nästa helbygge): samma räkning i byggets korning-*.jsonl, i ab.py:s mått och med skillnamnet i dashboardens handlingar; fixturlogg i rökprovet.

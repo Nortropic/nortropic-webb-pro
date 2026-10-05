@@ -5,6 +5,7 @@ kalla: bevakning
 kallref: Codex kartläggning av referenskällor och byggverktyg, 2026-10-03
 skapad: 2026-10-03
 prio: normal
+andrad: 2026-10-05T06:55Z
 ---
 # Referenstjänster i befintligt flöde: Inspo-A/B först, sedan Refero som variabel och Mobbin på ett fall med flerstegsflöde (ägarbeslut om betald åtkomst)
 
@@ -16,4 +17,6 @@ prio: normal
 
 **Förslag:** Vänta in Inspo-A/B (therese-hundvard, hundsalong-julia). Är referensunderlaget fortfarande svagt: Refero som NWP_MCP_CONFIG-variabel i ab.py på samma sätt som Inspo (hostad ändpunkt, bara lässverktyg, bilden hämtas med bildverktyget och öppnas som alla referenser med inspektera.mjs). Mobbin bara för ett uppdrag med bokning eller annat flerstegsflöde. Måttet: relevans i valda referenser och ägarens blinda val.
 
-**Klart när:** Ägaren har beslutat om betald åtkomst; en A/B per tjänst är körd och dömd; LARDOMAR.md säger vilken tjänst som behålls, eller att ingen gör sajterna bättre.
+**Klart när:** Skillens steg 3 beställer tjänstesteget (referenstjanster.py, TJANSTEUPPDRAG.json) och skapandeflödets research använder det; ägaren har dömt förslag med tjänstebelägg blint, och LARDOMAR.md säger vilken tjänst som behålls (Inspo prövas sist).
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: åtkomst, belagda anrop och nedladdade bilder levererade (7cea708) och använda i prototypens paket; skapandeflödets research på begäran (KOMPLETTERING.json) kör referenstjanster.py. Kvar: integration (paketet före nästa helbygge): bygg-sajt steg 3 pekar på tjänstesteget (TJANSTEUPPDRAG.json); verifiering: ägarens blinda dom över förslag med tjänstebelägg och en LARDOMAR-rad om vilken tjänst som behålls. Inspo-posten är sammanförd hit: en A/B per tjänst, Inspo sist. Färdigkriteriet omskrivet i avstämningen; tidigare: "Ägaren har beslutat om betald åtkomst; en A/B per tjänst är körd och dömd; LARDOMAR.md säger vilken tjänst som behålls, eller att ingen gör sajterna bättre."

@@ -1,11 +1,11 @@
 ---
 id: B-20261004-designprov-tre-startsideforslag-med-huvudreferens
-status: vilande
+status: ersatt
 kalla: bevakning
 kallref: ägarens dom om bygge 4 (2026-10-04, "underkänner utseendet kraftigt"); Codex R40:s sex punkter för ett avgränsat designprov
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-05T00:45Z
+andrad: 2026-10-05T06:55Z
 ---
 # Designprovet: verifierade referenstjänster, en huvudreferens, tre renderade startsideförslag som får förkastas, och bevarad vinnare
 
@@ -20,3 +20,5 @@ andrad: 2026-10-05T00:45Z
 **Kvar före den riktiga körningen (Codex 2026-10-04, femstegsuppdraget och ordning 1–3):** ett entydigt designkontrakt (DESIGN.md: aktuella värden som genererar sajtens CSS-variabler; KONCEPT.md: alternativ och beslut) och riktad designextraktion ur referensfångsten med uppmätt/visuellt uppskattat/valt för kunden, Refero `get_style` i tjänsteuppdraget (egen post: designkontraktet); därefter designprovet för Luleå-Snickaren i en ren kopia med NWP_ATELJE=pa: tjänstebelägg, referenspaket, huvudreferens, tre riktningar, panelens dom med ägarens ankare, vinnaren bredvid sina referenser till ägaren. Granskaren prövas separat på nya undanhållna exempel (kalibreringsposten). Punkt (1) är levererad (kontroller/referenstjanster.py, main 7cea708).
 
 **Vilande (2026-10-05):** väntar på ägarens dom: ateljén körde två omgångar 2026-10-05 (tre hela startsidor med undersida och stiltavla per omgång, huvudreferens Ashton Bespoke); panelen förkastade alla, bäst riktning 2 i omgång 2 med 1 av 3 domare över ribban. Båda omgångarna står blint i dashboardens Designprov. Domarna läste 0–5 av 21 ankarbilder; panelen kräver nu läsningen (bildkedja.py).
+
+**Ersatt (2026-10-05):** Ersatt av beslutet 2026-10-05 (designen börjar om med en startsidesprototyp) och skapandeflödet: alla sex punkter levererades (3617321, 7ca4786, e0944b3), och två omgångar förkastades 2026-10-05 av panelen och via Codex. Verifieringen (ägarens dom) ligger i B-20261005-startsidesprototypen-in-i-byggvagen-nar-agaren-g; försöksbyggena är arkiverade.

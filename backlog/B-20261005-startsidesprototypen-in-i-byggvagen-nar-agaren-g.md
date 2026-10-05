@@ -6,6 +6,7 @@ kallref: Codex via ägaren 2026-10-05: designprovet underkänt, börja om med en
 skapad: 2026-10-05
 prio: hog
 steg: bygg-sajt steg 5; kontroller/prototyp.py
+andrad: 2026-10-05T06:55Z
 ---
 # Startsidesprototypen in i byggvägen när ägaren godkänt en: prototypen före resten av sajten, skaparen ser sitt arbete i varje steg
 
@@ -13,4 +14,6 @@ steg: bygg-sajt steg 5; kontroller/prototyp.py
 
 **Förslag:** När ägaren godkänt en prototyp: bygg-sajt steg 5 börjar med prototypen (eller tar ägarens godkända prototyp som startsida och DESIGN.md ur den), undersidorna byggs med samma förhandsvisning varv för varv, och granskaren jämför startsidan med prototypen. Underkänner ägaren prototypen: en ny prototypkörning med ägarens ord som kritik, aldrig ett helt bygge på en underkänd grund.
 
-**Klart när:** Ägaren har godkänt en prototyp i dashboardens vy Prototyp, och skillen säger hur ett bygge tar vid därifrån; ett bygge som startar utan godkänd prototyp vägras eller frågar.
+**Klart när:** Ägaren har godkänt en startsida i vyn Prototyp, och ett bygge (kor.sh) har tagit vid från den med kod, DESIGN.md, bilder och godkännande; granskaren jämför startsidan med vinnaren.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: överlämningen byggs i skapandeflödet: ägarens dom i vyn Prototyp går till domloggen, godkänt till VINNARE.json (godkand), kor.sh tar vid utan ny ateljé, och DESIGN.md och bilderna följer vinnaren. Utan sandlåda kör ett bygge utan godkänd startsida skapandeflödet själv (panelen väljer); med sandlåda vägras det. Kvar: verifiering. Färdigkriteriet omskrivet i avstämningen; tidigare: "Ägaren har godkänt en prototyp i dashboardens vy Prototyp, och skillen säger hur ett bygge tar vid därifrån; ett bygge som startar utan godkänd prototyp vägras eller frågar."

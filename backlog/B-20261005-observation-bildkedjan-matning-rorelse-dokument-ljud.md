@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex tillägg 3 (natten 2026-10-04/05): observationsverktyg; ägarmandat 2026-10-04
 skapad: 2026-10-05
 prio: hog
-andrad: 2026-10-05T00:06Z
+andrad: 2026-10-05T06:55Z
 ---
 # Observation: verifierad bildkedja, bild → mätning → beslut, rörelse, dokument och ljud, nytta mot facit
 
@@ -35,3 +35,5 @@ gått hela vägen bild → mätning → DESIGN.md → prototyp → jämförelse;
 ett facitprov visar att bildverktyget fångar en layoutskillnad med identisk text.
 
 **Vilande (2026-10-05):** Steg 1 påbörjat 2026-10-05: kontroller/bildkedja.py ställer erbjudna bilder mot Read i sessionernas transkript (rapport per bygge, kunder/<slug>/BILDKEDJA.md), och ateljéns panel kräver och prövar läsningen av ägarens ord, ankarnas första vyer, huvudreferensens bildval och varje riktnings första ruta (omdom en gång, sedan räknas rösten inte). Fynd: i designprovet läste domarna 0–5 av 21 ankarbilder; i holms-konditori-abx lämnade varje granskare ett tiotal erbjudna referensbilder oläst per omgång. Kvar: samma krav för byggets granskare (granska.py), steg 2–5.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: steg 1 levererat för ateljén, granskaren och prototypen; skapandeflödet lägger till läsningen per förhandsvarv i ordning och metodkvittot (bildkedja.varvordning och metodlasning, atelje/REDOVISNING.md), och Claude Codes medietak är uppmätt (de äldsta bilderna trängs undan). Kvar: upplösning, tillstånd och källa per läst bild i rapporten; steg 2 genom förfiningens DESIGN.md, verifierat; steg 3 rörelse (inflyttad från referenssteget); steg 4 dokument och ljud; steg 5 facitprovet.

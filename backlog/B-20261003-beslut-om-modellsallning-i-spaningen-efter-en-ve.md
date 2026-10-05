@@ -6,7 +6,7 @@ kallref: förslaget om spaningen 2026-10-03
 skapad: 2026-10-03
 prio: normal
 steg: spaningen
-andrad: 2026-10-03T13:20Z
+andrad: 2026-10-05T06:55Z
 ---
 # Beslut om modellsållning i spaningen efter en veckas mätning: en Haiku-session per dygn som läser de 60 bästa kandidaterna
 
@@ -17,3 +17,5 @@ andrad: 2026-10-03T13:20Z
 **Klart när:** Mätningen är redovisad för ägaren och beslutet fattat: ja med tak, eller nej.
 
 **Vilande (2026-10-03):** väntar: en veckas mätning efter posten om poäng per område, sedan ägarens beslut; genomförs inte före det
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: baslinjen finns: 22 spanarintag i registret gav 16 nej, 3 parkera, 2 ta in, 1 prova (2026-10-03). Mätveckan börjar när poäng per område är levererat; redovisa före och efter mot den siffran.

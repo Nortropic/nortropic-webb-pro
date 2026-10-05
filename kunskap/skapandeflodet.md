@@ -1,0 +1,102 @@
+# Skapandeflödet
+
+Ett designflöde för startsidan, samma kod och samma text vid varje ingång (Codex via ägaren 2026-10-05: tre designflöden,
+där förbättringarna inte följde med mellan dem, blev ett). Orkestratorn är `kontroller/atelje.py`; de delar som alla
+steg använder står i `kontroller/skapande.py`. Ingångarna:
+
+- **Ägarens prototyp:** `.venv/bin/python kontroller/prototyp.py <slug>`, utanför bygget. Läget följer ägarens senaste
+  dom i domloggen. Ägaren dömer i dashboardens vy Prototyp.
+- **Byggets steg 5.1:** `kor.sh` har ateljévägen som standard. En startsida som ägaren godkänt tas över utan ny ateljé.
+  `NWP_ATELJE=av` är nödvägen, där byggaren skriver KONCEPT.md själv.
+
+Sammanhållningen följer ett välgrundat val, och iterationen får ändra grundidén. Därför utforskas skilda grundidéer
+först, och huvudreferensen blir den valda riktningens referens efteråt.
+
+## Stegen
+
+1. **Underlag.** Verksamhetens fakta gäller och ändras aldrig: VERKSAMHET.json, RESEARCH.md med belägg, `kalla/`,
+   egna bilder och textens sakuppgifter. Designbesluten är grundidé, referensurval, palett, typografi, komposition,
+   bildurval och beskärning, och rubrikernas form. De prövas mot ägarens domar (domloggen) och mot de prövade
+   grundidéerna (historiken). Prompterna får båda som text.
+2. **Utforska.** Skaparen läser metoden först och tar fram tre riktningar som är olika grundidéer: komposition,
+   typografiskt system, bildstrategi och palettens källa. Varje riktning bygger på sin egen huvudreferens, och
+   RIKTNINGAR.md anger den med raden `Huvudreferens N: <rubrik i REFERENSER.md> — <vad den bär>`. Per riktning byggs
+   hela startsidan, början av en undersida och en stiltavla, och skaparen förhandsvisar minst två varv per riktning.
+   När urvalet saknas, till exempel efter ett omtag, väljer skaparen ur referenspaketet och skriver REFERENSER.md med en
+   rad `Huvudreferenskandidat: <rubrik> — <vad den bär>` per grundidé.
+3. **Välj.** Tre isolerade domare (formgivning, funktion och kunden, med andra modeller än skaparen) dömer varje riktning
+   mot ägarens kalibreringsankare, ägarens domar, historiken och riktningens egen referens. En riktning är godkänd bara
+   när en strikt majoritet säger ja med nivån over. Förkastar panelen alla görs en ny omgång med kritiken, och därefter
+   stannar flödet: bäst av undermåliga blir aldrig vald. Vid ett val bevaras vinnaren (`atelje/vinnare/`), och
+   VINNARE.json bär den valda huvudreferensen, som `kontroller/referensval.py` läser före REFERENSER.md. Startsidan
+   förs över till `src/pages/index.astro`.
+4. **Förfina.** En ny session bearbetar den överförda startsidan i minst tre förhandsvarv. Skaparen läser metoden och
+   panelens svagheter, och huvudreferensens bilder i varje varv. FORFINING.md anger per varv de synliga bristerna och
+   regeln som rättade dem. Bär grundidén inte med verksamhetens material skriver skaparen TILLBAKA.md, och en ny
+   utforskning startar med det som kritik.
+5. **Slutdom.** Samma panel dömer startsidan före förfiningen (den panelen valde) mot efter, blint. Domen svarar på två
+   frågor: håller den ribban, och blev den synligt bättre (SLUTDOM.md). Vinnaren blir den förfinade.
+6. **Ägaren.** Vyn Prototyp visar före och efter bredvid huvudreferensen och riktningarna som prövades. Panelens val,
+   slutdomen och redovisningen visas först när ägaren dömt, så att ägarens dom är oberoende. Domen går till domloggen.
+7. **Överlämning.** Ägarens godkännande skrivs i VINNARE.json (`godkand`). Bygget tar vid därifrån som från en
+   ateljévinnare: startsidan och koden, bilderna, och DESIGN.md ur vinnaren (bygg-sajt steg 5.1).
+
+## Domloggen och vad en dom återöppnar
+
+`underlag/<slug>/DESIGNDOMAR.jsonl` har en rad per dom: tid, källa (ägaren, ägaren via Codex, panelen), beslut och text
+ordagrant. Loggen arkiveras aldrig. Nästa körning läser den själv, och prompterna börjar med de senaste domarna.
+
+- `ny_riktning` återöppnar alla designbeslut, aldrig fakta. `kontroller/atelje.py <slug> --ny-riktning` (eller
+  prototyp.py) flyttar REFERENSER.md, KONCEPT.md, ateljén, äldre prototyper, förhandsvarven och hela
+  `kunder/<slug>/sajt` till `~/Arkiv/nortropic-webb-pro-skapande/`. Inget raderas. Sajten görs om ur mallen, och den
+  dömda riktningen förs in i historiken med domen.
+- `putsa` behåller riktningen: förfiningen och slutdomen körs igen, med domen som kritik.
+- `godkand` lämnar över till bygget.
+
+Ett tidigare designval, till exempel en färg, är inget förbud. Ett drag ur en underkänd grundidé behöver ett skäl ur
+verksamhetens material, och skälet ska också svara på kritiken mot den.
+
+`underlag/<slug>/RIKTNINGSHISTORIK.json` samlar prövade grundidéer: namn, drag, utfall (vald eller förkastad av
+panelen, lämnad av skaparen, underkänd av ägaren) och kritiken. Ateljén skriver efter varje panel och vid TILLBAKA;
+omtaget skriver ägarens dom.
+
+## Research på begäran
+
+Skaparen skriver `underlag/<slug>/atelje/KOMPLETTERING.json` (varför, och ett referensuppdrag och/eller frågor till
+Refero och Mobbin) och avslutar sessionen. Orkestratorn kör det befintliga referenssteget: `kontroller/referens.py` ger
+en ny, komplett paketversion som ärver den förra, och `kontroller/referenstjanster.py` söker i tjänsterna med belägg.
+Sedan startar en ny session med resultatet. Det får ske högst två gånger per omgång och fas. Skaparens egna sessioner
+har inget eget nät.
+
+## Metoden per steg
+
+`skapande.METOD` är listan, och prompterna räknar upp den:
+
+- utforska: frontend-design, taste (§0 och §4), emil-design-eng, bild.md, referenser-professionella.md, visuell-niva.md,
+  better-layout och better-typography;
+- förfina: referenser-professionella.md, bild.md, copy-kontroll.md, better-layout, better-typography, better-ui,
+  better-colors, better-writing och humanizer;
+- research: referensjakt.md.
+
+En installerad skill finns inte i kontexten förrän den laddas. Skaparen läser den med Read eller anropar den med Skill.
+
+## Körspåret
+
+REDOVISNING.md i ateljén skrivs ur sessionernas transkript (`kontroller/bildkedja.py`):
+
+- metodkvittot: vilka metodfiler och skills som lästes före första skrivningen;
+- läsningen per förhandsvarv i ordning: varvets fyra bilder och minst en referensbild, lästa efter varvets
+  förhandsvisning och före nästa ändring;
+- researchen;
+- panelernas domar med läsning;
+- slutdomen före mot efter.
+
+Claude Codes medietak (omkring 24 MiB bilddata per anrop) tränger undan de äldsta bilderna ur kontexten. Därför läses
+huvudreferensen om i varje varv. Ett räknat antal bildläsningar är inget belägg för en jämförelse.
+
+## Sandlådan
+
+Skapandeflödets sessioner och byggsteg har ingen egen sandlåda än: flödet körs utanför den, före bygget. Sessionerna
+har bara sina namngivna verktyg, inget eget nät, och research går genom referenssteget. Ett sandlådat bygge
+(`NWP_SANDLADA=pa`) kräver därför en godkänd startsida och tar vid från den. Nästlade sessioner skriver aldrig i
+ägarens automatiska minne (`kontroller/nastlad.py`).

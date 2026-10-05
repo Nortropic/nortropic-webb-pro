@@ -1,11 +1,11 @@
 ---
 id: B-20261004-forberedande-referenssteg-fore-sandladat-bygge
-status: pagar
+status: vilande
 kalla: bevakning
 kallref: Codex R27-uppföljning 2026-10-04; bygge 3 i sandlådat läge (kopia3, 759a547); code.claude.com/docs/en/sandboxing
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-04T18:27Z
+andrad: 2026-10-05T06:55Z
 ---
 # Förberedande referenssteg före det sandlådade bygget: välj sajterna, tillåt deras resursdomäner, frys bilder och tillstånd
 
@@ -13,8 +13,10 @@ andrad: 2026-10-04T18:27Z
 
 **Förslag:** Ett eget steg före byggsessionen, utanför sandlådan men avgränsat som webbtjänsten (sluggen, byggets kataloger, läsande inspektion): (1) jakten väljer de faktiska referenssajterna (gallerierna i referensjakt.md plus ägarens luckor) och skriver REFERENSER.md med roll, sektion och tillstånd; (2) steget inspekterar dem en gång med inspektera.mjs (390/1440, hover/fokus/meny där det är utpekat) och fryser bilderna och de observerade tillstånden under underlag/<slug>/referenser/; (3) resursdomänerna som sajterna behöver (typsnitt, bilder, cdn) tillåts bara under den inspektionen, aldrig för bygget; (4) det sandlådade bygget, ateljén och granskaren läser de frysta bilderna och behöver inte nå sajterna. Gallerierna får jokertecken i sandlada-domaner.txt (*.awwwards.com och motsvarande) för att själva jakten ska fungera. Ordning enligt Codex: först bygge 3:s slutresultat (prov, granskning, stoppkrok och slutkod mot samma slutliga bygge), sedan detta steg, sedan designförbättringarna under samma frysta metod.
 
-**Klart när:** I ett sandlådat bygge är varje vald referens fångad med de bilder, typsnitt och tillstånd som referensbeslutet pekar ut (REFERENSER.md och de frysta bilderna finns före byggsessionen och är det ateljén och granskaren ser), oavsett korrekt blockerade sidoförfrågningar under inspektionen; jokertecknen står i sandlada-domaner.txt med ett rökprovsfall; LARDOMAR.md noterar om referensbilderna gjorde skillnad i ägarens dom.
+**Klart när:** Ägaren har dömt en startsida ur skapandeflödet som byggts på ett fryst paket, och LARDOMAR.md har en rad om referensstegets nytta; rörelse följs i observationsposten.
 
 **Pågår (2026-10-04T15:26Z, ägarbeslut: "Kör referenssteget enligt backloggen"):** steg 1 byggt: kontroller/referens.py (uppdraget REFERENSUPPDRAG.json ur researchen; två pass per kandidat: eget ursprung, sedan sajtens resursursprung tillåtna bara för inspektionen, spårare aldrig; läsande, publika adresser, omdirigeringar prövade i hjälparens proxy, färsk webbläsarprofil; paket-vNN med PAKET.json/PAKET.md: observationer och begränsningar; kompletterar = ny version), webbtjänstens verktyg referens (uppdrag och utkatalog som enda beröringspunkter, byggsessionens nät öppnas aldrig), kor.sh tillåter steget, skillens steg 3 undersöker innan urvalet låses och pekar Bildval på paketversionen, *.awwwards.com i domänlistan (belagt behov: assets). Kvar: rörelse som kort sekvens, ett helbygge med steget (bygge 4) och ägarens dom om referensnyttan under fryst metod.
 
 **Pågår (2026-10-04T18:17Z, bygge 4):** steget använt skarpt i ett helbygge: byggaren skrev ett uppdrag med nio kandidater ur researchen, första paketet fick 404 av byggarens egna adressfel (sökvägen i både adress och sidor; vägras numera före inspektionen), byggaren läste bristerna och körde om: paket-v02 komplett 9/9 (516 s), REFERENSER.md med nio Bildval in i paket-v02 (valda rutor och undersidor, inte bara första vyn); granskarna fick samma frysta paket. Granskningen godkände omgång 4 (7/7/7/8/8), första godkända i ett sandlådat bygge; slutliga bygget granskades inte (taket). Kvar: en blind preferensjämförelse mellan två historiska byggen (bygge 3 på 759a547 utan steget mot bygge 4 på fd77dca med steget) kan visa vilken sajt ägaren föredrar men isolerar inte stegets effekt: mellan versionerna tillkom också kalibreringsankarna, visuell-niva.md och ändrade granskarinstruktioner (Codex R38). För att mäta effekten behövs nya parvisa körningar med samma gemensamma metod och referenssteget som enda planerade skillnad; rörelse som kort sekvens.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: steget levererat (fd77dca–6c07c9f) och använt i bygge 4 och prototypens paket (v01–v05); skapandeflödets research på begäran kör det. Kvar: rörelse som sekvens flyttas till B-20261005-observation-bildkedjan-matning-rorelse-dokument-ljud (steg 3); verifiering: ägarens dom över en startsida byggd på ett fryst paket i stället för parvisa helbyggen. Färdigkriteriet omskrivet i avstämningen; tidigare: "I ett sandlådat bygge är varje vald referens fångad med de bilder, typsnitt och tillstånd som referensbeslutet pekar ut (REFERENSER.md och de frysta bilderna finns före byggsessionen och är det ateljén och granskaren ser), oavsett korrekt blockerade sidoförfrågningar under inspektionen; jokertecknen står i sandlada-domaner.txt med ett rökprovsfall; LARDOMAR.md noterar om referensbilderna gjorde skillnad i ägarens dom."

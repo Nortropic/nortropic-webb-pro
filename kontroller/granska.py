@@ -38,6 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import referensval  # noqa: E402
+import nastlad  # noqa: E402  (nästlade sessioner: inget automatiskt minne)
 import bildkedja  # noqa: E402  granskarnas läsning ur transkripten (designprovet 2026-10-05)
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402  dist_hash, sidor_i, Server
@@ -186,8 +187,7 @@ def ren_miljo():
     """Granskaren är en egen session: inga variabler från en omgivande Claude-session eller från bygget (NWP_SLUG
     skulle annars väcka stoppvakten i granskarens egen session). Med sandlådan på får sessionen ändå webbtjänstens
     adress, så att dess egna sandlådade webbläsarsteg kan delegera dit."""
-    m = {k: v for k, v in os.environ.items()
-         if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_') and not k.startswith('NWP_')}
+    m = nastlad.miljo()
     if os.environ.get('NWP_SANDLADA') == 'pa':
         for k in ('NWP_WEBBTJANST', 'NWP_WEBBTJANST_NYCKEL'):
             if os.environ.get(k):

@@ -6,6 +6,7 @@ kallref: kunskap/REGISTER.md · 2026-10-03 · Chrome for Developers, Modern Web 
 skapad: 2026-10-03
 prio: normal
 steg: 5 (mallens formulär)
+andrad: 2026-10-05T06:55Z
 ---
 # Mallens formulär visar det svenska felbeskedet som text vid fältet utan JavaScript, med :user-invalid i CSS
 
@@ -14,3 +15,5 @@ steg: 5 (mallens formulär)
 **Förslag:** mall/astro/src/components/Forfragan.astro: skriv beskeden ur data-saknas (och data-format för telefonfältet) som text i felelementen (id ur aria-describedby) redan i HTML:en, dolda med CSS, och visa dem med 'input:user-invalid + .ff-fel' respektive textarea; telefonfältets formatbesked får ett eget element som visas vid :user-invalid när fältet inte är tomt (:not(:placeholder-shown) eller en tom placeholder). Skriptet (rad 61–95) behåller fokus till första felet, aria-invalid, setCustomValidity och knapplåsningen; .ff-fel:empty-regeln (rad 102) ersätts av regeln ovan. kunskap/forfragan.md: en rad om att felbeskeden är svenska också utan JavaScript.
 
 **Klart när:** Med JavaScript avstängt visar ett tomt namnfält det svenska beskedet som text under fältet när besökaren lämnar fältet eller trycker Skicka, och 'abc' i telefonfältet visar formatbeskedet; med JavaScript på är beteendet som förut (fokus till första felet, aria-invalid); POST utan JS fungerar; axe 0 fel; kontroller/rokprov.sh slutar grönt.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord (tomma ff-fel som skriptet fyller, ingen :user-invalid). Hör ihop med den klara B-20261002-mallens-formular-visar-ett-felbesked-utan-javasc, som löste återkomsten; denna gäller fältbeskeden.

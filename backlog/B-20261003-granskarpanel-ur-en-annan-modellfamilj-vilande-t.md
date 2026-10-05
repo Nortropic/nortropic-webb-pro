@@ -4,6 +4,7 @@ status: vilande
 kalla: bevakning
 skapad: 2026-10-03
 prio: normal
+andrad: 2026-10-05T06:55Z
 ---
 # Granskarpanel ur en annan modellfamilj: vilande tills en riktig kund är på väg; ägarens blinda val är måttet
 
@@ -12,3 +13,5 @@ prio: normal
 **Förslag:** När en riktig kund är på väg: en tredje granskare ur en annan modellfamilj (Codex eller en Gateway-modell, aldrig prenumerationen för kundtjänst) i kontroller/granska.py som skuggdomare bredvid de två, med samma kriterier och schema; mät mot ägarens blinda val innan den får avgöra något.
 
 **Klart när:** Ägaren har sagt att en riktig kund är på väg; skuggdomaren körd i minst tre byggen och jämförd med ägarens blinda val.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: väntar på ägarens besked att en riktig kund är på väg (BESLUT 2026-10-03); inget att ändra förrän dess.

@@ -200,9 +200,10 @@ typsnitt är laddade, och skriver `underlag/<slug>/referenser/paket-vNN/` med sk
 Read och läs begränsningarna (kakdialog, blockerade resurser, tomma bilder) innan du väljer; en kandidat som inte
 fångades hela ersätts eller kompletteras. Välj de användbara och skriv `underlag/<slug>/REFERENSER.md`: per referens
 roll, varför den är stark för just den här frågan, vad du faktiskt såg, och vilket val i vår sajt den ska påverka.
-Peka ut **en** sammanhängande huvudreferens för komposition, typografi, proportioner och bildbehandling, med raden
-`Huvudreferens: <referensens rubrik> — <vad den bär>` (designprovet 2026-10-04): ateljén startar inte utan den, och
-alla riktningar följer den; de andra referenserna svarar på avgränsade frågor. Peka dessutom ut bilden: minst en rad per referens
+Peka ut en kandidat till huvudreferens per grundidé som är värd att pröva (minst tre, olika i komposition, typografi
+och bildbehandling), med raden `Huvudreferenskandidat: <referensens rubrik> — <vad den bär>`. Varje riktning i
+skapandeflödet bygger på sin egen kandidat, och den valda riktningens referens blir huvudreferensen för resten av
+sajten (`kunskap/skapandeflodet.md`: sammanhållningen följer valet). De andra referenserna svarar på avgränsade frågor. Peka dessutom ut bilden: minst en rad per referens
 `Bildval: referenser/paket-vNN/<namn>/<NN-sida>/<fil>.png — <vad som jämförs> — Fråga: <jämförelsefrågan>` som anger
 just den ruta (`vy-390-ruta-NN.png`, `vy-1440-ruta-NN.png`) eller det tillstånd (hover, meny, reflow) som bär
 jämförelsen: tjänstesektionen, bildserien, mobilmenyn, prislistan, sidfoten. Första vyn räcker bara när referensen
@@ -312,18 +313,20 @@ KONCEPT.md.
    riktningarna blir riktningsfrågan i FRAGOR.json, med en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad
    **Visuell tes**: stämning, material och energi i en mening, som namnger ett material eller en plats ur "Bara de
    har".
-   **Ateljévägen** (när prompten säger att riktningsateljén är på): kör punkt 2 först, sedan `.venv/bin/python
-   kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så länge den svarar att ateljén
-   pågår. En orkestrator tar fram riktningarna som hela startsidor med början av en undersida, med verksamhetens
-   riktiga innehåll, alla efter huvudreferensen i REFERENSER.md och skilda på en axel inom den, och en domarpanel om
-   tre dömer hela sidan mot ägarens kalibreringsankare: håller riktningen ribban eller inte. I obevakade byggen väljer
-   panelen (Emils prototypmodul låter människan välja; här är det panelen, med rätt att förkasta); i ett designprov
-   dömer ägaren förslagen blint efteråt, och ägarens dom går före panelens. Ingen riktning som en majoritet håller
+   **Ateljévägen** (standard; prompten säger när den gäller): skapandeflödet i `kunskap/skapandeflodet.md`. Kör punkt
+   2 först, sedan `.venv/bin/python kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så
+   länge den svarar att ateljén pågår. Ateljén utforskar riktningar som är olika grundidéer, var och en på sin egen
+   huvudreferenskandidat ur REFERENSER.md, med verksamhetens riktiga innehåll. En domarpanel om tre dömer hela sidan mot
+   ägarens kalibreringsankare, ägarens domlogg och de prövade grundidéerna: håller riktningen ribban eller inte. Den
+   valda förfinas i förhandsvarv med designskillsen och döms före mot efter. Ingen riktning som en majoritet håller
    över ribban = alla förkastade; ateljén gör då en omgång till med panelens kritik och stannar sedan med slutkod 6:
    bygg ingen sajt, skriv RAPPORT.md (varför, panelens kritik ur `atelje/VAL.md`, vad som behövs för ett nytt
-   försök) och avsluta; stoppvakten släpper avslutet och körningen slutar med kod 6. Bäst av tre undermåliga förslag
-   blir aldrig vald, och en ny ateljé efter en förkastning startas av ägaren, inte inifrån bygget (`--bara-domare`
-   och `--om` efter en förkastning vägras där). Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/` (koden i
+   försök) och avsluta; stoppvakten släpper avslutet och körningen slutar med kod 6. Samma gäller när skaparen under
+   förfiningen funnit att grundidén inte bär och omgångarna är slut (`atelje/TILLBAKA.md`). Bäst av tre undermåliga
+   förslag blir aldrig vald, och en ny ateljé efter en förkastning startas av ägaren, inte inifrån bygget
+   (`--bara-domare`, `--om`, `--ny-riktning` och `--putsa` vägras där). Har ägaren godkänt startsidan i dashboardens vy
+   Prototyp säger prompten det: kör inte ateljén, utan ta vid härifrån med den godkända vinnaren.
+   Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/` (koden i
    `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och när vinnarens startsida bygger på sin nya plats står
    den redan som `src/pages/index.astro` (`VINNARE.json`: `overford`); annars säger `overford` varför, och du bygger
    startsidan ur `kod/index.astro` för hand utan att ändra riktningen. Skriv DESIGN.md ur vinnarens stiltavla och

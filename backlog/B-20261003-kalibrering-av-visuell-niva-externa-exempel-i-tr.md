@@ -1,11 +1,11 @@
 ---
 id: B-20261003-kalibrering-av-visuell-niva-externa-exempel-i-tr
-status: pagar
+status: vilande
 kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-04T20:19Z
+andrad: 2026-10-05T06:55Z
 ---
 # Kalibrering av visuell nivå: externa exempel i tre nivåer, granskarna prövade på osedda exempel
 
@@ -15,7 +15,7 @@ andrad: 2026-10-04T20:19Z
 
 **Förslag:** Kartläggningen finns redan och återanvänds: gallerierna i kunskap/referensjakt.md (Awwwards, SiteInspire, Godly, FWA, CSS Design Awards, Httpster, One Page Love) som sökingångar, Inspo-arkivet (832 sajter, A/B pågår) och exemplartabellen i kunskap/referenser-professionella.md; Mobbin läggs till som mönsterbibliotek för dimension 7 (mobil ergonomi), som i dag saknar exempel. Det nya är inte fler källor utan ägarens dom: agenten väljer ur det befintliga 9–12 sajter i tre nivåer (tydligt över ribban, nästan, generisk); ägaren dömer mobil, desktop och en undersida och säger exakt vad som skiljer nivåerna (bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete). Hälften blir ankare i kritik/GRANSKARE.md med skälen; hälften hålls undan och granskarna prövas på dem i kontroller/granskarforsok/. Måttet: hur ofta granskarna godkänner det ägaren underkänner.
 
-**Klart när:** kunskap/visuell-niva.md med exemplen och skälen; GRANSKARE.md pekar på ankarna; granskarförsöket rapporterar falska godkännanden på de undanhållna exemplen, och siffran står i LARDOMAR.md.
+**Klart när:** Ägaren har dömt K14–K19 blint; kalibrering.py --bara K14–K19 ger två tal (falska godkännanden; falska underkännanden med skälen lästa) i LARDOMAR.md; undersidan för K17 och K18 och omfångningen av K01/K03/K04 är gjord eller struken med notering.
 
 **Pagar (2026-10-03):** steg 1 klart (dc21ecb): 13 exempel i tre nivåer fångade (underlag/kalibrering, start + undersida, 390/1440), dashboardvyn Kalibrering sparar ägarens dom privat; väntar på ägarens domar, sedan kunskap/visuell-niva.md, ankare i GRANSKARE.md och granskarförsöket på de undanhållna
 
@@ -26,3 +26,5 @@ andrad: 2026-10-04T20:19Z
 **Pågår (2026-10-04T14:00Z, efter Codex R30):** försökets siffra nedgraderad till utvecklingsdata: kunskap/visuell-niva.md var byggd ur alla tretton domarna (testläckage) och är nu byggd enbart ur ankarhalvan; filen ingår i metodhashen; försöket binder varje svar till ett manifest (modell, effort, hashar av uppdrag, regler, bilder, ankare) och validerar hela svaret, anropsfel ger ofullständigt försök. Kvar för ett oberoende slutmått: ett nytt, orört urval (sex sajter i tre nivåer, fångade med inspektera.mjs, start och undersida) som ägaren dömer blint i dashboarden, som hålls undan från nivåfilen och granskartexten, och ett nytt försök på dem; dessutom omfångning av K03/K01/K04.
 
 **Tillägg (2026-10-04T20:19Z, Codex helhetsbedömning punkt 8 och ordning 3):** det oberoende slutmåttet på det nya orörda urvalet ska svara på två saker som Codex skiljer: att granskaren upptäcker svag design (falska godkännanden) och att den inte avvisar bra design av mekaniska skäl (falska underkännanden, med skälen lästa: standarddrag, tunna linjer eller återkommande layout får inte fälla en väl använd form). Granskarens träffsäkerhet mäts här; byggförmågan mäts separat (posten om varierade kundfall) och verkliga besökares förståelse är en tredje fråga som ett modellbaserat femsekunderstest inte besvarar (hypoteser, inte observationer).
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: ankare, nivåfil och försök levererade; siffran 0/4 och 0/2 är utvecklingsdata. K14–K19 är fångade men odömda (DOMAR.json slutar vid K13), K17 och K18 saknar undersida, och K01/K03/K04 är inte omfångade. Nästa steg: ägarens blinda dom i dashboardens Kalibrering, sedan kalibrering.py --bara K14,K15,K16,K17,K18,K19. Färdigkriteriet omskrivet i avstämningen; tidigare: "kunskap/visuell-niva.md med exemplen och skälen; GRANSKARE.md pekar på ankarna; granskarförsöket rapporterar falska godkännanden på de undanhållna exemplen, och siffran står i LARDOMAR.md."

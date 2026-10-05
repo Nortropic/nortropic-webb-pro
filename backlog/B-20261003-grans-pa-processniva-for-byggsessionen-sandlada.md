@@ -1,11 +1,11 @@
 ---
 id: B-20261003-grans-pa-processniva-for-byggsessionen-sandlada
-status: pagar
+status: vilande
 kalla: bevakning
 kallref: Codex-revision 2026-10-03, F1; code.claude.com/docs/en/sandboxing
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-04T18:17Z
+andrad: 2026-10-05T06:55Z
 ---
 # Gräns på processnivå för byggsessionen: sandlåda för filskrivning och nät (revisionen F1)
 
@@ -13,7 +13,7 @@ andrad: 2026-10-04T18:17Z
 
 **Förslag:** Prova sandlådan i ett helt bygge mot en kopia (port- och rotförskjuten) innan den slås på i kor.sh: denyWrite för kontroller/, kritik/, kunskap/, mall/, .claude/, dashboard/, kor.sh, LARDOMAR.md och .git/ utom det commitvakten släpper; denyRead för ~/.nortropic-hemligheter; nätet begränsat till verksamhetens domän, registry.npmjs.org, fontsource och det WebFetch behöver (WebFetch är ett verktyg, inte Bash). Risk att pröva: Playwright/Chromium, Lighthouse och npm install under seatbelt, och att crawlmålen (verksamhetens domän) måste in i allowedDomains per körning.
 
-**Klart när:** Ett fullt bygge (prov grönt, granskning godkänd) har körts med sandlådan på, och ett syntetiskt försök att skriva i kontroller/ och att POST:a till en extern adress från ett skript under underlag/<slug>/skript/ nekas av sandlådan, inte av vakten efteråt.
+**Klart när:** Ett sandlådat bygge som tagit vid från en godkänd startsida har prov, granskning, stoppkrok och slutkod 0 på samma dist; därefter är sandlådan standard i kor.sh.
 
 **Pagar (2026-10-03):** steg 1 (gren sandlada-20261003): kontroller/sandlada.py, sandlada-domaner.txt, sandlada_prov.sh, kor.sh NWP_SANDLADA, ingen git i bygget. Blockerat: managed-settings.json låser sandbox.enabled=false och går före --settings; provet visar ingen proxy och inget stoppat. Ägaren ändrar filen (sudo), sedan fullt bygge i kopia
 
@@ -32,3 +32,5 @@ andrad: 2026-10-04T18:17Z
 **Pågår (2026-10-04T14:37Z, bygge 3:s slutkvitto):** bygge 3 (kopia på 759a547, sandlådan på) avslutades 14:21Z: claude kod 0, provet grönt, fem granskningsomgångar underkända (taket), stoppvakten släppte utan godkänd granskning, slutkod 1. Krokens prova under processgränsen utan proxyvariabler delegerade axe, Lighthouse och inspektera till tjänsten (Lighthouse rc 0). Eftersom taket hindrade krokens granskningsväg kördes kroken manuellt på det färdiga bygget med taket höjt: prova grönt, granskningsdrivaren innanför processgränsen delegerade arbetaren till tjänsten, två riktiga granskare dömde samma slutliga bygge (dist = provets) underkänt med detaljrättning (6/6/6/8/7, fyra blockerande), kroken vägrade avslut (slutkod 2). Hela avslutskedjan utan proxyvariabler är därmed verifierad i produktion. Sandlådan blir standard först när ett sandlådat bygge också får granskningen godkänd; de tre sandlådade byggena föll på design och originalitet (referenssteget tunnare under domänlistan, se posten om det förberedande referenssteget), inte på sandlådan.
 
 **Pågår (2026-10-04T18:17Z, bygge 4:s slutkvitto):** bygge 4 (kopia4 på fd77dca, sandlådan på, referenssteget i bruk) avslutades 18:15Z: claude kod 0; provet grönt på det slutliga bygget (dist 0e946c19…, 18:12Z); stoppvakten släppte utan godkänd granskning (taket, försök 1 av 8; STOPPVAKT.json samma dist 0e946c19…); slutkod 1. Granskningen: omgång 1–3 underkända (6/6/6/7/6, 6/6/7/8/6, 6/6/7/7/6), omgång 4 GODKÄND 7/7/7/8/8 utan blockerande fynd på dist b80217a1… (första godkända granskningen i ett sandlådat bygge), omgång 5 på samma dist men ändrad metod (underlaget ändrat) underkänd 7/6/7/8/7 med ett blockerande fynd; det slutliga bygget (0e946c19…) granskades aldrig eftersom taket var nått. Krokens prova under processgränsen utan proxyvariabler gick via tjänsten (Lighthouse rc 0). Referenssteget: två paket (v01 med byggarens adressfel, v02 komplett 9/9), REFERENSER.md med nio Bildval in i paket-v02. Kvar innan sandlådan blir standard: ett sandlådat bygge vars slutliga dist är godkänd; mönstret i bygge 1–4 är att sessionen ändrar bygget efter en godkänd omgång och förbrukar taket (se posten om granskningstaket och slutkvittot).
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: sandlådan, tjänsten och processgränsen är verifierade (sandlada_prov.sh 0 fel), men standard är av. Beslut i skapandeflödet: flödet körs utanför sandlådan före bygget (inget eget nät i sessionerna; research genom referenssteget), och ett sandlådat bygge tar vid från en godkänd startsida (kor.sh) eller vägras. Kvar: verifiering: ett sandlådat bygge där prov, granskning, stoppkrok och slutkod 0 gäller samma dist (kriteriet delas med granskningstaket), därefter sandlådan på som standard. Färdigkriteriet omskrivet i avstämningen; tidigare: "Ett fullt bygge (prov grönt, granskning godkänd) har körts med sandlådan på, och ett syntetiskt försök att skriva i kontroller/ och att POST:a till en extern adress från ett skript under underlag/<slug>/skript/ nekas av sandlådan, inte av vakten efteråt."

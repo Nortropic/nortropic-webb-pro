@@ -65,7 +65,7 @@ huvudreferensen) och exakt ett kodblock märkt `json design`:
 ```json design
 {
   "schema": 1,
-  "huvudreferens": "<samma namn som raden Huvudreferens: i REFERENSER.md>",
+  "huvudreferens": "<den valda huvudreferensen: VINNARE.json efter ateljén, annars raden Huvudreferens: i REFERENSER.md>",
   "farger": {"yta": {"varde": "#f3eee6", "roll": "sidans bakgrund, största ytan", "kalla": "uppmätt: paket-v02/<namn>/01-start EXTRAKT 1440"},
              "text": {"varde": "#1d1b18", "roll": "brödtext och rubriker", "kalla": "valt: kontrast mot ytan"}},
   "typsnitt": {"rubrik": {"familj": "<typsnitt>", "reserv": "Georgia, serif", "vikt": 600, "storlek": "clamp(2.25rem, 1.2rem + 4.5vw, 4.75rem)",
@@ -90,7 +90,7 @@ använder. Layouten bor i koden (ateljéns vinnare), inte i variablerna. Variabl
 en omdefinition (också i en @media-regel för mörkt läge) fäller grinden, så en variant skrivs som en egen variabel i
 DESIGN.md. Provets grind `design` kräver att DESIGN.md
 är giltig, att design.css är genererad ur den aktuella DESIGN.md, att färg- och typvariablerna används, och att
-huvudreferensen är densamma som i REFERENSER.md; granskaren får DESIGN.md fryst och dömer avvikelser från den, men
+huvudreferensen är den valda (kontroller/referensval.py: VINNARE.json före REFERENSER.md); granskaren får DESIGN.md fryst och dömer avvikelser från den, men
 en sajt som följer en svag DESIGN.md underkänns ändå. Googles DESIGN.md-format (`@google/design.md`, alpha) är
 förebilden för att kombinera maskinläsbara värden med förklarande text; vi använder det inte som beroende, och dess
 lint bedömer inte estetisk kvalitet.

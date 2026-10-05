@@ -1,10 +1,12 @@
 ---
 id: B-20261003-ateljens-prototyper-visar-mer-an-forsta-vyn-en-i
-status: vilande
+status: klar
 kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
+commit: 3617321
+andrad: 2026-10-05T06:55Z
 ---
 # Ateljéns prototyper visar mer än första vyn: en innehållssektion och en undersida, och vinnaren följer med genom bygget
 
@@ -15,3 +17,5 @@ prio: hog
 **Förslag:** Divergera-prompten (atelje.py) begär per riktning också en verklig tjänste- eller omdömessektion och en representativ undersida; domarna ser dem. Den vinnande riktningens renderade sidor sparas i underlag/<slug>/atelje/vald/ och granskaren får dem som underlag med frågan om slutbygget behållit uttrycket.
 
 **Klart när:** Ateljésidorna har tre delar; VAL.md länkar bilderna; granskarens uppdrag listar atelje/vald/ och GRANSKARE.md har kriteriet; rökprovets ateljéblock täcker den nya formen.
+
+**Klar (2026-10-05):** Uppfylld (avstämningen 2026-10-05): riktningarna är hela startsidor med undersida och stiltavla, panelen dömer hela sidan, vinnaren bevaras i atelje/vinnare/ och granskaren jämför mot den (GRANSKARE.md). Verifieringen genom ett helbygge följer designkontraktsposten.

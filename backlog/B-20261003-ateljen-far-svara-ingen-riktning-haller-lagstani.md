@@ -1,10 +1,12 @@
 ---
 id: B-20261003-ateljen-far-svara-ingen-riktning-haller-lagstani
-status: vilande
+status: klar
 kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
+commit: 7ca4786
+andrad: 2026-10-05T06:55Z
 ---
 # Ateljén får svara 'ingen riktning håller': lägstanivå före bygge, nya försök med tak
 
@@ -15,3 +17,5 @@ prio: hog
 **Förslag:** Varje domare svarar utöver rangordningen ja/nej på om den bästa riktningen når den kalibrerade lägstanivån (kunskap/visuell-niva.md). Nej från majoriteten ger en ny divergens med uttryckligt krav på annan komposition, innehållshierarki och bildanvändning (inte bara typsnitt och accent), högst två omgångar. Når ingen ribban redovisas det i VAL.md, RAPPORT.md och som chip i dashboarden; bygget får fortsätta med bästa riktningen för lärandets skull, men leveransen räknas då som visuellt underkänd i måtten (ägarens godkännandegrad, falska AI-godkännanden, kostnad per godkänt bygge), aldrig som ett genomfört bygge (Codex 2026-10-03: annars ökar antalet byggen medan kvaliteten står still). Höj inte tröskeln 7 först: betygen måste betyda rätt sak.
 
 **Klart när:** VAL.json har 'haller' per domare och 'forsok'; ett regressionsfall i rökprovet där alla domare säger nej ger ny omgång och sedan märkt leverans; atelje.py:s panel och bygg-sajt steg 5.1 beskriver de två besluten.
+
+**Klar (2026-10-05):** Uppfylld (avstämningen 2026-10-05): ribbdom per domare och riktning, strikt majoritet med nivån over, högst två omgångar, slutkod 6 (atelje.py panel och arbetare, korslut.py, SKILL.md steg 5.1, prov_revision.py F23b); utlöst skarpt i designprovet 2026-10-05. Förslaget att ändå bygga vidare på en underkänd riktning ersattes av stoppbeslutet 2026-10-04.

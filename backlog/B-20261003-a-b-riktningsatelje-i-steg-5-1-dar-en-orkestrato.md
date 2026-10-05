@@ -1,13 +1,13 @@
 ---
 id: B-20261003-a-b-riktningsatelje-i-steg-5-1-dar-en-orkestrato
-status: vilande
+status: ersatt
 kalla: dom
 kallref: ägaren 2026-10-03 (samtal om Claude Design)
 skapad: 2026-10-03
 prio: hog
 steg: 5.1 (riktning)
 commit: 78d8e20
-andrad: 2026-10-03T07:29Z
+andrad: 2026-10-05T06:55Z
 ---
 # A/B: riktningsateljé i steg 5.1, där en orkestrator (Fable 5.1, max) tar fram 3–4 riktningar som style tiles och första vyer med riktigt innehåll och en fristående domare väljer före bygget
 
@@ -18,3 +18,5 @@ andrad: 2026-10-03T07:29Z
 **Klart när:** A/B körd (minst två par på samma sorts verksamhet med och utan ateljé, blinda val i dashboarden) och redovisad med ägarens val, om ägaren valde bort den byggda riktningen, granskarnas originalitet och kostnad i Fable- och Opus-kvot per bygge; beslut om NWP_ATELJE blir standard eller tas bort
 
 **Vilande (2026-10-03):** mekaniken i main: atelje.py (Fable 5.1 max divergerar, panel om tre med litteratur dömer), NWP_ATELJE, variabeln atelje; provad på kopia av paint-it-black-maleri (3 riktningar, 25 min). A/B väntar: ab.py starta <slug> "<verksamhet>" --variabel atelje --a av --b pa
+
+**Ersatt (2026-10-05):** Ersatt av besluten 2026-10-04 (designprovet i ateljén), 2026-10-05 (prototyp före helbyggen) och tillägget "ett skapandeflöde i stället för tre": ateljén är orkestratorn för skapandeflödet och standardvägen i kor.sh (kunskap/skapandeflodet.md). A/B med och utan ateljé utgår; måttet är ägarens dom i vyn Prototyp.

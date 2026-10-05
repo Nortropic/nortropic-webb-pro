@@ -49,6 +49,8 @@ def ateljen_forkastad(root, slug):
         val = json.loads((rot / 'VAL.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
+    if isinstance(st, dict) and st.get('steg') == 'tillbaka' and not st.get('pid') and (rot / 'TILLBAKA.md').is_file():
+        return st.get('skal') or 'skaparen fann under förfiningen att grundidén inte bär, och omgångarna är slut'  # skapandeflödet
     if not isinstance(st, dict) or not isinstance(val, dict) or st.get('steg') != 'forkastad' or st.get('pid'):
         return None
     if val.get('val') is not None or not val.get('forkastade') or len(val.get('panel') or {}) < 2:

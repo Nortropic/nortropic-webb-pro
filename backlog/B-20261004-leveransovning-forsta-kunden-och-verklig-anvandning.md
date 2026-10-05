@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex helhetsbedömning 2026-10-04 punkt 10; rekommenderad ordning 6
 skapad: 2026-10-04
 prio: mellan
-andrad: 2026-10-04T20:19Z
+andrad: 2026-10-05T06:55Z
 ---
 # Leveransövning för första riktiga kunden: förhandsvisning, godkänd version, mottagen förfrågan, överlämning, ändring och återställning; verklig användning mäts efter lansering
 
@@ -14,3 +14,5 @@ andrad: 2026-10-04T20:19Z
 **Förslag:** En sammanhängande leveransövning på ett riktigt eller fiktivt kundfall: förhandsvisning bakom skydd, godkänd version, faktisk mottagning av en förfrågan (Resend eller kundens kanal), överlämning enligt mandatet, en ändring och en återställning; resultatet som ÖVNING-leverans i kunskap/drift.md. Efter lansering kopplas tekniska mätningar till verklig användning och kundens inflöde: Core Web Vitals från verkliga användare (inte bara lokalt Lighthouse) och antal mottagna ärenden per månad i uppföljningen. Rensa hänvisningarna till Digitalas verktyg.
 
 **Klart när:** Övningen är genomförd och dokumenterad med varje steg kvitterat; drift.md och uppfoljning.md beskriver bara det som finns här; en lanserad sajt har en mätplan som visar verkliga användares Web Vitals och inflödet.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: inget påbörjat; drift.md och uppfoljning.md hänvisar fortfarande till Digitalas verktyg. Textrensningen kan göras när som helst; övningen körs på ett fiktivt fall innan en riktig kund levereras. Resend-mottagningen gäller sajtens förfrågningar, inte utskick.py.

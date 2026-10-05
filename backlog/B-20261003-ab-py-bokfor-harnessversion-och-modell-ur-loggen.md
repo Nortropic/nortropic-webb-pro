@@ -6,6 +6,7 @@ kallref: kunskap/REGISTER.md · 2026-10-03 · anthropics/claude-code, release v2
 skapad: 2026-10-03
 prio: normal
 steg: A/B-mätningen (kontroller/ab.py)
+andrad: 2026-10-05T06:55Z
 ---
 # ab.py bokför harnessversion och modell ur loggens init-rad för varje arm
 
@@ -14,3 +15,5 @@ steg: A/B-mätningen (kontroller/ab.py)
 **Förslag:** kontroller/ab.py matt() rad 58–79: hämta första raden med type system och subtype init ur loggen och lägg claude_code_version och model i resultatet; visa dem bredvid turer och minuter i dashboardens vy Jämförelser; LARDOMAR-stycket AB får raden med.
 
 **Klart när:** ab.py:s resultat för en körning innehåller version och model, och dashboardens jämförelsevy visar dem per arm; rokprov.sh grönt.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord; ab.py läser bara result-raden, och init-raden bär claude_code_version och model (formen belagd i en arkiverad logg). Ingår i paketet före nästa helbygge, med en fixturlogg i rökprovet.

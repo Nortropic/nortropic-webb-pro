@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex tillägg 2026-10-04 (skillkandidater)
 skapad: 2026-10-04
 prio: mellan
-andrad: 2026-10-04T23:50Z
+andrad: 2026-10-05T06:55Z
 ---
 # Skillkandidater i prioritetsordning: Dembrandt extract-design, Google extract-design-md, skill-creator, dogfood, performance, customer-research
 
@@ -16,3 +16,5 @@ andrad: 2026-10-04T23:50Z
 **Klart när:** Dembrandt och extract-design-md har körts i var sitt avgränsat försök med belägg (vad som extraherades, vad som valdes, vad som fanns kvar i bygget); dogfood-resor finns som prov; skill-creator har mätt aktiveringen av minst de installerade better-* och humanizer mot baslinjen.
 
 **Vilande (2026-10-04):** Dembrandt 0.38.0 prövad avgränsat 2026-10-05 på huvudreferensen Ashton Bespoke, över CDP mot provets Chromium utan nyckel: samma färger och rubrikstorlekar som vår extraktion; lägger till brödtext, avståndsskala, radie, brytpunkter, rörelse och en DESIGN.md i Googles format; --mobile verkar inte över CDP (viewport 1920×1080), så mobilens värden kommer ur extrahera.mjs. Komplement, inte ersättning. Kvar: referenssteget kör Dembrandt bredvid extraktionen och ett bygge visar om värdena blir valda roller och CSS; extract-design-md på ateljéns vinnare; dogfood; skill-creator.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: steg 1 (kodöverföringen) finns i ateljén; Dembrandt prövat (paket-v05, komplement till extrahera.mjs) men inte kopplat till referenssteget; extract-design-md, dogfood och skill-creator oprövade. Posten är samlingspost för intagsförsöken i ordning, med intagsmetodens försök (Emil mot skapandeflödet, Impeccable) inflyttade; aktiveringen mäts mot Skill-räkningen.

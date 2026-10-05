@@ -5,6 +5,7 @@ kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: normal
+andrad: 2026-10-05T06:55Z
 ---
 # Regelklassning i bygg-skillen: universell, verksamhetens behov eller visuell preferens från piloten (ägarbeslut om mobilreglerna)
 
@@ -14,4 +15,6 @@ prio: normal
 
 **Förslag:** Märk varje regel i .claude/skills/bygg-sajt/SKILL.md steg 5 och i kunskap/ med klass: universell (säkerhet, sanning, tillgänglighet), verksamhetens behov (styr kundens lösning) eller visuell preferens/lärdom (används när förutsättningarna passar). Mobilreglerna från L4–L6 märks som preferens tills ägaren säger universell. GRANSKARE.md: originalitet bedöms inte på navigation och formulär.
 
-**Klart när:** Ägaren har svarat på vilka mobilregler som är universella; SKILL.md och GRANSKARE.md bär klasserna; ett bygge för en annan kundtyp (boka behandling, bedöma hantverk, förstå företagstjänst) kan avvika från preferenserna utan fel i provet.
+**Klart när:** Ägaren har beslutat om mobilreglerna med bildjämförelser som underlag; metodreglerna märker dem efter beslutet, och GRANSKARE.md säger att navigation och formulär får vara standard; stilvarningarna läses inte som fel av granskaren.
+
+**Vilande (2026-10-05):** Avstämt 2026-10-05: klassningen finns i kunskap/metodregler.md, och stilrapportens mobilregler är varningar, inte provfel. Kvar: ägarens beslut om mobilreglerna med bildjämförelser (samma kund med och utan regeln), och en mening i GRANSKARE.md om att navigation och formulär får vara standard. Färdigkriteriet omskrivet i avstämningen; tidigare: "Ägaren har svarat på vilka mobilregler som är universella; SKILL.md och GRANSKARE.md bär klasserna; ett bygge för en annan kundtyp (boka behandling, bedöma hantverk, förstå företagstjänst) kan avvika från preferenserna utan fel i provet."
