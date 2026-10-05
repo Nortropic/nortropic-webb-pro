@@ -12,19 +12,23 @@ dashboarden startar), så här bekräftas bara läget. Kontrollen
    underhållets uppslag med tiden de gjordes (inga nya uppslag här); en nyare version som underhållet inte hunnit pröva
    står som behållen med skäl, en avvisad med felet;
 2. prövar förmågan med små prov som återanvänds medan förutsättningarna är oförändrade (fingeravtryck av version,
-   nyckel och konfiguration): modellerna, MCP-anslutningarna (Refero och Mobbin krävs), Refero direkt utan modell,
-   Mobbins senaste fullständiga prov, webbläsarkedjan och Impeccables detektor;
+   nyckel och konfiguration): modellerna, MCP-anslutningarna, Refero direkt utan modell, Mobbins senaste fullständiga
+   prov, kundvaktens mekanik, webbläsarkedjan och Impeccables detektor. Refero, Mobbin och kundvakten krävs för
+   ateljéns starter; helbygget (start bygge) laddar ingen MCP och redovisar dem bara;
 3. läser kunskapens aktualitet (spaningen, källornas läsdatum, metodreglerna, metodlåset), reglerna (ersatta och
    förlegade formuleringar i aktiva uppdrag, skills och verktyg utan uppgift) och kundens behov ur BRIEF.md mot flödets
    förmåga;
 4. låser versionerna och underlaget för körningen och skriver kvittot: underlag/<slug>/atelje/STARTKVITTO.json och .md
-   (en kopia per start i startkvitton/). Status redo (allt bekräftat och senaste), begransad (något behållet, avvisat
-   eller okänt; aldrig "allt uppdaterat") eller stoppad (ett nödvändigt verktyg fungerar inte; starten görs inte, med
-   besked). Bytta mätinstrument sedan kundens förra start står i kvittot, så att körningar före och efter går att
-   jämföra. En återupptagen körning behåller sitt låsta underlag i kvittot och redovisar vad som ändrats sedan.
+   för ateljén, STARTKVITTO-BYGGE.json och .md för helbygget (en kopia per start i startkvitton/). Status redo (allt
+   bekräftat och senaste), begransad (något behållet, avvisat eller okänt; aldrig "allt uppdaterat") eller stoppad (ett
+   nödvändigt verktyg fungerar inte; starten görs inte, med besked). Bytta mätinstrument sedan förra starten av samma
+   slag står i kvittot, också de som bytts utanför underhållet, så att körningar före och efter går att jämföra. En
+   återupptagen körning behåller sitt låsta underlag i kvittot och redovisar vad som ändrats sedan.
 
-Ett pågående intag i underhållet väntas ut (högst tre minuter). NWP_STARTKONTROLL=av hoppar över kontrollen (proven);
-=torr gör den utan förmågeprov. Slutkod 0 redo eller begränsad, 1 stoppad, 2 fel i anropet.
+Ett pågående intag i underhållet (kontroller/korregister.py, intagslåset på hela maskinen) väntas ut i högst 20 minuter;
+medan starten väntar avbryts underhållets långa prov. Är intaget inte klart då stoppas starten. NWP_STARTKONTROLL=av
+hoppar över kontrollen (proven); =torr gör den utan förmågeprov. Slutkod 0 redo eller begränsad, 1 stoppad, 2 fel i
+anropet.
 """
 import argparse
 import json
@@ -38,6 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verktygslada as vl  # noqa: E402
 
 NODVANDIGA_MCP = ('refero', 'mobbin')
+VANTA_INTAG = 1200  # s: ett intag i underhållet väntas ut högst så länge; sedan stoppas starten (fynd 2)
 EGNA_PROCESSKILLS = ('bygg-sajt', 'kirurg', 'backlog', 'writing-for-agents')
 # formuleringar som ersatta regler bar; en träff i ett aktivt uppdrag är en konflikt (BESLUT.md, Ersatta designregler)
 FORLEGADE = ('Inga skillskript, hookar, git eller MCP', 'inget Skill-verktyg', 'ingen JavaScript som inte behövs',
@@ -88,7 +93,11 @@ def prova_modeller(k, version):
     return ut
 
 
-def prova_formagan(k, version):
+def prova_formagan(k, version, start='ny'):
+    """Förmågeproven. Helbygget (start bygge) laddar ingen MCP (utom med NWP_MCP_CONFIG) och använder inte kundvakten:
+    där redovisas de utan att stoppa (fynd 15)."""
+    ateljen = start != 'bygge'
+    mcp_kravs = ateljen or bool(os.environ.get('NWP_MCP_CONFIG'))
     ut = []
     saknas = vl.flaggor_saknas(vl.claude_bin())
     if saknas:
@@ -100,13 +109,13 @@ def prova_formagan(k, version):
     else:
         for n in NODVANDIGA_MCP:
             s = servrar.get(n) or {}
-            ut.append(post('MCP', n, s.get('status') or 'fel', provad=mcp_tid, nodvandig=True, detalj=s.get('besked') or 'saknas i konfigurationen'))
+            ut.append(post('MCP', n, s.get('status') or 'fel', provad=mcp_tid, nodvandig=mcp_kravs, detalj=s.get('besked') or 'saknas i konfigurationen'))
         ovriga = {n: s for n, s in servrar.items() if n not in NODVANDIGA_MCP}
         ej = ['%s: %s' % (n, s['besked'] or s['status']) for n, s in ovriga.items() if s['status'] != 'ok']
         ut.append(post('MCP', 'övriga anslutningar (ingen uppgift i skapandet)', 'ok', provad=mcp_tid,
                        detalj=('ansluter inte: ' + '; '.join(ej)) if ej else 'alla ansluter'))
     p = vl.prova_refero(k, k.prov_dir)
-    ut.append(post('tjänst', 'Refero (direkt)', p.get('resultat'), provad=p.get('tid'), nodvandig=True,
+    ut.append(post('tjänst', 'Refero (direkt)', p.get('resultat'), provad=p.get('tid'), nodvandig=ateljen,
                    detalj=(p.get('detalj') or '') + (' (återanvänt prov)' if p.get('ateranvant') else '')))
     import referenstjanster
     kanda = {v.split('__')[-1] for v in referenstjanster.TJANSTER['refero']['verktyg']}
@@ -118,8 +127,11 @@ def prova_formagan(k, version):
     res = m.get('resultat')
     if res == 'ok' and m.get('gammalt'):
         res = 'okand'
-    ut.append(post('tjänst', 'Mobbin (sökning och bilder)', res if not (res == 'fel') else 'fel', provad=m.get('tid'), nodvandig=res == 'fel',
+    ut.append(post('tjänst', 'Mobbin (sökning och bilder)', res, provad=m.get('tid'), nodvandig=ateljen and res == 'fel',
                    detalj='%s%s' % (m.get('detalj') or '', '; anslutningen bekräftad nu' if ansluten else '')))
+    p = vl.prova_vakten(k)  # kundvaktens mekanik: krokens tillåtelse och dontAsk med den installerade claude (fynd 11)
+    ut.append(post('verktyg', 'kundvaktens mekanik', p.get('resultat'), provad=p.get('tid'), nodvandig=ateljen,
+                   detalj=(p.get('detalj') or '') + (' (återanvänt prov)' if p.get('ateranvant') else '')))
     p = vl.prova_webblasaren(k, k.prov_dir)
     ut.append(post('verktyg', 'webbläsarkedjan', p.get('resultat'), provad=p.get('tid'), nodvandig=True,
                    detalj=(p.get('detalj') or '') + (' (återanvänt prov)' if p.get('ateranvant') else '')))
@@ -319,10 +331,26 @@ def markdown(kv):
     return '\n'.join(rad)
 
 
-def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=180):
+def vanta_pa_intag(max_s):
+    """Väntar ut ett pågående intag (intagslåset på hela maskinen); medan starten väntar avbryts underhållets långa prov
+    efter ett byte på plats (kontroller/korregister.py, vill_starta). True när inget intag pågår längre."""
+    import korregister
+    with vl.las(korregister.BYTESLAS, vanta=False) as fick:
+        pass
+    if fick:
+        return True
+    korregister.vill_starta()
+    try:
+        with vl.las(korregister.BYTESLAS, vanta=True, max_s=max_s) as fick:
+            pass
+    finally:
+        korregister.startat()
+    return fick
+
+
+def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     k = vl.Kontext(nat=False, prova=prova)
-    with vl.las(k.katalog / '.byte', vanta=True, max_s=vanta_intag) as fick:
-        pass  # ett intag i underhållet väntas ut; annars görs kontrollen ändå och det står i kvittot
+    fick = vanta_pa_intag(vanta_intag)
     tid = vl.nu()
     u = vl.las_json(k.katalog / 'UNDERHALL.json', {}) or {}
     u_tid = u.get('slut')
@@ -338,13 +366,14 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=180):
                           detalj='%s; nyare versioner kan finnas utan att vara uppslagna eller prövade (dashboarden kör det dagligen, '
                                  'eller .venv/bin/python kontroller/underhall.py)' % ('senast ' + u_tid if u_tid else 'har aldrig körts')))
     version = next((r.get('installerat') for r in rader if r.get('id') == 'npm-global:@anthropic-ai/claude-code'), None)
-    formaga, servrar = prova_formagan(k, version)
+    formaga, servrar = prova_formagan(k, version, start)
     rader += formaga
     rader += kunskap(k)
     rader += regler(servrar, slug)
     rader += uppdraget(slug)
-    if not fick:
-        rader.append(post('underhåll', 'intag', 'okand', detalj='ett intag i underhållet pågick fortfarande efter %d s; kontrollen gjordes ändå' % vanta_intag))
+    if not fick:  # verktygslådan byts just nu: en start på den skulle inte veta vilka versioner den kör med (fynd 2)
+        rader.append(post('underhåll', 'intag', 'fel', nodvandig=True,
+                          detalj='ett intag i underhållet pågick fortfarande efter %d minuter; starta igen när det är klart' % (vanta_intag // 60)))
     for r in rader:
         r.setdefault('resultat', 'okand')
     stoppar = ['%s: %s' % (r['namn'], r.get('detalj') or r['resultat']) for r in rader if r.get('nodvandig') and r['resultat'] == 'fel']
@@ -354,10 +383,13 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=180):
           'stoppar': stoppar, 'underhall': underhall, 'utfort': sorted(set(k.utfort)), 'ateranvant': sorted(set(k.ateranvant)),
           'rader': rader, 'las': las_for_korning(rader, modell_rader)}
     kv['till_byggaren'] = till_byggaren(rader)
+    nu_m = matinstrument(rader)
+    kv['matinstrument_sett'] = nu_m  # det som faktiskt fanns vid starten (låset kan vara en återupptagen körnings)
     if slug:
         rot = vl.UNDERLAG / slug / 'atelje'
         rot.mkdir(parents=True, exist_ok=True)
-        tidigare = vl.las_json(rot / 'STARTKVITTO.json', {}) or {}
+        namn = 'STARTKVITTO-BYGGE' if start == 'bygge' else 'STARTKVITTO'  # helbygget skriver inte över ateljéns kvitto
+        tidigare = vl.las_json(rot / (namn + '.json'), {}) or {}
         alla = vl.andringar(k.katalog)
         kv['andringar_antal'] = len(alla)  # nästa kvitto räknar ändringarna efter de här (tider har bara sekunder)
         if 'andringar_antal' in tidigare:
@@ -365,12 +397,18 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=180):
         else:
             nya = [a for a in alla if tidigare.get('tid') and a.get('tid', '') >= tidigare['tid']]
         kv['matinstrument_bytta'] = [a for a in nya if a.get('matinstrument')]
+        # ett instrument som bytts utanför underhållet (en commit, en installation för hand) syns också (fynd 15)
+        fore_m = tidigare.get('matinstrument_sett') or (tidigare.get('las') or {}).get('matinstrument') or {}
+        kanda = {a.get('namn') for a in kv['matinstrument_bytta']}
+        for n, v in sorted(nu_m.items()):
+            if fore_m.get(n) and v and fore_m[n] != v and n not in kanda:
+                kv['matinstrument_bytta'].append({'namn': n, 'fran': fore_m[n], 'till': v, 'tid': 'utanför underhållet, sedan %s' % tidigare.get('tid')})
         if start in ('fortsatt', 'valda', 'putsa') and tidigare.get('las'):
             kv['aterupptagen'] = {'startad': tidigare.get('tid'), 'andrat': jamfor_las(tidigare['las'], kv['las'])}
             kv['las'] = tidigare['las']  # körningen behåller sitt låsta underlag
-        vl.skriv_json(rot / 'startkvitton' / ('STARTKVITTO-%s.json' % tid.replace(':', '')), kv)
-        vl.skriv_json(rot / 'STARTKVITTO.json', kv)
-        (rot / 'STARTKVITTO.md').write_text(markdown(kv), encoding='utf-8')
+        vl.skriv_json(rot / 'startkvitton' / ('%s-%s.json' % (namn, tid.replace(':', ''))), kv)
+        vl.skriv_json(rot / (namn + '.json'), kv)
+        (rot / (namn + '.md')).write_text(markdown(kv), encoding='utf-8')
     try:
         with open(k.katalog / 'startlogg.jsonl', 'a', encoding='utf-8') as f:
             f.write(json.dumps({'tid': tid, 'slug': slug, 'start': start, 'status': kv['status'], 'stoppar': stoppar}, ensure_ascii=False) + '\n')

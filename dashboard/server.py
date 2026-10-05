@@ -839,6 +839,7 @@ def prototyp(slug):
     md_ = lambda n: md(las_text(rot / n) or '') if (rot / n).is_file() else ''  # noqa: E731
     return {'slug': slug, 'steg': st.get('steg'), 'lage': st.get('lage'), 'startad': st.get('startad'), 'klar': st.get('klar'), 'fel': st.get('fel'),
             'skal': st.get('skal'), 'omgangar': st.get('omgangar'), 'faser': sorted((st.get('faser') or {}).keys()), 'domd': domd,
+            'startkontroll_stopp': st.get('startkontroll_stopp'),
             'riktningar': riktningar, 'fore': bilder('slutdom/1'), 'efter': bilder('slutdom/2'),
             'huvudreferens': {'namn': hr['namn'], 'vad': hr['vad'], 'bilder': [{'fil': str(p.relative_to(ROOT)), 'text': t_} for p, t_ in hr['bilder']]} if hr else None,
             'riktningar_md': md_('RIKTNINGAR.md'), 'forfining_md': md_('FORFINING.md') if domd else None,
@@ -864,6 +865,7 @@ def kandidatvy(slug, st):
     namn = {k['id']: k['etikett'] for k in kand}
     import atelje
     return {'slug': slug, 'kandidatflode': True, 'kandidatlage': kandidater.korlage(slug, st), 'tider': st.get('tider') or {},
+            'startkontroll_stopp': st.get('startkontroll_stopp'),
             'steg': st.get('steg'), 'fas': st.get('fas'), 'lage': st.get('lage'), 'startad': st.get('startad'),
             'klar': st.get('klar'), 'fel': st.get('fel'), 'skal': st.get('skal'), 'domd': domd, 'kandidater': kand, 'avbruten': atelje.avbruten(st),
             'antal': (las_json(rot / 'KANDIDATPLAN.json') or {}).get('antal') or len(kand),

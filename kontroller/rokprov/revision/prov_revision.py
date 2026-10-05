@@ -30,6 +30,8 @@ tmp = Path(tempfile.mkdtemp(prefix='nwp-rev-'))
 # startkontrollen prövas för sig i en isolerad kopia (prov_startkontroll.py); här kör arbetaren med falska sessioner och
 # får aldrig skriva kvitton i repots underlag/
 os.environ['NWP_STARTKONTROLL'] = 'av'
+# arbetarna i proven anmäler sig i ett eget körregister, aldrig i maskinens (/tmp/nwp-korningar)
+os.environ['NWP_KORREGISTER'] = str(tmp / 'korregister')
 os.environ['NWP_KANDIDATFLODE'] = 'av'  # de äldre ateljéproven kör utforskningen med tre riktningar; kandidatflödet har eget avsnitt
 
 
@@ -6165,6 +6167,7 @@ def uppdragsmaterialet():
     import referenstjanster as rt2_
     import refero_mcp as rm2_
     SID = '00000000-1111-2222-3333-555555555555'
+    SID2 = '00000000-1111-2222-3333-666666666666'
     spara_ = (at_.UNDERLAG, at_.KUNDER, rt2_.samla, rm2_.ladda_bild)
     at_.UNDERLAG, at_.KUNDER = tmp / 'um-u', tmp / 'um-k'
     try:
@@ -6174,13 +6177,15 @@ def uppdragsmaterialet():
         (r_ / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {
             'k01': {'titel': 'Ett', 'refero_stil': 'stil-' + SID, 'mobbin_fraga': 'Quote request form'},
             'k02': {'titel': 'Två', 'refero_stil': 'abc', 'mobbin_fraga': 'quote  request FORM'},
-            'k03': {'titel': 'Tre', 'refero_stil': '', 'mobbin_fraga': ''}}}))
+            'k03': {'titel': 'Tre', 'refero_stil': '', 'mobbin_fraga': ''},
+            'k04': {'titel': 'Fyra', 'refero_stil': SID2, 'mobbin_fraga': ''}}}))
         anrop_ = []
 
         def samla_(slug, uppdrag, underlag=None, katalog='tjanster', **kw):
             anrop_.append((slug, uppdrag, katalog))
             return None, {'slappta': [], 'tjanster': {'mobbin': {'ok': True, 'bilder': 2, 'anmarkningar': [], 'traffar': [
                 {'fraga': 'quote request form', 'fil': 'referenser/uppdrag/mobbin/bilder-x/a.png', 'titel': 'Formulär', 'beskrivning': 'Tre steg.'},
+                {'fraga': 'Quote request form, mobile', 'fil': 'referenser/uppdrag/mobbin/bilder-x/c.png', 'titel': 'Mobilen', 'beskrivning': 'y'},
                 {'fraga': 'något annat', 'fil': 'referenser/uppdrag/mobbin/bilder-x/b.png', 'titel': 'Annat', 'beskrivning': 'x'}]}}}
         rt2_.samla = samla_
 
@@ -6192,6 +6197,8 @@ def uppdragsmaterialet():
 
         class Klient_:
             def json(self, namn, args):
+                if SID2 in json.dumps(args):
+                    raise RuntimeError('anslutningen bröts mitt i')
                 if namn == 'refero_search_styles':
                     return {'records': [{'uuid': SID, 'preview_url': 'https://images.refero.design/styles/x/%s/preview_0.jpg' % SID}]}
                 return {'title': 'Provstil', 'colors': [{'hex': '#fff3e7', 'name': 'Canvas', 'role': 'yta'}],
@@ -6200,11 +6207,15 @@ def uppdragsmaterialet():
             def kalla(self, namn, args):
                 return '# Provstil\n'
         sammanf_ = kd_.uppdragsmaterial(slug_, klient=Klient_())
-        assert sammanf_ == {'k01': {'stil': True, 'mobbin': 1}, 'k02': {'stil': False, 'mobbin': 1}, 'k03': {'stil': False, 'mobbin': 0}}, sammanf_
+        # svaret som inte ekar frasen ordagrant knyts ändå (ordöverlapp), en stil som faller stoppar inte de andra (fynd 12)
+        assert sammanf_ == {'k01': {'stil': True, 'mobbin': 2}, 'k02': {'stil': False, 'mobbin': 2}, 'k03': {'stil': False, 'mobbin': 0},
+                            'k04': {'stil': False, 'mobbin': 0}}, sammanf_
         assert len(anrop_) == 1 and anrop_[0][2] == 'uppdrag' and [f_['fraga'] for f_ in anrop_[0][1]['fragor']] == ['Quote request form'], anrop_
         assert 'Ett' not in json.dumps(anrop_) and all(f_['syfte'] == 'uppdragens uppgifter' for f_ in anrop_[0][1]['fragor']), 'bara frasen går till Mobbin'
         mat_ = json.loads((r_ / kd_.UPPDRAGSMATERIAL).read_text())['kandidater']
         assert mat_['k01']['stil']['id'] == SID and mat_['k02']['stil']['fel'] and mat_['k02']['mobbin'][0]['fil'] == 'underlag/um-kund/referenser/uppdrag/mobbin/bilder-x/a.png'
+        assert mat_['k04']['stil']['fel'].startswith('RuntimeError: anslutningen bröts'), mat_['k04']
+        assert not any(x_['fil'].endswith('b.png') for k_ in mat_.values() for x_ in k_.get('mobbin') or []), 'en annan fras knyts inte'
         (kd_.ksajt(slug_, 'k01')).mkdir(parents=True)
         (kd_.ksajt(slug_, 'k01') / 'package.json').write_text('{}')
         paket_ = kd_.stilpaket_i_projekt(slug_, 'k01')
@@ -6216,7 +6227,7 @@ def uppdragsmaterialet():
         assert any('kunde inte hämtas' in x_ for x_ in rad2_) and rad3_ == [], (rad2_, rad3_)
         assert {'refero_stil', 'mobbin_fraga'} <= set(kd_.PLAN_SCHEMA['properties']['kandidater']['items']['required'])
         assert 'uppdragsmaterial_rader(slug, kid)' in inspect.getsource(kd_.skiss_prompt) and 'uppdragsmaterial_rader(slug, kid)' in inspect.getsource(kd_.skapar_prompt)
-        assert "'refero_stil')" in inspect.getsource(kd_.planprovning), 'stilen är låst med huvudreferensen'
+        assert "'refero_stil', 'mobbin_fraga')" in inspect.getsource(kd_.planprovning), 'stilen och den sökta frasen är låsta'
         assert kd_.stilid('STIL-' + SID.upper()) == SID and kd_.stilid('abc') is None
     finally:
         at_.UNDERLAG, at_.KUNDER, rt2_.samla, rm2_.ladda_bild = spara_

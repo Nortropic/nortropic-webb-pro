@@ -1774,10 +1774,22 @@ def stoppsignal(signum, _ram):
 
 
 def arbetare(slug, lage='ny'):
+    """Arbetaren anmäler sig i maskinens körregister (kontroller/korregister.py), så att underhållet inte byter något i den
+    delade miljön medan den går, och tar bort sin post när den slutar."""
+    import korregister
+    korregister.registrera('arbetare', slug)
+    try:
+        return arbeta(slug, lage)
+    finally:
+        korregister.avregistrera()
+
+
+def arbeta(slug, lage):
     for sig_ in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig_, stoppsignal)
     rot = UNDERLAG / slug / 'atelje'
-    forra = (las_json(rot / 'STATUS.json') or {}) if lage in ('fortsatt', 'putsa', 'valda') else {}
+    sparad = las_json(rot / 'STATUS.json') or {}  # en ny start som stoppas före allt annat lämnar den förra körningens status
+    forra = sparad if lage in ('fortsatt', 'putsa', 'valda') else {}
     # --fortsatt efter en putsning som föll putsar vidare mot samma före, aldrig en ny utforskning (omgranskningen, fynd 4)
     putsar = lage == 'putsa' or (lage == 'fortsatt' and bool(forra.get('putsning')))
     status = {'slug': slug, 'startad': nu(), 'modell': MODELL, 'effort': EFFORT, 'antal': ANTAL, 'lage': lage, 'steg': 'divergera', 'pid': os.getpid(),
@@ -1803,7 +1815,13 @@ def arbetare(slug, lage='ny'):
     if sk:
         status['startkontroll'] = sk
         if sk['status'] == 'stoppad':
-            status.update(steg='fel', fel='Startkontrollen stoppade starten: %s (underlag/%s/atelje/STARTKVITTO.md)' % ('; '.join(sk['stoppar'][:4]), slug))
+            fel = 'Startkontrollen stoppade starten: %s (underlag/%s/atelje/STARTKVITTO.md)' % ('; '.join(sk['stoppar'][:4]), slug)
+            if lage == 'ny' and sparad.get('steg'):  # den förra körningens resultat står kvar, med stoppet (fynd 15)
+                bevarad = {k: v for k, v in sparad.items() if k != 'pid'}
+                bevarad['startkontroll_stopp'] = {'tid': nu(), 'fel': fel, 'stoppar': sk['stoppar'][:6]}
+                skriv_status(rot, bevarad)
+                return 1
+            status.update(steg='fel', fel=fel)
             status.pop('pid', None)
             skriv_status(rot, status)
             return 1

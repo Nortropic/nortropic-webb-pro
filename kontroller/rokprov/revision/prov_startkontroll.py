@@ -57,8 +57,8 @@ hjalp = ' '.join(['--json-schema', '--allowedTools', '--disallowedTools', '--set
 (FAKE / 'help').write_text('Usage: claude ' + hjalp + '\n')
 MCP_OK = 'refero: https://api.refero.design/mcp (HTTP) - ✔ Connected\nmobbin: https://api.mobbin.com/mcp (HTTP) - ✔ Connected\nclaude.ai Gmail: https://x - ✔ Connected\n'
 (FAKE / 'mcp').write_text(MCP_OK)
-(FAKE / 'bin' / 'claude').write_text('#!/bin/bash\nD=%s\ncase "$1" in --version) cat "$D/version";; --help) cat "$D/help";; mcp) echo x >> "$D/mcp-anrop"; '
-                                     'cat "$D/mcp";; *) echo "{}";; esac\n' % FAKE)
+(FAKE / 'bin' / 'claude').write_text('#!/bin/bash\nD=%s\necho "$*" >> "$D/claude-anrop"\ncase "$1" in --version) cat "$D/version";; --help) cat "$D/help";; '
+                                     'mcp) echo x >> "$D/mcp-anrop"; cat "$D/mcp";; *) echo "{}";; esac\n' % FAKE)
 (FAKE / 'bin' / 'vercel').write_text('#!/bin/bash\necho "Vercel CLI 60.0.1"\n')
 (FAKE / 'bin' / 'npm').write_text('#!/bin/bash\ncase "$1" in root) echo %s/npm-global;; --version) echo 10.9.8;; *) exit 1;; esac\n' % FAKE)
 for b in ('claude', 'vercel', 'npm'):
@@ -66,6 +66,7 @@ for b in ('claude', 'vercel', 'npm'):
 os.environ['PATH'] = '%s:%s' % (FAKE / 'bin', os.environ['PATH'])
 os.environ['NWP_CLAUDE_BIN'] = str(FAKE / 'bin' / 'claude')
 os.environ['NWP_SPANING_AV'] = '1'
+os.environ['NWP_KORREGISTER'] = str(TMP / 'korregister')  # körningarna i provet anmäler sig aldrig i maskinens register
 for k in ('NWP_SLUG', 'NWP_STARTKONTROLL'):
     os.environ.pop(k, None)
 
@@ -74,10 +75,14 @@ import verktygslada as vl  # noqa: E402
 import startkontroll as sk  # noqa: E402
 import underhall as uh  # noqa: E402
 import refero_mcp  # noqa: E402
+import korregister  # noqa: E402
+assert korregister.KATALOG == TMP / 'korregister' and uh.BYTESLAS == TMP / 'korregister' / '.byte', korregister.KATALOG
 assert vl.ROOT == KOPIA and vl.LAGE == KOPIA / 'underlag' / 'startkontroll', vl.ROOT
 
 # --- falska uppslag och prov (räknade) ---
-ANROP = {'npm': 0, 'pypi': 0, 'brew': 0, 'git': 0, 'modell': 0, 'refero': 0, 'webb': 0, 'detektor': 0}
+ANROP = {'npm': 0, 'pypi': 0, 'brew': 0, 'git': 0, 'modell': 0, 'refero': 0, 'webb': 0, 'detektor': 0, 'vakt': 0}
+GAMMAL = '2026-01-01T00:00:00Z'  # publicerad långt före karenstiden
+TIDER = {}  # paket → {version: publicerad} utöver den senaste: huvudversioner, patchar och versioner i karenstid
 NPM = {'@anthropic-ai/claude-code': '2.1.289', 'vercel': '60.0.1'}
 PYPI = {}
 BREW = {'node@22': '22.23.2', 'node@24': '24.21.0_1', 'python@3.12': '3.12.13_4', 'git': '2.55.0', 'gh': '2.97.0'}
@@ -85,18 +90,25 @@ AKTIV = {'node@22': '22.23.2', 'python@3.12': '3.12.13_4', 'git': '2.55.0', 'gh'
 NODE_MAL = {'major': 22, 'version': '22.23.2', 'vercel': [20, 22, 24], 'lts': [20, 22, 24]}
 
 
+def mogen(p, v):
+    tider = dict(TIDER.get(p) or {})
+    if v:
+        tider.setdefault(v, GAMMAL)
+    return vl.mogna(tider) if tider else None
+
+
 def f_npm(p):
     ANROP['npm'] += 1
     for dep in ('mall/astro', 'mall/leverans', 'kontroller'):
         v = vl.paketberoenden(KOPIA / dep).get(p)
         if v:
-            return NPM.get(p, v)
-    return NPM.get(p)
+            return mogen(p, NPM.get(p, v))
+    return mogen(p, NPM.get(p))
 
 
 def f_pypi(n):
     ANROP['pypi'] += 1
-    return PYPI.get(n) or vl.las_krav(KOPIA / 'requirements.txt').get(n)
+    return mogen(n, PYPI.get(n) or vl.las_krav(KOPIA / 'requirements.txt').get(n))
 
 
 def f_brew(f):
@@ -109,7 +121,7 @@ def f_git(repo):
     return None  # källorna svarar inte: okänd, aldrig grön (fall 5)
 
 
-vl.npm_view, vl.pypi_version, vl.brew_info, vl.git_head = f_npm, f_pypi, f_brew, f_git
+vl.npm_versioner, vl.pypi_versioner, vl.brew_info, vl.git_head = f_npm, f_pypi, f_brew, f_git
 vl.node_lts_vercel = lambda: dict(NODE_MAL)
 vl.motor_releaser = lambda: '0.1.11'
 vl.softwareupdate_lista = lambda: []
@@ -125,6 +137,14 @@ def f_modell(b, m, timeout=240, schema=False):
 
 
 vl.modellsvar = f_modell
+
+
+def f_vakt(b, modell=None, timeout=300):
+    ANROP['vakt'] += 1
+    return None
+
+
+vl.vaktprov = f_vakt
 
 
 class FalskKlient:
@@ -174,10 +194,16 @@ def f_detektor(k, prov_dir):
     return k.spara('prov:detektor', 'v1', resultat='ok', detalj='falsk motor')
 
 
+riktig_detektor = vl.prova_detektorn
 vl.prova_webblasaren, vl.prova_detektorn = f_webb, f_detektor
 # Mobbins fullständiga prov ur underhållet (här: ett sparat resultat)
 lage = vl.lagekatalog()
 vl.Cache(lage / 'CACHE.json').spara('prov:mobbin', 'v1', resultat='ok', detalj='sökning och 3 bilder (falskt prov)')
+
+
+def gammal_git():
+    """git-miljö för uppströmskällans commits: daterade före karenstiden."""
+    return dict(os.environ, GIT_AUTHOR_DATE=GAMMAL, GIT_COMMITTER_DATE=GAMMAL)
 
 
 def nollstall():
@@ -212,7 +238,8 @@ print('startkontrollen: kvittot, förmågan, kundens behov och okända källor o
 m_fore = (FAKE / 'mcp-anrop').read_text().count('x')
 nollstall()
 kv2 = sk.kor_kontroll(SLUG, 'ny')
-assert ANROP['modell'] == 0 and ANROP['refero'] == 0 and ANROP['webb'] == 0 and ANROP['detektor'] == 0, ANROP
+assert ANROP['modell'] == 0 and ANROP['refero'] == 0 and ANROP['webb'] == 0 and ANROP['detektor'] == 0 and ANROP['vakt'] == 0, ANROP
+assert next(r for r in kv2['rader'] if r['namn'] == 'kundvaktens mekanik')['resultat'] == 'ok', 'vaktprovet är en rad i kvittot'
 assert (FAKE / 'mcp-anrop').read_text().count('x') == m_fore, 'claude mcp list körs inte om inom giltigheten'
 assert not [u for u in kv2['utfort'] if u.startswith(('prov:', 'modell:', 'mcp:'))], kv2['utfort']
 assert {'mcp:lista', 'prov:refero'} <= set(kv2['ateranvant']), kv2['ateranvant']
@@ -224,20 +251,52 @@ nollstall()
 NYCKEL.write_text('REFERO_MCP_TOKEN=provnyckel-tva\n')
 (KOPIA / 'kontroller' / 'mcp' / 'refero.json').write_text((KOPIA / 'kontroller' / 'mcp' / 'refero.json').read_text() + '\n')
 sk.kor_kontroll(SLUG, 'ny')
-assert ANROP['modell'] == len(set(sk.modeller().values())) and ANROP['refero'] == 1, ANROP
+assert ANROP['modell'] == len(set(sk.modeller().values())) and ANROP['refero'] == 1 and ANROP['vakt'] == 1, ANROP
 assert (FAKE / 'mcp-anrop').read_text().count('x') == m_fore + 1, 'ny MCP-konfiguration: listan prövas om'
 (FAKE / 'version').write_text('2.1.289 (Claude Code)\n')
 print('fall 6: ändrad version, nyckel och konfiguration gör om proven ok')
 
-# fall 4: en nödvändig MCP som faller stoppar starten
+# fall 4: en nödvändig MCP som faller stoppar starten. claude mcp list läser användarens konfiguration, inte våra filer:
+# det är listans ålder (högst fem minuter) som gör att ett avbrott syns, så provet åldrar listan i stället för att röra
+# filerna. Helbygget laddar ingen MCP: där redovisas avbrottet utan att stoppa, i ett eget kvitto.
+
+
+def aldra(nyckel):
+    c = vl.Cache(vl.lagekatalog() / 'CACHE.json')
+    c.d[nyckel]['tid'] = GAMMAL
+    vl.skriv_json(c.fil, c.d)
+
+
 (FAKE / 'mcp').write_text(MCP_OK.replace('mobbin: https://api.mobbin.com/mcp (HTTP) - ✔ Connected', 'mobbin: https://api.mobbin.com/mcp (HTTP) - ✗ Failed to connect'))
-(KOPIA / 'kontroller' / 'mcp' / 'mobbin.json').write_text((KOPIA / 'kontroller' / 'mcp' / 'mobbin.json').read_text() + '\n')
+kv = sk.kor_kontroll(SLUG, 'ny')
+assert kv['status'] != 'stoppad', 'inom fem minuter gäller den bekräftade listan'
+aldra('mcp:lista')
 kv = sk.kor_kontroll(SLUG, 'ny')
 assert kv['status'] == 'stoppad' and any(s.startswith('mobbin') for s in kv['stoppar']), (kv['status'], kv['stoppar'])
 assert 'STOPPAD' in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text()
+kvb = sk.kor_kontroll(SLUG, 'bygge')
+mob = next(r for r in kvb['rader'] if r['namn'] == 'mobbin')
+assert kvb['status'] == 'begransad' and mob['resultat'] == 'fel' and not mob.get('nodvandig'), (kvb['status'], kvb['stoppar'], mob)
+assert not next(r for r in kvb['rader'] if r['namn'] == 'kundvaktens mekanik').get('nodvandig')
+atelje_kv = json.loads((KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.json').read_text())
+assert atelje_kv['start'] == 'ny' and atelje_kv['status'] == 'stoppad', 'helbygget skriver inte över ateljéns kvitto'
+assert json.loads((KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO-BYGGE.json').read_text())['start'] == 'bygge'
 (FAKE / 'mcp').write_text(MCP_OK)
-(KOPIA / 'kontroller' / 'mcp' / 'mobbin.json').write_text((KOPIA / 'kontroller' / 'mcp' / 'mobbin.json').read_text() + '\n')
-print('fall 4: nödvändig MCP som faller stoppar ok')
+aldra('mcp:lista')
+print('fall 4: nödvändig MCP som faller stoppar inom fem minuter; helbygget redovisar utan att stoppa, i eget kvitto ok')
+
+# ett misslyckat förmågeprov återanvänds inte: en tjänst som varit nere en stund prövas om vid nästa start, i stället för
+# att stoppa varje start i ett dygn
+c_ = vl.Cache(vl.lagekatalog() / 'CACHE.json')
+c_.d['prov:refero'].update(resultat='fel', detalj='tillfälligt nere')
+vl.skriv_json(c_.fil, c_.d)
+nollstall()
+kv = sk.kor_kontroll(SLUG, 'ny')
+assert ANROP['refero'] == 1 and next(r for r in kv['rader'] if r['namn'] == 'Refero (direkt)')['resultat'] == 'ok', ANROP
+nollstall()
+sk.kor_kontroll(SLUG, 'ny')
+assert ANROP['refero'] == 0, 'ett lyckat prov återanvänds'
+print('ett misslyckat förmågeprov prövas om vid nästa start ok')
 
 # fall 2: en ändrad skill utlöser kontrollerna (metodlåset fäller ändringen; skillens fingeravtryck byts)
 skillfil = KOPIA / '.claude' / 'skills' / 'refero-design' / 'SKILL.md'
@@ -263,6 +322,13 @@ rc = atelje.arbetare(SLUG, 'ny')
 st = json.loads((rot / 'STATUS.json').read_text())
 assert rc == 1 and st['steg'] == 'fel' and 'Startkontrollen stoppade starten' in st['fel'] and 'mobbin' in st['fel'], st
 assert not anrop_aterkalla and (rot / 'gammal-riktning').is_dir() and not list(rot.glob('foregaende*')), 'inget arkiveras eller återkallas före kontrollen'
+# en ny start som stoppas lämnar den förra körningens status och resultat, med stoppet (fynd 15)
+(rot / 'STATUS.json').write_text(json.dumps({'slug': SLUG, 'steg': 'klar', 'klar': GAMMAL, 'lage': 'ny', 'faser': {'valj': {'klar': GAMMAL}}}))
+rc = atelje.arbetare(SLUG, 'ny')
+st = json.loads((rot / 'STATUS.json').read_text())
+assert rc == 1 and st['steg'] == 'klar' and st['faser'] == {'valj': {'klar': GAMMAL}} and 'mobbin' in st['startkontroll_stopp']['fel'] and 'pid' not in st, st
+assert not korregister.poster(), 'arbetaren tar bort sin post i körregistret när den slutar'
+(rot / 'STATUS.json').unlink()
 sk.for_start = gamla
 kor = (KOPIA / 'kor.sh').read_text()
 i_sk, i_inst, i_uchg = kor.index('kontroller/startkontroll.py'), kor.index('atelje.installera_godkand'), kor.index('chflags uchg "$ROOT/kunder"')
@@ -270,7 +336,20 @@ i_claude = kor.index('claude "${ARGS[@]}"')
 assert i_sk < i_inst < i_uchg < i_claude, 'kor.sh: startkontrollen före installationen, låsningen och modellen'
 assert 'atelje.main(' in (KOPIA / 'kontroller' / 'prototyp.py').read_text(), 'prototyp.py startar via ateljén'
 assert "startkontroll.for_start(slug, lage)" in (KOPIA / 'kontroller' / 'atelje.py').read_text()
-print('fall 7: arbetaren, kor.sh och prototyp.py går genom startkontrollen ok')
+# kor.sh på riktigt: en trasig metod stoppar bygget i startkontrollen, före modellen, med kvittot för helbygget
+skillfil = KOPIA / '.claude' / 'skills' / 'refero-design' / 'SKILL.md'
+fore_skill = skillfil.read_text()
+skillfil.write_text(fore_skill + '\nEn lokal ändring.\n')
+fore_atelje = (rot / 'STARTKVITTO.json').read_text()
+(FAKE / 'claude-anrop').write_text('')
+env = dict(os.environ, NWP_STARTKONTROLL='torr', NWP_ATELJE='av')
+r = subprocess.run(['bash', KOPIA / 'kor.sh', SLUG, 'Provverksamhet, Umeå'], cwd=str(KOPIA), capture_output=True, text=True, env=env, timeout=600)
+skillfil.write_text(fore_skill)
+assert r.returncode == 2 and 'startkontrollen stoppade bygget' in r.stdout and 'STARTKVITTO-BYGGE.md' in r.stdout, (r.returncode, r.stdout[-600:], r.stderr[-600:])
+assert 'STOPPAD' in (rot / 'STARTKVITTO-BYGGE.md').read_text() and (rot / 'STARTKVITTO.json').read_text() == fore_atelje
+assert not [x for x in (FAKE / 'claude-anrop').read_text().splitlines() if x.startswith('-p') or ' -p ' in ' %s ' % x], 'ingen modell före startkontrollen'
+assert not (KOPIA / 'kunder' / '.bygge-pid').exists() and not korregister.poster(), 'kor.sh städar låset och körregistret'
+print('fall 7: arbetaren, kor.sh (på riktigt) och prototyp.py går genom startkontrollen ok')
 
 # återupptagen körning: behåller sitt låsta underlag och redovisar ändringarna
 kv_ny = sk.kor_kontroll(SLUG, 'ny')
@@ -355,7 +434,7 @@ print('Homebrew: fyra formler, Node efter LTS som Vercel stöder ok')
 
 # en avvisad huvudversion (node@24 rött i rökprovet), en uppdatering som tas in (patchen), och en avvisad version
 # prövas igen först när en nyare kommer
-NODE_MAL.update(major=24, version='24.21.0')
+NODE_MAL.update(major=24, version='24.21.0', datum={'24.21.0': '2026-01-01', '22.23.3': '2026-01-01', '22.23.2': '2025-12-01'})
 k = vl.Kontext(nat=True, prova=False, max_alder=0)
 nod = next(r for r in vl.inventera(k, ('brew',)) if r['id'] == 'brew:node')
 BREW['node@22'] = '22.23.3_1'
@@ -363,8 +442,8 @@ nod = next(r for r in vl.inventera(k, ('brew',)) if r['id'] == 'brew:node')
 assert [c['version'] for c in nod['kandidater']] == ['24.21.0_1', '22.23.3_1'] and nod['kandidater'][0]['huvudversion'], nod['kandidater']
 BREWANROP, ROKPROV = [], []
 uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or (0, str(FAKE)))
-uh.rokprov_i_worktree = lambda k, etikett, forbered, path_forst=None, timeout=0: (ROKPROV.append(etikett) or
-                                                                                  (False, 'rökprovet rött (kod 1): FEL: provet blev rött på den rena testsajten (logg x)'))
+uh.rokprov_i_worktree = lambda k, etikett, forbered, path_forst=None, timeout=0, avbryt=None: (ROKPROV.append(etikett) or
+                                                                                               (False, 'rökprovet rött (kod 1): FEL: provet blev rött på den rena testsajten (logg x)'))
 (FAKE / 'bin' / 'node').write_text('#!/bin/bash\necho v24.21.0\n')
 (FAKE / 'bin' / 'node').chmod(0o755)
 uh.verifiera_formel = lambda formel, version: None
@@ -383,6 +462,24 @@ uh.hantera(k, dict(nod, kandidater=[nod['kandidater'][0]]), rap)
 assert not ROKPROV and rap['rader'][0]['resultat'] == 'avvisad' and 'prövas igen när en nyare version kommer' in rap['rader'][0]['detalj']
 uh.hantera(k, dict(nod, kandidater=[{'version': '24.22.0', 'formel': 'node@24', 'huvudversion': True}]), {'rader': [], 'commits': []})
 assert ROKPROV == ['brew:node-node@24'], ROKPROV
+# PATH pinnar den gamla formeln (ägarens skalprofil): den godkända huvudversionen behålls med skälet, ingen omlänkning,
+# och provet återanvänds tills ägaren bytt raden (fynd 6)
+ROKPROV.clear()
+BREWANROP.clear()
+uh.rokprov_i_worktree = lambda k, etikett, forbered, path_forst=None, timeout=0, avbryt=None: (ROKPROV.append(etikett) or
+                                                                                               (True, 'hela rökprovet grönt i en egen worktree'))
+pinnad = dict(nod, pinnad='/opt/homebrew/opt/node@22/bin', kandidater=[{'version': '24.23.0_1', 'formel': 'node@24', 'huvudversion': True}])
+for varv in (1, 2):
+    rap = {'rader': [], 'commits': []}
+    uh.hantera(k, pinnad, rap)
+    assert rap['rader'][0]['resultat'] == 'behallen' and 'PATH pinnar node@22' in rap['rader'][0]['detalj'], rap['rader']
+    assert ROKPROV == ['brew:node-node@24'] and (varv == 1 or rap['rader'][0].get('prov_ateranvant')), (varv, ROKPROV, rap['rader'])
+assert k.godkanda.for_version('brew:node', '24.23.0_1') and not any(a[0] == 'link' for a in BREWANROP), BREWANROP
+# den behållna huvudversionen stoppar inte patchen inom den installerade (fynd 10)
+BREWANROP.clear()
+rap = {'rader': [], 'commits': []}
+uh.hantera(k, dict(pinnad, kandidater=pinnad['kandidater'] + [{'version': '22.23.4', 'formel': 'node@22', 'huvudversion': False}]), rap)
+assert [x['resultat'] for x in rap['rader']] == ['behallen', 'uppdaterad'] and ('upgrade', '--formula', 'node@22') in BREWANROP, rap['rader']
 # en patch som inte klarar verifieringen länkas tillbaka till den förra kegen
 BREWANROP.clear()
 uh.verifiera_formel = lambda formel, version: 'git svarar 2.55.0, väntade 2.56.0'
@@ -395,7 +492,44 @@ rap = {'rader': [], 'commits': []}
 uh.hantera(k, git_rad, rap)
 assert rap['rader'][0]['resultat'] == 'avvisad' and 'återlänkad' in rap['rader'][0]['detalj'], rap['rader'][0]
 assert ('unlink', 'git') in BREWANROP and any(a[0] == 'ruby' and '2.55.0' in a[2] for a in BREWANROP), BREWANROP
-print('avvisad huvudversion, intagen patch, ingen omprövning av samma version och återlänkning ok')
+# git 3: en formel som byts på plats prövas med hela rökprovet efter bytet. En start som väntar avbryter provet: den förra
+# kegen länkas tillbaka och versionen behålls (godkänd för omprövning), aldrig avvisad. Ett rött prov avvisar.
+uh.verifiera_formel = lambda formel, version: None
+ROKPROV.clear()
+BREWANROP.clear()
+uh.rokprov_i_worktree = lambda k, etikett, forbered, path_forst=None, timeout=0, avbryt=None: (
+    ROKPROV.append((etikett, avbryt is not None)) or (False, uh.HALL + 'rökprovet avbröts: en start väntade; prövas igen vid nästa underhåll'))
+rap = {'rader': [], 'commits': []}
+uh.hantera(k, dict(git_rad, kandidater=[{'version': '3.0.0', 'formel': 'git', 'huvudversion': True}]), rap)
+assert rap['rader'][0]['resultat'] == 'behallen' and 'avbröts' in rap['rader'][0]['detalj'] and 'återlänkad' in rap['rader'][0]['detalj'], rap['rader']
+assert ROKPROV == [('brew:git', True)] and ('upgrade', '--formula', 'git') in BREWANROP and any(a[0] == 'ruby' and '2.55.0' in a[2] for a in BREWANROP)
+assert not k.avvisade.for_version('brew:git', '3.0.0') and k.godkanda.for_version('brew:git', '3.0.0')
+uh.rokprov_i_worktree = lambda k, etikett, forbered, path_forst=None, timeout=0, avbryt=None: (False, 'rökprovet rött (kod 1): FEL: git 3 bröt worktree')
+rap = {'rader': [], 'commits': []}
+uh.hantera(k, dict(git_rad, kandidater=[{'version': '3.0.1', 'formel': 'git', 'huvudversion': True}]), rap)
+assert rap['rader'][0]['resultat'] == 'avvisad' and 'git 3 bröt' in rap['rader'][0]['detalj'] and 'återlänkad' in rap['rader'][0]['detalj'], rap['rader']
+# ett trasigt bibliotek efter en uppgradering installeras om och prövas igen (brew linkage --test; fynd 7)
+LANK = {'trasiga': {'node@22'}}
+
+
+def f_brew_lank(*a, timeout=0):
+    BREWANROP.append(a)
+    if a[:2] == ('linkage', '--test'):
+        return (1, 'Broken dependencies: libsimdjson') if a[2] in LANK['trasiga'] else (0, '')
+    if a[0] == 'reinstall':
+        LANK['trasiga'].discard(a[-1])
+    return 0, str(FAKE)
+
+
+uh.brew = f_brew_lank
+fel_, lagade_ = uh.laga_lankar()
+assert fel_ is None and lagade_ == ['node@22'] and ('reinstall', '--formula', 'node@22') in BREWANROP, (fel_, lagade_)
+LANK['trasiga'] = {'gh', 'git'}
+uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or ((1, 'trasig') if a[:2] == ('linkage', '--test') and a[2] == 'gh' else (0, str(FAKE))))
+fel_, lagade_ = uh.laga_lankar()
+assert fel_ and 'gh' in fel_ and lagade_ == ['gh'], (fel_, lagade_)
+uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or (0, str(FAKE)))
+print('avvisad huvudversion, intagen patch, ingen omprövning av samma version, återlänkning, pinnad node, git 3 och länkprovet ok')
 
 # fall 8: en pågående körning behåller sina förutsättningar: underhållet skjuter upp; en godkänd kandidat tas in senare
 proc = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)', 'atelje.py', 'annan-kund', '--arbetare'])
@@ -409,6 +543,7 @@ try:
     uh.TA_IN['npm-global'] = lambda k, r, kand, staged: (TAGET.append(kand['version']) or ('uppdaterad', 'falskt intag', None))
     rap = uh.underhall(k=vl.Kontext(nat=True, prova=False), prov=False)
     assert rap['status'] == 'uppskjutet' and not PROV and not TAGET, rap
+    assert not (vl.lagekatalog() / 'UNDERHALL.json').exists(), 'ett uppskjutet underhåll ersätter inte rapporten från det senaste som kördes'
     vercel = {'id': 'npm-global:vercel', 'namn': 'Vercel CLI', 'grupp': 'leverans', 'typ': 'npm-global', 'installerat': '60.0.1',
               'kandidater': [{'version': '62.4.0', 'huvudversion': True}]}
     rap = {'rader': [], 'commits': []}
@@ -430,7 +565,7 @@ upp = TMP / 'uppstrom'
 sh(*GIT, 'init', '-q', '-b', 'main', cwd=upp)
 sh(*GIT, 'config', 'uploadpack.allowFilter', 'true', cwd=upp)
 sh(*GIT, 'add', '-A', cwd=upp)
-sh(*GIT, 'commit', '-q', '-m', 'bas', cwd=upp)
+sh(*GIT, 'commit', '-q', '-m', 'bas', cwd=upp, env=gammal_git())
 bas = sh('git', 'rev-parse', 'HEAD', cwd=upp).strip()
 demo = KOPIA / '.claude' / 'skills' / 'demo'
 demo.mkdir()
@@ -442,7 +577,7 @@ sh(*GIT, 'add', '-A')
 sh(*GIT, 'commit', '-q', '-m', 'demo-skillen')
 (upp / 'skills' / 'demo' / 'ref.md').write_text('Referens, uppdaterad.\n')
 (upp / 'skills' / 'demo' / 'SKILL.md').write_text('---\nname: demo\n---\n# Demo\n\nRad ett.\nRad två.\nRad tre, förbättrad.\n')
-sh(*GIT, 'commit', '-q', '-am', 'uppdatering', cwd=upp)
+sh(*GIT, 'commit', '-q', '-am', 'uppdatering', cwd=upp, env=gammal_git())
 head = sh('git', 'rev-parse', 'HEAD', cwd=upp).strip()
 os.environ.update({'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'url.file://%s.insteadOf' % upp, 'GIT_CONFIG_VALUE_0': 'https://github.com/prov/demo-skill.git'})
 vl.git_head = lambda repo: head if 'demo-skill' in repo else None
@@ -462,7 +597,7 @@ assert sh('git', 'log', '-1', '--format=%s').startswith('Underhåll: skillen dem
 # källan ändrar sedan raden vi anpassat: sammanslagningen krockar, avvisas med felet och mappen står kvar
 fore = {p.name: p.read_bytes() for p in demo.iterdir()}
 (upp / 'skills' / 'demo' / 'SKILL.md').write_text('---\nname: demo\n---\n# Demo, nytt namn\n\nVår anpassning ersatt.\n\nRad ett.\nRad två.\nRad tre, förbättrad.\n')
-sh(*GIT, 'commit', '-q', '-am', 'krock', cwd=upp)
+sh(*GIT, 'commit', '-q', '-am', 'krock', cwd=upp, env=gammal_git())
 head2 = sh('git', 'rev-parse', 'HEAD', cwd=upp).strip()
 vl.git_head = lambda repo: head2 if 'demo-skill' in repo else None
 k = vl.Kontext(nat=True, prova=False, max_alder=0)
@@ -476,6 +611,123 @@ demo_kv = next(r for r in kv['rader'] if r.get('id') == 'skill:demo')
 assert demo_kv['resultat'] == 'avvisad' and 'krockar' in demo_kv['detalj'], demo_kv
 print('fall 3 och intag: skillen uppdaterad trevägs och incheckad; en krock avvisas med felet och syns i kvittot ok')
 
+# karenstiden: källans commit är för färsk; skillen behålls (inte avvisad) och prövas när karenstiden gått ut (fynd 4)
+(upp / 'skills' / 'demo' / 'ref.md').write_text('Referens, nyast.\n')
+sh(*GIT, 'commit', '-q', '-am', 'färsk', cwd=upp)
+head3 = sh('git', 'rev-parse', 'HEAD', cwd=upp).strip()
+vl.git_head = lambda repo: head3 if 'demo-skill' in repo else None
+k = vl.Kontext(nat=True, prova=False, max_alder=0)
+demo_rad = next(r for r in vl.inventera(k, ('skills',)) if r['id'] == 'skill:demo')
+rap = {'rader': [], 'commits': []}
+uh.hantera(k, demo_rad, rap)
+assert rap['rader'][0]['resultat'] == 'behallen' and 'karenstiden' in rap['rader'][0]['detalj'] and not k.avvisade.for_version('skill:demo', head3), rap['rader']
+
+# npm: den senaste inom huvudversionen är en egen kandidat, och en version i karenstiden räknas inte (fynd 4 och 10)
+TIDER['vercel'] = {'60.2.0': GAMMAL, '62.4.0': GAMMAL, '62.5.0': vl.nu()}
+NPM['vercel'] = '62.5.0'
+k_ = vl.Kontext(nat=True, prova=False, katalog=TMP / 'lage-vercel')
+rv = next(r for r in vl.inventera(k_, ('globala',)) if r['id'] == 'npm-global:vercel')
+assert [c['version'] for c in rv['kandidater']] == ['62.4.0', '60.2.0'] and rv['kandidater'][0]['huvudversion'] and rv['i_karens'] == '62.5.0', rv
+assert not rv['kandidater'][1]['huvudversion']
+TIDER.pop('vercel')
+NPM['vercel'] = '60.0.1'
+# ett gammalt uppslag är okänt, aldrig grönt (fynd 9)
+r_ = vl.bedom({'id': 'x', 'installerat': '1.0.0', 'senaste': '1.0.0', 'kandidater': [], 'kontrollerad': GAMMAL}, k_.avvisade)
+assert r_['resultat'] == 'okand' and '36 timmar' in r_['detalj'], r_
+# ett nätsteg som faller av ett tillfälligt skäl avvisar inget, och nästa kandidat får chansen (fynd 10)
+assert uh.nat('npm error code ETIMEDOUT').startswith(uh.TILL) and uh.nat('getaddrinfo ENOTFOUND registry.npmjs.org').startswith(uh.TILL)
+assert uh.nat('HTTP Error 503: Service Unavailable').startswith(uh.TILL) and uh.nat(uh.HALL + 'x') == uh.HALL + 'x'
+assert not uh.nat('npm audit (high eller kritisk): sårbarhet i foo@1.503.2').startswith(uh.TILL)
+k_ = vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-till')
+uh.PROVA['npm-global'] = lambda k, r, kand: ((uh.nat('npm error code ETIMEDOUT: registry.npmjs.org'), None) if kand['version'] == '62.4.0'
+                                             else (None, {'prov': 'falskt prov'}))
+uh.TA_IN['npm-global'] = lambda k, r, kand, staged: ('uppdaterad', 'falskt intag', None)
+v2 = {'id': 'npm-global:vercel', 'namn': 'Vercel CLI', 'grupp': 'leverans', 'typ': 'npm-global', 'installerat': '60.0.1',
+      'kandidater': [{'version': '62.4.0', 'huvudversion': True}, {'version': '60.2.0', 'huvudversion': False}]}
+rap = {'rader': [], 'commits': []}
+uh.hantera(k_, v2, rap)
+assert [x['resultat'] for x in rap['rader']] == ['behallen', 'uppdaterad'] and rap['rader'][0]['detalj'].startswith('tillfälligt fel'), rap['rader']
+assert not k_.avvisade.for_version('npm-global:vercel', '62.4.0')
+# en skilluppdatering som ger behörigheter, krokar eller ändrar ett skript som flödet kör tas aldrig in (fynd 1)
+a_, b_ = TMP / 'kansliga-a', TMP / 'kansliga-b'
+for d_ in (a_, b_):
+    (d_ / 'scripts').mkdir(parents=True)
+(a_ / 'SKILL.md').write_text('---\nname: x\ndescription: y\n---\nText.\n')
+(b_ / 'SKILL.md').write_text('---\nname: x\ndescription: y, bättre\nallowed-tools: Bash(curl:*)\n---\nText.\n')
+(b_ / 'hooks.json').write_text('{}')
+(a_ / 'scripts' / 'sok.py').write_text('print(1)\n')
+(b_ / 'scripts' / 'sok.py').write_text('print(2)\n')
+k1 = uh.kansliga_andringar(a_, b_, 'ui-ux-pro-max')
+assert any('allowed-tools' in x for x in k1) and any('hooks.json' in x for x in k1) and any('scripts/sok.py' in x for x in k1), k1
+assert not any('description' in x for x in k1) and uh.kansliga_andringar(a_, a_, 'ui-ux-pro-max') == []
+assert not any('sok.py' in x for x in uh.kansliga_andringar(a_, b_, 'annan-skill')), 'bara skript som flödet kör'
+# metodens radutdrag får inte flyttas tyst av en uppdatering; hela filer och avsnitt följer innehållet (fynd 5)
+import metod  # noqa: E402
+import re as re_  # noqa: E402
+rader_ = sorted({r for rubrik in metod.STEG.values() for d in ('före', 'varv', 'uppslag')
+                 for r in metod.stegets_rader(metod.tolka(metod.KARTA.read_text(encoding='utf-8')), rubrik, d)})
+rad_ = next(r for r in rader_ if re_.search(r'\srad \d', r))
+hel_ = next(r for r in rader_ if ' ' not in r and r.split('/')[0] != rad_.split('/')[0])
+t_ = TMP / 'metodkopia'
+uh.repokopia_for_metod(t_)
+f_ = t_ / '.claude' / 'skills' / rad_.split()[0]
+f_.write_text('En ny inledning.\n\n' + f_.read_text())
+assert rad_ in uh.utdrag_som_andras(t_, rad_.split('/')[0]), (rad_, uh.utdrag_som_andras(t_, rad_.split('/')[0]))
+g_ = t_ / '.claude' / 'skills' / hel_
+g_.write_text(g_.read_text() + '\nEn rad till.\n')
+assert uh.utdrag_som_andras(t_, hel_.split('/')[0]) == [], hel_
+# en incheckning som faller lägger tillbaka filerna, och intaget behålls till nästa underhåll (fynd 8)
+spar_ = TMP / 'sajt-spar'
+sokv_ = ['mall/astro/package.json', 'mall/astro/package-lock.json', 'mall/leverans/package.json', 'mall/leverans/package-lock.json']
+fore_ = {f: (KOPIA / f).read_bytes() for f in sokv_}
+for f in sokv_:
+    m_ = spar_ / f.split('/', 1)[1]
+    m_.parent.mkdir(parents=True, exist_ok=True)
+    m_.write_bytes(fore_[f] + b'\n')
+(KOPIA / '.git' / 'index.lock').write_text('')
+try:
+    res_, detalj_, commit_ = uh.ta_in_sajt(k, {'installerat': '5.0.0'}, {'version': '5.1.0'}, {'mapp': str(spar_), 'prov': 'prov'})
+finally:
+    (KOPIA / '.git' / 'index.lock').unlink()
+assert res_ == 'behallen' and 'incheckningen föll' in detalj_ and 'återställda' in detalj_ and commit_ is None, (res_, detalj_)
+assert all((KOPIA / f).read_bytes() == b for f, b in fore_.items()) and not sh('git', 'status', '--porcelain', '--', 'mall').strip()
+# startkontrollen väntar på ett pågående intag och säger till underhållet att den väntar; är intaget inte klart stoppas
+# starten (fynd 2)
+import threading  # noqa: E402
+res_ = {}
+with vl.las(korregister.BYTESLAS):
+    tr_ = threading.Thread(target=lambda: res_.update(kv=sk.kor_kontroll(SLUG, 'ny', vanta_intag=4)))
+    tr_.start()
+    for _ in range(50):
+        if korregister.start_vantar():
+            break
+        time.sleep(0.1)
+    vantade = korregister.start_vantar()
+    tr_.join()
+assert vantade and res_['kv']['status'] == 'stoppad' and any(x.startswith('intag') for x in res_['kv']['stoppar']), res_['kv']['stoppar']
+assert not korregister.start_vantar()
+# förmågeprovens förutsättningar: ett ändrat inspektionsverktyg och en ny motor gör om proven (fynd 14)
+a1 = vl.webblasar_avtryck()
+insp = KOPIA / 'kontroller' / 'webblasare' / 'inspektera.mjs'
+fore_i = insp.read_text()
+insp.write_text(fore_i + '\n// ändrad\n')
+assert vl.webblasar_avtryck() != a1
+insp.write_text(fore_i)
+assert vl.webblasar_avtryck() == a1
+import detektor  # noqa: E402
+spara_d = (detektor.motor, detektor.detektera)
+try:
+    detektor.detektera = lambda f: ([], None)
+    k_ = vl.Kontext(nat=False, prova=True, katalog=TMP / 'lage-detektor')
+    detektor.motor = lambda: Path('/x/0.1.10/impeccable')
+    assert not riktig_detektor(k_, k_.prov_dir).get('ateranvant') and riktig_detektor(k_, k_.prov_dir).get('ateranvant')
+    detektor.motor = lambda: Path('/x/0.1.11/impeccable')
+    assert not riktig_detektor(k_, k_.prov_dir).get('ateranvant'), 'en ny motor prövas om'
+finally:
+    detektor.motor, detektor.detektera = spara_d
+print('karenstid, kandidat inom huvudversionen, gammalt uppslag, tillfälliga fel, känsliga skilländringar, metodens utdrag, '
+      'incheckning som faller, intagslåset och provens förutsättningar ok')
+
 # ett bytt mätinstrument märks i nästa startkvitto
 vl.logga_andring(vl.lagekatalog(), id='instrument:axe-core', namn='axe-core', grupp='mätinstrument', fran='4.13.0', till='4.14.0',
                  prov='rökprovet', commit=None, matinstrument=True)
@@ -483,19 +735,36 @@ kv = sk.kor_kontroll(SLUG, 'ny')
 assert [a['namn'] for a in kv['matinstrument_bytta']] == ['axe-core'] and 'Mätinstrument bytta' in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text()
 kv = sk.kor_kontroll(SLUG, 'ny')
 assert not kv['matinstrument_bytta'], 'bara sedan förra starten'
-print('mätinstrumentets byte märkt i kvittot ok')
+# ett instrument som bytts utanför underhållet (en commit, en installation för hand) syns också (fynd 15)
+pj = KOPIA / 'kontroller' / 'package.json'
+fore_pj = pj.read_text()
+pin = vl.paketberoenden(KOPIA / 'kontroller')['html-validate']
+pj.write_text(fore_pj.replace('"html-validate": "%s"' % pin, '"html-validate": "%s-utanfor"' % pin))
+kv = sk.kor_kontroll(SLUG, 'ny')
+pj.write_text(fore_pj)
+utanfor = [a for a in kv['matinstrument_bytta'] if a['namn'] == 'html-validate']
+assert utanfor and utanfor[0]['till'] == pin + '-utanfor' and 'utanför underhållet' in utanfor[0]['tid'], kv['matinstrument_bytta']
+kv = sk.kor_kontroll(SLUG, 'ny')
+assert [a['till'] for a in kv['matinstrument_bytta']] == [pin], kv['matinstrument_bytta']
+print('mätinstrumentets byte märkt i kvittot, också utanför underhållet, ok')
 
 # worktree-mekanismen för hela rökprovet: grönt och rött, och worktreen städas
 riktig = importlib.reload(uh)
 for f in ('kontroller/rokprov.sh',):
-    (KOPIA / f).write_text('#!/bin/bash\nif [ -f "$(dirname "$0")/../KANDIDAT-ROD" ]; then echo "FEL: kandidaten bröt provet"; exit 1; fi\necho "rökprovet OK"\n')
+    (KOPIA / f).write_text('#!/bin/bash\nif [ -f "$(dirname "$0")/../KANDIDAT-SOV" ]; then sleep 60; fi\n'
+                           'if [ -f "$(dirname "$0")/../KANDIDAT-ROD" ]; then echo "FEL: kandidaten bröt provet"; exit 1; fi\necho "rökprovet OK"\n')
 sh(*GIT, 'commit', '-q', '-am', 'falskt rökprov')
 ok, text = riktig.rokprov_i_worktree(vl.Kontext(nat=False, prova=False), 'prov-gront', lambda wt: None)
 assert ok, text
 ok, text = riktig.rokprov_i_worktree(vl.Kontext(nat=False, prova=False), 'prov-rott', lambda wt: (wt / 'KANDIDAT-ROD').write_text('x') and None)
 assert not ok and 'FEL: kandidaten bröt provet' in text, text
+# ett långt prov efter ett byte på plats avbryts när en start väntar: behållet, aldrig avvisat
+t0 = time.time()
+ok, text = riktig.rokprov_i_worktree(vl.Kontext(nat=False, prova=False), 'prov-avbrutet', lambda wt: (wt / 'KANDIDAT-SOV').write_text('x') and None,
+                                     avbryt=lambda: True)
+assert not ok and text.startswith(riktig.HALL) and 'avbröts' in text and time.time() - t0 < 40, (text, time.time() - t0)
 assert sh('git', 'worktree', 'list').count('\n') == 1, sh('git', 'worktree', 'list')
-print('rökprovet i en egen worktree: grönt, rött med felet, och städat ok')
+print('rökprovet i en egen worktree (innanför processgränsen): grönt, rött med felet, avbrutet när en start väntar, och städat ok')
 
 shutil.rmtree(TMP, ignore_errors=True)
 print('startkontrollens och underhållets prov: alla ok')

@@ -125,6 +125,17 @@ def profil_katalog(katalog, root=None, hem=None):
     return '\n'.join(rader) + '\n'
 
 
+def profil_lasforbud(root=None, hem=None):
+    """En profil som bara nekar läsning av hemligheterna (sandlådans lista) och tillåter resten: för underhållets rökprov
+    med en kandidatversion, som behöver nät och skrivning i sin worktree och i cacherna men aldrig nycklarna (den
+    oberoende granskningen 2026-10-06, fynd 4)."""
+    import sandlada
+    fs = sandlada.installningar('x', root=root, hem=hem)['sandbox']['filesystem']
+    verkliga = lambda vagar: list(dict.fromkeys(x for p in vagar for x in (str(p), os.path.realpath(p))))  # noqa: E731
+    return '\n'.join(['(version 1)', '(allow default)', '; underhållets prov: hemligheterna olästa (kontroller/processgrans.py)']
+                     + lasforbud(fs, verkliga)) + '\n'
+
+
 def kor_i_katalog(katalog, kmd, timeout=900):
     """(slutkod, utdata) för kmd i katalogen innanför gränsen, med en minimal miljö: inga nycklar, inga NWP_- eller
     Claude-variabler, ingen proxy."""

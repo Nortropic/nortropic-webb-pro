@@ -39,9 +39,11 @@ if [ -f "$LAS" ] && kill -0 "$(cat "$LAS" 2>/dev/null)" 2>/dev/null; then
 fi
 chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true   # kvarlämnad flagga efter en avbruten körning
 echo $$ > "$LAS"
+# körregistret (kontroller/korregister.py): underhållet på maskinen byter inget i den delade miljön medan bygget pågår
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" in bygge --slug "$SLUG" --pid $$ >/dev/null 2>&1 || true
 WT_PID=""
 # städningen får aldrig ändra slutkoden (set -e gäller också i trapen): varje steg tål att misslyckas
-trap 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true; [ -z "${DOMLOGG:-}" ] || chflags nouchg "$DOMLOGG" 2>/dev/null || true; rm -f "$LAS"; [ -z "${WT_PID:-}" ] || kill "$WT_PID" 2>/dev/null || true' EXIT
+trap '"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" ut --pid $$ >/dev/null 2>&1 || true; chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true; [ -z "${DOMLOGG:-}" ] || chflags nouchg "$DOMLOGG" 2>/dev/null || true; rm -f "$LAS"; [ -z "${WT_PID:-}" ] || kill "$WT_PID" 2>/dev/null || true' EXIT
 mkdir -p "$ROOT/kunder/$SLUG" "$ROOT/underlag/$SLUG"
 # Ägarens domlogg låses under bygget (chflags uchg nedan): bygget når den annars med cp och mv, och dashboarden skriver
 # ägarens domar först när bygget är klart. En ändring under körningen är då inte ägarens: korslut ger slutkod 3
@@ -75,12 +77,12 @@ AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, 
 import prototyp
 print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 # Startkontrollen (kontroller/startkontroll.py; ägarens uppdrag 2026-10-05): verktygslådan bekräftad och versionerna låsta
-# före bygget, med kvittot i underlag/$SLUG/atelje/STARTKVITTO.md. Ett nödvändigt verktyg som inte fungerar stoppar
+# före bygget, med kvittot i underlag/$SLUG/atelje/STARTKVITTO-BYGGE.md. Ett nödvändigt verktyg som inte fungerar stoppar
 # starten. Uppdateringarna prövas och tas in av det dagliga underhållet (kontroller/underhall.py), aldrig här. Körs bara
 # när bygget faktiskt startar (en godkänd startsida eller nödvägen), före allt som skriver i sajten.
 if [ -n "$GODKAND" ] || [ "${NWP_ATELJE:-pa}" != "pa" ]; then
   "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/startkontroll.py" --slug "$SLUG" --start bygge > "$ROOT/kunder/$SLUG/startkontroll.log" 2>&1 \
-    || { echo "startkontrollen stoppade bygget: se underlag/$SLUG/atelje/STARTKVITTO.md (logg: kunder/$SLUG/startkontroll.log)"; exit 2; }
+    || { echo "startkontrollen stoppade bygget: se underlag/$SLUG/atelje/STARTKVITTO-BYGGE.md (logg: kunder/$SLUG/startkontroll.log)"; exit 2; }
 fi
 if [ -n "$GODKAND" ]; then
   # godkännandet gäller vinnarens dömda filer: har ett tidigare bygge skrivit om sajtens, läggs vinnarens tillbaka

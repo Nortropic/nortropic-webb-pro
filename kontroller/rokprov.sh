@@ -3,6 +3,10 @@
 # Bygger mallen med två testsidor och kräver (1) grönt prov, (2) rött snabbprov när fem kända fel läggs in.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# körregistret (kontroller/korregister.py): underhållet byter inget i den delade miljön (.venv, node_modules, Homebrew)
+# medan provet går; underhållets egna rökprov med en kandidat (NWP_UNDERHALL_PROV=1) anmäls inte
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" in rokprov --pid $$ >/dev/null 2>&1 || true
+trap '"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" ut --pid $$ >/dev/null 2>&1 || true' EXIT
 S="$ROOT/kunder/rokprov-mall/sajt"
 export NWP_HAMTA_LOKALT=1   # provens sajter ligger på 127.0.0.1; hämtaren nekar annars adresser i det egna nätet
 mkdir -p "$S"

@@ -62,28 +62,49 @@ Flödets sessioner kör aldrig npm, npx eller node direkt (`kontroller/atelje.py
 Ägarens uppdrag 2026-10-05 (19:13Z, 20:27Z och ~20:50Z, ordagrant i minnet): ingenting i verktygslådan släpar efter, och
 varje körning låser sina versioner. Två verktyg delar komponenterna och läget (`kontroller/verktygslada.py`):
 
-- **Underhållet** (`kontroller/underhall.py`), en gång per dygn från dashboarden när inget bygge pågår, eller för hand:
+- **Underhållet** (`kontroller/underhall.py`), en gång per dygn från dashboarden när ingen körning pågår, eller för hand:
   slår upp senaste versionen, prövar varje uppdatering för sig i en isolerad kopia (installation, säkerhetsgranskning
   och ett provbygge; nya huvudversioner och mätinstrument med hela rökprovet i en egen worktree), tar in det som klarar
   proven, checkar in och skriver vad som byttes. Hur varje slag prövas står i verktygets beskrivning. En avvisad version
   sparas med felet och prövas igen först när en nyare kommer.
 - **Startkontrollen** (`kontroller/startkontroll.py`), före varje start (arbetaren i `kontroller/atelje.py` och
   `kor.sh`): bekräftar läget utan nya uppslag, prövar förmågan med små prov som återanvänds medan förutsättningarna är
-  oförändrade, låser versionerna och skriver startkvittot (`underlag/<slug>/atelje/STARTKVITTO.md`). Ett nödvändigt
-  verktyg som inte fungerar stoppar starten; det som inte prövats står som behållet med skäl, aldrig som uppdaterat.
+  oförändrade, låser versionerna och skriver startkvittot (`underlag/<slug>/atelje/STARTKVITTO.md`; helbyggets
+  `STARTKVITTO-BYGGE.md`). Ett nödvändigt verktyg som inte fungerar stoppar starten; det som inte prövats står som
+  behållet med skäl, aldrig som uppdaterat.
+
+Skydden runt en ny version (den oberoende granskningen 2026-10-06):
+
+- **Karenstid:** en version räknas först när den varit publicerad i tre dygn (publiceringstiden hos npm och PyPI,
+  källans commitdatum, Nodes utgivningsdatum); förhandsversioner aldrig. Den senaste inom den installerade
+  huvudversionen är en egen kandidat, så att en avvisad huvudversion aldrig blockerar patchar.
+- **Kandidatens kod** körs med en minimal miljö utan nycklar eller tokens. Paketen installeras utan skript där det går
+  (inte Claude Code, vars skript länkar binären), Python bara ur färdiga hjul, och provbyggen och rökprov körs
+  innanför processgränsen (`kontroller/processgrans.py`), som aldrig läser hemligheterna.
+- **Skillsen:** en uppdatering som ändrar behörigheter eller krokar i frontmatter, en konfigurationsfil eller ett
+  skript som flödet kör tas aldrig in automatiskt, och inte heller en som flyttar eller bryter metodkartans radutdrag.
+- **Fel:** ett nätsteg som faller av ett tillfälligt skäl (tidsgräns, DNS, 5xx, kvot) avvisar inget, utan versionen
+  behålls och prövas igen. Faller ett intag eller dess incheckning läggs filerna och miljön tillbaka, och
+  återställningen prövas.
+- **Körningar på hela maskinen:** ateljéns arbetare, `kor.sh` och `rokprov.sh` anmäler sig i körregistret
+  (`kontroller/korregister.py`, `/tmp/nwp-korningar/`). Underhållet tar in en uppdatering i taget under intagslåset och
+  prövar körningarna igen under låset. Startkontrollen väntar på ett pågående intag i högst 20 minuter och stoppar annars
+  starten. Medan en start väntar avbryts underhållets långa prov efter ett byte på plats, och den förra versionen
+  länkas tillbaka.
 
 Slagen och vad som gäller för dem:
 
 | Slag | Var | Prov före intaget |
 |---|---|---|
-| Claude Code, Vercel CLI | globala npm-paket | provkatalog, npm audit, versionen; Claude: flaggorna och ett strukturerat svar ur den minsta modellen; Vercel: `vercel whoami` |
-| Skillsen | `.claude/skills/<namn>/`, källan i KALLA.md | trevägssammanslagning som bevarar våra anpassningar, `kontroller/granska_repo.py` utan nya risker, en kort granskning mot metodkartans Avgöranden, metodkartan och kompetensblocken i en kopia |
-| Sajtens paket | `mall/astro/`, `mall/leverans/` (grupper: astro med @astrojs/*, react med react-dom, tailwind med @tailwindcss/vite) | installation utan skript, npm audit, rökprovets sajt byggd med mallen, kundrepots bygge med Vercel-adaptern; huvudversion också hela rökprovet |
-| Mätinstrumenten | `kontroller/package.json` och Playwrights webbläsare (Chromium, WebKit) | alltid hela rökprovet i en worktree med egna node_modules; bytet märks i nästa startkvitto |
-| Python-paketen | `requirements.txt` (de vi använder direkt) och `requirements-lock.txt` (alla) | egen venv, pip check, OSV:s sårbarhetsdatabas, regressionsfallen i en worktree; huvudversion hela rökprovet |
-| Homebrew | bara node, python@3.12, git och gh, aldrig `brew upgrade` på allt | Node: senaste LTS som Vercel stöder (nu 24.x), installerad bredvid som `node@NN` och prövad med hela rökprovet innan den länkas; en patch kan inte ligga bredvid den gamla: flaskans kontrollsumma, verifiering efter uppgraderingen och den förra kegen tillbaka om något faller |
+| Claude Code, Vercel CLI | globala npm-paket | provkatalog, npm audit, versionen; Claude: flaggorna, ett strukturerat svar ur den minsta modellen och vaktprovet (kundvaktens mekanik); Vercel: hjälpen, utan ägarens inloggning; en huvudversion också hela rökprovet med kandidaten först i PATH |
+| Skillsen | `.claude/skills/<namn>/`, källan i KALLA.md | trevägssammanslagning som bevarar våra anpassningar, inga ändrade behörigheter, krokar eller körda skript, `kontroller/granska_repo.py` utan nya risker, metodkartans radutdrag oförändrade, en kort granskning mot metodkartans Avgöranden, metodkartan och kompetensblocken i en kopia |
+| Sajtens paket | `mall/astro/`, `mall/leverans/` (grupper: astro med @astrojs/*, react med react-dom, tailwind med @tailwindcss/vite) | installation utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge med Vercel-adaptern, båda innanför processgränsen; huvudversion också hela rökprovet |
+| Mätinstrumenten | `kontroller/package.json` och Playwrights webbläsare (Chromium, WebKit) | alltid hela rökprovet i en worktree med egna node_modules (utan installationsskript) och webbläsarna; bytet märks i nästa startkvitto, också ett byte utanför underhållet |
+| Python-paketen | `requirements.txt` (de vi använder direkt) och `requirements-lock.txt` (alla) | egen venv ur färdiga hjul, pip check, OSV:s sårbarhetsdatabas, regressionsfallen i en worktree innanför processgränsen; huvudversion hela rökprovet |
+| Homebrew | bara node, python@3.12, git och gh, aldrig `brew upgrade` på allt | Node: senaste LTS som Vercel stöder (nu 24.x), installerad bredvid som `node@NN` och prövad med hela rökprovet innan den länkas; pinnar PATH den gamla formeln (ägarens skalprofil, som underhållet aldrig ändrar) behålls bytet med skälet. En formel som byts på plats: flaskans kontrollsumma, verifiering efter uppgraderingen, för en huvudversion (git, gh) hela rökprovet efter bytet, och den förra kegen tillbaka om något faller. Efter varje install och uppgradering prövas de fyra formlernas bibliotekslänkar (`brew linkage --test`), och det som gått sönder installeras om |
 | Impeccables motor | `~/.impeccable/bin/<version>/` | den version skillen pinnar, med releasens kontrollsumma och detektering på en provsida |
 | macOS, Xcode-verktygen, Homebrew självt | systemet | redovisas bara (lösenord eller omstart) |
 
 Intag i kontrollernas `node_modules` och i `.venv` görs bara i utcheckningen som äger dem (en worktree länkar dem).
-Läget (uppslag, prov, avvisade och godkända versioner, ändringslogg) ligger i `underlag/startkontroll/`, utanför git.
+Läget (uppslag, prov, avvisade och godkända versioner, ändringslogg) ligger i `underlag/startkontroll/`, utanför git;
+körregistret och intagslåset i `/tmp/nwp-korningar/`.

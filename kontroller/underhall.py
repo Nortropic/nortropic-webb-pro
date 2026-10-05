@@ -6,24 +6,33 @@ bekräfta. Dashboarden startar den en gång per dygn när ingen körning pågår
     .venv/bin/python kontroller/underhall.py [--bara ID[,ID]] [--utan-tunga] [--torr] [--json]
 
 Samma regler för allt:
-1. Installerad och senaste version slås upp på nytt (uppslag äldre än en timme), och tiden sparas.
+1. Installerad och senaste version slås upp på nytt (uppslag äldre än en timme), och tiden sparas. En version räknas
+   först när den varit publicerad i tre dygn (karenstiden, verktygslada.KARENS_DAGAR); förhandsversioner aldrig.
 2. Varje uppdatering prövas för sig i en isolerad kopia: installation, säkerhetsgranskning och ett provbygge. Nya
    huvudversioner och nya mätinstrument prövas med hela rökprovet (kontroller/rokprov.sh) i en egen worktree.
+   Kandidatens kod körs med en minimal miljö utan nycklar, installationer utan skript där det går, och provbyggen och
+   rökprov innanför processgränsen (kontroller/processgrans.py), som aldrig läser hemligheterna.
 3. Det som klarar proven tas in och checkas in (bara de ändrade sökvägarna, som måste ha varit rena; pushas till main när
    den utgående historiken bara är underhållets egen). ANDRINGAR.jsonl säger vad som byttes; ett bytt mätinstrument är
-   märkt, så att startkvittona visar det när körningar före och efter jämförs.
-4. En avvisad version sparas med det konkreta felet och prövas igen först när en ännu nyare version kommer.
-5. Ingenting tas in medan en körning pågår (prövas igen före varje intag); ett prov som klarats sparas med sina filer
-   och tas in vid nästa underhåll utan att provas om, så länge utgångsläget är detsamma.
-6. Rapporten (underlag/startkontroll/UNDERHALL.md) säger vad som byttes, avvisades och behölls, med skäl.
+   märkt, så att startkvittona visar det när körningar före och efter jämförs. Faller ett intag eller dess incheckning
+   läggs filerna och miljön tillbaka, och återställningen prövas.
+4. En avvisad version sparas med det konkreta felet och prövas igen först när en ännu nyare version kommer. Ett nätsteg
+   som faller av ett tillfälligt skäl (tidsgräns, DNS, 5xx, kvot) avvisar inget: versionen behålls och prövas igen.
+5. Ingenting tas in medan en körning pågår någonstans på maskinen (kontroller/korregister.py): körningarna prövas under
+   intagslåset, som startkontrollen väntar på. Ett prov som klarats sparas med sina filer och tas in vid nästa
+   underhåll utan att provas om, så länge utgångsläget är detsamma.
+6. Rapporten (underlag/startkontroll/UNDERHALL.md) säger vad som byttes, avvisades och behölls, med skäl. Ett
+   uppskjutet underhåll skriver ingen ny rapport.
 
 Per slag (kunskap/beroenden.md, avsnittet Underhåll):
 - Claude Code och Vercel CLI: installation i en provkatalog, npm audit, versionen, för Claude också flaggorna flödet
   använder och ett strukturerat modellsvar med den minsta modellen; sedan globalt, och den förra versionen tillbaka om
   något faller.
-- Skillsen: trevägssammanslagning (källan vid vår commit, vår mapp, källan nu) i en kopia; förgranskningen
-  (granska_repo.py) får inte visa nya risker; en liten Sonnet-session läser ändringen mot metodkartans Avgöranden;
-  metodkartan och kompetensblocken prövas i en kopia av repot.
+- Skillsen: trevägssammanslagning (källan vid vår commit, vår mapp, källan nu) i en kopia; ändrade behörigheter,
+  krokar, konfigurationsfiler eller skript som flödet kör avvisas; förgranskningen (granska_repo.py) får inte visa nya
+  risker; metodkartans utdrag ur skillen får inte byta text; en liten Sonnet-session läser ändringen mot metodkartans
+  Avgöranden; metodkartan och kompetensblocken prövas i en kopia av repot. Omlåsningen kräver rena kunskap/, skills,
+  kritik/ och mall/.
 - Sajtens paket (grupper: astro med @astrojs/*, react med react-dom, tailwind med @tailwindcss/vite): installation
   utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge med Vercel-adaptern; en huvudversion
   också hela rökprovet.
@@ -32,9 +41,12 @@ Per slag (kunskap/beroenden.md, avsnittet Underhåll):
 - Python-paketen: låset (requirements.txt, requirements-lock.txt) skapas först; en uppdatering i en egen venv, pip check,
   OSV:s sårbarhetsdatabas, regressionsfallen i en worktree med den venv:en (huvudversion: hela rökprovet).
 - Homebrew: bara node, python@3.12, git och gh, aldrig brew upgrade på allt. Node följer den senaste LTS som Vercel
-  stöder: en ny huvudversion installeras bredvid (node@NN), prövas med hela rökprovet och länkas sedan om. En
-  patchversion av en formel kan inte ligga bredvid den gamla: flaskans kontrollsumma prövas (brew fetch), uppgraderingen
-  verifieras och den förra kegen länkas tillbaka om något faller.
+  stöder: en ny huvudversion installeras bredvid (node@NN), prövas med hela rökprovet och länkas sedan om; pinnar PATH
+  den gamla formeln (ägarens skalprofil, som underhållet aldrig ändrar) behålls bytet med skäl. En formel som byts på
+  plats kan inte prövas bredvid den gamla: flaskans kontrollsumma prövas (brew fetch), uppgraderingen verifieras, en ny
+  huvudversion (git, gh) prövas med hela rökprovet efter bytet (avbrutet om en start väntar), och den förra kegen länkas
+  tillbaka om något faller. Efter varje install och uppgradering prövas de fyra formlernas bibliotekslänkar (brew
+  linkage --test), och det som gått sönder installeras om.
 - Impeccables motor: den version skillen pinnar, hämtad med kontrollsumman och prövad på en sida.
 - macOS, Xcode-verktygen och Homebrew självt redovisas bara.
 Intag i kontrollernas node_modules och i .venv görs bara i en utcheckning som äger dem (inte länkade från en annan).
@@ -47,15 +59,32 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verktygslada as vl  # noqa: E402
 
 MAX_DIFF = 80_000
+# Ett intag i taget på hela maskinen, och startkontrollen i varje utcheckning väntar på det (fynd 2 och 3)
+import korregister  # noqa: E402
+BYTESLAS = korregister.BYTESLAS
+# fel i ett nätsteg som säger något om omgivningen, inte om versionen: prövas igen vid nästa underhåll, avvisar aldrig
+# (fynd 10). Bara stegen som går över nätet märks (nat()); ett bygge innanför processgränsen som faller är kandidatens fel.
+TILLFALLIGT = re.compile(r'tidsgränsen|timed? ?out|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|getaddrinfo|URLError|'
+                         r'Could not resolve|Temporary failure|Network is unreachable|rate.?limit|(?<![.\d])E?(?:429|50[234])(?![.\d])|'
+                         r'Service Unavailable|Bad Gateway|overloaded|quota|kvot', re.I)
+HALL = 'BEHÅLLEN: '  # prefix för ett prov som varken godkänner eller avvisar (karenstid, utanför flödets ansvar)
+TILL = 'TILLFÄLLIGT: '  # prefix för ett nätsteg som föll av ett tillfälligt skäl
+# skillens frontmatter och konfiguration som ger behörigheter, krokar eller körning (fynd 1)
+KANSLIGA_NYCKLAR = ('allowed-tools', 'disallowed-tools', 'hooks', 'disable-model-invocation', 'context', 'agent', 'model',
+                    'permissions', 'mcp', 'mcpservers', 'user-invocable')
+KONFIGFILER = ('settings.json', 'settings.local.json', 'plugin.json', '.mcp.json', 'hooks.json')
+KORDA_SKRIPT = {'ui-ux-pro-max': ('scripts/',)}  # skills vars skript flödet kör (kontroller/uxsok.py)
 TILLATNA = ('.claude/skills/', 'mall/astro/package.json', 'mall/astro/package-lock.json', 'mall/leverans/package.json',
             'mall/leverans/package-lock.json', 'kontroller/package.json', 'kontroller/package-lock.json', 'requirements.txt',
             'requirements-lock.txt', 'kunskap/metodkarta.lock.json')
+PIP = ['-m', 'pip', 'install', '-q', '--disable-pip-version-check', '--only-binary=:all:']
 DIREKTA_PY = ('ddgs', 'defusedxml', 'imageio-ffmpeg', 'requests', 'youtube-transcript-api', 'yt-dlp')
 OSV = 'https://api.osv.dev/v1/querybatch'
 MEDDELANDE_SLUT = '\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>'
@@ -66,6 +95,12 @@ GRANSKNING_SCHEMA = {'type': 'object', 'required': ['sakert', 'risker', 'nya_kro
 
 def ROOT():
     return vl.ROOT
+
+
+def nat(fel):
+    """Felet ur ett steg som går över nätet (installation, granskning, hämtning, modellsvar): märkt tillfälligt när det
+    säger något om omgivningen, så att versionen prövas igen vid nästa underhåll i stället för att avvisas."""
+    return (TILL + fel) if fel and not fel.startswith((TILL, HALL)) and TILLFALLIGT.search(fel) else fel
 
 
 def kopiera(kalla, mal, utom=('node_modules', 'dist', '.astro', '.vercel', '__pycache__')):
@@ -99,8 +134,20 @@ def checka_in(sokvagar, rubrik, text):
         return None, 'inget att checka in'
     rc, ut = git('commit', '-q', '-m', 'Underhåll: %s\n\n%s%s' % (rubrik, text, MEDDELANDE_SLUT), '--', *sokvagar)
     if rc:
+        git('reset', '-q', '--', *sokvagar)  # indexet tillbaka; filerna återställer anroparen
         return None, 'git commit föll: ' + vl.sista(ut)
     return git('rev-parse', 'HEAD')[1].strip(), None
+
+
+def checka_in_eller_aterstall(sokvagar, rubrik, text, aterstall):
+    """(commit, None), eller (None, skäl) när incheckningen föll: då har aterstall() lagt tillbaka filerna och miljön, och
+    intaget behålls till nästa underhåll (felet gäller inte versionen; fynd 8). Utan git, eller utan något att checka
+    in, är intaget klart utan commit."""
+    commit, cfel = checka_in(sokvagar, rubrik, text)
+    if commit or cfel in ('inte en git-utcheckning', 'inget att checka in'):
+        return commit, None
+    afel = aterstall()
+    return None, 'incheckningen föll (%s); %s' % (cfel, ('ÅTERSTÄLLNINGEN FÖLL: ' + afel) if afel else 'filerna och miljön återställda')
 
 
 def pusha():
@@ -143,69 +190,106 @@ def audit(cwd):
 
 # --- rökprovet i en egen worktree ---
 
-def rokprov_i_worktree(k, etikett, forbered, path_forst=None, timeout=3600):
-    """Hela rökprovet i en worktree från HEAD. forbered(wt) lägger in kandidaten (manifest, egna node_modules, egen .venv)
-    och ger None eller ett fel; .venv och kontrollernas node_modules länkas annars till utcheckningens (läsande).
-    Ger (ok, text); loggen sparas i underlag/startkontroll/underhall/."""
+def kor_i_worktree(k, etikett, forbered, kmd, path_forst=None, timeout=3600, slag='rokprov', avbryt=None):
+    """kmd(wt) i en worktree från HEAD. forbered(wt) lägger in kandidaten (manifest, egna node_modules, egen .venv) och
+    ger None eller ett fel; .venv och kontrollernas node_modules länkas annars till utcheckningens. Kandidatens kod körs
+    med en minimal miljö (inga nycklar eller tokens) och kan inte läsa hemligheterna (fynd 4); provet anmäler sig inte i
+    körregistret (NWP_UNDERHALL_PROV), så att underhållet inte väntar på sig självt. Ger (slutkod, utdata, logg), eller
+    (None, felet, None) när provet inte kunde startas; loggen sparas i underlag/startkontroll/underhall/."""
+    import processgrans
     if not ar_git():
-        return False, 'rökprovet kräver en git-utcheckning för sin worktree'
+        return None, 'provet kräver en git-utcheckning för sin worktree', None
+    if not os.access(processgrans.SANDBOX_EXEC, os.X_OK):
+        return None, 'processgränsen (sandbox-exec) saknas: ett prov med en kandidat körs inte utan den', None
     bas = Path(tempfile.mkdtemp(prefix='nwp-underhall-'))
     wt = bas / 'wt'
     rc, ut = git('worktree', 'add', '--detach', '-q', str(wt), 'HEAD')
     if rc:
         shutil.rmtree(bas, ignore_errors=True)
-        return False, 'worktree kunde inte skapas: ' + vl.sista(ut)
+        return None, 'worktree kunde inte skapas: ' + vl.sista(ut), None
     try:
         fel = forbered(wt)
         if fel:
-            return False, fel
+            return None, fel, None
         if not (wt / '.venv').exists():
             os.symlink(os.path.realpath(ROOT() / '.venv'), wt / '.venv')
         if not (wt / 'kontroller' / 'node_modules').exists():
             os.symlink(os.path.realpath(ROOT() / 'kontroller' / 'node_modules'), wt / 'kontroller' / 'node_modules')
-        env = vl.miljo({'PATH': '%s:%s' % (path_forst, os.environ.get('PATH', ''))} if path_forst else None)
-        rc, ut = vl.kor(['bash', wt / 'kontroller' / 'rokprov.sh'], cwd=wt, timeout=timeout, env=env)
-        logg = k.katalog / 'underhall' / ('rokprov-%s-%s.log' % (re.sub(r'[^\w.-]+', '-', etikett), vl.nu().replace(':', '')))
+        path = os.environ.get('PATH', '')
+        env = vl.provmiljo({'NWP_UNDERHALL_PROV': '1', 'PATH': ('%s:%s' % (path_forst, path)) if path_forst else path})
+        rc, ut = vl.kor([processgrans.SANDBOX_EXEC, '-p', processgrans.profil_lasforbud(), *kmd(wt)], cwd=wt, timeout=timeout, env=env,
+                        avbryt=avbryt)
+        logg = k.katalog / 'underhall' / ('%s-%s-%s.log' % (slag, re.sub(r'[^\w.-]+', '-', etikett), vl.nu().replace(':', '')))
         logg.parent.mkdir(parents=True, exist_ok=True)
         logg.write_text(ut, encoding='utf-8')
-        if rc == 0:
-            return True, 'hela rökprovet grönt i en egen worktree'
-        felrad = [x for x in ut.splitlines() if x.startswith('FEL') or 'Error' in x or 'rc ' in x]
-        return False, 'rökprovet rött (kod %d): %s (logg %s)' % (rc, vl.sista(' '.join(felrad[-3:]) or ut, 300), logg.name)
+        return rc, ut, logg
     finally:
         git('worktree', 'remove', '--force', str(wt))
         shutil.rmtree(bas, ignore_errors=True)
         git('worktree', 'prune')
 
 
+def rokprov_i_worktree(k, etikett, forbered, path_forst=None, timeout=3600, avbryt=None):
+    """Hela rökprovet (kontroller/rokprov.sh) i en egen worktree med kandidaten. Ger (ok, text). avbryt(): ett prov
+    efter ett byte på plats avbryts när en start väntar (långa prov blockerar aldrig en start), och texten börjar då med
+    HALL."""
+    rc, ut, logg = kor_i_worktree(k, etikett, forbered, lambda wt: ['bash', wt / 'kontroller' / 'rokprov.sh'], path_forst, timeout, avbryt=avbryt)
+    if rc is None:
+        return False, ut
+    if rc == vl.AVBRUTEN:
+        return False, HALL + 'rökprovet avbröts: en start väntade; prövas igen vid nästa underhåll'
+    if rc == 0:
+        return True, 'hela rökprovet grönt i en egen worktree'
+    felrad = [x for x in ut.splitlines() if x.startswith('FEL') or 'Error' in x or 'rc ' in x]
+    return False, 'rökprovet rött (kod %d): %s (logg %s)' % (rc, vl.sista(' '.join(felrad[-3:]) or ut, 300), logg.name)
+
+
 # --- Claude Code och Vercel CLI ---
 
 def prova_globalt(k, r, kand):
+    """Kandidaten i en provkatalog med en minimal miljö: installationen (utan skript, utom Claude Codes eget som länkar
+    den inbyggda binären), npm audit och versionen; för Claude också flaggorna, ett strukturerat svar och vaktprovet
+    (kundvaktens mekanik); en huvudversion också hela rökprovet med kandidaten först i PATH. Vercel CLI får aldrig
+    ägarens inloggning i provet (fynd 4)."""
     paket, version = r['paket'], kand['version']
     d = Path(tempfile.mkdtemp(prefix='nwp-global-'))
+    env = vl.provmiljo()
     try:
-        rc, ut = npm(['install', '--prefix', str(d), '--no-audit', '--no-fund', '%s@%s' % (paket, version)], d)
+        skript = [] if paket == '@anthropic-ai/claude-code' else ['--ignore-scripts']
+        rc, ut = npm(['install', '--prefix', str(d), '--no-audit', '--no-fund', *skript, '%s@%s' % (paket, version)], d, env=env)
         if rc:
-            return 'installationen i en provkatalog föll: ' + vl.sista(ut), None
+            return nat('installationen i en provkatalog föll: ' + vl.sista(ut)), None
         fel = audit(d)
         if fel:
-            return fel, None
+            return nat(fel), None
         b = d / 'node_modules' / '.bin' / r['binar']
-        v = vl.version_av([b, '--version'])
+        rc, ut = vl.kor([b, '--version'], timeout=60, env=env)
+        v = (re.search(r'(\d+\.\d+\.\d+)', ut) or [None, None])[1] if rc == 0 else None
         if v != version:
             return 'provkatalogens %s svarar %s, väntade %s' % (r['binar'], v, version), None
-        if r['binar'] == 'vercel':  # inloggningen och API:t med den nya versionen (Vercel CLI används vid leveransen)
-            rc, ut = vl.kor([b, 'whoami'], timeout=120)
+        prov = 'provkatalog, npm audit, versionen'
+        if r['binar'] == 'vercel':
+            rc, ut = vl.kor([b, '--help'], timeout=60, env=env)
             if rc:
-                return 'vercel whoami med %s: %s' % (version, vl.sista(ut)), None
+                return 'vercel --help med %s: %s' % (version, vl.sista(ut)), None
+            prov += ' och hjälpen'
         if r['binar'] == 'claude':
             saknas = vl.flaggor_saknas(b)
             if saknas:
                 return 'flaggor som flödet använder saknas: ' + ', '.join(saknas), None
             fel = vl.modellsvar(str(b), vl.PROVMODELL, schema=True)
             if fel:
-                return 'modellprovet (strukturerat svar, %s): %s' % (vl.PROVMODELL, fel), None
-        return None, {'prov': 'provkatalog, npm audit, versionen' + {'claude': ', flaggorna och ett strukturerat modellsvar', 'vercel': ' och inloggningen (vercel whoami)'}.get(r['binar'], '')}
+                return nat('modellprovet (strukturerat svar, %s): %s' % (vl.PROVMODELL, fel)), None
+            fel = vl.vaktprov(str(b))
+            if fel:
+                return nat('vaktprovet (kundvaktens mekanik): %s' % fel), None
+            prov += ', flaggorna, ett strukturerat modellsvar och vaktprovet'
+        if kand.get('huvudversion'):
+            ok, text = rokprov_i_worktree(k, r['id'], lambda wt: None, path_forst=str(d / 'node_modules' / '.bin'))
+            if not ok:
+                return text, None
+            prov += ', ' + text
+        return None, {'prov': prov}
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -219,8 +303,9 @@ def ta_in_globalt(k, r, kand, staged):
     if rc == 0 and ny == version:
         return 'uppdaterad', '%s → %s (%s)' % (gammal, version, staged['prov']), None
     rc2, ut2 = npm(['install', '-g', '--no-audit', '--no-fund', '%s@%s' % (paket, gammal)], ROOT())
-    return 'avvisad', 'den globala installationen föll (%s); %s' % (vl.sista(ut, 160), 'återställd till %s' % gammal if rc2 == 0 else
-                                                                      'ÅTERSTÄLLNINGEN FÖLL: ' + vl.sista(ut2, 120)), None
+    tillbaka = vl.version_av([shutil.which(r['binar']) or r['bin'], '--version']) == gammal
+    return 'avvisad', nat('den globala installationen föll (%s); %s' % (vl.sista(ut, 160), 'återställd till %s' % gammal if rc2 == 0 and tillbaka else
+                                                                          'ÅTERSTÄLLNINGEN FÖLL: ' + vl.sista(ut2, 120))), None
 
 
 # --- skillsen ---
@@ -327,7 +412,73 @@ def nya_risker(fore, efter):
         ut.append('ny text riktad till agenter')
     if (efter.get('skript') or 0) > (fore.get('skript') or 0):
         ut.append('nya skript (%d → %d)' % (fore.get('skript') or 0, efter['skript']))
+    for falt, vad in (('behorigheter', 'behörigheter i frontmatter'), ('konfig', 'krokar, MCP-servrar eller behörigheter i konfiguration')):
+        nya = sorted(set(efter.get(falt) or []) - set(fore.get(falt) or []))
+        if nya:
+            ut.append('nya %s: %s' % (vad, '; '.join(nya[:3])))
     return ut
+
+
+def frontmatter(text):
+    m = re.match(r'^---\n(.*?)\n---', text, re.S)
+    ut, nyckel = {}, None
+    for rad_ in (m.group(1).splitlines() if m else []):
+        mm = re.match(r'^([A-Za-z][\w-]*)\s*:\s*(.*)$', rad_)
+        if mm:
+            nyckel = mm.group(1).lower()
+            ut[nyckel] = mm.group(2).strip()
+        elif nyckel and rad_.startswith((' ', '\t', '-')):
+            ut[nyckel] += '\n' + rad_.strip()
+    return ut
+
+
+def kansliga_andringar(gammal, ny, namn):
+    """Det en uppdatering lägger till eller ändrar som ger behörigheter, krokar eller körning (fynd 1): känsliga nycklar i
+    någon markdownfils frontmatter, konfigurationsfiler, och skript som flödet faktiskt kör. Tomt när inget sådant ändras."""
+    gammal, ny = Path(gammal), Path(ny)
+    ut = []
+    for f in sorted(p_ for p_ in ny.rglob('*') if p_.is_file()):
+        rel_ = f.relative_to(ny).as_posix()
+        g = gammal / rel_
+        fore = g.read_bytes() if g.is_file() else None
+        efter = f.read_bytes()
+        if fore == efter:
+            continue
+        if f.name in KONFIGFILER:
+            ut.append('konfigurationsfilen %s ändras' % rel_)
+        if f.suffix == '.md':
+            fm_f = frontmatter(fore.decode('utf-8', 'replace')) if fore else {}
+            fm_e = frontmatter(efter.decode('utf-8', 'replace'))
+            for nyckel in KANSLIGA_NYCKLAR:
+                if fm_e.get(nyckel) != fm_f.get(nyckel):
+                    ut.append('%s: frontmatternyckeln %s ändras' % (rel_, nyckel))
+        if any(rel_.startswith(prefix) for prefix in KORDA_SKRIPT.get(namn, ())) and f.suffix in ('.py', '.sh', '.js', '.mjs', '.cjs', ''):
+            ut.append('skriptet %s, som flödet kör, ändras' % rel_)
+    return ut
+
+
+def utdrag_som_andras(tmp, namn):
+    """Metodkartans utdrag ur skillens filer som uppdateringen flyttar eller bryter (fynd 5): ett radutdrag ("rad 26–35")
+    vars text blir en annan pekar tyst på något annat, och ett utdrag som inte längre går att läsa (rubriken eller filen
+    borta) är trasigt. Hela filer och avsnitt under en rubrik följer innehållet och får ändras. Ger [rad i kartan]."""
+    kod = ('import json, sys; sys.path.insert(0, "kontroller"); import metod\n'
+           'ut = {}\n'
+           'for r in sorted({r for rubrik in metod.STEG.values() for del_ in ("före", "varv", "uppslag") '
+           'for r in metod.stegets_rader(metod.tolka(metod.KARTA.read_text(encoding="utf-8")), rubrik, del_)}):\n'
+           '    try:\n        ut[r] = metod.utdrag(r)["text"]\n    except Exception as e:\n        ut[r] = "FEL: %s" % e\n'
+           'print(json.dumps(ut))\n')
+    svar = []
+    for rot in (ROOT(), tmp):
+        rc, text = vl.kor([sys.executable, '-B', '-c', kod], cwd=rot, timeout=300, bara_ut=True)
+        try:
+            svar.append(json.loads(text.strip().splitlines()[-1]) if rc == 0 else None)
+        except (ValueError, IndexError):
+            svar.append(None)
+    if None in svar:
+        return ['metodkartans utdrag gick inte att läsa']
+    fore, efter = svar
+    return sorted(r for r in fore if r.split()[0].startswith(namn + '/') and fore[r] != efter.get(r)
+                  and (re.search(r'\srad \d', r) or str(efter.get(r)).startswith('FEL: ')))
 
 
 def mappdiff(a, b):
@@ -392,7 +543,10 @@ def prova_skill(k, r, kand):
     head = (k.senast_kanda('git:' + kalla['repo']) or {}).get('varde') or kand['version']
     klon, fel = repo_klon(kalla['repo'])
     if not klon:
-        return 'källan gick inte att hämta: ' + vl.sista(fel), None
+        return nat('källan gick inte att hämta: ' + vl.sista(fel)), None
+    rc, ut = git('log', '-1', '--format=%ct', head, cwd=klon)
+    if rc == 0 and ut.strip().isdigit() and time.time() - int(ut.strip()) < vl.KARENS_DAGAR * 86400:  # karenstiden (fynd 4)
+        return HALL + 'källans senaste commit (%s) är yngre än karenstiden (%g dygn); prövas när den gått ut' % (head[:12], vl.KARENS_DAGAR), None
     plan, konflikter, andrat = plan_for_skill(mapp, kalla, klon, head)
     avtryck = vl.sha('%s|%s|%s' % (kalla['commit'], head, vl.mappavtryck(mapp)))
     if plan is None:
@@ -407,19 +561,25 @@ def prova_skill(k, r, kand):
         repokopia_for_metod(tmp)
         ny = tmp / '.claude' / 'skills' / mapp.name
         tillampa(ny, plan)
+        kansliga = kansliga_andringar(mapp, ny, mapp.name)
+        if kansliga:  # behörigheter, krokar och körda skript tas aldrig in automatiskt
+            return 'uppdateringen ändrar behörigheter eller körning: ' + '; '.join(kansliga[:4]), None
         fore, efter = forgranska(mapp), forgranska(ny)
         if fore is None or efter is None:
             return 'förgranskningen (granska_repo.py) kunde inte köras', None
         risker = nya_risker(fore, efter)
         if risker:
             return 'förgranskningen: ' + '; '.join(risker), None
+        flyttade = utdrag_som_andras(tmp, mapp.name)
+        if flyttade:  # ett radutdrag som skulle peka på annan text: metodkartan prövas för hand först
+            return 'metodkartans utdrag ändras av uppdateringen (%s); prövas och skrivs om för hand' % '; '.join(flyttade[:3]), None
         diff = mappdiff(mapp, ny)
         if len(diff) > MAX_DIFF:
             return 'ändringen är %d tecken, över gränsen för den automatiska granskningen (%d); tas in genom en granskad ändring' % (len(diff), MAX_DIFF), None
         krockar = re.search(r'\*\*Krockar med våra beslut:\*\*(.*?)(?=\n- \*\*|\Z)', (mapp / 'KALLA.md').read_text(encoding='utf-8'), re.S)
         g, gfel = granska_andring(mapp.name, diff, ' '.join(krockar.group(1).split())[:4000] if krockar else '')
         if gfel:
-            return gfel, None
+            return nat(gfel), None
         if not g['sakert']:
             return 'granskningen: ' + '; '.join(g.get('risker') or ['osäker']), None
         fel = prova_metod_i(tmp)
@@ -439,35 +599,50 @@ def ta_in_skill(k, r, kand, staged):
         return 'ok', 'mappen oförändrad i källan sedan %s' % r['skill']['commit'][:12], None
     mapp = Path(r['mapp'])
     sokvagar = [str(mapp.relative_to(ROOT())), 'kunskap/metodkarta.lock.json']
-    smutsigt = rena(sokvagar)
+    # låset räknas ur kunskap/, skillsen, kritik/ och mall/: okommitterade ändringar där skulle bakas in i det (fynd 5)
+    smutsigt = rena(sokvagar + ['kunskap', '.claude/skills', 'kritik', 'mall'])
     if smutsigt:
-        return 'behallen', 'okommitterade ändringar i %s; rörs inte' % ', '.join(smutsigt[:3]), None
+        return 'behallen', 'okommitterade ändringar i %s; metoden låses inte om över dem' % ', '.join(smutsigt[:3]), None
+    lasfil = ROOT() / 'kunskap' / 'metodkarta.lock.json'
+    las_fore = lasfil.read_bytes() if lasfil.is_file() else None
+    avtryck_fore = vl.mappavtryck(mapp)
     reserv = Path(tempfile.mkdtemp(prefix='nwp-skillreserv-')) / mapp.name
     shutil.copytree(mapp, reserv, symlinks=True)
-    try:
-        shutil.rmtree(mapp)
-        shutil.copytree(staged['mapp'], mapp, symlinks=True)
-        kalla_md = mapp / 'KALLA.md'
-        t = kalla_md.read_text(encoding='utf-8').replace(r['skill']['commit'], staged['head'], 1).rstrip('\n')
-        t += '\n- **Uppdaterad av underhållet %s** från `%s` till `%s` (%d filer, lokala anpassningar sammanslagna; %s).%s\n' % (
-            vl.nu(), r['skill']['commit'][:12], staged['head'][:12], staged['filer'], staged.get('kommentar') or 'ingen kommentar',
-            (' Nya krockar enligt granskningen: ' + '; '.join(staged['krockar'])) if staged['krockar'] else '')
-        kalla_md.write_text(t, encoding='utf-8')
-        rc, ut = vl.kor([sys.executable, '-B', ROOT() / 'kontroller' / 'metod.py', '--las'], timeout=300)
-        if rc:
-            raise RuntimeError('låset kunde inte skrivas: ' + vl.sista(ut))
-    except Exception as e:  # noqa: BLE001 — mappen återställs
+
+    def aterstall():
         shutil.rmtree(mapp, ignore_errors=True)
         shutil.copytree(reserv, mapp, symlinks=True)
-        vl.kor([sys.executable, '-B', ROOT() / 'kontroller' / 'metod.py', '--las'], timeout=300)
-        return 'avvisad', 'intaget föll och mappen återställdes: %s' % vl.sista(e, 200), None
+        if las_fore is not None:
+            lasfil.write_bytes(las_fore)
+        if vl.mappavtryck(mapp) != avtryck_fore or (las_fore is not None and lasfil.read_bytes() != las_fore):
+            return 'mappen eller låset skiljer sig efter återställningen'
+        return None
+    try:
+        try:
+            shutil.rmtree(mapp)
+            shutil.copytree(staged['mapp'], mapp, symlinks=True)
+            kalla_md = mapp / 'KALLA.md'
+            t = kalla_md.read_text(encoding='utf-8').replace(r['skill']['commit'], staged['head'], 1).rstrip('\n')
+            t += '\n- **Uppdaterad av underhållet %s** från `%s` till `%s` (%d filer, lokala anpassningar sammanslagna; %s).%s\n' % (
+                vl.nu(), r['skill']['commit'][:12], staged['head'][:12], staged['filer'], staged.get('kommentar') or 'ingen kommentar',
+                (' Nya krockar enligt granskningen: ' + '; '.join(staged['krockar'])) if staged['krockar'] else '')
+            kalla_md.write_text(t, encoding='utf-8')
+            rc, ut = vl.kor([sys.executable, '-B', ROOT() / 'kontroller' / 'metod.py', '--las'], timeout=300)
+            if rc:
+                raise RuntimeError('låset kunde inte skrivas: ' + vl.sista(ut))
+        except Exception as e:  # noqa: BLE001 — mappen och låset återställs
+            afel = aterstall()
+            return 'avvisad', 'intaget föll (%s); %s' % (vl.sista(e, 200), ('ÅTERSTÄLLNINGEN FÖLL: ' + afel) if afel else 'mappen och låset återställda'), None
+        commit, cfel = checka_in_eller_aterstall(sokvagar, 'skillen %s till %s' % (mapp.name, staged['head'][:12]),
+                                                 'Källan %s, från %s till %s (%d filer).\nProv: %s.' % (
+                                                     r['skill']['repo'], r['skill']['commit'][:12], staged['head'][:12], staged['filer'], staged['prov']),
+                                                 aterstall)
     finally:
         shutil.rmtree(reserv.parent, ignore_errors=True)
-    commit, cfel = checka_in(sokvagar, 'skillen %s till %s' % (mapp.name, staged['head'][:12]),
-                             'Källan %s, från %s till %s (%d filer).\nProv: %s.' % (r['skill']['repo'], r['skill']['commit'][:12], staged['head'][:12],
-                                                                                  staged['filer'], staged['prov']))
+    if cfel:
+        return 'behallen', cfel, None
     return 'uppdaterad', '%s → %s, %d filer%s' % (r['skill']['commit'][:12], staged['head'][:12], staged['filer'],
-                                                     ('; nya krockar: ' + '; '.join(staged['krockar'])) if staged['krockar'] else ''), commit or cfel
+                                                     ('; nya krockar: ' + '; '.join(staged['krockar'])) if staged['krockar'] else ''), commit
 
 
 # --- sajtens paket ---
@@ -481,18 +656,21 @@ def satt_versioner(pj_fil, paket):
 
 
 def prova_sajt(k, r, kand):
+    """Installation utan skript och med en minimal miljö, npm audit, och provbygget innanför processgränsen
+    (processgrans.kor_i_katalog: skrivning bara i provkatalogen, inget nät, inga nycklar; fynd 4)."""
     import exportera
+    import processgrans
     tmp = Path(tempfile.mkdtemp(prefix='nwp-sajtpaket-'))
     try:
         mall, lev, repo = tmp / 'mall', tmp / 'leverans', tmp / 'kundrepo'
         kopiera(ROOT() / 'mall' / 'astro', mall)
         satt_versioner(mall / 'package.json', kand['paket'])
-        rc, ut = npm(['install', '--no-audit', '--no-fund', '--ignore-scripts'], mall)
+        rc, ut = npm(['install', '--no-audit', '--no-fund', '--ignore-scripts'], mall, env=vl.provmiljo())
         if rc:
-            return 'installationen (mallen) föll: ' + vl.sista(ut, 300), None
+            return nat('installationen (mallen) föll: ' + vl.sista(ut, 300)), None
         fel = audit(mall)
         if fel:
-            return 'mallen: ' + fel, None
+            return nat('mallen: ' + fel), None
         spar = k.katalog / 'godkanda' / ('sajt-%s' % r['id'].split(':', 1)[1])
         shutil.rmtree(spar, ignore_errors=True)
         (spar / 'astro').mkdir(parents=True)
@@ -501,12 +679,12 @@ def prova_sajt(k, r, kand):
             shutil.copy2(mall / f, spar / 'astro' / f)
         kopiera(ROOT() / 'mall' / 'leverans', lev)
         satt_versioner(lev / 'package.json', kand['paket'])
-        rc, ut = npm(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], lev)
+        rc, ut = npm(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], lev, env=vl.provmiljo())
         if rc:
-            return 'låset (leveransen) föll: ' + vl.sista(ut, 300), None
+            return nat('låset (leveransen) föll: ' + vl.sista(ut, 300)), None
         fel = audit(lev)
         if fel:
-            return 'leveransen: ' + fel, None
+            return nat('leveransen: ' + fel), None
         for f in ('package.json', 'package-lock.json'):
             shutil.copy2(lev / f, spar / 'leverans' / f)
         # provbygget: rökprovets sajt med mallen och kandidatens paket
@@ -514,9 +692,9 @@ def prova_sajt(k, r, kand):
         kopiera(ROOT() / 'kontroller' / 'rokprov' / 'public', mall / 'public')
         konf = mall / 'astro.config.mjs'
         konf.write_text(konf.read_text(encoding='utf-8').replace('https://ERSATT-MED-DOMAN.se', 'https://exempel-rokprov.se'), encoding='utf-8')
-        rc, ut = npm(['run', 'build'], mall)
+        rc, ut = processgrans.kor_i_katalog(mall, [mall / 'node_modules' / '.bin' / 'astro', 'build'])
         if rc or not (mall / 'dist' / 'index.html').is_file() or not (mall / 'dist' / 'om' / 'index.html').is_file():
-            return 'provbygget med mallen föll: ' + vl.sista(ut, 300), None
+            return 'provbygget med mallen (innanför processgränsen) föll: ' + vl.sista(ut, 300), None
         # kundrepots bygge med Vercel-adaptern, som exportera.py gör det
         repo.mkdir()
         for d in ('src', 'public'):
@@ -532,8 +710,10 @@ def prova_sajt(k, r, kand):
             shutil.copy2(lev / f, repo / f)
         ok, text = exportera.verifiera_bygge(repo)
         if not ok:
-            return 'kundrepots bygge med Vercel-adaptern föll: ' + vl.sista(text, 300), None
-        prov = 'installation utan skript, npm audit, rökprovets sajt byggd med mallen, kundrepots bygge med Vercel-adaptern'
+            fel = 'kundrepots bygge med Vercel-adaptern föll: ' + vl.sista(text, 300)
+            return (fel if '$ astro build' in text else nat(fel)), None  # bara installationen före bygget går över nätet
+        prov = ('installation utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge med Vercel-adaptern, '
+                'båda innanför processgränsen')
         if kand.get('huvudversion'):
             def forbered(wt):
                 for del_ in ('astro', 'leverans'):
@@ -553,12 +733,21 @@ def ta_in_sajt(k, r, kand, staged):
     smutsigt = rena(sokvagar)
     if smutsigt:
         return 'behallen', 'okommitterade ändringar i %s; rörs inte' % ', '.join(smutsigt[:3]), None
+    reserv = {f: (ROOT() / f).read_bytes() for f in sokvagar}
+
+    def aterstall():
+        for f, b in reserv.items():
+            (ROOT() / f).write_bytes(b)
+        return None if all((ROOT() / f).read_bytes() == b for f, b in reserv.items()) else 'manifesten skiljer sig efter återställningen'
     spar = Path(staged['mapp'])
     for del_ in ('astro', 'leverans'):
         for f in ('package.json', 'package-lock.json'):
             shutil.copy2(spar / del_ / f, ROOT() / 'mall' / del_ / f)
-    commit, cfel = checka_in(sokvagar, 'sajtens paket %s' % kand['version'], 'Från %s till %s.\nProv: %s.' % (r['installerat'], kand['version'], staged['prov']))
-    return 'uppdaterad', '%s → %s (%s)' % (r['installerat'], kand['version'], staged['prov']), commit or cfel
+    commit, cfel = checka_in_eller_aterstall(sokvagar, 'sajtens paket %s' % kand['version'],
+                                             'Från %s till %s.\nProv: %s.' % (r['installerat'], kand['version'], staged['prov']), aterstall)
+    if cfel:
+        return 'behallen', cfel, None
+    return 'uppdaterad', '%s → %s (%s)' % (r['installerat'], kand['version'], staged['prov']), commit
 
 
 # --- mätinstrumenten ---
@@ -574,12 +763,12 @@ def prova_instrument(k, r, kand):
         for f in ('package.json', 'package-lock.json'):
             shutil.copy2(ROOT() / 'kontroller' / f, tmp / f)
         satt_versioner(tmp / 'package.json', {r['namn']: kand['version']})
-        rc, ut = npm(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], tmp)
+        rc, ut = npm(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], tmp, env=vl.provmiljo())
         if rc:
-            return 'låset föll: ' + vl.sista(ut, 300), None
+            return nat('låset föll: ' + vl.sista(ut, 300)), None
         fel = audit(tmp)
         if fel:
-            return fel, None
+            return nat(fel), None
         spar = k.katalog / 'godkanda' / ('instrument-%s' % r['namn'])
         shutil.rmtree(spar, ignore_errors=True)
         spar.mkdir(parents=True)
@@ -587,19 +776,24 @@ def prova_instrument(k, r, kand):
             shutil.copy2(tmp / f, spar / f)
 
         def forbered(wt):
-            for f in ('package.json', 'package-lock.json'):
-                shutil.copy2(spar / f, wt / 'kontroller' / f)
-            rc, ut = npm(['ci', '--no-audit', '--no-fund'], wt / 'kontroller', timeout=1200)
-            if rc:
-                return 'npm ci i worktreen föll: ' + vl.sista(ut, 300)
-            rc, ut = vl.kor(['npx', 'playwright', 'install', *vl.WEBBLASARE], cwd=wt / 'kontroller', timeout=1800)
-            return None if rc == 0 else 'webbläsarna kunde inte installeras: ' + vl.sista(ut, 300)
+            fel = installera_instrument(wt / 'kontroller')
+            return nat('i worktreen: ' + fel) if fel else None
         ok, text = rokprov_i_worktree(k, r['id'], forbered)
         if not ok:
             return text, None
-        return None, {'mapp': str(spar), 'prov': 'npm audit, egna node_modules och webbläsare, ' + text}
+        return None, {'mapp': str(spar), 'prov': 'npm audit, egna node_modules (utan installationsskript) och webbläsare, ' + text}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def installera_instrument(kontr):
+    """npm ci utan installationsskript (inget av mätinstrumenten har något) och Playwrights webbläsare, med en minimal
+    miljö (fynd 4). Ger None eller felet."""
+    rc, ut = npm(['ci', '--no-audit', '--no-fund', '--ignore-scripts'], kontr, timeout=1200, env=vl.provmiljo())
+    if rc:
+        return 'npm ci föll: ' + vl.sista(ut, 300)
+    rc, ut = vl.kor([kontr / 'node_modules' / '.bin' / 'playwright', 'install', *vl.WEBBLASARE], cwd=kontr, timeout=1800, env=vl.provmiljo())
+    return None if rc == 0 else 'webbläsarna kunde inte installeras: ' + vl.sista(ut, 300)
 
 
 def ta_in_instrument(k, r, kand, staged):
@@ -611,18 +805,26 @@ def ta_in_instrument(k, r, kand, staged):
     if smutsigt:
         return 'behallen', 'okommitterade ändringar i %s; rörs inte' % ', '.join(smutsigt[:3]), None
     reserv = {f: (kontr / f).read_bytes() for f in ('package.json', 'package-lock.json')}
-    for f in reserv:
-        shutil.copy2(Path(staged['mapp']) / f, kontr / f)
-    rc, ut = npm(['ci', '--no-audit', '--no-fund'], kontr, timeout=1200)
-    rc2, ut2 = vl.kor(['npx', 'playwright', 'install', *vl.WEBBLASARE], cwd=kontr, timeout=1800) if rc == 0 else (1, '')
-    if rc or rc2 or vl.installerat_i(kontr / 'node_modules', r['namn']) != kand['version']:
+
+    def aterstall():
         for f, b in reserv.items():
             (kontr / f).write_bytes(b)
-        npm(['ci', '--no-audit', '--no-fund'], kontr, timeout=1200)
-        return 'avvisad', 'installationen i kontroller/ föll (%s); den förra återställd' % vl.sista(ut + ut2, 200), None
-    commit, cfel = checka_in(sokvagar, 'mätinstrumentet %s %s → %s' % (r['namn'], r['installerat'], kand['version']),
-                             'Mätinstrument bytt: körningar före och efter mäts med olika versioner.\nProv: %s.' % staged['prov'])
-    return 'uppdaterad', '%s → %s (mätinstrument; %s)' % (r['installerat'], kand['version'], staged['prov']), commit or cfel
+        fel = installera_instrument(kontr)
+        if fel or vl.installerat_i(kontr / 'node_modules', r['namn']) != r['installerat']:
+            return 'det förra låset gick inte att installera: %s' % (fel or 'fel version efteråt')
+        return None
+    for f in reserv:
+        shutil.copy2(Path(staged['mapp']) / f, kontr / f)
+    fel = installera_instrument(kontr)
+    if fel or vl.installerat_i(kontr / 'node_modules', r['namn']) != kand['version']:
+        afel = aterstall()
+        return 'avvisad', nat('installationen i kontroller/ föll (%s); %s' % (fel or 'fel version efteråt',
+                                                                             ('ÅTERSTÄLLNINGEN FÖLL: ' + afel) if afel else 'den förra återställd')), None
+    commit, cfel = checka_in_eller_aterstall(sokvagar, 'mätinstrumentet %s %s → %s' % (r['namn'], r['installerat'], kand['version']),
+                                             'Mätinstrument bytt: körningar före och efter mäts med olika versioner.\nProv: %s.' % staged['prov'], aterstall)
+    if cfel:
+        return 'behallen', cfel, None
+    return 'uppdaterad', '%s → %s (mätinstrument; %s)' % (r['installerat'], kand['version'], staged['prov']), commit
 
 
 # --- Python-paketen ---
@@ -690,20 +892,20 @@ def prova_pip(k, r, kand):
         if rc:
             return 'venv kunde inte skapas: ' + vl.sista(ut), None
         py = venv / 'bin' / 'python'
-        for steg in (['-m', 'pip', 'install', '-q', '--disable-pip-version-check', '-r', lasfil],
-                     ['-m', 'pip', 'install', '-q', '--disable-pip-version-check', '%s==%s' % (r['namn'], kand['version'])],
-                     ['-m', 'pip', 'check']):
-            rc, ut = vl.kor([py, *steg], timeout=1200)
+        # bara färdiga hjul (inga byggskript ur en källkodsutgåva) och en minimal miljö (fynd 4)
+        for steg in (PIP + ['-r', lasfil], PIP + ['%s==%s' % (r['namn'], kand['version'])], ['-m', 'pip', 'check']):
+            rc, ut = vl.kor([py, *steg], timeout=1200, env=vl.provmiljo())
             if rc:
-                return '%s föll: %s' % (' '.join(str(x) for x in steg[2:4]), vl.sista(ut, 300)), None
+                fel = '%s föll: %s' % (' '.join(str(x) for x in steg[2:4]), vl.sista(ut, 300))
+                return (nat(fel) if steg[2] == 'install' else fel), None
         frys = vl.pip_frys(py)
         try:
             sarbara = osv_granska(frys)
-        except Exception as e:  # noqa: BLE001 — en granskning som inte kan göras godkänner inget
-            return 'sårbarhetsgranskningen (OSV) kunde inte göras: %s' % vl.sista(e, 160), None
+        except Exception as e:  # noqa: BLE001 — en granskning som inte kan göras godkänner inget, och avvisar inget
+            return TILL + 'sårbarhetsgranskningen (OSV) kunde inte göras: %s' % vl.sista(e, 160), None
         if sarbara:
             return 'kända sårbarheter (OSV): ' + '; '.join('%s %s: %s' % (n, v, ', '.join(ids[:3])) for n, v, ids in sarbara[:4]), None
-        rc, ut = vl.kor([py, '-c', 'import ddgs, defusedxml, imageio_ffmpeg, requests, youtube_transcript_api, yt_dlp'], timeout=120)
+        rc, ut = vl.kor([py, '-c', 'import ddgs, defusedxml, imageio_ffmpeg, requests, youtube_transcript_api, yt_dlp'], timeout=120, env=vl.provmiljo())
         if rc:
             return 'paketen går inte att importera: ' + vl.sista(ut), None
         spar = k.katalog / 'godkanda' / ('pip-%s' % r['namn'])
@@ -727,29 +929,15 @@ def prova_pip(k, r, kand):
 
 
 def regressionsfall_i_worktree(k, etikett, forbered):
-    """Revisionens regressionsfall (kontroller/rokprov/revision/prov_revision.py) i en worktree: provbygget för en
-    Python-uppdatering som inte är en huvudversion."""
-    if not ar_git():
-        return False, 'regressionsfallen kräver en git-utcheckning'
-    bas = Path(tempfile.mkdtemp(prefix='nwp-underhall-'))
-    wt = bas / 'wt'
-    rc, ut = git('worktree', 'add', '--detach', '-q', str(wt), 'HEAD')
-    if rc:
-        shutil.rmtree(bas, ignore_errors=True)
-        return False, 'worktree kunde inte skapas: ' + vl.sista(ut)
-    try:
-        fel = forbered(wt)
-        if fel:
-            return False, fel
-        if not (wt / 'kontroller' / 'node_modules').exists():
-            os.symlink(os.path.realpath(ROOT() / 'kontroller' / 'node_modules'), wt / 'kontroller' / 'node_modules')
-        rc, ut = vl.kor([wt / '.venv' / 'bin' / 'python', '-B', wt / 'kontroller' / 'rokprov' / 'revision' / 'prov_revision.py', wt],
-                        cwd=wt, timeout=2400)
-        return (rc == 0), ('regressionsfallen gröna i en egen worktree' if rc == 0 else 'regressionsfallen röda: ' + vl.sista(ut, 300))
-    finally:
-        git('worktree', 'remove', '--force', str(wt))
-        shutil.rmtree(bas, ignore_errors=True)
-        git('worktree', 'prune')
+    """Revisionens regressionsfall (kontroller/rokprov/revision/prov_revision.py) i en worktree, med samma gräns som
+    rökprovet: provbygget för en Python-uppdatering som inte är en huvudversion."""
+    rc, ut, logg = kor_i_worktree(k, etikett, forbered, lambda wt: [wt / '.venv' / 'bin' / 'python', '-B',
+                                                                    wt / 'kontroller' / 'rokprov' / 'revision' / 'prov_revision.py', wt],
+                                  timeout=2400, slag='regressionsfall')
+    if rc is None:
+        return False, ut
+    return (rc == 0), ('regressionsfallen gröna i en egen worktree' if rc == 0 else
+                       'regressionsfallen röda: %s (logg %s)' % (vl.sista(ut, 300), logg.name))
 
 
 def ta_in_pip(k, r, kand, staged):
@@ -760,17 +948,31 @@ def ta_in_pip(k, r, kand, staged):
     if smutsigt:
         return 'behallen', 'okommitterade ändringar i %s; rörs inte' % ', '.join(smutsigt[:3]), None
     reserv = {f: (ROOT() / f).read_bytes() for f in sokvagar}
-    for f in sokvagar:
-        shutil.copy2(Path(staged['mapp']) / f, ROOT() / f)
-    rc, ut = vl.kor([vl.venv_python(), '-m', 'pip', 'install', '-q', '--disable-pip-version-check', '-r', ROOT() / 'requirements-lock.txt'], timeout=1200)
-    rc2, ut2 = vl.kor([vl.venv_python(), '-m', 'pip', 'check'], timeout=300) if rc == 0 else (1, '')
-    if rc or rc2 or (vl.pip_frys(vl.venv_python()) or {}).get(r['namn']) != kand['version']:
+
+    def installera():
+        rc, ut = vl.kor([vl.venv_python(), *PIP, '-r', ROOT() / 'requirements-lock.txt'], timeout=1200, env=vl.provmiljo())
+        rc2, ut2 = vl.kor([vl.venv_python(), '-m', 'pip', 'check'], timeout=300) if rc == 0 else (1, '')
+        return (ut + ut2) if rc or rc2 else None
+
+    def aterstall():
         for f, b in reserv.items():
             (ROOT() / f).write_bytes(b)
-        vl.kor([vl.venv_python(), '-m', 'pip', 'install', '-q', '--disable-pip-version-check', '-r', ROOT() / 'requirements-lock.txt'], timeout=1200)
-        return 'avvisad', 'installationen i .venv föll (%s); låset återställt' % vl.sista(ut + ut2, 200), None
-    commit, cfel = checka_in(sokvagar, 'Python-paketet %s %s → %s' % (r['namn'], r['installerat'], kand['version']), 'Prov: %s.' % staged['prov'])
-    return 'uppdaterad', '%s → %s (%s)' % (r['installerat'], kand['version'], staged['prov']), commit or cfel
+        fel = installera()
+        if fel or (vl.pip_frys(vl.venv_python()) or {}).get(r['namn']) != r['installerat']:
+            return 'det förra låset gick inte att installera: %s' % vl.sista(fel or 'fel version efteråt', 160)
+        return None
+    for f in sokvagar:
+        shutil.copy2(Path(staged['mapp']) / f, ROOT() / f)
+    fel = installera()
+    if fel or (vl.pip_frys(vl.venv_python()) or {}).get(r['namn']) != kand['version']:
+        afel = aterstall()
+        return 'avvisad', nat('installationen i .venv föll (%s); %s' % (vl.sista(fel or 'fel version efteråt', 200),
+                                                                       ('ÅTERSTÄLLNINGEN FÖLL: ' + afel) if afel else 'låset återställt')), None
+    commit, cfel = checka_in_eller_aterstall(sokvagar, 'Python-paketet %s %s → %s' % (r['namn'], r['installerat'], kand['version']),
+                                             'Prov: %s.' % staged['prov'], aterstall)
+    if cfel:
+        return 'behallen', cfel, None
+    return 'uppdaterad', '%s → %s (%s)' % (r['installerat'], kand['version'], staged['prov']), commit
 
 
 # --- Homebrew ---
@@ -784,15 +986,43 @@ def brew_cellar(formel):
     return Path(ut.strip()) if rc == 0 and ut.strip() else None
 
 
-def brew_aterlank(formel, gammal):
-    """Länkar tillbaka den förra kegen (Homebrew länkar annars alltid den senaste)."""
+def brew_lank(formel, version):
+    """Länkar en installerad keg av formeln (Homebrew länkar annars alltid den senaste): None eller felet."""
     c = brew_cellar(formel)
-    keg = c / gammal if c else None
+    keg = c / version if c else None
     if not keg or not keg.is_dir():
-        return 'den förra kegen (%s %s) finns inte kvar' % (formel, gammal)
+        return 'kegen %s %s finns inte' % (formel, version)
     brew('unlink', formel, timeout=300)
     rc, ut = brew('ruby', '-e', 'k = Keg.new(Pathname.new(%s)); k.link(overwrite: true); k.optlink(overwrite: true)' % json.dumps(str(keg)), timeout=300)
-    return None if rc == 0 else 'återlänkningen föll: ' + vl.sista(ut)
+    return None if rc == 0 else 'länkningen föll: ' + vl.sista(ut)
+
+
+def brew_aterlank(formel, gammal):
+    """Länkar tillbaka den förra kegen."""
+    fel = brew_lank(formel, gammal)
+    return ('den förra kegen: ' + fel) if fel else None
+
+
+def lankprov(extra=()):
+    """Formlerna flödet använder (den aktiva node-formeln, python@3.12, git, gh och de angivna) vars bibliotekslänkar är
+    trasiga (brew linkage --test). Underhållet låter inte Homebrew pröva installerade beroende formler
+    (HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK), så en uppgraderad delad formel kan bryta en annan (fynd 7)."""
+    formler = [f for f in dict.fromkeys([vl.node_formel()[0] or 'node', *vl.BREW_FORMLER, *extra]) if f and vl.brew_aktiv(f)]
+    return [f for f in formler if brew('linkage', '--test', f, timeout=300)[0]]
+
+
+def laga_lankar(extra=()):
+    """(fel, lagade) efter en install eller uppgradering: de trasiga installeras om (brew reinstall), och fel är det som
+    fortfarande är trasigt efteråt."""
+    trasiga = lankprov(extra)
+    if not trasiga:
+        return None, []
+    for f in trasiga:
+        brew('reinstall', '--formula', f, timeout=3600)
+    kvar = lankprov(extra)
+    if kvar:
+        return 'trasiga bibliotekslänkar efter bytet: %s (brew reinstall lagade inte %s)' % (', '.join(trasiga), ', '.join(kvar)), trasiga
+    return None, trasiga
 
 
 def verifiera_formel(formel, version):
@@ -825,30 +1055,51 @@ def verifiera_formel(formel, version):
 
 
 def prova_brew(k, r, kand):
-    """En patch på plats kan inte prövas bredvid den gamla: här görs bara det som går före (flaskans kontrollsumma)."""
+    """En formel byts på plats och kan inte prövas bredvid den gamla: här görs bara det som går före (flaskans
+    kontrollsumma). Verifieringen, länkprovet och för en huvudversion hela rökprovet görs efter bytet, under intagslåset."""
     rc, ut = brew('fetch', '--formula', kand['formel'], timeout=1800)
     if rc:
-        return 'brew fetch (flaskans kontrollsumma) föll: ' + vl.sista(ut), None
+        return nat('brew fetch (flaskans kontrollsumma) föll: ' + vl.sista(ut)), None
     return None, {'prov': 'flaskans kontrollsumma (brew fetch)'}
 
 
 def ta_in_brew(k, r, kand, staged):
-    formel, gammal = kand['formel'], r['installerat']
-    rc, ut = brew('upgrade', '--formula', formel, timeout=3600)
+    formel, gammal, version = kand['formel'], r['installerat'], kand['version']
+    c = brew_cellar(formel)
+    if c and (c / version).is_dir():  # kvar från ett tidigare försök som länkades tillbaka
+        fel = brew_lank(formel, version)
+        rc, ut = (1, fel) if fel else (0, '')
+    else:
+        rc, ut = brew('upgrade', '--formula', formel, timeout=3600)
     if rc:
-        return 'avvisad', 'brew upgrade %s föll: %s' % (formel, vl.sista(ut)), None
-    fel = verifiera_formel(formel, kand['version'])
+        afel = brew_aterlank(formel, gammal) if brew_cellar(formel) and vl.brew_aktiv(formel) != gammal else None
+        return 'avvisad', nat('brew upgrade %s föll: %s%s' % (formel, vl.sista(ut), ('; ' + afel) if afel else '')), None
+    fel, lagade = laga_lankar()
+    fel = fel or verifiera_formel(formel, version)
+    prov = staged['prov'] + ', verifierad efter uppgraderingen och länkprovet'
+    if not fel and kand.get('huvudversion'):
+        # en ny huvudversion (git 3, gh 3) kan bara prövas på plats: hela rökprovet nu, avbrutet om en start väntar
+        ok, text = rokprov_i_worktree(k, r['id'], lambda wt: None, avbryt=korregister.start_vantar)
+        fel = None if ok else text
+        prov += ', ' + text if ok else ''
     if fel:
         afel = brew_aterlank(formel, gammal)
-        return 'avvisad', '%s; %s' % (fel, 'den förra kegen återlänkad' if not afel else afel), None
-    return 'uppdaterad', '%s → %s (%s, verifierad efter uppgraderingen; den förra kegen sparad)' % (gammal, kand['version'], staged['prov']), None
+        slut = 'den förra kegen återlänkad' if not afel else 'ÅTERLÄNKNINGEN FÖLL: ' + afel
+        if fel.startswith(HALL):
+            return 'behallen', '%s; %s' % (fel[len(HALL):], slut), None
+        return 'avvisad', '%s; %s' % (fel, slut), None
+    return 'uppdaterad', '%s → %s (%s; den förra kegen sparad%s)' % (gammal, version, prov,
+                                                                  ('; ominstallerade för trasiga länkar: ' + ', '.join(lagade)) if lagade else ''), None
 
 
 def prova_node_huvud(k, r, kand):
     formel = kand['formel']
     rc, ut = brew('install', '--formula', formel, timeout=3600)
     if rc:
-        return 'brew install %s föll: %s' % (formel, vl.sista(ut)), None
+        return nat('brew install %s föll: %s' % (formel, vl.sista(ut))), None
+    fel, lagade = laga_lankar(extra=(formel,))
+    if fel:
+        return fel, None
     rc, ut = brew('--prefix', formel, timeout=60)
     binkat = Path(ut.strip()) / 'bin'
     v = vl.version_av([binkat / 'node', '--version'])
@@ -857,7 +1108,8 @@ def prova_node_huvud(k, r, kand):
     ok, text = rokprov_i_worktree(k, r['id'] + '-' + formel, lambda wt: None, path_forst=str(binkat))
     if not ok:
         return text, None
-    return None, {'prov': '%s installerad bredvid, %s' % (formel, text), 'binkat': str(binkat)}
+    return None, {'prov': '%s installerad bredvid%s, %s' % (formel, (' (ominstallerade för trasiga länkar: %s)' % ', '.join(lagade)) if lagade else '', text),
+                  'binkat': str(binkat)}
 
 
 def huvud_av(v):
@@ -866,14 +1118,22 @@ def huvud_av(v):
 
 def ta_in_node_huvud(k, r, kand, staged):
     gammal_formel = r.get('formel')
-    rc, ut = brew('unlink', gammal_formel, timeout=300) if gammal_formel else (0, '')
+    if r.get('pinnad'):  # PATH pekar på den gamla formelns katalog: en omlänkning ändrar inte vilken node som körs (fynd 6)
+        return 'behallen', ('prövad och godkänd, men PATH pinnar %s (%s, i ägarens skalprofil, som underhållet aldrig ändrar): '
+                            'tas in när raden pekar på %s eller tagits bort' % (gammal_formel, r['pinnad'], kand['formel'])), None
+    lank = vl.brew_prefix() / 'bin' / 'node'
+    if gammal_formel:
+        brew('unlink', gammal_formel, timeout=300)
     rc, ut = brew('link', '--overwrite', '--force', kand['formel'], timeout=300)
-    v = vl.version_av(['node', '--version'])
-    if rc or huvud_av(v) != huvud_av(kand['version']):
+    mal = os.path.realpath(lank)
+    v = vl.version_av([lank, '--version'])
+    if rc or '/Cellar/%s/' % kand['formel'] not in mal or huvud_av(v) != huvud_av(kand['version']):
         brew('unlink', kand['formel'], timeout=300)
         if gammal_formel:
             brew('link', '--overwrite', '--force', gammal_formel, timeout=300)
-        return 'avvisad', 'omlänkningen till %s föll (%s); %s länkad igen' % (kand['formel'], vl.sista(ut, 160), gammal_formel), None
+        tillbaka = not gammal_formel or '/Cellar/%s/' % gammal_formel in os.path.realpath(lank)
+        return 'avvisad', 'omlänkningen till %s föll (%s; %s pekar på %s); %s' % (
+            kand['formel'], vl.sista(ut, 160), lank, mal, ('%s länkad igen' % gammal_formel) if tillbaka else 'ÅTERLÄNKNINGEN FÖLL'), None
     return 'uppdaterad', '%s (%s) → %s (%s; %s ligger kvar olänkad)' % (r['installerat'], gammal_formel, v, staged['prov'], gammal_formel), None
 
 
@@ -929,7 +1189,7 @@ def hanterare(r, kand):
 
 def tungt(r, kand):
     """Kräver hela rökprovet: en huvudversion eller ett mätinstrument."""
-    return r['typ'] == 'instrument' or bool(kand.get('huvudversion') and r['typ'] in ('sajt', 'pip', 'brew-node'))
+    return r['typ'] == 'instrument' or bool(kand.get('huvudversion') and r['typ'] in ('sajt', 'pip', 'brew-node', 'brew', 'npm-global'))
 
 
 ORDNING = {'npm-global': 0, 'skill': 1, 'motor': 2, 'brew': 3, 'pip': 4, 'sajt': 5, 'instrument': 6, 'brew-node': 7}
@@ -943,7 +1203,17 @@ def utgangslage(r):
                                 vl.mappavtryck(r['mapp']) if r['typ'] == 'skill' else ''))
 
 
+def behall(fel):
+    """Detaljen för ett prov som varken godkände eller avvisade (HALL), eller föll av ett tillfälligt skäl (TILL)."""
+    if fel.startswith(TILL):
+        return 'tillfälligt fel, prövas igen vid nästa underhåll: ' + fel[len(TILL):]
+    return fel[len(HALL):] if fel.startswith(HALL) else fel
+
+
 def hantera(k, r, rapport, utan_tunga=False):
+    """Kandidaterna i ordning (den senaste först, sedan den senaste inom den installerade huvudversionen). Den första som
+    tas in avslutar. En avvisad, en överhoppad eller en som föll av ett tillfälligt skäl ger nästa kandidat chansen, så
+    att en huvudversion aldrig blockerar patchar (fynd 10)."""
     for kand in r['kandidater']:
         post = {'id': r['id'], 'namn': r['namn'], 'grupp': r['grupp'], 'fran': r.get('installerat'), 'till': kand['version'],
                 'matinstrument': bool(r.get('matinstrument')), 'huvudversion': bool(kand.get('huvudversion'))}
@@ -953,7 +1223,7 @@ def hantera(k, r, rapport, utan_tunga=False):
             continue
         if tungt(r, kand) and utan_tunga:
             rapport['rader'].append(dict(post, resultat='behallen', detalj='kräver hela rökprovet; tunga prov hoppades över (--utan-tunga)'))
-            return
+            continue
         prova, ta_in = hanterare(r, kand)
         if not prova:
             rapport['rader'].append(dict(post, resultat='behallen', detalj='inget automatiskt prov för slaget %s' % r['typ']))
@@ -968,24 +1238,35 @@ def hantera(k, r, rapport, utan_tunga=False):
             except Exception as e:  # noqa: BLE001 — ett prov som kraschar är ett avvisat prov, med felet
                 fel, staged = 'provet föll: %s: %s' % (type(e).__name__, vl.sista(e, 200)), None
         if fel:
+            if fel.startswith((HALL, TILL)):  # varken godkänd eller avvisad: prövas igen vid nästa underhåll
+                rapport['rader'].append(dict(post, resultat='behallen', detalj=behall(fel)))
+                continue
             k.avvisade.satt(r['id'], kand['version'], fel=fel)
             rapport['rader'].append(dict(post, resultat='avvisad', detalj=fel))
             continue
         if staged.get('oforandrad'):  # skillens mapp är oförändrad i källan: inget att ta in
             rapport['rader'].append(dict(post, resultat='ok', detalj='mappen oförändrad i källan sedan %s' % (r.get('installerat') or '?')))
             return
-        pagar = vl.pagaende()
-        if pagar:
-            k.godkanda.satt(r['id'], kand['version'], avtryck=utgangslage(r), staged=staged)
-            rapport['rader'].append(dict(post, resultat='behallen', detalj='prövad och godkänd, men en körning startade (%s): tas in vid nästa underhåll' % ', '.join(pagar)))
-            return
-        with vl.las(k.katalog / '.byte'):  # startkontrollen väntar medan ett intag pågår
-            try:
-                res, detalj, commit = ta_in(k, r, kand, staged)
-            except Exception as e:  # noqa: BLE001
-                res, detalj, commit = 'avvisad', 'intaget föll: %s: %s' % (type(e).__name__, vl.sista(e, 200)), None
-        k.godkanda.ta_bort(r['id'])
+        # ett intag i taget på maskinen, och startkontrollen i varje utcheckning väntar på det; pågående körningar prövas
+        # under låset, så att en start som hann före låset syns här (fynd 2 och 3)
+        with vl.las(BYTESLAS):
+            pagar = vl.pagaende()
+            if pagar:
+                res, detalj, commit = 'behallen', 'prövad och godkänd, men en körning pågår (%s): tas in vid nästa underhåll' % ', '.join(pagar), None
+            else:
+                try:
+                    res, detalj, commit = ta_in(k, r, kand, staged)
+                except Exception as e:  # noqa: BLE001
+                    res, detalj, commit = 'avvisad', 'intaget föll: %s: %s' % (type(e).__name__, vl.sista(e, 200)), None
+        if res == 'avvisad' and str(detalj).startswith((TILL, HALL)):
+            res, detalj = 'behallen', behall(detalj)
         rapport['rader'].append(dict(post, resultat=res, detalj=detalj, commit=commit))
+        if res == 'behallen':  # det godkända provet sparas med sina filer och tas in utan nytt prov så länge utgångsläget består
+            k.godkanda.satt(r['id'], kand['version'], avtryck=utgangslage(r), staged=staged)
+            if pagar:  # en körning pågår: inget mer tas in nu
+                return
+            continue  # en behållen huvudversion (Node pinnad i PATH, ett avbrutet prov) stoppar inte patchen inom den
+        k.godkanda.ta_bort(r['id'])
         if res == 'avvisad':
             k.avvisade.satt(r['id'], kand['version'], fel=detalj)
             continue
@@ -1017,7 +1298,8 @@ def markdown(rap):
 
 
 def forsta_prov(k, rapport):
-    """Färska förmågeprov, så att startkontrollen kan återanvända dem: Refero, Mobbin, webbläsarkedjan, detektorn, modellerna."""
+    """Färska förmågeprov, så att startkontrollen kan återanvända dem: Refero, Mobbin, webbläsarkedjan, detektorn,
+    kundvaktens mekanik och modellerna."""
     import atelje
     import kandidater
     import referenstjanster
@@ -1027,6 +1309,7 @@ def forsta_prov(k, rapport):
     p['Mobbin'] = vl.prova_mobbin(k)
     p['webbläsarkedjan'] = vl.prova_webblasaren(k, k.prov_dir)
     p['detektorn'] = vl.prova_detektorn(k, k.prov_dir)
+    p['kundvaktens mekanik'] = vl.prova_vakten(k)
     version = vl.version_av([vl.claude_bin(), '--version'])
     for m in dict.fromkeys((atelje.MODELL, kandidater.GRANSKARE_MODELL, referenstjanster.MODELL)):
         fel = vl.modellsvar(vl.claude_bin(), m)
@@ -1091,8 +1374,9 @@ def underhall(bara=None, utan_tunga=False, torr=False, k=None, prov=True, invent
         '%d uppdaterade, %d avvisade, %d behållna' % (n.get('uppdaterad', 0), n.get('avvisad', 0), n.get('behallen', 0)) if rap['rader'] else
         'Inga nyare versioner att pröva')
     if not torr and not inventering:
-        vl.skriv_json(k.katalog / 'UNDERHALL.json', rap)
-        (k.katalog / 'UNDERHALL.md').write_text(markdown(rap), encoding='utf-8')
+        if rap.get('status') == 'klart':  # ett uppskjutet underhåll ersätter inte rapporten från det senaste som kördes (fynd 9)
+            vl.skriv_json(k.katalog / 'UNDERHALL.json', rap)
+            (k.katalog / 'UNDERHALL.md').write_text(markdown(rap), encoding='utf-8')
         vl.skriv_json(k.katalog / 'underhall' / ('UNDERHALL-%s.json' % rap['start'].replace(':', '')), rap)
     return rap
 

@@ -185,6 +185,7 @@ def main(argv=None):
     if a.ut:
         Path(a.ut).write_text(text, encoding='utf-8')
     print(text if not a.ut else json.dumps({'ut': a.ut, 'allvar': allvar, 'dolda': len(dolda), 'till_agent': len(agent), 'skript': len(skript), 'tokens_totalt': tecken // 4,
+                                                 'behorigheter': beh, 'konfig': hookar,
                                                  'skills': [{k: (v // 4 if isinstance(v, int) else v) for k, v in s.items()} for s in skills]}, ensure_ascii=False))
     return 0
 

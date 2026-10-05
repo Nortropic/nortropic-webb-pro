@@ -21,6 +21,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -43,15 +44,21 @@ GILTIGHET = {
     'underhall': 1 * TIMME,     # underhållet slår upp på nytt efter en timme
     'prov': 24 * TIMME,         # förmågeprov (Refero, webbläsarkedjan, detektorn) återanvänds ett dygn
     'modell': 24 * TIMME,
-    'mcp': 30 * 60,
+    'mcp': 5 * 60,              # nödvändiga MCP:er bekräftas vid varje start (en server som faller syns inom fem minuter)
     'mobbin': 48 * TIMME,       # Mobbins fullständiga prov görs i underhållet; starten bekräftar anslutningen
     'underhall_aldst': 36 * TIMME,
     'spaning': 7 * 24 * TIMME,
     'lasdatum': 365 * 24 * TIMME,
 }
+# karenstid: en version räknas först när den varit publicerad så här länge (den oberoende granskningen 2026-10-06, fynd 4:
+# en komprometterad release upptäcks oftast inom timmar eller dagar)
+KARENS_DAGAR = float(os.environ.get('NWP_UNDERHALL_KARENS_DAGAR') or 3)
+# provens miljö: bara det som behövs för att köra, inga nycklar, tokens eller sessionens variabler (fynd 4)
+PROVMILJO = ('PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TERM', 'SHELL', 'TMPDIR', 'PLAYWRIGHT_BROWSERS_PATH')
 # Homebrew: bara den namngivna formeln och dess egna beroenden. NO_INSTALLED_DEPENDENTS_CHECK hindrar att andra formler
-# som beror på ett uppgraderat beroende uppgraderas på köpet (ägarens ord: aldrig brew upgrade på allt), och
-# NO_INSTALL_CLEANUP sparar den förra kegen för en återlänkning.
+# som beror på ett uppgraderat beroende uppgraderas på köpet (ägarens ord: aldrig brew upgrade på allt); underhållet
+# prövar i stället bibliotekslänkarna efteråt (underhall.lankprov). NO_INSTALL_CLEANUP sparar den förra kegen för en
+# återlänkning.
 BREW_MILJO = {'HOMEBREW_NO_AUTO_UPDATE': '1', 'HOMEBREW_NO_INSTALL_CLEANUP': '1', 'HOMEBREW_NO_ENV_HINTS': '1',
               'HOMEBREW_NO_ANALYTICS': '1', 'HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK': '1'}
 # flaggorna flödet använder och som claude --help listar; --max-turns är dold i hjälpen och prövas av modellsvaret
@@ -146,16 +153,45 @@ def miljo(extra=None):
     return m
 
 
-def kor(args, timeout=120, cwd=None, env=None, indata=None, bara_ut=False):
-    """(slutkod, text): stdout och stderr ihop, eller bara stdout."""
+def provmiljo(extra=None):
+    """Miljön för prov som kör nya versioner: bara PROVMILJO, inga nycklar eller tokens (fynd 4)."""
+    m = {k: v for k, v in os.environ.items() if k in PROVMILJO}
+    m.update(extra or {})
+    return m
+
+
+AVBRUTEN = 130  # slutkoden från kor() när avbryt() svarade ja
+
+
+def kor(args, timeout=120, cwd=None, env=None, indata=None, bara_ut=False, avbryt=None):
+    """(slutkod, text): stdout och stderr ihop, eller bara stdout. Kommandot får en egen processgrupp, och en tidsgräns
+    avslutar hela gruppen (ett rökprov lämnar inga barn efter sig; fynd 15). avbryt() frågas var femte sekund; svarar
+    den ja avslutas gruppen och slutkoden är AVBRUTEN."""
     try:
-        r = subprocess.run([str(a) for a in args], capture_output=True, text=True, timeout=timeout, cwd=str(cwd or ROOT),
-                           env=env if env is not None else miljo(), input=indata)
-    except subprocess.TimeoutExpired:
-        return 124, 'tidsgränsen %d s nåddes (%s)' % (timeout, ' '.join(str(a) for a in args[:3]))
+        p = subprocess.Popen([str(a) for a in args], stdin=subprocess.PIPE if indata is not None else subprocess.DEVNULL,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=str(cwd or ROOT),
+                             env=env if env is not None else miljo(), start_new_session=True)
     except OSError as e:
         return 127, '%s: %s' % (type(e).__name__, e)
-    return r.returncode, (r.stdout or '') if bara_ut else (r.stdout or '') + (r.stderr or '')
+    slut = time.time() + timeout
+    while True:
+        try:
+            ut, fel = p.communicate(input=indata, timeout=max(0.1, min(5, slut - time.time())) if avbryt else timeout)
+            break
+        except subprocess.TimeoutExpired:
+            indata = None  # indata skickas bara en gång; utdata går inte förlorad mellan försöken
+            avbrutet = bool(avbryt) and time.time() < slut and avbryt()
+            if not avbrutet and avbryt and time.time() < slut:
+                continue
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            ut, fel = p.communicate()
+            if avbrutet:
+                return AVBRUTEN, 'avbrutet (%s)\n%s' % (' '.join(str(a) for a in args[:3]), sista((ut or '') + (fel or ''), 2000))
+            return 124, 'tidsgränsen %d s nåddes (%s)' % (timeout, ' '.join(str(a) for a in args[:3]))
+    return p.returncode, (ut or '') if bara_ut else (ut or '') + (fel or '')
 
 
 def hamta_url(url, timeout=30, max_byte=4_000_000, huvuden=None):
@@ -254,6 +290,9 @@ class Register:
             skriv_json(self.fil, self.d)
 
 
+OMPROVBARA = ('prov:refero', 'prov:webblasare', 'prov:detektor', 'prov:vakt')  # förmågeprov som starten kan göra själv
+
+
 class Kontext:
     """En startkontroll eller ett underhåll: med nät eller inte, med prov eller inte, och vad som gjordes respektive
     återanvändes (redovisas i kvittot; proven för fallet "oförändrad miljö upprepar inget")."""
@@ -267,12 +306,17 @@ class Kontext:
         self.godkanda = Register(self.katalog / 'GODKANDA.json')
         self.prov_dir = self.katalog / 'prov'
         self.utfort, self.ateranvant = [], []
-        self.farsk = False  # underhållet gör de snabba förmågeproven om (Refero, webbläsaren, detektorn, modellerna)
+        self.farsk = False  # underhållet gör de snabba förmågeproven om (Refero, webbläsaren, detektorn, vakten, modellerna)
 
     def minns(self, nyckel, avtryck='v1', giltighet=None):
-        if self.farsk and (nyckel in ('prov:refero', 'prov:webblasare', 'prov:detektor') or nyckel.startswith('modell:')):
+        omprovbart = nyckel in OMPROVBARA or nyckel.startswith('modell:')
+        if self.farsk and omprovbart:
             return None
         x = self.cache.hamta(nyckel, avtryck, self.max_alder if giltighet is None else giltighet)
+        # ett misslyckat förmågeprov som kan göras om återanvänds inte: en tjänst som kommit tillbaka efter ett kort
+        # avbrott stoppar då inte varje start ett dygn
+        if x and omprovbart and self.prova and x.get('resultat') not in (None, 'ok'):
+            return None
         if x:
             self.ateranvant.append(nyckel)
         return x
@@ -287,6 +331,7 @@ class Kontext:
 
 
 def logga_andring(katalog, **post):
+    Path(katalog).mkdir(parents=True, exist_ok=True)
     with open(Path(katalog) / 'ANDRINGAR.jsonl', 'a', encoding='utf-8') as f:
         f.write(json.dumps(dict(post, tid=nu()), ensure_ascii=False) + '\n')
 
@@ -329,14 +374,79 @@ def uppslag(k, nyckel, hamta, avtryck='v1'):
 
 # --- versionsuppslagen (varje nätanrop har en egen funktion, så att proven kan byta ut den) ---
 
-def npm_view(paket):
-    rc, ut = kor(['npm', 'view', paket, 'version'], timeout=60, bara_ut=True)
-    v = ut.strip().splitlines()[-1].strip() if rc == 0 and ut.strip() else ''
-    return v if re.fullmatch(r'\d+\.\d+\.\d+', v) else None
+def iso_s(t):
+    try:
+        return datetime.fromisoformat(str(t).replace('Z', '+00:00')).timestamp()
+    except (TypeError, ValueError):
+        return 0
 
 
-def pypi_version(namn):
-    return json.loads(hamta_url('https://pypi.org/pypi/%s/json' % namn))['info']['version']
+def forhand(v):
+    """Förhandsversion (1.2.0-beta.1, 2.0rc1, 3.0.dev2)?"""
+    return bool(re.search(r'[a-zA-Z]', str(v).split('+')[0]))
+
+
+def mogna(tider, nu_s=None):
+    """Versionerna som räknas ur {version: publiceringstid}: inga förhandsversioner, och bara de som varit publicerade
+    minst KARENS_DAGAR. Ger {'senaste', 'per_huvud': {huvudversion: senaste inom den}, 'nyaste', 'nyaste_tid'}."""
+    nu_s = nu_s or time.time()
+    ok, nyaste = [], None
+    for v, tid_ in tider.items():
+        if forhand(v) or not re.match(r'^\d', str(v)):
+            continue
+        if nyaste is None or versionstal(v) > versionstal(nyaste[0]):
+            nyaste = (v, tid_)
+        if iso_s(tid_) and nu_s - iso_s(tid_) >= KARENS_DAGAR * 86400:
+            ok.append(v)
+    per = {}
+    for v in ok:
+        h = str(huvud(v))
+        if h not in per or versionstal(v) > versionstal(per[h]):
+            per[h] = v
+    return {'senaste': max(ok, key=versionstal) if ok else None, 'per_huvud': per,
+            'nyaste': nyaste[0] if nyaste else None, 'nyaste_tid': nyaste[1] if nyaste else None}
+
+
+def npm_versioner(paket):
+    """mogna() ur npm:s publiceringstider (npm view <paket> time)."""
+    rc, ut = kor(['npm', 'view', paket, 'time', '--json'], timeout=90, bara_ut=True)
+    if rc:
+        return None
+    d = json.loads(ut or '{}')
+    return mogna({v: tid_ for v, tid_ in d.items() if v not in ('created', 'modified')})
+
+
+def pypi_versioner(namn):
+    """mogna() ur PyPI:s uppladdningstider (den tidigaste filen per version; dragna filer räknas inte)."""
+    d = json.loads(hamta_url('https://pypi.org/pypi/%s/json' % namn, max_byte=20_000_000))
+    tider = {}
+    for v, filer in (d.get('releases') or {}).items():
+        t_ = sorted(f.get('upload_time_iso_8601') for f in filer or [] if not f.get('yanked') and f.get('upload_time_iso_8601'))
+        if t_:
+            tider[v] = t_[0]
+    return mogna(tider)
+
+
+def ny_info(info):
+    """(senaste, nyare_men_i_karens): den senaste som räknas och en nyare som ännu är i karenstiden."""
+    if not isinstance(info, dict):
+        return None, None
+    s, n = info.get('senaste'), info.get('nyaste')
+    return s, (n if n and (not s or nyare(n, s)) else None)
+
+
+def kandidater_for(installerat, info):
+    """Kandidaterna ur en versionsinfo: den senaste som räknas, och när den är en ny huvudversion också den senaste inom
+    den nuvarande (en avvisad huvudversion blockerar aldrig patchar; fynd 10)."""
+    senaste, _n = ny_info(info)
+    ut = []
+    if installerat and senaste and nyare(senaste, installerat):
+        ut.append(kandidat(senaste, installerat))
+        if huvud(senaste) != huvud(installerat):
+            inom = (info.get('per_huvud') or {}).get(str(huvud(installerat)))
+            if inom and nyare(inom, installerat):
+                ut.append(kandidat(inom, installerat, huvudversion=False, inom_huvudversion=True))
+    return ut
 
 
 def brew_info(formel):
@@ -360,11 +470,12 @@ def git_head(repo):
 
 def node_lts_vercel():
     """Senaste LTS-huvudversionen som Vercel stöder: Nodes versionslista (nodejs.org) och Vercels dokumentation."""
-    idx = json.loads(hamta_url(NODE_INDEX))
-    lts = {}
+    idx = json.loads(hamta_url(NODE_INDEX, max_byte=20_000_000))
+    lts, datum = {}, {}
     for x in idx:  # nyast först
         if x.get('lts'):
             lts.setdefault(huvud(x['version']), x['version'].lstrip('v'))
+            datum[x['version'].lstrip('v')] = x.get('date')
     html = hamta_url(VERCEL_NODE).decode('utf-8', 'replace')
     text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', html))
     m = re.search(r'Current available versions are:\s*((?:\d{2}\.x(?:\s*\([^)]*\))?\s*)+)', text)
@@ -375,7 +486,8 @@ def node_lts_vercel():
     if not mojliga:
         raise RuntimeError('ingen LTS-version som Vercel stöder (LTS %s, Vercel %s)' % (sorted(lts), vercel))
     mj = max(mojliga)
-    return {'major': mj, 'version': lts[mj], 'vercel': vercel, 'lts': sorted(lts)}
+    return {'major': mj, 'version': lts[mj], 'vercel': vercel, 'lts': sorted(lts),
+            'datum': {v: d for v, d in datum.items() if huvud(v) in mojliga}}
 
 
 def motor_releaser():
@@ -424,12 +536,12 @@ def inv_globala(k):
     for paket, binar, namn, grupp, nodv in GLOBALA:
         b = os.environ.get('NWP_CLAUDE_BIN') if binar == 'claude' and os.environ.get('NWP_CLAUDE_BIN') else shutil.which(binar)
         inst = version_av([b, '--version']) if b else None
-        senaste, tid, fel = uppslag(k, 'npm:' + paket, lambda p=paket: npm_view(p))
+        info, tid, fel = uppslag(k, 'npm:' + paket, lambda p=paket: npm_versioner(p), avtryck='v2')
+        senaste, karens = ny_info(info)
         via_npm = bool(b and rot and os.path.realpath(b).startswith(os.path.join(rot, paket) + os.sep))
         r = rad('npm-global:' + paket, grupp, namn, 'npm-global', paket=paket, bin=b, binar=binar, installerat=inst, senaste=senaste,
-                kontrollerad=tid, kalla='npm ' + paket, nodvandig=nodv, via_npm=via_npm, uppslagsfel=fel)
-        if inst and senaste and nyare(senaste, inst):
-            r['kandidater'].append(kandidat(senaste, inst))
+                kontrollerad=tid, kalla='npm ' + paket, nodvandig=nodv, via_npm=via_npm, uppslagsfel=fel, i_karens=karens)
+        r['kandidater'] = kandidater_for(inst, info)
         ut.append(r)
     return ut
 
@@ -502,14 +614,16 @@ def inv_sajt(k):
     grupper += [(p, [p]) for p in alla if p not in sedda]
     ut = []
     for g, medl in grupper:
-        inst, senaste, tider, olika, ufel = {}, {}, [], [], None
+        inst, senaste, tider, olika, ufel, inom_v = {}, {}, [], [], None, {}
         for p in medl:
             a, b = mall.get(p), lev.get(p)
             if a and b and a != b:
                 olika.append('%s: mallen %s, leveransen %s' % (p, a, b))
             inst[p] = a or b
-            v, t, f = uppslag(k, 'npm:' + p, lambda p_=p: npm_view(p_))
-            senaste[p] = v
+            info, t, f = uppslag(k, 'npm:' + p, lambda p_=p: npm_versioner(p_), avtryck='v2')
+            senaste[p], _karens = ny_info(info)
+            inom = (info or {}).get('per_huvud', {}).get(str(huvud(inst[p]))) if isinstance(info, dict) else None
+            inom_v[p] = inom if inom and nyare(inom, inst[p]) else None
             tider.append(t)
             ufel = ufel or f
         kand = {p: senaste[p] for p in medl if senaste.get(p) and nyare(senaste[p], inst[p])}
@@ -520,8 +634,13 @@ def inv_sajt(k):
                 detalj=('; '.join(olika)) if olika else None, nodvandig=False)
         if kand:
             nya = dict(inst, **kand)
-            r['kandidater'].append({'version': ', '.join('%s %s' % (p, nya[p]) for p in medl), 'paket': nya,
-                                    'huvudversion': any(huvud(kand[p]) != huvud(inst[p]) for p in kand)})
+            stor = any(huvud(kand[p]) != huvud(inst[p]) for p in kand)
+            r['kandidater'].append({'version': ', '.join('%s %s' % (p, nya[p]) for p in medl), 'paket': nya, 'huvudversion': stor})
+            inom = {p: inom_v[p] for p in medl if inom_v.get(p)}
+            if stor and inom:  # den senaste inom nuvarande huvudversioner, så att patchar inte väntar på huvudversionen (fynd 10)
+                nya2 = dict(inst, **inom)
+                r['kandidater'].append({'version': ', '.join('%s %s' % (p, nya2[p]) for p in medl), 'paket': nya2, 'huvudversion': False,
+                                        'inom_huvudversion': True})
         if any(senaste.get(p) is None for p in medl):
             r['ofullstandigt'] = True
         ut.append(r)
@@ -551,15 +670,15 @@ def inv_instrument(k):
     for p in MATINSTRUMENT:
         pin = pins.get(p)
         ins = installerat_i(kontr / 'node_modules', p)
-        v, t, f = uppslag(k, 'npm:' + p, lambda p_=p: npm_view(p_))
+        info, t, f = uppslag(k, 'npm:' + p, lambda p_=p: npm_versioner(p_), avtryck='v2')
+        v, karens = ny_info(info)
         r = rad('instrument:' + p, 'mätinstrument', p, 'instrument', installerat=pin, senaste=v, kontrollerad=t, kalla='npm ' + p,
-                matinstrument=True, nodvandig=True, uppslagsfel=f)
+                matinstrument=True, nodvandig=True, uppslagsfel=f, i_karens=karens)
         if not ins:
             r.update(resultat='fel', detalj='%s saknas i kontroller/node_modules: kör npm ci i kontroller/' % p)
         elif ins != pin:
             r.update(resultat='fel', detalj='node_modules har %s men låset %s: kör npm ci i kontroller/' % (ins, pin))
-        if pin and v and nyare(v, pin):
-            r['kandidater'].append(kandidat(v, pin))
+        r['kandidater'] = kandidater_for(pin, info)
         ut.append(r)
     wb = webblasare()
     saknas = [n for n, _r, _v, finns in wb if not finns]
@@ -616,10 +735,11 @@ def inv_python(k):
                       resultat='ok' if not avvik else 'fel', detalj='samma som requirements-lock.txt' if not avvik else
                       'avviker: %s (installera med .venv/bin/python -m pip install -r requirements-lock.txt)' % ', '.join(avvik[:6])))
     for namn, pin in sorted(las_krav(krav).items()):
-        v, t, f = uppslag(k, 'pypi:' + namn, lambda n=namn: pypi_version(n))
-        r = rad('pip:' + namn, 'Python', namn, 'pip', installerat=pin, senaste=v, kontrollerad=t, kalla='PyPI ' + namn, uppslagsfel=f)
-        if v and nyare(v, pin):
-            r['kandidater'].append(kandidat(v, pin))
+        info, t, f = uppslag(k, 'pypi:' + namn, lambda n=namn: pypi_versioner(n), avtryck='v2')
+        v, karens = ny_info(info)
+        r = rad('pip:' + namn, 'Python', namn, 'pip', installerat=pin, senaste=v, kontrollerad=t, kalla='PyPI ' + namn, uppslagsfel=f,
+                i_karens=karens)
+        r['kandidater'] = kandidater_for(pin, info)
         ut.append(r)
     return ut
 
@@ -647,6 +767,23 @@ def node_formel():
     return (m.group(1) if m else None), v
 
 
+def node_pinnad(formel):
+    """PATH-posten som pinnar en versionsformel (…/opt/node@22/bin före /opt/homebrew/bin), eller None. Då följer `node`
+    den formeln oavsett vad som är länkat, och en ny huvudversion tas in först när ägaren bytt raden (fynd 6)."""
+    if not formel or '@' not in formel:
+        return None
+    for d in os.environ.get('PATH', '').split(':'):
+        if re.search(r'/opt/%s/bin/?$' % re.escape(formel), d) or re.search(r'/Cellar/%s/[^/]+/bin/?$' % re.escape(formel), d):
+            return d
+    return None
+
+
+def node_aldre_an_karens(version, mal):
+    """Är Node-versionen (Homebrews, utan revision) utgiven för minst KARENS_DAGAR sedan, enligt Nodes versionslista?"""
+    d = ((mal or {}).get('datum') or {}).get(str(version).split('_')[0])
+    return bool(d) and time.time() - iso_s(d + 'T00:00:00+00:00') >= KARENS_DAGAR * 86400
+
+
 def inv_brew(k):
     ut = []
     formel, inst = node_formel()
@@ -655,13 +792,17 @@ def inv_brew(k):
     r = rad('brew:node', 'Homebrew', 'node', 'brew-node', formel=formel, installerat=inst, kontrollerad=tid, nodvandig=True,
             kalla='Homebrew; regeln: senaste LTS som Vercel stöder (%s)' % ('%s.x' % mal['major'] if mal else 'okänd'), uppslagsfel=fel,
             mal=mal)
+    r['pinnad'] = node_pinnad(formel)
     if mal and inst:
         mal_formel = 'node@%d' % mal['major']
         bi, _t, _f = uppslag(k, 'brew:' + mal_formel, lambda f=mal_formel: brew_info(f))
         if bi:
             r['senaste'] = '%s (%s)' % (bi['senaste'], mal_formel)
             if huvud(bi['senaste']) != huvud(inst) and huvud(bi['senaste']) > (huvud(inst) or 0):
-                r['kandidater'].append({'version': bi['senaste'], 'formel': mal_formel, 'huvudversion': True})
+                if node_aldre_an_karens(bi['senaste'], mal):
+                    r['kandidater'].append({'version': bi['senaste'], 'formel': mal_formel, 'huvudversion': True})
+                else:
+                    r['i_karens'] = bi['senaste']
         if formel:
             egen, _t, _f = uppslag(k, 'brew:' + formel, lambda f=formel: brew_info(f))
             if egen and nyare(egen['senaste'], inst):
@@ -675,8 +816,8 @@ def inv_brew(k):
         inst = brew_aktiv(f)
         r = rad('brew:' + f, 'Homebrew', f, 'brew', formel=f, installerat=inst, senaste=(bi or {}).get('senaste'), kontrollerad=tid,
                 kalla='Homebrew ' + f, nodvandig=f in ('python@3.12', 'git'), uppslagsfel=fel)
-        if inst and bi and nyare(bi['senaste'], inst):
-            r['kandidater'].append({'version': bi['senaste'], 'formel': f, 'huvudversion': False})
+        if inst and bi and nyare(bi['senaste'], inst):  # en ny huvudversion (git 3, gh 3) prövas med hela rökprovet (fynd 10)
+            r['kandidater'].append({'version': bi['senaste'], 'formel': f, 'huvudversion': huvud(bi['senaste']) != huvud(inst)})
         ut.append(r)
     return ut
 
@@ -752,6 +893,18 @@ def bedom(r, avvisade, underhall_tid=None):
         r['resultat'] = 'okand'
         r.setdefault('detalj', 'senaste versionen okänd: %s' % (r.get('uppslagsfel') or 'inte uppslagen'))
         return r
+    if r.get('uppslagsfel'):  # ett uppslag som föll är okänt, också när ett äldre värde finns (fynd 9)
+        r['resultat'] = 'okand'
+        r['detalj'] = 'senaste uppslaget föll: %s' % r['uppslagsfel']
+        return r
+    if r.get('kontrollerad') and alder(r['kontrollerad']) > GILTIGHET['underhall_aldst']:
+        r['resultat'] = 'okand'  # ett gammalt uppslag säger inget om nuläget (fynd 9)
+        r['detalj'] = 'senaste uppslaget gjordes %s, äldre än %d timmar: underhållet slår upp på nytt' % (r['kontrollerad'], GILTIGHET['underhall_aldst'] // TIMME)
+        return r
+    if not r['kandidater'] and r.get('i_karens'):
+        r['resultat'] = 'behallen'
+        r['detalj'] = '%s finns men är yngre än karenstiden (%g dygn); prövas när den gått ut' % (r['i_karens'], KARENS_DAGAR)
+        return r
     if not r['kandidater']:
         r['resultat'] = 'ok'
         r.setdefault('detalj', 'senaste versionen' + ('' if not r.get('ofullstandigt') else ' (för de paket som kunde slås upp)'))
@@ -777,10 +930,15 @@ def bedom(r, avvisade, underhall_tid=None):
 # --- pågående körningar ---
 
 def pagaende(egna=None):
-    """Körningar som pågår: ateljéns arbetare med levande pid, helbygget (kor.sh). Ingen uppdatering får ändra deras miljö."""
+    """Körningar som pågår: på hela maskinen ur körregistret (kontroller/korregister.py: arbetare, kor.sh och rokprov.sh i
+    alla utcheckningar; fynd 3), och i den här utcheckningen ateljéns arbetare och helbygget. Ingen uppdatering får ändra
+    deras miljö."""
     import atelje
+    import korregister
     egna = set(egna or ()) | {os.getpid(), os.getppid()}
-    ut = []
+    poster_ = [d for d in korregister.poster() if int(d['pid']) not in egna]
+    egna |= {int(d['pid']) for d in poster_}  # samma körning räknas en gång
+    ut = ['%s%s (pid %d, %s)' % (d['vad'], (' ' + d['slug']) if d.get('slug') else '', d['pid'], d.get('utcheckning') or '?') for d in poster_]
     for f in sorted(UNDERLAG.glob('*/atelje/STATUS.json')):
         slug = f.parent.parent.name
         try:
@@ -833,6 +991,67 @@ def modellsvar(b, modell, timeout=240, schema=False):
     if r.returncode or d.get('is_error') or 'OK' not in text.upper():
         return 'svarade inte som väntat (kod %d): %s' % (r.returncode, sista(d.get('result') or r.stderr, 200))
     return None
+
+
+VAKTKROK = """import json, sys
+d = json.load(sys.stdin)
+p = str((d.get('tool_input') or {}).get('file_path', ''))
+if p.endswith('tillaten.txt'):
+    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'allow', 'permissionDecisionReason': 'vaktprovet'}}))
+"""
+
+
+def vaktprov(b, modell=PROVMODELL, timeout=300):
+    """Prövar den mekanik kundvakten bygger på (fynd 11): utan tillåtelselista och med dontAsk får sessionen skriva en fil
+    som en PreToolUse-krok uttryckligen tillåter, och nekas en fil som kroken lämnar utan beslut. None när det håller,
+    annars felet."""
+    import nastlad
+    with tempfile.TemporaryDirectory(prefix='nwp-vaktprov-') as d:
+        d = Path(d).resolve()
+        (d / 'krok.py').write_text(VAKTKROK, encoding='utf-8')
+        inst = {'hooks': {'PreToolUse': [{'matcher': 'Write', 'hooks': [{'type': 'command', 'timeout': 30,
+                                                                         'command': '%s %s' % (sys.executable, d / 'krok.py')}]}]}}
+        args = [b, '-p', '--model', modell, '--max-turns', '6', '--output-format', 'stream-json', '--verbose', '--setting-sources', 'project,local',
+                '--strict-mcp-config', '--permission-mode', 'dontAsk', '--settings', json.dumps(inst), '--tools', 'Write']
+        prompt = ('Använd verktyget Write två gånger: skriv texten ALFA i filen %s och sedan texten BETA i filen %s. Svara sedan '
+                  'kort vilka skrivningar som gick igenom.' % (d / 'tillaten.txt', d / 'nekad.txt'))
+        try:
+            r = subprocess.run([str(a) for a in args], input=prompt, capture_output=True, text=True, timeout=timeout, cwd=str(d),
+                               env=nastlad.miljo())
+        except subprocess.TimeoutExpired:
+            return 'inget svar inom %d s' % timeout
+        except OSError as e:
+            return str(e)
+        tillaten = (d / 'tillaten.txt').read_text(encoding='utf-8').strip() if (d / 'tillaten.txt').is_file() else None
+        if tillaten != 'ALFA':
+            return 'krokens uttryckliga tillåtelse släppte inte igenom skrivningen (kod %d): %s' % (r.returncode, sista(r.stdout or r.stderr, 160))
+        if (d / 'nekad.txt').exists():
+            return 'dontAsk nekade inte en skrivning som kroken lämnade utan beslut: kundvakten skulle inte hålla'
+        forsokt = False  # ett prov där modellen aldrig försökte skriva den nekade filen bevisar inget
+        for rad_ in (r.stdout or '').splitlines():
+            try:
+                h = json.loads(rad_)
+            except ValueError:
+                continue
+            for c in ((h.get('message') or {}).get('content') or []) if h.get('type') == 'assistant' else []:
+                if isinstance(c, dict) and c.get('type') == 'tool_use' and str((c.get('input') or {}).get('file_path', '')).endswith('nekad.txt'):
+                    forsokt = True
+        if not forsokt:
+            return 'provet ofullständigt: modellen försökte aldrig skriva den fil som skulle nekas'
+        return None
+
+
+def prova_vakten(k):
+    """Vaktprovet för den installerade claude, återanvänt per version (ett dygn)."""
+    version = version_av([claude_bin(), '--version'])
+    x = k.minns('prov:vakt', str(version), GILTIGHET['prov'])
+    if x:
+        return dict(x, ateranvant=True)
+    if not k.prova:
+        return {'resultat': 'okand', 'detalj': 'inte provad (utan prov)'}
+    fel = vaktprov(claude_bin())
+    return k.spara('prov:vakt', str(version), resultat='fel' if fel else 'ok',
+                   detalj=fel or 'krokens tillåtelse släpper igenom och dontAsk nekar resten (kundvaktens mekanik)')
 
 
 def prova_refero(k, prov_dir):
@@ -904,11 +1123,17 @@ def prova_mobbin(k):
     return k.spara('prov:mobbin', 'v1', resultat='ok' if ok else 'fel', detalj=detalj)
 
 
+def webblasar_avtryck(node_modules=None):
+    """Webbläsarprovets förutsättningar: Playwrights version, webbläsarna och inspektionsverktyget. Ändras något av dem
+    görs provet om."""
+    nm = Path(node_modules or ROOT / 'kontroller' / 'node_modules')
+    return sha('%s|%s|%s' % (installerat_i(nm, 'playwright'), webblasare(nm), sha_fil(ROOT / 'kontroller' / 'webblasare' / 'inspektera.mjs')))
+
+
 def prova_webblasaren(k, prov_dir, node_modules=None):
     """En sida öppnas, renderas och inspekteras med flödets eget verktyg (kontroller/webblasare/inspektera.mjs)."""
     import prova as prova_mod
-    nm = Path(node_modules or ROOT / 'kontroller' / 'node_modules')
-    avtryck = sha('%s|%s|%s' % (installerat_i(nm, 'playwright'), webblasare(nm), sha_fil(ROOT / 'kontroller' / 'webblasare' / 'inspektera.mjs')))
+    avtryck = webblasar_avtryck(node_modules)
     x = k.minns('prov:webblasare', avtryck, GILTIGHET['prov'])
     if x:
         return dict(x, ateranvant=True)
@@ -951,7 +1176,8 @@ def prova_detektorn(k, prov_dir):
 
 
 def mcp_lista(k):
-    """{namn: {'status', 'besked'}} ur `claude mcp list`, eller None; cachad en halvtimme per konfiguration."""
+    """{namn: {'status', 'besked'}} ur `claude mcp list`, eller None; cachad i fem minuter (GILTIGHET['mcp']). Listan läser
+    användarens konfiguration, inte bara våra filer, så det är tiden som gör att en server som faller syns (fynd 14)."""
     avtryck = sha('|'.join(sorted('%s:%s' % (p.name, sha_fil(p)) for p in (ROOT / 'kontroller' / 'mcp').glob('*.json'))))
     x = k.minns('mcp:lista', avtryck, GILTIGHET['mcp'])
     if x:

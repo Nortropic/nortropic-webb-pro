@@ -269,6 +269,12 @@ def stilid(text):
     return s if stilpaket.UUID.match(s) else None
 
 
+def ordlikhet(a, b):
+    """Andelen gemensamma ord (Jaccard) i två sökfraser, utan skillnad i versaler och skiljetecken."""
+    ta, tb = set(re.findall(r'\w+', str(a).lower())), set(re.findall(r'\w+', str(b).lower()))
+    return len(ta & tb) / len(ta | tb) if ta and tb else 0.0
+
+
 def uppdragsmaterial(slug, klient=None):
     """Huvudreferensens stilpaket och Mobbins skärmar för besökarens uppgift, per uppdrag (ägarens uppdrag 2026-10-05
     18:53Z: Referos stilpaket till skaparen och in i CSS:en; Mobbins skärmar per uppgift med vad de bidrar med). Stilens
@@ -294,8 +300,9 @@ def uppdragsmaterial(slug, klient=None):
             try:
                 _st, orig = stilpaket.hamta_original(slug, stil, klient=klient, underlag=atelje.UNDERLAG)
                 hamtade[stil] = {'id': stil, 'titel': orig.get('titel'), 'original': rel(stilpaket.originalkatalog(slug, stil, atelje.UNDERLAG))}
-            except (refero_mcp.ReferoFel, ValueError, OSError) as e:
-                hamtade[stil] = {'id': stil, 'fel': str(e)[:200]}
+            except Exception as e:  # noqa: BLE001 — en stil som inte går att hämta stoppar inte de andra (fynd 12)
+                hamtade[stil] = {'id': stil, 'fel': str(e)[:200] if isinstance(e, (refero_mcp.ReferoFel, ValueError, OSError)) else
+                                 '%s: %s' % (type(e).__name__, str(e)[:200])}
         ut[kid]['stil'] = hamtade[stil]
     fragor = {}  # frasen utan skillnad i versaler och mellanslag → (frasen, uppdragen som delar den)
     for kid, k in kand.items():
@@ -310,8 +317,14 @@ def uppdragsmaterial(slug, klient=None):
                                                                  for f, _k in fragor.values()]}, underlag=atelje.UNDERLAG, katalog='uppdrag')
             m = (res.get('tjanster') or {}).get('mobbin') or {}
             for tr in m.get('traffar') or []:
-                nyckel = ' '.join(str(tr.get('fraga') or '').lower().split())
-                if nyckel not in fragor or not tr.get('fil'):
+                if not tr.get('fil'):
+                    continue
+                svar = str(tr.get('fraga') or '')
+                nyckel = ' '.join(svar.lower().split())
+                if nyckel not in fragor:  # sessionen ekar inte alltid frasen ordagrant: den närmaste med minst hälften av orden
+                    bast = max(fragor, key=lambda f: ordlikhet(svar, f))
+                    nyckel = bast if ordlikhet(svar, bast) >= 0.5 else None
+                if not nyckel:
                     continue
                 for kid in fragor[nyckel][1]:
                     ut[kid].setdefault('mobbin', []).append({'fil': 'underlag/%s/%s' % (slug, tr['fil']), 'titel': str(tr.get('titel') or '')[:200],
@@ -1309,7 +1322,8 @@ def planprovning(slug):
     ids = sorted(plan.get('kandidater') or {})
     # titel, hypotes och huvudreferens är låsta: hypotesen och titeln visas för ägaren före det blinda valet, och en ny
     # huvudreferens saknar sina referensbilder (granskning 4, G8)
-    lasta = ('titel', 'hypotes', 'huvudreferens', 'refero_stil')  # stilen hör till huvudreferensen
+    # stilen hör till huvudreferensen; Mobbins sökfras är redan sökt och skärmarna hämtade (uppdragsmaterial; fynd 12)
+    lasta = ('titel', 'hypotes', 'huvudreferens', 'refero_stil', 'mobbin_fraga')
     falt = [f for f, _ in PLANFALT if f not in lasta]
     prompt = '\n'.join([
         'Du är specialisterna för art direction och UX i skapandeflödet (kunskap/skapandeflodet.md) för en riktig verksamhet.',
@@ -1318,7 +1332,8 @@ def planprovning(slug):
         'navigationen och förtroendet genomtänkta för just den idén, och skiljer sig uppdragen verkligen i hur informationen',
         'ordnas? Ändra ett fält bara när kompetensen kräver det, och skriv då fältets nya hela text; annars säg i bedömningen',
         'varför valen håller. Titel, hypotes och huvudreferens är låsta (titeln och hypotesen visas för ägaren före det blinda',
-        'valet och nämner ingen referens eller sajt vid namn); en invändning mot dem skrivs i bedömningen.', '',
+        'valet och nämner ingen referens eller sajt vid namn), liksom Referos stil och Mobbins sökfras (materialet är redan',
+        'hämtat); en invändning mot dem skrivs i bedömningen.', '',
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *regel_rader(), *metod_rader(slug, 'plan'), '',
         *kompetens.prompt_rader('planprovning', slug), '',

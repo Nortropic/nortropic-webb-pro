@@ -301,14 +301,14 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
         if not fragor:
             continue
         post = {'fragor': fragor, 'anrop': {}, 'traffar': [], 'stilar': [], 'bilder': 0, 'anmarkningar': [], 'ok': False}
-        katalog = rot / tjanst
-        katalog.mkdir(parents=True, exist_ok=True)
+        tkat = rot / tjanst  # tjänstens mapp; parametern katalog är undermappen under referenser/ (fynd 13)
+        tkat.mkdir(parents=True, exist_ok=True)
         if torr:
             post['anmarkningar'].append('torrkörning: ingen session')
             res['tjanster'][tjanst] = post
             res['alla_ok'] = False
             continue
-        logg = katalog / ('session-%s.jsonl' % stampel)  # en logg per körning: råmaterialet skrivs aldrig över
+        logg = tkat / ('session-%s.jsonl' % stampel)  # en logg per körning: råmaterialet skrivs aldrig över
         try:
             rc, fel = kor(tjanst, prompt_for(tjanst, fragor, verksamhet), logg, modell)
         except Exception as e:  # noqa: BLE001
@@ -317,8 +317,8 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
         anrop, svar, slut = las_logg(logg, verktygssvar)
         post['logg'] = str(logg.relative_to(underlag / slug))
         # tjänstens egna svar ordagrant: stildokumenten hela, skärmarnas och flödenas metadata, sökresultaten
-        ra = katalog / ('ra-%s' % stampel)
-        bildkat = katalog / ('bilder-%s' % stampel)  # bilderna per körning: en senare körning skriver aldrig över dem
+        ra = tkat / ('ra-%s' % stampel)
+        bildkat = tkat / ('bilder-%s' % stampel)  # bilderna per körning: en senare körning skriver aldrig över dem
         bildkat.mkdir(parents=True, exist_ok=True)
         dokument, stil_id, titlar = {}, set(), stiltitlar(verktygssvar)
         for i, (namn, indata, text) in enumerate(verktygssvar, 1):
