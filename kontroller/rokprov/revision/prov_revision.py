@@ -27,6 +27,9 @@ sys.path.insert(0, str(ROOT / 'kontroller'))
 sys.path.insert(0, str(ROOT / 'dashboard'))
 PY = sys.executable
 tmp = Path(tempfile.mkdtemp(prefix='nwp-rev-'))
+# startkontrollen prövas för sig i en isolerad kopia (prov_startkontroll.py); här kör arbetaren med falska sessioner och
+# får aldrig skriva kvitton i repots underlag/
+os.environ['NWP_STARTKONTROLL'] = 'av'
 os.environ['NWP_KANDIDATFLODE'] = 'av'  # de äldre ateljéproven kör utforskningen med tre riktningar; kandidatflödet har eget avsnitt
 
 
@@ -4282,7 +4285,7 @@ finally:
     os.environ.pop('REFERO_MCP_TOKEN', None) if spara_miljo_k3 is None else os.environ.__setitem__('REFERO_MCP_TOKEN', spara_miljo_k3)
 # kundvakten: tillåter ett rent anrop uttryckligen, stoppar kundens uppgifter i alla former, stänger vid fel (G3, G14)
 (tmp / 'k3-u' / 'k3-kund').mkdir(parents=True)
-(tmp / 'k3-u' / 'k3-kund' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Vaktfirman Bygg AB', 'adress': {'ort': 'Kalix'}, 'rackvidd': {'orter': ['Älvsbyn']},
+(tmp / 'k3-u' / 'k3-kund' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Vaktfirman Bygg AB', 'adress': {'ort': 'Kalix', 'gata': 'Lärkstigen 12'}, 'rackvidd': {'orter': ['Älvsbyn']},
                                                                      'kategorier': ['Byggfirma'], 'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33'}]}))
 for in_, rc_ in (({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'query': 'Vaktfirman homepage'}}, 2),
                  ({'tool_name': 'mcp__mobbin__search_screens', 'tool_input': {'query': 'builder site', 'task_intent': 'contact 0701112233'}}, 2),
@@ -4295,7 +4298,17 @@ for in_, rc_ in (({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input
                  ({'tool_name': 'mcp__refero__refero_get_flow', 'tool_input': {'flow_ids': [1234567, 7654321]}}, 0),
                  ({'tool_name': 'mcp__refero__refero_get_screen_image', 'tool_input': {'image_url': 'https://images.refero.design/s/123456789.jpg'}}, 0),
                  ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'see https://annan.exempel/x'}}, 2),
-                 ({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'query': 'warm craft builder site'}}, 0)):
+                 ({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'query': 'warm craft builder site'}}, 0),
+                 # den oberoende granskningen 2026-10-05: bara flödets egna verktyg; nycklar, gatan, telefonens slut och id-fält prövas
+                 ({'tool_name': 'mcp__claude_ai_Trybloom__delete_brand', 'tool_input': {'brand_id': 'b1'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_delete_everything', 'tool_input': {'query': 'x'}}, 2),
+                 ({'tool_name': 'mcp__mobbin__generate_image', 'tool_input': {'prompt': 'warm craft'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'Vaktfirman': 'builder'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'lärkstigen workshop'}}, 2),
+                 ({'tool_name': 'mcp__mobbin__search_screens', 'tool_input': {'query': 'ring 11 22 33'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'builder', 'limit': 701112233}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_get_screen', 'tool_input': {'screen_id': 701112233}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'builder', 'limit': 20, 'page': 2}}, 0)):
     r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'k3-kund', str(tmp / 'k3-u')], input=json.dumps(in_), capture_output=True, text=True)
     assert r_k3.returncode == rc_, (in_, r_k3.returncode, r_k3.stderr)
     if rc_ == 0:
@@ -4304,6 +4317,30 @@ r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt
 assert r_k3.returncode == 2 and 'stoppas' in r_k3.stderr and not r_k3.stdout.strip(), 'vakten stänger vid fel och tillåter inget'
 r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'saknas', str(tmp / 'k3-u')], input=json.dumps({'tool_input': {'query': 'x'}}), capture_output=True, text=True)
 assert r_k3.returncode == 2, 'utan kundens uppgifter stoppas anropet'
+r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'k3-kund', str(tmp / 'k3-u')], input='', capture_output=True, text=True)
+assert r_k3.returncode == 2 and not r_k3.stdout.strip(), 'en tom indata stoppas'
+# referenstjänsternas sessioner: kundvakten öppnar tjänstens verktyg, och sessionen kan inte läsa filer (granskningen 2026-10-05, fynd 6)
+import referenstjanster as rt_k3
+spara_run_k3 = rt_k3.subprocess.run
+fangat_k3 = {}
+rt_k3.subprocess.run = lambda args, **kw: (fangat_k3.update(args=args) or subprocess.CompletedProcess(args, 0, b'', b''))
+try:
+    logg_k3 = tmp / 'k3-u' / 'k3-kund' / 'referenser' / 'tjanster' / 'refero' / 'session-x.jsonl'
+    logg_k3.parent.mkdir(parents=True)
+    rt_k3.kor_session('refero', 'p', logg_k3, 'm')
+    a_rt = fangat_k3['args']
+    assert not [x for x in a_rt if x.startswith('mcp__')], 'tjänstens verktyg står aldrig i tillåtelselistan'
+    inst_rt = json.loads(a_rt[a_rt.index('--settings') + 1])['hooks']['PreToolUse'][0]
+    assert 'k3-kund' in inst_rt['hooks'][0]['command'] and str(tmp / 'k3-u') in inst_rt['hooks'][0]['command'] and 'exit 2' in inst_rt['hooks'][0]['command']
+    neka_rt = a_rt[a_rt.index('--disallowedTools') + 1:]
+    assert {'Read', 'Glob', 'Grep', 'Bash'} <= set(neka_rt), neka_rt
+    try:
+        rt_k3.kor_session('refero', 'p', tmp / 'session-utanfor.jsonl', 'm')
+        assert False, 'en logg utanför kundens tjänstekatalog ger ingen session'
+    except ValueError:
+        pass
+finally:
+    rt_k3.subprocess.run = spara_run_k3
 # passen efter fördjupningen (Codex punkt 8–9; granskning 4, G1, G4, G5, G7): tre delar, omförsök, återställning
 sl_kp = 'kp-prov'
 spara_kp = {n_: getattr(kd, n_) for n_ in ('fotografera', 'aterstall_och_fotografera', 'bevara_version', 'designkontroll')}
@@ -4465,7 +4502,7 @@ lk_ex = tmp / 'lk-ex'; (lk_ex / 'src').mkdir(parents=True)
 (lk_ex / 'src' / 'a.astro').write_text('<!-- underlag/kund-x/BRIEF.md -->')
 (lk_ex / 'src' / 'b.astro').write_text('<!-- byggd med kontroller/design.py -->')
 (lk_ex / '.env.example').write_text('RESEND_API_KEY=\n# kommentar\n')
-(lk_ex / 'src' / 'c.js').write_text("const k = 're_abcdefghijklmnopqrstu';")
+(lk_ex / 'src' / 'c.js').write_text("const k = 're_Ab12Cd34_Ef56Gh78Ij90Kl12Mn34Op56';")  # Resends form: re_ + 8 + _ + 24
 assert sorted(f_ for f_, _s in ex_k3.lackor(lk_ex)) == ['src/a.astro', 'src/c.js'] and ex_k3.hanvisningar(lk_ex) == ['src/b.astro'], (ex_k3.lackor(lk_ex), ex_k3.hanvisningar(lk_ex))
 lev_ex = json.loads((ROOT / 'mall' / 'leverans' / 'package.json').read_text())
 assert lev_ex['dependencies']['@astrojs/vercel'] and lev_ex['overrides']['path-to-regexp'] == '6.3.0' and (ROOT / 'mall' / 'leverans' / 'package-lock.json').is_file()
@@ -4473,11 +4510,16 @@ assert json.loads((ROOT / 'mall' / 'leverans' / 'vercel.json').read_text())['reg
 # serverfunktionen: varje väg i kontraktet, utan nät (Node)
 nod_ex = tmp / 'forfragan-prov'; nod_ex.mkdir()
 shutil.copyfile(ROOT / 'mall' / 'leverans' / 'forfragan.js', nod_ex / 'forfragan.mjs')
+# en ersättare för @vercel/blob utan nät: lagringen prövas på riktigt (den oberoende granskningen 2026-10-05, fynd 13)
+(nod_ex / 'node_modules' / '@vercel' / 'blob').mkdir(parents=True)
+(nod_ex / 'node_modules' / '@vercel' / 'blob' / 'package.json').write_text('{"name": "@vercel/blob", "type": "module", "main": "index.js"}')
+(nod_ex / 'node_modules' / '@vercel' / 'blob' / 'index.js').write_text('export async function put(vag, kropp, opt) { globalThis.__blob.push([vag.split("/").pop(), opt.access, opt.contentType]); return { pathname: vag }; }')
 (nod_ex / 'prov.mjs').write_text('''import { POST } from './forfragan.mjs';
 const ut = [];
 const form = (f, bild) => { const fd = new FormData(); for (const [k, v] of Object.entries(f)) fd.append(k, v); if (bild) fd.append('bild', bild, 'b.jpg');
   return new Request('https://x.se/api/forfragan/', { method: 'POST', body: fd }); };
 const g = { namn: 'Prov', telefon: '0700000000', meddelande: 'Hej', fylltid: '9000' };
+globalThis.__blob = [];
 async function kor(req, env = {}, svar = null) {
   for (const k of ['RESEND_API_KEY', 'FORFRAGAN_TILL', 'FORFRAGAN_FRAN', 'VERCEL_ENV', 'BLOB_STORE_ID']) delete process.env[k];
   Object.assign(process.env, env);
@@ -4491,12 +4533,21 @@ await kor(form(g), { VERCEL_ENV: 'production' });
 const konf = { VERCEL_ENV: 'production', RESEND_API_KEY: 'k', FORFRAGAN_TILL: 'a@x.se', FORFRAGAN_FRAN: 'w@x.se' };
 await kor(form(g, new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' })), konf, () => new Response('{}', { status: 200 }));
 await kor(form(g), konf, () => new Response('fel', { status: 500 }));
+await kor(form(g, new Blob([new Uint8Array(4200000)], { type: 'image/jpeg' })));
+await kor(form(g, new Blob(['text'], { type: 'text/plain' })));
+await kor(form(g, new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' })), { VERCEL_ENV: 'production', BLOB_STORE_ID: 's' });
+await kor(form(g), { ...konf, BLOB_STORE_ID: 's' }, () => new Response('fel', { status: 500 }));
 console.log(JSON.stringify(ut));
+console.log(JSON.stringify(globalThis.__blob));
 ''')
 r_nod = subprocess.run(['node', 'prov.mjs'], cwd=nod_ex, capture_output=True, text=True, timeout=60)
 assert r_nod.returncode == 0, r_nod.stderr[-500:]
-assert json.loads(r_nod.stdout.strip().splitlines()[-1]) == [[303, '/tack/', 'honeypot'], [303, '/kontakt/?saknas=1#forfragan-saknas', 'ofullstandig'], [413, None, 'for-stor'],
-                                                            [303, '/tack/', 'demo'], [303, '/fel/', 'fel'], [303, '/tack/', 'skickad'], [303, '/fel/', 'fel']], r_nod.stdout
+ut_nod, blob_nod = [json.loads(x) for x in r_nod.stdout.strip().splitlines()[-2:]]
+assert ut_nod == [[303, '/tack/', 'honeypot'], [303, '/kontakt/?saknas=1#forfragan-saknas', 'ofullstandig'], [303, '/kontakt/?bild=for-stor#forfragan-bild', 'for-stor'],
+                  [303, '/tack/', 'demo'], [303, '/fel/', 'fel'], [303, '/tack/', 'skickad'], [303, '/fel/', 'fel'],
+                  [303, '/kontakt/?bild=for-stor#forfragan-bild', 'for-stor'], [303, '/kontakt/?bild=typ#forfragan-bild', 'ofullstandig'],
+                  [303, '/fel/', 'sparad'], [303, '/fel/', 'sparad']], ut_nod
+assert blob_nod == [['b.jpg', 'private', 'image/jpeg'], ['forfragan.json', 'private', 'application/json'], ['forfragan.json', 'private', 'application/json']], blob_nod
 # förhandsvisningens interaktionsväg: bara kända tillstånd och en enkel CSS-väljare (Codex punkt 9)
 import forhandsvisa as fv_k3  # noqa: E402
 assert fv_k3.main(['sk-prov', '--kandidat', 'k01', '--tillstand', 'tangentbord,okant']) == 2 and fv_k3.main(['sk-prov', '--meny', 'a;b{}']) == 2
@@ -6036,6 +6087,69 @@ def designkontraktet():
 
 
 designkontraktet()
+
+
+def stilpaketet():
+    """Referos stilpaket (ägarens uppdrag 2026-10-05 18:53Z, punkt 2): originalet orört och för sig, variablerna i
+    Referos namn, Tailwind-temat, DESIGN.md:s import, och bara stilens id och titel till tjänsten."""
+    import stilpaket as sp_
+    import refero_mcp as rm_
+    import design as dz_
+    anrop_ = []
+    export_ = {'title': 'Provstil', 'northStar': 'Lugn verkstad.', 'description': 'Varm yta.', 'theme': 'light',
+               'colors': [{'hex': '#FFF3E7', 'name': 'Canvas', 'role': 'bakgrund'}, {'hex': '#030302', 'name': 'Ink', 'role': 'text'}],
+               'components': [{'html': '<style>:root { --color-canvas: #fff3e7; --font-serif: \'Lora\', Georgia, serif; }</style>'}],
+               'typography': [{'family': 'EgenSerif', 'source': 'custom', 'substitute': 'Lora', 'role': 'rubriker', 'sizes': '56px', 'weight': '400', 'lineHeight': '1.1'}],
+               'typeScale': [{'role': 'body', 'size': 16, 'lineHeight': 1.5, 'letterSpacing': -0.24}],
+               'spacing': {'radius': {'cards': '16-24px'}, 'sectionGap': '96-120px', 'pageMaxWidth': '1280px'},
+               'elevation': [{'style': 'rgba(0,0,0,.1) 0 4px 8px', 'element': 'kort'}], 'layout': 'Centrerad.', 'imagery': 'Papper.',
+               'dos': ['Använd Ink.'], 'donts': ['Ingen svart.']}
+
+    class Klient_:
+        def json(self, namn, args):
+            anrop_.append((namn, dict(args)))
+            if namn == 'refero_search_styles':
+                return {'records': [{'uuid': SID, 'preview_url': 'https://images.refero.design/styles/x/%s/preview_0.jpg' % SID, 'url': 'https://exempel.se'}]}
+            return json.loads(json.dumps(export_))
+
+        def kalla(self, namn, args):
+            anrop_.append((namn, dict(args)))
+            return '# Provstil — Style Reference\n'
+    SID = '00000000-1111-2222-3333-444444444444'
+    spara_bild = rm_.ladda_bild
+
+    def bild_(url, mal, max_byte=0):
+        f = Path(str(mal) + '.jpg')
+        f.write_bytes(b'\xff\xd8\xff' + url.encode())
+        return f
+    rm_.ladda_bild = bild_
+    try:
+        sajt_ = tmp / 'sp-k' / 'sp-kund' / 'sajt'
+        sajt_.mkdir(parents=True)
+        (sajt_ / 'package.json').write_text('{}')
+        r_ = sp_.hamta('sp-kund', SID, klient=Klient_(), underlag=tmp / 'sp-u', sajt=sajt_)
+        css_ = Path(r_['css']).read_text()
+        assert '--color-canvas: #fff3e7;' in css_ and "--font-serif: 'Lora', Georgia, serif;" in css_ and '--color-ink: #030302;' in css_, css_
+        assert '--text-body: 16px;' in css_ and '--text-body--line-height: 1.5;' in css_ and '--radius-cards: 16px;' in css_ and '--width-page: 1280px;' in css_
+        assert Path(r_['tema']).read_text().count('@theme {') == 1 and 'fri ersättare: Lora' in Path(r_['beskrivning']).read_text()
+        orig_ = Path(r_['original'])
+        assert sorted(p_.name for p_ in orig_.iterdir()) == ['ORIGINAL.json', 'STIL.json', 'STIL.md', 'preview_0.jpg', 'preview_1.jpg', 'preview_2.jpg']
+        fore_ = {p_.name: p_.read_bytes() for p_ in orig_.iterdir()}
+        sp_.hamta('sp-kund', SID, klient=Klient_(), underlag=tmp / 'sp-u', sajt=sajt_)
+        assert {p_.name: p_.read_bytes() for p_ in orig_.iterdir()} == fore_, 'samma export: originalet orört'
+        export_['colors'][1]['hex'] = '#111111'
+        sp_.hamta('sp-kund', SID, klient=Klient_(), underlag=tmp / 'sp-u', sajt=sajt_)
+        assert (orig_ / 'tidigare').is_dir() and len(list((orig_ / 'tidigare').iterdir())) == 1, 'en ändrad export: den förra sparas undan'
+        assert all(a_ in ({'style_id': SID}, {'style_id': SID, 'response_format': 'md'}, {'query': 'Provstil'}) for _n, a_ in anrop_), anrop_
+        v_, fel_ = dz_.las((ROOT / 'kontroller' / 'rokprov' / 'DESIGN.md').read_text())
+        v_['import'] = [r_['import']]
+        assert not fel_ and not [e_ for e_ in dz_.validera(v_) if 'import' in e_], dz_.validera(v_)
+    finally:
+        rm_.ladda_bild = spara_bild
+    print('stilpaketet ok')
+
+
+stilpaketet()
 
 
 shutil.rmtree(tmp, ignore_errors=True)

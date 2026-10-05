@@ -4,7 +4,10 @@
 //
 // Ordningen: storlek → honeypot och tidsfälla → validering → lagring (privat Vercel Blob, före mejlet) → mejl (Resend)
 // → 303 till /tack/. Svaret bär X-Forfragan med utfallet (demo, skickad, sparad, honeypot, ofullstandig, for-stor, fel),
-// så att leveransprovet kan pröva funktionen genom riktiga HTTP-svar. Inga personuppgifter loggas.
+// så att leveransprovet kan pröva funktionen genom riktiga HTTP-svar. Inga personuppgifter loggas. En bild som inte kan
+// tas emot (över 4 MB eller fel slag) skickar besökaren tillbaka till formuläret med ett eget besked (#forfragan-bild),
+// aldrig till beskedet om saknade fält; formuläret prövar storleken redan i webbläsaren. Över Vercels gräns 4,5 MB
+// svarar plattformen 413 innan funktionen körs (den oberoende granskningen 2026-10-05, fynd 4).
 export const prerender = false;
 
 const MAX_BYTE = 4_400_000; // under Vercels gräns 4,5 MB för en funktions begäran (docs: Functions limits)
@@ -51,7 +54,7 @@ async function mejla(falt, bild) {
 
 export async function POST({ request }) {
   if (Number(request.headers.get('content-length') || 0) > MAX_BYTE) {
-    return new Response('Förfrågan är för stor: bilden får vara högst 4 MB.', { status: 413, headers: { 'X-Forfragan': 'for-stor' } });
+    return svar('/kontakt/?bild=for-stor#forfragan-bild', 'for-stor', 303, 'begäran över 4,4 MB');
   }
   let form;
   try {
@@ -69,7 +72,8 @@ export async function POST({ request }) {
   if (!giltig) return svar('/kontakt/?saknas=1#forfragan-saknas', 'ofullstandig');
   const b = form.get('bild');
   const bild = b && typeof b === 'object' && b.size > 0 ? b : null;
-  if (bild && (bild.size > MAX_BILD || !BILDTYPER.includes(bild.type))) return svar('/kontakt/?saknas=1#forfragan-saknas', 'ofullstandig');
+  if (bild && bild.size > MAX_BILD) return svar('/kontakt/?bild=for-stor#forfragan-bild', 'for-stor', 303, 'bilden över 4 MB');
+  if (bild && !BILDTYPER.includes(bild.type)) return svar('/kontakt/?bild=typ#forfragan-bild', 'ofullstandig', 303, 'inte en bildfil');
   const konfigurerad = miljo('RESEND_API_KEY') && miljo('FORFRAGAN_TILL') && miljo('FORFRAGAN_FRAN');
   const lage = miljo('VERCEL_ENV') || 'development';
   if (!konfigurerad && lage !== 'production') return svar('/tack/', 'demo'); // förhandsvisning utan mottagare: inget skickas

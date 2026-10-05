@@ -37,13 +37,18 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
 
 En serverfunktion på `/api/forfragan/` (`mall/leverans/forfragan.js`, lagd i kundrepot av `kontroller/exportera.py`) tar över med samma kontrakt.
 Den är prövad med riktiga HTTP-svar i provprojektet `nortropic-leveransprov` (`kontroller/driftkoll.py --formular`):
-honeypot och tidsfälla 303 till `/tack/`, ofullständigt till `/kontakt/`, för stor bild 413, annan Origin 403 (Astros
-CSRF-skydd), giltigt inskick i förhandsvisningen 303 till `/tack/` som demo och i produktion utan mottagare till `/fel/`.
-Mejlet genom Resend och lagringen i Blob är prövade utan nät (Node, `mall/leverans/forfragan.js`), inte mot tjänsterna:
-de prövas med verksamhetens egen adress vid lanseringen.
+honeypot och tidsfälla 303 till `/tack/`, ofullständigt till `/kontakt/`, annan Origin 403 (Astros CSRF-skydd), giltigt
+inskick i förhandsvisningen 303 till `/tack/` som demo och i produktion utan mottagare till `/fel/`. En bild som inte kan
+tas emot (över 4 MB, eller en begäran över 4,4 MB) skickas tillbaka till formuläret med ett eget besked
+(`/kontakt/?bild=for-stor#forfragan-bild`), och formuläret prövar storleken redan i webbläsaren; över Vercels gräns
+4,5 MB svarar plattformen 413 innan funktionen körs. Mejlet genom Resend och lagringen i Blob är prövade utan nät (Node,
+`mall/leverans/forfragan.js`, med en ersättare för `@vercel/blob` som tar emot det som sparas), inte mot tjänsterna: de
+prövas med verksamhetens egen adress vid lanseringen. Resends variabler sätts bara för produktionen i Vercel, så att en
+förhandsvisning aldrig skickar ett riktigt mejl (driftkollen kräver utfallet demo där).
 
 1. Bara POST; multipart eller urlencoded; begäran högst 4,4 MB och bilden högst 4 MB (Vercels gräns för en funktions
-   begäran är 4,5 MB, och demons mottagare har samma tak), bara bildtyper i `bild`.
+   begäran är 4,5 MB, och demons mottagare har samma tak), bara bildtyper i `bild`; en bild som inte tas emot ger
+   beskedet `#forfragan-bild`, aldrig beskedet om saknade fält.
 2. Validera igen på servern: namn 1–100 tecken, telefon 6–40 tecken med siffror, meddelande 1–4000 tecken.
 3. Honeypot ifylld: svara 303 till `/tack/` utan att skicka. Tidsfälla: `fylltid` under 1500 ms: samma sak. Tomt
    eller 0 (ingen JavaScript, direkt POST) godtas; fältet är ett botfilter, inte autentisering. Jämför aldrig en

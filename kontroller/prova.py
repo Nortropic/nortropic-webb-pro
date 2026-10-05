@@ -289,8 +289,12 @@ class Server:
                 if urlsplit(self.path).path not in ('/api/forfragan', '/api/forfragan/'):
                     return self.send_error(405)
                 n = int(self.headers.get('Content-Length') or 0)
-                if n > 4_400_000:  # samma tak som serverfunktionen vid lansering (under Vercels 4,5 MB; kunskap/forfragan.md)
-                    return self.send_error(413)
+                if n > 4_400_000:  # samma tak och samma besked som serverfunktionen vid lansering (kunskap/forfragan.md)
+                    self.send_response(303)
+                    self.send_header('Location', '/kontakt/?bild=for-stor#forfragan-bild')
+                    self.send_header('Content-Length', '0')
+                    self.end_headers()
+                    return
                 falt = las_formular(self.headers.get('Content-Type') or '', self.rfile.read(n))
                 if falt.get('webbplats'):
                     mal = '/tack/'  # honeypoten ifylld: tyst, som om det gick bra

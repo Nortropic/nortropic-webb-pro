@@ -220,9 +220,41 @@ async function oversikt() {
     </div>
     ${vantar.length ? `<h2>Väntar på din dom</h2><div class="rutnat">${vantar.map(kort).join('')}</div>` : ''}
     <h2>Alla byggen</h2>
-    ${b.length ? `<div class="rutnat">${b.map(kort).join('')}</div>` : `<div class="tom">Inga byggen än. Starta ett under <a href="#/starta">Starta</a>.</div>`}`;
+    ${b.length ? `<div class="rutnat">${b.map(kort).join('')}</div>` : `<div class="tom">Inga byggen än. Starta ett under <a href="#/starta">Starta</a>.</div>`}
+    <div id="verktygslada"></div>`;
+  verktygsladavy();
   timer = setTimeout(oversikt, b.some((x) => x.pagar) ? 6000 : 20000);
 }
+// Verktygslådan: det dagliga underhållet prövar och tar in uppdateringar mellan byggena (kontroller/underhall.py)
+async function verktygsladavy() {
+  const el = $('#verktygslada'); if (!el) return;
+  const d = await api('/api/underhall').catch(() => null); if (!d) return;
+  const s = d.senast, a = (s && s.antal) || {};
+  const bytta = d.andringar.filter((x) => x.matinstrument);
+  el.innerHTML = `<h2>Verktygslådan</h2><div class="rad" style="margin-bottom:12px;flex-wrap:wrap">${d.pagar ? `<span class="chip acc puls">Underhåller … (sedan ${tid(d.pagar.start)})</span>` : s ? `<span class="chip">senast ${tid(s.slut || s.start)}</span>` : '<span class="chip gul">underhållet har inte körts</span>'}
+      ${s && !d.pagar ? `<span class="chip ok">${a.uppdaterad || 0} uppdaterade</span><span class="chip ${a.avvisad ? 'rod' : ''}">${a.avvisad || 0} avvisade</span><span class="chip ${a.behallen ? 'gul' : ''}">${a.behallen || 0} behållna</span>` : ''}
+      ${d.av ? '<span class="chip">automatiken är av (NWP_UNDERHALL_AV)</span>' : `<span class="chip">körs ${d.intervall_dagar === 1 ? 'en gång per dygn' : 'var ' + d.intervall_dagar + ' dygn'}, när inget bygge pågår</span>`}
+      <button class="knapp" id="underhall-nu" ${d.pagar ? 'disabled' : ''}>Kör underhållet nu</button><span id="underhall-svar" class="under"></span></div>
+    <p class="under">Claude Code, skillsen, sajtens paket, mätinstrumenten, Python-paketen, Homebrew-formlerna och Impeccables motor prövas var för sig i en isolerad kopia (huvudversioner och mätinstrument med hela rökprovet) och tas in när de klarar proven. Starterna bekräftar bara läget och låser versionerna i ett startkvitto.</p>
+    ${bytta.length ? `<p class="under"><b>Bytta mätinstrument:</b> ${bytta.map((x) => `${esc(x.namn)} ${esc(x.fran || '')} → ${esc(x.till || '')} (${tid(x.tid)})`).join('; ')}</p>` : ''}
+    ${d.md ? `<details><summary>Senaste underhållet (UNDERHALL.md)</summary><div class="prosa">${d.md}</div></details>` : ''}`;
+  $('#underhall-nu').onclick = async () => { $('#underhall-nu').disabled = true; try { await post('/api/underhall/kor', {}); setTimeout(verktygsladavy, 1500); } catch (err) { $('#underhall-svar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; $('#underhall-nu').disabled = false; } };
+}
+// Startkontrollens kvitto för kundens senaste start, överst i prototypvyn
+function visaStartkvitto(d) {
+  const k = d.startkvitto; if (!k) return;
+  const h1 = $('#vy h1'); if (!h1 || $('#startkvitto')) return;
+  const etikett = { redo: ['ok', 'Startkontrollen: redo'], begransad: ['gul', 'Startkontrollen: redo med begränsningar'], stoppad: ['rod', 'Startkontrollen stoppade starten'] }[k.status] || ['', 'Startkontrollen'];
+  const a = k.antal || {};
+  const sec = document.createElement('section'); sec.id = 'startkvitto'; sec.className = 'kort'; sec.style.marginBottom = '18px';
+  sec.innerHTML = `<div class="rad" style="flex-wrap:wrap"><span class="chip ${etikett[0]}">${etikett[1]}</span><span class="chip">${tid(k.tid)} · ${esc(k.start || '')}</span>
+      ${['fel', 'avvisad', 'behallen', 'okand'].filter((x) => a[x]).map((x) => `<span class="chip ${x === 'fel' || x === 'avvisad' ? 'rod' : 'gul'}">${a[x]} ${{ fel: 'fel', avvisad: 'avvisade', behallen: 'behållna', okand: 'okända' }[x]}</span>`).join('')}
+      ${(k.matinstrument_bytta || []).length ? `<span class="chip gul">mätinstrument bytta: ${k.matinstrument_bytta.map((x) => esc(x.namn)).join(', ')}</span>` : ''}</div>
+    ${(k.stoppar || []).length ? `<p class="rod-text">${k.stoppar.map(esc).join('<br>')}</p>` : ''}
+    ${k.md ? `<details><summary>Startkvittot (STARTKVITTO.md)</summary><div class="prosa">${k.md}</div></details>` : ''}`;
+  h1.insertAdjacentElement('afterend', sec);
+}
+
 function kort(b) {
   return `<a class="kort bygge-kort" href="#/bygge/${esc(b.slug)}">
     <div class="rad mellan"><div><div class="namn">${esc(b.namn)}</div><div class="ort">${esc(b.ort || b.slug)}</div></div>${statuschip(b)}</div>
@@ -570,7 +602,7 @@ async function prototypvy(slug) {
     return;
   }
   const d = await api('/api/prototyp/' + encodeURIComponent(slug));
-  if (d.kandidatflode) return kandidatvy(slug, d);
+  if (d.kandidatflode) { await kandidatvy(slug, d); return visaStartkvitto(d); }
   const startad = new Date().toISOString();  // ägarens minuter till domen (kontroller/autonomi.py)
   const hr = d.huvudreferens;
   const ref = hr ? `<section class="kort" style="margin-bottom:24px"><h2>Huvudreferensen: ${esc(hr.namn)}</h2><p class="under">${esc(hr.vad)}</p><div class="galleri">${hr.bilder.map((b) => bild(b.fil, b.text)).join('')}</div></section>` : '';
@@ -599,6 +631,7 @@ async function prototypvy(slug) {
     ${riktn}${form}${efter}
     ${d.riktningar_md ? `<details style="margin-top:24px"><summary>Riktningarna (RIKTNINGAR.md)</summary><div class="prosa">${d.riktningar_md}</div></details>` : ''}
     ${d.forfining_md ? `<details><summary>Förfiningens varv (FORFINING.md)</summary><div class="prosa">${d.forfining_md}</div></details>` : ''}`;
+  visaStartkvitto(d);
   const knapp = $('#pr-spara');
   if (knapp) knapp.onclick = async () => {
     const b = (document.querySelector('input[name="pr-b"]:checked') || {}).value;

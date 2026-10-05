@@ -35,6 +35,8 @@ utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglern
   en ny mekanik.
 - Python med `.venv/bin/python`, Node med `node`. Kommandon från repots rot.
 - Efter ändringar i `kontroller/` eller `mall/`: `kontroller/rokprov.sh` ska sluta grönt.
+- Verktygslådan hålls i den senaste versionen som klarat proven av det dagliga underhållet, och varje start bekräftas av
+  startkontrollen med ett startkvitto (`kunskap/beroenden.md`, Underhåll). Installera aldrig något för hand vid sidan av.
 - Commit direkt på `main` och `git push origin main`. Repot är publikt: inga hemligheter, inget ur `underlag/` eller
   `kunder/`, inga personuppgifter ur ägarens domar (privatpersoners namn, nummer, adresser, hälsa; BESLUT.md 2026-10-03).
 - De gamla repona (Nortropic Runtime, nortropic-projektkontor, nortropic-digitala, kund-demo-norrglanta) är borttagna

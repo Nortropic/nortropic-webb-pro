@@ -299,7 +299,8 @@ gäller.
    kritik och slutbearbetning, och designsystemet i fördjupningen. Impeccables arbetsflöde är förebilden; varje pass
    läser sina skills hela och visar före och efter i den renderade sidan. Ett pass är inte godkänt för att en fil öppnats.
 2. **Specialisterna prövar planen** innan skaparna börjar (planprövningen).
-3. **Alla skills och MCP:er är tillgängliga** i flödets sessioner. Refero, Mobbin och Trybloom skyddas av kundvakten
+3. **Alla skills och MCP:er är tillgängliga** i flödets sessioner. Refero och Mobbin skyddas av kundvakten (Trybloom togs bort
+   2026-10-05 ~21Z på ägarens ord: "we don't use trybloom so u can remove that one")
    (BESLUT 2026-10-05 punkt 4 gäller). Bildgenererande skills används inte förrän ägaren beslutat om genererade
    designbilder: sajten använder verksamhetens egna bilder (ägarbeslutet L3).
 4. **Uppdaterat 2026-10-05:** Claude Code 2.1.280 → 2.1.289; alla skills kontrollerade mot källornas HEAD (aktuella;
@@ -352,6 +353,31 @@ val inom det mandatet, inga egna ägarbeslut.
     och Standard Protection efter. Prövat med riktiga HTTP-svar i provprojektet `nortropic-leveransprov` med rökprovets
     fiktiva sajt (`kontroller/driftkoll.py`). Fyndet att produktionsaliaset var publikt under Standard Protection står i
     `kunskap/lansering.md`; aliaset var öppet i cirka tre minuter med den fiktiva sidan innan skyddet ändrades.
+
+## Tillägg 2026-10-05, natt: startkontrollen, det dagliga underhållet och granskningens rättelser
+
+Ägarens uppdrag 19:13Z, 20:27Z och ~20:50Z (ordagrant i minnet) och den oberoende granskningen av regelkedjan och
+leveransvägen:
+
+1. **Startkontrollen före varje start** (`kontroller/startkontroll.py`): arbetaren och kor.sh kör den före allt annat;
+   den bekräftar verktygslådan, prövar förmågan med små återanvända prov, låser versionerna och skriver startkvittot.
+   Ett nödvändigt verktyg som inte fungerar stoppar starten med ett konkret besked.
+2. **Det dagliga underhållet** (`kontroller/underhall.py`, från dashboarden): den senaste versionen som klarat våra prov,
+   prövad för sig i en isolerad kopia och med hela rökprovet i en egen worktree för huvudversioner och mätinstrument;
+   en avvisad version prövas igen först när en nyare kommer; ingenting tas in medan en körning pågår. Python-paketen
+   har fått ett versionslås (`requirements.txt`, `requirements-lock.txt`), och Node följer den senaste LTS som Vercel
+   stöder. Tabellen per slag står i `kunskap/beroenden.md`, Underhåll.
+3. **Trybloom används inte** (ägarens ord ~21:01Z: "we don't use trybloom so u can remove that one"): borta ur
+   kompetensblocken och kundvaktens matchning.
+4. **Kundvakten tillåter bara flödets egna verktyg** hos Refero och Mobbin (exakta namn), prövar också nycklar, gatans
+   namn, telefonnumrets slut och id-fält, och stoppar en tom indata; referenstjänsternas sessioner har samma vakt och
+   kan inte läsa filer.
+5. **Exportens provbygge** körs innanför processgränsen (inget nät, skrivning bara i kopian, en miljö utan nycklar),
+   och en kandidats bygge får skriva bara i den delade node_modules cacher, aldrig i paketen.
+6. **Formuläret:** en bild över 4 MB får ett eget besked i formuläret (och prövas redan i webbläsaren), aldrig beskedet
+   om saknade fält; driftkollen kräver utfallet demo i förhandsvisningen.
+7. **Referos stilpaket** (`kontroller/stilpaket.py`): originalexporten bevaras orörd för sig, variablerna i Referos namn
+   och ett Tailwind-tema läggs i sajten, och kundanpassningen skrivs i en egen fil.
 
 Ersatta designregler (ur `kunskap/designregler.md`, bevarade här):
 

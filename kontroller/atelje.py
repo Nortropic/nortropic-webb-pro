@@ -162,18 +162,16 @@ def claude():
     return shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
 
 
-KUNDVAKT_MATCH = 'mcp__refero__.*|mcp__mobbin__.*|mcp__claude_ai_Trybloom__.*'  # externa designtjänster: kundvakten prövar varje anrop
+import kundvakt as kundvakt_mod  # noqa: E402
+KUNDVAKT_MATCH = kundvakt_mod.MATCH  # externa designtjänster: kundvakten prövar varje anrop; andra MCP-anrop får ingen tillåtelse
 REFERO_ENV = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env'
 
 
 def kundvakt(slug):
-    """Inställningarna (--settings) med kundvakten: en PreToolUse-krok för varje anrop till Refero, Mobbin eller
-    Trybloom. Tjänsternas verktyg står inte i --allowedTools: bara vaktens uttryckliga tillåtelse (permissionDecision
-    allow) öppnar ett rent anrop, så en krok som inte startar, dör eller når sin tidsgräns lämnar anropet åt dontAsk, som
-    nekar det (kontroller/kundvakt.py; prövat i en riktig session 2026-10-05; granskning 4, G3)."""
-    kommando = ('"$CLAUDE_PROJECT_DIR/.venv/bin/python" -B "$CLAUDE_PROJECT_DIR/kontroller/kundvakt.py" %s "%s" '
-                "|| { echo 'kundvakten kunde inte pröva anropet' >&2; exit 2; }") % (slug, UNDERLAG)
-    return json.dumps({'hooks': {'PreToolUse': [{'matcher': KUNDVAKT_MATCH, 'hooks': [{'type': 'command', 'timeout': 30, 'command': kommando}]}]}})
+    """Inställningarna (--settings) med kundvakten för skaparsessionerna (kontroller/kundvakt.py, installningar): bara
+    flödets egna verktyg hos Refero och Mobbin kan tillåtas, och bara när anropet inte bär kundens uppgifter (Trybloom
+    används inte, ägarens ord 2026-10-05)."""
+    return kundvakt_mod.installningar(slug, UNDERLAG)
 
 
 def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None):
@@ -403,7 +401,8 @@ def divergera_prompt(slug, bilder, kritik=None, komplettering=None, ankare=None)
         *(['Bildval som inte gick att läsa (en utpekad bild som saknas eller ligger fel): ' + '; '.join(fel)] if fel else []),
         *([''] + skapande.kompletteringsrader(komplettering) if komplettering else []), '',
         'Verksamhetens egna bilder (de BILDER.md anger som egna) ligger kopierade i %s/src/assets/atelje/: %s.' % (s, ', '.join(bilder) or 'inga'),
-        'Använd inga andra bilder; finns för få, bär typografin och det som saknas står i BESTALLNING.md.', '',
+        'Bilder som visar verksamheten är bara dess egna; illustrativt material som inte utger sig för att dokumentera den är',
+        'tillåtet med källa (kunskap/bild.md). Finns för få, bär typografin och formen, och det som saknas står i BESTALLNING.md.', '',
         'Regler för riktningarna (utforska före val, Design Councils Double Diamond; Codex via ägaren 2026-10-05):',
         '- Riktningarna är olika grundidéer, inte varianter av en: de skiljer sig i komposition, typografiskt system,',
         '  bildstrategi och palettens källa. Ingen halmgubbe; varje riktning ska kunna vinna.',
@@ -1774,6 +1773,27 @@ def arbetare(slug, lage='ny'):
             status.setdefault(k, forra[k])
     if (lage == 'ny' and kandidatflode_pa()) or (lage in ('fortsatt', 'valda') and kandidatkorning(rot, forra)):
         status['kandidatflode'] = True
+    # startkontrollen (kontroller/startkontroll.py; ägarens uppdrag 2026-10-05) före allt annat: verktygslådan bekräftad,
+    # versionerna låsta och kvittot skrivet (underlag/<slug>/atelje/STARTKVITTO.md). Ett nödvändigt verktyg som inte
+    # fungerar stoppar starten med beskedet, innan något arkiveras eller skrivs i sajten; en kontroll som inte kan göras
+    # stoppar likaså. En återupptagen körning behåller sitt låsta underlag och får veta vad som ändrats sedan.
+    steg_fore = status['steg']
+    status['steg'] = 'startkontroll'
+    skriv_status(rot, status)
+    try:
+        import startkontroll
+        kv = startkontroll.for_start(slug, lage)
+        sk = startkontroll.sammanfattning(kv) if kv else None
+    except Exception as e:  # noqa: BLE001
+        sk = {'status': 'stoppad', 'stoppar': ['startkontrollen kunde inte göras: %s: %s' % (type(e).__name__, e)]}
+    if sk:
+        status['startkontroll'] = sk
+        if sk['status'] == 'stoppad':
+            status.update(steg='fel', fel='Startkontrollen stoppade starten: %s (underlag/%s/atelje/STARTKVITTO.md)' % ('; '.join(sk['stoppar'][:4]), slug))
+            status.pop('pid', None)
+            skriv_status(rot, status)
+            return 1
+    status['steg'] = steg_fore
     aterkalla(slug)  # en ny körning skriver i sajten: ett tidigare godkännande gäller inte dess resultat (granskning 5, fynd 1)
     skriv = lambda: skriv_status(rot, status)  # noqa: E731
     klar = lambda fas: bool((status['faser'].get(fas) or {}).get('klar'))  # noqa: E731

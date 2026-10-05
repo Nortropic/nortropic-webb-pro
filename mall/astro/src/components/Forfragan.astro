@@ -14,15 +14,19 @@ interface Props {
   felTelefon?: string;
   felTelefonFormat?: string; // beskedet när numret har bokstäver eller är för kort (byggstandarden 6.2, ägarens dom L4)
   felMeddelande?: string;
+  felBild?: string; // beskedet när bilden inte kan tas emot (över 4 MB eller inte en bild), i verksamhetens ord
 }
 const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   saknas = 'Namn, telefon och vad du vill ha hjälp med behövs. Fyll i dem och skicka igen.', telefon, telefonText,
   felNamn = 'Skriv ditt namn.', felTelefon = 'Skriv ett nummer vi kan ringa.',
-  felTelefonFormat = 'Skriv numret med siffror, till exempel 070-123 45 67.', felMeddelande = 'Skriv vad du vill ha hjälp med.' } = Astro.props;
+  felTelefonFormat = 'Skriv numret med siffror, till exempel 070-123 45 67.', felMeddelande = 'Skriv vad du vill ha hjälp med.',
+  felBild = 'Bilden kunde inte tas emot: den får vara högst 4 MB och en vanlig bildfil (JPEG, PNG, HEIC eller WebP). Skicka utan bild eller med en mindre.' } = Astro.props;
 ---
 <form class="forfragan" id="forfragan" action="/api/forfragan/" method="post" enctype="multipart/form-data">
   <!-- Felbesked utan JavaScript: mottagaren skickar ett ofullständigt inskick till #forfragan-saknas, och :target visar det. -->
   <p id="forfragan-saknas" class="ff-saknas" tabindex="-1" role="alert">{saknas}{telefon && <> Eller ring <a href={`tel:${telefon}`}>{telefonText || telefon}</a>.</>}</p>
+  <!-- En bild som inte kunde tas emot: mottagaren skickar tillbaka till #forfragan-bild (eget besked, aldrig "saknas"). -->
+  <p id="forfragan-bild" class="ff-saknas" tabindex="-1" role="alert">{felBild}</p>
   <p>
     <label for="ff-namn">Namn</label>
     <span id="ff-namn-fel" class="ff-fel"></span>
@@ -43,9 +47,10 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   <p class="ff-fil">
     <!-- Egen knapp i stället för webbläsarens "Choose File / No file chosen"; etiketten öppnar väljaren även utan JS. -->
     <label for="ff-bild">Bild på jobbet (valfritt)</label>
-    <input id="ff-bild" class="ff-filfalt" name="bild" type="file" accept="image/*" aria-describedby="ff-filnamn" />
+    <input id="ff-bild" class="ff-filfalt" name="bild" type="file" accept="image/*" aria-describedby="ff-filnamn ff-bild-fel" data-for-stor={felBild} />
     <label for="ff-bild" class="ff-filknapp">Välj bild</label>
     <span id="ff-filnamn" class="ff-filnamn">Ingen bild vald</span>
+    <span id="ff-bild-fel" class="ff-fel"></span>
   </p>
   <p class="ff-falla" aria-hidden="true">
     <label for="ff-webbplats">Lämna fältet tomt</label>
@@ -84,7 +89,15 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
     }
     const fil = f.querySelector<HTMLInputElement>('input[type="file"]');
     const namn = f.querySelector<HTMLElement>('.ff-filnamn');
-    fil?.addEventListener('change', () => { if (namn) namn.textContent = fil.files?.[0]?.name || 'Ingen bild vald'; });
+    fil?.addEventListener('change', () => {
+      if (namn) namn.textContent = fil.files?.[0]?.name || 'Ingen bild vald';
+      // storleken prövas före inskicket: en bild över 4 MB stoppas här med beskedet vid fältet (granskningen 2026-10-05, fynd 4)
+      const forStor = (fil.files?.[0]?.size || 0) > 4_000_000;
+      fil.setCustomValidity(forStor ? fil.dataset.forStor || '' : '');
+      const fel = document.getElementById('ff-bild-fel');
+      if (fel) fel.textContent = forStor ? fil.dataset.forStor || '' : '';
+      if (forStor) fil.setAttribute('aria-invalid', 'true'); else fil.removeAttribute('aria-invalid');
+    });
     f.addEventListener('submit', () => {
       const tid = f.querySelector<HTMLInputElement>('input[name="fylltid"]');
       if (tid) tid.value = String(Math.round(performance.now() - start));

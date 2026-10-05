@@ -115,7 +115,7 @@ pass: skapa, fordjupa
 kärna: refero-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md
 välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; frontend-design/SKILL.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md
 verktyg: uxsok, förhandsvisning
-mcp: refero, mobbin, trybloom
+mcp: refero, mobbin
 visar: referenslåset står i RIKTNING.md och syns i den renderade sidan; stilpaketets värden används i koden; skissen skiljer sig från de andra i hur informationen ordnas
 ```
 
@@ -194,7 +194,7 @@ en bildgenerator som flödets sessioner inte har; illustrativt material som inte
 beställs som material (Avgörandena, Bilder). Flödets egna processkills (bygg-sajt, kirurg, backlog,
 writing-for-agents) styr arbetet och är inga designkompetenser. Övriga MCP-anslutningar (Gmail, Google Drive, GitHub,
 Resend, Jotform, Railway, Claude Docs med flera) rör kunddata, utskick eller drift och har ingen uppgift i skapandet;
-sessionerna nekar dem.
+sessionerna nekar dem. Trybloom används inte (ägarens ord 2026-10-05) och nekas likaså.
 
 ## Research
 

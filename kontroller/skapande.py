@@ -326,6 +326,9 @@ def forbjudna_termer(slug, underlag=None):
     for x in [adress.get('ort'), adress.get('gata'), adress.get('gatuadress')] + orter:
         if isinstance(x, str) and len(x.strip()) >= 3:
             ord_.add(vik(x.strip()))
+    for x in (adress.get('gata'), adress.get('gatuadress')):  # gatans namn utan nummer ("Storgatan"; granskningen 2026-10-05, fynd 8)
+        if isinstance(x, str):
+            ord_.update(w for w in re.split(r'[^a-z0-9]+', vik(x)) if len(w) >= 5 and not w.isdigit())
     webb = v.get('webb')
     webbar = [x for x in (webb.values() if isinstance(webb, dict) else [webb]) if isinstance(x, str)]
     kontakter = [k.get('varde') for k in v.get('kontaktvagar') or [] if isinstance(k, dict) and isinstance(k.get('varde'), str)]
@@ -342,6 +345,8 @@ def forbjudna_termer(slug, underlag=None):
     siffror.update(d for d in (re.sub(r'\D', '', str(x or '')) for x in nummer) if len(d) >= 5)
     # ett svenskt nummer känns igen också i internationell form (+46 utan nollan): de sista siffrorna efter nollan
     siffror.update(d[1:] for d in list(siffror) if d.startswith('0') and len(d) >= 9)
+    # telefonnumrets sista sex siffror ("11 22 33" utan riktnummer; granskningen 2026-10-05, fynd 8)
+    siffror.update(re.sub(r'\D', '', k)[-6:] for k in kontakter if len(re.sub(r'\D', '', k)) >= 8)
     # branschens ord (kategorierna) ingår i ett namn som "Snickaren": de prövas bara som hela ord, aldrig som delsträng
     bransch = {w for k in (v.get('kategorier') or []) if isinstance(k, str) for w in re.split(r'[^a-z0-9]+', vik(k)) if len(w) >= 4}
     return {'ord': {o for o in ord_ if len(o) >= 3}, 'siffror': siffror, 'bransch': bransch}

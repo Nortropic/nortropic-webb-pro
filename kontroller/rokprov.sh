@@ -231,8 +231,12 @@ assert any(i['punkt'] == '4.3' and 'tung.woff2' in i['text'] for i in sk.granska
 (d / 'tyngre.woff2').write_bytes(b'0' * (sk.TYPSNITT_BUDGET_KB + 10) * 1024)
 assert ('4.3', '(alla)') in punkter()
 (d / 'tyngre.woff2').unlink()
-(d / 'bredd.css').write_text('h1{font-stretch:62%}')
-assert ('4.3', '(alla)') not in punkter()
+# budgeten gäller summan: två filer som var för sig ryms men tillsammans går över den är fel (den äldre regeln om
+# bredd-axeln finns inte längre; den oberoende granskningen 2026-10-05, fynd 13)
+(d / 'a.woff2').write_bytes(b'0' * 160 * 1024)
+(d / 'b.woff2').write_bytes(b'0' * 160 * 1024)
+assert ('4.3', '(alla)') in punkter(), 'typsnittens summa räknas mot budgeten'
+(d / 'a.woff2').unlink(); (d / 'b.woff2').unlink()
 # publik adress: saknas i sidfot och JSON-LD = fel 7.4
 v = tmp / 'VERKSAMHET.json'
 v.write_text(json.dumps({'adress': {'gata': 'Provgatan 1', 'postnummer': '123 45', 'ort': 'Provby', 'publik': True}}))
@@ -613,6 +617,10 @@ echo "   revisionens regressionsfall (2026-10-03): commitvakt, markdown, symlän
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_revision.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/revision-prov.log" \
   || { echo "FEL: revisionens regressionsfall"; tail -20 "$ROOT/kunder/rokprov-mall/revision-prov.log"; exit 1; }
 echo "   revisionens fall ok"
+echo "   startkontrollen och underhållet (2026-10-05): de åtta fallen, Python-låset, Homebrew, en avvisad huvudversion och ett intag"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_startkontroll.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/startkontroll-prov.log" \
+  || { echo "FEL: startkontrollens och underhållets prov"; tail -20 "$ROOT/kunder/rokprov-mall/startkontroll-prov.log"; exit 1; }
+echo "   startkontrollens prov ok"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

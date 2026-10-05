@@ -74,8 +74,10 @@ def profil(slug, root=None, hem=None, tmp=None, nat=True, bara_sajt=False, skriv
         projekt = root / 'kunder' / slug / 'sajt'
         skriv = list(fs['allowWrite']) + ['/tmp/nwp-granskning/%s' % slug, tmp or tempkatalog(slug)]
     nm = Path(projekt) / 'node_modules'
-    if nm.is_symlink():  # en worktree eller en kandidat delar sajtens beroenden: byggets cacher (.vite, .astro) skrivs där
-        skriv.append(os.path.realpath(nm))
+    if nm.is_symlink():  # en worktree eller en kandidat delar sajtens beroenden: bara byggets cacher (.vite, .astro) skrivs
+        # där, aldrig paketen som de andra kandidaterna och sajtens eget bygge kör (den oberoende granskningen 2026-10-05, fynd 3)
+        delad = os.path.realpath(nm)
+        skriv += [os.path.join(delad, '.vite'), os.path.join(delad, '.astro')]
     # seatbelt matchar subpath mot den verkliga sökvägen: /tmp är en symlänk till /private/tmp på macOS, så varje väg ges
     # både som angiven och upplöst (annars träffar varken skrivtillåtelsen i byggets kataloger eller läsförbudet)
     verkliga = lambda vagar: list(dict.fromkeys(x for p in vagar for x in (str(p), os.path.realpath(p))))  # noqa: E731
@@ -86,17 +88,60 @@ def profil(slug, root=None, hem=None, tmp=None, nat=True, bara_sajt=False, skriv
     # policyns uttryckliga skrivförbud efter tillåtelserna (sista träffande regel gäller): mekaniken i en repokopia under en
     # tillåten katalog förblir skrivskyddad (Codex R26, F1)
     rader += ['(deny file-write* (subpath %s))' % sbpl(p) for p in verkliga(fs['denyWrite'])]
-    for p in fs['denyRead']:
-        if p.startswith('**/'):
-            rader.append('(deny file-read* (regex #"%s"))' % regex_ur_glob(p))
-        else:
-            rader += ['(deny file-read* (subpath %s))' % sbpl(x) for x in verkliga([p])]
+    rader += lasforbud(fs, verkliga)
     if nat:
         rader += ['(deny network-outbound)', '(allow network-outbound (remote ip "localhost:*"))', '(allow network-outbound (remote unix-socket))',
                   '(allow network-bind (local ip "localhost:*"))', '(allow network-inbound (local ip "localhost:*"))']
     else:  # --utan-nat: ett bygge behöver inget nät; localhost når dashboardens API och unix-sockeln namnuppslagen (granskning 4 och 5)
         rader += ['(deny network-outbound)', '(deny network-bind)', '(deny network-inbound)']
     return '\n'.join(rader) + '\n'
+
+
+def lasforbud(fs, verkliga):
+    ut = []
+    for p in fs['denyRead']:
+        if p.startswith('**/'):
+            ut.append('(deny file-read* (regex #"%s"))' % regex_ur_glob(p))
+        else:
+            ut += ['(deny file-read* (subpath %s))' % sbpl(x) for x in verkliga([p])]
+    return ut
+
+
+MILJO_KATALOG = ('PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TERM', 'SHELL')
+
+
+def profil_katalog(katalog, root=None, hem=None):
+    """Profilen för ett bygge i en egen katalog utanför repot (exportens provbygge, kontroller/exportera.py): skrivning
+    bara i katalogen, inget nät, hemligheterna olästa (den oberoende granskningen 2026-10-05, fynd 2)."""
+    import sandlada
+    fs = sandlada.installningar('x', root=root, hem=hem)['sandbox']['filesystem']
+    verkliga = lambda vagar: list(dict.fromkeys(x for p in vagar for x in (str(p), os.path.realpath(p))))  # noqa: E731
+    rader = ['(version 1)', '(allow default)', '; processgränsen för ett bygge i en egen katalog (kontroller/processgrans.py)',
+             '(deny file-write*)']
+    rader += ['(allow file-write* (subpath %s))' % sbpl(p) for p in verkliga([katalog])]
+    rader += ['(allow file-write* (literal "/dev/null") (literal "/dev/zero") (regex #"^/dev/tty") (regex #"^/dev/fd/"))']
+    rader += lasforbud(fs, verkliga)
+    rader += ['(deny network-outbound)', '(deny network-bind)', '(deny network-inbound)']
+    return '\n'.join(rader) + '\n'
+
+
+def kor_i_katalog(katalog, kmd, timeout=900):
+    """(slutkod, utdata) för kmd i katalogen innanför gränsen, med en minimal miljö: inga nycklar, inga NWP_- eller
+    Claude-variabler, ingen proxy."""
+    import subprocess
+    katalog = Path(katalog)
+    if not os.access(SANDBOX_EXEC, os.X_OK):
+        return 2, 'processgräns saknas: %s finns inte; bygget körs inte utan gräns' % SANDBOX_EXEC
+    tmp = katalog / '.tmp'
+    tmp.mkdir(exist_ok=True)
+    miljo = {k: os.environ[k] for k in MILJO_KATALOG if k in os.environ}
+    miljo.update(TMPDIR=str(tmp), NWP_PROCESSGRANS='1', ASTRO_TELEMETRY_DISABLED='1')
+    try:
+        r = subprocess.run([SANDBOX_EXEC, '-p', profil_katalog(katalog), *[str(x) for x in kmd]], cwd=str(katalog), env=miljo,
+                           capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return 124, 'tidsgränsen %d s nåddes' % timeout
+    return r.returncode, (r.stdout or '') + (r.stderr or '')
 
 
 def main(argv=None):

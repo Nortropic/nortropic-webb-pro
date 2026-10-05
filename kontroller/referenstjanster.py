@@ -138,11 +138,19 @@ FRIST = int(os.environ.get('NWP_TJANST_FRIST') or 1800)
 
 
 def kor_session(tjanst, prompt, logg, modell, frist=FRIST):
+    """En tjänstesession: tjänstens verktyg öppnas bara av kundvakten (kontroller/kundvakt.py), anrop för anrop, och
+    sessionen kan inte läsa filer (kundens uppgifter i underlag/ når aldrig frågorna; den oberoende granskningen
+    2026-10-05, fynd 6). Kunden och underlaget ur loggens plats: <underlag>/<slug>/referenser/tjanster/<tjänst>/."""
+    import kundvakt
+    p_ = Path(logg).resolve()
+    if p_.parents[1].name != 'tjanster' or p_.parents[2].name != 'referenser':
+        raise ValueError('loggen ligger inte under <underlag>/<slug>/referenser/tjanster/: kundvakten kan inte sättas')
     claude = os.environ.get('NWP_CLAUDE') or 'claude'
     args = [claude, '-p', '--max-turns', '90', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--mcp-config', str(MCP / ('%s.json' % tjanst)),
             '--model', modell, '--effort', 'high', '--json-schema', json.dumps(SCHEMA),
-            '--allowedTools', *TJANSTER[tjanst]['verktyg'], '--disallowedTools', 'Bash', 'Write', 'Edit', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Task']
+            '--settings', kundvakt.installningar(p_.parents[3].name, p_.parents[4]), '--allowedTools', 'ToolSearch',
+            '--disallowedTools', 'Bash', 'Write', 'Edit', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Task', 'Read', 'Glob', 'Grep', 'Skill']
     with open(logg, 'wb') as ut:
         p = subprocess.run(args, input=prompt.encode('utf-8'), stdout=ut, stderr=subprocess.PIPE, cwd=str(ROOT), env=miljo_for(tjanst), timeout=frist)
     return p.returncode, p.stderr.decode('utf-8', 'replace')[-500:]

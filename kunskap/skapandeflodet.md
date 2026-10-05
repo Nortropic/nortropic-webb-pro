@@ -67,7 +67,7 @@ till sessionens behörigheter. Kedjan:
    prövades och den visuella bedömningen före och efter. Ett pass som bryter sidan eller ger fler allvarliga axe-fynd
    återställs; ett avbrutet pass tas om från versionen före; DESIGN.md prövas efter det sista passet.
 
-Alla skills (skillverktyget) och användarens MCP-servrar är tillgängliga i sessionerna. Refero, Mobbin och Trybloom står
+Alla skills (skillverktyget) och användarens MCP-servrar är tillgängliga i sessionerna. Refero och Mobbin står
 inte i sessionernas tillåtelselista: kundvakten (`kontroller/kundvakt.py`, en krok före varje anrop) öppnar ett anrop som
 inte bär kundens uppgifter och stoppar resten, och en vakt som inte kan pröva lämnar anropet åt dontAsk, som nekar det.
 Skills utan uppgift i flödet står med skäl i kartan. Kvittot (kärnan läst hel, valda alternativ, skillverktygets och
@@ -222,8 +222,8 @@ kunskapsfiler som stöder research, plan, skapa, granska, förfina och text, vil
 motsägande råd avgörs (företrädet i `designregler.md`; underlaget med citat i `kunskap/skillkrockar.md`).
 `kontroller/metod.py` levererar stegets utdrag till kandidatflödet med hash, och låset stoppar leveransen när en källa
 ändrats; den äldre utforskningen räknar upp samma källor (`skapande.metodrader`, `skapande.metod_filer`).
-Kandidatflödets sessioner läser skillsen med Read och har inget Skill-verktyg: det går inte att begränsa till namngivna
-skills, och flera skills bär processinstruktioner för en interaktiv session. Läsningen prövas i transkriptet
+Kandidatflödets sessioner har skillverktyget och verktygssökningen (`kompetens.verktyg`); varje roll läser sin kärna
+hel och väljer alternativ efter riktningen (avsnittet Kompetenserna i metodkartan). Läsningen prövas i transkriptet
 (metoden före första ändringen, varvens bilder) och redovisas skild från tillämpningen (varven i RIKTNING.md som namnger
 vad i metoden som gav åtgärden).
 

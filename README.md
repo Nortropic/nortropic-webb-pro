@@ -84,8 +84,11 @@ eller motiveras i rapporten. Apple-touch-icon och delningsbild görs med `node k
 
 ```sh
 /opt/homebrew/bin/python3.12 -m venv .venv
-.venv/bin/python -m pip install yt-dlp youtube-transcript-api imageio-ffmpeg ddgs
-(cd kontroller && npm install)
+.venv/bin/python -m pip install -r requirements-lock.txt
+(cd kontroller && npm ci && npx playwright install chromium chromium-headless-shell webkit)
 ```
 
-Kräver Node 22.12 eller senare, Google Chrome (eller Playwrights chromium) och Claude Code.
+Kräver Node i den senaste LTS-versionen som Vercel stöder (Homebrews `node@NN`), Claude Code och Vercel CLI. Det
+dagliga underhållet (`kontroller/underhall.py`, från dashboarden) håller allt detta i den senaste versionen som klarat
+proven, och startkontrollen (`kontroller/startkontroll.py`) bekräftar läget före varje start (`kunskap/beroenden.md`,
+Underhåll).

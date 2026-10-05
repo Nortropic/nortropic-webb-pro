@@ -74,6 +74,14 @@ print("ja" if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import prototyp
 print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
+# Startkontrollen (kontroller/startkontroll.py; ägarens uppdrag 2026-10-05): verktygslådan bekräftad och versionerna låsta
+# före bygget, med kvittot i underlag/$SLUG/atelje/STARTKVITTO.md. Ett nödvändigt verktyg som inte fungerar stoppar
+# starten. Uppdateringarna prövas och tas in av det dagliga underhållet (kontroller/underhall.py), aldrig här. Körs bara
+# när bygget faktiskt startar (en godkänd startsida eller nödvägen), före allt som skriver i sajten.
+if [ -n "$GODKAND" ] || [ "${NWP_ATELJE:-pa}" != "pa" ]; then
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/startkontroll.py" --slug "$SLUG" --start bygge > "$ROOT/kunder/$SLUG/startkontroll.log" 2>&1 \
+    || { echo "startkontrollen stoppade bygget: se underlag/$SLUG/atelje/STARTKVITTO.md (logg: kunder/$SLUG/startkontroll.log)"; exit 2; }
+fi
 if [ -n "$GODKAND" ]; then
   # godkännandet gäller vinnarens dömda filer: har ett tidigare bygge skrivit om sajtens, läggs vinnarens tillbaka
   ERSATT="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")

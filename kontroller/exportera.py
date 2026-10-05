@@ -43,7 +43,7 @@ TEXTFILER = ('.astro', '.js', '.mjs', '.ts', '.tsx', '.jsx', '.css', '.json', '.
 LACKA = [(re.compile(p), skal) for p, skal in (
     (r'/Users/|/private/tmp/|/home/[a-z]', 'en lokal sökväg'),
     (r'\bunderlag/[a-z0-9-]+/|LARDOMAR-original|DESIGNDOMAR|RIKTNINGSHISTORIK|REFERENSUPPDRAG|TJANSTEUPPDRAG|/kalibrering/', 'Nortropics privata underlag'),
-    (r'\bre_[A-Za-z0-9]{16,}|\bsk-[A-Za-z0-9_-]{20,}|\bghp_[A-Za-z0-9]{20,}|\bvercel_blob_rw_[A-Za-z0-9_]{10,}', 'en nyckel'),
+    (r'\bre_[A-Za-z0-9]{6,}_[A-Za-z0-9]{16,}|\bre_[A-Za-z0-9]{16,}|\bsk-[A-Za-z0-9_-]{20,}|\bghp_[A-Za-z0-9]{20,}|\bvercel_blob_rw_[A-Za-z0-9_]{10,}', 'en nyckel'),
     (r'(RESEND_API_KEY|BLOB_READ_WRITE_TOKEN|REFERO_MCP_TOKEN)[ \t]*=[ \t]*[^\s#]', 'ett nyckelvärde'),
 )]
 HANVISNINGAR = re.compile(r'nortropic-webb-pro|\bkontroller/[a-z_]+\.py')
@@ -67,19 +67,26 @@ def kopiera(kalla, mal):
 
 
 def installerade_extra(sajt, bas):
-    """Sajtens egna beroenden utöver leveransens (typsnitt ur kontroller/typsnitt.py), med den installerade versionen."""
+    """Sajtens egna beroenden utöver leveransens (typsnitt ur kontroller/typsnitt.py), med den installerade versionen:
+    manifestets och de typsnitt som koden importerar (en kandidats manifest är en ögonblicksbild, och typsnitt som
+    installeras under sessionen hamnar i sajtens delade node_modules; den oberoende granskningen 2026-10-05, fynd 12)."""
     try:
         egna = (json.loads((sajt / 'package.json').read_text(encoding='utf-8')).get('dependencies') or {})
     except (OSError, ValueError):
-        return {}
+        egna = {}
+    importerade = set()
+    for f in (sajt / 'src').rglob('*') if (sajt / 'src').is_dir() else []:
+        if f.is_file() and f.suffix in ('.astro', '.js', '.mjs', '.ts', '.jsx', '.tsx', '.css'):
+            importerade.update(re.findall(r"""['"](@fontsource(?:-variable)?/[a-z0-9-]+)""", f.read_text(encoding='utf-8', errors='replace')))
     ut = {}
-    for namn in egna:
+    for namn in sorted(set(egna) | importerade):
         if namn in bas:
             continue
         try:
             ut[namn] = json.loads((sajt / 'node_modules' / namn / 'package.json').read_text(encoding='utf-8'))['version']
         except (OSError, ValueError, KeyError):
-            ut[namn] = egna[namn]
+            if namn in egna:
+                ut[namn] = egna[namn]
     return ut
 
 
@@ -94,7 +101,8 @@ def med_adapter(text):
 
 
 def licenser(slug, sajt, mal):
-    rader = ['# Licenser och källor', '', 'Bilderna i `src/assets/` är verksamhetens egna, publicerade med verksamhetens tillstånd.']
+    rader = ['# Licenser och källor', '', 'Bilderna i `src/assets/` är verksamhetens egna, publicerade med verksamhetens tillstånd, eller '
+             'licensierat material; källan och licensen för varje bild som inte är verksamhetens står nedan.']
     lic = UNDERLAG / slug / 'bilder' / 'LICENSER.md'
     if lic.is_file() and not lic.is_symlink():
         rader += ['', lic.read_text(encoding='utf-8').strip()]
@@ -133,21 +141,26 @@ def lackor(mal):
 
 
 def verifiera_bygge(mal, logg=None):
-    """npm ci och npm run build i en kopia i en tom katalog utanför Nortropics repo: kundrepot bygger på egen hand.
-    Ger (ok, text)."""
+    """Kundrepot bygger på egen hand: en kopia i en tom katalog utanför Nortropics repo, npm ci utan installationsskript
+    (paketens kod körs inte), och bygget innanför processgränsen (kontroller/processgrans.py, kor_i_katalog: skrivning
+    bara i kopian, inget nät och en miljö utan nycklar; den oberoende granskningen 2026-10-05, fynd 2). Ger (ok, text)."""
+    import processgrans
     tmp = Path(tempfile.mkdtemp(prefix='nwp-kundrepo-'))
     try:
         kopiera(mal, tmp / 'repo')
-        rader = []
-        for steg in (['npm', 'ci', '--no-audit', '--no-fund'], ['npm', 'run', 'build']):
-            r = subprocess.run(steg, cwd=tmp / 'repo', capture_output=True, text=True, timeout=900,
-                               env={k: v for k, v in os.environ.items() if not k.startswith(('NWP_', 'CLAUDE'))})
-            rader.append('$ %s → %d' % (' '.join(steg), r.returncode))
-            if r.returncode:
-                return False, '\n'.join(rader + [(r.stdout + r.stderr)[-1500:]])
-        ut = tmp / 'repo' / '.vercel' / 'output'
-        statiskt = (ut / 'static' / 'index.html').is_file()
-        funktioner = sorted(str(p.relative_to(ut)) for p in (ut / 'functions').glob('*.func')) if (ut / 'functions').is_dir() else []
+        repo = tmp / 'repo'
+        r = subprocess.run(['npm', 'ci', '--no-audit', '--no-fund', '--ignore-scripts'], cwd=repo, capture_output=True, text=True, timeout=900,
+                           env={k: v for k, v in os.environ.items() if not k.startswith(('NWP_', 'CLAUDE'))})
+        rader = ['$ npm ci --ignore-scripts → %d' % r.returncode]
+        if r.returncode:
+            return False, '\n'.join(rader + [(r.stdout + r.stderr)[-1500:]])
+        rc, ut = processgrans.kor_i_katalog(repo, [repo / 'node_modules' / '.bin' / 'astro', 'build'])
+        rader.append('$ astro build (innanför processgränsen: utan nät, skrivning bara i kopian) → %d' % rc)
+        if rc:
+            return False, '\n'.join(rader + [ut[-1500:]])
+        ut_ = repo / '.vercel' / 'output'
+        statiskt = (ut_ / 'static' / 'index.html').is_file()
+        funktioner = sorted(str(p.relative_to(ut_)) for p in (ut_ / 'functions').glob('*.func')) if (ut_ / 'functions').is_dir() else []
         rader.append('.vercel/output/static/index.html: %s; funktioner: %s' % ('finns' if statiskt else 'saknas', ', '.join(funktioner) or 'inga'))
         return statiskt and bool(funktioner), '\n'.join(rader)
     finally:
@@ -239,7 +252,8 @@ def main(argv=None):
         print('hänvisningar till Nortropics publika repo eller verktyg (fäller inte): %s' % ', '.join(r['hanvisningar']))
     if r.get('bygge'):
         print(r['bygge'])
-    print('%s: %s%s' % ('Klart' if r['ok'] else 'Inte klart', r['ut'], (' (commit %s)' % r['commit'][:12]) if r.get('commit') else ''))
+    besked = ('Exporterat utan verifierat bygge (--inget-bygge)' if a.inget_bygge else 'Klart') if r['ok'] else 'Inte klart'
+    print('%s: %s%s' % (besked, r['ut'], (' (commit %s)' % r['commit'][:12]) if r.get('commit') else ''))
     return 0 if r['ok'] else 1
 
 

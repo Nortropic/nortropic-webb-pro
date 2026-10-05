@@ -524,7 +524,10 @@ def material_rader(slug):
     return ['Kundens egna bilder (%d st; beskrivning, projekt och kvalitet i %s). Välj och beskär efter bildens uppgift: resultat,' % (
                 len(bilder), rel(u / 'bilder' / 'BILDER.md')),
             'detaljkvalitet, arbetsprocess eller personen bakom företaget. Ett foto som inte bär en stor yta får en mindre.',
-            'Inga andra bilder: saknas material som riktningen kräver, omarbeta riktningen eller skriv behovet i "Material".']
+            'Bilder som visar verksamheten (arbeten, personer, lokaler, resultat) är bara dess egna; illustrativt material som inte',
+            'utger sig för att dokumentera den (licensierade illustrationer, texturer, konceptbilder, form i koden) får användas med',
+            'källa i BILDER.md eller DESIGN.md (kunskap/bild.md). Saknas material som riktningen kräver: skriv behovet under',
+            '"Material" (det beställs, och platsen får en märkt platshållare) eller omarbeta riktningen.']
 
 
 def research_rader(slug):
@@ -2225,7 +2228,7 @@ def utkast_antal(slug, kid):
     return sum(1 for t in rader if re.search(r'\butkast\b|\bplatshållare\b|\bsaknas\s*:', t, re.I))
 
 
-PASSORDNING = ('skapa', 'ux', 'rorelse', 'mobil', 'kritik')
+PASSORDNING = ('skapa',) + KOMPETENSPASS  # redovisningens ordning: skapandet och passen efter fördjupningen (granskningen 2026-10-05, fynd 11)
 
 
 def kompetens_rader(slug, ids, namn):

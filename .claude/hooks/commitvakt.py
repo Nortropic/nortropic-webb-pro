@@ -44,7 +44,7 @@ LASANDE = {'log', 'show', 'status', 'diff', 'rev-parse', 'ls-files', 'ls-tree', 
 # commit-flaggor som tillåts; de med värde tar nästa ord (eller värdet ihopskrivet för de korta). Allt annat nekas.
 COMMIT_MED_VARDE = {'-m', '--message', '-F', '--file'}
 COMMIT_UTAN_VARDE = {'-q', '--quiet', '-v', '--verbose', '--no-edit', '--no-status'}
-HEMLIGHETER = [('Resend-nyckel', r're_[A-Za-z0-9]{24,}'), ('Anthropic-nyckel', r'sk-ant-[A-Za-z0-9_-]{20,}'),
+HEMLIGHETER = [('Resend-nyckel', r're_[A-Za-z0-9]{6,}_[A-Za-z0-9]{16,}|re_[A-Za-z0-9]{24,}'), ('Anthropic-nyckel', r'sk-ant-[A-Za-z0-9_-]{20,}'),
                ('sk-nyckel', r'\bsk-[A-Za-z0-9]{32,}'), ('GitHub-token', r'\b(ghp|gho)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}'),
                ('AWS-nyckel', r'\bAKIA[0-9A-Z]{16}'), ('Slack-token', r'\bxox[baprs]-[A-Za-z0-9-]{10,}'),
                ('privat nyckel', r'-----BEGIN [A-Z ]*PRIVATE KEY-----'),

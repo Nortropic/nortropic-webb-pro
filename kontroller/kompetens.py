@@ -20,7 +20,7 @@ Blocken i kartan, ett per roll:
     kärna: refero-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md
     välj: taste-minimalist/SKILL.md; hallmark/references/macrostructures.md
     verktyg: uxsok, förhandsvisning, detektor, design
-    mcp: refero, mobbin, trybloom
+    mcp: refero, mobbin
     visar: …
     ```
 
@@ -57,12 +57,10 @@ VERKTYG = {
     'design': (['Bash(.venv/bin/python kontroller/design.py <slug> --kandidat <id>)', 'Bash(.venv/bin/python kontroller/design.py <slug> --kandidat <id> --skriv)'],
                'DESIGN.md-kontrollen: `.venv/bin/python kontroller/design.py <slug> --kandidat <id> [--skriv]`'),
 }
-MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en källa); Trybloom: bara sökningen
+MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en källa). Trybloom används inte (ägarens ord 2026-10-05)
     'refero': None, 'mobbin': None,
-    'trybloom': ['mcp__claude_ai_Trybloom__find_reference_ads', 'mcp__claude_ai_Trybloom__search_docs'],
 }
-MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)',
-           'trybloom': 'Trybloom (referensannonser)'}
+MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)'}
 
 
 def mcp_verktyg(namn):

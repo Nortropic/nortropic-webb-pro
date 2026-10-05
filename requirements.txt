@@ -1,0 +1,8 @@
+# Python-paketen som kontrollerna använder direkt, med exakta versioner. Underhållet (kontroller/underhall.py)
+# prövar nyare versioner av dem och skriver både den här filen och requirements-lock.txt (alla beroenden).
+ddgs==9.16.0
+defusedxml==0.7.1
+imageio-ffmpeg==0.6.0
+requests==2.34.2
+youtube-transcript-api==1.2.4
+yt-dlp==2026.8.19

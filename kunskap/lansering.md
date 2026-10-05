@@ -29,8 +29,9 @@ verifierat utan Nortropics kataloger).
   skyddade.
 - **Svaren** (`kontroller/driftkoll.py <adress> --lage forhandsvisning|produktion`): förhandsvisningen svarar 302 till
   Vercels inloggning utan förbikoppling och `X-Robots-Tag: noindex` (Vercel sätter det på genererade adresser);
-  produktionen svarar 200 utan noindex. Formulärets funktion svarar 303 till `/tack/` (förhandsvisning: demo), `/fel/`
-  i produktion utan mottagare, 413 över 4 MB bild (Vercels egen gräns 4,5 MB), och Astros CSRF-skydd ger 403 när
+  produktionen svarar 200 utan noindex. Formulärets funktion svarar 303 till `/tack/` (förhandsvisning: demo, och
+  Resends variabler bara i produktionen), `/fel/` i produktion utan mottagare, 303 tillbaka till formuläret med bildens
+  besked för en bild över 4 MB (över Vercels gräns 4,5 MB svarar plattformen 413), och Astros CSRF-skydd ger 403 när
   Origin är en annan sajt.
 
 - **Projekt (människa eller session med ägarens ja):** ett Vercel-projekt per verksamhet i teamet Nortropic, kopplat

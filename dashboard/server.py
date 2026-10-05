@@ -1195,6 +1195,85 @@ def starta_spaning(skal='ägaren'):
     return {'startad': True}
 
 
+# --- underhållet: verktygslådans uppdateringar prövas och tas in mellan byggena (kontroller/underhall.py) ---
+UNDERHALL_LAGE = UNDERLAG / 'startkontroll'
+UNDERHALL_INTERVALL = float(os.environ.get('NWP_UNDERHALL_INTERVALL_DAGAR') or 1)  # ägarens uppdrag 2026-10-05: dagligt
+
+
+def underhall_pagar():
+    d = las_json(UNDERHALL_LAGE / 'UNDERHALL-PAGAR.json') or {}
+    try:
+        os.kill(int(d.get('pid')), 0)
+        return d
+    except (OSError, TypeError, ValueError):
+        return None
+
+
+def underhall_lage():
+    rap = las_json(UNDERHALL_LAGE / 'UNDERHALL.json') or {}
+    andringar = []
+    try:
+        for rad in (UNDERHALL_LAGE / 'ANDRINGAR.jsonl').read_text(encoding='utf-8').splitlines()[-30:]:
+            try:
+                andringar.append(json.loads(rad))
+            except ValueError:
+                pass
+    except OSError:
+        pass
+    return {'pagar': underhall_pagar(), 'senast': {k: rap.get(k) for k in ('start', 'slut', 'sammanfattning', 'antal', 'push', 'status', 'besked')} if rap else None,
+            'md': md(las_text(UNDERHALL_LAGE / 'UNDERHALL.md')) if (UNDERHALL_LAGE / 'UNDERHALL.md').is_file() else '',
+            'av': bool(os.environ.get('NWP_UNDERHALL_AV')), 'intervall_dagar': UNDERHALL_INTERVALL, 'andringar': andringar[::-1][:12]}
+
+
+def starta_underhall(skal='ägaren'):
+    import subprocess
+    if underhall_pagar():
+        raise ValueError('ett underhåll pågår redan')
+    UNDERHALL_LAGE.mkdir(parents=True, exist_ok=True)
+    env = {k: v for k, v in os.environ.items() if k != 'CLAUDECODE' and not k.startswith('CLAUDE_CODE_') and (not k.startswith('NWP_') or k.startswith('NWP_UNDERHALL_'))}
+    gh = ((las_json(Path.home() / '.claude' / 'settings.json') or {}).get('env') or {}).get('GH_CONFIG_DIR')
+    if gh:
+        env['GH_CONFIG_DIR'] = gh
+    with open(UNDERHALL_LAGE / 'underhall.log', 'ab') as ut:
+        ut.write(('\n=== %s %s ===\n' % (nu(), skal)).encode())
+        subprocess.Popen([sys.executable, '-B', str(ROOT / 'kontroller' / 'underhall.py')], cwd=str(ROOT), env=env, stdin=subprocess.DEVNULL,
+                         stdout=ut, stderr=subprocess.STDOUT, start_new_session=True)
+    return {'startad': True}
+
+
+def underhall_vid_behov():
+    """Underhållet utan schemaläggare, som spaningen: vid serverstart och varje timme, om det senaste är äldre än intervallet
+    och ingen körning pågår (underhållet tar aldrig in något medan en körning pågår). Misslyckade försök väntar sex timmar."""
+    if os.environ.get('NWP_UNDERHALL_AV') or underhall_pagar():
+        return
+    try:
+        senast = (UNDERHALL_LAGE / 'UNDERHALL.json').stat().st_mtime
+    except OSError:
+        senast = 0
+    try:
+        forsok = (UNDERHALL_LAGE / 'FORSOK').stat().st_mtime
+    except OSError:
+        forsok = 0
+    if time.time() - senast < UNDERHALL_INTERVALL * 86400 or time.time() - forsok < 6 * 3600:
+        return
+    import verktygslada
+    if verktygslada.pagaende():
+        return
+    UNDERHALL_LAGE.mkdir(parents=True, exist_ok=True)
+    (UNDERHALL_LAGE / 'FORSOK').write_text(nu())
+    starta_underhall('automatisk, var %g dygn' % UNDERHALL_INTERVALL)
+
+
+def startkvitto(slug):
+    """Startkontrollens kvitto för kundens senaste start (underlag/<slug>/atelje/STARTKVITTO.json och .md)."""
+    rot = UNDERLAG / slug / 'atelje'
+    kv = las_json(rot / 'STARTKVITTO.json')
+    if not kv:
+        return None
+    import startkontroll
+    return dict(startkontroll.sammanfattning(kv), md=md(las_text(rot / 'STARTKVITTO.md')) if (rot / 'STARTKVITTO.md').is_file() else '')
+
+
 def spaning_vid_behov():
     """Spaning utan schemaläggare: vid serverstart, varje timme (spaningsklocka) och vid varje läsning av /api/kirurg, om
     den senaste är äldre än intervallet. Misslyckade försök väntar sex timmar (FORSOK) så att en död källa inte startar
@@ -1401,7 +1480,12 @@ class H(BaseHTTPRequestHandler):
             if m:
                 if m.group(1) not in prototyp_slugar():
                     return self.skicka(404, {'fel': 'ingen prototyp för bygget'})
-                return self.skicka(200, prototyp(m.group(1)))
+                res = prototyp(m.group(1))
+                try:
+                    res['startkvitto'] = startkvitto(m.group(1))
+                except Exception as e:  # noqa: BLE001 — kvittot får aldrig fälla vyn
+                    res['startkvitto'] = {'status': 'okand', 'fel': str(e)[:200]}
+                return self.skicka(200, res)
             m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})$', vag)
             if m:
                 if m.group(1) not in designprov_slugar():
@@ -1417,6 +1501,8 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, {'intag': intag_lista(), 'register': register(), 'overens': overensstammelse()})
             if vag == '/api/spaning':
                 return self.skicka(200, spaning_lista())
+            if vag == '/api/underhall':
+                return self.skicka(200, underhall_lage())
             if vag == '/api/kirurg/kand':
                 return self.skicka(200, redan_bedomd(dict(parse_qsl(urlsplit(self.path).query)).get('url')))
             if vag == '/api/prospekt':
@@ -1527,6 +1613,8 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, spara_omdome(data))
             if vag == '/api/spaning/kor':
                 return self.skicka(200, starta_spaning())
+            if vag == '/api/underhall/kor':
+                return self.skicka(200, starta_underhall())
             m = re.match(r'^/api/spaning/([a-f0-9]{12})/(ta-in|avfarda)$', vag)
             if m:
                 return self.skicka(200, ta_in_kandidat(m.group(1)) if m.group(2) == 'ta-in' else avfarda_kandidat(m.group(1), data.get('skal')))
@@ -1556,6 +1644,10 @@ def main():
                 spaning_vid_behov()
             except Exception as e:  # en klocka som dör ska inte ta med servern
                 print('spaningen startade inte: %s' % e, flush=True)
+            try:
+                underhall_vid_behov()
+            except Exception as e:  # noqa: BLE001
+                print('underhållet startade inte: %s' % e, flush=True)
             time.sleep(3600)
     threading.Thread(target=spaningsklocka, daemon=True).start()
     threading.Thread(target=lan_klocka, daemon=True).start()
