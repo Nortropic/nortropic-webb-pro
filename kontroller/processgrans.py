@@ -11,7 +11,7 @@ härinne) innan kommandot startas (Codex R26, F1/F27). Chromium och claude kan i
 webbläsarsteg och granskarnas sessioner delegerar till webbtjänsten: NWP_PROCESSGRANS=1 räknas som sandlådemarkering
 i webbtjanst.delegeras och i webbläsarhjälparens viaTjanst.
 
-    .venv/bin/python kontroller/processgrans.py <slug> [--root R] [--hem H] [--skriv-profil] -- <kommando …>
+    .venv/bin/python kontroller/processgrans.py <slug> [--root R] [--hem H] [--skriv-profil] [--utan-nat] -- <kommando …>
 Slutkoden är kommandots. Utan sandbox-exec (annat system) vägras körningen (slutkod 2): gränsen får aldrig tyst saknas.
 """
 import argparse
@@ -58,7 +58,7 @@ def ren_miljo(miljo=None, slug=None, root=None, hem=None):
     return miljo
 
 
-def profil(slug, root=None, hem=None, tmp=None):
+def profil(slug, root=None, hem=None, tmp=None, nat=True):
     import sandlada
     root = Path(root or ROOT)
     hem = hem or os.path.expanduser('~')
@@ -82,8 +82,11 @@ def profil(slug, root=None, hem=None, tmp=None):
             rader.append('(deny file-read* (regex #"%s"))' % regex_ur_glob(p))
         else:
             rader += ['(deny file-read* (subpath %s))' % sbpl(x) for x in verkliga([p])]
-    rader += ['(deny network-outbound)', '(allow network-outbound (remote ip "localhost:*"))', '(allow network-outbound (remote unix-socket))',
-              '(allow network-bind (local ip "localhost:*"))', '(allow network-inbound (local ip "localhost:*"))']
+    if nat:
+        rader += ['(deny network-outbound)', '(allow network-outbound (remote ip "localhost:*"))', '(allow network-outbound (remote unix-socket))',
+                  '(allow network-bind (local ip "localhost:*"))', '(allow network-inbound (local ip "localhost:*"))']
+    else:  # --utan-nat: ett bygge behöver inget nät, och localhost når också dashboardens API (omgranskning 3)
+        rader += ['(deny network-outbound)', '(allow network-outbound (remote unix-socket))', '(deny network-bind)', '(deny network-inbound)']
     return '\n'.join(rader) + '\n'
 
 
@@ -95,8 +98,9 @@ def main(argv=None):
     p.add_argument('--root', default=None)
     p.add_argument('--hem', default=None)
     p.add_argument('--skriv-profil', action='store_true', help='skriv profilen och avsluta')
+    p.add_argument('--utan-nat', action='store_true', help='inget nät alls, inte heller localhost (byggen av skaparens sidor)')
     a = p.parse_args(egna)
-    prof = profil(a.slug, a.root, a.hem)
+    prof = profil(a.slug, a.root, a.hem, nat=not a.utan_nat)
     if a.skriv_profil:
         sys.stdout.write(prof)
         return 0

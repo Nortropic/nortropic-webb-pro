@@ -61,7 +61,7 @@ def ateljen_forkastad(root, slug):
     minst två domare), skaparen lämnade grundidén när omgångarna var slut (tillbaka), eller ägaren dömde startsidan
     (putsa, ny riktning) efter körningen. Sandlådan är av (ateljén körs aldrig sandlådad, så ett sådant läge där är inte
     ateljéns)."""
-    if os.environ.get('NWP_SANDLADA') == 'pa' or os.environ.get('NWP_ATELJE') == 'av':
+    if os.environ.get('NWP_SANDLADA') == 'pa' or (os.environ.get('NWP_ATELJE') or 'pa') != 'pa':  # som kor.sh: allt utom pa
         return None  # nödvägen utan ateljé bygger på byggarens eget koncept: ateljéns lägen gäller inte (omgranskning 2, fynd 4)
     rot = Path(root) / 'underlag' / slug / 'atelje'
     try:

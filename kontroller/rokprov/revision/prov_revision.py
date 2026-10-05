@@ -2738,6 +2738,7 @@ h_pt = sk.historik('pt-prov', pt_und)
 assert [x['utfall'] for x in h_pt[-2:]] == ['vald av panelen', 'förkastad av panelen'] and h_pt[-2]['kritik'] == 'formgivning: luften glesar', h_pt[-2:]
 # ägarens godkännande lämnar över till bygget
 (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src' / 'pages').mkdir(parents=True, exist_ok=True); (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src' / 'pages' / 'index.astro').write_text('<p>s</p>')
+(pt_u / 'atelje' / 'vinnare' / 'kod').mkdir(parents=True, exist_ok=True); (pt_u / 'atelje' / 'vinnare' / 'kod' / 'index.astro').write_text('<p>s</p>')
 at_pt.godkann('pt-prov', sk.domar('pt-prov', pt_und)[-1])
 assert json.loads((pt_u / 'atelje' / 'VINNARE.json').read_text())['godkand']['av'] == 'ägaren'
 assert pt.lage('pt-prov')[0] == 'godkand', pt.lage('pt-prov')
@@ -2901,6 +2902,7 @@ try:
     except ValueError:
         pass
     (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src' / 'pages').mkdir(parents=True, exist_ok=True); (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src' / 'pages' / 'index.astro').write_text('<p>ny</p>')
+    (ad_ / 'vinnare' / 'kod').mkdir(parents=True, exist_ok=True); (ad_ / 'vinnare' / 'kod' / 'index.astro').write_text('<p>ny</p>')
     r_ = dash.spara_prototyp('pt-prov', {'beslut': 'godkand', 'text': '', 'niva': 'over'}, minuter=3.5)
     assert r_['dom']['text'] == 'Godkänd.' and r_['dom']['minuter'] == 3.5 and json.loads((ad_ / 'VINNARE.json').read_text())['godkand']['tid'] == r_['dom']['tid']
     d_ = dash.prototyp('pt-prov')
@@ -2956,16 +2958,28 @@ assert [x['namn'] for x in h_g] == ['riktningen på huvudreferensen Ashton'] and
 at_pt.arkivera_beslut('pt-gammal')
 assert len(sk.historik('pt-gammal', pt_und)) == 1, 'samma dom bokför inte samma riktning två gånger'
 # (2) godkännandet: bundet till sidans hash och domloggen, dras tillbaka av en senare dom och en ny förfining
-ga_ = pt_und / 'pt-godk'; (ga_ / 'atelje' / 'vinnare' / 'bilder').mkdir(parents=True)
+ga_ = pt_und / 'pt-godk'; (ga_ / 'atelje' / 'vinnare' / 'bilder').mkdir(parents=True); (ga_ / 'atelje' / 'vinnare' / 'kod').mkdir()
 (ga_ / 'atelje' / 'VINNARE.json').write_text(json.dumps({'riktning': 1, 'filer': {}}))
-sajt_g = at_pt.KUNDER / 'pt-godk' / 'sajt'; (sajt_g / 'src' / 'pages').mkdir(parents=True); (sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>godkänd</p>')
+(ga_ / 'atelje' / 'vinnare' / 'kod' / 'index.astro').write_text('<p>godkänd</p>')
+sajt_g = at_pt.KUNDER / 'pt-godk' / 'sajt'; (sajt_g / 'src' / 'pages').mkdir(parents=True); (sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>ändrad efter slutdomen</p>')
+try:
+    at_pt.godkannande('pt-godk', {'tid': 'x', 'kalla': 'ägaren', 'text': 't'}); raise AssertionError('sajtens startsida är inte den dömda')
+except ValueError as e_:
+    assert 'dömda versionen' in str(e_), e_
+(sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>godkänd</p>')
 dg_ = sk.lagg_till_dom('pt-godk', 'ägaren', 'godkand', 'Godkänd.', underlag=pt_und)
 at_pt.godkann('pt-godk', dg_)
 gk_ = (pt_und, at_pt.KUNDER)
 assert sk.godkand_giltig('pt-godk', *gk_) == (True, 'godkänd %s' % dg_['tid'])
-(sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>ändrad</p>')
-assert sk.godkand_giltig('pt-godk', *gk_)[1] == 'startsidan är ändrad sedan godkännandet'
-(sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>godkänd</p>')
+# omgranskning 3, fynd 1: bygget skriver om sajtens startsida; godkännandet gäller den dömda versionen i vinnaren
+(sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>byggd vidare</p>')
+assert sk.godkand_giltig('pt-godk', *gk_)[0], 'ett bygge från godkännandet gör det inte ogiltigt för nästa bygge'
+(ga_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'startad': '2026-01-01T00:00:00Z', 'klar': '2026-01-01T01:00:00Z', 'lage': 'ny'}))
+assert pt.lage('pt-godk')[0] == 'godkand' and pt.bygget_nekas('pt-godk') is None, (pt.lage('pt-godk'), pt.bygget_nekas('pt-godk'))
+(ga_ / 'atelje' / 'vinnare' / 'kod' / 'index.astro').write_text('<p>ändrad i vinnaren</p>')
+assert 'ändrad sedan godkännandet' in sk.godkand_giltig('pt-godk', *gk_)[1] and pt.bygget_nekas('pt-godk'), 'den dömda versionen ändrad: inget bygge'
+(ga_ / 'atelje' / 'vinnare' / 'kod' / 'index.astro').write_text('<p>godkänd</p>'); (sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>godkänd</p>')
+assert sk.godkand_giltig('pt-godk', *gk_)[0]
 sk.lagg_till_dom('pt-godk', 'ägaren', 'putsa', 'Rubriken för stor.', underlag=pt_und, tid='2999-01-01T00:00:00Z')
 assert 'är inte godkännandet' in sk.godkand_giltig('pt-godk', *gk_)[1], sk.godkand_giltig('pt-godk', *gk_)
 assert at_pt.aterkalla('pt-godk') and 'godkand' not in json.loads((ga_ / 'atelje' / 'VINNARE.json').read_text()) and not at_pt.aterkalla('pt-godk')
@@ -3014,12 +3028,20 @@ assert not any(v.endswith('/atelje/**)') for v in vu_) and 'Write(./underlag/pt-
 for v_ in (vu_, at_pt.forfina_verktyg('pt-prov')):
     assert not any(x.startswith(('Bash(npm', 'Bash(npx', 'Bash(node')) for x in v_) and 'Bash(.venv/bin/python kontroller/forhandsvisa.py pt-prov *)' in v_, v_
 assert {'Bash(npm *)', 'Bash(npx *)', 'Bash(node *)'} <= set(at_pt.NEKAS)
+# omgranskning 3, fynd 3: skaparens och domarnas sessioner nekas hemligheterna (sandlådans lista; ägarens egna regler läses inte)
+hem_ = os.path.expanduser('~').strip('/')
+for r_ in ('Read(//%s/.nortropic-hemligheter/**)' % hem_, 'Read(//%s/.ssh/**)' % hem_, 'Read(//%s/.claude.json)' % hem_, 'Read(**/.env)', 'Read(**/*.pem)'):
+    assert r_ in at_pt.NEKAS, r_
+import typsnitt as ts_  # noqa: E402
+assert ts_.PAKET.fullmatch('@fontsource/inter') and not ts_.PAKET.fullmatch('@fontsource/inter\n'), 'en radbrytning sist släpps inte'
+with contextlib.redirect_stderr(io.StringIO()):
+    assert ts_.main(['pt-prov', '@fontsource/inter\n']) == 2
 import typsnitt as ts_  # noqa: E402
 for fel_ in (['pt-prov', '@fontsource/x@npm:ondskefull'], ['pt-prov', '@fontsource/x@git+https://e.se/r'], ['pt-prov', '@fontsource/x@file:../..'],
              ['pt-prov', '@fontsource/inter', 'agare/repo'], ['pt-prov', '@fontsource/inter', '--registry=https://e.se/'], ['pt-prov', 'vänster-pad'], ['pt-prov']):
     with contextlib.redirect_stderr(io.StringIO()):
         assert ts_.main(fel_) == 2, fel_
-assert ts_.PAKET.match('@fontsource-variable/inter') and ts_.PAKET.match('@fontsource/eb-garamond@5.0.1') and not ts_.PAKET.match('@fontsource/inter@latest')
+assert ts_.PAKET.fullmatch('@fontsource-variable/inter') and ts_.PAKET.fullmatch('@fontsource/eb-garamond@5.0.1') and not ts_.PAKET.fullmatch('@fontsource/inter@latest')
 (pt_u / 'atelje-fr' / 'KOMPLETTERING.json').write_text(json.dumps({'referens': {'kandidater': [{'namn': 'x', 'adress': 'https://exempel.se/', 'roll': 'ux', 'sidor': ['/?q=hemlig']}]}}))
 fq_ = sk.komplettera('pt-prov', pt_u / 'atelje-fr' / 'KOMPLETTERING.json', pt_u / 'atelje-fr', pt_und, kor=lambda a_, t_: (_ for _ in ()).throw(AssertionError('ingen körning')))
 assert 'frågesträng' in fq_['fel'], fq_
@@ -3030,6 +3052,7 @@ om_u = pt_und / 'om-prov'; (om_u / 'atelje').mkdir(parents=True)
 om_k = at_pt.KUNDER / 'om-prov' / 'sajt'; (om_k / 'src' / 'pages').mkdir(parents=True)
 (om_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'startad': '2026-10-05T06:00:00Z', 'klar': '2026-10-05T07:00:00Z'}))
 (om_u / 'atelje' / 'VINNARE.json').write_text(json.dumps({'riktning': 1}))
+(om_u / 'atelje' / 'vinnare' / 'kod').mkdir(parents=True); (om_u / 'atelje' / 'vinnare' / 'kod' / 'index.astro').write_text('<p>s</p>')
 try:
     at_pt.doma('om-prov', 'ägaren', 'godkand', 'Godkänd.'); raise AssertionError('utan startsida inget godkännande')
 except ValueError:
@@ -3065,11 +3088,13 @@ try:
 finally:
     if sl_om is not None:
         os.environ['NWP_SANDLADA'] = sl_om
-# omgranskning 2, fynd 4: på nödvägen utan ateljé (NWP_ATELJE=av) stoppar ateljéns lägen inte bygget
-sl_om = os.environ.pop('NWP_SANDLADA', None); os.environ['NWP_ATELJE'] = 'av'
+# omgranskning 2, fynd 4 och 3, fynd 5: på nödvägen (NWP_ATELJE annat än pa, som i kor.sh) stoppar ateljéns lägen inte bygget
+sl_om = os.environ.pop('NWP_SANDLADA', None)
 try:
     sk.lagg_till_dom('om-prov', 'ägaren', 'putsa', 'Putsa.', underlag=rot_om / 'underlag', tid='2026-10-05T12:00:00Z')
-    assert sv_om.ateljen_forkastad(rot_om, 'om-prov') is None, 'nödvägen ger aldrig en falsk slutkod 6'
+    for v_ in ('av', 'AV', 'off', '0'):
+        os.environ['NWP_ATELJE'] = v_
+        assert sv_om.ateljen_forkastad(rot_om, 'om-prov') is None, 'nödvägen ger aldrig en falsk slutkod 6: ' + v_
     del os.environ['NWP_ATELJE']
     assert sv_om.ateljen_forkastad(rot_om, 'om-prov'), 'i skapandeflödets väg stoppar samma läge'
 finally:
@@ -3186,14 +3211,32 @@ try:
         assert 'föll' in ut_fs.getvalue() and json.loads((fs_u / 'atelje' / 'STATUS.json').read_text())['steg'] == steg_, ut_fs.getvalue()
 finally:
     at_pt.subprocess = sp_fs
+# omgranskning 3, fynd 4: --bara-domare och --fortsatt stämplar aldrig om en körning förbi ägarens senare dom
+sp_fs = at_pt.subprocess
+at_pt.subprocess = types.SimpleNamespace(Popen=lambda *a_, **k_: (_ for _ in ()).throw(AssertionError('en arbetare startades')),
+                                         DEVNULL=subprocess.DEVNULL, STDOUT=subprocess.STDOUT, run=subprocess.run,
+                                         TimeoutExpired=subprocess.TimeoutExpired, CompletedProcess=subprocess.CompletedProcess)
+try:
+    sk.lagg_till_dom('fs-prov', 'ägaren via Codex', 'putsa', 'Luften.', underlag=pt_und, tid='2026-10-05T08:00:00Z')
+    (fs_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'startad': '2026-10-05T06:00:00Z', 'klar': '2026-10-05T07:00:00Z'}))
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert at_pt.main(['fs-prov', '--bara-domare']) == 2, '--bara-domare efter ägarens dom'
+    (fs_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'fel': 'x', 'startad': '2026-10-05T07:30:00Z', 'faser': {}}))
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert at_pt.main(['fs-prov', '--fortsatt']) == 2, '--fortsatt efter ägarens dom'
+    assert json.loads((fs_u / 'atelje' / 'STATUS.json').read_text())['startad'] == '2026-10-05T07:30:00Z' and pt.lage('fs-prov')[0] == 'putsa'
+finally:
+    at_pt.subprocess = sp_fs
 # omgranskning 2, fynd 6: föll förra slutdomen innan efter-bilderna fanns, är före vinnarens senast dömda bilder
 sf_ = tmp / 'sf-rot'; (sf_ / 'vinnare' / 'bilder').mkdir(parents=True); (sf_ / 'vinnare' / 'bilder' / 'vy-390-forsta.png').write_bytes(b'v')
 pu_ = tmp / 'sf-putsa'; (pu_ / 'slutdom' / '2').mkdir(parents=True)
 rot_sf = at_pt.ROOT; at_pt.ROOT = tmp
 try:
     assert at_pt.slutdomens_fore(sf_, {'putsning': 'sf-putsa'}, 1) == sf_ / 'vinnare' / 'bilder'
-    (pu_ / 'slutdom' / '2' / 'vy-390-forsta.png').write_bytes(b'e')
-    assert at_pt.slutdomens_fore(sf_, {'putsning': 'sf-putsa'}, 1) == pu_ / 'slutdom' / '2'
+    (pu_ / 'slutdom' / '2' / 'vy-390-forsta.png').write_bytes(b'e')  # bara 390: inspektionen i 1440 dog (omgranskning 3, fynd 2)
+    assert at_pt.slutdomens_fore(sf_, {'putsning': 'sf-putsa'}, 1) == sf_ / 'vinnare' / 'bilder', 'halva efter-bilder utan panelens dom är inget före'
+    (pu_ / 'slutdom' / 'VAL.json').write_text('{}')
+    assert at_pt.slutdomens_fore(sf_, {'putsning': 'sf-putsa'}, 1) == pu_ / 'slutdom' / '2', 'en klar slutdom: dess efter är före'
 finally:
     at_pt.ROOT = rot_sf
 # omgranskning 2, fynd 7: en post med fältet referens jämförs bara mot det, inte mot lånen i dragtexten
@@ -3251,6 +3294,9 @@ assert sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://xn--trycker
 assert 'procentkodade' in sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/tjänster/']}]}})
 assert 'punycode' in sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://tryckeriet-ö.se/'}]}})
 assert sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/../hemligt/']}]}}), 'ett led av bara punkter släpps inte'
+# omgranskning 3, fynd 6: långa punycode-etiketter (upp till 63 tecken) släpps; en radbrytning sist gör det inte
+assert sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://xn--mlerifirmanibjrkskatan-o5b53b.se/'}]}}) is None
+assert sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://exempel.se/\n'}]}}) and sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/a/\n']}]}})
 # (fynd 9) förkastningen skriver panelens skäl bara i bygget; utanför dömer ägaren först
 vr_ = tmp / 'vanta-rot'; vr_.mkdir(); (vr_ / 'STATUS.json').write_text(json.dumps({'steg': 'forkastad', 'skal': 'x', 'slug': 'v'})); (vr_ / 'VAL.md').write_text('PANELENS SKÄL')
 ut_v = io.StringIO()
@@ -4085,6 +4131,18 @@ print(' | '.join(ut))
     assert not (Path(tempfile.gettempdir()) / 'nwp-pg-prov.txt').exists()
     assert 'kontroller/x.txt' not in [x.name for x in (rot_pg / 'kontroller').iterdir()] and (rot_pg / 'kunder' / sl_pg / 'x.txt').is_file()
     assert subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg)], capture_output=True, text=True).returncode == 2, 'utan kommando: slutkod 2'
+    # --utan-nat (byggen av skaparens sidor, prova.bygg_inom_grans): inte heller localhost, där dashboarden tar emot ägarens
+    # domar (omgranskning 3); utan flaggan når byggsteget localhost som förut
+    srv_pg, _ = server(tmp)
+    try:
+        kod_pg = 'import urllib.request\ntry:\n urllib.request.urlopen("http://127.0.0.1:%d/", timeout=5); print("NÅDDE")\nexcept Exception as e:\n print("NEKAD")' % srv_pg.server_port
+        for fl_, vantat_ in (([], 'NÅDDE'), (['--utan-nat'], 'NEKAD')):
+            r_pg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg), *fl_, '--', PY, '-c', kod_pg], capture_output=True, text=True, timeout=60)
+            assert r_pg.stdout.strip() == vantat_, (fl_, r_pg.stdout, r_pg.stderr[-300:])
+    finally:
+        srv_pg.shutdown()
+    import inspect as inspect_pg  # noqa: E402
+    assert '--utan-nat' in inspect_pg.getsource(prova.bygg_inom_grans), 'skaparens byggen går utan nät'
     # en repokopia under den tillåtna tempkatalogen: policyns skrivförbud följer med (R26, F1): mekaniken skrivskyddad, byggets kataloger skrivbara
     rot_k = tmp_pg / 'tmp' / 'kopia'
     for d_ in ('kunder/' + sl_pg, 'kunder/annan', 'underlag/' + sl_pg, 'kontroller', '.claude/hooks', 'backlog', 'kritik'):

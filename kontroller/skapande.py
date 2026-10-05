@@ -205,9 +205,9 @@ def senaste_paket(slug, underlag=None):
 # mot frågesträngar räckte inte, vägsegment bär samma data). Kanalen är smal, inte stängd: värdnamnet och några korta
 # vägar går fortfarande ut, och skaparen läser bara underlaget, aldrig hemligheter (kunskap/skapandeflodet.md).
 MAX_KANDIDATER, MAX_SIDOR_PER, MAX_FRAGOR, MAX_FRAGA = 3, 4, 3, 160
-VARD = re.compile(r'^https://(?:[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?\.){1,3}[a-z]{2,12}/$')
+VARD = re.compile(r'https://(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.){1,3}[a-z]{2,12}/')  # fullmatch; etiketter upp till 63 tecken
 LED = r'(?!\.+(?:/|$))(?:[A-Za-z0-9._~-]|%[0-9A-Fa-f]{2}){1,60}'  # å, ä, ö procentkodade; inte bara punkter
-SIDVAG = re.compile(r'^/(?:%s(?:/%s){0,3}/?)?$' % (LED, LED))  # högst fyra led med snedstreck emellan
+SIDVAG = re.compile(r'/(?:%s(?:/%s){0,3}/?)?' % (LED, LED))  # fullmatch; högst fyra led med snedstreck emellan
 
 
 def kanal_fel(begaran):
@@ -217,11 +217,11 @@ def kanal_fel(begaran):
     if ref is not None and (not isinstance(kand, list) or not 1 <= len(kand) <= MAX_KANDIDATER):
         return 'referens.kandidater ska vara 1–%d kandidater' % MAX_KANDIDATER
     for k in kand or []:
-        if not isinstance(k, dict) or not VARD.match(str(k.get('adress') or '')):
+        if not isinstance(k, dict) or not VARD.fullmatch(str(k.get('adress') or '')):
             return ('adressen ska vara en sajts ursprung, https://värd/ med små bokstäver och korta etiketter i a–z, 0–9 och '
                     'bindestreck; en domän med å, ä eller ö skrivs i punycode (xn--…)')
         sidor = k.get('sidor') or ['/']
-        if not isinstance(sidor, list) or len(sidor) > MAX_SIDOR_PER or any(not isinstance(s, str) or len(s) > 160 or not SIDVAG.match(s) for s in sidor):
+        if not isinstance(sidor, list) or len(sidor) > MAX_SIDOR_PER or any(not isinstance(s, str) or len(s) > 160 or not SIDVAG.fullmatch(s) for s in sidor):
             return ('sidvägarna ska vara högst %d vägar med högst fyra led om högst 60 tecken (bokstäver a–z, siffror, punkt, '
                     'bindestreck; å, ä, ö och andra tecken procentkodade, till exempel /tj%%C3%%A4nster/), utan frågesträng '
                     'eller fragment' % MAX_SIDOR_PER)
@@ -324,7 +324,8 @@ def sha256_fil(p):
 
 def godkand_giltig(slug, underlag=None, kunder=None):
     """(giltig, skäl): ägarens godkännande i atelje/VINNARE.json gäller bara när ägarens senaste dom i domloggen är just
-    det godkännandet och startsidan (och DESIGN.md) är oförändrade sedan dess. kor.sh tar vid först då."""
+    det godkännandet och den godkända startsidan och DESIGN.md i atelje/vinnare/ är oförändrade sedan dess. kor.sh tar
+    vid först då; bygget skriver sedan om sajtens egna filer utan att godkännandet upphör."""
     u = Path(underlag or UNDERLAG) / slug
     sajt = Path(kunder or (ROOT / 'kunder')) / slug / 'sajt'
     g = (las_json(u / 'atelje' / 'VINNARE.json') or {}).get('godkand')
@@ -333,11 +334,12 @@ def godkand_giltig(slug, underlag=None, kunder=None):
     egna = [d for d in domar(slug, u.parent) if d.get('kalla') in AGAREN]
     if not egna or egna[-1].get('beslut') != 'godkand' or egna[-1].get('tid') != g['tid']:
         return False, 'ägarens senaste dom i domloggen (direkt eller via Codex) är inte godkännandet'
-    sida = sajt / 'src' / 'pages' / 'index.astro'
-    if not sida.is_file() or sida.is_symlink() or sha256_fil(sida) != g.get('sha_index'):
-        return False, 'startsidan är ändrad sedan godkännandet'
-    if g.get('sha_design') and (not (sajt / 'DESIGN.md').is_file() or sha256_fil(sajt / 'DESIGN.md') != g['sha_design']):
-        return False, 'DESIGN.md är ändrad sedan godkännandet'
+    # den dömda versionen, som vinnaren bevarar: bygget skriver om sajtens egna filer (omgranskning 3, fynd 1)
+    kod, vd = u / 'atelje' / 'vinnare' / 'kod' / 'index.astro', u / 'atelje' / 'vinnare' / 'DESIGN.md'
+    if not kod.is_file() or kod.is_symlink() or sha256_fil(kod) != g.get('sha_index'):
+        return False, 'den godkända startsidan (atelje/vinnare/kod/index.astro) är ändrad sedan godkännandet'
+    if g.get('sha_design') and (not vd.is_file() or vd.is_symlink() or sha256_fil(vd) != g['sha_design']):
+        return False, 'den godkända DESIGN.md (atelje/vinnare/DESIGN.md) är ändrad sedan godkännandet'
     return True, 'godkänd %s' % g['tid']
 
 

@@ -43,10 +43,12 @@ först, och huvudreferensen blir den valda riktningens referens efteråt.
 6. **Ägaren.** Vyn Prototyp visar före och efter bredvid huvudreferensen och riktningarna som prövades. Vilken riktning
    som förfinades syns, eftersom ägaren dömer den synliga förbättringen. Panelens skäl, poäng och slutdom, förfiningens
    logg och redovisningen visas först när ägaren dömt, så att ägarens dom är oberoende av dem. Domen går till domloggen.
-7. **Överlämning.** Ägarens godkännande skrivs i VINNARE.json (`godkand`, med hashen för startsidan och DESIGN.md).
+7. **Överlämning.** Ägarens godkännande skrivs i VINNARE.json (`godkand`, med hashen för den dömda startsidan och
+   DESIGN.md som vinnaren bevarar i `atelje/vinnare/`; sajtens filer måste vara samma när ägaren godkänner).
    Bygget tar vid därifrån som från en ateljévinnare: startsidan och koden, bilderna, och DESIGN.md (bygg-sajt steg 5.1).
-   Godkännandet gäller bara när ägarens senaste dom i domloggen, direkt eller via Codex, är just det och filerna är
-   oförändrade (`skapande.godkand_giltig`). En senare dom och en ny förfining drar tillbaka det. Tillåter domloggen
+   Godkännandet gäller bara när ägarens senaste dom i domloggen, direkt eller via Codex, är just det och vinnarens
+   filer är oförändrade (`skapande.godkand_giltig`). Bygget skriver sedan om sajtens egna filer utan att godkännandet
+   upphör, så ett nytt bygge kan ta vid igen. En senare dom och en ny förfining drar tillbaka det. Tillåter domloggen
    inget bygge, startar inget i skapandeflödets väg (kor.sh, `prototyp.bygget_nekas`): det gäller putsa eller ny
    riktning efter körningen, en dom som inte gäller någon körning, och ett godkännande som inte gäller. Nästa steg är
    då prototyp.py. Nödvägen `NWP_ATELJE=av` påverkas inte.
@@ -83,7 +85,8 @@ TILLBAKA; omtaget skriver ägarens dom.
 Föll en körning tar `.venv/bin/python kontroller/atelje.py <slug> --fortsatt` vid efter den senaste klara fasen: i
 utforskningen vid omgången som föll, med samma kritik som första gången (skaparens TILLBAKA.md eller panelens VAL.md),
 och i en putsning vid förfiningen eller slutdomen mot samma före. En avslutad körning (klar, förkastad, tillbaka) tas
-aldrig upp igen; där avgör ägarens dom nästa steg. Det som flyttas undan, äldre riktningsbilder och en tidigare vinnare, hamnar i `atelje/foregaende/`. Inget
+aldrig upp igen, och varken `--fortsatt` eller `--bara-domare` körs när ägaren dömt efter körningen; där avgör
+ägarens dom nästa steg. Det som flyttas undan, äldre riktningsbilder och en tidigare vinnare, hamnar i `atelje/foregaende/`. Inget
 raderas.
 
 ## Research på begäran
@@ -127,11 +130,13 @@ huvudreferensen om i varje varv. Ett räknat antal bildläsningar är inget bel�
 ## Sandlådan
 
 Skapandeflödets sessioner har ingen egen sandlåda än: flödet körs utanför den, före bygget. Sessionerna har bara sina
-namngivna verktyg och inget eget nät. Paket installeras bara med `kontroller/typsnitt.py` (Fontsource, namnen prövade,
+namngivna verktyg och inget eget nät, och sandlådans lista över hemligheter nekas dem (`atelje.NEKAS`; ägarens egna
+regler läses inte i en nästlad session). Paket installeras bara med `kontroller/typsnitt.py` (Fontsource, namnen prövade,
 `--ignore-scripts`). Research går genom referenssteget. Utforskningen skriver med sina verktyg bara sidorna,
 RIKTNINGAR.md, KOMPLETTERING.json och urvalet, och förfiningen bara sajtens src/, DESIGN.md och sina tre filer. Det är
 en gräns för verktygen, inte för koden: sidorna är kod som körs när sajten byggs (Astros frontmatter). Därför körs varje
 bygge av skaparens sidor innanför processgränsen (`kontroller/processgrans.py`): förhandsvisningen, fotograferingen och
-slutdomen. Där skrivs bara i byggets egna kataloger och nätet når bara localhost. Ett sandlådat bygge (`NWP_SANDLADA=pa`)
+slutdomen. Där skrivs bara i byggets egna kataloger, och bygget når inget nät, inte heller localhost, där
+dashboarden tar emot ägarens domar (`processgrans.py --utan-nat`). Ett sandlådat bygge (`NWP_SANDLADA=pa`)
 kräver därför en godkänd startsida och tar vid från den. Nästlade sessioner skriver aldrig i ägarens automatiska minne
 (`kontroller/nastlad.py`).

@@ -61,6 +61,7 @@ import referensval  # noqa: E402
 import bildkedja  # noqa: E402  domarnas läsning ur transkripten (designprovet 2026-10-05)
 import granska  # noqa: E402  frysta_ankare: ägarens kalibreringsankare till panelen (designprovet punkt 6)
 import skapande  # noqa: E402  domloggen, historiken, metoden per steg, research på begäran
+import sandlada  # noqa: E402  HEMLIGT: samma hemligheter nekas skaparens och domarnas sessioner
 
 ROOT = prova.ROOT
 KUNDER = ROOT / 'kunder'
@@ -84,6 +85,11 @@ NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(gi
          # förhandsvisningen, innanför processgränsen (omgranskningen av skapandeflödet, fynd 8)
          'Bash(npm *)', 'Bash(npx *)', 'Bash(node *)',
          'Read(./underlag/kalibrering/**)',  # de undanhållna kalibreringsexemplen; ankarna får panelen frysta i atelje/ankare/
+         # hemligheterna: --setting-sources project,local läser inte ägarens egna regler, så sandlådans lista nekas här
+         # (omgranskning 3, fynd 3); Read-regler gäller också Grep och Glob
+         *[r for p_ in sandlada.HEMLIGT for r in (
+             ('Read(%s)' % p_,) if p_.startswith('**/') else
+             ('Read(//%s)' % os.path.expanduser(p_).strip('/'), 'Read(//%s/**)' % os.path.expanduser(p_).strip('/')))],
          'Edit(./kontroller/**)', 'Edit(./kritik/**)', 'Edit(./kunskap/**)', 'Edit(./mall/**)', 'Edit(./.claude/**)',
          'Write(./kontroller/**)', 'Write(./kritik/**)', 'Write(./kunskap/**)', 'Write(./mall/**)', 'Write(./.claude/**)']
 # Domarpanelen: andra modeller än orkestratorn (en domare ger den egna familjens output 10–25 procent högre betyg),
@@ -1241,9 +1247,9 @@ def slutdomens_fore(rot, status, n):
     rot = Path(rot)
     if status.get('putsning'):
         putsad = ROOT / status['putsning'] / 'slutdom' / '2'
-        if putsad.is_dir() and not putsad.is_symlink() and any(putsad.glob('vy-*.png')):
-            return putsad
-        return saker_vag(rot / 'vinnare' / 'bilder', rot)
+        if putsad.is_dir() and not putsad.is_symlink() and (putsad.parent / 'VAL.json').is_file():
+            return putsad  # förra slutdomen blev klar: dess efter är versionen ägaren dömde
+        return saker_vag(rot / 'vinnare' / 'bilder', rot)  # den föll: vinnarens senast dömda (omgranskning 3, fynd 2)
     fore = rot / str(n) if n is not None and (rot / str(n)).is_dir() else rot / 'vinnare' / 'bilder'
     return saker_vag(fore, rot)
 
@@ -1365,12 +1371,20 @@ def godkannande(slug, dom):
     sajt = KUNDER / slug / 'sajt'
     try:
         sida = saker_vag(sajt / 'src' / 'pages' / 'index.astro', KUNDER / slug)
+        kod = saker_vag(rot / 'vinnare' / 'kod' / 'index.astro', rot)
+        vd = saker_vag(rot / 'vinnare' / 'DESIGN.md', rot)
     except RuntimeError as e:
         raise ValueError('startsidan kan inte godkännas: %s' % e)
     if not sida.is_file() or sida.is_symlink():
         raise ValueError('startsidan saknas (kunder/%s/sajt/src/pages/index.astro)' % slug)
-    post['godkand'] = {'tid': dom['tid'], 'av': dom['kalla'], 'text': str(dom.get('text') or '')[:2000], 'sha_index': sha256_fil(sida),
-                       **({'sha_design': sha256_fil(sajt / 'DESIGN.md')} if (sajt / 'DESIGN.md').is_file() and not (sajt / 'DESIGN.md').is_symlink() else {})}
+    # godkännandet gäller den dömda versionen, som vinnaren bevarar; bygget skriver sedan om sajtens filer (omgranskning
+    # 3, fynd 1: ett bygge från godkännandet gjorde det ogiltigt för nästa bygge)
+    if not kod.is_file() or sha256_fil(kod) != sha256_fil(sida):
+        raise ValueError('startsidan i sajten är inte den dömda versionen i underlag/%s/atelje/vinnare/kod/index.astro; kör om förfiningen eller slutdomen' % slug)
+    if vd.is_file() and not ((sajt / 'DESIGN.md').is_file() and sha256_fil(sajt / 'DESIGN.md') == sha256_fil(vd)):
+        raise ValueError('kunder/%s/sajt/DESIGN.md är inte vinnarens (underlag/%s/atelje/vinnare/DESIGN.md)' % (slug, slug))
+    post['godkand'] = {'tid': dom['tid'], 'av': dom['kalla'], 'text': str(dom.get('text') or '')[:2000], 'sha_index': sha256_fil(kod),
+                       **({'sha_design': sha256_fil(vd)} if vd.is_file() else {})}
     return post
 
 
@@ -1825,6 +1839,12 @@ def main(argv=None):
         return 2
     rot = UNDERLAG / a.slug / 'atelje'
     st = las_json(rot / 'STATUS.json') or {}  # läget först: en klar eller förkastad ateljé svarar med sitt utfall
+    if a.bara_domare or a.fortsatt:  # en ny stämpel får aldrig dölja ägarens senare dom (omgranskning 3, fynd 4)
+        dom = skapande.senaste(a.slug, kallor=skapande.AGAREN, underlag=UNDERLAG)
+        if dom and st.get('steg') and dom.get('tid', '') > (st.get('klar') or st.get('startad') or ''):
+            print('Ägaren har dömt efter körningen (%s, %s, beslut %s): domen avgör nästa steg (kontroller/prototyp.py), inte %s.'
+                  % (dom['tid'], dom['kalla'], dom['beslut'], '--bara-domare' if a.bara_domare else '--fortsatt'))
+            return 2
     if a.bara_domare:
         return bara_domare(a.slug, rot, st)
     if st.get('pid') and lever(st['pid']) and st.get('steg') not in ('klar', 'fel', 'forkastad', 'tillbaka'):

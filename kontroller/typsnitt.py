@@ -20,17 +20,17 @@ from slugvakt import krav_slug, krav_vag  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 SLUG = re.compile(r'^[a-z0-9-]{2,60}$')
-PAKET = re.compile(r'^@fontsource(?:-variable)?/[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?(?:@\d{1,3}\.\d{1,3}\.\d{1,3})?$')
+PAKET = re.compile(r'@fontsource(?:-variable)?/[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?(?:@\d{1,3}\.\d{1,3}\.\d{1,3})?')  # fullmatch
 MAX_PAKET = 6
 
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if len(argv) < 2 or not SLUG.match(argv[0]):
+    if len(argv) < 2 or not SLUG.fullmatch(argv[0]):
         print(__doc__.split('\n\n')[1].strip(), file=sys.stderr)
         return 2
     slug, paket = argv[0], argv[1:]
-    fel = [p for p in paket if not PAKET.match(p)]
+    fel = [p for p in paket if not PAKET.fullmatch(p)]
     if fel or len(paket) > MAX_PAKET or len(set(paket)) != len(paket):
         print('bara @fontsource/<namn> eller @fontsource-variable/<namn> (valfritt @x.y.z), högst %d, inga andra argument: %s'
               % (MAX_PAKET, ', '.join(fel) or 'för många eller dubbla'), file=sys.stderr)
