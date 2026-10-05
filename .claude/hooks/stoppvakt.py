@@ -125,11 +125,18 @@ def main():
                 grc, kritik = 5, 'granskningen svarade inte inom %d s' % GRANSKNING_FRIST
             granskning = UTFALL.get(grc, 'okänt utfall %d' % grc)
         post['granskning'] = granskning
+        try:  # granskningens dist bredvid provets (backlogposten om granskningstaket): samma bygge eller inte
+            post['granskning_dist_sha256'] = json.loads((kund / 'granskning' / 'GRANSKNING.json').read_text(encoding='utf-8')).get('dist_sha256')
+        except (OSError, ValueError, AttributeError):
+            post['granskning_dist_sha256'] = None
+        post['samma_dist'] = bool(dist_sha) and post['granskning_dist_sha256'] == dist_sha
 
     if gront and har_rapport and granskning in ('godkänd', 'avstängd'):
         post.update(slapp=True, skal='kontrollerna gröna, RAPPORT.md finns och granskningen är %s' % granskning)
     elif gront and har_rapport and granskning == 'taket för granskningar nått':
-        post.update(slapp=True, skal='släppt utan godkänd granskning: taket för granskningar i körningen är nått')
+        post.update(slapp=True, skal='släppt utan godkänd granskning: taket för granskningar i körningen är nått' + (
+            '' if post.get('samma_dist') else '; den senaste omgången gällde ett annat bygge än det slutliga, så en ny omgång behövs '
+            '(ägaren beställer den, eller höjer NWP_GRANSKNING_MAX)'))
     elif n >= TAK:
         brist = 'röda kontroller' if not gront else ('saknad rapport' if not har_rapport else 'granskning %s' % granskning)
         post.update(slapp=True, skal='stoppvaktens tak nått: avslutet släpptes med %s' % brist)
@@ -146,9 +153,11 @@ def main():
     if not har_rapport:
         skal.append('kunder/%s/RAPPORT.md saknas eller är nästan tom. Skriv den enligt steg 7 i skillen bygg-sajt.' % slug)
     if granskning == 'underkänd':
-        skal.append('Den oberoende granskaren underkände sajten. Rätta varje blockerande fynd, kör '
-                    '.venv/bin/python kontroller/prova.py %s, uppdatera RAPPORT.md och försök avsluta igen. Är en '
-                    'invändning fel: skriv varför under Granskningen i rapporten. Granskarens kritik:\n\n%s' % (slug, kritik[:9000]))
+        skal.append('Den oberoende granskaren underkände sajten. Läs ändringsuppdragen med bilder i '
+                    'kunder/%s/granskning/ANDRINGAR.md (varje fynd med rutan där bristen syns och referensbilden; läs bilderna '
+                    'med Read), rätta varje blockerande fynd, kör .venv/bin/python kontroller/prova.py %s, uppdatera RAPPORT.md '
+                    'och försök avsluta igen. Är en invändning fel: skriv varför under Granskningen i rapporten. Granskarens '
+                    'kritik:\n\n%s' % (slug, slug, kritik[:9000]))
     elif granskning and granskning not in ('godkänd', 'avstängd'):
         skal.append('Granskningen: %s.\n\n%s\n\nFörsök avsluta igen.' % (granskning, kritik[:3000]))
     skal.append('Stoppvakten, försök %d av %d. Vid försök %d släpps avslutet och ägaren ser varför.' % (n, TAK, TAK))

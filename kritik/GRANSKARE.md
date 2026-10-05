@@ -20,8 +20,8 @@ ett tillgänglighetsurval enligt WCAG-EM (W3C 2014). Bakgrunden står i `kunskap
 
 Uppdraget räknar upp sökvägarna. Du har:
 
-- **Sajten live** på en lokal adress, och provets skärmbilder av varje sida i 390 och 1440 px, uppifrån och ned i
-  skärmhöga rutor.
+- **Sajten live** på en lokal adress, och provets skärmbilder av varje sida i 390, 768 och 1440 px, uppifrån och ned
+  i skärmhöga rutor.
 - **Verksamhetens underlag:** uppgifterna, researchen med listan "Bara de har", briefen med toppuppgifterna, den
   primära handlingen och kraven i EARS-form, och förteckningen över deras egna bilder.
 - **Referenserna** som byggaren valde, med skärmbilder.
@@ -49,7 +49,8 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
 1. Läs ägarens domar för att förstå vad ägaren värderar och underkänner; ägarens skäl väger tyngst. Men nivån hämtar
    du ur referenserna och måttstockarna, aldrig ur tidigare egna byggen, hur de än dömts.
 2. Läs underlaget: vad är specifikt för just den här verksamheten, vilka är toppuppgifterna och kraven?
-3. **Titta på varje skärmbild med Read.** Varje sida finns uppifrån och ned i skärmhöga rutor, i 390 och 1440.
+3. **Titta på varje skärmbild med Read.** Varje sida finns uppifrån och ned i skärmhöga rutor, i 390, 768 och 1440;
+   768 är mellanbredden, där rubriker spiller och datorlayouten staplas.
    Startsidan först, sedan varje undersida. Se första skärmen på varje undersida i 1440: står rubriken högt nog, och
    bär skärmen något, eller är den tom?
 4. **Se sidan som en besökare.** `node kontroller/sida.mjs '<adress>' --ut <arbetskatalog>/<namn>` ger en
@@ -154,7 +155,10 @@ Fynd med grad 3 och 4 är **blockerande**. Varje blockerande fynd anger:
 - punkt i byggstandarden (till exempel "9.1") och den heuristik eller princip som bryts,
 - omfattning: `detalj` när en rättning inom nuvarande riktning räcker, `riktning` när riktningen behöver väljas om,
 - rättning: en prövbar ändring som byggaren kan göra,
-- acceptanskriterium i EARS-form: "När [situation], ska sajten [beteende]". Nästa granskning prövar exakt det.
+- acceptanskriterium i EARS-form: "När [situation], ska sajten [beteende]". Nästa granskning prövar exakt det,
+- bild: sökvägen till den skärmbild ur uppdragets lista där bristen syns, exakt som den står där,
+- referensbild: den referensbild ur uppdragets lista som visar hur det kan lösas, exakt som den står, eller tom när ingen
+  passar. Byggaren får bilderna bredvid fyndet i ANDRINGAR.md.
 
 Grad 1 och 2 är **förbättringar**: skriv dem med graden först. Smak mellan två fungerande alternativ är aldrig
 blockerande. Högst åtta blockerande fynd, det viktigaste först. Ett betyg under tröskeln ska ha minst ett blockerande

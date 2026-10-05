@@ -177,6 +177,14 @@ def sidor_i(dist):
     return rutter
 
 
+def lh_audit(u):
+    """En underkänd Lighthouse-audit för PROV.md: id, titel, mätvärde och första träffen (äldre resultat bär bara id)."""
+    if not isinstance(u, dict):
+        return str(u)
+    return '%s "%s"%s%s' % (u.get('id'), u.get('titel') or '', (' ' + u['varde']) if u.get('varde') else '',
+                           (' (%s)' % u['traffar'][0]) if u.get('traffar') else '')
+
+
 def representativa_sidor(dist, sidor):
     """Sidorna Lighthouse mäter med median, valda efter funktion och sidtyp före mätningen (Codex helhetsbedömning
     2026-10-04, punkt 7): startsidan, kontaktsidan och den tyngsta övriga sidan (flest bilder i HTML:en)."""
@@ -487,7 +495,7 @@ def prova(slug, snabb=False):
                 lag = lambda k: min(r[k] for r in rader)
                 text = 'lägst P %d, A %d, BP %d, SEO %d (%d sidlägen; median av 3 i mobil på %s)' % (
                     lag('prestanda'), lag('tillganglighet'), lag('bastaPraxis'), lag('seo'), len(rader), ', '.join(rep_sidor))
-                under = ['%s %s: %s' % (r['form'], r['sida'], ','.join(r['underkanda'][:8])) for r in rader if not r['ok']]
+                under = ['%s %s: %s' % (r['form'], r['sida'], '; '.join(lh_audit(u) for u in r['underkanda'][:8])) for r in rader if not r['ok']]
                 under += ['%s %s: P %d (median, spridning %d–%d)' % (r['form'], r['sida'], r['prestanda'], *r['spridning'])
                           for r in rader if r.get('matt') == 'median' and r['spridning'][1] - r['spridning'][0] >= 10]
                 g['lighthouse'] = grind(lh['ok'], text, 'prov/lighthouse/lighthouse.json', '\n'.join(under) or None)

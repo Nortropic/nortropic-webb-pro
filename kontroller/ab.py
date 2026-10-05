@@ -62,6 +62,18 @@ def kontextdjup(rader, fonster=1_000_000):
             'meddelanden': len(storlekar)}
 
 
+def skillanrop(rader):
+    """Vilka skills bygget anropade, med antal, ur loggens Skill-anrop (backlogposten om Skill-räkningen): {namn: antal}."""
+    ut = {}
+    for r in rader:
+        if r.get('type') != 'assistant':
+            continue
+        for c in (r.get('message') or {}).get('content') or []:
+            if isinstance(c, dict) and c.get('type') == 'tool_use' and c.get('name') == 'Skill' and isinstance((c.get('input') or {}).get('skill'), str):
+                ut[c['input']['skill']] = ut.get(c['input']['skill'], 0) + 1
+    return dict(sorted(ut.items()))
+
+
 def matt(slug):
     """Tid, turer och kontextdjup ur körningens logg och granskarens betyg, efter bygget."""
     k = KUNDER / slug
@@ -77,6 +89,8 @@ def matt(slug):
         slut = next((r for r in reversed(rader) if r.get('type') == 'result'), None)
         if slut:
             resultat = {'turer': slut.get('num_turns'), 'minuter': round((slut.get('duration_ms') or 0) / 60000, 1)}
+        init = next((r for r in rader if r.get('type') == 'system' and r.get('subtype') == 'init'), None) or {}
+        resultat.update(modell=init.get('model'), version=init.get('claude_code_version'), skills=skillanrop(rader))
         fonster = max([m.get('contextWindow') or 0 for m in ((slut or {}).get('modelUsage') or {}).values()] or [0]) or 1_000_000
         resultat.update(kontextdjup(rader, fonster))
     g = las(k / 'granskning' / 'GRANSKNING.json') or {}

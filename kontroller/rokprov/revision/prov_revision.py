@@ -106,6 +106,28 @@ except ValueError as e:
 p['korningar']['dold-aby']['dist_sha256'] = dist_hash(dash.KUNDER / 'dold-aby' / 'sajt' / 'dist'); j.write_text(json.dumps(p))
 r = dash.spara_ab(p['id'], {'val': 'dold-abx', 'kommentar': 'A'})
 assert r['ok'] and '- **Byggen:** dold-abx, dold-aby' in (tmp / 'LARDOMAR.md').read_text(), 'A/B-avsnittet ska namnge byggena (F17)'
+# "ingen når min ribba" (Codex 2026-10-05, ordning 3): ett giltigt val, och LARDOMAR säger det
+j2 = dash.AB / 'ab-demo2-20261003T000001Z.json'
+p2 = dict(p, id='ab-demo2-20261003T000001Z', val=None, status='klar'); j2.write_text(json.dumps(p2))
+try:
+    dash.spara_ab(p2['id'], {'val': 'x'}); raise AssertionError('ett okänt val ska nekas')
+except ValueError as e:
+    assert 'ingen når min ribba' in str(e), e
+assert dash.spara_ab(p2['id'], {'val': 'ingen'})['ok'] and '- **Ägarens val (blint):** ingen når min ribba' in (tmp / 'LARDOMAR.md').read_text()
+# modell, version och skills per arm ur loggens init-rad och Skill-anrop (avstämningen 2026-10-05)
+import ab as ab_m  # noqa: E402
+ab_k = tmp / 'ab-kunder' / 'arm'; ab_k.mkdir(parents=True)
+(ab_k / 'korning-20261005T000000Z.jsonl').write_text('\n'.join(json.dumps(x_) for x_ in (
+    {'type': 'system', 'subtype': 'init', 'model': 'claude-opus-5-5[1m]', 'claude_code_version': '2.1.280'},
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Skill', 'input': {'skill': 'humanizer'}}, {'type': 'tool_use', 'name': 'Skill', 'input': {'skill': 'better-layout'}}]}},
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Skill', 'input': {'skill': 'humanizer'}}]}},
+    {'type': 'result', 'num_turns': 3, 'duration_ms': 60000})) + '\n')
+ab_kg = ab_m.KUNDER; ab_m.KUNDER = tmp / 'ab-kunder'
+try:
+    m_ab = ab_m.matt('arm')
+finally:
+    ab_m.KUNDER = ab_kg
+assert m_ab['modell'] == 'claude-opus-5-5[1m]' and m_ab['version'] == '2.1.280' and m_ab['skills'] == {'better-layout': 1, 'humanizer': 2}, m_ab
 # ägarbeslut 2026-10-03: ägarens ord bara i den privata filen, betygen publikt, backlogposten utan fritext
 assert 'Ägarens ord:** A' not in (tmp / 'LARDOMAR.md').read_text() and 'Ägarens ord:** A' in (tmp / 'underlag' / 'LARDOMAR-original.md').read_text(), 'A/B-kommentaren ska bara stå privat'
 dash.bl.MAPP = tmp / 'backlog'
@@ -473,7 +495,48 @@ assert sk.csp_skriptkallor("script-src 'self'; script-src-elem https: 'unsafe-in
 d3 = tmp / 'dist3'; d3.mkdir()
 (d3 / 'index.html').write_text('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta http-equiv="content-security-policy" content="default-src \'self\'; script-src \'self\'; script-src-elem https: \'unsafe-inline\'"><title>x</title></head><body><main><h1>x</h1></main></body></html>')
 assert any(x['punkt'] == '8.2' and 'script-src-elem' in x['text'] for x in sk.granska(d3)[0]), 'script-src-elem som överstyr ska ge fel (F22)'
+# 4.2 mäter den srcset-kandidat webbläsaren hämtar, inte img src (Astros Image lägger originalet i src; avstämningen 2026-10-05)
+ss_ = '/_astro/a-400.webp 400w, /_astro/a-800.webp 800w, /_astro/a-1600.webp 1600w'
+assert sk.vald_kandidat('/_astro/a.webp', ss_, '100vw', 390, 2) == '/_astro/a-800.webp' and sk.vald_kandidat('/_astro/a.webp', ss_, '(min-width: 1024px) 46vw, 100vw', 1440, 1) == '/_astro/a-800.webp'
+assert sk.vald_kandidat('/x.webp', '', None, 390, 2) == '/x.webp' and sk.platsbredd('(max-width: 600px) 100vw, 660px', 1440) == 660 and sk.vald_kandidat('/x.webp', ss_, '3000px', 1440, 1) == '/_astro/a-1600.webp'
+d42 = tmp / 'dist42'; (d42 / '_astro').mkdir(parents=True)
+(d42 / '_astro' / 'a.webp').write_bytes(b'x' * 300 * 1024); (d42 / '_astro' / 'a-800.webp').write_bytes(b'x' * 60 * 1024); (d42 / '_astro' / 'a-1600.webp').write_bytes(b'x' * 260 * 1024)
+sida42 = '<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>x</title></head><body><main><img src="/_astro/a.webp" srcset="/_astro/a-800.webp 800w, /_astro/a-1600.webp 1600w" sizes="%s" alt="" width="10" height="10"></main></body></html>'
+(d42 / 'index.html').write_text(sida42 % '(min-width: 1024px) 660px, 100vw')
+assert not [x for x in sk.granska(d42)[1] if x['punkt'] == '4.2' and 'första bilden' in x['text']], 'den hämtade kandidaten (800w) är liten: ingen information fast src är stor'
+(d42 / 'index.html').write_text(sida42 % '(min-width: 1024px) 1400px, 100vw')
+assert [x for x in sk.granska(d42)[1] if x['punkt'] == '4.2' and '1440 px' in x['text'] and 'a-1600.webp' in x['text']], 'i 1440 hämtas 1600w-kandidaten, som är för tung'
 print('F19–F22 seo/standard ok')
+# instruktionerna samordnade (backlogposten B-20261004-instruktionerna-samordnas, textkontrollen): de gamla motsägande
+# formuleringarna om telefonen som enda primära handling, strykregeln, standarddragen, beställda bilder och stockbilder är borta
+text_ins = {f: (ROOT / f).read_text(encoding='utf-8') for f in ('.claude/skills/bygg-sajt/SKILL.md', 'kritik/GRANSKARE.md', 'kunskap/bild.md', 'kunskap/brief-mall.md')}
+for f_ins, gammal_ in (('.claude/skills/bygg-sajt/SKILL.md', 'Saknas den, stryk sektionen'), ('.claude/skills/bygg-sajt/SKILL.md', 'deras befintliga bokning.'),
+                       ('.claude/skills/bygg-sajt/SKILL.md', 'minst tio konkreta saker som ingen konkurrent'), ('kritik/GRANSKARE.md', 'Straffa uttryckligen de drag'),
+                       ('kritik/GRANSKARE.md', 'Beställt: en förbättring, inget blockerande fynd'), ('kunskap/bild.md', 'verktyg/bild/'), ('kunskap/bild.md', 'licensierad stock')):
+    assert gammal_ not in text_ins[f_ins], (f_ins, gammal_)
+assert 'Fråga:' in text_ins['.claude/skills/bygg-sajt/SKILL.md'] and 'toppuppgift' in text_ins['.claude/skills/bygg-sajt/SKILL.md'], 'sektionen motiveras av besökarens fråga; den primära handlingen följer toppuppgiften'
+# granskningstaket (avstämningen 2026-10-05): en avbruten omgång räknas inte mot taket, men mot det hårda taket
+import granska as gr_tak  # noqa: E402
+gtak = tmp / 'gtak'
+for i_, st_ in enumerate(('klar', 'avbruten', 'avbruten', 'fel'), 1):
+    r_ = gtak / ('runda-%02d' % i_); r_.mkdir(parents=True)
+    (r_ / 'UPPDRAG.json').write_text(json.dumps({'korning': 'k1' if i_ < 4 else 'k2'}))
+    gr_tak.satt_utfall(r_, 'pagar', 'start')
+    gr_tak.satt_utfall(r_, st_, 'prov')
+assert gr_tak.taket(gtak, 'k1') == (1, 3) and gr_tak.taket(gtak, 'k2') == (1, 1), (gr_tak.taket(gtak, 'k1'), gr_tak.taket(gtak, 'k2'))
+assert gr_tak.MAX_HART == 2 * gr_tak.MAX_RUNDOR or os.environ.get('NWP_GRANSKNING_HART')
+# ändringsuppdragen med bild (avstämningen 2026-10-05): varje blockerande fynd med rutan och referensbilden; saknade vägar sägs
+bild_ = tmp / 'kunder' / 'x' / 'granskning' / 'runda-01' / 'sajt' / 'hem'; bild_.mkdir(parents=True); (bild_ / 'vy-390-ruta-02.png').write_bytes(b'x')
+gr_rot = gr_tak.ROOT; gr_tak.ROOT = tmp
+try:
+    an_ = gr_tak.andringar({'slug': 'x', 'runda': 1, 'blockerande': [{'kriterium': 'text', 'var': 'hem 390', 'observation': 'o', 'rattning': 'r', 'acceptanskriterium': 'a',
+                                                                     'bild': 'kunder/x/granskning/runda-01/sajt/hem/vy-390-ruta-02.png', 'referensbild': 'underlag/x/finns-inte.png'}]})
+finally:
+    gr_tak.ROOT = gr_rot
+assert '- bild: kunder/x/granskning/runda-01/sajt/hem/vy-390-ruta-02.png' in an_ and '- referensbild: saknas (underlag/x/finns-inte.png)' in an_ and '## 1. text · hem 390' in an_, an_
+assert 'Inga blockerande fynd.' in gr_tak.andringar({'slug': 'x', 'runda': 2, 'blockerande': []})
+import prova as pv_lh  # noqa: E402
+assert pv_lh.lh_audit({'id': 'a', 'titel': 'T', 'varde': '2 s', 'traffar': ['<img>']}) == 'a "T" 2 s (<img>)' and pv_lh.lh_audit('gammal') == 'gammal', 'Lighthouse-auditen med titel och mätvärde i PROV.md'
 
 # ---------------------------------------------------------------- F23: ateljéns panel
 import atelje as a  # noqa: E402
@@ -3857,7 +3920,7 @@ rap_ = kf_.rapport(rader_kf, s_kf, ut_kf, 'm', 'e'); assert 'Falska godkännande
 # validering (Codex R30): anropsfel och ofullständiga svar är aldrig domar; ett svar återanvänds bara med identiskt manifest
 helt_ = {'kriterier': krit_ok, 'kognitiv_genomgang': [], 'blockerande': [], 'forbattringar': [], 'styrkor': [], 'likhet_tidigare': '', 'sett': [], 'ej_bedomt': [], 'sammanfattning': ''}
 schema_ = kf_.las_schema(ROOT / 'kritik' / 'SCHEMA-granskning.json')
-block_ok = {'kriterium': 'text', 'allvarlighet': 3, 'var': 'x', 'observation': 'x', 'konsekvens': 'x', 'standardpunkt': 'x', 'heuristik': 'x', 'omfattning': 'detalj', 'rattning': 'x', 'acceptanskriterium': 'x'}
+block_ok = {'kriterium': 'text', 'allvarlighet': 3, 'var': 'x', 'observation': 'x', 'konsekvens': 'x', 'standardpunkt': 'x', 'heuristik': 'x', 'omfattning': 'detalj', 'rattning': 'x', 'acceptanskriterium': 'x', 'bild': 'x', 'referensbild': ''}
 assert kf_.validera({'subtype': 'success', 'structured_output': helt_}, schema_)[1] is None
 assert kf_.validera({'subtype': 'success', 'structured_output': dict(helt_, blockerande=[block_ok], kognitiv_genomgang=[{'uppgift': 'u', 'steg': 's', 'alla_ja': True, 'brist': ''}])}, schema_)[1] is None
 # hela schemat (Codex R31): null i obligatoriska fält, tomma eller felaktiga blockerande poster, okända fält, enum och gränser

@@ -27,6 +27,8 @@ Ingen design, inga typsnitt. Allt synligt skrivs för verksamheten. Byggstandard
    RoofingContractor …) som JSON-LD på startsidan, med uppgifter ur `VERKSAMHET.json`.
 8. Skript och inline-händelser: CSP:n i `astro.config.mjs` släpper bara skript som Astro har hashat. Skriv skript
    som `<script>` i komponenten, aldrig `onclick=""`. Stilattribut (`style=""`) går bra.
+   En länk på egen rad i källan klistras ihop med texten runt ("på<a", "</a>eller"): skriv `{' '}` före och
+   efter länken, eller håll den på samma rad som texten; byggstandarden 9.4 prövar det.
 9. Designen: skriv `DESIGN.md` i sajtens rot (kontraktet i `kunskap/bygge-referens.md`) och kör
    `.venv/bin/python kontroller/design.py <slug> --skriv`, som gör `src/styles/design.css` med CSS-variablerna
    (`Bas.astro` importerar den). Sidornas CSS använder variablerna (`var(--farg-…)`, `var(--typ-…)`); provets grind

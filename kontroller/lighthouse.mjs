@@ -60,12 +60,18 @@ const profil = mkdtempSync(join(tmpdir(), 'nwp-lh-'));
 const grans = await natgrans([base]);  // i tjänstens läge: nätgränsen (domänpolicyn) också för sidans underresurser
 const chrome = await chromeLauncher.launch({ chromePath, userDataDir: profil, chromeFlags: ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-extensions', ...(grans ? grans.chromeFlags : [])] });
 const rader = [];
+// de första träffarna i en audits detaljer, som text; detaljernas form skiljer sig mellan audits (lista, tabell, inget)
+const traffar = (x) => (Array.isArray(x?.details?.items) ? x.details.items : []).slice(0, 3)
+  .map((i) => (i && typeof i === 'object' ? String(i.node?.snippet || i.url || i.source?.url || i.label || i.node?.nodeLabel || '') : String(i ?? '')).slice(0, 160))
+  .filter(Boolean);
 try {
   const mat = async (form, sida) => {
     const runner = await lighthouse(base + sida, { port: chrome.port, output: 'json', logLevel: 'error' }, form === 'desktop' ? desktopConfig : undefined);
     const lhr = runner.lhr;
     const p = (id) => Math.round((lhr.categories[id]?.score ?? 0) * 100);
-    const underkanda = Object.values(lhr.audits).filter((x) => x.score !== null && x.score < 0.9 && x.scoreDisplayMode !== 'informative' && x.scoreDisplayMode !== 'notApplicable' && x.scoreDisplayMode !== 'manual').map((x) => x.id);
+    const underkanda = Object.values(lhr.audits).filter((x) => x.score !== null && x.score < 0.9 && x.scoreDisplayMode !== 'informative' && x.scoreDisplayMode !== 'notApplicable' && x.scoreDisplayMode !== 'manual')
+      // titel, mätvärde och de första träffarna, så att byggaren slipper läsa rapportens JSON själv (backlogposten om Lighthouse-grinden)
+      .map((x) => ({ id: x.id, titel: x.title || '', varde: x.displayValue || '', traffar: traffar(x) }));
     const rad = {
       sida, form,
       prestanda: p('performance'), tillganglighet: p('accessibility'), bastaPraxis: p('best-practices'), seo: p('seo'),
@@ -90,14 +96,14 @@ try {
       writeFileSync(join(ut, `${slug(sida)}-${form}.json`), mitt.rapport);
       const lagst = (k) => Math.min(...matningar.map((m) => m.rad[k]));
       const rad = { ...mitt.rad, prestanda: p, tillganglighet: lagst('tillganglighet'), bastaPraxis: lagst('bastaPraxis'), seo: lagst('seo'),
-        underkanda: [...new Set(matningar.flatMap((m) => m.rad.underkanda))],
+        underkanda: [...new Map(matningar.flatMap((m) => m.rad.underkanda).map((u) => [u.id, u])).values()],  // unionen, en gång per audit
         representativ: rep, matt: matningar.length > 1 ? 'median' : 'en mätning',
         spridning: [Math.min(...matningar.map((m) => m.rad.prestanda)), Math.max(...matningar.map((m) => m.rad.prestanda))],
         forsok: matningar.map((m) => ({ prestanda: m.rad.prestanda, tillganglighet: m.rad.tillganglighet, bastaPraxis: m.rad.bastaPraxis, seo: m.rad.seo, lcpMs: m.rad.lcpMs, belastning: m.rad.belastning })) };
       rad.ok = rad.prestanda >= KRAV.prestanda && rad.tillganglighet >= KRAV.tillganglighet && rad.bastaPraxis >= KRAV.bastaPraxis && rad.seo >= KRAV.seo;
       rader.push(rad);
       console.log(form, sida, 'P', rad.prestanda, 'A', rad.tillganglighet, 'BP', rad.bastaPraxis, 'SEO', rad.seo,
-        matningar.length > 1 ? `(median av ${matningar.length}, spridning ${rad.spridning.join('–')}, belastning ${rad.belastning})` : '', rad.ok ? 'ok' : 'UNDER KRAV: ' + rad.underkanda.join(','));
+        matningar.length > 1 ? `(median av ${matningar.length}, spridning ${rad.spridning.join('–')}, belastning ${rad.belastning})` : '', rad.ok ? 'ok' : 'UNDER KRAV: ' + rad.underkanda.map((u) => u.id).join(','));
     }
   }
 } finally {

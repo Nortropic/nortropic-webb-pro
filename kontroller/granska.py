@@ -54,6 +54,9 @@ ORIGINALITETSLAGEN = ('skugga', 'avgor', 'av')  # egen domare för originalitet:
 KRITERIER = ('designkvalitet', 'originalitet', 'hantverk', 'funktion', 'text')
 TROSKEL = {k: 7 for k in KRITERIER}
 MAX_RUNDOR = int(os.environ.get('NWP_GRANSKNING_MAX', '5'))
+# det hårda taket räknar alla omgångar i körningen, också de som avbröts för att bygget ändrades (de räknas inte mot
+# MAX_RUNDOR; backlogposten om granskningstaket, Codex R38)
+MAX_HART = int(os.environ.get('NWP_GRANSKNING_HART') or 2 * MAX_RUNDOR)
 ANTAL = max(1, int(os.environ.get('NWP_GRANSKARE_ANTAL', '2')))  # isolerade granskare per omgång
 FRIST = int(os.environ.get('NWP_GRANSKNING_FRIST', '1500'))
 ARBETSROT = Path('/tmp/nwp-granskning')
@@ -298,7 +301,8 @@ def skarmbilder(rot, sajtrot):
     provet har gjort dem; annars första vyn och den nedskalade helsidan."""
     ut = []
     for sida in sorted(p for p in (rot / 'prov' / 'inspektion').glob('*') if p.is_dir()):
-        rutor = sorted(sida.glob('vy-390-ruta-*.png')) + sorted(sida.glob('vy-1440-ruta-*.png'))
+        # 768 är mellanbredden, där rubriker spiller och datorlayouten staplas (backlogposten om provets 768-rutor)
+        rutor = sorted(sida.glob('vy-390-ruta-*.png')) + sorted(sida.glob('vy-768-ruta-*.png')) + sorted(sida.glob('vy-1440-ruta-*.png'))
         for f in rutor or [sida / vy for vy in VYER]:
             if f.is_file() or f.is_symlink():
                 vy = f.name
@@ -519,7 +523,8 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
            'Första vyn 390 och 1440 och helsidan i 1440 per sajt (läs varje, med ägarens ord bredvid):', *[rad(p) + ' — ' + t for p, t in ankare[1]], '']
           if ankare else []),
         'Verksamhetens underlag:', *[rad(p) for p in underlag], '',
-        'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390 och 1440 (läs varje):',
+        'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390, 768 och 1440 (läs varje; 768 är',
+        'mellanbredden, där rubriker spiller och datorlayouten staplas):',
         *[rad(p) for p in bilder], '',
         'Tillgänglighetsträdet i 390 px per sida:', *([rad(p) for p in aria] or ['- saknas']), '',
         'Den beslutade designen (DESIGN.md, designkontraktet): %s. Jämför sajten med den: en avvikelse som inte står under' % (
@@ -677,7 +682,8 @@ def arbetare(rdir):
                 'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res,
                 'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}, 'sessioner': sessioner}
         def skriv_dom():  # inne i låset: tmp + replace, och tillståndet blir klar först efteråt; en läsare ser pagar till dess
-            for namn, text in (('GRANSKNING.json', json.dumps(post, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', markdown(post))):
+            for namn, text in (('GRANSKNING.json', json.dumps(post, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', markdown(post)),
+                               ('ANDRINGAR.md', andringar(post))):
                 tmp = rdir / ('.%s.tmp%d' % (namn, os.getpid()))
                 tmp.write_text(text, encoding='utf-8')
                 os.replace(tmp, rdir / namn)
@@ -747,6 +753,41 @@ def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=N
         return {**res, 'lage': upp.get('originalitet', 'skugga'), 'turer': svar.get('num_turns')}
     except (OSError, subprocess.TimeoutExpired) as e:
         return {'fel': '%s: %s' % (type(e).__name__, e)}
+
+
+def bildvag(v):
+    """En bildväg ur granskarens svar som finns: relativ roten eller absolut; annars None."""
+    v = str(v or '').strip()
+    if not v:
+        return None
+    for p in (ROOT / v.lstrip('./'), Path(v)):
+        try:
+            if p.is_file() and not p.is_symlink():
+                return rel(p)
+        except OSError:
+            continue
+    return None
+
+
+def andringar(g):
+    """ANDRINGAR.md: varje blockerande fynd som ändringsuppdrag med rutan där bristen syns och referensbilden bredvid
+    (backlogposten B-20261003-andringsuppdrag-med-bild-varje-blockerande-fynd): byggaren läser bilderna, inte bara
+    texten. En väg som inte finns skrivs som saknad, aldrig tyst."""
+    rad = ['# Ändringsuppdrag · %s · omgång %s' % (g.get('slug', '?'), g.get('runda', '?')), '',
+           'Varje blockerande fynd med skärmbilden där bristen syns och referensbilden som visar hur den kan lösas. Läs båda',
+           'bilderna med Read innan du ändrar, rätta, kör provet och be om en ny granskning; acceptanskriteriet säger när det är',
+           'rättat.', '']
+    for i, f in enumerate(g.get('blockerande') or [], 1):
+        bild, ref = bildvag(f.get('bild')), bildvag(f.get('referensbild'))
+        rad += ['## %d. %s · %s' % (i, f.get('kriterium', '?'), f.get('var', '?')), '',
+                '- observation: %s' % f.get('observation', '–'),
+                '- rättning: %s' % f.get('rattning', '–'),
+                '- acceptanskriterium: %s' % f.get('acceptanskriterium', '–'),
+                '- bild: %s' % (bild or ('saknas (%s)' % f['bild'] if f.get('bild') else 'ingen angiven')),
+                '- referensbild: %s' % (ref or ('saknas (%s)' % f['referensbild'] if f.get('referensbild') else 'ingen som passar')), '']
+    if not g.get('blockerande'):
+        rad.append('Inga blockerande fynd.')
+    return '\n'.join(rad) + '\n'
 
 
 def markdown(g):
@@ -924,6 +965,19 @@ def satt_utfall(rdir, status, skal='', publicera=None):
             fcntl.flock(las, fcntl.LOCK_UN)
 
 
+def taket(gdir, korning):
+    """(räknade, alla) omgångar i körningen: en omgång som avbröts (bygget ändrades under granskningen) räknas inte mot
+    MAX_RUNDOR, men alla räknas mot det hårda taket MAX_HART."""
+    egna = [r for r in rundor(gdir) if (las_json(r / 'UPPDRAG.json') or {}).get('korning') == korning]
+
+    def avbruten(r):
+        try:
+            return (las_utfall(r) or {}).get('status') == 'avbruten'
+        except Overifierad:
+            return False
+    return sum(1 for r in egna if not avbruten(r)), len(egna)
+
+
 def utfall(rdir):
     """Omgångens utfall: domen bara när tillståndet är klar (pagar ger None, också om en dom råkar ligga där); avbrott och fel
     gäller före en sen dom (Codex R38/R39, F47). Äldre omgångar utan UTFALL.json: FEL.txt före dom."""
@@ -1013,7 +1067,11 @@ def publicera(gdir, korning=None):
                     md = markdown(g)
                 except (KeyError, TypeError):  # ofullständig dom (manuellt underlag): en kort sammanfattning i stället för ingen
                     md = '# Granskning · %s · omgång %s\n' % ('GODKÄND' if g.get('godkand') else 'UNDERKÄND', r.name)
-            for namn, text in (('GRANSKNING.json', json.dumps(g, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', md)):
+            try:  # ändringsuppdragen med bilder följer den valda omgången
+                andr = (r / 'ANDRINGAR.md').read_text(encoding='utf-8') if (r / 'ANDRINGAR.md').is_file() else andringar(g)
+            except (KeyError, TypeError, OSError):
+                andr = '# Ändringsuppdrag · omgång %s\n\nKunde inte skrivas ur domen.\n' % r.name
+            for namn, text in (('GRANSKNING.json', json.dumps(g, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', md), ('ANDRINGAR.md', andr)):
                 tmp = gdir / ('.%s.tmp%d' % (namn, os.getpid()))
                 tmp.write_text(text, encoding='utf-8')
                 os.replace(tmp, gdir / namn)
@@ -1156,10 +1214,10 @@ def main(argv=None):
                 print('(Samma bygge är redan granskat med samma metod i %s; ingen ny session.)' % r.name)
                 return svara(gdir, r, g)
 
-    egna = [r for r in rundor(gdir) if (las_json(r / 'UPPDRAG.json') or {}).get('korning') == korning]
-    if len(egna) >= MAX_RUNDOR:
-        print('Taket nått: %d granskningar i den här körningen (NWP_GRANSKNING_MAX=%d). Senaste dom: %s' % (
-            len(egna), MAX_RUNDOR, rel(gdir / 'GRANSKNING.md') if (gdir / 'GRANSKNING.md').is_file() else 'ingen'))
+    raknade, alla = taket(gdir, korning)
+    if raknade >= MAX_RUNDOR or alla >= MAX_HART:
+        print('Taket nått: %d granskningar i den här körningen (%d avbrutna räknas inte; NWP_GRANSKNING_MAX=%d, hårt tak %d). Senaste dom: %s' % (
+            raknade, alla - raknade, MAX_RUNDOR, MAX_HART, rel(gdir / 'GRANSKNING.md') if (gdir / 'GRANSKNING.md').is_file() else 'ingen'))
         return 3
     n = max([int(r.name.split('-')[1]) for r in rundor(gdir)] or [0]) + 1
     rdir = gdir / ('runda-%02d' % n)

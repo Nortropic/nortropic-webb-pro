@@ -216,6 +216,14 @@ pekar raderna på samma version.
 En kandidat räknas som fångad bara när båda vyerna, bildfilerna och de beställda tillstånden finns och inga egna
 resurser förblev blockerade (PAKET.json: ok per sida); brister står under begränsningar. Ingen kvot: sluta när underlaget räcker för välgrundade val.
 
+**Referenstjänsterna** (Refero och Mobbin, ägarbeslut 2026-10-04) söks genom det verifierade tjänstesteget, aldrig med
+egna nätanrop: skriv `underlag/<slug>/TJANSTEUPPDRAG.json` (`{"fragor": [{"tjanst": "refero" eller "mobbin", "fraga": "…",
+"syfte": "…", "typ": "stil", "skarm" eller "flode"}]}`; stil bara hos Refero) och kör `.venv/bin/python
+kontroller/referenstjanster.py <slug>`. Steget räknar anropen ur sessionens logg och laddar ned bilderna till
+`underlag/<slug>/referenser/tjanster/`; läs `TJANSTER.md` där och bilderna, och fånga en vald referens med referens.py som
+de andra. Tjänsterna ger hantverks- och UX-rollen, inte branschen. Skapandeflödet beställer samma steg på begäran
+(`kunskap/skapandeflodet.md`).
+
 **När Mobbin eller Refero är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG` = `kontroller/mcp/mobbin.json` eller
 `refero.json`): Mobbins `search_screens`, `search_flows` och `search_sections` söker skärmar, flöden och sektioner ur
 riktiga produkter (flöden för bokning och kontakt, sektioner för tjänster och omdömen); Referos verktyg ger stilar,
@@ -382,8 +390,9 @@ KONCEPT.md.
    kontroller/ta_bort.py <slug> kunder/<slug>/sajt/src/pages/tvaan` före nästa snabbprov. Ett typsnitt som bara tvåan
    använder avinstalleras med `npm --prefix kunder/<slug>/sajt uninstall <paket>`. Snabbprovets fynd på tvåan räknas
    inte; standarden fäller bygget om `/tvaan/` finns kvar.
-5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-ruta-NN.png` och `vy-1440-ruta-NN.png` med
-   Read: varje sida uppifrån och ned i skärmhöga rutor. `-hela.png` skalas ned så mycket att detaljer försvinner;
+5. **Titta.** Läs skärmbilderna `kunder/<slug>/prov/inspektion/*/vy-390-ruta-NN.png`, `vy-768-ruta-NN.png` och
+   `vy-1440-ruta-NN.png` med Read: varje sida uppifrån och ned i skärmhöga rutor; 768 är mellanbredden, där rubriker
+   spiller och datorlayouten staplas. `-hela.png` skalas ned så mycket att detaljer försvinner;
    använd den bara för att se rytmen. Ställ dem bredvid referensernas skärmbilder och gå igenom de åtta dimensionerna
    i `kunskap/referenser-professionella.md`. Skriv `underlag/<slug>/JAMFORELSE.md` i dess form: kandidatens drag ·
    referensens lösning · vad som skiljer · vad som ändras eller behålls, och varför. Rätta det som ser generiskt ut:
@@ -398,11 +407,14 @@ KONCEPT.md.
 6. **Oberoende granskning.** Kör `.venv/bin/python kontroller/granska.py <slug>` direkt efter ett snabbprov, med
    Bash-tidsgränsen 600000. Två egna Claude-sessioner som inte sett ditt resonemang dömer sajten var för sig; ett
    blockerande fynd från någon av dem gäller, och det tar 4–15 minuter. Pekar båda ut samma brist, rätta den en gång.
-   Svarar kommandot att granskningen pågår: kör samma kommando igen. Läs `kunder/<slug>/granskning/GRANSKNING.md`.
-   Rätta varje blockerande fynd; acceptanskriteriet säger när det är rättat. Förbättringarna är valfria: en granskare
+   Svarar kommandot att granskningen pågår: kör samma kommando igen. Läs `kunder/<slug>/granskning/GRANSKNING.md` och
+   ändringsuppdragen i `ANDRINGAR.md` bredvid: varje blockerande fynd med rutan där bristen syns och referensbilden;
+   läs bilderna med Read. Rätta varje blockerande fynd; acceptanskriteriet säger när det är rättat. Förbättringarna är valfria: en granskare
    som ombeds hitta brister hittar alltid några, och att jaga varje fynd leder till överarbete. Kör snabbprovet och
    granskningen igen efter rättningarna, tills granskarna godkänner. Är en invändning fel: skriv varför under
-   Granskningen i rapporten. Granskningarna per körning har ett tak; använd dem efter verkliga ändringar.
+   Granskningen i rapporten. Granskningarna per körning har ett tak; använd dem efter verkliga ändringar. Gör de sista rättningarna innan du
+   beställer en granskning: en omgång gäller det bygge den såg, och ändras bygget efter en beställd eller godkänd omgång
+   behövs en ny (en omgång som avbröts för att bygget ändrades räknas inte mot taket, men det hårda taket räknar alla).
    **Förfina eller byt riktning.** Efter varje granskning skriver du en rad i `underlag/<slug>/GRANSKNINGSLOGG.md`:
    omgång, betygen, och om du förfinar riktningen eller byter, och varför. Fynd med omfattning `riktning` betyder byt:
    på ateljévägen med en ny ateljéomgång (`.venv/bin/python kontroller/atelje.py <slug> --om`; förkastar den alla

@@ -264,7 +264,7 @@ def las_logg(logg):
                 for c in (e.get('message') or {}).get('content', []):
                     if c.get('type') == 'tool_use':
                         inp = c.get('input') or {}
-                        mal = inp.get('file_path') or inp.get('command') or inp.get('url') or inp.get('pattern') or inp.get('subject') or inp.get('description') or ''
+                        mal = inp.get('file_path') or inp.get('command') or inp.get('url') or inp.get('pattern') or inp.get('skill') or inp.get('subject') or inp.get('description') or ''
                         handlingar.append({'verktyg': c.get('name'), 'mal': str(mal).replace(str(ROOT) + '/', '')[:160]})
                     elif c.get('type') == 'text' and c.get('text', '').strip():
                         text = c['text'].strip()  # hela texten; dashboarden kapar inte
@@ -549,8 +549,8 @@ def spara_ab(ident, data):
     if not ab_klar(p):
         raise ValueError('båda byggena måste vara avslutade innan du väljer; granskning och rättningar kan fortfarande pågå')
     val = data.get('val')
-    if val not in p['byggen'] + ['lika']:
-        raise ValueError('välj A, B eller lika')
+    if val not in p['byggen'] + ['lika', 'ingen']:  # ingen: ingen arm når ägarens ribba (Codex 2026-10-05, ordning 3)
+        raise ValueError('välj A, B, lika eller ingen når min ribba')
     for s in p['byggen']:  # valet gäller exakt de byggen som blev klara (revisionen 2026-10-03, F15)
         sparad = (p.get('korningar') or {}).get(s, {}).get('dist_sha256')
         d = KUNDER / s / 'sajt' / 'dist'
@@ -564,7 +564,7 @@ def spara_ab(ident, data):
     etikett = {s: 'AB'[i] for i, s in enumerate(p['byggen'])}
     rader = ['', '## AB · %s · %s: %s' % (p['valt'][:10], p['variabel'], ' mot '.join('%s=%s' % (etikett[s], p['varden'][s]) for s in p['byggen'])), '',
              '- **Byggen:** %s' % ', '.join(p['byggen']),  # granskaren filtrerar bort avsnittet för dessa byggen (granska.lardomar_utan)
-             '- **Ägarens val (blint):** %s' % ('lika' if val == 'lika' else '%s (%s=%s)' % (etikett[val], p['variabel'], p['varden'][val])),
+             '- **Ägarens val (blint):** %s' % ({'lika': 'lika', 'ingen': 'ingen når min ribba'}.get(val) or '%s (%s=%s)' % (etikett[val], p['variabel'], p['varden'][val])),
              *(['- **Ägarens ord:** ' + p['kommentar'].replace('\n', ' / ')] if p['kommentar'] else []),
              *['- %s (%s=%s): %s' % (etikett[s], p['variabel'], p['varden'][s], json.dumps((p.get('korningar') or {}).get(s, {}), ensure_ascii=False))
                for s in p['byggen']], '']

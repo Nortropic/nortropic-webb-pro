@@ -83,7 +83,9 @@
      "heuristik",
      "omfattning",
      "rattning",
-     "acceptanskriterium"
+     "acceptanskriterium",
+     "bild",
+     "referensbild"
     ],
     "additionalProperties": false,
     "properties": {
@@ -129,6 +131,12 @@
        "detalj",
        "riktning"
       ]
+     },
+     "bild": {
+      "type": "string"
+     },
+     "referensbild": {
+      "type": "string"
      }
     }
    }

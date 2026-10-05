@@ -6,7 +6,7 @@
 mätts står som EJ_MATT. Mätvärden kommer ur Runtimes mätkvitto (--matning), handlingsprov ur provarkörningar
 (--handlingar), säkerhetsrubriker ur en sparad svarshuvudfil eller ett live-HEAD-anrop (--adress).
 
-    python3 -B verktyg/prelaunch.py --bygge DIR --lage forhandsvisning|lansering [--repo DIR] [--verksamhet V.json]
+    .venv/bin/python -B kontroller/prelaunch.py --bygge DIR --lage forhandsvisning|lansering [--repo DIR] [--verksamhet V.json]
         [--matning KORNING.json] [--inspektion INSPEKTION.json] [--handlingar HANDLINGAR.json] [--juridik JURIDIK.json] [--huvuden FIL] [--adress https://…]
         [--audit npm-audit.json] [--krav KRAV.json] --ut PRELAUNCH.json [--md PRELAUNCH.md]
 """
@@ -108,7 +108,8 @@ def g1_handlingar(handlingar, bygge=None):
 
 
 def las_matning(matning):
-    """Läser mätkvittot. Ett KORNING-kvitto från verktyg/kor_profil.py pekar på Runtimes körkatalog (resultat.run); då läses
+    """Läser mätkvittot. Ett KORNING-kvitto i Runtimes format (ärvt från Digitala; inget verktyg här skriver det) pekar på
+    Runtimes körkatalog (resultat.run); då läses
     körningens SAMMANFATTNING.json (Lighthouse, axe, h1, handling, detektor per vy) och KVITTO.json (vyer) in under
     kvittot, så att grindarna får sina mätvärden ur körningen — inte ur startposten (fynd ur slutprovet HELHET-20260927)."""
     if not matning or not Path(matning).is_file():
@@ -177,7 +178,7 @@ def g2_prestanda(m, krav, lage='lansering'):
     noindex och robots stänger, så Lighthouse-SEO är per definition låg: den redovisas men avgör inte (SEO-beredskapen
     prövas av grind 5 mot avsett läge)."""
     if not m:
-        return grind('2 prestanda', 'EJ_MATT', 'inget mätkvitto (--matning ur verktyg/kor_profil.py matning)')
+        return grind('2 prestanda', 'EJ_MATT', 'inget mätkvitto i Runtimes format (--matning); i vårt flöde avgör provets grind lighthouse (kunder/<slug>/prov/PROV.md)')
     if isinstance(m, dict) and m.get('ofullstandig'):
         return grind('2 prestanda', 'EJ_MATT', 'mätningen är inte klar (outcome %s): inga poäng räknas' % m['ofullstandig'])
     lh = hitta(m, 'lighthouse', 'lighthouse_scores', 'poang')
@@ -227,7 +228,7 @@ def g2_prestanda(m, krav, lage='lansering'):
 def g3_responsivitet(m, inspektion=None):
     """Vyerna ur mätkvittot; spill ur webbläsarverktygets INSPEKTION.json (--inspektion) eller ur ett kvitto som bär det."""
     if not m and not inspektion:
-        return grind('3 responsivitet', 'EJ_MATT', 'inget mätkvitto och ingen inspektion')
+        return grind('3 responsivitet', 'EJ_MATT', 'inget mätkvitto i Runtimes format och ingen inspektion; i vårt flöde avgör provets grind spill (kunder/<slug>/prov/PROV.md)')
     if isinstance(m, dict) and m.get('ofullstandig') and not inspektion:
         return grind('3 responsivitet', 'EJ_MATT', 'mätningen är inte klar (outcome %s) och ingen inspektion' % m['ofullstandig'])
     vyer = hitta(m, 'vyer', 'viewports') if m else None
@@ -246,7 +247,7 @@ def g3_responsivitet(m, inspektion=None):
 
 def g4_tillganglighet(m):
     if not m:
-        return grind('4 tillgänglighet', 'EJ_MATT', 'inget mätkvitto (axe)')
+        return grind('4 tillgänglighet', 'EJ_MATT', 'inget mätkvitto i Runtimes format; i vårt flöde avgör provets grind axe (kunder/<slug>/prov/PROV.md)')
     if isinstance(m, dict) and m.get('ofullstandig'):
         return grind('4 tillgänglighet', 'EJ_MATT', 'mätningen är inte klar (outcome %s): axe räknas inte' % m['ofullstandig'])
     views = (m.get('sammanfattning') or {}).get('views') if isinstance(m, dict) else None

@@ -163,6 +163,40 @@ def srcset_adresser(v):
     return [d.strip().split(' ')[0] for d in (v or '').split(',') if d.strip()]
 
 
+def platsbredd(sizes, vy):
+    """Bildens platsbredd i px vid fönsterbredden vy ur sizes: villkor (min-width/max-width i px) i ordning, sedan
+    standardvärdet; px eller vw. Utan sizes: hela bredden."""
+    for del_ in [d.strip() for d in (sizes or '').split(',') if d.strip()] or ['100vw']:
+        m = re.match(r'^\((min|max)-width:\s*(\d+(?:\.\d+)?)px\)\s+(.+)$', del_)
+        if m:
+            grans, varde = float(m.group(2)), m.group(3)
+            if not ((m.group(1) == 'min' and vy >= grans) or (m.group(1) == 'max' and vy <= grans)):
+                continue
+            del_ = varde
+        if del_.startswith('('):
+            continue  # ett villkor vi inte tolkar: pröva nästa
+        v = re.match(r'^(\d+(?:\.\d+)?)(px|vw)$', del_.strip())
+        if v:
+            return float(v.group(1)) * (vy / 100 if v.group(2) == 'vw' else 1)
+    return float(vy)
+
+
+def vald_kandidat(src, srcset, sizes, vy, dpr):
+    """Bilden webbläsaren hämtar vid fönsterbredden vy och pixeltätheten dpr: den minsta srcset-kandidaten (w) som räcker
+    för platsbredden, annars den största; utan w-kandidater src (backlogposten om bildvikten i 4.2: Astros Image lägger
+    originalet i src, men webbläsaren väljer ur srcset)."""
+    kand = []
+    for d in (srcset or '').split(','):
+        delar = d.strip().split()
+        if len(delar) == 2 and delar[1].endswith('w') and delar[1][:-1].isdigit():
+            kand.append((int(delar[1][:-1]), delar[0]))
+    if not kand:
+        return src
+    behov = platsbredd(sizes, vy) * dpr
+    kand.sort()
+    return next((u for w, u in kand if w >= behov), kand[-1][1])
+
+
 def typer(ld):
     """Alla @type i ett JSON-LD-block, också i @graph, utan schema.org-prefix (https://schema.org/Bakery räknas som
     Bakery; omgång fem, F20)."""
@@ -279,9 +313,14 @@ def granska(dist):
         if raster:
             F('4.2', sida, '%d bilder i JPEG, PNG eller GIF; använd WebP eller AVIF (astro:assets), t.ex. %s' % (len(raster), raster[0][:60]))
         if sida == '/' and i_main:
-            lf = lokal(dist, i_main[0].get('src'))
-            if lf and lf.is_file() and lf.stat().st_size > 200 * KIB:
-                I('4.2', sida, 'första bilden i main är %d kB; största bilden i första vyn ska vara under 200 kB' % (lf.stat().st_size // KIB))
+            a0 = i_main[0]
+            for vy, dpr in ((390, 2), (1440, 1)):  # mobilen med tät skärm, datorn: den kandidat webbläsaren faktiskt hämtar
+                u = vald_kandidat(a0.get('src'), a0.get('srcset'), a0.get('sizes'), vy, dpr)
+                lf = lokal(dist, u)
+                if lf and lf.is_file() and lf.stat().st_size > 200 * KIB:
+                    I('4.2', sida, 'första bilden i main är %d kB i %d px (%s); största bilden i första vyn ska vara under 200 kB' % (
+                        lf.stat().st_size // KIB, vy, urlparse(u).path.rsplit('/', 1)[-1][:60]))
+                    break
         # 4.3 preload av typsnitt
         if sida == '/' and not any('preload' in r and l.get('as') == 'font' for r, l in rels):
             I('4.3', sida, 'inget typsnitt förladdas; preload det typsnitt som syns i första vyn')
@@ -483,6 +522,12 @@ def granska(dist):
     # 9.4 mening som löper ihop med nästa utan mellanslag ("förfrågan.Så", L1: ").Läs"), också över inline-element
     for f in sidor:
         raw = re.sub(r'<(script|style|head)\b.*?</\1>', ' ', f.read_text(encoding='utf-8', errors='replace'), flags=re.S | re.I)
+        # ord mot länk utan mellanslag: Astro klistrar ihop en länk på egen rad i källan med texten runt ("på<a", "</a>eller";
+        # backlogposten om 9.4 och länkar efter radbrytning)
+        ihop = re.sub(r'</?(span|strong|em|b|i|small|abbr|time|mark|cite|q|sup|sub|bdi|data)\b[^>]*>', '', raw, flags=re.I)
+        m2 = re.search(r'[A-Za-zÅÄÖåäöÉé0-9.,:;!?)\]](?=<a\b)|</a>(?=[A-Za-zÅÄÖåäöÉé0-9(])', ihop, flags=re.I)
+        if m2:
+            F('9.4', sida_av(dist, f), 'mellanslag saknas mellan text och länk: "%s"' % avkoda_html(re.sub(r'<[^>]+>', '', ihop[max(0, m2.start() - 30):m2.end() + 40])).replace('\n', ' ').strip())
         raw = re.sub(r'</?(a|span|strong|em|b|i|small|abbr|time|mark|cite|q|sup|sub|bdi|data)\b[^>]*>', '', raw, flags=re.I)
         text = avkoda_html(re.sub(r'<[^>]+>', '\n', raw))
         for m in re.finditer(r'[a-zåäöé)\]]\.[A-ZÅÄÖ][a-zåäö]', text):

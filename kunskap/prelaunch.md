@@ -3,7 +3,7 @@
 Ärvd från Digitala. Verktyg: `kontroller/prelaunch.py`, som provet (`kontroller/prova.py`) kör som information i
 varje bygge (`prov/prelaunch.md`). Grind 2–4 avgörs i vårt flöde av provets egna grindar (lighthouse, spill, axe;
 byggstandarden), inte av prelaunch: verktyget väntar sig ett mätkvitto i Runtimes format, som inte finns här, och
-skriver därför EJ_MATT för dem (felmeddelandet nämner ett verktyg från Runtime). Grind 0, 5 och 6 läses ur prelaunch,
+skriver därför EJ_MATT för dem med beskedet att provets grind avgör. Grind 0, 5 och 6 läses ur prelaunch,
 grind 7 vid lansering med `--adress` mot den riktiga domänen. Varje grind får PASS, FAIL, EJ_MATT eller MANNISKA;
 EJ_MATT är inte PASS; verktyget godkänner aldrig juridik. Gröna verktygsprov bevisar inte mänsklig användbarhet eller
 affärsresultat.
