@@ -567,6 +567,16 @@ bk_r = bk_.KUNDER / 'bk-bygge' / 'granskning' / 'runda-01'; bk_r.mkdir(parents=T
 rb_ = bk_.rapport('bk-bygge')['granskningen'][0]
 assert rb_['erbjudna'] == 2 and rb_['lasta_av_erbjudna'] == 1 and rb_['saknas_per_klass'] == {'referens': 1}, rb_
 assert 'Olästa per slag' in bk_.markdown(bk_.rapport('bk-bygge')) and bk_.transkript('inte-ett-id') is None
+# byggets granskare: läsningen bokförs i domen (ännu inget krav)
+import granska as gr_bk  # noqa: E402
+kg_ = gr_bk.granskarkrav((md_, ank_bilder), [(tmp / 'kunder/x/granskning/runda-01/referenser/01-a-vy-1440-ruta-02.png', 'fråga')],
+                         [gr_bk.ROOT / 'kunder/x/granskning/runda-01/sajt/hem/vy-390-ruta-01.png', gr_bk.ROOT / 'kunder/x/granskning/runda-01/sajt/om/vy-390-ruta-01.png'])
+assert sorted(kg_) == ['ankare', 'referenser', 'startsidan'] and kg_['startsidan'] == ['kunder/x/granskning/runda-01/sajt/hem/vy-390-ruta-01.png'] and len(kg_['ankare']) == 3, kg_
+post_ = {'slug': 'x', 'godkand': True, 'niva': 0, 'runda': 1, 'tid': 't', 'modell': 'm', 'effort': 'e', 'dist_sha256': '0' * 12, 'troskel': gr_bk.TROSKEL,
+         'kriterier': {}, 'sessioner': [{'granskare': 1, 'lasning': {'verifierad': True, 'grupper': {'ankare': {'kravda': 3, 'lasta': 1, 'saknas': []}}}},
+                                        {'granskare': 2, 'lasning': {'verifierad': False, 'skal': 'transkriptet saknas'}}]}
+md_g = gr_bk.markdown(post_)
+assert '## Granskarnas läsning' in md_g and 'granskare 1: ankare 1 av 3' in md_g and 'granskare 2: kunde inte verifieras (transkriptet saknas)' in md_g, md_g
 print('F23 ateljén ok')
 
 # ---------------------------------------------------------------- F23b: designprovet (ägarbeslut 2026-10-04 via Codex R40; Codex 2026-10-04 glapp 5)

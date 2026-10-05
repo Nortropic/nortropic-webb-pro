@@ -38,6 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import referensval  # noqa: E402
+import bildkedja  # noqa: E402  granskarnas läsning ur transkripten (designprovet 2026-10-05)
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402  dist_hash, sidor_i, Server
 
@@ -644,6 +645,11 @@ def arbetare(rdir):
                     continue
                 delar.append(res)
                 sessioner.append({'granskare': n, **{k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id', 'total_cost_usd')}})
+        # bildkedjan (Codex 2026-10-05): vad varje granskare läste av ankarna, referensernas bildval och startsidans första
+        # rutor, ur transkriptet. Bokförs i domen; ännu inget krav (ateljéns panel har kravet).
+        krav_g = granskarkrav(ankare, frysta, bilder)
+        for s_ in sessioner:
+            s_['lasning'] = bildkedja.lasning(s_.get('session_id'), krav_g)
         if len(delar) < antal:
             # alla konfigurerade granskare måste ha svarat giltigt: en ensam granskare får inte godkänna det två skulle
             # dömt (revisionen 2026-10-03, F8). Omgången slutar med fel; stoppvakten startar en ny.
@@ -692,6 +698,20 @@ def arbetare(rdir):
         shutil.rmtree(rdir / 'dist', ignore_errors=True)
         (rdir / 'PAGAR').unlink(missing_ok=True)
     return 0
+
+
+def granskarkrav(ankare, frysta, bilder):
+    """Det en granskare bör ha läst: ägarens ord och varje ankare (första vyn), referensernas utpekade bilder och
+    startsidans första ruta i 390 och 1440."""
+    krav = {}
+    if ankare:
+        krav['ankare'] = bildkedja.ankarkrav(ankare, vag)
+    if frysta:
+        krav['referenser'] = [vag(p) for p, _ in frysta]
+    hem = [vag(b) for b in bilder if b.parent.name == 'hem' and re.match(r'^vy-(390|1440)-(ruta-01|forsta)\.png$', b.name)]
+    if hem:
+        krav['startsidan'] = hem
+    return krav
 
 
 def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=NEKAS):
@@ -767,6 +787,12 @@ def markdown(g):
                                           (s.get('brist') or '').replace('|', '/')) for s in steg]
     for rubrik, nyckel in (('Förbättringar', 'forbattringar'), ('Styrkor', 'styrkor'), ('Ej bedömt', 'ej_bedomt')):
         rad += ['', '## ' + rubrik, ''] + (['- ' + x for x in g.get(nyckel) or []] or ['Inga.'])
+    lasningar = [(s_.get('granskare'), s_.get('lasning')) for s_ in g.get('sessioner') or [] if isinstance(s_.get('lasning'), dict)]
+    if lasningar:
+        rad += ['', '## Granskarnas läsning', '', 'Ur transkripten (kontroller/bildkedja.py): ankarna, referensernas bildval och startsidans första rutor.', '']
+        for n_, las in lasningar:
+            rad.append('- granskare %s: %s' % (n_, ', '.join('%s %d av %d' % (k, x['lasta'], x['kravda']) for k, x in las['grupper'].items())
+                                                if las.get('verifierad') else 'kunde inte verifieras (%s)' % las.get('skal', 'inget transkript')))
     rad += ['', '## Likhet med tidigare byggen', '', g.get('likhet_tidigare') or '-', '', '## Sammanfattning', '', g.get('sammanfattning') or '-', '']
     return '\n'.join(rad)
 

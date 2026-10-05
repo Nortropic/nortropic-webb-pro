@@ -549,12 +549,7 @@ def lasekrav(slug, ankare, bilder, riktningar):
     ruta i 390 och 1440. Ett krav som är en lista uppfylls av vilken av vägarna som helst."""
     krav = {}
     if ankare:
-        per_ankare = {}
-        for p, _ in ankare[1]:
-            m = re.match(r'^(.+)-vy-(390|1440)-forsta\.png$', Path(p).name)
-            if m:
-                per_ankare.setdefault(m.group(1), []).append(rel(p))
-        krav['ankare'] = [rel(ankare[0])] + [per_ankare[k] for k in sorted(per_ankare)]
+        krav['ankare'] = bildkedja.ankarkrav(ankare, rel)
     hr = referensval.huvudreferens(slug, UNDERLAG)
     if hr and hr.get('bilder'):
         krav['huvudreferens'] = [rel(p) for p, _ in hr['bilder']]

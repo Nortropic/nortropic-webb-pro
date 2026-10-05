@@ -101,6 +101,17 @@ def lasning(session_id, krav):
     return {'verifierad': True, 'grupper': grupper, 'bilder_lasta': sum(1 for x in l if BILD.search(x)), 'transkript': t.name}
 
 
+def ankarkrav(ankare, vag):
+    """Ägarens kalibreringsankare som läsekrav: ägarens ord, och varje ankare sett minst en gång (första vyn i 390 eller
+    1440). ankare = (ordfil, [(bild, text)]) som granska.frysta_ankare ger; vag gör en väg relativ roten."""
+    per_ankare = {}
+    for p, _ in ankare[1]:
+        m = re.match(r'^(.+)-vy-(390|1440)-forsta\.png$', Path(p).name)
+        if m:
+            per_ankare.setdefault(m.group(1), []).append(vag(p))
+    return [vag(ankare[0])] + [per_ankare[k] for k in sorted(per_ankare)]
+
+
 def brister(las):
     """Kraven som inte uppfylldes, som korta meningar; tom lista när allt lästes eller läsningen inte kunde verifieras."""
     if not las.get('verifierad'):
