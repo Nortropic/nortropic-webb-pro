@@ -859,6 +859,8 @@ def kandidatvy(slug, st):
     for k in kand:
         if k.get('riktning'):
             k['riktning_html'] = md(k.pop('riktning'))
+        if k.get('referensjamforelse'):
+            k['referensjamforelse']['avsnitt_html'] = md(k['referensjamforelse'].pop('avsnitt') or '')
     vinnare = las_json(rot / 'VINNARE.json') or {}
     md_ = lambda n: md(las_text(rot / n) or '') if (rot / n).is_file() else ''  # noqa: E731
     jamf = las_json(rot / 'JAMFORELSE.json') if domd else None

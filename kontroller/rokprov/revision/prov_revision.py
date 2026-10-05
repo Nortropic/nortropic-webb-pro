@@ -3556,6 +3556,12 @@ try:
     # --- hela utforskningen ---
     st_kd = {'startad': '2026-10-05T10:00:00Z', 'lage': 'ny', 'modell': 'm', 'effort': 'max'}
     klara_kd = kd.kor(sl_kd, st_kd, lambda: None, n=3)
+    # den enda prototypen före uppskalningen (ägarens uppdrag 2026-10-05 18:53Z, punkt 7): planeraren får ett uppdrag
+    pp1_kd = kd.plan_prompt(sl_kd, 1)
+    assert 'EN genomarbetad' in pp1_kd and 'verkligt olika sätt' not in pp1_kd and 'valdes framför de andra' in pp1_kd, pp1_kd[:400]
+    assert 'verkligt olika sätt' in kd.plan_prompt(sl_kd, 3) and [kd.minsta_plan(n_) for n_ in (1, 2, 3, 10)] == [1, 2, 2, 5]
+    skapare_kd = [s_['prompt'] for s_ in sess_kd if s_['schema'] is None and 'Förbättringsrundan' not in s_['prompt']]
+    assert skapare_kd and all('rubriken "%s"' % kd.OVERFORT in p_ for p_ in skapare_kd), 'skaparen redovisar det överförda och avvikelserna'
     plan_kd = json.loads((kd.rot(sl_kd) / 'KANDIDATPLAN.json').read_text())  # planens tid före provets domar (fröet för etiketterna)
     (kd.rot(sl_kd) / 'KANDIDATPLAN.json').write_text(json.dumps(dict(plan_kd, tid='2026-10-05T10:30:00Z')))
     assert set(st_kd['metod']) == {'forska', 'plan', 'skapa', 'skiss', 'granska', 'forfina'} and (kd.metodkatalog(sl_kd) / 'METOD-skapa-varv.md').is_file(), st_kd.get('metod')
@@ -4162,6 +4168,8 @@ try:
     assert kd.KRITIK_A_SCHEMA not in schemor_ and kd.KRITIK_B_SCHEMA not in schemor_ and kd.JAMFOR_SCHEMA not in schemor_, 'ingen panel före ägarens val'
     assert not any('Förbättringsrundan' in s_['prompt'] for s_ in sess_sk), 'ingen förbättringsrunda före ägarens val'
     assert max_sk[0] <= 3, 'högst tre skisser samtidigt (%d)' % max_sk[0]
+    skisser_ = [s_['prompt'] for s_ in sess_sk if s_['schema'] is None and 'EN skiss' in s_['prompt']]
+    assert skisser_ and all('rubriken "%s"' % kd.OVERFORT in p_ for p_ in skisser_), 'skissens skapare redovisar det överförda och avvikelserna'
     plan_p_ = next(s_['prompt'] for s_ in sess_sk if s_['schema'] is kd.PLAN_SCHEMA)
     assert 'skisser (första vyn' in plan_p_ and 'sektion' in plan_p_ and 'LARDOMAR-original' not in plan_p_ and 'AKTUELL' in plan_p_ and 'GAMMAL SMAKDOM' not in plan_p_
     forska_p_ = next(s_['prompt'] for s_ in sess_sk if s_['schema'] is kd.FORSKA_SCHEMA_SKISS)
@@ -6279,6 +6287,64 @@ gammal_styrning()
 
 
 uppdragsmaterialet()
+
+
+def referensjamforelsen():
+    """Huvudreferensen bredvid förslaget (ägarens uppdrag 2026-10-05 18:53Z, punkt 7): referensens fångade startsida hittas
+    genom Bildval-raderna (startsidan 01-… före den utpekade undersidan), annars genom uppdragets bilder i referensens
+    katalog; skaparens avsnitt Överfört och avvikelser följer med; en körning med en enda prototyp visar jämförelsen
+    direkt, och bland flera förslag först efter ägarens första beslut; skaparna ombeds skriva avsnittet."""
+    import kandidater as kd_
+    import atelje as at_
+    import skapande as sk_
+    spara_ = (at_.UNDERLAG, at_.KUNDER)
+    at_.UNDERLAG, at_.KUNDER = tmp / 'rj-u', tmp / 'rj-k'
+    try:
+        slug_ = 'rj-kund'
+        u_ = at_.UNDERLAG / slug_
+        ref_ = u_ / 'referenser' / 'paket-v05'
+        for kat_ in ('tekt/01-start', 'tekt/02-process', 'cox/01-start'):
+            (ref_ / kat_).mkdir(parents=True)
+            for v_ in ('vy-390-forsta', 'vy-1440-forsta', 'vy-390-hela', 'vy-1440-hela', 'vy-1440-ruta-04'):
+                (ref_ / kat_ / (v_ + '.png')).write_bytes(b'png')
+        (ref_ / 'cox' / '01-start' / 'vy-390-hela.png').unlink()
+        (u_ / 'REFERENSER.md').write_text('# Referenser\n\n## Tekt — bransch\n\nBildval: referenser/paket-v05/tekt/02-process/vy-1440-ruta-04.png — '
+                                          'skedena — Fråga: läses skedena?\n\n## Cox — hantverk\n\nIngen bildvalsrad.\n')
+        kd_.satt_status(slug_, 'k01', 'klar', 'prov', huvudreferens='Tekt — bygget i skeden')
+        (kd_.kdir(slug_, 'k01') / 'RIKTNING.md').write_text(
+            'Huvudreferens: Tekt — bygget i skeden\n\n## Referenslås\n\nBevaras: ramarna.\n\n## Överfört och avvikelser\n\n### Överfört\n\n'
+            '- etiketten till vänster\n\n### Medvetna avvikelser\n\n- mörkare text: kontrasten\n\n## Varv 1\n\nrubriken\n')
+        j_ = kd_.referensjamforelse(slug_, 'k01')
+        start_ = ref_ / 'tekt' / '01-start'
+        assert j_['referens']['sida'] == kd_.rel(start_) and j_['referens']['390-forsta'] == kd_.rel(start_ / 'vy-390-forsta.png'), j_['referens']
+        assert j_['referens']['1440-hela'] == kd_.rel(start_ / 'vy-1440-hela.png') and j_['redovisat'], j_
+        assert '### Medvetna avvikelser' in j_['avsnitt'] and 'Varv 1' not in j_['avsnitt'] and 'Referenslås' not in j_['avsnitt'], j_['avsnitt']
+        # utan bildvalsrader: uppdragets bilder i referensens katalog; en saknad vy är None, aldrig en annan bild
+        kd_.satt_status(slug_, 'k02', 'klar', 'prov', huvudreferens='Cox')
+        (kd_.kdir(slug_, 'k02') / 'UPPDRAG.md').write_text('# Uppdrag\n\n## Referensbilder\n\n- underlag/rj-kund/referenser/paket-v05/cox/01-start/vy-1440-ruta-04.png\n'
+                                                          '- underlag/rj-kund/referenser/paket-v05/tekt/02-process/vy-1440-ruta-04.png\n')
+        (kd_.kdir(slug_, 'k02') / 'RIKTNING.md').write_text('## Referenslås\n\nBevaras: väggen.\n')
+        j2_ = kd_.referensjamforelse(slug_, 'k02')
+        assert j2_['referens']['sida'] == kd_.rel(ref_ / 'cox' / '01-start') and j2_['referens']['390-hela'] is None, j2_['referens']
+        assert j2_['avsnitt'].startswith('## Referenslås') and not j2_['redovisat'], j2_
+        kd_.satt_status(slug_, 'k03', 'klar', 'prov', huvudreferens='Okänd sajt')
+        assert kd_.referensjamforelse(slug_, 'k03') is None, 'en referens utan fångad sida ger ingen jämförelse'
+        # synligheten: bland flera förslag först efter ägarens första beslut; en enda prototyp direkt
+        (kd_.rot(slug_) / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': '2026-10-06T00:00:00Z', 'antal': 3, 'kandidater': {}}))
+        assert not any('referensjamforelse' in k_ for k_ in kd_.sammanstall(slug_)), 'blint före ägarens första beslut'
+        (u_ / 'DESIGNDOMAR.jsonl').write_text(json.dumps({'tid': '2026-10-06T01:00:00Z', 'kalla': sk_.AGAREN[0], 'beslut': 'valj', 'text': 'x'}) + '\n')
+        assert {k_['id']: bool(k_['referensjamforelse']) for k_ in kd_.sammanstall(slug_)} == {'k01': True, 'k02': True, 'k03': False}
+        (u_ / 'DESIGNDOMAR.jsonl').unlink()
+        for k_ in ('k02', 'k03'):
+            shutil.rmtree(kd_.kdir(slug_, k_))
+        en_ = kd_.sammanstall(slug_)
+        assert len(en_) == 1 and en_[0]['referensjamforelse']['redovisat'] and 'titel' not in en_[0], 'en enda prototyp: jämförelsen direkt, förklaringarna inte'
+    finally:
+        at_.UNDERLAG, at_.KUNDER = spara_
+    print('referensjämförelsen ok')
+
+
+referensjamforelsen()
 
 
 stilpaketet()

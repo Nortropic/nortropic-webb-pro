@@ -63,7 +63,9 @@ import skapande  # noqa: E402
 
 KOD = Path(__file__).resolve().parents[1]  # kunskap/ och kritik/ hör till koden, inte till kundens data
 ID = re.compile(r'^k\d{2}$')
-ANTAL = max(2, min(12, int(os.environ.get('NWP_KANDIDATER') or 10)))
+# NWP_KANDIDATER=1 är den enda prototypen som prövar hela kedjan före uppskalningen (ägarens uppdrag 2026-10-05 18:53Z,
+# punkt 7): referensen och prototypen bredvid varandra i mobil och dator, sedan cirka tio förslag
+ANTAL = max(1, min(12, int(os.environ.get('NWP_KANDIDATER') or 10)))
 PARALLELLT = max(1, min(5, int(os.environ.get('NWP_KANDIDATER_PARALLELLT') or 3)))
 FRIST_SKAPA = int(os.environ.get('NWP_KANDIDAT_FRIST') or 6000)  # en kandidat per session: 100 minuter, varven inräknade
 FRIST_FORBATTRA = int(os.environ.get('NWP_KANDIDAT_FRIST_FORBATTRA') or 2700)
@@ -679,13 +681,21 @@ def research_rader(slug):
 
 def plan_prompt(slug, n, skiss=False):
     filer, refs, fel = atelje.underlag_rader(slug)
+    if n == 1:  # den enda prototypen som prövar hela kedjan före uppskalningen
+        intro = ['Du planerar skapandeflödets första prototyp för en riktig verksamhet. Ägaren vill först se EN genomarbetad',
+                 'prototyp med kundens riktiga information, byggd på en namngiven huvudreferens och visad bredvid den i mobil och',
+                 'dator, innan flödet tar fram omkring tio skilda förslag. Ditt arbete är uppdraget: den designriktning som bäst',
+                 'besvarar kundens problem, med den huvudreferens vars kvalitet kundens material kan bära. Uppdraget går till en',
+                 'skapare med hela faktaunderlaget.', '']
+    else:
+        intro = ['Du planerar skapandeflödets utforskning för en riktig verksamhet. Ägaren vill ha cirka %d %s med' % (
+                     n, 'skisser (första vyn och den viktigaste innehållssektionen, mobil och dator)' if skiss else 'genomarbetade prototyper'),
+                 'kundens riktiga information och väljer sedan själv vilken eller vilka som %s. Ditt arbete är uppdragen:' % (
+                     'fördjupas till hela startsidan, undersidan och besökarens centrala flöde' if skiss else 'utvecklas vidare'),
+                 '%d designriktningar som besvarar kundens problem på verkligt olika sätt. Varje uppdrag går till en egen skapare med' % n,
+                 'samma faktaunderlag; ingen ser de andras kod.', '']
     return '\n'.join([
-        'Du planerar skapandeflödets utforskning för en riktig verksamhet. Ägaren vill ha cirka %d %s med' % (
-            n, 'skisser (första vyn och den viktigaste innehållssektionen, mobil och dator)' if skiss else 'genomarbetade prototyper'),
-        'kundens riktiga information och väljer sedan själv vilken eller vilka som %s. Ditt arbete är uppdragen:' % (
-            'fördjupas till hela startsidan, undersidan och besökarens centrala flöde' if skiss else 'utvecklas vidare'),
-        '%d designriktningar som besvarar kundens problem på verkligt olika sätt. Varje uppdrag går till en egen skapare med' % n,
-        'samma faktaunderlag; ingen ser de andras kod.', '',
+        *intro,
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *skapande.fakta_rader(slug, atelje.UNDERLAG), '',
         'Läs först: ' + ', '.join(filer) + '.',
@@ -726,7 +736,8 @@ def plan_prompt(slug, n, skiss=False):
         'ett kontaktförlopp) och vilket material som saknas för riktningen och hur den klarar sig utan det.',
         'Skriv i "fynd" vilka fynd ur researchen (namn och fil) som formade uppdraget och om de är nya i den här körningen',
         'eller återanvända (FORSKNING.md säger vilket).',
-        'Skriv i "variation" hur uppdragen skiljer sig längs de dimensionerna och var två ligger nära varandra.',
+        ('Skriv i "variation" varför den här riktningen och huvudreferensen valdes framför de andra i researchen.' if n == 1 else
+         'Skriv i "variation" hur uppdragen skiljer sig längs de dimensionerna och var två ligger nära varandra.'),
         'Svara med uppdragen i schemat.', atelje.MATERIAL])
 
 
@@ -742,6 +753,11 @@ def skriv_uppdrag(slug, kid, k, nr, totalt):
     (d / 'UPPDRAG.md').write_text('\n'.join(rader), encoding='utf-8')
 
 
+def minsta_plan(n):
+    """Så många användbara uppdrag måste planen ge av n: hälften, minst två, och den enda prototypen sitt enda."""
+    return min(n, max(2, n // 2))
+
+
 def planera(slug, n, lage=None):
     """Planeringspasset: uppdragen ur researchen och kundens material (ett schema, så att varje uppdrag har sina fält).
     Planen bär körningens läge, så att en återupptagning följer körningen."""
@@ -751,7 +767,7 @@ def planera(slug, n, lage=None):
                           atelje.MODELL, EFFORT_SKISS if lage == 'skiss' else atelje.EFFORT, FRIST_PLAN, slug=slug)
     plan = svar.get('structured_output') or {}
     kand = [k for k in plan.get('kandidater') or [] if isinstance(k, dict) and str(k.get('titel') or '').strip()][:n]
-    if len(kand) < max(2, n // 2):
+    if len(kand) < minsta_plan(n):
         raise RuntimeError('planen gav %d användbara uppdrag av %d' % (len(kand), n))
     ids = ['k%02d' % i for i in range(1, len(kand) + 1)]
     for i, (kid, k) in enumerate(zip(ids, kand), 1):
@@ -840,6 +856,10 @@ def skapar_prompt(slug, kid, kritik=None, komplettering=None, forbattra=None, er
         '   din egen bild bredvid varandra: hur bildens beskärning samspelar med rubriken, hur de typografiska storlekarna skapar',
         '   hierarki, hur täta och luftiga sektioner skapar rytm, och hur navigation och interaktion stödjer innehållet; vad',
         '   referensen gör och vad kandidaten gör med kundens material. En hämtad bild eller ett läst dokument är bara material.',
+        '   Skriv under rubriken "%s" två korta listor, uppdaterade till sista varvet: det som överförts från' % OVERFORT,
+        '   huvudreferensen (komposition och proportioner, typografisk hierarki, sidrytm, bildstorlek och beskärning,',
+        '   komponenternas form och beteende, mobilens omställning) och de medvetna avvikelserna med skälet (kundens material,',
+        '   besökarens uppgift, kvalitetskraven). Ägaren ser huvudreferensen och kandidaten bredvid varandra med den texten.',
         '3. Bygg hela startsidan som en sammanhängande sida: alla sektioner genomarbetade i idéns form, inga ofärdiga',
         '   standardblock efter en välgjord topp. Mobilen först och lika genomtänkt i 1440; komponenter, layouter och stilar',
         '   i projektets src/ där de återanvänds (kunskap/beroenden.md). Rubriker, textlängd och ordning får bearbetas för',
@@ -861,7 +881,7 @@ def skapar_prompt(slug, kid, kritik=None, komplettering=None, forbattra=None, er
             'orkestratorn kör researchen och startar en ny session med resultatet (högst en gång per kandidat).']), '',
         'Du är klar när den renderade sidan visar att %s, att %s, att %s och att %s; skriv under' % VISAR,
         'rubriken "Visar" i RIKTNING.md vilken bild som visar var och en. Sidorna bygger, du har läst bilderna, och RIKTNING.md',
-        'har huvudreferensen, hypotesen, referensens kvalitet, varven och materialet.', atelje.MATERIAL])
+        'har huvudreferensen, hypotesen, referensens kvalitet, det överförda och avvikelserna, varven och materialet.', atelje.MATERIAL])
 
 
 def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=30, forsok_min=None):
@@ -920,7 +940,9 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         '   beslutsliggare (beslut, källa, roll, varför); vad du lär av referensbilderna (bildens beskärning mot rubriken,',
         '   typografins hierarki, rytmen och navigationen); rubriken "Material" med det kunden saknar; och rubriken',
         '   "Kompetenserna" med alternativen du valde och vad varje roll ändrade i skissen, eller var en skill inte passade och',
-        '   varför.',
+        '   varför. När skissen är byggd: rubriken "%s" med två korta listor, det som överförts från huvudreferensen' % OVERFORT,
+        '   och de medvetna avvikelserna med skälet (kundens material, besökarens uppgift, kvalitetskraven); ägaren ser',
+        '   huvudreferensen och skissen bredvid varandra med den texten.',
         '2. Bygg skissen med startsidan i %s/src/pages/index.astro och komponenter, layouter och stilar i src/ där det hjälper' % s_,
         '   (mobilen först; de låsta beroendena i kunskap/beroenden.md), och kör `%s` (tidsgräns 600000 ms). Läs med' % forhand,
         '   Read mobilens och datorns första vy och hela sida, och jämför med referensbilderna.',
@@ -937,7 +959,8 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
             rel(d / skapande.KOMPLETTERING), skapande.KOMPLETTERINGSFORMAT),
            'orkestratorn hämtar det och startar en ny session med resultatet, inom samma tid (högst en gång per kandidat).'] if erbjud else []), '',
         'Du är klar när skissen är byggd och renderad i 390 och 1440, du har tittat på bilderna, och RIKTNING.md har',
-        'huvudreferensen, referenslåset, hypotesen, varven, materialet och kompetensernas arbete. Ingen annan session ändrar',
+        'huvudreferensen, referenslåset, hypotesen, det överförda och avvikelserna, varven, materialet och kompetensernas arbete.',
+        'Ingen annan session ändrar',
         'skissen före ägarens val.', atelje.MATERIAL])
 
 
@@ -1727,6 +1750,72 @@ KRITIK_B_SCHEMA = {
         'motiveringar': {'type': 'array', 'items': {
             'type': 'object', 'additionalProperties': False, 'required': ['nr', 'avsiktlig', 'valgrundad', 'skal'],
             'properties': {'nr': {'type': 'integer'}, 'avsiktlig': {'type': 'boolean'}, 'valgrundad': {'type': 'boolean'}, 'skal': {'type': 'string'}}}}}}
+
+
+OVERFORT = 'Överfört och avvikelser'  # skaparens redovisning bredvid jämförelsen (RIKTNING.md)
+REFERENSVYER = ('390-forsta', '1440-forsta', '390-hela', '1440-hela')
+
+
+def referenssida(slug, kid):
+    """Huvudreferensens startsida som den fångades, för jämförelsen bredvid kandidaten (ägarens uppdrag 2026-10-05 18:53Z,
+    punkt 7: referensen och prototypen bredvid varandra i mobil och dator). Referensen hittas genom Bildval-raderna under
+    dess rubrik i REFERENSER.md, annars genom uppdragets referensbilder i en katalog med referensens namn; sidan är
+    referensens första fångade sida (01-…, startsidan) eller den med flest utpekade bilder. Ger {'namn', 'sida',
+    '390-forsta', '1440-forsta', '390-hela', '1440-hela'} med sökvägar under underlag/ (None för en vy som saknas), eller
+    None."""
+    import referensval
+    namn = referensval.rubriknamn(las_status(slug, kid).get('huvudreferens') or '')
+    if not namn:
+        return None
+    rot_ = (atelje.UNDERLAG / slug / 'referenser').resolve()
+    sidor = {}
+    for f, _t in referensval.referens(slug, atelje.UNDERLAG, namn)['bilder']:
+        sidor[Path(f).parent] = sidor.get(Path(f).parent, 0) + 1
+    if not sidor:
+        kort = re.sub(r'[^a-z0-9]+', '-', namn).strip('-')
+        for r_ in uppdragets_bilder(slug, kid):
+            f = atelje.UNDERLAG / Path(r_).relative_to('underlag')
+            if kort and kort in f.relative_to(atelje.UNDERLAG / slug / 'referenser').parts:
+                sidor[f.parent] = sidor.get(f.parent, 0) + 1
+    fangade = lambda d: (d / 'vy-390-forsta.png').is_file() or (d / 'vy-1440-forsta.png').is_file()  # noqa: E731
+    val = None
+    for d in sorted(sidor, key=lambda d: (-sidor[d], str(d))):
+        start = sorted(x for x in d.parent.glob('01-*') if x.is_dir() and fangade(x)) if d.parent.resolve() != rot_ else []
+        val = start[0] if start else (d if fangade(d) else None)
+        if val:
+            break
+    if not val or not val.resolve().is_relative_to(rot_):
+        return None
+    vy = lambda n: rel(val / ('vy-%s.png' % n)) if (val / ('vy-%s.png' % n)).is_file() else None  # noqa: E731
+    return {'namn': las_status(slug, kid).get('huvudreferens'), 'sida': rel(val), **{n: vy(n) for n in REFERENSVYER}}
+
+
+def riktningens_avsnitt(text, rubriker):
+    """Avsnitten i RIKTNING.md vars rubrik börjar med något av namnen (utan skillnad i versaler), med sina underrubriker,
+    i filens ordning: markdown."""
+    ut, med, niva = [], False, 0
+    for rad in str(text or '').splitlines():
+        m = re.match(r'^(#{1,6})\s+(.+?)\s*$', rad)
+        if m:
+            if med and len(m.group(1)) <= niva:
+                med = False
+            if not med and any(m.group(2).strip('*` ').lower().startswith(r.lower()) for r in rubriker):
+                med, niva = True, len(m.group(1))
+        if med:
+            ut.append(rad)
+    return '\n'.join(ut).strip()
+
+
+def referensjamforelse(slug, kid):
+    """Kandidaten bredvid huvudreferensen: referensens fångade startsida och kandidatens bilder i 390 och 1440, och
+    skaparens redovisning (avsnittet Överfört och avvikelser, annars referenslåset eller referensens kvalitet). None utan
+    huvudreferens."""
+    ref = referenssida(slug, kid)
+    if not ref:
+        return None
+    t = (kdir(slug, kid) / 'RIKTNING.md').read_text(encoding='utf-8', errors='replace') if (kdir(slug, kid) / 'RIKTNING.md').is_file() else ''
+    avsnitt = riktningens_avsnitt(t, (OVERFORT,)) or riktningens_avsnitt(t, ('Referenslås', 'Referensens kvalitet'))
+    return {'referens': ref, 'avsnitt': avsnitt[:12000], 'redovisat': bool(riktningens_avsnitt(t, (OVERFORT,)))}
 
 
 def uppdragets_bilder(slug, kid):
@@ -2592,6 +2681,9 @@ def sammanstall(slug):
     ids = lista(slug)
     namn = etiketter(slug, ids)
     blind = not domd(slug)
+    # en körning med en enda prototyp har inget blint val att skydda: referensen och prototypen visas bredvid varandra
+    # från början (ägarens uppdrag 2026-10-05 18:53Z, punkt 7); bland flera förslag först efter ägarens första beslut
+    jamforelse_synlig = not blind or len(ids) == 1
     ut = []
     for kid in ids:
         st = las_status(slug, kid)
@@ -2611,6 +2703,8 @@ def sammanstall(slug):
                 'kompetenspass': {rec.get('pass'): rec.get('genomford') for k_, rec in sorted((st.get('kompetens') or {}).items()) if k_.startswith('skiss:')},
                 'hypotes': dolj_referens(st.get('hypotes') or '', [st.get('huvudreferens')]) if blind else st.get('hypotes') or '',
                 'bilder': bilder(d / 'bilder', under)}
+        if jamforelse_synlig:
+            post['referensjamforelse'] = referensjamforelse(slug, kid)
         if not blind:
             k = atelje.las_json(d / 'KRITIK.json') or {}
             fore = (st.get('forbattrad') or {}).get('fore')
