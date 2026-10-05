@@ -2,8 +2,10 @@
 """Regressionsfall ur revisionen 2026-10-03 (Codex, nio omgångar): varje skydd prövas genom sin riktiga ingång, med ett
 positivt och ett negativt fall, isolerat och syntetiskt. Körs av kontroller/rokprov.sh. Argument: repots rot. Skriver
 bara i temporära kataloger och i /tmp/nwp-granskning (granskarens arbetskataloger)."""
+import contextlib
 import datetime
 import functools
+import io
 import http.client
 import http.server
 import json
@@ -2419,8 +2421,61 @@ assert begar(dport, 'POST', '/api/designprov/dp-prov/omgang-2/A', huvuden=ok_h, 
 assert json.loads((dp_ / 'AGARENS-DOM.json').read_text())['A']['skiljer'] == 'om igen'
 (dp_ / 'foregaende' / 'gammal').mkdir(parents=True); (dp_ / 'foregaende' / 'gammal' / 'VAL.md').write_text('# gammal panel')
 assert begar(dport, 'GET', '/fil/underlag/dp-prov/atelje/foregaende/gammal/VAL.md')[0] != 200, 'tidigare ateljékörningar serveras inte'
+# startsidesprototypen (Codex via ägaren 2026-10-05): före och efter bredvid huvudreferensen, ägarens dom med minuter
+pr_ = tmp / 'underlag' / 'pr-prov' / 'prototyp'
+for k_ in ('fore', 'slut'):
+    (pr_ / k_).mkdir(parents=True)
+    for fil_ in ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-390-hela.png', 'vy-1440-hela.png'):
+        (pr_ / k_ / fil_).write_bytes(b'\x89PNG')
+(pr_ / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'lasning': {'varv': 5, 'sedda_varv': ['varv-01', 'varv-02', 'varv-03'], 'verifierad': True}}))
+(pr_ / 'PROTOTYP.md').write_text('# Prototyp\n\nRubriken kortades.\n'); (pr_ / 'LOGG.md').write_text('## Varv 1\n\nFör tungt.\n')
+ref_pr = tmp / 'underlag' / 'pr-prov' / 'referenser' / 'p' / 'snick' / '01-start'; ref_pr.mkdir(parents=True); (ref_pr / 'vy-1440-ruta-02.png').write_bytes(b'\x89PNG')
+(tmp / 'underlag' / 'pr-prov' / 'REFERENSER.md').write_text('## Snick — snickeri\n\nBildval: referenser/p/snick/01-start/vy-1440-ruta-02.png — hållningen — Fråga: bär vår?\n\nHuvudreferens: Snick — komposition\n')
+assert json.loads(begar(dport, 'GET', '/api/prototyp')[1]) == ['pr-prov']
+d_ = json.loads(begar(dport, 'GET', '/api/prototyp/pr-prov')[1])
+assert d_['steg'] == 'klar' and d_['varv'] == 5 and d_['sedda_varv'] == 3 and set(d_['fore']) == set(d_['efter']) == {'390-forsta', '390-hela', '1440-forsta', '1440-hela'}, d_
+assert d_['efter']['390-forsta'] == 'underlag/pr-prov/prototyp/slut/vy-390-forsta.png' and begar(dport, 'GET', '/fil/' + d_['efter']['390-forsta'])[0] == 200
+assert d_['huvudreferens']['namn'] == 'Snick' and 'Rubriken kortades' in d_['prototyp_md'] and 'För tungt' in d_['logg_md'] and d_['domar'] == []
+assert begar(dport, 'GET', '/api/prototyp/okand')[0] == 404
+assert begar(dport, 'POST', '/api/prototyp/pr-prov', huvuden=ok_h, kropp=b'{"haller":"ja","niva":"over"}')[0] >= 400, 'haller är sant eller falskt'
+assert begar(dport, 'POST', '/api/prototyp/pr-prov', huvuden={'Origin': 'http://evil.test:%d' % dport, 'Content-Type': 'application/json'}, kropp=b'{"haller":true,"niva":"over"}')[0] == 403
+startad_pr = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0) - datetime.timedelta(minutes=6)
+assert begar(dport, 'POST', '/api/prototyp/pr-prov', huvuden=ok_h, kropp=json.dumps({'haller': False, 'niva': 'nastan', 'skiljer': 'bildvalet', 'startad': startad_pr.isoformat().replace('+00:00', 'Z')}).encode())[0] == 200
+dom_pr = json.loads((pr_ / 'AGARENS-DOM.json').read_text())['domar']
+assert len(dom_pr) == 1 and dom_pr[0]['niva'] == 'nastan' and dom_pr[0]['skiljer'] == 'bildvalet' and 5 <= dom_pr[0]['minuter'] <= 7, dom_pr
+assert json.loads(begar(dport, 'GET', '/api/prototyp/pr-prov')[1])['domar'][0]['haller'] is False
 dsrvd.shutdown()
 print('designprovet i dashboarden ok')
+
+# ---------------------------------------------------------------- prototypen: skaparen ser sitt eget arbete (Codex via ägaren 2026-10-05)
+import prototyp as pt  # noqa: E402
+import bildkedja as bk_pt  # noqa: E402
+pt.UNDERLAG, pt.KUNDER, pt.ROOT = tmp / 'pt-underlag', tmp / 'pt-kunder', tmp
+pt_u = pt.UNDERLAG / 'pt-prov'; (pt_u / 'bilder').mkdir(parents=True)
+assert any('VERKSAMHET.json' in x for x in pt.saknas('pt-prov')), 'saknat underlag sägs'
+vk_ = pt.verktyg('pt-prov')
+assert 'Bash(.venv/bin/python kontroller/forhandsvisa.py pt-prov *)' in vk_ and 'Write(./kunder/pt-prov/sajt/src/**)' in vk_ and 'Write(./underlag/pt-prov/prototyp/**)' in vk_
+assert not any(v.startswith(('Bash(git', 'Bash(rm', 'Bash(curl', 'WebFetch')) for v in vk_), vk_
+(pt_u / 'TEXTUNDERLAG.md').write_text('# text'); (pt_u / 'VERKSAMHET.json').write_text('{}')
+pr_text = pt.skapar_prompt('pt-prov', pt_u / 'prototyp', ['a.jpg'], None)
+for krav_ in ('kontroller/forhandsvisa.py pt-prov', 'LOGG.md', 'minst %d varv' % pt.MIN_VARV, 'Huvudrubriken är inte låst', 'ändras aldrig', 'PROTOTYP.md', 'mobilens första vy'):
+    assert krav_ in pr_text, krav_
+# läsningen per varv ur transkriptet: varv-01 och varv-02 sedda, varv-03 inte
+for v_ in ('varv-01', 'varv-02', 'varv-03'):
+    (pt_u / 'forhand' / v_).mkdir(parents=True)
+pt_kat = tmp / 'pt-projekt' / '-x'; pt_kat.mkdir(parents=True); bk_pt.PROJEKT, bk_pt.ROOT = pt_kat.parent, tmp
+sid_pt = '00000000-0000-4000-8000-000000000055'
+(pt_kat / (sid_pt + '.jsonl')).write_text('\n'.join(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Read', 'input': {
+    'file_path': str(pt_u / 'forhand' / v_ / n_)}}]}}) for v_ in ('varv-01', 'varv-02') for n_ in pt.FORHAND_LAS) + '\n')
+las_pt = pt.lasning('pt-prov', {'session_id': sid_pt})
+assert las_pt['varv'] == 3 and las_pt['sedda_varv'] == ['varv-01', 'varv-02'] and las_pt['verifierad'], las_pt
+os.environ['NWP_SLUG'] = 'pt-prov'
+try:
+    with contextlib.redirect_stderr(io.StringIO()):
+        assert pt.main(['pt-prov']) == 2, 'prototypen startas inte inifrån ett bygge'
+finally:
+    del os.environ['NWP_SLUG']
+print('prototypen ok')
 
 # ---------------------------------------------------------------- autonomins mått (Codex helhetsbedömning 2026-10-04, punkt 9)
 import autonomi as au  # noqa: E402

@@ -395,6 +395,16 @@ assert lh.returncode == 2 and 'representativa' in lh.stderr, lh.stderr
 " || { echo "FEL: mätmetoden och motorerna"; exit 1; }
 echo "   mätmetoden och motorerna ok"
 
+echo "   förhandsvisningen: skaparen bygger och fotograferar sin egen sida"
+rm -rf "$ROOT/underlag/rokprov-mall/forhand"
+FH=$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/forhandsvisa.py" rokprov-mall) || { echo "FEL: förhandsvisningen föll: $FH"; exit 1; }
+for f in vy-390-forsta.png vy-390-hela.png vy-1440-forsta.png vy-1440-hela.png EXTRAKT.md FORHAND.md; do
+  [ -s "$ROOT/underlag/rokprov-mall/forhand/varv-01/$f" ] || { echo "FEL: förhandsvisningen saknar $f"; exit 1; }
+done
+case "$FH" in *"underlag/rokprov-mall/forhand/varv-01/vy-390-forsta.png"*"Konsolfel: inga"*) ;; *) echo "FEL: förhandsvisningens utskrift: $FH"; exit 1;; esac
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/forhandsvisa.py" rokprov-mall --sida /finns-inte/ >/dev/null 2>&1 && { echo "FEL: en sida som inte finns ska ge rc 2"; exit 1; }
+echo "   förhandsvisningen ok"
+
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/prospekt/prov_prospekt.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/prospekt-prov.log" \
   || { echo "FEL: prospektpipelinen"; tail -20 "$ROOT/kunder/rokprov-mall/prospekt-prov.log"; exit 1; }

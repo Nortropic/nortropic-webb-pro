@@ -183,3 +183,22 @@ Nästa steg, omstarten av A/B-kedjan, väntar: revisionen med Codex fortsätter 
    backlogposter; varje sammanslagning föregås av en oberoende granskning (en granskande session som läser ändringen
    mot färdigkriteriet) i stället för ett Codex-varv. Det som kräver ägarens omdöme (blinda domar över designförslag
    och kalibreringsexempel) förbereds i dashboarden.
+
+## Tillägg 2026-10-05: designen börjar om med en startsidesprototyp
+
+Ägaren förmedlade Codex dom över designprovets andra omgång: alla tre förslagen underkänns mot den beställda nivån.
+Rubriken tog över, bildvalet bar mer än det klarade, luft och hierarki samverkade svagt, och förslagen varierade för
+lite i grundidén. Orsaken låg i arbetsflödet: formgivaren kunde inte se sina egna sidor innan panelen dömde dem, så
+loopen rendera, titta, rätta och titta igen saknades. Huvudrubriken var dessutom föreskriven i innehållsunderlaget.
+
+1. **Försöksbyggena arkiveras, inget raderas.** Alla byggen före prototypen flyttas ut ur arbetsytan till
+   `~/Arkiv/nortropic-webb-pro-forsok-20261005/`. De är felsökningsunderlag, aldrig designankare eller mallar.
+   Verksamhetens verifierade fakta, originalbilder, logga och ägarens domar behålls, liksom infrastrukturen och
+   kontrollerna. Tidigare rubriker, layout och designbeslut får omprövas.
+2. **Skaparen ser sitt arbete.** `kontroller/forhandsvisa.py` bygger sajten och fotograferar en sida i 390 och 1440
+   med mätningen; skaparen kör den själv, läser bilderna och rättar inom samma session. Ateljéns skapare och
+   prototypens skapare har det steget.
+3. **En startsidesprototyp före fler hela byggen.** `kontroller/prototyp.py` gör en startsida i varv, med verifierade
+   fakta och originalmaterial men utan ärvd layout eller låst rubrik; text och form bearbetas tillsammans och
+   sakuppgifterna ändras inte. Före och efter visas bredvid huvudreferensen i dashboardens vy Prototyp. Ägaren dömer
+   prototypen innan något helt bygge startas.

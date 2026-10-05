@@ -772,6 +772,61 @@ def spara_designprov(slug, bokstav, data, omgang=None, minuter=None):
     return {'ok': True, 'dom': domar[bokstav]}
 
 
+# --- startsidesprototypen: före och efter bredvid huvudreferensen, ägarens dom (Codex via ägaren 2026-10-05) ---
+PR_LAS = threading.Lock()
+PR_BILDER = (('390-forsta', 'vy-390-forsta.png'), ('390-hela', 'vy-390-hela.png'), ('1440-forsta', 'vy-1440-forsta.png'), ('1440-hela', 'vy-1440-hela.png'))
+
+
+def prototyp_slugar():
+    """Byggen med en startsidesprototyp (underlag/<slug>/prototyp/STATUS.json)."""
+    return sorted(p.parent.parent.name for p in UNDERLAG.glob('*/prototyp/STATUS.json') if SLUG.match(p.parent.parent.name))
+
+
+def prototyp(slug):
+    """Prototypens läge: första varvet (före) och slutläget (efter) i 390 och 1440, huvudreferensens bilder, skaparens
+    logg och beslut, hur många varv skaparen faktiskt såg (transkriptet), och ägarens domar."""
+    import referensval
+    rot = UNDERLAG / slug / 'prototyp'
+    st = las_json(rot / 'STATUS.json') or {}
+    bilder = lambda kat: {n: 'underlag/%s/prototyp/%s/%s' % (slug, kat, fil) for n, fil in PR_BILDER if (rot / kat / fil).is_file()}  # noqa: E731
+    las = st.get('lasning') or {}
+    hr = referensval.huvudreferens(slug, UNDERLAG)
+    return {'slug': slug, 'steg': st.get('steg'), 'startad': st.get('startad'), 'klar': st.get('klar'), 'fel': st.get('fel'), 'avbruten': st.get('avbruten'),
+            'varv': las.get('varv'), 'sedda_varv': len(las.get('sedda_varv') or []), 'verifierad': las.get('verifierad'),
+            'fore': bilder('fore'), 'efter': bilder('slut'),
+            'huvudreferens': {'namn': hr['namn'], 'vad': hr['vad'], 'bilder': [{'fil': str(p.relative_to(ROOT)), 'text': t} for p, t in hr['bilder']]} if hr else None,
+            'prototyp_md': md(las_text(rot / 'PROTOTYP.md') or ''), 'logg_md': md(las_text(rot / 'LOGG.md') or ''),
+            'domar': (las_json(rot / 'AGARENS-DOM.json') or {}).get('domar', [])}
+
+
+def spara_prototyp(slug, data, minuter=None):
+    """Ägarens dom över prototypen: håller ribban, nivå och vad som skiljer. Privat (underlag/<slug>/prototyp/AGARENS-DOM.json)."""
+    import fcntl
+    if slug not in prototyp_slugar():
+        raise ValueError('ingen prototyp för bygget')
+    if data.get('niva') not in NIVAER or not isinstance(data.get('haller'), bool):
+        raise ValueError('välj nivå och om prototypen håller ribban')
+    f = UNDERLAG / slug / 'prototyp' / 'AGARENS-DOM.json'
+    with PR_LAS, open(f.parent / '.agarens-dom.las', 'w') as las:
+        fcntl.flock(las, fcntl.LOCK_EX)
+        try:
+            allt = {'domar': []}
+            if f.exists():
+                try:
+                    allt = json.loads(f.read_text(encoding='utf-8'))
+                except (OSError, ValueError) as e:
+                    raise RuntimeError('AGARENS-DOM.json går inte att läsa (%s); rätta filen innan en dom sparas' % e)
+            dom = {'haller': data['haller'], 'niva': data['niva'], 'skiljer': (data.get('skiljer') or '').strip()[:4000], 'tid': nu(),
+                   **({'minuter': minuter} if minuter is not None else {})}
+            allt.setdefault('domar', []).append(dom)
+            tmp = f.with_name('.AGARENS-DOM.json.tmp%d' % os.getpid())
+            tmp.write_text(json.dumps(allt, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            os.replace(tmp, f)
+        finally:
+            fcntl.flock(las, fcntl.LOCK_UN)
+    return {'ok': True, 'dom': dom}
+
+
 # --- domen ---
 
 def spara_dom(slug, data):
@@ -1196,6 +1251,13 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, kalibrering_lista())
             if vag == '/api/designprov':
                 return self.skicka(200, designprov_slugar())
+            if vag == '/api/prototyp':
+                return self.skicka(200, prototyp_slugar())
+            m = re.match(r'^/api/prototyp/([a-z0-9-]{2,60})$', vag)
+            if m:
+                if m.group(1) not in prototyp_slugar():
+                    return self.skicka(404, {'fel': 'ingen prototyp för bygget'})
+                return self.skicka(200, prototyp(m.group(1)))
             m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})$', vag)
             if m:
                 if m.group(1) not in designprov_slugar():
@@ -1279,6 +1341,9 @@ class H(BaseHTTPRequestHandler):
             m = re.match(r'^/api/kalibrering/(K\d{2})$', vag)
             if m:
                 return self.skicka(200, spara_kalibrering(m.group(1), data))
+            m = re.match(r'^/api/prototyp/([a-z0-9-]{2,60})$', vag)
+            if m:
+                return self.skicka(200, spara_prototyp(m.group(1), data, minuter=minuter_sedan(data.get('startad'))))
             m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})/(?:(omgang-\d{1,2})/)?([A-E])$', vag)
             if m:
                 return self.skicka(200, spara_designprov(m.group(1), m.group(3), data, omgang=m.group(2), minuter=minuter_sedan(data.get('startad'))))
