@@ -75,6 +75,11 @@ AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, 
 import prototyp
 print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 if [ -n "$GODKAND" ]; then
+  # godkännandet gäller vinnarens dömda filer: har ett tidigare bygge skrivit om sajtens, läggs vinnarens tillbaka
+  ERSATT="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+import atelje
+print(", ".join(atelje.installera_godkand(sys.argv[2])))' "$ROOT" "$SLUG")" || { echo "den godkända startsidan kunde inte läggas i sajten (atelje.installera_godkand)"; exit 2; }
+  [ -z "$ERSATT" ] || echo "den godkända startsidan lades i sajten: $ERSATT (de ersatta i kunder/$SLUG/startsida-ersatt/)"
   PROMPT="$PROMPT
 
 Ägaren har godkänt startsidan i skapandeflödet (underlag/$SLUG/atelje/VINNARE.json, fältet godkand): ta vid efter valet

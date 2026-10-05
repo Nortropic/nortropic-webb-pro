@@ -11,7 +11,7 @@ härinne) innan kommandot startas (Codex R26, F1/F27). Chromium och claude kan i
 webbläsarsteg och granskarnas sessioner delegerar till webbtjänsten: NWP_PROCESSGRANS=1 räknas som sandlådemarkering
 i webbtjanst.delegeras och i webbläsarhjälparens viaTjanst.
 
-    .venv/bin/python kontroller/processgrans.py <slug> [--root R] [--hem H] [--skriv-profil] [--utan-nat] -- <kommando …>
+    .venv/bin/python kontroller/processgrans.py <slug> [--root R] [--hem H] [--skriv-profil] [--utan-nat] [--bara-sajt] -- <kommando …>
 Slutkoden är kommandots. Utan sandbox-exec (annat system) vägras körningen (slutkod 2): gränsen får aldrig tyst saknas.
 """
 import argparse
@@ -58,12 +58,16 @@ def ren_miljo(miljo=None, slug=None, root=None, hem=None):
     return miljo
 
 
-def profil(slug, root=None, hem=None, tmp=None, nat=True):
+def profil(slug, root=None, hem=None, tmp=None, nat=True, bara_sajt=False):
     import sandlada
     root = Path(root or ROOT)
     hem = hem or os.path.expanduser('~')
     fs = sandlada.installningar(slug, root=root, hem=hem)['sandbox']['filesystem']
-    skriv = list(fs['allowWrite']) + ['/tmp/nwp-granskning/%s' % slug, tmp or tempkatalog(slug)]
+    if bara_sajt:  # byggen av skaparens sidor: bara sajten och tempkatalogen, aldrig underlag/<slug> med ägarens domlogg,
+        # VINNARE.json och statusen, eller kunder/<slug> utanför sajten (granskning 6)
+        skriv = ['%s/kunder/%s/sajt' % (root, slug), tmp or tempkatalog(slug)]
+    else:
+        skriv = list(fs['allowWrite']) + ['/tmp/nwp-granskning/%s' % slug, tmp or tempkatalog(slug)]
     nm = root / 'kunder' / slug / 'sajt' / 'node_modules'
     if nm.is_symlink():  # en worktree delar sajtens beroenden med huvudutcheckningen: byggets cacher (.vite, .astro) skrivs där
         skriv.append(os.path.realpath(nm))
@@ -85,8 +89,8 @@ def profil(slug, root=None, hem=None, tmp=None, nat=True):
     if nat:
         rader += ['(deny network-outbound)', '(allow network-outbound (remote ip "localhost:*"))', '(allow network-outbound (remote unix-socket))',
                   '(allow network-bind (local ip "localhost:*"))', '(allow network-inbound (local ip "localhost:*"))']
-    else:  # --utan-nat: ett bygge behöver inget nät, och localhost når också dashboardens API (omgranskning 3)
-        rader += ['(deny network-outbound)', '(allow network-outbound (remote unix-socket))', '(deny network-bind)', '(deny network-inbound)']
+    else:  # --utan-nat: ett bygge behöver inget nät; localhost når dashboardens API och unix-sockeln namnuppslagen (granskning 4 och 5)
+        rader += ['(deny network-outbound)', '(deny network-bind)', '(deny network-inbound)']
     return '\n'.join(rader) + '\n'
 
 
@@ -99,8 +103,9 @@ def main(argv=None):
     p.add_argument('--hem', default=None)
     p.add_argument('--skriv-profil', action='store_true', help='skriv profilen och avsluta')
     p.add_argument('--utan-nat', action='store_true', help='inget nät alls, inte heller localhost (byggen av skaparens sidor)')
+    p.add_argument('--bara-sajt', action='store_true', help='skrivning bara i kunder/<slug>/sajt och tempkatalogen (byggen av skaparens sidor)')
     a = p.parse_args(egna)
-    prof = profil(a.slug, a.root, a.hem, nat=not a.utan_nat)
+    prof = profil(a.slug, a.root, a.hem, nat=not a.utan_nat, bara_sajt=a.bara_sajt)
     if a.skriv_profil:
         sys.stdout.write(prof)
         return 0

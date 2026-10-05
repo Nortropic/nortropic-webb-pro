@@ -88,7 +88,7 @@ NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(gi
          # hemligheterna: --setting-sources project,local läser inte ägarens egna regler, så sandlådans lista nekas här
          # (omgranskning 3, fynd 3); Read-regler gäller också Grep och Glob
          *[r for p_ in sandlada.HEMLIGT for r in (
-             ('Read(%s)' % p_,) if p_.startswith('**/') else
+             ('Read(//%s)' % p_,) if p_.startswith('**/') else  # //**/: överallt, inte bara under sessionens katalog
              ('Read(//%s)' % os.path.expanduser(p_).strip('/'), 'Read(//%s/**)' % os.path.expanduser(p_).strip('/')))],
          'Edit(./kontroller/**)', 'Edit(./kritik/**)', 'Edit(./kunskap/**)', 'Edit(./mall/**)', 'Edit(./.claude/**)',
          'Write(./kontroller/**)', 'Write(./kritik/**)', 'Write(./kunskap/**)', 'Write(./mall/**)', 'Write(./.claude/**)']
@@ -1377,15 +1377,48 @@ def godkannande(slug, dom):
         raise ValueError('startsidan kan inte godkännas: %s' % e)
     if not sida.is_file() or sida.is_symlink():
         raise ValueError('startsidan saknas (kunder/%s/sajt/src/pages/index.astro)' % slug)
-    # godkännandet gäller den dömda versionen, som vinnaren bevarar; bygget skriver sedan om sajtens filer (omgranskning
-    # 3, fynd 1: ett bygge från godkännandet gjorde det ogiltigt för nästa bygge)
-    if not kod.is_file() or sha256_fil(kod) != sha256_fil(sida):
-        raise ValueError('startsidan i sajten är inte den dömda versionen i underlag/%s/atelje/vinnare/kod/index.astro; kör om förfiningen eller slutdomen' % slug)
-    if vd.is_file() and not ((sajt / 'DESIGN.md').is_file() and sha256_fil(sajt / 'DESIGN.md') == sha256_fil(vd)):
-        raise ValueError('kunder/%s/sajt/DESIGN.md är inte vinnarens (underlag/%s/atelje/vinnare/DESIGN.md)' % (slug, slug))
+    # godkännandet gäller den dömda versionen, som vinnaren bevarar; ett bygge skriver sedan om sajtens filer, och kor.sh
+    # lägger vinnarens i sajten igen före nästa bygge (installera_godkand; granskning 4 och 5)
+    if not kod.is_file():
+        raise ValueError('vinnaren saknar den dömda startsidan (underlag/%s/atelje/vinnare/kod/index.astro)' % slug)
     post['godkand'] = {'tid': dom['tid'], 'av': dom['kalla'], 'text': str(dom.get('text') or '')[:2000], 'sha_index': sha256_fil(kod),
                        **({'sha_design': sha256_fil(vd)} if vd.is_file() else {})}
     return post
+
+
+def installera_godkand(slug):
+    """Före ett bygge från ägarens godkännande (kor.sh): vinnarens dömda startsida och DESIGN.md läggs i sajten där
+    sajtens skiljer sig (ett tidigare bygge skrev om dem), och de ersatta flyttas till kunder/<slug>/startsida-ersatt/
+    (radera inget). Bara filer med godkännandets hashar läggs dit, och ingen länk följs (granskning 6). design.css skriver
+    bygget själv ur DESIGN.md (kontroller/design.py --skriv; provets grind design). Ger vägarna som ersattes."""
+    rot = UNDERLAG / slug / 'atelje'
+    sajt = KUNDER / slug / 'sajt'
+    g = (las_json(rot / 'VINNARE.json') or {}).get('godkand') or {}
+    ersatta = []
+    for kalla, mal, sha in ((rot / 'vinnare' / 'kod' / 'index.astro', sajt / 'src' / 'pages' / 'index.astro', g.get('sha_index')),
+                            (rot / 'vinnare' / 'DESIGN.md', sajt / 'DESIGN.md', g.get('sha_design'))):
+        if not sha:
+            continue
+        saker_vag(kalla, rot)
+        if not kalla.is_file() or sha256_fil(kalla) != sha:
+            raise RuntimeError('underlag/%s/atelje/vinnare: %s är inte den godkända' % (slug, kalla.name))
+        saker_vag(mal.parent, KUNDER / slug)
+        if mal.is_file() and not mal.is_symlink() and sha256_fil(mal) == sha:
+            continue
+        if mal.is_symlink():
+            mal.unlink()
+        elif mal.exists():
+            undan_rot = KUNDER / slug / 'startsida-ersatt'
+            if undan_rot.is_symlink():  # en planterad länk tas bort, aldrig följd
+                undan_rot.unlink()
+            undan = ledigt_namn(undan_rot, nu().replace(':', ''))
+            undan.mkdir(parents=True)
+            saker_vag(undan, KUNDER / slug)
+            shutil.move(str(mal), str(undan / mal.name))
+        mal.parent.mkdir(parents=True, exist_ok=True)  # en borttagen katalog återskapas (vägen är prövad utan länkar ovan; granskning 7)
+        shutil.copyfile(kalla, mal)
+        ersatta.append(rel(mal))
+    return ersatta
 
 
 def godkann(slug, dom):
@@ -1576,6 +1609,7 @@ def arbetare(slug, lage='ny'):
     for k in BARS + (BARS_FORTSATT if lage == 'fortsatt' else ()):
         if k in forra:
             status.setdefault(k, forra[k])
+    aterkalla(slug)  # en ny körning skriver i sajten: ett tidigare godkännande gäller inte dess resultat (granskning 5, fynd 1)
     skriv = lambda: skriv_status(rot, status)  # noqa: E731
     klar = lambda fas: bool((status['faser'].get(fas) or {}).get('klar'))  # noqa: E731
     try:
@@ -1841,7 +1875,7 @@ def main(argv=None):
     st = las_json(rot / 'STATUS.json') or {}  # läget först: en klar eller förkastad ateljé svarar med sitt utfall
     if a.bara_domare or a.fortsatt:  # en ny stämpel får aldrig dölja ägarens senare dom (omgranskning 3, fynd 4)
         dom = skapande.senaste(a.slug, kallor=skapande.AGAREN, underlag=UNDERLAG)
-        if dom and st.get('steg') and dom.get('tid', '') > (st.get('klar') or st.get('startad') or ''):
+        if dom and dom.get('tid', '') > (st.get('klar') or st.get('startad') or ''):
             print('Ägaren har dömt efter körningen (%s, %s, beslut %s): domen avgör nästa steg (kontroller/prototyp.py), inte %s.'
                   % (dom['tid'], dom['kalla'], dom['beslut'], '--bara-domare' if a.bara_domare else '--fortsatt'))
             return 2

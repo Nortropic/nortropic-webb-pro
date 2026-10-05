@@ -390,7 +390,13 @@ def main(argv=None):
         return 1
     if a.skriv:
         ut = sajt / 'src' / 'styles' / 'design.css'
+        lankar = [x for x in (KUNDER / a.slug, sajt, sajt / 'src', ut.parent) if x.is_symlink()]
+        if lankar:  # kod som körts vid ett bygge kan ha lagt länken; filen skrivs aldrig genom den (granskning 6)
+            print('%s är en länk; design.css skrivs inte' % lankar[0])
+            return 1
         ut.parent.mkdir(parents=True, exist_ok=True)
+        if ut.is_symlink():
+            ut.unlink()
         ut.write_text(css(v), encoding='utf-8')
         print('Skrev %s (%d variabler).' % (ut.relative_to(ROOT) if ut.is_relative_to(ROOT) else ut, css(v).count('  --')))
     k = kontroll(a.slug)

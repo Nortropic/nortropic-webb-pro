@@ -74,12 +74,13 @@ def kor(cmd, cwd=None, timeout=900):
 def bygg_inom_grans(sajt, timeout=600):
     """npm run build för <root>/kunder/<slug>/sajt innanför processgränsen (kontroller/processgrans.py): sidornas egen kod
     körs vid bygget (Astros frontmatter), och i skapandeflödet skriver skaparen den (omgranskningen av skapandeflödet,
-    fynd 8). Utan nät, också utan localhost: där tar dashboarden emot ägarens domar (omgranskning 3). Redan innanför
+    fynd 8). Utan nät, också utan localhost, där dashboarden tar emot ägarens domar, och med skrivning bara i sajten,
+    aldrig i underlag/<slug> med domloggen och VINNARE.json (granskning 4–6). Redan innanför
     gränsen (NWP_PROCESSGRANS=1) körs bygget direkt, aldrig en gräns i en gräns."""
     sajt = Path(sajt)
     kmd = ['npm', 'run', 'build', '--prefix', str(sajt)]
     if os.environ.get('NWP_PROCESSGRANS') != '1':
-        kmd = [sys.executable, '-B', str(KONTROLLER / 'processgrans.py'), sajt.parent.name, '--root', str(sajt.parents[2]), '--utan-nat', '--', *kmd]
+        kmd = [sys.executable, '-B', str(KONTROLLER / 'processgrans.py'), sajt.parent.name, '--root', str(sajt.parents[2]), '--utan-nat', '--bara-sajt', '--', *kmd]
     return kor(kmd, timeout=timeout)
 
 def svans(text, n=25):

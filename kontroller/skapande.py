@@ -334,12 +334,17 @@ def godkand_giltig(slug, underlag=None, kunder=None):
     egna = [d for d in domar(slug, u.parent) if d.get('kalla') in AGAREN]
     if not egna or egna[-1].get('beslut') != 'godkand' or egna[-1].get('tid') != g['tid']:
         return False, 'ägarens senaste dom i domloggen (direkt eller via Codex) är inte godkännandet'
+    st = las_json(u / 'atelje' / 'STATUS.json') or {}
+    if str(st.get('startad') or '') > g['tid']:  # en ny förfining skriver i sajten: dess resultat behöver en ny dom (granskning 5)
+        return False, 'en ny körning i skapandeflödet startade efter godkännandet (%s)' % st.get('startad')
     # den dömda versionen, som vinnaren bevarar: bygget skriver om sajtens egna filer (omgranskning 3, fynd 1)
     kod, vd = u / 'atelje' / 'vinnare' / 'kod' / 'index.astro', u / 'atelje' / 'vinnare' / 'DESIGN.md'
     if not kod.is_file() or kod.is_symlink() or sha256_fil(kod) != g.get('sha_index'):
         return False, 'den godkända startsidan (atelje/vinnare/kod/index.astro) är ändrad sedan godkännandet'
     if g.get('sha_design') and (not vd.is_file() or vd.is_symlink() or sha256_fil(vd) != g['sha_design']):
         return False, 'den godkända DESIGN.md (atelje/vinnare/DESIGN.md) är ändrad sedan godkännandet'
+    if not g.get('sha_design') and (vd.exists() or vd.is_symlink()):  # en DESIGN.md som lagts dit efteråt (granskning 6)
+        return False, 'vinnaren har en DESIGN.md som inte ingår i godkännandet'
     return True, 'godkänd %s' % g['tid']
 
 
