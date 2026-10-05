@@ -41,8 +41,15 @@ chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true   # kvarlämn
 echo $$ > "$LAS"
 WT_PID=""
 # städningen får aldrig ändra slutkoden (set -e gäller också i trapen): varje steg tål att misslyckas
-trap 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true; rm -f "$LAS"; [ -z "${WT_PID:-}" ] || kill "$WT_PID" 2>/dev/null || true' EXIT
+trap 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true; [ -z "${DOMLOGG:-}" ] || chflags nouchg "$DOMLOGG" 2>/dev/null || true; rm -f "$LAS"; [ -z "${WT_PID:-}" ] || kill "$WT_PID" 2>/dev/null || true' EXIT
 mkdir -p "$ROOT/kunder/$SLUG" "$ROOT/underlag/$SLUG"
+# Ägarens domlogg låses under bygget (chflags uchg nedan): bygget når den annars med cp och mv, och dashboarden skriver
+# ägarens domar först när bygget är klart. En ändring under körningen är då inte ägarens: korslut ger slutkod 3
+# (omgranskningen av skapandeflödet, fynd 2). Saknas loggen skapas den tom, så att den kan låsas.
+DOMLOGG="$ROOT/underlag/$SLUG/DESIGNDOMAR.jsonl"
+[ -L "$DOMLOGG" ] && { echo "domloggen underlag/$SLUG/DESIGNDOMAR.jsonl är en länk; bygget startas inte"; exit 2; }
+chflags nouchg "$DOMLOGG" 2>/dev/null || true   # kvarlämnad flagga efter en avbruten körning
+[ -e "$DOMLOGG" ] || : > "$DOMLOGG"
 rm -f "$ROOT/kunder/$SLUG/prov/.stoppvakt-antal"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOGG="$ROOT/kunder/$SLUG/korning-$STAMP.jsonl"
@@ -64,11 +71,17 @@ GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.ar
 import skapande
 ok, skal = skapande.godkand_giltig(sys.argv[2])
 print("ja" if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
+AGARENS_LAGE="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+import prototyp
+print(prototyp.lage(sys.argv[2])[0])' "$ROOT" "$SLUG" 2>/dev/null || true)"
 if [ -n "$GODKAND" ]; then
   PROMPT="$PROMPT
 
 Ägaren har godkänt startsidan i skapandeflödet (underlag/$SLUG/atelje/VINNARE.json, fältet godkand): ta vid efter valet
 i steg 5.1, som från ateljévinnaren. Kör inte ateljén; startsidan står i kunder/$SLUG/sajt/src/pages/index.astro."
+elif [ "${NWP_ATELJE:-pa}" = "pa" ] && { [ "$AGARENS_LAGE" = "putsa" ] || [ "$AGARENS_LAGE" = "ny-riktning" ]; }; then
+  # ägaren har dömt startsidan efter skapandeflödets körning: nästa steg är skapandeflödet, inte ett bygge på den dömda
+  echo "ägarens senaste dom över startsidan säger $AGARENS_LAGE: kör .venv/bin/python kontroller/prototyp.py $SLUG före bygget; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
 elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ "${NWP_SANDLADA:-av}" = "pa" ]; then
   echo "skapandeflödet (ateljén) körs utanför sandlådan, före bygget: kör .venv/bin/python kontroller/prototyp.py $SLUG och godkänn startsidan i dashboardens vy Prototyp; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
 elif [ "${NWP_ATELJE:-pa}" = "pa" ]; then
@@ -174,9 +187,9 @@ cd "$ROOT"   # projektets Stop-krok laddas bara när sessionen startar i reporot
 # Bash når förbi Edit/Write-reglerna ovan (cp, mv, egna skript); därför jämförs de skyddade filernas innehåll före och
 # efter, fil för fil, oavsett om en ändring committats under körningen (revisionen 2026-10-03, F10).
 SKYDDAT=(kontroller kritik kunskap mall .claude dashboard kor.sh dashboard.sh CLAUDE.md BESLUT.md LARDOMAR.md .gitignore
-         "underlag/$SLUG/DESIGNDOMAR.jsonl")  # ägarens domlogg: en ändring under bygget är ändrad mekanik (slutkod 3)
+         "underlag/$SLUG/DESIGNDOMAR.jsonl")  # ägarens domlogg, låst under bygget: en ändring är ändrad mekanik (slutkod 3)
 skyddat() {
-  # en post som saknas (domloggen före ägarens första dom) får inte fälla skriptet; skapas den under bygget syns den efteråt
+  # en post som saknas får inte fälla skriptet; försvinner eller tillkommer den under bygget syns det efteråt
   { find "${SKYDDAT[@]}" -type f ! -path '*/node_modules/*' ! -path '*/__pycache__/*' ! -name '.DS_Store' -print0 2>/dev/null || true; } \
     | sort -z | xargs -0 shasum -a 256
 }
@@ -213,6 +226,7 @@ chflags uchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || { echo "kunder/ och 
 for d in kunder underlag; do
   stat -f %Sf "$ROOT/$d" 2>/dev/null | grep -q uchg || { echo "$d/ är inte låst (flaggan uchg saknas efter chflags); bygget startas inte"; exit 2; }
 done
+chflags uchg "$DOMLOGG" 2>/dev/null && stat -f %Sf "$DOMLOGG" 2>/dev/null | grep -q uchg || { echo "domloggen underlag/$SLUG/DESIGNDOMAR.jsonl kunde inte låsas (chflags uchg); bygget startas inte"; exit 2; }
 { skyddat; grans; } > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
@@ -221,7 +235,7 @@ RC=$?
 set -e
 rm -f "$EFTER_FIL"
 { skyddat; grans; } > "$EFTER_FIL"
-chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true
+chflags nouchg "$ROOT/kunder" "$ROOT/underlag" "$DOMLOGG" 2>/dev/null || true
 # Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
 # godkännande, 3 mekaniken ändrades under körningen, 4 claude föll, 6 ateljén förkastade alla riktningar och bygget
 # stannade utan sajt (designprovet, ägarbeslut 2026-10-04). Skriptets slutkod är korsluts.

@@ -8,7 +8,9 @@ Slutkod: 0 provet grönt för just det bygge som ligger i dist/, RAPPORT.md finn
 kontroller och godkänd granskning, och granskningen gäller samma bygge och samma metod som nu · 1 avslutat utan det
 (också när en äldre godkänd granskningsfil ligger kvar; omgång tre, F11) · 3 mekaniken (provet, kriterierna, mallen,
 krokarna, kor.sh, dashboarden) eller gränsen (en post tillkom eller försvann direkt under kunder/ eller underlag/, eller
-flaggan uchg lyftes; kor.sh:s grans(), Codex 2026-10-04 F1) ändrades under körningen · 4 claude avslutade med annan kod än 0.
+flaggan uchg lyftes; kor.sh:s grans(), Codex 2026-10-04 F1), eller ägarens domlogg, ändrades under körningen · 4 claude
+avslutade med annan kod än 0 · 6 bygget stannade utan sajt (ateljén förkastade alla riktningar, skaparen lämnade grundidén,
+eller ägaren dömde startsidan efter körningen).
 Texterna (kunskap/, LARDOMAR.md, skills) skrivs också av kirurgens intag och ägarens domar i dashboarden medan ett
 bygge pågår; ändringar där ger bara en varning. Hela fillistan klassificeras; bara utskriften kapas.
 """
@@ -122,7 +124,10 @@ def main(argv):
     s, v = las(k / 'prov' / 'STATUS.json'), las(k / 'prov' / 'STOPPVAKT.json')
     g, nu_hash, senaste, gfel = vald_granskning(k, korning)
     skydd = andrade(fore, efter)
-    mekanik = [f for f in skydd if f.startswith(MEKANIK)]
+    # ägarens domlogg är låst under bygget (kor.sh, chflags uchg): en ändring kom inte från dashboarden (omgranskningen,
+    # fynd 2: loggen räknades som text och gav bara en varning)
+    domlogg = [f for f in skydd if f.startswith('underlag/') and f.endswith('/DESIGNDOMAR.jsonl')]
+    mekanik = [f for f in skydd if f.startswith(MEKANIK)] + domlogg
     print('\nclaude avslutade med kod', rc)
     if skydd:
         print('VARNING: skyddade filer ändrades under körningen, av bygget eller någon annan (kirurgen, ägarens dom):\n'
@@ -152,13 +157,15 @@ def main(argv):
     if not godkant and skal:
         print('Inte godkänt:', skal)
     if mekanik:
+        if domlogg:
+            print('Ägarens domlogg ändrades under körningen fast den var låst; ägarens domar skrivs bara av dashboarden när inget bygge pågår.')
         print('Slutkod 3: mekaniken eller gränsen ändrades under körningen:', ', '.join(mekanik[:20]))
         return 3
     if rc != '0':
         print('Slutkod 4: claude avslutade med kod', rc)
         return 4
     if v and v.get('ateljen_forkastad') and v.get('slapp'):
-        print('Slutkod 6: ateljén förkastade alla riktningar och bygget stannade utan sajt (ägarbeslut 2026-10-04); panelens dom i underlag/%s/atelje/VAL.md' % k.name)
+        print('Slutkod 6: bygget stannade utan sajt (ägarbeslut 2026-10-04): %s; underlaget i underlag/%s/atelje/' % (v.get('skal') or 'ateljén förkastade alla riktningar', k.name))
         return 6
     print('Slutkod', 0 if godkant else 1, ':', 'godkänt bygge' if godkant else 'avslutat utan grönt prov och godkänd granskning')
     return 0 if godkant else 1

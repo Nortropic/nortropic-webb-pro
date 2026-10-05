@@ -414,6 +414,23 @@ for f in vy-390-forsta.png vy-390-hela.png vy-1440-forsta.png vy-1440-hela.png E
 done
 case "$FH" in *"underlag/rokprov-mall/forhand/start/varv-01/vy-390-forsta.png"*"Konsolfel: inga"*) ;; *) echo "FEL: förhandsvisningens utskrift: $FH"; exit 1;; esac
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/forhandsvisa.py" rokprov-mall --sida /finns-inte/ >/dev/null 2>&1 && { echo "FEL: en sida som inte finns ska ge rc 2"; exit 1; }
+# efter TILLBAKA (skaparen lämnade grundidén): sajten bygger, innanför processgränsen, med mallens design.css tillbaka
+# (omgranskningen av skapandeflödet, fynd 5: den flyttades, och nästa omgång kunde aldrig bygga)
+"$ROOT/.venv/bin/python" -B -c "
+import sys, shutil, tempfile, pathlib, os
+sys.path.insert(0, '$ROOT/kontroller'); import atelje, prova
+t = pathlib.Path(tempfile.mkdtemp(prefix='nwp-tillbaka-'))
+sajt = t / 'kunder' / 'tillbaka-prov' / 'sajt'
+shutil.copytree('$S', sajt, symlinks=True, ignore=shutil.ignore_patterns('node_modules', 'dist', '.astro'))
+os.symlink(os.path.realpath('$S/node_modules'), sajt / 'node_modules')
+assert (sajt / 'src' / 'styles' / 'design.css').read_text() != atelje.MALL_DESIGN_CSS.read_text(), 'provsajtens design.css är genererad ur DESIGN.md'
+atelje.KUNDER = t / 'kunder'
+flyttade = atelje.lamna_sajtfiler('tillbaka-prov', t / 'lamnad')
+assert 'design.css' in flyttade and (sajt / 'src' / 'styles' / 'design.css').read_text() == atelje.MALL_DESIGN_CSS.read_text(), flyttade
+rc, ut = prova.bygg_inom_grans(sajt)
+assert rc == 0 and (sajt / 'dist' / 'kontakt' / 'index.html').is_file(), ut[-1500:]
+shutil.rmtree(t)
+" || { echo "FEL: sajten bygger inte efter TILLBAKA"; exit 1; }
 echo "   förhandsvisningen ok"
 
 echo "   prospektpipelinen: SCB-stubb, sajtjakt, mätning av en lokal sajt, poäng (offline)"

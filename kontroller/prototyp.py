@@ -6,10 +6,11 @@ förbättringarna inte följde med mellan dem, blev ett; prototypen är inget eg
 
     .venv/bin/python kontroller/prototyp.py <slug> [--ny-riktning | --putsa | --om] [--vanta SEK]
 
-Utan flagga avgör domloggen: ägarens senaste dom (efter den senaste körningen) säger ny_riktning → omtag (designbesluten
-arkiveras, utforskningen börjar om ur mallen); putsa → förfina den valda riktningen vidare; godkand → inget att göra,
-bygget tar vid från vinnaren (kor.sh). Ingen körning än → en ny, som omtag om domloggen redan säger ny_riktning. En
-körning som pågår väntas in. Ägaren dömer i dashboardens vy Prototyp.
+Utan flagga avgör domloggen: ägarens senaste dom (efter den senaste körningen, direkt eller via Codex) säger
+ny_riktning → omtag (designbesluten arkiveras, utforskningen börjar om ur mallen); putsa → förfina den valda riktningen
+vidare; godkand → inget att göra, bygget tar vid från vinnaren (kor.sh), om godkännandet gäller. Ingen körning än → en
+ny, som omtag om domloggen redan säger ny_riktning; en annan dom, eller tidigare designbeslut utan dom, stoppar tills
+--ny-riktning eller --om väljs. En körning som pågår väntas in. Ägaren dömer i dashboardens vy Prototyp.
 """
 import argparse
 import os
@@ -30,6 +31,10 @@ def lage(slug):
     if not st.get('steg'):
         if dom and dom['beslut'] == 'ny_riktning':
             return 'ny-riktning', 'ingen körning i skapandeflödet än, och ägarens senaste dom (%s) säger ny riktning' % dom['tid']
+        if dom:  # putsa eller godkand utan körning: det finns ingen vald riktning i skapandeflödet att putsa eller bygga från
+            return 'stopp', ('ägarens senaste dom (%s, %s, beslut %s) gäller ingen körning i skapandeflödet: det finns ingen vald '
+                             'riktning att putsa eller bygga från. Välj --ny-riktning (designbesluten arkiveras) eller --om (en ny '
+                             'utforskning med dem kvar) uttryckligen' % (dom['tid'], dom['kalla'], dom['beslut']))
         u = atelje.UNDERLAG / slug
         gamla = [n for n, p in (('prototyp/', u / 'prototyp'), ('REFERENSER.md med huvudreferens', u / 'REFERENSER.md'),
                                 ('startsidan', atelje.KUNDER / slug / 'sajt' / 'src' / 'pages' / 'index.astro'))
@@ -41,6 +46,10 @@ def lage(slug):
         return 'om', 'ingen körning än'
     efter = dom if dom and dom.get('tid', '') > (st.get('klar') or st.get('startad') or '') else None
     if efter:
+        if efter['beslut'] == 'godkand':  # samma prövning som kor.sh gör innan bygget tar vid (skapande.godkand_giltig)
+            ok, skal = skapande.godkand_giltig(slug, atelje.UNDERLAG, atelje.KUNDER)
+            if not ok:
+                return 'stopp', 'ägarens senaste dom (%s) godkänner startsidan, men godkännandet gäller inte: %s' % (efter['tid'], skal)
         return {'ny_riktning': 'ny-riktning', 'putsa': 'putsa', 'godkand': 'godkand'}[efter['beslut']], 'ägarens dom %s (%s)' % (efter['tid'], efter['kalla'])
     if st.get('steg') == 'fel':
         return 'vanta', 'förra körningen föll (%s); --fortsatt i kontroller/atelje.py tar vid efter den senaste klara fasen' % str(st.get('fel'))[:200]

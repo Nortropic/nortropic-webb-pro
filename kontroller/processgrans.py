@@ -64,6 +64,9 @@ def profil(slug, root=None, hem=None, tmp=None):
     hem = hem or os.path.expanduser('~')
     fs = sandlada.installningar(slug, root=root, hem=hem)['sandbox']['filesystem']
     skriv = list(fs['allowWrite']) + ['/tmp/nwp-granskning/%s' % slug, tmp or tempkatalog(slug)]
+    nm = root / 'kunder' / slug / 'sajt' / 'node_modules'
+    if nm.is_symlink():  # en worktree delar sajtens beroenden med huvudutcheckningen: byggets cacher (.vite, .astro) skrivs där
+        skriv.append(os.path.realpath(nm))
     # seatbelt matchar subpath mot den verkliga sökvägen: /tmp är en symlänk till /private/tmp på macOS, så varje väg ges
     # både som angiven och upplöst (annars träffar varken skrivtillåtelsen i byggets kataloger eller läsförbudet)
     verkliga = lambda vagar: list(dict.fromkeys(x for p in vagar for x in (str(p), os.path.realpath(p))))  # noqa: E731

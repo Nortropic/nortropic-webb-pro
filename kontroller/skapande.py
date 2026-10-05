@@ -28,6 +28,9 @@ DOMLOGG = 'DESIGNDOMAR.jsonl'
 HISTORIK = 'RIKTNINGSHISTORIK.json'
 BESLUT = ('godkand', 'putsa', 'ny_riktning')
 KALLOR = ('ägaren', 'ägaren via Codex', 'panelen', 'skaparen')
+# ägarens domar: direkt i dashboarden eller ordagrant via Codex. Godkännandet, läget och stoppet räknar båda
+# (omgranskningen av skapandeflödet, fynd 2: en underkännande dom via Codex lämnade godkännandet giltigt)
+AGAREN = ('ägaren', 'ägaren via Codex')
 # vad en dom återöppnar (Codex 2026-10-05, punkt 2: systemet behöver förstå vilka tidigare beslut ett underkännande
 # återöppnar); fakta om verksamheten återöppnas aldrig
 ATEROPPNAR = {
@@ -102,14 +105,14 @@ def lagg_till_dom(slug, kalla, beslut, text, avser='', underlag=None, tid=None, 
     return post
 
 
-def senaste(slug, kallor=('ägaren', 'ägaren via Codex'), underlag=None):
+def senaste(slug, kallor=AGAREN, underlag=None):
     """Den senaste domen från ägaren (direkt eller via Codex), eller None."""
     return next((d for d in reversed(domar(slug, underlag)) if d.get('kalla') in kallor), None)
 
 
 def kritikrader(slug, antal=3, underlag=None):
     """Ägarens senaste domar ordagrant, nyast först, med vad de återöppnar: prompternas första underlag."""
-    egna = [d for d in domar(slug, underlag) if d.get('kalla') in ('ägaren', 'ägaren via Codex')][-antal:]
+    egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN][-antal:]
     if not egna:
         return []
     rader = ['Ägarens senaste domar över designen (underlag/%s/%s), nyast först. De väger tyngst av allt du läser; en senare' % (slug, DOMLOGG),
@@ -146,8 +149,9 @@ def historikrader(slug, underlag=None, antal=8):
              'väljs med eget skäl. Ett drag ur en underkänd grundidé behöver ett skäl ur verksamhetens material som också svarar',
              'på kritiken mot den; inget drag är förbjudet i sig:']
     for p in h:
-        rader.append('- %s (%s, %s): %s. Utfall: %s%s' % (p['namn'], p.get('kalla', '?'), p.get('tid', '?'), p.get('drag', '').strip(),
-                                                         p.get('utfall', '?'), (': ' + p['kritik'].strip()) if p.get('kritik') else ''))
+        rader.append('- %s (%s, %s%s): %s. Utfall: %s%s' % (p['namn'], p.get('kalla', '?'), p.get('tid', '?'),
+                                                           ', huvudreferens %s' % p['referens'] if p.get('referens') else '', p.get('drag', '').strip(),
+                                                           p.get('utfall', '?'), (': ' + p['kritik'].strip()) if p.get('kritik') else ''))
     return rader
 
 
@@ -196,6 +200,41 @@ def senaste_paket(slug, underlag=None):
     return max(nr)[1] if nr else None
 
 
+# Kompletteringen är skaparsessionens enda kanal ut: adresserna hämtas och frågorna går till tjänsterna. Formen och mängden
+# begränsas så att den inte kan bära mer än en referensjakt behöver (omgranskningen av skapandeflödet, fynd 8: en spärr
+# mot frågesträngar räckte inte, vägsegment bär samma data). Kanalen är smal, inte stängd: värdnamnet och några korta
+# vägar går fortfarande ut, och skaparen läser bara underlaget, aldrig hemligheter (kunskap/skapandeflodet.md).
+MAX_KANDIDATER, MAX_SIDOR_PER, MAX_FRAGOR, MAX_FRAGA = 3, 4, 3, 160
+VARD = re.compile(r'^https://(?:[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?\.){1,3}[a-z]{2,12}/$')
+LED = r'[a-z0-9](?:[a-z0-9._-]{0,38}[a-z0-9])?'
+SIDVAG = re.compile(r'^/(?:%s(?:/%s){0,2}/?)?$' % (LED, LED))  # högst tre led om högst 40 tecken, med snedstreck emellan
+
+
+def kanal_fel(begaran):
+    """Skälet när en begäran går utanför kanalens form, annars None."""
+    ref = begaran.get('referens')
+    kand = (ref or {}).get('kandidater') if isinstance(ref, dict) else None
+    if ref is not None and (not isinstance(kand, list) or not 1 <= len(kand) <= MAX_KANDIDATER):
+        return 'referens.kandidater ska vara 1–%d kandidater' % MAX_KANDIDATER
+    for k in kand or []:
+        if not isinstance(k, dict) or not VARD.match(str(k.get('adress') or '')):
+            return 'adressen ska vara en sajts ursprung, https://värd/ med korta etiketter i a–z, 0–9 och bindestreck'
+        sidor = k.get('sidor') or ['/']
+        if not isinstance(sidor, list) or len(sidor) > MAX_SIDOR_PER or any(not isinstance(s, str) or len(s) > 80 or not SIDVAG.match(s) for s in sidor):
+            return 'sidvägarna ska vara högst %d korta vägar i a–z, 0–9, punkt och bindestreck, högst tre led, utan frågesträng eller fragment' % MAX_SIDOR_PER
+    tj = begaran.get('tjanster')
+    if tj is not None:
+        fr = tj.get('fragor') if isinstance(tj, dict) else None
+        if not isinstance(fr, list) or not 1 <= len(fr) <= MAX_FRAGOR:
+            return 'tjanster.fragor ska vara 1–%d frågor' % MAX_FRAGOR
+        for f in fr:
+            text = ' '.join(str((f or {}).get(x) or '') for x in ('fraga', 'syfte')) if isinstance(f, dict) else ''
+            if not isinstance(f, dict) or not text.strip() or len(str(f.get('fraga') or '')) > MAX_FRAGA or len(str(f.get('syfte') or '')) > MAX_FRAGA \
+                    or re.search(r'https?:|www\.|@|\d{5,}', text):
+                return 'en fråga till tjänsterna är högst %d tecken, utan adresser eller långa sifferföljder' % MAX_FRAGA
+    return None
+
+
 def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None):
     """Research på begäran (Codex 2026-10-05, punkt 3 och 4): skaparens KOMPLETTERING.json blir uppdrag till det befintliga
     referenssteget (referens.py ger en ny komplett paketversion som ärver det förra; referenstjanster.py söker i Refero och
@@ -217,9 +256,9 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None):
     if not isinstance(begaran, dict) or begaran.get('fel'):
         ut['fel'] = (begaran or {}).get('fel') if isinstance(begaran, dict) else 'begäran är inget JSON-objekt'
         return ut
-    sidor = [s for k in ((begaran.get('referens') or {}).get('kandidater') or []) if isinstance(k, dict) for s in (k.get('sidor') or [])]
-    if any(not isinstance(s, str) or '?' in s or '#' in s for s in sidor):  # inga frågesträngar ut ur skaparens session
-        ut['fel'] = 'sidvägarna i en komplettering får inte ha frågesträng eller fragment'
+    fel = kanal_fel(begaran)
+    if fel:  # adresserna och frågorna är sessionens enda väg ut; de begränsas i form och mängd
+        ut['fel'] = fel
         return ut
     if isinstance(begaran.get('referens'), dict):
         upp = dict(begaran['referens'])
@@ -288,9 +327,9 @@ def godkand_giltig(slug, underlag=None, kunder=None):
     g = (las_json(u / 'atelje' / 'VINNARE.json') or {}).get('godkand')
     if not isinstance(g, dict) or not g.get('tid'):
         return False, 'inget godkännande i VINNARE.json'
-    egna = [d for d in domar(slug, u.parent) if d.get('kalla') == 'ägaren']
+    egna = [d for d in domar(slug, u.parent) if d.get('kalla') in AGAREN]
     if not egna or egna[-1].get('beslut') != 'godkand' or egna[-1].get('tid') != g['tid']:
-        return False, 'ägarens senaste dom i domloggen är inte godkännandet'
+        return False, 'ägarens senaste dom i domloggen (direkt eller via Codex) är inte godkännandet'
     sida = sajt / 'src' / 'pages' / 'index.astro'
     if not sida.is_file() or sida.is_symlink() or sha256_fil(sida) != g.get('sha_index'):
         return False, 'startsidan är ändrad sedan godkännandet'
@@ -327,8 +366,13 @@ def main(argv=None):
         print('okänt underlag: underlag/%s' % a.slug, file=sys.stderr)
         return 2
     if a.cmd == 'dom':
-        post = lagg_till_dom(a.slug, a.kalla, a.beslut, Path(a.fil).read_text(encoding='utf-8'), avser=a.avser, tid=a.tid)
-        print('domen tillagd: %s, %s, %s' % (post['tid'], post['kalla'], post['beslut']))
+        import atelje  # samma väg som dashboarden: godkännandet prövas före domen, en annan dom från ägaren drar tillbaka det
+        try:
+            post = atelje.doma(a.slug, a.kalla, a.beslut, Path(a.fil).read_text(encoding='utf-8'), avser=a.avser, tid=a.tid)
+        except ValueError as e:
+            print('domen skrevs inte: %s' % e, file=sys.stderr)
+            return 2
+        print('domen tillagd: %s, %s, %s%s' % (post['tid'], post['kalla'], post['beslut'], {'godkand': '; startsidan godkänd för bygget'}.get(post['beslut'], '') if post['kalla'] in AGAREN else ''))
     elif a.cmd == 'historik':
         lagg_till_historik(a.slug, [{k: getattr(a, k) for k in ('kalla', 'namn', 'drag', 'utfall', 'kritik')} | ({'tid': a.tid} if a.tid else {})])
         print('historiken har %d poster' % len(historik(a.slug)))

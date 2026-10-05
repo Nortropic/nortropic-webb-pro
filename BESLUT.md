@@ -228,3 +228,8 @@ ett välgrundat val, och iterationen ska kunna ändra grundidén.
    hade skrivit om minnesindexet.
 6. **Inga helbyggen** medan backloggen stäms av mot koden och det sammanhängande paketet för designflödet och
    byggvägen färdigställs (Codex via ägaren, tredje texten).
+7. **Efter omgranskningen** (Opus, samma dag): ägarens domar via Codex väger som domarna i vyn, och båda vägarna
+   prövar godkännandet innan domen skrivs. Domloggen låses under bygget, och en ändring där ger slutkod 3. Säger
+   ägarens senaste dom putsa eller ny riktning, startar inget bygge. Ateljéns byggen av skaparens sidor körs innanför
+   processgränsen, och paket installeras bara med `kontroller/typsnitt.py`, eftersom sidorna är kod som körs vid
+   bygget. Inget i ateljén raderas vid en återupptagning; det flyttas till `atelje/foregaende/`.

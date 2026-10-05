@@ -792,14 +792,16 @@ def prototyp_slugar():
 def prototyp_domd(slug, st):
     """Har ägaren dömt den här körningen? En dom ur vyn bär körningens starttid i avser (spara_prototyp)."""
     import skapande
-    return bool(st.get('startad')) and any(d.get('kalla') == 'ägaren' and st['startad'] in str(d.get('avser') or '')
+    return bool(st.get('startad')) and any(d.get('kalla') in skapande.AGAREN and st['startad'] in str(d.get('avser') or '')
                                              for d in skapande.domar(slug, UNDERLAG))
 
 
 def prototyp(slug):
     """Skapandeflödets läge: riktningarna som prövades, startsidan före och efter förfiningen i 390 och 1440, den valda
-    huvudreferensen, skaparens varv och ägarens domar. Panelens val och slutdom och redovisningen visas först när ägaren
-    dömt körningen, så att ägarens dom är oberoende (som granskarens dom över byggen)."""
+    huvudreferensen, skaparens varv och ägarens domar. Vilken riktning som förfinades syns (före är panelens val, och
+    ägaren dömer den synliga förbättringen mot ribban; Codex via ägaren 2026-10-05); panelens skäl, poäng och slutdom,
+    förfiningens anteckningar och redovisningen visas först när ägaren dömt körningen, så att domen är oberoende av dem
+    (som granskarens dom över byggen)."""
     import atelje
     import referensval
     import skapande
@@ -811,7 +813,7 @@ def prototyp(slug):
     namn = atelje.riktningsavsnitt(rot)
     refs = atelje.riktningsreferenser(slug, rot)
     riktningar = [{'n': int(d.name), 'namn': namn.get(int(d.name), ('riktning %s' % d.name, ''))[0], 'referens': (refs.get(int(d.name)) or {}).get('namn'),
-                   'bilder': bilder(d.name), 'vald': domd and vinnare.get('riktning') == int(d.name)}
+                   'bilder': bilder(d.name), 'vald': vinnare.get('riktning') == int(d.name)}
                   for d in sorted(rot.glob('[0-9]'), key=lambda x: int(x.name)) if d.is_dir() and not d.is_symlink()]
     hr = referensval.huvudreferens(slug, UNDERLAG)
     md_ = lambda n: md(las_text(rot / n) or '') if (rot / n).is_file() else ''  # noqa: E731
@@ -844,13 +846,9 @@ def spara_prototyp(slug, data, minuter=None):
         raise ValueError('skriv vad som ska ändras: domen är nästa körnings kritik')
     if data['beslut'] == 'godkand' and st.get('steg') != 'klar':
         raise ValueError('bara en klar körning kan godkännas')
-    with PR_LAS:
-        dom = skapande.lagg_till_dom(slug, 'ägaren', data['beslut'], text[:20000], avser='skapandeflödet, körningen %s' % st.get('startad'),
-                                     underlag=UNDERLAG, **({'niva': data['niva']} if data.get('niva') else {}), **({'minuter': minuter} if minuter is not None else {}))
-        if data['beslut'] == 'godkand':
-            atelje.godkann(slug, dom)
-        else:
-            atelje.aterkalla(slug)  # en senare dom drar tillbaka ett tidigare godkännande
+    with PR_LAS:  # godkännandet prövas före domen skrivs; en annan dom drar tillbaka ett tidigare godkännande (atelje.doma)
+        dom = atelje.doma(slug, 'ägaren', data['beslut'], text[:20000], avser='skapandeflödet, körningen %s' % st.get('startad'),
+                          **({'niva': data['niva']} if data.get('niva') else {}), **({'minuter': minuter} if minuter is not None else {}))
     return {'ok': True, 'dom': dom}
 
 

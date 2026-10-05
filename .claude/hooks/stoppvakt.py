@@ -37,21 +37,47 @@ GRANSKNING_FRIST = 1750  # granskningen väntar högst 1700 s; provet och gransk
 UTFALL = {0: 'godkänd', 1: 'underkänd', 2: 'kunde inte startas', 3: 'taket för granskningar nått', 4: 'granskaren föll', 5: 'pågår'}
 
 
+def agarens_senare_dom(root, slug, efter):
+    """Ägarens senaste dom (direkt eller via Codex) i domloggen när den är putsa eller ny_riktning och kom efter tiden efter;
+    annars None. Samma läge som ger kontroller/atelje.py slutkod 6 i bygget (omgranskningen av skapandeflödet, fynd 2)."""
+    egna = []
+    try:
+        for rad in (Path(root) / 'underlag' / slug / 'DESIGNDOMAR.jsonl').read_text(encoding='utf-8').splitlines():
+            try:
+                d = json.loads(rad)
+            except ValueError:
+                continue
+            if isinstance(d, dict) and d.get('kalla') in ('ägaren', 'ägaren via Codex'):
+                egna.append(d)
+    except OSError:
+        return None
+    d = egna[-1] if egna else None
+    return d if d and d.get('beslut') in ('putsa', 'ny_riktning') and str(d.get('tid') or '') > efter else None
+
+
 def ateljen_forkastad(root, slug):
-    """Skälet när ateljén i den här körningen förkastade alla riktningar, annars None (designprovet, ägarbeslut 2026-10-04:
-    bäst av undermåliga blir aldrig godkänt, bygget stannar). Läget måste hålla ihop: STATUS.json säger forkastad, VAL.json
-    har ingen vald riktning och minst två domare, och sandlådan är av (ateljén körs aldrig sandlådad, så ett sådant läge
-    där är inte ateljéns)."""
+    """Skälet när bygget ska stanna utan sajt, annars None (designprovet, ägarbeslut 2026-10-04: bäst av undermåliga blir
+    aldrig godkänt): ateljén förkastade alla riktningar (STATUS.json säger forkastad, VAL.json har ingen vald riktning och
+    minst två domare), skaparen lämnade grundidén när omgångarna var slut (tillbaka), eller ägaren dömde startsidan
+    (putsa, ny riktning) efter körningen. Sandlådan är av (ateljén körs aldrig sandlådad, så ett sådant läge där är inte
+    ateljéns)."""
     if os.environ.get('NWP_SANDLADA') == 'pa':
         return None
     rot = Path(root) / 'underlag' / slug / 'atelje'
     try:
         st = json.loads((rot / 'STATUS.json').read_text(encoding='utf-8'))
-        val = json.loads((rot / 'VAL.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
     if isinstance(st, dict) and st.get('steg') == 'tillbaka' and not st.get('pid') and (rot / 'TILLBAKA.md').is_file():
         return st.get('skal') or 'skaparen fann under förfiningen att grundidén inte bär, och omgångarna är slut'  # skapandeflödet
+    if isinstance(st, dict) and st.get('steg') == 'klar' and not st.get('pid'):  # ägaren dömde startsidan efter körningen
+        dom = agarens_senare_dom(root, slug, st.get('klar') or '')
+        if dom:
+            return 'ägaren dömde startsidan efter körningen (%s, %s, beslut %s): den byggs inte vidare' % (dom.get('tid'), dom.get('kalla'), dom.get('beslut'))
+    try:  # panelens förkastning måste hålla ihop med valet; de andra två lägena behöver inget val
+        val = json.loads((rot / 'VAL.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
     if not isinstance(st, dict) or not isinstance(val, dict) or st.get('steg') != 'forkastad' or st.get('pid'):
         return None
     if val.get('val') is not None or not val.get('forkastade') or len(val.get('panel') or {}) < 2:
@@ -87,13 +113,13 @@ def main():
                 'korning': os.environ.get('NWP_KORNING') or None, 'ateljen_forkastad': True,
                 'rapport_finns': rapport.is_file() and rapport.stat().st_size > 300}
         if post['rapport_finns']:
-            post.update(slapp=True, skal='ateljén förkastade alla riktningar (%s); bygget stannade utan sajt enligt ägarbeslutet 2026-10-04' % forkastad)
+            post.update(slapp=True, skal='bygget stannade utan sajt enligt ägarbeslutet 2026-10-04: %s' % forkastad)
             (prov / 'STOPPVAKT.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
             return 0
-        post.update(slapp=False, skal='ateljén förkastade alla riktningar; rapporten saknas')
+        post.update(slapp=False, skal='bygget ska stanna utan sajt (%s); rapporten saknas' % forkastad)
         (prov / 'STOPPVAKT.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-        print('Ateljén förkastade alla riktningar (underlag/%s/atelje/VAL.md): bygg ingen sajt utan en godkänd riktning. '
-              'Skriv kunder/%s/RAPPORT.md (varför, panelens kritik ur VAL.md, vad som behövs för ett nytt försök) och avsluta.' % (slug, slug), file=sys.stderr)
+        print('Bygget ska stanna utan sajt: %s (underlag/%s/atelje/). Bygg ingen sajt utan en godkänd riktning. Skriv '
+              'kunder/%s/RAPPORT.md (varför, panelens eller ägarens kritik, vad som behövs för ett nytt försök) och avsluta.' % (forkastad, slug, slug), file=sys.stderr)
         return 2
 
     try:

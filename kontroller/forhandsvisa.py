@@ -6,9 +6,9 @@ Codex via ägaren 2026-10-05: formgivaren kunde inte se sina egna sidor innan pa
 titta → upptäck svagheten → rätta → titta igen saknades inom skaparsessionen. Det här är det steget, som ett kommando
 skaparen själv får köra.
 
-    .venv/bin/python kontroller/forhandsvisa.py <slug> [--sida /]
+    .venv/bin/python kontroller/forhandsvisa.py <slug> [--sida /] [--bara-bygg]
 
-Bygger kunder/<slug>/sajt (npm run build), serverar dist/ lokalt och kör inspektera.mjs i 390 och 1440 med mätningen av
+Bygger kunder/<slug>/sajt (npm run build innanför processgränsen, kontroller/processgrans.py), serverar dist/ lokalt och kör inspektera.mjs i 390 och 1440 med mätningen av
 typografi, färger, rytm och bilder (EXTRAKT.md). Bilderna hamnar i underlag/<slug>/forhand/<sida>/varv-NN/ (sidan
 "start" för /, annars vägen med bindestreck; nästa lediga nummer), så att prototypens och ateljéns varv hålls isär.
 Skriver ut vägarna att läsa med Read, mobil först, och konsolfel och sidled-spill. Ändrar ingenting i sajten.
@@ -57,15 +57,17 @@ def nasta_varv(rot):
     return Path(rot) / ('varv-%02d' % (max(nr or [0]) + 1))
 
 
-def forhandsvisa(slug, sida='/', ut=None):
+def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False):
     """Bygg, fotografera och mät. Ger (rc, rapporttext, katalog). rc 0 när bilderna finns, 2 när bygget eller
     fotograferingen föll (texten säger varför)."""
     sajt = KUNDER / slug / 'sajt'
     if not (sajt / 'package.json').is_file():
         return 2, 'kunder/%s/sajt saknas; skapa den med kontroller/ny_sajt.py %s --installera' % (slug, slug), None
-    rc, out = prova.kor(['npm', 'run', 'build', '--prefix', str(sajt)], timeout=600)
+    rc, out = prova.bygg_inom_grans(sajt)  # innanför processgränsen: sidornas kod körs vid bygget (omgranskningen, fynd 8)
     if rc:
         return 2, 'bygget föll (rc %d); rätta och kör igen:\n%s' % (rc, prova.svans(out, 30)), None
+    if bara_bygg:
+        return 0, 'bygget gick igenom (innanför processgränsen)', None
     if not (sajt / 'dist' / sida.strip('/') / 'index.html').is_file():
         return 2, 'sidan %s finns inte i bygget (dist%sindex.html saknas)' % (sida, sida), None
     ut = Path(ut) if ut else nasta_varv(UNDERLAG / slug / 'forhand' / sidnamn(sida))
@@ -102,11 +104,12 @@ def main(argv=None):
     p = argparse.ArgumentParser(prog='forhandsvisa', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
     p.add_argument('--sida', default='/')
+    p.add_argument('--bara-bygg', action='store_true', help='bygg sajten innanför processgränsen utan att fotografera')
     a = p.parse_args(argv)
     if not SLUG.match(a.slug) or not SIDA.match(a.sida):
         print('slug a–z, 0–9, bindestreck; sidan som /väg/ med snedstreck sist', file=sys.stderr)
         return 2
-    rc, text, _ = forhandsvisa(a.slug, a.sida)
+    rc, text, _ = forhandsvisa(a.slug, a.sida, bara_bygg=a.bara_bygg)
     print(text)
     return rc
 
