@@ -683,7 +683,7 @@ def arbetare(rdir):
                 'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}, 'sessioner': sessioner}
         def skriv_dom():  # inne i låset: tmp + replace, och tillståndet blir klar först efteråt; en läsare ser pagar till dess
             for namn, text in (('GRANSKNING.json', json.dumps(post, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', markdown(post)),
-                               ('ANDRINGAR.md', andringar(post))):
+                               ('ANDRINGAR.md', andringar_sakert(post, rdir))):
                 tmp = rdir / ('.%s.tmp%d' % (namn, os.getpid()))
                 tmp.write_text(text, encoding='utf-8')
                 os.replace(tmp, rdir / namn)
@@ -722,11 +722,18 @@ def granskarkrav(ankare, frysta, bilder):
     return krav
 
 
+def originalitetsbilder(bilder):
+    """Originalitetsdomarens bilder: startsidans två första skärmar och undersidornas första, bara i 390 och 1440 som
+    uppdraget säger; mellanbredden är huvudgranskarnas (granskningen av steg 2, punkt 6)."""
+    hem = [b for b in bilder if b.parent.name == 'hem' and re.match(r'^vy-(390|1440)-(ruta-0[12]|forsta)\.png$', b.name)]
+    under = [b for b in bilder if b.parent.name != 'hem' and re.match(r'^vy-(390|1440)-(ruta-01|forsta)\.png$', b.name)][:4]
+    return hem, under
+
+
 def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=NEKAS):
     """En egen session som bara dömer originalitet (Anthropic: en isolerad domare per dimension). Körs i skugga bredvid
     huvudgranskaren så att vi kan se vilken av dem som stämmer bäst med ägarens domar."""
-    hem = [b for b in bilder if b.parent.name == 'hem' and re.search(r'ruta-0[12]\.png$|forsta\.png$', b.name)]
-    under = [b for b in bilder if b.parent.name != 'hem' and re.search(r'ruta-01\.png$|forsta\.png$', b.name)][:4]
+    hem, under = originalitetsbilder(bilder)
     u = UNDERLAG / slug
     delar = ['Du dömer bara ett kriterium: originalitet, enligt avsnittet om originalitet i %s. Läs det först.' % INSTRUKTION,
              'Bär verksamhetens egna bilder, ord, material och plats sajten? Kunde ett annat företagsnamn sättas dit? Ankare:',
@@ -755,30 +762,45 @@ def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=N
         return {'fel': '%s: %s' % (type(e).__name__, e)}
 
 
-def bildvag(v):
-    """En bildväg ur granskarens svar som finns: relativ roten eller absolut; annars None."""
+def bildvag(v, rdir=None, nr=0):
+    """En bildväg ur granskarens svar som finns, som väg relativt roten; annars None. Bara filer inom repot (utan ../ eller
+    länk ut) och i granskarens arbetskatalog (ARBETSROT), som kopieras in i omgången (rdir/andringar/) så att byggaren
+    kan läsa dem (granskningen av steg 2, punkt 1)."""
     v = str(v or '').strip()
     if not v:
         return None
-    for p in (ROOT / v.lstrip('./'), Path(v)):
+    while v.startswith('./'):
+        v = v[2:]
+    rot = ROOT.resolve()
+    for p in ([Path(v)] if Path(v).is_absolute() else [ROOT / v]):
         try:
-            if p.is_file() and not p.is_symlink():
-                return rel(p)
-        except OSError:
+            if p.is_symlink() or not p.is_file():
+                continue
+            verklig = p.resolve()
+            if verklig.is_relative_to(rot):
+                return str(verklig.relative_to(rot))
+            arb = Path(ARBETSROT).resolve()
+            if rdir is not None and verklig.is_relative_to(arb) and verklig.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp'):
+                mal = Path(rdir) / 'andringar'
+                mal.mkdir(exist_ok=True)
+                kopia = mal / ('%02d-%s' % (nr, verklig.name))
+                shutil.copyfile(verklig, kopia)
+                return vag(kopia)
+        except (OSError, ValueError):
             continue
     return None
 
 
-def andringar(g):
+def andringar(g, rdir=None):
     """ANDRINGAR.md: varje blockerande fynd som ändringsuppdrag med rutan där bristen syns och referensbilden bredvid
     (backlogposten B-20261003-andringsuppdrag-med-bild-varje-blockerande-fynd): byggaren läser bilderna, inte bara
-    texten. En väg som inte finns skrivs som saknad, aldrig tyst."""
+    texten. En väg som inte finns eller ligger utanför repot skrivs som saknad, aldrig tyst."""
     rad = ['# Ändringsuppdrag · %s · omgång %s' % (g.get('slug', '?'), g.get('runda', '?')), '',
            'Varje blockerande fynd med skärmbilden där bristen syns och referensbilden som visar hur den kan lösas. Läs båda',
            'bilderna med Read innan du ändrar, rätta, kör provet och be om en ny granskning; acceptanskriteriet säger när det är',
            'rättat.', '']
     for i, f in enumerate(g.get('blockerande') or [], 1):
-        bild, ref = bildvag(f.get('bild')), bildvag(f.get('referensbild'))
+        bild, ref = bildvag(f.get('bild'), rdir, i), bildvag(f.get('referensbild'), rdir, 50 + i)
         rad += ['## %d. %s · %s' % (i, f.get('kriterium', '?'), f.get('var', '?')), '',
                 '- observation: %s' % f.get('observation', '–'),
                 '- rättning: %s' % f.get('rattning', '–'),
@@ -788,6 +810,14 @@ def andringar(g):
     if not g.get('blockerande'):
         rad.append('Inga blockerande fynd.')
     return '\n'.join(rad) + '\n'
+
+
+def andringar_sakert(g, rdir=None):
+    """Ändringsuppdragen får aldrig fälla en giltig dom: ett fel här blir en kort text i stället."""
+    try:
+        return andringar(g, rdir)
+    except Exception as e:  # noqa: BLE001
+        return '# Ändringsuppdrag · omgång %s\n\nKunde inte skrivas (%s: %s); läs GRANSKNING.md.\n' % (g.get('runda', '?'), type(e).__name__, str(e)[:200])
 
 
 def markdown(g):
@@ -846,6 +876,14 @@ def summa(g):
     return (bool(g.get('godkand')), sum((g.get('kriterier') or {}).get(n, {}).get('betyg', 0) for n in KRITERIER))
 
 
+def jamforbilder(r):
+    """Startsidans två första skärmar i omgången r, i 390 och 1440 som jämförelsens text säger (granskningen av steg 2,
+    punkt 6); utan rutor första vyn."""
+    hem = Path(r) / 'sajt' / 'hem'
+    return [b for b in sorted(hem.glob('vy-*-ruta-0[12].png')) if re.match(r'^vy-(390|1440)-', b.name)] or [
+        b for b in sorted(hem.glob('vy-*-forsta.png')) if re.match(r'^vy-(390|1440)-', b.name)]
+
+
 def jamfor(slug):
     """Parvis jämförelse av omgångens skärmbilder: bästa mot sista, två gånger med ombytt ordning; oenighet = lika.
     Anthropics harness-artikel: en mellanomgång var ibland bättre än den sista."""
@@ -860,7 +898,7 @@ def jamfor(slug):
     if summa(sista[1]) >= summa(basta[1]):
         print('Sista omgången (%s) har minst lika höga betyg som de tidigare; ingen jämförelse behövs.' % sista[0].name)
         return 0
-    bilder = lambda r: [b for b in sorted((r / 'sajt' / 'hem').glob('vy-*-ruta-0[12].png'))] or sorted((r / 'sajt' / 'hem').glob('vy-*-forsta.png'))  # noqa: E731
+    bilder = jamforbilder
     claude = shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
     domar = []
     for a, b in ((basta, sista), (sista, basta)):
@@ -1044,6 +1082,20 @@ def valj_sammanfattning(gdir, korning=None, dist=None, metod=None, strikt=False)
     return giltiga[-1] if giltiga else None
 
 
+def takskal(gdir, korning, dist, metod):
+    """Varför en ny omgång behövs när taket nås. Taket prövas först när ingen giltig omgång gäller samma bygge med samma
+    metod (återanvändningen går före), så skälet är bygget, metoden eller att ingen giltig omgång finns (granskningen av
+    steg 2, punkt 3: beskedet sa "ett annat bygge" också när bara underlaget ändrats eller alla omgångar föll)."""
+    giltiga = giltiga_rundor(gdir, korning)
+    if not giltiga:
+        return 'ingen giltig omgång i körningen (alla avbröts eller föll)'
+    r, g = giltiga[-1]
+    skal = [s for s, galler in (('ett annat bygge än det slutliga', g.get('dist_sha256') != dist),
+                                ('en annan metod (underlaget, modellen, effort, antalet granskare eller originalitetsläget)',
+                                 not samma_metod(g, metod))) if galler]
+    return 'senaste giltiga omgången (%s) gällde %s' % (r.name, ' och '.join(skal) or 'samma bygge och metod men kunde inte återanvändas')
+
+
 def publicera(gdir, korning=None):
     """Sammanfattningen i kunder/<slug>/granskning/GRANSKNING.json och .md: härledd ur giltiga omgångar (senaste giltiga
     för körningen), skriven atomiskt under lås, med fältet sammanfattning (omgång, dist, metod, körning, tid). Enda
@@ -1068,7 +1120,7 @@ def publicera(gdir, korning=None):
                 except (KeyError, TypeError):  # ofullständig dom (manuellt underlag): en kort sammanfattning i stället för ingen
                     md = '# Granskning · %s · omgång %s\n' % ('GODKÄND' if g.get('godkand') else 'UNDERKÄND', r.name)
             try:  # ändringsuppdragen med bilder följer den valda omgången
-                andr = (r / 'ANDRINGAR.md').read_text(encoding='utf-8') if (r / 'ANDRINGAR.md').is_file() else andringar(g)
+                andr = (r / 'ANDRINGAR.md').read_text(encoding='utf-8') if (r / 'ANDRINGAR.md').is_file() else andringar_sakert(g)
             except (KeyError, TypeError, OSError):
                 andr = '# Ändringsuppdrag · omgång %s\n\nKunde inte skrivas ur domen.\n' % r.name
             for namn, text in (('GRANSKNING.json', json.dumps(g, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', md), ('ANDRINGAR.md', andr)):
@@ -1218,6 +1270,7 @@ def main(argv=None):
     if raknade >= MAX_RUNDOR or alla >= MAX_HART:
         print('Taket nått: %d granskningar i den här körningen (%d avbrutna räknas inte; NWP_GRANSKNING_MAX=%d, hårt tak %d). Senaste dom: %s' % (
             raknade, alla - raknade, MAX_RUNDOR, MAX_HART, rel(gdir / 'GRANSKNING.md') if (gdir / 'GRANSKNING.md').is_file() else 'ingen'))
+        print('Skäl till ny omgång: %s' % takskal(gdir, korning, hash_nu, metod))
         return 3
     n = max([int(r.name.split('-')[1]) for r in rundor(gdir)] or [0]) + 1
     rdir = gdir / ('runda-%02d' % n)

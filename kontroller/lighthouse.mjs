@@ -96,7 +96,8 @@ try {
       writeFileSync(join(ut, `${slug(sida)}-${form}.json`), mitt.rapport);
       const lagst = (k) => Math.min(...matningar.map((m) => m.rad[k]));
       const rad = { ...mitt.rad, prestanda: p, tillganglighet: lagst('tillganglighet'), bastaPraxis: lagst('bastaPraxis'), seo: lagst('seo'),
-        underkanda: [...new Map(matningar.flatMap((m) => m.rad.underkanda).map((u) => [u.id, u])).values()],  // unionen, en gång per audit
+        // unionen, en gång per audit; medianmätningens titel, värde och träffar gäller, eftersom det är dess rapport som sparas
+        underkanda: [...new Map([...matningar.filter((m) => m !== mitt), mitt].flatMap((m) => m.rad.underkanda).map((u) => [u.id, u])).values()],
         representativ: rep, matt: matningar.length > 1 ? 'median' : 'en mätning',
         spridning: [Math.min(...matningar.map((m) => m.rad.prestanda)), Math.max(...matningar.map((m) => m.rad.prestanda))],
         forsok: matningar.map((m) => ({ prestanda: m.rad.prestanda, tillganglighet: m.rad.tillganglighet, bastaPraxis: m.rad.bastaPraxis, seo: m.rad.seo, lcpMs: m.rad.lcpMs, belastning: m.rad.belastning })) };

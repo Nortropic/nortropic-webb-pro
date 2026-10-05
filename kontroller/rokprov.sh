@@ -42,7 +42,8 @@ lh = json.load(open('$ROOT/kunder/rokprov-mall/prov/lighthouse/lighthouse.json')
 assert pathlib.Path('$ROOT/kunder/rokprov-mall/prov/lighthouse/METOD.json').is_file() and lh['metod']['representativa'][:2] == ['/', '/kontakt/'], lh.get('metod')
 assert all(len(x['forsok']) == 3 and x['matt'] == 'median' and x['spridning'][0] <= x['prestanda'] <= x['spridning'][1] for x in lh['rader'] if x['representativ']), lh['rader']
 assert all(len(x['forsok']) in (1, 3) for x in lh['rader'] if not x['representativ']), lh['rader']
-assert all(isinstance(u, dict) and u.get('id') and 'titel' in u and 'varde' in u and isinstance(u.get('traffar'), list) for x in lh['rader'] for u in x['underkanda']), 'varje underkänd audit med titel, mätvärde och träffar'
+assert all(isinstance(u, dict) and u.get('id') and u.get('titel') and isinstance(u.get('varde'), str) and isinstance(u.get('traffar'), list) for x in lh['rader'] for u in x['underkanda']), 'varje underkänd audit med titel, mätvärde och träffar'
+assert any(u.get('titel') and u.get('varde') for x in lh['rader'] for u in x['underkanda']), 'ingen underkänd audit med ifylld titel och mätvärde (den rena sajten har document-latency-insight med värde)'
 ax = json.load(open('$ROOT/kunder/rokprov-mall/prov/axe/axe.json'))
 assert ax['tillstand'] == ['meny', 'formularfel'] and any(x['tillstand'] == 'formularfel' and x['sida'] == '/kontakt/' and x.get('ogiltiga_falt', 0) > 0 for x in ax['rader']), [(x['vy'], x['sida'], x['tillstand']) for x in ax['rader']]
 x = json.load(open('$ROOT/kunder/rokprov-mall/prov/inspektion/hem/vy-1440-extrakt.json'))
@@ -237,6 +238,10 @@ om_ = (d / 'om' / 'index.html').read_text().replace('<p>Läst i oktober.<a href=
 assert [f for f in sk.granska(d)[0] if f['punkt'] == '9.4' and f['sida'] == '/om/' and 'mellan text och länk' in f['text']], 'ord mot länk utan mellanslag (9.4)'
 (d / 'om' / 'index.html').write_text(om_.replace('på<a href=\"/\">numret</a>eller', 'på <a href=\"/\">numret</a> eller'))
 assert not [f for f in sk.granska(d)[0] if f['punkt'] == '9.4' and f['sida'] == '/om/'], 'med mellanslagen inget 9.4'
+for ok_ in ('Ring&nbsp;<a href=\"/\">numret</a> eller skriv.', 'Ring&#160;<a href=\"/\">numret</a>&#xA0;eller skriv.',
+            '<span class=\"typ\">Telefon</span><a href=\"/\">numret</a><span class=\"alt\">eller skriv</span>'):
+    (d / 'om' / 'index.html').write_text(om_.replace('Ring oss på<a href=\"/\">numret</a>eller skriv.', ok_))
+    assert not [f for f in sk.granska(d)[0] if f['punkt'] == '9.4' and f['sida'] == '/om/'], 'hårt mellanslag och span som egen post i flex är inget 9.4: ' + ok_
 " || { echo "FEL: byggposternas kontroller"; exit 1; }
 echo "   byggposterna ok"
 

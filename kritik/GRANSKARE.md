@@ -158,7 +158,8 @@ Fynd med grad 3 och 4 är **blockerande**. Varje blockerande fynd anger:
 - acceptanskriterium i EARS-form: "När [situation], ska sajten [beteende]". Nästa granskning prövar exakt det,
 - bild: sökvägen till den skärmbild ur uppdragets lista där bristen syns, exakt som den står där,
 - referensbild: den referensbild ur uppdragets lista som visar hur det kan lösas, exakt som den står, eller tom när ingen
-  passar. Byggaren får bilderna bredvid fyndet i ANDRINGAR.md.
+  passar. Byggaren får bilderna bredvid fyndet i ANDRINGAR.md. En egen skärmbild ur din arbetskatalog (ett tillstånd,
+  en meny) går också bra: den kopieras in i omgången.
 
 Grad 1 och 2 är **förbättringar**: skriv dem med graden först. Smak mellan två fungerande alternativ är aldrig
 blockerande. Högst åtta blockerande fynd, det viktigaste först. Ett betyg under tröskeln ska ha minst ett blockerande

@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import types
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -506,15 +507,44 @@ sida42 = '<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>x</t
 assert not [x for x in sk.granska(d42)[1] if x['punkt'] == '4.2' and 'första bilden' in x['text']], 'den hämtade kandidaten (800w) är liten: ingen information fast src är stor'
 (d42 / 'index.html').write_text(sida42 % '(min-width: 1024px) 1400px, 100vw')
 assert [x for x in sk.granska(d42)[1] if x['punkt'] == '4.2' and '1440 px' in x['text'] and 'a-1600.webp' in x['text']], 'i 1440 hämtas 1600w-kandidaten, som är för tung'
+# granskningen av steg 2, punkt 4: sizes i rem och calc() som byggena skriver dem, x-deskriptorer och <picture> (fixturerna
+# ur lulea-snickaren, holms-konditori och paint-it-black); ett villkor som inte går att tolka mäts inte, och det sägs
+for sz_ in ('(min-width: 64rem) 660px, 100vw', '(min-width: 60rem) 38rem, 100vw', '(min-width: 1024px) calc(50vw - 2rem), 100vw'):
+    (d42 / 'index.html').write_text(sida42 % sz_)
+    assert not [x for x in sk.granska(d42)[1] if x['punkt'] == '4.2' and 'första bilden' in x['text']], sz_
+(d42 / 'index.html').write_text(sida42 % '(orientation: landscape) 50vw, 100vw')
+assert [x for x in sk.granska(d42)[1] if x['punkt'] == '4.2' and 'går inte att tolka' in x['text']], 'ett villkor som inte går att tolka faller inte igenom till 100vw'
+assert sk.platsbredd('(min-width: 60rem) 38rem, 100vw', 1440) == 608 and sk.platsbredd('(min-width: 60rem) 34rem, 100vw', 390) == 390
+assert sk.platsbredd('(min-width: 72rem) 72rem, calc(100vw - 2.5rem)', 390) == 350 and sk.platsbredd('min(100vw, 40rem)', 1440) == 640
+assert sk.platsbredd('(min-width: 60rem) fit-content, 100vw', 1440) is None and sk.platsbredd('(max-width: 30rem) 100vw, 40rem', 1440) == 640
+assert sk.vald_kandidat('/a.webp', '/a-2x.webp 2x', None, 390, 2) == '/a-2x.webp' and sk.vald_kandidat('/a.webp', '/a-2x.webp 2x', None, 1440, 1) == '/a.webp'
+(d42 / '_astro' / 'b-400.webp').write_bytes(b'x' * 30 * 1024); (d42 / '_astro' / 'b-1600.webp').write_bytes(b'x' * 260 * 1024)
+(d42 / 'index.html').write_text((sida42 % '100vw').replace('<img ', '<picture><source media="(max-width: 47.99rem)" srcset="/_astro/b-400.webp 400w, /_astro/b-1600.webp 1600w" sizes="calc(100vw - 2.5rem)">'
+                                                           '<source media="(min-width: 48rem)" srcset="/_astro/b-1600.webp 1600w" sizes="72rem"><img ').replace('></main>', '></picture></main>'))
+assert [x for x in sk.granska(d42)[1] if x['punkt'] == '4.2' and '390 px' in x['text'] and 'b-1600.webp' in x['text']], 'i <picture> hämtar 390 px den första källan vars media gäller, inte img'
 print('F19–F22 seo/standard ok')
 # instruktionerna samordnade (backlogposten B-20261004-instruktionerna-samordnas, textkontrollen): de gamla motsägande
-# formuleringarna om telefonen som enda primära handling, strykregeln, standarddragen, beställda bilder och stockbilder är borta
-text_ins = {f: (ROOT / f).read_text(encoding='utf-8') for f in ('.claude/skills/bygg-sajt/SKILL.md', 'kritik/GRANSKARE.md', 'kunskap/bild.md', 'kunskap/brief-mall.md')}
-for f_ins, gammal_ in (('.claude/skills/bygg-sajt/SKILL.md', 'Saknas den, stryk sektionen'), ('.claude/skills/bygg-sajt/SKILL.md', 'deras befintliga bokning.'),
-                       ('.claude/skills/bygg-sajt/SKILL.md', 'minst tio konkreta saker som ingen konkurrent'), ('kritik/GRANSKARE.md', 'Straffa uttryckligen de drag'),
-                       ('kritik/GRANSKARE.md', 'Beställt: en förbättring, inget blockerande fynd'), ('kunskap/bild.md', 'verktyg/bild/'), ('kunskap/bild.md', 'licensierad stock')):
-    assert gammal_ not in text_ins[f_ins], (f_ins, gammal_)
-assert 'Fråga:' in text_ins['.claude/skills/bygg-sajt/SKILL.md'] and 'toppuppgift' in text_ins['.claude/skills/bygg-sajt/SKILL.md'], 'sektionen motiveras av besökarens fråga; den primära handlingen följer toppuppgiften'
+# meningarna om telefonen som primär handling, strykregeln, standarddragen, beställda bilder och stockbilder är borta och
+# de nya står kvar. Texten jämförs med blanktecken hopslagna, eftersom en mening kan brytas över rader; varje gammal
+# mening stod ordagrant i texten före 6c8c90f (granskningen av steg 2, punkt 5: kontrollen gick igenom av fel skäl)
+S_, G_, B_, M_ = '.claude/skills/bygg-sajt/SKILL.md', 'kritik/GRANSKARE.md', 'kunskap/bild.md', 'kunskap/brief-mall.md'
+text_ins = {f: ' '.join((ROOT / f).read_text(encoding='utf-8').split()) for f in (S_, G_, B_, M_)}
+for f_ins, gammal_ in ((S_, 'Saknas den, stryk sektionen'), (S_, 'deras befintliga bokning.'), (S_, 'telefonen är den primära handlingen'),
+                       (S_, 'sidhuvudet på en rad med namn och numret som knapp'), (S_, 'sedan rubriken, ringknappen och ett av verksamhetens egna foton'),
+                       (S_, 'bär både Ring och Skriv'), (S_, '"Bara de har": minst tio konkreta saker'), (S_, 'kunde någon mening stå hos en konkurrent? Skriv om den.'),
+                       (G_, 'Straffa uttryckligen de drag'), (G_, 'Beställt: en förbättring, inget blockerande fynd'), (G_, 'Bär varje sektion något specifikt ur "Bara de har"?'),
+                       (B_, 'verktyg/bild/'), (B_, 'licensierad stock'), (M_, 'Genererade eller köpta bilder framställs aldrig som kundens verkliga')):
+    assert gammal_ not in text_ins[f_ins], ('gammal mening kvar', f_ins, gammal_)
+for f_ins, ny_ in ((S_, 'Under varje sektion: raden `Fråga:` med den fråga besökaren har som sektionen svarar på'),
+                   (S_, 'en primär handling som följer den viktigaste toppuppgiften (ring, boka, begär offert, beställ, hitta hit)'),
+                   (S_, 'Telefonen är primär när kunderna ringer; en verksamhet där kunderna bokar eller beställer får bokningen eller beställningen som primär handling'),
+                   (S_, 'sidhuvudet på en rad med namn och den primära handlingen som knapp'),
+                   (S_, 'list längst ned på mobil bär den primära handlingen och Skriv (till formuläret), och Ring när den primära handlingen är en annan'),
+                   (S_, 'Listan är ett researchmål, ingen strykregel'),
+                   (S_, 'den primära handlingen får aldrig vara den enda vägen; telefonen och en skriftlig väg finns alltid'),
+                   (G_, 'döm användningen och utförandet'), (G_, 'Beställningen ursäktar inte (b)'),
+                   (B_, 'verksamhetens egna bilder, eller inga foton ("hellre inga foton än stock")'), (M_, 'Stockbilder och genererade bilder används inte')):
+    assert ny_ in text_ins[f_ins], ('ny mening saknas', f_ins, ny_)
 # granskningstaket (avstämningen 2026-10-05): en avbruten omgång räknas inte mot taket, men mot det hårda taket
 import granska as gr_tak  # noqa: E402
 gtak = tmp / 'gtak'
@@ -525,6 +555,16 @@ for i_, st_ in enumerate(('klar', 'avbruten', 'avbruten', 'fel'), 1):
     gr_tak.satt_utfall(r_, st_, 'prov')
 assert gr_tak.taket(gtak, 'k1') == (1, 3) and gr_tak.taket(gtak, 'k2') == (1, 1), (gr_tak.taket(gtak, 'k1'), gr_tak.taket(gtak, 'k2'))
 assert gr_tak.MAX_HART == 2 * gr_tak.MAX_RUNDOR or os.environ.get('NWP_GRANSKNING_HART')
+# granskningen av steg 2, punkt 3: vid taket säger granskningen varför en ny omgång behövs (bygget, metoden eller ingen giltig)
+metod_tak = {'metod_sha': 'm1', 'modell': 'opus[1m]', 'effort': 'high', 'granskare': 2, 'originalitet': 'skugga'}
+gtak3 = tmp / 'gtak3'; gtak3.mkdir()
+assert gr_tak.takskal(gtak3, 'k1', 'd1', metod_tak).startswith('ingen giltig omgång'), 'alla omgångar föll'
+r_ = gtak3 / 'runda-01'; r_.mkdir()
+(r_ / 'GRANSKNING.json').write_text(json.dumps({'runda': 1, 'korning': 'k1', 'dist_sha256': 'd1', **metod_tak}))
+(r_ / 'UTFALL.json').write_text(json.dumps({'status': 'klar', 'tid': gr_tak.nu(), 'skal': ''}))
+sk_tak = gr_tak.takskal(gtak3, 'k1', 'd1', dict(metod_tak, metod_sha='m2'))
+assert 'en annan metod' in sk_tak and 'annat bygge' not in sk_tak and 'runda-01' in sk_tak, sk_tak
+assert 'ett annat bygge' in gr_tak.takskal(gtak3, 'k1', 'd2', metod_tak) and gr_tak.takskal(gtak3, 'k2', 'd1', metod_tak).startswith('ingen giltig omgång')
 # ändringsuppdragen med bild (avstämningen 2026-10-05): varje blockerande fynd med rutan och referensbilden; saknade vägar sägs
 bild_ = tmp / 'kunder' / 'x' / 'granskning' / 'runda-01' / 'sajt' / 'hem'; bild_.mkdir(parents=True); (bild_ / 'vy-390-ruta-02.png').write_bytes(b'x')
 gr_rot = gr_tak.ROOT; gr_tak.ROOT = tmp
@@ -535,6 +575,38 @@ finally:
     gr_tak.ROOT = gr_rot
 assert '- bild: kunder/x/granskning/runda-01/sajt/hem/vy-390-ruta-02.png' in an_ and '- referensbild: saknas (underlag/x/finns-inte.png)' in an_ and '## 1. text · hem 390' in an_, an_
 assert 'Inga blockerande fynd.' in gr_tak.andringar({'slug': 'x', 'runda': 2, 'blockerande': []})
+# granskningen av steg 2, punkt 1: en väg utanför repot, en ..-väg ut, en symlänk och en dold katalog fäller aldrig
+# domen; granskarens egen tillståndsbild i arbetskatalogen kopieras in i omgången så att byggaren kan läsa den
+arbrot_ = Path(tempfile.mkdtemp(prefix='nwp-granskning-')); arb_ = arbrot_ / 'x' / 'runda-01-1'; arb_.mkdir(parents=True); (arb_ / 'meny-oppen.png').write_bytes(b'png')  # utanför repot, som /tmp/nwp-granskning
+(tmp / '.dold').mkdir(); (tmp / '.dold' / 'ref.png').write_bytes(b'x'); (tmp / 'lank.png').symlink_to('/etc/hosts')
+r1_ = tmp / 'kunder' / 'x' / 'granskning' / 'runda-01'
+gr_rot, gr_arb = gr_tak.ROOT, gr_tak.ARBETSROT; gr_tak.ROOT, gr_tak.ARBETSROT = tmp, arbrot_
+try:
+    assert gr_tak.bildvag('/etc/hosts') is None and gr_tak.bildvag('kunder/x/../../../../../../../../etc/hosts') is None and gr_tak.bildvag('lank.png') is None
+    assert gr_tak.bildvag('./.dold/ref.png') == '.dold/ref.png', gr_tak.bildvag('./.dold/ref.png')
+    assert gr_tak.bildvag(str(arb_ / 'meny-oppen.png')) is None, 'utan omgång kopieras inget'
+    an2_ = gr_tak.andringar_sakert({'slug': 'x', 'runda': 1, 'blockerande': [{'kriterium': 'navigation', 'var': 'hem 390', 'observation': 'o', 'rattning': 'r',
+                                    'acceptanskriterium': 'a', 'bild': str(arb_ / 'meny-oppen.png'), 'referensbild': '/etc/hosts'}]}, r1_)
+    assert '- bild: kunder/x/granskning/runda-01/andringar/01-meny-oppen.png' in an2_ and (r1_ / 'andringar' / '01-meny-oppen.png').read_bytes() == b'png', an2_
+    assert '- referensbild: saknas (/etc/hosts)' in an2_, an2_
+    assert 'Kunde inte skrivas' in gr_tak.andringar_sakert({'runda': 3, 'blockerande': ['inte ett fynd']}), 'ett trasigt fynd blir en text, aldrig ett undantag'
+finally:
+    gr_tak.ROOT, gr_tak.ARBETSROT = gr_rot, gr_arb
+    shutil.rmtree(arbrot_, ignore_errors=True)
+# granskningen av steg 2, punkt 6: 768 går till huvudgranskarna, inte till originalitetsdomaren eller jämförelsen, vars
+# text säger 390 och 1440; undersidornas urval tappar inte 1440-vyn
+rot768_ = tmp / 'rot768'
+for sida_ in ('hem', 'kontakt', 'om', 'tjanster'):
+    for vy_ in ('390', '768', '1440'):
+        for n_ in (1, 2, 3):
+            p_ = rot768_ / 'prov' / 'inspektion' / sida_ / ('vy-%s-ruta-%02d.png' % (vy_, n_)); p_.parent.mkdir(parents=True, exist_ok=True); p_.write_bytes(b'x')
+bilder768_ = gr_tak.skarmbilder(rot768_, rot768_ / 'ut' / 'sajt')
+assert any(b.name.startswith('vy-768-') for b in bilder768_), 'huvudgranskarna får mellanbredden'
+hem768_, under768_ = gr_tak.originalitetsbilder(bilder768_)
+assert [b.name for b in hem768_] == ['vy-390-ruta-01.png', 'vy-390-ruta-02.png', 'vy-1440-ruta-01.png', 'vy-1440-ruta-02.png'], [b.name for b in hem768_]
+assert ['%s/%s' % (b.parent.name, b.name) for b in under768_] == ['kontakt/vy-390-ruta-01.png', 'kontakt/vy-1440-ruta-01.png', 'om/vy-390-ruta-01.png', 'om/vy-1440-ruta-01.png'], under768_
+(rot768_ / 'r' / 'sajt').mkdir(parents=True); shutil.copytree(rot768_ / 'ut' / 'sajt' / 'hem', rot768_ / 'r' / 'sajt' / 'hem')
+assert not [b for b in gr_tak.jamforbilder(rot768_ / 'r') if '-768-' in b.name] and len(gr_tak.jamforbilder(rot768_ / 'r')) == 4
 import prova as pv_lh  # noqa: E402
 assert pv_lh.lh_audit({'id': 'a', 'titel': 'T', 'varde': '2 s', 'traffar': ['<img>']}) == 'a "T" 2 s (<img>)' and pv_lh.lh_audit('gammal') == 'gammal', 'Lighthouse-auditen med titel och mätvärde i PROV.md'
 
@@ -1166,6 +1238,24 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
         del os.environ['NWP_SANDLADA']
         (rot_sv / 'underlag' / 'sv' / 'atelje' / 'VAL.json').write_text(json.dumps({'val': 2, 'forkastade': False, 'panel': {'a': {}, 'b': {}}}))
         assert sv_hr.ateljen_forkastad(rot_sv, 'sv') is None, 'ett val är ingen förkastning'
+        # granskningen av steg 2, punkt 3: vid taket säger stoppvakten alltid att en ny omgång behövs, med granskningens skäl
+        k_tak = rot_sv / 'kunder' / 'sv'; (k_tak / 'prov').mkdir(parents=True)
+        (k_tak / 'RAPPORT.md').write_text('r' * 400); (k_tak / 'prov' / 'STATUS.json').write_text(json.dumps({'dist_sha256': 'd2'}))
+        svar_tak = iter([types.SimpleNamespace(returncode=0, stdout='grönt', stderr=''),
+                         types.SimpleNamespace(returncode=3, stdout='Taket nått: 2 granskningar\nSkäl till ny omgång: ingen giltig omgång i körningen (alla avbröts eller föll)\n', stderr='')])
+        sp_hr, rot_hr, in_hr, miljo_hr = sv_hr.subprocess, sv_hr.ROOT, sys.stdin, {k_: os.environ.get(k_) for k_ in ('NWP_SLUG', 'NWP_GRANSKNING')}
+        sv_hr.subprocess = types.SimpleNamespace(run=lambda *a_, **k_: next(svar_tak), TimeoutExpired=subprocess.TimeoutExpired)
+        sv_hr.ROOT, sys.stdin = rot_sv, io.StringIO('{}')
+        os.environ['NWP_SLUG'] = 'sv'; os.environ.pop('NWP_GRANSKNING', None)
+        try:
+            rc_tak = sv_hr.main()
+        finally:
+            sv_hr.subprocess, sv_hr.ROOT, sys.stdin = sp_hr, rot_hr, in_hr
+            for k_, v_ in miljo_hr.items():
+                os.environ.pop(k_, None) if v_ is None else os.environ.__setitem__(k_, v_)
+        post_tak = json.loads((k_tak / 'prov' / 'STOPPVAKT.json').read_text())
+        assert rc_tak == 0 and post_tak['slapp'] and 'en ny omgång behövs' in post_tak['skal'] and 'ingen giltig omgång i körningen' in post_tak['skal'], post_tak
+        assert post_tak['tak_skal'].startswith('ingen giltig omgång') and 'annat bygge' not in post_tak['skal'], post_tak
     finally:
         if sandlada_hr is not None:
             os.environ['NWP_SANDLADA'] = sandlada_hr

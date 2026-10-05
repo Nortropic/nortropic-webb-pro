@@ -9,7 +9,8 @@ i en egen session. Underkänd granskning blockerar med granskarens kritik.
 Exit 0 = får avsluta. Exit 2 = blockerad; skälet går till sessionen på stderr. Har ateljén förkastat alla riktningar
 (designprovet) släpps avslutet när RAPPORT.md finns, utan prov: bygget stannar utan sajt.
 Tak: efter NWP_STOPP_TAK blockeringar (standard 8), eller när granskningarna i körningen nått sitt tak
-(NWP_GRANSKNING_MAX), släpps avslutet ändå, och kunder/<slug>/prov/STOPPVAKT.json säger det, så att ägaren ser det.
+(NWP_GRANSKNING_MAX), släpps avslutet ändå, och kunder/<slug>/prov/STOPPVAKT.json säger det, så att ägaren ser det;
+vid granskningstaket också att en ny omgång behövs och varför.
 NWP_GRANSKNING=av stänger av granskningen (till exempel i rökprov).
 """
 import json
@@ -134,9 +135,13 @@ def main():
     if gront and har_rapport and granskning in ('godkänd', 'avstängd'):
         post.update(slapp=True, skal='kontrollerna gröna, RAPPORT.md finns och granskningen är %s' % granskning)
     elif gront and har_rapport and granskning == 'taket för granskningar nått':
-        post.update(slapp=True, skal='släppt utan godkänd granskning: taket för granskningar i körningen är nått' + (
-            '' if post.get('samma_dist') else '; den senaste omgången gällde ett annat bygge än det slutliga, så en ny omgång behövs '
-            '(ägaren beställer den, eller höjer NWP_GRANSKNING_MAX)'))
+        # taket prövas först när ingen giltig omgång gäller det slutliga bygget med samma metod: en ny omgång behövs alltid,
+        # och granskningen skriver skälet (granskningen av steg 2, punkt 3)
+        m_ = re.search(r'^Skäl till ny omgång: (.+)$', kritik, re.M)
+        post['tak_skal'] = m_.group(1).strip() if m_ else None
+        post.update(slapp=True, skal='släppt utan godkänd granskning: taket för granskningar i körningen är nått och ingen giltig '
+                    'granskning gäller det slutliga bygget; en ny omgång behövs (ägaren beställer den eller höjer '
+                    'NWP_GRANSKNING_MAX). Skäl: %s' % (post['tak_skal'] or 'granskningens besked saknar skälet'))
     elif n >= TAK:
         brist = 'röda kontroller' if not gront else ('saknad rapport' if not har_rapport else 'granskning %s' % granskning)
         post.update(slapp=True, skal='stoppvaktens tak nått: avslutet släpptes med %s' % brist)

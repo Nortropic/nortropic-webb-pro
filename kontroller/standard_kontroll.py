@@ -163,38 +163,133 @@ def srcset_adresser(v):
     return [d.strip().split(' ')[0] for d in (v or '').split(',') if d.strip()]
 
 
+def langd(v, vy=None):
+    """En CSS-längd i px: px, rem och em (16 px), vw vid fönsterbredden vy, och calc(), min(), max() och clamp() av sådana.
+    None när värdet inte går att tolka (granskningen av steg 2, punkt 4: byggena skriver sizes i rem och calc())."""
+    s = (v or '').strip().lower()
+    if not s:
+        return None
+
+    def px(m):
+        if m.group(2) == 'vw' and vy is None:
+            raise ValueError('vw utan fönsterbredd')
+        return '%.4f' % (float(m.group(1)) * {'px': 1, 'rem': 16, 'em': 16, 'vw': (vy or 0) / 100, '': 1}[m.group(2)])
+    try:
+        uttryck = re.sub(r'(\d*\.?\d+)(px|rem|em|vw|)\b', px, s).replace('calc(', '(')
+        rest = re.sub(r'\b(min|max|clamp)\(', '(', uttryck)
+        if not re.fullmatch(r'[0-9.+\-*/(), ]+', rest) or '**' in rest:
+            return None
+        varde = eval(uttryck, {'__builtins__': {}}, {'min': min, 'max': max, 'clamp': lambda a, b, c: max(a, min(b, c))})  # noqa: S307 — bara tal, operatorer och tre funktioner
+        return float(varde)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def villkor_galler(villkor, vy):
+    """Ett mediavillkor vid fönsterbredden vy: min-width, max-width och width med jämförelse (px, rem, em), flera med and.
+    None när villkoret inte går att tolka."""
+    for d in re.split(r'\s+and\s+', (villkor or '').strip().lower()):
+        d = d.strip()
+        if d in ('all', 'screen', 'only screen'):
+            continue
+        m = re.fullmatch(r'\(\s*(min|max)-width\s*:\s*([^()]+?)\s*\)', d) or re.fullmatch(r'\(\s*width\s*(>=|<=|>|<)\s*([^()]+?)\s*\)', d)
+        x = langd(m.group(2)) if m else None
+        if x is None:
+            return None
+        if not {'min': vy >= x, 'max': vy <= x, '>=': vy >= x, '<=': vy <= x, '>': vy > x, '<': vy < x}[m.group(1)]:
+            return False
+    return True
+
+
+def delat(v):
+    """Kommaseparerade delar utanför parenteser (calc(), min() och clamp() har egna kommatecken)."""
+    delar, djup, start = [], 0, 0
+    for i, c in enumerate(v or ''):
+        djup += {'(': 1, ')': -1}.get(c, 0)
+        if c == ',' and djup == 0:
+            delar.append(v[start:i]); start = i + 1
+    delar.append((v or '')[start:])
+    return [d.strip() for d in delar if d.strip()]
+
+
 def platsbredd(sizes, vy):
-    """Bildens platsbredd i px vid fönsterbredden vy ur sizes: villkor (min-width/max-width i px) i ordning, sedan
-    standardvärdet; px eller vw. Utan sizes: hela bredden."""
-    for del_ in [d.strip() for d in (sizes or '').split(',') if d.strip()] or ['100vw']:
-        m = re.match(r'^\((min|max)-width:\s*(\d+(?:\.\d+)?)px\)\s+(.+)$', del_)
-        if m:
-            grans, varde = float(m.group(2)), m.group(3)
-            if not ((m.group(1) == 'min' and vy >= grans) or (m.group(1) == 'max' and vy <= grans)):
+    """Bildens platsbredd i px vid fönsterbredden vy ur sizes, som webbläsaren läser den: första posten vars villkor gäller,
+    annars 100vw. None när det första villkor som kan gälla, eller dess värde, inte går att tolka: då mäts inget, i
+    stället för att en senare post (oftast 100vw) får tala för bilden."""
+    for post in delat(sizes) or ['100vw']:
+        if post.endswith(')'):  # värdet är en funktion (calc, min, max, clamp) eller saknas: leta upp dess öppning
+            djup, i = 0, len(post)
+            for i in range(len(post) - 1, -1, -1):
+                djup += {')': 1, '(': -1}.get(post[i], 0)
+                if djup == 0:
+                    break
+            fn = re.search(r'(calc|min|max|clamp)$', post[:i].lower())
+            villkor, varde = (post[:fn.start()], post[fn.start():]) if fn else (post, None)
+        else:
+            villkor, varde = post[:post.rfind(' ') + 1], post[post.rfind(' ') + 1:]
+        if villkor.strip():
+            g = villkor_galler(villkor, vy)
+            if g is None:
+                return None
+            if not g:
                 continue
-            del_ = varde
-        if del_.startswith('('):
-            continue  # ett villkor vi inte tolkar: pröva nästa
-        v = re.match(r'^(\d+(?:\.\d+)?)(px|vw)$', del_.strip())
-        if v:
-            return float(v.group(1)) * (vy / 100 if v.group(2) == 'vw' else 1)
+        return langd(varde, vy) if varde else None
     return float(vy)
 
 
 def vald_kandidat(src, srcset, sizes, vy, dpr):
-    """Bilden webbläsaren hämtar vid fönsterbredden vy och pixeltätheten dpr: den minsta srcset-kandidaten (w) som räcker
-    för platsbredden, annars den största; utan w-kandidater src (backlogposten om bildvikten i 4.2: Astros Image lägger
-    originalet i src, men webbläsaren väljer ur srcset)."""
-    kand = []
-    for d in (srcset or '').split(','):
-        delar = d.strip().split()
-        if len(delar) == 2 and delar[1].endswith('w') and delar[1][:-1].isdigit():
-            kand.append((int(delar[1][:-1]), delar[0]))
-    if not kand:
-        return src
-    behov = platsbredd(sizes, vy) * dpr
-    kand.sort()
-    return next((u for w, u in kand if w >= behov), kand[-1][1])
+    """Bilden webbläsaren hämtar vid fönsterbredden vy och pixeltätheten dpr: med w-kandidater den minsta som räcker för
+    platsbredden gånger dpr, annars den största; med x-kandidater (och src som 1x) den minsta täthet som räcker för dpr;
+    utan srcset src (backlogposten om bildvikten i 4.2: Astros Image lägger originalet i src). None när sizes inte går att
+    tolka."""
+    w_, x_ = [], []
+    for d in delat(srcset):
+        delar = d.split()
+        if len(delar) == 1:
+            x_.append((1.0, delar[0]))
+        elif len(delar) == 2 and re.fullmatch(r'\d+w', delar[1]):
+            w_.append((int(delar[1][:-1]), delar[0]))
+        elif len(delar) == 2 and re.fullmatch(r'\d*\.?\d+x', delar[1]):
+            x_.append((float(delar[1][:-1]), delar[0]))
+    if w_:
+        bredd = platsbredd(sizes, vy)
+        if bredd is None:
+            return None
+        w_.sort()
+        return next((u for w, u in w_ if w >= bredd * dpr), w_[-1][1])
+    if x_:
+        if src and not any(x == 1.0 for x, _ in x_):
+            x_.append((1.0, src))
+        x_.sort()
+        return next((u for x, u in x_ if x >= dpr), x_[-1][1])
+    return src
+
+
+BILDTYPER = ('image/avif', 'image/webp', 'image/jpeg', 'image/png', 'image/gif', 'image/svg+xml')
+
+
+def hamtad_bild(el, i, vy, dpr):
+    """Bilden webbläsaren hämtar för <img> på plats i i sidans elementlista: står den i en <picture>, den första <source>
+    vars media gäller och vars type stöds; annars bildens egna src, srcset och sizes. None när villkor eller sizes inte går
+    att tolka."""
+    kallor = []
+    for t, a, *_ in reversed(el[:i]):
+        if t == 'source':
+            kallor.insert(0, a)
+            continue
+        if t != 'picture':
+            kallor = []
+        break
+    for a in kallor:
+        if a.get('type') and a['type'].split(';')[0].strip().lower() not in BILDTYPER:
+            continue
+        g = villkor_galler(a['media'], vy) if a.get('media') else True
+        if g is None:
+            return None
+        if g:
+            return vald_kandidat(None, a.get('srcset'), a.get('sizes'), vy, dpr)
+    a = el[i][1]
+    return vald_kandidat(a.get('src'), a.get('srcset'), a.get('sizes'), vy, dpr)
 
 
 def typer(ld):
@@ -313,9 +408,12 @@ def granska(dist):
         if raster:
             F('4.2', sida, '%d bilder i JPEG, PNG eller GIF; använd WebP eller AVIF (astro:assets), t.ex. %s' % (len(raster), raster[0][:60]))
         if sida == '/' and i_main:
-            a0 = i_main[0]
+            i0 = next(i for i, (t, _a, _h, m) in enumerate(p.el) if t == 'img' and m)
             for vy, dpr in ((390, 2), (1440, 1)):  # mobilen med tät skärm, datorn: den kandidat webbläsaren faktiskt hämtar
-                u = vald_kandidat(a0.get('src'), a0.get('srcset'), a0.get('sizes'), vy, dpr)
+                u = hamtad_bild(p.el, i0, vy, dpr)
+                if u is None:
+                    I('4.2', sida, 'första bildens sizes eller media går inte att tolka i %d px; bildvikten i första vyn mättes inte där' % vy)
+                    continue
                 lf = lokal(dist, u)
                 if lf and lf.is_file() and lf.stat().st_size > 200 * KIB:
                     I('4.2', sida, 'första bilden i main är %d kB i %d px (%s); största bilden i första vyn ska vara under 200 kB' % (
@@ -523,11 +621,16 @@ def granska(dist):
     for f in sidor:
         raw = re.sub(r'<(script|style|head)\b.*?</\1>', ' ', f.read_text(encoding='utf-8', errors='replace'), flags=re.S | re.I)
         # ord mot länk utan mellanslag: Astro klistrar ihop en länk på egen rad i källan med texten runt ("på<a", "</a>eller";
-        # backlogposten om 9.4 och länkar efter radbrytning)
-        ihop = re.sub(r'</?(span|strong|em|b|i|small|abbr|time|mark|cite|q|sup|sub|bdi|data)\b[^>]*>', '', raw, flags=re.I)
+        # backlogposten om 9.4 och länkar efter radbrytning). Bara element som alltid står i löptext räknas bort; en span,
+        # small, time eller data är ofta en egen post i flex eller grid. Hårt mellanslag är ett mellanslag, och en annan
+        # entitet räknas som ett tecken utanför ordet (granskningen av steg 2, punkt 2).
+        ihop = re.sub(r'</?(strong|em|b|i|abbr|mark|cite|q|sup|sub|bdi)\b[^>]*>', '', raw, flags=re.I)
+        ihop = re.sub(r'&#?\w+;', '&', re.sub(r'&nbsp;|&#0*160;|&#x0*a0;|\xa0', ' ', ihop, flags=re.I))
         m2 = re.search(r'[A-Za-zÅÄÖåäöÉé0-9.,:;!?)\]](?=<a\b)|</a>(?=[A-Za-zÅÄÖåäöÉé0-9(])', ihop, flags=re.I)
         if m2:
-            F('9.4', sida_av(dist, f), 'mellanslag saknas mellan text och länk: "%s"' % avkoda_html(re.sub(r'<[^>]+>', '', ihop[max(0, m2.start() - 30):m2.end() + 40])).replace('\n', ' ').strip())
+            ren = lambda s: avkoda_html(re.sub(r'<[^>]+>', '', re.sub(r'^[^<]*>|<[^>]*$', '', s))).replace('\n', ' ')  # noqa: E731
+            utdrag = ren(ihop[max(0, m2.end() - 300):m2.end()])[-30:] + ren(ihop[m2.end():m2.end() + 400])[:30]
+            F('9.4', sida_av(dist, f), 'mellanslag saknas mellan text och länk: "%s"' % utdrag.strip())
         raw = re.sub(r'</?(a|span|strong|em|b|i|small|abbr|time|mark|cite|q|sup|sub|bdi|data)\b[^>]*>', '', raw, flags=re.I)
         text = avkoda_html(re.sub(r'<[^>]+>', '\n', raw))
         for m in re.finditer(r'[a-zåäöé)\]]\.[A-ZÅÄÖ][a-zåäö]', text):
