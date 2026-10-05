@@ -47,9 +47,10 @@ rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella
   `kunder/<slug>/sajt/public/bilder/TYPSNITT-IKONER.json` (formen står i `kunskap/bild.md`) och lägg licensen bredvid
   filen; prelaunch läser registret.
 - **Titta inte på andra byggen** i `kunder/` eller `underlag/`. Varje sajt härleds ur sin egen verksamhet.
-- **Verktygslådan.** Skills i `.claude/skills/` utöver bygg-sajt, kirurg och backlog har kirurgen tagit in. Använd
-  en när dess beskrivning passar uppgiften. Vid krock gäller ägarens domar, regeln mot slop och verksamhetens egna
-  bilder och ord före skillen.
+- **Verktygslådan.** Skills i `.claude/skills/` utöver bygg-sajt, kirurg och backlog är intagna med källa i KALLA.md.
+  Vilka av dem, och vilka avsnitt, som stöder ett steg, och hur motsägande råd avgörs, står i `kunskap/metodkarta.md`;
+  använd dem därifrån. Vid krock gäller ägarens domar, regeln mot slop och verksamhetens egna bilder och ord före
+  skillen.
 - **Rör inte** `kontroller/`, `kunskap/`, `kritik/`, `mall/`, `.claude/` eller `LARDOMAR.md` under en körning
   (behörigheterna nekar Edit och Write där, och sammanfattningen efter körningen visar varje ändring). Verkar en
   kontroll fel: skriv det i rapporten under "Kontroller som verkar fel".
@@ -285,10 +286,9 @@ sista gång: rösten får ändra orden, aldrig vad som påstås.
 
 Läs först `kritik/GRANSKARE.md`: så bedömer de två oberoende granskarna sajten, på fem kriterier med betyg och
 trösklar. Bygg för att klara den. Metodreglerna nedan står med källa, vår tolkning och försök i
-`kunskap/metodregler.md`; en regel märkt oprövad är en hypotes, inte ett facit. Läs sedan `kunskap/externa/anthropic-frontend-design-SKILL.md`,
-`kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md` (principerna i §0 och §4, inte dess stack eller skelett),
-`kunskap/externa/emil-emil-design-eng-SKILL.md`, `kunskap/bygge-referens.md`, `kunskap/bild.md`,
-`kunskap/externa/emil-mobile-native-SKILL.md`, och `kunskap/formularsakerhet.md` om sajten får formulär.
+`kunskap/metodregler.md`; en regel märkt oprövad är en hypotes, inte ett facit. Läs sedan avsnitten Avgöranden, Skapa
+och Text i `kunskap/metodkarta.md` och de avsnitt ur frontend-design, taste, impeccable, emil-* och better-* de räknar
+upp, `kunskap/bygge-referens.md`, `kunskap/bild.md`, och `kunskap/formularsakerhet.md` om sajten får formulär.
 
 Kör `.venv/bin/python kontroller/upptagna_val.py <slug>` och läs `underlag/<slug>/UPPTAGNA-VAL.md`: typsnitt, färger
 och toppsektioner som tidigare byggen redan valt, och modellens egna standardval. Du ser valen, inte sajterna. Ett
@@ -350,6 +350,16 @@ KONCEPT.md.
    och detaljerna, aldrig startsidans riktning. Avinstallera typsnitt som bara bortvalda riktningar använde. Tvåan i
    punkt 4 behövs då inte; riktningsfrågan i FRAGOR.json får en bild per riktning ur `atelje/<N>/vy-390-forsta.png`,
    i samma ordning som alternativen.
+   **En godkänd kandidat ur kandidatflödet** (`VINNARE.json`: `kandidat`) gäller i stället för stycket ovan där de skiljer
+   sig: kor.sh har redan lagt kandidatens alla sidor (startsidan och undersidorna) och DESIGN.md i sajten. Underlaget för
+   KONCEPT.md är `atelje/KANDIDATPLAN.md` (de prövade riktningarna och deras hypoteser), kandidatens `UPPDRAG.md` och
+   `RIKTNING.md` under `atelje/kandidater/<id>/`, och ägarens domar i domloggen (varför den valdes och vad ägaren
+   gillade i andra förslag). Det finns ingen VAL.md, ingen stiltavla och ingen Tvåa: riktningsfrågan i FRAGOR.json utgår,
+   och designvärdena står i DESIGN.md. Bygg de övriga sidorna i kandidatens riktning ur DESIGN.md och kandidatens sidor;
+   typsnitten är de kandidatens kod importerar (andra kandidaters typsnitt kan finnas installerade och avinstalleras).
+   Den godkända designen ska överleva bygget: jämför i RAPPORT.md under "Prototyp mot bygge" kandidatens bilder
+   (`atelje/vinnare/bilder/` och `undersidor/`) med byggets startsida och undersida i 390 och 1440, och skriv varje
+   betydande ändring av bildbeskärningar, proportioner, komponenters beteende och responsiva beslut med sitt skäl.
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
    sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
@@ -359,8 +369,10 @@ KONCEPT.md.
    telefonnumret som tel-länk, `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
    färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga
    boknings- eller beställningssystem.
-   **Mobilens första vy** (ägarens domar L1, L2 och A/B 2026-10-02): sidhuvudet på en rad med namn och den primära
-   handlingen som knapp (numret när kunderna ringer, bokningen när de bokar), menylänkarna synliga utan hamburgare
+   **Mobilens första vy** (ägarens domar L1, L2 och A/B 2026-10-02; en designhypotes enligt
+   `kunskap/designregler.md`: utgångspunkten i bygget, och en godkänd prototyp som löser kontakten annorlunda går
+   före): sidhuvudet på en rad med namn och den primära handlingen som knapp (numret när kunderna ringer, bokningen
+   när de bokar), menylänkarna synliga utan hamburgare
    med korta etiketter på en rad, och ryms de inte, två rader, aldrig en rad som rullar dold i sidled (L4), sedan
    rubriken, den primära handlingen och ett av verksamhetens egna foton i första skärmen när de har foton. En fast
    list längst ned på mobil bär den primära handlingen och Skriv (till formuläret), och Ring när den primära

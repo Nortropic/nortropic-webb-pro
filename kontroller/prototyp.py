@@ -8,8 +8,10 @@ förbättringarna inte följde med mellan dem, blev ett; prototypen är inget eg
 
 Utan flagga avgör domloggen: ägarens senaste dom (efter den senaste körningen, direkt eller via Codex) säger
 ny_riktning → omtag (designbesluten arkiveras, utforskningen börjar om ur mallen); putsa → förfina den valda riktningen
-vidare; godkand → inget att göra, bygget tar vid från vinnaren (kor.sh), om godkännandet gäller. Ingen körning än → en
-ny, som omtag om domloggen redan säger ny_riktning; en annan dom, eller tidigare designbeslut utan dom, stoppar tills
+vidare; godkand → inget att göra, bygget tar vid från vinnaren (kor.sh), om godkännandet gäller. I kandidatflödet
+(kontroller/kandidater.py): valj, eller putsa efter en förfining → valda (de valda kandidaterna förfinas, var för sig);
+jamfor → inget körs (ägaren jämför); forkasta → stopp tills ägaren begär en ny riktning. Ingen körning än → en ny, som
+omtag om domloggen redan säger ny_riktning; en annan dom, eller tidigare designbeslut utan dom, stoppar tills
 --ny-riktning eller --om väljs. En körning som pågår väntas in. Ägaren dömer i dashboardens vy Prototyp.
 """
 import argparse
@@ -23,11 +25,14 @@ import skapande  # noqa: E402
 
 
 def lage(slug):
-    """(läge, skäl): 'ny-riktning', 'putsa', 'om', 'godkand' eller 'vanta' ur domloggen och ateljéns status."""
+    """(läge, skäl): 'ny-riktning', 'putsa', 'valda', 'om', 'godkand', 'stopp' eller 'vanta' ur domloggen och ateljéns status."""
     st = atelje.las_json(atelje.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
     dom = skapande.senaste(slug, underlag=atelje.UNDERLAG)
-    if st.get('pid') and atelje.lever(st['pid']) and st.get('steg') not in ('klar', 'fel', 'forkastad', 'tillbaka'):
+    if st.get('pid') and atelje.lever(st['pid']) and st.get('steg') not in ('klar', 'fel', 'forkastad', 'tillbaka', 'klar_for_bedomning'):
         return 'vanta', 'en körning pågår (steg %s)' % st.get('steg')
+    if atelje.avbruten(st):  # arbetaren dog mitt i ett steg: ta vid där den slutade, aldrig en ny körning (granskningen V2)
+        return 'stopp', ('körningen avbröts i steg %s (arbetaren lever inte): kör .venv/bin/python kontroller/atelje.py %s --fortsatt, '
+                         'som tar vid utan att något klart görs om' % (st.get('steg'), slug))
     if not st.get('steg'):
         if dom and dom['beslut'] == 'ny_riktning':
             return 'ny-riktning', 'ingen körning i skapandeflödet än, och ägarens senaste dom (%s) säger ny riktning' % dom['tid']
@@ -50,7 +55,14 @@ def lage(slug):
             ok, skal = skapande.godkand_giltig(slug, atelje.UNDERLAG, atelje.KUNDER)
             if not ok:
                 return 'stopp', 'ägarens senaste dom (%s) godkänner startsidan, men godkännandet gäller inte: %s' % (efter['tid'], skal)
-        return {'ny_riktning': 'ny-riktning', 'putsa': 'putsa', 'godkand': 'godkand'}[efter['beslut']], 'ägarens dom %s (%s)' % (efter['tid'], efter['kalla'])
+        skal = 'ägarens dom %s (%s)' % (efter['tid'], efter['kalla'])
+        if efter['beslut'] == 'valj' or (efter['beslut'] == 'putsa' and atelje.kandidatkorning(atelje.UNDERLAG / slug / 'atelje', st)):
+            return 'valda', skal + ': förfina de valda kandidaterna'
+        if efter['beslut'] == 'jamfor':
+            return 'vanta', skal + ': ägaren jämför kandidater; inget körs förrän ägaren väljer'
+        if efter['beslut'] == 'forkasta':
+            return 'stopp', skal + ': ägaren förkastade kandidaterna; nästa steg är en ny riktning (--ny-riktning)'
+        return {'ny_riktning': 'ny-riktning', 'putsa': 'putsa', 'godkand': 'godkand'}[efter['beslut']], skal
     if st.get('steg') == 'fel':
         return 'vanta', 'förra körningen föll (%s); --fortsatt i kontroller/atelje.py tar vid efter den senaste klara fasen' % str(st.get('fel'))[:200]
     return 'vanta', 'körningen är %s och väntar på ägarens dom i dashboardens vy Prototyp' % st.get('steg')
@@ -62,8 +74,11 @@ def bygget_nekas(slug):
     körning, ett godkännande som inte gäller). Tidigare designbeslut utan någon dom stoppar inte ett bygge; det tar
     skapandeflödet i steg 5.1 (omgranskning 2, fynd 3)."""
     vald, skal = lage(slug)
-    if vald in ('putsa', 'ny-riktning') or (vald == 'stopp' and skapande.senaste(slug, underlag=atelje.UNDERLAG)):
+    if vald in ('putsa', 'ny-riktning', 'valda') or (vald == 'stopp' and skapande.senaste(slug, underlag=atelje.UNDERLAG)):
         return '%s: %s' % (vald, skal)
+    st = atelje.las_json(atelje.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
+    if atelje.kandidatkorning(atelje.UNDERLAG / slug / 'atelje', st) and vald != 'godkand':  # kandidaterna väntar på ägarens val och godkännande
+        return 'kandidatflödet: %s' % skal
     return None
 
 
@@ -75,6 +90,7 @@ def main(argv=None):
     grupp.add_argument('--ny-riktning', action='store_true', help='omtag: designbesluten till arkivet, ny utforskning ur mallen')
     grupp.add_argument('--putsa', action='store_true', help='förfina den valda riktningen vidare med ägarens senaste dom')
     grupp.add_argument('--om', action='store_true', help='en ny körning utan att arkivera designbesluten')
+    grupp.add_argument('--valda', action='store_true', help='förfina kandidaterna i ägarens senaste val (kandidatflödet)')
     a = p.parse_args(argv)
     if not atelje.SLUG.match(a.slug):
         p.print_usage()
@@ -82,7 +98,8 @@ def main(argv=None):
     if os.environ.get('NWP_SLUG'):
         print('prototypen startas av ägaren eller en session utanför bygget, inte inifrån ett bygge', file=sys.stderr)
         return 2
-    vald, skal = ('ny-riktning', 'flaggan') if a.ny_riktning else ('putsa', 'flaggan') if a.putsa else ('om', 'flaggan') if a.om else lage(a.slug)
+    vald, skal = ('ny-riktning', 'flaggan') if a.ny_riktning else ('putsa', 'flaggan') if a.putsa else ('om', 'flaggan') if a.om \
+        else ('valda', 'flaggan') if a.valda else lage(a.slug)
     print('Prototyp %s: %s (%s).' % (a.slug, vald, skal), flush=True)
     if vald == 'stopp':
         print(skal)

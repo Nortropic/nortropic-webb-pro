@@ -7,6 +7,8 @@ description: Gruppering, linjering, läsordning och luft i en layout. Används i
 
 Det här avsnittet gäller före allt nedan. Källa, licens och vad som ändrats: `KALLA.md`.
 
+- **I kandidatflödet** (`kunskap/metodkarta.md`): fynd och rättningar skrivs i kandidatens RIKTNING.md, och paletten
+  och typografin är uppdragets (huvudreferensen eller verksamhetens material).
 - **När:** bygg-sajt steg 5.3 medan sidorna byggs och 5.5 innan JAMFORELSE.md skrivs, för luft och hierarki (dimension 4).
 - **Värdena är startpunkter.** Byggstandarden (`kunskap/byggstandard.md`) vinner där de krockar: radlängd 45–75 tecken
   (3.1), träffytor minst 24 px och primära knappar 44 px (3.3), dämpad rörelse (3.5). Ägarens domar i `LARDOMAR.md`

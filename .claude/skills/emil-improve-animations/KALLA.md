@@ -1,0 +1,11 @@
+# Källa
+
+- **Skill:** `improve-animations` (mappen `emil-improve-animations`). Granskar all rörelsekod och skriver prioriterade, fristående planer åt andra agenter (med `AUDIT.md` och `PLAN-TEMPLATE.md`).
+- **Källa:** https://github.com/emilkowalski/skills, `skills/improve-animations/`, commit `e8a175de22ae1e49370fc144c1f3bb9aeedf988d` (2026-10-02T06:43:31-04:00, standardgrenen main). Mappen ändrades senast i `85e8e2363b71` (2026-09-15T17:52:10+02:00).
+- **Licens:** MIT. `LICENSE` (Copyright (c) 2026 Emil Kowalski), repots licensfil, kopierad till mappen.
+- **Intagen:** 2026-10-05 på ägarens beslut samma dag: "vi behöver säkerställa att alla skills är i sin fullo. installera de även ui ux pro max." Ordagrant: alla git-spårade filer i skillmappen, kontrollerade byte för byte mot upstreams blobbar; inget omskrivet eller borttaget.
+- **Filer:** 3 från upstream (3 i mappens rot): `AUDIT.md`, `PLAN-TEMPLATE.md`, `SKILL.md`. Våra tillägg: `KALLA.md`, `LICENSE`.
+- **Utelämnat:** inget ur skillmappen. Repots fjorton skills är alla intagna som `emil-<namn>`; `performance-cheatsheet.md` och README i repots rot hänvisas inte från någon skill.
+- **Förgranskning 2026-10-05:** `kontroller/granska_repo.py` (körd på en kopia) gav HÖG. Nivån kommer enbart av fyra nollbreddsmellanslag (U+200B) före ``` på rad 19, 22, 29 och 35 i `PLAN-TEMPLATE.md`, som hindrar de inre kodstaketen från att stänga mallens block; träffen "ignore previous instructions" på `SKILL.md:33` är skillens egen säkerhetsregel. Inga skript, inga hemligheter, inga nätanrop.
+- **Krockar med våra beslut:** AUDIT.md förutsätter `useEffect` och Motion (AUDIT.md:64, :75); skapar `plans/` med README i projektet (SKILL.md:30, :94).
+- **Så används skillen här:** Läses av skaparsessionerna i skapandeflödet som stöd; ägarens beslut och kundens behov går före skillens standardförslag (hos oss: layout, palett och typografi får kopieras från referenser, inga stock- eller genererade bilder, statiska Astro-sajter, inget färgförbud).

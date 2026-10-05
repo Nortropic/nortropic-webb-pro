@@ -343,6 +343,12 @@ def bygge(slug):
     return b
 
 
+def kandidatkorning(slug, st):
+    """Kandidatflödet känns igen på statusens flagga eller på ateljén själv (atelje.kandidatkorning, granskning 2, N1)."""
+    r = UNDERLAG / slug / 'atelje'
+    return bool(st.get('kandidatflode')) or (r / 'KANDIDATPLAN.json').is_file() or (r / 'kandidater').is_dir()
+
+
 def fil_tillaten(rel):
     """/fil/<rel>: aldrig jämförelsernas facit (kunder/ab/), och för en arm som ägaren inte valt i än bara provets
     skärmbilder, som den blinda jämförelsen behöver (revisionen 2026-10-03, F14)."""
@@ -358,6 +364,14 @@ def fil_tillaten(rel):
         return bool(KAL_FIL.match(rel))
     if rel.startswith('underlag/%s/atelje/foregaende/' % slug):
         return False  # tidigare ateljékörningar: arkiv, inget dashboarden visar (deras panelers domar döljs)
+    if rel.startswith('underlag/%s/atelje/' % slug) and kandidatkorning(slug, las_json(UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}):
+        import kandidater
+        if not kandidater.domd(slug):  # före ägarens första beslut: bara skärmbilderna (granskningen M1)
+            return bool(KAND_FIL.match(rel))
+    if rel.startswith('underlag/%s/atelje/kandidater/' % slug):
+        # kandidatflödet: skärmbilderna är det ägaren bedömer; granskningen, anteckningarna och koden visar API:t när
+        # ägaren har fattat sitt första beslut (kontroller/kandidater.py, sammanstall)
+        return bool(KAND_FIL.match(rel))
     if rel.startswith('underlag/%s/atelje/' % slug):
         # designprovet: bara förslagens bilder tills ägaren dömt alla förslag i omgången (panelens dom döljs per omgång)
         runda = DP_RUNDA.match(delar[3]) if len(delar) > 4 else None
@@ -779,6 +793,10 @@ PR_BILDER = (('390-forsta', 'vy-390-forsta.png'), ('390-hela', 'vy-390-hela.png'
 PR_BESLUT = ('godkand', 'putsa', 'ny_riktning')
 
 
+KAND_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/kandidater/k\d{2}/(?:versioner/[0-9a-f]{12}/)?bilder/[a-z0-9-]{1,80}/vy-(390|768|1440)-(forsta|hela|ruta-\d{2})\.png$')
+KAND_BESLUT = ('valj', 'jamfor', 'forkasta', 'ny_riktning', 'putsa', 'godkand')
+
+
 def prototyp_slugar():
     """Byggen med en körning i skapandeflödet (underlag/<slug>/atelje/STATUS.json med läge)."""
     ut = []
@@ -807,6 +825,8 @@ def prototyp(slug):
     import skapande
     rot = UNDERLAG / slug / 'atelje'
     st = las_json(rot / 'STATUS.json') or {}
+    if kandidatkorning(slug, st):
+        return kandidatvy(slug, st)
     domd = prototyp_domd(slug, st)
     bilder = lambda kat: {n: 'underlag/%s/atelje/%s/%s' % (slug, kat, fil) for n, fil in PR_BILDER if (rot / kat / fil).is_file()}  # noqa: E731
     vinnare = las_json(rot / 'VINNARE.json') or {}
@@ -826,6 +846,51 @@ def prototyp(slug):
             'domar': list(reversed(skapande.domar(slug, UNDERLAG))), 'godkand': vinnare.get('godkand')}
 
 
+def kandidatvy(slug, st):
+    """Kandidatflödet (ägarens uppdrag 2026-10-05, punkt 10): alla kandidater med neutrala etiketter, lika stora bilder i
+    390, 768 och 1440, status och version; förklaringarna, granskningen, jämförelsen och redovisningen först när ägaren
+    fattat sitt första beslut efter planen."""
+    import kandidater
+    import skapande
+    rot = UNDERLAG / slug / 'atelje'
+    domd = kandidater.domd(slug)
+    kand = kandidater.sammanstall(slug)
+    for k in kand:
+        if k.get('riktning'):
+            k['riktning_html'] = md(k.pop('riktning'))
+    vinnare = las_json(rot / 'VINNARE.json') or {}
+    md_ = lambda n: md(las_text(rot / n) or '') if (rot / n).is_file() else ''  # noqa: E731
+    jamf = las_json(rot / 'JAMFORELSE.json') if domd else None
+    namn = {k['id']: k['etikett'] for k in kand}
+    import atelje
+    return {'slug': slug, 'kandidatflode': True, 'steg': st.get('steg'), 'fas': st.get('fas'), 'lage': st.get('lage'), 'startad': st.get('startad'),
+            'klar': st.get('klar'), 'fel': st.get('fel'), 'skal': st.get('skal'), 'domd': domd, 'kandidater': kand, 'avbruten': atelje.avbruten(st),
+            'antal': (las_json(rot / 'KANDIDATPLAN.json') or {}).get('antal') or len(kand),
+            'forbattring_agaren': (las_json(rot / 'FORBATTRING-AGAREN.json') or []) if domd else [],
+            'jamforelse': {'sammanfattning': jamf.get('sammanfattning'), 'par': [dict(p, a=namn.get(p['a'], p['a']), b=namn.get(p['b'], p['b'])) for p in jamf.get('par') or []]}
+            if isinstance(jamf, dict) else None,
+            'redovisning_md': md_('REDOVISNING.md') if domd else None, 'forskning_md': md_('FORSKNING.md') if domd else None,
+            'domar': list(reversed(skapande.domar(slug, UNDERLAG))), 'godkand': vinnare.get('godkand'),
+            'godkand_kandidat': vinnare.get('kandidat') if vinnare.get('godkand') else None}
+
+
+def visa_kandidat(slug, kid):
+    """Kandidatens hela prototyp, klickbar, på en egen lokal adress (samma statiska server som provet, med formulärets
+    lokala demonstration: /api/forfragan → /tack/)."""
+    import kandidater
+    if not kandidater.ID.fullmatch(kid) or kid not in kandidater.lista(slug):
+        return None
+    dist = kandidater.ksajt(slug, kid) / 'dist'
+    if not (dist / 'index.html').is_file():
+        return None
+    nyckel = '%s/%s' % (slug, kid)
+    if nyckel not in VISNING:
+        srv = Server(dist)
+        srv.__enter__()
+        VISNING[nyckel] = srv
+    return VISNING[nyckel].url + '/'
+
+
 def spara_prototyp(slug, data, minuter=None):
     """Ägarens dom över körningen till domloggen (underlag/<slug>/DESIGNDOMAR.jsonl, privat): beslut godkand, putsa eller
     ny_riktning, med ägarens ord. Nästa körning läser den själv (kontroller/prototyp.py); godkand lämnar över till bygget
@@ -835,6 +900,8 @@ def spara_prototyp(slug, data, minuter=None):
     if slug not in prototyp_slugar():
         raise ValueError('ingen prototyp för bygget')
     st = las_json(UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
+    if kandidatkorning(slug, st):
+        return spara_kandidatbeslut(slug, st, data, minuter)
     if st.get('steg') not in ('klar', 'forkastad', 'tillbaka'):
         raise ValueError('körningen är inte klar (steg %s)' % st.get('steg'))
     if data.get('beslut') not in PR_BESLUT:
@@ -850,6 +917,55 @@ def spara_prototyp(slug, data, minuter=None):
         dom = atelje.doma(slug, 'ägaren', data['beslut'], text[:20000], avser='skapandeflödet, körningen %s' % st.get('startad'),
                           **({'niva': data['niva']} if data.get('niva') else {}), **({'minuter': minuter} if minuter is not None else {}))
     return {'ok': True, 'dom': dom}
+
+
+def spara_kandidatbeslut(slug, st, data, minuter=None):
+    """Ägarens beslut i kandidatflödet till domloggen: valj (en eller flera vidare), jamfor (sida vid sida), forkasta
+    (alla), ny_riktning, putsa (de förfinade vidare) eller godkand (en förfinad kandidat till helbygget). Kandidaterna
+    följer med sina versioner, och delar är det ägaren gillade per kandidat; atelje.doma prövar dem mot kandidaternas
+    läge innan domen skrivs."""
+    import atelje
+    if st.get('steg') not in ('klar_for_bedomning', 'fel'):
+        raise ValueError('kandidaterna är inte klara för bedömning (steg %s)' % st.get('steg'))
+    b = data.get('beslut')
+    if b not in KAND_BESLUT:
+        raise ValueError('välj ett beslut')
+    kand = [{'id': str(k.get('id') or ''), 'version': str(k.get('version') or '')} for k in data.get('kandidater') or [] if isinstance(k, dict)][:12]
+    delar = {str(k): str(v)[:2000] for k, v in (data.get('delar') or {}).items() if str(v).strip()} if isinstance(data.get('delar'), dict) else {}
+    text = (data.get('text') or '').strip()
+    if not text and b in ('forkasta', 'ny_riktning', 'putsa'):
+        raise ValueError('skriv vad som inte håller och vad nästa försök ska pröva: din text är nästa körnings kritik')
+    if not text:  # ingen standardfras som ägarens ordagranna ord: domloggen och prompterna säger att ägaren inte skrev något
+        text = '(ägaren skrev ingen text)'
+    with PR_LAS:
+        dom = atelje.doma(slug, 'ägaren', b, text[:20000], avser='skapandeflödet, kandidatplanen %s' % (las_json(UNDERLAG / slug / 'atelje' / 'KANDIDATPLAN.json') or {}).get('tid'),
+                          kandidater=kand, **({'delar': delar} if delar else {}), **({'minuter': minuter} if minuter is not None else {}))
+    return {'ok': True, 'dom': dom}
+
+
+def spara_forbattring(slug, data):
+    """Ägarens omdöme om en förbättringsrunda (synpunkterna på metodkartan 2026-10-05, punkt 5): föreversionen eller den
+    förbättrade är bättre, eller lika. Prövar om granskningens förbättringar hjälper; underlag/<slug>/atelje/
+    FORBATTRING-AGAREN.json (privat). Bara efter ägarens första beslut, när före och efter visas."""
+    import kandidater
+    if slug not in prototyp_slugar() or not kandidater.domd(slug):
+        raise ValueError('före och efter visas efter ditt första beslut')
+    kid, val = str(data.get('kid') or ''), data.get('val')
+    if not kandidater.ID.fullmatch(kid) or kid not in kandidater.lista(slug) or val not in ('fore', 'efter', 'lika'):
+        raise ValueError('välj föreversionen, förbättringen eller lika för en kandidat')
+    st = kandidater.las_status(slug, kid)
+    f = st.get('forbattrad') or {}
+    if not f.get('fore') or f.get('fore') == st.get('version'):
+        raise ValueError('kandidaten har ingen förbättringsrunda att jämföra')
+    fil = UNDERLAG / slug / 'atelje' / 'FORBATTRING-AGAREN.json'
+    with PR_LAS:
+        allt = las_json(fil) or []
+        allt = [x for x in allt if x.get('kid') != kid or x.get('efter') != st.get('version')] + [
+            {'tid': nu(), 'kid': kid, 'fore': f['fore'], 'efter': st.get('version'), 'val': val}]
+        tmp = fil.with_name('.FORBATTRING-AGAREN.json.tmp%d' % os.getpid())
+        tmp.write_text(json.dumps(allt, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        os.replace(tmp, fil)
+    return {'ok': True, 'antal': len(allt)}
 
 
 # --- domen ---
@@ -1316,6 +1432,16 @@ class H(BaseHTTPRequestHandler):
                 if not visa(m.group(1)):
                     return self.skicka(404, {'fel': 'sajten är inte byggd än'})
                 return self.skicka(200, lan_lage(m.group(1)))
+            m = re.match(r'^/visa/([a-z0-9-]{2,60})/(k\d{2})$', vag)
+            if m:  # en kandidats hela prototyp i kandidatflödet, eller en av dess undersidor (?sida=/väg/)
+                url = visa_kandidat(m.group(1), m.group(2))
+                if url:
+                    import kandidater
+                    sida = dict(parse_qsl(urlsplit(self.path).query)).get('sida') or ''
+                    if sida in kandidater.undersidor(m.group(1), m.group(2)):
+                        url += sida.lstrip('/')
+                    return self.skicka(302, '', extra={'Location': url})
+                return self.skicka(404, '<p>Kandidaten är inte byggd.</p>', 'text/html; charset=utf-8')
             m = re.match(r'^/visa/([a-z0-9-]{2,60})$', vag)
             if m:
                 url = visa(m.group(1))
@@ -1369,6 +1495,9 @@ class H(BaseHTTPRequestHandler):
             m = re.match(r'^/api/prototyp/([a-z0-9-]{2,60})$', vag)
             if m:
                 return self.skicka(200, spara_prototyp(m.group(1), data, minuter=minuter_sedan(data.get('startad'))))
+            m = re.match(r'^/api/prototyp/([a-z0-9-]{2,60})/forbattring$', vag)
+            if m:
+                return self.skicka(200, spara_forbattring(m.group(1), data))
             m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})/(?:(omgang-\d{1,2})/)?([A-E])$', vag)
             if m:
                 return self.skicka(200, spara_designprov(m.group(1), m.group(3), data, omgang=m.group(2), minuter=minuter_sedan(data.get('startad'))))

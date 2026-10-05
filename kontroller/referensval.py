@@ -32,7 +32,10 @@ def huvudreferens(slug, underlag):
     ägarbeslut 2026-10-04). Ger {'namn', 'vad', 'bilder': [(Path, text)], 'kalla'} eller None."""
     v = vald(slug, underlag)
     if v:
-        return dict(referens(slug, underlag, v['namn']), vad=v['vad'], kalla='ateljéns val (VINNARE.json)')
+        r = referens(slug, underlag, v['namn'])
+        if not r['bilder'] and v.get('bilder'):  # en kandidat ur kandidatflödet: referensbilderna ur dess uppdrag
+            r['bilder'] = v['bilder']
+        return dict(r, vad=v['vad'], kalla='ateljéns val (VINNARE.json)')
     rader = huvudreferensrader(slug, underlag)
     if len({n.lower() for n, _ in rader}) != 1:
         return None  # ingen eller flera olika: tvetydigt, aldrig den första som råkar stå överst
@@ -54,7 +57,14 @@ def vald(slug, underlag):
     except (OSError, ValueError, AttributeError):
         return None
     if isinstance(h, dict) and isinstance(h.get('namn'), str) and h['namn'].strip():
-        return {'namn': h['namn'].strip(), 'vad': str(h.get('vad') or '').strip()}
+        rot = (Path(underlag) / slug / 'referenser').resolve()
+        bilder = []
+        for b in h.get('bilder') or [] if isinstance(h.get('bilder'), list) else []:  # vägar under referenser/, inga länkar ut
+            v_ = str((b or [''])[0] if isinstance(b, list) else b)
+            f = Path(underlag) / Path(v_).relative_to('underlag') if v_.startswith('underlag/') else Path('/dev/null/x')
+            if f.suffix.lower() in BILD and f.is_file() and f.resolve().is_relative_to(rot):
+                bilder.append((f, str(b[1]) if isinstance(b, list) and len(b) > 1 else 'ur kandidatens uppdrag'))
+        return {'namn': h['namn'].strip(), 'vad': str(h.get('vad') or '').strip(), 'bilder': bilder[:8]}
     return None
 
 

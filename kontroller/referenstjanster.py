@@ -41,7 +41,7 @@ REFERO_ENV = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env'
 TJANSTER = {
     'refero': {'verktyg': ['mcp__refero__refero_search_styles', 'mcp__refero__refero_get_style', 'mcp__refero__refero_search_screens',
                            'mcp__refero__refero_get_screen', 'mcp__refero__refero_get_similar_screens', 'mcp__refero__refero_get_screen_image',
-                           'mcp__refero__refero_search_flows', 'mcp__refero__refero_get_flow'],
+                           'mcp__refero__refero_search_flows', 'mcp__refero__refero_get_flow', 'mcp__refero__refero_search_sites'],
                'bildvardar': ('images.refero.design',), 'nyckel': True},
     'mobbin': {'verktyg': ['mcp__mobbin__search_screens', 'mcp__mobbin__search_flows', 'mcp__mobbin__search_sections'],
                'bildvardar': ('mobbin.com', 'www.mobbin.com'), 'nyckel': False},
@@ -51,12 +51,15 @@ SCHEMA = {'type': 'object', 'required': ['anrop', 'traffar', 'stilar', 'anmarkni
                                          'properties': {'verktyg': {'type': 'string'}, 'argument': {'type': 'string'}, 'resultat_typ': {'type': 'string'}}}},
     'traffar': {'type': 'array', 'items': {'type': 'object', 'required': ['id', 'titel', 'sida_url', 'bild_url', 'beskrivning', 'fraga'], 'additionalProperties': False,
                                            'properties': {'id': {'type': 'string'}, 'titel': {'type': 'string'}, 'sida_url': {'type': 'string'}, 'bild_url': {'type': 'string'},
-                                                          'beskrivning': {'type': 'string'}, 'fraga': {'type': 'string'}}}},
+                                                          'beskrivning': {'type': 'string'}, 'fraga': {'type': 'string'},
+                                                          # ett flödes steg i ordning (get_flow, Mobbins search_flows): varje stegs bild och vad den visar
+                                                          'steg': {'type': 'array', 'maxItems': 12, 'items': {'type': 'object', 'required': ['bild_url', 'beskrivning'], 'additionalProperties': False,
+                                                                   'properties': {'bild_url': {'type': 'string'}, 'beskrivning': {'type': 'string'}}}}}}},
     'stilar': {'type': 'array', 'items': {'type': 'object', 'required': ['id', 'titel', 'sida_url', 'bild_url', 'typografi', 'farger', 'layout', 'rytm', 'komponenter', 'fraga'],
                                           'additionalProperties': False,
                                           'properties': {k: {'type': 'string'} for k in ('id', 'titel', 'sida_url', 'bild_url', 'typografi', 'farger', 'layout', 'rytm', 'komponenter', 'fraga')}}},
     'anmarkning': {'type': 'string'}}}
-MAX_FRAGOR, MAX_TRAFFAR, MAX_BILD_BYTE = 8, 40, 8 * 1024 * 1024
+MAX_FRAGOR, MAX_TRAFFAR, MAX_BILD_BYTE = 14, 60, 8 * 1024 * 1024
 
 
 def nu():
@@ -82,22 +85,33 @@ def las_uppdrag(fil):
     return {'fragor': ut}, None
 
 
-def prompt_for(tjanst, fragor, verksamhet):
-    rader = ['Du prövar och använder referenstjänsten %s via MCP åt ett webbplatsbygge. Verksamheten: %s.' % (tjanst.capitalize(), verksamhet or 'okänd'),
+def prompt_for(tjanst, fragor, bransch):
+    """Uppdraget till tjänstens session. Bara branschen följer med, aldrig kundens namn, ort eller andra uppgifter: allt
+    sessionen skickar i en parameter (Mobbins task_intent, sökfrågorna) lämnar maskinen (tjänsternas villkor och
+    dokumentation, 2026-10-05; förra körningen skickade kundens namn i task_intent)."""
+    rader = ['Du prövar och använder referenstjänsten %s via MCP åt ett webbplatsbygge för en lokal verksamhet i branschen: %s.' % (tjanst.capitalize(), bransch or 'okänd'),
+             'Skicka aldrig kundens namn, ort, telefonnummer eller andra uppgifter i någon parameter (task_intent, sökfrågor);',
+             'task_intent beskriver bara branschen och vad sökningen ska ge.',
              'Gör varje sökning nedan på riktigt med tjänstens verktyg, och hämta för de bästa träffarna (högst %d sammanlagt) skärmbilden:' % MAX_TRAFFAR]
     for f in fragor:
         rader.append('- [%s] %s%s' % (f.get('typ', 'skarm'), f['fraga'], (' (syfte: %s)' % f['syfte']) if f['syfte'] else ''))
     if tjanst == 'refero':
-        rader += ['För frågor av typen skarm eller flode: refero_search_screens eller refero_search_flows (platform web), refero_get_screen för',
-                  'metadata och refero_get_screen_image för bilden; bild_url är bildens adress (images.refero.design/…) eller tom sträng.']
+        rader += ['För frågor av typen skarm: refero_search_screens (platform web; pröva också mobile när frågan gäller mobilen) och',
+                  'refero_get_screen för de bästa (typsnitt, färger, sidtyper, UI-element och innehållet); bild_url är skärmens Preview URL',
+                  '(images.refero.design/screenshots/…), aldrig Thumbnail URL. För frågor av typen flode: refero_search_flows och',
+                  'refero_get_flow, och svara med flödets steg i ordning (steg: bild_url och vad steget visar).',
+                  'Bredda med refero_get_similar_screens från en stark träff och refero_search_sites för hela sajter; formulera om en',
+                  'sökning när träffarna är svaga, och skriv det i anmarkning.']
         if any(f.get('typ') == 'stil' for f in fragor):
-            rader += ['För frågor av typen stil: refero_search_styles och sedan refero_get_style för de bästa (högst fem), och svara i stilar:',
+            rader += ['För frågor av typen stil: refero_search_styles och sedan refero_get_style för de bästa (högst åtta), och svara i stilar:',
                       'typografi (rollerna med typsnitt, storlek och vikt), farger (systemet med roller), layout (principerna), rytm',
                       '(sektionsrytmen) och komponenter (reglerna), så som get_style ger dem, ordagrant eller nära; bild_url är',
                       'förhandsbilden (images.refero.design/styles/…). Skärmfrågor svaras i traffar, stilfrågor i stilar.']
     else:
-        rader += ['Använd search_screens, search_sections eller search_flows efter vad frågan gäller (platform web); bild_url är image_url',
-                  'för träffen (tillfällig länk, ska laddas ner nu).']
+        rader += ['Använd search_screens (sidor och tillstånd), search_sections (avgränsade sektioner; verktyget har ingen platform-',
+                  'parameter) eller search_flows (användarresor: svara med stegen i ordning i steg) efter vad frågan gäller; bild_url är',
+                  'image_url för träffen (tillfällig länk, ska laddas ner nu). Har verktyget parametern mode, använd standard för breda',
+                  'svep (deep kostar krediter). Bredda eller formulera om en sökning när träffarna är svaga, och skriv det i anmarkning.']
     rader += ['Svara enligt schemat: anrop (varje verktygsanrop: verktyg, argument, resultat_typ: text, json, bild-url eller inline-bild),',
               'stilar (tom lista när ingen fråga är av typen stil),',
               'traffar (id, titel, sida_url, bild_url eller tom sträng, en beskrivning av vad bilden visar, och vilken fråga träffen hör till),',
@@ -119,20 +133,25 @@ def miljo_for(tjanst):
     return m
 
 
-def kor_session(tjanst, prompt, logg, modell, frist=900):
+MODELL = os.environ.get('NWP_TJANST_MODELL') or 'claude-sonnet-5-5'  # aliaset sonnet pekar på en äldre version
+FRIST = int(os.environ.get('NWP_TJANST_FRIST') or 1800)
+
+
+def kor_session(tjanst, prompt, logg, modell, frist=FRIST):
     claude = os.environ.get('NWP_CLAUDE') or 'claude'
-    args = [claude, '-p', '--max-turns', '30', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
+    args = [claude, '-p', '--max-turns', '90', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--mcp-config', str(MCP / ('%s.json' % tjanst)),
-            '--model', modell, '--effort', 'medium', '--json-schema', json.dumps(SCHEMA),
+            '--model', modell, '--effort', 'high', '--json-schema', json.dumps(SCHEMA),
             '--allowedTools', *TJANSTER[tjanst]['verktyg'], '--disallowedTools', 'Bash', 'Write', 'Edit', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Task']
     with open(logg, 'wb') as ut:
         p = subprocess.run(args, input=prompt.encode('utf-8'), stdout=ut, stderr=subprocess.PIPE, cwd=str(ROOT), env=miljo_for(tjanst), timeout=frist)
     return p.returncode, p.stderr.decode('utf-8', 'replace')[-500:]
 
 
-def las_logg(logg):
-    """(anrop per verktyg ur loggen, strukturerat svar, resultatpost). Modellens egen lista över anrop räknas aldrig."""
-    anrop, res, slut = {}, None, {}
+def las_logg(logg, svar_ut=None):
+    """(anrop per verktyg ur loggen, strukturerat svar, resultatpost). Modellens egen lista över anrop räknas aldrig.
+    Med svar_ut (en lista) läggs varje verktygssvar till ordagrant, parat med sitt anrop: (verktyg, indata, text)."""
+    anrop, res, slut, inne = {}, None, {}, {}
     try:
         for rad in Path(logg).read_text(encoding='utf-8', errors='replace').splitlines():
             try:
@@ -143,11 +162,64 @@ def las_logg(logg):
                 for c in (d.get('message') or {}).get('content') or []:
                     if isinstance(c, dict) and c.get('type') == 'tool_use':
                         anrop[c.get('name')] = anrop.get(c.get('name'), 0) + 1
+                        inne[c.get('id')] = (c.get('name'), c.get('input') if isinstance(c.get('input'), dict) else {})
+            elif d.get('type') == 'user' and svar_ut is not None:
+                for c in (d.get('message') or {}).get('content') or [] if isinstance((d.get('message') or {}).get('content'), list) else []:
+                    if isinstance(c, dict) and c.get('type') == 'tool_result' and c.get('tool_use_id') in inne:
+                        innehall = c.get('content')
+                        text = ''.join(x.get('text', '') for x in innehall if isinstance(x, dict) and x.get('type') == 'text') \
+                            if isinstance(innehall, list) else str(innehall or '')
+                        namn, indata = inne[c['tool_use_id']]
+                        svar_ut.append((namn, indata, text))
             elif d.get('type') == 'result':
                 res = d.get('structured_output'); slut = {k: d.get(k) for k in ('subtype', 'is_error', 'num_turns', 'duration_ms')}
     except OSError:
         pass
     return anrop, res if isinstance(res, dict) else None, slut
+
+
+STILRUBRIK = re.compile(r'^# (?P<titel>.+?) — Style Reference\s*$', re.M)
+
+
+def stildokument(text):
+    """get_style ordagrant, delat per stil: [(titel, dokument)]. Hela dokumentet följer med (tema och hållning, tokens,
+    komponenter, Do's and Don'ts, Imagery, Layout, Agent Prompt Guide): Codex 2026-10-05, punkt 4, fann att bara fem
+    sammanfattningsfält nådde skaparen medan bildstrategin och förutsättningarna stannade i råloggen."""
+    traffar = list(STILRUBRIK.finditer(text or ''))
+    return [(m.group('titel').strip(), text[m.start():(traffar[i + 1].start() if i + 1 < len(traffar) else len(text))].strip())
+            for i, m in enumerate(traffar)]
+
+
+def falt(text, namn):
+    m = re.search(r'^- \*\*%s\*\*:\s*(\S.*?)\s*$' % re.escape(namn), text or '', re.M)
+    return m.group(1).strip() if m else ''
+
+
+def forhandsbild(svar, ident):
+    """Skärmens eller stilens Preview URL ur tjänstens egna svar (inte modellens val): blocket "## Screen: <id>" eller
+    "## Style: <id>" i sökresultaten och get_screen."""
+    for _n, _i, text in svar:
+        for m in re.finditer(r'^## (?:Screen|Style): (\S+)\s*$', text or '', re.M):
+            if m.group(1) == ident:
+                block = text[m.end():m.end() + 2000].split('\n## ', 1)[0]
+                return falt(block, 'Preview URL')
+    return ''
+
+
+def stiltitlar(svar):
+    """{stil-id: titel} ur tjänstens egna sökresultat ("## Style: <id>" med "- **Title**:"). get_style-dokumenten saknar
+    id och kommer i annan ordning än anropets style_ids, så titeln från sökningen binder dokumentet till rätt stil."""
+    ut = {}
+    for _n, _i, text in svar:
+        for m in re.finditer(r'^## Style: (\S+)\s*$', text or '', re.M):
+            titel = falt(text[m.end():m.end() + 1200].split('\n## ', 1)[0], 'Title')
+            if titel:
+                ut.setdefault(m.group(1), titel)
+    return ut
+
+
+def slugifiera(s):
+    return re.sub(r'[^a-z0-9]+', '-', (s or '').lower()).strip('-')[:60] or 'utan-namn'
 
 
 def tillaten_bild(u, tjanst, lokala_portar=()):
@@ -180,17 +252,43 @@ def ladda_bild(u, mal, lokala_portar=()):
     return fil, None
 
 
-def samla(slug, uppdrag, underlag=None, torr=False, modell='sonnet', lokala_portar=(), kor=kor_session):
+def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar=(), kor=kor_session):
     underlag = Path(underlag or UNDERLAG)
     rot = underlag / slug / 'referenser' / 'tjanster'
     rot.mkdir(parents=True, exist_ok=True)
     try:
-        verksamhet = (json.loads((underlag / slug / 'VERKSAMHET.json').read_text(encoding='utf-8')).get('namn') or '')
-    except (OSError, ValueError):
+        kat = json.loads((underlag / slug / 'VERKSAMHET.json').read_text(encoding='utf-8')).get('kategorier') or []
+        verksamhet = ', '.join(str(k) for k in kat[:3] if isinstance(k, str))[:120]  # branschen, aldrig namnet
+    except (OSError, ValueError, AttributeError, TypeError):
         verksamhet = ''
-    res = {'schema': 1, 'slug': slug, 'tid': nu(), 'torr': torr, 'tjanster': {}, 'alla_ok': True}
+    res = {'schema': 2, 'slug': slug, 'tid': nu(), 'torr': torr, 'tjanster': {}, 'alla_ok': True, 'tidigare': None}
+    stampel, i = res['tid'].replace(':', ''), 1
+    while any((rot / x).exists() for x in ('tidigare/%s-TJANSTER.json' % stampel, 'tidigare/%s-TJANSTER.md' % stampel)
+              + tuple('%s/session-%s.jsonl' % (tj, stampel) for tj in TJANSTER)):  # två körningar samma sekund skriver aldrig över
+        i += 1
+        stampel = '%s-%d' % (res['tid'].replace(':', ''), i)
+    namn_ut = 'TJANSTER-torr' if torr else 'TJANSTER'  # en torrkörning rör aldrig den riktiga rapporten
+    if not torr and ((rot / 'TJANSTER.json').is_file() or (rot / 'TJANSTER.md').is_file()):  # förra undersökningen sparas, skrivs aldrig över
+        tidigare = rot / 'tidigare'
+        tidigare.mkdir(parents=True, exist_ok=True)
+        for n in ('TJANSTER.json', 'TJANSTER.md'):
+            if (rot / n).is_file() and not (rot / n).is_symlink():
+                os.replace(rot / n, tidigare / ('%s-%s' % (stampel, n)))
+        res['tidigare'] = 'referenser/tjanster/tidigare/%s-TJANSTER.md' % stampel
+    # kundens namn, orter och nummer går aldrig till tjänsterna, också om en fråga skulle nämna dem (granskningen V9)
+    import skapande
+    forbjudna = skapande.forbjudna_termer(slug, underlag)
+    res['slappta'] = []
+    godkanda = []
+    for f in uppdrag['fragor']:  # oberoende av frågans längd: kundens uppgifter, adresser, e-post och långa nummer (granskning 2, N3)
+        text = '%s %s' % (f['fraga'], f.get('syfte') or '')
+        skal = ('nämner kundens namn, ort, webbadress, e-post eller nummer' if skapande.namner_kunden(text, forbjudna)
+                else 'innehåller en adress, en e-postadress eller en lång sifferföljd' if skapande.SPARRAD_FORM.search(text) else None)
+        (res['slappta'].append({'tjanst': f['tjanst'], 'skal': skal}) if skal else godkanda.append(f))
+    if uppdrag['fragor'] and not godkanda:
+        res['alla_ok'] = False  # ingen beställd tjänst kördes: ingen grön slutkod (granskning 2, N3)
     for tjanst in TJANSTER:
-        fragor = [f for f in uppdrag['fragor'] if f['tjanst'] == tjanst]
+        fragor = [f for f in godkanda if f['tjanst'] == tjanst]
         if not fragor:
             continue
         post = {'fragor': fragor, 'anrop': {}, 'traffar': [], 'stilar': [], 'bilder': 0, 'anmarkningar': [], 'ok': False}
@@ -201,12 +299,33 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell='sonnet', lokala_port
             res['tjanster'][tjanst] = post
             res['alla_ok'] = False
             continue
-        logg = katalog / 'session.jsonl'
+        logg = katalog / ('session-%s.jsonl' % stampel)  # en logg per körning: råmaterialet skrivs aldrig över
         try:
             rc, fel = kor(tjanst, prompt_for(tjanst, fragor, verksamhet), logg, modell)
         except Exception as e:  # noqa: BLE001
             rc, fel = 1, str(e)[:300]
-        anrop, svar, slut = las_logg(logg)
+        verktygssvar = []
+        anrop, svar, slut = las_logg(logg, verktygssvar)
+        post['logg'] = str(logg.relative_to(underlag / slug))
+        # tjänstens egna svar ordagrant: stildokumenten hela, skärmarnas och flödenas metadata, sökresultaten
+        ra = katalog / ('ra-%s' % stampel)
+        bildkat = katalog / ('bilder-%s' % stampel)  # bilderna per körning: en senare körning skriver aldrig över dem
+        bildkat.mkdir(parents=True, exist_ok=True)
+        dokument, stil_id, titlar = {}, set(), stiltitlar(verktygssvar)
+        for i, (namn, indata, text) in enumerate(verktygssvar, 1):
+            kort = (namn or '').split('__')[-1]
+            if not text.strip() or not kort.startswith(('refero_', 'search_')):
+                continue
+            ra.mkdir(parents=True, exist_ok=True)
+            (ra / ('%02d-%s.md' % (i, slugifiera(kort)))).write_text('<!-- %s %s -->\n\n%s\n' % (kort, json.dumps(indata, ensure_ascii=False)[:400], text), encoding='utf-8')
+            if kort.endswith('get_style'):
+                ids = indata.get('style_ids') or ([indata['style_id']] if indata.get('style_id') else [])
+                stil_id.update(str(x) for x in ids if x)
+                for titel, dok in stildokument(text):
+                    f = ra / ('stil-%s.md' % slugifiera(titel))  # per körning: nästa körning skriver aldrig över
+                    f.write_text(dok + '\n', encoding='utf-8')
+                    dokument[titel.lower()] = str(f.relative_to(underlag / slug))
+        post['ra'] = str(ra.relative_to(underlag / slug)) if ra.is_dir() else None
         post['anrop'] = {k: v for k, v in anrop.items() if k.startswith('mcp__%s__' % tjanst)}
         post['session'] = dict(slut, slutkod=rc)
         if rc != 0 or not svar:
@@ -215,10 +334,22 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell='sonnet', lokala_port
             post['anmarkningar'] += [x for x in [svar.get('anmarkning', '')] if x]
             for i, t in enumerate((svar.get('traffar') or [])[:MAX_TRAFFAR]):
                 ident = re.sub(r'[^a-zA-Z0-9_-]+', '-', str(t.get('id') or 'traff-%d' % (i + 1)))[:60] or 'traff-%d' % (i + 1)
-                traff = {'id': ident, 'titel': str(t.get('titel') or '')[:200], 'sida_url': str(t.get('sida_url') or '')[:500], 'bild_url': str(t.get('bild_url') or '')[:500],
-                         'beskrivning': str(t.get('beskrivning') or '')[:600], 'fraga': str(t.get('fraga') or '')[:200], 'fil': None, 'sha256': None, 'byte': None, 'fel': None}
+                bild_url = str(t.get('bild_url') or '')[:500]
+                if tjanst == 'refero' and (not bild_url or 'thumb' in bild_url.lower()):  # Refero: ..._thumb.jpg är tumnageln
+                    bild_url = forhandsbild(verktygssvar, str(t.get('id') or '')) or bild_url  # hela skärmen, inte tumnageln
+                traff = {'id': ident, 'titel': str(t.get('titel') or '')[:200], 'sida_url': str(t.get('sida_url') or '')[:500], 'bild_url': bild_url,
+                         'beskrivning': str(t.get('beskrivning') or '')[:1500], 'fraga': str(t.get('fraga') or '')[:200], 'fil': None, 'sha256': None, 'byte': None, 'fel': None,
+                         'steg': []}
+                for j, s in enumerate((t.get('steg') or [])[:12], 1):  # flödets steg i ordning, var och en med sin bild
+                    u_ = str((s or {}).get('bild_url') or '')[:500]
+                    steg = {'nr': j, 'beskrivning': str((s or {}).get('beskrivning') or '')[:400], 'fil': None, 'fel': None}
+                    if u_ and tillaten_bild(u_, tjanst, lokala_portar):
+                        f_, fel_s = ladda_bild(u_, bildkat / ('%s-steg-%02d' % (ident, j)), lokala_portar)
+                        steg['fil'], steg['fel'] = (str(f_.relative_to(underlag / slug)) if f_ else None), fel_s
+                        post['bilder'] += 1 if f_ else 0
+                    traff['steg'].append(steg)
                 if traff['bild_url'] and tillaten_bild(traff['bild_url'], tjanst, lokala_portar):
-                    fil, fel_ = ladda_bild(traff['bild_url'], katalog / ident, lokala_portar)
+                    fil, fel_ = ladda_bild(traff['bild_url'], bildkat / ident, lokala_portar)
                     if fil:
                         data = fil.read_bytes()
                         traff.update(fil=str(fil.relative_to(underlag / slug)), sha256=hashlib.sha256(data).hexdigest(), byte=len(data))
@@ -233,18 +364,21 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell='sonnet', lokala_port
             for i, t in enumerate((svar.get('stilar') or [])[:10]):
                 ident = 'stil-' + (re.sub(r'[^a-zA-Z0-9_-]+', '-', str(t.get('id') or i + 1))[:60] or str(i + 1))
                 stil = {k: str(t.get(k) or '')[:2000] for k in ('titel', 'sida_url', 'bild_url', 'typografi', 'farger', 'layout', 'rytm', 'komponenter', 'fraga')}
-                stil.update(id=ident, fil=None, sha256=None, fel=None)
+                namn = (titlar.get(str(t.get('id') or '')) or stil['titel']).lower()
+                stil.update(id=ident, fil=None, sha256=None, fel=None,
+                            dokument=dokument.get(namn))  # exakt: id → sökningens titel → dokumentets titel
                 if stil['bild_url'] and tillaten_bild(stil['bild_url'], tjanst, lokala_portar):
-                    fil, fel_ = ladda_bild(stil['bild_url'], katalog / ident, lokala_portar)
+                    fil, fel_ = ladda_bild(stil['bild_url'], bildkat / ident, lokala_portar)
                     if fil:
                         stil.update(fil=str(fil.relative_to(underlag / slug)), sha256=hashlib.sha256(fil.read_bytes()).hexdigest())
                         post['bilder'] += 1
                     else:
                         stil['fel'] = fel_
-                n_get = sum(v for n, v in post['anrop'].items() if n.endswith('refero_get_style'))
-                if i >= n_get:  # varje belagd stil kräver sitt eget get_style-anrop i loggen
-                    stil['fel'] = (stil['fel'] + '; ' if stil['fel'] else '') + ('inget get_style-anrop i loggen' if not n_get else 'fler stilar än get_style-anrop i loggen') + ': värdena är inte belagda'
-                stil['belagd'] = i < n_get
+                # belagd: stilens id hämtades med get_style (style_ids tas i klump), eller dess hela dokument finns i svaret
+                belagd = str(t.get('id') or '') in stil_id or bool(stil['dokument'])
+                if not belagd:
+                    stil['fel'] = (stil['fel'] + '; ' if stil['fel'] else '') + 'stilen hämtades inte med get_style i loggen: värdena är inte belagda'
+                stil['belagd'] = belagd
                 post['stilar'].append(stil)
             if any(f.get('typ') == 'stil' for f in fragor) and not any(n.endswith('refero_get_style') for n in post['anrop']):
                 post['anmarkningar'].append('stilfrågan besvarades utan refero_get_style i sessionsloggen')
@@ -259,23 +393,32 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell='sonnet', lokala_port
             post['anmarkningar'].append('inga bilder levererades till paketet')
         res['alla_ok'] = res['alla_ok'] and post['ok']
         res['tjanster'][tjanst] = post
-    (rot / 'TJANSTER.json').write_text(json.dumps(res, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    (rot / (namn_ut + '.json')).write_text(json.dumps(res, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     rader = ['# Referenstjänster · %s · %s' % (slug, res['tid']), '',
-             'Belägg: anropen räknas ur sessionsloggen (session.jsonl per tjänst), bilderna är nedladdade till referenser/tjanster/<tjänst>/.', '']
+             'Undersökningen gjord %s för %s (ny i den här körningen%s).' % (res['tid'], slug, '; den förra ligger i ' + res['tidigare'] if res['tidigare'] else ''),
+             'Belägg: anropen räknas ur sessionsloggen (session-<tid>.jsonl per tjänst), bilderna är nedladdade till referenser/tjanster/<tjänst>/,',
+             'och tjänsternas svar ligger ordagrant i ra-<tid>/; varje Refero-stil har sitt hela dokument (stil-<namn>.md: tema, tokens,',
+             'komponenter, Do\'s and Don\'ts, Imagery, Layout). Det som mätts på en originalsajt står i referenspaketets EXTRAKT.md; det här',
+             'är vad tjänsten beskriver; vad vi väljer står i kandidaternas RIKTNING.md.', '']
+    if res['slappta']:  # frågans text skrivs inte ut: den kan bära kundens uppgifter
+        rader += ['## Släppta frågor (gick aldrig till tjänsterna)', ''] + ['- %s: %s' % (x['tjanst'], x['skal']) for x in res['slappta']] + ['']
     for tjanst, post in res['tjanster'].items():
         rader += ['## %s · %s · anrop: %s · bilder: %d' % (tjanst, 'ok' if post['ok'] else 'brister', ', '.join('%s ×%d' % (k.split('__')[-1], v) for k, v in sorted(post['anrop'].items())) or 'inga', post['bilder']), '']
         for f in post['fragor']:
             rader.append('- fråga: %s%s' % (f['fraga'], (' (%s)' % f['syfte']) if f['syfte'] else ''))
         for t in post['traffar']:
-            rader.append('- %s · %s · %s · %s' % (t['titel'] or t['id'], t['sida_url'] or '-', ('referenser/' + t['fil'].split('referenser/', 1)[-1]) if t['fil'] else 'ingen bild (%s)' % (t['fel'] or '?'), t['beskrivning'][:160]))
+            rader.append('- %s · %s · %s · %s' % (t['titel'] or t['id'], t['sida_url'] or '-', ('referenser/' + t['fil'].split('referenser/', 1)[-1]) if t['fil'] else 'ingen bild (%s)' % (t['fel'] or '?'), t['beskrivning']))
+            for s in t.get('steg') or []:
+                rader.append('  - steg %d: %s · %s' % (s['nr'], s['fil'] or 'ingen bild (%s)' % (s['fel'] or '?'), s['beskrivning']))
         for t in post.get('stilar') or []:
             rader += ['', '### Stil: %s · %s · %s%s' % (t['titel'] or t['id'], t['sida_url'] or '-', t['fil'] or 'ingen förhandsbild', ' · ' + t['fel'] if t['fel'] else ''),
+                      '- hela stilen (tema, tokens, komponenter, Do\'s and Don\'ts, Imagery, Layout): ' + (t.get('dokument') or 'saknas i loggen'),
                       '- typografi: ' + (t['typografi'] or '–'), '- färger: ' + (t['farger'] or '–'), '- layout: ' + (t['layout'] or '–'),
                       '- rytm: ' + (t['rytm'] or '–'), '- komponenter: ' + (t['komponenter'] or '–'), '']
         for a in post['anmarkningar']:
             rader.append('- anmärkning: ' + a)
         rader.append('')
-    (rot / 'TJANSTER.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
+    (rot / (namn_ut + '.md')).write_text('\n'.join(rader) + '\n', encoding='utf-8')
     return rot, res
 
 
@@ -284,7 +427,7 @@ def main(argv=None):
     p.add_argument('slug')
     p.add_argument('--uppdrag', default=None)
     p.add_argument('--torr', action='store_true')
-    p.add_argument('--modell', default=os.environ.get('NWP_TJANST_MODELL') or 'sonnet')
+    p.add_argument('--modell', default=MODELL)
     p.add_argument('--underlag', default=None, help=argparse.SUPPRESS)
     p.add_argument('--tillat-lokalt', default=None, help=argparse.SUPPRESS)
     a = p.parse_args(argv)

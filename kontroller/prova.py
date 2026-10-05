@@ -77,11 +77,21 @@ def bygg_inom_grans(sajt, timeout=600):
     fynd 8). Utan nät, också utan localhost, där dashboarden tar emot ägarens domar, och med skrivning bara i sajten,
     aldrig i underlag/<slug> med domloggen och VINNARE.json (granskning 4–6). Redan innanför
     gränsen (NWP_PROCESSGRANS=1) körs bygget direkt, aldrig en gräns i en gräns."""
+    import fcntl
     sajt = Path(sajt)
+    delar = sajt.parts  # <root>/kunder/<slug>/sajt eller <root>/kunder/<slug>/kandidater/<id>/sajt (skapandeflödets kandidater)
+    i = max(j for j, d in enumerate(delar) if d == 'kunder')
+    root, slug = Path(*delar[:i]), delar[i + 1]
     kmd = ['npm', 'run', 'build', '--prefix', str(sajt)]
     if os.environ.get('NWP_PROCESSGRANS') != '1':
-        kmd = [sys.executable, '-B', str(KONTROLLER / 'processgrans.py'), sajt.parent.name, '--root', str(sajt.parents[2]), '--utan-nat', '--bara-sajt', '--', *kmd]
-    return kor(kmd, timeout=timeout)
+        kmd = [sys.executable, '-B', str(KONTROLLER / 'processgrans.py'), slug, '--root', str(root), '--utan-nat', '--skrivbar', str(sajt), '--', *kmd]
+    # ett bygge i taget per kund: kandidaterna delar sajtens beroenden, och byggena skriver deras cacher (node_modules/.vite)
+    with open(root / 'kunder' / slug / '.bygglas', 'w') as las:
+        fcntl.flock(las, fcntl.LOCK_EX)
+        try:
+            return kor(kmd, timeout=timeout)
+        finally:
+            fcntl.flock(las, fcntl.LOCK_UN)
 
 def svans(text, n=25):
     return '\n'.join(text.strip().splitlines()[-n:])

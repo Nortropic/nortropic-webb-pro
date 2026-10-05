@@ -62,9 +62,9 @@ kunder/$SLUG/sajt/, rapporten i kunder/$SLUG/RAPPORT.md. Ingen människa svarar 
 märk den antagande och fortsätt. Avsluta först när .venv/bin/python kontroller/prova.py $SLUG är grönt, rapporten är
 skriven och den oberoende granskaren (kontroller/granska.py) har godkänt sajten. Stoppvakten kör provet och
 granskningen själv när du försöker avsluta."
-# Skapandeflödet (kunskap/skapandeflodet.md; Codex via ägaren 2026-10-05: ett designflöde, inte tre) är standard i
-# steg 5.1. En startsida som ägaren godkänt tas över som ateljévinnaren; skapandeflödet körs utanför sandlådan, så ett
-# sandlådat bygge kräver en godkänd startsida. NWP_ATELJE=av är nödvägen utan ateljé (byggarens eget KONCEPT.md).
+# Skapandeflödet (kunskap/skapandeflodet.md) körs före bygget, utanför sandlådan, och slutar i ägarens val och
+# godkännande (kandidatflödet, ägarens uppdrag 2026-10-05). Ett bygge tar vid bara från en godkänd startsida, som
+# ateljévinnaren; utan en stannar kor.sh. NWP_ATELJE=av är nödvägen utan ateljé (byggarens eget KONCEPT.md).
 # Godkännandet gäller bara när ägarens senaste dom i domloggen är just det och startsidan och DESIGN.md är oförändrade
 # (kontroller/skapande.py godkand_giltig; granskningen av skapandeflödet, punkt 2).
 GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
@@ -83,16 +83,16 @@ print(", ".join(atelje.installera_godkand(sys.argv[2])))' "$ROOT" "$SLUG")" || {
   PROMPT="$PROMPT
 
 Ägaren har godkänt startsidan i skapandeflödet (underlag/$SLUG/atelje/VINNARE.json, fältet godkand): ta vid efter valet
-i steg 5.1, som från ateljévinnaren. Kör inte ateljén; startsidan står i kunder/$SLUG/sajt/src/pages/index.astro."
+i steg 5.1, som från ateljévinnaren. Kör inte ateljén; startsidan står i kunder/$SLUG/sajt/src/pages/index.astro (en
+kandidat ur kandidatflödet har också sina undersidor där, och DESIGN.md i kunder/$SLUG/sajt/)."
 elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ -n "$AGARENS_STOPP" ]; then
   # ägarens dom tillåter inget bygge på startsidan (prototyp.bygget_nekas): nästa steg är skapandeflödet
   echo "ägarens domlogg tillåter inget bygge på startsidan ($AGARENS_STOPP). Kör .venv/bin/python kontroller/prototyp.py $SLUG före bygget; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
 elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ "${NWP_SANDLADA:-av}" = "pa" ]; then
   echo "skapandeflödet (ateljén) körs utanför sandlådan, före bygget: kör .venv/bin/python kontroller/prototyp.py $SLUG och godkänn startsidan i dashboardens vy Prototyp; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
 elif [ "${NWP_ATELJE:-pa}" = "pa" ]; then
-  PROMPT="$PROMPT
-
-Riktningsateljén är på (skapandeflödet, standard): följ ateljévägen i steg 5.1."
+  # skapandeflödet slutar i ägarens val och godkännande och körs före bygget, aldrig inifrån det (granskningen V3)
+  echo "ingen godkänd startsida: kör .venv/bin/python kontroller/prototyp.py $SLUG, välj bland förslagen och godkänn en i dashboardens vy Prototyp före bygget; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
 fi
 
 # Referenstjänster via MCP (A/B-posterna om Inspo och om Refero/Mobbin): bara när NWP_MCP_CONFIG pekar på en av filerna i
@@ -108,7 +108,7 @@ if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
     "$ROOT/kontroller/mcp/mobbin.json") INSPO=(mcp__mobbin__search_screens mcp__mobbin__search_flows mcp__mobbin__search_sections);;
     "$ROOT/kontroller/mcp/refero.json") INSPO=(mcp__refero__refero_search_styles mcp__refero__refero_get_style mcp__refero__refero_search_screens
                                                mcp__refero__refero_get_screen mcp__refero__refero_get_similar_screens mcp__refero__refero_get_screen_image
-                                               mcp__refero__refero_search_flows mcp__refero__refero_get_flow)
+                                               mcp__refero__refero_search_flows mcp__refero__refero_get_flow mcp__refero__refero_search_sites)
       # Refero ansluts med en personlig nyckel (ingen webbläsarinloggning): anslutningsfilen bär ${REFERO_MCP_TOKEN},
       # värdet ligger i ägarens hemlighetsmapp och exporteras bara till byggets claude-process. Aldrig i repot.
       REFERO_ENV="$HOME/.nortropic-hemligheter/webb-pro/refero.env"

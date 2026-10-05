@@ -77,6 +77,10 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
 9. **Sätt betygen på designkvalitet och originalitet innan du öppnar stilrapporten och copykontrollens rapport,** så
    att mätningarna inte förankrar omdömet. Läs dem sedan, med stilrapportens avsnitt om mobilens första vy (sidhuvudets
    höjd, eget foto i första skärmen), och lägg till fynd; sänk inte ett betyg för något du inte själv såg i bilderna.
+   Stilrapportens varningar är val att motivera, inte fel. Navigation och formulär får vara standard: där besökaren ska
+   hitta och fylla i är det invanda mönstret rätt. Ägarens form för mobilens första vy (sidhuvud på en rad, synlig meny,
+   fast list; A/B 2026-10-02) är en designhypotes (`kunskap/designregler.md`): en annan lösning där den primära
+   handlingen syns och nås med tummen är inget fel, och en godkänd startsida ur skapandeflödet går före.
 
 Håll isär vad du **ser** i bilderna och vad du **läser** i text eller designfakta. Skriv "okänt" där bilderna inte
 räcker, till exempel för rörelse.

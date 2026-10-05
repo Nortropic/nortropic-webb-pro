@@ -7,6 +7,8 @@ description: Samlad genomgång över tillgänglighet, layout, text, typografi, f
 
 Det här avsnittet gäller före allt nedan. Källa, licens och vad som ändrats: `KALLA.md`.
 
+- **I kandidatflödet** (`kunskap/metodkarta.md`): fynd och rättningar skrivs i kandidatens RIKTNING.md, och paletten
+  och typografin är uppdragets (huvudreferensen eller verksamhetens material).
 - **När:** bygg-sajt steg 5.5, som byggarens egen genomgång innan `kontroller/granska.py` körs.
 - **Värdena är startpunkter.** Byggstandarden (`kunskap/byggstandard.md`) vinner där de krockar: radlängd 45–75 tecken
   (3.1), träffytor minst 24 px och primära knappar 44 px (3.3), dämpad rörelse (3.5). Ägarens domar i `LARDOMAR.md`
@@ -15,8 +17,9 @@ Det här avsnittet gäller före allt nedan. Källa, licens och vad som ändrats
   Tailwind, React eller ett animationsbibliotek översätts till vanlig CSS.
 - **Rapportformatet** (tabellen och Block/Approve) är till för en fristående granskning. I ett bygge skrivs fynd och
   rättningar i `underlag/<slug>/JAMFORELSE.md`; den oberoende granskningen gör `kontroller/granska.py`.
-- **interface-review följer inte med** (den granskar ändringar i git och startas av en människa). Hänvisningarna till
-  den nedan gäller inte här; granskningen av sajten gör `kontroller/granska.py`.
+- **interface-review** finns som `better-interface-review`, men den granskar ändringar i git och startas av en människa
+  (`/better-interface-review`); i bygget och skapandeflödet gör `kontroller/granska.py` och kandidatgranskningen
+  granskningen av sajten.
 
 
 # Interface review

@@ -7,6 +7,8 @@ description: Typskala, radlängd, radavstånd, variabla typsnitt, OpenType och r
 
 Det här avsnittet gäller före allt nedan. Källa, licens och vad som ändrats: `KALLA.md`.
 
+- **I kandidatflödet** (`kunskap/metodkarta.md`): fynd och rättningar skrivs i kandidatens RIKTNING.md, och paletten
+  och typografin är uppdragets (huvudreferensen eller verksamhetens material).
 - **När:** bygg-sajt steg 5.3 och 5.5, för typografins roller, skala, radlängd och detaljer.
 - **Värdena är startpunkter.** Byggstandarden (`kunskap/byggstandard.md`) vinner där de krockar: radlängd 45–75 tecken
   (3.1), träffytor minst 24 px och primära knappar 44 px (3.3), dämpad rörelse (3.5). Ägarens domar i `LARDOMAR.md`

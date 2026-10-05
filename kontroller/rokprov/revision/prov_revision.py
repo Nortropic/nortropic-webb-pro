@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT / 'kontroller'))
 sys.path.insert(0, str(ROOT / 'dashboard'))
 PY = sys.executable
 tmp = Path(tempfile.mkdtemp(prefix='nwp-rev-'))
+os.environ['NWP_KANDIDATFLODE'] = 'av'  # de äldre ateljéproven kör utforskningen med tre riktningar; kandidatflödet har eget avsnitt
 
 
 class Tyst(http.server.SimpleHTTPRequestHandler):
@@ -974,7 +975,7 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     assert 'färre kandidater än riktningarna (1 av %d)' % a.ANTAL in dp and 'Huvudreferenskandidat: <rubrikens namn>' in dp, dp
     assert 'undersida/index.astro' in dp and 'stiltavla/index.astro' in dp and 'style tile' not in dp and '/src/assets/atelje/' in dp and 'Förra omgången' not in dp, dp
     assert 'olika grundidéer' in dp and 'sin egen huvudreferens' in dp and 'Två riktningar' in dp and 'konsolfel' in dp and 'KOMPLETTERING.json' in dp and 'Huvudreferens N:' in dp, dp
-    assert '.claude/skills/better-layout/SKILL.md' in dp and 'kunskap/externa/anthropic-frontend-design-SKILL.md' in dp and 'skiljer sig inom huvudreferensen' not in dp, 'metoden i prompten; ingen bindning till en enda referens'
+    assert '.claude/skills/better-layout/SKILL.md' in dp and '.claude/skills/frontend-design/SKILL.md' in dp and 'skiljer sig inom huvudreferensen' not in dp, 'metoden i prompten; ingen bindning till en enda referens'
     assert 'Förra omgången förkastades' in a.divergera_prompt('provhr', [], 'kritik: platt') and 'kritik: platt' in a.divergera_prompt('provhr', [], 'kritik: platt')
     # tre kandidater: varje riktning väljer sin, och bilderna står med frågan
     (u / 'REFERENSER.md').write_text(ref_text.replace('Huvudreferens: Snick — komposition, typografi och bildbehandling',
@@ -2762,7 +2763,8 @@ def kor_pt(args, timeout):
 res_pt = sk.komplettera('pt-prov', pt_u / 'atelje' / 'KOMPLETTERING.json', pt_u / 'atelje', pt_und, kor=kor_pt)
 upp_ = json.loads(next(pt_u.glob('REFERENSUPPDRAG-*.json')).read_text())
 assert upp_['kompletterar'] == 'paket-v01' and res_pt['referens']['paket'].endswith('paket-v02') and res_pt['tjanster']['rc'] == 0, res_pt
-assert not (pt_u / 'atelje' / 'KOMPLETTERING.json').exists() and list((pt_u / 'atelje' / 'kompletteringar').glob('*-svar.json')) and list((pt_u / 'referenser' / 'tjanster' / 'tidigare').glob('*TJANSTER.md'))
+assert not (pt_u / 'atelje' / 'KOMPLETTERING.json').exists() and list((pt_u / 'atelje' / 'kompletteringar').glob('*-svar.json'))
+assert (pt_u / 'referenser' / 'tjanster' / 'TJANSTER.md').read_text() == 'förra', 'den förra rapporten flyttar referenstjanster.samla själv (en plats), inte kompletteringen'
 assert [Path(x[2]).name for x in anrop_pt] == ['referens.py', 'referenstjanster.py'] and 'en annan komposition' in '\n'.join(sk.kompletteringsrader(res_pt))
 # förfiningen: research emellan, och TILLBAKA.md ger tillbaka
 fr_rot = pt_u / 'atelje-fr'; fr_rot.mkdir()
@@ -2972,7 +2974,7 @@ assert sk.godkand_giltig('pt-godk', *gk_) == (True, 'godkänd %s' % dg_['tid'])
 ers_g = at_pt.installera_godkand('pt-godk')
 assert len(ers_g) == 1 and ers_g[0].endswith('pt-godk/sajt/src/pages/index.astro'), ers_g
 assert (sajt_g / 'src' / 'pages' / 'index.astro').read_text() == '<p>godkänd</p>', 'kor.sh lägger den dömda startsidan i sajten före bygget'
-assert [p_.read_text() for p_ in (at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt').glob('*/index.astro')] == ['<p>skriven av ett bygge</p>'], 'den ersatta flyttas undan, raderas inte'
+assert [p_.read_text() for p_ in (at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt').glob('*/src/pages/index.astro')] == ['<p>skriven av ett bygge</p>'], 'den ersatta flyttas undan, raderas inte'
 assert at_pt.installera_godkand('pt-godk') == [], 'samma fil: inget att lägga'
 # granskning 6: bara de godkända filerna installeras, och ingen länk följs (byggkod kan ha lagt den)
 (ga_ / 'atelje' / 'vinnare' / 'kod' / 'index.astro').write_text('<p>planterad</p>')
@@ -2985,7 +2987,7 @@ shutil.move(str(at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt'), str(tmp / 'ersat
 (at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt').symlink_to(tmp / 'ersatt-utanfor')
 (sajt_g / 'src' / 'pages' / 'index.astro').write_text('<p>skriven igen</p>')
 assert len(at_pt.installera_godkand('pt-godk')) == 1 and not any((tmp / 'ersatt-utanfor').iterdir()), 'inget flyttades genom länken'
-assert not (at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt').is_symlink() and [p_.read_text() for p_ in (at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt').glob('*/index.astro')] == ['<p>skriven igen</p>']
+assert not (at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt').is_symlink() and [p_.read_text() for p_ in (at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt').glob('*/src/pages/index.astro')] == ['<p>skriven igen</p>']
 shutil.move(str(sajt_g / 'src' / 'pages'), str(tmp / 'pages-borta'))  # granskning 7: en borttagen katalog återskapas
 assert len(at_pt.installera_godkand('pt-godk')) == 1 and (sajt_g / 'src' / 'pages' / 'index.astro').read_text() == '<p>godkänd</p>'
 (ga_ / 'atelje' / 'vinnare' / 'DESIGN.md').write_text('planterad')  # en DESIGN.md som inte ingår i godkännandet
@@ -3347,6 +3349,626 @@ assert 'PANELENS SKÄL' in ut_v.getvalue(), 'i bygget skriver byggaren rapporten
 at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV = gu_at
 print('skapandeflödet ok')
 
+# ---------------------------------------------------------------- kandidatflödet (ägarens uppdrag via Codex 2026-10-05: cirka tio genomarbetade prototyper; ägaren väljer)
+import kandidater as kd  # noqa: E402
+import metod as md_kd  # noqa: E402
+import granska as gr_kd  # noqa: E402
+import forhandsvisa as fv_kd  # noqa: E402
+import stat as stat_kd  # noqa: E402
+assert not at_pt.kandidatflode_pa()
+del os.environ['NWP_KANDIDATFLODE']
+assert at_pt.kandidatflode_pa(), 'kandidatflödet är standard för en ny utforskning'
+os.environ['NWP_KANDIDATFLODE'] = 'av'
+kd_u, kd_k = tmp / 'kd-underlag', tmp / 'kd-kunder'
+spara_at_kd = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT)
+spara_kd = {n: getattr(kd, n) for n in ('designkontroll', 'PARALLELLT', 'fotografera', 'leverera_metod', 'forfina_valda')}
+spara_bk_kd = bk_pt.ROOT
+bk_pt.ROOT = tmp  # metodkvittot räknar raderna i de levererade filerna under provets rot
+import uuid as uuid_kd  # noqa: E402
+spara_prova_kd = (prova.bygg_inom_grans, prova.kor, prova.Server)
+spara_sk_kd = (sk.komplettera, sk.lagg_till_dom)
+spara_dash_kd = (dash.UNDERLAG, dash.KUNDER, dash.ROOT)
+at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.ROOT = kd_u, kd_k, tmp / 'kd-arkiv', tmp
+sl_kd = 'kd-prov'
+u_kd, huvud_kd = kd_u / sl_kd, kd_k / sl_kd / 'sajt'
+BILDER_KD = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-768-forsta.png', 'vy-768-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
+try:
+    # --- underlaget, en sajt ur mallen med en planterad länk, och metoden ---
+    (u_kd / 'bilder').mkdir(parents=True)
+    (u_kd / 'bilder' / 'a.jpg').write_bytes(b'jpg')
+    (u_kd / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Provfirman Snickeri AB', 'adress': {'ort': 'Luleå', 'postnummer': '123 45'},
+                                                       'rackvidd': {'orter': ['Luleå', 'Boden']}, 'orgnr': '556677-8899',
+                                                       'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33'}], 'webb': {'doman': 'provfirman-snickeri.se'}, 'e_post': 'info@provfirman.se', 'kategorier': ['Snickare']}))
+    (u_kd / 'BRIEF.md').write_text('# Brief\n\n## §2 Målgrupper och toppuppgifter\n\n1. Se liknande jobb\n')
+    (u_kd / 'referenser' / 'paket-v01' / 'x').mkdir(parents=True)
+    (u_kd / 'referenser' / 'paket-v01' / 'x' / 'vy.png').write_bytes(b'png')
+    (u_kd / 'referenser' / 'tjanster').mkdir(); (u_kd / 'referenser' / 'tjanster' / 'TJANSTER.md').write_text('# tjänsterna')
+    for f_, t_ in (('package.json', '{}'), ('astro.config.mjs', 'export default {}'), ('src/pages/index.astro', 'mallens start'), ('src/pages/404.astro', '404'),
+                   ('src/pages/atelje-1/index.astro', 'ateljé'), ('src/pages/om/index.astro', 'om'), ('src/components/X.astro', 'x'), ('public/favicon.svg', '<svg/>')):
+        (huvud_kd / f_).parent.mkdir(parents=True, exist_ok=True)
+        (huvud_kd / f_).write_text(t_)
+    (huvud_kd / 'node_modules').mkdir()
+    (tmp / 'kd-hemlig').mkdir(); (tmp / 'kd-hemlig' / 'nyckel.txt').write_text('HEMLIG')
+    (huvud_kd / 'src' / 'components' / 'Logga.astro').symlink_to(tmp / 'kd-hemlig' / 'nyckel.txt')
+    (huvud_kd / 'public' / 'lankad').symlink_to(tmp / 'kd-hemlig')
+    # projektet per kandidat: mallens sidor och komponenter, kundens bilder, node_modules som länk; ingen länk följs (V10)
+    pr_kd = kd.forbered_projekt(sl_kd, 'k01')
+    assert sorted(p_.name for p_ in (pr_kd / 'src' / 'pages').iterdir()) == ['404.astro'], 'ingen tidigare startsida, ateljésida eller undersida följer med'
+    assert (pr_kd / 'src' / 'components' / 'X.astro').is_file() and (pr_kd / 'src' / 'assets' / 'atelje' / 'a.jpg').is_file() and (pr_kd / 'node_modules').is_symlink()
+    assert not (pr_kd / 'src' / 'components' / 'Logga.astro').exists() and not (pr_kd / 'public' / 'lankad').exists(), 'en planterad länk följs aldrig in i kandidatens projekt'
+    shutil.rmtree(kd_k / sl_kd / 'kandidater')
+    # metoden: kartan håller, utdragen levereras med hash, och en ändrad källa eller en rad som inte finns stoppar leveransen
+    fel_md, kallor_md = md_kd.prova()
+    assert not fel_md and len(kallor_md) >= 30, fel_md[:3]
+    karta_md = md_kd.KARTA.read_text(encoding='utf-8')
+    assert md_kd.prova(karta_md, las=dict(kallor_md, **{'frontend-design/SKILL.md': '0' * 64}))[0], 'en ändrad källa stoppar'
+    assert any('finns inte' in f_ for f_ in md_kd.prova(karta_md.replace('taste/SKILL.md rad 17–23', 'taste/SKILL.md rad 17–99999'), las=kallor_md)[0])
+    (tmp / 'kd-metod').mkdir(); (tmp / 'kd-metod' / 'METOD-skapa-9.md').write_text('en gammal del')
+    lev_md = md_kd.leverera('skapa', tmp / 'kd-metod')
+    assert list(dict.fromkeys(f_['del'] for f_ in lev_md['filer'])) == ['före', 'varv', 'text'] and len(lev_md['filer']) > 3, [f_['fil'].name for f_ in lev_md['filer']]
+    assert not (tmp / 'kd-metod' / 'METOD-skapa-9.md').exists(), 'en ny leverans lämnar inga gamla delar'
+    for s_ in md_kd.STEG:  # varje levererad fil ryms i ett Read utan offset och limit (granskning 2, N5)
+        for f_ in md_kd.leverera(s_, tmp / 'kd-metod-alla')['filer']:
+            t_ = f_['fil'].read_text()
+            assert len(t_) <= md_kd.MAX_TECKEN and t_.count('\n') < md_kd.MAX_RADER and max(map(len, t_.split('\n'))) < 2000, (f_['fil'].name, len(t_))
+    fore_md = ''.join(f_['fil'].read_text() for f_ in lev_md['filer'] if f_['del'] == 'före')
+    assert '## Avgöranden' in lev_md['filer'][0]['fil'].read_text() and '### frontend-design/SKILL.md' in fore_md
+    assert all('## %s\n' % r_ in karta_md for r_ in list(md_kd.STEG.values()) + ['Avgöranden']) and all(r_ in karta_md for r_ in ('**Fråga:**', '**Underlag:**', '**Till nästa steg:**', '**Visar:**'))
+    skapande_metod_ = sk.metodrader('forfina')  # den äldre vägen läser samma karta
+    assert any('.claude/skills/better-layout/SKILL.md' in r_ for r_ in skapande_metod_) and any('humanizer' in r_ for r_ in skapande_metod_)
+
+    # --- bygget och webbläsaren ersatta; den riktiga fotograferingen körs (granskningen: proven ersatte fotografera) ---
+    class SrvKd:
+        url = 'http://127.0.0.1:9'
+        def __init__(self, dist): self.dist = dist
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+
+    def bygg_kd(sajt, timeout=900):
+        pages, dist = Path(sajt) / 'src' / 'pages', Path(sajt) / 'dist'
+        if 'TRASIG' in (pages / 'index.astro').read_text():
+            return 1, 'bygget föll'
+        for p_ in pages.rglob('index.astro'):
+            m_ = dist / p_.relative_to(pages).parent / 'index.html'; m_.parent.mkdir(parents=True, exist_ok=True); m_.write_text(p_.read_text())
+        return 0, 'byggt'
+
+    def kor_kd(cmd, cwd=None, timeout=900):
+        cmd = [str(x) for x in cmd]
+        if any(x.endswith('inspektera.mjs') for x in cmd):
+            ut_ = Path(cmd[cmd.index('--ut') + 1]); ut_.mkdir(parents=True, exist_ok=True)
+            for n_ in BILDER_KD:
+                (ut_ / n_).write_bytes(b'png')
+            (ut_ / 'vy-390-aria.txt').write_text('länk "Ring"')
+            (ut_ / 'INSPEKTION.json').write_text(json.dumps({'vyer': {'390': {'konsol': [], 'spill': {'spill': False}}}, 'tid': nu_kd()}))
+            return 0, ''
+        if any(x.endswith('axe.mjs') for x in cmd):
+            ut_ = Path(next(x for x in cmd if x.startswith('--ut='))[5:]); ut_.mkdir(parents=True, exist_ok=True)
+            allv_ = '/k02/' in str(ut_) and 'förbättrad' not in (kd.ksajt(sl_kd, 'k02') / 'src' / 'pages' / 'index.astro').read_text()
+            (ut_ / 'axe.json').write_text(json.dumps({'allvarliga': 1 if allv_ else 0, 'totalt': 2, 'axeVersion': 'x',
+                                                      'rader': [{'overtradelser': [{'id': 'color-contrast', 'impact': 'serious' if allv_ else 'minor', 'help': 'kontrast'}]}]}))
+            return 0, ''
+        return spara_prova_kd[1](cmd, cwd=cwd, timeout=timeout)
+    nu_kd = at_pt.nu
+    prova.bygg_inom_grans, prova.kor, prova.Server = bygg_kd, kor_kd, SrvKd
+    kd.designkontroll = lambda slug, kid: {'ok': True, 'fel': []}
+    kd.PARALLELLT = 2
+    sess_kd = []
+    tom_k03 = [True]  # k03:s första försök saknar undersidan: ett andra försök ges med bristerna
+    olast_kd = set()  # kandidater vars granskning inte läser de första vyerna
+
+    def transkript_kd(steg):
+        """Ett transkript i Claude Codes radformat: (verktyg, indata, fel) per anrop, med svaret efter."""
+        sid_ = str(uuid_kd.uuid4())
+        rader_ = []
+        for i_, (namn_, in_, fel_) in enumerate(steg):
+            rader_.append(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 'u%d' % i_, 'name': namn_, 'input': in_}]}}))
+            rader_.append(json.dumps({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 'u%d' % i_, 'content': 'fel' if fel_ else 'ok', 'is_error': fel_}]}}))
+        (bk_pt.PROJEKT / 'kd').mkdir(parents=True, exist_ok=True)
+        (bk_pt.PROJEKT / 'kd' / (sid_ + '.jsonl')).write_text('\n'.join(rader_) + '\n')
+        return sid_
+
+    def varv_kd(kid, n):
+        v_ = kd.kdir(sl_kd, kid) / 'varv' / 'start'
+        start_ = max(kd.varvnummer(sl_kd, kid) or [0])
+        for i_ in range(start_ + 1, start_ + 1 + n):
+            (v_ / ('varv-%02d' % i_)).mkdir(parents=True, exist_ok=True)
+            for n_ in fv_kd.LAS:
+                (v_ / ('varv-%02d' % i_) / n_).write_bytes(b'png')
+
+    def sess_kd_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=()):
+        sess_kd.append({'prompt': prompt, 'verktyg': verktyg, 'ut': Path(ut).name, 'schema': schema, 'modell': modell, 'nekas': list(nekas)})
+        so = None
+        if schema is kd.FORSKA_SCHEMA:
+            so = {'varfor': 'bredd före planen', 'riktningar': 'tio skilda grunder',
+                  'antaganden': [{'antagande': 'besökaren bedömer tidigare jobb före kontakt', 'underlag': 'ännu inte observerat', 'provning': 'uppgift: hitta ett jobb som liknar ditt', 'om_fel': 'kontakten först'}],
+                  'sajter': [{'namn': 'ny', 'adress': 'https://exempel.se/', 'roll': 'hantverk', 'varfor': 'x', 'sidor': ['/']},
+                             {'namn': 'trasig', 'adress': 'http://inte-https.se', 'roll': 'ux', 'varfor': 'x', 'sidor': ['/']}],
+                  'fragor': [{'tjanst': 'refero', 'fraga': 'warm editorial craft builder', 'syfte': 'stilen', 'typ': 'stil'}] * 4
+                  + [{'tjanst': 'mobbin', 'fraga': 'Provfirman Snickeri carpentry homepage', 'syfte': 'x', 'typ': 'skarm'}]}
+        elif schema is kd.PLAN_SCHEMA:
+            so = {'variation': 'tre grunder', 'kandidater': [dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/kd-prov/referenser/paket-v01/x/vy.png'])
+                                                            for i_ in range(3)]}
+        elif schema is kd.KRITIK_A_SCHEMA:
+            kid_ = re.search(r'kandidater/(k\d\d)/bilder', prompt).group(1)
+            forb_ = 'förbättrad' in (kd.ksajt(sl_kd, kid_) / 'src' / 'pages' / 'index.astro').read_text()
+            bilder_ = re.findall(r'^- (\S+\.png)$', prompt, re.M)
+            sid_kd = transkript_kd([('Read', {'file_path': b_}, False) for b_ in bilder_ if kid_ not in olast_kd or '-hela' in b_])
+            so = {'forsta_intryck': {'framgar': 'f', 'genomarbetat': 'g', 'skaver': 's'}, 'uppgift': {'uppgift': 'se jobb', 'kan_genomforas': 'ja', 'belagg': 'b'},
+                  'styrkor': [], 'niva': 'nastan', 'material': 'm',
+                  'avvikelser': [{'var': 'topp', 'vad': 'kontrasten', 'atgard': 'mörkare', 'allvar': 'hog', 'slag': 'krav' if kid_ == 'k02' and not forb_ else 'smak'},
+                                 {'var': 'mitt', 'vad': 'stor rubrik', 'atgard': 'mindre', 'allvar': 'hog', 'slag': 'krav' if kid_ == 'k01' else 'smak'}]}
+        elif schema is kd.KRITIK_B_SCHEMA:
+            so = {'helhet': 'h', 'referens': {'kvaliteten_bar': 'delvis', 'skal': 's'},
+                  'motiveringar': [{'nr': 1, 'avsiktlig': False, 'valgrundad': False, 'skal': ''}, {'nr': 2, 'avsiktlig': True, 'valgrundad': True, 'skal': 'idén'}]}
+        elif schema is kd.JAMFOR_SCHEMA:
+            so = {'sammanfattning': 's', 'par': [{'a': 'k01', 'b': 'k03', 'grad': 'nara', 'skal': 'samma ordning'}, {'a': 'k01', 'b': 'k99', 'grad': 'nara', 'skal': 'x'}]}
+        else:  # en skapare (skapa, förbättra eller förfina)
+            kid_ = re.search(r'kunder/kd-prov/kandidater/(k\d\d)/sajt', prompt).group(1)
+            pages_ = kd.ksajt(sl_kd, kid_) / 'src' / 'pages'
+            if 'valde' in prompt and 'INGET-VARV' in (kd.kdir(sl_kd, kid_) / 'RIKTNING.md').read_text():
+                svar_ = {'is_error': True}
+                Path(ut).write_text(json.dumps(svar_)); raise RuntimeError('sessionen föll direkt')
+            (pages_ / 'index.astro').write_text('start %s%s' % (kid_, ' förbättrad' if 'Förbättringsrundan' in prompt else ' förfinad' if 'valde' in prompt else ''))
+            if not (kid_ == 'k03' and tom_k03[0]):
+                (pages_ / 'projekt' / 'a').mkdir(parents=True, exist_ok=True); (pages_ / 'projekt' / 'a' / 'index.astro').write_text('undersida')
+            elif 'Förra sessionen slutade' not in prompt:
+                tom_k03[0] = False
+            if 'valde' in prompt:
+                (kd.ksajt(sl_kd, kid_) / 'DESIGN.md').write_text('# DESIGN.md förfinad\n')
+            r_ = kd.kdir(sl_kd, kid_) / 'RIKTNING.md'
+            if not r_.exists() or 'Förbättringsrundan' not in prompt:
+                r_.write_text('Huvudreferens: Xref — kompositionen\n\n## Material\n\nFler foton av köket.\n\n## Varv 1\n\nrubriken (better-typography)\n')
+            varv_kd(kid_, 3)
+            fore_ = re.search(r'\): läs (.+?) före första ändringen', prompt).group(1).split(', ')
+            las_ = [('Read', {'file_path': f_}, False) for f_ in fore_]
+            if kid_ == 'k03':  # ett Read som gav fel och ett som bara läste början räknas inte som lästa (N5)
+                las_ = [las_[0], ('Read', {'file_path': fore_[1]}, True), ('Read', {'file_path': fore_[2], 'limit': 20}, False)]
+            sid_kd = transkript_kd(las_ + [('Write', {'file_path': kd.rel(pages_ / 'index.astro')}, False)])
+        svar_ = {'structured_output': so, 'num_turns': 5, 'duration_ms': 120000, 'total_cost_usd': 1.25, 'session_id': sid_kd if schema is kd.KRITIK_A_SCHEMA or schema is None else 's'}
+        Path(ut).write_text(json.dumps(svar_))
+        return svar_
+    at_pt.session = sess_kd_
+
+    def kompl_kd(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False, forbjudna=None):
+        beg_ = json.loads(Path(fil).read_text())
+        assert bred and len(beg_['tjanster']['fragor']) == 4 and [s_['namn'] for s_ in beg_['referens']['kandidater']] == ['ny'], beg_
+        Path(fil).unlink()
+        (u_kd / 'referenser' / 'paket-v02').mkdir()
+        (u_kd / 'referenser' / 'paket-v02' / 'PAKET.json').write_text(json.dumps({'kandidater': [{'namn': 'ny'}, {'namn': 'x', 'arv': 'paket-v01'}]}))
+        return {'tid': 't', 'referens': {'rc': 0}, 'tjanster': {'rc': 0}}
+    sk.komplettera = kompl_kd
+
+    # --- hela utforskningen ---
+    st_kd = {'startad': '2026-10-05T10:00:00Z', 'lage': 'ny', 'modell': 'm', 'effort': 'max'}
+    klara_kd = kd.kor(sl_kd, st_kd, lambda: None, n=3)
+    plan_kd = json.loads((kd.rot(sl_kd) / 'KANDIDATPLAN.json').read_text())  # planens tid före provets domar (fröet för etiketterna)
+    (kd.rot(sl_kd) / 'KANDIDATPLAN.json').write_text(json.dumps(dict(plan_kd, tid='2026-10-05T10:30:00Z')))
+    assert set(st_kd['metod']) == {'forska', 'plan', 'skapa', 'granska', 'forfina'} and (kd.metodkatalog(sl_kd) / 'METOD-skapa-varv.md').is_file(), st_kd.get('metod')
+    fo_ = json.loads((kd.rot(sl_kd) / 'FORSKNING.json').read_text())
+    assert fo_['nytt']['paket'] == 'paket-v02' and fo_['nytt']['sajter'] == ['ny'] and len(fo_['antaganden']) == 1, fo_
+    assert any('nämner kundens' in x_ for x_ in fo_['slappta']) and any('inte-https' in x_ and 'adressen' in x_ for x_ in fo_['slappta']), fo_['slappta']
+    fm_ = (kd.rot(sl_kd) / 'FORSKNING.md').read_text()
+    assert 'besökaren bedömer tidigare jobb' in fm_ and 'Släppta' in fm_ and 'Nytt i den här körningen' in fm_
+    plan_prompt_kd = next(s_['prompt'] for s_ in sess_kd if s_['schema'] is kd.PLAN_SCHEMA)
+    assert 'FORSKNING.md' in plan_prompt_kd and 'METOD-plan.md' in plan_prompt_kd and 'hypotes' in plan_prompt_kd
+    up2_ = (kd.kdir(sl_kd, 'k02') / 'UPPDRAG.md').read_text()
+    assert all(r_ in up2_ for _f, r_ in kd.PLANFALT if r_), 'varje fält ur planen står i uppdraget'
+    assert klara_kd == ['k01', 'k02', 'k03'] and st_kd['steg'] == 'klar_for_bedomning' and st_kd['kandidatflode'] and st_kd.get('andra_forsok') == ['k03'], st_kd
+    st3_ = kd.las_status(sl_kd, 'k03')
+    assert st3_['forsok'] == 2 and st3_['status'] == 'klar', 'en ofullständig kandidat får ett andra försök med bristerna (V6)'
+    sk_v_ = [s_ for s_ in sess_kd if s_['schema'] is None]
+    assert all('Skill' not in s_['verktyg'] for s_ in sess_kd), 'flödets sessioner har inget Skill-verktyg'
+    assert any('Förra sessionen slutade' in s_['prompt'] and 'undersidan' in s_['prompt'] for s_ in sk_v_ if 'kandidater/k03/sajt' in s_['prompt'])
+    k01_ = next(s_ for s_ in sk_v_ if 'kandidater/k01/sajt' in s_['prompt'])
+    assert 'Read(./kunder/kd-prov/kandidater/k02/**)' in k01_['nekas'] and 'Read(./underlag/kd-prov/atelje/kandidater/k03/**)' in k01_['nekas'], 'skaparna ser inte varandras kod (M2)'
+    assert 'METOD-skapa.md' in k01_['prompt'] and 'METOD-skapa-2.md' in k01_['prompt'] and 'METOD-skapa-text.md' in k01_['prompt'] and 'Visar' in k01_['prompt']
+    las1_, las3_ = kd.las_status(sl_kd, 'k01')['lasning'], kd.las_status(sl_kd, 'k03')['lasning']
+    assert las1_['verifierad'] and las1_['metod_fore_forsta_skrivning'] and las1_['metod_last'] and not las1_['metod_delvis'], las1_
+    assert las3_['verifierad'] and not las3_['metod_fore_forsta_skrivning'] and not las3_['metod_last'] and [Path(x_).name for x_ in las3_['metod_delvis']] == ['METOD-skapa-3.md'] \
+        and [Path(x_).name for x_ in las3_['metod_saknas']] == ['METOD-skapa-2.md', 'METOD-skapa-3.md'], las3_
+    # granskningen i två pass: det första är blint för uppdraget och anteckningarna, det andra läser dem
+    ka_ = [s_ for s_ in sess_kd if s_['schema'] is kd.KRITIK_A_SCHEMA]
+    assert ka_ and all(any(n_.endswith('/RIKTNING.md)') for n_ in s_['nekas']) and any(n_.endswith('/UPPDRAG.md)') for n_ in s_['nekas']) for s_ in ka_)
+    assert all('RIKTNING.md' not in s_['prompt'] for s_ in ka_) and all(s_['modell'] == kd.GRANSKARE_MODELL for s_ in ka_) and 'BRIEF.md' in ka_[0]['prompt']
+    assert all('RIKTNING.md' in s_['prompt'] for s_ in sess_kd if s_['schema'] is kd.KRITIK_B_SCHEMA)
+    ka2_ = [s_ for s_ in ka_ if 'kandidater/k02/bilder' in s_['prompt']][-1]  # granskningen efter förbättringsrundan
+    for n_ in ('STATUS.json', 'svar-skapa-1.json', 'svar-forbattra.json', 'KRITIK-fore.json', 'svar-kritik-b-1.json', 'versioner/**'):
+        assert any(x_.endswith('/kandidater/k02/%s)' % n_) for x_ in ka2_['nekas']), 'första passet ser inte %s (N9)' % n_
+    assert all(any(x_.endswith('/atelje/%s)' % n_) for x_ in ka2_['nekas']) for n_ in ('KANDIDATPLAN.json', 'KANDIDATPLAN.md', 'FORSKNING.json', 'svar-plan.json'))
+    assert not any('/k02/bilder' in x_ or '/atelje/metod' in x_ for x_ in ka2_['nekas']), 'bilderna och metoden får läsas'
+    assert json.loads((kd.kdir(sl_kd, 'k02') / 'KRITIK.json').read_text())['last'] is True and json.loads((kd.kdir(sl_kd, 'k02') / 'KRITIK-fore.json').read_text())['last'] is True
+    kr2_ = json.loads((kd.kdir(sl_kd, 'k02') / 'KRITIK.json').read_text())
+    assert kr2_['andra_passet'] and kr2_['avvikelser'][1]['avsiktlig'] and kr2_['avvikelser'][1]['valgrundad'] and kr2_['uppgift']['kan_genomforas'] == 'ja'
+    # förbättringsrundan: bara objektiva fel (krav, och axe), aldrig smak; föreversionen bevaras med bilderna
+    st2_ = kd.las_status(sl_kd, 'k02')
+    assert (kd.ksajt(sl_kd, 'k02') / 'src' / 'pages' / 'index.astro').read_text() == 'start k02 förbättrad' and st2_['forbattrad']['fore'] != st2_['version'], st2_
+    assert (kd.kdir(sl_kd, 'k02') / 'versioner' / st2_['forbattrad']['fore'][:12] / 'bilder' / 'start' / 'vy-390-forsta.png').is_file(), 'föreversionen bevaras med bilderna'
+    assert any('kontrasten' in a_ for a_ in st2_['forbattrad']['atgarder']) and not any('stor rubrik' in a_ for a_ in st2_['forbattrad']['atgarder']), 'smak och välgrundade val rättas inte'
+    assert (kd.kdir(sl_kd, 'k02') / 'KRITIK-fore.json').is_file() and json.loads((kd.kdir(sl_kd, 'k02') / 'KRITIK.json').read_text())['version'] == st2_['version']
+    fp_ = next(s_['prompt'] for s_ in sess_kd if 'Förbättringsrundan' in s_['prompt'])
+    assert 'KOMPLETTERING' not in fp_ and 'kontrasten' in fp_, 'förbättringsrundan lovar ingen research (M3) och listar felen'
+    assert any('axe' in a_ and 'color-contrast' in a_ for a_ in st2_['forbattrad']['atgarder']) and kd.las_status(sl_kd, 'k01')['axe']['allvarliga'] == 0
+    assert kd.las_status(sl_kd, 'k02')['axe']['allvarliga'] == 0, 'den förbättrade versionen prövas igen'
+    assert kd.las_status(sl_kd, 'k01')['tillampning'] == {'varv': 1, 'med_metod': 1}
+    assert [(p_['a'], p_['b']) for p_ in json.loads((kd.rot(sl_kd) / 'JAMFORELSE.json').read_text())['par']] == [('k01', 'k03')], 'bara par av riktiga kandidater'
+    # versionen är koden och DESIGN.md: en ny fotografering av samma kod ger samma version (V4)
+    v1_ = kd.las_status(sl_kd, 'k01')['version']
+    assert kd.fotografera(sl_kd, 'k01')['version'] == v1_ and kd.aterstall_och_fotografera(sl_kd, 'k01', v1_)['version'] == v1_
+    # ett avbrott i förbättringsrundan: föreversionen återställs, och kandidaten skapas inte om (V1)
+    n_kd = len(sess_kd)
+    (kd.ksajt(sl_kd, 'k01') / 'src' / 'pages' / 'index.astro').write_text('halvgjord förbättring')
+    kd.satt_status(sl_kd, 'k01', 'under_arbete', 'förbättringsrunda', forbattras={'fore': v1_, 'tid': 'x'})
+    st1_ = kd.behandla(sl_kd, 'k01')
+    assert st1_['status'] == 'klar' and st1_['version'] == v1_ and 'forbattras' not in st1_ and st1_['forbattrad']['avbruten'], st1_
+    assert (kd.ksajt(sl_kd, 'k01') / 'src' / 'pages' / 'index.astro').read_text() == 'start k01' and not [s_ for s_ in sess_kd[n_kd:] if s_['schema'] is None], 'ingen ny skaparsession'
+    # en förbättring som blir ofullständig: föreversionen står kvar
+    v3_ = kd.las_status(sl_kd, 'k03')['version']
+    (kd.kdir(sl_kd, 'k03') / 'KRITIK.json').write_text(json.dumps({'avvikelser': [{'allvar': 'hog', 'slag': 'krav', 'var': 'v', 'vad': 'v', 'atgard': 'a'}], 'version': v3_, 'last': True}))
+    at_pt.session = lambda prompt, verktyg, ut, **kw: (kd.ksajt(sl_kd, 'k03') / 'src' / 'pages' / 'index.astro').write_text('TRASIG') and {}
+    st3b_ = kd.forbattra(sl_kd, 'k03')
+    assert st3b_['status'] == 'klar' and 'föreversionen är återställd' in st3b_['skal'] and st3b_['version'] == v3_, st3b_
+    # förbättringsrundan faller med ett undantag efter sessionen (N10): föreversionen återställs, och ingen halvgjord blir klar
+    kd.satt_status(sl_kd, 'k03', 'klar', 'x', ta_bort=('forbattrad',))
+    at_pt.session = lambda prompt, verktyg, ut, **kw: (kd.ksajt(sl_kd, 'k03') / 'src' / 'pages' / 'index.astro').write_text('HALV förbättring') and {}
+    kd.fotografera = lambda slug, kid: (_ for _ in ()).throw(RuntimeError('den lokala servern startade inte')) \
+        if 'HALV' in (kd.ksajt(slug, kid) / 'src' / 'pages' / 'index.astro').read_text() else spara_kd['fotografera'](slug, kid)
+    try:
+        st3c_ = kd.behandla(sl_kd, 'k03')
+    finally:
+        kd.fotografera = spara_kd['fotografera']
+    assert st3c_['status'] == 'klar' and st3c_['version'] == v3_ and 'forbattras' not in st3c_ and 'föreversionen är återställd' in st3c_['skal'], st3c_
+    assert 'HALV' not in (kd.ksajt(sl_kd, 'k03') / 'src' / 'pages' / 'index.astro').read_text()
+    # en granskning som inte läst de första vyerna, eller vars läsning inte kan prövas, styr ingen förbättringsrunda (N5)
+    krav_kd = {'avvikelser': [{'allvar': 'hog', 'slag': 'krav', 'var': 'v', 'vad': 'kontrasten', 'atgard': 'a'}]}
+    assert kd.objektiva(sl_kd, 'k03', dict(krav_kd, last=True)) and not kd.objektiva(sl_kd, 'k03', dict(krav_kd, last=None)) and not kd.objektiva(sl_kd, 'k03', dict(krav_kd, last=False))
+    at_pt.session = sess_kd_
+    olast_kd.add('k01')
+    kr1_ = kd.granska_kandidat(sl_kd, 'k01')
+    olast_kd.discard('k01')
+    assert kr1_['last'] is False and kd.objektiva(sl_kd, 'k01') == [], kr1_.get('lasning')
+    # en återupptagen körning gör inget klart om
+    n_kd = len(sess_kd)
+    kd.kor(sl_kd, dict(st_kd), lambda: None, n=3)
+    assert [s_['schema'] for s_ in sess_kd[n_kd:]] == [kd.JAMFOR_SCHEMA], 'bara jämförelsen körs om'
+    # etiketterna och blindheten
+    et_kd = kd.etiketter(sl_kd, kd.lista(sl_kd))
+    assert sorted(et_kd.values()) == ['Förslag A', 'Förslag B', 'Förslag C'] and et_kd == kd.etiketter(sl_kd, kd.lista(sl_kd))
+    blind_kd = kd.sammanstall(sl_kd)
+    assert not any('titel' in k_ or 'kritik' in k_ or 'forbattring' in k_ for k_ in blind_kd) and all(k_['hypotes'] for k_ in blind_kd), 'blint först; hypotesen följer med hopfälld'
+    rd_ = kd.redovisa(sl_kd, st_kd).read_text()
+    for krav_ in ('Tre bedömningar', 'Tillgänglighetens täckning', 'VoiceOver', 'läsningen och tillämpningen', 'Fler foton av köket', 'listpris',
+                  '| %s (k03) | nej (bara delar: METOD-skapa-3.md) |' % et_kd['k03'], '| %s (k01) | ja |' % et_kd['k01'], 'nastan (bilderna olästa)'):
+        assert krav_ in rd_, krav_
+
+    # --- ägarens beslut: binds till kandidat och version, prövas innan något skrivs ---
+    (kd.rot(sl_kd) / 'STATUS.json').write_text(json.dumps({'kandidatflode': True, 'steg': 'klar_for_bedomning', 'startad': '2026-10-05T10:00:00Z', 'klar': '2026-10-05T11:00:00Z', 'lage': 'ny'}))
+    vs_kd = {k_: kd.las_status(sl_kd, k_)['version'] for k_ in kd.lista(sl_kd)}
+    for kand_, ord_ in (([{'id': 'k01', 'version': 'fel'}], 'ändrats'), ([{'id': 'k09', 'version': 'x'}], 'okänd'), ([], 'minst en'),
+                        ([{'id': 'k01', 'version': vs_kd['k01']}, {'id': 'k01', 'version': vs_kd['k01']}], 'okänd')):
+        try:
+            at_pt.doma(sl_kd, 'ägaren', 'valj', 'x', kandidater=kand_)
+            raise AssertionError('vägras: %s' % kand_)
+        except ValueError as e_:
+            assert ord_ in str(e_), e_
+    for b_, kand_, ord_ in (('jamfor', [{'id': 'k01', 'version': vs_kd['k01']}], 'minst två'), ('godkand', [{'id': 'k01', 'version': vs_kd['k01']}], 'förfinad')):
+        try:
+            at_pt.doma(sl_kd, 'ägaren', b_, 'x', kandidater=kand_)
+            raise AssertionError('vägras: %s' % b_)
+        except ValueError as e_:
+            assert ord_ in str(e_), e_
+    assert len(sk.domar(sl_kd, kd_u)) == 0, 'ett vägrat beslut skrivs inte'
+    at_pt.doma(sl_kd, 'ägaren', 'jamfor', '(ägaren skrev ingen text)', kandidater=[{'id': 'k01', 'version': vs_kd['k01']}, {'id': 'k03', 'version': vs_kd['k03']}], tid='2026-10-05T12:00:00Z')
+    assert pt.lage(sl_kd)[0] == 'vanta' and kd.las_status(sl_kd, 'k01')['status'] == 'klar' and pt.bygget_nekas(sl_kd), 'jämförelsen ändrar ingen status (V5)'
+    # valet av föreversionen före en förbättringsrunda (ägaren kan föredra den)
+    fore2_ = kd.las_status(sl_kd, 'k02')['forbattrad']['fore']
+    dom_kd = at_pt.doma(sl_kd, 'ägaren', 'valj', 'Bygg vidare på den.', kandidater=[{'id': 'k02', 'version': fore2_}], delar={'k03': 'tidslinjen', 'x': 'bort'},
+                        tid='2026-10-05T12:10:00Z')
+    assert dom_kd['kandidater'][0]['version'] == fore2_ and dom_kd['delar'] == {'k03': 'tidslinjen'} and dom_kd['delar_titlar'] == {'k03': 'titel 2'} and dom_kd['plan'] == '2026-10-05T10:30:00Z', dom_kd
+    assert kd.las_status(sl_kd, 'k02')['status'] == 'vald' and pt.lage(sl_kd)[0] == 'valda' and pt.bygget_nekas(sl_kd).startswith('valda')
+    kr_kd = '\n'.join(sk.kritikrader(sl_kd, underlag=kd_u))
+    assert 'kandidaterna i planen 2026-10-05T10:30:00Z: %s (k02 "titel 1"' % et_kd['k02'] in kr_kd and 'ägaren gillade i k03 "titel 2" i planen' in kr_kd, kr_kd
+    sam2_ = next(k_ for k_ in kd.sammanstall(sl_kd) if k_['id'] == 'k02')
+    assert all('titel' in k_ for k_ in kd.sammanstall(sl_kd)) and kd.domd(sl_kd) and sam2_['forbattring']['fore'] == fore2_ and sam2_['forbattring']['bilder']['390-forsta'], 'efter första beslutet: före och efter förbättringen'
+
+    # --- en förfining som faller innan metoden levererats (granskning 2, N1): körningen förblir kandidatflödets ---
+    (kd.rot(sl_kd) / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'startad': '2026-10-05T10:00:00Z', 'klar': '2026-10-05T11:00:00Z', 'lage': 'ny'}))
+    for f_ in ('BRIEF.md', 'RESEARCH.md', 'TEXTUNDERLAG.md'):
+        (u_kd / f_).write_text('x') if not (u_kd / f_).exists() else None
+    # förfiningen sätter flaggan och de valda innan metoden levereras
+    st_n1_ = {}
+    kd.leverera_metod = lambda slug: (_ for _ in ()).throw(md_kd.MetodFel('en källa har ändrats sedan låset skrevs'))
+    try:
+        kd.forfina_valda(sl_kd, st_n1_, lambda: None)
+        raise AssertionError('MetodFel stoppar förfiningen')
+    except md_kd.MetodFel:
+        pass
+    finally:
+        kd.leverera_metod = spara_kd['leverera_metod']
+    assert st_n1_.get('kandidatflode') and st_n1_.get('valda') == ['k02'] and st_n1_.get('dom') == '2026-10-05T12:10:00Z', st_n1_
+    # arbetaren känner igen kandidatflödet på ateljén också när statusen saknar flaggan
+    (kd.rot(sl_kd) / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'startad': '2026-10-05T12:15:00Z', 'lage': 'valda'}))
+    kd.forfina_valda = lambda slug, status, skriv: (_ for _ in ()).throw(RuntimeError('faller direkt'))
+    try:
+        at_pt.arbetare(sl_kd, 'valda')
+    finally:
+        kd.forfina_valda = spara_kd['forfina_valda']
+    assert json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())['kandidatflode'] and (kd.rot(sl_kd) / 'REDOVISNING.md').read_text().startswith('# Redovisning · %s' % sl_kd)
+    (kd.rot(sl_kd) / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'startad': '2026-10-05T10:00:00Z', 'klar': '2026-10-05T11:00:00Z', 'lage': 'ny'}))
+    startat_ = []
+    spara_popen_kd, spara_vanta_kd, spara_uov_kd = at_pt.subprocess.Popen, at_pt.vanta, at_pt.utforska_och_valj
+    at_pt.subprocess.Popen = lambda args, **kw: startat_.append(args) or type('P', (), {'pid': 999999998})()
+    at_pt.vanta = lambda rot, sek: 0
+    at_pt.utforska_och_valj = lambda *a, **k: (_ for _ in ()).throw(AssertionError('den äldre utforskningen startades'))
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert at_pt.main([sl_kd, '--valda']) == 0 and startat_[-1][-1] == 'valda'
+        assert json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())['kandidatflode'], 'kandidatflödet känns igen på ateljén, inte bara på flaggan'
+        kd.leverera_metod = lambda slug: (_ for _ in ()).throw(md_kd.MetodFel('en källa har ändrats sedan låset skrevs'))
+        at_pt.arbetare(sl_kd, 'valda')
+        kd.leverera_metod = spara_kd['leverera_metod']
+        stn_ = json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())
+        assert stn_['steg'] == 'fel' and stn_['kandidatflode'] and stn_['valda'] == ['k02'] and stn_['dom'] == '2026-10-05T12:10:00Z' and 'MetodFel' in stn_['fel'], stn_
+        assert (kd.rot(sl_kd) / 'REDOVISNING.md').read_text().startswith('# Redovisning · %s' % sl_kd) and not (kd.rot(sl_kd) / '1').exists(), 'kandidatflödets redovisning'
+        assert pt.lage(sl_kd)[0] == 'vanta' and '--fortsatt' in pt.lage(sl_kd)[1]
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert at_pt.main([sl_kd, '--fortsatt']) == 0 and startat_[-1][-1] == 'fortsatt'
+        stn_ = json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())
+        assert stn_['kandidatflode'] and stn_['valda'] == ['k02'] and stn_['forra_lage'] == 'valda', stn_
+        # förfiningen faller efter sessionen (N10): den valda versionen återställs med bilderna
+        kd.fotografera = lambda slug, kid: (_ for _ in ()).throw(RuntimeError('den lokala servern startade inte')) \
+            if 'förfinad' in (kd.ksajt(slug, kid) / 'src' / 'pages' / 'index.astro').read_text() else spara_kd['fotografera'](slug, kid)
+        n_kd = len(sess_kd)
+        at_pt.arbetare(sl_kd, 'fortsatt')
+    finally:
+        at_pt.subprocess.Popen, at_pt.vanta, at_pt.utforska_och_valj = spara_popen_kd, spara_vanta_kd, spara_uov_kd
+        kd.leverera_metod, kd.fotografera = spara_kd['leverera_metod'], spara_kd['fotografera']
+    stn_ = json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())
+    assert stn_['steg'] == 'klar_for_bedomning' and stn_['fas'] == 'forfining' and [s_['ut'][:13] for s_ in sess_kd[n_kd:]] == ['svar-forfina-'], (stn_, sess_kd[n_kd:])
+    st2n_ = kd.las_status(sl_kd, 'k02')
+    assert st2n_['status'] == 'vald' and 'återställd' in st2n_['skal'] and st2n_['version'] == fore2_ and 'forfining_pagar' not in st2n_, st2n_
+    assert 'förfinad' not in (kd.ksajt(sl_kd, 'k02') / 'src' / 'pages' / 'index.astro').read_text() and (kd.kdir(sl_kd, 'k02') / 'bilder' / 'start' / 'vy-390-forsta.png').is_file()
+
+    # --- återupptagningen av en förfining (B1): --fortsatt bär de valda till arbetaren, och arbetaren förfinar ---
+    (kd.rot(sl_kd) / 'STATUS.json').write_text(json.dumps({'kandidatflode': True, 'steg': 'forfina', 'startad': '2026-10-05T12:20:00Z', 'lage': 'valda',
+                                                          'valda': ['k02'], 'dom': '2026-10-05T12:10:00Z', 'pid': 999999999}))
+    assert at_pt.avbruten(json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text()))
+    assert pt.lage(sl_kd)[0] == 'stopp' and '--fortsatt' in pt.lage(sl_kd)[1], 'en död arbetare är ett avbrott, aldrig en ny körning (V2)'
+    try:
+        at_pt.doma(sl_kd, 'ägaren via Codex', 'valj', 'Hellre C.', kandidater=[{'id': 'k03', 'version': kd.las_status(sl_kd, 'k03')['version']}])
+        raise AssertionError('ingen dom under ett avbrott (N2)')
+    except ValueError as e_:
+        assert 'avbröts' in str(e_) and '--fortsatt' in str(e_), e_
+    for f_ in ('BRIEF.md', 'RESEARCH.md', 'TEXTUNDERLAG.md'):
+        (u_kd / f_).write_text('x') if not (u_kd / f_).exists() else None
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert at_pt.main([sl_kd]) == 4, 'utan flagga startas ingen ny körning över ett avbrott'
+    startat_ = []
+    spara_popen_kd, spara_vanta_kd = at_pt.subprocess.Popen, at_pt.vanta
+    at_pt.subprocess.Popen = lambda args, **kw: startat_.append(args) or type('P', (), {'pid': 999999998})()
+    at_pt.vanta = lambda rot, sek: 0
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert at_pt.main([sl_kd, '--fortsatt']) == 0
+    finally:
+        at_pt.subprocess.Popen, at_pt.vanta = spara_popen_kd, spara_vanta_kd
+    stf_ = json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())
+    assert stf_['lage'] == 'fortsatt' and stf_['valda'] == ['k02'] and stf_['forra_lage'] == 'valda' and startat_[0][-1] == 'fortsatt', stf_
+    kd.satt_status(sl_kd, 'k02', 'under_arbete', 'förfining', forfining_pagar={'dom': '2026-10-05T12:10:00Z', 'fran': fore2_, 'start_varv': 0})
+    (kd.ksajt(sl_kd, 'k02') / 'src' / 'pages' / 'index.astro').write_text('halvgjord förfining')
+    n_kd = len(sess_kd)
+    at_pt.arbetare(sl_kd, 'fortsatt')
+    st2_ = kd.las_status(sl_kd, 'k02')
+    fp_kd = [s_ for s_ in sess_kd[n_kd:] if s_['ut'].startswith('svar-forfina-')]
+    assert len(fp_kd) == 1 and st2_['status'] == 'forfinad' and st2_['forfining']['fran'] == fore2_ and not [s_ for s_ in sess_kd[n_kd:] if s_['ut'].startswith('svar-skapa')], st2_
+    assert json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())['steg'] == 'klar_for_bedomning', 'arbetaren förfinade de valda i stället för att skapa om (B1)'
+    for krav_ in (et_kd['k02'], 'tidslinjen', 'kandidater/k03/kod', 'design.py kd-prov --kandidat k02 --skriv', 'Bygg vidare på den.', 'METOD-forfina.md', '--mellan', 'Visar'):
+        assert krav_ in fp_kd[0]['prompt'], krav_
+    assert 'Read(./underlag/kd-prov/atelje/kandidater/k03/**)' not in fp_kd[0]['nekas'] and 'Read(./underlag/kd-prov/atelje/kandidater/k01/**)' in fp_kd[0]['nekas'], 'förfiningen får läsa den ägaren gillade delar ur'
+    assert 'Write(./kunder/kd-prov/kandidater/k02/sajt/DESIGN.md)' in fp_kd[0]['verktyg'] and (kd.kdir(sl_kd, 'k02') / 'DESIGN.md').is_file()
+    dk_ = spara_kd['designkontroll'](sl_kd, 'k02')
+    assert not dk_['ok'] and dk_['fel'], 'den riktiga designkontrollen vägrar en DESIGN.md utan värden'
+    assert not any('KOMPLETTERING' in v_ for v_ in fp_kd[0]['verktyg']), 'förfiningen begär ingen research (N6)'
+    # en förfining som inte gör något eget varv blir aldrig "förfinad" (V7)
+    (kd.kdir(sl_kd, 'k01') / 'RIKTNING.md').write_text((kd.kdir(sl_kd, 'k01') / 'RIKTNING.md').read_text() + '\nINGET-VARV\n')
+    kd.satt_status(sl_kd, 'k01', 'vald', 'vald')
+    st1f_ = kd.forfina_kandidat(sl_kd, 'k01', kd.las_status(sl_kd, 'k01')['version'], {'tid': '2026-10-05T12:30:00Z', 'kandidater': []})
+    assert st1f_['status'] == 'vald' and 'inget eget förhandsvarv' in st1f_['skal'], st1f_
+
+    # --- godkännandet: prövas helt innan något gällande ändras (B2) ---
+    (kd.rot(sl_kd) / 'STATUS.json').write_text(json.dumps({'kandidatflode': True, 'steg': 'klar_for_bedomning', 'fas': 'forfining', 'startad': '2026-10-05T12:20:00Z', 'klar': '2026-10-05T12:50:00Z', 'lage': 'valda'}))
+    v2_ = kd.las_status(sl_kd, 'k02')['version']
+    kd.satt_status(sl_kd, 'k02', 'forfinad', 'x', design_fel=['DESIGN.md saknas'])
+    try:
+        at_pt.doma(sl_kd, 'ägaren', 'godkand', 'Godkänd.', kandidater=[{'id': 'k02', 'version': v2_}])
+        raise AssertionError('DESIGN.md med brister godkänns inte')
+    except ValueError as e_:
+        assert 'DESIGN.md har brister' in str(e_), e_
+    kd.satt_status(sl_kd, 'k02', 'forfinad', 'x', design_fel=[])
+    at_pt.doma(sl_kd, 'ägaren', 'godkand', 'Godkänd för helbygge.', kandidater=[{'id': 'k02', 'version': v2_}], tid='2026-10-05T13:00:00Z')
+    vin_kd = json.loads((kd.rot(sl_kd) / 'VINNARE.json').read_text())
+    assert vin_kd['kandidat'] == 'k02' and vin_kd['riktning'] == 2 and vin_kd['godkand']['sha_kod'] and 'kod/projekt/a/index.astro' in vin_kd['filer'] \
+        and 'bilder/vy-390-forsta.png' in vin_kd['filer'] and 'undersidor/projekt-a/vy-390-forsta.png' in vin_kd['filer'], vin_kd
+    assert not gr_kd.vinnarfel(kd.rot(sl_kd), vin_kd) and kd.las_status(sl_kd, 'k02')['status'] == 'godkand' and not list(kd.rot(sl_kd).glob('.vinnare-ny-*'))
+    assert sk.godkand_giltig(sl_kd, kd_u, kd_k)[0] and pt.lage(sl_kd)[0] == 'godkand' and pt.bygget_nekas(sl_kd) is None
+    # ett godkännande som vägras under ett bygge (låst domlogg): vinnaren och VINNARE.json är orörda
+    fore_vin_ = (kd.rot(sl_kd) / 'VINNARE.json').read_text()
+    (kd_k / '.bygge-pid').write_text(str(os.getpid()))
+    os.chflags(kd_u / sl_kd / sk.DOMLOGG, stat_kd.UF_IMMUTABLE)
+    try:
+        at_pt.doma(sl_kd, 'ägaren', 'godkand', 'Godkänd.', kandidater=[{'id': 'k02', 'version': v2_}])
+        raise AssertionError('ett låst domlogg vägrar')
+    except ValueError as e_:
+        assert 'låst' in str(e_), e_
+    finally:
+        os.chflags(kd_u / sl_kd / sk.DOMLOGG, 0)
+        (kd_k / '.bygge-pid').unlink()
+    assert (kd.rot(sl_kd) / 'VINNARE.json').read_text() == fore_vin_ and not list(kd.rot(sl_kd).glob('.vinnare-ny-*')) and not list((kd.rot(sl_kd) / 'foregaende').glob('*-vinnare')), 'inget ändrat'
+    # och när domen inte går att skriva av något annat skäl: tempkatalogen tas bort, inget gällande ändras
+    sk.lagg_till_dom = lambda *a, **k: (_ for _ in ()).throw(ValueError('domen skrevs inte'))
+    try:
+        at_pt.doma(sl_kd, 'ägaren', 'godkand', 'Godkänd.', kandidater=[{'id': 'k02', 'version': v2_}])
+        raise AssertionError('vägras')
+    except ValueError:
+        pass
+    finally:
+        sk.lagg_till_dom = spara_sk_kd[1]
+    assert (kd.rot(sl_kd) / 'VINNARE.json').read_text() == fore_vin_ and not list(kd.rot(sl_kd).glob('.vinnare-ny-*'))
+    # installationen: alla sidor, och de ersatta behåller sin väg (M9)
+    ers_kd = at_pt.installera_godkand(sl_kd)
+    assert (huvud_kd / 'src' / 'pages' / 'index.astro').read_text() == 'start k02 förfinad' and (huvud_kd / 'src' / 'pages' / 'projekt' / 'a' / 'index.astro').read_text() == 'undersida'
+    assert (huvud_kd / 'DESIGN.md').is_file() and list((kd_k / sl_kd / 'startsida-ersatt').glob('*/src/pages/index.astro')) and len(ers_kd) == 3, ers_kd
+    assert at_pt.installera_godkand(sl_kd) == [], 'en andra installation ändrar inget'
+    (kd.rot(sl_kd) / 'vinnare' / 'kod' / 'projekt' / 'a' / 'index.astro').write_text('ändrad efter godkännandet')
+    assert not sk.godkand_giltig(sl_kd, kd_u, kd_k)[0] and 'godkända sidor' in sk.godkand_giltig(sl_kd, kd_u, kd_k)[1]
+    try:
+        at_pt.installera_godkand(sl_kd)
+        raise AssertionError('en ändrad undersida installeras inte')
+    except RuntimeError:
+        pass
+    (kd.rot(sl_kd) / 'vinnare' / 'kod' / 'projekt' / 'a' / 'index.astro').write_text('undersida')
+    # ett nytt godkännande gör den förra godkända förfinad igen (V5)
+    kd.satt_status(sl_kd, 'k03', 'forfinad', 'x', design_fel=[])
+    at_pt.doma(sl_kd, 'ägaren', 'godkand', 'Hellre den.', kandidater=[{'id': 'k03', 'version': kd.las_status(sl_kd, 'k03')['version']}], tid='2026-10-05T13:30:00Z')
+    assert kd.las_status(sl_kd, 'k02')['status'] == 'forfinad' and kd.las_status(sl_kd, 'k03')['status'] == 'godkand'
+    assert list((kd.rot(sl_kd) / 'foregaende').glob('*-vinnare')), 'den förra vinnaren arkiveras'
+    at_pt.doma(sl_kd, 'ägaren', 'jamfor', 'Jämför dem igen.', kandidater=[{'id': k_, 'version': kd.las_status(sl_kd, k_)['version']} for k_ in ('k02', 'k03')],
+               tid='2026-10-05T13:40:00Z')
+    assert kd.las_status(sl_kd, 'k03')['status'] == 'forfinad' and not sk.godkand_giltig(sl_kd, kd_u, kd_k)[0], 'en jämförelse efter godkännandet drar tillbaka det (N11)'
+
+    # --- en dom via Codex med ägarens etiketter, förkastningen och omtaget ---
+    (u_kd / 'dom.txt').write_text('Förkasta alla, men tidslinjen i C var bra.')
+    gu_sk_kd = sk.UNDERLAG; sk.UNDERLAG = kd_u
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            assert sk.main(['dom', sl_kd, '--kalla', 'ägaren via Codex', '--beslut', 'jamfor', '--fil', str(u_kd / 'dom.txt'), '--kandidater', 'Förslag Q']) == 2
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert sk.main(['dom', sl_kd, '--kalla', 'ägaren via Codex', '--beslut', 'forkasta', '--fil', str(u_kd / 'dom.txt'), '--tid', '2026-10-05T14:00:00Z']) == 0
+    finally:
+        sk.UNDERLAG = gu_sk_kd
+    assert pt.lage(sl_kd)[0] == 'stopp' and 'ny riktning' in pt.lage(sl_kd)[1] and not sk.godkand_giltig(sl_kd, kd_u, kd_k)[0], 'förkastningen drar tillbaka godkännandet'
+    assert {kd.las_status(sl_kd, k_)['status'] for k_ in ('k01', 'k02', 'k03')} == {'forkastad'}, 'alla synliga förkastas (M4)'
+
+    # --- dashboarden: blint först, bilderna tillåtna, körningens filer aldrig före första beslutet (M1) ---
+    dash.UNDERLAG, dash.KUNDER, dash.ROOT = kd_u, kd_k, tmp
+    try:
+        bild_kd = 'underlag/kd-prov/atelje/kandidater/k01/bilder/start/vy-390-forsta.png'
+        assert dash.fil_tillaten(bild_kd) and not dash.fil_tillaten('underlag/kd-prov/atelje/kandidater/k01/KRITIK.json')
+        assert dash.fil_tillaten('underlag/kd-prov/atelje/REDOVISNING.md'), 'efter första beslutet följer redovisningen'
+        plan_nu_ = json.loads((kd.rot(sl_kd) / 'KANDIDATPLAN.json').read_text())
+        (kd.rot(sl_kd) / 'KANDIDATPLAN.json').write_text(json.dumps(dict(plan_nu_, tid='2026-10-05T23:00:00Z')))  # en ny plan efter domarna
+        assert not kd.domd(sl_kd) and not dash.fil_tillaten('underlag/kd-prov/atelje/REDOVISNING.md') and not dash.fil_tillaten('underlag/kd-prov/atelje/KANDIDATPLAN.json')
+        assert dash.fil_tillaten(bild_kd)
+        vy_kd = dash.prototyp(sl_kd)
+        assert vy_kd['kandidatflode'] and vy_kd['antal'] == 3 and not vy_kd['domd'] and vy_kd['redovisning_md'] is None and vy_kd['avbruten'] is False
+        try:
+            dash.spara_forbattring(sl_kd, {'kid': 'k02', 'val': 'fore'})
+            raise AssertionError('före och efter visas först efter första beslutet')
+        except ValueError:
+            pass
+        (kd.rot(sl_kd) / 'KANDIDATPLAN.json').write_text(json.dumps(plan_nu_))
+        assert dash.spara_forbattring(sl_kd, {'kid': 'k02', 'val': 'fore'})['antal'] == 1 and json.loads((kd.rot(sl_kd) / 'FORBATTRING-AGAREN.json').read_text())[0]['val'] == 'fore'
+        try:
+            dash.spara_prototyp(sl_kd, {'beslut': 'ny_riktning', 'text': ''})
+            raise AssertionError('ny riktning utan text vägras')
+        except ValueError as e_:
+            assert 'nästa körnings kritik' in str(e_), e_
+    finally:
+        dash.UNDERLAG, dash.KUNDER, dash.ROOT = spara_dash_kd
+    # omtaget: varje kandidat ägaren såg in i historiken
+    at_pt.arkivera_beslut(sl_kd)
+    h_kd = sk.historik(sl_kd, kd_u)
+    assert len(h_kd) == 3 and all(x_['utfall'] == 'underkänd av ägaren via Codex' for x_ in h_kd) and all(x_['referens'] == 'Xref' for x_ in h_kd), h_kd
+    assert not (kd_k / sl_kd / 'kandidater').exists() and not (u_kd / 'atelje').exists(), 'kandidaternas projekt och ateljén arkiveras, inget raderas'
+    (u_kd / 'atelje').mkdir(); (u_kd / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-05T15:00:00Z'}))
+    try:
+        at_pt.doma(sl_kd, 'ägaren', 'valj', 'x', kandidater=[])
+        raise AssertionError('valj utan kandidatflöde vägras')
+    except ValueError as e_:
+        assert 'kandidatflödet' in str(e_), e_
+    (kd_k / sl_kd / 'kandidater' / 'k01' / 'sajt').mkdir(parents=True); (kd_k / sl_kd / 'kandidater' / 'k01' / 'sajt' / 'gammal.txt').write_text('g')
+    ark_kd = kd.arkivera_projekt(sl_kd, {})
+    assert not (kd_k / sl_kd / 'kandidater').exists() and (ark_kd / 'kunder-kandidater' / 'k01' / 'sajt' / 'gammal.txt').is_file()
+
+    # --- kanalen ut: researchen får fler sajter och frågor i samma form, och aldrig kundens uppgifter (V9) ---
+    atta_ = {'referens': {'kandidater': [{'adress': 'https://e%d.se/' % i} for i in range(8)]}, 'tjanster': {'fragor': [{'fraga': 'warm craft', 'syfte': 'x'}] * 14}}
+    assert sk.kanal_fel(atta_, bred=True) is None and 'kandidater' in sk.kanal_fel(atta_) and 'frågor' in (sk.kanal_fel(dict(atta_, tjanster={'fragor': [{'fraga': 'x', 'syfte': 'y'}] * 15}), bred=True) or '')
+    fb_ = sk.forbjudna_termer(sl_kd, kd_u)
+    for fraga_ in ('Provfirman carpentry homepage', 'carpenter site in Lulea', 'boden builder', 'snickeri luleå'):
+        assert 'kundens' in (sk.kanal_fel({'tjanster': {'fragor': [{'fraga': fraga_, 'syfte': 'x'}]}}, forbjudna=fb_) or ''), fraga_
+    for fraga_ in ('contact block 070-111 22 33', 'org 556677-8899 footer'):
+        assert 'kundens' in (sk.kanal_fel({'tjanster': {'fragor': [{'fraga': fraga_, 'syfte': 'x'}]}}, forbjudna=fb_) or ''), fraga_
+    assert '0701112233' in fb_['siffror'] and 'lulea' in fb_['ord'] and {'provfirman-snickeri.se', 'provfirman-snickeri', 'provfirman.se', 'provfirman'} <= fb_['ord'], 'webb är ett objekt; e-postens domän spärras (N3)'
+    lang_kd = ('a long question about a calm carpentry homepage with documented projects, written so that it passes the '
+               'form limit of one hundred and sixty characters, for provfirman')
+    assert len(lang_kd) > 160 and 'kundens' in (sk.kanal_fel({'tjanster': {'fragor': [{'fraga': lang_kd, 'syfte': 'x'}]}}, forbjudna=fb_) or ''), 'kunden prövas före formen'
+    import referenstjanster as rt_kd
+    prompter_kd = []
+    kor_rt_kd = lambda tjanst, prompt, logg, modell: prompter_kd.append(prompt) or (1, 'ingen session i provet')  # noqa: E731
+    upp_kd = {'fragor': [{'tjanst': 'mobbin', 'fraga': lang_kd, 'syfte': '', 'typ': 'skarm'},
+                         {'tjanst': 'refero', 'fraga': 'homepage like provfirman', 'syfte': '', 'typ': 'skarm'},
+                         {'tjanst': 'refero', 'fraga': 'contact block', 'syfte': 'write to info@exempel.se', 'typ': 'skarm'},
+                         {'tjanst': 'refero', 'fraga': 'warm editorial carpenter homepage', 'syfte': 'stilen', 'typ': 'skarm'}]}
+    _r, res_kd = rt_kd.samla(sl_kd, upp_kd, kd_u, kor=kor_rt_kd)
+    assert len(res_kd['slappta']) == 3 and len(prompter_kd) == 1 and 'provfirman' not in prompter_kd[0].lower() and 'warm editorial' in prompter_kd[0], res_kd['slappta']
+    tj_kd = (u_kd / 'referenser' / 'tjanster' / 'TJANSTER.md').read_text()
+    assert 'Släppta frågor' in tj_kd and 'provfirman' not in tj_kd.lower() and 'exempel.se' not in tj_kd, 'de släppta frågorna står i rapporten, utan sin text'
+    _r, res_kd = rt_kd.samla(sl_kd, {'fragor': upp_kd['fragor'][:3]}, kd_u, kor=kor_rt_kd)
+    assert not res_kd['alla_ok'] and res_kd['tjanster'] == {} and len(prompter_kd) == 1, 'allt släppt: ingen tjänst körs och slutkoden är inte grön'
+    # två begäranden samma sekund får egna filer (N7)
+    svar7_kd = []
+    for i_ in range(2):
+        f7_ = u_kd / ('begaran-%d.json' % i_)
+        f7_.write_text(json.dumps({'varfor': 'x', 'tjanster': {'fragor': [{'fraga': 'warm craft %d' % i_, 'syfte': 'x'}]}}))
+        svar7_kd.append(spara_sk_kd[0](sl_kd, f7_, u_kd / 'n7', kd_u, kor=lambda args, timeout: types.SimpleNamespace(returncode=0, stdout='', stderr='')))
+    assert svar7_kd[0]['tid'] != svar7_kd[1]['tid'] and svar7_kd[0]['tjanster']['rapport'] != svar7_kd[1]['tjanster']['rapport'], svar7_kd
+    assert len(list(u_kd.glob('TJANSTEUPPDRAG-*.json'))) == 2
+    assert sk.kanal_fel({'tjanster': {'fragor': [{'fraga': 'warm editorial carpenter homepage', 'syfte': 'stilen'}]}}, forbjudna=fb_) is None
+    # forhandsvisa: en skapare kan bara bygga sin egen kandidat (M2)
+    with contextlib.redirect_stderr(io.StringIO()):
+        assert fv_kd.main([sl_kd, '--kandidat', 'k01', '--kandidat', 'k02']) == 2
+        for argv_ in ([sl_kd, '--kandidat', 'k01', '--kand', 'k02'], [sl_kd, '--kandidat', 'k01', '--kandi=k02']):
+            try:
+                fv_kd.main(argv_)
+                raise AssertionError('en förkortad flagga bygger ingen annan kandidat (N8): %s' % argv_)
+            except SystemExit as e_:
+                assert e_.code == 2
+    # researchen på begäran körs högst en gång per kandidat (N6)
+    n6_kd, komp_n6_kd = [], []
+
+    def sess_n6_kd(prompt, verktyg, ut, **kw):
+        n6_kd.append((prompt, verktyg))
+        (kd.kdir(sl_kd, 'k01') / sk.KOMPLETTERING).write_text(json.dumps({'varfor': 'x', 'tjanster': {'fragor': [{'fraga': 'warm craft', 'syfte': 'x'}]}}))
+        Path(ut).write_text('{}')
+        return {}
+    at_pt.session = sess_n6_kd
+    sk.komplettera = lambda slug, fil, rot, underlag=None, **kw: komp_n6_kd.append(fil) or Path(fil).unlink() or {'tid': 't', 'varfor': 'x'}
+    for f_, t_ in (('package.json', '{}'), ('astro.config.mjs', 'export default {}'), ('src/pages/404.astro', '404')):  # sajten efter omtaget
+        (huvud_kd / f_).parent.mkdir(parents=True, exist_ok=True)
+        (huvud_kd / f_).write_text(t_) if not (huvud_kd / f_).exists() else None
+    (huvud_kd / 'node_modules').mkdir(exist_ok=True)
+    kd.satt_status(sl_kd, 'k01', 'planerad', 'x', forsok=0)
+    kd.skapa(sl_kd, 'k01')
+    assert len(komp_n6_kd) == 1 and len(n6_kd) == 2, (len(komp_n6_kd), len(n6_kd))
+    assert 'högst en gång per kandidat' in n6_kd[0][0] and 'högst en gång per kandidat' not in n6_kd[1][0]
+    assert any(v_.endswith('/KOMPLETTERING.json)') for v_ in n6_kd[0][1]) and not any('KOMPLETTERING' in v_ for v_ in n6_kd[1][1])
+    assert len(list((kd.kdir(sl_kd, 'k01') / 'kompletteringar').glob('*-obesvarad.json'))) == 1 and kd.las_status(sl_kd, 'k01')['kompletterad']
+    kd.skapa(sl_kd, 'k01')  # ett andra skaparförsök får ingen ny research
+    assert len(komp_n6_kd) == 1 and len(n6_kd) == 3 and 'högst en gång per kandidat' not in n6_kd[2][0]
+    # en sista skaparsession som dog med processen fotograferas och bedöms (N12)
+    kd.satt_status(sl_kd, 'k01', 'under_arbete', 'skaparsession 2', forsok=2)
+    (kd.ksajt(sl_kd, 'k01') / 'src' / 'pages' / 'index.astro').write_text('det sessionen hann')
+    st12_kd = kd.behandla(sl_kd, 'k01')
+    assert len(n6_kd) == 3 and st12_kd['status'] in ('klar', 'ofullstandig') and st12_kd.get('fotograferad'), st12_kd
+finally:
+    at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT = spara_at_kd
+    for n_, v_ in spara_kd.items():
+        setattr(kd, n_, v_)
+    prova.bygg_inom_grans, prova.kor, prova.Server = spara_prova_kd
+    sk.komplettera, sk.lagg_till_dom = spara_sk_kd
+    dash.UNDERLAG, dash.KUNDER, dash.ROOT = spara_dash_kd
+    bk_pt.ROOT = spara_bk_kd
+print('kandidatflödet ok')
+
 # ---------------------------------------------------------------- autonomins mått (Codex helhetsbedömning 2026-10-04, punkt 9)
 import autonomi as au  # noqa: E402
 au_k = tmp / 'au-kunder'; au.KUNDER = au_k; au.UNDERLAG = tmp / 'au-underlag'
@@ -3422,6 +4044,10 @@ falsk_k = tmp / 'falsk-claude-kor'; falsk_k.mkdir()
 (falsk_k / 'claude').chmod(0o755)
 miljo_k = {k_: v_ for k_, v_ in os.environ.items() if not k_.startswith('CLAUDE_CODE_') and k_ not in ('CLAUDECODE', 'NWP_SLUG')}
 miljo_k['PATH'] = str(falsk_k) + os.pathsep + miljo_k.get('PATH', ''); miljo_k['NWP_SANDLADA'] = 'av'
+# utan godkänd startsida stannar kor.sh före bygget (skapandeflödet körs före bygget och slutar i ägarens godkännande)
+rk = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_k, timeout=300)
+assert rk.returncode == 2 and 'ingen godkänd startsida' in rk.stdout and not (kr / 'backlog' / 'B-20261003-prov-fran-bygget.md').exists(), (rk.returncode, rk.stdout[-300:])
+miljo_k['NWP_ATELJE'] = 'av'  # nödvägen utan ateljé: provet gäller backlogcommiten
 rk = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_k, timeout=300)
 assert rk.returncode in (0, 1), (rk.returncode, rk.stdout[-400:], rk.stderr[-400:])
 logg_k = gk('log', '--format=%s', '-3').stdout
@@ -4179,7 +4805,7 @@ print(' | '.join(ut))
     finally:
         srv_pg.shutdown()
     import inspect as inspect_pg  # noqa: E402
-    assert '--utan-nat' in inspect_pg.getsource(prova.bygg_inom_grans) and '--bara-sajt' in inspect_pg.getsource(prova.bygg_inom_grans), 'skaparens byggen går utan nät och skriver bara i sajten'
+    assert '--utan-nat' in inspect_pg.getsource(prova.bygg_inom_grans) and "'--skrivbar', str(sajt)" in inspect_pg.getsource(prova.bygg_inom_grans), 'skaparens byggen går utan nät och skriver bara i projektet de bygger'
     # --bara-sajt: skrivning bara i sajten och tempkatalogen, aldrig i underlag/<slug> (domloggen, VINNARE.json) eller
     # kunder/<slug> utanför sajten (granskning 6)
     (rot_pg / 'kunder' / sl_pg / 'sajt').mkdir(parents=True, exist_ok=True)
@@ -4188,6 +4814,16 @@ print(' | '.join(ut))
     r_pg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg), '--utan-nat', '--bara-sajt', '--', PY, '-c', skriv_pg, *mal_pg],
                           capture_output=True, text=True, timeout=60)
     assert r_pg.stdout.split('\n')[:3] == ['SKREV sajt', 'NEKAD %s' % sl_pg, 'NEKAD %s' % sl_pg], (r_pg.stdout, r_pg.stderr[-300:])
+    # --skrivbar (kandidatflödet): en kandidats projekt under kunder/<slug>/kandidater/ är skrivbart, sajten och underlaget inte;
+    # en väg utanför kunder/<slug> vägras
+    kp_pg = rot_pg / 'kunder' / sl_pg / 'kandidater' / 'k01' / 'sajt'; kp_pg.mkdir(parents=True, exist_ok=True)
+    mal_k_pg = [str(kp_pg / 'x.txt'), str(rot_pg / 'kunder' / sl_pg / 'sajt' / 'y.txt'), str(rot_pg / 'underlag' / sl_pg / 'DESIGNDOMAR.jsonl')]
+    r_pg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg), '--utan-nat', '--skrivbar', str(kp_pg), '--', PY, '-c', skriv_pg, *mal_k_pg],
+                          capture_output=True, text=True, timeout=60)
+    assert r_pg.stdout.split('\n')[:3] == ['SKREV sajt', 'NEKAD sajt', 'NEKAD %s' % sl_pg], (r_pg.stdout, r_pg.stderr[-300:])
+    r_pg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg), '--skrivbar', str(rot_pg / 'underlag' / sl_pg), '--', PY, '-c', 'print(1)'],
+                          capture_output=True, text=True, timeout=60)
+    assert r_pg.returncode != 0 and '1' not in r_pg.stdout, 'skrivbart utanför kunder/<slug> vägras'
     # en repokopia under den tillåtna tempkatalogen: policyns skrivförbud följer med (R26, F1): mekaniken skrivskyddad, byggets kataloger skrivbara
     rot_k = tmp_pg / 'tmp' / 'kopia'
     for d_ in ('kunder/' + sl_pg, 'kunder/annan', 'underlag/' + sl_pg, 'kontroller', '.claude/hooks', 'backlog', 'kritik'):
@@ -4653,14 +5289,14 @@ import referenstjanster as rt_  # noqa: E402
 srv_rt = hs_.HTTPServer(('127.0.0.1', 0), RefBild_); th_.Thread(target=srv_rt.serve_forever, daemon=True).start()
 rt_port = srv_rt.server_address[1]; rt_bild = 'http://127.0.0.1:%d/skarm.png' % rt_port
 u_rt = tmp / 'rt-underlag'; (u_rt / 'prov-rt').mkdir(parents=True)
-(u_rt / 'prov-rt' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Provfirman'}))
+(u_rt / 'prov-rt' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Provfirman', 'kategorier': ['snickare']}))
 stilar_rt_ = []
 def logg_rt_(logg, anrop, traffar, subtype='success'):
     rader = [json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': n, 'input': {}}]}}) for n in anrop]
     rader.append(json.dumps({'type': 'result', 'subtype': subtype, 'is_error': subtype != 'success', 'num_turns': len(anrop) + 1, 'structured_output': {'anrop': [{'verktyg': 'påstått', 'argument': 'x', 'resultat_typ': 'json'}] * 9, 'traffar': traffar, 'stilar': stilar_rt_, 'anmarkning': 'prov'}}))
     Path(logg).write_text('\n'.join(rader) + '\n')
 def kor_rt_ok_(tjanst, prompt, logg, modell):
-    assert 'Provfirman' in prompt and tjanst in ('refero', 'mobbin')
+    assert 'Provfirman' not in prompt and 'snickare' in prompt and 'task_intent' in prompt and tjanst in ('refero', 'mobbin'), 'bara branschen följer med till tjänsten'
     bildvard = rt_bild if tjanst == 'mobbin' else 'https://images.refero.design/skarm.png'
     logg_rt_(logg, ['mcp__%s__%s' % (tjanst, 'search_screens' if tjanst == 'mobbin' else 'refero_search_screens')] * 2,
              [{'id': 'A 1', 'titel': 'Träff', 'sida_url': 'https://x.se/', 'bild_url': bildvard, 'beskrivning': 'b', 'fraga': 'f'},
@@ -4701,17 +5337,50 @@ upp_stil, fel_stil = rt_.las_uppdrag(u_rt / 'prov-rt' / 'STIL.json'); assert not
 assert 'refero_get_style' in rt_.prompt_for('refero', upp_stil['fragor'], 'Provfirman') and 'refero_get_style' not in rt_.prompt_for('refero', [dict(upp_stil['fragor'][0], typ='skarm')], 'Provfirman')
 stilar_rt_[:] = [{'id': 'S 1', 'titel': 'GTE', 'sida_url': 'https://www.gte.xyz', 'bild_url': rt_bild, 'typografi': 'serif display 72/1.0, mono labels 12', 'farger': 'carbon #111, polar #fff, turbo orange accent',
                   'layout': 'centered hero, two-column blocks', 'rytm': 'dense hero, airy blocks', 'komponenter': 'soft-bordered cards', 'fraga': 'warm editorial craft'}]
+# tjänstens svar i sessionsloggen, som verkliga anrop och svar (tool_use och tool_result parade på id): get_style tar
+# style_ids i klump och svarar med hela dokumenten i en annan ordning; sökningens "## Style: <id>" binder titeln till id:t
+def logg_rt2_(logg, par, traffar=(), stilar=()):
+    rader = []
+    for i_, (n_, ind_, txt_) in enumerate(par):
+        rader.append(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 't%d' % i_, 'name': n_, 'input': ind_}]}}))
+        rader.append(json.dumps({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 't%d' % i_, 'content': [{'type': 'text', 'text': txt_}]}]}}))
+    rader.append(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'num_turns': 4,
+                             'structured_output': {'anrop': [], 'traffar': list(traffar), 'stilar': list(stilar), 'anmarkning': ''}}))
+    Path(logg).write_text('\n'.join(rader) + '\n')
+doc_gte_ = "# GTE — Style Reference\n> Carbon\n\n**Theme:** dark\n\n## Tokens — Colors\n\n| Name | Value |\n|---|---|\n| Carbon | `#111` |\n\n## Do's and Don'ts\n\n- Do: hairlines\n\n## Imagery\n\nDocumentary photos, full bleed.\n\n## Layout\n\nCentered hero.\n"
+sok_rt_ = '*Page 1*\n\n## Style: S 1\n\n- **Title**: GTE\n- **Preview URL**: %s\n\n## Style: S2\n\n- **Title**: Annan Stil\n' % rt_bild
+skarm_rt_ = '## Screen: SC1\n\n- **Platform**: web\n- **Preview URL**: %s\n- **Thumbnail URL**: https://images.refero.design/screenshots/x/SC1_thumb.jpg\n' % rt_bild
 def kor_rt_stil_(tjanst, prompt, logg, modell):
-    logg_rt_(logg, ['mcp__refero__refero_search_styles', 'mcp__refero__refero_get_style'], []); return 0, ''
+    logg_rt2_(logg, [('mcp__refero__refero_search_styles', {'query': 'warm editorial craft'}, sok_rt_),
+                     ('mcp__refero__refero_get_style', {'style_ids': ['S2', 'S 1']}, '# Annan Stil — Style Reference\n\nAnnat.\n\n' + doc_gte_),
+                     ('mcp__refero__refero_get_screen', {'screen_id': 'SC1'}, skarm_rt_)],
+              traffar=[{'id': 'SC1', 'titel': 'Skärmen', 'sida_url': 'https://x.se/', 'bild_url': 'https://images.refero.design/screenshots/x/SC1_thumb.jpg', 'beskrivning': 'b', 'fraga': 'f',
+                        'steg': [{'bild_url': rt_bild, 'beskrivning': 'steg ett: formuläret'}]}], stilar=stilar_rt_)
+    return 0, ''
+(rot_rt / 'TJANSTER.md').write_text('förra undersökningen')
 rot_rt, res_rt = rt_.samla('prov-rt', upp_stil, u_rt, lokala_portar=(rt_port,), kor=kor_rt_stil_)
 st_ = res_rt['tjanster']['refero']
-assert st_['ok'] and st_['stilar'][0]['typografi'].startswith('serif display') and st_['stilar'][0]['fil'] and not st_['stilar'][0]['fel'], st_
-assert '### Stil: GTE' in (rot_rt / 'TJANSTER.md').read_text() and '- färger: carbon #111' in (rot_rt / 'TJANSTER.md').read_text()
+assert st_['ok'] and st_['stilar'][0]['typografi'].startswith('serif display') and st_['stilar'][0]['fil'] and not st_['stilar'][0]['fel'] and st_['stilar'][0]['belagd'], st_
+dok_rt_ = u_rt / 'prov-rt' / st_['stilar'][0]['dokument']
+assert dok_rt_.name == 'stil-gte.md' and dok_rt_.read_text().startswith('# GTE — Style Reference') and 'Documentary photos, full bleed.' in dok_rt_.read_text() and 'Annat.' not in dok_rt_.read_text(), 'hela stildokumentet ordagrant, bundet till rätt stil'
+assert st_['traffar'][0]['bild_url'] == rt_bild and st_['traffar'][0]['fil'], 'Referos tumnagel byts mot skärmens Preview URL ur tjänstens eget svar'
+assert st_['traffar'][0]['steg'][0]['fil'] and st_['traffar'][0]['steg'][0]['beskrivning'].startswith('steg ett'), 'flödets steg med egna bilder'
+assert st_['logg'].startswith('referenser/tjanster/refero/session-') and len(list((u_rt / 'prov-rt' / st_['ra']).glob('[0-9][0-9]-*.md'))) == 3, st_
+assert '/bilder-' in st_['traffar'][0]['fil'] and st_['ra'] in st_['stilar'][0]['dokument'], 'bilderna och stildokumenten ligger per körning: en senare körning skriver aldrig över dem'
+md_rt_ = (rot_rt / 'TJANSTER.md').read_text()
+assert '### Stil: GTE' in md_rt_ and '- färger: carbon #111' in md_rt_ and 'stil-gte.md' in md_rt_ and 'steg 1:' in md_rt_ and res_rt['tidigare'] in md_rt_
+assert (u_rt / 'prov-rt' / res_rt['tidigare']).read_text() == 'förra undersökningen', 'den förra undersökningen arkiveras, aldrig överskriven'
+rot_rt, res_rt2 = rt_.samla('prov-rt', upp_stil, u_rt, lokala_portar=(rt_port,), kor=kor_rt_stil_)
+assert res_rt2['tidigare'] != res_rt['tidigare'] and res_rt2['tjanster']['refero']['logg'] != st_['logg'], 'två körningar samma sekund får egna namn'
+svar_rt_ = []
+assert rt_.las_logg(u_rt / 'prov-rt' / st_['logg'], svar_rt_)[0]['mcp__refero__refero_get_style'] == 1 and [n_.split('__')[-1] for n_, _i, _t in svar_rt_] == ['refero_search_styles', 'refero_get_style', 'refero_get_screen']
+assert rt_.stiltitlar(svar_rt_) == {'S2': 'Annan Stil'}, 'id:n med mellanslag finns inte hos Refero; titeln binder då via modellens titel'
 def kor_rt_stil_utan_(tjanst, prompt, logg, modell):
-    logg_rt_(logg, ['mcp__refero__refero_search_styles'], []); return 0, ''
+    logg_rt2_(logg, [('mcp__refero__refero_search_styles', {'query': 'q'}, sok_rt_)], stilar=stilar_rt_); return 0, ''
 rot_rt, res_rt = rt_.samla('prov-rt', upp_stil, u_rt, lokala_portar=(rt_port,), kor=kor_rt_stil_utan_)
 st_ = res_rt['tjanster']['refero']
-assert not st_['ok'] and 'inget get_style-anrop' in st_['stilar'][0]['fel'] and any('utan refero_get_style' in a_ for a_ in st_['anmarkningar']), 'påstådda stilvärden utan get_style är inte belagda'
+assert not st_['ok'] and 'hämtades inte med get_style' in st_['stilar'][0]['fel'] and any('utan refero_get_style' in a_ for a_ in st_['anmarkningar']), 'påstådda stilvärden utan get_style är inte belagda'
+assert 'aldrig Thumbnail URL' in rt_.prompt_for('refero', [{'tjanst': 'refero', 'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'P') and 'ingen platform-' in rt_.prompt_for('mobbin', [{'tjanst': 'mobbin', 'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'P')
 stilar_rt_[:] = []
 srv_rt.shutdown()
 print('referenstjänsterna ok')

@@ -153,11 +153,12 @@ def handelser(fil):
     return ut
 
 
-VARVVAG = re.compile(r'(underlag/[a-z0-9-]+/forhand/(?:[a-z0-9-]+/)?varv-\d{2,})/vy-390-forsta\.png')  # sidans led kom 2026-10-05
+# prototypens varv (underlag/<slug>/forhand/<sida>/) och kandidatflödets (underlag/<slug>/atelje/kandidater/<id>/varv/<sida>/)
+VARVVAG = re.compile(r'(underlag/[a-z0-9-]+/(?:forhand|atelje/kandidater/k\d{2}/varv)/(?:[a-z0-9-]+/)?varv-\d{2,})/vy-390-forsta\.png')
 VARVBILDER = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
 
 
-def varvordning(session_id, slug, referens=()):
+def varvordning(session_id, slug, referens=(), src=None):
     """Läsningen per förhandsvarv, i ordning (Codex 2026-10-05, glapp 5: ett räknat antal läsningar över hela sessionen
     visar inte att varvet jämfördes). Ett varv börjar när förhandsvisa.py svarat med varvets vägar och slutar vid nästa
     ändring i kunder/<slug>/sajt/src/ eller nästa förhandsvisning. Inom fönstret ska varvets fyra bilder ha lästs, och
@@ -169,7 +170,7 @@ def varvordning(session_id, slug, referens=()):
     h = handelser(t)
     bash = {i: x[3].get('command', '') for i, x in ((x[1], x) for x in h if x[0] == 'anrop' and x[2] == 'Bash')}
     felade = {x[1] for x in h if x[0] == 'svar' and x[3]}
-    src = 'kunder/%s/sajt/src/' % slug
+    src = src or 'kunder/%s/sajt/src/' % slug  # en kandidats egna sidor: kunder/<slug>/kandidater/<id>/sajt/src/
     ut = []
     for k, x in enumerate(h):
         if x[0] != 'svar' or x[3] or 'kontroller/forhandsvisa.py' not in bash.get(x[1], ''):
@@ -200,26 +201,46 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
     """Metodkvittot (Codex 2026-10-05, glapp 2: prototypens skapare läste inga designskills): vilka av metodfilerna
     sessionen läste med Read och vilka skills den anropade med Skill, och om det skedde före första skrivningen under
     skrivprefix (en väg relativt roten, till exempel kunder/<slug>/sajt/src/). En skill räknas också som läst när dess
-    SKILL.md lästes. Ger {'verifierad', 'fore': [...], 'efter': [...], 'saknas': [...], 'skill_anrop': [...]}."""
+    SKILL.md lästes. Ett Read vars svar var ett fel räknas inte, och en fil räknas som läst först när läsningarna täckt
+    alla dess rader (ett Read utan offset och limit täcker 2 000 rader); en fil som bara lästs i delar står i 'delvis'
+    (granskning 2, N5). Ger {'verifierad', 'fore': [...], 'efter': [...], 'saknas': [...], 'delvis': [...],
+    'skill_anrop': [...]}; saknas omfattar de delvis lästa."""
     t = transkript(session_id)
     if t is None:
         return {'verifierad': False, 'skal': 'transkriptet saknas'}
-    forsta, sedda, anrop = None, {}, []
-    for i, x in enumerate(handelser(t)):
+    h = handelser(t)
+    felade = {x[1] for x in h if x[0] == 'svar' and x[3]}
+    krav = [relativ(f).strip('/') for f in filer] + ['.claude/skills/%s/SKILL.md' % s for s in skills]
+    radantal = {}
+    for k in krav:
+        try:
+            radantal[k] = len((ROOT / k).read_text(encoding='utf-8', errors='replace').splitlines())
+        except OSError:
+            radantal[k] = None
+    forsta, sedda, anrop, tackt = None, {}, [], {}
+    for i, x in enumerate(h):
         if x[0] != 'anrop':
             continue
         if forsta is None and skrivprefix and x[2] in ('Write', 'Edit', 'MultiEdit') and relativ(x[3].get('file_path', '')).startswith(skrivprefix):
             forsta = i
-        if x[2] == 'Read' and isinstance(x[3].get('file_path'), str):
-            sedda.setdefault(utan_punkt(relativ(x[3]['file_path'])), i)
+        if x[2] == 'Read' and isinstance(x[3].get('file_path'), str) and x[1] not in felade:
+            v = utan_punkt(relativ(x[3]['file_path']))
+            try:
+                a, n = max(1, int(x[3].get('offset') or 1)), int(x[3].get('limit') or 2000)
+            except (TypeError, ValueError):
+                a, n = 1, 2000
+            tackt.setdefault(v, set()).update(range(a, a + max(0, n)))
+            total = radantal.get(v)
+            hel = (not x[3].get('offset') and not x[3].get('limit')) if total is None else all(r in tackt[v] for r in range(1, total + 1))
+            if hel:
+                sedda.setdefault(v, i)
         elif x[2] == 'Skill' and isinstance(x[3].get('skill'), str):
             anrop.append(x[3]['skill'])
             sedda.setdefault('.claude/skills/%s/SKILL.md' % x[3]['skill'].split(':')[-1], i)
-    krav = [relativ(f).strip('/') for f in filer] + ['.claude/skills/%s/SKILL.md' % s for s in skills]
     fore = [k for k in krav if k in sedda and (forsta is None or sedda[k] < forsta)]
     efter = [k for k in krav if k in sedda and k not in fore]
-    return {'verifierad': True, 'fore': fore, 'efter': efter, 'saknas': [k for k in krav if k not in sedda], 'skill_anrop': anrop,
-            'forsta_skrivning': forsta is not None}
+    return {'verifierad': True, 'fore': fore, 'efter': efter, 'saknas': [k for k in krav if k not in sedda],
+            'delvis': [k for k in krav if k not in sedda and k in tackt], 'skill_anrop': anrop, 'forsta_skrivning': forsta is not None}
 
 
 def klass(v):

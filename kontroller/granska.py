@@ -541,9 +541,13 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         *([rad(p) + ' — ' + t for p, t in (x if isinstance(x, tuple) else (x, 'första vyn') for x in refs)] or ['- inga']),
         *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet):']
           + ['- ' + f for f in felrader] if felrader else []), '',
-        *(['Ateljéns vinnare: riktning %s, vald av domarpanelen som hela startsida (designprovet 2026-10-04). Bygget ska vara den' % vinnare[0].get('riktning'),
-           'riktningen genomförd: jämför startsidan ruta för ruta mot vinnarens bilder; en annan riktning, komposition, typografi eller',
-           'bildbehandling utan ny ateljéomgång är ett blockerande fynd.', *([rad(p) for p in vinnare[1]] or ['- bilder saknas']),
+        *([('Ägarens godkända startsida: %s (%s, kandidat %s ur kandidatflödet), vald och godkänd av ägaren som hela startsida med'
+            % (vinnare[0].get('etikett') or 'kandidaten', vinnare[0].get('titel') or '–', vinnare[0].get('kandidat'))) if vinnare[0].get('kandidat') else
+           'Ateljéns vinnare: riktning %s, vald av domarpanelen som hela startsida (designprovet 2026-10-04). Bygget ska vara den' % vinnare[0].get('riktning'),
+           ('sina undersidor. Bygget ska vara den riktningen genomförd: jämför startsidan ruta för ruta mot bilderna; en annan riktning,' if vinnare[0].get('kandidat') else
+            'riktningen genomförd: jämför startsidan ruta för ruta mot vinnarens bilder; en annan riktning, komposition, typografi eller'),
+           ('komposition, typografi eller bildbehandling utan ett nytt godkännande är ett blockerande fynd.' if vinnare[0].get('kandidat') else
+            'bildbehandling utan ny ateljéomgång är ett blockerande fynd.'), *([rad(p) for p in vinnare[1]] or ['- bilder saknas']),
            *(['Avvikelsen mot vinnaren mätt pixel för pixel (förändring, inte kvalitet; du avgör): %s' % rad(rdir / 'VINNARJAMFORELSE.md')[2:]]
              if (rdir / 'VINNARJAMFORELSE.md').is_file() else []),
            *(['Skillnadsbilderna (röda pixlar skiljer):'] + [rad(p) for p in sorted((rdir / 'vinnarjamforelse').glob('*.png'))]

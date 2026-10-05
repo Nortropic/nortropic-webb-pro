@@ -554,7 +554,23 @@ def granska(dist):
         if 'font-display' not in blk:
             F('4.3', '(alla)', '@font-face för %s saknar font-display' % (fam.group(1).strip() if fam else '?'))
     if len(familjer) > 2:
-        F('4.3', '(alla)', '%d typsnittsfamiljer (%s); högst två' % (len(familjer), ', '.join(sorted(familjer))))
+        # högst två är en designhypotes (kunskap/designregler.md): fler godtas när varje familj är en roll i sajtens
+        # DESIGN.md, den aktuella (godkända) designen; annars är det ett avsteg
+        deklarerade = set()
+        try:  # bara en giltig DESIGN.md som är den ägaren godkänt (VINNARE.json, sha_design) avgör (granskningen M5)
+            import design
+            import skapande
+            md_ = dist.parent / 'DESIGN.md'
+            v_, _f = design.las(md_.read_text(encoding='utf-8'))
+            g_ = ((skapande.las_json(skapande.UNDERLAG / dist.parent.parent.name / 'atelje' / 'VINNARE.json') or {}).get('godkand') or {})
+            if v_ is not None and not design.validera(v_) and g_.get('sha_design') == skapande.sha256_fil(md_):
+                deklarerade = {str(x.get('familj') or '').strip().lower() for x in (v_.get('typsnitt') or {}).values() if isinstance(x, dict)}
+        except (OSError, UnicodeDecodeError, AttributeError):
+            pass
+        if deklarerade and {f.lower() for f in familjer} <= deklarerade:
+            I('4.3', '(alla)', '%d typsnittsfamiljer (%s), alla roller i den godkända DESIGN.md' % (len(familjer), ', '.join(sorted(familjer))))
+        else:
+            F('4.3', '(alla)', '%d typsnittsfamiljer (%s); högst två, eller roller i den godkända DESIGN.md' % (len(familjer), ', '.join(sorted(familjer))))
     # 4.3 reserv: varje självhostat typsnitt följs i sin stack av ett reservtypsnitt med local() och size-adjust eller
     # ascent-override, så att texten inte hoppar när typsnittet laddats. Stacken kan stå i font-family eller i en
     # CSS-variabel (Astros typsnitts-API skriver '"Familj", "Familj fallback: Arial", sans-serif' i en variabel).

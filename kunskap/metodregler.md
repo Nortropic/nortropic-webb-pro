@@ -5,7 +5,8 @@ Varje metodregel som styr byggaren (`.claude/skills/bygg-sajt/SKILL.md`), atelj�
 granskaren (`kritik/GRANSKARE.md`) står här med tillämpningsområde och status: vad källan faktiskt säger, hur vi
 tolkat den, och vilket försök som visar att tolkningen hjälper våra byggen. **Oprövad** betyder att inget försök
 ännu visar det; regeln får gälla, men den är en hypotes och ska prövas innan den skärps. En ny regel, eller en
-skärpning, får en rad här i samma ändring.
+skärpning, får en rad här i samma ändring. Vilket slag varje designregel är (kvalitetskrav, kundens behov eller
+designhypotes) och vad som går före vad står i `kunskap/designregler.md`.
 
 | Regel | Gäller | Källan säger | Vår tolkning | Försök |
 |---|---|---|---|---|
@@ -20,7 +21,7 @@ skärpning, får en rad här i samma ändring.
 | Rätten att förkasta alla förslag | ateljéns panel | ägarbeslut 2026-10-04 (BESLUT.md): bäst av tre undermåliga blir aldrig godkänt; Anthropic via Codex 2026-10-04: mellanversioner var ibland bättre än slutversionen (teoretisk-grund.md C) | godkänt bara med majoritet som håller ribban; annars ny omgång, sedan stopp | designprovet (pågår) |
 | Ägarens kalibreringsankare som ribba | granskare, ateljéns panel | ägarens blinda domar över tretton externa sajter (privat, `underlag/kalibrering/`) | ankarhalvan fryses i varje omgång; de undanhållna mäter granskaren | granskarförsöket 2026-10-04: utvecklingsdata (läckage rättat); ett nytt orört urval krävs för ett oberoende mått |
 | Inga stockbilder eller genererade bilder | bild, bygge, granskare | ägarens dom (L3, Sundboms): "hellre inga foton än stock"; "gör 'inga egna foton' till en beställning" | egna foton eller ingen bild; saknade bilder beställs med plats och syfte | L3 (ägarens dom) |
-| Mobilens första vy: sidhuvud på en rad, fast list | bygge, stilrapporten | ägarens domar L1, L2, L4, L5 och A/B 2026-10-02; Fitts lag för tummens räckvidd | den primära handlingen i sidhuvudet och i listen, Skriv alltid, numret högst två gånger | A/B 2026-10-02 (ägarens blinda val) |
+| Mobilens första vy: sidhuvud på en rad, fast list | bygge (designhypotes; en godkänd prototyp går före), stilrapporten | ägarens domar L1, L2, L4, L5 och A/B 2026-10-02; Fitts lag för tummens räckvidd | den primära handlingen i sidhuvudet och i listen, Skriv alltid, numret högst två gånger | A/B 2026-10-02 (ägarens blinda val) |
 | Belägg för varje påstående om verksamheten | innehåll, granskarens kriterium 5 | ägarens domar L1–L6 (största kategorin: sajten säger mer än underlaget belägger); marknadsföringslagen | `Belägg:` per mening om hur verksamheten arbetar; saknas källan stryks eller beställs uppgiften | L5–L6 (ägarens domar) |
 | Saknat underlag bedöms i två delar | granskare | ägarens domar L2–L3; Codex 2026-10-04 punkt 3 | (a) bristen beställd och inte dold, (b) nivån på sajten som den visas; beställningen ursäktar inte (b) | oprövad (ny 2026-10-04) |
 | Två oberoende granskare, blockerande fynd från någon gäller | granskning | Nielsen (1994): heuristisk utvärdering med flera bedömare hittar fler problem | två sessioner med samma kriterier, ingen ser den andras svar | revisionsomgångarna 2026-10-03–04 (mekaniken); träffsäkerheten oprövad på orörda exempel |

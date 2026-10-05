@@ -26,7 +26,11 @@ ROOT = Path(__file__).resolve().parents[1]
 UNDERLAG = ROOT / 'underlag'
 DOMLOGG = 'DESIGNDOMAR.jsonl'
 HISTORIK = 'RIKTNINGSHISTORIK.json'
-BESLUT = ('godkand', 'putsa', 'ny_riktning')
+BESLUT = ('godkand', 'putsa', 'ny_riktning', 'valj', 'jamfor', 'forkasta')
+# kandidatflödets beslut (ägarens uppdrag 2026-10-05, punkt 10): valj = en eller flera kandidater vidare till förfining,
+# jamfor = några kandidater sida vid sida (inget körs), forkasta = alla förkastade (flödet väntar på ny riktning);
+# varje sådant beslut bär kandidaterna med sina versioner, och delar = det ägaren gillade i en kandidat
+KANDIDATBESLUT = ('valj', 'jamfor', 'forkasta')
 KALLOR = ('ägaren', 'ägaren via Codex', 'panelen', 'skaparen')
 # ägarens domar: direkt i dashboarden eller ordagrant via Codex. Godkännandet, läget och stoppet räknar båda
 # (omgranskningen av skapandeflödet, fynd 2: en underkännande dom via Codex lämnade godkännandet giltigt)
@@ -38,6 +42,9 @@ ATEROPPNAR = {
                     'komposition och proportioner', 'bildurval och beskärning', 'rubrikernas form och textens ordning'],
     'putsa': [],
     'godkand': [],
+    'valj': [],
+    'jamfor': [],
+    'forkasta': ['grundidéerna i kandidaterna', 'referensurvalet och huvudreferenserna'],
 }
 # metoden per steg: filerna läses med Read, skillsen med Skill eller genom att läsa deras SKILL.md (Codex 2026-10-05,
 # glapp 2: prototypens skapare läste ingen av dem; en installerad skill finns inte i kontexten förrän den laddas)
@@ -70,9 +77,41 @@ def textfil(slug, underlag=None):
     return u / 'INNEHALL.md' if (u / 'INNEHALL.md').is_file() else u / 'TEXTUNDERLAG.md'
 
 
+STEG_KARTA = {'utforska': 'skapa', 'forfina': 'forfina', 'forska': 'forska'}  # den äldre vägens steg i metodkartan
+
+
+def metod_kallor(steg):
+    """Stegets källor ur kunskap/metodkarta.md, samma källa som kandidatflödet (synpunkterna på metodkartan 2026-10-05,
+    punkt 7): [(väg från repots rot, rader eller rubrik)]. None när kartan saknas eller inte går att läsa."""
+    try:
+        import metod
+        karta = metod.tolka(metod.KARTA.read_text(encoding='utf-8'))
+        rubrik = metod.STEG[STEG_KARTA[steg]]
+        ut = []
+        for r in metod.stegets_rader(karta, rubrik, 'före') + metod.stegets_rader(karta, rubrik, 'varv'):
+            m = metod.RAD.match(r)
+            if m:
+                ut.append((metod.kalla(m.group('vag')).relative_to(metod.ROOT).as_posix(),
+                           ('rad ' + m.group('rader').strip()) if m.group('rader') else ('avsnittet ' + m.group('rubrik')) if m.group('rubrik') else ''))
+        return ut
+    except Exception:  # noqa: BLE001 — utan karta gäller listan nedan
+        return None
+
+
 def metodrader(steg):
-    m = METOD[steg]
-    return ['- ' + f for f in m['filer']] + ['- skillen %s (Skill-verktyget, eller .claude/skills/%s/SKILL.md med Read)' % (s, s) for s in m['skills']]
+    k = metod_kallor(steg)
+    if k is None:
+        m = METOD[steg]
+        return ['- ' + f for f in m['filer']] + ['- skillen %s (.claude/skills/%s/SKILL.md med Read)' % (s, s) for s in m['skills']]
+    return ['- %s%s' % (v, (' (%s)' % d) if d else '') for v, d in k]
+
+
+def metod_filer(steg):
+    """Filerna metodkvittot prövar läsningen av (kontroller/bildkedja.py metodlasning)."""
+    k = metod_kallor(steg)
+    if k is None:
+        return METOD[steg]['filer'] + ['.claude/skills/%s/SKILL.md' % s for s in METOD[steg]['skills']]
+    return list(dict.fromkeys(v for v, _ in k))
 
 
 # --- domloggen ---
@@ -121,6 +160,14 @@ def kritikrader(slug, antal=3, underlag=None):
         rader.append('- %s, %s, beslut %s%s:' % (d.get('tid', '?'), d.get('kalla'), d['beslut'],
                                                   (' (återöppnar: %s)' % ', '.join(d.get('ateroppnar') or [])) if d.get('ateroppnar') else ''))
         rader += ['  > ' + r for r in d['text'].splitlines() if r.strip()]
+        kand = [k for k in d.get('kandidater') or [] if isinstance(k, dict)]
+        plan = ' i planen %s' % d['plan'] if d.get('plan') else ''  # kandidat-id (k01–k12) gäller bara inom sin plan
+        if kand:
+            rader.append('  kandidaterna%s: ' % plan + ', '.join('%s (%s%s, version %s)' % (
+                k.get('etikett') or k.get('id'), k.get('id'), (' "%s"' % k['titel']) if k.get('titel') else '', str(k.get('version') or '')[:12]) for k in kand))
+        titlar = d.get('delar_titlar') if isinstance(d.get('delar_titlar'), dict) else {}
+        for kid, text in sorted((d.get('delar') or {}).items()) if isinstance(d.get('delar'), dict) else []:
+            rader.append('  ägaren gillade i %s%s%s: %s' % (kid, (' "%s"' % titlar[kid]) if titlar.get(kid) else '', plan, re.sub(r'\s+', ' ', str(text))[:600]))
     return rader
 
 
@@ -205,17 +252,75 @@ def senaste_paket(slug, underlag=None):
 # mot frågesträngar räckte inte, vägsegment bär samma data). Kanalen är smal, inte stängd: värdnamnet och några korta
 # vägar går fortfarande ut, och skaparen läser bara underlaget, aldrig hemligheter (kunskap/skapandeflodet.md).
 MAX_KANDIDATER, MAX_SIDOR_PER, MAX_FRAGOR, MAX_FRAGA = 3, 4, 3, 160
+# researchsteget före kandidatplanen (kontroller/kandidater.py) söker brett: samma form, fler sajter och frågor
+MAX_KANDIDATER_BRED, MAX_FRAGOR_BRED = 8, 14
 VARD = re.compile(r'https://(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.){1,3}[a-z]{2,12}/')  # fullmatch; etiketter upp till 63 tecken
 LED = r'(?!\.+(?:/|$))(?:[A-Za-z0-9._~-]|%[0-9A-Fa-f]{2}){1,60}'  # å, ä, ö procentkodade; inte bara punkter
 SIDVAG = re.compile(r'/(?:%s(?:/%s){0,3}/?)?' % (LED, LED))  # fullmatch; högst fyra led med snedstreck emellan
 
 
-def kanal_fel(begaran):
-    """Skälet när en begäran går utanför kanalens form, annars None."""
+def vik(s):
+    """Gemener utan diakritiska tecken (å, ä → a, ö → o, é → e), för jämförelser."""
+    return str(s).lower().translate(str.maketrans('åäöéèüáà', 'aaoeeuaa'))
+
+
+ALLMANNA_EPOSTORD = {'info', 'kontakt', 'mail', 'post', 'order', 'offert', 'support', 'hello', 'kundtjanst', 'noreply'}
+
+
+def forbjudna_termer(slug, underlag=None):
+    """Kundens uppgifter som aldrig får gå till Refero eller Mobbin (BESLUT.md 2026-10-05, punkt 4; granskningen V9 och
+    granskning 2, N3): namnet och dess ord (minst fyra tecken), orterna (adress och räckvidd), gatan, webbadressen
+    (webb är ett objekt med strängvärden, till exempel doman), e-postadressernas domäner och namnord, och nummer
+    (organisationsnummer, postnummer, telefon) som siffersträngar. {'ord': set, 'siffror': set}."""
+    v = las_json(Path(underlag or UNDERLAG) / slug / 'VERKSAMHET.json') or {}
+    ord_, siffror = set(), set()
+    namn = vik(v.get('namn') or '').strip()
+    if namn:
+        ord_.add(namn)
+        ord_.update(w for w in re.split(r'[^a-z0-9]+', namn) if len(w) >= 4)
+    adress = v.get('adress') if isinstance(v.get('adress'), dict) else {}
+    orter = list((v.get('rackvidd') or {}).get('orter') or []) if isinstance(v.get('rackvidd'), dict) else []
+    for x in [adress.get('ort'), adress.get('gata'), adress.get('gatuadress')] + orter:
+        if isinstance(x, str) and len(x.strip()) >= 3:
+            ord_.add(vik(x.strip()))
+    webb = v.get('webb')
+    webbar = [x for x in (webb.values() if isinstance(webb, dict) else [webb]) if isinstance(x, str)]
+    kontakter = [k.get('varde') for k in v.get('kontaktvagar') or [] if isinstance(k, dict) and isinstance(k.get('varde'), str)]
+    epost = [x for x in [v.get('e_post')] + kontakter + list(v.get('sokkonsol_agare') or []) if isinstance(x, str) and '@' in x]
+    for e in epost:
+        lokal, _, doman = vik(e).strip().partition('@')
+        webbar.append(doman)
+        ord_.update(w for w in re.split(r'[^a-z0-9]+', lokal) if len(w) >= 4 and w not in ALLMANNA_EPOSTORD)
+    for w in webbar:
+        d = re.sub(r'^https?://(www\.)?', '', vik(w).strip()).split('/')[0]
+        if d:
+            ord_.update({d, d.split('.')[0]})
+    nummer = [v.get('orgnr'), adress.get('postnummer')] + kontakter
+    siffror.update(d for d in (re.sub(r'\D', '', str(x or '')) for x in nummer) if len(d) >= 5)
+    return {'ord': {o for o in ord_ if len(o) >= 3}, 'siffror': siffror}
+
+
+def namner_kunden(text, forbjudna):
+    """Nämner texten kundens namn, ort, webbadress, e-post eller nummer (forbjudna_termer)? Prövas före och oberoende
+    av frågans form, så att ett formfel aldrig döljer kundens uppgifter (granskning 2, N3)."""
+    if not forbjudna:
+        return False
+    vt, st_ = vik(text), re.sub(r'\D', '', text)
+    return any(re.search(r'(?<![a-z0-9])%s(?![a-z0-9])' % re.escape(o), vt) for o in forbjudna.get('ord') or ()) \
+        or any(x in st_ for x in forbjudna.get('siffror') or ())
+
+
+SPARRAD_FORM = re.compile(r'https?:|www\.|@|\d{5,}')  # adresser, e-post och långa sifferföljder går aldrig till tjänsterna
+
+
+def kanal_fel(begaran, bred=False, forbjudna=None):
+    """Skälet när en begäran går utanför kanalens form, annars None. bred: researchsteget (fler sajter och frågor).
+    forbjudna (forbjudna_termer): frågorna till tjänsterna får aldrig nämna kundens namn, orter eller nummer."""
+    max_k, max_f = (MAX_KANDIDATER_BRED, MAX_FRAGOR_BRED) if bred else (MAX_KANDIDATER, MAX_FRAGOR)
     ref = begaran.get('referens')
     kand = (ref or {}).get('kandidater') if isinstance(ref, dict) else None
-    if ref is not None and (not isinstance(kand, list) or not 1 <= len(kand) <= MAX_KANDIDATER):
-        return 'referens.kandidater ska vara 1–%d kandidater' % MAX_KANDIDATER
+    if ref is not None and (not isinstance(kand, list) or not 1 <= len(kand) <= max_k):
+        return 'referens.kandidater ska vara 1–%d kandidater' % max_k
     for k in kand or []:
         if not isinstance(k, dict) or not VARD.fullmatch(str(k.get('adress') or '')):
             return ('adressen ska vara en sajts ursprung, https://värd/ med små bokstäver och korta etiketter i a–z, 0–9 och '
@@ -228,17 +333,19 @@ def kanal_fel(begaran):
     tj = begaran.get('tjanster')
     if tj is not None:
         fr = tj.get('fragor') if isinstance(tj, dict) else None
-        if not isinstance(fr, list) or not 1 <= len(fr) <= MAX_FRAGOR:
-            return 'tjanster.fragor ska vara 1–%d frågor' % MAX_FRAGOR
+        if not isinstance(fr, list) or not 1 <= len(fr) <= max_f:
+            return 'tjanster.fragor ska vara 1–%d frågor' % max_f
         for f in fr:
             text = ' '.join(str((f or {}).get(x) or '') for x in ('fraga', 'syfte')) if isinstance(f, dict) else ''
+            if namner_kunden(text, forbjudna):  # före formen: ett formfel får aldrig dölja kundens uppgifter
+                return 'en fråga till tjänsterna nämner kundens namn, ort eller nummer; beskriv bara branschen och vad sökningen ska ge'
             if not isinstance(f, dict) or not text.strip() or len(str(f.get('fraga') or '')) > MAX_FRAGA or len(str(f.get('syfte') or '')) > MAX_FRAGA \
-                    or re.search(r'https?:|www\.|@|\d{5,}', text):
+                    or SPARRAD_FORM.search(text):
                 return 'en fråga till tjänsterna är högst %d tecken, utan adresser eller långa sifferföljder' % MAX_FRAGA
     return None
 
 
-def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None):
+def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False, forbjudna=None):
     """Research på begäran (Codex 2026-10-05, punkt 3 och 4): skaparens KOMPLETTERING.json blir uppdrag till det befintliga
     referenssteget (referens.py ger en ny komplett paketversion som ärver det förra; referenstjanster.py söker i Refero och
     Mobbin). Begäran flyttas till <rot>/kompletteringar/, tjänsternas förra rapport sparas under tjanster/tidigare/ innan
@@ -247,7 +354,7 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None):
     underlag = Path(underlag or UNDERLAG)
     u = underlag / slug
     kor = kor or (lambda args, timeout: subprocess.run(args, cwd=str(ROOT), capture_output=True, text=True, timeout=timeout, env=dict(os.environ)))
-    tid = nu().replace(':', '')
+    tid = '%s-%s' % (nu().replace(':', ''), os.urandom(3).hex())  # två begäranden samma sekund får egna filer (granskning 2, N7)
     try:
         begaran = json.loads(Path(fil).read_text(encoding='utf-8'))
     except (OSError, ValueError) as e:
@@ -259,36 +366,40 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None):
     if not isinstance(begaran, dict) or begaran.get('fel'):
         ut['fel'] = (begaran or {}).get('fel') if isinstance(begaran, dict) else 'begäran är inget JSON-objekt'
         return ut
-    fel = kanal_fel(begaran)
+    fel = kanal_fel(begaran, bred=bred, forbjudna=forbjudna if forbjudna is not None else forbjudna_termer(slug, underlag))
     if fel:  # adresserna och frågorna är sessionens enda väg ut; de begränsas i form och mängd
         ut['fel'] = fel
         return ut
-    if isinstance(begaran.get('referens'), dict):
-        upp = dict(begaran['referens'])
-        forra = senaste_paket(slug, underlag)
-        if forra and not upp.get('kompletterar'):
-            upp['kompletterar'] = forra.name  # den nya versionen ärver allt oförändrat, så att alla Bildval kan peka dit
-        f = u / ('REFERENSUPPDRAG-%s.json' % tid)
-        f.write_text(json.dumps(upp, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-        try:
-            r = kor([sys.executable, '-B', str(ROOT / 'kontroller' / 'referens.py'), slug, '--uppdrag', rel(f)], frist)
-            ut['referens'] = {'rc': r.returncode, 'paket': rel(senaste_paket(slug, underlag) or u), 'utdrag': (r.stdout + r.stderr)[-1500:]}
-        except subprocess.TimeoutExpired:
-            ut['referens'] = {'rc': None, 'utdrag': 'referenssteget nådde tidsgränsen %d s' % frist}
-    if isinstance(begaran.get('tjanster'), dict):
-        t = u / 'referenser' / 'tjanster'
-        if (t / 'TJANSTER.md').is_file():  # den förra rapporten skrivs om av körningen: spara den först (radera inget)
-            (t / 'tidigare').mkdir(parents=True, exist_ok=True)
-            for n in ('TJANSTER.md', 'TJANSTER.json'):
-                if (t / n).is_file():
-                    shutil.copy2(t / n, t / 'tidigare' / ('%s-%s' % (tid, n)))
-        f = u / ('TJANSTEUPPDRAG-%s.json' % tid)
-        f.write_text(json.dumps(begaran['tjanster'], ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-        try:
-            r = kor([sys.executable, '-B', str(ROOT / 'kontroller' / 'referenstjanster.py'), slug, '--uppdrag', rel(f)], frist)
-            ut['tjanster'] = {'rc': r.returncode, 'rapport': rel(t / 'TJANSTER.md'), 'utdrag': (r.stdout + r.stderr)[-1500:]}
-        except subprocess.TimeoutExpired:
-            ut['tjanster'] = {'rc': None, 'utdrag': 'tjänsterna nådde tidsgränsen %d s' % frist}
+    # en begäran åt gången per kund (granskningen V8): samtidiga skapare skriver annars över varandras paket och rapport
+    import fcntl
+    (u / 'referenser').mkdir(parents=True, exist_ok=True)
+    with open(u / 'referenser' / '.forskningslas', 'w') as las_:
+        fcntl.flock(las_, fcntl.LOCK_EX)
+        if isinstance(begaran.get('referens'), dict):
+            upp = dict(begaran['referens'])
+            forra = senaste_paket(slug, underlag)
+            if forra and not upp.get('kompletterar'):
+                upp['kompletterar'] = forra.name  # den nya versionen ärver allt oförändrat, så att alla Bildval kan peka dit
+            f = u / ('REFERENSUPPDRAG-%s.json' % tid)
+            f.write_text(json.dumps(upp, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            try:
+                r = kor([sys.executable, '-B', str(ROOT / 'kontroller' / 'referens.py'), slug, '--uppdrag', rel(f)], frist)
+                ut['referens'] = {'rc': r.returncode, 'paket': rel(senaste_paket(slug, underlag) or u), 'utdrag': (r.stdout + r.stderr)[-1500:]}
+            except subprocess.TimeoutExpired:
+                ut['referens'] = {'rc': None, 'utdrag': 'referenssteget nådde tidsgränsen %d s' % frist}
+        if isinstance(begaran.get('tjanster'), dict):
+            t = u / 'referenser' / 'tjanster'  # referenstjanster.samla flyttar den förra rapporten till tidigare/ (radera inget)
+            f = u / ('TJANSTEUPPDRAG-%s.json' % tid)
+            f.write_text(json.dumps(begaran['tjanster'], ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            try:
+                r = kor([sys.executable, '-B', str(ROOT / 'kontroller' / 'referenstjanster.py'), slug, '--uppdrag', rel(f)], frist)
+                rapport = t / 'TJANSTER.md'
+                if rapport.is_file() and not rapport.is_symlink():  # den här begärans rapport, kvar när nästa skriver om TJANSTER.md
+                    shutil.copyfile(rapport, t / ('TJANSTER-%s.md' % tid))
+                    rapport = t / ('TJANSTER-%s.md' % tid)
+                ut['tjanster'] = {'rc': r.returncode, 'rapport': rel(rapport), 'utdrag': (r.stdout + r.stderr)[-1500:]}
+            except subprocess.TimeoutExpired:
+                ut['tjanster'] = {'rc': None, 'utdrag': 'tjänsterna nådde tidsgränsen %d s' % frist}
     if not ut.get('referens') and not ut.get('tjanster'):
         ut['fel'] = 'begäran har varken referens eller tjanster'
     with open(arkiv / ('%s-svar.json' % tid), 'w', encoding='utf-8') as fh:
@@ -322,6 +433,22 @@ def sha256_fil(p):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 
+def sha256_katalog(p):
+    """Hashen över en katalogs filer (relativa vägar och innehåll, i ordning); en länk i katalogen räknas med som länk, så
+    att en utbytt fil aldrig får samma hash."""
+    import hashlib
+    h = hashlib.sha256()
+    bas = Path(p)
+    for katalog, kataloger, filer in os.walk(bas, followlinks=False):
+        kataloger.sort()
+        for fn in sorted(filer + [k for k in kataloger if (Path(katalog) / k).is_symlink()]):
+            f = Path(katalog) / fn
+            h.update(f.relative_to(bas).as_posix().encode() + b'\0')
+            h.update(b'LANK' if f.is_symlink() else f.read_bytes() if f.is_file() else b'')
+            h.update(b'\0')
+    return h.hexdigest()
+
+
 def godkand_giltig(slug, underlag=None, kunder=None):
     """(giltig, skäl): ägarens godkännande i atelje/VINNARE.json gäller bara när ägarens senaste dom i domloggen är just
     det godkännandet och den godkända startsidan och DESIGN.md i atelje/vinnare/ är oförändrade sedan dess. kor.sh tar
@@ -339,6 +466,8 @@ def godkand_giltig(slug, underlag=None, kunder=None):
         return False, 'en ny körning i skapandeflödet startade efter godkännandet (%s)' % st.get('startad')
     # den dömda versionen, som vinnaren bevarar: bygget skriver om sajtens egna filer (omgranskning 3, fynd 1)
     kod, vd = u / 'atelje' / 'vinnare' / 'kod' / 'index.astro', u / 'atelje' / 'vinnare' / 'DESIGN.md'
+    if g.get('sha_kod') and ((u / 'atelje' / 'vinnare' / 'kod').is_symlink() or sha256_katalog(u / 'atelje' / 'vinnare' / 'kod') != g['sha_kod']):
+        return False, 'kandidatens godkända sidor (atelje/vinnare/kod/) är ändrade sedan godkännandet'
     if not kod.is_file() or kod.is_symlink() or sha256_fil(kod) != g.get('sha_index'):
         return False, 'den godkända startsidan (atelje/vinnare/kod/index.astro) är ändrad sedan godkännandet'
     if g.get('sha_design') and (not vd.is_file() or vd.is_symlink() or sha256_fil(vd) != g['sha_design']):
@@ -361,6 +490,8 @@ def main(argv=None):
     d.add_argument('--fil', required=True, help='textfil med domen ordagrant')
     d.add_argument('--avser', default='')
     d.add_argument('--tid', default=None)
+    d.add_argument('--kandidater', default='', help='kandidatflödet: kandidaterna domen gäller (kNN eller Förslag X), '
+                   'kommaseparerade; versionerna är de som gäller nu')
     h = sub.add_parser('historik', help='lägg till en prövad grundidé i underlag/<slug>/RIKTNINGSHISTORIK.json')
     h.add_argument('slug')
     for f in ('kalla', 'namn', 'drag', 'utfall', 'kritik'):
@@ -377,8 +508,19 @@ def main(argv=None):
         return 2
     if a.cmd == 'dom':
         import atelje  # samma väg som dashboarden: godkännandet prövas före domen, en annan dom från ägaren drar tillbaka det
+        extra = {}
+        if a.kandidater:  # en dom via Codex kan namnge förslagen med ägarens etiketter (Förslag C) eller id (k03)
+            import kandidater
+            omv = {v.split()[-1].upper(): k for k, v in kandidater.etiketter(a.slug, kandidater.lista(a.slug)).items()}
+            extra['kandidater'] = []
+            for x in (s.strip() for s in a.kandidater.split(',') if s.strip()):
+                kid = x if kandidater.ID.fullmatch(x) else omv.get(x.split()[-1].upper())
+                if not kid:
+                    print('domen skrevs inte: okänd kandidat %r' % x, file=sys.stderr)
+                    return 2
+                extra['kandidater'].append({'id': kid, 'version': kandidater.las_status(a.slug, kid).get('version')})
         try:
-            post = atelje.doma(a.slug, a.kalla, a.beslut, Path(a.fil).read_text(encoding='utf-8'), avser=a.avser, tid=a.tid)
+            post = atelje.doma(a.slug, a.kalla, a.beslut, Path(a.fil).read_text(encoding='utf-8'), avser=a.avser, tid=a.tid, **extra)
         except ValueError as e:
             print('domen skrevs inte: %s' % e, file=sys.stderr)
             return 2

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """design.py — DESIGN.md som kontrakt för den aktuella designen (Codex 2026-10-04, glapp 1; femstegsuppdraget steg 1).
 
-    .venv/bin/python kontroller/design.py <slug> [--skriv] [--jamfor prov/inspektion/hem]
+    .venv/bin/python kontroller/design.py <slug> [--skriv] [--jamfor prov/inspektion/hem] [--kandidat kNN]
 
 Ansvar per artefakt: referenspaketet (underlag/<slug>/referenser/paket-vNN/) har frysta observationer, bilder, mätvärden
 (EXTRAKT), källor och begränsningar; KONCEPT.md har prövade alternativ, beslut och varför andra förkastades; DESIGN.md
@@ -16,6 +16,8 @@ src/styles/design.css (CSS-variablerna sajten använder); layouten bor i koden.
 skrivs som "kvar"). Utan --skriv kontrolleras att design.css är genererad ur den aktuella DESIGN.md och att sajten
 använder variablerna, som provets grind design gör. --jamfor läser byggets uppmätta extrakt (inspektera.mjs --extrahera) och listar avvikelser mot DESIGN.md
 (renderat typsnitt per roll, sidans ytor): underlag för granskaren, ingen dom.
+--kandidat kNN gäller en kandidats eget projekt i skapandeflödet (kunder/<slug>/kandidater/<id>/sajt; huvudreferensen
+jämförs då med kandidatens RIKTNING.md, inte REFERENSER.md).
 Slutkod 0 giltig och aktuell, 1 ogiltig eller inaktuell, 2 fel i anropet.
 """
 import argparse
@@ -286,15 +288,20 @@ def variabler(v):
     return {m.group(1): m.group(2) for m in re.finditer(r'^  --([a-z0-9-]+): (.+);$', css(v), re.M)}
 
 
-def kontroll(slug, kunder=None, underlag=None):
+def sajt_for(slug, kandidat=None, kunder=None):
+    bas = Path(kunder or KUNDER) / slug
+    return bas / 'kandidater' / kandidat / 'sajt' if kandidat else bas / 'sajt'
+
+
+def kontroll(slug, kunder=None, underlag=None, kandidat=None, huvudreferens=None):
     """{'ok', 'fel': [...], 'info': [...], 'sha'} för provet: DESIGN.md giltig, design.css genererad ur den aktuella
-    DESIGN.md, sajten använder färg- och typvariablerna, och (när REFERENSER.md pekar ut en huvudreferens) samma
-    huvudreferens i DESIGN.md."""
+    DESIGN.md, sajten använder färg- och typvariablerna, och (när REFERENSER.md pekar ut en huvudreferens, eller
+    kandidatens RIKTNING.md med huvudreferens) samma huvudreferens i DESIGN.md."""
     import referensval
-    sajt = Path(kunder or KUNDER) / slug / 'sajt'
+    sajt = sajt_for(slug, kandidat, kunder)
     md, cssfil = sajt / 'DESIGN.md', sajt / 'src' / 'styles' / 'design.css'
     if not md.is_file():
-        return {'ok': False, 'fel': ['kunder/%s/sajt/DESIGN.md saknas: den aktuella designen ska stå där (steg 5)' % slug], 'info': [], 'sha': None}
+        return {'ok': False, 'fel': ['%s saknas: den aktuella designen ska stå där (steg 5)' % (md.relative_to(ROOT) if md.is_relative_to(ROOT) else md)], 'info': [], 'sha': None}
     try:
         v, fel = las(md.read_text(encoding='utf-8'))
     except (OSError, UnicodeDecodeError) as e:
@@ -330,9 +337,13 @@ def kontroll(slug, kunder=None, underlag=None):
         oanv = [n for n in v['farger'] if n not in farg] + ['typ-' + n for n in v['typsnitt'] if n not in typ]
         if oanv:
             info.append('oanvända värden i DESIGN.md (finns inte i sajtens CSS): ' + ', '.join(oanv))
-    hr = referensval.huvudreferens(slug, underlag or UNDERLAG)
-    if hr and str(v.get('huvudreferens') or '').strip().lower() != hr['namn'].lower():
-        fel.append('DESIGN.md:s huvudreferens (%r) är inte REFERENSER.md:s (%r)' % (v.get('huvudreferens'), hr['namn']))
+    if kandidat:
+        if huvudreferens and str(v.get('huvudreferens') or '').strip().lower() != huvudreferens.lower():
+            fel.append('DESIGN.md:s huvudreferens (%r) är inte kandidatens (%r, RIKTNING.md)' % (v.get('huvudreferens'), huvudreferens))
+    else:
+        hr = referensval.huvudreferens(slug, underlag or UNDERLAG)
+        if hr and str(v.get('huvudreferens') or '').strip().lower() != hr['namn'].lower():
+            fel.append('DESIGN.md:s huvudreferens (%r) är inte REFERENSER.md:s (%r)' % (v.get('huvudreferens'), hr['namn']))
     matt = sum(1 for g in ('farger', 'typsnitt') for x in ((v.get(g) or {}).values() if isinstance(v.get(g), dict) else []) if isinstance(x, dict) and str(x.get('kalla', '')).startswith('uppmätt'))
     info.append('källor: %d uppmätta värden, avvikelser från referensen: %d' % (matt, len(v.get('avvikelser') or [])))
     return {'ok': not fel, 'fel': fel, 'info': info, 'sha': sha}
@@ -373,15 +384,16 @@ def main(argv=None):
     p.add_argument('slug')
     p.add_argument('--skriv', action='store_true', help='validera och skriv src/styles/design.css')
     p.add_argument('--jamfor', help='katalog med byggets vy-<bredd>-extrakt.json')
+    p.add_argument('--kandidat', help='en kandidats projekt i skapandeflödet (kNN)')
     a = p.parse_args(argv)
     krav_slug(a.slug)
-    if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,62}', a.slug):
+    if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,62}', a.slug) or (a.kandidat and not re.fullmatch(r'k\d{2}', a.kandidat)):
         p.print_usage()
         return 2
-    sajt = KUNDER / a.slug / 'sajt'
+    sajt = sajt_for(a.slug, a.kandidat)
     md = sajt / 'DESIGN.md'
     if not md.is_file():
-        print('kunder/%s/sajt/DESIGN.md saknas' % a.slug)
+        print('%s saknas' % (md.relative_to(ROOT) if md.is_relative_to(ROOT) else md))
         return 1
     v, fel = las(md.read_text(encoding='utf-8'))
     fel = fel or validera(v)
@@ -390,7 +402,7 @@ def main(argv=None):
         return 1
     if a.skriv:
         ut = sajt / 'src' / 'styles' / 'design.css'
-        lankar = [x for x in (KUNDER / a.slug, sajt, sajt / 'src', ut.parent) if x.is_symlink()]
+        lankar = [x for x in (KUNDER / a.slug, sajt.parent, sajt, sajt / 'src', ut.parent) if x.is_symlink()]
         if lankar:  # kod som körts vid ett bygge kan ha lagt länken; filen skrivs aldrig genom den (granskning 6)
             print('%s är en länk; design.css skrivs inte' % lankar[0])
             return 1
@@ -399,7 +411,11 @@ def main(argv=None):
             ut.unlink()
         ut.write_text(css(v), encoding='utf-8')
         print('Skrev %s (%d variabler).' % (ut.relative_to(ROOT) if ut.is_relative_to(ROOT) else ut, css(v).count('  --')))
-    k = kontroll(a.slug)
+    hr = None
+    if a.kandidat:  # kandidatens huvudreferens står i dess RIKTNING.md (kontroller/kandidater.py)
+        import kandidater
+        hr = (kandidater.riktningens_referens(a.slug, a.kandidat) or {}).get('namn')
+    k = kontroll(a.slug, kandidat=a.kandidat, huvudreferens=hr)
     for f in k['fel']:
         print(('kvar: ' if a.skriv else 'FEL: ') + f)
     for i in k['info']:

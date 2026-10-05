@@ -41,8 +41,16 @@ def main(argv=None):
     if not (sajt / 'package.json').is_file():
         print('kunder/%s/sajt saknas' % slug, file=sys.stderr)
         return 2
-    p = subprocess.run(['npm', 'install', '--prefix', str(sajt), '--ignore-scripts', '--no-audit', '--no-fund', '--save', *paket],
-                       cwd=str(ROOT), stdin=subprocess.DEVNULL, timeout=600)
+    # kandidaternas projekt delar sajtens node_modules: installationen köas med byggena i samma kund (prova.bygg_inom_grans),
+    # så att två skapare aldrig installerar samtidigt eller bygger medan paketen skrivs
+    import fcntl
+    with open(ROOT / 'kunder' / slug / '.bygglas', 'w') as las:
+        fcntl.flock(las, fcntl.LOCK_EX)
+        try:
+            p = subprocess.run(['npm', 'install', '--prefix', str(sajt), '--ignore-scripts', '--no-audit', '--no-fund', '--save', *paket],
+                               cwd=str(ROOT), stdin=subprocess.DEVNULL, timeout=600)
+        finally:
+            fcntl.flock(las, fcntl.LOCK_UN)
     return p.returncode
 
 

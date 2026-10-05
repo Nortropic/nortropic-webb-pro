@@ -6,11 +6,13 @@ Codex via ägaren 2026-10-05: formgivaren kunde inte se sina egna sidor innan pa
 titta → upptäck svagheten → rätta → titta igen saknades inom skaparsessionen. Det här är det steget, som ett kommando
 skaparen själv får köra.
 
-    .venv/bin/python kontroller/forhandsvisa.py <slug> [--sida /] [--bara-bygg]
+    .venv/bin/python kontroller/forhandsvisa.py <slug> [--kandidat kNN] [--sida /] [--mellan] [--bara-bygg]
 
 Bygger kunder/<slug>/sajt (npm run build innanför processgränsen, kontroller/processgrans.py), serverar dist/ lokalt och kör inspektera.mjs i 390 och 1440 med mätningen av
 typografi, färger, rytm och bilder (EXTRAKT.md). Bilderna hamnar i underlag/<slug>/forhand/<sida>/varv-NN/ (sidan
 "start" för /, annars vägen med bindestreck; nästa lediga nummer), så att prototypens och ateljéns varv hålls isär.
+Med --kandidat byggs och fotograferas kandidatens eget projekt (kunder/<slug>/kandidater/<id>/sajt), och varven hamnar
+hos kandidaten (underlag/<slug>/atelje/kandidater/<id>/varv/<sida>/varv-NN/). --mellan tar också mellanbredden 768.
 Skriver ut vägarna att läsa med Read, mobil först, och konsolfel och sidled-spill. Ändrar ingenting i sajten.
 """
 import argparse
@@ -27,7 +29,19 @@ KUNDER = ROOT / 'kunder'
 UNDERLAG = ROOT / 'underlag'
 SLUG = re.compile(r'^[a-z0-9-]{2,60}$')
 SIDA = re.compile(r'^/(?:[a-z0-9-]+/)*$')
+KANDIDAT = re.compile(r'^k\d{2}$')
 LAS = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
+
+
+def sajt_for(slug, kandidat=None):
+    """Projektet som byggs: sajten, eller en kandidats eget projekt i skapandeflödet."""
+    return KUNDER / slug / 'kandidater' / kandidat / 'sajt' if kandidat else KUNDER / slug / 'sajt'
+
+
+def varvrot(slug, sida, kandidat=None):
+    if kandidat:
+        return UNDERLAG / slug / 'atelje' / 'kandidater' / kandidat / 'varv' / sidnamn(sida)
+    return UNDERLAG / slug / 'forhand' / sidnamn(sida)
 
 
 def las_json(p):
@@ -57,12 +71,14 @@ def nasta_varv(rot):
     return Path(rot) / ('varv-%02d' % (max(nr or [0]) + 1))
 
 
-def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False):
+def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan=False):
     """Bygg, fotografera och mät. Ger (rc, rapporttext, katalog). rc 0 när bilderna finns, 2 när bygget eller
     fotograferingen föll (texten säger varför)."""
-    sajt = KUNDER / slug / 'sajt'
+    sajt = sajt_for(slug, kandidat)
     if not (sajt / 'package.json').is_file():
-        return 2, 'kunder/%s/sajt saknas; skapa den med kontroller/ny_sajt.py %s --installera' % (slug, slug), None
+        return 2, '%s saknas; %s' % (sajt.relative_to(ROOT) if sajt.is_relative_to(ROOT) else sajt,
+                                     'kandidatens projekt förbereds av kontroller/kandidater.py' if kandidat else
+                                     'skapa den med kontroller/ny_sajt.py %s --installera' % slug), None
     rc, out = prova.bygg_inom_grans(sajt)  # innanför processgränsen: sidornas kod körs vid bygget (omgranskningen, fynd 8)
     if rc:
         return 2, 'bygget föll (rc %d); rätta och kör igen:\n%s' % (rc, prova.svans(out, 30)), None
@@ -70,11 +86,11 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False):
         return 0, 'bygget gick igenom (innanför processgränsen)', None
     if not (sajt / 'dist' / sida.strip('/') / 'index.html').is_file():
         return 2, 'sidan %s finns inte i bygget (dist%sindex.html saknas)' % (sida, sida), None
-    ut = Path(ut) if ut else nasta_varv(UNDERLAG / slug / 'forhand' / sidnamn(sida))
+    ut = Path(ut) if ut else nasta_varv(varvrot(slug, sida, kandidat))
     ut.mkdir(parents=True, exist_ok=True)
     insp = str(prova.KONTROLLER / 'webblasare' / 'inspektera.mjs')
     with prova.Server(sajt / 'dist') as srv:
-        rc, out = prova.kor([prova.NODE, insp, '--adress', srv.url + sida, '--ut', str(ut), '--vyer', '390,1440',
+        rc, out = prova.kor([prova.NODE, insp, '--adress', srv.url + sida, '--ut', str(ut), '--vyer', '390,768,1440' if mellan else '390,1440',
                              '--tillstand', 'inga', '--extrahera', 'standard'], timeout=300)
     saknas = [n for n in LAS if not (ut / n).is_file()]
     if saknas:
@@ -92,6 +108,7 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False):
              'Läs med Read, i den här ordningen: mobilens första vy, mobilens hela sida, datorns första vy, datorns hela sida.',
              '(Ge kommandot tidsgränsen 600000 ms: bygget och fotograferingen tar en till två minuter.)',
              *['- ' + rel(ut / n) for n in LAS],
+             *(['Mellanbredden 768: ' + rel(ut / 'vy-768-forsta.png') + ' och ' + rel(ut / 'vy-768-hela.png')] if mellan else []),
              'Skärmhöga rutor uppifrån och ned (läs dem för detaljerna): ' + (', '.join(rutor) or 'inga'),
              'Mätningen (typografi, färger, rytm, bilder och beskärning): ' + rel(ut / 'EXTRAKT.md'),
              'Konsolfel: ' + ('; '.join(fel[:5]) if fel else 'inga'),
@@ -101,15 +118,22 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog='forhandsvisa', description=__doc__.split('\n\n')[0])
+    p = argparse.ArgumentParser(prog='forhandsvisa', description=__doc__.split('\n\n')[0], allow_abbrev=False)  # --kand k02 är ingen annan kandidat (granskning 2, N8)
     p.add_argument('slug')
     p.add_argument('--sida', default='/')
+    p.add_argument('--kandidat', default=None, help='en kandidats eget projekt i skapandeflödet (k01–k12)')
+    p.add_argument('--mellan', action='store_true', help='också mellanbredden 768')
     p.add_argument('--bara-bygg', action='store_true', help='bygg sajten innanför processgränsen utan att fotografera')
-    a = p.parse_args(argv)
-    if not SLUG.match(a.slug) or not SIDA.match(a.sida):
-        print('slug a–z, 0–9, bindestreck; sidan som /väg/ med snedstreck sist', file=sys.stderr)
+    ra = list(sys.argv[1:] if argv is None else argv)
+    if any(sum(1 for x in ra if x == f or x.startswith(f + '=')) > 1 for f in ('--kandidat', '--sida')):
+        # en skapare får bara bygga sin egen kandidat: argparse tar den sista av upprepade flaggor (granskningen M2)
+        print('--kandidat och --sida får anges en gång', file=sys.stderr)
         return 2
-    rc, text, _ = forhandsvisa(a.slug, a.sida, bara_bygg=a.bara_bygg)
+    a = p.parse_args(argv)
+    if not SLUG.fullmatch(a.slug) or not SIDA.fullmatch(a.sida) or (a.kandidat and not KANDIDAT.fullmatch(a.kandidat)):
+        print('slug a–z, 0–9, bindestreck; sidan som /väg/ med snedstreck sist; kandidaten som k01–k12', file=sys.stderr)
+        return 2
+    rc, text, _ = forhandsvisa(a.slug, a.sida, bara_bygg=a.bara_bygg, kandidat=a.kandidat, mellan=a.mellan)
     print(text)
     return rc
 

@@ -118,6 +118,24 @@ textarea:focus, input:focus { outline: 2px solid color-mix(in srgb, var(--accent
 .alt-bilder { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); max-width: 820px; margin-bottom: 10px; }
 .alt-bilder figure { margin: 0; }
 .alt-bilder img { max-width: 100%; margin-bottom: 4px; display: block; }
+.kverktyg { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 18px; }
+.kverktyg .knapp[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--yta); }
+.kgrid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--kmin, 260px)), 1fr)); }
+.kkort { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.kkort.markerad { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-mjuk); }
+.kkort h3 { margin: 0; font-size: 16px; }
+.kram { display: block; border: 1px solid var(--linje); border-radius: 10px; overflow: hidden; background: var(--yta2); }
+.kram img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; border: 0; border-radius: 0; }
+.kram.v390 { aspect-ratio: 390 / 844; } .kram.v768 { aspect-ratio: 768 / 1024; } .kram.v1440 { aspect-ratio: 1440 / 900; }
+.kram.hela { aspect-ratio: auto; height: 560px; overflow-y: auto; }
+.kram.hela img { height: auto; object-fit: initial; }
+.kjamfor { display: grid; gap: 16px; grid-auto-flow: column; grid-auto-columns: minmax(280px, 1fr); overflow-x: auto; padding-bottom: 6px; }
+.kjamfor .kram.hela { height: 75vh; }
+.kkort textarea { min-height: 64px; font-size: 14px; }
+.kkort .rad { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.kkort label.markera { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; font-weight: 560; cursor: pointer; }
+.kkort label.markera input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+.kverktyg .skiljare { width: 1px; align-self: stretch; background: var(--linje); margin: 0 4px; }
 .alt-bilder figcaption { font-size: 13px; color: var(--dampad); }
 .kommando { display: flex; gap: 8px; align-items: stretch; margin: 6px 0 14px; }
 .kommando code { flex: 1; display: block; padding: 10px 12px; overflow-x: auto; white-space: nowrap; }
@@ -552,6 +570,7 @@ async function prototypvy(slug) {
     return;
   }
   const d = await api('/api/prototyp/' + encodeURIComponent(slug));
+  if (d.kandidatflode) return kandidatvy(slug, d);
   const startad = new Date().toISOString();  // ägarens minuter till domen (kontroller/autonomi.py)
   const hr = d.huvudreferens;
   const ref = hr ? `<section class="kort" style="margin-bottom:24px"><h2>Huvudreferensen: ${esc(hr.namn)}</h2><p class="under">${esc(hr.vad)}</p><div class="galleri">${hr.bilder.map((b) => bild(b.fil, b.text)).join('')}</div></section>` : '';
@@ -589,6 +608,117 @@ async function prototypvy(slug) {
     if (b !== 'godkand' && !text.trim()) { alert('Skriv vad som ska ändras: din text är nästa körnings kritik.'); return; }
     knapp.disabled = true;
     try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, niva: n || null, text, startad }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
+  };
+}
+
+// Kandidatflödet (ägarens uppdrag 2026-10-05, punkt 10): alla förslag med neutrala etiketter och lika stora bilder i
+// mobil, surfplatta eller dator; hela prototypen öppnas klickbar; markerade förslag sida vid sida; beslutet till
+// domloggen, bundet till kandidat och version. Titlar, idéer, granskning och redovisning visas först efter ditt första beslut.
+const KBESLUT = {
+  valj: 'Välj för vidareutveckling: de markerade förfinas, var för sig, med din text och det du gillade',
+  jamfor: 'Jämför vidare: spara de markerade som din jämförelse (inget körs)',
+  putsa: 'Putsa vidare: de markerade förfinade förfinas igen med din text',
+  godkand: 'Godkänn för helbygge: den markerade förfinade kandidaten blir sajtens grund',
+  forkasta: 'Förkasta alla: inget av förslagen håller (inget körs förrän du ber om en ny riktning)',
+  ny_riktning: 'Be om en ny riktning: förslagen arkiveras och en ny utforskning börjar med din text',
+};
+const KVISBARA = ['klar', 'vald', 'jamfors', 'forkastad', 'forfinad', 'godkand'];
+const KCHIP = { klar: 'acc', vald: 'ok', jamfors: 'acc', forfinad: 'ok', godkand: 'ok', forkastad: 'rod', ofullstandig: 'gul', fel: 'rod', avbruten: 'gul' };
+let kBredd = (() => { try { return localStorage.getItem('kandidat-bredd') || '390'; } catch (e) { return '390'; } })();
+let kHela = false;
+const kLage = {};  // markeringar och anteckningar per bygge, kvar när bredden byts (inte sparade: beslutet sparas i domloggen)
+async function kandidatvy(slug, d) {
+  const startad = new Date().toISOString();
+  const alla = d.kandidater || [];
+  const visbara = alla.filter((k) => KVISBARA.includes(k.status));
+  const ovriga = alla.filter((k) => !KVISBARA.includes(k.status));
+  const ks = kLage[slug] || (kLage[slug] = { markerade: new Set(visbara.filter((k) => d.fas === 'forfining' && k.status === 'forfinad').map((k) => k.id)), delar: {}, fore: new Set() });
+  const markerade = ks.markerade, delar = ks.delar, foreval = ks.fore;  // foreval: kandidater där ägaren väljer versionen före förbättringen
+  const klara = d.steg === 'klar_for_bedomning' || d.steg === 'fel';
+  const forfinade = visbara.some((k) => k.status === 'forfinad');
+  const bildFor = (k, bredd, hela) => k.bilder[`${bredd}-${hela ? 'hela' : 'forsta'}`];
+  const ram = (k, bredd, hela) => { const p = bildFor(k, bredd, hela); return p ? `<a class="kram v${bredd}${hela ? ' hela' : ''}" href="/fil/${esc(p)}" target="_blank" rel="noopener"><img loading="lazy" src="/fil/${esc(p)}" alt="${esc(k.etikett)}, ${bredd} px, ${hela ? 'hela sidan' : 'första vyn'}"></a>` : `<div class="kram v${bredd} tom">ingen bild i ${bredd} px</div>`; };
+  const oppna = (k) => k.bygd ? `<a class="knapp" href="/visa/${esc(slug)}/${esc(k.id)}" target="_blank" rel="noopener">Öppna prototypen</a>${(k.undersidor || []).slice(0, 2).map((u) => `<a class="knapp" href="/visa/${esc(slug)}/${esc(k.id)}?sida=${encodeURIComponent(u)}" target="_blank" rel="noopener">${esc(u)}</a>`).join('')}` : '';
+  const forklaring = (k) => !d.domd ? '' : `<details><summary>${esc(k.titel || 'Idén')}${k.huvudreferens ? ' · bygger på ' + esc(k.huvudreferens) : ''}</summary>
+      ${k.kritik ? `<p class="under" style="margin:8px 0">Granskningen (rådgivande, ${esc(k.kritik.modell || '')}${k.kritik.last === false ? ', läste inte bilderna' : k.kritik.last !== true ? ', läsningen ej prövad' : ''}${k.kritik.version && k.kritik.version !== k.version ? `, gäller version ${esc(String(k.kritik.version).slice(0, 12))} före ${k.status === 'forfinad' || k.status === 'godkand' ? 'förfiningen' : 'den nuvarande'}` : ''}): <b>${esc(NIVA[k.kritik.niva] || k.kritik.niva || '')}</b>. ${esc(k.kritik.helhet || '')}</p>
+        ${k.kritik.uppgift ? `<p class="under">Besökarens uppgift: ${esc(k.kritik.uppgift.uppgift || '')} · går att genomföra: <b>${esc(k.kritik.uppgift.kan_genomforas || '')}</b>. ${esc(k.kritik.uppgift.belagg || '')}</p>` : ''}
+        ${(k.kritik.avvikelser || []).length ? `<ul>${k.kritik.avvikelser.map((a) => `<li><b>${esc(a.allvar)}</b> · ${esc(a.slag || '')} · ${esc(a.var)}: ${esc(a.vad)} → ${esc(a.atgard)}${a.avsiktlig ? ` <i>(avsiktligt${a.valgrundad ? ', välgrundat' : ', illa grundat'}: ${esc(a.motivering || '')})</i>` : ''}</li>`).join('')}</ul>` : ''}` : ''}
+      ${k.axe ? `<p class="under">axe: ${esc(String(k.axe.allvarliga ?? k.axe.fel ?? '–'))} allvarliga fynd${(k.axe.regler || []).length ? ' (' + esc(k.axe.regler.join('; ')) + ')' : ''}.</p>` : ''}
+      ${k.forbattring ? `<div class="kort" style="margin:10px 0;padding:10px"><b>Före granskningens förbättring</b> (rättade: ${esc((k.forbattring.atgarder || []).join('; ') || '–')})
+        <div class="galleri" style="grid-template-columns:1fr 1fr;margin-top:8px">${bild(k.forbattring.bilder['390-forsta'], 'före, 390')}${bild(k.bilder['390-forsta'], 'efter, 390')}</div>
+        <div class="rad" style="margin-top:6px">${['fore', 'efter', 'lika'].map((v) => `<button class="knapp" data-forb="${esc(k.id)}" data-val="${v}">${{ fore: 'Föreversionen bättre', efter: 'Förbättringen bättre', lika: 'Lika' }[v]}</button>`).join('')}</div>
+        <label class="rad" style="margin-top:6px"><input type="checkbox" data-foreval="${esc(k.id)}"${foreval.has(k.id) ? ' checked' : ''}> Mitt beslut gäller föreversionen</label></div>` : ''}
+      ${(k.referensbilder || []).length ? `<p class="under" style="margin-bottom:4px">Huvudreferensens bilder ur uppdraget:</p><div class="galleri">${k.referensbilder.map((p) => bild(p, 'referensen')).join('')}</div>` : ''}
+      ${k.material ? `<p class="under">Material som saknas: ${esc(k.material)}</p>` : ''}
+      ${(k.design_fel || []).length ? `<p class="rod-text">DESIGN.md: ${esc(k.design_fel.join('; '))}</p>` : ''}
+      <div class="prosa">${k.riktning_html || ''}</div></details>`;
+  const kort = (k) => `<section class="kort kkort${markerade.has(k.id) ? ' markerad' : ''}" data-k="${esc(k.id)}">
+      <div class="rad mellan"><h3>${esc(k.etikett)}</h3><span class="chip ${KCHIP[k.status] || ''}">${esc(k.statustext)}</span></div>
+      ${ram(k, kBredd, kHela)}
+      <div class="rad">${oppna(k)}</div>
+      <label class="markera"><input type="checkbox" data-markera="${esc(k.id)}"${markerade.has(k.id) ? ' checked' : ''}> Markera</label>
+      ${k.hypotes ? `<details><summary>Hypotesen</summary><p class="under" style="margin:6px 0">${esc(k.hypotes)}</p></details>` : ''}
+      <details${delar[k.id] ? ' open' : ''}><summary>Det jag gillar här</summary><textarea data-del="${esc(k.id)}" placeholder="Till exempel: hur projekten visas, rubrikernas tyngd, mobilens första vy.">${esc(delar[k.id] || '')}</textarea></details>
+      ${forklaring(k)}</section>`;
+  const lage = d.steg === 'klar_for_bedomning' ? `${visbara.length} av ${alla.length} förslag klara för din bedömning${d.fas === 'forfining' ? ' (efter förfiningen)' : ''}. Klar ${tid(d.klar)}.`
+    : d.steg === 'fel' ? `Körningen föll: ${esc(d.fel || '')}. ${visbara.length} förslag går att bedöma.`
+    : d.avbruten ? `Körningen avbröts i steg ${esc(d.steg || '')}; den tas upp igen med atelje.py --fortsatt utan att något klart görs om.`
+    : `Pågår (steg ${esc(d.steg || '')}, startad ${tid(d.startad)}): ${visbara.length} av ${alla.length} klara.`;
+  const forsiktig = visbara.length < (d.antal || alla.length) && klara && d.fas !== 'forfining' ? `<p class="meddelande fel">Färre förslag än planerat blev klara (${visbara.length} av ${d.antal || alla.length}); skälen står under "Förslag som inte blev klara".</p>` : '';
+  const valbara = Object.keys(KBESLUT).filter((b) => (b === 'putsa' || b === 'godkand') ? forfinade : true);
+  const tidigare = (d.domar || []).map((x) => `<p class="under">${tid(x.tid)} · ${esc(x.kalla)} · <b>${esc((KBESLUT[x.beslut] || BESLUT[x.beslut] || x.beslut).split(':')[0])}</b>${(x.kandidater || []).length ? ' · ' + esc(x.kandidater.map((k) => k.etikett || k.id).join(', ')) : ''}: ${esc(String(x.text || '').slice(0, 300))}</p>`).join('');
+  $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1>
+    <p class="under">${lage} ${d.godkand ? `<b>Godkänd för helbygge ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : 'Förslagen har neutrala namn i slumpad ordning. Panelens granskning, idéerna och redovisningen visas efter ditt första beslut.'}</p>
+    ${forsiktig}
+    <div class="kverktyg" role="group" aria-label="Bredd">
+      ${['390', '768', '1440'].map((b) => `<button class="knapp" data-bredd="${b}" aria-pressed="${b === kBredd}">${{ 390: 'Mobil 390', 768: 'Surfplatta 768', 1440: 'Dator 1440' }[b]}</button>`).join('')}
+      <span class="skiljare" aria-hidden="true"></span>
+      <button class="knapp" data-hela="0" aria-pressed="${!kHela}">Första vyn</button>
+      <button class="knapp" data-hela="1" aria-pressed="${kHela}">Hela sidan</button>
+    </div>
+    <p class="under" style="margin:-8px 0 16px">Markera förslag för att se dem sida vid sida och för ditt beslut längst ned.</p>
+    <div class="kgrid" style="--kmin:${kBredd === '1440' ? '420px' : kBredd === '768' ? '300px' : '240px'}">${visbara.map(kort).join('') || '<p class="tom">Inga förslag klara än.</p>'}</div>
+    <section id="k-jamfor" style="margin-top:28px"></section>
+    ${ovriga.length ? `<details style="margin-top:24px"><summary>Förslag som inte blev klara (${ovriga.length})</summary>${ovriga.map((k) => `<p class="under"><b>${esc(k.etikett)}</b> · ${esc(k.statustext)}: ${esc(k.skal || '')}</p>`).join('')}</details>` : ''}
+    ${klara && visbara.length ? `<section class="kort" style="margin-top:24px"><h2>Ditt beslut</h2>
+      <p class="under">Markera förslag i rutnätet. Beslutet sparas i domloggen med förslagens versioner och läses av nästa körning; det du gillar per förslag följer med ordagrant.</p>
+      <div>${valbara.map((b) => `<div><label><input type="radio" name="k-b" value="${b}"> ${esc(KBESLUT[b])}</label></div>`).join('')}</div>
+      <textarea id="k-text" rows="5" style="width:100%;margin-top:8px" placeholder="Vad bär, vad håller inte, vad ska nästa steg pröva? Dina ord följer med ordagrant."></textarea>
+      <div class="rad" style="margin-top:8px"><button class="knapp primar" id="k-spara">Spara beslutet</button> <span class="under" id="k-antal"></span></div>
+      ${tidigare ? `<details style="margin-top:12px"><summary>Domloggen (${d.domar.length})</summary>${tidigare}</details>` : ''}</section>` : ''}
+    ${d.domd && d.jamforelse ? `<details style="margin-top:24px"><summary>Falsk variation enligt jämförelsen</summary><p>${esc(d.jamforelse.sammanfattning || '')}</p>${(d.jamforelse.par || []).map((p) => `<p class="under">${esc(p.a)} och ${esc(p.b)}: ${esc(p.grad)} — ${esc(p.skal)}</p>`).join('')}</details>` : ''}
+    ${d.domd && d.forskning_md ? `<details><summary>Researchen (FORSKNING.md)</summary><div class="prosa">${d.forskning_md}</div></details>` : ''}
+    ${d.domd && d.redovisning_md ? `<details><summary>Redovisningen (REDOVISNING.md)</summary><div class="prosa">${d.redovisning_md}</div></details>` : ''}`;
+  const visaJamforelse = () => {
+    const valda = visbara.filter((k) => markerade.has(k.id));
+    $('#k-jamfor').innerHTML = valda.length >= 2 ? `<h2>Sida vid sida (${valda.length})</h2><div class="kjamfor">${valda.map((k) => `<div><h3>${esc(k.etikett)}</h3>${ram(k, kBredd, true)}<div class="rad" style="margin-top:8px">${oppna(k)}</div></div>`).join('')}</div>` : '';
+    const n = $('#k-antal'); if (n) n.textContent = markerade.size ? `${markerade.size} markerade` : '';
+  };
+  document.querySelectorAll('[data-markera]').forEach((c) => c.onchange = () => {
+    c.checked ? markerade.add(c.dataset.markera) : markerade.delete(c.dataset.markera);
+    c.closest('.kkort').classList.toggle('markerad', c.checked); visaJamforelse();
+  });
+  document.querySelectorAll('[data-del]').forEach((f) => f.oninput = () => { delar[f.dataset.del] = f.value; });
+  document.querySelectorAll('[data-foreval]').forEach((c) => c.onchange = () => { c.checked ? foreval.add(c.dataset.foreval) : foreval.delete(c.dataset.foreval); });
+  document.querySelectorAll('[data-forb]').forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    try { await post('/api/prototyp/' + encodeURIComponent(slug) + '/forbattring', { kid: b.dataset.forb, val: b.dataset.val }); b.textContent += ' ✓'; } catch (e) { alert(e.message); b.disabled = false; }
+  });
+  document.querySelectorAll('[data-bredd]').forEach((b) => b.onclick = () => { kBredd = b.dataset.bredd; try { localStorage.setItem('kandidat-bredd', kBredd); } catch (e) {} kandidatvy(slug, d); });
+  document.querySelectorAll('[data-hela]').forEach((b) => b.onclick = () => { kHela = b.dataset.hela === '1'; kandidatvy(slug, d); });
+  visaJamforelse();
+  const knapp = $('#k-spara');
+  if (knapp) knapp.onclick = async () => {
+    const b = (document.querySelector('input[name="k-b"]:checked') || {}).value;
+    const text = $('#k-text').value;
+    if (!b) { alert('Välj ett beslut.'); return; }
+    const kand = visbara.filter((k) => markerade.has(k.id)).map((k) => ({ id: k.id, version: foreval.has(k.id) && k.forbattring ? k.forbattring.fore : k.version }));
+    if (['valj', 'putsa', 'godkand'].includes(b) && !kand.length) { alert('Markera förslaget eller förslagen beslutet gäller.'); return; }
+    if (b === 'jamfor' && kand.length < 2) { alert('Markera minst två förslag att jämföra.'); return; }
+    if (b === 'godkand' && kand.length !== 1) { alert('Markera exakt ett förfinat förslag att godkänna.'); return; }
+    if (['forkasta', 'ny_riktning', 'putsa'].includes(b) && !text.trim()) { alert('Skriv vad som inte håller och vad nästa steg ska pröva.'); return; }
+    knapp.disabled = true;
+    try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, kandidater: kand, delar, text, startad }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
   };
 }
 

@@ -11,7 +11,7 @@ härinne) innan kommandot startas (Codex R26, F1/F27). Chromium och claude kan i
 webbläsarsteg och granskarnas sessioner delegerar till webbtjänsten: NWP_PROCESSGRANS=1 räknas som sandlådemarkering
 i webbtjanst.delegeras och i webbläsarhjälparens viaTjanst.
 
-    .venv/bin/python kontroller/processgrans.py <slug> [--root R] [--hem H] [--skriv-profil] [--utan-nat] [--bara-sajt] -- <kommando …>
+    .venv/bin/python kontroller/processgrans.py <slug> [--root R] [--hem H] [--skriv-profil] [--utan-nat] [--bara-sajt | --skrivbar DIR] -- <kommando …>
 Slutkoden är kommandots. Utan sandbox-exec (annat system) vägras körningen (slutkod 2): gränsen får aldrig tyst saknas.
 """
 import argparse
@@ -58,18 +58,23 @@ def ren_miljo(miljo=None, slug=None, root=None, hem=None):
     return miljo
 
 
-def profil(slug, root=None, hem=None, tmp=None, nat=True, bara_sajt=False):
+def profil(slug, root=None, hem=None, tmp=None, nat=True, bara_sajt=False, skrivbar=None):
     import sandlada
     root = Path(root or ROOT)
     hem = hem or os.path.expanduser('~')
     fs = sandlada.installningar(slug, root=root, hem=hem)['sandbox']['filesystem']
-    if bara_sajt:  # byggen av skaparens sidor: bara sajten och tempkatalogen, aldrig underlag/<slug> med ägarens domlogg,
-        # VINNARE.json och statusen, eller kunder/<slug> utanför sajten (granskning 6)
-        skriv = ['%s/kunder/%s/sajt' % (root, slug), tmp or tempkatalog(slug)]
+    if bara_sajt or skrivbar:  # byggen av skaparens sidor: bara projektet och tempkatalogen, aldrig underlag/<slug> med
+        # ägarens domlogg, VINNARE.json och statusen, eller kunder/<slug> utanför projektet (granskning 6)
+        projekt = Path(skrivbar) if skrivbar else root / 'kunder' / slug / 'sajt'
+        kund = os.path.realpath(root / 'kunder' / slug)
+        if not os.path.realpath(projekt).startswith(kund + os.sep):  # en kandidats projekt ligger i kunder/<slug>/kandidater/
+            raise SystemExit('processgräns: %s ligger inte under kunder/%s/' % (projekt, slug))
+        skriv = [str(projekt), tmp or tempkatalog(slug)]
     else:
+        projekt = root / 'kunder' / slug / 'sajt'
         skriv = list(fs['allowWrite']) + ['/tmp/nwp-granskning/%s' % slug, tmp or tempkatalog(slug)]
-    nm = root / 'kunder' / slug / 'sajt' / 'node_modules'
-    if nm.is_symlink():  # en worktree delar sajtens beroenden med huvudutcheckningen: byggets cacher (.vite, .astro) skrivs där
+    nm = Path(projekt) / 'node_modules'
+    if nm.is_symlink():  # en worktree eller en kandidat delar sajtens beroenden: byggets cacher (.vite, .astro) skrivs där
         skriv.append(os.path.realpath(nm))
     # seatbelt matchar subpath mot den verkliga sökvägen: /tmp är en symlänk till /private/tmp på macOS, så varje väg ges
     # både som angiven och upplöst (annars träffar varken skrivtillåtelsen i byggets kataloger eller läsförbudet)
@@ -104,8 +109,9 @@ def main(argv=None):
     p.add_argument('--skriv-profil', action='store_true', help='skriv profilen och avsluta')
     p.add_argument('--utan-nat', action='store_true', help='inget nät alls, inte heller localhost (byggen av skaparens sidor)')
     p.add_argument('--bara-sajt', action='store_true', help='skrivning bara i kunder/<slug>/sajt och tempkatalogen (byggen av skaparens sidor)')
+    p.add_argument('--skrivbar', default=None, help='skrivning bara i den här projektkatalogen under kunder/<slug>/ (en kandidats sajt) och tempkatalogen')
     a = p.parse_args(egna)
-    prof = profil(a.slug, a.root, a.hem, nat=not a.utan_nat, bara_sajt=a.bara_sajt)
+    prof = profil(a.slug, a.root, a.hem, nat=not a.utan_nat, bara_sajt=a.bara_sajt, skrivbar=a.skrivbar)
     if a.skriv_profil:
         sys.stdout.write(prof)
         return 0
