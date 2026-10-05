@@ -21,7 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 KUNDER = ROOT / 'kunder'
 UNDERLAG = ROOT / 'underlag'
 PROJEKT = Path(os.environ.get('CLAUDE_CONFIG_DIR') or (Path.home() / '.claude')) / 'projects'
-BILD = re.compile(r'\.(png|jpe?g|webp|avif|gif)$', re.I)
+BILDTYPER = r'png|jpe?g|webp|avif|gif'
+BILD = re.compile(r'\.(%s)$' % BILDTYPER, re.I)
 SESSION = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
 
@@ -43,12 +44,13 @@ def transkript(session_id):
 
 
 def lasta(fil):
-    """Filerna sessionen läste med Read, i ordning, ur ett transkript eller en strömmad logg (samma radformat)."""
-    ut = []
+    """Filerna sessionen läste med Read, i ordning, ur ett transkript eller en strömmad logg (samma radformat). Ett
+    Read vars svar var ett fel räknas inte som läst."""
+    anrop, felade = [], set()
     try:
         with open(fil, encoding='utf-8', errors='replace') as f:
             for rad in f:
-                if '"Read"' not in rad:
+                if '"Read"' not in rad and '"is_error"' not in rad:
                     continue
                 try:
                     r = json.loads(rad)
@@ -56,13 +58,15 @@ def lasta(fil):
                     continue
                 innehall = (r.get('message') or {}).get('content') if isinstance(r, dict) else None
                 for c in innehall if isinstance(innehall, list) else []:
-                    if isinstance(c, dict) and c.get('type') == 'tool_use' and c.get('name') == 'Read':
-                        v = (c.get('input') or {}).get('file_path')
-                        if isinstance(v, str):
-                            ut.append(v)
+                    if not isinstance(c, dict):
+                        continue
+                    if c.get('type') == 'tool_use' and c.get('name') == 'Read' and isinstance((c.get('input') or {}).get('file_path'), str):
+                        anrop.append((c.get('id'), c['input']['file_path']))
+                    elif c.get('type') == 'tool_result' and c.get('is_error') is True:
+                        felade.add(c.get('tool_use_id'))
     except OSError:
         return []
-    return ut
+    return [v for i, v in anrop if i is None or i not in felade]
 
 
 def relativ(v):
@@ -75,23 +79,25 @@ def relativ(v):
 
 
 def last(krav, lasta_):
-    """Är den krävda filen läst? Jämförs på hela sökvägsled från slutet: ett krav relativt roten matchar en läst
-    absolut väg till samma fil."""
+    """Är just den krävda filen läst? Samma fil: samma väg relativt repots rot (en absolut väg under roten räknas om),
+    aldrig bara samma slut; en kopia under en annan rot är en annan fil (granskningen av r62, punkt 1)."""
     k = relativ(krav).strip('/')
-    return any(relativ(x).strip('/') == k or relativ(x).endswith('/' + k) for x in lasta_)
+    return any(relativ(x).lstrip('./') == k for x in lasta_)
 
 
 def lasning(session_id, krav):
-    """{'verifierad': bool, 'grupper': {grupp: {'kravda', 'lasta', 'saknas'}}, 'bilder_lasta', 'lasta'} för en session.
-    krav: {grupp: [vägar]}. Utan transkript är läsningen inte verifierad (ingen grupp räknas som läst)."""
+    """{'verifierad': bool, 'grupper': {grupp: {'kravda', 'lasta', 'saknas'}}, 'bilder_lasta'} för en session.
+    krav: {grupp: [krav]}, där ett krav är en väg, eller en lista av vägar där en räcker (ett ankare sett i 390 eller
+    1440). Utan transkript är läsningen inte verifierad (ingen grupp räknas som läst)."""
     t = transkript(session_id)
     if t is None:
         return {'verifierad': False, 'grupper': {}, 'bilder_lasta': None, 'skal': 'transkriptet saknas'}
     l = lasta(t)
     grupper = {}
-    for g, vagar in krav.items():
-        saknas = [relativ(v) for v in vagar if not last(v, l)]
-        grupper[g] = {'kravda': len(vagar), 'lasta': len(vagar) - len(saknas), 'saknas': saknas}
+    for g, lista in krav.items():
+        alternativ = [k if isinstance(k, (list, tuple)) else [k] for k in lista]
+        saknas = [relativ(a[0]) for a in alternativ if a and not any(last(v, l) for v in a)]
+        grupper[g] = {'kravda': len(alternativ), 'lasta': len(alternativ) - len(saknas), 'saknas': saknas}
     return {'verifierad': True, 'grupper': grupper, 'bilder_lasta': sum(1 for x in l if BILD.search(x)), 'transkript': t.name}
 
 
@@ -120,7 +126,8 @@ def klass(v):
 def erbjudna_i_prompt(text):
     """Bildvägarna en prompt räknar upp (relativa roten eller absoluta), i ordning, en gång var."""
     sedda, ut = set(), []
-    for m in re.finditer(r'(?:/[^\s,;:]+|(?:kunder|underlag)/[^\s,;:]+)\.(?:png|jpe?g|webp)', text):
+    # en absolut väg börjar efter blanksteg eller skiljetecken, aldrig mitt i en relativ väg (granskningen av r62, punkt 3)
+    for m in re.finditer(r'(?:(?<![\w./-])/[^\s,;:]+|(?<![\w./-])(?:kunder|underlag)/[^\s,;:]+)\.(?:%s)\b' % BILDTYPER, text, re.I):
         v = m.group(0)
         if v not in sedda:
             sedda.add(v)
@@ -188,11 +195,10 @@ def main(argv=None):
     p = argparse.ArgumentParser(prog='bildkedja', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
     a = p.parse_args(argv)
-    if not re.match(r'^[a-z0-9-]{2,60}$', a.slug) or not (KUNDER / a.slug).is_dir() and not (UNDERLAG / a.slug).is_dir():
+    if not re.match(r'^[a-z0-9-]{2,60}$', a.slug) or not (KUNDER / a.slug).is_dir():  # rapporten skrivs i byggets katalog
         print('okänt bygge: %s' % a.slug, file=sys.stderr)
         return 2
     r = rapport(a.slug)
-    (KUNDER / a.slug).mkdir(parents=True, exist_ok=True)
     (KUNDER / a.slug / 'BILDKEDJA.json').write_text(json.dumps(r, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     (KUNDER / a.slug / 'BILDKEDJA.md').write_text(markdown(r), encoding='utf-8')
     print(markdown(r))

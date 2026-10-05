@@ -364,14 +364,16 @@ def panel(slug, rot):
         bokstaver = list(zip('ABCDEF', ordning))
         try:
             prompt = domar_prompt(slug, uppdrag, bokstaver, bilder, ankare, ofull, ankare_fel)
-            svar = session(prompt, ['Read', 'Glob', 'Grep'], rot / ('svar-domare-%s.json' % namn), PANEL_SCHEMA, 60, modell, 'high')
+            # 100 turer: domarna läser en bild per tur, och ankarna, huvudreferensen och förslagen är omkring 75 läsningar
+            svar = session(prompt, ['Read', 'Glob', 'Grep'], rot / ('svar-domare-%s.json' % namn), PANEL_SCHEMA, 100, modell, 'high')
+            forsta = {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'total_cost_usd')}
             las = bildkedja.lasning(svar.get('session_id'), krav)
-            if bildkedja.brister(las):  # en gång till, med det som inte lästes uppräknat
+            if bildkedja.brister(las):  # en ny session, med det som inte lästes uppräknat
                 saknas = [v for g in las['grupper'].values() for v in g['saknas']]
-                svar = session(prompt + '\n\nFörra gången läste du inte de här filerna. Läs var och en med Read nu, innan du dömer:\n'
+                svar = session(prompt + '\n\nLäs de här filerna med Read innan du dömer; de krävs för att rösten ska räknas:\n'
                                + '\n'.join('- ' + v for v in saknas), ['Read', 'Glob', 'Grep'],
-                               rot / ('svar-domare-%s-omdom.json' % namn), PANEL_SCHEMA, 60, modell, 'high')
-                las = dict(bildkedja.lasning(svar.get('session_id'), krav), omdom=True)
+                               rot / ('svar-domare-%s-omdom.json' % namn), PANEL_SCHEMA, 100, modell, 'high')
+                las = dict(bildkedja.lasning(svar.get('session_id'), krav), omdom=True, forsta_sessionen=forsta)
             res = svar.get('structured_output') or {}
             karta = dict(bokstaver)
             resultat[namn] = {'modell': modell, 'motivering': res.get('motivering', ''), 'bokstaver': {b: n for b, n in bokstaver},
@@ -542,11 +544,17 @@ def fotografera(slug, rot):
 
 
 def lasekrav(slug, ankare, bilder, riktningar):
-    """Vad en domare måste ha läst för att rösten ska räknas: ägarens ord och ankarnas första vyer, huvudreferensens
-    bildval och varje riktnings första ruta i 390 och 1440 (bildkedjan, designprovet 2026-10-05)."""
+    """Vad en domare måste ha läst för att rösten ska räknas (bildkedjan, designprovet 2026-10-05): ägarens ord och
+    varje ankare sett minst en gång (första vyn i 390 eller 1440), huvudreferensens bildval, och varje riktnings första
+    ruta i 390 och 1440. Ett krav som är en lista uppfylls av vilken av vägarna som helst."""
     krav = {}
     if ankare:
-        krav['ankare'] = [rel(ankare[0])] + [rel(p) for p, _ in ankare[1] if re.search(r'-vy-(390|1440)-forsta\.png$', Path(p).name)]
+        per_ankare = {}
+        for p, _ in ankare[1]:
+            m = re.match(r'^(.+)-vy-(390|1440)-forsta\.png$', Path(p).name)
+            if m:
+                per_ankare.setdefault(m.group(1), []).append(rel(p))
+        krav['ankare'] = [rel(ankare[0])] + [per_ankare[k] for k in sorted(per_ankare)]
     hr = referensval.huvudreferens(slug, UNDERLAG)
     if hr and hr.get('bilder'):
         krav['huvudreferens'] = [rel(p) for p, _ in hr['bilder']]

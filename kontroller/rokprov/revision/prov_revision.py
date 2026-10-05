@@ -507,7 +507,7 @@ except RuntimeError as e:
 # bildkedjan (designprovet 2026-10-05): en domare vars transkript inte visar de krävda läsningarna får en omdom med listan;
 # läser den ändå inte räknas rösten inte. Utan transkript (attrappen ovan) är läsningen overifierad och rösten räknas.
 import bildkedja as bk_  # noqa: E402
-bk_kat = tmp / 'bk-projekt' / '-prov'; bk_kat.mkdir(parents=True); bk_.PROJEKT = bk_kat.parent
+bk_kat = tmp / 'bk-projekt' / '-prov'; bk_kat.mkdir(parents=True); bk_.PROJEKT = bk_kat.parent; bk_.ROOT = tmp
 forsta_ = [str(arot / str(n) / v_) for n in (1, 2, 3) for v_ in ('vy-390-ruta-01.png', 'vy-1440-ruta-01.png')]
 anrop_ = []
 
@@ -529,15 +529,41 @@ v = a.panel('prov', arot)
 assert sorted(anrop_) == ['formgivning', 'funktion', 'funktion-omdom', 'kunden', 'kunden-omdom'], anrop_
 assert v['panel']['kunden']['lasning']['omdom'] and not bk_.brister(v['panel']['kunden']['lasning']) and not v['panel']['kunden'].get('ogiltig'), v['panel']['kunden']
 assert v['panel']['funktion'].get('ogiltig') and any('funktion: läste inte förslag 1 av 6' in x for x in v['fel']), v['fel']
-assert v['val'] == 2 and 'Förra gången läste du inte' not in str(v), 'två giltiga domare räcker; omdomens lista står inte i resultatet'
+assert v['val'] == 2 and 'krävs för att rösten ska räknas' not in str(v), 'två giltiga domare räcker; omdomens lista står inte i resultatet'
+assert v['panel']['kunden']['lasning']['forsta_sessionen'] is not None, 'den första sessionens förbrukning finns kvar'
+# samma fil, inte bara samma slut: en kopia under en annan rot uppfyller inget krav (granskningen av r62, punkt 1)
+assert bk_.last('atelje/1/vy-390-ruta-01.png', [str(tmp / 'atelje/1/vy-390-ruta-01.png')]) and bk_.last('atelje/1/vy-390-ruta-01.png', ['./atelje/1/vy-390-ruta-01.png'])
+assert not bk_.last('atelje/1/vy-390-ruta-01.png', ['/Volumes/kopia/atelje/1/vy-390-ruta-01.png'])
+# ankarna: ägarens ord och varje exempel sett minst en gång (390 eller 1440); huvudreferensens bildval; ett Read som felade räknas inte
+ank_ = tmp / 'atelje' / 'ankare'; (ank_ / 'kalibrering').mkdir(parents=True)
+md_ = ank_ / 'kalibrering.md'; md_.write_text('# ord')
+ank_bilder = [(ank_ / 'kalibrering' / n_, 'K') for n_ in ('K03-vy-390-forsta.png', 'K03-vy-1440-forsta.png', 'K03-vy-1440-hela.png', 'K05-vy-390-forsta.png')]
+hr_orig = a.referensval.huvudreferens
+a.referensval.huvudreferens = lambda slug, u=None: {'namn': 'Snick', 'vad': '', 'bilder': [(tmp / 'underlag' / 'ref.png', 'fråga')]}
+try:
+    kr_ = a.lasekrav('prov', (md_, ank_bilder), {1: ['atelje/1/vy-390-ruta-01.png']}, [1])
+finally:
+    a.referensval.huvudreferens = hr_orig
+assert kr_['ankare'] == ['atelje/ankare/kalibrering.md', ['atelje/ankare/kalibrering/K03-vy-390-forsta.png', 'atelje/ankare/kalibrering/K03-vy-1440-forsta.png'],
+                         ['atelje/ankare/kalibrering/K05-vy-390-forsta.png']] and kr_['huvudreferens'] == ['underlag/ref.png'] and kr_['förslag'] == ['atelje/1/vy-390-ruta-01.png'], kr_
+sid_ = '00000000-0000-4000-8000-000000000077'
+(bk_kat / (sid_ + '.jsonl')).write_text('\n'.join(json.dumps(x_) for x_ in (
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 't1', 'name': 'Read', 'input': {'file_path': str(md_)}}]}},
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 't2', 'name': 'Read', 'input': {'file_path': str(ank_bilder[1][0])}}]}},
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 't3', 'name': 'Read', 'input': {'file_path': str(ank_bilder[3][0])}}]}},
+    {'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 't3', 'is_error': True, 'content': 'fel'}]}})) + '\n')
+las_ = bk_.lasning(sid_, kr_)
+assert las_['grupper']['ankare'] == {'kravda': 3, 'lasta': 2, 'saknas': ['atelje/ankare/kalibrering/K05-vy-390-forsta.png']}, las_
+assert bk_.brister(las_) == ['ankare 2 av 3', 'huvudreferens 0 av 1', 'förslag 0 av 1'], bk_.brister(las_)
+assert bk_.erbjudna_i_prompt('se kritik/bilder/x.png och /abs/y.PNG, underlag/s/z.webp') == ['/abs/y.PNG', 'underlag/s/z.webp'], 'ingen falsk absolut väg mitt i en relativ'
 a.session = attrapp
 # rapporten per bygge: en granskares erbjudna bilder (ur PROMPT.txt) mot de lästa, per slag
-bk_.KUNDER, bk_.UNDERLAG = tmp / 'bk-kunder', tmp / 'bk-underlag'
+bk_.KUNDER, bk_.UNDERLAG, bk_.ROOT = tmp / 'bk-kunder', tmp / 'bk-underlag', tmp / 'bk-rot'
 bk_r = bk_.KUNDER / 'bk-bygge' / 'granskning' / 'runda-01'; bk_r.mkdir(parents=True)
 (bk_r / 'PROMPT.txt').write_text('Läs varje:\n- kunder/bk-bygge/granskning/runda-01/sajt/hem/vy-390-ruta-01.png\n- underlag/bk-bygge/referenser/paket-v01/x/01-start/vy-1440-ruta-02.png\n')
 (bk_r / 'svar.json').write_text(json.dumps({'session_id': '00000000-0000-4000-8000-000000000099'}))
 (bk_kat / '00000000-0000-4000-8000-000000000099.jsonl').write_text(json.dumps({'type': 'assistant', 'message': {'content': [
-    {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': '/var/x/kunder/bk-bygge/granskning/runda-01/sajt/hem/vy-390-ruta-01.png'}}]}}) + '\n')
+    {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': str(tmp / 'bk-rot' / 'kunder/bk-bygge/granskning/runda-01/sajt/hem/vy-390-ruta-01.png')}}]}}) + '\n')
 rb_ = bk_.rapport('bk-bygge')['granskningen'][0]
 assert rb_['erbjudna'] == 2 and rb_['lasta_av_erbjudna'] == 1 and rb_['saknas_per_klass'] == {'referens': 1}, rb_
 assert 'Olästa per slag' in bk_.markdown(bk_.rapport('bk-bygge')) and bk_.transkript('inte-ett-id') is None
