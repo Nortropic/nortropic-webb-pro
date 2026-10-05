@@ -17,8 +17,11 @@ leveransen tills kartan prövats om och låset skrivits (`--las`). Radnummer kan
     .venv/bin/python kontroller/metod.py --las            (skriv låset efter att utdragen prövats)
     .venv/bin/python kontroller/metod.py --visa skapa     (stegets leverans som text)
 
-leverera(steg, katalog) skriver stegets filer (METOD-<steg>.md, och vid behov METOD-<steg>-varv.md och
-METOD-<steg>-text.md) med kartans text för steget, avgörandena och utdragen med källa, rader och hash, och ger
+Block märkta ```utdrag uppslag``` levereras i egna filer (METOD-<steg>-uppslag.md) med en förteckning i före-filen:
+de slås upp när uppgiften behöver dem och läses inte i förväg (ägarens uppdrag 2026-10-05 16:25Z).
+
+leverera(steg, katalog) skriver stegets filer (METOD-<steg>.md, och vid behov METOD-<steg>-varv.md,
+METOD-<steg>-text.md och METOD-<steg>-uppslag.md) med kartans text för steget, avgörandena och utdragen med källa, rader och hash, och ger
 {'filer', 'sha', 'kallor'}. En del som blir större än MAX_TECKEN delas i filer med -2, -3 … i namnet, så att varje fil
 ryms i ett Read utan offset och limit (Claude Codes Read tar högst 25 000 token och 2 000 rader per läsning; granskning
 2, N5). Prompterna pekar på filerna, och kandidaternas status och granskningar bär hashen.
@@ -259,9 +262,13 @@ def leverera(steg, katalog):
         titel = titel_for('uppslag')
         delar = packa('\n'.join(huvud_for('uppslag', titel)), ['%s\n\n%s' % b for b in block_for(up_rader)], titel + '\n\n## Utdragen (fortsättning)\n\n')
         texter['uppslag'] = (titel, delar)
+        var = {}  # varje utdrag med alla filer det står i: ett långt utdrag fortsätter i nästa fil (granskning 3, S16)
         for i, t_ in enumerate(delar, 1):
-            for rubrikrad in re.findall(r'^### (.+?) · sha [0-9a-f]+$', t_, re.M):
-                index.append('- %s → %s' % (rubrikrad, namn_for('METOD-%s-uppslag' % steg, i, len(delar))))
+            for rubrikrad in re.findall(r'^### (.+?) · sha [0-9a-f]+(?: \(fortsättning\))?$', t_, re.M):
+                namn = namn_for('METOD-%s-uppslag' % steg, i, len(delar))
+                if namn not in var.setdefault(rubrikrad, []):
+                    var[rubrikrad].append(namn)
+        index = ['- %s → %s' % (r, ' och '.join(f)) for r, f in var.items()]
     for del_ in ('före', 'varv', 'text'):
         if del_ == 'text':
             if not med_text:

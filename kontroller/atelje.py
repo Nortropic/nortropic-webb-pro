@@ -49,6 +49,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -157,36 +158,93 @@ def claude():
     return shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
 
 
-def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=()):
-    """Argumenten till en nästlad session. Ren arbetsbänk (ägarens uppdrag 2026-10-05 16:25Z): sessionen ser bara de
-    inbyggda verktyg den får använda (--tools, ur verktygens namn) och ingen skill-lista (--disable-slash-commands);
-    skillsens innehåll når flödet genom metodkartans utdrag. Prenumerationen: ingen API-nyckel (nastlad.miljo)."""
-    namn = sorted({str(v).split('(', 1)[0] for v in verktyg} | {'Read', 'Glob', 'Grep'})
+KUNDVAKT_MATCH = 'mcp__refero__.*|mcp__mobbin__.*|mcp__claude_ai_Trybloom__.*'  # externa designtjänster: kundvakten prövar varje anrop
+REFERO_ENV = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env'
+
+
+def kundvakt(slug):
+    """Inställningarna (--settings) med kundvakten: en PreToolUse-krok som stoppar varje anrop till Refero, Mobbin eller
+    Trybloom som bär kundens uppgifter (kontroller/kundvakt.py, stänger vid fel)."""
+    kommando = '"$CLAUDE_PROJECT_DIR/.venv/bin/python" -B "$CLAUDE_PROJECT_DIR/kontroller/kundvakt.py" %s "%s"' % (slug, UNDERLAG)
+    return json.dumps({'hooks': {'PreToolUse': [{'matcher': KUNDVAKT_MATCH, 'hooks': [{'type': 'command', 'timeout': 30, 'command': kommando}]}]}})
+
+
+def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None):
+    """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
+    slug ser sessionen alla skills (skillverktyget) och användarens MCP-servrar, och kundvakten prövar varje anrop till
+    en extern designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). Utan
+    slug: inga MCP:er. De inbyggda verktygen begränsas till dem sessionen använder (--tools). Prenumerationen: ingen
+    API-nyckel (nastlad.miljo)."""
+    namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
-            '--setting-sources', 'project,local', '--strict-mcp-config', '--model', modell or MODELL, '--effort', effort or EFFORT,
-            '--tools', ','.join(namn), '--disable-slash-commands', '--allowedTools', *verktyg, '--disallowedTools', *NEKAS, *nekas]
+            '--setting-sources', 'project,local'] + (['--settings', kundvakt(slug)] if slug else ['--strict-mcp-config']) + [
+            '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
+            '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools', *NEKAS, *nekas]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
     return args
 
 
-def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=()):
-    """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger)."""
-    args = session_args(verktyg, schema, max_turer, modell, effort, nekas)
+def session_miljo(slug=None):
+    """Sessionens miljö: utan omgivande Claude-variabler och API-nycklar; med en slug också Referos nyckel ur
+    hemlighetsfilen, så att MCP-servern refero (${REFERO_MCP_TOKEN}) fungerar."""
+    m = ren_miljo()
+    if slug and REFERO_ENV.is_file():
+        for rad in REFERO_ENV.read_text(encoding='utf-8').splitlines():
+            if rad.startswith('REFERO_MCP_TOKEN='):
+                m['REFERO_MCP_TOKEN'] = rad.split('=', 1)[1].strip().strip('"\'')
+    return m
+
+
+AKTIVA = set()  # nästlade sessioner som pågår i den här processen: stoppet avslutar dem med deras träd
+AKTIVA_LAS = threading.Lock()
+STOPP = threading.Event()  # satt när arbetaren stoppas: ingen ny session startar
+doda_trad = nastlad.doda_trad
+
+
+def stoppa_sessioner():
+    """Avslutar varje pågående session i den här processen, med hela dess processträd."""
+    STOPP.set()
+    with AKTIVA_LAS:
+        pids = list(AKTIVA)
+    for pid in pids:
+        doda_trad(pid)
+    return pids
+
+
+class Stoppad(Exception):
+    pass
+
+
+def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
+    """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger).
+    vid_start(pid) får sessionens pid (kandidatens status bär den, så att en återupptagning kan avsluta en session som
+    överlevt arbetaren). Vid tidsgräns avslutas hela processträdet, också Bash-kommandon i egna processgrupper."""
+    if STOPP.is_set():
+        raise Stoppad('arbetaren stoppas: ingen ny session')
+    args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug)
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
     # krockar med fotograferingens bygge i samma katalog; granskningen av r59, punkt 2)
     with open(ut, 'wb') as f:
-        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=f, stderr=subprocess.PIPE, cwd=str(ROOT), env=ren_miljo(),
+        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=f, stderr=subprocess.PIPE, cwd=str(ROOT), env=session_miljo(slug),
                              start_new_session=True)
+        with AKTIVA_LAS:
+            AKTIVA.add(p.pid)
         try:
+            if vid_start:
+                vid_start(p.pid)
             _, fel = p.communicate(input=prompt.encode(), timeout=frist or (FRIST_DOMARE if schema else FRIST))
         except subprocess.TimeoutExpired:
+            doda_trad(p.pid)  # hela trädet: förhandsvisningen, npm och node ligger i egna processgrupper (granskning 3, S3)
             try:
                 os.killpg(p.pid, signal.SIGKILL)
             except (ProcessLookupError, PermissionError):
                 p.kill()
             p.communicate()
             raise
+        finally:
+            with AKTIVA_LAS:
+                AKTIVA.discard(p.pid)
     svar = las_json(ut) or {}
     if p.returncode or svar.get('is_error'):
         raise RuntimeError('sessionen föll (kod %s, %s): %s' % (p.returncode, svar.get('subtype'),
@@ -323,14 +381,15 @@ def divergera_prompt(slug, bilder, kritik=None, komplettering=None, ankare=None)
         '%d visuella riktningar som är olika grundidéer, innan något väljs. Du bygger inte sajten; du bygger ett prov per riktning,' % ANTAL,
         'hela startsidan, som en domarpanel jämför sida vid sida och får förkasta i sin helhet. Den valda förfinas sedan, och',
         'ägaren dömer resultatet.', '',
-        *skapande.kritikrader(slug, underlag=UNDERLAG), *([''] if skapande.kritikrader(slug, underlag=UNDERLAG) else []),
+        *skapande.kritikrader(slug, underlag=UNDERLAG, aktuella=True), *([''] if skapande.kritikrader(slug, underlag=UNDERLAG, aktuella=True) else []),
         *skapande.historikrader(slug, UNDERLAG), *([''] if skapande.historikrader(slug, UNDERLAG) else []),
         *(['Förra omgången förkastades (av panelen, eller av skaparen under förfiningen). Kritiken, som varje ny riktning ska svara på:', kritik,
            'Pröva nya kandidater i den här omgången: lägg till kandidater ur referensmaterialet i REFERENSER.md, eller begär research',
            '(KOMPLETTERING.json nedan). En kandidat från förra omgången används igen bara med ett skäl i riktningens avsnitt i',
            'RIKTNINGAR.md som svarar på kritiken.', ''] if kritik else []),
         *skapande.fakta_rader(slug, UNDERLAG), '',
-        'Läs först: ' + ', '.join(filer) + ', ' + lardomar_vag() + ' (ägarens domar gäller före allt utom ägarens senare domar ovan)',
+        'Läs först: ' + ', '.join(filer) + '. Ägarens domar över tidigare byggen (%s) är exempel och smakdomar: slå upp dem när' % lardomar_vag(),
+        'de besvarar en konkret fråga; det som gäller med räckvidd står i kunskap/designregler.md och i ägarens aktuella domar ovan,',
         'och kunskap/byggstandard.md (punkterna 3 och 4).',
         'Metoden, som du läser innan du skriver en sida och prövar riktningarna mot (transkriptet visar om du gjorde det):',
         *skapande.metodrader('utforska'),
@@ -438,7 +497,7 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare, ofullsta
              ['Du sitter i domarpanelen i skapandeflödet för en riktig verksamhet (kunskap/skapandeflodet.md). %d riktningar, olika' % len(bokstaver),
               'grundidéer, har tagits fram som hela startsidor med början av en undersida; panelen väljer vilken som ska förfinas och',
               'byggas, eller förkastar alla. ' + uppdrag])
-    kritik = skapande.kritikrader(slug, underlag=UNDERLAG)
+    kritik = skapande.kritikrader(slug, underlag=UNDERLAG, aktuella=True)
     hist = skapande.historikrader(slug, UNDERLAG)
     return '\n'.join([
         *intro, '',
@@ -449,7 +508,8 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare, ofullsta
         *(['Panelen pekade vid valet ut de här svagheterna i riktningen; säg för varje version vilka som fortfarande syns:',
            *['- ' + x for x in svagheter], ''] if slut and svagheter else []),
         'Målen du dömer mot: toppuppgifterna och den primära handlingen i underlag/%s/BRIEF.md, listan "Bara de har" i' % slug,
-        'underlag/%s/RESEARCH.md, ägarens domar ovan och i %s; den senaste domen väger tyngst. Läs dem först.' % (slug, lardomar_vag()),
+        'underlag/%s/RESEARCH.md och ägarens aktuella domar ovan; den senaste domen väger tyngst. Ägarens domar över tidigare' % slug,
+        'byggen (%s) är exempel på vad ägaren värderar, inga regler för den här kunden.' % lardomar_vag(),
         'Ribban är professionell nivå enligt referensernas första vy och kunskap/referenser-professionella.md, aldrig',
         'tidigare egna byggen (ägaren 2026-10-03: de håller inte).',
         *([] if slut else ['Referensernas bilder (utpekad ruta eller tillstånd med jämförelsefrågan; annars första vyn): ' + ('; '.join(refs[:8]) or 'inga') + '.']),
@@ -1177,7 +1237,7 @@ def forfina_prompt(slug, rot, komplettering=None):
         'Du förfinar startsidan för en riktig verksamhet i skapandeflödet (kunskap/skapandeflodet.md). Panelen har valt riktning',
         '%s, "%s", bland olika grundidéer, och dess startsida står nu i %s/src/pages/index.astro. Målet är en sida som' % (n, namn, s),
         'övertygar ägaren visuellt, i mobil (390 px) och på dator (1440 px). Bara startsidan; länkar får peka på sidor som byggs senare.', '',
-        *skapande.kritikrader(slug, underlag=UNDERLAG), '',
+        *skapande.kritikrader(slug, underlag=UNDERLAG, aktuella=True), '',
         *skapande.fakta_rader(slug, UNDERLAG), '',
         'Riktningen, som den beskrevs i underlag/%s/atelje/RIKTNINGAR.md:' % slug,
         *(['> ' + r for r in avsnitt.splitlines()[:45]] or ['(avsnittet saknas; läs RIKTNINGAR.md)']), '',
@@ -1680,7 +1740,16 @@ def kandidatflode_pa():
     return os.environ.get('NWP_KANDIDATFLODE', 'pa') != 'av'
 
 
+def stoppsignal(signum, _ram):
+    """Arbetarens stopp (SIGTERM, SIGHUP, atelje.py --stoppa): sessionerna avslutas med sina processträd, ingen ny
+    startar, och körningen slutar med steg fel; --fortsatt tar vid (granskning 3, S3)."""
+    stoppa_sessioner()
+    raise Stoppad('arbetaren stoppades (signal %d); sessionerna avslutades' % signum)
+
+
 def arbetare(slug, lage='ny'):
+    for sig_ in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig_, stoppsignal)
     rot = UNDERLAG / slug / 'atelje'
     forra = (las_json(rot / 'STATUS.json') or {}) if lage in ('fortsatt', 'putsa', 'valda') else {}
     # --fortsatt efter en putsning som föll putsar vidare mot samma före, aldrig en ny utforskning (omgranskningen, fynd 4)
@@ -1837,6 +1906,28 @@ def bara_domare(slug, rot, st):
     return 0 if val['val'] is not None else 6
 
 
+def stoppa(slug, rot, st, vanta_s=30):
+    """Stoppar en pågående körning: arbetaren får SIGTERM (den avslutar sina sessioner med deras träd och slutar med steg
+    fel); lever den kvar efter vanta_s avslutas den med sitt träd. Sessioner som överlevt en tidigare arbetare (pid i
+    kandidaternas status) avslutas också, bara om de är flödets claude-sessioner. --fortsatt tar sedan vid."""
+    pid = st.get('pid')
+    stoppade = []
+    if pid and lever(pid):
+        os.kill(int(pid), signal.SIGTERM)
+        slut = time.time() + vanta_s
+        while lever(pid) and time.time() < slut:
+            time.sleep(0.5)
+        if lever(pid):
+            stoppade += doda_trad(pid)
+        stoppade.append(int(pid))
+    for f in sorted((rot / 'kandidater').glob('k[0-9][0-9]/STATUS.json')) if (rot / 'kandidater').is_dir() else []:
+        sp = (las_json(f) or {}).get('session_pid')
+        if sp and lever(sp) and nastlad.ar_session(sp):
+            stoppade += doda_trad(sp)
+    print('Körningen stoppad (%s); --fortsatt tar vid där den slutade.' % (', '.join(str(x) for x in sorted(set(stoppade))) or 'inget pågick'))
+    return 0
+
+
 def lever(pid):
     try:
         os.kill(pid, 0)
@@ -1980,6 +2071,7 @@ def main(argv=None):
     p.add_argument('--valda', action='store_true', help='förfina kandidaterna ägaren valde (kandidatflödet, domloggen)')
     p.add_argument('--fortsatt', action='store_true', help='ta vid efter den senaste klara fasen')
     p.add_argument('--bara-domare', action='store_true', help='döm om de befintliga skärmbilderna med panelen')
+    p.add_argument('--stoppa', action='store_true', help='stoppa en pågående körning och dess sessioner (--fortsatt tar vid)')
     p.add_argument('--arbetare', action='store_true', help=argparse.SUPPRESS)
     p.add_argument('--lage', default='ny', choices=('ny', 'putsa', 'fortsatt', 'valda'), help=argparse.SUPPRESS)
     a = p.parse_args(argv)
@@ -1989,11 +2081,13 @@ def main(argv=None):
         return 2
     if a.arbetare:
         return arbetare(a.slug, a.lage)
-    if sum(map(bool, (a.om, a.ny_riktning, a.putsa, a.valda, a.fortsatt, a.bara_domare))) > 1:
-        print('välj en av --om, --ny-riktning, --putsa, --valda, --fortsatt och --bara-domare')
+    if sum(map(bool, (a.om, a.ny_riktning, a.putsa, a.valda, a.fortsatt, a.bara_domare, a.stoppa))) > 1:
+        print('välj en av --om, --ny-riktning, --putsa, --valda, --fortsatt, --bara-domare och --stoppa')
         return 2
     rot = UNDERLAG / a.slug / 'atelje'
     st = las_json(rot / 'STATUS.json') or {}  # läget först: en klar eller förkastad ateljé svarar med sitt utfall
+    if a.stoppa:
+        return stoppa(a.slug, rot, st)
     kflode = kandidatkorning(rot, st)
     if a.putsa and kflode:  # i kandidatflödet putsas de valda kandidaterna, var för sig
         a.putsa, a.valda = False, True
@@ -2085,7 +2179,7 @@ def main(argv=None):
     lage = 'putsa' if a.putsa else 'valda' if a.valda else 'fortsatt' if a.fortsatt else 'ny'
     rot.mkdir(parents=True, exist_ok=True)
     # en återupptagning bär det som säger var körningen var: de valda kandidaterna och domen i en förfining (granskningen B1)
-    gammal = {k: st[k] for k in ('faser',) + BARS + BARS_FORTSATT + ('foregaende', 'kandidatflode', 'valda', 'dom', 'fas') if k in st} if lage != 'ny' else {}
+    gammal = {k: st[k] for k in ('faser',) + BARS + BARS_FORTSATT + ('foregaende',) + BARS_KANDIDAT if k in st} if lage != 'ny' else {}
     if lage == 'fortsatt' and st.get('lage'):
         gammal['forra_lage'] = st['lage'] if st['lage'] != 'fortsatt' else st.get('forra_lage')
     if (lage != 'ny' and kflode) or (lage == 'ny' and kandidatflode_pa()):

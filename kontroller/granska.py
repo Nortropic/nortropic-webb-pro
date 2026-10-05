@@ -515,7 +515,7 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Sidor: %s' % ', '.join(url + s for s in sidor),
         'Din arbetskatalog för egna skärmbilder och sida.mjs-utdata: %s' % arbetskatalog,
         'Trösklar för godkänt: %s, och inga blockerande fynd. Godkännandet räknas ut av verktyget.' % trosklar, '',
-        'Ägarens domar (utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md'), '',
+        'Ägarens domar över tidigare byggen (exempel på vad ägaren värderar, inga regler för den här kunden; utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md'), '',
         'Ribban är professionell nivå enligt kalibreringsankarna, referensernas skärmbilder nedan och exemplaren i kunskap/referenser-professionella.md.',
         'Tidigare egna byggen är ingen måttstock, inte heller när ägaren godkänt dem (ägaren 2026-10-03: de håller inte);',
         'de visas bara för att du ska se om det här bygget är en variant av dem.', '',
@@ -748,7 +748,7 @@ def originalitet_separat(rdir, upp, slug, bilder, claude, lardomar=None, nekas=N
              'Undersidornas första skärm:', *['- ' + rel(b) for b in under],
              'Tidigare byggens första vy (ingen måttstock, bara för att se om det här är en variant av dem):', *['- ' + rel(b) for b in tidigare_byggen(slug)],
              'Ribban är professionell nivå enligt referenserna och kunskap/referenser-professionella.md, aldrig tidigare egna byggen (ägaren 2026-10-03).',
-             'Ägarens domar (utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md')]
+             'Ägarens domar över tidigare byggen (exempel på vad ägaren värderar, inga regler för den här kunden; utan domen om det här bygget): %s' % (vag(lardomar) if lardomar else 'LARDOMAR.md')]
     args = [claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--model', upp['modell'], '--effort', upp['effort'],
             '--json-schema', SCHEMA_ORIGINALITET.read_text(encoding='utf-8'), '--allowedTools', 'Read', 'Glob', 'Grep',

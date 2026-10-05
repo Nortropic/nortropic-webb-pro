@@ -14,9 +14,10 @@ ordagrant i `underlag/LARDOMAR-original.md` (privat). En äldre smakdom är ett 
 - `kirurg`: bedömer ett repo, en skill, en artikel eller en YouTube-video (`/kirurg <url>`). Lägger aktuella fynd i
   backloggen automatiskt.
 - `backlog`: genomför den vilande backloggen när ägaren säger "implementera enligt backlog".
-- Övriga mappar i `.claude/skills/` är verktygslådan: skills som kirurgen tagit in och som byggena använder efter
-  behov. Var och en har `KALLA.md` med källa, commit och licens. `writing-for-agents` är för sessioner som ändrar en
-  skill, `CLAUDE.md` eller `kunskap/`, inte för byggena.
+- Övriga mappar i `.claude/skills/` är designkompetensen: varje kompetens har en obligatorisk uppgift i skapandeflödet
+  med sina skills fullständiga instruktioner (`kunskap/metodkarta.md`, avsnittet Kompetenserna; ägarens ord 2026-10-05:
+  alla skills och MCP:er ska användas). Var och en har `KALLA.md` med källa, commit och licens. `writing-for-agents` är
+  för sessioner som ändrar en skill, `CLAUDE.md` eller `kunskap/`, inte för byggena.
 
 ## Var saker finns
 

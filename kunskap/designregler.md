@@ -48,7 +48,7 @@ En skills standardråd står under alla fyra.
 | Bäst av tre undermåliga godkänns aldrig (2026-10-04) | panelen och granskningen |
 | Ägaren dömer blint och först; panelens omdöme visas efter (2026-10-03–04) | dashboardens vyer |
 | Den godkända prototypen gäller i bygget; en annan riktning utan nytt godkännande är ett blockerande fynd | byggen efter ett godkännande |
-| Domloggens aktuella domar för en kund (från den senaste som begärde en ny riktning eller förkastade förslagen); den senaste går före | den kunden |
+| Domloggens aktuella domar för en kund (från den senaste som begärde en ny riktning; en förkastning återöppnar bara grundidéerna och referenserna); den senaste går före | den kunden |
 
 ## Kundens behov
 
@@ -88,7 +88,8 @@ beslutshistoriken i `BESLUT.md` är exempel, smakdomar och ersatta beslut. De be
 konkret fråga; de läses inte i förväg och blir aldrig regler för en ny kund. Ett gammalt färgval, en uppskattad
 mobilmeny eller en viss rubrikstil är ett exempel ur ett bygge, ingen designregel. Det som gäller nu står ovan: ett
 uttryckligt ägarbeslut med sin räckvidd i tabellen, och kundens aktuella domar (från den senaste domen som begärde en ny
-riktning eller förkastade förslagen, och de efter den) i domloggen.
+riktning, och de efter den) i domloggen; ett uttryckligt beslut i en äldre dom om annat än designen gäller tills en
+senare dom återöppnar det.
 
 ## Research: observation, rekommendation, belagd effekt
 

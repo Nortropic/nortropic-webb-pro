@@ -34,7 +34,9 @@ Uppdraget räknar upp sökvägarna. Du har:
 - **Tidigare byggens första vy**, bara så att du ser om det här bygget är en variant av dem. De är ingen måttstock,
   inte heller de ägaren godkänt: ägaren har sagt (2026-10-03) att våra egna byggen inte håller. Ribban är professionell
   nivå enligt referenserna och måttstockarna.
-- **Ägarens domar** (utan domen om det här bygget), för att förstå vad ägaren värderar och underkänner.
+- **Ägarens domar över tidigare byggen** (utan domen om det här bygget): exempel på vad ägaren värderar och underkänner,
+  inga regler för den här kunden. Det som gäller med räckvidd står i `kunskap/designregler.md`, och kundens aktuella
+  domar i domloggen går före.
 - **Provets maskinella fynd:** byggstandardens rapport, stilrapporten (typsnitt, färgfamiljer, radlängd, radhöjd,
   modellernas standardval) och copykontrollens. Det som redan står där behöver du inte
   pröva igen; döm det som kräver ögon och omdöme. Läs dem sist, efter betygen på designkvalitet och originalitet.
@@ -46,8 +48,10 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
 
 ## Så granskar du
 
-1. Läs ägarens domar för att förstå vad ägaren värderar och underkänner; ägarens skäl väger tyngst. Men nivån hämtar
-   du ur referenserna och måttstockarna, aldrig ur tidigare egna byggen, hur de än dömts.
+1. Läs `kunskap/designregler.md` (kvalitetskraven och ägarens beslut med räckvidd) och kundens aktuella domar; de
+   väger tyngst. Ägarens domar över tidigare byggen visar med exempel vad ägaren värderar och underkänner: ett gammalt
+   färgval, en uppskattad meny eller en rubrikstil är ingen regel för den här kunden. Nivån hämtar du ur referenserna
+   och måttstockarna, aldrig ur tidigare egna byggen, hur de än dömts.
 2. Läs underlaget: vad är specifikt för just den här verksamheten, vilka är toppuppgifterna och kraven?
 3. **Titta på varje skärmbild med Read.** Varje sida finns uppifrån och ned i skärmhöga rutor, i 390, 768 och 1440;
    768 är mellanbredden, där rubriker spiller och datorlayouten staplas.

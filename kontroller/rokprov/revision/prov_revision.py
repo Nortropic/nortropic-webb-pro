@@ -3476,7 +3476,7 @@ try:
             for n_ in fv_kd.LAS:
                 (v_ / ('varv-%02d' % i_) / n_).write_bytes(b'png')
 
-    def sess_kd_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=()):
+    def sess_kd_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), **kw):
         sess_kd.append({'prompt': prompt, 'verktyg': verktyg, 'ut': Path(ut).name, 'schema': schema, 'modell': modell, 'nekas': list(nekas)})
         so = None
         if schema is kd.FORSKA_SCHEMA:
@@ -3503,6 +3503,8 @@ try:
                   'motiveringar': [{'nr': 1, 'avsiktlig': False, 'valgrundad': False, 'skal': ''}, {'nr': 2, 'avsiktlig': True, 'valgrundad': True, 'skal': 'idén'}]}
         elif schema is kd.JAMFOR_SCHEMA:
             so = {'sammanfattning': 's', 'par': [{'a': 'k01', 'b': 'k03', 'grad': 'nara', 'skal': 'samma ordning'}, {'a': 'k01', 'b': 'k99', 'grad': 'nara', 'skal': 'x'}]}
+        elif schema is kd.PASS_SCHEMA:  # kompetenspassen efter fördjupningen (prövas i skisslägets avsnitt)
+            so = {'andringar': [], 'ingen_andring': 'provet ändrar inget', 'passade_inte': [], 'kvarstar': []}
         else:  # en skapare (skapa, förbättra eller förfina)
             kid_ = re.search(r'kunder/kd-prov/kandidater/(k\d\d)/sajt', prompt).group(1)
             pages_ = kd.ksajt(sl_kd, kid_) / 'src' / 'pages'
@@ -4015,9 +4017,8 @@ try:
     lev_sk = md_kd.leverera('skiss', tmp / 'sk-metod')
     fore_sk = [f_ for f_ in lev_sk['filer'] if f_['del'] == 'före']
     upp_sk = [f_ for f_ in lev_sk['filer'] if f_['del'] == 'uppslag']
-    assert len(fore_sk) == 1 and upp_sk and '## Att slå upp' in fore_sk[0]['fil'].read_text() and 'METOD-skiss-uppslag.md' in fore_sk[0]['fil'].read_text()
-    assert '### kunskap/designregler.md' in fore_sk[0]['fil'].read_text() and '### frontend-design/SKILL.md' not in fore_sk[0]['fil'].read_text()
-    assert any('### frontend-design/SKILL.md' in f_['fil'].read_text() for f_ in upp_sk) and any('### humanizer/SKILL.md' in f_['fil'].read_text() for f_ in upp_sk)
+    assert len(fore_sk) == 1 and not upp_sk and '## Att slå upp' not in fore_sk[0]['fil'].read_text(), 'inga frivilliga utdrag: kompetenserna bär skillsen'
+    assert '### kunskap/designregler.md' in fore_sk[0]['fil'].read_text() and 'Kompetenserna' in fore_sk[0]['fil'].read_text()
 
     # --- instruktionsvägarna: CLAUDE.md (laddas i varje nästlad session), helbyggets uppstart och miljön ---
     claude_md_ = (ROOT / 'CLAUDE.md').read_text()
@@ -4025,10 +4026,10 @@ try:
     bygg_md_ = (ROOT / '.claude' / 'skills' / 'bygg-sajt' / 'SKILL.md').read_text()
     assert '(varje dom)' not in bygg_md_ and 'gäller före allt annat' not in bygg_md_ and 'kunskap/designregler.md' in bygg_md_
     assert 'ANTHROPIC_API_KEY' not in nl_sk.miljo({'ANTHROPIC_API_KEY': 'x', 'ANTHROPIC_BASE_URL': 'y', 'PATH': '/bin'}) and 'PATH' in nl_sk.miljo({'PATH': '/bin'})
-    a_sk = at_pt.session_args(kd.verktyg(sl_sk, 'k01'), None, 10, 'm', 'high', ())  # bara de egna verktygen, ingen skill-lista
-    assert a_sk[a_sk.index('--tools') + 1] == 'Bash,Edit,Glob,Grep,Read,Write' and '--disable-slash-commands' in a_sk and '--bare' not in a_sk, a_sk
-    a_sk = at_pt.session_args(kd.LASVERKTYG, {'type': 'object'}, 10, 'm', 'high', ())
-    assert a_sk[a_sk.index('--tools') + 1] == 'Glob,Grep,Read' and '--json-schema' in a_sk
+    a_sk = at_pt.session_args(kd.verktyg(sl_sk, 'k01'), None, 10, 'm', 'high', (), sl_sk)  # alla skills (ägarens ord 18:15Z), MCP:erna med kundvakten
+    assert a_sk[a_sk.index('--tools') + 1] == 'Bash,Edit,Glob,Grep,Read,Skill,ToolSearch,Write' and '--disable-slash-commands' not in a_sk and '--bare' not in a_sk, a_sk
+    a_sk = at_pt.session_args(kd.LASVERKTYG, {'type': 'object'}, 10, 'm', 'high', (), sl_sk)
+    assert a_sk[a_sk.index('--tools') + 1] == 'Glob,Grep,Read,Skill,ToolSearch' and '--json-schema' in a_sk and '--settings' in a_sk
 
     # --- bygget, webbläsaren och sessionerna ersatta; den riktiga fotograferingen och de snabba kontrollerna körs ---
     def bygg_sk(sajt, timeout=900):
@@ -4060,15 +4061,37 @@ try:
     sess_sk, samtidiga_sk, max_sk, las_sk = [], [0], [0], thr_sk.Lock()
     trasig_k03, dod_k05 = [True], [True]
 
-    def sess_sk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=()):
-        sess_sk.append({'prompt': prompt, 'verktyg': verktyg, 'ut': Path(ut).name, 'schema': schema, 'effort': effort, 'frist': frist, 'nekas': list(nekas)})
-        so = None
+    def sess_sk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None):
+        sess_sk.append({'prompt': prompt, 'verktyg': verktyg, 'ut': Path(ut).name, 'schema': schema, 'effort': effort, 'frist': frist,
+                        'nekas': list(nekas), 'slug': slug})
+        so, sid_sk = None, 's'
+        if vid_start:
+            vid_start(999999990)
         if schema is kd.FORSKA_SCHEMA_SKISS:
             so = {'varfor': 'befintligt material räcker', 'riktningar': 'fem grunder', 'sajter': [], 'fragor': [],
                   'antaganden': [{'antagande': 'besökaren vill se jobb', 'underlag': 'ännu inte observerat', 'provning': 'uppgift', 'om_fel': 'kontakt först'}]}
         elif schema is kd.PLAN_SCHEMA:
             so = {'variation': 'fem grunder', 'kandidater': [dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/sk-prov/referenser/paket-v01/x/vy.png'])
                                                             for i_ in range(5)]}
+        elif schema is kd.PLANPROVNING_SCHEMA:  # specialisterna prövar planen och ändrar ett fält
+            so = {'sammanfattning': 'typografin i k01 skärptes', 'kandidater': [
+                {'id': 'k01', 'bedomning': 'riktningen bär', 'andringar': [{'falt': 'typografi', 'nytt': 'NY TYPOGRAFI ur planprövningen', 'skill': 'impeccable', 'varfor': 'hierarkin'}]},
+                {'id': 'k99', 'bedomning': 'finns inte', 'andringar': [{'falt': 'typografi', 'nytt': 'x', 'skill': 'x', 'varfor': 'x'}]}]}
+            sid_sk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in kd.kompetens.lasfiler('planprovning')] + [('Skill', {'skill': 'impeccable'}, False)])
+        elif schema is kd.PASS_SCHEMA:  # ett kompetenspass
+            kid_ = re.search(r'Kandidaten (k\d\d)', prompt).group(1)
+            pass_ = next(k_ for k_, n_ in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n_ in prompt)
+            index_ = kd.ksajt(sl_sk, kid_) / 'src' / 'pages' / 'index.astro'
+            filer_ = kd.kompetens.lasfiler(pass_)
+            if kid_ == 'k02' and pass_ == 'mobil' and 'Förra försöket läste inte' not in prompt:
+                filer_ = filer_[1:]  # läser inte alla: ett omförsök
+            if kid_ == 'k03' and pass_ == 'kritik':
+                index_.write_text('TRASIG efter kritiken')  # passet bryter sidan: versionen före återställs
+            elif pass_ != 'rorelse':
+                index_.write_text(index_.read_text() + '\n<p>%s-pass</p>' % pass_)
+            so = {'andringar': [] if pass_ == 'rorelse' else [{'skill': 'impeccable', 'vad': '%s rättat' % pass_, 'var': 'första vyn', 'varfor': 'passet'}],
+                  'ingen_andring': 'sidan ska vara stilla' if pass_ == 'rorelse' else '', 'passade_inte': [], 'kvarstar': []}
+            sid_sk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in filer_] + [('Write', {'file_path': kd.rel(index_)}, False)])
         elif schema is None:  # en skissare
             kid_ = re.search(r'Du gör\nEN skiss, (k\d\d)|EN skiss, (k\d\d)', prompt)
             kid_ = kid_.group(1) or kid_.group(2)
@@ -4080,19 +4103,23 @@ try:
                 if kid_ == 'k04':  # tiden tar slut med en sida som inte bygger: ofullständig, inget omförsök (ingen förlängning)
                     (pages_ / 'index.astro').write_text('TRASIG halvfärdig')
                     raise subprocess.TimeoutExpired('claude', frist)
-                if kid_ == 'k05' and dod_k05[0]:  # processen dör mitt i försöket
+                if kid_ == 'k05' and dod_k05[0]:  # processen dör mitt i försöket, efter RIKTNING.md och ett varv (S1)
                     dod_k05[0] = False
                     (pages_ / 'index.astro').write_text('<h1>halv skiss</h1>')
+                    (kd.kdir(sl_sk, kid_) / 'RIKTNING.md').write_text('Huvudreferens: Xref — halv\n')
+                    (kd.kdir(sl_sk, kid_) / 'varv' / 'start' / 'varv-01').mkdir(parents=True, exist_ok=True)
                     raise KeyboardInterrupt('processen dog')
                 text_ = {'k02': '<h1>Skiss</h1><p>Med 25 år i branschen. Ring 070-111 22 33, vardagar 07:00–16:00.</p>'}.get(kid_, '<h1>Skiss</h1><p>Kök och altaner. Utkast: om oss.</p>')
                 (pages_ / 'index.astro').write_text('TRASIG' if kid_ == 'k03' and trasig_k03[0] else text_)
                 if kid_ == 'k03':
                     trasig_k03[0] = False
                 (kd.kdir(sl_sk, kid_) / 'RIKTNING.md').write_text('Huvudreferens: Xref — kompositionen\n\n## Varv 1\n\nrubriken för stor\n\n## Material\n\nFler foton.\n')
+                sid_sk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in kd.kompetens.lasfiler('skapa')]
+                                       + [('mcp__refero__refero_search_screens', {'query': 'carpenter homepage hero'}, False), ('Write', {'file_path': kd.rel(pages_ / 'index.astro')}, False)])
             finally:
                 with las_sk:
                     samtidiga_sk[0] -= 1
-        svar_ = {'structured_output': so, 'num_turns': 5, 'duration_ms': 60000, 'total_cost_usd': 0.5, 'session_id': 's'}
+        svar_ = {'structured_output': so, 'num_turns': 5, 'duration_ms': 60000, 'total_cost_usd': 0.5, 'session_id': sid_sk}
         Path(ut).write_text(json.dumps(svar_))
         return svar_
     at_pt.session = sess_sk_
@@ -4130,12 +4157,12 @@ try:
     sk_p = [s_ for s_ in sess_sk if s_['schema'] is None]
     p1_ = next(s_ for s_ in sk_p if 'EN skiss, k01' in s_['prompt'])
     for krav_ in ('Omfattningen: första vyn', 'METOD-skiss.md', 'VERKSAMHET.json', 'TEXTUNDERLAG.md', 'BILDER.md', 'UPPDRAG.md', 'Historiken slås upp',
-                  'Hitta aldrig på omdömen', 'Inget fast antal varv', 'högst 30 minuter', 'AKTUELL'):
+                  'Hitta aldrig på omdömen', 'Inget fast antal varv', 'försöket högst 30 minuter', 'AKTUELL'):
         assert krav_ in p1_['prompt'], krav_
     for inte_ in ('LARDOMAR-original', 'Arbetsregeln är minst', 'GAMMAL SMAKDOM', 'METOD-skiss-uppslag.md', 'undersidan eller tillståndet som uppdraget anger'):
         assert inte_ not in p1_['prompt'], inte_
     assert p1_['effort'] == kd.EFFORT_SKISS and p1_['frist'] <= kd.FRIST_SKISS and 'Read(./kunder/sk-prov/kandidater/k02/**)' in p1_['nekas'], (p1_['effort'], p1_['frist'], p1_['nekas'][:4])
-    assert 'Skill' not in p1_['verktyg'] and any('forhandsvisa.py sk-prov --kandidat k01' in v_ for v_ in p1_['verktyg'])
+    assert 'Skill' in p1_['verktyg'] and 'mcp__refero__refero_search_screens' in p1_['verktyg'] and any('forhandsvisa.py sk-prov --kandidat k01' in v_ for v_ in p1_['verktyg'])
     # --- de snabba kontrollerna: bristerna markeras, skissen går att bedöma ---
     s1_, s2_, s3_, s4_, s5_ = (kd.las_status(sl_sk, k_) for k_ in ('k01', 'k02', 'k03', 'k04', 'k05'))
     assert s1_['status'] == 'klar' and any('konsolfel' in b_ for b_ in s1_['brister']) and any('menyns knapp' in b_ for b_ in s1_['brister']), s1_.get('brister')
@@ -4150,12 +4177,41 @@ try:
     # k05: det avbrutna försöket sparades och startades om i ett nytt projekt
     assert s5_['status'] == 'klar' and s5_['forsok'] == 2 and (kd.kdir(sl_sk, 'k05') / 'forsok-1' / 'projekt' / 'src' / 'pages' / 'index.astro').read_text() == '<h1>halv skiss</h1>', s5_
     assert 'halv' not in (kd.ksajt(sl_sk, 'k05') / 'src' / 'pages' / 'index.astro').read_text()
+    # --- planprövningen: specialisterna ändrade ett fält i k01:s uppdrag; ett okänt id ändrar inget ---
+    pp_sk = json.loads((kd.rot(sl_sk) / 'PLANPROVNING.json').read_text())
+    assert pp_sk['andrade'] == 1 and pp_sk['kvitto']['verifierad'] and not pp_sk['kvitto']['saknas'] and 'impeccable' in pp_sk['kvitto']['skill_anrop'], pp_sk
+    assert 'NY TYPOGRAFI ur planprövningen' in (kd.kdir(sl_sk, 'k01') / 'UPPDRAG.md').read_text() and (kd.rot(sl_sk) / 'PLANPROVNING.md').is_file()
+    pp_p_ = next(s_ for s_ in sess_sk if s_['schema'] is kd.PLANPROVNING_SCHEMA)
+    assert 'impeccable/reference/shape.md' in pp_p_['prompt'] and 'mcp__refero__refero_search_styles' in pp_p_['verktyg'] and pp_p_['slug'] == sl_sk
+    # --- kompetenspassen på varje klar skiss: kvittot, ändringen i sidan, före och efter ---
+    for k_ in ('k01', 'k02', 'k03', 'k05'):
+        rec_ = kd.las_status(sl_sk, k_)['kompetens']
+        assert set(rec_) == {'skiss:skapa', 'skiss:ux', 'skiss:rorelse', 'skiss:mobil', 'skiss:kritik'}, (k_, sorted(rec_))
+        assert rec_['skiss:skapa']['genomford'] and rec_['skiss:skapa']['kvitto']['mcp_anrop'] == {'mcp__refero__refero_search_screens': 1}, rec_['skiss:skapa']
+        for p_ in ('ux', 'mobil'):
+            assert rec_['skiss:%s' % p_]['genomford'] and rec_['skiss:%s' % p_]['andrad'] and rec_['skiss:%s' % p_]['bilder']['fore'] and rec_['skiss:%s' % p_]['bilder']['efter'], (k_, p_, rec_['skiss:%s' % p_])
+        assert rec_['skiss:rorelse']['genomford'] and not rec_['skiss:rorelse']['andrad'] and rec_['skiss:rorelse']['ingen_andring'] == 'sidan ska vara stilla'
+        assert (kd.kdir(sl_sk, k_) / 'kompetens' / 'skiss-ux' / 'efter' / 'vy-390-forsta.png').is_file()
+    assert (kd.kdir(sl_sk, 'k02') / 'svar-pass-skiss-mobil-2.json').is_file() and kd.las_status(sl_sk, 'k02')['kompetens']['skiss:mobil']['genomford'], 'ett pass som inte läste alla filer får ett omförsök'
+    k3k_ = kd.las_status(sl_sk, 'k03')['kompetens']['skiss:kritik']
+    assert k3k_['aterstalld'] and not k3k_['andrad'] and 'TRASIG' not in (kd.ksajt(sl_sk, 'k03') / 'src' / 'pages' / 'index.astro').read_text(), k3k_
+    assert kd.las_status(sl_sk, 'k03')['status'] == 'klar', 'ett pass som bröt sidan lämnar kandidaten valbar med versionen före'
+    pass_p_ = [s_ for s_ in sess_sk if s_['schema'] is kd.PASS_SCHEMA]
+    kritik_p_ = next(s_ for s_ in pass_p_ if 'visuell kritik och slutbearbetning' in s_['prompt'])
+    assert 'Bash(.venv/bin/python kontroller/detektor.py *)' in kritik_p_['verktyg'] and 'impeccable/reference/critique.md' in kritik_p_['prompt'] and 'Skill' in kritik_p_['verktyg']
+    assert all(s_['slug'] == sl_sk for s_ in sess_sk if s_['schema'] in (None, kd.PASS_SCHEMA, kd.PLANPROVNING_SCHEMA)), 'varje session får kundens slug: skills, MCP:er och kundvakten'
+    sk1_p_ = next(s_ for s_ in sk_p if 'EN skiss, k01' in s_['prompt'])
+    assert 'craft-floor.md' in sk1_p_['prompt'] and 'search.py' in sk1_p_['prompt'] and any('ui-ux-pro-max/scripts/search.py' in v_ for v_ in sk1_p_['verktyg']) and 'RESEARCH.md' in sk1_p_['prompt'] and 'BRIEF.md' in sk1_p_['prompt']
+    k5f_ = kd.las_status(sl_sk, 'k05')['forsok_tider']
+    assert [x_['utfall'] for x_ in k5f_][:1] == ['avbruten'] and (kd.kdir(sl_sk, 'k05') / 'forsok-1' / 'RIKTNING.md').is_file() and (kd.kdir(sl_sk, 'k05') / 'forsok-1' / 'varv').is_dir(), k5f_
+
     # --- tiderna och redovisningen ---
     t_sk = st_sk['tider']
     assert all(t_sk.get(k_) for k_ in ('start', 'forskning', 'plan', 'forsta_valbara', 'klar')) and t_sk['start'] <= t_sk['forsta_valbara'] <= t_sk['klar'], t_sk
     rd_sk = kd.redovisa(sl_sk, st_sk).read_text()
     for krav_ in ('## Tiderna', 'väntan till första valbara skissen', '## Ofullständiga och fallna', 'k04', 'Ingen modell har bedömt', 'Utkast och platshållare',
-                  'METOD-skiss.md', 'siffror i texten som inte finns i underlaget: 25', '1 + 2 (omförsök)', '1 (tiden slut)'):
+                  'METOD-skiss.md', 'siffror i texten som inte finns i underlag: 25'.replace('underlag: 25', 'underlaget: 25'), '1 + 2 (omförsök)', '1 (tiden slut)',
+                  '## Kompetensernas arbete', 'Planprövningen', 'ux rättat', 'ingen ändring: sidan ska vara stilla', 'återställt'):
         assert krav_ in rd_sk, krav_
     # --- vyn: neutral, med bristerna; ingen granskning ---
     blind_sk = kd.sammanstall(sl_sk)
@@ -4174,6 +4230,84 @@ finally:
     dash.UNDERLAG, dash.KUNDER, dash.ROOT = spara_dash_sk
     bk_pt.ROOT = spara_bk_sk
 print('skissläget ok')
+
+# ---------------------------------------------------------------- kompetenskedjan och granskning 3 (ägarens ord 2026-10-05 18:15Z)
+import kompetens as kp_k3  # noqa: E402
+import nastlad as nl_k3  # noqa: E402
+import signal as sig_k3  # noqa: E402
+assert kp_k3.prova() == [], kp_k3.prova()
+assert '.claude/skills/impeccable/reference/critique.md' in kp_k3.lasfiler('kritik') and '.claude/skills/impeccable/reference/craft-floor.md' in kp_k3.lasfiler('skapa')
+assert set(kp_k3.PASS) == {p_ for x_ in kp_k3.tolka().values() for p_ in x_['pass']}, 'varje pass har en kompetens'
+v_k3 = kp_k3.verktyg('skapa', 'x', 'k01')
+assert 'Skill' in v_k3 and 'mcp__refero__refero_search_screens' in v_k3 and 'mcp__mobbin__search_screens' in v_k3 and any('search.py' in x_ for x_ in v_k3)
+karta_k3 = (ROOT / 'kunskap' / 'metodkarta.md').read_text()
+assert 'läses inte i förväg' not in karta_k3 and 'Minst tre förhandsvarv är en arbetsregel' not in karta_k3, 'inga frivilliga utdrag och inget varvkrav i skissen'
+# sessionerna: med en slug alla skills och MCP:er med kundvakten; utan slug inga MCP:er
+a_k3 = at_pt.session_args(['Read', 'Write(./x/**)'], None, 10, 'm', 'high', (), 'sk-prov')
+assert '--strict-mcp-config' not in a_k3 and '--settings' in a_k3 and 'kundvakt.py' in a_k3[a_k3.index('--settings') + 1] and '--disable-slash-commands' not in a_k3
+assert 'Skill' in a_k3[a_k3.index('--tools') + 1].split(',') and 'mcp__refero__.*' in a_k3[a_k3.index('--settings') + 1]
+assert '--strict-mcp-config' in at_pt.session_args(['Read'], None, 10, 'm', 'high', ())
+spara_ref_k3 = at_pt.REFERO_ENV
+(tmp / 'k3-refero.env').write_text('REFERO_MCP_TOKEN=provnyckel\n')
+at_pt.REFERO_ENV = tmp / 'k3-refero.env'
+try:
+    assert at_pt.session_miljo('sk-prov').get('REFERO_MCP_TOKEN') == 'provnyckel' and 'REFERO_MCP_TOKEN' not in at_pt.session_miljo(None)
+finally:
+    at_pt.REFERO_ENV = spara_ref_k3
+# kundvakten: stoppar kundens namn, släpper en ren fråga, stänger vid fel
+(tmp / 'k3-u' / 'k3-kund').mkdir(parents=True)
+(tmp / 'k3-u' / 'k3-kund' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Vaktfirman Bygg AB', 'adress': {'ort': 'Kalix'}, 'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33'}]}))
+for in_, rc_ in (({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'query': 'Vaktfirman homepage'}}, 2),
+                 ({'tool_name': 'mcp__mobbin__search_screens', 'tool_input': {'query': 'builder site', 'task_intent': 'contact 0701112233'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'query': 'warm craft builder site'}}, 0)):
+    r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'k3-kund', str(tmp / 'k3-u')], input=json.dumps(in_), capture_output=True, text=True)
+    assert r_k3.returncode == rc_, (in_, r_k3.returncode, r_k3.stderr)
+r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'k3-kund', str(tmp / 'k3-u')], input='inte json', capture_output=True, text=True)
+assert r_k3.returncode == 2 and 'stoppas' in r_k3.stderr, 'vakten stänger vid fel'
+r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'saknas', str(tmp / 'k3-u')], input=json.dumps({'tool_input': {'query': 'x'}}), capture_output=True, text=True)
+assert r_k3.returncode == 2, 'utan kundens uppgifter stoppas anropet'
+# S3: tidsgränsen och stoppet når hela processträdet, också en underprocess i en egen processgrupp
+skript_k3 = tmp / 'k3-trad.sh'
+skript_k3.write_text('#!/bin/bash\n( exec setsid sleep 300 2>/dev/null || exec /usr/bin/perl -e "setpgrp(0,0); sleep 300" ) &\nsleep 300\n')
+skript_k3.chmod(0o755)
+p_k3 = subprocess.Popen([str(skript_k3)], start_new_session=True)
+time.sleep(0.6)
+barn_k3 = nl_k3.efterkommande(p_k3.pid)
+assert barn_k3, 'trädet syns via ppid'
+dodade_k3 = nl_k3.doda_trad(p_k3.pid)
+p_k3.wait(timeout=10)
+time.sleep(0.3)
+assert all(not nl_k3.lever(x_) for x_ in barn_k3) and set(barn_k3) <= set(dodade_k3), (barn_k3, dodade_k3)
+assert nl_k3.doda_trad(None) == [] and nl_k3.ar_session(os.getpid()) is False, 'ett pid som inte är en flödessession avslutas aldrig vid återupptagning'
+# S6: den aktuella linjen börjar vid den senaste nya riktningen; äldre domar pekas ut, deras text följer inte med
+(tmp / 'k3-u' / 'k3-kund' / sk.DOMLOGG).write_text('\n'.join(json.dumps({'tid': t_, 'kalla': 'ägaren', 'beslut': b_, 'text': x_}) for t_, b_, x_ in (
+    ('2026-10-01T10:00:00Z', 'putsa', 'KUNDBESLUT: ingen e-post på sidan'), ('2026-10-02T10:00:00Z', 'ny_riktning', 'LINJESTART'),
+    ('2026-10-03T10:00:00Z', 'forkasta', 'FORKASTAD'), *[('2026-10-0%dT10:00:00Z' % (4 + i_), 'jamfor', 'J%d' % i_) for i_ in range(6)])) + '\n')
+akt_k3 = '\n'.join(sk.kritikrader('k3-kund', underlag=tmp / 'k3-u', aktuella=True))
+assert 'LINJESTART' in akt_k3 and 'KUNDBESLUT' not in akt_k3 and 'Äldre domar (1' in akt_k3 and 'domar i samma linje' in akt_k3, akt_k3
+# S13: läget prövas; en plan utan läge är läget full (skriven före skissläget)
+assert kd.LAGE in ('skiss', 'full')
+spara_u_k3 = at_pt.UNDERLAG
+at_pt.UNDERLAG = tmp / 'k3-u'
+try:
+    assert kd.korlage('k3-kund', {'kandidatlage': 'skiss'}) == 'skiss' and kd.korlage('k3-kund', {'kandidatlage': 'fullt'}) == 'full'
+    (tmp / 'k3-u' / 'k3-kund' / 'atelje').mkdir(parents=True)
+    (tmp / 'k3-u' / 'k3-kund' / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': 'x', 'kandidater': {}}))
+    assert kd.korlage('k3-kund', {'kandidatlage': 'skiss'}) == 'full', 'en plan utan läge är läget full'
+finally:
+    at_pt.UNDERLAG = spara_u_k3
+# S14: metodens rader kräver inte att allt läses
+import inspect as insp_k3  # noqa: E402
+assert 'En skill som inte lästs' not in insp_k3.getsource(kd.metod_rader)
+# S15: helbygget går på prenumerationen
+assert '-u ANTHROPIC_API_KEY' in (ROOT / 'kor.sh').read_text()
+# S7: granskarnas text: ägarens domar över andra byggen är exempel, inte regler
+assert 'ägarens skäl väger tyngst' not in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'inga regler för den här kunden' in (ROOT / 'kontroller' / 'granska.py').read_text()
+assert 'gäller före allt' not in (ROOT / 'kontroller' / 'atelje.py').read_text()
+# S16: förteckningen pekar på alla filer ett långt utdrag fortsätter i
+lev_k3 = md_kd.leverera('forska', tmp / 'k3-metod')
+assert all('→' in r_ for r_ in (lev_k3['filer'][0]['fil'].read_text().split('## Att slå upp')[-1].split('## Utdragen')[0].strip().splitlines()[2:]) if r_.startswith('- '))
+print('kompetenskedjan och granskning 3 ok')
 
 # ---------------------------------------------------------------- autonomins mått (Codex helhetsbedömning 2026-10-04, punkt 9)
 import autonomi as au  # noqa: E402

@@ -7,7 +7,9 @@
 - **Licens:** MIT. `LICENSE` (Siqi Chen, 2025) och `LICENSE-nous-research` (Nous Research, 2025).
 - **Intagen:** 2026-10-02 efter kirurgens dom "ta in" (kunskap/REGISTER.md · 2026-10-02 · NousResearch/hermes-agent).
 - **Borttaget:** frontmatterns version, author, license, platforms och metadata; avsnittet "How to use it in Hermes";
-  verktygsnamnen read_file, patch och write_file i Process. Inga allowed-tools eller hooks fanns.
+  verktygsnamnen read_file, patch och write_file i Process; och Hermes-svansen i meningen "Also apply this skill to your
+  own output…" (SKILL.md:44, kortad till den allmänna regeln). Inga allowed-tools eller hooks fanns. Källans HEAD
+  9b6fc23 (kontrollerad 2026-10-05) ändrar inget i skillmappen.
 - **Tillagt:** avsnittet "Så används skillen i nortropic-webb-pro" överst, en ny beskrivning, och en anmärkning före
   Full Example om att exemplet hittar på personer och studier.
 - **Krockar som avsnittet överst löser:** svenska citattecken (mönster 19), engelskspecifika mönster (17, 26),

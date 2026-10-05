@@ -47,6 +47,27 @@ besökarens uppgift löses; färgbyten på samma layout är inga olika förslag.
   bristerna, det som tillfördes varje uppdrag och verktygen som användes, de ofullständiga och det som behöver
   mänsklig bedömning. Antalet lästa filer, anrop eller varv är inget betyg.
 
+**Kompetenserna** (ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"; Codex samma dag:
+varje kompetens med en obligatorisk uppgift och sina fullständiga instruktioner). Avsnittet Kompetenserna i
+`kunskap/metodkarta.md` säger vilka skills och referensfiler varje kompetens läser hela, vilka verktyg och MCP:er den
+har och vad den ska visa; `kontroller/kompetens.py` läser det. Kedjan i skissläget:
+
+1. **Planprövningen:** art direction och UX prövar planerarens designval innan någon bygger, och skriver ändringarna i
+   uppdragen (PLANPROVNING.md).
+2. **Skaparen:** art direction och typografi, layout och bild, med Impeccables arbetsflöde (new-work, craft-floor direkt
+   före varje ändring), UI UX Pro Max designsystemsökning och förebilder ur Refero eller Mobbin.
+3. **Fyra pass på den renderade skissen**, i ordning: UX och innehåll, interaktion och rörelse, mobil och
+   tillgänglighet, visuell kritik och slutbearbetning (med Impeccables detektor). Varje pass läser sina filer hela,
+   arbetar i en avgränsad omgång och redovisar före och efter i sidan och vad varje skill ändrade; ett pass som bryter
+   sidan återställs, och ett som inte läst sina filer får ett omförsök.
+4. **Fördjupningen** efter ägarens val: alla kompetenser, sedan de fyra passen igen på hela sidan.
+
+Alla skills (skillverktyget) och användarens MCP-servrar är tillgängliga i sessionerna; vad de får använda utan att fråga
+står i varje pass. Refero, Mobbin och Trybloom når aldrig kundens uppgifter: `kontroller/kundvakt.py` är en
+PreToolUse-krok som stoppar ett sådant anrop och stänger vid fel. Skills utan uppgift i en statisk webbsajt står med
+skäl i kartan. Kvittot (filerna lästa hela, skillverktygets och MCP:ernas anrop) och före och efter står i
+REDOVISNING.md och i vyn efter ägarens första beslut.
+
 `NWP_KANDIDATLAGE=full` är en tillfällig växel till det tidigare förvalet (granskning i två pass och förbättringsrunda
 före ägarens val, hela startsidan och undersidan, minst tre varv), för jämförelse och återställning. Växeln tas bort när
 ägaren dömt skissläget (BESLUT.md 2026-10-05, kväll). Körningens läge står i planen, så en återupptagning följer

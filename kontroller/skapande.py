@@ -19,6 +19,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -93,6 +94,11 @@ def metod_kallor(steg):
             if m:
                 ut.append((metod.kalla(m.group('vag')).relative_to(metod.ROOT).as_posix(),
                            ('rad ' + m.group('rader').strip()) if m.group('rader') else ('avsnittet ' + m.group('rubrik')) if m.group('rubrik') else ''))
+        import kompetens  # kompetensernas filer, hela (ägarens ord 2026-10-05 18:15Z: alla skills används)
+        pass_ = {'utforska': 'skapa', 'forfina': 'fordjupa'}.get(steg)
+        for v in (kompetens.lasfiler(pass_) if pass_ else []):
+            if v not in [x for x, _ in ut]:
+                ut.append((v, 'hela, kompetensen'))
         return ut
     except Exception:  # noqa: BLE001 — utan karta gäller listan nedan
         return None
@@ -149,21 +155,35 @@ def senaste(slug, kallor=AGAREN, underlag=None):
     return next((d for d in reversed(domar(slug, underlag)) if d.get('kalla') in kallor), None)
 
 
-AKTUELL_START = ('ny_riktning', 'forkasta')  # en dom som börjar en ny linje för kunden: det före är historik
+AKTUELL_START = ('ny_riktning',)  # återöppnar designbesluten (ATEROPPNAR); en förkastning bara grundidéerna och referenserna
+MAX_AKTUELLA = 6  # den aktuella linjens första dom visas alltid, och de senaste efter den
 
 
 def aktuella_domar(slug, underlag=None):
-    """Kundens aktuella domar: från den senaste ägardomen som begärde en ny riktning eller förkastade förslagen, och de
-    efter den; utan en sådan alla ägarens domar. Det äldre är historik som slås upp (ägarens uppdrag 2026-10-05 16:25Z)."""
+    """Kundens aktuella domar: hela linjen från den senaste ägardomen som begärde en ny riktning (den återöppnar
+    designbesluten); utan en sådan alla ägarens domar. De äldre är historik som slås upp (ägarens uppdrag 2026-10-05
+    16:25Z; granskning 3, S6)."""
     egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN]
     start = max((i for i, d in enumerate(egna) if d.get('beslut') in AKTUELL_START), default=0)
     return egna[start:]
 
 
+def aldre_domar(slug, underlag=None):
+    egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN]
+    return egna[:len(egna) - len(aktuella_domar(slug, underlag))]
+
+
 def kritikrader(slug, antal=3, underlag=None, aktuella=False):
-    """Ägarens senaste domar ordagrant, nyast först, med vad de återöppnar: prompternas första underlag. aktuella: bara
-    kundens aktuella domar (aktuella_domar), i kandidatflödet; den äldre utforskningen får de senaste oavsett."""
-    egna = (aktuella_domar(slug, underlag) if aktuella else [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN])[-antal:]
+    """Ägarens senaste domar ordagrant, nyast först, med vad de återöppnar: prompternas första underlag. aktuella: kundens
+    aktuella linje (aktuella_domar), med linjens första dom alltid med, och en rad om de äldre domarna och var de står;
+    den äldre utforskningen får annars de senaste oavsett linje."""
+    utelamnade, aldre = 0, []
+    if aktuella:
+        linje = aktuella_domar(slug, underlag)
+        egna = linje if len(linje) <= MAX_AKTUELLA else linje[:1] + linje[-(MAX_AKTUELLA - 1):]
+        utelamnade, aldre = len(linje) - len(egna), aldre_domar(slug, underlag)
+    else:
+        egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN][-antal:]
     if not egna:
         return []
     rader = ['Ägarens %s domar över designen (underlag/%s/%s), nyast först. De väger tyngst av allt du läser; en senare' % (
@@ -181,6 +201,13 @@ def kritikrader(slug, antal=3, underlag=None, aktuella=False):
         titlar = d.get('delar_titlar') if isinstance(d.get('delar_titlar'), dict) else {}
         for kid, text in sorted((d.get('delar') or {}).items()) if isinstance(d.get('delar'), dict) else []:
             rader.append('  ägaren gillade i %s%s%s: %s' % (kid, (' "%s"' % titlar[kid]) if titlar.get(kid) else '', plan, re.sub(r'\s+', ' ', str(text))[:600]))
+    if utelamnade:
+        rader.append('(%d domar i samma linje, mellan den första och de senaste, står i underlag/%s/%s.)' % (utelamnade, slug, DOMLOGG))
+    if aldre:
+        rader.append('Äldre domar (%d, %s–%s) står i underlag/%s/%s. Den nya riktningen har återöppnat deras designbeslut; ett' % (
+            len(aldre), aldre[0].get('tid', '?')[:10], aldre[-1].get('tid', '?')[:10], slug, DOMLOGG))
+        rader.append('uttryckligt beslut i dem om annat än designen (till exempel kontaktvägen eller vad som inte ska nämnas) gäller tills en')
+        rader.append('senare dom återöppnar det. Slå upp dem när en sådan fråga uppstår.')
     return rader
 
 
@@ -358,7 +385,22 @@ def kanal_fel(begaran, bred=False, forbjudna=None):
     return None
 
 
-def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False, forbjudna=None):
+def kor_trad(args, timeout):
+    """Ett referenssteg i egen processgrupp; vid tidsgräns avslutas hela trädet, också tjänstesessionernas claude och
+    referenssidornas node (granskning 3, S3)."""
+    import nastlad
+    p = subprocess.Popen(args, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=dict(os.environ),
+                         start_new_session=True)
+    try:
+        out, err = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        nastlad.doda_trad(p.pid)
+        p.communicate()
+        raise
+    return subprocess.CompletedProcess(args, p.returncode, out, err)
+
+
+def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False, forbjudna=None, las_frist=None):
     """Research på begäran (Codex 2026-10-05, punkt 3 och 4): skaparens KOMPLETTERING.json blir uppdrag till det befintliga
     referenssteget (referens.py ger en ny komplett paketversion som ärver det förra; referenstjanster.py söker i Refero och
     Mobbin). Begäran flyttas till <rot>/kompletteringar/, tjänsternas förra rapport sparas under tjanster/tidigare/ innan
@@ -366,7 +408,7 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False,
     import shutil
     underlag = Path(underlag or UNDERLAG)
     u = underlag / slug
-    kor = kor or (lambda args, timeout: subprocess.run(args, cwd=str(ROOT), capture_output=True, text=True, timeout=timeout, env=dict(os.environ)))
+    kor = kor or kor_trad
     tid = '%s-%s' % (nu().replace(':', ''), os.urandom(3).hex())  # två begäranden samma sekund får egna filer (granskning 2, N7)
     try:
         begaran = json.loads(Path(fil).read_text(encoding='utf-8'))
@@ -387,7 +429,19 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False,
     import fcntl
     (u / 'referenser').mkdir(parents=True, exist_ok=True)
     with open(u / 'referenser' / '.forskningslas', 'w') as las_:
-        fcntl.flock(las_, fcntl.LOCK_EX)
+        if las_frist is None:
+            fcntl.flock(las_, fcntl.LOCK_EX)
+        else:  # en skiss väntar bara så länge dess försök räcker (granskning 3, S8)
+            slut = time.time() + max(0, las_frist)
+            while True:
+                try:
+                    fcntl.flock(las_, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if time.time() >= slut:
+                        ut['fel'] = 'researchlåset var upptaget av en annan kandidats begäran under hela väntetiden'
+                        return ut
+                    time.sleep(2)
         if isinstance(begaran.get('referens'), dict):
             upp = dict(begaran['referens'])
             forra = senaste_paket(slug, underlag)

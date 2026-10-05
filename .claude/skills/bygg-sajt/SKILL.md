@@ -65,7 +65,7 @@ de besvarar en konkret fråga; de blir aldrig regler för en ny kund.
 ## Uppstart
 
 Läs, i den här ordningen: `kunskap/designregler.md`, kundens aktuella domar i `underlag/<slug>/DESIGNDOMAR.jsonl`
-(från den senaste som begärde en ny riktning eller förkastade förslagen; de äldre är historik), `kunskap/copy-kontroll.md`
+(från den senaste som begärde en ny riktning; de äldre är historik, utom uttryckliga beslut om annat än designen), `kunskap/copy-kontroll.md`
 och `kunskap/referenser-professionella.md`. Ägarens domar över tidigare byggen slår du upp i `LARDOMAR.md` när de
 besvarar en konkret fråga. Lägg upp de åtta stegen som uppgifter med TaskCreate och bocka av dem med TaskUpdate.
 

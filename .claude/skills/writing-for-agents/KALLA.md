@@ -5,8 +5,9 @@
   (2026-09-29).
 - **Licens:** MIT. `LICENSE` (Matt Pocock, 2026), repots licensfil.
 - **Intagen:** 2026-10-02 efter kirurgens dom "ta in" (kunskap/REGISTER.md · 2026-10-02 · mattpocock/skills).
-- **Borttaget:** `agents/openai.yaml` (visningsnamn för Codex) och frontmatterns beskrivning. Inga allowed-tools,
-  hooks eller skript fanns.
+- **Borttaget:** frontmatterns beskrivning. Inga allowed-tools, hooks eller skript fanns. `agents/openai.yaml`
+  (visningsnamn för Codex) togs bort vid intaget 2026-10-02 och är tillbaka ordagrant ur källans HEAD 4588b32 sedan
+  2026-10-05, på ägarens ord samma dag ("SE TILL ATT ALLA ÄR UPPDATERADE"; skillsen i sin fullo).
 - **Tillagt:** avsnittet "Så används skillen i nortropic-webb-pro" och rubriken "Writing for agents" före källans
   text, och en ny beskrivning. SKILL.md efter rubriken och SKILL-MECHANICS.md är oförändrade.
 - **Krockar som avsnittet överst löser:** källan vill ha förbud bara som hårda skyddsräcken ihop med det positiva

@@ -183,7 +183,8 @@ if [ "$SETTINGS" != "{}" ]; then ARGS+=(--settings "$SETTINGS"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort; bygget skriver
 # aldrig i ägarens automatiska minne (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 nedan, kontroller/nastlad.py).
-RENSA=(-u CLAUDECODE)
+# Bygget går på prenumerationen: API-nyckel, token och bas-URL följer aldrig med (som kontroller/nastlad.py API).
+RENSA=(-u CLAUDECODE -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_BASE_URL)
 while IFS='=' read -r namn _; do
   case "$namn" in CLAUDE_CODE_*) RENSA+=(-u "$namn");; esac
 done < <(env)

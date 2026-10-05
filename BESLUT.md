@@ -283,3 +283,22 @@ tydligt olika kundanpassade förslag blir kortare, med kvalitetsribban kvar, och
    (`kontroller/nastlad.py`).
 4. **Tillfällig växel:** `NWP_KANDIDATLAGE=full` ger det tidigare förvalet med granskning och förbättringsrunda, för
    jämförelse och återställning. Den tas bort när ägaren dömt skissläget; blir skissläget kvar ersätter det förvalet.
+
+## Tillägg 2026-10-05, kväll: kompetensen aktiv, alla skills och MCP:er
+
+Ägarens ord 2026-10-05 18:15Z (ordagrant i minnet): "GUD FÖRBANNAT, du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA,
+SE TILL ATT ALLA ÄR UPPDATERADE, CLAUDE OCKSÅ". Strax före hade ägaren förmedlat Codex iakttagelse att skissprovets
+skapare hoppat över specialistkunskapen, eftersom flödet stängt av skillupptäckten och gjort utdragen frivilliga.
+
+1. **Varje kompetens har en obligatorisk uppgift** (`kunskap/metodkarta.md`, Kompetenserna; `kontroller/kompetens.py`):
+   art direction, typografi/layout/bild, UX och innehåll, interaktion och rörelse, mobil och tillgänglighet, visuell
+   kritik och slutbearbetning, och designsystemet i fördjupningen. Impeccables arbetsflöde är förebilden; varje pass
+   läser sina skills hela och visar före och efter i den renderade sidan. Ett pass är inte godkänt för att en fil öppnats.
+2. **Specialisterna prövar planen** innan skaparna börjar (planprövningen).
+3. **Alla skills och MCP:er är tillgängliga** i flödets sessioner. Refero, Mobbin och Trybloom skyddas av kundvakten
+   (BESLUT 2026-10-05 punkt 4 gäller). Bildgenererande skills används inte förrän ägaren beslutat om genererade
+   designbilder: sajten använder verksamhetens egna bilder (ägarbeslutet L3).
+4. **Uppdaterat 2026-10-05:** Claude Code 2.1.280 → 2.1.289; alla skills kontrollerade mot källornas HEAD (aktuella;
+   writing-for-agents fick tillbaka `agents/openai.yaml`); Impeccables motor 0.1.6 → 0.1.11 (sha256 ur källan).
+   GitBook, Google Calendar, Figma och Notion-pluginen kräver ägarens inloggning.
+
