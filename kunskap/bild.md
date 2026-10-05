@@ -1,9 +1,10 @@
 # Bild — funktion, äkthet, rättigheter, beskärning, storlekar och optimering
 
-Professionsfil, läses i steg 5 i `.claude/skills/bygg-sajt/SKILL.md`. Ägarens regler gäller före allt annat här
-(LARDOMAR.md): verksamhetens egna bilder, eller inga foton ("hellre inga foton än stock"); en saknad bild är en
-beställning, inte ett designval ("gör 'inga egna foton' till en beställning"); ett foto av kundens arbete är just
-kundens arbete. Samma regel står i skillens steg 1 punkt 2 ("Inga stockbilder") och i granskarens kriterium 2.
+Professionsfil, läses i steg 5 i `.claude/skills/bygg-sajt/SKILL.md` och av rollen design och komposition
+(`kunskap/metodkarta.md`). Kvalitetskravet äkthet (`kunskap/designregler.md`) gäller före allt annat här: en bild som
+visar verksamheten är verksamhetens egen, och en saknad sådan bild är en beställning, inte ett designval (ägarens dom
+L3: "gör 'inga egna foton' till en beställning"). Material som inte utger sig för att dokumentera verksamheten är
+tillåtet med källa och licens. Samma regel står i byggskillens steg 1 punkt 2 och i granskarens kriterium 2.
 
 ## Vad en bild får vara
 
@@ -11,12 +12,14 @@ kundens arbete. Samma regel står i skillens steg 1 punkt 2 ("Inga stockbilder")
 |---|---|---|
 | `depicts_client_work` | visar verksamhetens faktiska arbete | bara verksamhetens egna foton, med rätt att publicera |
 | `depicts_client_people` | visar verksamhetens personer | bara verksamhetens egna foton, med samtycke |
-| `illustrative` / `none` | miljö, stämning eller form utan påstående | verksamhetens egna foton, eller form i koden (SVG ur märket, en karta, typografi) |
+| `illustrative` / `none` | miljö, stämning, mönster, textur eller form utan påstående om verksamheten | verksamhetens egna foton, form i koden (SVG ur märket, en karta, typografi), eller licensierat eller genererat material med källa och licens i BILDER.md |
 
-Stockbilder och genererade bilder används inte på sajten, inte heller som stämning: ägarens dom gäller alla
-bildplatser. När egna bilder saknas bär typografin, färgen och formen, och bilderna beställs i `BESTALLNING.md`
-med plats och syfte ("ta en sådan här, fast er egen"). En form som byggs i koden (en linje ur märket, en karta
-över orterna) är ingen bild i den här meningen och får användas när den har en funktion.
+Ett stockfoto eller en genererad bild får aldrig stå på en plats med anspråket `depicts_client_work` eller
+`depicts_client_people`, och aldrig se ut som verksamhetens arbete eller personal (ett hus, ett kök, en hantverkare).
+Illustrativt material håller sig till det som tydligt inte dokumenterar: en textur, ett mönster, en illustration, en
+konceptbild som läses som bild och inte som bevis. När egna bilder saknas bär typografin, färgen och formen, och
+bilderna beställs i `BESTALLNING.md` med plats och syfte ("ta en sådan här, fast er egen"); prototypen får en tydligt
+märkt platshållare. Flödets sessioner har ingen bildgenerator; genererat illustrativt material tas fram utanför flödet.
 
 ## Varje viktig bildplats har ett syfte och prövat material
 
@@ -43,8 +46,9 @@ material som redan håller ihop behandlas inte.
 
 ## Beskärning, storlekar och optimering
 
-Filnamn `<plats>__<beskrivning>.<ext>`. Beskärningar per plats (första vyn 16:9 och 4:5 för mobil, 3:2 för miljö,
-kvadrat för porträtt) med fokuspunkten på det bilden ska visa, och responsiva storlekar med `sizes`; `astro:assets`
+Filnamn `<plats>__<beskrivning>.<ext>`. Beskärningen följer den valda designen och huvudreferensens bildbehandling
+(DESIGN.md, Bildbehandling), med fokuspunkten på det bilden ska visa; utan sådan ger 16:9 och 4:5 för mobil i
+första vyn, 3:2 för miljö och kvadrat för porträtt en utgångspunkt, aldrig ett krav. Responsiva storlekar med `sizes`; `astro:assets`
 gör AVIF/WebP. Förslag till viktbudget: första vyns bild ≤ 150 kB, porträtt ≤ 100 kB, övriga ≤ 120 kB. Explicita
 mått på varje bild (ingen layoutförskjutning), `loading="lazy"` utom första vyns bild, alt-text på svenska som
 beskriver innehållet (tom alt bara för dekor).

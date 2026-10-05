@@ -14,10 +14,10 @@ ordagrant i `underlag/LARDOMAR-original.md` (privat). En äldre smakdom är ett 
 - `kirurg`: bedömer ett repo, en skill, en artikel eller en YouTube-video (`/kirurg <url>`). Lägger aktuella fynd i
   backloggen automatiskt.
 - `backlog`: genomför den vilande backloggen när ägaren säger "implementera enligt backlog".
-- Övriga mappar i `.claude/skills/` är designkompetensen: varje kompetens har en obligatorisk uppgift i skapandeflödet
-  med sina skills fullständiga instruktioner (`kunskap/metodkarta.md`, avsnittet Kompetenserna; ägarens ord 2026-10-05:
-  alla skills och MCP:er ska användas). Var och en har `KALLA.md` med källa, commit och licens. `writing-for-agents` är
-  för sessioner som ändrar en skill, `CLAUDE.md` eller `kunskap/`, inte för byggena.
+- Övriga mappar i `.claude/skills/` är designkompetensen, fördelad på rollerna i skapandeflödet: varje roll har en kärna
+  som läses hel och alternativ som väljs efter riktningen (`kunskap/metodkarta.md`, avsnittet Kompetenserna; ägarens ord
+  2026-10-05: alla skills och MCP:er ska användas). Var och en har `KALLA.md` med källa, commit och licens.
+  `writing-for-agents` är för sessioner som ändrar en skill, `CLAUDE.md` eller `kunskap/`, inte för byggena.
 
 ## Var saker finns
 
@@ -30,7 +30,9 @@ utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglern
 
 ## Arbetssätt
 
-- Små ändringar. En dom blir en textändring, inte en ny mekanik.
+- Små ändringar. En ägardom klassas först: kundbeslut, smakpreferens, metodhypotes eller generell rättelse; bara en
+  generell rättelse blir en gemensam regel (`.claude/skills/backlog/SKILL.md`, steg 3), och då som en textändring, inte
+  en ny mekanik.
 - Python med `.venv/bin/python`, Node med `node`. Kommandon från repots rot.
 - Efter ändringar i `kontroller/` eller `mall/`: `kontroller/rokprov.sh` ska sluta grönt.
 - Commit direkt på `main` och `git push origin main`. Repot är publikt: inga hemligheter, inget ur `underlag/` eller

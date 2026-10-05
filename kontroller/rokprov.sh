@@ -16,7 +16,10 @@ cp "$ROOT/kontroller/rokprov/DESIGN.md" "$S/DESIGN.md"
 # apple-touch-icon och delningsbild görs av verktyget varje gång, så att verktyget också prövas
 node "$ROOT/kontroller/ikoner.mjs" --sajt "$S" --foto "$ROOT/kontroller/rokprov/foto.svg" --bakgrund '#0b57d0' >/dev/null
 sed -i '' 's#https://ERSATT-MED-DOMAN.se#https://exempel-rokprov.se#' "$S/astro.config.mjs"
-[ -d "$S/node_modules" ] || (cd "$S" && npm install --no-audit --no-fund >/dev/null)
+# beroendena ur mallens låsfil: en ändrad låsfil installeras om (npm ci), så att provet alltid bygger mallens versioner
+if [ ! -d "$S/node_modules" ] || ! cmp -s "$ROOT/mall/astro/package-lock.json" "$S/node_modules/.nwp-las.json"; then
+  (cd "$S" && npm ci --no-audit --no-fund >/dev/null) && cp "$ROOT/mall/astro/package-lock.json" "$S/node_modules/.nwp-las.json"
+fi
 rm -f "$ROOT/kunder/rokprov-mall/RAPPORT.md"
 # testsajten har inga foton: beställningen finns, så att bildkravet (9.3) är uppfyllt på rätt sätt
 mkdir -p "$ROOT/underlag/rokprov-mall"
@@ -181,10 +184,39 @@ tmp = pathlib.Path(tempfile.mkdtemp()); d = tmp / 'dist'; shutil.copytree('$S/di
 punkter = lambda: {(f['punkt'], f['sida']) for f in sk.granska(d)[0]}
 ren = punkter()
 assert not {p for p in ren if p[0] in ('3.5', '4.3', '7.3')}, ren
-# brödsmulor: utan nav på /om/ blir det fel 7.3
+# brödsmulor följer DESIGN.md:s struktur (en designhypotes, Codex via ägaren 2026-10-05 punkt 2)
 om = d / 'om' / 'index.html'; html_om = om.read_text()
-om.write_text(re.sub(r'<nav class=\"brodsmulor\".*?</nav>', '', html_om, flags=re.S))
-assert ('7.3', '/om/') in punkter(); om.write_text(html_om)
+utan_nav = re.sub(r'<nav class=\"brodsmulor\".*?</nav>', '', html_om, flags=re.S)
+utan_bada = re.sub(r'<script type=\"application/ld\+json\">[^<]*BreadcrumbList[^<]*</script>', '', utan_nav)
+assert 'BreadcrumbList' not in utan_bada and 'BreadcrumbList' in utan_nav, 'provet tar bort både den synliga navigeringen och BreadcrumbList'
+design_md = pathlib.Path('$S/DESIGN.md').read_text()
+(tmp / 'DESIGN.md').write_text(design_md)  # struktur.brodsmulor true: de krävs
+om.write_text(utan_bada)
+assert any(f['punkt'] == '7.3' and f['sida'] == '/om/' and 'Du är här' in f['text'] for f in sk.granska(d)[0]), 'deklarerade brödsmulor som saknas ska ge fel'
+(tmp / 'DESIGN.md').write_text(design_md.replace('\"brodsmulor\": true', '\"brodsmulor\": false'))
+assert ('7.3', '/om/') not in punkter(), 'brödsmulor som designen valt bort ska inte fällas'
+om.write_text(utan_nav)
+assert any(f['punkt'] == '7.3' and 'utan synliga' in f['text'] for f in sk.granska(d)[0]), 'BreadcrumbList utan synliga brödsmulor ska ge fel'
+(tmp / 'DESIGN.md').unlink(); om.write_text(html_om)
+# kontaktvägarna följer kundens kontaktmodell (BRIEF.md §4): telefonen var som helst på sidan, aldrig en fast plats
+brief = tmp / 'BRIEF.md'
+brief.write_text('# Brief\n\n## §4 Primär handling\n\n**Ring 070-000 00 00** (tel:+46700000000).\n')
+km = sk.kontaktmodell(brief)
+assert km and km['telefon'], km
+utan_tel = re.sub(r'<a [^>]*href=\"tel:[^\"]*\"[^>]*>.*?</a>', '', html_om, flags=re.S)
+assert 'tel:' not in utan_tel, 'provet tar bort varje tel-länk'
+om.write_text(utan_tel)
+assert any(f['punkt'] == '9.2' and f['sida'] == '/om/' for f in sk.granska(d, km)[0]), 'en kontaktmodell med telefon kräver tel-länk på sidan'
+brief.write_text('# Brief\n\n## §4 Primär handling\n\n**Boka tid** i formuläret på /kontakt/.\n')
+km2 = sk.kontaktmodell(brief)
+assert km2 and not km2['telefon'] and km2['bokning'], km2
+assert 'href=\"/kontakt/\"' in utan_tel, 'sidan länkar fortfarande till kontaktsidan'
+assert not any(f['punkt'] == '9.2' and f['sida'] == '/om/' for f in sk.granska(d, km2)[0]), 'utan telefon i kontaktmodellen räcker ett nästa steg'
+utan_steg = re.sub(r'<a [^>]*href=\"/kontakt/\"[^>]*>.*?</a>', '', utan_tel, flags=re.S)
+assert 'href=\"/kontakt/\"' not in utan_steg and '<form' not in utan_steg, 'provet tar bort varje väg vidare'
+om.write_text(utan_steg)
+assert any(f['punkt'] == '9.2' and f['sida'] == '/om/' and 'nästa steg' in f['text'] for f in sk.granska(d, km2)[0]), 'en sida utan nästa steg ska ge fel'
+om.write_text(html_om)
 # rörelse utan prefers-reduced-motion blir fel 3.5
 sidor = {f: f.read_text() for f in d.rglob('*.html')}
 for f, t in sidor.items(): f.write_text(re.sub(r'@media \(prefers-reduced-motion[^{]*\{.*?\}\s*\}', '', t, flags=re.S))
@@ -192,9 +224,13 @@ for f, t in sidor.items(): f.write_text(re.sub(r'@media \(prefers-reduced-motion
 assert ('3.5', '(alla)') in punkter()
 for f, t in sidor.items(): f.write_text(t)
 (d / 'rorelse.css').unlink()
-# typsnitt: 90 kB utan bredd-axel är fel 4.3, med bredd-axel information
+# typsnitt: en tung fil är information; fel först när sajtens typsnitt tillsammans går över budgeten (4.3)
 (d / 'tung.woff2').write_bytes(b'0' * 92 * 1024)
+assert ('4.3', '(alla)') not in punkter()
+assert any(i['punkt'] == '4.3' and 'tung.woff2' in i['text'] for i in sk.granska(d)[1]), 'den tunga filen står som information'
+(d / 'tyngre.woff2').write_bytes(b'0' * (sk.TYPSNITT_BUDGET_KB + 10) * 1024)
 assert ('4.3', '(alla)') in punkter()
+(d / 'tyngre.woff2').unlink()
 (d / 'bredd.css').write_text('h1{font-stretch:62%}')
 assert ('4.3', '(alla)') not in punkter()
 # publik adress: saknas i sidfot och JSON-LD = fel 7.4

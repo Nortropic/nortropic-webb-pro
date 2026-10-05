@@ -4,7 +4,8 @@
 // tangentbord, reflow 320, meny, omladdning, bakåt/framåt), spår. Skärmbilder kompletterar interaktionen; ett textträd
 // är inte bildseende — bedöm layout i bilderna.
 //   node inspektera.mjs --adress URL --ut DIR [--vyer 390,1440] [--tillat ORIGIN;ORIGIN | --tillat-alla] [--undantag-fil F]
-//        [--hemligheter FIL] [--kontext FIL,FIL] [--hover SEL] [--fokus SEL] [--meny SEL] [--tillstand tangentbord,reflow,reload,bakat]
+//        [--hemligheter FIL] [--kontext FIL,FIL] [--hover SEL] [--fokus SEL] [--meny SEL] [--tillstand tangentbord,reflow,reload,bakat,reducerad]
+//        reducerad: sidan omladdad med prefers-reduced-motion: reduce; animationer som fortfarande löper räknas och fotograferas
 //        [--extrahera standard | 'SEL;SEL'] — riktad designextraktion i samma session (extrahera.mjs): vy-<bredd>-extrakt.json och EXTRAKT.md
 import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER, viaTjanst } from './gemensamt.mjs';
 import { readFileSync } from 'node:fs';
@@ -70,6 +71,17 @@ for (const vy of vyer) {
     if (a.meny) { const ok = await b.page.click(a.meny, { timeout: 5000 }).then(() => true).catch(() => false); await b.page.waitForTimeout(400); r.tillstand.meny = { klickad: ok, expanded: ok ? await b.page.locator(a.meny).getAttribute('aria-expanded').catch(() => null) : null, bild: join(a.ut, `vy-${vy}-meny.png`) }; await b.page.screenshot({ path: r.tillstand.meny.bild }); }
     if (tillstand.has('tangentbord')) { await b.page.goto(a.adress, { waitUntil: 'load' }); r.tillstand.tangentbord = await tangentbord(b.page, 25); r.tillstand.tangentbord_utan_synlig_fokus = r.tillstand.tangentbord.filter(s => !s.synligFokus).length; }
     if (tillstand.has('reflow')) { await b.page.setViewportSize({ width: 320, height: 640 }); await b.page.waitForTimeout(300); r.tillstand.reflow_320 = await horisontellSpill(b.page); await b.page.screenshot({ path: join(a.ut, `vy-${vy}-reflow320.png`) }); await b.page.setViewportSize(b.vy.viewport); }
+    if (tillstand.has('reducerad')) {  // rörelsen respekterar prefers-reduced-motion: löpande animationer efter omladdning
+      const lopande = async () => b.page.evaluate(() => document.getAnimations().filter((x) => x.playState === 'running').map((x) => (x.animationName || x.transitionProperty || x.id || x.constructor.name)).slice(0, 12));
+      await b.page.goto(a.adress, { waitUntil: 'load' }); await b.page.waitForTimeout(250);
+      const utan = await lopande();
+      await b.page.emulateMedia({ reducedMotion: 'reduce' });
+      await b.page.goto(a.adress, { waitUntil: 'load' }); await b.page.waitForTimeout(250);
+      const med = await lopande();
+      r.tillstand.reducerad = { lopande_utan: utan.length, lopande_med_reduce: med.length, namn_med_reduce: med, bild: join(a.ut, `vy-${vy}-reducerad.png`) };
+      await b.page.screenshot({ path: r.tillstand.reducerad.bild });
+      await b.page.emulateMedia({ reducedMotion: 'no-preference' });
+    }
     if (tillstand.has('reload')) { const s2 = await b.page.reload({ waitUntil: 'load' }); r.tillstand.reload_status = s2?.status() ?? null; }
     if (tillstand.has('bakat')) { const lank = b.page.locator('a[href^="/"], a[href^="' + origin(a.adress) + '"]').first(); if (await lank.count()) { const href = await lank.getAttribute('href'); await lank.click({ timeout: 5000 }).catch(() => null); await b.page.waitForLoadState('load').catch(() => null); const efter = b.page.url(); await b.page.goBack({ waitUntil: 'load' }).catch(() => null); const tillbaka = b.page.url(); await b.page.goForward({ waitUntil: 'load' }).catch(() => null); r.tillstand.bakat = { lank: href, efter_klick: efter, efter_bakat: tillbaka, efter_framat: b.page.url() }; } }
   } catch (e) { r.fel = String(e.message).slice(0, 300); }

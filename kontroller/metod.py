@@ -174,6 +174,17 @@ def prova(karta_text=None, las=None):
                     fel.append('%s: %s' % (rubrik, e))
                     continue
                 kallor[u['vag']] = u['sha']
+    # rollernas filer (kärna och alternativ i kompetensblocken) hör till samma versionsunderlag: körningar under en fryst
+    # metod går då att jämföra (Codex via ägaren 2026-10-05: 33 av 60 kompetensfiler låg utanför låset; granskning 4, G20)
+    try:
+        import kompetens
+        for x in kompetens.tolka(text).values():
+            for f in x['karna'] + x['valj']:
+                p = kalla(f)
+                if p.is_file() and not p.is_symlink():
+                    kallor.setdefault(f, sha(p.read_text(encoding='utf-8')))
+    except Exception as e:  # noqa: BLE001 — en karta som inte går att tolka stoppar leveransen
+        fel.append('kompetensblocken: %s' % e)
     for vag, h in sorted(kallor.items()):
         if las.get(vag) != h:
             fel.append('%s %s sedan utdragen prövades: pröva raderna och skriv låset (metod.py --las)' % (vag, 'har ändrats' if vag in las else 'saknas i låset'))
@@ -294,7 +305,8 @@ def leverera(steg, katalog):
             namn = namn_for(stam, i, len(delar))
             (katalog / namn).write_text(innehall, encoding='utf-8')
             filer.append({'fil': katalog / namn, 'del': del_, 'sha': sha(innehall)})
-    return {'filer': filer, 'sha': sha(''.join(f['sha'] for f in filer)), 'karta': sha(text), 'kallor': kallor}
+    # metodens hash binder de levererade filerna och varje källas version, också rollernas filer (G20)
+    return {'filer': filer, 'sha': sha(''.join(f['sha'] for f in filer) + json.dumps(sorted(kallor.items()))), 'karta': sha(text), 'kallor': kallor}
 
 
 def main(argv=None):

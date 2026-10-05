@@ -14,33 +14,37 @@ steget, avgörandena och utdragen med källa och hash, delade så att varje fil 
 tyst pekar fel. I läget full prövas läsningen i transkriptet och redovisas skild från tillämpningen: en fil räknas som
 läst när ett felfritt Read täckt alla dess rader. I skissläget, och i stegen med uppslag, redovisas vad som öppnades,
 utan krav: före-filen är kärnan, och uppslaget slås upp när uppgiften behöver det.
-Flödets sessioner har inget Skill-verktyg: det går inte att begränsa till namngivna skills, och flera skills bär
-processinstruktioner för en interaktiv session. En skill eller ett avsnitt som kartan inte nämner används inte i flödet.
+**Verktygen, en källa:** kompetensblocken nedan säger vilka skills, verktyg och MCP:er varje pass har. Samma block ger
+sessionens behörigheter (`kontroller/kompetens.py` till `--allowedTools`) och raderna i passets uppdrag, så att
+dokumentationen, prompten och behörigheten säger samma sak. Sessionerna har skillverktyget och användarens
+MCP-anslutningar; kundvakten (`kontroller/kundvakt.py`, en krok före varje anrop) stoppar ett anrop till en extern
+designtjänst som bär kundens uppgifter. Bygget och fotograferingen går genom förhandsvisningen, och beroendena kommer
+förberedda och låsta ur mallen (`kunskap/beroenden.md`); git, npm, npx och node körs inte direkt i sessionerna.
 
 ## Avgöranden
 
-- **Bilder (ägarens dom L3):** verksamhetens egna foton, eller form i koden (SVG ur märket, en karta) när den har en
-  funktion. Ingen bildgenerering, inga stockbilder, picsum, Pexels eller externa bild-URL:er; en textdriven första vy
-  är ett giltigt val, och saknat material skrivs under "Material" i RIKTNING.md och beställs (K06–K09, K11, K13).
+- **Bilder (äkthet):** en bild som visar verksamheten (arbeten, personer, lokaler, resultat) är dess egen; illustrativt
+  material som inte utger sig för att dokumentera den (licensierade illustrationer, texturer, konceptbilder, form i
+  koden) är tillåtet med källa i BILDER.md eller DESIGN.md (`kunskap/bild.md`). Bilderna serveras från sajten. Saknat
+  material står under "Material" i RIKTNING.md, beställs och får en märkt platshållare (K06–K09, K11, K13).
 - **Sanning (kvalitetskrav):** varje namn, tal, datum, omdöme och märke kommer ur underlaget, också i exempel; citat står
   ordagrant med källans attribution och avkortas bara synligt med "…"; löften, funktioner och certifieringar bara med
   källa (K10, K12, K43, K44).
-- **Teknik (Nortropics produktbeslut för dagens erbjudande, webbplatser åt lokala tjänsteföretag):** statisk Astro med
-  sidans egen CSS. Innehållet syns utan JavaScript; rörelse förstärker bara det som redan syns, i CSS och med
-  `prefers-reduced-motion`. Ett tema per riktning, inga karuseller, marquees eller scrollkapningar, inga CDN-resurser,
-  inga paket utöver typsnitt via `kontroller/typsnitt.py`. Recept för React, Tailwind, shadcn och Motion översätts till
-  CSS eller används inte. En bokningstjänst eller en större innehållssajt får ett eget beslut (K14–K21, K40).
+- **Teknik (standardval för lokala tjänsteföretag):** Astro med förrenderade sidor, och en sammanhängande implementation
+  per riktning ur mallens låsta beroenden: egen CSS, CSS-variabler (Referos direkt), Tailwind, Astro- och React-
+  komponenter, Motion (`kunskap/beroenden.md`). Innehållet och navigationen fungerar utan JavaScript, rörelse respekterar
+  `prefers-reduced-motion`, prestandabudgeten håller, inget hämtas från ett CDN, inget rör sig av sig självt utan paus
+  och scrollningen följer webbläsaren (WCAG 2.2.2; K14–K21, K40).
 - **Referens och stil (ägarbeslut 2026-10-03):** huvudreferensen får bära layout, palett och typografi, och särprägeln
   ligger i vår touch och verksamhetens material. Skillsens listor över förbjudna paletter, typsnitt, centrering,
   etiketter över rubriker, gradienter och pilar är granskningsfrågan "valt av vana utan skäl?", aldrig förbud eller
   krav. Valet av typsnitt och färg skrivs med skäl i RIKTNING.md och märks `valt:` i DESIGN.md; inga reservvärden ur en
   skill (#2563EB, Inter) (K01–K05, K23–K27, K29, K34–K37).
 - **Kundens behov (ur briefen, med belägg):** toppuppgifterna och den primära handlingen avgör vad första vyn och
-  sidan måste klara. För en lokal tjänsteverksamhet brukar orten och kontaktvägen höra till första vyn, och bevis och en
-  skriftlig väg får stå där; Nortropics byggstandard lägger telefonnumret som tel-länk på varje sida när kunderna ringer.
-  Telefonnummer, e-post och adress går att markera och kopiera; `user-select: none` bara på draghandtag. Hela listor
-  (priser, tjänster) är tillåtna när besökaren frågar efter dem, och inget göms i sidled utan synlig ledtråd (K30–K33,
-  K38, K39, K41).
+  sidan måste klara. Kontaktvägarna följer kundens kontaktmodell (BRIEF.md §4): har den telefonen finns numret som
+  tel-länk på varje sida, och placeringen är riktningens val. Brödsmulor finns när DESIGN.md:s struktur har dem.
+  Kontaktuppgifter går att markera och kopiera. Hela listor (priser, tjänster) är tillåtna när besökaren frågar efter
+  dem, och inget göms i sidled utan synlig ledtråd (K30–K33, K38, K39, K41).
 - **Referensens kvalitet mot kundens material:** en referens fungerar under förutsättningar (stora arkitekturfoton,
   korta rubriker, få produkter). Varje kandidat säger vilken kvalitet den återskapar, vad den kräver och om kundens
   material bär det; det tidiga kompositionsprovet avgör, och det som inte bär ändrar kompositionen och beställs
@@ -51,11 +55,10 @@ processinstruktioner för en interaktiv session. En skill eller ett avsnitt som 
   arbetet fortsätter till stegets "Visar". Riktningen ges av UPPDRAG.md: ingen tärning, inget concept-seed, inga
   förhandsplaner eller egna sanningskällor ur skills (MASTER.md, PRODUCT.md, brand-guidelines). Varven: i skissläget
   inget fast antal, varje varv åtgärdar en konkret brist skaparen sett i sina bilder eller vid jämförelsen med
-  referensen; i läget full och i förfiningen är minst tre förhandsvarv en arbetsregel, ingen kvalitetsbedömning. Inga
-  skillskript, hookar, git eller MCP. Inga test-, variant- eller
-  prototypsidor i src/pages: varje index.astro där blir en undersida som följer med kandidaten. DESIGN.md skrivs bara i
-  husets format (`kunskap/bygge-referens.md`, `kontroller/design.py`). Granskaren svarar bara i sitt schema (K46–K55,
-  K57, K58).
+  referensen; i läget full och i förfiningen är minst tre förhandsvarv en arbetsregel, ingen kvalitetsbedömning.
+  Verktygen per pass står i kompetensblocken. Inga test-, variant- eller prototypsidor i src/pages: varje index.astro
+  där blir en undersida. DESIGN.md är kontraktet: värdena, valda tillstånd (mörkt läge) och importerade stilvärden
+  (`kunskap/bygge-referens.md`). Granskaren svarar bara i sitt schema (K46–K55, K57, K58).
 - **Före ägarens val i skissläget** granskar ingen panel och ingen förbättringsrunda körs: de snabba kontrollerna
   markerar brister och ändrar aldrig uttrycket.
 - **Granskning före förbättring (läget full):** granskningen bedömer först det en besökare uppfattar (bilderna, trädet
@@ -68,99 +71,130 @@ processinstruktioner för en interaktiv session. En skill eller ett avsnitt som 
 
 ## Kompetenserna
 
-Ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA". Varje kompetens har en obligatorisk
-uppgift i kedjan, med sina skills fullständiga instruktioner (hela SKILL.md och de referensfiler som uppgiften kräver,
-som Impeccables arbetsflöde: rätt arbetsbeskrivning för uppgiften, och craft-floor.md direkt före varje ändring i
-gränssnittet) och fungerande verktyg. Lösningarna väljs med omdöme: där skillsens standardrecept säger emot varandra
-eller ett ägarbeslut avgör Avgörandena ovan; en skill som inte passar uppgiften säger var och varför i passets svar. Ett
-pass är genomfört när filerna lästs hela, ändringen syns i den renderade sidan (före och efter) eller passet säger varför
-ingen ändring behövdes, och svaret säger vad varje skill förändrade. Att en fil öppnats räcker aldrig. Alla skills och
-MCP:er är tillgängliga i sessionerna (skillverktyget, Refero, Mobbin, Trybloom med fler); externa designtjänster når
-aldrig kundens uppgifter (kontroller/kundvakt.py).
+Ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"; ägarens uppdrag 18:53Z, punkt 5: varje
+roll läser de fullständiga relevanta delarna, utan tunna sammanfattningar och utan att varje metodtext läggs i varje
+skapares uppdrag; Codex via ägaren 19:04Z, punkt 7–9: varje riktning får en sammanhängande tillämpning, med full tillgång
+till alternativen och fullständig läsning av den valda metoden.
 
-Passen: **planprövning** (efter planen: specialisterna prövar planerarens designval), **skapa** (skissen), **ux**,
-**rörelse**, **mobil** och **kritik** (efter skissen, i den ordningen), och **fördjupa** (efter ägarens val, sedan passen
-igen på hela sidan). Varje block nedan: kompetensen, uppgiften, passen, filerna som läses hela, verktygen och vad
-passet visar.
+Varje roll har en **kärna** och **alternativ**. Kärnan är rollens sammanhängande metod och läses hel innan sessionen
+ändrar något (en fil större än en läsning läses i delar med offset och limit tills alla rader är lästa). Alternativen är
+stilvarianter och recept för olika riktningar: sessionen väljer de som passar riktningen, läser dem hela och skriver
+valet med skäl, eller skriver varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller kundens
+behov avgörs av Avgörandena ovan, designreglerna och kundens aktuella domar, som varje session med en roll får.
 
-```kompetens art
-namn: Visuell design och art direction
-uppgift: Forma en sammanhängande riktning utifrån kund, material och referenser.
-pass: planprovning, skapa, fordjupa
-läs: impeccable/SKILL.md; impeccable/reference/new-work.md; impeccable/reference/shape.md; impeccable/reference/mode-persuade.md; frontend-design/SKILL.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; ui-ux-pro-max/SKILL.md; brand/SKILL.md; design-system/SKILL.md; better-variant/SKILL.md; banner-design/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md
-verktyg: ui-ux-pro-max
-mcp: refero, mobbin, trybloom
-visar: riktningen bär kundens material och referensens kvalitet; skissen skiljer sig från de andra i hur informationen ordnas; vad varje skill förändrade i riktningen
-```
+Rollerna arbetar där de gör nytta, en gång:
 
-```kompetens typo
-namn: Typografi, layout och bild
-uppgift: Bearbeta hierarki, proportioner, beskärningar, mellanrum och sidans rytm.
-pass: skapa, fordjupa
-läs: impeccable/reference/craft-floor.md; impeccable/reference/typeset.md; impeccable/reference/layout.md; impeccable/reference/colorize.md; better-typography/SKILL.md; better-layout/SKILL.md; better-colors/SKILL.md; better-ui/SKILL.md; taste-output/SKILL.md; kunskap/bild.md
-verktyg: förhandsvisning
+- **planera** och **planprövning** (före skaparna): planeraren skriver omkring tio uppdrag som skiljer sig i hur
+  informationen ordnas, och planprövningen prövar dem mot kunden, materialet och referenserna.
+- **skapa** (skissen): skaparen tillämpar design och komposition, typografi och färg, innehåll och UX och den
+  responsiva implementationen i en sammanhängande skiss. Före ägarens val ändrar ingen annan session skissen.
+- **fordjupa** (efter ägarens val): förfiningen bygger hela sajten med samma roller och designsystemet.
+- **rorelse** och **granskning** (efter fördjupningen, en gång var): interaktion och rörelse, och tillgänglighet och
+  visuell granskning, på den färdiga sidan med en avgränsad interaktionsväg (förhandsvisningens tillstånd: tangentbord,
+  fokus, hovring, meny, reflow 320 och reducerad rörelse). Passet redovisar tre saker var för sig: koden som ändrades,
+  beteendet som prövades och den visuella bedömningen före och efter.
+
+Externa designtjänster når aldrig kundens uppgifter (kontroller/kundvakt.py). Varje block nedan: rollen, uppgiften,
+passen, kärnan, alternativen, verktygen, MCP:erna och vad passet visar.
+
+```kompetens plan
+namn: Planering och planprövning (design och innehåll)
+uppgift: Skriva och pröva uppdrag med verkligt skilda designriktningar (huvudreferens, makrostruktur, typografi, bildstrategi) mot kunden, materialet och referenserna innan någon bygger.
+pass: planera, planprovning
+kärna: refero-design/SKILL.md; impeccable/reference/shape.md; impeccable/reference/clarify.md; kunskap/bild.md
+välj: hallmark/references/macrostructures.md; hallmark/references/structure.md; frontend-design/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; ui-ux-pro-max/SKILL.md; brand/SKILL.md
+verktyg: uxsok
 mcp: refero, mobbin
-visar: typskalan, radlängden, beskärningarna och rytmen i den renderade sidan, före och efter
+visar: varje uppdrag har en huvudreferens som bär riktningen, ett referenslås (det som ska bevaras, det som lånas, det som väljs bort) och en uppgift för besökaren; uppdragen skiljer sig i hur informationen ordnas
 ```
 
-```kompetens ux
-namn: UX och innehåll
-uppgift: Göra erbjudandet begripligt och besökarens uppgifter enkla.
-pass: planprovning, ux, fordjupa
-läs: impeccable/reference/clarify.md; impeccable/reference/distill.md; better-writing/SKILL.md; humanizer/SKILL.md; better-explain-interface/SKILL.md; kunskap/copy-kontroll.md; kunskap/redaktionellt-pass.md
+```kompetens komposition
+namn: Design och komposition
+uppgift: Forma en sammanhängande riktning ur huvudreferensen, kundens material och besökarens uppgift, och bevara referensens kvalitet (proportioner, komposition, bildstorlek och beskärning, komponenternas form) i kundens innehåll.
+pass: skapa, fordjupa
+kärna: refero-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md
+välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; frontend-design/SKILL.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md
+verktyg: uxsok, förhandsvisning
+mcp: refero, mobbin, trybloom
+visar: referenslåset står i RIKTNING.md och syns i den renderade sidan; stilpaketets värden används i koden; skissen skiljer sig från de andra i hur informationen ordnas
+```
+
+```kompetens typografi
+namn: Typografi och färg
+uppgift: Ge sidan typskalan, hierarkin, radlängden och färgernas roller ur stilpaketet och huvudreferensen, anpassade till kundens innehåll.
+pass: skapa, fordjupa
+kärna: impeccable/reference/typeset.md; impeccable/reference/colorize.md; better-typography/SKILL.md; better-colors/SKILL.md
+välj: refero-design/references/typography.md; refero-design/references/color.md; taste-output/SKILL.md; better-ui/SKILL.md
+verktyg: förhandsvisning
+mcp: refero
+visar: typskalan, radlängden och färgrollerna i den renderade sidan, med stilpaketets värden eller ett skäl att avvika
+```
+
+```kompetens innehall
+namn: Innehåll och UX
+uppgift: Göra erbjudandet begripligt och besökarens viktigaste uppgift enkel, i verksamhetens egna ord och med verifierade fakta.
+pass: skapa, fordjupa
+kärna: impeccable/reference/clarify.md; better-writing/SKILL.md; kunskap/copy-kontroll.md; kunskap/redaktionellt-pass.md
+välj: humanizer/SKILL.md; impeccable/reference/distill.md; better-explain-interface/SKILL.md; refero-design/references/copywriting.md; hallmark/references/copy.md
 verktyg: förhandsvisning
 mcp: mobbin
 visar: besökarens viktigaste uppgift går att lösa från första vyn; rubriker, knappar och etiketter säger vad som händer; texten låter som verksamheten
 ```
 
-```kompetens rorelse
-namn: Interaktion och rörelse
-uppgift: Välja och genomföra beteenden som passar sidan; ett genomtänkt beslut kan vara att något ska vara stilla.
-pass: rorelse, fordjupa
-läs: impeccable/reference/animate.md; emil-animate/SKILL.md; emil-design-eng/SKILL.md; emil-find-animation-opportunities/SKILL.md; emil-review-animations/SKILL.md; emil-improve-animations/SKILL.md; emil-animation-vocabulary/SKILL.md; emil-apple-design/SKILL.md
-verktyg: förhandsvisning
-mcp: refero
-visar: varje rörelse har ett syfte och respekterar prefers-reduced-motion, eller passet säger varför sidan ska vara stilla
-```
-
-```kompetens mobil
-namn: Mobil och tillgänglighet
-uppgift: Kontrollera den verkliga upplevelsen över skärmstorlekar och inmatningssätt.
-pass: mobil, fordjupa
-läs: impeccable/reference/adapt.md; impeccable/reference/audit.md; better-accessibility/SKILL.md; emil-mobile-native/SKILL.md; emil-break-ui/SKILL.md; better-break/SKILL.md
+```kompetens responsiv
+namn: Responsiv implementation
+uppgift: Bygga komponenterna och layouten så att mobilens omställning är genomtänkt och 390, 768 och 1440 håller ihop, i en implementation som är enkel att underhålla.
+pass: skapa, fordjupa
+kärna: impeccable/reference/layout.md; impeccable/reference/adapt.md; better-layout/SKILL.md
+välj: emil-mobile-native/SKILL.md; ui-styling/SKILL.md; better-ui/SKILL.md; hallmark/references/responsive.md; hallmark/references/layout-and-space.md
 verktyg: förhandsvisning
 mcp: mobbin
-visar: 390, 768 och 1440 håller ihop; tangentbord, fokus, träffytor, zoom och värsta tänkbara innehåll fungerar; axe utan allvarliga fynd
+visar: mobilen och datorn, och mellanbredden där layouten byter form, i den renderade sidan; komponenterna och stilarna i egna filer där de återanvänds
 ```
 
-```kompetens kritik
-namn: Visuell kritik och slutbearbetning
-uppgift: Inspektera det renderade resultatet och rätta konkreta brister.
-pass: kritik, fordjupa
-läs: impeccable/reference/critique.md; impeccable/reference/polish.md; impeccable/reference/degraded/finish-reviewer.md; better-interface-review/SKILL.md; better-interface/SKILL.md; taste-redesign/SKILL.md; emil-design-eng/SKILL.md; impeccable/reference/harden.md; impeccable/reference/optimize.md
+```kompetens rorelse
+namn: Interaktion och rörelse
+uppgift: Välja och genomföra de beteenden som passar sidan, var och en med ett syfte; ett genomtänkt beslut kan vara att något ska vara stilla.
+pass: rorelse
+kärna: impeccable/reference/animate.md; emil-design-eng/SKILL.md; emil-animate/SKILL.md
+välj: emil-find-animation-opportunities/SKILL.md; emil-review-animations/SKILL.md; emil-improve-animations/SKILL.md; emil-animation-vocabulary/SKILL.md; emil-apple-design/SKILL.md; refero-design/references/motion.md; hallmark/references/microinteractions.md; hallmark/references/interaction-and-states.md
+verktyg: förhandsvisning
+mcp: refero
+visar: varje beteende prövat med förhandsvisningens tillstånd (meny, hovring, fokus, tangentbord, reducerad rörelse) och redovisat för sig; rörelse respekterar prefers-reduced-motion
+```
+
+```kompetens granskning
+namn: Tillgänglighet och visuell granskning
+uppgift: Inspektera den renderade sidan och interaktionsvägen, och rätta de konkreta bristerna i en avgränsad omgång utan att byta stil.
+pass: granskning
+kärna: impeccable/SKILL.md; impeccable/reference/critique.md; impeccable/reference/polish.md; impeccable/reference/audit.md; impeccable/reference/craft-floor.md; better-accessibility/SKILL.md; refero-design/references/visual-workflow.md
+välj: impeccable/reference/harden.md; impeccable/reference/optimize.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/degraded/finish-reviewer.md; better-interface-review/SKILL.md; better-interface/SKILL.md; emil-break-ui/SKILL.md; better-break/SKILL.md; taste-redesign/SKILL.md; hallmark/references/slop-test.md; hallmark/references/anti-patterns.md
 verktyg: förhandsvisning, detektor
 mcp: refero
-visar: de konkreta bristerna i den renderade sidan är rättade i en avgränsad omgång, före och efter; detektorns fynd är rättade eller motiverade
+visar: bristerna i den renderade sidan och i tillstånden (tangentbord, fokus, reflow 320, reducerad rörelse, axe) är rättade eller motiverade, före och efter; detektorns fynd är rättade eller prövade mot ägarbesluten
 ```
 
 ```kompetens leverans
 namn: Designsystem och överlämning
-uppgift: Låta DESIGN.md och koden säga samma sak, så att leveransen utvecklar den godkända koden vidare.
+uppgift: Låta DESIGN.md och koden säga samma sak, med stilpaketets importerade värden och de valda tillstånden, så att leveransen utvecklar den godkända koden vidare.
 pass: fordjupa
-läs: kunskap/bygge-referens.md; impeccable/reference/document.md; impeccable/reference/extract.md; design-system/SKILL.md; taste-stitch/SKILL.md
+kärna: kunskap/bygge-referens.md; impeccable/reference/extract.md; design-system/SKILL.md
+välj: impeccable/reference/document.md; taste-stitch/SKILL.md
 verktyg: design
 mcp:
-visar: DESIGN.md i husets format stämmer med koden, och sidorna använder dess variabler
+visar: DESIGN.md stämmer med koden, och sidorna använder dess variabler eller stilpaketets
 ```
 
-**Ingen uppgift i en statisk webbsajt** (finns i verktygslådan, med skälet): emil-write-swift (Swift),
-emil-animate-expo (React Native och Expo), emil-ask-sonner (Reacts toastbibliotek), slides (presentationer),
-taste-imagegen-frontend-mobile (appskärmar), ui-styling (shadcn och Tailwind, vi skriver sidans egen CSS),
-emil-pick-ui-library (paketval; i flödet installeras bara typsnitt), emil-prototype (våra kandidater är varianterna),
-taste-v1 (ersatt av taste), taste-gpt (fast AIDA-ordning och GSAP, mot K22 och paketbeslutet). Bildgenererande skills
-(design, taste-brandkit, taste-imagegen-frontend-web, taste-image-to-code) kräver en bildgenerator och ger genererade
-bilder, mot ägarbeslutet om verksamhetens egna bilder; de används för designbilder bara efter ägarens beslut. Flödets
-egna processkills (bygg-sajt, kirurg, backlog, writing-for-agents) styr arbetet och är inga designkompetenser.
+**Ingen uppgift i flödet** (finns i verktygslådan, med skälet): emil-write-swift (Swift), emil-animate-expo (React Native
+och Expo), emil-ask-sonner (en toast i en app), slides (presentationer), taste-imagegen-frontend-mobile (appskärmar),
+emil-pick-ui-library (paketval görs utanför flödet, `kunskap/beroenden.md`), emil-prototype (kandidaterna är
+varianterna), taste-v1 (ersatt av taste), taste-gpt (fast AIDA-ordning mot K22, och GSAP finns inte bland de låsta
+beroendena). Bildgenererande skills (design, taste-brandkit, taste-imagegen-frontend-web, taste-image-to-code) kräver
+en bildgenerator som flödets sessioner inte har; illustrativt material som inte utger sig för att visa verksamheten
+beställs som material (Avgörandena, Bilder). Flödets egna processkills (bygg-sajt, kirurg, backlog,
+writing-for-agents) styr arbetet och är inga designkompetenser. Övriga MCP-anslutningar (Gmail, Google Drive, GitHub,
+Resend, Jotform, Railway, Claude Docs med flera) rör kunddata, utskick eller drift och har ingen uppgift i skapandet;
+sessionerna nekar dem.
 
 ## Research
 

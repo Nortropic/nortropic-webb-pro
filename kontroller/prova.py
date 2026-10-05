@@ -286,10 +286,10 @@ class Server:
                 """Demomottagare för förfrågningsformuläret (kunskap/forfragan.md): läser fälten, kontrollerar dem och
                 skickar besökaren vidare med 303. Sparar, loggar och skickar ingenting; vid lansering tar en
                 serverfunktion med samma kontrakt över."""
-                if urlsplit(self.path).path != '/api/forfragan':
+                if urlsplit(self.path).path not in ('/api/forfragan', '/api/forfragan/'):
                     return self.send_error(405)
                 n = int(self.headers.get('Content-Length') or 0)
-                if n > 26 * 1024 * 1024:
+                if n > 4_400_000:  # samma tak som serverfunktionen vid lansering (under Vercels 4,5 MB; kunskap/forfragan.md)
                     return self.send_error(413)
                 falt = las_formular(self.headers.get('Content-Type') or '', self.rfile.read(n))
                 if falt.get('webbplats'):
@@ -395,10 +395,10 @@ def prova(slug, snabb=False):
     if not (sajt / 'package.json').is_file():
         g['bygge'] = grind(False, 'kunder/%s/sajt/package.json saknas' % slug)
         return status
-    if not (sajt / 'node_modules').is_dir():
-        rc, out = kor([NPM, 'install', '--no-audit', '--no-fund'], cwd=sajt, timeout=600)
+    if not (sajt / 'node_modules').is_dir():  # låsfilen ger de granskade versionerna (kunskap/beroenden.md)
+        rc, out = kor([NPM, 'ci' if (sajt / 'package-lock.json').is_file() else 'install', '--no-audit', '--no-fund'], cwd=sajt, timeout=600)
         if rc:
-            g['bygge'] = grind(False, 'npm install misslyckades', detalj=svans(out))
+            g['bygge'] = grind(False, 'npm-installationen misslyckades', detalj=svans(out))
             return status
     rc, out = kor([NPM, 'run', 'build'], cwd=sajt, timeout=600)
     (prov / 'bygge.log').write_text(out, encoding='utf-8')
@@ -634,6 +634,8 @@ def prova(slug, snabb=False):
     cmd += ['--stil', str(prov / 'stil' / 'STIL.json')]  # alltid: saknad eller fallen stilmätning är ett fel i 3.3, inte grönt
     cmd += ['--inspektion', str(prov / 'inspektion')]  # alltid: konsolen läses ur inspektionen (8.7); saknad inspektion är ett fel
     cmd += ['--bestallning', str(underlag / 'BESTALLNING.md'), '--verksamhet', str(verksamhet)]
+    if (underlag / 'BRIEF.md').is_file():  # kundens kontaktmodell (§4): kontrollen följer den, inte en fast placering
+        cmd += ['--brief', str(underlag / 'BRIEF.md')]
     rc, out = kor(cmd)
     try:
         st = json.loads((prov / 'standard.json').read_text(encoding='utf-8'))

@@ -113,8 +113,10 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
    drag sänker originaliteten när det står där av vana, utan skäl i verksamheten eller briefen, eller gör sajten
    utbytbar mot vilken firma som helst; inte när det är ett motiverat val som är väl genomfört. En tunn linje, en
    standardknapp eller en återkommande layout är inte i sig ett fel: döm användningen och utförandet. Alltid fel är
-   förtroendemärken utan källa och stockbilder eller genererade bilder (ägarens dom: hellre inga foton än stock):
-   det är påståenden och ägarens regel, inte stil. Likhet med tidigare byggen
+   förtroendemärken utan källa och en bild som utger sig för att visa verksamheten (dess arbeten, personer, lokaler
+   eller resultat) men inte är dess egen, som ett stockfoto eller en genererad bild: det är falska påståenden, inte
+   stil. Licensierat eller genererat material som inte utger sig för att dokumentera verksamheten (illustrationer,
+   texturer, konceptbilder) döms som gestaltning, med källan i BILDER.md eller DESIGN.md. Likhet med tidigare byggen
    i typsnitt, toppsektion eller komposition skrivs alltid under `likhet_tidigare`. Den sänker originaliteten bara när
    den gör sajten mindre specifik för verksamheten; ägaren har godtagit ett typsnitt som återkommer när det passar
    verksamheten (LARDOMAR L1 och L2).

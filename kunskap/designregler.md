@@ -28,10 +28,16 @@ En skills standardråd står under alla fyra.
   inget sidled-spill i 390, 768 eller 1440, inga konsolfel.
 - **Den primära handlingen nås:** den syns i första vyn på mobilen och går att nå med tummen. Hur den löses (sidhuvud,
   list, sektion) är riktningens val.
-- **Bilder med uppgift:** alt-text efter bildens uppgift, inga bilder som utger sig för att vara något de inte är.
+- **Bilder med uppgift och äkthet:** alt-text efter bildens uppgift. En bild som visar verksamheten (dess arbeten,
+  personer, lokaler, fordon, resultat och referenser) är verksamhetens egen; ett stockfoto eller en genererad bild utger
+  sig aldrig för att visa den. Visuellt material som inte utger sig för att dokumentera verksamheten (licensierade
+  illustrationer, texturer, mönster, tydligt illustrativa konceptbilder) är tillåtet med källa och licens i
+  `bilder/BILDER.md` eller DESIGN.md.
 - **Säkerhet och kunddata:** kundens namn, orter, nummer och e-post går aldrig till externa tjänster (Refero, Mobbin);
-  inga hemligheter i kod, underlag eller rapporter; paket bara genom `kontroller/typsnitt.py` och byggen innanför
-  processgränsen.
+  inga hemligheter i kod, underlag eller rapporter; paket bara ur mallens låsta beroenden (`kunskap/beroenden.md`) och
+  genom `kontroller/typsnitt.py`, och byggen innanför processgränsen.
+- **Prestanda, robusthet och rörelse:** innehållet och navigationen fungerar utan JavaScript, rörelse respekterar
+  `prefers-reduced-motion`, och prestandabudgeten håller (byggstandarden 4), vilken teknik riktningen än valt.
 - **Utkast är märkta:** där kundens material saknas står ett tydligt märkt textutkast eller en platshållare som säger vad
   som saknas; omdömen, meriter, certifieringar, resultat och siffror hittas aldrig på.
 
@@ -39,11 +45,10 @@ En skills standardråd står under alla fyra.
 
 | Beslut | Räckvidd |
 |---|---|
-| Statisk Astro med sidans egen CSS, ingen JavaScript som inte behövs, självhostade typsnitt eller systemtypsnitt, verksamhetens bilder genom `astro:assets` | dagens erbjudande: webbplatser för lokala tjänsteföretag. En bokningstjänst, en butik eller en större innehållssajt kan behöva andra lösningar och får då ett eget beslut |
+| Astro med förrenderade sidor; varje riktning väljer en sammanhängande implementation ur de förberedda, granskade och låsta beroendena (egen CSS, Referos CSS-variabler, Tailwind, Astro- och React-komponenter, Motion; `kunskap/beroenden.md`); självhostade typsnitt eller systemtypsnitt; verksamhetens bilder genom `astro:assets`. Nortropics standardval: ägaren godkände 2026-10-05 18:53Z att de tidigare förbuden omprövas, och urvalet av beroenden är agentens | dagens erbjudande: webbplatser för lokala tjänsteföretag. En bokningstjänst, en butik eller en större innehållssajt kan behöva andra lösningar och får då ett eget beslut |
 | Inga karuseller, marquees eller sidor som rullar av sig själva (byggstandarden) | dagens erbjudande |
-| I skapandeflödet installeras inga paket utom typsnitt (`kontroller/typsnitt.py`), och formulären demonstreras lokalt (`/api/forfragan` → `/tack/`) | skapandeflödet |
-| Telefonnumret som tel-länk i sidhuvudet på varje sida (byggstandarden) | dagens erbjudande, för verksamheter där kunderna ringer |
-| Verksamhetens egna bilder eller ingen bild; inga stockbilder eller genererade bilder (L3: "hellre inga foton än stock") | alla kunder |
+| Inga paketinstallationer i flödets sessioner: beroendena förbereds, granskas och låses i mallen (`kunskap/beroenden.md`), typsnitt genom `kontroller/typsnitt.py`; formulären demonstreras lokalt (`/api/forfragan` → `/tack/`) | skapandeflödet |
+| Kundens kontaktvägar ur briefen (§4) finns på varje sida: har kontaktmodellen telefonen står numret som tel-länk på varje sida; placeringen är riktningens val (byggstandarden 9.2; Codex via ägaren 2026-10-05, punkt 2) | dagens erbjudande |
 | En namngiven referens får vara utgångspunkt för layout, palett och typografi (2026-10-03); dess identitet, texter och bilder blir aldrig kundens | allt designarbete |
 | Bäst av tre undermåliga godkänns aldrig (2026-10-04) | panelen och granskningen |
 | Ägaren dömer blint och först; panelens omdöme visas efter (2026-10-03–04) | dashboardens vyer |
@@ -71,7 +76,7 @@ En skills standardråd står under alla fyra.
 | Hypotes | Ursprung | Som utgångspunkt i |
 |---|---|---|
 | Sidhuvud på en rad med den primära handlingen som knapp, menylänkarna synliga utan hamburgare, fast list längst ned med den primära handlingen och Skriv, numret högst två gånger i första vyn | ägarens A/B 2026-10-02 och domarna L1, L2, L4, L5 (två hantverks- och salongsbyggen) | bygget (stilrapporten mäter, varnar, fäller inte); i kandidatflödet en lösning bland flera |
-| Brödsmulor på varje undersida | ägarens A/B-omdöme 2026-10-02 | bygget (byggstandarden 7.3) |
+| Brödsmulor på varje undersida | ägarens A/B-omdöme 2026-10-02 | en lösning bland flera; DESIGN.md:s struktur säger om sajten har dem, och då prövar byggstandarden 7.3 att de finns |
 | Högst två typsnittsfamiljer | prestanda (byggstandarden 4.3) och läsbarhet | bygget; en godkänd DESIGN.md med fler roller avgör |
 | En huvudreferens bär helheten | ägarbeslut 2026-10-04, Codex via ägaren 2026-10-05 | varje kandidat har sin egen |
 | Ett motiv ur märket eller "Bara de har" | Anthropic frontend-design | utforskningen |
@@ -90,6 +95,11 @@ mobilmeny eller en viss rubrikstil är ett exempel ur ett bygge, ingen designreg
 uttryckligt ägarbeslut med sin räckvidd i tabellen, och kundens aktuella domar (från den senaste domen som begärde en ny
 riktning, och de efter den) i domloggen; ett uttryckligt beslut i en äldre dom om annat än designen gäller tills en
 senare dom återöppnar det.
+
+## Ersatt
+
+Regler som ersatts står med vad som ersatte dem och varför i `BESLUT.md` (senast tillägget 2026-10-05, sen
+kväll); de gäller inte längre.
 
 ## Research: observation, rekommendation, belagd effekt
 

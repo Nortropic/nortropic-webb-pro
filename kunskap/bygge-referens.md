@@ -76,19 +76,36 @@ huvudreferensen) och exakt ett kodblock märkt `json design`:
   "radier": {"knapp": "0"},
   "spalter": {"390": {"marginal": "1.25rem"}, "1440": {"antal": 12, "maxbredd": "1280px"}},
   "kontrast": [["text", "yta", 4.5]],
-  "avvikelser": [{"fran": "huvudreferensens mörka helbild", "till": "ljus yta med kundens foto", "varfor": "kundens bilder är ljusa dagsljusfoton"}]
+  "avvikelser": [{"fran": "huvudreferensens mörka helbild", "till": "ljus yta med kundens foto", "varfor": "kundens bilder är ljusa dagsljusfoton"}],
+  "import": [{"fil": "src/styles/stil/<stil>.css", "kalla": "refero: <stilens namn> <id> (kontroller/stilpaket.py)", "sha256": "<originalets hash>"}],
+  "tillstand": {"mork": {"villkor": "@media (prefers-color-scheme: dark)", "farger": {"yta": "#121212", "text": "#f3eee6"}, "kalla": "valt: kvällsläsning"}},
+  "struktur": {"brodsmulor": true}
 }
 ```
 
+Valfria fält (Codex via ägaren 2026-10-05, punkt 6: kontraktet stödjer valda tillstånd och importerade stilvärden, så
+att kontrollens förmåga aldrig avgör vad kunden får):
+
+- **`import`:** stilexporter som sajten använder direkt, till exempel Referos CSS-variabler ur stilpaketet
+  (`kontroller/stilpaket.py`). Originalet står orört (`sha256`); kundanpassningen skrivs i en egen fil. En färg eller
+  typsnittsroll kan peka på exportens variabel med `"token": "--color-…"` och källan `importerat: …`; kontrollen prövar
+  att variabeln finns i exporten med samma värde, och sidor som använder `var(--color-…)` räknas som att de använder
+  kontraktet.
+- **`tillstand`:** valda tillstånd, med `villkor` (`@media (prefers-color-scheme: dark)`) eller `valjare`
+  (`.band--mork`, `[data-tema="mork"]`) och färgernas värden där. design.py skriver dem i design.css, och
+  kontrastparen prövas också i varje tillstånd.
+- **`struktur`:** informationsstrukturens val, i dag `brodsmulor` (byggstandarden 7.3 kräver dem bara när den är sann).
+
 Varje värde har `kalla`: `uppmätt:` (var det mättes, ur referenspaketets EXTRAKT eller byggets egen mätning),
-`uppskattat:` (ur en bild, utan mätning) eller `valt:` (för kunden, med skäl). En skärmbild visar en komposition
+`uppskattat:` (ur en bild, utan mätning), `valt:` (för kunden, med skäl) eller `importerat:` (ur en stilexport, med
+källan). En skärmbild visar en komposition
 men ger inga säkra CSS-värden; märk därför ärligt. `.venv/bin/python kontroller/design.py <slug> --skriv` validerar
 blocket (roller, hex, CSS-längder, typsnittsnamn, kontrastparen) och skriver `src/styles/design.css` med
 CSS-variablerna (`--farg-<namn>`, `--typ-<roll>-familj|vikt|storlek|radavstand|teckenavstand|matt`,
 `--avstand-<namn>`, `--radie-<namn>`, `--spalt-<bredd>-<namn>`), som `Bas.astro` importerar och sidornas CSS
-använder. Layouten bor i koden (ateljéns vinnare), inte i variablerna. Variablerna definieras bara i design.css:
-en omdefinition (också i en @media-regel för mörkt läge) fäller grinden, så en variant skrivs som en egen variabel i
-DESIGN.md. Provets grind `design` kräver att DESIGN.md
+använder. Layouten bor i koden (ateljéns vinnare), inte i variablerna. Variablerna definieras i design.css, med de
+valda tillstånden; en omdefinition med ett värde som varken DESIGN.md eller ett deklarerat tillstånd har fäller
+grinden. Provets grind `design` kräver att DESIGN.md
 är giltig, att design.css är genererad ur den aktuella DESIGN.md, att färg- och typvariablerna används, och att
 huvudreferensen är den valda (kontroller/referensval.py: VINNARE.json före REFERENSER.md); granskaren får DESIGN.md fryst och dömer avvikelser från den, men
 en sajt som följer en svag DESIGN.md underkänns ändå. Googles DESIGN.md-format (`@google/design.md`, alpha) är

@@ -36,7 +36,12 @@ UNDERLAG = ROOT / 'underlag'
 BLOCK = re.compile(r'^```json design[ \t]*\n(.*?)^```[ \t]*$', re.M | re.S)
 NAMN = re.compile(r'^[a-z][a-z0-9-]{0,30}$')
 HEX = re.compile(r'^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$')
-KALLA = re.compile(r'^(uppmätt|uppskattat|valt):\s*\S')
+KALLA = re.compile(r'^(uppmätt|uppskattat|valt|importerat):\s*\S')  # importerat: ett värde ur en stilexport (Referos stilpaket)
+TOKEN = re.compile(r'^--[a-z0-9][a-z0-9-]{0,60}$')
+VILLKOR = re.compile(r'^@media \([a-z-]+: ?[a-z0-9-]+\)( and \([a-z-]+: ?[0-9a-z.-]+\))?$')  # @media (prefers-color-scheme: dark)
+VALJARE = re.compile(r'^(?:\[data-[a-z-]+(?:="[a-z0-9-]+")?\]|\.[a-z][a-z0-9_-]{0,40})(?:\s+\.[a-z][a-z0-9_-]{0,40})?$')
+IMPORTFIL = re.compile(r'^src/styles/[a-z0-9][a-z0-9/_.-]{0,100}\.css$')
+STRUKTUR = ('brodsmulor',)
 LANGD = re.compile(r'^(?:0|-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|ch|ex|lh|rlh|vw|vh|svh|lvh|dvh|vmin|vmax|cqi|cqw|%)|(?:clamp|min|max|calc)\([0-9a-z.+\-*/%, ()]+\))$')
 FARLIGT = re.compile(r'[;{}<>\\]|/\*|\*/')
 GENERISKA = {'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace',
@@ -162,6 +167,59 @@ def validera(v):
     gaa({k: v.get(k) for k in ('farger', 'typsnitt', 'avstand', 'radier', 'spalter')}, '')
     if not isinstance(v.get('avvikelser', []), list):
         fel.append('avvikelser ska vara en lista (från referensen, till vårt, varför)')
+    # importerade stilvärden (Codex via ägaren 2026-10-05, punkt 6: kontraktet stödjer importerade värden och valda
+    # tillstånd, så att kontrollens förmåga aldrig avgör vad kunden får)
+    imp = v.get('import', [])
+    if not isinstance(imp, list):
+        fel.append('import ska vara en lista med {fil, kalla}')
+        imp = []
+    for i, x in enumerate(imp):
+        if not isinstance(x, dict) or not IMPORTFIL.match(str(x.get('fil') or '')) or '..' in str(x.get('fil')):
+            fel.append('import[%d]: fil ska vara en .css-fil under src/styles/ (till exempel src/styles/stil/<namn>.css)' % i)
+        elif not str(x.get('kalla') or '').strip():
+            fel.append('import[%d]: kalla saknas (stilexportens källa, till exempel refero: <stil> <id>)' % i)
+        elif x.get('sha256') is not None and not re.fullmatch(r'[0-9a-f]{64}', str(x['sha256'])):
+            fel.append('import[%d]: sha256 ska vara 64 hextecken' % i)
+    for n, f in farger.items():
+        if isinstance(f, dict) and f.get('token') is not None and not TOKEN.match(str(f['token'])):
+            fel.append('farger.%s: token ska vara ett CSS-variabelnamn (--color-…)' % n)
+    for n, t in typ.items():
+        if isinstance(t, dict) and t.get('token') is not None and not TOKEN.match(str(t['token'])):
+            fel.append('typsnitt.%s: token ska vara ett CSS-variabelnamn (--font-…)' % n)
+    tillstand = v.get('tillstand', {})
+    if not isinstance(tillstand, dict):
+        fel.append('tillstand ska vara ett objekt: {namn: {villkor eller valjare, farger}}')
+        tillstand = {}
+    for n, s in tillstand.items():
+        if not NAMN.match(str(n)) or not isinstance(s, dict):
+            fel.append('tillstand.%s: ogiltigt namn eller värde' % n)
+            continue
+        if bool(s.get('villkor')) == bool(s.get('valjare')):
+            fel.append('tillstand.%s: ange antingen villkor (@media (prefers-color-scheme: dark)) eller valjare (.band--mork, [data-tema="mork"])' % n)
+        elif s.get('villkor') and not VILLKOR.match(str(s['villkor'])):
+            fel.append('tillstand.%s: villkor ska vara en enkel @media-fråga, till exempel @media (prefers-color-scheme: dark)' % n)
+        elif s.get('valjare') and not VALJARE.match(str(s['valjare'])):
+            fel.append('tillstand.%s: valjare ska vara en klass eller ett data-attribut (.band--mork, [data-tema="mork"])' % n)
+        fs = s.get('farger')
+        if not isinstance(fs, dict) or not fs:
+            fel.append('tillstand.%s: farger med minst en färg ur farger och dess värde i tillståndet' % n)
+            continue
+        for fn, hx in fs.items():
+            if fn not in farger:
+                fel.append('tillstand.%s.farger.%s: färgen finns inte i farger' % (n, fn))
+            elif not HEX.match(str(hx)):
+                fel.append('tillstand.%s.farger.%s: värdet ska vara hex' % (n, fn))
+        if not KALLA.match(str(s.get('kalla') or '')):
+            fel.append('tillstand.%s: kalla ska börja med uppmätt:, uppskattat:, valt: eller importerat:' % n)
+        for p in v.get('kontrast') or []:  # kontrastparen gäller också i tillståndet
+            if isinstance(p, list) and len(p) == 3 and p[0] in farger and p[1] in farger and isinstance(p[2], (int, float)):
+                a_ = fs.get(p[0], farger[p[0]].get('varde') if isinstance(farger[p[0]], dict) else None)
+                b_ = fs.get(p[1], farger[p[1]].get('varde') if isinstance(farger[p[1]], dict) else None)
+                if HEX.match(str(a_)) and HEX.match(str(b_)) and kontrast(a_, b_) < p[2]:
+                    fel.append('tillstand.%s: kontrast %s på %s är %.2f:1, under %s:1' % (n, p[0], p[1], kontrast(a_, b_), p[2]))
+    struktur = v.get('struktur', {})
+    if not isinstance(struktur, dict) or any(k not in STRUKTUR or not isinstance(x, bool) for k, x in struktur.items()):
+        fel.append('struktur ska vara ett objekt med sanningsvärden: %s' % ', '.join(STRUKTUR))
     return fel
 
 
@@ -191,6 +249,12 @@ def css(v):
                 if n != 'kalla' and NAMN.match(str(n)):
                     rader.append('  --spalt-%s-%s: %s;' % (bredd, n, x))
     rader.append('}')
+    for n, s in (v.get('tillstand') or {}).items():  # de valda tillstånden: mörkt läge, en inverterad sektion
+        varden = ['  --farg-%s: %s;' % (fn, hx) for fn, hx in (s.get('farger') or {}).items()]
+        if s.get('villkor'):
+            rader += ['%s {' % s['villkor'], '  :root {'] + ['  ' + x for x in varden] + ['  }', '}']
+        else:
+            rader += ['%s {' % s['valjare']] + varden + ['}']
     return '\n'.join(rader) + '\n'
 
 
@@ -284,8 +348,55 @@ def definitioner(dist):
 
 
 def variabler(v):
-    """Namn och värde för varje variabel som css() genererar ur DESIGN.md."""
-    return {m.group(1): m.group(2) for m in re.finditer(r'^  --([a-z0-9-]+): (.+);$', css(v), re.M)}
+    """Namn och värde för varje variabel som css() genererar ur DESIGN.md (grundvärdena, i :root)."""
+    grund = css(v).split('\n}\n', 1)[0]
+    return {m.group(1): m.group(2) for m in re.finditer(r'^  --([a-z0-9-]+): (.+);$', grund, re.M)}
+
+
+def tillatna(v):
+    """{variabel: {normerade värden}}: grundvärdet och de deklarerade tillståndens värden. En definition i den byggda
+    CSS:en med ett annat värde är en odeklarerad omdefinition."""
+    ut = {n: {normera(n, x)} for n, x in variabler(v).items()}
+    for s in (v.get('tillstand') or {}).values():
+        for fn, hx in (s.get('farger') or {}).items():
+            ut.setdefault('farg-' + fn, set()).add(normera('farg', hx))
+    return ut
+
+
+def tokens(v):
+    """{token: (grupp, namn, värde)} för färger och typsnittsroller som pekar på en importerad stilvariabel."""
+    ut = {}
+    for n, f in (v.get('farger') or {}).items():
+        if isinstance(f, dict) and f.get('token'):
+            ut[f['token']] = ('farger', n, f.get('varde'))
+    for n, t in (v.get('typsnitt') or {}).items():
+        if isinstance(t, dict) and t.get('token'):
+            ut[t['token']] = ('typsnitt', n, t.get('familj'))
+    return ut
+
+
+def importfel(v, sajt):
+    """Fel i de importerade stilfilerna: filen finns (inga länkar), är oförändrad när sha256 anges (originalexporten
+    står orörd; kundanpassningen skrivs i en egen fil), och varje token som DESIGN.md pekar på finns i en av dem med
+    samma färgvärde."""
+    import hashlib as h_
+    fel, definierat = [], {}
+    for x in v.get('import') or []:
+        p = Path(sajt) / str(x.get('fil'))
+        if not p.is_file() or p.is_symlink():
+            fel.append('import: %s saknas i sajten' % x.get('fil'))
+            continue
+        data = p.read_bytes()
+        if x.get('sha256') and h_.sha256(data).hexdigest() != x['sha256']:
+            fel.append('import: %s är ändrad sedan stilexporten (sha256); anpassa i en egen fil, aldrig i originalet' % x.get('fil'))
+        for namn, varde in re.findall(r'(--[a-z0-9-]+)\s*:\s*([^;}]+)', data.decode('utf-8', 'replace')):
+            definierat.setdefault(namn, varde.strip())
+    for tok, (grupp, namn, varde) in tokens(v).items():
+        if tok not in definierat:
+            fel.append('%s.%s: token %s finns inte i de importerade stilfilerna' % (grupp, namn, tok))
+        elif grupp == 'farger' and HEX.match(str(varde)) and normera('farg', definierat[tok]) != normera('farg', varde):
+            fel.append('farger.%s: token %s har värdet %s i stilfilen, DESIGN.md säger %s' % (namn, tok, definierat[tok], varde))
+    return fel
 
 
 def sajt_for(slug, kandidat=None, kunder=None):
@@ -318,22 +429,29 @@ def kontroll(slug, kunder=None, underlag=None, kandidat=None, huvudreferens=None
             fel.append('src/styles/design.css är inte genererad ur den aktuella DESIGN.md: kör kontroller/design.py %s --skriv' % slug)
         dist = sajt / 'dist'
         anv = anvanda_variabler(dist) if dist.is_dir() else set()
-        farg = [n for n in v['farger'] if 'farg-' + n in anv]
-        typ = [n for n in v['typsnitt'] if any(x.startswith('typ-%s-' % n) for x in anv)]
+        tok = tokens(v)  # en importerad stilvariabel (Referos --color-…) räknas som användning av färgen eller rollen
+        farg = [n for n in v['farger'] if 'farg-' + n in anv or (v['farger'][n].get('token') or '').lstrip('-') in anv]
+        typ = [n for n in v['typsnitt'] if any(x.startswith('typ-%s-' % n) for x in anv) or (v['typsnitt'][n].get('token') or '').lstrip('-') in anv]
         if not farg or not typ:
             fel.append('sajtens CSS använder inte DESIGN.md:s variabler (färger %d av %d, typsnittsroller %d av %d)' % (len(farg), len(v['farger']), len(typ), len(v['typsnitt'])))
         # startsidan själv: dess egen CSS använder minst en färg- och en typvariabel (granskningen av r54, punkt 4)
         start = startsidans_css(dist) if dist.is_dir() else ''
-        if not re.search(r'var\(\s*--farg-', start) or not re.search(r'var\(\s*--typ-', start):
+        tok_farg = [t for t, (g, _n, _x) in tok.items() if g == 'farger']
+        tok_typ = [t for t, (g, _n, _x) in tok.items() if g == 'typsnitt']
+        if not (re.search(r'var\(\s*--farg-', start) or any(re.search(r'var\(\s*%s\b' % re.escape(t), start) for t in tok_farg)) \
+                or not (re.search(r'var\(\s*--typ-', start) or any(re.search(r'var\(\s*%s\b' % re.escape(t), start) for t in tok_typ)):
             fel.append('startsidans CSS (dist/index.html och dess stilmallar) använder inte DESIGN.md:s färg- och typvariabler')
-        # variablerna finns i den byggda CSS:en med DESIGN.md:s värden och omdefinieras ingenstans
+        # variablerna finns i den byggda CSS:en med DESIGN.md:s värden; en omdefinition är tillåten när den är ett
+        # deklarerat tillstånd (mörkt läge, en inverterad sektion), annars är den en avvikelse från kontraktet
         defs = definitioner(dist) if dist.is_dir() else {}
+        ok = tillatna(v)
         saknas = [n for n in variabler(v) if n not in defs]
-        andrade = ['%s (%s)' % (n, ', '.join(sorted(defs[n]))) for n, x in variabler(v).items() if n in defs and defs[n] != {normera(n, x)}]
+        andrade = ['%s (%s)' % (n, ', '.join(sorted(defs[n] - ok.get(n, set())))) for n in variabler(v) if n in defs and defs[n] - ok.get(n, set())]
         if saknas:
             fel.append('design.css följer inte med i bygget: %d variabler saknas i dist (%s)' % (len(saknas), ', '.join(saknas[:6])))
         if andrade:
-            fel.append('variabler omdefinierade eller med andra värden än DESIGN.md: ' + '; '.join(andrade[:6]))
+            fel.append('variabler omdefinierade med värden som varken DESIGN.md eller dess tillstånd har: ' + '; '.join(andrade[:6]))
+        fel += importfel(v, sajt)
         oanv = [n for n in v['farger'] if n not in farg] + ['typ-' + n for n in v['typsnitt'] if n not in typ]
         if oanv:
             info.append('oanvända värden i DESIGN.md (finns inte i sajtens CSS): ' + ', '.join(oanv))

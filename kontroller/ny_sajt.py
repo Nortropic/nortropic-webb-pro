@@ -3,7 +3,8 @@
 
     .venv/bin/python kontroller/ny_sajt.py <slug> [--doman exempel.se] [--installera]
 
-Domänen tas ur underlag/<slug>/VERKSAMHET.json (webb.doman) om --doman saknas. --installera kör npm install.
+Domänen tas ur underlag/<slug>/VERKSAMHET.json (webb.doman) om --doman saknas. --installera kör npm ci mot mallens
+låsfil (kunskap/beroenden.md: förberedda, granskade och versionslåsta beroenden), annars npm install.
 Skriver aldrig över en befintlig sajt. Finns för att en kopiering med cp -R mall/astro/. nekas av behörighets-
 kontrollen i obevakade körningar.
 Exit 0 = skapad; 2 = fel i anropet, eller sajten finns redan.
@@ -53,8 +54,9 @@ def main(argv=None):
     konfig.write_text(konfig.read_text(encoding='utf-8').replace('https://ERSATT-MED-DOMAN.se', 'https://' + doman), encoding='utf-8')
     print('skapad: %s (site https://%s)' % (mal.relative_to(ROOT), doman))
     if a.installera:
-        r = subprocess.run(['npm', 'install', '--no-audit', '--no-fund'], cwd=mal, capture_output=True, text=True)
-        print(('npm install klar' if r.returncode == 0 else 'npm install misslyckades:\n' + (r.stderr or r.stdout)[-800:]))
+        kommando = ['npm', 'ci' if (mal / 'package-lock.json').is_file() else 'install', '--no-audit', '--no-fund']
+        r = subprocess.run(kommando, cwd=mal, capture_output=True, text=True)
+        print(('npm %s klar' % kommando[1] if r.returncode == 0 else 'npm %s misslyckades:\n' % kommando[1] + (r.stderr or r.stdout)[-800:]))
         if r.returncode:
             return 1
     return 0

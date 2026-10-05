@@ -23,8 +23,18 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
 1. `.venv/bin/python kontroller/backlog.py status <id> pagar`
 2. **Läs posten och källan:** `kunskap/REGISTER.md` för kirurgposter, `kunder/<slug>/DOM.json` och `LARDOMAR.md`
    för domposter, `kunder/<slug>/RAPPORT.md` för byggposter.
-3. **Gör ändringen**, så liten som posten kräver, i den fil posten pekar på. En dom blir en textändring i skillen
-   `bygg-sajt` eller en fil i `kunskap/`. Ny mekanik bara när posten uttryckligen kräver det och inget enklare räcker.
+3. **Klassa domen först** (Codex via ägaren 2026-10-05, punkt 10: en synpunkt på en kund ska inte bli nästa kunds
+   instruktion). En ägardom är ett av fyra slag, och slaget avgör var ändringen hamnar:
+   - **kundbeslut:** gäller den kunden; det står i domloggen (`underlag/<slug>/DESIGNDOMAR.jsonl`) och i kundens
+     underlag, aldrig i en gemensam regel;
+   - **smakpreferens:** ett exempel i `LARDOMAR.md` och kalibreringen, som slås upp; aldrig ett krav för nästa bygge;
+   - **metodhypotes:** en rad i `kunskap/metodregler.md` med status oprövad och hur den prövas, och i
+     `kunskap/designregler.md` bland designhypoteserna;
+   - **generell rättelse:** ett fel som gäller varje bygge (ett påhittat påstående, en trasig länk, ett kvalitetskrav
+     som brast). Bara den blir en ändring i skillen `bygg-sajt`, en fil i `kunskap/` eller en kontroll.
+   Skriv slaget på Ändring-raden. Är slaget oklart: kundbeslut eller smakpreferens, inte en gemensam regel.
+   **Gör ändringen**, så liten som posten kräver, i den fil slaget pekar på. Ny mekanik bara när posten uttryckligen
+   kräver det och inget enklare räcker.
    Ändras en skill, `CLAUDE.md`, `kritik/GRANSKARE.md` eller en fil i `kunskap/`: läs skillen `writing-for-agents`
    först, och pröva stycket där ändringen hamnar mot dubbletter, inaktuella rader och no-ops.
    **Välj formen efter hur bygget brast.** Läs först vad bygget gjorde och klassa felet:

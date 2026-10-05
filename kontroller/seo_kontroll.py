@@ -2,7 +2,8 @@
 """SEO-kontroll: teknisk och innehållsmässig läsning av ett renderat bygge (katalog med HTML eller en sitemap-lista av
 lokala filer) mot brief och verksamhetsuppgifter. Rapport, inga rankningslöften: metadata eller Lighthouse-SEO ensamt är
 ingen SEO-funktion (ordern avsnitt 4). Kontrollerar per sida: title och description (längd, unika), en h1, canonical,
-robots/noindex-läge mot avsett läge (förhandsvisning: noindex; lansering: index), hreflang-par, JSON-LD (giltig JSON,
+robots/noindex (samma bygge går till förhandsvisning och produktion: noindex bara på 404, tack- och felsidan; skyddet och
+förhandsvisningens X-Robots-Tag prövas i de verkliga svaren av kontroller/driftkoll.py), hreflang-par, JSON-LD (giltig JSON,
 typ och egenskaper mot schema.org:s vokabulär, sanningsenlighet mot VERKSAMHET.json: namn, telefon, adress bara när
 publik, öppettider), interna länkar som löser, bildalt; per sajt: sitemap.xml och robots.txt finns och stämmer, kanonisk
 domän, omdirigeringskarta vid migrering (--omdirigeringar FIL: gamla URL:er ska finnas som mål eller 301-rad).
@@ -83,8 +84,8 @@ def finns_lokalt(root, href, sida='/', bas=None, doman=None):
 def granska_sida(root, f, raw, lage, verksamhet, doman):
     fynd = []
     url = url_for(root, f)
-    # 404-sidan och tacksidan ska ha noindex och ingen canonical (byggstandarden 6.7 och 7.2, ägarens domar L1–L3)
-    ar_404 = f.relative_to(root).as_posix() in ('404.html', 'tack/index.html')
+    # 404-sidan, tacksidan och felsidan ska ha noindex och ingen canonical (byggstandarden 6.7 och 7.2, ägarens domar L1–L3)
+    ar_404 = f.relative_to(root).as_posix() in ('404.html', 'tack/index.html', 'fel/index.html')
     m = TITLE.search(raw)
     title = htmlmod.unescape(re.sub(r'<[^>]+>', '', m.group(1))).strip() if m else ''
     if not title:
@@ -99,10 +100,11 @@ def granska_sida(root, f, raw, lage, verksamhet, doman):
         fynd.append(('description lång (%d)' % len(desc), 'högst omkring 155 tecken'))
     robots = next((mm.get('content', '').lower() for mm in metas if mm.get('name', '').lower() == 'robots'), '')
     noindex = 'noindex' in robots
-    if lage == 'forhandsvisning' and not noindex:
-        fynd.append(('index tillåten i förhandsvisning', 'förhandsvisningen ska bära noindex (och skydd); lanseringskonfigurationen är en annan'))
-    if lage == 'lansering' and noindex and not ar_404:
-        fynd.append(('noindex kvar vid lansering', 'noindex ska bort i lanseringskonfigurationen, annars samlar sökkonsolen inget'))
+    # ett bygge, två lägen (kunskap/lansering.md): förhandsvisningens skydd och noindex ligger i driftsättningen, aldrig i
+    # HTML:en, så en noindex på en vanlig sida är fel i båda lägena (Codex via ägaren 2026-10-05: kontrollerna motsade
+    # varandra om noindex och robots)
+    if noindex and not ar_404:
+        fynd.append(('noindex på en vanlig sida', 'samma bygge går till produktion; förhandsvisningen skyddas och får noindex av Vercel (kontroller/driftkoll.py)'))
     n_h1 = len(H1.findall(raw))
     if n_h1 != 1:
         fynd.append(('h1: %d' % n_h1, 'en h1 per sida som svarar på sidans sökintention'))
@@ -386,10 +388,8 @@ def granska_sajt(root, lage, doman, omdirigeringar):
         text = rb.read_text(encoding='utf-8', errors='replace')
         if 'Sitemap:' not in text:
             fynd.append(('robots utan Sitemap-rad', ''))
-        if lage == 'lansering' and re.search(r'(?im)^Disallow:\s*/\s*$', text):
-            fynd.append(('robots blockerar allt vid lansering', ''))
-        if lage == 'forhandsvisning' and not re.search(r'(?im)^Disallow:\s*/\s*$', text):
-            fynd.append(('robots tillåter crawl i förhandsvisning', 'förhandsvisning: Disallow: / och noindex'))
+        if re.search(r'(?im)^Disallow:\s*/\s*$', text):
+            fynd.append(('robots blockerar allt', 'samma bygge går till produktion; förhandsvisningen skyddas i driftsättningen'))
     if omdirigeringar:
         data = json.loads(Path(omdirigeringar).read_text(encoding='utf-8'))
         for rad in data.get('gamla', []):

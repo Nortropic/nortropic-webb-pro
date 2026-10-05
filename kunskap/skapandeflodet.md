@@ -47,26 +47,31 @@ besökarens uppgift löses; färgbyten på samma layout är inga olika förslag.
   bristerna, det som tillfördes varje uppdrag och verktygen som användes, de ofullständiga och det som behöver
   mänsklig bedömning. Antalet lästa filer, anrop eller varv är inget betyg.
 
-**Kompetenserna** (ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"; Codex samma dag:
-varje kompetens med en obligatorisk uppgift och sina fullständiga instruktioner). Avsnittet Kompetenserna i
-`kunskap/metodkarta.md` säger vilka skills och referensfiler varje kompetens läser hela, vilka verktyg och MCP:er den
-har och vad den ska visa; `kontroller/kompetens.py` läser det. Kedjan i skissläget:
+**Kompetenserna** (ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"; ägarens uppdrag
+18:53Z, punkt 5: varje roll läser de fullständiga relevanta delarna; Codex via ägaren 19:04Z, punkt 7–9). Avsnittet
+Kompetenserna i `kunskap/metodkarta.md` ger varje roll en kärna som läses hel och alternativ som väljs efter riktningen,
+verktygen, MCP:erna och vad passet ska visa; `kontroller/kompetens.py` läser det och ger samma block till uppdraget och
+till sessionens behörigheter. Kedjan:
 
-1. **Planprövningen:** art direction och UX prövar planerarens designval innan någon bygger, och skriver ändringarna i
-   uppdragen (PLANPROVNING.md).
-2. **Skaparen:** art direction och typografi, layout och bild, med Impeccables arbetsflöde (new-work, craft-floor direkt
-   före varje ändring), UI UX Pro Max designsystemsökning och förebilder ur Refero eller Mobbin.
-3. **Fyra pass på den renderade skissen**, i ordning: UX och innehåll, interaktion och rörelse, mobil och
-   tillgänglighet, visuell kritik och slutbearbetning (med Impeccables detektor). Varje pass läser sina filer hela,
-   arbetar i en avgränsad omgång och redovisar före och efter i sidan och vad varje skill ändrade; ett pass som bryter
-   sidan återställs, och ett som inte läst sina filer får ett omförsök.
-4. **Fördjupningen** efter ägarens val: alla kompetenser, sedan de fyra passen igen på hela sidan.
+1. **Planeringen och planprövningen:** uppdragen skrivs och prövas med Referos referenslås och Hallmarks makrostrukturer
+   som stöd, så att förslagen skiljer sig i verkliga designriktningar; titel, hypotes och huvudreferens är låsta i
+   prövningen (PLANPROVNING.md).
+2. **Skaparen:** en sammanhängande skiss med fyra roller (design och komposition, typografi och färg, innehåll och UX,
+   responsiv implementation): referenslåset och beslutsliggaren i RIKTNING.md, craft-floor direkt före varje ändring,
+   researchens material (Referos stilpaket och skärmar, Mobbins skärmar) och kompletterande sökningar vid behov. Före
+   ägarens val ändrar ingen annan session skissen.
+3. **Fördjupningen** efter ägarens val: samma roller och designsystemet på hela sajten.
+4. **Två pass på den fördjupade sidan**, en gång var: interaktion och rörelse, sedan tillgänglighet och visuell
+   granskning (med Impeccables detektor). Varje pass har förhandsvisningens interaktionsväg (tangentbord, fokus,
+   hovring, meny, reflow 320, reducerad rörelse) och redovisar tre saker var för sig: koden som ändrades, beteendet som
+   prövades och den visuella bedömningen före och efter. Ett pass som bryter sidan eller ger fler allvarliga axe-fynd
+   återställs; ett avbrutet pass tas om från versionen före; DESIGN.md prövas efter det sista passet.
 
-Alla skills (skillverktyget) och användarens MCP-servrar är tillgängliga i sessionerna; vad de får använda utan att fråga
-står i varje pass. Refero, Mobbin och Trybloom når aldrig kundens uppgifter: `kontroller/kundvakt.py` är en
-PreToolUse-krok som stoppar ett sådant anrop och stänger vid fel. Skills utan uppgift i en statisk webbsajt står med
-skäl i kartan. Kvittot (filerna lästa hela, skillverktygets och MCP:ernas anrop) och före och efter står i
-REDOVISNING.md och i vyn efter ägarens första beslut.
+Alla skills (skillverktyget) och användarens MCP-servrar är tillgängliga i sessionerna. Refero, Mobbin och Trybloom står
+inte i sessionernas tillåtelselista: kundvakten (`kontroller/kundvakt.py`, en krok före varje anrop) öppnar ett anrop som
+inte bär kundens uppgifter och stoppar resten, och en vakt som inte kan pröva lämnar anropet åt dontAsk, som nekar det.
+Skills utan uppgift i flödet står med skäl i kartan. Kvittot (kärnan läst hel, valda alternativ, skillverktygets och
+MCP:ernas lyckade anrop) och före och efter står i REDOVISNING.md och i vyn efter ägarens första beslut.
 
 `NWP_KANDIDATLAGE=full` är en tillfällig växel till det tidigare förvalet (granskning i två pass och förbättringsrunda
 före ägarens val, hela startsidan och undersidan, minst tre varv), för jämförelse och återställning. Växeln tas bort när
@@ -104,7 +109,7 @@ kandidaterna och granskningarna.
    och gör förhandsvarv i 390 och 1440 (768 med `--mellan` när layouten byter form) där bilderna och en referensbild
    läses. Klar är den när den renderade sidan visar att grundidén syns, att kundens material bär kompositionen, att den
    viktigaste besökaruppgiften går att genomföra och att mobilen håller ihop, med bilderna under "Visar". Tre varv är en
-   arbetsregel. Formulären postar till `/api/forfragan` och landar på `/tack/` (lokal demonstration).
+   arbetsregel. Formulären postar till `/api/forfragan/` och landar på `/tack/` (lokal demonstration).
 5. **Fotografera.** Bygget körs innanför processgränsen; startsidan fotograferas i 390, 768 och 1440 och undersidan i
    390 och 1440, och axe prövar startsidan och undersidan med menyn öppen och formulären skickade tomma. Koden bevaras i
    `kod/`, DESIGN.md bredvid och bilderna i `bilder/`; versionen är hashen över koden och DESIGN.md, så en ny

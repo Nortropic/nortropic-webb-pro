@@ -7,6 +7,7 @@ titta → upptäck svagheten → rätta → titta igen saknades inom skaparsessi
 skaparen själv får köra.
 
     .venv/bin/python kontroller/forhandsvisa.py <slug> [--kandidat kNN] [--sida /] [--mellan] [--bara-bygg]
+        [--tillstand tangentbord,reflow,reducerad] [--meny SEL] [--hover SEL] [--fokus SEL]
 
 Bygger kunder/<slug>/sajt (npm run build innanför processgränsen, kontroller/processgrans.py), serverar dist/ lokalt och kör inspektera.mjs i 390 och 1440 med mätningen av
 typografi, färger, rytm och bilder (EXTRAKT.md). Bilderna hamnar i underlag/<slug>/forhand/<sida>/varv-NN/ (sidan
@@ -14,6 +15,11 @@ typografi, färger, rytm och bilder (EXTRAKT.md). Bilderna hamnar i underlag/<sl
 Med --kandidat byggs och fotograferas kandidatens eget projekt (kunder/<slug>/kandidater/<id>/sajt), och varven hamnar
 hos kandidaten (underlag/<slug>/atelje/kandidater/<id>/varv/<sida>/varv-NN/). --mellan tar också mellanbredden 768.
 Skriver ut vägarna att läsa med Read, mobil först, och konsolfel och sidled-spill. Ändrar ingenting i sajten.
+
+Interaktionsvägen (Codex via ägaren 2026-10-05, punkt 9; granskning 4, G10): --tillstand prövar tangentbordet (steg och
+steg utan synlig fokus), reflow i 320 och reducerad rörelse (animationer som löper med prefers-reduced-motion: reduce),
+och --meny, --hover och --fokus fotograferar elementet som CSS-väljaren pekar ut (klickad meny, hovring, fokus).
+Resultaten står i FORHAND.md med bildernas vägar.
 """
 import argparse
 import json
@@ -71,9 +77,13 @@ def nasta_varv(rot):
     return Path(rot) / ('varv-%02d' % (max(nr or [0]) + 1))
 
 
-def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan=False):
+TILLSTAND = ('tangentbord', 'reflow', 'reducerad')
+VALJARE = re.compile(r'^[A-Za-z0-9 _#.\-\[\]="\':>()*+~^$|,]{1,120}$')
+
+
+def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan=False, tillstand=(), meny=None, hover=None, fokus=None):
     """Bygg, fotografera och mät. Ger (rc, rapporttext, katalog). rc 0 när bilderna finns, 2 när bygget eller
-    fotograferingen föll (texten säger varför)."""
+    fotograferingen föll (texten säger varför). tillstand, meny, hover och fokus: interaktionsvägen."""
     sajt = sajt_for(slug, kandidat)
     if not (sajt / 'package.json').is_file():
         return 2, '%s saknas; %s' % (sajt.relative_to(ROOT) if sajt.is_relative_to(ROOT) else sajt,
@@ -91,7 +101,8 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
     insp = str(prova.KONTROLLER / 'webblasare' / 'inspektera.mjs')
     with prova.Server(sajt / 'dist') as srv:
         rc, out = prova.kor([prova.NODE, insp, '--adress', srv.url + sida, '--ut', str(ut), '--vyer', '390,768,1440' if mellan else '390,1440',
-                             '--tillstand', 'inga', '--extrahera', 'standard'], timeout=300)
+                             '--tillstand', ','.join(tillstand) or 'inga', '--extrahera', 'standard']
+                            + sum((['--%s' % n, v] for n, v in (('meny', meny), ('hover', hover), ('fokus', fokus)) if v), []), timeout=420)
     saknas = [n for n in LAS if not (ut / n).is_file()]
     if saknas:
         return 2, 'fotograferingen gav inte %s (rc %d):\n%s' % (', '.join(saknas), rc, prova.svans(out, 15)), ut
@@ -102,6 +113,23 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
         fel += ['%s sidfel: %s' % (vy, str(x.get('text', ''))[:160]) for x in r.get('sidfel') or []]
         if (r.get('spill') or {}).get('spill'):
             spill.append('%s px: scrollWidth %s' % (vy, r['spill'].get('scrollWidth')))
+    beteende = []
+    for vy, r in sorted((ins.get('vyer') or {}).items()):
+        t = r.get('tillstand') or {}
+        if 'tangentbord' in t:
+            beteende.append('%s px tangentbord: %d steg, %s utan synlig fokus' % (vy, len(t.get('tangentbord') or []), t.get('tangentbord_utan_synlig_fokus')))
+        if 'reflow_320' in t:
+            beteende.append('%s px reflow 320: spill %s; bild %s' % (vy, (t.get('reflow_320') or {}).get('spill'), 'vy-%s-reflow320.png' % vy))
+        if 'reducerad' in t:
+            x = t['reducerad']
+            beteende.append('%s px reducerad rörelse: %d animationer löper utan, %d med reduce%s; bild %s' % (
+                vy, x.get('lopande_utan', 0), x.get('lopande_med_reduce', 0),
+                (' (' + ', '.join(map(str, x.get('namn_med_reduce') or [])) + ')') if x.get('lopande_med_reduce') else '', Path(x.get('bild', '')).name))
+        if 'meny' in t:
+            beteende.append('%s px meny: klickad %s, aria-expanded %s; bild %s' % (vy, t['meny'].get('klickad'), t['meny'].get('expanded'), Path(t['meny'].get('bild', '')).name))
+        for n in ('hover', 'fokus'):
+            if t.get(n):
+                beteende.append('%s px %s: bild %s%s' % (vy, n, Path(t[n]).name, (' (fel: %s)' % t.get(n + '_fel')) if t.get(n + '_fel') else ''))
     rutor = sorted(p.name for p in ut.glob('vy-*-ruta-*.png'))
     rel = lambda p: str(Path(p).relative_to(ROOT)) if str(p).startswith(str(ROOT)) else str(p)  # noqa: E731
     rader = ['# Förhandsvisning %s · %s%s' % (ut.name, slug, sida), '',
@@ -112,7 +140,8 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
              'Skärmhöga rutor uppifrån och ned (läs dem för detaljerna): ' + (', '.join(rutor) or 'inga'),
              'Mätningen (typografi, färger, rytm, bilder och beskärning): ' + rel(ut / 'EXTRAKT.md'),
              'Konsolfel: ' + ('; '.join(fel[:5]) if fel else 'inga'),
-             'Sidled-spill: ' + ('; '.join(spill) if spill else 'inget'), '']
+             'Sidled-spill: ' + ('; '.join(spill) if spill else 'inget'),
+             *(['Interaktionsvägen (bilderna i samma katalog; läs dem med Read):'] + ['- ' + x for x in beteende] if beteende else []), '']
     (ut / 'FORHAND.md').write_text('\n'.join(rader), encoding='utf-8')
     return 0, '\n'.join(rader), ut
 
@@ -124,8 +153,12 @@ def main(argv=None):
     p.add_argument('--kandidat', default=None, help='en kandidats eget projekt i skapandeflödet (k01–k12)')
     p.add_argument('--mellan', action='store_true', help='också mellanbredden 768')
     p.add_argument('--bara-bygg', action='store_true', help='bygg sajten innanför processgränsen utan att fotografera')
+    p.add_argument('--tillstand', default='', help='interaktionsvägen: tangentbord, reflow, reducerad (kommaseparerat)')
+    p.add_argument('--meny', help='CSS-väljare för menyns knapp: klickas och fotograferas')
+    p.add_argument('--hover', help='CSS-väljare: hovring fotograferas')
+    p.add_argument('--fokus', help='CSS-väljare: fokus fotograferas')
     ra = list(sys.argv[1:] if argv is None else argv)
-    if any(sum(1 for x in ra if x == f or x.startswith(f + '=')) > 1 for f in ('--kandidat', '--sida')):
+    if any(sum(1 for x in ra if x == f or x.startswith(f + '=')) > 1 for f in ('--kandidat', '--sida', '--tillstand', '--meny', '--hover', '--fokus')):
         # en skapare får bara bygga sin egen kandidat: argparse tar den sista av upprepade flaggor (granskningen M2)
         print('--kandidat och --sida får anges en gång', file=sys.stderr)
         return 2
@@ -133,7 +166,12 @@ def main(argv=None):
     if not SLUG.fullmatch(a.slug) or not SIDA.fullmatch(a.sida) or (a.kandidat and not KANDIDAT.fullmatch(a.kandidat)):
         print('slug a–z, 0–9, bindestreck; sidan som /väg/ med snedstreck sist; kandidaten som k01–k12', file=sys.stderr)
         return 2
-    rc, text, _ = forhandsvisa(a.slug, a.sida, bara_bygg=a.bara_bygg, kandidat=a.kandidat, mellan=a.mellan)
+    tillstand = tuple(x for x in a.tillstand.split(',') if x)
+    if any(x not in TILLSTAND for x in tillstand) or any(v is not None and not VALJARE.fullmatch(v) for v in (a.meny, a.hover, a.fokus)):
+        print('tillstand: %s (kommaseparerat); --meny, --hover och --fokus: en CSS-väljare utan semikolon eller klamrar' % ', '.join(TILLSTAND), file=sys.stderr)
+        return 2
+    rc, text, _ = forhandsvisa(a.slug, a.sida, bara_bygg=a.bara_bygg, kandidat=a.kandidat, mellan=a.mellan,
+                               tillstand=tillstand, meny=a.meny, hover=a.hover, fokus=a.fokus)
     print(text)
     return rc
 

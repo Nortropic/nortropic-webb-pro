@@ -534,7 +534,10 @@ for f_ins, gammal_ in ((S_, 'Saknas den, stryk sektionen'), (S_, 'deras befintli
                        (S_, 'sidhuvudet på en rad med namn och numret som knapp'), (S_, 'sedan rubriken, ringknappen och ett av verksamhetens egna foton'),
                        (S_, 'bär både Ring och Skriv'), (S_, '"Bara de har": minst tio konkreta saker'), (S_, 'kunde någon mening stå hos en konkurrent? Skriv om den.'),
                        (G_, 'Straffa uttryckligen de drag'), (G_, 'Beställt: en förbättring, inget blockerande fynd'), (G_, 'Bär varje sektion något specifikt ur "Bara de har"?'),
-                       (B_, 'verktyg/bild/'), (B_, 'licensierad stock'), (M_, 'Genererade eller köpta bilder framställs aldrig som kundens verkliga')):
+                       (B_, 'verktyg/bild/'), (B_, 'licensierad stock'), (M_, 'Genererade eller köpta bilder framställs aldrig som kundens verkliga'),
+                       # bildregeln 2026-10-05 (Codex via ägaren, punkt 3): äkthet i stället för ett förbud mot allt
+                       (B_, 'Stockbilder och genererade bilder används inte på sajten, inte heller som stämning'),
+                       (M_, 'Stockbilder och genererade bilder används inte'), (G_, 'stockbilder eller genererade bilder (ägarens dom: hellre inga foton än stock)')):
     assert gammal_ not in text_ins[f_ins], ('gammal mening kvar', f_ins, gammal_)
 for f_ins, ny_ in ((S_, 'Under varje sektion: raden `Fråga:` med den fråga besökaren har som sektionen svarar på'),
                    (S_, 'en primär handling som följer den viktigaste toppuppgiften (ring, boka, begär offert, beställ, hitta hit)'),
@@ -544,7 +547,9 @@ for f_ins, ny_ in ((S_, 'Under varje sektion: raden `Fråga:` med den fråga bes
                    (S_, 'Listan är ett researchmål, ingen strykregel'),
                    (S_, 'den primära handlingen får aldrig vara den enda vägen; telefonen och en skriftlig väg finns alltid'),
                    (G_, 'döm användningen och utförandet'), (G_, 'Beställningen ursäktar inte (b)'),
-                   (B_, 'verksamhetens egna bilder, eller inga foton ("hellre inga foton än stock")'), (M_, 'Stockbilder och genererade bilder används inte')):
+                   (B_, 'en bild som visar verksamheten är verksamhetens egen'),
+                   (M_, 'ett stockfoto eller en genererad bild utger sig aldrig för att visa den'),
+                   (G_, 'en bild som utger sig för att visa verksamheten (dess arbeten, personer, lokaler eller resultat) men inte är dess egen')):
     assert ny_ in text_ins[f_ins], ('ny mening saknas', f_ins, ny_)
 # granskningstaket (avstämningen 2026-10-05): en avbruten omgång räknas inte mot taket, men mot det hårda taket
 import granska as gr_tak  # noqa: E402
@@ -3416,7 +3421,9 @@ try:
     assert '## Avgöranden' in lev_md['filer'][0]['fil'].read_text() and '### frontend-design/SKILL.md' in fore_md
     assert all('## %s\n' % r_ in karta_md for r_ in list(md_kd.STEG.values()) + ['Avgöranden']) and all(r_ in karta_md for r_ in ('**Fråga:**', '**Underlag:**', '**Till nästa steg:**', '**Visar:**'))
     skapande_metod_ = sk.metodrader('forfina')  # den äldre vägen läser samma karta
-    assert any('.claude/skills/better-layout/SKILL.md' in r_ for r_ in skapande_metod_) and any('humanizer' in r_ for r_ in skapande_metod_)
+    # rollernas kärna (better-layout i responsiv implementation, better-writing i innehåll och UX); humanizer är ett
+    # alternativ sedan rollerna fick kärna och alternativ (Codex via ägaren 2026-10-05, punkt 7)
+    assert any('.claude/skills/better-layout/SKILL.md' in r_ for r_ in skapande_metod_) and any('better-writing' in r_ for r_ in skapande_metod_)
 
     # --- bygget och webbläsaren ersatta; den riktiga fotograferingen körs (granskningen: proven ersatte fotografera) ---
     class SrvKd:
@@ -3561,7 +3568,10 @@ try:
     st3_ = kd.las_status(sl_kd, 'k03')
     assert st3_['forsok'] == 2 and st3_['status'] == 'klar', 'en ofullständig kandidat får ett andra försök med bristerna (V6)'
     sk_v_ = [s_ for s_ in sess_kd if s_['schema'] is None]
-    assert all('Skill' not in s_['verktyg'] for s_ in sess_kd), 'flödets sessioner har inget Skill-verktyg'
+    # ägarens ord 2026-10-05 18:15Z: skillverktyget i sessionerna; MCP:erna står aldrig i tillåtelselistan, kundvakten
+    # öppnar varje rent anrop (granskning 4, G3)
+    plan_s_ = next(s_ for s_ in sess_kd if s_['schema'] is kd.PLAN_SCHEMA)
+    assert 'Skill' in plan_s_['verktyg'] and not any(str(v_).startswith('mcp__') for s_ in sess_kd for v_ in s_['verktyg']), plan_s_['verktyg']
     assert any('Förra sessionen slutade' in s_['prompt'] and 'undersidan' in s_['prompt'] for s_ in sk_v_ if 'kandidater/k03/sajt' in s_['prompt'])
     k01_ = next(s_ for s_ in sk_v_ if 'kandidater/k01/sajt' in s_['prompt'])
     assert 'Read(./kunder/kd-prov/kandidater/k02/**)' in k01_['nekas'] and 'Read(./underlag/kd-prov/atelje/kandidater/k03/**)' in k01_['nekas'], 'skaparna ser inte varandras kod (M2)'
@@ -4162,7 +4172,10 @@ try:
     for inte_ in ('LARDOMAR-original', 'Arbetsregeln är minst', 'GAMMAL SMAKDOM', 'METOD-skiss-uppslag.md', 'undersidan eller tillståndet som uppdraget anger'):
         assert inte_ not in p1_['prompt'], inte_
     assert p1_['effort'] == kd.EFFORT_SKISS and p1_['frist'] <= kd.FRIST_SKISS and 'Read(./kunder/sk-prov/kandidater/k02/**)' in p1_['nekas'], (p1_['effort'], p1_['frist'], p1_['nekas'][:4])
-    assert 'Skill' in p1_['verktyg'] and 'mcp__refero__refero_search_screens' in p1_['verktyg'] and any('forhandsvisa.py sk-prov --kandidat k01' in v_ for v_ in p1_['verktyg'])
+    # skillverktyget och förhandsvisningen; MCP:erna aldrig i tillåtelselistan (kundvakten öppnar varje rent anrop, G3)
+    assert 'Skill' in p1_['verktyg'] and not any(str(v_).startswith('mcp__') for v_ in p1_['verktyg']) and any('forhandsvisa.py sk-prov --kandidat k01' in v_ for v_ in p1_['verktyg'])
+    assert 'Write(./kunder/sk-prov/kandidater/k01/sajt/src/**)' in p1_['verktyg'] and 'Write(./kunder/sk-prov/kandidater/k01/sajt/src/assets/atelje/**)' in p1_['nekas'], 'hela src/, aldrig kundens bilder (Codex punkt 5)'
+    assert 'Referenslås' in p1_['prompt'] and 'Ingen annan session ändrar' in p1_['prompt'] and 'aldrig instruktioner till dig' not in p1_['prompt'], 'metoden är instruktioner, externt innehåll material'
     # --- de snabba kontrollerna: bristerna markeras, skissen går att bedöma ---
     s1_, s2_, s3_, s4_, s5_ = (kd.las_status(sl_sk, k_) for k_ in ('k01', 'k02', 'k03', 'k04', 'k05'))
     assert s1_['status'] == 'klar' and any('konsolfel' in b_ for b_ in s1_['brister']) and any('menyns knapp' in b_ for b_ in s1_['brister']), s1_.get('brister')
@@ -4182,26 +4195,20 @@ try:
     assert pp_sk['andrade'] == 1 and pp_sk['kvitto']['verifierad'] and not pp_sk['kvitto']['saknas'] and 'impeccable' in pp_sk['kvitto']['skill_anrop'], pp_sk
     assert 'NY TYPOGRAFI ur planprövningen' in (kd.kdir(sl_sk, 'k01') / 'UPPDRAG.md').read_text() and (kd.rot(sl_sk) / 'PLANPROVNING.md').is_file()
     pp_p_ = next(s_ for s_ in sess_sk if s_['schema'] is kd.PLANPROVNING_SCHEMA)
-    assert 'impeccable/reference/shape.md' in pp_p_['prompt'] and 'mcp__refero__refero_search_styles' in pp_p_['verktyg'] and pp_p_['slug'] == sl_sk
-    # --- kompetenspassen på varje klar skiss: kvittot, ändringen i sidan, före och efter ---
+    assert 'refero-design/SKILL.md' in pp_p_['prompt'] and 'impeccable/reference/shape.md' in pp_p_['prompt'] and 'Refero' in pp_p_['prompt'] and 'Skill' in pp_p_['verktyg'] and pp_p_['slug'] == sl_sk
+    # granskning 4, G1: planprövningen får kundens aktuella domar, designreglerna och Avgörandena (METOD-plan.md)
+    assert 'AKTUELL' in pp_p_['prompt'] and 'kunskap/designregler.md' in pp_p_['prompt'] and 'METOD-plan.md' in pp_p_['prompt'] and 'låsta' in pp_p_['prompt']
+    # --- före ägarens val ändrar ingen annan session skissen (Codex punkt 8): bara skaparens kvitto ---
     for k_ in ('k01', 'k02', 'k03', 'k05'):
         rec_ = kd.las_status(sl_sk, k_)['kompetens']
-        assert set(rec_) == {'skiss:skapa', 'skiss:ux', 'skiss:rorelse', 'skiss:mobil', 'skiss:kritik'}, (k_, sorted(rec_))
+        assert set(rec_) == {'skiss:skapa'}, (k_, sorted(rec_))
+        # kärnan läst hel; MCP-anropet räknas eftersom det gav svar (G7), men krävs inte (researchen hämtade materialet)
         assert rec_['skiss:skapa']['genomford'] and rec_['skiss:skapa']['kvitto']['mcp_anrop'] == {'mcp__refero__refero_search_screens': 1}, rec_['skiss:skapa']
-        for p_ in ('ux', 'mobil'):
-            assert rec_['skiss:%s' % p_]['genomford'] and rec_['skiss:%s' % p_]['andrad'] and rec_['skiss:%s' % p_]['bilder']['fore'] and rec_['skiss:%s' % p_]['bilder']['efter'], (k_, p_, rec_['skiss:%s' % p_])
-        assert rec_['skiss:rorelse']['genomford'] and not rec_['skiss:rorelse']['andrad'] and rec_['skiss:rorelse']['ingen_andring'] == 'sidan ska vara stilla'
-        assert (kd.kdir(sl_sk, k_) / 'kompetens' / 'skiss-ux' / 'efter' / 'vy-390-forsta.png').is_file()
-    assert (kd.kdir(sl_sk, 'k02') / 'svar-pass-skiss-mobil-2.json').is_file() and kd.las_status(sl_sk, 'k02')['kompetens']['skiss:mobil']['genomford'], 'ett pass som inte läste alla filer får ett omförsök'
-    k3k_ = kd.las_status(sl_sk, 'k03')['kompetens']['skiss:kritik']
-    assert k3k_['aterstalld'] and not k3k_['andrad'] and 'TRASIG' not in (kd.ksajt(sl_sk, 'k03') / 'src' / 'pages' / 'index.astro').read_text(), k3k_
-    assert kd.las_status(sl_sk, 'k03')['status'] == 'klar', 'ett pass som bröt sidan lämnar kandidaten valbar med versionen före'
-    pass_p_ = [s_ for s_ in sess_sk if s_['schema'] is kd.PASS_SCHEMA]
-    kritik_p_ = next(s_ for s_ in pass_p_ if 'visuell kritik och slutbearbetning' in s_['prompt'])
-    assert 'Bash(.venv/bin/python kontroller/detektor.py *)' in kritik_p_['verktyg'] and 'impeccable/reference/critique.md' in kritik_p_['prompt'] and 'Skill' in kritik_p_['verktyg']
-    assert all(s_['slug'] == sl_sk for s_ in sess_sk if s_['schema'] in (None, kd.PASS_SCHEMA, kd.PLANPROVNING_SCHEMA)), 'varje session får kundens slug: skills, MCP:er och kundvakten'
+    assert not [s_ for s_ in sess_sk if s_['schema'] is kd.PASS_SCHEMA], 'inga pass före ägarens val'
+    assert all(s_['slug'] == sl_sk for s_ in sess_sk if s_['schema'] in (None, kd.PLANPROVNING_SCHEMA, kd.PLAN_SCHEMA)), 'varje session får kundens slug: skills, MCP:er och kundvakten'
     sk1_p_ = next(s_ for s_ in sk_p if 'EN skiss, k01' in s_['prompt'])
-    assert 'craft-floor.md' in sk1_p_['prompt'] and 'search.py' in sk1_p_['prompt'] and any('ui-ux-pro-max/scripts/search.py' in v_ for v_ in sk1_p_['verktyg']) and 'RESEARCH.md' in sk1_p_['prompt'] and 'BRIEF.md' in sk1_p_['prompt']
+    assert 'craft-floor.md' in sk1_p_['prompt'] and 'uxsok.py' in sk1_p_['prompt'] and any('kontroller/uxsok.py' in v_ for v_ in sk1_p_['verktyg']) and 'RESEARCH.md' in sk1_p_['prompt'] and 'BRIEF.md' in sk1_p_['prompt']
+    assert not any('search.py *' in v_ for v_ in sk1_p_['verktyg']), 'search.py med fritt argument vidgade skrivgränsen (G12)'
     k5f_ = kd.las_status(sl_sk, 'k05')['forsok_tider']
     assert [x_['utfall'] for x_ in k5f_][:1] == ['avbruten'] and (kd.kdir(sl_sk, 'k05') / 'forsok-1' / 'RIKTNING.md').is_file() and (kd.kdir(sl_sk, 'k05') / 'forsok-1' / 'varv').is_dir(), k5f_
 
@@ -4211,7 +4218,7 @@ try:
     rd_sk = kd.redovisa(sl_sk, st_sk).read_text()
     for krav_ in ('## Tiderna', 'väntan till första valbara skissen', '## Ofullständiga och fallna', 'k04', 'Ingen modell har bedömt', 'Utkast och platshållare',
                   'METOD-skiss.md', 'siffror i texten som inte finns i underlag: 25'.replace('underlag: 25', 'underlaget: 25'), '1 + 2 (omförsök)', '1 (tiden slut)',
-                  '## Kompetensernas arbete', 'Planprövningen', 'ux rättat', 'ingen ändring: sidan ska vara stilla', 'återställt'):
+                  '## Kompetensernas arbete', 'Planprövningen'):
         assert krav_ in rd_sk, krav_
     # --- vyn: neutral, med bristerna; ingen granskning ---
     blind_sk = kd.sammanstall(sl_sk)
@@ -4236,36 +4243,151 @@ import kompetens as kp_k3  # noqa: E402
 import nastlad as nl_k3  # noqa: E402
 import signal as sig_k3  # noqa: E402
 assert kp_k3.prova() == [], kp_k3.prova()
-assert '.claude/skills/impeccable/reference/critique.md' in kp_k3.lasfiler('kritik') and '.claude/skills/impeccable/reference/craft-floor.md' in kp_k3.lasfiler('skapa')
-assert set(kp_k3.PASS) == {p_ for x_ in kp_k3.tolka().values() for p_ in x_['pass']}, 'varje pass har en kompetens'
+assert '.claude/skills/impeccable/reference/critique.md' in kp_k3.lasfiler('granskning') and '.claude/skills/impeccable/reference/craft-floor.md' in kp_k3.lasfiler('skapa')
+assert set(kp_k3.PASS) == {p_ for x_ in kp_k3.tolka().values() for p_ in x_['pass']}, 'varje pass har en roll'
+# Codex punkt 7: kärnan är en sammanhängande metod; stilvarianterna och recepten är alternativ att välja
+assert '.claude/skills/taste-soft/SKILL.md' not in kp_k3.lasfiler('skapa') and '.claude/skills/taste-soft/SKILL.md' in kp_k3.valbara('skapa')
+assert '.claude/skills/refero-design/SKILL.md' in kp_k3.lasfiler('skapa') and '.claude/skills/hallmark/references/macrostructures.md' in kp_k3.valbara('planera')
+assert kp_k3.storlek(kp_k3.lasfiler('skapa')) < 160000, kp_k3.storlek(kp_k3.lasfiler('skapa'))
 v_k3 = kp_k3.verktyg('skapa', 'x', 'k01')
-assert 'Skill' in v_k3 and 'mcp__refero__refero_search_screens' in v_k3 and 'mcp__mobbin__search_screens' in v_k3 and any('search.py' in x_ for x_ in v_k3)
+assert 'Skill' in v_k3 and not any(x_.startswith('mcp__') for x_ in v_k3) and any('kontroller/uxsok.py' in x_ for x_ in v_k3)
+v_gr_k3 = kp_k3.verktyg('granskning', 'x', 'k01')
+assert 'Bash(.venv/bin/python kontroller/detektor.py x --kandidat k01)' in v_gr_k3 and not any('detektor' in x_ and x_.endswith('*)') for x_ in v_gr_k3), 'detektorn bara för den egna kandidaten (G12)'
+assert not any('design.py' in x_ for x_ in kp_k3.verktyg('fordjupa', 'x')), 'utan kandidat inget designverktyg'
+assert any('design.py x --kandidat k01 --skriv' in x_ for x_ in kp_k3.verktyg('fordjupa', 'x', 'k01'))
+# Codex punkt 1: Avgörandena förbjuder inte det kompetensblocken ger; samma regel styr dokumentation, uppdrag och behörighet
 karta_k3 = (ROOT / 'kunskap' / 'metodkarta.md').read_text()
+avg_k3 = md_kd.tolka(karta_k3)['Avgöranden']['prosa']
+assert 'Inga skillskript' not in avg_k3 and not re.search(r'\bInga\b[^.]*\bMCP\b', avg_k3) and 'inget Skill-verktyg' not in karta_k3, 'Avgörandena säger emot verktygen'
 assert 'läses inte i förväg' not in karta_k3 and 'Minst tre förhandsvarv är en arbetsregel' not in karta_k3, 'inga frivilliga utdrag och inget varvkrav i skissen'
+# uxsok: läsande; de skrivande flaggorna nekas (G12)
+for x_ in ('--persist', '--force'):
+    r_ux = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'uxsok.py'), 'x', x_], capture_output=True, text=True)
+    assert r_ux.returncode == 2 and 'unrecognized' in r_ux.stderr, (x_, r_ux.returncode)
 # sessionerna: med en slug alla skills och MCP:er med kundvakten; utan slug inga MCP:er
 a_k3 = at_pt.session_args(['Read', 'Write(./x/**)'], None, 10, 'm', 'high', (), 'sk-prov')
 assert '--strict-mcp-config' not in a_k3 and '--settings' in a_k3 and 'kundvakt.py' in a_k3[a_k3.index('--settings') + 1] and '--disable-slash-commands' not in a_k3
 assert 'Skill' in a_k3[a_k3.index('--tools') + 1].split(',') and 'mcp__refero__.*' in a_k3[a_k3.index('--settings') + 1]
+assert 'exit 2' in a_k3[a_k3.index('--settings') + 1], 'en krok som inte kan köras stoppar anropet'
 assert '--strict-mcp-config' in at_pt.session_args(['Read'], None, 10, 'm', 'high', ())
 spara_ref_k3 = at_pt.REFERO_ENV
 (tmp / 'k3-refero.env').write_text('REFERO_MCP_TOKEN=provnyckel\n')
 at_pt.REFERO_ENV = tmp / 'k3-refero.env'
+spara_miljo_k3 = os.environ.get('REFERO_MCP_TOKEN')
+os.environ['REFERO_MCP_TOKEN'] = 'provnyckel'
 try:
-    assert at_pt.session_miljo('sk-prov').get('REFERO_MCP_TOKEN') == 'provnyckel' and 'REFERO_MCP_TOKEN' not in at_pt.session_miljo(None)
+    assert 'REFERO_MCP_TOKEN' not in at_pt.session_miljo('sk-prov') and 'REFERO_MCP_TOKEN' not in at_pt.session_miljo(None), 'nyckeln når aldrig Bash (G15)'
 finally:
     at_pt.REFERO_ENV = spara_ref_k3
-# kundvakten: stoppar kundens namn, släpper en ren fråga, stänger vid fel
+    os.environ.pop('REFERO_MCP_TOKEN', None) if spara_miljo_k3 is None else os.environ.__setitem__('REFERO_MCP_TOKEN', spara_miljo_k3)
+# kundvakten: tillåter ett rent anrop uttryckligen, stoppar kundens uppgifter i alla former, stänger vid fel (G3, G14)
 (tmp / 'k3-u' / 'k3-kund').mkdir(parents=True)
-(tmp / 'k3-u' / 'k3-kund' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Vaktfirman Bygg AB', 'adress': {'ort': 'Kalix'}, 'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33'}]}))
+(tmp / 'k3-u' / 'k3-kund' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Vaktfirman Bygg AB', 'adress': {'ort': 'Kalix'}, 'rackvidd': {'orter': ['Älvsbyn']},
+                                                                     'kategorier': ['Byggfirma'], 'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33'}]}))
 for in_, rc_ in (({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'query': 'Vaktfirman homepage'}}, 2),
                  ({'tool_name': 'mcp__mobbin__search_screens', 'tool_input': {'query': 'builder site', 'task_intent': 'contact 0701112233'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'kalixföretag hantverk'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'Älvsbyn builders'}}, 2),
+                 ({'tool_name': 'mcp__mobbin__search_flows', 'tool_input': {'query': 'ring +46 70 111 22 33'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'V a k t f i r m a n'}}, 2),
+                 ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'byggfirma portfolio'}}, 0),
+                 ({'tool_name': 'mcp__refero__refero_get_style', 'tool_input': {'style_id': '00452350-e8c3-4d5a-9b1c-123456789012'}}, 0),
+                 ({'tool_name': 'mcp__refero__refero_get_flow', 'tool_input': {'flow_ids': [1234567, 7654321]}}, 0),
+                 ({'tool_name': 'mcp__refero__refero_get_screen_image', 'tool_input': {'image_url': 'https://images.refero.design/s/123456789.jpg'}}, 0),
+                 ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'see https://annan.exempel/x'}}, 2),
                  ({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'query': 'warm craft builder site'}}, 0)):
     r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'k3-kund', str(tmp / 'k3-u')], input=json.dumps(in_), capture_output=True, text=True)
     assert r_k3.returncode == rc_, (in_, r_k3.returncode, r_k3.stderr)
+    if rc_ == 0:
+        assert json.loads(r_k3.stdout)['hookSpecificOutput']['permissionDecision'] == 'allow', r_k3.stdout
 r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'k3-kund', str(tmp / 'k3-u')], input='inte json', capture_output=True, text=True)
-assert r_k3.returncode == 2 and 'stoppas' in r_k3.stderr, 'vakten stänger vid fel'
+assert r_k3.returncode == 2 and 'stoppas' in r_k3.stderr and not r_k3.stdout.strip(), 'vakten stänger vid fel och tillåter inget'
 r_k3 = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'kundvakt.py'), 'saknas', str(tmp / 'k3-u')], input=json.dumps({'tool_input': {'query': 'x'}}), capture_output=True, text=True)
 assert r_k3.returncode == 2, 'utan kundens uppgifter stoppas anropet'
+# passen efter fördjupningen (Codex punkt 8–9; granskning 4, G1, G4, G5, G7): tre delar, omförsök, återställning
+sl_kp = 'kp-prov'
+spara_kp = {n_: getattr(kd, n_) for n_ in ('fotografera', 'aterstall_och_fotografera', 'bevara_version', 'designkontroll')}
+spara_at_kp = (at_pt.session, at_pt.UNDERLAG, at_pt.KUNDER)
+at_pt.UNDERLAG, at_pt.KUNDER = tmp / 'kp-u', tmp / 'kp-k'
+d_kp = kd.kdir(sl_kp, 'k01')
+(d_kp / 'bilder' / 'start').mkdir(parents=True)
+for n_ in kd.PASSBILDER:
+    (d_kp / 'bilder' / 'start' / n_).write_bytes(b'png')
+foto_kp, ater_kp, prompt_kp, las_kp = {'status': 'klar', 'version': 'v2', 'axe': {'allvarliga': 0}}, [], [], {'saknas_forsta': False}
+
+def foto_kp_(slug, kid, skiss=None):
+    return kd.satt_status(slug, kid, foto_kp['status'], 'bygget föll' if foto_kp['status'] != 'klar' else 'fotograferad', version=foto_kp['version'], axe=foto_kp['axe'])
+
+def ater_kp_(slug, kid, v):
+    ater_kp.append(v)
+    if foto_kp.get('ater_fel'):
+        raise RuntimeError('bygget föll vid återställningen')
+    return kd.satt_status(slug, kid, 'klar', 'återställd', version=v, axe={'allvarliga': 0})
+
+def sess_kp_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
+    prompt_kp.append(prompt)
+    pass_ = next(k_ for k_, n_ in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n_ in prompt)
+    filer_ = kd.kompetens.lasfiler(pass_)
+    if las_kp['saknas_forsta'] and 'Förra försöket läste inte' not in prompt:
+        filer_ = filer_[1:]
+    elif las_kp['saknas_forsta']:
+        filer_ = filer_[:1]
+    so = {'kod_andrad': [{'skill': 'emil-animate', 'vad': 'menyns övergång', 'var': 'sidhuvudet', 'varfor': 'syfte'}],
+          'beteende_provat': [{'vad': 'menyn', 'hur': 'forhandsvisa --meny', 'resultat': 'öppnas', 'bild': kd.rel(d_kp / 'bilder' / 'start' / 'vy-390-forsta.png')}],
+          'visuell_bedomning': {'fore': 'a', 'efter': 'b', 'omdome': 'battre', 'skal': 'tydligare'}, 'ingen_andring': '', 'valda': [], 'passade_inte': [], 'kvarstar': []}
+    sid_ = transkript_kd([('Read', {'file_path': f_}, False) for f_ in filer_] + [('mcp__refero__refero_search_screens', {'query': 'x'}, True)])
+    svar_ = {'structured_output': so, 'session_id': sid_}
+    Path(ut).write_text(json.dumps(svar_))
+    return svar_
+kd.fotografera, kd.aterstall_och_fotografera, kd.bevara_version = foto_kp_, ater_kp_, (lambda *a_, **k_: None)
+kd.designkontroll = lambda slug, kid: {'ok': True, 'fel': []}
+at_pt.session = sess_kp_
+try:
+    dom_kp = {'tid': '2026-10-05T20:00:00Z', 'text': 'BEHÅLL DEN MÖRKA PALETTEN'}
+    kd.satt_status(sl_kp, 'k01', 'forfinad', 'förfinad', version='v1', axe={'allvarliga': 0})
+    st_kp = kd.kompetenspass(sl_kp, 'k01', 'rorelse', 'fordjupa:a', dom_kp)
+    r_kp = st_kp['kompetens']['fordjupa:a:rorelse']
+    assert r_kp['genomford'] and r_kp['kod_andrad']['andrad'] and r_kp['beteende_provat'][0]['bild_finns'] and r_kp['visuell_bedomning']['omdome'] == 'battre', r_kp
+    assert r_kp['kvitto']['mcp_anrop'] == {}, 'ett nekat MCP-anrop räknas inte (G7)'
+    assert st_kp['status'] == 'forfinad' and 'pass_pagar' not in st_kp and not ater_kp
+    assert 'BEHÅLL DEN MÖRKA PALETTEN' in prompt_kp[-1] and 'kunskap/designregler.md' in prompt_kp[-1] and 'METOD-forfina.md' in prompt_kp[-1], 'passet får domen, reglerna och metoden (G1)'
+    assert '--tillstand tangentbord,reflow,reducerad' in prompt_kp[-1] and 'beteende_provat' in prompt_kp[-1]
+    # ett pass som bryter sidan återställs till versionen före, och kandidaten står kvar som förfinad
+    foto_kp.update(status='ofullstandig', version='v3')
+    st_kp = kd.kompetenspass(sl_kp, 'k01', 'granskning', 'fordjupa:a', dom_kp)
+    assert ater_kp == ['v2'] and st_kp['kompetens']['fordjupa:a:granskning']['aterstalld'] and kd.las_status(sl_kp, 'k01')['status'] == 'forfinad', st_kp
+    # fler allvarliga axe-fynd än före: återställs också
+    foto_kp.update(status='klar', version='v4', axe={'allvarliga': 3})
+    st_kp = kd.kompetenspass(sl_kp, 'k01', 'rorelse', 'fordjupa:b', dom_kp)
+    assert ater_kp[-1] == 'v2' and 'axe' in st_kp['kompetens']['fordjupa:b:rorelse']['aterstalld'], st_kp['kompetens']['fordjupa:b:rorelse']
+    # en återställning som faller: kandidaten blir ofullständig, aldrig klar med en trasig sida (G5)
+    foto_kp.update(status='ofullstandig', version='v5', ater_fel=True)
+    st_kp = kd.kompetenspass(sl_kp, 'k01', 'granskning', 'fordjupa:b', dom_kp)
+    assert st_kp['status'] == 'ofullstandig' and 'återställningen föll' in st_kp['skal'], st_kp
+    # ett avbrutet pass tas upp igen: versionen före återställs först (G4); en främmande pid avslutas aldrig (G6)
+    foto_kp.update(status='klar', version='v6', axe={'allvarliga': 0}, ater_fel=False)
+    kd.satt_status(sl_kp, 'k01', 'forfinad', 'förfinad', version='v5b', pass_pagar={'nyckel': 'fordjupa:c:rorelse', 'fore': 'v5b', 'status': 'forfinad'},
+                   session_pid=os.getpid())
+    st_kp = kd.kompetenspass(sl_kp, 'k01', 'rorelse', 'fordjupa:c', dom_kp)
+    assert ater_kp[-1] == 'v5b' and st_kp['kompetens']['fordjupa:c:rorelse']['genomford'] and 'pass_pagar' not in st_kp, st_kp
+    # ett pass som inte läste hela kärnan får ett omförsök, och båda sessionerna räknas tillsammans (G7)
+    las_kp['saknas_forsta'] = True
+    foto_kp.update(version='v8')  # passet ändrade koden: en ny version (samma version och en tom ingen_andring vore ej genomfört)
+    st_kp = kd.kompetenspass(sl_kp, 'k01', 'granskning', 'fordjupa:d', dom_kp)
+    assert (d_kp / 'svar-pass-fordjupa-d-granskning-2.json').is_file() and st_kp['kompetens']['fordjupa:d:granskning']['genomford'], st_kp['kompetens']['fordjupa:d:granskning']['kvitto']
+    las_kp['saknas_forsta'] = False
+    foto_kp.update(version='v8')
+    st_kp = kd.kompetenspass(sl_kp, 'k01', 'rorelse', 'fordjupa:f', dom_kp)
+    assert st_kp['kompetens']['fordjupa:f:rorelse']['genomford'] is False, 'kod ändrad utan ny version och utan skäl: ej genomfört'
+    # efter fördjupningen: passen i ordning, sedan DESIGN.md-kontrollen på den slutliga koden (G11)
+    foto_kp.update(version='v9')
+    kd.satt_status(sl_kp, 'k01', 'forfinad', 'förfinad', version='v7', ta_bort=('kompetens',))
+    st_kp = kd.efter_fordjupning(sl_kp, 'k01', {'tid': 'e', 'text': 'x'})
+    assert set(st_kp['kompetens']) == {'fordjupa:e:rorelse', 'fordjupa:e:granskning'} and st_kp['design_fel'] == [] and st_kp.get('design_version'), st_kp
+finally:
+    for n_, v_ in spara_kp.items():
+        setattr(kd, n_, v_)
+    at_pt.session, at_pt.UNDERLAG, at_pt.KUNDER = spara_at_kp
 # S3: tidsgränsen och stoppet når hela processträdet, också en underprocess i en egen processgrupp
 skript_k3 = tmp / 'k3-trad.sh'
 skript_k3.write_text('#!/bin/bash\n( exec setsid sleep 300 2>/dev/null || exec /usr/bin/perl -e "setpgrp(0,0); sleep 300" ) &\nsleep 300\n')
@@ -4307,6 +4429,80 @@ assert 'gäller före allt' not in (ROOT / 'kontroller' / 'atelje.py').read_text
 # S16: förteckningen pekar på alla filer ett långt utdrag fortsätter i
 lev_k3 = md_kd.leverera('forska', tmp / 'k3-metod')
 assert all('→' in r_ for r_ in (lev_k3['filer'][0]['fil'].read_text().split('## Att slå upp')[-1].split('## Utdragen')[0].strip().splitlines()[2:]) if r_.startswith('- '))
+# Codex punkt 6: DESIGN.md-kontraktet bär importerade stilvärden och valda tillstånd; bara odeklarerade omdefinitioner fälls
+import design as ds_k3  # noqa: E402
+import hashlib as hl_k3  # noqa: E402
+sajt_ds = tmp / 'ds-k' / 'ds-kund' / 'sajt'
+(sajt_ds / 'src' / 'styles' / 'stil').mkdir(parents=True); (sajt_ds / 'dist').mkdir()
+orig_ds = ':root {\n  --color-inkwell: #062d32;\n  --color-parchment: #e9e9e2;\n  --font-caslon: "Caslon", Georgia, serif;\n}\n'
+(sajt_ds / 'src' / 'styles' / 'stil' / 'prov.css').write_text(orig_ds)
+v_ds = {'schema': 1, 'farger': {'text': {'varde': '#062d32', 'token': '--color-inkwell', 'roll': 'text', 'kalla': 'importerat: refero prov'},
+                                'yta': {'varde': '#e9e9e2', 'token': '--color-parchment', 'roll': 'yta', 'kalla': 'importerat: refero prov'}},
+        'typsnitt': {'rubrik': {'familj': 'Libre Caslon Text', 'reserv': 'Georgia, serif', 'vikt': 400, 'storlek': '3rem', 'radavstand': '1.1', 'token': '--font-caslon', 'kalla': 'importerat: refero'},
+                     'brodtext': {'familj': 'system-ui', 'vikt': 400, 'storlek': '1rem', 'radavstand': '1.5', 'kalla': 'valt: läsbarhet'}},
+        'kontrast': [['text', 'yta', 4.5]], 'struktur': {'brodsmulor': False},
+        'import': [{'fil': 'src/styles/stil/prov.css', 'kalla': 'refero: prov', 'sha256': hl_k3.sha256(orig_ds.encode()).hexdigest()}],
+        'tillstand': {'mork': {'villkor': '@media (prefers-color-scheme: dark)', 'farger': {'yta': '#0f1416', 'text': '#e9e9e2'}, 'kalla': 'valt: kvällsläge'}}}
+assert ds_k3.validera(v_ds) == [], ds_k3.validera(v_ds)
+(sajt_ds / 'DESIGN.md').write_text('```json design\n%s\n```\n' % json.dumps(v_ds))
+(sajt_ds / 'src' / 'styles' / 'design.css').write_text(ds_k3.css(v_ds))
+byggd_ds = ds_k3.css(v_ds) + orig_ds + 'h1{color:var(--color-inkwell);font-family:var(--font-caslon)} body{background:var(--farg-yta)}'
+(sajt_ds / 'dist' / 'index.html').write_text('<html><head><style>%s</style></head><body></body></html>' % byggd_ds)
+k_ds = ds_k3.kontroll('ds-kund', kunder=tmp / 'ds-k')
+assert k_ds['ok'], k_ds['fel']
+(sajt_ds / 'dist' / 'index.html').write_text('<html><head><style>%s .x{--farg-yta:#ff0000}</style></head><body></body></html>' % byggd_ds)
+assert any('#ff0000' in f_ for f_ in ds_k3.kontroll('ds-kund', kunder=tmp / 'ds-k')['fel']), 'en odeklarerad omdefinition fälls'
+(sajt_ds / 'src' / 'styles' / 'stil' / 'prov.css').write_text(orig_ds.replace('#062d32', '#000000'))
+assert any('ändrad sedan stilexporten' in f_ for f_ in ds_k3.kontroll('ds-kund', kunder=tmp / 'ds-k')['fel']), 'originalexporten står orörd'
+v2_ds = json.loads(json.dumps(v_ds)); v2_ds['tillstand']['mork']['farger'] = {'text': '#777777', 'yta': '#888888'}
+assert any('tillstand.mork: kontrast' in f_ for f_ in ds_k3.validera(v2_ds)), 'kontrasten prövas i tillståndet'
+# leveransen (Codex leveransluckorna): adaptern läggs in, läckor fälls, en publik hänvisning redovisas
+import exportera as ex_k3  # noqa: E402
+konf_ex = "import { defineConfig } from 'astro/config';\nexport default defineConfig({\n  site: 'https://x.se',\n  output: 'static',\n});\n"
+ut_ex = ex_k3.med_adapter(konf_ex)
+assert "import vercel from '@astrojs/vercel';" in ut_ex and 'adapter: vercel()' in ut_ex and ex_k3.med_adapter(ut_ex) == ut_ex
+lk_ex = tmp / 'lk-ex'; (lk_ex / 'src').mkdir(parents=True)
+(lk_ex / 'src' / 'a.astro').write_text('<!-- underlag/kund-x/BRIEF.md -->')
+(lk_ex / 'src' / 'b.astro').write_text('<!-- byggd med kontroller/design.py -->')
+(lk_ex / '.env.example').write_text('RESEND_API_KEY=\n# kommentar\n')
+(lk_ex / 'src' / 'c.js').write_text("const k = 're_abcdefghijklmnopqrstu';")
+assert sorted(f_ for f_, _s in ex_k3.lackor(lk_ex)) == ['src/a.astro', 'src/c.js'] and ex_k3.hanvisningar(lk_ex) == ['src/b.astro'], (ex_k3.lackor(lk_ex), ex_k3.hanvisningar(lk_ex))
+lev_ex = json.loads((ROOT / 'mall' / 'leverans' / 'package.json').read_text())
+assert lev_ex['dependencies']['@astrojs/vercel'] and lev_ex['overrides']['path-to-regexp'] == '6.3.0' and (ROOT / 'mall' / 'leverans' / 'package-lock.json').is_file()
+assert json.loads((ROOT / 'mall' / 'leverans' / 'vercel.json').read_text())['regions'] == ['arn1'], 'formulärets funktion i Stockholm'
+# serverfunktionen: varje väg i kontraktet, utan nät (Node)
+nod_ex = tmp / 'forfragan-prov'; nod_ex.mkdir()
+shutil.copyfile(ROOT / 'mall' / 'leverans' / 'forfragan.js', nod_ex / 'forfragan.mjs')
+(nod_ex / 'prov.mjs').write_text('''import { POST } from './forfragan.mjs';
+const ut = [];
+const form = (f, bild) => { const fd = new FormData(); for (const [k, v] of Object.entries(f)) fd.append(k, v); if (bild) fd.append('bild', bild, 'b.jpg');
+  return new Request('https://x.se/api/forfragan/', { method: 'POST', body: fd }); };
+const g = { namn: 'Prov', telefon: '0700000000', meddelande: 'Hej', fylltid: '9000' };
+async function kor(req, env = {}, svar = null) {
+  for (const k of ['RESEND_API_KEY', 'FORFRAGAN_TILL', 'FORFRAGAN_FRAN', 'VERCEL_ENV', 'BLOB_STORE_ID']) delete process.env[k];
+  Object.assign(process.env, env);
+  globalThis.fetch = svar ? async () => svar() : async () => { throw new Error('inget nät'); };
+  const r = await POST({ request: req }); ut.push([r.status, r.headers.get('location'), r.headers.get('x-forfragan')]); }
+await kor(form({ ...g, webbplats: 'x' }));
+await kor(form({ ...g, telefon: '' }));
+await kor(new Request('https://x.se/api/forfragan/', { method: 'POST', headers: { 'content-length': '5000000' }, body: 'x' }));
+await kor(form(g), { VERCEL_ENV: 'preview' });
+await kor(form(g), { VERCEL_ENV: 'production' });
+const konf = { VERCEL_ENV: 'production', RESEND_API_KEY: 'k', FORFRAGAN_TILL: 'a@x.se', FORFRAGAN_FRAN: 'w@x.se' };
+await kor(form(g, new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' })), konf, () => new Response('{}', { status: 200 }));
+await kor(form(g), konf, () => new Response('fel', { status: 500 }));
+console.log(JSON.stringify(ut));
+''')
+r_nod = subprocess.run(['node', 'prov.mjs'], cwd=nod_ex, capture_output=True, text=True, timeout=60)
+assert r_nod.returncode == 0, r_nod.stderr[-500:]
+assert json.loads(r_nod.stdout.strip().splitlines()[-1]) == [[303, '/tack/', 'honeypot'], [303, '/kontakt/?saknas=1#forfragan-saknas', 'ofullstandig'], [413, None, 'for-stor'],
+                                                            [303, '/tack/', 'demo'], [303, '/fel/', 'fel'], [303, '/tack/', 'skickad'], [303, '/fel/', 'fel']], r_nod.stdout
+# förhandsvisningens interaktionsväg: bara kända tillstånd och en enkel CSS-väljare (Codex punkt 9)
+import forhandsvisa as fv_k3  # noqa: E402
+assert fv_k3.main(['sk-prov', '--kandidat', 'k01', '--tillstand', 'tangentbord,okant']) == 2 and fv_k3.main(['sk-prov', '--meny', 'a;b{}']) == 2
+# metodlåset omfattar rollernas alla filer, och metodens hash binder dem (Codex; G20)
+fel_las, kallor_las = md_kd.prova()
+assert not fel_las and all(f_ in kallor_las for x_ in kp_k3.tolka().values() for f_ in x_['karna'] + x_['valj']), [f_ for x_ in kp_k3.tolka().values() for f_ in x_['karna'] + x_['valj'] if f_ not in kallor_las][:5]
 print('kompetenskedjan och granskning 3 ok')
 
 # ---------------------------------------------------------------- autonomins mått (Codex helhetsbedömning 2026-10-04, punkt 9)

@@ -41,6 +41,7 @@ Ingen huvudreferens (testsajt).
   "avstand": {"s": "0.5rem", "m": "1rem"},
   "spalter": {"390": {"maxbredd": "40rem"}, "1440": {"maxbredd": "40rem"}},
   "kontrast": [["text", "yta", 4.5], ["accent", "yta", 4.5]],
+  "struktur": {"brodsmulor": true},
   "avvikelser": []
 }
 ```

@@ -33,17 +33,25 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
 - **Citat som nämner formuläret** ("skickade förfrågan via hemsidan") får stå, eftersom formuläret nu finns. Ett citat
   får aldrig berömma något som sajten inte har.
 
-## Vid lansering (Vercel-steget, väntar)
+## Vid lansering (byggd och prövad 2026-10-05)
 
-En serverfunktion på `/api/forfragan` tar över med samma kontrakt:
+En serverfunktion på `/api/forfragan/` (`mall/leverans/forfragan.js`, lagd i kundrepot av `kontroller/exportera.py`) tar över med samma kontrakt.
+Den är prövad med riktiga HTTP-svar i provprojektet `nortropic-leveransprov` (`kontroller/driftkoll.py --formular`):
+honeypot och tidsfälla 303 till `/tack/`, ofullständigt till `/kontakt/`, för stor bild 413, annan Origin 403 (Astros
+CSRF-skydd), giltigt inskick i förhandsvisningen 303 till `/tack/` som demo och i produktion utan mottagare till `/fel/`.
+Mejlet genom Resend och lagringen i Blob är prövade utan nät (Node, `mall/leverans/forfragan.js`), inte mot tjänsterna:
+de prövas med verksamhetens egen adress vid lanseringen.
 
-1. Bara POST; multipart eller urlencoded; högst 10 MB, bara bildtyper i `bild`.
+1. Bara POST; multipart eller urlencoded; begäran högst 4,4 MB och bilden högst 4 MB (Vercels gräns för en funktions
+   begäran är 4,5 MB, och demons mottagare har samma tak), bara bildtyper i `bild`.
 2. Validera igen på servern: namn 1–100 tecken, telefon 6–40 tecken med siffror, meddelande 1–4000 tecken.
 3. Honeypot ifylld: svara 303 till `/tack/` utan att skicka. Tidsfälla: `fylltid` under 1500 ms: samma sak. Tomt
    eller 0 (ingen JavaScript, direkt POST) godtas; fältet är ett botfilter, inte autentisering. Jämför aldrig en
    klientstämpel med serverns klocka.
-4. Begränsning: högst 3 inskick per 10 minuter och IP-adress; Turnstile om spam ändå kommer igenom.
-5. Spara varje giltigt inskick i värdens egen lagring innan mejlet går, med fälten och bilden. Mejlet är den del som
+4. Begränsning: högst 3 inskick per 10 minuter och IP-adress, som en regel i Vercels brandvägg på `/api/forfragan/`
+   (läggs vid lanseringen; tillgången på Pro är inte prövad); Turnstile om spam ändå kommer igenom.
+5. Spara varje giltigt inskick i ett privat Vercel Blob-lager (OIDC, i Stockholm) innan mejlet går, med fälten och
+   bilden. Mejlet är den del som
    fallerar (leverantören har en dålig dag, en DNS-post ändras, mejlet hamnar i skräpposten), och utan lagring är
    förfrågan borta utan att någon vet att den fanns (kirurgens intag 2026-10-03, Websites for Normal People).
    Inskicket gallras när integritetssidans lagringstid har gått; ingen annan läser det.

@@ -14,6 +14,10 @@ tidigare domar.
 Ägaren dömer på sex saker: **bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete**, och
 skiljer "drar ner" (brister som inte fäller nivån) från "mått" (regeln som avgör).
 
+**Kraven och exemplen hålls isär** (Codex via ägaren 2026-10-05, punkt 4). Kraven: en sammanhängande idé genomförd
+överallt, hierarki och proportioner som bär innehållet, läsbarhet, och verksamhetens egna bilder och ord. Kännetecknen
+nedan är lösningar ur sju dömda sajter, exempel och inget formspråk: en ny kund når nivån med ett eget uttryck.
+
 ## Tydligt över ribban
 
 - **En enda egen idé genomförd överallt.** Lätt lutade färgetiketter som enda dekoration bär rubriker, platser och
@@ -22,12 +26,12 @@ skiljer "drar ner" (brister som inte fäller nivån) från "mått" (regeln som a
 - **Egna människor och egna projekt som innehåll.** Egna lokaler och egna människor, ofta mitt i arbete, beskurna till
   kort med etikett; egna projektfoton professionellt tagna i konsekvent liggande format, människor i stående; inga
   stämningsbilder utan projekt.
-- **Typografin låter som tal eller vilar i små skillnader.** En grotesk där brödtexten på mobil är nära rubrikstorlek och
-  blandar fet och mager så att den låter som tal; eller en serif i läsbar storlek där rubriken är bara något större än
-  brödtexten, så att lugnet kommer av små skillnader.
-- **Hållning i en mening i stället för hero.** Första vyn kan vara en mening om vad de tror på och en länk; sedan jämn
+- **Typografiska proportioner som bär innehållet** (två exempel ur ankarna: en grotesk där brödtexten på mobil är nära
+  rubrikstorlek och blandar fet och mager så att den låter som tal; en serif i läsbar storlek där rubriken är bara något
+  större än brödtexten, så att lugnet kommer av små skillnader). Andra skalor når samma nivå när hierarkin är tydlig.
+- **Ett eget första påstående** (exempel: första vyn som en mening om vad de tror på och en länk; sedan jämn
   takt bild–namn–länk, ibland en rad vardagsspråk om huset; kontakt som två namngivna personer med porträtt,
-  direktnummer och e-post i ett eget block.
+  direktnummer och e-post i ett eget block).
 - **Riktiga priser och riktiga människor.** En prislista som dragspel med nivåerna förklarade, avboknings- och
   försäkringsvillkor; "Boka" alltid synlig; ett arkiv med filter i samma system som startsidan.
 - Brister som inte fäller nivån: en flytande knapp som skymmer en rad, blandade språk på en undersida, en platshållarbild,
@@ -66,9 +70,10 @@ skiljer "drar ner" (brister som inte fäller nivån) från "mått" (regeln som a
 
 ## Hur nivåerna används
 
-- Byggaren och ateljén läser den här filen i steg 4–5 och mäter varje första vy mot kännetecknen: finns en egen idé
-  genomförd överallt, är bilderna innehåll, låter typografin som tal eller vilar den i små skillnader, är första
-  påståendet en hållning?
+- Byggaren och ateljén läser den här filen i steg 4–5 och mäter varje första vy mot kvalitetskraven: är en
+  sammanhängande idé genomförd överallt, bär hierarkin och proportionerna innehållet, går texten att läsa, och är
+  bilderna och orden verksamhetens? Exemplens lösningar är exempel, inga krav: frågan är om sidan når nivån, inte om den
+  liknar ankarna.
 - Granskaren får ankarna i uppdraget med ägarens ord bredvid och sätter betygen mot dem; det som är "nästan" får inte 7.
 - Granskarförsöket mäter hur ofta granskaren godkänner det ägaren kallade nästan eller generisk (falska godkännanden)
   och underkänner det ägaren kallade tydligt över ribban; siffran står i `LARDOMAR.md`. Ett oberoende mått kräver ett

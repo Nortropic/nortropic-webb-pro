@@ -57,7 +57,7 @@ sälja: varje sida har ett tydligt nästa steg.
 |---|---|---|
 | 4.1 Labb: Lighthouse prestanda ≥ 90 i mobil och desktop, i mobil som median av tre mätningar på startsidan, kontaktsidan och den tyngsta övriga sidan (flest bilder i HTML:en), övriga mätningar en gång och under kravet tre (metoden i `prov/lighthouse/METOD.json`). Fält i mobil: LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1 vid 75:e percentilen. | D labb, L fält | `lighthouse` |
 | 4.2 Bilder i AVIF eller WebP, responsiva med srcset och sizes, rätt storlek; största bilden i första vyn under 200 kB; ingen publicerad bild bär GPS-läge i sin metadata (en personuppgift). | D | `standard`, info |
-| 4.3 Högst två typsnittsfamiljer, självhostade WOFF2 följda i stacken av ett reservtypsnitt med size-adjust, latin-subset med bara de axlar som används (en fil över 80 kB kräver att bredd-axeln bär formen, över 120 kB aldrig), `font-display: swap` med size-adjust-reserv, preload av typsnittet i första vyn. | D | `standard`, info |
+| 4.3 Typsnittsfamiljerna som den valda designen har (DESIGN.md; utan en godkänd DESIGN.md högst två), självhostade WOFF2 följda i stacken av ett reservtypsnitt med size-adjust, latin-subset med bara de axlar och vikter som används, sajtens typsnitt tillsammans högst 300 kB (en fil över 80 kB är information med råd; den verkliga prestandan prövar Lighthouse-grinden), `font-display: swap` med size-adjust-reserv, preload av typsnittet i första vyn. | D | `standard`, info |
 | 4.4 Inga resurser från tredje part vid sidladdning; kartor som statisk bild och länk. | D | `standard` |
 | 4.5 Hashade statiska filer med lång cache, CDN, kort cache för HTML. | L | Vercel-steget (`lansering.md`) |
 | 4.6 Varje ändring mäts på förhandsvisningen; regression mot 4.1 stoppar. | L | Vercel-steget (`lansering.md`) |
@@ -83,7 +83,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 |---|---|---|
 | 6.1 Ett formulär med få fält (namn, telefon, vad besökaren vill ha hjälp med, valfri bild); det valfria märks, resten krävs. Telefonen får inte vara enda vägen. | D | `standard`, granskaren |
 | 6.2 `type="tel"`, inputmode, autocomplete och `pattern` (bokstäver går inte igenom); svenska felmeddelanden som text vid fältet med `aria-describedby`, inte bara webbläsarens bubbla (ägarens dom L4). | D | `standard`, `axe` |
-| 6.3 Vanlig POST till `/api/forfragan` fungerar utan JS; knappen låses under sändning; tacksidan säger vad som händer härnäst och när. | D formulär och tacksida, L mottagare | `standard`, demomottagaren |
+| 6.3 Vanlig POST till `/api/forfragan/` fungerar utan JS; knappen låses under sändning; tacksidan säger vad som händer härnäst och när. | D formulär och tacksida, L mottagare | `standard`, demomottagaren |
 | 6.4 Servern validerar allt igen, begränsar längd, escapar i mejlmallen. | L | lansering |
 | 6.5 Spamskydd i lager: honeypot och tidsfälla i formuläret; rate limit och Turnstile i mottagaren. | D fällor, L resten | `standard`, lansering |
 | 6.6 Inskicket sparas före sändning och gallras efter integritetssidans lagringstid; transaktionsmejl med SPF, DKIM och DMARC; "skickat" först när mejlet accepterats; vid mejlfel säger `/fel/` att förfrågan är mottagen, visar telefonnumret, och inskicket finns kvar. | L | lansering |
@@ -96,7 +96,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 |---|---|---|
 | 7.1 Unik title (50–60 tecken) och description (120–155), canonical, delningsbild `og:image` 1200×630 px. | D | `seo`, `standard`, info |
 | 7.2 sitemap.xml utan sidor med noindex (tacksidan) och robots.txt som inte blockerar CSS eller JS, 404-sida med väg vidare och noindex men ingen canonical, 301 från gamla adresser, ingen noindex i produktion utom på 404. | D, 301 L | `standard`, `seo` |
-| 7.3 JSON-LD som matchar synligt innehåll: den mest specifika typen (Electrician, Plumber, RoofingContractor, HousePainter, GeneralContractor för snickare och byggare), BreadcrumbList med brödsmulorna mellan sidhuvudet och `<main>`. aggregateRating ur Google-omdömen ger inga rikresultat. Typer och egenskaper finns i schema.org:s vokabulär och hör till typen; en utgången term byts mot sin ersättare. | D | `standard`, `seo` (vokabulären), info |
+| 7.3 JSON-LD som matchar synligt innehåll: den mest specifika typen (Electrician, Plumber, RoofingContractor, HousePainter, GeneralContractor för snickare och byggare); BreadcrumbList bara med synliga brödsmulor, och när DESIGN.md:s struktur har brödsmulor (`"struktur": {"brodsmulor": true}`) finns båda på varje indexerbar undersida, mellan sidhuvudet och `<main>`. Brödsmulor är en designhypotes, inget krav. aggregateRating ur Google-omdömen ger inga rikresultat. Typer och egenskaper finns i schema.org:s vokabulär och hör till typen; en utgången term byts mot sin ersättare. | D | `standard`, `seo` (vokabulären), info |
 | 7.4 Namn, adress och telefon identiska med Google-företagsprofilen; den gatuadress verksamheten själv visar, och som ingen annan källa motsäger, står i sidfoten på varje sida, på kontaktsidan och i JSON-LD; säger källorna olika står adressen ingenstans förrän verksamheten svarat (ägarens domar L5 och L6); öppettider eller telefontid och serviceområde som text, eller beställda; länk till omdömena. | D | `seo`, `standard` (adressen), steg 6, granskaren |
 | 7.5 En sida per huvudtjänst med egen h1, lokal koppling, riktiga jobbilder och nästa steg. | D | granskaren |
 | 7.6 robots.txt blockerar inte sökrobotar, inte heller AI-sök, om kunden vill synas där. llms.txt behövs inte. | D | info |
@@ -118,7 +118,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 | Punkt | Fas | Prövas av |
 |---|---|---|
 | 9.1 Första vyn säger vad, var, för vem och nästa steg. Ingen karusell. | D | femsekunderstestet, granskaren |
-| 9.2 Telefonnumret som tel-länk i sidhuvudet på varje sida; nästa steg på varje sida. | D | `standard` |
+| 9.2 Nästa steg på varje indexerbar sida (tel-länk, formulär eller länk till kontaktvägen), med kundens kontaktvägar ur BRIEF.md §4: har kontaktmodellen telefonen finns numret som tel-länk på varje sida. Var vägarna står (sidhuvud, list, sektion) är riktningens val. | D | `standard` |
 | 9.3 Förtroende: omdömen med källa, referensjobb med egna bilder, F-skatt, försäkring, certifikat, org.nr i sidfoten, ROT eller RUT där det gäller. Bara det som är belagt; det som saknas beställs av verksamheten (`underlag/<slug>/BESTALLNING.md`), minst fem egna bilder eller en beställning. | D | `standard` (bilderna), granskaren |
 | 9.4 Konkret, aktiv text på kundens språk; inga platshållare eller kvarlämnade kastbara sidor (`/tvaan/`), inga meningar som löper ihop utan mellanslag ("förfrågan.Så"), inga stockbilder där egna finns, rätt årtal. | D | copykontrollen, `standard` (`/tvaan/`, mellanslag), granskaren |
 | 9.5 Varje sida svarar på en fråga kunden faktiskt har: pris, tid, område eller process. | D | granskaren |

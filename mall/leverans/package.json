@@ -1,0 +1,25 @@
+{
+  "name": "sajt",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/react": "7.0.0",
+    "@astrojs/vercel": "11.0.11",
+    "@tailwindcss/vite": "4.3.3",
+    "@vercel/blob": "2.8.0",
+    "astro": "7.3.5",
+    "motion": "14.0.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "sharp": "0.35.5",
+    "tailwindcss": "4.3.3"
+  },
+  "overrides": {
+    "path-to-regexp": "6.3.0"
+  }
+}

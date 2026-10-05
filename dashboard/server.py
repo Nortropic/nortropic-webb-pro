@@ -1012,15 +1012,17 @@ def spara_dom(slug, data):
     rader += ['', '**Ändring:** väntar', '']
     publika += ['', '**Ägarens ord:** ordagrant i `underlag/LARDOMAR-original.md` (privat) och `kunder/%s/DOM.json`' % slug,
                 '**Lärdom:** skrivs utan personuppgifter av sessionen som gör ändringen', '**Ändring:** väntar', '']
-    # Domen blir automatiskt en vilande post i backloggen (loop 3): en session ägaren startar gör textändringen. Posten
-    # och den publika raden får inga fritextsvar (personuppgifter; BESLUT.md 2026-10-03).
+    # Domen blir automatiskt en vilande post i backloggen (loop 3): en session ägaren startar klassar domen och gör
+    # ändringen där slaget säger (backlog-skillen, steg 3; Codex via ägaren 2026-10-05, punkt 10). Posten och den publika
+    # raden får inga fritextsvar (personuppgifter; BESLUT.md 2026-10-03).
     betyg = '; '.join('%s: %s' % (karn[k]['fraga'], publikt_varde(karn[k], svar.get(k))) for k in ('namn', 'battre', 'specifik')
                       if publikt_varde(karn[k], svar.get(k)) is not None)
     pid = bl.ny('dom', 'Dom L%d (%s)' % (n, slug),
                 'Ägarens dom L%d om %s: ordagrant i underlag/LARDOMAR-original.md (privat, utanför git) och kunder/%s/DOM.json. %s'
                 % (n, slug, slug, betyg or 'Betygen står i LARDOMAR.md.'),
-                forslag='Läs domen ordagrant i underlag/LARDOMAR-original.md (L%d, privat) och kunder/%s/DOM.json. Gör en textändring i '
-                        'skillen bygg-sajt eller en fil i kunskap/ som svarar mot det ägaren pekar på. En ändring, liten nog att läsa på '
+                forslag='Läs domen ordagrant i underlag/LARDOMAR-original.md (L%d, privat) och kunder/%s/DOM.json. Klassa den först '
+                        '(kundbeslut, smakpreferens, metodhypotes eller generell rättelse; backlog-skillen, steg 3): bara en generell '
+                        'rättelse blir en ändring i skillen bygg-sajt, en fil i kunskap/ eller en kontroll. En ändring, liten nog att läsa på '
                         'fem minuter. Skriv sedan lärdomen på raden Lärdom under L%d i LARDOMAR.md utan personuppgifter: företagsnamn '
                         'får stå, inte privatpersoners namn, nummer, adresser eller hälsa.' % (n, slug, n),
                 klart='Ändringen är committad, raden Lärdom under L%d i LARDOMAR.md är skriven utan personuppgifter och raden Ändring '

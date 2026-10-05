@@ -300,8 +300,11 @@ SIDVAG = re.compile(r'/(?:%s(?:/%s){0,3}/?)?' % (LED, LED))  # fullmatch; högst
 
 
 def vik(s):
-    """Gemener utan diakritiska tecken (å, ä → a, ö → o, é → e), för jämförelser."""
-    return str(s).lower().translate(str.maketrans('åäöéèüáà', 'aaoeeuaa'))
+    """Gemener utan diakritiska tecken (å, ä → a, ö → o, é → e), för jämförelser; också NFD-kodade tecken (ett a följt
+    av en kombinerande ring) och andra diakriter (granskning 4, G14)."""
+    import unicodedata
+    s = unicodedata.normalize('NFKD', str(s).lower())
+    return ''.join(c for c in s if not unicodedata.combining(c)).translate(str.maketrans('æøß', 'aos'))
 
 
 ALLMANNA_EPOSTORD = {'info', 'kontakt', 'mail', 'post', 'order', 'offert', 'support', 'hello', 'kundtjanst', 'noreply'}
@@ -337,7 +340,11 @@ def forbjudna_termer(slug, underlag=None):
             ord_.update({d, d.split('.')[0]})
     nummer = [v.get('orgnr'), adress.get('postnummer')] + kontakter
     siffror.update(d for d in (re.sub(r'\D', '', str(x or '')) for x in nummer) if len(d) >= 5)
-    return {'ord': {o for o in ord_ if len(o) >= 3}, 'siffror': siffror}
+    # ett svenskt nummer känns igen också i internationell form (+46 utan nollan): de sista siffrorna efter nollan
+    siffror.update(d[1:] for d in list(siffror) if d.startswith('0') and len(d) >= 9)
+    # branschens ord (kategorierna) ingår i ett namn som "Snickaren": de prövas bara som hela ord, aldrig som delsträng
+    bransch = {w for k in (v.get('kategorier') or []) if isinstance(k, str) for w in re.split(r'[^a-z0-9]+', vik(k)) if len(w) >= 4}
+    return {'ord': {o for o in ord_ if len(o) >= 3}, 'siffror': siffror, 'bransch': bransch}
 
 
 def namner_kunden(text, forbjudna):
@@ -345,8 +352,13 @@ def namner_kunden(text, forbjudna):
     av frågans form, så att ett formfel aldrig döljer kundens uppgifter (granskning 2, N3)."""
     if not forbjudna:
         return False
+    import urllib.parse
+    text = urllib.parse.unquote(str(text))  # URL-kodning (%C3%A5) döljer aldrig ett namn
     vt, st_ = vik(text), re.sub(r'\D', '', text)
+    hopskrivet = re.sub(r'[^a-z0-9]+', '', vt)  # bokstäver med mellanrum och sammansättningar ("ortnamnsforetag")
     return any(re.search(r'(?<![a-z0-9])%s(?![a-z0-9])' % re.escape(o), vt) for o in forbjudna.get('ord') or ()) \
+        or any(len(o) >= 5 and not any(b in o for b in forbjudna.get('bransch') or ()) and re.sub(r'[^a-z0-9]+', '', o) in hopskrivet
+               for o in forbjudna.get('ord') or ()) \
         or any(x in st_ for x in forbjudna.get('siffror') or ())
 
 
@@ -385,18 +397,36 @@ def kanal_fel(begaran, bred=False, forbjudna=None):
     return None
 
 
+TRAD = set()  # referenssteg som pågår i den här processen (kor_trad): stoppet avslutar dem med sina träd
+
+
+def avsluta_trad():
+    """Avslutar varje pågående referenssteg med hela dess träd (tjänstesessionernas claude, referenssidornas node). Kallas
+    av arbetarens stopp, så att en komplettering aldrig lever kvar efter --stoppa (kvällens stopp 2026-10-05 lämnade en
+    Refero-session kvar)."""
+    import nastlad
+    ut = []
+    for pid in list(TRAD):
+        ut += nastlad.doda_trad(pid)
+        TRAD.discard(pid)
+    return ut
+
+
 def kor_trad(args, timeout):
     """Ett referenssteg i egen processgrupp; vid tidsgräns avslutas hela trädet, också tjänstesessionernas claude och
-    referenssidornas node (granskning 3, S3)."""
+    referenssidornas node (granskning 3, S3). Steget registreras i TRAD medan det pågår (stoppet når det)."""
     import nastlad
     p = subprocess.Popen(args, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=dict(os.environ),
                          start_new_session=True)
+    TRAD.add(p.pid)
     try:
         out, err = p.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         nastlad.doda_trad(p.pid)
         p.communicate()
         raise
+    finally:
+        TRAD.discard(p.pid)
     return subprocess.CompletedProcess(args, p.returncode, out, err)
 
 
@@ -535,6 +565,8 @@ def godkand_giltig(slug, underlag=None, kunder=None):
     kod, vd = u / 'atelje' / 'vinnare' / 'kod' / 'index.astro', u / 'atelje' / 'vinnare' / 'DESIGN.md'
     if g.get('sha_kod') and ((u / 'atelje' / 'vinnare' / 'kod').is_symlink() or sha256_katalog(u / 'atelje' / 'vinnare' / 'kod') != g['sha_kod']):
         return False, 'kandidatens godkända sidor (atelje/vinnare/kod/) är ändrade sedan godkännandet'
+    if g.get('sha_kodsrc') and ((u / 'atelje' / 'vinnare' / 'kod-src').is_symlink() or sha256_katalog(u / 'atelje' / 'vinnare' / 'kod-src') != g['sha_kodsrc']):
+        return False, 'kandidatens godkända komponenter och stilar (atelje/vinnare/kod-src/) är ändrade sedan godkännandet'
     if not kod.is_file() or kod.is_symlink() or sha256_fil(kod) != g.get('sha_index'):
         return False, 'den godkända startsidan (atelje/vinnare/kod/index.astro) är ändrad sedan godkännandet'
     if g.get('sha_design') and (not vd.is_file() or vd.is_symlink() or sha256_fil(vd) != g['sha_design']):

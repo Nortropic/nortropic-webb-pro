@@ -91,7 +91,8 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    länkad). Titta på dem märkta okänd och ta bort det som inte är verksamhetens. Bilder ur deras kanaler laddas ned
    med `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil,
    källa, vad bilden visar, datum, kvalitet. Datumet och dess källa (EXIF, filnamn eller okänt) ger `.venv/bin/python
-   kontroller/bilddatum.py underlag/<slug>/bilder`; daterade jobbilder kan bära en sektion. Inga stockbilder. Räkna
+   kontroller/bilddatum.py underlag/<slug>/bilder`; daterade jobbilder kan bära en sektion. Bilder som visar
+   verksamheten är dess egna, aldrig stockfoton eller genererade (`kunskap/bild.md`). Räkna
    de användbara: färre än fem, eller saknas den som kommer hem till kunden, bilen eller verktyget, ett jobb före och
    efter eller ett färdigt resultat, så blir bilderna en beställning i steg 3.
 3. **`underlag/<slug>/VERKSAMHET.json`:** formen står i `validera()` i `kontroller/verksamhetsuppgifter.py`
@@ -364,12 +365,14 @@ KONCEPT.md.
    (`atelje/vinnare/bilder/` och `undersidor/`) med byggets startsida och undersida i 390 och 1440, och skriv varje
    betydande ändring av bildbeskärningar, proportioner, komponenters beteende och responsiva beslut med sitt skäl.
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
-   sätter `site` till domänen i VERKSAMHET.json och kör npm install. Läs `mall/astro/README.md` och
+   sätter `site` till domänen i VERKSAMHET.json och installerar mallens låsta beroenden (npm ci). Läs `mall/astro/README.md`, `kunskap/beroenden.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
 3. **Bygg** sidorna ur INNEHALL.md: mobil först, semantisk HTML, en h1 per sida, självhostade typsnitt eller
-   systemtypsnitt, verksamhetens bilder via `astro:assets`, ingen JavaScript som inte behövs, JSON-LD med den mest
-   specifika schema.org-typen sanningsenligt ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och
-   telefonnumret som tel-länk, `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
+   systemtypsnitt, verksamhetens bilder via `astro:assets`, en sammanhängande implementation ur de låsta beroendena
+   (egen CSS, stilpaketets variabler, Tailwind, Astro- och React-komponenter, Motion; `kunskap/beroenden.md`) där
+   innehållet och navigationen fungerar utan JavaScript, JSON-LD med den mest specifika schema.org-typen sanningsenligt
+   ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och kundens kontaktvägar ur BRIEF.md §4 (har
+   kontaktmodellen telefonen: numret som tel-länk), `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
    färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga
    boknings- eller beställningssystem.
    **Mobilens första vy** (ägarens domar L1, L2 och A/B 2026-10-02; en designhypotes enligt
@@ -382,8 +385,9 @@ KONCEPT.md.
    handlingen är en annan, och skymmer inte sidfotens sista länk. När listen syns står samma handling inte som knapp
    en gång till i första vyn, och numret står högst två gånger: listen bär det, sidhuvudet behöver det inte (L4, L5).
    Stilrapporten mäter det.
-   **Brödsmulor** på varje undersida med mallens `src/components/Brodsmulor.astro` (synlig "Du är här" och
-   BreadcrumbList), mellan sidhuvudet och `<main>`; standarden prövar det. **Formuläret** behåller mallens
+   **Brödsmulor** när DESIGN.md:s struktur har dem (`"struktur": {"brodsmulor": true}`): mallens
+   `src/components/Brodsmulor.astro` (synlig "Du är här" och BreadcrumbList) mellan sidhuvudet och `<main>` på varje
+   indexerbar undersida; standarden prövar det. **Formuläret** behåller mallens
    felbesked vid fälten och telefonfältets `pattern`; etiketterna och beskeden skrivs i verksamhetens ord.
    **Öppettider eller telefontid** står på kontaktsidan när underlaget har dem; annars är de beställda (L4).
    **Plats för det beställda:** DESIGN.md (Bildbehandling) anger var varje beställd bild ska sitta. Bygg sektionen
@@ -452,9 +456,10 @@ Kontrollera att namn, adress och telefon på sajten, i sidfoten och i JSON-LD ä
    `kunder/<slug>/prov/copy.md` och rätta eller motivera varje fynd.
 3. **Renderingsläsning:** läs `kritik/FRAGA-renderingslasning.md` och gör läsningen själv mot skärmbilderna. Använd
    frågorna 1–6. Hoppa över allt som hör till det gamla Runtime-paketet: FILES.md, VYER/, MATT/, KUND/, UNDERLAG/,
-   BEDOMNINGSBINDNING och JSON-schemat. Pröva också två saker ur stilrapporten `kunder/<slug>/prov/stil/STIL.md`:
-   att h1 är verksamhetens namn eller ett bokstavligt erbjudande, och att nästa sektion skymtar i första vyn så att
-   besökaren ser att sidan fortsätter. Motivera varje varning i stilrapporten ur verksamhetens material, eller rätta.
+   BEDOMNINGSBINDNING och JSON-schemat. Pröva också stilrapportens varningar (`kunder/<slug>/prov/stil/STIL.md`) mot
+   den godkända designen: säger första vyn vad verksamheten gör, och syns det att sidan fortsätter? Hur det löses (h1:ns
+   ordalydelse, var nästa sektion börjar) är designens val; motivera varje varning ur designen och verksamhetens material,
+   eller rätta.
    Skriv svaret i `underlag/<slug>/RENDERINGSLASNING.md`, en rubrik per fråga med vad du såg (bild och vy) och vad
    som ska rättas. Rätta det du hittar.
 4. **Femsekunderstest, avskärmat:** starta en subagent med Task-verktyget. Ge den bara texten i
@@ -537,5 +542,6 @@ försök igen.
 
 Ägaren tittar på sajten och rapporten i dashboarden och skriver sin dom där; den hamnar ordagrant i `underlag/LARDOMAR-original.md` (privat) och
 utan personuppgifter i `LARDOMAR.md`:
-bättre än deras? nära referenserna? vad är fel? I en senare session blir varje dom en textändring i rätt fil (den här
-skillen eller en fil i `kunskap/`). En ändring per dom, så att ägaren kan läsa den på fem minuter.
+bättre än deras? nära referenserna? vad är fel? I en senare session klassas varje dom (kundbeslut, smakpreferens,
+metodhypotes eller generell rättelse; `.claude/skills/backlog/SKILL.md`, steg 3), och bara en generell rättelse blir
+en ändring i den här skillen, en fil i `kunskap/` eller en kontroll. En ändring per dom, så att ägaren kan läsa den på fem minuter.

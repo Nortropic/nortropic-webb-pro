@@ -8,14 +8,35 @@ Det som inget verktyg gör står som **människa**: ägaren eller verksamheten g
 
 ## Vercel-steget
 
-Byggstandardens L-punkter 1.4, 4.5, 4.6 och 8.1 pekar hit. Stacken är Astro med statisk utdata; Vercel bygger
-`npm run build` och serverar `dist/`.
+Byggstandardens L-punkter 1.4, 4.5, 4.6 och 8.1 pekar hit. Stacken är Astro med förrenderade sidor och Vercel-adaptern
+för formulärets funktion; kundrepot görs av `kontroller/exportera.py` (självständigt, låsta beroenden, bygget
+verifierat utan Nortropics kataloger).
 
-- **Projekt och skydd (människa):** ett Vercel-projekt per verksamhet, kopplat till sajtens eget repo. Skydd för alla
-  driftsättningar slås på innan den första går ut, och lösenordet lämnas bara till verksamheten och ägaren.
-- **Grenar (1.4):** en gren per ändring; varje gren får en egen förhandsvisning; `main` är produktion. Förhandsvisningen
-  svarar med `X-Robots-Tag: noindex`. Pröva med `curl -sI <förhandsvisningens adress> | grep -i x-robots-tag`; saknas
-  huvudet läggs det i `vercel.json` under `headers` för allt utom produktionsdomänen.
+**Förhandsvisning, produktion och skydd** (prövat med riktiga HTTP-svar 2026-10-05 i provprojektet
+`nortropic-leveransprov`; Vercels dokumentation läst samma dag):
+
+- **Ett bygge, två lägen.** Förhandsvisningen och produktionen är samma bygge. HTML:en har noindex bara på 404, `/tack/`
+  och `/fel/`, och robots.txt tillåter genomsökning i båda lägena; skillnaden ligger i driftsättningen.
+- **Skyddsmetoden är Vercel Authentication** (ingår i Pro). Lösenordsskydd är ett betalt tillägg på Pro (20 USD per
+  skyddat projekt och månad) och används inte. Kunden ser en förhandsvisning genom en delbar länk (Shareable Links,
+  alla planer); våra egna prov går genom förbikopplingen för automatisering (`x-vercel-protection-bypass`, hemligheten
+  bara i en privat fil, aldrig i repot eller loggen).
+- **Före lanseringen: skydd för alla driftsättningar** (`ssoProtection: all`). Standard Protection släpper
+  produktionsdomänerna, också projektets `<projekt>.vercel.app`, och den första CLI-driftsättningen i ett nytt projekt
+  blev produktion: i provet svarade aliaset 200 utan inloggning tills skyddet ändrades till alla driftsättningar.
+  Driftsätt förhandsvisningar med `vercel deploy --target preview`.
+- **Vid lanseringen: Standard Protection** (`all_except_custom_domains`): kundens domän är publik, förhandsvisningarna
+  skyddade.
+- **Svaren** (`kontroller/driftkoll.py <adress> --lage forhandsvisning|produktion`): förhandsvisningen svarar 302 till
+  Vercels inloggning utan förbikoppling och `X-Robots-Tag: noindex` (Vercel sätter det på genererade adresser);
+  produktionen svarar 200 utan noindex. Formulärets funktion svarar 303 till `/tack/` (förhandsvisning: demo), `/fel/`
+  i produktion utan mottagare, 413 över 4 MB bild (Vercels egen gräns 4,5 MB), och Astros CSRF-skydd ger 403 när
+  Origin är en annan sajt.
+
+- **Projekt (människa eller session med ägarens ja):** ett Vercel-projekt per verksamhet i teamet Nortropic, kopplat
+  till kundens privata repo; funktionen i Stockholm (`regions: ["arn1"]` i `vercel.json`) och ett privat Blob-lager i
+  samma region för inskicken.
+- **Grenar (1.4):** en gren per ändring; varje gren får en egen skyddad förhandsvisning; `main` är produktion.
 - **Cache (4.5):** filerna under `/_astro/` har hash i namnet och får `Cache-Control: public, max-age=31536000,
   immutable`; HTML får kort cache eller `must-revalidate`, så att en rättelse syns direkt. Pröva båda med `curl -sI`.
 - **Mätning per ändring (4.6):** varje förhandsvisning prövas innan den slås ihop: `kontroller/prova.py` mot bygget,
@@ -24,7 +45,7 @@ Byggstandardens L-punkter 1.4, 4.5, 4.6 och 8.1 pekar hit. Stacken är Astro med
   omdirigerar med 308; canonical, sitemap och `site` i `astro.config.mjs` pekar på den kanoniska. HSTS
   (`Strict-Transport-Security: max-age=63072000; includeSubDomains`) och `frame-ancestors 'none'` sätts som
   svarshuvuden i `vercel.json`, eftersom meta-CSP:n i mallen inte kan bära `frame-ancestors`.
-- **Formuläret:** serverfunktionen på `/api/forfragan` enligt `kunskap/forfragan.md`, Vid lansering: spara först,
+- **Formuläret:** serverfunktionen på `/api/forfragan/` (`src/pages/api/forfragan.js`, ur `kontroller/exportera.py`) enligt `kunskap/forfragan.md`, Vid lansering: spara först,
   mejla sedan, `/fel/` vid mejlfel. Hemligheter (mejltjänstens nyckel) ligger i Vercels miljövariabler, aldrig i repot.
 - **Återgång:** föregående produktionsdriftsättning befordras tillbaka i Vercel (människa, eller Vercels CLI med
   ägarens ja). Det återställer inte DNS.
@@ -63,9 +84,11 @@ ska omdirigeras. Verktyget förenar dem med sidkartan och sparar HTML, HAR och h
 anger varje adress, status, fel och SHA-256. Läs alla fel innan den gamla sajten försvinner. Arkivet är privat
 kundmaterial.
 
-**Lanseringskonfigurationen** är skild från förhandsvisningen: noindex och `Disallow: /` bara i förhandsvisningen,
-kanonisk värd vald, omdirigeringar från gamla adresser i `vercel.json` (301 eller 308), sökkonsolens verifieringstagg
-renderad, provet grönt mot lanseringsbygget och `kontroller/seo_kontroll.py --lage lansering` utan fynd.
+**Lanseringskonfigurationen** är densamma som förhandsvisningens bygge (ett bygge, två lägen ovan): kanonisk värd
+vald, omdirigeringar från gamla adresser i `vercel.json` (301 eller 308), sökkonsolens verifieringstagg renderad,
+formulärets mottagare satt i Vercels miljövariabler (`RESEND_API_KEY`, `FORFRAGAN_TILL`, `FORFRAGAN_FRAN`) och Blob-lagret
+kopplat, provet grönt mot bygget och `kontroller/seo_kontroll.py --lage lansering` utan fynd. Skyddet byts från alla
+driftsättningar till Standard Protection när kundens domän pekar rätt.
 
 ## Lanseringsdagen
 
@@ -98,8 +121,8 @@ förhandsvisningen.
 
 ## Återgång
 
-Driftsättning: befordra föregående produktionsdriftsättning i Vercel; återställ noindex om innehållet inte får
-indexeras. DNS: en behörig människa återställer posterna till filen från före bytet. Ingen session ändrar DNS.
+Driftsättning: befordra föregående produktionsdriftsättning i Vercel; skydda alla driftsättningar igen om innehållet
+inte får synas. DNS: en behörig människa återställer posterna till filen från före bytet. Ingen session ändrar DNS.
 Återgången kan ta upp till den TTL som gällde innan; vid namnserverbyte räknas också delegeringens TTL. En återgång av
 driftsättningen återställer inte DNS. Skriv tid, orsak, vem som beslutade och vad som återställdes i kundmappen, och
 kör provet igen före nästa försök.

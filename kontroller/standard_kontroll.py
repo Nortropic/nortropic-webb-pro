@@ -62,6 +62,7 @@ CSP_SKRIPT_OK = re.compile(r"^('self'|'none'|'strict-dynamic'|'sha(256|384|512)-
 RASTER = ('.jpg', '.jpeg', '.png', '.gif')
 GENERISKA_LANKTEXTER = {'läs mer', 'klicka här', 'här', 'mer', 'länk', 'läs mer här', 'se mer', 'read more', 'click here'}
 SIPS = shutil.which('sips')
+TYPSNITT_BUDGET_KB = 300  # sajtens självhostade typsnitt tillsammans (WOFF2); den verkliga prestandan prövar Lighthouse-grinden
 KIB = 1024
 
 
@@ -305,7 +306,37 @@ def typer(ld):
     return ut
 
 
-def granska(dist):
+def kontaktmodell(brief):
+    """Kundens kontaktvägar ur BRIEF.md §4 (Primär handling): {'telefon', 'skriftlig', 'bokning'} som sanningsvärden,
+    eller None när briefen eller avsnittet saknas. Kontrollerna följer kundens kontaktmodell, inte en fast placering
+    (Codex via ägaren 2026-10-05, punkt 2: en fungerande annan kontaktlösning får inte underkännas)."""
+    try:
+        text = Path(brief).read_text(encoding='utf-8') if brief else ''
+    except (OSError, UnicodeDecodeError):
+        return None
+    m = re.search(r'^##\s*§\s*4\b[^\n]*\n(.*?)(?=^##\s|\Z)', text, re.M | re.S)
+    if not m:
+        return None
+    s = m.group(1)
+    return {'telefon': bool(re.search(r'\btel:|\b[Rr]ing\b|\bringa\b|telefon', s)),
+            'skriftlig': bool(re.search(r'formulär|förfrågan|/api/forfragan|skriftlig|e-post|mejl', s, re.I)),
+            'bokning': bool(re.search(r'\bbok(a|ning)', s, re.I))}
+
+
+def designstruktur(dist):
+    """DESIGN.md:s deklarerade informationsstruktur ({'brodsmulor': True/False}) ur json design-blocket bredvid bygget,
+    eller {} när den inte är deklarerad. Brödsmulor är en designhypotes (kunskap/designregler.md): kontrollen kräver dem
+    bara när designen säger att sajten har dem."""
+    try:
+        import design
+        v, _f = design.las((Path(dist).parent / 'DESIGN.md').read_text(encoding='utf-8'))
+    except (OSError, UnicodeDecodeError):
+        return {}
+    s = (v or {}).get('struktur') if isinstance(v, dict) else None
+    return s if isinstance(s, dict) else {}
+
+
+def granska(dist, kontakt=None):
     dist = Path(dist)
     fel, info = [], []
 
@@ -510,12 +541,17 @@ def granska(dist):
                 otillatna = [k for k in kallor if not CSP_SKRIPT_OK.match(k)]
                 if otillatna:
                     F('8.2', sida, "CSP:ns %s släpper igenom annat än 'self' och hashar: %s" % (namn, ' '.join(otillatna[:4])))
-        # 9.2 telefon i sidhuvudet
-        tel = [(a, i_h) for t, a, i_h, _m in p.el if t == 'a' and a.get('href', '').startswith('tel:')]
-        if not tel:
-            F('9.2', sida, 'ingen tel-länk på sidan')
-        elif not any(i_h for _, i_h in tel):
-            F('9.2', sida, 'telefonnumret finns inte som tel-länk i sidhuvudet')
+        # 9.2 nästa steg på varje indexerbar sida, med kundens kontaktvägar (BRIEF.md §4); var de står (sidhuvud, list,
+        # sektion) är riktningens val, aldrig ett fel
+        if sida not in ('/404.html',) and rel.name != '404.html' and not any(
+                a.get('name') == 'robots' and 'noindex' in a.get('content', '') for t_, a, *_ in p.el if t_ == 'meta'):
+            tel = [a for t, a, *_ in p.el if t == 'a' and a.get('href', '').startswith('tel:')]
+            if kontakt and kontakt.get('telefon') and not tel:
+                F('9.2', sida, 'kundens kontaktmodell (BRIEF.md §4) har telefonen, men sidan saknar tel-länk')
+            nasta = tel or p.formular or [a for t, a, *_ in p.el if t == 'a' and re.match(
+                r'^(mailto:|/kontakt/?(#|$)|/offert/?(#|$)|/boka/?(#|$))|#(forfragan|kontakt|skriv)', a.get('href', ''))]
+            if not nasta:
+                F('9.2', sida, 'sidan saknar ett nästa steg (tel-länk, formulär eller länk till kontaktvägen)')
 
     # sajtövergripande
     rorelse = re.search(r'@keyframes|scroll-behavior\s*:\s*smooth|(?<![\w-])(?:transition|animation)\s*:\s*(?!none\b)', all_css)
@@ -532,15 +568,19 @@ def granska(dist):
         F('3.6', '(alla)', 'ikonfont används; använd SVG')
     if re.search(r'url\(\s*["\']?(https?:)?//', all_css):
         F('4.4', '(alla)', 'CSS hämtar resurser från en annan domän (t.ex. typsnitt); självhosta')
-    # 4.3 vikt: latin-subset med bara wght-axeln är 40–50 kB; bredd-axeln kostar 40 kB till och ska bära formen
-    # (ägarens A/B-omdöme 2026-10-02: 47 kB mot 99 kB var ett skäl; L2 godtog Archivo i smal bredd)
+    # 4.3 vikt: bedöms mot den valda designen och den verkliga prestandan (Lighthouse-grinden), inte mot fasta gränser per
+    # fil ur en gammal jämförelse (Codex via ägaren 2026-10-05; ägarens A/B 2026-10-02, 47 mot 99 kB, är ett exempel).
+    # Fel när sajtens typsnitt tillsammans går över budgeten; en tung fil är information med råd.
     bredd = re.search(r"font-stretch\s*:\s*(?!100%|normal)|'wdth'", all_css)
-    for f in sorted(dist.rglob('*.woff2')):
+    woff2 = sorted(dist.rglob('*.woff2'))
+    totalt = sum(f.stat().st_size for f in woff2) // 1024
+    if totalt > TYPSNITT_BUDGET_KB:
+        F('4.3', '(alla)', 'typsnitten väger %d kB tillsammans, över budgeten %d kB; ta latin-subset med bara de axlar och vikter som används' % (totalt, TYPSNITT_BUDGET_KB))
+    for f in woff2:
         kb = f.stat().st_size // 1024
-        if kb > 120 or (kb > 80 and not bredd):
-            F('4.3', '(alla)', '%s är %d kB; ta latin-subset med bara de axlar som används (wght-axeln ensam är 40–50 kB)' % (f.name, kb))
-        elif kb > 80:
-            I('4.3', '(alla)', '%s är %d kB med bredd-axeln; behåll den bara om bredden bär formen, annars 40–50 kB med wght' % (f.name, kb))
+        if kb > 80:
+            I('4.3', '(alla)', '%s är %d kB%s; latin-subset med bara de axlar som används brukar ge 40–50 kB per familj' % (
+                f.name, kb, ' med bredd-axeln (behåll den om bredden bär formen)' if bredd else ''))
     fontfiler = [f for f in dist.rglob('*') if f.suffix.lower() in ('.woff', '.ttf', '.otf', '.eot')]
     if fontfiler:
         F('4.3', '(alla)', '%d typsnittsfiler som inte är WOFF2, t.ex. %s' % (len(fontfiler), fontfiler[0].name))
@@ -652,7 +692,9 @@ def granska(dist):
         for m in re.finditer(r'[a-zåäöé)\]]\.[A-ZÅÄÖ][a-zåäö]', text):
             F('9.4', sida_av(dist, f), 'mellanslag saknas efter punkt: "%s"' % text[max(0, m.start() - 15):m.end() + 12].replace('\n', ' ').strip())
             break
-    # 7.3 brödsmulor på varje indexerbar undersida: synlig navigering och BreadcrumbList (ägarens A/B-omdöme 2026-10-02)
+    # 7.3 brödsmulor: en designhypotes (ägarens A/B-omdöme 2026-10-02, kunskap/designregler.md). Krävs bara när DESIGN.md:s
+    # struktur säger att sajten har dem; strukturerade data ska alltid stämma med det synliga (Googles riktlinjer)
+    struktur = designstruktur(dist)
     for f, p in sidobjekt.items():
         sida = sida_av(dist, f)
         if sida in ('/', '/404.html') or f.name == '404.html':
@@ -660,29 +702,39 @@ def granska(dist):
         if any(a.get('name') == 'robots' and 'noindex' in a.get('content', '') for t_, a, *_ in p.el if t_ == 'meta'):
             continue
         smulor = any(t_ == 'nav' and re.search(r'du är här|brödsmul|breadcrumb', a.get('aria-label', ''), re.I) for t_, a, *_ in p.el)
-        if not smulor:
-            F('7.3', sida, 'brödsmulor saknas: <nav aria-label="Du är här"> med länk till startsidan (mallens Brodsmulor.astro)')
-        elif any(t_ == 'nav' and i_main and re.search(r'du är här|brödsmul|breadcrumb', a.get('aria-label', ''), re.I)
-                 for t_, a, _h, i_main in p.el):
+        lista = any('BreadcrumbList' in ld for ld in p.jsonld)
+        if struktur.get('brodsmulor') is True:
+            if not smulor:
+                F('7.3', sida, 'DESIGN.md:s struktur har brödsmulor, men sidan saknar <nav aria-label="Du är här"> (mallens Brodsmulor.astro)')
+            if not lista:
+                F('7.3', sida, 'DESIGN.md:s struktur har brödsmulor, men BreadcrumbList saknas i JSON-LD (mallens Brodsmulor.astro)')
+        elif lista and not smulor:
+            F('7.3', sida, 'BreadcrumbList i JSON-LD utan synliga brödsmulor; strukturerade data ska stämma med det synliga')
+        elif smulor and not lista:
+            I('7.3', sida, 'synliga brödsmulor utan BreadcrumbList i JSON-LD (mallens Brodsmulor.astro har båda)')
+        if smulor and any(t_ == 'nav' and i_main and re.search(r'du är här|brödsmul|breadcrumb', a.get('aria-label', ''), re.I)
+                          for t_, a, _h, i_main in p.el):
             I('7.3', sida, 'brödsmulorna står inne i <main>; lägg dem mellan sidhuvudet och <main> (GOV.UK), så hamnar varken länkarna eller JSON-LD i huvudinnehållet (ägarens dom L4)')
-        if not any('BreadcrumbList' in ld for ld in p.jsonld):
-            F('7.3', sida, 'BreadcrumbList saknas i JSON-LD (mallens Brodsmulor.astro)')
     # 9.4 den kastbara sidan för tvåan-riktningen (bygg-sajt steg 5) tas bort efter skärmbilderna
     if (dist / 'tvaan').exists():
         F('9.4', '/tvaan/', 'den kastbara sidan med tvåan-riktningen finns kvar; ta bort kunder/<slug>/sajt/src/pages/tvaan med kontroller/ta_bort.py')
     for kvar in sorted(dist.glob('atelje-*')):
         F('9.4', '/%s/' % kvar.name, 'en kastbar ateljésida finns kvar; ta bort kunder/<slug>/sajt/src/pages/%s med kontroller/ta_bort.py' % kvar.name)
     # 6 skriftlig förfrågan (ägarens dom L1: "standarden ska inte tillåta att 'ring' är enda vägen")
+    mal_ok = ('/api/forfragan/', '/api/forfragan')  # med snedstreck; utan svarar Vercel 308 och inskicket skickas två gånger
     forfragan = [(s, fm) for s, fm in ((sida_av(dist, f), fm) for f, p in sidobjekt.items() for fm in p.formular)
-                 if fm['attr'].get('method', '').lower() == 'post' and fm['attr'].get('action') == '/api/forfragan']
+                 if fm['attr'].get('method', '').lower() == 'post' and fm['attr'].get('action') in mal_ok]
     if not forfragan:
-        F('6.1', '(alla)', 'ingen skriftlig förfrågningsväg: formulär med method="post" och action="/api/forfragan" saknas (mallens Forfragan.astro)')
+        F('6.1', '(alla)', 'ingen skriftlig förfrågningsväg: formulär med method="post" och action="/api/forfragan/" saknas (mallens Forfragan.astro)')
+    for sida, fm in forfragan:
+        if fm['attr'].get('action') == '/api/forfragan':
+            I('6.1', sida, 'formuläret postar till /api/forfragan utan snedstreck: på Vercel svarar sajten 308 och webbläsaren skickar inskicket, bilden inräknad, två gånger; använd /api/forfragan/')
     for sida, fm in forfragan:  # det effektiva målet: en skickaknapp med formaction/formmethod överstyr formuläret (omgång elva, F31)
         knappar = [k for k in fm.get('knappar', []) if (k.get('type') or 'submit').lower() == 'submit'] + \
                   [x for x in fm['falt'] if x.get('_tag') == 'input' and (x.get('type') or '').lower() == 'submit']
         for k in knappar:
-            if (k.get('formaction') and k['formaction'] != '/api/forfragan') or (k.get('formmethod') and k['formmethod'].lower() != 'post'):
-                F('6.1', sida, 'skickaknappen överstyr formulärets mål (formaction=%r, formmethod=%r); det effektiva målet ska vara POST /api/forfragan' % (k.get('formaction'), k.get('formmethod')))
+            if (k.get('formaction') and k['formaction'] not in mal_ok) or (k.get('formmethod') and k['formmethod'].lower() != 'post'):
+                F('6.1', sida, 'skickaknappen överstyr formulärets mål (formaction=%r, formmethod=%r); det effektiva målet ska vara POST /api/forfragan/' % (k.get('formaction'), k.get('formmethod')))
     for sida, fm in forfragan[:3]:
         falt = {x.get('name'): x for x in fm['falt']}
         for namn in ('namn', 'telefon', 'meddelande'):
@@ -951,8 +1003,11 @@ def utgaende(dist, tidsgrans=8):
     return [{'url': u, 'svar': svar[u], 'sidor': sorted(set(s))} for u, s in lankar.items()]
 
 
-def rapport(bygge, stil=None, bestallning=None, verksamhet=None, inspektion=None):
-    fel, info, n = granska(bygge)
+def rapport(bygge, stil=None, bestallning=None, verksamhet=None, inspektion=None, brief=None):
+    kontakt = kontaktmodell(brief)
+    fel, info, n = granska(bygge, kontakt)
+    if brief and kontakt is None:
+        info.append({'punkt': '9.2', 'sida': '(alla)', 'text': 'BRIEF.md saknar §4 Primär handling; kontaktvägarna prövades bara som ett nästa steg per sida'})
     lankar = utgaende(bygge)
     for x in lankar:
         if x['svar'].startswith(('4', '5', 'svarar inte')):
@@ -1000,13 +1055,15 @@ def main(argv=None):
     p.add_argument('--bestallning', help='underlag/<slug>/BESTALLNING.md, för bildkravet (9.3)')
     p.add_argument('--verksamhet', help='underlag/<slug>/VERKSAMHET.json, för den publika adressen (7.4)')
     p.add_argument('--inspektion', help='prov/inspektion/ med INSPEKTION.json per sida, för konsolen (8.7)')
+    p.add_argument('--brief', help='underlag/<slug>/BRIEF.md, för kundens kontaktmodell (§4, punkt 9.2)')
     a = p.parse_args(argv)
     krav_vag(a.ut, "--ut")
     krav_vag(getattr(a, "md", None), "--md")
+    krav_vag(getattr(a, "brief", None), "--brief")
     if not Path(a.bygge).is_dir():
         print('finns inte: ' + a.bygge, file=sys.stderr)
         return 2
-    r = rapport(Path(a.bygge), a.stil, a.bestallning, a.verksamhet, a.inspektion)
+    r = rapport(Path(a.bygge), a.stil, a.bestallning, a.verksamhet, a.inspektion, a.brief)
     Path(a.ut).write_text(json.dumps(r, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if a.md:
         Path(a.md).write_text(markdown(r), encoding='utf-8')

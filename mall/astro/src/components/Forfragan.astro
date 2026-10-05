@@ -1,6 +1,6 @@
 ---
 // Skriftlig förfrågan (byggstandarden 6, ägarens dom L1: "standarden ska inte tillåta att 'ring' är enda vägen").
-// Fungerar med vanlig POST utan JavaScript; honeypot och tidsfälla mot spam. Mottagaren är /api/forfragan: i demon
+// Fungerar med vanlig POST utan JavaScript; honeypot och tidsfälla mot spam. Mottagaren är /api/forfragan/ (med snedstreck: sajten har avslutande snedstreck, och utan det svarar Vercel 308 och webbläsaren skickar inskicket två gånger): i demon
 // svarar provets och dashboardens server och visar /tack/ utan att spara eller skicka något; vid lansering tar en
 // serverfunktion över med samma kontrakt (kunskap/forfragan.md). Bygget stylar formuläret och skriver etiketterna i
 // verksamhetens ord; fältnamnen och fällorna ändras inte.
@@ -20,7 +20,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   felNamn = 'Skriv ditt namn.', felTelefon = 'Skriv ett nummer vi kan ringa.',
   felTelefonFormat = 'Skriv numret med siffror, till exempel 070-123 45 67.', felMeddelande = 'Skriv vad du vill ha hjälp med.' } = Astro.props;
 ---
-<form class="forfragan" id="forfragan" action="/api/forfragan" method="post" enctype="multipart/form-data">
+<form class="forfragan" id="forfragan" action="/api/forfragan/" method="post" enctype="multipart/form-data">
   <!-- Felbesked utan JavaScript: mottagaren skickar ett ofullständigt inskick till #forfragan-saknas, och :target visar det. -->
   <p id="forfragan-saknas" class="ff-saknas" tabindex="-1" role="alert">{saknas}{telefon && <> Eller ring <a href={`tel:${telefon}`}>{telefonText || telefon}</a>.</>}</p>
   <p>

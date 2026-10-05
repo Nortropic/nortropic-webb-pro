@@ -87,8 +87,9 @@ huvudreferensen; och den valda prototypen (ateljéns vinnare) som körbar gestal
 
 Bildinventering (källa, kategori, upplösning, användbar i första vyn, rättigheter, anspråk), bildspår (foto-först,
 bevis-först, typografi-först) med skäl, behandling som val (`bild.md`), platsplan (bildplats · sida · källa ·
-anspråk · status), fotouppdrag till kunden när material saknas. Stockbilder och genererade bilder används inte
-(ägarens dom, `bild.md`): saknas egna bilder bär typografin och bilderna beställs.
+anspråk · status), fotouppdrag till kunden när material saknas. En bild som visar verksamheten är dess egen; ett
+stockfoto eller en genererad bild utger sig aldrig för att visa den (`bild.md`): saknas egna bilder bär typografin och
+bilderna beställs, och licensierat illustrativt material får användas med källa.
 
 ## §9 Teknik
 

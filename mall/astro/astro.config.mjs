@@ -1,4 +1,8 @@
 import { defineConfig, fontProviders } from 'astro/config';
+// De förberedda, granskade och låsta beroendena (kunskap/beroenden.md; package-lock.json): React-öar och Tailwind 4 är
+// påslagna men ger ingenting i bygget förrän en sida använder dem (en sida utan dem får inga skript och ingen extra CSS).
+import react from '@astrojs/react';
+import tailwindcss from '@tailwindcss/vite';
 
 // site = verksamhetens riktiga domän. Canonical och sitemap pekar dit; demon skyddas vid driftsättning, inte i HTML.
 export default defineConfig({
@@ -17,7 +21,8 @@ export default defineConfig({
   // Typsnittsfiler bäddas aldrig in som data:-adresser i CSS: CSP:n nedan (default-src 'self') vägrar dem, och en liten
   // delmängd (latin-ext, kyrilliska) laddas ändå bara när sidan använder de tecknen. Designprovet 2026-10-05: två av
   // ateljéns tre riktningar fick konsolfel av inbäddade delmängder ur @fontsource (byggstandarden 8.7).
-  vite: { build: { assetsInlineLimit: (fil) => (/\.(woff2?|ttf|otf|eot)$/i.test(fil) ? false : undefined) } },
+  integrations: [react()],
+  vite: { plugins: [tailwindcss()], build: { assetsInlineLimit: (fil) => (/\.(woff2?|ttf|otf|eot)$/i.test(fil) ? false : undefined) } },
   // CSP som metatagg med hashar (byggstandarden 8.2): skript bara med hash, allt från egen domän, stilattribut
   // tillåtna (style="" används för bildförhållanden och variabler). Provad 2026-10-02 på ett riktigt bygge: 0 överträdelser.
   security: {
