@@ -3065,6 +3065,38 @@ try:
 finally:
     if sl_om is not None:
         os.environ['NWP_SANDLADA'] = sl_om
+# omgranskning 2, fynd 4: på nödvägen utan ateljé (NWP_ATELJE=av) stoppar ateljéns lägen inte bygget
+sl_om = os.environ.pop('NWP_SANDLADA', None); os.environ['NWP_ATELJE'] = 'av'
+try:
+    sk.lagg_till_dom('om-prov', 'ägaren', 'putsa', 'Putsa.', underlag=rot_om / 'underlag', tid='2026-10-05T12:00:00Z')
+    assert sv_om.ateljen_forkastad(rot_om, 'om-prov') is None, 'nödvägen ger aldrig en falsk slutkod 6'
+    del os.environ['NWP_ATELJE']
+    assert sv_om.ateljen_forkastad(rot_om, 'om-prov'), 'i skapandeflödets väg stoppar samma läge'
+finally:
+    os.environ.pop('NWP_ATELJE', None)
+    if sl_om is not None:
+        os.environ['NWP_SANDLADA'] = sl_om
+# fynd 2: ägarens domar prövas mot körningens steg också utanför vyn (kontroller/skapande.py dom går genom doma)
+st_om = (om_u / 'atelje' / 'STATUS.json').read_text()
+(om_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'fel': 'RuntimeError: förfiningen'}))
+try:
+    at_pt.doma('om-prov', 'ägaren via Codex', 'godkand', 'Godkänd.'); raise AssertionError('en körning som föll kan inte godkännas')
+except ValueError as e_:
+    assert 'klar körning' in str(e_), e_
+(om_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'forfina', 'pid': os.getpid()}))
+try:
+    at_pt.doma('om-prov', 'ägaren', 'putsa', 'Rubriken.'); raise AssertionError('en pågående körning döms inte')
+except ValueError as e_:
+    assert 'pågår' in str(e_), e_
+(om_u / 'atelje' / 'STATUS.json').write_text(st_om)
+assert sk.domar('om-prov', pt_und)[-1]['beslut'] == 'ny_riktning', 'de nekade domarna skrevs inte'
+# fynd 3: kor.sh vägrar när ägarens dom inte tillåter ett bygge (prototyp.bygget_nekas), inte när domloggen är tom
+assert (pt.bygget_nekas('om-prov') or '').startswith('ny-riktning'), pt.bygget_nekas('om-prov')
+(pt_und / 'gd-prov').mkdir(); (pt_und / 'gd-prov' / 'REFERENSER.md').write_text('Huvudreferens: Xref — komposition\n')
+assert pt.lage('gd-prov')[0] == 'stopp' and pt.bygget_nekas('gd-prov') is None, 'tidigare designbeslut utan dom stoppar inte ett bygge'
+assert pt.bygget_nekas('fs-saknas') is None
+kor_txt = (ROOT / 'kor.sh').read_text()
+assert 'prototyp.bygget_nekas' in kor_txt and '[ -n "$AGARENS_STOPP" ]' in kor_txt, 'kor.sh frågar samma funktion'
 # korslut: en ändrad domlogg under bygget är ändrad mekanik (slutkod 3), inte en varning
 import korslut as ks_om  # noqa: E402
 k_om = tmp / 'kunder-om' / 'om-prov'; (k_om / 'prov').mkdir(parents=True)
@@ -3078,6 +3110,7 @@ assert 'domlogg' in ut_om.getvalue(), ut_om.getvalue()[-400:]
 (pt_und / 'lg-prov').mkdir()
 sk.lagg_till_dom('lg-prov', 'ägaren via Codex', 'putsa', 'Putsa vidare.', underlag=pt_und)
 assert pt.lage('lg-prov')[0] == 'stopp' and 'gäller ingen körning' in pt.lage('lg-prov')[1], pt.lage('lg-prov')
+assert (pt.bygget_nekas('lg-prov') or '').startswith('stopp'), 'en dom som inte gäller någon körning stoppar också bygget (omgranskning 2, fynd 3)'
 # (fynd 4 och 7) --fortsatt: main skriver statusen med det som bär återupptagningen innan arbetaren startar; utan vinnare
 # när utforskningen föll; arbetaren tar vid i omgången som föll, och efter en putsning i slutdomen mot samma före
 fs_u = pt_und / 'fs-prov'; (fs_u / 'atelje' / 'omgang-1').mkdir(parents=True)
@@ -3130,8 +3163,42 @@ try:
     at_pt.arbetare('fs-prov', 'fortsatt')
     assert sedda_fs == [('slutdom', 'underlag/fs-prov/atelje/foregaende/x-putsa', 123.0)], sedda_fs
     assert json.loads((fs_u / 'atelje' / 'STATUS.json').read_text())['steg'] == 'klar'
+    # omgranskning 2, fynd 5: TILLBAKA i omgång 1, omgång 2 föll: återupptagningen får skaparens skäl, inte panelens val
+    (fs_u / 'atelje' / 'omgang-1' / 'TILLBAKA.md').write_text('Grundidén bär inte: fotona är för få.')
+    (fs_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'fel': 'RuntimeError: föll', 'omgang': 2, 'faser': {}, 'lage': 'ny'}))
+    sedda_fs.clear()
+    at_pt.utforska_och_valj = lambda slug, rot, status, skriv, bilder, kritik=None, forsta=1: (sedda_fs.append(('utforska', forsta, kritik)), (None, forsta))[1]
+    at_pt.arbetare('fs-prov', 'fortsatt')
+    assert sedda_fs == [('utforska', 2, at_pt.TILLBAKA_KRITIK + 'Grundidén bär inte: fotona är för få.')], sedda_fs
 finally:
     at_pt.utforska_och_valj, at_pt.forfina, at_pt.slutdom, at_pt.redovisa = gamla_fs
+# omgranskning 2, fynd 1: --fortsatt tar inte upp en avslutad körning (den stämplades om som klar förbi ägarens dom)
+sp_fs = at_pt.subprocess  # en vägran som gått sönder ska fälla provet, aldrig starta en riktig arbetare
+at_pt.subprocess = types.SimpleNamespace(Popen=lambda *a_, **k_: (_ for _ in ()).throw(AssertionError('--fortsatt startade en arbetare')),
+                                         DEVNULL=subprocess.DEVNULL, STDOUT=subprocess.STDOUT, run=subprocess.run,
+                                         TimeoutExpired=subprocess.TimeoutExpired, CompletedProcess=subprocess.CompletedProcess)
+try:
+    for steg_ in ('klar', 'tillbaka', 'forkastad'):
+        (fs_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': steg_, 'klar': '2026-10-05T07:00:00Z', 'faser': {'valj': {'klar': 't'}}}))
+        ut_fs = io.StringIO()
+        with contextlib.redirect_stdout(ut_fs):
+            assert at_pt.main(['fs-prov', '--fortsatt']) == 2, steg_
+        assert 'föll' in ut_fs.getvalue() and json.loads((fs_u / 'atelje' / 'STATUS.json').read_text())['steg'] == steg_, ut_fs.getvalue()
+finally:
+    at_pt.subprocess = sp_fs
+# omgranskning 2, fynd 6: föll förra slutdomen innan efter-bilderna fanns, är före vinnarens senast dömda bilder
+sf_ = tmp / 'sf-rot'; (sf_ / 'vinnare' / 'bilder').mkdir(parents=True); (sf_ / 'vinnare' / 'bilder' / 'vy-390-forsta.png').write_bytes(b'v')
+pu_ = tmp / 'sf-putsa'; (pu_ / 'slutdom' / '2').mkdir(parents=True)
+rot_sf = at_pt.ROOT; at_pt.ROOT = tmp
+try:
+    assert at_pt.slutdomens_fore(sf_, {'putsning': 'sf-putsa'}, 1) == sf_ / 'vinnare' / 'bilder'
+    (pu_ / 'slutdom' / '2' / 'vy-390-forsta.png').write_bytes(b'e')
+    assert at_pt.slutdomens_fore(sf_, {'putsning': 'sf-putsa'}, 1) == pu_ / 'slutdom' / '2'
+finally:
+    at_pt.ROOT = rot_sf
+# omgranskning 2, fynd 7: en post med fältet referens jämförs bara mot det, inte mot lånen i dragtexten
+sk.lagg_till_historik('pt-prov', [{'kalla': 'k', 'namn': 'Lånaren', 'drag': 'Lån: sidhuvudet ur Aesop', 'referens': 'Zref', 'utfall': 'förkastad av panelen'}], pt_und)
+assert not at_pt.provad_referens('pt-prov', 'Aesop') and at_pt.provad_referens('pt-prov', 'Zref')['namn'] == 'Lånaren'
 # (fynd 5) efter TILLBAKA: mallens design.css tillbaka (Bas.astro importerar den), riktningens filer i arkivet, en länk tas bort
 lk_ = at_pt.KUNDER / 'lm-prov' / 'sajt'; (lk_ / 'src' / 'styles').mkdir(parents=True); (lk_ / 'src' / 'pages').mkdir(parents=True)
 (lk_ / 'src' / 'styles' / 'design.css').write_text('/* riktningens */'); (lk_ / 'src' / 'pages' / 'index.astro').write_text('<p>x</p>')
@@ -3171,14 +3238,19 @@ try:
 finally:
     at_pt.ANTAL = antal_rb
 # (fynd 8) kompletteringens kanal ut: form och mängd
-for beg_, ord_ in (({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/a/b/c/d/']}]}}, 'sidvägarna'),
+for beg_, ord_ in (({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/a/b/c/d/e/']}]}}, 'sidvägarna'),
                    ({'referens': {'kandidater': [{'adress': 'https://aGVtbGlnLWRhdGE.exempel.se/'}]}}, 'adressen'),
-                   ({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/ett-mycket-langt-vagsegment-som-bar-data-ut-ur-sessionen/']}]}}, 'sidvägarna'),
+                   ({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/' + 'x' * 61 + '/']}]}}, 'sidvägarna'),
                    ({'tjanster': {'fragor': [{'fraga': 'se https://ondskefull.se/x'}]}}, 'fråga'),
                    ({'referens': {'kandidater': [{'adress': 'https://e%d.se/' % i} for i in range(4)]}}, 'kandidater')):
     assert ord_ in (sk.kanal_fel(beg_) or ''), (beg_, sk.kanal_fel(beg_))
 assert sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://www.ashtonbespoke.co.uk/', 'sidor': ['/', '/projekt/kok/']}]},
                      'tjanster': {'fragor': [{'fraga': 'hantverkare med mörk palett och stor serif', 'syfte': 'typografin'}]}}) is None
+# omgranskning 2, fynd 8: legitima former (procentkodning, versaler, fyra led, punycode) släpps, och beskedet säger hur
+assert sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://xn--tryckeri-q2a.se/', 'sidor': ['/tj%C3%A4nster/', '/se/r/Kitchen-Range/', '/a/b/c/d/']}]}}) is None
+assert 'procentkodade' in sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/tjänster/']}]}})
+assert 'punycode' in sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://tryckeriet-ö.se/'}]}})
+assert sk.kanal_fel({'referens': {'kandidater': [{'adress': 'https://exempel.se/', 'sidor': ['/../hemligt/']}]}}), 'ett led av bara punkter släpps inte'
 # (fynd 9) förkastningen skriver panelens skäl bara i bygget; utanför dömer ägaren först
 vr_ = tmp / 'vanta-rot'; vr_.mkdir(); (vr_ / 'STATUS.json').write_text(json.dumps({'steg': 'forkastad', 'skal': 'x', 'slug': 'v'})); (vr_ / 'VAL.md').write_text('PANELENS SKÄL')
 ut_v = io.StringIO()

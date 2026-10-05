@@ -206,8 +206,8 @@ def senaste_paket(slug, underlag=None):
 # vägar går fortfarande ut, och skaparen läser bara underlaget, aldrig hemligheter (kunskap/skapandeflodet.md).
 MAX_KANDIDATER, MAX_SIDOR_PER, MAX_FRAGOR, MAX_FRAGA = 3, 4, 3, 160
 VARD = re.compile(r'^https://(?:[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?\.){1,3}[a-z]{2,12}/$')
-LED = r'[a-z0-9](?:[a-z0-9._-]{0,38}[a-z0-9])?'
-SIDVAG = re.compile(r'^/(?:%s(?:/%s){0,2}/?)?$' % (LED, LED))  # högst tre led om högst 40 tecken, med snedstreck emellan
+LED = r'(?!\.+(?:/|$))(?:[A-Za-z0-9._~-]|%[0-9A-Fa-f]{2}){1,60}'  # å, ä, ö procentkodade; inte bara punkter
+SIDVAG = re.compile(r'^/(?:%s(?:/%s){0,3}/?)?$' % (LED, LED))  # högst fyra led med snedstreck emellan
 
 
 def kanal_fel(begaran):
@@ -218,10 +218,13 @@ def kanal_fel(begaran):
         return 'referens.kandidater ska vara 1–%d kandidater' % MAX_KANDIDATER
     for k in kand or []:
         if not isinstance(k, dict) or not VARD.match(str(k.get('adress') or '')):
-            return 'adressen ska vara en sajts ursprung, https://värd/ med korta etiketter i a–z, 0–9 och bindestreck'
+            return ('adressen ska vara en sajts ursprung, https://värd/ med små bokstäver och korta etiketter i a–z, 0–9 och '
+                    'bindestreck; en domän med å, ä eller ö skrivs i punycode (xn--…)')
         sidor = k.get('sidor') or ['/']
-        if not isinstance(sidor, list) or len(sidor) > MAX_SIDOR_PER or any(not isinstance(s, str) or len(s) > 80 or not SIDVAG.match(s) for s in sidor):
-            return 'sidvägarna ska vara högst %d korta vägar i a–z, 0–9, punkt och bindestreck, högst tre led, utan frågesträng eller fragment' % MAX_SIDOR_PER
+        if not isinstance(sidor, list) or len(sidor) > MAX_SIDOR_PER or any(not isinstance(s, str) or len(s) > 160 or not SIDVAG.match(s) for s in sidor):
+            return ('sidvägarna ska vara högst %d vägar med högst fyra led om högst 60 tecken (bokstäver a–z, siffror, punkt, '
+                    'bindestreck; å, ä, ö och andra tecken procentkodade, till exempel /tj%%C3%%A4nster/), utan frågesträng '
+                    'eller fragment' % MAX_SIDOR_PER)
     tj = begaran.get('tjanster')
     if tj is not None:
         fr = tj.get('fragor') if isinstance(tj, dict) else None

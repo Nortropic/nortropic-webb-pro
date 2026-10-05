@@ -46,8 +46,10 @@ först, och huvudreferensen blir den valda riktningens referens efteråt.
 7. **Överlämning.** Ägarens godkännande skrivs i VINNARE.json (`godkand`, med hashen för startsidan och DESIGN.md).
    Bygget tar vid därifrån som från en ateljévinnare: startsidan och koden, bilderna, och DESIGN.md (bygg-sajt steg 5.1).
    Godkännandet gäller bara när ägarens senaste dom i domloggen, direkt eller via Codex, är just det och filerna är
-   oförändrade (`skapande.godkand_giltig`). En senare dom och en ny förfining drar tillbaka det. Säger ägarens senaste
-   dom putsa eller ny riktning efter körningen, startar inget bygge (kor.sh): nästa steg är prototyp.py.
+   oförändrade (`skapande.godkand_giltig`). En senare dom och en ny förfining drar tillbaka det. Tillåter domloggen
+   inget bygge, startar inget i skapandeflödets väg (kor.sh, `prototyp.bygget_nekas`): det gäller putsa eller ny
+   riktning efter körningen, en dom som inte gäller någon körning, och ett godkännande som inte gäller. Nästa steg är
+   då prototyp.py. Nödvägen `NWP_ATELJE=av` påverkas inte.
 
 ## Domloggen och vad en dom återöppnar
 
@@ -55,7 +57,8 @@ först, och huvudreferensen blir den valda riktningens referens efteråt.
 ordagrant. Loggen arkiveras aldrig. Nästa körning läser den själv, och prompterna börjar med de senaste domarna. Vyn
 Prototyp skriver ägarens dom. En dom som kom på annat sätt, via Codex eller i en session, förs in ordagrant med
 `.venv/bin/python kontroller/skapande.py dom <slug> --kalla … --beslut … --fil <text>`. Båda går genom samma väg
-(`atelje.doma`): ett godkännande prövas innan domen skrivs, och en annan dom från ägaren drar tillbaka det. Under ett
+(`atelje.doma`): bara en klar körning kan godkännas, en pågående körning döms inte, ett godkännande prövas innan
+domen skrivs, och en annan dom från ägaren drar tillbaka det. Under ett
 bygge är loggen låst (kor.sh, `chflags uchg`), så domen skrivs när bygget är klart; en ändring under bygget ger
 slutkod 3. Finns tidigare designbeslut utan dom, eller en dom som inte gäller någon körning i skapandeflödet, vägrar
 prototypen att gissa läget.
@@ -78,8 +81,9 @@ TILLBAKA; omtaget skriver ägarens dom.
 ## Avbrott
 
 Föll en körning tar `.venv/bin/python kontroller/atelje.py <slug> --fortsatt` vid efter den senaste klara fasen: i
-utforskningen vid omgången som föll, med förra omgångens kritik, och i en putsning vid förfiningen eller slutdomen mot
-samma före. Det som flyttas undan, äldre riktningsbilder och en tidigare vinnare, hamnar i `atelje/foregaende/`. Inget
+utforskningen vid omgången som föll, med samma kritik som första gången (skaparens TILLBAKA.md eller panelens VAL.md),
+och i en putsning vid förfiningen eller slutdomen mot samma före. En avslutad körning (klar, förkastad, tillbaka) tas
+aldrig upp igen; där avgör ägarens dom nästa steg. Det som flyttas undan, äldre riktningsbilder och en tidigare vinnare, hamnar i `atelje/foregaende/`. Inget
 raderas.
 
 ## Research på begäran
@@ -89,8 +93,10 @@ Refero och Mobbin) och avslutar sessionen. Orkestratorn kör det befintliga refe
 en ny, komplett paketversion som ärver den förra, och `kontroller/referenstjanster.py` söker i tjänsterna med belägg.
 Sedan startar en ny session med resultatet. Det får ske högst två gånger per omgång och fas. Skaparens egna sessioner
 har inget eget nät, så begäran är deras enda kanal ut, och dess form begränsas (`skapande.kanal_fel`): högst tre
-kandidater med ursprungsadresser i korta etiketter, högst fyra korta sidvägar per kandidat utan frågesträng, och högst
-tre frågor på högst 160 tecken utan adresser. Kanalen är smal, inte stängd: värdnamnet och vägarna går ut.
+kandidater med ursprungsadresser i korta etiketter (å, ä, ö i punycode), högst fyra sidvägar per kandidat med högst
+fyra led (å, ä, ö procentkodade) utan frågesträng, och högst tre frågor på högst 160 tecken utan adresser. Kanalen är
+smal, inte stängd: värdnamnet och vägarna går ut. Skaparens egna sidor når inget nät när de fotograferas
+(inspektionen släpper bara sidans eget ursprung).
 
 ## Metoden per steg
 

@@ -652,8 +652,12 @@ def provad_referens(slug, namn):
         return None
     ord_ = re.compile(r'(?<![\wåäö])' + re.escape(namn) + r'(?![\wåäö])')
     for h in reversed(skapande.historik(slug, UNDERLAG)):  # den senaste prövningen först
-        if AVVISAD.search(str(h.get('utfall') or '')) and (str(h.get('referens') or '').strip().lower() == namn
-                                                            or ord_.search(' '.join(str(h.get(k) or '') for k in ('namn', 'drag')).lower())):
+        if not AVVISAD.search(str(h.get('utfall') or '')):
+            continue
+        if h.get('referens'):  # dragtexten nämner också lånade referenser (omgranskning 2, fynd 7): bara fältet räknas
+            if str(h['referens']).strip().lower() == namn:
+                return h
+        elif ord_.search(' '.join(str(h.get(k) or '') for k in ('namn', 'drag')).lower()):
             return h
     return None
 
@@ -1135,8 +1139,7 @@ def utforska_och_valj(slug, rot, status, skriv, bilder, kritik=None, forsta=1):
             status.setdefault('faser', {})['valj'] = {'klar': nu(), 'val': val['val'], 'omgang': omgang}
             skriv()
             return val['val'], omgang
-        text = (rot / 'VAL.md').read_text(encoding='utf-8')
-        kritik = text if len(text) <= 12000 else text[:2500] + '\n…\n' + text[-9500:]  # början har beslutet och de ofullständiga
+        kritik = valkritik((rot / 'VAL.md').read_text(encoding='utf-8'))
         if omgang < OMGANGAR:  # omgångens bilder, val och domar bevaras; den sista står kvar i roten
             arkivera(rot, ledigt_namn(rot, 'omgang-%d' % omgang), utom=('omgang-',))
         stada(slug)
@@ -1232,6 +1235,19 @@ def forfina(slug, rot, status, skriv):
     return 'tillbaka' if tillbaka else 'klar'
 
 
+def slutdomens_fore(rot, status, n):
+    """Startsidan före förfiningen: vid putsning versionen ägaren dömde (förra slutdomens efter), och föll förra slutdomen
+    innan efter-bilderna fanns, vinnarens senast dömda bilder (omgranskning 2, fynd 6); annars den riktning panelen valde."""
+    rot = Path(rot)
+    if status.get('putsning'):
+        putsad = ROOT / status['putsning'] / 'slutdom' / '2'
+        if putsad.is_dir() and not putsad.is_symlink() and any(putsad.glob('vy-*.png')):
+            return putsad
+        return saker_vag(rot / 'vinnare' / 'bilder', rot)
+    fore = rot / str(n) if n is not None and (rot / str(n)).is_dir() else rot / 'vinnare' / 'bilder'
+    return saker_vag(fore, rot)
+
+
 def slutdom(slug, rot, status, skriv):
     """Steg 6: startsidan före förfiningen (den panelen valde) mot efter, blint, med samma panel (Codex via ägaren
     2026-10-05: nästa försök bedöms på den synliga förbättringen mot ribban). Vinnaren blir den förfinade."""
@@ -1245,12 +1261,7 @@ def slutdom(slug, rot, status, skriv):
     (sd / '2').mkdir()
     v = las_json(rot / 'VINNARE.json') or {}
     n = v.get('riktning')
-    putsad = ROOT / status['putsning'] / 'slutdom' / '2' if status.get('putsning') else None
-    if putsad is not None and putsad.is_dir() and not putsad.is_symlink():
-        fore = putsad  # vid putsning: versionen ägaren dömde (granskningen av skapandeflödet, punkt 4)
-    else:
-        fore = rot / str(n) if n is not None and (rot / str(n)).is_dir() else rot / 'vinnare' / 'bilder'
-        saker_vag(fore, rot)
+    fore = slutdomens_fore(rot, status, n)
     for p in sorted(fore.glob('vy-*.png')):
         granska.sakert_original(p, fore)
         shutil.copyfile(p, sd / '1' / p.name)
@@ -1387,6 +1398,11 @@ def doma(slug, kalla, beslut, text, avser='', tid=None, **extra):
     (kor.sh, chflags uchg): domen väntar tills bygget är klart; en kvarlämnad flagga efter ett avbrutet bygge lyfts."""
     tid = tid or skapande.nu()
     agaren = kalla in skapande.AGAREN
+    st = las_json(UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
+    if agaren and st.get('pid') and lever(st['pid']) and st.get('steg') not in AVSLUTADE + ('fel',):
+        raise ValueError('körningen pågår (steg %s); döm när den är klar' % st.get('steg'))
+    if agaren and beslut == 'godkand' and st.get('steg') != 'klar':  # samma regel som vyn (omgranskning 2, fynd 2)
+        raise ValueError('bara en klar körning kan godkännas (körningen är %s)' % (st.get('steg') or 'inte startad'))
     post = godkannande(slug, {'tid': tid, 'kalla': kalla, 'text': text}) if agaren and beslut == 'godkand' else None
     logg = UNDERLAG / slug / skapande.DOMLOGG
     if logg.is_symlink():
@@ -1510,8 +1526,30 @@ def redovisa(slug, rot, status):
     return rot / 'REDOVISNING.md'
 
 
+AVSLUTADE = ('klar', 'forkastad', 'tillbaka')
 BARS = ('val', 'omgang', 'omgangar', 'overford', 'overforing', 'kompletteringar')  # följer med vid --fortsatt och --putsa
 BARS_FORTSATT = ('putsning', 'forfina_start')  # och vid --fortsatt det som gör en avbruten putsning och förfining hel
+
+
+TILLBAKA_KRITIK = 'Skaparen lämnade den valda riktningen under förfiningen; grundidén bar inte (TILLBAKA.md):\n'
+
+
+def valkritik(text):
+    """Panelens VAL.md som kritik till nästa omgång: början har beslutet och de ofullständiga."""
+    return text if len(text) <= 12000 else text[:2500] + '\n…\n' + text[-9500:]
+
+
+def forra_kritik(rot, omgang):
+    """Kritiken som omgång omgang lämnade till nästa, som när omgången slutade: skaparens TILLBAKA.md när den lämnade
+    grundidén, annars panelens VAL.md (omgranskning 2, fynd 5: en återupptagen omgång fick panelens val i stället)."""
+    kat = sorted((p for p in Path(rot).glob('omgang-%d*' % omgang) if p.is_dir() and not p.is_symlink()
+                  and re.fullmatch(r'omgang-%d(?:-\d+)?' % omgang, p.name)), key=lambda p: p.stat().st_mtime)
+    if not kat:
+        return None
+    k = kat[-1]
+    if (k / 'TILLBAKA.md').is_file():
+        return TILLBAKA_KRITIK + (k / 'TILLBAKA.md').read_text(encoding='utf-8', errors='replace')[:6000]
+    return valkritik((k / 'VAL.md').read_text(encoding='utf-8')) if (k / 'VAL.md').is_file() else None
 
 
 def arbetare(slug, lage='ny'):
@@ -1545,8 +1583,7 @@ def arbetare(slug, lage='ny'):
         kritik, omgang = None, int(status.get('omgangar') or 0) if hoppa else 0
         if lage == 'fortsatt' and not hoppa and status.get('omgang'):  # återuppta omgången som föll, inte omgång 1
             omgang = int(status['omgang']) - 1
-            forra_val = rot / ('omgang-%d' % omgang) / 'VAL.md'
-            kritik = forra_val.read_text(encoding='utf-8')[-12000:] if omgang and forra_val.is_file() else None
+            kritik = forra_kritik(rot, omgang) if omgang else None
         while True:
             if not hoppa:
                 val_n, omgang = utforska_och_valj(slug, rot, status, skriv, bilder, kritik, omgang + 1)
@@ -1558,7 +1595,7 @@ def arbetare(slug, lage='ny'):
                     text = (rot / 'TILLBAKA.md').read_text(encoding='utf-8', errors='replace')[:6000]
                     tillbaka_i_historiken(slug, rot, text, omgang)
                     if omgang < OMGANGAR and not putsar:  # grundidén bar inte: ny utforskning med skaparens skäl som kritik
-                        kritik = 'Skaparen lämnade den valda riktningen under förfiningen; grundidén bar inte (TILLBAKA.md):\n' + text
+                        kritik = TILLBAKA_KRITIK + text
                         mal = ledigt_namn(rot, 'omgang-%d' % omgang)
                         arkivera(rot, mal, utom=('omgang-',))
                         lamna_sajtfiler(slug, mal / 'lamnad')  # den lämnade riktningens presentationsfiler följer inte med
@@ -1812,6 +1849,12 @@ def main(argv=None):
         print('Ateljén förkastade alla riktningar i den här körningen och bygget stannar (ägarbeslut 2026-10-04): skriv rapporten '
               'och avsluta. En ny ateljé efter en förkastning startas av ägaren, inte inifrån bygget.')
         return 6
+    if a.fortsatt and (not st.get('steg') or st.get('steg') in AVSLUTADE):
+        # bara en körning som föll (steg fel, eller ett steg mitt i vars process är borta) tas upp igen; en avslutad körning
+        # stämplas aldrig om som klar förbi ägarens dom (omgranskning 2, fynd 1)
+        print('--fortsatt tar vid efter en körning som föll; körningen är %s. Ägarens dom avgör nästa steg (kontroller/prototyp.py).'
+              % (st.get('steg') or 'inte startad'))
+        return 2
     if a.ny_riktning:
         mal, flyttade = arkivera_beslut(a.slug)
         print('Designbesluten arkiverade i %s (inget raderat): %s' % (mal, ', '.join(flyttade) or 'inget att flytta'), flush=True)

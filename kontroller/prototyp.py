@@ -56,6 +56,17 @@ def lage(slug):
     return 'vanta', 'körningen är %s och väntar på ägarens dom i dashboardens vy Prototyp' % st.get('steg')
 
 
+def bygget_nekas(slug):
+    """Skälet när ägarens domlogg inte tillåter ett bygge i skapandeflödets väg, annars None (kor.sh): ägarens senaste dom
+    säger putsa eller ny riktning efter körningen, eller läget stoppar med en dom i loggen (en dom som inte gäller någon
+    körning, ett godkännande som inte gäller). Tidigare designbeslut utan någon dom stoppar inte ett bygge; det tar
+    skapandeflödet i steg 5.1 (omgranskning 2, fynd 3)."""
+    vald, skal = lage(slug)
+    if vald in ('putsa', 'ny-riktning') or (vald == 'stopp' and skapande.senaste(slug, underlag=atelje.UNDERLAG)):
+        return '%s: %s' % (vald, skal)
+    return None
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog='prototyp', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')

@@ -71,17 +71,17 @@ GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.ar
 import skapande
 ok, skal = skapande.godkand_giltig(sys.argv[2])
 print("ja" if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
-AGARENS_LAGE="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import prototyp
-print(prototyp.lage(sys.argv[2])[0])' "$ROOT" "$SLUG" 2>/dev/null || true)"
+print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 if [ -n "$GODKAND" ]; then
   PROMPT="$PROMPT
 
 Ägaren har godkänt startsidan i skapandeflödet (underlag/$SLUG/atelje/VINNARE.json, fältet godkand): ta vid efter valet
 i steg 5.1, som från ateljévinnaren. Kör inte ateljén; startsidan står i kunder/$SLUG/sajt/src/pages/index.astro."
-elif [ "${NWP_ATELJE:-pa}" = "pa" ] && { [ "$AGARENS_LAGE" = "putsa" ] || [ "$AGARENS_LAGE" = "ny-riktning" ]; }; then
-  # ägaren har dömt startsidan efter skapandeflödets körning: nästa steg är skapandeflödet, inte ett bygge på den dömda
-  echo "ägarens senaste dom över startsidan säger $AGARENS_LAGE: kör .venv/bin/python kontroller/prototyp.py $SLUG före bygget; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
+elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ -n "$AGARENS_STOPP" ]; then
+  # ägarens dom tillåter inget bygge på startsidan (prototyp.bygget_nekas): nästa steg är skapandeflödet
+  echo "ägarens domlogg tillåter inget bygge på startsidan ($AGARENS_STOPP). Kör .venv/bin/python kontroller/prototyp.py $SLUG före bygget; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
 elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ "${NWP_SANDLADA:-av}" = "pa" ]; then
   echo "skapandeflödet (ateljén) körs utanför sandlådan, före bygget: kör .venv/bin/python kontroller/prototyp.py $SLUG och godkänn startsidan i dashboardens vy Prototyp; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
 elif [ "${NWP_ATELJE:-pa}" = "pa" ]; then
