@@ -78,3 +78,18 @@ oberoende läsningar; besluten och belägget står i varje post. Skapandeflödet
 | Standardkontrollen räknar ut var varje clamp()-rubrik når sitt max och jämför med omslagets maxbredd (`B-20261003-standardkontrollen-raknar-ut-var-varje-clamp-rub`) | överlapp, ersatt | – | Samma källa och samma kodställe som cqi-posten; en post med text och kontroll är lättare att pröva. |
 | Standardkontrollens lista över lokala typer saknar Bakery, CafeOrCoffeeShop och andra FoodEstablishment-undertyper (`B-20261003-standardkontrollens-lista-over-lokala-typer-sakn`) | uppfylld, klar | – | Färdigkriteriet håller med regressionsfall. |
 | Intagsmetoden: hela fungerande arbetsmoment med beroenden, prövade i den verkliga byggmiljön mot baslinjen (`B-20261004-intagsmetoden-hela-arbetsmoment-och-provade-intag`) | överlapp, ersatt | – | Metoddelen är uppfylld; försöken hör till skillkandidaternas ordnade lista. |
+
+## Efter paketet (b7bf1c5)
+
+Skapandeflödet (steg 1) och byggvägen (steg 2) slogs samman efter åtta oberoende granskningar (Opus) med rättelser
+emellan.
+Varje post bär sin not med commit; i korthet:
+
+- **Stängda med belägg:** 9.4 ord mot länk, prelaunch-beskedet, Lighthouse-grindens titel och mätvärde, bildvikten
+  4.2, ab.py:s modell och version, och skillanropen i byggets logg.
+- **Implementerade, verifieras av nästa helbygge eller försök:** ändringsuppdrag med bild (effektmåttet), 768-läsningen
+  (granskningsrapporten), granskningstaket (ett sandlådat helbygge), A/B "ingen når min ribba" (tre blinda
+  jämförelser), referenstjänsterna (ägarens dom), instruktionerna (ett bygge med bokning som uppgift).
+- **Före nästa helbygge kvar:** ägarens godkännande av en startsida ur skapandeflödet och ett bygge som tar vid från
+  den; ett godkänt sandlådat slutbygge (skapandeflödets byggen går nu innanför processgränsen).
+

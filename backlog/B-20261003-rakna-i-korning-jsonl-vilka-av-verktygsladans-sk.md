@@ -1,12 +1,13 @@
 ---
 id: B-20261003-rakna-i-korning-jsonl-vilka-av-verktygsladans-sk
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS, Insane GitHub Repos That 10x Your Codex And Claude Code Setup (YouTube Ua0APTMVcb8) + edonadei/caliper
 skapad: 2026-10-03
 prio: normal
 steg: runt stegen: verktygslådan, ab.py:s mått och dashboardens handlingar
-andrad: 2026-10-05T06:55Z
+commit: b7bf1c5
+andrad: 2026-10-05T10:59Z
 ---
 # Räkna i korning-*.jsonl vilka av verktygslådans skills bygget faktiskt anropade och visa det i ab.py:s mått och dashboarden
 
@@ -17,3 +18,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** ab.py:s mått för ett avslutat bygge innehåller skills: {namn: antal} (tomt objekt när inget anropades) och dashboardens handlingar visar skillnamnet; rokprov.sh grönt
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: formen är belagd (tool_use Skill, input.skill); ett arkiverat bygge anropade bara bygg-sajt och humanizer. Skapandeflödets metodkvitto räknar Skill-anrop och lästa metodfiler i sina sessioner (bildkedja.metodlasning). Kvar (paketet före nästa helbygge): samma räkning i byggets korning-*.jsonl, i ab.py:s mått och med skillnamnet i dashboardens handlingar; fixturlogg i rökprovet.
+
+**Klar (2026-10-05):** Klar: ab.skillanrop räknar Skill-anropen i byggets korning-*.jsonl och står i A/B-måtten och i Jämförelser; dashboardens handlingar visar skillens namn; skapandeflödets metodkvitto gör samma sak för sina sessioner. Prov med fixturlogg. (b7bf1c5)

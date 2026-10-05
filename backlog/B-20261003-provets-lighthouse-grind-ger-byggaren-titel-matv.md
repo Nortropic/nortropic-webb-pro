@@ -1,12 +1,13 @@
 ---
 id: B-20261003-provets-lighthouse-grind-ger-byggaren-titel-matv
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Chrome for Developers, Lighthouse audits with DevTools for agents
 skapad: 2026-10-03
 prio: normal
 steg: 6 Prov (kontroller/lighthouse.mjs och prova.py)
-andrad: 2026-10-05T06:55Z
+commit: b7bf1c5
+andrad: 2026-10-05T10:59Z
 ---
 # Provets Lighthouse-grind ger byggaren titel, mätvärde och de första träffarna för varje underkänd audit, inte bara dess id
 
@@ -17,3 +18,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** lighthouse.mjs ger per underkänd audit id, titel, mätvärde och tre träffar, också i unionen över medianmätningarna; PROV.md visar titel och mätvärde; rökprovet visar en underkänd audit med titel och mätvärde.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord; pekarna i posten är inaktuella efter medianmetoden (lighthouse.mjs rad 68 och 93, prova.py rad 490), och unionen över mätningarna måste bära objekt. Ingår i paketet före nästa helbygge. Färdigkriteriet omskrivet i avstämningen; tidigare: "En sida som hamnar under kravet ger i PROV.md en rad per underkänd audit med titel och mätvärde (till exempel render-blocking-insight: Render blocking requests, Est savings of 310 ms) och de första träffarna i detaljen; rökprovet grönt."
+
+**Klar (2026-10-05):** Klar: varje underkänd audit bär id, titel, mätvärde och tre träffar; i unionen över mätningarna gäller medianmätningens poster, vars rapport sparas; PROV.md visar dem (prova.lh_audit); rökprovet kräver minst en underkänd audit med ifylld titel och värde. (b7bf1c5)

@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex-revision 2026-10-03, F1; code.claude.com/docs/en/sandboxing
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-05T10:59Z
 ---
 # Gräns på processnivå för byggsessionen: sandlåda för filskrivning och nät (revisionen F1)
 
@@ -34,3 +34,5 @@ andrad: 2026-10-05T06:55Z
 **Pågår (2026-10-04T18:17Z, bygge 4:s slutkvitto):** bygge 4 (kopia4 på fd77dca, sandlådan på, referenssteget i bruk) avslutades 18:15Z: claude kod 0; provet grönt på det slutliga bygget (dist 0e946c19…, 18:12Z); stoppvakten släppte utan godkänd granskning (taket, försök 1 av 8; STOPPVAKT.json samma dist 0e946c19…); slutkod 1. Granskningen: omgång 1–3 underkända (6/6/6/7/6, 6/6/7/8/6, 6/6/7/7/6), omgång 4 GODKÄND 7/7/7/8/8 utan blockerande fynd på dist b80217a1… (första godkända granskningen i ett sandlådat bygge), omgång 5 på samma dist men ändrad metod (underlaget ändrat) underkänd 7/6/7/8/7 med ett blockerande fynd; det slutliga bygget (0e946c19…) granskades aldrig eftersom taket var nått. Krokens prova under processgränsen utan proxyvariabler gick via tjänsten (Lighthouse rc 0). Referenssteget: två paket (v01 med byggarens adressfel, v02 komplett 9/9), REFERENSER.md med nio Bildval in i paket-v02. Kvar innan sandlådan blir standard: ett sandlådat bygge vars slutliga dist är godkänd; mönstret i bygge 1–4 är att sessionen ändrar bygget efter en godkänd omgång och förbrukar taket (se posten om granskningstaket och slutkvittot).
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: sandlådan, tjänsten och processgränsen är verifierade (sandlada_prov.sh 0 fel), men standard är av. Beslut i skapandeflödet: flödet körs utanför sandlådan före bygget (inget eget nät i sessionerna; research genom referenssteget), och ett sandlådat bygge tar vid från en godkänd startsida (kor.sh) eller vägras. Kvar: verifiering: ett sandlådat bygge där prov, granskning, stoppkrok och slutkod 0 gäller samma dist (kriteriet delas med granskningstaket), därefter sandlådan på som standard. Färdigkriteriet omskrivet i avstämningen; tidigare: "Ett fullt bygge (prov grönt, granskning godkänd) har körts med sandlådan på, och ett syntetiskt försök att skriva i kontroller/ och att POST:a till en extern adress från ett skript under underlag/<slug>/skript/ nekas av sandlådan, inte av vakten efteråt."
+
+**Vilande (2026-10-05):** Skapandeflödets byggen av skaparens sidor (förhandsvisningen, fotograferingen, slutdomen) körs nu innanför processgränsen (prova.bygg_inom_grans), och paket installeras bara genom kontroller/typsnitt.py; skaparens sessioner står fortfarande utanför sandlådan. Kvar: ett godkänt sandlådat slutbygge. (b7bf1c5)

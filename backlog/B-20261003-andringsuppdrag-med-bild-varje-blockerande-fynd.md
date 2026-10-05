@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex kartläggning av referenskällor och byggverktyg, 2026-10-03
 skapad: 2026-10-03
 prio: normal
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-05T10:59Z
 ---
 # Ändringsuppdrag med bild: varje blockerande fynd får aktuell ruta, relevant referensbild och den konkreta avvikelsen
 
@@ -16,3 +16,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** Kod: varje blockerande fynd i GRANSKNING.json har aktuell ruta och referensbild; granska.py skriver ANDRINGAR.md med bilderna; stoppvaktens besked och SKILL.md pekar dit; rökprovet täcker det. Effekt (verifieras av helbyggen): omgångar per godkänt bygge före och efter.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord (kritik/SCHEMA-granskning.json saknar bildfält, stoppvakten lämnar kritiken som text). Ingår i paketet före nästa helbygge. Kodkriteriet skiljs från effektmåttet, som först helbyggen ger. Färdigkriteriet omskrivet i avstämningen; tidigare: "ANDRINGAR.md skrivs och läses (syns i körningsloggen); granskningsomgångarna per godkänt bygge sjunker eller rättningarna försämrar inte andra delar oftare än förut; rökprovet täcker filen."
+
+**Vilande (2026-10-05):** Kodkriteriet uppfyllt (paketet före nästa helbygge): schemat kräver bild och referensbild per blockerande fynd, granska.py skriver ANDRINGAR.md per omgång och i granskningskatalogen (saknade vägar sägs), stoppvaktens besked och SKILL.md steg 5.6 pekar dit. Bildvägarna stannar i repot; granskarens egna tillståndsbilder i arbetskatalogen kopieras in i omgången, och ett fel i ändringsuppdragen fäller aldrig domen. Prov för ANDRINGAR.md, vägar utanför repot, symlänkar och arbetskatalogen. Kvar: effektmåttet (omgångar per godkänt bygge) i helbyggen. (b7bf1c5)

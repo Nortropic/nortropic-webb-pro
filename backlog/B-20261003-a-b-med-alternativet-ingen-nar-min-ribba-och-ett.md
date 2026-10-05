@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: normal
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-05T10:59Z
 ---
 # A/B med alternativet 'ingen når min ribba' och ett jämförande försök på tre befintliga kundfall
 
@@ -18,3 +18,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** Jämförelser har valet "ingen når min ribba" och LARDOMAR-raden bär det; tre blinda jämförelser med en variabel i taget, på fall byggda genom skapandeflödet, är dömda i dashboarden.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: valet saknas i Jämförelser (dashboard/server.py ab_val godtar bara A, B eller lika); ateljén och vyn Prototyp kan redan förkasta. Implementationen ingår i paketet före nästa helbygge; jämförelserna görs på fall byggda genom skapandeflödet (de tre gamla fallen är arkiverade), och måtten tas ur autonomi.py och kalibrering.py. Färdigkriteriet omskrivet i avstämningen; tidigare: "Valet finns i dashboarden och sparas; tre jämförelser är körda och dömda; LARDOMAR.md har måtten och ett beslut om vilken ändring som behålls."
+
+**Vilande (2026-10-05):** Implementerat (paketet före nästa helbygge): Jämförelser har valet "Ingen når min ribba", och LARDOMAR-raden bär det; prov. Kvar: tre blinda jämförelser på fall byggda genom skapandeflödet. (b7bf1c5)

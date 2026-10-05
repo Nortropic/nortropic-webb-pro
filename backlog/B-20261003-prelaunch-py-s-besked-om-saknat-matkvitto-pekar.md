@@ -1,12 +1,13 @@
 ---
 id: B-20261003-prelaunch-py-s-besked-om-saknat-matkvitto-pekar
-status: vilande
+status: klar
 kalla: bygge
 kallref: kunder/salong-kreativ/prov/prelaunch.md
 skapad: 2026-10-03
 prio: normal
 steg: steg 6 (provet)
-andrad: 2026-10-05T06:55Z
+commit: b7bf1c5
+andrad: 2026-10-05T10:59Z
 ---
 # prelaunch.py:s besked om saknat mätkvitto pekar på verktyg/kor_profil.py, som inte finns
 
@@ -17,3 +18,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** prelaunch.py:s besked och docstring pekar på verktyg som finns (grep verktyg/ ger 0), kunskap/prelaunch.md stämmer, rökprovet grönt.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord; prelaunch.py hänvisar till verktyg/kor_profil.py, som inte finns. Förbehållet "efter A/B-kedjan" stryks: kedjan återupptas inte före prototypen. Ingår i paketet före nästa helbygge. Färdigkriteriet omskrivet i avstämningen; tidigare: "grep efter verktyg/ i kontroller/prelaunch.py ger noll träffar, och rokprov.sh är grönt."
+
+**Klar (2026-10-05):** Klar: prelaunch.py:s besked och docstring pekar på provets grindar (lighthouse, spill, axe) i stället för verktyg/kor_profil.py; kunskap/prelaunch.md stämmer; rökprovet grönt. (b7bf1c5)
