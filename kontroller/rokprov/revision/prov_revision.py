@@ -504,6 +504,43 @@ try:
     a.panel('prov', arot); raise AssertionError('en giltig domare ska inte räcka')
 except RuntimeError as e:
     assert 'giltiga domare' in str(e), e
+# bildkedjan (designprovet 2026-10-05): en domare vars transkript inte visar de krävda läsningarna får en omdom med listan;
+# läser den ändå inte räknas rösten inte. Utan transkript (attrappen ovan) är läsningen overifierad och rösten räknas.
+import bildkedja as bk_  # noqa: E402
+bk_kat = tmp / 'bk-projekt' / '-prov'; bk_kat.mkdir(parents=True); bk_.PROJEKT = bk_kat.parent
+forsta_ = [str(arot / str(n) / v_) for n in (1, 2, 3) for v_ in ('vy-390-ruta-01.png', 'vy-1440-ruta-01.png')]
+anrop_ = []
+
+
+def attrapp_las(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
+    namn = ut.name.replace('svar-domare-', '').replace('.json', '')
+    anrop_.append(namn)
+    sid = '00000000-0000-4000-8000-%012d' % len(anrop_)
+    bas = namn.replace('-omdom', '')
+    lasta_ = forsta_ if bas == 'formgivning' or (bas == 'kunden' and namn.endswith('-omdom')) else forsta_[:1]
+    (bk_kat / (sid + '.jsonl')).write_text('\n'.join(json.dumps({'type': 'assistant', 'message': {'content': [
+        {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': f_}}]}}) for f_ in lasta_) + '\n')
+    karta = {m.group(1): m.group(2) for m in (re.match(r'- riktning ([A-F]): .*?atelje[^/]*/(\d)/', rad) for rad in prompt.splitlines()) if m}
+    return {'structured_output': full({v_: b_ for b_, v_ in karta.items()}), 'session_id': sid}
+
+
+a.session = attrapp_las
+v = a.panel('prov', arot)
+assert sorted(anrop_) == ['formgivning', 'funktion', 'funktion-omdom', 'kunden', 'kunden-omdom'], anrop_
+assert v['panel']['kunden']['lasning']['omdom'] and not bk_.brister(v['panel']['kunden']['lasning']) and not v['panel']['kunden'].get('ogiltig'), v['panel']['kunden']
+assert v['panel']['funktion'].get('ogiltig') and any('funktion: läste inte förslag 1 av 6' in x for x in v['fel']), v['fel']
+assert v['val'] == 2 and 'Förra gången läste du inte' not in str(v), 'två giltiga domare räcker; omdomens lista står inte i resultatet'
+a.session = attrapp
+# rapporten per bygge: en granskares erbjudna bilder (ur PROMPT.txt) mot de lästa, per slag
+bk_.KUNDER, bk_.UNDERLAG = tmp / 'bk-kunder', tmp / 'bk-underlag'
+bk_r = bk_.KUNDER / 'bk-bygge' / 'granskning' / 'runda-01'; bk_r.mkdir(parents=True)
+(bk_r / 'PROMPT.txt').write_text('Läs varje:\n- kunder/bk-bygge/granskning/runda-01/sajt/hem/vy-390-ruta-01.png\n- underlag/bk-bygge/referenser/paket-v01/x/01-start/vy-1440-ruta-02.png\n')
+(bk_r / 'svar.json').write_text(json.dumps({'session_id': '00000000-0000-4000-8000-000000000099'}))
+(bk_kat / '00000000-0000-4000-8000-000000000099.jsonl').write_text(json.dumps({'type': 'assistant', 'message': {'content': [
+    {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': '/var/x/kunder/bk-bygge/granskning/runda-01/sajt/hem/vy-390-ruta-01.png'}}]}}) + '\n')
+rb_ = bk_.rapport('bk-bygge')['granskningen'][0]
+assert rb_['erbjudna'] == 2 and rb_['lasta_av_erbjudna'] == 1 and rb_['saknas_per_klass'] == {'referens': 1}, rb_
+assert 'Olästa per slag' in bk_.markdown(bk_.rapport('bk-bygge')) and bk_.transkript('inte-ett-id') is None
 print('F23 ateljén ok')
 
 # ---------------------------------------------------------------- F23b: designprovet (ägarbeslut 2026-10-04 via Codex R40; Codex 2026-10-04 glapp 5)

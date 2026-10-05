@@ -42,6 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402
 import referensval  # noqa: E402
+import bildkedja  # noqa: E402  domarnas läsning ur transkripten (designprovet 2026-10-05)
 import granska  # noqa: E402  frysta_ankare: ägarens kalibreringsankare till panelen (designprovet punkt 6)
 
 ROOT = prova.ROOT
@@ -280,14 +281,17 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare, ofullsta
     ofull = ['- ofullständig %s: %s' % (b, (ofullstandiga or {}).get(str(n))) for b, n in bokstaver if (ofullstandiga or {}).get(str(n))]
     if ofull:
         rader += ['', 'Ofullständiga riktningar (kan inte godkännas; haller_ribban nej, rangordna dem ändå):', *ofull]
-    ank = (['Ägarens kalibreringsankare (externa sajter ägaren dömt blint: tydligt över ribban, nästan, generisk) med ägarens ord ordagrant i %s;' % rel(ankare[0]),
-            'första vyn och helsidan per sajt: ' + '; '.join('%s — %s' % (rel(p), t) for p, t in ankare[1]) + '. Kännetecknen per nivå: kunskap/visuell-niva.md.']
+    # ankarna läses först, och läsningen prövas i transkriptet (bildkedja.py): i designprovet 2026-10-05 läste domarna
+    # 0–5 av 21 ankarbilder när de bara räknades upp
+    ank = (['Ägarens kalibreringsankare (externa sajter ägaren dömt blint: tydligt över ribban, nästan, generisk). Läs dem först',
+            'med Read: ägarens ord ordagrant i %s, och varje sajts första vy i 390 och 1440 (helsidan när rytmen avgör):' % rel(ankare[0]),
+            *['- %s — %s' % (rel(p), t) for p, t in ankare[1]], 'Kännetecknen per nivå: kunskap/visuell-niva.md.']
            if ankare else ['Ägarens kalibreringsankare saknas (%s); döm mot kunskap/visuell-niva.md och säg det i motiveringen.' % (ankare_fel or 'okänt skäl')])
     return '\n'.join([
         'Du sitter i domarpanelen i ateljén för ett bygge åt en riktig verksamhet. %d riktningar har tagits fram som hela' % len(bokstaver),
         'startsidor med början av en undersida; panelen väljer vilken som ska byggas, eller förkastar alla. ' + uppdrag, '',
         *ank, '',
-        *(['Huvudreferensen som alla riktningar ska bära i komposition, typografi, proportioner och bildbehandling: %s (%s); dess bilder: %s.' % (
+        *(['Huvudreferensen som alla riktningar ska bära i komposition, typografi, proportioner och bildbehandling: %s (%s); läs dess bilder med Read: %s.' % (
             hr['namn'], hr['vad'], '; '.join('%s — %s' % (rel(p), t) for p, t in hr['bilder']) or 'se REFERENSER.md')] if hr else []),
         'Målen du dömer mot: toppuppgifterna och den primära handlingen i underlag/%s/BRIEF.md, listan "Bara de har" i' % slug,
         'underlag/%s/RESEARCH.md, och ägarens domar i %s, som väger tyngst. Läs dem först.' % (slug, lardomar_vag()),
@@ -297,6 +301,8 @@ def domar_prompt(slug, uppdrag, bokstaver, bilder_per_riktning, ankare, ofullsta
         *(['Bildval som inte gick att läsa (bygget pekade ut en bild som saknas eller ligger fel; räkna det som en brist i referensarbetet): ' + '; '.join(fel)] if fel else []), '',
         'Riktningarnas skärmbilder: startsidans första rutor uppifrån och ned i 390 och 1440, hela sidan som en bild per bredd',
         '(vy-*-hela.png: läs den för rytmen genom hela sidan), och undersidans början (undersida/); titta på varje med Read, mobil först:', *rader, '',
+        'Din röst räknas bara när ditt transkript visar att du läst ägarens ord, ankarnas första vyer, huvudreferensens bilder',
+        'och varje riktnings första ruta i 390 och 1440.', '',
         'Sätt för varje riktning niva (over = tydligt över ribban, nastan, generisk, som i ägarens kalibrering) och haller_ribban:',
         'ja bara när hela sidan håller nivån tydligt över ribban som en sajt ägaren kan visa för verksamheten. Bäst av tre',
         'undermåliga förslag får aldrig bli godkänd: säg nej till alla om ingen håller. Frånvaro av gradienter, ikoner eller',
@@ -350,21 +356,29 @@ def panel(slug, rot):
     else:
         ankare_fel = 'underlag/kalibrering saknas i den här utcheckningen: panelen dömde utan ägarens ankare'
     resultat, fel = {}, []
+    krav = lasekrav(slug, ankare, bilder, riktningar)
 
     def doma(namn, modell, uppdrag):
         ordning = riktningar[:]
         random.Random('%s-%s' % (slug, namn)).shuffle(ordning)
         bokstaver = list(zip('ABCDEF', ordning))
         try:
-            svar = session(domar_prompt(slug, uppdrag, bokstaver, bilder, ankare, ofull, ankare_fel), ['Read', 'Glob', 'Grep'],
-                           rot / ('svar-domare-%s.json' % namn), PANEL_SCHEMA, 60, modell, 'high')
+            prompt = domar_prompt(slug, uppdrag, bokstaver, bilder, ankare, ofull, ankare_fel)
+            svar = session(prompt, ['Read', 'Glob', 'Grep'], rot / ('svar-domare-%s.json' % namn), PANEL_SCHEMA, 60, modell, 'high')
+            las = bildkedja.lasning(svar.get('session_id'), krav)
+            if bildkedja.brister(las):  # en gång till, med det som inte lästes uppräknat
+                saknas = [v for g in las['grupper'].values() for v in g['saknas']]
+                svar = session(prompt + '\n\nFörra gången läste du inte de här filerna. Läs var och en med Read nu, innan du dömer:\n'
+                               + '\n'.join('- ' + v for v in saknas), ['Read', 'Glob', 'Grep'],
+                               rot / ('svar-domare-%s-omdom.json' % namn), PANEL_SCHEMA, 60, modell, 'high')
+                las = dict(bildkedja.lasning(svar.get('session_id'), krav), omdom=True)
             res = svar.get('structured_output') or {}
             karta = dict(bokstaver)
             resultat[namn] = {'modell': modell, 'motivering': res.get('motivering', ''), 'bokstaver': {b: n for b, n in bokstaver},
                               'rangordning': [dict(r, riktning=karta.get(r['riktning'].strip().upper()[:1]), haller_ribban=r.get('haller_ribban'), niva=r.get('niva'))
                                               for r in res.get('rangordning', [])],
                               'lana': [dict(x, fran=karta.get(x['fran'].strip().upper()[:1], x['fran'])) for x in res.get('lana', [])],
-                              'sessionen': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'total_cost_usd')}}
+                              'sessionen': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'total_cost_usd')}, 'lasning': las}
         except Exception as e:  # noqa: BLE001 — en domare som faller noteras, panelen fortsätter
             fel.append('%s: %s' % (namn, e))
 
@@ -383,6 +397,9 @@ def panel(slug, rot):
             resultat[namn]['ogiltig'] = True
         elif not all(isinstance(x.get('haller_ribban'), bool) and x.get('niva') in ('over', 'nastan', 'generisk') for x in r):
             fel.append('%s: saknar ribbdom (haller_ribban, niva) för varje riktning, räknas inte' % namn)
+            resultat[namn]['ogiltig'] = True
+        elif bildkedja.brister(resultat[namn].get('lasning') or {}):  # läste inte det som krävs, också efter omdomen
+            fel.append('%s: läste inte %s, räknas inte' % (namn, ', '.join(bildkedja.brister(resultat[namn]['lasning']))))
             resultat[namn]['ogiltig'] = True
     giltiga = {n: r for n, r in resultat.items() if not r.get('ogiltig')}
     if len(giltiga) < MIN_DOMARE:
@@ -524,6 +541,32 @@ def fotografera(slug, rot):
     return bildrader
 
 
+def lasekrav(slug, ankare, bilder, riktningar):
+    """Vad en domare måste ha läst för att rösten ska räknas: ägarens ord och ankarnas första vyer, huvudreferensens
+    bildval och varje riktnings första ruta i 390 och 1440 (bildkedjan, designprovet 2026-10-05)."""
+    krav = {}
+    if ankare:
+        krav['ankare'] = [rel(ankare[0])] + [rel(p) for p, _ in ankare[1] if re.search(r'-vy-(390|1440)-forsta\.png$', Path(p).name)]
+    hr = referensval.huvudreferens(slug, UNDERLAG)
+    if hr and hr.get('bilder'):
+        krav['huvudreferens'] = [rel(p) for p, _ in hr['bilder']]
+    krav['förslag'] = [f for n in riktningar for f in bilder.get(n, []) if re.search(r'/%d/vy-(390|1440)-ruta-01\.png$' % n, f)]
+    return krav
+
+
+def lasningsrader(val):
+    """VAL.md: vad varje domare läste av det som krävdes."""
+    rader = []
+    for d in sorted(val['panel']):
+        las = val['panel'][d].get('lasning') or {}
+        if not las.get('verifierad'):
+            rader.append('- **%s:** läsningen kunde inte verifieras (%s)' % (d, las.get('skal') or 'inget transkript'))
+            continue
+        rader.append('- **%s:** %s%s' % (d, ', '.join('%s %d av %d' % (g, x['lasta'], x['kravda']) for g, x in las['grupper'].items()),
+                                         ' (efter omdöme med listan över det som inte lästes)' if las.get('omdom') else ''))
+    return rader
+
+
 def skriv_val(slug, rot):
     val = panel(slug, rot)
     (rot / 'VAL.json').write_text(json.dumps(val, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
@@ -546,6 +589,9 @@ def skriv_val(slug, rot):
     nyckel = lambda d: ', '.join('%s = riktning %s' % (b, n) for b, n in sorted(val['panel'][d].get('bokstaver', {}).items()))  # noqa: E731
     rader += ['', '## Domarnas motivering', '', 'Varje domare såg riktningarna under egna bokstäver i slumpad ordning.', '']
     rader += ['- **%s** (%s): %s' % (d, nyckel(d), val['panel'][d]['motivering']) for d in namn]
+    rader += ['', '## Domarnas läsning', '', 'Ur transkripten (kontroller/bildkedja.py): ägarens ord och ankarnas första vyer, huvudreferensens bildval och',
+              'varje riktnings första ruta. En domare som inte läst dem får en omdom med listan; läser den ändå inte räknas rösten inte.', '']
+    rader += lasningsrader(val)
     rader += ['', '## Lånas från de andra riktningarna', ''] + (['- från %s (%s): %s' % (x['fran'], x['domare'], x['vad']) for x in val['lana']] or ['Inget.'])
     if val['fel']:
         rader += ['', 'Domare som föll eller röster som inte räknades: ' + '; '.join(val['fel'])]

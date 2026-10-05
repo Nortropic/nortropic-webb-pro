@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex tillägg 3 (natten 2026-10-04/05): observationsverktyg; ägarmandat 2026-10-04
 skapad: 2026-10-05
 prio: hog
-andrad: 2026-10-04T22:17Z
+andrad: 2026-10-05T00:06Z
 ---
 # Observation: verifierad bildkedja, bild → mätning → beslut, rörelse, dokument och ljud, nytta mot facit
 
@@ -33,3 +33,5 @@ hosted MCP är inte hörsel.
 **Klart när:** bildkedjerapporten finns för ett bygge och visar upplösning och tillstånd per läst bild; en sektion har
 gått hela vägen bild → mätning → DESIGN.md → prototyp → jämförelse; rörelse kan fångas med tidsupplösning under 50 ms;
 ett facitprov visar att bildverktyget fångar en layoutskillnad med identisk text.
+
+**Vilande (2026-10-05):** Steg 1 påbörjat 2026-10-05: kontroller/bildkedja.py ställer erbjudna bilder mot Read i sessionernas transkript (rapport per bygge, kunder/<slug>/BILDKEDJA.md), och ateljéns panel kräver och prövar läsningen av ägarens ord, ankarnas första vyer, huvudreferensens bildval och varje riktnings första ruta (omdom en gång, sedan räknas rösten inte). Fynd: i designprovet läste domarna 0–5 av 21 ankarbilder; i holms-konditori-abx lämnade varje granskare ett tiotal erbjudna referensbilder oläst per omgång. Kvar: samma krav för byggets granskare (granska.py), steg 2–5.
