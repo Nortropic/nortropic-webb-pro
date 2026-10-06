@@ -81,8 +81,10 @@ Skydden runt en ny version (den oberoende granskningen 2026-10-06):
   kandidat, så att en avvisad eller behållen huvudversion aldrig blockerar patchar.
 - **Kandidatens kod** körs med en minimal miljö utan nycklar eller tokens, i provet och vid intaget. Paketen
   installeras utan skript där det går (inte Claude Code, vars skript länkar binären), Python bara ur färdiga hjul, och
-  provbyggen, rökprov och Impeccables motor körs innanför processgränsen (`kontroller/processgrans.py`): hemligheterna
-  olästa, och rökprovet skriver aldrig i huvudutcheckningen, Homebrew eller skalprofilerna.
+  provbyggen, testsajtens installation och Impeccables motor körs innanför processgränsen (`kontroller/processgrans.py`):
+  hemligheterna olästa, ingen skrivning i huvudutcheckningen, Homebrew eller skalprofilerna. Rökprovet prövar själv
+  processgränsen, och macOS tillåter ingen sandlåda i en sandlåda, så det körs utan den men med egna APFS-kloner av
+  `.venv` och `node_modules`: kandidatens kod kan inte ändra den delade miljön.
 - **Skillsen:** en uppdatering som ändrar behörigheter eller krokar i frontmatter, en konfigurationsfil, ett skript
   som flödet kör eller Impeccables motorversion tas aldrig in automatiskt, och inte heller en som flyttar eller bryter
   metodkartans radutdrag (prövas igen vid intaget). Metoden låses inte om över en ändring som aldrig låsts.

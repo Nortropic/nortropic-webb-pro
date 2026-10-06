@@ -1015,8 +1015,12 @@ print('mätinstrumentets byte märkt i kvittot, också utanför underhållet, ok
 # worktree-mekanismen för hela rökprovet: grönt och rött, och worktreen städas
 riktig = importlib.reload(uh)
 for f in ('kontroller/rokprov.sh',):
-    (KOPIA / f).write_text('#!/bin/bash\nif [ -f "$(dirname "$0")/../KANDIDAT-SOV" ]; then sleep 60; fi\n'
-                           'if [ -f "$(dirname "$0")/../KANDIDAT-ROD" ]; then echo "FEL: kandidaten bröt provet"; exit 1; fi\necho "rökprovet OK"\n')
+    (KOPIA / f).write_text('#!/bin/bash\nR="$(dirname "$0")/.."\nif [ -f "$R/KANDIDAT-SOV" ]; then sleep 60; fi\n'
+                           'if [ -f "$R/KANDIDAT-ROD" ]; then echo "FEL: kandidaten bröt provet"; exit 1; fi\n'
+                           # egna kopior av .venv och node_modules, aldrig länkar till utcheckningens (granskningen av r72, L4)
+                           'for d in .venv kontroller/node_modules; do if [ -L "$R/$d" ] || [ ! -d "$R/$d" ]; then echo "FEL: $d är ingen egen kopia"; exit 1; fi; done\n'
+                           '"$R/.venv/bin/python" -c "import sys; assert \'/wt/.venv\' in sys.prefix, sys.prefix" || { echo "FEL: fel venv"; exit 1; }\n'
+                           'echo "rökprovet OK"\n')
 sh(*GIT, 'commit', '-q', '-am', 'falskt rökprov')
 ok, text = riktig.rokprov_i_worktree(vl.Kontext(nat=False, prova=False), 'prov-gront', lambda wt: None)
 assert ok, text
@@ -1029,7 +1033,7 @@ ok, text = riktig.rokprov_i_worktree(vl.Kontext(nat=False, prova=False), 'prov-a
                                      avbryt=lambda: True)
 assert not ok and text.startswith(riktig.HALL) and 'avbröts' in text and time.time() - t0 < 40, (text, time.time() - t0)
 assert sh('git', 'worktree', 'list').count('\n') == 1, sh('git', 'worktree', 'list')
-print('rökprovet i en egen worktree (innanför processgränsen): grönt, rött med felet, avbrutet när en start väntar, och städat ok')
+print('rökprovet i en egen worktree med egna kopior av .venv och node_modules: grönt, rött med felet, avbrutet när en start väntar, och städat ok')
 
 shutil.rmtree(TMP, ignore_errors=True)
 print('startkontrollens och underhållets prov: alla ok')

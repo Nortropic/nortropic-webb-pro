@@ -10,8 +10,8 @@ Samma regler för allt:
    först när den varit publicerad i tre dygn (karenstiden, verktygslada.KARENS_DAGAR); förhandsversioner aldrig.
 2. Varje uppdatering prövas för sig i en isolerad kopia: installation, säkerhetsgranskning och ett provbygge. Nya
    huvudversioner och nya mätinstrument prövas med hela rökprovet (kontroller/rokprov.sh) i en egen worktree.
-   Kandidatens kod körs med en minimal miljö utan nycklar, installationer utan skript där det går, och provbyggen och
-   rökprov innanför processgränsen (kontroller/processgrans.py), som aldrig läser hemligheterna.
+   Kandidatens kod körs med en minimal miljö utan nycklar, installationer utan skript där det går, provbyggen innanför
+   processgränsen (kontroller/processgrans.py), och rökprovet med egna kopior av .venv och node_modules.
 3. Det som klarar proven tas in och checkas in (bara de ändrade sökvägarna, som måste ha varit rena; pushas till main när
    den utgående historiken bara är underhållets egen). ANDRINGAR.jsonl säger vad som byttes; ett bytt mätinstrument är
    märkt, så att startkvittona visar det när körningar före och efter jämförs. Faller ett intag eller dess incheckning
@@ -224,12 +224,24 @@ def audit(cwd):
 
 # --- rökprovet i en egen worktree ---
 
+def klona(kalla, mal):
+    """En egen kopia som APFS-klon (cp -c: omedelbar, delar block tills något skrivs), annars en vanlig kopia. None eller
+    felet."""
+    rc, ut = vl.kor(['cp', '-cR', kalla, mal], timeout=600)
+    if rc:
+        shutil.rmtree(mal, ignore_errors=True)
+        rc, ut = vl.kor(['cp', '-R', kalla, mal], timeout=1800)
+    return None if rc == 0 else 'kopian av %s kunde inte göras: %s' % (kalla, vl.sista(ut))
+
+
 def kor_i_worktree(k, etikett, forbered, kmd, path_forst=None, timeout=3600, slag='rokprov', avbryt=None):
     """kmd(wt) i en worktree från HEAD. forbered(wt) lägger in kandidaten (manifest, egna node_modules, egen .venv) och
-    ger None eller ett fel; .venv och kontrollernas node_modules länkas annars till utcheckningens. Kandidatens kod körs
-    med en minimal miljö (inga nycklar eller tokens) och kan inte läsa hemligheterna (fynd 4); provet anmäler sig inte i
-    körregistret (NWP_UNDERHALL_PROV), så att underhållet inte väntar på sig självt. Ger (slutkod, utdata, logg), eller
-    (None, felet, None) när provet inte kunde startas; loggen sparas i underlag/startkontroll/underhall/."""
+    ger None eller ett fel. Rökprovet prövar själv processgränsen med sandbox-exec, och macOS tillåter ingen sandlåda i
+    en sandlåda, så provet körs utan den: med en minimal miljö (inga nycklar eller tokens; fynd 4) och egna APFS-kloner
+    av .venv och kontrollernas node_modules i stället för länkar till utcheckningens, så att kandidatens kod aldrig kan
+    ändra den delade miljön (granskningen av r72, L4). Testsajtens npm ci görs före, innanför skrivgränsen. Provet anmäler
+    sig inte i körregistret (NWP_UNDERHALL_PROV), så att underhållet inte väntar på sig självt. Ger (slutkod, utdata,
+    logg), eller (None, felet, None) när provet inte kunde startas; loggen sparas i underlag/startkontroll/underhall/."""
     import processgrans
     if not ar_git():
         return None, 'provet kräver en git-utcheckning för sin worktree', None
@@ -245,10 +257,11 @@ def kor_i_worktree(k, etikett, forbered, kmd, path_forst=None, timeout=3600, sla
         fel = forbered(wt)
         if fel:
             return None, fel, None
-        if not (wt / '.venv').exists():
-            os.symlink(os.path.realpath(ROOT() / '.venv'), wt / '.venv')
-        if not (wt / 'kontroller' / 'node_modules').exists():
-            os.symlink(os.path.realpath(ROOT() / 'kontroller' / 'node_modules'), wt / 'kontroller' / 'node_modules')
+        for rel_ in ('.venv', 'kontroller/node_modules'):
+            if not (wt / rel_).exists():
+                fel = klona(os.path.realpath(ROOT() / rel_), wt / rel_)
+                if fel:
+                    return None, fel, None
         path = os.environ.get('PATH', '')
         env = vl.provmiljo({'NWP_UNDERHALL_PROV': '1', 'PATH': ('%s:%s' % (path_forst, path)) if path_forst else path})
         profil = processgrans.profil_underhallsprov(ROOT(), wt)
@@ -256,7 +269,7 @@ def kor_i_worktree(k, etikett, forbered, kmd, path_forst=None, timeout=3600, sla
             fel = forbered_testsajt(wt, env, profil)
             if fel:
                 return None, nat(fel), None
-        rc, ut = vl.kor([processgrans.SANDBOX_EXEC, '-p', profil, *kmd(wt)], cwd=wt, timeout=timeout, env=env, avbryt=avbryt)
+        rc, ut = vl.kor(kmd(wt), cwd=wt, timeout=timeout, env=env, avbryt=avbryt)
         logg = k.katalog / 'underhall' / ('%s-%s-%s.log' % (slag, re.sub(r'[^\w.-]+', '-', etikett), vl.nu().replace(':', '')))
         logg.parent.mkdir(parents=True, exist_ok=True)
         logg.write_text(ut, encoding='utf-8')
