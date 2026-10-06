@@ -161,6 +161,7 @@ def provmiljo(extra=None):
 
 
 AVBRUTEN = 130  # slutkoden från kor() när avbryt() svarade ja
+SLUTVANTAN = 15  # sekunder kor() väntar på en dödad process; en som sitter fast i kärnan (UE) lämnas (2026-10-06)
 
 
 def avsluta_trad(pid):
@@ -197,7 +198,18 @@ def kor(args, timeout=120, cwd=None, env=None, indata=None, bara_ut=False, avbry
             if not avbrutet and avbryt and time.time() < slut:
                 continue
             avsluta_trad(p.pid)
-            ut, fel = p.communicate()
+            try:
+                ut, fel = p.communicate(timeout=SLUTVANTAN)
+            except subprocess.TimeoutExpired:
+                # en process som inte går att avsluta (en krasch som väntar på krashrapporteringen, 2026-10-06) väntas
+                # inte in: underhållet och startkontrollen går vidare med ett fel i stället för att hänga
+                for s_ in (p.stdout, p.stderr):
+                    try:
+                        s_ and s_.close()
+                    except OSError:
+                        pass
+                return (AVBRUTEN if avbrutet else 124), 'tidsgränsen %d s nåddes (%s); processen avslutades inte och lämnades' % (
+                    timeout, ' '.join(str(a) for a in args[:3]))
             if avbrutet:
                 return AVBRUTEN, 'avbrutet (%s)\n%s' % (' '.join(str(a) for a in args[:3]), sista((ut or '') + (fel or ''), 2000))
             return 124, 'tidsgränsen %d s nåddes (%s)' % (timeout, ' '.join(str(a) for a in args[:3]))
@@ -271,8 +283,9 @@ class Cache:
 # som en granskning visat dömde fel) räknas äldre avvisningar inte, och versionen prövas en gång till; höj då värdet.
 # 2026-10-06-r76: npm audit jämförs advisory för advisory med det installerade trädet (Vercel CLI 60.1.3 avvisades
 # 02:49Z av jämförelsen utan bas). 2026-10-06-r77: karenstidens marginal, plattformspaketen, ETARGET och miljöfel
-# behåller versionen, båda träden granskas på samma sätt (granskningen av r79, F).
-PROVREGLER = '2026-10-06-r77'
+# behåller versionen, båda träden granskas på samma sätt (granskningen av r79, F). 2026-10-06-r90: pinningens prov ärvde
+# provmiljöns PATH, där node@24 låg först i underhållets prov av node@24, och avvisade node@24 12:47Z för provets skull.
+PROVREGLER = '2026-10-06-r90'
 
 
 def avvisad(avvisade, id_, version):
@@ -826,6 +839,14 @@ def brew_aktiv(formel):
         return Path(os.readlink(brew_prefix() / 'opt' / formel)).name
     except OSError:
         return None
+
+
+def node_formel_ur_vag():
+    """Formeln för den node som PATH ger, ur sökvägen (…/Cellar/node@22/22.23.2/bin/node), utan att starta node: en node
+    med trasiga bibliotekslänkar kan krascha och hänga (2026-10-06), så länkprovet får aldrig börja med att köra den."""
+    b = shutil.which('node')
+    m = re.search(r'/Cellar/(node(?:@\d+)?)/([^/]+)/', os.path.realpath(b)) if b else None
+    return m.group(1) if m else None
 
 
 def node_formel():

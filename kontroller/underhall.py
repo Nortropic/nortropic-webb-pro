@@ -1661,22 +1661,74 @@ def lankprov(extra=()):
     """Formlerna flödet använder (den aktiva node-formeln, python@3.12, git, gh och de angivna) vars bibliotekslänkar är
     trasiga (brew linkage --test). Underhållet låter inte Homebrew pröva installerade beroende formler
     (HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK), så en uppgraderad delad formel kan bryta en annan (fynd 7)."""
-    formler = [f for f in dict.fromkeys([vl.node_formel()[0] or 'node', *vl.BREW_FORMLER, *extra]) if f and vl.brew_aktiv(f)]
+    formler = [f for f in dict.fromkeys([vl.node_formel_ur_vag() or 'node', *vl.BREW_FORMLER, *extra]) if f and vl.brew_aktiv(f)]
     return [f for f in formler if brew('linkage', '--test', f, timeout=300)[0]]
 
 
+def ominstallation_byter_version(formel):
+    """None när en ominstallation ger formelns installerade version (en ombyggnad med ny revision, 22.23.2 → 22.23.2_1),
+    annars 'installerad → ny'. En ominstallation hämtar indexets senaste version: för node@22 2026-10-06 hade den gett
+    22.23.3_1 utan underhållets prov. Går det inte att avgöra räknas det som ett byte."""
+    fore, info = vl.brew_aktiv(formel), vl.brew_info(formel)
+    ny = (info or {}).get('senaste')
+    if fore and ny and str(fore).split('_')[0] == str(ny).split('_')[0]:
+        return None
+    return '%s → %s' % (fore or '?', ny or 'okänd version')
+
+
 def laga_lankar(extra=()):
-    """(fel, lagade) efter en install eller uppgradering: de trasiga installeras om (brew reinstall), och fel är det som
-    fortfarande är trasigt efteråt."""
+    """(fel, lagade) efter en install eller uppgradering: de trasiga installeras om (brew reinstall) när det inte byter
+    deras version; fel är det som fortfarande är trasigt efteråt, och en lagning som skulle byta version utan prov lämnas åt
+    ägaren (en ny version tas bara in efter underhållets prov; 2026-10-06)."""
     trasiga = lankprov(extra)
     if not trasiga:
         return None, []
+    lagade, orora = [], []
     for f in trasiga:
+        byte = ominstallation_byter_version(f)
+        if byte:
+            orora.append('%s %s' % (f, byte))
+            continue
         brew('reinstall', '--formula', f, timeout=3600)
+        lagade.append(f)
     kvar = lankprov(extra)
+    if orora:
+        return ('trasiga bibliotekslänkar efter bytet: %s; ominstalleras inte, eftersom det skulle byta version utan prov (%s)'
+                % (', '.join(trasiga), '; '.join(orora))), lagade
     if kvar:
-        return 'trasiga bibliotekslänkar efter bytet: %s (brew reinstall lagade inte %s)' % (', '.join(trasiga), ', '.join(kvar)), trasiga
-    return None, trasiga
+        return 'trasiga bibliotekslänkar efter bytet: %s (brew reinstall lagade inte %s)' % (', '.join(trasiga), ', '.join(kvar)), lagade
+    return None, lagade
+
+
+def delade_uppgraderingar(formel, aktiv):
+    """[(beroende, installerad, ny)] för de beroenden som formeln delar med den aktiva node-formeln och som en installation
+    skulle uppgradera (Homebrew uppgraderar inaktuella beroenden vid install). 2026-10-06 uppgraderade brew install node@24
+    simdjson 4.6.6 → 5.0.2, och node@22, som PATH pinnar, startade inte längre. [] när det inte går att avgöra."""
+    if not aktiv or aktiv == formel:
+        return []
+    beroenden = {}
+    for f in (formel, aktiv):
+        rc, ut = brew('info', '--json=v2', '--formula', f, timeout=180)
+        try:
+            beroenden[f] = set((json.loads(ut).get('formulae') or [{}])[0].get('dependencies') or [])
+        except (ValueError, AttributeError, IndexError, TypeError):
+            return []
+    rc, ut = brew('outdated', '--json=v2', '--formula', timeout=180)
+    try:
+        gamla = {x['name']: x for x in json.loads(ut).get('formulae') or [] if isinstance(x, dict) and x.get('name')}
+    except (ValueError, AttributeError, TypeError, KeyError):
+        return []
+    return [(n, str((gamla[n].get('installed_versions') or ['?'])[-1]), str(gamla[n].get('current_version') or '?'))
+            for n in sorted(beroenden[formel] & beroenden[aktiv]) if n in gamla]
+
+
+def aktiv_node_fel():
+    """None när den node som PATH ger svarar på --version (med tidsgräns, och utan att vänta på en process som sitter
+    fast), annars felet."""
+    b = shutil.which('node')
+    if not b or vl.version_av([b, '--version']):
+        return None
+    return 'den aktiva node (%s) svarar inte' % (vl.node_formel_ur_vag() or b)
 
 
 def verifiera_formel(formel, version):
@@ -1764,10 +1816,17 @@ def prova_node_huvud(k, r, kand):
         pagar = vl.pagaende()
         if pagar:
             return HALL + 'en körning pågår (%s): %s installeras inte nu' % (', '.join(pagar), formel), None
+        aktiv = vl.node_formel_ur_vag()
+        delade = delade_uppgraderingar(formel, aktiv)
+        if delade:
+            return HALL + ('%s installeras inte bredvid: installationen skulle uppgradera beroenden som den aktiva %s delar (%s) och '
+                           'kan bryta den; prövas igen när de är aktuella, till exempel efter nästa intag av %s'
+                           % (formel, aktiv, ', '.join('%s %s → %s' % d for d in delade), aktiv)), None
         rc, ut = brew('install', '--formula', formel, timeout=3600)
         lfel, lagade = laga_lankar(extra=(formel,))
-    if lfel:
-        return 'MILJÖN TRASIG efter brew install %s: %s' % (formel, lfel), None
+        afel = aktiv_node_fel() if aktiv != formel else None
+    if lfel or afel:
+        return 'MILJÖN TRASIG efter brew install %s: %s' % (formel, '; '.join(x for x in (lfel, afel) if x)), None
     if rc:
         return nat('brew install %s föll: %s' % (formel, vl.sista(ut))), None
     rc, ut = brew('--prefix', formel, timeout=60)
