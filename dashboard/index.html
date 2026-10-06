@@ -140,6 +140,14 @@ textarea:focus, input:focus { outline: 2px solid color-mix(in srgb, var(--accent
 .kjamfor .kram.hela { height: 75vh; }
 .kdel { border-top: 1px solid var(--linje); padding-top: 8px; }
 .kdel > summary { cursor: pointer; font-weight: 560; }
+/* observationen: det som syns i sessionernas transkript och loggar under arbetet (kontroller/observation.py) */
+.obs { margin-top: 28px; }
+.obs-grid { display: grid; gap: 12px 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); margin: 8px 0; }
+.obs-grid h4 { margin: 0 0 4px; font-size: 13px; color: var(--dampad); font-weight: 600; }
+.obs ul { margin: 4px 0; padding-left: 18px; }
+.obs-bilder { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3.46fr); gap: 8px; align-items: start; }
+.obs-bilder img { width: 100%; display: block; border: 1px solid var(--linje); border-radius: 8px; }
+.obs-not { font-size: 12px; color: var(--dampad); }
 .kdel .under { margin: 6px 0; }
 .kdel > h4 { margin: 16px 0 4px; font-size: 14.5px; }
 .kdel .prosa :is(h3, h4, h5) { margin: 10px 0 2px; font-size: 13px; font-weight: 600; color: var(--dampad); }  /* skaparens underrubriker under vyns */
@@ -781,6 +789,7 @@ async function kandidatvy(slug, d) {
     <p class="under" style="margin:-8px 0 16px">Bilderna först; klicka på en bild för att öppna den i full storlek. Under bilderna, hopfällt: referensen bredvid förslaget, skaparens korta redovisning och de tekniska kontrollerna. Markera förslag för att se dem sida vid sida och för ditt beslut längst ned.</p>
     <div class="kgrid" style="--kmin:${{ par: '100%', 1440: '420px', 1280: '420px', 768: '300px' }[kBredd] || '240px'}">${visbara.map(kort).join('') || '<p class="tom">Inga förslag klara än.</p>'}</div>
     <section id="k-jamfor" style="margin-top:28px"></section>
+    <section id="k-observation" class="obs"></section>
     ${ovriga.length ? `<details style="margin-top:24px"><summary>Förslag som inte blev klara (${ovriga.length})</summary>${ovriga.map((k) => `<p class="under"><b>${esc(k.etikett)}</b> · ${esc(k.statustext)}: ${esc(k.skal || '')}</p>`).join('')}</details>` : ''}
     ${klara && visbara.length ? `<section class="kort" style="margin-top:24px"><h2>Ditt beslut</h2>
       <p class="under">Välj en riktning: markera förslaget och välj vidareutveckling. Kombinera kvaliteter: markera de förslag som ska bära vidare och skriv under "Det jag gillar här" i andra förslag vad du vill ta därifrån; det följer med ordagrant. Underkänn allt: förkasta alla. Beslutet sparas i domloggen med förslagens versioner och läses av nästa körning.</p>
@@ -812,6 +821,7 @@ async function kandidatvy(slug, d) {
   document.querySelectorAll('[data-bredd]').forEach((b) => b.onclick = () => { kBredd = b.dataset.bredd; try { localStorage.setItem('kandidat-visning', kBredd); } catch (e) {} kandidatvy(slug, d); });
   document.querySelectorAll('[data-hela]').forEach((b) => b.onclick = () => { kHela = b.dataset.hela === '1'; kandidatvy(slug, d); });
   visaJamforelse();
+  observationsvy(slug, alla);
   const knapp = $('#k-spara');
   if (knapp) knapp.onclick = async () => {
     const b = (document.querySelector('input[name="k-b"]:checked') || {}).value;
@@ -825,6 +835,91 @@ async function kandidatvy(slug, d) {
     knapp.disabled = true;
     try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, kandidater: kand, delar, text, startad }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
   };
+}
+
+// Observationen (ägarens uppdrag 2026-10-06): det som syns i sessionernas transkript och loggar under arbetet, räknat
+// utan modell och utan att påverka arbetet (kontroller/observation.py). Skaparens egen redovisning står i korten.
+const ROLLER = [['skisskritik', 'kritikern, blind'], ['planprovning', 'planprövningen'], ['jamforelse', 'jämförelsen'], ['forbattra', 'förbättringen'],
+  ['divergera', 'utforskningen'], ['kritik-a', 'granskningen'], ['kritik-b', 'granskningen'], ['forska', 'researchen'], ['forfina', 'förfiningen'],
+  ['domare', 'panelen'], ['skiss', 'skaparen'], ['skapa', 'skaparen'], ['pass', 'kompetenspass'], ['plan', 'planen']];
+const rollnamn = (r) => { r = String(r || ''); if (/^skiss-\d+-granskning$/.test(r)) return 'skaparen, svar på kritiken';
+  const t = ROLLER.find(([p]) => r === p || r.startsWith(p + '-')); return t ? t[1] + (t[0] === 'pass' ? ' ' + (r.split('-')[1] || '') : '') : r; };
+const sedan = (t) => { if (!t) return 'inte observerat'; const m = Math.floor((Date.now() - new Date(t)) / 60000); return `${tid(t)}, ${m < 1 ? 'nyss' : `för ${m} min sedan`}`; };
+const utfallen = (l) => { const c = {}; l.forEach((x) => { c[x.utfall] = (c[x.utfall] || 0) + 1; }); return Object.entries(c).map(([u, n]) => `${esc(u)} ${n}`).join(' · '); };
+const kortnamn = (f) => String(f || '').split('/').slice(-3).join('/');
+const obsOppen = {}, obsSignatur = {};
+async function observationsvy(slug, kandidater) {
+  if (!$('#k-observation')) return;
+  let o;
+  try { o = await api('/api/observation/' + encodeURIComponent(slug)); } catch (e) { o = { ofullstandig: e.message }; }
+  const ruta = $('#k-observation');
+  if (!ruta || location.hash.replace(/^#\/?/, '') !== 'prototyp/' + slug) return;  // ägaren har gått vidare
+  if (o.ofullstandig) { ruta.innerHTML = `<h2>Under arbetet</h2><p class="under">Observationen kunde inte läsas (${esc(o.ofullstandig)}). Arbetet påverkas inte.</p>`; return; }
+  const etikett = (kid) => ((kandidater || []).find((k) => k.id === kid) || {}).etikett || kid;
+  const al = o.arbetslage || {}, sess = Array.isArray(o.sessioner) ? o.sessioner : [], tj = Array.isArray(o.tjanster) ? o.tjanster : [];
+  const prot = o.prototyper && !o.prototyper.ofullstandig ? o.prototyper : {}, plan = (o.referenser && o.referenser.kandidater) || {};
+  const pagar = (!al.avslutad && al.arbetaren_lever) || sess.some((s) => s.pagar);
+  // en kandidat som blivit klar eller ändrat status: hela vyn ritas om, så att korten följer med (aldrig mitt i ägarens text)
+  const sig = JSON.stringify(Object.entries(prot).map(([k, p]) => [k, p.status, p.version]));
+  const skriver = document.activeElement && ['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName) || ($('#k-text') && $('#k-text').value.trim());
+  if (obsSignatur[slug] && obsSignatur[slug] !== sig && !skriver) { obsSignatur[slug] = sig; return prototypvy(slug); }
+  obsSignatur[slug] = sig;
+  const oppen = (nyckel, standard) => `data-obs="${esc(nyckel)}"${(nyckel in obsOppen ? obsOppen[nyckel] : standard) ? ' open' : ''}`;
+  const steg = Object.entries(al.tider || {}).sort((a, b) => String(a[1]).localeCompare(String(b[1]))).at(-1);
+  const tjanstrad = (t) => { const ob = t.observation; if (!ob) return `<li>${esc(t.tjanst)}: loggen kunde inte läsas</li>`;
+    const bilder = ob.mcp.reduce((n, m) => n + (m.bilder || 0), 0), lankar = ob.mcp.reduce((n, m) => n + (m.bildlankar || 0), 0);
+    return `<li><b>${esc(t.tjanst)}</b>, ${t.del === 'uppdrag' ? 'uppdragsmaterialet' : 'researchen'}: ${ob.mcp.length} anrop${ob.mcp.length ? ' (' + utfallen(ob.mcp) + ')' : ''}${bilder ? ` · ${bilder} bilder returnerade` : ''}${lankar ? ` · ${lankar} bildlänkar returnerade (inte hämtade)` : ''}
+      · ${ob.slut ? `avslutad ${tid(ob.slut.tid)}${ob.slut.fel ? ', med fel' : ''}` : 'sluttid inte observerad'} · anslutning: ${esc(Object.entries(ob.mcp_lage || {}).map(([n, v]) => n + ' ' + v).join(', ') || 'inte observerad')}</li>`; };
+  const mcpRad = (l) => { if (!l.length) return 'inga observerade';
+    return ['refero', 'mobbin'].map((tj_) => { const x = l.filter((m) => m.tjanst === tj_); if (!x.length) return '';
+      const b = x.reduce((n, m) => n + (m.bilder || 0), 0), lk = x.reduce((n, m) => n + (m.bildlankar || 0), 0);
+      return `${tj_} ${x.length} (${utfallen(x)}${b ? `; ${b} bilder` : ''}${lk ? `; ${lk} bildlänkar` : ''})`; }).filter(Boolean).join(' · '); };
+  const lista = (l) => l.length ? `<details><summary class="obs-not">Visa filerna (${l.length})</summary><ul>${l.map((x) => `<li><code>${esc(kortnamn(x.fil))}</code> · ${esc(x.utfall)}${x.rader ? ` (rad ${x.rader[0]}–${x.rader[1]} av ${x.rader[2]})` : ''} · ${tid(x.tid)}</li>`).join('')}</ul></details>` : '';
+  const kandidat = (kid) => {
+    const ss = sess.filter((s) => s.kandidat === kid), obs = ss.map((s) => s.observation).filter(Boolean), alla = (f) => obs.flatMap((x) => x[f] || []);
+    const p = prot[kid] || {}, refs = alla('referensfiler'), sf = alla('skillfiler'), sk = alla('skills_laddade'), me = alla('metodutdrag'), mcp = alla('mcp');
+    const nekade = obs.reduce((n, x) => n + (x.nekade || 0), 0), erbjudna = Math.max(-1, ...obs.map((x) => x.skills_erbjudna ?? -1));
+    const skillmd = sf.filter((x) => x.skillmd), andra = sf.filter((x) => !x.skillmd), aktiv = ss.some((s) => s.pagar);
+    const namnlista = (l) => [...new Set(l.map((x) => x.skill + (x.utfall === 'fil läst (hel)' ? '' : ` (${x.utfall})`)))].map(esc).join(', ');
+    const v = p.varv, b2 = v && (v.bilder['1280'] || v.bilder['1440']);
+    return `<details class="kdel" ${oppen('k-' + kid, aktiv)}><summary>${esc(etikett(kid))} · ${esc(p.status || 'status inte observerad')}${aktiv ? ' · <span class="chip acc puls">arbetar</span>' : ''} · ${v ? `${esc(v.namn)}, skärmbild fångad ${tid(v.skarmbild_fangad)}` : 'inget förhandsvarv observerat'}${nekade ? ` · ${nekade} nekade anrop` : ''}</summary>
+      <div class="obs-grid">
+        <div><h4>Prototypen</h4>${v && (v.bilder['390'] || b2) ? `<div class="obs-bilder">${[v.bilder['390'], b2].map((f) => f ? `<a href="/fil/${esc(f)}" target="_blank" rel="noopener"><img loading="lazy" src="/fil/${esc(f)}" alt="${esc(etikett(kid))}, senaste förhandsvarvet"></a>` : '<span></span>').join('')}</div>
+          <p class="obs-not">Senaste förhandsvarvet under arbetet (${esc(v.namn)} av ${p.varv_antal}), skärmbild fångad ${tid(v.skarmbild_fangad)}.</p>` : '<p class="obs-not">Inget förhandsvarv observerat än.</p>'}
+          <p class="obs-not">${p.version ? `Fotograferad version ${esc(p.version)}, ${tid(p.fotograferad)}.` : 'Ingen fotograferad version än.'}</p></div>
+        <div><h4>Referenserna</h4><p class="obs-not">Huvudreferensen enligt planen: ${esc((plan[kid] || {}).huvudreferens || 'inte observerad')}</p>
+          <div>Referensfiler lästa: ${refs.length ? `${refs.length} (${utfallen(refs)})` : 'inga observerade'}</div>${lista(refs)}
+          <div>Egna Refero- och Mobbin-anrop: ${mcpRad(mcp)}</div></div>
+        <div><h4>Kompetensen</h4>${erbjudna >= 0 ? `<div>Erbjudna i sessionen: ${erbjudna} skills</div>` : ''}
+          <div>Laddade via skillsystemet: ${sk.length ? [...new Set(sk.map((x) => x.skill + (x.utfall === 'skill laddad via skillsystemet' ? '' : ` (${x.utfall})`)))].map(esc).join(', ') : 'inga observerade'}</div>
+          <div>SKILL.md lästa: ${skillmd.length ? namnlista(skillmd) : 'inga observerade'}</div>
+          ${andra.length ? `<div>Andra skillfiler: ${andra.length} (${utfallen(andra)})</div>${lista(andra)}` : ''}
+          ${me.length ? `<div>Flödets metodutdrag (utdrag ur skills): ${utfallen(me)}</div>` : ''}
+          ${(p.kompetenskvitton || []).map((k) => `<div class="obs-not">Flödets kvitto efter ${esc(k.pass)}: ${k.verifierad ? 'verifierat' : 'inte verifierat'}, ${k.lasta} lästa${k.saknas.length ? ', saknas ' + esc(k.saknas.join(', ')) : ''}.</div>`).join('')}
+          <p class="obs-not">Läst eller laddat är inte tillämpat; tillämpningen bedöms i granskningen och i ditt beslut.</p></div>
+      </div></details>`; };
+  // vyns ordning (neutrala etiketter i slumpad ordning), aldrig planens
+  const ordning = (kid) => { const i = (kandidater || []).findIndex((k) => k.id === kid); return i < 0 ? 999 : i; };
+  const kids = [...new Set([...Object.keys(prot), ...sess.map((s) => s.kandidat).filter(Boolean)])].sort((a, b) => ordning(a) - ordning(b) || a.localeCompare(b));
+  const rad = (s) => { const ob = s.observation, k = ob && ob.kontext, kp = (ob && ob.komprimeringar) || [];
+    return `<tr><td>${esc(rollnamn(s.roll))}${s.kandidat ? ' · ' + esc(etikett(s.kandidat)) : ''}<div class="obs-not">${esc((ob && ob.modell) || s.modell || '')}</div></td>
+      <td>${s.pagar ? '<span class="chip acc puls">pågår</span>' : s.slut ? `avslutad ${tid(s.slut)}${s.utfall ? ', ' + esc(s.utfall) : ''}` : 'avslutad, sluttid inte observerad'}<div class="obs-not">start ${tid(s.start)}</div></td>
+      <td>${ob ? sedan(ob.senaste_handelse) : 'transkriptet inte observerat'}</td>
+      <td>${k ? `cirka ${Math.round(k.tokens / 1000)} k tokens <span class="obs-not">(uppskattning, senaste turen)</span>` : 'inte observerat'}${kp.length ? `<div>${kp.length} komprimering${kp.length > 1 ? 'ar' : ''}, senast ${tid(kp.at(-1).tid)}</div>` : ''}</td></tr>`; };
+  const inst = o.installerat;
+  ruta.innerHTML = `<h2>Under arbetet, observerat</h2>
+    <p class="under">Automatiskt ur sessionernas transkript och loggar, utan modell; läst ${tid(o.tid)}${pagar ? ', uppdateras medan körningen pågår' : ''}. Etiketterna säger vad som syns ("anrop lyckades", "tomt resultat", "bild returnerad", "fil läst", "skärmbild fångad"), inte att något använts väl. Skaparens egen redovisning står i korten ovan, i skaparens ord.</p>
+    <p>Steg <b>${esc(al.steg || 'inte observerat')}</b>${steg ? ` (${esc(steg[0])} ${tid(steg[1])})` : ''} · arbetaren ${al.arbetaren_lever ? 'lever' : 'lever inte'}${al.fel ? ' · fel: ' + esc(al.fel) : ''}</p>
+    ${kids.map(kandidat).join('') || '<p class="obs-not">Inga kandidater observerade än.</p>'}
+    <details class="kdel" ${oppen('sessioner', false)}><summary>Sessionerna (${sess.length})</summary>
+      ${sess.length ? `<div class="tabell"><table><tr><th>Roll</th><th>Läge</th><th>Senaste händelse</th><th>Kontext</th></tr>${sess.map(rad).join('')}</table></div>` : '<p class="obs-not">Inga sessioner i förteckningen: körningen startade före observationen, eller den var avstängd (NWP_OBSERVATION=av).</p>'}
+    </details>
+    <details class="kdel" ${oppen('underlag', false)}><summary>Referenspaketet, tjänsterna och de installerade skillsen</summary>
+      <p>Referenspaketet: ${o.referenser && o.referenser.paket ? `${esc(o.referenser.paket)}, ${tid(o.referenser.paket_tid)}` : 'inte observerat'}</p>
+      ${tj.length ? `<ul>${tj.map(tjanstrad).join('')}</ul>` : '<p class="obs-not">Inga tjänstesessioner observerade i den här körningen.</p>'}
+      <p>Installerade skills enligt startkvittot: ${inst ? `${inst.antal}, ${tid(inst.tid)}` : 'inte observerat'}</p></details>`;
+  ruta.querySelectorAll('details[data-obs]').forEach((x) => x.ontoggle = () => { obsOppen[x.dataset.obs] = x.open; });
+  if (pagar) { clearTimeout(timer); timer = setTimeout(() => observationsvy(slug, kandidater), 8000); }
 }
 
 async function abvy() {

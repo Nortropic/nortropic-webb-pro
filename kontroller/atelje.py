@@ -51,6 +51,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -216,6 +217,34 @@ def session_miljo(slug=None):
     return m
 
 
+try:  # den passiva observatören (ägarens uppdrag 2026-10-06): ett fel där stoppar aldrig en session
+    import observation
+except Exception:  # noqa: BLE001
+    observation = None
+
+
+def observerad(ut, slug=None):
+    """Sessionens id och bygget den hör till, när observationen är på (observation.py; NWP_OBSERVATION=av stänger av)
+    och claude --help listar --session-id. Bygget ur slug eller ur svarsfilens plats under underlag/. Utan observation:
+    (None, None) och oförändrade argument."""
+    try:
+        if not observation or not observation.pa() or not observation.flaggan_finns(claude()):
+            return None, None
+        if not slug:
+            delar = Path(ut).resolve().relative_to(UNDERLAG.resolve()).parts
+            slug = delar[0] if len(delar) > 1 else None
+        return (str(uuid.uuid4()), slug) if slug else (None, None)
+    except Exception:  # noqa: BLE001
+        return None, None
+
+
+def observera(namn, *a, **k):
+    try:
+        getattr(observation, namn)(*a, **k)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 AKTIVA = set()  # nästlade sessioner som pågår i den här processen: stoppet avslutar dem med deras träd
 AKTIVA_LAS = threading.Lock()
 STOPP = threading.Event()  # satt när arbetaren stoppas: ingen ny session startar
@@ -243,18 +272,26 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
     if STOPP.is_set():
         raise Stoppad('arbetaren stoppas: ingen ny session')
     args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug)
+    sid, oslug = observerad(ut, slug)
+    if sid:  # sessionens id från start: observatören hittar transkriptet medan sessionen arbetar
+        args[2:2] = ['--session-id', sid]
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
     # krockar med fotograferingens bygge i samma katalog; granskningen av r59, punkt 2)
+    utfall = 'avbruten'
     with open(ut, 'wb') as f:
         p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=f, stderr=subprocess.PIPE, cwd=str(ROOT), env=session_miljo(slug),
                              start_new_session=True)
         with AKTIVA_LAS:
             AKTIVA.add(p.pid)
+        if sid:
+            observera('anmal', oslug, sid, ut, modell or MODELL, p.pid)
         try:
             if vid_start:
                 vid_start(p.pid)
             _, fel = p.communicate(input=prompt.encode(), timeout=frist or (FRIST_DOMARE if schema else FRIST))
+            utfall = 'avslutad, kod %s' % p.returncode
         except subprocess.TimeoutExpired:
+            utfall = 'tidsgräns'
             doda_trad(p.pid)  # hela trädet: förhandsvisningen, npm och node ligger i egna processgrupper (granskning 3, S3)
             try:
                 os.killpg(p.pid, signal.SIGKILL)
@@ -265,6 +302,8 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
         finally:
             with AKTIVA_LAS:
                 AKTIVA.discard(p.pid)
+            if sid:
+                observera('uppdatera', oslug, sid, slut=nu(), utfall=utfall)
     svar = las_json(ut) or {}
     if p.returncode or svar.get('is_error'):
         raise RuntimeError('sessionen föll (kod %s, %s): %s' % (p.returncode, svar.get('subtype'),

@@ -367,11 +367,11 @@ def fil_tillaten(rel):
     if rel.startswith('underlag/%s/atelje/' % slug) and kandidatkorning(slug, las_json(UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}):
         import kandidater
         if not kandidater.domd(slug):  # före ägarens första beslut: bara skärmbilderna (granskningen M1)
-            return bool(KAND_FIL.match(rel))
+            return bool(KAND_FIL.match(rel) or KAND_VARV.match(rel))
     if rel.startswith('underlag/%s/atelje/kandidater/' % slug):
         # kandidatflödet: skärmbilderna är det ägaren bedömer; skaparens korta redovisning ger API:t från början, och
         # granskningen, hela anteckningarna och koden när ägaren har fattat sitt första beslut (kandidater.sammanstall)
-        return bool(KAND_FIL.match(rel))
+        return bool(KAND_FIL.match(rel) or KAND_VARV.match(rel))
     if rel.startswith('underlag/%s/atelje/' % slug):
         # designprovet: bara förslagens bilder tills ägaren dömt alla förslag i omgången (panelens dom döljs per omgång)
         runda = DP_RUNDA.match(delar[3]) if len(delar) > 4 else None
@@ -794,6 +794,8 @@ PR_BESLUT = ('godkand', 'putsa', 'ny_riktning')
 
 
 KAND_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/kandidater/k\d{2}/(?:versioner/[0-9a-f]{12}/)?bilder/[a-z0-9-]{1,80}/vy-(390|768|1280|1440)-(forsta|hela|ruta-\d{2})\.png$')
+# skaparens senaste förhandsvarv, som observationen visar medan kandidaten arbetar (ägarens uppdrag 2026-10-06)
+KAND_VARV = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/kandidater/k\d{2}/varv/start/varv-\d{2}/vy-(390|1280|1440)-forsta\.png$')
 KAND_BESLUT = ('valj', 'jamfor', 'forkasta', 'ny_riktning', 'putsa', 'godkand')
 
 
@@ -1498,6 +1500,15 @@ class H(BaseHTTPRequestHandler):
                 except Exception as e:  # noqa: BLE001 — kvittot får aldrig fälla vyn
                     res['startkvitto'] = {'status': 'okand', 'fel': str(e)[:200]}
                 return self.skicka(200, res)
+            m = re.match(r'^/api/observation/([a-z0-9-]{2,60})$', vag)
+            if m:  # den passiva observationen (kontroller/observation.py): läser bara, och ett fel gör vyn ofullständig
+                if m.group(1) not in prototyp_slugar():
+                    return self.skicka(404, {'fel': 'ingen körning för bygget'})
+                try:
+                    import observation
+                    return self.skicka(200, observation.oversikt(m.group(1)))
+                except Exception as e:  # noqa: BLE001
+                    return self.skicka(200, {'ofullstandig': '%s: %s' % (type(e).__name__, str(e)[:200])})
             m = re.match(r'^/api/designprov/([a-z0-9-]{2,60})$', vag)
             if m:
                 if m.group(1) not in designprov_slugar():
