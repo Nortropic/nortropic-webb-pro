@@ -4276,7 +4276,7 @@ try:
     vy_sk = dash.prototyp(sl_sk)
     assert vy_sk['kandidatlage'] == 'skiss' and vy_sk['tider']['forsta_valbara'] and not vy_sk['domd'] and vy_sk['redovisning_md'] is None
     vytext_ = (ROOT / 'dashboard' / 'index.html').read_text()
-    assert 'En intern granskare har sett varje skiss' in vytext_ and 'ingen modell har rangordnat förslagen' in vytext_ and 'ingen modell har bedömt' not in vytext_
+    assert 'En intern granskare ser skisserna när tiden räcker' in vytext_ and 'ingen modell har rangordnat förslagen' in vytext_ and 'ingen modell har bedömt' not in vytext_
     # --- den interna granskaren och skaparens svar (granskningen av designintegrationen 2026-10-06), med en falsk klocka ---
     class KlockaGk:
         def __init__(self):
@@ -4291,7 +4291,9 @@ try:
     spara_gk = (kd.time, at_pt.session, kd.FRIST_SKISS, sk.komplettera)
     GK, sess_gk = {}, []
     RIKT_SVAR = ('Huvudreferens: Xref — kompositionen\n\n## Idén\n\nKöket i centrum.\n\n## Kvarvarande svagheter\n\nRubriken är tung i 390.\n'
-                 'Granskaren rekommenderade att förkasta riktningen.\n\n### Granskningen\n\nGRANSKNINGENS ORD: generisk\n\n## Svar på granskningen\n\nJag står kvar.\n')
+                 'Besökaren granskar tidigare arbeten innan kontakt.\nOmdömena från kunderna lyfts in.\n'
+                 'Granskaren rekommenderade att förkasta riktningen.\nEfter kritiken behöll jag riktningen.\nBedömningen att riktningen var generisk.\n'
+                 '\n### Granskningen\n\nGRANSKNINGENS ORD: generisk\n\n## Svar på granskningen\n\nJag står kvar.\n')
 
     def sess_gk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None):
         sess_gk.append({'prompt': prompt, 'schema': schema, 'nekas': list(nekas), 'frist': frist, 'ut': Path(ut).name})
@@ -4307,7 +4309,10 @@ try:
         elif 'En kritisk granskare har sett' in prompt:  # skaparens svar på granskningen
             kl_gk.t += GK['svar']
             (kd.kdir(sl_sk, 'k02') / 'RIKTNING.md').write_text(RIKT_SVAR)
-            (pages_ / 'index.astro').write_text('TRASIG efter svaret' if GK.get('svar_trasig') else '<h1>Skiss</h1><p>Köket efter svaret.</p>')
+            (pages_ / 'index.astro').write_text('TRASIG efter svaret' if GK.get('svar_trasig') else '<h1>Skiss</h1><p>Köket halvvägs.</p>'
+                                                if GK.get('svar_tidsgrans') else '<h1>Skiss</h1><p>Köket efter svaret.</p>')
+            if GK.get('svar_tidsgrans'):
+                raise subprocess.TimeoutExpired('claude', frist)
         else:  # skaparen
             kl_gk.t += GK['skapare']
             (pages_ / 'index.astro').write_text('<h1>Skiss</h1><p>Köket före svaret.</p>')
@@ -4319,7 +4324,7 @@ try:
                     (vd_ / ('vy-%s-%s.png' % (b_, v_))).write_bytes(b'png')
             if GK.get('begar') and 'Researchen du begärde' not in prompt:
                 (kd.kdir(sl_sk, 'k02') / sk.KOMPLETTERING).write_text(json.dumps({'varfor': 'saknar kök i närbild'}))
-            if GK.get('skapare_tidsgrans'):
+            if GK.get('skapare_tidsgrans') and 'Förra sessionen nådde sin tidsgräns' not in prompt:
                 raise subprocess.TimeoutExpired('claude', frist)
         svar_ = {'structured_output': so, 'num_turns': 7, 'duration_ms': 90000, 'total_cost_usd': 0.3, 'session_id': 's'}
         Path(ut).write_text(json.dumps(svar_))
@@ -4348,18 +4353,32 @@ try:
         assert 'Read(./%s/**)' % kd.rel(kd.ksajt(sl_sk, 'k02').parent) in kr_gk[0]['nekas'], 'skissens kod och DESIGN.md nekas granskaren'
         assert 'vy-390-forsta.png' in kr_gk[0]['prompt'] and 'Köket i centrum' not in kr_gk[0]['prompt'], 'granskaren får aldrig skaparens text'
         assert 'det största problemet: rubriken tar över första vyn' in svar_gk[0]['prompt'] and 'rubriken "Svar på granskningen"' in svar_gk[0]['prompt']
-        assert 'steg 0 gjordes i skissens första session' in svar_gk[0]['prompt'] and svar_gk[0]['frist'] >= kd.SVAR_MIN
+        assert 'Steg 0 gjordes i skissens första session' in svar_gk[0]['prompt'] and svar_gk[0]['frist'] >= kd.SVAR_MIN
+        assert 'Läs varje rolls kärna HEL' not in svar_gk[0]['prompt'], 'svaret läser inte om hela kärnan'
         st_gk = kd.las_status(sl_sk, 'k02')
         assert st_gk['status'] == 'klar' and st_gk['skisskritik']['gjord'] and st_gk['skisskritik']['session']['num_turns'] == 7, st_gk.get('skisskritik')
         assert (kd.kdir(sl_sk, 'k02') / 'SKISSKRITIK.json').is_file()
         sv_gk = {r_['rubrik']: r_['avsnitt'] for r_ in kd.kort_redovisning(sl_sk, 'k02')}['Kvarvarande svagheter']
-        assert 'Rubriken är tung i 390.' in sv_gk and '3 rader om den interna granskningen' in sv_gk, sv_gk  # raden, underrubriken och dess rad
-        assert not any(x_ in sv_gk for x_ in ('Granskaren rekommenderade', 'GRANSKNINGENS ORD', 'förkasta', 'Jag står kvar')), sv_gk
+        assert all(x_ in sv_gk for x_ in ('Rubriken är tung i 390.', 'Besökaren granskar tidigare arbeten', 'Omdömena från kunderna')), sv_gk
+        assert not any(x_ in sv_gk for x_ in ('Granskaren', 'GRANSKNINGENS ORD', 'förkasta', 'kritiken', 'generisk', 'Jag står kvar', 'interna granskningen')), sv_gk
+        assert not (kd.kdir(sl_sk, 'k02') / 'fore-svaret').exists(), 'kopian av projektet ligger inte kvar'
+        # efter ägarens första beslut syns granskarens omdöme; före aldrig
+        spara_domd_gk = kd.domd
+        kd.domd = lambda s_: True
+        try:
+            efter_gk = next(k_ for k_ in kd.sammanstall(sl_sk) if k_['id'] == 'k02')['skisskritik']
+        finally:
+            kd.domd = spara_domd_gk
+        assert efter_gk['gjord'] and efter_gk['rekommendation'] == 'förkasta' and efter_gk['storsta_problem'] == 'rubriken tar över första vyn', efter_gk
+        assert 'skisskritik' not in next(k_ for k_ in kd.sammanstall(sl_sk) if k_['id'] == 'k02')
         blind_gk = next(k_ for k_ in kd.sammanstall(sl_sk) if k_['id'] == 'k02')
         assert 'GRANSKNINGENS ORD' not in json.dumps(blind_gk, ensure_ascii=False) and 'förkasta' not in json.dumps(blind_gk, ensure_ascii=False)
         # (2) skaparen nådde tidsgränsen: ingen granskning och inget svar
         omgang_gk(skapare_tidsgrans=True)
-        assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk) and 'tidsgränsen' in kd.las_status(sl_sk, 'k02')['skisskritik']['skal']
+        skapare2_gk = [x_ for x_ in sess_gk if x_['schema'] is None]
+        assert len(skapare2_gk) == 2 and 'Förra sessionen nådde sin tidsgräns' in skapare2_gk[1]['prompt'], [x_['ut'] for x_ in sess_gk]
+        assert skapare2_gk[1]['frist'] >= kd.SKISSKRITIK_RESERV - 60, 'fortsättningen får granskningens reserv: %s' % skapare2_gk[1]['frist']
+        assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk) and 'fortsättning' in kd.las_status(sl_sk, 'k02')['skisskritik']['skal']
         # (3) granskningen görs bara när svaret hinner; efter den står det kvar för lite tid: inget svar
         omgang_gk(skapare=1700)
         assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk), 'granskningen görs inte när svaret inte hinner'
@@ -4382,6 +4401,26 @@ try:
         assert (kd.ksajt(sl_sk, 'k02') / 'src' / 'pages' / 'index.astro').read_text() == '<h1>Skiss</h1><p>Köket före svaret.</p>'
         assert 'Svar på granskningen' not in (kd.kdir(sl_sk, 'k02') / 'RIKTNING.md').read_text()
         assert (kd.ksajt(sl_sk, 'k02') / 'node_modules').exists(), 'återställningen rör aldrig node_modules'
+        omgang_gk(svar_tidsgrans=True)
+        st5b_gk = kd.las_status(sl_sk, 'k02')
+        assert st5b_gk['status'] == 'klar' and st5b_gk['skisskritik'].get('svaret_aterstallt') and 'räckte inte' in st5b_gk['skisskritik']['svarets_skal'], st5b_gk.get('skisskritik')
+        assert (kd.ksajt(sl_sk, 'k02') / 'src' / 'pages' / 'index.astro').read_text() == '<h1>Skiss</h1><p>Köket före svaret.</p>'
+        assert not st5b_gk['forsok_tider'][-1]['tidsgrans'], 'svarets tidsgräns gör inte försöket till en tidsgräns: skissen före svaret är hel'
+        spara_kor_gk, fall_gk = prova.kor, [True]
+
+        def kor_en_gang_fel(cmd, cwd=None, timeout=900):
+            if fall_gk[0] and any(str(x_).endswith('inspektera.mjs') for x_ in cmd):
+                fall_gk[0] = False
+                return 1, 'webbläsaren föll'  # inga bilder: fotograferingen gav inte bilderna
+            return spara_kor_gk(cmd, cwd=cwd, timeout=timeout)
+        prova.kor = kor_en_gang_fel
+        try:
+            omgang_gk()
+        finally:
+            prova.kor = spara_kor_gk
+        st5c_gk = kd.las_status(sl_sk, 'k02')
+        assert st5c_gk['status'] == 'klar' and not st5c_gk['skisskritik'].get('svaret_aterstallt'), st5c_gk.get('skisskritik')
+        assert (kd.ksajt(sl_sk, 'k02') / 'src' / 'pages' / 'index.astro').read_text() == '<h1>Skiss</h1><p>Köket efter svaret.</p>', 'svaret behålls'
         # (6) research på begäran går före granskningen när båda inte ryms: skaparen får resultatet, ingen granskning
         omgang_gk(skapare=1000, research=600, begar=True)
         skapare_gk = [x_ for x_ in sess_gk if x_['schema'] is None and 'En kritisk granskare har sett' not in x_['prompt']]

@@ -9,8 +9,8 @@ förstå förslaget, mobil och dator). Varje skapare får en ren arbetskontext: 
 material, referensbilderna och metodens kärna (kvalitetskraven, besluten med räckvidd, avgörandena) med en förteckning
 att slå upp i; historiken slås upp vid behov. Högst tre samtidigt, 45 minuter per inledande försök med verktygsväntan,
 den interna granskningen och skaparens svar inräknade, ett omförsök bara vid ett identifierat tekniskt fel, inget
-minimiantal varv. Ingen granskningspanel och ingen förbättringsrunda före ägarens val: en intern granskare ser varje
-skiss (bara bilderna) och skaparen svarar, men omdömet och svaret visas för ägaren först efter första beslutet; snabba
+minimiantal varv. Ingen granskningspanel och ingen förbättringsrunda före ägarens val: en intern granskare ser
+skisserna (bara bilderna) när tiden räcker och skaparen svarar, men omdömet och svaret visas för ägaren först efter första beslutet; snabba
 objektiva kontroller (bygget, konsolen, spill, axe, siffror utan belägg, menyn) markerar brister. Fördjupningen (hela startsidan, undersidan och besökarens centrala flöde, DESIGN.md) kommer
 efter ägarens val. NWP_KANDIDATLAGE=full är en tillfällig växel till förvalet nedan, för jämförelse och återställning.
 
@@ -86,6 +86,7 @@ FRIST_SKISS = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS') or 2700)  # ett inl
 # skaparens svar, granskarens egen gräns, och NWP_SKISSKRITIK=av stänger av den
 SKISSKRITIK_RESERV = int(os.environ.get('NWP_KANDIDAT_SKISSKRITIK_RESERV') or 900)
 SVAR_MIN = 420  # sekunder som minst krävs för skaparens svar på granskningen; annars inget svar (granskningen 2026-10-06)
+FORTSATT_MIN = 600  # en uppföljande skaparsession (researchens resultat, en fortsättning) går före granskningen under tio minuter
 SVARSRUBRIK = 'Svar på granskningen'  # skaparens svar i RIKTNING.md; visas för ägaren först efter första beslutet
 FRIST_SKISSKRITIK = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISSKRITIK') or 480)
 SKISSKRITIK_SCHEMA = {
@@ -387,9 +388,9 @@ def uppdragsmaterial_rader(slug, kid):
                '  (färgerna, typsnitten, typskalan, avstånden, radierna och skuggorna i Referos namn; ändra aldrig filen, importera',
                '  den i layouten eller sidan), %s.tema.css samma värden som Tailwind-tema, och %s.STILPAKET.md färgernas roller,' % (namn, namn),
                '  typsnitten med fria ersättare, typskalan, layouten, bildspråket och gör och gör inte; stilens egna sidor i',
-               '  %s/preview_0..2.jpg. Ett förslag du får ompröva: bygg typografin, färgerna och avstånden på variablerna,' % s.get('original'),
-               '  skriv kundens anpassning i %s.anpassning.css och lägg raden ur STILPAKET.md i DESIGN.md:s "import"; eller' % namn,
-               '  skriv i DESIGN.md skälet att avvika;']
+               '  %s/preview_0..2.jpg. Ett förslag du får ompröva: bygg typografin, färgerna och avstånden på variablerna och' % s.get('original'),
+               '  skriv kundens anpassning i %s.anpassning.css, eller skriv i RIKTNING.md skälet att avvika (raden ur' % namn,
+               '  STILPAKET.md förs in i DESIGN.md:s "import" i fördjupningen);']
     elif s.get('fel'):
         ut += ['- huvudreferensens stil i Refero (%s) kunde inte hämtas (%s): bygg på huvudreferensens bilder;' % (s.get('id'), s['fel'])]
     if v.get('mobbin'):
@@ -975,7 +976,7 @@ def skisskritik_rader(kr):
             '"Kvarvarande svagheter". Kärnan läste du i skissens första session; slå upp i den när svaret behöver det.', '']
 
 
-def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=30, forsok_min=None, kritik=None):
+def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=30, forsok_min=None, kritik=None, fortsattning=False):
     """Skaparens rena arbetskontext i skissläget (ägarens uppdrag 2026-10-05 16:25Z, punkt 2 och 4): uppdraget, kundens
     verifierade fakta och material, referensbilderna, de aktuella besluten och metodens kärna med en förteckning att slå
     upp i. Historiken slås upp vid behov."""
@@ -1006,6 +1007,8 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         'Mobilens meny prövas i verkligt tillstånd i 390 och 768: en knapp med aria-expanded (eller details och summary) i',
         'header eller nav som öppnar navigationen; syns navigationens alla länkar utan meny behövs ingen knapp.', '',
         *(['Förra försöket slutade med ett tekniskt fel: %s. Det som finns står kvar i projektet; rätta felet först.' % fel, ''] if fel else []),
+        *(['Förra sessionen nådde sin tidsgräns innan skissen var klar. Skissen och RIKTNING.md står kvar i projektet: fortsätt',
+           'där du slutade och gör klart det som behövs för att förslaget ska gå att bedöma.', ''] if fortsattning else []),
         *skisskritik_rader(kritik),
         'Ditt underlag, det du behöver läsa:',
         '- uppdraget %s: designuppdraget, besökarens viktigaste uppgift, den viktigaste sektionen, huvudreferensen och' % rel(d / 'UPPDRAG.md'),
@@ -1030,9 +1033,11 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         'inline-händelser som onclick= stoppas av CSP:n och syns som konsolfel (byggstandarden 8.2). Innehållet och',
         'navigationen fungerar utan JavaScript.', '',
         *(skapande.kompletteringsrader(komplettering) + [''] if komplettering else []),
-        *kompetens.prompt_rader('skapa', slug, kid), '',
+        *(['Kompetensernas kärna läste du i skissens första session; slå upp i den när det behövs.'] if (kritik or fortsattning)
+          else kompetens.prompt_rader('skapa', slug, kid)), '',
         'Arbetsgången:',
-        *(['Det här är svaret på granskningen: steg 0 gjordes i skissens första session; gör det som svaret behöver.'] if kritik else []),
+        *(['Steg 0 gjordes i skissens första session; gör det som %s behöver.' % ('svaret på granskningen' if kritik else 'fortsättningen')]
+          if (kritik or fortsattning) else []),
         '0. Använd hela kompetensen: läs rollernas kärna hel (eller ladda skillen med skillverktyget) och välj bland',
         '   alternativen det som passar riktningen, för art direction (frontend-design, impeccable new-work och bolder eller',
         '   quieter), typografi (impeccable typeset), bilder (kunskap/bild.md), innehåll, användbarhet och kontakt (Mobbin, UI UX',
@@ -1261,10 +1266,11 @@ def skissa(slug, kid, fel=None):
     # den kritiska granskaren och skaparens svar (ägarens uppdrag 2026-10-06, punkt 6): inte i ett omförsök efter ett
     # tekniskt fel, och den första sessionen lämnar tiden för dem
     granskas = not fel and os.environ.get('NWP_SKISSKRITIK') != 'av' and not st.get('skisskritik')
-    for k in range(2):
+    fortsatt = False  # en fortsättning efter en tidsgräns, med granskningens reserv (högst en)
+    for k in range(3):
         rest = int(frist - FOTO_RESERV - (time.monotonic() - start))
-        if granskas and k and rest - SKISSKRITIK_RESERV < 120 <= rest:
-            # researchen på begäran går före granskningen: skaparen får använda resultatet (granskningen 2026-10-06)
+        if granskas and k and rest - SKISSKRITIK_RESERV < FORTSATT_MIN <= rest:
+            # den uppföljande sessionen (researchens resultat) går före granskningen när den annars får under tio minuter
             granskas = False
             satt_status(slug, kid, 'under_arbete', 'researchen på begäran fick granskningens tid',
                         skisskritik={'tid': nu(), 'gjord': False, 'skal': 'researchen på begäran fick granskningens tid'})
@@ -1273,7 +1279,8 @@ def skissa(slug, kid, fel=None):
             break
         ut = d / ('svar-skiss-%d%s.json' % (forsok, '-%d' % k if k else ''))
         try:
-            svar = atelje.session(skiss_prompt(slug, kid, fel, res, erbjud=not kompletterad, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60),
+            svar = atelje.session(skiss_prompt(slug, kid, fel, res, erbjud=not kompletterad, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60,
+                                               fortsattning=fortsatt),
                                   verktyg(slug, kid, komplettering=not kompletterad) + kompetens.verktyg('skapa', slug, kid), ut,
                                   max_turer=500, effort=EFFORT_SKISS, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
                                   vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'skiss, försök %d' % forsok, session_pid=pid))
@@ -1285,6 +1292,12 @@ def skissa(slug, kid, fel=None):
         sessioner.append({'svar': ut.name, **{x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd', 'avbruten')}})
         if atelje.STOPP.is_set():  # arbetaren stoppas: försöket står kvar under arbete och startas om vid återupptagningen
             raise atelje.Stoppad('försöket avbröts av stoppet')
+        if svar.get('tidsgrans') and granskas and not fortsatt:
+            # skaparen behövde mer tid: granskningens reserv går tillbaka till skissen som en fortsättning, ingen granskning
+            granskas, fortsatt = False, True
+            satt_status(slug, kid, 'under_arbete', 'skissen fortsätter med granskningens tid',
+                        skisskritik={'tid': nu(), 'gjord': False, 'skal': 'skaparen behövde granskningens tid (en fortsättning)'})
+            continue
         if not (d / skapande.KOMPLETTERING).is_file():
             break
         kvar = int(frist - (time.monotonic() - start))
@@ -1301,7 +1314,7 @@ def skissa(slug, kid, fel=None):
         granskas = False  # skissen hann inte bli klar inom tiden: ingen granskning och inget svar som kan bryta den
         satt_status(slug, kid, 'under_arbete', 'ingen granskning: skaparens session nådde tidsgränsen',
                     skisskritik={'tid': nu(), 'gjord': False, 'skal': 'skaparens session nådde tidsgränsen'})
-    fore_svaret = None
+    fore_svaret, svar_avbrutet = None, None
     if granskas and not atelje.STOPP.is_set():
         kvar = int(frist - FOTO_RESERV - (time.monotonic() - start))
         kr, kr_fel = None, None
@@ -1327,25 +1340,31 @@ def skissa(slug, kid, fel=None):
                                       max_turer=400, effort=EFFORT_SKISS, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
                                       vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen', session_pid=pid))
             except subprocess.TimeoutExpired:
-                svar = {'avbruten': 'försökets tid (%d min) tog slut' % (frist // 60), 'tidsgrans': True}
+                svar = {'avbruten': 'svarets tid räckte inte', 'tidsgrans': True}  # försöket räknas inte som tidsgräns: skissen före svaret är hel
             except RuntimeError as e:
                 svar = {'avbruten': 'RuntimeError: %s' % str(e)[:300]}
                 sessionsfel.append(str(e)[:200])
+            svar_avbrutet = svar.get('avbruten')
             sessioner.append({'svar': ut.name, **{x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd', 'avbruten')}})
             if atelje.STOPP.is_set():
                 raise atelje.Stoppad('försöket avbröts av stoppet')
     tidigare = las_status(slug, kid)
     satt_status(slug, kid, 'under_arbete', 'fotograferas', sessioner=(tidigare.get('sessioner') or []) + sessioner)
     st = fotografera(slug, kid, skiss=True)
-    if fore_svaret and st['status'] != 'klar' and st.get('hinder'):
-        # svaret på granskningen bröt skissen: versionen före svaret återställs och fotograferas, så att ägaren har en
-        # skiss att bedöma (granskningen 2026-10-06); svaret står kvar i svaret-*.json och i statusen
-        hinder_svaret = list(st.get('hinder') or [])
-        aterstall_fore_svaret(slug, kid, fore_svaret)
-        st = fotografera(slug, kid, skiss=True)
-        satt_status(slug, kid, st['status'], st.get('skal') or '', skisskritik=dict(las_status(slug, kid).get('skisskritik') or {},
-                    svaret_aterstallt=nu(), svarets_hinder=hinder_svaret[:4]))
-        st = las_status(slug, kid)
+    if fore_svaret:
+        bygget = lambda st_: any(x.startswith('bygget föll') or x.startswith('startsidan saknas') for x in st_.get('hinder') or [])  # noqa: E731
+        if st['status'] != 'klar' and st.get('hinder') and not bygget(st):
+            st = fotografera(slug, kid, skiss=True)  # bara fotograferingen föll: en gång till innan svaret kastas
+        if svar_avbrutet or (st['status'] != 'klar' and st.get('hinder')):
+            # svaret på granskningen blev inte klart eller bröt skissen: versionen före svaret återställs och fotograferas,
+            # så att ägaren har en hel skiss att bedöma (granskningen 2026-10-06); svaret står kvar i svar-*.json
+            skal_svaret = svar_avbrutet or '; '.join((st.get('hinder') or [])[:3])
+            aterstall_fore_svaret(slug, kid, fore_svaret)
+            st = fotografera(slug, kid, skiss=True)
+            satt_status(slug, kid, st['status'], st.get('skal') or '', skisskritik=dict(las_status(slug, kid).get('skisskritik') or {},
+                        svaret_aterstallt=nu(), svarets_skal=str(skal_svaret)[:300]))
+            st = las_status(slug, kid)
+        shutil.rmtree(fore_svaret, ignore_errors=True)  # kopian av projektet (med kundens bilder) ligger inte kvar
     tidsgrans = any('tog slut' in str(x.get('avbruten') or '') for x in sessioner)
     # ett identifierat tekniskt fel: sessionen föll, bygget föll eller bilderna saknas; en tid som tog slut är inget
     # tekniskt fel, och ett nytt försök vore en förlängning (ägarens försöksbudget 2026-10-05)
@@ -1764,6 +1783,7 @@ def huvudreferensens_namn(text):
     hel = re.split(r'\s+[—–·]+\s+|\s+-+\s+', str(text or '').strip(), maxsplit=1)[0]
     utanfor = r'(?![^()]*\))'  # inte inne i en parentes
     namnen = [x.strip().strip('*`').strip() for x in re.split(r'\s*[,;]\s*%s|\s+(?:och|samt|and|\+|&|/)\s+%s' % (utanfor, utanfor), hel)]
+    namnen = [re.sub(r'(?i)^(med\s+)?(lån|inspiration|influenser)\s+(från|av)\s+', '', x).strip() for x in namnen]  # "egen, med lån från Tekt"
     namnen = [x for x in namnen if x]
     ovriga = [x for x in namnen if referensens_namn(x) not in EGEN]  # "egen + Tekt" bär Tekt; "Tekt, egen" är ingen referens "egen"
     return bool(namnen) and not ovriga, ovriga
@@ -2230,7 +2250,11 @@ def referensjamforelse(slug, kid):
 REDOVISNINGSRUBRIKER = ('Idén', 'Referenser', OVERFORT, 'Kvarvarande svagheter')
 
 
-GRANSKNINGSORD = re.compile(r'(?i)granskar|granskning|kritiker')
+# den interna granskningen i skaparens text: granskaren, granskningen, kritiken, kritikern, recensenten och
+# rekommendationen att förkasta eller byta; verbet "granskar" (besökaren granskar arbeten) och omdömen (kundernas
+# recensioner) är inte granskningen
+GRANSKNINGSORD = re.compile(r'(?i)\bgranskare\w*|\bgranskning\w*|\bkritik\w*|\brecensent\w*|\brekommend\w*[^.]{0,40}\b(förkast|byt)\w*'
+                            r'|\bförkasta\w*\s+riktningen|\bbedömning\w*[^.]{0,40}\b(generisk|förkast|byt)\w*')
 
 
 def utan_granskning(text):
@@ -2264,9 +2288,7 @@ def kort_redovisning(slug, kid):
         if a is None or a == '':
             ut.append({'rubrik': r, 'avsnitt': None if not a else ''})
             continue
-        text, bort = utan_granskning(re.sub(r'^#{1,6}[^\n]*\n?', '', a, count=1))
-        if bort:
-            text += '\n\n*(%d %s om den interna granskningen visas efter ditt första beslut.)*' % (bort, 'rad' if bort == 1 else 'rader')
+        text, _bort = utan_granskning(re.sub(r'^#{1,6}[^\n]*\n?', '', a, count=1))  # ingen not: den säger att granskningen fanns
         ut.append({'rubrik': r, 'avsnitt': text.strip()[:8000]})
     return ut
 
@@ -2977,7 +2999,7 @@ def redovisa_skiss(slug, status):
              'Skissläget (kontroller/kandidater.py): skaparna med %s, effort %s; högst %d samtidigt, %d minuter per inledande' % (
                  status.get('modell'), EFFORT_SKISS, min(PARALLELLT, MAX_PARALLELLT_SKISS), FRIST_SKISS // 60),
              'försök med verktygsväntan, ett omförsök på %d minuter bara vid ett identifierat tekniskt fel. Ingen granskningspanel' % (FRIST_SKISS_OMFORSOK // 60),
-             'och ingen förbättringsrunda före ägarens val. En intern granskare såg varje skiss (bara bilderna) och skaparen fick',
+             'och ingen förbättringsrunda före ägarens val. En intern granskare såg skisserna (bara bilderna) när tiden räckte, och skaparen fick',
              'svara; granskarens omdöme och svaret visas först efter ägarens första beslut. Ingen modell har rangordnat skisserna.', '',
              '## Tiderna', '',
              '- startad %s; researchen klar %s; planen klar %s; första valbara skissen %s; klar %s.' % (
@@ -3163,6 +3185,10 @@ def sammanstall(slug):
         if not blind:
             k = atelje.las_json(d / 'KRITIK.json') or {}
             fore = (st.get('forbattrad') or {}).get('fore')
+            sk_, skr_ = atelje.las_json(d / 'SKISSKRITIK.json') or {}, st.get('skisskritik') or {}
+            post['skisskritik'] = dict({x: sk_.get(x) for x in ('storsta_problem', 'synliga_problem', 'generiskt', 'rekommendation', 'motivering', 'varv', 'tid')},
+                                       gjord=bool(skr_.get('gjord')), skal=skr_.get('skal'), aterstallt=skr_.get('svaret_aterstallt'),
+                                       svarets_skal=skr_.get('svarets_skal')) if (sk_ or skr_) else None
             post.update(titel=st.get('titel'), huvudreferens=st.get('huvudreferens'), material=material(slug, kid), referensbilder=uppdragets_bilder(slug, kid),
                         riktning=(d / 'RIKTNING.md').read_text(encoding='utf-8', errors='replace')[:30000] if (d / 'RIKTNING.md').is_file() else '',
                         kritik={x: k.get(x) for x in ('forsta_intryck', 'uppgift', 'helhet', 'styrkor', 'avvikelser', 'niva', 'material', 'referens',

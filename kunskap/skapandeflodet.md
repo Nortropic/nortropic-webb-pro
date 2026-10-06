@@ -38,8 +38,8 @@ besökarens uppgift löses; färgbyten på samma layout är inga olika förslag.
   sessionen föll), ingen förlängning för att nå antalet. Inget fast antal varv: varje varv åtgärdar en brist skaparen
   sett i sina bilder eller vid jämförelsen med referensen. En skiss som inte blir klar redovisas som ofullständig med
   skälet och det sparade arbetet; ett avbrutet försök sparas i `forsok-<n>/` och startas om i ett nytt projekt.
-- **Före ägarens val** ingen granskningspanel och ingen förbättringsrunda. En intern granskare ser varje skiss (bara
-  bilderna, aldrig skaparens text) och skaparen svarar under "Svar på granskningen" i RIKTNING.md; granskarens omdöme och
+- **Före ägarens val** ingen granskningspanel och ingen förbättringsrunda. En intern granskare ser skisserna när tiden
+  räcker (bara bilderna, aldrig skaparens text) och skaparen svarar under "Svar på granskningen" i RIKTNING.md; granskarens omdöme och
   svaret visas först efter ägarens första beslut. De snabba kontrollerna (bygget, konsolen, spill, axe, siffror utan
   belägg i underlaget, menyn i 390 och 768, huvudreferensraden) markerar brister och ändrar aldrig uttrycket. Vyn visar
   skisserna neutralt, utan rekommendation eller poäng; ofullständiga står med.
