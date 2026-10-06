@@ -3022,6 +3022,7 @@ try:
     (al_ / 'atelje' / 'FORBATTRING-AGAREN.json').write_text('[{"omdome": "efter är bättre"}]')
     (al_ / 'atelje' / 'AGARENS-DOM.json').write_text('{"1": "blind dom"}')
     (al_ / 'atelje' / 'omgang-1').mkdir(); (al_ / 'atelje' / 'omgang-1' / 'AGARENS-DOM.json').write_text('{"2": "äldre blind dom"}')
+    (al_ / 'prototyp' / 'AGARENS-DOM.json').write_text('{"0": "domen över den äldre prototypen"}')  # dashboarden 2026-10-05 (r93, BÖR 3)
     sk.lagg_till_dom('pt-aldre', 'ägaren', 'ny_riktning', 'Ingen av dem.', underlag=pt_und)
     info_al = {}
     assert sorted(at_pt.ta_bort_beslut('pt-aldre', info_al)) == sorted(at_pt.rel(p) for p in (al_ / 'REFERENSER.md', al_ / 'atelje', al_ / 'prototyp'))
@@ -3030,8 +3031,9 @@ try:
     assert h_al[1]['utfall'] == 'borttagen vid ett omtag, utan egen dom' and h_al[1]['kritik'] == '', ('ingen lånad dom (r92d, KAN 3)', h_al[1])
     beh_ = {str(f_.relative_to(al_ / 'agarens-omdomen')).split('/', 1)[1]: f_.read_text() for f_ in (al_ / 'agarens-omdomen').glob('*/**/*.json')}
     assert beh_ == {'atelje/FORBATTRING-AGAREN.json': '[{"omdome": "efter är bättre"}]', 'atelje/AGARENS-DOM.json': '{"1": "blind dom"}',
-                    'atelje/omgang-1/AGARENS-DOM.json': '{"2": "äldre blind dom"}'}, ('ägarens egna omdömen kopierade med sin plats', beh_)
-    assert len(info_al['behallna']) == 3 and not (al_ / 'atelje').exists(), info_al
+                    'atelje/omgang-1/AGARENS-DOM.json': '{"2": "äldre blind dom"}',
+                    'prototyp/AGARENS-DOM.json': '{"0": "domen över den äldre prototypen"}'}, ('ägarens egna omdömen kopierade med sin plats', beh_)
+    assert len(info_al['behallna']) == 4 and not (al_ / 'atelje').exists() and not (al_ / 'prototyp').exists(), info_al
     fo_ = pt_und / 'pt-forfining'
     (fo_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
     (fo_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'startad': '2026-10-06T04:00:00Z'}))
@@ -3067,6 +3069,141 @@ try:
     sk.lagg_till_historik('pt-namnlos', [{'kalla': 'y', 'namn': 'Med namn', 'utfall': 'u'}], pt_und)
     assert [x_.get('kalla') for x_ in json.loads((pt_und / 'pt-namnlos' / sk.HISTORIK).read_text())] == ['x', 'y']
     assert (th_ / sk.HISTORIK).read_text() == '{trasig' and (th_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').is_file(), 'historiken orörd, inget borttaget'
+    # granskningen av r93: läget fulls förbättringsrunda (BÖR 1), rester och kataloger som inte går att lista (BÖR 2), den
+    # äldre prototypens ägardom (BÖR 3), en kopia som faller (BÖR 4), bokföringen (BÖR 5), stämpeln (KAN 1), en länkad
+    # målkatalog (KAN 3), udda historikposter (KAN 5), poster som inte är dict (KAN 7) och den äldre prototypen när
+    # körningen redan bokförts (KAN 9)
+    def atelje_med(slug_, kand, st_run=None, plan_tid='2026-10-06T03:10:00Z'):
+        d_ = pt_und / slug_
+        (d_ / 'atelje' / 'kandidater').mkdir(parents=True, exist_ok=True)
+        (d_ / 'atelje' / 'STATUS.json').write_text(json.dumps(st_run or {'steg': 'fel', 'startad': '2026-10-06T04:00:00Z'}))
+        (d_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': plan_tid, 'kandidater': {k_: {'titel': t_, 'ide': 'en idé'} for k_, (t_, _) in kand.items()}}))
+        for k_, (_, s_) in kand.items():
+            (d_ / 'atelje' / 'kandidater' / k_).mkdir(exist_ok=True)
+            (d_ / 'atelje' / 'kandidater' / k_ / 'STATUS.json').write_text(json.dumps(s_))
+        return d_
+    fu_ = atelje_med('pt-full', {
+        'k01': ('Visad, sedan förbättrad', {'status': 'under_arbete', 'forbattras': {'fore': 'v1'}, 'logg': [{'status': 'klar'}, {'status': 'under_arbete'}]}),
+        'k02': ('Förbättras, loggen kapad', {'status': 'under_arbete', 'forbattras': {'fore': 'v1'}, 'logg': [{'status': 'under_arbete'}]}),
+        'k03': ('Visad, sedan föll', {'status': 'fel', 'logg': [{'status': 'klar'}, {'status': 'fel'}]}),
+        'k04': ('Aldrig visad', {'status': 'fel', 'fotograferad': '2026-10-06T03:30:00Z', 'logg': [{'status': 'under_arbete'}, {'status': 'fel'}]})})
+    try:
+        at_pt.ta_bort_beslut('pt-full')
+        raise AssertionError('läget full: en visad kandidat i förbättringsrundan raderades utan dom')
+    except RuntimeError as e_:
+        assert all(t_ in str(e_) for t_ in ('Visad, sedan förbättrad', 'Förbättras, loggen kapad', 'Visad, sedan föll')) and 'Aldrig visad' not in str(e_), e_
+    sk.lagg_till_dom('pt-full', 'ägaren', 'ny_riktning', 'Ingen av dem.', underlag=pt_und)
+    at_pt.ta_bort_beslut('pt-full')
+    assert [h['namn'] for h in sk.historik('pt-full', pt_und)] == ['Visad, sedan förbättrad', 'Förbättras, loggen kapad', 'Visad, sedan föll'], sk.historik('pt-full', pt_und)
+    # bokföringen: den valda i förfiningen förs in, den som föll inte (BÖR 5)
+    sk.lagg_till_dom('pt-forfining', 'ägaren', 'ny_riktning', 'Inte den heller.', underlag=pt_und)
+    at_pt.ta_bort_beslut('pt-forfining')
+    assert [h['namn'] for h in sk.historik('pt-forfining', pt_und)] == ['Den valda'], sk.historik('pt-forfining', pt_und)
+    # en rest efter ett omtag som avbröts mellan namnbyte och radering, med ägarens dom i en omgång, och en fil som rest
+    re_ = atelje_med('pt-rest', {'k01': ('En', {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'})
+    (re_ / '.borttaget-20261005T000000Z-1-atelje' / 'omgang-1').mkdir(parents=True)
+    (re_ / '.borttaget-20261005T000000Z-1-atelje' / 'omgang-1' / 'AGARENS-DOM.json').write_text('{"1": "dom i en rest"}')
+    (re_ / '.borttaget-20261005T000000Z-1-REFERENSER.md').write_text('r')
+    (re_ / 'atelje' / '.AGARENS-DOM.json.tmp4242').write_text('{"1": "halv skrivning"}')  # dashboardens temporärfil (KAN 2)
+    sk.lagg_till_dom('pt-rest', 'ägaren', 'ny_riktning', 'Ny riktning.', underlag=pt_und)
+    info_re = {}
+    at_pt.ta_bort_beslut('pt-rest', info_re)
+    beh_re = {str(f_.relative_to(re_ / 'agarens-omdomen')).split('/', 1)[1]: f_.read_text() for f_ in (re_ / 'agarens-omdomen').glob('*/**/*') if f_.is_file()}
+    assert beh_re == {'tidigare-omtag/.borttaget-20261005T000000Z-1-atelje/omgang-1/AGARENS-DOM.json': '{"1": "dom i en rest"}',
+                      'atelje/.AGARENS-DOM.json.tmp4242': '{"1": "halv skrivning"}'}, beh_re
+    assert not list(re_.glob('.borttaget-*')) and info_re['rester'] == [], (list(re_.iterdir()), info_re)
+    # en katalog som inte går att lista: inget stoppas och inget flyttas (BÖR 2)
+    ol_ = atelje_med('pt-olasbar', {'k01': ('En', {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'})
+    (ol_ / 'atelje' / 'foregaende' / 'x').mkdir(parents=True)
+    sk.lagg_till_dom('pt-olasbar', 'ägaren', 'ny_riktning', 'Ny riktning.', underlag=pt_und)
+    arbetare_ol = falsk_process('python -B kontroller/atelje.py pt-olasbar --arbetare --lage ny')
+    (ol_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z', 'pid': arbetare_ol.pid}))
+    os.chmod(ol_ / 'atelje' / 'foregaende' / 'x', 0)
+    try:
+        at_pt.ta_bort_beslut('pt-olasbar')
+        raise AssertionError('omtaget gick igenom fast en katalog inte gick att lista')
+    except RuntimeError as e_:
+        assert 'går inte att gå igenom' in str(e_) and arbetare_ol.poll() is None and (ol_ / 'atelje' / 'STATUS.json').is_file(), e_
+    finally:
+        os.chmod(ol_ / 'atelje' / 'foregaende' / 'x', 0o755)
+    # en kopia som faller: allt flyttas tillbaka, inget raderas, inga halva kopior, ingen ny historik (BÖR 4)
+    ko_ = atelje_med('pt-kopiefel', {'k01': ('En', {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'})
+    (ko_ / 'atelje' / 'AGARENS-DOM.json').write_text('{"1": "dom"}')
+    (ko_ / 'atelje' / 'omgang-1').mkdir(); (ko_ / 'atelje' / 'omgang-1' / 'AGARENS-DOM.json').write_text('{"2": "äldre"}')
+    sk.lagg_till_dom('pt-kopiefel', 'ägaren', 'ny_riktning', 'Ny riktning.', underlag=pt_und)
+    orig_copy2 = at_pt.shutil.copy2
+
+    def nekad_copy2(a_, b_, *r_, **k_):
+        if 'omgang-1' in str(a_):
+            raise PermissionError(13, 'Permission denied')
+        return orig_copy2(a_, b_, *r_, **k_)
+
+    at_pt.shutil.copy2 = nekad_copy2
+    try:
+        at_pt.ta_bort_beslut('pt-kopiefel')
+        raise AssertionError('omtaget gick igenom fast en kopia föll')
+    except RuntimeError as e_:
+        assert 'omtaget gjordes inte' in str(e_) and 'allt annat står kvar' in str(e_), e_
+    finally:
+        at_pt.shutil.copy2 = orig_copy2
+    assert (ko_ / 'atelje' / 'AGARENS-DOM.json').read_text() == '{"1": "dom"}' and (ko_ / 'atelje' / 'omgang-1' / 'AGARENS-DOM.json').is_file()
+    assert not list(ko_.glob('.borttaget-*')) and not list((ko_ / 'agarens-omdomen').glob('*')) and sk.historik('pt-kopiefel', pt_und) == [], 'inget borttaget'
+    # namnbytet faller: ägarens filer står kvar i ateljén, ingen kopia (KAN 7, M14)
+    (ut_ / 'atelje').mkdir(parents=True, exist_ok=True); (ut_ / 'atelje' / 'AGARENS-DOM.json').write_text('{"1": "x"}')
+    (kt_ / 'sajt' / 'src').mkdir(parents=True, exist_ok=True)
+    sk.lagg_till_dom('pt-tillbaka', 'ägaren', 'ny_riktning', 'Igen.', underlag=pt_und)
+    os.rename = nekad_rename
+    try:
+        at_pt.ta_bort_beslut('pt-tillbaka')
+        raise AssertionError('omtaget gick igenom fast ett namnbyte föll')
+    except RuntimeError:
+        pass
+    finally:
+        os.rename = orig_rename
+    assert (ut_ / 'atelje' / 'AGARENS-DOM.json').read_text() == '{"1": "x"}' and not (ut_ / 'agarens-omdomen').exists(), 'ägarens fil kvar, ingen kopia'
+    # två omtag i samma process och sekund får olika stämplar (KAN 1)
+    orig_nu = at_pt.nu
+    at_pt.nu = lambda: '2026-10-06T12:00:00Z'
+    try:
+        for i_ in (1, 2):
+            st_ = atelje_med('pt-stampel', {'k01': ('En %d' % i_, {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T0%d:00:00Z' % (i_ + 2)}, plan_tid='plan-%d' % i_)
+            (st_ / 'atelje' / 'AGARENS-DOM.json').write_text('{"%d": "dom %d"}' % (i_, i_))
+            sk.lagg_till_dom('pt-stampel', 'ägaren', 'ny_riktning', 'Omtag %d.' % i_, underlag=pt_und)
+            at_pt.ta_bort_beslut('pt-stampel')
+    finally:
+        at_pt.nu = orig_nu
+    assert sorted(f_.read_text() for f_ in (pt_und / 'pt-stampel' / 'agarens-omdomen').glob('*/atelje/AGARENS-DOM.json')) == ['{"1": "dom 1"}', '{"2": "dom 2"}']
+    # agarens-omdomen som länk: inget tas bort (KAN 3)
+    la_ = atelje_med('pt-lank', {'k01': ('En', {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'})
+    (tmp / 'pt-lank-mal').mkdir(); (la_ / 'agarens-omdomen').symlink_to(tmp / 'pt-lank-mal')
+    sk.lagg_till_dom('pt-lank', 'ägaren', 'ny_riktning', 'Ny riktning.', underlag=pt_und)
+    try:
+        at_pt.ta_bort_beslut('pt-lank')
+        raise AssertionError('omtaget skrev genom en länk')
+    except RuntimeError as e_:
+        assert 'länk' in str(e_) and (la_ / 'atelje').is_dir(), e_
+    # udda historikposter (förda för hand) fäller inte omtaget med TypeError (KAN 5); poster som inte är dict står kvar (KAN 7, M16)
+    ud2_ = atelje_med('pt-udda', {'k01': ('En', {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'})
+    (ud2_ / sk.HISTORIK).write_text(json.dumps([1, 'text', None, {'namn': 'Förd för hand', 'utfall': None, 'tid': 5}]))
+    sk.lagg_till_dom('pt-udda', 'ägaren', 'ny_riktning', 'Ny riktning.', underlag=pt_und)
+    at_pt.ta_bort_beslut('pt-udda')
+    h_ud = json.loads((ud2_ / sk.HISTORIK).read_text())
+    assert h_ud[:4] == [1, 'text', None, {'namn': 'Förd för hand', 'utfall': None, 'tid': 5}] and h_ud[4]['namn'] == 'En', h_ud
+    # den äldre prototypen när körningen redan bokförts för hand: en post utan lånad dom (KAN 9)
+    ab_ = atelje_med('pt-aldre-bokford', {'k01': ('En', {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'})
+    (ab_ / 'prototyp').mkdir(); (ab_ / 'prototyp' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-06T02:00:00Z'}))
+    (ab_ / 'REFERENSER.md').write_text('Huvudreferens: Ashton — stenduk och falurött\n')
+    sk.lagg_till_historik('pt-aldre-bokford', [{'kalla': 'för hand ur domen', 'namn': 'En', 'utfall': 'underkänd av ägaren', 'tid': '2026-10-06T03:30:00Z'},
+                                               {'kalla': 'för hand', 'namn': 'riktningen på huvudreferensen Ashton', 'utfall': 'underkänd av ägaren', 'tid': '2026-10-06T03:30:00Z'}], pt_und)
+    at_pt.ta_bort_beslut('pt-aldre-bokford')
+    assert [h['namn'] for h in sk.historik('pt-aldre-bokford', pt_und)] == ['En', 'riktningen på huvudreferensen Ashton'], 'redan bokförd, ingen dubblett'
+    ab2_ = atelje_med('pt-aldre-bokford2', {'k01': ('En', {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'})
+    (ab2_ / 'prototyp').mkdir(); (ab2_ / 'prototyp' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-06T02:00:00Z'}))
+    (ab2_ / 'REFERENSER.md').write_text('Huvudreferens: Bergman — kalkputs\n')
+    sk.lagg_till_historik('pt-aldre-bokford2', [{'kalla': 'för hand ur domen', 'namn': 'En', 'utfall': 'underkänd av ägaren', 'tid': '2026-10-06T03:30:00Z'}], pt_und)
+    at_pt.ta_bort_beslut('pt-aldre-bokford2')
+    h_ab2 = sk.historik('pt-aldre-bokford2', pt_und)
+    assert [h['namn'] for h in h_ab2] == ['En', 'riktningen på huvudreferensen Bergman'] and h_ab2[1]['utfall'] == 'borttagen vid ett omtag, utan egen dom', h_ab2
     # bara kundens egna pågående flödessessioner avslutas: en annan kunds session, en avslutad post och en process som
     # inte är en flödessession lämnas orörda
     sv_rot = tmp / 'sv-atelje'

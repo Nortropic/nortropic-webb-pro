@@ -230,8 +230,14 @@ def lagg_till_historik(slug, poster, underlag=None):
         raise RuntimeError('%s går inte att tolka som en lista; inget skrivs över (rätta filen först)' % f.name)
     allt = befintliga + [dict(p, tid=p.get('tid') or nu()) for p in poster]  # alla befintliga poster, också namnlösa (r92d)
     tmp = f.with_name('.%s.tmp%d' % (HISTORIK, os.getpid()))
-    tmp.write_text(json.dumps(allt, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    os.replace(tmp, f)
+    try:  # till disken före bytet, och ingen halv temporärfil kvar efter ett fel (granskningen av r93, KAN 8)
+        with open(tmp, 'w', encoding='utf-8') as ut:
+            ut.write(json.dumps(allt, ensure_ascii=False, indent=1) + '\n')
+            ut.flush()
+            os.fsync(ut.fileno())
+        os.replace(tmp, f)
+    finally:
+        tmp.unlink(missing_ok=True)
     return allt
 
 

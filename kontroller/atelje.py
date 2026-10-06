@@ -2114,6 +2114,32 @@ def vanta(rot, sekunder):
 
 
 AGARENS_FILER = ('AGARENS-DOM.json', 'FORBATTRING-AGAREN.json')  # ägarens egen inmatning i ateljén (dashboarden)
+# också dashboardens halva skrivningar (.AGARENS-DOM.json.tmp<pid>), som kan ha den senaste texten (granskningen av r93, KAN 2)
+AGARFIL = re.compile(r'^\.?(?:AGARENS-DOM|FORBATTRING-AGAREN)\.json(?:\.tmp\d+)?$')
+INTE_AGARENS = ('kandidater', 'kunder-kandidater', 'node_modules')  # kandidaternas projekt: där skriver skaparen (r93, KAN 11)
+
+
+def agarens_filer(rot):
+    """Ägarens egen inmatning under rot, utan att följa länkar och utom i kandidaternas projekt. En katalog som inte går
+    att lista höjer OSError, eftersom ingen då vet vad den innehåller (granskningen av r93, BÖR 2)."""
+    def fel(e):
+        raise e
+    ut = []
+    for d_, dirs_, filer_ in os.walk(rot, onerror=fel):  # följer inga länkar
+        dirs_[:] = [x for x in dirs_ if x not in INTE_AGARENS]
+        ut += [Path(d_) / n_ for n_ in filer_ if AGARFIL.match(n_) and (Path(d_) / n_).is_file() and not (Path(d_) / n_).is_symlink()]
+    return sorted(ut)
+
+
+def flytta_tillbaka(flyttade):
+    """Det som flyttats undan flyttas tillbaka, i omvänd ordning; ger det som inte gick."""
+    kvar = []
+    for kalla_, mal_ in reversed(flyttade):
+        try:
+            os.rename(mal_, kalla_)
+        except OSError:
+            kvar.append(rel(kalla_))
+    return kvar
 
 
 def ta_bort_beslut(slug, info=None):
@@ -2126,19 +2152,20 @@ def ta_bort_beslut(slug, info=None):
     historiken med ägarens senaste dom innan de tas bort. Hela sajten raderas, också en godkänd och helbyggd; leveransen
     (kunder/<slug>/kundrepo och tidigare exporter) rörs inte, och en sajt som är ett eget git-repo raderas aldrig.
     Utan en dom som gäller körningen raderas inget som ägaren sett (en visad kandidat, en vald riktning eller en äldre
-    prototyp som inte står i historiken): RuntimeError, och då har inget stoppats eller ändrats. Annars avslutas först
-    förra körningens kvarlevande processer (stoppa_kvarvarande). Varje post byter namn till en dold syskonkatalog
-    (.borttaget-<tid>-<namn>) och raderas sedan, så att ett avbrott aldrig lämnar en halv ateljé; rester av ett tidigare
-    avbrutet omtag raderas också. Går ett namnbyte inte flyttas allt tillbaka, och inget är borttaget (RuntimeError).
-    Ägarens egen inmatning i ateljén (AGARENS_FILER, var som helst i ateljén) kopieras först till
-    underlag/<slug>/agarens-omdomen/<tid>/ och raderas aldrig.
+    prototyp som inte står i historiken): RuntimeError, och då har inget stoppats eller ändrats. Detsamma gäller när något
+    som ska raderas inte går att gå igenom. Annars avslutas först förra körningens kvarlevande processer
+    (stoppa_kvarvarande). Varje post byter namn till en dold syskonkatalog (.borttaget-<tid>-<namn>). Ur det som flyttats
+    undan, och ur rester av ett tidigare avbrutet omtag, kopieras ägarens egen inmatning (AGARENS_FILER) till
+    underlag/<slug>/agarens-omdomen/<tid>/ med sin plats; dit kan dashboarden inte längre skriva. Därefter skrivs
+    historiken, och sist raderas det som flyttats undan. Går ett namnbyte, en kopia eller historiken inte, flyttas allt
+    tillbaka och inget är borttaget (RuntimeError); de halva kopiorna tas bort.
     Ger de borttagna sökvägarna; info (en dict) får 'stoppade', 'rester' (det som inte gick att radera) och 'behallna'."""
     info = info if info is not None else {}
     if not SLUG.match(str(slug)):
         raise RuntimeError('ogiltig slug: %r' % (slug,))
     u, k = UNDERLAG / slug, KUNDER / slug
-    if u.is_symlink() or k.is_symlink():
-        raise RuntimeError('underlag/%s eller kunder/%s är en länk; inget tas bort' % (slug, slug))
+    if u.is_symlink() or k.is_symlink() or (u / 'agarens-omdomen').is_symlink():  # ägarens domar skrivs aldrig genom en länk (r93, KAN 3)
+        raise RuntimeError('underlag/%s, kunder/%s eller underlag/%s/agarens-omdomen är en länk; inget tas bort' % (slug, slug, slug))
     hf = u / skapande.HISTORIK
     if (hf.exists() or hf.is_symlink()) and not isinstance(las_json(hf), list):  # före allt annat (r92d, KAN 4)
         raise RuntimeError('%s går inte att tolka; inget är stoppat eller borttaget (rätta filen först)' % rel(hf))
@@ -2147,22 +2174,29 @@ def ta_bort_beslut(slug, info=None):
     st_a, st_p = las_json(u / 'atelje' / 'STATUS.json') or {}, las_json(u / 'prototyp' / 'STATUS.json') or {}
     # körningen domen ska gälla: när den blev klar, eller när den startade om den aldrig blev klar (föll, stoppades), som
     # i prototyp.lage; utan det räknades varje äldre post som bokförd (granskningen av r92b, BÖR 1)
-    domd_tid = st_a.get('klar') or st_a.get('startad') or st_p.get('klar') or st_p.get('startad') or ''
+    domd_tid = str(st_a.get('klar') or st_a.get('startad') or st_p.get('klar') or st_p.get('startad') or '')
     galler = bool(dom and dom['beslut'] in ('ny_riktning', 'forkasta') and dom.get('tid', '') > domd_tid)  # domen kom efter körningen den dömer
     tidigare = skapande.historik(slug, UNDERLAG)
-    if any(h.get('utfall', '').startswith('underkänd') and h.get('tid', '') >= domd_tid for h in tidigare):
+    falt = lambda h, f: str(h.get(f) or '')  # noqa: E731  (en post förd för hand kan ha tal eller null; r93, KAN 5)
+    bokford = any(falt(h, 'utfall').startswith('underkänd') and falt(h, 'tid') >= domd_tid for h in tidigare)
+    if bokford:
         galler = False  # den dömda körningen står redan i historiken (förd för hand ur domen)
     plan = las_json(u / 'atelje' / 'KANDIDATPLAN.json') or {}
     import kandidater
     # utan arkiv finns det ägaren sett bara i historiken efteråt: utan en dom som gäller körningen, och utan att körningen
     # redan står i historiken, raderas inget (granskningen av r92, BÖR 3)
-    # sedd är en kandidat ägaren kan bedöma, eller en som ägaren valt i en dom för just den här planen och som står under
+    # sedd är en kandidat ägaren kan bedöma eller har kunnat bedöma i den här planen (läget fulls förbättringsrunda sätter
+    # den under arbete igen; r93, BÖR 1), eller en som ägaren valt i en dom för just den här planen och som står under
     # arbete igen (en förfining som stoppades; r92c, BÖR 2); en som föll eller aldrig visades är inte sedd (r92d, BÖR 1)
     valda = {str(x.get('id')) for d in skapande.domar(slug, UNDERLAG) if d.get('kalla') in skapande.AGAREN
-             for x in (d.get('kandidater') or []) if isinstance(x, dict) and plan.get('tid') and x.get('plan') == plan.get('tid')}
-    sedd = lambda kid, s: s.get('status') in kandidater.VISBARA or kid in valda  # noqa: E731
-    sedda = [str(kp.get('titel') or kid) for kid, kp in sorted((plan.get('kandidater') or {}).items() if isinstance(plan.get('kandidater'), dict) else [])
-             if isinstance(kp, dict) and sedd(kid, las_json(u / 'atelje' / 'kandidater' / kid / 'STATUS.json') or {})]
+             for x in (d.get('kandidater') or []) if isinstance(x, dict) and plan.get('tid') and (x.get('plan') or d.get('plan')) == plan.get('tid')}
+
+    def sedd(kid, s):
+        visad = any(isinstance(x, dict) and x.get('status') in kandidater.VISBARA for x in s.get('logg') or [])
+        return s.get('status') in kandidater.VISBARA or visad or bool(s.get('forbattras')) or kid in valda
+    kandplan = plan.get('kandidater') if isinstance(plan.get('kandidater'), dict) else {}
+    st_kand = {kid: las_json(u / 'atelje' / 'kandidater' / kid / 'STATUS.json') or {} for kid in kandplan}
+    sedda = [str(kp.get('titel') or kid) for kid, kp in sorted(kandplan.items()) if isinstance(kp, dict) and sedd(kid, st_kand[kid])]
     if v.get('riktning') is not None:
         sedda.append(riktningsavsnitt(u / 'atelje').get(v['riktning'], ('riktning %s' % v['riktning'], ''))[0])
     aldre = st_p.get('klar') and referensval.huvudreferensrader(slug, UNDERLAG)  # en äldre prototyp, också bredvid kandidater (r92c, BÖR 1)
@@ -2170,82 +2204,105 @@ def ta_bort_beslut(slug, info=None):
         sedda.append('riktningen på huvudreferensen %s' % aldre[0][0])
     if (k / 'sajt' / '.git').exists():
         raise RuntimeError('kunder/%s/sajt är ett eget git-repo och raderas inte av ett omtag; fråga ägaren. Inget är borttaget.' % slug)
-    bokford = any(h.get('utfall', '').startswith('underkänd') and h.get('tid', '') >= domd_tid for h in tidigare)
     if sedda and not galler and not bokford:
         raise RuntimeError('ingen dom från ägaren gäller körningen (senaste: %s), och det ägaren sett (%s) står inte i historiken; '
                            'döm först i dashboardens vy Prototyp (ny riktning eller förkasta). Inget är borttaget.'
                            % ('%s %s' % (dom.get('beslut'), dom.get('tid')) if dom else 'ingen dom', ', '.join(sedda)[:300]))
+    # allt som ska raderas på underlagssidan, och rester av ett tidigare omtag, ska gå att gå igenom innan något stoppas:
+    # en katalog som inte går att lista kan innehålla ägarens egna filer (r93, BÖR 2)
+    u_sidan = [u / n for n in ('atelje', 'prototyp', 'forhand', 'tvaan')]
+    rester_fore = sorted(p for p in u.glob('.borttaget-*') if p.is_dir() and not p.is_symlink())
+    rester_ovrigt = sorted(p for p in u.glob('.borttaget-*') if p not in rester_fore)  # filer och länkar ur ett tidigare omtag
+    for p in [p for p in u_sidan if p.is_dir() and not p.is_symlink()] + rester_fore:
+        try:
+            agarens_filer(p)
+        except OSError as e:
+            raise RuntimeError('%s går inte att gå igenom (%s); där kan ägarens egna filer finnas. Inget är stoppat eller borttaget.'
+                               % (rel(Path(e.filename)) if e.filename else rel(p), e.strerror or e))
     info['stoppade'] = stoppa_kvarvarande(slug, u / 'atelje', st_a)  # först nu: ett omtag som vägras stoppar inget
+    # historikens poster bestäms nu, medan filerna står kvar, och skrivs efter kopian (r93, KAN 4)
+    poster = []
     if galler and isinstance(plan.get('kandidater'), dict):
         # kandidatflödet: varje kandidat ägaren såg förs in i historiken med domen och det ägaren gillade i just den, så att
         # nästa utforskning vet vad som prövats (och vad som var värt att behålla)
         delar = dom.get('delar') if isinstance(dom.get('delar'), dict) else {}
-        poster = []
-        for kid, kp in sorted(plan['kandidater'].items()):
-            st_k = las_json(u / 'atelje' / 'kandidater' / kid / 'STATUS.json') or {}
-            if not sedd(kid, st_k) or any(h.get('namn') == kp.get('titel') and h.get('tid', '') >= domd_tid for h in tidigare):
+        for kid, kp in sorted(kandplan.items()):
+            st_k = st_kand[kid]
+            if not isinstance(kp, dict) or not sedd(kid, st_k) or any(h.get('namn') == kp.get('titel') and falt(h, 'tid') >= domd_tid for h in tidigare):
                 continue
             poster.append({'kalla': 'kandidatflödet, %s' % kid, 'namn': str(kp.get('titel') or kid), 'drag': sammandrag(str(kp.get('ide') or '')),
                            'utfall': 'underkänd av %s' % dom['kalla'],
                            'kritik': (re.sub(r'\s+', ' ', dom['text'])[:700] + ('; ägaren gillade: ' + re.sub(r'\s+', ' ', str(delar[kid]))[:300] if delar.get(kid) else '')),
                            **({'referens': st_k['huvudreferens']} if st_k.get('huvudreferens') else {})})
-        if poster:
-            skapande.lagg_till_historik(slug, poster, UNDERLAG)
     elif galler and v.get('riktning') is not None:
         namn, text = riktningsavsnitt(u / 'atelje').get(v['riktning'], ('riktning %s' % v['riktning'], ''))
-        if not any(h.get('namn') == namn and h.get('utfall', '').startswith('underkänd') for h in tidigare):
-            skapande.lagg_till_historik(slug, [{'kalla': 'ateljén, vald och förfinad', 'namn': namn, 'drag': sammandrag(text),
-                                                'utfall': 'underkänd av %s' % dom['kalla'], 'kritik': re.sub(r'\s+', ' ', dom['text'])[:900],
-                                                **({'referens': v['huvudreferens']['namn']} if (v.get('huvudreferens') or {}).get('namn') else {})}], UNDERLAG)
+        if not any(h.get('namn') == namn and falt(h, 'utfall').startswith('underkänd') for h in tidigare):
+            poster.append({'kalla': 'ateljén, vald och förfinad', 'namn': namn, 'drag': sammandrag(text),
+                           'utfall': 'underkänd av %s' % dom['kalla'], 'kritik': re.sub(r'\s+', ' ', dom['text'])[:900],
+                           **({'referens': v['huvudreferens']['namn']} if (v.get('huvudreferens') or {}).get('namn') else {})})
     hanterad = isinstance(plan.get('kandidater'), dict) or v.get('riktning') is not None
-    if galler and referensval.huvudreferensrader(slug, UNDERLAG) and (st_p.get('klar') or not hanterad):  # en äldre väg (prototyp/)
+    # en äldre väg (prototyp/) får en post också när körningen redan bokförts för hand (r93, KAN 9)
+    if (galler or bokford) and referensval.huvudreferensrader(slug, UNDERLAG) and (st_p.get('klar') or not hanterad):
         namn_, vad_ = referensval.huvudreferensrader(slug, UNDERLAG)[0]
         namn = 'riktningen på huvudreferensen %s' % namn_
         # en post som redan bokför referensen som underkänd (förd för hand eller ur ett tidigare omtag) räcker
         if not any(h.get('namn') == namn for h in tidigare) and not provad_referens(slug, namn_):
-            egen_dom = not hanterad  # bredvid kandidater eller en vinnare gäller domen dem, inte den äldre prototypen
-            skapande.lagg_till_historik(slug, [{'kalla': 'tidigare designbeslut (REFERENSER.md)', 'namn': namn, 'drag': vad_, 'referens': namn_,
-                                                'utfall': 'underkänd av %s' % dom['kalla'] if egen_dom else 'borttagen vid ett omtag, utan egen dom',
-                                                'kritik': re.sub(r'\s+', ' ', dom['text'])[:900] if egen_dom else ''}], UNDERLAG)
-    stampel, flyttade = '%s-%d' % (nu().replace(':', ''), os.getpid()), []
-    # ägarens egen inmatning i ateljén (blinda domar och före/efter-omdömen, också i omgångar och förra körningar) raderas
-    # aldrig: den kopieras först till underlag/<slug>/agarens-omdomen/<tid>/ med sin plats; en ateljé som är en länk läses
-    # inte (r92d, BÖR 2 och KAN 1); går en kopia inte görs inget annat (KAN 2)
-    a_rot, behallna = u / 'atelje', []
-    if a_rot.is_dir() and not a_rot.is_symlink():
-        for d_, dirs_, filer_ in os.walk(a_rot):  # följer inga länkar
-            for n_ in filer_:
-                kalla_ = Path(d_) / n_
-                if n_ in AGARENS_FILER and kalla_.is_file() and not kalla_.is_symlink():
-                    mal_ = u / 'agarens-omdomen' / stampel / kalla_.relative_to(u)
-                    mal_.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(kalla_, mal_)
-                    behallna.append(rel(mal_))
-    info['behallna'] = sorted(behallna)
+            egen_dom = galler and not hanterad  # bredvid kandidater eller en vinnare gäller domen dem, inte den äldre prototypen
+            poster.append({'kalla': 'tidigare designbeslut (REFERENSER.md)', 'namn': namn, 'drag': vad_, 'referens': namn_,
+                           'utfall': 'underkänd av %s' % dom['kalla'] if egen_dom else 'borttagen vid ett omtag, utan egen dom',
+                           'kritik': re.sub(r'\s+', ' ', dom['text'])[:900] if egen_dom else ''})
+    # stämpeln är unik också för två omtag i samma process och sekund (r93, KAN 1)
+    for n_ in range(100):
+        stampel = '%s-%d%s' % (nu().replace(':', ''), os.getpid(), '-%d' % n_ if n_ else '')
+        if not os.path.lexists(u / 'agarens-omdomen' / stampel) and not any(next(r_.glob('.borttaget-%s-*' % stampel), None) for r_ in (u, k)):
+            break
+    else:
+        raise RuntimeError('ingen ledig stämpel för omtaget; inget är borttaget')
+    flyttade = []
     # först flyttas allt undan med namnbyten (en länk byter namn som länk, aldrig det den pekar på); går ett inte flyttas
-    # resten tillbaka, så att omtaget antingen görs helt eller inte alls; sedan raderas det som flyttats undan
-    for kalla in (u / 'REFERENSER.md', u / 'KONCEPT.md', u / 'atelje', u / 'prototyp', u / 'forhand', u / 'tvaan', k / 'sajt', k / 'kandidater'):
+    # resten tillbaka, så att omtaget antingen görs helt eller inte alls
+    for kalla in (u / 'REFERENSER.md', u / 'KONCEPT.md', *u_sidan, k / 'sajt', k / 'kandidater'):
         if not (kalla.is_symlink() or kalla.exists()):
             continue
         mal = kalla.with_name('.borttaget-%s-%s' % (stampel, kalla.name))
         try:
             os.rename(kalla, mal)
         except OSError as e:
-            kvar = []
-            for kalla_, mal_ in reversed(flyttade):
-                try:
-                    os.rename(mal_, kalla_)
-                except OSError:
-                    kvar.append(rel(kalla_))
+            kvar = flytta_tillbaka(flyttade)
             raise RuntimeError('omtaget gjordes inte: %s gick inte att flytta undan (%s: %s); %s' % (
                 rel(kalla), type(e).__name__, e.strerror or e,
                 'allt står kvar' if not kvar else 'kunde inte flyttas tillbaka och står undan som .borttaget-%s-…: %s' % (stampel, ', '.join(kvar))))
         flyttade.append((kalla, mal))
-    for mal in dict.fromkeys([m for _, m in flyttade] + sorted(p for rot_ in (u, k) for p in rot_.glob('.borttaget-*'))):
+    # ägarens egen inmatning (blinda domar och före/efter-omdömen, också i omgångar, förra körningar, en äldre prototyp och
+    # rester av ett avbrutet omtag) kopieras med sin plats ur det som flyttats undan, dit dashboarden inte längre skriver
+    # (r93, KAN 2), och raderas aldrig; går en kopia eller historiken inte flyttas allt tillbaka (r93, BÖR 2–4)
+    malrot, behallna = u / 'agarens-omdomen' / stampel, []
+    try:
+        kallor = [(kalla.name, mal) for kalla, mal in flyttade if mal.parent == u and mal.is_dir() and not mal.is_symlink()]
+        kallor += [('tidigare-omtag/%s' % r_.name, r_) for r_ in rester_fore]
+        for namn_, rot_ in kallor:
+            for f_ in agarens_filer(rot_):
+                mal_ = malrot / namn_ / f_.relative_to(rot_)
+                if os.path.lexists(mal_):
+                    raise FileExistsError(17, 'finns redan', str(mal_))
+                mal_.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f_, mal_)
+                behallna.append(rel(mal_))
+        if poster:
+            skapande.lagg_till_historik(slug, poster, UNDERLAG)
+    except (OSError, RuntimeError) as e:
+        kvar = flytta_tillbaka(flyttade)
+        shutil.rmtree(malrot, ignore_errors=True)  # bara kopior
+        raise RuntimeError('omtaget gjordes inte: ägarens filer eller historiken gick inte att skriva (%s: %s); processerna är stoppade, %s' % (
+            type(e).__name__, getattr(e, 'strerror', None) or e,
+            'allt annat står kvar' if not kvar else 'men %s kunde inte flyttas tillbaka och står undan som .borttaget-%s-…' % (', '.join(kvar), stampel)))
+    info['behallna'] = sorted(behallna)
+    # sist raderas det som flyttats undan, rester som gåtts igenom ovan och rester på kundsidan (där skriver ägaren inget)
+    for mal in dict.fromkeys([m for _, m in flyttade] + rester_fore + rester_ovrigt + sorted(k.glob('.borttaget-*'))):
         if mal.is_symlink() or mal.is_file():
             mal.unlink(missing_ok=True)
         else:
-            shutil.rmtree(mal, ignore_errors=True)  # också rester av ett omtag som avbröts
+            shutil.rmtree(mal, ignore_errors=True)
     info['rester'] = sorted(rel(p) for rot_ in (u, k) for p in rot_.glob('.borttaget-*'))  # tas vid nästa omtag
     return [rel(kalla) for kalla, _ in flyttade]
 
