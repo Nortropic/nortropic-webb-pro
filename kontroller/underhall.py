@@ -606,42 +606,64 @@ def agare_lever(spar):
         return False
 
 
+def npm_installerar():
+    """Pågår en global npm-installation på maskinen (för hand, eller en uppdatering som Claude Code själv startat)? Ett
+    underhåll kör aldrig npm medan det lagar, så varje sådan process är någon annans (granskningen av r81, M1)."""
+    rc, ut = vl.kor(['ps', '-ax', '-o', 'command='], timeout=20)
+    return rc != 0 or any(re.search(r'\bnpm(?:-cli\.js)?\b.*\s(?:-g|--global)(?:\s|$)', x) for x in ut.splitlines())
+
+
+def lagg_lankar(spar, prefix_bin, kat):
+    """Binärens länkar som de var före intaget (LANKAR.json), när målet finns i trädet."""
+    for f, mal in (vl.las_json(Path(spar) / 'LANKAR.json', {}) or {}).items():
+        if Path(f).parent == prefix_bin and (Path(f).parent / mal).resolve().is_relative_to(Path(kat).resolve()) \
+                and (Path(f).parent / mal).exists() and (not os.path.islink(f) or os.readlink(f) != mal):
+            if os.path.lexists(f):
+                os.unlink(f)
+            os.symlink(mal, f)
+
+
 def laga_avbrutet_intag(paketkatalog, paket, binar=None):
-    """Ett intag som dog lämnar klonen (och kanske npm:s undanflyttade kopia) kvar. Bara när processen som gjorde klonen
-    är död: saknas trädet, eller har det en annan version än klonen, läggs klonen tillbaka med binärens länkar och
-    binären prövas; annars tas klonen bort. npm:s undanflyttade kopior tas bort först när de är äldre än en timme, så
-    att en pågående installation (för hand, eller Claude Codes egen) aldrig störs (granskningen av r80, H1 och L2).
-    Ger en rad till rapporten, eller None."""
+    """Ett intag som dog lämnar klonen (och kanske npm:s undanflyttade kopia) kvar. Lagningen rör ingenting medan
+    processen som gjorde klonen lever, medan en global npm-installation pågår på maskinen eller medan npm:s undanflyttade
+    kopia är yngre än en timme (granskningen av r81, M1). Svarar binären med trädets version vinner trädet och klonen
+    tas bort; annars flyttas trädet undan (det raderas aldrig innan klonen är på plats och binären svarar), klonen läggs
+    tillbaka med binärens länkar och binären prövas (r80, H1 och L2; r81, M2 och L3). Ger en rad till rapporten, eller None."""
     kat = Path(paketkatalog)
     spar = spar_for(kat, paket)
     kopia = spar / kat.name
+    if not binar or (spar.exists() and agare_lever(spar)):
+        return None  # ett intag pågår, eller binären att pröva med är okänd
+    if npm_installerar() or npm_undanflyttade(kat, nyare_an=time.time() - GAMMAL_S):
+        return ('%s: en klon från ett avbrutet intag väntar: en npm-installation pågår, så den lagas vid nästa underhåll' % paket) \
+            if (kopia / 'package.json').is_file() else None
+    prefix_bin = global_rot(kat, paket).parent.parent / 'bin'
     text = None
-    if spar.exists() and agare_lever(spar):
-        return None  # ett intag pågår
     if (kopia / 'package.json').is_file():
         try:
             gammal = json.loads((kopia / 'package.json').read_text(encoding='utf-8')).get('version')
             nu_ = json.loads((kat / 'package.json').read_text(encoding='utf-8')).get('version') if (kat / 'package.json').is_file() else None
-            prefix_bin = global_rot(kat, paket).parent.parent / 'bin'
-            fungerar = bool(nu_ and binar and vl.version_av([str(prefix_bin / binar), '--version']) == nu_)
-            if nu_ != gammal and fungerar:  # ett fungerande träd vinner, också en version som installerats för hand efteråt
-                text = '%s: en klon från ett avbrutet intag togs bort; det installerade (%s) fungerar' % (paket, nu_)
-            elif nu_ != gammal:  # ett halvgjort intag: det som fungerade läggs tillbaka, och intaget görs om vid nästa underhåll
-                if kat.is_symlink() or kat.is_file():
-                    kat.unlink()
-                elif kat.exists():
-                    shutil.rmtree(kat)
+            if nu_ and vl.version_av([str(prefix_bin / binar), '--version']) == nu_:  # ett fungerande träd vinner
+                text = ('%s: en klon från ett avbrutet intag togs bort; det installerade (%s) fungerar' % (paket, nu_)) if nu_ != gammal else None
+            else:  # trädet saknas eller svarar inte: det flyttas undan, och klonen läggs tillbaka
+                undan = None
+                if kat.exists() or kat.is_symlink():
+                    undan = kat.parent / ('.nwp-trasig-%s-%s' % (kat.name, time.strftime('%Y%m%dT%H%M%S')))
+                    os.rename(kat, undan)
                 os.rename(kopia, kat)
-                for f, mal in (vl.las_json(spar / 'LANKAR.json', {}) or {}).items():
-                    if Path(f).parent == prefix_bin and (not os.path.islink(f) or os.readlink(f) != mal):
-                        if os.path.lexists(f):
-                            os.unlink(f)
-                        os.symlink(mal, f)
-                svar = vl.version_av([str(prefix_bin / binar), '--version']) if binar else gammal
-                text = ('%s: ett avbrutet intag lagades, det installerade trädet (%s) lades tillbaka ur klonen' % (paket, gammal) if svar == gammal else
-                        '%s: ÅTERSTÄLLNINGEN FÖLL: klonen (%s) lades tillbaka, men %s svarar %s' % (paket, gammal, binar, svar))
+                lagg_lankar(spar, prefix_bin, kat)
+                svar = vl.version_av([str(prefix_bin / binar), '--version'])
+                if svar == gammal:
+                    if undan:
+                        shutil.rmtree(undan, ignore_errors=True)  # det trasiga trädet behövs inte när klonen svarar
+                    text = '%s: ett avbrutet intag lagades, det installerade trädet (%s) lades tillbaka ur klonen' % (paket, gammal)
+                else:
+                    return '%s: ÅTERSTÄLLNINGEN FÖLL: klonen (%s) lades tillbaka, men %s svarar %s%s' % (
+                        paket, gammal, binar, svar, '; det förra trädet ligger i %s' % undan if undan else '')
         except (OSError, ValueError) as e:
             return '%s: ÅTERSTÄLLNINGEN FÖLL: klonen från ett avbrutet intag i %s kunde inte läggas tillbaka: %s' % (paket, spar, e)
+    elif spar.exists() and (kat / 'package.json').is_file():  # klonen kom på plats men länkarna hann inte (r81, L3)
+        lagg_lankar(spar, prefix_bin, kat)
     for p in npm_undanflyttade(kat, aldre_an=time.time() - GAMMAL_S):
         shutil.rmtree(p, ignore_errors=True)
     shutil.rmtree(spar, ignore_errors=True)
@@ -668,6 +690,14 @@ def ta_in_globalt(k, r, kand, staged):
     rot = global_rot(kat, paket)
     prefix_bin = rot.parent.parent / 'bin'
     spar = spar_for(kat, paket)
+    if spar.exists():  # en klon som inte kunde lagas: intaget väntar (granskningen av r81, L1)
+        return 'behallen', 'en klon från ett tidigare intag ligger kvar i %s; tas in när den är lagad' % spar, None
+    try:  # det installerade läses om under låset: provet tog minuter, och någon kan ha uppdaterat under tiden (r81, M3)
+        nu_inst = json.loads((kat / 'package.json').read_text(encoding='utf-8')).get('version')
+    except (OSError, ValueError):
+        nu_inst = None
+    if nu_inst != gammal:
+        return 'behallen', 'det installerade ändrades under provet (%s → %s); prövas om vid nästa underhåll' % (gammal, nu_inst), None
     kopia = spar / kat.name
     spar.mkdir(parents=True, exist_ok=True)
     rc0, ut0 = vl.kor(['cp', '-cR', str(kat), str(kopia)], timeout=300)
@@ -687,7 +717,7 @@ def ta_in_globalt(k, r, kand, staged):
             for p in npm_undanflyttade(kat, nyare_an=start_):
                 shutil.rmtree(p, ignore_errors=True)
             return 'uppdaterad', '%s → %s (%s)%s' % (gammal, version, staged['prov'], ('; ' + lagat) if lagat else ''), None
-        fel_t = []
+        fel_t, klon_pa_plats = [], False
         if not (kopia / 'package.json').is_file():  # utan klon raderas aldrig trädet (granskningen av r80, H1)
             fel_t.append('klonen saknas i %s; trädet lämnat som det är' % spar)
         else:
@@ -697,9 +727,12 @@ def ta_in_globalt(k, r, kand, staged):
                 elif kat.exists():
                     shutil.rmtree(kat)
                 os.rename(kopia, kat)
+                klon_pa_plats = True
             except OSError as e:
                 fel_t.append('trädet: %s' % e)
-        for p in npm_undanflyttade(kat, nyare_an=start_):  # npm:s undanflyttade kopia från vårt intag: annars ENOTEMPTY nästa gång
+        for p in (npm_undanflyttade(kat, nyare_an=start_) if klon_pa_plats else []):
+            # npm:s undanflyttade kopia från vårt intag: annars ENOTEMPTY nästa gång; utan klonen på plats kan den vara den
+            # enda hela kopian och står kvar (granskningen av r81, L2)
             try:
                 shutil.rmtree(p)
             except OSError as e:
@@ -1783,7 +1816,7 @@ def hantera(k, r, rapport, utan_tunga=False):
             try:
                 fel, staged = prova(k, r, kand)
             except Exception as e:  # noqa: BLE001 — ett prov som kraschar är ett avvisat prov, med felet
-                fel, staged = 'provet föll: %s: %s' % (type(e).__name__, vl.sista(e, 200)), None
+                fel, staged = nat('provet föll: %s: %s' % (type(e).__name__, vl.sista(e, 200))), None  # full disk behåller (r81)
         post['till'] = kand['version']  # en skill kan ha prövats i den senaste commit som klarat karenstiden
         if fel and TRASIG.search(fel):  # miljön kan vara trasig: stoppar komponenten och står först i rapporten (M7)
             rapport['rader'].append(dict(post, resultat='fel', detalj=fel))
@@ -1810,7 +1843,7 @@ def hantera(k, r, rapport, utan_tunga=False):
                 try:
                     res, detalj, commit = ta_in(k, r, kand, staged)
                 except Exception as e:  # noqa: BLE001
-                    res, detalj, commit = 'avvisad', 'intaget föll: %s: %s' % (type(e).__name__, vl.sista(e, 200)), None
+                    res, detalj, commit = 'avvisad', nat('intaget föll: %s: %s' % (type(e).__name__, vl.sista(e, 200))), None
         if TRASIG.search(str(detalj)):  # en återställning som föll: miljön kan vara trasig (granskningen av r72, M7)
             res = 'fel'
             rapport.setdefault('trasigt', []).append('%s: %s' % (r['namn'], vl.sista(detalj, 200)))
