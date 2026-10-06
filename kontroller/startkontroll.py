@@ -317,12 +317,21 @@ def till_byggaren(rader):
     return ut[:6]
 
 
+def senaste_kvitto(rot, namn):
+    """Den senaste starten av slaget namn ur historiken (startkvitton/, en kopia per start), utom stoppade, eller {}."""
+    m_ = [(m.group(1), f) for f in (Path(rot) / 'startkvitton').glob(namn + '-2*.json')
+          for m in [re.fullmatch(re.escape(namn) + r'-(\d{4}-\d\d-\d\dT\d{6}Z)\.json', f.name)] if m]
+    return (vl.las_json(max(m_)[1], {}) or {}) if m_ else {}
+
+
 def markdown(kv):
     rad = ['# Startkvitto · %s · %s' % (kv.get('slug') or '(ingen kund)', kv['tid']), '',
            '**Status: %s.** Start: %s. %s' % ({'redo': 'redo', 'begransad': 'redo med begränsningar', 'stoppad': 'STOPPAD'}[kv['status']], kv['start'],
                                               ('Stoppar: ' + '; '.join(kv['stoppar'])) if kv['stoppar'] else ''), '',
            'Underhållet: %s.' % (kv.get('underhall') or 'har inte körts'), '']
-    if kv.get('aterupptagen'):
+    if (kv.get('aterupptagen') or {}).get('utan_kvitto'):
+        rad += ['Återupptagen körning som startades utan startkontroll: det fanns inget lås att ärva, så låset ovan gäller från nu.', '']
+    elif kv.get('aterupptagen'):
         rad += ['Återupptagen körning: låset från start %s gäller. Ändrat sedan dess: %s.' % (
             kv['aterupptagen']['startad'], ', '.join(kv['aterupptagen']['andrat']) or 'inget'), '']
     if kv.get('matinstrument_bytta'):
@@ -402,25 +411,30 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
         rot.mkdir(parents=True, exist_ok=True)
         namn = 'STARTKVITTO-BYGGE' if start == 'bygge' else 'STARTKVITTO'  # helbygget skriver inte över ateljéns kvitto
         tidigare = vl.las_json(rot / (namn + '.json'), {}) or {}
+        # baslinjen för ändringarna och mätinstrumenten är den förra starten, också när dess kvitto arkiverades med en
+        # körning som startades utan startkontroll (granskningen av r77, M4)
+        baslinje = tidigare or senaste_kvitto(rot, namn)
         # en stoppad start gjordes inte: dess kvitto står bredvid, och körningens kvitto (låset en återupptagning ärver)
         # står kvar (granskningen av r72, L1)
         filnamn = namn + ('-STOPP' if kv['status'] == 'stoppad' else '')
         alla = vl.andringar(k.katalog)
         kv['andringar_antal'] = len(alla)  # nästa kvitto räknar ändringarna efter de här (tider har bara sekunder)
-        if 'andringar_antal' in tidigare:
-            nya = alla[tidigare['andringar_antal']:]
+        if 'andringar_antal' in baslinje:
+            nya = alla[baslinje['andringar_antal']:]
         else:
-            nya = [a for a in alla if tidigare.get('tid') and a.get('tid', '') >= tidigare['tid']]
+            nya = [a for a in alla if baslinje.get('tid') and a.get('tid', '') >= baslinje['tid']]
         kv['matinstrument_bytta'] = [a for a in nya if a.get('matinstrument')]
         # ett instrument som bytts utanför underhållet (en commit, en installation för hand) syns också (fynd 15)
-        fore_m = tidigare.get('matinstrument_sett') or (tidigare.get('las') or {}).get('matinstrument') or {}
+        fore_m = baslinje.get('matinstrument_sett') or (baslinje.get('las') or {}).get('matinstrument') or {}
         kanda = {a.get('namn') for a in kv['matinstrument_bytta']}
         for n, v in sorted(nu_m.items()):
             if fore_m.get(n) and v and fore_m[n] != v and n not in kanda:
-                kv['matinstrument_bytta'].append({'namn': n, 'fran': fore_m[n], 'till': v, 'tid': 'utanför underhållet, sedan %s' % tidigare.get('tid')})
+                kv['matinstrument_bytta'].append({'namn': n, 'fran': fore_m[n], 'till': v, 'tid': 'utanför underhållet, sedan %s' % baslinje.get('tid')})
         if start in ('fortsatt', 'valda', 'putsa') and tidigare.get('las'):
             kv['aterupptagen'] = {'startad': tidigare.get('tid'), 'andrat': jamfor_las(tidigare['las'], kv['las'])}
             kv['las'] = tidigare['las']  # körningen behåller sitt låsta underlag
+        elif start in ('fortsatt', 'valda', 'putsa'):  # körningen startades utan startkontroll: inget lås att ärva (r77, L12)
+            kv['aterupptagen'] = {'startad': None, 'andrat': [], 'utan_kvitto': True}
         vl.skriv_json(rot / 'startkvitton' / ('%s-%s.json' % (filnamn, tid.replace(':', ''))), kv)
         vl.skriv_json(rot / (filnamn + '.json'), kv)
         (rot / (filnamn + '.md')).write_text(markdown(kv), encoding='utf-8')

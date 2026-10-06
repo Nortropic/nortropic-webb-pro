@@ -20,11 +20,14 @@ i uppdraget.
 """
 import argparse
 import hashlib
+import ipaddress
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -156,9 +159,10 @@ def kor_session(tjanst, prompt, logg, modell, frist=FRIST):
     return p.returncode, p.stderr.decode('utf-8', 'replace')[-500:]
 
 
-def las_logg(logg, svar_ut=None):
+def las_logg(logg, svar_ut=None, fel_ut=None):
     """(anrop per verktyg ur loggen, strukturerat svar, resultatpost). Modellens egen lista över anrop räknas aldrig.
-    Med svar_ut (en lista) läggs varje verktygssvar till ordagrant, parat med sitt anrop: (verktyg, indata, text)."""
+    Med svar_ut (en lista) läggs varje verktygssvar till ordagrant, parat med sitt anrop: (verktyg, indata, text); med
+    fel_ut (en mängd) också platserna i svar_ut för de svar som tjänsten gav som fel (is_error)."""
     anrop, res, slut, inne = {}, None, {}, {}
     try:
         for rad in Path(logg).read_text(encoding='utf-8', errors='replace').splitlines():
@@ -178,6 +182,8 @@ def las_logg(logg, svar_ut=None):
                         text = ''.join(x.get('text', '') for x in innehall if isinstance(x, dict) and x.get('type') == 'text') \
                             if isinstance(innehall, list) else str(innehall or '')
                         namn, indata = inne[c['tool_use_id']]
+                        if c.get('is_error') and fel_ut is not None:
+                            fel_ut.add(len(svar_ut))
                         svar_ut.append((namn, indata, text))
             elif d.get('type') == 'result':
                 res = d.get('structured_output'); slut = {k: d.get(k) for k in ('subtype', 'is_error', 'num_turns', 'duration_ms')}
@@ -240,9 +246,39 @@ def tillaten_bild(u, tjanst, lokala_portar=()):
     return d.scheme == 'https' and (d.hostname or '').lower() in TJANSTER[tjanst]['bildvardar']
 
 
+def offentlig_adress(u, lokala_portar=()):
+    """Får en omdirigering gå hit? https till en värd vars alla adresser är offentliga (aldrig loopback, privata nät
+    eller länklokala), eller provets egen lokala server."""
+    try:
+        d = urllib.parse.urlsplit(u)
+        if d.scheme == 'http' and d.hostname == '127.0.0.1' and d.port in set(lokala_portar):
+            return True
+        if d.scheme != 'https' or not d.hostname:
+            return False
+        adresser = {x[4][0] for x in socket.getaddrinfo(d.hostname, d.port or 443, proto=socket.IPPROTO_TCP)}
+        return bool(adresser) and all(ipaddress.ip_address(a_.split('%')[0]).is_global for a_ in adresser)
+    except (ValueError, OSError):
+        return False
+
+
+class Omdirigering(urllib.request.HTTPRedirectHandler):
+    """Följer en omdirigering bara till en offentlig adress: bildvärdens kortlänkar (Mobbin) omdirigerar, och första
+    adressens prövning gäller inte målet (granskningen av r77, L10)."""
+
+    def __init__(self, lokala_portar=()):
+        super().__init__()
+        self.lokala = tuple(lokala_portar)
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not offentlig_adress(newurl, self.lokala):
+            raise urllib.error.HTTPError(newurl, code, 'omdirigeringen till %s är inte tillåten' % (urllib.parse.urlsplit(newurl).hostname or '?'), headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def ladda_bild(u, mal, lokala_portar=()):
-    """Laddar ner en bild från tjänstens egen bildvärd (aldrig via proxyvariabler), högst MAX_BILD_BYTE. Ger (fil, None) eller (None, fel)."""
-    opp = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    """Laddar ner en bild från tjänstens egen bildvärd (aldrig via proxyvariabler), högst MAX_BILD_BYTE; en omdirigering
+    följs bara till en offentlig adress. Ger (fil, None) eller (None, fel)."""
+    opp = urllib.request.build_opener(urllib.request.ProxyHandler({}), Omdirigering(lokala_portar))
     try:
         with opp.open(urllib.request.Request(u, headers={'User-Agent': 'nortropic-webb-pro/referenstjanster'}), timeout=60) as r:
             typ = (r.headers.get('Content-Type') or '').split(';')[0].strip().lower()
@@ -260,6 +296,16 @@ def ladda_bild(u, mal, lokala_portar=()):
     return fil, None
 
 
+def unikt(ident, anvanda):
+    """ident, eller ident-2, -3 …: två träffar vars id ger samma filnamn skriver aldrig över varandras bilder."""
+    ut, n = ident, 1
+    while ut in anvanda:
+        n += 1
+        ut = '%s-%d' % (ident[:56], n)
+    anvanda.add(ut)
+    return ut
+
+
 MOBBIN_RESERV = 12  # skärmar per fråga ur Mobbins egna svar när sessionens svar saknar bildadresser
 
 
@@ -268,15 +314,17 @@ def ordlikhet(a, b):
     return len(ta & tb) / len(ta | tb) if ta and tb else 0.0
 
 
-def mobbin_ur_svaren(verktygssvar, fragor):
+def mobbin_ur_svaren(verktygssvar, fragor, felsvar=()):
     """Mobbins skärmar ur tjänstens egna svar (ett JSON-objekt med screens, sections eller flows), för när sessionens
     strukturerade svar saknar bildadresser: [{'id', 'titel', 'sida_url', 'bild_url', 'fraga'}] i svarens ordning, utan
-    dubbletter, högst MOBBIN_RESERV per fråga. Frågan är den av uppdragets Mobbin-frågor som delar flest ord med
-    sökningen (den riktiga körningen 2026-10-06: sessionen svarade med en tom post, fast svaren hade tio skärmar var)."""
+    dubbletter, högst MOBBIN_RESERV per fråga och MAX_TRAFFAR sammanlagt. Bara Mobbins egna sökverktyg, och aldrig ett
+    svar som tjänsten gav som fel (felsvar: platserna i verktygssvar). Frågan är den av uppdragets Mobbin-frågor som
+    delar flest ord med sökningen (den riktiga körningen 2026-10-06: sessionen svarade med en tom post, fast svaren hade
+    tio skärmar var)."""
     egna = [str(f.get('fraga') or '') for f in fragor if f.get('tjanst') == 'mobbin'] or ['']
     ut, sedda, per = [], set(), {}
-    for namn, indata, text in verktygssvar:
-        if not (namn or '').split('__')[-1].startswith('search_'):
+    for i_, (namn, indata, text) in enumerate(verktygssvar):
+        if not (namn or '').startswith('mcp__mobbin__search_') or i_ in felsvar or len(ut) >= MAX_TRAFFAR:
             continue
         for m in re.finditer(r'\{"query"', text or ''):
             try:
@@ -289,7 +337,8 @@ def mobbin_ur_svaren(verktygssvar, fragor):
             sokt = str(d.get('query') or (indata or {}).get('query') or '')
             fraga = max(egna, key=lambda f: ordlikhet(f, sokt))
             for x in lista:
-                if not isinstance(x, dict) or not x.get('image_url') or not x.get('id') or x['id'] in sedda or per.get(fraga, 0) >= MOBBIN_RESERV:
+                if not isinstance(x, dict) or not x.get('image_url') or not x.get('id') or x['id'] in sedda or per.get(fraga, 0) >= MOBBIN_RESERV \
+                        or len(ut) >= MAX_TRAFFAR:
                     continue
                 sedda.add(x['id'])
                 per[fraga] = per.get(fraga, 0) + 1
@@ -353,8 +402,9 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
             rc, fel = kor(tjanst, prompt_for(tjanst, fragor, verksamhet), logg, modell)
         except Exception as e:  # noqa: BLE001
             rc, fel = 1, str(e)[:300]
-        verktygssvar = []
-        anrop, svar, slut = las_logg(logg, verktygssvar)
+        verktygssvar, felsvar = [], set()
+        anrop, svar, slut = las_logg(logg, verktygssvar, felsvar)
+        anvanda = set()  # filnamnen i den här körningens bildmapp
         post['logg'] = str(logg.relative_to(underlag / slug))
         # tjänstens egna svar ordagrant: stildokumenten hela, skärmarnas och flödenas metadata, sökresultaten
         ra = tkat / ('ra-%s' % stampel)
@@ -396,7 +446,7 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
         else:
             post['anmarkningar'] += [x for x in [svar.get('anmarkning', '')] if x]
             for i, t in enumerate((svar.get('traffar') or [])[:MAX_TRAFFAR]):
-                ident = re.sub(r'[^a-zA-Z0-9_-]+', '-', str(t.get('id') or 'traff-%d' % (i + 1)))[:60] or 'traff-%d' % (i + 1)
+                ident = unikt(re.sub(r'[^a-zA-Z0-9_-]+', '-', str(t.get('id') or 'traff-%d' % (i + 1)))[:60] or 'traff-%d' % (i + 1), anvanda)
                 bild_url = str(t.get('bild_url') or '')[:500]
                 if tjanst == 'refero' and (not bild_url or 'thumb' in bild_url.lower()):  # Refero: ..._thumb.jpg är tumnageln
                     bild_url = forhandsbild(verktygssvar, str(t.get('id') or '')) or bild_url  # hela skärmen, inte tumnageln
@@ -414,7 +464,7 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
                 ladda_traffbild(traff, ident)
                 post['traffar'].append(traff)
             for i, t in enumerate((svar.get('stilar') or [])[:10]):
-                ident = 'stil-' + (re.sub(r'[^a-zA-Z0-9_-]+', '-', str(t.get('id') or i + 1))[:60] or str(i + 1))
+                ident = unikt('stil-' + (re.sub(r'[^a-zA-Z0-9_-]+', '-', str(t.get('id') or i + 1))[:60] or str(i + 1)), anvanda)
                 stil = {k: str(t.get(k) or '')[:2000] for k in ('titel', 'sida_url', 'bild_url', 'typografi', 'farger', 'layout', 'rytm', 'komponenter', 'fraga')}
                 namn = (titlar.get(str(t.get('id') or '')) or stil['titel']).lower()
                 stil.update(id=ident, fil=None, sha256=None, fel=None,
@@ -434,16 +484,22 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
                 post['stilar'].append(stil)
             if any(f.get('typ') == 'stil' for f in fragor) and not any(n.endswith('refero_get_style') for n in post['anrop']):
                 post['anmarkningar'].append('stilfrågan besvarades utan refero_get_style i sessionsloggen')
-        # Mobbin: saknar sessionens svar bildadresser läses skärmarna ur tjänstens egna svar, som finns ordagrant i loggen
-        if tjanst == 'mobbin' and not any(t.get('fil') for t in post['traffar']):
-            reserv = mobbin_ur_svaren(verktygssvar, fragor)
+        # Mobbin: gav sessionen inget giltigt svar, eller träffar utan en enda bildadress (den riktiga körningen
+        # 2026-10-06), läses skärmarna ur tjänstens egna svar, som finns ordagrant i loggen. En session som valde bort
+        # allt (inga träffar) eller vars nedladdningar föll behåller sitt svar (granskningen av r77, M3).
+        ogiltigt = rc != 0 or not svar
+        utan_adresser = bool(post['traffar']) and not any(t.get('bild_url') or any(x.get('fil') for x in t.get('steg') or []) for t in post['traffar'])
+        if tjanst == 'mobbin' and (ogiltigt or utan_adresser):
+            reserv = mobbin_ur_svaren(verktygssvar, fragor, felsvar)
             if reserv:
                 post['traffar'] = []
                 for t in reserv:
                     traff = dict(t, fil=None, sha256=None, byte=None, fel=None, steg=[], kalla='tjänstens svar')
-                    ladda_traffbild(traff, re.sub(r'[^a-zA-Z0-9_-]+', '-', t['id'])[:60])
+                    ladda_traffbild(traff, unikt(re.sub(r'[^a-zA-Z0-9_-]+', '-', t['id'])[:60] or 'reserv', anvanda))
                     post['traffar'].append(traff)
-                post['anmarkningar'].append('skärmarna lästes ur Mobbins egna svar (%d): sessionens svar saknade bildadresser' % len(reserv))
+                post['bilder'] = sum(1 for t in post['traffar'] if t.get('fil')) + sum(1 for x in post['stilar'] if x.get('fil'))
+                post['anmarkningar'].append('skärmarna lästes ur Mobbins egna svar (%d): %s' % (
+                    len(reserv), 'sessionen gav inget giltigt svar' if ogiltigt else 'sessionens träffar saknade bildadresser'))
         stilfraga = any(f.get('typ') == 'stil' for f in fragor)
         belagda = sum(1 for x in post['stilar'] if x.get('belagd'))
         # ok: verkliga anrop och levererat material; stilar räknas som material när deras värden är belagda (en

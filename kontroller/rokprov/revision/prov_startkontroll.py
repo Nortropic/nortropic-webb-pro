@@ -931,28 +931,112 @@ try:
                                            else (1, json.dumps({'vulnerabilities': SVAR_A[str(cwd)]})))
     f_ = uh.audit(TMP / 'kand', bas=TMP / 'bas')
     assert f_.startswith(uh.TILL) and 'ENOTFOUND' in f_, f_
-    # prova_globalt: utan det installerade trädet är beskedet BEHÅLLEN med skälet, och kandidaten installeras med
-    # karenstidens --before, som intaget sedan använder (samma upplösning som provades)
+    # prova_globalt (granskningarna av r76 och r77): kandidaten installeras som npm install -g gör (shallow) med
+    # karenstidens gräns, och båda sidor granskas ur sina installerade träd; utan det installerade trädet är beskedet
+    # BEHÅLLEN med skälet
     NPM_R76 = []
+    LAGE_R77 = {'binar': '60.1.3', 'valfria': {}, 'las': {}, 'npm_rc': 0, 'npm_ut': '', 'intag': 'faller'}
     spara_r76 = (uh.npm, vl.version_av)
 
     def falsk_npm_r76(args, cwd, timeout=900, env=None):
         NPM_R76.append(list(args))
-        return 0, ''
+        if '--prefix' in args and LAGE_R77['npm_rc'] == 0:  # provkatalogen: kandidatens träd som npm lägger det med shallow
+            d_ = Path(args[args.index('--prefix') + 1])
+            (d_ / 'node_modules' / 'vercel').mkdir(parents=True, exist_ok=True)
+            (d_ / 'node_modules' / 'vercel' / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.1.3',
+                                                                                   'optionalDependencies': LAGE_R77['valfria']}))
+            (d_ / 'package-lock.json').write_text(json.dumps({'packages': LAGE_R77['las']}))
+        return LAGE_R77['npm_rc'], LAGE_R77['npm_ut']
+
+    def falsk_kor_r77(args, cwd=None, **kw):
+        if str(args[0]).endswith('/.bin/vercel'):
+            return (0, 'Vercel CLI %s' % LAGE_R77['binar']) if LAGE_R77['binar'] else (1, 'Error: Cannot find module')
+        return 1, json.dumps({'vulnerabilities': sv_r76(('tar', 'a', 'critical'))})
     uh.npm = falsk_npm_r76
-    vl.kor = lambda args, cwd=None, **kw: (1, json.dumps({'vulnerabilities': sv_r76(('tar', 'a', 'critical'))}))
+    vl.kor = falsk_kor_r77
+    R_R77 = {'paket': 'vercel', 'installerat': '60.0.1', 'binar': 'vercel', 'id': 'npm-global:vercel'}
     try:
-        f_, st_ = uh.prova_globalt(None, {'paket': 'vercel', 'installerat': '60.0.1', 'binar': 'vercel', 'id': 'npm-global:vercel'}, {'version': '60.1.3'})
+        f_, st_ = uh.prova_globalt(None, R_R77, {'version': '60.1.3'})
         assert f_.startswith(uh.HALL) and 'installerad utanför npm' in f_ and 'tar GHSA-a (critical)' in f_ and st_ is None, f_
         fore_r76 = [a_ for a_ in NPM_R76[0] if a_.startswith('--before=')]
-        assert len(fore_r76) == 1 and fore_r76[0][len('--before='):] < vl.nu(), NPM_R76
-        vl.version_av = lambda a: '60.1.3'
+        assert len(fore_r76) == 1 and fore_r76[0][len('--before='):] < vl.nu() and '--install-strategy=shallow' in NPM_R76[0], NPM_R76
+        # gränsen har en timmes marginal mot karenstiden, så att plattformspaketen följer med (r77, M2)
+        assert abs(vl.iso_s(uh.karensgrans()) - (time.time() - vl.KARENS_DAGAR * 86400 + 3600)) < 5, uh.karensgrans()
+        # utan sårbarheter prövas binären: svarar den inte och ett valfritt beroende saknas i låset (uteslutet av gränsen)
+        # är beskedet BEHÅLLEN; saknas inget är det en avvisning (r77, M2)
+        vl.kor = lambda args, cwd=None, **kw: falsk_kor_r77(args, cwd) if str(args[0]).endswith('/.bin/vercel') else \
+            (0, json.dumps({'metadata': {'dependencies': {'total': 3}}}))
+        LAGE_R77.update(binar=None, valfria={'@x/bin-darwin-arm64': '1.0.0', '@x/bin-linux-x64': '1.0.0'},
+                        las={'node_modules/vercel': {}, 'node_modules/vercel/node_modules/@x/bin-linux-x64': {}})
+        f_, st_ = uh.prova_globalt(None, R_R77, {'version': '60.1.3'})
+        assert f_.startswith(uh.HALL) and '@x/bin-darwin-arm64' in f_ and '@x/bin-linux-x64' not in f_, f_
+        LAGE_R77['las']['node_modules/vercel/node_modules/@x/bin-darwin-arm64'] = {}
+        f_, st_ = uh.prova_globalt(None, R_R77, {'version': '60.1.3'})
+        assert f_ == 'provkatalogens vercel svarar None, väntade 60.1.3', f_
+        # ingen version före gränsen (ETARGET): BEHÅLLEN, med npm:s rad hel
+        LAGE_R77.update(npm_rc=1, npm_ut='npm error code ETARGET\nnpm error notarget No matching version found for vercel@60.1.3 with a date '
+                                          'before 10/3/2026, 4:00:00 AM.\nnpm error notarget In most cases you or one of your dependencies are requesting\n')
+        f_, st_ = uh.prova_globalt(None, R_R77, {'version': '60.1.3'})
+        assert f_.startswith(uh.HALL) and 'with a date before 10/3/2026, 4:00:00 AM.' in f_, f_
+        LAGE_R77.update(npm_rc=0, npm_ut='', binar='60.1.3')
+        # intaget: det installerade trädet sparas som klon och läggs tillbaka med binärens länkar när intaget faller,
+        # utan en ny installation av den gamla versionen (r77, M1); samma gräns som provet
+        PF_ = TMP / 'prefix-r77'
+        KAT_ = PF_ / 'lib' / 'node_modules' / 'vercel'
+        (KAT_ / 'dist').mkdir(parents=True)
+        (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.0.1'}))
+        (KAT_ / 'dist' / 'vc.js').write_text('gammal')
+        (PF_ / 'bin').mkdir()
+        os.symlink('../lib/node_modules/vercel/dist/vc.js', PF_ / 'bin' / 'vercel')
+        os.symlink('../lib/node_modules/annat/x.js', PF_ / 'bin' / 'annat')
+        R_IN = dict(R_R77, bin=str(PF_ / 'bin' / 'vercel'), via_npm=True, paketkatalog=str(KAT_))
+
+        def falsk_npm_intag(args, cwd, timeout=900, env=None):
+            NPM_R76.append(list(args))
+            (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.1.3'}))
+            (KAT_ / 'dist' / 'vc.js').write_text('ny')
+            os.unlink(PF_ / 'bin' / 'vercel')
+            os.symlink('../lib/node_modules/vercel/dist/ny.js', PF_ / 'bin' / 'vercel')
+            os.symlink('../lib/node_modules/vercel/dist/vc2.js', PF_ / 'bin' / 'vc')
+            return (1, 'npm error code ECONNRESET\nnpm error network aborted') if LAGE_R77['intag'] == 'faller' else (0, '')
+        uh.npm = falsk_npm_intag
+        vl.kor = spara_kor_m4  # klonen görs med den riktiga cp
+        vl.version_av = lambda a: json.loads((KAT_ / 'package.json').read_text())['version']
         NPM_R76.clear()
-        res_ = uh.ta_in_globalt(None, {'paket': 'vercel', 'installerat': '60.0.1', 'binar': 'vercel', 'bin': '/x/vercel', 'via_npm': True},
-                                {'version': '60.1.3'}, {'prov': 'p', 'fore': '2026-10-03T00:00:00Z'})
+        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p', 'fore': '2026-10-03T00:00:00Z'})
+        assert res_[0] == 'avvisad' and res_[1].startswith(uh.TILL) and 'lagt tillbaka' in res_[1] and len(NPM_R76) == 1, (res_, NPM_R76)
+        assert json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1' and (KAT_ / 'dist' / 'vc.js').read_text() == 'gammal'
+        assert os.readlink(PF_ / 'bin' / 'vercel') == '../lib/node_modules/vercel/dist/vc.js' and not os.path.lexists(PF_ / 'bin' / 'vc')
+        assert os.readlink(PF_ / 'bin' / 'annat') == '../lib/node_modules/annat/x.js' and not list((PF_ / 'lib').glob('.nwp-spar*'))
+        LAGE_R77['intag'] = 'lyckas'
+        NPM_R76.clear()
+        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p', 'fore': '2026-10-03T00:00:00Z'})
         assert res_[0] == 'uppdaterad' and '--before=2026-10-03T00:00:00Z' in NPM_R76[0] and '-g' in NPM_R76[0], (res_, NPM_R76)
+        assert not list((PF_ / 'lib').glob('.nwp-spar*')), 'klonen städas också när intaget lyckas'
+        assert uh.ta_in_globalt(None, dict(R_IN, paketkatalog=str(TMP / 'finns-inte')), {'version': '60.1.3'}, {'prov': 'p'})[0] == 'behallen'
+        vl.kor = lambda args, **kw: (0, '')  # en kopia som inte blev av: inget intag
+        NPM_R76.clear()
+        assert uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})[0] == 'behallen' and not NPM_R76, NPM_R76
     finally:
         uh.npm, vl.version_av = spara_r76
+    # ett godkänt prov gäller provreglerna: nya regler gör om det (r77, L7)
+    spara_regler = vl.PROVREGLER
+    try:
+        a1_ = uh.utgangslage(dict(v2))
+        vl.PROVREGLER = 'andra-regler'
+        assert uh.utgangslage(dict(v2)) != a1_
+    finally:
+        vl.PROVREGLER = spara_regler
+    # en bas som inte granskade något beroende gör inte alla kandidatens fynd nya (L4); HTTP 500 är tillfälligt (L5); en
+    # advisory utan url jämförs på sitt id (L1)
+    vl.kor = lambda args, cwd=None, **kw: (0, json.dumps({'metadata': {'dependencies': {'total': 0}}})) if str(cwd) == str(TMP / 'bas') else \
+        (1, json.dumps({'vulnerabilities': sv_r76(('tar', 'a', 'critical'))}))
+    f_ = uh.audit(TMP / 'kand', bas=TMP / 'bas')
+    assert f_.startswith(uh.HALL) and 'granskade inga beroenden' in f_, f_
+    assert uh.nat('npm audit kunde inte göras: E500 500 Internal Server Error - POST https://registry.npmjs.org/-/npm/v1/security/advisories/bulk').startswith(uh.TILL)
+    vl.kor = lambda args, cwd=None, **kw: (1, json.dumps({'vulnerabilities': {'tar': {'name': 'tar', 'severity': 'high',
+                                                                                         'via': [{'source': 77, 'name': 'tar', 'severity': 'high', 'title': 't'}]}}}))
+    assert ('tar', 'source:77') in uh.audit_fynd(TMP)[0], uh.audit_fynd(TMP)
     # basen är det installerade trädet som det ligger på disk: versionerna, aliaset och de nästlade, aldrig en ny
     # upplösning (H1), och npm läser låset
     G_ = TMP / 'npm-global-r76' / 'vercel'
@@ -1353,7 +1437,24 @@ assert utanfor and utanfor[0]['till'] == pin + '-utanfor' and 'utanför underhå
 assert kv['status'] == 'stoppad', 'låset och node_modules skiljer sig: starten stoppas, och körningens kvitto står kvar'
 kv = sk.kor_kontroll(SLUG, 'ny')
 assert not kv['matinstrument_bytta'], ('jämfört med den senaste start som gick är inget bytt', kv['matinstrument_bytta'])
-print('mätinstrumentets byte märkt i kvittot, också utanför underhållet, ok')
+# efter en start utan startkontroll (kvittot arkiverat med körningen) är baslinjen den förra starten ur historiken, så
+# att ett bytt instrument ändå syns (granskningen av r77, M4); en återupptagen start utan lås att ärva säger det (L12)
+rot_m4 = KOPIA / 'underlag' / SLUG / 'atelje'
+undan_m4 = {f_: (rot_m4 / f_).read_bytes() for f_ in ('STARTKVITTO.json', 'STARTKVITTO.md') if (rot_m4 / f_).is_file()}
+for f_ in undan_m4:
+    (rot_m4 / f_).unlink()
+vl.logga_andring(vl.lagekatalog(), id='instrument:axe-core', namn='axe-core', grupp='mätinstrument', fran='4.14.0', till='4.15.0',
+                 prov='rökprovet', commit=None, matinstrument=True)
+kv = sk.kor_kontroll(SLUG, 'ny')
+assert [a['till'] for a in kv['matinstrument_bytta'] if a['namn'] == 'axe-core'] == ['4.15.0'], kv['matinstrument_bytta']
+for f_ in ('STARTKVITTO.json', 'STARTKVITTO.md'):
+    (rot_m4 / f_).unlink(missing_ok=True)
+kv = sk.kor_kontroll(SLUG, 'fortsatt')
+assert kv['aterupptagen'] == {'startad': None, 'andrat': [], 'utan_kvitto': True}, kv.get('aterupptagen')
+assert 'startades utan startkontroll' in (KOPIA / kv['kvitto']).read_text(), kv['kvitto']
+for f_, b_ in undan_m4.items():
+    (rot_m4 / f_).write_bytes(b_)
+print('mätinstrumentets byte märkt i kvittot, också utanför underhållet och efter en start utan kontroll, ok')
 
 # worktree-mekanismen för hela rökprovet: grönt och rött, och worktreen städas
 riktig = importlib.reload(uh)

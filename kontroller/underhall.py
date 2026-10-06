@@ -76,8 +76,8 @@ BYTESLAS = korregister.BYTESLAS
 TILLFALLIGT = re.compile(r'tidsgränsen|inget svar inom|timed? ?out|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|getaddrinfo|'
                          r'URLError|Could not resolve|Temporary failure|Network is unreachable|nodename nor servname|'
                          r'Connection refused|No route to host|Failed to establish a new connection|NewConnectionError|'
-                         r'Max retries exceeded|rate.?limit|usage limit|limit reached|(?<![.\d])E?(?:429|50[234])(?![.\d])|'
-                         r'Service Unavailable|Bad Gateway|overloaded|quota|kvot', re.I)
+                         r'Max retries exceeded|rate.?limit|usage limit|limit reached|(?<![.\d])E?(?:429|50[0234])(?![.\d])|'
+                         r'Service Unavailable|Bad Gateway|Internal Server Error|overloaded|quota|kvot', re.I)
 TRASIG = re.compile(r'ÅTERSTÄLLNINGEN FÖLL|ÅTERLÄNKNINGEN FÖLL|MILJÖN TRASIG')  # miljön kan vara trasig: aldrig tillfälligt
 HALL = 'BEHÅLLEN: '  # prefix för ett prov som varken godkänner eller avvisar (karenstid, utanför flödets ansvar)
 TILL = 'TILLFÄLLIGT: '  # prefix för ett nätsteg som föll av ett tillfälligt skäl
@@ -205,31 +205,33 @@ def npm(args, cwd, timeout=900, env=None):
 
 
 def audit_fynd(cwd):
-    """(de kända sårbarheterna med allvar high eller critical som {(paket, advisory): text}, None), eller (None, felet)
-    när granskningen inte kunde göras (ett nätsteg; granskningen av r72, M4). Nyckeln är advisoryn, inte paketet: npm
-    audit sätter kedjans högsta allvar på varje paket i kedjan, så en ny advisory mot ett paket som redan stod med samma
-    allvar hade inte synts, och en rättad kritisk som lämnar en känd high hade sett ny ut (granskningen av r76, H1, M1)."""
+    """(de kända sårbarheterna med allvar high eller critical som {(paket, advisory): text}, None, antalet granskade
+    beroenden eller None), eller (None, felet, None) när granskningen inte kunde göras (ett nätsteg; granskningen av r72,
+    M4). Nyckeln är advisoryn, inte paketet: npm audit sätter kedjans högsta allvar på varje paket i kedjan, så en ny
+    advisory mot ett paket som redan stod med samma allvar hade inte synts, och en rättad kritisk som lämnar en känd high
+    hade sett ny ut (granskningen av r76, H1, M1)."""
     rc, ut = vl.kor(['npm', 'audit', '--omit=dev', '--audit-level=high', '--json'], timeout=300, cwd=cwd, env=vl.provmiljo(), bara_ut=True)
-    if rc == 0:
-        return {}, None
     try:
         d = json.loads(ut or '{}')
     except ValueError:
         d = {}
+    antal = (((d.get('metadata') or {}).get('dependencies') or {}).get('total') if isinstance(d, dict) else None)
+    if rc == 0:
+        return {}, None, antal
     sarb = (d.get('vulnerabilities') or {}) if isinstance(d, dict) else {}
     hoga, paketen = {}, {}
     for n, v in sarb.items():
         for via in (v.get('via') or []) if isinstance(v, dict) else []:
             if isinstance(via, dict) and via.get('severity') in ('high', 'critical'):  # en sträng är en kedja, inte en advisory
-                adv = str(via.get('url') or via.get('source') or via.get('title') or '?')
+                adv = str(via.get('url') or ('source:%s' % via['source'] if via.get('source') else 'titel:%s' % (via.get('title') or '?')))
                 hoga[(via.get('name') or n, adv)] = '%s %s (%s)' % (via.get('name') or n, adv.rsplit('/', 1)[-1], via['severity'])
         if isinstance(v, dict) and v.get('severity') in ('high', 'critical'):
             paketen[(n, None)] = '%s (%s)' % (n, v['severity'])
     if hoga or paketen:  # ett svar utan advisories jämförs paket för paket; en känd sårbarhet blir aldrig tillfällig
-        return hoga or paketen, None
+        return hoga or paketen, None, antal
     e = d.get('error') if isinstance(d, dict) else None
     return None, nat('npm audit kunde inte göras: %s' % vl.sista(('%s %s' % (e.get('code') or '', e.get('summary') or e.get('detail') or ''))
-                                                               if isinstance(e, dict) else ut, 300))
+                                                               if isinstance(e, dict) else ut, 300)), None
 
 
 def audit(cwd, bas=None, noter=None):
@@ -239,7 +241,7 @@ def audit(cwd, bas=None, noter=None):
     sårbarheter aldrig kunnat uppdateras (Vercel CLI 2026-10-06). En känd sårbarhet blir aldrig tillfällig. Går den
     installerade inte att granska avvisas kandidaten inte: felet säger inget om den (BEHÅLLEN, eller TILLFÄLLIGT för
     ett nätfel), och skälet står i beskedet (granskningen av r76, M2)."""
-    hoga, fel = audit_fynd(cwd)
+    hoga, fel, _n = audit_fynd(cwd)
     if fel:
         return fel
     if not hoga:
@@ -248,9 +250,11 @@ def audit(cwd, bas=None, noter=None):
     if bas is None:
         return 'npm audit (high eller kritisk): ' + kanda
     try:
-        bas_hoga, bfel = audit_fynd(bas() if callable(bas) else bas)
+        bas_hoga, bfel, bas_antal = audit_fynd(bas() if callable(bas) else bas)
     except Exception as e:  # noqa: BLE001
-        bas_hoga, bfel = None, nat('den installerade versionen kunde inte granskas: %s' % vl.sista(e, 200))
+        bas_hoga, bfel, bas_antal = None, nat('den installerade versionen kunde inte granskas: %s' % vl.sista(e, 200)), None
+    if not bfel and bas_antal == 0:  # en bas som inte granskade något beroende hade gjort alla kandidatens fynd nya (r77, L4)
+        bfel = HALL + 'npm audit granskade inga beroenden i den installerade versionen'
     if bfel:
         till = bfel.startswith(TILL)
         skal = bfel[len(TILL):] if till else bfel[len(HALL):] if bfel.startswith(HALL) else bfel
@@ -423,31 +427,45 @@ def rokprov_i_worktree(k, etikett, forbered, path_forst=None, timeout=3600, avbr
 # --- Claude Code och Vercel CLI ---
 
 def prova_globalt(k, r, kand):
-    """Kandidaten i en provkatalog med en minimal miljö: installationen (utan skript, utom Claude Codes eget som länkar
-    den inbyggda binären), npm audit och versionen; för Claude också flaggorna, ett strukturerat svar och vaktprovet
-    (kundvaktens mekanik); en huvudversion också hela rökprovet med kandidaten först i PATH. Vercel CLI får aldrig
-    ägarens inloggning i provet (fynd 4)."""
+    """Kandidaten i en provkatalog med en minimal miljö: installationen som npm install -g gör den (shallow: beroendena
+    under paketet), utan skript utom Claude Codes eget som länkar den inbyggda binären, och med karenstidens gräns;
+    npm audit och versionen; för Claude också flaggorna, ett strukturerat svar och vaktprovet (kundvaktens mekanik); en
+    huvudversion också hela rökprovet med kandidaten först i PATH. Vercel CLI får aldrig ägarens inloggning i provet
+    (fynd 4)."""
     paket, version = r['paket'], kand['version']
     d = Path(tempfile.mkdtemp(prefix='nwp-global-'))
     env = vl.provmiljo()
     fore = karensgrans()
     try:
         skript = [] if paket == '@anthropic-ai/claude-code' else ['--ignore-scripts']
-        rc, ut = npm(['install', '--prefix', str(d), '--no-audit', '--no-fund', '--before=' + fore, *skript, '%s@%s' % (paket, version)], d, env=env)
+        rc, ut = npm(['install', '--prefix', str(d), '--no-audit', '--no-fund', '--install-strategy=shallow', '--before=' + fore, *skript,
+                      '%s@%s' % (paket, version)], d, env=env)
         if rc:
+            m = re.search(r'No matching version found for \S+ with a date before [^\n]*', ut or '')
+            if m:  # kandidaten eller ett beroende är yngre än gränsen: säger inget om versionen (granskningen av r77, M2)
+                return HALL + 'ingen version före karenstidens gräns (%s): %s; prövas när den gått ut' % (fore, m.group(0)[:200]), None
             return nat('installationen i en provkatalog föll: ' + vl.sista(ut)), None
 
+        # båda sidor granskas ur sina installerade träd, byggda på samma sätt, så att inget skiljer utom versionerna
+        # (granskningen av r77, L3: npm:s eget lås har också andra plattformars valfria paket)
         def bas_globalt():  # det installerade trädet som det ligger på disk, inte en ny upplösning (granskningen av r76, H1)
             return las_ur_tradet(r.get('paketkatalog'), r['installerat'], d.parent / (d.name + '-bas'))
         noter = []
-        fel = audit(d, bas=bas_globalt if r.get('installerat') else None, noter=noter)
-        shutil.rmtree(d.parent / (d.name + '-bas'), ignore_errors=True)
+        try:
+            kand_las = las_ur_tradet(d / 'node_modules' / paket, version, d.parent / (d.name + '-kand'))
+        except RuntimeError as e:
+            return HALL + 'kandidatens installerade träd gick inte att läsa: %s' % vl.sista(e, 160), None
+        fel = audit(kand_las, bas=bas_globalt if r.get('installerat') else None, noter=noter)
         if fel:
             return fel, None
         b = d / 'node_modules' / '.bin' / r['binar']
         rc, ut = vl.kor([b, '--version'], timeout=60, env=env)
         v = (re.search(r'(\d+\.\d+\.\d+)', ut) or [None, None])[1] if rc == 0 else None
         if v != version:
+            saknas = valfria_utanfor(d, paket)
+            if saknas:  # ett plattformspaket som publicerades efter gränsen: prövas igen när gränsen passerat det (M2)
+                return HALL + ('provkatalogens %s svarar %s: valfria beroenden saknas i upplösningen före karenstidens gräns (%s), troligen '
+                               'plattformens binär; prövas igen vid nästa underhåll' % (r['binar'], v, ', '.join(saknas[:4]))), None
             return 'provkatalogens %s svarar %s, väntade %s' % (r['binar'], v, version), None
         prov = 'provkatalog, npm audit, versionen' + ''.join('; ' + x for x in noter)
         if r['binar'] == 'vercel':
@@ -475,30 +493,109 @@ def prova_globalt(k, r, kand):
             prov += ', ' + text
         return None, {'prov': prov, 'fore': fore}
     finally:
-        shutil.rmtree(d, ignore_errors=True)
+        for x in (d, d.parent / (d.name + '-bas'), d.parent / (d.name + '-kand')):
+            shutil.rmtree(x, ignore_errors=True)
+
+
+def valfria_utanfor(d, paket):
+    """Kandidatens valfria beroenden som saknas helt i npm:s lås i provkatalogen d. npm skriver in andra plattformars
+    valfria paket i låset fast de inte installeras, så ett som saknas uteslöts vid upplösningen (karenstidens gräns)."""
+    try:
+        valfria = json.loads((d / 'node_modules' / paket / 'package.json').read_text(encoding='utf-8')).get('optionalDependencies') or {}
+        las = json.loads((d / 'package-lock.json').read_text(encoding='utf-8')).get('packages') or {}
+    except (OSError, ValueError):
+        return []
+    return sorted(n for n in valfria if not any(k_.endswith('node_modules/' + n) for k_ in las))
+
+
+KARENS_MARGINAL = 3600  # sekunder: plattformspaketen publiceras ibland minuter efter huvudpaketet (granskningen av r77, M2)
 
 
 def karensgrans():
     """npm:s --before för det globala provet och intaget: bara versioner som var publicerade före karenstiden, också för
-    de transitiva beroendena, så att intaget installerar samma upplösning som provade (granskningen av r76, H1)."""
-    return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - vl.KARENS_DAGAR * 86400))
+    de transitiva beroendena, så att intaget installerar samma upplösning som provades (granskningen av r76, H1). En
+    timmes marginal: en kandidat precis vid karenstiden får sina plattformspaket, som kan komma minuter efter (r77, M2)."""
+    return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - vl.KARENS_DAGAR * 86400 + KARENS_MARGINAL))
+
+
+def global_rot(paketkatalog, paket):
+    """npm:s globala node_modules för ett paket installerat i paketkatalog (@scope/namn ligger två nivåer ner)."""
+    rot = Path(paketkatalog)
+    for _ in Path(paket).parts:
+        rot = rot.parent
+    return rot
+
+
+def binarlankar(prefix_bin, paket):
+    """{länk: mål} för länkarna i den globala bin-katalogen som pekar in i paketet."""
+    ut = {}
+    try:
+        for f in Path(prefix_bin).iterdir():
+            if f.is_symlink() and ('node_modules/%s/' % paket) in os.readlink(f):
+                ut[str(f)] = os.readlink(f)
+    except OSError:
+        pass
+    return ut
 
 
 def ta_in_globalt(k, r, kand, staged):
+    """Intaget med samma flaggor, gräns och minimala miljö som provet. Det installerade trädet sparas först som APFS-klon
+    och läggs tillbaka med binärens länkar om intaget faller: en ny installation av den gamla versionen hade löst upp dess
+    beroenden på nytt, utan karenstid (granskningen av r77, M1)."""
     if not r.get('via_npm'):
         return 'behallen', 'installerad utanför npm (%s); uppdateras där' % os.path.realpath(r.get('bin') or '?'), None
     paket, version, gammal = r['paket'], kand['version'], r['installerat']
     # samma flaggor och samma minimala miljö som provet: inga installationsskript som aldrig prövats (granskningen av r72, M6)
     skript = [] if paket == '@anthropic-ai/claude-code' else ['--ignore-scripts']
     fore = ['--before=' + staged['fore']] if staged.get('fore') else []  # samma upplösning som provet
-    rc, ut = npm(['install', '-g', '--no-audit', '--no-fund', *fore, *skript, '%s@%s' % (paket, version)], ROOT(), env=vl.provmiljo())
-    ny = vl.version_av([shutil.which(r['binar']) or r['bin'], '--version'])
-    if rc == 0 and ny == version:
-        return 'uppdaterad', '%s → %s (%s)' % (gammal, version, staged['prov']), None
-    rc2, ut2 = npm(['install', '-g', '--no-audit', '--no-fund', *skript, '%s@%s' % (paket, gammal)], ROOT(), env=vl.provmiljo())
-    tillbaka = vl.version_av([shutil.which(r['binar']) or r['bin'], '--version']) == gammal
-    return 'avvisad', nat('den globala installationen föll (%s); %s' % (vl.sista(ut, 160), 'återställd till %s' % gammal if rc2 == 0 and tillbaka else
-                                                                          'ÅTERSTÄLLNINGEN FÖLL: ' + vl.sista(ut2, 120))), None
+    kat = Path(r.get('paketkatalog') or '/finns/inte')
+    if not kat.is_dir():
+        return 'behallen', 'det installerade trädet saknas (%s); tas in när det finns' % kat, None
+    rot = global_rot(kat, paket)
+    prefix_bin = rot.parent.parent / 'bin'
+    spar = rot.parent / ('.nwp-spar-' + re.sub(r'[^\w.-]+', '_', paket))  # bredvid node_modules, på samma volym (APFS-klon)
+    shutil.rmtree(spar, ignore_errors=True)  # en kvarglömd från ett avbrutet intag
+    kopia = spar / kat.name
+    spar.mkdir(parents=True, exist_ok=True)
+    rc0, ut0 = vl.kor(['cp', '-cR', str(kat), str(kopia)], timeout=300)
+    if rc0 or not (kopia / 'package.json').is_file():  # utan kopia inget intag
+        shutil.rmtree(spar, ignore_errors=True)
+        return 'behallen', 'det installerade trädet kunde inte sparas före intaget (%s); tas in vid nästa underhåll' % vl.sista(ut0, 120), None
+    lankar = binarlankar(prefix_bin, paket)
+    try:
+        rc, ut = npm(['install', '-g', '--no-audit', '--no-fund', *fore, *skript, '%s@%s' % (paket, version)], ROOT(), env=vl.provmiljo())
+        ny = vl.version_av([shutil.which(r['binar']) or r['bin'], '--version'])
+        if rc == 0 and ny == version:
+            return 'uppdaterad', '%s → %s (%s)' % (gammal, version, staged['prov']), None
+        fel_t = []
+        try:  # klonen tillbaka på trädets plats
+            if kat.is_symlink() or kat.is_file():
+                kat.unlink()
+            elif kat.exists():
+                shutil.rmtree(kat)
+            os.rename(kopia, kat)
+        except OSError as e:
+            fel_t.append('trädet: %s' % e)
+        for f, mal in binarlankar(prefix_bin, paket).items():  # länkar som den nya versionen lade till
+            if f not in lankar:
+                try:
+                    os.unlink(f)
+                except OSError as e:
+                    fel_t.append('%s: %s' % (f, e))
+        for f, mal in lankar.items():  # och de gamla länkarna som de var
+            try:
+                if os.path.lexists(f) and not (os.path.islink(f) and os.readlink(f) == mal):
+                    os.unlink(f)
+                if not os.path.lexists(f):
+                    os.symlink(mal, f)
+            except OSError as e:
+                fel_t.append('%s: %s' % (f, e))
+        tillbaka = not fel_t and vl.version_av([shutil.which(r['binar']) or r['bin'], '--version']) == gammal
+        return 'avvisad', nat('den globala installationen föll (%s); %s' % (
+            vl.sista(ut, 160), 'det installerade trädet (%s) lagt tillbaka' % gammal if tillbaka else
+            'ÅTERSTÄLLNINGEN FÖLL: %s' % ('; '.join(fel_t)[:200] or 'versionen svarar inte %s' % gammal))), None
+    finally:
+        shutil.rmtree(spar, ignore_errors=True)
 
 
 # --- skillsen ---
@@ -1487,11 +1584,11 @@ def utgangslage(r, kand=None):
     huvudversion prövas bredvid den gamla och beror inte på den gamla formelns patch (granskningen av r72, M2); en
     skill prövades mot metodkartan och låset, och en ändrad karta gör om provet (M3)."""
     if r['typ'] == 'brew-node' and (kand or {}).get('huvudversion'):
-        return vl.sha('brew-node-huvud|%s' % kand.get('formel'))
+        return vl.sha('brew-node-huvud|%s|%s' % (kand.get('formel'), vl.PROVREGLER))
     filer = {'sajt': ('mall/astro/package-lock.json', 'mall/leverans/package-lock.json'), 'instrument': ('kontroller/package-lock.json',),
              'pip': ('requirements-lock.txt',), 'skill': ('kunskap/metodkarta.md', 'kunskap/metodkarta.lock.json')}.get(r['typ'], ())
-    return vl.sha('%s|%s|%s' % (r.get('installerat'), [vl.sha_fil(ROOT() / f) for f in filer],
-                                vl.mappavtryck(r['mapp']) if r['typ'] == 'skill' else ''))
+    return vl.sha('%s|%s|%s|%s' % (r.get('installerat'), [vl.sha_fil(ROOT() / f) for f in filer],
+                                   vl.mappavtryck(r['mapp']) if r['typ'] == 'skill' else '', vl.PROVREGLER))  # nya provregler: nytt prov (r77, L7)
 
 
 def behall(fel):

@@ -5971,6 +5971,73 @@ rot_rt, res_rt = rt_.samla('prov-rt', {'fragor': [{'tjanst': 'mobbin', 'fraga': 
 m_ = res_rt['tjanster']['mobbin']
 assert m_['ok'] and m_['bilder'] == 2 and [t_['id'] for t_ in m_['traffar']] == ['S1', 'S2'], m_
 assert all(t_['fil'] and t_['fraga'] == 'contact form' and t_['titel'] for t_ in m_['traffar']) and any('lästes ur Mobbins egna svar' in a_ for a_ in m_['anmarkningar']), m_
+# reserven slår bara till när sessionen inte gav något giltigt svar eller gav träffar utan en enda bildadress, läser bara
+# Mobbins egna sökverktyg och aldrig ett felsvar, har ett totaltak, och två id med samma filnamn skriver inte över
+# varandra (granskningen av r77, M3, L8, L9 och L11)
+def logg_ra_(logg, svar_lista, traffar, giltigt=True):
+    rader_ = []
+    for i_, (verktyg_, text_, fel_) in enumerate(svar_lista):
+        rader_.append(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 'u%d' % i_, 'name': verktyg_,
+                                                                                 'input': {'query': 'q'}}]}}))
+        rader_.append(json.dumps({'type': 'user', 'message': {'content': [dict({'type': 'tool_result', 'tool_use_id': 'u%d' % i_,
+                                                                               'content': [{'type': 'text', 'text': text_}]}, **({'is_error': True} if fel_ else {}))]}}))
+    if giltigt:
+        rader_.append(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'num_turns': 2, 'structured_output': {
+            'anrop': [], 'traffar': traffar, 'stilar': [], 'anmarkning': 'x'}}))
+    Path(logg).write_text('\n'.join(rader_) + '\n')
+def skarmar_(fraga_, *ids):
+    return json.dumps({'query': fraga_, 'screens': [{'id': i_, 'image_url': rt_bild + '?' + i_, 'mobbin_url': 'https://mobbin.com/screens/' + i_,
+                                                    'app_name': 'App ' + i_, 'platform': 'web'} for i_ in ids]})
+upp_m1 = {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form', 'syfte': ''}]}
+SKRAP_ = [{'id': 'c9-skip', 'titel': '', 'sida_url': '', 'bild_url': '', 'beskrivning': '', 'fraga': ''}]
+FALL_RA = {  # namn: (svaren, sessionens träffar, giltigt svar, väntade id, reserven använd)
+    'valde bort allt': ([('mcp__mobbin__search_screens', skarmar_('contact form', 'S1'), False)], [], True, [], False),
+    'flöde med stegbilder': ([('mcp__mobbin__search_screens', skarmar_('contact form', 'S1'), False)],
+                             [{'id': 'F1', 'titel': 'Flöde', 'bild_url': '', 'steg': [{'bild_url': rt_bild, 'beskrivning': 's1'}]}], True, ['F1'], False),
+    'nedladdning som föll': ([('mcp__mobbin__search_screens', skarmar_('contact form', 'S1'), False)],
+                             [{'id': 'N1', 'titel': 'n', 'bild_url': 'https://evil.example/x.png'}], True, ['N1'], False),
+    'inget giltigt svar': ([('mcp__mobbin__search_screens', skarmar_('contact form', 'S1', 'S2'), False)], [], False, ['S1', 'S2'], True),
+    'annat verktyg och felsvar': ([('mcp__annan__search_screens', skarmar_('contact form', 'A1'), False),
+                                   ('mcp__mobbin__search_screens', skarmar_('contact form', 'E1'), True)], SKRAP_, True, ['c9-skip'], False),
+}
+for namn_ra, (svar_ra, traffar_ra, giltigt_ra, vantat_ra, reserv_ra) in FALL_RA.items():
+    def kor_fall_(tjanst, prompt, logg, modell, s_=svar_ra, t_=traffar_ra, g_=giltigt_ra):
+        logg_ra_(logg, s_, t_, g_)
+        return (0, '') if g_ else (1, 'sessionen föll')
+    m_ = rt_.samla('prov-rt', upp_m1, u_rt, lokala_portar=(rt_port,), kor=kor_fall_)[1]['tjanster']['mobbin']
+    anv_ = [a_ for a_ in m_['anmarkningar'] if 'lästes ur Mobbins egna svar' in a_]
+    assert [t_['id'] for t_ in m_['traffar']] == vantat_ra and bool(anv_) == reserv_ra, (namn_ra, m_['traffar'], m_['anmarkningar'])
+    assert m_['bilder'] == sum(1 for t_ in m_['traffar'] if t_.get('fil')) + sum(1 for t_ in m_['traffar'] for x_ in t_.get('steg') or [] if x_.get('fil')), (namn_ra, m_)
+    if reserv_ra:
+        assert 'sessionen gav inget giltigt svar' in anv_[0] and m_['ok'], (namn_ra, anv_)
+# totaltaket: sex frågor med tolv skärmar var ger högst MAX_TRAFFAR
+upp_m6 = {'fragor': [{'tjanst': 'mobbin', 'fraga': 'fraga %s sida' % o_, 'syfte': ''} for o_ in ('alfa', 'beta', 'gamma', 'delta', 'epsilon', 'zeta')]}
+def kor_tak_(tjanst, prompt, logg, modell):
+    logg_ra_(logg, [('mcp__mobbin__search_screens', skarmar_('fraga %s sida' % o_, *['%s%02d' % (o_, n_) for n_ in range(12)]), False)
+                    for o_ in ('alfa', 'beta', 'gamma', 'delta', 'epsilon', 'zeta')], [], False)
+    return 1, 'sessionen föll'
+m_ = rt_.samla('prov-rt', upp_m6, u_rt, lokala_portar=(rt_port,), kor=kor_tak_)[1]['tjanster']['mobbin']
+assert len(m_['traffar']) == rt_.MAX_TRAFFAR == 60 and m_['bilder'] == 60 and {t_['fraga'] for t_ in m_['traffar']} == {f_['fraga'] for f_ in upp_m6['fragor'][:5]}, (len(m_['traffar']), m_['bilder'])
+# två id med samma filnamn
+def kor_namn_(tjanst, prompt, logg, modell):
+    logg_ra_(logg, [('mcp__mobbin__search_screens', '{}', False)], [{'id': 'a b', 'titel': 't', 'bild_url': rt_bild}, {'id': 'a-b', 'titel': 't', 'bild_url': rt_bild + '?2'}])
+    return 0, ''
+m_ = rt_.samla('prov-rt', upp_m1, u_rt, lokala_portar=(rt_port,), kor=kor_namn_)[1]['tjanster']['mobbin']
+assert [t_['id'] for t_ in m_['traffar']] == ['a-b', 'a-b-2'] and len({t_['fil'] for t_ in m_['traffar']}) == 2 and all(t_['fil'] for t_ in m_['traffar']), m_['traffar']
+# en omdirigering följs bara till en tillåten adress: provets egen server, aldrig en annan lokal port (L10)
+class Omdir_(hs_.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(302); self.send_header('Location', 'http://127.0.0.1:%d/skarm.png' % (rt_port if self.path == '/tillaten' else 1))
+        self.send_header('Content-Length', '0'); self.end_headers()
+    def log_message(self, *a): pass
+srv_od = hs_.HTTPServer(('127.0.0.1', 0), Omdir_); th_.Thread(target=srv_od.serve_forever, daemon=True).start()
+od_ = 'http://127.0.0.1:%d' % srv_od.server_address[1]
+f_od, fel_od = rt_.ladda_bild(od_ + '/tillaten', tmp / 'od-1', lokala_portar=(rt_port, srv_od.server_address[1]))
+assert f_od and f_od.read_bytes() == png_ref, fel_od
+f_od, fel_od = rt_.ladda_bild(od_ + '/annan', tmp / 'od-2', lokala_portar=(rt_port, srv_od.server_address[1]))
+assert f_od is None and 'inte tillåten' in fel_od, fel_od
+assert not rt_.offentlig_adress('https://127.0.0.1/x') and not rt_.offentlig_adress('https://10.1.2.3/x') and not rt_.offentlig_adress('http://93.184.215.14/x')
+srv_od.shutdown()
 rot_rt, res_rt = rt_.samla('prov-rt', upp_rt, u_rt, torr=True, kor=kor_rt_faller_); assert res_rt['torr'] and not res_rt['alla_ok']
 assert rt_.tillaten_bild('https://images.refero.design/a.png', 'refero') and not rt_.tillaten_bild('https://images.refero.design.evil/a.png', 'refero') and not rt_.tillaten_bild('http://images.refero.design/a.png', 'refero') and rt_.tillaten_bild('https://mobbin.com/api/mcp/short/x', 'mobbin') and not rt_.tillaten_bild('https://mobbin.com/x', 'refero')
 assert rt_.main(['prov-rt', '--underlag', str(u_rt), '--uppdrag', str(tmp / 'utanfor.json')]) == 2
