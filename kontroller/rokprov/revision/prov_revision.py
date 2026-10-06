@@ -5725,7 +5725,9 @@ class RefA_(hs_.BaseHTTPRequestHandler):
         bild = c_ref if self.path == '/c' else (a_ref if self.path == '/trasig' else b_ref)
         img = '' if self.path == '/egen' else '<img src="%s/bild.png" width="200" height="100" alt="bild">' % bild  # /egen: bara egna resurser
         html = ('<html><head><title>Lokal referens</title></head><body><h1>%s</h1><p>Vi använder cookies. <button id="godkann">Godkänn alla</button></p>'
-                '<nav><button id="meny">Meny</button></nav>%s<p>%s</p></body></html>' % (self.path, img, 'text ' * 200)).encode()
+                # menyn öppnas på riktigt: menybilden tas bara när menyn öppnades (ägaren 2026-10-06, inspektera.mjs)
+                '<nav><button id="meny" aria-expanded="false" onclick="this.setAttribute(\'aria-expanded\', \'true\'); this.nextElementSibling.hidden = false">'
+                'Meny</button><ul hidden><li>Tjänster</li></ul></nav>%s<p>%s</p></body></html>' % (self.path, img, 'text ' * 200)).encode()
         self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(html))); self.end_headers(); self.wfile.write(html)
     def log_message(self, *a): pass
 srv_ra = hs_.HTTPServer(('127.0.0.1', 0), RefA_); th_.Thread(target=srv_ra.serve_forever, daemon=True).start()
@@ -6520,6 +6522,254 @@ referensjamforelsen()
 
 
 stilpaketet()
+
+
+def skisskontrollerna():
+    """Ägarens underkännande av skissen 2026-10-06: menyn prövas i verkligt tillstånd (details/summary och aria-expanded,
+    elementet hålls före klicket, menybilden bara när menyn öppnades), startsidan fotograferas också i mellanbredden 1280
+    där spill markeras, raden Huvudreferens godtar "egen" och flera namn, tal ur kundens bilders filnamn och EXIF-datum är
+    belägg, och en kärnfil som metodfilen levererat hel med samma sha räknas som läst i kvittot."""
+    import hashlib as hl_s
+    import struct as st_s
+    import atelje as at_s
+    import bildkedja as bk_s
+    import forhandsvisa as fh_s
+    import kandidater as kd_s
+    import kompetens as kp_s
+    import metod as md_s
+    import prova as pv_s
+    spara_ = (at_s.UNDERLAG, at_s.KUNDER, pv_s.bygg_inom_grans, pv_s.kor, pv_s.Server, bk_s.ROOT, bk_s.PROJEKT, fh_s.KUNDER)
+    at_s.UNDERLAG, at_s.KUNDER = tmp / 'skk-u', tmp / 'skk-k'
+    slug_ = 'skk-kund'
+    u_ = at_s.UNDERLAG / slug_
+    try:
+        # --- (a, b) i webbläsaren: en details-meny öppnas och fotograferas; en knapp som inte öppnar något ger ingen
+        # menybild och säger varför; en mobil utan menyknapp där alla länkar syns räknas; en fast datorlayout
+        # (412 + 908 px med kanter, som k01) spiller i 1280 men inte i 390 eller 1440
+        sajt_ = tmp / 'skk-sajt'
+        huvud_ = ('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>p</title>'
+                  '<style>body{margin:0;font:16px sans-serif}.dator{display:none}@media (min-width:1100px){.mobil{display:none}'
+                  '.dator{display:flex;gap:20px}.rad{display:grid;grid-template-columns:412px 908px;padding:0 40px 0 80px}}</style></head><body>')
+        for sida_, kropp_ in (('details', '<header><a href="/">Firman</a><nav class="dator"><a href="/a/">A</a><a href="/b/">B</a></nav>'
+                                          '<details class="mobil"><summary>Meny</summary><nav><a href="/a/">A</a><a href="/b/">B</a></nav></details>'
+                                          '</header><main><h1>Rubrik</h1><div class="rad"><p>Etikett</p><p>Innehåll</p></div></main>'),
+                              ('dod', '<header><a href="/">Firman</a><button aria-expanded="false" aria-controls="m">Meny</button>'
+                                      '<nav id="m" hidden><a href="/a/">A</a><a href="/b/">B</a></nav></header><main><h1>Död meny</h1></main>'),
+                              ('alla', '<a href="#i" style="position:absolute;top:-100px">Hoppa till innehållet</a><header><a href="/">Firman</a>'
+                                       '<nav><a href="/a/">A</a> <a href="/b/">B</a> <a href="/c/">C</a></nav></header><main id="i"><h1>Alla syns</h1>'
+                                       '</main><footer><nav><a href="/d/" hidden>D</a></nav></footer>')):
+            (sajt_ / sida_).mkdir(parents=True)
+            (sajt_ / sida_ / 'index.html').write_text(huvud_ + kropp_ + '</body></html>')
+        srv_, bas_ = server(sajt_)
+        try:
+            def insp_(sida, vyer):
+                ut_ = tmp / ('skk-ut-' + sida)
+                r_ = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'inspektera.mjs'), '--adress', bas_ + '/' + sida + '/', '--ut', str(ut_),
+                                     '--vyer', vyer, '--tillstand', 'inga', '--meny', kd_s.MENYKNAPP], capture_output=True, text=True, cwd=str(ROOT),
+                                    env={k_: v_ for k_, v_ in os.environ.items() if k_ not in ('NWP_SLUG', 'NWP_WEBBTJANST')}, timeout=300)
+                assert (ut_ / 'INSPEKTION.json').is_file(), (sida, r_.returncode, r_.stderr[-500:])
+                return ut_, json.loads((ut_ / 'INSPEKTION.json').read_text())['vyer']
+            ut_d, v_d = insp_('details', '390,1280,1440')
+            m_d = v_d['390']['tillstand']['meny']
+            assert m_d['knapp'] and m_d['klickad'] and m_d['expanded'] == 'true' and m_d['bild'].endswith('vy-390-meny.png'), m_d
+            assert (ut_d / 'vy-390-meny.png').read_bytes() != (ut_d / 'vy-390-forsta.png').read_bytes(), 'menybilden visar den öppna menyn, inte första vyn'
+            assert v_d['1280']['spill']['spill'] and not v_d['1440']['spill']['spill'] and not v_d['390']['spill']['spill'], {k_: x_['spill'] for k_, x_ in v_d.items()}
+            assert (ut_d / 'vy-1280-forsta.png').is_file() and not (ut_d / 'vy-1280-meny.png').exists() and v_d['1280']['tillstand']['meny']['knapp'] is False
+            ut_x, v_x = insp_('dod', '390')
+            m_x = v_x['390']['tillstand']['meny']
+            assert m_x['klickad'] and m_x['expanded'] == 'false' and 'öppnades inte' in m_x['skal'] and 'bild' not in m_x and not list(ut_x.glob('vy-*-meny.png')), m_x
+            assert 'ingen bild: menyn öppnades inte' in (ut_x / 'INSPEKTION.md').read_text()
+            ut_a, v_a = insp_('alla', '390')
+            m_a = v_a['390']['tillstand']['meny']
+            assert m_a['knapp'] is False and m_a['lankar'] == {'totalt': 3, 'synliga': 3, 'dolda': []} and not list(ut_a.glob('vy-*-meny.png')), m_a
+        finally:
+            srv_.shutdown()
+        # skissens snabba kontroll av menyn: en knapp som inte öppnar menyn är en brist; utan knapp med alla länkar synliga
+        # är det en upplysning; ett prov som inte kördes eller dolda länkar utan knapp är brister
+        assert 'button[aria-expanded="false"]' in kd_s.MENYKNAPP and 'details:not([open]) > summary' in kd_s.MENYKNAPP
+        assert kd_s.menyprovet(m_d) == ([], []) and kd_s.menyprovet(m_a) == ([], ['390: ingen menyknapp; navigationens alla 3 länkar syns utan meny'])
+        assert 'öppnar ingenting' in kd_s.menyprovet(m_x)[0][0] and 'gick inte att klicka' in kd_s.menyprovet({'knapp': True, 'klickad': False, 'skal': 'täckt'})[0][0]
+        assert 'gick inte att avläsa' in kd_s.menyprovet({'knapp': True, 'klickad': True, 'expanded': None})[0][0]
+        assert '1 av navigationens 3 länkar syns inte (/c/)' in kd_s.menyprovet({'knapp': False, 'lankar': {'totalt': 3, 'synliga': 2, 'dolda': ['/c/']}})[0][0]
+        assert 'prövades inte (Timeout)' in kd_s.menyprovet(None, 'Timeout')[0][0]
+
+        # --- fotograferingen: startsidan i fyra bredder med menyns knapp; spill i 1280 och menyn markeras; datumen ur
+        # bildernas filnamn och EXIF är belagda; "Huvudreferens: egen — …" godtas ---
+        (u_ / 'bilder').mkdir(parents=True)
+        (u_ / 'bilder' / 'se-20210628_110636.jpg').write_bytes(b'jpg')
+        datum_ = b'2021:07:07 10:00:00\x00'
+        tiff_ = (b'II*\x00' + st_s.pack('<I', 8) + st_s.pack('<H', 1) + st_s.pack('<HHII', 0x8769, 4, 1, 26) + st_s.pack('<I', 0)
+                 + st_s.pack('<H', 1) + st_s.pack('<HHII', 0x9003, 2, len(datum_), 44) + st_s.pack('<I', 0) + datum_)
+        app1_ = b'Exif\x00\x00' + tiff_
+        (u_ / 'bilder' / 'tak.jpg').write_bytes(b'\xff\xd8\xff\xe1' + st_s.pack('>H', 2 + len(app1_)) + app1_ + b'\xff\xd9')
+        import bilddatum as bd_s
+        assert bd_s.datum(u_ / 'bilder' / 'tak.jpg')['datum'] == '2021-07-07 10:00', bd_s.datum(u_ / 'bilder' / 'tak.jpg')
+        kid_ = 'k01'
+        pages_ = kd_s.ksajt(slug_, kid_) / 'src' / 'pages'
+        pages_.mkdir(parents=True)
+        (pages_ / 'index.astro').write_text('<h1>Skiss</h1><p>Bygget 28 juni och 7 juli. Med 25 år i branschen.</p>')
+        kd_s.kdir(slug_, kid_).mkdir(parents=True)
+        (kd_s.kdir(slug_, kid_) / 'RIKTNING.md').write_text('Huvudreferens: egen — kundens egna foton bär sidan\n')
+        meny_, inspekterat_ = [m_x], []
+
+        def bygg_(sajt, timeout=900):
+            (Path(sajt) / 'dist').mkdir(parents=True, exist_ok=True)
+            (Path(sajt) / 'dist' / 'index.html').write_text((Path(sajt) / 'src' / 'pages' / 'index.astro').read_text())
+            return 0, 'byggt'
+
+        def kor_(cmd, cwd=None, timeout=900):
+            cmd = [str(x_) for x_ in cmd]
+            if cmd[1].endswith('inspektera.mjs'):
+                inspekterat_.append(cmd)
+                ut_ = Path(cmd[cmd.index('--ut') + 1])
+                ut_.mkdir(parents=True, exist_ok=True)
+                vyer_ = {}
+                for vy_ in cmd[cmd.index('--vyer') + 1].split(','):
+                    for s_ in ('forsta', 'hela'):
+                        (ut_ / ('vy-%s-%s.png' % (vy_, s_))).write_bytes(b'png')
+                    vyer_[vy_] = {'konsol': [], 'spill': {'spill': vy_ == '1280'}, 'tillstand': {}}
+                if meny_[0] is not None and '--meny' in cmd:
+                    vyer_['390']['tillstand']['meny'] = meny_[0]
+                (ut_ / 'INSPEKTION.json').write_text(json.dumps({'vyer': vyer_}))
+                return 0, ''
+            if cmd[1].endswith('axe.mjs'):
+                ut_ = Path(next(x_ for x_ in cmd if x_.startswith('--ut='))[5:])
+                ut_.mkdir(parents=True, exist_ok=True)
+                (ut_ / 'axe.json').write_text(json.dumps({'allvarliga': 0, 'totalt': 0, 'axeVersion': 'x', 'rader': []}))
+                return 0, ''
+            raise AssertionError(cmd)
+
+        class Srv_:
+            url = 'http://127.0.0.1:9'
+
+            def __init__(self, dist):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+        pv_s.bygg_inom_grans, pv_s.kor, pv_s.Server = bygg_, kor_, Srv_
+        st_ = kd_s.fotografera(slug_, kid_, skiss=True)
+        k_ = inspekterat_[0]
+        assert k_[k_.index('--vyer') + 1] == '390,768,1280,1440' and k_[k_.index('--meny') + 1] == kd_s.MENYKNAPP, k_
+        assert st_['status'] == 'klar' and '/ 1280: sidled-spill' in st_['brister'] and any('menyns knapp öppnar ingenting' in b_ for b_ in st_['brister']), st_['brister']
+        assert 'siffror i texten som inte finns i underlaget: 25' in st_['brister'], 'datumen ur bildernas filnamn (28) och EXIF (7) är belagda, 25 är det inte: %s' % st_['brister']
+        assert not any('Huvudreferens' in b_ for b_ in st_['brister']) and st_['huvudreferens'] == 'egen' and st_['huvudreferens_i_researchen'] is None, st_
+        assert st_['upplysningar'] == [] and not (kd_s.kdir(slug_, kid_) / 'bilder' / 'start' / 'vy-390-meny.png').exists()
+        meny_[0] = m_a
+        st_ = kd_s.fotografera(slug_, kid_, skiss=True)
+        assert not any('meny' in b_ for b_ in st_['brister']) and st_['upplysningar'] == ['390: ingen menyknapp; navigationens alla 3 länkar syns utan meny'], st_
+        meny_[0] = None  # inspektionen gav inget menyprov: ingen frånvaro av brister
+        assert any('menyn prövades inte' in b_ for b_ in kd_s.fotografera(slug_, kid_, skiss=True)['brister'])
+        meny_[0] = m_a
+        kd_s.fotografera(slug_, kid_, skiss=True)
+        # underlaget till dashboarden (sammanstall; vyn själv görs i ett annat spår) och rapporten: mellanbredden och upplysningen
+        post_ = next(k_ for k_ in kd_s.sammanstall(slug_) if k_['id'] == kid_)
+        assert str(post_['bilder']['1280-forsta']).endswith('bilder/start/vy-1280-forsta.png') and post_['upplysningar'], post_
+        rd_ = kd_s.redovisa_skiss(slug_, {}).read_text()
+        assert '## Upplysningar ur de snabba kontrollerna' in rd_ and 'navigationens alla 3 länkar syns utan meny' in rd_, rd_[:600]
+
+        # --- (c) raden Huvudreferens: "egen" och flera namn; namnen prövas var för sig mot researchen och referenserna ---
+        d2_ = kd_s.kdir(slug_, 'k02')
+        d2_.mkdir(parents=True)
+        for rad_, vant_ in (('Huvudreferens: egen — kundens egna foton bär sidan', ('egen', True, [])),
+                            ('Huvudreferens: Tekt (tekt.com.au, paket-v01/tekt/01-start) och Cox — rytmen',
+                             ('Tekt (tekt.com.au, paket-v01/tekt/01-start) och Cox', False, ['Tekt (tekt.com.au, paket-v01/tekt/01-start)', 'Cox'])),
+                            ('- **Huvudreferens:** Påhittad, Cox — x', ('Påhittad, Cox', False, ['Påhittad', 'Cox']))):
+            (d2_ / 'RIKTNING.md').write_text(rad_ + '\n\nHypotes: x\n')
+            hr_ = kd_s.riktningens_referens(slug_, 'k02')
+            assert hr_ and (hr_['namn'], hr_['egen'], hr_['namnen']) == vant_, (rad_, hr_)
+        (u_ / 'REFERENSER.md').write_text('# Referenser\n\n## Tekt — bransch\n\n## Cox — hantverk\n')
+        for rad_, vant_ in (('Tekt (tekt.com.au, paket-v01/tekt/01-start) och Cox', True), ('Påhittad, Cox', False), ('egen', None)):
+            (d2_ / 'RIKTNING.md').write_text('Huvudreferens: %s — x\n' % rad_)
+            assert kd_s.huvudreferenserna_i_researchen(slug_, kd_s.riktningens_referens(slug_, 'k02')) is vant_, rad_
+        ref_ = u_ / 'referenser' / 'paket-v01' / 'cox' / '01-start'
+        ref_.mkdir(parents=True)
+        for v_ in ('vy-390-forsta', 'vy-1440-forsta'):
+            (ref_ / (v_ + '.png')).write_bytes(b'png')
+        kd_s.satt_status(slug_, 'k02', 'klar', 'prov', huvudreferens='Påhittad, Cox', hypotes='En egen tidslinje, egentligen bara foton, som Cox')
+        r2_, s2_ = kd_s.referenssida(slug_, 'k02')
+        assert r2_ and r2_['sida'] == kd_s.rel(ref_) and r2_['namn'] == 'Påhittad, Cox', (r2_, s2_)
+        assert next(k_ for k_ in kd_s.sammanstall(slug_) if k_['id'] == 'k02')['hypotes'] == 'En egen tidslinje, egentligen bara foton, som [referensen]'
+        kd_s.satt_status(slug_, 'k02', 'klar', 'prov', huvudreferens='egen')
+        j2_ = kd_s.referensjamforelse(slug_, 'k02')
+        assert j2_['referens'] is None and j2_['egen'] and 'egen riktning' in j2_['saknas'], j2_
+        assert next(k_ for k_ in kd_s.sammanstall(slug_) if k_['id'] == 'k02')['hypotes'] == 'En egen tidslinje, egentligen bara foton, som Cox', \
+            '"egen" är inget namn att dölja'
+
+        # --- förhandsvisningen säger varför menybilden saknas ---
+        fh_s.KUNDER = tmp / 'skk-fh'
+        fs_ = fh_s.KUNDER / slug_ / 'sajt'
+        (fs_ / 'dist').mkdir(parents=True)
+        (fs_ / 'package.json').write_text('{}')
+        (fs_ / 'dist' / 'index.html').write_text('<h1>x</h1>')
+        pv_s.bygg_inom_grans = lambda sajt, timeout=900: (0, 'byggt')
+        meny_[0] = m_x
+        rc_, text_, _ = fh_s.forhandsvisa(slug_, ut=tmp / 'skk-fh-ut', meny=kd_s.MENYKNAPP)
+        assert rc_ == 0 and '390 px meny: klickad True, expanded false; ingen bild: menyn öppnades inte' in text_, text_
+
+        # --- (e) kvittot: en kärnfil som metodfilen levererat hel, med samma sha, är läst när metodfilen lästs hel ---
+        bk_s.ROOT = ROOT
+        proj_ = tmp / 'skk-projekt' / '-x'
+        proj_.mkdir(parents=True)
+        bk_s.PROJEKT = proj_.parent
+        fore_ = next(f_['fil'] for f_ in md_s.leverera('skiss', tmp / 'skk-metod')['filer'] if f_['del'] == 'före')
+        rubrik_ = re.search(r'^### kunskap/bild\.md · rad 1–\d+ · sha [0-9a-f]{12}$', fore_.read_text(), re.M)
+        assert rubrik_ and 'kunskap/bild.md' in kp_s.lasfiler('skapa'), 'METOD-skiss.md bär kunskap/bild.md hel, och den är skaparens kärna'
+        src_ = 'kunder/%s/kandidater/k01/sajt/src/' % slug_
+        n_ = [0]
+
+        def transkript_(steg):
+            sid_ = '00000000-0000-4000-8000-%012d' % (9000 + n_[0])
+            n_[0] += 1
+            rader_ = []
+            for i_, (namn_, in_) in enumerate(steg):
+                rader_.append(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 'u%d' % i_, 'name': namn_, 'input': in_}]}}))
+                rader_.append(json.dumps({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 'u%d' % i_, 'content': 'ok'}]}}))
+            (proj_ / (sid_ + '.jsonl')).write_text('\n'.join(rader_) + '\n')
+            return sid_
+        ovriga_ = [('Read', {'file_path': str(ROOT / f_)}) for f_ in kp_s.lasfiler('skapa') if f_ != 'kunskap/bild.md']
+        skriv_ = ('Write', {'file_path': str(ROOT / src_ / 'pages' / 'index.astro')})
+
+        def kvitto_(*metodlasning):
+            return kp_s.kvitto([transkript_(list(metodlasning) + ovriga_ + [skriv_])], 'skapa', skrivprefix=src_)
+        kv_ = kvitto_(('Read', {'file_path': str(fore_)}))
+        assert kv_['verifierad'] and not kv_['saknas'] and 'kunskap/bild.md' in kv_['fore_forsta_andring'], kv_
+        assert kvitto_(('Read', {'file_path': str(fore_), 'limit': 50}))['saknas'] == ['kunskap/bild.md'], 'en del av metodfilen räcker inte'
+        bild_ = (ROOT / 'kunskap' / 'bild.md').read_text(encoding='utf-8')
+        for namn_, andra_ in (('sha', lambda t: t.replace(rubrik_.group(0), rubrik_.group(0)[:-12] + '000000000000')),  # en äldre leverans
+                              ('rader', lambda t: t.replace(rubrik_.group(0), rubrik_.group(0).replace('rad 1–', 'rad 2–')))):  # inte hela filen
+            k_ = tmp / ('skk-metod-' + namn_)
+            k_.mkdir()
+            assert andra_(fore_.read_text()) != fore_.read_text()
+            (k_ / 'METOD-skiss.md').write_text(andra_(fore_.read_text()))
+            assert kvitto_(('Read', {'file_path': str(k_ / 'METOD-skiss.md')}))['saknas'] == ['kunskap/bild.md'], namn_
+        # ett utdrag som fortsätter i nästa fil räknas först när båda lästs hela
+        k_ = tmp / 'skk-metod-delad'
+        k_.mkdir()
+        (k_ / 'METOD-skiss.md').write_text('# Metoden: Skiss (fil 1 av 2)\n\n%s\n\n%s\n' % (rubrik_.group(0), '\n'.join(bild_.splitlines()[:40])))
+        (k_ / 'METOD-skiss-2.md').write_text('# Metoden: Skiss (fil 2 av 2)\n\n%s (fortsättning)\n%s\n' % (rubrik_.group(0), '\n'.join(bild_.splitlines()[40:])))
+        assert kvitto_(('Read', {'file_path': str(k_ / 'METOD-skiss.md')}))['saknas'] == ['kunskap/bild.md'], 'bara första delen'
+        assert not kvitto_(('Read', {'file_path': str(k_ / 'METOD-skiss.md')}), ('Read', {'file_path': str(k_ / 'METOD-skiss-2.md')}))['saknas']
+        # ett alternativ som bara stod i metodfilen är inte valt: valet är sessionens egen läsning
+        alt_ = kp_s.valbara('skapa')[0]
+        alt_text_ = (ROOT / alt_).read_text(encoding='utf-8')
+        k_ = tmp / 'skk-metod-alt'
+        k_.mkdir()
+        (k_ / 'METOD-skiss.md').write_text('### %s · rad 1–%d · sha %s\n\n%s\n' % (alt_.replace('.claude/skills/', '', 1), len(alt_text_.splitlines()),
+                                                                                hl_s.sha256(alt_text_.encode('utf-8')).hexdigest()[:12], alt_text_))
+        ml_ = bk_s.metodlasning(transkript_([('Read', {'file_path': str(k_ / 'METOD-skiss.md')})]), [alt_])
+        assert ml_['fore'] == [alt_] and ml_['via_metod'] == [alt_], ml_
+        assert kvitto_(('Read', {'file_path': str(k_ / 'METOD-skiss.md')}))['valda'] == [], 'ett levererat alternativ är inget val'
+        assert kvitto_(('Read', {'file_path': str(ROOT / alt_)}))['valda'] == [alt_]
+    finally:
+        at_s.UNDERLAG, at_s.KUNDER, pv_s.bygg_inom_grans, pv_s.kor, pv_s.Server, bk_s.ROOT, bk_s.PROJEKT, fh_s.KUNDER = spara_
+    print('skissens kontroller (2026-10-06) ok')
+
+
+skisskontrollerna()
 
 
 shutil.rmtree(tmp, ignore_errors=True)

@@ -126,8 +126,10 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
             beteende.append('%s px reducerad rörelse: %d animationer löper utan, %d med reduce%s; bild %s' % (
                 vy, x.get('lopande_utan', 0), x.get('lopande_med_reduce', 0),
                 (' (' + ', '.join(map(str, x.get('namn_med_reduce') or [])) + ')') if x.get('lopande_med_reduce') else '', Path(x.get('bild', '')).name))
-        if 'meny' in t:
-            beteende.append('%s px meny: klickad %s, aria-expanded %s; bild %s' % (vy, t['meny'].get('klickad'), t['meny'].get('expanded'), Path(t['meny'].get('bild', '')).name))
+        if 'meny' in t:  # bilden finns bara när menyn öppnades; annars skälet (inspektera.mjs, provaMeny)
+            m = t['meny']
+            beteende.append('%s px meny: klickad %s, expanded %s; %s' % (vy, m.get('klickad'), m.get('expanded'),
+                                                                        ('bild ' + Path(m['bild']).name) if m.get('bild') else 'ingen bild: %s' % m.get('skal')))
         for n in ('hover', 'fokus'):
             if t.get(n):
                 beteende.append('%s px %s: bild %s%s' % (vy, n, Path(t[n]).name, (' (fel: %s)' % t.get(n + '_fel')) if t.get(n + '_fel') else ''))

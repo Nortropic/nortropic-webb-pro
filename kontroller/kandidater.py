@@ -24,7 +24,7 @@ Varje kandidat har en stabil identitet (k01–k12) och
 Stegen (kor): metoden levereras (kontroller/metod.py: stegens utdrag ur kunskap/metodkarta.md, med hash) → forska
 (frågor till Refero och Mobbin, nya sajter och antaganden om besökarna som kan ändra designen) → planera (uppdrag med
 hypotes, referensens kvalitet och vad den kräver) → per kandidat, några åt gången: skapa → fotografera (bygge innanför
-processgränsen, bilder i 390, 768 och 1440, axe) → granskning i två pass (först bilderna mot besökarens uppgift utan
+processgränsen, startsidan i fyra bredder, axe) → granskning i två pass (först bilderna mot besökarens uppgift utan
 skaparens motivering, sedan motiveringen) → en förbättringsrunda bara för objektiva fel → granskning igen → jämföra
 (falsk variation) → klar för ägarens bedömning. Ett andra skaparförsök ges en ofullständig kandidat. Efter ägarens val
 (domloggen, beslut valj): forfina_valda förfinar varje vald kandidat för sig; ägaren godkänner sedan en för helbygget.
@@ -95,7 +95,11 @@ FRIST_SKISS_FORSKA = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS_FORSKA') or 12
 MAX_FORSOK_SKISS = 2  # det inledande försöket och ett omförsök (tekniskt fel eller avbrott); ingen förlängning för antalets skull
 MAX_PARALLELLT_SKISS = 3  # högst tre skisser samtidigt (ägarens försöksbudget 2026-10-05)
 EFFORT_SKISS = os.environ.get('NWP_KANDIDAT_EFFORT') or 'high'
-MENYKNAPP = 'button[aria-expanded]'  # menyns knapp i skissens snabba kontroll (inspektera.mjs --meny)
+# menyns stängda knapp i skissens snabba kontroll (inspektera.mjs --meny), som i axe.mjs: aria-expanded eller
+# details/summary, i sidhuvudet eller navigationen (ägaren 2026-10-06: menyn i k01 var en details/summary och klickades aldrig)
+MENYKNAPP = ', '.join(('header button[aria-expanded="false"]', 'nav button[aria-expanded="false"]',
+                       'header details:not([open]) > summary', 'nav details:not([open]) > summary'))
+STARTVYER = '390,768,1280,1440'  # startsidans bilder; 1280 är mellanbredden där en fast datorlayout spiller (ägaren 2026-10-06)
 FOTO_RESERV = 180  # sekunder av försökets tid för fotograferingen och kontrollerna efter sessionen
 KOMPETENSPASS = ('rorelse', 'granskning')  # efter fördjupningen, en gång var och i den ordningen; inga redigerande pass före ägarens val (Codex via ägaren 2026-10-05, punkt 8)
 FRIST_PASS = int(os.environ.get('NWP_KANDIDAT_FRIST_PASS') or 720)  # ett kompetenspass: läsningen, en omgång och en bekräftelse
@@ -1631,20 +1635,86 @@ def siffror_utan_belagg(slug, kid):
     for f in [u / n for n in ('VERKSAMHET.json', 'BRIEF.md', 'RESEARCH.md', 'BESTALLNING.md')] + [u / 'bilder' / 'BILDER.md', skapande.textfil(slug, atelje.UNDERLAG)]:
         if f.is_file():
             rader += f.read_text(encoding='utf-8', errors='replace').splitlines()
-    tillatna = brev.tillatna_tal(rader) | {str(datetime.now(timezone.utc).year)}
+    tillatna = brev.tillatna_tal(rader + bildtal(u / 'bilder')) | {str(datetime.now(timezone.utc).year)}
     return sorted(set(brev.siffror_ok(text, tillatna)[1]))[:12]
 
 
+def bildtal(bilder):
+    """Talen i kundens bilders filnamn och datum, en rad per bild, som belägg för siffror i texten ("28 juni" ur ett foto
+    taget 2021-06-28; ägaren 2026-10-06): filnamnets tal, och datumets år, månad och dag med och utan inledande nolla ur
+    EXIF eller filnamnet (kontroller/bilddatum.py). Ett datum som inte är ett giltigt datum räknas inte."""
+    import bilddatum
+    rader = []
+    for f in sorted(Path(bilder).iterdir()) if Path(bilder).is_dir() else []:
+        if f.suffix.lower() not in bilddatum.BILDER or not f.is_file():
+            continue
+        tal = re.findall(r'\d+', f.name)
+        datum = [bilddatum.datum(f).get('datum')] + [form(m) for monster, form in bilddatum.FILNAMN for m in [monster.search(f.name)] if m]
+        for d_ in datum:
+            try:
+                dt = datetime.strptime(str(d_)[:10], '%Y-%m-%d')
+            except ValueError:
+                continue
+            tal += [str(dt.year), '%02d' % dt.month, str(dt.month), '%02d' % dt.day, str(dt.day)]
+        rader.append(' '.join(dict.fromkeys(tal)))
+    return rader
+
+
+EGEN = ('egen', 'egen riktning')  # "Huvudreferens: egen — …": en egen riktning utan huvudreferens (ägaren 2026-10-06)
+
+
+def huvudreferensens_namn(text):
+    """(egen, namnen) ur huvudreferensens namn, som skaparen skrev det: "egen" ger (True, []); flera namn, skilda av komma,
+    semikolon, "och", "samt", "+", "&" eller "/", ger vart och ett med sin parentes ("Tekt (tekt.com.au), Cox" ger
+    ["Tekt (tekt.com.au)", "Cox"]). Ett skiljetecken inne i en parentes delar inte, och det som står efter tankstrecket
+    (vad referensen bär) hör inte till namnet. Ett namn som självt innehåller ett skiljetecken ("Bröd och Salt") prövas
+    av användarna först helt (namnen_att_prova)."""
+    hel = re.split(r'\s+[—–·]+\s+|\s+-+\s+', str(text or '').strip(), maxsplit=1)[0]
+    utanfor = r'(?![^()]*\))'  # inte inne i en parentes
+    namnen = [x.strip().strip('*`').strip() for x in re.split(r'\s*[,;]\s*%s|\s+(?:och|samt|and|\+|&|/)\s+%s' % (utanfor, utanfor), hel)]
+    namnen = [x for x in namnen if x]
+    egen = bool(namnen) and referensens_namn(namnen[0]) in EGEN
+    return egen, [] if egen else namnen
+
+
 def riktningens_referens(slug, kid):
+    """Raden "Huvudreferens: <namn> — <vad den bär>" i RIKTNING.md: {'namn', 'vad', 'egen', 'namnen'}, eller None när
+    raden saknas. "Huvudreferens: egen — …" (en egen riktning) och flera namn godtas (huvudreferensens_namn)."""
     f = kdir(slug, kid) / 'RIKTNING.md'
     m = re.search(r'^\s*(?:[-*]\s+)?\**Huvudreferens\**\s*:\**\s*(.+?)\s+[—–-]+\s+(.+?)\s*$', f.read_text(encoding='utf-8'), re.M) if f.is_file() else None
-    return {'namn': m.group(1).strip().strip('*`'), 'vad': m.group(2).strip()} if m else None
+    if not m:
+        return None
+    namn = m.group(1).strip().strip('*`')
+    egen, namnen = huvudreferensens_namn(namn)
+    return {'namn': namn, 'vad': m.group(2).strip(), 'egen': egen, 'namnen': namnen}
+
+
+def namnen_att_prova(text):
+    """Huvudreferensens namn i den ordning de prövas mot referenserna: hela namnet först, sedan vart och ett av flera
+    (huvudreferensens_namn), en gång var; tom för en egen riktning."""
+    egen, namnen = huvudreferensens_namn(text)
+    if egen:
+        return []
+    hel = re.split(r'\s+[—–·]+\s+|\s+-+\s+', str(text or '').strip(), maxsplit=1)[0].strip().strip('*`').strip()
+    ut = {}
+    for n in ([hel] if hel else []) + namnen:
+        ut.setdefault(referensens_namn(n), n)
+    return [n for k, n in ut.items() if k]
+
+
+def huvudreferenserna_i_researchen(slug, hr):
+    """Finns huvudreferensen i researchen? None utan rad och för en egen riktning (ingen referens att finna); annars True
+    när hela namnet finns eller vart och ett av flera namn finns (i_researchen)."""
+    if not hr or hr.get('egen') or not hr.get('namnen'):
+        return None
+    return i_researchen(slug, hr['namn']) or all(i_researchen(slug, n) for n in hr['namnen'])
 
 
 def i_researchen(slug, namn):
     """Finns huvudreferensens namn i researchen: planen, FORSKNING.md, REFERENSER.md, referenspaketen och tjänsternas
-    rapporter? Redovisas per kandidat; en referens utanför researchen fäller inte kandidaten (granskning 2, N13)."""
-    n = skapande.vik(namn or '').strip()
+    rapporter? Namnet jämförs utan parentesen ("Tekt (tekt.com.au, 01-start)" söks som "tekt"). Redovisas per kandidat;
+    en referens utanför researchen fäller inte kandidaten (granskning 2, N13)."""
+    n = referensens_namn(namn)
     if len(n) < 3:
         return False
     u = atelje.UNDERLAG / slug
@@ -1722,15 +1792,45 @@ def kor_axe(slug, kid, url, sidor, ut):
     return {'allvarliga': a.get('allvarliga'), 'totalt': a.get('totalt'), 'regler': regler[:12], 'version': a.get('axeVersion')}
 
 
+def menyprovet(meny, fel=None):
+    """Menyn i 390 ur inspektionen (inspektera.mjs --meny, provaMeny) som (brister, upplysningar) för skissens snabba
+    kontroller. En menyknapp som finns men inte öppnade menyn är en brist: en bild med "meny" i namnet bevisar inte att
+    menyn öppnades (ägaren 2026-10-06). En mobil utan menyknapp där navigationens alla länkar syns är inget fel men sägs;
+    utan knapp och med länkar som inte syns når besökaren inte navigationen. Ett prov som inte kördes är ingen frånvaro
+    av brister."""
+    if not isinstance(meny, dict):
+        return ['390: menyn prövades inte%s' % ((' (%s)' % str(fel)[:120]) if fel else '')], []
+    if not meny.get('knapp', meny.get('klickad')):
+        lankar = meny.get('lankar') if isinstance(meny.get('lankar'), dict) else {}
+        n, syns = lankar.get('totalt'), lankar.get('synliga')
+        if n and syns == n:
+            return [], ['390: ingen menyknapp; navigationens alla %d länkar syns utan meny' % n]
+        if n == 0:
+            return [], ['390: ingen menyknapp och ingen navigation (nav) på startsidan']
+        if n:
+            return ['390: ingen menyknapp, och %d av navigationens %d länkar syns inte (%s)' % (
+                n - (syns or 0), n, ', '.join(map(str, lankar.get('dolda') or []))[:120])], []
+        return ['390: ingen menyknapp hittades, och navigationens länkar gick inte att räkna'], []
+    if not meny.get('klickad'):
+        return ['390: menyns knapp gick inte att klicka (%s)' % str(meny.get('skal') or 'okänt skäl')[:160]], []
+    if meny.get('expanded') is None:
+        return ['390: menyns läge gick inte att avläsa efter klicket (knappen har varken aria-expanded eller ett details-element)'], []
+    if meny.get('expanded') != 'true':
+        return ['390: menyns knapp öppnar ingenting (expanded %s efter klick)' % meny.get('expanded')], []
+    return [], []
+
+
 def fotografera(slug, kid, skiss=None):
-    """Bygg kandidatens projekt, fotografera startsidan i 390, 768 och 1440 och undersidan i 390 och 1440, kör axe,
-    bevara koden, DESIGN.md och bilderna, och sätt status: klar för ägarens bedömning, eller ofullständig med skälen.
-    skiss: bara startsidan, med menyns knapp klickad; hinder (startsidan saknas, bygget föll, bilderna saknas) gör
-    skissen ofullständig, medan brister (konsolfel, spill, axe, siffror utan belägg, menyn, huvudreferensraden) markeras
-    och skissen ändå går att bedöma. skiss None: efter versionen, en skiss i skissläget som inte fördjupats får skissens
-    kontroller, också vid --fotografera och när en misslyckad fördjupning återställs (granskning 3, S5)."""
+    """Bygg kandidatens projekt, fotografera startsidan i 390, 768, 1280 och 1440 (STARTVYER) och undersidan i 390 och
+    1440, kör axe, bevara koden, DESIGN.md och bilderna, och sätt status: klar för ägarens bedömning, eller ofullständig
+    med skälen. skiss: bara startsidan, med menyns knapp klickad i verkligt tillstånd (menyprovet); hinder (startsidan
+    saknas, bygget föll, bilderna saknas) gör skissen ofullständig, medan brister (konsolfel, spill, axe, siffror utan
+    belägg, menyn, huvudreferensraden) markeras och skissen ändå går att bedöma; det som inte är fel men ska sägas (en
+    mobil utan menyknapp där alla länkar syns) står i upplysningar. skiss None: efter versionen, en skiss i skissläget som
+    inte fördjupats får skissens kontroller, också vid --fotografera och när en misslyckad fördjupning återställs
+    (granskning 3, S5)."""
     d, sajt = kdir(slug, kid), ksajt(slug, kid)
-    brister, markeringar = [], []
+    brister, markeringar, upplysningar = [], [], []
     kod = d / 'kod'
     atelje.saker_vag(d, rot(slug))
     if kod.is_symlink():
@@ -1766,7 +1866,7 @@ def fotografera(slug, kid, skiss=None):
             brister.append('bygget föll: ' + prova.svans(out, 8))
     if not brister:
         insp = str(prova.KONTROLLER / 'webblasare' / 'inspektera.mjs')
-        sidor = [('start', '/', '390,768,1440')] + ([] if skiss else [(forhandsvisa.sidnamn(v), v, '390,1440') for v in undersidor(slug, kid)[:2]])
+        sidor = [('start', '/', STARTVYER)] + ([] if skiss else [(forhandsvisa.sidnamn(v), v, '390,1440') for v in undersidor(slug, kid)[:2]])
         with prova.Server(sajt / 'dist') as srv:
             for namn, vag, vyer in sidor:
                 ut = bilder / namn
@@ -1782,18 +1882,17 @@ def fotografera(slug, kid, skiss=None):
                         (markeringar if skiss else brister).append('%s %s: konsolfel eller sidfel (%s)' % (vag, vy, str(fel[0].get('text', ''))[:120]))
                     if (r.get('spill') or {}).get('spill'):
                         (markeringar if skiss else brister).append('%s %s: sidled-spill' % (vag, vy))
-                    meny = (r.get('tillstand') or {}).get('meny') if skiss and vy == '390' else None
-                    if meny and meny.get('klickad') and meny.get('expanded') is None:  # granskning 3, S10
-                        markeringar.append('390: menyns läge gick inte att avläsa efter klicket (aria-expanded saknas eller flera knappar)')
-                    elif meny and meny.get('klickad') and meny.get('expanded') != 'true':
-                        markeringar.append('390: menyns knapp öppnar ingenting (aria-expanded %s efter klick)' % meny.get('expanded'))
+                    if skiss and vag == '/' and vy == '390':  # menyn i verkligt tillstånd (ägaren 2026-10-06; granskning 3, S10)
+                        b_, u_ = menyprovet((r.get('tillstand') or {}).get('meny'), r.get('fel'))
+                        markeringar += b_
+                        upplysningar += u_
             try:
                 axe = kor_axe(slug, kid, srv.url, [v for _n, v, _w in sidor], d / 'axe')
             except Exception as e:  # noqa: BLE001 — axe är redovisning, aldrig ett skäl att tappa kandidaten
                 axe = {'fel': '%s: %s' % (type(e).__name__, str(e)[:200])}
     if skiss:  # skissläget: undersidan och varven hör till fördjupningen; bristerna markeras, skissen går att bedöma
         if not riktningens_referens(slug, kid):
-            markeringar.append('RIKTNING.md saknar raden "Huvudreferens: <namn> — <vad den bär>"')
+            markeringar.append('RIKTNING.md saknar raden "Huvudreferens: <namn> — <vad den bär>" (eller "Huvudreferens: egen — …")')
         if (axe or {}).get('allvarliga'):
             markeringar.append('axe: %s allvarliga fynd (%s)' % (axe['allvarliga'], '; '.join((axe.get('regler') or [])[:4])))
         elif not brister and (axe is None or axe.get('fel') or 'allvarliga' not in axe):  # en kontroll som inte kördes är ingen frånvaro av brister
@@ -1805,7 +1904,7 @@ def fotografera(slug, kid, skiss=None):
         if not undersidor(slug, kid):
             brister.append('undersidan eller tillståndet saknas (uppdraget anger vilken)')
         if not riktningens_referens(slug, kid):
-            brister.append('RIKTNING.md saknar raden "Huvudreferens: <namn> — <vad den bär>"')
+            brister.append('RIKTNING.md saknar raden "Huvudreferens: <namn> — <vad den bär>" (eller "Huvudreferens: egen — …")')
         if korlage(slug) == 'full' and varv_antal(slug, kid) < MIN_VARV:
             brister.append('%d förhandsvarv av minst %d' % (varv_antal(slug, kid), MIN_VARV))
     v = version(slug, kid)
@@ -1815,11 +1914,11 @@ def fotografera(slug, kid, skiss=None):
     sv = list(las_status(slug, kid).get('skissversioner') or [])
     if skiss and v not in sv:
         sv.append(v)
+    hr = riktningens_referens(slug, kid)
     return satt_status(slug, kid, status, skal, version=v, fotograferad=nu(), axe=axe, hinder=brister if skiss else None,
-                       brister=markeringar if skiss else None, skissversioner=sv or None,
+                       brister=markeringar if skiss else None, upplysningar=upplysningar if skiss else None, skissversioner=sv or None,
                        undersidor=undersidor(slug, kid), varv=varv_antal(slug, kid), tillampning=tillampningen(slug, kid),
-                       huvudreferens=(riktningens_referens(slug, kid) or {}).get('namn'),
-                       huvudreferens_i_researchen=i_researchen(slug, (riktningens_referens(slug, kid) or {}).get('namn')))
+                       huvudreferens=(hr or {}).get('namn'), huvudreferens_i_researchen=huvudreferenserna_i_researchen(slug, hr))
 
 
 def bevara_version(slug, kid, v, bilder=True):
@@ -1963,13 +2062,27 @@ def referenssida(slug, kid):
     punkt 7: referensen och prototypen bredvid varandra i mobil och dator). Referensen hittas genom Bildval-raderna under
     dess rubrik i REFERENSER.md (rubriken och namnet jämförs i samma form), annars genom uppdragets referensbilder, annars
     genom katalogen med referensens namn: referenser/<paket>/<referens>/ i det senaste paketet, eller den platta
-    referenser/<referens>/ (byggena före paketen). Ger ({'namn', 'sida', '390-forsta', '1440-forsta', '390-hela',
-    '1440-hela'} med sökvägar under underlag/, None för en vy som saknas), eller (None, skälet)."""
-    import referensval
+    referenser/<referens>/ (byggena före paketen). Flera namn prövas i tur och ordning, hela namnet först
+    (namnen_att_prova); en egen riktning har ingen referens att jämföra med. Ger ({'namn', 'sida', '390-forsta',
+    '1440-forsta', '390-hela', '1440-hela'} med sökvägar under underlag/, None för en vy som saknas), eller (None, skälet)."""
     hel = las_status(slug, kid).get('huvudreferens') or ''
+    if huvudreferensens_namn(hel)[0]:
+        return None, 'förslaget är en egen riktning utan huvudreferens (Huvudreferens: egen)'
+    for namn in namnen_att_prova(hel):
+        ref = referensens_sida(slug, kid, namn)
+        if ref:
+            return dict(ref, namn=hel), None
+    if not referensens_namn(hel):
+        return None, 'förslaget har ingen huvudreferens'
+    return None, 'huvudreferensen "%s" har ingen fångad sida i referenserna (underlag/%s/referenser/)' % (hel, slug)
+
+
+def referensens_sida(slug, kid, hel):
+    """Den fångade startsidan för ett av huvudreferensens namn (referenssida), eller None."""
+    import referensval
     namn = referensens_namn(hel)
     if not namn:
-        return None, 'förslaget har ingen huvudreferens'
+        return None
     bas = atelje.UNDERLAG / slug / 'referenser'  # oupplöst, så att sökvägarna blir relativa till repot
     rot_ = bas.resolve()
     kort = re.sub(r'[^a-z0-9]+', '-', namn).strip('-')
@@ -1991,8 +2104,8 @@ def referenssida(slug, kid):
         val = startsidan(r_, citerade)
         if val and val.resolve().is_relative_to(rot_):
             vy = lambda n: rel(val / ('vy-%s.png' % n)) if (val / ('vy-%s.png' % n)).is_file() else None  # noqa: E731
-            return {'namn': hel, 'sida': rel(val), **{n: vy(n) for n in REFERENSVYER}}, None
-    return None, 'huvudreferensen "%s" har ingen fångad sida i referenserna (underlag/%s/referenser/)' % (hel, slug)
+            return {'namn': hel, 'sida': rel(val), **{n: vy(n) for n in REFERENSVYER}}
+    return None
 
 
 def riktningens_avsnitt(text, rubriker):
@@ -2018,7 +2131,8 @@ def referensjamforelse(slug, kid):
     ref, saknas = referenssida(slug, kid)
     t = (kdir(slug, kid) / 'RIKTNING.md').read_text(encoding='utf-8', errors='replace') if (kdir(slug, kid) / 'RIKTNING.md').is_file() else ''
     avsnitt = riktningens_avsnitt(t, (OVERFORT,)) or riktningens_avsnitt(t, ('Referenslås', 'Referensens kvalitet'))
-    return {'referens': ref, 'saknas': saknas, 'avsnitt': avsnitt[:12000], 'redovisat': bool(riktningens_avsnitt(t, (OVERFORT,)))}
+    return {'referens': ref, 'saknas': saknas, 'avsnitt': avsnitt[:12000], 'redovisat': bool(riktningens_avsnitt(t, (OVERFORT,))),
+            'egen': huvudreferensens_namn(las_status(slug, kid).get('huvudreferens'))[0]}  # en egen riktning saknar ingen referens
 
 
 def uppdragets_bilder(slug, kid):
@@ -2106,7 +2220,10 @@ def kritik(slug, kid, namn='KRITIK.json'):
     las = bildkedja.lasning(svar.get('session_id'), {'forsta_vyerna': [rel(p) for p in bilder_for(slug, kid, vyer=('390', '1440'))]}) if svar.get('session_id') else {}
     last = (las.get('grupper') or {}).get('forsta_vyerna', {}).get('saknas') == [] if las.get('verifierad') else None
     hr = riktningens_referens(slug, kid)
-    refbilder = [p for p, _t in (referensval.referens(slug, atelje.UNDERLAG, hr['namn']).get('bilder') or [])][:4] if hr else []
+    refbilder = []  # huvudreferensens bilder, hela namnet först och sedan vart och ett av flera; ingen för en egen riktning
+    for n_ in namnen_att_prova(hr['namn']) if hr else []:
+        refbilder += [p for p, _t in (referensval.referens(slug, atelje.UNDERLAG, n_).get('bilder') or []) if p not in refbilder]
+    refbilder = refbilder[:4]
     for b in uppdragets_bilder(slug, kid):
         if len(refbilder) < 6:
             refbilder.append(atelje.UNDERLAG / Path(b).relative_to('underlag'))
@@ -2761,6 +2878,10 @@ def redovisa_skiss(slug, status):
         mat = material(slug, kid)
         if mat:
             behov.append('- %s (%s): %s' % (namn.get(kid), kid, mat))
+    upplysta = ['- %s (%s): %s' % (namn.get(kid), kid, '; '.join(las_status(slug, kid).get('upplysningar') or [])) for kid in ids
+                if las_status(slug, kid).get('upplysningar')]
+    if upplysta:  # inget fel, men ska sägas (en mobil utan menyknapp där alla länkar syns; ägaren 2026-10-06)
+        rader += ['', '## Upplysningar ur de snabba kontrollerna', ''] + upplysta
     rader += ['', '## Ofullständiga och fallna', ''] + (fallna or ['Inga.'])
     rader += kompetens_rader(slug, ids, namn)
     rader += ['', '## Det som behöver mänsklig bedömning', '',
@@ -2896,15 +3017,17 @@ def sammanstall(slug):
             b = lambda sida, vy, s: (lambda p: rel(p) if p.is_file() else None)(bas / sida / ('vy-%s-%s.png' % (vy, s)))  # noqa: E731
             return {'390-forsta': b('start', '390', 'forsta'), '768-forsta': b('start', '768', 'forsta'), '1440-forsta': b('start', '1440', 'forsta'),
                     '390-hela': b('start', '390', 'hela'), '768-hela': b('start', '768', 'hela'), '1440-hela': b('start', '1440', 'hela'),
+                    '1280-forsta': b('start', '1280', 'forsta'), '1280-hela': b('start', '1280', 'hela'),  # mellanbredden (ägaren 2026-10-06)
                     'undersida-390': b(under, '390', 'forsta') if under else None, 'undersida-1440': b(under, '1440', 'forsta') if under else None,
                     'undersida-390-hela': b(under, '390', 'hela') if under else None, 'undersida-1440-hela': b(under, '1440', 'hela') if under else None}
         under = forhandsvisa.sidnamn(st['undersidor'][0]) if st.get('undersidor') else None
         post = {'id': kid, 'etikett': namn.get(kid), 'status': st.get('status'), 'statustext': STATUSTEXT.get(st.get('status'), st.get('status')),
                 'skal': st.get('skal'), 'version': st.get('version'), 'varv': st.get('varv'), 'undersidor': st.get('undersidor') or [],
                 'bygd': (ksajt(slug, kid) / 'dist' / 'index.html').is_file(), 'design_fel': st.get('design_fel') or [],
-                'brister': st.get('brister') or [],
+                'brister': st.get('brister') or [], 'upplysningar': st.get('upplysningar') or [],
                 'kompetenspass': {rec.get('pass'): rec.get('genomford') for k_, rec in sorted((st.get('kompetens') or {}).items()) if k_.startswith('skiss:')},
-                'hypotes': dolj_referens(st.get('hypotes') or '', [st.get('huvudreferens')]) if blind else st.get('hypotes') or '',
+                # varje namn döljs; "egen" är inget namn att dölja (ordet står i vanlig text)
+                'hypotes': dolj_referens(st.get('hypotes') or '', namnen_att_prova(st.get('huvudreferens'))) if blind else st.get('hypotes') or '',
                 'bilder': bilder(d / 'bilder', under)}
         if jamforelse_synlig:
             post['referensjamforelse'] = referensjamforelse(slug, kid)

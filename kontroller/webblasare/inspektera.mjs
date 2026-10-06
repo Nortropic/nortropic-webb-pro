@@ -8,12 +8,59 @@
 //        reducerad: sidan omladdad med prefers-reduced-motion: reduce; animationer som fortfarande löper räknas och fotograferas
 //        [--extrahera standard | 'SEL;SEL'] — riktad designextraktion i samma session (extrahera.mjs): vy-<bredd>-extrakt.json och EXTRAKT.md
 import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER, viaTjanst } from './gemensamt.mjs';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { vakta } from '../slugvakt.mjs';
 import { extrahera, sammanfatta, STANDARD } from './extrahera.mjs';
 
 await viaTjanst('inspektera', process.argv.slice(2));
+// Menyn i verkligt tillstånd (ägaren 2026-10-06: en bild med "meny" i filnamnet bevisar inte att menyn öppnades).
+// Elementet hålls fast före klicket, som i axe.mjs: väljaren kan sluta matcha när menyn är öppen (aria-expanded, open).
+// expanded: 'true' när knappen har aria-expanded="true" eller ligger i ett öppet details-element, 'false' när den har
+// attributet eller ligger i ett details-element som är stängt, null när läget inte går att avläsa. Menybilden tas bara
+// när menyn öppnades; annars står skälet i skal och ingen vy-<bredd>-meny.png finns. Utan synlig knapp räknas
+// navigationens länkar utanför sidfoten (varje adress en gång) och hur många som syns: en mobil utan menyknapp där alla
+// länkar syns är inget fel, men det ska sägas.
+async function provaMeny(page, valjare, ut, vy) {
+  const m = { valjare, knapp: false, klickad: false, expanded: null };
+  rmSync(join(ut, `vy-${vy}-meny.png`), { force: true });
+  const knapp = await page.locator(valjare).filter({ visible: true }).first().elementHandle({ timeout: 1000 }).catch(() => null);
+  if (!knapp) {
+    m.lankar = await page.evaluate(() => {
+      const syns = (e) => {
+        const r = e.getBoundingClientRect();
+        if (!(r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth)) return false;
+        if (e.checkVisibility && !e.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+        const y = r.top + r.height / 2;
+        if (y < 0 || y >= innerHeight) return true;  // utanför första vyn: storleken och synligheten avgör
+        const t = document.elementFromPoint(Math.min(Math.max(r.left + r.width / 2, 0), innerWidth - 1), y);
+        return !!t && (t === e || e.contains(t) || t.contains(e));
+      };
+      const alla = new Set(), synliga = new Set();
+      for (const e of document.querySelectorAll('nav a[href]')) {
+        if (e.closest('footer')) continue;
+        alla.add(e.getAttribute('href'));
+        if (syns(e)) synliga.add(e.getAttribute('href'));
+      }
+      return { totalt: alla.size, synliga: synliga.size, dolda: [...alla].filter((h) => !synliga.has(h)).slice(0, 6) };
+    }).catch(() => null);
+    m.skal = 'ingen synlig menyknapp (' + valjare + ')';
+    return m;
+  }
+  m.knapp = true;
+  m.etikett = await knapp.evaluate((e) => (e.getAttribute('aria-label') || e.innerText || '').trim().slice(0, 60)).catch(() => '');
+  try { await knapp.click({ timeout: 5000 }); m.klickad = true; } catch (e) { m.skal = 'knappen gick inte att klicka: ' + String(e.message).split('\n')[0].slice(0, 160); return m; }
+  await page.waitForTimeout(400);
+  m.expanded = await knapp.evaluate((e) => {
+    const x = e.getAttribute('aria-expanded'), d = e.closest('details');
+    return x === 'true' || (d && d.open) ? 'true' : (x !== null || d) ? 'false' : null;
+  }).catch(() => null);
+  if (m.expanded === 'true') { m.bild = join(ut, `vy-${vy}-meny.png`); await page.screenshot({ path: m.bild }); }
+  else m.skal = m.expanded === 'false' ? 'menyn öppnades inte: knappen är stängd efter klicket (aria-expanded eller details)'
+    : 'menyns läge går inte att avläsa: knappen har varken aria-expanded eller ett details-element';
+  return m;
+}
+
 const a = args(process.argv.slice(2));
 vakta(a.ut);
 if (!a.adress || !a.ut) { console.error('användning: --adress URL --ut DIR [...]'); process.exit(2); }
@@ -68,7 +115,7 @@ for (const vy of vyer) {
     r.spill = await horisontellSpill(b.page);
     if (a.hover) { await b.page.hover(a.hover, { timeout: 5000 }).catch(e => { r.tillstand.hover_fel = e.message.slice(0, 120); }); r.tillstand.hover = join(a.ut, `vy-${vy}-hover.png`); await b.page.screenshot({ path: r.tillstand.hover }); }
     if (a.fokus) { await b.page.focus(a.fokus, { timeout: 5000 }).catch(e => { r.tillstand.fokus_fel = e.message.slice(0, 120); }); r.tillstand.fokus = join(a.ut, `vy-${vy}-fokus.png`); await b.page.screenshot({ path: r.tillstand.fokus }); }
-    if (a.meny) { const ok = await b.page.click(a.meny, { timeout: 5000 }).then(() => true).catch(() => false); await b.page.waitForTimeout(400); r.tillstand.meny = { klickad: ok, expanded: ok ? await b.page.locator(a.meny).getAttribute('aria-expanded').catch(() => null) : null, bild: join(a.ut, `vy-${vy}-meny.png`) }; await b.page.screenshot({ path: r.tillstand.meny.bild }); }
+    if (a.meny) r.tillstand.meny = await provaMeny(b.page, String(a.meny), a.ut, vy);
     if (tillstand.has('tangentbord')) { await b.page.goto(a.adress, { waitUntil: 'load' }); r.tillstand.tangentbord = await tangentbord(b.page, 25); r.tillstand.tangentbord_utan_synlig_fokus = r.tillstand.tangentbord.filter(s => !s.synligFokus).length; }
     if (tillstand.has('reflow')) { await b.page.setViewportSize({ width: 320, height: 640 }); await b.page.waitForTimeout(300); r.tillstand.reflow_320 = await horisontellSpill(b.page); await b.page.screenshot({ path: join(a.ut, `vy-${vy}-reflow320.png`) }); await b.page.setViewportSize(b.vy.viewport); }
     if (tillstand.has('reducerad')) {  // rörelsen respekterar prefers-reduced-motion: löpande animationer efter omladdning
@@ -94,7 +141,7 @@ if (undantag) rapport.not += '; spårfilerna bär skyddsundantaget i nätverkspo
 skriv(a.ut, 'INSPEKTION.json', rapport);
 if (extraktSel) skriv(a.ut, 'EXTRAKT.md', ['# Extrakt — ' + a.adress + ' (' + rapport.tid + ')', '', 'Uppmätt i samma webbläsarsession som skärmbilderna (kontroller/webblasare/extrahera.mjs). Värdena är mätningar; tolkningen (uppskattat, valt för kunden) skrivs i REFERENSER.md och DESIGN.md.', '', ...extraktMd].join('\n') + '\n');
 const md = ['# Inspektion — ' + a.adress + ' (' + rapport.tid + ')', '', 'Kontext bifogad: ' + (kontext.map(k => k.namn + ' ' + k.sha256.slice(0, 12)).join(', ') || 'ingen'), ''];
-for (const [vy, r] of Object.entries(rapport.vyer)) md.push(`## Vy ${vy} — ${r.namn}`, '', `- status ${r.status}, titel "${r.titel}", h1 ${r.h1}, horisontell spill ${r.spill?.spill}`, `- konsol ${r.konsol.length} (fel: ${r.konsol.filter(x => x.typ === 'error').length}), sidfel ${r.sidfel.length}, nätverksfel ${r.natverk.fel.length}, blockerade ${r.natverk.blockerade.length}`, `- tangentbord: ${r.tillstand.tangentbord?.length ?? '-'} steg, utan synlig fokus ${r.tillstand.tangentbord_utan_synlig_fokus ?? '-'}; reflow 320 spill ${r.tillstand.reflow_320?.spill ?? '-'}`, `- bilder: ${r.forsta_vyn}, ${r.hela_sidan}; träd ${r.tillganglighetstrad}; spår ${r.spar}`, '');
+for (const [vy, r] of Object.entries(rapport.vyer)) md.push(`## Vy ${vy} — ${r.namn}`, '', `- status ${r.status}, titel "${r.titel}", h1 ${r.h1}, horisontell spill ${r.spill?.spill}`, `- konsol ${r.konsol.length} (fel: ${r.konsol.filter(x => x.typ === 'error').length}), sidfel ${r.sidfel.length}, nätverksfel ${r.natverk.fel.length}, blockerade ${r.natverk.blockerade.length}`, `- tangentbord: ${r.tillstand.tangentbord?.length ?? '-'} steg, utan synlig fokus ${r.tillstand.tangentbord_utan_synlig_fokus ?? '-'}; reflow 320 spill ${r.tillstand.reflow_320?.spill ?? '-'}`, ...(r.tillstand.meny ? [`- meny: klickad ${r.tillstand.meny.klickad}, expanded ${r.tillstand.meny.expanded}; ${r.tillstand.meny.bild ? 'bild ' + r.tillstand.meny.bild : 'ingen bild: ' + r.tillstand.meny.skal}`] : []), `- bilder: ${r.forsta_vyn}, ${r.hela_sidan}; träd ${r.tillganglighetstrad}; spår ${r.spar}`, '');
 md.push(rapport.not);
 skriv(a.ut, 'INSPEKTION.md', md.join('\n') + '\n');
 console.log(JSON.stringify({ ut: a.ut, vyer: Object.keys(rapport.vyer), blockerade: Object.values(rapport.vyer).reduce((s, r) => s + r.natverk.blockerade.length, 0), fel: Object.values(rapport.vyer).filter(r => r.fel).length }));
