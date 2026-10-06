@@ -959,7 +959,7 @@ try:
     uh.npm = falsk_npm_r76
     vl.kor = falsk_kor_r77
     spara_installerar_r77 = uh.npm_installerar
-    uh.npm_installerar = lambda: None  # ingen npm-installation på maskinen i provet (prövas för sig nedan)
+    uh.npm_installerar = lambda *a_: None  # ingen npm-installation på maskinen i provet (prövas för sig nedan)
     R_R77 = {'paket': 'vercel', 'installerat': '60.0.1', 'binar': 'vercel', 'id': 'npm-global:vercel'}
     try:
         f_, st_ = uh.prova_globalt(None, R_R77, {'version': '60.1.3'})
@@ -1014,8 +1014,10 @@ try:
         HJALP_ = {'trasiga': set()}
         spara_ls = uh.npm_ls_ok
         # npm ls säger att trädet är halvt för versionerna i HJALP_ (r85, M2, och r86, M1)
-        uh.npm_ls_ok = lambda prefix, paket: (json.loads((KAT_ / 'package.json').read_text())['version']
-                                              if (KAT_ / 'package.json').is_file() else None) not in HJALP_['trasiga']
+        uh.npm_ls_ok = lambda kat_: ('npm ls ser saknade eller ogiltiga beroenden (prov)' if (json.loads((KAT_ / 'package.json').read_text())['version']
+                                     if (KAT_ / 'package.json').is_file() else None) in HJALP_['trasiga'] else None)
+        spara_vanta_npm = uh.VANTA_ANNAN_NPM
+        uh.VANTA_ANNAN_NPM = 0  # provet väntar inte på en annan npm (väntan prövas för sig nedan)
         kor_hj = spara_kor_m4
         vl.kor = kor_hj  # klonen görs med den riktiga cp
         vl.version_av = lambda a: json.loads((KAT_ / 'package.json').read_text())['version'] if (KAT_ / 'package.json').is_file() else None
@@ -1032,7 +1034,7 @@ try:
         assert not list((PF_ / 'lib').glob('.nwp-spar*')), 'klonen städas också när intaget lyckas'
         assert uh.ta_in_globalt(None, dict(R_IN, paketkatalog=str(TMP / 'finns-inte')), {'version': '60.1.3'}, {'prov': 'p'})[0] == 'behallen'
         vl.kor = lambda args, **kw: (1, '') if args[:1] == ['ps'] else (0, '')  # en kopia som inte blev av: inget intag
-        uh.npm_installerar = lambda: None
+        uh.npm_installerar = lambda *a_: None
         NPM_R76.clear()
         assert uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})[0] == 'behallen' and not NPM_R76, NPM_R76
         vl.kor = kor_hj
@@ -1047,7 +1049,7 @@ try:
         os.symlink('../lib/node_modules/vercel/dist/vc.js', PF_ / 'bin' / 'vercel')
         NM_ = PF_ / 'lib' / 'node_modules'
         SPAR_ = uh.spar_for(KAT_, 'vercel')
-        uh.npm_installerar = lambda: None  # ingen npm-installation på maskinen i provet
+        uh.npm_installerar = lambda *a_: None  # ingen npm-installation på maskinen i provet
         vl.version_av = lambda a: (None if (KAT_ / 'TRASIG').exists() else json.loads((KAT_ / 'package.json').read_text())['version']) \
             if (KAT_ / 'package.json').is_file() else None
         spara_kor_hj = spara_kor_m4
@@ -1087,34 +1089,46 @@ try:
         HJALP_['trasiga'] = {'60.1.3'}
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         HJALP_['trasiga'] = set()
-        assert res_[0] == 'behallen' and 'inte helt enligt npm ls' in res_[1] and json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1', res_
+        assert res_[0] == 'behallen' and 'npm ls ser saknade' in res_[1] and json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1', res_
         assert not list(NM_.glob('.nwp-trasig-*')), 'vår egen halva installation tas bort när klonen svarar'
         # en global npm-installation pågår: intaget väntar och rör ingenting (r85, M3)
-        uh.npm_installerar = lambda: 'en global npm-installation pågår (npm install -g x)'
+        uh.npm_installerar = lambda *a_: 'en global npm-installation pågår (npm install -g x)'
         NPM_R76.clear()
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'behallen' and 'npm-installation pågår' in res_[1] and not NPM_R76, res_
-        uh.npm_installerar = lambda: None
+        uh.npm_installerar = lambda *a_: None
         # en annan npm börjar medan vår kör: återställningen rör inte trädet, och klonen står kvar (r86, H1)
         def falsk_npm_annan(args, cwd, timeout=900, env=None):
             NPM_R76.append(list(args))
-            uh.npm_installerar = lambda: 'en npm-installation pågår (npm install /x/pkg.tgz)'
+            uh.npm_installerar = lambda *a_: 'en npm-installation pågår (npm install /x/pkg.tgz)'
             (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '61.0.0-annan'}))
             return 1, 'npm error code ENOTEMPTY'
         uh.npm = falsk_npm_annan
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
-        uh.npm_installerar = lambda: None
+        uh.npm_installerar = lambda *a_: None
         assert res_[0] == 'avvisad' and 'ÅTERSTÄLLNINGEN FÖLL' in res_[1] and 'npm-installation pågår' in res_[1], res_
         assert json.loads((KAT_ / 'package.json').read_text())['version'] == '61.0.0-annan' and (SPAR_ / 'vercel' / 'package.json').is_file()
         (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.0.1'}))
         shutil.rmtree(SPAR_)
         # en installation börjar efter den första frågan men före vår npm: intaget väntar, och klonen tas bort (r86, H1)
         SVAR_I = iter([None, 'en npm-installation pågår (npm install /x/pkg.tgz)'])
-        uh.npm_installerar = lambda: next(SVAR_I, None)
+        uh.npm_installerar = lambda *a_: next(SVAR_I, None)
         NPM_R76.clear()
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
-        uh.npm_installerar = lambda: None
+        uh.npm_installerar = lambda *a_: None
         assert res_[0] == 'behallen' and 'npm-installation pågår' in res_[1] and not NPM_R76 and not SPAR_.exists(), res_
+        # en annan npm som rör paketet blir klar under väntan: återställningen görs (r88, M1)
+        SVAR_V = iter([None, None, 'en npm-installation pågår (npm install vercel@61)', None])
+        uh.npm_installerar = lambda *a_: next(SVAR_V, None)
+        uh.npm = falsk_npm_dor
+        uh.VANTA_ANNAN_NPM, spara_sov = 60, uh.time.sleep
+        uh.time.sleep = lambda s_: None
+        try:
+            res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+        finally:
+            uh.time.sleep, uh.VANTA_ANNAN_NPM = spara_sov, 0
+        uh.npm_installerar = lambda *a_: None
+        assert res_[0] == 'avvisad' and 'lagt tillbaka' in res_[1] and not SPAR_.exists(), res_
         # ett avbrott (Ctrl-C) mitt i vår npm: klonen står kvar (r86, L1)
         def falsk_npm_avbrott(args, cwd, timeout=900, env=None):
             raise KeyboardInterrupt()
@@ -1161,9 +1175,9 @@ try:
                 uh.steg_laga_globala(rap_)
             assert rap_.get('lagat') and 'ett intag pågår' in rap_['lagat'][0] and (SPAR_ / 'vercel').is_dir(), rap_
             # en npm-installation pågår: lagningen väntar
-            uh.npm_installerar = lambda: 'en global npm-installation pågår (npm install -g x)'
+            uh.npm_installerar = lambda *a_: 'en global npm-installation pågår (npm install -g x)'
             assert uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel').startswith('MILJÖN TRASIG') and (SPAR_ / 'vercel').is_dir()
-            uh.npm_installerar = lambda: None
+            uh.npm_installerar = lambda *a_: None
             # underhållets huvudflöde lagar före inventeringen (inventeringen stoppas här): trädet saknas helt och vår klon
             # finns, så klonen läggs på plats med länkarna, och binären prövas
             os.unlink(PF_ / 'bin' / 'vercel')
@@ -1225,7 +1239,7 @@ try:
         uh.npm = falsk_npm_tar_klonen
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'avvisad' and 'klonen saknas' in res_[1] and 'ÅTERSTÄLLNINGEN FÖLL' in res_[1] and (KAT_ / 'package.json').is_file(), res_
-        uh.npm_installerar, vl.kor, uh.npm_ls_ok = spara_installerar_r77, spara_kor_hj, spara_ls
+        uh.npm_installerar, vl.kor, uh.npm_ls_ok, uh.VANTA_ANNAN_NPM = spara_installerar_r77, spara_kor_hj, spara_ls, spara_vanta_npm
         # npm_installerar ser en global installation i ps (själva programmet, aldrig ett skal som nämner npm), och svarar när
         # ps inte går att köra
         spara_kor_ps = vl.kor
@@ -1241,6 +1255,15 @@ try:
             assert uh.npm_installerar() is None, 'npm utan verb (de första tiondelarna) räknas inte'
             vl.kor = lambda args, **kw: (0, 'npm ls -g vercel\nnpm root -g\n/bin/zsh -c echo npm install -g x\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
             assert uh.npm_installerar() is None, 'läsande npm och ett skal som nämner npm räknas inte'
+            # per paket: ett npm ci i ett annat projekt räknas inte, men paketets namn, en sökväg, ett arkiv, en uppdatering
+            # utan argument och npm:s förkortningar gör det (granskningen av r88, M1 och L1)
+            for rad_, vantat_ in (('npm ci', None), ('npm install', None), ('npm install left-pad', None), ('npm install vercel@62.2.0', 'vercel'),
+                                  ('npm i /Users/x/vercel-62.2.0.tgz', 'tgz'), ('npm update', 'update'), ('npm inst vercel', 'inst'),
+                                  ('npm isnt vercel', 'isnt'), ('npm exec vercel', None)):
+                vl.kor = lambda args, r_=rad_, **kw: (0, r_ + '\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+                assert bool(uh.npm_installerar('vercel')) == bool(vantat_), (rad_, uh.npm_installerar('vercel'))
+            vl.kor = lambda args, **kw: (0, 'npm ci\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+            assert uh.npm_installerar(), 'utan paket räknas varje skrivande npm (lagningen är försiktig)'
             vl.kor = lambda args, **kw: (1, '') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
             assert 'ps svarar inte' in (uh.npm_installerar() or '')
         finally:
@@ -1301,6 +1324,22 @@ try:
     except (ValueError, KeyError, TypeError):
         ok_ = False
     assert ok_, (npm_r76, r_.returncode, r_.stdout[-400:], r_.stderr[-600:])
+    # npm ls i paketets egen katalog ser ett saknat beroende; med ett paketfilter hade det bara prövat att paketet finns
+    # (granskningen av r88, H1, med riktig npm)
+    LS_ = TMP / 'npm-ls-r88' / 'pkga'
+    (LS_ / 'node_modules' / 'dep-b').mkdir(parents=True)
+    (LS_ / 'package.json').write_text(json.dumps({'name': 'pkga', 'version': '1.0.0', 'dependencies': {'dep-b': '^1.0.0', 'dep-c': '^2.0.0'}}))
+    (LS_ / 'node_modules' / 'dep-b' / 'package.json').write_text(json.dumps({'name': 'dep-b', 'version': '1.0.0'}))
+    spara_kor_ls, vl.kor = vl.kor, spara_kor_m4
+    spara_path_ls = os.environ['PATH']
+    os.environ['PATH'] = PATH_URSPRUNG  # den riktiga npm (provets falska npm står annars först)
+    try:
+        assert uh.npm_ls_ok(LS_), 'dep-c saknas: npm ls i katalogen ser det'
+        (LS_ / 'node_modules' / 'dep-c').mkdir()
+        (LS_ / 'node_modules' / 'dep-c' / 'package.json').write_text(json.dumps({'name': 'dep-c', 'version': '2.1.0'}))
+        assert uh.npm_ls_ok(LS_) is None, uh.npm_ls_ok(LS_)
+    finally:
+        os.environ['PATH'], vl.kor = spara_path_ls, spara_kor_ls
     for kat_, ver_ in ((G_, '60.1.3'), (None, '60.0.1'), (TMP / 'finns-inte', '60.0.1')):
         try:
             uh.las_ur_tradet(kat_, ver_, TMP / 'bas-r76-fel')

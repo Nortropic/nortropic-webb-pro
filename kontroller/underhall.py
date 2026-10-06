@@ -598,16 +598,27 @@ def agare_lever(spar):
     return bool(a.get('pid')) and korregister.lever(a['pid']) and korregister.startad(a['pid']) == a.get('start')
 
 
-NPM_SKRIVANDE = {'install', 'i', 'isntall', 'add', 'update', 'up', 'upgrade', 'uninstall', 'remove', 'rm', 'r', 'un', 'unlink',
-                 'ci', 'clean-install', 'install-clean', 'link', 'ln', 'dedupe', 'prune', 'rebuild'}
+# npm:s skrivande kommandon med sina alias (npm 10 och 12, cmd-list.js; granskningen av r88, L1); ett förkortat verb räknas
+# också när det är början på ett av dem (npm godtar förkortningar)
+NPM_SKRIVANDE = {'install', 'i', 'in', 'ins', 'inst', 'insta', 'instal', 'isnt', 'isnta', 'isntal', 'isntall', 'add',
+                 'ci', 'ic', 'clean-install', 'install-clean', 'isntall-clean', 'it', 'cit', 'sit', 'install-test', 'install-ci-test',
+                 'clean-install-test', 'update', 'up', 'upgrade', 'udpate', 'u', 'uninstall', 'remove', 'rm', 'r', 'un', 'unlink',
+                 'link', 'ln', 'dedupe', 'ddp', 'prune', 'rebuild', 'rb'}
+NPM_HELA = ('install', 'uninstall', 'update', 'upgrade', 'rebuild', 'dedupe', 'clean-install', 'remove', 'unlink')
+NPM_UTAN_ARGUMENT = {'update', 'up', 'upgrade', 'udpate', 'u', 'uninstall', 'remove', 'rm', 'r', 'un', 'rebuild', 'rb', 'dedupe', 'ddp', 'prune'}
 
 
-def npm_installerar():
+def skrivande(verb):
+    return bool(verb) and (verb in NPM_SKRIVANDE or (len(verb) >= 3 and any(h.startswith(verb) for h in NPM_HELA)))
+
+
+def npm_installerar(paket=None):
     """Skälet när en npm-process som installerar, uppdaterar eller tar bort något kör på maskinen (för hand, eller en
     uppdatering som Claude Code själv startat), eller när det inte går att se; annars None. npm byter sin processtitel
-    till "npm" och de positionella argumenten efter en kvarts sekund, så -g syns inte i ps: varje sådan npm räknas, med
-    eller utan -g, och ett falsklarm kostar bara ett dygns väntan (granskningen av r86, H1, mätt med en riktig npm). Ett
-    underhåll kör aldrig npm medan det frågar, så varje sådan process är någon annans."""
+    till "npm" och de positionella argumenten efter en kvarts sekund, så -g syns inte i ps (granskningen av r86, H1,
+    mätt med en riktig npm). Med paket räknas bara en npm vars argument nämner paketet, en sökväg, en adress eller ett
+    paketarkiv, eller som uppdaterar eller tar bort utan argument: ett npm ci i ett annat projekt stoppar inte intaget
+    (r88, M1). Ett underhåll kör aldrig npm medan det frågar, så varje sådan process är någon annans."""
     rc, ut = vl.kor(['ps', '-ax', '-o', 'command='], timeout=20)
     if rc != 0:
         return 'det går inte att se om en npm-installation pågår (ps svarar inte)'
@@ -621,24 +632,38 @@ def npm_installerar():
             rest = ord_[2:]
         else:
             continue
-        verb = next((o for o in rest if not o.startswith('-')), None)
-        if verb in NPM_SKRIVANDE:
-            return 'en npm-installation pågår (%s)' % x.strip()[:120]
+        pos = [o for o in rest if not o.startswith('-')]
+        verb, argument = (pos[0] if pos else None), pos[1:]
+        if not skrivande(verb):
+            continue
+        if paket and not (any(a == paket or a.startswith(paket + '@') or '/' in a or a.endswith('.tgz') for a in argument)
+                          or (not argument and verb in NPM_UTAN_ARGUMENT)):
+            continue
+        return 'en npm-installation pågår (%s)' % x.strip()[:120]
     return None
 
 
-def npm_ls_ok(prefix, paket):
-    """Är paketets installerade träd helt enligt npm (inget beroende saknas eller är ogiltigt)?"""
-    rc, _ut = vl.kor(['npm', 'ls', '-g', '--all', '--prefix', str(prefix), paket], timeout=120, env=vl.provmiljo())
-    return rc == 0
+def npm_ls_ok(paketkatalog):
+    """(None, eller skälet) ur npm ls i paketets egen katalog: npm ls med ett paketfilter prövar bara att paketet finns
+    (granskningen av r88, H1, mätt). npm ls läser bara package.json: det ser saknade och ogiltiga beroenden, inte om
+    filerna i dem är hela."""
+    rc, ut = vl.kor(['npm', 'ls', '--all', '--omit=dev', '--prefix', str(paketkatalog)], timeout=120, env=vl.provmiljo())
+    return None if rc == 0 else 'npm ls ser saknade eller ogiltiga beroenden (%s)' % (vl.sista(ut, 120) or 'kod %d' % rc)
 
 
-def svarar(prefix_bin, binar, version, paket=None):
-    """Svarar binären med versionen, och är paketets träd helt enligt npm ls? Vercel CLI:s --version och --help läser bara
-    några få filer och svarar också ur ett halvt träd (granskningen av r85, M2, och r86, M1)."""
-    if not binar or not version or vl.version_av([str(Path(prefix_bin) / binar), '--version']) != version:
-        return False
-    return npm_ls_ok(Path(prefix_bin).parent, paket) if paket else True
+def svarar(prefix_bin, binar, version, kat=None):
+    """(None, eller skälet): svarar binären med versionen, och ser npm ls inga saknade beroenden i paketets katalog?
+    Vercel CLI:s --version och --help läser bara några få filer och svarar också ur ett halvt träd (granskningen av r85,
+    M2, r86, M1, och r88, L3: skälet säger vilket prov som föll)."""
+    if not binar or not version:
+        return 'binären eller versionen är okänd'
+    v = vl.version_av([str(Path(prefix_bin) / binar), '--version'])
+    if v != version:
+        return '%s svarar %s, inte %s' % (binar, v, version)
+    return npm_ls_ok(kat) if kat else None
+
+
+VANTA_ANNAN_NPM = int(os.environ.get('NWP_UNDERHALL_VANTA_NPM') or 300)  # sekunder före en återställning
 
 
 def lagg_lankar(spar, prefix_bin, kat):
@@ -685,14 +710,14 @@ def laga_avbrutet_intag(paketkatalog, paket, binar=None):
             lagg_lankar(spar, prefix_bin, kat)
         except OSError as e:
             return 'MILJÖN TRASIG: %s: klonen i %s kunde inte läggas på plats: %s' % (paket, spar, e)
-        if svarar(prefix_bin, binar, gammal, paket):
+        if not svarar(prefix_bin, binar, gammal, kat):
             shutil.rmtree(spar, ignore_errors=True)
             return '%s: ett avbrutet intag lagades: trädet saknades och klonen (%s) lades på plats' % (paket, gammal)
         return 'MILJÖN TRASIG: %s: klonen (%s) lades på plats, men %s svarar inte; resten ligger i %s' % (paket, gammal, binar, spar)
     text = ('%s: kvar efter ett avbrutet intag eller en avbruten installation: %s. Det rörs inte automatiskt, och nya '
             'versioner av paketet tas in först när det är borttaget' % (paket, ', '.join(str(p) for p in kvar)))
-    if svarar(prefix_bin, binar, version_i(kat), paket):
-        return text + '; det installerade svarar och dess träd är helt enligt npm'
+    if not svarar(prefix_bin, binar, version_i(kat), kat):
+        return text + '; det installerade svarar, och npm ls ser inga saknade beroenden'
     return 'MILJÖN TRASIG: ' + text + '; det installerade svarar inte'
 
 
@@ -715,7 +740,7 @@ def ta_in_globalt(k, r, kand, staged):
     prefix_bin = rot.parent.parent / 'bin'
     spar = spar_for(kat, paket)
     kopia = spar / kat.name
-    pagar = npm_installerar()
+    pagar = npm_installerar(paket)
     if pagar:
         return 'behallen', '%s; tas in vid nästa underhåll' % pagar, None
     lagat = laga_avbrutet_intag(kat, paket, binar)  # det ett avbrutet intag lämnade efter sig
@@ -738,17 +763,23 @@ def ta_in_globalt(k, r, kand, staged):
     behall_klon = True  # klonen står kvar om något avbryter intaget (Ctrl-C, stopp), tills den inte behövs (r86, L1)
     start_ = time.time() - 5
     try:
-        pagar = npm_installerar()  # en gång till, strax före vår npm (r86, H1)
+        pagar = npm_installerar(paket)  # en gång till, strax före vår npm (r86, H1)
         if pagar:
             behall_klon = False
             return 'behallen', '%s; tas in vid nästa underhåll' % pagar, None
         rc, ut = npm(['install', '-g', '--no-audit', '--no-fund', *fore, *skript, '%s@%s' % (paket, version)], ROOT(), env=vl.provmiljo())
         ny = vl.version_av([str(prefix_bin / binar), '--version']) if binar else None
-        if rc == 0 and ny == version and svarar(prefix_bin, binar, version, paket):
+        nytt_fel = svarar(prefix_bin, binar, version, kat) if rc == 0 and ny == version else 'npm föll eller versionen svarar inte'
+        if not nytt_fel:
             behall_klon = False
             return 'uppdaterad', '%s → %s (%s)' % (gammal, version, staged['prov']), None
         fel_t, undan = [], None
-        pagar = npm_installerar()  # och före återställningen: en annan npm som skriver i trädet rörs aldrig (r86, H1)
+        pagar = npm_installerar(paket)  # och före återställningen: en annan npm som skriver i trädet rörs aldrig (r86, H1)
+        vantat = 0
+        while pagar and vantat < VANTA_ANNAN_NPM:  # den andra npm:en får bli klar först (r88, M1)
+            time.sleep(10)
+            vantat += 10
+            pagar = npm_installerar(paket)
         if pagar:
             return 'avvisad', 'ÅTERSTÄLLNINGEN FÖLL: %s, så trädet lämnas som det är; klonen står kvar i %s' % (pagar, spar), None
         if not (kopia / 'package.json').is_file():  # utan klon flyttas aldrig trädet (granskningen av r80, H1)
@@ -775,7 +806,7 @@ def ta_in_globalt(k, r, kand, staged):
                     os.symlink(mal, f)
             except OSError as e:
                 fel_t.append('%s: %s' % (f, e))
-        tillbaka = not fel_t and svarar(prefix_bin, binar, gammal, paket)
+        tillbaka = not fel_t and not svarar(prefix_bin, binar, gammal, kat)
         if tillbaka:
             if undan:
                 shutil.rmtree(undan, ignore_errors=True)  # vår egen misslyckade installation
@@ -787,8 +818,8 @@ def ta_in_globalt(k, r, kand, staged):
                     fel_t.append('%s: %s' % (p, e))
         behall_klon = not tillbaka and (kopia / 'package.json').is_file()
         if rc == 0 and ny == version and tillbaka:  # npm gick igenom och svarade, men trädprovet föll: prövas igen (r86, L3)
-            return 'behallen', nat('den nya versionen %s svarade, men dess träd var inte helt enligt npm ls; det installerade trädet (%s) '
-                                   'lagt tillbaka, och intaget prövas igen vid nästa underhåll' % (version, gammal)), None
+            return 'behallen', nat('den nya versionen %s svarade, men %s; det installerade trädet (%s) lagt tillbaka, och intaget '
+                                   'prövas igen vid nästa underhåll' % (version, nytt_fel, gammal)), None
         orsak = npm_fel(ut, 200) if rc else 'npm gick igenom, men %s svarar %s, inte %s' % (binar, ny, version)  # r80, L5
         return 'avvisad', nat('den globala installationen föll (%s); %s' % (
             orsak, 'det installerade trädet (%s) lagt tillbaka' % gammal if tillbaka else
