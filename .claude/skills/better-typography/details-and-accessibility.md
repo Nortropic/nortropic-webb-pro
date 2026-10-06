@@ -65,13 +65,15 @@ The two fixes differ in what they do to the design, not in correctness.
 
 ```tsx
 // 13px rendered from a 16px font-size: 13 / 16 = 0.8125
-<div className="flex h-10 items-center rounded-[10px] bg-gray-300 px-2.5">
+<div className="flex h-10 items-center overflow-hidden rounded-[10px] bg-gray-300 px-2.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue-700">
   <input
-    className="h-full w-[calc(100%/0.8125)] origin-left scale-[0.8125] bg-transparent text-base leading-[calc(1.125/0.8125)] outline-none sm:w-full sm:scale-100 sm:text-[13px]"
+    className="h-full w-[calc(100%/0.8125)] shrink-0 origin-left rtl:origin-right scale-[0.8125] bg-transparent text-base leading-[calc(1.125/0.8125)] outline-none sm:w-full sm:scale-100 sm:text-[13px]"
     type="email"
   />
 </div>
 ```
+
+`shrink-0` preserves the compensated width inside the flex wrapper. The wrapper clips the oversized layout box and draws an unscaled focus outline. Use the project's focus color and verify its contrast against the surrounding surface.
 
 The transform shrinks the whole box, not only the glyphs, so let a wrapper draw the field's surface and keep the input transparent. A background, border, or ring on the scaled element shrinks with the text and misses the intended hit area.
 
