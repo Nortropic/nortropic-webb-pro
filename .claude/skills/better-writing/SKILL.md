@@ -92,10 +92,10 @@ An error is an instruction, and it belongs beside the field that failed:
 | Bad | Good |
 | --- | --- |
 | That password is too short | Choose a password with at least 8 characters |
-| Invalid name | Use only letters for your name |
+| Invalid date | Enter a date as DD/MM/YYYY |
 | Oops! Something went wrong. | Unable to save. Check your connection and try again. |
 
-No blame, no "oops", no exclamation marks. Phrase hints positively ("Use only letters", not "Don't use numbers or symbols") and show them before the mistake, not after. When the same error keeps firing, redesign the interaction instead of rewording it.
+No blame, no "oops", no exclamation marks. Phrase hints positively ("Enter a date as DD/MM/YYYY", not "Don't use another date format"). Show them before the mistake, not after. When the same error keeps firing, redesign the interaction instead of rewording it.
 
 ## Empty states point forward
 
