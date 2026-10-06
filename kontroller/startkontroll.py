@@ -334,6 +334,9 @@ def markdown(kv):
            '**Status: %s.** Start: %s. %s' % ({'redo': 'redo', 'begransad': 'redo med begränsningar', 'stoppad': 'STOPPAD'}[kv['status']], kv['start'],
                                               ('Stoppar: ' + '; '.join(kv['stoppar'])) if kv['stoppar'] else ''), '',
            'Underhållet: %s.' % (kv.get('underhall') or 'har inte körts'), '']
+    import underhall as uh_  # Homebrews version före och efter brew update (ägarens beslut 2026-10-06, punkt 1)
+    if uh_.homebrew_rad(kv.get('homebrew')):
+        rad += [uh_.homebrew_rad(kv['homebrew']) + '.', '']
     if (kv.get('aterupptagen') or {}).get('utan_kvitto'):
         rad += ['Återupptagen körning som startades utan startkontroll: det fanns inget lås att ärva, så låset ovan gäller från nu.', '']
     elif kv.get('aterupptagen'):
@@ -406,7 +409,7 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     begransad = any(r['resultat'] in ('fel', 'okand', 'avvisad', 'behallen') for r in rader)
     modell_rader = [r for r in rader if r['grupp'] == 'modell']
     kv = {'schema': 2, 'slug': slug, 'tid': tid, 'start': start, 'status': 'stoppad' if stoppar else ('begransad' if begransad else 'redo'),
-          'stoppar': stoppar, 'underhall': underhall, 'utfort': sorted(set(k.utfort)), 'ateranvant': sorted(set(k.ateranvant)),
+          'stoppar': stoppar, 'underhall': underhall, 'homebrew': u.get('homebrew'), 'utfort': sorted(set(k.utfort)), 'ateranvant': sorted(set(k.ateranvant)),
           'rader': rader, 'las': las_for_korning(rader, modell_rader)}
     kv['till_byggaren'] = till_byggaren(rader)
     nu_m = matinstrument(rader)

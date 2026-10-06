@@ -80,6 +80,7 @@ sys.path.insert(0, str(KOPIA / 'kontroller'))
 import verktygslada as vl  # noqa: E402
 import startkontroll as sk  # noqa: E402
 import underhall as uh  # noqa: E402
+BREW_ORIGINAL = uh.brew  # den riktiga, före provens falska (spärren mot brew upgrade på allt prövas på den)
 import refero_mcp  # noqa: E402
 import korregister  # noqa: E402
 assert korregister.KATALOG == TMP / 'korregister' and uh.BYTESLAS == TMP / 'korregister' / '.byte', korregister.KATALOG
@@ -1759,6 +1760,65 @@ assert 'startades utan startkontroll' in (KOPIA / kv['kvitto']).read_text(), kv[
 for f_, b_ in undan_m4.items():
     (rot_m4 / f_).write_bytes(b_)
 print('mätinstrumentets byte märkt i kvittot, också utanför underhållet och efter en start utan kontroll, ok')
+
+# brew update högst en gång per dygn, före versionsuppslagen, med Homebrews version före och efter i rapporten och
+# startkvittot; aldrig brew upgrade på allt (ägarens beslut 2026-10-06, punkt 1)
+BREW_B, HB_V = [], {'v': '4.6.1'}
+
+
+def falsk_brew_b(*a, timeout=0):
+    BREW_B.append(a)
+    if a == ('--version',):
+        return 0, 'Homebrew %s\n' % HB_V['v']
+    if a == ('update',):
+        HB_V['v'] = '4.6.2'
+        return 0, 'Updated 2 taps'
+    return 1, 'okänt'
+
+
+spara_brew_b, spara_inv_b = uh.brew, vl.inventera
+uh.brew = falsk_brew_b
+try:
+    k_b = vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-brew')
+    rap_b = {}
+    hb_ = uh.steg_brew_update(k_b, rap_b)
+    assert (hb_['fore'], hb_['efter'], hb_['resultat']) == ('4.6.1', '4.6.2', 'ok') and ('update',) in BREW_B, (hb_, BREW_B)
+    assert '4.6.1 → 4.6.2' in uh.markdown(dict(rap_b, start='t', rader=[], commits=[]))
+    BREW_B.clear()
+    hb_ = uh.steg_brew_update(k_b, {})
+    assert hb_['hoppad'] and ('update',) not in BREW_B and '4.6.1 → 4.6.2' in uh.homebrew_rad(hb_), 'högst en gång per dygn'
+    vl.skriv_json(k_b.katalog / 'BREW-UPDATE.json', dict(vl.las_json(k_b.katalog / 'BREW-UPDATE.json'), tid='2026-01-01T00:00:00Z'))
+    BREW_B.clear()
+    hb_ = uh.steg_brew_update(k_b, {})
+    assert ('update',) in BREW_B and not hb_.get('hoppad'), 'ett dygn senare igen'
+    # underhållets huvudflöde kör den före versionsuppslagen (inventeringen stoppas här)
+    BREW_B.clear()
+
+    def inv_stopp_b(k, delar=None):
+        raise RuntimeError('stopp vid uppslagen')
+    vl.inventera = inv_stopp_b
+    try:
+        uh.underhall(k=vl.Kontext(nat=True, prova=False, katalog=TMP / 'lage-brew2'), prov=False)
+        raise AssertionError('uppslagen skulle ha stoppats')
+    except RuntimeError as e:
+        assert 'stopp vid uppslagen' in str(e), e
+    assert ('update',) in BREW_B and (TMP / 'lage-brew2' / 'BREW-UPDATE.json').is_file(), BREW_B
+finally:
+    uh.brew, vl.inventera = spara_brew_b, spara_inv_b
+spara_kor_b = vl.kor
+vl.kor = lambda args, **kw: (0, '')
+try:
+    for a_ in (('upgrade',), ('upgrade', '--formula')):
+        try:
+            BREW_ORIGINAL(*a_)
+            raise AssertionError(a_)
+        except RuntimeError:
+            pass
+    assert BREW_ORIGINAL('upgrade', '--formula', 'node@22') == (0, ''), 'en formel i taget går'
+finally:
+    vl.kor = spara_kor_b
+assert 'Homebrew: brew update t, 4.6.1 → 4.6.2' in sk.markdown(dict(kv, homebrew={'tid': 't', 'fore': '4.6.1', 'efter': '4.6.2', 'resultat': 'ok'}))
+print('brew update en gång per dygn, före uppslagen, med versionen före och efter, och aldrig brew upgrade på allt, ok')
 
 # worktree-mekanismen för hela rökprovet: grönt och rött, och worktreen städas
 riktig = importlib.reload(uh)
