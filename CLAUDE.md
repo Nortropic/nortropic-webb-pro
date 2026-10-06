@@ -39,6 +39,9 @@ utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglern
 - Efter ändringar i `kontroller/` eller `mall/`: `kontroller/rokprov.sh` ska sluta grönt.
 - Verktygslådan hålls i den senaste versionen som klarat proven av det dagliga underhållet, och varje start bekräftas av
   startkontrollen med ett startkvitto (`kunskap/beroenden.md`, Underhåll). Installera aldrig något för hand vid sidan av.
+- Arbetskopior, förhandsvisningar, tempkataloger och npm-cachen städas enligt städregeln i `BESLUT.md` (tillägget
+  2026-10-06) av det dagliga underhållet och, under 15 % ledigt, av startkontrollen före starten
+  (`kontroller/stadning.py`; `--torr` listar bara). Det som verkar värdefullt väntar på ägaren i underhållets rapport.
 - Commit direkt på `main` och `git push origin main`. Repot är publikt: inga hemligheter, inget ur `underlag/` eller
   `kunder/`, inga personuppgifter ur ägarens domar (privatpersoners namn, nummer, adresser, hälsa; BESLUT.md 2026-10-03).
 - De gamla repona (Nortropic Runtime, nortropic-projektkontor, nortropic-digitala, kund-demo-norrglanta) är borttagna

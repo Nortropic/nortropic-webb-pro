@@ -31,6 +31,10 @@ Ett pågående intag i underhållet (kontroller/korregister.py, intagslåset på
 medan starten väntar avbryts underhållets långa prov. Är intaget inte klart då stoppas starten. NWP_STARTKONTROLL=av
 hoppar över kontrollen (proven); =torr gör den utan förmågeprov. Slutkod 0 redo eller begränsad, 1 stoppad, 2 fel i
 anropet.
+
+Diskvakten (punkt 6 i städregeln, BESLUT.md 2026-10-06): har disken under 15 % ledigt körs städningen
+(kontroller/stadning.py) före starten, och kvittot redovisar ledigt utrymme före och efter med städningens
+redovisning. Städningen stoppar aldrig starten.
 """
 import argparse
 import json
@@ -45,6 +49,7 @@ import verktygslada as vl  # noqa: E402
 
 NODVANDIGA_MCP = ('refero', 'mobbin')
 VANTA_INTAG = 1200  # s: ett intag i underhållet väntas ut högst så länge; sedan stoppas starten (fynd 2)
+DISKVAKT = 0.15  # under 15 % ledigt städas det före starten (städregeln, BESLUT.md 2026-10-06, punkt 6)
 EGNA_PROCESSKILLS = ('bygg-sajt', 'kirurg', 'backlog', 'writing-for-agents')
 # formuleringar som ersatta regler bar; en träff i ett aktivt uppdrag är en konflikt (BESLUT.md, Ersatta designregler)
 FORLEGADE = ('Inga skillskript, hookar, git eller MCP', 'inget Skill-verktyg', 'ingen JavaScript som inte behövs',
@@ -276,6 +281,55 @@ def uppdraget(slug):
     return ut
 
 
+# --- diskvakten (städregeln, punkt 6) ---
+
+def diskvakt(k, ram=None):
+    """Punkt 6 i städregeln (BESLUT.md, tillägget 2026-10-06): under 15 % ledigt körs städningen (kontroller/stadning.py)
+    före starten, och kvittot redovisar ledigt utrymme före och efter. Städningen stoppar aldrig starten: ett fel blir en
+    rad som behöver uppmärksamhet, aldrig ett stopp. NWP_STADNING=av (rökprovet) stänger av städningen mot det verkliga
+    systemet; ram är ett provs egen omvärld. Ger (raden, posten till kvittot)."""
+    import stadning
+    d = {'grans': DISKVAKT}
+    try:
+        total, ledigt = ram.disk() if ram else stadning.disk_matt(vl.ROOT)
+        d['fore'] = stadning.disk_post(total, ledigt)
+    except Exception as e:  # noqa: BLE001 — diskvakten stoppar aldrig starten
+        d['fel'] = 'diskens lediga utrymme kunde inte mätas: %s' % vl.sista(e, 160)
+        return post('underhåll', 'diskvakten', 'okand', detalj=diskvakt_text(d)), d
+    if d['fore']['andel_ledig'] is not None and d['fore']['andel_ledig'] >= DISKVAKT:
+        return post('underhåll', 'diskvakten', 'ok', detalj=diskvakt_text(d)), d
+    if ram is None and stadning.avslagen():
+        d['avslagen'] = True
+        return post('underhåll', 'diskvakten', 'okand', detalj=diskvakt_text(d)), d
+    try:
+        rap = stadning.stada(ram or stadning.Ram.verklig(k.katalog))
+    except Exception as e:  # noqa: BLE001
+        d['fel'] = 'städningen föll: %s: %s' % (type(e).__name__, vl.sista(e, 200))
+        return post('underhåll', 'diskvakten', 'okand', detalj=diskvakt_text(d)), d
+    d['stadning'], d['efter'] = rap, rap.get('disk_efter')
+    nog = (d['efter'] or {}).get('andel_ledig') is not None and d['efter']['andel_ledig'] >= DISKVAKT
+    return post('underhåll', 'diskvakten', 'ok' if nog and not (rap.get('antal') or {}).get('fel') else 'okand',
+                detalj=diskvakt_text(d)), d
+
+
+def diskvakt_text(d):
+    """Diskvaktens rad i kvittot: ledigt före och, när städningen kördes, efter."""
+    import stadning
+    if not d:
+        return None
+    if not d.get('fore'):
+        return d.get('fel') or 'okänt'
+    fore, grans = stadning.disk_text(d['fore']), '%d %%' % round(d['grans'] * 100)
+    if d.get('stadning'):
+        return '%s före starten, under %s: städningen kördes, %s efter (%s)' % (
+            fore, grans, stadning.disk_text(d.get('efter')), stadning.antal_text(d['stadning'].get('antal') or {}))
+    if d.get('avslagen'):
+        return '%s, under %s, men städningen är avslagen (NWP_STADNING=av)' % (fore, grans)
+    if d.get('fel'):
+        return '%s, under %s: %s' % (fore, grans, d['fel'])
+    return '%s; över %s, ingen städning före starten' % (fore, grans)
+
+
 # --- låset, mätinstrumenten och kvittot ---
 
 def matinstrument(rader):
@@ -335,6 +389,8 @@ def markdown(kv):
            '**Status: %s.** Start: %s. %s' % ({'redo': 'redo', 'begransad': 'redo med begränsningar', 'stoppad': 'STOPPAD'}[kv['status']], kv['start'],
                                               ('Stoppar: ' + '; '.join(kv['stoppar'])) if kv['stoppar'] else ''), '',
            'Underhållet: %s.' % (kv.get('underhall') or 'har inte körts'), '']
+    if kv.get('diskvakt'):  # städregeln, punkt 6: ledigt före och efter
+        rad += ['Diskvakten: %s.' % diskvakt_text(kv['diskvakt']), '']
     import underhall as uh_  # Homebrews version före och efter brew update (ägarens beslut 2026-10-06, punkt 1)
     if uh_.homebrew_rad(kv.get('homebrew')):
         rad += [uh_.homebrew_rad(kv['homebrew']) + '.', '']
@@ -357,6 +413,9 @@ def markdown(kv):
                                                                str(r.get('detalj') or '').replace('|', '/')))
         rad.append('')
     rad += ['## Till byggaren', ''] + (['- ' + x for x in kv['till_byggaren']] or ['Inget som rör uppdraget.'])
+    if (kv.get('diskvakt') or {}).get('stadning'):  # städningen före starten, med redovisningen (punkt 7)
+        import stadning
+        rad += [''] + stadning.markdown(kv['diskvakt']['stadning'], '## Städningen före starten')
     rad += ['', '## Körningens låsta underlag', '', '```json', json.dumps(kv['las'], ensure_ascii=False, indent=1), '```', '']
     return '\n'.join(rad)
 
@@ -381,6 +440,7 @@ def vanta_pa_intag(max_s):
 def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     k = vl.Kontext(nat=False, prova=prova)
     fick = vanta_pa_intag(vanta_intag)
+    disk_rad, disk = diskvakt(k)  # under 15 % ledigt städas det före starten; stoppar aldrig starten
     tid = vl.nu()
     u = vl.las_json(k.katalog / 'UNDERHALL.json', {}) or {}
     u_tid = u.get('slut')
@@ -401,6 +461,7 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     rader += kunskap(k)
     rader += regler(servrar, slug)
     rader += uppdraget(slug)
+    rader.append(disk_rad)
     if not fick:  # verktygslådan byts just nu: en start på den skulle inte veta vilka versioner den kör med (fynd 2)
         rader.append(post('underhåll', 'intag', 'fel', nodvandig=True,
                           detalj='ett intag i underhållet pågick fortfarande efter %d minuter; starta igen när det är klart' % (vanta_intag // 60)))
@@ -411,7 +472,7 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     modell_rader = [r for r in rader if r['grupp'] == 'modell']
     kv = {'schema': 2, 'slug': slug, 'tid': tid, 'start': start, 'status': 'stoppad' if stoppar else ('begransad' if begransad else 'redo'),
           'stoppar': stoppar, 'underhall': underhall, 'homebrew': u.get('homebrew'), 'utfort': sorted(set(k.utfort)), 'ateranvant': sorted(set(k.ateranvant)),
-          'rader': rader, 'las': las_for_korning(rader, modell_rader)}
+          'rader': rader, 'las': las_for_korning(rader, modell_rader), 'diskvakt': disk}
     kv['till_byggaren'] = till_byggaren(rader)
     nu_m = matinstrument(rader)
     kv['matinstrument_sett'] = nu_m  # det som faktiskt fanns vid starten (låset kan vara en återupptagen körnings)

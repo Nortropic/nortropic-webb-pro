@@ -9,6 +9,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 trap '"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" ut --pid $$ >/dev/null 2>&1 || true' EXIT
 S="$ROOT/kunder/rokprov-mall/sajt"
 export NWP_HAMTA_LOKALT=1   # provens sajter ligger på 127.0.0.1; hämtaren nekar annars adresser i det egna nätet
+# städregeln (kontroller/stadning.py) städar aldrig det verkliga systemet under provet: startkontrollens diskvakt och
+# underhållet i proven hoppar över den; prov_stadning.py prövar den med egna rötter, klocka, diskmått och processlista
+export NWP_STADNING=av
 mkdir -p "$S"
 rsync -a --delete --exclude node_modules --exclude dist --exclude .astro "$ROOT/mall/astro/" "$S/"
 rm -f "$S/README.md"
@@ -634,6 +637,10 @@ echo "   observationen (2026-10-06): sessionens start oförändrad, fel som inte
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_observation.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/observation-prov.log" \
   || { echo "FEL: observationens prov"; tail -20 "$ROOT/kunder/rokprov-mall/observation-prov.log"; exit 1; }
 echo "   observationens prov ok ($(grep '^mätning' "$ROOT/kunder/rokprov-mall/observation-prov.log" | cut -c1-160))"
+echo "   städregeln (2026-10-06): worktrees, kopior, processer, tillfälliga kataloger, npm-cachen, diskvakten och redovisningen"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_stadning.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/stadning-prov.log" \
+  || { echo "FEL: städningens prov"; tail -20 "$ROOT/kunder/rokprov-mall/stadning-prov.log"; exit 1; }
+echo "   städningens prov ok ($(grep '^städningens prov' "$ROOT/kunder/rokprov-mall/stadning-prov.log" | cut -c1-160))"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

@@ -24,6 +24,9 @@ Samma regler för allt:
    underhåll utan att provas om, så länge utgångsläget är detsamma.
 6. Rapporten (underlag/startkontroll/UNDERHALL.md) säger vad som byttes, avvisades och behölls, med skäl. Ett
    uppskjutet underhåll skriver ingen ny rapport.
+7. Varje underhåll städar först enligt städregeln (BESLUT.md, tillägget 2026-10-06 om arbetskopior, processer och
+   cacher; kontroller/stadning.py), så att proven efteråt har diskutrymme, och redovisningen står i rapporten under
+   Städningen. En städning som faller stoppar inte underhållet; --torr listar bara.
 
 Per slag (kunskap/beroenden.md, avsnittet Underhåll):
 - Claude Code och Vercel CLI: installation i en provkatalog, npm audit, versionen, för Claude också flaggorna flödet
@@ -1620,6 +1623,24 @@ def steg_brew_update(k, rapport):
     return post
 
 
+def steg_stadning(k, rapport, torr=False, ram=None):
+    """Städregeln vid varje underhåll (BESLUT.md, tillägget 2026-10-06; kontroller/stadning.py): punkterna 1–5, och
+    redovisningen (punkt 7) i rapporten. Förra rensningen av npm-cachen sparas i underhållets läge (k.katalog). En
+    städning som faller stoppar aldrig underhållet. NWP_STADNING=av (rökprovet) stänger av den mot det verkliga systemet;
+    ram är ett provs egen omvärld."""
+    import stadning
+    try:
+        if ram is None:
+            if stadning.avslagen():
+                rapport['stadning'] = {'avslagen': True}
+                return rapport['stadning']
+            ram = stadning.Ram.verklig(k.katalog, torr=torr)
+        rapport['stadning'] = stadning.stada(ram)
+    except Exception as e:  # noqa: BLE001 — städningen stoppar aldrig underhållet
+        rapport['stadning'] = {'fel': '%s: %s' % (type(e).__name__, vl.sista(e, 300))}
+    return rapport['stadning']
+
+
 def homebrew_rad(hb):
     """Raden om Homebrew i rapporten och startkvittot: versionen före och efter brew update."""
     if not hb:
@@ -2112,6 +2133,9 @@ def markdown(rap):
                                                            (r.get('commit') or '–')[:12]))
     else:
         ut.append('Inga nyare versioner att pröva.')
+    if rap.get('stadning'):  # städregelns redovisning (punkt 7): vad, sökväg, storlek före, tid, utfall och skäl
+        import stadning
+        ut += [''] + stadning.markdown(rap['stadning'])
     if rap.get('prov'):
         ut += ['', '## Förmågeproven', ''] + ['- %s: %s (%s)' % (n, p.get('resultat'), p.get('detalj')) for n, p in rap['prov'].items()]
     return '\n'.join(ut) + '\n'
@@ -2165,6 +2189,8 @@ def underhall(bara=None, utan_tunga=False, torr=False, k=None, prov=True, invent
             elif pagar and not torr:
                 rap.update(status='uppskjutet', besked='en körning pågår (%s): underhållet prövar och tar in när den är klar' % ', '.join(pagar))
             else:
+                # städregeln först: proven efteråt får diskutrymmet (BESLUT.md 2026-10-06; i torrläget bara listan)
+                steg_stadning(k, rap, torr=torr)
                 if not torr:
                     steg_pythonlas(k, rap)
                     steg_brew_update(k, rap)  # före versionsuppslagen (ägarens beslut 2026-10-06, punkt 1)

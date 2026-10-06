@@ -76,6 +76,9 @@ os.environ['NWP_KORREGISTER'] = str(TMP / 'korregister')  # körningarna i prove
 # provets körningar, i provets eget register
 for k in ('NWP_SLUG', 'NWP_STARTKONTROLL', 'NWP_UNDERHALL_PROV'):
     os.environ.pop(k, None)
+# städregeln (kontroller/stadning.py) städar aldrig det verkliga systemet här, inte heller i kor.sh:s egen process;
+# prov_stadning.py prövar den med egna rötter
+os.environ['NWP_STADNING'] = 'av'
 
 sys.path.insert(0, str(KOPIA / 'kontroller'))
 import verktygslada as vl  # noqa: E402
@@ -84,7 +87,11 @@ import underhall as uh  # noqa: E402
 BREW_ORIGINAL = uh.brew  # den riktiga, före provens falska (spärren mot brew upgrade på allt prövas på den)
 import refero_mcp  # noqa: E402
 import korregister  # noqa: E402
+import stadning  # noqa: E402
 assert korregister.KATALOG == TMP / 'korregister' and uh.BYTESLAS == TMP / 'korregister' / '.byte', korregister.KATALOG
+# diskvakten ser 40 % ledigt oberoende av maskinens disk, och städningen mot det verkliga systemet fäller provet
+stadning.disk_matt = lambda p: (1000, 400)
+stadning.Ram.verklig = classmethod(lambda cls, *a, **k: (_ for _ in ()).throw(AssertionError('provet städar aldrig det verkliga systemet')))
 assert vl.ROOT == KOPIA and vl.LAGE == KOPIA / 'underlag' / 'startkontroll', vl.ROOT
 
 # --- falska uppslag och prov (räknade) ---
@@ -241,6 +248,9 @@ assert rad['Referos verktyg utan uppgift i flödet']['detalj'] == 'refero_search
 assert any(r['grupp'] == 'uppdrag' and r['namn'] == 'bokning' and r['formaga'] == 'delvis' for r in kv1['rader']), 'kundens behov mot förmågan'
 assert (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').is_file() and (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.json').is_file()
 assert 'allt uppdaterat' not in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text().lower()
+# diskvakten (städregeln, punkt 6): en rad och en mening i varje kvitto; över 15 % ledigt städas inget
+assert rad['diskvakten']['resultat'] == 'ok' and 'över 15 %' in rad['diskvakten']['detalj'] and kv1['diskvakt']['fore']['andel_ledig'] == 0.4, rad['diskvakten']
+assert 'Diskvakten: 40,0 % ledigt' in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text()
 # fall 5: källor som inte svarar (skillsens git, utan underhåll) är okända, aldrig gröna
 okanda = [r for r in kv1['rader'] if r['grupp'] == 'skill' and r.get('installerat') != 'egen']
 assert okanda and all(r['resultat'] == 'okand' for r in okanda), [(r['namn'], r['resultat']) for r in okanda][:3]

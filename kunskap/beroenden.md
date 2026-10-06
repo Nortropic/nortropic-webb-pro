@@ -73,6 +73,13 @@ varje körning låser sina versioner. Två verktyg delar komponenterna och läge
   `STARTKVITTO-BYGGE.md`). Ett nödvändigt verktyg som inte fungerar stoppar starten; det som inte prövats står som
   behållet med skäl, aldrig som uppdaterat.
 
+Städningen (`kontroller/stadning.py`) följer städregeln i `BESLUT.md` (tillägget 2026-10-06 om arbetskopior, processer
+och cacher). Underhållet kör den först i varje körning och skriver redovisningen i sin rapport (vad, sökväg, storlek
+före, tid, utfall och skäl; det som väntar på ägaren med sitt material). Startkontrollens diskvakt kör den före starten
+när disken har under 15 % ledigt, och kvittot visar ledigt före och efter. Förra rensningen av npm-cachen står i
+`underlag/startkontroll/NPM-CACHE.json`. Rökprovet sätter `NWP_STADNING=av`, så att inget prov städar det verkliga
+systemet.
+
 Skydden runt en ny version (den oberoende granskningen 2026-10-06):
 
 - **Karenstid:** en version räknas först när den varit publicerad i tre dygn (publiceringstiden hos npm och PyPI,
