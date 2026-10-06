@@ -266,7 +266,7 @@ def kor_i_worktree(k, etikett, forbered, kmd, path_forst=None, timeout=3600, sla
         env = vl.provmiljo({'NWP_UNDERHALL_PROV': '1', 'PATH': ('%s:%s' % (path_forst, path)) if path_forst else path})
         profil = processgrans.profil_underhallsprov(ROOT(), wt)
         if slag == 'rokprov':
-            fel = forbered_testsajt(wt, env, profil)
+            fel = forbered_testsajt(wt, env, profil, avbryt)
             if fel:
                 return None, nat(fel), None
         rc, ut = vl.kor(kmd(wt), cwd=wt, timeout=timeout, env=env, avbryt=avbryt)
@@ -280,7 +280,7 @@ def kor_i_worktree(k, etikett, forbered, kmd, path_forst=None, timeout=3600, sla
         git('worktree', 'prune')
 
 
-def forbered_testsajt(wt, env, profil):
+def forbered_testsajt(wt, env, profil, avbryt=None):
     """Rökprovets testsajt får sina beroenden ur mallens låsfil före provet, innanför samma gräns, så att ett nätfel i
     npm ci blir ett nätsteg och inte ett rött rökprov (kontroller/rokprov.sh hoppar över npm ci när markeringen stämmer;
     granskningen av r72, M4). Ger None eller felet."""
@@ -289,7 +289,9 @@ def forbered_testsajt(wt, env, profil):
     s_.mkdir(parents=True, exist_ok=True)
     for f in ('package.json', 'package-lock.json'):
         shutil.copy2(wt / 'mall' / 'astro' / f, s_ / f)
-    rc, ut = vl.kor([processgrans.SANDBOX_EXEC, '-p', profil, 'npm', 'ci', '--no-audit', '--no-fund'], cwd=s_, timeout=1800, env=env)
+    rc, ut = vl.kor([processgrans.SANDBOX_EXEC, '-p', profil, 'npm', 'ci', '--no-audit', '--no-fund'], cwd=s_, timeout=1800, env=env, avbryt=avbryt)
+    if rc == vl.AVBRUTEN:
+        return HALL + 'testsajtens installation avbröts: en start väntade; prövas igen vid nästa underhåll'
     if rc:
         return 'npm ci för rökprovets testsajt föll: ' + vl.sista(ut, 300)
     shutil.copy2(wt / 'mall' / 'astro' / 'package-lock.json', s_ / 'node_modules' / '.nwp-las.json')
@@ -1182,6 +1184,8 @@ def verifiera_formel(formel, version):
 def prova_brew(k, r, kand):
     """En formel byts på plats och kan inte prövas bredvid den gamla: här görs bara det som går före (flaskans
     kontrollsumma). Verifieringen, länkprovet och för en huvudversion hela rökprovet görs efter bytet, under intagslåset."""
+    if flaska_saknas(kand['formel']):  # en källkodsbyggnad under intagslåset kan ta en timme (granskningen av r73, N6)
+        return HALL + '%s har ingen färdig flaska för den här macOS; byggs inte från källkod av underhållet' % kand['formel'], None
     rc, ut = brew('fetch', '--formula', kand['formel'], timeout=1800)
     if rc:
         return nat('brew fetch (flaskans kontrollsumma) föll: ' + vl.sista(ut)), None
@@ -1227,6 +1231,8 @@ def prova_node_huvud(k, r, kand):
     beroenden, en ominstallation för trasiga länkar), så den görs under intagslåset och bara när ingen körning pågår;
     rökprovet efteråt rör bara kandidatens egen keg och görs utan låset (granskningen av r72, M2)."""
     formel = kand['formel']
+    if flaska_saknas(formel):  # en källkodsbyggnad kan ta en timme: aldrig under intagslåset (granskningen av r73, N6)
+        return HALL + '%s har ingen färdig flaska för den här macOS; byggs inte från källkod av underhållet' % formel, None
     with vl.las(BYTESLAS):
         pagar = vl.pagaende()
         if pagar:
@@ -1247,6 +1253,19 @@ def prova_node_huvud(k, r, kand):
         return text, None
     return None, {'prov': '%s installerad bredvid%s, %s' % (formel, (' (ominstallerade för trasiga länkar: %s)' % ', '.join(lagade)) if lagade else '', text),
                   'binkat': str(binkat)}
+
+
+def flaska_saknas(formel):
+    """Saknar formeln en färdig flaska för den här macOS (Homebrew skulle bygga från källkod)? False när det inte går att
+    avgöra."""
+    rc, tagg = brew('ruby', '-e', 'print Utils::Bottles.tag.to_s', timeout=120)
+    rc2, ut = brew('info', '--json=v2', '--formula', formel, timeout=180)
+    try:
+        filer = (((json.loads(ut).get('formulae') or [{}])[0].get('bottle') or {}).get('stable') or {}).get('files') or {}
+    except (ValueError, AttributeError, IndexError):
+        return False
+    tagg = tagg.strip()
+    return bool(rc == 0 and rc2 == 0 and re.fullmatch(r'[a-z0-9_]+', tagg) and filer and tagg not in filer and 'all' not in filer)
 
 
 def huvud_av(v):

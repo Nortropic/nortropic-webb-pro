@@ -3559,7 +3559,24 @@ try:
     # den enda prototypen före uppskalningen (ägarens uppdrag 2026-10-05 18:53Z, punkt 7): planeraren får ett uppdrag
     pp1_kd = kd.plan_prompt(sl_kd, 1)
     assert 'EN genomarbetad' in pp1_kd and 'verkligt olika sätt' not in pp1_kd and 'valdes framför de andra' in pp1_kd, pp1_kd[:400]
+    assert 'EN skiss' in kd.plan_prompt(sl_kd, 1, skiss=True) and 'omkring tio uppdrag' in pp1_kd, 'läget och uppskalningen i prompten (A5)'
     assert 'verkligt olika sätt' in kd.plan_prompt(sl_kd, 3) and [kd.minsta_plan(n_) for n_ in (1, 2, 3, 10)] == [1, 2, 2, 5]
+    assert 'EN skiss' in kd.forska_prompt(sl_kd, 1, skiss=True) and 'cirka 1 ' not in kd.forska_prompt(sl_kd, 1, skiss=True)
+    # planen för den enda prototypen: schemat tar emot och kräver exakt ett uppdrag, och planen skrivs med det (A2)
+    sch_kd = []
+
+    def plan_ett_(prompt, verktyg, ut, schema=None, *a, **kw):
+        sch_kd.append(schema)
+        return {'structured_output': {'variation': 'v', 'kandidater': [dict({f_: '%s 1' % f_ for f_, _r in kd.PLANFALT}, referensbilder=[])]}}
+    spara_sess_kd = at_pt.session
+    shutil.copytree(u_kd, kd_u / 'kd-en', ignore=shutil.ignore_patterns('atelje'))  # kundens underlag, utan körningen
+    at_pt.session = plan_ett_
+    try:
+        kd.planera('kd-en', 1, 'skiss')
+    finally:
+        at_pt.session = spara_sess_kd
+    assert sch_kd[0]['properties']['kandidater']['minItems'] == 1 and sch_kd[0]['properties']['kandidater']['maxItems'] == 1, sch_kd[0]['properties']['kandidater']
+    assert kd.PLAN_SCHEMA['properties']['kandidater']['minItems'] == 2 and kd.lista('kd-en') == ['k01'], kd.lista('kd-en')
     skapare_kd = [s_['prompt'] for s_ in sess_kd if s_['schema'] is None and 'Förbättringsrundan' not in s_['prompt']]
     assert skapare_kd and all('rubriken "%s"' % kd.OVERFORT in p_ for p_ in skapare_kd), 'skaparen redovisar det överförda och avvikelserna'
     plan_kd = json.loads((kd.rot(sl_kd) / 'KANDIDATPLAN.json').read_text())  # planens tid före provets domar (fröet för etiketterna)
@@ -4437,16 +4454,18 @@ finally:
     at_pt.session, at_pt.UNDERLAG, at_pt.KUNDER = spara_at_kp
 # S3: tidsgränsen och stoppet når hela processträdet, också en underprocess i en egen processgrupp
 skript_k3 = tmp / 'k3-trad.sh'
-skript_k3.write_text('#!/bin/bash\n( exec setsid sleep 300 2>/dev/null || exec /usr/bin/perl -e "setpgrp(0,0); sleep 300" ) &\nsleep 300\n')
+# ett barn i en egen processgrupp (perl setpgrp; macOS saknar setsid) och ett vanligt barn
+skript_k3.write_text('#!/bin/bash\n/usr/bin/perl -e "setpgrp(0,0); sleep 300" &\nsleep 300\n')
 skript_k3.chmod(0o755)
 p_k3 = subprocess.Popen([str(skript_k3)], start_new_session=True)
 barn_k3 = []
-for _ in range(50):  # skriptet har startat sina barn: under last tar det mer än en halv sekund
-    barn_k3 = nl_k3.efterkommande(p_k3.pid)
+for _ in range(100):  # båda barnen har startat: under last tar det mer än en halv sekund
+    barn_k3 = [x_ for x_ in nl_k3.efterkommande(p_k3.pid) if nl_k3.lever(x_)]
     if len(barn_k3) >= 2:
         break
     time.sleep(0.1)
-assert barn_k3, 'trädet syns via ppid'
+assert len(barn_k3) >= 2, ('trädet syns via ppid', barn_k3)
+assert any(os.getpgid(x_) == x_ for x_ in barn_k3), 'ett av barnen ligger i en egen processgrupp'
 dodade_k3 = nl_k3.doda_trad(p_k3.pid)
 p_k3.wait(timeout=10)
 time.sleep(0.3)
@@ -6262,7 +6281,12 @@ def gammal_styrning():
     (rot_ / 'underlag' / 'sty-kund' / 'atelje' / 'metod' / 'METOD-skiss.md').write_text('Ägarens domar i LARDOMAR.md gäller före allt.\n')
     (rot_ / 'underlag' / 'sty-kund' / 'UPPTAGNA-VAL.md').write_text('Ägaren godtog Archivo för målaren i dom L2.\n')
     cache_ = sty_.prova('sty-kund', root=rot_, med_metod=False)
-    assert {Path(x['kalla']).name for x in cache_} == {'METOD-skiss.md', 'UPPTAGNA-VAL.md'} and all('cache' in x['vad'] for x in cache_), cache_
+    # en äldre UPPTAGNA-VAL.md (utan versionen) läses aldrig av agenterna och räknas inte (granskningen av r73, N1)
+    assert {Path(x['kalla']).name for x in cache_} == {'METOD-skiss.md'} and all(x.get('cache') and 'cache' in x['vad'] for x in cache_), cache_
+    import upptagna_val as uv_sty
+    (rot_ / 'underlag' / 'sty-kund' / 'UPPTAGNA-VAL.md').write_text('<!-- %s -->\nÄgaren godtog Archivo för målaren i dom L2.\n' % uv_sty.VERSION)
+    cache_ = sty_.prova('sty-kund', root=rot_, med_metod=False)
+    assert {Path(x['kalla']).name for x in cache_} == {'METOD-skiss.md', 'UPPTAGNA-VAL.md'} and all(x.get('cache') for x in cache_), cache_
     # agenterna får inte läsa ägarens domar över tidigare byggen eller andra kunders mappar
     import atelje as at_s
     assert {'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)'} <= set(at_s.NEKAS)
@@ -6327,13 +6351,30 @@ def referensjamforelsen():
         j2_ = kd_.referensjamforelse(slug_, 'k02')
         assert j2_['referens']['sida'] == kd_.rel(ref_ / 'cox' / '01-start') and j2_['referens']['390-hela'] is None, j2_['referens']
         assert j2_['avsnitt'].startswith('## Referenslås') and not j2_['redovisat'], j2_
-        kd_.satt_status(slug_, 'k03', 'klar', 'prov', huvudreferens='Okänd sajt')
-        assert kd_.referensjamforelse(slug_, 'k03') is None, 'en referens utan fångad sida ger ingen jämförelse'
+        kd_.satt_status(slug_, 'k03', 'klar', 'prov', huvudreferens='Okänd sajt (okand.se)')
+        j3_ = kd_.referensjamforelse(slug_, 'k03')
+        assert j3_['referens'] is None and 'ingen fångad sida' in j3_['saknas'], 'en referens utan fångad sida säger varför jämförelsen fattas'
+        # namnen som skaparna faktiskt skriver (domänen i parentes), en referens utan bildvalsrader, och ett äldre paket utan
+        # numrerade sidor där adressen avgör vilken sida som är startsidan (granskningen av r73, A1 och A3)
+        for kat_, adr_ in (('sebastian-cox/01-start', 'https://sebastiancox.co.uk/'), ('gammal/projects', 'https://gammal.se/projects/'),
+                           ('gammal/start', 'https://gammal.se/')):
+            (ref_ / kat_).mkdir(parents=True, exist_ok=True)
+            for v_ in ('vy-390-forsta', 'vy-1440-forsta', 'vy-1440-ruta-02'):
+                (ref_ / kat_ / (v_ + '.png')).write_bytes(b'png')
+            (ref_ / kat_ / 'INSPEKTION.json').write_text(json.dumps({'adress': adr_}))
+        (u_ / 'REFERENSER.md').write_text((u_ / 'REFERENSER.md').read_text() + '\n## Gammal — bransch\n\nBildval: referenser/paket-v05/gammal/projects/'
+                                          'vy-1440-ruta-02.png — projekten — Fråga: bär projekten?\n')
+        for kid_, namn_, sida_ in (('k05', 'Tekt (tekt.com.au)', 'tekt/01-start'), ('k06', 'Sebastian Cox (sebastiancox.co.uk)', 'sebastian-cox/01-start'),
+                                   ('k07', 'Gammal — projekten först', 'gammal/start')):
+            kd_.satt_status(slug_, kid_, 'klar', 'prov', huvudreferens=namn_)
+            jx_ = kd_.referensjamforelse(slug_, kid_)
+            assert jx_['referens'] and jx_['referens']['sida'] == kd_.rel(ref_ / sida_), (namn_, jx_)
+            shutil.rmtree(kd_.kdir(slug_, kid_))
         # synligheten: bland flera förslag först efter ägarens första beslut; en enda prototyp direkt
         (kd_.rot(slug_) / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': '2026-10-06T00:00:00Z', 'antal': 3, 'kandidater': {}}))
         assert not any('referensjamforelse' in k_ for k_ in kd_.sammanstall(slug_)), 'blint före ägarens första beslut'
         (u_ / 'DESIGNDOMAR.jsonl').write_text(json.dumps({'tid': '2026-10-06T01:00:00Z', 'kalla': sk_.AGAREN[0], 'beslut': 'valj', 'text': 'x'}) + '\n')
-        assert {k_['id']: bool(k_['referensjamforelse']) for k_ in kd_.sammanstall(slug_)} == {'k01': True, 'k02': True, 'k03': False}
+        assert {k_['id']: bool(k_['referensjamforelse']['referens']) for k_ in kd_.sammanstall(slug_)} == {'k01': True, 'k02': True, 'k03': False}
         (u_ / 'DESIGNDOMAR.jsonl').unlink()
         for k_ in ('k02', 'k03'):
             shutil.rmtree(kd_.kdir(slug_, k_))

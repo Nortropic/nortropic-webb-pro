@@ -125,8 +125,8 @@ def prova_formagan(k, version, start='ny'):
         ut.append(post('möjlighet', 'Referos verktyg utan uppgift i flödet', 'okand', detalj=', '.join(nya)))
     # det fullständiga provet görs i underhållet; ateljéns start gör om det bara när det fallit eller gått ut (M1), och
     # helbygget, som inte laddar Mobbin, gör det aldrig
-    m = vl.prova_mobbin(k if ateljen else vl.Kontext(nat=False, prova=False, katalog=k.katalog))
     ansluten = servrar is not None and (servrar.get('mobbin') or {}).get('status') == 'ok'
+    m = vl.prova_mobbin(k if ateljen else vl.Kontext(nat=False, prova=False, katalog=k.katalog), ansluten=ansluten if servrar is not None else None)
     res = m.get('resultat')
     if res == 'ok' and m.get('gammalt'):
         res = 'okand'
@@ -213,12 +213,18 @@ def regler(servrar, slug=None):
     ut = []
     import styrning  # rensningen inför Nortropic 2.0: ersatta beslut och gamla kundsmakdomar i det som når agenterna
     try:
-        gamla = styrning.prova(slug)
+        fynd = styrning.prova(slug)
+        gamla = [x for x in fynd if not x.get('cache')]
+        cachade = [x for x in fynd if x.get('cache')]
         # ett ersatt beslut eller en gammal kundsmakdom som når agenterna stoppar starten: det var det rensningen inför
-        # Nortropic 2.0 skulle förhindra (granskningen av r72)
-        ut.append(post('regler', 'gammal styrning i agentuppdragen, metoden och körningens cache', 'fel' if gamla else 'ok', nodvandig=bool(gamla),
+        # Nortropic 2.0 skulle förhindra (granskningen av r72). Körningens cache levereras om vid starten och stoppar inte
+        # (granskningen av r73, N1)
+        ut.append(post('regler', 'gammal styrning i agentuppdragen och metoden', 'fel' if gamla else 'ok', nodvandig=bool(gamla),
                        detalj='; '.join('%s:%s %s' % (x['kalla'], x['rad'], x['vad']) for x in gamla[:6]) or
                        'inga ersatta beslut eller gamla kundsmakdomar (kontroller/styrning.py)'))
+        if cachade:
+            ut.append(post('regler', 'gammal styrning i körningens cache', 'okand',
+                           detalj='%d fynd i en äldre metodkopia; den levereras om vid starten (%s)' % (len(cachade), cachade[0]['kalla'])))
     except Exception as e:  # noqa: BLE001
         ut.append(post('regler', 'gammal styrning i agentuppdragen', 'okand', detalj='%s: %s' % (type(e).__name__, str(e)[:160])))
     texter = {}

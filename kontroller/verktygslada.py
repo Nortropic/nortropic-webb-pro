@@ -505,7 +505,9 @@ def brew_kandidat(k, formel, installerat, lokal):
     if not (installerat and lokal and nyare(lokal, installerat)):
         return None, noter
     senast_andrad = (api or {}).get('tid')
-    if not api or (api['senaste'] == lokal and (not senast_andrad or time.time() - iso_s(senast_andrad) < KARENS_DAGAR * 86400)):
+    # den senaste ändringen av formeln måste ha passerat karenstiden, också när det lokala indexet visar en äldre version:
+    # den kan vara lika färsk (granskningen av r73, N2)
+    if not api or not senast_andrad or time.time() - iso_s(senast_andrad) < KARENS_DAGAR * 86400:
         noter['i_karens'] = lokal  # den senaste ändringen är färsk eller okänd: prövas när karenstiden gått ut
         return None, noter
     return {'version': lokal, 'formel': formel, 'huvudversion': huvud(lokal) != huvud(installerat)}, noter
@@ -857,7 +859,7 @@ def inv_brew(k):
             kand, noter = brew_kandidat(k, formel, inst, (egen or {}).get('senaste'))
             r.update(noter)
             if kand and kand['huvudversion']:  # en oversionerad node: huvudversioner tas in som node@NN (granskningen av r72)
-                r['detalj'] = '%s skulle byta huvudversion på plats; en ny huvudversion tas in som node@NN efter LTS-regeln' % kand['version']
+                r['hall_skal'] = '%s skulle byta huvudversion på plats; en ny huvudversion tas in som node@NN efter LTS-regeln' % kand['version']
             elif kand:
                 r['kandidater'].append(kand)
         if not formel:
@@ -968,6 +970,10 @@ def bedom(r, avvisade, underhall_tid=None):
     if not r['kandidater'] and r.get('i_karens'):
         r['resultat'] = 'behallen'
         r['detalj'] = '%s finns men är yngre än karenstiden (%g dygn); prövas när den gått ut' % (r['i_karens'], KARENS_DAGAR)
+        return r
+    if not r['kandidater'] and r.get('hall_skal'):  # behållen av ett skäl som inventeringen redan vet (granskningen av r73, N7)
+        r['resultat'] = 'behallen'
+        r['detalj'] = r['hall_skal']
         return r
     if not r['kandidater'] and r.get('index_gammalt'):
         r['resultat'] = 'behallen'
@@ -1165,16 +1171,20 @@ def mobbin_bevis(max_alder):
     return bast
 
 
-def prova_mobbin(k):
+MOBBIN_PROVFRIST = 300  # s: startens prov väntar aldrig längre (granskningen av r73, N4)
+
+
+def prova_mobbin(k, ansluten=None):
     """Mobbins sökning och bildleverans genom flödets egen tjänstesession på ett fiktivt provunderlag (en liten
-    Sonnet-session), eller ett färskt resultat ur en riktig körning."""
+    Sonnet-session, högst MOBBIN_PROVFRIST), eller ett färskt resultat ur en riktig körning. ansluten=False (claude mcp
+    list visar att Mobbin inte ansluter): inget nytt prov, eftersom starten ändå stoppas på anslutningen."""
     b = mobbin_bevis(GILTIGHET['mobbin'])
     if b:
         return {'resultat': 'ok', 'tid': b['tid'], 'detalj': 'sökning och %d bilder i en riktig körning (%s)' % (b['bilder'], b['slug']), 'ateranvant': True}
     x = k.minns('prov:mobbin', 'v1', GILTIGHET['mobbin'])
     if x:
         return dict(x, ateranvant=True)
-    if not k.prova:
+    if not k.prova or ansluten is False:
         gammal = k.senast_kanda('prov:mobbin')
         return dict(gammal, ateranvant=True, gammalt=True) if gammal else {'resultat': 'okand', 'detalj': 'inget fullständigt prov än (underhållet gör det)'}
     import referenstjanster
@@ -1184,7 +1194,8 @@ def prova_mobbin(k):
                                                                  'adress': {'ort': 'Provby'}}), encoding='utf-8')
     try:
         _rot, res = referenstjanster.samla('startprov', {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form for a local service business',
-                                                                      'syfte': 'underhållets prov', 'typ': 'skarm'}]}, underlag=u)
+                                                                      'syfte': 'underhållets prov', 'typ': 'skarm'}]}, underlag=u,
+                                           kor=lambda t, p, l, m: referenstjanster.kor_session(t, p, l, m, frist=MOBBIN_PROVFRIST))
         m = (res.get('tjanster') or {}).get('mobbin') or {}
         ok = bool(m.get('ok') and m.get('bilder'))
         detalj = ('sökning och %d bilder levererade (provunderlag)' % m.get('bilder')) if ok else 'gav inga bilder: %s' % sista('; '.join(m.get('anmarkningar') or []), 200)

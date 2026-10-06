@@ -27,12 +27,12 @@ BYTESLAS = KATALOG / '.byte'  # underhållets intag, ett i taget på maskinen; s
 
 
 def ps(falt, pid):
-    """Ett fält ur ps för processen, med LC_ALL=C så att samma process alltid ger samma text oavsett anroparens locale
-    (macOS ps skriver å, ä och ö olika under C och UTF-8; granskningen av r72, H2), eller '' när ps inte svarar (en
-    sandlåda, ett prov som bytt ut subprocess)."""
+    """Ett fält ur ps för processen, med LC_ALL=C och TZ=UTC så att samma process alltid ger samma text oavsett
+    anroparens locale och tidszon (macOS ps skriver å, ä och ö olika under C och UTF-8, och starttiden i lokal tid;
+    granskningen av r72, H2, och r73, N5), eller '' när ps inte svarar (en sandlåda, ett prov som bytt ut subprocess)."""
     try:
         return subprocess.run(['ps', '-o', '%s=' % falt, '-p', str(int(pid))], capture_output=True, text=True, timeout=10,
-                              env=dict(os.environ, LC_ALL='C')).stdout.strip()
+                              env=dict(os.environ, LC_ALL='C', TZ='UTC')).stdout.strip()
     except Exception:  # noqa: BLE001 — registret får aldrig stoppa en körning
         return ''
 

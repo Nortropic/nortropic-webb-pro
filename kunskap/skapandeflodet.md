@@ -129,7 +129,12 @@ kandidaterna och granskningarna.
    visas först efter ägarens första beslut, och då också före och efter en förbättringsrunda, där ägaren kan säga vilken
    som är bättre och välja föreversionen. Ägaren väljer en eller flera för vidareutveckling, sparar en jämförelse,
    markerar det ägaren gillar per förslag, förkastar alla eller ber om en ny riktning. Beslutet binds till kandidat och
-   version.
+   version. Huvudreferensens fångade startsida står bredvid varje förslag i 390 och 1440, med skaparens avsnitt
+   "Överfört och avvikelser", efter ägarens första beslut som förklaringarna. En körning med en enda prototyp
+   (`NWP_KANDIDATER=1`, den som prövar hela kedjan före uppskalningen; ägarens uppdrag 2026-10-05 18:53Z, punkt 7) har
+   inget val mellan förslag att hålla blint: där står jämförelsen och avsnittet bredvid prototypen från början, medan
+   granskningen och förklaringarna visas efter ägarens beslut som annars (tolkningen av punkt 7, inte ett eget
+   ägarbeslut).
 9. **Förfina de valda.** Varje vald kandidat förfinas för sig i sitt eget projekt, från den version ägaren valde, med
    ägarens ord, det ägaren gillade i andra förslag (inarbetat i idén, inte inklistrat) och granskningen. Skaparen skriver
    DESIGN.md ur sidan och låter sidorna använda dess variabler (`design.py --kandidat`). Gör förfiningen inget eget varv,

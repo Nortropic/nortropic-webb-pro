@@ -993,6 +993,176 @@ print('granskningen av r72: instrumentets version, registrets identitet, Mobbin,
       'trasig miljö, incheckningar, systemraderna, Homebrews karenstid och index, pinningen, provets skrivgräns, trädet, '
       'adressen och grupperingen ok')
 
+# ===== granskningen av r73: ett fall per fynd =====
+# N1: en äldre metodkopia i körningens cache stoppar ingen start (den levereras om), och en äldre UPPTAGNA-VAL.md läses inte
+metodkat = KOPIA / 'underlag' / SLUG / 'atelje' / 'metod'
+metodkat.mkdir(parents=True, exist_ok=True)
+(metodkat / 'METOD-skapa-1.md').write_text('Telefonnumret som tel-länk i sidhuvudet på varje sida.\n')
+(KOPIA / 'underlag' / SLUG / 'UPPTAGNA-VAL.md').write_text('# Upptagna val\n\nArchivo för målaren.\n')
+kv_n1 = sk.kor_kontroll(SLUG, 'ny')
+styr_n1 = [r_ for r_ in kv_n1['rader'] if r_['namn'].startswith('gammal styrning')]
+assert not any(r_.get('nodvandig') for r_ in styr_n1) and any('cache' in r_['namn'] and r_['resultat'] == 'okand' for r_ in styr_n1), styr_n1
+assert not any('UPPTAGNA-VAL' in str(r_.get('detalj')) for r_ in styr_n1), 'en äldre UPPTAGNA-VAL.md läses inte av agenterna och räknas inte'
+shutil.rmtree(metodkat)
+(KOPIA / 'underlag' / SLUG / 'UPPTAGNA-VAL.md').unlink()
+
+# N2: formelns senaste ändring är färsk: ingen kandidat, också när det lokala indexet visar en äldre version än API:t
+spara_n2 = (dict(BREW), dict(BREW_API))
+try:
+    BREW['git'] = '2.56.0'
+    BREW_API['git'] = {'senaste': '2.56.0_1', 'tid': vl.nu()}
+    r_n2 = next(r_ for r_ in vl.inventera(vl.Kontext(nat=True, prova=False, max_alder=0, katalog=TMP / 'lage-n2'), ('brew',)) if r_['id'] == 'brew:git')
+    assert not r_n2['kandidater'] and r_n2.get('i_karens') == '2.56.0', r_n2
+finally:
+    BREW.clear(); BREW.update(spara_n2[0]); BREW_API.clear(); BREW_API.update(spara_n2[1])
+
+# N3: med en worktree som rot nekar skrivgränsen repots git-katalog (krokar, config) och gits egen konfiguration
+wt_rot_n3 = TMP / 'n3-rot'
+sh(*GIT, 'worktree', 'add', '-q', '--detach', str(wt_rot_n3), 'HEAD')
+try:
+    hem_n3 = TMP / 'n3-hem'
+    (hem_n3 / '.config' / 'git').mkdir(parents=True)
+    prof_n3 = processgrans.profil_underhallsprov(wt_rot_n3, TMP / 'n3-wt', hem=hem_n3)
+    for mal_n3 in (KOPIA / '.git' / 'hooks' / 'post-checkout', hem_n3 / '.config' / 'git' / 'config'):
+        r_n3 = subprocess.run([processgrans.SANDBOX_EXEC, '-p', prof_n3, '/bin/sh', '-c', 'echo x >> "$1"', 'sh', str(mal_n3)], capture_output=True, text=True)
+        assert r_n3.returncode != 0 and not mal_n3.exists(), (mal_n3, r_n3.returncode)
+finally:
+    sh(*GIT, 'worktree', 'remove', '--force', str(wt_rot_n3))
+
+# N4: Mobbin-provet görs inte när anslutningen redan fallit, och får en egen tidsgräns
+MOBB_N4, FRIST_N4 = [], []
+spara_n4 = (rt_m1.samla, rt_m1.kor_session)
+rt_m1.samla = lambda slug, uppdrag, underlag=None, kor=None, **kw: (MOBB_N4.append(kor) or (None, {'tjanster': {'mobbin': {'ok': True, 'bilder': 1}}}))
+rt_m1.kor_session = lambda t, p, l, m, frist=0: (FRIST_N4.append(frist) or (0, None))
+try:
+    c_ = vl.Cache(vl.lagekatalog() / 'CACHE.json')
+    c_.d['prov:mobbin'].update(resultat='fel', detalj='nere')
+    vl.skriv_json(c_.fil, c_.d)
+    vl.prova_mobbin(vl.Kontext(nat=False, prova=True), ansluten=False)
+    assert not MOBB_N4, 'ingen session när anslutningen redan fallit'
+    vl.prova_mobbin(vl.Kontext(nat=False, prova=True), ansluten=True)
+    assert MOBB_N4 and MOBB_N4[0] is not None
+    MOBB_N4[0]('mobbin', 'p', 'l', 'm')
+    assert FRIST_N4 == [vl.MOBBIN_PROVFRIST] and vl.MOBBIN_PROVFRIST <= 300, FRIST_N4
+finally:
+    rt_m1.samla, rt_m1.kor_session = spara_n4
+
+# N5: körregistrets identitet är oberoende av tidszonen
+proc_n5 = subprocess.Popen(['/bin/bash', '-c', 'sleep 60', 'kor.sh'])
+try:
+    sh(sys.executable, '-B', KOPIA / 'kontroller' / 'korregister.py', 'in', 'bygge', '--slug', 'tz-prov', '--pid', str(proc_n5.pid), env=dict(os.environ, TZ='UTC'))
+    for tz_ in ('Europe/Stockholm', 'America/New_York'):
+        assert 'tz-prov' in sh(sys.executable, '-B', KOPIA / 'kontroller' / 'korregister.py', 'lista', env=dict(os.environ, TZ=tz_)), tz_
+finally:
+    proc_n5.kill()
+    proc_n5.wait()
+
+# N6: en formel utan färdig flaska byggs aldrig under intagslåset; testsajtens installation avbryts när en start väntar
+spara_n6 = uh.brew
+uh.brew = lambda *a, timeout=0: ((0, 'arm64_sequoia') if a[:1] == ('ruby',) else
+                                 (0, json.dumps({'formulae': [{'bottle': {'stable': {'files': {'arm64_sonoma': {}}}}}]})) if a[:2] == ('info', '--json=v2')
+                                 else (0, ''))
+try:
+    assert uh.flaska_saknas('node@24')
+    fel_n6, _s = uh.prova_node_huvud(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-n6'), {'id': 'brew:node'},
+                                     {'version': '24.23.0_1', 'formel': 'node@24', 'huvudversion': True})
+    assert fel_n6.startswith(uh.HALL) and 'flaska' in fel_n6, fel_n6
+    fel_n6, _s = uh.prova_brew(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-n6'), {'id': 'brew:git'},
+                               {'version': '2.57.0', 'formel': 'git', 'huvudversion': False})
+    assert fel_n6.startswith(uh.HALL) and 'flaska' in fel_n6, fel_n6
+finally:
+    uh.brew = spara_n6
+wt_n6 = TMP / 'n6-wt'
+(wt_n6 / 'mall' / 'astro').mkdir(parents=True)
+for f_ in ('package.json', 'package-lock.json'):
+    shutil.copy2(KOPIA / 'mall' / 'astro' / f_, wt_n6 / 'mall' / 'astro' / f_)
+spara_npm_n6 = (FAKE / 'bin' / 'npm').read_text()
+(FAKE / 'bin' / 'npm').write_text('#!/bin/bash\nsleep 30\n')
+try:
+    fel_n6b = uh.forbered_testsajt(wt_n6, dict(os.environ), '(version 1)\n(allow default)\n', avbryt=lambda: True)
+finally:
+    (FAKE / 'bin' / 'npm').write_text(spara_npm_n6)
+assert fel_n6b.startswith(uh.HALL) and 'avbröts' in fel_n6b, fel_n6b
+
+# N7: en oversionerad node med en ny huvudversion i indexet behålls med skälet, aldrig ok
+spara_n7 = (vl.node_formel, dict(BREW), dict(AKTIV), dict(BREW_API), dict(NODE_MAL))
+try:
+    vl.node_formel = lambda: ('node', '22.23.2')
+    AKTIV['node'] = '22.23.2'
+    BREW['node'] = '25.1.0'
+    BREW_API['node'] = {'senaste': '25.1.0', 'tid': GAMMAL}
+    NODE_MAL.update(major=22, version='22.23.2')
+    r_n7 = vl.bedom(next(r_ for r_ in vl.inventera(vl.Kontext(nat=True, prova=False, max_alder=0, katalog=TMP / 'lage-n7'), ('brew',))
+                         if r_['id'] == 'brew:node'), k.avvisade, vl.nu())
+    assert r_n7['resultat'] == 'behallen' and 'node@NN' in r_n7['detalj'], r_n7
+finally:
+    vl.node_formel = spara_n7[0]
+    for d_, s_ in ((BREW, spara_n7[1]), (AKTIV, spara_n7[2]), (BREW_API, spara_n7[3]), (NODE_MAL, spara_n7[4])):
+        d_.clear(); d_.update(s_)
+
+# M3: kontrollen vid intaget avvisar en skill vars radutdrag ändras, prövad mot kartan som den ser ut vid intaget
+spara_m3b = uh.utdrag_som_andras
+uh.utdrag_som_andras = lambda tmp, namn: ['%s/SKILL.md rad 1–3' % namn]
+try:
+    res_m3b, detalj_m3b, _c = uh.ta_in_skill(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-m3b'), demo_rad, demo_rad['kandidater'][0],
+                                             {'mapp': str(demo), 'head': 'x' * 40, 'filer': 1, 'krockar': [], 'prov': 'prov'})
+    assert res_m3b == 'avvisad' and 'vid intaget' in detalj_m3b and 'utdrag' in detalj_m3b, (res_m3b, detalj_m3b)
+finally:
+    uh.utdrag_som_andras = spara_m3b
+
+# M5: ett lyckat intag av den senaste mogna commiten när källans HEAD är färsk
+upp2 = TMP / 'uppstrom2'
+(upp2 / 'skills' / 'demo2').mkdir(parents=True)
+(upp2 / 'skills' / 'demo2' / 'SKILL.md').write_text('---\nname: demo2\n---\n# Demo2\n\nRad.\n')
+(upp2 / 'skills' / 'demo2' / 'ref.md').write_text('Ett.\n')
+sh(*GIT, 'init', '-q', '-b', 'main', cwd=upp2)
+sh(*GIT, 'config', 'uploadpack.allowFilter', 'true', cwd=upp2)
+sh(*GIT, 'add', '-A', cwd=upp2)
+sh(*GIT, 'commit', '-q', '-m', 'bas', cwd=upp2, env=gammal_git())
+bas2 = sh('git', 'rev-parse', 'HEAD', cwd=upp2).strip()
+(upp2 / 'skills' / 'demo2' / 'ref.md').write_text('Två.\n')
+sh(*GIT, 'commit', '-q', '-am', 'mogen', cwd=upp2, env=gammal_git())
+mogen2 = sh('git', 'rev-parse', 'HEAD', cwd=upp2).strip()
+(upp2 / 'skills' / 'demo2' / 'ref.md').write_text('Tre.\n')
+sh(*GIT, 'commit', '-q', '-am', 'färsk', cwd=upp2)
+farsk2 = sh('git', 'rev-parse', 'HEAD', cwd=upp2).strip()
+demo2 = KOPIA / '.claude' / 'skills' / 'demo2'
+demo2.mkdir()
+(demo2 / 'SKILL.md').write_text('---\nname: demo2\n---\n# Demo2\n\nRad.\n')
+(demo2 / 'ref.md').write_text('Ett.\n')
+(demo2 / 'KALLA.md').write_text('# Källa\n\n- **Källa:** https://github.com/prov/demo2-skill, `skills/demo2/`, commit `%s` (prov).\n- **Licens:** MIT.\n'
+                                '- **Krockar med våra beslut:** inga.\n' % bas2)
+sh(*GIT, 'add', '-A')
+sh(*GIT, 'commit', '-q', '-m', 'demo2-skillen')
+os.environ.update({'GIT_CONFIG_COUNT': '2', 'GIT_CONFIG_KEY_1': 'url.file://%s.insteadOf' % upp2, 'GIT_CONFIG_VALUE_1': 'https://github.com/prov/demo2-skill.git'})
+head_m5 = vl.git_head
+vl.git_head = lambda repo: farsk2 if 'demo2-skill' in repo else head_m5(repo)
+try:
+    k_m5 = vl.Kontext(nat=True, prova=False, max_alder=0)
+    rad_m5 = next(r_ for r_ in vl.inventera(k_m5, ('skills',)) if r_['id'] == 'skill:demo2')
+    rap = {'rader': [], 'commits': []}
+    uh.hantera(k_m5, rad_m5, rap)
+    assert rap['rader'][0]['resultat'] == 'uppdaterad' and rap['rader'][0]['till'] == mogen2, rap['rader']
+    assert (demo2 / 'ref.md').read_text() == 'Två.\n' and mogen2 in (demo2 / 'KALLA.md').read_text(), 'den mogna commiten, inte den färska'
+finally:
+    vl.git_head = head_m5
+
+# N8: grupperingens session nekas den gamla GRUPPERING.md och domarna före rensningen
+import gruppera as gr_n8  # noqa: E402
+lar_n8 = TMP / 'n8-LARDOMAR.md'
+lar_n8.write_text('# Lärdomar\n\n## L7 · 2026-10-07 · ny-kund\n\nAktuell dom.\n')
+ARGS_N8 = []
+spara_n8 = (gr_n8.lardomar_fil, gr_n8.KUNDER, gr_n8.subprocess.run)
+gr_n8.lardomar_fil, gr_n8.KUNDER = (lambda: lar_n8), TMP / 'n8-kunder'
+gr_n8.subprocess.run = lambda args, **kw: (ARGS_N8.append(args) or subprocess.CompletedProcess(args, 1, b'{}', b''))
+try:
+    gr_n8.main(['--prov'])
+finally:
+    gr_n8.lardomar_fil, gr_n8.KUNDER, gr_n8.subprocess.run = spara_n8
+assert ARGS_N8 and 'Read(./kunskap/GRUPPERING.md)' in ARGS_N8[0] and 'Read(./LARDOMAR.md)' in ARGS_N8[0], ARGS_N8
+print('granskningen av r73: cachen och gamla upptagna val, Homebrews karenstid, skrivgränsen i en worktree, Mobbin-provet, tidszonen, '
+      'flaskan och avbrottet, oversionerad node, utdragen vid intaget, den mogna commiten och grupperingen ok')
+
 # ett bytt mätinstrument märks i nästa startkvitto
 vl.logga_andring(vl.lagekatalog(), id='instrument:axe-core', namn='axe-core', grupp='mätinstrument', fran='4.13.0', till='4.14.0',
                  prov='rökprovet', commit=None, matinstrument=True)

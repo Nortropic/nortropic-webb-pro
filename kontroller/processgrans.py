@@ -127,7 +127,10 @@ def profil_katalog(katalog, root=None, hem=None):
 
 SKYDDADE_HEMFILER = ('.zprofile', '.zshrc', '.zshenv', '.zlogin', '.bash_profile', '.bashrc', '.profile', '.gitconfig', '.npmrc',
                      '.claude.json')
-SKYDDADE_HEMKATALOGER = ('.ssh', '.claude', '.local/bin', '.nortropic-hemligheter', 'Library/LaunchAgents', '.config/gh')
+# också det som kör kod senare utanför gränsen: gits egen konfiguration (core.fsmonitor, krokar), Impeccables motorer och
+# Playwrights webbläsare (granskningen av r73, N3)
+SKYDDADE_HEMKATALOGER = ('.ssh', '.claude', '.local/bin', '.nortropic-hemligheter', 'Library/LaunchAgents', '.config/gh', '.config/git',
+                         '.impeccable', 'Library/Caches/ms-playwright')
 
 
 def profil_underhallsprov(root, wt, hem=None):
@@ -143,6 +146,14 @@ def profil_underhallsprov(root, wt, hem=None):
     rader += lasforbud(fs, verkliga)
     # .venv och node_modules också genom sina länkar (en worktree som root länkar dem till huvudutcheckningen)
     neka = [Path(root), Path(root) / '.venv', Path(root) / 'kontroller' / 'node_modules', '/opt/homebrew', '/usr/local']
+    try:  # är roten en worktree ligger repots git-katalog (krokar, config) i huvudutcheckningen
+        import subprocess
+        gemensam = subprocess.run(['git', '-C', str(root), 'rev-parse', '--path-format=absolute', '--git-common-dir'], capture_output=True,
+                                  text=True, timeout=30).stdout.strip()
+        if gemensam:
+            neka.append(Path(gemensam))
+    except (OSError, subprocess.SubprocessError):
+        pass
     neka += [hem / d for d in SKYDDADE_HEMKATALOGER]
     rader += ['(deny file-write* (subpath %s))' % sbpl(x) for x in verkliga(neka)]
     rader += ['(deny file-write* (literal %s))' % sbpl(x) for x in verkliga([hem / f for f in SKYDDADE_HEMFILER])]

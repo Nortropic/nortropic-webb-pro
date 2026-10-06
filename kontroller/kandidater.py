@@ -507,10 +507,15 @@ FORSKA_SCHEMA_SKISS['properties']['sajter']['maxItems'] = 4
 def forska_prompt(slug, n, fel=None, skiss=False):
     filer, _refs, _fel = atelje.underlag_rader(slug)
     return '\n'.join([
-        'Du planerar researchen före skapandeflödets utforskning för en riktig verksamhet. Ägaren vill se cirka %d verkligt' % n,
-        ('olika skisser (första vyn och den viktigaste sektionen, mobil och dator) med kundens riktiga information. Researchen'
-         if skiss else 'olika, genomarbetade prototyper med kundens riktiga information. Researchen'),
-        'ska ge material för så många skilda grundidéer: hur jämförbara verksamheter och goda webbplatser berättar, prioriterar',
+        *(['Du planerar researchen före skapandeflödets första prototyp för en riktig verksamhet. Ägaren vill först se EN %s' % (
+              'skiss (första vyn och den viktigaste sektionen, mobil och dator)' if skiss else 'genomarbetad prototyp'),
+           'med kundens riktiga information och huvudreferensen bredvid, före omkring tio skilda förslag. Researchen ska ge',
+           'material för att välja den bärande riktningen och dess huvudreferens: hur jämförbara verksamheter och goda webbplatser berättar, prioriterar']
+          if n == 1 else
+          ['Du planerar researchen före skapandeflödets utforskning för en riktig verksamhet. Ägaren vill se cirka %d verkligt' % n,
+           ('olika skisser (första vyn och den viktigaste sektionen, mobil och dator) med kundens riktiga information. Researchen'
+            if skiss else 'olika, genomarbetade prototyper med kundens riktiga information. Researchen'),
+           'ska ge material för så många skilda grundidéer: hur jämförbara verksamheter och goda webbplatser berättar, prioriterar']),
         'och organiserar innehåll, och hur de löser projekt, tjänster, förtroende och kontakt, på mobilen och datorn.', '',
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *skapande.fakta_rader(slug, atelje.UNDERLAG), '',
@@ -682,11 +687,12 @@ def research_rader(slug):
 def plan_prompt(slug, n, skiss=False):
     filer, refs, fel = atelje.underlag_rader(slug)
     if n == 1:  # den enda prototypen som prövar hela kedjan före uppskalningen
-        intro = ['Du planerar skapandeflödets första prototyp för en riktig verksamhet. Ägaren vill först se EN genomarbetad',
-                 'prototyp med kundens riktiga information, byggd på en namngiven huvudreferens och visad bredvid den i mobil och',
-                 'dator, innan flödet tar fram omkring tio skilda förslag. Ditt arbete är uppdraget: den designriktning som bäst',
-                 'besvarar kundens problem, med den huvudreferens vars kvalitet kundens material kan bära. Uppdraget går till en',
-                 'skapare med hela faktaunderlaget.', '']
+        vad = ('skiss (första vyn och den viktigaste innehållssektionen, mobil och dator)' if skiss else 'genomarbetad prototyp')
+        intro = ['Du planerar skapandeflödets första prototyp för en riktig verksamhet. Ägaren vill först se EN %s med' % vad,
+                 'kundens riktiga information, byggd på en namngiven huvudreferens och visad bredvid den i mobil och dator, innan',
+                 'flödet tar fram omkring tio skilda förslag (metodens "omkring tio uppdrag" gäller den uppskalningen, inte den här',
+                 'planen). Ditt arbete är ett enda uppdrag: den designriktning som bäst besvarar kundens problem, med den',
+                 'huvudreferens vars kvalitet kundens material kan bära. Uppdraget går till en skapare med hela faktaunderlaget.', '']
     else:
         intro = ['Du planerar skapandeflödets utforskning för en riktig verksamhet. Ägaren vill ha cirka %d %s med' % (
                      n, 'skisser (första vyn och den viktigaste innehållssektionen, mobil och dator)' if skiss else 'genomarbetade prototyper'),
@@ -753,6 +759,15 @@ def skriv_uppdrag(slug, kid, k, nr, totalt):
     (d / 'UPPDRAG.md').write_text('\n'.join(rader), encoding='utf-8')
 
 
+def plan_schema(n):
+    """Planens schema för n uppdrag: den enda prototypen tar emot och kräver exakt ett (granskningen av r73, A2)."""
+    if n != 1:
+        return PLAN_SCHEMA
+    sch = json.loads(json.dumps(PLAN_SCHEMA))
+    sch['properties']['kandidater'].update(minItems=1, maxItems=1)
+    return sch
+
+
 def minsta_plan(n):
     """Så många användbara uppdrag måste planen ge av n: hälften, minst två, och den enda prototypen sitt enda."""
     return min(n, max(2, n // 2))
@@ -763,7 +778,7 @@ def planera(slug, n, lage=None):
     Planen bär körningens läge, så att en återupptagning följer körningen."""
     r = rot(slug)
     lage = lage or LAGE
-    svar = atelje.session(plan_prompt(slug, n, lage == 'skiss'), LASVERKTYG + kompetens.verktyg('planera', slug), r / 'svar-plan.json', PLAN_SCHEMA, 200,
+    svar = atelje.session(plan_prompt(slug, n, lage == 'skiss'), LASVERKTYG + kompetens.verktyg('planera', slug), r / 'svar-plan.json', plan_schema(n), 200,
                           atelje.MODELL, EFFORT_SKISS if lage == 'skiss' else atelje.EFFORT, FRIST_PLAN, slug=slug)
     plan = svar.get('structured_output') or {}
     kand = [k for k in plan.get('kandidater') or [] if isinstance(k, dict) and str(k.get('titel') or '').strip()][:n]
@@ -1352,8 +1367,10 @@ def planprovning(slug):
         'Du är specialisterna för art direction och UX i skapandeflödet (kunskap/skapandeflodet.md) för en riktig verksamhet.',
         'Planeraren har skrivit %d uppdrag; varje uppdrag går sedan till en egen skapare. Pröva planerarens designval i varje' % len(ids),
         'uppdrag mot kunden, kundens material och referenserna, innan någon bygger: bär riktningen, är typografin, bildstrategin,',
-        'navigationen och förtroendet genomtänkta för just den idén, och skiljer sig uppdragen verkligen i hur informationen',
-        'ordnas? Ändra ett fält bara när kompetensen kräver det, och skriv då fältets nya hela text; annars säg i bedömningen',
+        'navigationen och förtroendet genomtänkta för just den idén, och %s' % (
+            'bär uppdraget huvudreferensens kvalitet med kundens faktiska material?' if len(ids) == 1 else
+            'skiljer sig uppdragen verkligen i hur informationen ordnas?'),
+        'Ändra ett fält bara när kompetensen kräver det, och skriv då fältets nya hela text; annars säg i bedömningen',
         'varför valen håller. Titel, hypotes och huvudreferens är låsta (titeln och hypotesen visas för ägaren före det blinda',
         'valet och nämner ingen referens eller sajt vid namn), liksom Referos stil och Mobbins sökfras (materialet är redan',
         'hämtat); en invändning mot dem skrivs i bedömningen.', '',
@@ -1756,38 +1773,57 @@ OVERFORT = 'Överfört och avvikelser'  # skaparens redovisning bredvid jämför
 REFERENSVYER = ('390-forsta', '1440-forsta', '390-hela', '1440-hela')
 
 
+def referensens_namn(text):
+    """Referensens namn i jämförbar form: före tankstrecket, utan parentes (skaparna skriver ofta domänen, "Tekt
+    (tekt.com.au)") och med gemener (granskningen av r73, A1)."""
+    import referensval
+    return re.sub(r'\s*\([^)]*\)', '', referensval.rubriknamn(text or '')).strip()
+
+
+def startsidan(referensrot, citerade=()):
+    """Referensens startsida bland dess fångade sidor: den vars adress är "/" (INSPEKTION.json), annars 01-…, annars den
+    med flest utpekade bilder (granskningen av r73, A3)."""
+    from urllib.parse import urlparse
+    fangade = [d for d in sorted(Path(referensrot).iterdir()) if d.is_dir() and ((d / 'vy-390-forsta.png').is_file() or (d / 'vy-1440-forsta.png').is_file())]
+    for d in fangade:
+        if urlparse(str((atelje.las_json(d / 'INSPEKTION.json') or {}).get('adress') or '')).path in ('', '/'):
+            return d
+    for d in fangade:
+        if d.name.startswith('01-'):
+            return d
+    citerade = [d for d in citerade if d in fangade]
+    return max(citerade, key=list(citerade).count) if citerade else (fangade[0] if fangade else None)
+
+
 def referenssida(slug, kid):
     """Huvudreferensens startsida som den fångades, för jämförelsen bredvid kandidaten (ägarens uppdrag 2026-10-05 18:53Z,
     punkt 7: referensen och prototypen bredvid varandra i mobil och dator). Referensen hittas genom Bildval-raderna under
-    dess rubrik i REFERENSER.md, annars genom uppdragets referensbilder i en katalog med referensens namn; sidan är
-    referensens första fångade sida (01-…, startsidan) eller den med flest utpekade bilder. Ger {'namn', 'sida',
-    '390-forsta', '1440-forsta', '390-hela', '1440-hela'} med sökvägar under underlag/ (None för en vy som saknas), eller
-    None."""
+    dess rubrik i REFERENSER.md, annars genom uppdragets referensbilder, annars genom katalogen med referensens namn i
+    det senaste paketet (referenser/<paket>/<referens>/<sida>/). Ger ({'namn', 'sida', '390-forsta', '1440-forsta',
+    '390-hela', '1440-hela'} med sökvägar under underlag/, None för en vy som saknas), eller (None, skälet)."""
     import referensval
-    namn = referensval.rubriknamn(las_status(slug, kid).get('huvudreferens') or '')
+    hel = las_status(slug, kid).get('huvudreferens') or ''
+    namn = referensens_namn(hel)
     if not namn:
-        return None
+        return None, 'förslaget har ingen huvudreferens'
     rot_ = (atelje.UNDERLAG / slug / 'referenser').resolve()
-    sidor = {}
-    for f, _t in referensval.referens(slug, atelje.UNDERLAG, namn)['bilder']:
-        sidor[Path(f).parent] = sidor.get(Path(f).parent, 0) + 1
-    if not sidor:
-        kort = re.sub(r'[^a-z0-9]+', '-', namn).strip('-')
+    kort = re.sub(r'[^a-z0-9]+', '-', namn).strip('-')
+    citerade = [Path(f).parent for f, _t in referensval.referens(slug, atelje.UNDERLAG, namn)['bilder']]
+    if not citerade:
         for r_ in uppdragets_bilder(slug, kid):
             f = atelje.UNDERLAG / Path(r_).relative_to('underlag')
             if kort and kort in f.relative_to(atelje.UNDERLAG / slug / 'referenser').parts:
-                sidor[f.parent] = sidor.get(f.parent, 0) + 1
-    fangade = lambda d: (d / 'vy-390-forsta.png').is_file() or (d / 'vy-1440-forsta.png').is_file()  # noqa: E731
-    val = None
-    for d in sorted(sidor, key=lambda d: (-sidor[d], str(d))):
-        start = sorted(x for x in d.parent.glob('01-*') if x.is_dir() and fangade(x)) if d.parent.resolve() != rot_ else []
-        val = start[0] if start else (d if fangade(d) else None)
-        if val:
-            break
-    if not val or not val.resolve().is_relative_to(rot_):
-        return None
-    vy = lambda n: rel(val / ('vy-%s.png' % n)) if (val / ('vy-%s.png' % n)).is_file() else None  # noqa: E731
-    return {'namn': las_status(slug, kid).get('huvudreferens'), 'sida': rel(val), **{n: vy(n) for n in REFERENSVYER}}
+                citerade.append(f.parent)
+    rotter = list(dict.fromkeys(d.parent for d in citerade if d.parent.resolve() != rot_))
+    if not rotter and kort:  # bara namnet: referensens katalog i det senaste paketet som har den
+        bas = atelje.UNDERLAG / slug / 'referenser'  # oupplöst, så att sökvägarna blir relativa till repot
+        rotter = sorted((d for d in bas.glob('*/%s' % kort) if d.is_dir()), key=lambda d: d.parent.name, reverse=True)
+    for r_ in rotter:
+        val = startsidan(r_, citerade)
+        if val and val.resolve().is_relative_to(rot_):
+            vy = lambda n: rel(val / ('vy-%s.png' % n)) if (val / ('vy-%s.png' % n)).is_file() else None  # noqa: E731
+            return {'namn': hel, 'sida': rel(val), **{n: vy(n) for n in REFERENSVYER}}, None
+    return None, 'huvudreferensen "%s" har ingen fångad sida i referenserna (underlag/%s/referenser/)' % (hel, slug)
 
 
 def riktningens_avsnitt(text, rubriker):
@@ -1808,14 +1844,12 @@ def riktningens_avsnitt(text, rubriker):
 
 def referensjamforelse(slug, kid):
     """Kandidaten bredvid huvudreferensen: referensens fångade startsida och kandidatens bilder i 390 och 1440, och
-    skaparens redovisning (avsnittet Överfört och avvikelser, annars referenslåset eller referensens kvalitet). None utan
-    huvudreferens."""
-    ref = referenssida(slug, kid)
-    if not ref:
-        return None
+    skaparens redovisning (avsnittet Överfört och avvikelser, annars referenslåset eller referensens kvalitet). Saknas
+    referensens sida står skälet i 'saknas', så att ägaren ser att jämförelsen fattas och varför (granskningen av r73, A1)."""
+    ref, saknas = referenssida(slug, kid)
     t = (kdir(slug, kid) / 'RIKTNING.md').read_text(encoding='utf-8', errors='replace') if (kdir(slug, kid) / 'RIKTNING.md').is_file() else ''
     avsnitt = riktningens_avsnitt(t, (OVERFORT,)) or riktningens_avsnitt(t, ('Referenslås', 'Referensens kvalitet'))
-    return {'referens': ref, 'avsnitt': avsnitt[:12000], 'redovisat': bool(riktningens_avsnitt(t, (OVERFORT,)))}
+    return {'referens': ref, 'saknas': saknas, 'avsnitt': avsnitt[:12000], 'redovisat': bool(riktningens_avsnitt(t, (OVERFORT,)))}
 
 
 def uppdragets_bilder(slug, kid):

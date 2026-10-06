@@ -124,7 +124,8 @@ def main(argv=None):
     r = subprocess.run([claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config', '--model', 'opus[1m]', '--effort', 'high',
                         '--json-schema', SCHEMA.read_text(encoding='utf-8'), '--allowedTools', 'Read', 'Glob', 'Grep',
-                        '--disallowedTools', 'Write', 'Edit', 'Bash', 'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)'],
+                        '--disallowedTools', 'Write', 'Edit', 'Bash', 'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)',
+                        'Read(./kunskap/GRUPPERING.md)'],
                        input=text.encode(), capture_output=True, cwd=str(ROOT), env=miljo, timeout=1200)
     try:
         res = json.loads(r.stdout or b'{}').get('structured_output')

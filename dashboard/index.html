@@ -697,7 +697,9 @@ async function kandidatvy(slug, d) {
       <div class="prosa">${k.riktning_html || ''}</div></details>`;
   // huvudreferensen bredvid förslaget i mobil och dator, med skaparens redovisning av det överförda och avvikelserna
   // (ägarens uppdrag 2026-10-05 18:53Z, punkt 7); i en körning med flera förslag först efter ditt första beslut
-  const refjamfor = (k) => { const j = k.referensjamforelse; if (!j) return ''; const r = j.referens;
+  const refjamfor = (k) => { const j = k.referensjamforelse; if (!j) return '';
+    if (!j.referens) return `<details class="refjamfor" open><summary>Bredvid huvudreferensen: saknas</summary><p class="under rod-text">Ingen jämförelse: ${esc(j.saknas || 'huvudreferensens sida hittades inte')}.</p>${j.avsnitt_html ? `<div class="prosa">${j.avsnitt_html}</div>` : ''}</details>`;
+    const r = j.referens;
     const b2 = (p, t) => bild(p, t) || `<div class="tom">${esc(t)}: ingen bild</div>`;
     const par = (bredd) => `<div class="galleri" style="grid-template-columns:1fr 1fr;align-items:start">${b2(r[`${bredd}-${kHela ? 'hela' : 'forsta'}`] || r[`${bredd}-forsta`], `huvudreferensen, ${bredd} px`)}${b2(k.bilder[`${bredd}-${kHela ? 'hela' : 'forsta'}`], `förslaget, ${bredd} px`)}</div>`;
     return `<details class="refjamfor"${(d.kandidater || []).length === 1 ? ' open' : ''}><summary>Bredvid huvudreferensen: ${esc(r.namn || '')}</summary>

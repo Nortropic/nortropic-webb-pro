@@ -85,11 +85,18 @@ def prova(slug=None, root=None, med_metod=True):
     if med_metod:
         ut += metodens_utdrag()
     if slug:
+        # körningens kopior: metoden levereras om vid varje start (kandidater.leverera_metod), och en äldre
+        # UPPTAGNA-VAL.md läses aldrig av agenterna (atelje.underlag_rader); fynden där märks som cache och stoppar
+        # ingen start (granskningen av r73, N1)
+        import upptagna_val
         u = root / 'underlag' / slug
         for f in sorted((u / 'atelje' / 'metod').glob('METOD-*.md')) + [u / 'UPPTAGNA-VAL.md']:
-            if f.is_file():
-                ut += [dict(x, vad=x['vad'] + ' (cache: körningens kopia, leverera om)') for x in
-                       fynd_i(f.read_text(encoding='utf-8', errors='replace'), str(f.relative_to(root)))]
+            if not f.is_file():
+                continue
+            text = f.read_text(encoding='utf-8', errors='replace')
+            if f.name == 'UPPTAGNA-VAL.md' and upptagna_val.VERSION not in text:
+                continue
+            ut += [dict(x, cache=True, vad=x['vad'] + ' (cache: körningens kopia, levereras om vid starten)') for x in fynd_i(text, str(f.relative_to(root)))]
     return ut
 
 
