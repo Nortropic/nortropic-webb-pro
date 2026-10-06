@@ -76,7 +76,10 @@ varje körning låser sina versioner. Två verktyg delar komponenterna och läge
 Städningen (`kontroller/stadning.py`) följer städregeln i `BESLUT.md` (tillägget 2026-10-06 om arbetskopior, processer
 och cacher). Underhållet kör den först i varje körning och skriver redovisningen i sin rapport (vad, sökväg, storlek
 före, tid, utfall och skäl; det som väntar på ägaren med sitt material). Startkontrollens diskvakt kör den före starten
-när disken har under 15 % ledigt, och kvittot visar ledigt före och efter. Förra rensningen av npm-cachen står i
+när disken har under 15 % ledigt, och kvittot och underhållets rapport visar ledigt före och efter. Den städar bara när
+den körs från huvudutcheckningen (`~/nortropic-repos/nortropic-webb-pro`) eller en av dess worktrees, rör bara kopior
+som heter `kopia*`, och allt i en kopia eller worktree som inte går att återskapa ur huvudutcheckningen (också ignorerade
+filer som `kirurgen/` och `.env`) väntar på ägaren. Förra rensningen av npm-cachen står i
 `underlag/startkontroll/NPM-CACHE.json`. Rökprovet sätter `NWP_STADNING=av`, så att inget prov städar det verkliga
 systemet.
 

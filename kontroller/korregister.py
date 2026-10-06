@@ -117,8 +117,8 @@ def start_vantar():
     return False
 
 
-def poster():
-    """Levande poster; en död eller återanvänd pid tas bort."""
+def poster(rensa=True):
+    """Levande poster; en död eller återanvänd pid tas bort (rensa=False: bara läsning, som städningens torrläge)."""
     ut = []
     for f in sorted(KATALOG.glob('*.json')) if KATALOG.is_dir() else []:
         try:
@@ -138,7 +138,8 @@ def poster():
             aterbrukad = bool(nu_k) and bool(tecken) and tecken not in nu_k
         if not levande or aterbrukad:
             try:
-                f.unlink()
+                if rensa:
+                    f.unlink()
             except OSError:
                 pass
             continue

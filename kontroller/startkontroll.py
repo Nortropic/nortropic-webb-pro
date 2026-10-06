@@ -283,11 +283,13 @@ def uppdraget(slug):
 
 # --- diskvakten (städregeln, punkt 6) ---
 
-def diskvakt(k, ram=None):
+def diskvakt(k, ram=None, fick=True, slug=None, start=None):
     """Punkt 6 i städregeln (BESLUT.md, tillägget 2026-10-06): under 15 % ledigt körs städningen (kontroller/stadning.py)
-    före starten, och kvittot redovisar ledigt utrymme före och efter. Städningen stoppar aldrig starten: ett fel blir en
-    rad som behöver uppmärksamhet, aldrig ett stopp. NWP_STADNING=av (rökprovet) stänger av städningen mot det verkliga
-    systemet; ram är ett provs egen omvärld. Ger (raden, posten till kvittot)."""
+    före starten, och kvittot redovisar ledigt utrymme före och efter. Den hoppas över medan ett intag, ett underhåll
+    eller en annan körning pågår (fick False: intagslåset var fortfarande taget; granskningen av r94, Ö4), och
+    redovisningen skrivs också i underhållets rapport (Ö6). Städningen stoppar aldrig starten: ett fel blir en rad som
+    behöver uppmärksamhet, aldrig ett stopp. NWP_STADNING=av (rökprovet) stänger av städningen mot det verkliga systemet;
+    ram är ett provs egen omvärld. Ger (raden, posten till kvittot)."""
     import stadning
     d = {'grans': DISKVAKT}
     try:
@@ -302,11 +304,24 @@ def diskvakt(k, ram=None):
         d['avslagen'] = True
         return post('underhåll', 'diskvakten', 'okand', detalj=diskvakt_text(d)), d
     try:
-        rap = stadning.stada(ram or stadning.Ram.verklig(k.katalog))
+        hinder = 'ett intag i underhållet pågår fortfarande' if not fick else (ram.upptagen() if ram else stadning.upptaget())
+    except Exception as e:  # noqa: BLE001 — går det inte att se vad som pågår städas inget
+        hinder = 'det går inte att se vad som pågår (%s: %s)' % (type(e).__name__, vl.sista(e, 120))
+    if hinder:
+        d['hoppad'] = hinder
+        return post('underhåll', 'diskvakten', 'okand', detalj=diskvakt_text(d)), d
+    try:
+        ram = ram or stadning.Ram.verklig()
+        rap = stadning.stada(ram)
     except Exception as e:  # noqa: BLE001
         d['fel'] = 'städningen föll: %s: %s' % (type(e).__name__, vl.sista(e, 200))
         return post('underhåll', 'diskvakten', 'okand', detalj=diskvakt_text(d)), d
     d['stadning'], d['efter'] = rap, rap.get('disk_efter')
+    if ram.tillstand and not rap.get('besked'):  # i underhållets rapport (Ö6); utanför huvudutcheckningen städades inget
+        import underhall as uh_
+        fel = uh_.skriv_stadning(ram.tillstand, rap, 'diskvakten före en start: %s%s' % (start or '?', (', ' + slug) if slug else ''))
+        if fel:
+            d['rapportfel'] = fel
     nog = (d['efter'] or {}).get('andel_ledig') is not None and d['efter']['andel_ledig'] >= DISKVAKT
     return post('underhåll', 'diskvakten', 'ok' if nog and not (rap.get('antal') or {}).get('fel') else 'okand',
                 detalj=diskvakt_text(d)), d
@@ -325,6 +340,8 @@ def diskvakt_text(d):
             fore, grans, stadning.disk_text(d.get('efter')), stadning.antal_text(d['stadning'].get('antal') or {}))
     if d.get('avslagen'):
         return '%s, under %s, men städningen är avslagen (NWP_STADNING=av)' % (fore, grans)
+    if d.get('hoppad'):
+        return '%s, under %s, men städningen hoppades över: %s' % (fore, grans, d['hoppad'])
     if d.get('fel'):
         return '%s, under %s: %s' % (fore, grans, d['fel'])
     return '%s; över %s, ingen städning före starten' % (fore, grans)
@@ -440,7 +457,7 @@ def vanta_pa_intag(max_s):
 def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     k = vl.Kontext(nat=False, prova=prova)
     fick = vanta_pa_intag(vanta_intag)
-    disk_rad, disk = diskvakt(k)  # under 15 % ledigt städas det före starten; stoppar aldrig starten
+    disk_rad, disk = diskvakt(k, fick=fick, slug=slug, start=start)  # under 15 % ledigt städas det före starten; stoppar aldrig
     tid = vl.nu()
     u = vl.las_json(k.katalog / 'UNDERHALL.json', {}) or {}
     u_tid = u.get('slut')

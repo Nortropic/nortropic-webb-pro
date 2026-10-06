@@ -1046,14 +1046,14 @@ def bedom(r, avvisade, underhall_tid=None):
 
 # --- pågående körningar ---
 
-def pagaende(egna=None):
+def pagaende(egna=None, rensa=True):
     """Körningar som pågår: på hela maskinen ur körregistret (kontroller/korregister.py: arbetare, kor.sh och rokprov.sh i
     alla utcheckningar; fynd 3), och i den här utcheckningen ateljéns arbetare och helbygget. Ingen uppdatering får ändra
-    deras miljö."""
+    deras miljö. rensa=False läser bara: körregistrets döda poster står kvar (städningens torrläge)."""
     import atelje
     import korregister
     egna = set(egna or ()) | {os.getpid(), os.getppid()}
-    poster_ = [d for d in korregister.poster() if int(d['pid']) not in egna]
+    poster_ = [d for d in korregister.poster(rensa=rensa) if int(d['pid']) not in egna]
     egna |= {int(d['pid']) for d in poster_}  # samma körning räknas en gång
     ut = ['%s%s (pid %d, %s)' % (d['vad'], (' ' + d['slug']) if d.get('slug') else '', d['pid'], d.get('utcheckning') or '?') for d in poster_]
     for f in sorted(UNDERLAG.glob('*/atelje/STATUS.json')):

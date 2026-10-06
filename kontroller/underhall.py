@@ -1625,20 +1625,44 @@ def steg_brew_update(k, rapport):
 
 def steg_stadning(k, rapport, torr=False, ram=None):
     """Städregeln vid varje underhåll (BESLUT.md, tillägget 2026-10-06; kontroller/stadning.py): punkterna 1–5, och
-    redovisningen (punkt 7) i rapporten. Förra rensningen av npm-cachen sparas i underhållets läge (k.katalog). En
-    städning som faller stoppar aldrig underhållet. NWP_STADNING=av (rökprovet) stänger av den mot det verkliga systemet;
-    ram är ett provs egen omvärld."""
+    redovisningen (punkt 7) i rapporten. Förra rensningen av npm-cachen sparas i huvudutcheckningens läge (Ram.verklig).
+    En städning som faller stoppar aldrig underhållet. NWP_STADNING=av (rökprovet) stänger av den mot det verkliga
+    systemet; ram är ett provs egen omvärld."""
     import stadning
     try:
         if ram is None:
             if stadning.avslagen():
                 rapport['stadning'] = {'avslagen': True}
                 return rapport['stadning']
-            ram = stadning.Ram.verklig(k.katalog, torr=torr)
+            ram = stadning.Ram.verklig(torr=torr)
         rapport['stadning'] = stadning.stada(ram)
     except Exception as e:  # noqa: BLE001 — städningen stoppar aldrig underhållet
         rapport['stadning'] = {'fel': '%s: %s' % (type(e).__name__, vl.sista(e, 300))}
     return rapport['stadning']
+
+
+def stadningar_sedan(katalog, sedan=None):
+    """Städningar utanför underhållet (diskvakten före en start) som sparats i underhållets läge efter tiden sedan."""
+    ut = []
+    for f in sorted((Path(katalog) / 'stadning').glob('STADNING-*.json')):
+        d = vl.las_json(f, None)
+        if isinstance(d, dict) and (not sedan or str(d.get('start') or '') >= str(sedan)):
+            ut.append(d)
+    return ut
+
+
+def skriv_stadning(katalog, stad, kalla):
+    """Städregelns punkt 7 för en städning utanför underhållet (diskvakten före en start; granskningen av r94, Ö6): den
+    sparas i underhållets läge (stadning/STADNING-<tid>.json) och står i underhållets rapport (UNDERHALL.md) tills nästa
+    underhåll tar med den i sin. UNDERHALL.json rörs inte: dess tid avgör när nästa underhåll körs. Ger None, eller felet."""
+    try:
+        katalog = Path(katalog)
+        vl.skriv_json(katalog / 'stadning' / ('STADNING-%s.json' % str(stad.get('start')).replace(':', '')), dict(stad, kalla=kalla))
+        rap = vl.las_json(katalog / 'UNDERHALL.json', {}) or {}
+        (katalog / 'UNDERHALL.md').write_text(markdown(dict(rap, diskvakt=stadningar_sedan(katalog, rap.get('start')))), encoding='utf-8')
+    except (OSError, TypeError, ValueError) as e:
+        return '%s: %s' % (type(e).__name__, e)
+    return None
 
 
 def homebrew_rad(hb):
@@ -2113,6 +2137,12 @@ def hantera(k, r, rapport, utan_tunga=False):
 
 def markdown(rap):
     namn = {'uppdaterad': 'UPPDATERAD', 'avvisad': 'avvisad', 'behallen': 'behållen', 'ok': 'ok', 'okand': 'okänd', 'fel': 'FEL'}
+    if not rap.get('start'):  # bara diskvaktens städningar: inget underhåll har körts här än
+        import stadning
+        ut = ['# Underhåll · inget underhåll har körts här än', '']
+        for d in rap.get('diskvakt') or []:
+            ut += stadning.markdown(d, '## Städningen före en start · %s (%s)' % (d.get('start'), d.get('kalla') or 'diskvakten'))
+        return '\n'.join(ut) + '\n'
     ut = ['# Underhåll · %s' % rap['start'], '', '**%s.** %s–%s. %s' % (rap.get('sammanfattning', ''), rap['start'], rap.get('slut', ''),
                                                                        ('Push: %s.' % rap['push']) if rap.get('push') else ''), '']
     if homebrew_rad(rap.get('homebrew')):
@@ -2124,7 +2154,7 @@ def markdown(rap):
                'underhållet igen.', '']
     if rap.get('besked'):
         ut += [rap['besked'], '']
-    if rap['rader']:
+    if rap.get('rader'):
         ut += ['| Komponent | Från | Till | Resultat | Detalj | Commit |', '|---|---|---|---|---|---|']
         for r in rap['rader']:
             ut.append('| %s%s | %s | %s | %s | %s | %s |' % (r['namn'], ' (mätinstrument)' if r.get('matinstrument') else '', r.get('fran') or '–', r.get('till') or '–',
@@ -2133,9 +2163,11 @@ def markdown(rap):
                                                            (r.get('commit') or '–')[:12]))
     else:
         ut.append('Inga nyare versioner att pröva.')
-    if rap.get('stadning'):  # städregelns redovisning (punkt 7): vad, sökväg, storlek före, tid, utfall och skäl
+    if rap.get('stadning') or rap.get('diskvakt'):  # städregelns redovisning (punkt 7), också diskvaktens före starter (Ö6)
         import stadning
-        ut += [''] + stadning.markdown(rap['stadning'])
+        ut += [''] + stadning.markdown(rap.get('stadning'))
+        for d in rap.get('diskvakt') or []:
+            ut += stadning.markdown(d, '## Städningen före en start · %s (%s)' % (d.get('start'), d.get('kalla') or 'diskvakten'))
     if rap.get('prov'):
         ut += ['', '## Förmågeproven', ''] + ['- %s: %s (%s)' % (n, p.get('resultat'), p.get('detalj')) for n, p in rap['prov'].items()]
     return '\n'.join(ut) + '\n'
@@ -2221,8 +2253,14 @@ def underhall(bara=None, utan_tunga=False, torr=False, k=None, prov=True, invent
     rap['sammanfattning'] = {'pagar': 'Ett annat underhåll pågår', 'uppskjutet': 'Uppskjutet'}.get(rap.get('status')) or (
         '%s%d uppdaterade, %d avvisade, %d behållna' % ('%d FEL, ' % n['fel'] if n.get('fel') else '', n.get('uppdaterad', 0), n.get('avvisad', 0),
                                                        n.get('behallen', 0)) if rap['rader'] else 'Inga nyare versioner att pröva')
+    st_ = (rap.get('stadning') or {}).get('antal') or {}
+    if st_:  # syns i dashboardens sammanfattning, inte bara i den hopfällda rapporten (granskningen av r94, K10)
+        import stadning
+        rap['sammanfattning'] += '; städningen: ' + stadning.antal_text(st_)
     if not torr and not inventering:
         if rap.get('status') == 'klart':  # ett uppskjutet underhåll ersätter inte rapporten från det senaste som kördes (fynd 9)
+            # diskvaktens städningar sedan förra underhållet står också i rapporten (städregeln, punkt 7; Ö6)
+            rap['diskvakt'] = stadningar_sedan(k.katalog, (vl.las_json(k.katalog / 'UNDERHALL.json', {}) or {}).get('start'))
             vl.skriv_json(k.katalog / 'UNDERHALL.json', rap)
             (k.katalog / 'UNDERHALL.md').write_text(markdown(rap), encoding='utf-8')
         vl.skriv_json(k.katalog / 'underhall' / ('UNDERHALL-%s.json' % rap['start'].replace(':', '')), rap)

@@ -3,43 +3,59 @@
 dag: ingenting arkiveras, skrot raderas, och det som verkar värdefullt raderas inte utan väntar på ägaren; ordagrant i
 BESLUT.md, avsnittet "Tillägg 2026-10-06: städregel för arbetskopior, processer och cacher"). Det dagliga underhållet
 (kontroller/underhall.py) städar vid varje körning och skriver redovisningen i sin rapport; startkontrollens diskvakt
-(kontroller/startkontroll.py, punkt 6) städar före starten när disken har under 15 % ledigt. Går också att köra själv:
+(kontroller/startkontroll.py, punkt 6) städar före starten när disken har under 15 % ledigt och skriver redovisningen i
+samma rapport. Går också att köra själv:
 
     .venv/bin/python kontroller/stadning.py [--torr] [--json]
 
-Räckvidden är bara det flödet och agenterna skapat under ~/nortropic-repos, /tmp (/private/tmp) och scratchpad
-(/private/tmp/claude-<uid>). Huvudutcheckningens underlag/ och kunder/, ~/Arkiv och det ägaren skapat rörs aldrig, och
-dashboarden på port 4771 stoppas aldrig. Det en levande process använder (arbetskatalog, öppen fil eller argument) lämnas.
+Räckvidden är bara det flödet och agenterna skapat under ~/nortropic-repos, /tmp (/private/tmp och macOS tempkatalog,
+$TMPDIR) och scratchpad (/private/tmp/claude-<uid>). Huvudutcheckningen är alltid ~/nortropic-repos/nortropic-webb-pro
+(HUVUDUTCHECKNING) med sina registrerade worktrees. Den rörs aldrig, inte heller underlag/ och kunder/ i den, det den
+länkar till, ~/Arkiv eller det ägaren skapat, och dashboarden på port 4771 stoppas aldrig. Körs städningen från något
+annat än huvudutcheckningen eller en av dess worktrees (till exempel ur en full kopia med eget .git) städas ingenting:
+allt redovisas bara (granskningen av r94, B1). Det en levande process använder (arbetskatalog, öppen fil eller
+argument) lämnas, och det prövas igen direkt före varje radering.
 
-1. Worktrees: en registrerad worktree (git worktree list) vars gren är sammanslagen i main och finns i origin/main, utan
-   ocommittade ändringar, utan eget material i underlag/ och kunder/ och utan ändringar det senaste dygnet (en ny gren
-   som ännu inte fått en commit pekar också på main), tas bort med git worktree remove, aldrig --force. Grenen och dess
-   commits finns kvar. Misslyckas det redovisas felet, och inget raderas.
-2. Kopior av repot (kopia* och kataloger med repots kännetecken, kor.sh och kontroller/, som inte är registrerade
-   worktrees): underlag/ och kunder/ jämförs med huvudutcheckningen (relativ sökväg och sha256). Utan eget material, utan
-   egna commits och utan ändringar det senaste dygnet raderas kopian; med eget material står den kvar och väntar på
-   ägaren, med listan (sökväg och storlek). En kopia av okänt ursprung väntar också på ägaren.
+1. Worktrees: en registrerad worktree vars gren fått egna commits, är sammanslagen i main och finns i origin/main, utan
+   ocommittade ändringar, utan eget material och utan ändringar det senaste dygnet, tas bort med git worktree remove,
+   aldrig --force. Grenen och dess commits finns kvar. En gren som aldrig fått en egen commit är okänd (en session kan
+   vänta på den) och väntar på ägaren efter ett dygn. Misslyckas borttagningen redovisas felet.
+2. Kopior av repot: bara kataloger vars namn tydligt är en kopia (kopia* och <namn>-kopia…), aldrig huvudutcheckningen
+   eller en worktree, inte heller via realpath eller en symlänk. En kopia utan eget material, utan egna commits och utan
+   ändringar det senaste dygnet raderas; med eget material väntar den på ägaren, med listan (sökväg och storlek). En
+   katalog med repots kännetecken som inte heter kopia rörs inte, utan väntar på ägaren.
 3. Processer: förhandsvisningar och servrar (astro preview och dev, python -m http.server, dashboards på andra portar än
-   4771) med arbetskatalog i en worktree, en kopia, /tmp eller scratchpad, utan levande förälder (ppid 1) och äldre än
-   ett dygn, stoppas med SIGTERM. Allt annat lämnas. Punkten körs först, så att en kopia som en gammal förhandsvisning
-   höll kan städas i samma körning.
-4. Tillfälliga filer: kataloger direkt i /tmp med repots egna tempfile- och mktemp-prefix (TMP_PREFIX) som inte ändrats
-   på ett dygn, och scratchpads sessionskataloger (<projekt>/<session>/) som inte ändrats på sju dygn, raderas när ingen
-   process använder dem.
+   4771) med arbetskatalog i en worktree, en kopia, en av flödets kataloger i /tmp och $TMPDIR (nwp-* och repots
+   tempprefix) eller scratchpad, utan levande förälder (ppid 1) och äldre än ett dygn, stoppas med SIGTERM, när pid och
+   starttid fortfarande är processens. Allt annat lämnas. Punkten körs först, så att en kopia som en gammal
+   förhandsvisning höll kan städas i samma körning.
+4. Tillfälliga filer: kataloger direkt i /tmp och $TMPDIR med repots egna tempfile- och mktemp-prefix (TMP_PREFIX) som
+   inte ändrats på ett dygn, och scratchpads sessionskataloger (<projekt>/<session>/) som inte ändrats på sju dygn,
+   raderas när ingen process använder dem. En sessions scratchpad rörs bara när ingen process nämner sessionens id
+   (argument eller öppen fil), ingen claude-process med okänt sessions-id hör till samma projekt och transkriptet inte
+   ändrats på sju dygn: när det är oklart står den kvar.
 5. npm-cachen: npm cache clean --force när disken är fylld över 85 %, annars när förra rensningen är äldre än 30 dygn
-   (tiden i underhållets läge, underlag/startkontroll/NPM-CACHE.json). Aldrig medan en körning eller en npm-installation
-   pågår.
+   (tiden i underhållets läge, NPM-CACHE.json). Aldrig medan en körning, ett underhåll, ett intag eller en
+   npm-installation pågår.
 7. Redovisningen: varje åtgärd med vad, sökväg, storlek före, tid (UTC, ur klockan), utfall och skäl.
 
-Ändrat betyder här den senaste ändringen av en fil eller symlänk under katalogen (den senare av mtime och ctime: en kopia
-med bevarade tider är ny fast filerna har gamla mtime) eller när en katalog i den skapades (en katalogs mtime flyttas
-också när något tas bort ur den). Allt som rör omvärlden (rötterna, klockan, diskmåttet, processlistan, stoppet och npm) går
-genom Ram, så att provet (kontroller/rokprov/revision/prov_stadning.py) aldrig rör det verkliga systemet. NWP_STADNING=av
-stänger av städningen mot det verkliga systemet; rökprovet sätter den. --torr ändrar ingenting och listar vad som skulle
-göras.
+Eget material (punkt 1 och 2) är varje fil i kopian eller worktreen som inte går att återskapa: allt utom .git, det
+härledda (node_modules och __pycache__ var som helst, dist och .astro bredvid en package.json), rökprovets fixtur
+(kunder/ och underlag/rokprov-mall), .DS_Store och symlänkar, och utom det som finns byte för byte på samma sökväg i
+huvudutcheckningen eller som blob i dess git. Ignorerade filer räknas alltså: kirurgen/, .env, nycklar och
+uppladdningar (granskningen av r94, B2).
+
+Ändrat betyder den senaste ändringen av en fil eller symlänk (den senare av mtime och ctime: en kopia med bevarade tider
+är ny fast filerna har gamla mtime) eller när en katalog skapades (en katalogs mtime flyttas när något tas bort ur den).
+Allt som rör omvärlden (rötterna, klockan, diskmåttet, processlistan, stoppet, npm och vad som pågår) går genom Ram, så
+att provet (kontroller/rokprov/revision/prov_stadning.py) aldrig rör det verkliga systemet. NWP_STADNING=av stänger av
+städningen mot det verkliga systemet; rökprovet sätter den. --torr ändrar ingenting och listar vad som skulle göras. Två
+städningar körs aldrig samtidigt (ett lås bredvid körregistret).
 """
 import argparse
 import bisect
+import copy
+import fcntl
 import hashlib
 import json
 import os
@@ -49,6 +65,7 @@ import signal
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,6 +74,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import korregister  # noqa: E402  (processernas identitet och liv, som körregistret läser dem)
 import verktygslada as vl  # noqa: E402
 
+# Huvudutcheckningen är alltid den kanoniska vägen, aldrig den som koden råkar köras ur (granskningen av r94, B1: körd ur
+# en full kopia med eget .git räknade städningen den riktiga huvudutcheckningen som en kopia). Provet byter ut den.
+HUVUDUTCHECKNING = Path.home() / 'nortropic-repos' / 'nortropic-webb-pro'
 DYGN = 86400
 TMP_ALDER = DYGN                 # punkt 4: en katalog i /tmp som inte ändrats på ett dygn
 SCRATCH_ALDER = 7 * DYGN         # punkt 4: en scratchpad-session som inte ändrats på sju dygn
@@ -69,7 +89,8 @@ DASHBOARD_PORT = 4771            # ägarens dashboard: stoppas aldrig
 MATERIAL_MAX = 200               # så många filer av det egna materialet sparas i redovisningen (antal och summa alltid)
 
 # Repots egna prefix för tempfile.mkdtemp, TemporaryDirectory, mkdtempSync och mktemp (punkt 4). Provet söker igenom
-# koden och blir rött när ett prefix saknas här. Pythons förval (tmp) och andra verktygs kataloger rörs aldrig.
+# koden, skapar en katalog för varje prefix där tempfile skapar den och blir rött när ett prefix saknas här. Pythons
+# förval (tmp) och andra verktygs kataloger rörs aldrig.
 TMP_PREFIX = (
     'nwp-underhall-', 'nwp-global-', 'nwp-skill-', 'nwp-skillintag-', 'nwp-skillreserv-', 'nwp-sajtpaket-',
     'nwp-instrument-', 'nwp-pip-', 'nwp-nodeprov-', 'nwp-motor-',                  # underhall.py
@@ -88,16 +109,20 @@ TMP_PREFIX = (
 # granskarnas och byggenas arbetsrötter (deras verktyg städar dem)
 ALDRIG_TMP = ('nwp-korningar', 'nwp-startkontroll', 'nwp-granskning', 'nwp-granskarforsok')
 ALDRIG_TMP_PREFIX = ('nwp-bygge-',)
-# punkt 2: inget material, var de än ligger (byggen, beroenden, cacher och Finders metadata)
-INTE_MATERIAL = ('node_modules', 'dist', '.astro', '__pycache__')
+# det som går att återskapa och därför inte är eget material (B2)
+HARLEDDA = ('node_modules', '__pycache__')    # var som helst
+BYGGEN = ('dist', '.astro')                    # bara bredvid en package.json: ett hämtat dist/ i underlag/ är material (K2)
 INTE_MATERIAL_FILER = ('.DS_Store',)
-# flödets egna prov- och lägesdata, som rökprovet och verktygslådan skriver i varje utcheckning: inget kundmaterial
-FLODETS_EGNA = ('underlag/rokprov-mall', 'kunder/rokprov-mall', 'underlag/startkontroll')
+FIXTUR = ('kunder/rokprov-mall', 'underlag/rokprov-mall')  # rökprovets egen fixtur, som det skriver i varje utcheckning
+KOPIA_NAMN = re.compile(r'(?i)^(?:.*[-_.])?kopia(?:[-_.\d].*)?$')
 
 RADERAD, STOPPAD, RENSAD, KVAR, VANTAR, FEL = 'raderad', 'stoppad', 'rensad', 'kvar', 'väntar på ägaren', 'fel'
 TORRT = {RADERAD: 'skulle raderas', STOPPAD: 'skulle stoppas', RENSAD: 'skulle rensas'}
 UTFALL = (RADERAD, STOPPAD, RENSAD, KVAR, VANTAR, FEL) + tuple(TORRT.values())
-SESSION = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+UUID = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+SESSION = re.compile(UUID)
+SESSION_ARG = re.compile(r'(?:--resume|--session-id|-r)(?:=|\s+)(%s)' % UUID)
+SESSION_FIL = re.compile(r'/projects/[^/]+/%s\.jsonl$|/claude-\d+/[^/]+/%s/' % (UUID, UUID))
 SERVRAR = (
     ('astro', re.compile(r'(?:^|[\s/])astro(?:\.m?js)?\s+(?:preview|dev)\b')),
     ('http.server', re.compile(r'(?i)python[\w.]*\s(?:.*\s)?-m\s*http\.server\b')),
@@ -116,16 +141,29 @@ def iso(t):
     return datetime.fromtimestamp(t, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
+def verklig_sokvag(p):
+    return Path(os.path.realpath(p))
+
+
 def huvudutcheckning(rot):
-    """Huvudutcheckningen (den som äger .git) för en utcheckning eller en worktree."""
+    """Den utcheckning som äger .git för koden i rot (en worktree ger sin huvudutcheckning). Faller git blir det rot
+    själv, och då är det inte HUVUDUTCHECKNING: städningen redovisar bara."""
     rc, ut = vl.kor(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], timeout=30, cwd=rot, bara_ut=True)
-    return Path(ut.strip()).parent.resolve() if rc == 0 and ut.strip() else Path(rot).resolve()
+    return verklig_sokvag(Path(ut.strip()).parent) if rc == 0 and ut.strip() else verklig_sokvag(rot)
 
 
 def npm_cache_katalog():
     rc, ut = vl.kor(['npm', 'config', 'get', 'cache', '--no-update-notifier'], timeout=60, bara_ut=True)
     v = (ut.strip().splitlines() or [''])[-1].strip() if rc == 0 else ''
     return Path(v) if v.startswith('/') else Path.home() / '.npm'
+
+
+def tmp_rotar():
+    """/tmp och macOS tempkatalog ($TMPDIR, där tempfile och Nodes tmpdir() lägger repots kataloger; granskningen av r94, Ö5)."""
+    ut = [verklig_sokvag('/tmp')]
+    if verklig_sokvag(tempfile.gettempdir()) not in ut:
+        ut.append(verklig_sokvag(tempfile.gettempdir()))
+    return ut
 
 
 def disk_matt(p):
@@ -162,39 +200,69 @@ def antal_text(antal):
 
 
 class Ram:
-    """Städningens omvärld: rötterna, klockan, diskmåttet, processlistan, stoppet, npm och om något pågår. Provet ger
-    egna; verklig() ger maskinens."""
+    """Städningens omvärld: rötterna, klockan, diskmåttet, processlistan, stoppet, npm och vad som pågår. Provet ger
+    egna; verklig() ger maskinens. Det som inte anges här finns inte: en Ram utan $TMPDIR-rot eller transkript läser
+    inget därifrån."""
 
     def __init__(self, repo, repos_rot, tmp_rot, scratch_rot, npm_cache, tillstand, klocka=time.time, disk=None,
-                 processer=None, stoppa=None, npm=None, upptagen=None, torr=False, vanta_stopp=5.0, skyddade=()):
-        self.repo = Path(os.path.realpath(repo))
-        self.repos_rot = Path(os.path.realpath(repos_rot))
-        self.tmp_rot = Path(os.path.realpath(tmp_rot)) if tmp_rot else None
-        self.scratch_rot = Path(os.path.realpath(scratch_rot)) if scratch_rot else None
+                 processer=None, stoppa=None, npm=None, upptagen=None, torr=False, vanta_stopp=5.0, skyddade=(),
+                 tmp_extra=(), claude_projekt=None, las=None, npm_pagar=None):
+        self.repo = verklig_sokvag(repo)  # huvudutcheckningen för koden som kör (ska vara HUVUDUTCHECKNING)
+        self.repos_rot = verklig_sokvag(repos_rot)
+        self.tmp_rot = verklig_sokvag(tmp_rot) if tmp_rot else None
+        self.tmp_extra = [verklig_sokvag(p) for p in tmp_extra if p]
+        self.scratch_rot = verklig_sokvag(scratch_rot) if scratch_rot else None
         self.npm_cache = Path(npm_cache) if npm_cache else None
         self.tillstand = Path(tillstand) if tillstand else None
+        self.claude_projekt = Path(claude_projekt) if claude_projekt else None
+        self.las = Path(las) if las else None
         self.klocka = klocka
         self.disk = disk or (lambda: disk_matt(self.repos_rot))
         self.processer = processer or las_processer
         self.stoppa = stoppa or (lambda pid: os.kill(pid, signal.SIGTERM))
         self.npm = npm or npm_rensa
         self.upptagen = upptagen or upptaget
+        self.npm_pagar = npm_pagar or npm_installerar
         self.torr = torr
         self.vanta_stopp = vanta_stopp
-        # raderas aldrig, och inget som innehåller dem: huvudutcheckningens underlag/ och kunder/ och ~/Arkiv
+        # raderas aldrig, och inget som innehåller dem: huvudutcheckningens underlag/ och kunder/ och ~/Arkiv (hela
+        # huvudutcheckningen skyddas av far_inte_raderas)
         self.skyddade = [self.repo / 'underlag', self.repo / 'kunder', Path.home() / 'Arkiv'] + [Path(p) for p in skyddade]
+        self.worktree_vagar = []  # registrerade worktrees: tas bara bort av punkt 1 (git worktree remove)
+        self.lankmal = []         # det huvudutcheckningen länkar till (K1)
 
     @classmethod
     def verklig(cls, tillstand=None, torr=False):
-        """Maskinens rötter: huvudutcheckningen bakom den här utcheckningen, ~/nortropic-repos (dess förälder), /tmp,
-        scratchpad (/private/tmp/claude-<uid>) och npm:s cache; läget i underhållets katalog."""
-        repo = huvudutcheckning(vl.ROOT)
-        tmp = Path(os.path.realpath('/tmp'))
-        return cls(repo=repo, repos_rot=repo.parent, tmp_rot=tmp, scratch_rot=tmp / ('claude-%d' % os.getuid()),
-                   npm_cache=npm_cache_katalog(), tillstand=tillstand or repo / 'underlag' / 'startkontroll', torr=torr)
+        """Maskinens rötter: ~/nortropic-repos, /tmp och $TMPDIR, scratchpad (/private/tmp/claude-<uid>), npm:s cache och
+        Claude Codes transkript. Läget (förra npm-rensningen och diskvaktens städningar) i huvudutcheckningens
+        underlag/startkontroll/, där underhållets rapport ligger."""
+        rotar = tmp_rotar()
+        konfig = Path(os.environ.get('CLAUDE_CONFIG_DIR') or Path.home() / '.claude')
+        return cls(repo=huvudutcheckning(vl.ROOT), repos_rot=HUVUDUTCHECKNING.parent, tmp_rot=rotar[0], tmp_extra=rotar[1:],
+                   scratch_rot=rotar[0] / ('claude-%d' % os.getuid()), npm_cache=npm_cache_katalog(),
+                   tillstand=tillstand or HUVUDUTCHECKNING / 'underlag' / 'startkontroll', claude_projekt=konfig / 'projects',
+                   las=korregister.KATALOG / '.stadning', torr=torr)
+
+    def tmp_alla(self):
+        return [x for x in [self.tmp_rot] + self.tmp_extra if x]
 
     def rotar(self):
-        return [x for x in (self.repos_rot, self.tmp_rot, self.scratch_rot) if x]
+        return [x for x in [self.repos_rot] + self.tmp_alla() + [self.scratch_rot] if x]
+
+    def huvuden(self):
+        """Huvudutcheckningen som den står (HUVUDUTCHECKNING) och som den är (realpath), och utcheckningen koden kör ur."""
+        return {Path(os.path.abspath(HUVUDUTCHECKNING)), verklig_sokvag(HUVUDUTCHECKNING), self.repo, Path(os.path.abspath(self.repo))}
+
+
+def utanfor_huvudutcheckningen(ram):
+    """Skälet när städningen inte körs från huvudutcheckningen (HUVUDUTCHECKNING) eller en av dess worktrees, annars
+    None. Då städas ingenting, allt redovisas bara (granskningen av r94, B1)."""
+    h = Path(os.path.abspath(HUVUDUTCHECKNING))
+    if h.is_symlink() or not (h / '.git').is_dir():
+        return 'huvudutcheckningen %s finns inte som en katalog med eget .git' % h
+    if ram.repo != verklig_sokvag(h):
+        return 'städningen körs från %s, som varken är huvudutcheckningen %s eller en av dess worktrees' % (ram.repo, h)
+    return None
 
 
 # --- processerna ---
@@ -272,9 +340,21 @@ def kort(kommando, n=80):
     return ' '.join(str(kommando or '').split())[:n]
 
 
+def projektnamn(sokvag):
+    """Claude Codes namn på projektet för en arbetskatalog (scratchpad /private/tmp/claude-<uid>/<projekt>/ och
+    transkripten ~/.claude/projects/<projekt>/): varje tecken utom bokstäver och siffror blir ett bindestreck."""
+    return re.sub(r'[^A-Za-z0-9]', '-', str(sokvag))
+
+
+def ar_claude(kommando):
+    forsta = (kommando or '').split(None, 1)
+    return bool(forsta) and os.path.basename(forsta[0]) == 'claude' or '/@anthropic-ai/claude-code/' in (kommando or '')
+
+
 class Anvandning:
     """Vad maskinens processer använder: arbetskataloger och öppna filer sorterade för uppslag (hundratals
-    scratchpad-sessioner mot tiotusentals öppna filer), och kommandoraderna."""
+    scratchpad-sessioner mot tiotusentals öppna filer), kommandoraderna, de sessions-id processerna nämner, och projekten
+    med en claude-process vars sessions-id inte syns."""
 
     def __init__(self, processer):
         self.processer = processer
@@ -283,12 +363,20 @@ class Anvandning:
             self.okand = 'processerna kunde inte läsas (ps)'
         elif any(x.get('cwd_kand') is False for x in processer):
             self.okand = 'processernas arbetskataloger kunde inte läsas (lsof)'
-        poster = []
+        poster, self.sessioner, self.okanda = [], {}, {}
         for x in processer or ():
             if x.get('cwd'):
                 poster.append((x['cwd'], x, 'har sin arbetskatalog där'))
             for f in x.get('filer') or ():
                 poster.append((f, x, 'har %s öppen' % f))
+            kom = x.get('kommando') or ''
+            for u in set(SESSION.findall(kom)):
+                self.sessioner.setdefault(u, 'pid %d nämner sessionens id i sina argument (%s)' % (x['pid'], kort(kom)))
+            for f in x.get('filer') or ():
+                for u in set(SESSION.findall(f)):
+                    self.sessioner.setdefault(u, 'pid %d har %s öppen (%s)' % (x['pid'], f, kort(kom)))
+            if ar_claude(kom) and not SESSION_ARG.search(kom) and not any(SESSION_FIL.search(f) for f in x.get('filer') or ()):
+                self.okanda.setdefault(projektnamn(x['cwd']) if x.get('cwd') else '*', x['pid'])
         poster.sort(key=lambda t: t[0])
         self.nycklar, self.poster = [t[0] for t in poster], poster
 
@@ -311,10 +399,33 @@ class Anvandning:
                 return 'pid %d nämner den i sina argument (%s)' % (x['pid'], kort(x.get('kommando')))
         return None
 
+    def session(self, projekt, uuid):
+        """Skälet när sessionen kan leva (Ö3): en process nämner dess id i argumenten eller i en öppen fil, eller en
+        claude-process i samma projekt har ett id som inte syns (oklart: kvar). Annars None."""
+        if self.okand:
+            return self.okand
+        if uuid in self.sessioner:
+            return self.sessioner[uuid]
+        pid = self.okanda.get('*') or self.okanda.get(projekt)
+        if pid:
+            return 'claude-processen pid %d i samma projekt har ett sessions-id som inte syns i argumenten eller i öppna ' \
+                   'filer: oklart, kvar' % pid
+        return None
+
 
 def anvands(anv, p):
     """Skälet när en levande process använder p, annars None (Anvandning.skal; None som anv: processerna är okända)."""
     return (anv or Anvandning(None)).skal(p)
+
+
+def anvands_nu(ram, p, session=None):
+    """Samma prövning med en ny processlista, direkt före en radering (K13): en process som börjat använda katalogen
+    medan städningen mätte och jämförde syns."""
+    try:
+        anv = Anvandning(ram.processer())
+    except Exception:  # noqa: BLE001 — okända processer: använd
+        anv = Anvandning(None)
+    return anv.skal(p) or (anv.session(*session) if session else None)
 
 
 def serverslag(kommando):
@@ -336,9 +447,9 @@ def stoppa_process(ram, x):
     """SIGTERM, och väntar högst ram.vanta_stopp sekunder på att processen försvinner. Processens identitet (pid och
     starttid) prövas först: en pid som återanvänts av en annan process stoppas aldrig. Ger (utfall, skäl)."""
     def samma():
-        return ' '.join(korregister.startad(x['pid']).split()) == x['lstart']
+        return ' '.join(korregister.startad(x['pid']).split()) == ' '.join(str(x.get('lstart') or '').split())
     if not korregister.lever(x['pid']) or not samma():
-        return KVAR, 'processen finns inte längre (eller pid:en har återanvänts); inget stoppat'
+        return KVAR, 'processen finns inte längre, eller pid:en har en annan starttid (återanvänd); inget stoppat'
     ram.stoppa(x['pid'])
     slut = time.time() + ram.vanta_stopp
     while time.time() < slut:
@@ -399,40 +510,65 @@ def sha256_fil(p):
     return h.hexdigest()
 
 
+def hasha(p):
+    """(sha256, git-blobbens sha1) för filen, i en läsning."""
+    h256, blob = hashlib.sha256(), hashlib.sha1()
+    with open(p, 'rb') as f:
+        blob.update(b'blob %d\0' % os.fstat(f.fileno()).st_size)
+        for bit in iter(lambda: f.read(1 << 20), b''):
+            h256.update(bit)
+            blob.update(bit)
+    return h256.hexdigest(), blob.hexdigest()
+
+
 def _kasta(e):
     raise e
 
 
-def eget_material(kopia, repo):
-    """[(relativ sökväg, storlek)] för filerna i kopians underlag/ och kunder/ som inte finns med samma relativa sökväg och
-    samma innehåll (sha256) i huvudutcheckningen. node_modules, dist, .astro och __pycache__ är inget material, inte
-    heller .DS_Store och flödets egna prov- och lägesdata (FLODETS_EGNA); symlänkar följs aldrig. Kastar OSError när något
-    i kopian inte går att läsa: material som inte går att jämföra raderas aldrig."""
-    kopia, repo, ut = Path(kopia), Path(repo), []
-    for topp in ('underlag', 'kunder'):
-        bas = kopia / topp
-        if bas.is_symlink() or not bas.is_dir():
-            continue
-        for rot, mappar, filer in os.walk(bas, onerror=_kasta):
-            rel_rot = Path(rot).relative_to(kopia)
-            mappar[:] = [m for m in mappar if m not in INTE_MATERIAL and (rel_rot / m).as_posix() not in FLODETS_EGNA
-                         and not os.path.islink(os.path.join(rot, m))]
-            for f in filer:
-                if f in INTE_MATERIAL_FILER:
-                    continue
-                p = Path(rot) / f
-                st = os.lstat(p)
-                if not stat.S_ISREG(st.st_mode):  # symlänkar och uttag är inget material
-                    continue
-                rel = (rel_rot / f).as_posix()
-                try:
-                    hs = os.stat(repo / rel)
-                    lika = stat.S_ISREG(hs.st_mode) and hs.st_size == st.st_size and sha256_fil(repo / rel) == sha256_fil(p)
-                except OSError:
-                    lika = False
-                if not lika:
-                    ut.append((rel, st.st_size))
-    return ut
+def git_saknas(repo, objekt):
+    """De av objekten (sha1) som inte finns i repots git, ur git cat-file --batch-check. Kastar OSError när git inte svarar."""
+    objekt = sorted(set(objekt))
+    if not objekt:
+        return set()
+    rc, ut = vl.kor(['git', 'cat-file', '--batch-check'], cwd=repo, indata='\n'.join(objekt) + '\n', timeout=600, bara_ut=True)
+    rader = [r.split() for r in ut.splitlines() if r.strip()]
+    if rc or len(rader) != len(objekt):
+        raise OSError('git cat-file svarade inte i %s (kod %s)' % (repo, rc))
+    return {r[0] for r in rader if len(r) >= 2 and r[1] == 'missing'}
+
+
+def eget_material(kandidat, repo):
+    """[(relativ sökväg, storlek)] för det i kandidaten (en kopia eller worktree) som inte går att återskapa ur
+    huvudutcheckningen (B2): varje fil utom .git, det härledda (node_modules och __pycache__ var som helst, dist och .astro
+    bredvid en package.json), rökprovets fixtur, .DS_Store och symlänkar, som varken finns byte för byte på samma
+    relativa sökväg i huvudutcheckningen (lstat: en länk där räknas inte, K1) eller som blob i dess git. Ignorerade filer
+    räknas: kirurgen/, .env, nycklar och uppladdningar. Kastar OSError när något inte går att läsa eller git inte svarar:
+    det som inte går att jämföra raderas aldrig."""
+    kandidat, repo, kvar = Path(kandidat), Path(repo), {}
+    for rot, mappar, filer in os.walk(kandidat, onerror=_kasta):
+        r = Path(rot)
+        rel_rot = r.relative_to(kandidat)
+        paket = 'package.json' in filer
+        mappar[:] = [m for m in mappar if not ((str(rel_rot) == '.' and m == '.git') or m in HARLEDDA or (m in BYGGEN and paket)
+                                               or (rel_rot / m).as_posix() in FIXTUR or os.path.islink(r / m))]
+        for f in filer:
+            if f in INTE_MATERIAL_FILER or (str(rel_rot) == '.' and f == '.git'):
+                continue
+            p = r / f
+            st = os.lstat(p)
+            if not stat.S_ISREG(st.st_mode):  # symlänkar och uttag är inget material
+                continue
+            rel = (rel_rot / f).as_posix()
+            s256, blob = hasha(p)
+            try:
+                hs = os.lstat(repo / rel)
+                lika = stat.S_ISREG(hs.st_mode) and hs.st_size == st.st_size and sha256_fil(repo / rel) == s256
+            except OSError:
+                lika = False
+            if not lika:
+                kvar.setdefault(blob, []).append((rel, st.st_size))
+    saknas = git_saknas(repo, kvar)
+    return sorted(x for b, xs in kvar.items() if b in saknas for x in xs)
 
 
 def material_falt(eget):
@@ -444,19 +580,46 @@ def material_kort(eget, n=5):
     return ', '.join('%s (%s)' % (r, storlek_text(s)) for r, s in eget[:n]) + (' och %d till' % (len(eget) - n) if len(eget) > n else '')
 
 
-def far_inte_raderas(ram, p):
-    """Skälet när p aldrig får raderas, annars None: en symlänk, huvudutcheckningen eller något som innehåller den,
-    huvudutcheckningens underlag/ och kunder/ eller något i dem, ~/Arkiv, en rot eller något utanför rötterna."""
+def lankmal(ram):
+    """Målen (realpath) för symlänkarna i huvudutcheckningens underlag/ och kunder/, utom i node_modules: det som
+    huvudutcheckningen länkar till raderas aldrig (granskningen av r94, K1)."""
+    ut = []
+    for h in sorted({verklig_sokvag(x) for x in ram.huvuden()}):
+        for topp in ('underlag', 'kunder'):
+            for rot, mappar, filer in os.walk(h / topp):
+                mappar[:] = [m for m in mappar if m != 'node_modules']
+                for n in mappar + filer:
+                    q = os.path.join(rot, n)
+                    if os.path.islink(q):
+                        ut.append((verklig_sokvag(q), Path(q)))
+    return ut
+
+
+def relation(r, s):
+    """r är s, ligger i s, eller innehåller s."""
+    return r == s or s in r.parents or r in s.parents
+
+
+def far_inte_raderas(ram, p, worktree=False):
+    """Skälet när p aldrig får raderas, annars None: en symlänk, huvudutcheckningen (HUVUDUTCHECKNING, realpath, och
+    utcheckningen koden kör ur) eller något i eller runt den, underlag/ och kunder/, ~/Arkiv, en registrerad worktree
+    (utom i punkt 1), något huvudutcheckningen länkar till, en rot eller något utanför rötterna."""
     p = Path(p)
     if p.is_symlink():
         return 'en symlänk'
-    r = Path(os.path.realpath(p))
-    if r == ram.repo or r in ram.repo.parents:
-        return 'huvudutcheckningen'
+    r = verklig_sokvag(p)
+    for h in ram.huvuden():
+        if relation(r, h):
+            return 'huvudutcheckningen (%s)' % h
     for s in ram.skyddade:
-        s = Path(os.path.realpath(s))
-        if r == s or s in r.parents or r in s.parents:
+        if relation(r, verklig_sokvag(s)):
             return 'skyddad (%s)' % s
+    for w in ram.worktree_vagar:
+        if (not worktree or w != r) and relation(r, w):
+            return 'en registrerad worktree (%s)' % w
+    for mal, lank in ram.lankmal:
+        if relation(r, mal):
+            return 'huvudutcheckningen länkar hit (%s)' % lank
     if not any(x in r.parents for x in ram.rotar()):
         return 'utanför städregelns rötter'
     return None
@@ -482,31 +645,33 @@ def git(*a, cwd, timeout=120, bara_ut=False):
 
 
 def worktrees(ram):
-    """De registrerade worktrees utom huvudutcheckningen (git worktree list --porcelain): [{sokvag, head, gren, last,
+    """De registrerade worktrees utom huvudutcheckningen (git worktree list --porcelain -z): [{sokvag, head, gren, last,
     saknas}], eller None när git inte svarar."""
-    rc, ut = git('worktree', 'list', '--porcelain', cwd=ram.repo, bara_ut=True)
+    rc, ut = git('worktree', 'list', '--porcelain', '-z', cwd=ram.repo, bara_ut=True)
     if rc != 0:
         return None
     alla, cur = [], None
-    for rad in ut.splitlines() + ['']:
-        if rad.startswith('worktree '):
-            cur = {'sokvag': Path(rad[len('worktree '):]), 'head': None, 'gren': None, 'last': None, 'saknas': False, 'bar': False}
+    for falt in ut.split('\0'):
+        if falt.startswith('worktree '):
+            cur = {'sokvag': Path(falt[len('worktree '):]), 'head': None, 'gren': None, 'last': None, 'saknas': False, 'bar': False}
         elif cur is None:
             continue
-        elif rad.startswith('HEAD '):
-            cur['head'] = rad[5:].strip()
-        elif rad.startswith('branch '):
-            cur['gren'] = rad[7:].strip()
-        elif rad == 'bare':
+        elif falt.startswith('HEAD '):
+            cur['head'] = falt[5:].strip()
+        elif falt.startswith('branch '):
+            cur['gren'] = falt[7:].strip()
+        elif falt == 'bare':
             cur['bar'] = True
-        elif rad.startswith('locked'):
-            cur['last'] = rad[6:].strip() or 'utan skäl'
-        elif rad.startswith('prunable'):
+        elif falt.startswith('locked'):
+            cur['last'] = falt[6:].strip() or 'utan skäl'
+        elif falt.startswith('prunable'):
             cur['saknas'] = True
-        elif not rad.strip():
+        elif not falt:
             alla.append(cur)
             cur = None
-    return [w for w in alla if not w['bar'] and Path(os.path.realpath(w['sokvag'])) != ram.repo]
+    if cur:
+        alla.append(cur)
+    return [w for w in alla if not w['bar'] and verklig_sokvag(w['sokvag']) not in ram.huvuden()]
 
 
 def i_main(ram, ref):
@@ -525,22 +690,79 @@ def admin_katalog(wt):
     return Path(t.split('gitdir:', 1)[1].strip()) if 'gitdir:' in t else None
 
 
+def egen_commit(ram, w):
+    """Har grenen (eller den frikopplade HEAD) fått en egen commit sedan den skapades? True, False (bara skapad, ännu
+    inte påbörjad: en session kan vänta på den) eller None (ingen reflogg att läsa). Ur reflogens ämnesrader: commit,
+    cherry-pick, revert, am eller rebase gjorda där (granskningen av r94, Ö2)."""
+    if w['gren']:
+        rc, ut = git('reflog', 'show', '--format=%gs', w['gren'], cwd=ram.repo, bara_ut=True)
+    else:
+        rc, ut = git('reflog', 'show', '--format=%gs', 'HEAD', cwd=w['sokvag'], bara_ut=True)
+    if rc or not ut.strip():
+        return None
+    return any(re.match(r'(?:commit|cherry-pick|revert|am|rebase)\b', x) for x in ut.splitlines())
+
+
 def egna_commits(ram, d):
-    """Det i en kopias eget git som inte finns kvar i huvudutcheckningen: ocommittade ändringar, och grenar, taggar och
-    stash vars commit ingen ref i huvudutcheckningen innehåller. [] när allt finns där."""
+    """Det i en kopias eget git som inte finns kvar i huvudutcheckningen: ocommittade och köade ändringar (git status),
+    och varje commit som går att nå ur kopians refs, HEAD och refloggar (en frikopplad HEAD, stash@{1} och äldre; Ö1)
+    men som saknas i huvudutcheckningens git. [] när allt finns där."""
     rc, st = git('--no-optional-locks', 'status', '--porcelain', cwd=d, bara_ut=True)
     if rc:
         return ['git status svarade inte i kopian']
     ut = ['ocommittad ändring: %s' % r[3:] for r in st.splitlines() if r.strip()][:10]
-    rc, refs = git('for-each-ref', '--format=%(objectname) %(refname:short)', 'refs/heads', 'refs/tags', 'refs/stash', cwd=d, bara_ut=True)
+    rc, revs = git('rev-list', '--all', '--reflog', cwd=d, timeout=300, bara_ut=True)
     if rc:
-        return ut + ['kopians grenar gick inte att läsa']
-    for rad in refs.splitlines():
-        sha, _, namn = rad.partition(' ')
-        rc, inne = git('for-each-ref', '--contains', sha, '--count=1', '--format=%(refname)', cwd=ram.repo, bara_ut=True)
-        if rc or not inne.strip():
-            ut.append('egen commit: %s %s' % (namn, sha[:12]))
-    return ut
+        return ut + ['kopians commits gick inte att läsa']
+    try:
+        saknas = git_saknas(ram.repo, revs.split())
+    except OSError as e:
+        return ut + [str(e)]
+    return ut + ['egen commit: %s' % s[:12] for s in sorted(saknas)[:10]] + (['och %d till' % (len(saknas) - 10)] if len(saknas) > 10 else [])
+
+
+# --- vad som pågår (Ö4) ---
+
+def underhall_pagar(kataloger):
+    """Skälet när ett annat underhåll pågår (UNDERHALL-PAGAR.json med en levande pid som kör underhall.py), annars None."""
+    for k in kataloger:
+        d = vl.las_json(Path(k) / 'UNDERHALL-PAGAR.json', {}) or {}
+        try:
+            pid = int(d.get('pid'))
+        except (TypeError, ValueError):
+            continue
+        if pid != os.getpid() and korregister.lever(pid) and 'underhall' in korregister.kommando(pid):
+            return 'underhållet pågår (pid %d, sedan %s)' % (pid, d.get('start'))
+    return None
+
+
+def intag_pagar(laset=None):
+    """Skälet när underhållets intagslås är taget (ett intag pågår), annars None. Skapar aldrig låsfilen."""
+    try:
+        fd = os.open(str(laset or korregister.BYTESLAS), os.O_RDONLY)
+    except OSError:
+        return None
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return 'ett intag pågår (intagslåset är taget)'
+    finally:
+        os.close(fd)
+    return None
+
+
+def upptaget(kataloger=None, laset=None):
+    """Skälet när en körning (körregistret och ateljén), ett underhåll eller ett intag pågår, annars None. Läser bara:
+    körregistrets döda poster står kvar (torrläget skriver inget; K6)."""
+    p = vl.pagaende(rensa=False)
+    if p:
+        return 'en körning pågår (%s)' % ', '.join(p)
+    return underhall_pagar(kataloger or [HUVUDUTCHECKNING / 'underlag' / 'startkontroll', vl.LAGE]) or intag_pagar(laset)
+
+
+def npm_installerar():
+    import underhall
+    return underhall.npm_installerar()
 
 
 # --- punkterna ---
@@ -562,25 +784,28 @@ class Redovisning:
 
 
 def kopior(ram, wts):
-    """[(katalog, med repots kännetecken)] direkt under ~/nortropic-repos: namnet börjar med kopia (eller <namn>-kopia),
-    eller katalogen har repots kännetecken (kor.sh och kontroller/), och den är varken huvudutcheckningen eller en
-    registrerad worktree. Dolda kataloger och annat som ägaren lagt där rörs inte."""
-    kanda = {Path(os.path.realpath(w['sokvag'])) for w in wts}
-    ut = []
+    """([(kopia, med repots kännetecken)], [kataloger med repots kännetecken som inte heter kopia]) direkt under
+    ~/nortropic-repos. En kopia heter kopia* eller <namn>-kopia…, är ingen symlänk och varken är, innehåller eller ligger
+    i huvudutcheckningen (sökvägen eller realpath) eller en registrerad worktree (B1). Dolda kataloger och annat utan
+    repots kännetecken rörs inte."""
+    kanda = [verklig_sokvag(w['sokvag']) for w in wts]
+    kop, andra = [], []
     try:
         innehall = sorted(ram.repos_rot.iterdir())
     except OSError:
-        return []
+        return [], []
     for d in innehall:
         if d.name.startswith('.') or d.is_symlink() or not d.is_dir():
             continue
-        r = Path(os.path.realpath(d))
-        if r == ram.repo or r in kanda:
+        r = verklig_sokvag(d)
+        if any(relation(r, h) for h in ram.huvuden()) or any(relation(r, w) for w in kanda):
             continue
         kannetecken = (d / 'kor.sh').is_file() and (d / 'kontroller').is_dir()
-        if kannetecken or re.match(r'(?i)(?:.*-)?kopia', d.name):
-            ut.append((d, kannetecken))
-    return ut
+        if KOPIA_NAMN.match(d.name):
+            kop.append((d, kannetecken))
+        elif kannetecken:
+            andra.append(d)
+    return kop, andra
 
 
 def bedom_worktree(ram, w, anv, senast, mfel):
@@ -589,18 +814,18 @@ def bedom_worktree(ram, w, anv, senast, mfel):
     p = w['sokvag']
     gren = w['gren'][len('refs/heads/'):] if (w['gren'] or '').startswith('refs/heads/') else w['gren']
     if w['saknas'] or not p.is_dir():
-        return KVAR, 'katalogen finns inte längre; registreringen tas bort med git worktree prune', {}
-    skal = far_inte_raderas(ram, p)
+        return KVAR, 'katalogen finns inte längre; registreringen står kvar tills git worktree prune körs', {}
+    skal = far_inte_raderas(ram, p, worktree=True)
     if skal:
         return KVAR, 'rörs inte: %s' % skal, {}
-    if Path(os.path.realpath(p)) == Path(os.path.realpath(vl.ROOT)):
+    if verklig_sokvag(p) == verklig_sokvag(vl.ROOT):
         return KVAR, 'städningen körs från den här utcheckningen', {}
     if w['last']:
         return KVAR, 'låst med git worktree lock (%s)' % w['last'], {}
     ref = w['gren'] or w['head']
     if not ref:
         return KVAR, 'varken gren eller HEAD i git worktree list', {}
-    vem = ('grenen %s' % gren) if gren else ('den frånkopplade HEAD %s' % (w['head'] or '?')[:12])
+    vem = ('grenen %s' % gren) if gren else ('den frikopplade HEAD %s' % (w['head'] or '?')[:12])
     imain, iorigin = i_main(ram, ref)
     if not imain:
         return KVAR, '%s är inte sammanslagen i main' % vem, {}
@@ -619,23 +844,27 @@ def bedom_worktree(ram, w, anv, senast, mfel):
     if a:
         return KVAR, 'används: %s' % a, {}
     if mfel:
-        return KVAR, '%d sökvägar gick inte att läsa; ändringstiden är okänd' % mfel, {}
+        return VANTAR, '%d sökvägar gick inte att läsa; worktreen går inte att jämföra, ägaren avgör' % mfel, {}
     if ram.klocka() - senast <= AKTIV:
         return KVAR, 'ändrad det senaste dygnet (%s): arbetet kan pågå' % iso(senast), {}
+    egen = egen_commit(ram, w)
+    if egen is not True:
+        return VANTAR, 'okänd: %s ser sammanslagen ut bara för att den %s; en session kan vänta på den, ägaren avgör' % (
+            vem, 'inte fått någon egen commit sedan den skapades' if egen is False else 'saknar en reflogg som visar en egen commit'), {}
     try:
         eget = eget_material(p, ram.repo)
     except OSError as e:
-        return VANTAR, 'underlag/ och kunder/ går inte att jämföra med huvudutcheckningen (%s); ägaren avgör' % e, {}
+        return VANTAR, 'worktreen går inte att jämföra med huvudutcheckningen (%s); ägaren avgör' % e, {}
     if eget:
-        return VANTAR, '%s är sammanslagen och pushad, men underlag/ och kunder/ har %d filer (%s) som inte finns i ' \
-                       'huvudutcheckningen: %s; ägaren avgör' % (vem, len(eget), storlek_text(sum(s for _r, s in eget)),
-                                                                 material_kort(eget)), material_falt(eget)
-    return RADERAD, '%s är sammanslagen i main och pushad; tas bort med git worktree remove, grenen och dess commits ' \
-                    'finns kvar' % vem, {}
+        return VANTAR, '%s är sammanslagen och pushad, men %d filer (%s) går inte att återskapa ur huvudutcheckningen: %s; ' \
+                       'ägaren avgör' % (vem, len(eget), storlek_text(sum(s for _r, s in eget)), material_kort(eget)), material_falt(eget)
+    return RADERAD, '%s har egna commits, är sammanslagen i main och pushad, och inget i worktreen saknas i ' \
+                    'huvudutcheckningen; tas bort med git worktree remove, grenen och dess commits finns kvar' % vem, {}
 
 
 def punkt1(ram, red, wts, anv):
-    """Worktrees som är sammanslagna och pushade tas bort med git worktree remove (aldrig --force)."""
+    """Worktrees som är påbörjade, sammanslagna och pushade, utan eget material, tas bort med git worktree remove
+    (aldrig --force)."""
     if wts is None:
         red.post(1, 'worktree', ram.repo, None, KVAR, 'git worktree list svarade inte; inga worktrees tas bort')
         return
@@ -645,18 +874,29 @@ def punkt1(ram, red, wts, anv):
         storlek, senast, mfel = matt(p) if p.is_dir() else (None, 0.0, 0)
         utfall, skal, falt = bedom_worktree(ram, w, anv, senast, mfel)
         if utfall == RADERAD and not ram.torr:
-            rc, ut = git('worktree', 'remove', str(p), cwd=ram.repo)  # aldrig --force: en smutsig worktree står kvar
-            if rc:
-                utfall, skal = FEL, 'git worktree remove föll, inget raderat: %s' % vl.sista(ut, 240)
-            elif gren and git('rev-parse', '--verify', '-q', 'refs/heads/' + gren, cwd=ram.repo)[0] != 0:
-                utfall, skal = FEL, 'worktreen togs bort, men grenen %s finns inte längre' % gren
+            nu = anvands_nu(ram, p)
+            if nu:
+                utfall, skal = KVAR, 'används: %s' % nu
+            else:
+                rc, ut = git('worktree', 'remove', str(p), cwd=ram.repo)  # aldrig --force: en smutsig worktree står kvar
+                if rc:
+                    utfall, skal = FEL, 'git worktree remove föll (%s); kontrollera vad som finns kvar i %s' % (vl.sista(ut, 240), p)
+                elif gren and git('rev-parse', '--verify', '-q', 'refs/heads/' + gren, cwd=ram.repo)[0] != 0:
+                    utfall, skal = FEL, 'worktreen togs bort, men grenen %s finns inte längre' % gren
         red.post(1, 'worktree', p, storlek, utfall, skal, gren=gren, **falt)
 
 
-def punkt2(ram, red, kop, anv):
+def punkt2(ram, red, kop, andra, anv):
     """Kopior av repot: utan eget material raderas de; med eget material väntar de på ägaren, med listan."""
+    for d in andra:
+        red.post(2, 'kopia', d, matt(d)[0], VANTAR, 'har repots kännetecken men heter inte kopia och är ingen registrerad '
+                                                   'worktree: rörs inte, ägaren avgör')
     for d, kannetecken in kop:
         storlek, senast, mfel = matt(d)
+        skal = far_inte_raderas(ram, d)
+        if skal:
+            red.post(2, 'kopia', d, storlek, KVAR, 'rörs inte: %s' % skal)
+            continue
         if not kannetecken:
             red.post(2, 'kopia', d, storlek, VANTAR, 'okänt ursprung: heter kopia men saknar repots kännetecken (kor.sh och '
                                                      'kontroller/); ägaren avgör')
@@ -684,19 +924,35 @@ def punkt2(ram, red, kop, anv):
         try:
             eget = eget_material(d, ram.repo)
         except OSError as e:
-            red.post(2, 'kopia', d, storlek, VANTAR, 'underlag/ och kunder/ går inte att jämföra med huvudutcheckningen (%s); '
-                                                     'ägaren avgör' % e)
+            red.post(2, 'kopia', d, storlek, VANTAR, 'kopian går inte att jämföra med huvudutcheckningen (%s); ägaren avgör' % e)
             continue
         if eget:
-            red.post(2, 'kopia', d, storlek, VANTAR, 'eget material i underlag/ och kunder/ som inte finns i huvudutcheckningen: '
-                                                     '%d filer (%s): %s; ägaren avgör' % (
-                                                         len(eget), storlek_text(sum(s for _r, s in eget)), material_kort(eget)),
-                     **material_falt(eget))
+            red.post(2, 'kopia', d, storlek, VANTAR, 'eget material som inte går att återskapa ur huvudutcheckningen: %d filer '
+                                                     '(%s): %s; ägaren avgör' % (len(eget), storlek_text(sum(s for _r, s in eget)),
+                                                                                 material_kort(eget)), **material_falt(eget))
+            continue
+        nu = None if ram.torr else anvands_nu(ram, d)
+        if nu:
+            red.post(2, 'kopia', d, storlek, KVAR, 'används: %s' % nu)
             continue
         fel = None if ram.torr else radera(ram, d)
         red.post(2, 'kopia', d, storlek, FEL if fel else RADERAD,
-                 ('raderingen föll: %s' % fel) if fel else 'inget eget material i underlag/ och kunder/ (jämfört med '
-                                                           'huvudutcheckningen), ingen process och inga egna commits')
+                 ('raderingen föll: %s' % fel) if fel else 'inget eget material och inga egna commits (jämfört med '
+                                                           'huvudutcheckningen), ingen process')
+
+
+def process_rotar(ram, wts, kop):
+    """Där en förhandsvisning eller server får stoppas (punkt 3): registrerade worktrees inom rötterna, kopior, flödets
+    egna kataloger direkt i /tmp och $TMPDIR (nwp-* och repots tempprefix) och scratchpad. Ägarens egna kataloger i /tmp
+    hör inte dit (K4)."""
+    ut = [verklig_sokvag(w['sokvag']) for w in wts or [] if any(x in verklig_sokvag(w['sokvag']).parents for x in ram.rotar())]
+    ut += [verklig_sokvag(d) for d, k in kop if k]
+    for rot in ram.tmp_alla():
+        try:
+            ut += [verklig_sokvag(d) for d in rot.iterdir() if (d.name.startswith('nwp-') or d.name.startswith(TMP_PREFIX)) and d.is_dir()]
+        except OSError:
+            pass
+    return ut + ([ram.scratch_rot] if ram.scratch_rot else [])
 
 
 def punkt3(ram, red, wts, kop, processer):
@@ -705,9 +961,7 @@ def punkt3(ram, red, wts, kop, processer):
     if processer is None:
         red.post(3, 'process', None, None, KVAR, 'processerna kunde inte läsas (ps); inget stoppat')
         return set()
-    rotar = [Path(os.path.realpath(w['sokvag'])) for w in wts or []] + [Path(os.path.realpath(d)) for d, k in kop if k] + \
-            [x for x in (ram.tmp_rot, ram.scratch_rot) if x]
-    rot_var = [varianter(r) for r in rotar]
+    rot_var = [varianter(r) for r in process_rotar(ram, wts, kop)]
     stoppade = set()
     for x in processer:
         slag = serverslag(x.get('kommando'))
@@ -739,11 +993,15 @@ def punkt3(ram, red, wts, kop, processer):
 
 
 def punkt4(ram, red, anv):
-    """Gamla kataloger i /tmp med repots prefix och gamla scratchpad-sessioner, när ingen process använder dem."""
-    if ram.tmp_rot and ram.tmp_rot.is_dir():
-        for d in sorted(ram.tmp_rot.iterdir()):
+    """Gamla kataloger i /tmp och $TMPDIR med repots prefix och gamla scratchpad-sessioner, när ingen process använder dem."""
+    for rot in ram.tmp_alla():
+        if not rot.is_dir():
+            continue
+        for d in sorted(rot.iterdir()):
             n = d.name
             if n in ALDRIG_TMP or n.startswith(ALDRIG_TMP_PREFIX) or not n.startswith(TMP_PREFIX) or d.is_symlink() or not d.is_dir():
+                continue
+            if ram.scratch_rot and relation(verklig_sokvag(d), ram.scratch_rot):
                 continue
             stada_katalog(ram, red, d, anv, TMP_ALDER, 'tillfällig katalog', 'repots prefix %s, inte ändrad på ett dygn' % next(
                 x for x in TMP_PREFIX if n.startswith(x)))
@@ -753,27 +1011,50 @@ def punkt4(ram, red, anv):
                 continue
             for s in sorted(projekt.iterdir()):
                 if SESSION.fullmatch(s.name) and not s.is_symlink() and s.is_dir():
-                    stada_katalog(ram, red, s, anv, SCRATCH_ALDER, 'scratchpad', 'en sessions scratchpad, inte ändrad på sju dygn')
+                    stada_katalog(ram, red, s, anv, SCRATCH_ALDER, 'scratchpad', 'en sessions scratchpad, inte ändrad på sju dygn',
+                                  session=(projekt.name, s.name))
 
 
-def stada_katalog(ram, red, d, anv, alder, vad, varfor):
+def transkript_andrat(ram, projekt, uuid):
+    """När sessionens transkript (~/.claude/projects/<projekt>/<uuid>.jsonl och katalogen bredvid) senast ändrades, eller 0."""
+    if not ram.claude_projekt:
+        return 0.0
+    bas = ram.claude_projekt / projekt
+    return max(matt(bas / (uuid + '.jsonl'))[1] if (bas / (uuid + '.jsonl')).exists() else 0.0,
+               matt(bas / uuid)[1] if (bas / uuid).exists() else 0.0)
+
+
+def stada_katalog(ram, red, d, anv, alder, vad, varfor, session=None):
     storlek, senast, mfel = matt(d)
     if mfel:
         red.post(4, vad, d, storlek, KVAR, '%d sökvägar gick inte att läsa; ändringstiden är okänd' % mfel)
         return
     if ram.klocka() - senast <= alder:
         return  # ung: lämnas och redovisas inte
-    a = anvands(anv, d)
+    skal = far_inte_raderas(ram, d)
+    if skal:
+        red.post(4, vad, d, storlek, KVAR, 'rörs inte: %s' % skal)
+        return
+    a = anvands(anv, d) or (anv.session(*session) if session and anv else None)
     if a:
-        red.post(4, vad, d, storlek, KVAR, 'används: %s' % a)
+        red.post(4, vad, d, storlek, KVAR, ('sessionen kan leva: %s' if session else 'används: %s') % a)
+        return
+    if session:
+        t = transkript_andrat(ram, *session)
+        if ram.klocka() - t <= alder:
+            red.post(4, vad, d, storlek, KVAR, 'sessionen kan leva: transkriptet ändrades %s' % iso(t))
+            return
+    nu = None if ram.torr else anvands_nu(ram, d, session)
+    if nu:
+        red.post(4, vad, d, storlek, KVAR, 'används: %s' % nu)
         return
     fel = None if ram.torr else radera(ram, d)
-    red.post(4, vad, d, storlek, FEL if fel else RADERAD, ('raderingen föll: %s' % fel) if fel else '%s (senast %s), ingen process' % (
-        varfor, iso(senast)))
+    red.post(4, vad, d, storlek, FEL if fel else RADERAD, ('raderingen föll: %s' % fel) if fel else '%s (senast %s), ingen process%s' % (
+        varfor, iso(senast), ' och ingen levande session' if session else ''))
 
 
 def punkt5(ram, red):
-    """npm-cachen: över 85 % fylld disk, eller förra rensningen äldre än 30 dygn."""
+    """npm-cachen: över 85 % fylld disk, eller förra rensningen äldre än 30 dygn; aldrig medan något pågår."""
     if not ram.npm_cache:
         red.post(5, 'npm-cachen', None, None, KVAR, 'npm:s cache hittades inte')
         return
@@ -795,7 +1076,7 @@ def punkt5(ram, red):
         red.post(5, 'npm-cachen', cacache, storlek, KVAR, 'disken är fylld till %s %% (under 85 %%); förra rensningen %s, %d dygn '
                                                          'sedan' % (fylld_text, senast, sedan // DYGN))
         return
-    hinder = ram.upptagen()
+    hinder = ram.upptagen() or ram.npm_pagar()
     if hinder:
         red.post(5, 'npm-cachen', cacache, storlek, KVAR, '%s, men %s: rensas vid nästa städning' % (skal, hinder))
         return
@@ -818,20 +1099,28 @@ def npm_rensa(cache):
     return vl.kor(['npm', 'cache', 'clean', '--force', '--no-update-notifier', '--cache', str(cache)], timeout=900)
 
 
-def upptaget():
-    """Skälet när en körning (körregistret och ateljén) eller en npm-installation pågår, annars None."""
-    p = vl.pagaende()
-    if p:
-        return 'en körning pågår (%s)' % ', '.join(p)
-    import underhall
-    return underhall.npm_installerar()
-
-
 def stada(ram, punkter=(1, 2, 3, 4, 5)):
     """Punkterna i ordningen 3, 1, 2, 4 och 5 (en gammal förhandsvisning stoppas före kopian den håller), och
-    redovisningen. En punkt som faller stoppar inte de andra."""
+    redovisningen. Utanför huvudutcheckningen redovisas allt bara (B1). En punkt som faller stoppar inte de andra, och
+    två städningar körs aldrig samtidigt (K11)."""
+    hinder = utanfor_huvudutcheckningen(ram)
+    if hinder and not ram.torr:
+        ram = copy.copy(ram)
+        ram.torr = True
+    if ram.las and not ram.torr:
+        with vl.las(ram.las, vanta=False) as fick:
+            if not fick:
+                return {'schema': 1, 'start': iso(ram.klocka()), 'slut': iso(ram.klocka()), 'torr': ram.torr, 'poster': [],
+                        'antal': {}, 'besked': 'en annan städning pågår: den här gjorde ingenting'}
+            return _stada(ram, punkter, hinder)
+    return _stada(ram, punkter, hinder)
+
+
+def _stada(ram, punkter, hinder):
     red = Redovisning(ram)
     rap = {'schema': 1, 'start': iso(ram.klocka()), 'torr': ram.torr, 'disk_fore': None, 'disk_efter': None}
+    if hinder:
+        rap['besked'] = hinder + ': ingenting städas, allt redovisas bara'
     try:
         rap['disk_fore'] = disk_post(*ram.disk())
     except OSError as e:
@@ -847,15 +1136,20 @@ def stada(ram, punkter=(1, 2, 3, 4, 5)):
             return None
 
     behov = set(punkter)
-    wts, kop, processer = [], [], []
-    if behov & {1, 2, 3}:
+    wts, kop, andra, processer = [], [], [], []
+    if behov & {1, 2, 3, 4}:
         try:
             wts = worktrees(ram)
         except Exception:  # noqa: BLE001 — okända worktrees: punkt 1 och 2 rör då ingenting
             wts = None
+        ram.worktree_vagar = [verklig_sokvag(w['sokvag']) for w in wts or []]
+        try:
+            ram.lankmal = lankmal(ram)
+        except OSError:
+            ram.lankmal = []
     # utan listan över worktrees går en worktree inte att skilja från en kopia: då rörs inga kopior
     if behov & {2, 3} and wts is not None:
-        kop = kopior(ram, wts)
+        kop, andra = kopior(ram, wts)
     if behov & {1, 2, 3, 4}:
         try:
             processer = ram.processer()
@@ -874,7 +1168,7 @@ def stada(ram, punkter=(1, 2, 3, 4, 5)):
     steg(1, 'worktree', lambda: punkt1(ram, red, wts, anv))
     if 2 in behov and wts is None:
         red.post(2, 'kopia', ram.repos_rot, None, KVAR, 'worktrees okända (git worktree list svarade inte): inga kopior rörs')
-    steg(2, 'kopia', lambda: punkt2(ram, red, kop, anv))
+    steg(2, 'kopia', lambda: punkt2(ram, red, kop, andra, anv))
     steg(4, 'tillfällig katalog', lambda: punkt4(ram, red, anv))
     steg(5, 'npm-cachen', lambda: punkt5(ram, red))
     try:
@@ -898,6 +1192,8 @@ def markdown(rap, rubrik='## Städningen'):
         return ut + ['Avslagen mot det verkliga systemet (NWP_STADNING=av).', '']
     if rap.get('fel'):
         return ut + ['**Städningen föll:** %s. Underhållet fortsatte.' % rap['fel'], '']
+    if rap.get('besked'):
+        ut += ['**%s.**' % rap['besked'], '']
     ut += ['%sStädregeln i BESLUT.md (2026-10-06), %s–%s. Disken: %s före, %s efter. %s.' % (
         '**Torrläge: inget ändrat.** ' if rap.get('torr') else '', rap.get('start'), rap.get('slut'), disk_text(rap.get('disk_fore')),
         disk_text(rap.get('disk_efter')), antal_text(rap.get('antal') or {})), '']
