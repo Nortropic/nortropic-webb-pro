@@ -432,6 +432,8 @@ session inte kan göra).
 **Delvis ersatt av:** tillägget 2026-10-06 om Figma-metodprovet nedan: pilotens sessioner slår på pluginen i sin egen
 `--settings`; i användarinställningarna är den fortfarande av. Övrigt gäller.
 
+**Genomfört, punkt 2 (node@24), 2026-10-06 22:25Z:** se tillägget "2026-10-06, kväll: node@24 och flödesvyns rättelse".
+
 ## Tillägg 2026-10-06: kreativ frihet och hela kompetensen i designomgången
 
 Ägarens uppdrag 2026-10-06 ~05:37Z (ordagrant i minnet), efter domen över den första prototypen (ny riktning; inget
@@ -724,6 +726,59 @@ kriterier; ägarens visuella dom återstår. Beslutsunderlaget med bilder, arbet
 `underlag/figma-pilot/BESLUTSUNDERLAG.md` (privat).
 
 Designomgången med cirka tio förslag körs inte som tio fulla kedjor. Den väntar på ägarens dom över provet.
+
+## Tillägg 2026-10-06, kväll: node@24 och flödesvyns rättelse
+
+**Status:** gäller.
+
+Ägarens två uppdrag 2026-10-06 21:51Z ("När du kan"), inklistrade och ordagranna (också i minnet):
+
+> När leveransprovet är redovisat: genomför mitt beslut från 10-06 ~04:52Z om node@24.
+>
+> Kör underhållets tunga prov med node@24 från main i en egen worktree, enligt repots underhållsmodell. Kom ihåg att intaget 10-06 ~09:02Z bröt node@22 via simdjson 5. Se till att node@22 fortsatt fungerar under hela provet, och avbryt om Homebrew-uppdateringen bryter befintlig Node.
+>
+> Om allt är grönt:
+> - ta en säkerhetskopia av ~/.zprofile;
+> - byt rad 6 från node@22 till node@24;
+> - visa exakt diff;
+> - kontrollera i ett nytt inloggningsskal att node, npm och rökprovet fungerar.
+>
+> Om något är rött: ändra ingenting, och redovisa vad som föll och varför.
+>
+> Rör inte dashboarden på :4771, pilotens sajt eller pågående körningar. Redovisa resultatet i morgonens rapport.
+
+> Rätta flödesvyn i grenen flodesvy-20261006 (worktree r96) utifrån granskningen i scratchpad/GRANSKNING-r96.md. Slå inte ihop och pusha inte.
+>
+> Rätta B1–B3 och R1–R4, alltså det som gör att vyn kan visa fel status eller bryta blindningen:
+> - B1/R1: återanvänd skapande.godkand_giltig och korslut.ar_godkant i stället för egna, svagare kontroller.
+> - B2: bind stegen till den aktuella körningen. Tidigare körningars resultat visas som inaktuella, aldrig som kontrollerade eller beslutade.
+> - B3: bind pilotens status till version. "Kontrollerat" gäller bara den version som faktiskt granskats, och bilderna märks med version.
+> - R2: visa en misslyckad eller pågående förfining rätt.
+> - R3: blinda också före det blinda A/B-valet.
+> - R4: gör blindningsprovet verkligt, så att det fångar en läcka.
+>
+> Hoppa över R5–R7. De är nya funktioner och väntar tills piloten är utvärderad.
+>
+> Är något osäkert ska vyn visa "inte observerat" hellre än att gissa. Bygg ingen ny mekanik där befintliga funktioner räcker.
+>
+> Kör prov_flode.py och hela rökprovet. Låt sedan en oberoende granskare pröva rättelsen med mutationer. Redovisa i morgonens rapport: vad som rättats, granskningens fynd, och om grenen är klar för min sammanslagning.
+
+**Genomfört, node@24 (beslut 2 i ägarens fyra beslut ~04:52Z):** efter att leveransprovet redovisats, alla tider UTC.
+
+| Steg | Resultat | Belägg (privat) |
+|---|---|---|
+| Underhållets tunga prov, `underhall.py --bara brew:node`, från main b1348d0, 22:12–22:24 | node@24 24.21.0_1 "prövad och godkänd"; hela rökprovet grönt i en egen worktree med node@24 först i PATH | `underlag/startkontroll/underhall/rokprov-brew-node-node-24-2026-10-06T222350Z.log` |
+| Homebrew under provet | ingen ändring: `brew update` kördes inte (senast 08:36), och `brew install` installerade inget | – |
+| node@22 under provet | hel genom alla 24 kontroller, var 30:e sekund: alla /opt/homebrew-bibliotek som den länkar mot fanns, utan att node startades | `node24-vakt-2026-10-06T221222Z.log` |
+| ~/.zprofile | säkerhetskopia `~/.zprofile.fore-node24-20261006T222532Z`; bara rad 6 ändrad: `export PATH="/opt/homebrew/opt/node@22/bin:$PATH"` → `export PATH="/opt/homebrew/opt/node@24/bin:$PATH"` | – |
+| Ett nytt inloggningsskal (`env -i … zsh -l`) | node v24.21.0, npm 11.19.0 | – |
+| Hela rökprovet från inloggningsskalet, med underhållets egen worktree-funktion, 22:36–22:46 | grönt | `rokprov-node24-inloggningsskal-2026-10-06T224647Z.log` |
+
+node@22 22.23.2 ligger kvar installerad. Länken som lagade node@22 efter intaget 09:02
+(`Cellar/simdjson/5.0.2/lib/libsimdjson.33.dylib` → 4.6.6) ligger kvar.
+
+**Flödesvyn:** rättas i grenen `flodesvy-20261006` (B1–B3, R1–R4) och granskas sedan oberoende med mutationer. Ägaren
+slår själv ihop den.
 
 ## Tillägg 2026-10-06, kväll: dokumentations- och rapportstrukturen
 
