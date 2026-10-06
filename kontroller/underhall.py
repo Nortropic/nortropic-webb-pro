@@ -1555,7 +1555,51 @@ def ta_in_pip(k, r, kand, staged):
 # --- Homebrew ---
 
 def brew(*a, timeout=1800):
+    if a[:1] == ('upgrade',) and not [x for x in a[1:] if not str(x).startswith('-')]:  # aldrig brew upgrade på allt (ägarens beslut)
+        raise RuntimeError('brew upgrade utan formel körs aldrig: node, python, git och gh tas in en i taget efter underhållets prov')
     return vl.kor(['brew', *a], timeout=timeout, env=vl.miljo(vl.BREW_MILJO))
+
+
+BREW_UPDATE_S = 86400  # brew update högst en gång per dygn (ägarens beslut 2026-10-06, punkt 1)
+
+
+def homebrew_version():
+    rc, ut = brew('--version', timeout=60)
+    m = re.search(r'Homebrew (\S+)', ut or '') if rc == 0 else None
+    return m.group(1) if m else None
+
+
+def steg_brew_update(k, rapport):
+    """brew update högst en gång per dygn, före versionsuppslagen (ägarens beslut 2026-10-06, punkt 1). Det uppdaterar bara
+    formelindexet och Homebrew självt; brew upgrade på allt körs aldrig, och node, python, git och gh tas in som förut, en
+    i taget efter underhållets prov. Rapporten och startkvittot visar Homebrews version före och efter. Ett försök som
+    föll räknas också: nästa görs dygnet efter."""
+    f = k.katalog / 'BREW-UPDATE.json'
+    forra = vl.las_json(f, {}) or {}
+    if forra.get('tid') and time.time() - vl.iso_s(forra['tid']) < BREW_UPDATE_S:
+        rapport['homebrew'] = {'hoppad': True, 'senast': forra.get('tid'), 'version': homebrew_version(), 'fore': forra.get('fore'),
+                               'efter': forra.get('efter'), 'resultat': forra.get('resultat')}
+        return rapport['homebrew']
+    fore = homebrew_version()
+    rc, ut = brew('update', timeout=900)
+    post = {'tid': vl.nu(), 'fore': fore, 'efter': homebrew_version(), 'resultat': 'ok' if rc == 0 else 'fel',
+            'detalj': None if rc == 0 else nat('brew update föll: ' + vl.sista(ut, 200))}
+    vl.skriv_json(f, post)
+    rapport['homebrew'] = post
+    return post
+
+
+def homebrew_rad(hb):
+    """Raden om Homebrew i rapporten och startkvittot: versionen före och efter brew update."""
+    if not hb:
+        return None
+    if hb.get('hoppad'):
+        return 'Homebrew %s; brew update kördes senast %s (%s → %s; högst en gång per dygn)' % (
+            hb.get('version') or '?', hb.get('senast'), hb.get('fore') or '?', hb.get('efter') or '?')
+    if hb.get('resultat') == 'ok':
+        return 'Homebrew: brew update %s, %s → %s%s' % (hb.get('tid'), hb.get('fore') or '?', hb.get('efter') or '?',
+                                                       ' (oförändrad)' if hb.get('fore') == hb.get('efter') else '')
+    return 'Homebrew %s: brew update föll %s (%s)' % (hb.get('fore') or '?', hb.get('tid'), hb.get('detalj') or '?')
 
 
 def brew_cellar(formel):
@@ -1920,6 +1964,8 @@ def markdown(rap):
     namn = {'uppdaterad': 'UPPDATERAD', 'avvisad': 'avvisad', 'behallen': 'behållen', 'ok': 'ok', 'okand': 'okänd', 'fel': 'FEL'}
     ut = ['# Underhåll · %s' % rap['start'], '', '**%s.** %s–%s. %s' % (rap.get('sammanfattning', ''), rap['start'], rap.get('slut', ''),
                                                                        ('Push: %s.' % rap['push']) if rap.get('push') else ''), '']
+    if homebrew_rad(rap.get('homebrew')):
+        ut += [homebrew_rad(rap['homebrew']) + '.', '']
     if rap.get('lagat'):  # ett avbrutet intag som lagades före inventeringen (granskningen av r79, C)
         ut += ['**Avbrutna intag före inventeringen:** ' + '; '.join(rap['lagat']) + '.', '']
     if rap.get('trasigt'):  # en återställning som föll: verktyget kan saknas tills någon lagat det (granskningen av r72, M7)
@@ -1991,6 +2037,7 @@ def underhall(bara=None, utan_tunga=False, torr=False, k=None, prov=True, invent
             else:
                 if not torr:
                     steg_pythonlas(k, rap)
+                    steg_brew_update(k, rap)  # före versionsuppslagen (ägarens beslut 2026-10-06, punkt 1)
                     steg_laga_globala(rap)
                 rader = vl.inventera(k)
                 for r in sorted(rader, key=lambda r: (any(tungt(r, c) for c in r['kandidater']), ORDNING.get(r['typ'], 9), r['id'])):
