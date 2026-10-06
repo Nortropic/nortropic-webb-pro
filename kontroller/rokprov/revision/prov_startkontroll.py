@@ -67,7 +67,9 @@ os.environ['PATH'] = '%s:%s' % (FAKE / 'bin', os.environ['PATH'])
 os.environ['NWP_CLAUDE_BIN'] = str(FAKE / 'bin' / 'claude')
 os.environ['NWP_SPANING_AV'] = '1'
 os.environ['NWP_KORREGISTER'] = str(TMP / 'korregister')  # körningarna i provet anmäler sig aldrig i maskinens register
-for k in ('NWP_SLUG', 'NWP_STARTKONTROLL'):
+# provet är oberoende av anroparens miljö: också inne i underhållets eget rökprov (NWP_UNDERHALL_PROV) anmäler sig
+# provets körningar, i provets eget register
+for k in ('NWP_SLUG', 'NWP_STARTKONTROLL', 'NWP_UNDERHALL_PROV'):
     os.environ.pop(k, None)
 
 sys.path.insert(0, str(KOPIA / 'kontroller'))
