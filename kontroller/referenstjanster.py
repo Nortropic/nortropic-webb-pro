@@ -262,15 +262,19 @@ def offentlig_adress(u, lokala_portar=()):
 
 
 NAT64 = ipaddress.ip_network('64:ff9b::/96')
+OVERSATT = ipaddress.ip_network('::ffff:0:0:0/96')  # IPv4-översatta adresser
 
 
 def offentlig_ip(a):
-    """Är adressen offentlig, också en IPv4-adress inbäddad i IPv6 (mappad, 6to4, Teredo, NAT64 eller den gamla
-    IPv4-kompatibla formen)? Den inbäddade adressen avgör (granskningen av r79, K)."""
+    """Är adressen offentlig, också en IPv4-adress inbäddad i IPv6 (mappad, översatt, NAT64 eller den gamla
+    IPv4-kompatibla formen)? Den inbäddade adressen avgör. 6to4 och Teredo är tunnlar som bildvärdar inte använder:
+    aldrig offentliga (granskningen av r79, K, och r80, L3)."""
     ip = ipaddress.ip_address(str(a).split('%')[0])
     if ip.version == 6:
-        inbaddad = ip.ipv4_mapped or ip.sixtofour or (ip.teredo[1] if ip.teredo else None)
-        if not inbaddad and (ip in NAT64 or (int(ip) >> 32) == 0):
+        if ip.sixtofour or ip.teredo:
+            return False
+        inbaddad = ip.ipv4_mapped
+        if not inbaddad and (ip in NAT64 or ip in OVERSATT or (int(ip) >> 32) == 0):
             inbaddad = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
         if inbaddad is not None:
             return inbaddad.is_global

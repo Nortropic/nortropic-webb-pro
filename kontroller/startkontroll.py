@@ -324,7 +324,7 @@ def senaste_kvitto(rot, namn):
           for m in [re.fullmatch(re.escape(namn) + r'-(\d{4}-\d\d-\d\dT\d{6}Z)\.json', f.name)] if m]
     for _t, f in sorted(m_, reverse=True):
         kv = vl.las_json(f, {}) or {}
-        if kv:
+        if kv and isinstance(kv, dict):  # granskningen av r80, L4
             return kv
     return {}
 
