@@ -30,16 +30,19 @@ besökarens uppgift löses; färgbyten på samma layout är inga olika förslag.
 - **Hela verktygslådan finns kvar:** skills med källa och licens, Refero, Mobbin, referensinsamlingen,
   webbläsarverktygen och kontrollerna. Uppgiften avgör vad som slås upp; inget krav på att allt läses.
 - **Researchen** är gemensam före planen och återanvänder kundens befintliga referenspaket och tjänsterapport; nytt
-  hämtas bara där materialet saknar något (högst fyra sajter och sex frågor). En skapare kan begära en avgränsad
+  hämtas bara där materialet saknar något (för ett förslag högst fyra sajter och sex frågor, för en omgång med flera
+  grundidéer högst 8 sajter och 14 frågor). En skapare kan begära en avgränsad
   komplettering en gång, inom sitt försöks tid.
-- **Budgeten** är ett försöksvillkor: högst tre skisser samtidigt, högst 30 minuter per inledande skaparförsök med
+- **Budgeten** är ett försöksvillkor: högst tre skisser samtidigt, högst 45 minuter per inledande skaparförsök med
   verktygsväntan, ett omförsök på 15 minuter bara vid ett identifierat tekniskt fel (bygget föll, bilderna saknas,
   sessionen föll), ingen förlängning för att nå antalet. Inget fast antal varv: varje varv åtgärdar en brist skaparen
   sett i sina bilder eller vid jämförelsen med referensen. En skiss som inte blir klar redovisas som ofullständig med
   skälet och det sparade arbetet; ett avbrutet försök sparas i `forsok-<n>/` och startas om i ett nytt projekt.
-- **Före ägarens val** ingen granskningspanel och ingen förbättringsrunda. De snabba kontrollerna (bygget, konsolen,
-  spill, axe, siffror utan belägg i underlaget, menyns knapp, huvudreferensraden) markerar brister och ändrar aldrig
-  uttrycket. Vyn visar skisserna neutralt, utan rekommendation eller poäng; ofullständiga står med.
+- **Före ägarens val** ingen granskningspanel och ingen förbättringsrunda. En intern granskare ser varje skiss (bara
+  bilderna, aldrig skaparens text) och skaparen svarar under "Svar på granskningen" i RIKTNING.md; granskarens omdöme och
+  svaret visas först efter ägarens första beslut. De snabba kontrollerna (bygget, konsolen, spill, axe, siffror utan
+  belägg i underlaget, menyn i 390 och 768, huvudreferensraden) markerar brister och ändrar aldrig uttrycket. Vyn visar
+  skisserna neutralt, utan rekommendation eller poäng; ofullständiga står med.
 - **Efter ägarens val** fördjupas de valda: hela startsidan, den relevanta undersidan och besökarens centrala flöde, med
   DESIGN.md i takt med koden. Den godkända kandidatens kod blir leveransens startpunkt (`installera_godkand`, bygg-sajt
   steg 5.1), så att ingen nästa agent återskapar designen.

@@ -7,10 +7,11 @@ Skissläget är standard (ägarens uppdrag 2026-10-05 16:25Z, "full verktygslåd
 cirka tio skisser (första vyn, den viktigaste innehållssektionen, navigationen och interaktionerna som behövs för att
 förstå förslaget, mobil och dator). Varje skapare får en ren arbetskontext: uppdraget, kundens verifierade fakta och
 material, referensbilderna och metodens kärna (kvalitetskraven, besluten med räckvidd, avgörandena) med en förteckning
-att slå upp i; historiken slås upp vid behov. Högst tre samtidigt, 30 minuter per inledande försök med verktygsväntan,
-ett omförsök bara vid ett identifierat tekniskt fel, inget minimiantal varv. Ingen granskningspanel och ingen
-förbättringsrunda före ägarens val: snabba objektiva kontroller (bygget, konsolen, spill, axe, siffror utan belägg,
-menyn) markerar brister. Fördjupningen (hela startsidan, undersidan och besökarens centrala flöde, DESIGN.md) kommer
+att slå upp i; historiken slås upp vid behov. Högst tre samtidigt, 45 minuter per inledande försök med verktygsväntan,
+den interna granskningen och skaparens svar inräknade, ett omförsök bara vid ett identifierat tekniskt fel, inget
+minimiantal varv. Ingen granskningspanel och ingen förbättringsrunda före ägarens val: en intern granskare ser varje
+skiss (bara bilderna) och skaparen svarar, men omdömet och svaret visas för ägaren först efter första beslutet; snabba
+objektiva kontroller (bygget, konsolen, spill, axe, siffror utan belägg, menyn) markerar brister. Fördjupningen (hela startsidan, undersidan och besökarens centrala flöde, DESIGN.md) kommer
 efter ägarens val. NWP_KANDIDATLAGE=full är en tillfällig växel till förvalet nedan, för jämförelse och återställning.
 
 Varje kandidat har en stabil identitet (k01–k12) och
@@ -84,6 +85,8 @@ FRIST_SKISS = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS') or 2700)  # ett inl
 # den kritiska granskaren i skissförsöket (ägarens uppdrag 2026-10-06, punkt 6): tiden som hålls för granskaren och
 # skaparens svar, granskarens egen gräns, och NWP_SKISSKRITIK=av stänger av den
 SKISSKRITIK_RESERV = int(os.environ.get('NWP_KANDIDAT_SKISSKRITIK_RESERV') or 900)
+SVAR_MIN = 420  # sekunder som minst krävs för skaparens svar på granskningen; annars inget svar (granskningen 2026-10-06)
+SVARSRUBRIK = 'Svar på granskningen'  # skaparens svar i RIKTNING.md; visas för ägaren först efter första beslutet
 FRIST_SKISSKRITIK = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISSKRITIK') or 480)
 SKISSKRITIK_SCHEMA = {
     'type': 'object', 'additionalProperties': False, 'required': ['storsta_problem', 'synliga_problem', 'generiskt', 'rekommendation', 'motivering'],
@@ -384,8 +387,9 @@ def uppdragsmaterial_rader(slug, kid):
                '  (färgerna, typsnitten, typskalan, avstånden, radierna och skuggorna i Referos namn; ändra aldrig filen, importera',
                '  den i layouten eller sidan), %s.tema.css samma värden som Tailwind-tema, och %s.STILPAKET.md färgernas roller,' % (namn, namn),
                '  typsnitten med fria ersättare, typskalan, layouten, bildspråket och gör och gör inte; stilens egna sidor i',
-               '  %s/preview_0..2.jpg. Bygg typografin, färgerna och avstånden på variablerna, skriv kundens anpassning i' % s.get('original'),
-               '  %s.anpassning.css, och lägg raden ur STILPAKET.md i DESIGN.md:s "import";' % namn]
+               '  %s/preview_0..2.jpg. Ett förslag du får ompröva: bygg typografin, färgerna och avstånden på variablerna,' % s.get('original'),
+               '  skriv kundens anpassning i %s.anpassning.css och lägg raden ur STILPAKET.md i DESIGN.md:s "import"; eller' % namn,
+               '  skriv i DESIGN.md skälet att avvika;']
     elif s.get('fel'):
         ut += ['- huvudreferensens stil i Refero (%s) kunde inte hämtas (%s): bygg på huvudreferensens bilder;' % (s.get('id'), s['fel'])]
     if v.get('mobbin'):
@@ -964,8 +968,11 @@ def skisskritik_rader(kr):
             '- generisk: %s; rekommendation: %s (%s)' % ('ja' if kr.get('generiskt') else 'nej', kr.get('rekommendation'), kr.get('motivering', '')),
             'Skissen och RIKTNING.md finns redan i projektet; fortsätt därifrån. Du är den ansvariga designern och avgör:',
             'åtgärda det största problemet; rekommenderar granskaren att byta komposition eller förkasta riktningen, gör det (en',
-            'ny komposition eller grundidé med samma fakta och material), eller skriv under rubriken "Granskningen" i RIKTNING.md',
-            'varför du står kvar. Rendera och titta igen, och uppdatera "Kvarvarande svagheter".', '']
+            'ny komposition eller grundidé med samma fakta och material), eller stå kvar med skäl. Skriv ditt svar på granskningen',
+            'bara under rubriken "%s" sist i RIKTNING.md: ägaren läser det först efter sitt första beslut, så att den' % SVARSRUBRIK,
+            'bedömningen är oberoende av granskningen. Under Idén, Referenser, Överfört och Kvarvarande svagheter står sidans läge',
+            'med dina egna ord, utan granskningen, granskaren eller dess rekommendation. Rendera och titta igen, och uppdatera',
+            '"Kvarvarande svagheter". Kärnan läste du i skissens första session; slå upp i den när svaret behöver det.', '']
 
 
 def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=30, forsok_min=None, kritik=None):
@@ -995,7 +1002,9 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         'Omfattningen: första vyn, den viktigaste innehållssektionen som uppdraget anger, navigationen och de interaktioner som',
         'behövs för att förstå förslaget (till exempel menyn på mobilen och den primära handlingen), genomarbetat i mobil (390),',
         'en mellanbredd (1280) och dator (1440). Inte hela startsidan och ingen undersida: sidan slutar efter sektionen med en',
-        'enkel sidfot med kontaktvägen. Skissen visar verklig komposition, typografi, bildbehandling och innehållshierarki.', '',
+        'enkel sidfot med kontaktvägen. Skissen visar verklig komposition, typografi, bildbehandling och innehållshierarki.',
+        'Mobilens meny prövas i verkligt tillstånd i 390 och 768: en knapp med aria-expanded (eller details och summary) i',
+        'header eller nav som öppnar navigationen; syns navigationens alla länkar utan meny behövs ingen knapp.', '',
         *(['Förra försöket slutade med ett tekniskt fel: %s. Det som finns står kvar i projektet; rätta felet först.' % fel, ''] if fel else []),
         *skisskritik_rader(kritik),
         'Ditt underlag, det du behöver läsa:',
@@ -1023,6 +1032,7 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         *(skapande.kompletteringsrader(komplettering) + [''] if komplettering else []),
         *kompetens.prompt_rader('skapa', slug, kid), '',
         'Arbetsgången:',
+        *(['Det här är svaret på granskningen: steg 0 gjordes i skissens första session; gör det som svaret behöver.'] if kritik else []),
         '0. Använd hela kompetensen: läs rollernas kärna hel (eller ladda skillen med skillverktyget) och välj bland',
         '   alternativen det som passar riktningen, för art direction (frontend-design, impeccable new-work och bolder eller',
         '   quieter), typografi (impeccable typeset), bilder (kunskap/bild.md), innehåll, användbarhet och kontakt (Mobbin, UI UX',
@@ -1179,7 +1189,8 @@ def skisskritik(slug, kid):
         return None
     uppgift = str(((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid, {}).get('uppgift') or '').strip()
     brief = atelje.UNDERLAG / slug / 'BRIEF.md'
-    blind = nekas_utom(d, ('varv',)) + nekas_utom(rot(slug), ('kandidater', 'metod')) + andra_nekas(slug, kid)
+    blind = nekas_utom(d, ('varv',)) + nekas_utom(rot(slug), ('kandidater', 'metod')) + andra_nekas(slug, kid) + [
+        'Read(./%s/**)' % rel(ksajt(slug, kid).parent)]  # skissens kod, DESIGN.md och stilpaketet (granskningen 2026-10-06)
     prompt = '\n'.join([
         'Du är en kritisk granskare av en designskiss åt en riktig verksamhet, inom skaparens arbete. Du ser bara de renderade',
         'bilderna, aldrig skaparens motivering (den nekas dig). Titta på varje bild med Read:', *['- ' + rel(p) for p in bilder],
@@ -1196,9 +1207,40 @@ def skisskritik(slug, kid):
     so = svar.get('structured_output')
     if not isinstance(so, dict) or not so.get('rekommendation'):
         return None
-    post = dict(so, tid=nu(), varv=v[-1], bilder=[rel(p) for p in bilder], svar=ut.name)
+    post = dict(so, tid=nu(), varv=v[-1], bilder=[rel(p) for p in bilder], svar=ut.name,
+                session={x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd')})
     (d / 'SKISSKRITIK.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     return post
+
+
+ORORDA = ('node_modules', 'dist', '.astro')  # skissens projekt: det delade trädet och byggets utdata följer aldrig med
+
+
+def spara_fore_svaret(slug, kid):
+    """En kopia av skissens projekt (utan ORORDA) och RIKTNING.md före skaparens svar på granskningen."""
+    d, s = kdir(slug, kid), ksajt(slug, kid)
+    mal = d / 'fore-svaret'
+    if mal.exists():
+        shutil.rmtree(mal)
+    shutil.copytree(s, mal / 'sajt', symlinks=True, ignore=shutil.ignore_patterns(*ORORDA))
+    if (d / 'RIKTNING.md').is_file():
+        shutil.copy2(d / 'RIKTNING.md', mal / 'RIKTNING.md')
+    return mal
+
+
+def aterstall_fore_svaret(slug, kid, mal):
+    """Skissens projekt och RIKTNING.md som de var före svaret på granskningen; ORORDA rörs inte."""
+    d, s = kdir(slug, kid), ksajt(slug, kid)
+    for p in list(s.iterdir()):
+        if p.name not in ORORDA:
+            shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink()
+    for p in (mal / 'sajt').iterdir():
+        if p.is_dir() and not p.is_symlink():
+            shutil.copytree(p, s / p.name, symlinks=True)
+        else:
+            shutil.copy2(p, s / p.name, follow_symlinks=False)
+    if (mal / 'RIKTNING.md').is_file():
+        shutil.copy2(mal / 'RIKTNING.md', d / 'RIKTNING.md')
 
 
 def skissa(slug, kid, fel=None):
@@ -1220,7 +1262,13 @@ def skissa(slug, kid, fel=None):
     # tekniskt fel, och den första sessionen lämnar tiden för dem
     granskas = not fel and os.environ.get('NWP_SKISSKRITIK') != 'av' and not st.get('skisskritik')
     for k in range(2):
-        kvar = int(frist - FOTO_RESERV - (time.monotonic() - start) - (SKISSKRITIK_RESERV if granskas else 0))
+        rest = int(frist - FOTO_RESERV - (time.monotonic() - start))
+        if granskas and k and rest - SKISSKRITIK_RESERV < 120 <= rest:
+            # researchen på begäran går före granskningen: skaparen får använda resultatet (granskningen 2026-10-06)
+            granskas = False
+            satt_status(slug, kid, 'under_arbete', 'researchen på begäran fick granskningens tid',
+                        skisskritik={'tid': nu(), 'gjord': False, 'skal': 'researchen på begäran fick granskningens tid'})
+        kvar = rest - (SKISSKRITIK_RESERV if granskas else 0)
         if kvar < 120:
             break
         ut = d / ('svar-skiss-%d%s.json' % (forsok, '-%d' % k if k else ''))
@@ -1249,21 +1297,29 @@ def skissa(slug, kid, fel=None):
                                    forbjudna=skapande.forbjudna_termer(slug, atelje.UNDERLAG), las_frist=max(0, kvar - 600))
         kompletterad = True
         satt_status(slug, kid, 'under_arbete', 'research på begäran gjord; ny session med resultatet', kompletterad=True)
+    if granskas and any('tog slut' in str(x.get('avbruten') or '') for x in sessioner):
+        granskas = False  # skissen hann inte bli klar inom tiden: ingen granskning och inget svar som kan bryta den
+        satt_status(slug, kid, 'under_arbete', 'ingen granskning: skaparens session nådde tidsgränsen',
+                    skisskritik={'tid': nu(), 'gjord': False, 'skal': 'skaparens session nådde tidsgränsen'})
+    fore_svaret = None
     if granskas and not atelje.STOPP.is_set():
         kvar = int(frist - FOTO_RESERV - (time.monotonic() - start))
         kr, kr_fel = None, None
-        if kvar >= 300:
+        if kvar >= FRIST_SKISSKRITIK + SVAR_MIN:  # granskningen görs bara när skaparen hinner svara på den
             satt_status(slug, kid, 'under_arbete', 'den kritiska granskaren ser bilderna')
             try:
                 kr = skisskritik(slug, kid)
             except (RuntimeError, subprocess.TimeoutExpired) as e:  # granskaren är rådgivande: skissen går vidare utan den
                 kr_fel = '%s: %s' % (type(e).__name__, str(e)[:200])
+            if atelje.STOPP.is_set():  # ett stopp under granskningen: försöket står kvar under arbete och tas upp igen
+                raise atelje.Stoppad('försöket avbröts av stoppet')
         kvar = int(frist - FOTO_RESERV - (time.monotonic() - start))
-        satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen' if kr and kvar >= 180 else 'granskningen gjordes inte' if not kr else
+        satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen' if kr and kvar >= SVAR_MIN else 'granskningen gjordes inte' if not kr else
                     'ingen tid kvar för ett svar', skisskritik={'tid': nu(), 'rekommendation': (kr or {}).get('rekommendation'),
                                                                  'storsta_problem': (kr or {}).get('storsta_problem'), 'fel': kr_fel,
-                                                                 'gjord': bool(kr), 'tid_kvar': kvar})
-        if kr and kvar >= 180:
+                                                                 'gjord': bool(kr), 'tid_kvar': kvar, 'session': (kr or {}).get('session')})
+        if kr and kvar >= SVAR_MIN:
+            fore_svaret = spara_fore_svaret(slug, kid)
             ut = d / ('svar-skiss-%d-granskning.json' % forsok)
             try:
                 svar = atelje.session(skiss_prompt(slug, kid, None, None, erbjud=False, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60, kritik=kr),
@@ -1281,6 +1337,15 @@ def skissa(slug, kid, fel=None):
     tidigare = las_status(slug, kid)
     satt_status(slug, kid, 'under_arbete', 'fotograferas', sessioner=(tidigare.get('sessioner') or []) + sessioner)
     st = fotografera(slug, kid, skiss=True)
+    if fore_svaret and st['status'] != 'klar' and st.get('hinder'):
+        # svaret på granskningen bröt skissen: versionen före svaret återställs och fotograferas, så att ägaren har en
+        # skiss att bedöma (granskningen 2026-10-06); svaret står kvar i svaret-*.json och i statusen
+        hinder_svaret = list(st.get('hinder') or [])
+        aterstall_fore_svaret(slug, kid, fore_svaret)
+        st = fotografera(slug, kid, skiss=True)
+        satt_status(slug, kid, st['status'], st.get('skal') or '', skisskritik=dict(las_status(slug, kid).get('skisskritik') or {},
+                    svaret_aterstallt=nu(), svarets_hinder=hinder_svaret[:4]))
+        st = las_status(slug, kid)
     tidsgrans = any('tog slut' in str(x.get('avbruten') or '') for x in sessioner)
     # ett identifierat tekniskt fel: sessionen föll, bygget föll eller bilderna saknas; en tid som tog slut är inget
     # tekniskt fel, och ett nytt försök vore en förlängning (ägarens försöksbudget 2026-10-05)
@@ -1636,28 +1701,55 @@ def siffror_utan_belagg(slug, kid):
         if f.is_file():
             rader += f.read_text(encoding='utf-8', errors='replace').splitlines()
     tillatna = brev.tillatna_tal(rader + bildtal(u / 'bilder')) | {str(datetime.now(timezone.utc).year)}
-    return sorted(set(brev.siffror_ok(text, tillatna)[1]))[:12]
+    return sorted(set(brev.siffror_ok(utan_bilddatum(text, bilddatumen(u / 'bilder')), tillatna)[1]))[:12]
+
+
+MANADER = ('januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december')
+
+
+def bilddatumen(bilder):
+    """Fotodatumen {(år, månad, dag)} ur kundens bilders EXIF och filnamn (kontroller/bilddatum.py)."""
+    import bilddatum
+    return set().union(*[bilddatumen_for(f) for f in (sorted(Path(bilder).iterdir()) if Path(bilder).is_dir() else [])
+                         if f.suffix.lower() in bilddatum.BILDER and f.is_file()])
 
 
 def bildtal(bilder):
-    """Talen i kundens bilders filnamn och datum, en rad per bild, som belägg för siffror i texten ("28 juni" ur ett foto
-    taget 2021-06-28; ägaren 2026-10-06): filnamnets tal, och datumets år, månad och dag med och utan inledande nolla ur
-    EXIF eller filnamnet (kontroller/bilddatum.py). Ett datum som inte är ett giltigt datum räknas inte."""
+    """Talen i kundens bilders filnamn och fotodatumens år, en rad per bild, som belägg för siffror i texten. Dagar och
+    månader belägger bara ett datum som stämmer med ett foto ("28 juni" ur ett foto taget 2021-06-28; ägaren 2026-10-06),
+    aldrig ett tal i sig (utan_bilddatum): annars täcker många foton nästan varje litet tal (granskningen 2026-10-06)."""
     import bilddatum
     rader = []
     for f in sorted(Path(bilder).iterdir()) if Path(bilder).is_dir() else []:
         if f.suffix.lower() not in bilddatum.BILDER or not f.is_file():
             continue
-        tal = re.findall(r'\d+', f.name)
-        datum = [bilddatum.datum(f).get('datum')] + [form(m) for monster, form in bilddatum.FILNAMN for m in [monster.search(f.name)] if m]
-        for d_ in datum:
-            try:
-                dt = datetime.strptime(str(d_)[:10], '%Y-%m-%d')
-            except ValueError:
-                continue
-            tal += [str(dt.year), '%02d' % dt.month, str(dt.month), '%02d' % dt.day, str(dt.day)]
-        rader.append(' '.join(dict.fromkeys(tal)))
+        rader.append(' '.join(dict.fromkeys(re.findall(r'\d+', f.name) + [str(y) for y, _m, _d in sorted(bilddatumen_for(f))])))
     return rader
+
+
+def bilddatumen_for(f):
+    """En bilds datum ur EXIF och filnamnet; ett datum som inte är ett giltigt datum räknas inte."""
+    import bilddatum
+    ut = set()
+    for d_ in [bilddatum.datum(f).get('datum')] + [form(m) for monster, form in bilddatum.FILNAMN for m in [monster.search(Path(f).name)] if m]:
+        try:
+            dt = datetime.strptime(str(d_)[:10], '%Y-%m-%d')
+        except ValueError:
+            continue
+        ut.add((dt.year, dt.month, dt.day))
+    return ut
+
+
+def utan_bilddatum(text, datumen):
+    """Texten utan de datumfraser som stämmer med ett foto ("28 juni", "28 juni 2021", "2021-06-28", "28/6"): talen i dem är
+    belagda av bilden, men bara som ett datum."""
+    def manad(m):
+        d, mn, y = int(m.group(1)), MANADER.index(m.group(2).lower()) + 1, m.group(4)
+        return ' ' if any(dd == d and mm == mn and (not y or int(y) == yy) for yy, mm, dd in datumen) else m.group(0)
+    text = re.sub(r'\b(\d{1,2})\.?\s+(%s)(\s+(\d{4}))?\b' % '|'.join(MANADER), manad, str(text or ''), flags=re.I)
+    text = re.sub(r'\b(\d{4})-(\d{2})-(\d{2})\b', lambda m: ' ' if (int(m.group(1)), int(m.group(2)), int(m.group(3))) in datumen else m.group(0), text)
+    return re.sub(r'\b(\d{1,2})/(\d{1,2})\b', lambda m: ' ' if any(dd == int(m.group(1)) and mm == int(m.group(2)) for _y, mm, dd in datumen)
+                  else m.group(0), text)
 
 
 EGEN = ('egen', 'egen riktning')  # "Huvudreferens: egen — …": en egen riktning utan huvudreferens (ägaren 2026-10-06)
@@ -1673,8 +1765,8 @@ def huvudreferensens_namn(text):
     utanfor = r'(?![^()]*\))'  # inte inne i en parentes
     namnen = [x.strip().strip('*`').strip() for x in re.split(r'\s*[,;]\s*%s|\s+(?:och|samt|and|\+|&|/)\s+%s' % (utanfor, utanfor), hel)]
     namnen = [x for x in namnen if x]
-    egen = bool(namnen) and referensens_namn(namnen[0]) in EGEN
-    return egen, [] if egen else namnen
+    ovriga = [x for x in namnen if referensens_namn(x) not in EGEN]  # "egen + Tekt" bär Tekt; "Tekt, egen" är ingen referens "egen"
+    return bool(namnen) and not ovriga, ovriga
 
 
 def riktningens_referens(slug, kid):
@@ -1792,31 +1884,31 @@ def kor_axe(slug, kid, url, sidor, ut):
     return {'allvarliga': a.get('allvarliga'), 'totalt': a.get('totalt'), 'regler': regler[:12], 'version': a.get('axeVersion')}
 
 
-def menyprovet(meny, fel=None):
-    """Menyn i 390 ur inspektionen (inspektera.mjs --meny, provaMeny) som (brister, upplysningar) för skissens snabba
+def menyprovet(meny, fel=None, vy='390'):
+    """Menyn i en mobil bredd (390 eller 768) ur inspektionen (inspektera.mjs --meny, provaMeny) som (brister, upplysningar) för skissens snabba
     kontroller. En menyknapp som finns men inte öppnade menyn är en brist: en bild med "meny" i namnet bevisar inte att
     menyn öppnades (ägaren 2026-10-06). En mobil utan menyknapp där navigationens alla länkar syns är inget fel men sägs;
     utan knapp och med länkar som inte syns når besökaren inte navigationen. Ett prov som inte kördes är ingen frånvaro
     av brister."""
     if not isinstance(meny, dict):
-        return ['390: menyn prövades inte%s' % ((' (%s)' % str(fel)[:120]) if fel else '')], []
+        return ['%s: ' % vy + 'menyn prövades inte%s' % ((' (%s)' % str(fel)[:120]) if fel else '')], []
     if not meny.get('knapp', meny.get('klickad')):
         lankar = meny.get('lankar') if isinstance(meny.get('lankar'), dict) else {}
         n, syns = lankar.get('totalt'), lankar.get('synliga')
         if n and syns == n:
-            return [], ['390: ingen menyknapp; navigationens alla %d länkar syns utan meny' % n]
+            return [], ['%s: ' % vy + 'ingen menyknapp; navigationens alla %d länkar syns utan meny' % n]
         if n == 0:
-            return [], ['390: ingen menyknapp och ingen navigation (nav) på startsidan']
+            return [], ['%s: ' % vy + 'ingen menyknapp och ingen navigation (nav) på startsidan']
         if n:
-            return ['390: ingen menyknapp, och %d av navigationens %d länkar syns inte (%s)' % (
+            return ['%s: ' % vy + 'ingen menyknapp, och %d av navigationens %d länkar syns inte (%s)' % (
                 n - (syns or 0), n, ', '.join(map(str, lankar.get('dolda') or []))[:120])], []
-        return ['390: ingen menyknapp hittades, och navigationens länkar gick inte att räkna'], []
+        return ['%s: ' % vy + 'ingen menyknapp hittades, och navigationens länkar gick inte att räkna'], []
     if not meny.get('klickad'):
-        return ['390: menyns knapp gick inte att klicka (%s)' % str(meny.get('skal') or 'okänt skäl')[:160]], []
+        return ['%s: ' % vy + 'menyns knapp gick inte att klicka (%s)' % str(meny.get('skal') or 'okänt skäl')[:160]], []
     if meny.get('expanded') is None:
-        return ['390: menyns läge gick inte att avläsa efter klicket (knappen har varken aria-expanded eller ett details-element)'], []
+        return ['%s: ' % vy + 'menyns läge gick inte att avläsa efter klicket (knappen har varken aria-expanded eller ett details-element)'], []
     if meny.get('expanded') != 'true':
-        return ['390: menyns knapp öppnar ingenting (expanded %s efter klick)' % meny.get('expanded')], []
+        return ['%s: ' % vy + 'menyns knapp öppnar ingenting (expanded %s efter klick)' % meny.get('expanded')], []
     return [], []
 
 
@@ -1882,8 +1974,8 @@ def fotografera(slug, kid, skiss=None):
                         (markeringar if skiss else brister).append('%s %s: konsolfel eller sidfel (%s)' % (vag, vy, str(fel[0].get('text', ''))[:120]))
                     if (r.get('spill') or {}).get('spill'):
                         (markeringar if skiss else brister).append('%s %s: sidled-spill' % (vag, vy))
-                    if skiss and vag == '/' and vy == '390':  # menyn i verkligt tillstånd (ägaren 2026-10-06; granskning 3, S10)
-                        b_, u_ = menyprovet((r.get('tillstand') or {}).get('meny'), r.get('fel'))
+                    if skiss and vag == '/' and vy in ('390', '768'):  # menyn i verkligt tillstånd (ägaren 2026-10-06; granskning 3, S10)
+                        b_, u_ = menyprovet((r.get('tillstand') or {}).get('meny'), r.get('fel'), vy)
                         markeringar += b_
                         upplysningar += u_
             try:
@@ -2138,15 +2230,44 @@ def referensjamforelse(slug, kid):
 REDOVISNINGSRUBRIKER = ('Idén', 'Referenser', OVERFORT, 'Kvarvarande svagheter')
 
 
+GRANSKNINGSORD = re.compile(r'(?i)granskar|granskning|kritiker')
+
+
+def utan_granskning(text):
+    """(avsnittet utan det som rör den interna granskningen, antal borttagna rader): underrubriker om granskningen med sitt
+    innehåll och rader som nämner granskaren. Redovisningen visas före ägarens första beslut och granskningens omdöme först
+    efter (BESLUT.md 2026-10-05, punkt 1); skaparens svar står under SVARSRUBRIK (granskningen 2026-10-06)."""
+    ut, bort, hoppa = [], 0, None
+    for rad in str(text or '').splitlines():
+        m = re.match(r'^(#{1,6})\s+(.*)$', rad)
+        if m and hoppa is not None and len(m.group(1)) <= hoppa:
+            hoppa = None
+        if m and hoppa is None and GRANSKNINGSORD.search(m.group(2)):
+            hoppa, bort = len(m.group(1)), bort + 1
+            continue
+        if hoppa is not None or GRANSKNINGSORD.search(rad):
+            bort += 1 if rad.strip() else 0
+            continue
+        ut.append(rad)
+    return '\n'.join(ut).strip(), bort
+
+
 def kort_redovisning(slug, kid):
     """Avsnitten under REDOVISNINGSRUBRIKER i kandidatens RIKTNING.md, i rubrikernas ordning: markdown utan rubrikraden,
-    '' när rubriken står utan text och None när den saknas. Vyn säger vad som saknas och fyller aldrig i något."""
+    '' när rubriken står utan text och None när den saknas. Vyn säger vad som saknas och fyller aldrig i något. Det som rör
+    den interna granskningen tas bort och sägs med antalet rader (utan_granskning)."""
     f = kdir(slug, kid) / 'RIKTNING.md'
     t = f.read_text(encoding='utf-8', errors='replace') if f.is_file() else ''
     ut = []
     for r in REDOVISNINGSRUBRIKER:
         a = riktningens_avsnitt(t, (r,))
-        ut.append({'rubrik': r, 'avsnitt': re.sub(r'^#{1,6}[^\n]*\n?', '', a, count=1).strip()[:8000] if a else None})
+        if a is None or a == '':
+            ut.append({'rubrik': r, 'avsnitt': None if not a else ''})
+            continue
+        text, bort = utan_granskning(re.sub(r'^#{1,6}[^\n]*\n?', '', a, count=1))
+        if bort:
+            text += '\n\n*(%d %s om den interna granskningen visas efter ditt första beslut.)*' % (bort, 'rad' if bort == 1 else 'rader')
+        ut.append({'rubrik': r, 'avsnitt': text.strip()[:8000]})
     return ut
 
 
@@ -2856,7 +2977,8 @@ def redovisa_skiss(slug, status):
              'Skissläget (kontroller/kandidater.py): skaparna med %s, effort %s; högst %d samtidigt, %d minuter per inledande' % (
                  status.get('modell'), EFFORT_SKISS, min(PARALLELLT, MAX_PARALLELLT_SKISS), FRIST_SKISS // 60),
              'försök med verktygsväntan, ett omförsök på %d minuter bara vid ett identifierat tekniskt fel. Ingen granskningspanel' % (FRIST_SKISS_OMFORSOK // 60),
-             'och ingen förbättringsrunda före ägarens val; ingen modell har bedömt skisserna.', '',
+             'och ingen förbättringsrunda före ägarens val. En intern granskare såg varje skiss (bara bilderna) och skaparen fick',
+             'svara; granskarens omdöme och svaret visas först efter ägarens första beslut. Ingen modell har rangordnat skisserna.', '',
              '## Tiderna', '',
              '- startad %s; researchen klar %s; planen klar %s; första valbara skissen %s; klar %s.' % (
                  t.get('start', '–'), t.get('forskning', '–'), t.get('plan', '–'), t.get('forsta_valbara') or '–', t.get('klar') or '–'),
@@ -2897,10 +3019,16 @@ def redovisa_skiss(slug, status):
                 if las_status(slug, kid).get('upplysningar')]
     if upplysta:  # inget fel, men ska sägas (en mobil utan menyknapp där alla länkar syns; ägaren 2026-10-06)
         rader += ['', '## Upplysningar ur de snabba kontrollerna', ''] + upplysta
+    granskade = [(kid, (las_status(slug, kid).get('skisskritik') or {})) for kid in lista(slug)]
+    granskade = [(kid, g_) for kid, g_ in granskade if g_.get('gjord')]
+    if granskade:  # den interna granskaren är egna sessioner, utöver skaparens (granskningen 2026-10-06)
+        rader += ['', 'Den interna granskningen: %d sessioner, %d turer, omkring %d minuter (ingår i försökens tid ovan).' % (
+            len(granskade), sum(int((g_.get('session') or {}).get('num_turns') or 0) for _k, g_ in granskade),
+            round(sum(int((g_.get('session') or {}).get('duration_ms') or 0) for _k, g_ in granskade) / 60000))]
     rader += ['', '## Ofullständiga och fallna', ''] + (fallna or ['Inga.'])
     rader += kompetens_rader(slug, ids, namn)
     rader += ['', '## Det som behöver mänsklig bedömning', '',
-              '- Ägarens val: riktning, kvalitet och variation. Ingen modell har bedömt eller rangordnat skisserna.',
+              '- Ägarens val: riktning, kvalitet och variation. Den interna granskaren gav skaparen ett rådgivande omdöme per skiss; ingen modell har rangordnat skisserna.',
               '- Utkast och platshållare (kolumnen ovan): text och bilder som kunden eller ägaren behöver fylla.',
               '- Bristerna ur de snabba kontrollerna rättas i fördjupningen, utan att ändra den valda skissens uttryck.',
               '- Tillgängligheten: axe kör automatiskt på startsidan; skärmläsare, hela flödet med tangentbord och 200–400 % zoom',

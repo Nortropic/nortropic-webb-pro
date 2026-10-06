@@ -3426,7 +3426,11 @@ try:
     assert any('finns inte' in f_ for f_ in md_kd.prova(karta_md.replace('taste/SKILL.md rad 17–23', 'taste/SKILL.md rad 17–99999'), las=kallor_md)[0])
     (tmp / 'kd-metod').mkdir(); (tmp / 'kd-metod' / 'METOD-skapa-9.md').write_text('en gammal del')
     lev_md = md_kd.leverera('skapa', tmp / 'kd-metod')
-    assert list(dict.fromkeys(f_['del'] for f_ in lev_md['filer'])) == ['före', 'varv', 'text'] and len(lev_md['filer']) > 3, [f_['fil'].name for f_ in lev_md['filer']]
+    assert list(dict.fromkeys(f_['del'] for f_ in lev_md['filer'])) == ['före', 'varv', 'text', 'uppslag'] and len(lev_md['filer']) > 3, [f_['fil'].name for f_ in lev_md['filer']]
+    # kalibreringen är uppslag, aldrig före-läsning (ägarens uppdrag 2026-10-06, punkt 3; granskningen av designintegrationen)
+    kal_md = 'Ägaren dömde 2026-10-04 tretton externa sajter blint'  # kalibreringens innehåll, inte en hänvisning till filen
+    assert not any(kal_md in f_['fil'].read_text() for f_ in lev_md['filer'] if f_['del'] == 'före')
+    assert any(kal_md in f_['fil'].read_text() for f_ in lev_md['filer'] if f_['del'] == 'uppslag')
     assert not (tmp / 'kd-metod' / 'METOD-skapa-9.md').exists(), 'en ny leverans lämnar inga gamla delar'
     for s_ in md_kd.STEG:  # varje levererad fil ryms i ett Read utan offset och limit (granskning 2, N5)
         for f_ in md_kd.leverera(s_, tmp / 'kd-metod-alla')['filer']:
@@ -4259,7 +4263,7 @@ try:
     t_sk = st_sk['tider']
     assert all(t_sk.get(k_) for k_ in ('start', 'forskning', 'plan', 'forsta_valbara', 'klar')) and t_sk['start'] <= t_sk['forsta_valbara'] <= t_sk['klar'], t_sk
     rd_sk = kd.redovisa(sl_sk, st_sk).read_text()
-    for krav_ in ('## Tiderna', 'väntan till första valbara skissen', '## Ofullständiga och fallna', 'k04', 'Ingen modell har bedömt', 'Utkast och platshållare',
+    for krav_ in ('## Tiderna', 'väntan till första valbara skissen', '## Ofullständiga och fallna', 'k04', 'ingen modell har rangordnat skisserna', 'Utkast och platshållare',
                   'METOD-skiss.md', 'siffror i texten som inte finns i underlag: 25'.replace('underlag: 25', 'underlaget: 25'), '1 + 2 (omförsök)', '1 (tiden slut)',
                   '## Kompetensernas arbete', 'Planprövningen'):
         assert krav_ in rd_sk, krav_
@@ -4270,7 +4274,120 @@ try:
     (kd.rot(sl_sk) / 'STATUS.json').write_text(json.dumps(dict(st_sk, kandidatflode=True)))
     vy_sk = dash.prototyp(sl_sk)
     assert vy_sk['kandidatlage'] == 'skiss' and vy_sk['tider']['forsta_valbara'] and not vy_sk['domd'] and vy_sk['redovisning_md'] is None
-    assert 'ingen modell har bedömt eller rangordnat dem' in (ROOT / 'dashboard' / 'index.html').read_text()
+    vytext_ = (ROOT / 'dashboard' / 'index.html').read_text()
+    assert 'En intern granskare har sett varje skiss' in vytext_ and 'ingen modell har rangordnat förslagen' in vytext_ and 'ingen modell har bedömt' not in vytext_
+    # --- den interna granskaren och skaparens svar (granskningen av designintegrationen 2026-10-06), med en falsk klocka ---
+    class KlockaGk:
+        def __init__(self):
+            self.t = 0.0
+
+        def __getattr__(self, n_):
+            return getattr(time, n_)
+
+        def monotonic(self):
+            return self.t
+    kl_gk = KlockaGk()
+    spara_gk = (kd.time, at_pt.session, kd.FRIST_SKISS, sk.komplettera)
+    GK, sess_gk = {}, []
+    RIKT_SVAR = ('Huvudreferens: Xref — kompositionen\n\n## Idén\n\nKöket i centrum.\n\n## Kvarvarande svagheter\n\nRubriken är tung i 390.\n'
+                 'Granskaren rekommenderade att förkasta riktningen.\n\n### Granskningen\n\nGRANSKNINGENS ORD: generisk\n\n## Svar på granskningen\n\nJag står kvar.\n')
+
+    def sess_gk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None):
+        sess_gk.append({'prompt': prompt, 'schema': schema, 'nekas': list(nekas), 'frist': frist, 'ut': Path(ut).name})
+        pages_ = kd.ksajt(sl_sk, 'k02') / 'src' / 'pages'
+        so = None
+        if schema is kd.SKISSKRITIK_SCHEMA:
+            kl_gk.t += GK['kritik']
+            if GK.get('kritik_stopp'):
+                at_pt.STOPP.set()
+                raise RuntimeError('sessionen föll (kod -9, None): None')
+            so = {'storsta_problem': 'rubriken tar över första vyn', 'synliga_problem': ['bilden är liten i 390'], 'generiskt': True,
+                  'rekommendation': 'förkasta', 'motivering': 'formen kunde vara vilken hantverkare som helst'}
+        elif 'En kritisk granskare har sett' in prompt:  # skaparens svar på granskningen
+            kl_gk.t += GK['svar']
+            (kd.kdir(sl_sk, 'k02') / 'RIKTNING.md').write_text(RIKT_SVAR)
+            (pages_ / 'index.astro').write_text('TRASIG efter svaret' if GK.get('svar_trasig') else '<h1>Skiss</h1><p>Köket efter svaret.</p>')
+        else:  # skaparen
+            kl_gk.t += GK['skapare']
+            (pages_ / 'index.astro').write_text('<h1>Skiss</h1><p>Köket före svaret.</p>')
+            (kd.kdir(sl_sk, 'k02') / 'RIKTNING.md').write_text('Huvudreferens: Xref — kompositionen\n\n## Idén\n\nKöket i centrum.\n')
+            vd_ = kd.kdir(sl_sk, 'k02') / 'varv' / 'start' / 'varv-01'
+            vd_.mkdir(parents=True, exist_ok=True)
+            for b_ in ('390', '1280', '1440'):  # ett helt varv: första vyn och hela sidan (forhandsvisa.LAS)
+                for v_ in ('forsta', 'hela'):
+                    (vd_ / ('vy-%s-%s.png' % (b_, v_))).write_bytes(b'png')
+            if GK.get('begar') and 'Researchen du begärde' not in prompt:
+                (kd.kdir(sl_sk, 'k02') / sk.KOMPLETTERING).write_text(json.dumps({'varfor': 'saknar kök i närbild'}))
+            if GK.get('skapare_tidsgrans'):
+                raise subprocess.TimeoutExpired('claude', frist)
+        svar_ = {'structured_output': so, 'num_turns': 7, 'duration_ms': 90000, 'total_cost_usd': 0.3, 'session_id': 's'}
+        Path(ut).write_text(json.dumps(svar_))
+        return svar_
+
+    def komplettera_gk(*a, **k_):
+        kl_gk.t += GK['research']
+        (kd.kdir(sl_sk, 'k02') / sk.KOMPLETTERING).unlink()
+        return {'tid': '2026-10-06T12:00:00Z', 'begaran': 'KOMPLETTERING.json', 'varfor': 'RESEARCHENS SVAR: kök i närbild'}
+
+    def omgang_gk(**gk_):
+        GK.clear(); GK.update(dict({'skapare': 1500, 'kritik': 300, 'svar': 300, 'research': 0}, **gk_))
+        sess_gk.clear()
+        kd.satt_status(sl_sk, 'k02', 'klar', 'prov', ta_bort=('skisskritik',))
+        kl_gk.t = 0.0
+        return kd.skissa(sl_sk, 'k02')
+
+    kd.time, at_pt.session, kd.FRIST_SKISS, sk.komplettera = kl_gk, sess_gk_, 2700, komplettera_gk
+    try:
+        # (1) granskaren ser bara bilderna, skaparen svarar under en egen rubrik, och vyn visar aldrig granskningen före beslutet
+        omgang_gk()
+        kr_gk = [x_ for x_ in sess_gk if x_['schema'] is kd.SKISSKRITIK_SCHEMA]
+        svar_gk = [x_ for x_ in sess_gk if 'En kritisk granskare har sett' in x_['prompt']]
+        assert len(kr_gk) == 1 and len(svar_gk) == 1, [x_['ut'] for x_ in sess_gk]
+        assert 'Read(./%s)' % kd.rel(kd.kdir(sl_sk, 'k02') / 'RIKTNING.md') in kr_gk[0]['nekas'], kr_gk[0]['nekas']
+        assert 'Read(./%s/**)' % kd.rel(kd.ksajt(sl_sk, 'k02').parent) in kr_gk[0]['nekas'], 'skissens kod och DESIGN.md nekas granskaren'
+        assert 'vy-390-forsta.png' in kr_gk[0]['prompt'] and 'Köket i centrum' not in kr_gk[0]['prompt'], 'granskaren får aldrig skaparens text'
+        assert 'det största problemet: rubriken tar över första vyn' in svar_gk[0]['prompt'] and 'rubriken "Svar på granskningen"' in svar_gk[0]['prompt']
+        assert 'steg 0 gjordes i skissens första session' in svar_gk[0]['prompt'] and svar_gk[0]['frist'] >= kd.SVAR_MIN
+        st_gk = kd.las_status(sl_sk, 'k02')
+        assert st_gk['status'] == 'klar' and st_gk['skisskritik']['gjord'] and st_gk['skisskritik']['session']['num_turns'] == 7, st_gk.get('skisskritik')
+        assert (kd.kdir(sl_sk, 'k02') / 'SKISSKRITIK.json').is_file()
+        sv_gk = {r_['rubrik']: r_['avsnitt'] for r_ in kd.kort_redovisning(sl_sk, 'k02')}['Kvarvarande svagheter']
+        assert 'Rubriken är tung i 390.' in sv_gk and '3 rader om den interna granskningen' in sv_gk, sv_gk  # raden, underrubriken och dess rad
+        assert not any(x_ in sv_gk for x_ in ('Granskaren rekommenderade', 'GRANSKNINGENS ORD', 'förkasta', 'Jag står kvar')), sv_gk
+        blind_gk = next(k_ for k_ in kd.sammanstall(sl_sk) if k_['id'] == 'k02')
+        assert 'GRANSKNINGENS ORD' not in json.dumps(blind_gk, ensure_ascii=False) and 'förkasta' not in json.dumps(blind_gk, ensure_ascii=False)
+        # (2) skaparen nådde tidsgränsen: ingen granskning och inget svar
+        omgang_gk(skapare_tidsgrans=True)
+        assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk) and 'tidsgränsen' in kd.las_status(sl_sk, 'k02')['skisskritik']['skal']
+        # (3) granskningen görs bara när svaret hinner; efter den står det kvar för lite tid: inget svar
+        omgang_gk(skapare=1700)
+        assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk), 'granskningen görs inte när svaret inte hinner'
+        omgang_gk(skapare=1500, kritik=700)
+        assert [x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk].count(True) == 1 and not any('En kritisk granskare har sett' in x_['prompt'] for x_ in sess_gk)
+        assert kd.las_status(sl_sk, 'k02')['skisskritik']['tid_kvar'] < kd.SVAR_MIN
+        # (4) ett stopp under granskningen går igenom: försöket står kvar under arbete
+        try:
+            omgang_gk(kritik_stopp=True)
+            raise AssertionError('stoppet under granskningen skulle gå igenom')
+        except at_pt.Stoppad:
+            pass
+        finally:
+            at_pt.STOPP.clear()
+        assert kd.las_status(sl_sk, 'k02')['status'] == 'under_arbete'
+        # (5) svaret bryter bygget: skissen före svaret återställs och fotograferas, så att ägaren har en skiss att bedöma
+        omgang_gk(svar_trasig=True)
+        st5_gk = kd.las_status(sl_sk, 'k02')
+        assert st5_gk['status'] == 'klar' and st5_gk['skisskritik'].get('svaret_aterstallt'), (st5_gk['status'], st5_gk.get('skisskritik'), st5_gk.get('hinder'))
+        assert (kd.ksajt(sl_sk, 'k02') / 'src' / 'pages' / 'index.astro').read_text() == '<h1>Skiss</h1><p>Köket före svaret.</p>'
+        assert 'Svar på granskningen' not in (kd.kdir(sl_sk, 'k02') / 'RIKTNING.md').read_text()
+        assert (kd.ksajt(sl_sk, 'k02') / 'node_modules').exists(), 'återställningen rör aldrig node_modules'
+        # (6) research på begäran går före granskningen när båda inte ryms: skaparen får resultatet, ingen granskning
+        omgang_gk(skapare=1000, research=600, begar=True)
+        skapare_gk = [x_ for x_ in sess_gk if x_['schema'] is None and 'En kritisk granskare har sett' not in x_['prompt']]
+        assert len(skapare_gk) == 2 and 'RESEARCHENS SVAR' in skapare_gk[1]['prompt'], [x_['ut'] for x_ in sess_gk]
+        assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk) and 'researchen' in kd.las_status(sl_sk, 'k02')['skisskritik']['skal']
+    finally:
+        kd.time, at_pt.session, kd.FRIST_SKISS, sk.komplettera = spara_gk
 finally:
     at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT = spara_at_sk
     for n_, v_ in spara_sk.items():
@@ -6647,7 +6764,7 @@ def skisskontrollerna():
         kid_ = 'k01'
         pages_ = kd_s.ksajt(slug_, kid_) / 'src' / 'pages'
         pages_.mkdir(parents=True)
-        (pages_ / 'index.astro').write_text('<h1>Skiss</h1><p>Bygget 28 juni och 7 juli. Med 25 år i branschen.</p>')
+        (pages_ / 'index.astro').write_text('<h1>Skiss</h1><p>Bygget 28 juni och 7 juli. Med 25 år i branschen och 7 snickare.</p>')
         kd_s.kdir(slug_, kid_).mkdir(parents=True)
         (kd_s.kdir(slug_, kid_) / 'RIKTNING.md').write_text('Huvudreferens: egen — kundens egna foton bär sidan\n')
         meny_, inspekterat_ = [m_x], []
@@ -6669,7 +6786,9 @@ def skisskontrollerna():
                         (ut_ / ('vy-%s-%s.png' % (vy_, s_))).write_bytes(b'png')
                     vyer_[vy_] = {'konsol': [], 'spill': {'spill': vy_ == '1280'}, 'tillstand': {}}
                 if meny_[0] is not None and '--meny' in cmd:
-                    vyer_['390']['tillstand']['meny'] = meny_[0]
+                    for vy_m in ('390', '768'):  # inspektionen prövar menyn i varje bredd; kontrollen läser 390 och 768
+                        if vy_m in vyer_:
+                            vyer_[vy_m]['tillstand']['meny'] = meny_[0]
                 (ut_ / 'INSPEKTION.json').write_text(json.dumps({'vyer': vyer_}))
                 return 0, ''
             if cmd[1].endswith('axe.mjs'):
@@ -6695,12 +6814,14 @@ def skisskontrollerna():
         k_ = inspekterat_[0]
         assert k_[k_.index('--vyer') + 1] == '390,768,1280,1440' and k_[k_.index('--meny') + 1] == kd_s.MENYKNAPP, k_
         assert st_['status'] == 'klar' and '/ 1280: sidled-spill' in st_['brister'] and any('menyns knapp öppnar ingenting' in b_ for b_ in st_['brister']), st_['brister']
-        assert 'siffror i texten som inte finns i underlaget: 25' in st_['brister'], 'datumen ur bildernas filnamn (28) och EXIF (7) är belagda, 25 är det inte: %s' % st_['brister']
+        # datumen ur bildernas filnamn (28 juni) och EXIF (7 juli) är belagda som datum; 25 och ett 7 utan datum är det inte
+        assert 'siffror i texten som inte finns i underlaget: 25, 7' in st_['brister'], st_['brister']
         assert not any('Huvudreferens' in b_ for b_ in st_['brister']) and st_['huvudreferens'] == 'egen' and st_['huvudreferens_i_researchen'] is None, st_
         assert st_['upplysningar'] == [] and not (kd_s.kdir(slug_, kid_) / 'bilder' / 'start' / 'vy-390-meny.png').exists()
         meny_[0] = m_a
         st_ = kd_s.fotografera(slug_, kid_, skiss=True)
-        assert not any('meny' in b_ for b_ in st_['brister']) and st_['upplysningar'] == ['390: ingen menyknapp; navigationens alla 3 länkar syns utan meny'], st_
+        assert not any('meny' in b_ for b_ in st_['brister']) and st_['upplysningar'] == ['%s: ingen menyknapp; navigationens alla 3 länkar syns utan meny' % v_m
+                                                                                         for v_m in ('390', '768')], st_
         meny_[0] = None  # inspektionen gav inget menyprov: ingen frånvaro av brister
         assert any('menyn prövades inte' in b_ for b_ in kd_s.fotografera(slug_, kid_, skiss=True)['brister'])
         meny_[0] = m_a

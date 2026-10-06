@@ -150,7 +150,7 @@ visar: besökarens viktigaste uppgift går att lösa från första vyn; rubriker
 
 ```kompetens responsiv
 namn: Responsiv implementation
-uppgift: Bygga komponenterna och layouten så att mobilens omställning är genomtänkt och 390, 768 och 1440 håller ihop, i en implementation som är enkel att underhålla.
+uppgift: Bygga komponenterna och layouten så att mobilens omställning är genomtänkt och 390, 768, 1280 och 1440 håller ihop, i en implementation som är enkel att underhålla.
 pass: skapa, fordjupa
 kärna: impeccable/reference/layout.md; impeccable/reference/adapt.md; better-layout/SKILL.md
 välj: emil-mobile-native/SKILL.md; ui-styling/SKILL.md; better-ui/SKILL.md; hallmark/references/responsive.md; hallmark/references/layout-and-space.md
@@ -242,7 +242,7 @@ verksamheten och besökaren?
 **Till nästa steg:** ett uppdrag per kandidat (UPPDRAG.md): hypotesen, idén, den viktiga uppgift besökaren ska klara,
 innehållet som hjälper besökaren att fatta beslut, hur förslaget prövas (en besökaruppgift som beskriver målet utan att
 avslöja knappen), innehållshierarkin, bildstrategin, typografin, navigationen, hur förtroende byggs, huvudreferensen med
-kvaliteten som återskapas, vad den kräver och om kundens material bär det, antagandena, undersidan, materialbehovet och
+kvaliteten som uppdraget prövar, vad den kräver och om kundens material bär det, antagandena, undersidan, materialbehovet och
 skillnaden mot de andra.
 
 **Visar:** uppdragen är olika sätt att presentera verksamheten och skiljer sig i hur sidan organiserar kundens
@@ -273,7 +273,7 @@ att genomföra?
 
 **Underlag:** UPPDRAG.md, kundens fakta och bilder, briefen, researchen och referensbilderna, domloggen.
 
-**Till nästa steg:** en byggd startsida och undersida (kod/), skärmbilder i 390, 768 och 1440, axe, och RIKTNING.md med
+**Till nästa steg:** en byggd startsida och undersida (kod/), skärmbilder i 390, 768, 1280 och 1440, axe, och RIKTNING.md med
 huvudreferensen, hypotesen, referensens kvalitet, varven, "Visar" och materialet.
 
 **Visar:** grundidén syns i den renderade sidan; kundens material bär kompositionen (eller kompositionen är anpassad
@@ -286,12 +286,15 @@ skriver under "Visar" vilken bild som visar var och en. Arbetsregel i läget ful
 ```utdrag före
 kunskap/designregler.md
 kunskap/bild.md
-kunskap/visuell-niva.md
 frontend-design/SKILL.md
 taste/SKILL.md rad 15–31, 38–39, 166–167, 179, 183, 213–260, 298–331, 599–613
 impeccable/reference/craft-floor.md rad 5–42
 impeccable/reference/new-work.md rad 126–127, 130, 132–134, 140
 impeccable/reference/animate.md rad 13–48, 71–77
+```
+
+```utdrag uppslag
+kunskap/visuell-niva.md
 ```
 
 ```utdrag varv

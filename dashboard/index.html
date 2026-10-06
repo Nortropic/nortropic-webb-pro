@@ -738,6 +738,7 @@ async function kandidatvy(slug, d) {
   // ägarens ordning (uppdraget 2026-10-06, punkt 8): bilderna först, sedan huvudreferensen bredvid förslaget i mobil och
   // dator, sist skaparens korta redovisning; båda hopfällda efter bilderna, för varje förslag
   const refjamfor = (k) => { const j = k.referensjamforelse;
+    if (j && j.egen && !j.referens) return `<details class="kdel" ${oppen('ref-' + k.id)}><summary>Bredvid referensen: egen riktning</summary><p class="under">Förslaget är en egen riktning utan huvudreferens (skaparens val); det finns ingen referens att ställa bredvid.</p></details>`;
     if (!j || !j.referens) return `<details class="kdel" ${oppen('ref-' + k.id)}><summary>Bredvid referensen: jämförelsen saknas</summary><p class="under rod-text">${esc((j && j.saknas) || 'huvudreferensens sida hittades inte')}.</p></details>`;
     const r = j.referens;
     const vy = kHela ? 'hela' : 'forsta';
@@ -759,6 +760,7 @@ async function kandidatvy(slug, d) {
       <ul>${brister.length ? `<li class="rod-text">Snabba kontroller: ${esc(brister.join('; '))}</li>` : '<li>Snabba kontroller: inga brister.</li>'}
         ${pass.length ? `<li>Kompetenspass: ${pass.map(([p_, g]) => `${esc(KPASS[p_] || p_)} ${g === true ? 'genomfört' : g === false ? '<span class="rod-text">ej genomfört</span>' : 'ej verifierat'}`).join(' · ')}</li>` : ''}
         ${fel.length ? `<li class="rod-text">DESIGN.md: ${esc(fel.join('; '))}</li>` : ''}
+        ${(k.upplysningar || []).length ? `<li>Upplysningar, inga brister: ${esc(k.upplysningar.join('; '))}</li>` : ''}
         ${k.axe ? `<li>axe: ${esc(String(k.axe.allvarliga ?? k.axe.fel ?? '–'))} allvarliga fynd${(k.axe.regler || []).length ? ' (' + esc(k.axe.regler.join('; ')) + ')' : ''}</li>` : ''}</ul></details>`; };
   const kort = (k) => `<section class="kort kkort${markerade.has(k.id) ? ' markerad' : ''}" data-k="${esc(k.id)}">
       <div class="rad mellan"><h3>${esc(k.etikett)}</h3><span class="chip ${KCHIP[k.status] || ''}">${esc(k.statustext)}</span></div>
@@ -778,7 +780,7 @@ async function kandidatvy(slug, d) {
   const valbara = Object.keys(KBESLUT).filter((b) => (b === 'putsa' || b === 'godkand') ? forfinade : true);
   const tidigare = (d.domar || []).map((x) => `<p class="under">${tid(x.tid)} · ${esc(x.kalla)} · <b>${esc((KBESLUT[x.beslut] || BESLUT[x.beslut] || x.beslut).split(':')[0])}</b>${(x.kandidater || []).length ? ' · ' + esc(x.kandidater.map((k) => k.etikett || k.id).join(', ')) : ''}: ${esc(String(x.text || '').slice(0, 300))}</p>`).join('');
   $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1>
-    <p class="under">${lage} ${d.godkand ? `<b>Godkänd för helbygge ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : d.kandidatlage === 'skiss' && d.fas !== 'forfining' ? 'Skisser: första vyn och den viktigaste sektionen, i mobil och dator. Förslagen har neutrala namn i slumpad ordning, och ingen modell har bedömt eller rangordnat dem. Körningens redovisning visas efter ditt första beslut, och de du väljer fördjupas till hela startsidan, undersidan och besökarens flöde.' : 'Förslagen har neutrala namn i slumpad ordning. Panelens granskning, planens titlar och körningens redovisning visas efter ditt första beslut.'}</p>
+    <p class="under">${lage} ${d.godkand ? `<b>Godkänd för helbygge ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : d.kandidatlage === 'skiss' && d.fas !== 'forfining' ? 'Skisser: första vyn och den viktigaste sektionen, i mobil och dator. Förslagen har neutrala namn i slumpad ordning. En intern granskare har sett varje skiss och skaparen har fått svara på den; granskarens omdöme och skaparens svar visas efter ditt första beslut, och ingen modell har rangordnat förslagen. Körningens redovisning visas efter ditt första beslut, och de du väljer fördjupas till hela startsidan, undersidan och besökarens flöde.' : 'Förslagen har neutrala namn i slumpad ordning. Panelens granskning, planens titlar och körningens redovisning visas efter ditt första beslut.'}</p>
     ${forsiktig}
     <div class="kverktyg" role="group" aria-label="Bredd">
       ${bredder.map((b) => `<button class="knapp" data-bredd="${b}" aria-pressed="${b === kBredd}">${esc(KBREDDER[b])}</button>`).join('')}
