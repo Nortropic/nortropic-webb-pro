@@ -1191,21 +1191,25 @@ async function flodesvy(slug) {
   let hande = '<p>Ingen kund med underlag eller bygge än.</p>';
   if (val) {
     const f = await api('/api/flode/' + encodeURIComponent(val));
-    hande = `${d.slugar.length > 1 ? `<p class="under">${d.slugar.map((s) => s === val ? `<strong>${esc(s)}</strong>` : `<a href="#/flode/${esc(s)}">${esc(s)}</a>`).join(' · ')}</p>` : ''}
-      ${f.blind ? '<div class="meddelande">Ditt första val i körningen är inte gjort: förslagen visas med neutrala etiketter, status, version och bilder, utan bedömningar.</div>' : ''}
+    // en arm i en blind jämförelse som du inte valt i än: inga steg alls, lika för båda armarna (som vyn Bygge)
+    const stegen = f.ab_dold ? '<div class="meddelande">Bygget är en arm i en blind jämförelse som du inte har valt i än. Flödet visas efter ditt val i Jämförelser, så att jämförelsen förblir blind.</div>'
+      : `${f.blind ? '<div class="meddelande">Ditt första val i körningen är inte gjort: förslagen visas med neutrala etiketter, status, version och bilder, utan bedömningar.</div>' : ''}
       ${f.korning ? `<p class="under">Körningen startad ${tid(f.korning.startad)} · steg ${esc(f.korning.steg || '?')} · läge ${esc(f.korning.lage || '?')} · läst ${tid(f.tid)}</p>` : ''}
       ${f.steg.map((s) => `<div class="kort" style="margin-bottom:10px"><div class="rad" style="justify-content:space-between"><div style="font-weight:560">${s.nr}. ${esc(s.namn)}</div>${flodechip(s.status)}</div>
         ${flodelista('Underlag och versioner', s.underlag)}${flodelista('Vad steget producerade', s.utfall)}${flodelista('Kontroller och bedömningar', s.kontroller)}
         ${flodelista('Beslut', s.beslut)}${flodelista('Fel, begränsningar och det som inte är verifierat', s.brister)}
         ${s.nasta ? `<p class="under" style="margin:10px 0 0">Nästa: ${kodtext(s.nasta)}</p>` : ''}</div>`).join('')}`;
+    hande = `${d.slugar.length > 1 ? `<p class="under">${d.slugar.map((s) => s === val ? `<strong>${esc(s)}</strong>` : `<a href="#/flode/${esc(s)}">${esc(s)}</a>`).join(' · ')}</p>` : ''}
+      ${stegen}`;
   }
   const pilot = (d.pilot || []).map((m) => `<div class="kort" style="margin-bottom:10px"><div class="rad" style="justify-content:space-between"><div style="font-weight:560">${esc(m.moment || m.id)}</div>${flodechip(m.status)}</div>
-      ${m.status_skal ? `<p style="margin:6px 0 0">${esc(m.status_skal)}</p>` : ''}
-      <p class="under" style="margin:4px 0 0">Version ${esc(m.aktuell || '–')} · Figma-fil ${esc(m.figma.fil || '–')}${m.tid ? ' · ' + tid(m.tid) : ''}</p>
+      ${m.status_skal ? `<p style="margin:6px 0 0">Enligt VERSION.json: ${esc(m.status_skal)}</p>` : ''}
+      <p class="under" style="margin:4px 0 0">Aktuell version ${esc(m.aktuell || 'inte observerat')} · Figma-fil ${esc(m.figma.fil || '–')}${m.tid ? ' · ' + tid(m.tid) : ''}</p>
+      ${flodelista('Kontroller', m.kontroller)}
       ${flodelista('Bedömningar (bilderna först, skaparens förklaring sedan)', m.bedomningar)}
-      ${m.bilder.filter((b) => b.lank).length ? `<div class="rad" style="flex-wrap:wrap;gap:8px;margin-top:10px">${m.bilder.filter((b) => b.lank).map((b) => `<a href="${esc(b.lank)}" target="_blank" rel="noopener" title="${esc(b.text)}"><img src="${esc(b.lank)}" alt="${esc(b.text)}" loading="lazy" style="height:96px;max-width:min(260px, 100%);object-fit:cover;border:1px solid var(--linje);border-radius:6px"></a>`).join('')}</div>` : ''}
+      ${m.bilder.filter((b) => b.lank).length ? `<div class="rad" style="flex-wrap:wrap;gap:8px;margin-top:10px;align-items:flex-start">${m.bilder.filter((b) => b.lank).map((b) => `<figure style="margin:0;max-width:min(260px, 100%)"><a href="${esc(b.lank)}" target="_blank" rel="noopener" title="${esc(b.text)}"><img src="${esc(b.lank)}" alt="${esc(b.text)}, version ${esc(b.version)}" loading="lazy" style="display:block;height:96px;max-width:100%;object-fit:cover;border:1px solid var(--linje);border-radius:6px"></a><figcaption>version ${esc(b.version)}</figcaption></figure>`).join('')}</div>` : ''}
       ${flodelista('Fynd', m.fynd)}</div>`).join('');
-  $('#vy').innerHTML = `<div class="flode"><h1>Flödet</h1><p class="under">Två perspektiv: så är flödet tänkt (grundkällan är README.md), och det som faktiskt hände för en kund, ur körningens egna filer. En fil som finns är inte ett kontrollerat steg.</p>
+  $('#vy').innerHTML = `<div class="flode"><h1>Flödet</h1><p class="under">Två perspektiv: så är flödet tänkt (grundkällan är README.md), och det som faktiskt hände för en kund, ur körningens egna filer. En fil som finns är inte ett kontrollerat steg. Stegen gäller den aktuella körningen: det som hör till en tidigare körning är inaktuellt, och det som inte går att knyta till den är inte observerat.</p>
     <h2>Det här hände${val ? ': ' + esc(val) : ''}</h2>${hande}
     <h2 style="margin-top:28px">Så är flödet tänkt</h2>${tankt}
     ${pilot ? `<h2 style="margin-top:28px">Figma-metodprovet</h2><p class="under">Pilotens tre moment: A återskapar en referens, B anpassar till kundens material, C överför till webb. Inget i leveransen är verifierat genom piloten.</p>${pilot}` : ''}</div>`;

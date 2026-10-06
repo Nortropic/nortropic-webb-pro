@@ -1455,6 +1455,15 @@ STATUSAR = ('skapat', 'kontrollerat', 'underkänt', 'väntar på ägaren', 'besl
 KEDJAN = '## Kedjan från kundunderlag till leverans'
 INTE_KUNDER = ('ab', 'kalibrering', 'prospekt', 'startkontroll', 'figma-pilot', 'kirurgen')
 KVITTOSTATUS = {'ok': 'ok', 'begransad': 'begränsad', 'stopp': 'stoppad', 'okand': 'okänd'}
+FLODESTEG = ('Kundunderlaget', 'Prototypen', 'Ditt val', 'Förfiningen', 'Godkännandet', 'Helbygget', 'Din dom över bygget',
+             'Exporten till kundrepo', 'Leveransen')
+PILOTVERSION = re.compile(r'v\d+(?:\.\d+)*')  # pilotens versioner i katalog- och filnamn: granskning-v5, v2.1, BILDDOM-v2.md
+
+
+def _stampel(s):
+    """kor.sh:s körnings-id (date -u +%Y%m%dT%H%M%SZ; korning-<id>.jsonl och STOPPVAKT.json) som tid i domloggens form."""
+    m = re.fullmatch(r'(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)Z', str(s or ''))
+    return '%s-%s-%sT%s:%s:%sZ' % m.groups() if m else ''
 
 
 def kedjan():
@@ -1513,9 +1522,19 @@ def _steg(nr, namn, status, **falt):
 
 
 def flode(slug):
-    """Det som hände för kunden, i README:s nio steg."""
+    """Det som hände för kunden, i README:s nio steg, bundet till den aktuella körningen: dina val efter körningens plan,
+    förfiningen efter ditt senaste val, godkännandet prövat som kor.sh prövar det (skapande.godkand_giltig) och helbygget
+    prövat som korslut prövar det (korslut.ar_godkant), startat efter det godkännandet. Det som hör till en tidigare
+    körning är inaktuellt, aldrig kontrollerat eller beslutat, och det som inte går att knyta till körningen är inte
+    observerat (granskningen av r96, B1, B2 och R1). En arm i en blind jämförelse som du inte valt i än visas inte alls,
+    som i bygge() och fil_tillaten (R3)."""
+    import atelje
     import kandidater
+    import korslut
     import skapande
+    if ab_oavgjord(slug):  # lika för båda armarna: inget om ateljén, provet, stoppvakten eller granskningen före valet
+        return {'slug': slug, 'blind': True, 'ab_dold': True, 'korning': None, 'tid': nu(),
+                'steg': [_steg(i, n, 'inte observerat') for i, n in enumerate(FLODESTEG, 1)]}
     u, k, a = UNDERLAG / slug, KUNDER / slug, UNDERLAG / slug / 'atelje'
     st = las_json(a / 'STATUS.json') or {}
     kfl = kandidatkorning(slug, st)
@@ -1540,7 +1559,6 @@ def flode(slug):
         steg.append(_steg(2, 'Prototypen', 'inte påbörjat', nasta='`.venv/bin/python kontroller/prototyp.py %s`' % slug))
         plan_t, kand = '', []
     else:
-        import atelje
         stegnamn = st.get('steg') or ''
         status = ('stoppat' if stegnamn == 'fel' or atelje.avbruten(st) else
                   'skapat' if stegnamn in ('klar_for_bedomning', 'klar') else 'pågår')
@@ -1580,12 +1598,20 @@ def flode(slug):
                           nasta='Ditt val i vyn Prototyp.' if status == 'skapat' else
                           'Ta vid med `.venv/bin/python kontroller/atelje.py %s --fortsatt`, eller börja om.' % slug if status == 'stoppat' else ''))
 
-    # 3. ägarens val
-    domar = [d for d in skapande.domar(slug, UNDERLAG) if d.get('kalla') in skapande.AGAREN and (not plan_t or str(d.get('tid') or '') > plan_t)]
+    # 3. ditt val i den här körningen: i kandidatflödet domarna efter körningens plan (samma gräns som kandidater.domd,
+    #    som blindningen följer), i det äldre flödet domarna som bär körningens starttid (prototyp_domd). Utan plan eller
+    #    körning finns inget val i körningen, och en tidigare körnings domar räknas aldrig hit (granskningen av r96, B2).
+    egna = [d for d in skapande.domar(slug, UNDERLAG) if d.get('kalla') in skapande.AGAREN]
+    if kfl:
+        domar = [d for d in egna if plan_t and str(d.get('tid') or '') > plan_t]
+    else:
+        domar = [d for d in egna if st.get('startad') and st['startad'] in str(d.get('avser') or '')]
+    aldre = [d for d in egna if d not in domar]
+    tidigare = [{'text': '%d av dina domar hör inte till den här körningen och räknas inte här (den senaste %s)' % (len(aldre), aldre[-1].get('tid') or '?')}] if aldre else []
     namn = {x['id']: x.get('etikett') for x in kand}
     if domar:
         sista = domar[-1]['beslut']
-        steg.append(_steg(3, 'Ditt val', 'beslutat', beslut=[{'tid': d.get('tid'), 'text': '%s%s%s' % (
+        steg.append(_steg(3, 'Ditt val', 'beslutat', underlag=tidigare, beslut=[{'tid': d.get('tid'), 'text': '%s%s%s' % (
             d.get('beslut'), (' · ' + ', '.join('%s (%s)' % (namn.get(c.get('id'), c.get('id')), str(c.get('version') or '')[:12])
                                                 for c in d.get('kandidater') or [] if isinstance(c, dict))) if d.get('kandidater') else '',
             (' · ' + re.sub(r'\s+', ' ', str(d.get('text') or ''))[:160]) if d.get('text') else '')} for d in domar[-5:]],
@@ -1593,99 +1619,227 @@ def flode(slug):
                    'godkand': 'Helbygget: `./kor.sh %s "<verksamhet>"`.' % slug, 'ny_riktning': 'Omtaget: `prototyp.py %s`.' % slug,
                    'forkasta': 'Omtaget: `prototyp.py %s`.' % slug}.get(sista, 'Fortsätt i vyn Prototyp.')))
     else:
-        steg.append(_steg(3, 'Ditt val', 'väntar på ägaren' if steg[-1]['status'] == 'skapat' else 'inte påbörjat'))
+        steg.append(_steg(3, 'Ditt val', 'väntar på ägaren' if steg[-1]['status'] == 'skapat' else 'inte påbörjat', underlag=tidigare))
 
-    # 4. förfiningen
-    forfinade = [(x, kandidater.las_status(slug, x['id'])) for x in kand] if kfl else []
-    forfinade = [(x, s_) for x, s_ in forfinade if s_.get('forfining')]
-    if forfinade:
-        klara = [x for x, s_ in forfinade if (s_.get('forfining') or {}).get('klar')]
-        utfall = [{'text': '%s · från %s till %s' % (x.get('etikett'), str((s_.get('forfining') or {}).get('fran') or '?')[:12], (s_.get('version') or '?')[:12])}
-                  for x, s_ in forfinade]
-        pass_ = [{'text': '%s: %s %s' % (x.get('etikett'), rec.get('pass'), 'genomfört' if rec.get('genomford') else 'inte genomfört')}
-                 for x, s_ in forfinade for k_, rec in sorted((s_.get('kompetens') or {}).items()) if k_.startswith('fordjupa:')]
-        steg.append(_steg(4, 'Förfiningen', 'skapat' if klara else 'pågår', utfall=utfall, kontroller=pass_,
-                          brister=['förfiningens resultatversion sparas inte (bara versionen den utgick från)']))
+    # 4. förfiningen efter ditt senaste val (valj eller putsa) i körningen, ur kandidatens förfiningspost
+    #    (kandidater.forfina_kandidat: forfining_pagar medan den pågår, forfining när den är klar för just det valet). En
+    #    förfining som inte gav någon ny version står kvar på den valda versionen och är underkänd, en som pågår visas
+    #    så, och en som stannade med körningen är stoppad (granskningen av r96, R2).
+    vd = next((d for d in reversed(domar) if d.get('beslut') in ('valj', 'putsa')), None) if kfl else None
+    lagen, ids = [], kandidater.lista(slug) if vd else []
+    for c in (vd or {}).get('kandidater') or []:
+        kid = c.get('id') if isinstance(c, dict) else None
+        if kid not in ids:
+            continue
+        s_ = kandidater.las_status(slug, kid)
+        f_ = s_.get('forfining') or {}
+        if s_.get('forfining_pagar') and s_.get('status') == 'under_arbete':
+            lage = 'pagar'
+        elif f_.get('dom') and f_.get('dom') == vd.get('tid'):
+            lage = 'ny' if s_.get('version') and s_.get('version') != f_.get('fran') else 'ingen'
+        else:
+            lage = 'ej'
+        lagen.append((namn.get(kid) or kid, s_, lage))
+    if lagen:
+        efter = str(st.get('startad') or '') > str(vd.get('tid') or '')  # en körning som startade efter valet är dess förfining
+        dod = efter and (st.get('steg') == 'fel' or atelje.avbruten(st))
+        oklara = any(l_ in ('pagar', 'ej') for _, _, l_ in lagen)
+        status = ('stoppat' if dod and oklara else
+                  'pågår' if any(l_ == 'pagar' for _, _, l_ in lagen) or (efter and oklara and st.get('steg') not in atelje.AVSLUTADE) else
+                  'skapat' if any(l_ == 'ny' for _, _, l_ in lagen) else 'underkänt' if any(l_ == 'ingen' for _, _, l_ in lagen) else 'inte påbörjat')
+
+        def beskriv(s_, l_):
+            if l_ == 'ny':
+                return 'från %s till %s' % (str((s_.get('forfining') or {}).get('fran') or '?')[:12], str(s_.get('version'))[:12])
+            if l_ == 'ingen':
+                return 'ingen ny version; den valda %s står kvar' % str(s_.get('version') or '?')[:12]
+            if l_ == 'pagar':
+                return 'pågår, från %s' % str((s_.get('forfining_pagar') or {}).get('fran') or '?')[:12]
+            return 'inte påbörjad'
+        pass_ = [{'text': '%s: %s %s' % (e, rec.get('pass'), 'genomfört' if rec.get('genomford') else 'inte genomfört')}
+                 for e, s_, l_ in lagen if l_ == 'ny' for k_, rec in sorted((s_.get('kompetens') or {}).items()) if k_.startswith('fordjupa:')]
+        brister = [('%s: %s' % (e, s_.get('skal')))[:300] for e, s_, l_ in lagen if l_ == 'ingen' and s_.get('skal')]
+        if any(l_ == 'ny' for _, _, l_ in lagen):
+            brister.append('förfiningens resultatversion sparas inte (bara versionen den utgick från); "till" är kandidatens version nu')
+        steg.append(_steg(4, 'Förfiningen', status, utfall=[{'text': '%s · %s' % (e, beskriv(s_, l_))} for e, s_, l_ in lagen],
+                          kontroller=pass_, brister=brister))
     else:
         steg.append(_steg(4, 'Förfiningen', 'inte påbörjat'))
 
-    # 5. godkännandet: gäller det rätt version?
+    # 5. godkännandet, prövat som kor.sh prövar det (skapande.godkand_giltig): ägarens senaste dom är just godkännandet,
+    #    ingen körning har startat efter det och de godkända filerna är oförändrade (granskningen av r96, R1)
     v = las_json(a / 'VINNARE.json') or {}
-    g = v.get('godkand')
+    g = v.get('godkand') if isinstance(v.get('godkand'), dict) else None
+    g_ok, g_skal = skapande.godkand_giltig(slug, UNDERLAG, KUNDER) if g else (False, 'inget godkännande')
     if g:
-        dom_g = [d for d in skapande.domar(slug, UNDERLAG) if d.get('beslut') == 'godkand' and d.get('tid') == (g.get('tid') if isinstance(g, dict) else None)]
-        ratt = bool(dom_g) and any(isinstance(c, dict) and c.get('id') == v.get('kandidat') and str(c.get('version') or '')[:12] == str(v.get('version') or '')[:12]
-                                   for c in dom_g[-1].get('kandidater') or [])
-        steg.append(_steg(5, 'Godkännandet', 'kontrollerat' if ratt else 'inaktuellt',
-                          beslut=[{'tid': g.get('tid') if isinstance(g, dict) else None, 'text': 'godkänd: %s, version %s' % (namn.get(v.get('kandidat'), v.get('kandidat')), str(v.get('version') or '')[:12])}],
-                          kontroller=[{'text': 'godkännandet är bundet till domens kandidat och version' if ratt else 'godkännandet matchar inte domens kandidat och version'}],
-                          nasta='Helbygget: `./kor.sh %s "<verksamhet>"`.' % slug))
+        vad = namn.get(v.get('kandidat')) or v.get('kandidat') or 'startsidan'
+        steg.append(_steg(5, 'Godkännandet', 'kontrollerat' if g_ok else 'inaktuellt',
+                          beslut=[{'tid': g.get('tid'), 'text': 'godkänd: %s%s' % (vad, (', version %s' % str(v.get('version'))[:12]) if v.get('version') else '')}],
+                          kontroller=[{'text': ('godkännandet gäller, prövat som kor.sh prövar det (%s)' if g_ok else
+                                                'godkännandet gäller inte, prövat som kor.sh prövar det: %s') % g_skal}],
+                          nasta='Helbygget: `./kor.sh %s "<verksamhet>"`.' % slug if g_ok else ''))
     else:
-        steg.append(_steg(5, 'Godkännandet', 'väntar på ägaren' if forfinade else 'inte påbörjat'))
+        steg.append(_steg(5, 'Godkännandet', 'väntar på ägaren' if steg[3]['status'] == 'skapat' else 'inte påbörjat'))
 
-    # 6. helbygget
+    # 6. helbygget. Bundet till körningen när kor.sh startade det efter ett godkännande som gäller nu: kor.sh bygger bara
+    #    från ett giltigt, och vilket godkännande bygget utgick från sparas inte, så tiden är det som binder dem. Utan
+    #    körning i skapandeflödet står bygget för sig. Kontrollerat bara när korslut skulle godkänna det bygge som ligger
+    #    i dist/ nu (korslut.vald_granskning och ar_godkant, slutkod 0; granskningen av r96, B1). Ett bygge från före
+    #    körningen eller godkännandet är inaktuellt, och ett som inte går att knyta till godkännandet inte observerat (B2).
     prov = las_json(k / 'prov' / 'STATUS.json')
+    dom_b = [d for d in ((las_json(k / 'DOM.json') or {}).get('domar') or []) if isinstance(d, dict)]
+    s6, bygg_t, bygge_id, galler = 'inte påbörjat', '', '', []
     if not prov:
-        steg.append(_steg(6, 'Helbygget', 'inte påbörjat'))
-        byggt = False
+        steg.append(_steg(6, 'Helbygget', s6))
     else:
-        byggt = True
         stopp = las_json(k / 'prov' / 'STOPPVAKT.json') or {}
+        loggar = sorted(k.glob('korning-*.jsonl'))
+        korning_id = loggar[-1].name[len('korning-'):-len('.jsonl')] if loggar else stopp.get('korning')
+        start_b = _stampel(korning_id)
+        bygg_t = start_b or str(prov.get('tid') or '')
+        bygge_id = str(prov.get('dist_sha256') or '')[:12]
+        start_r = str(st.get('startad') or '')
         grindar = prov.get('grindar') or {}
-        sajt_finns = (k / 'sajt' / 'package.json').is_file()
-        status = ('inaktuellt' if not sajt_finns else 'kontrollerat' if prov.get('ok') and stopp.get('slapp') else
-                  'skapat' if prov.get('ok') else 'underkänt')
-        domd_b = (k / 'DOM.json').is_file()
-        gr = granskningen(slug, domd_b)
         kontroller = [{'text': 'provet %s: %d av %d grindar gröna' % (prov.get('tid') or '?', sum(1 for x in grindar.values() if (x.get('ok') if isinstance(x, dict) else x)), len(grindar))}]
+        brister = []
+        if not (k / 'sajt' / 'package.json').is_file():
+            s6 = 'inaktuellt'
+            brister.append('sajten är borttagen (ett omtag); provet gäller en sajt som inte finns')
+        elif st and bygg_t and bygg_t < start_r:
+            s6 = 'inaktuellt'
+            brister.append('bygget (%s) är från före körningen i skapandeflödet (startad %s)' % (bygg_t, start_r))
+        elif st and g_ok and start_b and start_b < g['tid']:
+            s6 = 'inaktuellt'
+            brister.append('kor.sh startade bygget %s, före godkännandet %s' % (start_b, g['tid']))
+        elif st and not (g_ok and start_b):
+            s6 = 'inte observerat'
+            brister.append('bygget kan inte knytas till körningens godkännande: %s' % ('kor.sh:s körning är inte observerad' if g_ok else g_skal))
+        else:
+            try:
+                g_hel, nu_hash, _, gfel = korslut.vald_granskning(k, korning_id)
+                ok6, skal6 = korslut.ar_godkant(k, prov, stopp, None if gfel else g_hel, korning_id)
+                s6 = 'kontrollerat' if ok6 else 'skapat' if prov.get('ok') else 'underkänt'
+                bygge_id = str(nu_hash or '')[:12]
+                if not ok6:
+                    brister.append('korslut godkänner inte bygget: %s' % (gfel or skal6))
+            except Exception as e:  # noqa: BLE001 — ett bygge som inte går att pröva är inte observerat
+                s6 = 'inte observerat'
+                brister.append('bygget kunde inte prövas med korslut: %s' % str(e)[:200])
+            brister.append('korsluts slutkod sparas inte; statusen är korsluts prövning, gjord nu')
+            brister.append(('bygget sparar inte vilket godkännande det utgick från: kor.sh prövade godkännandet när bygget startade (%s), '
+                            'efter godkännandet %s' % (start_b, g['tid'])) if st else
+                           'bygget sparar inte vilket godkännande det utgick från, och ingen körning i skapandeflödet finns att knyta det till')
+        galler = [d for d in dom_b if bygge_id and d.get('bygge_dist') == bygge_id]
+        gr = granskningen(slug, bool(galler))  # granskarens dom visas först efter din dom över just det här bygget
         if stopp:
-            kontroller.append({'text': 'stoppvakten %s' % ('släppte bygget' if stopp.get('slapp') else 'höll kvar bygget')})
+            kontroller.append({'text': 'stoppvakten: %s' % str(stopp.get('skal') or ('släppte bygget' if stopp.get('slapp') else 'höll kvar bygget'))[:240]})
         if gr.get('finns'):
-            kontroller.append({'text': 'granskningen: %d omgångar%s' % (gr.get('rundor') or 0, ', domen visas efter din dom' if gr.get('dold') else ', %s' % ('godkänd' if gr.get('godkand') else 'underkänd'))})
-        brister = ([] if sajt_finns else ['sajten är borttagen (ett omtag); provet gäller en sajt som inte finns'])
-        info_v = (prov.get('info') or {}).get('vinnare')
-        if not info_v:
-            brister.append('provet säger inte vilket godkännande bygget utgick från')
-        brister.append('korsluts slutkod sparas inte')
-        steg.append(_steg(6, 'Helbygget', status, kontroller=kontroller, brister=brister,
-                          underlag=[{'text': 'dist %s' % str(prov.get('dist_sha256') or '?')[:12]}],
+            kontroller.append({'text': 'granskningen: %d omgångar%s' % (gr.get('rundor') or 0, ', domen visas efter din dom över det här bygget' if gr.get('dold') else ', %s' % ('godkänd' if gr.get('godkand') else 'underkänd'))})
+        steg.append(_steg(6, 'Helbygget', s6, kontroller=kontroller, brister=brister,
+                          underlag=[{'text': 'dist %s' % str(prov.get('dist_sha256') or '?')[:12]},
+                                    {'text': 'kor.sh-körningen %s' % korning_id if korning_id else 'kor.sh-körningen är inte observerad'}],
                           utfall=[f for f in (_fil(k / 'prov' / 'PROV.md', 'provets rapport'), _fil(k / 'RAPPORT.md', 'byggets rapport')) if f]))
 
-    # 7. din dom över bygget
-    dom_b = las_json(k / 'DOM.json') or {}
-    if dom_b.get('domar'):
-        steg.append(_steg(7, 'Din dom över bygget', 'beslutat', beslut=[{'tid': d.get('tid'), 'text': str((d.get('svar') or {}).get('namn') or 'dom')[:160]} for d in dom_b['domar'][-3:]]))
+    # 7. din dom över bygget: beslutad bara över just det bygge som ligger i dist/ (domens bygge_dist, spara_dom); en dom
+    #    över ett annat bygge är inaktuell (granskningen av r96, B2)
+    def domrader(ds):
+        return [{'tid': d.get('tid'), 'text': '%s · bygget %s' % (str((d.get('svar') or {}).get('namn') or 'dom')[:160], d.get('bygge_dist') or '?')} for d in ds]
+    if s6 in ('inaktuellt', 'inte observerat'):
+        steg.append(_steg(7, 'Din dom över bygget', s6 if dom_b else 'inte påbörjat', beslut=domrader(dom_b[-3:]),
+                          brister=['domen gäller ett bygge som inte hör till körningen'] if dom_b else []))
+    elif galler:
+        steg.append(_steg(7, 'Din dom över bygget', 'beslutat', beslut=domrader(galler[-3:])))
+    elif s6 != 'inte påbörjat':
+        steg.append(_steg(7, 'Din dom över bygget', 'väntar på ägaren',
+                          brister=['%d domar gäller ett annat bygge (det senaste %s), inte det som ligger i dist/ nu (%s)' % (
+                              len(dom_b), dom_b[-1].get('bygge_dist') or '?', bygge_id or 'inte observerat')] if dom_b else []))
     else:
-        steg.append(_steg(7, 'Din dom över bygget', 'väntar på ägaren' if byggt else 'inte påbörjat'))
+        steg.append(_steg(7, 'Din dom över bygget', 'inte observerat' if dom_b else 'inte påbörjat',
+                          brister=['domen kan inte knytas till ett bygge: provet saknas'] if dom_b else []))
 
-    # 8. exporten
-    kr = k / 'kundrepo'
-    if (kr / 'package.json').is_file():
-        steg.append(_steg(8, 'Exporten till kundrepo', 'skapat', utfall=[{'text': 'kunder/%s/kundrepo' % slug, 'tid': _fil(kr / 'package.json')['tid']}],
-                          brister=['exporten prövar inte godkännandet och sparar inget besked; kopplingen till bygget saknas']))
+    # 8. exporten: inget i exporten binder den till ett bygge, så den är skapad bara när den gjordes efter att det prövade
+    #    bygget startade; en äldre är inaktuell, och en som inte går att knyta till ett bygge inte observerad (B2)
+    pj = k / 'kundrepo' / 'package.json'
+    if pj.is_file() and not pj.is_symlink():
+        t8 = datetime.fromtimestamp(pj.stat().st_mtime, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        s8 = ('skapat' if s6 in ('kontrollerat', 'skapat', 'underkänt') and bygg_t and t8 >= bygg_t else
+              'inaktuellt' if s6 == 'inaktuellt' or (bygg_t and t8 < bygg_t) or (st and t8 < str(st.get('startad') or '')) else 'inte observerat')
+        steg.append(_steg(8, 'Exporten till kundrepo', s8, utfall=[{'text': 'kunder/%s/kundrepo' % slug, 'tid': t8}],
+                          brister=['exporten prövar inte godkännandet och sparar inget besked; kopplingen till bygget saknas']
+                          + {'inaktuellt': ['exporten är äldre än bygget eller körningen'],
+                             'inte observerat': ['exporten kan inte knytas till ett bygge i körningen']}.get(s8, [])))
+    elif pj.exists() or pj.is_symlink():
+        s8 = 'inte observerat'
+        steg.append(_steg(8, 'Exporten till kundrepo', s8, brister=['kunder/%s/kundrepo/package.json är ingen vanlig fil' % slug]))
     else:
-        steg.append(_steg(8, 'Exporten till kundrepo', 'inte påbörjat'))
+        s8 = 'inte påbörjat'
+        steg.append(_steg(8, 'Exporten till kundrepo', s8))
 
-    # 9. leveransen: inget verktyg sparar den, så den visas aldrig som kontrollerad
-    steg.append(_steg(9, 'Leveransen', 'inte påbörjat' if not (kr / 'package.json').is_file() else 'inte observerat',
+    # 9. leveransen: inget verktyg sparar den, så den visas aldrig som kontrollerad; utan en export i körningen är den inte
+    #    påbörjad
+    steg.append(_steg(9, 'Leveransen', 'inte observerat' if s8 in ('skapat', 'inte observerat') else 'inte påbörjat',
                       brister=['inget i repot sparar leveransen; driftkoll.py skriver bara ut']))
-    return {'slug': slug, 'blind': blind, 'korning': {'startad': st.get('startad'), 'steg': st.get('steg'), 'lage': st.get('lage')} if st else None,
+    return {'slug': slug, 'blind': blind, 'ab_dold': False,
+            'korning': {'startad': st.get('startad'), 'steg': st.get('steg'), 'lage': st.get('lage')} if st else None,
             'steg': steg, 'tid': nu()}
 
 
+def _pilotversion(namn, kanda):
+    """Versionen ur ett katalog- eller filnamn i pilotens moment (granskning-v5, v2.1, BILDDOM-v2): ett v-nummer eller ett
+    versions-id som posten själv använder (aktuell, versioner, varv); annars None, inte observerat."""
+    n = namn[len('granskning-'):] if namn.startswith('granskning-') else namn
+    return n if PILOTVERSION.fullmatch(n) or n in kanda else None
+
+
 def figma_pilot():
-    """Figma-metodprovets moment (underlag/figma-pilot/<moment>/VERSION.json): status, versioner, bedömningar och bilder."""
+    """Figma-metodprovets moment (underlag/figma-pilot/<moment>/VERSION.json), bundna till version (granskningen av r96,
+    B3). Statusen "kontrollerat" eller "underkänt" i posten gäller bara när den aktuella versionen själv är bedömd, med en
+    bedömning i bedomningar/ som bär versionen i namnet (BILDDOM-v5.md). Gäller bedömningen en tidigare version är den
+    aktuella bara skapad, och utan någon versionsmärkt bedömning är statusen inte observerad. Varje bild och bedömning
+    bär versionen ur sitt katalog- eller filnamn (granskning-v5/, v2.1/), annars "inte observerat"; bilderna är den
+    aktuella versionens och den senast bedömdas."""
     ut = []
     for f in sorted((UNDERLAG / 'figma-pilot').glob('*/VERSION.json')):
         d = las_json(f) or {}
         m = f.parent
-        bilder = (sorted(m.glob('granskning*/*.png')) or sorted(m.glob('bilder/*.png')) or sorted(m.glob('jamforelse/*.png')))[-8:]
-        ut.append({'id': m.name, 'moment': d.get('moment'), 'status': d.get('status') if d.get('status') in STATUSAR else 'inte observerat',
-                   'status_skal': d.get('status_skal') or '', 'aktuell': d.get('aktuell'), 'tid': d.get('tid'),
+        aktuell = str(d.get('aktuell') or '')
+        kanda = {aktuell} | {str(x) for n in ('versioner', 'varv') if isinstance(d.get(n), dict) for x in d[n]}
+        kanda.discard('')
+        bedomningar = []
+        for p in sorted(m.glob('bedomningar/*.md')):
+            ver = _pilotversion(p.stem.rsplit('-', 1)[1], kanda) if '-' in p.stem else None
+            x = _fil(p, '%s · %s' % (p.name, ('gäller ' + ver) if ver else 'version inte observerad'))
+            if x:
+                bedomningar.append(dict(x, version=ver or 'inte observerat'))
+        bedomda = sorted({x['version'] for x in bedomningar if x['version'] != 'inte observerat'},
+                         key=lambda v_: ([int(t) for t in re.findall(r'\d+', v_)], v_))
+        dekl = d.get('status') if d.get('status') in STATUSAR else 'inte observerat'
+        status = dekl
+        kontroller = [{'text': 'bedömda versioner: %s' % (', '.join(bedomda) if bedomda else 'ingen bedömning i bedomningar/ bär en version i namnet')}]
+        if dekl in ('kontrollerat', 'underkänt') and not (aktuell and aktuell in bedomda):
+            status = 'skapat' if aktuell and bedomda else 'inte observerat'
+            kontroller.append({'text': 'statusen "%s" i VERSION.json gäller %s' % (dekl, (
+                'en tidigare version: bedömningen gäller %s, inte den aktuella %s' % (bedomda[-1], aktuell)) if aktuell and bedomda else
+                'ingen bedömd version som går att knyta till den aktuella')})
+        kat = [(p, _pilotversion(p.name, kanda)) for p in sorted(m.iterdir()) if p.is_dir() and not p.is_symlink()]
+        valda = [p for p, v_ in kat if aktuell and v_ == aktuell]
+        valda = [p for p in valda if not p.name.startswith('granskning-')] or valda  # den aktuella versionens egna bilder först
+        if bedomda and bedomda[-1] != aktuell:  # och granskningsbilderna för den senast bedömda versionen
+            valda += [p for p, v_ in kat if v_ == bedomda[-1] and p.name.startswith('granskning-')] or [p for p, v_ in kat if v_ == bedomda[-1]]
+        if not any(any(p.glob('*.png')) for p in valda):  # ingen katalog bär någon av dem: den senaste bildkatalogen
+            for monster in ('granskning', 'bilder', 'jamforelse'):
+                valda = [p for p, _ in kat if (p.name.startswith(monster) if monster == 'granskning' else p.name == monster) and any(p.glob('*.png'))][-1:]
+                if valda:
+                    break
+        version_av = dict(kat)
+        bilder = [dict(x, version=version_av.get(p) or 'inte observerat') for p in valda
+                  for x in (_fil(b, '%s/%s' % (p.name, b.name)) for b in sorted(p.glob('*.png'))[-8:]) if x]
+        ut.append({'id': m.name, 'moment': d.get('moment'), 'status': status, 'status_i_posten': dekl,
+                   'status_skal': d.get('status_skal') or '', 'aktuell': aktuell or None, 'bedomda': bedomda, 'kontroller': kontroller,
+                   'tid': d.get('tid'),
                    'figma': {'fil': (d.get('figma') or d.get('design') or {}).get('fil') or (d.get('design') or {}).get('figma'),
                              'noder': (d.get('figma') or d.get('design') or {}).get('noder')},
-                   'bedomningar': [x for x in (_fil(p) for p in sorted(m.glob('bedomningar/*.md'))) if x],
-                   'bilder': [x for x in (_fil(p) for p in bilder) if x], 'fynd': d.get('fynd') or []})
+                   'bedomningar': bedomningar, 'bilder': bilder, 'fynd': d.get('fynd') or []})
     return ut
 
 
