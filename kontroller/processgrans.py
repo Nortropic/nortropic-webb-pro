@@ -136,6 +136,35 @@ def profil_lasforbud(root=None, hem=None):
                      + lasforbud(fs, verkliga)) + '\n'
 
 
+SKYDDADE_HEMFILER = ('.zprofile', '.zshrc', '.zshenv', '.zlogin', '.bash_profile', '.bashrc', '.profile', '.gitconfig', '.npmrc',
+                     '.claude.json')
+SKYDDADE_HEMKATALOGER = ('.ssh', '.claude', '.local/bin', '.nortropic-hemligheter', 'Library/LaunchAgents', '.config/gh')
+
+
+def profil_underhallsprov(root, wt, hem=None):
+    """Profilen för underhållets prov med en kandidat i en worktree (rökprovet, regressionsfallen, testsajtens npm ci):
+    hemligheterna olästa, och ingen skrivning i huvudutcheckningen (dess .venv och node_modules, som worktreen länkar
+    till; bara worktreens egen git-katalog), i Homebrew, i skalprofilerna eller i Claude Codes filer. Nät och skrivning
+    i worktreen, tempkatalogerna och cacherna går (den oberoende granskningen av r72, L4)."""
+    hem = Path(hem or Path.home())
+    verkliga = lambda vagar: list(dict.fromkeys(x for p in vagar for x in (str(p), os.path.realpath(p))))  # noqa: E731
+    rader = ['(version 1)', '(allow default)', '; underhållets prov med en kandidat (kontroller/processgrans.py)']
+    import sandlada
+    fs = sandlada.installningar('x', root=root, hem=str(hem))['sandbox']['filesystem']
+    rader += lasforbud(fs, verkliga)
+    # .venv och node_modules också genom sina länkar (en worktree som root länkar dem till huvudutcheckningen)
+    neka = [Path(root), Path(root) / '.venv', Path(root) / 'kontroller' / 'node_modules', '/opt/homebrew', '/usr/local']
+    neka += [hem / d for d in SKYDDADE_HEMKATALOGER]
+    rader += ['(deny file-write* (subpath %s))' % sbpl(x) for x in verkliga(neka)]
+    rader += ['(deny file-write* (literal %s))' % sbpl(x) for x in verkliga([hem / f for f in SKYDDADE_HEMFILER])]
+    try:  # worktreens egen git-katalog (index, HEAD), som .git-filen i worktreen pekar på
+        gitkat = Path((Path(wt) / '.git').read_text(encoding='utf-8').split('gitdir:', 1)[1].strip())
+    except (OSError, IndexError):
+        gitkat = Path(root) / '.git' / 'worktrees' / Path(wt).name
+    rader += ['(allow file-write* (subpath %s))' % sbpl(x) for x in verkliga([gitkat, wt])]
+    return '\n'.join(rader) + '\n'
+
+
 def kor_i_katalog(katalog, kmd, timeout=900):
     """(slutkod, utdata) för kmd i katalogen innanför gränsen, med en minimal miljö: inga nycklar, inga NWP_- eller
     Claude-variabler, ingen proxy."""

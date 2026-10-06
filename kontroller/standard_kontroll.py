@@ -714,7 +714,7 @@ def granska(dist, kontakt=None):
             I('7.3', sida, 'synliga brödsmulor utan BreadcrumbList i JSON-LD (mallens Brodsmulor.astro har båda)')
         if smulor and any(t_ == 'nav' and i_main and re.search(r'du är här|brödsmul|breadcrumb', a.get('aria-label', ''), re.I)
                           for t_, a, _h, i_main in p.el):
-            I('7.3', sida, 'brödsmulorna står inne i <main>; lägg dem mellan sidhuvudet och <main> (GOV.UK), så hamnar varken länkarna eller JSON-LD i huvudinnehållet (ägarens dom L4)')
+            I('7.3', sida, 'brödsmulorna står inne i <main>; lägg dem mellan sidhuvudet och <main> (GOV.UK), så hamnar varken länkarna eller JSON-LD i huvudinnehållet')
     # 9.4 den kastbara sidan för tvåan-riktningen (bygg-sajt steg 5) tas bort efter skärmbilderna
     if (dist / 'tvaan').exists():
         F('9.4', '/tvaan/', 'den kastbara sidan med tvåan-riktningen finns kvar; ta bort kunder/<slug>/sajt/src/pages/tvaan med kontroller/ta_bort.py')
@@ -744,10 +744,10 @@ def granska(dist, kontakt=None):
         if tel and (tel.get('type') != 'tel' or tel.get('autocomplete') != 'tel'):
             F('6.2', sida, 'telefonfältet ska ha type="tel" och autocomplete="tel"')
         if tel and not tel.get('pattern'):
-            F('6.2', sida, 'telefonfältet saknar pattern; "abc" går igenom (ägarens dom L4, mallens Forfragan.astro)')
+            F('6.2', sida, 'telefonfältet saknar pattern; "abc" går igenom (mallens Forfragan.astro)')
         utan_fel = [n for n in ('namn', 'telefon', 'meddelande') if n in falt and not (falt[n].get('aria-describedby') or '').strip()]
         if utan_fel:
-            F('6.2', sida, 'felbeskedet som text vid fältet (aria-describedby) saknas för %s; bara webbläsarens bubbla räcker inte (ägarens dom L4)' % ', '.join(utan_fel))
+            F('6.2', sida, 'felbeskedet som text vid fältet (aria-describedby) saknas för %s; bara webbläsarens bubbla räcker inte (WCAG 2.2, 3.3.1)' % ', '.join(utan_fel))
         if (falt.get('namn') or {}) and (falt.get('namn') or {}).get('autocomplete') != 'name':
             F('6.2', sida, 'namnfältet ska ha autocomplete="name"')
         if (falt.get('webbplats') or {}).get('tabindex') != '-1':
@@ -904,9 +904,10 @@ def _ihop(s):
 
 def adress(dist, verksamhet):
     """7.4: gatuadressen som verksamheten själv visar (adress.publik) står på kontaktsidan och som streetAddress i JSON-LD;
-    var den står i övrigt (sidfoten på varje sida är ett vanligt val) är riktningens, och en sida utan den redovisas som
-    information (niva: info), inte fel (rensningen inför Nortropic 2.0: en kunds smakdom blir ingen regel). Är den inte
-    publik står den ingenstans: en obekräftad uppgift publiceras inte."""
+    utan en kontaktsida står den synligt på minst en sida (granskningen av r72, L11). Var den står i övrigt (sidfoten på
+    varje sida är ett vanligt val) är riktningens, och en sida utan den redovisas som information (niva: info), inte fel
+    (rensningen inför Nortropic 2.0: en kunds smakdom blir ingen regel). Är den inte publik står den ingenstans: en
+    obekräftad uppgift publiceras inte."""
     try:
         adr = json.loads(Path(verksamhet).read_text(encoding='utf-8')).get('adress') or {}
     except (OSError, ValueError):
@@ -922,6 +923,7 @@ def adress(dist, verksamhet):
                             'text': 'gatuadressen "%s" står på sidan fast adress.publik är falsk (obekräftad eller bara i register)' % adr['gata']})
         return fel
     gata, fel, ld = _ihop(adr['gata']), [], False
+    kontaktsida, synlig = False, False
     for f in sorted(Path(dist).rglob('*.html')):
         sida = sida_av(dist, f)
         raw = f.read_text(encoding='utf-8', errors='replace')
@@ -931,12 +933,19 @@ def adress(dist, verksamhet):
         if not fot or gata not in _ihop(fot.group(0)):
             fel.append({'punkt': '7.4', 'sida': sida, 'niva': 'info',
                         'text': 'gatuadressen "%s" står inte i sidfoten (riktningens val; kontaktsidan och JSON-LD prövas)' % adr['gata']})
-        if 'kontakt' in sida and gata not in _ihop(re.sub(r'<(script|style)\b.*?</\1>', ' ', raw, flags=re.S)):
-            fel.append({'punkt': '7.4', 'sida': sida, 'text': 'gatuadressen "%s" saknas på kontaktsidan' % adr['gata']})
+        syns = gata in _ihop(re.sub(r'<(script|style)\b.*?</\1>', ' ', raw, flags=re.S))
+        synlig = synlig or syns
+        if 'kontakt' in sida:
+            kontaktsida = True
+            if not syns:
+                fel.append({'punkt': '7.4', 'sida': sida, 'text': 'gatuadressen "%s" saknas på kontaktsidan' % adr['gata']})
         for m in re.finditer(r'"streetAddress"\s*:\s*"([^"]*)"', raw):
             ld = ld or _ihop(m.group(1)) == gata
     if not ld:
         fel.append({'punkt': '7.4', 'sida': '(alla)', 'text': 'JSON-LD saknar streetAddress "%s" (adress.publik är sann)' % adr['gata']})
+    if not kontaktsida and not synlig:
+        fel.append({'punkt': '7.4', 'sida': '(alla)', 'text': 'gatuadressen "%s" syns inte på någon sida, och sajten har ingen kontaktsida '
+                    '(adress.publik är sann)' % adr['gata']})
     return fel
 
 

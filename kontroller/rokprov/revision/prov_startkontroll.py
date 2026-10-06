@@ -60,7 +60,7 @@ MCP_OK = 'refero: https://api.refero.design/mcp (HTTP) - ✔ Connected\nmobbin: 
 (FAKE / 'bin' / 'claude').write_text('#!/bin/bash\nD=%s\necho "$*" >> "$D/claude-anrop"\ncase "$1" in --version) cat "$D/version";; --help) cat "$D/help";; '
                                      'mcp) echo x >> "$D/mcp-anrop"; cat "$D/mcp";; *) echo "{}";; esac\n' % FAKE)
 (FAKE / 'bin' / 'vercel').write_text('#!/bin/bash\necho "Vercel CLI 60.0.1"\n')
-(FAKE / 'bin' / 'npm').write_text('#!/bin/bash\ncase "$1" in root) echo %s/npm-global;; --version) echo 10.9.8;; *) exit 1;; esac\n' % FAKE)
+(FAKE / 'bin' / 'npm').write_text('#!/bin/bash\ncase "$1" in root) echo %s/npm-global;; --version) echo 10.9.8;; ci) mkdir -p node_modules;; *) exit 1;; esac\n' % FAKE)
 for b in ('claude', 'vercel', 'npm'):
     (FAKE / 'bin' / b).chmod(0o755)
 os.environ['PATH'] = '%s:%s' % (FAKE / 'bin', os.environ['PATH'])
@@ -127,6 +127,8 @@ vl.motor_releaser = lambda: '0.1.11'
 vl.softwareupdate_lista = lambda: []
 vl.brew_senaste_release = lambda: '6.0.22'
 vl.brew_aktiv = lambda f: AKTIV.get(f)
+BREW_API = {}  # formel → {'senaste', 'tid'} när API:t skiljer sig från det lokala indexet (karenstiden, ett gammalt index)
+vl.brew_api = lambda f: BREW_API.get(f) or {'senaste': BREW[f], 'tid': GAMMAL}
 vl.node_formel = lambda: ('node@22', '22.23.2')
 vl.pip_frys = lambda py: dict(vl.las_krav(KOPIA / 'requirements-lock.txt'))
 
@@ -271,14 +273,16 @@ def aldra(nyckel):
 kv = sk.kor_kontroll(SLUG, 'ny')
 assert kv['status'] != 'stoppad', 'inom fem minuter gäller den bekräftade listan'
 aldra('mcp:lista')
+fore_kvitto = (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.json').read_text()
 kv = sk.kor_kontroll(SLUG, 'ny')
 assert kv['status'] == 'stoppad' and any(s.startswith('mobbin') for s in kv['stoppar']), (kv['status'], kv['stoppar'])
-assert 'STOPPAD' in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text()
+assert 'STOPPAD' in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO-STOPP.md').read_text() and kv['kvitto'].endswith('STARTKVITTO-STOPP.md')
+assert (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.json').read_text() == fore_kvitto, 'körningens kvitto (låset en återupptagning ärver) står kvar'
 kvb = sk.kor_kontroll(SLUG, 'bygge')
 mob = next(r for r in kvb['rader'] if r['namn'] == 'mobbin')
 assert kvb['status'] == 'begransad' and mob['resultat'] == 'fel' and not mob.get('nodvandig'), (kvb['status'], kvb['stoppar'], mob)
 assert not next(r for r in kvb['rader'] if r['namn'] == 'kundvaktens mekanik').get('nodvandig')
-atelje_kv = json.loads((KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.json').read_text())
+atelje_kv = json.loads((KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO-STOPP.json').read_text())
 assert atelje_kv['start'] == 'ny' and atelje_kv['status'] == 'stoppad', 'helbygget skriver inte över ateljéns kvitto'
 assert json.loads((KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO-BYGGE.json').read_text())['start'] == 'bygge'
 (FAKE / 'mcp').write_text(MCP_OK)
@@ -308,12 +312,28 @@ kv = sk.kor_kontroll(SLUG, 'ny')
 metodrad = next(r for r in kv['rader'] if r['namn'] == 'metodkartan och låset')
 assert metodrad['resultat'] == 'fel' and 'refero-design/SKILL.md' in metodrad['detalj'] and kv['status'] == 'stoppad', metodrad
 skillfil.write_text(fore_skill)
-print('fall 2: ändrad skill utlöser metodkontrollen ok')
+# en gammal regel som når agenterna (här i en kunskapsfil) stoppar starten, med var den står
+fil_s = KOPIA / 'kunskap' / 'designregler.md'
+fore_s = fil_s.read_text()
+fil_s.write_text(fore_s + '\nTelefonnumret som tel-länk i sidhuvudet på varje sida.\n')
+kv = sk.kor_kontroll(SLUG, 'ny')
+fil_s.write_text(fore_s)
+styr = next(r_ for r_ in kv['rader'] if r_['namn'].startswith('gammal styrning'))
+assert kv['status'] == 'stoppad' and styr['resultat'] == 'fel' and styr.get('nodvandig') and 'designregler.md' in styr['detalj'], styr
+print('fall 2: ändrad skill utlöser metodkontrollen, och gammal styrning stoppar starten ok')
 
 # fall 7: alla startvägar går genom kontrollen
 import atelje  # noqa: E402
 gamla = sk.for_start
-sk.for_start = lambda slug, lage: {'status': 'stoppad', 'stoppar': ['mobbin: Failed to connect'], 'rader': [], 'tid': vl.nu(), 'start': lage}
+REG_UNDER = []  # körregistret som startkontrollen ser det: arbetaren ska vara anmäld medan den går
+
+
+def falsk_start(slug, lage):
+    REG_UNDER.append([(d['vad'], d.get('slug'), d['pid']) for d in korregister.poster()])
+    return {'status': 'stoppad', 'stoppar': ['mobbin: Failed to connect'], 'rader': [], 'tid': vl.nu(), 'start': lage}
+
+
+sk.for_start = falsk_start
 rot = KOPIA / 'underlag' / SLUG / 'atelje'
 (rot / 'gammal-riktning').mkdir(parents=True, exist_ok=True)
 anrop_aterkalla = []
@@ -327,6 +347,7 @@ assert not anrop_aterkalla and (rot / 'gammal-riktning').is_dir() and not list(r
 rc = atelje.arbetare(SLUG, 'ny')
 st = json.loads((rot / 'STATUS.json').read_text())
 assert rc == 1 and st['steg'] == 'klar' and st['faser'] == {'valj': {'klar': GAMMAL}} and 'mobbin' in st['startkontroll_stopp']['fel'] and 'pid' not in st, st
+assert REG_UNDER and all(x == [('arbetare', SLUG, os.getpid())] for x in REG_UNDER), REG_UNDER
 assert not korregister.poster(), 'arbetaren tar bort sin post i körregistret när den slutar'
 (rot / 'STATUS.json').unlink()
 sk.for_start = gamla
@@ -343,10 +364,22 @@ skillfil.write_text(fore_skill + '\nEn lokal ändring.\n')
 fore_atelje = (rot / 'STARTKVITTO.json').read_text()
 (FAKE / 'claude-anrop').write_text('')
 env = dict(os.environ, NWP_STARTKONTROLL='torr', NWP_ATELJE='av')
-r = subprocess.run(['bash', KOPIA / 'kor.sh', SLUG, 'Provverksamhet, Umeå'], cwd=str(KOPIA), capture_output=True, text=True, env=env, timeout=600)
+sedd, vantade = None, False
+with vl.las(korregister.BYTESLAS):  # ett pågående intag: kor.sh:s startkontroll väntar och säger till
+    proc = subprocess.Popen(['bash', str(KOPIA / 'kor.sh'), SLUG, 'Provverksamhet, Umeå'], cwd=str(KOPIA), stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True, env=env)
+    for _ in range(600):
+        sedd = sedd or next((d for d in korregister.poster() if d['vad'] == 'bygge'), None)
+        vantade = vantade or korregister.start_vantar()
+        if (sedd and vantade) or proc.poll() is not None:
+            break
+        time.sleep(0.2)
+ut_, fel_ = proc.communicate(timeout=600)
+r = subprocess.CompletedProcess(proc.args, proc.returncode, ut_, fel_)
 skillfil.write_text(fore_skill)
-assert r.returncode == 2 and 'startkontrollen stoppade bygget' in r.stdout and 'STARTKVITTO-BYGGE.md' in r.stdout, (r.returncode, r.stdout[-600:], r.stderr[-600:])
-assert 'STOPPAD' in (rot / 'STARTKVITTO-BYGGE.md').read_text() and (rot / 'STARTKVITTO.json').read_text() == fore_atelje
+assert sedd and sedd['slug'] == SLUG and sedd['pid'] == proc.pid and vantade, ('kor.sh anmäler sig och väntar på intaget', sedd, vantade, ut_[-300:])
+assert r.returncode == 2 and 'startkontrollen stoppade bygget' in r.stdout and 'STARTKVITTO-BYGGE-STOPP.md' in r.stdout, (r.returncode, r.stdout[-600:], r.stderr[-600:])
+assert 'STOPPAD' in (rot / 'STARTKVITTO-BYGGE-STOPP.md').read_text() and (rot / 'STARTKVITTO.json').read_text() == fore_atelje
 assert not [x for x in (FAKE / 'claude-anrop').read_text().splitlines() if x.startswith('-p') or ' -p ' in ' %s ' % x], 'ingen modell före startkontrollen'
 assert not (KOPIA / 'kunder' / '.bygge-pid').exists() and not korregister.poster(), 'kor.sh städar låset och körregistret'
 print('fall 7: arbetaren, kor.sh (på riktigt) och prototyp.py går genom startkontrollen ok')
@@ -611,7 +644,8 @@ demo_kv = next(r for r in kv['rader'] if r.get('id') == 'skill:demo')
 assert demo_kv['resultat'] == 'avvisad' and 'krockar' in demo_kv['detalj'], demo_kv
 print('fall 3 och intag: skillen uppdaterad trevägs och incheckad; en krock avvisas med felet och syns i kvittot ok')
 
-# karenstiden: källans commit är för färsk; skillen behålls (inte avvisad) och prövas när karenstiden gått ut (fynd 4)
+# karenstiden: källans senaste commit är för färsk, och den senaste mogna (krocken) är redan avvisad; skillen behålls,
+# och den färska commiten avvisas inte (fynd 4, och granskningen av r72, M5)
 (upp / 'skills' / 'demo' / 'ref.md').write_text('Referens, nyast.\n')
 sh(*GIT, 'commit', '-q', '-am', 'färsk', cwd=upp)
 head3 = sh('git', 'rev-parse', 'HEAD', cwd=upp).strip()
@@ -620,7 +654,7 @@ k = vl.Kontext(nat=True, prova=False, max_alder=0)
 demo_rad = next(r for r in vl.inventera(k, ('skills',)) if r['id'] == 'skill:demo')
 rap = {'rader': [], 'commits': []}
 uh.hantera(k, demo_rad, rap)
-assert rap['rader'][0]['resultat'] == 'behallen' and 'karenstiden' in rap['rader'][0]['detalj'] and not k.avvisade.for_version('skill:demo', head3), rap['rader']
+assert rap['rader'][0]['resultat'] == 'behallen' and 'mogna' in rap['rader'][0]['detalj'] and not k.avvisade.for_version('skill:demo', head3), rap['rader']
 
 # npm: den senaste inom huvudversionen är en egen kandidat, och en version i karenstiden räknas inte (fynd 4 och 10)
 TIDER['vercel'] = {'60.2.0': GAMMAL, '62.4.0': GAMMAL, '62.5.0': vl.nu()}
@@ -728,6 +762,235 @@ finally:
 print('karenstid, kandidat inom huvudversionen, gammalt uppslag, tillfälliga fel, känsliga skilländringar, metodens utdrag, '
       'incheckning som faller, intagslåset och provens förutsättningar ok')
 
+# ===== granskningen av r72: ett fall per fynd, som går rött om felet kommer tillbaka =====
+# H1: ett nytt mätinstrument prövas med sin egen version i worktreen, inte HEAD:s
+spara_h1 = (uh.npm, uh.audit, uh.installera_instrument, uh.rokprov_i_worktree)
+try:
+    sett_h1 = {}
+    uh.npm = lambda args, cwd, timeout=900, env=None: (0, '')
+    uh.audit = lambda cwd: None
+
+    def f_installera(kontr):
+        sett_h1['pin'] = json.loads((Path(kontr) / 'package.json').read_text())['dependencies'].get('axe-core')
+        (Path(kontr) / 'node_modules' / 'axe-core').mkdir(parents=True, exist_ok=True)
+        (Path(kontr) / 'node_modules' / 'axe-core' / 'package.json').write_text(json.dumps({'version': sett_h1['pin']}))
+        return None
+    uh.installera_instrument = f_installera
+    wt_h1 = TMP / 'h1-wt'
+    (wt_h1 / 'kontroller').mkdir(parents=True)
+    for f_ in ('package.json', 'package-lock.json'):
+        shutil.copy2(KOPIA / 'kontroller' / f_, wt_h1 / 'kontroller' / f_)
+    uh.rokprov_i_worktree = lambda k, etikett, forbered, path_forst=None, timeout=0, avbryt=None: ((lambda f_: (f_ is None, f_ or 'grönt'))(forbered(wt_h1)))
+    fel_h1, staged_h1 = uh.prova_instrument(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-h1'), {'id': 'instrument:axe-core', 'namn': 'axe-core'},
+                                            {'version': '9.9.9'})
+    assert fel_h1 is None and sett_h1['pin'] == '9.9.9', ('worktreen installerade kandidaten', fel_h1, sett_h1)
+finally:
+    uh.npm, uh.audit, uh.installera_instrument, uh.rokprov_i_worktree = spara_h1
+
+# H2: körregistrets identitet är processens starttid under LC_ALL=C: en körning med å, ä och ö i argumenten, anmäld
+# under en locale, syns under en annan; en död körning tas bort; en körning i en annan utcheckning syns i pagaende()
+proc_h2 = subprocess.Popen(['/bin/bash', '-c', 'sleep 60', 'kor.sh', 'Frisör Exempel, Umeå'])
+try:
+    bas_env = {k_: v_ for k_, v_ in os.environ.items() if not k_.startswith('LC_') and k_ != 'LANG'}
+    sh(sys.executable, '-B', KOPIA / 'kontroller' / 'korregister.py', 'in', 'bygge', '--slug', 'frisor-umea', '--pid', str(proc_h2.pid),
+       env=dict(bas_env, LC_ALL='C'))
+    for env_h2 in (dict(bas_env, LANG='sv_SE.UTF-8'), dict(bas_env, LC_ALL='en_US.UTF-8'), dict(bas_env, LC_ALL='C')):
+        ut_h2 = sh(sys.executable, '-B', KOPIA / 'kontroller' / 'korregister.py', 'lista', env=env_h2)
+        assert 'frisor-umea' in ut_h2, ('posten står kvar oavsett locale', env_h2.get('LANG'), env_h2.get('LC_ALL'), ut_h2)
+    post_h2 = json.loads((korregister.KATALOG / ('%d.json' % proc_h2.pid)).read_text())
+    assert post_h2['pstart'] and post_h2['utcheckning'] == str(KOPIA)
+    post_h2['utcheckning'] = '/en/annan/utcheckning'
+    (korregister.KATALOG / ('%d.json' % proc_h2.pid)).write_text(json.dumps(post_h2))
+    assert any('frisor-umea' in x and '/en/annan/utcheckning' in x for x in vl.pagaende()), vl.pagaende()
+finally:
+    proc_h2.kill()
+    proc_h2.wait()
+assert not korregister.poster(), 'en död körning tas bort ur registret'
+
+# M1: ett misslyckat Mobbin-prov görs om vid ateljéns nästa start; helbygget gör det aldrig
+import referenstjanster as rt_m1  # noqa: E402
+spara_m1 = rt_m1.samla
+MOBB_M1 = []
+rt_m1.samla = lambda slug, uppdrag, underlag=None, **kw: (MOBB_M1.append(slug) or (None, {'tjanster': {'mobbin': {'ok': True, 'bilder': 2}}}))
+try:
+    c_ = vl.Cache(vl.lagekatalog() / 'CACHE.json')
+    c_.d['prov:mobbin'].update(resultat='fel', detalj='nere i går')
+    vl.skriv_json(c_.fil, c_.d)
+    kvb_m1 = sk.kor_kontroll(SLUG, 'bygge')
+    assert not MOBB_M1, 'helbygget gör inget Mobbin-prov'
+    kv_m1 = sk.kor_kontroll(SLUG, 'ny')
+    assert MOBB_M1 == ['startprov'] and next(r_ for r_ in kv_m1['rader'] if r_['namn'] == 'Mobbin (sökning och bilder)')['resultat'] == 'ok', MOBB_M1
+finally:
+    rt_m1.samla = spara_m1
+
+# M2: Node-huvudversionens installation väntar på pågående körningar; dess godkännande beror inte på node@22:s patch
+proc_m2 = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)', 'atelje.py', 'm2-kund', '--arbetare'])
+try:
+    korregister.registrera('arbetare', 'm2-kund', pid=proc_m2.pid)
+    BREWANROP.clear()
+    fel_m2, _s = uh.prova_node_huvud(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-m2'), {'id': 'brew:node'},
+                                     {'version': '24.23.0_1', 'formel': 'node@24', 'huvudversion': True})
+    assert fel_m2.startswith(uh.HALL) and 'körning pågår' in fel_m2 and not any(a[0] == 'install' for a in BREWANROP), (fel_m2, BREWANROP)
+finally:
+    proc_m2.kill()
+    proc_m2.wait()
+    korregister.avregistrera(proc_m2.pid)
+major_m2 = {'huvudversion': True, 'formel': 'node@24'}
+assert uh.utgangslage(dict(nod, installerat='22.23.2'), major_m2) == uh.utgangslage(dict(nod, installerat='22.23.4'), major_m2)
+
+# M3: omlåsningen låser aldrig om över en olåst ändring, och en skills godkännande gäller kartan det prövades mot
+skillfil_m3 = KOPIA / '.claude' / 'skills' / 'refero-design' / 'SKILL.md'
+fore_m3 = skillfil_m3.read_text()
+skillfil_m3.write_text(fore_m3 + '\nEn incheckad men olåst ändring.\n')
+sh(*GIT, 'commit', '-q', '-am', 'olåst ändring')
+try:
+    res_m3, detalj_m3, _c = uh.ta_in_skill(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-m3'), demo_rad, demo_rad['kandidater'][0],
+                                           {'mapp': str(demo), 'head': 'x' * 40, 'filer': 1, 'krockar': [], 'prov': 'prov'})
+    assert res_m3 == 'behallen' and 'metodlåset stämmer inte' in detalj_m3, (res_m3, detalj_m3)
+finally:
+    skillfil_m3.write_text(fore_m3)
+    sh(*GIT, 'commit', '-q', '-am', 'tillbaka')
+a_m3 = uh.utgangslage(demo_rad)
+karta_m3 = KOPIA / 'kunskap' / 'metodkarta.md'
+fore_karta = karta_m3.read_text()
+karta_m3.write_text(fore_karta + '\n')
+assert uh.utgangslage(demo_rad) != a_m3, 'en ändrad metodkarta gör om skillens prov'
+karta_m3.write_text(fore_karta)
+
+# M4: tillfälliga fel som de ser ut på macOS, i pip och i Claudes gränser; en verklig sårbarhet är aldrig tillfällig
+for f_m4 in ('hämtningen föll: <urlopen error [Errno 8] nodename nor servname provided, or not known>',
+             'hämtningen föll: <urlopen error [Errno 61] Connection refused>', 'hämtningen föll: <urlopen error [Errno 65] No route to host>',
+             "install föll: WARNING: Retrying after connection broken by 'NewConnectionError(...: Failed to establish a new connection')",
+             'modellprovet (strukturerat svar, x): inget svar inom 240 s', 'modellprovet: svarade inte som väntat (kod 1): Claude AI usage limit reached|1791234567',
+             'modellprovet: svarade inte som väntat (kod 1): 5-hour limit reached ∙ resets 3am'):
+    assert uh.nat(f_m4).startswith(uh.TILL), f_m4
+assert not uh.nat('den globala installationen föll (ETIMEDOUT); ÅTERSTÄLLNINGEN FÖLL: x').startswith(uh.TILL), 'en trasig miljö är aldrig tillfällig'
+spara_kor_m4 = vl.kor
+try:
+    vl.kor = lambda args, **kw: (1, json.dumps({'vulnerabilities': {'foo': {'severity': 'high', 'via': ['ReDoS via timeout']}}}))
+    assert uh.audit(TMP) == 'npm audit (high eller kritisk): foo (high)', uh.audit(TMP)
+    vl.kor = lambda args, **kw: (1, json.dumps({'error': {'code': 'ENOTFOUND', 'summary': 'request to https://registry.npmjs.org failed'}}))
+    assert uh.audit(TMP).startswith(uh.TILL), uh.audit(TMP)
+finally:
+    vl.kor = spara_kor_m4
+
+# M7: en återställning som faller gör miljön trasig: raden blir FEL, inget godkännande sparas och nästa kandidat prövas inte
+k_m7 = vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-m7')
+uh.PROVA['npm-global'] = lambda k, r, kand: (None, {'prov': 'falskt prov'})
+uh.TA_IN['npm-global'] = lambda k, r, kand, staged: ('avvisad', 'den globala installationen föll (ETIMEDOUT); ÅTERSTÄLLNINGEN FÖLL: npm ERR', None)
+rap = {'rader': [], 'commits': []}
+uh.hantera(k_m7, dict(v2, kandidater=[{'version': '62.4.0', 'huvudversion': True}, {'version': '60.2.0', 'huvudversion': False}]), rap)
+assert [x['resultat'] for x in rap['rader']] == ['fel'] and rap.get('trasigt') and not k_m7.godkanda.for_version('npm-global:vercel', '62.4.0'), rap
+assert 'Miljön kan vara trasig' in uh.markdown(dict(rap, start='t')), uh.markdown(dict(rap, start='t'))
+
+# L12: en incheckning som faller tre gånger i rad avvisar versionen i stället för att återställa varje dygn
+uh.TA_IN['npm-global'] = lambda k, r, kand, staged: ('behallen', 'incheckningen föll (git commit föll: krok); filerna och miljön återställda', None)
+for varv_l12 in (1, 2, 3):
+    rap = {'rader': [], 'commits': []}
+    uh.hantera(k_m7, dict(v2, kandidater=[{'version': '60.3.0', 'huvudversion': False}]), rap)
+assert rap['rader'][0]['resultat'] == 'avvisad' and '3 gånger' in rap['rader'][0]['detalj'], rap['rader']
+
+# L8: kvittot säger skälet till att en godkänd version behålls
+k_l8 = vl.Kontext(nat=False, prova=False)
+k_l8.godkanda.satt('brew:node', '24.23.0_1', avtryck='x', staged={'prov': 'p'}, skal='PATH pinnar node@22 (prov)')
+kv_l8 = sk.kor_kontroll(SLUG, 'ny')
+nod_l8 = next(r_ for r_ in kv_l8['rader'] if r_.get('id') == 'brew:node')
+assert nod_l8['resultat'] == 'behallen' and 'PATH pinnar node@22' in nod_l8['detalj'], nod_l8
+k_l8.godkanda.ta_bort('brew:node')
+
+# en incheckning som faller efter git add (en krok): indexet och filerna tillbaka, intaget behållet (fynd 8)
+krok_l = KOPIA / '.git' / 'hooks' / 'pre-commit'
+krok_l.write_text('#!/bin/sh\nexit 1\n')
+krok_l.chmod(0o755)
+try:
+    res_k, detalj_k, commit_k = uh.ta_in_sajt(k, {'installerat': '5.0.0'}, {'version': '5.1.0'}, {'mapp': str(spar_), 'prov': 'prov'})
+finally:
+    krok_l.unlink()
+assert res_k == 'behallen' and 'git commit föll' in detalj_k and commit_k is None, (res_k, detalj_k)
+assert all((KOPIA / f).read_bytes() == b for f, b in fore_.items()) and not sh('git', 'status', '--porcelain', '--', 'mall').strip(), 'indexet och filerna tillbaka'
+
+# L2: systemraderna är okända när uppslaget är gammalt eller föll, också när resultatet redan fanns
+for rad_l2, vant_l2 in (({'typ': 'system', 'kontrollerad': GAMMAL, 'system_resultat': 'ok', 'kandidater': []}, 'okand'),
+                        ({'typ': 'system', 'kontrollerad': vl.nu(), 'uppslagsfel': 'URLError', 'system_resultat': 'ok', 'kandidater': []}, 'okand'),
+                        ({'typ': 'system', 'kontrollerad': vl.nu(), 'system_resultat': 'behallen', 'kandidater': []}, 'behallen')):
+    assert vl.bedom(dict(rad_l2), k.avvisade)['resultat'] == vant_l2, rad_l2
+
+# L5: en formels ändring väntar ut karenstiden; ett lokalt formelindex som är äldre än Homebrews API redovisas
+spara_brew_l5 = (dict(BREW), dict(BREW_API))
+try:
+    BREW['git'] = '2.56.0'
+    BREW_API['git'] = {'senaste': '2.56.0', 'tid': vl.nu()}
+    BREW_API['gh'] = {'senaste': '2.99.0', 'tid': GAMMAL}
+    rader_l5 = {r_['id']: vl.bedom(r_, k.avvisade, vl.nu()) for r_ in vl.inventera(vl.Kontext(nat=True, prova=False, max_alder=0, katalog=TMP / 'lage-l5'), ('brew',))}
+    assert not rader_l5['brew:git']['kandidater'] and 'karenstiden' in rader_l5['brew:git']['detalj'], rader_l5['brew:git']
+    assert not rader_l5['brew:gh']['kandidater'] and 'brew update' in rader_l5['brew:gh']['detalj'] and rader_l5['brew:gh']['senaste'] == '2.99.0'
+    BREW_API['git'] = {'senaste': '2.56.0', 'tid': GAMMAL}
+    rader_l5 = {r_['id']: r_ for r_ in vl.inventera(vl.Kontext(nat=True, prova=False, max_alder=0, katalog=TMP / 'lage-l5b'), ('brew',))}
+    assert [c_['version'] for c_ in rader_l5['brew:git']['kandidater']] == ['2.56.0'], rader_l5['brew:git']
+finally:
+    BREW.clear(); BREW.update(spara_brew_l5[0]); BREW_API.clear(); BREW_API.update(spara_brew_l5[1])
+
+# fynd 6: pinningen läses ur PATH, och inventeringen bär den till intaget
+spara_path = os.environ['PATH']
+os.environ['PATH'] = '/opt/homebrew/opt/node@22/bin:' + spara_path
+try:
+    assert vl.node_pinnad('node@22') == '/opt/homebrew/opt/node@22/bin' and vl.node_pinnad('node@24') is None
+    rad_p6 = next(r_ for r_ in vl.inventera(vl.Kontext(nat=True, prova=False, max_alder=0, katalog=TMP / 'lage-p6'), ('brew',)) if r_['id'] == 'brew:node')
+    assert rad_p6['pinnad'] == '/opt/homebrew/opt/node@22/bin', rad_p6
+finally:
+    os.environ['PATH'] = spara_path
+
+# L4: underhållets prov skriver aldrig i huvudutcheckningens .venv eller i skalprofilen, men i sin worktree
+import processgrans  # noqa: E402
+rot_l4, wt_l4, hem_l4 = TMP / 'l4-rot', TMP / 'l4-wt', TMP / 'l4-hem'
+for d_ in (rot_l4 / '.venv', wt_l4, hem_l4):
+    d_.mkdir(parents=True)
+(hem_l4 / '.zprofile').write_text('export PATH=x\n')
+prof_l4 = processgrans.profil_underhallsprov(rot_l4, wt_l4, hem=hem_l4)
+for mal_l4, ska in ((rot_l4 / '.venv' / 'x', False), (hem_l4 / '.zprofile', False), (wt_l4 / 'x', True)):
+    r_l4 = subprocess.run([processgrans.SANDBOX_EXEC, '-p', prof_l4, '/bin/sh', '-c', 'echo prov >> "$1"', 'sh', str(mal_l4)], capture_output=True, text=True)
+    assert (r_l4.returncode == 0) == ska, (mal_l4, r_l4.returncode, r_l4.stderr)
+assert (hem_l4 / '.zprofile').read_text() == 'export PATH=x\n'
+
+# L9: en tidsgräns avslutar hela trädet, också ett barn i en egen session
+pidfil = TMP / 'l9-barn.pid'
+rc_l9, _u = vl.kor([sys.executable, '-c', 'import subprocess, sys, time; p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], '
+                    'start_new_session=True); open(sys.argv[1], "w").write(str(p.pid)); time.sleep(60)', pidfil], timeout=3)
+barn_l9 = int(pidfil.read_text())
+for _ in range(50):
+    if not korregister.lever(barn_l9):
+        break
+    time.sleep(0.1)
+assert rc_l9 == 124 and not korregister.lever(barn_l9), 'barnet i en egen session lever kvar efter tidsgränsen'
+
+# L11: utan kontaktsida måste gatuadressen synas på någon sida
+import standard_kontroll as stk  # noqa: E402
+dist_l11 = TMP / 'l11-dist'
+dist_l11.mkdir()
+ver_l11 = TMP / 'l11-verksamhet.json'
+ver_l11.write_text(json.dumps({'adress': {'gata': 'Storgatan 1', 'publik': True}}))
+(dist_l11 / 'index.html').write_text('<html><body><main>Hej</main><script type="application/ld+json">{"streetAddress": "Storgatan 1"}</script></body></html>')
+assert any('syns inte på någon sida' in f_['text'] for f_ in stk.adress(dist_l11, ver_l11)), stk.adress(dist_l11, ver_l11)
+(dist_l11 / 'index.html').write_text('<html><body><main>Storgatan 1</main><script type="application/ld+json">{"streetAddress": "Storgatan 1"}</script></body></html>')
+assert not [f_ for f_ in stk.adress(dist_l11, ver_l11) if f_.get('niva') != 'info'], stk.adress(dist_l11, ver_l11)
+
+# M8: grupperingen läser bara domar efter rensningen, och utan dem körs ingen session
+import gruppera as gr_m8  # noqa: E402
+lar_m8 = TMP / 'm8-LARDOMAR.md'
+lar_m8.write_text('# Lärdomar\n\n## L1 · 2026-10-02 · gammal-kund\n\nGammal dom.\n\n## L7 · 2026-10-07 · ny-kund\n\nAktuell dom.\n')
+spara_m8 = (gr_m8.lardomar_fil, gr_m8.KUNDER)
+gr_m8.lardomar_fil, gr_m8.KUNDER = (lambda: lar_m8), TMP / 'm8-kunder'
+try:
+    assert [d_.splitlines()[0] for d_ in gr_m8.aktuella_domar()] == ['## L7 · 2026-10-07 · ny-kund'] and gr_m8.antal_domar() == 1
+    assert 'Gammal dom' not in gr_m8.uppdrag() and 'Aktuell dom' in gr_m8.uppdrag()
+    lar_m8.write_text('# Lärdomar\n\n## L1 · 2026-10-02 · gammal-kund\n\nGammal dom.\n')
+    assert gr_m8.main(['--torr']) == 0 and not gr_m8.aktuella_domar()
+finally:
+    gr_m8.lardomar_fil, gr_m8.KUNDER = spara_m8
+print('granskningen av r72: instrumentets version, registrets identitet, Mobbin, Node under låset, metodlåset, tillfälliga fel, '
+      'trasig miljö, incheckningar, systemraderna, Homebrews karenstid och index, pinningen, provets skrivgräns, trädet, '
+      'adressen och grupperingen ok')
+
 # ett bytt mätinstrument märks i nästa startkvitto
 vl.logga_andring(vl.lagekatalog(), id='instrument:axe-core', namn='axe-core', grupp='mätinstrument', fran='4.13.0', till='4.14.0',
                  prov='rökprovet', commit=None, matinstrument=True)
@@ -744,8 +1007,9 @@ kv = sk.kor_kontroll(SLUG, 'ny')
 pj.write_text(fore_pj)
 utanfor = [a for a in kv['matinstrument_bytta'] if a['namn'] == 'html-validate']
 assert utanfor and utanfor[0]['till'] == pin + '-utanfor' and 'utanför underhållet' in utanfor[0]['tid'], kv['matinstrument_bytta']
+assert kv['status'] == 'stoppad', 'låset och node_modules skiljer sig: starten stoppas, och körningens kvitto står kvar'
 kv = sk.kor_kontroll(SLUG, 'ny')
-assert [a['till'] for a in kv['matinstrument_bytta']] == [pin], kv['matinstrument_bytta']
+assert not kv['matinstrument_bytta'], ('jämfört med den senaste start som gick är inget bytt', kv['matinstrument_bytta'])
 print('mätinstrumentets byte märkt i kvittot, också utanför underhållet, ok')
 
 # worktree-mekanismen för hela rökprovet: grönt och rött, och worktreen städas
@@ -756,6 +1020,7 @@ for f in ('kontroller/rokprov.sh',):
 sh(*GIT, 'commit', '-q', '-am', 'falskt rökprov')
 ok, text = riktig.rokprov_i_worktree(vl.Kontext(nat=False, prova=False), 'prov-gront', lambda wt: None)
 assert ok, text
+assert 'rökprovet OK' in next((underlag_logg.read_text() for underlag_logg in sorted((vl.lagekatalog() / 'underhall').glob('rokprov-prov-gront-*.log'))), '')
 ok, text = riktig.rokprov_i_worktree(vl.Kontext(nat=False, prova=False), 'prov-rott', lambda wt: (wt / 'KANDIDAT-ROD').write_text('x') and None)
 assert not ok and 'FEL: kandidaten bröt provet' in text, text
 # ett långt prov efter ett byte på plats avbryts när en start väntar: behållet, aldrig avvisat

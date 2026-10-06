@@ -2445,7 +2445,8 @@ def redovisa_skiss(slug, status):
              '  (BILDER.md, bilderna i projektet).',
              '- Metoden (hash %s): %s, med kvalitetskraven, besluten med räckvidd och avgörandena; utdragen att slå upp: %s.' % (
                  m['sha'][:12], ', '.join(Path(x).name for x in m['delar']['före']), ', '.join(Path(x).name for x in m['delar'].get('uppslag') or []) or '–'),
-             '- Historiken (LARDOMAR.md, kundens äldre domar, riktningshistoriken) som uppslag, inte som obligatorisk läsning.', '',
+             '- Historiken: kundens äldre domar och riktningshistoriken som uppslag; LARDOMAR.md är historik och läses inte',
+             '  (rensningen inför Nortropic 2.0).', '',
              '## Kandidaterna', '',
              '| Kandidat | Status | Minuter | Försök | Brister ur de snabba kontrollerna | Referensbilder | Utkast och platshållare | Öppnat ur metoden | Verktyg |',
              '|---|---|---|---|---|---|---|---|---|']

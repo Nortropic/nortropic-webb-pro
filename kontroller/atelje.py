@@ -429,8 +429,9 @@ def divergera_prompt(slug, bilder, kritik=None, komplettering=None, ankare=None)
         '- Text och form bearbetas tillsammans: rubriker, ordning och formuleringar skrivs om så att de bär i kompositionen,',
         '  mobilen först, med sakuppgifterna oförändrade. Välj få och starka bilder och beskär dem så att motivet bär.',
         '- Varje riktning svarar uttryckligen på ägarens senaste dom och skiljer sig från de prövade grundidéerna; ett drag ur en',
-        '  underkänd grundidé behöver ett skäl ur verksamhetens material som också svarar på kritiken mot den. Undvik det',
-        '  UPPTAGNA-VAL.md räknar upp om inte verksamhetens material motiverar det.',
+        '  underkänd grundidé behöver ett skäl ur verksamhetens material som också svarar på kritiken mot den.%s' % (
+            ' Undvik det UPPTAGNA-VAL.md räknar upp om inte verksamhetens material motiverar det.'
+            if any(str(f).endswith('UPPTAGNA-VAL.md') for f in filer) else ''),
         '- Ett motiv per riktning: en form, linje eller ett material ur märket eller "Bara de har" som bär formen där det',
         '  behövs (listmarkör, bildmask, avslut eller sidfot; ett ställe räcker om det bär), aldrig dekor utan funktion.',
         '- Riktigt innehåll: sakuppgifter, citat och knappar ur %s, verksamhetens egna bilder. Inget påhittat.' % rel(skapande.textfil(slug, UNDERLAG)),
@@ -1815,7 +1816,7 @@ def arbeta(slug, lage):
     if sk:
         status['startkontroll'] = sk
         if sk['status'] == 'stoppad':
-            fel = 'Startkontrollen stoppade starten: %s (underlag/%s/atelje/STARTKVITTO.md)' % ('; '.join(sk['stoppar'][:4]), slug)
+            fel = 'Startkontrollen stoppade starten: %s (%s)' % ('; '.join(sk['stoppar'][:4]), sk.get('kvitto') or 'underlag/%s/atelje/STARTKVITTO-STOPP.md' % slug)
             if lage == 'ny' and sparad.get('steg'):  # den förra körningens resultat står kvar, med stoppet (fynd 15)
                 bevarad = {k: v for k, v in sparad.items() if k != 'pid'}
                 bevarad['startkontroll_stopp'] = {'tid': nu(), 'fel': fel, 'stoppar': sk['stoppar'][:6]}

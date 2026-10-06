@@ -243,6 +243,12 @@ async function verktygsladavy() {
 // Startkontrollens kvitto för kundens senaste start, överst i prototypvyn
 function visaStartkvitto(d) {
   const k = d.startkvitto; if (!k) return;
+  if (k.stopp) {  // en senare start stoppades; körningens eget kvitto står under
+    const h1s = $('#vy h1'); if (h1s && !$('#startstopp')) { const sec = document.createElement('section'); sec.id = 'startstopp'; sec.className = 'kort'; sec.style.marginBottom = '12px';
+      sec.innerHTML = `<div class="rad"><span class="chip rod">Startkontrollen stoppade starten ${tid(k.stopp.tid)}</span></div><p class="rod-text">${(k.stopp.stoppar || []).map(esc).join('<br>')}</p>${k.stopp.md ? `<details><summary>Kvittot för den stoppade starten</summary><div class="prosa">${k.stopp.md}</div></details>` : ''}`;
+      h1s.insertAdjacentElement('afterend', sec); }
+    if (!k.status) return;
+  }
   const h1 = $('#vy h1'); if (!h1 || $('#startkvitto')) return;
   const etikett = { redo: ['ok', 'Startkontrollen: redo'], begransad: ['gul', 'Startkontrollen: redo med begränsningar'], stoppad: ['rod', 'Startkontrollen stoppade starten'] }[k.status] || ['', 'Startkontrollen'];
   const a = k.antal || {};
@@ -251,7 +257,7 @@ function visaStartkvitto(d) {
       ${['fel', 'avvisad', 'behallen', 'okand'].filter((x) => a[x]).map((x) => `<span class="chip ${x === 'fel' || x === 'avvisad' ? 'rod' : 'gul'}">${a[x]} ${{ fel: 'fel', avvisad: 'avvisade', behallen: 'behållna', okand: 'okända' }[x]}</span>`).join('')}
       ${(k.matinstrument_bytta || []).length ? `<span class="chip gul">mätinstrument bytta: ${k.matinstrument_bytta.map((x) => esc(x.namn)).join(', ')}</span>` : ''}</div>
     ${(k.stoppar || []).length ? `<p class="rod-text">${k.stoppar.map(esc).join('<br>')}</p>` : ''}
-    ${d.startkontroll_stopp && k.status === 'stoppad' ? `<p class="under">Starten ${tid(d.startkontroll_stopp.tid)} gjordes inte; den förra körningens resultat står kvar nedan.</p>` : ''}
+    ${d.startkontroll_stopp && k.stopp ? `<p class="under">Starten ${tid(d.startkontroll_stopp.tid)} gjordes inte; den förra körningens resultat och kvitto står kvar.</p>` : ''}
     ${k.md ? `<details><summary>Startkvittot (STARTKVITTO.md)</summary><div class="prosa">${k.md}</div></details>` : ''}`;
   h1.insertAdjacentElement('afterend', sec);
 }

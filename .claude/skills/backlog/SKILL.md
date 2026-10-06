@@ -75,8 +75,10 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
    `.venv/bin/python kontroller/backlog.py status <id> klar --commit <kort sha> --not "<vad som gjordes>"` och en
    commit till för statusen (eller båda i samma commit om du sätter statusen före).
 
-Säger posten emot något som ägaren beslutat (`BESLUT.md`, `LARDOMAR.md`): genomför den inte. Sätt
-`status <id> vilande --not "<krocken>"` och ta upp det i slutrapporten.
+Säger posten emot ett gällande ägarbeslut (`BESLUT.md`, besluten med räckvidd i `kunskap/designregler.md`): genomför
+den inte. Ägarens domar över byggen före rensningen 2026-10-05 (`LARDOMAR.md`, `kunskap/rensning-nortropic-2.md`) är
+historik: de fäller ingen post, och en post vars enda skäl är en sådan dom genomförs inte heller. Sätt
+`status <id> vilande --not "<krocken eller skälet>"` och ta upp det i slutrapporten.
 
 ## Efter sista posten
 

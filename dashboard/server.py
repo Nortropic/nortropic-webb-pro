@@ -1267,13 +1267,19 @@ def underhall_vid_behov():
 
 
 def startkvitto(slug):
-    """Startkontrollens kvitto för kundens senaste start (underlag/<slug>/atelje/STARTKVITTO.json och .md)."""
+    """Startkontrollens kvitto för körningen (underlag/<slug>/atelje/STARTKVITTO.json och .md), och en senare start som
+    stoppades (STARTKVITTO-STOPP.json och .md) bredvid."""
     rot = UNDERLAG / slug / 'atelje'
-    kv = las_json(rot / 'STARTKVITTO.json')
-    if not kv:
+    kv, stopp = las_json(rot / 'STARTKVITTO.json'), las_json(rot / 'STARTKVITTO-STOPP.json')
+    if stopp and kv and str(stopp.get('tid') or '') < str(kv.get('tid') or ''):
+        stopp = None  # en senare start gick igenom
+    if not kv and not stopp:
         return None
     import startkontroll
-    return dict(startkontroll.sammanfattning(kv), md=md(las_text(rot / 'STARTKVITTO.md')) if (rot / 'STARTKVITTO.md').is_file() else '')
+    ut = dict(startkontroll.sammanfattning(kv), md=md(las_text(rot / 'STARTKVITTO.md')) if (rot / 'STARTKVITTO.md').is_file() else '') if kv else {}
+    if stopp:
+        ut['stopp'] = dict(startkontroll.sammanfattning(stopp), md=md(las_text(rot / 'STARTKVITTO-STOPP.md')) if (rot / 'STARTKVITTO-STOPP.md').is_file() else '')
+    return ut
 
 
 def spaning_vid_behov():

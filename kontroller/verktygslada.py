@@ -163,6 +163,19 @@ def provmiljo(extra=None):
 AVBRUTEN = 130  # slutkoden från kor() när avbryt() svarade ja
 
 
+def avsluta_trad(pid):
+    """Processen, dess grupp och alla ättlingar, också de som startat egna sessioner (ett rökprov vars prov i sin tur
+    kör kor(); granskningen av r72, L9)."""
+    import nastlad
+    barn = nastlad.efterkommande(pid)
+    for x in [pid] + barn:
+        for f in (lambda q: os.killpg(q, signal.SIGKILL), lambda q: os.kill(q, signal.SIGKILL)):
+            try:
+                f(x)
+            except OSError:
+                pass
+
+
 def kor(args, timeout=120, cwd=None, env=None, indata=None, bara_ut=False, avbryt=None):
     """(slutkod, text): stdout och stderr ihop, eller bara stdout. Kommandot får en egen processgrupp, och en tidsgräns
     avslutar hela gruppen (ett rökprov lämnar inga barn efter sig; fynd 15). avbryt() frågas var femte sekund; svarar
@@ -183,10 +196,7 @@ def kor(args, timeout=120, cwd=None, env=None, indata=None, bara_ut=False, avbry
             avbrutet = bool(avbryt) and time.time() < slut and avbryt()
             if not avbrutet and avbryt and time.time() < slut:
                 continue
-            try:
-                os.killpg(p.pid, signal.SIGKILL)
-            except OSError:
-                pass
+            avsluta_trad(p.pid)
             ut, fel = p.communicate()
             if avbrutet:
                 return AVBRUTEN, 'avbrutet (%s)\n%s' % (' '.join(str(a) for a in args[:3]), sista((ut or '') + (fel or ''), 2000))
@@ -290,7 +300,10 @@ class Register:
             skriv_json(self.fil, self.d)
 
 
-OMPROVBARA = ('prov:refero', 'prov:webblasare', 'prov:detektor', 'prov:vakt')  # förmågeprov som starten kan göra själv
+# förmågeprov som starten kan göra själv; ett misslyckat görs om i stället för att stoppa starter tills det går ut, och
+# underhållet gör dem om varje dygn (Mobbins prov är en liten session och görs i starten bara när det fallit eller gått
+# ut; granskningen av r72, M1)
+OMPROVBARA = ('prov:refero', 'prov:webblasare', 'prov:detektor', 'prov:vakt', 'prov:mobbin')
 
 
 class Kontext:
@@ -460,6 +473,42 @@ def brew_info(formel):
     return {'senaste': f['versions']['stable'] + ('_%d' % rev if rev else ''),
             'installerade': [i.get('version') for i in f.get('installed') or []],
             'lankad': f.get('linked_keg'), 'keg_only': bool(f.get('keg_only'))}
+
+
+BREW_API = 'https://formulae.brew.sh/api/formula/%s.json'
+BREW_HISTORIK = 'https://api.github.com/repos/Homebrew/homebrew-core/commits?path=Formula/%s/%s.rb&per_page=1'
+
+
+def brew_api(formel):
+    """Formelns senaste version ur Homebrews API (formulae.brew.sh) och när formeln senast ändrades (homebrew-core):
+    {'senaste', 'tid'}. Det lokala formelindexet uppdateras bara av brew update, som uppdaterar Homebrew självt och
+    därför bara redovisas (granskningen av r72, L2 och L5)."""
+    f = json.loads(hamta_url(BREW_API % formel, timeout=60))
+    rev = f.get('revision') or 0
+    ut = {'senaste': f['versions']['stable'] + ('_%d' % rev if rev else ''), 'tid': None}
+    try:
+        h = json.loads(hamta_url(BREW_HISTORIK % (formel[0], formel), timeout=60, huvuden={'Accept': 'application/vnd.github+json'}))
+        ut['tid'] = ((h[0].get('commit') or {}).get('committer') or {}).get('date') if h else None
+    except Exception:  # noqa: BLE001 — utan tid räknas formeln som i karenstid
+        pass
+    return ut
+
+
+def brew_kandidat(k, formel, installerat, lokal):
+    """(kandidat eller None, anteckningar) för en formel som byts på plats: versionen ur det lokala formelindexet (den
+    brew kan installera), om den är nyare än den installerade och har passerat karenstiden enligt formelns senaste
+    ändring; och om Homebrews API har en nyare version som indexet inte känner till."""
+    api, _t, _f = uppslag(k, 'brewapi:' + formel, lambda f=formel: brew_api(f))
+    noter = {}
+    if api and lokal and nyare(api['senaste'], lokal):
+        noter['index_gammalt'] = api['senaste']
+    if not (installerat and lokal and nyare(lokal, installerat)):
+        return None, noter
+    senast_andrad = (api or {}).get('tid')
+    if not api or (api['senaste'] == lokal and (not senast_andrad or time.time() - iso_s(senast_andrad) < KARENS_DAGAR * 86400)):
+        noter['i_karens'] = lokal  # den senaste ändringen är färsk eller okänd: prövas när karenstiden gått ut
+        return None, noter
+    return {'version': lokal, 'formel': formel, 'huvudversion': huvud(lokal) != huvud(installerat)}, noter
 
 
 def git_head(repo):
@@ -805,8 +854,12 @@ def inv_brew(k):
                     r['i_karens'] = bi['senaste']
         if formel:
             egen, _t, _f = uppslag(k, 'brew:' + formel, lambda f=formel: brew_info(f))
-            if egen and nyare(egen['senaste'], inst):
-                r['kandidater'].append({'version': egen['senaste'], 'formel': formel, 'huvudversion': False})
+            kand, noter = brew_kandidat(k, formel, inst, (egen or {}).get('senaste'))
+            r.update(noter)
+            if kand and kand['huvudversion']:  # en oversionerad node: huvudversioner tas in som node@NN (granskningen av r72)
+                r['detalj'] = '%s skulle byta huvudversion på plats; en ny huvudversion tas in som node@NN efter LTS-regeln' % kand['version']
+            elif kand:
+                r['kandidater'].append(kand)
         if not formel:
             r['detalj'] = 'node kommer inte från Homebrew (%s); uppdateras där' % os.path.realpath(shutil.which('node') or '')
             r['kandidater'] = []
@@ -816,8 +869,12 @@ def inv_brew(k):
         inst = brew_aktiv(f)
         r = rad('brew:' + f, 'Homebrew', f, 'brew', formel=f, installerat=inst, senaste=(bi or {}).get('senaste'), kontrollerad=tid,
                 kalla='Homebrew ' + f, nodvandig=f in ('python@3.12', 'git'), uppslagsfel=fel)
-        if inst and bi and nyare(bi['senaste'], inst):  # en ny huvudversion (git 3, gh 3) prövas med hela rökprovet (fynd 10)
-            r['kandidater'].append({'version': bi['senaste'], 'formel': f, 'huvudversion': huvud(bi['senaste']) != huvud(inst)})
+        kand, noter = brew_kandidat(k, f, inst, (bi or {}).get('senaste'))  # en ny huvudversion (git 3, gh 3) prövas med hela rökprovet
+        r.update(noter)
+        if noter.get('index_gammalt'):
+            r['senaste'] = noter['index_gammalt']
+        if kand:
+            r['kandidater'].append(kand)
         ut.append(r)
     return ut
 
@@ -859,11 +916,11 @@ def inv_system(k):
     for id_, namn, inst, monster in (('system:macos', 'macOS', mac, r'macos'), ('system:clt', 'Xcode-verktygen', m.group(1) if m else None, r'command line tools')):
         vant = [x for x in lista or [] if re.search(monster, x, re.I)]
         ut.append(rad(id_, 'system', namn, 'system', installerat=inst, senaste=vant[0] if vant else ('ingen väntande uppdatering' if lista is not None else None),
-                      kontrollerad=tid, uppslagsfel=fel, resultat='behallen' if vant else ('ok' if lista is not None else 'okand'),
+                      kontrollerad=tid, uppslagsfel=fel, system_resultat='behallen' if vant else ('ok' if lista is not None else 'okand'),
                       detalj=('%s väntar; %s' % (vant[0], skal)) if vant else skal))
     bi = brew.group(1) if brew else None
     ut.append(rad('system:homebrew', 'system', 'Homebrew', 'system', installerat=bi, senaste=brew_s, kontrollerad=btid, uppslagsfel=bfel,
-                  resultat='behallen' if bi and brew_s and nyare(brew_s, bi) else ('ok' if bi and brew_s else 'okand'), detalj=skal))
+                  system_resultat='behallen' if bi and brew_s and nyare(brew_s, bi) else ('ok' if bi and brew_s else 'okand'), detalj=skal))
     return ut
 
 
@@ -885,6 +942,13 @@ def bedom(r, avvisade, underhall_tid=None):
     prövad och avvisad, med felet), okand eller fel."""
     if r.get('resultat'):
         return r
+    if r.get('typ') == 'system':  # redovisas bara, men ett gammalt eller fallet uppslag är okänt också här (granskningen av r72)
+        if r.get('uppslagsfel') or not r.get('kontrollerad') or alder(r['kontrollerad']) > GILTIGHET['underhall_aldst']:
+            r['resultat'] = 'okand'
+            r['detalj'] = '%s; uppslaget %s' % (r.get('detalj') or '', r.get('uppslagsfel') or ('gjordes %s' % r['kontrollerad'] if r.get('kontrollerad') else 'saknas'))
+        else:
+            r['resultat'] = r.get('system_resultat') or 'okand'
+        return r
     if not r.get('installerat'):
         r['resultat'] = 'fel' if r.get('nodvandig') else 'okand'
         r.setdefault('detalj', 'inte installerad eller svarar inte')
@@ -904,6 +968,11 @@ def bedom(r, avvisade, underhall_tid=None):
     if not r['kandidater'] and r.get('i_karens'):
         r['resultat'] = 'behallen'
         r['detalj'] = '%s finns men är yngre än karenstiden (%g dygn); prövas när den gått ut' % (r['i_karens'], KARENS_DAGAR)
+        return r
+    if not r['kandidater'] and r.get('index_gammalt'):
+        r['resultat'] = 'behallen'
+        r['detalj'] = ('%s finns (formulae.brew.sh), men Homebrews formelindex här känner inte till den: brew update behövs först, och '
+                       'den uppdaterar Homebrew självt, som bara redovisas' % r['index_gammalt'])
         return r
     if not r['kandidater']:
         r['resultat'] = 'ok'
@@ -962,14 +1031,15 @@ def claude_bin():
     return os.environ.get('NWP_CLAUDE_BIN') or shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
 
 
-def flaggor_saknas(b):
-    rc, ut = kor([b, '--help'], timeout=60)
+def flaggor_saknas(b, env=None):
+    rc, ut = kor([b, '--help'], timeout=60, env=env)
     return [f for f in FLAGGOR if f not in ut] if rc == 0 else list(FLAGGOR)
 
 
-def modellsvar(b, modell, timeout=240, schema=False):
+def modellsvar(b, modell, timeout=240, schema=False, env=None):
     """Ett kort svar ur modellen genom claude-binären b (prenumerationen, utan verktyg och MCP): None när svaret kom,
-    annars felet. schema=True prövar också strukturerat svar (--json-schema), som flödet bygger på."""
+    annars felet. schema=True prövar också strukturerat svar (--json-schema), som flödet bygger på. env: en kandidat
+    prövas med provmiljön (underhall.prova_globalt)."""
     import nastlad
     args = [b, '-p', '--max-turns', '3', '--model', modell, '--output-format', 'json', '--setting-sources', 'project,local',
             '--strict-mcp-config', '--tools', '', '--permission-mode', 'dontAsk']
@@ -978,7 +1048,7 @@ def modellsvar(b, modell, timeout=240, schema=False):
                                               'properties': {'svar': {'type': 'string'}}})]
     try:
         r = subprocess.run([str(a) for a in args], input='Svara med ordet OK och inget annat.' + (' Lägg det i fältet svar.' if schema else ''),
-                           capture_output=True, text=True, timeout=timeout, cwd=str(ROOT), env=nastlad.miljo())
+                           capture_output=True, text=True, timeout=timeout, cwd=str(ROOT), env=env or nastlad.miljo())
     except subprocess.TimeoutExpired:
         return 'inget svar inom %d s' % timeout
     except OSError as e:
@@ -1001,7 +1071,7 @@ if p.endswith('tillaten.txt'):
 """
 
 
-def vaktprov(b, modell=PROVMODELL, timeout=300):
+def vaktprov(b, modell=PROVMODELL, timeout=300, env=None):
     """Prövar den mekanik kundvakten bygger på (fynd 11): utan tillåtelselista och med dontAsk får sessionen skriva en fil
     som en PreToolUse-krok uttryckligen tillåter, och nekas en fil som kroken lämnar utan beslut. None när det håller,
     annars felet."""
@@ -1017,7 +1087,7 @@ def vaktprov(b, modell=PROVMODELL, timeout=300):
                   'kort vilka skrivningar som gick igenom.' % (d / 'tillaten.txt', d / 'nekad.txt'))
         try:
             r = subprocess.run([str(a) for a in args], input=prompt, capture_output=True, text=True, timeout=timeout, cwd=str(d),
-                               env=nastlad.miljo())
+                               env=env or nastlad.miljo())
         except subprocess.TimeoutExpired:
             return 'inget svar inom %d s' % timeout
         except OSError as e:

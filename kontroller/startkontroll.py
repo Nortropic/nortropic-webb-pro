@@ -19,7 +19,8 @@ dashboarden startar), så här bekräftas bara läget. Kontrollen
    förlegade formuleringar i aktiva uppdrag, skills och verktyg utan uppgift) och kundens behov ur BRIEF.md mot flödets
    förmåga;
 4. låser versionerna och underlaget för körningen och skriver kvittot: underlag/<slug>/atelje/STARTKVITTO.json och .md
-   för ateljén, STARTKVITTO-BYGGE.json och .md för helbygget (en kopia per start i startkvitton/). Status redo (allt
+   för ateljén, STARTKVITTO-BYGGE.json och .md för helbygget, och för en stoppad start -STOPP bredvid, så att
+   körningens kvitto står kvar (en kopia per start i startkvitton/). Status redo (allt
    bekräftat och senaste), begransad (något behållet, avvisat eller okänt; aldrig "allt uppdaterat") eller stoppad (ett
    nödvändigt verktyg fungerar inte; starten görs inte, med besked). Bytta mätinstrument sedan förra starten av samma
    slag står i kvittot, också de som bytts utanför underhållet, så att körningar före och efter går att jämföra. En
@@ -122,7 +123,9 @@ def prova_formagan(k, version, start='ny'):
     nya = [v for v in p.get('verktyg') or [] if v not in kanda]
     if nya:
         ut.append(post('möjlighet', 'Referos verktyg utan uppgift i flödet', 'okand', detalj=', '.join(nya)))
-    m = vl.prova_mobbin(vl.Kontext(nat=False, prova=False, katalog=k.katalog))  # det fullständiga provet görs i underhållet
+    # det fullständiga provet görs i underhållet; ateljéns start gör om det bara när det fallit eller gått ut (M1), och
+    # helbygget, som inte laddar Mobbin, gör det aldrig
+    m = vl.prova_mobbin(k if ateljen else vl.Kontext(nat=False, prova=False, katalog=k.katalog))
     ansluten = servrar is not None and (servrar.get('mobbin') or {}).get('status') == 'ok'
     res = m.get('resultat')
     if res == 'ok' and m.get('gammalt'):
@@ -211,7 +214,9 @@ def regler(servrar, slug=None):
     import styrning  # rensningen inför Nortropic 2.0: ersatta beslut och gamla kundsmakdomar i det som når agenterna
     try:
         gamla = styrning.prova(slug)
-        ut.append(post('regler', 'gammal styrning i agentuppdragen, metoden och körningens cache', 'fel' if gamla else 'ok',
+        # ett ersatt beslut eller en gammal kundsmakdom som når agenterna stoppar starten: det var det rensningen inför
+        # Nortropic 2.0 skulle förhindra (granskningen av r72)
+        ut.append(post('regler', 'gammal styrning i agentuppdragen, metoden och körningens cache', 'fel' if gamla else 'ok', nodvandig=bool(gamla),
                        detalj='; '.join('%s:%s %s' % (x['kalla'], x['rad'], x['vad']) for x in gamla[:6]) or
                        'inga ersatta beslut eller gamla kundsmakdomar (kontroller/styrning.py)'))
     except Exception as e:  # noqa: BLE001
@@ -359,8 +364,8 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     for r in rader:
         vl.bedom(r, k.avvisade, u_tid)
         g = k.godkanda.alla(r.get('id', ''))
-        if g and r['resultat'] == 'behallen':
-            r['detalj'] = '%s prövad och godkänd %s; tas in av nästa underhåll' % (g[-1].get('version'), g[-1].get('tid'))
+        if g and r['resultat'] == 'behallen':  # skälet ur underhållet (Node pinnad, en utcheckning som inte äger .venv; L8)
+            r['detalj'] = '%s prövad och godkänd %s; %s' % (g[-1].get('version'), g[-1].get('tid'), g[-1].get('skal') or 'tas in av nästa underhåll')
     if not u_tid or vl.alder(u_tid) > vl.GILTIGHET['underhall_aldst']:
         rader.append(post('underhåll', 'underhållet', 'behallen', provad=u_tid,
                           detalj='%s; nyare versioner kan finnas utan att vara uppslagna eller prövade (dashboarden kör det dagligen, '
@@ -390,6 +395,9 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
         rot.mkdir(parents=True, exist_ok=True)
         namn = 'STARTKVITTO-BYGGE' if start == 'bygge' else 'STARTKVITTO'  # helbygget skriver inte över ateljéns kvitto
         tidigare = vl.las_json(rot / (namn + '.json'), {}) or {}
+        # en stoppad start gjordes inte: dess kvitto står bredvid, och körningens kvitto (låset en återupptagning ärver)
+        # står kvar (granskningen av r72, L1)
+        filnamn = namn + ('-STOPP' if kv['status'] == 'stoppad' else '')
         alla = vl.andringar(k.katalog)
         kv['andringar_antal'] = len(alla)  # nästa kvitto räknar ändringarna efter de här (tider har bara sekunder)
         if 'andringar_antal' in tidigare:
@@ -406,9 +414,10 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
         if start in ('fortsatt', 'valda', 'putsa') and tidigare.get('las'):
             kv['aterupptagen'] = {'startad': tidigare.get('tid'), 'andrat': jamfor_las(tidigare['las'], kv['las'])}
             kv['las'] = tidigare['las']  # körningen behåller sitt låsta underlag
-        vl.skriv_json(rot / 'startkvitton' / ('%s-%s.json' % (namn, tid.replace(':', ''))), kv)
-        vl.skriv_json(rot / (namn + '.json'), kv)
-        (rot / (namn + '.md')).write_text(markdown(kv), encoding='utf-8')
+        vl.skriv_json(rot / 'startkvitton' / ('%s-%s.json' % (filnamn, tid.replace(':', ''))), kv)
+        vl.skriv_json(rot / (filnamn + '.json'), kv)
+        (rot / (filnamn + '.md')).write_text(markdown(kv), encoding='utf-8')
+        kv['kvitto'] = 'underlag/%s/atelje/%s.md' % (slug, filnamn)
     try:
         with open(k.katalog / 'startlogg.jsonl', 'a', encoding='utf-8') as f:
             f.write(json.dumps({'tid': tid, 'slug': slug, 'start': start, 'status': kv['status'], 'stoppar': stoppar}, ensure_ascii=False) + '\n')
@@ -419,11 +428,12 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
 
 def sammanfattning(kv):
     antal = {}
+    kv = kv or {}
     for r in kv.get('rader') or []:
         antal[r['resultat']] = antal.get(r['resultat'], 0) + 1
     return {'status': kv.get('status'), 'tid': kv.get('tid'), 'start': kv.get('start'), 'antal': antal, 'stoppar': kv.get('stoppar') or [],
             'underhall': kv.get('underhall'), 'matinstrument_bytta': kv.get('matinstrument_bytta') or [],
-            'aterupptagen': kv.get('aterupptagen')}
+            'aterupptagen': kv.get('aterupptagen'), 'kvitto': kv.get('kvitto')}
 
 
 def for_start(slug, start):

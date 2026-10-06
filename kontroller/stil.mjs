@@ -297,7 +297,7 @@ for (const r of rader) {
 }
 const mobilStart = rader.find((r) => r.sida === '/' && r.vy === '390')?.mobil;
 if (mobilStart) {
-  if (mobilStart.menyDolda?.length) varningar.push(`${mobilStart.menyDolda.length} menylänkar ligger utanför skärmen i 390 (${mobilStart.menyDolda.slice(0, 3).map((x) => '"' + x + '"').join(', ')}): en rad som rullar dold i sidled; korta etiketterna eller lägg menyn på två rader (L4)`);
+  if (mobilStart.menyDolda?.length) varningar.push(`${mobilStart.menyDolda.length} menylänkar ligger utanför skärmen i 390 (${mobilStart.menyDolda.slice(0, 3).map((x) => '"' + x + '"').join(', ')}): en rad som rullar dold i sidled; korta etiketterna eller lägg menyn på två rader`);
 }
 const utanSkymt = rader.filter((r) => r.sida === '/' && !r.nastaSkymtar).map((r) => r.vy);
 if (utanSkymt.length) varningar.push('nästa sektion skymtar inte i startsidans första vy (' + utanSkymt.join(', ') + ' px)');

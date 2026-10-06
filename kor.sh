@@ -82,7 +82,7 @@ print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || 
 # när bygget faktiskt startar (en godkänd startsida eller nödvägen), före allt som skriver i sajten.
 if [ -n "$GODKAND" ] || [ "${NWP_ATELJE:-pa}" != "pa" ]; then
   "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/startkontroll.py" --slug "$SLUG" --start bygge > "$ROOT/kunder/$SLUG/startkontroll.log" 2>&1 \
-    || { echo "startkontrollen stoppade bygget: se underlag/$SLUG/atelje/STARTKVITTO-BYGGE.md (logg: kunder/$SLUG/startkontroll.log)"; exit 2; }
+    || { echo "startkontrollen stoppade bygget: se underlag/$SLUG/atelje/STARTKVITTO-BYGGE-STOPP.md (logg: kunder/$SLUG/startkontroll.log)"; exit 2; }
 fi
 if [ -n "$GODKAND" ]; then
   # godkännandet gäller vinnarens dömda filer: har ett tidigare bygge skrivit om sajtens, läggs vinnarens tillbaka

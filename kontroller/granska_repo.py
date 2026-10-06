@@ -134,7 +134,7 @@ def main(argv=None):
             fm = re.match(r'^---\n(.*?)\n---', text, re.S)
             if fm:
                 for rad in fm.group(1).splitlines():
-                    if re.match(r'\s*(allowed-tools|disable-model-invocation|context|agent|hooks)\s*:', rad):
+                    if re.match(r'\s*["\']?(allowed-tools|disable-model-invocation|context|agent|hooks)["\']?\s*:', rad):
                         beh.append('%s: %s' % (rel, rad.strip()))
         if f.name in ('settings.json', 'settings.local.json', 'plugin.json', '.mcp.json', 'hooks.json'):
             try:

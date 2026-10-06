@@ -48,6 +48,9 @@ så att gamla regler inte kommer tillbaka genom utdrag, ankare, mallar eller cac
 - Kontrollerna: stilrapporten mäter mobilens första vy men varnar inte för smak; 7.4 kräver adressen på kontaktsidan och
   i JSON-LD, sidfoten är information; `kontroller/upptagna_val.py` utan domcitat, och en äldre `UPPTAGNA-VAL.md` läses inte.
 - Mallen: README och 404 pekar på kundens kontaktvägar, inte en fast tel-länk i sidhuvudet.
+- Backloggen och grupperingen (granskningen av rensningen 2026-10-06): backlog-skillen låter inte en dom före
+  rensningen fälla eller motivera en post, och `kontroller/gruppera.py` grupperar bara domar och granskningar efter
+  rensningen (före dem körs ingen session). Kontrollernas texter citerar kraven, inte domarna (L4).
 
 ## Vakten
 

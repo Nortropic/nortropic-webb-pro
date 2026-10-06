@@ -7,6 +7,10 @@ med antal, och den största styr nästa ändring).
 
 Startas av dashboarden efter var femte dom, eller för hand. --torr skriver bara uppdraget; --prov kör sessionen men
 skriver varken kunskap/GRUPPERING.md, backlogpost eller commit.
+
+Bara domarna och granskningarna efter rensningen inför Nortropic 2.0 räknas (RENSNING; kunskap/rensning-nortropic-2.md):
+de tidigare är historik och styr inget, inte heller genom en backlogpost (granskningen av r72, M8). Utan aktuella domar
+eller fynd körs ingen session.
 """
 import argparse
 import json
@@ -26,6 +30,7 @@ import nastlad  # noqa: E402  (nästlade sessioner: inget automatiskt minne)
 
 SCHEMA = ROOT / 'kritik' / 'SCHEMA-gruppering.json'
 UT = ROOT / 'kunskap' / 'GRUPPERING.md'
+RENSNING = '2026-10-05'  # domar och granskningar till och med den dagen är historik
 
 
 def las(p):
@@ -41,8 +46,18 @@ def lardomar_fil():
     return p if p.is_file() else ROOT / 'LARDOMAR.md'
 
 
+def aktuella_domar():
+    """Ägarens domar efter rensningen: L- och AB-posterna daterade efter RENSNING, i filens ordning."""
+    ut = []
+    for d in re.split(r'(?m)^(?=## )', lardomar_fil().read_text(encoding='utf-8')):
+        m = re.match(r'^## (?:L\d+|AB)\b[^\n]*?(\d{4}-\d{2}-\d{2})', d)
+        if m and m.group(1) > RENSNING:
+            ut.append(d.strip())
+    return ut
+
+
 def antal_domar():
-    return len(re.findall(r'^## L\d+ ', lardomar_fil().read_text(encoding='utf-8'), re.M))
+    return sum(1 for d in aktuella_domar() if d.startswith('## L'))
 
 
 def granskningsfynd():
@@ -59,6 +74,8 @@ def granskningsfynd():
         kvar = {(f.get('kriterium'), f.get('standardpunkt')) for f in (sista or {}).get('blockerande') or []}
         for fil in rundor:
             g = las(fil) or {}
+            if str(g.get('tid') or datetime.fromtimestamp(fil.stat().st_mtime, timezone.utc).isoformat())[:10] <= RENSNING:
+                continue  # en granskning före rensningen är historik
             omgang = g.get('runda') or fil.parent.name.replace('runda-', '')
             for f in g.get('blockerande') or []:
                 if fil == rundor[-1]:
@@ -75,15 +92,17 @@ def uppdrag():
     return '\n'.join([
         'Gruppera fynden nedan i kategorier. Arbeta i två steg: sätt först en fri etikett på varje fynd (vad gick fel, med',
         'egna ord), samla sedan etiketterna i 4–10 kategorier med antal. En kategori är ett återkommande problem i hur vi',
-        'bygger, inte ett enskilt bygge. Källorna är ägarens domar i %s (läs hela filen, varje L-post och AB-post)' % lardomar_fil().relative_to(ROOT),
-        'och granskarens blockerande fynd nedan, från varje omgång. Ägarens domar väger tyngst. Ett fel som rättas inom',
-        'ett bygge men återkommer i nästa bygge är en kategori, inte ett löst problem.', '',
+        'bygger, inte ett enskilt bygge. Källorna är ägarens aktuella domar och granskarens blockerande fynd nedan, från',
+        'varje omgång, efter rensningen inför Nortropic 2.0 (%s); det som kom före är historik och läses inte. Ägarens' % RENSNING,
+        'domar väger tyngst. Ett fel som rättas inom ett bygge men återkommer i nästa bygge är en kategori, inte ett löst',
+        'problem.', '',
         'Resultatet blir publikt (kunskap/GRUPPERING.md): skriv inga personuppgifter ur domarna. Företagsnamn får stå, inte',
         'privatpersoners namn, nummer, adresser eller hälsa (BESLUT.md 2026-10-03).', '',
         'Föreslå en enda ändring mot den största kategorin: vilken fil (helst .claude/skills/bygg-sajt/SKILL.md, en fil i',
         'kunskap/ eller kritik/GRANSKARE.md), vad som ändras, varför och hur man ser att det är gjort. Liten nog att läsa',
         'på fem minuter. Läs gärna kunskap/byggstandard.md och kunskap/teoretisk-grund.md för att knyta förslaget till en',
         'punkt eller princip. Du ändrar inga filer.', '',
+        'Ägarens aktuella domar:', '', *(aktuella_domar() or ['- inga']), '',
         'Granskarens blockerande fynd:', *(granskningsfynd() or ['- inga']), ''])
 
 
@@ -93,6 +112,9 @@ def main(argv=None):
     p.add_argument('--prov', action='store_true')
     a = p.parse_args(argv)
     inte_i_bygge('gruppera.py')
+    if not aktuella_domar() and not granskningsfynd():
+        print('inga domar eller granskningar efter rensningen (%s): ingen gruppering' % RENSNING)
+        return 0
     text = uppdrag()
     if a.torr:
         print(text)
@@ -102,7 +124,7 @@ def main(argv=None):
     r = subprocess.run([claude, '-p', '--max-turns', '40', '--permission-mode', 'dontAsk', '--output-format', 'json',
                         '--setting-sources', 'project,local', '--strict-mcp-config', '--model', 'opus[1m]', '--effort', 'high',
                         '--json-schema', SCHEMA.read_text(encoding='utf-8'), '--allowedTools', 'Read', 'Glob', 'Grep',
-                        '--disallowedTools', 'Write', 'Edit', 'Bash'],
+                        '--disallowedTools', 'Write', 'Edit', 'Bash', 'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)'],
                        input=text.encode(), capture_output=True, cwd=str(ROOT), env=miljo, timeout=1200)
     try:
         res = json.loads(r.stdout or b'{}').get('structured_output')
