@@ -204,23 +204,53 @@ def npm(args, cwd, timeout=900, env=None):
     return vl.kor(['npm', *args], timeout=timeout, cwd=cwd, env=env)
 
 
-def audit(cwd):
-    """None, eller felet. Kända sårbarheter (high eller kritisk) avvisar alltid, också när rubriken råkar innehålla ett
-    ord som "timeout"; en granskning som inte kunde göras (nätet) är ett nätsteg (granskningen av r72, M4)."""
+def audit_fynd(cwd):
+    """(kända sårbarheter med allvar high eller critical som {'paket (allvar)'}, None), eller (None, felet) när
+    granskningen inte kunde göras (ett nätsteg; granskningen av r72, M4)."""
     rc, ut = vl.kor(['npm', 'audit', '--omit=dev', '--audit-level=high', '--json'], timeout=300, cwd=cwd, env=vl.provmiljo(), bara_ut=True)
     if rc == 0:
-        return None
+        return set(), None
     try:
         d = json.loads(ut or '{}')
     except ValueError:
         d = {}
     sarb = (d.get('vulnerabilities') or {}) if isinstance(d, dict) else {}
-    hoga = sorted('%s (%s)' % (n, v.get('severity')) for n, v in sarb.items() if isinstance(v, dict) and v.get('severity') in ('high', 'critical'))
+    hoga = {'%s (%s)' % (n, v.get('severity')) for n, v in sarb.items() if isinstance(v, dict) and v.get('severity') in ('high', 'critical')}
     if hoga:
-        return 'npm audit (high eller kritisk): ' + ', '.join(hoga[:8])
+        return hoga, None
     e = d.get('error') if isinstance(d, dict) else None
-    return nat('npm audit kunde inte göras: %s' % vl.sista(('%s %s' % (e.get('code') or '', e.get('summary') or e.get('detail') or ''))
-                                                         if isinstance(e, dict) else ut, 300))
+    return None, nat('npm audit kunde inte göras: %s' % vl.sista(('%s %s' % (e.get('code') or '', e.get('summary') or e.get('detail') or ''))
+                                                               if isinstance(e, dict) else ut, 300))
+
+
+def audit(cwd, bas=None, noter=None):
+    """None, eller felet. Kandidatens kända sårbarheter (high eller kritisk) jämförs med den installerade versionens
+    (bas: en katalog med dess lås, eller en funktion som ger en, eller None): en uppdatering som inte för in någon ny tas
+    in, och de kända redovisas i noter. Annars hade ett paket vars beroenden alltid har kända sårbarheter aldrig kunnat
+    uppdateras (Vercel CLI 2026-10-06). En känd sårbarhet blir aldrig tillfällig."""
+    hoga, fel = audit_fynd(cwd)
+    if fel:
+        return fel
+    if not hoga:
+        return None
+    if bas is not None:
+        try:
+            baskat = bas() if callable(bas) else bas
+        except Exception as e:  # noqa: BLE001 — utan jämförelse avvisar de kända sårbarheterna som förut
+            baskat = None
+            if noter is not None:
+                noter.append('den installerade versionen kunde inte granskas: %s' % vl.sista(e, 120))
+        if baskat:
+            bas_hoga, bfel = audit_fynd(baskat)
+            if bfel:
+                return bfel
+            nya = sorted(hoga - bas_hoga)
+            if not nya:
+                if noter is not None:
+                    noter.append('npm audit: inga nya sårbarheter jämfört med den installerade (kända: %s)' % ', '.join(sorted(hoga)[:6]))
+                return None
+            return 'npm audit: nya sårbarheter (high eller kritisk) jämfört med den installerade: ' + ', '.join(nya[:8])
+    return 'npm audit (high eller kritisk): ' + ', '.join(sorted(hoga)[:8])
 
 
 # --- rökprovet i en egen worktree ---
@@ -346,7 +376,18 @@ def prova_globalt(k, r, kand):
         rc, ut = npm(['install', '--prefix', str(d), '--no-audit', '--no-fund', *skript, '%s@%s' % (paket, version)], d, env=env)
         if rc:
             return nat('installationen i en provkatalog föll: ' + vl.sista(ut)), None
-        fel = audit(d)
+
+        def bas_globalt():  # den installerade versionen, utan skript, bara för att få dess lås
+            b_ = d.parent / (d.name + '-bas')
+            b_.mkdir(exist_ok=True)
+            rc_, ut_ = npm(['install', '--prefix', str(b_), '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund',
+                            '%s@%s' % (paket, r['installerat'])], b_, env=env)
+            if rc_:
+                raise RuntimeError(vl.sista(ut_, 120))
+            return b_
+        noter = []
+        fel = audit(d, bas=bas_globalt if r.get('installerat') else None, noter=noter)
+        shutil.rmtree(d.parent / (d.name + '-bas'), ignore_errors=True)
         if fel:
             return fel, None
         b = d / 'node_modules' / '.bin' / r['binar']
@@ -354,7 +395,7 @@ def prova_globalt(k, r, kand):
         v = (re.search(r'(\d+\.\d+\.\d+)', ut) or [None, None])[1] if rc == 0 else None
         if v != version:
             return 'provkatalogens %s svarar %s, väntade %s' % (r['binar'], v, version), None
-        prov = 'provkatalog, npm audit, versionen'
+        prov = 'provkatalog, npm audit, versionen' + ''.join('; ' + x for x in noter)
         if r['binar'] == 'vercel':
             rc, ut = vl.kor([b, '--help'], timeout=60, env=env)
             if rc:
@@ -797,7 +838,8 @@ def prova_sajt(k, r, kand):
         rc, ut = npm(['install', '--no-audit', '--no-fund', '--ignore-scripts'], mall, env=vl.provmiljo())
         if rc:
             return nat('installationen (mallen) föll: ' + vl.sista(ut, 300)), None
-        fel = audit(mall)
+        noter = []
+        fel = audit(mall, bas=ROOT() / 'mall' / 'astro', noter=noter)
         if fel:
             return foreg('mallen: ', fel), None
         spar = k.katalog / 'godkanda' / ('sajt-%s' % r['id'].split(':', 1)[1])
@@ -811,7 +853,7 @@ def prova_sajt(k, r, kand):
         rc, ut = npm(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], lev, env=vl.provmiljo())
         if rc:
             return nat('låset (leveransen) föll: ' + vl.sista(ut, 300)), None
-        fel = audit(lev)
+        fel = audit(lev, bas=ROOT() / 'mall' / 'leverans', noter=noter)
         if fel:
             return foreg('leveransen: ', fel), None
         for f in ('package.json', 'package-lock.json'):
@@ -842,7 +884,7 @@ def prova_sajt(k, r, kand):
             fel = 'kundrepots bygge med Vercel-adaptern föll: ' + vl.sista(text, 300)
             return (fel if '$ astro build' in text else nat(fel)), None  # bara installationen före bygget går över nätet
         prov = ('installation utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge med Vercel-adaptern, '
-                'båda innanför processgränsen')
+                'båda innanför processgränsen' + ''.join('; ' + x for x in noter) + '')
         if kand.get('huvudversion'):
             def forbered(wt):
                 for del_ in ('astro', 'leverans'):
@@ -898,7 +940,8 @@ def prova_instrument(k, r, kand):
         rc, ut = npm(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], tmp, env=vl.provmiljo())
         if rc:
             return nat('låset föll: ' + vl.sista(ut, 300)), None
-        fel = audit(tmp)
+        noter = []
+        fel = audit(tmp, bas=ROOT() / 'kontroller', noter=noter)
         if fel:
             return fel, None
         spar = k.katalog / 'godkanda' / ('instrument-%s' % r['namn'])
@@ -918,7 +961,8 @@ def prova_instrument(k, r, kand):
         ok, text = rokprov_i_worktree(k, r['id'], forbered)
         if not ok:
             return text, None
-        return None, {'mapp': str(spar), 'prov': 'npm audit, egna node_modules (utan installationsskript) och webbläsare, ' + text}
+        return None, {'mapp': str(spar), 'prov': 'npm audit%s, egna node_modules (utan installationsskript) och webbläsare, %s' % (
+            ''.join(' (%s)' % x for x in noter), text)}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

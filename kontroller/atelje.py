@@ -1045,10 +1045,15 @@ def ledigt_namn(katalog, bas):
     return katalog / namn
 
 
+# startkontrollens kvitton hör till den senaste starten (de skrivs före arkiveringen) och historiken samlas på plats
+STARTKVITTON = ('STARTKVITTO.json', 'STARTKVITTO.md', 'STARTKVITTO-STOPP.json', 'STARTKVITTO-STOPP.md', 'STARTKVITTO-BYGGE.json',
+                'STARTKVITTO-BYGGE.md', 'STARTKVITTO-BYGGE-STOPP.json', 'STARTKVITTO-BYGGE-STOPP.md', 'startkvitton')
+
+
 def arkivera(rot, mal, utom=()):
-    """Flyttar ateljékatalogens innehåll till mal, utom STATUS.json, arbetare.log, föregående körningar och det som
-    står i utom; symlänkar tas bort, aldrig följda."""
-    behall = {'STATUS.json', 'arbetare.log', 'foregaende', *utom}
+    """Flyttar ateljékatalogens innehåll till mal, utom STATUS.json, arbetare.log, föregående körningar, startkontrollens
+    kvitton och det som står i utom; symlänkar tas bort, aldrig följda."""
+    behall = {'STATUS.json', 'arbetare.log', 'foregaende', *STARTKVITTON, *utom}
     flytt = [p for p in sorted(rot.iterdir()) if p.name not in behall and not any(p.name.startswith(x) for x in utom if x.endswith('-'))]
     if not flytt:
         return None
@@ -1833,7 +1838,8 @@ def arbeta(slug, lage):
     try:
         skriv()
         if lage == 'ny':
-            status['foregaende'] = rel(arkivera_forra(rot)) if any(p.name not in ('STATUS.json', 'arbetare.log', 'foregaende') for p in rot.iterdir()) else None
+            forra_ = arkivera_forra(rot) if any(p.name not in ('STATUS.json', 'arbetare.log', 'foregaende', *STARTKVITTON) for p in rot.iterdir()) else None
+            status['foregaende'] = rel(forra_) if forra_ else None
         elif lage == 'putsa':  # det ägaren dömde arkiveras och blir slutdomens före (granskningen av skapandeflödet, punkt 4)
             status['putsning'] = rel(arkivera_putsning(rot))
             status['faser']['valj'] = {'klar': nu(), 'arvd': 'putsning'}  # valet står: --fortsatt tar vid i förfiningen

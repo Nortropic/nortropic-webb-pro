@@ -90,7 +90,9 @@ Skydden runt en ny version (den oberoende granskningen 2026-10-06):
   som flödet kör eller Impeccables motorversion tas aldrig in automatiskt, och inte heller en som flyttar eller bryter
   metodkartans radutdrag (prövas igen vid intaget). Metoden låses inte om över en ändring som aldrig låsts.
 - **Fel:** ett nätsteg som faller av ett tillfälligt skäl (tidsgräns, DNS, 5xx, Claudes gränser) avvisar inget,
-  utan versionen behålls och prövas igen; en känd sårbarhet är aldrig tillfällig. Faller ett intag eller dess
+  utan versionen behålls och prövas igen; en känd sårbarhet är aldrig tillfällig. npm audit jämför med den installerade
+  versionen: en uppdatering som inte för in någon ny sårbarhet (high eller kritisk) tas in, och de kända står i
+  rapporten (Vercel CLI:s beroenden har kända sårbarheter i varje version). Faller ett intag eller dess
   incheckning läggs filerna och miljön tillbaka och återställningen prövas; faller en incheckning tre gånger avvisas
   versionen. Faller en återställning står raden som FEL och rapporten säger att miljön kan vara trasig.
 - **Körningar på hela maskinen:** ateljéns arbetare, `kor.sh` och `rokprov.sh` anmäler sig i körregistret

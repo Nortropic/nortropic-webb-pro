@@ -770,7 +770,7 @@ spara_h1 = (uh.npm, uh.audit, uh.installera_instrument, uh.rokprov_i_worktree)
 try:
     sett_h1 = {}
     uh.npm = lambda args, cwd, timeout=900, env=None: (0, '')
-    uh.audit = lambda cwd: None
+    uh.audit = lambda cwd, **kw: None
 
     def f_installera(kontr):
         sett_h1['pin'] = json.loads((Path(kontr) / 'package.json').read_text())['dependencies'].get('axe-core')
@@ -873,6 +873,17 @@ try:
     assert uh.audit(TMP) == 'npm audit (high eller kritisk): foo (high)', uh.audit(TMP)
     vl.kor = lambda args, **kw: (1, json.dumps({'error': {'code': 'ENOTFOUND', 'summary': 'request to https://registry.npmjs.org failed'}}))
     assert uh.audit(TMP).startswith(uh.TILL), uh.audit(TMP)
+    # jämförelsen med den installerade versionen: kända sårbarheter som redan finns där stoppar inte en uppdatering, en
+    # ny gör det (Vercel CLI 2026-10-06: varje version hade samma kända sårbarheter i sina beroenden)
+    SVAR_A = {}
+    vl.kor = lambda args, cwd=None, **kw: (1, json.dumps({'vulnerabilities': SVAR_A[str(cwd)]}))
+    SVAR_A[str(TMP / 'kand')] = {'tar': {'severity': 'critical'}, 'braces': {'severity': 'high'}}
+    SVAR_A[str(TMP / 'bas')] = {'tar': {'severity': 'critical'}, 'braces': {'severity': 'high'}, 'gammal': {'severity': 'high'}}
+    noter_a = []
+    assert uh.audit(TMP / 'kand', bas=TMP / 'bas', noter=noter_a) is None and 'inga nya sårbarheter' in noter_a[0], noter_a
+    SVAR_A[str(TMP / 'bas')] = {'braces': {'severity': 'high'}}
+    assert uh.audit(TMP / 'kand', bas=lambda: TMP / 'bas') == 'npm audit: nya sårbarheter (high eller kritisk) jämfört med den installerade: tar (critical)'
+    assert uh.audit(TMP / 'kand') == 'npm audit (high eller kritisk): braces (high), tar (critical)', 'utan jämförelse avvisas de kända'
 finally:
     vl.kor = spara_kor_m4
 
@@ -1177,6 +1188,15 @@ try:
 finally:
     gr_n8.lardomar_fil, gr_n8.KUNDER, gr_n8.subprocess.run = spara_n8
 assert ARGS_N8 and 'Read(./kunskap/GRUPPERING.md)' in ARGS_N8[0] and 'Read(./LARDOMAR.md)' in ARGS_N8[0], ARGS_N8
+# startkontrollens kvitton följer aldrig med förra körningens material till arkivet (de skrivs före arkiveringen)
+rot_kv = TMP / 'kv-atelje'
+(rot_kv / 'startkvitton').mkdir(parents=True)
+for f_ in ('STARTKVITTO.json', 'STARTKVITTO.md', 'VINNARE.json', 'STATUS.json'):
+    (rot_kv / f_).write_text('{}')
+(rot_kv / 'startkvitton' / 'STARTKVITTO-x.json').write_text('{}')
+arkiv_kv = atelje.arkivera_forra(rot_kv)
+assert (rot_kv / 'STARTKVITTO.json').is_file() and (rot_kv / 'startkvitton' / 'STARTKVITTO-x.json').is_file() and not (rot_kv / 'VINNARE.json').exists()
+assert (arkiv_kv / 'VINNARE.json').is_file() and not (arkiv_kv / 'STARTKVITTO.json').exists(), arkiv_kv
 print('granskningen av r73: cachen och gamla upptagna val, Homebrews karenstid, skrivgränsen i en worktree, Mobbin-provet, tidszonen, '
       'flaskan och avbrottet, oversionerad node, utdragen vid intaget, den mogna commiten och grupperingen ok')
 
