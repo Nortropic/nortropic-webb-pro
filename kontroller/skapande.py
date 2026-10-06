@@ -188,7 +188,10 @@ def kritikrader(slug, antal=3, underlag=None, aktuella=False):
         return []
     rader = ['Ägarens %s domar över designen (underlag/%s/%s), nyast först. De väger tyngst av allt du läser; en senare' % (
                  'aktuella' if aktuella else 'senaste', slug, DOMLOGG),
-             'dom går före en tidigare, och före äldre lärdomar och tidigare designval:']
+             'dom går före en tidigare, och före äldre lärdomar och tidigare designval. En dom gäller det den uttryckligen',
+             'beslutar och förstås i sitt sammanhang: den blir inga allmänna formregler, och att något fungerade dåligt i ett',
+             'förslag förbjuder det inte i ett annat (ägaren 2026-10-06: tidigare underkännanden ska inte omvandlas till en allt',
+             'smalare uppsättning tillåtna uttryck):']
     for d in reversed(egna):
         rader.append('- %s, %s, beslut %s%s:' % (d.get('tid', '?'), d.get('kalla'), d['beslut'],
                                                   (' (återöppnar: %s)' % ', '.join(d.get('ateroppnar') or [])) if d.get('ateroppnar') else ''))
@@ -251,8 +254,9 @@ def fakta_rader(slug, underlag=None):
     return ['Verksamhetens fakta gäller och ändras aldrig: namn, nummer, orter, år, tjänster, omdömenas ordalydelse och varje',
             'uppgift med belägg. De står i %s/VERKSAMHET.json, %s/RESEARCH.md (raderna Belägg och listan "Bara de har"),' % (u, u),
             '%s/kalla/ och verksamhetens egna bilder i %s/bilder/ (BILDER.md beskriver dem). Sakuppgifterna i %s gäller,' % (u, u, rel(textfil(slug, underlag))),
-            'men dess rubriker, ordning och formuleringar är ett utkast som skrivs om tillsammans med formen. %s/BRIEF.md:' % u,
-            'toppuppgifterna, den primära handlingen och kraven gäller; sajtkartans bildfördelning är ett förslag. Designbeslut',
+            'men dess rubriker, ordning, blockindelning och formuleringar är ett utkast som skrivs om tillsammans med formen.',
+            '%s/BRIEF.md: toppuppgifterna, den primära handlingen och kravens innehåll gäller; var och hur de placeras (till' % u,
+            'exempel en knapp i första vyn eller en fast list) och sajtkartans bildfördelning är förslag. Designbeslut',
             '(grundidé, referensurval, palett, typografi, komposition, bildurval och beskärning, rubrikernas form) prövas mot',
             'ägarens domar nedan; ett beslut en dom återöppnat fattas på nytt med eget skäl.']
 

@@ -4114,7 +4114,7 @@ try:
         so, sid_sk = None, 's'
         if vid_start:
             vid_start(999999990)
-        if schema is kd.FORSKA_SCHEMA_SKISS:
+        if schema in (kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED):
             so = {'varfor': 'befintligt material räcker', 'riktningar': 'fem grunder', 'sajter': [], 'fragor': [],
                   'antaganden': [{'antagande': 'besökaren vill se jobb', 'underlag': 'ännu inte observerat', 'provning': 'uppgift', 'om_fel': 'kontakt först'}]}
         elif schema is kd.PLAN_SCHEMA:
@@ -4198,15 +4198,18 @@ try:
     assert skisser_ and all('rubriken "%s"' % kd.OVERFORT in p_ for p_ in skisser_), 'skissens skapare redovisar det överförda och avvikelserna'
     plan_p_ = next(s_['prompt'] for s_ in sess_sk if s_['schema'] is kd.PLAN_SCHEMA)
     assert 'skisser (första vyn' in plan_p_ and 'sektion' in plan_p_ and 'LARDOMAR-original' not in plan_p_ and 'AKTUELL' in plan_p_ and 'GAMMAL SMAKDOM' not in plan_p_
-    forska_p_ = next(s_['prompt'] for s_ in sess_sk if s_['schema'] is kd.FORSKA_SCHEMA_SKISS)
-    assert 'Återanvänd researchen' in forska_p_ and 'högst 4 sajter och 6 frågor' in forska_p_
+    # flera skisser: hela bredden utan minsta antal, och frågorna föreskriver aldrig formen (ägarens uppdrag 2026-10-06)
+    forska_p_ = next(s_['prompt'] for s_ in sess_sk if s_['schema'] is kd.FORSKA_SCHEMA_SKISS_BRED)
+    assert 'Återanvänd researchen' in forska_p_ and 'både Refero och Mobbin' in forska_p_ and 'aldrig formen' in forska_p_ and 'högst 4 sajter' not in forska_p_
+    assert kd.FORSKA_SCHEMA_SKISS_BRED['properties']['fragor']['minItems'] == 0 and kd.FORSKA_SCHEMA_SKISS_BRED['properties']['sajter']['maxItems'] > 4
     up_sk = (kd.kdir(sl_sk, 'k01') / 'UPPDRAG.md').read_text()
     assert 'Den viktigaste innehållssektionen' in up_sk and 'sektion 0' in up_sk
     # --- skaparens rena arbetskontext ---
     sk_p = [s_ for s_ in sess_sk if s_['schema'] is None]
     p1_ = next(s_ for s_ in sk_p if 'EN skiss, k01' in s_['prompt'])
     for krav_ in ('Omfattningen: första vyn', 'METOD-skiss.md', 'VERKSAMHET.json', 'TEXTUNDERLAG.md', 'BILDER.md', 'UPPDRAG.md', 'Kundens historik slås upp',
-                  'Hitta aldrig på omdömen', 'Inget fast antal varv', 'försöket högst 30 minuter', 'AKTUELL'):
+                  'Hitta aldrig på omdömen', 'Inget fast antal varv', 'försöket högst %d minuter' % (kd.FRIST_SKISS // 60), 'AKTUELL',
+                  'Ditt mandat', 'Förslag som du får ompröva', 'Första varvet efter renderingen prövar grunden', 'Kvarvarande svagheter', '--mellan'):
         assert krav_ in p1_['prompt'], krav_
     for inte_ in ('LARDOMAR-original', 'Arbetsregeln är minst', 'GAMMAL SMAKDOM', 'METOD-skiss-uppslag.md', 'undersidan eller tillståndet som uppdraget anger'):
         assert inte_ not in p1_['prompt'], inte_

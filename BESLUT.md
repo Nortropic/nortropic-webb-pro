@@ -418,3 +418,26 @@ besluten genomförs när granskningen r79, rökprovet och sammanslagningen till 
 
 Figma-pluginen kan slås på igen när ägaren loggar in i Figma (pluginens MCP kräver inloggning, som en obevakad
 session inte kan göra).
+
+## Tillägg 2026-10-06: kreativ frihet och hela kompetensen i designomgången
+
+Ägarens uppdrag 2026-10-06 ~05:37Z (ordagrant i minnet), efter domen över den första prototypen (ny riktning; inget
+bygge hittills var bra nog): professionellt gestaltade, kundspecifika förslag som ägaren vill gå vidare med, ur
+befintligt flöde med minsta ändringar. Det som ändrades (`kontroller/kandidater.py`, `kontroller/skapande.py`,
+`kontroller/referenstjanster.py`, `kontroller/forhandsvisa.py`, `kunskap/metodkarta.md`):
+
+1. **Skaparen har mandat:** huvudreferens och riktning, berättelse och ordning, komposition, bildstorlek och beskärning,
+   typografiska kontraster, typsnitt och vikter, färg, detaljer, interaktion och rörelse får skaparen ompröva med skäl.
+   "En font, en vikt, inga accentfärger, små bilder eller en viss standardlayout är inte ägarkrav för denna omgång."
+   Kundfakta, besökarens uppgift, tillgänglighet, integritet, säkerhet, rättigheter och kundens identitet gäller.
+2. **Planen formulerar en idé och vad den prövar,** aldrig exakta typsnitt, vikter, färgkoder, mått eller antal rader;
+   formfälten står i uppdraget under "Förslag som du får ompröva". Huvudreferensen är ett förslag.
+3. **Tidigare domar och kalibreringen** gäller det de uttryckligen beslutar och blir inga formregler; kalibreringen är
+   uppslag, inte före-läsning, och citeras aldrig som riktning.
+4. **Forskningen** söker utifrån kunden, besökarnas behov och olika uttryck, aldrig efter en bestämd form; både Refero och
+   Mobbin, utan anrop för antalets skull.
+5. **Rendera tidigt och pröva grunden:** första varvet efter renderingen prövar kompositionen och får byta grundidé,
+   referens eller komposition; mellanbredden 1280 renderas; en kritisk granskare ser bilderna utan skaparens text och kan
+   rekommendera att riktningen förkastas, och skaparen svarar i en egen session.
+6. **Redovisningen per förslag:** idén och relevansen, de faktiska referenserna, det som synligt förts över, de
+   kvarvarande svagheterna och kompetensernas synliga bidrag. Tekniska kontroller är inget godkännande.
