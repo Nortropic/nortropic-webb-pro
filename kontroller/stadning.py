@@ -36,7 +36,8 @@ argument) lämnas, och det prövas igen direkt före varje radering.
    ändrats på sju dygn: när det är oklart står den kvar.
 5. npm-cachen: npm cache clean --force när disken är fylld över 85 %, annars när förra rensningen är äldre än 30 dygn
    (tiden i underhållets läge, NPM-CACHE.json). Aldrig medan en körning, ett underhåll, ett intag eller en
-   npm-installation pågår.
+   npm-installation pågår. npm avgör själv vilken cache den rensar; sökvägen och storleken i redovisningen är en
+   uppskattning.
 7. Redovisningen: varje åtgärd med vad, sökväg, storlek före, tid (UTC, ur klockan), utfall och skäl.
 
 Eget material (punkt 1 och 2) är varje fil i kopian eller worktreen som inte går att återskapa: allt utom .git, det
@@ -85,6 +86,9 @@ AKTIV = DYGN                     # punkt 1 och 2: en worktree eller kopia som ä
 NPM_FYLLD = 0.85                 # punkt 5: disken fylld över 85 %
 NPM_INTERVALL = 30 * DYGN        # punkt 5: annars en gång i månaden
 NPM_LAGE = 'NPM-CACHE.json'      # förra rensningen, i underhållets läge
+# punkt 5 i redovisningen, också i torrläget där npm aldrig körs (slutgranskningen av r94, KAN-2)
+NPM_RENSNING = 'npm cache clean --force utan --cache: npm avgör själv vilken cache som rensas, och sökvägen och storleken före ' \
+               'är en uppskattning ur $npm_config_cache, ~/.npmrc eller ~/.npm'
 DASHBOARD_PORT = 4771            # ägarens dashboard: stoppas aldrig
 MATERIAL_MAX = 200               # så många filer av det egna materialet sparas i redovisningen (antal och summa alltid)
 
@@ -153,9 +157,12 @@ def huvudutcheckning(rot):
 
 
 def npm_cache_katalog(miljo=None, hem=None):
-    """npm:s cache utan att köra npm: npm config get roterar ~/.npm/_logs, också i torrläget (omgranskningen av r94,
-    K-b). $npm_config_cache, annars cache= i ~/.npmrc, annars ~/.npm. None när ~/.npmrc inte går att läsa eller anger
-    något annat än en absolut sökväg: då redovisas cachen som inte kontrollerad."""
+    """En uppskattning av npm:s cache utan att köra npm: npm config get roterar ~/.npm/_logs, också i torrläget
+    (omgranskningen av r94, K-b). $npm_config_cache, annars cache= i ~/.npmrc, annars ~/.npm. Den följer inte alla npm:s
+    regler (NPM_CONFIG_USERCONFIG, att den sista raden gäller, kommentarer och ${VAR}), så den används bara för mätningen
+    och redovisningen: den skarpa rensningen låter npm själv avgöra cachen (npm_rensa; slutgranskningen av r94, KAN-2).
+    None när ~/.npmrc inte går att läsa eller anger något annat än en absolut sökväg: då redovisas cachen som inte
+    kontrollerad."""
     miljo = os.environ if miljo is None else miljo
     hem = Path(hem) if hem else Path.home()
 
@@ -234,7 +241,7 @@ class Ram:
         self.tmp_rot = verklig_sokvag(tmp_rot) if tmp_rot else None
         self.tmp_extra = [verklig_sokvag(p) for p in tmp_extra if p]
         self.scratch_rot = verklig_sokvag(scratch_rot) if scratch_rot else None
-        self.npm_cache = Path(npm_cache) if npm_cache else None
+        self.npm_cache = Path(npm_cache) if npm_cache else None  # uppskattningen: bara för mätningen och redovisningen (KAN-2)
         self.tillstand = Path(tillstand) if tillstand else None
         self.claude_projekt = Path(claude_projekt) if claude_projekt else None
         self.las = Path(las) if las else None
@@ -727,10 +734,14 @@ def egen_commit(ram, w):
 
 
 def onada_commits(ram, w):
-    """Commitarna i worktreens HEAD-reflogg (och dess HEAD) som varken nås från en gren eller från origin/main, till
-    exempel en commit på en frikopplad HEAD. Reflogen försvinner med worktreens adminkatalog, och då blir de onåbara tills
-    git gc rensar dem (omgranskningen av r94, Ö1 för worktrees): de räknas som eget material. [(sha, ämne)], eller None
-    när reflogen eller git inte svarar. En post vars commit redan saknas i git går inte att rädda och räknas inte."""
+    """Commitarna i worktreens HEAD-reflogg (och dess HEAD) som försvinner med worktreen: de nås varken från en gren,
+    från origin/main eller från en reflogg som står kvar i huvudutcheckningens .git, till exempel en commit på en
+    frikopplad HEAD. Reflogen försvinner med worktreens adminkatalog, och då blir de onåbara tills git gc rensar dem
+    (omgranskningen av r94, Ö1 för worktrees): de räknas som eget material. En commit som ersatts av en rebase eller amend
+    står kvar i grenens reflogg efter git worktree remove och räknas inte (slutgranskningen av r94, BÖR-1). --reflog efter
+    --single-worktree, körd i huvudutcheckningen, är grenarnas, stashens och huvudutcheckningens egna refloggar, men ingen
+    worktrees HEAD-reflogg: den här worktreens försvinner nu, de andras när deras worktrees tas bort. [(sha, ämne)], eller
+    None när reflogen eller git inte svarar. En post vars commit redan saknas i git går inte att rädda och räknas inte."""
     rc, ut = git('reflog', 'show', '--format=%H', 'HEAD', cwd=w['sokvag'], bara_ut=True)
     if rc:
         return None
@@ -741,8 +752,8 @@ def onada_commits(ram, w):
         return None
     if not shas:
         return []
-    rc, ut = git('log', '--format=%H %s', *shas, '--not', '--branches', 'refs/remotes/origin/main', cwd=ram.repo, timeout=300,
-                 bara_ut=True)
+    rc, ut = git('log', '--format=%H %s', *shas, '--not', '--branches', 'refs/remotes/origin/main', '--single-worktree', '--reflog',
+                 cwd=ram.repo, timeout=300, bara_ut=True)
     if rc:
         return None
     return [tuple(r.split(' ', 1)) if ' ' in r else (r, '') for r in ut.splitlines() if r.strip()]
@@ -902,15 +913,17 @@ def bedom_worktree(ram, w, anv, senast, mfel):
         return VANTAR, 'worktreen går inte att jämföra med huvudutcheckningen (%s); ägaren avgör' % e, {}
     onada = onada_commits(ram, w)
     if onada is None:
-        return VANTAR, 'worktreens HEAD-reflogg gick inte att pröva mot grenarna och origin/main; ägaren avgör', {}
+        return VANTAR, 'worktreens HEAD-reflogg gick inte att pröva mot grenarna, origin/main och huvudutcheckningens ' \
+                       'refloggar; ägaren avgör', {}
     delar, falt = [], {}
     if eget:
         delar.append('%d filer (%s) som inte går att återskapa ur huvudutcheckningen: %s' % (
             len(eget), storlek_text(sum(s for _r, s in eget)), material_kort(eget)))
         falt.update(material_falt(eget))
     if onada:
-        delar.append('%d commits som bara finns i worktreens HEAD-reflogg och försvinner med den (ingen gren eller origin/main '
-                     'når dem, till exempel på en frikopplad HEAD): %s' % (len(onada), ', '.join('%s %s' % (s[:12], a) for s, a in onada[:5])))
+        delar.append('%d commits som bara finns i worktreens HEAD-reflogg och försvinner med den (ingen gren, origin/main eller '
+                     'reflogg i huvudutcheckningen når dem, till exempel på en frikopplad HEAD): %s' % (
+                         len(onada), ', '.join('%s %s' % (s[:12], a) for s, a in onada[:5])))
         falt['commits'] = [{'sha': s, 'amne': a} for s, a in onada[:MATERIAL_MAX]]
     if delar:
         return VANTAR, '%s är sammanslagen och pushad, men har %s; ägaren avgör' % (vem, ' och '.join(delar)), falt
@@ -1138,9 +1151,9 @@ def punkt5(ram, red):
         red.post(5, 'npm-cachen', cacache, storlek, KVAR, '%s, men %s: rensas vid nästa städning' % (skal, hinder))
         return
     if ram.torr:
-        red.post(5, 'npm-cachen', cacache, storlek, RENSAD, skal + '; npm cache clean --force')
+        red.post(5, 'npm-cachen', cacache, storlek, RENSAD, skal + '; ' + NPM_RENSNING)
         return
-    rc, ut = ram.npm(ram.npm_cache)
+    rc, ut = ram.npm()
     if rc:
         red.post(5, 'npm-cachen', cacache, storlek, FEL, '%s, men npm cache clean föll: %s' % (skal, vl.sista(ut, 200)))
         return
@@ -1149,11 +1162,14 @@ def punkt5(ram, red):
         vl.skriv_json(ram.tillstand / NPM_LAGE, {'tid': tid, 'storlek_fore': storlek, 'skal': skal})
     except (OSError, TypeError) as e:
         skal += '; tiden kunde inte sparas (%s)' % e
-    red.post(5, 'npm-cachen', cacache, storlek, RENSAD, skal + '; npm cache clean --force')
+    red.post(5, 'npm-cachen', cacache, storlek, RENSAD, skal + '; ' + NPM_RENSNING)
 
 
-def npm_rensa(cache):
-    return vl.kor(['npm', 'cache', 'clean', '--force', '--no-update-notifier', '--cache', str(cache)], timeout=900)
+def npm_rensa():
+    """npm cache clean --force utan --cache: npm avgör själv vilken cache som rensas, efter sina egna regler (miljön,
+    NPM_CONFIG_USERCONFIG och npmrc-filerna). Städningens sökväg (npm_cache_katalog) är bara en uppskattning för mätningen
+    och redovisningen (slutgranskningen av r94, KAN-2). Körs aldrig i torrläget."""
+    return vl.kor(['npm', 'cache', 'clean', '--force', '--no-update-notifier'], timeout=900)
 
 
 def stada(ram, punkter=(1, 2, 3, 4, 5)):

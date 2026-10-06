@@ -18,6 +18,10 @@ processlista. Varje fall kan bli rött, också granskarens (granskningen av r94)
 - Ö6: diskvaktens städning står i underhållets rapport;
 - Ö7: worktree remove utan --force, ps och lsof som faller, oläsbara kataloger och filer, identiteten före SIGTERM, en
   process som inte går att stoppa, en låst worktree, okända worktrees, dashboarden utan --port och symlänkskyddet;
+- slutgranskningen av r94: en amendad och en rebasad worktree som slagits samman och pushats tas bort, och de ersatta
+  commitarna står kvar i grenens reflogg (BÖR-1); en worktree vars HEAD-reflogg eller git log inte svarar väntar på
+  ägaren (KAN-1); den skarpa npm-rensningen låter npm själv avgöra cachen, och torrläget kör inte npm utan redovisar
+  sökvägen som en uppskattning (KAN-2);
 - och det tidigare: huvudutcheckningens underlag/ och kunder/ byte för byte oförändrade, worktrees, processer,
   tillfälliga kataloger, scratchpad, npm-cachens tre fall, diskvakten, torrläget, redovisningens fält och underhållets
   rapport.
@@ -25,7 +29,8 @@ processlista. Varje fall kan bli rött, också granskarens (granskningen av r94)
     .venv/bin/python kontroller/rokprov/revision/prov_stadning.py <repo>
 
 Processlistan är maskinens (ps och lsof), men bara provets egna processer räknas, och stoppet vägrar alla andra. Det
-verkliga systemet (~/nortropic-repos, /tmp, ~/.npm) rörs aldrig: Ram.verklig fäller provet om något anropar den.
+verkliga systemet (~/nortropic-repos, /tmp, ~/.npm) rörs aldrig: Ram.verklig fäller provet om något anropar den, och
+varje npm som provet startar har provets egen cache ($npm_config_cache) eller ett eget HOME.
 """
 import fcntl
 import os
@@ -44,6 +49,9 @@ if not os.environ.get('NWP_PROV_BEHALL'):  # också när provet faller: annars f
     import atexit
     atexit.register(shutil.rmtree, TMP, True)
 os.environ['NWP_KORREGISTER'] = str(TMP / 'korregister')  # före importen: provets körningar i ett eget register
+# den skarpa npm-rensningen låter npm själv avgöra cachen (KAN-2): varje npm som provet startar (npm-fallen, diskvakten och
+# underhållet) rensar då provets egen cache, aldrig ~/.npm; KAN-2-fallet byter den mot en egen npmrc och ett eget HOME
+os.environ['npm_config_cache'] = str(TMP / 'npm')
 os.environ.pop('NWP_UNDERHALL_PROV', None)  # provets körningar anmäler sig, också inne i underhållets eget rökprov
 sys.path.insert(0, str(ROOT / 'kontroller'))
 import korregister  # noqa: E402
@@ -190,10 +198,15 @@ try:
             git('commit', '-q', '-m', gren, cwd=wt)
         return wt
 
-    SAMMAN = ('klar', 'smutsig', 'material', 'aktiv', 'anvand', 'kirurg', 'env', 'last', 'race', 'frikopplad', 'catfile')
+    SAMMAN = ('klar', 'smutsig', 'material', 'aktiv', 'anvand', 'kirurg', 'env', 'last', 'race', 'frikopplad', 'catfile', 'amend',
+              'reflogfel', 'logfel')
     WT = {g: worktree(g) for g in SAMMAN}
     WT['rebasad'] = worktree('rebasad', commit=False)  # Ö2: uppdateras senare med git rebase main, ingen egen commit
     WT['ff'] = worktree('ff', commit=False)            # Ö2, kontroll: uppdateras med git merge --ff-only main
+    WT['omskriven'] = worktree('omskriven')            # BÖR-1: egen commit, rebasad på ett nyare main, sedan sammanslagen
+    # BÖR-1: commitarna som en amend och en rebase ersätter; de står kvar i grenens reflogg efter git worktree remove
+    ERSATTA = {g: git('rev-parse', 'HEAD', cwd=WT[g]).strip() for g in ('amend', 'omskriven')}
+    git('commit', '-q', '--amend', '-m', 'amend, rättat meddelande', cwd=WT['amend'])
     git('checkout', '-q', '--detach', cwd=WT['frikopplad'])  # Ö1: ett experiment på en frikopplad HEAD, sedan tillbaka
     (WT['frikopplad'] / 'experiment.md').write_text('ett experiment som bara finns här\n')
     git('add', '-A', cwd=WT['frikopplad'])
@@ -207,6 +220,12 @@ try:
     git('rebase', '-q', 'main', cwd=WT['rebasad'])
     git('merge', '-q', '--ff-only', 'main', cwd=WT['ff'])
     assert any(r.startswith('rebase') for r in git('reflog', 'show', '--format=%gs', 'rebasad', cwd=HUVUD).splitlines())
+    git('rebase', '-q', 'main', cwd=WT['omskriven'])  # BÖR-1: som r94, rebase och sedan en snabbspolande sammanslagning
+    git('merge', '-q', '--ff-only', 'omskriven', cwd=HUVUD)
+    git('push', '-q', 'origin', 'main', cwd=HUVUD)
+    for g_, s_ in ERSATTA.items():  # den ersatta commiten: i worktreens HEAD-reflogg och grenens reflogg, men ingen gren når den
+        assert s_ != git('rev-parse', 'HEAD', cwd=WT[g_]).strip() and s_ in git('reflog', 'show', '--format=%H', 'HEAD', cwd=WT[g_]).split()
+        assert s_ in git('reflog', 'show', '--format=%H', g_, cwd=HUVUD).split() and not git('branch', '-a', '--contains', s_, cwd=HUVUD).strip()
     WT['ny'] = worktree('ny', commit=False)            # Ö2: ny gren utan egen commit, på det pushade main
     WT['pagar'] = worktree('pagar')                    # inte sammanslagen
     WT['lokal'] = worktree('lokal')
@@ -454,11 +473,17 @@ try:
     klar('torrläget listar vad som skulle göras och ändrar ingenting')
 
     # ===== städningen på riktigt; git worktree remove utan --force när worktreen blir smutsig i sista stund (Ö7) =====
+    # KAN-1: worktreens HEAD-reflogg går inte att läsa (reflogfel), och git log faller för en annan worktree (logfel)
     git_orig = stadning.git
+    LOGFEL_HEAD = git('rev-parse', 'HEAD', cwd=WT['logfel']).strip()
 
     def git_med_sen_fil(*a, **k):
         if a[:2] == ('worktree', 'remove') and Path(a[-1]) == WT['race']:
             (WT['race'] / 'sen-fil.txt').write_text('skapad efter prövningen\n')
+        if a[:3] == ('reflog', 'show', '--format=%H') and os.path.realpath(k.get('cwd') or '') == os.path.realpath(WT['reflogfel']):
+            return 128, 'fatal: worktreens reflogg gick inte att läsa (provets fel)'
+        if a[:1] == ('log',) and LOGFEL_HEAD in a:
+            return 128, 'fatal: git log föll (provets fel)'
         return git_orig(*a, **k)
 
     stadning.git = git_med_sen_fil
@@ -553,6 +578,21 @@ try:
         p_ = en(rapB, WT[g_], 1)
         assert WT[g_].is_dir() and p_['utfall'] == 'väntar på ägaren' and 'okänd' in p_['skal'], (g_, p_)
     klar('Ö2: en worktree som bara uppdaterats med git rebase main eller --ff-only har ingen egen commit och väntar på ägaren')
+    for g_, s_ in ERSATTA.items():  # BÖR-1 (granskarens fall A och B): den ersatta commiten försvinner inte med worktreen
+        p_ = en(rapB, WT[g_], 1)
+        assert not WT[g_].exists() and p_['utfall'] == 'raderad' and not p_.get('commits'), (g_, p_)
+        assert s_ in git('reflog', 'show', '--format=%H', g_, cwd=HUVUD).split() and s_ in git('rev-list', '--all', '--reflog', cwd=HUVUD).split(), g_
+    assert 'reflogg i huvudutcheckningen' in en(rapB, WT['frikopplad'], 1)['skal'], 'skälet säger vad som faktiskt försvinner'
+    klar('BÖR-1: en amendad och en rebasad worktree, sammanslagna och pushade, tas bort; de ersatta commitarna står kvar i grenens reflogg')
+    for g_ in ('reflogfel', 'logfel'):  # KAN-1: Ö1:s skyddsgren
+        p_ = en(rapB, WT[g_], 1)
+        assert WT[g_].is_dir() and p_['utfall'] == 'väntar på ägaren' and 'HEAD-reflogg gick inte att pröva' in p_['skal'], (g_, p_)
+    rap_k1 = stadning.stada(ram(), punkter=(1,))  # samma worktrees när git svarar: de tas bort
+    for g_ in ('reflogfel', 'logfel'):
+        assert not WT[g_].exists() and en(rap_k1, WT[g_], 1)['utfall'] == 'raderad', (g_, poster(rap_k1, WT[g_]))
+    assert not [p for p in rap_k1['poster'] if p['utfall'] in ('raderad', 'fel') and p['sokvag'] not in (str(WT['reflogfel']), str(WT['logfel']))], \
+        rap_k1['poster']
+    klar('KAN-1: en worktree vars HEAD-reflogg eller git log inte svarar väntar på ägaren, och tas bort när git svarar')
 
     # processer
     stoppade_ = {P['astro'], P['http'], P['4772'], P['kopia']}
@@ -702,6 +742,45 @@ try:
     (p5_,) = poster(stadning.stada(r_n, punkter=(5,)), punkt=5)
     assert p5_['utfall'] == 'kvar' and 'inte kontrollerad' in p5_['skal'], p5_
     klar('K-b: npm-cachens sökväg ur $npm_config_cache, ~/.npmrc eller ~/.npm utan att npm körs; annars inte kontrollerad')
+
+    # ===== KAN-2: den skarpa rensningen låter npm själv avgöra cachen; torrläget kör aldrig npm =====
+    # npm:s egen konfiguration (NPM_CONFIG_USERCONFIG, granskarens N1) pekar på en annan cache än städningens uppskattning
+    # (ram.npm_cache är NPM). HOME ligger i provet, så att riktig npm aldrig når ~/.npm.
+    NPM_EGEN, NPM_HEM = TMP / 'npm-egen', TMP / 'npm-hem'
+    NPM_HEM.mkdir()
+    (NPM_HEM / 'egen-npmrc').write_text('cache=%s\n' % NPM_EGEN)
+
+    def npm_egen_konfig(torr, falsk_npm=False):
+        for c_ in (NPM, NPM_EGEN):
+            (c_ / '_cacache' / 'content-v2').mkdir(parents=True, exist_ok=True)
+            (c_ / '_cacache' / 'content-v2' / 'paket').write_bytes(b'x' * 5000)
+        r_e = ram(torr=torr, disk=lambda: (1000 * 2 ** 30, 100 * 2 ** 30))  # 90 % fylld: rensas
+        spara_e = {k_: os.environ.get(k_) for k_ in ('HOME', 'NPM_CONFIG_USERCONFIG', 'npm_config_cache', 'PATH')}
+        os.environ.pop('npm_config_cache', None)
+        os.environ.update(HOME=str(NPM_HEM), NPM_CONFIG_USERCONFIG=str(NPM_HEM / 'egen-npmrc'))
+        if falsk_npm:
+            os.environ['PATH'] = '%s:%s' % (FALSK_NPM, spara_e['PATH'])
+        try:
+            rap_e = stadning.stada(r_e, punkter=(5,))
+        finally:
+            for k_, v_ in spara_e.items():
+                if v_ is None:
+                    os.environ.pop(k_, None)
+                else:
+                    os.environ[k_] = v_
+        (p5,) = poster(rap_e, punkt=5)
+        return p5
+
+    p_ = npm_egen_konfig(torr=False)
+    assert p_['utfall'] == 'rensad' and not (NPM_EGEN / '_cacache').exists() and (NPM / '_cacache').exists(), \
+        ('npm fick städningens uppskattade sökväg (--cache) i stället för att själv avgöra cachen', p_)
+    assert p_['sokvag'] == str(NPM / '_cacache') and 'uppskattning' in p_['skal'] and 'utan --cache' in p_['skal'], p_
+    (TMP / 'npm-anrop').unlink(missing_ok=True)
+    p_ = npm_egen_konfig(torr=True, falsk_npm=True)
+    assert p_['utfall'] == 'skulle rensas' and not (TMP / 'npm-anrop').exists() and (NPM_EGEN / '_cacache').exists(), p_
+    assert 'uppskattning' in p_['skal'], p_
+    klar('KAN-2: den skarpa rensningen kör npm cache clean utan --cache, och npm rensar cachen ur sin egen konfiguration; '
+         'torrläget kör inte npm och redovisar sökvägen som en uppskattning')
 
     # ===== npm-cachen =====
     NPM_POSTER = []
