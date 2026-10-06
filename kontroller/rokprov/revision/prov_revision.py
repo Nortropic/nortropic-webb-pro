@@ -2695,8 +2695,8 @@ import skapande as sk  # noqa: E402
 import bildkedja as bk_pt  # noqa: E402
 import atelje as at_pt  # noqa: E402
 pt_und = tmp / 'pt-underlag'
-gu_at = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV)
-at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV = pt_und, tmp / 'pt-kunder', tmp / 'pt-arkiv'
+gu_at = (at_pt.UNDERLAG, at_pt.KUNDER)
+at_pt.UNDERLAG, at_pt.KUNDER = pt_und, tmp / 'pt-kunder'
 pt_u = pt_und / 'pt-prov'; (pt_u / 'bilder').mkdir(parents=True)
 # läget ur domloggen: ingen körning → ny, ägarens senaste dom avgör efter en körning
 assert pt.lage('pt-prov')[0] == 'om', pt.lage('pt-prov')
@@ -2894,13 +2894,19 @@ try:
     assert '| forfina | svar-forfina.json | 9 | 2 |' in red_ and 'better-layout' in red_ and 'varv-01 ' in red_ and 'Slutdomen' in red_ and 'synligt bättre: ja' in red_, red_
 finally:
     bk_pt.ROOT = rot_bk
-# omtaget: designbesluten till arkivet, fakta, domlogg och historik kvar; den dömda riktningen in i historiken
+# omtaget (ägarens beslut 2026-10-06): designbesluten raderas, inget arkiv; fakta, bilder, texten, referenspaketen,
+# domlogg och historik kvar; den dömda riktningen in i historiken först; en länk tas bort som länk, aldrig målet
 (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src').mkdir(parents=True, exist_ok=True)
-(pt_u / 'forhand').mkdir(); (pt_u / 'KONCEPT.md').write_text('k')
+(pt_u / 'forhand').mkdir()
+mal_lank = tmp / 'pt-utanfor-koncept.md'; mal_lank.write_text('ägarens fil utanför')
+(pt_u / 'KONCEPT.md').symlink_to(mal_lank)
 sk.lagg_till_dom('pt-prov', 'ägaren', 'ny_riktning', 'Fönstret bär inte heller.', underlag=pt_und)
-mal_pt, fl_pt = at_pt.arkivera_beslut('pt-prov')
+fl_pt = at_pt.ta_bort_beslut('pt-prov')
 assert sorted(fl_pt) == sorted(at_pt.rel(p) for p in (pt_u / 'REFERENSER.md', pt_u / 'KONCEPT.md', pt_u / 'atelje', pt_u / 'forhand', at_pt.KUNDER / 'pt-prov' / 'sajt')), fl_pt
-assert (mal_pt / 'kunder-sajt' / 'src').is_dir() and (mal_pt / 'ARKIV.md').is_file() and (pt_u / sk.DOMLOGG).is_file() and (pt_u / 'TEXTUNDERLAG.md').is_file() and (pt_u / 'referenser' / 'paket-v01').is_dir()
+assert not any(os.path.lexists(p) for p in (pt_u / 'REFERENSER.md', pt_u / 'KONCEPT.md', pt_u / 'atelje', pt_u / 'forhand', at_pt.KUNDER / 'pt-prov' / 'sajt')), 'designbesluten raderas'
+assert mal_lank.read_text() == 'ägarens fil utanför', 'länkens mål rörs aldrig'
+assert (pt_u / sk.DOMLOGG).is_file() and (pt_u / 'TEXTUNDERLAG.md').is_file() and (pt_u / 'referenser' / 'paket-v01').is_dir() and (pt_u / 'bilder').is_dir()
+assert not hasattr(at_pt, 'ARKIV'), 'omtaget har inget arkiv'
 assert sk.historik('pt-prov', pt_und)[-1]['utfall'] == 'underkänd av ägaren' and sk.historik('pt-prov', pt_und)[-1]['namn'] == 'Fönstret', sk.historik('pt-prov', pt_und)[-1]
 # dashboarden: före och efter, panelens dom dold tills ägaren dömt körningen, domen till domloggen, godkänt till VINNARE.json
 gu_d = (dash.UNDERLAG, dash.ROOT)
@@ -2974,11 +2980,11 @@ assert pt.lage('pt-gammal')[0] == 'ny-riktning'
 # omtaget från prototyp/ utan ateljévinnare: den tidigare huvudreferensens riktning in i historiken, en gång
 (pt_g / 'prototyp' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-05T05:00:00Z'}))
 (pt_g / 'REFERENSER.md').write_text('Huvudreferens: Ashton — stenduk och falurött\n')
-at_pt.arkivera_beslut('pt-gammal')
+at_pt.ta_bort_beslut('pt-gammal')
 h_g = sk.historik('pt-gammal', pt_und)
 assert [x['namn'] for x in h_g] == ['riktningen på huvudreferensen Ashton'] and h_g[0]['drag'] == 'stenduk och falurött' and 'bär inte' in h_g[0]['kritik'], h_g
 (pt_g / 'REFERENSER.md').write_text('Huvudreferens: Ashton — stenduk och falurött\n')
-at_pt.arkivera_beslut('pt-gammal')
+at_pt.ta_bort_beslut('pt-gammal')
 assert len(sk.historik('pt-gammal', pt_und)) == 1, 'samma dom bokför inte samma riktning två gånger'
 # (2) godkännandet: bundet till sidans hash och domloggen, dras tillbaka av en senare dom och en ny förfining
 ga_ = pt_und / 'pt-godk'; (ga_ / 'atelje' / 'vinnare' / 'bilder').mkdir(parents=True); (ga_ / 'atelje' / 'vinnare' / 'kod').mkdir()
@@ -3367,7 +3373,7 @@ try:
 finally:
     del os.environ['NWP_SLUG']
 assert 'PANELENS SKÄL' in ut_v.getvalue(), 'i bygget skriver byggaren rapporten ur panelens kritik'
-at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV = gu_at
+at_pt.UNDERLAG, at_pt.KUNDER = gu_at
 print('skapandeflödet ok')
 
 # ---------------------------------------------------------------- kandidatflödet (ägarens uppdrag via Codex 2026-10-05: cirka tio genomarbetade prototyper; ägaren väljer)
@@ -3381,7 +3387,7 @@ del os.environ['NWP_KANDIDATFLODE']
 assert at_pt.kandidatflode_pa(), 'kandidatflödet är standard för en ny utforskning'
 os.environ['NWP_KANDIDATFLODE'] = 'av'
 kd_u, kd_k = tmp / 'kd-underlag', tmp / 'kd-kunder'
-spara_at_kd = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT)
+spara_at_kd = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.session, at_pt.ROOT)
 spara_kd = {n: getattr(kd, n) for n in ('designkontroll', 'PARALLELLT', 'fotografera', 'leverera_metod', 'forfina_valda', 'LAGE')}
 kd.LAGE = 'full'  # det här avsnittet prövar förvalet bakom den tillfälliga växeln; skissläget prövas i nästa avsnitt
 spara_bk_kd = bk_pt.ROOT
@@ -3390,7 +3396,7 @@ import uuid as uuid_kd  # noqa: E402
 spara_prova_kd = (prova.bygg_inom_grans, prova.kor, prova.Server)
 spara_sk_kd = (sk.komplettera, sk.lagg_till_dom)
 spara_dash_kd = (dash.UNDERLAG, dash.KUNDER, dash.ROOT)
-at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.ROOT = kd_u, kd_k, tmp / 'kd-arkiv', tmp
+at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ROOT = kd_u, kd_k, tmp
 sl_kd = 'kd-prov'
 u_kd, huvud_kd = kd_u / sl_kd, kd_k / sl_kd / 'sajt'
 BILDER_KD = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-768-forsta.png', 'vy-768-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
@@ -3932,10 +3938,10 @@ try:
     finally:
         dash.UNDERLAG, dash.KUNDER, dash.ROOT = spara_dash_kd
     # omtaget: varje kandidat ägaren såg in i historiken
-    at_pt.arkivera_beslut(sl_kd)
+    at_pt.ta_bort_beslut(sl_kd)
     h_kd = sk.historik(sl_kd, kd_u)
     assert len(h_kd) == 3 and all(x_['utfall'] == 'underkänd av ägaren via Codex' for x_ in h_kd) and all(x_['referens'] == 'Xref' for x_ in h_kd), h_kd
-    assert not (kd_k / sl_kd / 'kandidater').exists() and not (u_kd / 'atelje').exists(), 'kandidaternas projekt och ateljén arkiveras, inget raderas'
+    assert not (kd_k / sl_kd / 'kandidater').exists() and not (u_kd / 'atelje').exists(), 'kandidaternas projekt och ateljén tas bort'
     (u_kd / 'atelje').mkdir(); (u_kd / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-05T15:00:00Z'}))
     try:
         at_pt.doma(sl_kd, 'ägaren', 'valj', 'x', kandidater=[])
@@ -4017,7 +4023,7 @@ try:
     st12_kd = kd.behandla(sl_kd, 'k01')
     assert len(n6_kd) == 3 and st12_kd['status'] in ('klar', 'ofullstandig') and st12_kd.get('fotograferad'), st12_kd
 finally:
-    at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT = spara_at_kd
+    at_pt.UNDERLAG, at_pt.KUNDER, at_pt.session, at_pt.ROOT = spara_at_kd
     for n_, v_ in spara_kd.items():
         setattr(kd, n_, v_)
     prova.bygg_inom_grans, prova.kor, prova.Server = spara_prova_kd
@@ -4030,13 +4036,13 @@ print('kandidatflödet ok')
 import threading as thr_sk  # noqa: E402
 import nastlad as nl_sk  # noqa: E402
 sk_u, sk_k = tmp / 'sk-underlag', tmp / 'sk-kunder'
-spara_at_sk = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT)
+spara_at_sk = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.session, at_pt.ROOT)
 spara_sk = {n: getattr(kd, n) for n in ('PARALLELLT', 'LAGE', 'FRIST_SKISS', 'FRIST_SKISS_OMFORSOK')}
 spara_prova_sk = (prova.bygg_inom_grans, prova.kor, prova.Server)
 spara_komp_sk = sk.komplettera
 spara_dash_sk = (dash.UNDERLAG, dash.KUNDER, dash.ROOT)
 spara_bk_sk = bk_pt.ROOT
-at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.ROOT, bk_pt.ROOT = sk_u, sk_k, tmp / 'sk-arkiv', tmp, tmp
+at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ROOT, bk_pt.ROOT = sk_u, sk_k, tmp, tmp
 sl_sk = 'sk-prov'
 u_sk, huvud_sk = sk_u / sl_sk, sk_k / sl_sk / 'sajt'
 try:
@@ -4429,7 +4435,7 @@ try:
     finally:
         kd.time, at_pt.session, kd.FRIST_SKISS, sk.komplettera = spara_gk
 finally:
-    at_pt.UNDERLAG, at_pt.KUNDER, at_pt.ARKIV, at_pt.session, at_pt.ROOT = spara_at_sk
+    at_pt.UNDERLAG, at_pt.KUNDER, at_pt.session, at_pt.ROOT = spara_at_sk
     for n_, v_ in spara_sk.items():
         setattr(kd, n_, v_)
     prova.bygg_inom_grans, prova.kor, prova.Server = spara_prova_sk

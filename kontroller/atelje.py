@@ -34,9 +34,9 @@ kommandot; kommandot väntar högst --vanta sekunder (540). Pågår ateljén for
 6. Slutdom: samma panel dömer startsidan före förfiningen mot efter, blint (atelje/slutdom/, SLUTDOM.md): håller den
    ribban, och blev den synligt bättre. Redovisningen ur transkripten står i atelje/REDOVISNING.md.
 
-En ny körning flyttar den förra till atelje/foregaende/. --ny-riktning (ägaren, utanför bygget) flyttar dessutom
-designbesluten (REFERENSER.md, KONCEPT.md, ateljén, sajtens presentationsfiler) till ~/Arkiv och börjar om ur mallen;
-fakta, bilder, referenspaketen, domloggen och historiken står kvar. --putsa förfinar den godkända riktningen vidare
+En ny körning flyttar den förra till atelje/foregaende/. --ny-riktning (ägaren, utanför bygget) tar dessutom bort
+designbesluten (REFERENSER.md, KONCEPT.md, ateljén, sajtens presentationsfiler) och börjar om ur mallen; fakta, bilder,
+referenspaketen, domloggen och historiken står kvar. --putsa förfinar den godkända riktningen vidare
 med ägarens senaste dom. --fortsatt tar vid efter den senaste klara fasen. --bara-domare dömer om befintliga bilder.
 
 Exit: 0 klar · 2 fel i anropet eller saknat underlag · 4 ateljén föll · 5 pågår, kör igen · 6 alla riktningar förkastade.
@@ -2112,16 +2112,14 @@ def vanta(rot, sekunder):
     return 5
 
 
-ARKIV = Path(os.environ.get('NWP_ARKIV') or (Path.home() / 'Arkiv' / 'nortropic-webb-pro-skapande'))
-
-
-def arkivera_beslut(slug):
-    """--ny-riktning (ägarens omtag): designbesluten flyttas ut ur arbetsytan till ARKIV/<slug>-<tid>/, så att nästa
-    utforskning varken ser dem som mallar eller ärver presentationsfiler (Codex via ägaren 2026-10-05: skilj ny riktning
-    från fortsatt putsning, också i vilka presentationsfiler som återanvänds; arkivera, radera inget). Flyttas:
-    REFERENSER.md (urvalet), KONCEPT.md, ateljén, en äldre prototyp, förhandsvarven, tvåan och hela kunder/<slug>/sajt.
-    Kvar står fakta, bilder, källor, texten, referenspaketen och tjänsternas material, domloggen och historiken. Den
-    förra valda riktningen förs in i historiken med ägarens senaste dom innan den flyttas. Ger (arkivkatalog, flyttade)."""
+def ta_bort_beslut(slug):
+    """--ny-riktning (ägarens omtag): designbesluten tas bort ur arbetsytan, så att nästa utforskning varken ser dem som
+    mallar eller ärver presentationsfiler (Codex via ägaren 2026-10-05: skilj ny riktning från fortsatt putsning, också i
+    vilka presentationsfiler som återanvänds). De raderas, de arkiveras inte (ägarens beslut 2026-10-06, städregeln i
+    BESLUT.md): REFERENSER.md (urvalet), KONCEPT.md, ateljén, en äldre prototyp, förhandsvarven, tvåan och hela
+    kunder/<slug>/sajt och kunder/<slug>/kandidater. Kvar står fakta, bilder, källor, texten, referenspaketen och
+    tjänsternas material, domloggen och historiken. Den förra valda riktningen, eller kandidaterna ägaren såg, förs in i
+    historiken med ägarens senaste dom innan de tas bort. Ger de borttagna sökvägarna."""
     u, k = UNDERLAG / slug, KUNDER / slug
     if u.is_symlink() or k.is_symlink():
         raise RuntimeError('underlag/%s eller kunder/%s är en länk; inget flyttas' % (slug, slug))
@@ -2162,26 +2160,16 @@ def arkivera_beslut(slug):
         if not any(h.get('namn') == namn for h in tidigare) and not provad_referens(slug, namn_):
             skapande.lagg_till_historik(slug, [{'kalla': 'tidigare designbeslut (REFERENSER.md)', 'namn': namn, 'drag': vad_, 'referens': namn_,
                                                 'utfall': 'underkänd av %s' % dom['kalla'], 'kritik': re.sub(r'\s+', ' ', dom['text'])[:900]}], UNDERLAG)
-    mal = ledigt_namn(ARKIV, '%s-%s' % (slug, nu().replace(':', '')))
-    mal.mkdir(parents=True)
-    flyttade = []
-    for kalla, namn in ((u / 'REFERENSER.md', 'REFERENSER.md'), (u / 'KONCEPT.md', 'KONCEPT.md'), (u / 'atelje', 'atelje'),
-                        (u / 'prototyp', 'prototyp'), (u / 'forhand', 'forhand'), (u / 'tvaan', 'tvaan'), (k / 'sajt', 'kunder-sajt'),
-                        (k / 'kandidater', 'kunder-kandidater')):
-        if kalla.is_symlink():
+    borttagna = []
+    for kalla in (u / 'REFERENSER.md', u / 'KONCEPT.md', u / 'atelje', u / 'prototyp', u / 'forhand', u / 'tvaan', k / 'sajt', k / 'kandidater'):
+        if kalla.is_symlink() or kalla.is_file():  # en länk tas bort som länk, aldrig det den pekar på
             kalla.unlink()
-        elif kalla.exists():
-            shutil.move(str(kalla), str(mal / namn))
-            flyttade.append(rel(kalla))
-    (mal / 'ARKIV.md').write_text('\n'.join([
-        '# Arkiverade designbeslut · %s · %s' % (slug, nu()), '',
-        'Flyttat ur arbetsytan av `kontroller/atelje.py %s --ny-riktning` (kunskap/skapandeflodet.md): ägarens senaste dom' % slug,
-        'återöppnade designen, och nästa utforskning ska varken se det här som mall eller ärva dess presentationsfiler.',
-        'Inget är raderat. Domloggen och historiken står kvar i underlaget.', '',
-        'Senaste domen: %s' % ('%s, %s, beslut %s' % (dom.get('tid'), dom.get('kalla'), dom.get('beslut')) if dom else 'ingen i domloggen'), '',
-        'Flyttat:', *['- ' + x for x in flyttade], '',
-        'Återställ: flytta tillbaka posterna (kunder-sajt blir kunder/%s/sajt).' % slug, '']), encoding='utf-8')
-    return mal, flyttade
+        elif kalla.is_dir():
+            shutil.rmtree(kalla)
+        else:
+            continue
+        borttagna.append(rel(kalla))
+    return borttagna
 
 
 def skriv_status(rot, status):
@@ -2205,7 +2193,7 @@ def main(argv=None):
     p.add_argument('slug')
     p.add_argument('--vanta', type=int, default=540)
     p.add_argument('--om', action='store_true', help='ny körning även om en är klar')
-    p.add_argument('--ny-riktning', action='store_true', help='ägarens omtag: designbesluten till arkivet, ny utforskning ur mallen')
+    p.add_argument('--ny-riktning', action='store_true', help='ägarens omtag: designbesluten tas bort, ny utforskning ur mallen')
     p.add_argument('--putsa', action='store_true', help='förfina den valda riktningen vidare med ägarens senaste dom')
     p.add_argument('--valda', action='store_true', help='förfina kandidaterna ägaren valde (kandidatflödet, domloggen)')
     p.add_argument('--fortsatt', action='store_true', help='ta vid efter den senaste klara fasen')
@@ -2289,8 +2277,8 @@ def main(argv=None):
               % (st.get('steg') or 'inte startad'))
         return 2
     if a.ny_riktning:
-        mal, flyttade = arkivera_beslut(a.slug)
-        print('Designbesluten arkiverade i %s (inget raderat): %s' % (mal, ', '.join(flyttade) or 'inget att flytta'), flush=True)
+        borttagna = ta_bort_beslut(a.slug)
+        print('Designbesluten borttagna (domloggen och historiken står kvar): %s' % (', '.join(borttagna) or 'inget att ta bort'), flush=True)
         if ny_sajt(a.slug):
             print('kontroller/ny_sajt.py %s --installera föll; sajten ur mallen saknas' % a.slug)
             return 2

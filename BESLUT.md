@@ -75,6 +75,8 @@ det där". Runtime-tjänsten, Temporal och workern stoppades; Nortropic Runtime,
 nortropic-digitala och kund-demo-norrglanta togs bort lokalt med sina arbetskopior (cirka 21 GB). Hela git-historiken,
 också de lokala grenarna, ligger som verifierade bundles i `~/Arkiv/nortropic-gamla-20261002/` med två patchar för
 ocommittade ändringar och de tre LaunchAgents som pekade in i repona. GitHub-repona finns kvar. Kundstart står kvar.
+**Delvis ersatt 2026-10-06:** bundlarna raderades med resten av `~/Arkiv`, och Kundstart togs bort (ägarens beslut,
+städregeln nedan). Historiken finns kvar i GitHub-repona. Övrigt gäller.
 
 ## Vad som inte görs
 
@@ -193,6 +195,7 @@ loopen rendera, titta, rätta och titta igen saknades. Huvudrubriken var dessuto
 
 1. **Försöksbyggena arkiveras, inget raderas.** Alla byggen före prototypen flyttas ut ur arbetsytan till
    `~/Arkiv/nortropic-webb-pro-forsok-20261005/`. De är felsökningsunderlag, aldrig designankare eller mallar.
+   (Raderade 2026-10-06 med resten av `~/Arkiv`, ägarens beslut i städregeln nedan.)
    Verksamhetens verifierade fakta, originalbilder, logga och ägarens domar behålls, liksom infrastrukturen och
    kontrollerna. Tidigare rubriker, layout och designbeslut får omprövas.
 2. **Skaparen ser sitt arbete.** `kontroller/forhandsvisa.py` bygger sajten och fotograferar en sida i 390 och 1440

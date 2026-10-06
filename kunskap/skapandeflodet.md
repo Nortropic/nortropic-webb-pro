@@ -179,9 +179,10 @@ slutkod 3. Finns tidigare designbeslut utan dom, eller en dom som inte gäller n
 prototypen att gissa läget.
 
 - `ny_riktning` återöppnar alla designbeslut, aldrig fakta. `kontroller/atelje.py <slug> --ny-riktning` (eller
-  prototyp.py) flyttar REFERENSER.md, KONCEPT.md, ateljén, äldre prototyper, förhandsvarven och hela
-  `kunder/<slug>/sajt` till `~/Arkiv/nortropic-webb-pro-skapande/`. Inget raderas. Sajten görs om ur mallen, och den
-  dömda riktningen förs in i historiken med domen.
+  prototyp.py) för först in den dömda riktningen, eller kandidaterna ägaren såg, i historiken med domen. Sedan raderar
+  den REFERENSER.md, KONCEPT.md, ateljén, äldre prototyper, förhandsvarven och hela `kunder/<slug>/sajt` och
+  `kunder/<slug>/kandidater` (ägarens beslut 2026-10-06: inget arkiv). Fakta, bilder, texten, referenspaketen,
+  domloggen och historiken står kvar. Sajten görs om ur mallen.
 - `putsa` behåller riktningen: förfiningen och slutdomen körs igen, med domen som kritik. Förra slutdomen och
   redovisningen arkiveras först.
 - `godkand` lämnar över till bygget.

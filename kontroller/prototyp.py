@@ -7,7 +7,7 @@ förbättringarna inte följde med mellan dem, blev ett; prototypen är inget eg
     .venv/bin/python kontroller/prototyp.py <slug> [--ny-riktning | --putsa | --om] [--vanta SEK]
 
 Utan flagga avgör domloggen: ägarens senaste dom (efter den senaste körningen, direkt eller via Codex) säger
-ny_riktning → omtag (designbesluten arkiveras, utforskningen börjar om ur mallen); putsa → förfina den valda riktningen
+ny_riktning → omtag (designbesluten tas bort, utforskningen börjar om ur mallen); putsa → förfina den valda riktningen
 vidare; godkand → inget att göra, bygget tar vid från vinnaren (kor.sh), om godkännandet gäller. I kandidatflödet
 (kontroller/kandidater.py): valj, eller putsa efter en förfining → valda (de valda kandidaterna förfinas, var för sig);
 jamfor → inget körs (ägaren jämför); forkasta → stopp tills ägaren begär en ny riktning. Ingen körning än → en ny, som
@@ -38,7 +38,7 @@ def lage(slug):
             return 'ny-riktning', 'ingen körning i skapandeflödet än, och ägarens senaste dom (%s) säger ny riktning' % dom['tid']
         if dom:  # putsa eller godkand utan körning: det finns ingen vald riktning i skapandeflödet att putsa eller bygga från
             return 'stopp', ('ägarens senaste dom (%s, %s, beslut %s) gäller ingen körning i skapandeflödet: det finns ingen vald '
-                             'riktning att putsa eller bygga från. Välj --ny-riktning (designbesluten arkiveras) eller --om (en ny '
+                             'riktning att putsa eller bygga från. Välj --ny-riktning (designbesluten tas bort) eller --om (en ny '
                              'utforskning med dem kvar) uttryckligen' % (dom['tid'], dom['kalla'], dom['beslut']))
         u = atelje.UNDERLAG / slug
         gamla = [n for n, p in (('prototyp/', u / 'prototyp'), ('REFERENSER.md med huvudreferens', u / 'REFERENSER.md'),
@@ -87,9 +87,9 @@ def main(argv=None):
     p.add_argument('slug')
     p.add_argument('--vanta', type=int, default=540)
     grupp = p.add_mutually_exclusive_group()
-    grupp.add_argument('--ny-riktning', action='store_true', help='omtag: designbesluten till arkivet, ny utforskning ur mallen')
+    grupp.add_argument('--ny-riktning', action='store_true', help='omtag: designbesluten tas bort, ny utforskning ur mallen')
     grupp.add_argument('--putsa', action='store_true', help='förfina den valda riktningen vidare med ägarens senaste dom')
-    grupp.add_argument('--om', action='store_true', help='en ny körning utan att arkivera designbesluten')
+    grupp.add_argument('--om', action='store_true', help='en ny körning utan att ta bort designbesluten')
     grupp.add_argument('--valda', action='store_true', help='förfina kandidaterna i ägarens senaste val (kandidatflödet)')
     a = p.parse_args(argv)
     if not atelje.SLUG.match(a.slug):
