@@ -13,7 +13,7 @@
 # äldre utforskningens lägen: ateljén förkastade alla riktningar, skaparen lämnade grundidén, eller ägaren dömde
 # startsidan efter körningen).
 #
-# Flera helbyggen körs en i taget, vart och ett från sin godkända startsida.
+# Flera helbyggen körs ett i taget, vart och ett från sin godkända startsida.
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400),
 # NWP_STOPP_TAK (8), NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång),
 # NWP_GRANSKNING_MAX (5 per körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json

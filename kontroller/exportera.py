@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""exportera.py — leveransen: ett självständigt kundrepo ur den godkända sajten (Codex via ägaren 2026-10-05,
-leveransluckorna: exporten saknades, formuläret var en demo).
+"""exportera.py — leveransen: ett självständigt kundrepo ur sajten; att bygget är godkänt prövas inte
+(kunskap/lansering.md). Codex via ägaren 2026-10-05, leveransluckorna: exporten saknades, formuläret var en demo.
 
     .venv/bin/python kontroller/exportera.py <slug> [--kandidat kNN] [--ut KATALOG] [--git] [--inget-bygge]
 

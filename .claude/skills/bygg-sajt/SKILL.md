@@ -320,7 +320,7 @@ KONCEPT.md.
    riktningarna blir riktningsfrågan i FRAGOR.json, med en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad
    **Visuell tes**: stämning, material och energi i en mening, som namnger ett material eller en plats ur "Bara de
    har".
-   **Ateljévägen** (den äldre utforskningen i `kunskap/skapandeflodet.md`; normalflödet är en godkänd kandidat, se
+   **Ateljévägen** (den äldre utforskningen i `kunskap/skapandeflodet.md`; i normalflödet tar bygget vid från en godkänd kandidat, se
    stycket om kandidatflödet nedan, och då säger prompten att ateljén inte körs). Kör punkt
    2 först, sedan `.venv/bin/python kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så
    länge den svarar att ateljén pågår. Ateljén utforskar riktningar som är olika grundidéer, var och en på sin egen
@@ -429,8 +429,8 @@ KONCEPT.md.
    omgång, betygen, och om du förfinar riktningen eller byter, och varför. Fynd med omfattning `riktning` betyder byt.
    Från en godkänd startsida är bytet ägarens: en ny riktning tas fram i skapandeflödet utanför bygget
    (`kontroller/prototyp.py`), så skriv fyndet och skälet i rapporten och bygg vidare i den godkända riktningen. På
-   nödvägen (`NWP_ATELJE=av`) byter du till en annan av de prövade riktningarna i KONCEPT.md. Har originaliteten legat
-   under 7 i två omgångar: byt på samma sätt i stället för att putsa vidare. **Bästa mot sista:** har du fler än en granskning, kör `.venv/bin/python kontroller/granska.py
+   nödvägen (`NWP_ATELJE=av`) byter du till en annan av de prövade riktningarna i KONCEPT.md, och har originaliteten
+   legat under 7 i två omgångar byter du där på samma sätt i stället för att putsa vidare. **Bästa mot sista:** har du fler än en granskning, kör `.venv/bin/python kontroller/granska.py
    <slug> --jamfor` innan du avslutar. Vinner en tidigare omgång, ta tillbaka det som gjorde den bättre och skriv det i
    rapporten; en mellanversion är ibland den bästa.
 

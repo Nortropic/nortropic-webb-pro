@@ -40,11 +40,11 @@ Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sa
 | 5. Godkännandet | ägaren i vyn Prototyp: en förfinad kandidat godkänd för helbygge | `underlag/<slug>/atelje/vinnare/` och VINNARE.json | vyn visar inget kommando för helbygget; det står i prototyp.py:s utskrift |
 | 6. Helbygget | ägaren i terminalen: `./kor.sh <slug> "<verksamhet>"`; utan godkänd startsida stannar kor.sh med slutkod 2 | `kunder/<slug>/` (sajt, prov, granskning, RAPPORT.md, FRAGOR.json) | uppdraget säger både "steg 1–7, i ordning" och "ta vid efter valet i steg 5.1"; att underlaget som den godkända startsidan byggdes på står kvar är inte prövat. Korsluts slutkod skrivs bara ut |
 | 7. Ägarens dom över bygget | ägaren i dashboarden: bygget, fliken Din dom | `kunder/<slug>/DOM.json`, lärdomarna och en backlogpost | – |
-| 8. Exporten till kundrepo | ägaren eller en session: `.venv/bin/python kontroller/exportera.py <slug> [--git]` | `kunder/<slug>/kundrepo/` med verifierat bygge; `--git` gör en lokal commit | exporten prövar inte att bygget är godkänt och sparar inget besked |
+| 8. Exporten till kundrepo | ägaren eller en session: `.venv/bin/python kontroller/exportera.py <slug> [--git]` | `kunder/<slug>/kundrepo/`, byggt och prövat i en tom katalog; `--git` gör en lokal commit | exporten prövar inte att bygget är godkänt och sparar inget besked |
 | 9. Leveransen: GitHub, Vercel, skydd och DNS | GitHub, Vercel och skyddet: människa, eller en session med ägarens ja; DNS: bara en behörig människa | – | inget verktyg i repot för GitHub och Vercel; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut |
 
 Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
-tills grindarna är gröna och två oberoende granskare godkänt, och skriver `kunder/<slug>/RAPPORT.md` och sina egna
+tills grindarna är gröna och två oberoende granskare godkänt, eller tills taket nås (slutkod 1), och skriver `kunder/<slug>/RAPPORT.md` och sina egna
 frågor till dig. Alternativa lägen och återupptagning: `kunskap/skapandeflodet.md` och `./kor.sh` utan argument.
 Råmaterial (`underlag/`) och byggen (`kunder/`) ligger utanför git.
 

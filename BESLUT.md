@@ -551,15 +551,18 @@ kundens egna claude-sessioner). Hela `kunder/<slug>/sajt` raderas, också en god
 minnet): ett avgränsat metodprov med Figma som möjlig visuell arbetsyta i skapandeflödet. Figma görs inte obligatoriskt
 för framtida byggen innan provet visat att det fungerar och tillför kvalitet.
 
-1. **Tre moment, prövade var för sig:** A, en stark, namngiven referens återskapas noggrant; B, kompositionen anpassas
+1. **Tre moment, prövade var för sig:** A, en representativ komposition ur en stark, namngiven referens återskapas
+   noggrant med material vi får använda; B, kompositionen anpassas
    till kundens verkliga innehåll och material; C, den valda designversionen överförs till fungerande webb och jämförs
    med webbläsarens rendering i samma bredder.
-2. **Bara i piloten.** Normalflödet går utan Figma (`kunskap/skapandeflodet.md`, Figma). Pilotens sessioner slår på
-   Figma-pluginen i sin egen `--settings`, och kundvakten slås inte av.
-3. **Kundmaterialet:** privat kundmaterial laddas upp bara i det Figma-projekt ägaren angett, för pilotens kund och utan
-   metadata. Uppdraget ger ingen allmän rätt att föra kundmaterial till externa tjänster.
+2. **Bara i piloten.** Normalflödet går utan Figma (`kunskap/skapandeflodet.md`, Figma). Piloten är inte avslutad. Dess
+   sessioner slår på Figma-pluginen i sin egen `--settings` och kundvakten slås inte av, men körskripten ingår inte i
+   repot, och ingen kod prövar vad som laddas upp till Figma (kundvakten gäller Refero och Mobbin).
+3. **Kundmaterialet:** privat kundmaterial laddas upp bara till ett nytt projekt i ägarens team (ägarens val ~18:48Z; länken given ~20:25Z), bara för den kund som beskedet gäller, med metadata borttagen (foton utan EXIF och GPS), texterna som de står i underlaget och inga uppgifter om privatpersoner utöver det som redan står på kundens sajt. Uppdraget ger ingen allmän rätt att föra kundmaterial till externa
+   tjänster.
 4. **Inget i leveransen är verifierat genom piloten:** helbygget, exporten, kundrepot och driftsättningen prövas inte av
    den, och dokumentationen markerar dem inte som verifierade.
-5. **Dokumentationen** (samma tillägg) rättas i grundkällorna, och andra dokument hänvisar dit: kedjan från
-   kundunderlag till leverans i `README.md`, designflödet i `kunskap/skapandeflodet.md`, kompetensen i
-   kompetensblocken i `kunskap/metodkarta.md` och leveransen i `kunskap/lansering.md`.
+5. **Dokumentationen:** ägarens ord i samma tillägg: "Rätta grundkällorna och låt andra dokument hänvisa till dem."
+   Genomförandet, sessionens fördelning: kedjan från kundunderlag till leverans i `README.md`, designflödet i
+   `kunskap/skapandeflodet.md`, kompetensen i kompetensblocken i `kunskap/metodkarta.md` och leveransen i
+   `kunskap/lansering.md`.

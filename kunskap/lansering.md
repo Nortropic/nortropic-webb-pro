@@ -27,8 +27,8 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
    exporterar en kandidats projekt förbi helbygget. Exporten sparar inget besked: ingen dist-hash, körning eller
    godkännande följer med till kundrepot, och resultatet skrivs bara ut.
 5. **Kundrepot till GitHub och Vercel** har inget verktyg i repot: människa, eller en session med ägarens ja, enligt
-   Vercel-steget nedan. Ingenting från leveransen sparas i repot; `kontroller/driftkoll.py` prövar en driftsatt adress
-   svar och skriver bara ut.
+   Vercel-steget nedan. Ingenting från leveransen sparas i repot; `kontroller/driftkoll.py` prövar svaren från en
+   driftsatt adress och skriver bara ut.
 
 ## Vercel-steget
 

@@ -177,15 +177,19 @@ sajten), tre domare väljer eller förkastar dem, den valda förfinas och döms 
 ## Figma (pilotprov, inte normalflödet)
 
 Ägarens uppdrag 2026-10-06 (ordagrant i minnet; BESLUT.md, tillägget om Figma-metodprovet) prövar Figma som visuell
-arbetsyta i ett avgränsat metodprov med tre moment, som prövas var för sig: **A**, en stark, namngiven referens
-återskapas noggrant; **B**, kompositionen anpassas till kundens verkliga innehåll och material; **C**, den valda
+arbetsyta i ett avgränsat metodprov med tre moment, som prövas var för sig: **A**, en representativ komposition ur en
+stark, namngiven referens återskapas noggrant med material vi får använda; **B**, kompositionen anpassas till kundens verkliga innehåll och material; **C**, den valda
 designversionen överförs till fungerande webb och jämförs med webbläsarens rendering i samma bredder.
 
 - Normalflödet går utan Figma: ingen kod i repot slår på Figma-pluginen eller anropar Figma, och flödets sessioner
   nekas varje MCP-anrop utom Refero och Mobbin (`kunskap/metodkarta.md`).
-- Pilotens sessioner slår på Figma-pluginen i sin egen `--settings` och har kundvakten kvar.
-- Privat kundmaterial laddas upp bara i det Figma-projekt ägaren angett, för pilotens kund och utan metadata (foton
-  utan EXIF och GPS). Det ger ingen allmän rätt att föra kundmaterial till externa tjänster.
+- Piloten är inte avslutad. Dess sessioner slår på Figma-pluginen i sin egen `--settings` och har kundvakten kvar, men
+  körskripten ingår inte i repot, och ingen kod prövar vad som laddas upp till Figma (kundvakten gäller Refero och
+  Mobbin).
+- Privat kundmaterial laddas upp bara till ett nytt projekt i ägarens team, bara för den kund som ägarens besked
+  2026-10-06 gäller, med metadata borttagen (foton utan EXIF och GPS), texterna som de står i underlaget och inga
+  uppgifter om privatpersoner utöver det som redan står på kundens sajt. Det ger ingen allmän rätt att föra
+  kundmaterial till externa tjänster.
 - Inget i leveransen är verifierat genom piloten: helbygget, exporten, kundrepot och driftsättningen prövas inte av den.
   Figma blir en del av normalflödet först genom ett beslut av ägaren.
 
@@ -282,8 +286,10 @@ huvudreferensen om i varje varv. Ett räknat antal bildläsningar är inget bel�
 Skapandeflödets sessioner har ingen egen sandlåda än: flödet körs utanför den, före bygget. Sessionerna har bara sina
 namngivna verktyg och inget eget nät, och sandlådans lista över hemligheter nekas dem var de än ligger
 (`atelje.NEKAS`, `Read(//…)`; ägarens egna regler läses inte i en nästlad session). Paket installeras bara med `kontroller/typsnitt.py` (Fontsource, namnen prövade,
-`--ignore-scripts`). Research går genom referenssteget. Utforskningen skriver med sina verktyg bara sidorna,
-RIKTNINGAR.md, KOMPLETTERING.json och urvalet, och förfiningen bara sajtens src/, DESIGN.md och sina tre filer. Det är
+`--ignore-scripts`). Research går genom referenssteget. I kandidatflödet skriver skaparen med sina verktyg i
+kandidatprojektets hela src/, RIKTNING.md och en begäran om komplettering, och förfiningen dessutom i projektets
+DESIGN.md (`kandidater.verktyg`); i den äldre utforskningen (`NWP_KANDIDATFLODE=av`) bara sidorna, RIKTNINGAR.md,
+KOMPLETTERING.json och urvalet, och förfiningen bara sajtens src/, DESIGN.md och sina tre filer. Det är
 en gräns för verktygen, inte för koden: sidorna är kod som körs när sajten byggs (Astros frontmatter). Därför körs varje
 bygge av skaparens sidor innanför processgränsen (`kontroller/processgrans.py`): förhandsvisningen, fotograferingen och
 slutdomen. Där skrivs bara i det projekt som byggs (sajtens eller kandidatens katalog) och körningens tempkatalog, aldrig i

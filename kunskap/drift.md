@@ -1,7 +1,7 @@
 # Drift och förbättring: kontroll, incident, beroenden, underhåll och återgång
 
 Gäller riktiga verksamheter med en lanserad sajt (`kunskap/lansering.md`). Inget bygge är lanserat än, så inget av
-detta körs i dag. Det enda driftverktyget i repot är `kontroller/driftkoll.py`, som prövar en driftsatt adress svar
+detta körs i dag. Det enda driftverktyget i repot är `kontroller/driftkoll.py`, som prövar svaren från en driftsatt adress
 (skyddet, noindex, säkerhetshuvudena och formulärets funktion) och bara skriver ut; det hör till lanseringens prov
 (`kunskap/lansering.md`). Veckokontrollen nedan har inget verktyg och ingen schemalagd körning: den görs med `curl` och
 `openssl` av en session vid den veckorytm ägaren bestämmer, eller av en människa. Ärvd från Digitala och omskriven
