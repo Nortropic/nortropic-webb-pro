@@ -6427,8 +6427,9 @@ uppdragsmaterialet()
 def referensjamforelsen():
     """Huvudreferensen bredvid förslaget (ägarens uppdrag 2026-10-05 18:53Z, punkt 7): referensens fångade startsida hittas
     genom Bildval-raderna (startsidan 01-… före den utpekade undersidan), annars genom uppdragets bilder i referensens
-    katalog; skaparens avsnitt Överfört och avvikelser följer med; en körning med en enda prototyp visar jämförelsen
-    direkt, och bland flera förslag först efter ägarens första beslut; skaparna ombeds skriva avsnittet."""
+    katalog. Skaparens korta redovisning (ägarens uppdrag 2026-10-06, punkt 8) är RIKTNING.md:s fyra rubriker, och en
+    rubrik som saknas eller är tom sägs; jämförelsen och redovisningen följer med för varje förslag från början, panelens
+    granskning och titlarna först efter ägarens första beslut; mellanbredden 1280 visas när den finns."""
     import kandidater as kd_
     import atelje as at_
     import skapande as sk_
@@ -6445,15 +6446,22 @@ def referensjamforelsen():
         (ref_ / 'cox' / '01-start' / 'vy-390-hela.png').unlink()
         (u_ / 'REFERENSER.md').write_text('# Referenser\n\n## Tekt — bransch\n\nBildval: referenser/paket-v05/tekt/02-process/vy-1440-ruta-04.png — '
                                           'skedena — Fråga: läses skedena?\n\n## Cox — hantverk\n\nIngen bildvalsrad.\n')
-        kd_.satt_status(slug_, 'k01', 'klar', 'prov', huvudreferens='Tekt — bygget i skeden')
+        kd_.satt_status(slug_, 'k01', 'klar', 'prov', huvudreferens='Tekt — bygget i skeden', hypotes='Tekts skeden visar besökaren hur jobbet går till.')
         (kd_.kdir(slug_, 'k01') / 'RIKTNING.md').write_text(
-            'Huvudreferens: Tekt — bygget i skeden\n\n## Referenslås\n\nBevaras: ramarna.\n\n## Överfört och avvikelser\n\n### Överfört\n\n'
-            '- etiketten till vänster\n\n### Medvetna avvikelser\n\n- mörkare text: kontrasten\n\n## Varv 1\n\nrubriken\n')
+            'Huvudreferens: Tekt — bygget i skeden\n\n## Idén\n\nBygget i skeden: besökaren ser hur jobbet går till.\n\n## Referenslås\n\n'
+            'Bevaras: ramarna.\n\n## Referenser\n\n- referenser/paket-v05/tekt/01-start (öppnad)\n\n## Överfört och avvikelser\n\n### Överfört\n\n'
+            '- etiketten till vänster\n\n### Medvetna avvikelser\n\n- mörkare text: kontrasten\n\n## Kvarvarande svagheter\n\n## Varv 1\n\nrubriken\n')
         j_ = kd_.referensjamforelse(slug_, 'k01')
         start_ = ref_ / 'tekt' / '01-start'
         assert j_['referens']['sida'] == kd_.rel(start_) and j_['referens']['390-forsta'] == kd_.rel(start_ / 'vy-390-forsta.png'), j_['referens']
-        assert j_['referens']['1440-hela'] == kd_.rel(start_ / 'vy-1440-hela.png') and j_['redovisat'], j_
-        assert '### Medvetna avvikelser' in j_['avsnitt'] and 'Varv 1' not in j_['avsnitt'] and 'Referenslås' not in j_['avsnitt'], j_['avsnitt']
+        assert j_['referens']['1440-hela'] == kd_.rel(start_ / 'vy-1440-hela.png') and set(j_) == {'referens', 'saknas'}, j_
+        # den korta redovisningen: rubrikerna i ägarens ordning, utan rubrikraden; en tom rubrik är '', aldrig ifylld
+        red_ = kd_.kort_redovisning(slug_, 'k01')
+        assert [x_['rubrik'] for x_ in red_] == list(kd_.REDOVISNINGSRUBRIKER) == ['Idén', 'Referenser', 'Överfört och avvikelser', 'Kvarvarande svagheter'], red_
+        red_ = {x_['rubrik']: x_['avsnitt'] for x_ in red_}
+        assert red_['Idén'] == 'Bygget i skeden: besökaren ser hur jobbet går till.' and red_['Referenser'] == '- referenser/paket-v05/tekt/01-start (öppnad)', red_
+        assert red_['Överfört och avvikelser'].startswith('### Överfört') and '### Medvetna avvikelser' in red_['Överfört och avvikelser'], red_
+        assert 'Varv 1' not in red_['Överfört och avvikelser'] and 'Bevaras' not in red_['Referenser'] and red_['Kvarvarande svagheter'] == '', red_
         # utan bildvalsrader: uppdragets bilder i referensens katalog; en saknad vy är None, aldrig en annan bild
         kd_.satt_status(slug_, 'k02', 'klar', 'prov', huvudreferens='Cox')
         (kd_.kdir(slug_, 'k02') / 'UPPDRAG.md').write_text('# Uppdrag\n\n## Referensbilder\n\n- underlag/rj-kund/referenser/paket-v05/cox/01-start/vy-1440-ruta-04.png\n'
@@ -6461,7 +6469,8 @@ def referensjamforelsen():
         (kd_.kdir(slug_, 'k02') / 'RIKTNING.md').write_text('## Referenslås\n\nBevaras: väggen.\n')
         j2_ = kd_.referensjamforelse(slug_, 'k02')
         assert j2_['referens']['sida'] == kd_.rel(ref_ / 'cox' / '01-start') and j2_['referens']['390-hela'] is None, j2_['referens']
-        assert j2_['avsnitt'].startswith('## Referenslås') and not j2_['redovisat'], j2_
+        # referenslåset är ingen redovisning: utan de fyra rubrikerna saknas alla, och inget fylls i
+        assert [x_['avsnitt'] for x_ in kd_.kort_redovisning(slug_, 'k02')] == [None] * 4
         kd_.satt_status(slug_, 'k03', 'klar', 'prov', huvudreferens='Okänd sajt (okand.se)')
         j3_ = kd_.referensjamforelse(slug_, 'k03')
         assert j3_['referens'] is None and 'ingen fångad sida' in j3_['saknas'], 'en referens utan fångad sida säger varför jämförelsen fattas'
@@ -6498,19 +6507,49 @@ def referensjamforelsen():
             jx_ = kd_.referensjamforelse(slug_, kid_)
             assert jx_['referens'] and jx_['referens']['sida'] == kd_.rel(u_ / 'referenser' / sida_), (namn_, jx_)
             shutil.rmtree(kd_.kdir(slug_, kid_))
-        # synligheten: bland flera förslag först efter ägarens första beslut; en enda prototyp direkt
+        # synligheten bland flera förslag före ägarens första beslut: jämförelsen, redovisningen och hypotesen som den
+        # skrevs för varje förslag; titeln, granskningen och hela anteckningarna inte (BESLUT.md 2026-10-05, punkt 1)
         (kd_.rot(slug_) / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': '2026-10-06T00:00:00Z', 'antal': 3, 'kandidater': {}}))
-        assert not any('referensjamforelse' in k_ for k_ in kd_.sammanstall(slug_)), 'blint före ägarens första beslut'
-        (u_ / 'DESIGNDOMAR.jsonl').write_text(json.dumps({'tid': '2026-10-06T01:00:00Z', 'kalla': sk_.AGAREN[0], 'beslut': 'valj', 'text': 'x'}) + '\n')
-        assert {k_['id']: bool(k_['referensjamforelse']['referens']) for k_ in kd_.sammanstall(slug_)} == {'k01': True, 'k02': True, 'k03': False}
-        (u_ / 'DESIGNDOMAR.jsonl').unlink()
-        for k_ in ('k02', 'k03'):
-            shutil.rmtree(kd_.kdir(slug_, k_))
-        en_ = kd_.sammanstall(slug_)
-        assert len(en_) == 1 and en_[0]['referensjamforelse']['redovisat'] and 'titel' not in en_[0], 'en enda prototyp: jämförelsen direkt, förklaringarna inte'
+        (kd_.rot(slug_) / 'STATUS.json').write_text(json.dumps({'kandidatflode': True, 'steg': 'klar_for_bedomning', 'lage': 'ny'}))
+        (kd_.kdir(slug_, 'k01') / 'KRITIK.json').write_text(json.dumps({'niva': 'over', 'helhet': 'internt betyg'}))
+        (kd_.kdir(slug_, 'k01') / 'bilder' / 'start').mkdir(parents=True)
+        (kd_.kdir(slug_, 'k01') / 'bilder' / 'start' / 'vy-1280-forsta.png').write_bytes(b'png')
+        blind_ = {k_['id']: k_ for k_ in kd_.sammanstall(slug_)}
+        assert {k_: bool(v_['referensjamforelse']['referens']) for k_, v_ in blind_.items()} == {'k01': True, 'k02': True, 'k03': False}, 'jämförelsen för varje förslag'
+        assert all(len(v_['redovisning']) == 4 and not {'titel', 'kritik', 'riktning'} & set(v_) for v_ in blind_.values()), 'redovisningen från början; titeln, granskningen och anteckningarna inte'
+        assert blind_['k01']['hypotes'].startswith('Tekts skeden'), 'referensen är synlig för varje förslag: hypotesen visas som den skrevs'
+        # mellanbredden 1280 när den fotograferats, och dashboardens filfilter släpper fram den före första beslutet
+        assert blind_['k01']['bilder']['1280-forsta'] == kd_.rel(kd_.kdir(slug_, 'k01') / 'bilder' / 'start' / 'vy-1280-forsta.png') and blind_['k02']['bilder']['1280-forsta'] is None
+        spara_dash_ = (dash.UNDERLAG, dash.KUNDER, dash.ROOT)
+        dash.UNDERLAG, dash.KUNDER, dash.ROOT = at_.UNDERLAG, at_.KUNDER, tmp
+        try:
+            k1280_ = 'underlag/%s/atelje/kandidater/k01/bilder/start/vy-1280-%s.png'
+            assert dash.fil_tillaten(k1280_ % (slug_, 'forsta')) and dash.fil_tillaten(k1280_ % (slug_, 'hela')) and not dash.fil_tillaten(k1280_.replace('1280', '1366') % (slug_, 'forsta'))
+            assert not dash.fil_tillaten('underlag/%s/atelje/kandidater/k01/RIKTNING.md' % slug_), 'anteckningarna som fil först efter första beslutet'
+            # vyns data: rubrikerna som finns, saknas eller är tomma, i HTML; granskningen döljs fortfarande
+            vy_ = {k_['id']: k_ for k_ in dash.prototyp(slug_)['kandidater']}
+            r1_ = {x_['rubrik']: x_ for x_ in vy_['k01']['redovisning']}
+            assert r1_['Idén']['finns'] and 'Bygget i skeden' in r1_['Idén']['html'] and 'avsnitt' not in r1_['Idén'], r1_['Idén']
+            assert r1_['Kvarvarande svagheter'] == {'rubrik': 'Kvarvarande svagheter', 'finns': True, 'html': ''}, r1_['Kvarvarande svagheter']
+            assert '<h4>Medvetna avvikelser</h4>' in r1_['Överfört och avvikelser']['html'] and 'kritik' not in vy_['k01'], r1_['Överfört och avvikelser']
+            assert [x_['finns'] for x_ in vy_['k02']['redovisning']] == [False] * 4 and vy_['k03']['referensjamforelse']['saknas'], vy_['k02']
+            # efter ägarens första beslut följer titeln och granskningen; jämförelsen och redovisningen står kvar
+            (u_ / 'DESIGNDOMAR.jsonl').write_text(json.dumps({'tid': '2026-10-06T01:00:00Z', 'kalla': sk_.AGAREN[0], 'beslut': 'valj', 'text': 'x'}) + '\n')
+            efter_ = {k_['id']: k_ for k_ in dash.prototyp(slug_)['kandidater']}
+            assert efter_['k01']['kritik']['niva'] == 'over' and all('titel' in v_ and len(v_['redovisning']) == 4 and 'referensjamforelse' in v_ for v_ in efter_.values())
+            (u_ / 'DESIGNDOMAR.jsonl').unlink()
+        finally:
+            dash.UNDERLAG, dash.KUNDER, dash.ROOT = spara_dash_
+        # vyn: rubrikerna som skaparen skriver är de vyn känner, de tekniska kontrollerna står under en egen rubrik som
+        # säger att de inte är ett godkännande, och mobil och dator är förvalet
+        vyn_ = (ROOT / 'dashboard' / 'index.html').read_text()
+        for r_ in kd_.REDOVISNINGSRUBRIKER:
+            assert "'%s': '" % r_ in vyn_, r_
+        for krav_ in ('Tekniska kontroller, inget godkännande av designen', 'saknar rubriken', "|| 'par'", 'class="kpar"', 'Kombinera kvaliteter', 'Mellanbredd 1280'):
+            assert krav_ in vyn_, krav_
     finally:
         at_.UNDERLAG, at_.KUNDER = spara_
-    print('referensjämförelsen ok')
+    print('referensjämförelsen och redovisningen ok')
 
 
 referensjamforelsen()

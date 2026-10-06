@@ -1866,13 +1866,28 @@ def riktningens_avsnitt(text, rubriker):
 
 
 def referensjamforelse(slug, kid):
-    """Kandidaten bredvid huvudreferensen: referensens fångade startsida och kandidatens bilder i 390 och 1440, och
-    skaparens redovisning (avsnittet Överfört och avvikelser, annars referenslåset eller referensens kvalitet). Saknas
-    referensens sida står skälet i 'saknas', så att ägaren ser att jämförelsen fattas och varför (granskningen av r73, A1)."""
+    """Kandidaten bredvid huvudreferensen: referensens fångade startsida, som vyn ställer bredvid kandidatens bilder i 390
+    och 1440. Saknas referensens sida står skälet i 'saknas', så att ägaren ser att jämförelsen fattas och varför
+    (granskningen av r73, A1). Skaparens text om det överförda står i kort_redovisning."""
     ref, saknas = referenssida(slug, kid)
-    t = (kdir(slug, kid) / 'RIKTNING.md').read_text(encoding='utf-8', errors='replace') if (kdir(slug, kid) / 'RIKTNING.md').is_file() else ''
-    avsnitt = riktningens_avsnitt(t, (OVERFORT,)) or riktningens_avsnitt(t, ('Referenslås', 'Referensens kvalitet'))
-    return {'referens': ref, 'saknas': saknas, 'avsnitt': avsnitt[:12000], 'redovisat': bool(riktningens_avsnitt(t, (OVERFORT,)))}
+    return {'referens': ref, 'saknas': saknas}
+
+
+# skaparens korta redovisning per förslag (ägarens uppdrag 2026-10-06, punkt 8): idén och dess relevans för kunden, de
+# faktiska referenserna, det som synligt förts över och de viktigaste kvarvarande svagheterna, i den ordningen
+REDOVISNINGSRUBRIKER = ('Idén', 'Referenser', OVERFORT, 'Kvarvarande svagheter')
+
+
+def kort_redovisning(slug, kid):
+    """Avsnitten under REDOVISNINGSRUBRIKER i kandidatens RIKTNING.md, i rubrikernas ordning: markdown utan rubrikraden,
+    '' när rubriken står utan text och None när den saknas. Vyn säger vad som saknas och fyller aldrig i något."""
+    f = kdir(slug, kid) / 'RIKTNING.md'
+    t = f.read_text(encoding='utf-8', errors='replace') if f.is_file() else ''
+    ut = []
+    for r in REDOVISNINGSRUBRIKER:
+        a = riktningens_avsnitt(t, (r,))
+        ut.append({'rubrik': r, 'avsnitt': re.sub(r'^#{1,6}[^\n]*\n?', '', a, count=1).strip()[:8000] if a else None})
+    return ut
 
 
 def uppdragets_bilder(slug, kid):
@@ -2720,27 +2735,16 @@ def redovisa(slug, status):
     return r / 'REDOVISNING.md'
 
 
-def dolj_referens(text, namn):
-    """Hypotesen före ägarens första beslut: huvudreferensens namn döljs, som i resten av den blinda vyn (granskning 2,
-    N13). Hela namnet och namnet före en parentes eller ett bindestreck byts mot [referensen]."""
-    for n in namn:
-        for x in {str(n or '').strip(), re.split(r'\s+[(—–-]\s*', str(n or '').strip())[0]}:
-            if len(x) >= 3:
-                text = re.sub(re.escape(x), '[referensen]', text, flags=re.I)
-    return text
-
-
 def sammanstall(slug):
-    """För dashboarden och rapporten: varje kandidat med neutral etikett, status, version, bilder och hypotesen (vyn
-    visar den hopfälld, så att bilderna ses först). Titeln, idén, huvudreferensen, granskningen, materialbehovet och
-    föreversionen före en förbättringsrunda följer med först när ägaren har fattat sitt första beslut efter planen
-    (domd), så att den första bedömningen är blind för förklaringarna och panelens omdöme."""
+    """För dashboarden och rapporten: varje kandidat med neutral etikett, status, version, bilder, jämförelsen med
+    huvudreferensen, skaparens korta redovisning och hypotesen. Ägaren bedömer bilderna först, sedan referensen bredvid
+    och sist redovisningen (ägarens uppdrag 2026-10-06, punkt 8): vyn visar jämförelsen och redovisningen hopfällda efter
+    bilderna, för varje förslag från början. Titeln, granskningen, materialbehovet och föreversionen före en
+    förbättringsrunda följer med först när ägaren har fattat sitt första beslut efter planen (domd), så att den första
+    bedömningen är oberoende av panelens omdöme (BESLUT.md 2026-10-05, punkt 1)."""
     ids = lista(slug)
     namn = etiketter(slug, ids)
     blind = not domd(slug)
-    # en körning med en enda prototyp har inget blint val att skydda: referensen och prototypen visas bredvid varandra
-    # från början (ägarens uppdrag 2026-10-05 18:53Z, punkt 7); bland flera förslag först efter ägarens första beslut
-    jamforelse_synlig = not blind or len(ids) == 1
     ut = []
     for kid in ids:
         st = las_status(slug, kid)
@@ -2750,6 +2754,7 @@ def sammanstall(slug):
             b = lambda sida, vy, s: (lambda p: rel(p) if p.is_file() else None)(bas / sida / ('vy-%s-%s.png' % (vy, s)))  # noqa: E731
             return {'390-forsta': b('start', '390', 'forsta'), '768-forsta': b('start', '768', 'forsta'), '1440-forsta': b('start', '1440', 'forsta'),
                     '390-hela': b('start', '390', 'hela'), '768-hela': b('start', '768', 'hela'), '1440-hela': b('start', '1440', 'hela'),
+                    '1280-forsta': b('start', '1280', 'forsta'), '1280-hela': b('start', '1280', 'hela'),  # mellanbredden, när den fotograferats
                     'undersida-390': b(under, '390', 'forsta') if under else None, 'undersida-1440': b(under, '1440', 'forsta') if under else None,
                     'undersida-390-hela': b(under, '390', 'hela') if under else None, 'undersida-1440-hela': b(under, '1440', 'hela') if under else None}
         under = forhandsvisa.sidnamn(st['undersidor'][0]) if st.get('undersidor') else None
@@ -2758,10 +2763,8 @@ def sammanstall(slug):
                 'bygd': (ksajt(slug, kid) / 'dist' / 'index.html').is_file(), 'design_fel': st.get('design_fel') or [],
                 'brister': st.get('brister') or [],
                 'kompetenspass': {rec.get('pass'): rec.get('genomford') for k_, rec in sorted((st.get('kompetens') or {}).items()) if k_.startswith('skiss:')},
-                'hypotes': dolj_referens(st.get('hypotes') or '', [st.get('huvudreferens')]) if blind else st.get('hypotes') or '',
-                'bilder': bilder(d / 'bilder', under)}
-        if jamforelse_synlig:
-            post['referensjamforelse'] = referensjamforelse(slug, kid)
+                'hypotes': st.get('hypotes') or '', 'bilder': bilder(d / 'bilder', under),
+                'referensjamforelse': referensjamforelse(slug, kid), 'redovisning': kort_redovisning(slug, kid)}
         if not blind:
             k = atelje.las_json(d / 'KRITIK.json') or {}
             fore = (st.get('forbattrad') or {}).get('fore')

@@ -369,8 +369,8 @@ def fil_tillaten(rel):
         if not kandidater.domd(slug):  # före ägarens första beslut: bara skärmbilderna (granskningen M1)
             return bool(KAND_FIL.match(rel))
     if rel.startswith('underlag/%s/atelje/kandidater/' % slug):
-        # kandidatflödet: skärmbilderna är det ägaren bedömer; granskningen, anteckningarna och koden visar API:t när
-        # ägaren har fattat sitt första beslut (kontroller/kandidater.py, sammanstall)
+        # kandidatflödet: skärmbilderna är det ägaren bedömer; skaparens korta redovisning ger API:t från början, och
+        # granskningen, hela anteckningarna och koden när ägaren har fattat sitt första beslut (kandidater.sammanstall)
         return bool(KAND_FIL.match(rel))
     if rel.startswith('underlag/%s/atelje/' % slug):
         # designprovet: bara förslagens bilder tills ägaren dömt alla förslag i omgången (panelens dom döljs per omgång)
@@ -793,7 +793,7 @@ PR_BILDER = (('390-forsta', 'vy-390-forsta.png'), ('390-hela', 'vy-390-hela.png'
 PR_BESLUT = ('godkand', 'putsa', 'ny_riktning')
 
 
-KAND_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/kandidater/k\d{2}/(?:versioner/[0-9a-f]{12}/)?bilder/[a-z0-9-]{1,80}/vy-(390|768|1440)-(forsta|hela|ruta-\d{2})\.png$')
+KAND_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/kandidater/k\d{2}/(?:versioner/[0-9a-f]{12}/)?bilder/[a-z0-9-]{1,80}/vy-(390|768|1280|1440)-(forsta|hela|ruta-\d{2})\.png$')
 KAND_BESLUT = ('valj', 'jamfor', 'forkasta', 'ny_riktning', 'putsa', 'godkand')
 
 
@@ -848,9 +848,10 @@ def prototyp(slug):
 
 
 def kandidatvy(slug, st):
-    """Kandidatflödet (ägarens uppdrag 2026-10-05, punkt 10): alla kandidater med neutrala etiketter, lika stora bilder i
-    390, 768 och 1440, status och version; förklaringarna, granskningen, jämförelsen och redovisningen först när ägaren
-    fattat sitt första beslut efter planen."""
+    """Kandidatflödet (ägarens uppdrag 2026-10-05, punkt 10, och 2026-10-06, punkt 8): alla kandidater med neutrala
+    etiketter, lika stora bilder i mobil och dator (och 768 och 1280 när de finns), status och version, jämförelsen med
+    huvudreferensen och skaparens korta redovisning (kandidater.sammanstall); förklaringarna, granskningen, falsk variation
+    och körningens redovisning först när ägaren fattat sitt första beslut efter planen."""
     import kandidater
     import skapande
     rot = UNDERLAG / slug / 'atelje'
@@ -859,8 +860,9 @@ def kandidatvy(slug, st):
     for k in kand:
         if k.get('riktning'):
             k['riktning_html'] = md(k.pop('riktning'))
-        if k.get('referensjamforelse'):
-            k['referensjamforelse']['avsnitt_html'] = md(k['referensjamforelse'].pop('avsnitt') or '')
+        for r in k.get('redovisning') or []:  # en saknad rubrik (None) skiljs från en tom: vyn säger vilket
+            a = r.pop('avsnitt', None)
+            r.update(finns=a is not None, html=md(a) if a else '')
     vinnare = las_json(rot / 'VINNARE.json') or {}
     md_ = lambda n: md(las_text(rot / n) or '') if (rot / n).is_file() else ''  # noqa: E731
     jamf = las_json(rot / 'JAMFORELSE.json') if domd else None
