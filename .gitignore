@@ -16,6 +16,9 @@ __pycache__/
 # Kirurgens intagsloggar från dashboarden
 kirurgen/
 
+# Backloggens fillås och tempfiler vid atomisk skrivning (kontroller/backlog.py)
+backlog/.*
+
 # Hemligheter (revisionen 2026-10-03, F27): nyckelfiler ska ligga i ~/.nortropic-hemligheter/, aldrig i repot
 .env
 .env.*

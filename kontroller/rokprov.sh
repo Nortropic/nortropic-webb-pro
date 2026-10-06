@@ -633,6 +633,10 @@ echo "   startkontrollen och underhållet (2026-10-05): de åtta fallen, Python-
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_startkontroll.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/startkontroll-prov.log" \
   || { echo "FEL: startkontrollens och underhållets prov"; tail -20 "$ROOT/kunder/rokprov-mall/startkontroll-prov.log"; exit 1; }
 echo "   startkontrollens prov ok"
+echo "   dokumentationen (2026-10-06): platsregeln och dess sökvägar, hänvisningarna, arbetsregeln på ett ställe, beslutens status, backloggens spårbarhet och förteckningen"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_dokumentation.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/dokumentation-prov.log" \
+  || { echo "FEL: dokumentationens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/dokumentation-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/dokumentation-prov.log"; exit 1; }
+echo "   dokumentationens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/dokumentation-prov.log") fall)"
 echo "   observationen (2026-10-06): sessionens start oförändrad, fel som inte blockerar, etiketter, känsliga strängar, två sessioner"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_observation.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/observation-prov.log" \
   || { echo "FEL: observationens prov"; tail -20 "$ROOT/kunder/rokprov-mall/observation-prov.log"; exit 1; }

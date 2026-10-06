@@ -71,7 +71,9 @@ varje körning låser sina versioner. Två verktyg delar komponenterna och läge
   `kor.sh`): bekräftar läget utan nya uppslag, prövar förmågan med små prov som återanvänds medan förutsättningarna är
   oförändrade, låser versionerna och skriver startkvittot (`underlag/<slug>/atelje/STARTKVITTO.md`; helbyggets
   `STARTKVITTO-BYGGE.md`). Ett nödvändigt verktyg som inte fungerar stoppar starten; det som inte prövats står som
-  behållet med skäl, aldrig som uppdaterat.
+  behållet med skäl, aldrig som uppdaterat. Kvittot anger också repots commit, gren och antalet ocommittade filer
+  ("ej angivet" utan git), och en informationsrad om dokumentationen (`README.md`, Var information finns) som aldrig
+  stoppar en start.
 
 Städningen (`kontroller/stadning.py`) följer städregeln i `BESLUT.md` (tillägget 2026-10-06 om arbetskopior, processer
 och cacher). Underhållet kör den först i varje körning och skriver redovisningen i sin rapport (vad, sökväg, storlek

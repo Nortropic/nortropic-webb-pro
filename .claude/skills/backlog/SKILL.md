@@ -22,7 +22,8 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
 
 1. `.venv/bin/python kontroller/backlog.py status <id> pagar`
 2. **Läs posten och källan:** `kunskap/REGISTER.md` för kirurgposter, `kunder/<slug>/DOM.json` och `LARDOMAR.md`
-   för domposter, `kunder/<slug>/RAPPORT.md` för byggposter.
+   för domposter, `kunder/<slug>/RAPPORT.md` för byggposter, och för granskningsposter rapporten i `kallref`
+   (sökvägar räknade från `underlag/`) och fyndet i `fynd`.
 3. **Klassa domen först** (Codex via ägaren 2026-10-05, punkt 10: en synpunkt på en kund ska inte bli nästa kunds
    instruktion). En ägardom är ett av fyra slag, och slaget avgör var ändringen hamnar:
    - **kundbeslut:** gäller den kunden; det står i domloggen (`underlag/<slug>/DESIGNDOMAR.jsonl`) och i kundens
@@ -74,7 +75,8 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
 6. **Commit** med postens id först i meddelandet, sedan
    `.venv/bin/python kontroller/backlog.py status <id> klar --commit <kort sha> --not "<vad som gjordes>"` och en
    commit till för statusen (eller båda i samma commit om du sätter statusen före). Dokumentationen som ändringen
-   berör uppdateras i samma commit (arbetsregeln: `README.md`, Var information finns).
+   berör uppdateras i samma commit (arbetsregeln: `README.md`, Var information finns). Posten står då som klar, inte
+   verifierad: fältet `verifierad` sätter den senare granskning som prövar rättelsen (`backlog/README.md`, Status).
 
 Säger posten emot ett gällande ägarbeslut (`BESLUT.md`, besluten med räckvidd i `kunskap/designregler.md`): genomför
 den inte. Ägarens domar över byggen före rensningen 2026-10-05 (`LARDOMAR.md`, `kunskap/rensning-nortropic-2.md`) är

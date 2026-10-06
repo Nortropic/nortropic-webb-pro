@@ -26,6 +26,11 @@ dashboarden startar), så här bekräftas bara läget. Kontrollen
    eller stoppad (ett nödvändigt verktyg fungerar inte; starten görs inte, med besked). Bytta mätinstrument sedan förra
    starten av samma slag står i kvittot, också de som bytts utanför underhållet, så att körningar före och efter går att
    jämföra. En återupptagen körning behåller sitt lås i kvittot och redovisar vad som ändrats sedan.
+5. skriver i kvittot vilken version av repot starten gällde (commit och gren ur git rev-parse, antalet ocommittade filer
+   ur git status --porcelain; utan git "ej angivet"; commiten också i startloggen) och en informationsrad om
+   dokumentationen (README.md, Var information finns): finns platsregeln, och hur många poster i den privata
+   förteckningen underlag/granskningar/FORTECKNING.jsonl vars fil saknas eller har fel sha256. Raden stoppar aldrig en
+   start och ändrar inte statusen.
 
 Ett pågående intag i underhållet (kontroller/korregister.py, intagslåset på hela maskinen) väntas ut i högst 20 minuter;
 medan starten väntar avbryts underhållets långa prov. Är intaget inte klart då stoppas starten. NWP_STARTKONTROLL=av
@@ -68,6 +73,9 @@ FORMAGOR = {  # kundens behov (ord i BRIEF.md) mot flödets förmåga
     'förvaltning': (r'uppdatera själv|redigera själv|ändra själv|\bcms\b', 'delvis', 'sidan "Så ändrar du på sajten"; inget redigeringsverktyg'),
 }
 NAMN = {'ok': 'ok', 'uppdaterad': 'uppdaterad', 'behallen': 'behållen', 'avvisad': 'avvisad', 'okand': 'okänd', 'fel': 'FEL'}
+EJ_ANGIVET = 'ej angivet'  # ett saknat värde gissas aldrig (README.md, Var information finns: rapporthuvudet)
+PLATSREGEL = '## Var information finns'  # README.md: var varje slag av information hör hemma (ägarens uppdrag 2026-10-06)
+FORTECKNING = Path('underlag') / 'granskningar' / 'FORTECKNING.jsonl'  # privat; sökvägarna i den räknas från underlag/
 
 
 def post(grupp, namn, resultat, **f):
@@ -406,6 +414,91 @@ def senaste_kvitto(rot, namn):
     return {}
 
 
+# --- repots identitet och dokumentationen (README.md, Var information finns) ---
+
+def repo_identitet(rot=None):
+    """Vilken version av repot starten gällde: commit och gren ur git rev-parse, och antalet ocommittade filer (ospårade
+    med) ur git status --porcelain. Saknas git, eller är katalogen inget repo, står det "ej angivet"."""
+    rot = Path(rot or vl.ROOT)
+    env = {k: v for k, v in vl.miljo().items() if k not in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE')}  # repot är rot
+
+    def git(*a):
+        rc, ut = vl.kor(['git', '-C', str(rot), *a], timeout=60, env=env, bara_ut=True)
+        return ut.strip() if rc == 0 else None
+
+    commit = git('rev-parse', '--verify', 'HEAD')
+    if not commit or not re.fullmatch(r'[0-9a-f]{40}(?:[0-9a-f]{24})?', commit):
+        return {'commit': EJ_ANGIVET, 'gren': EJ_ANGIVET, 'ocommittade': EJ_ANGIVET}
+    gren = git('rev-parse', '--abbrev-ref', 'HEAD') or EJ_ANGIVET
+    status = git('status', '--porcelain', '--untracked-files=all')
+    return {'commit': commit, 'gren': 'ingen (fristående HEAD)' if gren == 'HEAD' else gren,
+            'ocommittade': EJ_ANGIVET if status is None else sum(1 for r in status.splitlines() if r.strip())}
+
+
+def repo_text(r):
+    r = r if isinstance(r, dict) else {}
+    return 'commit %s, gren %s, ocommittade filer: %s' % (r.get('commit', EJ_ANGIVET), r.get('gren', EJ_ANGIVET), r.get('ocommittade', EJ_ANGIVET))
+
+
+def dokumentationen(rot=None):
+    """Informationsraden om dokumentationen: finns platsregeln i README.md, och stämmer den privata förteckningen över
+    sparade granskningar (FORTECKNING.jsonl, en JSON-rad per fil med fil och sha256) mot filerna: antal poster, och hur
+    många vars fil saknas eller har en annan sha256. En rad som inte går att kontrollera räknas för sig. Stoppar aldrig
+    en start och ändrar inte statusen."""
+    rot = Path(rot or vl.ROOT)
+    try:
+        readme = (rot / 'README.md').read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        readme = ''
+    d = {'platsregel': PLATSREGEL in [r.rstrip() for r in readme.splitlines()], 'forteckning': None}
+    fil = rot / FORTECKNING
+    if not fil.is_file():
+        return d
+    try:
+        rader = fil.read_text(encoding='utf-8').splitlines()
+    except (OSError, UnicodeDecodeError) as e:
+        d['forteckning'] = {'fel': '%s: %s' % (type(e).__name__, vl.sista(e, 120))}
+        return d
+    f = d['forteckning'] = {'poster': 0, 'saknas': 0, 'fel_sha': 0, 'ej_kontrollerade': 0}
+    for rad in rader:
+        if not rad.strip():
+            continue
+        f['poster'] += 1
+        try:
+            x = json.loads(rad)
+            rel, sha = x['fil'], x['sha256']
+            giltig = isinstance(rel, str) and isinstance(sha, str) and rel and not Path(rel).is_absolute() and '..' not in Path(rel).parts
+        except (ValueError, KeyError, TypeError):
+            giltig = False
+        p = rot / 'underlag' / rel if giltig else None
+        h = vl.sha_fil(p) if p and p.is_file() else None
+        if not giltig:
+            f['ej_kontrollerade'] += 1
+        elif not p.is_file():
+            f['saknas'] += 1
+        elif h is None:
+            f['ej_kontrollerade'] += 1
+        elif h != sha.strip().lower():
+            f['fel_sha'] += 1
+    return d
+
+
+def dokumentation_text(d):
+    if not isinstance(d, dict):
+        return EJ_ANGIVET
+    ut = ['platsregeln finns i README.md (Var information finns)' if d.get('platsregel') else
+          'platsregeln saknas i README.md (avsnittet Var information finns)']
+    f = d.get('forteckning')
+    if not f:
+        ut.append('ingen privat förteckning över sparade granskningar (underlag/granskningar/FORTECKNING.jsonl)')
+    elif f.get('fel'):
+        ut.append('förteckningen över sparade granskningar kunde inte läsas (%s)' % f['fel'])
+    else:
+        ut.append('förteckningen över sparade granskningar: %d poster, %d filer saknas, %d med fel sha256%s' % (
+            f['poster'], f['saknas'], f['fel_sha'], ('; %d poster kunde inte kontrolleras' % f['ej_kontrollerade']) if f['ej_kontrollerade'] else ''))
+    return '; '.join(ut)
+
+
 def markdown(kv):
     rad = ['# Startkvitto · %s · %s' % (kv.get('slug') or '(ingen kund)', kv['tid']), '',
            '**Status: %s.** Start: %s. %s' % ({'redo': 'redo', 'begransad': 'redo med begränsningar', 'stoppad': 'STOPPAD'}[kv['status']], kv['start'],
@@ -416,6 +509,9 @@ def markdown(kv):
     import underhall as uh_  # Homebrews version före och efter brew update (ägarens beslut 2026-10-06, punkt 1)
     if uh_.homebrew_rad(kv.get('homebrew')):
         rad += [uh_.homebrew_rad(kv['homebrew']) + '.', '']
+    rad += ['Repot: %s.' % repo_text(kv.get('repo')), '']
+    if 'dokumentation' in kv:
+        rad += ['Dokumentationen (information; stoppar aldrig en start): %s.' % dokumentation_text(kv['dokumentation']), '']
     if (kv.get('aterupptagen') or {}).get('utan_kvitto'):
         rad += ['Återupptagen körning som startades utan startkontroll: det fanns inget lås att ärva, så låset ovan gäller från nu.', '']
     elif kv.get('aterupptagen'):
@@ -498,6 +594,8 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     kv['till_byggaren'] = till_byggaren(rader)
     nu_m = matinstrument(rader)
     kv['matinstrument_sett'] = nu_m  # det som faktiskt fanns vid starten (låset kan vara en återupptagen körnings)
+    kv['repo'] = repo_identitet()  # vilken version av repot starten gällde (README.md, Var information finns)
+    kv['dokumentation'] = dokumentationen()  # information: inte en rad i kontrollen, så den ändrar varken status eller stopp
     if slug:
         rot = vl.UNDERLAG / slug / 'atelje'
         rot.mkdir(parents=True, exist_ok=True)
@@ -533,7 +631,8 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
         kv['kvitto'] = 'underlag/%s/atelje/%s.md' % (slug, filnamn)
     try:
         with open(k.katalog / 'startlogg.jsonl', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({'tid': tid, 'slug': slug, 'start': start, 'status': kv['status'], 'stoppar': stoppar}, ensure_ascii=False) + '\n')
+            f.write(json.dumps({'tid': tid, 'slug': slug, 'start': start, 'status': kv['status'], 'stoppar': stoppar,
+                                'commit': kv['repo']['commit']}, ensure_ascii=False) + '\n')
     except OSError:
         pass
     return kv

@@ -42,7 +42,7 @@ GIT = ['git', '-c', 'user.name=prov', '-c', 'user.email=prov@exempel.se', '-c', 
 utom = shutil.ignore_patterns('node_modules', '.git', 'underlag', 'kunder', 'dist', '.astro', '__pycache__', '.venv')
 for d in ('kontroller', 'kunskap', 'kritik', 'mall', '.claude'):
     shutil.copytree(ROOT_REAL / d, KOPIA / d, ignore=utom, symlinks=True)
-for f in ('BESLUT.md', 'CLAUDE.md', 'LARDOMAR.md', 'kor.sh', 'requirements.txt', 'requirements-lock.txt', '.gitignore'):
+for f in ('README.md', 'BESLUT.md', 'CLAUDE.md', 'LARDOMAR.md', 'kor.sh', 'requirements.txt', 'requirements-lock.txt', '.gitignore'):
     if (ROOT_REAL / f).exists():
         shutil.copy2(ROOT_REAL / f, KOPIA / f)
 os.symlink(os.path.realpath(ROOT_REAL / '.venv'), KOPIA / '.venv')
@@ -267,6 +267,55 @@ assert (FAKE / 'mcp-anrop').read_text().count('x') == m_fore, 'claude mcp list k
 assert not [u for u in kv2['utfort'] if u.startswith(('prov:', 'modell:', 'mcp:'))], kv2['utfort']
 assert {'mcp:lista', 'prov:refero'} <= set(kv2['ateranvant']), kv2['ateranvant']
 print('fall 1: oförändrad miljö upprepar inget ok')
+
+# repots identitet och dokumentationens informationsrad i kvittot (ägarens uppdrag 2026-10-06 om dokumentations- och
+# rapportstrukturen; README.md, Var information finns): commit, gren och ocommittade filer ur git, "ej angivet" utan
+# git, och den privata förteckningen över sparade granskningar som information som aldrig stoppar en start
+huvud_ = sh('git', 'rev-parse', 'HEAD').strip()
+assert kv1['repo'] == {'commit': huvud_, 'gren': 'main', 'ocommittade': 0}, kv1['repo']
+assert 'Repot: commit %s, gren main, ocommittade filer: 0.' % huvud_ in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text()
+startlogg_ = [json.loads(r) for r in (vl.lagekatalog() / 'startlogg.jsonl').read_text().splitlines() if r.strip()]
+assert startlogg_[-1]['commit'] == huvud_, startlogg_[-1]
+(KOPIA / 'kunskap' / 'ocommittad-anteckning.md').write_text('x\n')
+claude_md_ = (KOPIA / 'CLAUDE.md').read_text()
+(KOPIA / 'CLAUDE.md').write_text(claude_md_ + '\n')
+assert sk.repo_identitet()['ocommittade'] == 2, 'en ospårad och en ändrad fil: %s' % sk.repo_identitet()
+(KOPIA / 'kunskap' / 'ocommittad-anteckning.md').unlink()
+(KOPIA / 'CLAUDE.md').write_text(claude_md_)
+EJ_ = {'commit': 'ej angivet', 'gren': 'ej angivet', 'ocommittade': 'ej angivet'}
+(TMP / 'utan-git').mkdir()
+os.environ['GIT_CEILING_DIRECTORIES'] = str(TMP)  # git letar aldrig ovanför provets katalog
+try:
+    assert sk.repo_identitet(TMP / 'utan-git') == EJ_, sk.repo_identitet(TMP / 'utan-git')
+finally:
+    os.environ.pop('GIT_CEILING_DIRECTORIES', None)
+spara_kor_ = vl.kor
+vl.kor = lambda args, **kw: (127, 'FileNotFoundError: git') if args[0] == 'git' else spara_kor_(args, **kw)
+try:
+    assert sk.repo_identitet() == EJ_, 'git saknas'
+    assert 'Repot: commit ej angivet, gren ej angivet, ocommittade filer: ej angivet.' in sk.markdown(dict(kv1, repo=sk.repo_identitet()))
+finally:
+    vl.kor = spara_kor_
+assert kv1['dokumentation'] == {'platsregel': True, 'forteckning': None}, kv1['dokumentation']
+assert 'Dokumentationen (information; stoppar aldrig en start): platsregeln finns i README.md' in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text()
+g_ = KOPIA / 'underlag' / 'granskningar'
+(g_ / 'sessioner').mkdir(parents=True)
+(g_ / 'sessioner' / 'GR-a.md').write_text('a\n')
+(g_ / 'sessioner' / 'GR-b.md').write_text('b, ändrad efter kopieringen\n')
+(g_ / 'FORTECKNING.jsonl').write_text(''.join(json.dumps(x) + '\n' for x in (
+    {'fil': 'granskningar/sessioner/GR-a.md', 'sha256': vl.sha(b'a\n')},
+    {'fil': 'granskningar/sessioner/GR-b.md', 'sha256': vl.sha(b'b\n')},
+    {'fil': 'granskningar/sessioner/GR-borta.md', 'sha256': vl.sha(b'c\n')})))
+kv3 = sk.kor_kontroll(SLUG, 'ny')
+assert kv3['dokumentation']['forteckning'] == {'poster': 3, 'saknas': 1, 'fel_sha': 1, 'ej_kontrollerade': 0}, kv3['dokumentation']
+assert kv3['status'] == kv2['status'] and kv3['stoppar'] == kv2['stoppar'], 'förteckningen stoppar aldrig: %s %s' % (kv3['status'], kv3['stoppar'])
+assert '3 poster, 1 filer saknas, 1 med fel sha256' in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text()
+readme_ = (KOPIA / 'README.md').read_text()
+(KOPIA / 'README.md').write_text(readme_.replace('## Var information finns', '## Något annat'))
+assert sk.dokumentationen()['platsregel'] is False and 'platsregeln saknas' in sk.dokumentation_text(sk.dokumentationen())
+(KOPIA / 'README.md').write_text(readme_)
+shutil.rmtree(g_)
+print('kvittot: repots commit, gren och ocommittade filer, "ej angivet" utan git, och dokumentationen som information ok')
 
 # fall 6: en ändrad konfiguration gör gamla prov ogiltiga (claude-versionen, Referos nyckel, MCP-konfigurationen)
 nollstall()
