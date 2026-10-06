@@ -591,7 +591,8 @@ def inv_globala(k):
         senaste, karens = ny_info(info)
         via_npm = bool(b and rot and os.path.realpath(b).startswith(os.path.join(rot, paket) + os.sep))
         r = rad('npm-global:' + paket, grupp, namn, 'npm-global', paket=paket, bin=b, binar=binar, installerat=inst, senaste=senaste,
-                kontrollerad=tid, kalla='npm ' + paket, nodvandig=nodv, via_npm=via_npm, uppslagsfel=fel, i_karens=karens)
+                kontrollerad=tid, kalla='npm ' + paket, nodvandig=nodv, via_npm=via_npm, uppslagsfel=fel, i_karens=karens,
+                paketkatalog=os.path.join(rot, paket) if via_npm else None)  # underhållets npm audit jämför med trädet där
         r['kandidater'] = kandidater_for(inst, info)
         ut.append(r)
     return ut

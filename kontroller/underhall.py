@@ -205,52 +205,111 @@ def npm(args, cwd, timeout=900, env=None):
 
 
 def audit_fynd(cwd):
-    """(kända sårbarheter med allvar high eller critical som {'paket (allvar)'}, None), eller (None, felet) när
-    granskningen inte kunde göras (ett nätsteg; granskningen av r72, M4)."""
+    """(de kända sårbarheterna med allvar high eller critical som {(paket, advisory): text}, None), eller (None, felet)
+    när granskningen inte kunde göras (ett nätsteg; granskningen av r72, M4). Nyckeln är advisoryn, inte paketet: npm
+    audit sätter kedjans högsta allvar på varje paket i kedjan, så en ny advisory mot ett paket som redan stod med samma
+    allvar hade inte synts, och en rättad kritisk som lämnar en känd high hade sett ny ut (granskningen av r76, H1, M1)."""
     rc, ut = vl.kor(['npm', 'audit', '--omit=dev', '--audit-level=high', '--json'], timeout=300, cwd=cwd, env=vl.provmiljo(), bara_ut=True)
     if rc == 0:
-        return set(), None
+        return {}, None
     try:
         d = json.loads(ut or '{}')
     except ValueError:
         d = {}
     sarb = (d.get('vulnerabilities') or {}) if isinstance(d, dict) else {}
-    hoga = {'%s (%s)' % (n, v.get('severity')) for n, v in sarb.items() if isinstance(v, dict) and v.get('severity') in ('high', 'critical')}
-    if hoga:
-        return hoga, None
+    hoga, paketen = {}, {}
+    for n, v in sarb.items():
+        for via in (v.get('via') or []) if isinstance(v, dict) else []:
+            if isinstance(via, dict) and via.get('severity') in ('high', 'critical'):  # en sträng är en kedja, inte en advisory
+                adv = str(via.get('url') or via.get('source') or via.get('title') or '?')
+                hoga[(via.get('name') or n, adv)] = '%s %s (%s)' % (via.get('name') or n, adv.rsplit('/', 1)[-1], via['severity'])
+        if isinstance(v, dict) and v.get('severity') in ('high', 'critical'):
+            paketen[(n, None)] = '%s (%s)' % (n, v['severity'])
+    if hoga or paketen:  # ett svar utan advisories jämförs paket för paket; en känd sårbarhet blir aldrig tillfällig
+        return hoga or paketen, None
     e = d.get('error') if isinstance(d, dict) else None
     return None, nat('npm audit kunde inte göras: %s' % vl.sista(('%s %s' % (e.get('code') or '', e.get('summary') or e.get('detail') or ''))
                                                                if isinstance(e, dict) else ut, 300))
 
 
 def audit(cwd, bas=None, noter=None):
-    """None, eller felet. Kandidatens kända sårbarheter (high eller kritisk) jämförs med den installerade versionens
-    (bas: en katalog med dess lås, eller en funktion som ger en, eller None): en uppdatering som inte för in någon ny tas
-    in, och de kända redovisas i noter. Annars hade ett paket vars beroenden alltid har kända sårbarheter aldrig kunnat
-    uppdateras (Vercel CLI 2026-10-06). En känd sårbarhet blir aldrig tillfällig."""
+    """None, eller felet. Kandidatens kända sårbarheter (high eller kritisk) jämförs advisory för advisory med den
+    installerade versionens (bas: en katalog med dess lås, eller en funktion som ger en, eller None): en uppdatering som
+    inte för in någon ny tas in, och de kända redovisas i noter. Annars hade ett paket vars beroenden alltid har kända
+    sårbarheter aldrig kunnat uppdateras (Vercel CLI 2026-10-06). En känd sårbarhet blir aldrig tillfällig. Går den
+    installerade inte att granska avvisas kandidaten inte: felet säger inget om den (BEHÅLLEN, eller TILLFÄLLIGT för
+    ett nätfel), och skälet står i beskedet (granskningen av r76, M2)."""
     hoga, fel = audit_fynd(cwd)
     if fel:
         return fel
     if not hoga:
         return None
-    if bas is not None:
+    kanda = ', '.join(sorted(hoga.values())[:8])
+    if bas is None:
+        return 'npm audit (high eller kritisk): ' + kanda
+    try:
+        bas_hoga, bfel = audit_fynd(bas() if callable(bas) else bas)
+    except Exception as e:  # noqa: BLE001
+        bas_hoga, bfel = None, nat('den installerade versionen kunde inte granskas: %s' % vl.sista(e, 200))
+    if bfel:
+        till = bfel.startswith(TILL)
+        skal = bfel[len(TILL):] if till else bfel[len(HALL):] if bfel.startswith(HALL) else bfel
+        return (TILL if till else HALL) + 'npm audit kunde inte jämföras med den installerade versionen (%s); kandidatens kända ' \
+            '(high eller kritisk): %s' % (skal, kanda)
+    nya = sorted(set(hoga) - set(bas_hoga))
+    if not nya:
+        if noter is not None:
+            noter.append('npm audit: inga nya sårbarheter jämfört med den installerade (kända: %s)' % ', '.join(sorted(hoga.values())[:6]))
+        return None
+    return 'npm audit: nya sårbarheter (high eller kritisk) jämfört med den installerade: ' + ', '.join(hoga[x] for x in nya[:8])
+
+
+def las_ur_tradet(katalog, version, mal):
+    """mal med ett lås (lockfileVersion 3) över det installerade trädet i katalog (ett globalt installerat paket med sina
+    node_modules), så att npm audit granskar de versioner som faktiskt är installerade: en ny upplösning av samma version
+    tar in de transitiva beroendenas senaste versioner, och en ny sårbar version i båda hade tagit ut sig själv
+    (granskningen av r76, H1). Kastar när trädet saknas eller har en annan version."""
+    if not katalog or not (Path(katalog) / 'package.json').is_file():
+        raise RuntimeError('det installerade trädet finns inte (%s)' % (katalog or 'installerad utanför npm'))
+    katalog, poster = Path(katalog), {}
+
+    def post(kat, nyckel, djup=0):
         try:
-            baskat = bas() if callable(bas) else bas
-        except Exception as e:  # noqa: BLE001 — utan jämförelse avvisar de kända sårbarheterna som förut
-            baskat = None
-            if noter is not None:
-                noter.append('den installerade versionen kunde inte granskas: %s' % vl.sista(e, 120))
-        if baskat:
-            bas_hoga, bfel = audit_fynd(baskat)
-            if bfel:
-                return bfel
-            nya = sorted(hoga - bas_hoga)
-            if not nya:
-                if noter is not None:
-                    noter.append('npm audit: inga nya sårbarheter jämfört med den installerade (kända: %s)' % ', '.join(sorted(hoga)[:6]))
-                return None
-            return 'npm audit: nya sårbarheter (high eller kritisk) jämfört med den installerade: ' + ', '.join(nya[:8])
-    return 'npm audit (high eller kritisk): ' + ', '.join(sorted(hoga)[:8])
+            d = json.loads((kat / 'package.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError) as e:
+            raise RuntimeError('%s/package.json går inte att läsa: %s' % (nyckel, e))
+        e = {'version': d.get('version')}
+        if d.get('name') and d['name'] != nyckel.rsplit('node_modules/', 1)[-1]:
+            e['name'] = d['name']  # ett alias: npm audit frågar efter det riktiga namnet
+        for f in ('dependencies', 'optionalDependencies'):
+            if isinstance(d.get(f), dict) and d[f]:
+                e[f] = d[f]
+        poster[nyckel] = e
+        nm = kat / 'node_modules'
+        if djup > 60 or not nm.is_dir() or nm.is_symlink():
+            return
+        for barn in sorted(nm.iterdir()):
+            if barn.name.startswith('.') or barn.is_symlink():
+                continue
+            if barn.name.startswith('@'):
+                for b2 in sorted(barn.iterdir()):
+                    if not b2.is_symlink() and (b2 / 'package.json').is_file():
+                        post(b2, '%s/node_modules/%s/%s' % (nyckel, barn.name, b2.name), djup + 1)
+            elif (barn / 'package.json').is_file():
+                post(barn, '%s/node_modules/%s' % (nyckel, barn.name), djup + 1)
+
+    namn = json.loads((katalog / 'package.json').read_text(encoding='utf-8')).get('name') or katalog.name
+    post(katalog, 'node_modules/' + namn)
+    if poster['node_modules/' + namn]['version'] != version:
+        raise RuntimeError('det installerade trädet har %s, inte %s' % (poster['node_modules/' + namn]['version'], version))
+    rot = {'name': 'nwp-bas', 'version': '0.0.0', 'private': True, 'dependencies': {namn: version}}
+    mal = Path(mal)
+    mal.mkdir(parents=True, exist_ok=True)
+    (mal / 'package.json').write_text(json.dumps(rot), encoding='utf-8')
+    (mal / 'package-lock.json').write_text(json.dumps({'name': 'nwp-bas', 'version': '0.0.0', 'lockfileVersion': 3, 'requires': True,
+                                                        'packages': {'': {k: v for k, v in rot.items() if k != 'private'}, **poster}}),
+                                           encoding='utf-8')
+    return mal
 
 
 # --- rökprovet i en egen worktree ---
@@ -371,20 +430,15 @@ def prova_globalt(k, r, kand):
     paket, version = r['paket'], kand['version']
     d = Path(tempfile.mkdtemp(prefix='nwp-global-'))
     env = vl.provmiljo()
+    fore = karensgrans()
     try:
         skript = [] if paket == '@anthropic-ai/claude-code' else ['--ignore-scripts']
-        rc, ut = npm(['install', '--prefix', str(d), '--no-audit', '--no-fund', *skript, '%s@%s' % (paket, version)], d, env=env)
+        rc, ut = npm(['install', '--prefix', str(d), '--no-audit', '--no-fund', '--before=' + fore, *skript, '%s@%s' % (paket, version)], d, env=env)
         if rc:
             return nat('installationen i en provkatalog föll: ' + vl.sista(ut)), None
 
-        def bas_globalt():  # den installerade versionen, utan skript, bara för att få dess lås
-            b_ = d.parent / (d.name + '-bas')
-            b_.mkdir(exist_ok=True)
-            rc_, ut_ = npm(['install', '--prefix', str(b_), '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund',
-                            '%s@%s' % (paket, r['installerat'])], b_, env=env)
-            if rc_:
-                raise RuntimeError(vl.sista(ut_, 120))
-            return b_
+        def bas_globalt():  # det installerade trädet som det ligger på disk, inte en ny upplösning (granskningen av r76, H1)
+            return las_ur_tradet(r.get('paketkatalog'), r['installerat'], d.parent / (d.name + '-bas'))
         noter = []
         fel = audit(d, bas=bas_globalt if r.get('installerat') else None, noter=noter)
         shutil.rmtree(d.parent / (d.name + '-bas'), ignore_errors=True)
@@ -419,9 +473,15 @@ def prova_globalt(k, r, kand):
             if not ok:
                 return text, None
             prov += ', ' + text
-        return None, {'prov': prov}
+        return None, {'prov': prov, 'fore': fore}
     finally:
         shutil.rmtree(d, ignore_errors=True)
+
+
+def karensgrans():
+    """npm:s --before för det globala provet och intaget: bara versioner som var publicerade före karenstiden, också för
+    de transitiva beroendena, så att intaget installerar samma upplösning som provade (granskningen av r76, H1)."""
+    return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - vl.KARENS_DAGAR * 86400))
 
 
 def ta_in_globalt(k, r, kand, staged):
@@ -430,7 +490,8 @@ def ta_in_globalt(k, r, kand, staged):
     paket, version, gammal = r['paket'], kand['version'], r['installerat']
     # samma flaggor och samma minimala miljö som provet: inga installationsskript som aldrig prövats (granskningen av r72, M6)
     skript = [] if paket == '@anthropic-ai/claude-code' else ['--ignore-scripts']
-    rc, ut = npm(['install', '-g', '--no-audit', '--no-fund', *skript, '%s@%s' % (paket, version)], ROOT(), env=vl.provmiljo())
+    fore = ['--before=' + staged['fore']] if staged.get('fore') else []  # samma upplösning som provet
+    rc, ut = npm(['install', '-g', '--no-audit', '--no-fund', *fore, *skript, '%s@%s' % (paket, version)], ROOT(), env=vl.provmiljo())
     ny = vl.version_av([shutil.which(r['binar']) or r['bin'], '--version'])
     if rc == 0 and ny == version:
         return 'uppdaterad', '%s → %s (%s)' % (gammal, version, staged['prov']), None

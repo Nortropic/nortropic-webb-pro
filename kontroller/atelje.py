@@ -1048,12 +1048,15 @@ def ledigt_namn(katalog, bas):
 # startkontrollens kvitton hör till den senaste starten (de skrivs före arkiveringen) och historiken samlas på plats
 STARTKVITTON = ('STARTKVITTO.json', 'STARTKVITTO.md', 'STARTKVITTO-STOPP.json', 'STARTKVITTO-STOPP.md', 'STARTKVITTO-BYGGE.json',
                 'STARTKVITTO-BYGGE.md', 'STARTKVITTO-BYGGE-STOPP.json', 'STARTKVITTO-BYGGE-STOPP.md', 'startkvitton')
+# ateljéns egna: en ny start som inte skrev något kvitto (NWP_STARTKONTROLL=av) arkiverar dem med den förra körningen,
+# så att ingen senare start ärver dess lås (granskningen av r76); helbyggets står kvar för helbygget
+ATELJEKVITTON = ('STARTKVITTO.json', 'STARTKVITTO.md', 'STARTKVITTO-STOPP.json', 'STARTKVITTO-STOPP.md')
 
 
-def arkivera(rot, mal, utom=()):
+def arkivera(rot, mal, utom=(), kvitton=True):
     """Flyttar ateljékatalogens innehåll till mal, utom STATUS.json, arbetare.log, föregående körningar, startkontrollens
-    kvitton och det som står i utom; symlänkar tas bort, aldrig följda."""
-    behall = {'STATUS.json', 'arbetare.log', 'foregaende', *STARTKVITTON, *utom}
+    kvitton (ateljéns följer med när kvitton=False) och det som står i utom; symlänkar tas bort, aldrig följda."""
+    behall = {'STATUS.json', 'arbetare.log', 'foregaende', *(x for x in STARTKVITTON if kvitton or x not in ATELJEKVITTON), *utom}
     flytt = [p for p in sorted(rot.iterdir()) if p.name not in behall and not any(p.name.startswith(x) for x in utom if x.endswith('-'))]
     if not flytt:
         return None
@@ -1076,10 +1079,17 @@ def foregaende(rot):
     return f
 
 
-def arkivera_forra(rot):
+def arkivera_forra(rot, kvitton=True):
     """Föregående körnings material (vinnaren, valen, bilderna, ankarna, omgångarna) flyttas till foregaende/<tid>/ när
     en ny ateljé startar: en senare förkastning lämnar aldrig en gammal vinnare som måttstock (granskningen av r53, punkt 3)."""
-    return arkivera(rot, ledigt_namn(foregaende(rot), nu().replace(':', '')))
+    return arkivera(rot, ledigt_namn(foregaende(rot), nu().replace(':', '')), kvitton=kvitton)
+
+
+def arkivera_vid_ny_start(rot, kvitto=True):
+    """En ny starts arkivering: den förra körningens material, eller None när det inte finns något. Skrev starten inget
+    kvitto (NWP_STARTKONTROLL=av) följer den förra körningens kvitto med, så att ingen senare start ärver dess lås."""
+    kvar = ('STATUS.json', 'arbetare.log', 'foregaende', *(x for x in STARTKVITTON if kvitto or x not in ATELJEKVITTON))
+    return arkivera_forra(rot, kvitton=kvitto) if any(p.name not in kvar for p in rot.iterdir()) else None
 
 
 def arkivera_vinnare(rot):
@@ -1838,7 +1848,7 @@ def arbeta(slug, lage):
     try:
         skriv()
         if lage == 'ny':
-            forra_ = arkivera_forra(rot) if any(p.name not in ('STATUS.json', 'arbetare.log', 'foregaende', *STARTKVITTON) for p in rot.iterdir()) else None
+            forra_ = arkivera_vid_ny_start(rot, kvitto=bool(sk))
             status['foregaende'] = rel(forra_) if forra_ else None
         elif lage == 'putsa':  # det ägaren dömde arkiveras och blir slutdomens före (granskningen av skapandeflödet, punkt 4)
             status['putsning'] = rel(arkivera_putsning(rot))

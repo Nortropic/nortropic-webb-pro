@@ -63,6 +63,7 @@ MCP_OK = 'refero: https://api.refero.design/mcp (HTTP) - ✔ Connected\nmobbin: 
 (FAKE / 'bin' / 'npm').write_text('#!/bin/bash\ncase "$1" in root) echo %s/npm-global;; --version) echo 10.9.8;; ci) mkdir -p node_modules;; *) exit 1;; esac\n' % FAKE)
 for b in ('claude', 'vercel', 'npm'):
     (FAKE / 'bin' / b).chmod(0o755)
+PATH_URSPRUNG = os.environ['PATH']  # den riktiga node och npm, för provet som låter npm läsa ett lås
 os.environ['PATH'] = '%s:%s' % (FAKE / 'bin', os.environ['PATH'])
 os.environ['NWP_CLAUDE_BIN'] = str(FAKE / 'bin' / 'claude')
 os.environ['NWP_SPANING_AV'] = '1'
@@ -873,17 +874,117 @@ try:
     assert uh.audit(TMP) == 'npm audit (high eller kritisk): foo (high)', uh.audit(TMP)
     vl.kor = lambda args, **kw: (1, json.dumps({'error': {'code': 'ENOTFOUND', 'summary': 'request to https://registry.npmjs.org failed'}}))
     assert uh.audit(TMP).startswith(uh.TILL), uh.audit(TMP)
-    # jämförelsen med den installerade versionen: kända sårbarheter som redan finns där stoppar inte en uppdatering, en
-    # ny gör det (Vercel CLI 2026-10-06: varje version hade samma kända sårbarheter i sina beroenden)
+    # jämförelsen med den installerade versionen, advisory för advisory: kända sårbarheter som redan finns där stoppar
+    # inte en uppdatering, en ny gör det (Vercel CLI 2026-10-06: varje version hade samma kända sårbarheter i sina
+    # beroenden; granskningen av r76, H1 och M1)
+    def sv_r76(*adv, kedja=()):
+        """npm audits form: advisoryn står i via hos sitt paket, och varje paket i kedjan får kedjans högsta allvar."""
+        v_ = {}
+        for namn_, id_, allvar_ in adv:
+            e_ = v_.setdefault(namn_, {'name': namn_, 'severity': allvar_, 'via': []})
+            e_['via'].append({'source': 1000 + len(e_['via']), 'name': namn_, 'dependency': namn_, 'title': 't',
+                              'url': 'https://github.com/advisories/GHSA-' + id_, 'severity': allvar_, 'range': '*'})
+            e_['severity'] = 'critical' if 'critical' in (allvar_, e_['severity']) else allvar_
+        for namn_, via_ in kedja:
+            v_[namn_] = {'name': namn_, 'severity': 'critical' if any(v_[x]['severity'] == 'critical' for x in via_) else 'high', 'via': list(via_)}
+        return v_
     SVAR_A = {}
-    vl.kor = lambda args, cwd=None, **kw: (1, json.dumps({'vulnerabilities': SVAR_A[str(cwd)]}))
-    SVAR_A[str(TMP / 'kand')] = {'tar': {'severity': 'critical'}, 'braces': {'severity': 'high'}}
-    SVAR_A[str(TMP / 'bas')] = {'tar': {'severity': 'critical'}, 'braces': {'severity': 'high'}, 'gammal': {'severity': 'high'}}
+    vl.kor = lambda args, cwd=None, **kw: (1 if SVAR_A[str(cwd)] else 0, json.dumps({'vulnerabilities': SVAR_A[str(cwd)]}))
+    BAS_A = sv_r76(('tar', 'a', 'critical'), ('tar', 'b', 'high'), ('braces', 'c', 'high'), kedja=[('vercel', ['tar'])])
+    SVAR_A[str(TMP / 'kand')] = BAS_A
+    SVAR_A[str(TMP / 'bas')] = dict(BAS_A, **sv_r76(('gammal', 'd', 'high')))
     noter_a = []
     assert uh.audit(TMP / 'kand', bas=TMP / 'bas', noter=noter_a) is None and 'inga nya sårbarheter' in noter_a[0], noter_a
-    SVAR_A[str(TMP / 'bas')] = {'braces': {'severity': 'high'}}
-    assert uh.audit(TMP / 'kand', bas=lambda: TMP / 'bas') == 'npm audit: nya sårbarheter (high eller kritisk) jämfört med den installerade: tar (critical)'
-    assert uh.audit(TMP / 'kand') == 'npm audit (high eller kritisk): braces (high), tar (critical)', 'utan jämförelse avvisas de kända'
+    SVAR_A[str(TMP / 'bas')] = sv_r76(('braces', 'c', 'high'))
+    assert uh.audit(TMP / 'kand', bas=lambda: TMP / 'bas') == \
+        'npm audit: nya sårbarheter (high eller kritisk) jämfört med den installerade: tar GHSA-a (critical), tar GHSA-b (high)', uh.audit(TMP / 'kand', bas=TMP / 'bas')
+    assert uh.audit(TMP / 'kand') == 'npm audit (high eller kritisk): braces GHSA-c (high), tar GHSA-a (critical), tar GHSA-b (high)', 'utan jämförelse avvisas de kända'
+    SVAR_A[str(TMP / 'bas')] = {}  # den installerade har inga: alla kandidatens är nya
+    assert uh.audit(TMP / 'kand', bas=TMP / 'bas').startswith('npm audit: nya sårbarheter'), uh.audit(TMP / 'kand', bas=TMP / 'bas')
+    # en ny advisory mot ett paket som redan står med samma allvar (vercel i kedjan, tar som kritisk) är ny (H1)
+    SVAR_A[str(TMP / 'bas')] = BAS_A
+    for paket_, id_, allvar_ in (('vercel', 'e', 'high'), ('tar', 'f', 'critical')):
+        k_ = json.loads(json.dumps(BAS_A))
+        k_[paket_]['via'].append({'source': 9, 'name': paket_, 'dependency': paket_, 'title': 'ny', 'url': 'https://github.com/advisories/GHSA-' + id_,
+                                  'severity': allvar_, 'range': '*'})
+        SVAR_A[str(TMP / 'kand')] = k_
+        assert uh.audit(TMP / 'kand', bas=TMP / 'bas') == \
+            'npm audit: nya sårbarheter (high eller kritisk) jämfört med den installerade: %s GHSA-%s (%s)' % (paket_, id_, allvar_), uh.audit(TMP / 'kand', bas=TMP / 'bas')
+    # en uppdatering som rättar tars kritiska och lämnar en känd high är ingen ny sårbarhet (M1)
+    SVAR_A[str(TMP / 'kand')] = sv_r76(('tar', 'b', 'high'), ('braces', 'c', 'high'), kedja=[('vercel', ['tar'])])
+    noter_a = []
+    assert uh.audit(TMP / 'kand', bas=TMP / 'bas', noter=noter_a) is None and 'tar GHSA-b (high)' in noter_a[0], noter_a
+    # den installerade går inte att granska: kandidaten avvisas inte (BEHÅLLEN, eller TILLFÄLLIGT för ett nätfel), och
+    # skälet står i beskedet (M2); bara skälet avgör, aldrig kandidatens advisories (GHSA-x502 är inget 502-svar)
+    SVAR_A[str(TMP / 'kand')] = sv_r76(('tar', 'x502-qq', 'high'))
+
+    def bas_natfel_():
+        raise RuntimeError('npm error code ENOTFOUND request to https://registry.npmjs.org/vercel failed')
+
+    def bas_saknas_():
+        raise RuntimeError('det installerade trädet finns inte (installerad utanför npm)')
+    f_ = uh.audit(TMP / 'kand', bas=bas_natfel_)
+    assert f_.startswith(uh.TILL) and 'kunde inte jämföras' in f_ and 'ENOTFOUND' in f_ and 'tar GHSA-x502-qq (high)' in f_, f_
+    f_ = uh.audit(TMP / 'kand', bas=bas_saknas_)
+    assert f_.startswith(uh.HALL) and 'installerad utanför npm' in f_ and uh.behall(f_), f_
+    vl.kor = lambda args, cwd=None, **kw: ((1, json.dumps({'error': {'code': 'ENOTFOUND', 'summary': 'request failed'}})) if str(cwd) == str(TMP / 'bas')
+                                           else (1, json.dumps({'vulnerabilities': SVAR_A[str(cwd)]})))
+    f_ = uh.audit(TMP / 'kand', bas=TMP / 'bas')
+    assert f_.startswith(uh.TILL) and 'ENOTFOUND' in f_, f_
+    # prova_globalt: utan det installerade trädet är beskedet BEHÅLLEN med skälet, och kandidaten installeras med
+    # karenstidens --before, som intaget sedan använder (samma upplösning som provades)
+    NPM_R76 = []
+    spara_r76 = (uh.npm, vl.version_av)
+
+    def falsk_npm_r76(args, cwd, timeout=900, env=None):
+        NPM_R76.append(list(args))
+        return 0, ''
+    uh.npm = falsk_npm_r76
+    vl.kor = lambda args, cwd=None, **kw: (1, json.dumps({'vulnerabilities': sv_r76(('tar', 'a', 'critical'))}))
+    try:
+        f_, st_ = uh.prova_globalt(None, {'paket': 'vercel', 'installerat': '60.0.1', 'binar': 'vercel', 'id': 'npm-global:vercel'}, {'version': '60.1.3'})
+        assert f_.startswith(uh.HALL) and 'installerad utanför npm' in f_ and 'tar GHSA-a (critical)' in f_ and st_ is None, f_
+        fore_r76 = [a_ for a_ in NPM_R76[0] if a_.startswith('--before=')]
+        assert len(fore_r76) == 1 and fore_r76[0][len('--before='):] < vl.nu(), NPM_R76
+        vl.version_av = lambda a: '60.1.3'
+        NPM_R76.clear()
+        res_ = uh.ta_in_globalt(None, {'paket': 'vercel', 'installerat': '60.0.1', 'binar': 'vercel', 'bin': '/x/vercel', 'via_npm': True},
+                                {'version': '60.1.3'}, {'prov': 'p', 'fore': '2026-10-03T00:00:00Z'})
+        assert res_[0] == 'uppdaterad' and '--before=2026-10-03T00:00:00Z' in NPM_R76[0] and '-g' in NPM_R76[0], (res_, NPM_R76)
+    finally:
+        uh.npm, vl.version_av = spara_r76
+    # basen är det installerade trädet som det ligger på disk: versionerna, aliaset och de nästlade, aldrig en ny
+    # upplösning (H1), och npm läser låset
+    G_ = TMP / 'npm-global-r76' / 'vercel'
+    for rel_, pj_ in (('', {'name': 'vercel', 'version': '60.0.1', 'dependencies': {'ws': '^8.0.0', '@vercel/oidc': '^3.0.0', 'p2r': 'npm:path-to-regexp@^6.0.0'}}),
+                      ('node_modules/ws', {'name': 'ws', 'version': '8.21.3', 'dependencies': {'acorn': '^8.0.0'}}),
+                      ('node_modules/ws/node_modules/acorn', {'name': 'acorn', 'version': '8.18.0'}),
+                      ('node_modules/@vercel/oidc', {'name': '@vercel/oidc', 'version': '3.8.9'}),
+                      ('node_modules/p2r', {'name': 'path-to-regexp', 'version': '6.3.0'})):
+        (G_ / rel_).mkdir(parents=True, exist_ok=True)
+        (G_ / rel_ / 'package.json').write_text(json.dumps(pj_))
+    (G_ / 'node_modules' / '.bin').mkdir()
+    os.symlink(G_ / 'node_modules' / 'ws', G_ / 'node_modules' / 'lank')
+    las_ = json.loads((uh.las_ur_tradet(G_, '60.0.1', TMP / 'bas-r76') / 'package-lock.json').read_text())['packages']
+    assert {k_: v_['version'] for k_, v_ in las_.items() if k_} == {
+        'node_modules/vercel': '60.0.1', 'node_modules/vercel/node_modules/ws': '8.21.3', 'node_modules/vercel/node_modules/ws/node_modules/acorn': '8.18.0',
+        'node_modules/vercel/node_modules/@vercel/oidc': '3.8.9', 'node_modules/vercel/node_modules/p2r': '6.3.0'}, las_
+    assert las_['node_modules/vercel/node_modules/p2r']['name'] == 'path-to-regexp' and 'name' not in las_['node_modules/vercel/node_modules/ws'], las_
+    npm_r76 = shutil.which('npm', path=PATH_URSPRUNG)
+    r_ = subprocess.run([npm_r76, 'ls', '--package-lock-only', '--all', '--json'], cwd=str(TMP / 'bas-r76'), capture_output=True, text=True, timeout=120,
+                        env=dict(os.environ, PATH=PATH_URSPRUNG))
+    try:
+        ls_ = json.loads(r_.stdout)['dependencies']['vercel']['dependencies']
+        ok_ = r_.returncode == 0 and ls_['ws']['dependencies']['acorn']['version'] == '8.18.0' and ls_['p2r']['version'] == '6.3.0'
+    except (ValueError, KeyError, TypeError):
+        ok_ = False
+    assert ok_, (npm_r76, r_.returncode, r_.stdout[-400:], r_.stderr[-600:])
+    for kat_, ver_ in ((G_, '60.1.3'), (None, '60.0.1'), (TMP / 'finns-inte', '60.0.1')):
+        try:
+            uh.las_ur_tradet(kat_, ver_, TMP / 'bas-r76-fel')
+            raise AssertionError((kat_, ver_))
+        except RuntimeError:
+            pass
 finally:
     vl.kor = spara_kor_m4
 
@@ -1197,6 +1298,17 @@ for f_ in ('STARTKVITTO.json', 'STARTKVITTO.md', 'VINNARE.json', 'STATUS.json'):
 arkiv_kv = atelje.arkivera_forra(rot_kv)
 assert (rot_kv / 'STARTKVITTO.json').is_file() and (rot_kv / 'startkvitton' / 'STARTKVITTO-x.json').is_file() and not (rot_kv / 'VINNARE.json').exists()
 assert (arkiv_kv / 'VINNARE.json').is_file() and not (arkiv_kv / 'STARTKVITTO.json').exists(), arkiv_kv
+# en ny start utan eget kvitto (NWP_STARTKONTROLL=av) tar den förra körningens kvitto med till arkivet, så att ingen
+# senare start ärver dess lås; helbyggets kvitto och historiken står kvar (granskningen av r76)
+rot_av = TMP / 'kv-atelje-av'
+(rot_av / 'startkvitton').mkdir(parents=True)
+for f_ in ('STARTKVITTO.json', 'STARTKVITTO.md', 'STARTKVITTO-STOPP.json', 'STARTKVITTO-BYGGE.json', 'STATUS.json'):
+    (rot_av / f_).write_text('{}')
+assert atelje.arkivera_vid_ny_start(rot_av, kvitto=True) is None, 'med eget kvitto finns inget att arkivera'
+arkiv_av = atelje.arkivera_vid_ny_start(rot_av, kvitto=False)
+assert arkiv_av and (arkiv_av / 'STARTKVITTO.json').is_file() and (arkiv_av / 'STARTKVITTO-STOPP.json').is_file() and not (rot_av / 'STARTKVITTO.json').exists()
+assert (rot_av / 'STARTKVITTO-BYGGE.json').is_file() and (rot_av / 'startkvitton').is_dir() and (rot_av / 'STATUS.json').is_file()
+assert atelje.arkivera_vid_ny_start(rot_av, kvitto=False) is None
 print('granskningen av r73: cachen och gamla upptagna val, Homebrews karenstid, skrivgränsen i en worktree, Mobbin-provet, tidszonen, '
       'flaskan och avbrottet, oversionerad node, utdragen vid intaget, den mogna commiten och grupperingen ok')
 

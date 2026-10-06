@@ -77,8 +77,10 @@ Skydden runt en ny version (den oberoende granskningen 2026-10-06):
 
 - **Karenstid:** en version räknas först när den varit publicerad i tre dygn (publiceringstiden hos npm och PyPI,
   Nodes utgivningsdatum, formelns senaste ändring i homebrew-core); förhandsversioner aldrig. En skill prövas i den
-  senaste commit i källan som är äldre än karenstiden. Den senaste inom den installerade huvudversionen är en egen
-  kandidat, så att en avvisad eller behållen huvudversion aldrig blockerar patchar.
+  senaste commit i källan som är äldre än karenstiden. Claude Code och Vercel CLI prövas och tas in med npm:s
+  `--before` vid karenstidens gräns, så att karenstiden också gäller de transitiva beroendena och intaget installerar
+  samma upplösning som provet. Den senaste inom den installerade huvudversionen är en egen kandidat, så att en avvisad
+  eller behållen huvudversion aldrig blockerar patchar.
 - **Kandidatens kod** körs med en minimal miljö utan nycklar eller tokens, i provet och vid intaget. Paketen
   installeras utan skript där det går (inte Claude Code, vars skript länkar binären), Python bara ur färdiga hjul, och
   provbyggen, testsajtens installation och Impeccables motor körs innanför processgränsen (`kontroller/processgrans.py`):
@@ -90,9 +92,10 @@ Skydden runt en ny version (den oberoende granskningen 2026-10-06):
   som flödet kör eller Impeccables motorversion tas aldrig in automatiskt, och inte heller en som flyttar eller bryter
   metodkartans radutdrag (prövas igen vid intaget). Metoden låses inte om över en ändring som aldrig låsts.
 - **Fel:** ett nätsteg som faller av ett tillfälligt skäl (tidsgräns, DNS, 5xx, Claudes gränser) avvisar inget,
-  utan versionen behålls och prövas igen; en känd sårbarhet är aldrig tillfällig. npm audit jämför med den installerade
-  versionen: en uppdatering som inte för in någon ny sårbarhet (high eller kritisk) tas in, och de kända står i
-  rapporten (Vercel CLI:s beroenden har kända sårbarheter i varje version). Faller ett intag eller dess
+  utan versionen behålls och prövas igen; en känd sårbarhet är aldrig tillfällig. npm audit jämför advisory för advisory
+  med den installerade versionen, för de globala paketen trädet som det ligger på disk: en uppdatering som inte för in
+  någon ny advisory (high eller kritisk) tas in, och de kända står i rapporten (Vercel CLI:s beroenden har kända
+  sårbarheter i varje version). Går den installerade inte att granska behålls versionen, med skälet. Faller ett intag eller dess
   incheckning läggs filerna och miljön tillbaka och återställningen prövas; faller en incheckning tre gånger avvisas
   versionen. Faller en återställning står raden som FEL och rapporten säger att miljön kan vara trasig.
 - **Körningar på hela maskinen:** ateljéns arbetare, `kor.sh` och `rokprov.sh` anmäler sig i körregistret
