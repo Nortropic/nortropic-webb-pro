@@ -444,9 +444,14 @@ assert {s_['session_id']: s_ for s_ in ov_9['sessioner']}[sid_9]['pagar'] is Fal
 assert startade and all(c[0] == 'ps' for c in startade), startade
 (observation.katalog(SLUG) / (sid_9 + '.json')).unlink()
 (observation.katalog(SLUG) / 'trasig.json').write_text('{inte json')
+(observation.katalog(SLUG) / 'fel-form.json').write_text('{"session_id": "inte-ett-id"}')
 (UNDERLAG / SLUG / 'atelje' / 'KANDIDATPLAN.json').write_text('{"kandidater": "fel form"}')
 ov2 = observation.oversikt(SLUG)
-assert len(ov2['sessioner']) == len(ov['sessioner']) and ov2['referenser']['kandidater'] == {}, 'trasiga filer hoppas över'
+trasiga = sorted(s_['ofullstandig'] for s_ in ov2['sessioner'] if s_.get('ofullstandig'))
+assert len(ov2['sessioner']) == len(ov['sessioner']) + 2 and trasiga == ['förteckningsposten fel-form.json har oväntad form',
+                                                                       'förteckningsposten trasig.json kunde inte läsas: JSONDecodeError'], trasiga
+assert ov2['referenser']['kandidater'] == {}, 'en plan med fel form ger inga kandidater'
+(observation.katalog(SLUG) / 'trasig.json').unlink(); (observation.katalog(SLUG) / 'fel-form.json').unlink()
 orig_p = observation.prototyper
 observation.prototyper = lambda s_: 1 / 0
 ov3 = observation.oversikt(SLUG)
@@ -564,7 +569,7 @@ def lasare():
         try:
             o_ = observation.oversikt(SLUG)
             json.dumps(o_)
-            if not isinstance(o_['sessioner'], list) or any(s_.get('ofullstandig') for s_ in o_['sessioner']):
+            if not isinstance(o_['sessioner'], list) or any(s_.get('ofullstandig') or (s_.get('observation') or {}).get('lasfel') for s_ in o_['sessioner']):
                 fel17.append('ofullständig: %s' % str(o_['sessioner'])[:200])
         except Exception as e:  # noqa: BLE001
             fel17.append(repr(e))
@@ -635,6 +640,65 @@ pk20.mkdir(parents=True, exist_ok=True)
 (pk20 / 'PAKET.json').write_text(json.dumps({'version': 'paket-v01', 'tid': '2026-10-06T02:55:42Z'}))
 (UNDERLAG / SLUG / 'atelje' / 'FORSKNING.json').write_text(json.dumps({'nytt': {'paket': 'paket-v01', 'tjanster': '2026-10-06T02:58:27Z'}}))
 assert observation.referenser(SLUG)['paket_tid'] == '2026-10-06T02:55:42Z'
+
+# 21. ett läsfel ger det senast lästa läget med en varning (felet, utan sökväg, och tiden för den senaste lyckade
+#     läsningen), aldrig som aktuellt; nästa lyckade läsning tar bort varningen och läser det nya
+f21 = TMP / 't21.jsonl'
+f21.write_text(strom(anrop(1, 'n1', 'Grep', {}), anrop(2, 'n2', 'Grep', {})))
+l21 = observation.las_session(f21)
+assert set(l21['anrop']) == {'n1', 'n2'} and l21['lasfel'] is None and l21['senast_last'], l21
+senast21 = l21['senast_last']
+with open(f21, 'a') as f:
+    f.write(anrop(3, 'n3', 'Grep', {}) + '\n')
+
+
+def nekad_open(*a_, **k_):
+    raise PermissionError(13, 'Permission denied', str(f21))
+
+
+observation.open = nekad_open  # skuggar den inbyggda open i modulen
+try:
+    s21 = observation.sammanfattning(f21)
+finally:
+    del observation.open
+assert s21['lasfel'] and s21['lasfel']['fel'] == 'PermissionError: Permission denied' and str(f21) not in json.dumps(s21), s21['lasfel']
+assert s21['senast_last'] == senast21 and s21['verktyg'] == {'Grep': {'inget svar observerat': 2}}, ('det senast lästa, med varning', s21)
+s21b = observation.sammanfattning(f21)
+assert s21b['lasfel'] is None and s21b['verktyg'] == {'Grep': {'inget svar observerat': 3}}, ('varningen borta, det nya läst', s21b)
+f21.unlink()  # en fil som försvunnit efter en läsning: samma varning över det senast lästa
+s21c = observation.sammanfattning(f21)
+assert s21c['lasfel']['fel'].startswith('FileNotFoundError') and s21c['verktyg'] == {'Grep': {'inget svar observerat': 3}}, s21c
+s21d = observation.sammanfattning(TMP / 't21-aldrig.jsonl')  # utan tidigare läsning: ett tomt läge med varning
+assert s21d['lasfel'] and s21d['senast_last'] is None and s21d['verktyg'] == {} and s21d['mcp'] == [], s21d
+# vyn: sessionen med läsfel bär varningen i översikten, och prototypens skärmbild utan läsbar tid får ingen tid
+sid_21 = '00000000-0000-4000-8000-0000000000cc'
+f21e = KONFIG / 'projects' / '-falsk-repo' / (sid_21 + '.jsonl')
+f21e.write_text(strom(anrop(1, 'p1', 'Grep', {})))
+observation._skriv(observation.katalog(SLUG) / (sid_21 + '.json'), {'session_id': sid_21, 'roll': 'skiss-3', 'kandidat': 'k02', 'svar': 'svar-skiss-3.json',
+                                                                     'start': observation.nu(), 'modell': 'm', 'pid': None, 'slut': observation.nu(), 'utfall': 'avslutad, kod 0'})
+assert {s_['session_id']: s_ for s_ in observation.oversikt(SLUG)['sessioner']}[sid_21]['observation']['lasfel'] is None
+observation.open = nekad_open
+try:
+    o21 = {s_['session_id']: s_ for s_ in observation.oversikt(SLUG)['sessioner']}[sid_21]['observation']
+finally:
+    del observation.open
+assert o21['lasfel'] and o21['senast_last'] and o21['verktyg'] == {'Grep': {'inget svar observerat': 1}}, o21
+(observation.katalog(SLUG) / (sid_21 + '.json')).unlink()
+v21 = KAND / 'k02' / 'varv' / 'start' / 'varv-01'
+v21.mkdir(parents=True)
+(v21 / 'vy-390-forsta.png').write_bytes(b'png')
+orig_mtid, orig_rot = observation._mtid, observation.ROOT
+observation.ROOT = TMP  # bilderna ligger i provets underlag
+try:
+    p21_med = observation.prototyper(SLUG)['k02']['varv']
+    observation._mtid = lambda p: 0
+    p21 = observation.prototyper(SLUG)['k02']['varv']
+finally:
+    observation._mtid, observation.ROOT = orig_mtid, orig_rot
+b21 = {'390': 'underlag/%s/atelje/kandidater/k02/varv/start/varv-01/vy-390-forsta.png' % SLUG}
+assert p21_med['skarmbild_fangad'] and p21_med['bilder'] == b21, ('med läsbar tid står tiden', p21_med)
+assert p21['skarmbild_fangad'] is None and p21['bilder'] == b21, ('utan läsbar tid ingen tid, aldrig 1970', p21)
+shutil.rmtree(KAND / 'k02' / 'varv')
 
 # 12. mätningen: latens på ett stort transkript (första läsningen och en stegvis), och lagringen per session
 stor = KONFIG / 'projects' / '-falsk-repo' / '00000000-0000-4000-8000-000000000001.jsonl'

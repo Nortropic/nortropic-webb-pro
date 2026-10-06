@@ -148,6 +148,7 @@ textarea:focus, input:focus { outline: 2px solid color-mix(in srgb, var(--accent
 .obs-bilder { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3.46fr); gap: 8px; align-items: start; }
 .obs-bilder img { width: 100%; display: block; border: 1px solid var(--linje); border-radius: 8px; }
 .obs-not { font-size: 12px; color: var(--dampad); }
+.obs-varn { font-size: 12px; color: var(--gul); }
 .kdel .under { margin: 6px 0; }
 .kdel > h4 { margin: 16px 0 4px; font-size: 14.5px; }
 .kdel .prosa :is(h3, h4, h5) { margin: 10px 0 2px; font-size: 13px; font-weight: 600; color: var(--dampad); }  /* skaparens underrubriker under vyns */
@@ -869,7 +870,11 @@ async function observationsvy(slug, kandidater) {
   const etikett = (kid) => ((kandidater || []).find((k) => k.id === kid) || {}).etikett || kid;
   const al = fel(o.arbetslage) ? {} : (o.arbetslage || {}), sess = Array.isArray(o.sessioner) ? o.sessioner : [], tj = Array.isArray(o.tjanster) ? o.tjanster : [];
   const prot = fel(o.prototyper) ? {} : (o.prototyper || {}), plan = (!fel(o.referenser) && o.referenser && o.referenser.kandidater) || {};
-  const nagotFel = ['arbetslage', 'referenser', 'installerat', 'prototyper', 'sessioner', 'tjanster'].some((x) => fel(o[x])) || sess.some((x) => x.ofullstandig);
+  // ett läsfel visar det senast lästa läget, med felet och tiden för den senaste lyckade läsningen, aldrig som aktuellt
+  const lasfel = (x) => Boolean(x && x.observation && x.observation.lasfel), inaktuella = [...sess.filter(lasfel), ...tj.filter(lasfel)];
+  const olasbara = sess.filter((x) => x.ofullstandig);
+  const varning = (ob) => ob && ob.lasfel ? `<div class="obs-varn">Läsfel ${tid(ob.lasfel.tid)} (${esc(ob.lasfel.fel)}): ${ob.senast_last ? `visar läget från ${tid(ob.senast_last)}` : 'inget har lästs'}.</div>` : '';
+  const nagotFel = ['arbetslage', 'referenser', 'installerat', 'prototyper', 'sessioner', 'tjanster'].some((x) => fel(o[x])) || olasbara.length > 0 || inaktuella.length > 0;
   // pågår bara med belägg (en levande session eller arbetare); utan pid är läget oklart och uppdateras glesare, utan påstående
   const pagar = sess.some((s) => s.pagar) || (!fel(o.arbetslage) && !al.avslutad && al.arbetaren_lever === true);
   const oklart = !pagar && !fel(o.arbetslage) && !al.avslutad && al.arbetaren_lever == null;
@@ -886,7 +891,7 @@ async function observationsvy(slug, kandidater) {
   const tjanstrad = (t) => { const ob = t.observation; if (!ob) return `<li>${esc(t.tjanst)}: ${t.ofullstandig ? ejObs(t) : 'loggen inte observerad'}</li>`;
     const bilder = ob.mcp.reduce((n, m) => n + (m.bilder || 0), 0), lankar = ob.mcp.reduce((n, m) => n + (m.bildlankar || 0), 0);
     return `<li><b>${esc(t.tjanst)}</b>, ${t.del === 'uppdrag' ? 'uppdragsmaterialet' : 'researchen'}: ${ob.mcp.length} anrop${ob.mcp.length ? ' (' + utfallen(ob.mcp) + ')' : ''}${bilder ? ` · ${bilder} bilder returnerade` : ''}${lankar ? ` · ${lankar} bildlänkar returnerade (inte hämtade)` : ''}
-      · ${ob.slut ? `avslutad ${tid(ob.slut.tid)}${ob.slut.fel ? ', med fel' : ''}` : 'sluttid inte observerad'} · anslutning: ${esc(Object.entries(ob.mcp_lage || {}).map(([n, v]) => n + ' ' + v).join(', ') || 'inte observerad')}</li>`; };
+      · ${ob.slut ? `avslutad ${tid(ob.slut.tid)}${ob.slut.fel ? ', med fel' : ''}` : 'sluttid inte observerad'} · anslutning: ${esc(Object.entries(ob.mcp_lage || {}).map(([n, v]) => n + ' ' + v).join(', ') || 'inte observerad')}${varning(ob)}</li>`; };
   const mcpRad = (l) => { if (!l.length) return 'inga observerade';
     return ['refero', 'mobbin'].map((tj_) => { const x = l.filter((m) => m.tjanst === tj_); if (!x.length) return '';
       const b = x.reduce((n, m) => n + (m.bilder || 0), 0), lk = x.reduce((n, m) => n + (m.bildlankar || 0), 0);
@@ -921,19 +926,20 @@ async function observationsvy(slug, kandidater) {
           ${me.length ? `<div>Flödets metodutdrag (utdrag ur skills): ${utfallen(me)}</div>` : ''}
           ${(p.kompetenskvitton || []).map((k) => `<div class="obs-not">Flödets kvitto efter ${esc(k.pass)}: ${k.verifierad ? 'verifierat' : 'inte verifierat'}, ${k.lasta} lästa${k.saknas.length ? ', saknas ' + esc(k.saknas.join(', ')) : ''}.</div>`).join('')}
           <p class="obs-not">Läst eller laddat är inte tillämpat; tillämpningen bedöms i granskningen och i ditt beslut.</p></div>
-      </div>${olasta.length && obs.length ? `<p class="obs-not">${olasta.length} av skaparens ${egna.length} sessioner kunde inte läsas (${esc(olasta.map((s) => s.ofullstandig || 'transkriptet saknas').join('; '))}); det som står ovan gäller de övriga.</p>` : ''}${gr.length ? `<p class="obs-not">Granskningens sessioner för förslaget: ${gr.length} (${esc([...new Set(gr.map((s) => rollnamn(s.roll)))].join(', '))}); deras läsningar räknas inte som skaparens.</p>` : ''}</details>`; };
+      </div>${olasta.length && obs.length ? `<p class="obs-not">${olasta.length} av skaparens ${egna.length} sessioner kunde inte läsas (${esc(olasta.map((s) => s.ofullstandig || 'transkriptet saknas').join('; '))}); det som står ovan gäller de övriga.</p>` : ''}${egna.some(lasfel) ? `<p class="obs-varn">Inaktuellt: ${egna.filter(lasfel).map((s) => `${esc(rollnamn(s.roll))} kunde inte läsas om (${esc(s.observation.lasfel.fel)}), uppgifterna är från ${s.observation.senast_last ? tid(s.observation.senast_last) : 'ingen läsning'}`).join('; ')}.</p>` : ''}${gr.length ? `<p class="obs-not">Granskningens sessioner för förslaget: ${gr.length} (${esc([...new Set(gr.map((s) => rollnamn(s.roll)))].join(', '))}); deras läsningar räknas inte som skaparens.</p>` : ''}</details>`; };
   // vyns ordning (neutrala etiketter i slumpad ordning), aldrig planens
   const ordning = (kid) => { const i = (kandidater || []).findIndex((k) => k.id === kid); return i < 0 ? 999 : i; };
   const kids = [...new Set([...Object.keys(prot), ...sess.map((s) => s.kandidat).filter(Boolean)])].sort((a, b) => ordning(a) - ordning(b) || a.localeCompare(b));
   const rad = (s) => { const ob = s.observation, k = ob && ob.kontext, kp = (ob && ob.komprimeringar) || [];
     return `<tr><td>${esc(rollnamn(s.roll))}${s.kandidat ? ' · ' + esc(etikett(s.kandidat)) : ''}<div class="obs-not">${esc((ob && ob.modell) || s.modell || '')}</div></td>
       <td>${s.pagar ? '<span class="chip acc puls">pågår</span>' : s.slut ? `avslutad ${tid(s.slut)}${s.utfall ? ', ' + esc(s.utfall) : ''}` : s.ofullstandig ? 'inte observerat' : 'ingen sluttid; ingen levande claude-session observerad'}<div class="obs-not">start ${tid(s.start)}</div></td>
-      <td>${s.ofullstandig ? ejObs(s) : ob ? sedan(ob.senaste_handelse) : 'transkriptet inte observerat'}${ob && ob.oforstadda_rader ? `<div class="obs-not">${ob.oforstadda_rader} rader kunde inte tolkas</div>` : ''}</td>
-      <td>${k ? `cirka ${Math.round(k.tokens / 1000)} k tokens <span class="obs-not">(uppskattning, senaste turen)</span>` : 'inte observerat'}${kp.length ? `<div>${kp.length} komprimering${kp.length > 1 ? 'ar' : ''}, senast ${tid(kp.at(-1).tid)}</div>` : ''}</td></tr>`; };
+      <td>${s.ofullstandig ? ejObs(s) : ob ? sedan(ob.senaste_handelse) : 'transkriptet inte observerat'}${ob && ob.oforstadda_rader ? `<div class="obs-not">${ob.oforstadda_rader} rader kunde inte tolkas</div>` : ''}${varning(ob)}</td>
+      <td>${k ? `cirka ${Math.round(k.tokens / 1000)} k tokens <span class="obs-not" title="Indata i senaste modellanropet, med cache. Det som tillkommit efter anropet räknas inte, och fönstrets storlek står inte i transkriptet.">(uppskattning ur senaste anropet, ${tid(k.tid)})</span>` : 'inte observerat'}${kp.length ? `<div>${kp.length} komprimering${kp.length > 1 ? 'ar' : ''}, senast ${tid(kp.at(-1).tid)}</div>` : ''}</td></tr>`; };
   const inst = fel(o.installerat) ? null : o.installerat;
   const lever = al.arbetaren_lever === true ? 'lever' : al.avslutad ? 'körningen är avslutad' : al.arbetaren_lever === false ? 'lever inte' : 'inte observerat';
   ruta.innerHTML = `<h2>Under arbetet, observerat</h2>
     <p class="under">Automatiskt ur sessionernas transkript och loggar, utan modell; läst ${tid(o.tid)}${pagar ? ', uppdateras medan körningen pågår' : ''}. Etiketterna säger vad som syns ("anrop lyckades", "tomt resultat", "bild returnerad", "fil läst", "skärmbild fångad"), inte att något använts väl. Skaparens egen redovisning står i korten ovan, i skaparens ord.</p>
+    ${inaktuella.length || olasbara.length ? `<p class="obs-varn">Ofullständigt: ${[inaktuella.length ? `${inaktuella.length} transkript eller loggar kunde inte läsas om och visar ett äldre läge` : '', olasbara.length ? `${olasbara.length} sessioner kunde inte läsas` : ''].filter(Boolean).join('; ')}. Detaljerna står vid raderna.</p>` : ''}
     <p>${fel(o.arbetslage) ? `Arbetsläget: ${ejObs(o.arbetslage)}` : `Steg <b>${esc(al.steg || 'inte observerat')}</b>${steg ? ` (${esc(steg[0])} ${tid(steg[1])})` : ''} · arbetaren: ${lever}${al.fel ? ' · fel: ' + esc(al.fel) : ''}`}</p>
     ${kids.map(kandidat).join('') || '<p class="obs-not">Inga kandidater observerade än.</p>'}
     <details class="kdel" ${oppen('sessioner', false)}><summary>Sessionerna (${fel(o.sessioner) ? 'inte observerade' : sess.length})</summary>

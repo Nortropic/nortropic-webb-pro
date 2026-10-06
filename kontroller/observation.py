@@ -18,11 +18,19 @@ förteckningens metadatafält; resten räknas fram vid läsning och hålls i min
 utfallets klass och antalet träffar, bilder och bildlänkar, för Read också sökvägen och omfånget, för skillverktyget
 skillens namn; aldrig promptar, verktygsargument, verktygssvar eller bilddata. Etiketterna säger vad som observerats,
 aldrig att något använts eller förståtts, och det som saknas heter "inte observerat". Ett fel här gör vyn ofullständig,
-aldrig arbetet.
+aldrig arbetet. Ett läsfel ger det senast lästa läget med felet och tiden för den senaste lyckade läsningen, så att vyn
+kan säga att det är inaktuellt.
 
-Varför ingen mod: en mod laddas per process med --plugin-dir, ärvs inte av underagenter och körs utanför sandlådan, medan
-transkriptet redan bär verktygsanropen, läsningarnas omfång, skillverktyget, skillistan, nekanden, användningen per tur
-och komprimeringarna. Det en mod hade gett utöver det är kontextens exakta andel; här är storleken en uppskattning.
+Varför ingen mod: transkriptet bär redan verktygsanropen, läsningarnas omfång, skillverktyget, skillistan, nekanden,
+användningen per modellanrop och komprimeringarna. En mod körs i den process som laddar den (--plugin-dir eller en
+installerad plugin) och utanför sandlådan; varje claude -p-process, som ateljéns sessioner och tjänstesessionerna, ser
+bara en mod som laddats i just den. Underagenter som en session startar med Agent-verktyget körs i samma process, och en
+mod där får agent.spawn när de startar; deras egna verktygsanrop står i egna transkript (<session_id>/subagents/), inte i
+sessionens, så här syns bara Agent-anropet och dess utfall. Ateljéns sessioner har inget Agent-verktyg (--tools listar
+bara det sessionen använder, och Task nekas).
+Kontexten är tokenantalet i senaste modellanropets indata, en uppskattning: det som tillkommit efter anropet räknas inte,
+och andelen visas inte, eftersom transkriptet inte anger fönstrets storlek. En mod kan läsa Claude Codes egen siffra
+($.session.usage(): tokens, fönster och procent); också den är Claude Codes beräkning, inget oberoende mått.
 
 Av: NWP_OBSERVATION=av i arbetarens miljö (inget sessions-id, ingen förteckning, sessionens argument som förut).
 Säkerhetskrokarna och kundvakten berörs inte.
@@ -129,38 +137,44 @@ _LAS = threading.RLock()  # dashboarden svarar i trådar: läsningen och sammanf
 
 def _ny(ident):
     return {'id': ident, 'pos': 0, 'anrop': {}, 'svar': {}, 'forsta': None, 'senaste': None, 'kontext': None, 'komprimeringar': [],
-            'modell': None, 'skills': None, 'mcp': None, 'mcp_verktyg': {}, 'slut': None, 'nekade': 0, 'oforstadda': 0}
+            'modell': None, 'skills': None, 'mcp': None, 'mcp_verktyg': {}, 'slut': None, 'nekade': 0, 'oforstadda': 0,
+            'senast_last': None, 'lasfel': None}
+
+
+def _lasfel(lage, e):
+    """Läget med en varning: när felet kom och vilket det var (felets slag och text, utan sökvägen)."""
+    lage['lasfel'] = {'tid': nu(), 'fel': '%s: %s' % (type(e).__name__, str(getattr(e, 'strerror', None) or e)[:120])}
+    return lage
 
 
 def las_session(fil):
     """Läsläget för en session: valda metadatafält ur transkriptet eller den strömmade loggen. Bara rader som tillkommit
     sedan förra läsningen tolkas; en ofullständig sista rad väntar till nästa gång, och en rad med oväntad form räknas
-    och hoppas över. Ett nytt eller kortare filinnehåll (en annan fil på samma plats) läses från början."""
+    och hoppas över. Ett nytt eller kortare filinnehåll (en annan fil på samma plats) läses från början; storleken och
+    identiteten tas från den öppnade filen. En lyckad läsning sätter senast_last. Ett läsfel (filen borta eller nekad,
+    ett avbrott) ger det senast lästa läget, eller ett tomt, med lasfel satt, och nästa lyckade läsning tar bort det."""
     fil = Path(fil)
     with _LAS:
-        try:
-            st = fil.stat()
-        except OSError:
-            return None
-        ident = (st.st_dev, st.st_ino)
         lage = _LAGE.get(str(fil))
-        if lage is None or lage['id'] != ident or st.st_size < lage['pos']:
-            lage = _LAGE[str(fil)] = _ny(ident)
-        if st.st_size > lage['pos']:
-            try:
-                with open(fil, 'rb') as f:
-                    f.seek(lage['pos'])
-                    data = f.read(st.st_size - lage['pos'])
-            except OSError:
-                return lage
-            slut = data.rfind(b'\n')
-            if slut >= 0:
-                for rad in data[:slut].split(b'\n'):
-                    try:
-                        _rad(lage, rad)
-                    except Exception:  # noqa: BLE001 — en rad med oväntad form stoppar aldrig läsningen
-                        lage['oforstadda'] += 1
-                lage['pos'] += slut + 1
+        try:
+            with open(fil, 'rb') as f:
+                st = os.fstat(f.fileno())
+                ident = (st.st_dev, st.st_ino)
+                if lage is None or lage['id'] != ident or st.st_size < lage['pos']:
+                    lage = _LAGE[str(fil)] = _ny(ident)
+                f.seek(lage['pos'])
+                data = f.read(st.st_size - lage['pos']) if st.st_size > lage['pos'] else b''
+        except OSError as e:
+            return _lasfel(lage if lage is not None else _ny(None), e)
+        slut = data.rfind(b'\n')
+        if slut >= 0:
+            for rad in data[:slut].split(b'\n'):
+                try:
+                    _rad(lage, rad)
+                except Exception:  # noqa: BLE001 — en rad med oväntad form stoppar aldrig läsningen
+                    lage['oforstadda'] += 1
+            lage['pos'] += slut + 1
+        lage['senast_last'], lage['lasfel'] = nu(), None
         return lage
 
 
@@ -359,7 +373,8 @@ def sammanfatta(lage, slug=None):
             'mcp_lage': dict(lage['mcp']) if lage.get('mcp') is not None else None,
             'mcp': sorted(mcp, key=lambda x: x['tid'] or ''), 'skills_laddade': skills, 'skillfiler': skillfiler, 'metodutdrag': metod,
             'referensfiler': refs, 'nekade': lage.get('nekade', 0), 'oforstadda_rader': lage.get('oforstadda', 0), 'verktyg': verktyg,
-            'slut': dict(lage['slut']) if lage.get('slut') else None}
+            'slut': dict(lage['slut']) if lage.get('slut') else None,
+            'senast_last': lage.get('senast_last'), 'lasfel': dict(lage['lasfel']) if lage.get('lasfel') else None}
 
 
 def sammanfattning(fil, slug=None):
@@ -390,16 +405,19 @@ def _mtid(p):
 
 def sessioner(slug):
     """Ateljéns sessioner ur förteckningen, nyast först, med det transkriptet visar. Pågår betyder att posten saknar
-    slut och att pid:en är en levande nästlad claude-session (nastlad.ar_session), inte bara en levande pid."""
+    slut och att pid:en är en levande nästlad claude-session (nastlad.ar_session), inte bara en levande pid. En post som
+    inte går att läsa står med som ofullständig, så att vyn säger att något saknas."""
     import nastlad
     k = katalog(slug)
     ut = []
     for f in sorted(k.glob('*.json'), key=_mtid, reverse=True) if k.is_dir() else []:
         try:
             post = json.loads(f.read_text(encoding='utf-8'))
-        except (OSError, ValueError):
+        except (OSError, ValueError) as e:
+            ut.append(dict({x: None for x in FALT}, ofullstandig='förteckningsposten %s kunde inte läsas: %s' % (f.name[:60], type(e).__name__)))
             continue
         if not isinstance(post, dict) or not bildkedja.SESSION.match(str(post.get('session_id') or '')):
+            ut.append(dict({x: None for x in FALT}, ofullstandig='förteckningsposten %s har oväntad form' % f.name[:60]))
             continue
         post = {x: post.get(x) for x in FALT}
         try:
@@ -484,7 +502,8 @@ def prototyper(slug):
             p = senaste / ('vy-%s-forsta.png' % b) if senaste else None
             if p and p.is_file():
                 bilder[b] = str(p.relative_to(ROOT))
-                fangad = max(fangad or '', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(_mtid(p))))
+                m = _mtid(p)  # 0: tiden gick inte att läsa, och då står ingen tid (aldrig 1970)
+                fangad = max(fangad or '', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(m))) if m else fangad
         kv = st.get('kompetens') if isinstance(st.get('kompetens'), dict) else {}
         ut[d.name] = {'status': st.get('status'), 'skal': st.get('skal'), 'varv_antal': len(varv),
                       'varv': {'namn': senaste.name, 'skarmbild_fangad': fangad, 'bilder': bilder} if senaste else None,

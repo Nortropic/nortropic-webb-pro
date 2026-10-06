@@ -448,10 +448,22 @@ befintligt flöde med minsta ändringar. Det som ändrades (`kontroller/kandidat
 körningar visar referenserna, kompetensen, den aktuella prototypen och arbetsläget i dashboarden, med ärliga etiketter och
 utan att observatören ändrar något.
 
-- **Ingen mod och inga nya krokar.** En mod laddas per process (`--plugin-dir`), ärvs inte av underagenter och körs
-  utanför sandlådan. Claude Codes transkript bär redan det som behövs: verktygsanropen och deras utfall, läsningarnas
-  omfång (radantal mot filens), skillverktyget, skillistan, nekanden, användningen per tur och komprimeringarna. Det
-  enda en mod hade gett utöver det är kontextens exakta andel; i vyn är kontexten en uppskattning ur senaste turen.
+- **Ingen mod och inga nya krokar.** Claude Codes transkript bär redan det som behövs: verktygsanropen och deras
+  utfall, läsningarnas omfång (radantal mot filens), skillverktyget, skillistan, nekanden, användningen per modellanrop
+  och komprimeringarna. En mod körs i den process som laddar den (`--plugin-dir` eller en installerad plugin) och utanför
+  sandlådan. Varje `claude -p`-process, som ateljéns sessioner och tjänstesessionerna, ser bara en mod som laddats i just
+  den processen.
+- **Underagenter** som en session startar med Agent-verktyget körs i samma process, och en mod där får `agent.spawn` när
+  de startar. Deras egna verktygsanrop står i egna transkript (`<session_id>/subagents/agent-*.jsonl`, prövat i Claude
+  Code 2.1.289), inte i sessionens, så vyn visar bara Agent-anropet och dess utfall. Ateljéns sessioner har inget
+  Agent-verktyg (`--tools` listar bara det sessionen använder, och `Task` nekas), så där förekommer inga underagenter.
+- **Kontexten** i vyn är tokenantalet i senaste modellanropets indata (med cache), med tid och märkt som uppskattning.
+  Det som tillkommit efter anropet räknas inte, och andelen av fönstret visas inte, eftersom transkriptet inte anger
+  fönstrets storlek; efter sessionen står den i svarsfilen (`modelUsage.<modell>.contextWindow`). En mod kan läsa
+  Claude Codes egen siffra (`$.session.usage()`: tokens, fönster och procent). Också den är Claude Codes beräkning och
+  inget oberoende mått.
+- **Läsfel:** ett transkript eller en logg som inte går att läsa om visar det senast lästa läget med felet och tiden
+  för den senaste lyckade läsningen, och vyn säger att det är inaktuellt.
 - **Så går det till:** `atelje.session` ger varje nästlad session sitt id från start (`--session-id`, när
   `claude --help` listar flaggan) och skriver en post med nio valda fält i `underlag/<slug>/atelje/sessioner/`.
   `kontroller/observation.py` läser sessionens befintliga transkript och tjänstesessionernas strömmade loggar stegvis och
