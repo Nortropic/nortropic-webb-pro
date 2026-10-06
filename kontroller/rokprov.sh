@@ -645,6 +645,10 @@ echo "   städregeln (2026-10-06): worktrees, kopior, processer, tillfälliga ka
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_stadning.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/stadning-prov.log" \
   || { echo "FEL: städningens prov"; tail -20 "$ROOT/kunder/rokprov-mall/stadning-prov.log"; exit 1; }
 echo "   städningens prov ok ($(grep '^städningens prov' "$ROOT/kunder/rokprov-mall/stadning-prov.log" | cut -c1-160))"
+echo "   flödesvyn (2026-10-06): kedjan ur README, blindningen före första valet, statusarna, pilotens poster"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_flode.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/flode-prov.log" \
+  || { echo "FEL: flödesvyns prov"; tail -20 "$ROOT/kunder/rokprov-mall/flode-prov.log"; exit 1; }
+echo "   flödesvyns prov ok"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

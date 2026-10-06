@@ -12,6 +12,7 @@ I telefonen startar en statisk server för kunder/<slug>/sajt/dist på datorns a
 den som QR-kod (dashboard/qr.py, ritad lokalt). Den servern visar bara sajten; --utan-lan stänger av den.
 """
 import argparse
+import hashlib
 import html
 import ipaddress
 import socket
@@ -1444,6 +1445,250 @@ def visa(slug):
     return VISNING[slug].url + '/'
 
 
+# --- flödesvyn (ägarens tillägg 2026-10-06, punkt 4): det tänkta flödet ur README:s kedja, och det som faktiskt hände
+# för en kund, steg för steg, ur filerna och identiteterna som redan finns; ingen ny logg. En fil som finns är inte ett
+# kontrollerat steg, och ett senare steg som inte är gjort visas som sådant. Före ägarens första val i en körning visas
+# bara neutral framdrift (BESLUT.md 2026-10-05, punkt 1): etikett, status, version och bilderna, ingen bedömning. ---
+
+STATUSAR = ('skapat', 'kontrollerat', 'underkänt', 'väntar på ägaren', 'beslutat', 'inaktuellt', 'pågår', 'stoppat',
+            'inte observerat', 'inte påbörjat')
+KEDJAN = '## Kedjan från kundunderlag till leverans'
+INTE_KUNDER = ('ab', 'kalibrering', 'prospekt', 'startkontroll', 'figma-pilot', 'kirurgen')
+KVITTOSTATUS = {'ok': 'ok', 'begransad': 'begränsad', 'stopp': 'stoppad', 'okand': 'okänd'}
+
+
+def kedjan():
+    """Det tänkta flödet: tabellen under README.md:s rubrik "Kedjan från kundunderlag till leverans", grundkällan för vem
+    som startar vad. Läses som den står; en rad som inte har fyra celler gör tabellen oläslig i stället för att tappas."""
+    t = las_text(ROOT / 'README.md') or ''
+    i = t.find(KEDJAN)
+    if i < 0:
+        return {'fel': 'README.md saknar avsnittet "%s"' % KEDJAN[3:]}
+    rader = []
+    for r in t[i:].split('\n')[1:]:
+        if r.startswith('## '):
+            break
+        if not r.startswith('|') or set(r) <= set('|-: '):
+            continue
+        c = [x.strip() for x in r.strip().strip('|').split('|')]
+        if len(c) != 4:
+            return {'fel': 'en rad i tabellen i README.md har %d celler i stället för fyra' % len(c)}
+        if c[0] != 'Steg':
+            rader.append({'steg': _inline(c[0]), 'vem': _inline(c[1]), 'resultat': _inline(c[2]),
+                          'saknas': '' if c[3] in ('–', '-', '') else _inline(c[3])})
+    return {'kalla': 'README.md', 'steg': rader} if rader else {'fel': 'tabellen i README.md gick inte att läsa'}
+
+
+def flode_slugar():
+    """Kunderna som har något av kedjans filer (inte provens fixturer eller dashboardens egna kataloger)."""
+    namn = set()
+    for rot in (UNDERLAG, KUNDER):
+        if rot.is_dir():
+            namn.update(p.name for p in rot.iterdir() if p.is_dir() and SLUG.match(p.name) and p.name not in INTE_KUNDER
+                        and not p.name.startswith(('rokprov', 'prov-', 'pt-')))
+    return sorted(s for s in namn if (UNDERLAG / s / 'BRIEF.md').is_file() or (UNDERLAG / s / 'atelje' / 'STATUS.json').is_file()
+                  or (KUNDER / s / 'prov' / 'STATUS.json').is_file())
+
+
+def _fil(p, text=None):
+    """En fil som steget producerat: sökvägen, en länk när dashboarden får visa filen, ändringstiden och en kort hash
+    (beräknad nu; inget i körningen låser den)."""
+    p = Path(p)
+    if not p.is_file() or p.is_symlink():
+        return None
+    rel_ = p.relative_to(ROOT).as_posix()
+    visbar = rel_.split('/')[0] in ('underlag', 'kunder') and fil_tillaten(rel_) \
+        and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.md', '.json', '.txt')
+    tid = datetime.fromtimestamp(p.stat().st_mtime, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    return {'text': text or p.name, 'sokvag': rel_, 'lank': '/fil/' + rel_ if visbar else None, 'tid': tid,
+            'sha': hashlib.sha256(p.read_bytes()).hexdigest()[:12]}
+
+
+def _steg(nr, namn, status, **falt):
+    if status not in STATUSAR:
+        raise ValueError('okänd status %r' % status)
+    ut = {'nr': nr, 'namn': namn, 'status': status, 'underlag': [], 'utfall': [], 'kontroller': [], 'beslut': [], 'brister': [], 'nasta': ''}
+    ut.update(falt)
+    return ut
+
+
+def flode(slug):
+    """Det som hände för kunden, i README:s nio steg."""
+    import kandidater
+    import skapande
+    u, k, a = UNDERLAG / slug, KUNDER / slug, UNDERLAG / slug / 'atelje'
+    st = las_json(a / 'STATUS.json') or {}
+    kfl = kandidatkorning(slug, st)
+    blind = kfl and not kandidater.domd(slug)
+    steg = []
+
+    # 1. kundunderlaget
+    filer = [f for f in (_fil(u / n) for n in ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'INNEHALL.md', 'TEXTUNDERLAG.md', 'bilder/BILDER.md')) if f]
+    paket = sorted((u / 'referenser').glob('paket-v[0-9]*'), key=lambda p: int(re.sub(r'\D', '', p.name) or 0))
+    if paket:
+        f = _fil(paket[-1] / 'PAKET.md', 'referenspaketet %s' % paket[-1].name) or _fil(paket[-1] / 'PAKET.json', 'referenspaketet %s' % paket[-1].name)
+        if f:
+            filer.append(f)
+    karna = [n for n in ('RESEARCH.md', 'BRIEF.md') if not (u / n).is_file()] + ([] if (u / 'INNEHALL.md').is_file() or (u / 'TEXTUNDERLAG.md').is_file() else ['INNEHALL.md'])
+    steg.append(_steg(1, 'Kundunderlaget', 'skapat' if filer and not karna else 'inte observerat' if not filer else 'skapat',
+                      utfall=filer, brister=(['saknas: %s' % ', '.join(karna)] if filer and karna else [])
+                      + ['hashen ovan är beräknad nu; körningen låser inte kundens underlag'],
+                      nasta='Prototypen: `.venv/bin/python kontroller/prototyp.py %s` (du eller en session).' % slug))
+
+    # 2. prototypen: research, plan och skisser
+    if not st:
+        steg.append(_steg(2, 'Prototypen', 'inte påbörjat', nasta='`.venv/bin/python kontroller/prototyp.py %s`' % slug))
+        plan_t, kand = '', []
+    else:
+        import atelje
+        stegnamn = st.get('steg') or ''
+        status = ('stoppat' if stegnamn == 'fel' or atelje.avbruten(st) else
+                  'skapat' if stegnamn in ('klar_for_bedomning', 'klar') else 'pågår')
+        kv = startkvitto(slug) or {}
+        plan_t = kandidater.plan_tid(slug) if kfl else ''
+        kand = kandidater.sammanstall(slug) if kfl else []
+        underlag_ = [{'text': 'körningen startad %s (läge %s)' % (st.get('startad') or '?', st.get('lage') or '?')}]
+        if kv:
+            underlag_.append({'text': 'startkvitto %s: %s' % (kv.get('tid') or '?', KVITTOSTATUS.get(kv.get('status'), kv.get('status') or '?'))})
+        if plan_t:
+            underlag_.append({'text': 'kandidatplanen %s' % plan_t})
+        utfall = []
+        for x in kand:
+            b = x.get('bilder') or {}
+            bild = b.get('1440-forsta') or b.get('390-forsta')
+            utfall.append({'text': '%s · %s · version %s · %s varv' % (x.get('etikett') or '?', x.get('statustext') or x.get('status'),
+                                                                       (x.get('version') or '–')[:12], x.get('varv') or 0),
+                           'lank': '/fil/' + bild if bild and fil_tillaten(bild) else None})
+        kontroller = []
+        if kv:
+            kontroller.append({'text': 'startkontrollen: %s' % KVITTOSTATUS.get(kv.get('status'), kv.get('status') or '?')})
+        if (a / 'PLANPROVNING.json').is_file():
+            kontroller.append({'text': 'planprövningen gjord'})
+        if kand:
+            kontroller.append({'text': '%d av %d förslag klara att bedöma' % (sum(1 for x in kand if x.get('status') in kandidater.VISBARA), len(kand))})
+        brister = []
+        if stegnamn == 'fel' and st.get('fel'):
+            brister.append(str(st['fel'])[:300])
+        if blind:
+            kontroller.append({'text': 'skisskritiken och bristerna visas efter ditt första beslut'})
+        else:
+            for x in kand:
+                n_ = len(x.get('brister') or []) + len(x.get('design_fel') or [])
+                if n_:
+                    brister.append('%s: %d brister eller DESIGN.md-fel' % (x.get('etikett') or x.get('id'), n_))
+        steg.append(_steg(2, 'Prototypen', status, underlag=underlag_, utfall=utfall, kontroller=kontroller, brister=brister,
+                          nasta='Ditt val i vyn Prototyp.' if status == 'skapat' else
+                          'Ta vid med `.venv/bin/python kontroller/atelje.py %s --fortsatt`, eller börja om.' % slug if status == 'stoppat' else ''))
+
+    # 3. ägarens val
+    domar = [d for d in skapande.domar(slug, UNDERLAG) if d.get('kalla') in skapande.AGAREN and (not plan_t or str(d.get('tid') or '') > plan_t)]
+    namn = {x['id']: x.get('etikett') for x in kand}
+    if domar:
+        sista = domar[-1]['beslut']
+        steg.append(_steg(3, 'Ditt val', 'beslutat', beslut=[{'tid': d.get('tid'), 'text': '%s%s%s' % (
+            d.get('beslut'), (' · ' + ', '.join('%s (%s)' % (namn.get(c.get('id'), c.get('id')), str(c.get('version') or '')[:12])
+                                                for c in d.get('kandidater') or [] if isinstance(c, dict))) if d.get('kandidater') else '',
+            (' · ' + re.sub(r'\s+', ' ', str(d.get('text') or ''))[:160]) if d.get('text') else '')} for d in domar[-5:]],
+            nasta={'valj': 'Förfiningen: `prototyp.py %s` igen (läget valda).' % slug, 'putsa': 'Förfiningen: `prototyp.py %s` igen.' % slug,
+                   'godkand': 'Helbygget: `./kor.sh %s "<verksamhet>"`.' % slug, 'ny_riktning': 'Omtaget: `prototyp.py %s`.' % slug,
+                   'forkasta': 'Omtaget: `prototyp.py %s`.' % slug}.get(sista, 'Fortsätt i vyn Prototyp.')))
+    else:
+        steg.append(_steg(3, 'Ditt val', 'väntar på ägaren' if steg[-1]['status'] == 'skapat' else 'inte påbörjat'))
+
+    # 4. förfiningen
+    forfinade = [(x, kandidater.las_status(slug, x['id'])) for x in kand] if kfl else []
+    forfinade = [(x, s_) for x, s_ in forfinade if s_.get('forfining')]
+    if forfinade:
+        klara = [x for x, s_ in forfinade if (s_.get('forfining') or {}).get('klar')]
+        utfall = [{'text': '%s · från %s till %s' % (x.get('etikett'), str((s_.get('forfining') or {}).get('fran') or '?')[:12], (s_.get('version') or '?')[:12])}
+                  for x, s_ in forfinade]
+        pass_ = [{'text': '%s: %s %s' % (x.get('etikett'), rec.get('pass'), 'genomfört' if rec.get('genomford') else 'inte genomfört')}
+                 for x, s_ in forfinade for k_, rec in sorted((s_.get('kompetens') or {}).items()) if k_.startswith('fordjupa:')]
+        steg.append(_steg(4, 'Förfiningen', 'skapat' if klara else 'pågår', utfall=utfall, kontroller=pass_,
+                          brister=['förfiningens resultatversion sparas inte (bara versionen den utgick från)']))
+    else:
+        steg.append(_steg(4, 'Förfiningen', 'inte påbörjat'))
+
+    # 5. godkännandet: gäller det rätt version?
+    v = las_json(a / 'VINNARE.json') or {}
+    g = v.get('godkand')
+    if g:
+        dom_g = [d for d in skapande.domar(slug, UNDERLAG) if d.get('beslut') == 'godkand' and d.get('tid') == (g.get('tid') if isinstance(g, dict) else None)]
+        ratt = bool(dom_g) and any(isinstance(c, dict) and c.get('id') == v.get('kandidat') and str(c.get('version') or '')[:12] == str(v.get('version') or '')[:12]
+                                   for c in dom_g[-1].get('kandidater') or [])
+        steg.append(_steg(5, 'Godkännandet', 'kontrollerat' if ratt else 'inaktuellt',
+                          beslut=[{'tid': g.get('tid') if isinstance(g, dict) else None, 'text': 'godkänd: %s, version %s' % (namn.get(v.get('kandidat'), v.get('kandidat')), str(v.get('version') or '')[:12])}],
+                          kontroller=[{'text': 'godkännandet är bundet till domens kandidat och version' if ratt else 'godkännandet matchar inte domens kandidat och version'}],
+                          nasta='Helbygget: `./kor.sh %s "<verksamhet>"`.' % slug))
+    else:
+        steg.append(_steg(5, 'Godkännandet', 'väntar på ägaren' if forfinade else 'inte påbörjat'))
+
+    # 6. helbygget
+    prov = las_json(k / 'prov' / 'STATUS.json')
+    if not prov:
+        steg.append(_steg(6, 'Helbygget', 'inte påbörjat'))
+        byggt = False
+    else:
+        byggt = True
+        stopp = las_json(k / 'prov' / 'STOPPVAKT.json') or {}
+        grindar = prov.get('grindar') or {}
+        sajt_finns = (k / 'sajt' / 'package.json').is_file()
+        status = ('inaktuellt' if not sajt_finns else 'kontrollerat' if prov.get('ok') and stopp.get('slapp') else
+                  'skapat' if prov.get('ok') else 'underkänt')
+        domd_b = (k / 'DOM.json').is_file()
+        gr = granskningen(slug, domd_b)
+        kontroller = [{'text': 'provet %s: %d av %d grindar gröna' % (prov.get('tid') or '?', sum(1 for x in grindar.values() if (x.get('ok') if isinstance(x, dict) else x)), len(grindar))}]
+        if stopp:
+            kontroller.append({'text': 'stoppvakten %s' % ('släppte bygget' if stopp.get('slapp') else 'höll kvar bygget')})
+        if gr.get('finns'):
+            kontroller.append({'text': 'granskningen: %d omgångar%s' % (gr.get('rundor') or 0, ', domen visas efter din dom' if gr.get('dold') else ', %s' % ('godkänd' if gr.get('godkand') else 'underkänd'))})
+        brister = ([] if sajt_finns else ['sajten är borttagen (ett omtag); provet gäller en sajt som inte finns'])
+        info_v = (prov.get('info') or {}).get('vinnare')
+        if not info_v:
+            brister.append('provet säger inte vilket godkännande bygget utgick från')
+        brister.append('korsluts slutkod sparas inte')
+        steg.append(_steg(6, 'Helbygget', status, kontroller=kontroller, brister=brister,
+                          underlag=[{'text': 'dist %s' % str(prov.get('dist_sha256') or '?')[:12]}],
+                          utfall=[f for f in (_fil(k / 'prov' / 'PROV.md', 'provets rapport'), _fil(k / 'RAPPORT.md', 'byggets rapport')) if f]))
+
+    # 7. din dom över bygget
+    dom_b = las_json(k / 'DOM.json') or {}
+    if dom_b.get('domar'):
+        steg.append(_steg(7, 'Din dom över bygget', 'beslutat', beslut=[{'tid': d.get('tid'), 'text': str((d.get('svar') or {}).get('namn') or 'dom')[:160]} for d in dom_b['domar'][-3:]]))
+    else:
+        steg.append(_steg(7, 'Din dom över bygget', 'väntar på ägaren' if byggt else 'inte påbörjat'))
+
+    # 8. exporten
+    kr = k / 'kundrepo'
+    if (kr / 'package.json').is_file():
+        steg.append(_steg(8, 'Exporten till kundrepo', 'skapat', utfall=[{'text': 'kunder/%s/kundrepo' % slug, 'tid': _fil(kr / 'package.json')['tid']}],
+                          brister=['exporten prövar inte godkännandet och sparar inget besked; kopplingen till bygget saknas']))
+    else:
+        steg.append(_steg(8, 'Exporten till kundrepo', 'inte påbörjat'))
+
+    # 9. leveransen: inget verktyg sparar den, så den visas aldrig som kontrollerad
+    steg.append(_steg(9, 'Leveransen', 'inte påbörjat' if not (kr / 'package.json').is_file() else 'inte observerat',
+                      brister=['inget i repot sparar leveransen; driftkoll.py skriver bara ut']))
+    return {'slug': slug, 'blind': blind, 'korning': {'startad': st.get('startad'), 'steg': st.get('steg'), 'lage': st.get('lage')} if st else None,
+            'steg': steg, 'tid': nu()}
+
+
+def figma_pilot():
+    """Figma-metodprovets moment (underlag/figma-pilot/<moment>/VERSION.json): status, versioner, bedömningar och bilder."""
+    ut = []
+    for f in sorted((UNDERLAG / 'figma-pilot').glob('*/VERSION.json')):
+        d = las_json(f) or {}
+        m = f.parent
+        bilder = (sorted(m.glob('granskning*/*.png')) or sorted(m.glob('bilder/*.png')) or sorted(m.glob('jamforelse/*.png')))[-8:]
+        ut.append({'id': m.name, 'moment': d.get('moment'), 'status': d.get('status') if d.get('status') in STATUSAR else 'inte observerat',
+                   'status_skal': d.get('status_skal') or '', 'aktuell': d.get('aktuell'), 'tid': d.get('tid'),
+                   'figma': {'fil': (d.get('figma') or d.get('design') or {}).get('fil') or (d.get('design') or {}).get('figma'),
+                             'noder': (d.get('figma') or d.get('design') or {}).get('noder')},
+                   'bedomningar': [x for x in (_fil(p) for p in sorted(m.glob('bedomningar/*.md'))) if x],
+                   'bilder': [x for x in (_fil(p) for p in bilder) if x], 'fynd': d.get('fynd') or []})
+    return ut
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -1489,6 +1734,13 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, kalibrering_lista())
             if vag == '/api/designprov':
                 return self.skicka(200, designprov_slugar())
+            if vag == '/api/flode':  # det tänkta flödet (README), kunderna och Figma-piloten
+                return self.skicka(200, {'kedjan': kedjan(), 'slugar': flode_slugar(), 'pilot': figma_pilot()})
+            m = re.match(r'^/api/flode/([a-z0-9-]{2,60})$', vag)
+            if m:  # det som hände för en kund, i kedjans nio steg
+                if m.group(1) not in flode_slugar():
+                    return self.skicka(404, {'fel': 'ingen kund med underlag eller bygge'})
+                return self.skicka(200, flode(m.group(1)))
             if vag == '/api/prototyp':
                 return self.skicka(200, prototyp_slugar())
             m = re.match(r'^/api/prototyp/([a-z0-9-]{2,60})$', vag)

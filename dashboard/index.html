@@ -87,6 +87,7 @@ th { color: var(--dampad); font-weight: 560; font-size: 13px; }
 td.tal, th.tal { text-align: right; font-variant-numeric: tabular-nums; }
 .tabell { overflow-x: auto; }
 .prosa { max-width: 78ch; }
+.flode :is(code, a, li, p) { overflow-wrap: anywhere; }  /* långa kommandon och sökvägar bryts i mobilen */
 .prosa p, .prosa li { margin: 6px 0; }
 .prosa code, code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--yta2); border: 1px solid var(--linje); border-radius: 5px; padding: 1px 5px; }
 pre { background: var(--yta2); border: 1px solid var(--linje); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
@@ -193,6 +194,7 @@ label.rad { gap: 6px; }
     <a href="#/ab" data-v="ab">Jämförelser</a>
     <a href="#/kalibrering" data-v="kalibrering">Kalibrering</a>
     <a href="#/prototyp" data-v="prototyp">Prototyp</a>
+    <a href="#/flode" data-v="flode">Flöde</a>
     <a href="#/designprov" data-v="designprov">Designprov</a>
     <a href="#/starta" data-v="starta">Starta</a>
   </nav>
@@ -1170,6 +1172,45 @@ document.addEventListener('click', async (e) => {
   d.showModal();
 });
 
+// Flödet (ägarens tillägg 2026-10-06, punkt 4): det tänkta flödet ur README:s kedja, det som faktiskt hände för en kund
+// steg för steg, och Figma-metodprovet. En fil som finns är inte ett kontrollerat steg; ett steg som inte gjorts visas så.
+const FLODESTATUS = { skapat: '', kontrollerat: 'ok', 'underkänt': 'rod', 'väntar på ägaren': 'gul', beslutat: 'acc', inaktuellt: 'gul', 'pågår': 'acc puls', stoppat: 'rod', 'inte observerat': '', 'inte påbörjat': '' };
+const flodechip = (s) => `<span class="chip ${FLODESTATUS[s] ?? ''}">${esc(s)}</span>`;
+const kodtext = (t) => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>');
+function flodelista(rubrik, poster) {
+  if (!poster || !poster.length) return '';
+  return `<div class="under" style="margin:10px 0 2px">${esc(rubrik)}</div><ul style="margin:0;padding-left:18px">${poster.map((p) => typeof p === 'string' ? `<li>${kodtext(p)}</li>`
+    : `<li>${p.lank ? `<a href="${esc(p.lank)}" target="_blank" rel="noopener">${esc(p.text)}</a>` : kodtext(p.text)}${p.tid ? ` <span class="under">${tid(p.tid)}</span>` : ''}${p.sha ? ` <code title="sha256, beräknad nu">${esc(p.sha)}</code>` : ''}</li>`).join('')}</ul>`;
+}
+async function flodesvy(slug) {
+  aktivNav('flode');
+  const d = await api('/api/flode');
+  const val = slug || d.slugar[0] || '';
+  const tankt = d.kedjan.fel ? `<div class="meddelande fel">${esc(d.kedjan.fel)}</div>`
+    : d.kedjan.steg.map((s) => `<div class="kort" style="margin-bottom:8px"><div style="font-weight:560">${s.steg}</div><p style="margin:6px 0 0">${s.vem}</p><p class="under" style="margin:4px 0 0">Resultat: ${s.resultat}</p>${s.saknas ? `<p class="under" style="margin:4px 0 0"><span class="chip gul">saknas i dag</span> ${s.saknas}</p>` : ''}</div>`).join('');
+  let hande = '<p>Ingen kund med underlag eller bygge än.</p>';
+  if (val) {
+    const f = await api('/api/flode/' + encodeURIComponent(val));
+    hande = `${d.slugar.length > 1 ? `<p class="under">${d.slugar.map((s) => s === val ? `<strong>${esc(s)}</strong>` : `<a href="#/flode/${esc(s)}">${esc(s)}</a>`).join(' · ')}</p>` : ''}
+      ${f.blind ? '<div class="meddelande">Ditt första val i körningen är inte gjort: förslagen visas med neutrala etiketter, status, version och bilder, utan bedömningar.</div>' : ''}
+      ${f.korning ? `<p class="under">Körningen startad ${tid(f.korning.startad)} · steg ${esc(f.korning.steg || '?')} · läge ${esc(f.korning.lage || '?')} · läst ${tid(f.tid)}</p>` : ''}
+      ${f.steg.map((s) => `<div class="kort" style="margin-bottom:10px"><div class="rad" style="justify-content:space-between"><div style="font-weight:560">${s.nr}. ${esc(s.namn)}</div>${flodechip(s.status)}</div>
+        ${flodelista('Underlag och versioner', s.underlag)}${flodelista('Vad steget producerade', s.utfall)}${flodelista('Kontroller och bedömningar', s.kontroller)}
+        ${flodelista('Beslut', s.beslut)}${flodelista('Fel, begränsningar och det som inte är verifierat', s.brister)}
+        ${s.nasta ? `<p class="under" style="margin:10px 0 0">Nästa: ${kodtext(s.nasta)}</p>` : ''}</div>`).join('')}`;
+  }
+  const pilot = (d.pilot || []).map((m) => `<div class="kort" style="margin-bottom:10px"><div class="rad" style="justify-content:space-between"><div style="font-weight:560">${esc(m.moment || m.id)}</div>${flodechip(m.status)}</div>
+      ${m.status_skal ? `<p style="margin:6px 0 0">${esc(m.status_skal)}</p>` : ''}
+      <p class="under" style="margin:4px 0 0">Version ${esc(m.aktuell || '–')} · Figma-fil ${esc(m.figma.fil || '–')}${m.tid ? ' · ' + tid(m.tid) : ''}</p>
+      ${flodelista('Bedömningar (bilderna först, skaparens förklaring sedan)', m.bedomningar)}
+      ${m.bilder.filter((b) => b.lank).length ? `<div class="rad" style="flex-wrap:wrap;gap:8px;margin-top:10px">${m.bilder.filter((b) => b.lank).map((b) => `<a href="${esc(b.lank)}" target="_blank" rel="noopener" title="${esc(b.text)}"><img src="${esc(b.lank)}" alt="${esc(b.text)}" loading="lazy" style="height:96px;max-width:min(260px, 100%);object-fit:cover;border:1px solid var(--linje);border-radius:6px"></a>`).join('')}</div>` : ''}
+      ${flodelista('Fynd', m.fynd)}</div>`).join('');
+  $('#vy').innerHTML = `<div class="flode"><h1>Flödet</h1><p class="under">Två perspektiv: så är flödet tänkt (grundkällan är README.md), och det som faktiskt hände för en kund, ur körningens egna filer. En fil som finns är inte ett kontrollerat steg.</p>
+    <h2>Det här hände${val ? ': ' + esc(val) : ''}</h2>${hande}
+    <h2 style="margin-top:28px">Så är flödet tänkt</h2>${tankt}
+    ${pilot ? `<h2 style="margin-top:28px">Figma-metodprovet</h2><p class="under">Pilotens tre moment: A återskapar en referens, B anpassar till kundens material, C överför till webb. Inget i leveransen är verifierat genom piloten.</p>${pilot}` : ''}</div>`;
+}
+
 async function route() {
   clearTimeout(timer);
   const h = location.hash.replace(/^#\/?/, '');
@@ -1183,6 +1224,7 @@ async function route() {
     if (h === 'designprov' || h.startsWith('designprov/')) return await designprovvy(decodeURIComponent(h.slice(11)));
     if (h === 'prototyp' || h.startsWith('prototyp/')) return await prototypvy(decodeURIComponent(h.slice(9)));
     if (h.startsWith('prospekt')) { const d = h.split('/'); return d[2] ? await prospektkortvy(decodeURIComponent(d[1]), decodeURIComponent(d[2])) : d[1] ? await kampanjvy(decodeURIComponent(d[1])) : await prospektvy(); }
+    if (h === 'flode' || h.startsWith('flode/')) return await flodesvy(decodeURIComponent(h.slice(6)));
     if (h === 'starta') return startavy();
     return await oversikt();
   } catch (e) { $('#vy').innerHTML = `<div class="meddelande fel">Fel: ${esc(e.message)}</div>`; }
