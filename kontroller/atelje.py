@@ -2156,9 +2156,9 @@ def ta_bort_beslut(slug, info=None):
     som ska raderas inte går att gå igenom. Annars avslutas först förra körningens kvarlevande processer
     (stoppa_kvarvarande). Varje post byter namn till en dold syskonkatalog (.borttaget-<tid>-<namn>). Ur det som flyttats
     undan, och ur rester av ett tidigare avbrutet omtag, kopieras ägarens egen inmatning (AGARENS_FILER) till
-    underlag/<slug>/agarens-omdomen/<tid>/ med sin plats; dit kan dashboarden inte längre skriva. Därefter skrivs
-    historiken, och sist raderas det som flyttats undan. Går ett namnbyte, en kopia eller historiken inte, flyttas allt
-    tillbaka och inget är borttaget (RuntimeError); de halva kopiorna tas bort.
+    underlag/<slug>/agarens-omdomen/<tid>/ med sin plats; dit kan dashboarden inte längre skriva. Historiken skrivs
+    före namnbytena, och sist raderas det som flyttats undan. Går ett namnbyte eller en kopia inte, eller avbryts
+    omtaget, flyttas allt tillbaka och inget är borttaget (RuntimeError); de halva kopiorna tas bort.
     Ger de borttagna sökvägarna; info (en dict) får 'stoppade', 'rester' (det som inte gick att radera) och 'behallna'."""
     info = info if info is not None else {}
     if not SLUG.match(str(slug)):
@@ -2178,7 +2178,9 @@ def ta_bort_beslut(slug, info=None):
     galler = bool(dom and dom['beslut'] in ('ny_riktning', 'forkasta') and dom.get('tid', '') > domd_tid)  # domen kom efter körningen den dömer
     tidigare = skapande.historik(slug, UNDERLAG)
     falt = lambda h, f: str(h.get(f) or '')  # noqa: E731  (en post förd för hand kan ha tal eller null; r93, KAN 5)
-    bokford = any(falt(h, 'utfall').startswith('underkänd') and falt(h, 'tid') >= domd_tid for h in tidigare)
+    # bara en ISO-tid jämförs: '5' >= '2026-…' är sant som text (uppföljningen av r93, BÖR 7)
+    iso = lambda h: falt(h, 'tid') if re.match(r'^\d{4}-\d{2}-\d{2}T', falt(h, 'tid')) else ''  # noqa: E731
+    bokford = any(falt(h, 'utfall').startswith('underkänd') and iso(h) and iso(h) >= domd_tid for h in tidigare)
     if bokford:
         galler = False  # den dömda körningen står redan i historiken (förd för hand ur domen)
     plan = las_json(u / 'atelje' / 'KANDIDATPLAN.json') or {}
@@ -2228,7 +2230,7 @@ def ta_bort_beslut(slug, info=None):
         delar = dom.get('delar') if isinstance(dom.get('delar'), dict) else {}
         for kid, kp in sorted(kandplan.items()):
             st_k = st_kand[kid]
-            if not isinstance(kp, dict) or not sedd(kid, st_k) or any(h.get('namn') == kp.get('titel') and falt(h, 'tid') >= domd_tid for h in tidigare):
+            if not isinstance(kp, dict) or not sedd(kid, st_k) or any(h.get('namn') == kp.get('titel') and iso(h) and iso(h) >= domd_tid for h in tidigare):
                 continue
             poster.append({'kalla': 'kandidatflödet, %s' % kid, 'namn': str(kp.get('titel') or kid), 'drag': sammandrag(str(kp.get('ide') or '')),
                            'utfall': 'underkänd av %s' % dom['kalla'],
@@ -2251,6 +2253,10 @@ def ta_bort_beslut(slug, info=None):
             poster.append({'kalla': 'tidigare designbeslut (REFERENSER.md)', 'namn': namn, 'drag': vad_, 'referens': namn_,
                            'utfall': 'underkänd av %s' % dom['kalla'] if egen_dom else 'borttagen vid ett omtag, utan egen dom',
                            'kritik': re.sub(r'\s+', ' ', dom['text'])[:900] if egen_dom else ''})
+    # historiken skrivs före namnbytena: ett avbrott efteråt lämnar då aldrig det ägaren sett utan post (uppföljningen av
+    # r93, BÖR 6); en post står kvar också om omtaget sedan inte görs, eftersom ägarens dom gäller ändå
+    if poster:
+        skapande.lagg_till_historik(slug, poster, UNDERLAG)
     # stämpeln är unik också för två omtag i samma process och sekund (r93, KAN 1)
     for n_ in range(100):
         stampel = '%s-%d%s' % (nu().replace(':', ''), os.getpid(), '-%d' % n_ if n_ else '')
@@ -2267,8 +2273,10 @@ def ta_bort_beslut(slug, info=None):
         mal = kalla.with_name('.borttaget-%s-%s' % (stampel, kalla.name))
         try:
             os.rename(kalla, mal)
-        except OSError as e:
+        except BaseException as e:  # också Ctrl-C och SIGTERM: allt tillbaka (BÖR 6)
             kvar = flytta_tillbaka(flyttade)
+            if not isinstance(e, OSError):
+                raise
             raise RuntimeError('omtaget gjordes inte: %s gick inte att flytta undan (%s: %s); %s' % (
                 rel(kalla), type(e).__name__, e.strerror or e,
                 'allt står kvar' if not kvar else 'kunde inte flyttas tillbaka och står undan som .borttaget-%s-…: %s' % (stampel, ', '.join(kvar))))
@@ -2288,12 +2296,12 @@ def ta_bort_beslut(slug, info=None):
                 mal_.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(f_, mal_)
                 behallna.append(rel(mal_))
-        if poster:
-            skapande.lagg_till_historik(slug, poster, UNDERLAG)
-    except (OSError, RuntimeError) as e:
+    except BaseException as e:  # också Ctrl-C och SIGTERM: allt tillbaka, de halva kopiorna bort (BÖR 6)
         kvar = flytta_tillbaka(flyttade)
         shutil.rmtree(malrot, ignore_errors=True)  # bara kopior
-        raise RuntimeError('omtaget gjordes inte: ägarens filer eller historiken gick inte att skriva (%s: %s); processerna är stoppade, %s' % (
+        if not isinstance(e, (OSError, RuntimeError)):
+            raise
+        raise RuntimeError('omtaget gjordes inte: ägarens filer gick inte att kopiera (%s: %s); processerna är stoppade och historiken skriven, %s' % (
             type(e).__name__, getattr(e, 'strerror', None) or e,
             'allt annat står kvar' if not kvar else 'men %s kunde inte flyttas tillbaka och står undan som .borttaget-%s-…' % (', '.join(kvar), stampel)))
     info['behallna'] = sorted(behallna)

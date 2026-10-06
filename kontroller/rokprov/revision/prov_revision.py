@@ -3147,7 +3147,31 @@ try:
     finally:
         at_pt.shutil.copy2 = orig_copy2
     assert (ko_ / 'atelje' / 'AGARENS-DOM.json').read_text() == '{"1": "dom"}' and (ko_ / 'atelje' / 'omgang-1' / 'AGARENS-DOM.json').is_file()
-    assert not list(ko_.glob('.borttaget-*')) and not list((ko_ / 'agarens-omdomen').glob('*')) and sk.historik('pt-kopiefel', pt_und) == [], 'inget borttaget'
+    assert not list(ko_.glob('.borttaget-*')) and not list((ko_ / 'agarens-omdomen').glob('*')), 'inget borttaget, inga halva kopior'
+    assert [h['namn'] for h in sk.historik('pt-kopiefel', pt_und)] == ['En'], 'historiken skrivs före namnbytena (uppföljningen, BÖR 6)'
+    # ett avbrott (Ctrl-C) under kopian: allt tillbaka och avbrottet går vidare; ett nytt försök dubblerar inte historiken
+    def avbruten_copy2(a_, b_, *r_, **k_):
+        raise KeyboardInterrupt()
+    at_pt.shutil.copy2 = avbruten_copy2
+    try:
+        at_pt.ta_bort_beslut('pt-kopiefel')
+        raise AssertionError('avbrottet gick inte vidare')
+    except KeyboardInterrupt:
+        pass
+    finally:
+        at_pt.shutil.copy2 = orig_copy2
+    assert (ko_ / 'atelje' / 'AGARENS-DOM.json').is_file() and not list(ko_.glob('.borttaget-*')) and not list((ko_ / 'agarens-omdomen').glob('*')), 'allt tillbaka efter avbrottet'
+    at_pt.ta_bort_beslut('pt-kopiefel')
+    assert [h['namn'] for h in sk.historik('pt-kopiefel', pt_und)] == ['En'] and not (ko_ / 'atelje').exists(), 'ingen dubblett, omtaget gjort'
+    assert sorted(f_.read_text() for f_ in (ko_ / 'agarens-omdomen').glob('*/atelje/**/AGARENS-DOM.json')) == ['{"1": "dom"}', '{"2": "äldre"}']
+    # en handskriven post med en tid som inte är ISO räknas inte som bokförd (uppföljningen, BÖR 7)
+    iso_ = atelje_med('pt-iso', {'k01': ('Sedd', {'status': 'klar'})}, {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'})
+    (iso_ / sk.HISTORIK).write_text(json.dumps([{'namn': 'Förd för hand', 'utfall': 'underkänd av ägaren', 'tid': 5}]))
+    try:
+        at_pt.ta_bort_beslut('pt-iso')
+        raise AssertionError('en tid som inte är ISO släppte igenom omtaget utan dom')
+    except RuntimeError as e_:
+        assert 'ingen dom från ägaren' in str(e_) and (iso_ / 'atelje').is_dir(), e_
     # namnbytet faller: ägarens filer står kvar i ateljén, ingen kopia (KAN 7, M14)
     (ut_ / 'atelje').mkdir(parents=True, exist_ok=True); (ut_ / 'atelje' / 'AGARENS-DOM.json').write_text('{"1": "x"}')
     (kt_ / 'sajt' / 'src').mkdir(parents=True, exist_ok=True)
