@@ -773,6 +773,14 @@ finally:
 assert l21d == {'o1', 'o2'}, l21d
 assert set(observation.las_session(f21d)['anrop']) == {'n1', 'n2', 'n3', 'n4', 'n5'}, 'den nya filen läses från början'
 
+# 22. en skill som körts av en underagent (context: fork) märks så: dess läsningar står inte i sessionens transkript
+f22 = TMP / 't22.jsonl'
+f22.write_text(strom(anrop(1, 's1', 'Skill', {'skill': 'code-review'}), svar(2, 's1', 'Skill "code-review" completed (forked execution).'),
+                     anrop(3, 's2', 'Skill', {'skill': 'impeccable'}), svar(4, 's2', 'Launching skill: impeccable')))
+s22 = observation.sammanfattning(f22)
+assert [(x['skill'], x['utfall']) for x in s22['skills_laddade']] == [('code-review', 'skill körd av en underagent (dess läsningar syns inte)'),
+                                                                       ('impeccable', 'skill laddad via skillsystemet')], s22['skills_laddade']
+
 # 12. mätningen: latens på ett stort transkript (första läsningen och en stegvis), och lagringen per session
 stor = KONFIG / 'projects' / '-falsk-repo' / '00000000-0000-4000-8000-000000000001.jsonl'
 with open(stor, 'w') as f:

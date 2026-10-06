@@ -42,6 +42,7 @@ med ägarens senaste dom. --fortsatt tar vid efter den senaste klara fasen. --ba
 Exit: 0 klar · 2 fel i anropet eller saknat underlag · 4 ateljén föll · 5 pågår, kör igen · 6 alla riktningar förkastade.
 """
 import argparse
+import calendar
 import json
 import os
 import re
@@ -2112,17 +2113,22 @@ def vanta(rot, sekunder):
     return 5
 
 
-def ta_bort_beslut(slug):
+def ta_bort_beslut(slug, info=None):
     """--ny-riktning (ägarens omtag): designbesluten tas bort ur arbetsytan, så att nästa utforskning varken ser dem som
     mallar eller ärver presentationsfiler (Codex via ägaren 2026-10-05: skilj ny riktning från fortsatt putsning, också i
     vilka presentationsfiler som återanvänds). De raderas, de arkiveras inte (ägarens beslut 2026-10-06, städregeln i
     BESLUT.md): REFERENSER.md (urvalet), KONCEPT.md, ateljén, en äldre prototyp, förhandsvarven, tvåan och hela
     kunder/<slug>/sajt och kunder/<slug>/kandidater. Kvar står fakta, bilder, källor, texten, referenspaketen och
     tjänsternas material, domloggen och historiken. Den förra valda riktningen, eller kandidaterna ägaren såg, förs in i
-    historiken med ägarens senaste dom innan de tas bort. Utan en dom som gäller körningen raderas inget som ägaren sett
-    (en visad kandidat eller en vald riktning som inte står i historiken): RuntimeError. Varje post byter först namn till
-    en dold syskonkatalog (.borttaget-<tid>-<namn>) och raderas sedan, så att ett avbrott aldrig lämnar en halv ateljé;
-    rester av ett tidigare avbrutet omtag raderas också. Ger de borttagna sökvägarna."""
+    historiken med ägarens senaste dom innan de tas bort. Hela sajten raderas, också en godkänd och helbyggd; leveransen
+    (kunder/<slug>/kundrepo och tidigare exporter) rörs inte, och en sajt som är ett eget git-repo raderas aldrig.
+    Utan en dom som gäller körningen raderas inget som ägaren sett (en visad kandidat, en vald riktning eller en äldre
+    prototyp som inte står i historiken): RuntimeError, och då har inget stoppats eller ändrats. Annars avslutas först
+    förra körningens kvarlevande processer (stoppa_kvarvarande). Varje post byter namn till en dold syskonkatalog
+    (.borttaget-<tid>-<namn>) och raderas sedan, så att ett avbrott aldrig lämnar en halv ateljé; rester av ett tidigare
+    avbrutet omtag raderas också. Går ett namnbyte inte flyttas allt tillbaka, och inget är borttaget (RuntimeError).
+    Ger de borttagna sökvägarna; info (en dict) får 'stoppade' och 'rester' (det som inte gick att radera)."""
+    info = info if info is not None else {}
     if not SLUG.match(str(slug)):
         raise RuntimeError('ogiltig slug: %r' % (slug,))
     u, k = UNDERLAG / slug, KUNDER / slug
@@ -2130,7 +2136,10 @@ def ta_bort_beslut(slug):
         raise RuntimeError('underlag/%s eller kunder/%s är en länk; inget tas bort' % (slug, slug))
     dom = skapande.senaste(slug, underlag=UNDERLAG)
     v = las_json(u / 'atelje' / 'VINNARE.json') or {}
-    domd_tid = ((las_json(u / 'atelje' / 'STATUS.json') or {}).get('klar') or (las_json(u / 'prototyp' / 'STATUS.json') or {}).get('klar') or '')
+    st_a, st_p = las_json(u / 'atelje' / 'STATUS.json') or {}, las_json(u / 'prototyp' / 'STATUS.json') or {}
+    # körningen domen ska gälla: när den blev klar, eller när den startade om den aldrig blev klar (föll, stoppades), som
+    # i prototyp.lage; utan det räknades varje äldre post som bokförd (granskningen av r92b, BÖR 1)
+    domd_tid = st_a.get('klar') or st_a.get('startad') or st_p.get('klar') or st_p.get('startad') or ''
     galler = bool(dom and dom['beslut'] in ('ny_riktning', 'forkasta') and dom.get('tid', '') > domd_tid)  # domen kom efter körningen den dömer
     tidigare = skapande.historik(slug, UNDERLAG)
     if any(h.get('utfall', '').startswith('underkänd') and h.get('tid', '') >= domd_tid for h in tidigare):
@@ -2143,11 +2152,18 @@ def ta_bort_beslut(slug):
              if isinstance(kp, dict) and (las_json(u / 'atelje' / 'kandidater' / kid / 'STATUS.json') or {}).get('status') in kandidater.VISBARA]
     if v.get('riktning') is not None:
         sedda.append(riktningsavsnitt(u / 'atelje').get(v['riktning'], ('riktning %s' % v['riktning'], ''))[0])
+    elif not sedda and st_p.get('klar') and referensval.huvudreferensrader(slug, UNDERLAG):  # den äldre vägen (prototyp/)
+        namn_ = referensval.huvudreferensrader(slug, UNDERLAG)[0][0]
+        if not any(h.get('namn') == 'riktningen på huvudreferensen %s' % namn_ for h in tidigare) and not provad_referens(slug, namn_):
+            sedda.append('riktningen på huvudreferensen %s' % namn_)
+    if (k / 'sajt' / '.git').exists():
+        raise RuntimeError('kunder/%s/sajt är ett eget git-repo och raderas inte av ett omtag; fråga ägaren. Inget är borttaget.' % slug)
     bokford = any(h.get('utfall', '').startswith('underkänd') and h.get('tid', '') >= domd_tid for h in tidigare)
     if sedda and not galler and not bokford:
         raise RuntimeError('ingen dom från ägaren gäller körningen (senaste: %s), och det ägaren sett (%s) står inte i historiken; '
                            'döm först i dashboardens vy Prototyp (ny riktning eller förkasta). Inget är borttaget.'
                            % ('%s %s' % (dom.get('beslut'), dom.get('tid')) if dom else 'ingen dom', ', '.join(sedda)[:300]))
+    info['stoppade'] = stoppa_kvarvarande(slug, u / 'atelje', st_a)  # först nu: ett omtag som vägras stoppar inget
     if galler and isinstance(plan.get('kandidater'), dict):
         # kandidatflödet: varje kandidat ägaren såg förs in i historiken med domen och det ägaren gillade i just den, så att
         # nästa utforskning vet vad som prövats (och vad som var värt att behålla)
@@ -2176,38 +2192,72 @@ def ta_bort_beslut(slug):
         if not any(h.get('namn') == namn for h in tidigare) and not provad_referens(slug, namn_):
             skapande.lagg_till_historik(slug, [{'kalla': 'tidigare designbeslut (REFERENSER.md)', 'namn': namn, 'drag': vad_, 'referens': namn_,
                                                 'utfall': 'underkänd av %s' % dom['kalla'], 'kritik': re.sub(r'\s+', ' ', dom['text'])[:900]}], UNDERLAG)
-    borttagna, undan, stampel = [], [], nu().replace(':', '')
+    # först flyttas allt undan med namnbyten (en länk byter namn som länk, aldrig det den pekar på); går ett inte flyttas
+    # resten tillbaka, så att omtaget antingen görs helt eller inte alls; sedan raderas det som flyttats undan
+    stampel, flyttade = '%s-%d' % (nu().replace(':', ''), os.getpid()), []
     for kalla in (u / 'REFERENSER.md', u / 'KONCEPT.md', u / 'atelje', u / 'prototyp', u / 'forhand', u / 'tvaan', k / 'sajt', k / 'kandidater'):
-        if kalla.is_symlink() or kalla.is_file():  # en länk tas bort som länk, aldrig det den pekar på
-            kalla.unlink()
-        elif kalla.is_dir():
-            mal = kalla.with_name('.borttaget-%s-%s' % (stampel, kalla.name))
-            os.rename(kalla, mal)  # ur arbetsytan i ett steg; raderingen sker sedan i den dolda katalogen
-            undan.append(mal)
-        else:
+        if not (kalla.is_symlink() or kalla.exists()):
             continue
-        borttagna.append(rel(kalla))
-    for mal in dict.fromkeys(undan + sorted(p for rot_ in (u, k) for p in rot_.glob('.borttaget-*') if p.is_dir() and not p.is_symlink())):
-        shutil.rmtree(mal, ignore_errors=True)  # också rester av ett omtag som avbröts; det som står kvar tas nästa gång
-    return borttagna
+        mal = kalla.with_name('.borttaget-%s-%s' % (stampel, kalla.name))
+        try:
+            os.rename(kalla, mal)
+        except OSError as e:
+            kvar = []
+            for kalla_, mal_ in reversed(flyttade):
+                try:
+                    os.rename(mal_, kalla_)
+                except OSError:
+                    kvar.append(rel(kalla_))
+            raise RuntimeError('omtaget gjordes inte: %s gick inte att flytta undan (%s: %s); %s' % (
+                rel(kalla), type(e).__name__, e.strerror or e,
+                'allt står kvar' if not kvar else 'kunde inte flyttas tillbaka och står undan som .borttaget-%s-…: %s' % (stampel, ', '.join(kvar))))
+        flyttade.append((kalla, mal))
+    for mal in dict.fromkeys([m for _, m in flyttade] + sorted(p for rot_ in (u, k) for p in rot_.glob('.borttaget-*'))):
+        if mal.is_symlink() or mal.is_file():
+            mal.unlink(missing_ok=True)
+        else:
+            shutil.rmtree(mal, ignore_errors=True)  # också rester av ett omtag som avbröts
+    info['rester'] = sorted(rel(p) for rot_ in (u, k) for p in rot_.glob('.borttaget-*'))  # tas vid nästa omtag
+    return [rel(kalla) for kalla, _ in flyttade]
+
+
+def sekunder_sedan(t):
+    """Sekunder sedan en tidsstämpel (2026-10-06T16:00:00Z); oändligt för en saknad eller oläsbar."""
+    try:
+        return time.time() - calendar.timegm(time.strptime(str(t), '%Y-%m-%dT%H:%M:%SZ'))
+    except (TypeError, ValueError):
+        return float('inf')
+
+
+def kundens_session(pid, slug):
+    """Är pid en nästlad flödessession för just den här kunden? claude -p med flödets flaggor (nastlad.ar_session) och
+    kundens slug som eget ord på kommandoraden (kundvaktens argument; andra kunders slug står bara i sökvägar)."""
+    if not nastlad.ar_session(pid):
+        return False
+    try:
+        c = subprocess.run(['ps', '-o', 'command=', '-p', str(int(pid))], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+        return False
+    return (' %s ' % slug) in ' %s ' % c.replace('\n', ' ')
 
 
 def stoppa_kvarvarande(slug, rot, st):
-    """Före ett omtag: körningens arbetare, om den lever, och flödets claude-sessioner som överlevt den (pid i
-    kandidaternas status och i sessionsförteckningen) avslutas med sina träd, så att inget skriver i det som raderas
-    (granskningen av r92, BÖR 2). Bara arbetaren och nästlade flödessessioner; ett återanvänt pid lämnas orört."""
+    """Före ett omtag: körningens arbetare, om den lever, och kundens flödessessioner som överlevt den avslutas med sina
+    träd, så att inget skriver i det som raderas (granskningen av r92, BÖR 2). Bara pid ur kandidater som är under arbete
+    och ur förteckningens poster utan sluttid, och bara när processen är arbetaren eller kundens session; ett återanvänt
+    pid (en annan kunds eller ett annat programs session) lämnas orört (r92b, KAN 2)."""
     stoppade = []
     pid = st.get('pid')
     if pid and lever(pid) and ar_arbetare(pid, slug):
         stoppade += doda_trad(pid)
-    pids = [(las_json(f) or {}).get('session_pid') for f in sorted(rot.glob('kandidater/k[0-9][0-9]/STATUS.json'))]
-    pids += [(las_json(f) or {}).get('pid') for f in sorted(rot.glob('sessioner/*.json'))]
+    pids = [s.get('session_pid') for s in (las_json(f) or {} for f in sorted(rot.glob('kandidater/k[0-9][0-9]/STATUS.json'))) if s.get('status') == 'under_arbete']
+    pids += [s.get('pid') for s in (las_json(f) or {} for f in sorted(rot.glob('sessioner/*.json'))) if not s.get('slut')]
     for sp in dict.fromkeys(pids):
         try:
             sp = int(sp)
         except (TypeError, ValueError):
             continue
-        if lever(sp) and nastlad.ar_session(sp):
+        if lever(sp) and kundens_session(sp, slug):
             stoppade += doda_trad(sp)
     return sorted(set(stoppade))
 
@@ -2316,16 +2366,24 @@ def main(argv=None):
         print('--fortsatt tar vid efter en körning som föll; körningen är %s. Ägarens dom avgör nästa steg (kontroller/prototyp.py).'
               % (st.get('steg') or 'inte startad'))
         return 2
+    if a.ny_riktning and st.get('steg') == 'startar' and not st.get('pid') and sekunder_sedan(st.get('startad')) < 600:
+        print('En start av ateljén pågår (startad %s, arbetaren har inte skrivit sitt pid än); omtaget väntar. Kör igen om en stund.'
+              % st.get('startad'))
+        return 5
     if a.ny_riktning:
-        kvar = stoppa_kvarvarande(a.slug, rot, st)
-        if kvar:
-            print('Förra körningens processer levde kvar och avslutades före omtaget: %s' % ', '.join(str(x) for x in kvar), flush=True)
+        info = {}
         try:
-            borttagna = ta_bort_beslut(a.slug)
+            borttagna = ta_bort_beslut(a.slug, info)
         except (RuntimeError, OSError) as e:
-            print('Omtaget gjordes inte: %s' % e)
+            borttagna, fel_omtag = None, e
+        if info.get('stoppade'):
+            print('Förra körningens processer levde kvar och avslutades före omtaget: %s' % ', '.join(str(x) for x in info['stoppade']), flush=True)
+        if borttagna is None:
+            print('Omtaget stoppades: %s' % fel_omtag)
             return 2
         print('Designbesluten borttagna (domloggen och historiken står kvar): %s' % (', '.join(borttagna) or 'inget att ta bort'), flush=True)
+        if info.get('rester'):
+            print('Gick inte att radera helt (tas vid nästa omtag): %s' % ', '.join(info['rester']), flush=True)
         if ny_sajt(a.slug):
             print('kontroller/ny_sajt.py %s --installera föll; sajten ur mallen saknas' % a.slug)
             return 2

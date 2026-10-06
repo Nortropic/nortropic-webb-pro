@@ -463,7 +463,7 @@ utan att observatören ändrar något.
   bara sessionens transkript, och underagentens anrop står i ett eget (`<session_id>/subagents/agent-*.jsonl`, prövat i
   Claude Code 2.1.289), så vyn visar bara Agent-anropet och dess utfall. Ateljéns sessioner har inget Agent-verktyg
   (`--tools` listar bara det sessionen använder). En skill som körs i en egen kontext (`context: fork`) kan ändå starta
-  en underagent; svarsfilen räknar dem (`subagent_stats`).
+  en underagent, och då syns bara skillanropet.
 - **Kontexten** i vyn är tokenantalet i senaste modellanropets indata (med cache), med tid och märkt som uppskattning.
   Det som tillkommit efter anropet räknas inte, och andelen av fönstret visas inte, eftersom transkriptet inte anger
   fönstrets storlek; efter sessionen står den i svarsfilen (`modelUsage.<modell>.contextWindow`). En mod kan läsa
@@ -532,4 +532,7 @@ då frågar agenten ägaren och motiverar varför. `~/Arkiv` är tömt. Övrigt 
   GitHub-verktyget har sin konfiguration).
 
 Därför raderar ett omtag (`--ny-riktning`) den gamla ateljén i stället för att flytta den till `~/Arkiv`, sedan
-historiken fått ägarens dom (`kontroller/atelje.py`, `ta_bort_beslut`).
+historiken fått ägarens dom (`kontroller/atelje.py`, `ta_bort_beslut`). Utan en dom som gäller körningen raderas inget
+som ägaren sett, och då stoppas inget heller. Annars avslutas först förra körningens kvarlevande processer (arbetaren och
+kundens egna claude-sessioner). Hela `kunder/<slug>/sajt` raderas, också en godkänd och helbyggd sajt; leveransen
+(`kunder/<slug>/kundrepo` och tidigare exporter) rörs inte, och en sajt som är ett eget git-repo raderas aldrig.

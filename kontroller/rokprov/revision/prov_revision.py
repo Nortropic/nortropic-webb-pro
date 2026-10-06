@@ -2908,51 +2908,126 @@ assert mal_lank.read_text() == 'ägarens fil utanför', 'länkens mål rörs ald
 assert (pt_u / sk.DOMLOGG).is_file() and (pt_u / 'TEXTUNDERLAG.md').is_file() and (pt_u / 'referenser' / 'paket-v01').is_dir() and (pt_u / 'bilder').is_dir()
 assert not hasattr(at_pt, 'ARKIV'), 'omtaget har inget arkiv'
 assert sk.historik('pt-prov', pt_und)[-1]['utfall'] == 'underkänd av ägaren' and sk.historik('pt-prov', pt_und)[-1]['namn'] == 'Fönstret', sk.historik('pt-prov', pt_und)[-1]
-# granskningen av r92: utan en dom som gäller körningen raderas inget ägaren sett (BÖR 3); en körning som redan står i
-# historiken får tas bort; rester av ett avbrutet omtag städas (BÖR 2); en ogiltig slug raderar inget (KAN 9)
-for sl_ud in ('pt-utan-dom', 'pt-bokford'):
-    ud_ = pt_und / sl_ud
-    (ud_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
-    (ud_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'}))
-    (ud_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'titel': 'Byggdagboken', 'ide': 'en idé'}}}))
-    (ud_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'klar'}))
-    sk.lagg_till_dom(sl_ud, 'ägaren', 'valj', 'Jag väljer k01.', underlag=pt_und)
-ud_ = pt_und / 'pt-utan-dom'
-try:
-    at_pt.ta_bort_beslut('pt-utan-dom')
-    raise AssertionError('omtaget raderade utan en dom som gäller körningen')
-except RuntimeError as e_:
-    assert 'ingen dom från ägaren gäller körningen' in str(e_) and 'Byggdagboken' in str(e_) and 'Inget är borttaget' in str(e_), e_
-assert (ud_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').is_file() and sk.historik('pt-utan-dom', pt_und) == [], 'inget borttaget, ingen historik'
-sk.lagg_till_dom('pt-utan-dom', 'ägaren', 'ny_riktning', 'Inte den här heller.', underlag=pt_und)
-(ud_ / '.borttaget-20261005T000000Z-atelje' / 'kvar').mkdir(parents=True)  # en rest av ett omtag som avbröts
-fl_ud = at_pt.ta_bort_beslut('pt-utan-dom')
-assert fl_ud == [at_pt.rel(ud_ / 'atelje')] and not os.path.lexists(ud_ / 'atelje') and not list(ud_.glob('.borttaget-*')), (fl_ud, list(ud_.iterdir()))
-assert [h['namn'] for h in sk.historik('pt-utan-dom', pt_und)] == ['Byggdagboken'], sk.historik('pt-utan-dom', pt_und)
-sk.lagg_till_historik('pt-bokford', [{'kalla': 'för hand ur domen', 'namn': 'Byggdagboken', 'utfall': 'underkänd av ägaren'}], pt_und)
-assert at_pt.ta_bort_beslut('pt-bokford') == [at_pt.rel(pt_und / 'pt-bokford' / 'atelje')], 'en körning som redan står i historiken tas bort'
-for ogiltig in ('../pt-prov', 'PT', ''):
-    try:
-        at_pt.ta_bort_beslut(ogiltig)
-        raise AssertionError('ogiltig slug: %r' % ogiltig)
-    except RuntimeError as e_:
-        assert 'ogiltig slug' in str(e_), e_
-# kvarlevande flödessessioner avslutas före omtaget (BÖR 2); en annan process med ett pid ur statusfilerna aldrig
-sv_rot = tmp / 'sv-atelje'
-(sv_rot / 'kandidater' / 'k01').mkdir(parents=True); (sv_rot / 'sessioner').mkdir()
-flodes = subprocess.Popen(['bash', '-c', 'exec -a "claude -p --allowedTools Read" sleep 60'])
-annan = subprocess.Popen(['sleep', '60'])
-try:
+# granskningarna av r92: utan en dom som gäller körningen raderas inget ägaren sett, och då stoppas inget heller (BÖR 3,
+# KAN 1); körningen domen gäller är den som blev klar, eller startade om den föll (r92b, BÖR 1); en körning som redan
+# står i historiken får tas bort; rester av ett avbrutet omtag städas (BÖR 2); en sajt som är ett git-repo raderas
+# aldrig; en ogiltig slug raderar inget (KAN 9); bara kundens egna pågående flödessessioner avslutas (r92b, KAN 2)
+falska = []
+
+
+def falsk_process(namn):
+    p_ = subprocess.Popen(['bash', '-c', 'exec -a "%s" sleep 120' % namn])
+    falska.append(p_)
     for _ in range(50):  # tills exec -a har bytt processens namn
-        if at_pt.nastlad.ar_session(flodes.pid):
+        if namn.split()[0] in subprocess.run(['ps', '-o', 'command=', '-p', str(p_.pid)], capture_output=True, text=True).stdout:
             break
         threading.Event().wait(0.1)
-    (sv_rot / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'session_pid': flodes.pid}))
-    (sv_rot / 'sessioner' / 'x.json').write_text(json.dumps({'pid': annan.pid}))
-    st_sv = at_pt.stoppa_kvarvarande('pt-sv', sv_rot, {'pid': annan.pid})  # arbetarens pid tillhör någon annan
-    assert st_sv == [flodes.pid] and flodes.wait(10) is not None and annan.poll() is None, (st_sv, annan.poll())
+    return p_
+
+
+try:
+    arbetare_ud = falsk_process('python -B kontroller/atelje.py pt-utan-dom --arbetare --lage ny')
+    for sl_ud, st_ud in (('pt-utan-dom', {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z', 'pid': arbetare_ud.pid}),
+                         ('pt-bokford', {'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'}),
+                         ('pt-foll', {'steg': 'fel', 'startad': '2026-10-06T04:00:00Z'})):
+        ud_ = pt_und / sl_ud
+        (ud_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
+        (ud_ / 'atelje' / 'STATUS.json').write_text(json.dumps(st_ud))
+        (ud_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'titel': 'Byggdagboken', 'ide': 'en idé'}}}))
+        (ud_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'klar'}))
+    sk.lagg_till_dom('pt-utan-dom', 'ägaren', 'valj', 'Jag väljer k01.', underlag=pt_und)
+    sk.lagg_till_dom('pt-bokford', 'ägaren', 'valj', 'Jag väljer k01.', underlag=pt_und)
+    # pt-foll: körningen föll utan att bli klar; en dom och en historikpost från före dess start gäller inte den
+    sk.lagg_till_dom('pt-foll', 'ägaren', 'ny_riktning', 'En gammal dom.', underlag=pt_und, tid='2026-10-06T03:30:00Z')
+    sk.lagg_till_historik('pt-foll', [{'tid': '2026-10-05T00:00:00Z', 'kalla': 'x', 'namn': 'Äldre', 'utfall': 'underkänd av ägaren'}], pt_und)
+    for sl_ud in ('pt-utan-dom', 'pt-foll'):
+        ud_ = pt_und / sl_ud
+        h_fore = sk.historik(sl_ud, pt_und)
+        try:
+            at_pt.ta_bort_beslut(sl_ud)
+            raise AssertionError('%s: omtaget raderade utan en dom som gäller körningen' % sl_ud)
+        except RuntimeError as e_:
+            assert 'ingen dom från ägaren gäller körningen' in str(e_) and 'Byggdagboken' in str(e_) and 'Inget är borttaget' in str(e_), e_
+        assert (ud_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').is_file() and sk.historik(sl_ud, pt_und) == h_fore, (sl_ud, 'inget borttaget, ingen ny historik')
+    assert arbetare_ud.poll() is None, 'ett omtag som vägras stoppar ingen arbetare'
+    sk.lagg_till_dom('pt-utan-dom', 'ägaren', 'ny_riktning', 'Inte den här heller.', underlag=pt_und)
+    ud_ = pt_und / 'pt-utan-dom'
+    (ud_ / '.borttaget-20261005T000000Z-atelje' / 'kvar').mkdir(parents=True)  # en rest av ett omtag som avbröts
+    info_ud = {}
+    fl_ud = at_pt.ta_bort_beslut('pt-utan-dom', info_ud)
+    assert fl_ud == [at_pt.rel(ud_ / 'atelje')] and not os.path.lexists(ud_ / 'atelje') and not list(ud_.glob('.borttaget-*')), (fl_ud, list(ud_.iterdir()))
+    assert info_ud['stoppade'] == [arbetare_ud.pid] and arbetare_ud.wait(10) is not None and info_ud['rester'] == [], info_ud
+    assert [h['namn'] for h in sk.historik('pt-utan-dom', pt_und)] == ['Byggdagboken'], sk.historik('pt-utan-dom', pt_und)
+    sk.lagg_till_dom('pt-foll', 'ägaren', 'ny_riktning', 'Ny riktning efter körningen som föll.', underlag=pt_und)
+    assert at_pt.ta_bort_beslut('pt-foll') == [at_pt.rel(pt_und / 'pt-foll' / 'atelje')]
+    assert [h['namn'] for h in sk.historik('pt-foll', pt_und)] == ['Äldre', 'Byggdagboken'], sk.historik('pt-foll', pt_und)
+    sk.lagg_till_historik('pt-bokford', [{'kalla': 'för hand ur domen', 'namn': 'Byggdagboken', 'utfall': 'underkänd av ägaren'}], pt_und)
+    assert at_pt.ta_bort_beslut('pt-bokford') == [at_pt.rel(pt_und / 'pt-bokford' / 'atelje')], 'en körning som redan står i historiken tas bort'
+    (at_pt.KUNDER / 'pt-git' / 'sajt' / '.git').mkdir(parents=True)
+    try:
+        at_pt.ta_bort_beslut('pt-git')
+        raise AssertionError('omtaget raderade en sajt som är ett git-repo')
+    except RuntimeError as e_:
+        assert 'eget git-repo' in str(e_) and (at_pt.KUNDER / 'pt-git' / 'sajt' / '.git').is_dir(), e_
+    for ogiltig in ('../pt-prov', 'PT', ''):
+        try:
+            at_pt.ta_bort_beslut(ogiltig)
+            raise AssertionError('ogiltig slug: %r' % ogiltig)
+        except RuntimeError as e_:
+            assert 'ogiltig slug' in str(e_), e_
+    # omtaget görs helt eller inte alls: går ett namnbyte inte flyttas det redan flyttade tillbaka (r92b, KAN 3)
+    ut_, kt_ = pt_und / 'pt-tillbaka', at_pt.KUNDER / 'pt-tillbaka'
+    (ut_ / 'atelje').mkdir(parents=True); (ut_ / 'REFERENSER.md').write_text('r'); (kt_ / 'sajt' / 'src').mkdir(parents=True)
+    (ut_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-06T03:00:00Z'}))
+    sk.lagg_till_dom('pt-tillbaka', 'ägaren', 'ny_riktning', 'Ny riktning.', underlag=pt_und)
+    orig_rename = os.rename
+
+    def nekad_rename(a_, b_, *r_, **k_):
+        if Path(a_).name == 'sajt':
+            raise PermissionError(13, 'Permission denied')
+        return orig_rename(a_, b_, *r_, **k_)
+
+    os.rename = nekad_rename
+    try:
+        at_pt.ta_bort_beslut('pt-tillbaka')
+        raise AssertionError('omtaget gick igenom fast ett namnbyte föll')
+    except RuntimeError as e_:
+        assert 'omtaget gjordes inte' in str(e_) and 'allt står kvar' in str(e_), e_
+    finally:
+        os.rename = orig_rename
+    assert (ut_ / 'REFERENSER.md').is_file() and (ut_ / 'atelje' / 'STATUS.json').is_file() and (kt_ / 'sajt' / 'src').is_dir(), 'allt tillbaka'
+    assert not list(ut_.glob('.borttaget-*')) and not list(kt_.glob('.borttaget-*')), 'inget kvar undan'
+    assert sorted(at_pt.ta_bort_beslut('pt-tillbaka')) == sorted(at_pt.rel(p) for p in (ut_ / 'REFERENSER.md', ut_ / 'atelje', kt_ / 'sajt'))
+    assert not list(ut_.glob('.borttaget-*')) and not list(kt_.glob('.borttaget-*')) and not (kt_ / 'sajt').exists()
+    # en start som pågår (steget startar utan arbetarens pid): omtaget väntar och raderar inget (r92b, BÖR 2)
+    sa_ = pt_und / 'pt-start'
+    (sa_ / 'atelje').mkdir(parents=True)
+    (sa_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'startar', 'startad': at_pt.nu(), 'pid': None}))
+    slug_env = os.environ.pop('NWP_SLUG', None)  # omtaget startas utanför ett bygge
+    try:
+        assert at_pt.main(['pt-start', '--ny-riktning']) == 5 and (sa_ / 'atelje' / 'STATUS.json').is_file(), 'en start pågår'
+    finally:
+        if slug_env is not None:
+            os.environ['NWP_SLUG'] = slug_env
+    # bara kundens egna pågående flödessessioner avslutas: en annan kunds session, en avslutad post och en process som
+    # inte är en flödessession lämnas orörda
+    sv_rot = tmp / 'sv-atelje'
+    for d_ in ('k01', 'k02'):
+        (sv_rot / 'kandidater' / d_).mkdir(parents=True)
+    (sv_rot / 'sessioner').mkdir()
+    egen = falsk_process('claude -p --allowedTools Read --settings kundvakt.py pt-sv /u')
+    annan_kund = falsk_process('claude -p --allowedTools Read --settings kundvakt.py pt-annan /u Read(./kunder/pt-sv/**)')
+    avslutad = falsk_process('claude -p --allowedTools Read --settings kundvakt.py pt-sv /v')
+    vanlig = falsk_process('sleep-utan-namn')
+    (sv_rot / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'under_arbete', 'session_pid': egen.pid}))
+    (sv_rot / 'kandidater' / 'k02' / 'STATUS.json').write_text(json.dumps({'status': 'under_arbete', 'session_pid': annan_kund.pid}))
+    (sv_rot / 'sessioner' / 'a.json').write_text(json.dumps({'pid': avslutad.pid, 'slut': '2026-10-06T10:00:00Z'}))
+    (sv_rot / 'sessioner' / 'b.json').write_text(json.dumps({'pid': vanlig.pid}))
+    st_sv = at_pt.stoppa_kvarvarande('pt-sv', sv_rot, {'pid': vanlig.pid})  # arbetarens pid tillhör någon annan
+    assert st_sv == [egen.pid] and egen.wait(10) is not None, st_sv
+    assert annan_kund.poll() is None and avslutad.poll() is None and vanlig.poll() is None, 'bara kundens egna pågående sessioner'
 finally:
-    for p_ in (flodes, annan):
+    for p_ in falska:
         if p_.poll() is None:
             p_.kill()
             p_.wait(10)

@@ -902,7 +902,7 @@ async function observationsvy(slug, kandidater) {
     const egna = sess.filter((s) => s.kandidat === kid && s.sida === 'skapare'), gr = sess.filter((s) => s.kandidat === kid && s.sida === 'granskare');
     const obs = egna.map((s) => s.observation).filter(Boolean), alla = (f) => obs.flatMap((x) => x[f] || []);
     const olasta = egna.filter((s) => !s.observation);  // skaparens sessioner utan läsbart transkript: sägs, räknas inte bort
-    const utan = fel(o.sessioner) ? ejObs(o.sessioner) : !obs.length ? `inte observerat (${esc(egna.length ? [...new Set(olasta.map((s) => s.ofullstandig || 'inget transkript'))].join('; ') : 'ingen skaparsession i förteckningen')})` : null;
+    const utan = fel(o.sessioner) ? ejObs(o.sessioner) : !obs.length ? `inte observerat (${esc(egna.length ? [...new Set(olasta.map((s) => s.ofullstandig || 'inget transkript'))].join('; ') : sess.some((s) => s.ofullstandig && !s.kandidat) ? 'ingen läsbar skaparsession i förteckningen; ' + sess.filter((s) => s.ofullstandig && !s.kandidat).length + ' poster kunde inte läsas' : 'ingen skaparsession i förteckningen')})` : null;
     const ingen = (l, text) => utan || (l.length ? text : 'inga observerade');
     const p = prot[kid] || {}, refs = alla('referensfiler'), sf = alla('skillfiler'), sk = alla('skills_laddade'), me = alla('metodutdrag'), mcp = alla('mcp');
     const nekade = obs.reduce((n, x) => n + (x.nekade || 0), 0), erbjudna = Math.max(-1, ...obs.map((x) => x.skills_erbjudna ?? -1));

@@ -29,8 +29,7 @@ bara en mod som laddats i just den. Underagenter som en session startar körs i 
 när de startar och ser deras verktygsanrop (tool.call) och modellanrop (turn.step med agentId). Observatören läser bara
 sessionens transkript, och underagentens anrop står i ett eget (<session_id>/subagents/agent-*.jsonl), så här syns bara
 Agent-anropet och dess utfall. Ateljéns sessioner har inget Agent-verktyg (--tools listar bara det sessionen använder);
-en skill som körs i en egen kontext (context: fork) kan ändå starta en underagent, och svarsfilen räknar dem
-(subagent_stats).
+en skill som körs i en egen kontext (context: fork) kan ändå starta en underagent, och då syns bara skillanropet.
 Kontexten är tokenantalet i senaste modellanropets indata, en uppskattning: det som tillkommit efter anropet räknas inte,
 och andelen visas inte, eftersom transkriptet inte anger fönstrets storlek. En mod kan läsa Claude Codes egen siffra
 ($.session.usage(): tokens, fönster och procent); också den är Claude Codes beräkning, inget oberoende mått.
@@ -62,6 +61,7 @@ FOR_STORT = re.compile(r'^Error: result \(.{0,80}exceeds maximum allowed tokens'
 # dontAsk, PreToolUse-krokar (kundvakten) och deny-regler för filer; en tjänsts eget felmeddelande är aldrig ett nekande
 NEKAT = re.compile(r"^\s*(?:<tool_use_error>\s*)?(?:Permission to \w+\b|Claude requested permissions? to use\b|PreToolUse:\S+ hook\b"
                    r"|File is (?:in a directory that is denied|covered by a \w+ deny rule))")
+GAFFLAD = re.compile(r'\(forked execution')  # Claude Codes svar när en skill med context: fork körts av en underagent
 TOMT = re.compile(r'(?i)^\s*(no results?( found)?|0 results|inga träffar|nothing found)\b')
 AVSLUTADE = ('klar', 'klar_for_bedomning', 'fel', 'forkastad', 'tillbaka')
 # sessionens sida ur rollen (svarsfilens namn): skaparens arbete, granskningen eller körningens gemensamma steg
@@ -324,6 +324,8 @@ def _svar(a, c, res, nekad, t):
             return dict(ut, utfall='fil läst (%s)' % str(r['type'])[:30])
         return dict(ut, utfall='fil läst (utdrag)' if (a or {}).get('begransad') else 'fil läst (omfång inte observerat)')
     if namn == 'Skill':
+        if GAFFLAD.search(text[:400]):  # skillen kördes i en egen kontext, av en underagent, vars läsningar inte står här
+            return dict(ut, utfall='skill körd av en underagent (dess läsningar syns inte)')
         return dict(ut, utfall='skill laddad via skillsystemet')
     if namn.startswith('mcp__'):
         tr, lankar = _traffar(text), len(set(BILDLANK.findall(text)))
