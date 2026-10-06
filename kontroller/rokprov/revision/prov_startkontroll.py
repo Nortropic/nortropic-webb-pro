@@ -485,7 +485,7 @@ BREW['node@22'] = '22.23.3_1'
 nod = next(r for r in vl.inventera(k, ('brew',)) if r['id'] == 'brew:node')
 assert [c['version'] for c in nod['kandidater']] == ['24.21.0_1', '22.23.3_1'] and nod['kandidater'][0]['huvudversion'], nod['kandidater']
 BREWANROP, ROKPROV = [], []
-uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or (0, str(FAKE)))
+uh.brew = lambda *a, timeout=0, **k_: (BREWANROP.append(a) or (0, str(FAKE)))
 uh.rokprov_i_worktree = lambda k, etikett, forbered, path_forst=None, timeout=0, avbryt=None: (ROKPROV.append(etikett) or
                                                                                                (False, 'rökprovet rött (kod 1): FEL: provet blev rött på den rena testsajten (logg x)'))
 (FAKE / 'bin' / 'node').write_text('#!/bin/bash\necho v24.21.0\n')
@@ -556,7 +556,7 @@ assert rap['rader'][0]['resultat'] == 'avvisad' and 'git 3 bröt' in rap['rader'
 LANK = {'trasiga': {'node@22'}}
 
 
-def f_brew_lank(*a, timeout=0):
+def f_brew_lank(*a, timeout=0, **k_):
     BREWANROP.append(a)
     if a[:2] == ('linkage', '--test'):
         return (1, 'Broken dependencies: libsimdjson') if a[2] in LANK['trasiga'] else (0, '')
@@ -584,10 +584,10 @@ vl.brew_info = spara_info_l4
 assert fel_ and 'okänd version' in fel_ and lagade_ == [] and not any(a[0] == 'reinstall' for a in BREWANROP), (fel_, BREWANROP)
 LANK['trasiga'] = set()
 LANK['trasiga'] = {'gh', 'git'}
-uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or ((1, 'trasig') if a[:2] == ('linkage', '--test') and a[2] == 'gh' else (0, str(FAKE))))
+uh.brew = lambda *a, timeout=0, **k_: (BREWANROP.append(a) or ((1, 'trasig') if a[:2] == ('linkage', '--test') and a[2] == 'gh' else (0, str(FAKE))))
 fel_, lagade_ = uh.laga_lankar()
 assert fel_ and 'gh' in fel_ and lagade_ == ['gh'], (fel_, lagade_)
-uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or (0, str(FAKE)))
+uh.brew = lambda *a, timeout=0, **k_: (BREWANROP.append(a) or (0, str(FAKE)))
 print('avvisad huvudversion, intagen patch, ingen omprövning av samma version, återlänkning, pinnad node, git 3 och länkprovet ok')
 
 # 2026-10-06: intaget av node@24 bredvid uppgraderade simdjson, och node@22, som PATH pinnar, startade inte; varje start
@@ -603,7 +603,7 @@ spara_l1 = (os.environ['PATH'], vl.node_formel_ur_vag, uh.brew, vl.node_formel)
 os.environ['PATH'] = '%s:%s' % (TMP / 'l1' / 'bin', os.environ['PATH'])
 vl.node_formel_ur_vag, vl.node_formel = NODE_UR_VAG, NODE_FORMEL  # båda riktiga: ett länkprov som startade node syns
 BREWANROP.clear()
-uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or (0, ''))
+uh.brew = lambda *a, timeout=0, **k_: (BREWANROP.append(a) or (0, ''))
 try:
     assert vl.node_formel_ur_vag() == 'node@22' and uh.lankprov() == []
     assert ('linkage', '--test', 'node@22') in BREWANROP and not (TMP / 'l1' / 'STARTAD').exists(), ('node startades', BREWANROP)
@@ -625,42 +625,110 @@ finally:
     except (OSError, ValueError):
         pass
 assert rc_l2 == 124 and 'avslutades inte' in ut_l2 and time.time() - t_l2 < 10, (rc_l2, ut_l2, time.time() - t_l2)
-# (3) en ny huvudversion installeras inte bredvid när installationen skulle uppgradera beroenden som den aktiva node delar
-INFO_L3 = {'node@24': ['simdjson', 'zstd', 'uvwasi'], 'node@22': ['simdjson', 'icu4c@78', 'zstd']}
-GAMLA_L3 = [{'name': 'simdjson', 'installed_versions': ['4.6.6'], 'current_version': '5.0.2'}, {'name': 'uvwasi', 'installed_versions': ['0.0.21'], 'current_version': '0.0.22'}]
+# (3) en ny huvudversion installeras inte bredvid när Homebrews torrkörning säger att installationen skulle uppgradera
+#     något som den aktiva node eller python@3.12, git och gh länkar mot (deras installerade kegars körtidsberoenden)
+L3 = {'torr_rc': 0, 'torr': '', 'info': None, 'trasiga': set(), 'efter_install_trasiga': set(), 'installerad': False}
+TORR_L3 = """==> Would install 1 formula:
+node@24 24.21.0_1
+==> Would upgrade 3 dependencies for node@24:
+simdjson  4.6.6 -> 5.0.2
+uvwasi    0.0.21 -> 0.0.22
+==> Would install 2 dependencies for node@24:
+hdrhistogram_c 0.11.9
+uvwasi 0.0.23
+\x1b[34m==>\x1b[0m \x1b[1mWould upgrade 1 dependency for node@24:\x1b[0m
+homebrew/core/sqlite 3.50.1 -> 3.50.2
+"""  # den färgade rubriken efter ett installationsblock: bara den som tar bort färgkoderna ser sqlite
+SKYDD_L3 = {'formulae': [{'name': 'node@22', 'installed': [{'runtime_dependencies': [{'full_name': 'simdjson'}, {'full_name': 'icu4c@78'}]}]},
+                         {'name': 'python@3.12', 'installed': [{'runtime_dependencies': [{'full_name': 'sqlite'}, {'full_name': 'openssl@3'}]}]},
+                         {'name': 'git', 'installed': [{'runtime_dependencies': []}]}, {'name': 'gh', 'installed': []}]}
 
 
-def f_brew_l3(*a, timeout=0):
+def f_brew_l3(*a, timeout=0, **k_):
     BREWANROP.append(a)
-    if a[:2] == ('info', '--json=v2'):
-        return 0, json.dumps({'formulae': [{'dependencies': INFO_L3.get(a[-1], [])}]})
-    if a[:2] == ('outdated', '--json=v2'):
-        return 0, json.dumps({'formulae': GAMLA_L3})
+    if a[:3] == ('install', '--dry-run', '--formula'):
+        return L3['torr_rc'], L3['torr']
+    if a[:2] == ('info', '--json=v2'):  # som Homebrew: en varning på stderr, som bara den som läser stdout för sig slipper
+        ut_ = L3['info'] if L3['info'] is not None else json.dumps(SKYDD_L3)
+        return 0, ut_ if k_.get('bara_ut') else ut_ + '\nWarning: formeln har en ny revision'
+    if a[:2] == ('linkage', '--test'):
+        trasiga = L3['trasiga'] | (L3['efter_install_trasiga'] if L3['installerad'] else set())
+        return (1, 'Broken dependencies') if a[2] in trasiga else (0, '')
+    if a[:2] == ('install', '--formula'):
+        L3['installerad'] = True
     if a[:2] == ('--prefix', 'node@24'):
         return 0, str(FAKE)
     return 0, ''
 
 
-spara_l3 = uh.brew
+def node24_l3(katalog):
+    BREWANROP.clear()
+    L3['installerad'] = False
+    return uh.prova_node_huvud(vl.Kontext(nat=False, prova=False, katalog=TMP / katalog), {'id': 'brew:node'},
+                               {'version': '24.21.0_1', 'formel': 'node@24', 'huvudversion': True})[0]
+
+
+spara_l3 = (uh.brew, uh.rokprov_i_worktree)
 uh.brew = f_brew_l3
-BREWANROP.clear()
+uh.rokprov_i_worktree = lambda k, etikett, forbered, path_forst=None, timeout=0, avbryt=None: (True, 'hela rökprovet grönt i en egen worktree')
+installerades = lambda: ('install', '--formula', 'node@24') in BREWANROP  # noqa: E731
 try:
-    fel_l3, _s = uh.prova_node_huvud(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-l3'), {'id': 'brew:node'},
-                                     {'version': '24.21.0_1', 'formel': 'node@24', 'huvudversion': True})
-    assert fel_l3.startswith(uh.HALL) and 'simdjson 4.6.6 → 5.0.2' in fel_l3 and 'uvwasi' not in fel_l3, fel_l3
-    assert not any(a[0] == 'install' for a in BREWANROP), BREWANROP
+    L3['torr'] = TORR_L3
+    fel_l3 = node24_l3('lage-l3')
+    assert fel_l3.startswith(uh.HALL) and 'simdjson 4.6.6 -> 5.0.2' in fel_l3 and 'sqlite 3.50.1 -> 3.50.2' in fel_l3, fel_l3
+    assert 'uvwasi' not in fel_l3 and 'hdrhistogram' not in fel_l3 and not installerades(), (fel_l3, BREWANROP)
+    # en varning på stderr ändrar inget (bara stdout läses), och uppgraderingar som inget skyddat länkar mot stoppar inte
+    L3['torr'] = '==> Would upgrade 1 dependency for node@24:\nuvwasi 0.0.21 -> 0.0.22\n'
+    assert node24_l3('lage-l3b') is None and installerades(), BREWANROP
+    # en formel som redan är installerad och aktuell: torrkörningen säger inget, och installationen gör inget
+    L3['torr'] = ''
+    assert node24_l3('lage-l3c') is None and installerades()
+    # går det inte att avgöra (torrkörningen faller, de skyddade beroendena går inte att läsa) installeras inget
+    L3['torr_rc'], L3['torr'] = 1, 'Error: Unexpected'
+    fel_l3d = node24_l3('lage-l3d')
+    assert fel_l3d.startswith(uh.HALL) and 'gick inte att avgöra' in fel_l3d and not installerades(), fel_l3d
+    L3['torr_rc'], L3['torr'], L3['info'] = 0, TORR_L3, 'Warning: ingen json'
+    fel_l3e = node24_l3('lage-l3e')
+    assert fel_l3e.startswith(uh.HALL) and 'gick inte att avgöra' in fel_l3e and not installerades(), fel_l3e
+    L3['info'] = None
+    # en aktiv node som redan är trasig före intaget: inget installeras och ingen torrkörning, så att patchintaget når den
+    L3['trasiga'] = {'node@22'}
+    fel_l3f = node24_l3('lage-l3f')
+    assert fel_l3f.startswith(uh.HALL) and 'redan trasiga' in fel_l3f and not any(x[0] == 'install' for x in BREWANROP), (fel_l3f, BREWANROP)
+    L3['trasiga'] = set()
     # (4) efter installationen prövas att den aktiva node fortfarande svarar; gör den inte det är miljön trasig
-    GAMLA_L3.clear()
+    L3['torr'] = ''
     spara_nod_l4 = (FAKE / 'bin' / 'node').read_text()
-    (FAKE / 'bin' / 'node').write_text('#!/bin/bash\nexit 1\n')
+    (FAKE / 'bin' / 'node').write_text('#!/bin/bash\ntouch %s\nexit 1\n' % (TMP / 'l4-startad'))
     try:
-        fel_l4, _s = uh.prova_node_huvud(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-l4'), {'id': 'brew:node'},
-                                         {'version': '24.21.0_1', 'formel': 'node@24', 'huvudversion': True})
+        fel_l4 = node24_l3('lage-l4')
+        assert installerades() and fel_l4.startswith('MILJÖN TRASIG') and 'den aktiva node' in fel_l4, fel_l4
+        # har länkprovet redan sagt att den aktiva node är trasig startas den inte (den kraschar och kan hänga)
+        (TMP / 'l4-startad').unlink()
+        L3['efter_install_trasiga'] = {'node@22'}
+        BREW['node@22'] = '22.23.3_1'
+        fel_l4b = node24_l3('lage-l4b')
+        assert fel_l4b.startswith('MILJÖN TRASIG') and 'byta version utan prov' in fel_l4b and not (TMP / 'l4-startad').exists(), fel_l4b
+        L3['efter_install_trasiga'] = set()
     finally:
         (FAKE / 'bin' / 'node').write_text(spara_nod_l4)
-    assert ('install', '--formula', 'node@24') in BREWANROP and fel_l4.startswith('MILJÖN TRASIG') and 'den aktiva node' in fel_l4, fel_l4
 finally:
-    uh.brew = spara_l3
+    uh.brew, uh.rokprov_i_worktree = spara_l3
+# kor säger avbrutet (och AVBRUTEN) när ett avbrott lämnar en process som inte går att avsluta
+spara_l2b = (vl.avsluta_trad, vl.SLUTVANTAN)
+vl.avsluta_trad = lambda pid: None
+vl.SLUTVANTAN = 1
+pidfil_l2b = TMP / 'l2b.pid'
+try:
+    rc_l2b, ut_l2b = vl.kor([sys.executable, '-c', 'import os, time; open(%r, "w").write(str(os.getpid())); time.sleep(60)' % str(pidfil_l2b)],
+                            timeout=30, avbryt=lambda: True)
+finally:
+    vl.avsluta_trad, vl.SLUTVANTAN = spara_l2b
+    try:
+        os.kill(int(pidfil_l2b.read_text()), 9)
+    except (OSError, ValueError):
+        pass
+assert rc_l2b == vl.AVBRUTEN and ut_l2b.startswith('avbrutet'), (rc_l2b, ut_l2b)
 print('2026-10-06: länkprovet utan node, kor utan obegränsad väntan, delade beroenden och den aktiva node efter installationen ok')
 
 # fall 8: en pågående körning behåller sina förutsättningar: underhållet skjuter upp; en godkänd kandidat tas in senare
@@ -1663,7 +1731,7 @@ finally:
 # N6: en formel utan färdig flaska byggs aldrig under intagslåset; testsajtens installation avbryts när en start väntar
 spara_n6 = uh.brew
 FLASKOR_N6 = {}
-uh.brew = lambda *a, timeout=0: ((0, json.dumps({'formulae': [{'bottle': {'stable': {'files': FLASKOR_N6}}}]})) if a[:2] == ('info', '--json=v2')
+uh.brew = lambda *a, timeout=0, **k_: ((0, json.dumps({'formulae': [{'bottle': {'stable': {'files': FLASKOR_N6}}}]})) if a[:2] == ('info', '--json=v2')
                                  else (0, ''))
 try:
     FLASKOR_N6.update({'arm64_sonoma': {}})  # en flaska för en äldre macOS hälls här (granskningen av r74, L1)
@@ -1860,7 +1928,7 @@ print('mätinstrumentets byte märkt i kvittot, också utanför underhållet och
 BREW_B, HB_V = [], {'v': '4.6.1'}
 
 
-def falsk_brew_b(*a, timeout=0):
+def falsk_brew_b(*a, timeout=0, **k_):
     BREW_B.append(a)
     if a == ('--version',):
         return 0, 'Homebrew %s\n' % HB_V['v']

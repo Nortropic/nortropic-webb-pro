@@ -1585,10 +1585,10 @@ def ta_in_pip(k, r, kand, staged):
 
 # --- Homebrew ---
 
-def brew(*a, timeout=1800):
+def brew(*a, timeout=1800, bara_ut=False):
     if a[:1] == ('upgrade',) and not [x for x in a[1:] if not str(x).startswith('-')]:  # aldrig brew upgrade på allt (ägarens beslut)
         raise RuntimeError('brew upgrade utan formel körs aldrig: node, python, git och gh tas in en i taget efter underhållets prov')
-    return vl.kor(['brew', *a], timeout=timeout, env=vl.miljo(vl.BREW_MILJO))
+    return vl.kor(['brew', *a], timeout=timeout, env=vl.miljo(vl.BREW_MILJO), bara_ut=bara_ut)
 
 
 BREW_UPDATE_S = 86400  # brew update högst en gång per dygn (ägarens beslut 2026-10-06, punkt 1)
@@ -1700,26 +1700,61 @@ def laga_lankar(extra=()):
     return None, lagade
 
 
-def delade_uppgraderingar(formel, aktiv):
-    """[(beroende, installerad, ny)] för de beroenden som formeln delar med den aktiva node-formeln och som en installation
-    skulle uppgradera (Homebrew uppgraderar inaktuella beroenden vid install). 2026-10-06 uppgraderade brew install node@24
-    simdjson 4.6.6 → 5.0.2, och node@22, som PATH pinnar, startade inte längre. [] när det inte går att avgöra."""
-    if not aktiv or aktiv == formel:
-        return []
-    beroenden = {}
-    for f in (formel, aktiv):
-        rc, ut = brew('info', '--json=v2', '--formula', f, timeout=180)
-        try:
-            beroenden[f] = set((json.loads(ut).get('formulae') or [{}])[0].get('dependencies') or [])
-        except (ValueError, AttributeError, IndexError, TypeError):
-            return []
-    rc, ut = brew('outdated', '--json=v2', '--formula', timeout=180)
+ANSI = re.compile(r'\x1b\[[0-9;]*m')
+
+
+def torrkorning(formel):
+    """{formel: 'gammal -> ny'} som `brew install --dry-run` säger att installationen skulle uppgradera, eller None när det
+    inte går att avgöra. Homebrew räknar ut torrkörningen med samma beroendeuträkning som installationen (bara beroenden som
+    inte räcker för flaskan uppgraderas), så den är vad installationen gör. En formel som redan är installerad och aktuell
+    ger {}. Bara stdout läses: en varning på stderr ändrar inget."""
+    rc, ut = brew('install', '--dry-run', '--formula', formel, timeout=300, bara_ut=True)
+    if rc:
+        return None
+    upp, block = {}, False
+    for rad in ANSI.sub('', ut or '').splitlines():
+        if rad.startswith('==>'):
+            block = bool(re.match(r'==>\s*Would upgrade \d+ (dependenc(y|ies)|formulae?)\b', rad))
+            continue
+        if block and rad.strip():
+            namn, _, rest = rad.strip().partition(' ')
+            upp[namn.split('/')[-1]] = re.sub(r'\s+', ' ', rest).strip()
+    return upp
+
+
+def skyddade_beroenden(aktiv):
+    """Det som den aktiva node-formeln och python@3.12, git och gh länkar mot: deras installerade kegars körtidsberoenden
+    och formlerna själva. None när det inte går att avgöra."""
+    formler = [f for f in dict.fromkeys([aktiv, *vl.BREW_FORMLER]) if f]
+    rc, ut = brew('info', '--json=v2', '--formula', *formler, timeout=180, bara_ut=True)
     try:
-        gamla = {x['name']: x for x in json.loads(ut).get('formulae') or [] if isinstance(x, dict) and x.get('name')}
-    except (ValueError, AttributeError, TypeError, KeyError):
+        data = json.loads(ut)['formulae']
+    except (ValueError, KeyError, TypeError):
+        return None
+    if rc or not isinstance(data, list):
+        return None
+    skydd = set(formler)
+    for f in data:
+        for i in (f.get('installed') or []) if isinstance(f, dict) else []:
+            for d in i.get('runtime_dependencies') or []:
+                if isinstance(d, dict) and d.get('full_name'):
+                    skydd.add(str(d['full_name']).split('/')[-1])
+    return skydd
+
+
+def delade_uppgraderingar(formel, aktiv):
+    """[(beroende, 'gammal -> ny')] som installationen av formeln skulle uppgradera och som den aktiva node eller python@3.12,
+    git och gh länkar mot. 2026-10-06 uppgraderade brew install node@24 simdjson 4.6.6 → 5.0.2, och node@22, som PATH
+    pinnar, startade inte längre. None när det inte går att avgöra: då installeras inget på en gissning."""
+    upp = torrkorning(formel)
+    if upp is None:
+        return None
+    if not upp:
         return []
-    return [(n, str((gamla[n].get('installed_versions') or ['?'])[-1]), str(gamla[n].get('current_version') or '?'))
-            for n in sorted(beroenden[formel] & beroenden[aktiv]) if n in gamla]
+    skydd = skyddade_beroenden(aktiv)
+    if skydd is None:
+        return None
+    return [(n, v) for n, v in sorted(upp.items()) if n in skydd and n != formel]
 
 
 def aktiv_node_fel():
@@ -1817,14 +1852,19 @@ def prova_node_huvud(k, r, kand):
         if pagar:
             return HALL + 'en körning pågår (%s): %s installeras inte nu' % (', '.join(pagar), formel), None
         aktiv = vl.node_formel_ur_vag()
+        if aktiv and aktiv != formel and brew('linkage', '--test', aktiv, timeout=300)[0]:
+            # redan trasig före intaget: patchintaget av den aktiva formeln (prövat) eller ägaren lagar den, inte det här
+            return HALL + 'den aktiva %s har redan trasiga bibliotekslänkar; %s installeras inte förrän den är lagad' % (aktiv, formel), None
         delade = delade_uppgraderingar(formel, aktiv)
+        if delade is None:
+            return HALL + 'det gick inte att avgöra vad brew install %s skulle uppgradera; installeras inte på en gissning' % formel, None
         if delade:
-            return HALL + ('%s installeras inte bredvid: installationen skulle uppgradera beroenden som den aktiva %s delar (%s) och '
-                           'kan bryta den; prövas igen när de är aktuella, till exempel efter nästa intag av %s'
-                           % (formel, aktiv, ', '.join('%s %s → %s' % d for d in delade), aktiv)), None
+            return HALL + ('%s installeras inte bredvid: installationen skulle uppgradera det som den aktiva %s eller python, git och gh '
+                           'länkar mot (%s) och kan bryta dem; prövas igen vid nästa underhåll'
+                           % (formel, aktiv or 'node', ', '.join('%s %s' % d for d in delade))), None
         rc, ut = brew('install', '--formula', formel, timeout=3600)
         lfel, lagade = laga_lankar(extra=(formel,))
-        afel = aktiv_node_fel() if aktiv != formel else None
+        afel = aktiv_node_fel() if aktiv != formel and not lfel else None  # en node som länkprovet sagt är trasig startas inte
     if lfel or afel:
         return 'MILJÖN TRASIG efter brew install %s: %s' % (formel, '; '.join(x for x in (lfel, afel) if x)), None
     if rc:

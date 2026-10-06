@@ -203,13 +203,14 @@ def kor(args, timeout=120, cwd=None, env=None, indata=None, bara_ut=False, avbry
             except subprocess.TimeoutExpired:
                 # en process som inte går att avsluta (en krasch som väntar på krashrapporteringen, 2026-10-06) väntas
                 # inte in: underhållet och startkontrollen går vidare med ett fel i stället för att hänga
-                for s_ in (p.stdout, p.stderr):
+                for s_ in (p.stdin, p.stdout, p.stderr):
                     try:
                         s_ and s_.close()
                     except OSError:
                         pass
-                return (AVBRUTEN if avbrutet else 124), 'tidsgränsen %d s nåddes (%s); processen avslutades inte och lämnades' % (
-                    timeout, ' '.join(str(a) for a in args[:3]))
+                vad = 'avbrutet' if avbrutet else 'tidsgränsen %d s nåddes' % timeout
+                return (AVBRUTEN if avbrutet else 124), '%s (%s); processen eller ett barn som håller utdata avslutades inte och lämnades' % (
+                    vad, ' '.join(str(a) for a in args[:3]))
             if avbrutet:
                 return AVBRUTEN, 'avbrutet (%s)\n%s' % (' '.join(str(a) for a in args[:3]), sista((ut or '') + (fel or ''), 2000))
             return 124, 'tidsgränsen %d s nåddes (%s)' % (timeout, ' '.join(str(a) for a in args[:3]))
