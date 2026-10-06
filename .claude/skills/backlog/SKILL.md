@@ -73,7 +73,8 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
    kirurgposter fyll i `Utfall:` i `kunskap/REGISTER.md`.
 6. **Commit** med postens id först i meddelandet, sedan
    `.venv/bin/python kontroller/backlog.py status <id> klar --commit <kort sha> --not "<vad som gjordes>"` och en
-   commit till för statusen (eller båda i samma commit om du sätter statusen före).
+   commit till för statusen (eller båda i samma commit om du sätter statusen före). Dokumentationen som ändringen
+   berör uppdateras i samma commit (arbetsregeln: `README.md`, Var information finns).
 
 Säger posten emot ett gällande ägarbeslut (`BESLUT.md`, besluten med räckvidd i `kunskap/designregler.md`): genomför
 den inte. Ägarens domar över byggen före rensningen 2026-10-05 (`LARDOMAR.md`, `kunskap/rensning-nortropic-2.md`) är

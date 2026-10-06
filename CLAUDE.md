@@ -28,7 +28,8 @@ varit bra nog (ägaren 2026-10-05), så de styr inga agenter och är aldrig för
 metoderna bakom den: `teoretisk-grund.md`) · `kontroller/` provet och verktygen · `backlog/` vilande poster · `dashboard/`
 ägarens vy (`./dashboard.sh`, http://127.0.0.1:4771) · `underlag/` och `kunder/` privat material och byggen,
 utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglerna för prospekt och utskick:
-`kunskap/prospekt-och-utskick.md`; spanarens källor: `kunskap/spaning-kallor.md`.
+`kunskap/prospekt-och-utskick.md`; spanarens källor: `kunskap/spaning-kallor.md` · var varje slag av information hör
+hemma, rapporthuvudet och arbetsregeln om dokumentation: `README.md`, Var information finns.
 
 ## Arbetssätt
 
@@ -37,6 +38,7 @@ utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglern
   en ny mekanik.
 - Python med `.venv/bin/python`, Node med `node`. Kommandon från repots rot.
 - Efter ändringar i `kontroller/` eller `mall/`: `kontroller/rokprov.sh` ska sluta grönt.
+- Dokumentationen och spårbarheten följer ändringen i samma uppdrag (arbetsregeln: `README.md`, Var information finns).
 - Verktygslådan hålls i den senaste versionen som klarat proven av det dagliga underhållet, och varje start bekräftas av
   startkontrollen med ett startkvitto (`kunskap/beroenden.md`, Underhåll). Installera aldrig något för hand vid sidan av.
 - Arbetskopior, förhandsvisningar, tempkataloger och npm-cachen städas enligt städregeln i `BESLUT.md` (tillägget

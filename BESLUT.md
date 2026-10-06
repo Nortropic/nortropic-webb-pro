@@ -568,3 +568,360 @@ för framtida byggen innan provet visat att det fungerar och tillför kvalitet.
    Genomförandet, sessionens fördelning: kedjan från kundunderlag till leverans i `README.md`, designflödet i
    `kunskap/skapandeflodet.md`, kompetensen i kompetensblocken i `kunskap/metodkarta.md` och leveransen i
    `kunskap/lansering.md`.
+
+## Tillägg 2026-10-06, kväll: ett hållbart arbetsflöde (leveransprovet A–C)
+
+**Status:** gäller.
+
+Ägarens uppdrag 2026-10-06 21:31Z, inklistrat och ordagrant (också i minnet):
+
+> Uppdrag: gör Nortropics arbetsflöde ekonomiskt och designmässigt hållbart.
+>
+> Integrera detta i det pågående Figma- och pilotuppdraget. Återanvänd det som redan finns och undvik parallella ombyggnader av systemet.
+>
+> Problemet är att vår kedja tar mycket tid och arbete samtidigt som resultaten återkommande inte når min visuella ribba. Vi behöver visa att vi kan leverera hög kvalitet med en rimlig arbetsinsats innan vi skalar upp autonomin.
+>
+> 1. Utgå från dokumenterade arbetssätt
+>
+> Läs dessa primärkällor och använd relevanta delar:
+>
+> Clearleft – ett konkret webbprojekt från innehåll och visuellt språk till formgivning i webbläsaren:
+> https://clearleft.com/thinking/making-the-patterns-day-website
+>
+> Clearleft/Sage – tidsbegränsad utforskning, tidigt urval och fungerande prototyper:
+> https://clearleft.com/work/sage-new-concepts-for-product-adoption
+>
+> thoughtbot – designansvar genom implementationen och löpande webbläsarkontroller:
+> https://thoughtbot.com/playbook/design-craft/design-implementation
+>
+> Finsweet – strategi, sidstruktur, visuellt system, byggande och överlämning:
+> https://finsweet.com/agency/design-and-strategy
+>
+> Relume – sammanhängande komponenter från struktur och design till implementation:
+> https://www.relume.ai/export
+>
+> Basecamp – bestäm tidsbudgeten och anpassa omfattningen:
+> https://basecamp.com/shapeup/1.2-chapter-03
+>
+> Anthropic – erfarenheter av designgranskare, långa agentkörningar och förenkling:
+> https://www.anthropic.com/engineering/harness-design-long-running-apps
+>
+> Skilj mellan dokumenterade arbetssätt, marknadsföringspåståenden och egna slutsatser. Kopiera inte företagens hela processer. Deras projektstorlek, bemanning och mål skiljer sig från våra.
+>
+> Detta är inte ett uppdrag att köpa fler verktyg eller byta plattform. Vi ska först använda och förbättra det vi har.
+>
+> 2. Kartlägg var arbetet faktiskt går åt
+>
+> Undersök befintlig kod och ett litet relevant urval av de senaste körningarnas tillgängliga spår.
+>
+> Skilj på:
+> - arbete som producerar kundens webbplats;
+> - forskning och utveckling av Nortropics automationssystem;
+> - väntetid och verktygsfel;
+> - omarbete efter underkända resultat.
+>
+> Visa vilka steg som:
+> - fattar ett nödvändigt beslut;
+> - producerar användbart material eller fungerande kod;
+> - upptäcker konkreta fel;
+> - upprepar tidigare arbete;
+> - saknar belägg för att de förbättrar resultatet.
+>
+> Redovisa faktisk observerad tid och kända kostnader. Markera uppskattningar och saknade uppgifter. Hitta inte på tokenkostnader för prenumerationskörningar. Behåll vår befintliga modellåtkomst; inför inte betalda API-anrop som en följd av uppdraget.
+>
+> Gör kartläggningen kort och handlingsinriktad. Den ska leda till pilotprovet, inte bli ännu ett stort revisionsprojekt.
+>
+> 3. Behåll kompetensen och minska onödigt omarbete
+>
+> Behåll vår verktygslåda, skills, Refero, Mobbin och övriga fungerande resurser.
+>
+> För varje moment ska det vara tydligt:
+> - vilken kompetens som ansvarar för uppgiften;
+> - vilka referenser och vilket kundmaterial den arbetar med;
+> - vilket konkret resultat den ska åstadkomma;
+> - hur resultatet bedöms.
+>
+> Installerad, läst, anropad, tillämpad och visuellt lyckad är olika saker. Redovisa dem ärligt.
+>
+> Använd gemensam research och gemensamt verifierat kundunderlag där det går. Gör ny research när en konkret obesvarad fråga motiverar den.
+>
+> Låt en tydlig designansvarig hålla ihop komposition, typografi, bildhantering och detaljer genom design och implementation. Specialistkritik ska samlas till prioriterade ändringar. Motstridiga granskarförslag ska inte automatiskt utlösa nya ombyggnader.
+>
+> 4. Genomför ett avgränsat leveransprov
+>
+> Återanvänd pilotens tre moment:
+> A. Visuell förståelse och utförande.
+> B. Kundanpassning.
+> C. Överföring till fungerande webb.
+>
+> Om delar redan är klara och jämförbara ska de återanvändas.
+>
+> Omfattningen ska vara tillräcklig för att bedöma kvaliteten: en representativ startsidesdel med kundens innehåll i mobil och dator samt en viktig kontaktväg. Välj en del som avslöjar hur typografi, bilder, innehåll och responsivitet fungerar tillsammans.
+>
+> Fastställ och redovisa en motiverad tidsbudget före körningen. Ange vad den omfattar. Budgeten ska begränsa arbetsinsatsen, inte sänka kvalitetskraven.
+>
+> Varje ny iteration ska ha:
+> - ett konkret observerat problem;
+> - en föreslagen förändring;
+> - en jämförelse som visar om förändringen hjälpte.
+>
+> Spara tidigare bättre versioner. Ett högre modellbetyg eller en senare iteration betyder inte automatiskt att resultatet är bättre.
+>
+> När budgeten är förbrukad ska utfallet redovisas som godkänt, underkänt eller ofullständigt. Förläng inte körningen automatiskt och kalla inte ett underkänt resultat färdigt.
+>
+> 5. Skaffa en trovärdig jämförelsegrund
+>
+> Jämför pilotresultatet med en stark, namngiven och relevant referens eller en licensierad designgrund som jag bedömer håller.
+>
+> Skilj på:
+> - att förstå och återge referensens visuella kvaliteter;
+> - att anpassa dem till kundens material;
+> - att bevara dem i fungerande kod.
+>
+> Jämför vid samma bredder och med tydliga versioner. Säg vilka skillnader som beror på innehåll, material, avsiktliga beslut respektive brister i utförandet.
+>
+> Om vi saknar en användbar kvalitetsribba eller om modellen återkommande misslyckas trots tydligt underlag: föreslå ett avgränsat jämförelseprov med en senior mänsklig designer. Ange exakt vilken leverabel vi behöver. Boka eller köp inget utan mitt beslut.
+>
+> 6. Skala först när riktningen håller
+>
+> Målet om cirka tio förslag får inte automatiskt innebära tio fullständiga produktionskedjor.
+>
+> Utforska skilda idéer med den detaljnivå som behövs för att bedöma dem. Koncentrera därefter det dyra detalj- och implementationsarbetet till utvalda riktningar.
+>
+> Bevara det konkreta godkända arbetet genom överlämningen: designversion, tillgängliga tillgångar, komponenter och kod. Undvik att nästa steg fritt återskapar en redan godkänd design från en textsammanfattning.
+>
+> Figma ska bidra där det hjälper arbetet. Responsivitet och verkligt beteende ska prövas tidigt i webbläsaren. Vi ska kunna återkoppla mellan design och kod.
+>
+> 7. Förenkla kontrollerat
+>
+> Behåll säkerhet, integritet, versionsbindning och relevanta tekniska kvalitetskontroller.
+>
+> Pröva att förenkla skapandets övriga mekanik en del i taget. Återanvänd befintliga möjligheter till återställning. En förenkling ska bedömas mot både resultat och arbetsinsats.
+>
+> Tidigare uppdrag om korrekt dokumentation och spårbarhet kvarstår. Återanvänd befintliga kvitton och bilder. Lägg inte till nya dokumentlager eller dashboardsystem som inte behövs för att följa och bedöma piloten.
+>
+> 8. Leverera ett konkret beslutsunderlag
+>
+> Visa:
+> - pilotens bilder och fungerande resultat;
+> - jämförelsen med kvalitetsribban;
+> - arbetsinsats per huvudmoment;
+> - min arbetsinsats och antal omtag;
+> - kvarvarande visuella och funktionella brister;
+> - vilka befintliga steg som bör behållas, förenklas eller prövas vidare;
+> - vad som är observerat och vad som fortfarande är en hypotes.
+>
+> Bedöm om problemet främst ligger i underlaget, formgivningen, modellens förmåga, verktygsåtkomsten, överlämningen eller implementationen. Påstå inte en säker orsak utan stöd.
+>
+> Framgång är att vi får ett konkret resultat som når min ribba, fungerar för kundens viktigaste uppgift och har en arbetsinsats vi kan acceptera.
+>
+> Leverera och utvärdera det exemplet innan du föreslår större utbyggnad av kedjan.
+
+Genomfört samma kväll. Leveransprovet fick en tidsbudget före körningen (21:35Z–00:35Z) och återanvände pilotens
+moment A och B. Moment C, den fungerande webben, fick en kontaktväg och prövades i tio iterationer, var och en med
+problem, ändring och jämförelse. En bildförst granskare dömde varje version. Utfallet blev godkänt mot budgetens mätbara
+kriterier; ägarens visuella dom återstår. Beslutsunderlaget med bilder, arbetsinsats, källor och kartläggning ligger i
+`underlag/figma-pilot/BESLUTSUNDERLAG.md` (privat).
+
+Designomgången med cirka tio förslag körs inte som tio fulla kedjor. Den väntar på ägarens dom över provet.
+
+## Tillägg 2026-10-06, kväll: dokumentations- och rapportstrukturen
+
+**Status:** gäller.
+
+Ägarens uppdrag 2026-10-06 22:02Z ("när du har tid"), inklistrat och ordagrant (också i minnet):
+
+> Uppdrag: inför en sammanhängande dokumentations- och rapportstruktur i Nortropic, med automatisk uppdatering som en del av det ordinarie arbetet.
+>
+> Det ska vara enkelt för mig och agenterna att förstå flödet, hitta aktuella instruktioner, läsa granskningar, följa beslut och se vad som återstår. Bestående information ska inte vara beroende av att någon hittar rätt chatt, temporär katalog eller gammal worktree.
+>
+> Integrera detta med pågående arbete. Inventera först och återanvänd befintliga dokument, kvitton, register och dashboardfunktioner. Vissa delar kan redan vara genomförda.
+>
+> 1. Utgå från dessa principer
+>
+> Läs och använd relevanta delar av:
+>
+> Diátaxis – dokumentation efter läsarens behov:
+> https://www.diataxis.fr/start-here/
+>
+> GitLab – informationsarkitektur, tydligt ansvar och en auktoritativ källa:
+> https://handbook.gitlab.com/handbook/about/handbook-usage/
+>
+> Michael Nygard – bestående beslut med sammanhang, status och ersättare:
+> https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions
+>
+> Write the Docs – dokumentation i samma förändringsflöde som koden:
+> https://www.writethedocs.org/guide/docs-as-code/
+>
+> Tillämpa principerna proportionerligt. Vi behöver inte köpa en dokumentationsplattform eller bygga ett omfattande nytt ramverk.
+>
+> 2. Inventera och fastställ var information hör hemma
+>
+> Kartlägg befintliga dokument och rapporttyper. Skilj mellan:
+>
+> - Start och överblick: hur Nortropic fungerar och var information finns.
+> - Gällande arbetssätt: guider, krav, teknisk referens och förklaringar.
+> - Beslut: vad som beslutats, varför, räckvidd och om beslutet fortfarande gäller.
+> - Förbättringsarbete: uppgifter, ansvar, status och färdigkriterier.
+> - Projekt- och körningsrapporter: vad som hände i ett visst uppdrag.
+> - Systemgranskningar: vad som granskades i Nortropic och fyndens fortsatta hantering.
+> - Bevismaterial: bilder, mätningar, loggar och versionskvitton.
+> - Historik och tillfälliga arbetsanteckningar.
+>
+> Återanvänd README.md, kunskap/, BESLUT.md, backlog/ och befintliga privata projektstrukturer där de passar.
+>
+> Fastställ en bestämd plats och namngivning för varje informationsslag. Dokumentera regeln på ett ställe och länka till den från relevanta ingångar.
+>
+> Börja med förteckningar och länkar. Flytta inte frysta underlag eller filer som verktyg använder innan beroenden och versionsbevis har kontrollerats.
+>
+> 3. Ge varje ämne en tydlig auktoritativ källa
+>
+> Aktuella instruktioner ska beskriva hur systemet fungerar nu.
+>
+> Historiska rapporter ska beskriva vad som undersöktes vid en viss tidpunkt. De ska inte automatiskt bli nya gemensamma regler.
+>
+> När en rapport leder till en förändring ska den länkas till:
+> - uppgiften som genomför förändringen;
+> - eventuellt beslut;
+> - den aktuella instruktion som uppdaterats;
+> - verifieringen av rättelsen.
+>
+> Undvik konkurrerande sammanfattningar som måste uppdateras för hand på flera ställen.
+>
+> Äldre instruktioner ska märkas med giltighet och eventuell ersättare. Bevara beslutens sammanhang. Radera eller skriv inte om historiska slutsatser för att få dem att stämma med dagens läge; dokumentera rättelser och ersättare.
+>
+> 4. Inför ett enhetligt rapportformat
+>
+> Varje bestående rapport ska ha ett stabilt ID och följande uppgifter, där de är relevanta:
+>
+> - Titel och rapporttyp.
+> - Uppdrag, kund eller systemdel och moment.
+> - Författare eller granskande roll/session.
+> - Datum.
+> - Granskad identitet: repo och commit, körning, kandidatversion, designversion eller annat exakt underlag.
+> - Rapportstatus: exempelvis utkast, färdig eller ersatt.
+> - Bedömningsutfall: exempelvis godkänt, underkänt, ofullständigt eller ej bedömt.
+> - Länkar till underlag och bevis.
+> - Länkar till föregående rapport, rättelse eller ersättare.
+> - Länkar till beslut och kvarvarande åtgärder.
+>
+> Rapportstatus och bedömningsutfall är olika saker. En färdig rapport kan underkänna resultatet.
+>
+> Datum och filnamn räcker inte för att avgöra vilken version som granskats. ”Senaste rapport” ska alltid ha ett tydligt sammanhang.
+>
+> Återanvänd befintlig metadata. Lägg bara till det som saknas.
+>
+> Rapportens läsordning ska vara:
+> 1. Slutsats och vad den gäller.
+> 2. Viktigaste fynden.
+> 3. Underlag och jämförelser.
+> 4. Begränsningar och sådant som inte prövats.
+> 5. Nästa åtgärd och eventuellt beslut som behövs.
+>
+> 5. Gör bestående granskningar beständiga
+>
+> Inventera relevanta rapporter som ligger i temporära arbetsytor eller worktrees. Anta inte att allt där ska arkiveras.
+>
+> En rapport som används för ett bestående beslut eller en rättelse ska ha en registrerad, beständig plats innan arbetsytan städas.
+>
+> Tillfälliga anteckningar får förbli tillfälliga. Dokumentera vad som sparas och vad som gallras enligt befintliga beslut.
+>
+> Bevara kopplingen till det som faktiskt granskades. Flytta inte privat material till det publika repot. Även titlar, filnamn och registerposter kan innehålla privata uppgifter.
+>
+> 6. Inför följande arbetsregel
+>
+> ”Varje förändring i Nortropic ska hålla berörd dokumentation och spårbarhet aktuell som en del av samma uppdrag. Ägaren ska inte behöva påminna om dokumentationen. Ett arbete redovisas inte som färdigt förrän berörda instruktioner, rapportkopplingar och statusuppgifter är uppdaterade, eller en konkret kvarstående begränsning har redovisats.”
+>
+> Förankra regeln i CLAUDE.md och relevanta arbetsflöden och skills genom hänvisning till den gemensamma regeln. Duplicera inte hela texten överallt.
+>
+> Regeln ska även få praktiskt stöd i befintliga verktyg och start-/avslutsvägar. Det räcker inte med en formulering som agenter förväntas minnas.
+>
+> Respektera uttryckligen skrivskyddade uppdrag. Då rapporteras dokumentationsbehovet utan att filer ändras.
+>
+> 7. Automatisera det som kan avgöras säkert
+>
+> Vid relevanta händelser ska befintliga mekanismer automatiskt registrera eller uppdatera exempelvis:
+>
+> - körningens start, slut och identitet;
+> - skapade rapporter och deras beständiga länkar;
+> - vilken version ett prov eller en granskning gäller;
+> - färdigställande, avbrott och fel;
+> - kopplingar mellan granskning, rättelse och omprövning;
+> - dokumentförteckningar och dashboardens visning.
+>
+> Den ansvariga agenten ska samtidigt uppdatera betydelsen i berörda instruktioner när beteendet ändras.
+>
+> Automatik får inte:
+> - hitta på beslut eller godkännanden;
+> - markera ett fynd verifierat rättat enbart för att kod ändrats;
+> - göra en gammal rapport aktuell genom att bara byta datum;
+> - skriva över frysta bevis;
+> - ersätta saknade uppgifter med antaganden.
+>
+> Skilj på skapad, ändrad och senast verifierad. Om något inte har kontrollerats ska det stå det.
+>
+> Uppdatering ska utlösas av relevanta förändringar. Starta inte full omvärldsbevakning eller nya AI-sammanfattningar vid varje liten filändring.
+>
+> 8. Samla läsningen i dashboarden
+>
+> Återanvänd eller komplettera befintlig vy med ”Dokumentation och rapporter”.
+>
+> Jag ska kunna hitta:
+>
+> - Så fungerar Nortropic: aktuella instruktioner och flödeskartan.
+> - Pågående uppdrag: läge, relevanta rapporter och beslut som väntar.
+> - Granskningar och resultat: sökbart efter uppdrag, typ, version, datum och utfall.
+> - Beslut och historik: vad som gäller och vad som ersatts.
+>
+> Visa först en begriplig sammanfattning med länkar till detaljerna.
+>
+> Dashboarden ska läsa samma källor och metadata som filstrukturen använder. Skapa inte en separat manuellt underhållen sanning.
+>
+> Bevara befintliga integritetsgränser och blindningen inför ägarens första designbedömning. En dokumentförteckning får inte kringgå dessa begränsningar.
+>
+> 9. Hantera parallellt arbete och rättelser
+>
+> Använd stabila identifierare och befintlig säker skrivning så att samtidiga sessioner inte skriver över varandras rapporter eller registerposter.
+>
+> Ett fynd ska kunna följas från upptäckt till åtgärd och verifiering. Återanvänd fyndets identitet i stället för att skapa nya frikopplade poster för samma problem.
+>
+> En senare granskning ska tydligt visa om den:
+> - bekräftar tidigare fynd;
+> - verifierar en rättelse;
+> - gäller en ny version;
+> - eller rättar en tidigare felaktig slutsats.
+>
+> 10. Genomför och verifiera proportionerligt
+>
+> Inför strukturen stegvis och låt den fungera med pågående arbete.
+>
+> Verifiera med verkliga exempel att jag kan:
+> - hitta gällande instruktion;
+> - öppna en granskning och se exakt vad den gäller;
+> - följa ett fynd till rättelse och verifiering;
+> - skilja en färdig rapport från ett godkänt resultat;
+> - se vad som ersatts;
+> - hitta rapporten efter att en tillfällig arbetsyta försvunnit;
+> - se en automatisk uppdatering efter en relevant förändring.
+>
+> Följ repots krav på kontroller för ändrad kod. Lägg inte till omfattande mekanik utan ett konkret behov.
+>
+> Redovisa vad som återanvänts, vad som ändrats, vad som uppdateras automatiskt och vad som fortfarande kräver agentens eller ägarens bedömning.
+>
+> Färdigkriteriet är att jag och en ny agent kan hitta vad som gäller, vad som granskats, vad som återstår och vilket underlag slutsatserna bygger på — utan att leta i chatthistorik och temporära mappar.
+>
+> Detta ska fortsätta fungera när Nortropic förändras. Dokumentationens uppdatering ska vara en del av arbetet, inte ett separat städprojekt som jag behöver beställa igen.
+
+Genomförs i steg, och varje steg redovisar vad som återstår:
+1. **Rapporterna från arbetsytan** sparades oförändrade i `underlag/granskningar/` (privat). Det gällde 84
+   granskningsrapporter, inventeringar och Codex-svar ur sessionens arbetsyta, och de mätskript som pilotens frysta
+   kvitton hänvisar till. `FORTECKNING.jsonl` anger ursprung och sha256. Rapporterna för granskningarna r53–r62 hittades
+   inte.
+2. **Regler och pekare.** Platsregeln, arbetsregeln, rapporthuvudet och läsordningen står i `README.md`, Var information
+   finns. `CLAUDE.md`, `backlog/README.md` och skillen backlog hänvisar dit.
+3. **Återstår:**
+   - kod som gör granskningsfynden spårbara i backloggen, med källan granskning och fälten fynd och verifierad;
+   - repots commit i startkvittot;
+   - ett dokumentprov i rökprovet;
+   - vyn "Dokumentation och rapporter" i dashboarden. Den bygger på flödesvyn och kommer efter att ägaren slagit ihop
+     den.

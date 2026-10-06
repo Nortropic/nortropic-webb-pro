@@ -25,6 +25,7 @@ posten till `klar` med commit. Ägaren kan också namnge vilka poster som ska ta
 
 ## Status
 
-`vilande` väntar · `pagar` en session arbetar med den · `klar` genomförd (commit står i posten) · `avvisad` ägaren
+`vilande` väntar · `pagar` en session arbetar med den · `klar` genomförd (commit står i posten; verifierad är den
+först när en senare granskning säger det, `README.md`, Var information finns) · `avvisad` ägaren
 sa nej (i dashboarden eller i en session) · `ersatt` ersatt av ett senare beslut eller sammanförd i en annan post (noten
 säger vilken). Avvisade och ersatta poster ligger kvar, så att samma idé inte kommer tillbaka.

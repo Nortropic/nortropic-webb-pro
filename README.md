@@ -11,7 +11,8 @@ domare. Varför repot finns och vad som beslutades: `BESLUT.md`.
 
 Allt på ett ställe: vyn Prototyp, där du väljer bland förslagen och godkänner en startsida (besluten skrivs i
 domloggen `underlag/<slug>/DESIGNDOMAR.jsonl`), byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag,
-körningens händelser), frågeformuläret där du dömer ett bygge, backloggen, kirurgen (klistra in en länk) och lärdomarna.
+körningens händelser), frågeformuläret där du dömer ett bygge, Starta, de blinda jämförelserna, kalibreringen,
+designprovet, backloggen, kirurgen (klistra in en länk) och lärdomarna.
 
 ## Tre loopar och en backlog
 
@@ -47,6 +48,53 @@ Helbygget går obevakat från den godkända startsidan: byggaren bygger resten a
 tills grindarna är gröna och två oberoende granskare godkänt, eller tills taket nås (slutkod 1), och skriver `kunder/<slug>/RAPPORT.md` och sina egna
 frågor till dig. Alternativa lägen och återupptagning: `kunskap/skapandeflodet.md` och `./kor.sh` utan argument.
 Råmaterial (`underlag/`) och byggen (`kunder/`) ligger utanför git.
+
+## Var information finns
+
+Tabellen bestämmer var varje slag av information hör hemma (ägarens uppdrag 2026-10-06 om dokumentations- och
+rapportstrukturen, `BESLUT.md`). Andra dokument länkar hit i stället för att upprepa den.
+
+| Slag | Plats och namn | Skrivs av |
+|---|---|---|
+| Start och överblick | den här filen; `CLAUDE.md` för sessioner | agenten |
+| Gällande arbetssätt: guider, krav, referens och förklaringar | `kunskap/<ämne>.md`, ett ämne per fil; skills i `.claude/skills/<namn>/SKILL.md`; granskarens kriterier i `kritik/`. En fil som inte gäller fullt ut börjar med raden `Status: historik, ersatt av …` eller `Status: vilande till …` | agenten, i samma commit som beteendet ändras |
+| Beslut | `BESLUT.md`: ett `## Tillägg ÅÅÅÅ-MM-DD: <titel>` per beslut (rubriken är beslutets id) med ägarens ord ordagrant, skälen, räckvidden och raden `**Status:**` (gäller, delvis ersatt av … eller ersatt av …). Ett ersatt beslut ligger kvar och märks. Kundbeslut: `underlag/<slug>/DESIGNDOMAR.jsonl` | agenten med ägarens ord |
+| Förbättringsarbete | `backlog/B-ÅÅÅÅMMDD-<namn>.md` (`backlog/README.md`). `klar` betyder genomförd och committad; verifierad är posten först när en senare granskning säger det | `kontroller/backlog.py`, agenten |
+| Projekt- och körningsrapporter | i flödet där verktygen skriver: `underlag/<slug>/atelje/` och `kunder/<slug>/`; utanför flödet: `underlag/<uppdrag>/` (som `underlag/figma-pilot/BESLUTSUNDERLAG.md`); lägesrapporter till ägaren: `underlag/rapporter/RAPPORT-ÅÅÅÅ-MM-DD-<namn>.md` | agenten, verktygen |
+| Systemgranskningar | `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>.md`, en fil per granskning; en omgranskning är en ny fil som anger den föregående, och fynden heter `<rapportens id>#<fynd>`. Äldre rapporter ur sessioners arbetsytor ligger i `underlag/granskningar/sessioner/`, med ursprung och sha256 i `FORTECKNING.jsonl` | den granskande sessionen |
+| Bevismaterial: bilder, mätningar, loggar och kvitton | där verktyget skriver (`prov/`, startkvitton, `VERSION.json`, `bilder/`, `matning/`). Frysta kvitton skrivs aldrig över; ett mätskript som ett kvitto hänvisar till kopieras till uppdragets `matning/` | verktygen |
+| Historik och tillfälligt | git-historiken och filer märkta `Status: historik`. Tillfälliga anteckningar i sessionens arbetsyta och `/tmp` gallras (städregeln, `BESLUT.md`); det som en rapport, ett beslut eller en commit citerar kopieras först till `underlag/granskningar/` | agenten |
+
+Allt under `underlag/` och `kunder/` är privat, också titlar, filnamn och förteckningar. I det publika repot står
+bara id:n, i commits och backlogposter.
+
+**Arbetsregeln** (ägaren 2026-10-06): ”Varje förändring i Nortropic ska hålla berörd dokumentation och spårbarhet
+aktuell som en del av samma uppdrag. Ägaren ska inte behöva påminna om dokumentationen. Ett arbete redovisas inte som
+färdigt förrän berörda instruktioner, rapportkopplingar och statusuppgifter är uppdaterade, eller en konkret
+kvarstående begränsning har redovisats.” Ett skrivskyddat uppdrag ändrar inga filer och redovisar
+dokumentationsbehovet i stället.
+
+**Rapporthuvudet.** En bestående rapport börjar med ett huvud (YAML mellan `---`) med de fält som är relevanta:
+- **Identitet och typ:** `id` (stabilt), `titel`, `typ`, `uppdrag`, `kund` eller `systemdel` och `moment`.
+- **Vem och när:** `forfattare` (roll eller session) och `datum`.
+- **Vad som granskats:** `granskad_identitet`, alltså repo och commit, körning, kandidatversion, designversion eller
+  annat exakt underlag.
+- **Status och utfall:** `rapportstatus` (utkast, färdig eller ersatt) och `bedomningsutfall` (godkänt, underkänt,
+  ofullständigt eller ej bedömt).
+- **Länkar:** `underlag`, `foregaende`, `ersatt_av`, `beslut` och `atgarder`.
+
+Ett värde som saknas skrivs "ej angivet". Rapportstatus och utfall är olika saker: en färdig rapport kan underkänna
+resultatet. Ett exempel är `underlag/figma-pilot/BESLUTSUNDERLAG.md`.
+
+**Läsordningen:**
+1. slutsatsen och vad den gäller;
+2. de viktigaste fynden;
+3. underlag och jämförelser;
+4. begränsningar och det som inte prövats;
+5. nästa åtgärd och de beslut som behövs.
+
+**En senare granskning** säger vad den gör med den föregående: bekräftar fynd, verifierar en rättelse, gäller en ny
+version eller rättar en tidigare slutsats. Ett fynd behåller sitt id från upptäckt till rättelse och verifiering.
 
 ## Kirurgen
 
