@@ -1011,12 +1011,11 @@ try:
             return (1, 'npm error code ECONNRESET\nnpm error network aborted') if LAGE_R77['intag'] == 'faller' else (0, '')
         uh.npm = falsk_npm_intag
         HJALP_ = {'trasiga': set()}
-
-        def kor_hj(args, **kw):  # vercel --help faller för versionerna i HJALP_ (r85, M2); allt annat, som klonens cp, körs på riktigt
-            if len(args) == 2 and str(args[0]).endswith('/bin/vercel') and args[1] == '--help':
-                v_ = json.loads((KAT_ / 'package.json').read_text())['version'] if (KAT_ / 'package.json').is_file() else None
-                return (1 if v_ in HJALP_['trasiga'] else 0), 'hjälp'
-            return spara_kor_m4(args, **kw)
+        spara_ls = uh.npm_ls_ok
+        # npm ls säger att trädet är halvt för versionerna i HJALP_ (r85, M2, och r86, M1)
+        uh.npm_ls_ok = lambda prefix, paket: (json.loads((KAT_ / 'package.json').read_text())['version']
+                                              if (KAT_ / 'package.json').is_file() else None) not in HJALP_['trasiga']
+        kor_hj = spara_kor_m4
         vl.kor = kor_hj  # klonen görs med den riktiga cp
         vl.version_av = lambda a: json.loads((KAT_ / 'package.json').read_text())['version'] if (KAT_ / 'package.json').is_file() else None
         NPM_R76.clear()
@@ -1087,7 +1086,7 @@ try:
         HJALP_['trasiga'] = {'60.1.3'}
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         HJALP_['trasiga'] = set()
-        assert res_[0] == 'avvisad' and 'lagt tillbaka' in res_[1] and json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1', res_
+        assert res_[0] == 'behallen' and 'inte helt enligt npm ls' in res_[1] and json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1', res_
         assert not list(NM_.glob('.nwp-trasig-*')), 'vår egen halva installation tas bort när klonen svarar'
         # en global npm-installation pågår: intaget väntar och rör ingenting (r85, M3)
         uh.npm_installerar = lambda: 'en global npm-installation pågår (npm install -g x)'
@@ -1095,6 +1094,37 @@ try:
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'behallen' and 'npm-installation pågår' in res_[1] and not NPM_R76, res_
         uh.npm_installerar = lambda: None
+        # en annan npm börjar medan vår kör: återställningen rör inte trädet, och klonen står kvar (r86, H1)
+        def falsk_npm_annan(args, cwd, timeout=900, env=None):
+            NPM_R76.append(list(args))
+            uh.npm_installerar = lambda: 'en npm-installation pågår (npm install /x/pkg.tgz)'
+            (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '61.0.0-annan'}))
+            return 1, 'npm error code ENOTEMPTY'
+        uh.npm = falsk_npm_annan
+        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+        uh.npm_installerar = lambda: None
+        assert res_[0] == 'avvisad' and 'ÅTERSTÄLLNINGEN FÖLL' in res_[1] and 'npm-installation pågår' in res_[1], res_
+        assert json.loads((KAT_ / 'package.json').read_text())['version'] == '61.0.0-annan' and (SPAR_ / 'vercel' / 'package.json').is_file()
+        (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.0.1'}))
+        shutil.rmtree(SPAR_)
+        # en installation börjar efter den första frågan men före vår npm: intaget väntar, och klonen tas bort (r86, H1)
+        SVAR_I = iter([None, 'en npm-installation pågår (npm install /x/pkg.tgz)'])
+        uh.npm_installerar = lambda: next(SVAR_I, None)
+        NPM_R76.clear()
+        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+        uh.npm_installerar = lambda: None
+        assert res_[0] == 'behallen' and 'npm-installation pågår' in res_[1] and not NPM_R76 and not SPAR_.exists(), res_
+        # ett avbrott (Ctrl-C) mitt i vår npm: klonen står kvar (r86, L1)
+        def falsk_npm_avbrott(args, cwd, timeout=900, env=None):
+            raise KeyboardInterrupt()
+        uh.npm = falsk_npm_avbrott
+        try:
+            uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+            raise AssertionError('avbrottet skulle ha gått vidare')
+        except KeyboardInterrupt:
+            pass
+        assert (SPAR_ / 'vercel' / 'package.json').is_file(), 'klonen står kvar efter ett avbrott'
+        shutil.rmtree(SPAR_)
         # tillbakaläggningen faller: klonen står kvar och sägs
         uh.npm = falsk_npm_dor
         spara_rename = os.rename
@@ -1155,6 +1185,7 @@ try:
             finally:
                 uh.laga_avbrutet_intag = spara_laga
             assert rap_.get('trasigt') and 'lagningen föll' in rap_['trasigt'][0], rap_
+            assert [x_['resultat'] for x_ in rap_['rader'] if x_['id'] == 'avbrutet-intag:vercel'] == ['fel'], rap_['rader']
             shutil.rmtree(SPAR_)
         finally:
             vl.npm_global_rot, vl.inventera = spara_rot, spara_inv
@@ -1193,7 +1224,7 @@ try:
         uh.npm = falsk_npm_tar_klonen
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'avvisad' and 'klonen saknas' in res_[1] and 'ÅTERSTÄLLNINGEN FÖLL' in res_[1] and (KAT_ / 'package.json').is_file(), res_
-        uh.npm_installerar, vl.kor = spara_installerar_r77, spara_kor_hj
+        uh.npm_installerar, vl.kor, uh.npm_ls_ok = spara_installerar_r77, spara_kor_hj, spara_ls
         # npm_installerar ser en global installation i ps (själva programmet, aldrig ett skal som nämner npm), och svarar när
         # ps inte går att köra
         spara_kor_ps = vl.kor
@@ -1202,8 +1233,13 @@ try:
             assert 'pågår' in (uh.npm_installerar() or '')
             vl.kor = lambda args, **kw: (0, 'node /opt/homebrew/bin/npm install --location=global x\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
             assert 'pågår' in (uh.npm_installerar() or '')
-            vl.kor = lambda args, **kw: (0, 'node /x/npm ci\n/bin/zsh -c echo npm install -g x\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
-            assert uh.npm_installerar() is None
+            # npm byter sin titel till "npm" och de positionella argumenten: -g syns inte (r86, H1, mätt med en riktig npm)
+            vl.kor = lambda args, **kw: (0, 'npm install /Users/x/pkg.tgz\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+            assert 'pågår' in (uh.npm_installerar() or '')
+            vl.kor = lambda args, **kw: (0, 'npm\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+            assert uh.npm_installerar() is None, 'npm utan verb (de första tiondelarna) räknas inte'
+            vl.kor = lambda args, **kw: (0, 'npm ls -g vercel\nnpm root -g\n/bin/zsh -c echo npm install -g x\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+            assert uh.npm_installerar() is None, 'läsande npm och ett skal som nämner npm räknas inte'
             vl.kor = lambda args, **kw: (1, '') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
             assert 'ps svarar inte' in (uh.npm_installerar() or '')
         finally:

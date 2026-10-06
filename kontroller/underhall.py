@@ -598,10 +598,16 @@ def agare_lever(spar):
     return bool(a.get('pid')) and korregister.lever(a['pid']) and korregister.startad(a['pid']) == a.get('start')
 
 
+NPM_SKRIVANDE = {'install', 'i', 'isntall', 'add', 'update', 'up', 'upgrade', 'uninstall', 'remove', 'rm', 'r', 'un', 'unlink',
+                 'ci', 'clean-install', 'install-clean', 'link', 'ln', 'dedupe', 'prune', 'rebuild'}
+
+
 def npm_installerar():
-    """Skälet när en global npm-installation pågår på maskinen (för hand, eller en uppdatering som Claude Code själv
-    startat), eller när det inte går att se; annars None. Ett underhåll kör aldrig npm medan det frågar, så varje sådan
-    process är någon annans (granskningen av r81, M1, och r85, M3 och L4)."""
+    """Skälet när en npm-process som installerar, uppdaterar eller tar bort något kör på maskinen (för hand, eller en
+    uppdatering som Claude Code själv startat), eller när det inte går att se; annars None. npm byter sin processtitel
+    till "npm" och de positionella argumenten efter en kvarts sekund, så -g syns inte i ps: varje sådan npm räknas, med
+    eller utan -g, och ett falsklarm kostar bara ett dygns väntan (granskningen av r86, H1, mätt med en riktig npm). Ett
+    underhåll kör aldrig npm medan det frågar, så varje sådan process är någon annans."""
     rc, ut = vl.kor(['ps', '-ax', '-o', 'command='], timeout=20)
     if rc != 0:
         return 'det går inte att se om en npm-installation pågår (ps svarar inte)'
@@ -609,21 +615,30 @@ def npm_installerar():
         ord_ = x.split()
         namn = [os.path.basename(o) for o in ord_[:2]]
         # själva programmet är npm (eller node som kör npm), aldrig ett skal vars kommandorad råkar nämna npm
-        npm_ = namn[:1] == ['npm'] or (bool(namn) and namn[0].startswith('node') and namn[1:2] in (['npm'], ['npm-cli.js']))
-        if npm_ and any(o in ('-g', '--global', '--location=global') for o in ord_) or npm_ and ' --location global' in x:
-            return 'en global npm-installation pågår (%s)' % x.strip()[:120]
+        if namn[:1] == ['npm']:
+            rest = ord_[1:]
+        elif namn and namn[0].startswith('node') and namn[1:2] in (['npm'], ['npm-cli.js']):
+            rest = ord_[2:]
+        else:
+            continue
+        verb = next((o for o in rest if not o.startswith('-')), None)
+        if verb in NPM_SKRIVANDE:
+            return 'en npm-installation pågår (%s)' % x.strip()[:120]
     return None
 
 
-def svarar(prefix_bin, binar, version):
-    """Svarar binären med versionen, och Vercel CLI också på --help: dess --version läser bara två filer och svarar också
-    ur ett halvt träd (granskningen av r85, M2)."""
+def npm_ls_ok(prefix, paket):
+    """Är paketets installerade träd helt enligt npm (inget beroende saknas eller är ogiltigt)?"""
+    rc, _ut = vl.kor(['npm', 'ls', '-g', '--all', '--prefix', str(prefix), paket], timeout=120, env=vl.provmiljo())
+    return rc == 0
+
+
+def svarar(prefix_bin, binar, version, paket=None):
+    """Svarar binären med versionen, och är paketets träd helt enligt npm ls? Vercel CLI:s --version och --help läser bara
+    några få filer och svarar också ur ett halvt träd (granskningen av r85, M2, och r86, M1)."""
     if not binar or not version or vl.version_av([str(Path(prefix_bin) / binar), '--version']) != version:
         return False
-    if binar == 'vercel':
-        rc, _ut = vl.kor([str(Path(prefix_bin) / binar), '--help'], timeout=60, env=vl.provmiljo())
-        return rc == 0
-    return True
+    return npm_ls_ok(Path(prefix_bin).parent, paket) if paket else True
 
 
 def lagg_lankar(spar, prefix_bin, kat):
@@ -670,14 +685,14 @@ def laga_avbrutet_intag(paketkatalog, paket, binar=None):
             lagg_lankar(spar, prefix_bin, kat)
         except OSError as e:
             return 'MILJÖN TRASIG: %s: klonen i %s kunde inte läggas på plats: %s' % (paket, spar, e)
-        if svarar(prefix_bin, binar, gammal):
+        if svarar(prefix_bin, binar, gammal, paket):
             shutil.rmtree(spar, ignore_errors=True)
             return '%s: ett avbrutet intag lagades: trädet saknades och klonen (%s) lades på plats' % (paket, gammal)
         return 'MILJÖN TRASIG: %s: klonen (%s) lades på plats, men %s svarar inte; resten ligger i %s' % (paket, gammal, binar, spar)
     text = ('%s: kvar efter ett avbrutet intag eller en avbruten installation: %s. Det rörs inte automatiskt, och nya '
             'versioner av paketet tas in först när det är borttaget' % (paket, ', '.join(str(p) for p in kvar)))
-    if svarar(prefix_bin, binar, version_i(kat)):
-        return text + '; det installerade svarar'
+    if svarar(prefix_bin, binar, version_i(kat), paket):
+        return text + '; det installerade svarar och dess träd är helt enligt npm'
     return 'MILJÖN TRASIG: ' + text + '; det installerade svarar inte'
 
 
@@ -720,14 +735,22 @@ def ta_in_globalt(k, r, kand, staged):
     import korregister
     vl.skriv_json(spar / 'AGARE.json', {'pid': os.getpid(), 'start': korregister.startad(os.getpid())})  # en lagning rör den inte
     vl.skriv_json(spar / 'LANKAR.json', lankar)  # länkarna som de var, för en lagning efter ett intag som dog
-    behall_klon = False
+    behall_klon = True  # klonen står kvar om något avbryter intaget (Ctrl-C, stopp), tills den inte behövs (r86, L1)
     start_ = time.time() - 5
     try:
+        pagar = npm_installerar()  # en gång till, strax före vår npm (r86, H1)
+        if pagar:
+            behall_klon = False
+            return 'behallen', '%s; tas in vid nästa underhåll' % pagar, None
         rc, ut = npm(['install', '-g', '--no-audit', '--no-fund', *fore, *skript, '%s@%s' % (paket, version)], ROOT(), env=vl.provmiljo())
         ny = vl.version_av([str(prefix_bin / binar), '--version']) if binar else None
-        if rc == 0 and ny == version and svarar(prefix_bin, binar, version):
+        if rc == 0 and ny == version and svarar(prefix_bin, binar, version, paket):
+            behall_klon = False
             return 'uppdaterad', '%s → %s (%s)' % (gammal, version, staged['prov']), None
         fel_t, undan = [], None
+        pagar = npm_installerar()  # och före återställningen: en annan npm som skriver i trädet rörs aldrig (r86, H1)
+        if pagar:
+            return 'avvisad', 'ÅTERSTÄLLNINGEN FÖLL: %s, så trädet lämnas som det är; klonen står kvar i %s' % (pagar, spar), None
         if not (kopia / 'package.json').is_file():  # utan klon flyttas aldrig trädet (granskningen av r80, H1)
             fel_t.append('klonen saknas i %s; trädet lämnat som det är' % spar)
         else:
@@ -752,7 +775,7 @@ def ta_in_globalt(k, r, kand, staged):
                     os.symlink(mal, f)
             except OSError as e:
                 fel_t.append('%s: %s' % (f, e))
-        tillbaka = not fel_t and svarar(prefix_bin, binar, gammal)
+        tillbaka = not fel_t and svarar(prefix_bin, binar, gammal, paket)
         if tillbaka:
             if undan:
                 shutil.rmtree(undan, ignore_errors=True)  # vår egen misslyckade installation
@@ -763,6 +786,9 @@ def ta_in_globalt(k, r, kand, staged):
                 except OSError as e:
                     fel_t.append('%s: %s' % (p, e))
         behall_klon = not tillbaka and (kopia / 'package.json').is_file()
+        if rc == 0 and ny == version and tillbaka:  # npm gick igenom och svarade, men trädprovet föll: prövas igen (r86, L3)
+            return 'behallen', nat('den nya versionen %s svarade, men dess träd var inte helt enligt npm ls; det installerade trädet (%s) '
+                                   'lagt tillbaka, och intaget prövas igen vid nästa underhåll' % (version, gammal)), None
         orsak = npm_fel(ut, 200) if rc else 'npm gick igenom, men %s svarar %s, inte %s' % (binar, ny, version)  # r80, L5
         return 'avvisad', nat('den globala installationen föll (%s); %s' % (
             orsak, 'det installerade trädet (%s) lagt tillbaka' % gammal if tillbaka else
@@ -1392,8 +1418,13 @@ def steg_laga_globala(rapport):
                 text = 'MILJÖN TRASIG: %s: lagningen föll: %s: %s' % (paket, type(e).__name__, str(e)[:160])
             if text:
                 rapport.setdefault('lagat', []).append(text)
-                if TRASIG.search(text):
+                trasig = bool(TRASIG.search(text))
+                if trasig:
                     rapport.setdefault('trasigt', []).append(text)
+                # en egen rad: sammanfattningen, startkontrollen och dashboarden räknar den (granskningen av r86, M2)
+                rapport.setdefault('rader', []).append({'id': 'avbrutet-intag:' + paket, 'namn': 'Avbrutet intag (%s)' % paket, 'grupp': 'underhåll',
+                                                        'resultat': 'fel' if trasig else ('ok' if 'lagades' in text else 'behallen'),
+                                                        'detalj': text})
 
 
 def steg_pythonlas(k, rapport):

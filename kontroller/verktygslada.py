@@ -610,8 +610,9 @@ def inv_globala(k):
         r['kandidater'] = kandidater_for(inst, info)
         spar = Path(rot).parent / ('.nwp-spar-' + re.sub(r'[^\w.-]+', '_', paket)) if rot else None
         if not inst and spar and (spar / Path(paket).name / 'package.json').is_file():  # ett intag som dog (granskningen av r79, C)
-            r['detalj'] = ('det installerade trädet saknas efter ett avbrutet intag; klonen ligger i %s och underhållet lägger '
-                           'tillbaka den' % spar)
+            r['detalj'] = ('det installerade trädet saknas efter ett avbrutet intag; klonen ligger i %s, och underhållet lägger '
+                           'tillbaka den när ingen npm-installation pågår och inget annat ligger kvar (annars redovisas det i '
+                           'underhållets rapport)' % spar)
         ut.append(r)
     return ut
 
