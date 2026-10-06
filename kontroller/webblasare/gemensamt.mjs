@@ -11,6 +11,8 @@ import { join } from 'node:path';
 
 export const VYER = { '390': { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, namn: 'mobil (emulerad, inte fysisk enhet)' },
                       '768': { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, namn: 'surfplatta (emulerad)' },
+                      // mellanbredden: en datorlayout med fasta mått kan spilla mellan brytpunkten och 1440 (ägaren 2026-10-06)
+                      '1280': { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false, namn: 'dator, mellanbredd' },
                       '1440': { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false, namn: 'dator' },
                       '320': { viewport: { width: 320, height: 640 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, namn: 'reflow 320 px (WCAG 1.4.10)' } };
 const HEMLIGA_NAMN = /^(authorization|cookie|set-cookie|x-vercel-protection-bypass|x-vercel-set-bypass-cookie|proxy-authorization)$/i;
@@ -375,7 +377,7 @@ export function webkitVy(vy) {
 export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga = [], spar = null, extra = {}, mal = null, lasande = true, skrivbara = [], motor = 'chromium' }) {
   const malUrsprung = mal ? origin(mal) : (tillat.length ? origin(tillat[0]) : null);
   if (!['chromium', 'webkit'].includes(motor)) throw new Error('okänd motor: ' + motor + ' (chromium, webkit)');
-  const v = motor === 'webkit' ? webkitVy(vy) : VYER[vy]; if (!v) throw new Error('okänd vy: ' + vy + ' (390, 768, 1440, 320)');
+  const v = motor === 'webkit' ? webkitVy(vy) : VYER[vy]; if (!v) throw new Error('okänd vy: ' + vy + ' (' + Object.keys(VYER).join(', ') + ')');
   const red = redigerare([undantag, ...hemliga].filter(Boolean));
   const logg = { konsol: [], natverk: [], blockerade: [], dialoger: [], sidfel: [], omdirigeringar: [] };
   const policy = natpolicy();

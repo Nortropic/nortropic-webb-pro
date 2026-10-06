@@ -197,14 +197,72 @@ def varvordning(session_id, slug, referens=(), src=None):
     return {'verifierad': True, 'varv': ut, 'transkript': t.name}
 
 
+METODFIL = re.compile(r'(?:^|/)(METOD-[a-z]+(?:-varv|-text|-uppslag)?)(?:-\d+)?\.md$')  # kontroller/metod.py, leverera
+METODRUBRIK = re.compile(r'^### (\S+) · (rad \d+–\d+(?:, rad \d+–\d+)*) · sha ([0-9a-f]{12})( \(fortsättning\))?$', re.M)
+
+
+def _fil(v):
+    """En läst väg som fil: relativt roten, eller absolut."""
+    return Path(v) if Path(v).is_absolute() else ROOT / v
+
+
+def _stam(v):
+    """Metodfilens del utan löpnummer (METOD-skiss för METOD-skiss.md och METOD-skiss-2.md), eller None."""
+    m = METODFIL.search(str(v))
+    return m.group(1) if m else None
+
+
+def levererade_hela(metodfiler, krav):
+    """De krävda filer som en levererad metodfil (kontroller/metod.py, METOD-<steg>….md) bär hela, och när: rubriken
+    "### <väg> · rad a–b · sha <12 tecken>" med samma sha som filen har nu och rader som täcker hela filen, i en metodfil
+    som sessionen läst hel. Ett block som fortsätter i nästa fil av samma del (rubriken med "(fortsättning)") räknas först
+    när varje sådan fil också lästs hel. metodfiler: {läst väg: händelsens index när filen var läst hel}; ger {krav:
+    index}. Granskningen 2026-10-06: kvittot räknade kunskap/bild.md som oläst fast hela filen stod i METOD-skiss.md."""
+    import hashlib
+    import metod
+    ut, texter = {}, {}
+
+    def text(s):
+        if s not in texter:
+            try:
+                texter[s] = _fil(s).read_text(encoding='utf-8')
+            except OSError:
+                texter[s] = ''
+        return texter[s]
+
+    for f in metodfiler:
+        stam = _stam(f)
+        syskon = [s for s in (utan_punkt(relativ(str(x))) for x in sorted(_fil(f).parent.glob(stam + '*.md'))) if s != f and _stam(s) == stam]
+        for m in METODRUBRIK.finditer(text(f)):
+            if m.group(4):
+                continue  # en fortsättning räknas med blockets början
+            try:
+                k = metod.kalla(m.group(1)).relative_to(metod.ROOT).as_posix()  # en skills väg står utan .claude/skills/
+                innehall = (ROOT / k).read_text(encoding='utf-8')
+            except (OSError, ValueError):
+                continue
+            tackt = set()
+            for a, b in re.findall(r'rad (\d+)–(\d+)', m.group(2)):
+                tackt.update(range(int(a), int(b) + 1))
+            if k not in krav or not tackt >= set(range(1, len(innehall.splitlines()) + 1)) \
+                    or hashlib.sha256(innehall.encode('utf-8')).hexdigest()[:12] != m.group(3):
+                continue
+            delar = [f] + [s for s in syskon if m.group(0) + ' (fortsättning)' in text(s).splitlines()]
+            if all(s in metodfiler for s in delar):
+                i = max(metodfiler[s] for s in delar)
+                ut[k] = min(ut.get(k, i), i)
+    return ut
+
+
 def metodlasning(session_id, filer, skills=(), skrivprefix=None):
     """Metodkvittot (Codex 2026-10-05, glapp 2: prototypens skapare läste inga designskills): vilka av metodfilerna
     sessionen läste med Read och vilka skills den anropade med Skill, och om det skedde före första skrivningen under
     skrivprefix (en väg relativt roten, till exempel kunder/<slug>/sajt/src/). En skill räknas också som läst när dess
     SKILL.md lästes. Ett Read vars svar var ett fel räknas inte, och en fil räknas som läst först när läsningarna täckt
     alla dess rader (ett Read utan offset och limit täcker 2 000 rader); en fil som bara lästs i delar står i 'delvis'
-    (granskning 2, N5). Ger {'verifierad', 'fore': [...], 'efter': [...], 'saknas': [...], 'delvis': [...],
-    'skill_anrop': [...]}; saknas omfattar de delvis lästa."""
+    (granskning 2, N5). En fil som en helt läst metodfil bär hel, med samma sha, räknas som läst när metodfilen lästs
+    (levererade_hela); de som bara lästs så står också i 'via_metod'. Ger {'verifierad', 'fore': [...], 'efter': [...], 'saknas': [...],
+    'delvis': [...], 'via_metod': [...], 'skill_anrop': [...]}; saknas omfattar de delvis lästa."""
     t = transkript(session_id)
     if t is None:
         return {'verifierad': False, 'skal': 'transkriptet saknas'}
@@ -217,7 +275,7 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
             radantal[k] = len((ROOT / k).read_text(encoding='utf-8', errors='replace').splitlines())
         except OSError:
             radantal[k] = None
-    forsta, sedda, anrop, tackt = None, {}, [], {}
+    forsta, sedda, anrop, tackt, metodhel, metodrader = None, {}, [], {}, {}, {}
     for i, x in enumerate(h):
         if x[0] != 'anrop':
             continue
@@ -234,13 +292,25 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
             hel = (not x[3].get('offset') and not x[3].get('limit')) if total is None else all(r in tackt[v] for r in range(1, total + 1))
             if hel:
                 sedda.setdefault(v, i)
+            if _stam(v):  # en levererad metodfil: hel när alla dess rader lästs (levererade_hela)
+                if v not in metodrader:
+                    try:
+                        metodrader[v] = len(_fil(v).read_text(encoding='utf-8', errors='replace').splitlines())
+                    except OSError:
+                        metodrader[v] = None
+                if metodrader[v] and all(r in tackt[v] for r in range(1, metodrader[v] + 1)):
+                    metodhel.setdefault(v, i)
         elif x[2] == 'Skill' and isinstance(x[3].get('skill'), str):
             anrop.append(x[3]['skill'])
             sedda.setdefault('.claude/skills/%s/SKILL.md' % x[3]['skill'].split(':')[-1], i)
+    via, direkt = (levererade_hela(metodhel, set(krav)) if metodhel else {}), set(sedda)
+    for k, i in via.items():
+        sedda[k] = min(sedda.get(k, i), i)
     fore = [k for k in krav if k in sedda and (forsta is None or sedda[k] < forsta)]
     efter = [k for k in krav if k in sedda and k not in fore]
     return {'verifierad': True, 'fore': fore, 'efter': efter, 'saknas': [k for k in krav if k not in sedda],
-            'delvis': [k for k in krav if k not in sedda and k in tackt], 'skill_anrop': anrop, 'forsta_skrivning': forsta is not None}
+            'delvis': [k for k in krav if k not in sedda and k in tackt], 'via_metod': [k for k in krav if k in via and k not in direkt],
+            'skill_anrop': anrop, 'forsta_skrivning': forsta is not None}
 
 
 def klass(v):

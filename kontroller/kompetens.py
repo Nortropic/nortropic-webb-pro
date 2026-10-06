@@ -211,10 +211,12 @@ def prompt_rader(pass_, slug, kid=None, k=None):
 def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     """Kvittot ur transkripten: kärnan som lästs hel före första ändringen (eller alls), alternativen som lästs,
     skillverktygets lyckade anrop och MCP-anropen som gav svar (ett nekat eller stoppat anrop räknas inte; granskning 4,
-    G7). Flera sessioner (ett omförsök) räknas tillsammans. Ett transkript som saknas gör kvittot ej verifierat."""
+    G7). Flera sessioner (ett omförsök) räknas tillsammans. Ett transkript som saknas gör kvittot ej verifierat. En
+    kärnfil som metodfilen levererade hel med samma sha är läst när metodfilen lästs hel (bildkedja.levererade_hela);
+    ett alternativ är valt bara när sessionen själv läste det."""
     import bildkedja
     filer, val = lasfiler(pass_, k), valbara(pass_, k)
-    lasta, fore, skill, mcp, sedda = set(), set(), [], [], 0
+    lasta, fore, skill, mcp, sedda, egna = set(), set(), [], [], 0, set()
     for s in sessioner:
         sid = s.get('session_id') if isinstance(s, dict) else s
         ml = bildkedja.metodlasning(sid, filer + val, skrivprefix=skrivprefix)
@@ -223,6 +225,7 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
         sedda += 1
         fore.update(ml.get('fore') or [])
         lasta.update((ml.get('fore') or []) + (ml.get('efter') or []))
+        egna.update(set((ml.get('fore') or []) + (ml.get('efter') or [])) - set(ml.get('via_metod') or []))
         skill += ml.get('skill_anrop') or []
         t = bildkedja.transkript(sid)
         h = bildkedja.handelser(t) if t else []
@@ -231,7 +234,7 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
             if x[0] == 'anrop' and str(x[2]).startswith('mcp__') and x[1] not in felade:
                 mcp.append(str(x[2]))
     return {'verifierad': sedda > 0, 'filer': filer, 'lasta': [f for f in filer if f in lasta], 'saknas': [f for f in filer if f not in lasta],
-            'fore_forsta_andring': [f for f in filer if f in fore], 'valda': [f for f in val if f in lasta],
+            'fore_forsta_andring': [f for f in filer if f in fore], 'valda': [f for f in val if f in egna],
             'skill_anrop': sorted(set(skill)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))}}
 
 
