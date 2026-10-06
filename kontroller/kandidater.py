@@ -80,7 +80,16 @@ MIN_VARV = 3  # arbetsregel i läget full: varvens antal är ingen kvalitetsbed�
 # skissläget (standard) och en tillfällig växel till förvalet med granskning och förbättringsrunda (läget full), för
 # jämförelse och återställning; växeln tas bort när ägaren dömt skissläget (BESLUT.md 2026-10-05, kväll)
 LAGE = 'full' if os.environ.get('NWP_KANDIDATLAGE') == 'full' else 'skiss'  # bara skiss och full (granskning 3, S13)
-FRIST_SKISS = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS') or 1800)  # ett inledande skaparförsök, verktygsväntan inräknad
+FRIST_SKISS = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS') or 2700)  # ett inledande skaparförsök, verktygsväntan, granskaren och svaret inräknade
+# den kritiska granskaren i skissförsöket (ägarens uppdrag 2026-10-06, punkt 6): tiden som hålls för granskaren och
+# skaparens svar, granskarens egen gräns, och NWP_SKISSKRITIK=av stänger av den
+SKISSKRITIK_RESERV = int(os.environ.get('NWP_KANDIDAT_SKISSKRITIK_RESERV') or 900)
+FRIST_SKISSKRITIK = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISSKRITIK') or 480)
+SKISSKRITIK_SCHEMA = {
+    'type': 'object', 'additionalProperties': False, 'required': ['storsta_problem', 'synliga_problem', 'generiskt', 'rekommendation', 'motivering'],
+    'properties': {'storsta_problem': {'type': 'string'}, 'synliga_problem': {'type': 'array', 'maxItems': 8, 'items': {'type': 'string'}},
+                   'generiskt': {'type': 'boolean'}, 'rekommendation': {'type': 'string', 'enum': ['fortsätt', 'byt komposition', 'förkasta riktningen']},
+                   'motivering': {'type': 'string'}}}
 FRIST_SKISS_OMFORSOK = int(os.environ.get('NWP_KANDIDAT_FRIST_OMFORSOK') or 900)  # ett omförsök efter ett identifierat tekniskt fel
 FRIST_SKISS_FORSKA = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS_FORSKA') or 1200)
 MAX_FORSOK_SKISS = 2  # det inledande försöket och ett omförsök (tekniskt fel eller avbrott); ingen förlängning för antalets skull
@@ -502,6 +511,10 @@ FORSKA_SCHEMA = {
 FORSKA_SCHEMA_SKISS = json.loads(json.dumps(FORSKA_SCHEMA))  # skissläget: nytt bara där materialet saknar något
 FORSKA_SCHEMA_SKISS['properties']['fragor'].update(minItems=0, maxItems=6)
 FORSKA_SCHEMA_SKISS['properties']['sajter']['maxItems'] = 4
+# skissläget med flera förslag: hela bredden när materialet inte räcker för skilda grundidéer, men inga anrop för
+# antalets skull (ägarens uppdrag 2026-10-06, punkt 3)
+FORSKA_SCHEMA_SKISS_BRED = json.loads(json.dumps(FORSKA_SCHEMA))
+FORSKA_SCHEMA_SKISS_BRED['properties']['fragor']['minItems'] = 0
 
 
 def forska_prompt(slug, n, fel=None, skiss=False):
@@ -523,21 +536,26 @@ def forska_prompt(slug, n, fel=None, skiss=False):
         *historik_rader(slug), *regel_rader(), *metod_rader(slug, 'forska'), '',
         *research_rader(slug), '',
         *(['Återanvänd researchen som finns (referenspaketet och tjänsternas rapport ovan). Föreslå sajter och frågor bara',
-           'där materialet saknar något som planen behöver för %s: högst 4 sajter och 6 frågor, annars tomma' % (
-               'den bärande riktningen' if n == 1 else 'skilda grundidéer'),
-           'listor. Varje hämtning förlänger ägarens väntan.', ''] if skiss else []),
+           'där materialet saknar något som planen behöver för den bärande riktningen: högst 4 sajter och 6 frågor, annars tomma',
+           'listor. Varje hämtning förlänger ägarens väntan.', ''] if skiss and n == 1 else
+          ['Återanvänd researchen som finns där den passar (referenspaketet och tjänsternas rapport ovan), och sök nytt där',
+           'den inte räcker för skilda grundidéer: både Refero och Mobbin. Gör inga anrop bara för antalets skull.', ''] if skiss else []),
+        'Sök först utifrån kunden, besökarnas behov och olika möjliga uttryck, inte efter en redan bestämd lösning: frågorna och',
+        'riktningarna beskriver verksamheten, besökarens uppgift och ett estetiskt territorium, aldrig formen (inga typsnittsantal,',
+        'vikter, färgförbud, linjer eller layout i en fråga; ägarens uppdrag 2026-10-06). Mätvärdena i EXTRAKT.md är stickprov:',
+        'typsnitt, kontraster och bildskala bedöms i bilderna.', '',
         'Svara med tre delar:',
         '- antaganden: 3–6 antaganden om besökarna som kan ändra designbesluten, ur briefens målgrupper, toppuppgifter och',
         '  insiktskällor (BRIEF.md §2 och "Antaganden som behöver bekräftas"). För vart och ett: vilket underlag som stöder det',
         '  (eller "ännu inte observerat"), hur det prövas (en uppgift som beskriver besökarens mål utan att avslöja knappen, eller',
         '  befintliga data), och vad vi ändrar om det inte stämmer. Exempel: besökaren behöver bedöma tidigare arbeten före kontakt.',
         '- fragor: %d–%d frågor till Refero och Mobbin, på engelska, var och en högst %d tecken (fraga och syfte), utan' % (
-            ((0, 6) if skiss else (4, skapande.MAX_FRAGOR_BRED)) + (skapande.MAX_FRAGA,)),
+            ((0, 6) if skiss and n == 1 else (0, skapande.MAX_FRAGOR_BRED) if skiss else (4, skapande.MAX_FRAGOR_BRED)) + (skapande.MAX_FRAGA,)),
         '  adresser, kundens namn, orter eller andra uppgifter ur underlaget, och utan långa sifferföljder. Täck bredden:',
         '  Referos stilar (typ stil) i flera skilda estetiska territorier; skärmar (typ skarm) för startsidans första vy på mobil',
         '  och dator, projekt- och tjänstesidor, förtroende och kontakt; flöden (typ flode) för förfrågan och projektgenomgång;',
         '  Mobbins sektioner, skärmar och flöden.',
-        '- sajter: högst %d riktiga sajter att fånga (namn a-z0-9-, adress https://värd/ med små bokstäver, roll bransch,' % (4 if skiss else skapande.MAX_KANDIDATER_BRED),
+        '- sajter: högst %d riktiga sajter att fånga (namn a-z0-9-, adress https://värd/ med små bokstäver, roll bransch,' % (4 if skiss and n == 1 else skapande.MAX_KANDIDATER_BRED),
         '  hantverk eller ux, varför, högst %d sidvägar). Välj sajter som paketet inte redan har, eller skriv varför en' % skapande.MAX_SIDOR_PER,
         '  befintlig behöver fler sidor; en referens som en förkastad riktning redan byggt på väljs bara med ett skäl som svarar',
         '  på kritiken. Domäner med å, ä eller ö skrivs i punycode.',
@@ -561,7 +579,7 @@ def forska(slug, n, skiss=False):
     fel, plan, res, slappta = None, {}, {}, []
     for forsok in (1, 2):
         svar = atelje.session(forska_prompt(slug, n, fel, skiss), LASVERKTYG, r / ('svar-forska-%d.json' % forsok),
-                              FORSKA_SCHEMA_SKISS if skiss else FORSKA_SCHEMA, 150, atelje.MODELL,
+                              (FORSKA_SCHEMA_SKISS if n == 1 else FORSKA_SCHEMA_SKISS_BRED) if skiss else FORSKA_SCHEMA, 150, atelje.MODELL,
                               EFFORT_SKISS if skiss else atelje.EFFORT, FRIST_SKISS_FORSKA if skiss else FRIST_FORSKA, slug=slug)
         plan = svar.get('structured_output') or {}
         sajter, fragor, slappta = [], [], []
@@ -639,7 +657,7 @@ PLANFALT = (('titel', None), ('hypotes', 'Hypotesen: varför lösningen passar v
             ('bilder', 'Bildstrategin: bildernas uppgifter, storlekar och beskärning'), ('typografi', 'Typografiskt system'),
             ('farg', 'Färgernas funktion'), ('navigation', 'Navigation och interaktioner'), ('huvudreferens', 'Huvudreferens'),
             ('refero_stil', 'Referos stil för huvudreferensen'), ('mobbin_fraga', 'Mobbins sökfras för besökarens uppgift'),
-            ('referens_kvalitet', 'Kvaliteten i referensen som återskapas'), ('referens_kraver', 'Vad den kvaliteten kräver'),
+            ('referens_kvalitet', 'Kvaliteten i referensen som prövas'), ('referens_kraver', 'Vad den kvaliteten kräver'),
             ('material_mot_referens', 'Kundens material mot det referensen kräver'),
             ('antaganden', 'Antagandena om besökarna som uppdraget vilar på'), ('undersida', 'Undersidan eller tillståndet'),
             ('material', 'Material'), ('skillnad', 'Hur den skiljer sig från de andra'), ('fynd', 'Researchens fynd som formade uppdraget'))
@@ -658,7 +676,8 @@ def material_rader(slug):
     u = atelje.UNDERLAG / slug
     return ['Kundens egna bilder (%d st; beskrivning, projekt och kvalitet i %s). Välj och beskär efter bildens uppgift: resultat,' % (
                 len(bilder), rel(u / 'bilder' / 'BILDER.md')),
-            'detaljkvalitet, arbetsprocess eller personen bakom företaget. Ett foto som inte bär en stor yta får en mindre.',
+            'detaljkvalitet, arbetsprocess eller personen bakom företaget. Bildens storlek avgörs i renderingen efter vad bilden',
+            'bär och vad riktningen behöver; en stor bild är inget fel i sig.',
             'Bilder som visar verksamheten (arbeten, personer, lokaler, resultat) är bara dess egna; illustrativt material som inte',
             'utger sig för att dokumentera den (licensierade illustrationer, texturer, konceptbilder, form i koden) får användas med',
             'källa i BILDER.md eller DESIGN.md (kunskap/bild.md). Saknas material som riktningen kräver: skriv behovet under',
@@ -732,9 +751,18 @@ def plan_prompt(slug, n, skiss=False):
         'vad som bär sidan; bildstrategin; det typografiska systemet; navigationen; hur förtroende byggs; färgernas funktion.',
         'Det är verktyg för att upptäcka falsk variation, ingen checklista där allt måste bytas. Tio färgvarianter av samma',
         'struktur är inga tio riktningar, och inget uppdrag får vara avsiktligt svagt.']),
+        'Planen formulerar idén och vad den ska pröva, före någon rendering. Formfälten (det som möter besökaren först, sektionen,',
+        'det som bär sidan, ordningen, förtroendet, bilderna, typografin, färgen och navigationen) anger avsikt och skäl, aldrig',
+        'exakta värden: inga typsnittsnamn som krav, vikter, färgkoder, pixelmått, koordinater, bildmått eller antal rader och',
+        'sektioner. Skaparen avgör dem i renderingen och får byta ett förslag när bilderna visar att det inte bär (ägarens uppdrag',
+        '2026-10-06: en font, en vikt, inga accentfärger, små bilder eller en viss standardlayout är inga krav). Skillnaden mot',
+        'en förkastad riktning är en ny grundidé; inget enskilt drag är förbjudet. Ägarens tabell med grundidéer i den senaste',
+        'domen är en utgångspunkt där den bär, ingen mall: uppdragen får följa, kombinera eller ersätta den med skäl.',
         'Huvudreferensen per uppdrag är en namngiven sajt eller skärm ur researchen (referenspaketet eller tjänsternas fynd),',
         'som får vara utgångspunkt för layout, palett och typografi (ägarens beslut); dess identitet, texter och bilder blir',
-        'aldrig kundens innehåll. Skriv vilken kvalitet i referensen uppdraget ska återskapa, vad den kvaliteten kräver (till',
+        'aldrig kundens innehåll. Den är ett förslag: skaparen får byta, kombinera eller avstå från den med skäl. Skriv vilka',
+        'observerbara egenskaper som bär referensens kvalitet (komposition, skala, kontraster, rytm, bildregi, typografi,',
+        'detaljer) och som uppdraget prövar att föra över, vad den kvaliteten kräver (till',
         'exempel stora arkitekturfoton, korta rubriker, få produkter), och om kundens faktiska material uppfyller det (små',
         'arbetsbilder, långa svenska rubriker och många tjänster ändrar förutsättningarna); när det inte gör det, hur uppdraget',
         'anpassas (kunskap/bild.md, art direction) och vad som beställs. Ange 1–4 referensbilder (sökvägar under',
@@ -756,13 +784,27 @@ def plan_prompt(slug, n, skiss=False):
         'Svara med uppdragen i schemat.', atelje.MATERIAL])
 
 
+# planens formförslag: skaparen får ompröva dem när renderingen visar något bättre (ägarens uppdrag 2026-10-06, punkt 1)
+FORMFORSLAG = ('forst', 'sektion', 'bar_sidan', 'ordning', 'fortroende', 'bilder', 'typografi', 'farg', 'navigation', 'huvudreferens',
+               'refero_stil', 'mobbin_fraga', 'referens_kvalitet', 'referens_kraver', 'material_mot_referens')
+
+
 def skriv_uppdrag(slug, kid, k, nr, totalt):
+    """UPPDRAG.md: briefen (idén, besökarens uppgift, beslutsinnehållet, prövningen, antagandena, materialet) och sedan
+    planens formförslag under en egen rubrik, som skaparen får ompröva med skäl."""
     d = kdir(slug, kid)
     atelje.saker_vag(d, rot(slug))
     d.mkdir(parents=True, exist_ok=True)
     rader = ['# Uppdrag %s · %s' % (kid, k['titel']), '', 'Kandidat %d av %d i skapandeflödet (kontroller/kandidater.py, planen %s).' % (nr, totalt, nu()), '']
     for falt, rubrik in PLANFALT:
-        if rubrik:
+        if rubrik and falt not in FORMFORSLAG:
+            rader += ['## %s' % rubrik, '', str(k.get(falt) or '').strip(), '']
+    rader += ['# Förslag som du får ompröva', '',
+              'Planens förslag till form, skrivna före någon rendering. Pröva dem i bilderna och byt det som inte bär, med skälet i',
+              'RIKTNING.md: huvudreferens och riktning, berättelse och ordning, komposition, bildstorlek och beskärning, typografiska',
+              'kontraster, typsnitt och vikter, färg, detaljer, interaktion och rörelse.', '']
+    for falt, rubrik in PLANFALT:
+        if rubrik and falt in FORMFORSLAG:
             rader += ['## %s' % rubrik, '', str(k.get(falt) or '').strip(), '']
     rader += ['## Referensbilder', ''] + ['- ' + str(p) for p in k.get('referensbilder') or []] + ['']
     (d / 'UPPDRAG.md').write_text('\n'.join(rader), encoding='utf-8')
@@ -908,7 +950,21 @@ def skapar_prompt(slug, kid, kritik=None, komplettering=None, forbattra=None, er
         'har huvudreferensen, hypotesen, referensens kvalitet, det överförda och avvikelserna, varven och materialet.', atelje.MATERIAL])
 
 
-def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=30, forsok_min=None):
+def skisskritik_rader(kr):
+    """Den kritiska granskarens svar till skaparen (granskaren såg bara bilderna)."""
+    if not kr:
+        return []
+    return ['En kritisk granskare har sett dina renderade bilder (varv %s) utan din text, och skriver:' % kr.get('varv', '?'),
+            '- det största problemet: %s' % kr.get('storsta_problem', ''),
+            *['- %s' % x for x in kr.get('synliga_problem') or []],
+            '- generisk: %s; rekommendation: %s (%s)' % ('ja' if kr.get('generiskt') else 'nej', kr.get('rekommendation'), kr.get('motivering', '')),
+            'Skissen och RIKTNING.md finns redan i projektet; fortsätt därifrån. Du är den ansvariga designern och avgör:',
+            'åtgärda det största problemet; rekommenderar granskaren att byta komposition eller förkasta riktningen, gör det (en',
+            'ny komposition eller grundidé med samma fakta och material), eller skriv under rubriken "Granskningen" i RIKTNING.md',
+            'varför du står kvar. Rendera och titta igen, och uppdatera "Kvarvarande svagheter".', '']
+
+
+def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=30, forsok_min=None, kritik=None):
     """Skaparens rena arbetskontext i skissläget (ägarens uppdrag 2026-10-05 16:25Z, punkt 2 och 4): uppdraget, kundens
     verifierade fakta och material, referensbilderna, de aktuella besluten och metodens kärna med en förteckning att slå
     upp i. Historiken slås upp vid behov."""
@@ -920,14 +976,24 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
     aktuella = skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True)
     return '\n'.join([
         'Du är en av flera skapare i skapandeflödets skissomgång (kunskap/skapandeflodet.md) för en riktig verksamhet. Du gör',
-        'EN skiss, %s, enligt uppdraget %s. Andra skapare gör andra skisser med samma fakta och andra uppdrag; du ser inte' % (kid, rel(d / 'UPPDRAG.md')),
+        'EN skiss, %s, utifrån uppdraget %s. Andra skapare gör andra skisser med samma fakta och andra uppdrag; du ser inte' % (kid, rel(d / 'UPPDRAG.md')),
         'deras kod och ska inte efterlikna dem. Ägaren ser alla skisser sida vid sida och väljer vilken eller vilka som',
-        'fördjupas: din skiss ska vara ett professionellt, tydligt eget förslag som går att bedöma.', '',
+        'fördjupas: din skiss ska vara ett professionellt gestaltat, kundspecifikt förslag som ägaren vill gå vidare med.', '',
+        'Ditt mandat (ägarens uppdrag 2026-10-06): du är den ansvariga designern. Kundens verifierade fakta, besökarens uppgift,',
+        'materialet, tillgängligheten, integriteten, säkerheten, rättigheterna och kundens befintliga identitet gäller. Allt',
+        'under "Förslag som du får ompröva" i uppdraget är planens förslag, skrivna före någon rendering: du får själv ompröva',
+        'huvudreferens och visuell riktning, berättelse och informationsordning, komposition, bildstorlek och beskärning,',
+        'typografiska kontraster, typsnitt och vikter, färg, detaljer, interaktion och rörelse, med skälet i RIKTNING.md. En',
+        'font, en vikt, inga accentfärger, små bilder eller en viss standardlayout är inga krav. Ägarens tidigare domar gäller',
+        'det de uttryckligen beslutar; att något fungerade dåligt i ett förslag förbjuder det inte i ditt. Ett enklare',
+        'genomförande är ingen bättre kundanpassning: tar du bort referensens bärande kvaliteter (den stora bilden, den',
+        'typografiska kontrasten, detaljerna) ersätter du dem med något lika genomarbetat och prövar vad som återstår.', '',
         'Omfattningen: första vyn, den viktigaste innehållssektionen som uppdraget anger, navigationen och de interaktioner som',
-        'behövs för att förstå förslaget (till exempel menyn på mobilen och den primära handlingen), genomarbetat i mobil (390)',
-        'och dator (1440). Inte hela startsidan och ingen undersida: sidan slutar efter sektionen med en enkel sidfot med',
-        'kontaktvägen. Skissen visar verklig komposition, typografi, bildbehandling och innehållshierarki.', '',
+        'behövs för att förstå förslaget (till exempel menyn på mobilen och den primära handlingen), genomarbetat i mobil (390),',
+        'en mellanbredd (1280) och dator (1440). Inte hela startsidan och ingen undersida: sidan slutar efter sektionen med en',
+        'enkel sidfot med kontaktvägen. Skissen visar verklig komposition, typografi, bildbehandling och innehållshierarki.', '',
         *(['Förra försöket slutade med ett tekniskt fel: %s. Det som finns står kvar i projektet; rätta felet först.' % fel, ''] if fel else []),
+        *skisskritik_rader(kritik),
         'Ditt underlag, det du behöver läsa:',
         '- uppdraget %s: designuppdraget, besökarens viktigaste uppgift, den viktigaste sektionen, huvudreferensen och' % rel(d / 'UPPDRAG.md'),
         '  referensbilderna med vad de ska lära dig (titta på bilderna med Read);',
@@ -953,26 +1019,34 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         *(skapande.kompletteringsrader(komplettering) + [''] if komplettering else []),
         *kompetens.prompt_rader('skapa', slug, kid), '',
         'Arbetsgången:',
-        '0. Läs rollernas kärna hel (eller ladda skillen med skillverktyget) och välj bland alternativen det som passar',
-        '   riktningen. Researchens material är redan hämtat åt dig; sök kompletterande förebilder i Refero eller Mobbin när',
-        '   underlaget inte räcker för uppdragets viktigaste sektion (branschen och uppgiften, aldrig kundens uppgifter), och kör',
-        '   UI UX Pro Max-sökningen när riktningen behöver ett designsystemsförslag. Ett tomt eller misslyckat sökresultat',
-        '   skrivs som det är och räknas inte som underlag.',
-        '1. Skriv %s INNAN du bygger: överst raden `Huvudreferens: <namn> — <vad den bär i skissen>`, sedan hypotesen i en' % rel(d / 'RIKTNING.md'),
-        '   mening; rubriken "Referenslås" (refero-design: huvudreferensen, det som ska bevaras, det som lånas, rollregler för',
-        '   färger och komponenter, bildstrategin, det som väljs bort, och de tokens du binder dig till) och en kort',
-        '   beslutsliggare (beslut, källa, roll, varför); vad du lär av referensbilderna (bildens beskärning mot rubriken,',
-        '   typografins hierarki, rytmen och navigationen); rubriken "Material" med det kunden saknar; och rubriken',
-        '   "Kompetenserna" med alternativen du valde och vad varje roll ändrade i skissen, eller var en skill inte passade och',
-        '   varför. När skissen är byggd: rubriken "%s" med två korta listor, det som överförts från huvudreferensen' % OVERFORT,
-        '   och de medvetna avvikelserna med skälet (kundens material, besökarens uppgift, kvalitetskraven); ägaren ser',
-        '   huvudreferensen och skissen bredvid varandra med den texten.',
+        '0. Använd hela kompetensen: läs rollernas kärna hel (eller ladda skillen med skillverktyget) och välj bland',
+        '   alternativen det som passar riktningen, för art direction (frontend-design, impeccable new-work och bolder eller',
+        '   quieter), typografi (impeccable typeset), bilder (kunskap/bild.md), innehåll, användbarhet och kontakt (Mobbin, UI UX',
+        '   Pro Max), responsivitet och interaktion och rörelse (Emils material, med reducerad rörelse). refero-design är',
+        '   researchmetod, inte ensam designauktoritet; du avgör motstridiga råd. Researchens material är redan hämtat; öppna de',
+        '   faktiska referensbilderna med Read, och sök kompletterande förebilder i Refero eller Mobbin när underlaget inte',
+        '   räcker (branschen och uppgiften, aldrig kundens uppgifter). Ett tomt eller misslyckat sökresultat skrivs som det är',
+        '   och räknas inte som underlag.',
+        '1. Skriv %s med överst raden `Huvudreferens: <namn> — <vad den bär i skissen>` (eller `Huvudreferens: egen — …`, eller' % rel(d / 'RIKTNING.md'),
+        '   flera namn), sedan hypotesen i en mening, och rubriken "Idén" med idén och varför den passar kunden. Bygg sedan en',
+        '   första version och titta på den före rubriken "Referenslås" (refero-design: de observerbara egenskaper som bär',
+        '   referensens kvalitet, i komposition, skala, kontraster, rytm, bildregi, typografi och detaljer i mobil och dator, vad',
+        '   som lånas, vad som väljs bort och vad som ersätter det): låset skrivs efter första renderingen och får ändras. Skriv',
+        '   också en kort beslutsliggare (beslut, källa, roll, varför); rubriken "Referenser" med de faktiska referenserna (sökväg',
+        '   eller adress) och vilka bilder du öppnade; rubriken "Material" med det kunden saknar; och rubriken "Kompetenserna" med',
+        '   alternativen du valde och vilken synlig förbättring varje kompetens bidrog till, eller var en skill inte passade och',
+        '   varför (att en fil lästs är inget resultat). När skissen är byggd: rubriken "%s" med två korta listor, det som' % OVERFORT,
+        '   synligt överförts från referensen och de medvetna avvikelserna med skälet, och rubriken "Kvarvarande svagheter" med',
+        '   de viktigaste svagheterna du ser i bilderna; ägaren ser referensen och skissen bredvid varandra med den texten.',
         '2. Bygg skissen med startsidan i %s/src/pages/index.astro och komponenter, layouter och stilar i src/ där det hjälper' % s_,
-        '   (mobilen först; de låsta beroendena i kunskap/beroenden.md), och kör `%s` (tidsgräns 600000 ms). Läs med' % forhand,
-        '   Read mobilens och datorns första vy och hela sida, och jämför med referensbilderna.',
-        '3. Varje nytt varv åtgärdar en konkret brist som du ser i dina bilder eller vid jämförelsen med referensen; skriv i',
-        '   RIKTNING.md under "Varv N" bristen och åtgärden. Inget fast antal varv: sluta när du inte ser någon brist som går',
-        '   att åtgärda inom tiden.',
+        '   (mobilen först; de låsta beroendena i kunskap/beroenden.md), och kör `%s --mellan` (tidsgräns 600000 ms). Läs med' % forhand,
+        '   Read mobilens, mellanbreddens och datorns första vy och hela sida, och jämför med referensen i samma bredd och med',
+        '   motsvarande del av sidan. Rendera tidigt.',
+        '3. Första varvet efter renderingen prövar grunden: bär kompositionen, hierarkin, bildvalet och rytmen, och syns kundens',
+        '   särprägel, eller kan samma form användas av nästan vilken hantverkare som helst? Känns riktningen generisk byter du',
+        '   grundidé, referens eller komposition (med skälet), i stället för att finjustera en svag struktur. Därefter åtgärdar',
+        '   varje varv det största visuella problemet du ser i bilderna; skriv i RIKTNING.md under "Varv N" problemet och',
+        '   åtgärden. Inget fast antal varv: sluta när du inte ser något problem som går att åtgärda inom tiden.',
         'Tiden: högst %d minuter för din session, bygg- och verktygstid inräknad (försöket högst %d minuter med fotograferingen' % (
             minuter, forsok_min or minuter),
         'efter); sedan stoppas sessionen. Ha en renderad',
@@ -982,8 +1056,9 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         *(['Saknar referensmaterialet något som skissen behöver: skriv %s i formatet %s, och avsluta;' % (
             rel(d / skapande.KOMPLETTERING), skapande.KOMPLETTERINGSFORMAT),
            'orkestratorn hämtar det och startar en ny session med resultatet, inom samma tid (högst en gång per kandidat).'] if erbjud else []), '',
-        'Du är klar när skissen är byggd och renderad i 390 och 1440, du har tittat på bilderna, och RIKTNING.md har',
-        'huvudreferensen, referenslåset, hypotesen, det överförda och avvikelserna, varven, materialet och kompetensernas arbete.',
+        'Du är klar när skissen är byggd och renderad i 390, 1280 och 1440, du har tittat på bilderna, och RIKTNING.md har',
+        'huvudreferensen, idén, referenserna, referenslåset, hypotesen, det överförda och avvikelserna, de kvarvarande',
+        'svagheterna, varven, materialet och kompetensernas synliga bidrag.',
         'Ingen annan session ändrar',
         'skissen före ägarens val.', atelje.MATERIAL])
 
@@ -1085,6 +1160,43 @@ def arkivera_forsok(slug, kid, st):
     return mal
 
 
+def skisskritik(slug, kid):
+    """Den kritiska granskaren i skissförsöket (ägarens uppdrag 2026-10-06, punkt 6): en egen session som ser skaparens
+    senaste renderade bilder (390, 1280 och 1440, första vyn och hela sidan) och besökarens uppgift, aldrig skaparens text
+    (den nekas), beskriver de synliga problemen och kan rekommendera att riktningen förkastas. Rådgivande: skaparen avgör.
+    Ger svaret (sparat i SKISSKRITIK.json), eller None när skaparen inte har renderat."""
+    d = kdir(slug, kid)
+    v = varvnummer(slug, kid)
+    if not v:
+        return None
+    vd = d / 'varv' / 'start' / ('varv-%02d' % v[-1])
+    bilder = [p for p in (vd / ('vy-%s-%s.png' % (b_, s_)) for b_ in ('390', '1280', '1440') for s_ in ('forsta', 'hela')) if p.is_file()]
+    if not bilder:
+        return None
+    uppgift = str(((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid, {}).get('uppgift') or '').strip()
+    brief = atelje.UNDERLAG / slug / 'BRIEF.md'
+    blind = nekas_utom(d, ('varv',)) + nekas_utom(rot(slug), ('kandidater', 'metod')) + andra_nekas(slug, kid)
+    prompt = '\n'.join([
+        'Du är en kritisk granskare av en designskiss åt en riktig verksamhet, inom skaparens arbete. Du ser bara de renderade',
+        'bilderna, aldrig skaparens motivering (den nekas dig). Titta på varje bild med Read:', *['- ' + rel(p) for p in bilder],
+        'Besökarens viktigaste uppgift: %s Besökarnas uppgifter och den primära handlingen står i %s.' % (uppgift or '(se briefen).', rel(brief)), '',
+        *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
+        'Bedöm det en besökare ser, i mobil, mellanbredd och dator var för sig: första vyns huvudkomposition, hierarkin, bildval',
+        'och bildskala, rytmen, de typografiska kontrasterna, och om sidan har kundens särprägel eller om samma form kunde',
+        'användas av nästan vilken lokal hantverkare som helst (generisk). Beskriv de synliga problemen konkret (var, i vilken',
+        'bredd, vad), det största först, och rekommendera: fortsätt (riktningen bär; åtgärda problemen), byt komposition (idén',
+        'bär men formen gör det inte) eller förkasta riktningen (den är generisk eller bär inte kundens substans). Skriv vad du',
+        'ser, inga allmänna formregler; skaparen avgör åtgärden.', atelje.MATERIAL])
+    ut = d / ('svar-skisskritik-%d.json' % (len(list(d.glob('svar-skisskritik-*.json'))) + 1))
+    svar = atelje.session(prompt, LASVERKTYG, ut, SKISSKRITIK_SCHEMA, 60, GRANSKARE_MODELL, 'high', FRIST_SKISSKRITIK, nekas=blind, slug=slug)
+    so = svar.get('structured_output')
+    if not isinstance(so, dict) or not so.get('rekommendation'):
+        return None
+    post = dict(so, tid=nu(), varv=v[-1], bilder=[rel(p) for p in bilder], svar=ut.name)
+    (d / 'SKISSKRITIK.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return post
+
+
 def skissa(slug, kid, fel=None):
     """Ett skaparförsök i skissläget: en session (och en till efter en begärd komplettering) inom försökets tid, räknad
     från försökets start med verktygsväntan inräknad, sedan fotografering och de snabba kontrollerna. fel: ett omförsök
@@ -1100,8 +1212,11 @@ def skissa(slug, kid, fel=None):
     d = kdir(slug, kid)
     res, sessioner, sessionsfel = None, [], []
     kompletterad = bool(st.get('kompletterad'))
+    # den kritiska granskaren och skaparens svar (ägarens uppdrag 2026-10-06, punkt 6): inte i ett omförsök efter ett
+    # tekniskt fel, och den första sessionen lämnar tiden för dem
+    granskas = not fel and os.environ.get('NWP_SKISSKRITIK') != 'av' and not st.get('skisskritik')
     for k in range(2):
-        kvar = int(frist - FOTO_RESERV - (time.monotonic() - start))  # fotograferingen efter sessionen ryms i försökets tid
+        kvar = int(frist - FOTO_RESERV - (time.monotonic() - start) - (SKISSKRITIK_RESERV if granskas else 0))
         if kvar < 120:
             break
         ut = d / ('svar-skiss-%d%s.json' % (forsok, '-%d' % k if k else ''))
@@ -1130,6 +1245,35 @@ def skissa(slug, kid, fel=None):
                                    forbjudna=skapande.forbjudna_termer(slug, atelje.UNDERLAG), las_frist=max(0, kvar - 600))
         kompletterad = True
         satt_status(slug, kid, 'under_arbete', 'research på begäran gjord; ny session med resultatet', kompletterad=True)
+    if granskas and not atelje.STOPP.is_set():
+        kvar = int(frist - FOTO_RESERV - (time.monotonic() - start))
+        kr, kr_fel = None, None
+        if kvar >= 300:
+            satt_status(slug, kid, 'under_arbete', 'den kritiska granskaren ser bilderna')
+            try:
+                kr = skisskritik(slug, kid)
+            except (RuntimeError, subprocess.TimeoutExpired) as e:  # granskaren är rådgivande: skissen går vidare utan den
+                kr_fel = '%s: %s' % (type(e).__name__, str(e)[:200])
+        kvar = int(frist - FOTO_RESERV - (time.monotonic() - start))
+        satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen' if kr and kvar >= 180 else 'granskningen gjordes inte' if not kr else
+                    'ingen tid kvar för ett svar', skisskritik={'tid': nu(), 'rekommendation': (kr or {}).get('rekommendation'),
+                                                                 'storsta_problem': (kr or {}).get('storsta_problem'), 'fel': kr_fel,
+                                                                 'gjord': bool(kr), 'tid_kvar': kvar})
+        if kr and kvar >= 180:
+            ut = d / ('svar-skiss-%d-granskning.json' % forsok)
+            try:
+                svar = atelje.session(skiss_prompt(slug, kid, None, None, erbjud=False, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60, kritik=kr),
+                                      verktyg(slug, kid, komplettering=False) + kompetens.verktyg('skapa', slug, kid), ut,
+                                      max_turer=400, effort=EFFORT_SKISS, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
+                                      vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen', session_pid=pid))
+            except subprocess.TimeoutExpired:
+                svar = {'avbruten': 'försökets tid (%d min) tog slut' % (frist // 60), 'tidsgrans': True}
+            except RuntimeError as e:
+                svar = {'avbruten': 'RuntimeError: %s' % str(e)[:300]}
+                sessionsfel.append(str(e)[:200])
+            sessioner.append({'svar': ut.name, **{x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd', 'avbruten')}})
+            if atelje.STOPP.is_set():
+                raise atelje.Stoppad('försöket avbröts av stoppet')
     tidigare = las_status(slug, kid)
     satt_status(slug, kid, 'under_arbete', 'fotograferas', sessioner=(tidigare.get('sessioner') or []) + sessioner)
     st = fotografera(slug, kid, skiss=True)
@@ -1375,10 +1519,12 @@ def planprovning(slug):
     prompt = '\n'.join([
         'Du är specialisterna för art direction och UX i skapandeflödet (kunskap/skapandeflodet.md) för en riktig verksamhet.',
         'Planeraren har skrivit %d uppdrag; varje uppdrag går sedan till en egen skapare. Pröva planerarens designval i varje' % len(ids),
-        'uppdrag mot kunden, kundens material och referenserna, innan någon bygger: bär riktningen, är typografin, bildstrategin,',
-        'navigationen och förtroendet genomtänkta för just den idén, och %s' % (
-            'bär uppdraget huvudreferensens kvalitet med kundens faktiska material?' if len(ids) == 1 else
-            'skiljer sig uppdragen verkligen i hur informationen ordnas?'),
+        'uppdrag mot kunden, kundens material och referenserna, innan någon bygger: bär grundkompositionen och berättelsen för',
+        'just den idén, och vilken annan komposition vore starkare? Är typografin, bildstrategin, navigationen och förtroendet',
+        'genomtänkta, och %s Pröva inte trohet mot referensen, och lägg aldrig till exakta mått, typsnittsnamn eller' % (
+            'kan kundens faktiska material bära referensens kvalitet?' if len(ids) == 1 else
+            'skiljer sig uppdragen verkligen i komposition, berättelse, bildanvändning och uttryck?'),
+        'färgkoder: formfälten anger avsikt, och skaparen avgör värdena i renderingen.',
         'Ändra ett fält bara när kompetensen kräver det, och skriv då fältets nya hela text; annars säg i bedömningen',
         'varför valen håller. Titel, hypotes och huvudreferens är låsta (titeln och hypotesen visas för ägaren före det blinda',
         'valet och nämner ingen referens eller sajt vid namn), liksom Referos stil och Mobbins sökfras (materialet är redan',

@@ -13,7 +13,8 @@ Bygger kunder/<slug>/sajt (npm run build innanför processgränsen, kontroller/p
 typografi, färger, rytm och bilder (EXTRAKT.md). Bilderna hamnar i underlag/<slug>/forhand/<sida>/varv-NN/ (sidan
 "start" för /, annars vägen med bindestreck; nästa lediga nummer), så att prototypens och ateljéns varv hålls isär.
 Med --kandidat byggs och fotograferas kandidatens eget projekt (kunder/<slug>/kandidater/<id>/sajt), och varven hamnar
-hos kandidaten (underlag/<slug>/atelje/kandidater/<id>/varv/<sida>/varv-NN/). --mellan tar också mellanbredden 768.
+hos kandidaten (underlag/<slug>/atelje/kandidater/<id>/varv/<sida>/varv-NN/). --mellan tar också mellanbredderna 768 och
+1280 (ägarens uppdrag 2026-10-06: pröva mellanbredder).
 Skriver ut vägarna att läsa med Read, mobil först, och konsolfel och sidled-spill. Ändrar ingenting i sajten.
 
 Interaktionsvägen (Codex via ägaren 2026-10-05, punkt 9; granskning 4, G10): --tillstand prövar tangentbordet (steg och
@@ -100,7 +101,7 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
     ut.mkdir(parents=True, exist_ok=True)
     insp = str(prova.KONTROLLER / 'webblasare' / 'inspektera.mjs')
     with prova.Server(sajt / 'dist') as srv:
-        rc, out = prova.kor([prova.NODE, insp, '--adress', srv.url + sida, '--ut', str(ut), '--vyer', '390,768,1440' if mellan else '390,1440',
+        rc, out = prova.kor([prova.NODE, insp, '--adress', srv.url + sida, '--ut', str(ut), '--vyer', '390,768,1280,1440' if mellan else '390,1440',
                              '--tillstand', ','.join(tillstand) or 'inga', '--extrahera', 'standard']
                             + sum((['--%s' % n, v] for n, v in (('meny', meny), ('hover', hover), ('fokus', fokus)) if v), []), timeout=420)
     saknas = [n for n in LAS if not (ut / n).is_file()]
@@ -136,7 +137,8 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
              'Läs med Read, i den här ordningen: mobilens första vy, mobilens hela sida, datorns första vy, datorns hela sida.',
              '(Ge kommandot tidsgränsen 600000 ms: bygget och fotograferingen tar en till två minuter.)',
              *['- ' + rel(ut / n) for n in LAS],
-             *(['Mellanbredden 768: ' + rel(ut / 'vy-768-forsta.png') + ' och ' + rel(ut / 'vy-768-hela.png')] if mellan else []),
+             *(['Mellanbredderna 768 och 1280 (en dator som är smalare än 1440): ' + ', '.join(rel(ut / ('vy-%s-%s.png' % (v, n))) for v in ('768', '1280')
+                                                                                             for n in ('forsta', 'hela'))] if mellan else []),
              'Skärmhöga rutor uppifrån och ned (läs dem för detaljerna): ' + (', '.join(rutor) or 'inga'),
              'Mätningen (typografi, färger, rytm, bilder och beskärning): ' + rel(ut / 'EXTRAKT.md'),
              'Konsolfel: ' + ('; '.join(fel[:5]) if fel else 'inga'),
@@ -151,7 +153,7 @@ def main(argv=None):
     p.add_argument('slug')
     p.add_argument('--sida', default='/')
     p.add_argument('--kandidat', default=None, help='en kandidats eget projekt i skapandeflödet (k01–k12)')
-    p.add_argument('--mellan', action='store_true', help='också mellanbredden 768')
+    p.add_argument('--mellan', action='store_true', help='också mellanbredderna 768 och 1280')
     p.add_argument('--bara-bygg', action='store_true', help='bygg sajten innanför processgränsen utan att fotografera')
     p.add_argument('--tillstand', default='', help='interaktionsvägen: tangentbord, reflow, reducerad (kommaseparerat)')
     p.add_argument('--meny', help='CSS-väljare för menyns knapp: klickas och fotograferas')

@@ -95,7 +95,9 @@ def prompt_for(tjanst, fragor, bransch):
     rader = ['Du prövar och använder referenstjänsten %s via MCP åt ett webbplatsbygge för en lokal verksamhet i branschen: %s.' % (tjanst.capitalize(), bransch or 'okänd'),
              'Skicka aldrig kundens namn, ort, telefonnummer eller andra uppgifter i någon parameter (task_intent, sökfrågor);',
              'task_intent beskriver bara branschen och vad sökningen ska ge.',
-             'Gör varje sökning nedan på riktigt med tjänstens verktyg, och hämta för de bästa träffarna (högst %d sammanlagt) skärmbilden:' % MAX_TRAFFAR]
+             'Gör varje sökning nedan på riktigt med tjänstens verktyg, och hämta för de bästa träffarna (högst %d sammanlagt) skärmbilden.' % MAX_TRAFFAR,
+             'De bästa är de som visar mest om uppgiften och uttrycket, inte de som liknar frågans ordalydelse mest; olika lösningar',
+             'på samma uppgift är värda mer än många lika:']
     for f in fragor:
         rader.append('- [%s] %s%s' % (f.get('typ', 'skarm'), f['fraga'], (' (syfte: %s)' % f['syfte']) if f['syfte'] else ''))
     if tjanst == 'refero':

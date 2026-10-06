@@ -46,27 +46,34 @@ förberedda och låsta ur mallen (`kunskap/beroenden.md`); git, npm, npx och nod
   Kontaktuppgifter går att markera och kopiera. Hela listor (priser, tjänster) är tillåtna när besökaren frågar efter
   dem, och inget göms i sidled utan synlig ledtråd (K30–K33, K38, K39, K41).
 - **Referensens kvalitet mot kundens material:** en referens fungerar under förutsättningar (stora arkitekturfoton,
-  korta rubriker, få produkter). Varje kandidat säger vilken kvalitet den återskapar, vad den kräver och om kundens
-  material bär det; det tidiga kompositionsprovet avgör, och det som inte bär ändrar kompositionen och beställs
-  (`kunskap/bild.md`, art direction).
+  korta rubriker, få produkter). Varje kandidat säger vilka observerbara egenskaper som bär referensens kvalitet och
+  som den prövar att föra över, vad de kräver och om kundens material bär det; det renderade resultatet avgör vilka
+  anpassningar som håller, och en anpassning behåller eller ersätter referensens kvaliteter med något lika
+  genomarbetat (ägarens uppdrag 2026-10-06; `kunskap/bild.md`, art direction).
 - **Sektionsordningen** motiveras ur besökarens frågor och toppuppgifterna i BRIEF.md; skillsens sektionspaket (AIDA,
   landningssidans ordning) används inte (K22).
 - **Process:** ingen svarar i flödets sessioner. Uppdraget och underlaget är svaret; antaganden skrivs i RIKTNING.md och
-  arbetet fortsätter till stegets "Visar". Riktningen ges av UPPDRAG.md: ingen tärning, inget concept-seed, inga
-  förhandsplaner eller egna sanningskällor ur skills (MASTER.md, PRODUCT.md, brand-guidelines). Varven: i skissläget
-  inget fast antal, varje varv åtgärdar en konkret brist skaparen sett i sina bilder eller vid jämförelsen med
-  referensen; i läget full och i förfiningen är minst tre förhandsvarv en arbetsregel, ingen kvalitetsbedömning.
+  arbetet fortsätter till stegets "Visar". Briefen är uppdragets fakta, besökarens uppgift och materialet; uppdragets
+  formförslag får skaparen, som ansvarig designer, ompröva med skäl när renderingen visar något bättre (ägarens uppdrag
+  2026-10-06). Ingen tärning, inget concept-seed och inga egna sanningskällor ur skills (MASTER.md, PRODUCT.md,
+  brand-guidelines). refero-design är researchmetod och referenslåsets format, inte ensam designauktoritet: skaparen
+  avgör motstridiga råd. Varven: i skissläget inget fast antal; första varvet efter renderingen prövar grunden
+  (komposition, hierarki, bildval, rytm, kundens särprägel) och får byta grundidé, referens eller komposition, och varje
+  varv därefter åtgärdar det största visuella problemet skaparen ser i sina bilder eller vid jämförelsen med referensen
+  i samma bredd; i läget full och i förfiningen är minst tre förhandsvarv en arbetsregel, ingen kvalitetsbedömning.
   Verktygen per pass står i kompetensblocken. Inga test-, variant- eller prototypsidor i src/pages: varje index.astro
   där blir en undersida. DESIGN.md är kontraktet: värdena, valda tillstånd (mörkt läge) och importerade stilvärden
   (`kunskap/bygge-referens.md`). Granskaren svarar bara i sitt schema (K46–K55, K57, K58).
 - **Före ägarens val i skissläget** granskar ingen panel och ingen förbättringsrunda körs: de snabba kontrollerna
-  markerar brister och ändrar aldrig uttrycket.
+  markerar brister och ändrar aldrig uttrycket. Inom skissförsöket ser en kritisk granskare skaparens renderade bilder
+  utan skaparens text, beskriver de synliga problemen och kan rekommendera att riktningen förkastas; skaparen svarar i en
+  egen session och avgör (ägarens uppdrag 2026-10-06, punkt 6).
 - **Granskning före förbättring (läget full):** granskningen bedömer först det en besökare uppfattar (bilderna, trädet
   och axe mot besökarens uppgift) och sedan skaparens motivering. Förbättringsrundan före ägarens val rättar bara objektiva fel
   (kvalitetskrav och hinder för uppgiften), aldrig smak, så att kandidaterna inte jämnas ut; föreversionen bevaras, och
   ägaren kan jämföra och välja den.
 - **En källa per värde:** better-ui för tryck, ikoner och skuggor; emil-animate för om och hur länge något rör sig;
-  better-layout för innehållsstyrda brytpunkter (proven tar 390, 768 och 1440); svenska citattecken ” ” och tankstreck i
+  better-layout för innehållsstyrda brytpunkter (proven tar 390, 768, 1280 och 1440); svenska citattecken ” ” och tankstreck i
   intervall (9–17) enligt `kunskap/copy-kontroll.md`, högst ett tankstreck per stycke i löptext (K28, K64–K67).
 
 ## Kompetenserna
@@ -105,23 +112,23 @@ kärna: refero-design/SKILL.md; impeccable/reference/shape.md; impeccable/refere
 välj: hallmark/references/macrostructures.md; hallmark/references/structure.md; frontend-design/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; ui-ux-pro-max/SKILL.md; brand/SKILL.md
 verktyg: uxsok
 mcp: refero, mobbin
-visar: varje uppdrag har en huvudreferens som bär riktningen, ett referenslås (det som ska bevaras, det som lånas, det som väljs bort) och en uppgift för besökaren; uppdragen skiljer sig i hur informationen ordnas
+visar: varje uppdrag formulerar en idé, vad den prövar och en uppgift för besökaren, med huvudreferensen som förslag och de observerbara egenskaper som prövas, utan exakta värden; uppdragen skiljer sig i komposition, berättelse, bildanvändning och uttryck
 ```
 
 ```kompetens komposition
 namn: Design och komposition
-uppgift: Forma en sammanhängande riktning ur huvudreferensen, kundens material och besökarens uppgift, och bevara referensens kvalitet (proportioner, komposition, bildstorlek och beskärning, komponenternas form) i kundens innehåll.
+uppgift: Forma en sammanhängande, kundspecifik riktning ur referenserna, kundens material och besökarens uppgift, och pröva referensens kvalitet (proportioner, komposition, bildstorlek och beskärning, komponenternas form) i kundens innehåll, eller ersätt den med något lika genomarbetat.
 pass: skapa, fordjupa
-kärna: refero-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md
-välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; frontend-design/SKILL.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md
+kärna: refero-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md; frontend-design/SKILL.md
+välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md
 verktyg: uxsok, förhandsvisning
 mcp: refero, mobbin
-visar: referenslåset står i RIKTNING.md och syns i den renderade sidan; stilpaketets värden används i koden; skissen skiljer sig från de andra i hur informationen ordnas
+visar: riktningen syns i den renderade sidan i mobil, mellanbredd och dator; referensens bärande kvaliteter är prövade eller ersatta med något lika genomarbetat; RIKTNING.md säger vilken synlig förbättring varje kompetens gav; skissen skiljer sig från de andra i komposition, berättelse och bildanvändning
 ```
 
 ```kompetens typografi
 namn: Typografi och färg
-uppgift: Ge sidan typskalan, hierarkin, radlängden och färgernas roller ur stilpaketet och huvudreferensen, anpassade till kundens innehåll.
+uppgift: Ge sidan typskalan, de typografiska kontrasterna, hierarkin, radlängden och färgernas roller, med stilpaketet och huvudreferensen som material, anpassade till kundens innehåll.
 pass: skapa, fordjupa
 kärna: impeccable/reference/typeset.md; impeccable/reference/colorize.md; better-typography/SKILL.md; better-colors/SKILL.md
 välj: refero-design/references/typography.md; refero-design/references/color.md; taste-output/SKILL.md; better-ui/SKILL.md
@@ -155,7 +162,7 @@ visar: mobilen och datorn, och mellanbredden där layouten byter form, i den ren
 ```kompetens rorelse
 namn: Interaktion och rörelse
 uppgift: Välja och genomföra de beteenden som passar sidan, var och en med ett syfte; ett genomtänkt beslut kan vara att något ska vara stilla.
-pass: rorelse
+pass: skapa, rorelse
 kärna: impeccable/reference/animate.md; emil-design-eng/SKILL.md; emil-animate/SKILL.md
 välj: emil-find-animation-opportunities/SKILL.md; emil-review-animations/SKILL.md; emil-improve-animations/SKILL.md; emil-animation-vocabulary/SKILL.md; emil-apple-design/SKILL.md; refero-design/references/motion.md; hallmark/references/microinteractions.md; hallmark/references/interaction-and-states.md
 verktyg: förhandsvisning
@@ -214,11 +221,11 @@ avslöja knappen, och en följd.
 ```utdrag före
 kunskap/designregler.md
 kunskap/referensjakt.md
-kunskap/visuell-niva.md
 ```
 
 ```utdrag uppslag
 kunskap/referenser-professionella.md
+kunskap/visuell-niva.md
 frontend-design/SKILL.md rad 11–13, 38–45
 impeccable/reference/new-work.md rad 45–46
 better-explain-interface/SKILL.md rad 26–35, 54–107
@@ -247,12 +254,12 @@ researchen och kundens material; inget uppdrag är avsiktligt svagt. Antalet (ci
 ```utdrag före
 kunskap/designregler.md
 kunskap/bild.md # Art direction
-kunskap/visuell-niva.md
-better-variant/SKILL.md rad 13–37
 ```
 
 ```utdrag uppslag
 kunskap/referenser-professionella.md
+kunskap/visuell-niva.md
+better-variant/SKILL.md rad 13–37
 frontend-design/SKILL.md rad 15–34, 47–53
 impeccable/reference/new-work.md rad 65–67
 impeccable/reference/mode-persuade.md rad 9
@@ -311,19 +318,18 @@ och typografi, layout och bild med sina skills fullständiga instruktioner, och 
 sitt eget pass. Ägarens domar över tidigare byggen och kundens historik slås upp när de besvarar en konkret fråga.
 
 **Till nästa steg:** en byggd skiss (första vyn, den viktigaste sektionen, navigationen och de interaktioner som behövs
-för att förstå förslaget), skärmbilder i 390, 768 och 1440, de snabba kontrollerna (bygget, konsolen, spill, axe,
-siffror utan belägg, menyn) och RIKTNING.md med huvudreferensen, hypotesen, vad referensen lärde, varven och
-materialet. Hela startsidan, undersidan och besökarens centrala flöde byggs först när ägaren valt (Förfina).
+för att förstå förslaget), skärmbilder i 390, 768, 1280 och 1440, de snabba kontrollerna (bygget, konsolen, spill, axe,
+siffror utan belägg, menyn i verkligt öppnat läge) och RIKTNING.md med huvudreferensen, idén, referenserna, det överförda
+och avvikelserna, de kvarvarande svagheterna, varven, materialet och kompetensernas synliga bidrag. Hela startsidan, undersidan och besökarens centrala flöde byggs först när ägaren valt (Förfina).
 
 **Visar:** grundidén syns i den renderade skissen och skiljer sig från de andra i hur kundens information presenteras och
 uppgiften löses, inte bara i färg; kundens material bär kompositionen, eller ett tydligt märkt utkast eller en
-platshållare står där material saknas; mobilen och datorn är genomarbetade. Inget fast antal varv: varje varv åtgärdar
-en brist skaparen sett i sina egna bilder eller vid jämförelsen med referensen.
+platshållare står där material saknas; mobilen, mellanbredden och datorn är genomarbetade. Inget fast antal varv:
+första varvet prövar grunden, och varje varv därefter åtgärdar det största visuella problemet skaparen sett i sina egna
+bilder eller vid jämförelsen med referensen i samma bredd.
 
 ```utdrag före
 kunskap/designregler.md
-kunskap/bild.md
-kunskap/visuell-niva.md
 ```
 
 ## Granska
