@@ -69,7 +69,9 @@ For body text targeting |Lc| ≥ 75:
 
 The gap is asymmetric because APCA is polarity-aware. Mirrored pairs do not score identically, which is why a pair passing in light mode can fail in dark.
 
-**Light or dark background?** The crossover is around 73% perceived lightness. Above it use dark text; at or below it light text scores higher. That is higher than intuition suggests. Between roughly 60% and 73% the background already looks light, yet white text still measures meaningfully better than black.
+**Light or dark text?** Compare black and white using the project's required contrast metric. APCA and WCAG 2 can favor different text colors on the same background. A higher score does not by itself mean the pair passes.
+
+WCAG 2's neutral crossover is near 56% OKLCH lightness. At `oklch(65% 0 0)`, black measures about `6.49:1` and white `3.23:1`. Only black passes AA for normal text. For colored backgrounds or other foregrounds, measure the actual pair rather than applying either crossover.
 
 ## What to check
 

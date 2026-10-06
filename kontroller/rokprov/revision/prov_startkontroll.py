@@ -12,6 +12,7 @@ uppströmskälla (git), och worktree-mekanismen mot kopians eget git. Ingenting 
 kunder/, .venv eller node_modules.
 """
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -136,7 +137,10 @@ vl.brew_senaste_release = lambda: '6.0.22'
 vl.brew_aktiv = lambda f: AKTIV.get(f)
 BREW_API = {}  # formel → {'senaste', 'tid'} när API:t skiljer sig från det lokala indexet (karenstiden, ett gammalt index)
 vl.brew_api = lambda f: BREW_API.get(f) or {'senaste': BREW[f], 'tid': GAMMAL}
+NODE_FORMEL = vl.node_formel  # den riktiga, som startar node
 vl.node_formel = lambda: ('node@22', '22.23.2')
+NODE_UR_VAG = vl.node_formel_ur_vag  # den riktiga, för provet att länkprovet aldrig startar node (2026-10-06)
+vl.node_formel_ur_vag = lambda: 'node@22'
 vl.pip_frys = lambda py: dict(vl.las_krav(KOPIA / 'requirements-lock.txt'))
 
 
@@ -562,14 +566,102 @@ def f_brew_lank(*a, timeout=0):
 
 
 uh.brew = f_brew_lank
+BREW['node@22'] = '22.23.2_1'  # en ombyggnad av samma version (ny revision): ominstallationen byter ingen version
 fel_, lagade_ = uh.laga_lankar()
 assert fel_ is None and lagade_ == ['node@22'] and ('reinstall', '--formula', 'node@22') in BREWANROP, (fel_, lagade_)
+# en ominstallation som skulle byta den aktiva nodens version utan prov görs aldrig (2026-10-06: node@22 22.23.2 hade
+# blivit 22.23.3_1); felet säger vad och varför, och den trasiga formeln lämnas åt ägaren
+BREW['node@22'] = '22.23.3_1'
+LANK['trasiga'] = {'node@22'}
+BREWANROP.clear()
+fel_, lagade_ = uh.laga_lankar()
+assert fel_ and 'byta version utan prov' in fel_ and 'node@22 22.23.2 → 22.23.3_1' in fel_ and lagade_ == [], (fel_, lagade_)
+assert not any(a[0] == 'reinstall' for a in BREWANROP), BREWANROP
+spara_info_l4 = vl.brew_info
+vl.brew_info = lambda f: None  # indexet svarar inte: räknas som ett byte, ingen ominstallation
+fel_, lagade_ = uh.laga_lankar()
+vl.brew_info = spara_info_l4
+assert fel_ and 'okänd version' in fel_ and lagade_ == [] and not any(a[0] == 'reinstall' for a in BREWANROP), (fel_, BREWANROP)
+LANK['trasiga'] = set()
 LANK['trasiga'] = {'gh', 'git'}
 uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or ((1, 'trasig') if a[:2] == ('linkage', '--test') and a[2] == 'gh' else (0, str(FAKE))))
 fel_, lagade_ = uh.laga_lankar()
 assert fel_ and 'gh' in fel_ and lagade_ == ['gh'], (fel_, lagade_)
 uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or (0, str(FAKE)))
 print('avvisad huvudversion, intagen patch, ingen omprövning av samma version, återlänkning, pinnad node, git 3 och länkprovet ok')
+
+# 2026-10-06: intaget av node@24 bredvid uppgraderade simdjson, och node@22, som PATH pinnar, startade inte; varje start
+# hängde i kärnan, och underhållet fastnade i länkprovets node --version. Fyra skydd:
+# (1) länkprovet bestämmer node-formeln ur sökvägen och startar aldrig node
+cell_l1 = TMP / 'l1' / 'Cellar' / 'node@22' / '22.23.2' / 'bin'
+cell_l1.mkdir(parents=True)
+(cell_l1 / 'node').write_text('#!/bin/bash\ntouch %s\necho v22.23.2\n' % (TMP / 'l1' / 'STARTAD'))
+(cell_l1 / 'node').chmod(0o755)
+(TMP / 'l1' / 'bin').mkdir()
+os.symlink(cell_l1 / 'node', TMP / 'l1' / 'bin' / 'node')
+spara_l1 = (os.environ['PATH'], vl.node_formel_ur_vag, uh.brew, vl.node_formel)
+os.environ['PATH'] = '%s:%s' % (TMP / 'l1' / 'bin', os.environ['PATH'])
+vl.node_formel_ur_vag, vl.node_formel = NODE_UR_VAG, NODE_FORMEL  # båda riktiga: ett länkprov som startade node syns
+BREWANROP.clear()
+uh.brew = lambda *a, timeout=0: (BREWANROP.append(a) or (0, ''))
+try:
+    assert vl.node_formel_ur_vag() == 'node@22' and uh.lankprov() == []
+    assert ('linkage', '--test', 'node@22') in BREWANROP and not (TMP / 'l1' / 'STARTAD').exists(), ('node startades', BREWANROP)
+finally:
+    os.environ['PATH'], vl.node_formel_ur_vag, uh.brew, vl.node_formel = spara_l1
+# (2) kor väntar inte obegränsat på en process som inte går att avsluta: dödandet biter inte (som en krasch som väntar
+#     på krashrapporteringen), och kor går vidare med ett fel
+spara_l2 = (vl.avsluta_trad, vl.SLUTVANTAN)
+vl.avsluta_trad = lambda pid: None
+vl.SLUTVANTAN = 1
+pidfil_l2 = TMP / 'l2.pid'
+t_l2 = time.time()
+try:
+    rc_l2, ut_l2 = vl.kor([sys.executable, '-c', 'import os, time; open(%r, "w").write(str(os.getpid())); time.sleep(60)' % str(pidfil_l2)], timeout=2)
+finally:
+    vl.avsluta_trad, vl.SLUTVANTAN = spara_l2
+    try:
+        os.kill(int(pidfil_l2.read_text()), 9)
+    except (OSError, ValueError):
+        pass
+assert rc_l2 == 124 and 'avslutades inte' in ut_l2 and time.time() - t_l2 < 10, (rc_l2, ut_l2, time.time() - t_l2)
+# (3) en ny huvudversion installeras inte bredvid när installationen skulle uppgradera beroenden som den aktiva node delar
+INFO_L3 = {'node@24': ['simdjson', 'zstd', 'uvwasi'], 'node@22': ['simdjson', 'icu4c@78', 'zstd']}
+GAMLA_L3 = [{'name': 'simdjson', 'installed_versions': ['4.6.6'], 'current_version': '5.0.2'}, {'name': 'uvwasi', 'installed_versions': ['0.0.21'], 'current_version': '0.0.22'}]
+
+
+def f_brew_l3(*a, timeout=0):
+    BREWANROP.append(a)
+    if a[:2] == ('info', '--json=v2'):
+        return 0, json.dumps({'formulae': [{'dependencies': INFO_L3.get(a[-1], [])}]})
+    if a[:2] == ('outdated', '--json=v2'):
+        return 0, json.dumps({'formulae': GAMLA_L3})
+    if a[:2] == ('--prefix', 'node@24'):
+        return 0, str(FAKE)
+    return 0, ''
+
+
+spara_l3 = uh.brew
+uh.brew = f_brew_l3
+BREWANROP.clear()
+try:
+    fel_l3, _s = uh.prova_node_huvud(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-l3'), {'id': 'brew:node'},
+                                     {'version': '24.21.0_1', 'formel': 'node@24', 'huvudversion': True})
+    assert fel_l3.startswith(uh.HALL) and 'simdjson 4.6.6 → 5.0.2' in fel_l3 and 'uvwasi' not in fel_l3, fel_l3
+    assert not any(a[0] == 'install' for a in BREWANROP), BREWANROP
+    # (4) efter installationen prövas att den aktiva node fortfarande svarar; gör den inte det är miljön trasig
+    GAMLA_L3.clear()
+    spara_nod_l4 = (FAKE / 'bin' / 'node').read_text()
+    (FAKE / 'bin' / 'node').write_text('#!/bin/bash\nexit 1\n')
+    try:
+        fel_l4, _s = uh.prova_node_huvud(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-l4'), {'id': 'brew:node'},
+                                         {'version': '24.21.0_1', 'formel': 'node@24', 'huvudversion': True})
+    finally:
+        (FAKE / 'bin' / 'node').write_text(spara_nod_l4)
+    assert ('install', '--formula', 'node@24') in BREWANROP and fel_l4.startswith('MILJÖN TRASIG') and 'den aktiva node' in fel_l4, fel_l4
+finally:
+    uh.brew = spara_l3
+print('2026-10-06: länkprovet utan node, kor utan obegränsad väntan, delade beroenden och den aktiva node efter installationen ok')
 
 # fall 8: en pågående körning behåller sina förutsättningar: underhållet skjuter upp; en godkänd kandidat tas in senare
 proc = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)', 'atelje.py', 'annan-kund', '--arbetare'])
@@ -1427,9 +1519,11 @@ try:
 finally:
     BREW.clear(); BREW.update(spara_brew_l5[0]); BREW_API.clear(); BREW_API.update(spara_brew_l5[1])
 
-# fynd 6: pinningen läses ur PATH, och inventeringen bär den till intaget
+# fynd 6: pinningen läses ur PATH, och inventeringen bär den till intaget. Provet bygger sin egen PATH utan de
+# node-kataloger det ärvt: i underhållets prov av node@24 ligger node@24 först, och provet avvisade då node@24 (2026-10-06)
 spara_path = os.environ['PATH']
-os.environ['PATH'] = '/opt/homebrew/opt/node@22/bin:' + spara_path
+os.environ['PATH'] = ':'.join(['/opt/homebrew/opt/node@22/bin'] + [d for d in spara_path.split(':')
+                                                                    if not re.search(r'/opt/node@\d+/bin/?$|/Cellar/node@\d+/', d)])
 try:
     assert vl.node_pinnad('node@22') == '/opt/homebrew/opt/node@22/bin' and vl.node_pinnad('node@24') is None
     rad_p6 = next(r_ for r_ in vl.inventera(vl.Kontext(nat=True, prova=False, max_alder=0, katalog=TMP / 'lage-p6'), ('brew',)) if r_['id'] == 'brew:node')
