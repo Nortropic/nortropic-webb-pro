@@ -18,16 +18,19 @@ förteckningens metadatafält; resten räknas fram vid läsning och hålls i min
 utfallets klass och antalet träffar, bilder och bildlänkar, för Read också sökvägen och omfånget, för skillverktyget
 skillens namn; aldrig promptar, verktygsargument, verktygssvar eller bilddata. Etiketterna säger vad som observerats,
 aldrig att något använts eller förståtts, och det som saknas heter "inte observerat". Ett fel här gör vyn ofullständig,
-aldrig arbetet. Ett läsfel ger det senast lästa läget med felet och tiden för den senaste lyckade läsningen, så att vyn
-kan säga att det är inaktuellt.
+aldrig arbetet. En fil som inte går att läsa om visar det senast lästa läget med felet och tiden för den senaste lyckade
+läsningen, så att vyn kan säga att det är inaktuellt; en fil som aldrig gått att läsa, och ett transkript som inte längre
+finns, heter "inte observerat".
 
 Varför ingen mod: transkriptet bär redan verktygsanropen, läsningarnas omfång, skillverktyget, skillistan, nekanden,
 användningen per modellanrop och komprimeringarna. En mod körs i den process som laddar den (--plugin-dir eller en
 installerad plugin) och utanför sandlådan; varje claude -p-process, som ateljéns sessioner och tjänstesessionerna, ser
-bara en mod som laddats i just den. Underagenter som en session startar med Agent-verktyget körs i samma process, och en
-mod där får agent.spawn när de startar; deras egna verktygsanrop står i egna transkript (<session_id>/subagents/), inte i
-sessionens, så här syns bara Agent-anropet och dess utfall. Ateljéns sessioner har inget Agent-verktyg (--tools listar
-bara det sessionen använder, och Task nekas).
+bara en mod som laddats i just den. Underagenter som en session startar körs i samma process: en mod där får agent.spawn
+när de startar och ser deras verktygsanrop (tool.call) och modellanrop (turn.step med agentId). Observatören läser bara
+sessionens transkript, och underagentens anrop står i ett eget (<session_id>/subagents/agent-*.jsonl), så här syns bara
+Agent-anropet och dess utfall. Ateljéns sessioner har inget Agent-verktyg (--tools listar bara det sessionen använder);
+en skill som körs i en egen kontext (context: fork) kan ändå starta en underagent, och svarsfilen räknar dem
+(subagent_stats).
 Kontexten är tokenantalet i senaste modellanropets indata, en uppskattning: det som tillkommit efter anropet räknas inte,
 och andelen visas inte, eftersom transkriptet inte anger fönstrets storlek. En mod kan läsa Claude Codes egen siffra
 ($.session.usage(): tokens, fönster och procent); också den är Claude Codes beräkning, inget oberoende mått.
@@ -38,6 +41,7 @@ Säkerhetskrokarna och kundvakten berörs inte.
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import threading
@@ -152,11 +156,14 @@ def las_session(fil):
     sedan förra läsningen tolkas; en ofullständig sista rad väntar till nästa gång, och en rad med oväntad form räknas
     och hoppas över. Ett nytt eller kortare filinnehåll (en annan fil på samma plats) läses från början; storleken och
     identiteten tas från den öppnade filen. En lyckad läsning sätter senast_last. Ett läsfel (filen borta eller nekad,
-    ett avbrott) ger det senast lästa läget, eller ett tomt, med lasfel satt, och nästa lyckade läsning tar bort det."""
+    ett avbrott, en fil som inte är en vanlig fil, till exempel en FIFO som annars skulle hålla låset) ger det senast
+    lästa läget, eller ett tomt, med lasfel satt, och nästa lyckade läsning tar bort det."""
     fil = Path(fil)
     with _LAS:
         lage = _LAGE.get(str(fil))
         try:
+            if not stat.S_ISREG(os.stat(fil).st_mode):
+                raise OSError(0, 'inte en vanlig fil')
             with open(fil, 'rb') as f:
                 st = os.fstat(f.fileno())
                 ident = (st.st_dev, st.st_ino)
@@ -383,6 +390,16 @@ def sammanfattning(fil, slug=None):
         return sammanfatta(las_session(fil), slug)
 
 
+def observerad(fil, slug, vad):
+    """(sammanfattningen, None), eller (None, skälet) när filen aldrig har gått att läsa: ett tomt läge med läsfel är
+    ingen observation, och vyn säger då "inte observerat" med felet i stället för "inga observerade" (granskningen av
+    r92, BÖR 1)."""
+    ob = sammanfattning(fil, slug)
+    if ob and ob.get('lasfel') and not ob.get('senast_last'):
+        return None, '%s kunde inte läsas: %s' % (vad, ob['lasfel']['fel'])
+    return ob, None
+
+
 def lever(pid):
     try:
         os.kill(int(pid), 0)
@@ -425,7 +442,9 @@ def sessioner(slug):
             post['sida'] = sida(post['roll'])
             post['pagar'] = bool(not post.get('slut') and post.get('pid') and lever(post['pid']) and nastlad.ar_session(post['pid']))
             post['transkript'] = _relativ(str(tr)) if tr else None
-            post['observation'] = sammanfattning(tr, slug) if tr else None
+            post['observation'], skal = observerad(tr, slug, 'transkriptet') if tr else (None, None)
+            if skal:
+                post['ofullstandig'] = skal
         except Exception as e:  # noqa: BLE001 — en session som inte går att läsa gör bara den ofullständig
             post['ofullstandig'] = '%s: %s' % (type(e).__name__, str(e)[:160])
         ut.append(post)
@@ -441,7 +460,8 @@ def tjanstesessioner(slug, efter=None):
         rel = f.relative_to(UNDERLAG / slug)
         post = {'logg': str(rel), 'tjanst': f.parent.name, 'del': rel.parts[1] if len(rel.parts) > 2 else None}
         try:
-            post['observation'] = sammanfattning(f, slug)
+            ob, skal = observerad(f, slug, 'loggen')
+            post.update({'observation': ob} if ob else {'ofullstandig': skal})
         except Exception as e:  # noqa: BLE001
             post['ofullstandig'] = '%s: %s' % (type(e).__name__, str(e)[:160])
         ut.append(post)

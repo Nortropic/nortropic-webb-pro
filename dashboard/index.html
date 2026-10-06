@@ -625,7 +625,7 @@ async function designprovvy(slug) {
 // Prototypen: skapandeflödets startsida (kunskap/skapandeflodet.md). Riktningarna som prövades, före och efter förfiningen
 // bredvid huvudreferensen, och ägarens dom till domloggen: godkänd, putsa vidare eller ny riktning. Panelens val och slutdom
 // visas först när ägaren dömt, så att domen är oberoende.
-const BESLUT = { godkand: 'Godkänd: bygget tar vid från den här startsidan', putsa: 'Putsa vidare: samma riktning, med min kritik', ny_riktning: 'Ny riktning: designbesluten arkiveras och utforskningen börjar om' };
+const BESLUT = { godkand: 'Godkänd: bygget tar vid från den här startsidan', putsa: 'Putsa vidare: samma riktning, med min kritik', ny_riktning: 'Ny riktning: designbesluten raderas (inget arkiv) och utforskningen börjar om' };
 async function prototypvy(slug) {
   aktivNav('prototyp');
   if (!slug) {
@@ -648,7 +648,7 @@ async function prototypvy(slug) {
   const riktn = (d.riktningar || []).length ? `<details style="margin-top:24px"${d.steg === 'forkastad' ? ' open' : ''}><summary>Riktningarna som prövades (${d.riktningar.length})</summary><div class="galleri" style="grid-template-columns:repeat(${Math.min(d.riktningar.length, 3)},1fr);gap:18px">${d.riktningar.map((r) => `<div><h3>${esc(r.namn)}${r.vald ? ' · vald' : ''}</h3><p class="under">${r.referens ? 'bygger på ' + esc(r.referens) : 'ingen huvudreferens'}</p><div class="galleri" style="grid-template-columns:1fr 2fr">${bild(r.bilder['390-forsta'], 'mobil')}${bild(r.bilder['1440-forsta'], 'dator')}</div></div>`).join('')}</div></details>` : '';
   const tidigare = (d.domar || []).map((x) => `<p class="under">${tid(x.tid)} · ${esc(x.kalla)} · <b>${esc((BESLUT[x.beslut] || x.beslut).split(':')[0])}</b>${x.niva ? ' · ' + esc(NIVA[x.niva] || x.niva) : ''}: ${esc(String(x.text || '').slice(0, 400))}${String(x.text || '').length > 400 ? '…' : ''}</p>`).join('');
   const form = klar ? `<section class="kort" style="margin-top:24px"><h2>${d.domd ? 'Döm igen' : 'Din dom'}</h2>
-      <p class="under">Domen sparas i domloggen och läses av nästa körning: putsa vidare förfinar samma riktning med din text som kritik, ny riktning arkiverar designbesluten och börjar om med en ny utforskning, godkänd lämnar över till bygget.</p>
+      <p class="under">Domen sparas i domloggen och läses av nästa körning: putsa vidare förfinar samma riktning med din text som kritik, ny riktning raderar designbesluten (urvalet, ateljén och sajtens presentationsfiler, inget arkiv; fakta, domloggen och historiken står kvar) och börjar om med en ny utforskning, godkänd lämnar över till bygget.</p>
       <div style="margin-top:10px">${Object.keys(BESLUT).filter((b) => b !== 'godkand' || d.steg === 'klar').map((b) => `<div><label><input type="radio" name="pr-b" value="${b}"> ${esc(BESLUT[b])}</label></div>`).join('')}</div>
       <div class="rad" style="margin-top:8px;flex-wrap:wrap;gap:12px"><span class="under">Nivå (valfritt):</span>${Object.keys(NIVA).map((n) => `<label><input type="radio" name="pr-n" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
       <textarea id="pr-text" rows="5" style="width:100%;margin-top:8px" placeholder="Vad håller inte, och vad ska nästa försök pröva? Rubriker, bildval, beskärning, proportioner, mobilens komposition, färg, typografi. Dina ord följer med ordagrant."></textarea>
@@ -688,7 +688,7 @@ const KBESLUT = {
   putsa: 'Putsa vidare: de markerade förfinade förfinas igen med din text',
   godkand: 'Godkänn för helbygge: den markerade förfinade kandidaten blir sajtens grund',
   forkasta: 'Förkasta alla: inget av förslagen håller (inget körs förrän du ber om en ny riktning)',
-  ny_riktning: 'Be om en ny riktning: förslagen arkiveras och en ny utforskning börjar med din text',
+  ny_riktning: 'Be om en ny riktning: förslagen raderas (de står i historiken med din dom) och en ny utforskning börjar med din text',
 };
 const KVISBARA = ['klar', 'vald', 'jamfors', 'forkastad', 'forfinad', 'godkand'];
 const KCHIP = { klar: 'acc', vald: 'ok', jamfors: 'acc', forfinad: 'ok', godkand: 'ok', forkastad: 'rod', ofullstandig: 'gul', fel: 'rod', avbruten: 'gul' };
@@ -872,7 +872,7 @@ async function observationsvy(slug, kandidater) {
   const prot = fel(o.prototyper) ? {} : (o.prototyper || {}), plan = (!fel(o.referenser) && o.referenser && o.referenser.kandidater) || {};
   // ett läsfel visar det senast lästa läget, med felet och tiden för den senaste lyckade läsningen, aldrig som aktuellt
   const lasfel = (x) => Boolean(x && x.observation && x.observation.lasfel), inaktuella = [...sess.filter(lasfel), ...tj.filter(lasfel)];
-  const olasbara = sess.filter((x) => x.ofullstandig);
+  const olasbara = [...sess.filter((x) => x.ofullstandig), ...tj.filter((x) => x.ofullstandig)];  // aldrig lästa: inte observerade, med skälet
   const varning = (ob) => ob && ob.lasfel ? `<div class="obs-varn">Läsfel ${tid(ob.lasfel.tid)} (${esc(ob.lasfel.fel)}): ${ob.senast_last ? `visar läget från ${tid(ob.senast_last)}` : 'inget har lästs'}.</div>` : '';
   const nagotFel = ['arbetslage', 'referenser', 'installerat', 'prototyper', 'sessioner', 'tjanster'].some((x) => fel(o[x])) || olasbara.length > 0 || inaktuella.length > 0;
   // pågår bara med belägg (en levande session eller arbetare); utan pid är läget oklart och uppdateras glesare, utan påstående
@@ -902,7 +902,7 @@ async function observationsvy(slug, kandidater) {
     const egna = sess.filter((s) => s.kandidat === kid && s.sida === 'skapare'), gr = sess.filter((s) => s.kandidat === kid && s.sida === 'granskare');
     const obs = egna.map((s) => s.observation).filter(Boolean), alla = (f) => obs.flatMap((x) => x[f] || []);
     const olasta = egna.filter((s) => !s.observation);  // skaparens sessioner utan läsbart transkript: sägs, räknas inte bort
-    const utan = fel(o.sessioner) ? ejObs(o.sessioner) : !obs.length ? 'inte observerat (inget transkript för skaparens sessioner)' : null;
+    const utan = fel(o.sessioner) ? ejObs(o.sessioner) : !obs.length ? `inte observerat (${esc(egna.length ? [...new Set(olasta.map((s) => s.ofullstandig || 'inget transkript'))].join('; ') : 'ingen skaparsession i förteckningen')})` : null;
     const ingen = (l, text) => utan || (l.length ? text : 'inga observerade');
     const p = prot[kid] || {}, refs = alla('referensfiler'), sf = alla('skillfiler'), sk = alla('skills_laddade'), me = alla('metodutdrag'), mcp = alla('mcp');
     const nekade = obs.reduce((n, x) => n + (x.nekade || 0), 0), erbjudna = Math.max(-1, ...obs.map((x) => x.skills_erbjudna ?? -1));
@@ -931,7 +931,7 @@ async function observationsvy(slug, kandidater) {
   const ordning = (kid) => { const i = (kandidater || []).findIndex((k) => k.id === kid); return i < 0 ? 999 : i; };
   const kids = [...new Set([...Object.keys(prot), ...sess.map((s) => s.kandidat).filter(Boolean)])].sort((a, b) => ordning(a) - ordning(b) || a.localeCompare(b));
   const rad = (s) => { const ob = s.observation, k = ob && ob.kontext, kp = (ob && ob.komprimeringar) || [];
-    return `<tr><td>${esc(rollnamn(s.roll))}${s.kandidat ? ' · ' + esc(etikett(s.kandidat)) : ''}<div class="obs-not">${esc((ob && ob.modell) || s.modell || '')}</div></td>
+    return `<tr><td>${esc(rollnamn(s.roll) || 'roll inte observerad')}${s.kandidat ? ' · ' + esc(etikett(s.kandidat)) : ''}<div class="obs-not">${esc((ob && ob.modell) || s.modell || '')}</div></td>
       <td>${s.pagar ? '<span class="chip acc puls">pågår</span>' : s.slut ? `avslutad ${tid(s.slut)}${s.utfall ? ', ' + esc(s.utfall) : ''}` : s.ofullstandig ? 'inte observerat' : 'ingen sluttid; ingen levande claude-session observerad'}<div class="obs-not">start ${tid(s.start)}</div></td>
       <td>${s.ofullstandig ? ejObs(s) : ob ? sedan(ob.senaste_handelse) : 'transkriptet inte observerat'}${ob && ob.oforstadda_rader ? `<div class="obs-not">${ob.oforstadda_rader} rader kunde inte tolkas</div>` : ''}${varning(ob)}</td>
       <td>${k ? `cirka ${Math.round(k.tokens / 1000)} k tokens <span class="obs-not" title="Indata i senaste modellanropet, med cache. Det som tillkommit efter anropet räknas inte, och fönstrets storlek står inte i transkriptet.">(uppskattning ur senaste anropet, ${tid(k.tid)})</span>` : 'inte observerat'}${kp.length ? `<div>${kp.length} komprimering${kp.length > 1 ? 'ar' : ''}, senast ${tid(kp.at(-1).tid)}</div>` : ''}</td></tr>`; };
@@ -939,7 +939,7 @@ async function observationsvy(slug, kandidater) {
   const lever = al.arbetaren_lever === true ? 'lever' : al.avslutad ? 'körningen är avslutad' : al.arbetaren_lever === false ? 'lever inte' : 'inte observerat';
   ruta.innerHTML = `<h2>Under arbetet, observerat</h2>
     <p class="under">Automatiskt ur sessionernas transkript och loggar, utan modell; läst ${tid(o.tid)}${pagar ? ', uppdateras medan körningen pågår' : ''}. Etiketterna säger vad som syns ("anrop lyckades", "tomt resultat", "bild returnerad", "fil läst", "skärmbild fångad"), inte att något använts väl. Skaparens egen redovisning står i korten ovan, i skaparens ord.</p>
-    ${inaktuella.length || olasbara.length ? `<p class="obs-varn">Ofullständigt: ${[inaktuella.length ? `${inaktuella.length} transkript eller loggar kunde inte läsas om och visar ett äldre läge` : '', olasbara.length ? `${olasbara.length} sessioner kunde inte läsas` : ''].filter(Boolean).join('; ')}. Detaljerna står vid raderna.</p>` : ''}
+    ${inaktuella.length || olasbara.length ? `<p class="obs-varn">Ofullständigt: ${[inaktuella.length ? `${inaktuella.length} transkript eller loggar kunde inte läsas om och visar ett äldre läge` : '', olasbara.length ? `${olasbara.length} sessioner eller loggar kunde inte läsas (inte observerade)` : ''].filter(Boolean).join('; ')}. Detaljerna står vid raderna.</p>` : ''}
     <p>${fel(o.arbetslage) ? `Arbetsläget: ${ejObs(o.arbetslage)}` : `Steg <b>${esc(al.steg || 'inte observerat')}</b>${steg ? ` (${esc(steg[0])} ${tid(steg[1])})` : ''} · arbetaren: ${lever}${al.fel ? ' · fel: ' + esc(al.fel) : ''}`}</p>
     ${kids.map(kandidat).join('') || '<p class="obs-not">Inga kandidater observerade än.</p>'}
     <details class="kdel" ${oppen('sessioner', false)}><summary>Sessionerna (${fel(o.sessioner) ? 'inte observerade' : sess.length})</summary>

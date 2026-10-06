@@ -2908,6 +2908,54 @@ assert mal_lank.read_text() == 'ägarens fil utanför', 'länkens mål rörs ald
 assert (pt_u / sk.DOMLOGG).is_file() and (pt_u / 'TEXTUNDERLAG.md').is_file() and (pt_u / 'referenser' / 'paket-v01').is_dir() and (pt_u / 'bilder').is_dir()
 assert not hasattr(at_pt, 'ARKIV'), 'omtaget har inget arkiv'
 assert sk.historik('pt-prov', pt_und)[-1]['utfall'] == 'underkänd av ägaren' and sk.historik('pt-prov', pt_und)[-1]['namn'] == 'Fönstret', sk.historik('pt-prov', pt_und)[-1]
+# granskningen av r92: utan en dom som gäller körningen raderas inget ägaren sett (BÖR 3); en körning som redan står i
+# historiken får tas bort; rester av ett avbrutet omtag städas (BÖR 2); en ogiltig slug raderar inget (KAN 9)
+for sl_ud in ('pt-utan-dom', 'pt-bokford'):
+    ud_ = pt_und / sl_ud
+    (ud_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
+    (ud_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'}))
+    (ud_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'titel': 'Byggdagboken', 'ide': 'en idé'}}}))
+    (ud_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'klar'}))
+    sk.lagg_till_dom(sl_ud, 'ägaren', 'valj', 'Jag väljer k01.', underlag=pt_und)
+ud_ = pt_und / 'pt-utan-dom'
+try:
+    at_pt.ta_bort_beslut('pt-utan-dom')
+    raise AssertionError('omtaget raderade utan en dom som gäller körningen')
+except RuntimeError as e_:
+    assert 'ingen dom från ägaren gäller körningen' in str(e_) and 'Byggdagboken' in str(e_) and 'Inget är borttaget' in str(e_), e_
+assert (ud_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').is_file() and sk.historik('pt-utan-dom', pt_und) == [], 'inget borttaget, ingen historik'
+sk.lagg_till_dom('pt-utan-dom', 'ägaren', 'ny_riktning', 'Inte den här heller.', underlag=pt_und)
+(ud_ / '.borttaget-20261005T000000Z-atelje' / 'kvar').mkdir(parents=True)  # en rest av ett omtag som avbröts
+fl_ud = at_pt.ta_bort_beslut('pt-utan-dom')
+assert fl_ud == [at_pt.rel(ud_ / 'atelje')] and not os.path.lexists(ud_ / 'atelje') and not list(ud_.glob('.borttaget-*')), (fl_ud, list(ud_.iterdir()))
+assert [h['namn'] for h in sk.historik('pt-utan-dom', pt_und)] == ['Byggdagboken'], sk.historik('pt-utan-dom', pt_und)
+sk.lagg_till_historik('pt-bokford', [{'kalla': 'för hand ur domen', 'namn': 'Byggdagboken', 'utfall': 'underkänd av ägaren'}], pt_und)
+assert at_pt.ta_bort_beslut('pt-bokford') == [at_pt.rel(pt_und / 'pt-bokford' / 'atelje')], 'en körning som redan står i historiken tas bort'
+for ogiltig in ('../pt-prov', 'PT', ''):
+    try:
+        at_pt.ta_bort_beslut(ogiltig)
+        raise AssertionError('ogiltig slug: %r' % ogiltig)
+    except RuntimeError as e_:
+        assert 'ogiltig slug' in str(e_), e_
+# kvarlevande flödessessioner avslutas före omtaget (BÖR 2); en annan process med ett pid ur statusfilerna aldrig
+sv_rot = tmp / 'sv-atelje'
+(sv_rot / 'kandidater' / 'k01').mkdir(parents=True); (sv_rot / 'sessioner').mkdir()
+flodes = subprocess.Popen(['bash', '-c', 'exec -a "claude -p --allowedTools Read" sleep 60'])
+annan = subprocess.Popen(['sleep', '60'])
+try:
+    for _ in range(50):  # tills exec -a har bytt processens namn
+        if at_pt.nastlad.ar_session(flodes.pid):
+            break
+        threading.Event().wait(0.1)
+    (sv_rot / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'session_pid': flodes.pid}))
+    (sv_rot / 'sessioner' / 'x.json').write_text(json.dumps({'pid': annan.pid}))
+    st_sv = at_pt.stoppa_kvarvarande('pt-sv', sv_rot, {'pid': annan.pid})  # arbetarens pid tillhör någon annan
+    assert st_sv == [flodes.pid] and flodes.wait(10) is not None and annan.poll() is None, (st_sv, annan.poll())
+finally:
+    for p_ in (flodes, annan):
+        if p_.poll() is None:
+            p_.kill()
+            p_.wait(10)
 # dashboarden: före och efter, panelens dom dold tills ägaren dömt körningen, domen till domloggen, godkänt till VINNARE.json
 gu_d = (dash.UNDERLAG, dash.ROOT)
 dash.UNDERLAG, dash.ROOT = pt_und, tmp

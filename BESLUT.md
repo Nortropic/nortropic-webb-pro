@@ -75,8 +75,9 @@ det där". Runtime-tjänsten, Temporal och workern stoppades; Nortropic Runtime,
 nortropic-digitala och kund-demo-norrglanta togs bort lokalt med sina arbetskopior (cirka 21 GB). Hela git-historiken,
 också de lokala grenarna, ligger som verifierade bundles i `~/Arkiv/nortropic-gamla-20261002/` med två patchar för
 ocommittade ändringar och de tre LaunchAgents som pekade in i repona. GitHub-repona finns kvar. Kundstart står kvar.
-**Delvis ersatt 2026-10-06:** bundlarna raderades med resten av `~/Arkiv`, och Kundstart togs bort (ägarens beslut,
-städregeln nedan). Historiken finns kvar i GitHub-repona. Övrigt gäller.
+**Delvis ersatt 2026-10-06:** bundlarna raderades med resten av `~/Arkiv`, och Kundstart togs bort (ägarens ord under
+städregeln nedan). Det som pushades finns kvar i GitHub-repona; bundlarnas lokala grenar och de två patcharna för
+ocommittade ändringar finns inte längre. Kundstarts alla grenar var pushade. Övrigt gäller.
 
 ## Vad som inte görs
 
@@ -222,7 +223,8 @@ ett välgrundat val, och iterationen ska kunna ändra grundidén.
 2. **Ägarens dom följer med och återöppnar beslut.** Domloggen `underlag/<slug>/DESIGNDOMAR.jsonl` och
    riktningshistoriken går in i varje prompt. Ny riktning arkiverar designbesluten (urval, koncept, presentationsfiler)
    ur arbetsytan, utan att radera något; fakta står kvar. Inget färgförbud: ett drag ur en underkänd grundidé behöver
-   skäl.
+   skäl. **Delvis ersatt 2026-10-06:** ny riktning raderar designbesluten i stället för att arkivera dem, efter att
+   historiken fått domen (ägarens ord under städregeln nedan). Övrigt gäller.
 3. **Research på begäran** genom det befintliga referenssteget (KOMPLETTERING.json), och körspåret redovisas ur
    transkripten: metoden före första skrivningen och läsningen per varv i ordning.
 4. **Överlämningen:** ägarens godkännande i vyn Prototyp skrivs i VINNARE.json, och bygget tar vid därifrån som från
@@ -456,17 +458,20 @@ utan att observatören ändrar något.
   och komprimeringarna. En mod körs i den process som laddar den (`--plugin-dir` eller en installerad plugin) och utanför
   sandlådan. Varje `claude -p`-process, som ateljéns sessioner och tjänstesessionerna, ser bara en mod som laddats i just
   den processen.
-- **Underagenter** som en session startar med Agent-verktyget körs i samma process, och en mod där får `agent.spawn` när
-  de startar. Deras egna verktygsanrop står i egna transkript (`<session_id>/subagents/agent-*.jsonl`, prövat i Claude
-  Code 2.1.289), inte i sessionens, så vyn visar bara Agent-anropet och dess utfall. Ateljéns sessioner har inget
-  Agent-verktyg (`--tools` listar bara det sessionen använder, och `Task` nekas), så där förekommer inga underagenter.
+- **Underagenter** som en session startar körs i samma process. En mod där får `agent.spawn` när de startar och ser
+  deras verktygsanrop (`tool.call`) och modellanrop (`turn.step` och `turn.complete` med `agentId`). Observatören läser
+  bara sessionens transkript, och underagentens anrop står i ett eget (`<session_id>/subagents/agent-*.jsonl`, prövat i
+  Claude Code 2.1.289), så vyn visar bara Agent-anropet och dess utfall. Ateljéns sessioner har inget Agent-verktyg
+  (`--tools` listar bara det sessionen använder). En skill som körs i en egen kontext (`context: fork`) kan ändå starta
+  en underagent; svarsfilen räknar dem (`subagent_stats`).
 - **Kontexten** i vyn är tokenantalet i senaste modellanropets indata (med cache), med tid och märkt som uppskattning.
   Det som tillkommit efter anropet räknas inte, och andelen av fönstret visas inte, eftersom transkriptet inte anger
   fönstrets storlek; efter sessionen står den i svarsfilen (`modelUsage.<modell>.contextWindow`). En mod kan läsa
   Claude Codes egen siffra (`$.session.usage()`: tokens, fönster och procent). Också den är Claude Codes beräkning och
   inget oberoende mått.
 - **Läsfel:** ett transkript eller en logg som inte går att läsa om visar det senast lästa läget med felet och tiden
-  för den senaste lyckade läsningen, och vyn säger att det är inaktuellt.
+  för den senaste lyckade läsningen, och vyn säger att det är inaktuellt. En fil som aldrig gått att läsa, och ett
+  transkript som inte längre finns, heter "inte observerat" (med felet när det finns).
 - **Så går det till:** `atelje.session` ger varje nästlad session sitt id från start (`--session-id`, när
   `claude --help` listar flaggan) och skriver en post med nio valda fält i `underlag/<slug>/atelje/sessioner/`.
   `kontroller/observation.py` läser sessionens befintliga transkript och tjänstesessionernas strömmade loggar stegvis och
@@ -510,3 +515,21 @@ utan att observatören ändrar något.
 >    en kopia med eget kundmaterial arkiveras före radering och att huvudutcheckningen aldrig rörs. Granska oberoende
 >    och slå samman till main enligt arbetssättet.
 > c) Uppdatera CLAUDE.md och kunskap/beroenden.md kort med regeln.
+
+**Delvis ersatt samma dag av ägarens ord nedan:** ingenting arkiveras längre i `~/Arkiv`. Kopior och omtagets
+designbeslut raderas. Det som verkar värdefullt (till exempel kundmaterial som bara finns i en kopia) raderas inte, och
+då frågar agenten ägaren och motiverar varför. `~/Arkiv` är tömt. Övrigt i regeln gäller.
+
+Ägarens ord 2026-10-06, ordagrant:
+
+- ~14:49Z, om Kundstart och `work/` i `~/nortropic-repos`: "allt som inte är vårat i den mappen kan du ta bort, det
+  borde finnas mycket gammalt nortropic skräp på datorn du kan ta bort också"
+- ~14:56Z: "Ägarbeslut: radera dagens arkiv, det används inte i driften enligt dig. Om nåt du tycker är värdefullt att
+  spara så kan du fråga mig och motivera varför i framtiden. Vi ska inte samla på oss skrot och leftover i onödan."
+- ~15:00Z, svar på frågorna om de äldre arkiven i `~/Arkiv`, om omtagets flytt av den gamla ateljén till `~/Arkiv` och om
+  de gamla Nortropic-filerna utanför repona: "ja, rensa arkivet och radera den gamla. ja lägg in det som städregeln i
+  underhållet. jag ger dig behörigheten och ja låt kofigurationen ligga kvar" (konfigurationen är `~/nortropic`, där
+  GitHub-verktyget har sin konfiguration).
+
+Därför raderar ett omtag (`--ny-riktning`) den gamla ateljén i stället för att flytta den till `~/Arkiv`, sedan
+historiken fått ägarens dom (`kontroller/atelje.py`, `ta_bort_beslut`).

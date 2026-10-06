@@ -575,6 +575,17 @@ def lasare():
             fel17.append(repr(e))
 
 
+rader17 = []  # varje hel rad i f17 tolkas exakt en gång, också med fyra samtidiga läsare (låset; granskningen av r92, KAN 4)
+orig_rad17 = observation._rad
+
+
+def raknad_rad(lage, rad_):
+    if lage['id'] == ident17:
+        rader17.append(1)
+        time.sleep(0.0002)  # vidgar fönstret: utan låset tolkar två läsare samma rader
+    return orig_rad17(lage, rad_)
+
+
 def skrivare():
     with open(f17, 'a') as f:
         for n in range(600):
@@ -585,14 +596,19 @@ def skrivare():
 
 tr17 = [threading.Thread(target=lasare) for _ in range(4)] + [threading.Thread(target=skrivare)]
 byte_ = sys.getswitchinterval()
+ident17 = (f17.stat().st_dev, f17.stat().st_ino)
 sys.setswitchinterval(1e-6)  # täta trådbyten: en läsning utan lås överlappar då en annan trådens tolkning
+observation._rad = raknad_rad
 try:
     [t.start() for t in tr17]
     [t.join() for t in tr17]
+    o17 = {s_['session_id']: s_ for s_ in observation.oversikt(SLUG)['sessioner']}[sid_17]['observation']
 finally:
     sys.setswitchinterval(byte_)
+    observation._rad = orig_rad17
 assert not fel17, fel17[:3]
-assert len({s_['session_id']: s_ for s_ in observation.oversikt(SLUG)['sessioner']}[sid_17]['observation']['referensfiler']) == 600
+assert len(o17['referensfiler']) == 600
+assert len(rader17) == 1200, ('varje rad tolkas en gång', len(rader17))
 
 # 17. Read utan omfång i svaret, en oförändrad fil, och en MCP-server vars verktyg togs bort
 f18 = TMP / 't18.jsonl'
@@ -699,6 +715,63 @@ b21 = {'390': 'underlag/%s/atelje/kandidater/k02/varv/start/varv-01/vy-390-forst
 assert p21_med['skarmbild_fangad'] and p21_med['bilder'] == b21, ('med läsbar tid står tiden', p21_med)
 assert p21['skarmbild_fangad'] is None and p21['bilder'] == b21, ('utan läsbar tid ingen tid, aldrig 1970', p21)
 shutil.rmtree(KAND / 'k02' / 'varv')
+# 21b. en fil som aldrig gått att läsa är ingen observation: "inte observerat" med felet, aldrig "inga observerade"
+#      (granskningen av r92, BÖR 1); en logg som lästs förut visar sitt senast lästa läge med varning
+sid_21b = '00000000-0000-4000-8000-0000000000dd'
+(KONFIG / 'projects' / '-falsk-repo' / (sid_21b + '.jsonl')).write_text(strom(anrop(1, 'q1', 'Grep', {})))
+observation._skriv(observation.katalog(SLUG) / (sid_21b + '.json'), {'session_id': sid_21b, 'roll': 'skiss-4', 'kandidat': 'k02', 'svar': 'svar-skiss-4.json',
+                                                                      'start': observation.nu(), 'modell': 'm', 'pid': None, 'slut': observation.nu(), 'utfall': 'avslutad, kod 0'})
+ny_logg = UNDERLAG / SLUG / 'referenser' / 'tjanster' / 'refero' / 'session-2026-10-06T120000Z.jsonl'
+ny_logg.parent.mkdir(parents=True, exist_ok=True)
+ny_logg.write_text(strom(anrop(1, 'r1', 'mcp__refero__refero_search_screens', {'query': FRAS})))
+observation.open = nekad_open
+try:
+    s21e = {s_['session_id']: s_ for s_ in observation.oversikt(SLUG)['sessioner']}[sid_21b]
+    tj21 = {t_['logg']: t_ for t_ in observation.tjanstesessioner(SLUG)}
+finally:
+    del observation.open
+assert s21e['observation'] is None and s21e['ofullstandig'] == 'transkriptet kunde inte läsas: PermissionError: Permission denied', s21e
+t21n = tj21['referenser/tjanster/refero/session-2026-10-06T120000Z.jsonl']
+assert 'observation' not in t21n and t21n['ofullstandig'] == 'loggen kunde inte läsas: PermissionError: Permission denied', t21n
+t21g = tj21['referenser/tjanster/mobbin/session-2026-10-06T100000Z.jsonl']
+assert t21g['observation']['lasfel'] and t21g['observation']['senast_last'] and t21g['observation']['mcp'], ('läst förut: senaste läget med varning', t21g)
+(observation.katalog(SLUG) / (sid_21b + '.json')).unlink(); ny_logg.unlink()
+# 21c. en FIFO där en tjänstelogg väntas blockerar aldrig observationens lås (granskningen av r92, KAN 3)
+fifo = UNDERLAG / SLUG / 'referenser' / 'tjanster' / 'mobbin' / 'session-2026-10-06T130000Z.jsonl'
+os.mkfifo(fifo)
+svar21c = []
+tr21c = threading.Thread(target=lambda: svar21c.append(observation.tjanstesessioner(SLUG)), daemon=True)
+tr21c.start()
+tr21c.join(10)
+if tr21c.is_alive():  # släpp den blockerade läsningen först, så att låset frigörs innan provet faller
+    os.close(os.open(fifo, os.O_WRONLY | os.O_NONBLOCK))
+    tr21c.join(5)
+assert svar21c, 'en FIFO blockerade läsningen'
+f21c = [t_ for t_ in svar21c[0] if t_['logg'].endswith('T130000Z.jsonl')]
+assert f21c and f21c[0]['ofullstandig'] == 'loggen kunde inte läsas: OSError: inte en vanlig fil', f21c
+fifo.unlink()
+# 21d. storleken och identiteten tas från den öppnade filen: byts filen mellan öppningen och läsningen läses den öppnade,
+#      och den nya läses från början nästa gång (granskningen av r92, KAN 5)
+import builtins  # noqa: E402
+f21d, ny21d = TMP / 't21d.jsonl', TMP / 't21d-ny.jsonl'
+f21d.write_text(strom(anrop(1, 'o1', 'Grep', {}), anrop(2, 'o2', 'Grep', {})))
+ny21d.write_text(strom(*[anrop(i, 'n%d' % i, 'Glob', {}) for i in range(1, 6)]))
+
+
+def byt_efter_oppning(*a_, **k_):
+    h_ = builtins.open(*a_, **k_)
+    os.replace(ny21d, f21d)
+    del observation.open  # bara den här öppningen
+    return h_
+
+
+observation.open = byt_efter_oppning
+try:
+    l21d = set(observation.las_session(f21d)['anrop'])
+finally:
+    observation.__dict__.pop('open', None)
+assert l21d == {'o1', 'o2'}, l21d
+assert set(observation.las_session(f21d)['anrop']) == {'n1', 'n2', 'n3', 'n4', 'n5'}, 'den nya filen läses från början'
 
 # 12. mätningen: latens på ett stort transkript (första läsningen och en stegvis), och lagringen per session
 stor = KONFIG / 'projects' / '-falsk-repo' / '00000000-0000-4000-8000-000000000001.jsonl'
