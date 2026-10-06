@@ -3020,23 +3020,33 @@ try:
     (al_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'titel': 'Byggdagboken', 'ide': 'en idé'}}}))
     (al_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'klar'}))
     (al_ / 'atelje' / 'FORBATTRING-AGAREN.json').write_text('[{"omdome": "efter är bättre"}]')
+    (al_ / 'atelje' / 'AGARENS-DOM.json').write_text('{"1": "blind dom"}')
+    (al_ / 'atelje' / 'omgang-1').mkdir(); (al_ / 'atelje' / 'omgang-1' / 'AGARENS-DOM.json').write_text('{"2": "äldre blind dom"}')
     sk.lagg_till_dom('pt-aldre', 'ägaren', 'ny_riktning', 'Ingen av dem.', underlag=pt_und)
     info_al = {}
     assert sorted(at_pt.ta_bort_beslut('pt-aldre', info_al)) == sorted(at_pt.rel(p) for p in (al_ / 'REFERENSER.md', al_ / 'atelje', al_ / 'prototyp'))
-    assert [h['namn'] for h in sk.historik('pt-aldre', pt_und)] == ['Byggdagboken', 'riktningen på huvudreferensen Ashton'], sk.historik('pt-aldre', pt_und)
-    behallna = list(al_.glob('FORBATTRING-AGAREN-*.json'))
-    assert len(behallna) == 1 and behallna[0].read_text() == '[{"omdome": "efter är bättre"}]' and info_al['behallna'] == [at_pt.rel(behallna[0])], info_al
+    h_al = sk.historik('pt-aldre', pt_und)
+    assert [h['namn'] for h in h_al] == ['Byggdagboken', 'riktningen på huvudreferensen Ashton'], h_al
+    assert h_al[1]['utfall'] == 'borttagen vid ett omtag, utan egen dom' and h_al[1]['kritik'] == '', ('ingen lånad dom (r92d, KAN 3)', h_al[1])
+    beh_ = {str(f_.relative_to(al_ / 'agarens-omdomen')).split('/', 1)[1]: f_.read_text() for f_ in (al_ / 'agarens-omdomen').glob('*/**/*.json')}
+    assert beh_ == {'atelje/FORBATTRING-AGAREN.json': '[{"omdome": "efter är bättre"}]', 'atelje/AGARENS-DOM.json': '{"1": "blind dom"}',
+                    'atelje/omgang-1/AGARENS-DOM.json': '{"2": "äldre blind dom"}'}, ('ägarens egna omdömen kopierade med sin plats', beh_)
+    assert len(info_al['behallna']) == 3 and not (al_ / 'atelje').exists(), info_al
     fo_ = pt_und / 'pt-forfining'
     (fo_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
     (fo_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'startad': '2026-10-06T04:00:00Z'}))
-    (fo_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'titel': 'Den valda', 'ide': 'en idé'}}}))
+    (fo_ / 'atelje' / 'kandidater' / 'k02').mkdir()
+    (fo_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': '2026-10-06T03:10:00Z', 'kandidater': {
+        'k01': {'titel': 'Den valda', 'ide': 'en idé'}, 'k02': {'titel': 'Den som föll', 'ide': 'en idé'}}}))
     (fo_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'under_arbete', 'fotograferad': '2026-10-06T03:00:00Z'}))
-    sk.lagg_till_dom('pt-forfining', 'ägaren', 'valj', 'Förfina k01.', underlag=pt_und, tid='2026-10-06T03:50:00Z')
+    (fo_ / 'atelje' / 'kandidater' / 'k02' / 'STATUS.json').write_text(json.dumps({'status': 'fel', 'fotograferad': '2026-10-06T03:00:00Z'}))
+    sk.lagg_till_dom('pt-forfining', 'ägaren', 'valj', 'Förfina k01.', underlag=pt_und, tid='2026-10-06T03:50:00Z',
+                     kandidater=[{'id': 'k01', 'version': 'v1', 'plan': '2026-10-06T03:10:00Z'}, {'id': 'k02', 'version': 'v1', 'plan': 'en annan plan'}])
     try:
         at_pt.ta_bort_beslut('pt-forfining')
         raise AssertionError('en vald kandidat under förfining raderades utan dom')
     except RuntimeError as e_:
-        assert 'Den valda' in str(e_), e_
+        assert 'Den valda' in str(e_) and 'Den som föll' not in str(e_), ('vald i domen för planen är sedd; en som föll är det inte (r92d, BÖR 1)', e_)
     th_ = pt_und / 'pt-trasig-historik'
     (th_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
     (th_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'}))
@@ -3044,11 +3054,18 @@ try:
     (th_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'klar'}))
     (th_ / sk.HISTORIK).write_text('{trasig')
     sk.lagg_till_dom('pt-trasig-historik', 'ägaren', 'ny_riktning', 'Ny riktning.', underlag=pt_und)
+    arbetare_th = falsk_process('python -B kontroller/atelje.py pt-trasig-historik --arbetare --lage ny')
+    (th_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z', 'pid': arbetare_th.pid}))
     try:
         at_pt.ta_bort_beslut('pt-trasig-historik')
         raise AssertionError('en historik som inte går att tolka skrevs över')
     except RuntimeError as e_:
-        assert 'går inte att tolka' in str(e_), e_
+        assert 'går inte att tolka' in str(e_) and arbetare_th.poll() is None, ('prövas innan något stoppas (r92d, KAN 4)', e_)
+    # namnlösa historikposter står kvar när historiken skrivs om (r92d, KAN 6)
+    (pt_und / 'pt-namnlos').mkdir()
+    sk.lagg_till_historik('pt-namnlos', [{'kalla': 'x', 'utfall': 'utan namn'}], pt_und)
+    sk.lagg_till_historik('pt-namnlos', [{'kalla': 'y', 'namn': 'Med namn', 'utfall': 'u'}], pt_und)
+    assert [x_.get('kalla') for x_ in json.loads((pt_und / 'pt-namnlos' / sk.HISTORIK).read_text())] == ['x', 'y']
     assert (th_ / sk.HISTORIK).read_text() == '{trasig' and (th_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').is_file(), 'historiken orörd, inget borttaget'
     # bara kundens egna pågående flödessessioner avslutas: en annan kunds session, en avslutad post och en process som
     # inte är en flödessession lämnas orörda
