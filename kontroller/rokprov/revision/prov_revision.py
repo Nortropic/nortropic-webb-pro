@@ -3161,6 +3161,22 @@ try:
     finally:
         at_pt.shutil.copy2 = orig_copy2
     assert (ko_ / 'atelje' / 'AGARENS-DOM.json').is_file() and not list(ko_.glob('.borttaget-*')) and not list((ko_ / 'agarens-omdomen').glob('*')), 'allt tillbaka efter avbrottet'
+    # SIGTERM under kopian: signalen blir ett undantag, allt flyttas tillbaka och processens egen hanterare återställs
+    import signal as sig_omtag
+    fore_sigterm = sig_omtag.getsignal(sig_omtag.SIGTERM)
+    def sigterm_copy2(a_, b_, *r_, **k_):
+        os.kill(os.getpid(), sig_omtag.SIGTERM)
+        return orig_copy2(a_, b_, *r_, **k_)
+    at_pt.shutil.copy2 = sigterm_copy2
+    try:
+        at_pt.ta_bort_beslut('pt-kopiefel')
+        raise AssertionError('SIGTERM avbröt inte omtaget')
+    except SystemExit as e_:
+        assert e_.code == 128 + sig_omtag.SIGTERM, e_.code
+    finally:
+        at_pt.shutil.copy2 = orig_copy2
+    assert (ko_ / 'atelje' / 'AGARENS-DOM.json').is_file() and not list(ko_.glob('.borttaget-*')) and not list((ko_ / 'agarens-omdomen').glob('*')), 'allt tillbaka efter SIGTERM'
+    assert sig_omtag.getsignal(sig_omtag.SIGTERM) == fore_sigterm, 'SIGTERM-hanteraren återställd'
     at_pt.ta_bort_beslut('pt-kopiefel')
     assert [h['namn'] for h in sk.historik('pt-kopiefel', pt_und)] == ['En'] and not (ko_ / 'atelje').exists(), 'ingen dubblett, omtaget gjort'
     assert sorted(f_.read_text() for f_ in (ko_ / 'agarens-omdomen').glob('*/atelje/**/AGARENS-DOM.json')) == ['{"1": "dom"}', '{"2": "äldre"}']

@@ -2131,6 +2131,10 @@ def agarens_filer(rot):
     return sorted(ut)
 
 
+def _sigterm_som_undantag(signum, frame):
+    raise SystemExit(128 + signum)  # omtaget hinner flytta tillbaka (except BaseException) innan processen slutar
+
+
 def flytta_tillbaka(flyttade):
     """Det som flyttats undan flyttas tillbaka, i omvänd ordning; ger det som inte gick."""
     kvar = []
@@ -2264,46 +2268,56 @@ def ta_bort_beslut(slug, info=None):
             break
     else:
         raise RuntimeError('ingen ledig stämpel för omtaget; inget är borttaget')
-    flyttade = []
-    # först flyttas allt undan med namnbyten (en länk byter namn som länk, aldrig det den pekar på); går ett inte flyttas
-    # resten tillbaka, så att omtaget antingen görs helt eller inte alls
-    for kalla in (u / 'REFERENSER.md', u / 'KONCEPT.md', *u_sidan, k / 'sajt', k / 'kandidater'):
-        if not (kalla.is_symlink() or kalla.exists()):
-            continue
-        mal = kalla.with_name('.borttaget-%s-%s' % (stampel, kalla.name))
-        try:
-            os.rename(kalla, mal)
-        except BaseException as e:  # också Ctrl-C och SIGTERM: allt tillbaka (BÖR 6)
-            kvar = flytta_tillbaka(flyttade)
-            if not isinstance(e, OSError):
-                raise
-            raise RuntimeError('omtaget gjordes inte: %s gick inte att flytta undan (%s: %s); %s' % (
-                rel(kalla), type(e).__name__, e.strerror or e,
-                'allt står kvar' if not kvar else 'kunde inte flyttas tillbaka och står undan som .borttaget-%s-…: %s' % (stampel, ', '.join(kvar))))
-        flyttade.append((kalla, mal))
-    # ägarens egen inmatning (blinda domar och före/efter-omdömen, också i omgångar, förra körningar, en äldre prototyp och
-    # rester av ett avbrutet omtag) kopieras med sin plats ur det som flyttats undan, dit dashboarden inte längre skriver
-    # (r93, KAN 2), och raderas aldrig; går en kopia eller historiken inte flyttas allt tillbaka (r93, BÖR 2–4)
-    malrot, behallna = u / 'agarens-omdomen' / stampel, []
+    # SIGTERM avbryter annars Python utan undantag, så att inget flyttas tillbaka (uppföljning 2 av r93): under namnbytena
+    # och kopian blir det ett undantag; i en annan tråd än huvudtråden går signalen inte att fånga
     try:
-        kallor = [(kalla.name, mal) for kalla, mal in flyttade if mal.parent == u and mal.is_dir() and not mal.is_symlink()]
-        kallor += [('tidigare-omtag/%s' % r_.name, r_) for r_ in rester_fore]
-        for namn_, rot_ in kallor:
-            for f_ in agarens_filer(rot_):
-                mal_ = malrot / namn_ / f_.relative_to(rot_)
-                if os.path.lexists(mal_):
-                    raise FileExistsError(17, 'finns redan', str(mal_))
-                mal_.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(f_, mal_)
-                behallna.append(rel(mal_))
-    except BaseException as e:  # också Ctrl-C och SIGTERM: allt tillbaka, de halva kopiorna bort (BÖR 6)
-        kvar = flytta_tillbaka(flyttade)
-        shutil.rmtree(malrot, ignore_errors=True)  # bara kopior
-        if not isinstance(e, (OSError, RuntimeError)):
-            raise
-        raise RuntimeError('omtaget gjordes inte: ägarens filer gick inte att kopiera (%s: %s); processerna är stoppade och historiken skriven, %s' % (
-            type(e).__name__, getattr(e, 'strerror', None) or e,
-            'allt annat står kvar' if not kvar else 'men %s kunde inte flyttas tillbaka och står undan som .borttaget-%s-…' % (', '.join(kvar), stampel)))
+        tidigare_sigterm = signal.signal(signal.SIGTERM, _sigterm_som_undantag)
+    except ValueError:
+        tidigare_sigterm = None
+    try:
+        flyttade = []
+        # först flyttas allt undan med namnbyten (en länk byter namn som länk, aldrig det den pekar på); går ett inte flyttas
+        # resten tillbaka, så att omtaget antingen görs helt eller inte alls
+        for kalla in (u / 'REFERENSER.md', u / 'KONCEPT.md', *u_sidan, k / 'sajt', k / 'kandidater'):
+            if not (kalla.is_symlink() or kalla.exists()):
+                continue
+            mal = kalla.with_name('.borttaget-%s-%s' % (stampel, kalla.name))
+            try:
+                os.rename(kalla, mal)
+            except BaseException as e:  # också Ctrl-C och SIGTERM: allt tillbaka (BÖR 6)
+                kvar = flytta_tillbaka(flyttade)
+                if not isinstance(e, OSError):
+                    raise
+                raise RuntimeError('omtaget gjordes inte: %s gick inte att flytta undan (%s: %s); %s' % (
+                    rel(kalla), type(e).__name__, e.strerror or e,
+                    'allt står kvar' if not kvar else 'kunde inte flyttas tillbaka och står undan som .borttaget-%s-…: %s' % (stampel, ', '.join(kvar))))
+            flyttade.append((kalla, mal))
+        # ägarens egen inmatning (blinda domar och före/efter-omdömen, också i omgångar, förra körningar, en äldre prototyp och
+        # rester av ett avbrutet omtag) kopieras med sin plats ur det som flyttats undan, dit dashboarden inte längre skriver
+        # (r93, KAN 2), och raderas aldrig; går en kopia inte, eller avbryts omtaget, flyttas allt tillbaka (r93, BÖR 2–4 och 6)
+        malrot, behallna = u / 'agarens-omdomen' / stampel, []
+        try:
+            kallor = [(kalla.name, mal) for kalla, mal in flyttade if mal.parent == u and mal.is_dir() and not mal.is_symlink()]
+            kallor += [('tidigare-omtag/%s' % r_.name, r_) for r_ in rester_fore]
+            for namn_, rot_ in kallor:
+                for f_ in agarens_filer(rot_):
+                    mal_ = malrot / namn_ / f_.relative_to(rot_)
+                    if os.path.lexists(mal_):
+                        raise FileExistsError(17, 'finns redan', str(mal_))
+                    mal_.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f_, mal_)
+                    behallna.append(rel(mal_))
+        except BaseException as e:  # också Ctrl-C och SIGTERM: allt tillbaka, de halva kopiorna bort (BÖR 6)
+            kvar = flytta_tillbaka(flyttade)
+            shutil.rmtree(malrot, ignore_errors=True)  # bara kopior
+            if not isinstance(e, (OSError, RuntimeError)):
+                raise
+            raise RuntimeError('omtaget gjordes inte: ägarens filer gick inte att kopiera (%s: %s); processerna är stoppade och historiken skriven, %s' % (
+                type(e).__name__, getattr(e, 'strerror', None) or e,
+                'allt annat står kvar' if not kvar else 'men %s kunde inte flyttas tillbaka och står undan som .borttaget-%s-…' % (', '.join(kvar), stampel)))
+    finally:
+        if tidigare_sigterm is not None:
+            signal.signal(signal.SIGTERM, tidigare_sigterm)
     info['behallna'] = sorted(behallna)
     # sist raderas det som flyttats undan, rester som gåtts igenom ovan och rester på kundsidan (där skriver ägaren inget)
     for mal in dict.fromkeys([m for _, m in flyttade] + rester_fore + rester_ovrigt + sorted(k.glob('.borttaget-*'))):
