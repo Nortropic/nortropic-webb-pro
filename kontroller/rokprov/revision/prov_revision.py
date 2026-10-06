@@ -1780,12 +1780,13 @@ os.symlink('upp/../eget/ut/annan.json', ut7 / 'ok.json')  # via .. tillbaka in i
 r = node7(ut7); assert r.returncode == 0, 'en länk som via .. stannar i eget område går: ' + r.stdout + r.stderr
 # sida_till_text: with_suffix ersätter en ändelse, så artikel.v1 skriver artikel.txt; den filen prövas nu
 omr7 = Path('/tmp/nwp-bygge-eget-bygge'); omr7.mkdir(parents=True, exist_ok=True)
-os.symlink(tmp / 'annat-bygge-mapp' / 'artikel.txt', omr7 / 'artikel.txt')
+art7 = 'artikel%s' % egen_  # unikt per process: parallella körningar av provet delar området (2026-10-06)
+os.symlink(tmp / 'annat-bygge-mapp' / 'artikel.txt', omr7 / (art7 + '.txt'))
 try:
-    r = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'sida_till_text.py'), 'http://127.0.0.1:1/', str(omr7 / 'artikel.v1')], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'}, cwd=str(ROOT))
-    assert r.returncode == 2 and 'slugvakten' in r.stderr and 'artikel.txt' in r.stderr, 'artikel.v1 skriver artikel.txt, som är en symlänk ut: ' + r.stdout + r.stderr
+    r = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'sida_till_text.py'), 'http://127.0.0.1:1/', str(omr7 / (art7 + '.v1'))], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'}, cwd=str(ROOT))
+    assert r.returncode == 2 and 'slugvakten' in r.stderr and (art7 + '.txt') in r.stderr, 'artikel.v1 skriver artikel.txt, som är en symlänk ut: ' + r.stdout + r.stderr
 finally:
-    (omr7 / 'artikel.txt').unlink()
+    (omr7 / (art7 + '.txt')).unlink()
 print('R7 F1 slugvakten ok')
 
 # F20: prefixade egenskaper prövas mot underlaget, också nästlade adressfält
