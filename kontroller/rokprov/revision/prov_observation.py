@@ -497,7 +497,7 @@ def strom(*rader_):
         {'type': 'tool_use', 'id': 'n5', 'name': 'mcp__refero__refero_get_flow', 'input': {'id': 1}}]}),
     rad(type='user', timestamp=T0 % 2, message={'content': [
         {'type': 'tool_result', 'tool_use_id': 'n1', 'is_error': True, 'content': "Claude requested permissions to use mcp__refero__refero_search_screens, but you haven't granted it yet."},
-        {'type': 'tool_result', 'tool_use_id': 'n2', 'is_error': True, 'content': 'PreToolUse:mcp__refero__refero_search_flows hook error: [kontroller/kundvakt.py] ' + EPOST},
+        {'type': 'tool_result', 'tool_use_id': 'n2', 'is_error': True, 'content': 'PreToolUse:mcp__refero__refero_search_flows hook error: [x]: blockerat ' + EPOST},
         {'type': 'tool_result', 'tool_use_id': 'n3', 'is_error': True, 'content': '<tool_use_error>File is covered by a Read deny rule in your permission settings and cannot be written.</tool_use_error>'},
         {'type': 'tool_result', 'tool_use_id': 'n4', 'content': [{'type': 'text', 'text': json.dumps({'records': [
             {'url': 'https://refero.design/flows/7542', 'site': 'https://www.example.com/', 'thumbnail_url': 'https://images.refero.design/a.webp'}]})}]},
@@ -512,6 +512,14 @@ f14 = TMP / 't14.jsonl'
 f14.write_text(strom(anrop(1, 'd1', 'Bash', {'command': 'ls'}), svar(2, 'd1', 'x', fel=True, nekad='permission-rule')))
 s14 = observation.sammanfattning(f14)
 assert s14['verktyg'] == {'Bash': {'nekat': 1}} and s14['nekade'] == 1, 'typfältet räcker för ett nekande'
+# Claude Codes egna nekandetexter (också "Permission to read") är nekanden; en tjänsts egna fel med liknande ord är fel
+f14b = TMP / 't14b.jsonl'
+texter14 = [('Permission to read /x has been denied.', 'nekat'), ('Error: permission to access this collection (403)', 'fel'),
+            ('Request denied by upstream rate limiter', 'fel'), ('webhook error while fetching', 'fel')]
+f14b.write_text(strom(*[x for i, (txt, _) in enumerate(texter14) for x in (anrop(1, 'q%d' % i, 'mcp__refero__refero_search_sites', {'q': FRAS}),
+                                                                           svar(2, 'q%d' % i, txt, fel=True))]))
+s14b = observation.sammanfattning(f14b)
+assert [m['utfall'] for m in s14b['mcp']] == [v for _, v in texter14], s14b['mcp']
 
 # 14. en rad med oväntad form hoppas över och räknas, en gång; läsningen går vidare och räknar inget dubbelt
 f15 = TMP / 't15.jsonl'
@@ -591,7 +599,7 @@ f18.write_text(strom(anrop(1, 'k1', 'Read', {'file_path': str(ROOT / '.claude/sk
                      rad(type='attachment', attachment={'type': 'deferred_tools_delta', 'removedNames': ['mcp__refero__a', 'mcp__refero__b']})))
 s18 = observation.sammanfattning(f18)
 assert [x['utfall'] for x in s18['skillfiler']] == ['fil läst (omfång inte observerat)', 'oförändrad sedan förra läsningen'], s18['skillfiler']
-assert s18['mcp_lage'] == {'refero': 'frånkopplad', 'mobbin': 'ansluten'}, s18['mcp_lage']
+assert s18['mcp_lage'] == {'refero': 'verktygen borttagna', 'mobbin': 'ansluten'}, s18['mcp_lage']
 
 # 18. sessionens sida: skaparens arbete, granskningen och körningens gemensamma steg hålls isär
 roller = ('skiss-1', 'skiss-1-granskning', 'skapa-2', 'pass-rorelse-k01-1', 'forbattra', 'forfina-1', 'skisskritik-1', 'kritik-a-1', 'kritik-b-2',
@@ -600,11 +608,15 @@ assert [observation.sida(r_) for r_ in roller] == ['skapare'] * 6 + ['granskare'
 assert {s_['session_id']: s_ for s_ in observation.oversikt(SLUG)['sessioner']}[sid_a]['sida'] == 'skapare'
 
 # 19. före ägarens beslut bara huvudreferensens namn, aldrig planens beskrivning; inga halvskrivna poster kvar
-(UNDERLAG / SLUG / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {
-    'huvudreferens': 'Tekt (tekt.com.au), referenspaketet paket-v06/tekt/01-start: avsnittet "Our Process" och rytmen', 'referensbilder': ['a', 'b']}}}))
-r19 = observation.referenser(SLUG)
-assert r19['kandidater'] == {'k01': {'huvudreferens': 'Tekt (tekt.com.au)', 'referensbilder': 2}}, r19
-assert 'Our Process' not in json.dumps(observation.oversikt(SLUG), ensure_ascii=False)
+planer19 = {'k01': 'Tekt (tekt.com.au), referenspaketet paket-v06/tekt/01-start: avsnittet "Our Process" och rytmen',
+            'k02': 'Tekt (tekt.com.au): avsnittet Our Process bär den luftiga rytmen', 'k03': 'Tekt (tekt.com.au) som bär den luftiga rytmen i projektlistan',
+            'k04': 'Tekt: den luftiga rytmen i projektlistan', 'k05': 'Tekt bär den luftiga rytmen i projektlistan',
+            'k06': 'Den luftiga rytmen i projektlistan hos en australisk byggfirma', 'k07': 'Tekt (för den luftiga rytmen och Our Process)'}
+(UNDERLAG / SLUG / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {k: {'huvudreferens': v, 'referensbilder': ['a', 'b']} for k, v in planer19.items()}}))
+r19 = {k: v['huvudreferens'] for k, v in observation.referenser(SLUG)['kandidater'].items()}
+assert r19 == {'k01': 'Tekt (tekt.com.au)', 'k02': 'Tekt (tekt.com.au)', 'k03': 'Tekt (tekt.com.au)', 'k04': 'Tekt', 'k05': 'Tekt', 'k06': None, 'k07': 'Tekt'}, r19
+vy19 = json.dumps(observation.oversikt(SLUG), ensure_ascii=False)
+assert not any(x in vy19 for x in ('Our Process', 'luftiga', 'rytmen', 'projektlistan')), 'planens beskrivning syns aldrig'
 assert not list(observation.katalog(SLUG).glob('.*.tmp')), 'inga halvskrivna poster kvar'
 
 # 20. en session i en annan utcheckning av repot: referensen och metodutdraget känns igen ur sökvägen; paketets tid ur

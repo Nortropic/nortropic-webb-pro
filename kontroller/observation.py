@@ -46,8 +46,10 @@ FALT = ('session_id', 'roll', 'kandidat', 'svar', 'start', 'modell', 'pid', 'slu
 SKILLFIL = re.compile(r'(?:^|/)\.claude/skills/([^/]+)/(.+)$')
 BILDLANK = re.compile(r'https?://[^\s"\'<>()\\]+?\.(?:png|jpe?g|webp|avif)(?=[\s"\'<>()\\?#]|$)', re.I)
 FOR_STORT = re.compile(r'^Error: result \(.{0,80}exceeds maximum allowed tokens', re.S)
-# nekanden utan toolDenialKind (de strömmade loggarna): behörighetsregler, dontAsk, PreToolUse-krokar (kundvakten), deny-regler
-NEKAT = re.compile(r"(?i)permission to \w+|haven't granted|has been denied|denied by|deny rule|hook (error|blocked)|blocked by (a )?hook|kundvakt")
+# nekanden utan toolDenialKind (de strömmade loggarna), förankrade i Claude Codes egna texter: behörighetsregler och
+# dontAsk, PreToolUse-krokar (kundvakten) och deny-regler för filer; en tjänsts eget felmeddelande är aldrig ett nekande
+NEKAT = re.compile(r"^\s*(?:<tool_use_error>\s*)?(?:Permission to \w+\b|Claude requested permissions? to use\b|PreToolUse:\S+ hook\b"
+                   r"|File is (?:in a directory that is denied|covered by a \w+ deny rule))")
 TOMT = re.compile(r'(?i)^\s*(no results?( found)?|0 results|inga träffar|nothing found)\b')
 AVSLUTADE = ('klar', 'klar_for_bedomning', 'fel', 'forkastad', 'tillbaka')
 # sessionens sida ur rollen (svarsfilens namn): skaparens arbete, granskningen eller körningens gemensamma steg
@@ -212,7 +214,7 @@ def _rad(lage, rad):
                 if str(n).startswith('mcp__'):
                     v.setdefault(str(n).split('__')[1], set()).discard(str(n))
             mcp = lage['mcp'] or {}
-            mcp.update({s_: 'ansluten' if vs else 'frånkopplad' for s_, vs in v.items()})
+            mcp.update({s_: 'ansluten' if vs else 'verktygen borttagna' for s_, vs in v.items()})
             for falt, etikett in (('pendingMcpServers', 'ansluter'), ('needsAuthMcpServers', 'kräver inloggning'), ('failedMcpServers', 'misslyckades')):
                 for n in _lista(a.get(falt)):
                     mcp[str(n.get('name') if isinstance(n, dict) else n)] = etikett
@@ -428,14 +430,26 @@ def tjanstesessioner(slug, efter=None):
     return ut
 
 
+NAMNSLUT = re.compile(r'\s+[—–·-]+\s+|:\s+|:$|[,;]|\s+(?:som|med|där|för|bär|ger|with|that|which|for)\s+', re.I)
+
+
 def referensnamn(text):
-    """Bara huvudreferensens namn ur planens text, som jämförelsen i kortet visar före ägarens första beslut; planens
-    beskrivning hålls tillbaka som i kandidater.sammanstall (BESLUT.md 2026-10-05, punkt 1)."""
-    if not text:
-        return None
-    import kandidater
-    egen, namnen = kandidater.huvudreferensens_namn(text)
-    return 'egen riktning' if egen else (namnen[0][:80] if namnen else None)
+    """Bara huvudreferensens namn ur planens text, aldrig beskrivningen (som kandidater.sammanstall håller tillbaka före
+    ägarens första beslut; BESLUT.md 2026-10-05, punkt 1): delen före det första tankstrecket, kolonet, kommat, semikolonet
+    eller beskrivande ordet ("som", "med", "bär" …), utan något efter en avslutande parentes. Blir det mer än fyra ord går
+    namnet inte att skilja från beskrivningen, och då None (vyn säger "inte observerad")."""
+    t = str(text or '').strip().strip('*`').strip()
+    fore, parentes, rest = t.partition('(')
+    kort = NAMNSLUT.split(fore, maxsplit=1)[0].strip()
+    # namnet direkt följt av en parentes (domänen): parentesen hel; annars, eller om den blir för lång, namnet utan den
+    prova = [kort + ' (' + rest.split(')', 1)[0] + ')'] if parentes and ')' in rest and kort == fore.strip() else []
+    for x in prova + [kort]:
+        x = x.strip().strip('*`').strip()
+        if x.lower() in ('egen', 'egen riktning', 'ingen'):
+            return 'egen riktning'
+        if x and len(x.split()) <= 4 and len(x) <= 60:
+            return x
+    return None
 
 
 def referenser(slug):

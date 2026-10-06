@@ -863,13 +863,17 @@ async function observationsvy(slug, kandidater) {
   const al = fel(o.arbetslage) ? {} : (o.arbetslage || {}), sess = Array.isArray(o.sessioner) ? o.sessioner : [], tj = Array.isArray(o.tjanster) ? o.tjanster : [];
   const prot = fel(o.prototyper) ? {} : (o.prototyper || {}), plan = (!fel(o.referenser) && o.referenser && o.referenser.kandidater) || {};
   const nagotFel = ['arbetslage', 'referenser', 'installerat', 'prototyper', 'sessioner', 'tjanster'].some((x) => fel(o[x])) || sess.some((x) => x.ofullstandig);
-  const pagar = sess.some((s) => s.pagar) || (!fel(o.arbetslage) && !al.avslutad && al.arbetaren_lever !== false);
+  // pågår bara med belägg (en levande session eller arbetare); utan pid är läget oklart och uppdateras glesare, utan påstående
+  const pagar = sess.some((s) => s.pagar) || (!fel(o.arbetslage) && !al.avslutad && al.arbetaren_lever === true);
+  const oklart = !pagar && !fel(o.arbetslage) && !al.avslutad && al.arbetaren_lever == null;
   // en kandidat som blivit klar eller ändrat status: hela vyn ritas om, så att korten följer med; medan ägaren skriver
   // väntar omritningen till nästa uppdatering (signaturen står kvar tills den gjorts)
   const sig = JSON.stringify(Object.entries(prot).map(([k, p]) => [k, p.status, p.version]));
   const fokus = document.activeElement, skriver = (fokus && (fokus.tagName === 'TEXTAREA' || (fokus.tagName === 'INPUT' && ['text', 'search'].includes(fokus.type))))
     || ($('#k-text') && $('#k-text').value.trim());
-  if (obsSignatur[slug] && obsSignatur[slug] !== sig) { if (!skriver) { obsSignatur[slug] = sig; return prototypvy(slug); } } else obsSignatur[slug] = sig;
+  const vantar = Boolean(obsSignatur[slug] && obsSignatur[slug] !== sig);  // en omritning som väntar på att ägaren skrivit klart
+  if (vantar && !skriver) { obsSignatur[slug] = sig; return prototypvy(slug); }
+  if (!obsSignatur[slug]) obsSignatur[slug] = sig;
   const oppen = (nyckel, standard) => `data-obs="${esc(nyckel)}"${(nyckel in obsOppen ? obsOppen[nyckel] : standard) ? ' open' : ''}`;
   const steg = Object.entries(al.tider || {}).sort((a, b) => String(a[1]).localeCompare(String(b[1]))).at(-1);
   const tjanstrad = (t) => { const ob = t.observation; if (!ob) return `<li>${esc(t.tjanst)}: ${t.ofullstandig ? ejObs(t) : 'loggen inte observerad'}</li>`;
@@ -885,6 +889,7 @@ async function observationsvy(slug, kandidater) {
     // skaparens bevis: bara skaparens egna sessioner; granskningens och kritikerns läsningar är deras, inte skaparens
     const egna = sess.filter((s) => s.kandidat === kid && s.sida === 'skapare'), gr = sess.filter((s) => s.kandidat === kid && s.sida === 'granskare');
     const obs = egna.map((s) => s.observation).filter(Boolean), alla = (f) => obs.flatMap((x) => x[f] || []);
+    const olasta = egna.filter((s) => !s.observation);  // skaparens sessioner utan läsbart transkript: sägs, räknas inte bort
     const utan = fel(o.sessioner) ? ejObs(o.sessioner) : !obs.length ? 'inte observerat (inget transkript för skaparens sessioner)' : null;
     const ingen = (l, text) => utan || (l.length ? text : 'inga observerade');
     const p = prot[kid] || {}, refs = alla('referensfiler'), sf = alla('skillfiler'), sk = alla('skills_laddade'), me = alla('metodutdrag'), mcp = alla('mcp');
@@ -909,14 +914,14 @@ async function observationsvy(slug, kandidater) {
           ${me.length ? `<div>Flödets metodutdrag (utdrag ur skills): ${utfallen(me)}</div>` : ''}
           ${(p.kompetenskvitton || []).map((k) => `<div class="obs-not">Flödets kvitto efter ${esc(k.pass)}: ${k.verifierad ? 'verifierat' : 'inte verifierat'}, ${k.lasta} lästa${k.saknas.length ? ', saknas ' + esc(k.saknas.join(', ')) : ''}.</div>`).join('')}
           <p class="obs-not">Läst eller laddat är inte tillämpat; tillämpningen bedöms i granskningen och i ditt beslut.</p></div>
-      </div>${gr.length ? `<p class="obs-not">Granskningens sessioner för förslaget: ${gr.length} (${esc([...new Set(gr.map((s) => rollnamn(s.roll)))].join(', '))}); deras läsningar räknas inte som skaparens.</p>` : ''}</details>`; };
+      </div>${olasta.length && obs.length ? `<p class="obs-not">${olasta.length} av skaparens ${egna.length} sessioner kunde inte läsas (${esc(olasta.map((s) => s.ofullstandig || 'transkriptet saknas').join('; '))}); det som står ovan gäller de övriga.</p>` : ''}${gr.length ? `<p class="obs-not">Granskningens sessioner för förslaget: ${gr.length} (${esc([...new Set(gr.map((s) => rollnamn(s.roll)))].join(', '))}); deras läsningar räknas inte som skaparens.</p>` : ''}</details>`; };
   // vyns ordning (neutrala etiketter i slumpad ordning), aldrig planens
   const ordning = (kid) => { const i = (kandidater || []).findIndex((k) => k.id === kid); return i < 0 ? 999 : i; };
   const kids = [...new Set([...Object.keys(prot), ...sess.map((s) => s.kandidat).filter(Boolean)])].sort((a, b) => ordning(a) - ordning(b) || a.localeCompare(b));
   const rad = (s) => { const ob = s.observation, k = ob && ob.kontext, kp = (ob && ob.komprimeringar) || [];
     return `<tr><td>${esc(rollnamn(s.roll))}${s.kandidat ? ' · ' + esc(etikett(s.kandidat)) : ''}<div class="obs-not">${esc((ob && ob.modell) || s.modell || '')}</div></td>
-      <td>${s.pagar ? '<span class="chip acc puls">pågår</span>' : s.slut ? `avslutad ${tid(s.slut)}${s.utfall ? ', ' + esc(s.utfall) : ''}` : 'avslutad, sluttid inte observerad'}<div class="obs-not">start ${tid(s.start)}</div></td>
-      <td>${s.ofullstandig ? ejObs(s) : ob ? sedan(ob.senaste_handelse) : 'transkriptet inte observerat'}</td>
+      <td>${s.pagar ? '<span class="chip acc puls">pågår</span>' : s.slut ? `avslutad ${tid(s.slut)}${s.utfall ? ', ' + esc(s.utfall) : ''}` : s.ofullstandig ? 'inte observerat' : 'ingen sluttid; ingen levande claude-session observerad'}<div class="obs-not">start ${tid(s.start)}</div></td>
+      <td>${s.ofullstandig ? ejObs(s) : ob ? sedan(ob.senaste_handelse) : 'transkriptet inte observerat'}${ob && ob.oforstadda_rader ? `<div class="obs-not">${ob.oforstadda_rader} rader kunde inte tolkas</div>` : ''}</td>
       <td>${k ? `cirka ${Math.round(k.tokens / 1000)} k tokens <span class="obs-not">(uppskattning, senaste turen)</span>` : 'inte observerat'}${kp.length ? `<div>${kp.length} komprimering${kp.length > 1 ? 'ar' : ''}, senast ${tid(kp.at(-1).tid)}</div>` : ''}</td></tr>`; };
   const inst = fel(o.installerat) ? null : o.installerat;
   const lever = al.arbetaren_lever === true ? 'lever' : al.avslutad ? 'körningen är avslutad' : al.arbetaren_lever === false ? 'lever inte' : 'inte observerat';
@@ -933,7 +938,7 @@ async function observationsvy(slug, kandidater) {
       ${fel(o.tjanster) ? `<p class="obs-not">Tjänstesessionerna: ${ejObs(o.tjanster)}.</p>` : tj.length ? `<ul>${tj.map(tjanstrad).join('')}</ul>` : '<p class="obs-not">Inga tjänstesessioner observerade i den här körningen.</p>'}
       <p>Installerade skills enligt startkvittot: ${fel(o.installerat) ? ejObs(o.installerat) : inst ? `${inst.antal}, ${tid(inst.tid)}` : 'inte observerat'}</p></details>`;
   ruta.querySelectorAll('details[data-obs]').forEach((x) => x.ontoggle = () => { obsOppen[x.dataset.obs] = x.open; });
-  if (pagar || nagotFel) igen(pagar ? 8000 : 15000);
+  if (pagar || vantar || nagotFel || oklart) igen(pagar || vantar ? 8000 : oklart ? 30000 : 15000);
 }
 
 async function abvy() {
