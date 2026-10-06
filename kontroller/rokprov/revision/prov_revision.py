@@ -1732,18 +1732,19 @@ nm.unlink(); assert sv.tillaten_vag(kopia6 / 'kunder' / 'eget-bygge', 'eget-bygg
 sv.ROOT = sv_rot_orig
 # fler skrivmål: sida_till_text och youtube prövar sina härledda filer; administrativa verktyg vägrar inne i ett bygge
 omr = Path('/tmp/nwp-bygge-eget-bygge'); omr.mkdir(parents=True, exist_ok=True)
-os.symlink(tmp / 'annat-bygge-mapp' / 'artikel.txt', omr / 'artikel.txt')
+egen_ = 'p%d' % os.getpid()  # egna namn i det delade området: två körningar av provet samtidigt krockar inte
+os.symlink(tmp / 'annat-bygge-mapp' / 'artikel.txt', omr / ('artikel%s.txt' % egen_))
 try:
-    r = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'sida_till_text.py'), 'http://127.0.0.1:1/', str(omr / 'artikel')], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'}, cwd=str(ROOT))
-    assert r.returncode == 2 and 'slugvakten' in r.stderr and 'artikel.txt' in r.stderr, 'artikel.txt som symlänk ut: ' + r.stderr
+    r = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'sida_till_text.py'), 'http://127.0.0.1:1/', str(omr / ('artikel' + egen_))], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'}, cwd=str(ROOT))
+    assert r.returncode == 2 and 'slugvakten' in r.stderr and ('artikel%s.txt' % egen_) in r.stderr, 'artikel.txt som symlänk ut: ' + r.stderr
 finally:
-    (omr / 'artikel.txt').unlink()
-os.symlink(tmp / 'annat-bygge-mapp', omr / 'video-bilder')
+    (omr / ('artikel%s.txt' % egen_)).unlink()
+os.symlink(tmp / 'annat-bygge-mapp', omr / ('video%s-bilder' % egen_))
 try:
-    r = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'youtube.py'), 'https://www.youtube.com/watch?v=x', '--ut', str(omr / 'video.md')], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'}, cwd=str(ROOT))
-    assert r.returncode == 2 and 'slugvakten' in r.stderr and 'video-bilder' in r.stderr, 'video-bilder som symlänk ut: ' + r.stdout + r.stderr
+    r = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'youtube.py'), 'https://www.youtube.com/watch?v=x', '--ut', str(omr / ('video%s.md' % egen_))], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'}, cwd=str(ROOT))
+    assert r.returncode == 2 and 'slugvakten' in r.stderr and ('video%s-bilder' % egen_) in r.stderr, 'video-bilder som symlänk ut: ' + r.stdout + r.stderr
 finally:
-    (omr / 'video-bilder').unlink()
+    (omr / ('video%s-bilder' % egen_)).unlink()
 for verktyg, argv in (('prospekt.py', ['gallra', '--kampanj', 'annan-kampanj', '--manader', '0']), ('utskick.py', ['prov']), ('ab.py', ['lista']), ('spana.py', ['lista']), ('gruppera.py', [])):
     r = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / verktyg), *argv], capture_output=True, text=True, env={**os.environ, 'NWP_SLUG': 'eget-bygge'}, cwd=str(ROOT))
     assert r.returncode == 2 and 'körs inte inne i ett bygge' in r.stderr, (verktyg, r.returncode, r.stderr[-200:])
@@ -6731,12 +6732,12 @@ def skisskontrollerna():
         kd_s.satt_status(slug_, 'k02', 'klar', 'prov', huvudreferens='Påhittad, Cox', hypotes='En egen tidslinje, egentligen bara foton, som Cox')
         r2_, s2_ = kd_s.referenssida(slug_, 'k02')
         assert r2_ and r2_['sida'] == kd_s.rel(ref_) and r2_['namn'] == 'Påhittad, Cox', (r2_, s2_)
-        assert next(k_ for k_ in kd_s.sammanstall(slug_) if k_['id'] == 'k02')['hypotes'] == 'En egen tidslinje, egentligen bara foton, som [referensen]'
+        # hypotesen visas som den skrevs: referenserna syns per förslag, hopfällda efter bilderna (ägarens uppdrag 2026-10-06, punkt 8)
+        assert next(k_ for k_ in kd_s.sammanstall(slug_) if k_['id'] == 'k02')['hypotes'] == 'En egen tidslinje, egentligen bara foton, som Cox'
         kd_s.satt_status(slug_, 'k02', 'klar', 'prov', huvudreferens='egen')
         j2_ = kd_s.referensjamforelse(slug_, 'k02')
         assert j2_['referens'] is None and j2_['egen'] and 'egen riktning' in j2_['saknas'], j2_
-        assert next(k_ for k_ in kd_s.sammanstall(slug_) if k_['id'] == 'k02')['hypotes'] == 'En egen tidslinje, egentligen bara foton, som Cox', \
-            '"egen" är inget namn att dölja'
+        assert next(k_ for k_ in kd_s.sammanstall(slug_) if k_['id'] == 'k02')['hypotes'] == 'En egen tidslinje, egentligen bara foton, som Cox'
 
         # --- förhandsvisningen säger varför menybilden saknas ---
         fh_s.KUNDER = tmp / 'skk-fh'

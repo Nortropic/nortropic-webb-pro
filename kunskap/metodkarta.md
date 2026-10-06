@@ -330,6 +330,7 @@ bilder eller vid jämförelsen med referensen i samma bredd.
 
 ```utdrag före
 kunskap/designregler.md
+kunskap/bild.md
 ```
 
 ## Granska
