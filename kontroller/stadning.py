@@ -152,10 +152,32 @@ def huvudutcheckning(rot):
     return verklig_sokvag(Path(ut.strip()).parent) if rc == 0 and ut.strip() else verklig_sokvag(rot)
 
 
-def npm_cache_katalog():
-    rc, ut = vl.kor(['npm', 'config', 'get', 'cache', '--no-update-notifier'], timeout=60, bara_ut=True)
-    v = (ut.strip().splitlines() or [''])[-1].strip() if rc == 0 else ''
-    return Path(v) if v.startswith('/') else Path.home() / '.npm'
+def npm_cache_katalog(miljo=None, hem=None):
+    """npm:s cache utan att köra npm: npm config get roterar ~/.npm/_logs, också i torrläget (omgranskningen av r94,
+    K-b). $npm_config_cache, annars cache= i ~/.npmrc, annars ~/.npm. None när ~/.npmrc inte går att läsa eller anger
+    något annat än en absolut sökväg: då redovisas cachen som inte kontrollerad."""
+    miljo = os.environ if miljo is None else miljo
+    hem = Path(hem) if hem else Path.home()
+
+    def sokvag(v):
+        v = re.sub(r'\$\{(\w+)\}', lambda m: miljo.get(m.group(1), ''), v.strip().strip('"\''))
+        v = str(hem) + v[1:] if v.startswith('~/') or v == '~' else v
+        return Path(v) if os.path.isabs(v) else None
+
+    for k in ('npm_config_cache', 'NPM_CONFIG_CACHE'):
+        if miljo.get(k):
+            return sokvag(miljo[k])
+    rc = hem / '.npmrc'
+    if os.path.lexists(rc):
+        try:
+            text = rc.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            return None
+        for rad in text.splitlines():
+            m = re.match(r'\s*cache\s*=(.*)$', rad)
+            if m:
+                return sokvag(m.group(1))
+    return hem / '.npm'
 
 
 def tmp_rotar():
@@ -693,14 +715,37 @@ def admin_katalog(wt):
 def egen_commit(ram, w):
     """Har grenen (eller den frikopplade HEAD) fått en egen commit sedan den skapades? True, False (bara skapad, ännu
     inte påbörjad: en session kan vänta på den) eller None (ingen reflogg att läsa). Ur reflogens ämnesrader: commit,
-    cherry-pick, revert, am eller rebase gjorda där (granskningen av r94, Ö2)."""
+    cherry-pick, revert eller am gjorda där (granskningen av r94, Ö2). En rebase eller en snabbspolning på ett nyare main
+    är ingen egen commit: en gren som bara uppdaterats så väntar på ägaren (omgranskningen av r94)."""
     if w['gren']:
         rc, ut = git('reflog', 'show', '--format=%gs', w['gren'], cwd=ram.repo, bara_ut=True)
     else:
         rc, ut = git('reflog', 'show', '--format=%gs', 'HEAD', cwd=w['sokvag'], bara_ut=True)
     if rc or not ut.strip():
         return None
-    return any(re.match(r'(?:commit|cherry-pick|revert|am|rebase)\b', x) for x in ut.splitlines())
+    return any(re.match(r'(?:commit|cherry-pick|revert|am)\b', x) for x in ut.splitlines())
+
+
+def onada_commits(ram, w):
+    """Commitarna i worktreens HEAD-reflogg (och dess HEAD) som varken nås från en gren eller från origin/main, till
+    exempel en commit på en frikopplad HEAD. Reflogen försvinner med worktreens adminkatalog, och då blir de onåbara tills
+    git gc rensar dem (omgranskningen av r94, Ö1 för worktrees): de räknas som eget material. [(sha, ämne)], eller None
+    när reflogen eller git inte svarar. En post vars commit redan saknas i git går inte att rädda och räknas inte."""
+    rc, ut = git('reflog', 'show', '--format=%H', 'HEAD', cwd=w['sokvag'], bara_ut=True)
+    if rc:
+        return None
+    shas = list(dict.fromkeys([s for s in ut.split() if re.fullmatch(r'[0-9a-f]{40}', s)] + ([w['head']] if w['head'] else [])))
+    try:
+        shas = [s for s in shas if s not in git_saknas(ram.repo, shas)]
+    except OSError:
+        return None
+    if not shas:
+        return []
+    rc, ut = git('log', '--format=%H %s', *shas, '--not', '--branches', 'refs/remotes/origin/main', cwd=ram.repo, timeout=300,
+                 bara_ut=True)
+    if rc:
+        return None
+    return [tuple(r.split(' ', 1)) if ' ' in r else (r, '') for r in ut.splitlines() if r.strip()]
 
 
 def egna_commits(ram, d):
@@ -855,10 +900,21 @@ def bedom_worktree(ram, w, anv, senast, mfel):
         eget = eget_material(p, ram.repo)
     except OSError as e:
         return VANTAR, 'worktreen går inte att jämföra med huvudutcheckningen (%s); ägaren avgör' % e, {}
+    onada = onada_commits(ram, w)
+    if onada is None:
+        return VANTAR, 'worktreens HEAD-reflogg gick inte att pröva mot grenarna och origin/main; ägaren avgör', {}
+    delar, falt = [], {}
     if eget:
-        return VANTAR, '%s är sammanslagen och pushad, men %d filer (%s) går inte att återskapa ur huvudutcheckningen: %s; ' \
-                       'ägaren avgör' % (vem, len(eget), storlek_text(sum(s for _r, s in eget)), material_kort(eget)), material_falt(eget)
-    return RADERAD, '%s har egna commits, är sammanslagen i main och pushad, och inget i worktreen saknas i ' \
+        delar.append('%d filer (%s) som inte går att återskapa ur huvudutcheckningen: %s' % (
+            len(eget), storlek_text(sum(s for _r, s in eget)), material_kort(eget)))
+        falt.update(material_falt(eget))
+    if onada:
+        delar.append('%d commits som bara finns i worktreens HEAD-reflogg och försvinner med den (ingen gren eller origin/main '
+                     'når dem, till exempel på en frikopplad HEAD): %s' % (len(onada), ', '.join('%s %s' % (s[:12], a) for s, a in onada[:5])))
+        falt['commits'] = [{'sha': s, 'amne': a} for s, a in onada[:MATERIAL_MAX]]
+    if delar:
+        return VANTAR, '%s är sammanslagen och pushad, men har %s; ägaren avgör' % (vem, ' och '.join(delar)), falt
+    return RADERAD, '%s har egna commits, är sammanslagen i main och pushad, och inget i worktreen eller dess reflogg saknas i ' \
                     'huvudutcheckningen; tas bort med git worktree remove, grenen och dess commits finns kvar' % vem, {}
 
 
@@ -1056,7 +1112,8 @@ def stada_katalog(ram, red, d, anv, alder, vad, varfor, session=None):
 def punkt5(ram, red):
     """npm-cachen: över 85 % fylld disk, eller förra rensningen äldre än 30 dygn; aldrig medan något pågår."""
     if not ram.npm_cache:
-        red.post(5, 'npm-cachen', None, None, KVAR, 'npm:s cache hittades inte')
+        red.post(5, 'npm-cachen', None, None, KVAR, 'inte kontrollerad: npm:s cache gick inte att avgöra ur $npm_config_cache, '
+                                                    '~/.npmrc eller ~/.npm')
         return
     cacache = ram.npm_cache / '_cacache'
     storlek = matt(cacache)[0] if cacache.exists() else 0
@@ -1213,6 +1270,8 @@ def markdown(rap, rubrik='## Städningen'):
                 ut.append('  - `%s` (%s)' % (m['sokvag'], storlek_text(m['storlek'])))
             if (p.get('material_antal') or 0) > 20:
                 ut.append('  - och %d filer till (%s sammanlagt)' % (p['material_antal'] - 20, storlek_text(p.get('material_storlek'))))
+            for c in (p.get('commits') or [])[:20]:
+                ut.append('  - commit `%s` %s' % (c['sha'][:12], c.get('amne') or ''))
     return ut + ['']
 
 

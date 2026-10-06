@@ -173,7 +173,7 @@ try:
     klar('B1: körd ur huvudutcheckningen raderas den fulla kopian; en länk som heter kopia och en kanonisk väg som heter kopia rörs inte')
 
     # ===== huvudutcheckningen, origin och kundmaterialet =====
-    MATERIAL = {'underlag/kund-a/BRIEF.md': b'# Brief\n', 'underlag/kund-a/bilder/jobb.jpg': b'\xff\xd8\xff' + bytes(range(256)) * 8,
+    MATERIAL = {'underlag/kund-a/OPPETTIDER.md': 'Öppet 2026-10-05, ring 070-111 11 11\n'.encode(), 'underlag/kund-a/BRIEF.md': b'# Brief\n', 'underlag/kund-a/bilder/jobb.jpg': b'\xff\xd8\xff' + bytes(range(256)) * 8,
                 'underlag/kund-a/DESIGNDOMAR.jsonl': b'{"dom": "ny riktning"}\n', 'kunder/kund-a/sajt/src/pages/index.astro': b'<h1>Kund A</h1>\n',
                 'kunder/kund-a/sajt/package.json': b'{"name": "kund-a"}\n', 'kunder/kund-a/sajt/node_modules/paket/index.js': b'module.exports = 1\n',
                 'kirurgen/spaning/SENAST.json': b'{"slut": "2026-10-06"}\n'}
@@ -190,12 +190,23 @@ try:
             git('commit', '-q', '-m', gren, cwd=wt)
         return wt
 
-    SAMMAN = ('klar', 'smutsig', 'material', 'aktiv', 'anvand', 'kirurg', 'env', 'last', 'race')
+    SAMMAN = ('klar', 'smutsig', 'material', 'aktiv', 'anvand', 'kirurg', 'env', 'last', 'race', 'frikopplad', 'catfile')
     WT = {g: worktree(g) for g in SAMMAN}
+    WT['rebasad'] = worktree('rebasad', commit=False)  # Ö2: uppdateras senare med git rebase main, ingen egen commit
+    WT['ff'] = worktree('ff', commit=False)            # Ö2, kontroll: uppdateras med git merge --ff-only main
+    git('checkout', '-q', '--detach', cwd=WT['frikopplad'])  # Ö1: ett experiment på en frikopplad HEAD, sedan tillbaka
+    (WT['frikopplad'] / 'experiment.md').write_text('ett experiment som bara finns här\n')
+    git('add', '-A', cwd=WT['frikopplad'])
+    git('commit', '-q', '-m', 'experiment på frikopplad HEAD', cwd=WT['frikopplad'])
+    EXPERIMENT = git('rev-parse', 'HEAD', cwd=WT['frikopplad']).strip()
+    git('checkout', '-q', 'frikopplad', cwd=WT['frikopplad'])
     git('merge', '-q', '--no-ff', '-m', 'sammanslagning', *SAMMAN, cwd=HUVUD)
     (HUVUD / 'kontroller' / 'x.py').write_text('x = 2\n')  # main går vidare: den gamla versionen finns bara i historiken
     git('commit', '-q', '-am', 'x = 2', cwd=HUVUD)
     git('push', '-q', 'origin', 'main', cwd=HUVUD)
+    git('rebase', '-q', 'main', cwd=WT['rebasad'])
+    git('merge', '-q', '--ff-only', 'main', cwd=WT['ff'])
+    assert any(r.startswith('rebase') for r in git('reflog', 'show', '--format=%gs', 'rebasad', cwd=HUVUD).splitlines())
     WT['ny'] = worktree('ny', commit=False)            # Ö2: ny gren utan egen commit, på det pushade main
     WT['pagar'] = worktree('pagar')                    # inte sammanslagen
     WT['lokal'] = worktree('lokal')
@@ -207,6 +218,8 @@ try:
     (WT['kirurg'] / 'kirurgen' / 'uppladdat' / '20261006').mkdir(parents=True)  # B2: ägarens uppladdning (ignorerad)
     (WT['kirurg'] / 'kirurgen' / 'uppladdat' / '20261006' / 'agarens.pdf').write_bytes(b'%PDF-1.4 bara har\n')
     (WT['env'] / '.env').write_text('NYCKEL=bara-har\n')  # B2: en nyckel (ignorerad)
+    (WT['catfile'] / 'kirurgen').mkdir()  # E1: unik och ignorerad; när git cat-file faller går den inte att jämföra
+    (WT['catfile'] / 'kirurgen' / 'intag-unik.json').write_text('{"bara": "här"}\n')
     for rel_ in ('kunder/rokprov-mall/prov/STATUS.json', 'underlag/rokprov-mall/BESTALLNING.md', 'kunder/kund-a/sajt/node_modules/x/i.js',
                  'kontroller/__pycache__/x.cpython-312.pyc'):
         (WT['klar'] / rel_).parent.mkdir(parents=True, exist_ok=True)  # rökprovets fixtur och det härledda: inget material
@@ -278,6 +291,11 @@ try:
     K['logo'] = kopia('kopia-logo')  # filen finns bara bakom en länk i huvudutcheckningen: material (lstat, inte stat)
     (K['logo'] / 'kunder' / 'kund-a' / 'logo.png').write_bytes(b'logo bara utanfor\n')
     K['server'] = kopia('nortropic-webb-pro-kopia-server')
+    K['samma_storlek'] = kopia('kopia-samma-storlek')  # E2: ägarens rättelse med samma längd
+    (K['samma_storlek'] / 'underlag' / 'kund-a' / 'OPPETTIDER.md').write_bytes('Öppet 2026-10-06, ring 070-222 22 22\n'.encode())
+    assert (K['samma_storlek'] / 'underlag' / 'kund-a' / 'OPPETTIDER.md').stat().st_size == len(MATERIAL['underlag/kund-a/OPPETTIDER.md'])
+    K['catfile'] = kopia('kopia-catfile', med_git=False)  # E1
+    (K['catfile'] / 'underlag' / 'kund-a' / 'UNIK.md').write_text('bara här\n')
     K['okand'] = REPOS / 'kopia-okand'
     K['okand'].mkdir()
     (K['okand'] / 'anteckning.txt').write_text('okänt ursprung\n')
@@ -491,6 +509,11 @@ try:
     assert K['lankmal'].is_dir() and lank_.is_file() and 'huvudutcheckningen länkar hit' in en(rapB, K['lankmal'], 2)['skal']
     assert (TMPROT / 'nwp-pip-mal').is_dir() and 'huvudutcheckningen länkar hit' in en(rapB, TMPROT / 'nwp-pip-mal', 4)['skal']
     klar('kopior som används, av okänt ursprung, som inte heter kopia eller som huvudutcheckningen länkar till står kvar')
+    p_ = en(rapB, K['samma_storlek'], 2)
+    assert K['samma_storlek'].is_dir() and p_['utfall'] == 'väntar på ägaren' and [m['sokvag'] for m in p_['material']] == ['underlag/kund-a/OPPETTIDER.md'], p_
+    klar('E2: en fil med samma sökväg och storlek men annat innehåll är eget material (sha256, inte storleken)')
+    for d_, pk_ in ((K['catfile'], 2), (WT['catfile'], 1)):
+        assert d_.is_dir() and en(rapB, d_, pk_)['utfall'] == 'väntar på ägaren', poster(rapB, d_)
 
     # huvudutcheckningen
     assert manifest(HUVUD) == FORE and (HUVUD / '.git').is_dir() and git('status', '--porcelain', cwd=HUVUD) == ''
@@ -521,6 +544,15 @@ try:
         assert WT[g_].is_dir() and p_['utfall'] == 'väntar på ägaren' and [m['sokvag'] for m in p_['material']] == [del_], (g_, p_)
     assert (WT['env'] / '.env').read_text() == 'NYCKEL=bara-har\n' and (WT['smutsig'] / 'smutsig.md').read_text() == 'ändrad men inte committad\n'
     klar('B2: en worktree med eget material, ägarens uppladdning i kirurgen/ eller en .env väntar på ägaren; git worktree remove körs inte')
+    p_ = en(rapB, WT['frikopplad'], 1)
+    assert WT['frikopplad'].is_dir() and p_['utfall'] == 'väntar på ägaren' and [c['sha'] for c in p_.get('commits') or []] == [EXPERIMENT], p_
+    assert 'frikopplad HEAD' in p_['skal'] and EXPERIMENT in git('rev-list', '--all', '--reflog', cwd=HUVUD).split()
+    assert '`%s` experiment' % EXPERIMENT[:12] in '\n'.join(stadning.markdown(rapB))
+    klar('Ö1: en worktree med en commit som bara finns i dess HEAD-reflogg (frikopplad HEAD) väntar på ägaren, med commiten')
+    for g_ in ('rebasad', 'ff'):
+        p_ = en(rapB, WT[g_], 1)
+        assert WT[g_].is_dir() and p_['utfall'] == 'väntar på ägaren' and 'okänd' in p_['skal'], (g_, p_)
+    klar('Ö2: en worktree som bara uppdaterats med git rebase main eller --ff-only har ingen egen commit och väntar på ägaren')
 
     # processer
     stoppade_ = {P['astro'], P['http'], P['4772'], P['kopia']}
@@ -574,6 +606,17 @@ try:
     rap_x = stadning.stada(ram(), punkter=(2, 4))
     assert not K['extra'].exists() and not (TMPROT / 'nwp-skill-extra').exists(), 'samma kopia och tempkatalog raderas när allt är känt'
     klar('Ö7: utan worktree-listan rörs inga kopior, och när ps eller lsof faller raderas och stoppas ingenting')
+    kor_orig = stadning.vl.kor
+    stadning.vl.kor = lambda args, *a, **k: (128, 'fatal: git cat-file föll') if list(args[:2]) == ['git', 'cat-file'] else kor_orig(args, *a, **k)
+    try:
+        rap_e1 = stadning.stada(ram(), punkter=(1, 2))
+    finally:
+        stadning.vl.kor = kor_orig
+    for d_, pk_ in ((K['catfile'], 2), (WT['catfile'], 1)):
+        p_ = en(rap_e1, d_, pk_)
+        assert d_.is_dir() and p_['utfall'] == 'väntar på ägaren' and 'git cat-file' in p_['skal'], (d_, p_)
+    assert not [p for p in rap_e1['poster'] if p['utfall'] in ('raderad', 'fel')], rap_e1['poster']
+    klar('E1: när git cat-file faller går materialet inte att jämföra, och kopian och worktreen väntar på ägaren')
     K['sen'] = kopia('kopia-sen')  # en process börjar använda den efter ögonblicksbilden (K13)
     anrop_ = []
 
@@ -629,6 +672,36 @@ try:
     for prefix_, d_ in skapade.items():
         assert not d_.exists() and en(rap_t, d_, 4)['utfall'] == 'raderad' and prefix_ in en(rap_t, d_, 4)['skal'], (prefix_, poster(rap_t, d_))
     klar('Ö5: varje tempfile- och mktemp-prefix i koden (%d), skapad med tempfile i $TMPDIR, hittas och raderas' % len(skapade))
+
+    # ===== npm-cachen: sökvägen utan att köra npm (K-b: npm config get roterar ~/.npm/_logs, också i torrläget) =====
+    FALSK_NPM = TMP / 'falsk-npm'
+    FALSK_NPM.mkdir()
+    (FALSK_NPM / 'npm').write_text('#!/bin/bash\necho "$@" >> %s\necho /fel/cache\n' % (TMP / 'npm-anrop'))
+    (FALSK_NPM / 'npm').chmod(0o755)
+    spara_miljo = {k_: os.environ.get(k_) for k_ in ('PATH', 'npm_config_cache')}
+    os.environ['PATH'] = '%s:%s' % (FALSK_NPM, spara_miljo['PATH'])
+    os.environ['npm_config_cache'] = str(TMP / 'npm-ur-miljon')
+    try:
+        c_ = stadning.npm_cache_katalog()
+    finally:
+        for k_, v_ in spara_miljo.items():
+            if v_ is None:
+                os.environ.pop(k_, None)
+            else:
+                os.environ[k_] = v_
+    assert not (TMP / 'npm-anrop').exists() and c_ == TMP / 'npm-ur-miljon', ('npm kördes för att hitta cachen', c_)
+    HEM = TMP / 'hem'
+    HEM.mkdir()
+    assert stadning.npm_cache_katalog(miljo={}, hem=HEM) == HEM / '.npm'
+    (HEM / '.npmrc').write_text('; kommentar\nregistry=https://registry.npmjs.org/\ncache = ~/annan-cache\n')
+    assert stadning.npm_cache_katalog(miljo={}, hem=HEM) == HEM / 'annan-cache'
+    (HEM / '.npmrc').write_text('cache=relativ/sokvag\n')
+    assert stadning.npm_cache_katalog(miljo={}, hem=HEM) is None
+    r_n = ram()
+    r_n.npm_cache = None
+    (p5_,) = poster(stadning.stada(r_n, punkter=(5,)), punkt=5)
+    assert p5_['utfall'] == 'kvar' and 'inte kontrollerad' in p5_['skal'], p5_
+    klar('K-b: npm-cachens sökväg ur $npm_config_cache, ~/.npmrc eller ~/.npm utan att npm körs; annars inte kontrollerad')
 
     # ===== npm-cachen =====
     NPM_POSTER = []
@@ -711,6 +784,12 @@ try:
     assert '20,0 % ledigt (200,0 GB av 1000,0 GB) efter' in md_ and '## Städningen före starten' in md_ and str(KANARIE) in md_, md_
     klar('diskvakten under 15 % ledigt: städningen körs före starten, och kvittot visar ledigt före och efter')
     DISK_POSTER = d_['stadning']['poster']
+    r_u = ram(disk=lambda: (1000 * 2 ** 30, 100 * 2 ** 30), tillstand=TMP / 'lage-utanfor')
+    r_u.repo = Path(os.path.realpath(K['material']))  # körd ur något annat än huvudutcheckningen: bara redovisning
+    rad_u, d_u = sk.diskvakt(k_, r_u)
+    assert 'städningen redovisade bara' in rad_u['detalj'] and 'kördes' not in rad_u['detalj'] and rad_u['resultat'] == 'okand', rad_u
+    assert 'städningen redovisade bara' in sk.markdown(dict(kv_, rader=[rad_u], diskvakt=d_u)) and not (TMP / 'lage-utanfor').exists()
+    klar('K-f: kvittot skiljer städningen som kördes från städningen som bara redovisade')
     rapport_ = (LAGE_D / 'UNDERHALL.md').read_text(encoding='utf-8')
     assert len(list((LAGE_D / 'stadning').glob('STADNING-*.json'))) == 1 and not (LAGE_D / 'UNDERHALL.json').exists()
     assert '## Städningen före en start' in rapport_ and 'diskvakten före en start: ny, prov' in rapport_ and str(KANARIE) in rapport_, rapport_

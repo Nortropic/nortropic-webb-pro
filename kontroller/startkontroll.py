@@ -328,7 +328,9 @@ def diskvakt(k, ram=None, fick=True, slug=None, start=None):
 
 
 def diskvakt_text(d):
-    """Diskvaktens rad i kvittot: ledigt före och, när städningen kördes, efter."""
+    """Diskvaktens rad i kvittot: ledigt före och, när städningen kördes, efter. En städning som bara redovisade (körd
+    utanför huvudutcheckningen, i torrläget eller medan en annan städning pågick) heter inte "kördes" (omgranskningen av
+    r94, K-f)."""
     import stadning
     if not d:
         return None
@@ -336,8 +338,11 @@ def diskvakt_text(d):
         return d.get('fel') or 'okänt'
     fore, grans = stadning.disk_text(d['fore']), '%d %%' % round(d['grans'] * 100)
     if d.get('stadning'):
-        return '%s före starten, under %s: städningen kördes, %s efter (%s)' % (
-            fore, grans, stadning.disk_text(d.get('efter')), stadning.antal_text(d['stadning'].get('antal') or {}))
+        st_ = d['stadning']
+        vad = ('städningen redovisade bara, inget städades (%s)' % st_['besked']) if st_.get('besked') else \
+            'städningen redovisade bara (torrläge)' if st_.get('torr') else 'städningen kördes'
+        return '%s före starten, under %s: %s, %s efter (%s)' % (
+            fore, grans, vad, stadning.disk_text(d.get('efter')), stadning.antal_text(st_.get('antal') or {}))
     if d.get('avslagen'):
         return '%s, under %s, men städningen är avslagen (NWP_STADNING=av)' % (fore, grans)
     if d.get('hoppad'):
