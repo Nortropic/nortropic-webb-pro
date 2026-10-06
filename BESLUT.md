@@ -460,3 +460,38 @@ utan att observatören ändrar något.
 - **Före ägarens första beslut** visar vyn huvudreferensens namn, aldrig planens beskrivning, som korten.
 - **Av:** `NWP_OBSERVATION=av` i arbetarens miljö ger sessionerna exakt samma argument som förut och ingen förteckning.
   Säkerhetskrokarna och kundvakten berörs inte.
+
+## Tillägg 2026-10-06: städregel för arbetskopior, processer och cacher
+
+Ägarens beslut 2026-10-06 ~14:35Z, ordagrant:
+
+> Ägarbeslut: städregel för arbetskopior, processer och cacher. Spara beslutet ordagrant i minnet och i BESLUT.md först.
+> Avbryt inte pågående arbete (sammanslagningen, underhållet, designomgången); städa när det inte krockar.
+>
+> Regeln gäller bara det som flödet eller agenten själv har skapat under ~/nortropic-repos, /tmp och scratchpad.
+> Rör aldrig huvudutcheckningens underlag/ och kunder/, ~/Arkiv eller något som ägaren skapat.
+>
+> 1. Worktrees: när en gren är sammanslagen i main och pushad tas dess worktree bort med git worktree remove
+>    (inte rm -rf). Grenen och dess commits finns kvar.
+> 2. Kopior av repot (kopia* och liknande): de får finnas bara medan provet som skapade dem pågår. Innan en kopia
+>    tas bort: jämför dess underlag/ och kunder/ mot huvudutcheckningen. Det som bara finns i kopian arkiveras med
+>    datum i ~/Arkiv/, och sedan raderas kopian.
+> 3. Processer: förhandsvisningar och servrar som startats för ett prov (astro preview, dashboards på andra portar)
+>    stoppas när provet slutar. En sådan process utan levande ägare som gått mer än ett dygn stoppas.
+> 4. Tillfälliga filer: testkataloger i /tmp och scratchpad städas när uppgiften är klar.
+> 5. Cacher: npm-cachen rensas när disken är fylld över 85 %, och annars en gång i månaden.
+> 6. Diskvakt: under 15 % ledigt körs städningen före nästa bygge, och det rapporteras.
+> 7. Redovisning: varje städning skrivs i underhållets rapport (vad, sökväg, storlek, tid, och vad som arkiverades
+>    och var). Det som arkiverats går att få tillbaka.
+>
+> Det här är ett stående mandat att städa enligt punkterna ovan, utan att fråga mig varje gång. Är något oklart
+> (okänt ursprung, material som inte går att jämföra) arkiveras det i stället för att raderas, och du frågar mig.
+>
+> Gör nu:
+> a) Lista r68, r69, kopia* och övriga gamla worktrees och kopior med storlek och vad som bara finns där. Stoppa
+>    astro preview som körs ur kopia4. Städa sedan enligt regeln, och redovisa före/efter-storlek och diskens
+>    lediga utrymme.
+> b) Lägg in punkterna 3–7 i det dagliga underhållet (kontroller/underhall.py), med prov i rökprovet som visar att
+>    en kopia med eget kundmaterial arkiveras före radering och att huvudutcheckningen aldrig rörs. Granska oberoende
+>    och slå samman till main enligt arbetssättet.
+> c) Uppdatera CLAUDE.md och kunskap/beroenden.md kort med regeln.
