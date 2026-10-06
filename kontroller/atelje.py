@@ -228,12 +228,14 @@ def observerad(ut, slug=None):
     och claude --help listar --session-id. Bygget ur slug eller ur svarsfilens plats under underlag/. Utan observation:
     (None, None) och oförändrade argument."""
     try:
-        if not observation or not observation.pa() or not observation.flaggan_finns(claude()):
+        if not observation or not observation.pa() or not observation.flaggan_finns(claude(), env=ren_miljo()):
             return None, None
         if not slug:
             delar = Path(ut).resolve().relative_to(UNDERLAG.resolve()).parts
             slug = delar[0] if len(delar) > 1 else None
         return (str(uuid.uuid4()), slug) if slug else (None, None)
+    except Stoppad:  # arbetarens stopp går alltid igenom
+        raise
     except Exception:  # noqa: BLE001
         return None, None
 
@@ -241,6 +243,8 @@ def observerad(ut, slug=None):
 def observera(namn, *a, **k):
     try:
         getattr(observation, namn)(*a, **k)
+    except Stoppad:
+        raise
     except Exception:  # noqa: BLE001
         pass
 
@@ -273,6 +277,8 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
         raise Stoppad('arbetaren stoppas: ingen ny session')
     args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug)
     sid, oslug = observerad(ut, slug)
+    if STOPP.is_set():  # stoppet kan ha kommit medan observatören frågade claude --help
+        raise Stoppad('arbetaren stoppas: ingen ny session')
     if sid:  # sessionens id från start: observatören hittar transkriptet medan sessionen arbetar
         args[2:2] = ['--session-id', sid]
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
@@ -283,9 +289,9 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                              start_new_session=True)
         with AKTIVA_LAS:
             AKTIVA.add(p.pid)
-        if sid:
-            observera('anmal', oslug, sid, ut, modell or MODELL, p.pid)
         try:
+            if sid:
+                observera('anmal', oslug, sid, ut, modell or MODELL, p.pid)
             if vid_start:
                 vid_start(p.pid)
             _, fel = p.communicate(input=prompt.encode(), timeout=frist or (FRIST_DOMARE if schema else FRIST))

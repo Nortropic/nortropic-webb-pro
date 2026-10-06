@@ -441,3 +441,22 @@ befintligt flöde med minsta ändringar. Det som ändrades (`kontroller/kandidat
    rekommendera att riktningen förkastas, och skaparen svarar i en egen session.
 6. **Redovisningen per förslag:** idén och relevansen, de faktiska referenserna, det som synligt förts över, de
    kvarvarande svagheterna och kompetensernas synliga bidrag. Tekniska kontroller är inget godkännande.
+
+## Tillägg 2026-10-06: observationen av designarbetet (Claude Mods prövades, ingen mod)
+
+Ägarens uppdrag 2026-10-06 ~07:50Z (ordagrant i minnet): en liten, observerande integration som under automatiska
+körningar visar referenserna, kompetensen, den aktuella prototypen och arbetsläget i dashboarden, med ärliga etiketter och
+utan att observatören ändrar något.
+
+- **Ingen mod och inga nya krokar.** En mod laddas per process (`--plugin-dir`), ärvs inte av underagenter och körs
+  utanför sandlådan. Claude Codes transkript bär redan det som behövs: verktygsanropen och deras utfall, läsningarnas
+  omfång (radantal mot filens), skillverktyget, skillistan, nekanden, användningen per tur och komprimeringarna. Det
+  enda en mod hade gett utöver det är kontextens exakta andel; i vyn är kontexten en uppskattning ur senaste turen.
+- **Så går det till:** `atelje.session` ger varje nästlad session sitt id från start (`--session-id`, när
+  `claude --help` listar flaggan) och skriver en post med nio valda fält i `underlag/<slug>/atelje/sessioner/`.
+  `kontroller/observation.py` läser sessionens befintliga transkript och tjänstesessionernas strömmade loggar stegvis och
+  sammanfattar bara metadata; promptar, verktygsargument, svar och bilddata kopieras aldrig, och inga modell- eller
+  tjänsteanrop görs. Prototypvyn visar det under "Under arbetet, observerat", med senaste förhandsvarvets första vy.
+- **Före ägarens första beslut** visar vyn huvudreferensens namn, aldrig planens beskrivning, som korten.
+- **Av:** `NWP_OBSERVATION=av` i arbetarens miljö ger sessionerna exakt samma argument som förut och ingen förteckning.
+  Säkerhetskrokarna och kundvakten berörs inte.

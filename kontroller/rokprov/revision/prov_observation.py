@@ -70,6 +70,7 @@ logg = Path(%(logg)r)
 a = sys.argv[1:]
 if a[:1] == ['--help']:
     (logg / ('help-%%s' %% uuid.uuid4().hex)).write_text('help')
+    time.sleep(float(os.environ.get('FAKE_HJALP_SOV') or 0))
     print('Usage: claude [options]\n  -p, --print\n  --output-format\n' + ('' if os.environ.get('FAKE_UTAN_SID') else '  --session-id <uuid>  Use a specific session ID\n'))
     sys.exit(0)
 prompt = sys.stdin.buffer.read()
@@ -237,6 +238,70 @@ atelje.observation = None
 s3b = atelje.session('x', VERKTYG, KAND / 'k03' / 'svar-utan-modul.json', max_turer=7, slug=SLUG)
 atelje.observation = modul
 assert s3b['session_id'] == 'utan-id', 'utan modulen: ingen flagga, sessionen går'
+# stoppet går alltid igenom: ett stopp under frågan till claude --help, och ett stopp som kom medan den pågick
+nollstall()
+orig_ff = observation.flaggan_finns
+observation.flaggan_finns = lambda *a_, **k_: (_ for _ in ()).throw(atelje.Stoppad('prov'))
+try:
+    atelje.session('x', VERKTYG, KAND / 'k03' / 'svar-stopp-1.json', max_turer=7, slug=SLUG)
+    raise AssertionError('stoppet skulle gå igenom')
+except atelje.Stoppad:
+    pass
+observation.flaggan_finns = lambda *a_, **k_: (atelje.STOPP.set(), True)[1]
+try:
+    atelje.session('x', VERKTYG, KAND / 'k03' / 'svar-stopp-2.json', max_turer=7, slug=SLUG)
+    raise AssertionError('ingen ny session efter stoppet')
+except atelje.Stoppad:
+    pass
+finally:
+    atelje.STOPP.clear()
+    observation.flaggan_finns = orig_ff
+assert anropen()[0] == [], 'ingen session startade efter stoppen'
+rr_ = subprocess.run
+observation._HJALP.clear()
+subprocess.run = lambda *a_, **k_: (_ for _ in ()).throw(atelje.Stoppad('prov'))
+try:
+    observation.flaggan_finns(str(BIN / 'claude'))
+    raise AssertionError('flaggan_finns fångar bara programmets egna fel')
+except atelje.Stoppad:
+    pass
+finally:
+    subprocess.run = rr_
+
+
+def stopp_under_anmalan(*a_, **k_):  # som arbetarens signalhanterare: sessionerna avslutas, sedan Stoppad
+    atelje.stoppa_sessioner()
+    raise atelje.Stoppad('prov')
+
+
+observation._HJALP.clear()
+observation.anmal = stopp_under_anmalan
+try:
+    atelje.session('SCENARIO:tom\nx', VERKTYG, KAND / 'k03' / 'svar-stopp-3.json', max_turer=7, slug=SLUG)
+    raise AssertionError('stoppet under anmälan skulle gå igenom')
+except atelje.Stoppad:
+    pass
+finally:
+    observation.anmal = orig_anmal
+    atelje.STOPP.clear()
+assert not atelje.AKTIVA, ('sessionen som startade städades', atelje.AKTIVA)
+# frågan till claude --help når sin tidsgräns: sessionen startar som förut, och svaret prövas igen först efter en stund
+nollstall()
+observation._HJALP.clear()
+observation.HJALP_FRIST = 1
+os.environ['FAKE_HJALP_SOV'] = '6'
+t0 = time.time()
+s3d = atelje.session('x', VERKTYG, KAND / 'k03' / 'svar-hjalp-tidsgrans.json', max_turer=7, slug=SLUG)
+del os.environ['FAKE_HJALP_SOV']
+assert s3d['session_id'] == 'utan-id' and time.time() - t0 < 5, 'utan svar inom tidsgränsen: som förut'
+atelje.session('x', VERKTYG, KAND / 'k03' / 'svar-hjalp-cache.json', max_turer=7, slug=SLUG)
+assert anropen()[1] == 1 and '--session-id' not in anropen()[0][-1]['argv'], 'felet prövas inte om direkt'
+svar_, nar_ = observation._HJALP[str(BIN / 'claude')]
+assert svar_ is False and nar_ is not None, 'ett fel cachas med sin tid, så att frågan prövas igen'
+observation._HJALP[str(BIN / 'claude')] = (False, nar_ - observation.HJALP_OMPROVA_S - 1)  # tiden har gått
+s3e = atelje.session('x', VERKTYG, KAND / 'k03' / 'svar-hjalp-igen.json', max_turer=7, slug=SLUG)
+assert anropen()[1] == 2 and s3e['session_id'] != 'utan-id', 'efter en stund prövas frågan igen'
+observation.HJALP_FRIST = 15
 annan = 'obs-prov-fil'
 (UNDERLAG / annan / 'atelje').mkdir(parents=True)
 (UNDERLAG / annan / 'atelje' / 'sessioner').write_text('en fil där katalogen skulle ligga')
@@ -338,16 +403,46 @@ with open(f_a, 'a') as f:
 la = observation.las_session(f_a)
 assert la['svar']['c1']['utfall'] == 'tomt resultat', la['svar'].get('c1')
 
-# 9. inga modellanrop och inga processer vid läsningen; och fel i en del gör bara den delen ofullständig
+# 9. inga modellanrop och inga processer vid läsningen av avslutade sessioner; en levande pid som inte är en
+#    claude-session pågår inte (bara ps frågas); fel i en del gör bara den delen ofullständig
 nollstall()
+startade = []
 rp, rr = subprocess.Popen, subprocess.run
-subprocess.Popen = subprocess.run = lambda *a_, **k_: (_ for _ in ()).throw(AssertionError('observatören startade en process'))
+
+
+class Raknad(rp):
+    def __init__(self, args, *a_, **k_):
+        startade.append([str(x) for x in (args if isinstance(args, (list, tuple)) else [args])])
+        super().__init__(args, *a_, **k_)
+
+
+def rakna():
+    subprocess.Popen = Raknad
+    subprocess.run = lambda args, *a_, **k_: (startade.append([str(x) for x in args]), rr(args, *a_, **k_))[1]
+
+
+def aterstall():
+    subprocess.Popen, subprocess.run = rp, rr
+
+
+rakna()
 try:
     for _ in range(3):
         observation.oversikt(SLUG)
 finally:
-    subprocess.Popen, subprocess.run = rp, rr
-assert anropen() == ([], 0), 'läsningen gör inga anrop'
+    aterstall()
+assert startade == [] and anropen() == ([], 0), ('läsningen startar inga processer och gör inga anrop', startade)
+sid_9 = '00000000-0000-4000-8000-0000000000aa'
+observation._skriv(observation.katalog(SLUG) / (sid_9 + '.json'), {'session_id': sid_9, 'roll': 'skiss-9', 'kandidat': 'k03', 'svar': 'svar-skiss-9.json',
+                                                                    'start': observation.nu(), 'modell': 'm', 'pid': os.getpid(), 'slut': None, 'utfall': None})
+rakna()
+try:
+    ov_9 = observation.oversikt(SLUG)
+finally:
+    aterstall()
+assert {s_['session_id']: s_ for s_ in ov_9['sessioner']}[sid_9]['pagar'] is False, 'en levande pid som inte är en claude-session'
+assert startade and all(c[0] == 'ps' for c in startade), startade
+(observation.katalog(SLUG) / (sid_9 + '.json')).unlink()
 (observation.katalog(SLUG) / 'trasig.json').write_text('{inte json')
 (UNDERLAG / SLUG / 'atelje' / 'KANDIDATPLAN.json').write_text('{"kandidater": "fel form"}')
 ov2 = observation.oversikt(SLUG)
@@ -370,7 +465,7 @@ tjk.mkdir(parents=True)
 tj = observation.tjanstesessioner(SLUG)
 assert len(tj) == 1 and tj[0]['tjanst'] == 'mobbin' and tj[0]['del'] == 'tjanster', tj
 o_t = tj[0]['observation']
-assert o_t['mcp_lage'] == {'mobbin': 'connected'} and o_t['skills_erbjudna'] == 2 and o_t['slut']['utfall'] == 'success'
+assert o_t['mcp_lage'] == {'mobbin': 'ansluten'} and o_t['skills_erbjudna'] == 2 and o_t['slut']['utfall'] == 'success'
 assert o_t['mcp'][0]['utfall'] == 'bild returnerad' and o_t['mcp'][0]['bilder'] == 1
 assert not any(x in json.dumps(tj, ensure_ascii=False) for x in KANSLIGA)
 
@@ -381,6 +476,153 @@ v_ = 'underlag/x-y/atelje/kandidater/k01/varv/start/varv-03/vy-%s'
 assert all(dash.KAND_VARV.match(v_ % b) for b in ('390-forsta.png', '1280-forsta.png', '1440-forsta.png'))
 assert not any(dash.KAND_VARV.match(v_ % b) for b in ('390-hela.png', '390-extrakt.json', '390-aria.txt', '390-spar.zip', '768-forsta.png'))
 assert not dash.KAND_VARV.match('underlag/x-y/atelje/kandidater/k01/varv/start/varv-03/INSPEKTION.md')
+
+# 13. nekanden utan toolDenialKind (strömmade loggar): dontAsk, en PreToolUse-krok, en deny-regel; ett fel som inte
+#     är ett nekande; bildlänkar räknas bara när de pekar på bilder
+tjk2 = UNDERLAG / SLUG / 'referenser' / 'uppdrag' / 'refero'
+tjk2.mkdir(parents=True)
+
+
+def strom(*rader_):
+    return '\n'.join(rader_) + '\n'
+
+
+(tjk2 / 'session-2026-10-06T110000Z.jsonl').write_text(strom(
+    rad(type='system', subtype='init', model='claude-sonnet-5-5', skills=[], mcp_servers=[{'name': 'refero', 'status': 'connected'}]),
+    rad(type='assistant', timestamp=T0 % 1, message={'content': [
+        {'type': 'tool_use', 'id': 'n1', 'name': 'mcp__refero__refero_search_screens', 'input': {'query': FRAS}},
+        {'type': 'tool_use', 'id': 'n2', 'name': 'mcp__refero__refero_search_flows', 'input': {'query': FRAS}},
+        {'type': 'tool_use', 'id': 'n3', 'name': 'Read', 'input': {'file_path': '/x/neka.md'}},
+        {'type': 'tool_use', 'id': 'n4', 'name': 'mcp__refero__refero_search_sites', 'input': {'query': FRAS}},
+        {'type': 'tool_use', 'id': 'n5', 'name': 'mcp__refero__refero_get_flow', 'input': {'id': 1}}]}),
+    rad(type='user', timestamp=T0 % 2, message={'content': [
+        {'type': 'tool_result', 'tool_use_id': 'n1', 'is_error': True, 'content': "Claude requested permissions to use mcp__refero__refero_search_screens, but you haven't granted it yet."},
+        {'type': 'tool_result', 'tool_use_id': 'n2', 'is_error': True, 'content': 'PreToolUse:mcp__refero__refero_search_flows hook error: [kontroller/kundvakt.py] ' + EPOST},
+        {'type': 'tool_result', 'tool_use_id': 'n3', 'is_error': True, 'content': '<tool_use_error>File is covered by a Read deny rule in your permission settings and cannot be written.</tool_use_error>'},
+        {'type': 'tool_result', 'tool_use_id': 'n4', 'content': [{'type': 'text', 'text': json.dumps({'records': [
+            {'url': 'https://refero.design/flows/7542', 'site': 'https://www.example.com/', 'thumbnail_url': 'https://images.refero.design/a.webp'}]})}]},
+        {'type': 'tool_result', 'tool_use_id': 'n5', 'is_error': True, 'content': 'MCP error -32603: internt fel'}]})))
+o13 = [t_ for t_ in observation.tjanstesessioner(SLUG) if '/uppdrag/refero/' in t_['logg']][0]['observation']
+m13 = {m['verktyg']: m for m in o13['mcp']}
+assert m13['refero_search_screens']['utfall'] == 'nekat' and m13['refero_search_flows']['utfall'] == 'nekat', m13
+assert o13['verktyg']['Read'] == {'nekat': 1} and o13['nekade'] == 3, o13['verktyg']
+assert m13['refero_get_flow']['utfall'] == 'fel'
+assert m13['refero_search_sites']['utfall'] == 'anrop lyckades' and m13['refero_search_sites']['bildlankar'] == 1 and m13['refero_search_sites']['traffar'] == 1, m13
+f14 = TMP / 't14.jsonl'
+f14.write_text(strom(anrop(1, 'd1', 'Bash', {'command': 'ls'}), svar(2, 'd1', 'x', fel=True, nekad='permission-rule')))
+s14 = observation.sammanfattning(f14)
+assert s14['verktyg'] == {'Bash': {'nekat': 1}} and s14['nekade'] == 1, 'typfältet räcker för ett nekande'
+
+# 14. en rad med oväntad form hoppas över och räknas, en gång; läsningen går vidare och räknar inget dubbelt
+f15 = TMP / 't15.jsonl'
+f15.write_text(strom(anrop(1, 'e1', 'Read', {'file_path': '/a'}), anrop(2, 'e2', 'Bash', {'command': 'x'}),
+                     rad(type='system', subtype='compact_boundary', timestamp=T0 % 3, compactMetadata='inte en dict'),
+                     rad(type='attachment', attachment={'type': 'model', 'identity': 'sträng'}),
+                     rad(type='assistant', timestamp=T0 % 4, message={'model': 'm', 'usage': {'input_tokens': 'abc'}, 'content': [{'type': 'tool_use', 'id': 'e3', 'name': 'Grep', 'input': {}}]}),
+                     rad(type='attachment', attachment={'type': 'deferred_tools_delta', 'addedNames': 'mcp__x__y'})))
+orig_anrop = observation._anrop
+observation._anrop = lambda c, t: (_ for _ in ()).throw(KeyError('oväntad form')) if c.get('name') == 'Bash' else orig_anrop(c, t)
+try:
+    for _ in range(3):
+        l15 = observation.las_session(f15)
+finally:
+    observation._anrop = orig_anrop
+assert l15['pos'] == f15.stat().st_size and l15['oforstadda'] == 1, (l15['pos'], l15['oforstadda'])
+assert set(l15['anrop']) == {'e1', 'e3'} and len(l15['komprimeringar']) == 1 and l15['mcp'] == {}, l15
+assert l15['kontext'] == {'tokens': 53002, 'tid': T0 % 2}, 'användning som inte är tal ändrar inte den senaste uppskattningen'
+
+# 15. en utbytt fil (ny inode) och en avkortad fil läses från början
+f16 = TMP / 't16.jsonl'
+f16.write_text(strom(anrop(1, 'g1', 'Grep', {}), anrop(2, 'g2', 'Grep', {})))
+assert set(observation.las_session(f16)['anrop']) == {'g1', 'g2'}
+ny16 = TMP / 't16-ny.jsonl'
+ny16.write_text(strom(anrop(1, 'h1', 'Glob', {}), anrop(2, 'h2', 'Glob', {}), anrop(3, 'h3', 'Glob', {})))  # större än läspositionen
+os.replace(ny16, f16)
+assert set(observation.las_session(f16)['anrop']) == {'h1', 'h2', 'h3'}, 'en utbytt fil läses från början'
+f16.write_text(strom(rad(type='assistant', message={'content': [{'type': 'tool_use', 'id': 'j1', 'name': 'X', 'input': {}}]})))
+assert set(observation.las_session(f16)['anrop']) == {'j1'}, 'en avkortad fil läses från början'
+
+# 16. samtidiga läsningar (dashboardens trådar) medan transkriptet växer: inga fel, inget ofullständigt, rätt antal
+sid_17 = '00000000-0000-4000-8000-0000000000bb'
+f17 = KONFIG / 'projects' / '-falsk-repo' / (sid_17 + '.jsonl')
+f17.write_text('')
+observation._skriv(observation.katalog(SLUG) / (sid_17 + '.json'), {'session_id': sid_17, 'roll': 'skiss-8', 'kandidat': 'k03', 'svar': 'svar-skiss-8.json',
+                                                                     'start': observation.nu(), 'modell': 'm', 'pid': None, 'slut': observation.nu(), 'utfall': 'avslutad, kod 0'})
+fel17 = []
+
+
+def lasare():
+    for _ in range(60):
+        try:
+            o_ = observation.oversikt(SLUG)
+            json.dumps(o_)
+            if not isinstance(o_['sessioner'], list) or any(s_.get('ofullstandig') for s_ in o_['sessioner']):
+                fel17.append('ofullständig: %s' % str(o_['sessioner'])[:200])
+        except Exception as e:  # noqa: BLE001
+            fel17.append(repr(e))
+
+
+def skrivare():
+    with open(f17, 'a') as f:
+        for n in range(600):
+            f.write(anrop(n % 60, 'w%d' % n, 'Read', {'file_path': str(ROOT / ('underlag/%s/referenser/p/%d.png' % (SLUG, n)))}) + '\n')
+            f.write(svar(n % 60, 'w%d' % n, 'x', tur={'type': 'text', 'file': {'numLines': 1, 'startLine': 1, 'totalLines': 1}}) + '\n')
+            f.flush()
+
+
+tr17 = [threading.Thread(target=lasare) for _ in range(4)] + [threading.Thread(target=skrivare)]
+byte_ = sys.getswitchinterval()
+sys.setswitchinterval(1e-6)  # täta trådbyten: en läsning utan lås överlappar då en annan trådens tolkning
+try:
+    [t.start() for t in tr17]
+    [t.join() for t in tr17]
+finally:
+    sys.setswitchinterval(byte_)
+assert not fel17, fel17[:3]
+assert len({s_['session_id']: s_ for s_ in observation.oversikt(SLUG)['sessioner']}[sid_17]['observation']['referensfiler']) == 600
+
+# 17. Read utan omfång i svaret, en oförändrad fil, och en MCP-server vars verktyg togs bort
+f18 = TMP / 't18.jsonl'
+f18.write_text(strom(anrop(1, 'k1', 'Read', {'file_path': str(ROOT / '.claude/skills/x/SKILL.md')}),
+                     svar(2, 'k1', 'x', tur={'type': 'text', 'file': {'filePath': 'x', 'content': 'x'}}),
+                     anrop(3, 'k2', 'Read', {'file_path': str(ROOT / '.claude/skills/x/SKILL.md')}),
+                     svar(4, 'k2', 'File unchanged since last read', tur={'type': 'file_unchanged', 'file': {'filePath': 'x'}}),
+                     rad(type='attachment', attachment={'type': 'deferred_tools_delta', 'addedNames': ['mcp__refero__a', 'mcp__refero__b', 'mcp__mobbin__c']}),
+                     rad(type='attachment', attachment={'type': 'deferred_tools_delta', 'removedNames': ['mcp__refero__a', 'mcp__refero__b']})))
+s18 = observation.sammanfattning(f18)
+assert [x['utfall'] for x in s18['skillfiler']] == ['fil läst (omfång inte observerat)', 'oförändrad sedan förra läsningen'], s18['skillfiler']
+assert s18['mcp_lage'] == {'refero': 'frånkopplad', 'mobbin': 'ansluten'}, s18['mcp_lage']
+
+# 18. sessionens sida: skaparens arbete, granskningen och körningens gemensamma steg hålls isär
+roller = ('skiss-1', 'skiss-1-granskning', 'skapa-2', 'pass-rorelse-k01-1', 'forbattra', 'forfina-1', 'skisskritik-1', 'kritik-a-1', 'kritik-b-2',
+          'jamforelse', 'forska-1', 'plan', 'planprovning')
+assert [observation.sida(r_) for r_ in roller] == ['skapare'] * 6 + ['granskare'] * 4 + ['korning'] * 3, [observation.sida(r_) for r_ in roller]
+assert {s_['session_id']: s_ for s_ in observation.oversikt(SLUG)['sessioner']}[sid_a]['sida'] == 'skapare'
+
+# 19. före ägarens beslut bara huvudreferensens namn, aldrig planens beskrivning; inga halvskrivna poster kvar
+(UNDERLAG / SLUG / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {
+    'huvudreferens': 'Tekt (tekt.com.au), referenspaketet paket-v06/tekt/01-start: avsnittet "Our Process" och rytmen', 'referensbilder': ['a', 'b']}}}))
+r19 = observation.referenser(SLUG)
+assert r19['kandidater'] == {'k01': {'huvudreferens': 'Tekt (tekt.com.au)', 'referensbilder': 2}}, r19
+assert 'Our Process' not in json.dumps(observation.oversikt(SLUG), ensure_ascii=False)
+assert not list(observation.katalog(SLUG).glob('.*.tmp')), 'inga halvskrivna poster kvar'
+
+# 20. en session i en annan utcheckning av repot: referensen och metodutdraget känns igen ur sökvägen; paketets tid ur
+#     PAKET.json (när paketet sammanställdes), aldrig katalogens ändringstid
+f20 = TMP / 't20.jsonl'
+annan_rot = '/Users/x/annan-utcheckning'
+f20.write_text(strom(anrop(1, 'm1', 'Read', {'file_path': annan_rot + '/underlag/%s/referenser/paket-v01/a/01-start/vy-390-forsta.png' % SLUG}),
+                     svar(2, 'm1', [{'type': 'image', 'source': {'data': BILDDATA}}], tur={'type': 'image'}),
+                     anrop(3, 'm2', 'Read', {'file_path': annan_rot + '/underlag/%s/atelje/metod/METOD-skiss.md' % SLUG}),
+                     svar(4, 'm2', 'x', tur={'type': 'text', 'file': {'numLines': 3, 'startLine': 1, 'totalLines': 3}})))
+s20 = observation.sammanfattning(f20, SLUG)
+assert [x['fil'] for x in s20['referensfiler']] == ['underlag/%s/referenser/paket-v01/a/01-start/vy-390-forsta.png' % SLUG], s20['referensfiler']
+assert [x['utfall'] for x in s20['metodutdrag']] == ['fil läst (hel)'], s20['metodutdrag']
+pk20 = UNDERLAG / SLUG / 'referenser' / 'paket-v01'
+pk20.mkdir(parents=True, exist_ok=True)
+(pk20 / 'PAKET.json').write_text(json.dumps({'version': 'paket-v01', 'tid': '2026-10-06T02:55:42Z'}))
+(UNDERLAG / SLUG / 'atelje' / 'FORSKNING.json').write_text(json.dumps({'nytt': {'paket': 'paket-v01', 'tjanster': '2026-10-06T02:58:27Z'}}))
+assert observation.referenser(SLUG)['paket_tid'] == '2026-10-06T02:55:42Z'
 
 # 12. mätningen: latens på ett stort transkript (första läsningen och en stegvis), och lagringen per session
 stor = KONFIG / 'projects' / '-falsk-repo' / '00000000-0000-4000-8000-000000000001.jsonl'

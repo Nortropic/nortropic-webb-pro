@@ -42,12 +42,20 @@ import bildkedja  # noqa: E402  (transkriptens plats, samma som domarnas läsnin
 ROOT = Path(__file__).resolve().parents[1]
 UNDERLAG = ROOT / 'underlag'
 KATALOG = 'sessioner'  # under underlag/<slug>/atelje/
+FALT = ('session_id', 'roll', 'kandidat', 'svar', 'start', 'modell', 'pid', 'slut', 'utfall')  # förteckningens enda fält
 SKILLFIL = re.compile(r'(?:^|/)\.claude/skills/([^/]+)/(.+)$')
 BILDLANK = re.compile(r'https?://[^\s"\'<>()\\]+?\.(?:png|jpe?g|webp|avif)(?=[\s"\'<>()\\?#]|$)', re.I)
 FOR_STORT = re.compile(r'^Error: result \(.{0,80}exceeds maximum allowed tokens', re.S)
-NEKAT = re.compile(r"(?i)permission to use|haven't granted|has been denied|denied by|blocked by (a )?hook|kundvakt")
+# nekanden utan toolDenialKind (de strömmade loggarna): behörighetsregler, dontAsk, PreToolUse-krokar (kundvakten), deny-regler
+NEKAT = re.compile(r"(?i)permission to \w+|haven't granted|has been denied|denied by|deny rule|hook (error|blocked)|blocked by (a )?hook|kundvakt")
 TOMT = re.compile(r'(?i)^\s*(no results?( found)?|0 results|inga träffar|nothing found)\b')
 AVSLUTADE = ('klar', 'klar_for_bedomning', 'fel', 'forkastad', 'tillbaka')
+# sessionens sida ur rollen (svarsfilens namn): skaparens arbete, granskningen eller körningens gemensamma steg
+SKAPARE = re.compile(r'^(skiss|skapa|pass|forbattra|forfina|divergera)(-|$)')
+GRANSKARE = re.compile(r'^(skisskritik|kritik-a|kritik-b|jamforelse|domare)(-|$)')
+STATUS_SV = {'connected': 'ansluten', 'failed': 'misslyckades', 'needs-auth': 'kräver inloggning', 'pending': 'ansluter', 'disabled': 'avstängd'}
+HJALP_FRIST = 15
+HJALP_OMPROVA_S = 600
 
 
 def nu():
@@ -59,17 +67,23 @@ def pa():
 
 
 _HJALP = {}
+_HJALP_LAS = threading.Lock()
 
 
-def flaggan_finns(claude_bin):
-    """Listar claude --help --session-id? En gång per process; ett fel ger nej, och sessionen startar då som förut."""
-    if claude_bin not in _HJALP:
+def flaggan_finns(claude_bin, env=None):
+    """Listar claude --help --session-id? Ett tydligt svar gäller resten av processen; ett fel (tidsgräns, saknat
+    program) ger nej och prövas igen efter tio minuter, och sessionen startar då som förut. Bara programmets egna fel
+    fångas: arbetarens stopp (atelje.Stoppad) går igenom."""
+    with _HJALP_LAS:
+        svar = _HJALP.get(claude_bin)
+        if svar and (svar[1] is None or time.time() - svar[1] < HJALP_OMPROVA_S):
+            return svar[0]
         try:
-            r = subprocess.run([claude_bin, '--help'], capture_output=True, text=True, timeout=30)
-            _HJALP[claude_bin] = r.returncode == 0 and '--session-id' in r.stdout
-        except Exception:  # noqa: BLE001
-            _HJALP[claude_bin] = False
-    return _HJALP[claude_bin]
+            r = subprocess.run([claude_bin, '--help'], capture_output=True, text=True, timeout=HJALP_FRIST, stdin=subprocess.DEVNULL, env=env)
+            _HJALP[claude_bin] = ('--session-id' in r.stdout, None) if r.returncode == 0 else (False, time.time())
+        except (OSError, subprocess.SubprocessError, ValueError):
+            _HJALP[claude_bin] = (False, time.time())
+        return _HJALP[claude_bin][0]
 
 
 # --- förteckningen (atelje.session skriver; ett fel här stoppar aldrig en session) ---
@@ -78,15 +92,21 @@ def katalog(slug):
     return UNDERLAG / slug / 'atelje' / KATALOG
 
 
+def _skriv(f, post):
+    """Hela posten eller ingen: läsaren ser aldrig en halvskriven fil."""
+    tmp = f.with_name('.%s.%d-%d.tmp' % (f.name, os.getpid(), threading.get_ident()))
+    tmp.write_text(json.dumps(post, ensure_ascii=False) + '\n', encoding='utf-8')
+    os.replace(tmp, f)
+
+
 def anmal(slug, session_id, ut, modell=None, pid=None):
     """En post med metadata när en nästlad session startar: roll och kandidat ur svarsfilens namn och plats."""
     ut = Path(ut)
     m = re.search(r'/kandidater/(k\d{2})/', str(ut))
-    post = {'session_id': session_id, 'roll': re.sub(r'^svar-', '', ut.stem), 'kandidat': m.group(1) if m else None,
-            'svar': ut.name, 'start': nu(), 'modell': modell, 'pid': pid, 'slut': None, 'utfall': None}
     k = katalog(slug)
     k.mkdir(parents=True, exist_ok=True)
-    (k / (session_id + '.json')).write_text(json.dumps(post, ensure_ascii=False) + '\n', encoding='utf-8')
+    _skriv(k / (session_id + '.json'), {'session_id': session_id, 'roll': re.sub(r'^svar-', '', ut.stem), 'kandidat': m.group(1) if m else None,
+                                        'svar': ut.name, 'start': nu(), 'modell': modell, 'pid': pid, 'slut': None, 'utfall': None})
 
 
 def uppdatera(slug, session_id, **falt):
@@ -96,23 +116,24 @@ def uppdatera(slug, session_id, **falt):
         return
     post = json.loads(f.read_text(encoding='utf-8'))
     post.update({k: v for k, v in falt.items() if k in ('slut', 'utfall')})
-    f.write_text(json.dumps(post, ensure_ascii=False) + '\n', encoding='utf-8')
+    _skriv(f, post)
 
 
 # --- läsningen: transkript och strömmade loggar, stegvis (bara nya rader vid varje läsning) ---
 
 _LAGE = {}
-_LAS = threading.Lock()
+_LAS = threading.RLock()  # dashboarden svarar i trådar: läsningen och sammanfattningen sker under samma lås
 
 
 def _ny(ident):
-    return {'id': ident, 'pos': 0, 'anrop': {}, 'svar': {}, 'forsta': None, 'senaste': None, 'kontext': None,
-            'komprimeringar': [], 'modell': None, 'skills': None, 'mcp': None, 'slut': None, 'nekade': 0}
+    return {'id': ident, 'pos': 0, 'anrop': {}, 'svar': {}, 'forsta': None, 'senaste': None, 'kontext': None, 'komprimeringar': [],
+            'modell': None, 'skills': None, 'mcp': None, 'mcp_verktyg': {}, 'slut': None, 'nekade': 0, 'oforstadda': 0}
 
 
 def las_session(fil):
     """Läsläget för en session: valda metadatafält ur transkriptet eller den strömmade loggen. Bara rader som tillkommit
-    sedan förra läsningen tolkas; en ofullständig sista rad väntar till nästa gång."""
+    sedan förra läsningen tolkas; en ofullständig sista rad väntar till nästa gång, och en rad med oväntad form räknas
+    och hoppas över. Ett nytt eller kortare filinnehåll (en annan fil på samma plats) läses från början."""
     fil = Path(fil)
     with _LAS:
         try:
@@ -133,9 +154,23 @@ def las_session(fil):
             slut = data.rfind(b'\n')
             if slut >= 0:
                 for rad in data[:slut].split(b'\n'):
-                    _rad(lage, rad)
+                    try:
+                        _rad(lage, rad)
+                    except Exception:  # noqa: BLE001 — en rad med oväntad form stoppar aldrig läsningen
+                        lage['oforstadda'] += 1
                 lage['pos'] += slut + 1
         return lage
+
+
+def _lista(x):
+    return x if isinstance(x, list) else []
+
+
+def _tal(x):
+    try:
+        return int(x or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _rad(lage, rad):
@@ -152,52 +187,58 @@ def _rad(lage, rad):
     typ = r.get('type')
     if typ == 'system':
         if r.get('subtype') == 'init':  # den strömmade loggens första rad
-            lage['modell'] = r.get('model') or lage['modell']
-            lage['skills'] = [str(x.get('name') if isinstance(x, dict) else x) for x in r.get('skills') or []]
-            lage['mcp'] = {str(x.get('name')): str(x.get('status')) for x in r.get('mcp_servers') or [] if isinstance(x, dict)}
+            lage['modell'] = str(r.get('model') or '') or lage['modell']
+            lage['skills'] = [str(x.get('name') if isinstance(x, dict) else x) for x in _lista(r.get('skills'))]
+            lage['mcp'] = {str(x.get('name')): STATUS_SV.get(str(x.get('status')), str(x.get('status'))) for x in _lista(r.get('mcp_servers')) if isinstance(x, dict)}
         elif r.get('subtype') == 'compact_boundary':
-            m = r.get('compactMetadata') or r.get('compact_metadata') or {}
+            m = r.get('compactMetadata') or r.get('compact_metadata')
+            m = m if isinstance(m, dict) else {}
             lage['komprimeringar'].append({'tid': t, 'utlost': m.get('trigger'), 'fore': m.get('preTokens') or m.get('pre_tokens')})
         return
     if typ == 'attachment':
         a = r.get('attachment') if isinstance(r.get('attachment'), dict) else {}
         if a.get('type') == 'skill_listing':
-            namn = [str(x) for x in a.get('names') or []]
+            namn = [str(x) for x in _lista(a.get('names'))]
             lage['skills'] = namn if a.get('isInitial') or lage['skills'] is None else sorted(set(lage['skills']) | set(namn))
         elif a.get('type') == 'model':
-            lage['modell'] = (a.get('identity') or {}).get('modelId') or lage['modell']
+            i = a.get('identity')
+            lage['modell'] = (i.get('modelId') if isinstance(i, dict) else None) or lage['modell']
         elif a.get('type') == 'deferred_tools_delta':
-            mcp = lage['mcp'] or {}
-            for n in a.get('addedNames') or []:
+            v = lage['mcp_verktyg']
+            for n in _lista(a.get('addedNames')):
                 if str(n).startswith('mcp__'):
-                    mcp[str(n).split('__')[1]] = 'ansluten'
+                    v.setdefault(str(n).split('__')[1], set()).add(str(n))
+            for n in _lista(a.get('removedNames')):
+                if str(n).startswith('mcp__'):
+                    v.setdefault(str(n).split('__')[1], set()).discard(str(n))
+            mcp = lage['mcp'] or {}
+            mcp.update({s_: 'ansluten' if vs else 'frånkopplad' for s_, vs in v.items()})
             for falt, etikett in (('pendingMcpServers', 'ansluter'), ('needsAuthMcpServers', 'kräver inloggning'), ('failedMcpServers', 'misslyckades')):
-                for n in a.get(falt) or []:
+                for n in _lista(a.get(falt)):
                     mcp[str(n.get('name') if isinstance(n, dict) else n)] = etikett
             lage['mcp'] = mcp
         return
     if typ == 'result':  # den strömmade loggens sista rad
-        lage['slut'] = {'tid': t or lage['senaste'], 'utfall': r.get('subtype'), 'fel': bool(r.get('is_error')), 'turer': r.get('num_turns')}
+        lage['slut'] = {'tid': t or lage['senaste'], 'utfall': str(r.get('subtype') or ''), 'fel': bool(r.get('is_error')), 'turer': _tal(r.get('num_turns'))}
         return
     msg = r.get('message') if isinstance(r.get('message'), dict) else {}
     if typ == 'assistant':
-        if msg.get('model') and msg.get('model') != '<synthetic>':
+        if isinstance(msg.get('model'), str) and msg['model'] != '<synthetic>':
             lage['modell'] = msg['model']
         u = msg.get('usage') if isinstance(msg.get('usage'), dict) else {}
-        if u:
-            n = sum(int(u.get(k) or 0) for k in ('input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'))
-            if n:
-                lage['kontext'] = {'tokens': n, 'tid': t}
+        n = sum(_tal(u.get(k)) for k in ('input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'))
+        if n:
+            lage['kontext'] = {'tokens': n, 'tid': t}
     resultat = r.get('toolUseResult', r.get('tool_use_result'))
-    for c in msg.get('content') if isinstance(msg.get('content'), list) else []:
+    for c in _lista(msg.get('content')):
         if not isinstance(c, dict):
             continue
         if c.get('type') == 'tool_use':
-            lage['anrop'][c.get('id')] = _anrop(c, t)
+            lage['anrop'][str(c.get('id'))] = _anrop(c, t)
         elif c.get('type') == 'tool_result':
-            s = _svar(lage['anrop'].get(c.get('tool_use_id')), c, resultat, r.get('toolDenialKind'), t)
+            s = _svar(lage['anrop'].get(str(c.get('tool_use_id'))), c, resultat, r.get('toolDenialKind'), t)
             lage['nekade'] += s['utfall'] == 'nekat'
-            lage['svar'][c.get('tool_use_id')] = s
+            lage['svar'][str(c.get('tool_use_id'))] = s
 
 
 def _anrop(c, t):
@@ -233,7 +274,7 @@ def _svar(a, c, res, nekad, t):
     """Utfallets klass, aldrig innehållet."""
     namn = (a or {}).get('namn') or ''
     x = c.get('content')
-    text = x if isinstance(x, str) else ''.join(y.get('text') or '' for y in x if isinstance(y, dict) and y.get('type') == 'text') if isinstance(x, list) else ''
+    text = x if isinstance(x, str) else ''.join(str(y.get('text') or '') for y in x if isinstance(y, dict) and y.get('type') == 'text') if isinstance(x, list) else ''
     bilder = sum(1 for y in x if isinstance(y, dict) and y.get('type') == 'image') if isinstance(x, list) else 0
     ut = {'tid': t}
     if nekad or (c.get('is_error') is True and NEKAT.search(text[:600])):
@@ -248,10 +289,14 @@ def _svar(a, c, res, nekad, t):
         if r.get('type') == 'image' or bilder:
             return dict(ut, utfall='bild läst')
         if r.get('type') == 'text' and f:
-            s, n, tot = int(f.get('startLine') or 1), int(f.get('numLines') or 0), int(f.get('totalLines') or 0)
+            s, n, tot = f.get('startLine', 1), f.get('numLines'), f.get('totalLines')
+            if not all(isinstance(v, int) for v in (s, n, tot)):
+                return dict(ut, utfall='fil läst (omfång inte observerat)')
             if s <= 1 and n >= tot:
                 return dict(ut, utfall='fil läst (hel)')
             return dict(ut, utfall='fil läst (utdrag)', rader=[s, s + max(n, 1) - 1, tot])
+        if r.get('type') == 'file_unchanged':
+            return dict(ut, utfall='oförändrad sedan förra läsningen')
         if r.get('type'):
             return dict(ut, utfall='fil läst (%s)' % str(r['type'])[:30])
         return dict(ut, utfall='fil läst (utdrag)' if (a or {}).get('begransad') else 'fil läst (omfång inte observerat)')
@@ -277,24 +322,27 @@ def _relativ(vag):
 
 
 def sammanfatta(lage, slug=None):
-    """Den kompakta vyn av en session. Läsningarna delas i referenser, skillfiler, flödets metodutdrag och övrigt."""
+    """Den kompakta vyn av en session, som nya objekt (aldrig läslägets egna). Läsningarna delas i referenser,
+    skillfiler, flödets metodutdrag och övrigt."""
     if not lage:
         return None
     mcp, refs, skillfiler, metod, skills, verktyg = [], [], [], [], [], {}
-    for i, a in lage['anrop'].items():
+    for i, a in list(lage['anrop'].items()):
         s = lage['svar'].get(i) or {}
         utfall = s.get('utfall') or 'inget svar observerat'
         v = verktyg.setdefault(a['namn'], {})
         v[utfall] = v.get(utfall, 0) + 1
         if a['namn'].startswith(('mcp__refero__', 'mcp__mobbin__')):
             d = a['namn'].split('__', 2)
-            mcp.append({'tjanst': d[1], 'verktyg': d[2], 'utfall': utfall, 'tid': a['tid'],
+            mcp.append({'tjanst': d[1], 'verktyg': d[2] if len(d) > 2 else '', 'utfall': utfall, 'tid': a['tid'],
                         **{k: s[k] for k in ('traffar', 'bilder', 'bildlankar') if s.get(k)}})
         elif a['namn'] == 'Skill':
             skills.append({'skill': a.get('skill'), 'utfall': utfall, 'tid': a['tid']})
         elif a['namn'] == 'Read' and a.get('fil'):
             rel = _relativ(a['fil'])
-            post = {'fil': rel, 'utfall': utfall, 'tid': a['tid'], **({'rader': s['rader']} if s.get('rader') else {})}
+            if slug and '/underlag/%s/' % slug in '/' + rel:  # också när sessionen gick i en annan utcheckning av repot
+                rel = rel[('/' + rel).index('/underlag/%s/' % slug):]
+            post = {'fil': rel, 'utfall': utfall, 'tid': a['tid'], **({'rader': list(s['rader'])} if s.get('rader') else {})}
             m = SKILLFIL.search(rel)
             if m:
                 skillfiler.append(dict(post, skill=m.group(1), skillmd=m.group(2) == 'SKILL.md'))
@@ -304,10 +352,18 @@ def sammanfatta(lage, slug=None):
                 metod.append(post)
     k = lage.get('kontext')
     return {'modell': lage.get('modell'), 'forsta_handelse': lage.get('forsta'), 'senaste_handelse': lage.get('senaste'),
-            'kontext': dict(k, uppskattning=True) if k else None, 'komprimeringar': lage.get('komprimeringar') or [],
-            'skills_erbjudna': len(lage['skills']) if lage.get('skills') is not None else None, 'mcp_lage': lage.get('mcp'),
-            'mcp': sorted(mcp, key=lambda x: x['tid'] or ''), 'skills_laddade': skills, 'skillfiler': skillfiler,
-            'metodutdrag': metod, 'referensfiler': refs, 'nekade': lage.get('nekade', 0), 'verktyg': verktyg, 'slut': lage.get('slut')}
+            'kontext': dict(k, uppskattning=True) if k else None, 'komprimeringar': [dict(x) for x in lage.get('komprimeringar') or []],
+            'skills_erbjudna': len(lage['skills']) if lage.get('skills') is not None else None,
+            'mcp_lage': dict(lage['mcp']) if lage.get('mcp') is not None else None,
+            'mcp': sorted(mcp, key=lambda x: x['tid'] or ''), 'skills_laddade': skills, 'skillfiler': skillfiler, 'metodutdrag': metod,
+            'referensfiler': refs, 'nekade': lage.get('nekade', 0), 'oforstadda_rader': lage.get('oforstadda', 0), 'verktyg': verktyg,
+            'slut': dict(lage['slut']) if lage.get('slut') else None}
+
+
+def sammanfattning(fil, slug=None):
+    """Läsningen och sammanfattningen under samma lås: en samtidig läsning ändrar aldrig det som sammanfattas."""
+    with _LAS:
+        return sammanfatta(las_session(fil), slug)
 
 
 def lever(pid):
@@ -318,22 +374,40 @@ def lever(pid):
         return False
 
 
+def sida(roll):
+    roll = str(roll or '')
+    return 'skapare' if SKAPARE.match(roll) else 'granskare' if GRANSKARE.match(roll) else 'korning'
+
+
+def _mtid(p):
+    try:
+        return p.stat().st_mtime
+    except OSError:
+        return 0
+
+
 def sessioner(slug):
-    """Ateljéns sessioner ur förteckningen, nyast först, med det transkriptet visar."""
+    """Ateljéns sessioner ur förteckningen, nyast först, med det transkriptet visar. Pågår betyder att posten saknar
+    slut och att pid:en är en levande nästlad claude-session (nastlad.ar_session), inte bara en levande pid."""
+    import nastlad
     k = katalog(slug)
-    filer = sorted(k.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True) if k.is_dir() else []
     ut = []
-    for f in filer:
+    for f in sorted(k.glob('*.json'), key=_mtid, reverse=True) if k.is_dir() else []:
         try:
             post = json.loads(f.read_text(encoding='utf-8'))
         except (OSError, ValueError):
             continue
         if not isinstance(post, dict) or not bildkedja.SESSION.match(str(post.get('session_id') or '')):
             continue
-        tr = bildkedja.transkript(post['session_id'])
-        post['pagar'] = bool(not post.get('slut') and post.get('pid') and lever(post['pid']))
-        post['transkript'] = _relativ(str(tr)) if tr else None
-        post['observation'] = sammanfatta(las_session(tr), slug) if tr else None
+        post = {x: post.get(x) for x in FALT}
+        try:
+            tr = bildkedja.transkript(post['session_id'])
+            post['sida'] = sida(post['roll'])
+            post['pagar'] = bool(not post.get('slut') and post.get('pid') and lever(post['pid']) and nastlad.ar_session(post['pid']))
+            post['transkript'] = _relativ(str(tr)) if tr else None
+            post['observation'] = sammanfattning(tr, slug) if tr else None
+        except Exception as e:  # noqa: BLE001 — en session som inte går att läsa gör bara den ofullständig
+            post['ofullstandig'] = '%s: %s' % (type(e).__name__, str(e)[:160])
         ut.append(post)
     return ut
 
@@ -342,15 +416,26 @@ def tjanstesessioner(slug, efter=None):
     """Refero- och Mobbin-sessionerna (researchens tjänster, uppdragsmaterialet) ur deras strömmade loggar, från efter."""
     ut = []
     for f in sorted((UNDERLAG / slug / 'referenser').glob('**/session-*.jsonl')):
-        try:
-            if efter and time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(f.stat().st_mtime)) < efter:
-                continue
-        except OSError:
+        if efter and time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(_mtid(f))) < efter:
             continue
         rel = f.relative_to(UNDERLAG / slug)
-        ut.append({'logg': str(rel), 'tjanst': f.parent.name, 'del': rel.parts[1] if len(rel.parts) > 2 else None,
-                   'observation': sammanfatta(las_session(f), slug)})
+        post = {'logg': str(rel), 'tjanst': f.parent.name, 'del': rel.parts[1] if len(rel.parts) > 2 else None}
+        try:
+            post['observation'] = sammanfattning(f, slug)
+        except Exception as e:  # noqa: BLE001
+            post['ofullstandig'] = '%s: %s' % (type(e).__name__, str(e)[:160])
+        ut.append(post)
     return ut
+
+
+def referensnamn(text):
+    """Bara huvudreferensens namn ur planens text, som jämförelsen i kortet visar före ägarens första beslut; planens
+    beskrivning hålls tillbaka som i kandidater.sammanstall (BESLUT.md 2026-10-05, punkt 1)."""
+    if not text:
+        return None
+    import kandidater
+    egen, namnen = kandidater.huvudreferensens_namn(text)
+    return 'egen riktning' if egen else (namnen[0][:80] if namnen else None)
 
 
 def referenser(slug):
@@ -359,23 +444,23 @@ def referenser(slug):
     fo = bildkedja.las_json(a / 'FORSKNING.json') or {}
     plan = (bildkedja.las_json(a / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}
     paket = (fo.get('nytt') or {}).get('paket') or (fo.get('fore') or {}).get('paket')
-    pk = UNDERLAG / slug / 'referenser' / paket if paket else None
-    return {'paket': paket, 'paket_tid': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(pk.stat().st_mtime)) if pk and pk.is_dir() else None,
+    pk = bildkedja.las_json(UNDERLAG / slug / 'referenser' / str(paket) / 'PAKET.json') if paket else None
+    return {'paket': paket, 'paket_tid': (pk or {}).get('tid') if isinstance(pk, dict) else None,
             'tjanster_tid': (fo.get('nytt') or {}).get('tjanster'),
-            'kandidater': {kid: {'huvudreferens': str(k.get('huvudreferens') or '')[:200], 'referensbilder': len(k.get('referensbilder') or [])}
+            'kandidater': {kid: {'huvudreferens': referensnamn(k.get('huvudreferens')), 'referensbilder': len(_lista(k.get('referensbilder')))}
                            for kid, k in plan.items() if isinstance(k, dict)} if isinstance(plan, dict) else {}}
 
 
 def installerat(slug):
     """De installerade skillsen enligt körningens startkvitto (startkontrollen läste dem vid starten)."""
     kv = bildkedja.las_json(UNDERLAG / slug / 'atelje' / 'STARTKVITTO.json') or {}
-    rader = [r for r in kv.get('rader') or [] if isinstance(r, dict) and r.get('typ') == 'skill']
+    rader = [r for r in _lista(kv.get('rader')) if isinstance(r, dict) and r.get('typ') == 'skill']
     return {'tid': kv.get('tid'), 'antal': len(rader), 'namn': sorted(str(r.get('namn')) for r in rader)} if rader else None
 
 
 def prototyper(slug):
     """Per kandidat: senaste förhandsvarvet under arbetet och den fotograferade versionen, åtskilda. Tiden är när
-    skärmbilden fångades (filens tid)."""
+    skärmbilden fångades (filens tid). Flödets kompetenskvitton är läsbevis (lästa och saknade filer), inget omdöme."""
     ut = {}
     for d in sorted((UNDERLAG / slug / 'atelje' / 'kandidater').glob('k[0-9][0-9]')):
         st = bildkedja.las_json(d / 'STATUS.json') or {}
@@ -385,27 +470,27 @@ def prototyper(slug):
             p = senaste / ('vy-%s-forsta.png' % b) if senaste else None
             if p and p.is_file():
                 bilder[b] = str(p.relative_to(ROOT))
-                fangad = max(fangad or '', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(p.stat().st_mtime)))
+                fangad = max(fangad or '', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(_mtid(p))))
         kv = st.get('kompetens') if isinstance(st.get('kompetens'), dict) else {}
         ut[d.name] = {'status': st.get('status'), 'skal': st.get('skal'), 'varv_antal': len(varv),
                       'varv': {'namn': senaste.name, 'skarmbild_fangad': fangad, 'bilder': bilder} if senaste else None,
-                      'version': (st.get('version') or '')[:12] or None, 'fotograferad': st.get('fotograferad'),
+                      'version': (str(st.get('version') or ''))[:12] or None, 'fotograferad': st.get('fotograferad'),
                       'kompetenskvitton': [{'pass': n, 'verifierad': (p.get('kvitto') or {}).get('verifierad'),
-                                            'lasta': len((p.get('kvitto') or {}).get('lasta') or []), 'saknas': (p.get('kvitto') or {}).get('saknas') or [],
+                                            'lasta': len(_lista((p.get('kvitto') or {}).get('lasta'))), 'saknas': _lista((p.get('kvitto') or {}).get('saknas')),
                                             'genomford': p.get('genomford')} for n, p in kv.items() if isinstance(p, dict)]}
     return ut
 
 
 def arbetslage(slug):
-    """Körningens steg och tider ur statusfilen (sanningskällan); om arbetaren lever ur dess pid."""
+    """Körningens steg och tider ur statusfilen (sanningskällan); om arbetaren lever ur dess pid, None utan pid."""
     st = bildkedja.las_json(UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
-    return {'steg': st.get('steg'), 'startad': st.get('startad'), 'tider': st.get('tider') or {}, 'fel': st.get('fel'),
-            'avslutad': st.get('steg') in AVSLUTADE, 'arbetaren_lever': bool(st.get('pid') and lever(st['pid']))}
+    return {'steg': st.get('steg'), 'startad': st.get('startad'), 'tider': st.get('tider') if isinstance(st.get('tider'), dict) else {},
+            'fel': st.get('fel'), 'avslutad': st.get('steg') in AVSLUTADE, 'arbetaren_lever': lever(st['pid']) if st.get('pid') else None}
 
 
 def oversikt(slug):
     """Allt för dashboardens vy. En del som fallerar blir ofullständig med skälet; resten visas ändå."""
-    ut = {'tid': nu(), 'pa': pa()}
+    ut = {'tid': nu()}
     for namn, f in (('arbetslage', arbetslage), ('referenser', referenser), ('installerat', installerat), ('prototyper', prototyper),
                     ('sessioner', sessioner)):
         try:
