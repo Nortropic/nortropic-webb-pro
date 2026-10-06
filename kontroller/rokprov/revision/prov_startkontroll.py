@@ -957,6 +957,8 @@ try:
         return 1, json.dumps({'vulnerabilities': sv_r76(('tar', 'a', 'critical'))})
     uh.npm = falsk_npm_r76
     vl.kor = falsk_kor_r77
+    spara_installerar_r77 = uh.npm_installerar
+    uh.npm_installerar = lambda: None  # ingen npm-installation på maskinen i provet (prövas för sig nedan)
     R_R77 = {'paket': 'vercel', 'installerat': '60.0.1', 'binar': 'vercel', 'id': 'npm-global:vercel'}
     try:
         f_, st_ = uh.prova_globalt(None, R_R77, {'version': '60.1.3'})
@@ -1008,7 +1010,14 @@ try:
             os.symlink('../lib/node_modules/vercel/dist/vc2.js', PF_ / 'bin' / 'vc')
             return (1, 'npm error code ECONNRESET\nnpm error network aborted') if LAGE_R77['intag'] == 'faller' else (0, '')
         uh.npm = falsk_npm_intag
-        vl.kor = spara_kor_m4  # klonen görs med den riktiga cp
+        HJALP_ = {'trasiga': set()}
+
+        def kor_hj(args, **kw):  # vercel --help faller för versionerna i HJALP_ (r85, M2); allt annat, som klonens cp, körs på riktigt
+            if len(args) == 2 and str(args[0]).endswith('/bin/vercel') and args[1] == '--help':
+                v_ = json.loads((KAT_ / 'package.json').read_text())['version'] if (KAT_ / 'package.json').is_file() else None
+                return (1 if v_ in HJALP_['trasiga'] else 0), 'hjälp'
+            return spara_kor_m4(args, **kw)
+        vl.kor = kor_hj  # klonen görs med den riktiga cp
         vl.version_av = lambda a: json.loads((KAT_ / 'package.json').read_text())['version'] if (KAT_ / 'package.json').is_file() else None
         NPM_R76.clear()
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p', 'fore': '2026-10-03T00:00:00Z'})
@@ -1022,13 +1031,14 @@ try:
         assert res_[0] == 'uppdaterad' and '--before=2026-10-03T00:00:00Z' in NPM_R76[0] and '-g' in NPM_R76[0], (res_, NPM_R76)
         assert not list((PF_ / 'lib').glob('.nwp-spar*')), 'klonen städas också när intaget lyckas'
         assert uh.ta_in_globalt(None, dict(R_IN, paketkatalog=str(TMP / 'finns-inte')), {'version': '60.1.3'}, {'prov': 'p'})[0] == 'behallen'
-        vl.kor = lambda args, **kw: (0, '')  # en kopia som inte blev av: inget intag
+        vl.kor = lambda args, **kw: (1, '') if args[:1] == ['ps'] else (0, '')  # en kopia som inte blev av: inget intag
+        uh.npm_installerar = lambda: None
         NPM_R76.clear()
         assert uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})[0] == 'behallen' and not NPM_R76, NPM_R76
-        vl.kor = spara_kor_m4
-        # granskningen av r79 och r80: npm:s undanflyttade kopia från vårt eget intag tas bort (A), en ung kopia från något
-        # annat rörs inte, klonen står kvar när tillbakaläggningen faller (B) och läggs tillbaka före nästa intag eller
-        # underhåll, men bara när processen som gjorde den är död (C, H1); trädet är 60.1.3 efter det lyckade intaget ovan
+        vl.kor = kor_hj
+        # granskningarna av r79–r85: ett eget misslyckat intag lägger tillbaka klonen och tar bara bort npm:s kopior av den
+        # gamla versionen; allt annat som ligger kvar redovisas och rörs inte; lagningen gör bara det som inte kan
+        # förstöra något (trädet saknas helt och vår klon finns); intaget väntar när något ligger kvar eller npm arbetar
         (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.0.1'}))
         (KAT_ / 'dist' / 'vc.js').write_text('gammal')
         for f_ in ('vercel', 'vc'):
@@ -1036,33 +1046,57 @@ try:
                 os.unlink(PF_ / 'bin' / f_)
         os.symlink('../lib/node_modules/vercel/dist/vc.js', PF_ / 'bin' / 'vercel')
         NM_ = PF_ / 'lib' / 'node_modules'
-        spara_installerar = uh.npm_installerar
-        uh.npm_installerar = lambda: False  # ingen npm-installation på maskinen i provet (r81, M1)
+        SPAR_ = uh.spar_for(KAT_, 'vercel')
+        uh.npm_installerar = lambda: None  # ingen npm-installation på maskinen i provet
+        vl.version_av = lambda a: (None if (KAT_ / 'TRASIG').exists() else json.loads((KAT_ / 'package.json').read_text())['version']) \
+            if (KAT_ / 'package.json').is_file() else None
+        spara_kor_hj = spara_kor_m4
         (NM_ / '.vercel-ai-abcdefgh').mkdir()  # ett annat pakets kopia: aldrig vår (r80, L1)
-        assert [p_.name for p_ in uh.npm_undanflyttade(KAT_)] == [] and [p_.name for p_ in uh.npm_undanflyttade(NM_ / 'vercel-ai')] == ['.vercel-ai-abcdefgh']
-        UNG_ = NM_ / '.vercel-Annan123'  # en ung kopia från någon annans pågående installation
-        UNG_.mkdir()
-        time.sleep(6)  # vårt intag börjar efter att den kopian flyttades undan (ctime)
+        assert uh.npm_undanflyttade(KAT_) == [] and [p_.name for p_ in uh.npm_undanflyttade(NM_ / 'vercel-ai')] == ['.vercel-ai-abcdefgh']
 
         def falsk_npm_dor(args, cwd, timeout=900, env=None):  # npm flyttar undan trädet och dör mitt i bytet
             NPM_R76.append(list(args))
             os.rename(KAT_, NM_ / '.vercel-zw0Ty2D2')
             return 1, ('npm error code ETIMEDOUT\nnpm error A complete log of this run can be found in: '
                        '/x/_logs/2026-10-06T04_37_15_429Z-debug-0.log')
-        uh.npm = falsk_npm_dor
+
+        def falsk_npm_dor_framling(args, cwd, timeout=900, env=None):  # och en annan installation lämnar en kopia av en annan version
+            (NM_ / '.vercel-Fram1234').mkdir()
+            (NM_ / '.vercel-Fram1234' / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '61.0.0'}))
+            return falsk_npm_dor(args, cwd, timeout, env)
+        uh.npm = falsk_npm_dor_framling
         NPM_R76.clear()
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'avvisad' and 'lagt tillbaka' in res_[1] and res_[1].startswith(uh.TILL), res_
-        assert not (NM_ / '.vercel-zw0Ty2D2').exists(), 'kopian från vårt eget intag borta'
-        assert UNG_.is_dir() and (NM_ / '.vercel-ai-abcdefgh').is_dir(), 'en ung kopia från något annat och ett annat pakets kopia står kvar'
-        assert json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1'
-        shutil.rmtree(UNG_)
+        assert not (NM_ / '.vercel-zw0Ty2D2').exists(), 'npm:s kopia av den gamla versionen från vårt intag borta'
+        assert (NM_ / '.vercel-Fram1234').is_dir(), 'en kopia av en annan version rörs inte (r85, M3)'
+        shutil.rmtree(NM_ / '.vercel-Fram1234')
+        uh.npm = falsk_npm_dor
+        assert (NM_ / '.vercel-ai-abcdefgh').is_dir() and json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1'
+        assert not SPAR_.exists() and not list(NM_.glob('.nwp-trasig-*'))
         # npm går igenom men versionen svarar inte: texten säger det (r80, L5)
         uh.npm = lambda args, cwd, timeout=900, env=None: (NPM_R76.append(list(args)) or (0, ''))
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'avvisad' and 'npm gick igenom, men vercel svarar 60.0.1, inte 60.1.3' in res_[1], res_
-        uh.npm = falsk_npm_dor
+        # vercel --help svarar inte efter ett intag: inget intag, och klonen läggs tillbaka (r85, M2)
+        def falsk_npm_halv(args, cwd, timeout=900, env=None):
+            NPM_R76.append(list(args))
+            (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.1.3'}))
+            return 0, ''
+        uh.npm = falsk_npm_halv
+        HJALP_['trasiga'] = {'60.1.3'}
+        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+        HJALP_['trasiga'] = set()
+        assert res_[0] == 'avvisad' and 'lagt tillbaka' in res_[1] and json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1', res_
+        assert not list(NM_.glob('.nwp-trasig-*')), 'vår egen halva installation tas bort när klonen svarar'
+        # en global npm-installation pågår: intaget väntar och rör ingenting (r85, M3)
+        uh.npm_installerar = lambda: 'en global npm-installation pågår (npm install -g x)'
+        NPM_R76.clear()
+        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+        assert res_[0] == 'behallen' and 'npm-installation pågår' in res_[1] and not NPM_R76, res_
+        uh.npm_installerar = lambda: None
         # tillbakaläggningen faller: klonen står kvar och sägs
+        uh.npm = falsk_npm_dor
         spara_rename = os.rename
 
         def rename_faller(a_, b_, *r_):
@@ -1075,23 +1109,18 @@ try:
         finally:
             os.rename = spara_rename
         assert res_[0] == 'avvisad' and 'ÅTERSTÄLLNINGEN FÖLL' in res_[1] and 'klonen står kvar' in res_[1], res_
-        SPAR_ = uh.spar_for(KAT_, 'vercel')
         assert not KAT_.exists() and (SPAR_ / 'vercel' / 'package.json').is_file() and (SPAR_ / 'LANKAR.json').is_file()
-        # klonens ägare lever (det här provet): lagningen rör den inte (r80, H1), och intaget väntar (r81, L1)
+        assert (NM_ / '.vercel-zw0Ty2D2').is_dir(), 'utan klonen på plats står npm:s kopia kvar: den kan vara den enda hela (r81, L2)'
+        # klonens ägare lever (det här provet): lagningen rör ingenting, och intaget väntar
         assert uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel') is None and (SPAR_ / 'vercel' / 'package.json').is_file()
         NPM_R76.clear()
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'behallen' and not NPM_R76 and (SPAR_ / 'vercel' / 'package.json').is_file(), res_
-        KAT_.mkdir()  # trädet finns men klonen ligger kvar: intaget väntar ändå
-        (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.0.1'}))
-        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
-        assert res_[0] == 'behallen' and 'ligger kvar' in res_[1] and not NPM_R76, res_
-        shutil.rmtree(KAT_)
-        # en npm-installation pågår på maskinen: lagningen väntar och rör ingenting (r81, M1)
         vl.skriv_json(SPAR_ / 'AGARE.json', {'pid': 999999, 'start': 'en process som inte finns'})
-        uh.npm_installerar = lambda: True
-        assert 'npm-installation pågår' in uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel') and (SPAR_ / 'vercel' / 'package.json').is_file()
-        uh.npm_installerar = lambda: False
+        # trädet saknas, men npm:s undanflyttade kopia ligger kvar: inget rörs, och det redovisas som trasigt (r85, M1)
+        text_ = uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel')
+        assert text_.startswith('MILJÖN TRASIG') and '.vercel-zw0Ty2D2' in text_ and (SPAR_ / 'vercel').is_dir() and (NM_ / '.vercel-zw0Ty2D2').is_dir(), text_
+        shutil.rmtree(NM_ / '.vercel-zw0Ty2D2')  # det en människa tar bort efter att ha tittat
         # intagslåset hålls av ett annat underhåll: lagningen väntar till nästa gång
         spara_rot, spara_inv = vl.npm_global_rot, vl.inventera
         vl.npm_global_rot = lambda: str(NM_)
@@ -1099,13 +1128,14 @@ try:
             with vl.las(uh.BYTESLAS):
                 rap_ = {'rader': []}
                 uh.steg_laga_globala(rap_)
-            assert rap_.get('lagat') == ['ett avbrutet intag lagas inte nu: ett intag pågår på maskinen'] and (SPAR_ / 'vercel').is_dir(), rap_
-            # underhållets huvudflöde lagar före inventeringen (inventeringen stoppas här): klonen och länkarna tillbaka,
-            # binären prövas, och en kvarglömd undanflyttad kopia (äldre än en timme) tas bort
+            assert rap_.get('lagat') and 'ett intag pågår' in rap_['lagat'][0] and (SPAR_ / 'vercel').is_dir(), rap_
+            # en npm-installation pågår: lagningen väntar
+            uh.npm_installerar = lambda: 'en global npm-installation pågår (npm install -g x)'
+            assert uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel').startswith('MILJÖN TRASIG') and (SPAR_ / 'vercel').is_dir()
+            uh.npm_installerar = lambda: None
+            # underhållets huvudflöde lagar före inventeringen (inventeringen stoppas här): trädet saknas helt och vår klon
+            # finns, så klonen läggs på plats med länkarna, och binären prövas
             os.unlink(PF_ / 'bin' / 'vercel')
-            os.symlink('../lib/node_modules/vercel/dist/ny.js', PF_ / 'bin' / 'vercel')
-            (NM_ / '.vercel-Kvar9876').mkdir()
-            uh.GAMMAL_S = 0  # som om kopian flyttades undan för länge sedan
 
             def inv_stopp(k, delar=None):
                 raise RuntimeError('stopp efter lagningen')
@@ -1115,58 +1145,71 @@ try:
                 raise AssertionError('inventeringen skulle ha stoppats')
             except RuntimeError as e:
                 assert 'stopp efter lagningen' in str(e), e
+            # ett fel i lagningen stoppar aldrig underhållet (r85, L3)
+            spara_laga = uh.laga_avbrutet_intag
+            uh.laga_avbrutet_intag = lambda *a_: (_ for _ in ()).throw(OSError(5, 'I/O error'))
+            SPAR_.mkdir()
+            rap_ = {'rader': []}
+            try:
+                uh.steg_laga_globala(rap_)
+            finally:
+                uh.laga_avbrutet_intag = spara_laga
+            assert rap_.get('trasigt') and 'lagningen föll' in rap_['trasigt'][0], rap_
+            shutil.rmtree(SPAR_)
         finally:
-            vl.npm_global_rot, vl.inventera, uh.GAMMAL_S = spara_rot, spara_inv, 3600
+            vl.npm_global_rot, vl.inventera = spara_rot, spara_inv
         assert json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1' and not SPAR_.exists()
         assert os.readlink(PF_ / 'bin' / 'vercel') == '../lib/node_modules/vercel/dist/vc.js', 'länkarna tillbaka ur LANKAR.json (r80, L2)'
-        assert not (NM_ / '.vercel-Kvar9876').exists() and (NM_ / '.vercel-ai-abcdefgh').is_dir()
-        rap_ = {'rader': [], 'lagat': ['vercel: ett avbrutet intag lagades, det installerade trädet (60.0.1) lades tillbaka ur klonen']}
-        assert 'Lagat före inventeringen' in uh.markdown(dict(rap_, start='t', commits=[]))
-        # en klon kvar efter ett intag som dog, men trädet har sedan uppdaterats för hand och fungerar: trädet vinner
-        SPAR_.mkdir(parents=True)
-        shutil.copytree(KAT_, SPAR_ / 'vercel')  # klonen har 60.0.1
-        vl.skriv_json(SPAR_ / 'AGARE.json', {'pid': 999999, 'start': 'en process som inte finns'})
-        (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.9.9'}))  # installerad för hand, fungerar
-        text_ = uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel')
-        assert 'det installerade (60.9.9) fungerar' in text_ and json.loads((KAT_ / 'package.json').read_text())['version'] == '60.9.9' \
-            and not SPAR_.exists(), text_
-        (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.0.1'}))
-        # samma version i klon och träd, men binären svarar inte: trädet flyttas undan och klonen läggs tillbaka (r81, M2)
-        vl.version_av = lambda a: (None if (KAT_ / 'TRASIG').exists() else json.loads((KAT_ / 'package.json').read_text())['version']) \
-            if (KAT_ / 'package.json').is_file() else None
-        SPAR_.mkdir(parents=True)
+        rap_ = {'rader': [], 'lagat': ['vercel: ett avbrutet intag lagades']}
+        assert 'Avbrutna intag före inventeringen' in uh.markdown(dict(rap_, start='t', commits=[]))
+        # vår klon ligger kvar, ägaren är död och trädet finns och svarar: trädet rörs aldrig (r85)
+        SPAR_.mkdir()
         shutil.copytree(KAT_, SPAR_ / 'vercel')
+        (SPAR_ / 'vercel' / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '59.0.0'}))
         vl.skriv_json(SPAR_ / 'AGARE.json', {'pid': 999999, 'start': 'en process som inte finns'})
-        (KAT_ / 'TRASIG').write_text('halvt raderat')
         text_ = uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel')
-        assert 'lades tillbaka' in text_ and not (KAT_ / 'TRASIG').exists() and not list(NM_.glob('.nwp-trasig-*')) and not SPAR_.exists(), text_
-        # länkarna läggs tillbaka också när klonen redan hann på plats (r81, L3)
-        SPAR_.mkdir(parents=True)
-        vl.skriv_json(SPAR_ / 'LANKAR.json', {str(PF_ / 'bin' / 'vercel'): '../lib/node_modules/vercel/dist/vc.js'})
-        vl.skriv_json(SPAR_ / 'AGARE.json', {'pid': 999999, 'start': 'en process som inte finns'})
-        os.unlink(PF_ / 'bin' / 'vercel')
-        assert uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel') is None and os.readlink(PF_ / 'bin' / 'vercel') == '../lib/node_modules/vercel/dist/vc.js'
+        assert not text_.startswith('MILJÖN TRASIG') and json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1' \
+            and (SPAR_ / 'vercel' / 'package.json').is_file(), text_
+        shutil.rmtree(SPAR_)
+        # något ligger kvar men det installerade svarar: det redovisas och rörs inte, och intaget väntar
+        (NM_ / '.vercel-Kvar9876').mkdir()
+        text_ = uh.laga_avbrutet_intag(KAT_, 'vercel', 'vercel')
+        assert not text_.startswith('MILJÖN TRASIG') and 'svarar' in text_ and (NM_ / '.vercel-Kvar9876').is_dir(), text_
+        NPM_R76.clear()
+        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+        assert res_[0] == 'behallen' and 'intaget väntar' in res_[1] and not NPM_R76, res_
+        shutil.rmtree(NM_ / '.vercel-Kvar9876')
         # någon uppdaterade under provet: intaget installerar inte en äldre version över den (r81, M3)
         (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.9.9'}))
-        NPM_R76.clear()
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'behallen' and 'ändrades under provet (60.0.1 → 60.9.9)' in res_[1] and not NPM_R76, res_
         (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.0.1'}))
-        # försvinner klonen under intaget raderas aldrig trädet (r80, H1), och npm:s undanflyttade kopia står kvar: den
-        # kan vara den enda hela (r81, L2)
+        # försvinner klonen under intaget flyttas aldrig trädet (r80, H1)
         def falsk_npm_tar_klonen(args, cwd, timeout=900, env=None):
             NPM_R76.append(list(args))
             shutil.rmtree(SPAR_ / 'vercel')
-            shutil.copytree(KAT_, NM_ / '.vercel-Mitt1234')  # npm:s undanflyttade kopia av det hela trädet
             (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.1.3-halv'}))
             return 1, 'npm error code ECONNRESET'
         uh.npm = falsk_npm_tar_klonen
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
         assert res_[0] == 'avvisad' and 'klonen saknas' in res_[1] and 'ÅTERSTÄLLNINGEN FÖLL' in res_[1] and (KAT_ / 'package.json').is_file(), res_
-        assert (NM_ / '.vercel-Mitt1234' / 'package.json').is_file(), 'npm:s hela kopia står kvar när klonen saknas'
-        uh.npm_installerar = spara_installerar
+        uh.npm_installerar, vl.kor = spara_installerar_r77, spara_kor_hj
+        # npm_installerar ser en global installation i ps (själva programmet, aldrig ett skal som nämner npm), och svarar när
+        # ps inte går att köra
+        spara_kor_ps = vl.kor
+        try:
+            vl.kor = lambda args, **kw: (0, 'node /opt/homebrew/bin/npm install -g vercel@62\n/bin/zsh\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+            assert 'pågår' in (uh.npm_installerar() or '')
+            vl.kor = lambda args, **kw: (0, 'node /opt/homebrew/bin/npm install --location=global x\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+            assert 'pågår' in (uh.npm_installerar() or '')
+            vl.kor = lambda args, **kw: (0, 'node /x/npm ci\n/bin/zsh -c echo npm install -g x\n') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+            assert uh.npm_installerar() is None
+            vl.kor = lambda args, **kw: (1, '') if args[:1] == ['ps'] else spara_kor_ps(args, **kw)
+            assert 'ps svarar inte' in (uh.npm_installerar() or '')
+        finally:
+            vl.kor = spara_kor_ps
     finally:
-        uh.npm, vl.version_av = spara_r76
+        uh.npm, vl.version_av, uh.npm_installerar = spara_r76 + (spara_installerar_r77,)
     # ett godkänt prov gäller provreglerna: nya regler gör om det (r77, L7)
     spara_regler = vl.PROVREGLER
     try:
