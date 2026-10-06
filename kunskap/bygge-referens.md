@@ -1,8 +1,8 @@
 # Bygge — referens för produktion (val, inte fast stack)
 
-Professionsfil (HELHET-20260927, avsnitt 4 "Produktion"), återvunnen och generaliserad ur det arkiverade repots
-stack- och initskills. Laddas i steget `bygge`. Ingen fast stack: valet motiveras i briefen §9 av uppgiften,
-kundens förvaltning och driftmiljön. Det som följer är krav på resultatet och beprövade mönster.
+Professionsfil (HELHET-20260927, avsnitt 4 "Produktion"), återvunnen ur det arkiverade repots stack- och initskills.
+Läses i bygg-sajt steg 5 och i skapandeflödets förfining (`kunskap/metodkarta.md`). Ingen fast stack: valet motiveras i
+briefen §9 av uppgiften, kundens förvaltning och driftmiljön. Det som följer är krav på resultatet och beprövade mönster.
 
 ## Krav på resultatet (oavsett stack)
 
@@ -36,17 +36,17 @@ kundens förvaltning och driftmiljön. Det som följer är krav på resultatet o
   formulär som serverfunktion. Passar de flesta informations- och kontaktsajter.
 - **Innehållsmodell**: en typ per innehållsslag (tjänst, område, person, omdöme, fråga) med fält; varje sida byggs
   ur typerna; inga sidor utan genuint innehåll.
-- **Formulärleverans**: serverfunktion → e-posttjänst (mottagare `LEAD_TO_EMAIL`, avsändare `LEAD_FROM_EMAIL` på
-  verifierad domän, nyckel `RESEND_API_KEY` eller motsvarande) med honeypot, tidsfälla på en klocka och
-  servervalidering; leveransen är testet, inte svarskoden.
-- **Miljövariabler**: dokumenterade i `.env.example` med namn och ändamål; värden bara i värdplattformen;
-  `NEXT_PUBLIC_`-prefix bara för det som får nå klienten.
+- **Formulärleverans**: serverfunktion → e-posttjänst med avsändare på verifierad domän, honeypot, tidsfälla på en
+  klocka och servervalidering; leveransen är testet, inte svarskoden. Leveransens funktion och dess variabler:
+  `kunskap/forfragan.md` och `kunskap/lansering.md` (Lanseringskonfigurationen).
+- **Miljövariabler**: dokumenterade i `.env.example` med namn och ändamål (leveransens mall:
+  `mall/leverans/env.example`); värden bara i värdplattformen.
 - **Analys och samtycke**: kakfri analys utan samtyckesruta; GA4/pixlar bara efter samtycke (Consent Mode v2, nekat
   som standard); serverbaserad spårning är ingen genväg runt samtycket.
-- **Förhandsvisning och lansering**: förhandsvisning bakom skydd och `noindex`; lanseringskonfiguration skild
-  (`lansering.md`); domän, canonical och sitemap växlar vid lansering, inte före.
-- **GitHub-först**: kundrepot privat under organisationen; huvudgren skyddad; driftsättning från huvudgren;
-  förhandsvisning per gren.
+- **Förhandsvisning och lansering**: skyddad förhandsvisning och produktion ur samma bygge; skyddet, svaren och
+  lanseringskonfigurationen står i `kunskap/lansering.md`.
+- **GitHub-först** (planerat, inte implementerat: exporten gör i dag ett lokalt repo, `kunskap/lansering.md`):
+  kundrepot privat under organisationen; huvudgren skyddad; driftsättning från huvudgren; förhandsvisning per gren.
 
 ## Designkontraktet (DESIGN.md)
 
@@ -57,7 +57,7 @@ Codex 2026-10-04 (glapp 1): en enda aktuell designspecifikation, med tydligt ans
 | Referenspaketet (`underlag/<slug>/referenser/paket-vNN/`) | frysta observationer, bilder, mätvärden (EXTRAKT), källor och begränsningar |
 | `underlag/<slug>/KONCEPT.md` | prövade alternativ, beslutet och varför de andra förkastades |
 | `kunder/<slug>/sajt/DESIGN.md` | den aktuella designen: exakta värden, komposition, bildbehandling, responsiva regler och avsiktliga avvikelser från huvudreferensen |
-| Den valda prototypen (`underlag/<slug>/atelje/vinnare/`) | körbar gestaltning som förs vidare till bygget (startsidan överförs) |
+| Den godkända vinnaren (`underlag/<slug>/atelje/vinnare/`) | körbar gestaltning som bygget tar vid från (en kandidats alla sidor, komponenter och DESIGN.md läggs i sajten: `atelje.installera_godkand`) |
 
 DESIGN.md har prosa under fem rubriker (Komposition, Typografi, Bildbehandling, Responsiva regler, Avvikelser från
 huvudreferensen) och exakt ett kodblock märkt `json design`:
@@ -120,17 +120,13 @@ Skärmbilder kompletterar interaktionen; ett textträd är inte bildseende. Kont
 faktiskt renderar samt font-/bildladdningsfel innan en avvikelse förklaras som designval. Deklarerad
 fontstack eller font-ready ensamt bevisar inte vilken familj som användes.
 
-## Arbetslogg
-
-Byggets beslut (vad som valdes, varför, vad som förkastades) skrivs kort i kundrepots `ARBETSLOGG.md` per steg, så
-att en annan utförare kan fortsätta (etapp 5: start/fortsätt-vägen läser den).
-
 ## Börja med den bärande upplevelsen
 
-Bygg tidigt representativt riktigt innehåll och relevant interaktion (ateljén: hela startsidan och början av en undersida), jämför
-med öppnade referenser och utveckla sedan helheten. Olika kundbehov får ge olika visuella lösningar.
-Undersidor, språk, redaktörsytor och efterled håller samma hantverksnivå; tekniskt fungerande är inte
-ensamt professionellt tillräckligt. För varje viktigt val ska behov, resurs och faktisk påverkan gå att följa.
+Bygg tidigt representativt riktigt innehåll och relevant interaktion (i skapandeflödet först skissen, sedan
+förfiningen: `kunskap/skapandeflodet.md`), jämför med öppnade referenser och utveckla sedan helheten. Olika kundbehov
+får ge olika visuella lösningar. Undersidor, språk, redaktörsytor och efterled håller samma hantverksnivå; tekniskt
+fungerande är inte ensamt professionellt tillräckligt. För varje viktigt val ska behov, resurs och faktisk påverkan gå
+att följa.
 
 Hitta hit (OVL-20260930-ac1914-digitala): använd basvägen i `integrationer.md`.
 Adress och vanlig länk fungerar utan JavaScript. Eventuell extern karta skapas

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""prototyp.py — ägarens ingång till skapandeflödet för startsidan (kunskap/skapandeflodet.md). Samma kod som byggets
-steg 5.1 (kontroller/atelje.py: utforska, välj, förfina, slutdom), startad av ägaren utanför bygget, med läget ur ägarens
-senaste dom i domloggen (underlag/<slug>/DESIGNDOMAR.jsonl). Codex via ägaren 2026-10-05: tre designflöden, där
-förbättringarna inte följde med mellan dem, blev ett; prototypen är inget eget flöde längre.
+"""prototyp.py — ägarens ingång till skapandeflödet för startsidan (kunskap/skapandeflodet.md), startad av ägaren eller
+en session utanför bygget: den startar kontroller/atelje.py med läget ur ägarens senaste dom i domloggen
+(underlag/<slug>/DESIGNDOMAR.jsonl). Var steget står i hela kedjan, från kundunderlag till leverans, och vem som
+startar vad: README.md. Codex via ägaren 2026-10-05: tre designflöden, där förbättringarna inte följde med mellan dem,
+blev ett; prototypen är inget eget flöde längre.
 
-    .venv/bin/python kontroller/prototyp.py <slug> [--ny-riktning | --putsa | --om] [--vanta SEK]
+    .venv/bin/python kontroller/prototyp.py <slug> [--ny-riktning | --putsa | --om | --valda] [--vanta SEK]
 
 Utan flagga avgör domloggen: ägarens senaste dom (efter den senaste körningen, direkt eller via Codex) säger
 ny_riktning → omtag (designbesluten tas bort, utforskningen börjar om ur mallen); putsa → förfina den valda riktningen

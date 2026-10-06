@@ -6,11 +6,34 @@ alltid först. Verktygen i repot: `kontroller/prova.py` (provet, också mot en f
 `kontroller/seo_kontroll.py --lage lansering`, `kontroller/webblasare/arkivera.mjs` (arkiv av den gamla sajten).
 Det som inget verktyg gör står som **människa**: ägaren eller verksamheten gör det, ingen session.
 
+## Från godkänt bygge till kundrepo
+
+Kedjan före det här steget, och vem som startar vad: `README.md`.
+
+1. **Helbygget är klart** när `./kor.sh` slutar med slutkod 0: provet grönt för det slutliga bygget, rapporten skriven
+   och granskningen godkänd för samma bygge (`kontroller/korslut.py`). Det som sparas är provet
+   (`kunder/<slug>/prov/`, med byggets `dist_sha256`), stoppvaktens besked (`prov/STOPPVAKT.json`), granskningens
+   omgångar (`kunder/<slug>/granskning/`), körningens logg och RAPPORT.md. Slutkoden och skälet skrivs bara ut.
+2. **Ägarens dom över bygget** skrivs i dashboarden (bygget, fliken Din dom) till `kunder/<slug>/DOM.json`, med byggets
+   dist-hash.
+3. **Exporten** (ägaren eller en session): `.venv/bin/python kontroller/exportera.py <slug> [--git]`. Den lägger
+   sajtens källor, leveransens låsta beroenden, formulärets funktion, README, `.env.example`, `vercel.json` och
+   LICENSER.md i `kunder/<slug>/kundrepo/` (en tidigare export flyttas till `kundrepo-tidigare/<tid>/` och raderas
+   aldrig), fäller exporten om en fil nämner lokala sökvägar, Nortropics privata underlag eller en nyckel, och bygger
+   kundrepot i en tom katalog utanför repot. `--git` gör ett lokalt repo med en första commit på `main`; inget skickas
+   någonstans. Slutkod 0 klar, 1 läckage eller bygget föll, 2 fel i anropet.
+4. **Prövas inte i dag:** exporten prövar bara att sajten har package.json och en startsida, inte att bygget är godkänt
+   (korsluts slutkod, provet, granskningen, ägarens dom eller godkännandet i skapandeflödet), och `--kandidat kNN`
+   exporterar en kandidats projekt förbi helbygget. Exporten sparar inget besked: ingen dist-hash, körning eller
+   godkännande följer med till kundrepot, och resultatet skrivs bara ut.
+5. **Kundrepot till GitHub och Vercel** har inget verktyg i repot: människa, eller en session med ägarens ja, enligt
+   Vercel-steget nedan. Ingenting från leveransen sparas i repot; `kontroller/driftkoll.py` prövar en driftsatt adress
+   svar och skriver bara ut.
+
 ## Vercel-steget
 
 Byggstandardens L-punkter 1.4, 4.5, 4.6 och 8.1 pekar hit. Stacken är Astro med förrenderade sidor och Vercel-adaptern
-för formulärets funktion; kundrepot görs av `kontroller/exportera.py` (självständigt, låsta beroenden, bygget
-verifierat utan Nortropics kataloger).
+för formulärets funktion; kundrepot görs av exporten ovan.
 
 **Förhandsvisning, produktion och skydd** (prövat med riktiga HTTP-svar 2026-10-05 i provprojektet
 `nortropic-leveransprov`; Vercels dokumentation läst samma dag):

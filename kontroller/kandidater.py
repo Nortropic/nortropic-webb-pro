@@ -20,9 +20,12 @@ Varje kandidat har en stabil identitet (k01–k12) och
 - en egen katalog i ateljén, underlag/<slug>/atelje/kandidater/<id>/: UPPDRAG.md (designuppdraget ur planen),
   RIKTNING.md (skaparens anteckningar), STATUS.json, kod/, DESIGN.md och bilder/ (den version ägaren ser), varv/
   (förhandsvarven), versioner/<v12>/ (bevarade versioner), KRITIK.json (rådgivande, dold vid första presentationen);
-- en version: hashen över kod/ och DESIGN.md, det som formger sidan. Bilderna tas ur den; ägarens val binds till den.
+- en version: hashen över kod/, kod-src/ och DESIGN.md, det som formger sidan. Bilderna tas ur den; ägarens val binds
+  till den.
 
-Stegen (kor): metoden levereras (kontroller/metod.py: stegens utdrag ur kunskap/metodkarta.md, med hash) → forska
+Stegen i skissläget (kor): metoden → forska → planera → uppdragens material → planprövningen → skisserna, några åt gången
+(behandla_skiss) → klar för ägarens bedömning (kunskap/skapandeflodet.md, Stegen). Stegen i läget full (kor): metoden
+levereras (kontroller/metod.py: stegens utdrag ur kunskap/metodkarta.md, med hash) → forska
 (frågor till Refero och Mobbin, nya sajter och antaganden om besökarna som kan ändra designen) → planera (uppdrag med
 hypotes, referensens kvalitet och vad den kräver) → per kandidat, några åt gången: skapa → fotografera (bygge innanför
 processgränsen, startsidan i fyra bredder, axe) → granskning i två pass (först bilderna mot besökarens uppgift utan
@@ -115,8 +118,9 @@ STATUSTEXT = {'planerad': 'planerad', 'under_arbete': 'under arbete', 'klar': 'k
               'jamfors': 'vald för jämförelse', 'forkastad': 'förkastad', 'forfinad': 'förfinad', 'godkand': 'godkänd för helbygge'}
 VISBARA = ('klar', 'vald', 'jamfors', 'forkastad', 'forfinad', 'godkand')  # kandidater ägaren kan bedöma
 MALLSIDOR = {'404.astro', 'tack.astro', 'fel.astro', 'robots.txt.ts', 'sitemap.xml.ts'}
-# flödets sessioner läser skillsen med Read enligt kunskap/metodkarta.md: Skill-verktyget går inte att begränsa till
-# namngivna skills, och flera bär processinstruktioner för en interaktiv session (mikroprovet 2026-10-05)
+# läsverktygen som varje session får; skillverktyget och verktygssökningen lägger atelje.session_args alltid till (ägarens
+# ord 2026-10-05 18:15Z), så en roll läser sin kärna med Read eller laddar skillen med skillverktyget
+# (kompetens.prompt_rader; kunskap/metodkarta.md, Kompetenserna)
 LASVERKTYG = ['Read', 'Glob', 'Grep']
 MALL_DESIGN_CSS = KOD / 'mall' / 'astro' / 'src' / 'styles' / 'design.css'
 

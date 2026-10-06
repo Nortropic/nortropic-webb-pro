@@ -2,7 +2,9 @@
 
 Ett designflöde för startsidan, samma kod och samma text vid varje ingång (Codex via ägaren 2026-10-05: tre designflöden,
 där förbättringarna inte följde med mellan dem, blev ett). Orkestratorn är `kontroller/atelje.py`; de delar som alla
-steg använder står i `kontroller/skapande.py`. Ingångarna:
+steg använder står i `kontroller/skapande.py`. Var flödet står i hela kedjan, från kundunderlag till leverans, och vem
+som startar vad: `README.md`. Normalflödet är skissläget nedan; läget full, den äldre utforskningen och Figma-piloten
+står i egna avsnitt. Ingångarna:
 
 - **Ägarens prototyp:** `.venv/bin/python kontroller/prototyp.py <slug>`, utanför bygget. Läget följer ägarens senaste
   dom i domloggen. Ägaren dömer i dashboardens vy Prototyp.
@@ -50,38 +52,14 @@ besökarens uppgift löses; färgbyten på samma layout är inga olika förslag.
   bristerna, det som tillfördes varje uppdrag och verktygen som användes, de ofullständiga och det som behöver
   mänsklig bedömning. Antalet lästa filer, anrop eller varv är inget betyg.
 
-**Kompetenserna** (ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"; ägarens uppdrag
-18:53Z, punkt 5: varje roll läser de fullständiga relevanta delarna; Codex via ägaren 19:04Z, punkt 7–9). Avsnittet
-Kompetenserna i `kunskap/metodkarta.md` ger varje roll en kärna som läses hel och alternativ som väljs efter riktningen,
-verktygen, MCP:erna och vad passet ska visa; `kontroller/kompetens.py` läser det och ger samma block till uppdraget och
-till sessionens behörigheter. Kedjan:
+**Kompetenserna** (ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"). Vilken roll som
+arbetar i vilket pass, med vilken kärna och vilka alternativ, verktyg och MCP:er, och hur sessionerna når skills och
+MCP:er, står bara i `kunskap/metodkarta.md` (inledningen och avsnittet Kompetenserna); `kontroller/kompetens.py` läser
+kompetensblocken och ger samma block till uppdraget och till sessionens behörigheter. Var i flödet rollerna arbetar står
+i stegen nedan. Kvittot (kärnan läst hel, valda alternativ, skillverktygets och MCP:ernas lyckade anrop) och före och
+efter står i REDOVISNING.md och i vyn efter ägarens första beslut.
 
-1. **Planeringen och planprövningen:** uppdragen skrivs och prövas med Referos referenslås och Hallmarks makrostrukturer
-   som stöd, så att förslagen skiljer sig i verkliga designriktningar; titel, hypotes och huvudreferens är låsta i
-   prövningen (PLANPROVNING.md).
-2. **Skaparen:** en sammanhängande skiss med fyra roller (design och komposition, typografi och färg, innehåll och UX,
-   responsiv implementation): referenslåset och beslutsliggaren i RIKTNING.md, craft-floor direkt före varje ändring,
-   researchens material (Referos stilpaket och skärmar, Mobbins skärmar) och kompletterande sökningar vid behov. Före
-   ägarens val ändrar ingen annan session skissen.
-3. **Fördjupningen** efter ägarens val: samma roller och designsystemet på hela sajten.
-4. **Två pass på den fördjupade sidan**, en gång var: interaktion och rörelse, sedan tillgänglighet och visuell
-   granskning (med Impeccables detektor). Varje pass har förhandsvisningens interaktionsväg (tangentbord, fokus,
-   hovring, meny, reflow 320, reducerad rörelse) och redovisar tre saker var för sig: koden som ändrades, beteendet som
-   prövades och den visuella bedömningen före och efter. Ett pass som bryter sidan eller ger fler allvarliga axe-fynd
-   återställs; ett avbrutet pass tas om från versionen före; DESIGN.md prövas efter det sista passet.
-
-Alla skills (skillverktyget) och användarens MCP-servrar är tillgängliga i sessionerna. Refero och Mobbin står
-inte i sessionernas tillåtelselista: kundvakten (`kontroller/kundvakt.py`, en krok före varje anrop) öppnar ett anrop som
-inte bär kundens uppgifter och stoppar resten, och en vakt som inte kan pröva lämnar anropet åt dontAsk, som nekar det.
-Skills utan uppgift i flödet står med skäl i kartan. Kvittot (kärnan läst hel, valda alternativ, skillverktygets och
-MCP:ernas lyckade anrop) och före och efter står i REDOVISNING.md och i vyn efter ägarens första beslut.
-
-`NWP_KANDIDATLAGE=full` är en tillfällig växel till det tidigare förvalet (granskning i två pass och förbättringsrunda
-före ägarens val, hela startsidan och undersidan, minst tre varv), för jämförelse och återställning. Växeln tas bort när
-ägaren dömt skissläget (BESLUT.md 2026-10-05, kväll). Körningens läge står i planen, så en återupptagning följer
-körningen.
-
-## Stegen (kandidatflödet, `kontroller/kandidater.py`)
+## Stegen (skissläget, `kontroller/kandidater.py`)
 
 Vad varje steg ska besvara, vilket underlag det använder, vad nästa steg får och vad resultatet måste visa står i
 `kunskap/metodkarta.md`; `kontroller/metod.py` levererar stegets utdrag med hash vid varje körning, och hashen följer
@@ -97,36 +75,36 @@ kandidaterna och granskningarna.
    tjänsternas svar ordagrant, varje Refero-stils hela dokument och skärmarnas hela bilder. En sajt eller fråga utanför
    kanalens form släpps med skälet, och resten körs; ingen fråga får nämna kundens namn, orter eller nummer.
    FORSKNING.md säger vad som är nytt och vad som återanvänds.
-3. **Plan.** Ett planeringspass skriver cirka tio uppdrag (`NWP_KANDIDATER`, högst tolv) som besvarar kundens problem
-   på olika sätt: innehållshierarkin, bildstrategin, typografin, navigationen och hur förtroende byggs. Varje uppdrag
-   har en hypotes (varför lösningen passar verksamheten och besökaren), en namngiven huvudreferens ur researchen (den får
-   vara utgångspunkt för layout, palett och typografi, ägarbeslut 2026-10-03; om namnet finns i researchen prövas och
-   redovisas per kandidat) med kvaliteten som ska återskapas, vad den
-   kräver och om kundens material bär det, antagandena den vilar på, referensbilder, undersidan, materialbehovet och de
-   fynd som formade det.
-4. **Skapa.** Varje kandidat har en stabil identitet (k01–k12), ett eget Astro-projekt
+3. **Plan och planprövning.** Ett planeringspass skriver cirka tio uppdrag (`NWP_KANDIDATER`, högst tolv) som besvarar
+   kundens problem på olika sätt: innehållshierarkin, bildstrategin, typografin, navigationen och hur förtroende byggs.
+   Varje uppdrag har en hypotes (varför lösningen passar verksamheten och besökaren), en namngiven huvudreferens ur
+   researchen (den får vara utgångspunkt för layout, palett och typografi, ägarbeslut 2026-10-03; om namnet finns i
+   researchen prövas och redovisas per kandidat) med kvaliteten som ska återskapas, vad den kräver och om kundens
+   material bär det, antagandena den vilar på, referensbilder, undersidan, materialbehovet och de fynd som formade det.
+   Sedan hämtas uppdragens material (huvudreferensens stilpaket och Mobbins skärmar, UPPDRAGSMATERIAL.json), och
+   planprövningen prövar uppdragen mot kunden, materialet och referenserna innan någon skiss byggs; titel, hypotes och
+   huvudreferens står fast i prövningen (PLANPROVNING.md).
+4. **Skissa.** Varje kandidat har en stabil identitet (k01–k12), ett eget Astro-projekt
    (`kunder/<slug>/kandidater/<id>/sajt`: sajtens nuvarande src/ och public/ utan tidigare sidor, kundens bilder, och
    node_modules som länk till sajtens) och en egen skaparsession med samma faktaunderlag; några körs åt gången
-   (`NWP_KANDIDATER_PARALLELLT`), och ingen kan läsa de andras kataloger. Skaparen skriver RIKTNING.md först, gör ett
-   tidigt kompositionsprov där referensens kvalitet prövas mot kundens material, bygger hela startsidan och undersidan
-   och gör förhandsvarv i 390 och 1440 (768 med `--mellan` när layouten byter form) där bilderna och en referensbild
-   läses. Klar är den när den renderade sidan visar att grundidén syns, att kundens material bär kompositionen, att den
-   viktigaste besökaruppgiften går att genomföra och att mobilen håller ihop, med bilderna under "Visar". Tre varv är en
-   arbetsregel. Formulären postar till `/api/forfragan/` och landar på `/tack/` (lokal demonstration).
-5. **Fotografera.** Bygget körs innanför processgränsen; startsidan fotograferas i 390, 768 och 1440 och undersidan i
-   390 och 1440, och axe prövar startsidan och undersidan med menyn öppen och formulären skickade tomma. Koden bevaras i
-   `kod/`, DESIGN.md bredvid och bilderna i `bilder/`; versionen är hashen över koden och DESIGN.md, så en ny
-   fotografering av samma kod ger samma version. Bygger den inte, saknas undersidan, huvudreferensraden eller tre varv,
-   är kandidaten ofullständig med skälen, och den får ett andra skaparförsök med bristerna som kritik.
-6. **Granska i två pass och förbättra.** En granskare (en annan modell än skaparen som standard,
-   `NWP_KANDIDAT_GRANSKARE`) bedömer först bilderna, tillgänglighetsträdet och axe mot besökarens uppgift i briefen,
-   utan uppdraget och skaparens anteckningar (sessionen nekas dem): första intrycket, om uppgiften går att genomföra,
-   och avvikelserna som krav (kvalitetskrav, hinder för uppgiften) eller smak. Sedan läser den motiveringen och märker
-   vilka avvikelser som är avsiktliga och välgrundade. Läste den inte de första vyerna, eller går läsningen inte att
-   pröva i transkriptet, styr granskningen ingenting. Förbättringsrundan rättar bara krav som inte är välgrundade val, och axe:s allvarliga fynd; smak rättas
-   inte före ägarens val. Föreversionen bevaras med bilderna; blir den förbättrade ofullständig återställs föreversionen.
-7. **Jämföra.** En granskare ser alla kandidaters första vyer och hela sidor och pekar ut falsk variation.
-8. **Ägarens val.** Vyn Prototyp visar alla kandidater med neutrala namn (Förslag A–L, slumpad ordning ur planens tid)
+   (`NWP_KANDIDATER_PARALLELLT`, högst tre), och ingen kan läsa de andras kataloger. Skaparen skriver RIKTNING.md först
+   och bygger skissen: första vyn, den viktigaste innehållssektionen, navigationen och de interaktioner som behövs för
+   att förstå förslaget, inte hela startsidan och ingen undersida. Förhandsvarven görs med `--mellan` i 390, 768, 1280
+   och 1440, och i varje varv läses bilderna och en referensbild (vad varven prövar: metodkartan, Avgörandena, Process).
+   En kritisk granskare ser skissens bilder när tiden räcker (bara bilderna, aldrig skaparens text), och skaparen svarar
+   i en egen session (SKISSKRITIK.json, "Svar på granskningen" i RIKTNING.md). Klar är skissen när den är byggd och
+   renderad i 390, 1280 och 1440 och RIKTNING.md har huvudreferensen, idén, referenserna, det överförda och
+   avvikelserna, de kvarvarande svagheterna, varven, materialet och kompetensernas synliga bidrag. Formulären postar
+   till `/api/forfragan/` och landar på `/tack/` (lokal demonstration). Tiden och vad som gäller före ägarens val står
+   under Skissläget ovan.
+5. **Fotografera och de snabba kontrollerna.** Bygget körs innanför processgränsen; startsidan fotograferas i 390, 768,
+   1280 och 1440, med menyns knapp klickad i 390 och 768, och axe prövar startsidan med menyn öppen och formulären
+   skickade tomma. Koden bevaras i `kod/` och `kod-src/`, DESIGN.md bredvid och bilderna i `bilder/`; versionen är
+   hashen över koden och DESIGN.md, så en ny fotografering av samma kod ger samma version. Ett hinder (bygget föll,
+   startsidan eller bilderna saknas) gör skissen ofullständig med skälen; bristerna (konsolfel, spill, axe, siffror utan
+   belägg, menyn, huvudreferensraden) markeras, och skissen går ändå att bedöma. Ett omförsök ges bara vid ett
+   identifierat tekniskt fel.
+6. **Ägarens val.** Vyn Prototyp visar alla kandidater med neutrala namn (Förslag A–L, slumpad ordning ur planens tid)
    och lika stora bilder, mobil och dator bredvid varandra eller en bredd i taget (surfplattan, och mellanbredden 1280
    när den finns); bilderna öppnas i full storlek, varje prototyp klickbar med sina undersidor, och markerade förslag
    står sida vid sida. Ägaren bedömer bilderna först, sedan referensen och sist redovisningen (ägarens uppdrag
@@ -134,22 +112,26 @@ kandidaterna och granskningarna.
    fångade startsida bredvid förslaget i 390 och 1440, och skaparens korta redovisning ur RIKTNING.md under rubrikerna
    "Idén", "Referenser", "Överfört och avvikelser" och "Kvarvarande svagheter" (en rubrik som saknas eller är tom sägs,
    inget fylls i). De tekniska kontrollerna står för sig under en rubrik som säger att de inte är ett godkännande av
-   designen. Panelens granskning, planens titlar och körningens redovisning visas först efter ägarens första beslut, och
-   då också före och efter en förbättringsrunda, där ägaren kan säga vilken som är bättre och välja föreversionen.
-   Ägaren väljer en eller flera för vidareutveckling, sparar en jämförelse, markerar det ägaren gillar per förslag (det
-   följer med ordagrant till de valda), förkastar alla eller ber om en ny riktning. Beslutet binds till kandidat och
-   version.
-9. **Förfina de valda.** Varje vald kandidat förfinas för sig i sitt eget projekt, från den version ägaren valde, med
-   ägarens ord, det ägaren gillade i andra förslag (inarbetat i idén, inte inklistrat) och granskningen. Skaparen skriver
-   DESIGN.md ur sidan och låter sidorna använda dess variabler (`design.py --kandidat`). Gör förfiningen inget eget varv,
-   blir resultatet ofullständigt eller faller den, återställs den valda versionen. Efter förfiningen körs ingen ny
-   granskning: vyn och REDOVISNING.md säger att granskningen gäller versionen före, och ägaren bedömer den nya själv.
-10. **Godkännande och överlämning.** Ägaren godkänner en förfinad kandidat för helbygget. Den byggs som vinnare i en
-    tempkatalog och byts in först när domen är skriven (`atelje/vinnare/`: alla sidor, DESIGN.md, bilderna och hasharna
-    i VINNARE.json i granskarens format), och godkännandet binds till hashen över alla sidorna. Före bygget lägger kor.sh
-    sidorna och DESIGN.md i sajten (`atelje.installera_godkand`; de ersatta flyttas med sin väg till
-    `kunder/<slug>/startsida-ersatt/`), och bygget tar vid från dem (bygg-sajt steg 5.1). Utan godkänd startsida stannar
-    kor.sh före bygget.
+   designen. Skisskritiken (granskarens omdöme och skaparens svar), planens titlar och körningens redovisning visas
+   först efter ägarens första beslut. Ägaren väljer en eller flera för vidareutveckling, sparar en jämförelse, markerar
+   det ägaren gillar per förslag (det följer med ordagrant till de valda), förkastar alla eller ber om en ny riktning.
+   Beslutet binds till kandidat och version. Dashboarden startar ingen körning: nästa steg startas med prototyp.py.
+7. **Förfina de valda, och två kompetenspass.** Ägaren kör prototyp.py igen (läget valda). Varje vald kandidat förfinas
+   för sig i sitt eget projekt, från den version ägaren valde, med ägarens ord och det ägaren gillade i andra förslag
+   (inarbetat i idén, inte inklistrat): hela startsidan, den relevanta undersidan och besökarens centrala flöde, i
+   skissens form. Skaparen skriver DESIGN.md ur sidan och låter sidorna använda dess variabler (`design.py --kandidat`).
+   Den fördjupade sidan fotograferas helt (startsidan i de fyra bredderna och undersidan i 390 och 1440, med axe), och
+   sedan gör två kompetenspass sitt arbete en gång var: interaktion och rörelse, sedan tillgänglighet och visuell
+   granskning (rollerna i metodkartan). Ett pass som bryter sidan eller ger fler allvarliga axe-fynd återställs, ett
+   avbrutet pass tas om från versionen före, och DESIGN.md prövas efter det sista passet. Gör förfiningen inget eget
+   varv, blir resultatet ofullständigt eller faller den, återställs den valda versionen. Ingen ny skisskritik och ingen
+   granskningspanel körs efter förfiningen; ägaren bedömer den förfinade versionen själv.
+8. **Godkännande och överlämning.** Ägaren godkänner en förfinad kandidat för helbygget. Den byggs som vinnare i en
+   tempkatalog och byts in först när domen är skriven (`atelje/vinnare/`: alla sidor, DESIGN.md, bilderna och hasharna
+   i VINNARE.json i granskarens format), och godkännandet binds till hashen över alla sidorna. Före bygget lägger kor.sh
+   sidorna, komponenterna och DESIGN.md i sajten (`atelje.installera_godkand`; de ersatta flyttas med sin väg till
+   `kunder/<slug>/startsida-ersatt/`), och bygget tar vid från dem (bygg-sajt steg 5.1). Utan godkänd startsida stannar
+   kor.sh före bygget. Vad som sedan gäller för helbygget, exporten och leveransen: `README.md`.
 
 Kandidatens status i ägarens ord: under arbete, klar för ägarens bedömning, vald för vidareutveckling, förkastad,
 förfinad, godkänd för helbygge (och ofullständig eller föll, med skälen). Ett avbrott förstör inga klara kandidater:
@@ -160,11 +142,52 @@ vägrar under ett avbrott). Kandidatflödet känns igen på ateljén (KANDIDATPL
 föll tidigt fortsätter i kandidatflödet, aldrig i den äldre utforskningen. En ny plan arkiverar förra körningens projekt
 i `atelje/foregaende/`.
 
+## Läget full (tillfällig växel)
+
+`NWP_KANDIDATLAGE=full` ger det tidigare förvalet, för jämförelse och återställning. Växeln tas bort när ägaren dömt
+skissläget (BESLUT.md 2026-10-05, kväll). Körningens läge står i planen, så en återupptagning följer körningen.
+Skillnaderna mot stegen ovan:
+
+- Ingen planprövning före skaparna.
+- Skaparen bygger hela startsidan och undersidan och gör förhandsvarv i 390 och 1440 (`--mellan` också 768 och 1280);
+  minst tre varv är en arbetsregel. Undersidan fotograferas i 390 och 1440. Bygger kandidaten inte, eller saknas
+  undersidan, huvudreferensraden eller tre varv, är den ofullständig med skälen, och den får ett andra skaparförsök med
+  bristerna som kritik.
+- **Granskning i två pass och en förbättringsrunda före ägarens val.** En granskare (en annan modell än skaparen som
+  standard, `NWP_KANDIDAT_GRANSKARE`) bedömer först bilderna, tillgänglighetsträdet och axe mot besökarens uppgift i
+  briefen, utan uppdraget och skaparens anteckningar (sessionen nekas dem): första intrycket, om uppgiften går att
+  genomföra, och avvikelserna som krav (kvalitetskrav, hinder för uppgiften) eller smak. Sedan läser den motiveringen
+  och märker vilka avvikelser som är avsiktliga och välgrundade. Läste den inte de första vyerna, eller går läsningen
+  inte att pröva i transkriptet, styr granskningen ingenting. Förbättringsrundan rättar bara krav som inte är
+  välgrundade val, och axe:s allvarliga fynd; smak rättas inte före ägarens val. Föreversionen bevaras med bilderna;
+  blir den förbättrade ofullständig återställs föreversionen, och annars granskas den förbättrade igen.
+- **Jämförelse:** en granskare ser alla kandidaters första vyer och hela sidor och pekar ut falsk variation.
+- I ägarens val visas panelens granskning efter första beslutet, med före och efter en förbättringsrunda, där ägaren
+  kan säga vilken som är bättre och välja föreversionen.
+- Efter förfiningen körs ingen ny panelgranskning: vyn och REDOVISNING.md säger att panelens granskning gäller
+  versionen före förfiningen, och ägaren bedömer den nya själv. Kompetenspasset tillgänglighet och visuell granskning
+  (steg 7) är ett redigerande pass, ingen panelgranskning.
+
 ## Den äldre utforskningen (nödväg)
 
 `NWP_KANDIDATFLODE=av` ger den äldre vägen: en skapare tar fram tre riktningar i samma session (`atelje-N`-sidor i
 sajten), tre domare väljer eller förkastar dem, den valda förfinas och döms före mot efter, och ägaren dömer slutet
 (godkänd, putsa eller ny riktning). Den finns kvar för återupptagning av äldre körningar och som nödväg.
+
+## Figma (pilotprov, inte normalflödet)
+
+Ägarens uppdrag 2026-10-06 (ordagrant i minnet; BESLUT.md, tillägget om Figma-metodprovet) prövar Figma som visuell
+arbetsyta i ett avgränsat metodprov med tre moment, som prövas var för sig: **A**, en stark, namngiven referens
+återskapas noggrant; **B**, kompositionen anpassas till kundens verkliga innehåll och material; **C**, den valda
+designversionen överförs till fungerande webb och jämförs med webbläsarens rendering i samma bredder.
+
+- Normalflödet går utan Figma: ingen kod i repot slår på Figma-pluginen eller anropar Figma, och flödets sessioner
+  nekas varje MCP-anrop utom Refero och Mobbin (`kunskap/metodkarta.md`).
+- Pilotens sessioner slår på Figma-pluginen i sin egen `--settings` och har kundvakten kvar.
+- Privat kundmaterial laddas upp bara i det Figma-projekt ägaren angett, för pilotens kund och utan metadata (foton
+  utan EXIF och GPS). Det ger ingen allmän rätt att föra kundmaterial till externa tjänster.
+- Inget i leveransen är verifierat genom piloten: helbygget, exporten, kundrepot och driftsättningen prövas inte av den.
+  Figma blir en del av normalflödet först genom ett beslut av ägaren.
 
 ## Domloggen och vad en dom återöppnar
 
@@ -185,8 +208,8 @@ prototypen att gissa läget.
   bilder, texten, referenspaketen, domloggen, historiken och leveransen (`kunder/<slug>/kundrepo`) står kvar. Sajten
   görs om ur mallen. Utan en dom som gäller körningen raderas inget ägaren sett; förra körningens kvarlevande processer
   avslutas före raderingen.
-- `putsa` behåller riktningen: förfiningen och slutdomen körs igen, med domen som kritik. Förra slutdomen och
-  redovisningen arkiveras först.
+- `putsa` behåller riktningen; i den äldre utforskningen körs förfiningen och slutdomen igen, med domen som kritik, och
+  förra slutdomen och redovisningen arkiveras först.
 - `godkand` lämnar över till bygget.
 - Kandidatflödets beslut bär kandidaterna med sina versioner och det ägaren gillade per kandidat (`delar`): `valj`
   startar förfiningen av de valda (`prototyp.py` läget valda), `jamfor` sparar en jämförelse utan att köra något,
@@ -203,12 +226,12 @@ TILLBAKA; omtaget skriver ägarens dom.
 
 ## Avbrott
 
-Föll en körning tar `.venv/bin/python kontroller/atelje.py <slug> --fortsatt` vid efter den senaste klara fasen: i
-utforskningen vid omgången som föll, med samma kritik som första gången (skaparens TILLBAKA.md eller panelens VAL.md),
-och i en putsning vid förfiningen eller slutdomen mot samma före. En avslutad körning (klar, förkastad, tillbaka) tas
-aldrig upp igen, och varken `--fortsatt` eller `--bara-domare` körs när ägaren dömt efter körningen; där avgör
-ägarens dom nästa steg. Det som flyttas undan, äldre riktningsbilder och en tidigare vinnare, hamnar i `atelje/foregaende/`. Inget
-raderas.
+Föll en körning tar `.venv/bin/python kontroller/atelje.py <slug> --fortsatt` vid efter den senaste klara fasen (i
+kandidatflödet: stycket efter stegen ovan). I den äldre utforskningen tar den vid i omgången som föll, med samma kritik
+som första gången (skaparens TILLBAKA.md eller panelens VAL.md), och i en putsning vid förfiningen eller slutdomen mot
+samma före. En avslutad körning (klar, förkastad, tillbaka) tas aldrig upp igen, och varken `--fortsatt` eller
+`--bara-domare` körs när ägaren dömt efter körningen; där avgör ägarens dom nästa steg. Det som den äldre utforskningen
+flyttar undan, äldre riktningsbilder och en tidigare vinnare, hamnar i `atelje/foregaende/`. Inget raderas.
 
 ## Research på begäran
 
@@ -233,11 +256,9 @@ smal, inte stängd: värdnamnet och vägarna går ut. Skaparens egna sidor når 
 kunskapsfiler som stöder research, plan, skapa, granska, förfina och text, vilka avsnitt och rader av dem, och hur
 motsägande råd avgörs (företrädet i `designregler.md`; underlaget med citat i `kunskap/skillkrockar.md`).
 `kontroller/metod.py` levererar stegets utdrag till kandidatflödet med hash, och låset stoppar leveransen när en källa
-ändrats; den äldre utforskningen räknar upp samma källor (`skapande.metodrader`, `skapande.metod_filer`).
-Kandidatflödets sessioner har skillverktyget och verktygssökningen (`kompetens.verktyg`); varje roll läser sin kärna
-hel och väljer alternativ efter riktningen (avsnittet Kompetenserna i metodkartan). Läsningen prövas i transkriptet
-(metoden före första ändringen, varvens bilder) och redovisas skild från tillämpningen (varven i RIKTNING.md som namnger
-vad i metoden som gav åtgärden).
+ändrats; den äldre utforskningen räknar upp samma källor (`skapande.metodrader`, `skapande.metod_filer`). Vilka
+verktyg sessionerna har, och hur läsningen prövas och redovisas skild från tillämpningen, står i metodkartans inledning
+och avsnittet Kompetenserna.
 
 ## Körspåret
 

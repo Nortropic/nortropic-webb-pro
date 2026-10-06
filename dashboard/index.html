@@ -1143,10 +1143,10 @@ async function prospektkortvy(k, slug) {
 function startavy() {
   aktivNav('starta');
   $('#vy').innerHTML = `
-    <h1>Starta</h1><p class="under">Kommandona körs i Terminal, i repots rot.</p>
-    <div class="kort"><h3 style="margin-top:0">Ett bygge åt en verksamhet</h3><p class="under" style="margin:0">Går obevakat, oftast en till två timmar. Följ det här under Översikt.</p>
+    <h1>Starta</h1><p class="under">Kommandona körs i Terminal, i repots rot. Hela kedjan från kundunderlag till leverans, med vem som startar vad och vilket kommando: README.md, avsnittet Kedjan från kundunderlag till leverans.</p>
+    <div class="kort"><h3 style="margin-top:0">Helbygget åt en verksamhet</h3><p class="under" style="margin:0">Tar vid från startsidan du godkänt i vyn Prototyp och går sedan obevakat, oftast en till två timmar. Utan godkänd startsida stannar kor.sh och pekar på prototypen. Följ bygget under Översikt.</p>
       ${kommando('./kor.sh <slug> "Verksamhetens namn, Ort, https://deras-doman.se"')}
-      <h3>Tre byggen över natten</h3>${kommando('./kor.sh a-slug "…" ; ./kor.sh b-slug "…" ; ./kor.sh c-slug "…"')}
+      <h3>Tre helbyggen över natten</h3><p class="under" style="margin:0">Vart och ett med en godkänd startsida; de körs ett i taget.</p>${kommando('./kor.sh a-slug "…" ; ./kor.sh b-slug "…" ; ./kor.sh c-slug "…"')}
       <h3>Genomför backloggen</h3><p class="under" style="margin:0">I en Claude Code-session i repot:</p>${kommando('implementera enligt backlog')}
       <h3>Kirurgen i en session</h3>${kommando('/kirurg https://…')}
       <h3>Rökprov efter ändringar i kontrollerna</h3>${kommando('kontroller/rokprov.sh')}</div>`;

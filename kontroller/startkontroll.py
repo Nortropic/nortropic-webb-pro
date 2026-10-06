@@ -18,13 +18,14 @@ dashboarden startar), så här bekräftas bara läget. Kontrollen
 3. läser kunskapens aktualitet (spaningen, källornas läsdatum, metodreglerna, metodlåset), reglerna (ersatta och
    förlegade formuleringar i aktiva uppdrag, skills och verktyg utan uppgift) och kundens behov ur BRIEF.md mot flödets
    förmåga;
-4. låser versionerna och underlaget för körningen och skriver kvittot: underlag/<slug>/atelje/STARTKVITTO.json och .md
-   för ateljén, STARTKVITTO-BYGGE.json och .md för helbygget, och för en stoppad start -STOPP bredvid, så att
-   körningens kvitto står kvar (en kopia per start i startkvitton/). Status redo (allt
-   bekräftat och senaste), begransad (något behållet, avvisat eller okänt; aldrig "allt uppdaterat") eller stoppad (ett
-   nödvändigt verktyg fungerar inte; starten görs inte, med besked). Bytta mätinstrument sedan förra starten av samma
-   slag står i kvittot, också de som bytts utanför underhållet, så att körningar före och efter går att jämföra. En
-   återupptagen körning behåller sitt låsta underlag i kvittot och redovisar vad som ändrats sedan.
+4. låser körningens verktygsunderlag (las_for_korning: verktygens versioner, modellerna, mätinstrumenten och hasharna av
+   metodlåset och låsfilerna för mallen, leveransen, kontrollerna och Python; kundens underlag ingår inte) och skriver
+   kvittot: underlag/<slug>/atelje/STARTKVITTO.json och .md för ateljén, STARTKVITTO-BYGGE.json och .md för helbygget,
+   och för en stoppad start -STOPP bredvid, så att körningens kvitto står kvar (en kopia per start i startkvitton/).
+   Status redo (allt bekräftat och senaste), begransad (något behållet, avvisat eller okänt; aldrig "allt uppdaterat")
+   eller stoppad (ett nödvändigt verktyg fungerar inte; starten görs inte, med besked). Bytta mätinstrument sedan förra
+   starten av samma slag står i kvittot, också de som bytts utanför underhållet, så att körningar före och efter går att
+   jämföra. En återupptagen körning behåller sitt lås i kvittot och redovisar vad som ändrats sedan.
 
 Ett pågående intag i underhållet (kontroller/korregister.py, intagslåset på hela maskinen) väntas ut i högst 20 minuter;
 medan starten väntar avbryts underhållets långa prov. Är intaget inte klart då stoppas starten. NWP_STARTKONTROLL=av
@@ -440,7 +441,7 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
                 kv['matinstrument_bytta'].append({'namn': n, 'fran': fore_m[n], 'till': v, 'tid': 'utanför underhållet, sedan %s' % baslinje.get('tid')})
         if start in ('fortsatt', 'valda', 'putsa') and tidigare.get('las'):
             kv['aterupptagen'] = {'startad': tidigare.get('tid'), 'andrat': jamfor_las(tidigare['las'], kv['las'])}
-            kv['las'] = tidigare['las']  # körningen behåller sitt låsta underlag
+            kv['las'] = tidigare['las']  # körningen behåller sitt lås (verktygen och låsfilerna, inte kundens underlag)
         elif start in ('fortsatt', 'valda', 'putsa'):  # körningen startades utan startkontroll: inget lås att ärva (r77, L12)
             kv['aterupptagen'] = {'startad': None, 'andrat': [], 'utan_kvitto': True}
         vl.skriv_json(rot / 'startkvitton' / ('%s-%s.json' % (filnamn, tid.replace(':', ''))), kv)

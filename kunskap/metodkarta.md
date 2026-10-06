@@ -11,14 +11,16 @@ rader eller en rubrik) och skriver vid varje körning stegets filer i `underlag/
 steget, avgörandena och utdragen med källa och hash, delade så att varje fil ryms i ett Read utan offset och limit
 (högst 30 000 tecken). Prompterna pekar på de filerna, och kandidaternas status och granskningar bär hashen. Låset
 `kunskap/metodkarta.lock.json` stoppar leveransen när en källa ändrats sedan utdragen prövades, så att rader aldrig
-tyst pekar fel. I läget full prövas läsningen i transkriptet och redovisas skild från tillämpningen: en fil räknas som
-läst när ett felfritt Read täckt alla dess rader. I skissläget, och i stegen med uppslag, redovisas vad som öppnades,
-utan krav: före-filen är kärnan, och uppslaget slås upp när uppgiften behöver det.
+tyst pekar fel. Läsningen prövas i transkriptet och redovisas skild från tillämpningen: en fil räknas som läst när
+ett felfritt Read täckt alla dess rader. Hos skaparen i läget full och i förfiningen prövas metodens före-fil; i
+skissen, planprövningen och passen prövas rollernas kärna (kompetenskvittot, avsnittet Kompetenserna). Uppslaget slås
+upp när uppgiften behöver det och har inget läskrav.
 **Verktygen, en källa:** kompetensblocken nedan säger vilka skills, verktyg och MCP:er varje pass har. Samma block ger
 sessionens behörigheter (`kontroller/kompetens.py` till `--allowedTools`) och raderna i passets uppdrag, så att
-dokumentationen, prompten och behörigheten säger samma sak. Sessionerna har skillverktyget och användarens
-MCP-anslutningar; kundvakten (`kontroller/kundvakt.py`, en krok före varje anrop) stoppar ett anrop till en extern
-designtjänst som bär kundens uppgifter. Bygget och fotograferingen går genom förhandsvisningen, och beroendena kommer
+dokumentationen, prompten och behörigheten säger samma sak. Sessionerna har skillverktyget och verktygssökningen. Av
+MCP-anslutningarna används bara Refero och Mobbin, och bara genom kundvakten (`kontroller/kundvakt.py`, en krok före
+varje anrop): den tillåter ett anrop till flödets egna verktyg hos dem som inte bär kundens uppgifter och stoppar resten,
+och varje annat MCP-anrop nekas (dontAsk). Bygget och fotograferingen går genom förhandsvisningen, och beroendena kommer
 förberedda och låsta ur mallen (`kunskap/beroenden.md`); git, npm, npx och node körs inte direkt i sessionerna.
 
 ## Avgöranden
@@ -84,7 +86,9 @@ skapares uppdrag; Codex via ägaren 19:04Z, punkt 7–9: varje riktning får en 
 till alternativen och fullständig läsning av den valda metoden.
 
 Varje roll har en **kärna** och **alternativ**. Kärnan är rollens sammanhängande metod och läses hel innan sessionen
-ändrar något (en fil större än en läsning läses i delar med offset och limit tills alla rader är lästa). Alternativen är
+ändrar något (en fil större än en läsning läses i delar med offset och limit tills alla rader är lästa). Kompetenskvittot
+visar ur transkriptet om den lästs: skissen och planprövningen redovisar det, i passen rörelse och granskning får en
+session som inte läst sin kärna ett omförsök, och förfiningen redovisar bara metodens läsning. Alternativen är
 stilvarianter och recept för olika riktningar: sessionen väljer de som passar riktningen, läser dem hela och skriver
 valet med skäl, eller skriver varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller kundens
 behov avgörs av Avgörandena ovan, designreglerna och kundens aktuella domar, som varje session med en roll får.
@@ -192,16 +196,19 @@ mcp:
 visar: DESIGN.md stämmer med koden, och sidorna använder dess variabler eller stilpaketets
 ```
 
-**Ingen uppgift i flödet** (finns i verktygslådan, med skälet): emil-write-swift (Swift), emil-animate-expo (React Native
-och Expo), emil-ask-sonner (en toast i en app), slides (presentationer), taste-imagegen-frontend-mobile (appskärmar),
+**Ingen uppgift i flödet**, den enda listan över skills utan roll (de finns i verktygslådan; en skill i ett
+kompetensblock ovan har sin uppgift där): emil-write-swift (Swift), emil-animate-expo (React Native och Expo),
+emil-ask-sonner (en toast i en app), slides (presentationer), taste-imagegen-frontend-mobile (appskärmar),
 emil-pick-ui-library (paketval görs utanför flödet, `kunskap/beroenden.md`), emil-prototype (kandidaterna är
 varianterna), taste-v1 (ersatt av taste), taste-gpt (fast AIDA-ordning mot K22, och GSAP finns inte bland de låsta
 beroendena). Bildgenererande skills (design, taste-brandkit, taste-imagegen-frontend-web, taste-image-to-code) kräver
 en bildgenerator som flödets sessioner inte har; illustrativt material som inte utger sig för att visa verksamheten
-beställs som material (Avgörandena, Bilder). Flödets egna processkills (bygg-sajt, kirurg, backlog,
-writing-for-agents) styr arbetet och är inga designkompetenser. Övriga MCP-anslutningar (Gmail, Google Drive, GitHub,
-Resend, Jotform, Railway, Claude Docs med flera) rör kunddata, utskick eller drift och har ingen uppgift i skapandet;
-sessionerna nekar dem. Trybloom används inte (ägarens ord 2026-10-05) och nekas likaså.
+beställs som material (Avgörandena, Bilder). Ur taste-image-to-code används bara listan för bildanalys (rad 327–360),
+som ett uppslag i Researchen. Flödets egna processkills (bygg-sajt, kirurg, backlog, writing-for-agents) styr arbetet
+och är inga designkompetenser; writing-for-agents är för den som skriver om kartan, förorden eller en skill. Övriga
+MCP-anslutningar (Gmail, Google Drive, GitHub, Resend, Jotform, Railway, Claude Docs med flera) rör kunddata, utskick
+eller drift och har ingen uppgift i skapandet; sessionerna nekar dem. Trybloom används inte (ägarens ord 2026-10-05) och
+nekas likaså. Figma ingår bara i ett pilotprov, utanför normalflödet (`kunskap/skapandeflodet.md`, Figma).
 
 ## Research
 
@@ -316,9 +323,11 @@ besökaren förstår verksamheten och löser sin viktigaste uppgift, i mobil och
 
 **Underlag:** UPPDRAG.md (designuppdraget, besökarens uppgift, referensbilderna och vad de ska lära), kundens fakta
 (VERKSAMHET.json, textunderlaget, RESEARCH.md) och bilder (BILDER.md), och den här filen: kvalitetskraven, besluten med
-räckvidd och avgörandena. Kompetenserna (avsnittet Kompetenserna) är obligatoriska: skaparen tillämpar art direction
-och typografi, layout och bild med sina skills fullständiga instruktioner, och efter skissen gör varje annan kompetens
-sitt eget pass. Ägarens domar över tidigare byggen och kundens historik slås upp när de besvarar en konkret fråga.
+räckvidd och avgörandena. Kompetenserna (avsnittet Kompetenserna) är obligatoriska: skaparen tillämpar rollerna med
+passet skapa (art direction och typografi, layout och bild, innehåll, responsivitet och rörelse) med sina skills
+fullständiga instruktioner i en sammanhängande skiss. Före ägarens val ändrar ingen annan session skissen; passen
+interaktion och rörelse och tillgänglighet och visuell granskning görs först efter fördjupningen. Ägarens domar över
+tidigare byggen och kundens historik slås upp när de besvarar en konkret fråga.
 
 **Till nästa steg:** en byggd skiss (första vyn, den viktigaste sektionen, navigationen och de interaktioner som behövs
 för att förstå förslaget), skärmbilder i 390, 768, 1280 och 1440, de snabba kontrollerna (bygget, konsolen, spill, axe,
@@ -408,15 +417,3 @@ taste/SKILL.md rad 321–331
 better-typography/SKILL.md # Write copy naturally, style with CSS
 brand/references/voice-framework.md
 ```
-
-## Utanför flödet
-
-Kvar i `.claude/skills/` (ägaren 2026-10-05: installerade i sin fullo), men inte i flödets steg, eftersom de bygger på
-bildgenerering, React eller native-appar, egna processer eller verktyg som flödet inte har: design, design-system,
-ui-styling, banner-design, slides, brand (utom röstramverket), taste-gpt, taste-soft, taste-v1, taste-stitch,
-taste-output, taste-brandkit, taste-imagegen-frontend-mobile, taste-imagegen-frontend-web, taste-redesign,
-taste-minimalist och taste-brutalist (bara när UPPDRAG.md pekar dit), ui-ux-pro-max:s designsystem, skript och data
-(utom checklistan ovan), impeccables kommandon och skript, emil-improve-animations, emil-prototype,
-emil-pick-ui-library, emil-ask-sonner, emil-animate-expo, emil-write-swift, emil-animation-vocabulary,
-emil-apple-design, emil-find-animation-opportunities, better-break, better-interface-review och writing-for-agents (för
-den som skriver om kartan, förorden eller en skill).

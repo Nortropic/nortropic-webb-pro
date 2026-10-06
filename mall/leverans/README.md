@@ -12,8 +12,10 @@ npm run dev       # lokal server med omladdning
 
 ## Driftsättning
 
-- Ett Vercel-projekt per webbplats, kopplat till det här repot. Varje gren får en skyddad förhandsvisning (Standard
-  Protection med Vercel Authentication; kunden ser den genom en delbar länk). `main` är produktion på kundens domän.
+- Ett Vercel-projekt per webbplats, kopplat till det här repot. Före lanseringen skyddas alla driftsättningar, också
+  produktionsadressen, med Vercel Authentication; kunden ser förhandsvisningen genom en delbar länk. Vid lanseringen
+  byts skyddet till Standard Protection: kundens domän blir publik, och varje gren får en skyddad förhandsvisning.
+  `main` är produktion på kundens domän.
 - Förhandsvisningar svarar med `X-Robots-Tag: noindex` från Vercel; produktionen indexeras.
 - Miljövariablerna står i `.env.example`. Värdena läggs bara i Vercels projektinställningar, aldrig i repot.
 

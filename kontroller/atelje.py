@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""atelje.py — skapandeflödet för startsidan (kunskap/skapandeflodet.md): utforska skilda grundidéer, välj med en
-oberoende panel som får förkasta alla, förfina den valda med designskills och förhandsvisning, och döm före mot efter.
-Samma kod används av byggets steg 5.1 och av ägarens prototyp (kontroller/prototyp.py); Codex via ägaren 2026-10-05:
-tre designflöden där förbättringarna inte följde med mellan dem blev ett.
+"""atelje.py — skapandeflödets orkestrator för startsidan (kunskap/skapandeflodet.md), startad av ägaren eller en session
+utanför bygget, oftast genom kontroller/prototyp.py. Standard är kandidatflödet (kontroller/kandidater.py: research, plan
+och skisser, ägarens val, förfining och godkännande); stegen 1–6 nedan är den äldre utforskningen
+(NWP_KANDIDATFLODE=av), kvar för återupptagning och som nödväg. Codex via ägaren 2026-10-05: tre designflöden där
+förbättringarna inte följde med mellan dem blev ett.
 
-    .venv/bin/python kontroller/atelje.py <slug> [--vanta SEK] [--om | --ny-riktning | --putsa | --fortsatt] [--bara-domare]
+    .venv/bin/python kontroller/atelje.py <slug> [--vanta SEK]
+        [--om | --ny-riktning | --putsa | --valda | --fortsatt | --bara-domare | --stoppa]
 
-Kräver projektet (kontroller/ny_sajt.py <slug> --installera), underlag/<slug>/BRIEF.md, RESEARCH.md, INNEHALL.md (eller
-prototypens TEXTUNDERLAG.md) och referenser: kandidater i REFERENSER.md (`Huvudreferenskandidat: <rubrik> — <vad den
-bär>`, eller en `Huvudreferens:`-rad) eller ett referenspaket att välja ur. Körs i en egen process som överlever
-kommandot; kommandot väntar högst --vanta sekunder (540). Pågår ateljén fortfarande: kör samma kommando igen.
+Kräver projektet (kontroller/ny_sajt.py <slug> --installera) och underlag/<slug>/BRIEF.md, RESEARCH.md och INNEHALL.md
+(eller prototypens TEXTUNDERLAG.md); den äldre utforskningen kräver också referenser: kandidater i REFERENSER.md
+(`Huvudreferenskandidat: <rubrik> — <vad den bär>`, eller en `Huvudreferens:`-rad) eller ett referenspaket att välja
+ur. Körs i en egen process som överlever kommandot; kommandot väntar högst --vanta sekunder (540). Pågår ateljén
+fortfarande: kör samma kommando igen.
 
 1. Utforska: en skapare (NWP_ATELJE_MODELL, Fable 5.1; NWP_ATELJE_EFFORT, max) tar fram NWP_ATELJE_ANTAL (3) riktningar
    som är olika grundidéer (komposition, typografiskt system, bildstrategi, palettens källa), var och en med sin egen
@@ -34,12 +37,15 @@ kommandot; kommandot väntar högst --vanta sekunder (540). Pågår ateljén for
 6. Slutdom: samma panel dömer startsidan före förfiningen mot efter, blint (atelje/slutdom/, SLUTDOM.md): håller den
    ribban, och blev den synligt bättre. Redovisningen ur transkripten står i atelje/REDOVISNING.md.
 
-En ny körning flyttar den förra till atelje/foregaende/. --ny-riktning (ägaren, utanför bygget) tar dessutom bort
-designbesluten (REFERENSER.md, KONCEPT.md, ateljén, sajtens presentationsfiler) och börjar om ur mallen; fakta, bilder,
-referenspaketen, domloggen och historiken står kvar. --putsa förfinar den godkända riktningen vidare
-med ägarens senaste dom. --fortsatt tar vid efter den senaste klara fasen. --bara-domare dömer om befintliga bilder.
+En ny körning flyttar den förra till atelje/foregaende/. --ny-riktning (ägaren, utanför bygget) tar i stället bort
+designbesluten, ateljén och hela sajten och börjar om ur mallen (vad som raderas och står kvar:
+kunskap/skapandeflodet.md, Domloggen, och ta_bort_beslut nedan). --putsa förfinar den godkända riktningen vidare med
+ägarens senaste dom (i kandidatflödet som --valda). --valda förfinar de kandidater ägarens senaste dom valt.
+--fortsatt tar vid efter den senaste klara fasen. --bara-domare dömer om befintliga bilder (den äldre utforskningen).
 
-Exit: 0 klar · 2 fel i anropet eller saknat underlag · 4 ateljén föll · 5 pågår, kör igen · 6 alla riktningar förkastade.
+Exit: 0 klar · 2 fel i anropet eller saknat underlag · 4 ateljén föll · 5 pågår, kör igen · 6 ingen startsida att bygga
+vidare på: alla riktningar förkastade eller grundidén lämnad (den äldre utforskningen), och inifrån ett bygge också när
+kandidaterna väntar på ägarens val eller ägaren dömt startsidan efter körningen.
 """
 import argparse
 import calendar

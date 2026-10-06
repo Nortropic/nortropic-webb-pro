@@ -219,7 +219,9 @@ ett välgrundat val, och iterationen ska kunna ändra grundidén.
 1. **Ett skapandeflöde** (`kunskap/skapandeflodet.md`): ateljén är orkestratorn för både byggets steg 5.1 och ägarens
    prototyp. Flödet utforskar skilda grundidéer, var och en på sin egen huvudreferenskandidat. Panelen väljer eller
    förkastar alla. Den valda förfinas med designskillsen i förhandsvarv och döms före mot efter av samma panel.
-   `kontroller/prototyp.py` är ett alias, och ateljén är standard i `kor.sh`.
+   `kontroller/prototyp.py` är ett alias, och ateljén är standard i `kor.sh`. **Delvis ersatt av:** tillägget
+   2026-10-05, eftermiddag (kandidatflödet är standard, och ägaren väljer och godkänner); kor.sh kör ingen ateljé utan
+   tar vid från en godkänd startsida (`kunskap/skapandeflodet.md`). Övrigt gäller.
 2. **Ägarens dom följer med och återöppnar beslut.** Domloggen `underlag/<slug>/DESIGNDOMAR.jsonl` och
    riktningshistoriken går in i varje prompt. Ny riktning arkiverar designbesluten (urval, koncept, presentationsfiler)
    ur arbetsytan, utan att radera något; fakta står kvar. Inget färgförbud: ett drag ur en underkänd grundidé behöver
@@ -251,7 +253,8 @@ ord står ordagrant i minnet; Codex text är det samlade uppdraget.
    kandidater i egna projekt och egna skaparsessioner, granskning med en förbättringsrunda, jämförelse mot falsk
    variation, och sedan ägarens val. Panelen granskar och rekommenderar men utser ingen vinnare, och dess omdöme visas
    för ägaren först efter ägarens första beslut. Den äldre utforskningen med tre riktningar finns kvar som nödväg
-   (`NWP_KANDIDATFLODE=av`).
+   (`NWP_KANDIDATFLODE=av`). **Delvis ersatt av:** tillägget 2026-10-05, kväll (skissläget): före ägarens val ingen
+   granskningspanel, förbättringsrunda eller jämförelse; det förvalet finns kvar som läget full. Övrigt gäller.
 2. **Ägarens val binds till kandidat och version** i domloggen (valj, jamfor, forkasta, ny_riktning, putsa, godkand,
    och det ägaren gillade per kandidat). Valda kandidater förfinas var för sig med DESIGN.md i takt med koden; ägaren
    godkänner en för helbygget, och alla dess sidor blir vinnaren som bygget tar vid från.
@@ -279,6 +282,8 @@ tydligt olika kundanpassade förslag blir kortare, med kvalitetsribban kvar, och
    inledande försök med verktygsväntan, ett omförsök bara vid ett identifierat tekniskt fel, inget fast antal varv.
    Ingen granskningspanel och ingen förbättringsrunda före ägarens val; snabba objektiva kontroller markerar brister.
    Fördjupningen (hela startsidan, undersidan, besökarens centrala flöde, DESIGN.md) kommer efter ägarens val.
+   **Delvis ersatt av:** tillägget 2026-10-06 om kreativ frihet (punkt 5; commit `a593ada`): ett inledande försök har
+   45 minuter, med den kritiska granskaren och skaparens svar inräknade. Övrigt gäller.
 2. **Ren arbetskontext:** varje skapare får uppdraget, kundens verifierade fakta och material, referensbilderna,
    kundens aktuella domar och metodens kärna med en förteckning att slå upp i. `LARDOMAR.md`, det privata originalet,
    riktningshistoriken och beslutshistoriken bevaras och slås upp när de besvarar en konkret fråga
@@ -424,6 +429,9 @@ besluten genomförs när granskningen r79, rökprovet och sammanslagningen till 
 Figma-pluginen kan slås på igen när ägaren loggar in i Figma (pluginens MCP kräver inloggning, som en obevakad
 session inte kan göra).
 
+**Delvis ersatt av:** tillägget 2026-10-06 om Figma-metodprovet nedan: pilotens sessioner slår på pluginen i sin egen
+`--settings`; i användarinställningarna är den fortfarande av. Övrigt gäller.
+
 ## Tillägg 2026-10-06: kreativ frihet och hela kompetensen i designomgången
 
 Ägarens uppdrag 2026-10-06 ~05:37Z (ordagrant i minnet), efter domen över den första prototypen (ny riktning; inget
@@ -536,3 +544,22 @@ historiken fått ägarens dom (`kontroller/atelje.py`, `ta_bort_beslut`). Utan e
 som ägaren sett, och då stoppas inget heller. Annars avslutas först förra körningens kvarlevande processer (arbetaren och
 kundens egna claude-sessioner). Hela `kunder/<slug>/sajt` raderas, också en godkänd och helbyggd sajt; leveransen
 (`kunder/<slug>/kundrepo` och tidigare exporter) rörs inte, och en sajt som är ett eget git-repo raderas aldrig.
+
+## Tillägg 2026-10-06: Figma-metodprovet, en pilot utanför normalflödet
+
+Ägarens uppdrag 2026-10-06 ~18:05Z, beskedet om arbetsyta och kundmaterial ~18:48Z och tillägget ~18:50Z (ordagrant i
+minnet): ett avgränsat metodprov med Figma som möjlig visuell arbetsyta i skapandeflödet. Figma görs inte obligatoriskt
+för framtida byggen innan provet visat att det fungerar och tillför kvalitet.
+
+1. **Tre moment, prövade var för sig:** A, en stark, namngiven referens återskapas noggrant; B, kompositionen anpassas
+   till kundens verkliga innehåll och material; C, den valda designversionen överförs till fungerande webb och jämförs
+   med webbläsarens rendering i samma bredder.
+2. **Bara i piloten.** Normalflödet går utan Figma (`kunskap/skapandeflodet.md`, Figma). Pilotens sessioner slår på
+   Figma-pluginen i sin egen `--settings`, och kundvakten slås inte av.
+3. **Kundmaterialet:** privat kundmaterial laddas upp bara i det Figma-projekt ägaren angett, för pilotens kund och utan
+   metadata. Uppdraget ger ingen allmän rätt att föra kundmaterial till externa tjänster.
+4. **Inget i leveransen är verifierat genom piloten:** helbygget, exporten, kundrepot och driftsättningen prövas inte av
+   den, och dokumentationen markerar dem inte som verifierade.
+5. **Dokumentationen** (samma tillägg) rättas i grundkällorna, och andra dokument hänvisar dit: kedjan från
+   kundunderlag till leverans i `README.md`, designflödet i `kunskap/skapandeflodet.md`, kompetensen i
+   kompetensblocken i `kunskap/metodkarta.md` och leveransen i `kunskap/lansering.md`.

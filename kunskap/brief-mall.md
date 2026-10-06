@@ -45,7 +45,7 @@ händer vid fel (alternativ väg). Formulärfält motiverade; fel-, tom- och lad
 Tillägg till §4 (OVL-20260930-ac1914-digitala): för **hitta hit**, följ
 `integrationer.md` → Hitta hit: adress i text och vägbeskrivningslänk; eventuell
 karta som självhostad licensbelagd bild eller först efter aktivt val. Deklarera
-viktiga handlingslänkar i DRIFT.json med namn, adress och eventuell förväntad text.
+viktiga handlingslänkar i DRIFT.json (planerad, `kunskap/drift.md`) med namn, adress och eventuell förväntad text.
 
 ## §5 Sök och kanaler
 

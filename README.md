@@ -9,8 +9,9 @@ domare. Varför repot finns och vad som beslutades: `BESLUT.md`.
 ./dashboard.sh        # http://127.0.0.1:4771
 ```
 
-Allt på ett ställe: byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag, körningens händelser),
-frågeformuläret där du dömer ett bygge, backloggen, kirurgen (klistra in en länk) och lärdomarna.
+Allt på ett ställe: vyn Prototyp, där du väljer bland förslagen och godkänner en startsida (besluten skrivs i
+domloggen `underlag/<slug>/DESIGNDOMAR.jsonl`), byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag,
+körningens händelser), frågeformuläret där du dömer ett bygge, backloggen, kirurgen (klistra in en länk) och lärdomarna.
 
 ## Tre loopar och en backlog
 
@@ -24,16 +25,28 @@ frågeformuläret där du dömer ett bygge, backloggen, kirurgen (klistra in en 
 brister som byggena hittar i verktygen. Inget genomförs av sig självt. Starta en Claude Code-session i repot och säg
 **"implementera enligt backlog"**.
 
-## En körning
+## Kedjan från kundunderlag till leverans
 
-```sh
-./kor.sh <slug> "<verksamhetens namn, ort och gärna webbadress>"
-```
+Den här tabellen är grundkällan för vem som startar vad, med vilket kommando. Kommandona körs från repots rot.
+Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sajt`; exporten och leveransen:
+`kunskap/lansering.md`. Inget bygge har lanserats än.
 
-Körningen går obevakat: hämtar det publika, mäter deras nuvarande sajt, hittar och öppnar referenser, skriver brief
-och text, bygger en Astro-sajt i `kunder/<slug>/sajt/`, provar tills grindarna är gröna, skriver
-`kunder/<slug>/RAPPORT.md` och sina egna frågor till dig. Råmaterial (`underlag/`) och byggen (`kunder/`) ligger
-utanför git.
+| Steg | Vem startar, med vilket kommando | Resultat | Saknas i dag |
+|---|---|---|---|
+| 1. Kundunderlaget: fakta, research, brief, text, bilder, referenser och sajten ur mallen | en interaktiv Claude Code-session i repot som följer `bygg-sajt` steg 1–4 och kör `.venv/bin/python kontroller/ny_sajt.py <slug> --installera`; eller nödvägen `NWP_ATELJE=av ./kor.sh <slug> "<verksamhet>"`, ett helt bygge utan skapandeflödet | `underlag/<slug>/` (VERKSAMHET.json, RESEARCH.md, BRIEF.md, INNEHALL.md, bilder/BILDER.md, referenser/) och `kunder/<slug>/sajt/` | ett eget kommando: i standardläget körs steg 1–4 bara inne i kor.sh, som kräver en godkänd startsida |
+| 2. Prototypen: research, plan och cirka tio skisser | ägaren eller en session i terminalen: `.venv/bin/python kontroller/prototyp.py <slug>` (läget följer domloggen) | förslagen i vyn Prototyp | – |
+| 3. Ägarens val | ägaren i vyn Prototyp; en dom som kommit på annat sätt förs in med `.venv/bin/python kontroller/skapande.py dom` | en dom i domloggen, bunden till kandidat och version | dashboarden startar ingen körning: nästa steg startas i terminalen |
+| 4. Förfiningen av de valda | ägaren kör `prototyp.py <slug>` igen (läget valda) | förfinade kandidater med DESIGN.md | – |
+| 5. Godkännandet | ägaren i vyn Prototyp: en förfinad kandidat godkänd för helbygge | `underlag/<slug>/atelje/vinnare/` och VINNARE.json | vyn visar inget kommando för helbygget; det står i prototyp.py:s utskrift |
+| 6. Helbygget | ägaren i terminalen: `./kor.sh <slug> "<verksamhet>"`; utan godkänd startsida stannar kor.sh med slutkod 2 | `kunder/<slug>/` (sajt, prov, granskning, RAPPORT.md, FRAGOR.json) | uppdraget säger både "steg 1–7, i ordning" och "ta vid efter valet i steg 5.1"; att underlaget som den godkända startsidan byggdes på står kvar är inte prövat. Korsluts slutkod skrivs bara ut |
+| 7. Ägarens dom över bygget | ägaren i dashboarden: bygget, fliken Din dom | `kunder/<slug>/DOM.json`, lärdomarna och en backlogpost | – |
+| 8. Exporten till kundrepo | ägaren eller en session: `.venv/bin/python kontroller/exportera.py <slug> [--git]` | `kunder/<slug>/kundrepo/` med verifierat bygge; `--git` gör en lokal commit | exporten prövar inte att bygget är godkänt och sparar inget besked |
+| 9. Leveransen: GitHub, Vercel, skydd och DNS | GitHub, Vercel och skyddet: människa, eller en session med ägarens ja; DNS: bara en behörig människa | – | inget verktyg i repot för GitHub och Vercel; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut |
+
+Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
+tills grindarna är gröna och två oberoende granskare godkänt, och skriver `kunder/<slug>/RAPPORT.md` och sina egna
+frågor till dig. Alternativa lägen och återupptagning: `kunskap/skapandeflodet.md` och `./kor.sh` utan argument.
+Råmaterial (`underlag/`) och byggen (`kunder/`) ligger utanför git.
 
 ## Kirurgen
 
@@ -58,7 +71,8 @@ Reglerna: `kunskap/prospekt-och-utskick.md`; beslutet: `BESLUT.md`, tillägget 2
 .venv/bin/python kontroller/utskick.py prov          # testbrev till din egen adress
 ```
 
-Samma sak med knappar i dashboarden under Prospekt: kampanj, lista, kort per verksamhet, demo, brev. Ett brev skrivs
+Samma sak med knappar i dashboarden under Prospekt: kampanj, lista, kort per verksamhet, demo, brev. Knappen demo
+startar `./kor.sh` och stannar därför, som helbygget, utan en godkänd startsida (kedjan ovan). Ett brev skrivs
 ur det vi mätt, du godkänner det i dashboarden, och det går aldrig till en enskild firma. Allt om verksamheterna
 ligger i `underlag/prospekt/` och `underlag/<slug>/`, utanför git.
 
@@ -75,10 +89,12 @@ Katalogen 0700, filerna 0600.
 kontroller/rokprov.sh                                 # regressionsprov efter ändringar i kontroller/ eller mall/
 ```
 
-Grindar: bygge, seo, standard, axe, lighthouse, spill, utan-js. Grinden standard prövar byggstandardens
-maskinkontrollerbara punkter (`kunskap/byggstandard.md`, `kontroller/standard_kontroll.py`), med giltig HTML via
-html-validate lokalt. Copykontrollen är en rapport, inte en grind (`kunskap/copy-kontroll.md`): varje fynd rättas
-eller motiveras i rapporten. Apple-touch-icon och delningsbild görs med `node kontroller/ikoner.mjs`.
+Grindar (nio): bygge, design, seo, standard, axe, lighthouse, spill, utan-js, resor. Grinden standard prövar
+byggstandardens maskinkontrollerbara punkter (`kunskap/byggstandard.md`, `kontroller/standard_kontroll.py`), med giltig
+HTML via html-validate lokalt. Grinden design prövar DESIGN.md mot koden (`kunskap/bygge-referens.md`), och grinden
+resor kör briefens viktigaste resor i Chromium och WebKit (`kunskap/resor.md`). Copykontrollen är en rapport, inte en
+grind (`kunskap/copy-kontroll.md`): varje fynd rättas eller motiveras i rapporten. Apple-touch-icon och delningsbild
+görs med `node kontroller/ikoner.mjs`.
 
 ## Installation (en gång per maskin)
 

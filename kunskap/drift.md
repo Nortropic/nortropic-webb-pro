@@ -1,14 +1,17 @@
 # Drift och förbättring: kontroll, incident, beroenden, underhåll och återgång
 
 Gäller riktiga verksamheter med en lanserad sajt (`kunskap/lansering.md`). Inget bygge är lanserat än, så inget av
-detta körs i dag. Det finns inget driftverktyg i repot och ingen schemalagd körning: kontrollen nedan görs med `curl`
-och `openssl` av en session vid den veckorytm ägaren bestämmer, eller av en människa. Ärvd från Digitala och omskriven
+detta körs i dag. Det enda driftverktyget i repot är `kontroller/driftkoll.py`, som prövar en driftsatt adress svar
+(skyddet, noindex, säkerhetshuvudena och formulärets funktion) och bara skriver ut; det hör till lanseringens prov
+(`kunskap/lansering.md`). Veckokontrollen nedan har inget verktyg och ingen schemalagd körning: den görs med `curl` och
+`openssl` av en session vid den veckorytm ägaren bestämmer, eller av en människa. Ärvd från Digitala och omskriven
 2026-10-03; verktygen och Runtime-schemat som den gamla texten beskrev finns inte här.
 
 ## Veckokontrollen
 
-En fil `kunder/<slug>/DRIFT.json` från lanseringsdagen anger adresserna som ska svara, förväntad text på startsidan,
-handlingarnas slutadresser (bokning, telefonlänk, formulärets `/tack/`) och certifikatets minsta återstående dagar.
+En fil `kunder/<slug>/DRIFT.json` från lanseringsdagen (planerad: ingen kod skriver eller läser den än) anger
+adresserna som ska svara, förväntad text på startsidan, handlingarnas slutadresser (bokning, telefonlänk, formulärets
+`/tack/`) och certifikatets minsta återstående dagar.
 Kontrollen läser, den ändrar ingenting:
 
 - startsidan och de viktigaste sidorna: `curl -sSL -o /dev/null -w '%{http_code} %{url_effective}'`, 200 och rätt

@@ -320,7 +320,8 @@ KONCEPT.md.
    riktningarna blir riktningsfrågan i FRAGOR.json, med en skärmbild var (**Tvåan** i punkt 4). Skriv också en rad
    **Visuell tes**: stämning, material och energi i en mening, som namnger ett material eller en plats ur "Bara de
    har".
-   **Ateljévägen** (standard; prompten säger när den gäller): skapandeflödet i `kunskap/skapandeflodet.md`. Kör punkt
+   **Ateljévägen** (den äldre utforskningen i `kunskap/skapandeflodet.md`; normalflödet är en godkänd kandidat, se
+   stycket om kandidatflödet nedan, och då säger prompten att ateljén inte körs). Kör punkt
    2 först, sedan `.venv/bin/python kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så
    länge den svarar att ateljén pågår. Ateljén utforskar riktningar som är olika grundidéer, var och en på sin egen
    huvudreferenskandidat ur REFERENSER.md, med verksamhetens riktiga innehåll. En domarpanel om tre dömer hela sidan mot
@@ -331,7 +332,8 @@ KONCEPT.md.
    försök) och avsluta; stoppvakten släpper avslutet och körningen slutar med kod 6. Samma gäller när skaparen under
    förfiningen funnit att grundidén inte bär och omgångarna är slut (`atelje/TILLBAKA.md`). Bäst av tre undermåliga
    förslag blir aldrig vald, och en ny ateljé efter en förkastning startas av ägaren, inte inifrån bygget
-   (`--bara-domare`, `--om`, `--ny-riktning` och `--putsa` vägras där). Har ägaren godkänt startsidan i dashboardens vy
+   (`--bara-domare`, `--valda`, `--ny-riktning` och `--putsa` vägras där; `--om` svarar 6 när kandidaterna väntar på
+   ägaren eller ateljén förkastat alla riktningar). Har ägaren godkänt startsidan i dashboardens vy
    Prototyp säger prompten det: kör inte ateljén, utan ta vid härifrån med den godkända vinnaren.
    Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/` (koden i
    `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och när vinnarens startsida bygger på sin nya plats står
@@ -424,9 +426,10 @@ KONCEPT.md.
    beställer en granskning: en omgång gäller det bygge den såg, och ändras bygget efter en beställd eller godkänd omgång
    behövs en ny (en omgång som avbröts för att bygget ändrades räknas inte mot taket, men det hårda taket räknar alla).
    **Förfina eller byt riktning.** Efter varje granskning skriver du en rad i `underlag/<slug>/GRANSKNINGSLOGG.md`:
-   omgång, betygen, och om du förfinar riktningen eller byter, och varför. Fynd med omfattning `riktning` betyder byt:
-   på ateljévägen med en ny ateljéomgång (`.venv/bin/python kontroller/atelje.py <slug> --om`; förkastar den alla
-   riktningar stannar bygget), annars till en annan av de prövade riktningarna i KONCEPT.md. Har originaliteten legat
+   omgång, betygen, och om du förfinar riktningen eller byter, och varför. Fynd med omfattning `riktning` betyder byt.
+   Från en godkänd startsida är bytet ägarens: en ny riktning tas fram i skapandeflödet utanför bygget
+   (`kontroller/prototyp.py`), så skriv fyndet och skälet i rapporten och bygg vidare i den godkända riktningen. På
+   nödvägen (`NWP_ATELJE=av`) byter du till en annan av de prövade riktningarna i KONCEPT.md. Har originaliteten legat
    under 7 i två omgångar: byt på samma sätt i stället för att putsa vidare. **Bästa mot sista:** har du fler än en granskning, kör `.venv/bin/python kontroller/granska.py
    <slug> --jamfor` innan du avslutar. Vinner en tidigare omgång, ta tillbaka det som gjorde den bättre och skriv det i
    rapporten; en mellanversion är ibland den bästa.
@@ -492,6 +495,7 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 15. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
     kopplas till dem.
 16. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.
+    Exporten till kundrepo och leveransen görs inte i bygget (`kunskap/lansering.md`).
 
 **Dina frågor till ägaren.** Skriv `kunder/<slug>/FRAGOR.json`: tre till sex frågor om det du är mest osäker på, där
 ägarens svar skulle ändra nästa bygge mest. Dashboarden visar dem efter kärnfrågorna i frågeformuläret, och svaren blir

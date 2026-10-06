@@ -1,26 +1,31 @@
 #!/bin/bash
-# kor.sh — en obevakad körning: bygger en sajt åt en riktig verksamhet enligt skillen bygg-sajt.
+# kor.sh — helbygget: en obevakad körning som bygger sajten åt en riktig verksamhet enligt skillen bygg-sajt, från den
+# startsida som ägaren godkänt i skapandeflödet (dashboardens vy Prototyp; underlag/<slug>/atelje/VINNARE.json, fältet
+# godkand). Utan en godkänd startsida, eller när ägarens senaste dom inte tillåter ett bygge, stannar kor.sh före bygget
+# med slutkod 2 och pekar på kontroller/prototyp.py. Hela kedjan från kundunderlag till leverans, med vem som startar
+# vad: README.md.
 #
 #   ./kor.sh <slug> "<verksamhetens namn, ort och gärna webbadress>"
 #   ./kor.sh frisor-exempel-umea "Frisör Exempel, Umeå, https://exempel.se"
-# Slutkod: 0 grönt prov och godkänd granskning · 1 avslutat utan det · 2 fel i anropet (eller ett bygge pågår redan) ·
-# 3 skyddade filer eller gränsen (nya kataloger direkt under kunder/ eller underlag/, lyft flagga) ändrades under
-# körningen · 4 claude föll.
+# Slutkod: 0 grönt prov och godkänd granskning · 1 avslutat utan det · 2 fel i anropet, ingen godkänd startsida,
+# startkontrollen stoppade, eller ett bygge pågår redan · 3 skyddade filer eller gränsen (nya kataloger direkt under
+# kunder/ eller underlag/, lyft flagga) ändrades under körningen · 4 claude föll · 6 bygget stannade utan sajt (bara den
+# äldre utforskningens lägen: ateljén förkastade alla riktningar, skaparen lämnade grundidén, eller ägaren dömde
+# startsidan efter körningen).
 #
-# Tre verksamheter över natten = tre rader i ett skript; de körs en i taget.
-# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400), NWP_STOPP_TAK (8),
-# NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång), NWP_GRANSKNING_MAX (5 per
-# körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json ansluter en referenstjänst i
-# A/B-prövningen), NWP_ATELJE (pa: skapandeflödet i steg 5.1, kontroller/atelje.py, med NWP_ATELJE_MODELL,
-# NWP_ATELJE_EFFORT och NWP_ATELJE_ANTAL; av = nödvägen utan ateljé). En startsida som ägaren godkänt i dashboardens vy
-# Prototyp (underlag/<slug>/atelje/VINNARE.json, fältet godkand) tas över utan ny ateljé; ett sandlådat bygge kräver
-# en sådan (skapandeflödet körs utanför sandlådan, före bygget: kunskap/skapandeflodet.md).
+# Flera helbyggen körs en i taget, vart och ett från sin godkända startsida.
+# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400),
+# NWP_STOPP_TAK (8), NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång),
+# NWP_GRANSKNING_MAX (5 per körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json
+# ansluter en referenstjänst i A/B-prövningen), NWP_ATELJE (pa; av = nödvägen utan godkänd startsida, där byggaren
+# skriver KONCEPT.md och DESIGN.md själv), NWP_SANDLADA (av; pa kräver en godkänd startsida, eftersom skapandeflödet
+# körs utanför sandlådan, före bygget: kunskap/skapandeflodet.md).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SLUG="${1:-}"
 VERKSAMHET="${2:-}"
 if [[ ! "$SLUG" =~ ^[a-z0-9-]{2,60}$ || -z "$VERKSAMHET" ]]; then
-  sed -n '2,11p' "$0"
+  sed -n '2,22p' "$0"
   exit 2
 fi
 [ -x "$ROOT/.venv/bin/python" ] || { echo "saknar .venv — se README.md, Installation"; exit 2; }
