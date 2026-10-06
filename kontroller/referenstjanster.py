@@ -260,6 +260,46 @@ def ladda_bild(u, mal, lokala_portar=()):
     return fil, None
 
 
+MOBBIN_RESERV = 12  # skärmar per fråga ur Mobbins egna svar när sessionens svar saknar bildadresser
+
+
+def ordlikhet(a, b):
+    ta, tb = set(re.findall(r'\w+', str(a).lower())), set(re.findall(r'\w+', str(b).lower()))
+    return len(ta & tb) / len(ta | tb) if ta and tb else 0.0
+
+
+def mobbin_ur_svaren(verktygssvar, fragor):
+    """Mobbins skärmar ur tjänstens egna svar (ett JSON-objekt med screens, sections eller flows), för när sessionens
+    strukturerade svar saknar bildadresser: [{'id', 'titel', 'sida_url', 'bild_url', 'fraga'}] i svarens ordning, utan
+    dubbletter, högst MOBBIN_RESERV per fråga. Frågan är den av uppdragets Mobbin-frågor som delar flest ord med
+    sökningen (den riktiga körningen 2026-10-06: sessionen svarade med en tom post, fast svaren hade tio skärmar var)."""
+    egna = [str(f.get('fraga') or '') for f in fragor if f.get('tjanst') == 'mobbin'] or ['']
+    ut, sedda, per = [], set(), {}
+    for namn, indata, text in verktygssvar:
+        if not (namn or '').split('__')[-1].startswith('search_'):
+            continue
+        for m in re.finditer(r'\{"query"', text or ''):
+            try:
+                d, _ = json.JSONDecoder().raw_decode(text[m.start():])
+            except ValueError:
+                continue
+            lista = next((d[k] for k in ('screens', 'sections', 'flows') if isinstance(d.get(k), list)), None)
+            if lista is None:
+                continue
+            sokt = str(d.get('query') or (indata or {}).get('query') or '')
+            fraga = max(egna, key=lambda f: ordlikhet(f, sokt))
+            for x in lista:
+                if not isinstance(x, dict) or not x.get('image_url') or not x.get('id') or x['id'] in sedda or per.get(fraga, 0) >= MOBBIN_RESERV:
+                    continue
+                sedda.add(x['id'])
+                per[fraga] = per.get(fraga, 0) + 1
+                ut.append({'id': str(x['id']), 'titel': str(x.get('app_name') or x.get('site_name') or x.get('title') or '')[:200],
+                           'sida_url': str(x.get('mobbin_url') or '')[:500], 'bild_url': str(x['image_url'])[:500], 'fraga': fraga[:200],
+                           'beskrivning': 'Mobbins sökning "%s"' % sokt[:200]})
+            break
+    return ut
+
+
 def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar=(), kor=kor_session, katalog='tjanster'):
     """katalog: undermappen under referenser/ (tjanster för researchen, uppdrag för uppdragens material)."""
     underlag = Path(underlag or UNDERLAG)
@@ -321,6 +361,20 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
         bildkat = tkat / ('bilder-%s' % stampel)  # bilderna per körning: en senare körning skriver aldrig över dem
         bildkat.mkdir(parents=True, exist_ok=True)
         dokument, stil_id, titlar = {}, set(), stiltitlar(verktygssvar)
+
+        def ladda_traffbild(traff, ident):
+            if traff['bild_url'] and tillaten_bild(traff['bild_url'], tjanst, lokala_portar):
+                fil, fel_ = ladda_bild(traff['bild_url'], bildkat / ident, lokala_portar)
+                if fil:
+                    data = fil.read_bytes()
+                    traff.update(fil=str(fil.relative_to(underlag / slug)), sha256=hashlib.sha256(data).hexdigest(), byte=len(data))
+                    post['bilder'] += 1
+                else:
+                    traff['fel'] = fel_
+            elif traff['bild_url']:
+                traff['fel'] = 'bildadressen ligger inte på tjänstens bildvärd; laddas inte'
+            else:
+                traff['fel'] = 'ingen bildadress från tjänsten'
         for i, (namn, indata, text) in enumerate(verktygssvar, 1):
             kort = (namn or '').split('__')[-1]
             if not text.strip() or not kort.startswith(('refero_', 'search_')):
@@ -357,18 +411,7 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
                         steg['fil'], steg['fel'] = (str(f_.relative_to(underlag / slug)) if f_ else None), fel_s
                         post['bilder'] += 1 if f_ else 0
                     traff['steg'].append(steg)
-                if traff['bild_url'] and tillaten_bild(traff['bild_url'], tjanst, lokala_portar):
-                    fil, fel_ = ladda_bild(traff['bild_url'], bildkat / ident, lokala_portar)
-                    if fil:
-                        data = fil.read_bytes()
-                        traff.update(fil=str(fil.relative_to(underlag / slug)), sha256=hashlib.sha256(data).hexdigest(), byte=len(data))
-                        post['bilder'] += 1
-                    else:
-                        traff['fel'] = fel_
-                elif traff['bild_url']:
-                    traff['fel'] = 'bildadressen ligger inte på tjänstens bildvärd; laddas inte'
-                else:
-                    traff['fel'] = 'ingen bildadress från tjänsten'
+                ladda_traffbild(traff, ident)
                 post['traffar'].append(traff)
             for i, t in enumerate((svar.get('stilar') or [])[:10]):
                 ident = 'stil-' + (re.sub(r'[^a-zA-Z0-9_-]+', '-', str(t.get('id') or i + 1))[:60] or str(i + 1))
@@ -391,6 +434,16 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
                 post['stilar'].append(stil)
             if any(f.get('typ') == 'stil' for f in fragor) and not any(n.endswith('refero_get_style') for n in post['anrop']):
                 post['anmarkningar'].append('stilfrågan besvarades utan refero_get_style i sessionsloggen')
+        # Mobbin: saknar sessionens svar bildadresser läses skärmarna ur tjänstens egna svar, som finns ordagrant i loggen
+        if tjanst == 'mobbin' and not any(t.get('fil') for t in post['traffar']):
+            reserv = mobbin_ur_svaren(verktygssvar, fragor)
+            if reserv:
+                post['traffar'] = []
+                for t in reserv:
+                    traff = dict(t, fil=None, sha256=None, byte=None, fel=None, steg=[], kalla='tjänstens svar')
+                    ladda_traffbild(traff, re.sub(r'[^a-zA-Z0-9_-]+', '-', t['id'])[:60])
+                    post['traffar'].append(traff)
+                post['anmarkningar'].append('skärmarna lästes ur Mobbins egna svar (%d): sessionens svar saknade bildadresser' % len(reserv))
         stilfraga = any(f.get('typ') == 'stil' for f in fragor)
         belagda = sum(1 for x in post['stilar'] if x.get('belagd'))
         # ok: verkliga anrop och levererat material; stilar räknas som material när deras värden är belagda (en

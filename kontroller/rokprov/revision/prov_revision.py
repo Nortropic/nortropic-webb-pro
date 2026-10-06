@@ -5951,6 +5951,26 @@ def kor_rt_faller_(tjanst, prompt, logg, modell):
     Path(logg).write_text(''); return 1, 'sessionen föll'
 rot_rt, res_rt = rt_.samla('prov-rt', {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form', 'syfte': ''}]}, u_rt, lokala_portar=(rt_port,), kor=kor_rt_faller_)
 assert not res_rt['tjanster']['mobbin']['ok'] and any('inget giltigt svar' in a_ for a_ in res_rt['tjanster']['mobbin']['anmarkningar'])
+# Mobbins egna svar som reserv: sessionens strukturerade svar saknar bildadresser (den riktiga körningen 2026-10-06: en
+# tom post och anmärkningen "x", fast svaren hade tio skärmar var); skärmarna läses ur svaren och laddas ner
+def kor_rt_ra_(tjanst, prompt, logg, modell):
+    svar_ = json.dumps({'query': 'contact form page', 'screens': [
+        {'id': 'S1', 'image_url': rt_bild, 'mobbin_url': 'https://mobbin.com/screens/S1', 'app_name': 'Appen', 'platform': 'web'},
+        {'id': 'S2', 'image_url': rt_bild + '?andra', 'mobbin_url': 'https://mobbin.com/screens/S2', 'app_name': 'Appen två', 'platform': 'web'},
+        {'id': 'S1', 'image_url': rt_bild, 'mobbin_url': 'https://mobbin.com/screens/S1', 'app_name': 'Appen', 'platform': 'web'}]})
+    rader_ = [json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 'u1', 'name': 'mcp__mobbin__search_screens',
+                                                                         'input': {'query': 'contact form page'}}]}}),
+              json.dumps({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 'u1',
+                                                                    'content': [{'type': 'text', 'text': '[Image: source: /x/blob.webp]' + svar_}]}]}}),
+              json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'num_turns': 2, 'structured_output': {
+                  'anrop': [], 'traffar': [{'id': 'c9-skip', 'titel': '', 'sida_url': '', 'bild_url': '', 'beskrivning': '', 'fraga': ''}],
+                  'stilar': [], 'anmarkning': 'x'}})]
+    Path(logg).write_text('\n'.join(rader_) + '\n')
+    return 0, ''
+rot_rt, res_rt = rt_.samla('prov-rt', {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form', 'syfte': ''}]}, u_rt, lokala_portar=(rt_port,), kor=kor_rt_ra_)
+m_ = res_rt['tjanster']['mobbin']
+assert m_['ok'] and m_['bilder'] == 2 and [t_['id'] for t_ in m_['traffar']] == ['S1', 'S2'], m_
+assert all(t_['fil'] and t_['fraga'] == 'contact form' and t_['titel'] for t_ in m_['traffar']) and any('lästes ur Mobbins egna svar' in a_ for a_ in m_['anmarkningar']), m_
 rot_rt, res_rt = rt_.samla('prov-rt', upp_rt, u_rt, torr=True, kor=kor_rt_faller_); assert res_rt['torr'] and not res_rt['alla_ok']
 assert rt_.tillaten_bild('https://images.refero.design/a.png', 'refero') and not rt_.tillaten_bild('https://images.refero.design.evil/a.png', 'refero') and not rt_.tillaten_bild('http://images.refero.design/a.png', 'refero') and rt_.tillaten_bild('https://mobbin.com/api/mcp/short/x', 'mobbin') and not rt_.tillaten_bild('https://mobbin.com/x', 'refero')
 assert rt_.main(['prov-rt', '--underlag', str(u_rt), '--uppdrag', str(tmp / 'utanfor.json')]) == 2
