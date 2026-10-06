@@ -256,9 +256,25 @@ def offentlig_adress(u, lokala_portar=()):
         if d.scheme != 'https' or not d.hostname:
             return False
         adresser = {x[4][0] for x in socket.getaddrinfo(d.hostname, d.port or 443, proto=socket.IPPROTO_TCP)}
-        return bool(adresser) and all(ipaddress.ip_address(a_.split('%')[0]).is_global for a_ in adresser)
+        return bool(adresser) and all(offentlig_ip(a_) for a_ in adresser)
     except (ValueError, OSError):
         return False
+
+
+NAT64 = ipaddress.ip_network('64:ff9b::/96')
+
+
+def offentlig_ip(a):
+    """Är adressen offentlig, också en IPv4-adress inbäddad i IPv6 (mappad, 6to4, Teredo, NAT64 eller den gamla
+    IPv4-kompatibla formen)? Den inbäddade adressen avgör (granskningen av r79, K)."""
+    ip = ipaddress.ip_address(str(a).split('%')[0])
+    if ip.version == 6:
+        inbaddad = ip.ipv4_mapped or ip.sixtofour or (ip.teredo[1] if ip.teredo else None)
+        if not inbaddad and (ip in NAT64 or (int(ip) >> 32) == 0):
+            inbaddad = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if inbaddad is not None:
+            return inbaddad.is_global
+    return ip.is_global
 
 
 class Omdirigering(urllib.request.HTTPRedirectHandler):
@@ -297,12 +313,13 @@ def ladda_bild(u, mal, lokala_portar=()):
 
 
 def unikt(ident, anvanda):
-    """ident, eller ident-2, -3 …: två träffar vars id ger samma filnamn skriver aldrig över varandras bilder."""
+    """ident, eller ident-2, -3 …: två träffar vars id ger samma filnamn skriver aldrig över varandras bilder, inte heller
+    när de bara skiljer i stora och små bokstäver (APFS skiljer inte på dem; granskningen av r79, J)."""
     ut, n = ident, 1
-    while ut in anvanda:
+    while ut.lower() in anvanda:
         n += 1
         ut = '%s-%d' % (ident[:56], n)
-    anvanda.add(ut)
+    anvanda.add(ut.lower())
     return ut
 
 

@@ -64,6 +64,9 @@ UPPDRAG=$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/granska.py" rokprov-mall
 for krav in "kritik/GRANSKARE.md" "originalitet ≥ 7" "vy-390-ruta-01.png" "vy-1440-ruta-01.png" "kunskap/referenser-professionella.md" "kunskap/byggstandard.md" "standard.md"; do
   case "$UPPDRAG" in *"$krav"*) ;; *) echo "FEL: granskarens uppdrag saknar: $krav"; exit 1;; esac
 done
+# torrkörningens katalog (skärmbilderna) behövs inte efter kontrollen: annars en kvar per rökprov
+TORR=$(printf '%s\n' "$UPPDRAG" | sed -n 's/^Torrkörning: \(.*\)\/PROMPT\.txt\. Ingen granskare startades\.$/\1/p' | tail -1)
+case "$TORR" in */nwp-torr-*) rm -rf "$TORR";; esac
 "$ROOT/.venv/bin/python" -B -c "
 import sys; sys.path.insert(0, '$ROOT/kontroller'); import granska as g
 k = {n: {'betyg': 8, 'motivering': ''} for n in g.KRITERIER}

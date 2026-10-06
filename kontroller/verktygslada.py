@@ -270,8 +270,9 @@ class Cache:
 # Provreglerna: en avvisning gäller den prövning som gjorde den. När reglerna för hur en version prövas rättas (ett prov
 # som en granskning visat dömde fel) räknas äldre avvisningar inte, och versionen prövas en gång till; höj då värdet.
 # 2026-10-06-r76: npm audit jämförs advisory för advisory med det installerade trädet (Vercel CLI 60.1.3 avvisades
-# 02:49Z av jämförelsen utan bas)
-PROVREGLER = '2026-10-06-r76'
+# 02:49Z av jämförelsen utan bas). 2026-10-06-r77: karenstidens marginal, plattformspaketen, ETARGET och miljöfel
+# behåller versionen, båda träden granskas på samma sätt (granskningen av r79, F).
+PROVREGLER = '2026-10-06-r77'
 
 
 def avvisad(avvisade, id_, version):
@@ -607,6 +608,10 @@ def inv_globala(k):
                 kontrollerad=tid, kalla='npm ' + paket, nodvandig=nodv, via_npm=via_npm, uppslagsfel=fel, i_karens=karens,
                 paketkatalog=os.path.join(rot, paket) if via_npm else None)  # underhållets npm audit jämför med trädet där
         r['kandidater'] = kandidater_for(inst, info)
+        spar = Path(rot).parent / ('.nwp-spar-' + re.sub(r'[^\w.-]+', '_', paket)) if rot else None
+        if not inst and spar and (spar / Path(paket).name / 'package.json').is_file():  # ett intag som dog (granskningen av r79, C)
+            r['detalj'] = ('det installerade trädet saknas efter ett avbrutet intag; klonen ligger i %s och underhållet lägger '
+                           'tillbaka den' % spar)
         ut.append(r)
     return ut
 

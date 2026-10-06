@@ -26,7 +26,16 @@ ROOT = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(ROOT / 'kontroller'))
 sys.path.insert(0, str(ROOT / 'dashboard'))
 PY = sys.executable
-tmp = Path(tempfile.mkdtemp(prefix='nwp-rev-'))
+def stada_vid_slut(p):
+    """Tar bort p när provet slutar, också när det faller: annars fyller kvarlämnade kopior disken (NWP_PROV_BEHALL=1
+    behåller dem för felsökning)."""
+    if not os.environ.get('NWP_PROV_BEHALL'):
+        import atexit
+        atexit.register(shutil.rmtree, p, True)
+    return p
+
+
+tmp = stada_vid_slut(Path(tempfile.mkdtemp(prefix='nwp-rev-')))
 # startkontrollen prövas för sig i en isolerad kopia (prov_startkontroll.py); här kör arbetaren med falska sessioner och
 # får aldrig skriva kvitton i repots underlag/
 os.environ['NWP_STARTKONTROLL'] = 'av'
@@ -585,7 +594,7 @@ assert '- bild: kunder/x/granskning/runda-01/sajt/hem/vy-390-ruta-02.png' in an_
 assert 'Inga blockerande fynd.' in gr_tak.andringar({'slug': 'x', 'runda': 2, 'blockerande': []})
 # granskningen av steg 2, punkt 1: en väg utanför repot, en ..-väg ut, en symlänk och en dold katalog fäller aldrig
 # domen; granskarens egen tillståndsbild i arbetskatalogen kopieras in i omgången så att byggaren kan läsa den
-arbrot_ = Path(tempfile.mkdtemp(prefix='nwp-granskning-')); arb_ = arbrot_ / 'x' / 'runda-01-1'; arb_.mkdir(parents=True); (arb_ / 'meny-oppen.png').write_bytes(b'png')  # utanför repot, som /tmp/nwp-granskning
+arbrot_ = stada_vid_slut(Path(tempfile.mkdtemp(prefix='nwp-granskning-'))); arb_ = arbrot_ / 'x' / 'runda-01-1'; arb_.mkdir(parents=True); (arb_ / 'meny-oppen.png').write_bytes(b'png')  # utanför repot, som /tmp/nwp-granskning
 (tmp / '.dold').mkdir(); (tmp / '.dold' / 'ref.png').write_bytes(b'x'); (tmp / 'lank.png').symlink_to('/etc/hosts')
 r1_ = tmp / 'kunder' / 'x' / 'granskning' / 'runda-01'
 gr_rot, gr_arb = gr_tak.ROOT, gr_tak.ARBETSROT; gr_tak.ROOT, gr_tak.ARBETSROT = tmp, arbrot_
@@ -6038,6 +6047,10 @@ assert f_od and f_od.read_bytes() == png_ref, fel_od
 f_od, fel_od = rt_.ladda_bild(od_ + '/annan', tmp / 'od-2', lokala_portar=(rt_port, srv_od.server_address[1]))
 assert f_od is None and 'inte tillåten' in fel_od, fel_od
 assert not rt_.offentlig_adress('https://127.0.0.1/x') and not rt_.offentlig_adress('https://10.1.2.3/x') and not rt_.offentlig_adress('http://93.184.215.14/x')
+# en IPv4-adress inbäddad i IPv6 prövas för sig, och filnamnen skiljer inte på stora och små bokstäver (r79, J och K)
+assert [rt_.offentlig_ip(a_) for a_ in ('::ffff:127.0.0.1', '64:ff9b::7f00:1', '2002:7f00:1::', '::7f00:1', '::ffff:93.184.215.14', '2606:4700::1111')] \
+    == [False, False, False, False, True, True]
+anv_ = set(); assert [rt_.unikt('skarm-a1', anv_), rt_.unikt('Skarm-A1', anv_)] == ['skarm-a1', 'Skarm-A1-2']
 srv_od.shutdown()
 rot_rt, res_rt = rt_.samla('prov-rt', upp_rt, u_rt, torr=True, kor=kor_rt_faller_); assert res_rt['torr'] and not res_rt['alla_ok']
 assert rt_.tillaten_bild('https://images.refero.design/a.png', 'refero') and not rt_.tillaten_bild('https://images.refero.design.evil/a.png', 'refero') and not rt_.tillaten_bild('http://images.refero.design/a.png', 'refero') and rt_.tillaten_bild('https://mobbin.com/api/mcp/short/x', 'mobbin') and not rt_.tillaten_bild('https://mobbin.com/x', 'refero')

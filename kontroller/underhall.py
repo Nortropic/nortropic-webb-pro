@@ -79,6 +79,10 @@ TILLFALLIGT = re.compile(r'tidsgränsen|inget svar inom|timed? ?out|ETIMEDOUT|EC
                          r'Max retries exceeded|rate.?limit|usage limit|limit reached|(?<![.\d])E?(?:429|50[0234])(?![.\d])|'
                          r'Service Unavailable|Bad Gateway|Internal Server Error|overloaded|quota|kvot', re.I)
 TRASIG = re.compile(r'ÅTERSTÄLLNINGEN FÖLL|ÅTERLÄNKNINGEN FÖLL|MILJÖN TRASIG')  # miljön kan vara trasig: aldrig tillfälligt
+# fel som säger något om maskinen, inte om versionen (full disk, en katalog som npm lämnade efter sig, behörigheter):
+# versionen behålls och prövas igen, med skälet (granskningen av r79, A och I)
+MILJOFEL = re.compile(r'ENOSPC|No space left on device|ENOTEMPTY|Directory not empty|EACCES|EPERM|EBUSY|EMFILE|ENFILE', re.I)
+NPM_LOGGTID = re.compile(r'\d{4}-\d\d-\d\dT\d\d_\d\d_\d\d_\d{3}Z')  # npm:s loggfilnamn: millisekunderna är ingen felkod (r79, H)
 HALL = 'BEHÅLLEN: '  # prefix för ett prov som varken godkänner eller avvisar (karenstid, utanför flödets ansvar)
 TILL = 'TILLFÄLLIGT: '  # prefix för ett nätsteg som föll av ett tillfälligt skäl
 # skillens frontmatter och konfiguration som ger behörigheter, krokar eller körning (fynd 1)
@@ -108,7 +112,20 @@ def nat(fel):
     """Felet ur ett steg som går över nätet (installation, granskning, hämtning, modellsvar): märkt tillfälligt när det
     säger något om omgivningen, så att versionen prövas igen vid nästa underhåll i stället för att avvisas. En miljö som
     kan vara trasig märks aldrig tillfällig."""
-    return (TILL + fel) if fel and not fel.startswith((TILL, HALL)) and TILLFALLIGT.search(fel) and not TRASIG.search(fel) else fel
+    if not fel or fel.startswith((TILL, HALL)) or TRASIG.search(fel):
+        return fel
+    prov = NPM_LOGGTID.sub('', fel)
+    if MILJOFEL.search(prov):
+        return HALL + 'miljöfel, inte versionens: ' + fel
+    return (TILL + fel) if TILLFALLIGT.search(prov) else fel
+
+
+def npm_fel(ut, n=240):
+    """npm:s felkod och första felrad, inte bara slutet av utskriften (där loggens sökväg tränger undan koden)."""
+    rader = [x.strip() for x in str(ut or '').splitlines() if x.strip()]
+    kod = next((x for x in rader if re.match(r'npm (?:error|ERR!) code ', x)), '')
+    forsta = next((x for x in rader if re.match(r'npm (?:error|ERR!) ', x) and 'code ' not in x and 'complete log' not in x), '')
+    return ('%s %s' % (kod, forsta)).strip()[:n] or vl.sista(ut, n)
 
 
 def foreg(text, fel):
@@ -443,8 +460,9 @@ def prova_globalt(k, r, kand):
         if rc:
             m = re.search(r'No matching version found for \S+ with a date before [^\n]*', ut or '')
             if m:  # kandidaten eller ett beroende är yngre än gränsen: säger inget om versionen (granskningen av r77, M2)
-                return HALL + 'ingen version före karenstidens gräns (%s): %s; prövas när den gått ut' % (fore, m.group(0)[:200]), None
-            return nat('installationen i en provkatalog föll: ' + vl.sista(ut)), None
+                return HALL + ('npm hittar ingen version före karenstidens gräns (%s): %s; kandidaten eller ett beroende är yngre än gränsen '
+                               '(eller finns inte), prövas igen vid nästa underhåll' % (fore, m.group(0)[:200])), None
+            return nat('installationen i en provkatalog föll: ' + npm_fel(ut)), None
 
         # båda sidor granskas ur sina installerade träd, byggda på samma sätt, så att inget skiljer utom versionerna
         # (granskningen av r77, L3: npm:s eget lås har också andra plattformars valfria paket)
@@ -497,15 +515,25 @@ def prova_globalt(k, r, kand):
             shutil.rmtree(x, ignore_errors=True)
 
 
+def egen_plattform(namn):
+    """Är paketet plattformens egen binär (till exempel @anthropic-ai/claude-code-darwin-arm64 på en Mac med Apple-chip)?"""
+    import platform
+    ord_ = set(re.split(r'[-_/@.]+', str(namn).lower()))
+    os_ = {'darwin': {'darwin', 'macos', 'mac', 'osx'}}.get(sys.platform, {sys.platform})
+    arkitektur = {'arm64': {'arm64', 'aarch64'}, 'x86_64': {'x64', 'x86_64', 'amd64'}}.get(platform.machine(), {platform.machine()})
+    return bool(ord_ & os_) and bool(ord_ & arkitektur)
+
+
 def valfria_utanfor(d, paket):
-    """Kandidatens valfria beroenden som saknas helt i npm:s lås i provkatalogen d. npm skriver in andra plattformars
-    valfria paket i låset fast de inte installeras, så ett som saknas uteslöts vid upplösningen (karenstidens gräns)."""
+    """Kandidatens valfria beroenden för den här plattformen som saknas helt i npm:s lås i provkatalogen d. npm skriver in
+    andra plattformars valfria paket i låset fast de inte installeras, så ett som saknas uteslöts vid upplösningen
+    (karenstidens gräns); andra plattformars paket förklarar aldrig att binären här inte svarar (granskningen av r79, D)."""
     try:
         valfria = json.loads((d / 'node_modules' / paket / 'package.json').read_text(encoding='utf-8')).get('optionalDependencies') or {}
         las = json.loads((d / 'package-lock.json').read_text(encoding='utf-8')).get('packages') or {}
     except (OSError, ValueError):
         return []
-    return sorted(n for n in valfria if not any(k_.endswith('node_modules/' + n) for k_ in las))
+    return sorted(n for n in valfria if egen_plattform(n) and not any(k_.endswith('node_modules/' + n) for k_ in las))
 
 
 KARENS_MARGINAL = 3600  # sekunder: plattformspaketen publiceras ibland minuter efter huvudpaketet (granskningen av r77, M2)
@@ -538,10 +566,53 @@ def binarlankar(prefix_bin, paket):
     return ut
 
 
+def spar_for(paketkatalog, paket):
+    """Klonens plats för ett globalt paket: bredvid node_modules, på samma volym (APFS-klon)."""
+    return global_rot(paketkatalog, paket).parent / ('.nwp-spar-' + re.sub(r'[^\w.-]+', '_', paket))
+
+
+def npm_undanflyttade(kat):
+    """npm:s undanflyttade kopior av paketet (".<namn>-<slump>" bredvid det), som blir kvar om npm dör mitt i bytet och
+    sedan fäller varje ny installation med ENOTEMPTY (granskningen av r79, A)."""
+    kat = Path(kat)
+    monster = re.compile(r'\.%s-[A-Za-z0-9_-]{6,16}' % re.escape(kat.name))
+    try:
+        return [p for p in kat.parent.iterdir() if monster.fullmatch(p.name) and p.is_dir() and not p.is_symlink()]
+    except OSError:
+        return []
+
+
+def laga_avbrutet_intag(paketkatalog, paket):
+    """Ett intag som dog lämnar klonen (och kanske npm:s undanflyttade kopia) kvar. Saknas trädet, eller har det en annan
+    version än klonen, läggs klonen tillbaka; annars tas den bort. Ger en rad till rapporten, eller None (r79, C)."""
+    kat = Path(paketkatalog)
+    spar = spar_for(kat, paket)
+    kopia = spar / kat.name
+    text = None
+    if (kopia / 'package.json').is_file():
+        try:
+            gammal = json.loads((kopia / 'package.json').read_text(encoding='utf-8')).get('version')
+            nu_ = json.loads((kat / 'package.json').read_text(encoding='utf-8')).get('version') if (kat / 'package.json').is_file() else None
+            if nu_ != gammal:  # ett halvgjort intag: det som fungerade läggs tillbaka, och intaget görs om vid nästa underhåll
+                if kat.is_symlink() or kat.is_file():
+                    kat.unlink()
+                elif kat.exists():
+                    shutil.rmtree(kat)
+                os.rename(kopia, kat)
+                text = '%s: ett avbrutet intag lagades, det installerade trädet (%s) lades tillbaka ur klonen' % (paket, gammal)
+        except (OSError, ValueError) as e:
+            return '%s: ÅTERSTÄLLNINGEN FÖLL: klonen från ett avbrutet intag i %s kunde inte läggas tillbaka: %s' % (paket, spar, e)
+    for p in npm_undanflyttade(kat):
+        shutil.rmtree(p, ignore_errors=True)
+    shutil.rmtree(spar, ignore_errors=True)
+    return text
+
+
 def ta_in_globalt(k, r, kand, staged):
     """Intaget med samma flaggor, gräns och minimala miljö som provet. Det installerade trädet sparas först som APFS-klon
     och läggs tillbaka med binärens länkar om intaget faller: en ny installation av den gamla versionen hade löst upp dess
-    beroenden på nytt, utan karenstid (granskningen av r77, M1)."""
+    beroenden på nytt, utan karenstid (granskningen av r77, M1). npm:s undanflyttade kopia tas bort, och klonen står kvar
+    när tillbakaläggningen faller (r79, A och B)."""
     if not r.get('via_npm'):
         return 'behallen', 'installerad utanför npm (%s); uppdateras där' % os.path.realpath(r.get('bin') or '?'), None
     paket, version, gammal = r['paket'], kand['version'], r['installerat']
@@ -551,10 +622,12 @@ def ta_in_globalt(k, r, kand, staged):
     kat = Path(r.get('paketkatalog') or '/finns/inte')
     if not kat.is_dir():
         return 'behallen', 'det installerade trädet saknas (%s); tas in när det finns' % kat, None
+    lagat = laga_avbrutet_intag(kat, paket)  # en klon eller en undanflyttad kopia från ett intag som dog
+    if lagat and TRASIG.search(lagat):
+        return 'avvisad', lagat, None
     rot = global_rot(kat, paket)
     prefix_bin = rot.parent.parent / 'bin'
-    spar = rot.parent / ('.nwp-spar-' + re.sub(r'[^\w.-]+', '_', paket))  # bredvid node_modules, på samma volym (APFS-klon)
-    shutil.rmtree(spar, ignore_errors=True)  # en kvarglömd från ett avbrutet intag
+    spar = spar_for(kat, paket)
     kopia = spar / kat.name
     spar.mkdir(parents=True, exist_ok=True)
     rc0, ut0 = vl.kor(['cp', '-cR', str(kat), str(kopia)], timeout=300)
@@ -562,11 +635,14 @@ def ta_in_globalt(k, r, kand, staged):
         shutil.rmtree(spar, ignore_errors=True)
         return 'behallen', 'det installerade trädet kunde inte sparas före intaget (%s); tas in vid nästa underhåll' % vl.sista(ut0, 120), None
     lankar = binarlankar(prefix_bin, paket)
+    behall_klon = False
     try:
         rc, ut = npm(['install', '-g', '--no-audit', '--no-fund', *fore, *skript, '%s@%s' % (paket, version)], ROOT(), env=vl.provmiljo())
         ny = vl.version_av([shutil.which(r['binar']) or r['bin'], '--version'])
         if rc == 0 and ny == version:
-            return 'uppdaterad', '%s → %s (%s)' % (gammal, version, staged['prov']), None
+            for p in npm_undanflyttade(kat):
+                shutil.rmtree(p, ignore_errors=True)
+            return 'uppdaterad', '%s → %s (%s)%s' % (gammal, version, staged['prov'], ('; ' + lagat) if lagat else ''), None
         fel_t = []
         try:  # klonen tillbaka på trädets plats
             if kat.is_symlink() or kat.is_file():
@@ -576,6 +652,11 @@ def ta_in_globalt(k, r, kand, staged):
             os.rename(kopia, kat)
         except OSError as e:
             fel_t.append('trädet: %s' % e)
+        for p in npm_undanflyttade(kat):  # npm:s undanflyttade kopia: annars fäller den nästa intag med ENOTEMPTY
+            try:
+                shutil.rmtree(p)
+            except OSError as e:
+                fel_t.append('%s: %s' % (p, e))
         for f, mal in binarlankar(prefix_bin, paket).items():  # länkar som den nya versionen lade till
             if f not in lankar:
                 try:
@@ -591,11 +672,14 @@ def ta_in_globalt(k, r, kand, staged):
             except OSError as e:
                 fel_t.append('%s: %s' % (f, e))
         tillbaka = not fel_t and vl.version_av([shutil.which(r['binar']) or r['bin'], '--version']) == gammal
+        behall_klon = not tillbaka and (kopia / 'package.json').is_file()
         return 'avvisad', nat('den globala installationen föll (%s); %s' % (
-            vl.sista(ut, 160), 'det installerade trädet (%s) lagt tillbaka' % gammal if tillbaka else
-            'ÅTERSTÄLLNINGEN FÖLL: %s' % ('; '.join(fel_t)[:200] or 'versionen svarar inte %s' % gammal))), None
+            npm_fel(ut, 200), 'det installerade trädet (%s) lagt tillbaka' % gammal if tillbaka else
+            'ÅTERSTÄLLNINGEN FÖLL: %s%s' % ('; '.join(fel_t)[:200] or 'versionen svarar inte %s' % gammal,
+                                          '; klonen står kvar i %s' % spar if behall_klon else ''))), None
     finally:
-        shutil.rmtree(spar, ignore_errors=True)
+        if not behall_klon:
+            shutil.rmtree(spar, ignore_errors=True)
 
 
 # --- skillsen ---
@@ -1195,6 +1279,22 @@ def skriv_pythonlas(rot, frys, direkta):
     lasfil.write_text(hl + ''.join('%s==%s\n' % (n, frys[n]) for n in sorted(frys)), encoding='utf-8')
 
 
+def steg_laga_globala(rapport):
+    """Före inventeringen: ett globalt intag som dog lämnade en klon eller npm:s undanflyttade kopia. Det som fungerade
+    läggs tillbaka (eller städas bort) innan något slås upp, och rapporten säger det (granskningen av r79, C)."""
+    rot = vl.npm_global_rot()
+    if not rot:
+        return
+    for paket, *_ in vl.GLOBALA:
+        kat = Path(rot) / paket
+        if spar_for(kat, paket).exists() or npm_undanflyttade(kat):
+            text = laga_avbrutet_intag(kat, paket)
+            if text:
+                rapport.setdefault('lagat', []).append(text)
+                if TRASIG.search(text):
+                    rapport.setdefault('trasigt', []).append(text)
+
+
 def steg_pythonlas(k, rapport):
     krav, lasfil = vl.python_las_filer()
     if krav.is_file() and lasfil.is_file():
@@ -1609,9 +1709,6 @@ def hantera(k, r, rapport, utan_tunga=False):
         if a:
             rapport['rader'].append(dict(post, resultat='avvisad', detalj='avvisad %s: %s (prövas igen när en nyare version kommer)' % (a['tid'], a['fel'])))
             continue
-        gammal = k.avvisade.for_version(r['id'], kand['version'])
-        if gammal:  # avvisad med äldre provregler: prövas en gång till, och raden säger det
-            post['omprovad'] = 'avvisad %s med äldre provregler: %s' % (gammal.get('tid'), vl.sista(gammal.get('fel') or '', 160))
         if tungt(r, kand) and utan_tunga:
             rapport['rader'].append(dict(post, resultat='behallen', detalj='kräver hela rökprovet; tunga prov hoppades över (--utan-tunga)'))
             continue
@@ -1619,6 +1716,9 @@ def hantera(k, r, rapport, utan_tunga=False):
         if not prova:
             rapport['rader'].append(dict(post, resultat='behallen', detalj='inget automatiskt prov för slaget %s' % r['typ']))
             return
+        gammal = k.avvisade.for_version(r['id'], kand['version'])
+        if gammal:  # avvisad med äldre provregler: prövas nu en gång till, och raden säger det (bara när provet körs; r79, E)
+            post['omprovad'] = 'avvisad %s med äldre provregler: %s' % (gammal.get('tid'), vl.sista(gammal.get('fel') or '', 160))
         g = k.godkanda.for_version(r['id'], kand['version'])
         if g and g.get('avtryck') == utgangslage(r, kand) and g.get('staged') and (not g['staged'].get('mapp') or Path(g['staged']['mapp']).exists()):
             fel, staged = None, g['staged']
@@ -1688,6 +1788,8 @@ def markdown(rap):
     namn = {'uppdaterad': 'UPPDATERAD', 'avvisad': 'avvisad', 'behallen': 'behållen', 'ok': 'ok', 'okand': 'okänd', 'fel': 'FEL'}
     ut = ['# Underhåll · %s' % rap['start'], '', '**%s.** %s–%s. %s' % (rap.get('sammanfattning', ''), rap['start'], rap.get('slut', ''),
                                                                        ('Push: %s.' % rap['push']) if rap.get('push') else ''), '']
+    if rap.get('lagat'):  # ett avbrutet intag som lagades före inventeringen (granskningen av r79, C)
+        ut += ['**Lagat före inventeringen:** ' + '; '.join(rap['lagat']) + '.', '']
     if rap.get('trasigt'):  # en återställning som föll: verktyget kan saknas tills någon lagat det (granskningen av r72, M7)
         ut += ['**Miljön kan vara trasig:** ' + '; '.join(rap['trasigt']) + '. Startkontrollen stoppar det som inte fungerar; laga och kör '
                'underhållet igen.', '']
@@ -1757,6 +1859,7 @@ def underhall(bara=None, utan_tunga=False, torr=False, k=None, prov=True, invent
             else:
                 if not torr:
                     steg_pythonlas(k, rap)
+                    steg_laga_globala(rap)
                 rader = vl.inventera(k)
                 for r in sorted(rader, key=lambda r: (any(tungt(r, c) for c in r['kandidater']), ORDNING.get(r['typ'], 9), r['id'])):
                     if bara and r['id'] not in bara:

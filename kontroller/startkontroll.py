@@ -318,10 +318,15 @@ def till_byggaren(rader):
 
 
 def senaste_kvitto(rot, namn):
-    """Den senaste starten av slaget namn ur historiken (startkvitton/, en kopia per start), utom stoppade, eller {}."""
+    """Den senaste läsbara starten av slaget namn ur historiken (startkvitton/, en kopia per start), utom stoppade, eller
+    {}. Går den senaste inte att läsa väljs den närmast före (granskningen av r79, G)."""
     m_ = [(m.group(1), f) for f in (Path(rot) / 'startkvitton').glob(namn + '-2*.json')
           for m in [re.fullmatch(re.escape(namn) + r'-(\d{4}-\d\d-\d\dT\d{6}Z)\.json', f.name)] if m]
-    return (vl.las_json(max(m_)[1], {}) or {}) if m_ else {}
+    for _t, f in sorted(m_, reverse=True):
+        kv = vl.las_json(f, {}) or {}
+        if kv:
+            return kv
+    return {}
 
 
 def markdown(kv):

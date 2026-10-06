@@ -22,6 +22,9 @@ from pathlib import Path
 
 ROOT_REAL = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[3]
 TMP = Path(tempfile.mkdtemp(prefix='nwp-startprov-')).resolve()
+if not os.environ.get('NWP_PROV_BEHALL'):  # också när provet faller: annars fyller kvarlämnade kopior disken
+    import atexit
+    atexit.register(shutil.rmtree, TMP, True)
 KOPIA = TMP / 'repo'
 FAKE = TMP / 'fake'
 
@@ -973,6 +976,11 @@ try:
         LAGE_R77['las']['node_modules/vercel/node_modules/@x/bin-darwin-arm64'] = {}
         f_, st_ = uh.prova_globalt(None, R_R77, {'version': '60.1.3'})
         assert f_ == 'provkatalogens vercel svarar None, väntade 60.1.3', f_
+        # en annan plattforms paket som saknas förklarar inte att binären här inte svarar (r79, D)
+        del LAGE_R77['las']['node_modules/vercel/node_modules/@x/bin-linux-x64']
+        f_, st_ = uh.prova_globalt(None, R_R77, {'version': '60.1.3'})
+        assert f_ == 'provkatalogens vercel svarar None, väntade 60.1.3', f_
+        assert uh.egen_plattform('@anthropic-ai/claude-code-darwin-arm64') and not uh.egen_plattform('@anthropic-ai/claude-code-linux-arm64')
         # ingen version före gränsen (ETARGET): BEHÅLLEN, med npm:s rad hel
         LAGE_R77.update(npm_rc=1, npm_ut='npm error code ETARGET\nnpm error notarget No matching version found for vercel@60.1.3 with a date '
                                           'before 10/3/2026, 4:00:00 AM.\nnpm error notarget In most cases you or one of your dependencies are requesting\n')
@@ -1001,7 +1009,7 @@ try:
             return (1, 'npm error code ECONNRESET\nnpm error network aborted') if LAGE_R77['intag'] == 'faller' else (0, '')
         uh.npm = falsk_npm_intag
         vl.kor = spara_kor_m4  # klonen görs med den riktiga cp
-        vl.version_av = lambda a: json.loads((KAT_ / 'package.json').read_text())['version']
+        vl.version_av = lambda a: json.loads((KAT_ / 'package.json').read_text())['version'] if (KAT_ / 'package.json').is_file() else None
         NPM_R76.clear()
         res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p', 'fore': '2026-10-03T00:00:00Z'})
         assert res_[0] == 'avvisad' and res_[1].startswith(uh.TILL) and 'lagt tillbaka' in res_[1] and len(NPM_R76) == 1, (res_, NPM_R76)
@@ -1017,6 +1025,63 @@ try:
         vl.kor = lambda args, **kw: (0, '')  # en kopia som inte blev av: inget intag
         NPM_R76.clear()
         assert uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})[0] == 'behallen' and not NPM_R76, NPM_R76
+        vl.kor = spara_kor_m4
+        # granskningen av r79: npm:s undanflyttade kopia tas bort (A), klonen står kvar när tillbakaläggningen faller (B)
+        # och läggs tillbaka före nästa intag eller underhåll (C); trädet är 60.1.3 efter det lyckade intaget ovan
+        (KAT_ / 'package.json').write_text(json.dumps({'name': 'vercel', 'version': '60.0.1'}))
+        (KAT_ / 'dist' / 'vc.js').write_text('gammal')
+        for f_ in ('vercel', 'vc'):
+            if os.path.lexists(PF_ / 'bin' / f_):
+                os.unlink(PF_ / 'bin' / f_)
+        os.symlink('../lib/node_modules/vercel/dist/vc.js', PF_ / 'bin' / 'vercel')
+        UNDAN_ = PF_ / 'lib' / 'node_modules' / '.vercel-Gammal12'  # kvar från ett tidigare intag som dog
+        UNDAN_.mkdir()
+
+        def falsk_npm_dor(args, cwd, timeout=900, env=None):  # npm flyttar undan trädet och dör mitt i bytet
+            NPM_R76.append(list(args))
+            os.rename(KAT_, PF_ / 'lib' / 'node_modules' / '.vercel-zw0Ty2D2')
+            return 1, ('npm error code ETIMEDOUT\nnpm error A complete log of this run can be found in: '
+                       '/x/_logs/2026-10-06T04_37_15_429Z-debug-0.log')
+        uh.npm = falsk_npm_dor
+        NPM_R76.clear()
+        res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+        assert res_[0] == 'avvisad' and 'lagt tillbaka' in res_[1] and res_[1].startswith(uh.TILL), res_
+        assert not list((PF_ / 'lib' / 'node_modules').glob('.vercel-*')), 'npm:s undanflyttade kopior borta, också den gamla'
+        assert json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1'
+        # tillbakaläggningen faller: klonen står kvar och sägs; nästa underhåll lägger tillbaka den före inventeringen
+        spara_rename = os.rename
+
+        def rename_faller(a_, b_, *r_):
+            if '.nwp-spar-' in str(a_):
+                raise OSError(28, 'No space left on device')
+            return spara_rename(a_, b_, *r_)
+        os.rename = rename_faller
+        try:
+            res_ = uh.ta_in_globalt(None, R_IN, {'version': '60.1.3'}, {'prov': 'p'})
+        finally:
+            os.rename = spara_rename
+        assert res_[0] == 'avvisad' and 'ÅTERSTÄLLNINGEN FÖLL' in res_[1] and 'klonen står kvar' in res_[1], res_
+        assert not KAT_.exists() and (uh.spar_for(KAT_, 'vercel') / 'vercel' / 'package.json').is_file()
+        # underhållets huvudflöde lagar före inventeringen (inventeringen stoppas här), och en gammal undanflyttad kopia
+        # tas bort med lagningen
+        (PF_ / 'lib' / 'node_modules' / '.vercel-Kvar9876').mkdir()
+        spara_rot, spara_inv = vl.npm_global_rot, vl.inventera
+        vl.npm_global_rot = lambda: str(PF_ / 'lib' / 'node_modules')
+
+        def inv_stopp(k, delar=None):
+            raise RuntimeError('stopp efter lagningen')
+        vl.inventera = inv_stopp
+        try:
+            uh.underhall(k=vl.Kontext(nat=True, prova=False, katalog=TMP / 'lage-r79c'), prov=False)
+            raise AssertionError('inventeringen skulle ha stoppats')
+        except RuntimeError as e:
+            assert 'stopp efter lagningen' in str(e), e
+        finally:
+            vl.npm_global_rot, vl.inventera = spara_rot, spara_inv
+        assert json.loads((KAT_ / 'package.json').read_text())['version'] == '60.0.1' and not uh.spar_for(KAT_, 'vercel').exists()
+        assert not list((PF_ / 'lib' / 'node_modules').glob('.vercel-*')), 'den gamla undanflyttade kopian togs bort med lagningen'
+        rap_ = {'rader': [], 'lagat': ['vercel: ett avbrutet intag lagades, det installerade trädet (60.0.1) lades tillbaka ur klonen']}
+        assert 'Lagat före inventeringen' in uh.markdown(dict(rap_, start='t', commits=[]))
     finally:
         uh.npm, vl.version_av = spara_r76
     # ett godkänt prov gäller provreglerna: nya regler gör om det (r77, L7)
@@ -1035,6 +1100,12 @@ try:
     assert f_.startswith(uh.HALL) and 'granskade inga beroenden' in f_, f_
     assert uh.nat('npm audit kunde inte göras: E500 500 Internal Server Error - POST https://registry.npmjs.org/-/npm/v1/security/advisories/bulk').startswith(uh.TILL)
     assert uh.nat('npm audit kunde inte göras: E500 request to https://registry.npmjs.org failed').startswith(uh.TILL), 'koden ensam räcker'
+    # maskinens fel (full disk, en kvarlämnad katalog) behåller versionen; npm:s loggtid är ingen felkod (r79, A, H, I)
+    for f_m in ('npm error code ENOTEMPTY\nnpm error syscall rename', 'installationen föll: ENOSPC: no space left on device, write'):
+        assert uh.nat(f_m).startswith(uh.HALL) and 'miljöfel' in uh.nat(f_m), uh.nat(f_m)
+    assert uh.nat('npm error code E123\nnpm error A complete log of this run can be found in: /x/_logs/2026-10-06T04_37_15_429Z-debug-0.log') \
+        == 'npm error code E123\nnpm error A complete log of this run can be found in: /x/_logs/2026-10-06T04_37_15_429Z-debug-0.log'
+    assert uh.npm_fel('npm error code ENOTEMPTY\nnpm error syscall rename\nnpm error path /x\n' + 'npm error x\n' * 30).startswith('npm error code ENOTEMPTY')
     vl.kor = lambda args, cwd=None, **kw: (1, json.dumps({'vulnerabilities': {'tar': {'name': 'tar', 'severity': 'high',
                                                                                          'via': [{'source': 77, 'name': 'tar', 'severity': 'high', 'title': 't'}]}}}))
     assert ('tar', 'source:77') in uh.audit_fynd(TMP)[0], uh.audit_fynd(TMP)
@@ -1438,6 +1509,19 @@ assert utanfor and utanfor[0]['till'] == pin + '-utanfor' and 'utanför underhå
 assert kv['status'] == 'stoppad', 'låset och node_modules skiljer sig: starten stoppas, och körningens kvitto står kvar'
 kv = sk.kor_kontroll(SLUG, 'ny')
 assert not kv['matinstrument_bytta'], ('jämfört med den senaste start som gick är inget bytt', kv['matinstrument_bytta'])
+# en äldre avvisning som --utan-tunga hoppar över märks inte "prövad igen" (granskningen av r79, E)
+k_e = vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-r79e')
+k_e.avvisade.satt('npm-global:vercel', '62.4.0', fel='gammalt prov')
+rap = {'rader': [], 'commits': []}
+uh.hantera(k_e, dict(v2, kandidater=[{'version': '62.4.0', 'huvudversion': True}]), rap, utan_tunga=True)
+assert rap['rader'][0]['resultat'] == 'behallen' and 'omprovad' not in rap['rader'][0], rap['rader']
+# går det senaste kvittot i historiken inte att läsa är baslinjen det närmast före (r79, G)
+rot_g = TMP / 'kv-historik-g'
+(rot_g / 'startkvitton').mkdir(parents=True)
+(rot_g / 'startkvitton' / 'STARTKVITTO-2026-10-06T010000Z.json').write_text(json.dumps({'tid': 'a', 'matinstrument_sett': {'axe-core': '4.13.0'}}))
+(rot_g / 'startkvitton' / 'STARTKVITTO-2026-10-06T020000Z.json').write_text('{trasig')
+(rot_g / 'startkvitton' / 'STARTKVITTO-STOPP-2026-10-06T030000Z.json').write_text(json.dumps({'tid': 'stopp'}))
+assert sk.senaste_kvitto(rot_g, 'STARTKVITTO')['tid'] == 'a', sk.senaste_kvitto(rot_g, 'STARTKVITTO')
 # efter en start utan startkontroll (kvittot arkiverat med körningen) är baslinjen den förra starten ur historiken, så
 # att ett bytt instrument ändå syns (granskningen av r77, M4); en återupptagen start utan lås att ärva säger det (L12)
 rot_m4 = KOPIA / 'underlag' / SLUG / 'atelje'
