@@ -6010,14 +6010,15 @@ for namn_ra, (svar_ra, traffar_ra, giltigt_ra, vantat_ra, reserv_ra) in FALL_RA.
     assert m_['bilder'] == sum(1 for t_ in m_['traffar'] if t_.get('fil')) + sum(1 for t_ in m_['traffar'] for x_ in t_.get('steg') or [] if x_.get('fil')), (namn_ra, m_)
     if reserv_ra:
         assert 'sessionen gav inget giltigt svar' in anv_[0] and m_['ok'], (namn_ra, anv_)
-# totaltaket: sex frågor med tolv skärmar var ger högst MAX_TRAFFAR
+# totaltaket: fem frågor med elva skärmar och en sjätte med tolv ger högst MAX_TRAFFAR; taket nås mitt i det sjätte svaret
 upp_m6 = {'fragor': [{'tjanst': 'mobbin', 'fraga': 'fraga %s sida' % o_, 'syfte': ''} for o_ in ('alfa', 'beta', 'gamma', 'delta', 'epsilon', 'zeta')]}
 def kor_tak_(tjanst, prompt, logg, modell):
-    logg_ra_(logg, [('mcp__mobbin__search_screens', skarmar_('fraga %s sida' % o_, *['%s%02d' % (o_, n_) for n_ in range(12)]), False)
+    logg_ra_(logg, [('mcp__mobbin__search_screens', skarmar_('fraga %s sida' % o_, *['%s%02d' % (o_, n_) for n_ in range(12 if o_ == 'zeta' else 11)]), False)
                     for o_ in ('alfa', 'beta', 'gamma', 'delta', 'epsilon', 'zeta')], [], False)
     return 1, 'sessionen föll'
 m_ = rt_.samla('prov-rt', upp_m6, u_rt, lokala_portar=(rt_port,), kor=kor_tak_)[1]['tjanster']['mobbin']
-assert len(m_['traffar']) == rt_.MAX_TRAFFAR == 60 and m_['bilder'] == 60 and {t_['fraga'] for t_ in m_['traffar']} == {f_['fraga'] for f_ in upp_m6['fragor'][:5]}, (len(m_['traffar']), m_['bilder'])
+assert len(m_['traffar']) == rt_.MAX_TRAFFAR == 60 and m_['bilder'] == 60 and sum(1 for t_ in m_['traffar'] if t_['fraga'] == 'fraga zeta sida') == 5, \
+    (len(m_['traffar']), m_['bilder'])
 # två id med samma filnamn
 def kor_namn_(tjanst, prompt, logg, modell):
     logg_ra_(logg, [('mcp__mobbin__search_screens', '{}', False)], [{'id': 'a b', 'titel': 't', 'bild_url': rt_bild}, {'id': 'a-b', 'titel': 't', 'bild_url': rt_bild + '?2'}])

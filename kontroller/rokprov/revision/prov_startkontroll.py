@@ -1034,6 +1034,7 @@ try:
     f_ = uh.audit(TMP / 'kand', bas=TMP / 'bas')
     assert f_.startswith(uh.HALL) and 'granskade inga beroenden' in f_, f_
     assert uh.nat('npm audit kunde inte göras: E500 500 Internal Server Error - POST https://registry.npmjs.org/-/npm/v1/security/advisories/bulk').startswith(uh.TILL)
+    assert uh.nat('npm audit kunde inte göras: E500 request to https://registry.npmjs.org failed').startswith(uh.TILL), 'koden ensam räcker'
     vl.kor = lambda args, cwd=None, **kw: (1, json.dumps({'vulnerabilities': {'tar': {'name': 'tar', 'severity': 'high',
                                                                                          'via': [{'source': 77, 'name': 'tar', 'severity': 'high', 'title': 't'}]}}}))
     assert ('tar', 'source:77') in uh.audit_fynd(TMP)[0], uh.audit_fynd(TMP)
