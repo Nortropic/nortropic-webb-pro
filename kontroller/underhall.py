@@ -11,7 +11,8 @@ Samma regler för allt:
 2. Varje uppdatering prövas för sig i en isolerad kopia: installation, säkerhetsgranskning och ett provbygge. Nya
    huvudversioner och nya mätinstrument prövas med hela rökprovet (kontroller/rokprov.sh) i en egen worktree.
    Kandidatens kod körs med en minimal miljö utan nycklar, installationer utan skript där det går, provbyggen innanför
-   processgränsen (kontroller/processgrans.py), och rökprovet med egna kopior av .venv och node_modules.
+   processgränsen (kontroller/processgrans.py), och rökprovet med egna kopior av .venv och node_modules; i rökprovet har
+   kandidatens kod användarens rättigheter (en sandlåda i en sandlåda går inte), så karenstiden och npm audit står före.
 3. Det som klarar proven tas in och checkas in (bara de ändrade sökvägarna, som måste ha varit rena; pushas till main när
    den utgående historiken bara är underhållets egen). ANDRINGAR.jsonl säger vad som byttes; ett bytt mätinstrument är
    märkt, så att startkvittona visar det när körningar före och efter jämförs. Faller ett intag eller dess incheckning
@@ -225,23 +226,40 @@ def audit(cwd):
 # --- rökprovet i en egen worktree ---
 
 def klona(kalla, mal):
-    """En egen kopia som APFS-klon (cp -c: omedelbar, delar block tills något skrivs), annars en vanlig kopia. None eller
-    felet."""
-    rc, ut = vl.kor(['cp', '-cR', kalla, mal], timeout=600)
+    """En egen kopia som APFS-klon (cp -c: omedelbar, delar block tills något skrivs). En venv blir en egen venv: skripten
+    i bin/ pekar på kopians tolk, inte originalets, så att pip och konsolskripten i kopian skriver i kopian (granskningen
+    av r74, M1). None, eller felet märkt BEHÅLLEN: en kopia som inte går att göra säger något om omgivningen, inte om
+    versionen (L3)."""
+    rc, ut = vl.kor(['cp', '-cR', kalla, mal], timeout=300)
     if rc:
         shutil.rmtree(mal, ignore_errors=True)
-        rc, ut = vl.kor(['cp', '-R', kalla, mal], timeout=1800)
-    return None if rc == 0 else 'kopian av %s kunde inte göras: %s' % (kalla, vl.sista(ut))
+        return HALL + 'kopian av %s kunde inte göras (APFS-klon): %s' % (kalla, vl.sista(ut))
+    bin_ = Path(mal) / 'bin'
+    if (Path(mal) / 'pyvenv.cfg').is_file() and bin_.is_dir():
+        for f in bin_.iterdir():
+            if f.is_symlink() or not f.is_file():
+                continue
+            try:
+                t = f.read_text(encoding='utf-8')
+            except (UnicodeDecodeError, OSError):
+                continue
+            huvud, _, rest = t.partition('\n')
+            andra = rest.partition('\n')[0]
+            if str(kalla) in huvud or str(kalla) in andra:  # shebang, eller pips exec-rad för långa sökvägar
+                f.write_text(t.replace(str(kalla), str(mal), 2), encoding='utf-8')
+    return None
 
 
 def kor_i_worktree(k, etikett, forbered, kmd, path_forst=None, timeout=3600, slag='rokprov', avbryt=None):
     """kmd(wt) i en worktree från HEAD. forbered(wt) lägger in kandidaten (manifest, egna node_modules, egen .venv) och
     ger None eller ett fel. Rökprovet prövar själv processgränsen med sandbox-exec, och macOS tillåter ingen sandlåda i
-    en sandlåda, så provet körs utan den: med en minimal miljö (inga nycklar eller tokens; fynd 4) och egna APFS-kloner
-    av .venv och kontrollernas node_modules i stället för länkar till utcheckningens, så att kandidatens kod aldrig kan
-    ändra den delade miljön (granskningen av r72, L4). Testsajtens npm ci görs före, innanför skrivgränsen. Provet anmäler
-    sig inte i körregistret (NWP_UNDERHALL_PROV), så att underhållet inte väntar på sig självt. Ger (slutkod, utdata,
-    logg), eller (None, felet, None) när provet inte kunde startas; loggen sparas i underlag/startkontroll/underhall/."""
+    en sandlåda, så provet körs utan den: med en minimal miljö (inga nycklar eller tokens i miljön; fynd 4) och egna
+    kopior av .venv och kontrollernas node_modules i stället för länkar till utcheckningens, så att provet och dess pip och
+    konsolskript inte ändrar den delade miljön. Kandidatens kod körs där med användarens rättigheter: den kan läsa och
+    skriva det användaren kan. Skyddet mot en komprometterad version är karenstiden, npm audit, installation utan skript
+    och testsajtens npm ci innanför skrivgränsen (granskningen av r74, M1). Provet anmäler sig inte i körregistret
+    (NWP_UNDERHALL_PROV), så att underhållet inte väntar på sig självt. Ger (slutkod, utdata, logg), eller (None, felet,
+    None) när provet inte kunde startas; loggen sparas i underlag/startkontroll/underhall/."""
     import processgrans
     if not ar_git():
         return None, 'provet kräver en git-utcheckning för sin worktree', None
@@ -1051,7 +1069,7 @@ def prova_pip(k, r, kand):
 
 
 def regressionsfall_i_worktree(k, etikett, forbered):
-    """Revisionens regressionsfall (kontroller/rokprov/revision/prov_revision.py) i en worktree, med samma gräns som
+    """Revisionens regressionsfall (kontroller/rokprov/revision/prov_revision.py) i en worktree, på samma sätt som
     rökprovet: provbygget för en Python-uppdatering som inte är en huvudversion."""
     rc, ut, logg = kor_i_worktree(k, etikett, forbered, lambda wt: [wt / '.venv' / 'bin' / 'python', '-B',
                                                                     wt / 'kontroller' / 'rokprov' / 'revision' / 'prov_revision.py', wt],
@@ -1256,16 +1274,17 @@ def prova_node_huvud(k, r, kand):
 
 
 def flaska_saknas(formel):
-    """Saknar formeln en färdig flaska för den här macOS (Homebrew skulle bygga från källkod)? False när det inte går att
-    avgöra."""
-    rc, tagg = brew('ruby', '-e', 'print Utils::Bottles.tag.to_s', timeout=120)
-    rc2, ut = brew('info', '--json=v2', '--formula', formel, timeout=180)
+    """Saknar formeln en färdig flaska för den här datorn (Homebrew skulle bygga från källkod)? Homebrews svar bär bara
+    flaskorna som hälls här (också en äldre macOS-version), så en tom lista betyder källkod (granskningen av r74, L1).
+    False när det inte går att avgöra."""
+    rc, ut = brew('info', '--json=v2', '--formula', formel, timeout=180)
     try:
-        filer = (((json.loads(ut).get('formulae') or [{}])[0].get('bottle') or {}).get('stable') or {}).get('files') or {}
+        f = (json.loads(ut).get('formulae') or [None])[0]
     except (ValueError, AttributeError, IndexError):
         return False
-    tagg = tagg.strip()
-    return bool(rc == 0 and rc2 == 0 and re.fullmatch(r'[a-z0-9_]+', tagg) and filer and tagg not in filer and 'all' not in filer)
+    if rc or not isinstance(f, dict) or 'bottle' not in f:
+        return False
+    return not (((f.get('bottle') or {}).get('stable') or {}).get('files') or {})
 
 
 def huvud_av(v):

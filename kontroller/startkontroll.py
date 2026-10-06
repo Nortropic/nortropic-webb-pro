@@ -126,7 +126,8 @@ def prova_formagan(k, version, start='ny'):
     # det fullständiga provet görs i underhållet; ateljéns start gör om det bara när det fallit eller gått ut (M1), och
     # helbygget, som inte laddar Mobbin, gör det aldrig
     ansluten = servrar is not None and (servrar.get('mobbin') or {}).get('status') == 'ok'
-    m = vl.prova_mobbin(k if ateljen else vl.Kontext(nat=False, prova=False, katalog=k.katalog), ansluten=ansluten if servrar is not None else None)
+    m = vl.prova_mobbin(k if ateljen else vl.Kontext(nat=False, prova=False, katalog=k.katalog), ansluten=ansluten if servrar is not None else None,
+                        frist=vl.MOBBIN_PROVFRIST)
     res = m.get('resultat')
     if res == 'ok' and m.get('gammalt'):
         res = 'okand'

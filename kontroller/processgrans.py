@@ -134,7 +134,8 @@ SKYDDADE_HEMKATALOGER = ('.ssh', '.claude', '.local/bin', '.nortropic-hemlighete
 
 
 def profil_underhallsprov(root, wt, hem=None):
-    """Profilen för underhållets prov med en kandidat i en worktree (rökprovet, regressionsfallen, testsajtens npm ci):
+    """Profilen för underhållets installation av testsajtens beroenden i en worktree (testsajtens npm ci; rökprovet
+    själv kan inte köras i en sandlåda, eftersom det prövar processgränsen med sandbox-exec):
     hemligheterna olästa, och ingen skrivning i huvudutcheckningen (dess .venv och node_modules, som worktreen länkar
     till; bara worktreens egen git-katalog), i Homebrew, i skalprofilerna eller i Claude Codes filer. Nät och skrivning
     i worktreen, tempkatalogerna och cacherna går (den oberoende granskningen av r72, L4)."""

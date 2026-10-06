@@ -46,6 +46,17 @@ def startad(pid):
     return ps('lstart', pid)
 
 
+def startad_lokalt(pid):
+    """Starttiden i lokal tid, som den äldre koden skrev den (granskningen av r74, L6: en post från före bytet till UTC
+    räknas som samma process)."""
+    try:
+        env = {k: v for k, v in os.environ.items() if k != 'TZ'}
+        return subprocess.run(['ps', '-o', 'lstart=', '-p', str(int(pid))], capture_output=True, text=True, timeout=10,
+                              env=dict(env, LC_ALL='C')).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ''
+
+
 def lever(pid):
     try:
         os.kill(int(pid), 0)
@@ -120,7 +131,7 @@ def poster():
         levande = lever(pid)
         if d.get('pstart'):
             nu_s = startad(pid) if levande else ''
-            aterbrukad = bool(nu_s) and nu_s != d['pstart']
+            aterbrukad = bool(nu_s) and d['pstart'] not in (nu_s, startad_lokalt(pid))
         else:
             nu_k = kommando(pid) if levande else ''
             tecken = KANNETECKEN.get(d.get('vad'), '')

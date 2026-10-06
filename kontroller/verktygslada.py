@@ -1174,9 +1174,10 @@ def mobbin_bevis(max_alder):
 MOBBIN_PROVFRIST = 300  # s: startens prov väntar aldrig längre (granskningen av r73, N4)
 
 
-def prova_mobbin(k, ansluten=None):
+def prova_mobbin(k, ansluten=None, frist=None):
     """Mobbins sökning och bildleverans genom flödets egen tjänstesession på ett fiktivt provunderlag (en liten
-    Sonnet-session, högst MOBBIN_PROVFRIST), eller ett färskt resultat ur en riktig körning. ansluten=False (claude mcp
+    Sonnet-session; i starten högst frist=MOBBIN_PROVFRIST, i underhållet sessionens vanliga gräns), eller ett färskt
+    resultat ur en riktig körning. ansluten=False (claude mcp
     list visar att Mobbin inte ansluter): inget nytt prov, eftersom starten ändå stoppas på anslutningen."""
     b = mobbin_bevis(GILTIGHET['mobbin'])
     if b:
@@ -1195,7 +1196,8 @@ def prova_mobbin(k, ansluten=None):
     try:
         _rot, res = referenstjanster.samla('startprov', {'fragor': [{'tjanst': 'mobbin', 'fraga': 'contact form for a local service business',
                                                                       'syfte': 'underhållets prov', 'typ': 'skarm'}]}, underlag=u,
-                                           kor=lambda t, p, l, m: referenstjanster.kor_session(t, p, l, m, frist=MOBBIN_PROVFRIST))
+                                           kor=(lambda t, p, l, m: referenstjanster.kor_session(t, p, l, m, frist=frist)) if frist else
+                                           referenstjanster.kor_session)
         m = (res.get('tjanster') or {}).get('mobbin') or {}
         ok = bool(m.get('ok') and m.get('bilder'))
         detalj = ('sökning och %d bilder levererade (provunderlag)' % m.get('bilder')) if ok else 'gav inga bilder: %s' % sista('; '.join(m.get('anmarkningar') or []), 200)

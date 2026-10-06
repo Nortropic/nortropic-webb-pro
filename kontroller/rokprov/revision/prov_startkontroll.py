@@ -1003,6 +1003,11 @@ kv_n1 = sk.kor_kontroll(SLUG, 'ny')
 styr_n1 = [r_ for r_ in kv_n1['rader'] if r_['namn'].startswith('gammal styrning')]
 assert not any(r_.get('nodvandig') for r_ in styr_n1) and any('cache' in r_['namn'] and r_['resultat'] == 'okand' for r_ in styr_n1), styr_n1
 assert not any('UPPTAGNA-VAL' in str(r_.get('detalj')) for r_ in styr_n1), 'en äldre UPPTAGNA-VAL.md läses inte av agenterna och räknas inte'
+import upptagna_val as uv_n1  # noqa: E402
+(KOPIA / 'underlag' / SLUG / 'UPPTAGNA-VAL.md').write_text('<!-- %s -->\n# Upptagna val\n\nArchivo för målaren.\n' % uv_n1.VERSION)
+kv_n1 = sk.kor_kontroll(SLUG, 'ny')
+styr_n1 = next(r_ for r_ in kv_n1['rader'] if r_['namn'] == 'gammal styrning i agentuppdragen och metoden')
+assert styr_n1.get('nodvandig') and 'UPPTAGNA-VAL.md' in styr_n1['detalj'] and kv_n1['status'] == 'stoppad', styr_n1
 shutil.rmtree(metodkat)
 (KOPIA / 'underlag' / SLUG / 'UPPTAGNA-VAL.md').unlink()
 
@@ -1040,10 +1045,15 @@ try:
     vl.skriv_json(c_.fil, c_.d)
     vl.prova_mobbin(vl.Kontext(nat=False, prova=True), ansluten=False)
     assert not MOBB_N4, 'ingen session när anslutningen redan fallit'
-    vl.prova_mobbin(vl.Kontext(nat=False, prova=True), ansluten=True)
+    vl.prova_mobbin(vl.Kontext(nat=False, prova=True), ansluten=True, frist=vl.MOBBIN_PROVFRIST)
     assert MOBB_N4 and MOBB_N4[0] is not None
     MOBB_N4[0]('mobbin', 'p', 'l', 'm')
     assert FRIST_N4 == [vl.MOBBIN_PROVFRIST] and vl.MOBBIN_PROVFRIST <= 300, FRIST_N4
+    c_ = vl.Cache(vl.lagekatalog() / 'CACHE.json')
+    c_.d['prov:mobbin'].update(resultat='fel', detalj='nere igen')
+    vl.skriv_json(c_.fil, c_.d)
+    vl.prova_mobbin(vl.Kontext(nat=False, prova=True), ansluten=True)  # underhållets prov: sessionens vanliga gräns (L5)
+    assert MOBB_N4[-1] is rt_m1.kor_session, MOBB_N4
 finally:
     rt_m1.samla, rt_m1.kor_session = spara_n4
 
@@ -1053,16 +1063,23 @@ try:
     sh(sys.executable, '-B', KOPIA / 'kontroller' / 'korregister.py', 'in', 'bygge', '--slug', 'tz-prov', '--pid', str(proc_n5.pid), env=dict(os.environ, TZ='UTC'))
     for tz_ in ('Europe/Stockholm', 'America/New_York'):
         assert 'tz-prov' in sh(sys.executable, '-B', KOPIA / 'kontroller' / 'korregister.py', 'lista', env=dict(os.environ, TZ=tz_)), tz_
+    post_n5 = json.loads((korregister.KATALOG / ('%d.json' % proc_n5.pid)).read_text())
+    post_n5['pstart'] = korregister.startad_lokalt(proc_n5.pid)  # som den äldre koden skrev den (granskningen av r74, L6)
+    (korregister.KATALOG / ('%d.json' % proc_n5.pid)).write_text(json.dumps(post_n5))
+    assert any(d_['pid'] == proc_n5.pid for d_ in korregister.poster()), 'en post från före bytet till UTC räknas som samma process'
 finally:
     proc_n5.kill()
     proc_n5.wait()
 
 # N6: en formel utan färdig flaska byggs aldrig under intagslåset; testsajtens installation avbryts när en start väntar
 spara_n6 = uh.brew
-uh.brew = lambda *a, timeout=0: ((0, 'arm64_sequoia') if a[:1] == ('ruby',) else
-                                 (0, json.dumps({'formulae': [{'bottle': {'stable': {'files': {'arm64_sonoma': {}}}}}]})) if a[:2] == ('info', '--json=v2')
+FLASKOR_N6 = {}
+uh.brew = lambda *a, timeout=0: ((0, json.dumps({'formulae': [{'bottle': {'stable': {'files': FLASKOR_N6}}}]})) if a[:2] == ('info', '--json=v2')
                                  else (0, ''))
 try:
+    FLASKOR_N6.update({'arm64_sonoma': {}})  # en flaska för en äldre macOS hälls här (granskningen av r74, L1)
+    assert not uh.flaska_saknas('git')
+    FLASKOR_N6.clear()  # ingen flaska: Homebrew skulle bygga från källkod
     assert uh.flaska_saknas('node@24')
     fel_n6, _s = uh.prova_node_huvud(vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-n6'), {'id': 'brew:node'},
                                      {'version': '24.23.0_1', 'formel': 'node@24', 'huvudversion': True})
@@ -1191,6 +1208,8 @@ for f in ('kontroller/rokprov.sh',):
                            'if [ -f "$R/KANDIDAT-ROD" ]; then echo "FEL: kandidaten bröt provet"; exit 1; fi\n'
                            # egna kopior av .venv och node_modules, aldrig länkar till utcheckningens (granskningen av r72, L4)
                            'for d in .venv kontroller/node_modules; do if [ -L "$R/$d" ] || [ ! -d "$R/$d" ]; then echo "FEL: $d är ingen egen kopia"; exit 1; fi; done\n'
+                           # konsolskripten i klonen kör klonens tolk, inte originalets (granskningen av r74, M1)
+                           'head -2 "$R/.venv/bin/pip" | grep -q "/wt/.venv/" || { echo "FEL: pip kör originalets venv"; exit 1; }\n'
                            '"$R/.venv/bin/python" -c "import sys; assert \'/wt/.venv\' in sys.prefix, sys.prefix" || { echo "FEL: fel venv"; exit 1; }\n'
                            'echo "rökprovet OK"\n')
 sh(*GIT, 'commit', '-q', '-am', 'falskt rökprov')

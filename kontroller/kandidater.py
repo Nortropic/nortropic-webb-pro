@@ -523,7 +523,8 @@ def forska_prompt(slug, n, fel=None, skiss=False):
         *historik_rader(slug), *regel_rader(), *metod_rader(slug, 'forska'), '',
         *research_rader(slug), '',
         *(['Återanvänd researchen som finns (referenspaketet och tjänsternas rapport ovan). Föreslå sajter och frågor bara',
-           'där materialet saknar något som planen behöver för skilda grundidéer: högst 4 sajter och 6 frågor, annars tomma',
+           'där materialet saknar något som planen behöver för %s: högst 4 sajter och 6 frågor, annars tomma' % (
+               'den bärande riktningen' if n == 1 else 'skilda grundidéer'),
            'listor. Varje hämtning förlänger ägarens väntan.', ''] if skiss else []),
         'Svara med tre delar:',
         '- antaganden: 3–6 antaganden om besökarna som kan ändra designbesluten, ur briefens målgrupper, toppuppgifter och',
@@ -540,7 +541,8 @@ def forska_prompt(slug, n, fel=None, skiss=False):
         '  hantverk eller ux, varför, högst %d sidvägar). Välj sajter som paketet inte redan har, eller skriv varför en' % skapande.MAX_SIDOR_PER,
         '  befintlig behöver fler sidor; en referens som en förkastad riktning redan byggt på väljs bara med ett skäl som svarar',
         '  på kritiken. Domäner med å, ä eller ö skrivs i punycode.',
-        'I riktningar: vilka skilda grundidéer researchen ska öppna, och vad i kundens material som bär var och en. Skilj på',
+        ('I riktningar: vilka riktningar researchen prövar för att välja den bärande, och vad i kundens material som bär var och en. Skilj på'
+         if n == 1 else 'I riktningar: vilka skilda grundidéer researchen ska öppna, och vad i kundens material som bär var och en. Skilj på'),
         'observation (vad en referens gör), rekommendation (vad vi föreslår för kunden) och belagd effekt (bara med källa).',
         *(['Förra svaret gick inte att köra: %s. Rätta det.' % fel] if fel else []),
         atelje.MATERIAL])
@@ -712,6 +714,13 @@ def plan_prompt(slug, n, skiss=False):
         *kompetens.prompt_rader('planera', slug), '',
         *research_rader(slug), *(['Bildval som inte gick att läsa: ' + '; '.join(fel)] if fel else []), '',
         *material_rader(slug), '',
+        *(['Låt idén uppstå ur researchen och kundens material, aldrig ur fasta mallkategorier: ett sätt att presentera',
+           'verksamheten (till exempel börja med dokumenterade projekt, med arbetsprocessen eller med specialistkompetensen) som',
+           'organiserar kundens information i besökarnas eget språk. Uppdraget besvarar: vilken viktig uppgift ska besökaren klara,',
+           'vilket innehåll hjälper besökaren att fatta beslut, vad antar vi om besökarens behov (researchens antaganden), och hur',
+           'kan vi pröva om förslaget fungerar (en besökaruppgift som "ta reda på om företaget kan hjälpa dig med ditt projekt och',
+           'hur du går vidare", utan att avslöja knappen); och en kort hypotes om varför just den här lösningen passar verksamheten',
+           'och besökaren (den nämner ingen referens eller sajt vid namn).'] if n == 1 else [
         'Låt varje idé uppstå ur researchen och kundens material, aldrig ur fasta mallkategorier: uppdragen är olika sätt att',
         'presentera verksamheten (till exempel börja med dokumenterade projekt, med arbetsprocessen eller med specialistkompetensen),',
         'och variationen gäller hur sidan organiserar kundens information i besökarnas eget språk. Varje uppdrag besvarar: vilken',
@@ -722,7 +731,7 @@ def plan_prompt(slug, n, skiss=False):
         'eller sajt vid namn). Variera det som gör en sida till en egen sida: innehållshierarkin och vad som möter besökaren först;',
         'vad som bär sidan; bildstrategin; det typografiska systemet; navigationen; hur förtroende byggs; färgernas funktion.',
         'Det är verktyg för att upptäcka falsk variation, ingen checklista där allt måste bytas. Tio färgvarianter av samma',
-        'struktur är inga tio riktningar, och inget uppdrag får vara avsiktligt svagt.',
+        'struktur är inga tio riktningar, och inget uppdrag får vara avsiktligt svagt.']),
         'Huvudreferensen per uppdrag är en namngiven sajt eller skärm ur researchen (referenspaketet eller tjänsternas fynd),',
         'som får vara utgångspunkt för layout, palett och typografi (ägarens beslut); dess identitet, texter och bilder blir',
         'aldrig kundens innehåll. Skriv vilken kvalitet i referensen uppdraget ska återskapa, vad den kvaliteten kräver (till',
@@ -1775,49 +1784,63 @@ REFERENSVYER = ('390-forsta', '1440-forsta', '390-hela', '1440-hela')
 
 def referensens_namn(text):
     """Referensens namn i jämförbar form: före tankstrecket, utan parentes (skaparna skriver ofta domänen, "Tekt
-    (tekt.com.au)") och med gemener (granskningen av r73, A1)."""
+    (tekt.com.au)"), gemener och utan diakriter, så att "Östra" och en katalog "ostra" möts (granskningen av r73, A1, och
+    r74, M2)."""
     import referensval
-    return re.sub(r'\s*\([^)]*\)', '', referensval.rubriknamn(text or '')).strip()
+    return skapande.vik(re.sub(r'\s*\([^)]*\)', '', referensval.rubriknamn(text or ''))).strip()
+
+
+def fangad(d):
+    return (Path(d) / 'vy-390-forsta.png').is_file() or (Path(d) / 'vy-1440-forsta.png').is_file()
 
 
 def startsidan(referensrot, citerade=()):
-    """Referensens startsida bland dess fångade sidor: den vars adress är "/" (INSPEKTION.json), annars 01-…, annars den
-    med flest utpekade bilder (granskningen av r73, A3)."""
+    """Referensens startsida bland dess fångade sidor (referensens egen katalog i den platta layouten, annars dess
+    undersidor): den vars adress är "/" enligt INSPEKTION.json, annars 01-…, annars den med flest utpekade bilder, annars
+    den första (granskningen av r73, A3, och r74, L2)."""
     from urllib.parse import urlparse
-    fangade = [d for d in sorted(Path(referensrot).iterdir()) if d.is_dir() and ((d / 'vy-390-forsta.png').is_file() or (d / 'vy-1440-forsta.png').is_file())]
-    for d in fangade:
-        if urlparse(str((atelje.las_json(d / 'INSPEKTION.json') or {}).get('adress') or '')).path in ('', '/'):
+    rot = Path(referensrot)
+    sidor = ([rot] if fangad(rot) else []) + [d for d in sorted(rot.iterdir()) if d.is_dir() and fangad(d)]
+    for d in sidor:
+        adr = str((atelje.las_json(d / 'INSPEKTION.json') or {}).get('adress') or '')
+        if adr and urlparse(adr).path in ('', '/'):
             return d
-    for d in fangade:
+    for d in sidor:
         if d.name.startswith('01-'):
             return d
-    citerade = [d for d in citerade if d in fangade]
-    return max(citerade, key=list(citerade).count) if citerade else (fangade[0] if fangade else None)
+    citerade = [d for d in citerade if d in sidor]
+    return max(citerade, key=list(citerade).count) if citerade else (sidor[0] if sidor else None)
 
 
 def referenssida(slug, kid):
     """Huvudreferensens startsida som den fångades, för jämförelsen bredvid kandidaten (ägarens uppdrag 2026-10-05 18:53Z,
     punkt 7: referensen och prototypen bredvid varandra i mobil och dator). Referensen hittas genom Bildval-raderna under
-    dess rubrik i REFERENSER.md, annars genom uppdragets referensbilder, annars genom katalogen med referensens namn i
-    det senaste paketet (referenser/<paket>/<referens>/<sida>/). Ger ({'namn', 'sida', '390-forsta', '1440-forsta',
-    '390-hela', '1440-hela'} med sökvägar under underlag/, None för en vy som saknas), eller (None, skälet)."""
+    dess rubrik i REFERENSER.md (rubriken och namnet jämförs i samma form), annars genom uppdragets referensbilder, annars
+    genom katalogen med referensens namn: referenser/<paket>/<referens>/ i det senaste paketet, eller den platta
+    referenser/<referens>/ (byggena före paketen). Ger ({'namn', 'sida', '390-forsta', '1440-forsta', '390-hela',
+    '1440-hela'} med sökvägar under underlag/, None för en vy som saknas), eller (None, skälet)."""
     import referensval
     hel = las_status(slug, kid).get('huvudreferens') or ''
     namn = referensens_namn(hel)
     if not namn:
         return None, 'förslaget har ingen huvudreferens'
-    rot_ = (atelje.UNDERLAG / slug / 'referenser').resolve()
+    bas = atelje.UNDERLAG / slug / 'referenser'  # oupplöst, så att sökvägarna blir relativa till repot
+    rot_ = bas.resolve()
     kort = re.sub(r'[^a-z0-9]+', '-', namn).strip('-')
-    citerade = [Path(f).parent for f, _t in referensval.referens(slug, atelje.UNDERLAG, namn)['bilder']]
+    citerade = [Path(v['fil']).parent for v in referensval.bildval(slug, atelje.UNDERLAG)
+                if v['fil'] and referensens_namn(v['referens']) == namn]
     if not citerade:
         for r_ in uppdragets_bilder(slug, kid):
             f = atelje.UNDERLAG / Path(r_).relative_to('underlag')
-            if kort and kort in f.relative_to(atelje.UNDERLAG / slug / 'referenser').parts:
+            if kort and kort in f.relative_to(bas).parts:
                 citerade.append(f.parent)
-    rotter = list(dict.fromkeys(d.parent for d in citerade if d.parent.resolve() != rot_))
-    if not rotter and kort:  # bara namnet: referensens katalog i det senaste paketet som har den
-        bas = atelje.UNDERLAG / slug / 'referenser'  # oupplöst, så att sökvägarna blir relativa till repot
+    rotter = []
+    for d in citerade:  # referensens katalog: sidans förälder i paketen, sidan själv i den platta layouten
+        rotter.append(d if d.parent.resolve() == rot_ else d.parent)
+    rotter = list(dict.fromkeys(rotter))
+    if not rotter and kort:  # bara namnet: katalogen i det senaste paketet som har den, annars den platta
         rotter = sorted((d for d in bas.glob('*/%s' % kort) if d.is_dir()), key=lambda d: d.parent.name, reverse=True)
+        rotter += [bas / kort] if (bas / kort).is_dir() else []
     for r_ in rotter:
         val = startsidan(r_, citerade)
         if val and val.resolve().is_relative_to(rot_):

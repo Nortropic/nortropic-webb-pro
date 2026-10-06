@@ -701,7 +701,8 @@ async function kandidatvy(slug, d) {
     if (!j.referens) return `<details class="refjamfor" open><summary>Bredvid huvudreferensen: saknas</summary><p class="under rod-text">Ingen jämförelse: ${esc(j.saknas || 'huvudreferensens sida hittades inte')}.</p>${j.avsnitt_html ? `<div class="prosa">${j.avsnitt_html}</div>` : ''}</details>`;
     const r = j.referens;
     const b2 = (p, t) => bild(p, t) || `<div class="tom">${esc(t)}: ingen bild</div>`;
-    const par = (bredd) => `<div class="galleri" style="grid-template-columns:1fr 1fr;align-items:start">${b2(r[`${bredd}-${kHela ? 'hela' : 'forsta'}`] || r[`${bredd}-forsta`], `huvudreferensen, ${bredd} px`)}${b2(k.bilder[`${bredd}-${kHela ? 'hela' : 'forsta'}`], `förslaget, ${bredd} px`)}</div>`;
+    const vy = kHela ? 'hela' : 'forsta';
+    const par = (bredd) => `<div class="galleri" style="grid-template-columns:1fr 1fr;align-items:start">${b2(r[`${bredd}-${vy}`], `huvudreferensen, ${bredd} px, ${kHela ? 'hela sidan' : 'första vyn'}`)}${b2(k.bilder[`${bredd}-${vy}`], `förslaget, ${bredd} px, ${kHela ? 'hela sidan' : 'första vyn'}`)}</div>`;
     return `<details class="refjamfor"${(d.kandidater || []).length === 1 ? ' open' : ''}><summary>Bredvid huvudreferensen: ${esc(r.namn || '')}</summary>
       <p class="under" style="margin:6px 0">Vänster huvudreferensens startsida som den fångades, höger förslaget; ${kHela ? 'hela sidan' : 'första vyn'} (byt med knapparna ovan).</p>
       <h4>Mobil 390</h4>${par('390')}<h4>Dator 1440</h4>${par('1440')}

@@ -94,9 +94,11 @@ def prova(slug=None, root=None, med_metod=True):
             if not f.is_file():
                 continue
             text = f.read_text(encoding='utf-8', errors='replace')
-            if f.name == 'UPPTAGNA-VAL.md' and upptagna_val.VERSION not in text:
+            if f.name == 'UPPTAGNA-VAL.md':
+                if upptagna_val.VERSION in text:  # den aktuella läses av agenterna som den står (granskningen av r74, L4)
+                    ut += fynd_i(text, str(f.relative_to(root)))
                 continue
-            ut += [dict(x, cache=True, vad=x['vad'] + ' (cache: körningens kopia, levereras om vid starten)') for x in fynd_i(text, str(f.relative_to(root)))]
+            ut += [dict(x, cache=True, vad=x['vad'] + ' (cache: körningens metodkopia, levereras om vid starten)') for x in fynd_i(text, str(f.relative_to(root)))]
     return ut
 
 

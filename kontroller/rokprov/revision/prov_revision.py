@@ -4458,14 +4458,22 @@ skript_k3 = tmp / 'k3-trad.sh'
 skript_k3.write_text('#!/bin/bash\n/usr/bin/perl -e "setpgrp(0,0); sleep 300" &\nsleep 300\n')
 skript_k3.chmod(0o755)
 p_k3 = subprocess.Popen([str(skript_k3)], start_new_session=True)
-barn_k3 = []
-for _ in range(100):  # båda barnen har startat: under last tar det mer än en halv sekund
+barn_k3, egen_k3 = [], False
+
+
+def egen_grupp_k3(x_):
+    try:
+        return os.getpgid(x_) == x_
+    except OSError:
+        return False
+for _ in range(100):  # båda barnen har startat och perl har bytt processgrupp: under last tar det mer än en halv sekund
     barn_k3 = [x_ for x_ in nl_k3.efterkommande(p_k3.pid) if nl_k3.lever(x_)]
-    if len(barn_k3) >= 2:
+    egen_k3 = any(egen_grupp_k3(x_) for x_ in barn_k3)
+    if len(barn_k3) >= 2 and egen_k3:
         break
     time.sleep(0.1)
 assert len(barn_k3) >= 2, ('trädet syns via ppid', barn_k3)
-assert any(os.getpgid(x_) == x_ for x_ in barn_k3), 'ett av barnen ligger i en egen processgrupp'
+assert egen_k3, 'ett av barnen ligger i en egen processgrupp'
 dodade_k3 = nl_k3.doda_trad(p_k3.pid)
 p_k3.wait(timeout=10)
 time.sleep(0.3)
@@ -6286,7 +6294,9 @@ def gammal_styrning():
     import upptagna_val as uv_sty
     (rot_ / 'underlag' / 'sty-kund' / 'UPPTAGNA-VAL.md').write_text('<!-- %s -->\nÄgaren godtog Archivo för målaren i dom L2.\n' % uv_sty.VERSION)
     cache_ = sty_.prova('sty-kund', root=rot_, med_metod=False)
-    assert {Path(x['kalla']).name for x in cache_} == {'METOD-skiss.md', 'UPPTAGNA-VAL.md'} and all(x.get('cache') for x in cache_), cache_
+    # den aktuella läses av agenterna som den står: dess fynd är inte cache och stoppar en start (granskningen av r74, L4)
+    assert {Path(x['kalla']).name for x in cache_ if x.get('cache')} == {'METOD-skiss.md'}, cache_
+    assert {Path(x['kalla']).name for x in cache_ if not x.get('cache')} == {'UPPTAGNA-VAL.md'}, cache_
     # agenterna får inte läsa ägarens domar över tidigare byggen eller andra kunders mappar
     import atelje as at_s
     assert {'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)'} <= set(at_s.NEKAS)
@@ -6364,11 +6374,28 @@ def referensjamforelsen():
             (ref_ / kat_ / 'INSPEKTION.json').write_text(json.dumps({'adress': adr_}))
         (u_ / 'REFERENSER.md').write_text((u_ / 'REFERENSER.md').read_text() + '\n## Gammal — bransch\n\nBildval: referenser/paket-v05/gammal/projects/'
                                           'vy-1440-ruta-02.png — projekten — Fråga: bär projekten?\n')
-        for kid_, namn_, sida_ in (('k05', 'Tekt (tekt.com.au)', 'tekt/01-start'), ('k06', 'Sebastian Cox (sebastiancox.co.uk)', 'sebastian-cox/01-start'),
-                                   ('k07', 'Gammal — projekten först', 'gammal/start')):
+        # diakriter, en parentes också i rubriken, den platta layouten från byggena före paketen, och en sida utan
+        # INSPEKTION.json som aldrig blir startsida (granskningen av r74, M2 och L2)
+        for kat_ in ('ostra-snickeriet/01-start', 'tekt-arch/01-start', 'tekt-arch/02-process', 'gammal2/projects', 'gammal2/start'):
+            (ref_ / kat_).mkdir(parents=True, exist_ok=True)
+            for v_ in ('vy-390-forsta', 'vy-1440-forsta', 'vy-1440-ruta-02'):
+                (ref_ / kat_ / (v_ + '.png')).write_bytes(b'png')
+        (ref_ / 'gammal2' / 'start' / 'INSPEKTION.json').write_text(json.dumps({'adress': 'https://gammal2.se/'}))
+        platt_ = u_ / 'referenser' / 'platt'
+        platt_.mkdir(parents=True)
+        for v_ in ('vy-390-forsta', 'vy-1440-forsta', 'vy-390-hela'):
+            (platt_ / (v_ + '.png')).write_bytes(b'png')
+        (u_ / 'REFERENSER.md').write_text((u_ / 'REFERENSER.md').read_text()
+                                          + '\n## Tekt Architects (tekt.com.au) — bransch\n\nBildval: referenser/paket-v05/tekt-arch/02-process/vy-1440-ruta-02.png — '
+                                            'skedena — Fråga: läses de?\n\n## Gammal2 — bransch\n\nBildval: referenser/paket-v05/gammal2/projects/vy-1440-ruta-02.png — '
+                                            'projekten — Fråga: bär de?\n\n## Platt — hantverk\n\nBildval: referenser/platt/vy-390-forsta.png — första vyn — Fråga: bär den?\n')
+        for kid_, namn_, sida_ in (('k05', 'Tekt (tekt.com.au)', 'paket-v05/tekt/01-start'), ('k06', 'Sebastian Cox (sebastiancox.co.uk)', 'paket-v05/sebastian-cox/01-start'),
+                                   ('k07', 'Gammal — projekten först', 'paket-v05/gammal/start'), ('k08', 'Östra Snickeriet (ostrasnickeriet.se)', 'paket-v05/ostra-snickeriet/01-start'),
+                                   ('k09', 'Tekt Architects (tekt.com.au)', 'paket-v05/tekt-arch/01-start'), ('k10', 'Gammal2', 'paket-v05/gammal2/start'),
+                                   ('k11', 'Platt (platt.se)', 'platt')):
             kd_.satt_status(slug_, kid_, 'klar', 'prov', huvudreferens=namn_)
             jx_ = kd_.referensjamforelse(slug_, kid_)
-            assert jx_['referens'] and jx_['referens']['sida'] == kd_.rel(ref_ / sida_), (namn_, jx_)
+            assert jx_['referens'] and jx_['referens']['sida'] == kd_.rel(u_ / 'referenser' / sida_), (namn_, jx_)
             shutil.rmtree(kd_.kdir(slug_, kid_))
         # synligheten: bland flera förslag först efter ägarens första beslut; en enda prototyp direkt
         (kd_.rot(slug_) / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': '2026-10-06T00:00:00Z', 'antal': 3, 'kandidater': {}}))
