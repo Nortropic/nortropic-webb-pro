@@ -3009,6 +3009,47 @@ try:
     finally:
         if slug_env is not None:
             os.environ['NWP_SLUG'] = slug_env
+    # r92c: en äldre prototyp bredvid kandidater bokförs också (BÖR 1), ägarens före/efter-omdömen följer inte med
+    # ateljén (KAN 7), en vald kandidat under förfining räknas som sedd (BÖR 2), och en historik som inte går att
+    # tolka skrivs aldrig över (KAN 6)
+    al_ = pt_und / 'pt-aldre'
+    (al_ / 'prototyp').mkdir(parents=True); (al_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
+    (al_ / 'prototyp' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-06T02:00:00Z'}))
+    (al_ / 'REFERENSER.md').write_text('Huvudreferens: Ashton — stenduk och falurött\n')
+    (al_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'}))
+    (al_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'titel': 'Byggdagboken', 'ide': 'en idé'}}}))
+    (al_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'klar'}))
+    (al_ / 'atelje' / 'FORBATTRING-AGAREN.json').write_text('[{"omdome": "efter är bättre"}]')
+    sk.lagg_till_dom('pt-aldre', 'ägaren', 'ny_riktning', 'Ingen av dem.', underlag=pt_und)
+    info_al = {}
+    assert sorted(at_pt.ta_bort_beslut('pt-aldre', info_al)) == sorted(at_pt.rel(p) for p in (al_ / 'REFERENSER.md', al_ / 'atelje', al_ / 'prototyp'))
+    assert [h['namn'] for h in sk.historik('pt-aldre', pt_und)] == ['Byggdagboken', 'riktningen på huvudreferensen Ashton'], sk.historik('pt-aldre', pt_und)
+    behallna = list(al_.glob('FORBATTRING-AGAREN-*.json'))
+    assert len(behallna) == 1 and behallna[0].read_text() == '[{"omdome": "efter är bättre"}]' and info_al['behallna'] == [at_pt.rel(behallna[0])], info_al
+    fo_ = pt_und / 'pt-forfining'
+    (fo_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
+    (fo_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'startad': '2026-10-06T04:00:00Z'}))
+    (fo_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'titel': 'Den valda', 'ide': 'en idé'}}}))
+    (fo_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'under_arbete', 'fotograferad': '2026-10-06T03:00:00Z'}))
+    sk.lagg_till_dom('pt-forfining', 'ägaren', 'valj', 'Förfina k01.', underlag=pt_und, tid='2026-10-06T03:50:00Z')
+    try:
+        at_pt.ta_bort_beslut('pt-forfining')
+        raise AssertionError('en vald kandidat under förfining raderades utan dom')
+    except RuntimeError as e_:
+        assert 'Den valda' in str(e_), e_
+    th_ = pt_und / 'pt-trasig-historik'
+    (th_ / 'atelje' / 'kandidater' / 'k01').mkdir(parents=True)
+    (th_ / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'klar': '2026-10-06T03:00:00Z'}))
+    (th_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'titel': 'Byggdagboken', 'ide': 'en idé'}}}))
+    (th_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'klar'}))
+    (th_ / sk.HISTORIK).write_text('{trasig')
+    sk.lagg_till_dom('pt-trasig-historik', 'ägaren', 'ny_riktning', 'Ny riktning.', underlag=pt_und)
+    try:
+        at_pt.ta_bort_beslut('pt-trasig-historik')
+        raise AssertionError('en historik som inte går att tolka skrevs över')
+    except RuntimeError as e_:
+        assert 'går inte att tolka' in str(e_), e_
+    assert (th_ / sk.HISTORIK).read_text() == '{trasig' and (th_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').is_file(), 'historiken orörd, inget borttaget'
     # bara kundens egna pågående flödessessioner avslutas: en annan kunds session, en avslutad post och en process som
     # inte är en flödessession lämnas orörda
     sv_rot = tmp / 'sv-atelje'
@@ -3023,9 +3064,15 @@ try:
     (sv_rot / 'kandidater' / 'k02' / 'STATUS.json').write_text(json.dumps({'status': 'under_arbete', 'session_pid': annan_kund.pid}))
     (sv_rot / 'sessioner' / 'a.json').write_text(json.dumps({'pid': avslutad.pid, 'slut': '2026-10-06T10:00:00Z'}))
     (sv_rot / 'sessioner' / 'b.json').write_text(json.dumps({'pid': vanlig.pid}))
+    # en session utan slug (startad utan kundvakt) känns igen genom förteckningens start; ett pid vars process startade
+    # vid en annan tid (återanvänt) lämnas (r92c, KAN 5)
+    utan_slug = falsk_process('claude -p --allowedTools Read --strict-mcp-config')
+    ateranvand = falsk_process('claude -p --allowedTools Read --strict-mcp-config x')
+    (sv_rot / 'sessioner' / 'c.json').write_text(json.dumps({'pid': utan_slug.pid, 'start': at_pt.nu()}))
+    (sv_rot / 'sessioner' / 'd.json').write_text(json.dumps({'pid': ateranvand.pid, 'start': '2026-10-01T00:00:00Z'}))
     st_sv = at_pt.stoppa_kvarvarande('pt-sv', sv_rot, {'pid': vanlig.pid})  # arbetarens pid tillhör någon annan
-    assert st_sv == [egen.pid] and egen.wait(10) is not None, st_sv
-    assert annan_kund.poll() is None and avslutad.poll() is None and vanlig.poll() is None, 'bara kundens egna pågående sessioner'
+    assert st_sv == sorted([egen.pid, utan_slug.pid]) and egen.wait(10) is not None and utan_slug.wait(10) is not None, st_sv
+    assert annan_kund.poll() is None and avslutad.poll() is None and vanlig.poll() is None and ateranvand.poll() is None, 'bara kundens egna pågående sessioner'
 finally:
     for p_ in falska:
         if p_.poll() is None:

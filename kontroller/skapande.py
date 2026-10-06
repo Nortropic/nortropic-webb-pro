@@ -222,8 +222,11 @@ def historik(slug, underlag=None):
 
 
 def lagg_till_historik(slug, poster, underlag=None):
-    """Poster {tid, kalla, namn, drag, utfall, kritik} läggs till; filen skrivs atomiskt."""
+    """Poster {tid, kalla, namn, drag, utfall, kritik} läggs till; filen skrivs atomiskt. En historikfil som finns men inte
+    går att tolka skrivs aldrig över (RuntimeError): den äldre historiken får inte försvinna (granskningen av r92c)."""
     f = Path(underlag or UNDERLAG) / slug / HISTORIK
+    if (f.exists() or f.is_symlink()) and not isinstance(las_json(f), list):
+        raise RuntimeError('%s går inte att tolka som en lista; inget skrivs över (rätta filen först)' % f.name)
     allt = historik(slug, underlag) + [dict(p, tid=p.get('tid') or nu()) for p in poster]
     tmp = f.with_name('.%s.tmp%d' % (HISTORIK, os.getpid()))
     tmp.write_text(json.dumps(allt, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
