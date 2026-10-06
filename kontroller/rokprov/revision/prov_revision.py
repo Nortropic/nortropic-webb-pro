@@ -4432,8 +4432,12 @@ skript_k3 = tmp / 'k3-trad.sh'
 skript_k3.write_text('#!/bin/bash\n( exec setsid sleep 300 2>/dev/null || exec /usr/bin/perl -e "setpgrp(0,0); sleep 300" ) &\nsleep 300\n')
 skript_k3.chmod(0o755)
 p_k3 = subprocess.Popen([str(skript_k3)], start_new_session=True)
-time.sleep(0.6)
-barn_k3 = nl_k3.efterkommande(p_k3.pid)
+barn_k3 = []
+for _ in range(50):  # skriptet har startat sina barn: under last tar det mer än en halv sekund
+    barn_k3 = nl_k3.efterkommande(p_k3.pid)
+    if len(barn_k3) >= 2:
+        break
+    time.sleep(0.1)
 assert barn_k3, 'trädet syns via ppid'
 dodade_k3 = nl_k3.doda_trad(p_k3.pid)
 p_k3.wait(timeout=10)
