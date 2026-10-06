@@ -37,5 +37,6 @@ om flödet kan lösa en svår kunduppgift, och redovisas för sig.
   mätningen, som kalibreringens orörda exempel.
 - **Två körningar per fall** med samma modell, brief och material, så att variationen syns.
 - **Ägarens blinda dom** i dashboarden; kvalitet, fel, tid och kvot redovisas var för sig ur `autonomi.py`.
-- **När:** först när skapandeflödet visat att det håller (ägarens blinda dom i dashboarden; skrivet för den äldre
-  ateljévägen och designprovet, nu kandidatflödet) och granskaren prövats på de orörda exemplen K14–K19. Annars mäts en väg som ändå ska ändras.
+- **När:** först när designprovet visat att ateljévägen håller (ägarens blinda dom i dashboarden) och granskaren
+  prövats på de orörda exemplen K14–K19. Annars mäts en väg som ändå ska ändras. (Skrivet när ateljévägen var
+  standard; normalflödet är nu kandidatflödet, och villkoret är inte omprövat.)

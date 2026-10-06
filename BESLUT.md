@@ -558,8 +558,10 @@ för framtida byggen innan provet visat att det fungerar och tillför kvalitet.
 2. **Bara i piloten.** Normalflödet går utan Figma (`kunskap/skapandeflodet.md`, Figma). Piloten är inte avslutad. Dess
    sessioner slår på Figma-pluginen i sin egen `--settings` och kundvakten slås inte av, men körskripten ingår inte i
    repot, och ingen kod prövar vad som laddas upp till Figma (kundvakten gäller Refero och Mobbin).
-3. **Kundmaterialet:** privat kundmaterial laddas upp bara till ett nytt projekt i ägarens team (ägarens val ~18:48Z; länken given ~20:25Z), bara för den kund som beskedet gäller, med metadata borttagen (foton utan EXIF och GPS), texterna som de står i underlaget och inga uppgifter om privatpersoner utöver det som redan står på kundens sajt. Uppdraget ger ingen allmän rätt att föra kundmaterial till externa
-   tjänster.
+3. **Kundmaterialet:** privat kundmaterial laddas upp bara till ett nytt projekt i ägarens team (ägarens val ~18:48Z;
+   länken given ~20:09Z), bara för den kund som beskedet gäller, med metadata borttagen (foton utan EXIF och GPS),
+   texterna som de står i underlaget och inga uppgifter om privatpersoner utöver det som redan står på kundens sajt.
+   Uppdraget ger ingen allmän rätt att föra kundmaterial till externa tjänster.
 4. **Inget i leveransen är verifierat genom piloten:** helbygget, exporten, kundrepot och driftsättningen prövas inte av
    den, och dokumentationen markerar dem inte som verifierade.
 5. **Dokumentationen:** ägarens ord i samma tillägg: "Rätta grundkällorna och låt andra dokument hänvisa till dem."

@@ -288,7 +288,7 @@ namngivna verktyg och inget eget nät, och sandlådans lista över hemligheter n
 (`atelje.NEKAS`, `Read(//…)`; ägarens egna regler läses inte i en nästlad session). Paket installeras bara med `kontroller/typsnitt.py` (Fontsource, namnen prövade,
 `--ignore-scripts`). Research går genom referenssteget. I kandidatflödet skriver skaparen med sina verktyg i
 kandidatprojektets hela src/, RIKTNING.md och en begäran om komplettering, och förfiningen dessutom i projektets
-DESIGN.md (`kandidater.verktyg`); i den äldre utforskningen (`NWP_KANDIDATFLODE=av`) bara sidorna, RIKTNINGAR.md,
+DESIGN.md (`kandidater.verktyg` och `kandidater.forfina_verktyg`); i den äldre utforskningen (`NWP_KANDIDATFLODE=av`) bara sidorna, RIKTNINGAR.md,
 KOMPLETTERING.json och urvalet, och förfiningen bara sajtens src/, DESIGN.md och sina tre filer. Det är
 en gräns för verktygen, inte för koden: sidorna är kod som körs när sajten byggs (Astros frontmatter). Därför körs varje
 bygge av skaparens sidor innanför processgränsen (`kontroller/processgrans.py`): förhandsvisningen, fotograferingen och
