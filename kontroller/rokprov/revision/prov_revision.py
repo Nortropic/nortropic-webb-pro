@@ -6459,7 +6459,7 @@ def referensjamforelsen():
         j_ = kd_.referensjamforelse(slug_, 'k01')
         start_ = ref_ / 'tekt' / '01-start'
         assert j_['referens']['sida'] == kd_.rel(start_) and j_['referens']['390-forsta'] == kd_.rel(start_ / 'vy-390-forsta.png'), j_['referens']
-        assert j_['referens']['1440-hela'] == kd_.rel(start_ / 'vy-1440-hela.png') and set(j_) == {'referens', 'saknas'}, j_
+        assert j_['referens']['1440-hela'] == kd_.rel(start_ / 'vy-1440-hela.png') and set(j_) == {'referens', 'saknas', 'egen'} and j_['egen'] is False, j_
         # den korta redovisningen: rubrikerna i ägarens ordning, utan rubrikraden; en tom rubrik är '', aldrig ifylld
         red_ = kd_.kort_redovisning(slug_, 'k01')
         assert [x_['rubrik'] for x_ in red_] == list(kd_.REDOVISNINGSRUBRIKER) == ['Idén', 'Referenser', 'Överfört och avvikelser', 'Kvarvarande svagheter'], red_
