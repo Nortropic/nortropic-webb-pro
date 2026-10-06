@@ -1004,6 +1004,28 @@ for varv_l12 in (1, 2, 3):
     uh.hantera(k_m7, dict(v2, kandidater=[{'version': '60.3.0', 'huvudversion': False}]), rap)
 assert rap['rader'][0]['resultat'] == 'avvisad' and '3 gånger' in rap['rader'][0]['detalj'], rap['rader']
 
+# en avvisning gäller provreglerna som gjorde den (granskningen av r76: Vercel CLI 60.1.3 avvisades 02:49Z av jämförelsen
+# utan bas): en avvisning med äldre provregler prövas en gång till och raden säger det, en med de nuvarande står
+k_pr = vl.Kontext(nat=False, prova=False, katalog=TMP / 'lage-provregler')
+k_pr.avvisade.satt('npm-global:vercel', '60.1.3', fel='npm audit (high eller kritisk): tar (critical)')  # före provreglerna
+r_pr = dict(v2, kandidater=[{'version': '60.1.3', 'huvudversion': False}])
+assert vl.bedom(dict(r_pr), k_pr.avvisade)['resultat'] == 'behallen', 'startkontrollen visar den äldre avvisningen som en kandidat'
+spara_pr = (uh.PROVA['npm-global'], uh.TA_IN['npm-global'])
+PROVADE_PR = []
+uh.PROVA['npm-global'] = lambda k, r, kand: (PROVADE_PR.append(kand['version']) or 'npm audit: nya sårbarheter (high eller kritisk) jämfört med den installerade: x GHSA-y (high)', None)
+try:
+    rap = {'rader': [], 'commits': []}
+    uh.hantera(k_pr, dict(r_pr), rap)
+    assert PROVADE_PR == ['60.1.3'] and rap['rader'][0]['resultat'] == 'avvisad' and 'äldre provregler' in rap['rader'][0]['omprovad'], rap['rader']
+    assert 'prövad igen: avvisad' in uh.markdown(dict(rap, start='t')), uh.markdown(dict(rap, start='t'))
+    assert k_pr.avvisade.for_version('npm-global:vercel', '60.1.3')['provregler'] == vl.PROVREGLER
+    rap = {'rader': [], 'commits': []}
+    uh.hantera(k_pr, dict(r_pr), rap)
+    assert PROVADE_PR == ['60.1.3'] and rap['rader'][0]['resultat'] == 'avvisad' and 'prövas igen när en nyare' in rap['rader'][0]['detalj'], rap['rader']
+    assert vl.bedom(dict(r_pr), k_pr.avvisade)['resultat'] == 'avvisad'
+finally:
+    uh.PROVA['npm-global'], uh.TA_IN['npm-global'] = spara_pr
+
 # L8: kvittot säger skälet till att en godkänd version behålls
 k_l8 = vl.Kontext(nat=False, prova=False)
 k_l8.godkanda.satt('brew:node', '24.23.0_1', avtryck='x', staged={'prov': 'p'}, skal='PATH pinnar node@22 (prov)')

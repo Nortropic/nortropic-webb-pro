@@ -267,6 +267,19 @@ class Cache:
         return self.d[nyckel]
 
 
+# Provreglerna: en avvisning gäller den prövning som gjorde den. När reglerna för hur en version prövas rättas (ett prov
+# som en granskning visat dömde fel) räknas äldre avvisningar inte, och versionen prövas en gång till; höj då värdet.
+# 2026-10-06-r76: npm audit jämförs advisory för advisory med det installerade trädet (Vercel CLI 60.1.3 avvisades
+# 02:49Z av jämförelsen utan bas)
+PROVREGLER = '2026-10-06-r76'
+
+
+def avvisad(avvisade, id_, version):
+    """Avvisningen av versionen när den gjordes med de nuvarande provreglerna, annars None: versionen prövas igen."""
+    a = avvisade.for_version(id_, version)
+    return a if a and a.get('provregler') == PROVREGLER else None
+
+
 class Register:
     """{id: {version: {'fel' eller 'avtryck', 'tid', ...}}}: AVVISADE.json och GODKANDA.json. En komponent kan ha flera
     versioner registrerade (en avvisad huvudversion och en patch)."""
@@ -988,7 +1001,7 @@ def bedom(r, avvisade, underhall_tid=None):
             r['resultat'] = 'okand'
         return r
     for kand in r['kandidater']:
-        a = avvisade.for_version(r['id'], kand['version'])
+        a = avvisad(avvisade, r['id'], kand['version'])
         if a:
             continue
         nar = ('underhållet senast %s' % underhall_tid) if underhall_tid else 'underhållet har inte körts'
@@ -997,7 +1010,7 @@ def bedom(r, avvisade, underhall_tid=None):
         if kand.get('ojamfort'):
             r['detalj'] = 'källan har nyare commits (%s); underhållet har inte jämfört mappen än (%s)' % (kand['version'][:12], nar)
         return r
-    a = avvisade.for_version(r['id'], r['kandidater'][0]['version'])
+    a = avvisad(avvisade, r['id'], r['kandidater'][0]['version'])
     r['resultat'] = 'avvisad'
     r['detalj'] = '%s avvisades %s: %s; prövas igen när en nyare version kommer' % (r['kandidater'][0]['version'], a.get('tid'), a.get('fel'))
     return r

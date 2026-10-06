@@ -95,7 +95,9 @@ Skydden runt en ny version (den oberoende granskningen 2026-10-06):
   utan versionen behålls och prövas igen; en känd sårbarhet är aldrig tillfällig. npm audit jämför advisory för advisory
   med den installerade versionen, för de globala paketen trädet som det ligger på disk: en uppdatering som inte för in
   någon ny advisory (high eller kritisk) tas in, och de kända står i rapporten (Vercel CLI:s beroenden har kända
-  sårbarheter i varje version). Går den installerade inte att granska behålls versionen, med skälet. Faller ett intag eller dess
+  sårbarheter i varje version). Går den installerade inte att granska behålls versionen, med skälet. En avvisning gäller
+  provreglerna som gjorde den (`verktygslada.PROVREGLER`): när ett prov rättas för att det dömde fel höjs värdet, och de
+  äldre avvisningarna prövas en gång till med raden märkt "prövad igen". Faller ett intag eller dess
   incheckning läggs filerna och miljön tillbaka och återställningen prövas; faller en incheckning tre gånger avvisas
   versionen. Faller en återställning står raden som FEL och rapporten säger att miljön kan vara trasig.
 - **Körningar på hela maskinen:** ateljéns arbetare, `kor.sh` och `rokprov.sh` anmäler sig i körregistret

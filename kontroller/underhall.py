@@ -759,7 +759,7 @@ def prova_skill(k, r, kand):
             return HALL + 'mappens ändringar är yngre än karenstiden (%g dygn); prövas när den gått ut' % vl.KARENS_DAGAR, None
         head = mogen
         kand['version'] = mogen  # provet och dess utfall gäller den mogna commiten, inte källans senaste
-        a = k.avvisade.for_version(r['id'], mogen)
+        a = vl.avvisad(k.avvisade, r['id'], mogen)
         if a:
             return HALL + 'den senaste mogna commiten %s avvisades %s: %s; prövas igen när en nyare har mognat' % (mogen[:12], a['tid'], a['fel']), None
         g = k.godkanda.for_version(r['id'], mogen)
@@ -1508,10 +1508,13 @@ def hantera(k, r, rapport, utan_tunga=False):
     for kand in r['kandidater']:
         post = {'id': r['id'], 'namn': r['namn'], 'grupp': r['grupp'], 'fran': r.get('installerat'), 'till': kand['version'],
                 'matinstrument': bool(r.get('matinstrument')), 'huvudversion': bool(kand.get('huvudversion'))}
-        a = k.avvisade.for_version(r['id'], kand['version'])
+        a = vl.avvisad(k.avvisade, r['id'], kand['version'])
         if a:
             rapport['rader'].append(dict(post, resultat='avvisad', detalj='avvisad %s: %s (prövas igen när en nyare version kommer)' % (a['tid'], a['fel'])))
             continue
+        gammal = k.avvisade.for_version(r['id'], kand['version'])
+        if gammal:  # avvisad med äldre provregler: prövas en gång till, och raden säger det
+            post['omprovad'] = 'avvisad %s med äldre provregler: %s' % (gammal.get('tid'), vl.sista(gammal.get('fel') or '', 160))
         if tungt(r, kand) and utan_tunga:
             rapport['rader'].append(dict(post, resultat='behallen', detalj='kräver hela rökprovet; tunga prov hoppades över (--utan-tunga)'))
             continue
@@ -1537,7 +1540,7 @@ def hantera(k, r, rapport, utan_tunga=False):
             if fel.startswith((HALL, TILL)):  # varken godkänd eller avvisad: prövas igen vid nästa underhåll
                 rapport['rader'].append(dict(post, resultat='behallen', detalj=behall(fel)))
                 continue
-            k.avvisade.satt(r['id'], kand['version'], fel=fel)
+            k.avvisade.satt(r['id'], kand['version'], fel=fel, provregler=vl.PROVREGLER)
             rapport['rader'].append(dict(post, resultat='avvisad', detalj=fel))
             continue
         if staged.get('oforandrad'):  # skillens mapp är oförändrad i källan: inget att ta in
@@ -1574,7 +1577,7 @@ def hantera(k, r, rapport, utan_tunga=False):
             continue  # en behållen huvudversion (Node pinnad i PATH, ett avbrutet prov) stoppar inte patchen inom den
         k.godkanda.ta_bort(r['id'], upp_till=kand['version'] if res == 'uppdaterad' else None)
         if res == 'avvisad':
-            k.avvisade.satt(r['id'], kand['version'], fel=detalj)
+            k.avvisade.satt(r['id'], kand['version'], fel=detalj, provregler=vl.PROVREGLER)
             continue
         if res == 'uppdaterad':
             k.avvisade.ta_bort(r['id'], upp_till=kand['version'])  # en avvisad nyare version (en huvudversion) står kvar
@@ -1597,7 +1600,8 @@ def markdown(rap):
         ut += ['| Komponent | Från | Till | Resultat | Detalj | Commit |', '|---|---|---|---|---|---|']
         for r in rap['rader']:
             ut.append('| %s%s | %s | %s | %s | %s | %s |' % (r['namn'], ' (mätinstrument)' if r.get('matinstrument') else '', r.get('fran') or '–', r.get('till') or '–',
-                                                           namn.get(r['resultat'], r['resultat']), str(r.get('detalj') or '').replace('|', '/'),
+                                                           namn.get(r['resultat'], r['resultat']),
+                                                           (str(r.get('detalj') or '') + (' (prövad igen: %s)' % r['omprovad'] if r.get('omprovad') else '')).replace('|', '/'),
                                                            (r.get('commit') or '–')[:12]))
     else:
         ut.append('Inga nyare versioner att pröva.')
@@ -1643,7 +1647,7 @@ def underhall(bara=None, utan_tunga=False, torr=False, k=None, prov=True, invent
                 rader = vl.inventera(k)
                 for r in rader:
                     for kand in r['kandidater']:
-                        a = k.avvisade.for_version(r['id'], kand['version'])
+                        a = vl.avvisad(k.avvisade, r['id'], kand['version'])
                         rap['rader'].append({'id': r['id'], 'namn': r['namn'], 'grupp': r['grupp'], 'fran': r.get('installerat'), 'till': kand['version'],
                                              'matinstrument': bool(r.get('matinstrument')), 'huvudversion': bool(kand.get('huvudversion')),
                                              'resultat': 'avvisad' if a else 'behallen',
