@@ -96,12 +96,16 @@ kandidaterna och granskningarna.
 4. **Skissa.** Varje kandidat har en stabil identitet (k01–k12), ett eget Astro-projekt
    (`kunder/<slug>/kandidater/<id>/sajt`: sajtens nuvarande src/ och public/ utan tidigare sidor, kundens bilder, och
    node_modules som länk till sajtens) och en egen skaparsession med samma faktaunderlag; några körs åt gången
-   (`NWP_KANDIDATER_PARALLELLT`, högst tre), och ingen kan läsa de andras kataloger. Skaparen skriver RIKTNING.md först
+   (`NWP_KANDIDATER_PARALLELLT`, högst tre), och ingen kan läsa de andras kataloger: Read, Grep och Glob nekas dem, och
+   de läsande skalkommandona nekas varje session som arbetar med en kandidat (`kandidater.andra_nekas`; skapandets egna
+   verktyg och det egna projektet berörs inte). Skaparen skriver RIKTNING.md först
    och bygger skissen: första vyn, den viktigaste innehållssektionen, navigationen och de interaktioner som behövs för
    att förstå förslaget, inte hela startsidan och ingen undersida. Förhandsvarven görs med `--mellan` i 390, 768, 1280
    och 1440, och i varje varv läses bilderna och en referensbild (vad varven prövar: metodkartan, Avgörandena, Process).
    En kritisk granskare bedömer den renderade skissen när tiden räcker, med rollen kritik (blind för skaparens text,
-   uppdrag, referenspaket och kod): skaparens senaste bilder och sin egen förhandsvisning (`forhandsvisa.py --granskare`,
+   uppdrag, referenspaket och kod och för tidigare riktningar; i `underlag/<slug>` läser den bara briefen och kundens
+   fakta och material, och domloggen och riktningshistoriken nekas som filer, ett beslut av Claude i väntan på ägaren:
+   `kandidater.blind_nekas`, metodkartans block kritik): skaparens senaste bilder och sin egen förhandsvisning (`forhandsvisa.py --granskare`,
    bilderna i kandidatens `granskare/`, aldrig i skaparens varv), detektorn utan kodutdrag och förebilder ur Refero och
    Mobbin. SKISSKRITIK.json bär kandidatens version, det granskaren bevisligen såg (en tom eller saknad bild räknas
    aldrig som sedd) och kompetenskvittot, och skaparen svarar i en egen session ("Svar på granskningen" i RIKTNING.md).
@@ -308,7 +312,9 @@ Var körningens rapporter och bevis hör hemma i övrigt: `README.md`, Var infor
 
 Skapandeflödets sessioner har ingen egen sandlåda än: flödet körs utanför den, före bygget. Sessionerna har bara sina
 namngivna verktyg och inget eget nät, och sandlådans lista över hemligheter nekas dem var de än ligger
-(`atelje.NEKAS`, `Read(//…)`; ägarens egna regler läses inte i en nästlad session). Paket installeras bara med `kontroller/typsnitt.py` (Fontsource, namnen prövade,
+(`atelje.NEKAS`, `Read(//…)`; ägarens egna regler läses inte i en nästlad session). Läsförbuden gäller Read, Grep och
+Glob men inte skalets egna läsare, så de läsande skalkommandona (`kandidater.LASANDE_SKAL`) nekas varje session som
+arbetar med en kandidat. Paket installeras bara med `kontroller/typsnitt.py` (Fontsource, namnen prövade,
 `--ignore-scripts`). Research går genom referenssteget. I kandidatflödet skriver skaparen med sina verktyg i
 kandidatprojektets hela src/, RIKTNING.md och en begäran om komplettering, och förfiningen dessutom i projektets
 DESIGN.md (`kandidater.verktyg` och `kandidater.forfina_verktyg`); i den äldre utforskningen (`NWP_KANDIDATFLODE=av`) bara sidorna, RIKTNINGAR.md,

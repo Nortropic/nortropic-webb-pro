@@ -452,16 +452,36 @@ def undersidor(slug, kid):
     return ut
 
 
+# skalkommandon som läser filer. Read-förbuden gäller Read och verktygen Grep och Glob, men inte skalets egna läsare:
+# Claude Code släpper ett läsande kommando ensamt eller i en pipe efter ett tillåtet kommando, och ett kommando som går
+# igenom en överordnad katalog eller tar en väg med jokertecken läser in i de nekade katalogerna. I verkliga sessioner
+# 2026-10-07 gav det kritiken skaparens RIKTNING.md och skaparen en annan kandidats kod (GR-20261007-r103#B1); Read,
+# Grep- och Globverktygen och ett läsande kommando med en nekad väg höll. Ingen kandidatsession behöver dem: skalet
+# används till de utpekade verktygen (.venv/bin/python kontroller/…), och filerna läses med Read, Grep och Glob.
+LASANDE_SKAL = ('cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack', 'find', 'ls', 'tree', 'du', 'stat',
+                'file', 'wc', 'sed', 'awk', 'cut', 'sort', 'uniq', 'tr', 'nl', 'tac', 'rev', 'paste', 'join', 'comm', 'diff', 'cmp',
+                'strings', 'xxd', 'od', 'hexdump', 'base64', 'jq', 'xargs', 'zcat', 'unzip', 'zipinfo', 'tar', 'perl', 'ruby', 'python',
+                'python3', 'look', 'column', 'fold', 'iconv', 'cp', 'mv', 'ln', 'tee', 'dd')
+
+
+def skal_nekas():
+    """Bash-förbuden för de läsande skalkommandona (LASANDE_SKAL): kommandot ensamt och med argument."""
+    return [r_ for c in dict.fromkeys(LASANDE_SKAL) for r_ in ('Bash(%s)' % c, 'Bash(%s *)' % c)]
+
+
 def andra_nekas(slug, kid, utom=()):
     """Read-förbud för de andra kandidaternas kataloger: skaparna ser inte varandras kod (förfiningen får läsa dem ägaren
-    gillade delar ur). Och skrivförbud för kundens bilder i det egna projektet (src/assets/atelje/): skaparen arbetar i
-    hela src/, men kundens original ändras aldrig (kvalitetskravet äkthet)."""
+    gillade delar ur), så att förslagen blir verkligt olika (ägarens uppdrag 2026-10-06, punkt 5). Förbuden gäller Read,
+    Grep och Glob; de läsande skalkommandona nekas (skal_nekas), annars läser de förbi förbuden (GR-20261007-r103#B1).
+    Skaparens egna verktyg (förhandsvisningen, typsnitten, design, detektorn, uxsok) och Write, Edit och Read i det egna
+    projektet berörs inte. Och skrivförbud för kundens bilder i det egna projektet (src/assets/atelje/): skaparen arbetar
+    i hela src/, men kundens original ändras aldrig (kvalitetskravet äkthet)."""
     egna = 'kunder/%s/kandidater/%s/sajt/src/assets/atelje/**' % (slug, kid)
     ut = ['Write(./%s)' % egna, 'Edit(./%s)' % egna]
     for annan in lista(slug):
         if annan != kid and annan not in utom:
             ut += ['Read(./kunder/%s/kandidater/%s/**)' % (slug, annan), 'Read(./underlag/%s/atelje/kandidater/%s/**)' % (slug, annan)]
-    return ut
+    return ut + skal_nekas()
 
 
 def nekas_utom(katalog, utom):
@@ -1259,30 +1279,43 @@ def kompetens_kort(kv):
                                        'verktyg_anrop', 'tillstand') if k_ in (kv or {})}
 
 
-# skalkommandon som läser filer. Claude Code släpper läsande kommandon i en pipe efter ett tillåtet kommando, och
-# grep -r läser in i nekade kataloger: i en verklig session med kritikens argument 2026-10-07 gav
-# `forhandsvisa.py … --granskare | grep -r <ord> underlag/<slug>` skaparens RIKTNING.md (tail och head med en nekad väg
-# stoppades). En blind granskare har inga skalkommandon utöver sina verktyg, så de nekas alla.
-LASANDE_SKAL = ('cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack', 'find', 'ls', 'tree', 'du', 'stat',
-                'file', 'wc', 'sed', 'awk', 'cut', 'sort', 'uniq', 'tr', 'nl', 'tac', 'rev', 'paste', 'join', 'comm', 'diff', 'cmp',
-                'strings', 'xxd', 'od', 'hexdump', 'base64', 'jq', 'xargs', 'zcat', 'unzip', 'zipinfo', 'tar', 'perl', 'ruby', 'python',
-                'python3', 'look', 'column', 'fold', 'iconv', 'cp', 'mv', 'ln', 'tee', 'dd')
+# underlag/<slug> för de blinda sessionerna (GR-20261007-r103#B2): bara en uttrycklig lista är läsbar, och allt annat
+# där nekas, också slag av filer som inte finns i dag (omtagens sparade kod, upptagna val, äldre riktningars filer).
+# Listan är briefen med besökarens uppgift och kundens verifierade fakta och material, som skaparna också får
+# (atelje.underlag_rader utom referensbeslutet och de upptagna valen). RESEARCH.md är intagets research om
+# verksamheten med källor och listan "Bara de har" (bygg-sajt steg 1), inte skaparens text, och kritiken dömer kundens
+# särprägel. I ateljén gäller metoden och kandidatens egna regler (blind_nekas).
+BLIND_LASBART = ('BRIEF.md', 'VERKSAMHET.json', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md', 'BESTALLNING.md', 'bilder', 'atelje')
+# listan räknas när sessionen startar; det som kan uppstå medan den pågår nekas med mönster: en annan kandidats research
+# på begäran (skapande.komplettera skriver begäran med skaparens skäl i REFERENSUPPDRAG-*.json och TJANSTEUPPDRAG-*.json
+# och materialet i referenser/), och referensbeslutet
+BLIND_MONSTER = ('REFERENSUPPDRAG-*', 'TJANSTEUPPDRAG-*', 'REFERENSER.md', 'referenser/**')
+# Claudes beslut i väntan på ägaren (GR-20261007-r103#K4), inte ägarens: de blinda sessionerna nekas riktningshistoriken
+# och domloggen som filer. Ägarens aktuella domar får de i uppdraget (skapande.kritikrader, aktuella=True), där urvalet
+# är avsiktligt. Skälet, ägaren 2026-10-06: "Mina tidigare underkännanden ska inte omvandlas till en allt smalare
+# uppsättning tillåtna uttryck"; kritiken dömer skissen mot ribban och ägarens aktuella domar, inte mot tidigare
+# riktningar. Ändras med en tom tupel och raden blind i metodkartans block kritik (BESLUT.md, tillägget 2026-10-07:
+# kandidaternas oberoende och kritikens blindning).
+BLIND_HISTORIK = (skapande.HISTORIK, skapande.DOMLOGG)
 
 
 def blind_nekas(slug, kid, tillat):
     """Read-förbud för en blind granskare, skisskritiken och granskningens första pass (ägarens ord 2026-10-07; blind för
     skaparens text, uppdrag, referenspaket och kod): i kandidatens katalog allt utom tillat (bilderna och granskarens egen
-    katalog), i ateljén allt utom kandidaterna och metoden, de andra kandidaterna, kandidatens projekt (koden, DESIGN.md,
-    stilpaketet och bygget), spårfilerna med sidans byggda kod, referenspaketet med tjänsternas material,
-    referensbeslutet och sessionernas transkript (där står skaparens text och kod); och de läsande skalkommandona
-    (LASANDE_SKAL), som annars läser förbi förbuden i en pipe. Briefen, kundens aktuella domar, metoden och repots
-    kunskap står öppna för Read. Ett förbud går före en tillåtelse."""
+    katalog), i ateljén allt utom kandidaterna och metoden, de andra kandidaterna och de läsande skalkommandona
+    (andra_nekas), kundens hela projektkatalog kunder/<slug> (kandidaternas kod, DESIGN.md, stilpaketet och bygget,
+    sajtens grund och en tidigare leverans), spårfilerna med sidans byggda kod och sessionernas transkript (där står
+    skaparens text och kod). I underlag/<slug> är bara BLIND_LASBART läsbar: research på begäran, referensbeslutet och
+    referenspaketet nekas också när de uppstår under sessionen (BLIND_MONSTER), och riktningshistoriken och domloggen
+    nekas som filer (BLIND_HISTORIK, Claudes beslut i väntan på ägaren). Metoden och repots kunskap står öppna för Read.
+    Ett förbud går före en tillåtelse."""
     d, u = kdir(slug, kid), atelje.UNDERLAG / slug
-    return (nekas_utom(d, tillat) + nekas_utom(rot(slug), ('kandidater', 'metod')) + andra_nekas(slug, kid)
-            + ['Read(./%s/**)' % rel(ksajt(slug, kid).parent), 'Read(./%s/**/*.zip)' % rel(d),
-               'Read(./%s/**)' % rel(u / 'referenser'), 'Read(./%s)' % rel(u / 'REFERENSER.md'),
-               'Read(//%s/**)' % str(bildkedja.PROJEKT).strip('/')]
-            + [r_ for c in dict.fromkeys(LASANDE_SKAL) for r_ in ('Bash(%s)' % c, 'Bash(%s *)' % c)])
+    lasbart = BLIND_LASBART + tuple(f for f in (skapande.HISTORIK, skapande.DOMLOGG) if f not in BLIND_HISTORIK)
+    return list(dict.fromkeys(
+        nekas_utom(d, tillat) + nekas_utom(rot(slug), ('kandidater', 'metod')) + andra_nekas(slug, kid)
+        + nekas_utom(u, lasbart) + ['Read(./%s/%s)' % (rel(u), m) for m in BLIND_MONSTER + BLIND_HISTORIK]
+        + ['Read(./%s/**)' % rel(ksajt(slug, kid).parent), 'Read(./%s/**)' % rel(atelje.KUNDER / slug), 'Read(./%s/**/*.zip)' % rel(d),
+           'Read(//%s/**)' % str(bildkedja.PROJEKT).strip('/')]))
 
 
 def projektets_version(slug, kid):

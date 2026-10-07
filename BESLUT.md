@@ -1568,3 +1568,42 @@ beskrivningen i `kontroller/kundvakt.py`.
      rubrik räknas inte heller.
    - Ingen verklig designkörning har observerats med rättelsen.
    - Posterna om#B1–B3, K1 och K4 verifieras av granskningen. om#K2 hör till gren C.
+
+## Tillägg 2026-10-07: kandidaternas oberoende och kritikens blindning
+
+**Status:** gäller.
+
+Två BÖR ur granskningen GR-20261007-r103 (privat, `underlag/granskningar/`), båda förbefintliga, rättade på grenen
+`kandidatskydd-20261007`. Behörigheterna står i `kontroller/kandidater.py`; proven i
+`kontroller/rokprov/revision/prov_skisskritik.py` (fall 9 och 10, och fall 3 för domloggen, röda mot 13743c9, gröna
+efter). Punkt 1 stänger skaparens skallucka, som tillägget om skisskritikens kompetens ovan lämnade kvar.
+
+1. **Kandidaternas oberoende (r103#B1).** Läsförbuden för de andra kandidaternas kataloger gällde Read, Grep och Glob
+   men inte skalets egna läsare: en skaparsession kunde läsa en syskonkandidats kod med `grep`, `cat`, `find` m.fl.,
+   ensamt eller i en pipe efter ett tillåtet kommando. Nu nekar `andra_nekas` också de läsande skalkommandona
+   (`LASANDE_SKAL`, `skal_nekas`), så förslagen förblir verkligt olika (ägarens uppdrag 2026-10-06, punkt 5). Skaparens
+   egna verktyg (förhandsvisningen, typsnitten, design, detektorn, uxsok) och Write, Edit och Read i det egna projektet
+   går som förut; prövat i en verklig session utan kunddata. Samma förbud bär varje session som arbetar med en kandidat.
+2. **Kritikens blindning (r103#B2).** `blind_nekas` räknade upp vad som nekades i `underlag/<slug>` och släppte
+   `REFERENSUPPDRAG-*.json`, `TJANSTEUPPDRAG-*.json` (skaparens referensskäl) och `RESEARCH.md`. Regeln är vänd: bara
+   en uttrycklig lista är läsbar (`BLIND_LASBART`: briefen, kundens fakta, research, texten, beställningen, bilderna,
+   metoden och kandidatens egna bilder), och research på begäran och referensbeslutet nekas med mönster också när de
+   uppstår medan sessionen pågår. Kritikens kärna, bilder, besökaruppgift och verktygens utdata är oförändrade; prövat
+   i en verklig session.
+
+**K4-beslutet (Claudes, i väntan på ägaren; r103#K4).** De blinda sessionerna nekas `RIKTNINGSHISTORIK.json` och
+`DESIGNDOMAR.jsonl` som filer. Ägarens aktuella domar får kritiken som förut genom prompten
+(`skapande.kritikrader(..., aktuella=True)`), där urvalet är avsiktligt. Skälet är ägarens ord 2026-10-06: "Mina
+tidigare underkännanden ska inte omvandlas till en allt smalare uppsättning tillåtna uttryck" — kritiken dömer skissen
+mot ribban och ägarens aktuella domar, inte mot tidigare riktningar. Beslutet är lätt att ändra: en tom
+`kandidater.BLIND_HISTORIK` öppnar filerna igen, och raden `blind` i metodkartans block kritik säger var. **Detta är
+inte ägarens beslut**; ägaren bekräftar eller ändrar.
+
+**Återstår:**
+- Ägaren bekräftar K4.
+- Ingen verklig skissomgång med kundmaterial har gått med de skärpta behörigheterna; proven gäller en syntetisk kund.
+- Förbuden gäller sessionens verktyg, inte byggena. En sidas kod körs när den byggs, innanför processgränsen, som
+  begränsar skrivning och nät men inte läsning (Sandlådan i `kunskap/skapandeflodet.md`). Där vilar kandidaternas
+  oberoende på att skaparna inte läser via bygget; en läsgräns per kandidat i processgränsen vore nästa steg.
+- Glob visar namnen på de nekade filerna i `underlag/<slug>` (innehållet nekas). Namnen bär inga skäl.
+- r103#K1–K3 (provtäckning, den syntaktiska kart-mot-kod-jämförelsen, kundvakten) står kvar som KAN.

@@ -17,13 +17,20 @@ repot med falska byggen, webbläsare, motorer och sessioner:
 6. de andra sessionerna (research, jämförelsen och granskningens två pass i läget full) får sina block, verktyg,
    tjänster och kvitton, och metodkartans lista över sessioner utan block stämmer med koden;
 7. en tom eller saknad 768-bild leder aldrig till att kritiken tros ha bedömt mellanbredden;
-8. metodlåset: metod.py och kompetens.py prövar kartan, och en ändrad källa stoppar leveransen.
+8. metodlåset: metod.py och kompetens.py prövar kartan, och en ändrad källa stoppar leveransen;
+9. kandidaternas oberoende (GR-20261007-r103#B1): skaparens sessioner nekas de läsande skalkommandona och de andra
+   kandidaternas kataloger, och de egna verktygen (förhandsvisningen, typsnitten, design, detektorn, uxsok) och det
+   egna projektet går som förut; varje session som arbetar med en kandidat får förbuden;
+10. kritikens uttryckliga lista (GR-20261007-r103#B2): i underlag/<slug> bara briefen och kundens fakta och material,
+   research på begäran nekas också när den uppstår under sessionen, kunder/<slug> nekas, och riktningshistoriken och
+   domloggen nekas som filer (#K4, Claudes beslut i väntan på ägaren; en tom tupel ändrar det).
 
     .venv/bin/python kontroller/rokprov/revision/prov_skisskritik.py <repo>
 
-Fallen var röda mot 63c09c5 (gren B:s topp, där skisskritiken bara hade läsverktygen). Varje fall redovisas för sig på
-stderr; slutkod 1 när något fall föll. Ingenting skrivs i repots underlag/ eller kunder/, och inga privata data läses: den
-syntetiska kunden finns bara i provets kopia.
+Fall 1–8 var röda mot 63c09c5 (gren B:s topp, där skisskritiken bara hade läsverktygen), fall 9 och 10 mot 13743c9 (före
+rättelsen av kandidaternas oberoende och kritikens lista). Varje fall redovisas för sig på stderr; slutkod 1 när något
+fall föll. Ingenting skrivs i repots underlag/ eller kunder/, och inga privata data läses: den syntetiska kunden finns
+bara i provets kopia.
 """
 import json
 import os
@@ -276,25 +283,43 @@ def kritiker(sid_fn=None, svar=None):
     SVAR[lambda p, s: s is kd.SKISSKRITIK_SCHEMA] = lambda p, s: (dict(KRITIKSVAR, **(svar or {})), sid_fn() if sid_fn else None)
 
 
+def monster(mon):
+    """Ett vägmönster i Claude Codes regelform (gitignore) som reguljärt uttryck: ** över kataloger, * och ? inom en del."""
+    ut, i = '', 0
+    while i < len(mon):
+        if mon.startswith('/**/', i):
+            ut, i = ut + '/(?:.*/)?', i + 4
+        elif mon.startswith('/**', i) and i + 3 == len(mon):
+            ut, i = ut + '(?:/.*)?', i + 3
+        elif mon.startswith('**', i):
+            ut, i = ut + '.*', i + 2
+        else:
+            ut, i = ut + {'*': '[^/]*', '?': '[^/]'}.get(mon[i], re.escape(mon[i])), i + 1
+    return ut
+
+
 def nekade(regler, vag):
     """Täcker någon av Read-reglerna vägen (relativ repots rot, eller absolut med //)? Samma form som Claude Codes regler:
-    Read(./a/b) är filen, Read(./a/**) allt under a, Read(./a/**/*.zip) varje .zip under a, Read(//abs/**) absolut."""
-    import fnmatch
+    Read(./a/b) är filen, Read(./a/**) allt under a, Read(./a/**/*.zip) varje .zip under a, Read(./a/X-*) varje fil i a
+    vars namn börjar med X-, Read(//abs/**) absolut."""
     for r_ in regler:
         m = re.fullmatch(r'Read\((.+)\)', r_)
         if not m:
             continue
         mon = m.group(1)
         mon = mon[2:] if mon.startswith('./') else ('/' + mon[2:]) if mon.startswith('//') else mon
-        if mon.endswith('/**') and (vag == mon[:-3] or vag.startswith(mon[:-3] + '/')):
-            return True
-        if '**/' in mon:
-            bas, _, svans = mon.partition('/**/')
-            if vag.startswith(bas + '/') and fnmatch.fnmatch(Path(vag).name, svans):
-                return True
-        if vag == mon:
+        if re.fullmatch(monster(mon), vag):
             return True
     return False
+
+
+def bash_regler(regler):
+    """Bash-reglerna som reguljära uttryck: * står för vad som helst, och regeln gäller hela kommandot från början."""
+    return [re.compile('.*'.join(re.escape(d) for d in m.group(1).split('*'))) for m in (re.fullmatch(r'Bash\((.+)\)', r_) for r_ in regler) if m]
+
+
+def bash_traff(regler, kommando):
+    return any(r_.fullmatch(kommando) for r_ in bash_regler(regler))
 
 
 # ===== 1. kritikens block =====
@@ -398,9 +423,10 @@ def _blind():
                '%s/src/pages/index.astro' % sajt, '%s/src/styles/sida.css' % sajt, '%s/DESIGN.md' % sajt, '%s/dist/index.html' % sajt,
                '%s/REFERENSER.md' % u, '%s/referenser/paket-v01/xref/vy-390-forsta.png' % u, '%s/referenser/tjanster/TJANSTER.md' % u,
                '%s/atelje/KANDIDATPLAN.json' % u, '%s/atelje/FORSKNING.md' % u,
-               'underlag/%s/atelje/kandidater/k02/RIKTNING.md' % SLUG, 'kunder/%s/kandidater/k02/sajt/src/pages/index.astro' % SLUG]
+               'underlag/%s/atelje/kandidater/k02/RIKTNING.md' % SLUG, 'kunder/%s/kandidater/k02/sajt/src/pages/index.astro' % SLUG,
+               '%s/DESIGNDOMAR.jsonl' % u]  # domloggen som fil: Claudes beslut i väntan på ägaren (GR-20261007-r103#K4), fall 10
     oppna = ['%s/varv/start/varv-01/vy-390-forsta.png' % d, '%s/%s/start/varv-01/vy-768-forsta.png' % (d, forhandsvisa.GRANSKARE),
-             '%s/BRIEF.md' % u, '%s/DESIGNDOMAR.jsonl' % u, '%s/atelje/metod/METOD-skiss.md' % u, 'kunskap/visuell-niva.md',
+             '%s/BRIEF.md' % u, '%s/atelje/metod/METOD-skiss.md' % u, 'kunskap/visuell-niva.md',
              '.claude/skills/impeccable/reference/critique.md']
     for h in hemliga:
         assert nekade(neka, h), 'kritiken når %s' % h
@@ -681,5 +707,151 @@ def _las():
     assert r_.returncode == 0 and 'kompetenserna håller' in r_.stdout, r_.stdout + r_.stderr
 
 
-print('skisskritikens prov: %d fall, %d föll' % (8, len(FEL)), file=sys.stderr)
+# ===== 9. kandidaternas oberoende =====
+EGNA_KOMMANDON = {  # skaparens egna verktyg i passens form: de släpps och nekas aldrig
+    'skiss': ['.venv/bin/python kontroller/forhandsvisa.py %s --kandidat k01' % SLUG,
+              '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat k01 --mellan' % SLUG,
+              '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat k01 --tillstand tangentbord,reflow --meny button' % SLUG,
+              '.venv/bin/python kontroller/typsnitt.py %s @fontsource/inter' % SLUG,
+              '.venv/bin/python -B kontroller/uxsok.py "carpenter portfolio" --domain ux'],
+    'forfina': ['.venv/bin/python kontroller/design.py %s --kandidat k01' % SLUG, '.venv/bin/python kontroller/design.py %s --kandidat k01 --skriv' % SLUG,
+                '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat k01 --mellan' % SLUG],
+    'granskning': ['.venv/bin/python kontroller/detektor.py %s --kandidat k01' % SLUG, '.venv/bin/python kontroller/detektor.py %s --kandidat k01 --json' % SLUG,
+                   '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat k01 --tillstand tangentbord' % SLUG],
+}
+
+
+def egna_slapps(verktyg, nekas, kommandon):
+    """Varje eget kommando matchar en tillåtelse och inget förbud (sessionens och atelje.NEKAS)."""
+    for c_ in kommandon:
+        assert bash_traff(verktyg, c_), 'det egna kommandot tillåts inte: %s' % c_
+        assert not bash_traff(list(nekas) + atelje.NEKAS, c_), 'det egna kommandot nekas: %s' % c_
+
+
+@fall('9 kandidaternas oberoende: skaparens sessioner nekas de läsande skalkommandona och de andra kandidaternas kataloger; de egna verktygen och det egna projektet går som förut')
+def _oberoende():
+    kund()
+    # skissförsöket som i flödet: skaparens session, kritiken och skaparens svar, med de argument koden ger
+    SVAR.clear()
+    SVAR[lambda p, s: s is kd.SKISSKRITIK_SCHEMA] = lambda p, s: (dict(KRITIKSVAR), None)
+    SVAR[lambda p, s: s is None] = lambda p, s: (None, None)
+    kd.satt_status(SLUG, 'k01', 'planerad', 'prov', ta_bort=('skisskritik',))
+    SESSIONER.clear()
+    kd.skissa(SLUG, 'k01')
+    skapare = [x for x in SESSIONER if x['schema'] is None]
+    assert [x['ut'] for x in skapare] == ['svar-skiss-1.json', 'svar-skiss-1-granskning.json'], [x['ut'] for x in SESSIONER]
+    a, sajt = 'underlag/%s/atelje/kandidater' % SLUG, 'kunder/%s/kandidater' % SLUG
+    # listan får inte krympa tyst: varje läsare här står i LASANDE_SKAL (en ändring av listan är en ändring av provet)
+    lasare = ('cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack', 'find', 'ls', 'tree', 'du', 'stat', 'file', 'wc',
+              'sed', 'awk', 'cut', 'sort', 'uniq', 'tr', 'nl', 'tac', 'rev', 'paste', 'join', 'comm', 'diff', 'cmp', 'strings', 'xxd', 'od', 'hexdump',
+              'base64', 'jq', 'xargs', 'zcat', 'unzip', 'zipinfo', 'tar', 'perl', 'ruby', 'python', 'python3', 'look', 'column', 'fold', 'iconv',
+              'cp', 'mv', 'ln', 'tee', 'dd')
+    assert set(lasare) <= set(kd.LASANDE_SKAL), sorted(set(lasare) - set(kd.LASANDE_SKAL))
+    for s in skapare:
+        n = s['nekas'] + atelje.NEKAS
+        for c_ in lasare:  # ensamt och med argument; Claude Code prövar varje led i en pipe eller sekvens för sig
+            assert 'Bash(%s)' % c_ in n and 'Bash(%s *)' % c_ in n, 'skaparen (%s) får %s' % (s['ut'], c_)
+        for c_ in ('grep -r ord %s' % sajt, 'cat %s/k0*/sajt/src/pages/index.astro' % sajt, 'find %s -name index.astro' % sajt, 'ls -R %s' % a):
+            assert bash_traff(n, c_), 'skaparen (%s) får köra %s' % (s['ut'], c_)
+        for h in ('%s/k02/sajt/src/pages/index.astro' % sajt, '%s/k02/RIKTNING.md' % a, '%s/k02/kod/index.astro' % a):
+            assert nekade(n, h), 'skaparen (%s) når %s' % (s['ut'], h)
+        for o in ('%s/k01/sajt/src/pages/index.astro' % sajt, '%s/k01/sajt/src/styles/sida.css' % sajt, '%s/k01/RIKTNING.md' % a,
+                  '%s/k01/UPPDRAG.md' % a, '%s/k01/varv/start/varv-01/vy-390-forsta.png' % a, 'underlag/%s/BRIEF.md' % SLUG, 'kunskap/visuell-niva.md'):
+            assert not nekade(n, o), 'skaparen (%s) nekas sitt eget %s' % (s['ut'], o)
+        assert 'Write(./%s/k01/sajt/src/**)' % sajt in s['verktyg'] and 'Edit(./%s/k01/RIKTNING.md)' % a in s['verktyg'], s['verktyg']
+        egna_slapps(s['verktyg'], s['nekas'], EGNA_KOMMANDON['skiss'])
+    # förfiningen läser delarna ägaren gillade i k02 med Read, men inget skal; passet granskning har detektorn
+    f_n = kd.andra_nekas(SLUG, 'k01', utom=['k02'])
+    assert not nekade(f_n, '%s/k02/sajt/src/pages/index.astro' % sajt) and 'Bash(grep *)' in f_n, f_n
+    egna_slapps(kd.forfina_verktyg(SLUG, 'k01'), f_n, EGNA_KOMMANDON['forfina'])
+    egna_slapps(kd.verktyg(SLUG, 'k01', komplettering=False) + kompetens.verktyg('granskning', SLUG, 'k01'), kd.andra_nekas(SLUG, 'k01'),
+                EGNA_KOMMANDON['granskning'])
+    # varje session som arbetar med en kandidat nekas de andra kandidaterna och skalets läsare (andra_nekas, eller
+    # blind_nekas som bygger på den); bara sessionerna före skisserna och jämförelsen, som ser alla kandidaters bilder, saknar förbud
+    import ast
+    fns = [n_ for n_ in ast.walk(ast.parse((KOPIA / 'kontroller' / 'kandidater.py').read_text(encoding='utf-8'))) if isinstance(n_, ast.FunctionDef)]
+    utan, med = set(), {}
+    for fn in fns:
+        for x in ast.walk(fn):
+            if isinstance(x, ast.Call) and isinstance(x.func, ast.Attribute) and x.func.attr == 'session' and getattr(x.func.value, 'id', '') == 'atelje':
+                nek = next((k_.value for k_ in x.keywords if k_.arg == 'nekas'), None)
+                if nek is None:
+                    utan.add(fn.name)
+                else:
+                    med.setdefault(fn.name, set()).add(ast.unparse(nek).split('(')[0])
+    assert utan == {'forska', 'planera', 'planprovning', 'jamfor'}, utan
+    assert all(v <= {'andra_nekas', 'blind'} for v in med.values()) and {'skissa', 'skapa', 'forbattra', 'forfina_kandidat', 'kompetenspass'} <= set(med), med
+    assert all('blind_nekas' in ast.unparse(fn) for fn in fns if 'blind' in med.get(fn.name, set())), 'blind är blind_nekas'
+
+
+# ===== 10. kritikens uttryckliga lista =====
+@fall('10 kritikens blindning är en uttrycklig lista: i underlag/<slug> bara briefen och kundens fakta och material; research på begäran nekas också när den uppstår under sessionen, kunder/<slug> nekas, och historiken och domloggen nekas som filer (K4, lätt att ändra)')
+def _lista():
+    u = kund()
+    skriv(u / 'RESEARCH.md', '# Research\n\n## Bara de har\n\n- syntetiskt\n')
+    skriv(u / 'INNEHALL.md', '# Innehåll\n')
+    skriv(u / 'TEXTUNDERLAG.md', '# Textunderlag\n')
+    skriv(u / 'BESTALLNING.md', '# Beställning\n')
+    skriv(u / 'bilder' / 'BILDER.md', '# Bilder\n')
+    skriv(u / 'bilder' / 'jobb-1.png', png(64, 48))
+    skriv(u / 'REFERENSUPPDRAG-2026-10-07T081500Z-abc123.json', json.dumps({'kandidater': [{'varfor': SKAPARMARKOR}]}))
+    skriv(u / 'TJANSTEUPPDRAG-2026-10-07T081500Z-abc123.json', json.dumps({'fragor': [{'syfte': SKAPARMARKOR}]}))
+    skriv(u / 'RIKTNINGSHISTORIK.json', json.dumps([{'namn': 'Tidigare grundidé', 'drag': UPPDRAGSMARKOR}]))
+    skriv(u / 'UPPTAGNA-VAL.md', '# Upptagna val %s\n' % UPPDRAGSMARKOR)
+    skriv(u / 'omtag' / '20261001T000000Z' / 'k09' / 'abc123def456' / 'kod' / 'index.astro', KODMARKOR)
+    skriv(atelje.KUNDER / SLUG / 'sajt' / 'src' / 'pages' / 'index.astro', KODMARKOR)
+    skriv(atelje.KUNDER / SLUG / 'kundrepo' / 'src' / 'pages' / 'index.astro', KODMARKOR)
+    shutil.rmtree(u / 'referenser')  # referenssteget har inte gått ännu när kritiken startar
+    (u / 'REFERENSER.md').unlink()
+    kritiker()
+    SESSIONER.clear()
+    kd.skisskritik(SLUG, 'k01')
+    s = SESSIONER[-1]
+    U, A = 'underlag/%s' % SLUG, 'underlag/%s/atelje/kandidater/k01' % SLUG
+    # en annan kandidat begär research medan kritiken arbetar, och referenssteget skriver paketet och beslutet: mönstren
+    # gäller också filer som inte fanns när sessionen startade
+    skriv(u / 'REFERENSUPPDRAG-2026-10-07T120000Z-sent01.json', json.dumps({'kandidater': [{'varfor': SKAPARMARKOR}]}))
+    skriv(u / 'TJANSTEUPPDRAG-2026-10-07T120000Z-sent01.json', json.dumps({'fragor': [{'syfte': SKAPARMARKOR}]}))
+    skriv(u / 'REFERENSER.md', '# Referenser\n\nReferensbeslutet %s\n' % UPPDRAGSMARKOR)
+    skriv(u / 'referenser' / 'paket-v01' / 'xref' / 'vy-390-forsta.png', png())
+    hemliga = ['%s/%s' % (U, f_) for f_ in ('REFERENSUPPDRAG-2026-10-07T081500Z-abc123.json', 'TJANSTEUPPDRAG-2026-10-07T081500Z-abc123.json',
+                                            'REFERENSUPPDRAG-2026-10-07T120000Z-sent01.json', 'TJANSTEUPPDRAG-2026-10-07T120000Z-sent01.json',
+                                            'RIKTNINGSHISTORIK.json', 'DESIGNDOMAR.jsonl', 'UPPTAGNA-VAL.md', 'REFERENSER.md',
+                                            'omtag/20261001T000000Z/k09/abc123def456/kod/index.astro', 'referenser/paket-v01/xref/vy-390-forsta.png')] + \
+        ['kunder/%s/%s/src/pages/index.astro' % (SLUG, k_) for k_ in ('sajt', 'kundrepo', 'kandidater/k01/sajt', 'kandidater/k02/sajt')]
+    oppna = ['%s/%s' % (U, f_) for f_ in ('BRIEF.md', 'VERKSAMHET.json', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md', 'BESTALLNING.md',
+                                          'bilder/BILDER.md', 'bilder/jobb-1.png', 'atelje/metod/METOD-skiss.md')] + \
+        ['%s/%s/start/varv-01/vy-768-forsta.png' % (A, forhandsvisa.GRANSKARE), 'kunskap/visuell-niva.md', '.claude/skills/hallmark/references/slop-test.md']
+    for namn_, n, egna in (('skisskritiken', s['nekas'] + atelje.NEKAS, '%s/varv/start/varv-01/vy-390-forsta.png' % A),
+                           ('granskningens första pass', kd.blind_nekas(SLUG, 'k01', ('bilder', forhandsvisa.GRANSKARE)) + atelje.NEKAS,
+                            '%s/bilder/start/vy-390-forsta.png' % A)):
+        for h in hemliga:
+            assert nekade(n, h), '%s når %s' % (namn_, h)
+        for o in oppna + [egna]:
+            assert not nekade(n, o), '%s nekas %s, som den ska läsa' % (namn_, o)
+        assert 'Bash(grep *)' in n and 'Bash(cat *)' in n, namn_
+    # kritikens verktyg går som förut
+    egna_slapps(s['verktyg'], s['nekas'], ['.venv/bin/python kontroller/forhandsvisa.py %s --kandidat k01 --granskare' % SLUG,
+                                          '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat k01 --granskare --sida /om/' % SLUG,
+                                          '.venv/bin/python kontroller/detektor.py %s --kandidat k01 --granskare' % SLUG])
+    # ägarens aktuella domar står i uppdraget, och uppdraget säger att domloggen och historiken är stängda
+    p = s['prompt']
+    assert 'pröva nya grundidéer' in p and 'domloggen och riktningshistoriken är stängda' in p, p[:1500]
+    # K4 är Claudes beslut i väntan på ägaren och lätt att ändra: en tom tupel öppnar filerna, och resten står kvar
+    assert kd.BLIND_HISTORIK == ('RIKTNINGSHISTORIK.json', 'DESIGNDOMAR.jsonl'), kd.BLIND_HISTORIK
+    spara = kd.BLIND_HISTORIK
+    kd.BLIND_HISTORIK = ()
+    try:
+        n2 = kd.blind_nekas(SLUG, 'k01', ('varv', forhandsvisa.GRANSKARE))
+        assert not nekade(n2, '%s/RIKTNINGSHISTORIK.json' % U) and not nekade(n2, '%s/DESIGNDOMAR.jsonl' % U), 'en tom tupel öppnar historiken'
+        assert nekade(n2, '%s/REFERENSUPPDRAG-2026-10-07T081500Z-abc123.json' % U) and nekade(n2, '%s/UPPTAGNA-VAL.md' % U), n2
+    finally:
+        kd.BLIND_HISTORIK = spara
+    # metodkartans block kritik säger samma sak som koden, och att beslutet är Claudes, inte ägarens
+    blk = re.search(r'```kompetens kritik\n(.*?)```', metod.KARTA.read_text(encoding='utf-8'), re.S).group(1)
+    rad = next((r_ for r_ in blk.splitlines() if r_.startswith('blind:')), '')
+    assert all(f_ in rad for f_ in kd.BLIND_HISTORIK) and 'Claudes beslut i väntan på ägaren' in rad and 'inte ägarens' in rad, rad
+
+
+print('skisskritikens prov: %d fall, %d föll' % (10, len(FEL)), file=sys.stderr)
 sys.exit(1 if FEL else 0)
