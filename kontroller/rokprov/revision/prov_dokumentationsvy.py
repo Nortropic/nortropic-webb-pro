@@ -53,6 +53,7 @@ import atelje  # noqa: E402
 import backlog as bl  # noqa: E402
 import granska  # noqa: E402
 import korregister  # noqa: E402
+korregister.registrera_tmp(TMP, 'prov_dokumentationsvy')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 import prova  # noqa: E402
 import server as dash  # noqa: E402
 import skapande  # noqa: E402
