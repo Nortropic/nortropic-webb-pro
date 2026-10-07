@@ -6,32 +6,40 @@ claude:
 1. research som inte körts: referensunderlaget står som planerat i researchen, förutsättningarna prövas, och inget
    saknat underlag gör kvittot rött; förra körningens research gäller inte en ny start (M01);
 2. giltigt underlag efter researchen utan REFERENSER.md godtas; fel, en research som föll, en torrkörning, tomma
-   tjänster och uteblivna bilder står som blockerade, aldrig som använda (2b); återanvänt material står som
-   tillgängligt med sin tid, och en tjänst som researchen aldrig frågade och tomt uppdragsmaterial är brister (2c);
+   tjänster och uteblivna bilder står som blockerade, aldrig som använda, och en tjänst vars alla bilder saknas ger en
+   felrad (2b); återanvänt material står som tillgängligt med sin tid, och en tjänst som researchen aldrig frågade,
+   tomt uppdragsmaterial och ett uppdrag utan eget material bland andra med material är brister (2c);
 3. en tom eller inaktuell referensfil godtas inte (den äldre utforskningens REFERENSER.md, och kandidatflödets research
    från en tidigare körning), helbygget prövar VINNARE.json, och det som inte prövas står inte under Bekräftat;
 4. upptäckt men otillåtet verktyg: "ingen uppgift" med metodkartans beslut och "nytt, obedömt" med åtgärd, aldrig
    "okänd", och inget av dem gör kvittot mer begränsat; ett verktyg med beslutet uppgift som kundvakten inte släpper
-   och ett tilldelat verktyg som tjänsten tappat är fel;
+   och ett tilldelat verktyg som tjänsten tappat är fel; det som inte gäller en provstart begränsar inte kvittot;
 5. en tilldelad tjänst som sessionen inte når står som "tilldelad men åtkomst saknas", inte ok: ateljéns argument ger
    Mobbin utan att Refero faller bort, startkontrollen prövar med just de argumenten, och Referos åtgärd ger aldrig
    sessionerna nyckeln;
 6. kvittot per roll: varje roll i metodkartan med det tilldelade och åtkomsten i sessionen, och kompetenskvittot i
    tillståndsorden: ett läskvitto är belägg för läsning, ett tomt MCP-svar är inget material, och en session utan
-   tjänsten är blockerad (också hela vägen genom observatören);
+   tjänsten är blockerad (också hela vägen genom observatören); en session som observatören inte kan läsa gör utfallet
+   och läget okända, också när en annan session observerades;
 7. en källa: kor.sh läser tjänsternas verktyg ur referenstjanster.TJANSTER, och metodkartans beslut prövas mot listan;
 8. tåligheten: en oväntad form i underlaget, ett undantag i åtkomsten eller ett sessionsprov som kastar stoppar aldrig
    starten, och research utan material står aldrig som använd;
 9. körvägen följer ateljéns läge, och ett prov som inte gjorts är inte observerat;
-10. kundvakten stoppar personnamn ur underlaget (personfälten och "Förnamn Efternamn" i briefen och texten), utan
-    falsklarm för vanliga ord med stor bokstav;
-11. Mobbins search_screens går bara med mode standard (deep kostar krediter), och prompterna säger det.
+10. kundvakten stoppar personnamn ur underlaget, med en fixtur i verkliga datas form som är giltig mot schemat (10);
+    granskarens generiska frågor går, också med förlagor och typsnitt ur briefens §7 och par i rubriker (10a); varje
+    lucka stoppas: bara efternamnet eller förnamnet, en markdownlänk, två av tre namn, versaler och gemener, ł och ñ,
+    hopskrivet, dubbel URL-kodning, Recos attribution, genitiv, VERKSAMHET.json:s fritext och Bokadirekts filer (10b);
+    kundens ort efter ett platsverb stoppas fortfarande, också i §7 (10c, ett skydd som var grönt redan före);
+11. Mobbins search_screens går bara med mode standard (deep kostar krediter), och prompterna säger det;
+12. sessionsprovet läser init-beskedet och avslutar sessionen med hela processgruppen, utan att vänta på modellen.
 
     .venv/bin/python kontroller/rokprov/revision/prov_startkvitto.py <repo>
 
 Fallen 1–5 var röda mot main 84c6994. Fallen för granskningens rättelser (B1, B3–B6, K4, K6, K8, K9) var röda mot
-7add728; fallen för de överlevande mutationerna (B2) fäller dem. Varje fall redovisas för sig på stderr; slutkod 1 när
-något fall föll. Ingenting skrivs i repots underlag/ eller kunder/, och inga privata data läses.
+7add728; fallen för de överlevande mutationerna (B2) fäller dem. Omgranskningen GR-20261007-r102-om: 2b (K1), 10, 10a
+(B1) och 10b (B2) var röda mot ea93ca9; de sju mutationer som överlevde där (K4: N06 i 2c, N10 i 6, N15 i 10b, N20 i
+10a, N26 och N27 i 12, N29 i 4) fälls nu. Varje fall redovisas för sig på stderr; slutkod 1 när något fall föll.
+Ingenting skrivs i repots underlag/ eller kunder/, och inga privata data läses.
 """
 import json
 import os
@@ -250,6 +258,10 @@ def researchat(slug, forsk_tid=T1, start=T0, tjanster=None, bild_saknas=False, n
             'k01': {'mobbin_fraga': 'contact form', 'mobbin': [{'fil': 'underlag/%s/referenser/uppdrag/mobbin/c.jpg' % slug, 'titel': 't', 'beskrivning': 'b'}]}}}))
     elif um == 'tomt':
         (a / 'UPPDRAGSMATERIAL.json').write_text(json.dumps({'tid': T2, 'mobbin': {'ok': True, 'bilder': 0}, 'kandidater': {'k01': {}, 'k02': {}}}))
+    elif um == 'delvis':  # k01 har en Mobbin-skärm, k02 inget eget material
+        (a / 'UPPDRAGSMATERIAL.json').write_text(json.dumps({'tid': T2, 'mobbin': {'ok': True, 'bilder': 1}, 'kandidater': {
+            'k01': {'mobbin_fraga': 'contact form', 'mobbin': [{'fil': 'underlag/%s/referenser/uppdrag/mobbin/c.jpg' % slug, 'titel': 't', 'beskrivning': 'b'}]},
+            'k02': {}}}))
     return u
 
 
@@ -328,7 +340,9 @@ def _brister_i_underlaget():
     assert 'Mobbin: inga verkliga anrop' in r['detalj'] and 'Mobbin med' not in r['detalj'], r
     (u / 'referenser' / 'tjanster' / 'refero' / 'a.jpg').unlink()  # en levererad bild som inte finns på disken
     r = referensrader(sk.kor_kontroll(slug, 'fortsatt'))[0]
-    assert 'Refero: 1 bilder saknas på disken' in r['detalj'] and r['tillstand'] == 'blockerat', r
+    assert 'Refero: 1 anrop, men alla 1 bilder saknas på disken' in r['detalj'] and r['tillstand'] == 'blockerat', r
+    # K1 (GR-20261007-r102-om): en tjänst vars alla bilder saknas ger en felrad, inte två
+    assert len(re.findall(r'Refero: [^;]*saknas på disken', r['detalj'])) == 1, 'två felrader för samma brist: %s' % r['detalj']
     assert 'Refero med' not in r['detalj'].split('blockerat eller misslyckat')[0], 'en tjänst utan bilder på disken stod som använd: %s' % r
     # M09: en research som föll; M10: en torrkörning av tjänsterna; M11: uppdragens skärmar som saknas på disken
     r = referensrader(sk.kor_kontroll(researchat('k2b-foll', forsk_fel='sessionen föll (kod 1)') and 'k2b-foll', 'fortsatt'))[0]
@@ -377,6 +391,11 @@ def _ateranvant_och_tomt():
     r = referensrader(sk.kor_kontroll(slug, 'fortsatt'))[0]
     assert r['resultat'] == 'delvis' and 'frågade aldrig Refero' in r['detalj'] and 'frågade aldrig Mobbin' in r['detalj'], r
     assert 'Refero' not in anvant(r) and 'Mobbin med' not in anvant(r), r
+    # N06: ett uppdrag utan eget material bland uppdrag med material är en brist
+    slug = 'k2c-delvis'
+    researchat(slug, um='delvis')
+    r = referensrader(sk.kor_kontroll(slug, 'fortsatt'))[0]
+    assert r['resultat'] == 'delvis' and 'uppdrag utan eget material (varken stilpaket eller Mobbin-skärmar): k02' in r['detalj'], r
     # uppdragens material utan ett enda stilpaket eller en enda skärm
     slug = 'k2c-tomt'
     researchat(slug, um='tomt')
@@ -455,6 +474,7 @@ def _upptackt_verktyg():
     glom('prov:refero', 'prov:session')
     try:
         kv_a = sk.kor_kontroll(slug, 'ny')  # Referos lista med refero_search_apps, som har beslutet ingen uppgift
+        kv_p = sk.kor_kontroll(slug, 'prov')  # N29: en provstart, där referensunderlaget inte gäller starten
         REFERO['verktyg'] = FLODETS_REFERO + ['refero_search_apps', 'refero_search_widgets']  # ett nytt verktyg utan beslut
         skriv_init()
         glom('prov:refero', 'prov:session')
@@ -469,6 +489,9 @@ def _upptackt_verktyg():
         okanda = [r for r in kv['rader'] if r['resultat'] == 'okand' and re.search(r'refero_search_(apps|widgets)', r['namn'] + ' ' + str(r.get('detalj')))]
         assert not okanda, 'ett upptäckt verktyg står som okänt: %s' % okanda
     assert kv_a['status'] == 'redo', 'provets förutsättning: utan det nya verktyget är kvittot redo (%s)' % begransande(kv_a)
+    assert any(r['resultat'] == 'ej_tillampligt' for r in kv_p['rader']), 'provets förutsättning: något gäller inte provstarten'
+    assert kv_p['status'] == 'redo', 'det som inte gäller starten gjorde kvittot begränsat (N29): %s' % [
+        (r['namn'], r['resultat']) for r in kv_p['rader'] if r['resultat'] not in ('ok', 'ingen_uppgift', 'nytt', 'planerat')]
     assert kv_b['status'] == 'redo' and begransande(kv_b) == begransande(kv_a), 'ett nytt verktyg gjorde kvittot begränsat: %s' % begransande(kv_b)
     rad = {r['namn']: r for r in kv_b['rader']}
     apps = rad.get('refero_search_apps (Refero)') or {}
@@ -667,6 +690,20 @@ def _roller():
     assert roll_['typografi']['mcp']['refero']['tillstand'] == T['blockerat'] and 'tomt resultat' in roll_['typografi']['mcp']['refero']['orsak'], roll_['typografi']
     assert roll_['innehall']['mcp']['mobbin']['tillstand'] == T['blockerat'] and 'tilldelad men åtkomst saknas' in roll_['innehall']['mcp']['mobbin']['orsak'], roll_['innehall']
     assert roll_['innehall']['karna']['tillstand'] == T['ej_gjort'], 'ingen fil läst ska vara inte gjort: %s' % roll_['innehall']['karna']
+    # N10: två sessioner, varav observatören inte kan läsa den andra: utfallet och läget är okända, inte den första sessionens
+    import observation
+    sid2 = '1f1e1d1c-1b1a-4918-8716-151413121110'
+    (pr / (sid2 + '.jsonl')).write_text((pr / (sid + '.jsonl')).read_text())
+    spara_ob, bildkedja.PROJEKT = observation.observerad, TMP / 'projekt'
+    observation.observerad = lambda fil, slug_, vad: (None, 'provets läsfel') if sid2 in str(fil) else spara_ob(fil, slug_, vad)
+    try:
+        kv2 = kompetens.kvitto([sid, sid2], 'skapa')
+    finally:
+        observation.observerad, bildkedja.PROJEKT = spara_ob, spara_projekt
+    roll2 = {r['roll']: r for r in kv2['tillstand']}
+    assert kv2['verifierad'] and 'mcp_lage' not in kv2 and 'mcp_utfall' not in kv2, 'en session som inte observerats gav ett känt utfall: %s' % kv2
+    assert roll2['typografi']['mcp']['refero']['tillstand'] == T['ej_observerat'], roll2['typografi']['mcp']
+    assert roll2['innehall']['mcp']['mobbin']['tillstand'] != T['blockerat'], roll2['innehall']['mcp']
 
 
 # ===== 8. tåligheten =====
@@ -739,40 +776,195 @@ def _korvagen():
     assert sk.provtillstand('okand') == 'ej_observerat' and sk.provtillstand('ok') == 'provat' and sk.provtillstand('fel') == 'blockerat'
 
 
-# ===== 10. personnamn ur underlaget (B5) =====
+# ===== 10. personnamn ur underlaget (B5; omgranskningen GR-20261007-r102-om, B1 och B2) =====
+# Fixturen har verkliga datas form men inget av deras innehåll (formen lästes 2026-10-07): briefens paragrafer ur
+# kunskap/brief-mall.md med namn i prosa, i en tabell och efter en roll, citat med attribution i Recos form (förnamn,
+# mellannamn i gemener, initial), sidans text med citat och rubriker, VERKSAMHET.json giltig mot schemat (personer bara i
+# fritexten not), och Bokadirekts filer skrivna av hamta_bokadirekt.py:s egna funktioner. Alla namn, firmor och orter är
+# påhittade.
 
-@fall('10 kundvakten stoppar personnamn ur underlaget, utan falsklarm för vanliga ord med stor bokstav')
-def _personnamn():
-    slug = 'k10-namn'
+BRIEF_NAMN = """# Brief — Provfirman Exempel (2026-10-07)
+
+Allt i den här briefen är påhittat för provet.
+
+## §1 Verksamhet och problem
+
+- **Positionering:** ägaren, Åsa Öberg-Lind, driver jobben tillsammans med Jonas Ek.
+- Offerterna går till [Yngvild Rask](mailto:offert@provfirman.example).
+- Anna Maria Svensson leder snickarlaget. Ring Per-Olof Lindqvist om offert. Hälsningar, Kalle.
+- Konsulterna José Núñez och Łukasz Wiśniewski hjälper till ibland. Kontoret sköts av Yrsa Malm Sjövik.
+- Tack till nils holm för hjälpen med altanen.
+- Vide Brask, snickare sedan 2015, bygger altanerna.
+- Per Ask leder laget på helgerna.
+TEAMLEDARE: GUNVOR TJÄLL
+
+| Fält | Värde |
+|---|---|
+| Kontakt | Erik Lund |
+
+## §4 Primär handling
+
+Besökarna hittar oss via Google Maps; Apple Pay används inte. En tydlig Call To Action.
+Knappen "Get Started" och "Request A Quote".
+
+### Featured Before After
+
+## §6 Röst och innehåll
+
+1. "Altanen blev precis som vi ville." (Ture valfrid Ö, Reco, april 2025)
+
+Visa Social Proof tidigt och en tydlig Primär Handling. Kitchen Renovation är vår specialitet.
+Rubrikerna i Playfair Display blir för tunga i mobilen.
+
+## §7 Designriktning
+
+Huvudreferens: Tekt Studio och Kinfolk Magazine, med detaljer från Ateljé Norrsund. Typsnitt: Playfair Display och Work Sans.
+Vi verkar i Upplands Väsby och Norra Sverige. Material Design passar inte.
+
+## §8 Bild
+
+Bilderna beställs.
+"""
+TEXT_NAMN = """> **Provets sidtext.** Allt är påhittat.
+
+# Sidtext — Provfirman
+
+## / (Hem)
+
+### Omdömen
+- h2: Kunderna om oss
+- Citat 1: "Snabbt och snyggt jobb!" — Karin Ström, kund
+- Citat 2: ”Fantastiskt jobb, snabbt och snyggt!” – Pelle Svensson, april 2025
+- Citat 3: "Altanen stod klar på en vecka." — Torvald ebbe K, maj 2025
+— Greta Åkesson
+Firman startades av **Lena Berg**.
+Våra Tjänster
+Kontakta Oss
+"""
+SKARM = 'mcp__refero__refero_search_screens'
+# granskarens falsklarm (GR-20261007-r102-om, avsnitt 5) och fler: generiska frågor, förlagor och typsnitt ur §7 ska gå
+FALSKLARM = [(SKARM, {'query': 'social proof section for a local business', 'platform': 'web'}),
+             (SKARM, {'query': 'kitchen renovation website hero', 'platform': 'web'}),
+             ('mcp__refero__refero_search_sites', {'query': 'Tekt Studio'}),
+             ('mcp__refero__refero_search_sites', {'query': 'Ateljé Norrsund'}),  # en förlaga i §7 som annars vore ett par (P01)
+             (SKARM, {'query': 'kinfolk magazine editorial layout', 'platform': 'web'}),
+             ('mcp__refero__refero_search_styles', {'query': 'playfair display serif headings'}),
+             ('mcp__refero__refero_search_styles', {'query': 'work sans clean body text'}),
+             (SKARM, {'query': 'norra sverige craft', 'platform': 'web'}),
+             (SKARM, {'query': 'material design cards', 'platform': 'web'}),
+             (SKARM, {'query': 'våra tjänster grid', 'platform': 'web'}),
+             (SKARM, {'query': 'primary action button', 'platform': 'web'}),
+             (SKARM, {'query': 'before after comparison slider', 'platform': 'web'}),  # ett par i en rubrik (N20)
+             (SKARM, {'query': 'price per hour table', 'platform': 'web'}),  # förnamnet Per är också ett vanligt ord
+             (SKARM, {'query': 'google maps embed on contact page', 'platform': 'web'}), (SKARM, {'query': 'apple pay checkout', 'platform': 'web'}),
+             (SKARM, {'query': 'call to action hero section', 'platform': 'web'}), (SKARM, {'query': 'get started button', 'platform': 'web'}),
+             (SKARM, {'query': 'request a quote form', 'platform': 'web'}), (SKARM, {'query': 'carpenter portfolio with project gallery', 'platform': 'web'}),
+             # granskarens tio generiska researchfrågor
+             (SKARM, {'query': 'contact form for a local service business', 'platform': 'web'}),
+             (SKARM, {'query': 'construction company homepage hero with project photos', 'platform': 'web'}),
+             (SKARM, {'query': 'before and after renovation gallery', 'platform': 'web'}),
+             (SKARM, {'query': 'quote request form with file upload', 'platform': 'web'}),
+             (SKARM, {'query': 'service area section with list of towns', 'platform': 'web'}),
+             ('mcp__refero__refero_search_styles', {'query': 'warm craft builder site'}),
+             ('mcp__refero__refero_search_flows', {'query': 'request a quote flow', 'platform': 'web'}),
+             ('mcp__mobbin__search_flows', {'query': 'booking a home visit', 'platform': 'web'}),
+             ('mcp__mobbin__search_sections', {'query': 'testimonial carousel', 'task_intent': 'website for a local carpentry business'}),
+             ('mcp__mobbin__search_screens', {'query': 'pricing table for renovation packages', 'platform': 'web', 'mode': 'standard'})]
+# granskarens luckor (om#B2) och fler former: ska stoppas som personnamn
+LUCKOR = [{'query': 'Öberg-Lind kitchen'}, {'query': 'Svensson review card'},  # bara efternamnet
+          {'query': 'Åsa portfolio'},  # bara förnamnet
+          {'query': 'Yngvild Rask contact'}, {'query': 'Rask contact card'},  # i en markdownlänk (mailto)
+          {'query': 'Anna Svensson carpentry'}, {'query': 'Yrsa Sjövik office'},  # två av tre namn
+          {'query': 'Gunvor Tjäll team'},  # i versaler
+          {'query': 'nils holm testimonial'},  # i gemener
+          {'query': 'Jose Nunez consulting'}, {'query': 'Lukasz Wisniewski'}, {'query': 'Lukasz consulting'},  # ú, ñ, ł och ś
+          {'query': 'AsaObergLind'}, {'query': 'JonasEk team'},  # hopskrivet, med bindestreck och kort
+          {'query': 'Lisa Nyström testimonial'}, {'query': 'Hult portfolio'}, {'query': 'review from Sara Ek'},  # bara hos Bokadirekt
+          {'query': '%25C3%2585sa%2520%25C3%2596berg-Lind'},  # dubbelt URL-kodat
+          {'query': 'Ture valfrid review'}, {'query': 'Torvald ebbe card'},  # attribution i Recos form
+          {'query': 'Kalles snickeri'},  # genitiv av ett kort namn (N15)
+          {'query': 'Brask portfolio'},  # ett namn som bara känns igen på rollen efter det ("Vide Brask, snickare")
+          {'query': 'Per Ask portfolio'},  # ett förnamn som också är ett vanligt ord, först i en mening
+          {'query': 'olle holmqvist'}, {'query': 'holmqvist'},  # i VERKSAMHET.json:s fritext
+          # formerna som stoppades redan före rättelsen
+          {'query': 'anna svensson portfolio'}, {'query': 'Karin Ström review card'}, {'query': 'KarinStröm testimonial'},
+          {'query': 'karin%20str%C3%B6m'}, {'query': 'Per-Olof Lindqvist carpentry'}, {'query': 'Lena Bergs firma'},
+          {'query': 'Greta Akesson quote'}, {'query': 'Anna Maria Svensson carpentry'}, {'query': 'Erik Lund'}]
+
+
+def namnkund(slug):
+    """Kunden med namn i verkliga datas form (fall 10)."""
+    import hamta_bokadirekt as hb
     u = kund(slug)
-    (u / 'BRIEF.md').write_text('# Brief\n\n## Primär Handling\n\nÄgaren Anna Svensson svarar själv. Ring Per-Olof Lindqvist om offert.\n'
-                                'Besökarna hittar oss via Google Maps; Apple Pay används inte. En tydlig Call To Action. Vi arbetar i Norra Sverige.\n'
-                                'Material Design passar inte. Knappen "Get Started" och "Request A Quote".\n| Fält | Värde |\n|---|---|\n'
-                                '| Kontakt | Erik Lund |\n')
-    (u / 'TEXTUNDERLAG.md').write_text('# Text\n\n”Snabbt och snyggt jobb!” — Karin Ström, kund. Firman startades av **Lena Berg**.\n')
-    v = json.loads((u / 'VERKSAMHET.json').read_text())
-    (u / 'VERKSAMHET.json').write_text(json.dumps(dict(v, kontaktperson={'namn': 'Olle Holmqvist'}, omdomen=[{'namn': 'Sara Ek', 'text': 'Bra'}])))
+    v = {'schema': 1, 'namn': 'Provfirman Exempel AB', 'fiktiv': True,
+         'kontaktvagar': [{'typ': 'telefon', 'varde': '070-000 11 22', 'belagg': 'provets sidfot'}],
+         'adress': {'postnummer': '999 99', 'ort': 'Provby', 'publik': False, 'roll': 'verksamhetsstalle'},
+         'rackvidd': {'typ': 'lokal', 'orter': ['Provby']}, 'kategorier': ['Byggfirma'], 'tjanster': ['Köksrenovering'],
+         'not': 'Kontaktperson: Olle Holmqvist svarar på offerter; adressen visas inte.'}
+    (u / 'VERKSAMHET.json').write_text(json.dumps(v, ensure_ascii=False))
+    (u / 'BRIEF.md').write_text(BRIEF_NAMN)
+    (u / 'TEXTUNDERLAG.md').write_text(TEXT_NAMN)
+    ext = u / 'kalla' / 'extern'
+    ext.mkdir(parents=True, exist_ok=True)
+    poster = [{'createdAt': '2026-09-01T10:00:00Z', 'review': {'text': 'Bra jobb', 'score': 5}, 'author': {'name': 'Lisa Nyström'},
+               'subject': {'employee': {'name': 'Hedvig'}, 'service': {'name': 'Altanbygge'}}},
+              {'createdAt': '2026-08-01T10:00:00Z', 'review': {'text': 'Toppen', 'score': 5}, 'author': {'name': 'Sara Ek'},
+               'subject': {'employee': {'name': 'Hedvig'}, 'service': {'name': 'Altanbygge'}}}]
+    plats = {'employees': [{'about': {'name': 'Mirjam Hult', 'priceListId': 7}, 'services': [11]}],
+             'services': [{'name': 'Bygg', 'services': [{'id': 11, 'name': 'Altanbygge', 'price': 500, 'duration': 3600,
+                                                         'about': {'description': 'Altan i trä'}}]}]}
+    (ext / 'bokadirekt-omdomen.txt').write_text(hb.omdomen_text(poster, 'https://www.bokadirekt.se/api/places/getReviews/1', '2026-10-07'))
+    (ext / 'bokadirekt-tjanster.txt').write_text(hb.tjanster_text(plats, 'https://www.bokadirekt.se/places/prov-1', '2026-10-07'))
+    return u, v
 
-    def prov(verktyg, inn):
-        return kundvakt.provning(slug, KOPIA / 'underlag', {'tool_name': verktyg, 'tool_input': inn})
-    skarm = 'mcp__refero__refero_search_screens'
+
+def vakt(slug, verktyg, inn):
+    return kundvakt.provning(slug, KOPIA / 'underlag', {'tool_name': verktyg, 'tool_input': inn})
+
+
+@fall('10 kundvakten stoppar personnamn ur underlaget i verkliga datas form; fixturen är giltig mot schemat (B5, om#B2)')
+def _personnamn():
+    import verksamhetsuppgifter
+    slug = 'k10-namn'
+    u, v = namnkund(slug)
+    verksamhetsuppgifter.validera(v)  # Vagrad om fixturen hade fält som verkliga data inte kan ha
+    assert 'Mirjam Hult' in (u / 'kalla' / 'extern' / 'bokadirekt-tjanster.txt').read_text(), 'Bokadirekts form'
     for inn in ({'query': 'anna svensson portfolio', 'platform': 'web'}, {'query': 'Karin Ström review card', 'platform': 'web'},
-                {'query': 'KarinStröm testimonial', 'platform': 'web'}, {'query': 'karin%20str%C3%B6m', 'platform': 'web'},
-                {'query': 'Per-Olof Lindqvist carpentry', 'platform': 'web'}, {'query': 'Lena Bergs firma', 'platform': 'web'},
-                {'query': 'olle holmqvist', 'platform': 'web'}, {'query': 'holmqvist', 'platform': 'web'}, {'query': 'review from Sara Ek', 'platform': 'web'}):
-        skal = prov(skarm, inn) or ''
-        assert 'personnamn' in skal, ('träffen släpptes igenom', inn, skal)
-    skal = prov('mcp__mobbin__search_sections', {'query': 'testimonial section', 'task_intent': 'site for Anna Svensson carpentry'}) or ''
+                {'query': 'olle holmqvist', 'platform': 'web'}, {'query': 'holmqvist', 'platform': 'web'}):
+        assert 'personnamn' in (vakt(slug, SKARM, inn) or ''), ('träffen släpptes igenom', inn)
+    skal = vakt(slug, 'mcp__mobbin__search_sections', {'query': 'testimonial section', 'task_intent': 'site for Anna Svensson carpentry'}) or ''
     assert 'personnamn' in skal, skal
-    skal = prov('mcp__refero__refero_get_screen_image', {'image_url': 'https://images.refero.design/s/anna-svensson.jpg'}) or ''
+    skal = vakt(slug, 'mcp__mobbin__search_sections', {'query': 'testimonials', 'task_intent': "site for Pelle Svensson's customers"}) or ''
+    assert 'personnamn' in skal, skal
+    skal = vakt(slug, 'mcp__refero__refero_get_screen_image', {'image_url': 'https://images.refero.design/s/anna-svensson.jpg'}) or ''
     assert 'adress' in skal, skal
-    for inn in ({'query': 'google maps embed on contact page', 'platform': 'web'}, {'query': 'apple pay checkout', 'platform': 'web'},
-                {'query': 'call to action hero section', 'platform': 'web'}, {'query': 'material design cards', 'platform': 'web'},
-                {'query': 'get started button', 'platform': 'web'}, {'query': 'request a quote form', 'platform': 'web'},
-                {'query': 'carpenter portfolio with project gallery', 'platform': 'web'}):
-        assert prov(skarm, inn) is None, ('falsklarm', inn, prov(skarm, inn))
     # utan personnamn i underlaget är kundvakten som förut: kundens namn stoppas, ett generiskt anrop går
-    assert prov(skarm, {'query': 'provfirman homepage', 'platform': 'web'}) and prov(skarm, {'query': 'builder site hero', 'platform': 'web'}) is None
+    assert vakt(slug, SKARM, {'query': 'provfirman homepage', 'platform': 'web'}) and vakt(slug, SKARM, {'query': 'builder site hero', 'platform': 'web'}) is None
+
+
+@fall('10a generiska frågor går, också med förlagor och typsnitt ur briefens §7 och par i rubriker (om#B1)')
+def _personnamn_falsklarm():
+    slug = 'k10-namn'
+    namnkund(slug)
+    fel = [inn['query'] for verktyg, inn in FALSKLARM if vakt(slug, verktyg, inn) is not None]
+    assert not fel, '%d falsklarm: %s' % (len(fel), fel)
+
+
+@fall('10b namnprövningens luckor: efternamn, förnamn, länk, två av tre, versaler, gemener, ł och ñ, hopskrivet, Bokadirekt (om#B2)')
+def _personnamn_luckor():
+    slug = 'k10-namn'
+    namnkund(slug)
+    slappta = [inn['query'] for inn in LUCKOR if 'personnamn' not in (vakt(slug, SKARM, dict(inn, platform='web')) or '')]
+    assert not slappta, 'släpptes igenom: %s' % slappta
+
+
+@fall('10c skydd som rättelsen inte får ta bort: kundens ort efter ett platsverb stoppas, också i §7 (grönt redan före)')
+def _personnamn_orter():
+    slug = 'k10-namn'
+    namnkund(slug)
+    skal = vakt(slug, SKARM, {'query': 'upplands vasby builders', 'platform': 'web'}) or ''
+    assert 'en ort ur kundens underlag' in skal or 'personnamn' in skal, 'orten i §7 släpptes: %r' % skal
+    assert vakt(slug, SKARM, {'query': 'norra sverige craft', 'platform': 'web'}) is None
 
 
 # ===== 11. Mobbins krediter (B6) =====
@@ -797,6 +989,37 @@ def _mobbins_lage():
     assert 'search_screens kräver mode "standard"' in rader and 'personnamn, citat' in rader, rader[-800:]
     assert 'search_screens kräver mode "standard"' in referenstjanster.prompt_for('mobbin', [{'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'Byggfirma')
     assert 'pröva också mobile' not in referenstjanster.prompt_for('refero', [{'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'Byggfirma')
+
+
+# ===== 12. sessionsprovet avslutar sessionen (K1 i GR-20261007-r102; N26 och N27) =====
+
+@fall('12 sessionsprovet läser init-beskedet och avslutar sessionen med hela processgruppen, utan att vänta på modellen')
+def _sessionsprovet_avslutar():
+    import time
+    sover, pidfil = FAKE / 'bin' / 'claude-sover', TMP / 'sover.pid'
+    # en session som skriver sitt init-besked och sedan "väntar på modellen" (ett barn som sover, i samma processgrupp)
+    sover.write_text('#!/bin/bash\nsleep 12 &\necho "$$ $!" > "%s"\ncat "%s"\nwait\n' % (pidfil, FAKE / 'init-med'))
+    sover.chmod(0o755)
+    t0 = time.time()
+    init, fel = vl.sessionens_init([str(sover), '--output-format', 'stream-json'], timeout=30)
+    tid = time.time() - t0
+    assert init and init.get('subtype') == 'init' and fel is None, (init, fel)
+    assert tid < 5, 'sessionsprovet väntade på sessionen i stället för att avsluta efter init (%.1f s)' % tid
+    pids = [int(x) for x in pidfil.read_text().split()]
+
+    def lever(pid):
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+    for _ in range(40):  # ett föräldralöst barn städas av systemet strax efter att det dött
+        if not any(lever(p_) for p_ in pids):
+            break
+        time.sleep(0.05)
+    assert not any(lever(p_) for p_ in pids), 'sessionen eller dess barn lever kvar efter provet: %s' % pids
 
 
 # ===== 7. en källa för tjänsternas verktyg =====

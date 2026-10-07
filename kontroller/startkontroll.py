@@ -26,9 +26,9 @@ dashboarden startar), så här bekräftas bara läget. Kontrollen
    beslut kan ändå stå under Behöver uppmärksamhet), begransad (något fel som inte stoppar, delvis, behållet, avvisat
    eller okänt; aldrig "allt uppdaterat"; ett nytt verktyg utan beslut, ett beslut om ingen uppgift, underlag som är
    planerat i ett senare steg och det som inte gäller starten begränsar inte) eller stoppad (ett nödvändigt verktyg
-   fungerar inte; starten görs inte, med besked). Bytta mätinstrument sedan förra starten av samma slag står i kvittot, också de som bytts utanför
-   underhållet, så att körningar före och efter går att jämföra. En återupptagen körning behåller sitt lås i kvittot och
-   redovisar vad som ändrats sedan.
+   fungerar inte; starten görs inte, med besked). Bytta mätinstrument sedan förra starten av samma slag står i
+   kvittot, också de som bytts utanför underhållet, så att körningar före och efter går att jämföra. En återupptagen
+   körning behåller sitt lås i kvittot och redovisar vad som ändrats sedan.
 5. skriver i kvittot vilken version av repot starten gällde (commit och gren ur git rev-parse, antalet ocommittade filer
    ur git status --porcelain; utan git "ej angivet"; commiten också i startloggen) och en informationsrad om
    dokumentationen (README.md, Var information finns): finns platsregeln, och hur många poster i den privata
@@ -673,19 +673,22 @@ def efter_research(slug):
                 filer = [y['fil'] for y in traffar + stilar if y.get('fil')]
                 finns = sum(1 for b in filer if bildfil(slug, b).is_file())
                 belagda = sum(1 for y in stilar if y.get('belagd'))
+                alla_borta = False  # en tjänst vars alla bilder saknas får en rad, inte två (GR-20261007-r102-om, K1)
                 if not anrop:
                     fel.append('%s: inga verkliga anrop i sessionsloggen (tom tjänst)' % namn)
                 elif not x.get('ok'):
                     fel.append('%s: %d anrop men inget användbart material (%s)' % (namn, anrop, vl.sista('; '.join(map(str, x.get('anmarkningar') or [])), 160) or 'inga bilder'))
                 elif not finns and not belagda:
-                    fel.append('%s: %d anrop, men tjänstens bilder saknas på disken och inga stilar är belagda' % (namn, anrop))
+                    alla_borta = bool(filer)
+                    fel.append('%s: %d anrop, men %s och inga stilar är belagda' % (
+                        namn, anrop, ('alla %d bilder saknas på disken' % len(filer)) if filer else 'tjänsten gav inga bilder'))
                 else:
                     material = True
                     text = '%s med %d anrop, %d bilder på disken%s' % (namn, anrop, finns, (' och %d belagda stilar' % belagda) if belagda else '')
                     (ateranvant if aterbruk else anvant).append(text + (' (tjänsternas rapport %s, återanvänd)' % (tj.get('tid') or 'utan tid') if aterbruk else ''))
                 if utan:
                     brister.append('%s: %d träffar utan bild räknas inte som material' % (namn, utan))
-                if len(filer) > finns:
+                if len(filer) > finns and not alla_borta:
                     fel.append('%s: %d bilder saknas på disken' % (namn, len(filer) - finns))
     roller = kompetens.tolka()
     for t in NODVANDIGA_MCP:  # en tilldelad tjänst som researchen aldrig frågade: båda ska ingå i referensarbetet (punkt 2)

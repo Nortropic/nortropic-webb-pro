@@ -1523,3 +1523,48 @@ Gjort (grenen `skisskritik-kompetens-20261007`, ovanpå gren B):
 - Dashboardens text säger att den interna granskningen "såg bara bilderna". Den ska säga den renderade sidan och
   verktygens mätningar (gren D). Kritikens kvitto syns ännu inte i kompetenskedjan i vyn (gren C och D).
 - Ägaren avgör om kritikens frist ska kortas för att ge skaparen mer tid. Med 300 s skulle skaparen få tre minuter till.
+
+## Tillägg 2026-10-07: kundvaktens namnprövning efter GR-20261007-r102-om
+
+**Status:** gäller.
+
+Omgranskningen GR-20261007-r102-om (privat, `underlag/granskningar/`) godkände gren B men fann tre BÖR i kundvaktens
+namnprövning och proven. Grenen `kundvakt-namn-20261007` rättar om#B1–B3, K1, K3 och K4. Ägarens regel gäller som
+förut: Refero och Mobbin ska fortsatt få generiska researchfrågor utan kunduppgifter. Vad som prövas i detalj står i
+beskrivningen i `kontroller/kundvakt.py`.
+
+1. **Generiska frågor går (om#B1).** Ett par med stor bokstav blir inte längre ett personnamn bara för att det står i
+   briefen. Briefens §7, där förlagorna och typsnitten står, läses bara för kundens orter och mailto-länkar.
+   Typsnittsord och fler webb- och designtermer i EJ_NAMN delar paren, ett ord som bara har stor bokstav för att det
+   inleder en mening räknas inte, och rubrikerna ger inga osäkra par. Granskarens sju falsklarm släpps.
+2. **Namnen stoppas i fler former (om#B2).** Ett namn efter ett personord eller före en roll, i en attribution efter ett
+   citat (också Recos form), i en mailto-länk eller med ett vanligt förnamn eller efternamnsled stoppas också ord för
+   ord. Två av tre namn, versaler, gemener, alla alfabetens bokstäver, hopskrivna namn (bindestrecket tas bort, från sex
+   bokstäver), genitiv och dubbel URL-kodning stoppas. Vakten läser Bokadirekts omdömes- och tjänstefiler och
+   fritexten i VERKSAMHET.json. De döda personfälten är borta, eftersom schemat inte har några.
+3. **Där precisionen och täckningen krockar** går felet åt det säkra hållet:
+   - ett par med stor bokstav utan personsammanhang, som inte är ett typsnitt, en förlaga i §7 eller ett ord ur EJ_NAMN,
+     stoppas som helt par;
+   - kundens ort efter ett platsverb ("Vi verkar i …") stoppas som ort, också i §7. Förut stoppades den av en slump, som
+     ett personnamn;
+   - ett säkert namn stoppas ord för ord, också när ordet är vanligt;
+   - ett förnamn som också är ett vanligt ord (Per, Bo, Max) håller ihop ett par och stoppar paret, men inte ordet: annars
+     stoppades frågor som "price per hour".
+4. **Proven.** prov_startkvitto.py:
+   - fall 10 och 10a–10c, med en fixtur i verkliga datas form som är giltig mot schemat;
+   - 2b (K1), 2c (N06), 4 (N29), 6 (N10) och 12 (N26 och N27).
+
+   prov_revision.py ger två regressionsfall mode standard (om#B3). En tjänst vars alla bilder saknas ger en felrad (K1),
+   och beskrivningen av status i startkontroll.py är ombruten (K3).
+5. **Mot verkliga data**, prövat utan nät och skrivningar. Den enda kunden med underlag gav 4 personnamn; förut gav den 3
+   par, varav ett inte var ett namn. Granskarens 21 frågor släpps. Av 92 verkliga tjänsteanrop i sessionsloggarna stoppas
+   samma 2 som förut, för kundens namn, och inget av namn- eller ortprövningen.
+6. **Återstår:**
+   - Recos omdömesfil och RESEARCH.md läses inte. Ett namn som bara står där skyddas inte; hos den verkliga kunden citerar
+     sidtexten alla omdömen.
+   - Fritexten `not` i den verkliga kundens VERKSAMHET.json har en gatuadress och en ort som inte står i adressfälten.
+     `skapande.forbjudna_termer` läser dem inte, och namnprövningen tar bara orter efter ett platsverb.
+   - Ett namn utan personord, vanligt förnamn och efternamnsled, först i en mening, räknas inte. Ett osäkert par i en
+     rubrik räknas inte heller.
+   - Ingen verklig designkörning har observerats med rättelsen.
+   - Posterna om#B1–B3, K1 och K4 verifieras av granskningen. om#K2 hör till gren C.

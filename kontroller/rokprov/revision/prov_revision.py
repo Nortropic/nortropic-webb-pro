@@ -5279,7 +5279,8 @@ finally:
 (tmp / 'k3-u' / 'k3-kund' / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Vaktfirman Bygg AB', 'adress': {'ort': 'Kalix', 'gata': 'Lärkstigen 12'}, 'rackvidd': {'orter': ['Älvsbyn']},
                                                                      'kategorier': ['Byggfirma'], 'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33'}]}))
 for in_, rc_ in (({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'query': 'Vaktfirman homepage'}}, 2),
-                 ({'tool_name': 'mcp__mobbin__search_screens', 'tool_input': {'query': 'builder site', 'task_intent': 'contact 0701112233'}}, 2),
+                 # Mobbins search_screens med mode standard, så att numret prövas och inte lägesregeln (GR-20261007-r102-om, B3)
+                 ({'tool_name': 'mcp__mobbin__search_screens', 'tool_input': {'query': 'builder site', 'task_intent': 'contact 0701112233', 'mode': 'standard'}}, 2),
                  ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'kalixföretag hantverk'}}, 2),
                  ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'Älvsbyn builders'}}, 2),
                  ({'tool_name': 'mcp__mobbin__search_flows', 'tool_input': {'query': 'ring +46 70 111 22 33'}}, 2),
@@ -5296,7 +5297,7 @@ for in_, rc_ in (({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input
                  ({'tool_name': 'mcp__mobbin__generate_image', 'tool_input': {'prompt': 'warm craft'}}, 2),
                  ({'tool_name': 'mcp__refero__refero_search_styles', 'tool_input': {'Vaktfirman': 'builder'}}, 2),
                  ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'lärkstigen workshop'}}, 2),
-                 ({'tool_name': 'mcp__mobbin__search_screens', 'tool_input': {'query': 'ring 11 22 33'}}, 2),
+                 ({'tool_name': 'mcp__mobbin__search_screens', 'tool_input': {'query': 'ring 11 22 33', 'mode': 'standard'}}, 2),
                  ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'builder', 'limit': 701112233}}, 2),
                  ({'tool_name': 'mcp__refero__refero_get_screen', 'tool_input': {'screen_id': 701112233}}, 2),
                  ({'tool_name': 'mcp__refero__refero_search_screens', 'tool_input': {'query': 'builder', 'limit': 20, 'page': 2}}, 0)):
