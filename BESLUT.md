@@ -1354,8 +1354,10 @@ koden före rättningen.
 - Byggen från före den här ändringen saknar rapportens identitet i STOPPVAKT.json. Korslut och flödesvyn godkänner dem
   inte längre, och beskedet säger att stoppvaktens besked är från före 2026-10-07.
 - Läckageprovet hittar ordagranna spår av de prövade exemplen, inte en omskriven destillering av domarna.
-- Den privata kalibreringsrapportens ursprungliga RAPPORT.json sparades inte ordagrant vid rättelsen; den går att
-  återskapa (sha256 stämmer med `sha256_fore`). Senare rättelser sparar originalet i rättelsen.
+- Den privata kalibreringsrapportens ursprungliga RAPPORT.json sparades inte ordagrant vid rättelsen. Den återskapades
+  2026-10-07T10:04Z och kontrollerades mot `sha256_fore`, liksom RAPPORT.md:s original. Båda ligger skrivskyddade i
+  `underlag/kalibrering/FORSOK-20261004/ursprung/` (privat) och är förda i förteckningen (GR-20261007-r101-om#KAN-7).
+  Senare rättelser sparar originalet i rättelsen.
 - Punkt 11 och designexemplet: ingen verklig designkörning har ännu gått med slutposten.
 
 ## Tillägg 2026-10-07: ägarens beslut om omtagens jämförelsepunkter och städningens villkor
@@ -1449,3 +1451,13 @@ Räckvidd:
   äldre rester och väntar på identifiering.
 - Eftersom varje fil i en arbetsyta nu prövas kommer de flesta gamla arbetsytor att vänta på ägaren i underhållets
   rapport, med listan över sina filer.
+
+Efter sammanslagningen (2026-10-07):
+- Städningen är påslagen igen. Dashboarden startades om från f652b63 utan `NWP_STADNING=av`.
+- En torrkörning före omstarten (10:57Z) skulle radera nio tomma arbetsytor från avslutade sessioner (20–29 september)
+  och rensa npm-cachen. Alla worktrees står kvar, eftersom inget är pushat.
+- Kvar: en nyskapad worktree vars gren ännu står på main räknas som sammanslagen. Efter en push kan städningen ta bort en
+  sådan worktree medan en agent har börjat läsa men inte ändrat något, eftersom en ren worktree tas bort utan --force.
+  Iakttaget i torrkörningen. Det är inte rättat och inte prövat.
+- Granskningens återstående fynd står i backloggen: GR-20261007-r100-om#BÖR-3 och KAN-A–E. KAN-A, att en dom med
+  U+2028 försvinner tyst ur domloggen, görs i gren C1.
