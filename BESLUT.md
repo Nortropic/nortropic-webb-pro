@@ -1004,8 +1004,8 @@ Genomförs i steg, och varje steg redovisar vad som återstår:
    - förteckningens sha256 visas som integritet, inte som verifiering;
    - rapporter som koden hänvisar till men som saknas visas ur koden;
    - fynden och rättelserna kommer ur backloggen;
-   - varje fil prövas som den verkliga filen, med symlänkar, `./`, `..` och skiftläge lösta, både i vyn och i `/fil/`, och
-     `/api/dokument` visar bara filer som git följer.
+   - varje fil prövas som den verkliga filen, med symlänkar, `./`, `..` och skiftläge lösta, både i vyn och i `/fil/`; en
+     fil med flera hårda länkar visas inte, och `/api/dokument` visar bara filer som git följer.
 
    `ny --fynd` från en senare rapport öppnar en klar post igen (GR-20261007-r97-om#BÖR-1), bara en gång och bara när
    rapporten är senare än varje rapport som posten nämner (GR-20261007-r99#BÖR-5). Granskningen GR-20261007-r99

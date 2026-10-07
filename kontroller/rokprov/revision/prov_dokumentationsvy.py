@@ -378,13 +378,16 @@ SKIFTLAGE = (U / 'FL-BLIND').exists()  # APFS skiljer inte på skiftläge; annar
 (G / 'sessioner' / 'x' / 'kal').symlink_to(Path('../../../kalibrering'))  # en katalogsymlänk till kalibreringen
 skriv(U / 'kalibrering' / 'K01' / 'ANDRAD.md', '# HEMLIG-ANDRAD\n')
 rapport_k01 = sha((d1 / 'RAPPORT.md').read_bytes())
-DOLDA = 8 if SKIFTLAGE else 6  # förteckningens rader till det som fil_tillaten döljer: kalibreringen och den blinda kandidaten
+(U / 'projekt-hard').mkdir()
+os.link(d1 / 'RAPPORT.md', U / 'projekt-hard' / 'RAPPORT.md')  # en hård länk till den blinda filen syns inte på sökvägen
+DOLDA = 9 if SKIFTLAGE else 7  # förteckningens rader till det som fil_tillaten döljer: kalibreringen och den blinda kandidaten
 EXTRA = ([{'fil': 'fl-blind/./atelje/kandidater/k01/RAPPORT.md', 'sha256': rapport_k01},
           {'fil': 'fl-blind//atelje/kandidater/k01/RAPPORT.md', 'sha256': rapport_k01},
           {'fil': 'granskningar/../kalibrering/K01/HEMLIG-KAL.md', 'sha256': sha(b'# HEMLIG-KAL\n')},
           {'fil': 'granskningar/sessioner/x/kal/K01/HEMLIG-KAL.md', 'sha256': sha(b'# HEMLIG-KAL\n')},
           {'fil': 'kalibrering/K01/ANDRAD.md', 'sha256': sha(b'som det var')},  # dold och ändrad: nämns inte under Saknat
-          {'fil': 'granskningar/sessioner/abc/../abc/GRANSKNING-r70.md', 'sha256': sha(r70)}]  # samma fil som den första raden
+          {'fil': 'granskningar/sessioner/abc/../abc/GRANSKNING-r70.md', 'sha256': sha(r70)},  # samma fil som den första raden
+          {'fil': 'projekt-hard/RAPPORT.md', 'sha256': rapport_k01}]
          + ([{'fil': 'fl-blind/ATELJE/kandidater/k01/RAPPORT.md', 'sha256': rapport_k01},
              {'fil': 'Kalibrering/K01/HEMLIG-KAL.md', 'sha256': sha(b'# HEMLIG-KAL\n')}] if SKIFTLAGE else []))
 for x in EXTRA:
@@ -413,9 +416,13 @@ skriv(TMP / 'README.md', readme.replace('\nAllt under `underlag/` är privat.', 
     '\nAllt under `underlag/` är privat.') % TMP.name, 1))
 GIT_ENV = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
 subprocess.run(['git', 'init', '-q', str(TMP)], check=True, env=GIT_ENV)
+skriv(TMP / 'mall' / 'ANTECKNING.md', '# En fil i git som platsregeln inte pekar på\n')
 subprocess.run(['git', '-C', str(TMP), 'add', 'README.md', 'CLAUDE.md', 'BESLUT.md', 'kunskap/designregler.md', 'kunskap/copy-kontroll.md',
-                'kunskap/gammal.md', 'kunskap/hard.md', 'kritik/GRANSKARE.md', '.claude/skills/prov-skill/SKILL.md', 'backlog/README.md'],
+                'kunskap/gammal.md', 'kunskap/hard.md', 'kritik/GRANSKARE.md', '.claude/skills/prov-skill/SKILL.md', 'backlog/README.md',
+                'mall/ANTECKNING.md', 'kunskap/lankad.md'],  # lankad.md är en symlänk som git följer: den verkliga filen avgör
                check=True, env=GIT_ENV)
+# en privat fil som av misstag lagts i git: spärren mot underlag/ och kunder/ håller ändå
+subprocess.run(['git', '-C', str(TMP), 'add', '-f', 'underlag/granskningar/GR-20261005-r90.md'], check=True, env=GIT_ENV)
 
 # ===== fixturer: backloggen och körregistret =====
 
@@ -753,7 +760,7 @@ def _saknade():
 def _integriteten():
     d = svar()
     fl = d['granskningar']['forteckning']
-    assert fl['poster'] == 8 + len(EXTRA) and fl['integritet'] == {'ok': 10 if SKIFTLAGE else 8, 'saknas': 1, 'fel_sha': 2, 'ej_kontrollerade': 3}, (
+    assert fl['poster'] == 8 + len(EXTRA) and fl['integritet'] == {'ok': 11 if SKIFTLAGE else 9, 'saknas': 1, 'fel_sha': 2, 'ej_kontrollerade': 3}, (
         fl['poster'], fl['integritet'])
     assert fl['saknas'] == ['underlag/granskningar/sessioner/abc/GRANSKNING-r71.md'] and fl['fel_sha'] == ['underlag/granskningar/sessioner/abc/GRANSKNING-r72.md']
     assert 'Integritet, ingen verifiering' in fl['not'] and 'inte att historiken är fullständig' in fl['not'], fl['not']
@@ -896,6 +903,9 @@ def _vitlistan():
         kod, data = hamta('/api/dokument?fil=' + quote(fel_))
         assert kod == 404 and b'HEMLIG' not in data, (fel_, kod, data[:120])
     assert not HEMLIGT.findall(json.dumps(d['instruktioner']['grupper'], ensure_ascii=False)), 'privat innehåll bland instruktionerna'
+    # en fil som git följer men som platsregeln och CLAUDE.md inte pekar på visas inte heller
+    assert 'mall/ANTECKNING.md' not in doks and hamta('/api/dokument?fil=' + quote('mall/ANTECKNING.md'))[0] == 404, 'en fil utanför vitlistan'
+    assert not [x for x in doks if x.split('/')[0].casefold() in ('underlag', 'kunder')], ('en privat fil i git blir en instruktion', sorted(doks))
     assert d['instruktioner']['git_fel'] is None, d['instruktioner']['git_fel']
     # utan git visas inga instruktioner, och felet står i svaret
     spara = dash._sparade
@@ -922,6 +932,8 @@ def _fil_skiftlage():
         kod, data = hamta(quote('/fil/' + v))
         assert kod == 404 and not HEMLIGT.findall(data.decode('utf-8', 'replace')), ('/fil/ visar det dolda', v, kod, data[:80])
         assert not dash.fil_tillaten(v), ('fil_tillaten släpper', v)
+    # en hård länk i en katalog som syns, till den blinda filen
+    assert hamta('/fil/underlag/projekt-hard/RAPPORT.md')[0] == 404 and not dash.fil_tillaten('underlag/projekt-hard/RAPPORT.md'), 'en hård länk visar det blinda'
     bild = 'underlag/fl-blind/atelje/kandidater/k01/bilder/start/vy-390-forsta.png'
     assert dash.fil_tillaten(bild) and hamta('/fil/' + bild)[0] == 200, 'skärmbilden ska synas före ditt första val'
 

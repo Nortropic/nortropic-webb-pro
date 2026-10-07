@@ -17,6 +17,7 @@ import html
 import ipaddress
 import socket
 import json
+import stat
 import mimetypes
 import os
 import re
@@ -412,13 +413,24 @@ def _kanonisk(rel):
     return (forsta + '/' + v[0], v[1]) if v and v[0] else None
 
 
+def _ett_namn(p):
+    """Har filen ett enda namn? En hård länk syns inte på sökvägen, så en fil med flera namn kan vara en dold fil under ett
+    annat namn; den visas inte. En katalog och en fil som inte finns prövas inte här. Inget verktyg i repot skapar hårda
+    länkar (granskningen av r99)."""
+    try:
+        st_ = os.stat(p)
+    except (OSError, ValueError):
+        return True
+    return not stat.S_ISREG(st_.st_mode) or st_.st_nlink == 1
+
+
 def fil_tillaten(rel):
     """/fil/<rel>: aldrig jämförelsernas facit (kunder/ab/), och för en arm som ägaren inte valt i än bara provets
     skärmbilder, som den blinda jämförelsen behöver (revisionen 2026-10-03, F14). Prövas på den verkliga filen
     (_kanonisk), så att ./, //, .., en symlänk eller ett annat skiftläge (ATELJE) inte tar sig förbi prefixen nedan
-    (granskningen av r99, BÖR-3)."""
+    (granskningen av r99, BÖR-3), och en fil med flera hårda länkar visas inte (_ett_namn)."""
     k = _kanonisk(rel)
-    return bool(k) and _tillaten(k[0])
+    return bool(k) and _tillaten(k[0]) and (k[1] is None or _ett_namn(k[1]))
 
 
 def _tillaten(rel):
@@ -1578,7 +1590,7 @@ def _fil(p, text=None):
     rel_ = p.relative_to(ROOT).as_posix()
     k = _kanonisk(rel_) if rel_.split('/')[0] in ('underlag', 'kunder') else None
     rel_ = k[0] if k and k[1] else rel_  # sökvägen och länken är den verkliga filens (granskningen av r99, BÖR-1)
-    visbar = bool(k and k[1]) and _tillaten(rel_) and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.md', '.json', '.txt')
+    visbar = bool(k and k[1]) and _tillaten(rel_) and _ett_namn(k[1]) and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.md', '.json', '.txt')
     tid = datetime.fromtimestamp(p.stat().st_mtime, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     return {'text': text or p.name, 'sokvag': rel_, 'lank': '/fil/' + rel_ if visbar else None, 'tid': tid,
             'sha': hashlib.sha256(p.read_bytes()).hexdigest()[:12]}
@@ -2183,7 +2195,7 @@ def _rapportfil(rel):
     finns eller fil_tillaten döljer den. Det är den verkliga filen som prövas, så att ./, //, .., en symlänk eller ett
     annat skiftläge inte läser in det som blindningen eller integritetsgränsen döljer (granskningen av r99, BÖR-1)."""
     k = _kanonisk(rel)
-    return k[0] if k and k[1] is not None and k[1].is_file() and _tillaten(k[0]) else None
+    return k[0] if k and k[1] is not None and k[1].is_file() and _ett_namn(k[1]) and _tillaten(k[0]) else None
 
 
 def granskningsrapporter():
@@ -2232,7 +2244,7 @@ def granskningsrapporter():
             lage['trasiga_rader'] += 1
             continue
         k = _kanonisk('underlag/' + d['fil'])
-        if not k or not _tillaten(k[0]):  # förteckningen kringgår inte gränserna: det dashboarden inte visar nämns inte här
+        if not k or not _tillaten(k[0]) or (k[1] is not None and not _ett_namn(k[1])):  # det dashboarden inte visar nämns inte här
             lage['dolda'] += 1
             continue
         sokvag = k[0]  # den verkliga filen, också när raden skrivits med ./, //, .., en länk eller ett annat skiftläge
@@ -2437,7 +2449,6 @@ def _repofil(rel, sparade):
         st_ = os.lstat(v[1])
     except OSError:
         return False
-    import stat
     return stat.S_ISREG(st_.st_mode) and st_.st_nlink == 1
 
 
@@ -2855,7 +2866,7 @@ class H(BaseHTTPRequestHandler):
                 # av r99, BÖR-3); ett nollbyte eller en sökväg ut ur roten ger 404 (KAN 1)
                 k = _kanonisk(m.group(1))
                 p = k[1] if k else None
-                if p is not None and _tillaten(k[0]) and p.is_file() \
+                if p is not None and _tillaten(k[0]) and _ett_namn(p) and p.is_file() \
                         and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.svg', '.md', '.json', '.txt', '.log'):
                     typ = mimetypes.guess_type(p.name)[0] or 'text/plain'
                     if typ.startswith('text/') or typ.endswith('json'):
