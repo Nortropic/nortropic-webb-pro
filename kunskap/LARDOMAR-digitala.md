@@ -1,5 +1,5 @@
+Status: historik ur Digitala-repot, kopierad hit när repot skapades 2026-10-01 (`REGISTER.md`, Ursprung). Lärdomarna är inga regler här; de slås upp när de besvarar en konkret fråga.
 # Lärdomar över fall (P4) — Digitala
-
 Professionsfil i Digitala-repots `kunskap/` (flyttad hit 2026-09-27 från kontorets `evidence/digitala/local/kunskap/`; se
 `PROVENIENS.md`). Läses vid uppstart av nästa fall. En post per lärdom med fälten
 **observation** (vad hände, fall, bevispekare) · **möjlig generell lärdom** (formulerad som hypotes) · **lokal

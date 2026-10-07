@@ -13,8 +13,10 @@ dömer ett bygge, och av en byggkörning som hittar en brist i verktyg, skill el
 rättas i samma uppdrag blir en post med kalla granskning: kallref är rapportens id eller sökväg (förteckningens
 sökvägar räknas från underlag/) och fynd är <rapportens id>#<fyndets id>. Ett fynd får en post: finns fyndet redan i
 en post, oavsett status, skapas ingen ny, och ny ger den postens id (slutkod 0). Är posten klar och anmäler en senare
-rapport (kallref, en annan än den som hittade fyndet) fyndet igen, består fyndet: posten blir vilande igen med en not om
-rapporten, och verifieringen tas bort. En avvisad eller ersatt post öppnas inte. Ingen post genomförs av sig själv:
+rapport (kallref) fyndet igen, består fyndet: posten blir vilande igen med en not om rapporten, och verifieringen tas
+bort. Senare betyder senare än varje rapport som posten redan nämner (den som hittade fyndet, den som verifierade
+rättelsen och de som anmält fyndet igen), efter datumet och numret i id:t. En rapport som posten redan nämner ändrar
+ingenting, så ny förblir idempotent, och en post som pågår, väntar, är avvisad eller ersatt öppnas inte. Ingen post genomförs av sig själv:
 ägaren startar en session och säger "implementera enligt backlog" (skillen backlog).
 
 klar betyder genomförd och committad. Fältet verifierad (id för den rapport som verifierade rättelsen, en annan än den
@@ -131,13 +133,22 @@ def ny(kalla, titel, varfor, forslag=None, klart=None, steg=None, sar=None, kall
         befintlig = _med_fynd(fynd) if fynd else None
         if befintlig:  # ett fynd följs i en post från upptäckt till verifiering (ägarens uppdrag 2026-10-06, punkt 9)
             rapport = _rapport_id(kallref)
-            if befintlig.get('status') == 'klar' and rapport and rapport != fynd.split('#', 1)[0]:
+            tidigare = _rapporter_i(befintlig)
+            if befintlig.get('status') == 'klar' and rapport and rapport.casefold() not in tidigare:
                 # en senare rapport säger att fyndet består: posten får inte stå kvar som klar eller verifierad
-                # (granskningen av r97-om, BÖR-1; ägarens uppdrag 2026-10-07, punkt 9). Rapporten som hittade fyndet
-                # skrevs före rättelsen och öppnar den inte; avvisade och ersatta poster öppnas inte.
-                _andra_status(MAPP / (befintlig['id'] + '.md'), 'vilande',
-                              not_='%s anmälde fyndet %s igen: fyndet består, och posten är öppen igen.' % (kallref.strip(), fynd))
-                print('fyndet %s fanns i %s (klar); %s anmälde det igen, så posten är vilande igen' % (fynd, befintlig['id'], kallref.strip()),
+                # (granskningen av r97-om, BÖR-1; ägarens uppdrag 2026-10-07, punkt 9). Bara en rapport som är senare än
+                # varje rapport som posten redan nämner öppnar den (granskningen av r99, BÖR-5).
+                if _senare(rapport, tidigare):
+                    ref = kallref.strip()
+                    _andra_status(MAPP / (befintlig['id'] + '.md'), 'vilande',
+                                  not_='%s anmälde fyndet %s igen%s: fyndet består, och posten är öppen igen.' % (
+                                      rapport, fynd, (' (%s)' % ref) if ref != rapport else ''))
+                    print('fyndet %s fanns i %s (klar); %s anmälde det igen, så posten är vilande igen' % (fynd, befintlig['id'], rapport),
+                          file=sys.stderr)
+                    return befintlig['id']
+                print('fyndet %s finns i %s (klar); %s är inte säkert senare än %s, så posten öppnas inte. Består fyndet: '
+                      'backlog.py status %s vilande --not "<rapporten>: fyndet består"' % (fynd, befintlig['id'], rapport,
+                                                                                          ', '.join(sorted(tidigare)), befintlig['id']),
                       file=sys.stderr)
                 return befintlig['id']
             print('fyndet %s finns redan i %s (%s); ingen ny post' % (fynd, befintlig['id'], befintlig.get('status')), file=sys.stderr)
@@ -168,8 +179,36 @@ def _post(pid):
 
 
 def _rapport_id(kallref):
-    """Rapportens id ur kallref, som är id:t eller sökvägen (granskningar/GR-20261007-r97-om.md ger GR-20261007-r97-om)."""
-    return re.sub(r'\.md$', '', (kallref or '').strip().rsplit('/', 1)[-1])
+    """Rapportens id ur kallref, som är id:t eller sökvägen (granskningar/GR-20261007-r97-om.md ger GR-20261007-r97-om),
+    också med ett #fynd, ett avslutande / eller .MD."""
+    t = (kallref or '').strip().split('#', 1)[0].rstrip('/')
+    return re.sub(r'\.md$', '', t.rsplit('/', 1)[-1], flags=re.I)
+
+
+def _rapporter_i(meta):
+    """Rapporterna som posten redan nämner, i gemener: den som hittade fyndet, den som verifierade rättelsen (fältet och
+    noterna, också en verifiering som tagits bort) och de som anmält fyndet igen."""
+    kropp = meta.get('kropp') or ''
+    ut = {(meta.get('fynd') or '').split('#', 1)[0], meta.get('verifierad') or ''}
+    ut |= set(re.findall(r'\*\*Verifierad \([^)]*\):\*\* (%s)' % RAPPORT_ID, kropp))
+    ut |= set(re.findall(r'(%s) verifierade status' % RAPPORT_ID, kropp))
+    ut |= set(re.findall(r'(%s) anmälde fyndet' % RAPPORT_ID, kropp))
+    return {_rapport_id(x).casefold() for x in ut if x}
+
+
+def _tidpunkt(rapport):
+    """En rapports plats i tiden ur id:t: datumet (ÅÅÅÅMMDD) och sedan resten med talen som tal, så att GR-20261007-r97
+    kommer före GR-20261007-r97-om och GR-20261007-r99 före GR-20261007-r100. None när id:t inte bär ett datum."""
+    m = re.search(r'(?<!\d)(\d{8})(?!\d)', rapport or '')
+    if not m:
+        return None
+    return m.group(1), [(int(x), '') if x.isdigit() else (-1, x) for x in re.split(r'(\d+)', rapport[m.end():].casefold()) if x]
+
+
+def _senare(rapport, tidigare):
+    """Är rapporten senare än varje rapport i tidigare? Nej när någon av dem saknar datum: då går det inte att avgöra."""
+    t = _tidpunkt(rapport)
+    return t is not None and all(_tidpunkt(x) is not None and _tidpunkt(x) < t for x in tidigare)
 
 
 def _med_fynd(fynd):

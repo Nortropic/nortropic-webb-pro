@@ -217,13 +217,16 @@ Genomförs i steg:
 
 **Status:** gäller.
 """)
-# koden som hänvisar till granskningar (gemena r är rundor, versala R är fynd)
-skriv(TMP / 'kontroller' / 'exempel.py', """# granskningen av r55, B1: en rapport som inte finns
-# (granskningen av r70, H2, och r71, N5)
-# omgranskningen av r56b visade något
-# granskningen av r90 och r72
-x = 'R1'  # Granskningen av r57 med versal; granskningen av R2 räknas inte
-""")
+# koden som hänvisar till granskningar (gemena r är rundor, versala R är fynd). Texten byggs här, så att mönstret inte
+# står ordagrant i provets egen källkod: annars räknas provet självt som en hänvisning i repots kodträd (granskningen av
+# r99, B1; prövas i fallet om repots eget kodträd nedan)
+GR_ = 'granskningen'
+skriv(TMP / 'kontroller' / 'exempel.py', '\n'.join((
+    '# %s av r55, B1: en rapport som inte finns' % GR_,
+    '# (%s av r70, H2, och r56, N5)' % GR_,
+    '# om%s av r56b visade något' % GR_,
+    '# %s av r90 och r72' % GR_,
+    "x = 'R1'  # %s av r57 med versal; %s av R2 räknas inte" % (GR_.capitalize(), GR_), '')))
 
 # ===== fixturer: granskningar, förteckningen, lägesrapporter och piloten =====
 
@@ -235,7 +238,8 @@ skriv(G / 'GR-20261005-r90.md', huvud(
     rapportstatus='färdig', bedomningsutfall='underkänt för sammanslagning: 1 blockerande', forhallande='första granskningen',
     foregaende='ej angivet', ersatt_av='ej angivet', underlag='granskningar/GR-20261005-r90/',
     beslut='ägarens beslut (BESLUT.md, tillägget 2026-10-03: andra saken)',
-    atgarder=['GR-20261005-r90#B1: rättas i tolk-20261005', 'GR-20261005-r90#B2 och #B3: backlogposter']))
+    atgarder=['GR-20261005-r90#B1: rättas i tolk-20261005', 'GR-20261005-r90#B2 och #B3: backlogposter'],
+    giltighet='historik: ersatt av omgranskningen GR-20261006-r90-om'))
 skriv(G / 'GR-20261005-r90' / 'bevis.txt', 'mutation 1 dödad\n')
 skriv(G / 'GR-20261006-r90-om.md', huvud(
     id='GR-20261006-r90-om', titel='Omgranskning av tolken', typ='systemgranskning (omgranskning)', systemdel='kontroller/tolk.py',
@@ -275,7 +279,9 @@ skriv(U / 'kalibrering' / 'RAPPORT-hemlig.md', huvud(id='RAPPORT-hemlig', titel=
 P = U / 'figma-pilot'
 skriv(P / 'BESLUTSUNDERLAG.md', '---\nid: RAPPORT-2026-10-06-pilot\ntitel: Piloten\ntyp: projektrapport (pilot)\nkund: en pilot\n'
       'datum: 2026-10-06\ngranskad_identitet:\n  A: Figma prov, v5\n  C: version C5, dist i moment-c/VERSION.json\nrapportstatus: färdig\n'
-      'bedomningsutfall: godkänt mot de mätbara kriterierna\n---\n\n# Slutsats\n')
+      'bedomningsutfall: godkänt mot de mätbara kriterierna; ägarens dom 2026-10-07: inte ännu (bekräftad; moment-c/bedomningar/AGARENS-DOM-C5.md)\n'
+      'rattelser:\n  - 2026-10-07: "materialet sätter taket" är inte styrkt av piloten, rättelseblocket överst\n'
+      '  - 2026-10-07: kontrasttalen är uppskattningar, ingen verifierad kontrast, rättelseblocket överst\n---\n\n# Slutsats\n')
 skriv(P / 'BUDGET.md', '# Budget utan huvud\n')
 skriv(P / 'moment-c' / 'VERSION.json', {'moment': 'C', 'aktuell': 'C5', 'status': 'underkänt', 'status_skal': 'ägarens dom: inte ännu',
                                          'agarens_dom': {'version': 'C5', 'utfall': 'inte ännu', 'avsandare': 'ägaren (bekräftat i provet)',
@@ -363,6 +369,54 @@ for s, andra in (('ab-x', 'ab-y'), ('ab-y', 'ab-x')):
 underlag_('k-bygge')
 bygge('k-bygge')
 
+# ===== fixturer: förteckningens rader, länkar och git (granskningen av r99, BÖR-1–3) =====
+
+# en blind fil med ett rapporthuvud: visas den läcker id och titel
+skriv(d1 / 'RAPPORT.md', huvud(id='HEMLIG-ID k01', titel='HEMLIG-TITEL rapport', rapportstatus='färdig', datum='2026-10-06'))
+SKIFTLAGE = (U / 'FL-BLIND').exists()  # APFS skiljer inte på skiftläge; annars finns versalvarianterna inte alls
+(G / 'sessioner' / 'x').mkdir(parents=True)
+(G / 'sessioner' / 'x' / 'kal').symlink_to(Path('../../../kalibrering'))  # en katalogsymlänk till kalibreringen
+skriv(U / 'kalibrering' / 'K01' / 'ANDRAD.md', '# HEMLIG-ANDRAD\n')
+rapport_k01 = sha((d1 / 'RAPPORT.md').read_bytes())
+DOLDA = 8 if SKIFTLAGE else 6  # förteckningens rader till det som fil_tillaten döljer: kalibreringen och den blinda kandidaten
+EXTRA = ([{'fil': 'fl-blind/./atelje/kandidater/k01/RAPPORT.md', 'sha256': rapport_k01},
+          {'fil': 'fl-blind//atelje/kandidater/k01/RAPPORT.md', 'sha256': rapport_k01},
+          {'fil': 'granskningar/../kalibrering/K01/HEMLIG-KAL.md', 'sha256': sha(b'# HEMLIG-KAL\n')},
+          {'fil': 'granskningar/sessioner/x/kal/K01/HEMLIG-KAL.md', 'sha256': sha(b'# HEMLIG-KAL\n')},
+          {'fil': 'kalibrering/K01/ANDRAD.md', 'sha256': sha(b'som det var')},  # dold och ändrad: nämns inte under Saknat
+          {'fil': 'granskningar/sessioner/abc/../abc/GRANSKNING-r70.md', 'sha256': sha(r70)}]  # samma fil som den första raden
+         + ([{'fil': 'fl-blind/ATELJE/kandidater/k01/RAPPORT.md', 'sha256': rapport_k01},
+             {'fil': 'Kalibrering/K01/HEMLIG-KAL.md', 'sha256': sha(b'# HEMLIG-KAL\n')}] if SKIFTLAGE else []))
+for x in EXTRA:
+    x.update(kopierad='2026-10-07T00:00:00Z', slag='systemgranskning', bas='underlag/')
+skriv(G / 'FORTECKNING.jsonl', ''.join(json.dumps(x, ensure_ascii=False) + '\n' for x in FORTECKNING + EXTRA) + '{trasig rad\n')
+# projektkataloger som är länkar till det blinda och till kalibreringen, och en kunds rapport (ingen projektrapport)
+(U / 'projekt-blind').symlink_to(Path('fl-blind/atelje/kandidater/k01'))
+(U / 'projekt-kal').symlink_to(Path('kalibrering'))
+skriv(U / 'k-bygge' / 'RAPPORT-KUND.md', huvud(id='RAPPORT-KUND-k-bygge', titel='En kunds rapport', rapportstatus='färdig', datum='2026-10-06'))
+# /api/dokument: en hård länk och en katalogsymlänk till privat material, en fil som git inte följer och rader i
+# platsregeln som pekar dit på andra sätt; bara repots publika filer i git visas
+skriv(U / 'privat' / 'a.md', '# HEMLIG-A\n')
+skriv(U / 'privat' / 'b.md', '# HEMLIG-B\n')
+skriv(U / 'privat-skill' / 'SKILL.md', '---\nname: HEMLIG-SKILL\ndescription: HEMLIG-SKILLBESKRIVNING\n---\n\n# HEMLIG-SKILL\n')
+skriv(K / 'k1' / 'c.md', '# HEMLIG-C\n')
+os.link(U / 'privat' / 'b.md', TMP / 'kunskap' / 'hard.md')
+(TMP / '.claude' / 'skills' / 'evil').symlink_to(Path('../../underlag/privat-skill'))
+(TMP / 'kunskap' / 'dirlank').symlink_to(U / 'privat')
+skriv(TMP / 'kunskap' / 'ospard.md', '# Ospårad\n')
+readme = (TMP / 'README.md').read_text(encoding='utf-8')
+skriv(TMP / 'README.md', readme.replace('\nAllt under `underlag/` är privat.', (
+    '| Fel 1 | `kunskap/../underlag/privat/a.md` | agenten |\n'
+    '| Fel 2 | `Underlag/privat/b.md` och `KUNDER/k1/c.md` | agenten |\n'
+    '| Fel 3 | `../%s/kunder/k1/c.md` och `kunskap/dirlank/` | agenten |\n'
+    '| Fel 4 | `kunskap/hard.md`, `kunskap/ospard.md` och `.claude/skills/evil/SKILL.md` | agenten |\n'
+    '\nAllt under `underlag/` är privat.') % TMP.name, 1))
+GIT_ENV = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+subprocess.run(['git', 'init', '-q', str(TMP)], check=True, env=GIT_ENV)
+subprocess.run(['git', '-C', str(TMP), 'add', 'README.md', 'CLAUDE.md', 'BESLUT.md', 'kunskap/designregler.md', 'kunskap/copy-kontroll.md',
+                'kunskap/gammal.md', 'kunskap/hard.md', 'kritik/GRANSKARE.md', '.claude/skills/prov-skill/SKILL.md', 'backlog/README.md'],
+               check=True, env=GIT_ENV)
+
 # ===== fixturer: backloggen och körregistret =====
 
 bl.MAPP.mkdir(exist_ok=True)
@@ -437,7 +491,8 @@ process.stdout.write(JSON.stringify(f(data, filter)));
 """
 FILTER = [{}, {'typ': 'systemgranskning'}, {'utfall': 'godkänt'}, {'utfall': 'underkänt'}, {'status': 'utkast'}, {'version': 'def5678'},
           {'version': 'abc1234'}, {'fran': '2026-10-06', 'till': '2026-10-06'}, {'till': '2026-10-05'}, {'uppdrag': 'kontroller/tolk.py'},
-          {'uppdrag': 'andra uppdraget'}, {'q': 'GRANSKNING-r70'}, {'exakt': 'GR-20261005-r90'}, {'typ': 'lägesrapport till ägaren', 'status': 'färdig'}]
+          {'uppdrag': 'andra uppdraget'}, {'q': 'GRANSKNING-r70'}, {'exakt': 'GR-20261005-r90'}, {'typ': 'lägesrapport till ägaren', 'status': 'färdig'},
+          {'utfall': 'blandat'}]
 
 
 def vyn(d):
@@ -475,7 +530,6 @@ def _delarna():
     for rubrik in ('Väntar på dig', 'Senaste rapporterna', 'Fynd och rättelser', 'Historik och ersatta slutsatser', 'Saknat underlag',
                    'Kompetenskedjan och slutposten'):
         assert '<h2>%s</h2>' % rubrik in v['sammanfattning'], rubrik
-    assert 'Datakällorna byggs i andra arbetsgrenar' in v['senare'] and 'Inget är gissat' in v['senare'], v['senare']
     html = (ROOT / 'dashboard' / 'index.html').read_text(encoding='utf-8')
     assert '<a href="#/dokumentation" data-v="dokumentation">' in html and "h.startsWith('dokumentation/')" in html, 'vyn saknas i navigeringen'
 
@@ -494,10 +548,10 @@ def _filtren():
     alla_ = set(utfall[0])
     assert len(alla_) == 13 and 'underlag/granskningar/sessioner/abc/GRANSKNING-r70.md' in alla_, utfall[0]  # en rapport utan id heter som sin fil
     vantat = [None, {'GR-20261005-r90', 'GR-20261006-r90-om', 'GR-20261006-utkast', 'GR-20261006-utan-falt'},
-              {'GR-20261006-r90-om', 'RAPPORT-2026-10-06-pilot'}, {'GR-20261005-r90'}, {'GR-20261006-utkast'}, {'GR-20261006-r90-om'},
+              {'GR-20261006-r90-om'}, {'GR-20261005-r90'}, {'GR-20261006-utkast'}, {'GR-20261006-r90-om'},
               {'GR-20261005-r90'}, {'GR-20261006-r90-om', 'GR-20261006-utkast', 'GR-20261006-utan-falt', 'RAPPORT-2026-10-06-lage', 'RAPPORT-2026-10-06-pilot'},
               {'GR-20261005-r90'}, {'GR-20261005-r90', 'GR-20261006-r90-om'}, {'RAPPORT-2026-10-06-lage'},
-              {'underlag/granskningar/sessioner/abc/GRANSKNING-r70.md'}, {'GR-20261005-r90'}, {'RAPPORT-2026-10-06-lage'}]
+              {'underlag/granskningar/sessioner/abc/GRANSKNING-r70.md'}, {'GR-20261005-r90'}, {'RAPPORT-2026-10-06-lage'}, {'RAPPORT-2026-10-06-pilot'}]
     for f, ut, vant in zip(FILTER, utfall, vantat):
         if vant is not None:
             assert set(ut) == vant, ('filtret %s' % f, sorted(ut), sorted(vant))
@@ -508,7 +562,7 @@ def _utan_huvud():
     d = svar()
     r = rapport(d, 'underlag/granskningar/sessioner/abc/GRANSKNING-r70.md')
     for k in dash.RAPPORTFALT:
-        assert r[k] == 'ej angivet', (k, r[k])
+        assert r[k] == ([] if k == 'rattelser' else 'ej angivet'), (k, r[k])
     assert (r['huvud'], r['utfall'], r['rapportstatus_klass'], r['avsandare']) == ('saknas', 'ej angivet', 'ej angivet', 'avsändaren ej belagd'), r
     fl = r['forteckning']
     assert fl['registrerad'] == 'registrerad med sha256 %s' % FORTECKNING[0]['sha256'][:12] and fl['slag'] == 'systemgranskning', fl
@@ -535,11 +589,15 @@ def _trasigt():
     assert d['granskningar']['forteckning']['trasiga_rader'] == 1, d['granskningar']['forteckning']
     for text, vantat in ((None, 'trasigt'), ('', 'saknas'), ('---', 'trasigt'), ('---\n', 'trasigt'), ('# rubrik\n', 'saknas'),
                          ('---\nid: x\n  - utan nyckel först\n---\n', 'ok'), ('---\n  - utan nyckel\n---\n', 'trasigt'),
-                         ('---\nid: "citerad: med kolon"\nlista:\n  - a\n  - b\nidentitet:\n  A: x\n---\n', 'ok'), ('---\n' + 'a: b\n' * 500, 'trasigt')):
+                         ('---\nid: "citerad: med kolon"\nlista:\n  - a\n  - b\nidentitet:\n  A: x\n---\n', 'ok'), ('---\n' + 'a: b\n' * 500, 'trasigt'),
+                         ('---\n' + 'a: b\n' * 500 + '---\n', 'trasigt')):
         f, lage = dash.rapporthuvud(text)
         assert lage == vantat, (text, lage, f)
     f, _ = dash.rapporthuvud('---\nid: "citerad: med kolon"\nlista:\n  - a\n  - b\nidentitet:\n  A: x\n---\n')
     assert f == {'id': 'citerad: med kolon', 'lista': ['a', 'b'], 'identitet': ['A: x']}, f
+    assert dash.rapporthuvud('---\ntitel: första\n  andra\n---\n')[0] == {'titel': 'första andra'}, 'en fortsättningsrad skriver över värdet'
+    assert [dash.rapportstatusklass(x) for x in ('ersatt av GR-x', 'Färdig', 'utkast (del 1)', 'klar')] == ['ersatt', 'färdig', 'utkast', 'annat']
+    assert dash._version('datum 20261007, main 7e7e7e7') == '7e7e7e7' and dash._version('commit 1234567') == '1234567', 'ett datum som version'
     pilot = rapport(d, 'RAPPORT-2026-10-06-pilot')
     assert pilot['granskad_identitet'] == ['A: Figma prov, v5', 'C: version C5, dist i moment-c/VERSION.json'] and pilot['slag'] == 'projektrapport', pilot
 
@@ -550,10 +608,10 @@ def _status_och_utfall():
     par = {r['id']: (r['rapportstatus_klass'], r['utfall']) for r in d['granskningar']['rapporter'] if r['id'] != 'ej angivet'}
     assert par['GR-20261005-r90'] == ('färdig', 'underkänt') and par['GR-20261006-r90-om'] == ('färdig', 'godkänt'), par
     assert par['GR-20261006-utkast'] == ('utkast', 'ej bedömt') and par['RAPPORT-2026-10-06-lage'] == ('färdig', 'ej bedömt'), par
-    assert par['GR-20261006-utan-falt'] == ('ej angivet', 'ej angivet'), par
+    assert par['GR-20261006-utan-falt'] == ('ej angivet', 'ej angivet') and par['RAPPORT-2026-10-06-pilot'] == ('färdig', 'blandat'), par
     g = d['sammanfattning']['granskningar']
     assert g['rapportstatus'] == {'färdig': 4, 'utkast': 1, 'ej angivet': 1}, g['rapportstatus']
-    assert g['utfall'] == {'underkänt': 1, 'godkänt': 2, 'ej bedömt': 2, 'ej angivet': 1}, g['utfall']
+    assert g['utfall'] == {'underkänt': 1, 'godkänt': 1, 'blandat': 1, 'ej bedömt': 2, 'ej angivet': 1}, g['utfall']
     html = vyn(d)['rapporter']['GR-20261005-r90']
     assert '<span class="chip">rapport färdig</span>' in html and 'utfall underkänt · gällde abc1234</span>' in html, html[:700]
     assert '<dt>Rapportstatus</dt><dd>färdig</dd>' in html and '<dt>Bedömningsutfall</dt><dd>underkänt för sammanslagning: 1 blockerande' in html, html[:2000]
@@ -570,7 +628,7 @@ def _historik():
         assert not re.search(r'utfall godkänt</span>', html), 'ett godkännande utan version'
     assert 'Historik: utfallet gäller den granskade identiteten (gällde def5678)' in v['rapporter']['GR-20261006-r90-om']
     pilot = rapport(d, 'RAPPORT-2026-10-06-pilot')
-    assert pilot['version'] is None and 'utfall godkänt · gällde: se granskad identitet' in v['rapporter']['RAPPORT-2026-10-06-pilot']
+    assert pilot['version'] is None and 'utfall blandat · gällde: se granskad identitet' in v['rapporter']['RAPPORT-2026-10-06-pilot']
 
 
 @fall('BESLUT.md: statusraden, märkningen, ej angivet, ersättaren och vad som ersatts, Återstår och kodblock; också repots egen')
@@ -628,7 +686,7 @@ def _blindningen():
     assert k['ab-x'] == dict(k['ab-y'], slug='ab-x', vy='#/flode/ab-x') and k['ab-x'].get('ab_dold') is True and set(k['ab-x']) == {'slug', 'ab_dold', 'vy'}, k['ab-x']
     assert 'kunder/ab-x/RAPPORT.md' not in a and 'kunder/ab-y' not in a, 'en arm i den blinda jämförelsen syns'
     # det fil_tillaten döljer nämns inte: kalibreringens rapport och förteckningens rad dit
-    assert 'kalibrering' not in a and med['granskningar']['forteckning']['dolda'] == 1, med['granskningar']['forteckning']
+    assert 'kalibrering' not in a and med['granskningar']['forteckning']['dolda'] == DOLDA, med['granskningar']['forteckning']
     v = vyn(med)
     assert not HEMLIGT.findall(json.dumps(v, ensure_ascii=False)), 'vyn lägger till något dolt'
 
@@ -648,7 +706,8 @@ def _lankarna():
         assert not dok.startswith(('underlag/', 'kunder/')) and hamta('/api/dokument?fil=' + quote(dok))[0] == 200, dok
     assert all(v.startswith('#/') for v in alla(d, 'vy')), [v for v in alla(d, 'vy') if not v.startswith('#/')]
     for fel_ in ('underlag/granskningar/GR-20261005-r90.md', 'kunder/k-bygge/RAPPORT.md', 'kunskap/lankad.md', '../README.md',
-                 'kunskap/../BESLUT.md', 'underlag/fl-blind/atelje/kandidater/k01/RIKTNING.md', '/etc/hosts', 'dashboard/server.py', ''):
+                 'kunskap/../BESLUT.md', 'underlag/fl-blind/atelje/kandidater/k01/RIKTNING.md', '/etc/hosts', 'dashboard/server.py', '',
+                 'KUNSKAP/designregler.md', 'kunskap/designregler.md\x00', 'kunskap/./designregler.md', 'kunskap//designregler.md'):
         kod, data = hamta('/api/dokument?fil=' + quote(fel_))
         assert kod == 404 and b'HEMLIG' not in data, (fel_, kod, data[:200])
     assert hamta('/api/dokument')[0] == 404
@@ -681,17 +740,21 @@ def _instruktionerna():
 def _saknade():
     d = svar()
     s = {x['runda']: x for x in d['saknat']['rapporter']}
-    assert sorted(s, key=dash._rundnyckel) == ['r55', 'r56b', 'r57'], sorted(s)
-    assert s['r55']['var'] == ['kontroller/exempel.py:1'] and s['r57']['antal'] == 1, s
-    assert d['sammanfattning']['saknat']['rapporter'] == ['r55', 'r56b', 'r57']
-    assert 'Innehållet återskapas inte' in vyn(d)['saknat']
+    assert sorted(s, key=dash._rundnyckel) == ['r55', 'r56', 'r56b', 'r57'], sorted(s)
+    assert s['r55']['var'] == ['kontroller/exempel.py:1'] and s['r56']['var'] == ['kontroller/exempel.py:2'] and s['r57']['antal'] == 1, s
+    assert d['sammanfattning']['saknat']['rapporter'] == ['r55', 'r56', 'r56b', 'r57']
+    html = vyn(d)['saknat']
+    assert 'Innehållet återskapas inte' in html, html[:300]
+    # förteckningens saknade och ändrade filer står i vyn Saknat underlag (V25)
+    assert 'saknas: <code>underlag/granskningar/sessioner/abc/GRANSKNING-r71.md</code>' in html and 'ändrad: <code>underlag/granskningar/sessioner/abc/GRANSKNING-r72.md</code>' in html, html
 
 
 @fall('integriteten är ingen verifiering: förteckningens filer räknas för sig, och verifierat är bara fältet verifierad')
 def _integriteten():
     d = svar()
     fl = d['granskningar']['forteckning']
-    assert fl['poster'] == 8 and fl['integritet'] == {'ok': 5, 'saknas': 1, 'fel_sha': 1, 'ej_kontrollerade': 1}, fl['integritet']
+    assert fl['poster'] == 8 + len(EXTRA) and fl['integritet'] == {'ok': 10 if SKIFTLAGE else 8, 'saknas': 1, 'fel_sha': 2, 'ej_kontrollerade': 3}, (
+        fl['poster'], fl['integritet'])
     assert fl['saknas'] == ['underlag/granskningar/sessioner/abc/GRANSKNING-r71.md'] and fl['fel_sha'] == ['underlag/granskningar/sessioner/abc/GRANSKNING-r72.md']
     assert 'Integritet, ingen verifiering' in fl['not'] and 'inte att historiken är fullständig' in fl['not'], fl['not']
     assert all('verifier' not in x for x in dash.INTEGRITET.values()), dash.INTEGRITET
@@ -772,6 +835,168 @@ def _renderingen():
     flikar = html[html.find('const DOKFLIKAR'):html.find('const DOK_EJ')]
     for namn in ('Så fungerar Nortropic', 'Pågående uppdrag', 'Granskningar och resultat', 'Beslut och historik'):
         assert namn in flikar, namn
+
+
+# Granskningarna som var registrerade i underlag/granskningar/ när provet skrevs, 2026-10-07: GR-filerna och
+# förteckningens systemgranskningar, bara id:n och inget innehåll. Rundor efter r99 prövas inte här; registreras en
+# granskning till r99 eller hänvisar koden till en ny runda till och med r99, uppdateras listorna.
+REGISTRERADE_GR = ('GR-20261006-r94-slut', 'GR-20261006-r96-om', 'GR-20261006-r98', 'GR-20261007-r96-om2', 'GR-20261007-r96-om3',
+                   'GR-20261007-r97', 'GR-20261007-r97-om', 'GR-20261007-r99')
+REGISTRERADE_SESSIONER = ('r70-r71', 'r72', 'r73', 'r74', 'r75', 'r76', 'r77', 'r79', 'r80', 'r81', 'r85', 'r86', 'r88', 'r92', 'r92b',
+                          'r92c', 'r92d', 'r93', 'r94-om', 'r94', 'r95', 'r96', 'steg1', 'steg2')
+SAKNADE_I_REPOT = ['r53', 'r54', 'r54b', 'r58', 'r59', 'r60', 'r62']
+
+
+@fall('saknade rapporter i repots eget kodträd: de riktiga r53–r62 och ingen ur provens fixturtext (B1)')
+def _saknade_i_repot():
+    rapporter = [{'slag': 'systemgranskning', 'fil': {'sokvag': 'underlag/granskningar/%s.md' % x}} for x in REGISTRERADE_GR]
+    rader = [('', {'fil': 'granskningar/sessioner/ab0a716f/GRANSKNING-%s.md' % x, 'slag': 'systemgranskning'}) for x in REGISTRERADE_SESSIONER]
+    dash.ROOT = ROOT
+    try:
+        s = dash.saknade_rapporter(rapporter, rader)
+    finally:
+        dash.ROOT = TMP
+    till_r99 = [x['runda'] for x in s if dash._rundnyckel(x['runda']) <= (99, 'z')]
+    assert till_r99 == SAKNADE_I_REPOT, ('saknade rapporter i repots kodträd', till_r99, [(x['runda'], x['var'][:2]) for x in s if x['runda'] not in SAKNADE_I_REPOT][:4])
+    i_proven = [v for x in s for v in x['var'] if 'prov_dokumentationsvy' in v]
+    assert not i_proven, ('provets egen fixturtext räknas som en hänvisning', i_proven)
+
+
+@fall('förteckningens rader prövas som den verkliga filen: ./, //, .., en katalogsymlänk och versaler visar och länkar inget dolt (BÖR-1)')
+def _forteckningens_rader():
+    d = svar()
+    fl = d['granskningar']['forteckning']
+    sokvagar = [(r.get('fil') or {}).get('sokvag') or '' for r in d['granskningar']['rapporter']]
+    assert not [x for x in sokvagar if 'fl-blind' in x or 'alibrering' in x or '/x/' in x], sokvagar
+    assert sokvagar.count('underlag/granskningar/sessioner/abc/GRANSKNING-r70.md') == 1, sokvagar
+    assert rapport(d, 'underlag/granskningar/sessioner/abc/GRANSKNING-r70.md')['forteckning']['integritet'] == 'ok', 'en senare rad för samma fil skrev över den första'
+    assert fl['dolda'] == DOLDA and fl['fel_sha'] == ['underlag/granskningar/sessioner/abc/GRANSKNING-r72.md'], (fl['dolda'], fl['fel_sha'])
+    text = json.dumps(d, ensure_ascii=False)
+    assert not HEMLIGT.findall(text) and 'HEMLIG-ID' not in text, HEMLIGT.findall(text)
+    for rad in EXTRA:  # samma prövning direkt: den verkliga filen avgör
+        assert not dash.fil_tillaten('underlag/' + rad['fil']) or rad['fil'].endswith('GRANSKNING-r70.md'), rad['fil']
+
+
+@fall('projektrapporter: en katalog som är en länk till det dolda visar inget, och en kunds katalog är ingen projektkatalog (BÖR-1)')
+def _projektkataloger():
+    d = svar()
+    ids = [r['id'] for r in d['granskningar']['rapporter']]
+    assert 'RAPPORT-KUND-k-bygge' not in ids and not [i for i in ids if 'HEMLIG' in i], ids
+    assert not [r for r in d['granskningar']['rapporter'] if (r.get('fil') or {}).get('sokvag', '').startswith(('underlag/projekt-', 'underlag/k-bygge/'))]
+
+
+@fall('/api/dokument: bara filer som git följer, som de heter på disken, utan länkar till underlag/ eller kunder/ (BÖR-2)')
+def _vitlistan():
+    d = svar()
+    doks = set(alla(d, 'dok'))
+    for fel_ in ('kunskap/hard.md', 'kunskap/ospard.md', 'kunskap/lankad.md', '.claude/skills/evil/SKILL.md', 'kunskap/dirlank/a.md',
+                 'underlag/privat/a.md', 'Underlag/privat/b.md', 'KUNDER/k1/c.md', 'kunskap/../underlag/privat/a.md',
+                 '../%s/kunder/k1/c.md' % TMP.name, 'kunder/k1/c.md'):
+        assert fel_ not in doks, ('i vitlistan', fel_)
+        kod, data = hamta('/api/dokument?fil=' + quote(fel_))
+        assert kod == 404 and b'HEMLIG' not in data, (fel_, kod, data[:120])
+    assert not HEMLIGT.findall(json.dumps(d['instruktioner']['grupper'], ensure_ascii=False)), 'privat innehåll bland instruktionerna'
+    assert d['instruktioner']['git_fel'] is None, d['instruktioner']['git_fel']
+    # utan git visas inga instruktioner, och felet står i svaret
+    spara = dash._sparade
+    dash._sparade = lambda: (set(), 'git saknas i provet')
+    try:
+        ins = dash.instruktioner()
+    finally:
+        dash._sparade = spara
+    assert not ins['grupper'] and ins['git_fel'] == 'git saknas i provet', ins['grupper']
+
+
+@fall('fil_tillaten prövar den verkliga filen: versaler och ./ visar inget blint, inte heller i kalibreringen och A/B (BÖR-3)')
+def _fil_skiftlage():
+    blinda = ['underlag/fl-blind/atelje/kandidater/k01/STATUS.json', 'underlag/fl-blind/atelje/KANDIDATPLAN.json',
+              'underlag/fl-blind/atelje/kandidater/k01/SKISSKRITIK.json', 'underlag/fl-blind/atelje/kandidater/k01/RIKTNING.md',
+              'underlag/fl-blind/atelje/kandidater/k01/KRITIK.json', 'underlag/fl-blind/atelje/kandidater/k01/RAPPORT.md']
+    varianter = [b.replace('/atelje/', '/./atelje/') for b in blinda] + [b.replace('/kandidater/', '//kandidater/') for b in blinda]
+    if SKIFTLAGE:  # bara på ett filsystem som inte skiljer på skiftläge, som APFS
+        varianter += [b.replace('/atelje/', '/ATELJE/') for b in blinda] + [b.replace('/atelje/', '/Atelje/').replace('/kandidater/', '/KANDIDATER/') for b in blinda]
+        varianter += ['underlag/fl-blind/atelje/kandidater/K01/STATUS.json', 'underlag/kalibrering/k01/HEMLIG-KAL.md', 'underlag/kalibrering/K01/hemlig-kal.md',
+                      'kunder/ab-x/Rapport.md', 'kunder/ab-x/PROV/PROV.md', 'kunder/ab-x/prov/prov.md']
+    varianter += blinda + ['underlag/kalibrering/K01/HEMLIG-KAL.md', 'kunder/ab-x/RAPPORT.md', 'kunder/ab-x/prov/PROV.md']
+    for v in varianter:
+        kod, data = hamta(quote('/fil/' + v))
+        assert kod == 404 and not HEMLIGT.findall(data.decode('utf-8', 'replace')), ('/fil/ visar det dolda', v, kod, data[:80])
+        assert not dash.fil_tillaten(v), ('fil_tillaten släpper', v)
+    bild = 'underlag/fl-blind/atelje/kandidater/k01/bilder/start/vy-390-forsta.png'
+    assert dash.fil_tillaten(bild) and hamta('/fil/' + bild)[0] == 200, 'skärmbilden ska synas före ditt första val'
+
+
+@fall('ett sammansatt utfall: inget grönt chip, ägarens dom som egen rad med ägaren som avsändare, rapportens eget utfall kvar (BÖR-4)')
+def _sammansatt_utfall():
+    d = svar()
+    r = rapport(d, 'RAPPORT-2026-10-06-pilot')
+    assert (r['utfall'], r['utfall_rapport']) == ('blandat', 'godkänt'), (r['utfall'], r.get('utfall_rapport'))
+    assert [(a['avsandare'], a['klass']) for a in r['agarens_dom']] == [('ägaren', 'annat')], r['agarens_dom']
+    assert r['agarens_dom'][0]['text'] == 'ägarens dom 2026-10-07: inte ännu (bekräftad; moment-c/bedomningar/AGARENS-DOM-C5.md)', r['agarens_dom']
+    v = vyn(d)
+    html = v['rapporter']['RAPPORT-2026-10-06-pilot']
+    assert 'utfall blandat' in html and 'class="chip ok">utfall' not in html, html[:900]
+    assert '<strong>Ägarens dom</strong> (avsändare: ägaren)' in html and 'Rapportens eget utfall: godkänt' in html, html[:2500]
+    for del_ in (v['sammanfattning'], v['pagaende']):
+        bit = del_[del_.find('RAPPORT-2026-10-06-pilot'):]
+        bit = bit[:bit.find('</li>')]
+        assert 'class="chip ok">utfall' not in bit and 'Ägarens dom' in bit, bit[:600]
+    # delarna: en kommentar efter semikolon ändrar inte klassen, ett semikolon inom parentes delar inte, och två utfall
+    # som skiljer sig, eller ägarens dom mot rapportens, blir blandat
+    assert dash.utfallet('underkänt för sammanslagning: 1 blockerande (a; b), 6 BÖR; blindningen höll', 'x')[:2] == ('underkänt', 'underkänt')
+    assert dash.utfallet('godkänt för sammanslagning (inga blockerande; 1 BÖR); 70 av 72 mutationer dödade', 'x')[:2] == ('godkänt', 'godkänt')
+    assert dash.utfallet('godkänt mot A; underkänt mot B', 'x')[:2] == ('blandat', 'blandat')
+    assert dash.utfallet('godkänt; ägarens dom: godkänt', 'x')[0] == 'godkänt' and dash.utfallet('godkänt; Ägarens beslut: nej', 'x')[0] == 'blandat'
+    assert dash.utfallsklass('underkänt: två av tre delar godkända') == 'underkänt', 'klassen efter början, inte en delsträng'
+
+
+@fall('instruktionerna i repot: de två historiska filerna i kunskap/ börjar med sin statusrad (BÖR-6)')
+def _statusraderna_i_repot():
+    dash.ROOT = ROOT
+    try:
+        f = {n: dash._dokpost('kunskap/%s' % n) for n in ('REGISTER-arkiv-20261001.md', 'LARDOMAR-digitala.md')}
+    finally:
+        dash.ROOT = TMP
+    for n, x in f.items():
+        assert (x['status'] or '').startswith('historik') and (ROOT / 'kunskap' / n).read_text(encoding='utf-8').startswith('Status: historik'), (n, x['status'])
+
+
+@fall('rättelser och giltighet ur rapporthuvudet visas vid rapporten och i översikten (BÖR-7)')
+def _rattelser():
+    d = svar()
+    r = rapport(d, 'RAPPORT-2026-10-06-pilot')
+    assert r['rattelser'] == ['2026-10-07: "materialet sätter taket" är inte styrkt av piloten, rättelseblocket överst',
+                              '2026-10-07: kontrasttalen är uppskattningar, ingen verifierad kontrast, rättelseblocket överst'], r['rattelser']
+    g = rapport(d, 'GR-20261005-r90')
+    assert g['giltighet'] == 'historik: ersatt av omgranskningen GR-20261006-r90-om' and g['rattelser'] == [], (g['giltighet'], g['rattelser'])
+    h = d['sammanfattning']['historik']['rattade']
+    assert [x['id'] for x in h] == ['RAPPORT-2026-10-06-pilot', 'GR-20261005-r90'], [x['id'] for x in h]
+    v = vyn(d)
+    assert '2 rättelser' in v['rapporter']['RAPPORT-2026-10-06-pilot'] and 'kontrasttalen är uppskattningar' in v['rapporter']['RAPPORT-2026-10-06-pilot']
+    assert 'giltighet: historik' in v['rapporter']['GR-20261005-r90'], v['rapporter']['GR-20261005-r90'][:600]
+    s = v['sammanfattning']
+    assert 'Rättade slutsatser och giltighet' in s and 'Rättat 2026-10-07: &quot;materialet sätter taket&quot;' in s and 'Giltighet: historik' in s, s[s.find('Historik'):][:1200]
+
+
+@fall('KAN: nollbyte i /fil/ ger 404, ett fel i projektrapporterna fäller inte vyn, r99 före r100, platshållaren är neutral')
+def _kan():
+    for vag in ('/fil/underlag/granskningar/GR-20261005-r90.md%00.png', '/fil/underlag/granskningar/GR-20261005-r90.md%00'):
+        assert hamta(vag)[0] == 404, (vag, hamta(vag)[0])
+    ordnade = sorted([{'datum': '2026-10-07', 'id': 'GR-20261007-r100'}, {'datum': '2026-10-07', 'id': 'GR-20261007-r99'}], key=dash._ordning)
+    assert [x['id'] for x in ordnade] == ['GR-20261007-r99', 'GR-20261007-r100'], ordnade
+    spara = dash.granskningsrapporter
+
+    def utan_fil():  # en projektrapport vars fil försvann mellan läsningen och sammanställningen
+        ut, lage = spara()
+        return ut + [dict(ut[0], slag='projektrapport', fil=None)], lage
+    dash.granskningsrapporter = utan_fil
+    try:
+        d = dash.dokumentation()
+    finally:
+        dash.granskningsrapporter = spara
+    assert 'projekt' in d['fel'] and d['sammanfattning']['granskningar'], d['fel']
+    v = vyn(svar())
+    assert 'visas här när datakällan finns' in v['senare'] and 'finns inte än' not in v['senare'], v['senare']
 
 
 srv.shutdown()

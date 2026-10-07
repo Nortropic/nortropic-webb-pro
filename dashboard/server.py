@@ -350,9 +350,79 @@ def kandidatkorning(slug, st):
     return bool(st.get('kandidatflode')) or (r / 'KANDIDATPLAN.json').is_file() or (r / 'kandidater').is_dir()
 
 
+_NAMN = {}  # katalogernas namn, så länge katalogen är oförändrad: (sökväg, inod, ändringstid) -> (mängd, lista)
+
+
+def _namn_i(kat):
+    """Namnen i katalogen kat, som den bär dem. En katalog som får, tappar eller byter namn på något får en ny
+    ändringstid, så en lista ur cachen gäller bara samma katalog i samma läge."""
+    try:
+        st_ = os.stat(kat)
+    except OSError:
+        return set(), []
+    nyckel = (kat, st_.st_dev, st_.st_ino, st_.st_mtime_ns)
+    namn = _NAMN.get(nyckel)
+    if namn is None:
+        try:
+            lista = os.listdir(kat)
+        except OSError:
+            return set(), []
+        if len(_NAMN) > 4096:
+            _NAMN.clear()
+        namn = _NAMN[nyckel] = (set(lista), lista)
+    return namn
+
+
+def _verklig(rot, rest):
+    """Sökvägen rest under katalogen rot som filsystemet ser den: (sökvägen relativt rot, den verkliga filen eller None
+    när den inte finns). Symlänkar, '.', '..' och '//' löses som realpath löser dem, och varje befintligt led får det namn
+    som katalogen själv bär, eftersom APFS inte skiljer på skiftläge eller Unicode-form (realpath behåller ATELJE när
+    katalogen heter atelje). Ett led som inte finns behåller sin form. None när sökvägen hamnar utanför rot eller inte går
+    att tolka, som med ett nollbyte (granskningen av r99, BÖR-1–3)."""
+    import unicodedata
+    try:
+        bas = os.path.realpath(rot)
+        verklig = os.path.realpath(os.path.join(bas, rest))
+    except (TypeError, ValueError, OSError):
+        return None
+    if not verklig.startswith(bas.rstrip(os.sep) + os.sep):
+        return None
+    kat, ut, finns = bas, [], True
+    for d in verklig[len(bas.rstrip(os.sep)) + 1:].split(os.sep):
+        if finns:
+            mangd, namn = _namn_i(kat)
+            if d not in mangd:
+                nyckel = unicodedata.normalize('NFC', d).casefold()
+                lika = [n for n in namn if unicodedata.normalize('NFC', n).casefold() == nyckel]
+                finns = len(lika) == 1
+                d = lika[0] if finns else d
+        ut.append(d)
+        kat = os.path.join(kat, d)
+    return '/'.join(ut), (Path(kat) if finns and os.path.lexists(kat) else None)
+
+
+def _kanonisk(rel):
+    """'underlag/…' eller 'kunder/…' som den verkliga filen (_verklig, relativt underlag/ och kunder/ som de är på disken):
+    (sökvägen, filen eller None), eller None när sökvägen inte börjar så eller hamnar utanför."""
+    if not isinstance(rel, str):
+        return None
+    forsta, _, rest = rel.partition('/')
+    rot = {'underlag': UNDERLAG, 'kunder': KUNDER}.get(forsta)
+    v = _verklig(rot, rest) if rot is not None and rest else None
+    return (forsta + '/' + v[0], v[1]) if v and v[0] else None
+
+
 def fil_tillaten(rel):
     """/fil/<rel>: aldrig jämförelsernas facit (kunder/ab/), och för en arm som ägaren inte valt i än bara provets
-    skärmbilder, som den blinda jämförelsen behöver (revisionen 2026-10-03, F14)."""
+    skärmbilder, som den blinda jämförelsen behöver (revisionen 2026-10-03, F14). Prövas på den verkliga filen
+    (_kanonisk), så att ./, //, .., en symlänk eller ett annat skiftläge (ATELJE) inte tar sig förbi prefixen nedan
+    (granskningen av r99, BÖR-3)."""
+    k = _kanonisk(rel)
+    return bool(k) and _tillaten(k[0])
+
+
+def _tillaten(rel):
+    """fil_tillaten för en sökväg som redan är den verkliga filens (_kanonisk)."""
     delar = rel.split('/')
     if len(delar) < 3 or delar[1] == 'ab':
         return False
@@ -1506,8 +1576,9 @@ def _fil(p, text=None):
     if not p.is_file() or p.is_symlink():
         return None
     rel_ = p.relative_to(ROOT).as_posix()
-    visbar = rel_.split('/')[0] in ('underlag', 'kunder') and fil_tillaten(rel_) \
-        and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.md', '.json', '.txt')
+    k = _kanonisk(rel_) if rel_.split('/')[0] in ('underlag', 'kunder') else None
+    rel_ = k[0] if k and k[1] else rel_  # sökvägen och länken är den verkliga filens (granskningen av r99, BÖR-1)
+    visbar = bool(k and k[1]) and _tillaten(rel_) and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.md', '.json', '.txt')
     tid = datetime.fromtimestamp(p.stat().st_mtime, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     return {'text': text or p.name, 'sokvag': rel_, 'lank': '/fil/' + rel_ if visbar else None, 'tid': tid,
             'sha': hashlib.sha256(p.read_bytes()).hexdigest()[:12]}
@@ -1912,10 +1983,12 @@ def _pilotdomar(m, d):
 # förteckningens filer finns och stämmer med sin sha256 är integritet, ingen verifiering av slutsatserna. ---
 
 RAPPORTFALT = ('id', 'titel', 'typ', 'uppdrag', 'kund', 'systemdel', 'moment', 'forfattare', 'datum', 'granskad_identitet',
-               'rapportstatus', 'bedomningsutfall', 'forhallande', 'foregaende', 'ersatt_av', 'underlag', 'beslut', 'atgarder')
+               'rapportstatus', 'bedomningsutfall', 'forhallande', 'foregaende', 'ersatt_av', 'underlag', 'beslut', 'atgarder',
+               'rattelser', 'giltighet')  # de två sista är valfria: rättade slutsatser och giltighet (granskningen av r99, BÖR-7)
 UTFALLSKLASSER = (('godkänt', ('godkänt', 'godkänd')), ('underkänt', ('underkänt', 'underkänd')),
                   ('ofullständigt', ('ofullständig',)), ('ej bedömt', ('ej bedömt', 'ej bedömd', 'inte bedömt', 'inte bedömd')))
 RAPPORTSTATUSAR = ('färdig', 'utkast', 'ersatt')
+AGARENS_DEL = re.compile(r'^ägarens (?:dom|beslut|bedömning)\b', re.I)  # en del av utfallet som är ägarens egen (BÖR-4)
 HUVUD_NYCKEL = re.compile(r'^([A-Za-z_][\w-]*):(?:[ \t]+(.*?))?[ \t]*$')
 HUVUD_DEL = re.compile(r'^(?:[ \t]+(?:-[ \t]+)?|-[ \t]+)(\S.*?)[ \t]*$')
 INTEGRITET = {'ok': 'filen finns och stämmer med förteckningens sha256', 'saknas': 'filen saknas',
@@ -1995,6 +2068,39 @@ def utfallsklass(v):
     return next((namn for namn, borjan in UTFALLSKLASSER if t.startswith(borjan)), 'annat')
 
 
+def _delar(t):
+    """Utfallets delar, åtskilda av semikolon utanför parenteser: "godkänt mot X (a; b); ägarens dom: inte ännu" har två."""
+    ut, djup, start = [], 0, 0
+    for i, c in enumerate(t):
+        djup += 1 if c in '([' else -1 if c in ')]' and djup else 0
+        if c == ';' and not djup:
+            ut.append(t[start:i])
+            start = i + 1
+    return [d.strip() for d in ut + [t[start:]] if d.strip()]
+
+
+def utfallet(v, avsandare=None):
+    """Bedömningsutfallet som ett eller flera utfall (granskningen av r99, BÖR-4): rapportens egna delar klassas var för
+    sig efter hur de börjar (en del som inte börjar med en klass är en kommentar), och en del som är ägarens dom ("ägarens
+    dom 2026-10-07: inte ännu") blir en egen rad med ägaren som avsändare, så att den inte skrivs över av rapportens.
+    Ger (klassen, rapportens klass, ägarens domar). Klassen är blandat när delarna inte säger samma sak: då blir inget
+    av dem ett godkännande i sammanfattningen."""
+    t = _text(v).strip()
+    if not t or t == EJ:
+        return EJ, EJ, []
+    egna, agaren = [], []
+    for d in _delar(t):
+        if AGARENS_DEL.match(d):
+            dom = d.split(':', 1)[1].strip() if ':' in d else d
+            agaren.append({'text': d, 'klass': utfallsklass(dom), 'avsandare': 'ägaren'})
+        else:
+            egna.append(d)
+    klasser = [k for k in (utfallsklass(d) for d in egna) if k not in ('annat', EJ)]
+    rapportens = (klasser[0] if len(set(klasser)) == 1 else 'blandat') if klasser else (utfallsklass(egna[0]) if egna else EJ)
+    alla = {rapportens} | {a['klass'] for a in agaren} if egna else {a['klass'] for a in agaren}
+    return (next(iter(alla)) if len(alla) == 1 else 'blandat'), rapportens, agaren
+
+
 def rapportstatusklass(v):
     """Rapportstatusen (utkast, färdig eller ersatt), skild från utfallet: en färdig rapport kan underkänna resultatet."""
     t = _text(v).strip().lower()
@@ -2030,8 +2136,11 @@ def _rapport(p, slag):
         text = None
     falt, lage = rapporthuvud(text)
     ut = {k: _falt(falt, k) for k in RAPPORTFALT}
-    ut.update(slag=slag, huvud=lage, avsandare=_avsandare(falt), utfall=utfallsklass(ut['bedomningsutfall']),
+    avsandare = _avsandare(falt)
+    utfall, rapportens, agaren = utfallet(ut['bedomningsutfall'], avsandare)
+    ut.update(slag=slag, huvud=lage, avsandare=avsandare, utfall=utfall, utfall_rapport=rapportens, agarens_dom=agaren,
               rapportstatus_klass=rapportstatusklass(ut['rapportstatus']), version=_version(ut['granskad_identitet']),
+              rattelser=[] if ut['rattelser'] == EJ else (ut['rattelser'] if isinstance(ut['rattelser'], list) else [ut['rattelser']]),
               typgrupp=_text(ut['typ']).split(' (')[0].strip() if ut['typ'] != EJ else EJ, fil=_fil(p), forteckning=None)
     return ut
 
@@ -2063,33 +2172,57 @@ def _forteckningspost(d, integ):
             'session': str(d.get('session') or EJ)[:40], 'integritet': integ, 'integritet_text': INTEGRITET.get(integ, integ)}
 
 
+def _under(rel):
+    """En verklig sökväg 'underlag/…' eller 'kunder/…' som fil under underlag/ eller kunder/."""
+    forsta, _, rest = rel.partition('/')
+    return (UNDERLAG if forsta == 'underlag' else KUNDER) / rest
+
+
+def _rapportfil(rel):
+    """En fil under underlag/ som vyn får läsa och visa: den verkliga sökvägen (_kanonisk), eller None när filen inte
+    finns eller fil_tillaten döljer den. Det är den verkliga filen som prövas, så att ./, //, .., en symlänk eller ett
+    annat skiftläge inte läser in det som blindningen eller integritetsgränsen döljer (granskningen av r99, BÖR-1)."""
+    k = _kanonisk(rel)
+    return k[0] if k and k[1] is not None and k[1].is_file() and _tillaten(k[0]) else None
+
+
 def granskningsrapporter():
     """Rapporterna med huvud (underlag/granskningar/GR-*.md, lägesrapporterna i underlag/rapporter/ och
     projektrapporterna utanför flödet, underlag/<uppdrag>/*.md med id och rapportstatus i huvudet) och förteckningens
-    äldre rapporter utan huvud, med förteckningens integritet. Bara filer som fil_tillaten låter dashboarden visa."""
+    äldre rapporter utan huvud, med förteckningens integritet. Varje rapport är den verkliga filen (_rapportfil), en gång,
+    och bara om fil_tillaten låter dashboarden visa den."""
     import startkontroll
-    ut = []
+    ut, kanda = [], {}
+
+    def lagg_till(rel, slag):
+        r = _rapport(_under(rel), slag)
+        kanda[rel] = r
+        ut.append(r)
+        return r
+
     for p in sorted((UNDERLAG / 'granskningar').glob('GR-*.md')):
-        if p.is_file() and not p.is_symlink() and fil_tillaten('underlag/granskningar/' + p.name):
-            ut.append(_rapport(p, 'systemgranskning'))
+        rel = _rapportfil('underlag/granskningar/' + p.name)
+        if rel and rel not in kanda and rel.startswith('underlag/granskningar/GR-') and rel.count('/') == 2:
+            lagg_till(rel, 'systemgranskning')
     for p in sorted((UNDERLAG / 'rapporter').glob('*.md')):
-        if p.is_file() and not p.is_symlink() and fil_tillaten('underlag/rapporter/' + p.name):
-            ut.append(_rapport(p, 'lägesrapport'))
-    kunder_ = set(flode_slugar())
+        rel = _rapportfil('underlag/rapporter/' + p.name)
+        if rel and rel not in kanda and rel.startswith('underlag/rapporter/') and rel.count('/') == 2:
+            lagg_till(rel, 'lägesrapport')
+    egna = set(flode_slugar()) | {'granskningar', 'rapporter'}  # kundernas kataloger och de två ovan har sina egna delar
     for d in sorted(UNDERLAG.iterdir()) if UNDERLAG.is_dir() else []:
-        if (not d.is_dir() or d.is_symlink() or not SLUG.match(d.name) or d.name in kunder_ or d.name in ('granskningar', 'rapporter')
-                or d.name.startswith(('rokprov', 'prov-', 'pt-'))):
+        if not d.is_dir() or not SLUG.match(d.name) or d.name.startswith(('rokprov', 'prov-', 'pt-')):
             continue
         for p in sorted(d.glob('*.md')):
-            rel = 'underlag/%s/%s' % (d.name, p.name)
-            if p.is_file() and not p.is_symlink() and fil_tillaten(rel):
-                r = _rapport(p, 'projektrapport')
-                if r['huvud'] == 'ok' and r['id'] != EJ and r['rapportstatus'] != EJ:
-                    ut.append(r)
+            rel = _rapportfil('underlag/%s/%s' % (d.name, p.name))
+            if not rel or rel in kanda or rel.count('/') != 2 or rel.split('/')[1] in egna:
+                continue  # också en katalog som är en länk dit: det är den verkliga filen som räknas
+            r = _rapport(_under(rel), 'projektrapport')
+            if r['huvud'] == 'ok' and r['id'] != EJ and r['rapportstatus'] != EJ:
+                kanda[rel] = r
+                ut.append(r)
     rader, fel_ = forteckningen()
     lage = {'finns': rader is not None, 'fel': fel_, 'poster': 0, 'trasiga_rader': 0, 'dolda': 0,
             'integritet': {k: 0 for k in INTEGRITET}, 'saknas': [], 'fel_sha': [], 'not': INTEGRITET_NOT}
-    kanda = {r['fil']['sokvag']: r for r in ut if r.get('fil')}
     rot = UNDERLAG.parent
     for rad, d in rader or []:
         lage['poster'] += 1
@@ -2098,27 +2231,26 @@ def granskningsrapporter():
         if not d:
             lage['trasiga_rader'] += 1
             continue
-        rel = d['fil']
-        if Path(rel).is_absolute() or '..' in Path(rel).parts:
-            continue
-        sokvag = 'underlag/' + rel
-        if not fil_tillaten(sokvag):  # förteckningen kringgår inte gränserna: det dashboarden inte visar nämns inte här
+        k = _kanonisk('underlag/' + d['fil'])
+        if not k or not _tillaten(k[0]):  # förteckningen kringgår inte gränserna: det dashboarden inte visar nämns inte här
             lage['dolda'] += 1
             continue
+        sokvag = k[0]  # den verkliga filen, också när raden skrivits med ./, //, .., en länk eller ett annat skiftläge
         if integ in ('saknas', 'fel_sha'):
             lage[integ].append(sokvag)
-        if sokvag in kanda:
-            kanda[sokvag]['forteckning'] = _forteckningspost(d, integ)
+        if sokvag in kanda:  # samma fil på en rad till (som ./ eller via en länk): den första raden för filen gäller
+            if kanda[sokvag].get('forteckning') is None:
+                kanda[sokvag]['forteckning'] = _forteckningspost(d, integ)
             continue
-        if not rel.endswith('.md') or str(d.get('slag') or '').startswith(('bevis', 'mätskript')):
+        if not sokvag.endswith('.md') or str(d.get('slag') or '').startswith(('bevis', 'mätskript')):
             continue  # bevis och mätskript är underlag till en rapport, inga egna rapporter
-        p = UNDERLAG / rel
-        if p.is_file() and not p.is_symlink():
-            r = _rapport(p, 'äldre rapport')
+        if k[1] is not None and k[1].is_file():
+            r = _rapport(_under(sokvag), 'äldre rapport')
         else:
-            r = {k: EJ for k in RAPPORTFALT}
-            r.update(slag='äldre rapport', huvud='saknas', avsandare=EJ_BELAGD, utfall=EJ, rapportstatus_klass=EJ, version=None,
-                     typgrupp=EJ, fil={'text': Path(rel).name, 'sokvag': sokvag, 'lank': None, 'tid': None, 'sha': None})
+            r = {k_: EJ for k_ in RAPPORTFALT}
+            r.update(slag='äldre rapport', huvud='saknas', avsandare=EJ_BELAGD, utfall=EJ, utfall_rapport=EJ, agarens_dom=[], rattelser=[],
+                     rapportstatus_klass=EJ, version=None, typgrupp=EJ,
+                     fil={'text': sokvag.rsplit('/', 1)[-1], 'sokvag': sokvag, 'lank': None, 'tid': None, 'sha': None})
         r['forteckning'] = _forteckningspost(d, integ)
         if r['typgrupp'] == EJ:  # typen står inte i rapporten; förteckningens slag visas som sådant
             r['typgrupp'] = '%s (förteckningens slag)' % r['forteckning']['slag'].split(' (')[0]
@@ -2276,12 +2408,45 @@ def _avsnitt(text, rubrik):
     return '\n'.join(ut)
 
 
-def _repofiler(t):
+def _sparade():
+    """Filerna som git följer i repot (git ls-files): bara de kan visas som instruktioner (granskningen av r99, BÖR-2).
+    Ger (mängden, ett fel eller None); utan git visas inga instruktioner, och felet står i vyn."""
+    import subprocess
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+    env['GIT_OPTIONAL_LOCKS'] = '0'
+    try:
+        r = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '-z'], capture_output=True, timeout=30, env=env)
+    except (OSError, subprocess.SubprocessError) as e:
+        return set(), '%s: %s' % (type(e).__name__, str(e)[:160])
+    if r.returncode:
+        return set(), (r.stderr.decode('utf-8', 'replace').strip() or 'slutkod %d' % r.returncode)[:200]
+    return {x.decode('utf-8', 'surrogateescape') for x in r.stdout.split(b'\0') if x}, None
+
+
+def _repofil(rel, sparade):
+    """Är rel en publik .md-fil som vyn får visa? Den verkliga filen (_verklig) ska vara just rel: ingen symlänk någonstans
+    i sökvägen, inget . eller .. och samma skiftläge; aldrig under underlag/ eller kunder/ (oavsett skiftläge), aldrig
+    backloggens poster; spårad i git och utan andra hårda länkar (granskningen av r99, BÖR-2)."""
+    if not isinstance(rel, str) or not rel.endswith('.md') or rel.split('/')[0].casefold() in ('underlag', 'kunder') \
+            or rel.startswith('backlog/B-') or rel not in sparade:
+        return False
+    v = _verklig(ROOT, rel)
+    if not v or v[0] != rel or v[1] is None:
+        return False
+    try:
+        st_ = os.lstat(v[1])
+    except OSError:
+        return False
+    import stat
+    return stat.S_ISREG(st_.st_mode) and st_.st_nlink == 1
+
+
+def _repofiler(t, sparade):
     """Repots publika .md-filer som en sökväg i platsregeln eller CLAUDE.md pekar på: ett mönster som kunskap/<ämne>.md
-    eller kritik/ blir filerna det täcker, och ett ensamt filnamn letas i roten och sedan i kunskap/. Aldrig något under
-    underlag/ eller kunder/, aldrig backloggens poster, symlänkar eller filer utanför repot."""
+    eller kritik/ blir filerna det täcker, och ett ensamt filnamn letas i roten och sedan i kunskap/. Varje fil prövas
+    med _repofil."""
     t = t.strip()
-    if not t or re.search(r'\s', t) or t.startswith(('/', '~', '.venv', 'underlag/', 'kunder/', 'http')):
+    if not t or re.search(r'\s', t) or t.startswith(('/', '~', '.venv', 'http')) or t.split('/')[0].casefold() in ('underlag', 'kunder'):
         return []
     m = re.sub(r'<[^>]*>', '*', t).replace('ÅÅÅÅMMDD', '*').replace('ÅÅÅÅ-MM-DD', '*').replace('…', '*')
     if '**' in m or (('*' in m or m.endswith('/')) and '/' not in m.rstrip('/') and not m.endswith('/')):
@@ -2297,15 +2462,13 @@ def _repofiler(t):
             traffar = [ROOT / m if (ROOT / m).is_file() else ROOT / 'kunskap' / m]
     except (ValueError, OSError):
         return []
-    ut, rot = [], ROOT.resolve()
+    ut = []
     for p in traffar:
         try:
             rel = p.relative_to(ROOT).as_posix()
-            inne = p.resolve().is_relative_to(rot)
-        except (ValueError, OSError):
+        except ValueError:
             continue
-        if (rel.endswith('.md') and inne and rel.split('/')[0] not in ('underlag', 'kunder') and not rel.startswith('backlog/B-')
-                and p.is_file() and not p.is_symlink()):
+        if _repofil(rel, sparade):
             ut.append(rel)
     return ut
 
@@ -2335,8 +2498,9 @@ def instruktioner():
     readme = las_text(ROOT / 'README.md') or ''
     sek = _avsnitt(readme, '## Var information finns')
     claude = las_text(ROOT / 'CLAUDE.md') or ''
+    sparade, git_fel = _sparade()
     # det CLAUDE.md nämner med namn (inte en hel katalog eller ett mönster)
-    i_claude = {f for t in re.findall(r'`([^`]+)`', claude) if not re.search(r'[<*…]|/$', t) for f in _repofiler(t)}
+    i_claude = {f for t in re.findall(r'`([^`]+)`', claude) if not re.search(r'[<*…]|/$', t) for f in _repofiler(t, sparade)}
     grupper, sett = [], set()
     for r in sek.split('\n'):
         if not r.startswith('|') or set(r) <= set('|-: '):
@@ -2344,8 +2508,8 @@ def instruktioner():
         c = [x.strip() for x in r.strip().strip('|').split('|')]
         if len(c) < 2 or c[0] == 'Slag':
             continue
-        filer = (['README.md'] if c[0].startswith('Start och överblick') and (ROOT / 'README.md').is_file() else [])
-        filer += [f for t in re.findall(r'`([^`]+)`', c[1]) for f in _repofiler(t)]
+        filer = (['README.md'] if c[0].startswith('Start och överblick') and _repofil('README.md', sparade) else [])
+        filer += [f for t in re.findall(r'`([^`]+)`', c[1]) for f in _repofiler(t, sparade)]
         filer = [f for f in dict.fromkeys(filer) if f not in sett]
         sett |= set(filer)
         if filer:
@@ -2354,7 +2518,7 @@ def instruktioner():
     if ovriga:
         grupper.append({'slag': 'Övriga som CLAUDE.md pekar på', 'filer': [dict(_dokpost(f), i_claude=True) for f in ovriga]})
     return {'kalla': 'README.md, Var information finns; CLAUDE.md', 'platsregel': bool(sek.strip()),
-            'platsregel_html': md(sek), 'kedjan': kedjan(), 'grupper': grupper}
+            'platsregel_html': md(sek), 'kedjan': kedjan(), 'grupper': grupper, 'git_fel': git_fel}
 
 
 def dokument(rel):
@@ -2362,9 +2526,9 @@ def dokument(rel):
     aldrig något under underlag/ eller kunder/, som bara visas genom /fil/ och fil_tillaten."""
     if not isinstance(rel, str) or rel not in {f['dok'] for g in instruktioner()['grupper'] for f in g['filer']}:
         return None
-    p = ROOT / rel
-    if p.is_symlink() or not p.is_file() or not p.resolve().is_relative_to(ROOT.resolve()) or rel.split('/')[0] in ('underlag', 'kunder'):
+    if not _repofil(rel, _sparade()[0]):  # prövas igen när filen läses: en länk kan ha kommit till sedan listan lästes
         return None
+    p = ROOT / rel
     text = las_text(p) or ''
     if rapporthuvud(text)[1] == 'ok':
         text = text.split('\n---', 1)[1].split('\n', 1)[-1]
@@ -2418,8 +2582,13 @@ def pagaende_korningar():
              'utcheckning': d.get('utcheckning')} for d in korregister.poster(rensa=False)]
 
 
+def _naturlig(t):
+    """Sorteringsnyckel där talen jämförs som tal: GR-20261007-r99 före GR-20261007-r100 (granskningen av r99, KAN 8)."""
+    return [(0, int(x), '') if x.isdigit() else (1, 0, x) for x in re.split(r'(\d+)', t) if x]
+
+
 def _ordning(r):
-    return (_text(r.get('datum')) if r.get('datum') != EJ else '', _text(r.get('id')) if r.get('id') != EJ else '')
+    return (_text(r.get('datum')) if r.get('datum') != EJ else '', _naturlig(_text(r.get('id')) if r.get('id') != EJ else ''))
 
 
 def _id_i(text, ident):
@@ -2452,8 +2621,9 @@ def uppdragslage(tillagg, rapporter, poster):
         fynd = [p for p in poster if p['rapport'] in ids]
         ut.append({'nr': t['nr'], 'rubrik': t['rubrik'], 'status': t['status'], 'vy': t['vy'], 'aterstar': t['aterstar'],
                    'rapporter': [r['id'] for r in reversed(egna)],
-                   'senaste': dict({k: senaste[0][k] for k in ('id', 'titel', 'datum', 'utfall', 'bedomningsutfall', 'rapportstatus_klass', 'version',
-                                                               'granskad_identitet', 'avsandare')}, lank=(senaste[0]['fil'] or {}).get('lank')) if senaste else None,
+                   'senaste': dict({k: senaste[0][k] for k in ('id', 'titel', 'datum', 'utfall', 'utfall_rapport', 'agarens_dom', 'bedomningsutfall',
+                                                               'rapportstatus_klass', 'version', 'granskad_identitet', 'avsandare', 'rattelser',
+                                                               'giltighet')}, lank=(senaste[0]['fil'] or {}).get('lank')) if senaste else None,
                    'fynd': {'oppna': [p['id'] for p in fynd if p['grupp'] == 'oppen'], 'klara': sum(p['grupp'] == 'klar' for p in fynd),
                             'verifierade': sum(p['grupp'] == 'verifierad' for p in fynd)}})
     return ut
@@ -2496,11 +2666,14 @@ def dokumentation():
         if r['beslut'] != EJ:
             vantar.append({'text': 'Beslut enligt lägesrapporten %s (%s): %s' % (r['id'], _text(r['datum']), _text(r['beslut'])[:300]),
                            'vy': r['vy'], 'lank': (r['fil'] or {}).get('lank')})
-    sammandrag = lambda r: dict({k: r[k] for k in ('id', 'titel', 'typgrupp', 'datum', 'utfall', 'bedomningsutfall', 'rapportstatus_klass', 'version',  # noqa: E731
-                                                   'granskad_identitet', 'systemdel', 'uppdrag', 'avsandare', 'vy')}, lank=(r['fil'] or {}).get('lank'))
+    sammandrag = lambda r: dict({k: r[k] for k in ('id', 'titel', 'typgrupp', 'datum', 'utfall', 'utfall_rapport', 'agarens_dom', 'bedomningsutfall',  # noqa: E731
+                                                   'rapportstatus_klass', 'version', 'granskad_identitet', 'systemdel', 'uppdrag', 'kund', 'moment',
+                                                   'avsandare', 'rattelser', 'giltighet', 'vy')}, lank=(r['fil'] or {}).get('lank'))
     senaste = [sammandrag(r) for r in sorted(med_huvud, key=_ordning, reverse=True)[:6]]
-    projekt = [dict(sammandrag(r), katalog=(r['fil'] or {}).get('sokvag', '').split('/')[1])
-               for r in sorted((r for r in rapporter if r['slag'] == 'projektrapport'), key=_ordning, reverse=True)]
+    projekt = las('projekt', lambda: [dict(sammandrag(r), katalog=(r['fil'] or {}).get('sokvag', '').split('/')[1])  # KAN 7
+                                      for r in sorted((r for r in rapporter if r['slag'] == 'projektrapport'), key=_ordning, reverse=True)], [])
+    # rättade slutsatser och giltighet ur rapporthuvudet (rattelser, giltighet), nyast först (granskningen av r99, BÖR-7)
+    rattade = [sammandrag(r) for r in sorted(rapporter, key=_ordning, reverse=True) if r.get('rattelser') or r.get('giltighet') not in (None, EJ)]
     trasiga = [{'sokvag': (r['fil'] or {}).get('sokvag'), 'vy': r['vy']} for r in rapporter if r['huvud'] == 'trasigt']
     utan_falt = [{'id': r['id'], 'saknar': [k for k in ('granskad_identitet', 'rapportstatus', 'bedomningsutfall', 'datum') if r[k] == EJ],
                   'vy': r['vy']} for r in med_huvud if r['huvud'] == 'ok' and any(r[k] == EJ for k in ('granskad_identitet', 'rapportstatus', 'bedomningsutfall', 'datum'))]
@@ -2520,7 +2693,8 @@ def dokumentation():
                  'verifierade': sum(p['grupp'] == 'verifierad' for p in fynd), 'ovriga': sum(p['grupp'] == 'ovrig' for p in fynd)},
         'beslut': {'tillagg': len(tillagg), 'status': raknare([t['status'] for t in tillagg])},
         'historik': {'ersatta_tillagg': sum(1 for t in tillagg if t['status'] in ('delvis ersatt', 'ersatt')), 'ersatta_rapporter': len(ersatta_rapporter),
-                     'instruktioner_med_statusrad': sum(1 for g in instr.get('grupper') or [] for f in g['filer'] if f.get('status'))},
+                     'instruktioner_med_statusrad': sum(1 for g in instr.get('grupper') or [] for f in g['filer'] if f.get('status')),
+                     'rattade': rattade},
         'saknat': {'rapporter': [x['runda'] for x in saknade], 'integritet': integ, 'trasiga_huvuden': len(trasiga),
                    'utan_status': len(utan_status), 'utan_falt': len(utan_falt)},
         'vantar': vantar, 'senaste': senaste,
@@ -2532,7 +2706,7 @@ def dokumentation():
                      'pilot': [{k: m.get(k) for k in ('id', 'moment', 'status', 'status_i_posten', 'status_skal', 'aktuell', 'bedomda', 'tid', 'domar')}
                                for m in pilot],
                      'lagesrapporter': [dict({k: r[k] for k in ('id', 'titel', 'datum', 'uppdrag', 'beslut', 'atgarder', 'rapportstatus_klass', 'utfall',
-                                                                 'bedomningsutfall', 'avsandare', 'vy')}, lank=(r['fil'] or {}).get('lank'))
+                                                                 'agarens_dom', 'bedomningsutfall', 'avsandare', 'vy')}, lank=(r['fil'] or {}).get('lank'))
                                         for r in lagesrapporter],
                      'projektrapporter': projekt,
                      'backlog': {'antal': raknare([p['lage'] if not str(p['lage']).startswith('klar, verifierad') else 'klar, verifierad' for p in poster]),
@@ -2542,7 +2716,7 @@ def dokumentation():
         'saknat': {'rapporter': saknade, 'integritet': {'saknas': (forteckning or {}).get('saknas') or [], 'fel_sha': (forteckning or {}).get('fel_sha') or [],
                                                         'ej_kontrollerade': integ.get('ej_kontrollerade', 0), 'not': INTEGRITET_NOT},
                    'trasiga_huvuden': trasiga, 'utan_falt': utan_falt, 'utan_status': utan_status},
-        'senare': {'kompetenskedjan': None, 'slutposten': None},
+        'senare': {'kompetenskedjan': None, 'slutposten': None},  # visas här när datakällorna finns (KAN 10)
     }
 
 
@@ -2677,10 +2851,11 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(404, '<p>Sajten är inte byggd än.</p>', 'text/html; charset=utf-8')
             m = re.match(r'^/fil/((?:kunder|underlag)/[a-z0-9-]{2,60}/.+)$', vag)
             if m:
-                p = (ROOT / m.group(1)).resolve()  # den verkliga filen avgör, inte den begärda sökvägen (revisionen, F14)
-                rotar = [r for r in (KUNDER.resolve(), UNDERLAG.resolve()) if p.is_relative_to(r)]
-                rel = (Path(rotar[0].name) / p.relative_to(rotar[0])).as_posix() if rotar else ''
-                if rotar and fil_tillaten(rel) and p.is_file() \
+                # den verkliga filen avgör, inte den begärda sökvägen (revisionen, F14), också dess skiftläge (granskningen
+                # av r99, BÖR-3); ett nollbyte eller en sökväg ut ur roten ger 404 (KAN 1)
+                k = _kanonisk(m.group(1))
+                p = k[1] if k else None
+                if p is not None and _tillaten(k[0]) and p.is_file() \
                         and p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp', '.svg', '.md', '.json', '.txt', '.log'):
                     typ = mimetypes.guess_type(p.name)[0] or 'text/plain'
                     if typ.startswith('text/') or typ.endswith('json'):

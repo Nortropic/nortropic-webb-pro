@@ -1249,7 +1249,7 @@ async function flodesvy(slug) {
 const DOKFLIKAR = [['', 'Sammanfattning'], ['instruktioner', 'Så fungerar Nortropic'], ['pagaende', 'Pågående uppdrag'],
   ['granskningar', 'Granskningar och resultat'], ['beslut', 'Beslut och historik'], ['saknat', 'Saknat underlag'], ['kompetens', 'Kompetens och slutpost']];
 const DOK_EJ = 'ej angivet';
-const UTFALLCHIP = { 'godkänt': 'ok', 'underkänt': 'rod', 'ofullständigt': 'gul' };
+const UTFALLCHIP = { 'godkänt': 'ok', 'underkänt': 'rod', 'ofullständigt': 'gul', blandat: 'gul' };  // blandat: fältet bär flera utfall, aldrig grönt
 const BESLUTCHIP = { 'gäller': 'ok', 'delvis ersatt': 'gul', 'ersatt': 'rod' };
 const INTEGRITETSNAMN = { ok: 'finns och stämmer med sha256', saknas: 'saknas', fel_sha: 'ändrade sedan registreringen', ej_kontrollerade: 'kunde inte kontrolleras' };
 const dokText = (v) => Array.isArray(v) ? v.join('; ') : String(v ?? '');
@@ -1267,6 +1267,11 @@ const dokN = (n, en, flera) => `${n} ${n === 1 ? en : flera}`;  // numerus i lö
 const dokAvsandare = (a) => a === 'avsändaren ej belagd' ? a : `avsändare: ${a}`;
 const dokGaller = (r) => dokText([r.systemdel, r.uppdrag, r.kund, r.moment].find((v) => v && v !== DOK_EJ) || DOK_EJ);
 const FALTNAMN = { granskad_identitet: 'granskad identitet', rapportstatus: 'rapportstatus', bedomningsutfall: 'bedömningsutfall', datum: 'datum' };
+// ägarens dom i ett sammansatt utfall är en egen rad med ägaren som avsändare (granskningen av r99, BÖR-4)
+const dokAgarensDom = (r) => (r.agarens_dom || []).map((a) => `<div class="not"><strong>Ägarens dom</strong> (${esc(dokAvsandare(a.avsandare))}): ${kodtext(a.text.replace(/^ägarens (?:dom|beslut|bedömning)\s*/i, ''))}</div>`).join('');
+const dokDelar = (r) => (r.agarens_dom || []).length ? `<div class="not">Rapportens eget utfall: ${esc(r.utfall_rapport)} (${esc(dokAvsandare(r.avsandare))})</div>${dokAgarensDom(r)}` : '';
+// rättade slutsatser och giltighet ur rapporthuvudet (rattelser, giltighet; granskningen av r99, BÖR-7)
+const dokRattchips = (r) => `${(r.rattelser || []).length ? `<span class="chip gul">${esc(dokN(r.rattelser.length, 'rättelse', 'rättelser'))}</span>` : ''}${r.giltighet && r.giltighet !== DOK_EJ ? `<span class="chip gul">giltighet: ${esc(dokText(r.giltighet).slice(0, 60))}</span>` : ''}`;
 
 function dokFiltrera(rapporter, f) {
   const har = (v, q) => dokText(v).toLowerCase().includes(q);
@@ -1292,13 +1297,14 @@ function dokRapport(r, oppen) {
   const rad = (namn, v) => `<dt>${esc(namn)}</dt><dd>${v}</dd>`;
   const antalFynd = fynd.oppna.length + fynd.klara.length + fynd.verifierade.length;
   return `<details class="post"${oppen ? ' open' : ''}><summary><span class="titel">${esc(dokNamn(r))}${r.titel !== DOK_EJ ? ' · ' + esc(dokText(r.titel)) : ''}</span>
-      <span class="chip">${esc(r.typgrupp)}</span>${dokStatuschip(r)}${dokUtfallchip(r)}<span class="chip">${esc(dokText(r.datum))}</span></summary>
+      <span class="chip">${esc(r.typgrupp)}</span>${dokStatuschip(r)}${dokUtfallchip(r)}${dokRattchips(r)}<span class="chip">${esc(dokText(r.datum))}</span></summary>
     <div class="innehall"><dl class="dokfalt">
       ${rad('Id', esc(r.id))}${rad('Titel', dokVarde(r.titel))}${rad('Typ', dokVarde(r.typ) + (fl ? ` <span class="under">(förteckningens slag: ${esc(fl.slag)})</span>` : ''))}
       ${rad('Uppdrag', dokVarde(r.uppdrag))}${rad('Kund', dokVarde(r.kund))}${rad('Systemdel', dokVarde(r.systemdel))}${rad('Moment', dokVarde(r.moment))}
       ${rad('Avsändare', esc(r.avsandare))}${rad('Datum', dokVarde(r.datum))}${rad('Granskad identitet', dokVarde(r.granskad_identitet))}
       ${rad('Rapportstatus', dokVarde(r.rapportstatus))}
-      ${rad('Bedömningsutfall', dokVarde(r.bedomningsutfall) + `<p class="not">Historik: utfallet gäller den granskade identiteten (${esc(dokGallde(r))}), inte det som ligger i repot nu.</p>`)}
+      ${rad('Bedömningsutfall', dokVarde(r.bedomningsutfall) + dokDelar(r) + `<p class="not">Historik: utfallet gäller den granskade identiteten (${esc(dokGallde(r))}), inte det som ligger i repot nu.</p>`)}
+      ${rad('Rättelser', (r.rattelser || []).length ? dokVarde(r.rattelser) : DOK_EJ)}${rad('Giltighet', dokVarde(r.giltighet))}
       ${rad('Förhållande', dokVarde(r.forhallande))}${rad('Föregående', dokVarde(r.foregaende))}${rad('Ersatt av', dokVarde(r.ersatt_av))}
       ${rad('Underlag', dokVarde(r.underlag))}${rad('Beslut', dokVarde(r.beslut))}${rad('Åtgärder', dokVarde(r.atgarder))}
       ${rad('Fynd i backloggen', antalFynd ? `${fynd.oppna.length} öppna, ${fynd.klara.length} klara men inte verifierade, ${fynd.verifierade.length} verifierade · <a href="#/backlog">Backlog</a>` : 'inga poster med fynd ur rapporten')}
@@ -1326,9 +1332,8 @@ function dokSaknatKort(d, kort) {
 }
 
 function dokSenare(d) {
-  const s = d.senare || {};
   return `<div class="kort"><p style="margin:0">Här visas kompetenskedjan per steg och kandidat (uppgift → tillgång → observerad användning → tillämpning → resultat → bedömning) och varje körnings slutpost (uppdrag, versioner, kontroller, granskning, ditt beslut, slutkod och nästa steg).</p>
-    <p class="not">${s.kompetenskedjan || s.slutposten ? 'Datakällorna finns, men vyn visar dem inte än.' : 'Datakällorna byggs i andra arbetsgrenar och finns inte än, så här visas ingenting. Inget är gissat.'}</p></div>`;
+    <p class="not">De visas här när datakällan finns. Inget visas i förväg, och inget gissas.</p></div>`;
 }
 
 function dokSammanfattning(d) {
@@ -1344,12 +1349,14 @@ function dokSammanfattning(d) {
     </div>
     <h2>Väntar på dig</h2>${s.vantar.length ? `<ul class="lista">${s.vantar.map((v) => `<li>${dokVy(v.vy, v.text)}${v.lank ? ` · <a href="${esc(v.lank)}" target="_blank" rel="noopener">rapporten</a>` : ''}</li>`).join('')}</ul>` : '<p class="under">Inget väntar på dig enligt filerna.</p>'}
     <h2>Senaste rapporterna</h2>${s.senaste.length ? `<ul class="lista">${s.senaste.map((r) => `<li>${dokVy(r.vy, dokNamn(r) + (r.titel !== DOK_EJ ? ' · ' + dokText(r.titel) : ''))}
-        <div class="chips" style="margin-top:4px"><span class="chip">${esc(r.typgrupp)}</span>${dokStatuschip(r)}${dokUtfallchip(r)}<span class="chip">${esc(dokText(r.datum))}</span></div>
-        <div class="not">${esc(dokText(r.bedomningsutfall).slice(0, 200))}</div>
+        <div class="chips" style="margin-top:4px"><span class="chip">${esc(r.typgrupp)}</span>${dokStatuschip(r)}${dokUtfallchip(r)}${dokRattchips(r)}<span class="chip">${esc(dokText(r.datum))}</span></div>
+        <div class="not">${esc(dokText(r.bedomningsutfall).slice(0, 200))}</div>${dokDelar(r)}
         <div class="not">Gäller: ${esc(dokGaller(r))} · ${esc(dokAvsandare(r.avsandare))}</div></li>`).join('')}</ul>` : '<p class="under">Inga rapporter med huvud.</p>'}
     <p class="not">Utfall i rapporterna med huvud: ${esc(dokAntal(g.utfall))}. Rapportstatus: ${esc(dokAntal(g.rapportstatus))}. Ett utfall är historik: det gäller den version rapporten granskade.</p>
     <h2>Fynd och rättelser</h2><p>${dokVy('#/dokumentation/granskningar', dokN(f.oppna, 'öppet fynd', 'öppna fynd'))} · ${dokN(f.klara_ej_verifierade, 'klart', 'klara')} men inte verifierade · ${dokN(f.verifierade, 'verifierat', 'verifierade')}, enligt fältet verifierad i backloggen</p>
     <h2>Historik och ersatta slutsatser</h2><p>${dokVy('#/dokumentation/beslut', `${h.ersatta_tillagg} beslut delvis eller helt ersatta`)} · ${dokVy('#/dokumentation/granskningar', dokN(h.ersatta_rapporter, 'rapport ersatt', 'rapporter ersatta'))} · ${dokVy('#/dokumentation/instruktioner', dokN(h.instruktioner_med_statusrad, 'instruktion märkt historik eller vilande', 'instruktioner märkta historik eller vilande'))}</p>
+    ${(h.rattade || []).length ? `<div class="under" style="margin:8px 0 2px">Rättade slutsatser och giltighet, ur rapporternas huvud</div><ul class="lista">${h.rattade.map((r) => `<li>${dokVy(r.vy, dokNamn(r) + (r.titel !== DOK_EJ ? ' · ' + dokText(r.titel) : ''))} ${dokRattchips(r)}
+        ${r.giltighet && r.giltighet !== DOK_EJ ? `<div class="not">Giltighet: ${kodtext(dokText(r.giltighet))}</div>` : ''}${(r.rattelser || []).map((x) => `<div class="not">Rättat ${kodtext(x)}</div>`).join('')}</li>`).join('')}</ul>` : '<p class="not">Ingen rapport anger rättelser eller giltighet i sitt huvud.</p>'}
     <h2>Saknat underlag</h2>${dokSaknatKort(d, true)}
     <h2>Kompetenskedjan och slutposten</h2>${dokSenare(d)}`;
 }
@@ -1357,7 +1364,7 @@ function dokSammanfattning(d) {
 function dokInstruktioner(d) {
   const ins = d.instruktioner, k = ins.kedjan || {};
   const kedja = k.fel ? `<div class="meddelande fel">${esc(k.fel)}</div>` : `<ol class="lista">${(k.steg || []).map((s) => `<li>${s.steg.replace(/^\d+\.\s*/, '')}</li>`).join('')}</ol>`;
-  const rad = (f) => `<li><a href="#/dokumentation/las/${encodeURIComponent(f.dok)}">${esc(f.titel)}</a> <code>${esc(f.dok)}</code>${f.status ? ` <span class="chip gul">${esc(f.status)}</span>` : ''}${f.i_claude ? ' <span class="chip">nämnd i CLAUDE.md</span>' : ''}${f.beskrivning ? `<div class="not">${esc(f.beskrivning)}</div>` : ''}</li>`;
+  const rad = (f) => `<li><a href="#/dokumentation/las/${encodeURIComponent(f.dok)}">${esc(f.titel)}</a> <code>${esc(f.dok)}</code>${f.status ? ` <span class="chip gul">${esc(f.status.split(/[\s,.:;]/)[0])}</span>` : ''}${f.i_claude ? ' <span class="chip">nämnd i CLAUDE.md</span>' : ''}${f.status ? `<div class="not">Status: ${kodtext(f.status)}</div>` : ''}${f.beskrivning ? `<div class="not">${esc(f.beskrivning)}</div>` : ''}</li>`;
   const grupper = (ins.grupper || []).map((g) => {
     const delar = {};
     g.filer.forEach((f) => { const kat = f.dok.startsWith('.claude/skills/') ? 'Skills' : f.dok.startsWith('kritik/') ? 'Granskarens kriterier' : f.dok.startsWith('kunskap/') ? 'Kunskap' : ''; (delar[kat] = delar[kat] || []).push(f); });
@@ -1376,8 +1383,8 @@ function dokPagaende(d) {
     ...p.kunder.filter((k) => (k.pagar || []).length).map((k) => `${dokVy(k.vy, k.slug)}: ${esc(k.pagar.join(', '))} pågår`)];
   const uppdrag = p.uppdrag.map((u) => `<div class="kort"><div class="rad mellan"><div style="font-weight:560">${dokVy(u.vy, u.rubrik)}</div><span class="chip ${BESLUTCHIP[u.status] || ''}">${esc(u.status)}</span></div>
       ${u.senaste ? `<p style="margin:8px 0 0">Senaste rapport: ${dokVy(dokRapportVy(u.senaste.id), u.senaste.id)} (${esc(dokText(u.senaste.datum))})${u.senaste.lank ? ` · <a href="${esc(u.senaste.lank)}" target="_blank" rel="noopener">filen</a>` : ''}</p>
-        <div class="chips" style="margin-top:4px">${dokStatuschip(u.senaste)}${dokUtfallchip(u.senaste)}</div>
-        <p class="not">${esc(dokText(u.senaste.bedomningsutfall))} · ${esc(dokAvsandare(u.senaste.avsandare))}. Historik: gäller ${esc(dokText(u.senaste.granskad_identitet))}.</p>` : '<p class="not">Ingen rapport anger uppdraget.</p>'}
+        <div class="chips" style="margin-top:4px">${dokStatuschip(u.senaste)}${dokUtfallchip(u.senaste)}${dokRattchips(u.senaste)}</div>
+        <p class="not">${esc(dokText(u.senaste.bedomningsutfall))} · ${esc(dokAvsandare(u.senaste.avsandare))}. Historik: gäller ${esc(dokText(u.senaste.granskad_identitet))}.</p>${dokDelar(u.senaste)}` : '<p class="not">Ingen rapport anger uppdraget.</p>'}
       ${u.rapporter.length > 1 ? `<p class="not">Rapporterna, nyast först: ${u.rapporter.map((id) => dokVy(dokRapportVy(id), id)).join(', ')}</p>` : ''}
       <p class="not">Fynd ur rapporterna: ${dokN(u.fynd.oppna.length, 'öppet', 'öppna')}, ${dokN(u.fynd.klara, 'klart', 'klara')} men inte verifierade, ${dokN(u.fynd.verifierade, 'verifierat', 'verifierade')}.</p>
       ${u.aterstar.length ? `<div class="under" style="margin:8px 0 2px">Återstår enligt BESLUT.md</div><ul class="lista">${u.aterstar.map((a) => `<li>${kodtext(a)}</li>`).join('')}</ul>` : ''}</div>`).join('');
@@ -1393,7 +1400,7 @@ function dokPagaende(d) {
       ${(m.domar || []).length ? `<div class="under" style="margin:8px 0 2px">Domar och bedömningar</div><ul class="lista">${m.domar.map((x) => `<li>${esc(x.vad)} (${esc(x.falt)}) · ${esc(x.version)} · ${esc(x.utfall)}
         <div class="not">${esc(x.avsandare === 'avsändaren ej belagd' ? 'Avsändaren ej belagd' : 'Avsändare: ' + x.avsandare)}${x.beslutstyp ? ` · beslutstyp: ${esc(x.beslutstyp)}` : ''}${x.historik ? ` · ${esc(x.historik)}` : ''}${x.fil ? ` · ${dokFil(x.fil)}` : ''}</div></li>`).join('')}</ul>` : ''}</div>`).join('');
   const projekt = (lista) => lista.length ? `<ul class="lista">${lista.map((r) => `<li>${dokVy(r.vy, r.id)} (${esc(dokText(r.datum))})${r.lank ? ` · <a href="${esc(r.lank)}" target="_blank" rel="noopener">filen</a>` : ''}
-      <div class="chips" style="margin-top:4px">${dokStatuschip(r)}${dokUtfallchip(r)}</div><div class="not">${esc(dokText(r.bedomningsutfall).slice(0, 240))} · ${esc(dokAvsandare(r.avsandare))}</div></li>`).join('')}</ul>` : '';
+      <div class="chips" style="margin-top:4px">${dokStatuschip(r)}${dokUtfallchip(r)}${dokRattchips(r)}</div><div class="not">${esc(dokText(r.bedomningsutfall).slice(0, 240))} · ${esc(dokAvsandare(r.avsandare))}</div>${dokDelar(r)}</li>`).join('')}</ul>` : '';
   const pilotrapporter = projekt((p.projektrapporter || []).filter((r) => r.katalog === 'figma-pilot'));
   const ovrigaProjekt = projekt((p.projektrapporter || []).filter((r) => r.katalog !== 'figma-pilot'));
   const lage = p.lagesrapporter.map((r) => `<li>${dokVy(r.vy, r.id)} (${esc(dokText(r.datum))})${r.lank ? ` · <a href="${esc(r.lank)}" target="_blank" rel="noopener">filen</a>` : ''}<div class="not">${esc(dokText(r.titel))}</div>

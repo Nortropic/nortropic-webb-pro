@@ -17,8 +17,10 @@ De tre första skapas automatiskt. Alla skriver genom `kontroller/backlog.py ny`
 skrivning sker under backloggens fillås med en tempfil som byts in atomiskt. Ett huvudvärde med en radbrytning eller ett
 annat kontrolltecken avvisas. Ett fynd får en post: finns `--fynd` redan i en post, oavsett status, skapas ingen ny,
 och `ny` ger den postens id. Är posten `klar` och anmäler en senare rapport (`--kallref`) fyndet igen, består fyndet:
-posten blir `vilande` igen med en not om rapporten, och verifieringen tas bort. Rapporten som hittade fyndet öppnar
-den inte, och en avvisad eller ersatt post öppnas inte.
+posten blir `vilande` igen med en not om rapporten, och verifieringen tas bort. Senare betyder senare än varje rapport
+som posten redan nämner (den som hittade fyndet, den som verifierade rättelsen och de som anmält fyndet igen), efter
+datumet och numret i id:t; en rapport som posten redan nämner ändrar ingenting. En post som pågår, väntar, är avvisad
+eller ersatt öppnas inte.
 
 ## Så genomförs den
 

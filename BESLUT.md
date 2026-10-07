@@ -999,12 +999,17 @@ Genomförs i steg, och varje steg redovisar vad som återstår:
    - **Beslut och historik:** tilläggens status, ersättare och det som återstår.
 
    Allt läses ur filerna vid varje visning:
-   - ett utfall visas med versionen det gällde;
+   - ett utfall visas med versionen det gällde, och ett sammansatt utfall visar ägarens dom som en egen rad;
+   - rapporthuvudets valfria fält `rattelser` och `giltighet` visas vid rapporten och i översikten;
    - förteckningens sha256 visas som integritet, inte som verifiering;
    - rapporter som koden hänvisar till men som saknas visas ur koden;
-   - fynden och rättelserna kommer ur backloggen.
+   - fynden och rättelserna kommer ur backloggen;
+   - varje fil prövas som den verkliga filen, med symlänkar, `./`, `..` och skiftläge lösta, både i vyn och i `/fil/`, och
+     `/api/dokument` visar bara filer som git följer.
 
-   `ny --fynd` från en senare rapport öppnar en klar post igen (GR-20261007-r97-om#BÖR-1). Prövas av
+   `ny --fynd` från en senare rapport öppnar en klar post igen (GR-20261007-r97-om#BÖR-1), bara en gång och bara när
+   rapporten är senare än varje rapport som posten nämner (GR-20261007-r99#BÖR-5). Granskningen GR-20261007-r99
+   underkände den första versionen; B1, BÖR-1–7 och KAN 1, 2, 4, 7, 8 och 10 är rättade. Prövas av
    `prov_dokumentationsvy.py` och `prov_dokumentation.py` i rökprovet.
 6. **Återstår:**
    - kompetenskedjan per steg och kandidat och körningens slutpost: vyn har en plats för dem, men datakällorna byggs i
@@ -1013,6 +1018,7 @@ Genomförs i steg, och varje steg redovisar vad som återstår:
    - de äldre rapporterna i `underlag/granskningar/sessioner/` saknar rapporthuvud, så deras fält visas som ej angivet. Ett
      huvud läggs bara till där underlaget belägger värdena;
    - att föra in de äldre granskningarnas fynd i backloggen. Vilka som fortfarande gäller kräver bedömning;
+   - GR-20261007-r99#KAN-3, -5, -6, -9 och -11–14 är inte rättade (commitmeddelandet räknar upp dem);
    - raden "Dokumentation:" i commitmeddelandena prövas inte av något verktyg;
    - ingenting prövar rapporthuvudet när en rapport skrivs. Vyn visar ett trasigt huvud och saknade fält under Saknat
      underlag.

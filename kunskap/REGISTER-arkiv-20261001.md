@@ -1,5 +1,5 @@
+Status: historik, ersatt av `kunskap/REGISTER.md`. Bedömningarna gjordes med reglerna före 2026-10-01 och står kvar som historik (texten nedan och `REGISTER.md`, Ursprung).
 # Registrets arkiv — bedömningar gjorda med de gamla reglerna (1 oktober 2026)
-
 Kirurgen bedömde då bara mot "sår" i LARDOMAR.md, och nästan allt blev nej. Ägaren korrigerade regeln
 ("den ska kolla på vår nuvarande arbetssätt, ja hela allt och se, kan vi arbeta bättre med det här eller smartare")
 och ville börja om. Posterna står kvar här som historik; kirurgen läser dem inte, så samma länk kan skickas igen och

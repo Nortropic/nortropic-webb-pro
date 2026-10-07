@@ -11,7 +11,8 @@ rapportstrukturen; regeln står i README.md, Var information finns; granskningen
 - varje "## Tillägg 2026-10-06, kväll" och senare i BESLUT.md har raden "**Status:**" direkt under rubriken;
 - backloggen (syntetiska poster i en temporär katalog): källan granskning med kallref och fynd, ett fynd får en post,
   en senare rapport som anmäler fyndet igen öppnar en klar post utan verifiering (inte en avvisad eller ersatt, och
-  inte rapporten som hittade fyndet), huvudvärden utan radbrytningar och kontrolltecken och --commit som hex, verifierad bara med kommandot verifiera och från
+  inte rapporten som hittade fyndet), och bara en rapport som är senare än varje rapport som posten nämner, en gång
+  (idempotent; inte den som verifierade, inte en äldre, inte en post som pågår), huvudvärden utan radbrytningar och kontrolltecken och --commit som hex, verifierad bara med kommandot verifiera och från
   en annan rapport än fyndets, verifierad_tid utan att andrad ändras, "klar, inte verifierad" i listan, verifieringen
   borta när status eller commit ändras och kvar annars, låset som verktygslådan använder (också för läsningen före en
   ändring) och den atomiska skrivningen;
@@ -292,7 +293,7 @@ def _aterkommet_fynd():
     m = meta(pid)
     assert andra == pid and poster() == fore, ('en ny post för samma fynd', andra, ut)
     assert m['status'] == 'vilande' and 'verifierad' not in m and 'verifierad_tid' not in m, ('posten står kvar som klar', m)
-    assert 'granskningar/GR-20261009-prov.md anmälde fyndet GR-20261007-prov#B8 igen' in m['kropp'] and 'består' in m['kropp'], m['kropp']
+    assert 'GR-20261009-prov anmälde fyndet GR-20261007-prov#B8 igen (granskningar/GR-20261009-prov.md)' in m['kropp'] and 'består' in m['kropp'], m['kropp']
     assert 'GR-20261008-prov verifierade status klar med commit abc1234' in m['kropp'], m['kropp']
     rc, ut = kommando('lista')
     assert next(r for r in ut.splitlines() if pid in r).startswith('vilande '), ut
@@ -306,6 +307,62 @@ def _aterkommet_fynd():
         p3, _ = anmal('GR-20261007-prov', fynd)
         bl.satt_status(p3, status, not_='i provet')
         assert anmal('GR-20261009-prov', fynd)[0] == p3 and meta(p3)['status'] == status, (status, meta(p3))
+
+
+@fall('backloggen: återöppningen är idempotent, och bara en rapport som är senare än varje rapport som posten nämner öppnar den')
+def _ateroppningens_regler():
+    # granskningen av r99, BÖR-5: samma rapport efter en ny rättelse, rapporten som verifierade, en äldre rapport och fyndets
+    # egen rapport i en annan form öppnade posten; en post som pågår ska inte öppnas
+    def anmal(kallref, fynd):
+        rc, ut = kommando('ny', '--kalla', 'granskning', '--titel', 'Ett fynd med regler', '--varfor', 'Syntetiskt.', '--kallref', kallref, '--fynd', fynd)
+        assert rc == 0, ut
+        return ut.split()[0]
+
+    def klar_post(fynd, verifierad=None):
+        pid = anmal(fynd.split('#')[0], fynd)
+        bl.satt_status(pid, 'klar', commit='abc1234')
+        if verifierad:
+            bl.verifiera(pid, verifierad)
+        return pid
+
+    def orord(pid, kallref, vad):
+        fore = (bl.MAPP / (pid + '.md')).read_bytes()
+        assert anmal(kallref, meta(pid)['fynd']) == pid
+        assert (bl.MAPP / (pid + '.md')).read_bytes() == fore, ('%s ändrade posten' % vad, meta(pid)['status'], meta(pid)['kropp'][-300:])
+    # 1. samma senare rapport efter en ny rättelse ändrar ingenting (idempotent), men en ännu senare rapport öppnar
+    pid = klar_post('GR-20261007-prov#R1')
+    anmal('GR-20261009-prov', 'GR-20261007-prov#R1')
+    assert meta(pid)['status'] == 'vilande', meta(pid)
+    bl.satt_status(pid, 'klar', commit='def5678')  # en ny rättelse efter GR-20261009-prov
+    orord(pid, 'GR-20261009-prov', 'samma rapport en gång till')
+    orord(pid, 'granskningar/GR-20261009-prov.md', 'samma rapport som sökväg')
+    anmal('GR-20261010-prov', 'GR-20261007-prov#R1')
+    m = meta(pid)
+    assert m['status'] == 'vilande' and m['kropp'].count('anmälde fyndet') == 2, ('en senare rapport öppnar inte', m['status'], m['kropp'][-400:])
+    # 2. rapporten som verifierade rättelsen öppnar inte, och verifieringen står kvar
+    pid = klar_post('GR-20261007-prov#R2', verifierad='GR-20261008-prov')
+    orord(pid, 'GR-20261008-prov', 'rapporten som verifierade')
+    assert meta(pid).get('verifierad') == 'GR-20261008-prov'
+    # 3. en rapport från före fyndets och en mellan fyndets och verifieringens öppnar inte
+    pid = klar_post('GR-20261007-prov#R3', verifierad='GR-20261009-prov')
+    orord(pid, 'GR-20261006-prov', 'en äldre rapport än fyndets')
+    orord(pid, 'GR-20261008-prov', 'en rapport från före verifieringen')
+    # 4. fyndets egen rapport i en annan form öppnar inte
+    pid = klar_post('GR-20261007-prov#R4')
+    for form in ('GR-20261007-prov.MD', 'granskningar/GR-20261007-prov.md#R4', 'granskningar/GR-20261007-prov/', 'gr-20261007-prov'):
+        orord(pid, form, 'fyndets egen rapport som %s' % form)
+    # 5. en rapport utan datum i id:t går inte att ordna: posten öppnas inte, och utdatan säger hur den öppnas för hand
+    pid = klar_post('GR-20261007-prov#R5')
+    orord(pid, 'R5-utan-datum', 'en rapport utan datum')
+    rc, ut = kommando('ny', '--kalla', 'granskning', '--titel', 'x', '--varfor', 'x', '--kallref', 'R5-utan-datum', '--fynd', 'GR-20261007-prov#R5')
+    assert rc == 0 and 'öppnas inte' in ut and 'status %s vilande' % pid in ut, ut
+    # 6. en post som pågår eller väntar öppnas inte om igen
+    for status in ('pagar', 'vilande'):
+        fynd = 'GR-20261007-prov#R6%s' % status
+        pid = anmal('GR-20261007-prov', fynd)
+        if status != 'vilande':
+            bl.satt_status(pid, status)
+        orord(pid, 'GR-20261009-prov', 'en senare rapport mot en post som är %s' % status)
 
 
 @fall('backloggen: huvudvärden utan radbrytningar och kontrolltecken, och --commit som hex med 7–40 tecken')

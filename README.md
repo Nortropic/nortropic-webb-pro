@@ -87,6 +87,9 @@ dokumentationsbehovet i stället.
 - **Status och utfall:** `rapportstatus` (utkast, färdig eller ersatt) och `bedomningsutfall` (godkänt, underkänt,
   ofullständigt eller ej bedömt).
 - **Länkar:** `underlag`, `foregaende`, `ersatt_av`, `beslut` och `atgarder`.
+- **Rättelser och giltighet** (valfria): `rattelser`, en lista med "datum: vad som rättats, var", och `giltighet`, till
+  exempel utvecklingsdata eller historik, med skäl; en rättad slutsats skrivs inte om i texten, och dashboarden visar
+  rättelserna vid rapporten och i översikten.
 
 Ett värde som saknas skrivs "ej angivet". Rapportstatus och utfall är olika saker: en färdig rapport kan underkänna
 resultatet. Ett exempel är `underlag/figma-pilot/BESLUTSUNDERLAG.md`.
