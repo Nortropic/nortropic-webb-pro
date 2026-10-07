@@ -27,8 +27,8 @@ förnamn stoppas också ord för ord, och andra par med stor bokstav stoppas som
 typsnitten står, läses bara för kundens orter och mailto-länkar, så en generisk fråga med en förlaga eller ett typsnitt
 ur designriktningen går. Vad som prövas i detalj står i kundvaktens beskrivning. Mobbins `search_screens` går bara med
 `mode` "standard", eftersom verktygets standardläge deep kostar krediter. Sessionerna når Refero genom repots lokala
-MCP-anslutning och Mobbin genom
-`kontroller/mcp/mobbin.json` (`--mcp-config` utan strikt läge i `atelje.session_args`): Mobbin finns annars bara på
+MCP-anslutning och Mobbin genom `kontroller/mcp/mobbin.json` (`--mcp-config` utan strikt läge i
+`atelje.session_args`): Mobbin finns annars bara på
 användarnivån, som sessionernas `--setting-sources project,local` inte läser, så skaparna fick aldrig Mobbin fast
 rollerna tilldelar den (fynd 2026-10-07). Startkontrollen prövar åtkomsten med flödets egna argument
 (`kunskap/beroenden.md`, Vad startkvittot säger). I de granskande passen (skisskritiken, jämförelsen och granskningens
