@@ -11,11 +11,15 @@ Det som inget verktyg gör står som **människa**: ägaren eller verksamheten g
 Kedjan före det här steget, och vem som startar vad: `README.md`.
 
 1. **Helbygget är klart** när `./kor.sh` slutar med slutkod 0: provet grönt för det slutliga bygget, rapporten skriven
-   och granskningen godkänd för samma bygge (`kontroller/korslut.py`). Det som sparas är provet
-   (`kunder/<slug>/prov/`, med byggets `dist_sha256`), stoppvaktens besked (`prov/STOPPVAKT.json`), granskningens
-   omgångar (`kunder/<slug>/granskning/`), körningens logg och RAPPORT.md. Slutkoden och skälet skrivs bara ut.
+   i körningen och granskningen godkänd för samma bygge (`kontroller/korslut.py`). Det som sparas är provet
+   (`kunder/<slug>/prov/`, med byggets `dist_sha256`), stoppvaktens besked (`prov/STOPPVAKT.json`, med rapportens
+   sha256), granskningens omgångar (`kunder/<slug>/granskning/`), körningens logg och RAPPORT.md. Slutkoden, skälet och
+   de fem tillstånden sparas i slutposten `kunder/<slug>/korningar/<körning>/SLUT.json` (README.md, Var information
+   finns). Slutkod 0 betyder tekniskt godkänt och att designgranskaren godkänner; klart för leverans är det först när
+   också ägaren godkänt bygget.
 2. **Ägarens dom över bygget** skrivs i dashboarden (bygget, fliken Din dom) till `kunder/<slug>/DOM.json`, med byggets
-   dist-hash.
+   dist-hash. Svaret "Ja, som den är" på frågan om ägaren sätter sitt namn på sajten är ägarens godkännande i
+   slutposten; `.venv/bin/python kontroller/korslut.py --visa kunder/<slug>` prövar domen mot posten.
 3. **Exporten** (ägaren eller en session): `.venv/bin/python kontroller/exportera.py <slug> [--git]`. Den lägger
    sajtens källor, leveransens låsta beroenden, formulärets funktion, README, `.env.example`, `vercel.json` och
    LICENSER.md i `kunder/<slug>/kundrepo/` (en tidigare export flyttas till `kundrepo-tidigare/<tid>/` och raderas

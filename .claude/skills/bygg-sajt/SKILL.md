@@ -471,6 +471,10 @@ Kontrollera att namn, adress och telefon på sajten, i sidfoten och i JSON-LD ä
 Formen för RAPPORT.md och FRAGOR.json står här. Var andra rapporter, bevis och backlogposter hör hemma: `README.md`, Var
 information finns.
 
+Rapporten börjar med ett huvud (rapporthuvudet, mellan två rader `---`) med raden `korning: <körningens identitet>`, som
+står i uppdraget från kor.sh: stoppvakten och korslut godtar bara en rapport som skrivits i körningen, och ett tidigare
+bygges rapport ligger i `kunder/<slug>/rapporter/`.
+
 Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 
 1. **Verksamheten** i två meningar, med källa.

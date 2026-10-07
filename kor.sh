@@ -13,7 +13,7 @@
 # äldre utforskningens lägen: ateljén förkastade alla riktningar, skaparen lämnade grundidén, eller ägaren dömde
 # startsidan efter körningen).
 #
-# Flera helbyggen körs ett i taget, vart och ett från sin godkända startsida.
+# Flera helbyggen körs ett i taget. Varje start ger en slutpost: kunder/<slug>/korningar/<körning>/SLUT.json (korslut.py).
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400),
 # NWP_STOPP_TAK (8), NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång),
 # NWP_GRANSKNING_MAX (5 per körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json
@@ -50,23 +50,35 @@ WT_PID=""
 # städningen får aldrig ändra slutkoden (set -e gäller också i trapen): varje steg tål att misslyckas
 trap '"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" ut --pid $$ >/dev/null 2>&1 || true; chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true; [ -z "${DOMLOGG:-}" ] || chflags nouchg "$DOMLOGG" 2>/dev/null || true; rm -f "$LAS"; [ -z "${WT_PID:-}" ] || kill "$WT_PID" 2>/dev/null || true' EXIT
 mkdir -p "$ROOT/kunder/$SLUG" "$ROOT/underlag/$SLUG"
+# Körningens identitet (NWP_KORNING), unik för kunden, sätts direkt efter låset: varje start, också en som stannar före
+# bygget, får en slutpost i kunder/<slug>/korningar/<körning>/SLUT.json, och terminalens besked skrivs ur posten
+# (kontroller/korslut.py; ägarens uppdrag 2026-10-07, punkt 4). En start som nekas före låset (fel i anropet, verktyg
+# som saknas, ett bygge pågår redan) skriver ingen post: skrivningen kunde ändra det pågående byggets gräns.
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+while [ -e "$ROOT/kunder/$SLUG/korningar/$STAMP" ] || [ -L "$ROOT/kunder/$SLUG/korningar/$STAMP" ]; do
+  sleep 1; STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+done
+stopp() {  # kor.sh stannar före bygget: en kort slutpost och beskedet ur den, slutkod 2
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" --stopp "$ROOT/kunder/$SLUG" "$STAMP" "$1" || echo "$1"
+  exit 2
+}
 # Ägarens domlogg låses under bygget (chflags uchg nedan): bygget når den annars med cp och mv, och dashboarden skriver
 # ägarens domar först när bygget är klart. En ändring under körningen är då inte ägarens: korslut ger slutkod 3
 # (omgranskningen av skapandeflödet, fynd 2). Saknas loggen skapas den tom, så att den kan låsas.
 DOMLOGG="$ROOT/underlag/$SLUG/DESIGNDOMAR.jsonl"
-[ -L "$DOMLOGG" ] && { echo "domloggen underlag/$SLUG/DESIGNDOMAR.jsonl är en länk; bygget startas inte"; exit 2; }
+[ -L "$DOMLOGG" ] && stopp "domloggen underlag/$SLUG/DESIGNDOMAR.jsonl är en länk; bygget startas inte"
 chflags nouchg "$DOMLOGG" 2>/dev/null || true   # kvarlämnad flagga efter en avbruten körning
 [ -e "$DOMLOGG" ] || : > "$DOMLOGG"
 rm -f "$ROOT/kunder/$SLUG/prov/.stoppvakt-antal"
-STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOGG="$ROOT/kunder/$SLUG/korning-$STAMP.jsonl"
 
 PROMPT="Bygg en webbplats åt verksamheten: $VERKSAMHET
 Slug: $SLUG
 
 Följ skillen bygg-sajt (.claude/skills/bygg-sajt/SKILL.md) steg 1–7, i ordning. Underlag i underlag/$SLUG/, bygget i
-kunder/$SLUG/sajt/, rapporten i kunder/$SLUG/RAPPORT.md. Ingen människa svarar under körningen: saknas en uppgift,
-märk den antagande och fortsätt. Avsluta först när .venv/bin/python kontroller/prova.py $SLUG är grönt, rapporten är
+kunder/$SLUG/sajt/, rapporten i kunder/$SLUG/RAPPORT.md. Körningens identitet är $STAMP: rapportens huvud bär den
+(raden korning: $STAMP; steg 7). Ingen människa svarar under körningen: saknas en uppgift, märk den antagande och
+fortsätt. Avsluta först när .venv/bin/python kontroller/prova.py $SLUG är grönt, rapporten är
 skriven och den oberoende granskaren (kontroller/granska.py) har godkänt sajten. Stoppvakten kör provet och
 granskningen själv när du försöker avsluta."
 # Skapandeflödet (kunskap/skapandeflodet.md) körs före bygget, utanför sandlådan, och slutar i ägarens val och
@@ -87,13 +99,13 @@ print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || 
 # när bygget faktiskt startar (en godkänd startsida eller nödvägen), före allt som skriver i sajten.
 if [ -n "$GODKAND" ] || [ "${NWP_ATELJE:-pa}" != "pa" ]; then
   "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/startkontroll.py" --slug "$SLUG" --start bygge > "$ROOT/kunder/$SLUG/startkontroll.log" 2>&1 \
-    || { echo "startkontrollen stoppade bygget: se underlag/$SLUG/atelje/STARTKVITTO-BYGGE-STOPP.md (logg: kunder/$SLUG/startkontroll.log)"; exit 2; }
+    || stopp "startkontrollen stoppade bygget: se underlag/$SLUG/atelje/STARTKVITTO-BYGGE-STOPP.md (logg: kunder/$SLUG/startkontroll.log)"
 fi
 if [ -n "$GODKAND" ]; then
   # godkännandet gäller vinnarens dömda filer: har ett tidigare bygge skrivit om sajtens, läggs vinnarens tillbaka
   ERSATT="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import atelje
-print(", ".join(atelje.installera_godkand(sys.argv[2])))' "$ROOT" "$SLUG")" || { echo "den godkända startsidan kunde inte läggas i sajten (atelje.installera_godkand)"; exit 2; }
+print(", ".join(atelje.installera_godkand(sys.argv[2])))' "$ROOT" "$SLUG")" || stopp "den godkända startsidan kunde inte läggas i sajten (atelje.installera_godkand)"
   [ -z "$ERSATT" ] || echo "den godkända startsidan lades i sajten: $ERSATT (de ersatta i kunder/$SLUG/startsida-ersatt/)"
   PROMPT="$PROMPT
 
@@ -102,12 +114,12 @@ i steg 5.1, som från ateljévinnaren. Kör inte ateljén; startsidan står i ku
 kandidat ur kandidatflödet har också sina undersidor där, och DESIGN.md i kunder/$SLUG/sajt/)."
 elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ -n "$AGARENS_STOPP" ]; then
   # ägarens dom tillåter inget bygge på startsidan (prototyp.bygget_nekas): nästa steg är skapandeflödet
-  echo "ägarens domlogg tillåter inget bygge på startsidan ($AGARENS_STOPP). Kör .venv/bin/python kontroller/prototyp.py $SLUG före bygget; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
+  stopp "ägarens domlogg tillåter inget bygge på startsidan ($AGARENS_STOPP). Kör .venv/bin/python kontroller/prototyp.py $SLUG före bygget; NWP_ATELJE=av är nödvägen utan ateljé"
 elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ "${NWP_SANDLADA:-av}" = "pa" ]; then
-  echo "skapandeflödet (ateljén) körs utanför sandlådan, före bygget: kör .venv/bin/python kontroller/prototyp.py $SLUG och godkänn startsidan i dashboardens vy Prototyp; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
+  stopp "skapandeflödet (ateljén) körs utanför sandlådan, före bygget: kör .venv/bin/python kontroller/prototyp.py $SLUG och godkänn startsidan i dashboardens vy Prototyp; NWP_ATELJE=av är nödvägen utan ateljé"
 elif [ "${NWP_ATELJE:-pa}" = "pa" ]; then
   # skapandeflödet slutar i ägarens val och godkännande och körs före bygget, aldrig inifrån det (granskningen V3)
-  echo "ingen godkänd startsida: kör .venv/bin/python kontroller/prototyp.py $SLUG, välj bland förslagen och godkänn en i dashboardens vy Prototyp före bygget; NWP_ATELJE=av är nödvägen utan ateljé"; exit 2
+  stopp "ingen godkänd startsida: kör .venv/bin/python kontroller/prototyp.py $SLUG, välj bland förslagen och godkänn en i dashboardens vy Prototyp före bygget; NWP_ATELJE=av är nödvägen utan ateljé"
 fi
 
 # Referenstjänster via MCP (A/B-posterna om Inspo och om Refero/Mobbin): bara när NWP_MCP_CONFIG pekar på en av filerna i
@@ -122,7 +134,7 @@ print(" ".join(referenstjanster.TJANSTER[sys.argv[2]]["verktyg"]))' "$ROOT" "$1"
 }
 INSPO=()
 if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
-  [ -f "$NWP_MCP_CONFIG" ] || { echo "NWP_MCP_CONFIG pekar inte på en fil: $NWP_MCP_CONFIG"; exit 2; }
+  [ -f "$NWP_MCP_CONFIG" ] || stopp "NWP_MCP_CONFIG pekar inte på en fil: $NWP_MCP_CONFIG"
   # bara filerna i kontroller/mcp/ (den verkliga sökvägen, inte bara namnet), och bara tjänstens namngivna läsverktyg
   MCP_VERKLIG="$(cd "$(dirname "$NWP_MCP_CONFIG")" && pwd -P)/$(basename "$NWP_MCP_CONFIG")"
   case "$MCP_VERKLIG" in
@@ -136,10 +148,10 @@ if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
       # Refero ansluts med en personlig nyckel (ingen webbläsarinloggning): anslutningsfilen bär ${REFERO_MCP_TOKEN},
       # värdet ligger i ägarens hemlighetsmapp och exporteras bara till byggets claude-process. Aldrig i repot.
       REFERO_ENV="$HOME/.nortropic-hemligheter/webb-pro/refero.env"
-      [ -f "$REFERO_ENV" ] || { echo "Refero: $REFERO_ENV saknas (REFERO_MCP_TOKEN=…, chmod 600)"; exit 2; }
+      [ -f "$REFERO_ENV" ] || stopp "Refero: $REFERO_ENV saknas (REFERO_MCP_TOKEN=…, chmod 600)"
       set -a; . "$REFERO_ENV"; set +a
-      [ -n "${REFERO_MCP_TOKEN:-}" ] || { echo "Refero: REFERO_MCP_TOKEN saknas i $REFERO_ENV"; exit 2; };;
-    *) echo "NWP_MCP_CONFIG: okänd anslutning $MCP_VERKLIG; kända: $ROOT/kontroller/mcp/inspo.json, mobbin.json, refero.json"; exit 2;;
+      [ -n "${REFERO_MCP_TOKEN:-}" ] || stopp "Refero: REFERO_MCP_TOKEN saknas i $REFERO_ENV";;
+    *) stopp "NWP_MCP_CONFIG: okänd anslutning $MCP_VERKLIG; kända: $ROOT/kontroller/mcp/inspo.json, mobbin.json, refero.json";;
   esac
 fi
 
@@ -202,7 +214,7 @@ if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
 else
   SANDLADA+=(--av)
 fi
-SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} ${SANDLADA[@]+"${SANDLADA[@]}"})" || { echo "inställningarna (kontroller/sandlada.py) kunde inte skapas"; exit 2; }
+SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} ${SANDLADA[@]+"${SANDLADA[@]}"})" || stopp "inställningarna (kontroller/sandlada.py) kunde inte skapas"
 if [ "$SETTINGS" != "{}" ]; then ARGS+=(--settings "$SETTINGS"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort; bygget skriver
@@ -217,7 +229,8 @@ cd "$ROOT"   # projektets Stop-krok laddas bara när sessionen startar i reporot
 # Bash når förbi Edit/Write-reglerna ovan (cp, mv, egna skript); därför jämförs de skyddade filernas innehåll före och
 # efter, fil för fil, oavsett om en ändring committats under körningen (revisionen 2026-10-03, F10).
 SKYDDAT=(kontroller kritik kunskap mall .claude dashboard kor.sh dashboard.sh CLAUDE.md BESLUT.md LARDOMAR.md .gitignore
-         "underlag/$SLUG/DESIGNDOMAR.jsonl")  # ägarens domlogg, låst under bygget: en ändring är ändrad mekanik (slutkod 3)
+         "underlag/$SLUG/DESIGNDOMAR.jsonl"  # ägarens domlogg, låst under bygget: en ändring är ändrad mekanik (slutkod 3)
+         "kunder/$SLUG/korningar" "kunder/$SLUG/rapporter")  # körningarnas protokoll: en ändring är också slutkod 3
 skyddat() {
   # en post som saknas får inte fälla skriptet; försvinner eller tillkommer den under bygget syns det efteråt
   { find "${SKYDDAT[@]}" -type f ! -path '*/node_modules/*' ! -path '*/__pycache__/*' ! -name '.DS_Store' -print0 2>/dev/null || true; } \
@@ -244,7 +257,7 @@ if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
     ${SANDLADA[@]+"${SANDLADA[@]}"} > "$ROOT/kunder/$SLUG/webbtjanst-$STAMP.log" 2>&1 &
   WT_PID=$!
   for _ in $(seq 1 50); do [ -s "$WT_KVITTO" ] && break; sleep 0.2; done
-  [ -s "$WT_KVITTO" ] || { echo "webbtjänsten startade inte (kunder/$SLUG/webbtjanst-$STAMP.log)"; exit 2; }
+  [ -s "$WT_KVITTO" ] || stopp "webbtjänsten startade inte (kunder/$SLUG/webbtjanst-$STAMP.log)"
   WT_ENV=(NWP_WEBBTJANST="http://127.0.0.1:$(sed -n 1p "$WT_KVITTO")" NWP_WEBBTJANST_NYCKEL="$(sed -n 2p "$WT_KVITTO")")
 fi
 FORE_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-fore"
@@ -252,11 +265,20 @@ EFTER_FIL="$ROOT/kunder/$SLUG/prov/.skyddat-efter"
 rm -f "$FORE_FIL" "$EFTER_FIL"   # en planterad symlänk ska inte få styra vart listorna skrivs
 # Misslyckad låsning stoppar bygget före modellstarten, och flaggorna verifieras uttryckligen (Codex R23: ett olåst
 # tillstånd fick annars bli förebild, och slutkontrollen såg ingen skillnad).
-chflags uchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || { echo "kunder/ och underlag/ kunde inte låsas mot nya kataloger (chflags uchg); bygget startas inte"; exit 2; }
+chflags uchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || stopp "kunder/ och underlag/ kunde inte låsas mot nya kataloger (chflags uchg); bygget startas inte"
 for d in kunder underlag; do
-  stat -f %Sf "$ROOT/$d" 2>/dev/null | grep -q uchg || { echo "$d/ är inte låst (flaggan uchg saknas efter chflags); bygget startas inte"; exit 2; }
+  stat -f %Sf "$ROOT/$d" 2>/dev/null | grep -q uchg || stopp "$d/ är inte låst (flaggan uchg saknas efter chflags); bygget startas inte"
 done
-chflags uchg "$DOMLOGG" 2>/dev/null && stat -f %Sf "$DOMLOGG" 2>/dev/null | grep -q uchg || { echo "domloggen underlag/$SLUG/DESIGNDOMAR.jsonl kunde inte låsas (chflags uchg); bygget startas inte"; exit 2; }
+chflags uchg "$DOMLOGG" 2>/dev/null && stat -f %Sf "$DOMLOGG" 2>/dev/null | grep -q uchg || stopp "domloggen underlag/$SLUG/DESIGNDOMAR.jsonl kunde inte låsas (chflags uchg); bygget startas inte"
+# En äldre RAPPORT.md (ett tidigare bygges) flyttas till kunder/<slug>/rapporter/RAPPORT-fore-<körning>.md när bygget
+# startar, och inget raderas: den uppfyller aldrig rapportkravet för det här bygget, och stoppvakten kräver en rapport
+# skriven i körningen (ägarens uppdrag 2026-10-07, punkt 5). En start som stannar ovan lämnar den på sin plats.
+if [ -e "$ROOT/kunder/$SLUG/RAPPORT.md" ] || [ -L "$ROOT/kunder/$SLUG/RAPPORT.md" ]; then
+  [ ! -L "$ROOT/kunder/$SLUG/rapporter" ] && mkdir -p "$ROOT/kunder/$SLUG/rapporter" \
+    && mv -n "$ROOT/kunder/$SLUG/RAPPORT.md" "$ROOT/kunder/$SLUG/rapporter/RAPPORT-fore-$STAMP.md" \
+    && [ ! -e "$ROOT/kunder/$SLUG/RAPPORT.md" ] && [ ! -L "$ROOT/kunder/$SLUG/RAPPORT.md" ] \
+    || stopp "den äldre kunder/$SLUG/RAPPORT.md kunde inte flyttas till kunder/$SLUG/rapporter/; bygget startas inte"
+fi
 { skyddat; grans; } > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
@@ -268,7 +290,8 @@ rm -f "$EFTER_FIL"
 chflags nouchg "$ROOT/kunder" "$ROOT/underlag" "$DOMLOGG" 2>/dev/null || true
 # Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
 # godkännande, 3 mekaniken ändrades under körningen, 4 claude föll, 6 ateljén förkastade alla riktningar och bygget
-# stannade utan sajt (designprovet, ägarbeslut 2026-10-04). Skriptets slutkod är korsluts.
+# stannade utan sajt (designprovet, ägarbeslut 2026-10-04). Skriptets slutkod är korsluts. Korslut skriver slutposten
+# kunder/<slug>/korningar/<körning>/SLUT.json och beskedet ur den (ägarens uppdrag 2026-10-07, punkt 4).
 set +e
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" "$ROOT/kunder/$SLUG" "$RC" "$FORE_FIL" "$EFTER_FIL" "$STAMP"
 KORSLUT=$?

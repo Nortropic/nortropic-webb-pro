@@ -1025,3 +1025,299 @@ Genomförs i steg, och varje steg redovisar vad som återstår:
    - raden "Dokumentation:" i commitmeddelandena prövas inte av något verktyg;
    - ingenting prövar rapporthuvudet när en rapport skrivs. Vyn visar ett trasigt huvud och saknade fält under Saknat
      underlag.
+
+## Tillägg 2026-10-07: kompetensens användning och tillförlitlig rapportering
+
+**Status:** gäller.
+
+Ägarens uppdrag 2026-10-07, mottaget cirka 05:08Z (sparat i minnet 05:08:36Z): ett inklistrat block, formulerat av Codex
+efter granskningen av main ee73c36, och efter det ägarens egen text (Tillägg). Båda ordagrant:
+
+> Uppdrag: säkerställ faktisk användning av Nortropics kompetens och gör rapporteringen tillförlitlig genom hela flödet.
+>
+> Arbeta i nortropic-webb-pro. Målet är professionella, kundanpassade webbplatser som når min visuella ribba, med ett flöde där jag kan förstå vad som gjorts, vad som brustit och vad som gäller nu.
+>
+> Det här är ett genomförandeuppdrag. Återanvänd befintlig mekanik, metodkarta, observation, rapportstruktur och dashboard. Kontrollera först vad som redan är rättat eller pågår i andra arbetsgrenar. Gör inte samma arbete igen och stör inte pågående arbete.
+>
+> Codex granskade main ee73c36. Fynden nedan beskriver den versionen och ska verifieras mot aktuell kod före rättning.
+>
+> 1. Ägarens krav: kompetensen ska användas
+>
+> Våra valda skills, MCP-tjänster och verktyg ska användas genom hela kedjan. Att något är installerat, ansluter eller listas i ett kvitto uppfyller inte kravet.
+>
+> För varje vald kompetens ska det framgå:
+> - vilket arbete den ansvarar för;
+> - i vilket steg den används;
+> - att den utförande sessionen faktiskt får tillgång till den;
+> - vilket underlag den tillför;
+> - vilka beslut eller förändringar den leder till;
+> - hur resultatet bedöms.
+>
+> Använd metodkartan för ansvarsfördelningen. Fördela kompetensen mellan stegen med tydliga uppdrag, så att relevant kunskap faktiskt kommer till användning och motstridiga instruktioner hanteras. Behåll de fullständiga källorna tillgängliga.
+>
+> Ingen vald kompetens får tyst falla bort. Om en förmåga är blockerad eller inte fungerar ska det synas som en konkret brist med konsekvens och åtgärd.
+>
+> Gör inga meningslösa verktygsanrop för att fylla ett kvitto. Kravet är meningsfull användning och tillämpning. Ett läskvitto är belägg för läsning, inte för designkvalitet.
+>
+> 2. Refero och Mobbin ska bidra till designen
+>
+> Båda tjänsterna ska ingå i referensarbetet med faktisk undersökning av relevanta förlagor.
+>
+> Säkerställ att:
+> - sökningarna utgår från kundens uppgifter och flera möjliga designriktningar;
+> - relevanta bilder, stilar och flöden öppnas och granskas;
+> - det valda materialet når skaparen, ateljén och granskningen;
+> - referensernas viktiga kompositioner och tillstånd bevaras;
+> - skaparen kan begära kompletteringar när underlaget inte räcker;
+> - misslyckade anrop, tomma resultat och uteblivna bilder inte redovisas som genomfört referensarbete.
+>
+> Skilj mellan tjänsteanrop i researchen, material som skaparen faktiskt läst och egna kompletterande anrop från skaparen.
+>
+> Frysta referenspaket är användbara. De ska ha tydligt ursprung, version och bilder, och deras existens får inte tas som bevis för att skaparen har granskat eller tillämpat dem.
+>
+> Pröva vad refero_search_apps tillför vårt referensarbete och ge verktyget en uttrycklig roll om det är relevant. Kontrollera verklig tillgång och tillåtelse i de sessioner som ska använda det. Lämna inte en upptäckt förmåga oklart hanterad under etiketten ”okänd”.
+>
+> 3. Rätta startkvittots betydelse
+>
+> Codex fann två olika saker:
+>
+> A. ”Referos verktyg utan uppgift i flödet: refero_search_apps”
+> Detta kom från skillnaden mellan upptäckta och tillåtna verktyg. Det var inte belägg för ett trasigt Refero-anrop.
+>
+> B. ”REFERENSER.md saknas”
+> Kontrollen tittade bara på om underlag/<slug>/REFERENSER.md fanns. Den kände inte igen det aktuella kandidatflödets FORSKNING.md, referenspaket och tjänstematerial. Den kördes dessutom före researchen.
+>
+> Gör kontrollen medveten om flödesläge och fas. Före researchen ska den kontrollera förutsättningarna för research. Efteråt ska den kontrollera det faktiska underlaget och dess användbarhet.
+>
+> Skapa inte en tom REFERENSER.md för att få grönt.
+>
+> Skilj tydligt mellan:
+> - tillgängligt;
+> - provat och fungerande;
+> - tilldelat en uppgift;
+> - använt med resultat;
+> - planerat i ett senare steg;
+> - blockerat eller misslyckat;
+> - inte observerat.
+>
+> Skilj också den vanliga prototypkörningen från Figma-piloten. Ett kvitto för den ena får inte uppfattas som verifiering av den andra.
+>
+> 4. Ge varje körning ett tillförlitligt slutbesked
+>
+> Återanvänd befintliga identiteter och versionshashar. Inför eller komplettera en beständig, maskinläsbar slutpost som binder samman:
+> - uppdrag och körning;
+> - aktuell kandidat/designversion och byggversion;
+> - relevant metodversion;
+> - tekniska kontroller;
+> - designgranskning och vem som gjort den;
+> - ägarens eventuella beslut;
+> - slutkod, återstående brister och nästa steg;
+> - länkar till rapporter och bevis.
+>
+> Låt terminalens besked, rapportöversikten och dashboarden härledas från samma aktuella uppgifter.
+>
+> Kontrollera alla befintliga startvägar. Codex fann att vissa yttre anropare sparar logg eller slutkod, medan direkt kor.sh saknar en egen beständig slutpost. Bevara fungerande delar och fyll luckan.
+>
+> Håll isär:
+> - sessionen avslutad;
+> - tekniskt godkänt;
+> - designgranskaren godkänner;
+> - ägaren godkänner;
+> - klart för leverans inom angiven omfattning.
+>
+> 5. Bind slutrapporten till rätt version
+>
+> Codex fann att rapportvillkoret i stoppvakten bara kontrollerade existens och storlek, medan korslut bara kontrollerade existens.
+>
+> En gammal RAPPORT.md får inte uppfylla rapportkravet för ett nytt bygge.
+>
+> Bind rapporten till den aktuella körningen och det granskade underlaget. Saknad eller avvikande identitet ska redovisas tydligt.
+>
+> Behåll slutgrindens befintliga kontroller av prov, stoppvakt, granskning och metod. Fyndet gäller rapportens aktualitet; det är inte belägg för att de andra versionskontrollerna saknas.
+>
+> Dashboardens granskningsdom ska tydligt visa om den gäller det aktuella bygget och aktuell metod. En historisk godkänd omgång ska kunna läsas som historik utan att uppfattas som ett aktuellt leveransgodkännande.
+>
+> 6. Håll rapporter och status aktuella automatiskt
+>
+> Codex fann bland annat:
+> - pilotrapporten säger både att domen saknas och att en dom har kommit;
+> - skissredovisningen säger ”under arbete” efter att körningen stoppats;
+> - tiden till första valbara skiss saknas trots att en kandidat anges vara klar.
+>
+> Rätta orsaken till dessa motsägelser.
+>
+> Berörda statusuppgifter och sammanställningar ska uppdateras vid normala övergångar, fel, stopp, återupptagning, nya domar och ersatta versioner. Jag ska inte behöva påminna om dokumentationen.
+>
+> Bevara frysta bevis och historiska rapporter. Använd en aktuell sammanställning och tydliga kopplingar till korrigeringar eller efterföljande rapporter. Skriv inte om historiska observationer så att det ser ut som om senare kunskap fanns från början.
+>
+> Ett arbete är inte färdigt förrän berörd dokumentation och spårbarhet är uppdaterad, eller en konkret kvarstående begränsning är redovisad.
+>
+> 7. Säkerställ rätt avsändare för beslut och bedömningar
+>
+> Skilj uttryckligen mellan:
+> - ägarens egna ord och beslut;
+> - Codex bedömning;
+> - Claude/skaparens bedömning;
+> - en annan granskares bedömning;
+> - maskinellt mätresultat;
+> - hypotes.
+>
+> Att jag vidarebefordrar en AI-bedömning betyder inte automatiskt att jag själv har gjort den bedömningen eller antagit alla dess preferenser som ägarbeslut.
+>
+> Granska särskilt AGARENS-DOM-C5.md och dess användning i VERSION.json och beslutsunderlaget. Bevara citatet och versionskopplingen, men säkerställ korrekt avsändare och beslutstyp. Om avsändaren inte går att belägga ska det framgå.
+>
+> Detta ska förhindra att framtida design låses av preferenser som felaktigt tillskrivits mig.
+>
+> 8. Rätta missvisande slutsatser och mätpåståenden
+>
+> Kalibreringen:
+> Försöksrapporten visar fortfarande sex ”undanhållna” exempel och noll fel, medan resultatet senare omklassades till utvecklingsdata efter testläckage.
+>
+> Gör korrigeringen synlig från själva rapporten och översikten. Bevara ursprungsresultatet som historik. Presentera det inte som ett oberoende mått på granskarens träffsäkerhet.
+>
+> Kontrast:
+> Pilotens percentilmätning är ett hjälpmedel. Den bevisar inte ensam att texten klarar kontrastkraven.
+>
+> Skilj mellan uppskattad kontrast, verifierad kontrast vid texten och vad som inte har prövats. Använd rätt krav för textens storlek och vikt. Påstå inte heller att sidan har ett WCAG-fel enbart utifrån ett enskilt bakgrundsvärde.
+>
+> Designens orsaker:
+> Formuleringen ”materialet sätter taket” är inte tillräckligt styrkt av piloten. Skilj den från den observerade kvalitetsförlusten i kundanpassningen.
+>
+> Pröva bättre bildval, beskärning, hierarki och komposition med befintligt material innan ni behandlar materialet som en fast kvalitetsgräns. Även modellförmåga och behov av mänsklig art direction får vara prövbara förklaringar.
+>
+> 9. Gör dokumentationen lätt att följa
+>
+> Återanvänd den nya rapportstrukturen och förteckningen. Codex verifierade att de 650 registrerade filerna fanns och stämde med sina hashar på ee73c36. Det arbetet ska bevaras.
+>
+> Förteckningens integritet är inte samma sak som fullständig historik eller verifierade slutsatser.
+>
+> Översikten ska hjälpa mig att hitta:
+> - aktuellt läge per uppdrag;
+> - senaste relevanta slutrapport;
+> - vad som är godkänt, underkänt, ofullständigt eller ännu inte bedömt;
+> - öppna fynd och deras åtgärder;
+> - vilka rättelser som har verifierats;
+> - historik och ersatta slutsatser;
+> - saknat underlag.
+>
+> Kontrollera kvarstående arbete med dokumentationsvyn, äldre fynd och rapporthuvuden. Markera saknade rapporter, exempelvis r53–r62 om de fortfarande saknas. Återskapa inte deras innehåll ur gissningar.
+>
+> Fynd ska kunna följas från upptäckt till rättelse och verifiering. Ett återkommet fynd får inte försvinna bakom en tidigare ”klar”-markering.
+>
+> Allt under underlag/ och kunder/ förblir privat. Lägg inte privat rapportinnehåll, kundmaterial eller identifierande utdrag i det publika repot.
+>
+> 10. Verifiera genom verkliga ingångar
+>
+> Gör avgränsade regressionsprov för rättelserna, bland annat:
+> - research som ännu inte körts;
+> - giltigt referensunderlag utan rotfilen REFERENSER.md;
+> - tom eller inaktuell referensfil;
+> - upptäckt men otillåtet verktyg;
+> - stoppad kandidat som tidigare var under arbete;
+> - gammal rapport till nytt bygge;
+> - historisk granskning som inte gäller aktuell version;
+> - olika startvägars beständiga slutbesked;
+> - skillnaden mellan vidarebefordrad AI-bedömning och ägarbeslut;
+> - en korrigerad slutsats som ska synas från den äldre rapporten.
+>
+> Prov ska kontrollera beteendet, inte bara att en ny text eller ett fält finns.
+>
+> Samordna med pågående grenar, gör nödvändiga kontroller och följ repots etablerade rutin för commit och sammanslagning.
+>
+> 11. Leverera ett begripligt resultat
+>
+> Redovisa kort:
+> - vad som redan fungerade;
+> - vilka fynd som bekräftades och rättades;
+> - vad som fortfarande är öppet;
+> - vilka kompetenser som nu har en fungerande plats i flödet;
+> - var jag ser aktuellt läge och slutresultat i dashboarden;
+> - vad som ännu inte är verifierat i en verklig designkörning.
+>
+> Visa därefter användningen i nästa avtalade, avgränsade designexempel. Det ska gå att följa:
+> kompetens → faktiskt arbete → designbeslut → renderat resultat → bedömning.
+>
+> Ett grönt systemprov avslutar systemrättelsen. Ett visuellt resultat som når min ribba visar om designarbetet lyckats. Båda behövs och ska redovisas separat.
+>
+> Skapa inte ännu ett fristående rapportlager. Gör den befintliga kedjan sammanhängande, aktuell och begriplig.
+
+> Tillägg: visa hur kompetensen används och var kedjan brister
+>
+> Komplettera befintlig metodkarta, observation och rapportering så att jag per steg och kandidat kan följa:
+>
+> uppgift → tillgång → observerad användning → tillämpning → resultat → bedömning.
+>
+> Visa för varje tilldelad kompetens:
+> - dess konkreta uppgift;
+> - tillgängliga skills, verktyg och behörigheter;
+> - observerade läsningar och anrop med utfall;
+> - relevanta resultat eller referenser som nådde skaparen;
+> - vilket designbeslut eller vilken ändring skaparen kopplar till dem;
+> - länk till motsvarande version, bilder, kod eller beteendeprov;
+> - bedömningen av resultatet och vem som gjorde den.
+>
+> Märk observerade fakta, skaparens egen förklaring och granskarens bedömning separat. Dra inte slutsatsen att ett verktyg orsakade en förbättring enbart för att det anropades före ändringen.
+>
+> Jämför metodkartans förväntade arbete med det observerade. Synliggör exempelvis:
+> - kompetens tilldelad men åtkomst saknas;
+> - obligatoriskt arbete utan observerad användning;
+> - lyckat anrop men uteblivet användbart material;
+> - material hämtat men ingen observerad läsning;
+> - påstådd tillämpning utan koppling till resultat;
+> - genomförd ändring som ännu inte bedömts.
+>
+> Skilj ”inte observerat” från ”inte gjort”. Redovisa observatörens täckning, inklusive underagenter, shellverktyg, övriga MCP-tjänster och separata körvägar.
+>
+> Bevara en versionsbunden sammanställning vid avslut, stopp och fel så att spåret går att granska även senare. Återanvänd befintliga rapporter och bevis; duplicera inte känsliga råloggar.
+>
+> Visa detta samlat i dashboarden med möjlighet att öppna beläggen. Målet är att hitta luckor, söka efter skills, mcps eller litteratur, metoder, principer, best practices och förbättra designarbetet, inte att belöna flest anrop eller flest lästa filer.
+
+Uppdraget genomförs i fyra grenar, fördelade efter en läsande inventering mot main 84c6994. Fynden verifierades mot den
+koden före rättningen.
+
+**Gren A: slutbesked och rapporters giltighet (punkt 4, 5, 8 och 10), 2026-10-07, grenen `slutbesked-20261007`:**
+1. **Slutposten.** `kontroller/korslut.py` skriver `kunder/<slug>/korningar/<körning>/SLUT.json` för varje
+   kor.sh-körning. Posten bär rapporthuvudets fält (`README.md`, Var information finns) och binder ihop körningen,
+   bygget (dist_sha256), granskningsmetoden, byggets inställningar, repots commit och den godkända startsidan (kandidat
+   och version). Därtill de tekniska kontrollerna, designgranskningen och vem som gjorde den, ägarens beslut,
+   slutkoden, bristerna, nästa steg och länkarna till rapporter och bevis.
+   - Fem tillstånd hålls isär: sessionen avslutad, tekniskt godkänt, designgranskaren godkänner, ägaren godkänner och
+     klart för leverans inom angiven omfattning.
+   - Terminalens besked skrivs ur posten. En start som stannar före bygget (slutkod 2) får en kort post.
+   - Ett nytt bygges post ersätter de tidigare (`rapportstatus: ersatt` och `ersatt_av`).
+   - Ägarens dom kommer efter körningen; `korslut.py --visa` prövar den mot posten utan att skriva om den.
+   - A/B-armarna (`kontroller/ab.py`) pekar på armens slutpost i stället för granskningens rotfil, och demon i
+     dashboarden får samma post genom kor.sh.
+2. **Rapporten bunden till körningen.** kor.sh flyttar ett tidigare bygges RAPPORT.md till
+   `kunder/<slug>/rapporter/RAPPORT-fore-<körning>.md` när bygget startar, och inget raderas.
+   - Stoppvakten godtar bara en rapport som skrivits i körningen: med körningens identitet i huvudet, eller utan
+     identitet skriven efter starten. Den sparar rapportens sha256 och körning.
+   - Korslut kräver samma sha256 och körning och säger annars "saknar identitet" eller "gäller körning X". Slutgrindens
+     prov av provet, stoppvakten, granskningen och metoden står kvar.
+   - Uppdraget från kor.sh och steg 7 i skillen bygg-sajt bär identiteten. Ändrar bygget en tidigare slutpost eller en
+     flyttad rapport blir slutkoden 3.
+3. **Kalibreringen.** Mallen för försöksrapporten (`kontroller/granskarforsok/kalibrering.py`) anger nivåfilens sha256
+   och ett läckageprov. Exemplen kallas undanhållna bara när provet gått igenom; annars är siffran utvecklingsdata.
+   Den privata rapporten i `underlag/kalibrering/FORSOK-20261004/` har fått ett daterat rättelseblock överst och
+   `giltighet: utvecklingsdata` med skäl, med hänvisning till `LARDOMAR.md` (rad 190–205) och backlogposten om
+   kalibreringen. Siffrorna står kvar som historik. Rapporten är registrerad i förteckningen med sha256 före och efter
+   rättelsen.
+4. **Proven.** `kontroller/rokprov/revision/prov_slutpost.py` (14 fall, i rökprovet) prövar beteendet genom de
+   verkliga ingångarna: stoppvakten och korslut med en gammal rapport, en historisk granskning i korslut och i ab,
+   kor.sh direkt, demon och ab.py, de fem tillstånden och kalibreringens rättelse. Alla fall var röda mot 84c6994.
+
+**Återstår:**
+- Gren B: startkvittot och åtkomsten (punkt 1–3).
+- Gren C: skapandeflödets status och kedjans data (punkt 4, 6 och 7): slutpost per ateljékörning, avbruten vid stopp,
+  första valbara skiss och vidarebefordrad AI-bedömning.
+- Gren D: dashboarden.
+  - De fem tillstånden ur slutposten i stället för "Klar: success", och granskningsdomen som aktuell eller historisk.
+  - Demoposten och A/B-vyn mot slutposten. A/B-vyn visar i dag en arm utan granskning ("ej bedömt") som "underkände".
+  - Kalibreringens rättelse i översikten.
+- Uppdraget står här ordagrant; de andra grenarna lägger inte in det igen.
+- En start som nekas före låset skriver ingen slutpost: fel i anropet, verktyg som saknas eller ett bygge som redan
+  pågår. Skrivningen kunde ändra det pågående byggets gräns, så skälet står bara i terminalen.
+- Byggen från före den här ändringen saknar rapportens identitet i STOPPVAKT.json. Korslut och flödesvyn godkänner dem
+  inte längre ("RAPPORT.md saknar identitet").
+- Läckageprovet hittar ordagranna spår av de prövade exemplen, inte en omskriven destillering av domarna.
+- Punkt 11 och designexemplet: ingen verklig designkörning har ännu gått med slutposten.

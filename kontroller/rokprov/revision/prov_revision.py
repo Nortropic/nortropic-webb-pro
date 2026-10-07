@@ -1263,10 +1263,11 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
         (k_tak / 'RAPPORT.md').write_text('r' * 400); (k_tak / 'prov' / 'STATUS.json').write_text(json.dumps({'dist_sha256': 'd2'}))
         svar_tak = iter([types.SimpleNamespace(returncode=0, stdout='grönt', stderr=''),
                          types.SimpleNamespace(returncode=3, stdout='Taket nått: 2 granskningar\nSkäl till ny omgång: ingen giltig omgång i körningen (alla avbröts eller föll)\n', stderr='')])
-        sp_hr, rot_hr, in_hr, miljo_hr = sv_hr.subprocess, sv_hr.ROOT, sys.stdin, {k_: os.environ.get(k_) for k_ in ('NWP_SLUG', 'NWP_GRANSKNING')}
+        sp_hr, rot_hr, in_hr, miljo_hr = sv_hr.subprocess, sv_hr.ROOT, sys.stdin, {k_: os.environ.get(k_) for k_ in ('NWP_SLUG', 'NWP_GRANSKNING', 'NWP_KORNING')}
         sv_hr.subprocess = types.SimpleNamespace(run=lambda *a_, **k_: next(svar_tak), TimeoutExpired=subprocess.TimeoutExpired)
         sv_hr.ROOT, sys.stdin = rot_sv, io.StringIO('{}')
         os.environ['NWP_SLUG'] = 'sv'; os.environ.pop('NWP_GRANSKNING', None)
+        os.environ['NWP_KORNING'] = '20261001T000000Z'  # rapporten skrevs efter körningens start (ägarens uppdrag 2026-10-07, punkt 5)
         try:
             rc_tak = sv_hr.main()
         finally:
@@ -1402,6 +1403,8 @@ print('R3 F4 symlänk ok')
 kk2 = tmp / 'kund-slut2'; (kk2 / 'prov').mkdir(parents=True); (kk2 / 'granskning').mkdir(); (kk2 / 'sajt' / 'dist').mkdir(parents=True)
 (kk2 / 'sajt' / 'dist' / 'index.html').write_text('<p>v2</p>'); (kk2 / 'RAPPORT.md').write_text('# r')
 h2 = prova.dist_hash(kk2 / 'sajt' / 'dist')
+import hashlib as hl_rapport  # noqa: E402
+rsha_ = hl_rapport.sha256((kk2 / 'RAPPORT.md').read_bytes()).hexdigest()  # den rapport stoppvakten band (ägarens uppdrag 2026-10-07, punkt 5)
 metod_r3 = json.loads(subprocess.run([PY, '-B', '-c', 'import sys, json; sys.path.insert(0, %r); import granska; print(json.dumps(granska.aktuell_metod(%r)))' % (str(ROOT / 'kontroller'), kk2.name)],
                                      capture_output=True, text=True, cwd=str(ROOT)).stdout)
 fore2 = tmp / 'fore2.txt'; fore2.write_text('aaa  kontroller/prova.py\n')
@@ -1413,15 +1416,15 @@ def slut2(rc='0'):
 
 
 (kk2 / 'prov' / 'STATUS.json').write_text(json.dumps({'ok': True, 'dist_sha256': h2, 'grindar': {'bygge': {'ok': True}}}))
-(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'dist_sha256': h2}))
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'dist_sha256': h2, 'rapport_sha256': rsha_}))
 (kk2 / 'granskning' / 'GRANSKNING.json').write_text(json.dumps({'godkand': True, 'runda': 1, 'kriterier': {}, 'dist_sha256': 'gammal', **metod_r3}))
 rc, ut = slut2(); assert rc == 1 and 'annat bygge' in ut, (rc, ut)  # äldre godkänd granskning av ett annat bygge
 (kk2 / 'granskning' / 'GRANSKNING.json').write_text(json.dumps({'godkand': True, 'runda': 1, 'kriterier': {}, 'dist_sha256': h2, **dict(metod_r3, metod_sha='gammal')}))
 rc, ut = slut2(); assert rc == 1 and 'annan metod' in ut, (rc, ut)
 (kk2 / 'granskning' / 'GRANSKNING.json').write_text(json.dumps({'godkand': True, 'runda': 1, 'kriterier': {}, 'dist_sha256': h2, **metod_r3}))
-(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'släppt utan godkänd granskning: taket för granskningar i körningen är nått', 'forsok': 3, 'tak': 8, 'dist_sha256': h2}))
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'släppt utan godkänd granskning: taket för granskningar i körningen är nått', 'forsok': 3, 'tak': 8, 'dist_sha256': h2, 'rapport_sha256': rsha_}))
 rc, ut = slut2(); assert rc == 1 and 'stoppvakten' in ut, (rc, ut)  # stoppvakten släppte vid taket: inte godkänt
-(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'dist_sha256': h2}))
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'dist_sha256': h2, 'rapport_sha256': rsha_}))
 rc, ut = slut2(); assert rc == 0, (rc, ut)
 (kk2 / 'sajt' / 'dist' / 'index.html').write_text('<p>v3</p>'); rc, ut = slut2(); assert rc == 1 and 'dist/' in ut, (rc, ut)  # bygget ändrat efter provet
 print('R3 F11 korslut ok')
@@ -1567,15 +1570,15 @@ def slut3(korning='k1', **g_over):
     return p.returncode, p.stdout
 
 
-(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h3}))
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h3, 'rapport_sha256': rsha_, 'rapport_korning': 'k1'}))
 assert slut3()[0] == 0, slut3()
 for over in ({'modell': 'gammal'}, {'effort': 'low'}, {'originalitet': 'avgor'}):
     rc, ut = slut3(**over); assert rc == 1 and 'annan metod' in ut, (over, rc, ut)
 rc, ut = slut3(korning='k2'); assert rc == 1 and 'annan körning' in ut, (rc, ut)
-(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': 'annan'}))
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': 'annan', 'rapport_sha256': rsha_, 'rapport_korning': 'k1'}))
 rc, ut = slut3(); assert rc == 1 and 'annat bygge' in ut, (rc, ut)
 # Codex R38 F11: med omgångar härleds domen ur giltiga omgångar (inte rotfilen), bunden till det slutliga byggets dist
-(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h3}))
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h3, 'rapport_sha256': rsha_, 'rapport_korning': 'k1'}))
 import granska as gr38  # noqa: E402
 gdir38 = kk2 / 'granskning'
 def runda38_(n, dist, godkand, status='klar', korning='k1'):
@@ -1589,13 +1592,13 @@ p38 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(for
 assert p38.returncode == 0 and 'GODKÄND (omgång 1' in p38.stdout and '= slutliga bygget' in p38.stdout, (p38.returncode, p38.stdout[-500:])
 (kk2 / 'sajt' / 'dist' / 'index.html').write_text('<p>v4</p>'); h4 = prova.dist_hash(kk2 / 'sajt' / 'dist')
 (kk2 / 'prov' / 'STATUS.json').write_text(json.dumps({'ok': True, 'dist_sha256': h4, 'grindar': {'bygge': {'ok': True}}}))
-(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'släppt utan godkänd granskning: taket för granskningar i körningen är nått', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h4}))
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'släppt utan godkänd granskning: taket för granskningar i körningen är nått', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h4, 'rapport_sha256': rsha_, 'rapport_korning': 'k1'}))
 p38 = subprocess.run([PY, '-B', str(korslut), str(kk2), '0', str(fore2), str(fore2), 'k1'], capture_output=True, text=True)
 assert p38.returncode == 1 and 'inte granskat' in p38.stdout and 'Senaste dom oavsett bygge och metod: underkänd (omgång 2' in p38.stdout and '≠ slutliga bygget' in p38.stdout and 'GODKÄND' not in p38.stdout.split('Rapport:')[0], ('det slutliga bygget är ogranskat: senaste giltiga visas separat som annat bygge, inte den avbrutna godkända', p38.returncode, p38.stdout[-600:])
 shutil.rmtree(gdir38); gdir38.mkdir(); (kk2 / 'sajt' / 'dist' / 'index.html').write_text('<p>v3</p>')
 (kk2 / 'prov' / 'STATUS.json').write_text(json.dumps({'ok': True, 'dist_sha256': h3, 'grindar': {'bygge': {'ok': True}}}))
 # Codex R39: sluturvalet med hela identiteten (körning, dist, aktuell metod); senaste dom visas separat; läsfel nekar godkännande
-(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h3}))
+(kk2 / 'prov' / 'STOPPVAKT.json').write_text(json.dumps({'slapp': True, 'skal': 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd', 'forsok': 1, 'tak': 8, 'korning': 'k1', 'dist_sha256': h3, 'rapport_sha256': rsha_, 'rapport_korning': 'k1'}))
 def runda39_(n, dist, godkand, metod, status='klar'):
     r_ = gdir38 / ('runda-%02d' % n); r_.mkdir(exist_ok=True)
     (r_ / 'GRANSKNING.json').write_text(json.dumps({'godkand': godkand, 'runda': n, 'kriterier': {'designkvalitet': {'betyg': 7 if godkand else 5}}, 'dist_sha256': dist, 'korning': 'k1', 'tid': gr38.nu(), **metod}))

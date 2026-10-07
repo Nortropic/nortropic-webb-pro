@@ -34,6 +34,7 @@ fall föll.
 import contextlib
 import http.client
 import http.server
+import hashlib
 import json
 import os
 import re
@@ -218,8 +219,10 @@ def bygge(s, stampel, provtid, skal=GODKAND_SKAL, slapp=True, ok=True, info=None
     skriv(k / 'RAPPORT.md', '# Rapport\n\n' + 'Byggets rapport. ' * 30)
     skriv(k / 'prov' / 'STATUS.json', dict({'ok': ok, 'tid': provtid, 'dist_sha256': h, 'grindar': {'bygge': {'ok': ok}, 'lankar': {'ok': True}}},
                                            **({'info': info} if info else {})))
+    # rapporten bunden till körningen, som stoppvakten skriver det (ägarens uppdrag 2026-10-07, punkt 5)
     skriv(k / 'prov' / 'STOPPVAKT.json', {'tid': provtid, 'forsok': 1, 'tak': 4, 'korning': stampel, 'dist_sha256': h, 'kontroller_grona': ok,
-                                          'rapport_finns': True, 'slapp': slapp, 'skal': skal})
+                                          'rapport_finns': True, 'rapport_sha256': hashlib.sha256((k / 'RAPPORT.md').read_bytes()).hexdigest(),
+                                          'rapport_korning': stampel, 'rapport_bunden': 'identitet', 'slapp': slapp, 'skal': skal})
     return h
 
 

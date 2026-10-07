@@ -657,6 +657,10 @@ echo "   startkvittots betydelse (2026-10-07): körväg och fas, referensunderla
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_startkvitto.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/startkvitto-prov.log" \
   || { echo "FEL: startkvittots prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/startkvitto-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/startkvitto-prov.log"; exit 1; }
 echo "   startkvittots prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/startkvitto-prov.log") fall)"
+echo "   slutbeskedet (2026-10-07): slutposten per körning, rapporten bunden till körningen, historisk granskning, kor.sh, demon och ab, kalibreringens rättelse"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_slutpost.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/slutpost-prov.log" \
+  || { echo "FEL: slutbeskedets prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/slutpost-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/slutpost-prov.log"; exit 1; }
+echo "   slutbeskedets prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/slutpost-prov.log") fall)"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

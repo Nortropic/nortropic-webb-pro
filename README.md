@@ -41,14 +41,16 @@ Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sa
 | 3. Ägarens val | ägaren i vyn Prototyp; en dom som kommit på annat sätt förs in med `.venv/bin/python kontroller/skapande.py dom` | en dom i domloggen, bunden till kandidat och version | dashboarden startar ingen körning: nästa steg startas i terminalen |
 | 4. Förfiningen av de valda | ägaren kör `prototyp.py <slug>` igen (läget valda) | förfinade kandidater med DESIGN.md | – |
 | 5. Godkännandet | ägaren i vyn Prototyp: en förfinad kandidat godkänd för helbygge | `underlag/<slug>/atelje/vinnare/` och VINNARE.json | vyn visar inget kommando för helbygget; det står i prototyp.py:s utskrift |
-| 6. Helbygget | ägaren i terminalen: `./kor.sh <slug> "<verksamhet>"`; utan godkänd startsida stannar kor.sh med slutkod 2 | `kunder/<slug>/` (sajt, prov, granskning, RAPPORT.md, FRAGOR.json) | uppdraget säger både "steg 1–7, i ordning" och "ta vid efter valet i steg 5.1"; att underlaget som den godkända startsidan byggdes på står kvar är inte prövat. Korsluts slutkod skrivs bara ut |
+| 6. Helbygget | ägaren i terminalen: `./kor.sh <slug> "<verksamhet>"`; utan godkänd startsida stannar kor.sh med slutkod 2 | `kunder/<slug>/` (sajt, prov, granskning, RAPPORT.md, FRAGOR.json) och slutposten `kunder/<slug>/korningar/<körning>/SLUT.json`, också när kor.sh stannar före bygget | uppdraget säger både "steg 1–7, i ordning" och "ta vid efter valet i steg 5.1"; att underlaget som den godkända startsidan byggdes på står kvar är inte prövat. Dashboarden visar inte slutposten än |
 | 7. Ägarens dom över bygget | ägaren i dashboarden: bygget, fliken Din dom | `kunder/<slug>/DOM.json`, lärdomarna och en backlogpost | – |
 | 8. Exporten till kundrepo | ägaren eller en session: `.venv/bin/python kontroller/exportera.py <slug> [--git]` | `kunder/<slug>/kundrepo/`, byggt och prövat i en tom katalog; `--git` gör en lokal commit | exporten prövar inte att bygget är godkänt och sparar inget besked |
 | 9. Leveransen: GitHub, Vercel, skydd och DNS | GitHub, Vercel och skyddet: människa, eller en session med ägarens ja; DNS: bara en behörig människa | – | inget verktyg i repot för GitHub och Vercel; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut |
 
 Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
 tills grindarna är gröna och två oberoende granskare godkänt, eller tills taket nås (slutkod 1), och skriver `kunder/<slug>/RAPPORT.md` och sina egna
-frågor till dig. Alternativa lägen och återupptagning: `kunskap/skapandeflodet.md` och `./kor.sh` utan argument.
+frågor till dig. Rapporten gäller bara när den skrivits i körningen; ett tidigare bygges rapport flyttas till
+`kunder/<slug>/rapporter/` när bygget startar. Körningens slutbesked sparas i slutposten (Var information finns, nedan).
+Alternativa lägen och återupptagning: `kunskap/skapandeflodet.md` och `./kor.sh` utan argument.
 Råmaterial (`underlag/`) och byggen (`kunder/`) ligger utanför git.
 
 ## Var information finns
@@ -62,7 +64,7 @@ rapportstrukturen, `BESLUT.md`). Andra dokument länkar hit i stället för att 
 | Gällande arbetssätt: guider, krav, referens och förklaringar | `kunskap/<ämne>.md`, ett ämne per fil; skills i `.claude/skills/<namn>/SKILL.md`; granskarens kriterier i `kritik/`. En fil som inte gäller fullt ut börjar med raden `Status: historik, ersatt av …` eller `Status: vilande till …` | agenten, i samma commit som beteendet ändras |
 | Beslut | `BESLUT.md`: ett `## Tillägg ÅÅÅÅ-MM-DD: <titel>` per beslut (rubriken är beslutets id), med raden `**Status:**` (gäller, delvis ersatt av … eller ersatt av …) direkt under rubriken, och sedan ägarens ord ordagrant, skälen och räckvidden. Ett ersatt beslut ligger kvar och märks. Kundbeslut: `underlag/<slug>/DESIGNDOMAR.jsonl` | agenten med ägarens ord |
 | Förbättringsarbete | `backlog/B-ÅÅÅÅMMDD-<namn>.md` (`backlog/README.md`). `klar` betyder genomförd och committad; verifierad är posten först när en senare granskning säger det | `kontroller/backlog.py`, agenten |
-| Projekt- och körningsrapporter | i flödet där verktygen skriver: `underlag/<slug>/atelje/` och `kunder/<slug>/`; utanför flödet: `underlag/<uppdrag>/` (som `underlag/figma-pilot/BESLUTSUNDERLAG.md`); lägesrapporter till ägaren: `underlag/rapporter/RAPPORT-ÅÅÅÅ-MM-DD-<namn>.md` | agenten, verktygen |
+| Projekt- och körningsrapporter | i flödet där verktygen skriver: `underlag/<slug>/atelje/` och `kunder/<slug>/`; helbyggets slutpost per körning: `kunder/<slug>/korningar/<körning>/SLUT.json` (`kontroller/korslut.py`), och ett tidigare bygges rapport: `kunder/<slug>/rapporter/`; utanför flödet: `underlag/<uppdrag>/` (som `underlag/figma-pilot/BESLUTSUNDERLAG.md`); lägesrapporter till ägaren: `underlag/rapporter/RAPPORT-ÅÅÅÅ-MM-DD-<namn>.md` | agenten, verktygen |
 | Systemgranskningar | `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>.md`, en fil per granskning, med bevisen i katalogen `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>/`; en omgranskning är en ny fil som anger den föregående, och fynden heter `<rapportens id>#<fynd>`. Äldre rapporter ur sessioners arbetsytor ligger i `underlag/granskningar/sessioner/`. `FORTECKNING.jsonl` har en rad per fil, med ursprung och sha256 | den granskande sessionen |
 | Bevismaterial: bilder, mätningar, loggar och kvitton | där verktyget skriver (`prov/`, startkvitton, `VERSION.json`, `bilder/`, `matning/`). Frysta kvitton skrivs aldrig över; ett mätskript som ett kvitto hänvisar till kopieras till uppdragets `matning/` | verktygen |
 | Historik och tillfälligt | git-historiken och filer märkta `Status: historik`. Tillfälliga anteckningar i sessionens arbetsyta och `/tmp` gallras (städregeln, `BESLUT.md`); det som en rapport, ett beslut eller en commit citerar kopieras först till `underlag/granskningar/` | agenten |
@@ -93,6 +95,17 @@ dokumentationsbehovet i stället.
 
 Ett värde som saknas skrivs "ej angivet". Rapportstatus och utfall är olika saker: en färdig rapport kan underkänna
 resultatet. Ett exempel är `underlag/figma-pilot/BESLUTSUNDERLAG.md`.
+
+**Helbyggets slutpost** (`kunder/<slug>/korningar/<körning>/SLUT.json`, skriven av `kontroller/korslut.py`; ägarens
+uppdrag 2026-10-07) bär rapporthuvudets fält i JSON, så att den läses som ett huvud. `underlag` är länkarna till
+rapporter och bevis, och `atgarder` är nästa steg. Därtill:
+- körningen, bygget (`dist_sha256`), metoden och slutkoden;
+- de fem tillstånden var för sig: sessionen avslutad, tekniskt godkänt, designgranskaren godkänner, ägaren godkänner
+  och klart för leverans inom angiven omfattning;
+- bristerna.
+
+Terminalens besked skrivs ur posten. Ägarens dom kommer efter körningen och prövas mot posten med
+`.venv/bin/python kontroller/korslut.py --visa kunder/<slug>`.
 
 **Läsordningen:**
 1. slutsatsen och vad den gäller;

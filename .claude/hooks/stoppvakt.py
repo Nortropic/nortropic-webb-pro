@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Stoppvakten (loop 1): en obevakad körning får inte avsluta förrän kontrollerna är gröna, RAPPORT.md finns och den
-oberoende granskaren har godkänt sajten.
+"""Stoppvakten (loop 1): en obevakad körning får inte avsluta förrän kontrollerna är gröna, RAPPORT.md är skriven i
+körningen och den oberoende granskaren har godkänt sajten.
 
 Gäller bara när NWP_SLUG är satt (kor.sh sätter den). Interaktiva sessioner påverkas inte.
 Kör kontroller/prova.py själv och litar inte på en STATUS.json som sessionen kan ha skrivit. När provet är grönt och
 rapporten finns kör den kontroller/granska.py, som återanvänder en granskning av exakt samma bygge eller startar en ny
 i en egen session. Underkänd granskning blockerar med granskarens kritik.
 Exit 0 = får avsluta. Exit 2 = blockerad; skälet går till sessionen på stderr. Har ateljén förkastat alla riktningar
-(designprovet) släpps avslutet när RAPPORT.md finns, utan prov: bygget stannar utan sajt.
+(designprovet) släpps avslutet när RAPPORT.md är skriven i körningen, utan prov: bygget stannar utan sajt.
+Rapporten (ägarens uppdrag 2026-10-07, punkt 5): bara en RAPPORT.md som skrivits i körningen räknas, alltså med
+körningens identitet (NWP_KORNING) i huvudet eller, utan identitet, skriven efter körningens start; en rapport med en
+annan körnings identitet gäller den körningen (kontroller/korslut.py, rapport_identitet). STOPPVAKT.json sparar den
+bundna rapportens sha256 och körning, och korslut godkänner bara samma rapport.
 Tak: efter NWP_STOPP_TAK blockeringar (standard 8), eller när granskningarna i körningen nått sitt tak
 (NWP_GRANSKNING_MAX), släpps avslutet ändå, och kunder/<slug>/prov/STOPPVAKT.json säger det, så att ägaren ser det;
 vid granskningstaket också att en ny omgång behövs och varför.
@@ -53,6 +57,29 @@ def agarens_senare_dom(root, slug, efter):
         return None
     d = egna[-1] if egna else None
     return d if d and d.get('beslut') in ('putsa', 'ny_riktning') and str(d.get('tid') or '') > efter else None
+
+
+def rapporten(kund):
+    """RAPPORT.md prövad mot körningen med korsluts regel (kontroller/korslut.py, rapport_identitet), ur krokens egen
+    utcheckning: en patchad ROOT i ett prov flyttar inte regeln."""
+    kontroller = str(Path(__file__).resolve().parents[2] / 'kontroller')
+    if kontroller not in sys.path:
+        sys.path.insert(0, kontroller)
+    import korslut
+    return korslut.rapport_identitet(kund / 'RAPPORT.md', os.environ.get('NWP_KORNING') or None)
+
+
+def rapportfalt(ri):
+    """Rapportens fält i STOPPVAKT.json: finns (och är skriven i körningen), skälet, och för en bunden rapport sha256,
+    körningen och hur den bands (identitet eller filtid)."""
+    bunden = bool(ri.get('bunden'))
+    return {'rapport_finns': bunden, 'rapport': ri.get('skal'), 'rapport_sha256': ri.get('sha256') if bunden else None,
+            'rapport_korning': (os.environ.get('NWP_KORNING') or None) if bunden else None, 'rapport_bunden': ri.get('satt') if bunden else None}
+
+
+def rapportskal(slug, ri):
+    return ('kunder/%s/RAPPORT.md %s. Skriv den enligt steg 7 i skillen bygg-sajt, med körningens identitet i huvudet '
+            '(raden korning: %s).' % (slug, ri.get('skal'), os.environ.get('NWP_KORNING') or '<NWP_KORNING>'))
 
 
 def ateljen_forkastad(root, slug):
@@ -108,18 +135,19 @@ def main():
 
     forkastad = ateljen_forkastad(ROOT, slug)
     if forkastad:  # bygget stannar utan sajt; provet körs inte (det finns ingen godkänd riktning att bygga)
-        rapport = kund / 'RAPPORT.md'
+        ri = rapporten(kund)
         post = {'tid': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'forsok': n, 'tak': TAK,
-                'korning': os.environ.get('NWP_KORNING') or None, 'ateljen_forkastad': True,
-                'rapport_finns': rapport.is_file() and rapport.stat().st_size > 300}
+                'korning': os.environ.get('NWP_KORNING') or None, 'ateljen_forkastad': True, **rapportfalt(ri)}
         if post['rapport_finns']:
             post.update(slapp=True, skal='bygget stannade utan sajt enligt ägarbeslutet 2026-10-04: %s' % forkastad)
             (prov / 'STOPPVAKT.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
             return 0
-        post.update(slapp=False, skal='bygget ska stanna utan sajt (%s); rapporten saknas' % forkastad)
+        post.update(slapp=False, skal='bygget ska stanna utan sajt (%s); rapporten %s' % (forkastad, ri.get('skal')))
         (prov / 'STOPPVAKT.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         print('Bygget ska stanna utan sajt: %s (underlag/%s/atelje/). Bygg ingen sajt utan en godkänd riktning. Skriv '
-              'kunder/%s/RAPPORT.md (varför, panelens eller ägarens kritik, vad som behövs för ett nytt försök) och avsluta.' % (forkastad, slug, slug), file=sys.stderr)
+              'kunder/%s/RAPPORT.md (varför, panelens eller ägarens kritik, vad som behövs för ett nytt försök), med '
+              'körningens identitet i huvudet (raden korning: %s), och avsluta. Rapporten nu: %s.' % (
+                  forkastad, slug, slug, os.environ.get('NWP_KORNING') or '<NWP_KORNING>', ri.get('skal')), file=sys.stderr)
         return 2
 
     try:
@@ -129,8 +157,8 @@ def main():
     except subprocess.TimeoutExpired:
         rc, ut = 124, 'provet tog längre än %d s' % FRIST
     gront = rc == 0
-    rapport = kund / 'RAPPORT.md'
-    har_rapport = rapport.is_file() and rapport.stat().st_size > 300
+    ri = rapporten(kund)  # skriven i körningen, inte bara en fil som finns (ägarens uppdrag 2026-10-07, punkt 5)
+    har_rapport = ri['bunden']
 
     try:  # beskedet binds till körningen och till det bygge provet mätte (omgång fyra, F11)
         dist_sha = json.loads((prov / 'STATUS.json').read_text(encoding='utf-8')).get('dist_sha256')
@@ -138,7 +166,7 @@ def main():
         dist_sha = None
     post = {'tid': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'forsok': n, 'tak': TAK,
             'korning': os.environ.get('NWP_KORNING') or None, 'dist_sha256': dist_sha,
-            'kontroller_grona': gront, 'rapport_finns': har_rapport}
+            'kontroller_grona': gront, **rapportfalt(ri)}
     granskning, kritik = None, ''
     if gront and har_rapport:
         if os.environ.get('NWP_GRANSKNING') == 'av':
@@ -159,7 +187,7 @@ def main():
         post['samma_dist'] = bool(dist_sha) and post['granskning_dist_sha256'] == dist_sha
 
     if gront and har_rapport and granskning in ('godkänd', 'avstängd'):
-        post.update(slapp=True, skal='kontrollerna gröna, RAPPORT.md finns och granskningen är %s' % granskning)
+        post.update(slapp=True, skal='kontrollerna gröna, RAPPORT.md skriven i körningen och granskningen är %s' % granskning)
     elif gront and har_rapport and granskning == 'taket för granskningar nått':
         # taket prövas först när ingen giltig omgång gäller det slutliga bygget med samma metod: en ny omgång behövs alltid,
         # och granskningen skriver skälet (granskningen av steg 2, punkt 3)
@@ -169,7 +197,7 @@ def main():
                     'granskning gäller det slutliga bygget; en ny omgång behövs (ägaren beställer den eller höjer '
                     'NWP_GRANSKNING_MAX). Skäl: %s' % (post['tak_skal'] or 'granskningens besked saknar skälet'))
     elif n >= TAK:
-        brist = 'röda kontroller' if not gront else ('saknad rapport' if not har_rapport else 'granskning %s' % granskning)
+        brist = 'röda kontroller' if not gront else ('rapporten %s' % ri['skal'] if not har_rapport else 'granskning %s' % granskning)
         post.update(slapp=True, skal='stoppvaktens tak nått: avslutet släpptes med %s' % brist)
     else:
         post.update(slapp=False, skal='blockerad')
@@ -182,7 +210,7 @@ def main():
         skal.append('Kontrollerna är röda. Rätta och försök avsluta igen. Provets sammanfattning '
                     '(hela i kunder/%s/prov/PROV.md):\n\n%s' % (slug, ut.strip()[:6000]))
     if not har_rapport:
-        skal.append('kunder/%s/RAPPORT.md saknas eller är nästan tom. Skriv den enligt steg 7 i skillen bygg-sajt.' % slug)
+        skal.append(rapportskal(slug, ri))
     if granskning == 'underkänd':
         skal.append('Den oberoende granskaren underkände sajten. Läs ändringsuppdragen med bilder i '
                     'kunder/%s/granskning/ANDRINGAR.md (varje fynd med rutan där bristen syns och referensbilden; läs bilderna '

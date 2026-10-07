@@ -12,8 +12,10 @@ inspo (NWP_MCP_CONFIG: av, kontroller/mcp/inspo.json), atelje (NWP_ATELJE: av, p
 Byggena heter <slug>-abx och <slug>-aby; vilket värde som hör till x och y lottas och sparas i kunder/ab/<id>.json,
 som dashboarden döljer tills ägaren har valt. Finns katalogerna redan vägrar starten: ett nytt försök får en ny slug.
 Byggets dist-hash sparas när armen är klar; dashboarden låter ägaren välja först när båda körningarna avslutats och
-bara om byggena är oförändrade sedan dess. Syskonbygget räknas inte som tidigare bygge (upptagna val, granskaren),
-så att det ena bygget inte påverkar det andra. Körningen tar två fulla byggen; starta den med nohup.
+bara om byggena är oförändrade sedan dess. Armens besked kommer ur dess slutpost (kunder/<arm>/korningar/<körning>/
+SLUT.json, kontroller/korslut.py): slutkoden, de fem tillstånden och granskarens dom över armens slutliga bygge med
+aktuell metod, aldrig granskningens rotfil, som kan gälla ett äldre bygge (ägarens uppdrag 2026-10-07, punkt 4).
+Syskonbygget räknas inte som tidigare bygge (upptagna val, granskaren), så att det ena bygget inte påverkar det andra. Körningen tar två fulla byggen; starta den med nohup.
 Källa: Anthropic, Prompting Claude Opus 5.5 (mät effort mot egna utvärderingar); OpenAI, Evaluation best practices
 (parvis jämförelse är tillförlitligare än skalor).
 """
@@ -31,6 +33,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import prova  # noqa: E402  dist_hash: armens slutversion fastställs av ab.py självt
+import korslut  # noqa: E402  armens slutpost
 
 ROOT = Path(__file__).resolve().parents[1]
 KUNDER = ROOT / 'kunder'
@@ -74,8 +77,10 @@ def skillanrop(rader):
     return dict(sorted(ut.items()))
 
 
-def matt(slug):
-    """Tid, turer och kontextdjup ur körningens logg och granskarens betyg, efter bygget."""
+def matt(slug, efter=None):
+    """Tid, turer och kontextdjup ur körningens logg, och armens besked ur dess slutpost (den senaste körningen från
+    efter, en körningsidentitet): slutkoden, tillstånden, provet och granskarens dom och betyg för armens slutliga bygge
+    med aktuell metod. Utan slutpost står det, och ingen dom läses någon annanstans ifrån."""
     k = KUNDER / slug
     loggar = sorted(k.glob('korning-*.jsonl'))
     resultat = {}
@@ -93,13 +98,21 @@ def matt(slug):
         resultat.update(modell=init.get('model'), version=init.get('claude_code_version'), skills=skillanrop(rader))
         fonster = max([m.get('contextWindow') or 0 for m in ((slut or {}).get('modelUsage') or {}).values()] or [0]) or 1_000_000
         resultat.update(kontextdjup(rader, fonster))
-    g = las(k / 'granskning' / 'GRANSKNING.json') or {}
-    s = las(k / 'prov' / 'STATUS.json') or {}
+    fil, post = korslut.senaste_slutpost(k, efter=efter)
     dist = k / 'sajt' / 'dist'
-    return {**resultat, 'provet_gront': s.get('ok'), 'granskning_godkand': g.get('godkand'),
-            'dist_sha256': prova.dist_hash(dist) if (dist / 'index.html').is_file() else None,  # slutversionen, mätt här
-            'betyg': {n: x.get('betyg') for n, x in (g.get('kriterier') or {}).items()},
-            'omgangar': len(list((k / 'granskning').glob('runda-*'))) if (k / 'granskning').is_dir() else 0}
+    ut = {**resultat, 'dist_sha256': prova.dist_hash(dist) if (dist / 'index.html').is_file() else None,  # slutversionen, mätt här
+          'omgangar': len(list((k / 'granskning').glob('runda-*'))) if (k / 'granskning').is_dir() else 0}
+    if not post:
+        return {**ut, 'slutpost': None, 'slutpost_saknas': 'kor.sh skrev ingen slutpost för armen', 'provet_gront': None,
+                'granskning_godkand': None, 'betyg': {}}
+    t = post.get('tillstand') or {}
+    dg = t.get('designgranskaren_godkanner') or {}
+    aktuell = (post.get('designgranskning') or {}).get('aktuell') or {}
+    return {**ut, 'slutpost': 'kunder/%s/korningar/%s/%s' % (slug, fil.parent.name, fil.name), 'korning': post.get('korning'),
+            'slutkod': post.get('slutkod'), 'tillstand': {n: (x or {}).get('varde') for n, x in t.items()},
+            'slutpost_dist_sha256': post.get('dist_sha256'),
+            'provet_gront': ((post.get('kontroller') or {}).get('provet') or {}).get('varde'),
+            'granskning_godkand': dg.get('varde'), 'granskning': dg.get('text'), 'betyg': aktuell.get('betyg') or {}}
 
 
 def starta(a):
@@ -130,10 +143,10 @@ def starta(a):
     print('Jämförelse %s: %s mot %s, värdena lottade och dolda. Två byggen i följd.' % (ident, x, y), flush=True)
     for slug in (x, y):
         miljo = dict(os.environ, **{VARIABLER[a.variabel]: post['varden'][slug]})
-        start = time.time()
+        start, start_id = time.time(), datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')  # kor.sh:s körning börjar tidigast här
         rc = subprocess.run([str(ROOT / 'kor.sh'), slug, a.verksamhet], env=miljo, cwd=str(ROOT)).returncode
         post = las(fil)
-        post.setdefault('korningar', {})[slug] = {'rc': rc, 'sekunder': round(time.time() - start), **matt(slug)}
+        post.setdefault('korningar', {})[slug] = {'rc': rc, 'sekunder': round(time.time() - start), **matt(slug, efter=start_id)}
         fil.write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     post = las(fil)
     post['status'] = 'väntar på ägarens val'
