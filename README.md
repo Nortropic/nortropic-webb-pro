@@ -58,15 +58,16 @@ rapportstrukturen, `BESLUT.md`). Andra dokument länkar hit i stället för att 
 |---|---|---|
 | Start och överblick | den här filen; `CLAUDE.md` för sessioner | agenten |
 | Gällande arbetssätt: guider, krav, referens och förklaringar | `kunskap/<ämne>.md`, ett ämne per fil; skills i `.claude/skills/<namn>/SKILL.md`; granskarens kriterier i `kritik/`. En fil som inte gäller fullt ut börjar med raden `Status: historik, ersatt av …` eller `Status: vilande till …` | agenten, i samma commit som beteendet ändras |
-| Beslut | `BESLUT.md`: ett `## Tillägg ÅÅÅÅ-MM-DD: <titel>` per beslut (rubriken är beslutets id) med ägarens ord ordagrant, skälen, räckvidden och raden `**Status:**` (gäller, delvis ersatt av … eller ersatt av …). Ett ersatt beslut ligger kvar och märks. Kundbeslut: `underlag/<slug>/DESIGNDOMAR.jsonl` | agenten med ägarens ord |
+| Beslut | `BESLUT.md`: ett `## Tillägg ÅÅÅÅ-MM-DD: <titel>` per beslut (rubriken är beslutets id), med raden `**Status:**` (gäller, delvis ersatt av … eller ersatt av …) direkt under rubriken, och sedan ägarens ord ordagrant, skälen och räckvidden. Ett ersatt beslut ligger kvar och märks. Kundbeslut: `underlag/<slug>/DESIGNDOMAR.jsonl` | agenten med ägarens ord |
 | Förbättringsarbete | `backlog/B-ÅÅÅÅMMDD-<namn>.md` (`backlog/README.md`). `klar` betyder genomförd och committad; verifierad är posten först när en senare granskning säger det | `kontroller/backlog.py`, agenten |
 | Projekt- och körningsrapporter | i flödet där verktygen skriver: `underlag/<slug>/atelje/` och `kunder/<slug>/`; utanför flödet: `underlag/<uppdrag>/` (som `underlag/figma-pilot/BESLUTSUNDERLAG.md`); lägesrapporter till ägaren: `underlag/rapporter/RAPPORT-ÅÅÅÅ-MM-DD-<namn>.md` | agenten, verktygen |
-| Systemgranskningar | `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>.md`, en fil per granskning; en omgranskning är en ny fil som anger den föregående, och fynden heter `<rapportens id>#<fynd>`. Äldre rapporter ur sessioners arbetsytor ligger i `underlag/granskningar/sessioner/`, med ursprung och sha256 i `FORTECKNING.jsonl` | den granskande sessionen |
+| Systemgranskningar | `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>.md`, en fil per granskning, med bevisen i katalogen `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>/`; en omgranskning är en ny fil som anger den föregående, och fynden heter `<rapportens id>#<fynd>`. Äldre rapporter ur sessioners arbetsytor ligger i `underlag/granskningar/sessioner/`. `FORTECKNING.jsonl` har en rad per fil, med ursprung och sha256 | den granskande sessionen |
 | Bevismaterial: bilder, mätningar, loggar och kvitton | där verktyget skriver (`prov/`, startkvitton, `VERSION.json`, `bilder/`, `matning/`). Frysta kvitton skrivs aldrig över; ett mätskript som ett kvitto hänvisar till kopieras till uppdragets `matning/` | verktygen |
 | Historik och tillfälligt | git-historiken och filer märkta `Status: historik`. Tillfälliga anteckningar i sessionens arbetsyta och `/tmp` gallras (städregeln, `BESLUT.md`); det som en rapport, ett beslut eller en commit citerar kopieras först till `underlag/granskningar/` | agenten |
 
-Allt under `underlag/` och `kunder/` är privat, också titlar, filnamn och förteckningar. I det publika repot står
-bara id:n, i commits och backlogposter.
+Allt under `underlag/` och `kunder/` är privat. Inget innehåll därifrån står i det publika repot, inte heller titlar ur
+rapporter eller förteckningar; sökvägar och id:n får stå, i dokumentationen, commits och backlogposter, så länge de inte
+bär privata uppgifter.
 
 **Arbetsregeln** (ägaren 2026-10-06): ”Varje förändring i Nortropic ska hålla berörd dokumentation och spårbarhet
 aktuell som en del av samma uppdrag. Ägaren ska inte behöva påminna om dokumentationen. Ett arbete redovisas inte som

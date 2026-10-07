@@ -405,13 +405,15 @@ function bDom(b, f) {
 async function backlogvy() {
   aktivNav('backlog');
   const lista = await api('/api/backlog');
-  const KALLA = { kirurg: 'Kirurgen', dom: 'Din dom', bygge: 'Bygge', bevakning: 'Omvärldsbevakning' }, STATUS = { vilande: 'Vilande', pagar: 'Pågår', klar: 'Klar', ersatt: 'Ersatt', avvisad: 'Avvisad' };
+  const KALLA = { kirurg: 'Kirurgen', dom: 'Din dom', bygge: 'Bygge', bevakning: 'Omvärldsbevakning', granskning: 'Granskning' }, STATUS = { vilande: 'Vilande', pagar: 'Pågår', klar: 'Klar', ersatt: 'Ersatt', avvisad: 'Avvisad' };
   const grupp = (s) => lista.filter((p) => p.status === s);
+  // en klar post är genomförd; verifierad är den först när en senare granskning sagt det (backlog/README.md, Status)
+  const lage = (p) => p.status === 'klar' && p.lage ? esc(p.lage.charAt(0).toUpperCase() + p.lage.slice(1)) : STATUS[p.status] || esc(p.status);
   const post_ = (p) => `<details class="post"><summary><span class="titel">${esc(p.titel)}</span>
-      <span class="chip ${p.status === 'klar' ? 'ok' : p.status === 'pagar' ? 'acc' : p.status === 'avvisad' ? '' : 'gul'}">${STATUS[p.status] || esc(p.status)}</span>
+      <span class="chip ${p.status === 'klar' ? (p.verifierad ? 'ok' : '') : p.status === 'pagar' ? 'acc' : p.status === 'avvisad' ? '' : 'gul'}">${lage(p)}</span>
       <span class="chip">${esc(KALLA[p.kalla] || p.kalla)}</span>${p.prio === 'hog' ? '<span class="chip rod">Hög prio</span>' : ''}<span class="chip">${esc(p.skapad)}</span></summary>
     <div class="innehall"><div class="prosa">${p.html}</div>
-      <p class="under" style="margin:10px 0 8px"><code>${esc(p.id)}</code>${p.kallref ? ' · källa ' + esc(p.kallref) : ''}${p.commit ? ' · commit ' + esc(p.commit) : ''}</p>
+      <p class="under" style="margin:10px 0 8px"><code>${esc(p.id)}</code>${p.kallref ? ' · källa ' + esc(p.kallref) : ''}${p.fynd ? ' · fynd ' + esc(p.fynd) : ''}${p.commit ? ' · commit ' + esc(p.commit) : ''}${p.verifierad_tid ? ' · verifierad ' + esc(p.verifierad_tid) : ''}</p>
       ${p.status === 'vilande' ? `<button class="knapp" data-id="${esc(p.id)}" data-s="avvisad">Avvisa</button>` : ''}
       ${p.status === 'avvisad' ? `<button class="knapp" data-id="${esc(p.id)}" data-s="vilande">Återställ till vilande</button>` : ''}</div></details>`;
   $('#vy').innerHTML = `

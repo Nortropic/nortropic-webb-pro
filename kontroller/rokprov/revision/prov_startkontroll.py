@@ -314,8 +314,43 @@ readme_ = (KOPIA / 'README.md').read_text()
 (KOPIA / 'README.md').write_text(readme_.replace('## Var information finns', '## Något annat'))
 assert sk.dokumentationen()['platsregel'] is False and 'platsregeln saknas' in sk.dokumentation_text(sk.dokumentationen())
 (KOPIA / 'README.md').write_text(readme_)
+# informationen stoppar aldrig en start, inte heller när en förteckningsrad eller hela kontrollen kastar (granskningen av
+# r97, B1): en för lång sökväg och en katalog utan läsrätt ger OSError i pathlib, och ett fel i dokumentationen() eller
+# repo_identitet() blir "ej kontrollerad" i kvittot; status och stopp är desamma som utan förteckningen
+(g_ / 'sessioner' / 'stangd').mkdir()
+(g_ / 'sessioner' / 'stangd' / 'GR-c.md').write_text('c\n')
+with open(g_ / 'FORTECKNING.jsonl', 'a') as f_:
+    for x in ({'fil': 'granskningar/' + 'x' * 300 + '.md', 'sha256': vl.sha(b'x')},
+              {'fil': 'granskningar/' + '/'.join(['y' * 200] * 10), 'sha256': vl.sha(b'y')},
+              {'fil': 'granskningar/sessioner/stangd/GR-c.md', 'sha256': vl.sha(b'c\n')}):
+        f_.write(json.dumps(x) + '\n')
+os.chmod(g_ / 'sessioner' / 'stangd', 0)
+try:
+    kv4 = sk.kor_kontroll(SLUG, 'ny')
+finally:
+    os.chmod(g_ / 'sessioner' / 'stangd', 0o755)
+assert kv4['status'] == kv2['status'] and kv4['stoppar'] == kv2['stoppar'], (kv4['status'], kv4['stoppar'])
+assert kv4['dokumentation']['forteckning'] == {'poster': 6, 'saknas': 1, 'fel_sha': 1, 'ej_kontrollerade': 3}, kv4['dokumentation']
+
+
+def kastar(*a, **k):
+    raise RuntimeError('provets fel')
+
+
+spara_info_ = sk.dokumentationen, sk.repo_identitet
+sk.dokumentationen = sk.repo_identitet = kastar
+try:
+    kv5 = sk.kor_kontroll(SLUG, 'ny')
+finally:
+    sk.dokumentationen, sk.repo_identitet = spara_info_
+assert kv5['status'] == kv2['status'] and kv5['stoppar'] == kv2['stoppar'], (kv5['status'], kv5['stoppar'])
+kvitto_ = (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text()
+assert 'Dokumentationen (information; stoppar aldrig en start): ej kontrollerad: RuntimeError: provets fel.' in kvitto_, kvitto_[:800]
+assert 'Repot: commit ej angivet, gren ej angivet, ocommittade filer: ej angivet (ej kontrollerad: RuntimeError: provets fel).' in kvitto_
+assert kv5['repo']['commit'] == 'ej angivet' and json.loads((vl.lagekatalog() / 'startlogg.jsonl').read_text().splitlines()[-1])['commit'] == 'ej angivet'
 shutil.rmtree(g_)
-print('kvittot: repots commit, gren och ocommittade filer, "ej angivet" utan git, och dokumentationen som information ok')
+print('kvittot: repots commit, gren och ocommittade filer, "ej angivet" utan git, och dokumentationen som information, '
+      'också när den inte går att kontrollera, ok')
 
 # fall 6: en ändrad konfiguration gör gamla prov ogiltiga (claude-versionen, Referos nyckel, MCP-konfigurationen)
 nollstall()

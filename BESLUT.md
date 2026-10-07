@@ -968,15 +968,30 @@ slår själv ihop den.
 > Detta ska fortsätta fungera när Nortropic förändras. Dokumentationens uppdatering ska vara en del av arbetet, inte ett separat städprojekt som jag behöver beställa igen.
 
 Genomförs i steg, och varje steg redovisar vad som återstår:
-1. **Rapporterna från arbetsytan** sparades oförändrade i `underlag/granskningar/` (privat). Det gällde 84
-   granskningsrapporter, inventeringar och Codex-svar ur sessionens arbetsyta, och de mätskript som pilotens frysta
-   kvitton hänvisar till. `FORTECKNING.jsonl` anger ursprung och sha256. Rapporterna för granskningarna r53–r62 hittades
-   inte.
-2. **Regler och pekare.** Platsregeln, arbetsregeln, rapporthuvudet och läsordningen står i `README.md`, Var information
-   finns. `CLAUDE.md`, `backlog/README.md` och skillen backlog hänvisar dit.
-3. **Återstår:**
-   - kod som gör granskningsfynden spårbara i backloggen, med källan granskning och fälten fynd och verifierad;
-   - repots commit i startkvittot;
-   - ett dokumentprov i rökprovet;
+1. **Rapporterna från arbetsytan** sparades oförändrade i `underlag/granskningar/` (privat) 2026-10-06 22:41Z. Det
+   gällde 84 filer ur sessionens arbetsyta:
+   - 54 rapporter: 30 systemgranskningar med omgranskningar och en fyndlista, 9 svar från Codex, 7 inventeringar och 8
+     andra arbetsdokument (källsammanställningar, planer, en kartläggning, en utredning, ett referensunderlag och ett
+     granskningsuppdrag);
+   - 30 bevisfiler: 17 ur omgranskningen av r94 och 13 ur kandidatprovet.
+   Därtill sparades de 8 mätskript som pilotens frysta kvitton hänvisar till, i pilotens `matning/`. `FORTECKNING.jsonl`
+   anger ursprung och sha256 för varje fil. Rapporterna för granskningarna r53–r62 hittades inte.
+2. **Regler och pekare (textsteget).** Platsregeln, arbetsregeln, rapporthuvudet och läsordningen står i `README.md`,
+   Var information finns. `CLAUDE.md`, `backlog/README.md`, skillsen backlog, bygg-sajt och kirurg och
+   `kunskap/skapandeflodet.md` hänvisar dit.
+3. **Verktygen (kodsteget).**
+   - Backloggen tar källan granskning med fälten fynd och verifierad. Ett fynd får en post. Bara kommandot verifiera
+     sätter verifierad, och då med en annan rapport än den som hittade fyndet. Posterna skrivs under lås.
+   - Startkvittot anger repots commit, gren och ocommittade filer, och en informationsrad om dokumentationen som aldrig
+     stoppar en start.
+   - Dokumentprovet i rökprovet prövar platsregeln, hänvisningarna, att arbetsregeln står en gång, beslutens statusrader
+     och backloggens spårbarhet.
+   - Dashboardens backlogg visar om en klar post är verifierad.
+4. **Granskningarna registreras** med rapporthuvud och bevis på den plats som platsregeln anger. Under natten
+   2026-10-06–07 registrerades GR-20261006-r94-slut, GR-20261006-r96-om, GR-20261006-r98 och GR-20261007-r97.
+5. **Återstår:**
    - vyn "Dokumentation och rapporter" i dashboarden. Den bygger på flödesvyn och kommer efter att ägaren slagit ihop
-     den.
+     den;
+   - att föra in de äldre granskningarnas fynd i backloggen. Vilka som fortfarande gäller kräver bedömning;
+   - raden "Dokumentation:" i commitmeddelandena prövas inte av något verktyg;
+   - rapporthuvudet i de registrerade rapporterna prövas inte heller av något verktyg.

@@ -30,7 +30,7 @@ dashboarden startar), så här bekräftas bara läget. Kontrollen
    ur git status --porcelain; utan git "ej angivet"; commiten också i startloggen) och en informationsrad om
    dokumentationen (README.md, Var information finns): finns platsregeln, och hur många poster i den privata
    förteckningen underlag/granskningar/FORTECKNING.jsonl vars fil saknas eller har fel sha256. Raden stoppar aldrig en
-   start och ändrar inte statusen.
+   start och ändrar inte statusen; det som inte går att kontrollera står som "ej kontrollerad" med felet.
 
 Ett pågående intag i underhållet (kontroller/korregister.py, intagslåset på hela maskinen) väntas ut i högst 20 minuter;
 medan starten väntar avbryts underhållets långa prov. Är intaget inte klart då stoppas starten. NWP_STARTKONTROLL=av
@@ -418,7 +418,9 @@ def senaste_kvitto(rot, namn):
 
 def repo_identitet(rot=None):
     """Vilken version av repot starten gällde: commit och gren ur git rev-parse, och antalet ocommittade filer (ospårade
-    med) ur git status --porcelain. Saknas git, eller är katalogen inget repo, står det "ej angivet"."""
+    med) ur git status --porcelain. Saknas git, eller är katalogen inget repo, står det "ej angivet". git status körs
+    utan valfria lås: kontrollen skriver inte om indexet och krockar inte med en samtidig commit (granskningen av r97,
+    KAN 1)."""
     rot = Path(rot or vl.ROOT)
     env = {k: v for k, v in vl.miljo().items() if k not in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE')}  # repot är rot
 
@@ -430,14 +432,59 @@ def repo_identitet(rot=None):
     if not commit or not re.fullmatch(r'[0-9a-f]{40}(?:[0-9a-f]{24})?', commit):
         return {'commit': EJ_ANGIVET, 'gren': EJ_ANGIVET, 'ocommittade': EJ_ANGIVET}
     gren = git('rev-parse', '--abbrev-ref', 'HEAD') or EJ_ANGIVET
-    status = git('status', '--porcelain', '--untracked-files=all')
+    status = git('--no-optional-locks', 'status', '--porcelain', '--untracked-files=all')
     return {'commit': commit, 'gren': 'ingen (fristående HEAD)' if gren == 'HEAD' else gren,
             'ocommittade': EJ_ANGIVET if status is None else sum(1 for r in status.splitlines() if r.strip())}
 
 
 def repo_text(r):
     r = r if isinstance(r, dict) else {}
-    return 'commit %s, gren %s, ocommittade filer: %s' % (r.get('commit', EJ_ANGIVET), r.get('gren', EJ_ANGIVET), r.get('ocommittade', EJ_ANGIVET))
+    return 'commit %s, gren %s, ocommittade filer: %s%s' % (r.get('commit', EJ_ANGIVET), r.get('gren', EJ_ANGIVET), r.get('ocommittade', EJ_ANGIVET),
+                                                          (' (ej kontrollerad: %s)' % r['fel']) if r.get('fel') else '')
+
+
+def informationen(f, vid_fel):
+    """Kvittots information om repot och dokumentationen stoppar aldrig en start: ett undantag blir "ej kontrollerad"
+    med felet, och statusen och stoppen ändras inte (granskningen av r97, B1)."""
+    try:
+        return f()
+    except Exception as e:  # noqa: BLE001 — informationen stoppar aldrig en start
+        return vid_fel('%s: %s' % (type(e).__name__, vl.sista(e, 160)))
+
+
+def platsregeln(readme):
+    """Står rubriken för platsregeln i README.md utanför kodblock (granskningen av r97, KAN 8)."""
+    staket = None
+    for r in readme.splitlines():
+        s = r.strip()
+        if staket:
+            staket = None if s.startswith(staket) else staket
+        elif s.startswith(('```', '~~~')) and len(r) - len(r.lstrip(' ')) <= 3:
+            staket = s[:3]
+        elif r.rstrip() == PLATSREGEL:
+            return True
+    return False
+
+
+def forteckningsrad(rot, rad):
+    """En rad i förteckningen: ok, saknas, fel_sha eller ej_kontrollerade. En rad som inte går att tolka, en sökväg utanför
+    underlag/ och en fil som inte går att nå (för lång sökväg, en katalog utan läsrätt) är ej kontrollerade, och inget
+    undantag lämnar funktionen (granskningen av r97, B1)."""
+    try:
+        x = json.loads(rad)
+        rel, sha = x['fil'], x['sha256']
+    except (ValueError, KeyError, TypeError):
+        return 'ej_kontrollerade'
+    if not (isinstance(rel, str) and isinstance(sha, str) and rel and not Path(rel).is_absolute() and '..' not in Path(rel).parts):
+        return 'ej_kontrollerade'
+    p = rot / 'underlag' / rel
+    try:
+        if not p.is_file():
+            return 'saknas'
+        h = vl.sha(p.read_bytes())
+    except (OSError, ValueError):
+        return 'ej_kontrollerade'
+    return 'ok' if h == sha.strip().lower() else 'fel_sha'
 
 
 def dokumentationen(rot=None):
@@ -450,42 +497,30 @@ def dokumentationen(rot=None):
         readme = (rot / 'README.md').read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError):
         readme = ''
-    d = {'platsregel': PLATSREGEL in [r.rstrip() for r in readme.splitlines()], 'forteckning': None}
+    d = {'platsregel': platsregeln(readme), 'forteckning': None}
     fil = rot / FORTECKNING
-    if not fil.is_file():
-        return d
     try:
-        rader = fil.read_text(encoding='utf-8').splitlines()
-    except (OSError, UnicodeDecodeError) as e:
+        if not fil.is_file():
+            return d
+        rader = fil.read_text(encoding='utf-8').split('\n')
+    except (OSError, UnicodeDecodeError) as e:  # också en katalog utan läsrätt (granskningen av r97, B1)
         d['forteckning'] = {'fel': '%s: %s' % (type(e).__name__, vl.sista(e, 120))}
         return d
     f = d['forteckning'] = {'poster': 0, 'saknas': 0, 'fel_sha': 0, 'ej_kontrollerade': 0}
     for rad in rader:
-        if not rad.strip():
-            continue
-        f['poster'] += 1
-        try:
-            x = json.loads(rad)
-            rel, sha = x['fil'], x['sha256']
-            giltig = isinstance(rel, str) and isinstance(sha, str) and rel and not Path(rel).is_absolute() and '..' not in Path(rel).parts
-        except (ValueError, KeyError, TypeError):
-            giltig = False
-        p = rot / 'underlag' / rel if giltig else None
-        h = vl.sha_fil(p) if p and p.is_file() else None
-        if not giltig:
-            f['ej_kontrollerade'] += 1
-        elif not p.is_file():
-            f['saknas'] += 1
-        elif h is None:
-            f['ej_kontrollerade'] += 1
-        elif h != sha.strip().lower():
-            f['fel_sha'] += 1
+        if rad.strip():
+            f['poster'] += 1
+            utfall = forteckningsrad(rot, rad)
+            if utfall != 'ok':
+                f[utfall] += 1
     return d
 
 
 def dokumentation_text(d):
     if not isinstance(d, dict):
         return EJ_ANGIVET
+    if d.get('fel'):  # dokumentationen() föll: raden är information och stoppar aldrig en start (granskningen av r97, B1)
+        return 'ej kontrollerad: %s' % d['fel']
     ut = ['platsregeln finns i README.md (Var information finns)' if d.get('platsregel') else
           'platsregeln saknas i README.md (avsnittet Var information finns)']
     f = d.get('forteckning')
@@ -494,8 +529,9 @@ def dokumentation_text(d):
     elif f.get('fel'):
         ut.append('förteckningen över sparade granskningar kunde inte läsas (%s)' % f['fel'])
     else:
+        ej = f.get('ej_kontrollerade') or 0
         ut.append('förteckningen över sparade granskningar: %d poster, %d filer saknas, %d med fel sha256%s' % (
-            f['poster'], f['saknas'], f['fel_sha'], ('; %d poster kunde inte kontrolleras' % f['ej_kontrollerade']) if f['ej_kontrollerade'] else ''))
+            f.get('poster') or 0, f.get('saknas') or 0, f.get('fel_sha') or 0, ('; %d poster kunde inte kontrolleras' % ej) if ej else ''))
     return '; '.join(ut)
 
 
@@ -594,8 +630,10 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     kv['till_byggaren'] = till_byggaren(rader)
     nu_m = matinstrument(rader)
     kv['matinstrument_sett'] = nu_m  # det som faktiskt fanns vid starten (låset kan vara en återupptagen körnings)
-    kv['repo'] = repo_identitet()  # vilken version av repot starten gällde (README.md, Var information finns)
-    kv['dokumentation'] = dokumentationen()  # information: inte en rad i kontrollen, så den ändrar varken status eller stopp
+    # vilken version av repot starten gällde, och dokumentationen (README.md, Var information finns): information, inte
+    # rader i kontrollen, så de ändrar varken status eller stopp, inte heller när de faller (granskningen av r97, B1)
+    kv['repo'] = informationen(repo_identitet, lambda fel: {'commit': EJ_ANGIVET, 'gren': EJ_ANGIVET, 'ocommittade': EJ_ANGIVET, 'fel': fel})
+    kv['dokumentation'] = informationen(dokumentationen, lambda fel: {'fel': fel})
     if slug:
         rot = vl.UNDERLAG / slug / 'atelje'
         rot.mkdir(parents=True, exist_ok=True)

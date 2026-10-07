@@ -281,6 +281,8 @@ ser den efter sitt första beslut. I den äldre utforskningen skrivs REDOVISNING
 Claude Codes medietak (omkring 24 MiB bilddata per anrop) tränger undan de äldsta bilderna ur kontexten. Därför läses
 huvudreferensen om i varje varv. Ett räknat antal bildläsningar är inget belägg för en jämförelse.
 
+Var körningens rapporter och bevis hör hemma i övrigt: `README.md`, Var information finns.
+
 ## Sandlådan
 
 Skapandeflödets sessioner har ingen egen sandlåda än: flödet körs utanför den, före bygget. Sessionerna har bara sina

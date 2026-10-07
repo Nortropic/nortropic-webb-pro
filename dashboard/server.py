@@ -1059,6 +1059,7 @@ def backloggen():
     for p in bl.lista():
         kropp = p.pop('kropp', '')
         p['html'] = md(re.sub(r'^# .+\n', '', kropp, count=1, flags=re.M))
+        p['lage'] = bl.lage(p)  # klar, inte verifierad eller klar, verifierad av <rapport> (granskningen av r97, BÖR 5)
         ut.append(p)
     ordning = {'pagar': 0, 'vilande': 1, 'klar': 2, 'ersatt': 3, 'avvisad': 4}
     return sorted(ut, key=lambda p: (ordning.get(p.get('status'), 9), p.get('prio') != 'hog', p.get('skapad', '')))

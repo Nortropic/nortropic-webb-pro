@@ -14,7 +14,9 @@ med status `vilande`. Ingenting här genomförs av sig självt.
 | granskning | en systemgranskning har ett fynd som inte rättas i samma uppdrag | den session som tar hand om granskningen; `--kallref` rapportens id eller sökväg (förteckningens sökvägar räknas från `underlag/`) och `--fynd <rapportens id>#<fyndets id>`, en post per fynd |
 
 De tre första skapas automatiskt. Alla skriver genom `kontroller/backlog.py ny`, så formen är densamma, och varje
-skrivning sker under backloggens fillås med en tempfil som byts in atomiskt.
+skrivning sker under backloggens fillås med en tempfil som byts in atomiskt. Ett huvudvärde med en radbrytning eller ett
+annat kontrolltecken avvisas. Ett fynd får en post: finns `--fynd` redan i en post, oavsett status, skapas ingen ny,
+och `ny` ger den postens id.
 
 ## Så genomförs den
 
@@ -33,8 +35,9 @@ först när en senare granskning säger det, `README.md`, Var information finns)
 sa nej (i dashboarden eller i en session) · `ersatt` ersatt av ett senare beslut eller sammanförd i en annan post (noten
 säger vilken). Avvisade och ersatta poster ligger kvar, så att samma idé inte kommer tillbaka.
 
-**Verifierad** är ett fält, ingen status: `verifierad: <rapportens id>` på en klar post, satt med
+**Verifierad** är ett fält, ingen status: `verifierad: <rapportens id>` och `verifierad_tid` på en klar post, satta med
 `.venv/bin/python kontroller/backlog.py verifiera <id> --rapport <rapportens id>` när en senare granskning har
-verifierat rättelsen. Inget sätter fältet av sig självt, och en kodändring verifierar ingenting. `lista` visar en klar
-post utan fältet som "klar, inte verifierad". Ändras postens status eller commit tas fältet bort ur huvudet, och en not
-säger vilken rapport som verifierade det förra läget.
+verifierat rättelsen. Rapporten som hittade fyndet kan inte verifiera det, och `andrad` står kvar. Inget sätter fälten
+av sig självt, och en kodändring verifierar ingenting. `lista` och dashboarden visar en klar post utan fältet som
+"klar, inte verifierad". Ändras postens status eller commit tas fälten bort ur huvudet, och en not säger vilken rapport
+som verifierade det förra läget.

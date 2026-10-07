@@ -468,6 +468,9 @@ Kontrollera att namn, adress och telefon på sajten, i sidfoten och i JSON-LD ä
 
 ## Steg 7 — Rapport
 
+Formen för RAPPORT.md och FRAGOR.json står här. Var andra rapporter, bevis och backlogposter hör hemma: `README.md`, Var
+information finns.
+
 Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 
 1. **Verksamheten** i två meningar, med källa.

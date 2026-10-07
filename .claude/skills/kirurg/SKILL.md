@@ -196,6 +196,8 @@ Starta byggen, installera något, köra kod ur källan, ändra andra filer än r
 
 ## Utdata
 
+Var registret, backlogposterna och andra rapporter hör hemma: `README.md`, Var information finns.
+
 Svara ägaren kort: domen först, sedan skälet, sedan förslaget om det finns ett. Gör samtidigt tre saker:
 
 **1. Registret.** Lägg till en post sist i `kunskap/REGISTER.md` under "Intag":
