@@ -12,7 +12,9 @@ domare. Varför repot finns och vad som beslutades: `BESLUT.md`.
 Allt på ett ställe: vyn Prototyp, där du väljer bland förslagen och godkänner en startsida (besluten skrivs i
 domloggen `underlag/<slug>/DESIGNDOMAR.jsonl`), byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag,
 körningens händelser), frågeformuläret där du dömer ett bygge, Starta, de blinda jämförelserna, kalibreringen,
-designprovet, backloggen, kirurgen (klistra in en länk) och lärdomarna.
+designprovet, backloggen, kirurgen (klistra in en länk) och lärdomarna. Vyn Dokumentation och rapporter börjar med en
+sammanfattning och visar sedan hur Nortropic fungerar, pågående uppdrag, granskningarna och besluten, lästa ur de platser
+som avsnittet Var information finns anger.
 
 ## Tre loopar och en backlog
 
@@ -67,7 +69,9 @@ rapportstrukturen, `BESLUT.md`). Andra dokument länkar hit i stället för att 
 
 Allt under `underlag/` och `kunder/` är privat. Inget innehåll därifrån står i det publika repot, inte heller titlar ur
 rapporter eller förteckningar; sökvägar och id:n får stå, i dokumentationen, commits och backlogposter, så länge de inte
-bär privata uppgifter.
+bär privata uppgifter. Dashboardens vy Dokumentation och rapporter läser platserna och rapporthuvudena här vid varje
+visning, utan egen förteckning, och visar det som ligger under `underlag/` och `kunder/` bara lokalt och inom flödesvyns
+gränser, också blindningen före ägarens första val.
 
 **Arbetsregeln** (ägaren 2026-10-06): ”Varje förändring i Nortropic ska hålla berörd dokumentation och spårbarhet
 aktuell som en del av samma uppdrag. Ägaren ska inte behöva påminna om dokumentationen. Ett arbete redovisas inte som

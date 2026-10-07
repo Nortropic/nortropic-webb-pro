@@ -649,6 +649,10 @@ echo "   flödesvyn (2026-10-06): kedjan ur README, blindningen före första va
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_flode.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/flode-prov.log" \
   || { echo "FEL: flödesvyns prov"; tail -20 "$ROOT/kunder/rokprov-mall/flode-prov.log"; exit 1; }
 echo "   flödesvyns prov ok"
+echo "   dokumentationsvyn (2026-10-07): de fyra delarna, filtren, huvudena, besluten, blindningen, länkarna, saknade rapporter och avsändaren"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_dokumentationsvy.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" \
+  || { echo "FEL: dokumentationsvyns prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log"; exit 1; }
+echo "   dokumentationsvyns prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log") fall)"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

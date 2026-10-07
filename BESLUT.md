@@ -989,9 +989,30 @@ Genomförs i steg, och varje steg redovisar vad som återstår:
    - Dashboardens backlogg visar om en klar post är verifierad.
 4. **Granskningarna registreras** med rapporthuvud och bevis på den plats som platsregeln anger. Under natten
    2026-10-06–07 registrerades GR-20261006-r94-slut, GR-20261006-r96-om, GR-20261006-r98 och GR-20261007-r97.
-5. **Återstår:**
-   - vyn "Dokumentation och rapporter" i dashboarden. Den bygger på flödesvyn och kommer efter att ägaren slagit ihop
-     den;
+5. **Vyn Dokumentation och rapporter** (2026-10-07, punkt 8 här och punkt 9 i ägarens uppdrag 2026-10-07 om
+   kompetens och rapportering). Fliken Dokumentation i dashboarden visar först en sammanfattning och sedan fyra delar:
+   - **Så fungerar Nortropic:** platsregeln, flödeskartan och filerna som platsregeln och `CLAUDE.md` pekar på.
+   - **Pågående uppdrag:** körregistret, kundernas körningar som i flödesvyn, pilotens moment med avsändaren ur fältet
+     `avsandare`, lägesrapporternas beslut och uppdragen i BESLUT.md med sin senaste rapport.
+   - **Granskningar och resultat:** rapporthuvudena och förteckningens äldre rapporter, sökbara efter uppdrag eller
+     systemdel, typ, version, datum, utfall och rapportstatus.
+   - **Beslut och historik:** tilläggens status, ersättare och det som återstår.
+
+   Allt läses ur filerna vid varje visning:
+   - ett utfall visas med versionen det gällde;
+   - förteckningens sha256 visas som integritet, inte som verifiering;
+   - rapporter som koden hänvisar till men som saknas visas ur koden;
+   - fynden och rättelserna kommer ur backloggen.
+
+   `ny --fynd` från en senare rapport öppnar en klar post igen (GR-20261007-r97-om#BÖR-1). Prövas av
+   `prov_dokumentationsvy.py` och `prov_dokumentation.py` i rökprovet.
+6. **Återstår:**
+   - kompetenskedjan per steg och kandidat och körningens slutpost: vyn har en plats för dem, men datakällorna byggs i
+     andra grenar;
+   - rapporterna för granskningarna r53–r62, som koden hänvisar till, saknas och återskapas inte;
+   - de äldre rapporterna i `underlag/granskningar/sessioner/` saknar rapporthuvud, så deras fält visas som ej angivet. Ett
+     huvud läggs bara till där underlaget belägger värdena;
    - att föra in de äldre granskningarnas fynd i backloggen. Vilka som fortfarande gäller kräver bedömning;
    - raden "Dokumentation:" i commitmeddelandena prövas inte av något verktyg;
-   - rapporthuvudet i de registrerade rapporterna prövas inte heller av något verktyg.
+   - ingenting prövar rapporthuvudet när en rapport skrivs. Vyn visar ett trasigt huvud och saknade fält under Saknat
+     underlag.

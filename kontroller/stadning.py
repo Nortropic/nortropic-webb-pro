@@ -109,6 +109,7 @@ TMP_PREFIX = (
     'nwp-startprov-', 'nwp-observation-', 'nwp-rev-', 'nwp-granskning-', 'nwp-pg-',  # rökprovets prov
     'nwp-dokumentation-',                                                             # prov_dokumentation.py
     'nwp-flode-',                                                                     # prov_flode.py
+    'nwp-dokvy-',                                                                     # prov_dokumentationsvy.py
     'nwp-stadprov-',                                                                  # prov_stadning.py
 )
 # fasta kataloger i /tmp som aldrig är tillfälliga: körregistret och intagslåset, läget när underlag/ är låst, och
