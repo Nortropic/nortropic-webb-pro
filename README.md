@@ -95,7 +95,8 @@ resultatet. Ett exempel är `underlag/figma-pilot/BESLUTSUNDERLAG.md`.
 5. nästa åtgärd och de beslut som behövs.
 
 **En senare granskning** säger vad den gör med den föregående: bekräftar fynd, verifierar en rättelse, gäller en ny
-version eller rättar en tidigare slutsats. Ett fynd behåller sitt id från upptäckt till rättelse och verifiering.
+version eller rättar en tidigare slutsats. Ett fynd behåller sitt id från upptäckt till rättelse och verifiering, och
+består det efter rättelsen öppnas dess post i backloggen igen (`backlog/README.md`).
 
 ## Kirurgen
 

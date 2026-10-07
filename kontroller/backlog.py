@@ -12,7 +12,9 @@ Poster skapas alltid vilande, automatiskt av kirurgen (dom "ta in" eller "prova 
 dömer ett bygge, och av en byggkörning som hittar en brist i verktyg, skill eller kunskap. Ett granskningsfynd som inte
 rättas i samma uppdrag blir en post med kalla granskning: kallref är rapportens id eller sökväg (förteckningens
 sökvägar räknas från underlag/) och fynd är <rapportens id>#<fyndets id>. Ett fynd får en post: finns fyndet redan i
-en post, oavsett status, skapas ingen ny, och ny ger den postens id (slutkod 0). Ingen post genomförs av sig själv:
+en post, oavsett status, skapas ingen ny, och ny ger den postens id (slutkod 0). Är posten klar och anmäler en senare
+rapport (kallref, en annan än den som hittade fyndet) fyndet igen, består fyndet: posten blir vilande igen med en not om
+rapporten, och verifieringen tas bort. En avvisad eller ersatt post öppnas inte. Ingen post genomförs av sig själv:
 ägaren startar en session och säger "implementera enligt backlog" (skillen backlog).
 
 klar betyder genomförd och committad. Fältet verifierad (id för den rapport som verifierade rättelsen, en annan än den
@@ -128,6 +130,16 @@ def ny(kalla, titel, varfor, forslag=None, klart=None, steg=None, sar=None, kall
     with _fillas():  # id:t väljs och posten skrivs under låset: två poster med samma titel samma dag får var sitt id
         befintlig = _med_fynd(fynd) if fynd else None
         if befintlig:  # ett fynd följs i en post från upptäckt till verifiering (ägarens uppdrag 2026-10-06, punkt 9)
+            rapport = _rapport_id(kallref)
+            if befintlig.get('status') == 'klar' and rapport and rapport != fynd.split('#', 1)[0]:
+                # en senare rapport säger att fyndet består: posten får inte stå kvar som klar eller verifierad
+                # (granskningen av r97-om, BÖR-1; ägarens uppdrag 2026-10-07, punkt 9). Rapporten som hittade fyndet
+                # skrevs före rättelsen och öppnar den inte; avvisade och ersatta poster öppnas inte.
+                _andra_status(MAPP / (befintlig['id'] + '.md'), 'vilande',
+                              not_='%s anmälde fyndet %s igen: fyndet består, och posten är öppen igen.' % (kallref.strip(), fynd))
+                print('fyndet %s fanns i %s (klar); %s anmälde det igen, så posten är vilande igen' % (fynd, befintlig['id'], kallref.strip()),
+                      file=sys.stderr)
+                return befintlig['id']
             print('fyndet %s finns redan i %s (%s); ingen ny post' % (fynd, befintlig['id'], befintlig.get('status')), file=sys.stderr)
             return befintlig['id']
         dag = datetime.now(timezone.utc).strftime('%Y%m%d')
@@ -155,6 +167,11 @@ def _post(pid):
     return p
 
 
+def _rapport_id(kallref):
+    """Rapportens id ur kallref, som är id:t eller sökvägen (granskningar/GR-20261007-r97-om.md ger GR-20261007-r97-om)."""
+    return re.sub(r'\.md$', '', (kallref or '').strip().rsplit('/', 1)[-1])
+
+
 def _med_fynd(fynd):
     """Posten som redan bär fyndet, eller None. Anroparen håller låset; en post som inte går att läsa hoppas över."""
     for p in sorted(MAPP.glob('B-*.md')):
@@ -174,22 +191,28 @@ def satt_status(pid, status, commit=None, not_=None):
         raise ValueError('commit ska vara en commit i hex, 7–40 tecken (gemener)')
     p = _post(pid)
     with _fillas():  # posten läses, ändras och skrivs under låset: en samtidig ändring går inte förlorad
-        meta = las(p)
-        kropp = meta.pop('kropp')
-        fore = (meta.get('status'), meta.get('commit'))
-        meta['status'] = status
-        meta['andrad'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
-        if commit:
-            meta['commit'] = commit
-        if not_:
-            kropp = kropp.rstrip('\n') + '\n\n**%s (%s):** %s\n' % (status.capitalize(), meta['andrad'][:10], not_.strip())
-        # verifieringen gällde läget den gjordes i: en ny status eller commit är inte verifierad (ägarens uppdrag 2026-10-06,
-        # punkt 7: automatik markerar aldrig ett fynd verifierat för att kod ändrats)
-        if meta.get('verifierad') and (meta['status'], meta.get('commit')) != fore:
-            meta.pop('verifierad_tid', None)
-            kropp = kropp.rstrip('\n') + '\n\n**Verifieringen gäller inte längre (%s):** %s verifierade status %s med commit %s.\n' % (
-                meta['andrad'][:10], meta.pop('verifierad'), fore[0], fore[1] or 'ej angivet')
-        skriv(meta, kropp)
+        return _andra_status(p, status, commit, not_)
+
+
+def _andra_status(p, status, commit=None, not_=None):
+    """Läser posten, sätter status (och commit och not) och skriver den. Anroparen håller låset (satt_status, och ny när
+    ett fynd anmäls igen)."""
+    meta = las(p)
+    kropp = meta.pop('kropp')
+    fore = (meta.get('status'), meta.get('commit'))
+    meta['status'] = status
+    meta['andrad'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
+    if commit:
+        meta['commit'] = commit
+    if not_:
+        kropp = kropp.rstrip('\n') + '\n\n**%s (%s):** %s\n' % (status.capitalize(), meta['andrad'][:10], not_.strip())
+    # verifieringen gällde läget den gjordes i: en ny status eller commit är inte verifierad (ägarens uppdrag 2026-10-06,
+    # punkt 7: automatik markerar aldrig ett fynd verifierat för att kod ändrats)
+    if meta.get('verifierad') and (meta['status'], meta.get('commit')) != fore:
+        meta.pop('verifierad_tid', None)
+        kropp = kropp.rstrip('\n') + '\n\n**Verifieringen gäller inte längre (%s):** %s verifierade status %s med commit %s.\n' % (
+            meta['andrad'][:10], meta.pop('verifierad'), fore[0], fore[1] or 'ej angivet')
+    skriv(meta, kropp)
     return meta
 
 

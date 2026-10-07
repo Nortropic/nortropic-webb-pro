@@ -10,7 +10,8 @@ rapportstrukturen; regeln står i README.md, Var information finns; granskningen
   backlog/README.md, kunskap/, .claude/skills/, kritik/); BESLUT.md är beslutsloggen och citerar ägaren, så den undantas;
 - varje "## Tillägg 2026-10-06, kväll" och senare i BESLUT.md har raden "**Status:**" direkt under rubriken;
 - backloggen (syntetiska poster i en temporär katalog): källan granskning med kallref och fynd, ett fynd får en post,
-  huvudvärden utan radbrytningar och kontrolltecken och --commit som hex, verifierad bara med kommandot verifiera och från
+  en senare rapport som anmäler fyndet igen öppnar en klar post utan verifiering (inte en avvisad eller ersatt, och
+  inte rapporten som hittade fyndet), huvudvärden utan radbrytningar och kontrolltecken och --commit som hex, verifierad bara med kommandot verifiera och från
   en annan rapport än fyndets, verifierad_tid utan att andrad ändras, "klar, inte verifierad" i listan, verifieringen
   borta när status eller commit ändras och kvar annars, låset som verktygslådan använder (också för läsningen före en
   ändring) och den atomiska skrivningen;
@@ -269,6 +270,42 @@ def _ett_fynd():
     idn = {o.strip() for o, _e in ut}
     med = [f for f in poster() if meta(f[:-3]).get('fynd') == 'GR-20261007-prov#B6']
     assert all(p.returncode == 0 for p in ps) and len(idn) == 1 and len(med) == 1, (sorted(idn), med, [e[-200:] for _o, e in ut])
+
+
+@fall('backloggen: en senare rapport som anmäler ett fynd igen öppnar dess klara post, utan verifiering; en avvisad öppnas inte')
+def _aterkommet_fynd():
+    # granskningen av r97-om, BÖR-1: efter verifiera gav ny --fynd samma id, och posten stod kvar som klar och verifierad
+    def anmal(kallref, fynd, titel='Ett fynd som kommer tillbaka'):
+        rc, ut = kommando('ny', '--kalla', 'granskning', '--titel', titel, '--varfor', 'Syntetiskt.', '--kallref', kallref, '--fynd', fynd)
+        assert rc == 0, ut
+        return ut.split()[0], ut
+    pid, _ = anmal('granskningar/GR-20261007-prov.md', 'GR-20261007-prov#B8')
+    bl.satt_status(pid, 'klar', commit='abc1234')
+    bl.verifiera(pid, 'GR-20261008-prov')
+    fore = poster()
+    # samma rapport som hittade fyndet registrerar det en gång till: ingenting ändras
+    assert anmal('granskningar/GR-20261007-prov.md', 'GR-20261007-prov#B8')[0] == pid and poster() == fore
+    m = meta(pid)
+    assert m['status'] == 'klar' and m.get('verifierad') == 'GR-20261008-prov', ('samma rapport öppnade posten', m)
+    # en senare rapport säger att fyndet består: posten blir vilande med en not om rapporten, och verifieringen tas bort
+    andra, ut = anmal('granskningar/GR-20261009-prov.md', 'GR-20261007-prov#B8', titel='Fyndet består')
+    m = meta(pid)
+    assert andra == pid and poster() == fore, ('en ny post för samma fynd', andra, ut)
+    assert m['status'] == 'vilande' and 'verifierad' not in m and 'verifierad_tid' not in m, ('posten står kvar som klar', m)
+    assert 'granskningar/GR-20261009-prov.md anmälde fyndet GR-20261007-prov#B8 igen' in m['kropp'] and 'består' in m['kropp'], m['kropp']
+    assert 'GR-20261008-prov verifierade status klar med commit abc1234' in m['kropp'], m['kropp']
+    rc, ut = kommando('lista')
+    assert next(r for r in ut.splitlines() if pid in r).startswith('vilande '), ut
+    # också en klar post som inte verifierats öppnas
+    pid2, _ = anmal('GR-20261007-prov', 'GR-20261007-prov#B9')
+    bl.satt_status(pid2, 'klar', commit='def5678')
+    assert anmal('GR-20261009-prov', 'GR-20261007-prov#B9')[0] == pid2 and meta(pid2)['status'] == 'vilande', meta(pid2)
+    # en avvisad eller ersatt post öppnas inte
+    for i, status in enumerate(('avvisad', 'ersatt')):
+        fynd = 'GR-20261007-prov#B1%d' % i
+        p3, _ = anmal('GR-20261007-prov', fynd)
+        bl.satt_status(p3, status, not_='i provet')
+        assert anmal('GR-20261009-prov', fynd)[0] == p3 and meta(p3)['status'] == status, (status, meta(p3))
 
 
 @fall('backloggen: huvudvärden utan radbrytningar och kontrolltecken, och --commit som hex med 7–40 tecken')

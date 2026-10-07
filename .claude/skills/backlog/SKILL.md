@@ -23,7 +23,8 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
 1. `.venv/bin/python kontroller/backlog.py status <id> pagar`
 2. **Läs posten och källan:** `kunskap/REGISTER.md` för kirurgposter, `kunder/<slug>/DOM.json` och `LARDOMAR.md`
    för domposter, `kunder/<slug>/RAPPORT.md` för byggposter, och för granskningsposter rapporten i `kallref`
-   (sökvägar räknade från `underlag/`) och fyndet i `fynd`.
+   (sökvägar räknade från `underlag/`) och fyndet i `fynd`. En post som en senare rapport öppnat igen har den
+   rapporten i en not: läs den också, eftersom fyndet bestod efter den förra rättelsen.
 3. **Klassa domen först** (Codex via ägaren 2026-10-05, punkt 10: en synpunkt på en kund ska inte bli nästa kunds
    instruktion). En ägardom är ett av fyra slag, och slaget avgör var ändringen hamnar:
    - **kundbeslut:** gäller den kunden; det står i domloggen (`underlag/<slug>/DESIGNDOMAR.jsonl`) och i kundens
