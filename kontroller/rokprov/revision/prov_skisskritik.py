@@ -23,7 +23,7 @@ repot med falska byggen, webbläsare, motorer och sessioner:
    egna projektet går som förut; varje session som arbetar med en kandidat får förbuden;
 10. kritikens uttryckliga lista (GR-20261007-r103#B2): i underlag/<slug> bara briefen och kundens fakta och material,
    research på begäran nekas också när den uppstår under sessionen, kunder/<slug> nekas, och riktningshistoriken och
-   domloggen nekas som filer (#K4, Claudes beslut i väntan på ägaren; en tom tupel ändrar det).
+   domloggen nekas som filer (#K4, ägarens beslut 2026-10-07; en tom tupel ändrar det).
 
     .venv/bin/python kontroller/rokprov/revision/prov_skisskritik.py <repo>
 
@@ -424,7 +424,7 @@ def _blind():
                '%s/REFERENSER.md' % u, '%s/referenser/paket-v01/xref/vy-390-forsta.png' % u, '%s/referenser/tjanster/TJANSTER.md' % u,
                '%s/atelje/KANDIDATPLAN.json' % u, '%s/atelje/FORSKNING.md' % u,
                'underlag/%s/atelje/kandidater/k02/RIKTNING.md' % SLUG, 'kunder/%s/kandidater/k02/sajt/src/pages/index.astro' % SLUG,
-               '%s/DESIGNDOMAR.jsonl' % u]  # domloggen som fil: Claudes beslut i väntan på ägaren (GR-20261007-r103#K4), fall 10
+               '%s/DESIGNDOMAR.jsonl' % u]  # domloggen som fil: ägarens beslut 2026-10-07 (GR-20261007-r103#K4), fall 10
     oppna = ['%s/varv/start/varv-01/vy-390-forsta.png' % d, '%s/%s/start/varv-01/vy-768-forsta.png' % (d, forhandsvisa.GRANSKARE),
              '%s/BRIEF.md' % u, '%s/atelje/metod/METOD-skiss.md' % u, 'kunskap/visuell-niva.md',
              '.claude/skills/impeccable/reference/critique.md']
@@ -837,7 +837,7 @@ def _lista():
     # ägarens aktuella domar står i uppdraget, och uppdraget säger att domloggen och historiken är stängda
     p = s['prompt']
     assert 'pröva nya grundidéer' in p and 'domloggen och riktningshistoriken är stängda' in p, p[:1500]
-    # K4 är Claudes beslut i väntan på ägaren och lätt att ändra: en tom tupel öppnar filerna, och resten står kvar
+    # K4 är ägarens beslut 2026-10-07 ("Ja, neka historiken") och lätt att ändra: en tom tupel öppnar filerna, och resten står kvar
     assert kd.BLIND_HISTORIK == ('RIKTNINGSHISTORIK.json', 'DESIGNDOMAR.jsonl'), kd.BLIND_HISTORIK
     spara = kd.BLIND_HISTORIK
     kd.BLIND_HISTORIK = ()
@@ -847,10 +847,10 @@ def _lista():
         assert nekade(n2, '%s/REFERENSUPPDRAG-2026-10-07T081500Z-abc123.json' % U) and nekade(n2, '%s/UPPTAGNA-VAL.md' % U), n2
     finally:
         kd.BLIND_HISTORIK = spara
-    # metodkartans block kritik säger samma sak som koden, och att beslutet är Claudes, inte ägarens
+    # metodkartans block kritik säger samma sak som koden, och att beslutet är ägarens (2026-10-07), med fyndets id
     blk = re.search(r'```kompetens kritik\n(.*?)```', metod.KARTA.read_text(encoding='utf-8'), re.S).group(1)
     rad = next((r_ for r_ in blk.splitlines() if r_.startswith('blind:')), '')
-    assert all(f_ in rad for f_ in kd.BLIND_HISTORIK) and 'Claudes beslut i väntan på ägaren' in rad and 'inte ägarens' in rad, rad
+    assert all(f_ in rad for f_ in kd.BLIND_HISTORIK) and 'ägarens beslut 2026-10-07' in rad and 'GR-20261007-r103#K4' in rad, rad
 
 
 print('skisskritikens prov: %d fall, %d föll' % (10, len(FEL)), file=sys.stderr)
