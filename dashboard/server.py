@@ -1541,8 +1541,14 @@ def flode(slug):
     # en ny körning (läget ny) vars arbetare ännu inte har arkiverat förra körningens plan, kandidater och vinnare:
     # atelje.arbeta skriver STATUS före startkontrollen och arkiverar efter den. En plan som är äldre än körningen hör till
     # förra körningen, så varken den, dess kandidater eller dina val efter den räknas hit (omgranskningen av r96, BÖR 1).
+    # En start som startkontrollen stoppade arkiverar ingenting (atelje.arbeta): statusen är då förälderns med
+    # startkontroll_stopp, eller steg fel med startkontrollens besked. Förra körningens plan, förslag och val är då det
+    # senaste, och villkoret ovan gäller inte (omgranskning 2 av r96, BÖR 1).
+    sk_ = st.get('startkontroll') if isinstance(st.get('startkontroll'), dict) else {}
+    start_stoppad = bool(st.get('startkontroll_stopp')) or (st.get('steg') == 'fel' and (
+        sk_.get('status') == 'stoppad' or str(st.get('fel') or '').startswith('Startkontrollen stoppade starten')))
     plan_k = kandidater.plan_tid(slug) if kfl else ''
-    forra_plan = bool(plan_k) and st.get('lage') == 'ny' and plan_k < str(st.get('startad') or '')
+    forra_plan = bool(plan_k) and st.get('lage') == 'ny' and plan_k < str(st.get('startad') or '') and not start_stoppad
     blind = kfl and (forra_plan or not kandidater.domd(slug))
     steg = []
 
@@ -1565,7 +1571,7 @@ def flode(slug):
         plan_t, kand = '', []
     else:
         stegnamn = st.get('steg') or ''
-        status = ('stoppat' if stegnamn == 'fel' or atelje.avbruten(st) else
+        status = ('stoppat' if stegnamn == 'fel' or atelje.avbruten(st) or start_stoppad else
                   'skapat' if stegnamn in ('klar_for_bedomning', 'klar') else 'pågår')
         kv = startkvitto(slug) or {}
         plan_t = '' if forra_plan else plan_k
@@ -1594,6 +1600,8 @@ def flode(slug):
         brister = []
         if stegnamn == 'fel' and st.get('fel'):
             brister.append(str(st['fel'])[:300])
+        elif start_stoppad:  # förälderns status med startkontrollens stopp (atelje.arbeta)
+            brister.append(str((st.get('startkontroll_stopp') or {}).get('fel') or 'startkontrollen stoppade starten')[:300])
         if blind:
             kontroller.append({'text': 'skisskritiken och bristerna visas efter ditt första beslut'})
         else:
@@ -1603,6 +1611,8 @@ def flode(slug):
                     brister.append('%s: %d brister eller DESIGN.md-fel' % (x.get('etikett') or x.get('id'), n_))
         steg.append(_steg(2, 'Prototypen', status, underlag=underlag_, utfall=utfall, kontroller=kontroller, brister=brister,
                           nasta='Ditt val i vyn Prototyp.' if status == 'skapat' else
+                          'Startkontrollen stoppade starten, och förra körningens förslag och val står kvar: starta om när '
+                          'verktygslådan fungerar (startkontrollens kvitto).' if start_stoppad else
                           'Ta vid med `.venv/bin/python kontroller/atelje.py %s --fortsatt`, eller börja om.' % slug if status == 'stoppat' else ''))
 
     # 3. ditt val i den här körningen: i kandidatflödet domarna efter körningens plan (samma gräns som kandidater.domd,
@@ -1636,7 +1646,9 @@ def flode(slug):
     #    körningen slutar som vanligt. När körningen efter valet är avslutad och en vald kandidat saknar post för valet är
     #    förfiningen underkänd med kandidatens skäl, och utan skäl inte observerad (omgranskningen av r96, R2-rest).
     vd = next((d for d in reversed(domar) if d.get('beslut') in ('valj', 'putsa')), None) if kfl else None
-    efter = bool(vd) and str(st.get('startad') or '') > str(vd.get('tid') or '')  # en körning som startade efter valet är dess förfining
+    # valets förfining är den körning som bär valet i fältet dom (kandidater.forfina_valda skriver det, och --fortsatt av en
+    # förfining för det vidare); en annan körning efter valet, som utforskningen med --fortsatt, är det inte (omgranskning 2)
+    efter = bool(vd) and st.get('dom') == vd.get('tid')
     lagen, ids = [], kandidater.lista(slug) if vd else []
     for c in (vd or {}).get('kandidater') or []:
         kid = c.get('id') if isinstance(c, dict) else None

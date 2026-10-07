@@ -10,15 +10,17 @@ form. Varje fall fäller en brist som granskningen av r96 eller omgranskningen f
   prövas själv mot en läcka; efter valet ska bristerna och armarnas skillnader synas;
 - stegen är bundna till körningen (B2): en tidigare körnings dom (också samma dygn som planen, och i det äldre
   flödet), bygge, dom över bygget och export är aldrig beslutade eller kontrollerade; förra körningens plan räknas inte
-  i en ny körning som ännu inte arkiverat den; ett bygge från före godkännandet är inaktuellt, en dom över ett annat
-  bygge väntar och en export före bygget är inaktuell;
+  i en ny körning som ännu inte arkiverat den, men en start som startkontrollen stoppade lämnar förra körningens läge
+  som det senaste (steg 2 stoppat med skälet, ditt val efter stoppet syns); ett bygge från före godkännandet är
+  inaktuellt, en dom över ett annat bygge väntar och en export före bygget är inaktuell;
 - helbygget är kontrollerat bara när korslut skulle godkänna det (B1): taket, avstängd granskning, underkänd granskning
   vid taket, stoppvaktens besked från en annan kor.sh-körning och en godkänd rotfil när omgången inte är klar räcker
   inte; godkännandet prövas som kor.sh prövar det, också i det äldre flödet (R1);
 - förfiningen (R2): utan ny version är den underkänd, också när den föll med ett undantag (med kandidatens skäl, annars
-  inte observerad); en förfining för ett tidigare val räknas inte, medan den pågår pågår den, också när en annan
-  kandidat är klar, och med körningen stoppad eller arbetaren död är den stoppad; godkännandet väntar bara när det finns
-  något förfinat att godkänna;
+  inte observerad); bara körningen som bär valet (statusens dom) är valets förfining, så utforskningen som fortsätter
+  efter valet är varken pågående eller underkänd; en förfining för ett tidigare val räknas inte, medan den pågår pågår
+  den, också när en annan kandidat är klar eller en vald väntar på sin tur, och med körningen stoppad eller arbetaren
+  död är den stoppad; godkännandet väntar bara när det finns något förfinat att godkänna;
 - Figma-piloten (B3): "kontrollerat" och "underkänt" bara när den aktuella versionen själv är bedömd, varje bild och
   bedömning bär versionen ur sitt katalog- eller filnamn, och vyns bildtext visar den; pilotens katalog är ingen kund;
 - symlänkar: en länkad fil i underlaget eller en länkad bildkatalog i piloten visas inte;
@@ -262,6 +264,8 @@ korning(s, steg='klar_for_bedomning', startad='2026-10-06T10:00:00Z', klar='2026
 plan(s, '2026-10-06T10:05:00Z', ['k01', 'k02'])
 d1 = kandidat(s, 'k01', 'klar', version='a1' * 32, varv=3, brister=['HEMLIG-BRIST ett'], design_fel=['HEMLIG-DESIGNFEL ett'])
 skriv(d1 / 'SKISSKRITIK.json', {'storsta_problem': 'HEMLIG-KRITIK'})
+skriv(d1 / 'KRITIK.json', {'niva': 'nastan', 'forsta_intryck': 'HEMLIG-KRITIK första intrycket', 'helhet': 'HEMLIG-KRITIK helheten',
+                           'version': 'a1' * 32, 'modell': 'opus', 'last': True})  # granskningens nivå: läcker den syns det bara i jämförelsen
 skriv(d1 / 'RIKTNING.md', '# HEMLIG-TITEL riktning\n')
 for vy in ('390', '1440'):
     skriv(d1 / 'bilder' / 'start' / ('vy-%s-forsta.png' % vy), png())
@@ -520,6 +524,35 @@ with fall('B2 ny körning med förra körningens plan kvar'):
     kontroll(not st[2]['utfall'] and any('förra körningens plan' in t for t in texter(st[2], 'underlag')) and st[5]['status'] == 'inaktuellt',
              ('förra körningens förslag och godkännande', st[2]['utfall'], st[2]['underlag'], st[5]['status']))
 
+# --- B2: en --om-start som startkontrollen stoppade arkiverar ingenting: förra körningens läge är det senaste ---
+s = 'b2-om-stopp'
+underlag(s)
+korning(s, steg='klar_for_bedomning', startad='2026-10-05T10:00:00Z', klar='2026-10-05T10:50:00Z')
+plan(s, '2026-10-05T10:05:00Z', ['k01', 'k02'])
+kandidat(s, 'k01', 'klar', version='d1' * 32)
+kandidat(s, 'k02', 'klar', version='d2' * 32)
+kandidater.efter_beslut(s, dom(s, 'valj', '2026-10-05T10:30:00Z', [('k01', 'd1' * 32)]))
+STOPP = 'Startkontrollen stoppade starten: node svarar inte (underlag/b2-om-stopp/atelje/STARTKVITTO-STOPP.md)'
+# atelje.arbeta: förälderns status (steg startar, läge ny, ny starttid) skrivs tillbaka med startkontroll_stopp
+skriv(U / s / 'atelje' / 'STATUS.json', {'slug': s, 'startad': '2026-10-06T09:00:00Z', 'steg': 'startar', 'lage': 'ny', 'kandidatflode': True,
+                                         'modell': 'opus', 'effort': 'max', 'antal': 3,
+                                         'startkontroll_stopp': {'tid': '2026-10-06T09:00:10Z', 'fel': STOPP, 'stoppar': ['node svarar inte']}})
+with fall('B2 stoppad start, förälderns status'):
+    f = dash.flode(s)
+    st = {x['nr']: x for x in f['steg']}
+    kontroll(st[2]['status'] == 'stoppat' and STOPP in texter(st[2], 'brister') and len(st[2]['utfall']) == 2
+             and st[3]['status'] == 'beslutat' and not f['blind'],
+             ('B2: en stoppad start döljer förra körningen', st[2]['status'], st[2]['brister'], len(st[2]['utfall']), st[3]['status'], f['blind']))
+# den andra grenen: steg fel med startkontrollens besked; sedan ditt val av förra körningens förslag i vyn Prototyp
+skriv(U / s / 'atelje' / 'STATUS.json', {'slug': s, 'startad': '2026-10-06T09:00:00Z', 'steg': 'fel', 'lage': 'ny', 'kandidatflode': True,
+                                         'modell': 'opus', 'effort': 'max', 'antal': 3, 'faser': {}, 'fel': STOPP,
+                                         'startkontroll': {'status': 'stoppad', 'stoppar': ['node svarar inte']}})
+kandidater.efter_beslut(s, dom(s, 'valj', '2026-10-06T09:30:00Z', [('k02', 'd2' * 32)]))
+with fall('B2 stoppad start, steg fel och ditt val efter stoppet'):
+    st = stegen(s)
+    kontroll(st[2]['status'] == 'stoppat' and st[3]['status'] == 'beslutat' and 'd2d2d2d2d2d2' in st[3]['beslut'][-1]['text'] and st[4]['status'] == 'inte påbörjat',
+             ('B2: ditt val efter en stoppad start syns inte', st[2]['status'], st[3]['status'], st[3]['beslut'][-1:], st[4]['status']))
+
 # --- R2: förfiningen efter valet ---
 VAL = '2026-10-06T10:30:00Z'
 EFTER = dict(startad='2026-10-06T11:00:00Z', lage='valda', dom=VAL, valda=['k01'])
@@ -592,6 +625,30 @@ with fall('R2 kombinationerna'):
     kontroll(statusar('r2-tidigare-val')[3:5] == ['inte påbörjat', 'inte påbörjat'], ('R2: en förfining för ett tidigare val räknas för det nya', statusar('r2-tidigare-val')))
     kontroll(statusar('r2-dod')[3] == 'stoppat', ('R2: en förfining vars arbetare dött', statusar('r2-dod')))
     kontroll(statusar('r2-blandat')[3] == 'pågår', ('R2: en klar kandidat döljer att en annan förfinas', statusar('r2-blandat')))
+# förfiningen pågår, och en vald kandidat väntar på sin tur (kor_pool): den är inte påbörjad, inte underkänd
+forfiningsfall('r2-ko', dict(steg='forfina', pid=os.getpid()), 'vald', version='e1' * 32, skal='ägarens dom %s (valj)' % VAL)
+with fall('R2 en vald kandidat väntar medan förfiningen pågår'):
+    st = stegen('r2-ko')
+    kontroll(st[4]['status'] == 'pågår' and texter(st[4], 'utfall') == ['%s · inte påbörjad' % kandidater.etiketter('r2-ko', ['k01', 'k02'])['k01']] and not st[4]['brister'],
+             ('R2: en väntande kandidat räknas som underkänd', st[4]['status'], st[4]['utfall'], st[4]['brister']))
+# ditt val medan utforskningen stod i steg fel, och sedan --fortsatt av utforskningen (inte förfiningen): valets
+# förfining har aldrig startat, så den är varken pågående eller underkänd (omgranskning 2, R2)
+s = 'r2-utforskning'
+underlag(s)
+korning(s, steg='fel', startad='2026-10-06T10:00:00Z', fel='Stoppad: arbetaren stoppades (signal 15)')
+plan(s, '2026-10-06T10:05:00Z', ['k01', 'k02'])
+kandidat(s, 'k01', 'klar', version='c1' * 32)
+kandidat(s, 'k02', 'planerad')
+kandidater.efter_beslut(s, dom(s, 'valj', VAL, [('k01', 'c1' * 32)]))  # som atelje.doma: k01 blir vald med skälet "ägarens dom … (valj)"
+korning(s, steg='kandidater', startad='2026-10-06T11:00:00Z', lage='fortsatt', forra_lage='ny', pid=os.getpid())
+with fall('R2 utforskningen fortsätter efter valet'):
+    st = stegen(s)
+    kontroll(st[4]['status'] == 'inte påbörjat', ('R2: utforskningen räknas som valets förfining medan den pågår', st[4]['status'], st[4]['utfall']))
+korning(s, steg='klar_for_bedomning', startad='2026-10-06T11:00:00Z', lage='fortsatt', forra_lage='ny', klar='2026-10-06T11:40:00Z')
+kandidat(s, 'k02', 'klar', version='c2' * 32)
+with fall('R2 utforskningen klar efter valet'):
+    st = stegen(s)
+    kontroll(st[4]['status'] == 'inte påbörjat' and not st[4]['brister'], ('R2: utforskningen räknas som en förfining som föll', st[4]['status'], st[4]['utfall'], st[4]['brister']))
 
 # --- B3: Figma-pilotens status och bilder, bundna till version ---
 P = U / 'figma-pilot'
