@@ -47,8 +47,9 @@ hemma, rapporthuvudet och arbetsregeln om dokumentation: `README.md`, Var inform
   (`kontroller/stadning.py`; `--torr` listar bara). Det som verkar värdefullt väntar på ägaren i underhållets rapport.
   En arbetskopia ska heta `kopia*`; körd utanför huvudutcheckningen och dess worktrees städar den ingenting. En
   tempkatalog skapas med `korregister.egen_tmp`, och bara en sådan raderas, när körningen som den är registrerad på har
-  slutat. En sessions arbetsyta tas bort först när varje fil i den är registrerad eller nåbar i git; ett omtag sparar
-  det ägaren bedömt innan något raderas.
+  slutat (ägarens tolkning med exempel: `BESLUT.md`, tillägget 2026-10-07 om städningens villkor). En sessions arbetsyta
+  tas bort först när varje fil i den är registrerad eller nåbar i git. Ett omtag sparar det ägaren bedömt innan något
+  raderas, utom omgångarnas bilder i den äldre utforskningen med riktningar (samma tillägg).
 - Commit direkt på `main` och `git push origin main`. Repot är publikt: inga hemligheter, inget ur `underlag/` eller
   `kunder/`, inga personuppgifter ur ägarens domar (privatpersoners namn, nummer, adresser, hälsa; BESLUT.md 2026-10-03).
 - De gamla repona (Nortropic Runtime, nortropic-projektkontor, nortropic-digitala, kund-demo-norrglanta) är borttagna

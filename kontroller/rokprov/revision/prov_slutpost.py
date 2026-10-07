@@ -60,6 +60,8 @@ if not os.environ.get('NWP_PROV_BEHALL'):
         shutil.rmtree(TMP, True)
     atexit.register(stada)
 sys.path.insert(0, str(ROOT / 'kontroller'))
+import korregister  # noqa: E402
+korregister.registrera_tmp(TMP, 'prov_slutpost')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 import granska  # noqa: E402
 import korslut  # noqa: E402
 import prova  # noqa: E402

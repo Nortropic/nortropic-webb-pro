@@ -113,6 +113,8 @@ import kompetens  # noqa: E402
 import referenstjanster  # noqa: E402
 import refero_mcp  # noqa: E402
 import stadning  # noqa: E402
+import korregister  # noqa: E402
+korregister.registrera_tmp(TMP, 'prov_startkvitto')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 assert vl.ROOT == KOPIA, vl.ROOT
 stadning.disk_matt = lambda p: (1000, 400)  # 40 % ledigt: diskvakten städar aldrig här
 stadning.Ram.verklig = classmethod(lambda cls, *a, **k: (_ for _ in ()).throw(AssertionError('provet städar aldrig det verkliga systemet')))

@@ -1393,9 +1393,16 @@ Så gäller det sedan grenen `stadvillkor-omtag-20261007`, med rättelserna efte
    En version som ingen rad i domloggen pekar på sparas inte, och då görs inget omtag. Domloggen läses på samma sätt
    som överallt annars.
 
-   Inget raderas osparat: vinnaren (`atelje/vinnare/` och `VINNARE.json`, med en jämförelse mot hasharna där),
-   slutdomens bilder (`atelje/slutdom/`), tidigare körningars arkiv (`atelje/foregaende/`) och en äldre `prototyp/`
-   sparas i `omtag/<stämpel>/atelje/` och `omtag/<stämpel>/prototyp/`, med sha256 per fil och domarna som gäller dem.
+   Detta sparas innan något raderas, i `omtag/<stämpel>/atelje/` och `omtag/<stämpel>/prototyp/`, med sha256 per fil
+   och domarna som gäller dem:
+   - vinnaren: `atelje/vinnare/` och `VINNARE.json`, med en jämförelse mot hasharna där;
+   - slutdomens bilder: `atelje/slutdom/`;
+   - tidigare körningars arkiv: `atelje/foregaende/`;
+   - en äldre `prototyp/`.
+
+   Ett undantag står kvar (GR-20261007-r100-om#BÖR-3, i backloggen). I den äldre utforskningen med riktningar
+   (`NWP_KANDIDATFLODE=av`) raderas omgångarnas bilder som ägaren dömt blint i dashboarden utan att sparas. Ingen kund
+   använder den vägen i dag.
 
    Det sparade registreras med ett namnbyte från en dold katalog innan något raderas, och historikens post pekar på det
    (`sparat`). Faller sparandet, eller avbryts det, raderas inget och ingen historik skrivs. En dold rest efter ett
