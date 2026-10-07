@@ -105,9 +105,10 @@ rapporter och bevis, och `atgarder` är nästa steg. Därtill:
 - bristerna.
 
 Terminalens besked skrivs ur posten. Ägarens dom räknas bara ur en `kunder/<slug>/DOM.json` som är oförändrad sedan
-körningens start: filen är låst under körningen, byggets skrivverktyg nekas för den, och en dom som tillkom under en
-körning räknas inte. Skyddet är ofullständigt. Ett eget skript i bygget kan förfalska hashlistan, och en process som
-lever kvar efter sessionen kan skriva filen efteråt (GR-20261007-r101-om#BÖR-1 och #BÖR-2, i backloggen). `.venv/bin/python
+körningens start, och en dom som tillkom under en körning räknas inte. Under körningen nekas byggets Write och Edit för
+filen. Finns den vid starten låses den, och en DOM.json som ändras eller tillkommer under körningen ger slutkod 3.
+Skyddet är ofullständigt (GR-20261007-r101-om#BÖR-1, i backloggen): ett eget skript i bygget kan ta bort låset och
+förfalska hashlistan, och en process som lever kvar efter sessionen kan skriva filen efteråt. `.venv/bin/python
 kontroller/korslut.py --visa kunder/<slug>` prövar posten mot läget nu. Har bygget i `kunder/<slug>/sajt/dist/`,
 granskningens metod eller startsidans godkännande ändrats sedan körningen står postens godkännanden som historik, och
 klart för leverans är nej.

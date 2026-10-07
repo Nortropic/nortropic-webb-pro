@@ -13,7 +13,10 @@
 # körningen avbröts (SIGTERM, SIGINT eller SIGHUP) · 5 slutposten uteblev · 6 bygget stannade utan sajt (den äldre
 # utforskningens lägen: ateljén förkastade alla riktningar, skaparen lämnade grundidén, eller ägaren dömde startsidan).
 # Flera helbyggen körs ett i taget. Varje start efter låset ger en slutpost: kunder/<slug>/korningar/<körning>/SLUT.json
-# (korslut.py). En körning som dödas (SIGKILL) får ingen; nästa start och korslut.py --visa säger att den avbröts.
+# (korslut.py). Det finns tre undantag:
+#   - när korningar/ är en symlänk skrivs ingenting, bara beskedet;
+#   - ett kommando som faller under set -e ger ingen post (GR-20261007-r101-om2#KAN-5, i backloggen);
+#   - en körning som dödas (SIGKILL) får ingen post; nästa start och korslut.py --visa säger att den avbröts.
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400),
 # NWP_STOPP_TAK (8), NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång),
 # NWP_GRANSKNING_MAX (5 per körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json

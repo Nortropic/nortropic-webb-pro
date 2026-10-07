@@ -1290,12 +1290,13 @@ koden före rättningen.
      lämnar `START.json` utan slutpost; nästa start och `--visa` säger att den avbröts.
    - En ny post ersätter de tidigare (`rapportstatus: ersatt` och `ersatt_av`) bara när den gäller ett annat bygge eller
      en annan metod. Den äldre postens länk till rapporten pekar på den flyttade filen.
-   - Ägarens dom räknas bara ur en `DOM.json` som är oförändrad sedan körningens start. Filen är låst, och byggets
-     skrivverktyg nekas för den under körningen. Skyddet är ofullständigt (omgranskningen GR-20261007-r101-om, i
-     backloggen):
-     - #BÖR-1: ett eget skript i bygget kan förfalska hashlistan `prov/.skyddat-fore`. Samma lucka döljer en ändrad
-       `kritik/GRANSKARE.md`, så den gäller hela skyddet från F10.
-     - #BÖR-2: en process som lever kvar efter sessionen kan skriva filen efteråt.
+   - Ägarens dom räknas bara ur en `DOM.json` som är oförändrad sedan körningens start. Byggets Write och Edit nekas för
+     filen under körningen. Finns den vid starten låses den, och en DOM.json som ändras eller tillkommer under
+     körningen ger slutkod 3. Skyddet är ofullständigt (omgranskningen GR-20261007-r101-om, i backloggen):
+     - #BÖR-1: ett eget skript i bygget kan ta bort låset och förfalska hashlistan `prov/.skyddat-fore`, och en process
+       som lever kvar efter sessionen kan skriva filen efteråt. Samma lucka döljer en ändrad `kritik/GRANSKARE.md`, så
+       den gäller hela skyddet från F10.
+     - #BÖR-2: barnprocesser kan leva kvar efter en signal under bygget.
 
      Att svaret "Ja, som den är" räknas som godkännande är Claudes tolkning, inte bekräftad av ägaren.
    - `korslut.py --visa` prövar posten mot läget nu. Har bygget, granskningens metod eller startsidans godkännande ändrats
