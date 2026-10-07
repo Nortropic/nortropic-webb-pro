@@ -1,0 +1,17 @@
+---
+id: B-20261007-backloggen-ateroppningen-av-en-klar-post-ordnar
+status: vilande
+kalla: granskning
+kallref: granskningar/GR-20261007-r99-om.md
+fynd: GR-20261007-r99-om#KAN-1
+skapad: 2026-10-07
+prio: normal
+steg: main: kontroller/backlog.py, kontroller/rokprov/revision/prov_dokumentation.py
+---
+# Backloggen: återöppningen av en klar post ordnar rapporterna efter tid, inte efter rundans nummer
+
+**Varför:** ny --fynd öppnar inte en klar post i tre fall: GR-20261007-r96-om3 efter GR-20261007-r97 (senare i tiden men lägre runda), en rapport utan ÅÅÅÅMMDD i id:t (GRANSKNING-r98, RAPPORT-2026-10-08-x), och en post som verifierats av en sådan rapport. Det är dokumenterat, men ny slutar med 0 och säger det bara på stderr.
+
+**Förslag:** Ordna efter rapporthuvudets datum och förteckningens registreringstid i stället för rundans nummer, och skriv utfallet också på stdout med kommandot för att öppna posten för hand.
+
+**Klart när:** De tre fallen i GR-20261007-r99-om#KAN-1 har var sitt prov i prov_dokumentation.py, och det som inte kan avgöras säger ny tydligt i sin utdata.

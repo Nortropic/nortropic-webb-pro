@@ -1019,6 +1019,9 @@ Genomförs i steg, och varje steg redovisar vad som återstår:
      huvud läggs bara till där underlaget belägger värdena;
    - att föra in de äldre granskningarnas fynd i backloggen. Vilka som fortfarande gäller kräver bedömning;
    - GR-20261007-r99#KAN-3, -5, -6, -9 och -11–14 är inte rättade (commitmeddelandet räknar upp dem);
+   - kalibreringsförsöket, omklassat till utvecklingsdata, syns inte i översikten. fil_tillaten döljer det, och att visa
+     det kräver först en bedömning av blindningen (GR-20261007-r99#BÖR-7, GR-20261007-r99-om#KAN-5);
+   - omgranskningens BÖR-1 och KAN-1–4 är backlogposter (`fynd: GR-20261007-r99-om#…`);
    - raden "Dokumentation:" i commitmeddelandena prövas inte av något verktyg;
    - ingenting prövar rapporthuvudet när en rapport skrivs. Vyn visar ett trasigt huvud och saknade fält under Saknat
      underlag.
