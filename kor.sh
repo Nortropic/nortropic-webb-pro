@@ -169,10 +169,10 @@ if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
   case "$MCP_VERKLIG" in
     "$ROOT/kontroller/mcp/inspo.json")  INSPO=(mcp__inspo__recommend mcp__inspo__search_screens mcp__inspo__get_screen);;
     "$ROOT/kontroller/mcp/mobbin.json")
-      TJ="$(tjanstens_verktyg mobbin)" && [ -n "$TJ" ] || { echo "Mobbins verktyg gick inte att läsa ur referenstjanster.TJANSTER"; exit 2; }
+      TJ="$(tjanstens_verktyg mobbin)" && [ -n "$TJ" ] || stopp "Mobbins verktyg gick inte att läsa ur referenstjanster.TJANSTER"
       INSPO=($TJ);;
     "$ROOT/kontroller/mcp/refero.json")
-      TJ="$(tjanstens_verktyg refero)" && [ -n "$TJ" ] || { echo "Referos verktyg gick inte att läsa ur referenstjanster.TJANSTER"; exit 2; }
+      TJ="$(tjanstens_verktyg refero)" && [ -n "$TJ" ] || stopp "Referos verktyg gick inte att läsa ur referenstjanster.TJANSTER"
       INSPO=($TJ)
       # Refero ansluts med en personlig nyckel (ingen webbläsarinloggning): anslutningsfilen bär ${REFERO_MCP_TOKEN},
       # värdet ligger i ägarens hemlighetsmapp och exporteras bara till byggets claude-process. Aldrig i repot.

@@ -104,8 +104,10 @@ rapporter och bevis, och `atgarder` är nästa steg. Därtill:
   godkänner och klart för leverans inom angiven omfattning;
 - bristerna.
 
-Terminalens besked skrivs ur posten. Ägarens dom räknas bara ur en `kunder/<slug>/DOM.json` som bygget inte kan ha
-skrivit: den är låst och skyddad under körningen, och en dom som tillkom under en körning räknas aldrig. `.venv/bin/python
+Terminalens besked skrivs ur posten. Ägarens dom räknas bara ur en `kunder/<slug>/DOM.json` som är oförändrad sedan
+körningens start: filen är låst under körningen, byggets skrivverktyg nekas för den, och en dom som tillkom under en
+körning räknas inte. Skyddet är ofullständigt. Ett eget skript i bygget kan förfalska hashlistan, och en process som
+lever kvar efter sessionen kan skriva filen efteråt (GR-20261007-r101-om#BÖR-1 och #BÖR-2, i backloggen). `.venv/bin/python
 kontroller/korslut.py --visa kunder/<slug>` prövar posten mot läget nu. Har bygget i `kunder/<slug>/sajt/dist/`,
 granskningens metod eller startsidans godkännande ändrats sedan körningen står postens godkännanden som historik, och
 klart för leverans är nej.

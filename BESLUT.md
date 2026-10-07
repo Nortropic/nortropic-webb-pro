@@ -1290,9 +1290,14 @@ koden före rättningen.
      lämnar `START.json` utan slutpost; nästa start och `--visa` säger att den avbröts.
    - En ny post ersätter de tidigare (`rapportstatus: ersatt` och `ersatt_av`) bara när den gäller ett annat bygge eller
      en annan metod. Den äldre postens länk till rapporten pekar på den flyttade filen.
-   - Ägarens dom räknas bara ur en `DOM.json` som är oförändrad sedan körningens start. Filen är låst och skyddad under
-     körningen, och en dom som tillkom under en körning räknas aldrig. Att svaret "Ja, som den är" räknas som
-     godkännande är Claudes tolkning, inte bekräftad av ägaren.
+   - Ägarens dom räknas bara ur en `DOM.json` som är oförändrad sedan körningens start. Filen är låst, och byggets
+     skrivverktyg nekas för den under körningen. Skyddet är ofullständigt (omgranskningen GR-20261007-r101-om, i
+     backloggen):
+     - #BÖR-1: ett eget skript i bygget kan förfalska hashlistan `prov/.skyddat-fore`. Samma lucka döljer en ändrad
+       `kritik/GRANSKARE.md`, så den gäller hela skyddet från F10.
+     - #BÖR-2: en process som lever kvar efter sessionen kan skriva filen efteråt.
+
+     Att svaret "Ja, som den är" räknas som godkännande är Claudes tolkning, inte bekräftad av ägaren.
    - `korslut.py --visa` prövar posten mot läget nu. Har bygget, granskningens metod eller startsidans godkännande ändrats
      står postens godkännanden som historik, och klart för leverans är nej.
    - Posten som uteblir (en katalog i dess ställe, ett skrivfel) ger slutkod 5, och backlog_commit publicerar då inget.
