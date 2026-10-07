@@ -818,7 +818,7 @@ Rubrikerna i Playfair Display blir för tunga i mobilen.
 
 ## §7 Designriktning
 
-Huvudreferens: Tekt Studio och Kinfolk Magazine, med detaljer från Ateljé Norrsund. Typsnitt: Playfair Display och Work Sans.
+Huvudreferens: Fjärran Studio och Kinfolk Magazine, med detaljer från Ateljé Norrsund. Typsnitt: Playfair Display och Work Sans.
 Vi verkar i Upplands Väsby och Norra Sverige. Material Design passar inte.
 
 ## §8 Bild
@@ -845,7 +845,7 @@ SKARM = 'mcp__refero__refero_search_screens'
 # granskarens falsklarm (GR-20261007-r102-om, avsnitt 5) och fler: generiska frågor, förlagor och typsnitt ur §7 ska gå
 FALSKLARM = [(SKARM, {'query': 'social proof section for a local business', 'platform': 'web'}),
              (SKARM, {'query': 'kitchen renovation website hero', 'platform': 'web'}),
-             ('mcp__refero__refero_search_sites', {'query': 'Tekt Studio'}),
+             ('mcp__refero__refero_search_sites', {'query': 'Fjärran Studio'}),
              ('mcp__refero__refero_search_sites', {'query': 'Ateljé Norrsund'}),  # en förlaga i §7 som annars vore ett par (P01)
              (SKARM, {'query': 'kinfolk magazine editorial layout', 'platform': 'web'}),
              ('mcp__refero__refero_search_styles', {'query': 'playfair display serif headings'}),
