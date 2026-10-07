@@ -5109,9 +5109,9 @@ try:
             (kd.kdir(sl_sk, 'k02') / 'RIKTNING.md').write_text('Huvudreferens: Xref — kompositionen\n\n## Idén\n\nKöket i centrum.\n')
             vd_ = kd.kdir(sl_sk, 'k02') / 'varv' / 'start' / 'varv-01'
             vd_.mkdir(parents=True, exist_ok=True)
-            for b_ in ('390', '1280', '1440'):  # ett helt varv: första vyn och hela sidan (forhandsvisa.LAS)
+            for b_ in ('390', '1280', '1440'):  # ett helt varv: första vyn och hela sidan (forhandsvisa.LAS), som hela PNG-huvuden
                 for v_ in ('forsta', 'hela'):
-                    (vd_ / ('vy-%s-%s.png' % (b_, v_))).write_bytes(b'png')
+                    (vd_ / ('vy-%s-%s.png' % (b_, v_))).write_bytes(b'\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR' + int(b_).to_bytes(4, 'big') + (844).to_bytes(4, 'big'))
             if GK.get('begar') and 'Researchen du begärde' not in prompt:
                 (kd.kdir(sl_sk, 'k02') / sk.KOMPLETTERING).write_text(json.dumps({'varfor': 'saknar kök i närbild'}))
             if GK.get('skapare_tidsgrans') and 'Förra sessionen nådde sin tidsgräns' not in prompt:
@@ -5125,8 +5125,12 @@ try:
         (kd.kdir(sl_sk, 'k02') / sk.KOMPLETTERING).unlink()
         return {'tid': '2026-10-06T12:00:00Z', 'begaran': 'KOMPLETTERING.json', 'varfor': 'RESEARCHENS SVAR: kök i närbild'}
 
+    # skaparens del av försöket: tiden före granskarens reserv (FRIST_SKISSKRITIK och SVAR_MIN), räknad ur konstanterna
+    # så att provet följer en uppmätt frist (BESLUT.md, tillägget 2026-10-07)
+    BAS_GK = 2700 - kd.FOTO_RESERV - kd.SKISSKRITIK_RESERV
+
     def omgang_gk(**gk_):
-        GK.clear(); GK.update(dict({'skapare': 1500, 'kritik': 300, 'svar': 300, 'research': 0}, **gk_))
+        GK.clear(); GK.update(dict({'skapare': BAS_GK - 120, 'kritik': 300, 'svar': 300, 'research': 0}, **gk_))
         sess_gk.clear()
         kd.satt_status(sl_sk, 'k02', 'klar', 'prov', ta_bort=('skisskritik',))
         kl_gk.t = 0.0
@@ -5170,9 +5174,9 @@ try:
         assert skapare2_gk[1]['frist'] >= kd.SKISSKRITIK_RESERV - 60, 'fortsättningen får granskningens reserv: %s' % skapare2_gk[1]['frist']
         assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk) and 'fortsättning' in kd.las_status(sl_sk, 'k02')['skisskritik']['skal']
         # (3) granskningen görs bara när svaret hinner; efter den står det kvar för lite tid: inget svar
-        omgang_gk(skapare=1700)
+        omgang_gk(skapare=BAS_GK + 200)
         assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk), 'granskningen görs inte när svaret inte hinner'
-        omgang_gk(skapare=1500, kritik=700)
+        omgang_gk(kritik=kd.FRIST_SKISSKRITIK + 220)
         assert [x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk].count(True) == 1 and not any('En kritisk granskare har sett' in x_['prompt'] for x_ in sess_gk)
         assert kd.las_status(sl_sk, 'k02')['skisskritik']['tid_kvar'] < kd.SVAR_MIN
         # (4) ett stopp under granskningen går igenom: försöket står kvar under arbete
@@ -5212,7 +5216,7 @@ try:
         assert st5c_gk['status'] == 'klar' and not st5c_gk['skisskritik'].get('svaret_aterstallt'), st5c_gk.get('skisskritik')
         assert (kd.ksajt(sl_sk, 'k02') / 'src' / 'pages' / 'index.astro').read_text() == '<h1>Skiss</h1><p>Köket efter svaret.</p>', 'svaret behålls'
         # (6) research på begäran går före granskningen när båda inte ryms: skaparen får resultatet, ingen granskning
-        omgang_gk(skapare=1000, research=600, begar=True)
+        omgang_gk(skapare=BAS_GK - 620, research=600, begar=True)
         skapare_gk = [x_ for x_ in sess_gk if x_['schema'] is None and 'En kritisk granskare har sett' not in x_['prompt']]
         assert len(skapare_gk) == 2 and 'RESEARCHENS SVAR' in skapare_gk[1]['prompt'], [x_['ut'] for x_ in sess_gk]
         assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk) and 'researchen' in kd.las_status(sl_sk, 'k02')['skisskritik']['skal']

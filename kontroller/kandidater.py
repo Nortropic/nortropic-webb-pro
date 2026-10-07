@@ -10,7 +10,7 @@ material, referensbilderna och metodens kärna (kvalitetskraven, besluten med r�
 att slå upp i; historiken slås upp vid behov. Högst tre samtidigt, 45 minuter per inledande försök med verktygsväntan,
 den interna granskningen och skaparens svar inräknade, ett omförsök bara vid ett identifierat tekniskt fel, inget
 minimiantal varv. Ingen granskningspanel och ingen förbättringsrunda före ägarens val: en intern granskare ser
-skisserna (bara bilderna) när tiden räcker och skaparen svarar, men omdömet och svaret visas för ägaren först efter första beslutet; snabba
+den renderade skissen (aldrig skaparens text) när tiden räcker och skaparen svarar, men omdömet och svaret visas för ägaren först efter första beslutet; snabba
 objektiva kontroller (bygget, konsolen, spill, axe, siffror utan belägg, menyn) markerar brister. Fördjupningen (hela startsidan, undersidan och besökarens centrala flöde, DESIGN.md) kommer
 efter ägarens val. NWP_KANDIDATLAGE=full är en tillfällig växel till förvalet nedan, för jämförelse och återställning.
 
@@ -85,27 +85,46 @@ MIN_VARV = 3  # arbetsregel i läget full: varvens antal är ingen kvalitetsbed�
 # jämförelse och återställning; växeln tas bort när ägaren dömt skissläget (BESLUT.md 2026-10-05, kväll)
 LAGE = 'full' if os.environ.get('NWP_KANDIDATLAGE') == 'full' else 'skiss'  # bara skiss och full (granskning 3, S13)
 FRIST_SKISS = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS') or 2700)  # ett inledande skaparförsök, verktygsväntan, granskaren och svaret inräknade
-# den kritiska granskaren i skissförsöket (ägarens uppdrag 2026-10-06, punkt 6): tiden som hålls för granskaren och
-# skaparens svar, granskarens egen gräns, och NWP_SKISSKRITIK=av stänger av den
-SKISSKRITIK_RESERV = int(os.environ.get('NWP_KANDIDAT_SKISSKRITIK_RESERV') or 900)
+# den kritiska granskaren i skissförsöket (ägarens uppdrag 2026-10-06, punkt 6), med rollen kritik i metodkartan (ägarens
+# ord 2026-10-07: "Du behöver ju fixa luckan där med de verktyg vi har tillgängliga"): granskarens egen gräns, tiden som
+# hålls för granskaren och skaparens svar, och NWP_SKISSKRITIK=av stänger av den
 SVAR_MIN = 420  # sekunder som minst krävs för skaparens svar på granskningen; annars inget svar (granskningen 2026-10-06)
 FORTSATT_MIN = 600  # en uppföljande skaparsession (researchens resultat, en fortsättning) går före granskningen under tio minuter
 SVARSRUBRIK = 'Svar på granskningen'  # skaparens svar i RIKTNING.md; visas för ägaren först efter första beslutet
+# fristen bygger på en mätning, inte en gissning: två verkliga sessioner med granskarens modell, kärnan, fyra bredder,
+# menyn, detektorn och Refero och Mobbin, på en syntetisk skiss utan kunduppgifter (BESLUT.md, tillägget 2026-10-07).
+# 'sekunder' är den längsta väggtiden. Fristen 480 s är 4,4 gånger den: marginalen gäller det mätningen inte prövade
+# (riktiga foton, byggkön när tre skisser bygger samtidigt, tjänsternas svarstid). Reserven är fristen och skaparens svar.
+MATT_SKISSKRITIK = {'tid': '2026-10-07T10:03:18Z', 'sekunder': 109, 'turer': 33, 'modell': 'claude-sonnet-5-5[1m]',
+                    'matningar': [{'tid': '2026-10-07T09:57:19Z', 'sekunder': 107, 'session_s': 103, 'turer': 31},
+                                  {'tid': '2026-10-07T10:03:18Z', 'sekunder': 109, 'session_s': 106, 'turer': 33}]}
 FRIST_SKISSKRITIK = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISSKRITIK') or 480)
+SKISSKRITIK_RESERV = int(os.environ.get('NWP_KANDIDAT_SKISSKRITIK_RESERV') or (FRIST_SKISSKRITIK + SVAR_MIN))
+MAX_TURER_SKISSKRITIK = 120  # kärnan, förhandsvisningen, bilderna, detektorn och ett par förebilder
 SKISSKRITIK_SCHEMA = {
-    'type': 'object', 'additionalProperties': False, 'required': ['storsta_problem', 'synliga_problem', 'generiskt', 'rekommendation', 'motivering'],
+    'type': 'object', 'additionalProperties': False,
+    'required': ['storsta_problem', 'synliga_problem', 'generiskt', 'rekommendation', 'motivering', 'bredder', 'tillstand', 'forebilder', 'valda'],
     'properties': {'storsta_problem': {'type': 'string'}, 'synliga_problem': {'type': 'array', 'maxItems': 8, 'items': {'type': 'string'}},
                    'generiskt': {'type': 'boolean'}, 'rekommendation': {'type': 'string', 'enum': ['fortsätt', 'byt komposition', 'förkasta riktningen']},
-                   'motivering': {'type': 'string'}}}
+                   'motivering': {'type': 'string'},
+                   # det kritiken säger sig ha sett; det belagda räknas ur transkriptet (bedomt)
+                   'bredder': {'type': 'array', 'maxItems': 4, 'items': {'type': 'string', 'enum': list(forhandsvisa.BREDDER)}},
+                   'tillstand': {'type': 'array', 'maxItems': 3, 'items': {'type': 'string', 'enum': ['meny', 'tangentbord', 'reflow']}},
+                   'forebilder': {'type': 'array', 'maxItems': 4, 'items': {
+                       'type': 'object', 'additionalProperties': False, 'required': ['tjanst', 'forebild', 'jamforelse'],
+                       'properties': {'tjanst': {'type': 'string', 'enum': ['refero', 'mobbin']}, 'forebild': {'type': 'string'}, 'jamforelse': {'type': 'string'}}}},
+                   'valda': {'type': 'array', 'maxItems': 10, 'items': {
+                       'type': 'object', 'additionalProperties': False, 'required': ['fil', 'varfor'],
+                       'properties': {'fil': {'type': 'string'}, 'varfor': {'type': 'string'}}}}}}
 FRIST_SKISS_OMFORSOK = int(os.environ.get('NWP_KANDIDAT_FRIST_OMFORSOK') or 900)  # ett omförsök efter ett identifierat tekniskt fel
 FRIST_SKISS_FORSKA = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS_FORSKA') or 1200)
 MAX_FORSOK_SKISS = 2  # det inledande försöket och ett omförsök (tekniskt fel eller avbrott); ingen förlängning för antalets skull
 MAX_PARALLELLT_SKISS = 3  # högst tre skisser samtidigt (ägarens försöksbudget 2026-10-05)
 EFFORT_SKISS = os.environ.get('NWP_KANDIDAT_EFFORT') or 'high'
 # menyns stängda knapp i skissens snabba kontroll (inspektera.mjs --meny), som i axe.mjs: aria-expanded eller
-# details/summary, i sidhuvudet eller navigationen (ägaren 2026-10-06: menyn i k01 var en details/summary och klickades aldrig)
-MENYKNAPP = ', '.join(('header button[aria-expanded="false"]', 'nav button[aria-expanded="false"]',
-                       'header details:not([open]) > summary', 'nav details:not([open]) > summary'))
+# details/summary, i sidhuvudet eller navigationen (ägaren 2026-10-06: menyn i k01 var en details/summary och klickades
+# aldrig); samma väljare som granskarens förhandsvisning tar
+MENYKNAPP = forhandsvisa.MENYKNAPP
 STARTVYER = '390,768,1280,1440'  # startsidans bilder; 1280 är mellanbredden där en fast datorlayout spiller (ägaren 2026-10-06)
 FOTO_RESERV = 180  # sekunder av försökets tid för fotograferingen och kontrollerna efter sessionen
 KOMPETENSPASS = ('rorelse', 'granskning')  # efter fördjupningen, en gång var och i den ordningen; inga redigerande pass före ägarens val (Codex via ägaren 2026-10-05, punkt 8)
@@ -562,6 +581,10 @@ def forska_prompt(slug, n, fel=None, skiss=False):
         *skapande.fakta_rader(slug, atelje.UNDERLAG), '',
         'Läs först: ' + ', '.join(filer) + '.',
         *historik_rader(slug), *regel_rader(), *metod_rader(slug, 'forska'), '',
+        *kompetens.prompt_rader('forska', slug), '',
+        'Pröva territorierna med några egna generiska sökningar i Refero och Mobbin (och uxsok) innan du skriver frågorna: vad',
+        'tjänsterna faktiskt har i varje estetiskt territorium och för besökarens uppgift. Det är prov, ingen hämtning:',
+        'referenssteget hämtar sedan materialet med belägg, och ett tomt eller misslyckat prov skrivs som det är.', '',
         *research_rader(slug), '',
         *(['Återanvänd researchen som finns (referenspaketet och tjänsternas rapport ovan). Föreslå sajter och frågor bara',
            'där materialet saknar något som planen behöver för den bärande riktningen: högst 4 sajter och 6 frågor, annars tomma',
@@ -604,11 +627,12 @@ def forska(slug, n, skiss=False):
     forbjudna = skapande.forbjudna_termer(slug, atelje.UNDERLAG)
     fore_paket = skapande.senaste_paket(slug, atelje.UNDERLAG)
     fore_tj = (atelje.las_json(u / 'referenser' / 'tjanster' / 'TJANSTER.json') or {}).get('tid')
-    fel, plan, res, slappta = None, {}, {}, []
+    fel, plan, res, slappta, sessioner_ = None, {}, {}, [], []
     for forsok in (1, 2):
-        svar = atelje.session(forska_prompt(slug, n, fel, skiss), LASVERKTYG, r / ('svar-forska-%d.json' % forsok),
+        svar = atelje.session(forska_prompt(slug, n, fel, skiss), LASVERKTYG + kompetens.verktyg('forska', slug), r / ('svar-forska-%d.json' % forsok),
                               (FORSKA_SCHEMA_SKISS if n == 1 else FORSKA_SCHEMA_SKISS_BRED) if skiss else FORSKA_SCHEMA, 150, atelje.MODELL,
                               EFFORT_SKISS if skiss else atelje.EFFORT, FRIST_SKISS_FORSKA if skiss else FRIST_FORSKA, slug=slug)
+        sessioner_.append(svar)
         plan = svar.get('structured_output') or {}
         sajter, fragor, slappta = [], [], []
         for s in plan.get('sajter') or []:
@@ -644,7 +668,8 @@ def forska(slug, n, skiss=False):
             'nytt': {'paket': efter_paket.name if efter_paket and efter_paket != fore_paket else None, 'sajter': nya_sajter,
                      'tjanster': tj.get('tid') if tj.get('tid') and tj.get('tid') != fore_tj else None},
             'fore': {'paket': fore_paket.name if fore_paket else None, 'tjanster': fore_tj},
-            'referens': res.get('referens'), 'tjanster': res.get('tjanster')}
+            'referens': res.get('referens'), 'tjanster': res.get('tjanster'),
+            'kompetens': kompetens_kort(kompetens.kvitto(sessioner_, 'forska'))}
     (r / 'FORSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     rader = ['# Research före kandidatplanen · %s · %s' % (slug, post['tid']), '',
              'Gjord av kontroller/kandidater.py (forska): en session formulerade antagandena, frågorna och sajterna; referenssteget',
@@ -670,8 +695,23 @@ def forska(slug, n, skiss=False):
     rader += ['', '## Sajterna', ''] + ['- %s (%s) %s — %s' % (s.get('namn'), s.get('roll'), s.get('adress'), s.get('varfor')) for s in post['sajter']]
     if slappta:
         rader += ['', '## Släppta (utanför kanalens form)', ''] + ['- ' + x for x in slappta]
+    rader += ['', '## Kompetensen', '', *kompetensrad(post['kompetens'], 'forska')]
     (r / 'FORSKNING.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
     return post
+
+
+def kompetensrad(kv, pass_):
+    """Kvittot i en läsbar rad per roll, i tillståndsorden: kärnan, de valda alternativen, verktygen och tjänsterna med
+    utfall. Ett läskvitto är belägg för läsning, inte för tillämpning (metodkartan, Tillståndsorden)."""
+    kv = kv if isinstance(kv, dict) else {}
+    ut = []
+    for r_ in kv.get('tillstand') or kompetens.tillstand(kv, pass_):
+        delar = ['kärnan %s (%s av %s filer)' % (r_['karna']['tillstand'], r_['karna'].get('lasta', '–'), r_['karna'].get('filer', '–'))]
+        delar.append('alternativ: %s' % (', '.join(Path(f).name for f in r_['alternativ'].get('valda') or []) or r_['alternativ']['tillstand']))
+        delar += ['%s: %s' % (v, t) for v, t in (r_.get('verktyg') or {}).items()]
+        delar += ['%s: %s%s' % (m, x.get('tillstand'), (' (%s)' % x['orsak']) if x.get('orsak') else '') for m, x in (r_.get('mcp') or {}).items()]
+        ut.append('- %s (%s): %s%s' % (r_['namn'], r_['roll'], '; '.join(delar), '' if kv.get('verifierad') else ' (transkriptet saknas: inte observerat)'))
+    return ut or ['- ingen roll i metodkartan för %s' % pass_]
 
 
 # --- planen ---
@@ -979,13 +1019,27 @@ def skapar_prompt(slug, kid, kritik=None, komplettering=None, forbattra=None, er
 
 
 def skisskritik_rader(kr):
-    """Den kritiska granskarens svar till skaparen (granskaren såg bara bilderna)."""
+    """Den kritiska granskarens svar till skaparen (granskaren såg den renderade sidan, aldrig skaparens text), med de
+    bredder som är belagda i granskarens transkript: en bredd utan en giltig bild är inte bedömd, också när svaret nämner
+    den."""
     if not kr:
         return []
-    return ['En kritisk granskare har sett dina renderade bilder (varv %s) utan din text, och skriver:' % kr.get('varv', '?'),
+    bed = kr.get('bedomt') if isinstance(kr.get('bedomt'), dict) else None
+    belagt = []
+    if bed is not None and bed.get('verifierad'):
+        sett = bed.get('bedomda_bredder') or []
+        inte = [b for b in forhandsvisa.BREDDER if b not in sett]
+        belagt.append('- belagt i granskarens transkript: granskaren såg %s%s' % (', '.join(sett) or 'ingen bredd', ('; inte bedömt: %s' % ', '.join(inte)) if inte else ''))
+        if bed.get('pastadda_utan_belagg'):
+            belagt.append('- det granskaren skriver om %s vilar inte på en bild den såg (bilden saknades eller var tom); väg det därefter'
+                          % ', '.join(bed['pastadda_utan_belagg']))
+    elif bed is not None:
+        belagt.append('- vilka bredder granskaren såg går inte att belägga (transkriptet saknas)')
+    return ['En kritisk granskare har sett din renderade skiss (varv %s) utan din text, och skriver:' % kr.get('varv', '?'),
             '- det största problemet: %s' % kr.get('storsta_problem', ''),
             *['- %s' % x for x in kr.get('synliga_problem') or []],
             '- generisk: %s; rekommendation: %s (%s)' % ('ja' if kr.get('generiskt') else 'nej', kr.get('rekommendation'), kr.get('motivering', '')),
+            *belagt,
             'Skissen och RIKTNING.md finns redan i projektet; fortsätt därifrån. Du är den ansvariga designern och avgör:',
             'åtgärda det största problemet; rekommenderar granskaren att byta komposition eller förkasta riktningen, gör det (en',
             'ny komposition eller grundidé med samma fakta och material), eller stå kvar med skäl. Skriv ditt svar på granskningen',
@@ -1189,7 +1243,7 @@ def arkivera_forsok(slug, kid, st):
     mal = atelje.ledigt_namn(d, 'forsok-%s' % (st.get('forsok') or 0))
     atelje.saker_vag(mal, rot(slug))
     mal.mkdir(parents=True)  # före flyttarna: en fil flyttas aldrig in i en katalog som saknas (granskning 3, S1)
-    for n in ('RIKTNING.md', 'varv', 'bilder'):
+    for n in ('RIKTNING.md', 'varv', 'bilder', forhandsvisa.GRANSKARE):  # kritikens bilder hör till försöket de bedömde
         if (d / n).exists() and not (d / n).is_symlink():
             shutil.move(str(d / n), str(mal / n))
     if pr.exists() or pr.is_symlink():
@@ -1198,40 +1252,170 @@ def arkivera_forsok(slug, kid, st):
     return mal
 
 
+def kompetens_kort(kv):
+    """Det sparade kompetenskvittot: läsningen, de valda alternativen, skillverktyget, verktygens och tjänsternas anrop
+    med utfall, sessionens läge hos tjänsterna och tillståndet per roll (kompetens.kvitto)."""
+    return {k_: kv.get(k_) for k_ in ('verifierad', 'lasta', 'saknas', 'valda', 'skill_anrop', 'mcp_anrop', 'mcp_utfall', 'mcp_lage',
+                                       'verktyg_anrop', 'tillstand') if k_ in (kv or {})}
+
+
+# skalkommandon som läser filer. Claude Code släpper läsande kommandon i en pipe efter ett tillåtet kommando, och
+# grep -r läser in i nekade kataloger: i en verklig session med kritikens argument 2026-10-07 gav
+# `forhandsvisa.py … --granskare | grep -r <ord> underlag/<slug>` skaparens RIKTNING.md (tail och head med en nekad väg
+# stoppades). En blind granskare har inga skalkommandon utöver sina verktyg, så de nekas alla.
+LASANDE_SKAL = ('cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack', 'find', 'ls', 'tree', 'du', 'stat',
+                'file', 'wc', 'sed', 'awk', 'cut', 'sort', 'uniq', 'tr', 'nl', 'tac', 'rev', 'paste', 'join', 'comm', 'diff', 'cmp',
+                'strings', 'xxd', 'od', 'hexdump', 'base64', 'jq', 'xargs', 'zcat', 'unzip', 'zipinfo', 'tar', 'perl', 'ruby', 'python',
+                'python3', 'look', 'column', 'fold', 'iconv', 'cp', 'mv', 'ln', 'tee', 'dd')
+
+
+def blind_nekas(slug, kid, tillat):
+    """Read-förbud för en blind granskare, skisskritiken och granskningens första pass (ägarens ord 2026-10-07; blind för
+    skaparens text, uppdrag, referenspaket och kod): i kandidatens katalog allt utom tillat (bilderna och granskarens egen
+    katalog), i ateljén allt utom kandidaterna och metoden, de andra kandidaterna, kandidatens projekt (koden, DESIGN.md,
+    stilpaketet och bygget), spårfilerna med sidans byggda kod, referenspaketet med tjänsternas material,
+    referensbeslutet och sessionernas transkript (där står skaparens text och kod); och de läsande skalkommandona
+    (LASANDE_SKAL), som annars läser förbi förbuden i en pipe. Briefen, kundens aktuella domar, metoden och repots
+    kunskap står öppna för Read. Ett förbud går före en tillåtelse."""
+    d, u = kdir(slug, kid), atelje.UNDERLAG / slug
+    return (nekas_utom(d, tillat) + nekas_utom(rot(slug), ('kandidater', 'metod')) + andra_nekas(slug, kid)
+            + ['Read(./%s/**)' % rel(ksajt(slug, kid).parent), 'Read(./%s/**/*.zip)' % rel(d),
+               'Read(./%s/**)' % rel(u / 'referenser'), 'Read(./%s)' % rel(u / 'REFERENSER.md'),
+               'Read(//%s/**)' % str(bildkedja.PROJEKT).strip('/')]
+            + [r_ for c in dict.fromkeys(LASANDE_SKAL) for r_ in ('Bash(%s)' % c, 'Bash(%s *)' % c)])
+
+
+def projektets_version(slug, kid):
+    """Kandidatens version ur projektet som det står nu, samma hash som version() ger efter nästa fotografering av samma
+    kod (kod/ ur sidorna utan mallens sidor, kod-src/ ur resten av src/ utan kundens bilder, och DESIGN.md): den version
+    kritiken bedömde, före fotograferingen."""
+    sajt = ksajt(slug, kid)
+    h = hashlib.sha256()
+    if (sajt / 'DESIGN.md').is_file() and not (sajt / 'DESIGN.md').is_symlink():
+        h.update(b'DESIGN.md\0' + (sajt / 'DESIGN.md').read_bytes() + b'\0')
+    for bas, namn, ta_med in ((sajt / 'src' / 'pages', 'kod', lambda relp: relp.parts[0] not in MALLSIDOR), (sajt / 'src', KODSRC, src_ovrigt)):
+        if not bas.is_dir() or bas.is_symlink():
+            continue
+        for katalog, kataloger, filer in os.walk(bas, followlinks=False):
+            kataloger[:] = sorted(k_ for k_ in kataloger if not (Path(katalog) / k_).is_symlink())
+            for fn in sorted(filer):
+                p = Path(katalog) / fn
+                relp = p.relative_to(bas)
+                if p.is_symlink() or not p.is_file() or not ta_med(relp):
+                    continue
+                h.update(('%s/%s' % (namn, relp.as_posix())).encode() + b'\0' + p.read_bytes() + b'\0')
+    return h.hexdigest()
+
+
+BEDOMBAR = re.compile(r'(?:^|/)vy-(390|768|1280|1440)-(?:forsta|hela|ruta-\d+)\.png$')
+TILLSTANDSBILD = (('meny', re.compile(r'(?:^|/)vy-(?:390|768)-meny\.png$')), ('reflow', re.compile(r'(?:^|/)vy-\d+-reflow320\.png$')))
+
+
+def bedomt(session_id, slug, kid, pastadda=None):
+    """Det granskaren bevisligen såg, ur transkriptet: bilder i kandidatens egna kataloger (skaparens varv, bilderna och
+    granskarens katalog) som lästes utan fel och är hela bilder (forhandsvisa.giltig_bild), per bredd och tillstånd;
+    tangentbordet när granskarens FORHAND.md med tangentbordets steg lästes. En bredd eller ett tillstånd som svaret
+    nämner (pastadda: svarets bredder och tillstand) utan en sådan bild står under pastadda_utan_belagg. Utan transkript
+    är inget belagt (verifierad False)."""
+    pastadda = pastadda if isinstance(pastadda, dict) else {}
+    d = rel(kdir(slug, kid)) + '/'
+    t = bildkedja.transkript(session_id) if session_id else None
+    lasta = list(dict.fromkeys(bildkedja.utan_punkt(bildkedja.relativ(x)) for x in bildkedja.lasta(t))) if t else []
+    egna = [x for x in lasta if x.startswith(d)]
+    bilder = [x for x in egna if BEDOMBAR.search(x) or any(r.search(x) for _n, r in TILLSTANDSBILD)]
+    giltiga = [x for x in bilder if forhandsvisa.giltig_bild(atelje.ROOT / x)]
+    ut = {'verifierad': t is not None, 'bredder': {}, 'tillstand': {}}
+    for b in forhandsvisa.BREDDER:
+        sedda = [x for x in giltiga if BEDOMBAR.search(x) and BEDOMBAR.search(x).group(1) == b]
+        tomma = [x for x in bilder if x not in giltiga and re.search(r'(?:^|/)vy-%s-' % b, x)]
+        ut['bredder'][b] = dict({'bedomd': bool(sedda), 'bilder': sedda}, **({'tomma': tomma} if tomma else {}))
+    for n, r in TILLSTANDSBILD:
+        ut['tillstand'][n] = [x for x in giltiga if r.search(x)]
+    gr = rel(kdir(slug, kid) / forhandsvisa.GRANSKARE) + '/'
+
+    def tangentbord(x):
+        try:
+            return 'tangentbord:' in (atelje.ROOT / x).read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            return False
+    ut['tillstand']['tangentbord'] = [x for x in egna if x.startswith(gr) and x.endswith('/FORHAND.md') and tangentbord(x)]
+    # tangentbordets steg kan också ha nått granskaren i förhandsvisningens svar (samma text som FORHAND.md)
+    h = bildkedja.handelser(t) if t else []
+    kommando = {x[1]: str((x[3] or {}).get('command') or '') for x in h if x[0] == 'anrop' and x[2] == 'Bash'}
+    ut['tillstand']['tangentbord'] += ['svaret från %s' % kommando[x[1]].split(' 2>')[0].split(' |')[0][:120] for x in h
+                                       if x[0] == 'svar' and not x[3] and 'forhandsvisa.py' in kommando.get(x[1], '') and '--granskare' in kommando.get(x[1], '')
+                                       and re.search(r'px tangentbord: \d+ steg', x[2])][:1]
+    ut['bedomda_bredder'] = [b for b in forhandsvisa.BREDDER if ut['bredder'][b]['bedomd']]
+    ut['pastadda_utan_belagg'] = [b for b in pastadda.get('bredder') or [] if b not in ut['bedomda_bredder']] + \
+        [s for s in pastadda.get('tillstand') or [] if not ut['tillstand'].get(s)]
+    return ut
+
+
+def skisskritik_prompt(slug, kid, bilder, varv, uppgift):
+    """Kritikens uppdrag: rollen kritik ur metodkartan (uppgiften, kärnan, alternativen, verktygen och tjänsterna; inga egna
+    kriterier här), besökarens uppgift, kundens aktuella domar och skaparens senaste giltiga bilder, aldrig skaparens text."""
+    brief = atelje.UNDERLAG / slug / 'BRIEF.md'
+    egna = [b for b in forhandsvisa.BREDDER if any(p.name.startswith('vy-%s-' % b) for p in bilder)]
+    saknas = [b for b in forhandsvisa.BREDDER if b not in egna]
+    forhand = '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat %s --granskare' % (slug, kid)
+    return '\n'.join([
+        'Du är den kritiska granskaren av en designskiss åt en riktig verksamhet, inom skaparens arbete och före ägarens val.',
+        'Du bedömer sidan som en besökare ser den: de renderade bilderna och verktygens mätningar. Skaparens text, uppdrag,',
+        'referenspaket och kod får du aldrig (de nekas dig, och verktygen ger dem inte). Omdömet är rådgivande: skaparen avgör.', '',
+        'Besökarens viktigaste uppgift: %s Besökarnas uppgifter och den primära handlingen står i %s.' % (uppgift or '(se briefen).', rel(brief)), '',
+        *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
+        *kompetens.prompt_rader('skisskritik', slug, kid), '',
+        'Skaparens senaste bilder (varv %d), titta på dem med Read:' % varv, *['- ' + rel(p) for p in bilder],
+        *(['Skaparen renderade inte %s; din förhandsvisning tar alla fyra bredderna.' % ' och '.join(saknas)] if saknas else []), '',
+        'Arbetsgången:',
+        '1. Läs kärnan hel. Välj bland alternativen det som passar skissen, läs det helt, och skriv valet med skäl under valda.',
+        '2. Kör `%s` (tidsgräns 600000 ms) och läs med Read bilderna den listar: första vyn och hela sidan i 390, 768,' % forhand,
+        '   1280 och 1440, menyn öppen i 390 och 768, och reflow 320; tangentbordets steg står i FORHAND.md. En bild som',
+        '   listas som saknad eller tom har du inte sett: den bredden är inte bedömd, och du skriver inget om den.',
+        '3. Kör detektorn och pröva varje fynd mot det du ser och mot kundens domar ovan.',
+        '4. Jämför med en eller två professionella förebilder av samma slag (samma sidtyp och besökaruppgift) i Refero eller',
+        '   Mobbin när det hjälper dig avgöra om riktningen bär eller är generisk, i bredder och tillstånd som går att jämföra.',
+        '   Ett tomt eller misslyckat svar skrivs som det är och är ingen jämförelse.',
+        '5. Svara i schemat: det största problemet och de synliga problemen konkret (var, i vilken bredd, vad), det största',
+        '   först; om formen är generisk; rekommendationen fortsätt (riktningen bär; åtgärda problemen), byt komposition (idén',
+        '   bär men formen gör det inte) eller förkasta riktningen (den är generisk eller bär inte kundens substans), med',
+        '   motivering; bredder och tillstand: det du faktiskt såg i en bild; forebilder: förebilderna och vad jämförelsen',
+        '   visade; valda: alternativen du valde med skäl. Skriv vad du ser, inga allmänna formregler; skaparen avgör åtgärden.',
+        'Tiden: högst %d minuter, verktygen inräknade; svara innan dess med det du hunnit se.' % max(2, FRIST_SKISSKRITIK // 60),
+        atelje.MATERIAL])
+
+
 def skisskritik(slug, kid):
-    """Den kritiska granskaren i skissförsöket (ägarens uppdrag 2026-10-06, punkt 6): en egen session som ser skaparens
-    senaste renderade bilder (390, 1280 och 1440, första vyn och hela sidan) och besökarens uppgift, aldrig skaparens text
-    (den nekas), beskriver de synliga problemen och kan rekommendera att riktningen förkastas. Rådgivande: skaparen avgör.
-    Ger svaret (sparat i SKISSKRITIK.json), eller None när skaparen inte har renderat."""
+    """Den kritiska granskaren i skissförsöket (ägarens uppdrag 2026-10-06, punkt 6) med rollen kritik i metodkartan
+    (ägarens ord 2026-10-07: "Du behöver ju fixa luckan där med de verktyg vi har tillgängliga"): en egen session med
+    blockets kärna, alternativ, granskarens förhandsvisning (egen katalog, 390, 768, 1280 och 1440, menyn, tangentbordet
+    och reflow), detektorn och Refero och Mobbin genom kundvakten. Den ser skaparens senaste giltiga bilder och sina egna,
+    besökarens uppgift och kundens aktuella domar, aldrig skaparens text, uppdrag, referenspaket eller kod (blind_nekas),
+    beskriver de synliga problemen och kan rekommendera att riktningen förkastas. Rådgivande: skaparen avgör.
+    SKISSKRITIK.json bär svaret, kandidatens version när kritiken började, bilderna den fick, det den bevisligen såg
+    (bedomt) och kompetenskvittot. Ger posten, eller None när skaparen inte har renderat eller svaret uteblev."""
     d = kdir(slug, kid)
     v = varvnummer(slug, kid)
     if not v:
         return None
     vd = d / 'varv' / 'start' / ('varv-%02d' % v[-1])
-    bilder = [p for p in (vd / ('vy-%s-%s.png' % (b_, s_)) for b_ in ('390', '1280', '1440') for s_ in ('forsta', 'hela')) if p.is_file()]
+    bilder = [p for p in (vd / ('vy-%s-%s.png' % (b_, s_)) for b_ in forhandsvisa.BREDDER for s_ in ('forsta', 'hela')) if forhandsvisa.giltig_bild(p)]
     if not bilder:
         return None
     uppgift = str(((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid, {}).get('uppgift') or '').strip()
-    brief = atelje.UNDERLAG / slug / 'BRIEF.md'
-    blind = nekas_utom(d, ('varv',)) + nekas_utom(rot(slug), ('kandidater', 'metod')) + andra_nekas(slug, kid) + [
-        'Read(./%s/**)' % rel(ksajt(slug, kid).parent)]  # skissens kod, DESIGN.md och stilpaketet (granskningen 2026-10-06)
-    prompt = '\n'.join([
-        'Du är en kritisk granskare av en designskiss åt en riktig verksamhet, inom skaparens arbete. Du ser bara de renderade',
-        'bilderna, aldrig skaparens motivering (den nekas dig). Titta på varje bild med Read:', *['- ' + rel(p) for p in bilder],
-        'Besökarens viktigaste uppgift: %s Besökarnas uppgifter och den primära handlingen står i %s.' % (uppgift or '(se briefen).', rel(brief)), '',
-        *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
-        'Bedöm det en besökare ser, i mobil, mellanbredd och dator var för sig: första vyns huvudkomposition, hierarkin, bildval',
-        'och bildskala, rytmen, de typografiska kontrasterna, och om sidan har kundens särprägel eller om samma form kunde',
-        'användas av nästan vilken lokal hantverkare som helst (generisk). Beskriv de synliga problemen konkret (var, i vilken',
-        'bredd, vad), det största först, och rekommendera: fortsätt (riktningen bär; åtgärda problemen), byt komposition (idén',
-        'bär men formen gör det inte) eller förkasta riktningen (den är generisk eller bär inte kundens substans). Skriv vad du',
-        'ser, inga allmänna formregler; skaparen avgör åtgärden.', atelje.MATERIAL])
+    version_ = projektets_version(slug, kid)
+    blind = blind_nekas(slug, kid, ('varv', forhandsvisa.GRANSKARE))
     ut = d / ('svar-skisskritik-%d.json' % (len(list(d.glob('svar-skisskritik-*.json'))) + 1))
-    svar = atelje.session(prompt, LASVERKTYG, ut, SKISSKRITIK_SCHEMA, 60, GRANSKARE_MODELL, 'high', FRIST_SKISSKRITIK, nekas=blind, slug=slug)
+    start = time.monotonic()
+    svar = atelje.session(skisskritik_prompt(slug, kid, bilder, v[-1], uppgift), LASVERKTYG + kompetens.verktyg('skisskritik', slug, kid), ut,
+                          SKISSKRITIK_SCHEMA, MAX_TURER_SKISSKRITIK, GRANSKARE_MODELL, 'high', FRIST_SKISSKRITIK, nekas=blind, slug=slug)
     so = svar.get('structured_output')
     if not isinstance(so, dict) or not so.get('rekommendation'):
         return None
-    post = dict(so, tid=nu(), varv=v[-1], bilder=[rel(p) for p in bilder], svar=ut.name,
+    kv = kompetens.kvitto([svar], 'skisskritik')
+    post = dict(so, tid=nu(), varv=v[-1], version=version_, karta=metod.sha(metod.KARTA.read_text(encoding='utf-8')),
+                bilder=[rel(p) for p in bilder], bedomt=bedomt(svar.get('session_id'), slug, kid, so), kompetens=kompetens_kort(kv),
+                svar=ut.name, sekunder=int(time.monotonic() - start),
                 session={x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd')})
     (d / 'SKISSKRITIK.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     return post
@@ -2341,14 +2525,16 @@ def jamfor(slug):
                         'struktur och berättelse med andra färger, typsnitt eller bilder. Titta på varje bild med Read (mobil och dator, första',
                         'vyn och hela sidan) och läs idén i RIKTNING.md. Verklig variation syns i innehållshierarkin och vad som möter',
                         'besökaren först, bildstrategin, det typografiska systemet, navigationen och hur förtroende byggs.', '',
+                        *kompetens.prompt_rader('jamforelse', slug), '',
                         *rader, '',
                         'Ange bara par som verkligen liknar varandra: grad "upprepning" när de är samma riktning, "nara" när de delar det mesta.',
                         'Skriv konkret vad som är lika.', atelje.MATERIAL])
-    svar = atelje.session(prompt, LASVERKTYG, rot(slug) / 'svar-jamforelse.json', JAMFOR_SCHEMA, 120, GRANSKARE_MODELL, 'high', FRIST_GRANSKA, slug=slug)
+    svar = atelje.session(prompt, LASVERKTYG + kompetens.verktyg('jamforelse', slug), rot(slug) / 'svar-jamforelse.json', JAMFOR_SCHEMA, 120,
+                          GRANSKARE_MODELL, 'high', FRIST_GRANSKA, slug=slug)
     res = svar.get('structured_output') or {}
     res = {'tid': nu(), 'kandidater': klara, 'versioner': {k: las_status(slug, k).get('version') for k in klara},
            'par': [p for p in res.get('par') or [] if p.get('a') in klara and p.get('b') in klara and p.get('a') != p.get('b')],
-           'sammanfattning': res.get('sammanfattning', '')}
+           'sammanfattning': res.get('sammanfattning', ''), 'kompetens': kompetens_kort(kompetens.kvitto([svar], 'jamforelse'))}
     (rot(slug) / 'JAMFORELSE.json').write_text(json.dumps(res, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     return res
 
@@ -2369,14 +2555,15 @@ def kritik(slug, kid, namn='KRITIK.json'):
     aria = [p for p in ((d / 'bilder' / 'start' / 'vy-390-aria.txt'), (d / 'bilder' / 'start' / 'vy-1440-aria.txt')) if p.is_file()]
     axe = st.get('axe') or {}
     brief = atelje.UNDERLAG / slug / 'BRIEF.md'
-    blind = nekas_utom(d, ('bilder',)) + nekas_utom(rot(slug), ('kandidater', 'metod')) + andra_nekas(slug, kid)
+    blind = blind_nekas(slug, kid, ('bilder', forhandsvisa.GRANSKARE))  # samma blindhet som skisskritiken: rollen kritik
     prompt_a = '\n'.join([
         'Du granskar en kandidat till en riktig kunds startsida, rådgivande: ägaren dömer själv. Det här är granskningens',
-        'första pass: bedöm det en besökare uppfattar, ur bilderna och sidans struktur, mot besökarens uppgift. Uppdraget',
-        'och skaparens motivering läser du inte nu (de bedöms i ett andra pass). Ribban: kunskap/visuell-niva.md och',
-        'ägarens domar nedan.',
+        'första pass: bedöm det en besökare uppfattar, ur bilderna och sidans struktur, mot besökarens uppgift. Uppdraget,',
+        'skaparens motivering, referenspaketet och koden läser du inte (motiveringen bedöms i ett andra pass). Ribban:',
+        'kunskap/visuell-niva.md och ägarens domar nedan.',
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *regel_rader(), *metod_rader(slug, 'granska'), '',
+        *kompetens.prompt_rader('kritik_a', slug, kid), '',
         'Besökarens uppgifter och den primära handlingen: %s (§2 målgrupper och toppuppgifter, §4 primär handling).' % rel(brief),
         'Titta på varje bild med Read: startsidan i första vyn och hela i 390, 768 och 1440, rutorna och undersidan.',
         *['- ' + rel(p) for p in hela + rutor + under],
@@ -2390,7 +2577,8 @@ def kritik(slug, kid, namn='KRITIK.json'):
         'spill, sanning) eller hindrar besökarens uppgift; smak när den är ett estetiskt omdöme. Ange nivån (over, nastan,',
         'generisk) mot ribban och vilket material kunden saknar. Inga allmänna råd.', atelje.MATERIAL])
     ut_a = d / ('svar-kritik-a-%d.json' % n)
-    svar = atelje.session(prompt_a, LASVERKTYG, ut_a, KRITIK_A_SCHEMA, 120, GRANSKARE_MODELL, 'high', FRIST_GRANSKA, nekas=blind, slug=slug)
+    svar = atelje.session(prompt_a, LASVERKTYG + kompetens.verktyg('kritik_a', slug, kid), ut_a, KRITIK_A_SCHEMA, 160, GRANSKARE_MODELL, 'high',
+                          FRIST_GRANSKA, nekas=blind, slug=slug)
     a = svar.get('structured_output')
     if not a:
         raise RuntimeError('granskningens första pass gav inget svar (%s)' % str(svar.get('subtype') or '?')[:200])
@@ -2414,9 +2602,10 @@ def kritik(slug, kid, namn='KRITIK.json'):
         'fungerar för besökaren)? En avsiktlig men illa grundad avvikelse står kvar. Bedöm också om kundens material bär den',
         'kvalitet i referensen som uppdraget ville återskapa: jämför kandidatens bilder med referensbilderna i de fyra',
         'relationerna (bildens beskärning mot rubriken, de typografiska storlekarna och hierarkin, täta och luftiga sektioner',
-        'och rytmen, navigation och interaktion mot innehållet), och sammanfatta helheten i två meningar.', atelje.MATERIAL])
-    svar_b = atelje.session(prompt_b, LASVERKTYG, d / ('svar-kritik-b-%d.json' % n), KRITIK_B_SCHEMA, 80, GRANSKARE_MODELL, 'high', FRIST_GRANSKA,
-                            nekas=andra_nekas(slug, kid), slug=slug)
+        'och rytmen, navigation och interaktion mot innehållet), och sammanfatta helheten i två meningar.', '',
+        *kompetens.prompt_rader('kritik_b', slug, kid), atelje.MATERIAL])
+    svar_b = atelje.session(prompt_b, LASVERKTYG + kompetens.verktyg('kritik_b', slug, kid), d / ('svar-kritik-b-%d.json' % n), KRITIK_B_SCHEMA, 100,
+                            GRANSKARE_MODELL, 'high', FRIST_GRANSKA, nekas=andra_nekas(slug, kid), slug=slug)
     b = svar_b.get('structured_output') or {}
     mot = {m.get('nr'): m for m in b.get('motiveringar') or [] if isinstance(m, dict)}
     for i, x in enumerate(avv, 1):
@@ -2425,7 +2614,9 @@ def kritik(slug, kid, namn='KRITIK.json'):
     res = {'forsta_intryck': a.get('forsta_intryck'), 'uppgift': a.get('uppgift'), 'styrkor': a.get('styrkor') or [], 'niva': a.get('niva'),
            'material': a.get('material'), 'avvikelser': avv, 'helhet': b.get('helhet') or '', 'referens': b.get('referens'),
            'andra_passet': bool(b), 'last': last, 'lasning': las.get('grupper'), 'tid': nu(), 'version': st.get('version'),
-           'modell': GRANSKARE_MODELL, 'metod': metodinfo(slug, 'granska')['sha']}
+           'modell': GRANSKARE_MODELL, 'metod': metodinfo(slug, 'granska')['sha'],
+           'bedomt': bedomt(svar.get('session_id'), slug, kid),  # det första passet bevisligen såg (bilderna och dess egna)
+           'kompetens': {'a': kompetens_kort(kompetens.kvitto([svar], 'kritik_a')), 'b': kompetens_kort(kompetens.kvitto([svar_b], 'kritik_b'))}}
     (d / namn).write_text(json.dumps(res, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     return res
 
@@ -3018,7 +3209,7 @@ def redovisa_skiss(slug, status):
              'Skissläget (kontroller/kandidater.py): skaparna med %s, effort %s; högst %d samtidigt, %d minuter per inledande' % (
                  status.get('modell'), EFFORT_SKISS, min(PARALLELLT, MAX_PARALLELLT_SKISS), FRIST_SKISS // 60),
              'försök med verktygsväntan, ett omförsök på %d minuter bara vid ett identifierat tekniskt fel. Ingen granskningspanel' % (FRIST_SKISS_OMFORSOK // 60),
-             'och ingen förbättringsrunda före ägarens val. En intern granskare såg skisserna (bara bilderna) när tiden räckte, och skaparen fick',
+             'och ingen förbättringsrunda före ägarens val. En intern granskare såg den renderade skissen (aldrig skaparens text) när tiden räckte, och skaparen fick',
              'svara; granskarens omdöme och svaret visas först efter ägarens första beslut. Ingen modell har rangordnat skisserna.', '',
              '## Tiderna', '',
              '- startad %s; researchen klar %s; planen klar %s; första valbara skissen %s; klar %s.' % (
@@ -3063,9 +3254,16 @@ def redovisa_skiss(slug, status):
     granskade = [(kid, (las_status(slug, kid).get('skisskritik') or {})) for kid in lista(slug)]
     granskade = [(kid, g_) for kid, g_ in granskade if g_.get('gjord')]
     if granskade:  # den interna granskaren är egna sessioner, utöver skaparens (granskningen 2026-10-06)
-        rader += ['', 'Den interna granskningen: %d sessioner, %d turer, omkring %d minuter (ingår i försökens tid ovan).' % (
+        rader += ['', 'Den interna granskningen: %d sessioner, %d turer, omkring %d minuter (ingår i försökens tid ovan), med rollen kritik i metodkartan:' % (
             len(granskade), sum(int((g_.get('session') or {}).get('num_turns') or 0) for _k, g_ in granskade),
             round(sum(int((g_.get('session') or {}).get('duration_ms') or 0) for _k, g_ in granskade) / 60000))]
+        for kid, _g in granskade:
+            sk_ = atelje.las_json(kdir(slug, kid) / 'SKISSKRITIK.json') or {}
+            bed_ = sk_.get('bedomt') or {}
+            rader.append('- %s (%s), version %s: bredder belagda %s%s' % (
+                namn.get(kid), kid, str(sk_.get('version') or '–')[:12], ', '.join(bed_.get('bedomda_bredder') or []) or 'inga',
+                ('; nämnda utan belägg: %s' % ', '.join(bed_['pastadda_utan_belagg'])) if bed_.get('pastadda_utan_belagg') else ''))
+            rader += ['  ' + x for x in kompetensrad(sk_.get('kompetens'), 'skisskritik')] if sk_.get('kompetens') else []
     rader += ['', '## Ofullständiga och fallna', ''] + (fallna or ['Inga.'])
     rader += kompetens_rader(slug, ids, namn)
     rader += ['', '## Det som behöver mänsklig bedömning', '',

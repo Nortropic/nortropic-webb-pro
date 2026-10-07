@@ -661,6 +661,10 @@ echo "   slutbeskedet (2026-10-07): slutposten per körning, rapporten bunden ti
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_slutpost.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/slutpost-prov.log" \
   || { echo "FEL: slutbeskedets prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/slutpost-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/slutpost-prov.log"; exit 1; }
 echo "   slutbeskedets prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/slutpost-prov.log") fall)"
+echo "   skisskritikens kompetens (2026-10-07): blocket, kritikens egen katalog, blindningen, kvittot, tiden, de andra sessionerna, en tom 768-bild och låset"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_skisskritik.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/skisskritik-prov.log" \
+  || { echo "FEL: skisskritikens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/skisskritik-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/skisskritik-prov.log"; exit 1; }
+echo "   skisskritikens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/skisskritik-prov.log") fall)"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

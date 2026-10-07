@@ -7,7 +7,7 @@ titta → upptäck svagheten → rätta → titta igen saknades inom skaparsessi
 skaparen själv får köra.
 
     .venv/bin/python kontroller/forhandsvisa.py <slug> [--kandidat kNN] [--sida /] [--mellan] [--bara-bygg]
-        [--tillstand tangentbord,reflow,reducerad] [--meny SEL] [--hover SEL] [--fokus SEL]
+        [--tillstand tangentbord,reflow,reducerad] [--meny SEL] [--hover SEL] [--fokus SEL] [--granskare]
 
 Bygger kunder/<slug>/sajt (npm run build innanför processgränsen, kontroller/processgrans.py), serverar dist/ lokalt och kör inspektera.mjs i 390 och 1440 med mätningen av
 typografi, färger, rytm och bilder (EXTRAKT.md). Bilderna hamnar i underlag/<slug>/forhand/<sida>/varv-NN/ (sidan
@@ -20,7 +20,15 @@ Skriver ut vägarna att läsa med Read, mobil först, och konsolfel och sidled-s
 Interaktionsvägen (Codex via ägaren 2026-10-05, punkt 9; granskning 4, G10): --tillstand prövar tangentbordet (steg och
 steg utan synlig fokus), reflow i 320 och reducerad rörelse (animationer som löper med prefers-reduced-motion: reduce),
 och --meny, --hover och --fokus fotograferar elementet som CSS-väljaren pekar ut (klickad meny, hovring, fokus).
-Resultaten står i FORHAND.md med bildernas vägar.
+Resultaten står i FORHAND.md med bildernas vägar. En bild som saknas eller är tom (giltig_bild) står där som inte
+bedömbar, så att ingen läsare tror sig ha sett den bredden.
+
+Granskarens förhandsvisning (--granskare, med --kandidat; ägarens ord 2026-10-07: "Du behöver ju fixa luckan där med de
+verktyg vi har tillgängliga"): bilderna hamnar i kritikens egen katalog,
+underlag/<slug>/atelje/kandidater/<id>/granskare/<sida>/varv-NN/, aldrig i skaparens varv/, så att skaparens
+varvräkning och bilderna skaparen läser är orörda. Utan andra val tar den 390, 768, 1280 och 1440, menyn klickad med
+flödets menyväljare (MENYKNAPP), tangentbordet och reflow 320. Den ger ingen kod: ett bygge eller en fotografering som
+faller säger bara att det föll (loggen kan visa källkod), och spårfilerna (vy-*-spar.zip, med sidans byggda kod) tas bort.
 """
 import argparse
 import json
@@ -38,6 +46,30 @@ SLUG = re.compile(r'^[a-z0-9-]{2,60}$')
 SIDA = re.compile(r'^/(?:[a-z0-9-]+/)*$')
 KANDIDAT = re.compile(r'^k\d{2}$')
 LAS = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
+BREDDER = ('390', '768', '1280', '1440')  # mobil, mellanbredderna och dator (metodkartan: proven tar de fyra)
+GRANSKARE = 'granskare'  # kritikens egen katalog under kandidatens (--granskare)
+# menyns stängda knapp i sidhuvudet eller navigationen, med aria-expanded eller details och summary: samma väljare i
+# skissens snabba kontroll (kandidater.fotografera) och i granskarens förhandsvisning
+MENYKNAPP = ', '.join(('header button[aria-expanded="false"]', 'nav button[aria-expanded="false"]',
+                       'header details:not([open]) > summary', 'nav details:not([open]) > summary'))
+PNG = b'\x89PNG\r\n\x1a\n'
+
+
+def giltig_bild(p):
+    """Är filen en hel PNG med mått: signaturen och ett IHDR med bredd och höjd över noll? En tom, avkortad eller annan fil
+    är ingen bild att bedöma, och en länk följs inte (ägarens ord 2026-10-07 om skisskritiken: en tom 768-bild räknas
+    aldrig som sedd)."""
+    p = Path(p)
+    try:
+        if p.is_symlink() or not p.is_file():
+            return False
+        with open(p, 'rb') as f:
+            huvud = f.read(24)
+    except OSError:
+        return False
+    if len(huvud) < 24 or huvud[:8] != PNG or huvud[12:16] != b'IHDR':
+        return False
+    return int.from_bytes(huvud[16:20], 'big') > 0 and int.from_bytes(huvud[20:24], 'big') > 0
 
 
 def sajt_for(slug, kandidat=None):
@@ -45,9 +77,10 @@ def sajt_for(slug, kandidat=None):
     return KUNDER / slug / 'kandidater' / kandidat / 'sajt' if kandidat else KUNDER / slug / 'sajt'
 
 
-def varvrot(slug, sida, kandidat=None):
+def varvrot(slug, sida, kandidat=None, granskare=False):
+    """Varvens katalog: kandidatens varv/<sida>/, granskarens granskare/<sida>/, eller prototypens forhand/<sida>/."""
     if kandidat:
-        return UNDERLAG / slug / 'atelje' / 'kandidater' / kandidat / 'varv' / sidnamn(sida)
+        return UNDERLAG / slug / 'atelje' / 'kandidater' / kandidat / (GRANSKARE if granskare else 'varv') / sidnamn(sida)
     return UNDERLAG / slug / 'forhand' / sidnamn(sida)
 
 
@@ -82,9 +115,16 @@ TILLSTAND = ('tangentbord', 'reflow', 'reducerad')
 VALJARE = re.compile(r'^[A-Za-z0-9 _#.\-\[\]="\':>()*+~^$|,]{1,120}$')
 
 
-def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan=False, tillstand=(), meny=None, hover=None, fokus=None):
+def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan=False, tillstand=(), meny=None, hover=None, fokus=None,
+                 granskare=False):
     """Bygg, fotografera och mät. Ger (rc, rapporttext, katalog). rc 0 när bilderna finns, 2 när bygget eller
-    fotograferingen föll (texten säger varför). tillstand, meny, hover och fokus: interaktionsvägen."""
+    fotograferingen föll (texten säger varför). tillstand, meny, hover och fokus: interaktionsvägen. granskare: kritikens
+    förhandsvisning av en kandidat, i kritikens egen katalog, med alla fyra bredderna, menyn, tangentbordet och reflow när
+    inget annat anges, och utan kod i det som ges tillbaka (modulens beskrivning)."""
+    if granskare and not kandidat:
+        return 2, '--granskare gäller en kandidats sida: ange --kandidat kNN', None
+    if granskare:
+        mellan, meny, tillstand = True, meny or MENYKNAPP, tuple(tillstand) or ('tangentbord', 'reflow')
     sajt = sajt_for(slug, kandidat)
     if not (sajt / 'package.json').is_file():
         return 2, '%s saknas; %s' % (sajt.relative_to(ROOT) if sajt.is_relative_to(ROOT) else sajt,
@@ -92,20 +132,28 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
                                      'skapa den med kontroller/ny_sajt.py %s --installera' % slug), None
     rc, out = prova.bygg_inom_grans(sajt)  # innanför processgränsen: sidornas kod körs vid bygget (omgranskningen, fynd 8)
     if rc:
+        if granskare:  # byggloggen kan visa sidans källkod, som kritiken aldrig ser
+            return 2, ('bygget föll (rc %d). Granskaren får inte byggloggen, eftersom den kan visa källkod; bedöm skaparens '
+                       'senaste bilder och skriv att bygget föll.' % rc), None
         return 2, 'bygget föll (rc %d); rätta och kör igen:\n%s' % (rc, prova.svans(out, 30)), None
     if bara_bygg:
         return 0, 'bygget gick igenom (innanför processgränsen)', None
     if not (sajt / 'dist' / sida.strip('/') / 'index.html').is_file():
         return 2, 'sidan %s finns inte i bygget (dist%sindex.html saknas)' % (sida, sida), None
-    ut = Path(ut) if ut else nasta_varv(varvrot(slug, sida, kandidat))
+    ut = Path(ut) if ut else nasta_varv(varvrot(slug, sida, kandidat, granskare))
     ut.mkdir(parents=True, exist_ok=True)
     insp = str(prova.KONTROLLER / 'webblasare' / 'inspektera.mjs')
     with prova.Server(sajt / 'dist') as srv:
-        rc, out = prova.kor([prova.NODE, insp, '--adress', srv.url + sida, '--ut', str(ut), '--vyer', '390,768,1280,1440' if mellan else '390,1440',
+        rc, out = prova.kor([prova.NODE, insp, '--adress', srv.url + sida, '--ut', str(ut), '--vyer', ','.join(BREDDER) if mellan else '390,1440',
                              '--tillstand', ','.join(tillstand) or 'inga', '--extrahera', 'standard']
                             + sum((['--%s' % n, v] for n, v in (('meny', meny), ('hover', hover), ('fokus', fokus)) if v), []), timeout=420)
+    if granskare:  # spåret bär sidans byggda kod (nätverkets resurser och DOM:en); kritiken behöver det inte
+        for z in ut.glob('vy-*-spar.zip'):
+            z.unlink()
     saknas = [n for n in LAS if not (ut / n).is_file()]
     if saknas:
+        if granskare:  # webbläsarens logg kan bära sidans skript och fel med källkod
+            return 2, 'fotograferingen gav inte %s (rc %d); loggen visas inte för granskaren.' % (', '.join(saknas), rc), ut
         return 2, 'fotograferingen gav inte %s (rc %d):\n%s' % (', '.join(saknas), rc, prova.svans(out, 15)), ut
     ins = las_json(ut / 'INSPEKTION.json') or {}
     fel, spill = [], []
@@ -135,11 +183,12 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
                 beteende.append('%s px %s: bild %s%s' % (vy, n, Path(t[n]).name, (' (fel: %s)' % t.get(n + '_fel')) if t.get(n + '_fel') else ''))
     rutor = sorted(p.name for p in ut.glob('vy-*-ruta-*.png'))
     rel = lambda p: str(Path(p).relative_to(ROOT)) if str(p).startswith(str(ROOT)) else str(p)  # noqa: E731
-    rader = ['# Förhandsvisning %s · %s%s' % (ut.name, slug, sida), '',
+    bild = lambda p: rel(p) if giltig_bild(p) else '%s (saknas eller är tom: inte bedömbar)' % rel(p)  # noqa: E731
+    rader = ['# Förhandsvisning %s%s · %s%s' % ('(granskarens) ' if granskare else '', ut.name, slug, sida), '',
              'Läs med Read, i den här ordningen: mobilens första vy, mobilens hela sida, datorns första vy, datorns hela sida.',
              '(Ge kommandot tidsgränsen 600000 ms: bygget och fotograferingen tar en till två minuter.)',
-             *['- ' + rel(ut / n) for n in LAS],
-             *(['Mellanbredderna 768 och 1280 (en dator som är smalare än 1440): ' + ', '.join(rel(ut / ('vy-%s-%s.png' % (v, n))) for v in ('768', '1280')
+             *['- ' + bild(ut / n) for n in LAS],
+             *(['Mellanbredderna 768 och 1280 (en dator som är smalare än 1440): ' + ', '.join(bild(ut / ('vy-%s-%s.png' % (v, n))) for v in ('768', '1280')
                                                                                              for n in ('forsta', 'hela'))] if mellan else []),
              'Skärmhöga rutor uppifrån och ned (läs dem för detaljerna): ' + (', '.join(rutor) or 'inga'),
              'Mätningen (typografi, färger, rytm, bilder och beskärning): ' + rel(ut / 'EXTRAKT.md'),
@@ -161,6 +210,7 @@ def main(argv=None):
     p.add_argument('--meny', help='CSS-väljare för menyns knapp: klickas och fotograferas')
     p.add_argument('--hover', help='CSS-väljare: hovring fotograferas')
     p.add_argument('--fokus', help='CSS-väljare: fokus fotograferas')
+    p.add_argument('--granskare', action='store_true', help='kritikens förhandsvisning av en kandidat: egen katalog, fyra bredder, ingen kod')
     ra = list(sys.argv[1:] if argv is None else argv)
     if any(sum(1 for x in ra if x == f or x.startswith(f + '=')) > 1 for f in ('--kandidat', '--sida', '--tillstand', '--meny', '--hover', '--fokus')):
         # en skapare får bara bygga sin egen kandidat: argparse tar den sista av upprepade flaggor (granskningen M2)
@@ -170,12 +220,15 @@ def main(argv=None):
     if not SLUG.fullmatch(a.slug) or not SIDA.fullmatch(a.sida) or (a.kandidat and not KANDIDAT.fullmatch(a.kandidat)):
         print('slug a–z, 0–9, bindestreck; sidan som /väg/ med snedstreck sist; kandidaten som k01–k12', file=sys.stderr)
         return 2
+    if a.granskare and not a.kandidat:
+        print('--granskare gäller en kandidats sida: ange --kandidat kNN', file=sys.stderr)
+        return 2
     tillstand = tuple(x for x in a.tillstand.split(',') if x)
     if any(x not in TILLSTAND for x in tillstand) or any(v is not None and not VALJARE.fullmatch(v) for v in (a.meny, a.hover, a.fokus)):
         print('tillstand: %s (kommaseparerat); --meny, --hover och --fokus: en CSS-väljare utan semikolon eller klamrar' % ', '.join(TILLSTAND), file=sys.stderr)
         return 2
     rc, text, _ = forhandsvisa(a.slug, a.sida, bara_bygg=a.bara_bygg, kandidat=a.kandidat, mellan=a.mellan,
-                               tillstand=tillstand, meny=a.meny, hover=a.hover, fokus=a.fokus)
+                               tillstand=tillstand, meny=a.meny, hover=a.hover, fokus=a.fokus, granskare=a.granskare)
     print(text)
     return rc
 

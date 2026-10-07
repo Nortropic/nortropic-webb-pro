@@ -13,8 +13,8 @@ steget, avgörandena och utdragen med källa och hash, delade så att varje fil 
 `kunskap/metodkarta.lock.json` stoppar leveransen när en källa ändrats sedan utdragen prövades, så att rader aldrig
 tyst pekar fel. Läsningen prövas i transkriptet och redovisas skild från tillämpningen: en fil räknas som läst när
 ett felfritt Read täckt alla dess rader. Hos skaparen i läget full och i förfiningen prövas metodens före-fil; i
-skissen, planprövningen och passen prövas rollernas kärna (kompetenskvittot, avsnittet Kompetenserna). Uppslaget slås
-upp när uppgiften behöver det och har inget läskrav.
+skissen, planprövningen, passen, researchen, skisskritiken, jämförelsen och granskningens två pass prövas rollernas
+kärna (kompetenskvittot, avsnittet Kompetenserna). Uppslaget slås upp när uppgiften behöver det och har inget läskrav.
 **Verktygen, en källa:** kompetensblocken nedan säger vilka skills, verktyg och MCP:er varje pass har. Samma block ger
 sessionens behörigheter (`kontroller/kompetens.py` till `--allowedTools`) och raderna i passets uppdrag, så att
 dokumentationen, prompten och behörigheten säger samma sak. Sessionerna har skillverktyget och verktygssökningen. Av
@@ -26,7 +26,11 @@ eftersom verktygets standardläge deep kostar krediter. Sessionerna når Refero 
 `kontroller/mcp/mobbin.json` (`--mcp-config` utan strikt läge i `atelje.session_args`): Mobbin finns annars bara på
 användarnivån, som sessionernas `--setting-sources project,local` inte läser, så skaparna fick aldrig Mobbin fast
 rollerna tilldelar den (fynd 2026-10-07). Startkontrollen prövar åtkomsten med flödets egna argument
-(`kunskap/beroenden.md`, Vad startkvittot säger). Bygget och fotograferingen går genom förhandsvisningen, och
+(`kunskap/beroenden.md`, Vad startkvittot säger). I de granskande passen (skisskritiken, jämförelsen och granskningens
+två pass) är förhandsvisningen och detektorn granskarens form (`--granskare`): bilderna hamnar i kandidatens
+`granskare/`, aldrig i skaparens varv, och verktygen ger ingen kod (inga byggloggar, inga kodutdrag, inga spårfiler). Ett
+blint pass får bara verktyg som aldrig ger kod eller skaparens text; `kontroller/kompetens.py --prova` fäller ett annat.
+Bygget och fotograferingen går genom förhandsvisningen, och
 beroendena kommer förberedda och låsta ur mallen (`kunskap/beroenden.md`); git, npm, npx och node körs inte direkt i
 sessionerna.
 
@@ -74,11 +78,14 @@ sessionerna.
   där blir en undersida. DESIGN.md är kontraktet: värdena, valda tillstånd (mörkt läge) och importerade stilvärden
   (`kunskap/bygge-referens.md`). Granskaren svarar bara i sitt schema (K46–K55, K57, K58).
 - **Före ägarens val i skissläget** granskar ingen panel och ingen förbättringsrunda körs: de snabba kontrollerna
-  markerar brister och ändrar aldrig uttrycket. Inom skissförsöket ser en kritisk granskare skaparens renderade bilder
-  utan skaparens text, beskriver de synliga problemen och kan rekommendera att riktningen förkastas; skaparen svarar i en
-  egen session och avgör (ägarens uppdrag 2026-10-06, punkt 6).
+  markerar brister och ändrar aldrig uttrycket. Inom skissförsöket ser en kritisk granskare den renderade skissen som en
+  besökare: skaparens bilder och sin egen förhandsvisning i 390, 768, 1280 och 1440 med menyn öppen, tangentbordet och
+  reflow, detektorn och egna jämförelser med förebilder ur Refero och Mobbin, aldrig skaparens text, uppdrag,
+  referenspaket eller kod (rollen kritik i Kompetenserna). Den beskriver de synliga problemen och kan rekommendera att
+  riktningen förkastas; skaparen svarar i en egen session och avgör (ägarens uppdrag 2026-10-06, punkt 6).
 - **Granskning före förbättring (läget full):** granskningen bedömer först det en besökare uppfattar (bilderna, trädet
-  och axe mot besökarens uppgift) och sedan skaparens motivering. Förbättringsrundan före ägarens val rättar bara objektiva fel
+  och axe mot besökarens uppgift; samma blinda roll som skisskritiken) och sedan skaparens motivering (rollen
+  motivering). Förbättringsrundan före ägarens val rättar bara objektiva fel
   (kvalitetskrav och hinder för uppgiften), aldrig smak, så att kandidaterna inte jämnas ut; föreversionen bevaras, och
   ägaren kan jämföra och välja den.
 - **En källa per värde:** better-ui för tryck, ikoner och skuggor; emil-animate för om och hur länge något rör sig;
@@ -93,19 +100,28 @@ skapares uppdrag; Codex via ägaren 19:04Z, punkt 7–9: varje riktning får en 
 till alternativen och fullständig läsning av den valda metoden.
 
 Varje roll har en **kärna** och **alternativ**. Kärnan är rollens sammanhängande metod och läses hel innan sessionen
-ändrar något (en fil större än en läsning läses i delar med offset och limit tills alla rader är lästa). Kompetenskvittot
-visar ur transkriptet om den lästs: skissen och planprövningen redovisar det, i passen rörelse och granskning får en
-session som inte läst sin kärna ett omförsök, och förfiningen redovisar bara metodens läsning. Alternativen är
+ändrar eller bedömer något (en fil större än en läsning läses i delar med offset och limit tills alla rader är lästa).
+Kompetenskvittot visar ur transkriptet om den lästs: skissen och planprövningen redovisar det, i passen rörelse och
+granskning får en session som inte läst sin kärna ett omförsök, och förfiningen redovisar bara metodens läsning.
+Researchen, skisskritiken, jämförelsen och granskningens två pass sparar kvittot i FORSKNING.json, SKISSKRITIK.json,
+JAMFORELSE.json och KRITIK.json, med verktygsanropen och tjänsternas anrop och deras utfall. Alternativen är
 stilvarianter och recept för olika riktningar: sessionen väljer de som passar riktningen, läser dem hela och skriver
 valet med skäl, eller skriver varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller kundens
 behov avgörs av Avgörandena ovan, designreglerna och kundens aktuella domar, som varje session med en roll får.
 
 Rollerna arbetar där de gör nytta, en gång:
 
+- **forska** (före planen): researchen formulerar antagandena om besökarna, frågorna och sajterna, och prövar
+  territorierna med egna generiska sökningar innan frågorna skrivs; referenssteget hämtar sedan materialet med belägg.
 - **planera** och **planprövning** (före skaparna): planeraren skriver omkring tio uppdrag som skiljer sig i hur
   informationen ordnas, och planprövningen prövar dem mot kunden, materialet och referenserna.
 - **skapa** (skissen): skaparen tillämpar design och komposition, typografi och färg, innehåll och UX och den
   responsiva implementationen i en sammanhängande skiss. Före ägarens val ändrar ingen annan session skissen.
+- **skisskritik** (inom skissförsöket): den kritiska granskaren bedömer den renderade skissen blint, med sin egen
+  förhandsvisning i fyra bredder, detektorn och förebilder, och rekommenderar; skaparen svarar och avgör.
+- **jamforelse**, **kritik_a** och **kritik_b** (läget full, före ägarens val): jämförelsen pekar ut falsk variation,
+  granskningens första pass bedömer bilderna blint med kritikens roll, och det andra prövar motiveringen och om kundens
+  material bär referensens kvalitet.
 - **fordjupa** (efter ägarens val): förfiningen bygger hela sajten med samma roller och designsystemet.
 - **rorelse** och **granskning** (efter fördjupningen, en gång var): interaktion och rörelse, och tillgänglighet och
   visuell granskning, på den färdiga sidan med en avgränsad interaktionsväg (förhandsvisningens tillstånd: tangentbord,
@@ -203,6 +219,78 @@ mcp:
 visar: DESIGN.md stämmer med koden, och sidorna använder dess variabler eller stilpaketets
 ```
 
+```kompetens forska
+namn: Research och referensjakt
+uppgift: Formulera antagandena om besökarna som kan ändra designbesluten, och frågorna och sajterna som öppnar verkligt skilda grundidéer ur verksamhetens värld och material; pröva territorierna med egna generiska sökningar i Refero och Mobbin innan frågorna skrivs, så att referenssteget hämtar material som bär och inte frågar efter det tjänsterna saknar.
+pass: forska
+kärna: kunskap/referensjakt.md; refero-design/SKILL.md; refero-design/references/mcp-tools.md
+välj: kunskap/referenser-professionella.md; impeccable/reference/shape.md; better-explain-interface/SKILL.md; hallmark/references/macrostructures.md; ui-ux-pro-max/SKILL.md; refero-design/references/example-workflow.md
+verktyg: uxsok
+mcp: refero, mobbin
+visar: frågorna och sajterna spänner över skilda grundidéer ur verksamhetens värld och är prövade mot vad tjänsterna har; varje antagande har underlag eller "ännu inte observerat", en prövning och en följd; ett tomt eller misslyckat prov står som det är och är inget material
+```
+
+```kompetens kritik
+namn: Kritik av den renderade sidan, blind
+uppgift: Bedöma den renderade sidan som en besökare ser den, mot ribban och besökarens uppgift, blind för skaparens text, uppdrag, referenspaket och kod: i mobil, mellanbredd och dator var för sig, och med menyn öppen, tangentbordet och reflow, första vyns huvudkomposition, hierarkin, bildval, bildskala och beskärning, rytmen och de typografiska kontrasterna, och om sidan har kundens särprägel eller om samma form kunde användas av nästan vilket lokalt tjänsteföretag som helst i branschen (generisk), prövat mot en eller två professionella förebilder av samma slag.
+pass: skisskritik, kritik_a
+kärna: kunskap/visuell-niva.md; kunskap/referenser-professionella.md; impeccable/reference/critique.md; impeccable/reference/craft-floor.md
+välj: hallmark/references/slop-test.md; hallmark/references/anti-patterns.md; refero-design/references/anti-ai-slop.md; kritik/GRANSKARE.md; frontend-design/SKILL.md; better-interface-review/SKILL.md; better-accessibility/SKILL.md; emil-break-ui/SKILL.md; ui-ux-pro-max/references/quick-reference.md; impeccable/reference/audit.md
+verktyg: förhandsvisning, detektor
+mcp: refero, mobbin
+visar: svaret belägger kandidatens version och bilderna som bedömdes; en bredd (390, 768, 1280, 1440) eller ett tillstånd (menyn öppen, tangentbordet, reflow 320) räknas som bedömt bara ur en bild som lästes och inte är tom, också när svaret nämner det; kvittot visar kärnan, de valda alternativen, verktygsanropen och tjänsternas anrop med utfall; varje synligt problem har plats, bredd och vad, det största först; förebilderna står med vad jämförelsen visade; skissens rekommendation är fortsätt, byt komposition eller förkasta riktningen, och första passet i läget full ger nivån mot ribban
+```
+
+```kompetens jamforelse
+namn: Falsk variation
+uppgift: Se alla kandidaters första vyer och hela sidor och peka ut de par som är samma struktur och berättelse med andra färger, typsnitt eller bilder, med makrostrukturen och den axel som skiljer dem (struktur, täthet, betoning, typografi, röst).
+pass: jamforelse
+kärna: hallmark/references/macrostructures.md; better-variant/SKILL.md
+välj: hallmark/references/structure.md; refero-design/references/anti-ai-slop.md; kunskap/referenser-professionella.md
+verktyg:
+mcp:
+visar: varje utpekat par säger vad som är lika (makrostrukturen, berättelsen, det som möter besökaren först) och varför skillnaden bara är ytlig; par som skiljer sig i struktur pekas inte ut
+```
+
+```kompetens motivering
+namn: Motiveringen och referensens kvalitet
+uppgift: Pröva för varje avvikelse som granskningens första pass fann om den är avsiktlig och välgrundad (skäl i kundens behov, material eller huvudreferensen, och fungerar för besökaren), och om kundens material bär den kvalitet i referensen som uppdraget ville återskapa, i de fyra relationerna med kandidatens bild och referensbilden bredvid varandra.
+pass: kritik_b
+kärna: kunskap/bild.md; refero-design/references/visual-workflow.md
+välj: kunskap/referenser-professionella.md; refero-design/SKILL.md; refero-design/references/craft-details.md; kritik/GRANSKARE.md; hallmark/references/imagery-kit.md
+verktyg:
+mcp:
+visar: varje avvikelse har avsiktlig och välgrundad med skäl; referensens kvalitet är bedömd i de fyra relationerna (bildens beskärning mot rubriken, de typografiska storlekarna och hierarkin, täta och luftiga sektioner och rytmen, navigation och interaktion mot innehållet)
+```
+
+**Skälen för de bedömande och forskande rollerna** (ägarens ord 2026-10-07: "Du behöver ju fixa luckan där med de verktyg
+vi har tillgängliga"). Kritikens kärna är det som avgör om en skiss bär: ribban i tre nivåer ur ägarens kalibrering
+(`visuell-niva.md`), jämförelsen med en förebild av samma slag i bredder och tillstånd som går att jämföra
+(`referenser-professionella.md`), Impeccables kritik (om formen är skriven för just den här verksamheten eller utbytbar,
+hierarkin, den kognitiva belastningen, heuristikerna och personerna) och golvet för hantverket (`craft-floor.md`). Kärnan
+är omkring 60 000 tecken och ryms i kritikens frist (mätningen i `BESLUT.md`, tillägget 2026-10-07). Listorna över
+AI-mönster och slop (hallmark, refero-design) är alternativ, eftersom de är frågor och inte regler (Avgörandena), och
+granskarens fem kriterier (`kritik/GRANSKARE.md`) är skrivna för helbygget. Researchens kärna är vår referensjakt,
+Referos researchmetod och tjänstens verktyg, som researchen nu själv använder. Jämförelsens kärna ger orden för en
+sidas form (21 makrostrukturer) och för vad som skiljer två förslag på riktigt (en axel, inte en nyans). Andra passets
+kärna är art direction mot kundens material (`bild.md`) och Referos visuella kontroll mot referenslåset.
+
+**Verktyg och tjänster som en roll inte har.** Kritiken har inte uxsok: UI UX Pro Max ger allmänna riktlinjer med
+kodexempel (prövat 2026-10-07: frågan "carpenter renovation landing page" i domänen ux gav bildoptimering och en aktiv
+menypunkt, och frågan "home services contractor" i domänen landing ingen träff), och det kritiken ser i bilderna täcker
+kärnan; verktyget skulle ta tid ur kritikens frist. Jämförelsen och granskningens andra pass har inga verktyg och inga tjänster: de jämför renderingar som
+redan finns i alla bredder (alla kandidaters bilder; kandidatens bilder bredvid uppdragets referensbilder), och en ny
+rendering eller sökning skulle bedöma något annat än det skaparen fick i uppdrag att föra över.
+
+**Sessioner utan block**, den enda listan över kandidatflödets sessioner utan en roll (`kontroller/kandidater.py`, varje
+`atelje.session`): funktionen och skälet. `kontroller/kompetens.py --prova` jämför listan med koden, så att en session
+utan block och utan skäl, eller ett skäl som bara säger "ingen tilldelning", fälls.
+
+```sessioner-utan-block
+skapa: skaparen i läget full, en tillfällig växel som tas bort när ägaren dömt skissläget (BESLUT.md 2026-10-05, kväll); den bygger efter metodens före-fil METOD-skapa.md, vars läsning före första ändringen prövas i transkriptet (kandidater.lasningen), med förhandsvisningen och typsnitten i sina verktyg
+forbattra: förbättringsrundan i läget full rättar bara granskningens objektiva fel (krav, aldrig smak) med skaparens uppdrag och metodens före-fil METOD-skapa.md, vars läsning prövas (kandidater.lasningen); en roll med alternativ skulle bjuda in de stilbyten som rundan inte får göra före ägarens val
+```
+
 **Tjänsternas verktyg** (ägarens uppdrag 2026-10-07, punkt 2 och 3): ett beslut per verktyg som Refero och Mobbin visar,
 uppgift eller ingen uppgift med skäl och provdatum. Verktygen med uppgift är exakt de som kundvakten släpper
 (`referenstjanster.TJANSTER`, som också helbyggets A/B-prövning läser), och `kontroller/kompetens.py --prova` säger till
@@ -265,7 +353,8 @@ RESEARCH.md, bilder/BILDER.md, referenspaketet och tjänsternas förra undersök
 
 **Visar:** frågorna och sajterna spänner över skilda grundidéer ur verksamhetens värld, inte varianter av samma
 utseende; varje antagande har underlag eller "ännu inte observerat", en prövning som beskriver besökarens mål utan att
-avslöja knappen, och en följd.
+avslöja knappen, och en följd. Sessionen arbetar med rollen forska (avsnittet Kompetenserna) och prövar territorierna
+med egna generiska sökningar; FORSKNING.json bär kompetenskvittot.
 
 ```utdrag före
 kunskap/designregler.md
@@ -380,7 +469,10 @@ och avvikelserna, de kvarvarande svagheterna, varven, materialet och kompetenser
 uppgiften löses, inte bara i färg; kundens material bär kompositionen, eller ett tydligt märkt utkast eller en
 platshållare står där material saknas; mobilen, mellanbredden och datorn är genomarbetade. Inget fast antal varv:
 första varvet prövar grunden, och varje varv därefter åtgärdar det största visuella problemet skaparen sett i sina egna
-bilder eller vid jämförelsen med referensen i samma bredd.
+bilder eller vid jämförelsen med referensen i samma bredd. Inom skissförsöket bedömer den kritiska granskaren skissen
+med rollen kritik (avsnittet Kompetenserna, Avgörandena): blind för skaparens text, uppdrag, referenspaket och kod, med
+egen förhandsvisning i 390, 768, 1280 och 1440, menyn öppen, tangentbordet och reflow; SKISSKRITIK.json belägger
+versionen, bilderna och kompetenskvittot.
 
 ```utdrag före
 kunskap/designregler.md
@@ -393,8 +485,9 @@ kunskap/bild.md
 vilka är smak, och bär kundens material referensens kvalitet (de fyra relationerna, jämförda med förebilden)? Granskningen
 ersätter inte ägarens visuella val eller ett prov med riktiga besökare; den är underlag till båda.
 
-**Underlag:** första passet: skärmbilderna, tillgänglighetsträdet, axe och briefens uppgifter (inte uppdraget eller
-skaparens anteckningar); andra passet: uppdraget, anteckningarna och referensbilderna.
+**Underlag:** första passet: skärmbilderna, tillgänglighetsträdet, axe och briefens uppgifter (inte uppdraget,
+skaparens anteckningar, referenspaketet eller koden), med rollen kritik; andra passet: uppdraget, anteckningarna och
+referensbilderna, med rollen motivering (avsnittet Kompetenserna).
 
 **Till nästa steg:** KRITIK.json med första intrycket, uppgiften med belägg, avvikelserna med slag (krav eller smak),
 allvar och om de är avsiktliga och välgrundade, nivån mot ribban och materialbehovet. Förbättringsrundan rättar bara

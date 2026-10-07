@@ -37,11 +37,15 @@ besökarens uppgift löses; färgbyten på samma layout är inga olika förslag.
   komplettering en gång, inom sitt försöks tid.
 - **Budgeten** är ett försöksvillkor: högst tre skisser samtidigt, högst 45 minuter per inledande skaparförsök med
   verktygsväntan, ett omförsök på 15 minuter bara vid ett identifierat tekniskt fel (bygget föll, bilderna saknas,
-  sessionen föll), ingen förlängning för att nå antalet. Inget fast antal varv: varje varv åtgärdar en brist skaparen
+  sessionen föll), ingen förlängning för att nå antalet. Av försökets 45 minuter hålls 15 för den kritiska granskaren
+  och skaparens svar: granskaren har högst 8 minuter (uppmätt 107 och 109 sekunder med kärnan, fyra bredder och menyn;
+  `BESLUT.md`, tillägget 2026-10-07) och svaret minst 7. Fotograferingen har 3 minuter, och skaparen 27. Inget fast antal varv: varje varv åtgärdar en brist skaparen
   sett i sina bilder eller vid jämförelsen med referensen. En skiss som inte blir klar redovisas som ofullständig med
   skälet och det sparade arbetet; ett avbrutet försök sparas i `forsok-<n>/` och startas om i ett nytt projekt.
-- **Före ägarens val** ingen granskningspanel och ingen förbättringsrunda. En intern granskare ser skisserna när tiden
-  räcker (bara bilderna, aldrig skaparens text) och skaparen svarar under "Svar på granskningen" i RIKTNING.md; granskarens omdöme och
+- **Före ägarens val** ingen granskningspanel och ingen förbättringsrunda. En intern granskare ser den renderade skissen
+  när tiden räcker, med rollen kritik i metodkartan: sin egen förhandsvisning i 390, 768, 1280 och 1440 med menyn
+  öppen, tangentbordet och reflow, detektorn och förebilder ur Refero och Mobbin, aldrig skaparens text, uppdrag,
+  referenspaket eller kod. Skaparen svarar under "Svar på granskningen" i RIKTNING.md; granskarens omdöme och
   svaret visas först efter ägarens första beslut. De snabba kontrollerna (bygget, konsolen, spill, axe, siffror utan
   belägg i underlaget, menyn i 390 och 768, huvudreferensraden) markerar brister och ändrar aldrig uttrycket. Vyn visar
   skisserna neutralt, utan rekommendation eller poäng; ofullständiga står med.
@@ -56,8 +60,12 @@ besökarens uppgift löses; färgbyten på samma layout är inga olika förslag.
 arbetar i vilket pass, med vilken kärna och vilka alternativ, verktyg och MCP:er, och hur sessionerna når skills och
 MCP:er, står bara i `kunskap/metodkarta.md` (inledningen och avsnittet Kompetenserna); `kontroller/kompetens.py` läser
 kompetensblocken och ger samma block till uppdraget och till sessionens behörigheter. Var i flödet rollerna arbetar står
-i stegen nedan. Kvittot (kärnan läst hel, valda alternativ, skillverktygets och MCP:ernas lyckade anrop) och före och
-efter står i REDOVISNING.md och i vyn efter ägarens första beslut.
+i stegen nedan. Också sessionerna som bedömer eller forskar har roller (ägarens ord 2026-10-07: "Du behöver ju fixa
+luckan där med de verktyg vi har tillgängliga"): researchen, skisskritiken, jämförelsen och granskningens två pass i
+läget full. En session utan roll står med ett prövbart skäl i metodkartans lista över sessioner utan block, och
+`kompetens.py --prova` jämför listan med koden. Kvittot (kärnan läst hel, valda alternativ, skillverktygets anrop,
+verktygens och MCP:ernas anrop med utfall) och före och efter står i REDOVISNING.md och i vyn efter ägarens första
+beslut.
 
 ## Stegen (skissläget, `kontroller/kandidater.py`)
 
@@ -69,8 +77,9 @@ kandidaterna och granskningarna.
    egna bilder och textens sakuppgifter. Designbesluten är grundidé, referensurval, palett, typografi, komposition,
    bildurval och beskärning, och rubrikernas form. De prövas mot ägarens domar (domloggen) och mot de prövade
    grundidéerna (historiken). Reglerna i fyra slag med räckvidd står i `kunskap/designregler.md`.
-2. **Research.** Ett pass skriver antagandena om besökarna som kan ändra designen (underlag eller "ännu inte
-   observerat", hur de prövas, vad som ändras), frågor till Refero och Mobbin (högst fjorton) och högst åtta nya sajter.
+2. **Research.** Ett pass med rollen forska skriver antagandena om besökarna som kan ändra designen (underlag eller
+   "ännu inte observerat", hur de prövas, vad som ändras), frågor till Refero och Mobbin (högst fjorton) och högst åtta
+   nya sajter; det prövar territorierna med egna generiska sökningar innan frågorna skrivs, och FORSKNING.json bär kvittot.
    Referenssteget hämtar dem med belägg: `referens.py` ger en ny paketversion, `referenstjanster.py` sparar per körning
    tjänsternas svar ordagrant, varje Refero-stils hela dokument och skärmarnas hela bilder. En sajt eller fråga utanför
    kanalens form släpps med skälet, och resten körs; ingen fråga får nämna kundens namn, orter eller nummer.
@@ -91,8 +100,12 @@ kandidaterna och granskningarna.
    och bygger skissen: första vyn, den viktigaste innehållssektionen, navigationen och de interaktioner som behövs för
    att förstå förslaget, inte hela startsidan och ingen undersida. Förhandsvarven görs med `--mellan` i 390, 768, 1280
    och 1440, och i varje varv läses bilderna och en referensbild (vad varven prövar: metodkartan, Avgörandena, Process).
-   En kritisk granskare ser skissens bilder när tiden räcker (bara bilderna, aldrig skaparens text), och skaparen svarar
-   i en egen session (SKISSKRITIK.json, "Svar på granskningen" i RIKTNING.md). Klar är skissen när den är byggd och
+   En kritisk granskare bedömer den renderade skissen när tiden räcker, med rollen kritik (blind för skaparens text,
+   uppdrag, referenspaket och kod): skaparens senaste bilder och sin egen förhandsvisning (`forhandsvisa.py --granskare`,
+   bilderna i kandidatens `granskare/`, aldrig i skaparens varv), detektorn utan kodutdrag och förebilder ur Refero och
+   Mobbin. SKISSKRITIK.json bär kandidatens version, det granskaren bevisligen såg (en tom eller saknad bild räknas
+   aldrig som sedd) och kompetenskvittot, och skaparen svarar i en egen session ("Svar på granskningen" i RIKTNING.md).
+   Klar är skissen när den är byggd och
    renderad i 390, 1280 och 1440 och RIKTNING.md har huvudreferensen, idén, referenserna, det överförda och
    avvikelserna, de kvarvarande svagheterna, varven, materialet och kompetensernas synliga bidrag. Formulären postar
    till `/api/forfragan/` och landar på `/tack/` (lokal demonstration). Tiden och vad som gäller före ägarens val står
@@ -155,13 +168,15 @@ Skillnaderna mot stegen ovan:
   bristerna som kritik.
 - **Granskning i två pass och en förbättringsrunda före ägarens val.** En granskare (en annan modell än skaparen som
   standard, `NWP_KANDIDAT_GRANSKARE`) bedömer först bilderna, tillgänglighetsträdet och axe mot besökarens uppgift i
-  briefen, utan uppdraget och skaparens anteckningar (sessionen nekas dem): första intrycket, om uppgiften går att
-  genomföra, och avvikelserna som krav (kvalitetskrav, hinder för uppgiften) eller smak. Sedan läser den motiveringen
-  och märker vilka avvikelser som är avsiktliga och välgrundade. Läste den inte de första vyerna, eller går läsningen
+  briefen, med skisskritikens blinda roll kritik: utan uppdraget, skaparens anteckningar, referenspaketet och koden
+  (sessionen nekas dem): första intrycket, om uppgiften går att genomföra, och avvikelserna som krav (kvalitetskrav,
+  hinder för uppgiften) eller smak. Sedan läser den motiveringen med rollen motivering och märker vilka avvikelser som
+  är avsiktliga och välgrundade. KRITIK.json bär båda passens kvitton. Läste den inte de första vyerna, eller går läsningen
   inte att pröva i transkriptet, styr granskningen ingenting. Förbättringsrundan rättar bara krav som inte är
   välgrundade val, och axe:s allvarliga fynd; smak rättas inte före ägarens val. Föreversionen bevaras med bilderna;
   blir den förbättrade ofullständig återställs föreversionen, och annars granskas den förbättrade igen.
-- **Jämförelse:** en granskare ser alla kandidaters första vyer och hela sidor och pekar ut falsk variation.
+- **Jämförelse:** en granskare med rollen jamforelse ser alla kandidaters första vyer och hela sidor och pekar ut falsk
+  variation; JAMFORELSE.json bär kvittot.
 - I ägarens val visas panelens granskning efter första beslutet, med före och efter en förbättringsrunda, där ägaren
   kan säga vilken som är bättre och välja föreversionen.
 - Efter förfiningen körs ingen ny panelgranskning: vyn och REDOVISNING.md säger att panelens granskning gäller

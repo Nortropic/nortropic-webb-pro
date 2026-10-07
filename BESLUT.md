@@ -1461,3 +1461,65 @@ Efter sammanslagningen (2026-10-07):
   Iakttaget i torrkörningen. Det är inte rättat och inte prövat.
 - Granskningens återstående fynd står i backloggen: GR-20261007-r100-om#BÖR-3 och KAN-A–E. KAN-A, att en dom med
   U+2028 försvinner tyst ur domloggen, görs i gren C1.
+
+## Tillägg 2026-10-07: skisskritikens kompetens och sessionerna som bedömer eller forskar
+
+**Status:** gäller.
+
+Hör till ägarens uppdrag 2026-10-07 om kompetensens användning och tillförlitlig rapportering, punkt 1 och tillägget.
+Uppdraget står ordagrant i tillägget ovan, "kompetensens användning och tillförlitlig rapportering".
+
+Claude hade skrivit att skisskritiken "har ingen tilldelning i metodkartan, så tjänsterna ska nekas där". Ägaren frågade:
+"Vadå saknar tilldelning i metodkartan?" Claude förklarade luckan och att slutsatsen var fel. Då svarade ägaren,
+ordagrant:
+
+> Du behöver ju fixa luckan där med de verktyg vi har tillgängliga
+
+Gjort (grenen `skisskritik-kompetens-20261007`, ovanpå gren B):
+
+1. **Rollen kritik** i metodkartan (Kompetenserna) gäller skisskritiken och granskningens första pass i läget full.
+   - Kärnan: `visuell-niva.md`, `referenser-professionella.md`, Impeccables `critique.md` och `craft-floor.md`. Skälen
+     står i kartan.
+   - Verktygen är granskarens form av förhandsvisningen och detektorn (`--granskare`). Förhandsvisningen lägger sina
+     bilder i kandidatens `granskare/`, aldrig i skaparens varv. Den tar 390, 768, 1280 och 1440, menyn öppen,
+     tangentbordet och reflow 320, och ger ingen byggkod, inga loggar och inga spårfiler.
+   - Refero och Mobbin nås genom kundvakten, för egna jämförelser med förebilder av samma slag.
+   - uxsok tillförde inget i provet och har ingen uppgift i rollen; skälet står i kartan.
+   - Prompten pekar på blocket i stället för att bära egna kriterier.
+2. **Blindningen** är skärpt. Skaparens text, uppdrag, referenspaket och kod nekas, och dessutom spårfilerna och
+   sessionernas transkript. Ett blint pass får bara verktyg som aldrig ger kod; `kompetens.py --prova` fäller ett annat.
+   - En verklig session med kritikens egna argument visade en läcka: `forhandsvisa.py … --granskare | grep -r <ord>
+     underlag/<slug>` släpptes igenom och gav skaparens RIKTNING.md. `tail` och `head` med en nekad sökväg och Read
+     nekades.
+   - De läsande skalkommandona nekas nu i de blinda sessionerna. Samma prov därefter: alla fem försöken nekades.
+3. **SKISSKRITIK.json** bär kandidatens version när kritiken började, med samma hash som fotograferingen ger. Den bär
+   också bilderna kritiken fick, det den bevisligen såg och kompetenskvittot.
+   - Det belagda räknas ur transkriptet: en bredd eller ett tillstånd räknas bara ur en bild som lästes och är hel. En
+     tom eller saknad 768-bild står som inte bedömd, också när svaret nämner den, och skaparens uppdrag säger det.
+   - Kvittot visar kärnan, de valda alternativen, verktygsanropen och tjänsternas anrop med utfall.
+4. **Tiden är mätt.** Två verkliga sessioner med granskarens modell (`claude-sonnet-5-5[1m]`) körde på en syntetisk
+   skiss utan kunduppgifter, med kärnan, fyra bredder, menyn, detektorn, Refero och Mobbin.
+   - Mätningarna tog 107 s och 109 s väggtid, med 31 och 33 turer. Den andra startade medan en annan worktrees rökprov
+     körde.
+   - Den äldre kritiken, som bara såg bilderna, tog 49 s på en verklig skiss (2026-10-06).
+   - `FRIST_SKISSKRITIK` står kvar på 480 s, 4,4 gånger den längsta mätningen. Marginalen gäller det mätningen inte
+     prövade: riktiga foton, byggkön när tre skisser bygger samtidigt och tjänsternas svarstid.
+   - `SKISSKRITIK_RESERV` är fristen plus skaparens svar, 900 s.
+   - Skaparens del av försöket är oförändrad: 27 av 45 minuter. Den totala tiden per kandidat ändras inte.
+5. **De andra sessionerna har roller:** researchen (forska), jämförelsen (jamforelse) och granskningens andra pass
+   (motivering).
+   - Kvittona står i FORSKNING.json, JAMFORELSE.json och KRITIK.json.
+   - Metodkartans lista över sessioner utan block har skaparen och förbättringsrundan i läget full, med prövbara skäl.
+     `kompetens.py --prova` jämför listan med koden.
+6. **Metodlåset:** tre nya källor låstes med `metod.py --las`. `metod.py --prova` och `kompetens.py --prova` är gröna.
+7. **Proven:** `kontroller/rokprov/revision/prov_skisskritik.py` har åtta fall och ingår i rökprovet. Fallen var röda
+   mot 63c09c5 och är gröna här.
+
+**Återstår:**
+- Ingen verklig skissomgång med kundmaterial har gått med rollen kritik. Mätningen gällde en syntetisk skiss.
+- Researchens egna prov i Refero och Mobbin, jämförelsen och granskningens två pass är inte körda i en verklig session.
+- Skaparens sessioner har samma lucka i skalet mot de andra kandidaternas kod (`… | grep -r` förbi andra_nekas). Den
+  är inte stängd här, eftersom skaparens behörigheter inte ingår i uppdraget.
+- Dashboardens text säger att den interna granskningen "såg bara bilderna". Den ska säga den renderade sidan och
+  verktygens mätningar (gren D). Kritikens kvitto syns ännu inte i kompetenskedjan i vyn (gren C och D).
+- Ägaren avgör om kritikens frist ska kortas för att ge skaparen mer tid. Med 300 s skulle skaparen få tre minuter till.
