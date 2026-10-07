@@ -10,7 +10,7 @@ vars pid återanvänts av något annat) räknas inte.
     .venv/bin/python kontroller/korregister.py in <vad> [--slug S] [--pid P]
     .venv/bin/python kontroller/korregister.py ut [--pid P]
     .venv/bin/python kontroller/korregister.py lista
-    .venv/bin/python kontroller/korregister.py tmp <prefix> <vad> [--pid P] [--dir D]   (skriver katalogens sökväg)
+    .venv/bin/python kontroller/korregister.py tmp <prefix> <vad> --pid P [--dir D]   (skriver katalogens sökväg)
 
 Underhållets egna rökprov i en worktree (NWP_UNDERHALL_PROV=1) anmäls inte: de är underhållets egna prov.
 
@@ -22,6 +22,7 @@ som redovisas och aldrig raderas.
 """
 import argparse
 import contextlib
+import datetime
 import json
 import os
 import re
@@ -70,8 +71,12 @@ def startad_lokalt(pid):
 
 
 def lever(pid):
+    """Finns processen? EPERM betyder att den finns men inte får signaleras (en annan användares process, eller en
+    sandlåda som nekar signaler): den lever (granskningen av r100, KAN-7)."""
     try:
         os.kill(int(pid), 0)
+        return True
+    except PermissionError:
         return True
     except (OSError, TypeError, ValueError):
         return False
@@ -250,19 +255,34 @@ def tmp_agare(katalog):
     return dict(post, pid=pid), None
 
 
+def starttid(text):
+    """ps lstart med LC_ALL=C ('Wed Oct  7 05:26:44 2026') som en tidpunkt utan zon, eller None när texten inte går att
+    tolka."""
+    try:
+        return datetime.datetime.strptime(' '.join(str(text or '').split()), '%a %b %d %H:%M:%S %Y')
+    except ValueError:
+        return None
+
+
 def tmp_avslutad(post):
     """(avslutad, skälet) för körningen som äger en registrerad katalog: True när processen inte lever, eller när pid:en
     lever med en annan starttid än den registrerade (återanvänd); False när den lever med samma starttid; None när det
-    inte går att avgöra (ps svarar inte, eller registreringen saknar starttiden), och då räknas den som pågående."""
+    inte går att avgöra (ps svarar inte, eller registreringens starttid saknas eller inte går att tolka), och då räknas
+    den som pågående. Starttiden jämförs som tid, inte som text, mot processens starttid i UTC och i lokal tid: en
+    registrering i det andra formatet är samma process (granskningen av r100, KAN-7)."""
     pid = int(post['pid'])
     if not lever(pid):
         return True, 'pid %d lever inte' % pid
+    reg = starttid(post.get('pstart'))
+    if reg is None:
+        return None, 'pid %d lever, och registreringens starttid (%s) går inte att tolka' % (pid, post.get('pstart') or 'saknas')
     nu_s = startad(pid)
-    if not nu_s or not post.get('pstart'):
-        return None, 'pid %d lever, och starttiden går inte att jämföra (%s)' % (pid, 'ps svarar inte' if not nu_s else 'registreringen saknar den')
-    if ' '.join(nu_s.split()) != ' '.join(str(post['pstart']).split()):
-        return True, 'pid %d har en annan starttid (%s) än den registrerade (%s): en annan process' % (pid, nu_s, post['pstart'])
-    return False, 'pid %d lever (startad %s)' % (pid, nu_s)
+    nu_t = [t for t in (starttid(nu_s), starttid(startad_lokalt(pid))) if t is not None]
+    if not nu_t:
+        return None, 'pid %d lever, och ps svarar inte med starttiden' % pid
+    if any(abs((t - reg).total_seconds()) <= 1 for t in nu_t):
+        return False, 'pid %d lever (startad %s)' % (pid, nu_s or post.get('pstart'))
+    return True, 'pid %d har en annan starttid (%s) än den registrerade (%s): en annan process' % (pid, nu_s, post['pstart'])
 
 
 def main(argv=None):
@@ -275,10 +295,12 @@ def main(argv=None):
     p.add_argument('--dir')
     a = p.parse_args(argv)
     if a.atgard == 'tmp':  # ett skalskript: tmp <prefix> <vad> --pid $$ ger en registrerad katalog
-        if not a.vad or not re.fullmatch(r'[A-Za-z0-9_.-]{2,40}', a.vad) or not a.tmp_vad:
-            print('tmp <prefix> <vad> [--pid P] [--dir D]', file=sys.stderr)
+        # --pid krävs: utan den vore ägaren föräldern, och i en kommandosubstitution kan det vara ett mellanskal som
+        # slutar direkt (granskningen av r100, KAN-6)
+        if not a.vad or not re.fullmatch(r'[A-Za-z0-9_.-]{2,40}', a.vad) or not a.tmp_vad or not a.pid or a.pid <= 1:
+            print('tmp <prefix> <vad> --pid <körningens pid, i ett skalskript $$> [--dir D]', file=sys.stderr)
             return 2
-        print(egen_tmp(a.vad, a.tmp_vad, dir=a.dir, pid=a.pid or os.getppid()))
+        print(egen_tmp(a.vad, a.tmp_vad, dir=a.dir, pid=a.pid))
         return 0
     if a.atgard == 'in':
         if a.vad not in KANNETECKEN:

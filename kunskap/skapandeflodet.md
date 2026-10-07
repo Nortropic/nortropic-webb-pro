@@ -208,7 +208,9 @@ prototypen att gissa läget.
 - `ny_riktning` återöppnar alla designbeslut, aldrig fakta. `kontroller/atelje.py <slug> --ny-riktning` (eller
   prototyp.py) sparar först det ägaren bedömt (ägarens beslut 2026-10-07, `BESLUT.md`). Varje kandidat som ägaren dömt i
   körningen sparas i `underlag/<slug>/omtag/<stämpel>/<kandidat>/<v12>/` med skärmbilderna, versionshashen, domen och
-  underlaget som hashen räknas om ur, och `KVITTO.json` har sha256 för varje fil. Faller det raderas inget. Sedan för den
+  underlaget som hashen räknas om ur, och `KVITTO.json` har sha256 för varje fil. Vinnaren, slutdomens bilder, tidigare
+  körningars arkiv och en äldre prototyp sparas i `omtag/<stämpel>/atelje/` och `omtag/<stämpel>/prototyp/`: inget
+  raderas osparat. Faller det raderas inget. Sedan för den
   in den dömda riktningen, eller kandidaterna ägaren såg, i historiken med domen och en pekare till det sparade. Sist raderar
   den REFERENSER.md, KONCEPT.md, ateljén, äldre prototyper, förhandsvarven, tvåan och hela `kunder/<slug>/sajt` och
   `kunder/<slug>/kandidater` (ägarens beslut 2026-10-06: inget arkiv), också en godkänd och helbyggd sajt. Fakta,

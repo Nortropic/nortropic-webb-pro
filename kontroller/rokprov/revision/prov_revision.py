@@ -596,7 +596,7 @@ assert '- bild: kunder/x/granskning/runda-01/sajt/hem/vy-390-ruta-02.png' in an_
 assert 'Inga blockerande fynd.' in gr_tak.andringar({'slug': 'x', 'runda': 2, 'blockerande': []})
 # granskningen av steg 2, punkt 1: en väg utanför repot, en ..-väg ut, en symlänk och en dold katalog fäller aldrig
 # domen; granskarens egen tillståndsbild i arbetskatalogen kopieras in i omgången så att byggaren kan läsa den
-arbrot_ = stada_vid_slut(Path(tempfile.mkdtemp(prefix='nwp-granskning-'))); arb_ = arbrot_ / 'x' / 'runda-01-1'; arb_.mkdir(parents=True); (arb_ / 'meny-oppen.png').write_bytes(b'png')  # utanför repot, som /tmp/nwp-granskning
+arbrot_ = stada_vid_slut(Path(tempfile.mkdtemp(prefix='nwp-granskning-'))); korregister_.registrera_tmp(arbrot_, 'prov_revision granskning'); arb_ = arbrot_ / 'x' / 'runda-01-1'; arb_.mkdir(parents=True); (arb_ / 'meny-oppen.png').write_bytes(b'png')  # utanför repot, som /tmp/nwp-granskning
 (tmp / '.dold').mkdir(); (tmp / '.dold' / 'ref.png').write_bytes(b'x'); (tmp / 'lank.png').symlink_to('/etc/hosts')
 r1_ = tmp / 'kunder' / 'x' / 'granskning' / 'runda-01'
 gr_rot, gr_arb = gr_tak.ROOT, gr_tak.ARBETSROT; gr_tak.ROOT, gr_tak.ARBETSROT = tmp, arbrot_
@@ -3377,6 +3377,7 @@ sk.lagg_till_dom('pt-bedomt', 'ägaren', 'valj', 'En tidigare plan.', underlag=p
 sk.lagg_till_dom('pt-bedomt', 'panelen', 'valj', 'Panelen väljer.', underlag=pt_und, tid='2026-10-06T06:30:00Z',
                  kandidater=[{'id': 'k03', 'version': v3_om, 'plan': P_OM}])
 sk.lagg_till_dom('pt-bedomt', 'ägaren', 'ny_riktning', 'Ingen av dem bär; börja om.', underlag=pt_und)
+sk.lagg_till_dom('pt-bedomt', 'panelen', 'valj', 'Panelen efter ägaren.', underlag=pt_und, kandidater=[{'id': 'k02', 'version': v2_om, 'plan': P_OM}])  # inte domloggens sista rad (O5)
 info_bo = {}
 try:
     fl_bo = at_pt.ta_bort_beslut('pt-bedomt', info_bo)
@@ -3482,6 +3483,201 @@ def _omtag_lank():
         raise AssertionError('omtaget skrev genom en länk')
     except RuntimeError as e_:
         assert 'länk' in str(e_) and (la_ / 'atelje' / 'kandidater' / 'k01' / 'kod').is_dir() and not list((tmp / 'pt-omtag-utanfor').iterdir()), e_
+
+
+BARN_OM = '''
+import os, sys, signal, shutil
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import atelje as at
+at.UNDERLAG, at.KUNDER = Path(sys.argv[2]), Path(sys.argv[3])
+slag, n = sys.argv[5], int(sys.argv[6])
+orig = shutil.copyfile
+anrop = []
+def cf(a, b, *r, **k):
+    anrop.append(1)
+    if len(anrop) == n:
+        os.kill(os.getpid(), signal.SIGTERM if slag == 'term' else signal.SIGKILL)
+    return orig(a, b, *r, **k)
+at.shutil.copyfile = cf
+at.ta_bort_beslut(sys.argv[4])
+print('KLART')
+'''
+
+
+def tva_kandidater(slug_):
+    """En körning med två fotograferade kandidater som ägaren jämfört och sedan sagt ny riktning om."""
+    d_ = omtagsplan(slug_, {'k01': 'Ett', 'k02': 'Två'}, KLAR_OM)
+    v1 = kandidat_med_version(d_ / 'atelje' / 'kandidater' / 'k01', '<h1>Ett</h1>', titel='Ett')
+    v2 = kandidat_med_version(d_ / 'atelje' / 'kandidater' / 'k02', '<h1>Två</h1>', titel='Två')
+    sk.lagg_till_dom(slug_, 'ägaren', 'jamfor', 'Jämför.', underlag=pt_und, tid='2026-10-06T06:20:00Z',
+                     kandidater=[{'id': 'k01', 'version': v1, 'plan': P_OM}, {'id': 'k02', 'version': v2, 'plan': P_OM}], plan=P_OM)
+    sk.lagg_till_dom(slug_, 'ägaren', 'ny_riktning', 'Börja om.', underlag=pt_und)
+    return d_, v1, v2
+
+
+def barn_om(slug_, slag_, n_):
+    """Omtaget i en egen process, med en riktig signal vid den n:te kopian i sparandet."""
+    import subprocess as sp_om
+    return sp_om.run([sys.executable, '-B', '-c', BARN_OM, str(Path(at_pt.__file__).resolve().parent), str(pt_und), str(at_pt.KUNDER), slug_,
+                      slag_, str(n_)], capture_output=True, text=True, timeout=120, env=dict(os.environ, NWP_STARTKONTROLL='av'))
+
+
+@omtagsfall('en kopia som skiljer sig från källan vid sparandet vägras: hashen räknas om ur det sparade (O3)')
+def _omtag_skadad_kopia():
+    sa_ = omtagsplan('pt-bedomt-skadad', {'k01': 'Ett'}, KLAR_OM)
+    kandidat_med_version(sa_ / 'atelje' / 'kandidater' / 'k01', '<h1>Ett</h1>', titel='Ett')
+    sk.lagg_till_dom('pt-bedomt-skadad', 'ägaren', 'ny_riktning', 'Börja om.', underlag=pt_und)
+    orig_cf_ = at_pt.shutil.copyfile
+
+    def skadad_cf(a_, b_, *r_, **k_):
+        ut_ = orig_cf_(a_, b_, *r_, **k_)
+        if str(b_).endswith('/underlag/kod/index.astro'):
+            Path(b_).write_text('<h1>skadad i kopian</h1>')
+        return ut_
+
+    at_pt.shutil.copyfile = skadad_cf
+    try:
+        at_pt.ta_bort_beslut('pt-bedomt-skadad')
+        raise AssertionError('omtaget registrerade en kopia som inte är den dömda versionen')
+    except RuntimeError as e_:
+        assert 'det bedömda gick inte att spara' in str(e_) and 'hashen' in str(e_), e_
+    finally:
+        at_pt.shutil.copyfile = orig_cf_
+    assert (sa_ / 'atelje' / 'kandidater' / 'k01' / 'kod').is_dir() and not list((sa_ / 'omtag').iterdir()), 'inget sparat, inget raderat'
+
+
+@omtagsfall('en körning som redan bokförts för hand: de kandidater ägaren sett sparas ändå (O6)')
+def _omtag_bokford():
+    bf_ = omtagsplan('pt-bedomt-bokford', {'k01': 'Ett'}, KLAR_OM)
+    vb_ = kandidat_med_version(bf_ / 'atelje' / 'kandidater' / 'k01', '<h1>Ett</h1>', titel='Ett')
+    sk.lagg_till_dom('pt-bedomt-bokford', 'ägaren', 'ny_riktning', 'Börja om.', underlag=pt_und)
+    sk.lagg_till_historik('pt-bedomt-bokford', [{'kalla': 'för hand', 'namn': 'Ett', 'utfall': 'underkänd av ägaren', 'tid': '2026-10-06T09:00:00Z'}], pt_und)
+    info_ = {}
+    at_pt.ta_bort_beslut('pt-bedomt-bokford', info_)
+    assert [x.split('/omtag/', 1)[1].split('/', 1)[1] for x in info_.get('sparade') or []] == ['k01/%s/KVITTO.json' % vb_[:12]], info_
+    assert not (bf_ / 'atelje').exists()
+
+
+@omtagsfall('en riktig SIGTERM mitt i sparandet: slutkod 143, inget sparat, ingen dold rest, ingen historik och inget raderat (O7)')
+def _omtag_sigterm():
+    import signal as sig_om
+    te_, v1_, v2_ = tva_kandidater('pt-bedomt-term')
+    r_ = barn_om('pt-bedomt-term', 'term', 5)
+    assert r_.returncode == 128 + sig_om.SIGTERM, (r_.returncode, r_.stdout[-200:], r_.stderr[-400:])
+    om_ = te_ / 'omtag'
+    assert not (list(om_.iterdir()) if om_.is_dir() else []), ('inget sparat och ingen dold rest', list(om_.iterdir()))
+    assert (te_ / 'atelje' / 'kandidater' / 'k01' / 'kod' / 'index.astro').is_file() and (at_pt.KUNDER / 'pt-bedomt-term' / 'kandidater').is_dir()
+    assert not sk.historik('pt-bedomt-term', pt_und) and not list(te_.glob('.borttaget-*')), 'ingen historik, inget flyttat'
+
+
+@omtagsfall('SIGKILL mitt i sparandet registrerar aldrig något halvt; nästa omtag tar bort den dolda resten och sparar allt (O8, KAN-3)')
+def _omtag_sigkill():
+    import signal as sig_om
+    ki_, v1_, v2_ = tva_kandidater('pt-bedomt-kill')
+    r_ = barn_om('pt-bedomt-kill', 'kill', 14)  # under den andra kandidaten
+    assert r_.returncode == -sig_om.SIGKILL, (r_.returncode, r_.stderr[-400:])
+    om_ = ki_ / 'omtag'
+    dolda_ = [x.name for x in om_.iterdir() if x.name.startswith('.')]
+    synliga_ = [x.name for x in om_.iterdir() if not x.name.startswith('.')]
+    assert dolda_ and not synliga_, ('ett sparande som dog är aldrig registrerat: namnbytet kommer sist', dolda_, synliga_)
+    assert (ki_ / 'atelje' / 'kandidater' / 'k02' / 'kod' / 'index.astro').is_file() and not sk.historik('pt-bedomt-kill', pt_und)
+    # ett sparande som kan pågå (pid:en lever och startade före stämpeln) rörs inte; en rest vars pid fått en ny process
+    # (startad efter stämpeln) är död och tas bort
+    pagar_ = om_ / ('.%s-%d-7.tmp' % (at_pt.nu().replace(':', ''), os.getpid()))
+    aterbrukad_ = om_ / ('.2026-01-01T000000Z-%d.tmp' % os.getpid())
+    for x_ in (pagar_, aterbrukad_):
+        (x_ / 'k01').mkdir(parents=True)
+        (x_ / 'k01' / 'halv.txt').write_text('halvt sparat')
+    info_ = {}
+    at_pt.ta_bort_beslut('pt-bedomt-kill', info_)
+    assert (pagar_ / 'k01' / 'halv.txt').is_file() and not os.path.lexists(aterbrukad_), sorted(x.name for x in om_.iterdir())
+    shutil.rmtree(pagar_)
+    efter_ = sorted(x.name for x in om_.iterdir())
+    assert len(efter_) == 1 and not efter_[0].startswith('.') and len(info_['sparade']) == 2, (efter_, info_)
+    for kv_ in (om_ / efter_[0]).glob('*/*/KVITTO.json'):
+        assert hash_om(kv_.parent / 'underlag') == json.loads(kv_.read_text())['version']
+
+
+@omtagsfall('den äldre utforskningen: vinnaren, slutdomens bilder, tidigare körningar och en äldre prototyp sparas före raderingen (BÖR-3)')
+def _omtag_aldre_vagen():
+    ae_ = pt_und / 'pt-bedomt-aldre'
+    a_ = ae_ / 'atelje'
+    filer_ae = {'vinnare/kod/index.astro': b'<h1>Vinnaren</h1>', 'vinnare/bilder/vy-390-forsta.png': b'\x89PNG vinnaren',
+                'slutdom/1/vy-390-forsta.png': b'\x89PNG fore', 'slutdom/2/vy-390-forsta.png': b'\x89PNG efter',
+                'foregaende/20261005T000000Z/vinnare/kod/index.astro': '<h1>Den förra vinnaren</h1>'.encode(),
+                'foregaende/20261005T000000Z/KANDIDATPLAN.json': json.dumps({'tid': '2026-10-04T10:00:00Z', 'kandidater': {}}).encode()}
+    for rel_, data_ in filer_ae.items():
+        (a_ / rel_).parent.mkdir(parents=True, exist_ok=True)
+        (a_ / rel_).write_bytes(data_)
+    (a_ / 'vinnare' / 'node_modules' / 'p').mkdir(parents=True)
+    (a_ / 'vinnare' / 'node_modules' / 'p' / 'x.js').write_text('härlett')  # följer inte med
+    vinnare_filer = {r_[len('vinnare/'):]: hashlib_om.sha256(d_).hexdigest() for r_, d_ in filer_ae.items() if r_.startswith('vinnare/')}
+    (a_ / 'VINNARE.json').write_text(json.dumps({'riktning': 1, 'filer': vinnare_filer}))
+    (a_ / 'RIKTNINGAR.md').write_text('## Riktning 1: Vinnaren\nEn idé.\n')
+    (a_ / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-06T08:00:00Z'}))
+    (ae_ / 'prototyp').mkdir()
+    (ae_ / 'prototyp' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-06T02:00:00Z'}))
+    (ae_ / 'prototyp' / 'vy-390-forsta.png').write_bytes(b'\x89PNG prototypen')
+    (at_pt.KUNDER / 'pt-bedomt-aldre' / 'sajt' / 'src').mkdir(parents=True)
+    sk.lagg_till_dom('pt-bedomt-aldre', 'ägaren', 'valj', 'En dom i den arkiverade planen.', underlag=pt_und, tid='2026-10-04T11:00:00Z',
+                     kandidater=[{'id': 'k01', 'version': 'a' * 64, 'plan': '2026-10-04T10:00:00Z'}], plan='2026-10-04T10:00:00Z')
+    sk.lagg_till_dom('pt-bedomt-aldre', 'ägaren', 'ny_riktning', 'Vinnaren bär inte; börja om.', underlag=pt_und)
+    info_ = {}
+    at_pt.ta_bort_beslut('pt-bedomt-aldre', info_)
+    (st_,) = list((ae_ / 'omtag').iterdir())
+    k_a = json.loads((st_ / 'atelje' / 'KVITTO.json').read_text())
+    assert set(k_a['filer']) == set(filer_ae) | {'VINNARE.json'}, sorted(k_a['filer'])
+    for rel_, s_ in k_a['filer'].items():
+        assert hashlib_om.sha256((st_ / 'atelje' / rel_).read_bytes()).hexdigest() == s_, rel_
+    assert k_a['vinnare']['hashar_stammer'] and k_a['vinnare']['riktning'] == 1, k_a['vinnare']
+    assert [d_['beslut'] for d_ in k_a['domar']] == ['valj', 'ny_riktning'], k_a['domar']
+    k_p = json.loads((st_ / 'prototyp' / 'KVITTO.json').read_text())
+    assert set(k_p['filer']) == {'STATUS.json', 'vy-390-forsta.png'} and k_p['utan_dom'], k_p
+    assert not (ae_ / 'atelje').exists() and not (ae_ / 'prototyp').exists(), 'sedan raderas det som förut'
+    assert {h_['namn']: h_.get('sparat') for h_ in sk.historik('pt-bedomt-aldre', pt_und)} == {'Vinnaren': 'omtag/%s/atelje/' % st_.name}
+    assert sorted(info_['sparade']) == sorted('underlag/pt-bedomt-aldre/omtag/%s/%s/KVITTO.json' % (st_.name, x) for x in ('atelje', 'prototyp'))
+
+
+@omtagsfall('domloggen läses på samma sätt överallt: en länkad domlogg ger kvitton med domen, och en version utan domrad vägras (KAN-4)')
+def _omtag_domlogg():
+    dl_ = omtagsplan('pt-bedomt-domlogg', {'k01': 'Ett'}, KLAR_OM)
+    kandidat_med_version(dl_ / 'atelje' / 'kandidater' / 'k01', '<h1>Ett</h1>', titel='Ett')
+    sk.lagg_till_dom('pt-bedomt-domlogg', 'ägaren', 'ny_riktning', 'Börja om.', underlag=pt_und)
+    f_ = dl_ / sk.DOMLOGG
+    (dl_ / 'domar-riktig.jsonl').write_bytes(f_.read_bytes())
+    f_.unlink()
+    f_.symlink_to(dl_ / 'domar-riktig.jsonl')
+    orig_dr = at_pt.domrader
+    at_pt.domrader = lambda slug_: []
+    try:
+        at_pt.ta_bort_beslut('pt-bedomt-domlogg')
+        raise AssertionError('en version sparades utan domrad')
+    except RuntimeError as e_:
+        assert 'ingen rad i domloggen' in str(e_), e_
+    finally:
+        at_pt.domrader = orig_dr
+    assert (dl_ / 'atelje' / 'kandidater' / 'k01' / 'kod').is_dir()
+    info_ = {}
+    at_pt.ta_bort_beslut('pt-bedomt-domlogg', info_)
+    (kv_,) = list((dl_ / 'omtag').glob('*/k01/*/KVITTO.json'))
+    assert [d_['beslut'] for d_ in json.loads(kv_.read_text())['domar']] == ['ny_riktning'], kv_.read_text()[:400]
+
+
+@omtagsfall('en dom utan plan som kom efter planen gäller den: den dömda versionen sparas, inte bara den nuvarande (KAN-5)')
+def _omtag_utan_plan():
+    up_ = omtagsplan('pt-bedomt-utanplan', {'k01': 'Ett'}, KLAR_OM)
+    k_ = up_ / 'atelje' / 'kandidater' / 'k01'
+    va_ = kandidat_med_version(k_, '<h1>A</h1>', titel='Ett')
+    shutil.copytree(k_ / 'bilder', k_ / 'versioner' / va_[:12] / 'bilder')
+    sk.lagg_till_dom('pt-bedomt-utanplan', 'ägaren', 'valj', 'En äldre dom utan plan.', underlag=pt_und, tid='2026-10-05T01:00:00Z',
+                     kandidater=[{'id': 'k01', 'version': 'f' * 64}])  # före planen: den gäller en äldre plan
+    sk.lagg_till_dom('pt-bedomt-utanplan', 'ägaren', 'valj', 'Välj A.', underlag=pt_und, tid='2026-10-06T06:10:00Z', kandidater=[{'id': 'k01', 'version': va_}])
+    vb_ = kandidat_med_version(k_, '<h1>B, förfinad</h1>', status='forfinad')
+    sk.lagg_till_dom('pt-bedomt-utanplan', 'ägaren', 'ny_riktning', 'Börja om.', underlag=pt_und)
+    info_ = {}
+    at_pt.ta_bort_beslut('pt-bedomt-utanplan', info_)
+    assert sorted(Path(x).parent.name for x in info_['sparade']) == sorted([va_[:12], vb_[:12]]), info_
 
 
 assert not OMTAG_FEL, 'omtagets fall 2026-10-07 som föll: %s' % OMTAG_FEL
@@ -6149,7 +6345,7 @@ rot_pg = srv_pg = wtk = None; klart_pg = False
 try:  # allt nedan städas i finally, steg för steg, också när ett tidigare påstående faller (Codex R27/R28)
     egna_kataloger_([tmp_pg, rot_kedja, gr_pg], egna_pg)
     assert not (ROOT / 'kunder' / sl_pg).exists() and not (ROOT / 'underlag' / sl_pg).exists()
-    rot_pg = Path(tempfile.mkdtemp(prefix='nwp-pg-', dir='/tmp')); egna_pg.append(rot_pg)  # exklusivt skapad; utanför sessionens temp och körningens egna kataloger, annars prövas inget
+    rot_pg = Path(tempfile.mkdtemp(prefix='nwp-pg-', dir='/tmp')); egna_pg.append(rot_pg); korregister_.registrera_tmp(rot_pg, 'prov_revision processgräns')  # exklusivt skapad; utanför sessionens temp och körningens egna kataloger, annars prövas inget
     (rot_pg / 'kunder' / sl_pg).mkdir(parents=True); (rot_pg / 'underlag' / sl_pg).mkdir(parents=True); (rot_pg / 'kontroller').mkdir()
     (rot_pg / 'hem' / '.nortropic-hemligheter').mkdir(parents=True); (rot_pg / 'hem' / '.nortropic-hemligheter' / 'x.env').write_text('DUMMY=hemligt'); (rot_pg / 'kunder' / sl_pg / '.env').write_text('X=1')
     shutil.copy2(ROOT / 'kontroller' / 'sandlada-domaner.txt', rot_pg / 'kontroller')

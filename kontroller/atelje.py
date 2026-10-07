@@ -2172,18 +2172,20 @@ def privat_rel(p):
 
 
 def domrader(slug):
-    """Domloggens poster med radnummer (från 1) och radens sha256, i samma urval som skapande.domar: [(rad, sha256, post)].
-    Var en dom står, så att ett kvitto pekar på exakt den raden."""
+    """Domloggens poster med radnummer (från 1) och radens sha256: [(rad, sha256, post)]. Loggen läses precis som
+    skapande.domar läser den (read_text och splitlines, samma urval), så att det omtaget sparar och den dom som gäller
+    körningen kommer ur samma läsning (granskningen av r100, KAN-4). Var en dom står, så att ett kvitto pekar på exakt
+    den raden."""
     f = UNDERLAG / slug / skapande.DOMLOGG
     ut = []
-    if f.is_file() and not f.is_symlink():
-        for i, rad in enumerate(f.read_bytes().split(b'\n'), 1):
+    if f.is_file():
+        for i, rad in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
             try:
-                post = json.loads(rad.decode('utf-8'))
-            except (ValueError, UnicodeDecodeError):
+                post = json.loads(rad)
+            except ValueError:
                 continue
             if isinstance(post, dict) and post.get('beslut') in skapande.BESLUT and isinstance(post.get('text'), str):
-                ut.append((i, sha256_bytes(rad), post))
+                ut.append((i, sha256_bytes(rad.encode('utf-8')), post))
     return ut
 
 
@@ -2195,7 +2197,8 @@ def sha256_bytes(b):
 def bedomda(slug, plan, kandplan, st_kand, sedd, dom, dom_galler):
     """Kandidaterna ägaren dömt i körningen, med versionen: {(kandidat, version): [(rad, sha256, dom)]}. En dom från ägaren
     som i den här planen namnger en kandidat med version (valj, jamfor, putsa, godkand eller forkasta) dömer den
-    versionen. När ägarens senaste dom (ny riktning eller förkasta) gäller körningen dömer den dessutom varje kandidat
+    versionen; en dom utan plan (förd för hand) gäller planen när den kom efter att planen skrevs (granskningen av r100,
+    KAN-5). När ägarens senaste dom (ny riktning eller förkasta) gäller körningen dömer den dessutom varje kandidat
     ägaren sett, i den version kandidaten har. En kandidat utan version har aldrig fotograferats och har inget bedömt att
     spara; en kandidat ägaren varken namngett eller sett döms inte, och dess öde följer omtagets regel."""
     ut, rader, pt = {}, domrader(slug), plan.get('tid')
@@ -2204,7 +2207,10 @@ def bedomda(slug, plan, kandplan, st_kand, sedd, dom, dom_galler):
         if d.get('kalla') not in skapande.AGAREN or not pt:
             continue
         for x in d.get('kandidater') or []:
-            if isinstance(x, dict) and str(x.get('id')) in kandplan and x.get('version') and (x.get('plan') or d.get('plan')) == pt:
+            if not (isinstance(x, dict) and str(x.get('id')) in kandplan and x.get('version')):
+                continue
+            x_plan = x.get('plan') or d.get('plan')
+            if x_plan == pt or (not x_plan and str(d.get('tid') or '') > str(pt)):
                 lst = ut.setdefault((str(x['id']), str(x['version'])), [])
                 if r not in lst:
                     lst.append(r)
@@ -2245,7 +2251,84 @@ def bedomd_kalla(slug, kid, v):
     return None, None
 
 
-def spara_bedomda(slug, stampel, domda, plan, kandplan):
+HARLETT_OMTAG = ('node_modules', '__pycache__')  # går att återskapa: följer inte med det sparade
+
+
+def sparande_dott(namn):
+    """Är omtag/.<stämpel>.tmp rester av ett sparande vars process inte längre finns? Stämpeln bär tiden och pid:en
+    (ta_bort_beslut). Sant när pid:en inte lever, eller när den lever men startade efter stämpeln (en annan process har
+    fått pid:en). Lever den och startade före, kan sparandet pågå i en annan process eller tråd; ett namn eller en
+    starttid som inte går att tolka räknas också som pågående. Då rörs resten inte."""
+    m = re.fullmatch(r'\.(\d{4}-\d{2}-\d{2}T\d{6}Z)-(\d+)(?:-\d+)?\.tmp', str(namn))
+    if not m:
+        return False
+    import korregister
+    pid = int(m.group(2))
+    if not korregister.lever(pid):
+        return True
+    start = korregister.starttid(korregister.startad(pid))
+    if start is None:
+        return False
+    return (start - datetime.strptime(m.group(1), '%Y-%m-%dT%H%M%SZ')).total_seconds() > 1
+
+
+def ovrigt_bedomt(slug, rader, dom_rad, prototyp_egen_dom):
+    """Det bedömda utanför kandidatflödets kandidater, som ett omtag annars skulle radera osparat (granskningen av r100,
+    BÖR-3): [(namn, [(källa, väg i det sparade)], domrader, fält)].
+    - 'atelje': vinnaren (atelje/vinnare/ och VINNARE.json med hasharna; den äldre utforskningens valda och förfinade
+      riktning, eller kandidatflödets godkända kandidat), slutdomens bilder före och efter förfiningen (atelje/slutdom/)
+      och tidigare körningars arkiv (atelje/foregaende/). Domarna: ägarens dom som gäller körningen, ägarens godkännande
+      av vinnaren och ägarens domar i en arkiverad plan.
+    - 'prototyp': en äldre prototyp (prototyp/), med ägarens dom när den gäller prototypen själv.
+    Inget av det raderas osparat."""
+    u, ut = UNDERLAG / slug, []
+    a = u / 'atelje'
+    kallor = [(a / n, n) for n in ('vinnare', 'VINNARE.json', 'slutdom', 'foregaende') if (a / n).exists() and not (a / n).is_symlink()]
+    if kallor and not a.is_symlink():
+        domar_ = [dom_rad] if dom_rad else []
+        g = (las_json(a / 'VINNARE.json') or {}).get('godkand') if (a / 'VINNARE.json').is_file() else None
+        if isinstance(g, dict) and g.get('tid'):
+            domar_ += [r for r in rader if r[2].get('kalla') in skapande.AGAREN and r[2].get('beslut') == 'godkand' and r[2].get('tid') == g['tid']]
+        planer = set()
+        if (a / 'foregaende').is_dir() and not (a / 'foregaende').is_symlink():
+            planer = {str((las_json(q) or {}).get('tid') or '') for q in (a / 'foregaende').glob('*/KANDIDATPLAN.json')} - {''}
+        domar_ += [r for r in rader if r[2].get('kalla') in skapande.AGAREN and planer
+                   and any(isinstance(x, dict) and (x.get('plan') or r[2].get('plan')) in planer for x in r[2].get('kandidater') or [])]
+        ut.append(('atelje', kallor, sorted({r[0]: r for r in domar_}.values(), key=lambda r: r[0]), {}))
+    pr = u / 'prototyp'
+    if pr.is_dir() and not pr.is_symlink():
+        egen = bool(dom_rad and prototyp_egen_dom)
+        ut.append(('prototyp', [(pr, '')], [dom_rad] if egen else [], {'egen_dom': egen}))
+    return ut
+
+
+def kopiera_bedomt(kalla, mal, prefix, filer):
+    """kalla (en fil eller en katalog) till mal/prefix, utan att följa en länk och utan det härledda (HARLETT_OMTAG), och
+    sha256 för varje kopierad fil i filer. En katalog som inte går att läsa, eller en fil som redan finns i det sparade,
+    är ett fel."""
+    kalla = Path(kalla)
+    if kalla.is_symlink():
+        return
+    def fel(e):
+        raise e
+    par = [(kalla, prefix)] if kalla.is_file() else []
+    if kalla.is_dir():
+        for rot, mappar, fns in os.walk(kalla, followlinks=False, onerror=fel):
+            mappar[:] = sorted(m for m in mappar if m not in HARLETT_OMTAG and not os.path.islink(os.path.join(rot, m)))
+            for fn in sorted(fns):
+                q = Path(rot) / fn
+                if not q.is_symlink() and q.is_file():
+                    par.append((q, '/'.join(x for x in (prefix, q.relative_to(kalla).as_posix()) if x)))
+    for q, rel_ in par:
+        m = mal / rel_
+        if os.path.lexists(m) or rel_ == KVITTO:
+            raise FileExistsError(17, 'finns redan i det sparade', str(m))
+        m.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(q, m)
+        filer[rel_] = sha256_fil(m)
+
+
+def spara_bedomda(slug, stampel, domda, plan, kandplan, ovrigt=()):
     """Det ägaren bedömt sparas och registreras före raderingen (ägarens beslut 2026-10-07: bilder och versionshash, med
     domen och länken till motsvarande design och kod, och ett bevarat underlag så att hashen och jämförelsen går att
     återskapa). För varje kandidat och version i omtag/<stämpel>/<kandidat>/<v12>/:
@@ -2254,11 +2337,14 @@ def spara_bedomda(slug, stampel, domda, plan, kandplan):
     - bilder/<sida>/: skärmbilderna (vy-*.png) i de bredder versionen fotograferades och dömdes i;
     - KVITTO.json: id, tid, kandidat, version och den omräknade hashen, sha256 per fil, länkarna till design och kod (det
       sparade och var det låg) och domarna, med fil, rad och radens sha256 i domloggen och posten själv.
+    En version utan domrad sparas inte: då vägras omtaget (granskningen av r100, KAN-4). Det övriga bedömda (ovrigt,
+    ovrigt_bedomt) sparas i omtag/<stämpel>/atelje/ och omtag/<stämpel>/prototyp/, med KVITTO.json (sha256 per fil och
+    domarna) och för vinnaren en jämförelse med hasharna i VINNARE.json.
     Allt skrivs i en dold katalog som byter namn till omtag/<stämpel>/ när det är helt: det är registreringen, och den
     görs före allt som raderas. Faller något (underlaget saknas, hashen stämmer inte, en kopia faller, ett avbrott) tas
-    den dolda katalogen bort och felet höjs; då är inget raderat. Ingen länk följs. Ger kvittona per kandidat."""
+    den dolda katalogen bort och felet höjs; då är inget raderat. Ingen länk följs. Ger kvittona per kandidat och del."""
     import kandidater
-    if not domda:
+    if not domda and not ovrigt:
         return {}
     u = UNDERLAG / slug
     omtag = u / OMTAG
@@ -2272,6 +2358,8 @@ def spara_bedomda(slug, stampel, domda, plan, kandplan):
     try:
         tmp.mkdir()
         for (kid, v), rader in sorted(domda.items()):
+            if not rader:
+                raise RuntimeError('%s version %s: ingen rad i domloggen pekar på domen över den' % (kid, v[:12]))
             kalla, bilder = bedomd_kalla(slug, kid, v)
             if kalla is None:
                 raise RuntimeError('%s version %s: underlaget som versionen räknas över finns inte eller ger en annan hash (varken i '
@@ -2314,13 +2402,33 @@ def spara_bedomda(slug, stampel, domda, plan, kandplan):
                 kvitto['bilder_saknas'] = 'versionens skärmbilder är inte bevarade'
             (mal / KVITTO).write_text(json.dumps(kvitto, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
             kvitton.setdefault(kid, []).append('%s/%s/%s' % (kid, v[:12], KVITTO))
+        for namn, kallor_, rader, falt in ovrigt:
+            mal, filer = tmp / namn, {}
+            mal.mkdir(parents=True)
+            for kalla_, rel_ in kallor_:
+                kopiera_bedomt(kalla_, mal, rel_, filer)
+            kvitto = dict({'schema': 1, 'id': 'omtag-%s-%s' % (stampel, namn), 'tid': nu(), 'slug': slug, 'omtag': stampel, 'del': namn,
+                           'kalla': [privat_rel(k_) for k_, _r in kallor_], 'filer': filer,
+                           'domar': [{'fil': 'underlag/%s/%s' % (slug, skapande.DOMLOGG), 'rad': r[0], 'sha256_rad': r[1], 'tid': r[2].get('tid'),
+                                      'kalla': r[2].get('kalla'), 'beslut': r[2].get('beslut'), 'post': r[2]} for r in rader]}, **falt)
+            if not rader:
+                kvitto['utan_dom'] = 'ingen dom i domloggen gäller just det här (körningen bokförd för hand, eller domen gäller kandidaterna)'
+            if (mal / 'VINNARE.json').is_file():  # vinnarens hashar, som VINNARE.json angav dem, mot det sparade
+                vj = las_json(mal / 'VINNARE.json') or {}
+                vf = vj.get('filer') if isinstance(vj.get('filer'), dict) else {}
+                avvik = sorted(r_ for r_, s_ in vf.items() if filer.get('vinnare/' + str(r_)) != s_)
+                kvitto['vinnare'] = {'riktning': vj.get('riktning'), 'kandidat': vj.get('kandidat'), 'version': vj.get('version'),
+                                     'godkand': (vj.get('godkand') or {}).get('tid') if isinstance(vj.get('godkand'), dict) else None,
+                                     'hashar_stammer': not avvik, 'avvikelser': avvik[:50]}
+            (mal / KVITTO).write_text(json.dumps(kvitto, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            kvitton.setdefault(namn, []).append('%s/%s' % (namn, KVITTO))
         os.rename(tmp, mal_rot)  # registreringen: hela det sparade på en gång, eller inget
     except BaseException as e:  # också Ctrl-C och SIGTERM: inget halvt sparat står kvar, och inget är raderat
         shutil.rmtree(tmp, ignore_errors=True)
         if isinstance(e, (OSError, RuntimeError, ValueError)):
             raise RuntimeError('det bedömda gick inte att spara (%s)' % (getattr(e, 'strerror', None) or e)) from e
         raise
-    return {kid: ['%s/%s/%s' % (OMTAG, stampel, k) for k in ks] for kid, ks in kvitton.items()}
+    return {del_: ['%s/%s/%s' % (OMTAG, stampel, k) for k in ks] for del_, ks in kvitton.items()}
 
 
 def ta_bort_beslut(slug, info=None):
@@ -2337,8 +2445,9 @@ def ta_bort_beslut(slug, info=None):
     som ska raderas inte går att gå igenom. Annars avslutas först förra körningens kvarlevande processer
     (stoppa_kvarvarande). Sedan sparas och registreras det ägaren bedömt (ägarens beslut 2026-10-07, spara_bedomda):
     varje kandidat ägaren dömt i körningen (bedomda), med bilderna, versionshashen, domen, länken till design och kod och
-    underlaget som hashen räknas om ur, i underlag/<slug>/omtag/<tid>/. Faller det raderas inget och ingen historik
-    skrivs (RuntimeError). Varje post byter namn till en dold syskonkatalog (.borttaget-<tid>-<namn>). Ur det som flyttats
+    underlaget som hashen räknas om ur, i underlag/<slug>/omtag/<tid>/, och vinnaren, slutdomens bilder, tidigare
+    körningars arkiv och en äldre prototyp (ovrigt_bedomt): inget raderas osparat. Faller det raderas inget och ingen
+    historik skrivs (RuntimeError). Varje post byter namn till en dold syskonkatalog (.borttaget-<tid>-<namn>). Ur det som flyttats
     undan, och ur rester av ett tidigare avbrutet omtag, kopieras ägarens egen inmatning (AGARENS_FILER) till
     underlag/<slug>/agarens-omdomen/<tid>/ med sin plats; dit kan dashboarden inte längre skriva. Historiken skrivs efter
     det sparade (en post pekar på det) och före namnbytena, och sist raderas det som flyttats undan. Går ett namnbyte
@@ -2455,17 +2564,29 @@ def ta_bort_beslut(slug, info=None):
     except ValueError:
         tidigare_sigterm = None
     try:
+        # rester av ett sparande som dog (SIGKILL) är dolda och oregistrerade, och det de kopierade står kvar på sin plats:
+        # de tas bort före ett nytt sparande (granskningen av r100, KAN-3); ett sparande som kan pågå rörs inte (sparande_dott)
+        if (u / OMTAG).is_dir():
+            for rest_ in sorted((u / OMTAG).glob('.*.tmp')):
+                if rest_.is_dir() and not rest_.is_symlink() and sparande_dott(rest_.name):
+                    shutil.rmtree(rest_, ignore_errors=True)
         # det ägaren bedömt sparas och registreras först, före historiken och allt som flyttas eller raderas (ägarens beslut
-        # 2026-10-07); faller sparandet görs inget av det andra
+        # 2026-10-07); faller sparandet görs inget av det andra. Också vinnaren, slutdomens bilder, tidigare körningars arkiv
+        # och en äldre prototyp: inget raderas osparat (granskningen av r100, BÖR-3)
+        rader_ = domrader(slug)
+        ovrigt = ovrigt_bedomt(slug, rader_, next((r for r in reversed(rader_) if r[2] == dom), None) if dom_galler else None,
+                               galler and not hanterad)
         try:
-            sparade = spara_bedomda(slug, stampel, bedomda(slug, plan, kandplan, st_kand, sedd, dom, dom_galler), plan, kandplan)
+            sparade = spara_bedomda(slug, stampel, bedomda(slug, plan, kandplan, st_kand, sedd, dom, dom_galler), plan, kandplan, ovrigt)
         except RuntimeError as e:
             raise RuntimeError('omtaget gjordes inte: %s; processerna är stoppade, men inget är borttaget och ingen historik skriven' % e)
         info['sparade'] = sorted('underlag/%s/%s' % (slug, x) for xs in sparade.values() for x in xs)
         for p_ in poster:  # historiken pekar på det sparade
-            kid_ = str(p_.get('kalla') or '').split('kandidatflödet, ', 1)[-1] if str(p_.get('kalla') or '').startswith('kandidatflödet, ') else None
-            if kid_ in sparade:
-                p_['sparat'] = '%s/%s/%s/' % (OMTAG, stampel, kid_)
+            kalla_ = str(p_.get('kalla') or '')
+            del_ = kalla_.split('kandidatflödet, ', 1)[-1] if kalla_.startswith('kandidatflödet, ') else \
+                'atelje' if kalla_ == 'ateljén, vald och förfinad' else 'prototyp' if kalla_ == 'tidigare designbeslut (REFERENSER.md)' else None
+            if del_ in sparade:
+                p_['sparat'] = '%s/%s/%s/' % (OMTAG, stampel, del_)
         # historiken skrivs före namnbytena: ett avbrott efteråt lämnar då aldrig det ägaren sett utan post (uppföljningen av
         # r93, BÖR 6); en post står kvar också om omtaget sedan inte görs, eftersom ägarens dom gäller ändå
         if poster:

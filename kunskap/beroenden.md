@@ -112,8 +112,8 @@ som heter `kopia*`, och allt i en kopia eller worktree som inte går att återsk
 filer som `kirurgen/` och `.env`) väntar på ägaren. En tempkatalog i /tmp och $TMPDIR raderas bara när den är registrerad
 som en körnings egen (`korregister.egen_tmp`, ägarfilen `.nwp-agare.json`) och körningen är avslutad. En katalog med
 repots prefix men utan registrering redovisas som äldre rest och raderas aldrig. Ingen symlänk följs, och ingen
-gemensam förälder raderas. En sessions arbetsyta tas bort först när dess rapporter och bilder är registrerade
-(tillägget 2026-10-07). Förra rensningen av npm-cachen står i `underlag/startkontroll/NPM-CACHE.json`. Rökprovet sätter `NWP_STADNING=av`, så att inget prov städar det verkliga
+gemensam förälder raderas. En sessions arbetsyta tas bort först när varje fil i den, oavsett ändelse, är registrerad i
+en förteckning eller ett kvitto eller nås från en ref i huvudutcheckningens git (tillägget 2026-10-07). Förra rensningen av npm-cachen står i `underlag/startkontroll/NPM-CACHE.json`. Rökprovet sätter `NWP_STADNING=av`, så att inget prov städar det verkliga
 systemet.
 
 Skydden runt en ny version (den oberoende granskningen 2026-10-06):

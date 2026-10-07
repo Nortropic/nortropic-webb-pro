@@ -35,14 +35,15 @@ argument) lämnas, och det prövas igen direkt före varje radering.
    som äger den är avslutad (korregister.tmp_avslutad), den inte ändrats på ett dygn och ingen process använder den. En
    katalog med prefixet men utan giltig registrering är en äldre rest: den raderas aldrig, utan redovisas för sig med
    sökväg, storlek och ålder ("äldre rest, väntar på identifiering"). Scratchpads sessionskataloger
-   (<projekt>/<session>/) som inte ändrats på sju dygn raderas när ingen process använder dem och varje rapport och bild
-   i dem (RAPPORTFILER) redan är beständigt registrerad (Kvitton: sha256 i underlag/granskningar/FORTECKNING.jsonl,
-   ett VERSION.json eller ett omtags KVITTO.json, med filen kvar i underlag/, eller byte för byte i huvudutcheckningens
-   git); annars väntar arbetsytan på ägaren med listan över de oregistrerade filerna. En sessions scratchpad rörs bara
+   (<projekt>/<session>/) som inte ändrats på sju dygn raderas när ingen process använder dem och varje vanlig fil i
+   dem, oavsett ändelse, redan är beständigt registrerad eller går att återskapa (oregistrerade, Kvitton: sha256 i
+   underlag/granskningar/FORTECKNING.jsonl, ett VERSION.json eller ett omtags KVITTO.json, med filen kvar i
+   underlag/, eller en blob som nås från en ref i huvudutcheckningens git); bara node_modules/, __pycache__/ och en
+   riktig venvs egna kataloger undantas. Annars väntar arbetsytan på ägaren med listan över filerna. En sessions scratchpad rörs bara
    när ingen process nämner sessionens id (argument eller öppen fil), ingen claude-process med okänt sessions-id hör
    till samma projekt och transkriptet inte ändrats på sju dygn: när det är oklart står den kvar. Ingen symlänk följs
-   (lstat och os.walk med followlinks=False; en länk i en katalog som raderas tas bort som länk, och dess mål rörs
-   inte), och bara katalogen själv raderas: aldrig /tmp, $TMPDIR, scratchpads rot eller en annan gemensam förälder
+   (lstat, os.walk med followlinks=False och shutil.rmtree med filbeskrivare; en länk i en katalog som raderas tas bort
+   som länk, och dess mål rörs inte), och bara katalogen själv raderas: aldrig /tmp, $TMPDIR, scratchpads rot eller en annan gemensam förälder
    (far_inte_raderas, direkt_under). En scratchpad-rot som är en symlänk följs inte alls.
 5. npm-cachen: npm cache clean --force när disken är fylld över 85 %, annars när förra rensningen är äldre än 30 dygn
    (tiden i underhållets läge, NPM-CACHE.json). Aldrig medan en körning, ett underhåll, ett intag eller en
@@ -141,11 +142,14 @@ RADERAD, STOPPAD, RENSAD, KVAR, VANTAR, FEL = 'raderad', 'stoppad', 'rensad', 'k
 REST = 'äldre rest, väntar på identifiering'  # repots prefix men ingen giltig registrering: raderas aldrig (2026-10-07)
 TORRT = {RADERAD: 'skulle raderas', STOPPAD: 'skulle stoppas', RENSAD: 'skulle rensas'}
 UTFALL = (RADERAD, STOPPAD, RENSAD, KVAR, VANTAR, FEL, REST) + tuple(TORRT.values())
-# rapporter och bedömda bilder i en sessions arbetsyta: registrerade innan arbetsytan tas bort (ägarens beslut 2026-10-07)
-RAPPORTFILER = ('.md', '.json', '.png', '.jpg', '.jpeg', '.webp', '.pdf')
-INTE_RAPPORTER = ('node_modules', '__pycache__', '.git', '.venv', 'venv')  # det härledda i en arbetsyta: inga rapporter
+# en sessions arbetsyta tas bort först när varje vanlig fil i den är registrerad eller går att återskapa (ägarens beslut
+# 2026-10-07; granskningen av r100, BÖR-1): alla filer prövas, oavsett ändelse. Undantaget är bara det som bevisligen är
+# härlett: node_modules/ och __pycache__/ var som helst, och i en riktig venv (pyvenv.cfg i katalogens rot) venvens egna
+# kataloger och pyvenv.cfg. En katalog som bara heter venv prövas som allt annat.
+HARLETT_ALLTID = ('node_modules', '__pycache__')
+VENV_EGNA = ('bin', 'include', 'lib', 'lib64')  # site-packages ligger i lib/
 VERSION_KVITTON = ('*/VERSION.json', '*/*/VERSION.json')  # uppdragens kvitton i huvudutcheckningens underlag/ (pilotens moment)
-OMTAG_KVITTON = '*/omtag/*/*/*/KVITTO.json'  # det bedömda som omtaget sparat (kontroller/atelje.py, ta_bort_beslut)
+OMTAG = 'omtag'  # underlag/<slug>/omtag/<stämpel>/…/KVITTO.json: det bedömda som omtaget sparat (kontroller/atelje.py)
 UUID = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 SESSION = re.compile(UUID)
 SESSION_ARG = re.compile(r'(?:--resume|--session-id|-r)(?:=|\s+)(%s)' % UUID)
@@ -686,28 +690,19 @@ def far_inte_raderas(ram, p, worktree=False):
 
 
 def ta_bort_trad(p):
-    """Tar bort katalogen p och allt i den utan att följa någon symlänk (ägarens beslut 2026-10-07): lstat på varje post
-    och os.walk med followlinks=False, nedifrån och upp. En symlänk, också till en katalog, tas bort som länk, och dess mål
-    rörs aldrig. p själv måste vara en riktig katalog. Ger felen ([] när allt gick)."""
+    """Tar bort katalogen p och allt i den utan att följa någon symlänk (ägarens beslut 2026-10-07). p prövas först med
+    lstat: en länk eller en fil tas inte bort. Själva raderingen görs av shutil.rmtree, som på den här plattformen går
+    med filbeskrivare och prövar varje katalog med lstat och fstat (avoids_symlink_attacks): en länk som byts in mellan
+    provet och raderingen följs aldrig, och en länk i katalogen tas bort som länk utan att dess mål rörs (granskningen av
+    r100, KAN-1). Ger felen ([] när allt gick)."""
     p = str(p)
     st = os.lstat(p)
     if stat.S_ISLNK(st.st_mode) or not stat.S_ISDIR(st.st_mode):
         return ['%s är ingen riktig katalog (en länk eller en fil): inget borttaget' % p]
+    if not shutil.rmtree.avoids_symlink_attacks:  # utan filbeskrivare går en utbytt länk inte att utesluta: inget raderas
+        return ['%s: plattformens shutil.rmtree kan följa en länk som byts in; inget borttaget' % p]
     fel = []
-    for rot, mappar, filer in os.walk(p, topdown=False, followlinks=False, onerror=lambda e: fel.append('%s: %s' % (e.filename, e.strerror or e))):
-        for n in filer + mappar:
-            q = os.path.join(rot, n)
-            try:
-                if stat.S_ISDIR(os.lstat(q).st_mode):
-                    os.rmdir(q)  # en riktig katalog, redan tömd nedifrån; en länk till en katalog är ingen katalog här
-                else:
-                    os.unlink(q)  # en fil, eller en symlänk som länk
-            except OSError as e:
-                fel.append('%s: %s' % (q, e.strerror or e))
-    try:
-        os.rmdir(p)
-    except OSError as e:
-        fel.append('%s: %s' % (p, e.strerror or e))
+    shutil.rmtree(p, onexc=lambda f, s, e: fel.append('%s: %s' % (s, getattr(e, 'strerror', None) or e)))
     return fel
 
 
@@ -1231,29 +1226,70 @@ def transkript_andrat(ram, projekt, uuid):
 
 
 class Kvitton:
-    """Det som är beständigt registrerat i huvudutcheckningen (ägarens beslut 2026-10-07: rapporter och bedömda bilder ska
-    ligga beständigt och vara registrerade innan en arbetsyta tas bort). En fil räknas när dess sha256 står i
-    underlag/granskningar/FORTECKNING.jsonl, i ett uppdrags VERSION.json (VERSION_KVITTON) eller i ett omtags KVITTO.json
-    (OMTAG_KVITTON), och den registrerade filen med samma sha256 också ligger kvar i underlag/ (förteckningens fil,
-    kvittots fil, eller en fil i VERSION.json:s katalog); eller när filen finns byte för byte som blob i huvudutcheckningens
-    git (den går att återskapa). Kvittona läses och de registrerade filerna hashas först när en fil i en arbetsyta har
-    samma sha256, och bara en gång per körning. Ingen länk följs."""
+    """Det som är beständigt registrerat, eller går att återskapa, i huvudutcheckningen (ägarens beslut 2026-10-07:
+    rapporter, bedömda bilder och tillhörande versionsunderlag ska ligga beständigt och vara registrerade innan en
+    tillfällig arbetsyta tas bort). En fil räknas när
+    - dess sha256 står i underlag/granskningar/FORTECKNING.jsonl, i ett uppdrags VERSION.json (VERSION_KVITTON) eller i
+      ett omtags KVITTO.json (underlag/<slug>/omtag/<stämpel>/ och nedåt, aldrig i en dold katalog: ett sparande som inte
+      blev klart; granskningen av r100, KAN-3), och den registrerade filen med samma sha256 ligger kvar: förteckningens
+      och kvittots fil på sin angivna plats, VERSION.json:s någonstans i kvittots katalog. En sökväg ur en förteckning
+      eller ett kvitto godtas bara när den är relativ och utan .. och dess realpath ligger i underlag/ (kvittots egen
+      katalog) och utanför arbetsytan (KAN-2);
+    - eller den finns byte för byte som en blob som nås från en ref i huvudutcheckningens git (git rev-list --objects
+      --all: grenarna, origin och taggarna). Ett löst objekt, eller ett som bara nås ur en reflogg, kan git gc ta bort och
+      räknas inte (BÖR-2).
+    Kvittona läses, git frågas och de registrerade filerna hashas en gång per körning, och bara när det behövs. Ingen
+    länk följs."""
 
     def __init__(self, repo):
         self.repo = Path(repo)
         self.underlag = self.repo / 'underlag'
-        self._sokvagar = None   # sha256 -> [registrerad fil] (förteckningen och omtagens kvitton)
+        self._ul = None         # underlag/:s realpath
+        self._sokvagar = None   # sha256 -> [(registrerad fil, katalogen den måste ligga i)]
         self._version = None    # sha256 -> [VERSION.json:s katalog]
         self._katalog = {}      # katalog -> {sha256} för dess filer
         self._sha = {}          # fil -> sha256
+        self._git = None        # objekten som nås från en ref i huvudutcheckningens git
 
     @staticmethod
     def _sha256_hex(x):
         return isinstance(x, str) and re.fullmatch(r'[0-9a-f]{64}', x) is not None
 
+    @staticmethod
+    def _relativ(v):
+        """En relativ sökväg utan .., . eller tomma led, som en Path; annars None (KAN-2)."""
+        if not isinstance(v, str) or not v or v.startswith('/') or '\\' in v or '\0' in v:
+            return None
+        delar = v.split('/')
+        if any(x in ('', '.', '..') for x in delar):
+            return None
+        return Path(*delar)
+
+    @staticmethod
+    def _inom(r, rot):
+        return r == rot or r.startswith(rot.rstrip(os.sep) + os.sep)
+
+    def _omtag_kvitton(self):
+        """Omtagens KVITTO.json i underlag/<slug>/omtag/<stämpel>/ och nedåt; dolda kataloger och länkar hoppas över."""
+        if not self.underlag.is_dir():
+            return
+        for slug in sorted(self.underlag.iterdir()):
+            om = slug / OMTAG
+            if slug.is_symlink() or not slug.is_dir() or om.is_symlink() or not om.is_dir():
+                continue
+            for st in sorted(om.iterdir()):
+                if st.name.startswith('.') or st.is_symlink() or not st.is_dir():
+                    continue
+                for rot, mappar, filer in os.walk(st, followlinks=False):
+                    mappar[:] = sorted(m for m in mappar if not m.startswith('.'))
+                    k = Path(rot) / 'KVITTO.json'
+                    if 'KVITTO.json' in filer and not k.is_symlink():
+                        yield k
+
     def _las(self):
         if self._sokvagar is not None:
             return
+        self._ul = os.path.realpath(self.underlag)
         self._sokvagar, self._version = {}, {}
         f = self.underlag / 'granskningar' / 'FORTECKNING.jsonl'
         if f.is_file() and not f.is_symlink():
@@ -1262,17 +1298,22 @@ class Kvitton:
                     p = json.loads(rad)
                 except ValueError:
                     continue
-                if isinstance(p, dict) and self._sha256_hex(p.get('sha256')) and isinstance(p.get('fil'), str):
-                    bas = self.repo / str(p.get('bas') or 'underlag/')
-                    self._sokvagar.setdefault(p['sha256'], []).append(bas / p['fil'])
-        for k in sorted(self.underlag.glob(OMTAG_KVITTON)):
-            d = vl.las_json(k, {}) if k.is_file() and not k.is_symlink() else {}
-            for rel_, s in ((d or {}).get('filer') or {}).items() if isinstance(d, dict) else ():
-                if self._sha256_hex(s) and isinstance(rel_, str):
-                    self._sokvagar.setdefault(s, []).append(k.parent / rel_)
+                if not isinstance(p, dict) or not self._sha256_hex(p.get('sha256')):
+                    continue
+                if str(p.get('bas') or 'underlag/').rstrip('/') != 'underlag':  # förteckningen gäller underlag/, inget annat
+                    continue
+                rel_ = self._relativ(p.get('fil'))
+                if rel_ is not None:
+                    self._sokvagar.setdefault(p['sha256'], []).append((self.underlag / rel_, self._ul))
+        for k in self._omtag_kvitton():
+            d = vl.las_json(k, {})
+            for rel_s, s in ((d or {}).get('filer') or {}).items() if isinstance(d, dict) else ():
+                rel_ = self._relativ(rel_s)
+                if rel_ is not None and self._sha256_hex(s):
+                    self._sokvagar.setdefault(s, []).append((k.parent / rel_, os.path.realpath(k.parent)))
         for monster in VERSION_KVITTON:
             for k in sorted(self.underlag.glob(monster)):
-                if k.is_file() and not k.is_symlink():
+                if k.is_file() and not k.is_symlink() and self._inom(os.path.realpath(k.parent), self._ul):
                     for s in self._hexvarden(vl.las_json(k, None)):
                         self._version.setdefault(s, []).append(k.parent)
 
@@ -1308,38 +1349,61 @@ class Kvitton:
             self._katalog[d] = ut
         return self._katalog[d]
 
-    def var(self, sha):
-        """Var filen med sha256 ligger registrerad och beständigt, eller None."""
+    def var(self, sha, utom=None):
+        """Var filen med sha256 ligger registrerad och beständigt, eller None. utom är arbetsytan: en registrering som pekar
+        in i den räknas inte."""
         self._las()
-        for p in self._sokvagar.get(sha, ()):
+        ut_r = os.path.realpath(utom) if utom else None
+        for p, rot in self._sokvagar.get(sha, ()):
+            r = os.path.realpath(p)
+            if not self._inom(r, rot) or not self._inom(r, self._ul) or (ut_r and self._inom(r, ut_r)):
+                continue
             if self._fil_sha(p) == sha:
                 return str(p.relative_to(self.repo)) if self.repo in p.parents else str(p)
         for d in self._version.get(sha, ()):
-            if sha in self._katalogens(d):
+            if (not ut_r or not self._inom(os.path.realpath(d), ut_r)) and sha in self._katalogens(d):
                 return '%s (VERSION.json)' % (d.relative_to(self.repo) if self.repo in d.parents else d)
         return None
 
+    def i_git(self, blobbar):
+        """De av blobbarna (sha1) som nås från en ref i huvudutcheckningens git: git rev-list --objects --all, en gång per
+        körning. Kastar OSError när git inte svarar: då går arbetsytan inte att pröva (BÖR-2)."""
+        if not blobbar:
+            return set()
+        if self._git is None:
+            rc, ut = vl.kor(['git', 'rev-list', '--objects', '--all'], cwd=self.repo, timeout=600, bara_ut=True)
+            if rc:
+                raise OSError('git rev-list --objects --all svarade inte i %s (kod %s)' % (self.repo, rc))
+            self._git = {r.split(' ', 1)[0] for r in ut.splitlines() if r.strip()}
+        return {b for b in blobbar if b in self._git}
+
 
 def oregistrerade(ram, d, kvitton):
-    """[(relativ sökväg, storlek)] för rapporterna och bilderna (RAPPORTFILER) i arbetsytan d som inte är beständigt
-    registrerade (Kvitton). Ingen länk följs; det härledda (INTE_RAPPORTER) räknas inte. Kastar OSError när något inte går
-    att läsa eller git inte svarar: då går arbetsytan inte att pröva, och den väntar på ägaren."""
+    """[(relativ sökväg, storlek)] för de vanliga filerna i arbetsytan d som varken är beständigt registrerade
+    (Kvitton.var) eller nås från en ref i huvudutcheckningens git (Kvitton.i_git). Alla filer prövas, oavsett ändelse och
+    också utan ändelse: rapporter, bilder och versionsunderlag (granskningen av r100, BÖR-1). Bara det bevisligen
+    härledda undantas: node_modules/ och __pycache__/ var som helst, och i en riktig venv (pyvenv.cfg i katalogens rot)
+    venvens egna kataloger (bin, include, lib, lib64) och pyvenv.cfg. En katalog som bara heter venv prövas. Ingen länk
+    följs, och en länk prövas inte: den tas bort som länk, och dess mål rörs inte. Kastar OSError när något inte går att
+    läsa eller git inte svarar: då går arbetsytan inte att pröva, och den väntar på ägaren."""
     d, kvar = Path(d), {}
     for rot, mappar, filer in os.walk(d, onerror=_kasta, followlinks=False):
-        mappar[:] = [m for m in mappar if m not in INTE_RAPPORTER and not os.path.islink(os.path.join(rot, m))]
+        venv = 'pyvenv.cfg' in filer and stat.S_ISREG(os.lstat(os.path.join(rot, 'pyvenv.cfg')).st_mode)
+        mappar[:] = [m for m in mappar if m not in HARLETT_ALLTID and not (venv and m in VENV_EGNA)
+                     and not os.path.islink(os.path.join(rot, m))]
         for f in filer:
-            if not f.lower().endswith(RAPPORTFILER):
+            if venv and f == 'pyvenv.cfg':
                 continue
             p = Path(rot) / f
             st = os.lstat(p)
-            if not stat.S_ISREG(st.st_mode):  # en symlänk: tas bort som länk, dess mål rörs inte
+            if not stat.S_ISREG(st.st_mode):  # en symlänk eller ett uttag: inget innehåll att förlora
                 continue
             s256, blob = hasha(p)
-            if kvitton.var(s256):
+            if kvitton.var(s256, utom=d):
                 continue
             kvar.setdefault(blob, []).append((p.relative_to(d).as_posix(), st.st_size))
-    saknas = git_saknas(ram.repo, kvar)
-    return sorted(x for b, xs in kvar.items() if b in saknas for x in xs)
+    i_git = kvitton.i_git(kvar)
+    return sorted(x for b, xs in kvar.items() if b not in i_git for x in xs)
 
 
 def stada_katalog(ram, red, d, anv, alder, vad, varfor, session=None):
@@ -1363,23 +1427,23 @@ def stada_katalog(ram, red, d, anv, alder, vad, varfor, session=None):
             red.post(4, vad, d, storlek, KVAR, 'sessionen kan leva: transkriptet ändrades %s' % iso(t))
             return
     registrerat = ''
-    if session:  # rapporterna och de bedömda bilderna först registrerade (ägarens beslut 2026-10-07)
+    if session:  # rapporterna, de bedömda bilderna och versionsunderlaget först registrerade (ägarens beslut 2026-10-07)
         if ram.kvitton is None:
             ram.kvitton = Kvitton(ram.repo)
         try:
             oreg = oregistrerade(ram, d, ram.kvitton)
         except OSError as e:
-            red.post(4, vad, d, storlek, VANTAR, 'arbetsytans rapporter och bilder gick inte att pröva mot förteckningen och '
-                                                 'kvittona (%s); ägaren avgör' % (getattr(e, 'strerror', None) or e))
+            red.post(4, vad, d, storlek, VANTAR, 'arbetsytans filer gick inte att pröva mot förteckningen, kvittona och git '
+                                                 '(%s); ägaren avgör' % (getattr(e, 'strerror', None) or e))
             return
         if oreg:
-            red.post(4, vad, d, storlek, VANTAR, '%d rapporter och bilder (%s) är inte beständigt registrerade (sha256 i '
+            red.post(4, vad, d, storlek, VANTAR, '%d filer (%s) är varken beständigt registrerade (sha256 i '
                                                  'underlag/granskningar/FORTECKNING.jsonl, ett VERSION.json eller ett omtags '
-                                                 'KVITTO.json, eller i huvudutcheckningens git): %s; ägaren avgör' % (
+                                                 'KVITTO.json) eller nåbara i huvudutcheckningens git: %s; ägaren avgör' % (
                                                      len(oreg), storlek_text(sum(s for _r, s in oreg)), material_kort(oreg)),
                      **material_falt(oreg))
             return
-        registrerat = ', och varje rapport och bild i den är beständigt registrerad'
+        registrerat = ', och varje fil i den är beständigt registrerad eller nåbar i huvudutcheckningens git'
     nu = None if ram.torr else anvands_nu(ram, d, session)
     if nu:
         red.post(4, vad, d, storlek, KVAR, 'används: %s' % nu)

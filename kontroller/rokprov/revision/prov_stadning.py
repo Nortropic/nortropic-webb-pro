@@ -78,7 +78,9 @@ DYGN = 86400
 T = time.time() + 10 * DYGN  # provets klocka: det provet skapar nu är tio dygn gammalt; det som ska vara ungt får en senare tid
 iso = stadning.iso
 KLARA = []
-GIT = ['git', '-c', 'user.name=prov', '-c', 'user.email=prov@exempel.se', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null']
+# git:s automatiska underhåll av: det kan ta bort en låsfil medan provet kopierar sitt repo (granskningen av r100)
+GIT = ['git', '-c', 'user.name=prov', '-c', 'user.email=prov@exempel.se', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null',
+       '-c', 'gc.auto=0', '-c', 'maintenance.auto=false']
 
 
 def klar(namn):
@@ -236,19 +238,40 @@ try:
     BORTA_MD = '# Borta\nRegistrerad, men den beständiga kopian saknas.\n'.encode()
     REG_OMTAG = b'\x89PNG\r\n\x1a\n en bild som ett omtag sparat'
     OMTAG_KV = 'underlag/kund-a/omtag/20261007T000000Z-1/k01/abcdef012345/'
+    # registreringar som inte räknas (granskningen av r100): en kopia som ändrats efteråt (C7), en sha256 i VERSION.json utan
+    # kopia (C8), en rad med .. in i arbetsytan, en absolut sökväg och en rad utanför underlag/ (KAN-2), och ett kvitto i en
+    # dold omtagskatalog, ett sparande som aldrig blev klart (KAN-3)
+    ANDRAD_ORIG, ANDRAD_NU = '# Rapport\nOriginalet.\n'.encode(), '# Rapport\nÄndrad efteråt.\n'.encode()
+    UTAN_KOPIA = b'\x89PNG en bild utan kopia i VERSION.json:s katalog'
+    SJALV, SJALV2 = '# Rapport\nSom pekar på sig själv med ...\n'.encode(), '# Rapport\nMed absolut sökväg.\n'.encode()
+    KUND_MD = '# Kundens\nRegistrerad med bas kunder/.\n'.encode()
+    DOLD_PNG = b'\x89PNG kopierad av ett sparande som dog'
+    DOLD_KV = 'underlag/kund-a/omtag/.20261007T000000Z-2.tmp/k01/abcdef012345/'
+    V7_S3 = TMP / 'v7' / 'arbetsyta-oregistrerad' / 'scratch' / 'claude-501' / '-Users-prov' / '00000003-7777-2222-3333-000000000003'
+    HUVUD_UNDERLAG = TMP / 'a' / 'repos' / 'nortropic-webb-pro' / 'underlag'
 
     def sha_(b):
         return hashlib.sha256(b).hexdigest()
 
     REGISTER = {'underlag/granskningar/sessioner/prov/GRANSKNING.md': REG_MD,
                 'underlag/figma-pilot/moment-x/bilder/dator-1440.png': REG_PNG,
-                'underlag/figma-pilot/moment-x/VERSION.json': json.dumps({'schema': 1, 'varv': {'v1': {'dator-1440.png': sha_(REG_PNG)}}}).encode(),
+                'underlag/figma-pilot/moment-x/VERSION.json': json.dumps({'schema': 1, 'varv': {'v1': {'dator-1440.png': sha_(REG_PNG)}},
+                                                                         'saknad': {'utan-kopia.png': sha_(UTAN_KOPIA)}}).encode(),
+                'underlag/granskningar/sessioner/prov/ANDRAD.md': ANDRAD_NU,
+                'kunder/kund-a/KUND.md': KUND_MD,
+                DOLD_KV + 'bilder/start/vy-390-forsta.png': DOLD_PNG,
+                DOLD_KV + 'KVITTO.json': json.dumps({'schema': 1, 'filer': {'bilder/start/vy-390-forsta.png': sha_(DOLD_PNG)}}).encode(),
                 OMTAG_KV + 'bilder/start/vy-390-forsta.png': REG_OMTAG,  # ett omtags kvitto (kontroller/atelje.py, spara_bedomda)
                 OMTAG_KV + 'KVITTO.json': json.dumps({'schema': 1, 'filer': {'bilder/start/vy-390-forsta.png': sha_(REG_OMTAG)}}).encode(),
                 'underlag/granskningar/FORTECKNING.jsonl': ''.join(json.dumps(r_) + '\n' for r_ in (
                     {'fil': 'granskningar/sessioner/prov/GRANSKNING.md', 'sha256': sha_(REG_MD), 'bas': 'underlag/'},
-                    {'fil': 'granskningar/sessioner/prov/BORTA.md', 'sha256': sha_(BORTA_MD), 'bas': 'underlag/'})).encode()}
+                    {'fil': 'granskningar/sessioner/prov/BORTA.md', 'sha256': sha_(BORTA_MD), 'bas': 'underlag/'},
+                    {'fil': 'granskningar/sessioner/prov/ANDRAD.md', 'sha256': sha_(ANDRAD_ORIG), 'bas': 'underlag/'},
+                    {'fil': os.path.relpath(V7_S3 / 'scratchpad' / 'SJALV.md', HUVUD_UNDERLAG), 'sha256': sha_(SJALV), 'bas': 'underlag/'},
+                    {'fil': str(V7_S3 / 'scratchpad' / 'SJALV2.md'), 'sha256': sha_(SJALV2), 'bas': 'underlag/'},
+                    {'fil': 'kund-a/KUND.md', 'sha256': sha_(KUND_MD), 'bas': 'kunder/'})).encode()}
     HUVUD = nytt_repo(TMP / 'a', dict(MATERIAL, **REGISTER), i_git={'kunskap/regel.md': REG_GIT})
+    assert HUVUD / 'underlag' == HUVUD_UNDERLAG
     REPOS = HUVUD.parent
     stadning.HUVUDUTCHECKNING = HUVUD
 
@@ -709,11 +732,12 @@ try:
             return f
         return kor_fallet
 
-    def v7_ram(bas, tmp_extra=(), scratch=None):
+    def v7_ram(bas, tmp_extra=(), scratch=None, repo=None, klocka=None):
         (bas / 'tmp').mkdir(parents=True, exist_ok=True)
-        return stadning.Ram(repo=HUVUD, repos_rot=REPOS, tmp_rot=bas / 'tmp', tmp_extra=list(tmp_extra), scratch_rot=scratch, npm_cache=NPM,
-                            tillstand=LAGE, claude_projekt=KONFIG, las=None, klocka=lambda: T, disk=lambda: (1000 * 2 ** 30, 500 * 2 ** 30),
-                            processer=lambda: [], stoppa=lambda pid: (_ for _ in ()).throw(AssertionError('inget stopp i fallen 2026-10-07')),
+        return stadning.Ram(repo=repo or HUVUD, repos_rot=REPOS, tmp_rot=bas / 'tmp', tmp_extra=list(tmp_extra), scratch_rot=scratch,
+                            npm_cache=NPM, tillstand=LAGE, claude_projekt=KONFIG, las=None, klocka=klocka or (lambda: T),
+                            disk=lambda: (1000 * 2 ** 30, 500 * 2 ** 30), processer=lambda: [],
+                            stoppa=lambda pid: (_ for _ in ()).throw(AssertionError('inget stopp i fallen 2026-10-07')),
                             upptagen=lambda: None, npm_pagar=lambda: None)
 
     def stat_agare(d):
@@ -724,10 +748,16 @@ try:
         (s / 'scratchpad').mkdir(parents=True)
         return s
 
+    def skriv_filer(d, filer):
+        for rel_, data_ in filer.items():
+            (d / rel_).parent.mkdir(parents=True, exist_ok=True)
+            (d / rel_).write_bytes(data_ if isinstance(data_, bytes) else ('# %s\nInnehåll som bara finns här.\n' % rel_).encode())
+
     @v7('en katalog med repots prefix men utan giltig registrering raderas inte och redovisas för sig som äldre rest')
     def _v7_oregistrerad():
         bas = TMP / 'v7' / 'oregistrerad'
-        r = v7_ram(bas)
+        (bas / 'tmp2').mkdir(parents=True)
+        r = v7_ram(bas, tmp_extra=[bas / 'tmp2'])
         utan = bas / 'tmp' / 'nwp-skill-utan-agare'
         utan.mkdir()
         (utan / 'fil.txt').write_text('okänt ursprung\n')
@@ -746,16 +776,35 @@ try:
         stor = bas / 'tmp' / 'nwp-lh-stor-agare'
         stor.mkdir()
         agarfil(stor, *DOD, vad='x' * 5000)  # större än en registrering: läses inte
-        for x_ in (kopierad, lankad, trasig, stor):
+        pid1 = bas / 'tmp' / 'nwp-sub-pid-ett'
+        pid1.mkdir()
+        agarfil(pid1, 1, korregister.startad(1), 'launchd')  # pid 1 lever alltid och är aldrig en körnings ägare (S7)
+        # samma namn i /tmp och $TMPDIR: en ägarfil kopierad från den ena till den andra gäller inte där (S6)
+        tvilling_a, tvilling_b = bas / 'tmp' / 'nwp-yt-tvilling', bas / 'tmp2' / 'nwp-yt-tvilling'
+        tvilling_a.mkdir()
+        tvilling_b.mkdir()
+        agarfil(tvilling_a, *DOD, vad='tvillingen i /tmp')
+        shutil.copy2(tvilling_a / AGARFIL, tvilling_b / AGARFIL)
+        for x_ in (kopierad, lankad, trasig, stor, pid1, tvilling_a, tvilling_b):
             (x_ / 'fil.txt').write_text('innehåll av okänt ursprung\n')
         rap = stadning.stada(r, punkter=(4,))
-        for x_, ord_ in ((utan, 'saknas'), (kopierad, 'inte katalogens egen'), (lankad, 'ingen vanlig fil'), (trasig, 'tolka'), (stor, 'för stor')):
+        for x_, ord_ in ((utan, 'saknas'), (kopierad, 'inte katalogens egen'), (lankad, 'ingen vanlig fil'), (trasig, 'tolka'), (stor, 'för stor'),
+                         (pid1, 'pid eller användare'), (tvilling_b, 'inte katalogens egen')):
             assert x_.is_dir(), 'raderad på prefixet: %s' % x_
             p_ = en(rap, x_, 4)
             assert p_['utfall'] == REST_TEXT and ord_ in p_['skal'] and 'prefixet ensamt räcker inte' in p_['skal'], p_
             assert p_['storlek_fore'] > 0 and p_['alder'] >= 9 * DYGN and p_['andrad'], p_
+        assert not tvilling_a.exists() and en(rap, tvilling_a, 4)['utfall'] == 'raderad', poster(rap, tvilling_a)
         md_ = '\n'.join(stadning.markdown(rap))
         assert '**Äldre rester, väntar på identifiering**' in md_ and '- `%s` (' % utan in md_ and 'dygn gammal' in md_, md_
+        # en mycket gammal rest (45 dygn) raderas inte heller (S10)
+        bas45 = TMP / 'v7' / 'oregistrerad-45'
+        r45 = v7_ram(bas45, klocka=lambda: time.time() + 45 * DYGN)
+        gammal = bas45 / 'tmp' / 'nwp-skill-mycket-gammal'
+        gammal.mkdir()
+        (gammal / 'fil.txt').write_text('mycket gammal\n')
+        p_ = en(stadning.stada(r45, punkter=(4,)), gammal, 4)
+        assert gammal.is_dir() and p_['utfall'] == REST_TEXT and p_['alder'] >= 44 * DYGN, p_
         # en katalog och ägarfil som ägs av en annan användare: provet kan inte byta ägare utan root, så användarens id byts
         # bara under anropet
         spara_uid = os.getuid
@@ -766,7 +815,7 @@ try:
             os.getuid = spara_uid
         assert fel_ and 'annan användare' in fel_, fel_
 
-    @v7('en registrerad katalog vars körning lever raderas inte')
+    @v7('en registrerad katalog vars körning lever raderas inte, också när starttiden står i lokal tid eller signalen nekas')
     def _v7_levande():
         bas = TMP / 'v7' / 'levande'
         r = v7_ram(bas)
@@ -781,11 +830,15 @@ try:
         utan_start = bas / 'tmp' / 'nwp-motor-utan-starttid'
         utan_start.mkdir()
         agarfil(utan_start, barn_, '', 'levande, utan starttid')  # pid:en lever och identiteten går inte att pröva: kan pågå
+        lokal = bas / 'tmp' / 'nwp-yt-lokal-tid'
+        lokal.mkdir()
+        agarfil(lokal, os.getpid(), korregister.startad_lokalt(os.getpid()), 'starttiden i lokal tid')  # samma tidpunkt, annan zon (KAN-7)
         rap = stadning.stada(r, punkter=(4,))
-        for x_, ord_ in ((egen, 'pågår'), (hos_barn, 'pågår'), (utan_start, 'kan pågå')):
+        for x_, ord_ in ((egen, 'pågår'), (hos_barn, 'pågår'), (utan_start, 'kan pågå'), (lokal, 'pågår')):
             assert x_.is_dir(), 'raderad fast körningen lever: %s' % x_
             p_ = en(rap, x_, 4)
             assert p_['utfall'] == 'kvar' and ord_ in p_['skal'] and 'registrerad av' in p_['skal'], p_
+        assert korregister.lever(1), 'EPERM (pid 1 tillhör root) betyder att processen lever (KAN-7)'
 
     @v7('en registrerad katalog vars körning är avslutad raderas, och redovisningen säger vem som registrerade den')
     def _v7_avslutad():
@@ -804,7 +857,7 @@ try:
             assert not x_.exists() and p_['utfall'] == 'raderad', p_
             assert 'registrerad av %s' % vad_ in p_['skal'] and 'avslutad' in p_['skal'] and ord_ in p_['skal'] and p_.get('registrerad') == vad_, p_
 
-    @v7('ingen symlänk följs: scratchpads rot som pekar ut rörs inte, och en länk i en registrerad katalog tas bort som länk')
+    @v7('ingen symlänk följs: scratchpads rot som pekar ut, en länk i /tmp, en länk i en registrerad katalog och en länk som byts in')
     def _v7_symlank():
         bas = TMP / 'v7' / 'symlank'
         (bas / 'tmp').mkdir(parents=True)
@@ -820,6 +873,12 @@ try:
         (med_lank / 'fil.txt').write_text('x')
         (med_lank / 'ut').symlink_to(mal_, target_is_directory=True)
         agarfil(med_lank, *DOD)
+        mal2 = bas / 'mal-registrerad'  # en länk med repots prefix direkt i /tmp, till en registrerad och avslutad katalog (S11)
+        mal2.mkdir()
+        (mal2 / 'behall.txt').write_text('målet rörs inte\n')
+        agarfil(mal2, *DOD)
+        lank_ut = bas / 'tmp' / 'nwp-pip-lank-ut'
+        lank_ut.symlink_to(mal2, target_is_directory=True)
         r = v7_ram(bas, scratch=bas / 'tmp' / 'claude-501')
         rap = stadning.stada(r, punkter=(4,))
         assert sess.is_dir() and (sess / 'scratchpad' / 'anteckning.md').read_bytes() == REG_MD, 'scratchpads rot är en länk ut, och den följdes'
@@ -827,6 +886,31 @@ try:
         assert p_['utfall'] == 'kvar' and 'symlänk' in p_['skal'] and 'följs inte' in p_['skal'], p_
         assert not med_lank.exists() and (mal_ / 'behall.txt').read_text() == 'målet rörs inte\n', 'länken i den registrerade katalogen följdes'
         assert stadning.radera(r, bas / 'tmp' / 'claude-501').startswith('raderas aldrig') and sess.is_dir()
+        assert lank_ut.is_symlink() and (mal2 / 'behall.txt').is_file() and not poster(rap, lank_ut), ('en länk i /tmp prövas inte ens', poster(rap, lank_ut))
+        # en katalog som byts mot en länk mellan provet och raderingen: länken följs aldrig (KAN-1)
+        byts = bas / 'tmp' / 'nwp-skill-byts'
+        byts.mkdir()
+        (byts / 'f').write_text('x')
+        mal3 = bas / 'mal-byte'
+        mal3.mkdir()
+        (mal3 / 'behall.txt').write_text('målet\n')
+        orig_lstat, bytt_ = os.lstat, []
+
+        def lstat_som_byter(q, *a_, **k_):
+            r_ = orig_lstat(q, *a_, **k_)
+            if str(q) == str(byts) and not bytt_:
+                bytt_.append(1)
+                os.rename(str(byts), str(byts) + '.undan')
+                os.symlink(str(mal3), str(byts))
+            return r_
+        os.lstat = lstat_som_byter
+        try:
+            fel_ = stadning.ta_bort_trad(byts)
+        except OSError as e_:
+            fel_ = [str(e_)]
+        finally:
+            os.lstat = orig_lstat
+        assert bytt_ and (mal3 / 'behall.txt').read_text() == 'målet\n', ('en länk som byttes in följdes', fel_)
 
     @v7('en gemensam förälder raderas aldrig: en $TMPDIR med repots prefix i /tmp, och rötterna själva')
     def _v7_foralder():
@@ -850,75 +934,200 @@ try:
         assert stadning.direkt_under(r, nastlad / 'annat-verktyg', [bas / 'tmp']), 'ligger inte direkt under roten'
         assert 'gemensam förälder' in (stadning.direkt_under(r, nastlad, [bas / 'tmp']) or ''), 'en rot är aldrig katalogen själv'
 
-    @v7('en arbetsyta med en oregistrerad rapport eller bild väntar på ägaren, med listan över de oregistrerade')
+    @v7('en arbetsyta med en oregistrerad fil, oavsett ändelse, väntar på ägaren med listan; registreringar som inte gäller räknas inte')
     def _v7_arbetsyta_oregistrerad():
         bas = TMP / 'v7' / 'arbetsyta-oregistrerad'
         scr = bas / 'scratch' / 'claude-501'
         s1 = session_v7(scr, 1)
-        (s1 / 'scratchpad' / 'RAPPORT.md').write_text('# Granskning\nInte registrerad.\n')
-        (s1 / 'scratchpad' / 'bild.webp').write_bytes(b'RIFF en bedomd bild')
-        (s1 / 'scratchpad' / 'SKISS.PNG').write_bytes(b'\x89PNG en oregistrerad skiss')  # ändelsen i versaler räknas också
-        (s1 / 'scratchpad' / 'GRANSKNING.md').write_bytes(REG_MD)  # registrerad
-        (s1 / 'scratchpad' / 'logg.txt').write_text('ingen rapport\n')
+        # varje vanlig fil prövas: rapporter, bilder och versionsunderlag, med och utan ändelse, också i en katalog som bara
+        # heter venv (BÖR-1); bara node_modules/, __pycache__/ och en riktig venvs egna kataloger hoppas över
+        prov1 = ['scratchpad/RAPPORT.md', 'scratchpad/bild.webp', 'scratchpad/SKISS.PNG', 'scratchpad/logg.txt', 'scratchpad/RAPPORT',
+                 'scratchpad/rapport.html', 'scratchpad/kod/index.astro', 'scratchpad/stil.css', 'scratchpad/resultat.jsonl', 'scratchpad/foto.jpg',
+                 'scratchpad/foto.jpeg', 'scratchpad/diagram.svg', 'scratchpad/venv/RAPPORT.md', 'scratchpad/.venv/RAPPORT.md',
+                 'scratchpad/env/RAPPORT.md']
+        skriv_filer(s1, dict.fromkeys(prov1))
+        skriv_filer(s1, {'scratchpad/GRANSKNING.md': REG_MD, 'scratchpad/env/pyvenv.cfg': b'home = /usr/bin\n',
+                         'scratchpad/env/lib/python3.12/site-packages/p/README.md': None, 'scratchpad/env/bin/activate': None,
+                         'scratchpad/env/include/p.h': None, 'node_modules/p/README.md': None, 'scratchpad/__pycache__/x.cpython-312.pyc': None})
         s2 = session_v7(scr, 2)
         (s2 / 'scratchpad' / 'BORTA.md').write_bytes(BORTA_MD)  # i förteckningen, men den beständiga kopian saknas
-        r = v7_ram(bas, scratch=scr)
-        rap = stadning.stada(r, punkter=(4,))
+        s3 = session_v7(scr, 3)  # registreringar som inte gäller (C7, C8, KAN-2 och KAN-3)
+        assert s3 == V7_S3, s3
+        prov3 = {'scratchpad/ANDRAD.md': ANDRAD_ORIG, 'scratchpad/utan-kopia.png': UTAN_KOPIA, 'scratchpad/SJALV.md': SJALV,
+                 'scratchpad/SJALV2.md': SJALV2, 'scratchpad/KUND.md': KUND_MD, 'scratchpad/dold.png': DOLD_PNG}
+        skriv_filer(s3, prov3)
+        s4 = session_v7(scr, 4)  # en fil i arbetsytan som inte går att läsa: den går inte att pröva (S4)
+        (s4 / 'scratchpad' / 'last.md').write_text('# en rapport som inte går att läsa\n')
+        os.chmod(s4 / 'scratchpad' / 'last.md', 0)
+        s5 = session_v7(scr, 5)  # en katalog som inte går att läsa: redan mätningen stannar, och arbetsytan står kvar
+        (s5 / 'scratchpad' / 'last').mkdir()
+        (s5 / 'scratchpad' / 'last' / 'RAPPORT.md').write_text('# inne i en oläsbar katalog\n')
+        os.chmod(s5 / 'scratchpad' / 'last', 0)
+        try:
+            rap = stadning.stada(v7_ram(bas, scratch=scr), punkter=(4,))
+        finally:
+            os.chmod(s4 / 'scratchpad' / 'last.md', 0o644)
+            os.chmod(s5 / 'scratchpad' / 'last', 0o755)
         p1 = en(rap, s1, 4)
-        assert s1.is_dir() and (s1 / 'scratchpad' / 'RAPPORT.md').is_file(), 'arbetsytan togs bort med en oregistrerad rapport'
-        assert p1['utfall'] == 'väntar på ägaren' and [m['sokvag'] for m in p1['material']] == ['scratchpad/RAPPORT.md', 'scratchpad/SKISS.PNG',
-                                                                                              'scratchpad/bild.webp'], p1
+        assert s1.is_dir() and (s1 / 'scratchpad' / 'RAPPORT.md').is_file(), 'arbetsytan togs bort med oregistrerade filer'
+        assert p1['utfall'] == 'väntar på ägaren' and [m['sokvag'] for m in p1['material']] == sorted(prov1), [m['sokvag'] for m in p1['material']]
         p2 = en(rap, s2, 4)
         assert s2.is_dir() and p2['utfall'] == 'väntar på ägaren' and [m['sokvag'] for m in p2['material']] == ['scratchpad/BORTA.md'], p2
+        p3 = en(rap, s3, 4)
+        assert s3.is_dir() and p3['utfall'] == 'väntar på ägaren' and [m['sokvag'] for m in p3['material']] == sorted(prov3), \
+            [m['sokvag'] for m in p3['material']]
+        p4 = en(rap, s4, 4)
+        assert s4.is_dir() and p4['utfall'] == 'väntar på ägaren' and 'gick inte att pröva' in p4['skal'], p4
+        p5 = en(rap, s5, 4)
+        assert s5.is_dir() and p5['utfall'] == 'kvar' and 'gick inte att läsa' in p5['skal'], p5
         md_ = '\n'.join(stadning.markdown(rap))
-        assert '**Väntar på ägaren**' in md_ and '`scratchpad/RAPPORT.md`' in md_ and 'inte beständigt registrerade' in md_, md_
+        assert '**Väntar på ägaren**' in md_ and '`scratchpad/RAPPORT.md`' in md_ and 'varken beständigt registrerade' in md_, md_
 
-    @v7('en arbetsyta där varje rapport och bild är beständigt registrerad tas bort, och redovisningen säger det')
+    @v7('en arbetsyta där varje fil är beständigt registrerad eller nåbar i git tas bort, och redovisningen säger det')
     def _v7_arbetsyta_registrerad():
         bas = TMP / 'v7' / 'arbetsyta-registrerad'
         scr = bas / 'scratch' / 'claude-501'
         s = session_v7(scr, 3)
-        (s / 'scratchpad' / 'GRANSKNING.md').write_bytes(REG_MD)    # förteckningen, med den beständiga kopian
-        (s / 'scratchpad' / 'Dator-1440.PNG').write_bytes(REG_PNG)  # ett VERSION.json, med filen i dess katalog (ändelsen i versaler)
-        (s / 'scratchpad' / 'regel.md').write_bytes(REG_GIT)        # byte för byte i huvudutcheckningens git
-        (s / 'scratchpad' / 'jamforelse-390.png').write_bytes(REG_OMTAG)  # i ett omtags KVITTO.json, med filen bredvid
-        (s / 'scratchpad' / 'logg.txt').write_text('ingen rapport\n')
-        (s / 'node_modules' / 'p').mkdir(parents=True)
-        (s / 'node_modules' / 'p' / 'README.md').write_text('härlett\n')
+        skriv_filer(s, {'scratchpad/GRANSKNING.md': REG_MD,          # förteckningen, med den beständiga kopian
+                        'scratchpad/Dator-1440.PNG': REG_PNG,        # ett VERSION.json, med filen i dess katalog (ändelsen i versaler)
+                        'scratchpad/regel.md': REG_GIT,              # byte för byte i huvudutcheckningens git, på main
+                        'scratchpad/x-kopia.py': b'x = 2\n',         # utan rapportändelse, men på main i huvudutcheckningens git
+                        'scratchpad/jamforelse-390.png': REG_OMTAG,  # i ett omtags KVITTO.json, med filen bredvid
+                        'node_modules/p/README.md': None, 'scratchpad/__pycache__/x.cpython-312.pyc': None,
+                        'scratchpad/env/pyvenv.cfg': b'home = /usr/bin\n', 'scratchpad/env/lib/python3.12/site-packages/p/x.py': None,
+                        'scratchpad/env/bin/python': None})
         ute = bas / 'utanfor-arbetsytan'
         ute.mkdir()
         (ute / 'HEMLIG.md').write_text('# inte registrerad, utanför arbetsytan\n')
         (s / 'scratchpad' / 'ut').symlink_to(ute, target_is_directory=True)  # följs inte, och målet rörs inte
-        r = v7_ram(bas, scratch=scr)
-        rap = stadning.stada(r, punkter=(4,))
+        rap = stadning.stada(v7_ram(bas, scratch=scr), punkter=(4,))
         p_ = en(rap, s, 4)
         assert not s.exists() and p_['utfall'] == 'raderad', p_
-        assert 'varje rapport och bild i den är beständigt registrerad' in p_['skal'], p_
+        assert 'varje fil i den är beständigt registrerad eller nåbar i huvudutcheckningens git' in p_['skal'], p_
         assert (ute / 'HEMLIG.md').is_file(), 'länkens mål rörs inte'
+
+    @v7('git: bara det som nås från en ref räknas; ett löst objekt, en borttagen gren och ett git som inte svarar gör det inte')
+    def _v7_git():
+        bas = TMP / 'v7' / 'git'
+        reg2 = '# Regel\nPå main i det här repot.\n'.encode()
+        g_ = nytt_repo(bas, {}, i_git={'kunskap/regel2.md': reg2})
+        los, gren = '# Lös\nBara som ett löst objekt.\n'.encode(), '# Utkast\nPå en gren som togs bort.\n'.encode()
+        (bas / 'los.md').write_bytes(los)
+        git('hash-object', '-w', bas / 'los.md', cwd=g_)  # ett löst objekt: git gc kan ta bort det (C2)
+        (bas / 'los.md').unlink()
+        git('checkout', '-q', '-b', 'tillfallig', cwd=g_)  # en commit som bara nås ur HEAD:s reflogg (C6)
+        (g_ / 'utkast.md').write_bytes(gren)
+        git('add', 'utkast.md', cwd=g_)
+        git('commit', '-q', '-m', 'utkast', cwd=g_)
+        git('checkout', '-q', 'main', cwd=g_)
+        git('branch', '-q', '-D', 'tillfallig', cwd=g_)
+        scr = bas / 'scratch' / 'claude-501'
+        s_ok, s_los, s_gren = session_v7(scr, 1), session_v7(scr, 2), session_v7(scr, 3)
+        (s_ok / 'scratchpad' / 'regel2.md').write_bytes(reg2)
+        (s_los / 'scratchpad' / 'los.md').write_bytes(los)
+        (s_gren / 'scratchpad' / 'utkast.md').write_bytes(gren)
+        spara_h = stadning.HUVUDUTCHECKNING
+        stadning.HUVUDUTCHECKNING = g_
+        try:
+            rap = stadning.stada(v7_ram(bas, scratch=scr, repo=g_), punkter=(4,))
+            s_fel = session_v7(scr, 4)  # bara en fil som finns på main, men git svarar inte (S3)
+            (s_fel / 'scratchpad' / 'regel2.md').write_bytes(reg2)
+            kor_ = stadning.vl.kor
+            stadning.vl.kor = lambda args, *a_, **k_: (128, 'fatal: rev-list föll (provet)') if list(args[:2]) == ['git', 'rev-list'] else kor_(args, *a_, **k_)
+            try:
+                rap_f = stadning.stada(v7_ram(bas, scratch=scr, repo=g_), punkter=(4,))
+            finally:
+                stadning.vl.kor = kor_
+        finally:
+            stadning.HUVUDUTCHECKNING = spara_h
+        for s_, namn_ in ((s_los, 'los.md'), (s_gren, 'utkast.md')):
+            p_ = en(rap, s_, 4)
+            assert s_.is_dir() and p_['utfall'] == 'väntar på ägaren' and [m['sokvag'] for m in p_['material']] == ['scratchpad/' + namn_], (namn_, p_)
+        assert not s_ok.exists() and en(rap, s_ok, 4)['utfall'] == 'raderad', poster(rap, s_ok)
+        p_ = en(rap_f, s_fel, 4)
+        assert s_fel.is_dir() and p_['utfall'] == 'väntar på ägaren' and 'gick inte att pröva' in p_['skal'], p_
 
     @v7('hjälparen korregister.egen_tmp skriver den ägarfil som städningen läser, i en egen process och i ett skalskript')
     def _v7_hjalparen():
         bas = TMP / 'v7' / 'hjalparen'
         r = v7_ram(bas)
-        kod_ = 'import sys; sys.path.insert(0, sys.argv[1]); import korregister; print(korregister.egen_tmp("nwp-skill-", "prov hjälparen", dir=sys.argv[2]))'
-        ut_ = subprocess.run([sys.executable, '-B', '-c', kod_, str(ROOT / 'kontroller'), str(bas / 'tmp')], capture_output=True, text=True, timeout=60)
-        assert ut_.returncode == 0, ut_.stderr[-400:]
-        slutad = Path(ut_.stdout.strip())  # skapad av en process som nu har slutat
+        (bas / 'lank-till-tmp').symlink_to(bas / 'tmp', target_is_directory=True)
+        kod_ = 'import sys; sys.path.insert(0, sys.argv[1]); import korregister; print(korregister.egen_tmp(sys.argv[3], "prov hjälparen", dir=sys.argv[2]))'
+        slutade = []
+        for dir_, prefix_ in ((bas / 'tmp', 'nwp-skill-'), (bas / 'lank-till-tmp', 'nwp-instrument-')):  # också via en länk: realpath (S13)
+            ut_ = subprocess.run([sys.executable, '-B', '-c', kod_, str(ROOT / 'kontroller'), str(dir_), prefix_], capture_output=True, text=True, timeout=60)
+            assert ut_.returncode == 0, ut_.stderr[-400:]
+            slutade.append(Path(ut_.stdout.strip()))  # skapad av en process som nu har slutat
         lever_ = Path(korregister.egen_tmp('nwp-pip-', 'prov hjälparen levande', dir=str(bas / 'tmp')))
         kl_ = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'korregister.py'), 'tmp', 'nwp-motor-', 'prov skalskript',
                               '--dir', str(bas / 'tmp'), '--pid', str(os.getpid())], capture_output=True, text=True, timeout=60)
         assert kl_.returncode == 0, kl_.stderr[-400:]
         skal_ = Path(kl_.stdout.strip())
-        post_, fel_ = korregister.tmp_agare(slutad)
-        assert post_ and post_['vad'] == 'prov hjälparen' and post_['sokvag'] == os.path.realpath(slutad) and post_['pstart'], (post_, fel_)
+        utan_pid = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'korregister.py'), 'tmp', 'nwp-sub-', 'utan pid',
+                                   '--dir', str(bas / 'tmp')], capture_output=True, text=True, timeout=60)
+        assert utan_pid.returncode == 2 and not list((bas / 'tmp').glob('nwp-sub-*')), ('utan --pid registreras inget mellanskal (KAN-6)', utan_pid.stdout)
+        post_, fel_ = korregister.tmp_agare(slutade[0])
+        assert post_ and post_['vad'] == 'prov hjälparen' and post_['sokvag'] == os.path.realpath(slutade[0]) and post_['pstart'], (post_, fel_)
         assert korregister.tmp_agare(skal_)[0]['pid'] == os.getpid() and stat_agare(skal_) == 0o600
         rap = stadning.stada(r, punkter=(4,))
-        assert not slutad.exists() and en(rap, slutad, 4)['utfall'] == 'raderad', poster(rap, slutad)
+        for x_ in slutade:
+            x_r = Path(os.path.realpath(x_)) if x_.exists() else bas / 'tmp' / x_.name
+            assert not x_r.exists() and en(rap, x_r, 4)['utfall'] == 'raderad', (x_, poster(rap, x_r))
         for x_ in (lever_, skal_):
             assert x_.is_dir() and 'pågår' in en(rap, x_, 4)['skal'], poster(rap, x_)
         with korregister.egen_tmp_med('nwp-yt-', 'prov kontext', dir=str(bas / 'tmp')) as k_:
             assert korregister.tmp_agare(k_)[0]['vad'] == 'prov kontext'
         assert not os.path.exists(k_)
+
+    @v7('verktygen registrerar det de skapar: varje katalog med repots prefix registreras där den skapas (KAN-8)')
+    def _v7_verktygen():
+        filer_v = [ROOT / 'kor.sh', ROOT / 'dashboard.sh']
+        for bas_ in (ROOT / 'kontroller', ROOT / 'dashboard', ROOT / '.claude' / 'hooks'):
+            for r_d, mappar_, fn_ in os.walk(bas_):
+                mappar_[:] = [m for m in mappar_ if m != 'node_modules']
+                filer_v += [Path(r_d) / f for f in fn_ if f.endswith(('.py', '.mjs', '.js', '.sh'))]
+        # en katalog som skapas direkt (tempfile.mkdtemp eller mkdtempSync) tilldelas en variabel som samma fil registrerar
+        # (registrera_tmp, registrera( eller provets agarfil); TemporaryDirectory och mktemp med repots prefix går inte att
+        # registrera och ska inte finnas; korregister.py tmp i ett skalskript har --pid
+        raa = (re.compile(r'(\w+)\s*=\s*(?:[\w.]+\()*\s*(?:tempfile\.)?mkdtemp\([^)]*?prefix=[\'"]([^\'"]+)[\'"]'),
+               re.compile(r'(\w+)\s*=\s*mkdtempSync\(\s*join\(\s*tmpdir\(\)\s*,\s*[\'"]([^\'"]+)[\'"]'))
+        alltid_fel = (re.compile(r'TemporaryDirectory\([^)]*?prefix=[\'"]([^\'"]+)[\'"]'), re.compile(r'mktemp\s+-d\s+(?:/tmp/)?([A-Za-z0-9_.-]+?)X{3,}'))
+        utan, provade = [], 0
+        for f_ in filer_v:
+            if not f_.is_file():
+                continue
+            rader_ = f_.read_text(encoding='utf-8', errors='replace').splitlines()
+            kommentar = '//' if f_.suffix in ('.mjs', '.js') else '#'
+            kod_ = '\n'.join(x for x in rader_ if not x.strip().startswith(kommentar))  # en bortkommenterad registrering räknas inte
+            for m_ in raa:
+                for x_ in m_.finditer(kod_):
+                    var_, prefix_ = x_.group(1), x_.group(2)
+                    if not prefix_.startswith(stadning.TMP_PREFIX):
+                        continue
+                    provade += 1
+                    if not re.search(r'(?:registrera_tmp|agarfil|registrera)\(\s*(?:Path\()?\s*%s\b' % re.escape(var_), kod_):
+                        utan.append('%s: %s skapas med %s utan registrering' % (f_.relative_to(ROOT), var_, prefix_))
+            for m_ in alltid_fel:
+                for x_ in m_.finditer(kod_):
+                    if x_.group(1).startswith(stadning.TMP_PREFIX):
+                        utan.append('%s: %s skapas utan hjälparen' % (f_.relative_to(ROOT), x_.group(1)))
+            for rad_ in kod_.splitlines():
+                if re.search(r'korregister\.py[\'"]?\s+tmp\s', rad_) and '--pid' not in rad_:
+                    utan.append('%s: korregister.py tmp utan --pid: %s' % (f_.relative_to(ROOT), rad_.strip()[:120]))
+        assert provade >= 8 and not utan, (provade, utan)
+        # och i en körning: slugvaktens tmp_katalog (upptagna_val) registrerar det den skapar
+        import slugvakt
+        spara_td, spara_slug = tempfile.tempdir, os.environ.pop('NWP_SLUG', None)
+        tempfile.tempdir = str(TMPDIR_ROT)
+        try:
+            dk_ = slugvakt.tmp_katalog('upptagna-')
+        finally:
+            tempfile.tempdir = spara_td
+            if spara_slug is not None:
+                os.environ['NWP_SLUG'] = spara_slug
+        post_dk, fel_dk = korregister.tmp_agare(dk_)
+        assert post_dk and post_dk['pid'] == os.getpid() and Path(dk_).parent == TMPDIR_ROT, (dk_, fel_dk)
+        shutil.rmtree(dk_)
 
     assert not V7_FEL, 'villkoren 2026-10-07 som föll: %s' % V7_FEL
 

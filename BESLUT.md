@@ -553,8 +553,8 @@ kundens egna claude-sessioner). Hela `kunder/<slug>/sajt` raderas, också en god
 **Delvis ersatt av:** tillägget 2026-10-07 om omtagens jämförelsepunkter och städningens villkor (sist i den här filen),
 i fråga om punkt 4 och omtaget: en tempkatalog i /tmp och $TMPDIR raderas bara när den är registrerad som en körnings
 egen och körningen är avslutad, inte på namnprefixet; äldre rester redovisas för sig och raderas inte; ingen symlänk
-följs och ingen gemensam förälder raderas; en sessions arbetsyta tas bort först när dess rapporter och bedömda bilder
-är registrerade; och ett omtag sparar och registrerar det ägaren bedömt innan något raderas. Övrigt gäller.
+följs och ingen gemensam förälder raderas; en sessions arbetsyta tas bort först när varje fil i den är registrerad
+eller går att återskapa; och ett omtag sparar och registrerar det ägaren bedömt innan något raderas. Övrigt gäller.
 
 ## Tillägg 2026-10-06: Figma-metodprovet, en pilot utanför normalflödet
 
@@ -1377,38 +1377,68 @@ Om städningen:
 Skälen: ett omtag raderade det ägaren bedömt utan ett bevarat underlag, så en senare jämförelse gick inte att återskapa.
 Städningen raderade tempkataloger på namnprefixet ensamt (städregeln ovan, punkt 4).
 
-Så gäller det sedan grenen `stadvillkor-omtag-20261007`:
+Så gäller det sedan grenen `stadvillkor-omtag-20261007`, med rättelserna efter granskningen GR-20261007-r100:
 
 1. **Omtaget sparar det bedömda före raderingen** (`kontroller/atelje.py`, `ta_bort_beslut`). För varje kandidat som
    ägaren dömt i körningen sparas `underlag/<slug>/omtag/<stämpel>/<kandidat>/<v12>/` med tre delar:
    - `underlag/`: exakt de filer versionen räknas över (`DESIGN.md`, `kod/` och `kod-src/`; `kontroller/kandidater.py`,
-     `version_filer`). Hashen räknas om ur dem och ska bli versionen.
+     `version_filer`). Hashen räknas om ur det sparade och ska bli versionen.
    - `bilder/`: skärmbilderna i de bredder som versionen fotograferades och dömdes i.
    - `KVITTO.json`: id, tid, kandidat, version och den omräknade hashen, sha256 per fil och länkarna till design och kod.
      Där står också domarna, med fil, rad och radens sha256 i `DESIGNDOMAR.jsonl`, och posten själv.
 
-   En version är dömd när en dom från ägaren i planen namnger den. När ägarens senaste dom (ny riktning eller förkasta)
-   gäller körningen är dessutom varje kandidat som ägaren sett dömd, i den version kandidaten har. Det sparade
-   registreras med ett namnbyte från en dold katalog innan något raderas, och historikens post pekar på det (`sparat`).
-   Faller sparandet raderas inget, och ingen historik skrivs. Kandidater som ägaren inte dömt sparas inte.
+   En version är dömd när en dom från ägaren i planen namnger den. En dom utan plan, förd för hand, gäller planen när den
+   kom efter att planen skrevs. När ägarens senaste dom (ny riktning eller förkasta) gäller körningen är dessutom varje
+   kandidat som ägaren sett dömd, i den version kandidaten har; det gäller också när körningen redan bokförts för hand.
+   En version som ingen rad i domloggen pekar på sparas inte, och då görs inget omtag. Domloggen läses på samma sätt
+   som överallt annars.
+
+   Inget raderas osparat: vinnaren (`atelje/vinnare/` och `VINNARE.json`, med en jämförelse mot hasharna där),
+   slutdomens bilder (`atelje/slutdom/`), tidigare körningars arkiv (`atelje/foregaende/`) och en äldre `prototyp/`
+   sparas i `omtag/<stämpel>/atelje/` och `omtag/<stämpel>/prototyp/`, med sha256 per fil och domarna som gäller dem.
+
+   Det sparade registreras med ett namnbyte från en dold katalog innan något raderas, och historikens post pekar på det
+   (`sparat`). Faller sparandet, eller avbryts det, raderas inget och ingen historik skrivs. En dold rest efter ett
+   sparande som dödades tas bort vid nästa omtag, när processen i dess namn inte längre finns. Kandidater som ägaren
+   inte dömt sparas inte.
 2. **Tempkatalogerna i /tmp och $TMPDIR** (`kontroller/stadning.py`, punkt 4). Registreringen är ägarfilen
    `.nwp-agare.json` i katalogen, med körningens pid, starttid, vad och katalogens egen sökväg. Den skrivs av
-   `korregister.egen_tmp` i `kontroller/korregister.py`, som verktygen med repots prefix nu använder. Bara en katalog med
-   en giltig registrering och en avslutad körning raderas. En katalog med prefixet men utan giltig registrering är en
-   äldre rest: den raderas aldrig och redovisas för sig med sökväg, storlek och ålder.
-3. **Symlänkar och föräldrar.** Ingen symlänk följs: städningen använder lstat och `os.walk` med `followlinks=False`, och
-   en länk i en registrerad katalog tas bort som länk. Bara katalogen själv raderas, och bara när den är en riktig
-   katalog direkt under /tmp eller $TMPDIR. /tmp, $TMPDIR, scratchpads rot och andra gemensamma föräldrar raderas aldrig.
-   En scratchpad-rot som är en symlänk följs inte alls.
-4. **Sessionernas arbetsytor.** En arbetsyta tas bort först när varje rapport och bild i den är registrerad. Det gäller
-   filerna `.md`, `.json`, `.png`, `.jpg`, `.jpeg`, `.webp` och `.pdf`. Registrerad är en fil vars sha256 står i
-   `underlag/granskningar/FORTECKNING.jsonl`, i ett `VERSION.json` eller i ett omtags `KVITTO.json`, med den registrerade
-   filen kvar i `underlag/`. En fil som finns byte för byte i huvudutcheckningens git räknas också. Annars väntar
-   arbetsytan på ägaren, med listan över de oregistrerade filerna. Skyddet för levande sessioner står kvar.
+   `korregister.egen_tmp` i `kontroller/korregister.py`, som verktygen med repots prefix nu använder. Kommandot
+   `korregister.py tmp` kräver `--pid`.
+
+   Bara en katalog med en giltig registrering och en avslutad körning raderas. En pid räknas som levande också när
+   signalen nekas (EPERM), och starttiden jämförs som en tidpunkt. En katalog med prefixet men utan giltig
+   registrering är en äldre rest: den raderas aldrig och redovisas för sig med sökväg, storlek och ålder.
+
+   "Den aktuella körningen" i ägarens ord är körningen som katalogen är registrerad på, alltså den som skapade den, och
+   inte bara den körning som städar. Granskningen GR-20261007-r100 (BÖR-4) frågade vilken läsning som gäller, och ägaren
+   bekräftade den byggda 2026-10-07, ~08:15Z, i frågeverktyget. Ägaren valde alternativet "Körningen katalogen hör
+   till (Recommended)". Alternativets text, som ägaren såg den:
+
+   > Så är det byggt i r100. En registrerad katalog raderas när körningen som skapade den har slutat och katalogen varit orörd i ett dygn. Exempel: underhållet kraschar i natt och lämnar en registrerad tempkatalog; nästa natts underhåll raderar den. Oregistrerade rester raderas aldrig, de listas bara med sökväg, storlek och ålder.
+
+   Det andra alternativet, "Bara körningen som städar", valdes inte. Med det hade en registrerad katalog efter ett
+   underhåll som kraschat stått kvar som äldre rest tills ägaren avgjort den. Koden är oförändrad.
+3. **Symlänkar och föräldrar.** Ingen symlänk följs. Städningen prövar med lstat och `os.walk` med `followlinks=False`
+   och raderar med `shutil.rmtree`, som går med filbeskrivare: en länk som byts in mellan provet och raderingen följs
+   inte, och en länk i en registrerad katalog tas bort som länk. Bara katalogen själv raderas, och bara när den är en
+   riktig katalog direkt under /tmp eller $TMPDIR. /tmp, $TMPDIR, scratchpads rot och andra gemensamma föräldrar
+   raderas aldrig. En scratchpad-rot som är en symlänk följs inte alls.
+4. **Sessionernas arbetsytor.** En arbetsyta tas bort först när varje vanlig fil i den, oavsett ändelse, är registrerad
+   eller går att återskapa. Det gäller rapporter, bilder och versionsunderlag. Bara det bevisligen härledda undantas:
+   `node_modules/`, `__pycache__/` och, i en riktig venv med `pyvenv.cfg` i roten, venvens egna kataloger.
+
+   Registrerad är en fil vars sha256 står i `underlag/granskningar/FORTECKNING.jsonl`, i ett `VERSION.json` eller i ett
+   omtags `KVITTO.json` (aldrig i en dold katalog), med den registrerade filen kvar i `underlag/`. En sökväg i en
+   förteckning eller ett kvitto godtas bara när den är relativ, utan `..`, och ligger i `underlag/`. Att gå att
+   återskapa betyder att filen finns byte för byte som en blob som nås från en ref i huvudutcheckningens git (`git
+   rev-list --objects --all`); ett löst objekt eller ett som bara nås ur en reflogg räknas inte.
+
+   Annars väntar arbetsytan på ägaren, med listan över filerna. Skyddet för levande sessioner står kvar.
 
 Räckvidd:
-- Den äldre utforskningen med riktningar (`NWP_KANDIDATFLODE=av`) har ingen kandidatversion, så där sparar omtaget inget
-  nytt.
 - Punkt 3 i städregeln (processerna) är oförändrad.
 - De tempkataloger med repots prefix som finns på maskinen från före ändringen saknar registrering. De redovisas som
   äldre rester och väntar på identifiering.
+- Eftersom varje fil i en arbetsyta nu prövas kommer de flesta gamla arbetsytor att vänta på ägaren i underhållets
+  rapport, med listan över sina filer.
