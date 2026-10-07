@@ -1278,33 +1278,49 @@ koden före rättningen.
 **Gren A: slutbesked och rapporters giltighet (punkt 4, 5, 8 och 10), 2026-10-07, grenen `slutbesked-20261007`:**
 1. **Slutposten.** `kontroller/korslut.py` skriver `kunder/<slug>/korningar/<körning>/SLUT.json` för varje
    kor.sh-körning. Posten bär rapporthuvudets fält (`README.md`, Var information finns) och binder ihop körningen,
-   bygget (dist_sha256), granskningsmetoden, byggets inställningar, repots commit och den godkända startsidan (kandidat
-   och version). Därtill de tekniska kontrollerna, designgranskningen och vem som gjorde den, ägarens beslut,
-   slutkoden, bristerna, nästa steg och länkarna till rapporter och bevis.
-   - Fem tillstånd hålls isär: sessionen avslutad, tekniskt godkänt, designgranskaren godkänner, ägaren godkänner och
-     klart för leverans inom angiven omfattning.
-   - Terminalens besked skrivs ur posten. En start som stannar före bygget (slutkod 2) får en kort post.
-   - Ett nytt bygges post ersätter de tidigare (`rapportstatus: ersatt` och `ersatt_av`).
-   - Ägarens dom kommer efter körningen; `korslut.py --visa` prövar den mot posten utan att skriva om den.
+   bygget (dist_sha256), granskningsmetoden, byggets inställningar, repots commit och den godkända startsidan (kandidat,
+   version och VINNARE.json:s sha256). Därtill de tekniska kontrollerna, designgranskningen och vem som gjorde den,
+   ägarens beslut, slutkoden, bristerna, nästa steg och länkarna till rapporter och bevis. Provets och stoppvaktens
+   besked kopieras till postens katalog, eftersom nästa körning skriver över dem.
+   - Fem tillstånd hålls isär: sessionen avslutad normalt, tekniskt godkänt, designgranskaren godkänner, ägaren godkänner
+     och klart för leverans inom angiven omfattning. Tekniskt godkänt bygger på provet, stoppvaktens egna kontroller och
+     rapportens bindning, inte på om stoppvakten släppte avslutet.
+   - Terminalens besked skrivs ur posten. En start som stannar före bygget (slutkod 2) får en kort post. SIGTERM, SIGINT
+     och SIGHUP under bygget stoppar claude, och korslut skriver posten (slutkod 4). En körning som dödas med SIGKILL
+     lämnar `START.json` utan slutpost; nästa start och `--visa` säger att den avbröts.
+   - En ny post ersätter de tidigare (`rapportstatus: ersatt` och `ersatt_av`) bara när den gäller ett annat bygge eller
+     en annan metod. Den äldre postens länk till rapporten pekar på den flyttade filen.
+   - Ägarens dom räknas bara ur en `DOM.json` som är oförändrad sedan körningens start. Filen är låst och skyddad under
+     körningen, och en dom som tillkom under en körning räknas aldrig. Att svaret "Ja, som den är" räknas som
+     godkännande är Claudes tolkning, inte bekräftad av ägaren.
+   - `korslut.py --visa` prövar posten mot läget nu. Har bygget, granskningens metod eller startsidans godkännande ändrats
+     står postens godkännanden som historik, och klart för leverans är nej.
+   - Posten som uteblir (en katalog i dess ställe, ett skrivfel) ger slutkod 5, och backlog_commit publicerar då inget.
+     Trasiga äldre filer (SLUT.json, DOM.json, VINNARE.json) fäller inte avslutet och står som brister.
    - A/B-armarna (`kontroller/ab.py`) pekar på armens slutpost i stället för granskningens rotfil, och demon i
      dashboarden får samma post genom kor.sh.
 2. **Rapporten bunden till körningen.** kor.sh flyttar ett tidigare bygges RAPPORT.md till
    `kunder/<slug>/rapporter/RAPPORT-fore-<körning>.md` när bygget startar, och inget raderas.
-   - Stoppvakten godtar bara en rapport som skrivits i körningen: med körningens identitet i huvudet, eller utan
-     identitet skriven efter starten. Den sparar rapportens sha256 och körning.
-   - Korslut kräver samma sha256 och körning och säger annars "saknar identitet" eller "gäller körning X". Slutgrindens
-     prov av provet, stoppvakten, granskningen och metoden står kvar.
-   - Uppdraget från kor.sh och steg 7 i skillen bygg-sajt bär identiteten. Ändrar bygget en tidigare slutpost eller en
-     flyttad rapport blir slutkoden 3.
+   - Stoppvakten godtar bara en rapport med körningens identitet i huvudet och sparar dess sha256 och körning. Filtiden
+     räcker inte, eftersom en äldre rapport som kopieras tillbaka får en ny filtid.
+   - Korslut kräver samma sha256 och körning. Beskedet säger om felet är stoppvaktens (ett besked från en annan körning)
+     eller rapportens ("saknar identitet", "gäller körning X"). Slutgrindens prov av provet, stoppvakten, granskningen och
+     metoden står kvar.
+   - Uppdraget från kor.sh och steg 7 i skillen bygg-sajt bär identiteten. Ändrar bygget en tidigare slutpost, en flyttad
+     rapport eller ägarens dom blir slutkoden 3.
 3. **Kalibreringen.** Mallen för försöksrapporten (`kontroller/granskarforsok/kalibrering.py`) anger nivåfilens sha256
-   och ett läckageprov. Exemplen kallas undanhållna bara när provet gått igenom; annars är siffran utvecklingsdata.
-   Den privata rapporten i `underlag/kalibrering/FORSOK-20261004/` har fått ett daterat rättelseblock överst och
-   `giltighet: utvecklingsdata` med skäl, med hänvisning till `LARDOMAR.md` (rad 190–205) och backlogposten om
-   kalibreringen. Siffrorna står kvar som historik. Rapporten är registrerad i förteckningen med sha256 före och efter
-   rättelsen.
-4. **Proven.** `kontroller/rokprov/revision/prov_slutpost.py` (14 fall, i rökprovet) prövar beteendet genom de
-   verkliga ingångarna: stoppvakten och korslut med en gammal rapport, en historisk granskning i korslut och i ab,
-   kor.sh direkt, demon och ab.py, de fem tillstånden och kalibreringens rättelse. Alla fall var röda mot 84c6994.
+   och ett läckageprov. Exemplen kallas undanhållna bara när provet faktiskt prövat texter, nivåfilen bland dem, och inte
+   funnit några ordagranna spår; annars är siffran utvecklingsdata. Provet fångar inte en omskriven destillering, och
+   rapporten säger det. Den privata rapporten i `underlag/kalibrering/FORSOK-20261004/` har fått ett daterat
+   rättelseblock överst och `giltighet: utvecklingsdata` med skäl, med hänvisning till `LARDOMAR.md` (rad 190–205) och
+   backlogposten om kalibreringen. Siffrorna står kvar som historik. Rapporten är registrerad i förteckningen med sha256
+   före och efter rättelsen.
+4. **Proven.** `kontroller/rokprov/revision/prov_slutpost.py` (i rökprovet) prövar beteendet genom de verkliga
+   ingångarna och vad varje tillstånd bygger på, med förväntade rader i terminalen. Fallen för de nya rättelserna var
+   röda mot 84c6994 respektive 38f5538.
+5. **Granskningen GR-20261007-r101** (2 blockerande, 9 BÖR, 10 KAN; 15 av 42 mutationer överlevde) är rättad: B1
+   (ägarens dom), B2 (`--visa` och aktuell metod), BÖR 1–9 och KAN 1–9 (KAN 7 för kommande rättelser). Granskarens
+   mutationer kördes om mot rättelsen.
 
 **Återstår:**
 - Gren B: startkvittot och åtkomsten (punkt 1–3).
@@ -1314,10 +1330,15 @@ koden före rättningen.
   - De fem tillstånden ur slutposten i stället för "Klar: success", och granskningsdomen som aktuell eller historisk.
   - Demoposten och A/B-vyn mot slutposten. A/B-vyn visar i dag en arm utan granskning ("ej bedömt") som "underkände".
   - Kalibreringens rättelse i översikten.
+  - Dashboardens Din dom bör vägra en dom medan kundens bygge pågår; i dag misslyckas skrivningen mot den låsta filen,
+    eller räknas inte när filen saknades vid starten.
 - Uppdraget står här ordagrant; de andra grenarna lägger inte in det igen.
 - En start som nekas före låset skriver ingen slutpost: fel i anropet, verktyg som saknas eller ett bygge som redan
-  pågår. Skrivningen kunde ändra det pågående byggets gräns, så skälet står bara i terminalen.
+  pågår. Skrivningen kunde ändra det pågående byggets gräns, så skälet står bara i terminalen. En körning som dödas med
+  SIGKILL får ingen post; den syns bara som avbruten.
 - Byggen från före den här ändringen saknar rapportens identitet i STOPPVAKT.json. Korslut och flödesvyn godkänner dem
-  inte längre ("RAPPORT.md saknar identitet").
+  inte längre, och beskedet säger att stoppvaktens besked är från före 2026-10-07.
 - Läckageprovet hittar ordagranna spår av de prövade exemplen, inte en omskriven destillering av domarna.
+- Den privata kalibreringsrapportens ursprungliga RAPPORT.json sparades inte ordagrant vid rättelsen; den går att
+  återskapa (sha256 stämmer med `sha256_fore`). Senare rättelser sparar originalet i rättelsen.
 - Punkt 11 och designexemplet: ingen verklig designkörning har ännu gått med slutposten.

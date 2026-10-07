@@ -9,11 +9,11 @@
 #   ./kor.sh frisor-exempel-umea "Frisör Exempel, Umeå, https://exempel.se"
 # Slutkod: 0 grönt prov och godkänd granskning · 1 avslutat utan det · 2 fel i anropet, ingen godkänd startsida,
 # startkontrollen stoppade, eller ett bygge pågår redan · 3 skyddade filer eller gränsen (nya kataloger direkt under
-# kunder/ eller underlag/, lyft flagga) ändrades under körningen · 4 claude föll · 6 bygget stannade utan sajt (bara den
-# äldre utforskningens lägen: ateljén förkastade alla riktningar, skaparen lämnade grundidén, eller ägaren dömde
-# startsidan efter körningen).
-#
-# Flera helbyggen körs ett i taget. Varje start ger en slutpost: kunder/<slug>/korningar/<körning>/SLUT.json (korslut.py).
+# kunder/ eller underlag/, lyft flagga) eller ägarens dom (DOM.json) ändrades under körningen · 4 claude föll, också när
+# körningen avbröts (SIGTERM, SIGINT eller SIGHUP) · 5 slutposten uteblev · 6 bygget stannade utan sajt (den äldre
+# utforskningens lägen: ateljén förkastade alla riktningar, skaparen lämnade grundidén, eller ägaren dömde startsidan).
+# Flera helbyggen körs ett i taget. Varje start efter låset ger en slutpost: kunder/<slug>/korningar/<körning>/SLUT.json
+# (korslut.py). En körning som dödas (SIGKILL) får ingen; nästa start och korslut.py --visa säger att den avbröts.
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400),
 # NWP_STOPP_TAK (8), NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång),
 # NWP_GRANSKNING_MAX (5 per körning), NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json
@@ -48,7 +48,7 @@ echo $$ > "$LAS"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" in bygge --slug "$SLUG" --pid $$ >/dev/null 2>&1 || true
 WT_PID=""
 # städningen får aldrig ändra slutkoden (set -e gäller också i trapen): varje steg tål att misslyckas
-trap '"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" ut --pid $$ >/dev/null 2>&1 || true; chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true; [ -z "${DOMLOGG:-}" ] || chflags nouchg "$DOMLOGG" 2>/dev/null || true; rm -f "$LAS"; [ -z "${WT_PID:-}" ] || kill "$WT_PID" 2>/dev/null || true' EXIT
+trap '"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" ut --pid $$ >/dev/null 2>&1 || true; chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true; [ -z "${DOMLOGG:-}" ] || chflags nouchg "$DOMLOGG" 2>/dev/null || true; [ -z "${DOMFIL:-}" ] || chflags nouchg "$DOMFIL" 2>/dev/null || true; rm -f "$LAS"; [ -z "${WT_PID:-}" ] || kill "$WT_PID" 2>/dev/null || true' EXIT
 mkdir -p "$ROOT/kunder/$SLUG" "$ROOT/underlag/$SLUG"
 # Körningens identitet (NWP_KORNING), unik för kunden, sätts direkt efter låset: varje start, också en som stannar före
 # bygget, får en slutpost i kunder/<slug>/korningar/<körning>/SLUT.json, och terminalens besked skrivs ur posten
@@ -58,10 +58,34 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 while [ -e "$ROOT/kunder/$SLUG/korningar/$STAMP" ] || [ -L "$ROOT/kunder/$SLUG/korningar/$STAMP" ]; do
   sleep 1; STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 done
+[ -L "$ROOT/kunder/$SLUG/korningar" ] && { echo "kunder/$SLUG/korningar är en symlänk; bygget startas inte"; exit 2; }
 stopp() {  # kor.sh stannar före bygget: en kort slutpost och beskedet ur den, slutkod 2
-  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" --stopp "$ROOT/kunder/$SLUG" "$STAMP" "$1" || echo "$1"
+  NWP_VERKSAMHET="$VERKSAMHET" "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" --stopp "$ROOT/kunder/$SLUG" "$STAMP" "$1" || echo "$1"
   exit 2
 }
+# Körningen syns från början (granskningen av r101, BÖR 1): korningar/<körning>/START.json med pid, starttid och
+# DOM.json:s sha256. En körning som dödas utan slutpost (SIGKILL) känns igen av nästa start och av korslut.py --visa.
+DOMFIL="$ROOT/kunder/$SLUG/DOM.json"
+DOMSHA=null
+if [ -f "$DOMFIL" ] && [ ! -L "$DOMFIL" ]; then DOMSHA="\"$(shasum -a 256 "$DOMFIL" | cut -d' ' -f1)\""; fi
+mkdir -p "$ROOT/kunder/$SLUG/korningar/$STAMP" \
+  && printf '{"korning": "%s", "pid": %d, "start": "%s", "dom_sha256": %s}\n' "$STAMP" $$ "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$DOMSHA" \
+     > "$ROOT/kunder/$SLUG/korningar/$STAMP/START.json" \
+  || stopp "körningens katalog kunder/$SLUG/korningar/$STAMP kunde inte skapas; bygget startas inte"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" --avbrutna "$ROOT/kunder/$SLUG" "$STAMP" || true
+# En signal före bygget ger en kort post. Under bygget stoppas claude, och korslut skriver posten med slutkoden. Under
+# avslutet ignoreras signalen, så att posten blir skriven. SIGKILL går inte att fånga.
+FAS=fore; CLAUDE_PID=""; AVBRUTEN=""
+avbryt() {
+  AVBRUTEN="$1"
+  case "$FAS" in
+    fore) stopp "kor.sh avbröts med SIG$1 före bygget";;
+    bygge) [ -z "$CLAUDE_PID" ] || kill -TERM "$CLAUDE_PID" 2>/dev/null || true;;
+  esac
+}
+trap 'avbryt TERM' TERM
+trap 'avbryt INT' INT
+trap 'avbryt HUP' HUP
 # Ägarens domlogg låses under bygget (chflags uchg nedan): bygget når den annars med cp och mv, och dashboarden skriver
 # ägarens domar först när bygget är klart. En ändring under körningen är då inte ägarens: korslut ger slutkod 3
 # (omgranskningen av skapandeflödet, fynd 2). Saknas loggen skapas den tom, så att den kan låsas.
@@ -69,6 +93,11 @@ DOMLOGG="$ROOT/underlag/$SLUG/DESIGNDOMAR.jsonl"
 [ -L "$DOMLOGG" ] && stopp "domloggen underlag/$SLUG/DESIGNDOMAR.jsonl är en länk; bygget startas inte"
 chflags nouchg "$DOMLOGG" 2>/dev/null || true   # kvarlämnad flagga efter en avbruten körning
 [ -e "$DOMLOGG" ] || : > "$DOMLOGG"
+# Ägarens dom över bygget (DOM.json, dashboardens Din dom) hör också till de skyddade filerna och låses när den finns:
+# bygget får aldrig kunna skriva "ägaren godkänner" (granskningen av r101, B1). Den skapas inte här, eftersom
+# dashboarden räknar en befintlig DOM.json som en dom; tillkommer den under körningen är det slutkod 3.
+[ -L "$DOMFIL" ] && stopp "kunder/$SLUG/DOM.json är en länk; bygget startas inte"
+chflags nouchg "$DOMFIL" 2>/dev/null || true   # kvarlämnad flagga efter en avbruten körning
 rm -f "$ROOT/kunder/$SLUG/prov/.stoppvakt-antal"
 LOGG="$ROOT/kunder/$SLUG/korning-$STAMP.jsonl"
 
@@ -193,7 +222,8 @@ ARGS=(-p
   "Edit(./LARDOMAR.md)" "Write(./kontroller/**)" "Write(./kritik/**)" "Write(./kunskap/**)" "Write(./mall/**)"
   "Write(./.claude/**)" "Write(./LARDOMAR.md)"
   # ägarens domar över designen och godkännandet skrivs bara av ägaren (dashboarden), aldrig av bygget
-  "Write(./underlag/$SLUG/DESIGNDOMAR.jsonl)" "Edit(./underlag/$SLUG/DESIGNDOMAR.jsonl)")
+  "Write(./underlag/$SLUG/DESIGNDOMAR.jsonl)" "Edit(./underlag/$SLUG/DESIGNDOMAR.jsonl)"
+  "Write(./kunder/$SLUG/DOM.json)" "Edit(./kunder/$SLUG/DOM.json)")
 # Bara projektets inställningar: då gäller --allowedTools som vitlista (ägarens egna allow-regler i
 # ~/.claude/settings.json läses inte). Modell och effort anges därför uttryckligen; gh får sin konfigurationsmapp.
 GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
@@ -229,7 +259,7 @@ cd "$ROOT"   # projektets Stop-krok laddas bara när sessionen startar i reporot
 # Bash når förbi Edit/Write-reglerna ovan (cp, mv, egna skript); därför jämförs de skyddade filernas innehåll före och
 # efter, fil för fil, oavsett om en ändring committats under körningen (revisionen 2026-10-03, F10).
 SKYDDAT=(kontroller kritik kunskap mall .claude dashboard kor.sh dashboard.sh CLAUDE.md BESLUT.md LARDOMAR.md .gitignore
-         "underlag/$SLUG/DESIGNDOMAR.jsonl"  # ägarens domlogg, låst under bygget: en ändring är ändrad mekanik (slutkod 3)
+         "underlag/$SLUG/DESIGNDOMAR.jsonl" "kunder/$SLUG/DOM.json"  # ägarens domlogg och dom, låsta: en ändring är slutkod 3
          "kunder/$SLUG/korningar" "kunder/$SLUG/rapporter")  # körningarnas protokoll: en ändring är också slutkod 3
 skyddat() {
   # en post som saknas får inte fälla skriptet; försvinner eller tillkommer den under bygget syns det efteråt
@@ -242,6 +272,14 @@ grans() {
   for d in kunder underlag; do
     printf '%s  flagga:%s\n' "$(stat -f %Sf "$ROOT/$d" 2>/dev/null | grep -o uchg || echo utan)" "$d"
     for n in "$ROOT/$d"/* "$ROOT/$d"/.[!.]*; do [ -e "$n" ] || [ -L "$n" ] || continue; printf 'post  syskon:%s/%s\n' "$d" "$(basename "$n")"; done
+  done
+  # protokollens kataloger och länkar, som find -type f ovan inte ser: en katalog eller symlänk där en slutpost ska
+  # ligga ändrar gränsen (granskningen av r101, BÖR 2)
+  for p in "kunder/$SLUG/korningar" "kunder/$SLUG/rapporter"; do
+    { [ -e "$p" ] || [ -L "$p" ]; } || continue
+    find "$p" \( -type d -o -type l \) -print 2>/dev/null | sort | while IFS= read -r x; do
+      if [ -L "$x" ]; then printf 'lank  protokoll:%s\n' "$x"; else printf 'katalog  protokoll:%s\n' "$x"; fi
+    done
   done
 }
 mkdir -p "$ROOT/kunder/$SLUG/prov"
@@ -270,6 +308,9 @@ for d in kunder underlag; do
   stat -f %Sf "$ROOT/$d" 2>/dev/null | grep -q uchg || stopp "$d/ är inte låst (flaggan uchg saknas efter chflags); bygget startas inte"
 done
 chflags uchg "$DOMLOGG" 2>/dev/null && stat -f %Sf "$DOMLOGG" 2>/dev/null | grep -q uchg || stopp "domloggen underlag/$SLUG/DESIGNDOMAR.jsonl kunde inte låsas (chflags uchg); bygget startas inte"
+if [ -e "$DOMFIL" ]; then
+  chflags uchg "$DOMFIL" 2>/dev/null && stat -f %Sf "$DOMFIL" 2>/dev/null | grep -q uchg || stopp "kunder/$SLUG/DOM.json kunde inte låsas (chflags uchg); bygget startas inte"
+fi
 # En äldre RAPPORT.md (ett tidigare bygges) flyttas till kunder/<slug>/rapporter/RAPPORT-fore-<körning>.md när bygget
 # startar, och inget raderas: den uppfyller aldrig rapportkravet för det här bygget, och stoppvakten kräver en rapport
 # skriven i körningen (ägarens uppdrag 2026-10-07, punkt 5). En start som stannar ovan lämnar den på sin plats.
@@ -282,18 +323,28 @@ fi
 { skyddat; grans; } > "$FORE_FIL"
 echo "Körning $SLUG startad $STAMP. Logg: $LOGG"
 set +e
-printf '%s' "$PROMPT" | env "${RENSA[@]}" CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" NWP_SANDLADA="${NWP_SANDLADA:-av}" ${WT_ENV[@]+"${WT_ENV[@]}"} claude "${ARGS[@]}" > "$LOGG" 2>&1
-RC=$?
+# claude körs i bakgrunden och väntas in, så att en signal till kor.sh når fällan direkt (avbryt ovan) och inte först
+# när sessionen är klar
+FAS=bygge
+printf '%s' "$PROMPT" | env "${RENSA[@]}" CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" NWP_SANDLADA="${NWP_SANDLADA:-av}" ${WT_ENV[@]+"${WT_ENV[@]}"} claude "${ARGS[@]}" > "$LOGG" 2>&1 &
+CLAUDE_PID=$!
+[ -z "$AVBRUTEN" ] || kill -TERM "$CLAUDE_PID" 2>/dev/null || true   # en signal innan pid:en var känd
+wait "$CLAUDE_PID"; RC=$?
+while kill -0 "$CLAUDE_PID" 2>/dev/null; do wait "$CLAUDE_PID"; RC=$?; done   # en fångad signal avbryter wait
+FAS=slut; CLAUDE_PID=""
+trap '' TERM INT HUP   # avslutet skriver posten och avbryts inte (barnen ärver det)
 set -e
 rm -f "$EFTER_FIL"
 { skyddat; grans; } > "$EFTER_FIL"
 chflags nouchg "$ROOT/kunder" "$ROOT/underlag" "$DOMLOGG" 2>/dev/null || true
+chflags nouchg "$DOMFIL" 2>/dev/null || true
 # Avslutet och slutkoden räknas av kontroller/korslut.py (revisionen 2026-10-03, F10 och F11): 0 godkänt, 1 avslutat utan
-# godkännande, 3 mekaniken ändrades under körningen, 4 claude föll, 6 ateljén förkastade alla riktningar och bygget
-# stannade utan sajt (designprovet, ägarbeslut 2026-10-04). Skriptets slutkod är korsluts. Korslut skriver slutposten
-# kunder/<slug>/korningar/<körning>/SLUT.json och beskedet ur den (ägarens uppdrag 2026-10-07, punkt 4).
+# godkännande, 3 mekaniken ändrades under körningen, 4 claude föll eller körningen avbröts, 5 slutposten uteblev, 6 ateljén
+# förkastade alla riktningar och bygget stannade utan sajt (designprovet, ägarbeslut 2026-10-04). Skriptets slutkod är
+# korsluts. Korslut skriver slutposten kunder/<slug>/korningar/<körning>/SLUT.json och beskedet ur den (ägarens uppdrag
+# 2026-10-07, punkt 4).
 set +e
-"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" "$ROOT/kunder/$SLUG" "$RC" "$FORE_FIL" "$EFTER_FIL" "$STAMP"
+NWP_AVBRUTEN="$AVBRUTEN" NWP_VERKSAMHET="$VERKSAMHET" "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" "$ROOT/kunder/$SLUG" "$RC" "$FORE_FIL" "$EFTER_FIL" "$STAMP"
 KORSLUT=$?
 # Bygget skriver backlogposter men har ingen git: efter korsluts bedömning publicerar kontroller/backlog_commit.py bara
 # byggets egna poster (märkta med körningen), med commitvaktens kontroller, aldrig vid ändrad mekanik, och pushar bara en

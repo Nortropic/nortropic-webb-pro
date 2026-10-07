@@ -100,12 +100,17 @@ resultatet. Ett exempel är `underlag/figma-pilot/BESLUTSUNDERLAG.md`.
 uppdrag 2026-10-07) bär rapporthuvudets fält i JSON, så att den läses som ett huvud. `underlag` är länkarna till
 rapporter och bevis, och `atgarder` är nästa steg. Därtill:
 - körningen, bygget (`dist_sha256`), metoden och slutkoden;
-- de fem tillstånden var för sig: sessionen avslutad, tekniskt godkänt, designgranskaren godkänner, ägaren godkänner
-  och klart för leverans inom angiven omfattning;
+- de fem tillstånden var för sig: sessionen avslutad normalt, tekniskt godkänt, designgranskaren godkänner, ägaren
+  godkänner och klart för leverans inom angiven omfattning;
 - bristerna.
 
-Terminalens besked skrivs ur posten. Ägarens dom kommer efter körningen och prövas mot posten med
-`.venv/bin/python kontroller/korslut.py --visa kunder/<slug>`.
+Terminalens besked skrivs ur posten. Ägarens dom räknas bara ur en `kunder/<slug>/DOM.json` som bygget inte kan ha
+skrivit: den är låst och skyddad under körningen, och en dom som tillkom under en körning räknas aldrig. `.venv/bin/python
+kontroller/korslut.py --visa kunder/<slug>` prövar posten mot läget nu. Har bygget i `kunder/<slug>/sajt/dist/`,
+granskningens metod eller startsidans godkännande ändrats sedan körningen står postens godkännanden som historik, och
+klart för leverans är nej.
+En körning som avbröts utan slutpost (SIGKILL) syns där och i nästa körnings post. Slutkod 5 betyder att posten
+uteblev.
 
 **Läsordningen:**
 1. slutsatsen och vad den gäller;

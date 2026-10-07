@@ -1260,14 +1260,14 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
         assert sv_hr.ateljen_forkastad(rot_sv, 'sv') is None, 'ett val är ingen förkastning'
         # granskningen av steg 2, punkt 3: vid taket säger stoppvakten alltid att en ny omgång behövs, med granskningens skäl
         k_tak = rot_sv / 'kunder' / 'sv'; (k_tak / 'prov').mkdir(parents=True)
-        (k_tak / 'RAPPORT.md').write_text('r' * 400); (k_tak / 'prov' / 'STATUS.json').write_text(json.dumps({'dist_sha256': 'd2'}))
+        (k_tak / 'RAPPORT.md').write_text('---\nkorning: 20261001T000000Z\n---\n' + 'r' * 400); (k_tak / 'prov' / 'STATUS.json').write_text(json.dumps({'dist_sha256': 'd2'}))
         svar_tak = iter([types.SimpleNamespace(returncode=0, stdout='grönt', stderr=''),
                          types.SimpleNamespace(returncode=3, stdout='Taket nått: 2 granskningar\nSkäl till ny omgång: ingen giltig omgång i körningen (alla avbröts eller föll)\n', stderr='')])
         sp_hr, rot_hr, in_hr, miljo_hr = sv_hr.subprocess, sv_hr.ROOT, sys.stdin, {k_: os.environ.get(k_) for k_ in ('NWP_SLUG', 'NWP_GRANSKNING', 'NWP_KORNING')}
         sv_hr.subprocess = types.SimpleNamespace(run=lambda *a_, **k_: next(svar_tak), TimeoutExpired=subprocess.TimeoutExpired)
         sv_hr.ROOT, sys.stdin = rot_sv, io.StringIO('{}')
         os.environ['NWP_SLUG'] = 'sv'; os.environ.pop('NWP_GRANSKNING', None)
-        os.environ['NWP_KORNING'] = '20261001T000000Z'  # rapporten skrevs efter körningens start (ägarens uppdrag 2026-10-07, punkt 5)
+        os.environ['NWP_KORNING'] = '20261001T000000Z'  # rapporten bär körningens identitet (ägarens uppdrag 2026-10-07, punkt 5)
         try:
             rc_tak = sv_hr.main()
         finally:

@@ -18,8 +18,11 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
    finns). Slutkod 0 betyder tekniskt godkänt och att designgranskaren godkänner; klart för leverans är det först när
    också ägaren godkänt bygget.
 2. **Ägarens dom över bygget** skrivs i dashboarden (bygget, fliken Din dom) till `kunder/<slug>/DOM.json`, med byggets
-   dist-hash. Svaret "Ja, som den är" på frågan om ägaren sätter sitt namn på sajten är ägarens godkännande i
-   slutposten; `.venv/bin/python kontroller/korslut.py --visa kunder/<slug>` prövar domen mot posten.
+   dist-hash, när inget bygge pågår: under en körning är filen låst, och en dom som tillkommer då räknas inte.
+   Slutposten räknar svaret "Ja, som den är" på frågan om ägaren sätter sitt namn på sajten som ägarens godkännande.
+   Det är Claudes tolkning av kärnfrågan och inte bekräftad av ägaren; "Ja, efter små ändringar" räknas inte.
+   `.venv/bin/python kontroller/korslut.py --visa kunder/<slug>` prövar domen mot posten, och har bygget, metoden eller
+   startsidans godkännande ändrats sedan körningen är bygget inte klart för leverans.
 3. **Exporten** (ägaren eller en session): `.venv/bin/python kontroller/exportera.py <slug> [--git]`. Den lägger
    sajtens källor, leveransens låsta beroenden, formulärets funktion, README, `.env.example`, `vercel.json` och
    LICENSER.md i `kunder/<slug>/kundrepo/` (en tidigare export flyttas till `kundrepo-tidigare/<tid>/` och raderas

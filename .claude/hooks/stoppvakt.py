@@ -9,9 +9,10 @@ i en egen session. Underkänd granskning blockerar med granskarens kritik.
 Exit 0 = får avsluta. Exit 2 = blockerad; skälet går till sessionen på stderr. Har ateljén förkastat alla riktningar
 (designprovet) släpps avslutet när RAPPORT.md är skriven i körningen, utan prov: bygget stannar utan sajt.
 Rapporten (ägarens uppdrag 2026-10-07, punkt 5): bara en RAPPORT.md som skrivits i körningen räknas, alltså med
-körningens identitet (NWP_KORNING) i huvudet eller, utan identitet, skriven efter körningens start; en rapport med en
-annan körnings identitet gäller den körningen (kontroller/korslut.py, rapport_identitet). STOPPVAKT.json sparar den
-bundna rapportens sha256 och körning, och korslut godkänner bara samma rapport.
+körningens identitet (NWP_KORNING) i huvudet. Filtiden räcker inte, eftersom en äldre rapport som kopieras tillbaka får
+en ny filtid (granskningen av r101, BÖR 5). En rapport med en annan körnings identitet gäller den körningen
+(kontroller/korslut.py, rapport_identitet). STOPPVAKT.json sparar den bundna rapportens sha256 och körning, och korslut
+godkänner bara samma rapport.
 Tak: efter NWP_STOPP_TAK blockeringar (standard 8), eller när granskningarna i körningen nått sitt tak
 (NWP_GRANSKNING_MAX), släpps avslutet ändå, och kunder/<slug>/prov/STOPPVAKT.json säger det, så att ägaren ser det;
 vid granskningstaket också att en ny omgång behövs och varför.
@@ -71,7 +72,7 @@ def rapporten(kund):
 
 def rapportfalt(ri):
     """Rapportens fält i STOPPVAKT.json: finns (och är skriven i körningen), skälet, och för en bunden rapport sha256,
-    körningen och hur den bands (identitet eller filtid)."""
+    körningen och hur den bands (identiteten i huvudet)."""
     bunden = bool(ri.get('bunden'))
     return {'rapport_finns': bunden, 'rapport': ri.get('skal'), 'rapport_sha256': ri.get('sha256') if bunden else None,
             'rapport_korning': (os.environ.get('NWP_KORNING') or None) if bunden else None, 'rapport_bunden': ri.get('satt') if bunden else None}

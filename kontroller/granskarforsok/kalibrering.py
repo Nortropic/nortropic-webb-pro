@@ -18,9 +18,11 @@ kräver ett nytt, orört urval (Codex R30: testdata får inte påverka reglerna 
 schemat ur kopian och det riktiga repot oläsbart, så att manifestet beskriver exakt det granskaren såg. Svaret valideras
 mot hela schemat (typer, obligatoriska fält, enum, gränser, nästlade objekt); ett oläsbart schema är ett försöksfel.
 
-Rapporten (ägarens uppdrag 2026-10-07, punkt 8) anger nivåfilens sha256 och läckageprovets utfall, och exemplen kallas
-undanhållna bara när läckageprovet gått igenom; annars är siffran utvecklingsdata (fältet giltighet i RAPPORT.json). En
-äldre rapport rättas med ett daterat block överst och giltigheten i RAPPORT.json, och ursprungsresultatet står kvar:
+Rapporten (ägarens uppdrag 2026-10-07, punkt 8) anger nivåfilens sha256 och läckageprovets utfall. Exemplen kallas
+undanhållna bara när läckageprovet faktiskt prövat texter, nivåfilen bland dem, och inte funnit några ordagranna spår;
+annars är siffran utvecklingsdata (fältet giltighet i RAPPORT.json). Provet fångar inte en omskriven destillering, och
+rapporten säger det. En äldre rapport rättas med ett daterat block överst och giltigheten i RAPPORT.json;
+ursprungsresultatet står kvar, och den ursprungliga RAPPORT.json sparas ordagrant i rättelsen:
 
     .venv/bin/python kontroller/granskarforsok/kalibrering.py --ratta <katalog> --datum ÅÅÅÅ-MM-DD --skal "…" \
         [--giltighet utvecklingsdata] [--hanvisning "…"]… [--uppdrag "…"] [--atgard "…"]…
@@ -49,9 +51,9 @@ NEKAS_EXTRA = ['Read(%s/**)' % ROOT, 'Read(%s/.claude/**)' % HEM]  # granskaren 
 METODFILER_MONSTER = r'(?:kunskap|kritik)/[A-Za-z0-9_./-]+\.(?:md|json)'
 NIVAFIL = 'kunskap/visuell-niva.md'
 LACKAGE_ORD = 8  # så många ord i följd ur ägarens dom över ett prövat exempel, i det granskaren läser, är läckage
-LACKAGE_GRANS = ('Provet upptäcker ordagranna spår av de prövade exemplen (id och ordföljder ur ägarens domar) i det '
-                 'granskaren läser, inte en omskriven destillering av domarna (Codex R30). Ett oberoende slutmått kräver '
-                 'dessutom ett orört urval som döms efter att metoden frysts.')
+LACKAGE_GRANS = ('Provet fångar bara ordagranna spår av de prövade exemplen (id och ordföljder ur ägarens domar) i det '
+                 'granskaren läser, inte en omskriven destillering av domarna, som den som fällde försöket 2026-10-04 '
+                 '(Codex R30). Ett oberoende slutmått kräver dessutom ett orört urval som döms efter att metoden frysts.')
 
 
 def undanhallna(underlag=None):
@@ -307,9 +309,11 @@ def _ord(text):
 
 def lackageprov(exempel, texter, n=LACKAGE_ORD):
     """Läckageprovet: har de prövade exemplens facit nått det granskaren läser? texter är {namn: text} för metoden och de
-    frysta ankarna. Prövar varje exempels id (K01 …) och varje följd om n ord ur ägarens dom över exemplet. Ett exempel
-    utan så många ord i domen kan inte prövas, och då går provet inte igenom. Ger {'ok', 'provat', 'traffar',
-    'ej_provade', 'begransning'}."""
+    frysta ankarna. Prövar varje exempels id (K01 …) och varje följd om n ord ur ägarens dom över exemplet. Det går igenom
+    bara när det faktiskt prövat något: minst ett exempel, minst en text och nivåfilen bland texterna; annars är det ej
+    prövat (granskningen av r101, BÖR 8). Ett exempel utan så många ord i domen kan inte prövas, och då går provet inte
+    igenom. Provet fångar bara ordagranna spår, inte en omskriven destillering (begransning). Ger {'ok', 'status',
+    'provat', 'texter', 'traffar', 'ej_provade', 'begransning'}."""
     traffar, ej = [], []
     norm = {namn: ' %s ' % ' '.join(_ord(x)) for namn, x in texter.items()}
     for e in exempel:
@@ -326,8 +330,22 @@ def lackageprov(exempel, texter, n=LACKAGE_ORD):
             if namn:
                 traffar.append({'id': e['id'], 'fil': namn, 'fynd': 'ordföljd ur ägarens dom'})
                 break
-    return {'ok': not traffar and not ej and bool(exempel), 'traffar': traffar, 'ej_provade': ej, 'begransning': LACKAGE_GRANS,
+    saknas = [x for x, brist in (('inga exempel', not exempel), ('inga texter', not texter), ('nivåfilen %s saknas bland texterna' % NIVAFIL,
+                                                                                               NIVAFIL not in texter)) if brist]
+    status = 'ej prövat (%s)' % ', '.join(saknas) if saknas else 'spår' if traffar else 'ofullständigt' if ej else 'inga ordagranna spår'
+    return {'ok': not saknas and not traffar and not ej, 'status': status, 'texter': len(texter), 'traffar': traffar, 'ej_provade': ej,
+            'begransning': LACKAGE_GRANS,
             'provat': 'id och följder om %d ord ur ägarens domar över %d exempel mot %d texter (%s)' % (n, len(exempel), len(texter), ', '.join(sorted(texter)))}
+
+
+def lackagetexter(fryst):
+    """Det granskaren läste i ett exempels frysta katalog: metodfilerna i metod/ (bland dem nivåfilen) och ankarnas ord
+    (kalibrering.md). Läckageprovet prövas mot dem."""
+    fryst = Path(fryst)
+    texter = {f: (fryst / 'metod' / f).read_text(encoding='utf-8', errors='replace') for f in metodfiler() if (fryst / 'metod' / f).is_file()}
+    if (fryst / 'kalibrering.md').is_file():
+        texter['kalibrering.md (ankarna)'] = (fryst / 'kalibrering.md').read_text(encoding='utf-8', errors='replace')
+    return texter
 
 
 def nivafilen(rot):
@@ -337,11 +355,15 @@ def nivafilen(rot):
 
 
 def giltighet(lackage):
-    """(giltighet, skäl) ur läckageprovet: undanhållna bara när provet gått igenom, annars utvecklingsdata."""
-    if lackage and lackage.get('ok'):
-        return 'undanhållna enligt läckageprovet', 'läckageprovet fann inga spår av de prövade exemplen i det granskaren läste. ' + LACKAGE_GRANS
+    """(giltighet, skäl) ur läckageprovet: undanhållna bara när provet faktiskt prövat texter och gått igenom, annars
+    utvecklingsdata. Etiketten säger att bara ordagranna spår prövats."""
+    if lackage and lackage.get('ok') and lackage.get('texter'):
+        return ('undanhållna, inga ordagranna spår (omskriven destillering ej prövad)',
+                'läckageprovet fann inga ordagranna spår av de prövade exemplen i det granskaren läste. ' + LACKAGE_GRANS)
     if not lackage:
         varfor = 'läckageprovet gjordes inte'
+    elif str(lackage.get('status') or '').startswith('ej prövat') or not lackage.get('texter'):
+        varfor = 'läckageprovet är ej prövat (%s)' % (lackage.get('status') or 'inga texter')
     elif lackage.get('traffar'):
         varfor = 'läckageprovet fann spår av de prövade exemplen i det granskaren läste (%s)' % '; '.join(
             '%s i %s: %s' % (x['id'], x['fil'], x['fynd']) for x in lackage['traffar'][:6])
@@ -362,11 +384,13 @@ def rapport(rader, s, mal, modell, effort, lackage=None, nivafil=None):
     (mal / 'RAPPORT.json').write_text(json.dumps({'tid': gr.nu(), 'modell': modell, 'effort': effort, 'rader': rader, 'sammanfattning': summa,
                                                   'giltighet': galler, 'giltighet_skal': skal, 'nivafil': nivafil, 'lackageprov': lackage},
                                                  ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    lp = ('inte gjort' if not lackage else ('inga spår; ' if lackage['ok'] else '%d spår, %d exempel kunde inte prövas; ' % (
-        len(lackage['traffar']), len(lackage['ej_provade']))) + lackage['provat'])
+    lp = ('inte gjort' if not lackage else '%s; %d spår, %d exempel kunde inte prövas; %s. %s' % (
+        lackage.get('status') or ('inga ordagranna spår' if lackage.get('ok') else 'ej godkänt'), len(lackage.get('traffar') or []),
+        len(lackage.get('ej_provade') or []), lackage.get('provat') or EJ_ANGIVET, lackage.get('begransning') or LACKAGE_GRANS))
     txt = ['# Kalibreringsförsöket %s · %s %s' % (gr.nu(), modell, effort), '',
-           '%s exempel: %d, giltiga svar: %d, ofullständiga: %d. Falska godkännanden: %d av %d (ägaren: nästan eller generisk). Falska underkännanden: %d av %d (ägaren: tydligt över ribban).' % (
-               'Undanhållna' if belagt else 'Prövade', s['undanhallna'], s['svar'], s['ofullstandiga'], s['falska_godkannanden'], s['av_ej_over'],
+           '%s: %d, giltiga svar: %d, ofullständiga: %d. Falska godkännanden: %d av %d (ägaren: nästan eller generisk). Falska underkännanden: %d av %d (ägaren: tydligt över ribban).' % (
+               'Undanhållna exempel utan ordagranna spår i det granskaren läste' if belagt else 'Prövade exempel', s['undanhallna'], s['svar'],
+               s['ofullstandiga'], s['falska_godkannanden'], s['av_ej_over'],
                s['falska_underkannanden'], s['av_over']),
            '**Giltighet: %s.** %s' % (galler, skal),
            'Nivåfilen %s: %s. Läckageprovet: %s.' % (NIVAFIL, 'sha256 %s' % nivafil['sha256'] if nivafil else 'ej angiven', lp),
@@ -379,6 +403,17 @@ def rapport(rader, s, mal, modell, effort, lackage=None, nivafil=None):
                                                            ' '.join(str(b.get(k, '?')) for k in gr.KRITERIER) if b else '–', r.get('blockerande', '–'), r['utfall']))
     (mal / 'RAPPORT.md').write_text('\n'.join(txt) + '\n', encoding='utf-8')
     return mal / 'RAPPORT.md'
+
+
+def slutrapport(exempel, mal, modell, effort):
+    """Försökets rapport ur exemplens svar: jämförelsen, läckageprovet mot det granskaren läste (den frysta metoden och de
+    frysta ankarna i det första exemplets katalog; ägarens uppdrag 2026-10-07, punkt 8) och nivåfilens sha256. Ger
+    (RAPPORT.md, rader, sammanfattning)."""
+    mal = Path(mal)
+    svar = {e['id']: giltigt_svar(mal / e['id']) for e in exempel}
+    rader, s = jamfor(exempel, svar)
+    fryst = mal / exempel[0]['id']
+    return rapport(rader, s, mal, modell, effort, lackage=lackageprov(exempel, lackagetexter(fryst)), nivafil=nivafilen(fryst / 'metod')), rader, s
 
 
 def ratta(mal, datum, galler, skal, hanvisningar=(), uppdrag=None, atgarder=()):
@@ -396,7 +431,8 @@ def ratta(mal, datum, galler, skal, hanvisningar=(), uppdrag=None, atgarder=()):
         raise ValueError('datum ska vara ÅÅÅÅ-MM-DD')
     fore = {f.name: hash_fil(f) for f in (md, js)}
     original = md.read_text(encoding='utf-8')
-    data = json.loads(js.read_text(encoding='utf-8'))
+    original_json = js.read_text(encoding='utf-8')  # ordagrant, så att ursprunget går att läsa byte för byte
+    data = json.loads(original_json)
     if not isinstance(data, dict):
         raise ValueError('RAPPORT.json är inget objekt')
     markor = '**Rättelse %s:' % datum
@@ -425,7 +461,8 @@ def ratta(mal, datum, galler, skal, hanvisningar=(), uppdrag=None, atgarder=()):
         md.write_text(block + original, encoding='utf-8')
     if (data.get('rattelse') or {}).get('datum') != datum:
         data.update(giltighet=galler, giltighet_skal=skal,
-                    rattelse={'datum': datum, 'skal': skal, 'hanvisningar': list(hanvisningar), 'sha256_fore': fore})
+                    rattelse={'datum': datum, 'skal': skal, 'hanvisningar': list(hanvisningar), 'sha256_fore': fore,
+                              'original_json': original_json})
         js.write_text(json.dumps(data, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     return {f.name: (fore[f.name], hash_fil(f)) for f in (md, js)}
 
@@ -507,14 +544,7 @@ def main(argv=None):
     with ThreadPoolExecutor(max_workers=max(1, a.parallellt)) as pool:
         for ident, sek in pool.map(lambda e: kor_en(e, mal / e['id'], a.modell, a.effort, a.frist, claude), att_kora):
             print('%s klar efter %d s' % (ident, sek), flush=True)
-    svar = {e['id']: giltigt_svar(mal / e['id']) for e in exempel}
-    rader, s = jamfor(exempel, svar)
-    # läckageprovet mot det granskaren läste: den frysta metoden och de frysta ankarna (ägarens uppdrag 2026-10-07, punkt 8)
-    fryst = mal / exempel[0]['id']
-    texter = {f: (fryst / 'metod' / f).read_text(encoding='utf-8', errors='replace') for f in metodfiler() if (fryst / 'metod' / f).is_file()}
-    if (fryst / 'kalibrering.md').is_file():
-        texter['kalibrering.md (ankarna)'] = (fryst / 'kalibrering.md').read_text(encoding='utf-8', errors='replace')
-    f = rapport(rader, s, mal, a.modell, a.effort, lackage=lackageprov(exempel, texter), nivafil=nivafilen(fryst / 'metod'))
+    f, rader, s = slutrapport(exempel, mal, a.modell, a.effort)
     print('Falska godkännanden: %d av %d · falska underkännanden: %d av %d · giltiga svar %d av %d (ofullständiga %d) · %s' % (
         s['falska_godkannanden'], s['av_ej_over'], s['falska_underkannanden'], s['av_over'], s['svar'], s['undanhallna'], s['ofullstandiga'], f))
     return 0 if s['ofullstandiga'] == 0 else 1
