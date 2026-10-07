@@ -80,6 +80,8 @@ import kandidater as kd  # noqa: E402
 import kompetens  # noqa: E402
 import metod  # noqa: E402
 import prova  # noqa: E402
+import korregister  # noqa: E402
+korregister.registrera_tmp(TMP, 'prov_skisskritik')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 assert atelje.ROOT == KOPIA and forhandsvisa.ROOT == KOPIA and bildkedja.ROOT == KOPIA, (atelje.ROOT, forhandsvisa.ROOT)
 bildkedja.PROJEKT = TMP / 'projekt'  # sessionernas transkript: provets egna, aldrig ägarens
 
