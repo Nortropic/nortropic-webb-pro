@@ -1456,9 +1456,11 @@ Efter sammanslagningen (2026-10-07):
 - Städningen är påslagen igen. Dashboarden startades om från f652b63 utan `NWP_STADNING=av`.
 - En torrkörning före omstarten (10:57Z) skulle radera nio tomma arbetsytor från avslutade sessioner (20–29 september)
   och rensa npm-cachen. Alla worktrees står kvar, eftersom inget är pushat.
-- Kvar: en nyskapad worktree vars gren ännu står på main räknas som sammanslagen. Efter en push kan städningen ta bort en
-  sådan worktree medan en agent har börjat läsa men inte ändrat något, eftersom en ren worktree tas bort utan --force.
-  Iakttaget i torrkörningen. Det är inte rättat och inte prövat.
+- Rättelse av en anteckning härifrån: en nyskapad worktree vars gren står på main tas inte bort. Städregeln tar bara
+  bort en worktree vars gren fått egna commits; en gren utan egna commits räknas som okänd och väntar på ägaren
+  efter ett dygn. En worktree med ändringar det senaste dygnet eller en levande process står också kvar.
+  Prövat med en torrkörning efter pushen 2026-10-07 ~13:55Z: alla worktrees står kvar, de aktiva med
+  ocommittade ändringar.
 - Granskningens återstående fynd står i backloggen: GR-20261007-r100-om#BÖR-3 och KAN-A–E. KAN-A, att en dom med
   U+2028 försvinner tyst ur domloggen, görs i gren C1.
 
@@ -1591,16 +1593,15 @@ efter). Punkt 1 stänger skaparens skallucka, som tillägget om skisskritikens k
    uppstår medan sessionen pågår. Kritikens kärna, bilder, besökaruppgift och verktygens utdata är oförändrade; prövat
    i en verklig session.
 
-**K4-beslutet (Claudes, i väntan på ägaren; r103#K4).** De blinda sessionerna nekas `RIKTNINGSHISTORIK.json` och
+**K4-beslutet (r103#K4; först Claudes, bekräftat av ägaren 2026-10-07 ~13:50Z).** De blinda sessionerna nekas `RIKTNINGSHISTORIK.json` och
 `DESIGNDOMAR.jsonl` som filer. Ägarens aktuella domar får kritiken som förut genom prompten
 (`skapande.kritikrader(..., aktuella=True)`), där urvalet är avsiktligt. Skälet är ägarens ord 2026-10-06: "Mina
 tidigare underkännanden ska inte omvandlas till en allt smalare uppsättning tillåtna uttryck" — kritiken dömer skissen
 mot ribban och ägarens aktuella domar, inte mot tidigare riktningar. Beslutet är lätt att ändra: en tom
-`kandidater.BLIND_HISTORIK` öppnar filerna igen, och raden `blind` i metodkartans block kritik säger var. **Detta är
-inte ägarens beslut**; ägaren bekräftar eller ändrar.
+`kandidater.BLIND_HISTORIK` öppnar filerna igen, och raden `blind` i metodkartans block kritik säger var. Ägaren
+svarade i frågeverktyget "Ja, neka historiken (Recommended)" på frågan om kritiken ska nekas historiken.
 
 **Återstår:**
-- Ägaren bekräftar K4.
 - Ingen verklig skissomgång med kundmaterial har gått med de skärpta behörigheterna; proven gäller en syntetisk kund.
 - Förbuden gäller sessionens verktyg, inte byggena. En sidas kod körs när den byggs, innanför processgränsen, som
   begränsar skrivning och nät men inte läsning (Sandlådan i `kunskap/skapandeflodet.md`). Där vilar kandidaternas
