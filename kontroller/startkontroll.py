@@ -22,10 +22,11 @@ dashboarden startar), så här bekräftas bara läget. Kontrollen
    metodlåset och låsfilerna för mallen, leveransen, kontrollerna och Python; kundens underlag ingår inte) och skriver
    kvittot: underlag/<slug>/atelje/STARTKVITTO.json och .md för ateljén, STARTKVITTO-BYGGE.json och .md för helbygget,
    och för en stoppad start -STOPP bredvid, så att körningens kvitto står kvar (en kopia per start i startkvitton/).
-   Status redo (allt bekräftat och senaste), begransad (något fel som inte stoppar, delvis, behållet, avvisat eller
-   okänt; aldrig "allt uppdaterat"; ett nytt verktyg utan beslut, ett beslut om ingen uppgift och underlag som är
-   planerat i ett senare steg begränsar inte) eller stoppad (ett nödvändigt verktyg fungerar inte; starten görs inte,
-   med besked). Bytta mätinstrument sedan förra starten av samma slag står i kvittot, också de som bytts utanför
+   Status redo (inget som begränsar: det som prövats är bekräftat och senast; ett nytt verktyg eller en ny skill utan
+   beslut kan ändå stå under Behöver uppmärksamhet), begransad (något fel som inte stoppar, delvis, behållet, avvisat
+   eller okänt; aldrig "allt uppdaterat"; ett nytt verktyg utan beslut, ett beslut om ingen uppgift, underlag som är
+   planerat i ett senare steg och det som inte gäller starten begränsar inte) eller stoppad (ett nödvändigt verktyg
+   fungerar inte; starten görs inte, med besked). Bytta mätinstrument sedan förra starten av samma slag står i kvittot, också de som bytts utanför
    underhållet, så att körningar före och efter går att jämföra. En återupptagen körning behåller sitt lås i kvittot och
    redovisar vad som ändrats sedan.
 5. skriver i kvittot vilken version av repot starten gällde (commit och gren ur git rev-parse, antalet ocommittade filer
@@ -87,21 +88,25 @@ FORMAGOR = {  # kundens behov (ord i BRIEF.md) mot flödets förmåga
     'förvaltning': (r'uppdatera själv|redigera själv|ändra själv|\bcms\b', 'delvis', 'sidan "Så ändrar du på sajten"; inget redigeringsverktyg'),
 }
 NAMN = {'ok': 'ok', 'uppdaterad': 'uppdaterad', 'behallen': 'behållen', 'avvisad': 'avvisad', 'okand': 'okänd', 'fel': 'FEL',
-        'delvis': 'delvis', 'nytt': 'nytt, obedömt', 'ingen_uppgift': 'ingen uppgift (beslut)', 'planerat': 'planerat'}
-# resultaten som gör kvittot begränsat. Ett nytt verktyg utan beslut, ett beslut om ingen uppgift och underlag som hör
-# till ett senare steg gör det aldrig (ägarens uppdrag 2026-10-07, punkt 3)
+        'delvis': 'delvis', 'nytt': 'nytt, obedömt', 'ingen_uppgift': 'ingen uppgift (beslut)', 'planerat': 'planerat',
+        'ej_tillampligt': 'gäller inte starten'}
+# resultaten som gör kvittot begränsat. Ett nytt verktyg utan beslut, ett beslut om ingen uppgift, underlag som hör
+# till ett senare steg och det som inte gäller starten gör det aldrig (ägarens uppdrag 2026-10-07, punkt 3)
 BEGRANSAR = ('fel', 'delvis', 'okand', 'avvisad', 'behallen')
 GRUPPER = (('Behöver uppmärksamhet', ('fel', 'delvis', 'avvisad', 'behallen', 'okand', 'nytt')),
            ('Planerat i ett senare steg', ('planerat',)), ('Bekräftat', ('ok', 'uppdaterad')),
-           ('Upptäckt utan uppgift i flödet (beslut i metodkartan)', ('ingen_uppgift',)))
+           ('Upptäckt utan uppgift i flödet (beslut i metodkartan)', ('ingen_uppgift',)),
+           ('Gäller inte den här starten (inte prövat)', ('ej_tillampligt',)))
 TJNAMN = {'refero': 'Refero', 'mobbin': 'Mobbin'}
 FIGMA = ('Kvittot gäller inte Figma-piloten: pilotens sessioner startas utanför repots körvägar och prövas inte av '
          'startkontrollen (kunskap/skapandeflodet.md, Figma).')
 # vad ägaren eller flödet gör när en tilldelad tjänst inte når ateljéns sessioner
 ATGARD = {'mobbin': 'ateljéns sessioner får Mobbin genom --mcp-config kontroller/mcp/mobbin.json (atelje.session_args); '
                     'kontrollera filen och Mobbins inloggning (OAuth, claude mcp list) och kör startkontrollen igen',
-          'refero': 'Refero når sessionerna genom repots lokala MCP-anslutning (claude mcp list, källan local); ägaren lägger '
-                    'tillbaka den, eller flödet ger sessionerna kontroller/mcp/refero.json med nyckeln'}
+          # Referos nyckel ges aldrig till sessionerna (atelje.session_miljo tar bort den; granskning 4, G15)
+          'refero': 'Refero når sessionerna bara genom repots lokala MCP-anslutning, som gäller i huvudutcheckningen och dess '
+                    'worktrees: kör flödet därifrån, eller låt ägaren lägga tillbaka den lokala anslutningen. Sessionerna får '
+                    'aldrig Referos nyckel'}
 EJ_ANGIVET = 'ej angivet'  # ett saknat värde gissas aldrig (README.md, Var information finns: rapporthuvudet)
 PLATSREGEL = '## Var information finns'  # README.md: var varje slag av information hör hemma (ägarens uppdrag 2026-10-06)
 FORTECKNING = Path('underlag') / 'granskningar' / 'FORTECKNING.jsonl'  # privat; sökvägarna i den räknas från underlag/
@@ -256,10 +261,18 @@ def atkomstrader(sess, ateljen):
         elif tillstand == 'blockerat':
             ut.append(post('åtkomst', namn, 'fel', tillstand='blockerat', provad=sess.get('tid'),
                            detalj='tilldelad men åtkomst saknas: %s. Konsekvens: rollerna %s kan inte göra egna anrop till %s i sina '
-                                  'sessioner, så metodkartans uppgift för dem blir ogjord (researchens tjänstesessioner har en egen väg). '
-                                  'Åtgärd: %s' % (orsak, ', '.join(roller) or '–', TJNAMN[t], ATGARD[t])))
+                                  'sessioner; researchens och uppdragens material når dem ändå, genom tjänstesessionerna. Raden stoppar '
+                                  'inte starten, eftersom den vägen prövas för sig (raden %s). Åtgärd: %s' % (
+                                      orsak, ', '.join(roller) or '–', TJNAMN[t],
+                                      'Refero (direkt)' if t == 'refero' else 'Mobbin (sökning och bilder)', ATGARD[t])))
         else:
             ut.append(post('åtkomst', namn, 'okand', tillstand='ej_observerat', provad=(sess or {}).get('tid'), detalj='%s; %s' % (tilld, orsak)))
+    ovriga = sorted('%s (%s)' % (n, s) for n, s in ((sess or {}).get('servrar') or {}).items() if n not in NODVANDIGA_MCP) \
+        if sess and sess.get('resultat') == 'ok' and isinstance(sess.get('servrar'), dict) else []
+    if ovriga:  # till exempel claude.ai-kopplingarna: de laddas utan strikt läge, och dontAsk nekar varje anrop till dem
+        ut.append(post('åtkomst', 'övriga MCP i ateljéns session', 'ingen_uppgift', tillstand='tillgangligt', provad=sess.get('tid'),
+                       detalj='%s: ingen uppgift i skapandet (metodkartan, Ingen uppgift i flödet); kundvakten släpper dem inte, och '
+                              'dontAsk nekar varje anrop' % ', '.join(ovriga)))
     return ut
 
 
@@ -288,7 +301,11 @@ def tjanstverktyg_rader(upptackta):
                            len(tilldelade), '' if sett is not None else '; tjänstens verktygslista lästes inte i den här starten')))
         for v in sorted((sett or set()) - set(tilldelade)):
             b = (beslut.get(t) or {}).get(v) or {}
-            if b.get('beslut') == 'ingen uppgift':
+            if b.get('beslut') == 'uppgift':  # beslutet säger uppgift, men kundvakten släpper det inte
+                ut.append(post('möjlighet', '%s (%s)' % (v, namn), 'fel', tillstand='blockerat',
+                               detalj='metodkartan ger verktyget en uppgift, men kundvakten släpper det inte (referenstjanster.TJANSTER); '
+                                      'för in det där eller ändra beslutet'))
+            elif b.get('beslut') == 'ingen uppgift':
                 skal = re.sub(r'[;,]?\s*prövat 20\d\d-\d\d-\d\d\.?\s*$', '', str(b.get('text') or ''))
                 ut.append(post('möjlighet', '%s (%s)' % (v, namn), 'ingen_uppgift', tillstand='tillgangligt',
                                detalj='upptäckt, ingen uppgift (beslut i kunskap/metodkarta.md, prövat %s) %s. Kundvakten nekar anrop till '
@@ -323,7 +340,8 @@ def roller(sess, rader, ateljen):
         skills = sorted({f.split('/')[0] for f in filer if not f.startswith(('kunskap/', 'kritik/', 'mall/'))})
         filer_saknas = [f for f in filer if not metod.kalla(f).is_file()]
         ute = [s for s in skills if s not in i_sess] if sess_ok else []
-        sk_t = 'blockerat' if filer_saknas or ute else 'provat' if sess_ok else 'ej_observerat'
+        # en fil som saknas blockerar; en skill som skillverktyget saknar läses ändå med Read (kärnan läses som filer)
+        sk_t = 'blockerat' if filer_saknas else 'tillgangligt' if ute else 'provat' if sess_ok else 'ej_observerat'
         mcp = {m: dict(zip(('tillstand', 'orsak'), mcp_atkomst(sess, m))) for m in x['mcp']}
         verktyg = {}
         for v in x['verktyg']:
@@ -351,9 +369,9 @@ def roll_text(r):
     sk = a['skills']
     sk_txt = ('skills %d av %d i skillverktyget' % (sk['i_sessionen'], sk['av'])) if sk.get('i_sessionen') is not None else 'skills %s' % T[sk['tillstand']]
     if sk.get('saknas'):
-        sk_txt += ' (saknas: %s)' % ', '.join(sk['saknas'])
+        sk_txt += ' (skillverktyget saknar %s; filerna läses med Read)' % ', '.join(sk['saknas'])
     if sk.get('filer_saknas'):
-        sk_txt += ' (filer saknas: %s)' % ', '.join(sk['filer_saknas'])
+        sk_txt += ' (filer saknas: %s; rollen kan inte läsa dem, åtgärd: kör kontroller/metod.py --prova)' % ', '.join(sk['filer_saknas'])
     delar = [sk_txt] + ['%s: %s%s' % (m, T[x['tillstand']], ' (tilldelad men åtkomst saknas: %s)' % x['orsak'] if x['tillstand'] == 'blockerat' else '')
                         for m, x in a['mcp'].items()] + ['%s: %s' % (v, T[s]) for v, s in a['verktyg'].items()]
     tilld = '%s: kärna %d och alternativ %d filer (%d skills); verktyg %s; MCP %s' % (
@@ -574,10 +592,13 @@ def fore_research(slug, rader):
 
 def efter_research(slug):
     """Kandidatflödet efter researchen: det faktiska underlaget och om det går att använda. FORSKNING.json (körningens
-    egen, inte en tidigare; researchens fel och släppta frågor), referenspaketet (PAKET.json och PAKET.md, fångade sajter),
-    tjänsternas rapport (TJANSTER.json och TJANSTER.md: anrop, levererade bilder, tomma tjänster, träffar utan bild och
-    bilder som saknas på disken) och uppdragens material (UPPDRAGSMATERIAL.json, efter planen). Misslyckade anrop, tomma
-    resultat och uteblivna bilder redovisas som blockerade eller misslyckade, aldrig som använda."""
+    egen, inte en tidigare; researchens fel och släppta frågor), referenspaketet (PAKET.json och PAKET.md, sparade
+    bilder), tjänsternas rapport (TJANSTER.json och TJANSTER.md: anrop, bilder på disken, tomma tjänster och träffar
+    utan bild) och uppdragens material (UPPDRAGSMATERIAL.json, efter planen). Det som körningen hämtade står som använt
+    med resultat. Det som återanvändes ur en tidigare research står som tillgängligt med sin tid. Misslyckade anrop,
+    tomma resultat, uteblivna bilder och en tilldelad tjänst som researchen aldrig frågade står som blockerade eller
+    misslyckade, aldrig som använda (ägarens uppdrag 2026-10-07, punkt 2 och 3; granskningen GR-20261007-r102, B1)."""
+    import kompetens
     u = vl.UNDERLAG / slug
     a = u / 'atelje'
     st = vl.las_json(a / 'STATUS.json', {}) or {}
@@ -585,11 +606,13 @@ def efter_research(slug):
     if not isinstance(f, dict):
         return post('uppdrag', 'referensunderlaget', 'fel', tillstand='blockerat',
                     detalj='FORSKNING.json går inte att läsa: researchens resultat saknas, och skaparnas uppdrag pekar på det')
-    fel, brister, anvant, planerat, info = [], [], [], [], []
-    forskmaterial = False  # ett fångat referenspaket eller ett tjänstesvar med material, ur researchen själv
+    fel, brister, anvant, ateranvant, planerat, info = [], [], [], [], [], []
+    material = False  # material till skaparna ur researchen, nytt eller återanvänt: sparade bilder eller belagda stilar
     tider = st.get('tider') if isinstance(st, dict) else None
     start = str(tider.get('start') or '') if isinstance(tider, dict) else ''
-    if start and str(f.get('tid') or '') < start:
+    if not start:
+        info.append('körningens starttid saknas i STATUS.json, så att FORSKNING.json är körningens egen är inte prövat')
+    elif str(f.get('tid') or '') < start:
         fel.append('inaktuell: FORSKNING.json (%s) är äldre än körningens start (%s) och gäller en tidigare körning' % (f.get('tid'), start))
     if f.get('fel'):
         fel.append('researchen föll: %s' % vl.sista(f['fel'], 160))
@@ -610,10 +633,14 @@ def efter_research(slug):
             bilder = [str(b) for s in x.get('sidor') or [] if isinstance(s, dict) for b in s.get('filer') or [] if str(b).endswith('.png')]
             finns = sum(1 for b in bilder if (pdir / b).is_file())
             med_bilder, borta = med_bilder + (1 if finns else 0), borta + len(bilder) - finns
-        text = 'referenspaketet %s med sparade bilder från %d av %d sajter, %d fångade utan brister (%s)' % (
-            paket, med_bilder, len(k_), ok_, ('%d nya sajter i körningen' % len(nytt.get('sajter') or [])) if nytt.get('paket') else 'återanvänt')
-        (anvant if med_bilder else fel).append(text if med_bilder else text + ': inga sparade bilder')
-        forskmaterial = forskmaterial or med_bilder > 0
+        text = 'referenspaketet %s med sparade bilder från %d av %d sajter, %d fångade utan brister' % (paket, med_bilder, len(k_), ok_)
+        if not med_bilder:
+            fel.append(text + ': inga sparade bilder')
+        elif nytt.get('paket'):
+            anvant.append(text + ' (%d nya sajter i körningen)' % len(nytt.get('sajter') or []))
+        else:
+            ateranvant.append(text + ' (återanvänt ur en tidigare research, %s)' % (pk.get('tid') or 'tiden ej angiven'))
+        material = material or med_bilder > 0
         if ok_ < len(k_):
             brister.append('%d sajter i %s har brister (blockerade eller felande resurser, PAKET.md)' % (len(k_) - ok_, paket))
         if borta:
@@ -623,11 +650,13 @@ def efter_research(slug):
     else:
         info.append('inget referenspaket')
     tjd = u / 'referenser' / 'tjanster'
+    tjanster = {}
     if nytt.get('tjanster') or fore.get('tjanster'):
         tj = vl.las_json(tjd / 'TJANSTER.json', None)
         if not isinstance(tj, dict):
             fel.append('TJANSTER.json saknas eller går inte att läsa')
         else:
+            aterbruk = not nytt.get('tjanster')  # tjänsternas rapport ur en tidigare research: den här körningen anropade inget
             if tj.get('torr'):
                 fel.append('TJANSTER.json är en torrkörning utan riktiga anrop')
             if not (tjd / 'TJANSTER.md').is_file():
@@ -641,29 +670,44 @@ def efter_research(slug):
                 traffar = [y for y in x.get('traffar') or [] if isinstance(y, dict)]
                 stilar = [y for y in x.get('stilar') or [] if isinstance(y, dict)]
                 utan = sum(1 for y in traffar if not y.get('fil'))
-                borta = sum(1 for y in traffar + stilar if y.get('fil') and not bildfil(slug, y['fil']).is_file())
+                filer = [y['fil'] for y in traffar + stilar if y.get('fil')]
+                finns = sum(1 for b in filer if bildfil(slug, b).is_file())
                 belagda = sum(1 for y in stilar if y.get('belagd'))
                 if not anrop:
                     fel.append('%s: inga verkliga anrop i sessionsloggen (tom tjänst)' % namn)
                 elif not x.get('ok'):
                     fel.append('%s: %d anrop men inget användbart material (%s)' % (namn, anrop, vl.sista('; '.join(map(str, x.get('anmarkningar') or [])), 160) or 'inga bilder'))
+                elif not finns and not belagda:
+                    fel.append('%s: %d anrop, men tjänstens bilder saknas på disken och inga stilar är belagda' % (namn, anrop))
                 else:
-                    anvant.append('%s med %d anrop och %d bilder%s' % (namn, anrop, int(x.get('bilder') or 0), (' och %d belagda stilar' % belagda) if belagda else ''))
-                    forskmaterial = True
+                    material = True
+                    text = '%s med %d anrop, %d bilder på disken%s' % (namn, anrop, finns, (' och %d belagda stilar' % belagda) if belagda else '')
+                    (ateranvant if aterbruk else anvant).append(text + (' (tjänsternas rapport %s, återanvänd)' % (tj.get('tid') or 'utan tid') if aterbruk else ''))
                 if utan:
                     brister.append('%s: %d träffar utan bild räknas inte som material' % (namn, utan))
-                if borta:
-                    fel.append('%s: %d bilder saknas på disken' % (namn, borta))
-            info += ['inga frågor till %s i researchen' % TJNAMN[t] for t in NODVANDIGA_MCP if t not in tjanster]
-    else:
-        info.append('researchen ställde inga frågor till tjänsterna och återanvände ingen rapport')
+                if len(filer) > finns:
+                    fel.append('%s: %d bilder saknas på disken' % (namn, len(filer) - finns))
+    roller = kompetens.tolka()
+    for t in NODVANDIGA_MCP:  # en tilldelad tjänst som researchen aldrig frågade: båda ska ingå i referensarbetet (punkt 2)
+        if t not in tjanster:
+            tilld = sorted(x['id'] for x in roller.values() if t in x['mcp'])
+            brister.append('researchen frågade aldrig %s, så skaparna får inga förlagor ur %s från researchen, fast metodkartan '
+                           'tilldelar %s rollerna %s' % (TJNAMN[t], TJNAMN[t], TJNAMN[t], ', '.join(tilld) or '–'))
     um = vl.las_json(a / 'UPPDRAGSMATERIAL.json', None)
     if isinstance(um, dict):
         kand = {k_: v for k_, v in (um.get('kandidater') or {}).items() if isinstance(v, dict)} if isinstance(um.get('kandidater'), dict) else {}
-        stil = sum(1 for v in kand.values() if (v.get('stil') or {}).get('id') and not (v.get('stil') or {}).get('fel'))
-        mob = [m for v in kand.values() for m in v.get('mobbin') or [] if isinstance(m, dict)]
-        borta = sum(1 for m in mob if m.get('fil') and not bildfil(slug, m['fil']).is_file())
-        anvant.append('uppdragens material: stilpaket till %d av %d uppdrag och %d Mobbin-skärmar' % (stil, len(kand), len(mob)))
+        stil = {k_ for k_, v in kand.items() if (v.get('stil') or {}).get('id') and not (v.get('stil') or {}).get('fel')}
+        mob = {k_: [m for m in v.get('mobbin') or [] if isinstance(m, dict) and m.get('fil')] for k_, v in kand.items()}
+        mob_finns = {k_: [m for m in ms if bildfil(slug, m['fil']).is_file()] for k_, ms in mob.items()}
+        skarmar = sum(len(ms) for ms in mob_finns.values())
+        borta = sum(len(ms) for ms in mob.values()) - skarmar
+        if stil or skarmar:
+            anvant.append('uppdragens material: stilpaket till %d av %d uppdrag och %d Mobbin-skärmar på disken' % (len(stil), len(kand), skarmar))
+        else:
+            brister.append('uppdragens material är tomt: inget stilpaket och inga Mobbin-skärmar till %d uppdrag' % len(kand))
+        utan_material = sorted(k_ for k_ in kand if k_ not in stil and not mob_finns.get(k_))
+        if utan_material and (stil or skarmar):
+            brister.append('uppdrag utan eget material (varken stilpaket eller Mobbin-skärmar): %s' % ', '.join(utan_material))
         stilfel = sorted(k_ for k_, v in kand.items() if (v.get('stil') or {}).get('fel'))
         mobfel = sorted(k_ for k_, v in kand.items() if v.get('mobbin_fel'))
         if stilfel:
@@ -676,11 +720,14 @@ def efter_research(slug):
             fel.append('Mobbins session för uppdragen föll: %s' % vl.sista(um['mobbin']['fel'], 120))
     else:
         planerat.append('uppdragens material (stilpaketen och Mobbins skärmar) hämtas efter planen')
-    if not forskmaterial:
-        fel.append('researchen gav inget användbart material: inget fångat referenspaket och inga tjänstesvar med bilder')
+    if not material:
+        fel.append('researchen gav inget användbart material: inga sparade bilder i ett referenspaket och inga tjänstesvar med bilder, '
+                   'varken nya eller återanvända')
     delar = ['researchen gjord %s (FORSKNING.json)' % f.get('tid')]
     if anvant:
         delar.append('använt med resultat: ' + '; '.join(anvant))
+    if ateranvant:
+        delar.append('tillgängligt, återanvänt: ' + '; '.join(ateranvant))
     if fel or brister:
         delar.append('blockerat eller misslyckat: ' + '; '.join(fel + brister))
     if planerat:
@@ -690,7 +737,8 @@ def efter_research(slug):
     if (u / 'REFERENSER.md').is_file():
         delar.append('REFERENSER.md (ett tidigare urval) räknas inte')
     return post('uppdrag', 'referensunderlaget', 'fel' if fel else 'delvis' if brister else 'ok',
-                tillstand='blockerat' if fel or not anvant else 'anvant', detalj='. '.join(delar))
+                tillstand='blockerat' if fel else 'anvant' if anvant else 'tillgangligt' if ateranvant else 'blockerat',
+                detalj='. '.join(delar))
 
 
 def referensfilen(slug):
@@ -734,8 +782,9 @@ def vinnarens_referens(slug, vad):
     v = vl.las_json(vl.UNDERLAG / slug / 'atelje' / 'VINNARE.json', None)
     if not isinstance(v, dict):
         if vad == 'helbygget' and os.environ.get('NWP_ATELJE', 'pa') != 'pa':
-            return post('uppdrag', 'referensunderlaget', 'ok', detalj='nödvägen utan ateljé (NWP_ATELJE=av): ingen godkänd startsida och '
-                                                                      'ingen huvudreferens ur VINNARE.json; byggaren skriver KONCEPT.md')
+            return post('uppdrag', 'referensunderlaget', 'ej_tillampligt', tillstand='ej_observerat',
+                        detalj='nödvägen utan ateljé (NWP_ATELJE=av): ingen godkänd startsida och ingen huvudreferens ur '
+                               'VINNARE.json att pröva; byggaren skriver KONCEPT.md')
         return post('uppdrag', 'referensunderlaget', 'fel', tillstand='blockerat',
                     detalj='VINNARE.json saknas: %s har ingen vald startsida med huvudreferens' % vad)
     h = referensval.huvudreferens(slug, vl.UNDERLAG)
@@ -764,7 +813,7 @@ def referensunderlag(slug, vag, rader):
     elif vag['id'] == 'helbygget':
         r = vinnarens_referens(slug, 'helbygget')
     elif vag['id'] == 'ingen':
-        r = post('uppdrag', 'referensunderlaget', 'ok', detalj='%s: underlaget prövas inte' % vag.get('namn'))
+        r = post('uppdrag', 'referensunderlaget', 'ej_tillampligt', tillstand='ej_observerat', detalj='%s: underlaget prövas inte' % vag.get('namn'))
     else:
         r = post('uppdrag', 'referensunderlaget', 'okand', tillstand='ej_observerat', detalj='inte prövat: %s' % vag.get('namn'))
     r['fas'] = vag.get('fas_namn')

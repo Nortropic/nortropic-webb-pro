@@ -84,12 +84,15 @@ varje körning låser sina versioner. Två verktyg delar komponenterna och läge
 - **Referensunderlaget efter fasen.** Före researchen prövas förutsättningarna: underlaget som researchen läser, att
   kundvakten kan läsa kundens uppgifter, Refero, Mobbin och kundvakten. Underlaget står då som planerat i researchen.
   Efter researchen prövas FORSKNING.json (körningens egen), referenspaketet, TJANSTER.json och UPPDRAGSMATERIAL.json.
-  Fel, tomma tjänster, träffar utan bild och bilder som saknas på disken står som blockerade eller misslyckade, aldrig
-  som använda. Den äldre utforskningen prövar REFERENSER.md:s rader, och en tom eller inaktuell fil godtas inte;
-  helbygget och putsningen prövar VINNARE.json. Kontrollen skriver aldrig i underlaget och skapar aldrig REFERENSER.md.
+  Det körningen hämtade står som använt med resultat, och det som återanvändes ur en tidigare research som tillgängligt,
+  med sin tid. Fel, tomma tjänster, en tilldelad tjänst som researchen aldrig frågade, tomt uppdragsmaterial, träffar
+  utan bild och bilder som saknas på disken står som blockerade eller misslyckade, aldrig som använda. Den äldre
+  utforskningen prövar REFERENSER.md:s rader, och en tom eller inaktuell fil godtas inte; helbygget och putsningen
+  prövar VINNARE.json. Kontrollen skriver aldrig i underlaget och skapar aldrig REFERENSER.md.
 - **Vad sessionerna når.** Raderna ur `claude mcp list` säger vad maskinen har. Vad ateljéns sessioner laddar prövas med
   en kort session med flödets egna argument (`verktygslada.prova_sessionen`: samma `--setting-sources`, `--mcp-config`
-  och `--settings`), som bara läser sitt init-besked, utan verktygsanrop och utan kunduppgifter.
+  och `--settings`), som bara läser sitt init-besked och avslutas före modellens svar, utan verktygsanrop och utan
+  kunduppgifter. Det som inte gäller starten, till exempel underlaget vid en provstart, står för sig som inte prövat.
 - **Tilldelad men åtkomst saknas.** En tilldelad tjänst som sessionen inte når står så, med konsekvens och åtgärd,
   aldrig som ok. Den stoppar inte starten, eftersom researchens tjänstesessioner når tjänsterna på en egen väg, men
   kvittot blir begränsat.

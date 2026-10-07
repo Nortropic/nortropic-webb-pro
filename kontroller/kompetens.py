@@ -275,12 +275,18 @@ def prompt_rader(pass_, slug, kid=None, k=None):
                 continue
             rader.append('- verktyg: ' + VERKTYG[v][1].replace('<slug>', slug).replace('<id>', kid or '<id>'))
         if x['mcp']:
-            rader.append('- MCP: ' + ', '.join(MCPNAMN[m] for m in x['mcp']) + '; sök med branschen och uppgiften, aldrig kundens namn, ort,'
-                         ' webbadress eller nummer (kundvakten prövar varje anrop och stoppar sådana)' +
-                         # skaparna når Mobbin sedan 2026-10-07 (atelje.session_args); samma råd som tjänstesessionen får
-                         ('; har ett Mobbin-verktyg parametern mode, använd standard (deep kostar krediter)' if 'mobbin' in x['mcp'] else ''))
+            # frågorna är alltid generiska (ägarens regel: Refero och Mobbin ska fortsatt få generiska researchfrågor utan
+            # kunduppgifter); skaparna når Mobbin sedan 2026-10-07 (atelje.session_args), och kundvakten håller båda reglerna
+            rader.append('- MCP: ' + ', '.join(MCPNAMN[m] for m in x['mcp']) + '; frågorna är alltid generiska: bransch och uppgift, aldrig'
+                         ' kundens namn, ort, webbadress eller nummer, personnamn, citat eller kundens egna texter, och task_intent'
+                         ' bara bransch och uppgift (kundvakten prövar varje anrop och stoppar sådana)' +
+                         ('; Mobbins search_screens kräver mode "standard": ett anrop utan mode eller med deep stoppas (deep kostar'
+                          ' krediter)' if 'mobbin' in x['mcp'] else ''))
         rader.append('- passet visar: ' + x['visar'])
     return rader
+
+
+MED_INNEHALL = ('bild returnerad', 'anrop lyckades')  # observatörens utfall för ett MCP-svar med innehåll (observation.svar)
 
 
 def kvitto(sessioner, pass_, skrivprefix=None, k=None):
@@ -288,10 +294,13 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     skillverktygets lyckade anrop och MCP-anropen som gav svar (ett nekat eller stoppat anrop räknas inte; granskning 4,
     G7). Flera sessioner (ett omförsök) räknas tillsammans. Ett transkript som saknas gör kvittot ej verifierat. En
     kärnfil som metodfilen levererade hel med samma sha är läst när metodfilen lästs hel (bildkedja.levererade_hela);
-    ett alternativ är valt bara när sessionen själv läste det."""
+    ett alternativ är valt bara när sessionen själv läste det. Ur observatören (observation.py) också varje MCP-svars
+    utfall (bild returnerad, anrop lyckades, tomt resultat, fel, nekat) och sessionens MCP-läge, så att ett tomt svar och
+    en tjänst som sessionen aldrig fick inte ser ut som använda (granskningen GR-20261007-r102, B3)."""
     import bildkedja
     filer, val = lasfiler(pass_, k), valbara(pass_, k)
     lasta, fore, skill, mcp, sedda, egna = set(), set(), [], [], 0, set()
+    utfall, lage, observerad = {}, {}, True
     for s in sessioner:
         sid = s.get('session_id') if isinstance(s, dict) else s
         ml = bildkedja.metodlasning(sid, filer + val, skrivprefix=skrivprefix)
@@ -308,27 +317,70 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
         for x in h:
             if x[0] == 'anrop' and str(x[2]).startswith('mcp__') and x[1] not in felade:
                 mcp.append(str(x[2]))
+        ob = None
+        try:
+            import observation
+            ob, _skal = observation.observerad(t, None, 'transkriptet') if t else (None, None)
+        except Exception:  # noqa: BLE001 — utan observatören står utfallet och läget som inte observerade
+            ob = None
+        if not ob:
+            observerad = False
+            continue
+        for a_ in ob.get('mcp') or []:
+            namn_ = 'mcp__%s__%s' % (a_.get('tjanst'), a_.get('verktyg'))
+            utfall.setdefault(namn_, {})[a_.get('utfall')] = utfall.get(namn_, {}).get(a_.get('utfall'), 0) + 1
+        if ob.get('mcp_lage') is None:
+            observerad = False
+        for s_, st_ in (ob.get('mcp_lage') or {}).items():  # ansluten i någon av sessionerna räcker
+            lage[s_] = st_ if lage.get(s_) != 'ansluten' else 'ansluten'
     ut = {'verifierad': sedda > 0, 'filer': filer, 'lasta': [f for f in filer if f in lasta], 'saknas': [f for f in filer if f not in lasta],
           'fore_forsta_andring': [f for f in filer if f in fore], 'valda': [f for f in val if f in egna],
           'skill_anrop': sorted(set(skill)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))}}
+    if sedda and observerad:  # bara när varje sedd session observerades: annars är utfallet och läget inte kända
+        ut['mcp_utfall'], ut['mcp_lage'] = utfall, lage
     ut['tillstand'] = tillstand(ut, pass_, k)
     return ut
 
 
-def tillstand(kv, pass_, k=None):
+def mcp_tillstand(m, anrop, utfall, lage, sett):
+    """En tilldelad MCP-tjänsts tillstånd i en roll: blockerat när sessionen inte hade tjänsten (tilldelad men åtkomst
+    saknas), använt med resultat bara när ett svar hade innehåll, blockerat när anropen bara gav tomma svar eller fel,
+    inte gjort när sessionen sågs utan anrop, och inte observerat när svarens innehåll eller sessionen inte observerades.
+    Ett lyckat anrop säger inte att svaret blev användbart material (metodkartan, Tillståndsorden)."""
+    ut = {'anrop': anrop}
+    if isinstance(lage, dict) and lage.get(m) != 'ansluten':
+        return dict(ut, tillstand=TILLSTAND['blockerat'],
+                    orsak='tilldelad men åtkomst saknas: sessionen %s, så rollens egna anrop till tjänsten gick inte' % (
+                        'hade inte %s' % m if m not in lage else 'hade %s med status %s' % (m, lage[m])))
+    if isinstance(utfall, dict):
+        egna = {u: n for a, uf in utfall.items() if str(a).startswith('mcp__%s__' % m) for u, n in uf.items()}
+        med = sum(n for u, n in egna.items() if u in MED_INNEHALL)
+        if med:
+            return dict(ut, med_innehall=med, tillstand=TILLSTAND['anvant'])
+        if egna:
+            return dict(ut, med_innehall=0, tillstand=TILLSTAND['blockerat'],
+                        orsak='anrop utan material: %s' % ', '.join('%s %d' % (u, n) for u, n in sorted(egna.items())))
+        return dict(ut, tillstand=TILLSTAND['ej_gjort'] if sett else TILLSTAND['ej_observerat'])
+    if anrop:  # ett sparat kvitto utan utfallet: svaren kom, men deras innehåll observerades inte
+        return dict(ut, tillstand=TILLSTAND['ej_observerat'], orsak='%d anrop med svar; svarens innehåll är inte observerat' % anrop)
+    return dict(ut, tillstand=TILLSTAND['ej_gjort'] if sett else TILLSTAND['ej_observerat'])
+
+
+def tillstand(kv, pass_, k=None, mcp_lage=None):
     """Kompetenskvittot i tillståndsorden, per roll i passet (ägarens uppdrag 2026-10-07, punkt 3): tilldelat ur
     metodkartan; kärnan, alternativen och skillverktyget som läsning (ett läskvitto är belägg för läsning, inte för
-    tillämpning); MCP-anropen som använt med resultat (ett svar; om det blev användbart material avgörs i nästa led), inte
-    gjort (transkriptet sett, inget anrop) eller inte observerat (inget transkript); verktygen i Bash som inte observerat,
-    eftersom kvittot inte ser kommandona; tillämpningen som inte observerat, eftersom kvittot bara ser läsning och anrop.
-    Fungerar på hela kvittot och på urvalet kandidaternas status sparar (verifierad, lasta, saknas, valda, skill_anrop,
-    mcp_anrop)."""
+    tillämpning); MCP-tjänsterna enligt mcp_tillstand, med sessionens MCP-läge (mcp_lage, eller kvittots eget) när det
+    finns; verktygen i Bash som inte observerat, eftersom kvittot inte ser kommandona; tillämpningen som inte
+    observerat, eftersom kvittot bara ser läsning och anrop. Fungerar på hela kvittot och på urvalet kandidaternas
+    status sparar (verifierad, lasta, saknas, valda, skill_anrop, mcp_anrop)."""
     k = tolka() if k is None else k
     kv = kv if isinstance(kv, dict) else {}
     sett = bool(kv.get('verifierad'))
     inget = TILLSTAND['ej_gjort'] if sett else TILLSTAND['ej_observerat']
     lasta, valda, skill = set(kv.get('lasta') or []), set(kv.get('valda') or []), set(kv.get('skill_anrop') or [])
     mcp = kv.get('mcp_anrop') if isinstance(kv.get('mcp_anrop'), dict) else {}
+    lage = mcp_lage if isinstance(mcp_lage, dict) else kv.get('mcp_lage') if isinstance(kv.get('mcp_lage'), dict) else None
+    utfall = kv.get('mcp_utfall') if isinstance(kv.get('mcp_utfall'), dict) else None
     ut = []
     for x in for_pass(pass_, k):
         karna = [vag(f) for f in x['karna']]
@@ -338,11 +390,11 @@ def tillstand(kv, pass_, k=None):
         valt = [f for f in (vag(f) for f in x['valj']) if f in valda]
         ut.append({
             'roll': x['id'], 'namn': x['namn'], 'tilldelat': TILLSTAND['tilldelat'],
-            'karna': {'filer': len(karna), 'lasta': n, 'tillstand': (LASKVITTO if n == len(karna) else 'läst %d av %d filer (%s)' % (
+            'karna': {'filer': len(karna), 'lasta': n, 'tillstand': (LASKVITTO if n == len(karna) else inget if not n else 'läst %d av %d filer (%s)' % (
                 n, len(karna), LASBELAGG)) if sett else TILLSTAND['ej_observerat']},
             'alternativ': {'valda': valt, 'tillstand': LASKVITTO if valt else inget},
             'skillverktyget': {'anrop': sorted(s for s in skill if s in skills), 'tillstand': LASKVITTO if skill & set(skills) else inget},
-            'mcp': {m: {'anrop': a, 'tillstand': TILLSTAND['anvant'] if a else inget} for m, a in anrop.items()},
+            'mcp': {m: mcp_tillstand(m, a, utfall, lage, sett) for m, a in anrop.items()},
             'verktyg': {v: TILLSTAND['ej_observerat'] for v in x['verktyg']},  # Bash-kommandona syns inte i kvittot
             'tillampning': TILLSTAND['ej_observerat']})
     return ut

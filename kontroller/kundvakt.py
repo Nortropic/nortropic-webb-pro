@@ -17,6 +17,13 @@ eller "adress"; fritext och JSON-nycklar prövas alltid, och namnprövningen tå
 sammansättningar, gatans namn utan nummer och telefonnumrets sista siffror (granskning 4, G14; granskningen 2026-10-05,
 fynd 8). En tom indata stoppas.
 
+Sedan skaparna når Mobbin och skriver egna frågor (2026-10-07) prövas också personnamn ur kundens underlag: personfälten i
+VERKSAMHET.json och namnen i BRIEF.md och sidans text (INNEHALL.md eller TEXTUNDERLAG.md), hittade som två ord efter
+varandra med stor bokstav, utom ord som ofta står så utan att vara namn (Google Maps, Call To Action, Norra Sverige). Ägarens
+regel: Refero och Mobbin ska fortsatt få generiska researchfrågor utan kunduppgifter. Mobbins search_screens söker i läget
+deep när mode saknas, och det kostar krediter: ett anrop utan uttryckligt mode som inte är deep stoppas (granskningen
+GR-20261007-r102, B5 och B6).
+
 Inställningarna med kroken (installningar) används av skaparsessionerna (kontroller/atelje.py) och av
 referenstjänsternas sessioner (kontroller/referenstjanster.py).
 """
@@ -36,6 +43,32 @@ SMA_NYCKEL = re.compile(r'(^|_)(page|limit)$')  # sidnummer och gränser: bara k
 UUID = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
 TAL = re.compile(r'^\d{1,9}$')  # Referos skärm- och flödes-id är tal; ett telefonnummer (tio siffror) prövas alltid
 TJANSTEVARDAR = ('refero.design', 'mobbin.com')
+MOBBIN_SKARMAR = 'mcp__mobbin__search_screens'  # verktygets standardläge är deep, som kostar krediter
+MOBBIN_LAGEN = ('standard', 'fast')  # fast är verktygets äldre namn på standard
+# personnamn ur kundens underlag (B5): fält i VERKSAMHET.json som bär personer, poster med en persons namn, och texterna
+PERSONNYCKLAR = {'agare', 'kontaktperson', 'kontaktpersoner', 'person', 'personer', 'medarbetare', 'team', 'grundare', 'ansvarig',
+                 'forfattare', 'hantverkare', 'personal'}
+OMDOMESNYCKLAR = {'omdomen', 'recensioner', 'citat', 'kundcitat', 'referenskunder'}
+NAMNFALT = ('namn', 'name', 'forfattare', 'author', 'fornamn', 'efternamn')
+NAMNTEXTER = ('BRIEF.md', 'INNEHALL.md', 'TEXTUNDERLAG.md')
+OMSLUTER = '*_`"\'“”‘’„»«()[]{}<>.,;:!?'  # tecken runt ett ord som inte hör till det
+NAMNORD = re.compile(r'[A-ZÅÄÖÉÜ][a-zåäöéüß]+(?:-[A-ZÅÄÖÉÜ][a-zåäöéüß]+)?')
+# ord som ofta står med stor bokstav bredvid ett annat utan att vara ett namn: tjänster och märken, webbens och designens
+# termer, väderstreck och ortsled, och vanliga ord i början av en mening (jämförda utan diakriter, som vik ger dem)
+EJ_NAMN = set('''
+google apple microsoft facebook meta instagram linkedin youtube tiktok pinterest twitter whatsapp messenger snapchat
+swish klarna stripe paypal bokadirekt hitta eniro trustpilot reco mobbin refero figma astro react tailwind vercel netlify
+wordpress wix squarespace shopify webflow framer canva adobe chrome safari android ios iphone ipad mac windows
+material design hero section call to action page site web maps map pay store play search console analytics business
+profile ads tag manager cookie cookies consent privacy policy terms contact about home start footer header menu button
+form landing pricing book booking checkout cart login sign up get started learn more read more
+norra sodra ostra vastra ovre nedre gamla nya stora lilla sankt st
+vi jag du ni de det den detta denna dessa en ett i pa for med till om nar som och men hos fran kunden kunderna foretaget
+firman verksamheten agaren agarna sidan sajten besokaren besokarna ring boka skriv las se fa ta ge valkommen hej tack
+the a an and or of in on at by with from our your my we us you it is are be get now free quote request send submit
+view see more all new best top why how what who where this that here there next back open show join follow share save
+download order buy shop try today online
+'''.split())
 
 
 def falt(x, nyckel=''):
@@ -91,6 +124,95 @@ def tjanstens_adress(varde):
     return d.scheme == 'https' and any(vard == v or vard.endswith('.' + v) for v in TJANSTEVARDAR)
 
 
+def _strangar(x):
+    """Namnen i ett personfält: en sträng, en lista av strängar eller poster med ett namnfält."""
+    if isinstance(x, str):
+        yield x
+    elif isinstance(x, list):
+        for v in x:
+            yield from _strangar(v)
+    elif isinstance(x, dict):
+        for f in NAMNFALT:
+            if isinstance(x.get(f), str):
+                yield x[f]
+
+
+def _personfalt(x):
+    """Personernas namn i VERKSAMHET.json: personfälten var de än står, och namnfälten i poster med omdömen och citat."""
+    import skapande
+    if isinstance(x, dict):
+        for k, v in x.items():
+            k_ = skapande.vik(k)
+            if k_ in PERSONNYCKLAR:
+                yield from _strangar(v)
+            elif k_ in OMDOMESNYCKLAR and isinstance(v, list):
+                for post in v:
+                    if isinstance(post, dict):
+                        yield from (post[f] for f in NAMNFALT if isinstance(post.get(f), str))
+            else:
+                yield from _personfalt(v)
+    elif isinstance(x, list):
+        for v in x:
+            yield from _personfalt(v)
+
+
+def namnpar(text):
+    """Två ord efter varandra med stor bokstav i en text, utom rubriker och par där ett ord ofta står så utan att vara
+    ett namn (EJ_NAMN): kandidaterna till "Förnamn Efternamn", jämförda utan diakriter."""
+    import skapande
+    ut = set()
+    for rad in str(text).splitlines():
+        if rad.lstrip().startswith('#'):
+            continue
+        forra, bryt = None, True
+        for m in re.finditer(r'\S+', rad):
+            tok = m.group(0)
+            ren = tok.strip(OMSLUTER)
+            namnlikt = bool(NAMNORD.fullmatch(ren))
+            if namnlikt and forra and not bryt and skapande.vik(forra) not in EJ_NAMN and skapande.vik(ren) not in EJ_NAMN:
+                ut.add('%s %s' % (skapande.vik(forra), skapande.vik(ren)))
+            # ett skiljetecken efter ordet (punkt, komma, kolon …) bryter paret; fetstil och citattecken gör det inte
+            forra, bryt = (ren if namnlikt else None), (not namnlikt or any(c in '.,;:!?' for c in tok[len(tok.rstrip(OMSLUTER)):]))
+    return ut
+
+
+def personnamn(slug, underlag):
+    """Personnamnen ur kundens underlag som aldrig får gå till tjänsterna: hela namnen, och efternamnet ur ett personfält."""
+    import skapande
+    u = Path(underlag) / slug
+    ut = set()
+    v = skapande.las_json(u / 'VERKSAMHET.json') or {}
+    for namn in _personfalt(v):
+        ord_ = [w for w in re.split(r'\s+', skapande.vik(namn).strip()) if w]
+        if not 1 <= len(ord_) <= 4 or not all(re.fullmatch(r'[a-z][a-z-]*', w) for w in ord_):
+            continue
+        if len(ord_) > 1 or len(ord_[0]) >= 4:  # ett ensamt kort förnamn ger för många falsklarm
+            ut.add(' '.join(ord_))
+        if len(ord_) > 1 and len(ord_[-1]) >= 4:
+            ut.add(ord_[-1])
+    for fil in NAMNTEXTER:
+        try:
+            ut |= namnpar((u / fil).read_text(encoding='utf-8', errors='replace'))
+        except OSError:
+            continue
+    return ut
+
+
+def namner_person(text, namn):
+    """Nämner texten ett av personnamnen: som hela ord (också med genitiv-s och med annat än mellanslag emellan), och
+    hopskrivet ("AnnaSvensson"); URL-kodning och diakriter döljer inget."""
+    import skapande
+    vt = skapande.vik(urllib.parse.unquote(str(text)))
+    hop = re.sub(r'[^a-z0-9]+', '', vt)
+    for n in namn:
+        delar = n.split()
+        if re.search(r'(?<![a-z0-9])%s(?:s)?(?![a-z0-9])' % r'[^a-z0-9]+'.join(map(re.escape, delar)), vt):
+            return True
+        if len(delar) > 1 and len(''.join(delar)) >= 8 and ''.join(delar) in hop:
+            return True
+    return False
+
+
 def provning(slug, underlag, anrop):
     """None när anropet får gå, annars skälet."""
     import skapande
@@ -100,6 +222,10 @@ def provning(slug, underlag, anrop):
     namn = anrop.get('tool_name')
     if namn not in tillatna():
         return 'verktyget %s är inte ett av flödets verktyg hos Refero och Mobbin; anropet stoppas' % namn
+    if namn == MOBBIN_SKARMAR and str((anrop.get('tool_input') or {}).get('mode') or '').strip().lower() not in MOBBIN_LAGEN:
+        return ('%s kräver mode "standard": verktygets standardläge deep kostar krediter, och flödet söker i standardläget; '
+                'anropet stoppas' % namn)
+    personer = personnamn(slug, underlag)
     fritext = list(nycklar(anrop.get('tool_input') or {}))
     for nyckel, varde in falt(anrop.get('tool_input') or {}):
         if ar_id(nyckel, varde):
@@ -107,7 +233,7 @@ def provning(slug, underlag, anrop):
                 return 'anropet till %s har kundens nummer i fältet %s' % (namn, nyckel)
             continue
         if tjanstens_adress(varde):
-            if skapande.namner_kunden(urllib.parse.unquote(varde), forbjudna):
+            if skapande.namner_kunden(urllib.parse.unquote(varde), forbjudna) or namner_person(varde, personer):
                 return 'anropet till %s har en adress som nämner kundens uppgifter' % namn
             continue
         fritext.append(varde)
@@ -115,6 +241,9 @@ def provning(slug, underlag, anrop):
     if skapande.namner_kunden(text, forbjudna):
         return ('anropet till %s nämner kundens namn, ort, webbadress, e-post eller nummer; beskriv bara branschen och '
                 'vad sökningen ska ge' % namn)
+    if namner_person(text, personer):
+        return ('anropet till %s nämner ett personnamn ur kundens underlag; frågorna är generiska, utan namn, citat eller '
+                'kundens egna texter' % namn)
     if any(skapande.SPARRAD_FORM.search(x) for x in fritext):
         return 'anropet till %s innehåller en adress, en e-postadress eller en lång sifferföljd; skriv frågan utan dem' % namn
     return None

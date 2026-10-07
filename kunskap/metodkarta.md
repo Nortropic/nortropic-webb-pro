@@ -19,8 +19,10 @@ upp när uppgiften behöver det och har inget läskrav.
 sessionens behörigheter (`kontroller/kompetens.py` till `--allowedTools`) och raderna i passets uppdrag, så att
 dokumentationen, prompten och behörigheten säger samma sak. Sessionerna har skillverktyget och verktygssökningen. Av
 MCP-anslutningarna används bara Refero och Mobbin, och bara genom kundvakten (`kontroller/kundvakt.py`, en krok före
-varje anrop): den tillåter ett anrop till flödets egna verktyg hos dem som inte bär kundens uppgifter och stoppar resten,
-och varje annat MCP-anrop nekas (dontAsk). Sessionerna når Refero genom repots lokala MCP-anslutning och Mobbin genom
+varje anrop): den tillåter ett anrop till flödets egna verktyg hos dem som inte bär kundens uppgifter (också personnamn ur
+underlaget) och stoppar resten, och varje annat MCP-anrop nekas (dontAsk). Frågorna till tjänsterna är alltid generiska:
+bransch och uppgift, utan kunduppgifter, namn eller citat. Mobbins `search_screens` går bara med `mode` "standard",
+eftersom verktygets standardläge deep kostar krediter. Sessionerna når Refero genom repots lokala MCP-anslutning och Mobbin genom
 `kontroller/mcp/mobbin.json` (`--mcp-config` utan strikt läge i `atelje.session_args`): Mobbin finns annars bara på
 användarnivån, som sessionernas `--setting-sources project,local` inte läser, så skaparna fick aldrig Mobbin fast
 rollerna tilldelar den (fynd 2026-10-07). Startkontrollen prövar åtkomsten med flödets egna argument
@@ -217,7 +219,7 @@ refero_get_screen_image: uppgift — skärmens bild när svaret saknar den
 refero_search_flows: uppgift — flöden för förfrågan och projektgenomgång (typ flode)
 refero_get_flow: uppgift — flödets steg i ordning, med bilderna
 refero_search_sites: uppgift — hela sajter som förlagor till referenspaketet
-refero_search_apps: ingen uppgift — i webbflödet, eftersom verktyget bara söker iOS-appar: provet med frågan "home builder construction" gav 10 av 100 träffar, alla iOS-appar som LEGO Builder, Asana och LinkedIn, ingen om byggande eller lokala tjänster; dess nytta är ett app-id för iOS-skärmar och iOS-flöden, och webbflödet söker skärmar, sajter och flöden med refero_search_screens, refero_search_sites och refero_search_flows; prövat 2026-10-07
+refero_search_apps: ingen uppgift — i webbflödet, eftersom verktyget bara söker iOS-appar: dess egen beskrivning säger "Search iOS apps in Refero" och hänvisar webbplatser till refero_search_sites, och provet med frågan "home builder construction" gav 10 av 100 träffar, alla iOS-appar som LEGO Builder, Asana och LinkedIn, ingen om byggande eller lokala tjänster; dess nytta är ett app-id för iOS-skärmar och iOS-flöden, och webbflödet söker skärmar, sajter och flöden med refero_search_screens, refero_search_sites och refero_search_flows; prövat 2026-10-07
 ```
 
 ```tjanstverktyg mobbin

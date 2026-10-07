@@ -101,7 +101,7 @@ def prompt_for(tjanst, fragor, bransch):
     for f in fragor:
         rader.append('- [%s] %s%s' % (f.get('typ', 'skarm'), f['fraga'], (' (syfte: %s)' % f['syfte']) if f['syfte'] else ''))
     if tjanst == 'refero':
-        rader += ['För frågor av typen skarm: refero_search_screens (platform web; pröva också mobile när frågan gäller mobilen) och',
+        rader += ['För frågor av typen skarm: refero_search_screens (platform web; parametern tar bara web eller ios, och ios gäller appar) och',
                   'refero_get_screen för de bästa (typsnitt, färger, sidtyper, UI-element och innehållet); bild_url är skärmens Preview URL',
                   '(images.refero.design/screenshots/…), aldrig Thumbnail URL. För frågor av typen flode: refero_search_flows och',
                   'refero_get_flow, och svara med flödets steg i ordning (steg: bild_url och vad steget visar).',
@@ -115,8 +115,9 @@ def prompt_for(tjanst, fragor, bransch):
     else:
         rader += ['Använd search_screens (sidor och tillstånd), search_sections (avgränsade sektioner; verktyget har ingen platform-',
                   'parameter) eller search_flows (användarresor: svara med stegen i ordning i steg) efter vad frågan gäller; bild_url är',
-                  'image_url för träffen (tillfällig länk, ska laddas ner nu). Har verktyget parametern mode, använd standard för breda',
-                  'svep (deep kostar krediter). Bredda eller formulera om en sökning när träffarna är svaga, och skriv det i anmarkning.']
+                  'image_url för träffen (tillfällig länk, ska laddas ner nu). search_screens kräver mode "standard": kundvakten stoppar ett',
+                  'anrop utan mode eller med deep, som kostar krediter (search_sections och search_flows har inget mode). Bredda eller',
+                  'formulera om en sökning när träffarna är svaga, och skriv det i anmarkning.']
     rader += ['Svara enligt schemat: anrop (varje verktygsanrop: verktyg, argument, resultat_typ: text, json, bild-url eller inline-bild),',
               'stilar (tom lista när ingen fråga är av typen stil),',
               'traffar (id, titel, sida_url, bild_url eller tom sträng, en beskrivning av vad bilden visar, och vilken fråga träffen hör till),',

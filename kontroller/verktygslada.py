@@ -1320,32 +1320,71 @@ def sessionsavtryck(args, version):
 
 
 def sessionens_init(args, timeout=180, cwd=None, env=None):
-    """Kör en kort session (modellen svarar OK, inga verktygsanrop) och läser dess init-besked ur stream-json: vilka
-    MCP-servrar med status, vilka verktyg och vilka skills sessionen fick. Ger (init, None) eller (None, felet)."""
-    try:
-        r = subprocess.run([str(a) for a in args], input='Svara med ordet OK och inget annat.', capture_output=True, text=True,
-                           timeout=timeout, cwd=str(cwd or ROOT), env=env)
-    except subprocess.TimeoutExpired:
-        return None, 'inget init-besked inom %d s' % timeout
-    except OSError as e:
-        return None, str(e)
-    for rad_ in (r.stdout or '').splitlines():
+    """Startar en kort session och läser bara dess init-besked ur stream-json: vilka MCP-servrar med status, vilka verktyg
+    och vilka skills sessionen fick. Init-beskedet kommer före modellens svar, så sessionen avslutas, med hela sin
+    processgrupp, så fort det lästs: provet väntar inte på något modellsvar (granskningen GR-20261007-r102, K1). Ger
+    (init, None) eller (None, felet)."""
+    import queue
+    import threading
+    with tempfile.TemporaryFile() as fel_ut:
         try:
-            d = json.loads(rad_)
-        except ValueError:
-            continue
-        if isinstance(d, dict) and d.get('type') == 'system' and d.get('subtype') == 'init':
-            return d, None
-    return None, 'sessionen gav inget init-besked (kod %d): %s' % (r.returncode, sista(r.stderr or r.stdout, 200))
+            p = subprocess.Popen([str(a) for a in args], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=fel_ut, text=True,
+                                 cwd=str(cwd or ROOT), env=env, start_new_session=True)
+        except OSError as e:
+            return None, str(e)
+        rader = queue.Queue()
+
+        def las():
+            for rad_ in p.stdout:
+                rader.put(rad_)
+            rader.put(None)
+        threading.Thread(target=las, daemon=True).start()
+        init, fel, slut = None, None, time.time() + timeout
+        try:
+            p.stdin.write('Svara med ordet OK och inget annat.')
+            p.stdin.close()
+        except OSError:
+            pass
+        try:
+            while init is None and fel is None:
+                try:
+                    rad_ = rader.get(timeout=max(0.1, slut - time.time()))
+                except queue.Empty:
+                    fel = 'inget init-besked inom %d s' % timeout
+                    break
+                if rad_ is None:
+                    p.wait(timeout=30)
+                    fel_ut.seek(0)
+                    fel = 'sessionen gav inget init-besked (kod %s): %s' % (p.returncode, sista(fel_ut.read().decode('utf-8', 'replace'), 200))
+                    break
+                try:
+                    d = json.loads(rad_)
+                except ValueError:
+                    continue
+                if isinstance(d, dict) and d.get('type') == 'system' and d.get('subtype') == 'init':
+                    init = d
+        finally:
+            for sig_ in (signal.SIGTERM, signal.SIGKILL):  # sessionen och dess barn: inget modellsvar behövs
+                try:
+                    os.killpg(p.pid, sig_)
+                except (ProcessLookupError, PermissionError):
+                    break
+                try:
+                    p.wait(timeout=5)
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+    return (init, None) if init else (None, fel)
 
 
 def prova_sessionen(k):
     """Vad ateljéns sessioner faktiskt når (ägarens uppdrag 2026-10-07, punkt 3): en kort session med flödets egna argument
     (atelje.session_args med en provkund, alltså samma --setting-sources, --mcp-config och --settings som skaparnas
-    sessioner, och samma miljö) som bara läser sitt init-besked. Inga verktygsanrop och inga kunduppgifter. `claude mcp
-    list` säger vad maskinen har, inte vad sessionen laddar: Mobbin fanns bara på användarnivån, som --setting-sources
-    project,local inte läser. Ger {'resultat', 'detalj', 'tid', 'servrar': {namn: status}, 'verktyg': [MCP-verktygen],
-    'skills': [...], 'flaggor': [flaggorna som avgör]}; återanvänds i fem minuter med samma avtryck."""
+    sessioner, och samma miljö) som bara läser sitt init-besked och avslutas före modellens svar. Inga verktygsanrop och
+    inga kunduppgifter. `claude mcp list` säger vad maskinen har, inte vad sessionen laddar: Mobbin fanns bara på
+    användarnivån, som --setting-sources project,local inte läser. Ger {'resultat', 'detalj', 'tid', 'servrar': {namn:
+    status}, 'verktyg': [MCP-verktygen], 'skills': [...], 'flaggor': [flaggorna som avgör]}; återanvänds i fem minuter
+    med samma avtryck."""
     import atelje
     args = atelje.session_args(['Read'], None, 1, PROVMODELL, 'low', (), PROVKUND)
     args[0] = claude_bin()
