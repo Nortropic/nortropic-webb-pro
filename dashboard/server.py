@@ -1538,7 +1538,12 @@ def flode(slug):
     u, k, a = UNDERLAG / slug, KUNDER / slug, UNDERLAG / slug / 'atelje'
     st = las_json(a / 'STATUS.json') or {}
     kfl = kandidatkorning(slug, st)
-    blind = kfl and not kandidater.domd(slug)
+    # en ny körning (läget ny) vars arbetare ännu inte har arkiverat förra körningens plan, kandidater och vinnare:
+    # atelje.arbeta skriver STATUS före startkontrollen och arkiverar efter den. En plan som är äldre än körningen hör till
+    # förra körningen, så varken den, dess kandidater eller dina val efter den räknas hit (omgranskningen av r96, BÖR 1).
+    plan_k = kandidater.plan_tid(slug) if kfl else ''
+    forra_plan = bool(plan_k) and st.get('lage') == 'ny' and plan_k < str(st.get('startad') or '')
+    blind = kfl and (forra_plan or not kandidater.domd(slug))
     steg = []
 
     # 1. kundunderlaget
@@ -1563,13 +1568,15 @@ def flode(slug):
         status = ('stoppat' if stegnamn == 'fel' or atelje.avbruten(st) else
                   'skapat' if stegnamn in ('klar_for_bedomning', 'klar') else 'pågår')
         kv = startkvitto(slug) or {}
-        plan_t = kandidater.plan_tid(slug) if kfl else ''
-        kand = kandidater.sammanstall(slug) if kfl else []
+        plan_t = '' if forra_plan else plan_k
+        kand = kandidater.sammanstall(slug) if kfl and not forra_plan else []
         underlag_ = [{'text': 'körningen startad %s (läge %s)' % (st.get('startad') or '?', st.get('lage') or '?')}]
         if kv:
             underlag_.append({'text': 'startkvitto %s: %s' % (kv.get('tid') or '?', KVITTOSTATUS.get(kv.get('status'), kv.get('status') or '?'))})
         if plan_t:
             underlag_.append({'text': 'kandidatplanen %s' % plan_t})
+        elif forra_plan:
+            underlag_.append({'text': 'förra körningens plan (%s) ligger kvar tills arbetaren har arkiverat den; den hör inte till den här körningen' % plan_k})
         utfall = []
         for x in kand:
             b = x.get('bilder') or {}
@@ -1624,8 +1631,12 @@ def flode(slug):
     # 4. förfiningen efter ditt senaste val (valj eller putsa) i körningen, ur kandidatens förfiningspost
     #    (kandidater.forfina_kandidat: forfining_pagar medan den pågår, forfining när den är klar för just det valet). En
     #    förfining som inte gav någon ny version står kvar på den valda versionen och är underkänd, en som pågår visas
-    #    så, och en som stannade med körningen är stoppad (granskningen av r96, R2).
+    #    så, och en som stannade med körningen är stoppad (granskningen av r96, R2). En förfining som föll med ett
+    #    undantag lämnar ingen post för valet: kandidater.forfina_valda återställer kandidaten till vald med skälet, och
+    #    körningen slutar som vanligt. När körningen efter valet är avslutad och en vald kandidat saknar post för valet är
+    #    förfiningen underkänd med kandidatens skäl, och utan skäl inte observerad (omgranskningen av r96, R2-rest).
     vd = next((d for d in reversed(domar) if d.get('beslut') in ('valj', 'putsa')), None) if kfl else None
+    efter = bool(vd) and str(st.get('startad') or '') > str(vd.get('tid') or '')  # en körning som startade efter valet är dess förfining
     lagen, ids = [], kandidater.lista(slug) if vd else []
     for c in (vd or {}).get('kandidater') or []:
         kid = c.get('id') if isinstance(c, dict) else None
@@ -1637,28 +1648,36 @@ def flode(slug):
             lage = 'pagar'
         elif f_.get('dom') and f_.get('dom') == vd.get('tid'):
             lage = 'ny' if s_.get('version') and s_.get('version') != f_.get('fran') else 'ingen'
+        elif efter and st.get('steg') in atelje.AVSLUTADE:  # körningen är klar, men kandidaten har ingen post för valet
+            lage = 'fallen' if str(s_.get('skal') or '').strip() else 'okand'
         else:
             lage = 'ej'
         lagen.append((namn.get(kid) or kid, s_, lage))
     if lagen:
-        efter = str(st.get('startad') or '') > str(vd.get('tid') or '')  # en körning som startade efter valet är dess förfining
         dod = efter and (st.get('steg') == 'fel' or atelje.avbruten(st))
         oklara = any(l_ in ('pagar', 'ej') for _, _, l_ in lagen)
         status = ('stoppat' if dod and oklara else
                   'pågår' if any(l_ == 'pagar' for _, _, l_ in lagen) or (efter and oklara and st.get('steg') not in atelje.AVSLUTADE) else
-                  'skapat' if any(l_ == 'ny' for _, _, l_ in lagen) else 'underkänt' if any(l_ == 'ingen' for _, _, l_ in lagen) else 'inte påbörjat')
+                  'skapat' if any(l_ == 'ny' for _, _, l_ in lagen) else
+                  'underkänt' if any(l_ in ('ingen', 'fallen') for _, _, l_ in lagen) else
+                  'inte observerat' if any(l_ == 'okand' for _, _, l_ in lagen) else 'inte påbörjat')
 
         def beskriv(s_, l_):
             if l_ == 'ny':
                 return 'från %s till %s' % (str((s_.get('forfining') or {}).get('fran') or '?')[:12], str(s_.get('version'))[:12])
             if l_ == 'ingen':
                 return 'ingen ny version; den valda %s står kvar' % str(s_.get('version') or '?')[:12]
+            if l_ == 'fallen':
+                return 'föll utan ny version; den valda %s står kvar' % str(s_.get('version') or '?')[:12]
+            if l_ == 'okand':
+                return 'inget besked: körningen efter valet är klar, men kandidaten har varken förfiningens post eller ett skäl'
             if l_ == 'pagar':
                 return 'pågår, från %s' % str((s_.get('forfining_pagar') or {}).get('fran') or '?')[:12]
             return 'inte påbörjad'
         pass_ = [{'text': '%s: %s %s' % (e, rec.get('pass'), 'genomfört' if rec.get('genomford') else 'inte genomfört')}
                  for e, s_, l_ in lagen if l_ == 'ny' for k_, rec in sorted((s_.get('kompetens') or {}).items()) if k_.startswith('fordjupa:')]
-        brister = [('%s: %s' % (e, s_.get('skal')))[:300] for e, s_, l_ in lagen if l_ == 'ingen' and s_.get('skal')]
+        brister = [('%s: %s' % (e, s_.get('skal')))[:300] for e, s_, l_ in lagen if l_ in ('ingen', 'fallen') and s_.get('skal')]
+        brister += ['%s: förfiningen efter valet gav inget besked som går att läsa' % e for e, s_, l_ in lagen if l_ == 'okand']
         if any(l_ == 'ny' for _, _, l_ in lagen):
             brister.append('förfiningens resultatversion sparas inte (bara versionen den utgick från); "till" är kandidatens version nu')
         steg.append(_steg(4, 'Förfiningen', status, utfall=[{'text': '%s · %s' % (e, beskriv(s_, l_))} for e, s_, l_ in lagen],

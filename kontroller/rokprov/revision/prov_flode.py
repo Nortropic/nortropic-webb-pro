@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
 """prov_flode.py — dashboardens flödesvy (ägarens tillägg 2026-10-06, punkt 4), syntetiskt men i de riktiga filernas
-form. Varje fall fäller en brist som granskningen av r96 fann (B1–B3, R1–R4):
+form. Varje fall fäller en brist som granskningen av r96 eller omgranskningen fann (B1–B3, R1–R4, R2-rest, BÖR 1–3):
 
 - det tänkta flödet ur README:s tabell "Kedjan från kundunderlag till leverans": en syntetisk tabell och repots egen
   README (nio steg); en rad utan fyra celler gör tabellen oläslig i stället för att tappas;
-- blindningen (R4): före ditt första val i körningen syns varken planens titlar, kandidaternas brister och DESIGN.md-fel
-  eller deras antal, och före det blinda A/B-valet skiljer ingenting armarna åt (R3). Detektorn letar i den oförändrade
-  utdatan och prövas själv mot en läcka; efter valet ska bristerna och armarnas skillnader synas;
-- stegen är bundna till körningen (B2): en tidigare körnings dom, bygge, dom över bygget och export är aldrig
-  beslutade eller kontrollerade, ett bygge från före godkännandet är inaktuellt och en dom över ett annat bygge väntar;
-- helbygget är kontrollerat bara när korslut skulle godkänna det (B1): taket, avstängd granskning och underkänd
-  granskning vid taket räcker inte; godkännandet prövas som kor.sh prövar det, också i det äldre flödet (R1);
-- förfiningen (R2): utan ny version är den underkänd, medan den pågår pågår den och med körningen stoppad är den
-  stoppad; godkännandet väntar bara när det finns något förfinat att godkänna;
-- Figma-piloten (B3): "kontrollerat" bara när den aktuella versionen själv är bedömd, och varje bild och bedömning bär
-  versionen ur sitt katalog- eller filnamn; pilotens katalog är ingen kund;
+- blindningen (R4): före ditt första val i körningen ger samma fixtur samma utdata med och utan de dolda fälten (titlar,
+  brister, DESIGN.md-fel, skisskritik, riktning), så att också en omformulerad läcka syns; före det blinda A/B-valet
+  skiljer ingenting armarna åt (R3). Detektorn letar dessutom i den oförändrade utdatan efter de märkta texterna och
+  prövas själv mot en läcka; efter valet ska bristerna och armarnas skillnader synas;
+- stegen är bundna till körningen (B2): en tidigare körnings dom (också samma dygn som planen, och i det äldre
+  flödet), bygge, dom över bygget och export är aldrig beslutade eller kontrollerade; förra körningens plan räknas inte
+  i en ny körning som ännu inte arkiverat den; ett bygge från före godkännandet är inaktuellt, en dom över ett annat
+  bygge väntar och en export före bygget är inaktuell;
+- helbygget är kontrollerat bara när korslut skulle godkänna det (B1): taket, avstängd granskning, underkänd granskning
+  vid taket, stoppvaktens besked från en annan kor.sh-körning och en godkänd rotfil när omgången inte är klar räcker
+  inte; godkännandet prövas som kor.sh prövar det, också i det äldre flödet (R1);
+- förfiningen (R2): utan ny version är den underkänd, också när den föll med ett undantag (med kandidatens skäl, annars
+  inte observerad); en förfining för ett tidigare val räknas inte, medan den pågår pågår den, också när en annan
+  kandidat är klar, och med körningen stoppad eller arbetaren död är den stoppad; godkännandet väntar bara när det finns
+  något förfinat att godkänna;
+- Figma-piloten (B3): "kontrollerat" och "underkänt" bara när den aktuella versionen själv är bedömd, varje bild och
+  bedömning bär versionen ur sitt katalog- eller filnamn, och vyns bildtext visar den; pilotens katalog är ingen kund;
+- symlänkar: en länkad fil i underlaget eller en länkad bildkatalog i piloten visas inte;
 - rutterna (/api/flode, /api/flode/<slug>, 404) och länkarna: varje länk vyn ger öppnas genom /fil/.
 
     .venv/bin/python kontroller/rokprov/revision/prov_flode.py <repo>
@@ -30,6 +37,7 @@ import os
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import tempfile
 import threading
@@ -162,9 +170,37 @@ def dom(s, beslut, tid, kand=()):
                                                                             'plan': p, 'metod': None} for k, v in kand])
 
 
-def forra_korningens_dom(s, tid):
-    skapande.lagg_till_dom(s, 'ägaren', 'valj', 'Förra körningens val.', avser='skapandeflödet, kandidatplanen 2026-10-01T09:00:00Z',
-                           underlag=U, tid=tid, plan='2026-10-01T09:00:00Z', kandidater=[{'id': 'k01', 'version': 'f0' * 32, 'plan': '2026-10-01T09:00:00Z'}])
+def forra_korningens_dom(s, tid, plan_='2026-10-01T09:00:00Z'):
+    skapande.lagg_till_dom(s, 'ägaren', 'valj', 'Förra körningens val.', avser='skapandeflödet, kandidatplanen %s' % plan_,
+                           underlag=U, tid=tid, plan=plan_, kandidater=[{'id': 'k01', 'version': 'f0' * 32, 'plan': plan_}])
+
+
+def utan_dolda(s):
+    """Samma fixtur utan det som är dolt före ditt första val: planens och kandidaternas titlar, brister, DESIGN.md-fel,
+    skisskritik, granskning, huvudreferens och riktning. Ger en funktion som lägger tillbaka filerna som de var."""
+    a_ = U / s / 'atelje'
+    filer = [a_ / 'KANDIDATPLAN.json'] + sorted(a_.glob('kandidater/*/*'))
+    spar = {p: p.read_bytes() for p in filer if p.is_file()}
+    plan_ = json.loads(spar[a_ / 'KANDIDATPLAN.json'])
+    for x in (plan_.get('kandidater') or {}).values():
+        x.pop('titel', None)
+    skriv(a_ / 'KANDIDATPLAN.json', plan_)
+    for p in sorted(a_.glob('kandidater/*/STATUS.json')):
+        skriv(p, {k_: v_ for k_, v_ in json.loads(spar[p]).items() if k_ not in ('titel', 'brister', 'design_fel', 'skisskritik', 'huvudreferens')})
+    for p in sorted(a_.glob('kandidater/*/*')):
+        if p.name in ('SKISSKRITIK.json', 'KRITIK.json', 'RIKTNING.md'):
+            p.unlink()
+
+    def tillbaka():
+        for p, b in spar.items():
+            p.write_bytes(b)
+    return tillbaka
+
+
+def utdata(f, s=None):
+    """Flödets utdata för en jämförelse: utan läsningens tid, och med kundens namn utbytt när två kunder jämförs."""
+    t = json.dumps({k_: v_ for k_, v_ in f.items() if k_ != 'tid'}, ensure_ascii=False, sort_keys=True)
+    return t.replace(s, 'KUND') if s else t
 
 
 GODKAND_SKAL = 'kontrollerna gröna, RAPPORT.md finns och granskningen är godkänd'
@@ -185,11 +221,12 @@ def bygge(s, stampel, provtid, skal=GODKAND_SKAL, slapp=True, ok=True, info=None
     return h
 
 
-def granskad(s, stampel, h, godkand=True):
-    """En giltig granskningsomgång (UTFALL klar) för bygget, med den metod som gäller nu."""
+def granskad(s, stampel, h, godkand=True, utfall='klar'):
+    """En granskningsomgång för bygget med den metod som gäller nu, och rotfilen som granska.publicera skriver; giltig när
+    utfallet är klar."""
     g = dict(granska.aktuell_metod(s), godkand=godkand, runda=1, dist_sha256=h, korning=stampel, tid='2026-10-06T23:00:00Z')
     gdir = K / s / 'granskning'
-    skriv(gdir / 'runda-01' / 'UTFALL.json', {'status': 'klar', 'tid': g['tid'], 'skal': ''})
+    skriv(gdir / 'runda-01' / 'UTFALL.json', {'status': utfall, 'tid': g['tid'], 'skal': ''})
     skriv(gdir / 'runda-01' / 'GRANSKNING.json', g)
     skriv(gdir / 'GRANSKNING.json', g)
 
@@ -220,6 +257,7 @@ with fall('R4 README'):  # repots egen README, så att en ändring som bryter vy
 s = 'fl-blind'
 underlag(s)
 forra_korningens_dom(s, '2026-10-01T09:30:00Z')
+forra_korningens_dom(s, '2026-10-06T05:17:00Z', '2026-10-06T04:50:00Z')  # samma dygn som planen, som i de riktiga data (05:17Z, plan 18:45Z)
 korning(s, steg='klar_for_bedomning', startad='2026-10-06T10:00:00Z', klar='2026-10-06T10:50:00Z')
 plan(s, '2026-10-06T10:05:00Z', ['k01', 'k02'])
 d1 = kandidat(s, 'k01', 'klar', version='a1' * 32, varv=3, brister=['HEMLIG-BRIST ett'], design_fel=['HEMLIG-DESIGNFEL ett'])
@@ -240,6 +278,16 @@ with fall('R4 före första valet'):
     kontroll(lankar == ['/fil/underlag/fl-blind/atelje/kandidater/k01/bilder/start/vy-1440-forsta.png'], ('bildvägen är relativ och tillåten', lankar))
     # länken följer fil_tillaten: före valet bara skärmbilderna, aldrig skaparens anteckningar (M14)
     kontroll(dash._fil(d1 / 'RIKTNING.md')['lank'] is None and dash._fil(d1 / 'bilder' / 'start' / 'vy-1440-forsta.png')['lank'], 'R4: en länk förbi fil_tillaten')
+with fall('R4 samma fixtur utan de dolda fälten'):  # också en omformulerad läcka syns som en skillnad (omgranskningen, BÖR 3)
+    med = dash.flode(s)
+    tillbaka = utan_dolda(s)
+    try:
+        utan = dash.flode(s)
+    finally:
+        tillbaka()
+    kontroll(utdata(med) == utdata(utan), ('R4: utdatan före ditt första val beror på dolda fält',
+                                           [(x['nr'], texter(x, 'utfall') + texter(x, 'kontroller') + texter(x, 'brister')) for x in med['steg'] if x not in utan['steg']]))
+    kontroll(utdata(dash.flode(s)) == utdata(med), 'fixturen är inte tillbakalagd')
 dom(s, 'valj', '2026-10-06T11:00:00Z', [('k01', 'a1' * 32)])
 with fall('R4 efter första valet'):
     f = dash.flode(s)
@@ -336,6 +384,27 @@ bygge(s2, '20261006T120000Z', '2026-10-06T12:30:00Z')
 with fall('B1 rött och borttaget'):
     kontroll(stegen(s)[6]['status'] == 'underkänt', 'ett rött prov')
     kontroll(stegen(s2)[6]['status'] == 'inaktuellt', 'ett prov för en borttagen sajt')
+# ett nytt kor.sh-bygge har startat (en ny logg); provet, stoppvakten och granskningen är det förra byggets
+s = 'b1-ny-korning'
+h = bygge(s, '20261006T120000Z', '2026-10-06T12:30:00Z')
+granskad(s, '20261006T120000Z', h)
+skriv(K / s / 'korning-20261006T150000Z.jsonl', '{"type": "system", "subtype": "init"}\n')
+# kor.sh-körningen granskade bygget efter designsteget, men stoppvaktens besked är det förra byggets
+s2 = 'b1-annan-stoppvakt'
+h2 = bygge(s2, '20261006T120000Z', '2026-10-06T12:30:00Z')
+skriv(K / s2 / 'korning-20261006T150000Z.jsonl', '{"type": "system", "subtype": "init"}\n')
+granskad(s2, '20261006T150000Z', h2)
+# rotfilen GRANSKNING.json säger godkänd, men omgången är inte klar (granska.utfall: pagar)
+s3 = 'b1-rotfil'
+h3 = bygge(s3, '20261006T120000Z', '2026-10-06T12:30:00Z')
+granskad(s3, '20261006T120000Z', h3, utfall='pagar')
+with fall('B1 stoppvakten och omgången'):
+    for s_, vad in ((s, 'ett nytt kor.sh-bygge har startat; stoppvakten och granskningen gäller det förra'),
+                    (s2, 'stoppvaktens besked gäller en annan kor.sh-körning än granskningen'),
+                    (s3, 'rotfilen är godkänd men omgången är inte klar')):
+        st = stegen(s_)
+        kontroll(st[6]['status'] == 'skapat' and any('korslut godkänner inte' in t for t in texter(st[6], 'brister')),
+                 ('B1: kontrollerat fast %s' % vad, s_, st[6]['status'], st[6]['brister'][:1]))
 
 # --- B2 och R1: ett bygge bundet till körningens godkännande, och vad som bryter bindningen ---
 s = 'b2-bunden'
@@ -361,6 +430,10 @@ with fall('B2 bundet bygge'):
     st = stegen(s)
     kontroll([st[n]['status'] for n in range(3, 8)] == ['beslutat', 'skapat', 'kontrollerat', 'kontrollerat', 'väntar på ägaren'],
              ('ett bygge från körningens godkännande', [st[n]['status'] for n in range(1, 10)], st[5]['kontroller'], st[6]['brister']))
+skriv(K / s / 'kundrepo' / 'package.json', '{}', tid='2026-10-06T12:30:00Z')  # efter körningens start, före byggets (B2-4)
+with fall('B2 export före bygget'):
+    st = stegen(s)
+    kontroll((st[8]['status'], st[9]['status']) == ('inaktuellt', 'inte påbörjat'), ('B2: en export från före bygget är den här körningens', st[8]['status'], st[9]['status']))
 skriv(K / s / 'kundrepo' / 'package.json', '{}', tid='2026-10-06T14:00:00Z')
 with fall('exporten'):
     st = stegen(s)
@@ -407,6 +480,45 @@ atelje.skriv_vinnare(U / s / 'atelje', atelje.godkannande(s, gd))
 with fall('R1 äldre flödet'):
     st = stegen(s)
     kontroll(st[3]['status'] == 'beslutat' and st[5]['status'] == 'kontrollerat', ('R1: ett godkännande utan kandidat', st[3]['status'], st[5]['status'], st[5]['kontroller']))
+skriv(vin / 'kod' / 'index.astro', '<h1>Ändrad efter godkännandet</h1>')
+with fall('R1 äldre flödet, ändrad vinnare'):
+    st = stegen(s)
+    kontroll(st[5]['status'] == 'inaktuellt', ('R1: ett godkännande i det äldre flödet som kor.sh nekar', st[5]['status'], st[5]['kontroller']))
+
+# --- B2: det äldre flödet, bara förra körningens dom (avser en annan körnings starttid) ---
+s = 'b2-aldre-forra'
+underlag(s)
+skriv(U / s / 'atelje' / 'STATUS.json', {'slug': s, 'steg': 'klar', 'startad': '2026-10-06T09:00:00Z', 'lage': 'ny', 'klar': '2026-10-06T09:40:00Z'})
+skapande.lagg_till_dom(s, 'ägaren', 'putsa', 'Putsa vidare.', avser='skapandeflödet, körningen 2026-10-01T09:00:00Z', underlag=U, tid='2026-10-01T10:00:00Z')
+with fall('B2 äldre flödet, förra körningens dom'):
+    st = stegen(s)
+    kontroll(st[3]['status'] == 'väntar på ägaren' and not st[3]['beslut'], ('B2: förra körningens dom är beslutad i det äldre flödet', st[3]['status'], st[3]['beslut']))
+
+# --- B2: en ny körning (läget ny) innan arbetaren har arkiverat förra körningens plan, val och godkännande ---
+s = 'b2-om'
+underlag(s)
+V1, V2 = 'b1' * 32, 'b2' * 32
+korning(s, steg='klar_for_bedomning', fas='forfining', startad='2026-10-05T11:00:00Z', lage='valda', dom='2026-10-05T10:30:00Z', valda=['k01'])
+plan(s, '2026-10-05T10:05:00Z', ['k01', 'k02'])
+kandidat(s, 'k01', 'klar', version=V1)
+kandidat(s, 'k02', 'klar', version='b3' * 32)
+dom(s, 'valj', '2026-10-05T10:30:00Z', [('k01', V1)])
+kandidat(s, 'k01', 'forfinad', version=V2, forfining={'dom': '2026-10-05T10:30:00Z', 'fran': V1, 'klar': '2026-10-05T11:40:00Z', 'varv': 4})
+vin = U / s / 'atelje' / 'vinnare'
+skriv(vin / 'kod' / 'index.astro', '<h1>Godkänd</h1>')
+skriv(vin / 'DESIGN.md', '# DESIGN\n')
+atelje.skriv_vinnare(U / s / 'atelje', {'riktning': 1, 'kandidat': 'k01', 'version': V2, 'plan': '2026-10-05T10:05:00Z', 'tid': '2026-10-05T12:00:00Z'})
+atelje.skriv_vinnare(U / s / 'atelje', atelje.godkannande(s, dom(s, 'godkand', '2026-10-05T12:00:00Z', [('k01', V2)])))
+# som atelje.arbeta skriver den nya körningens STATUS före startkontrollen och arkiveringen (--om)
+skriv(U / s / 'atelje' / 'STATUS.json', {'slug': s, 'startad': '2026-10-06T10:00:00Z', 'modell': 'x', 'effort': 'max', 'antal': 3, 'lage': 'ny',
+                                         'steg': 'startkontroll', 'pid': os.getpid(), 'faser': {}, 'kandidatflode': True})
+with fall('B2 ny körning med förra körningens plan kvar'):
+    f = dash.flode(s)
+    st = {x['nr']: x for x in f['steg']}
+    kontroll((st[3]['status'], st[4]['status']) == ('inte påbörjat', 'inte påbörjat') and not st[3]['beslut'] and f['blind'],
+             ('B2: förra körningens val är beslutade i den nya körningen', st[3]['status'], st[3]['beslut'], st[4]['status'], f['blind']))
+    kontroll(not st[2]['utfall'] and any('förra körningens plan' in t for t in texter(st[2], 'underlag')) and st[5]['status'] == 'inaktuellt',
+             ('förra körningens förslag och godkännande', st[2]['utfall'], st[2]['underlag'], st[5]['status']))
 
 # --- R2: förfiningen efter valet ---
 VAL = '2026-10-06T10:30:00Z'
@@ -439,6 +551,47 @@ with fall('R2 förfiningen'):
              ('R2: en förfining som pågår', statusar('r2-pagar'), stegen('r2-pagar')[4]['utfall']))
     kontroll(statusar('r2-stoppad')[3] == 'stoppat', ('R2: en förfining som stannade med körningen', statusar('r2-stoppad')))
     kontroll(statusar('r2-klar')[3:5] == ['skapat', 'väntar på ägaren'], ('en förfining med ny version', statusar('r2-klar')))
+# en förfining som föll med ett undantag: kandidater.forfina_valda återställer kandidaten till vald med skälet (satt_status
+# skriver tiden), utan någon förfiningspost för valet, och körningen slutar klar_for_bedomning (omgranskningen, R2-rest)
+FALLEN = dict(KLAR, kandidater={'k01': 'vald', 'k02': 'klar'}, skal='0 av 1 valda kandidater förfinade; ägaren bedömer dem och godkänner en för helbygget')
+forfiningsfall('r2-undantag', FALLEN, 'vald', version='e1' * 32, tid='2026-10-06T11:40:00Z',
+               skal='förfiningen föll (RuntimeError: bygget föll); den valda versionen är återställd')
+forfiningsfall('r2-aterstallning', FALLEN, 'vald', version='e1' * 32, tid='2026-10-06T11:40:00Z',
+               skal='förfiningen föll (RuntimeError: bygget föll) och återställningen föll (OSError: disken); nästa förfining börjar från den valda versionen',
+               forfining_pagar={'dom': VAL, 'fran': 'e1' * 32, 'start_varv': 3})
+forfiningsfall('r2-utan-skal', FALLEN, 'vald', version='e1' * 32, tid='2026-10-06T11:40:00Z', skal='')
+with fall('R2 förfiningen som föll med ett undantag'):
+    st = stegen('r2-undantag')
+    kontroll((st[4]['status'], st[5]['status']) == ('underkänt', 'inte påbörjat') and any('förfiningen föll' in t for t in texter(st[4], 'brister')),
+             ('R2: en förfining som föll med ett undantag', st[4]['status'], st[4]['utfall'], st[4]['brister'], st[5]['status']))
+    st = stegen('r2-aterstallning')
+    kontroll(st[4]['status'] == 'underkänt' and any('återställningen föll' in t for t in texter(st[4], 'brister')),
+             ('R2: en förfining där också återställningen föll', st[4]['status'], st[4]['brister']))
+    st = stegen('r2-utan-skal')
+    kontroll((st[4]['status'], st[5]['status']) == ('inte observerat', 'inte påbörjat'), ('R2: en klar körning utan förfiningens post och skäl', st[4]['status'], st[5]['status']))
+# kombinationerna: ett nytt val efter en klar förfining, en död arbetare och en klar kandidat bredvid en som förfinas
+forfiningsfall('r2-tidigare-val', dict(KLAR, kandidater={'k01': 'forfinad', 'k02': 'klar'}), 'forfinad', version='e9' * 32,
+               forfining={'dom': VAL, 'fran': 'e1' * 32, 'klar': '2026-10-06T11:40:00Z', 'varv': 4}, fordjupad=True)
+dom('r2-tidigare-val', 'putsa', '2026-10-06T12:00:00Z', [('k01', 'e9' * 32)])
+kandidat('r2-tidigare-val', 'k01', 'vald', version='e9' * 32, agarens_dom='2026-10-06T12:00:00Z', tid='2026-10-06T12:00:00Z',
+         forfining={'dom': VAL, 'fran': 'e1' * 32, 'klar': '2026-10-06T11:40:00Z', 'varv': 4}, fordjupad=True)  # efter_beslut: vald igen
+dod = subprocess.Popen([sys.executable, '-c', 'pass'])
+dod.wait()  # en arbetare som inte lever (atelje.avbruten)
+forfiningsfall('r2-dod', dict(steg='forfina', pid=dod.pid), 'under_arbete', version='e1' * 32,
+               forfining_pagar={'dom': VAL, 'fran': 'e1' * 32, 'start_varv': 3})
+s = 'r2-blandat'
+underlag(s)
+korning(s, **dict(EFTER, steg='forfina', pid=os.getpid(), valda=['k01', 'k02']))
+plan(s, '2026-10-06T10:05:00Z', ['k01', 'k02'])
+kandidat(s, 'k01', 'klar', version='e1' * 32)
+kandidat(s, 'k02', 'klar', version='e2' * 32)
+dom(s, 'valj', VAL, [('k01', 'e1' * 32), ('k02', 'e2' * 32)])
+kandidat(s, 'k01', 'forfinad', version='e9' * 32, agarens_dom=VAL, forfining={'dom': VAL, 'fran': 'e1' * 32, 'klar': '2026-10-06T11:30:00Z', 'varv': 4})
+kandidat(s, 'k02', 'under_arbete', version='e2' * 32, agarens_dom=VAL, forfining_pagar={'dom': VAL, 'fran': 'e2' * 32, 'start_varv': 2})
+with fall('R2 kombinationerna'):
+    kontroll(statusar('r2-tidigare-val')[3:5] == ['inte påbörjat', 'inte påbörjat'], ('R2: en förfining för ett tidigare val räknas för det nya', statusar('r2-tidigare-val')))
+    kontroll(statusar('r2-dod')[3] == 'stoppat', ('R2: en förfining vars arbetare dött', statusar('r2-dod')))
+    kontroll(statusar('r2-blandat')[3] == 'pågår', ('R2: en klar kandidat döljer att en annan förfinas', statusar('r2-blandat')))
 
 # --- B3: Figma-pilotens status och bilder, bundna till version ---
 P = U / 'figma-pilot'
@@ -465,6 +618,15 @@ m = P / 'moment-c'  # skapad, med bilder utan version
 skriv(m / 'VERSION.json', {'moment': 'C', 'aktuell': 'C4', 'status': 'skapat', 'versioner': {'C3': {}, 'C4': {}}})
 for i in range(3):
     skriv(m / 'bilder' / ('%d.png' % i), png())
+m = P / 'moment-u'  # "underkänt" i posten för v3, men bara v2 är bedömd
+skriv(m / 'VERSION.json', {'moment': 'U', 'aktuell': 'v3', 'status': 'underkänt', 'versioner': {'v2': {}, 'v3': {}}})
+skriv(m / 'bedomningar' / 'BILDDOM-v2.md', '# v2\n')
+skriv(m / 'v3' / '1.png', png())
+m = P / 'moment-l'  # den aktuella versionens bildkatalog är en länk ut ur momentet
+skriv(m / 'VERSION.json', {'moment': 'L', 'aktuell': 'v1', 'status': 'kontrollerat'})
+skriv(m / 'bedomningar' / 'BILDDOM-v1.md', '# v1\n')
+skriv(TMP / 'utanfor' / 'bilder' / '1.png', png())
+(m / 'v1').symlink_to(TMP / 'utanfor' / 'bilder')
 
 
 def katalogversion(bild):
@@ -487,6 +649,26 @@ with fall('B3 piloten'):
     kontroll([x.get('version') for x in b['bedomningar']] == ['v1', 'v2', 'v2'] and [x.get('version') for x in a_['bedomningar']] == ['v5', 'inte observerat'],
              ('B3: bedömningarna bär inte sin version', [x.get('version') for x in b['bedomningar'] + a_['bedomningar']]))
     kontroll(any('gäller en tidigare version' in t for t in texter(b, 'kontroller')), ('B3: moment B säger inte att bedömningen gäller en tidigare version', b.get('kontroller')))
+    kontroll(p['moment-u']['status'] == 'skapat', ('B3: underkänt fast granskningen gällde v2, inte v3', p['moment-u']['status']))
+    kontroll(p['moment-l']['status'] == 'kontrollerat' and not p['moment-l']['bilder'], ('B3: bilder ur en länkad katalog', p['moment-l']['bilder'][:2]))
+with fall('B3 vyns bildtext'):  # vyn visar varje bilds version under bilden och i alt-texten (index.html, pilotens bilder)
+    html = (ROOT / 'dashboard' / 'index.html').read_text(encoding='utf-8')
+    mall_ = html[html.find('m.bilder.filter((b) => b.lank).map('):]
+    mall_ = mall_[:mall_.find('</figure>') + len('</figure>')]
+    kontroll('<figcaption>version ${esc(b.version)}</figcaption>' in mall_ and ', version ${esc(b.version)}"' in mall_,
+             ('B3: vyn visar inte bildens version', mall_[:160]))
+
+# --- en länkad fil i kundens underlag visas inte (_fil följer ingen symlänk) ---
+s = 'r4-lank'
+skriv(U / s / 'RESEARCH.md', '# research\n')
+skriv(U / s / 'TEXTUNDERLAG.md', '# text\n')
+skriv(TMP / 'utanfor' / 'BRIEF.md', '# HEMLIG-UTANFOR brief\n')
+(U / s / 'BRIEF.md').symlink_to(TMP / 'utanfor' / 'BRIEF.md')
+with fall('R4 länkad fil'):
+    f = dash.flode(s)
+    st = {x['nr']: x for x in f['steg']}
+    kontroll(texter(st[1], 'utfall') == ['RESEARCH.md', 'TEXTUNDERLAG.md'] and 'HEMLIG' not in json.dumps(f, ensure_ascii=False),
+             ('R4: en länkad fil i underlaget visas', texter(st[1], 'utfall')))
 
 # --- rutterna och länkarna ---
 with fall('rutterna'):
