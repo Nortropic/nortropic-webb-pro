@@ -36,14 +36,14 @@ Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sa
 
 | Steg | Vem startar, med vilket kommando | Resultat | Saknas i dag |
 |---|---|---|---|
-| 1. Kundunderlaget: fakta, research, brief, text, bilder, referenser och sajten ur mallen | en interaktiv Claude Code-session i repot som följer `bygg-sajt` steg 1–4 och kör `.venv/bin/python kontroller/ny_sajt.py <slug> --installera`; eller nödvägen `NWP_ATELJE=av ./kor.sh <slug> "<verksamhet>"`, ett helt bygge utan skapandeflödet | `underlag/<slug>/` (VERKSAMHET.json, RESEARCH.md, BRIEF.md, INNEHALL.md, bilder/BILDER.md, referenser/) och `kunder/<slug>/sajt/` | ett eget kommando: i standardläget körs steg 1–4 bara inne i kor.sh, som kräver en godkänd startsida |
+| 1. Kundunderlaget: verifierade fakta, research, brief och textutkast | Flöde → Förbered kundunderlaget, eller `.venv/bin/python kontroller/prototyp.py <slug> --forbered`; kräver VERKSAMHET.json och kunduppdrag eller befintlig research | privat förslagspaket, RESEARCH.md, BRIEF.md, TEXTUNDERLAG.md, BESTALLNING.md och versionsbundet FORBEREDELSE.json; inget webbprojekt behövs före steget | Kundstart och verklig modellkörning verifieras separat |
 | 2. Prototypen: research, plan och cirka tio skisser | ägaren eller en session i terminalen: `.venv/bin/python kontroller/prototyp.py <slug>` (läget följer domloggen) | förslagen i vyn Prototyp | – |
-| 3. Ägarens val | ägaren i vyn Prototyp; en dom som kommit på annat sätt förs in med `.venv/bin/python kontroller/skapande.py dom` | en dom i domloggen, bunden till kandidat och version | dashboarden startar ingen körning: nästa steg startas i terminalen |
-| 4. Förfiningen av de valda | ägaren kör `prototyp.py <slug>` igen (läget valda) | förfinade kandidater med DESIGN.md | – |
+| 3. Ägarens val | ägaren i vyn Prototyp; en dom som kommit på annat sätt förs in med `.venv/bin/python kontroller/skapande.py dom` | en dom i domloggen, bunden till kandidat och version | valet startar inget arbete; nästa tillåtna handling visas i Flöde |
+| 4. Förfiningen av de valda | Flöde → Förfina de valda förslagen, eller `prototyp.py <slug>` igen (läget valda) | förfinade kandidater med DESIGN.md | – |
 | 5. Godkännandet | ägaren i vyn Prototyp: en förfinad kandidat godkänd för helbygge | `underlag/<slug>/atelje/vinnare/` och VINNARE.json | vyn visar inget kommando för helbygget; det står i prototyp.py:s utskrift |
-| 6. Helbygget | ägaren i terminalen: `./kor.sh <slug> "<verksamhet>"`; utan godkänd startsida stannar kor.sh med slutkod 2 | `kunder/<slug>/` (sajt, prov, granskning, RAPPORT.md, FRAGOR.json) och slutposten `kunder/<slug>/korningar/<körning>/SLUT.json`, också när kor.sh stannar före bygget | uppdraget säger både "steg 1–7, i ordning" och "ta vid efter valet i steg 5.1"; att underlaget som den godkända startsidan byggdes på står kvar är inte prövat. Dashboarden visar inte slutposten än |
+| 6. Helbygget | ägaren i terminalen: `./kor.sh <slug> "<verksamhet>"`; utan godkänd startsida stannar kor.sh med slutkod 2 | sajt, prov, granskning, RAPPORT.md, FRAGOR.json och SLUT.json per körning; Flöde visar slutpostens fem separata besked | automatiserad start väntar på integrationen av processvakten; terminalens promptövergång rättas i samma integrationsarbete |
 | 7. Ägarens dom över bygget | ägaren i dashboarden: bygget, fliken Din dom | `kunder/<slug>/DOM.json`, lärdomarna och en backlogpost | – |
-| 8. Exporten till kundrepo | ägaren eller en session: `.venv/bin/python kontroller/exportera.py <slug> [--git]` | `kunder/<slug>/kundrepo/`, byggt och prövat i en tom katalog; `--git` gör en lokal commit | exporten prövar inte att bygget är godkänt och sparar inget besked |
+| 8. Exporten till kundrepo | ägaren eller en session: `.venv/bin/python kontroller/exportera.py <slug> [--git]` | kundrepo, byggprov och privat EXPORT.json per export med käll- och exporthash samt godkännandenas omfattning; tidigare export bevaras | en testexport får göras utan godkännande, men är aldrig i sig en kundklar leverans; extern publicering återstår |
 | 9. Leveransen: GitHub, Vercel, skydd och DNS | GitHub, Vercel och skyddet: människa, eller en session med ägarens ja; DNS: bara en behörig människa | – | inget verktyg i repot för GitHub och Vercel; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut |
 
 Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
@@ -52,6 +52,12 @@ frågor till dig. Rapporten gäller bara när den skrivits i körningen; ett tid
 `kunder/<slug>/rapporter/` när bygget startar. Körningens slutbesked sparas i slutposten (Var information finns, nedan).
 Alternativa lägen och återupptagning: `kunskap/skapandeflodet.md` och `./kor.sh` utan argument.
 Råmaterial (`underlag/`) och byggen (`kunder/`) ligger utanför git.
+
+**Handlingarna i Flöde** använder `prototyp.py` och ateljéns befintliga arbetare. `--start-id` binder ett osäkert
+omförsök till samma beställning; dubbelklick, omladdning och nytt HTTP-försök startar inte samma arbete två gånger.
+Läsning och val av kandidat startar inget. Stopp går förbi startlåset. En avbruten körning kan återupptas via samma
+ingång. De fem beskeden är sessionsavslut, teknik, designgranskning, ägarens godkännande och leverans inom angiven
+omfattning. Saknat, historiskt, dolt och underkänt är skilda lägen. Ingen grön markering betyder mer än sin omfattning.
 
 ## Var information finns
 
@@ -62,9 +68,9 @@ rapportstrukturen, `BESLUT.md`). Andra dokument länkar hit i stället för att 
 |---|---|---|
 | Start och överblick | den här filen; `CLAUDE.md` för sessioner | agenten |
 | Gällande arbetssätt: guider, krav, referens och förklaringar | `kunskap/<ämne>.md`, ett ämne per fil; skills i `.claude/skills/<namn>/SKILL.md`; granskarens kriterier i `kritik/`. En fil som inte gäller fullt ut börjar med raden `Status: historik, ersatt av …` eller `Status: vilande till …` | agenten, i samma commit som beteendet ändras |
-| Beslut | `BESLUT.md`: ett `## Tillägg ÅÅÅÅ-MM-DD: <titel>` per beslut (rubriken är beslutets id), med raden `**Status:**` (gäller, delvis ersatt av … eller ersatt av …) direkt under rubriken, och sedan ägarens ord ordagrant, skälen och räckvidden. Ett ersatt beslut ligger kvar och märks. Kundbeslut: `underlag/<slug>/DESIGNDOMAR.jsonl` | agenten med ägarens ord |
+| Beslut | `BESLUT.md`: ett `## Tillägg ÅÅÅÅ-MM-DD: <titel>` per beslut (rubriken är beslutets id), med raden `**Status:**` (gäller, delvis ersatt av … eller ersatt av …) direkt under rubriken, och sedan ägarens ord ordagrant, skälen och räckvidden. Ett ersatt beslut ligger kvar och märks. Kundbeslut: `underlag/<slug>/DESIGNDOMAR.jsonl`, med avsändaren på varje rad, och ägarens belägg i efterhand för en rad i bilagan `underlag/<slug>/DESIGNDOMAR-belagg.jsonl` (Avsändarna, nedan) | agenten med ägarens ord |
 | Förbättringsarbete | `backlog/B-ÅÅÅÅMMDD-<namn>.md` (`backlog/README.md`). `klar` betyder genomförd och committad; verifierad är posten först när en senare granskning säger det | `kontroller/backlog.py`, agenten |
-| Projekt- och körningsrapporter | i flödet där verktygen skriver: `underlag/<slug>/atelje/` och `kunder/<slug>/`; helbyggets slutpost per körning: `kunder/<slug>/korningar/<körning>/SLUT.json` (`kontroller/korslut.py`), och ett tidigare bygges rapport: `kunder/<slug>/rapporter/`; utanför flödet: `underlag/<uppdrag>/` (som `underlag/figma-pilot/BESLUTSUNDERLAG.md`); lägesrapporter till ägaren: `underlag/rapporter/RAPPORT-ÅÅÅÅ-MM-DD-<namn>.md` | agenten, verktygen |
+| Projekt- och körningsrapporter | i flödet där verktygen skriver: `underlag/<slug>/atelje/` och `kunder/<slug>/`; helbyggets slutpost per körning: `kunder/<slug>/korningar/<körning>/SLUT.json` (`kontroller/korslut.py`), och ett tidigare bygges rapport: `kunder/<slug>/rapporter/`; ateljéns slutpost per körning, med körningens STATUS.json och REDOVISNING.md bredvid: `kunder/<slug>/atelje/korningar/<körning>/SLUT.json` (`kontroller/ateljeslut.py`); utanför flödet: `underlag/<uppdrag>/` (som `underlag/figma-pilot/BESLUTSUNDERLAG.md`); lägesrapporter till ägaren: `underlag/rapporter/RAPPORT-ÅÅÅÅ-MM-DD-<namn>.md` | agenten, verktygen |
 | Systemgranskningar | `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>.md`, en fil per granskning, med bevisen i katalogen `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>/`; en omgranskning är en ny fil som anger den föregående, och fynden heter `<rapportens id>#<fynd>`. Äldre rapporter ur sessioners arbetsytor ligger i `underlag/granskningar/sessioner/`. `FORTECKNING.jsonl` har en rad per fil, med ursprung och sha256 | den granskande sessionen |
 | Bevismaterial: bilder, mätningar, loggar och kvitton | där verktyget skriver (`prov/`, startkvitton, `VERSION.json`, `bilder/`, `matning/`). Det ägaren bedömt före ett omtag, med bilder, versionens underlag och `KVITTO.json`, ligger i `underlag/<slug>/omtag/<stämpel>/` (BESLUT.md 2026-10-07). Frysta kvitton skrivs aldrig över; ett mätskript som ett kvitto hänvisar till kopieras till uppdragets `matning/` | verktygen |
 | Historik och tillfälligt | git-historiken och filer märkta `Status: historik`. Tillfälliga anteckningar i sessionens arbetsyta och `/tmp` gallras (städregeln, `BESLUT.md`); det som en rapport, ett beslut eller en commit citerar kopieras först till `underlag/granskningar/`, och en arbetsyta tas bort först när varje fil i den är registrerad i `FORTECKNING.jsonl` eller ett annat kvitto, eller nås från en ref i git | agenten |
@@ -95,6 +101,23 @@ dokumentationsbehovet i stället.
 
 Ett värde som saknas skrivs "ej angivet". Rapportstatus och utfall är olika saker: en färdig rapport kan underkänna
 resultatet. Ett exempel är `underlag/figma-pilot/BESLUTSUNDERLAG.md`.
+
+**Avsändarna** (ägarens uppdrag 2026-10-07, punkt 7). Varje dom och bedömning har en avsändare av sju slag, med en
+definition var i `kontroller/skapande.py` (`AVSANDARTYPER` och `KALLOR`), den enda källan i koden: ägarens egna ord och
+beslut, Codex bedömning, Claudes eller skaparens bedömning, en annan granskares bedömning, maskinellt mätresultat,
+hypotes och vidarebefordrad AI-bedömning. Bara ägarens egna ord och beslut räknas som ägarens: av godkännandet, läget,
+stoppvakten och slutposterna. En AI-bedömning som ägaren vidarebefordrat är en egen källa, också när den är skriven i
+första person. "Ägaren via Codex" betyder bara ägarens egna ord, ordagrant förmedlade, och kräver ett belägg för var
+orden står. En äldre rad utan belägg skrivs inte om; den står som "ej belagd" och räknas inte. Ett belägg i efterhand
+fästs vid raden i bilagan `underlag/<slug>/DESIGNDOMAR-belagg.jsonl`, bunden till radens sha256
+(`kontroller/skapande.py belagg`), så att raden räknas som ägarens utan att bli en ny dom.
+
+**Ateljéns slutpost** (`kunder/<slug>/atelje/korningar/<körning>/SLUT.json`, skriven av `kontroller/ateljeslut.py`; ägarens
+uppdrag 2026-10-07, punkt 4) har samma form som helbyggets nedan. Arbetaren skriver den vid normalt avslut, fel och stopp.
+Den binder ihop körningen, kandidaterna med sina versioner, repots commit och METOD.json:s sha256, skisskritiken och vem
+som gjorde den, ägarens beslut med avsändaren, och stoppet eller felet med steget. Bredvid ligger körningens STATUS.json
+och REDOVISNING.md. `kontroller/atelje.py` och `kontroller/prototyp.py` skriver beskedet ur posten och ger dess
+slutkod. Slutkoderna och resten står i `kunskap/skapandeflodet.md`, Körspåret.
 
 **Helbyggets slutpost** (`kunder/<slug>/korningar/<körning>/SLUT.json`, skriven av `kontroller/korslut.py`; ägarens
 uppdrag 2026-10-07) bär rapporthuvudets fält i JSON, så att den läses som ett huvud. `underlag` är länkarna till

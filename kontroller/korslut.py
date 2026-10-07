@@ -44,16 +44,18 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import skapande  # noqa: E402  domloggens avsändare (startsidan) och konstanten EJ_BELAGD
 
 ROOT = Path(__file__).resolve().parents[1]
 MEKANIK = ('kontroller/', 'kritik/', 'mall/', '.claude/hooks/', '.claude/settings', 'kor.sh', 'dashboard/', 'dashboard.sh',
            'CLAUDE.md', 'BESLUT.md', '.gitignore', 'syskon:', 'flagga:', 'protokoll:')
 EJ = 'ej angivet'  # ett saknat värde gissas aldrig (README.md, rapporthuvudet)
-EJ_BELAGD = 'ej belagd'
+EJ_BELAGD = skapande.EJ_BELAGD  # avsändarna och "ej belagd" har en källa i koden: kontroller/skapande.py (GR-20261007-r106#KAN-7)
 SLUTPOST = 'SLUT.json'
 START = 'START.json'  # kor.sh skriver den när körningen får sin identitet: en körning utan SLUT.json syns
 DOMFIL = 'DOM.json'
@@ -470,11 +472,19 @@ def startsidan(k):
         import skapande
         ok, skal = skapande.godkand_giltig(k.name, underlag=rot / 'underlag', kunder=rot / 'kunder')
         ut['giltig_nu'] = {'varde': bool(ok), 'text': skal}
+        # godkännandets avsändare ur domlogg-raden med samma tid (skapande.avsandare; ägarens uppdrag 2026-10-07, punkt 7):
+        # ägaren via Codex utan belägg, och en rad som saknas, står som ej belagd
+        samma_tid = [(r, p) for r, _s, p in skapande.domlogg(k.name, rot / 'underlag')['domar'] if p.get('beslut') == 'godkand' and p.get('tid') == g.get('tid')]
+        # två rader samma sekund (en vidarebefordrad bedömning bredvid ägarens, eller en rad skriven med --tid): ägarens egen
+        # rad är godkännandets avsändare, aldrig den sista i filordning (GR-20261007-r106#KAN-6)
+        rad = next(((r, p) for r, p in reversed(samma_tid) if skapande.ar_agarens(p)), samma_tid[-1] if samma_tid else None)
+        avs = skapande.avsandare(rad[1]) if rad else {'text': '%s (ingen rad i domloggen har godkännandets tid)' % EJ_BELAGD, 'agarens': False}
+        ut.update(avsandare=avs['text'], avsandare_agarens=bool(avs['agarens']), domrad=rad[0] if rad else None)
     except Exception as e:  # noqa: BLE001 — prövningen är information, aldrig ett fel i avslutet
         ut['giltig_nu'] = {'varde': None, 'text': 'kunde inte prövas: %s' % str(e)[:160]}
     ut['text'] = 'godkänd startsida %s (%s%s)' % (g.get('tid'), ('kandidat %s, version %s' % (g.get('kandidat'), _kort(g.get('version'))))
                                                  if g.get('kandidat') else 'startsidan sha256 %s' % _kort(g.get('sha_index')),
-                                                 ', ägaren via %s' % g.get('av') if g.get('av') and g.get('av') != 'ägaren' else '')
+                                                 '; avsändaren: %s' % ut['avsandare'] if ut.get('avsandare') else '')
     return ut
 
 
@@ -687,7 +697,8 @@ def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, do
             'forfattare': 'kontroller/korslut.py (kor.sh:s avslut)',
             'datum': tid, 'granskad_identitet': ident, 'rapportstatus': 'färdig', 'bedomningsutfall': utfall,
             'foregaende': foregaende(k, korning) if korning else EJ, 'ersatt_av': EJ, 'underlag': underlag, 'beslut': beslut or EJ,
-            'atgarder': atgarder, 'korning': korning, 'dist_sha256': nu_hash, 'slutkod': slutkod, 'slutkod_text': slutkod_text,
+            'atgarder': atgarder, 'korning': korning, 'dist_sha256': nu_hash, 'kallor_sha256': (s or {}).get('kallor_sha256'),
+            'slutkod': slutkod, 'slutkod_text': slutkod_text,
             'tillstand': tillstand,
             'kontroller': {'provet': provet, 'stoppvakten': stoppvakten, 'rapporten': rapporten, 'mekaniken': mek, 'agarens_dom': dom_p},
             'designgranskning': design, 'metod': {'granskning': metod, 'bygget': bygget, 'repo': repo}, 'startsida': sida,
@@ -817,9 +828,15 @@ def senaste_slutpost(k, efter=None):
 
 
 def _skriv_json(fil, data):
-    tmp = fil.with_name('.%s.tmp%d' % (fil.name, os.getpid()))
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    os.replace(tmp, fil)
+    # Exklusivt skapad fil: ett förutsägbart PID-namn kunde vara en planterad länk.
+    fd, namn = tempfile.mkstemp(prefix='.korslut-', suffix='.tmp', dir=fil.parent)
+    tmp = Path(namn)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(json.dumps(data, ensure_ascii=False, indent=1) + '\n')
+        os.replace(tmp, fil)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def postkatalog(k, korning):
@@ -977,6 +994,14 @@ def aktuell(k, korning=None):
     if post.get('typ') != TYP or not all(n in t for n, _ in TILLSTAND):
         return post
     andrat = provad['andrat']
+    if post.get('kallor_sha256'):
+        try:
+            import skapande
+            provad['kallor_nu'] = skapande.kallversion(k / 'sajt')
+        except (OSError, ValueError):
+            provad['kallor_nu'] = None
+        if provad['kallor_nu'] != post['kallor_sha256']:
+            andrat.append('källorna har ändrats eller är oläsbara sedan det granskade bygget')
     if not provad['samma_bygge']:
         andrat.append('bygget i dist/ har ändrats (dist %s vid körningens slut, nu %s)' % (_kort(post.get('dist_sha256')), _kort(nu_hash)))
     try:

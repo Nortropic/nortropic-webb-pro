@@ -404,8 +404,14 @@ def prova(slug, snabb=False):
         if rc:
             g['bygge'] = grind(False, 'npm-installationen misslyckades', detalj=svans(out))
             return status
+    import skapande
+    kallor_fore = skapande.kallversion(sajt)
     rc, out = kor([NPM, 'run', 'build'], cwd=sajt, timeout=600)
     (prov / 'bygge.log').write_text(out, encoding='utf-8')
+    if skapande.kallversion(sajt) != kallor_fore:
+        g['bygge'] = grind(False, 'källorna ändrades under bygget; provet gäller ingen fast källversion', 'prov/bygge.log')
+        return status
+    status['kallor_sha256'] = kallor_fore
     rutter = sidor_i(dist) if dist.is_dir() else []
     if rc or not rutter:
         g['bygge'] = grind(False, 'npm run build misslyckades' if rc else 'dist/ saknar sidor', 'prov/bygge.log', svans(out))
@@ -699,6 +705,14 @@ def main(argv=None):
         return 2
     t0 = time.time()
     s = prova(a.slug, a.snabb)
+    if s.get('kallor_sha256'):
+        import skapande
+        try:
+            samma_kallor = skapande.kallversion(ROOT / 'kunder' / a.slug / 'sajt') == s['kallor_sha256']
+        except (OSError, ValueError):
+            samma_kallor = False
+        if not samma_kallor:
+            s['grindar']['bygge'] = grind(False, 'källorna ändrades eller blev oläsbara under kontrollerna; kör provet igen')
     krav = [x for x in GRINDAR if not (a.snabb and x == 'lighthouse')]
     s['ok'] = all(x in s['grindar'] and s['grindar'][x]['ok'] for x in krav)
     s['sekunder'] = round(time.time() - t0)

@@ -83,6 +83,7 @@ def finns_lokalt(root, href, sida='/', bas=None, doman=None):
 
 def granska_sida(root, f, raw, lage, verksamhet, doman):
     fynd = []
+    info = []
     url = url_for(root, f)
     # 404-sidan, tacksidan och felsidan ska ha noindex och ingen canonical (byggstandarden 6.7 och 7.2, ägarens domar L1–L3)
     ar_404 = f.relative_to(root).as_posix() in ('404.html', 'tack/index.html', 'fel/index.html')
@@ -91,13 +92,13 @@ def granska_sida(root, f, raw, lage, verksamhet, doman):
     if not title:
         fynd.append(('title saknas', 'varje sida behöver en unik, sanningsenlig title'))
     elif len(title) > 60:
-        fynd.append(('title lång (%d)' % len(title), 'högst omkring 60 tecken; inga superlativ'))
+        info.append(('title längd (%d)' % len(title), 'bedöm tydlighet och relevans; Google har ingen fast teckengräns och kan korta eller välja annan titel'))
     metas = [attrs(t) for t in META.findall(raw)]
     desc = next((mm.get('content', '') for mm in metas if mm.get('name', '').lower() == 'description'), None)
     if desc is None:
         fynd.append(('description saknas', 'kort beskrivning av sidans innehåll'))
     elif len(desc) > 155:
-        fynd.append(('description lång (%d)' % len(desc), 'högst omkring 155 tecken'))
+        info.append(('description längd (%d)' % len(desc), 'bedöm sidans sammanfattning; Google har ingen fast teckengräns och kan välja utdrag ur sidan'))
     robots = next((mm.get('content', '').lower() for mm in metas if mm.get('name', '').lower() == 'robots'), '')
     noindex = 'noindex' in robots
     # ett bygge, två lägen (kunskap/lansering.md): förhandsvisningens skydd och noindex ligger i driftsättningen, aldrig i
@@ -145,7 +146,7 @@ def granska_sida(root, f, raw, lage, verksamhet, doman):
             fynd.extend(granska_schema(obj, verksamhet))
     # utgångna schema.org-termer fungerar än; de är information, inte fynd (räknas inte i grinden)
     return {'sida': url, 'title': title, 'noindex': noindex, 'fynd': [{'typ': t, 'text': x} for t, x in fynd if t not in INFO_TYPER],
-            'info': [{'typ': t, 'text': x} for t, x in fynd if t in INFO_TYPER]}
+            'info': [{'typ': t, 'text': x} for t, x in info + [(t, x) for t, x in fynd if t in INFO_TYPER]]}
 
 
 _VOKABULAR = None

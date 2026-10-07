@@ -109,11 +109,13 @@ MATERIAL_MAX = 200               # så många filer av det egna materialet spara
 # koden, skapar en katalog för varje prefix där tempfile skapar den och blir rött när ett prefix saknas här. Pythons
 # förval (tmp) och andra verktygs kataloger rörs aldrig.
 TMP_PREFIX = (
+    'nwp-kandidatmaterial-',                                                         # kandidater.py
+    'nwp-kallgap-',                                                                  # prov_kallgap.py
     'nwp-underhall-', 'nwp-global-', 'nwp-skill-', 'nwp-skillintag-', 'nwp-skillreserv-', 'nwp-sajtpaket-',
     'nwp-instrument-', 'nwp-pip-', 'nwp-nodeprov-', 'nwp-motor-',                  # underhall.py
     'nwp-vaktprov-',                                                                  # verktygslada.py
     'nwp-torr-',                                                                      # granska.py
-    'nwp-kundrepo-',                                                                  # exportera.py
+    'nwp-export-', 'nwp-kundrepo-',                                                                  # exportera.py
     'nwp-yt-', 'nwp-sub-',                                                            # youtube.py
     'nwp-lh-',                                                                        # lighthouse.mjs
     'upptagna-',                                                                      # upptagna_val.py (slugvakt.tmp_katalog)
@@ -127,6 +129,7 @@ TMP_PREFIX = (
     'nwp-startkvitto-',                                                               # prov_startkvitto.py
     'nwp-slutpost-',                                                                  # prov_slutpost.py
     'nwp-skisskritik-',                                                               # prov_skisskritik.py
+    'nwp-ateljeslut-',                                                                # prov_ateljeslut.py
 )
 # fasta kataloger i /tmp som aldrig är tillfälliga: körregistret och intagslåset, läget när underlag/ är låst, och
 # granskarnas och byggenas arbetsrötter (deras verktyg städar dem)
@@ -1294,7 +1297,7 @@ class Kvitton:
         self._sokvagar, self._version = {}, {}
         f = self.underlag / 'granskningar' / 'FORTECKNING.jsonl'
         if f.is_file() and not f.is_symlink():
-            for rad in f.read_text(encoding='utf-8').splitlines():
+            for rad in f.read_text(encoding='utf-8').split('\n'):  # JSONL: radslut, aldrig U+2028 (GR-20261007-r100-om#KAN-A)
                 try:
                     p = json.loads(rad)
                 except ValueError:

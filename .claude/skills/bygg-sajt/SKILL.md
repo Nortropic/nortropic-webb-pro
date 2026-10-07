@@ -177,8 +177,9 @@ vägen som resor med startläge, steg och förväntat synligt resultat, ett inma
 nivån (lokalt prov körs i provets grind `resor`; testintegration och verklig leverans står kvar till lanseringen).
 Väljarna beror på den byggda HTML:en: se över dem när sidorna finns (steg 5–6) och kör `prova.py --snabb`.
 
-Skriv också `underlag/<slug>/FRASER.txt`: en rad per fras som konkurrenterna i branschen använder och som vi därför
-inte ska använda. Briefen är en hypotes; den prövas när ägaren och verksamheten ser resultatet.
+Skriv `underlag/<slug>/FRASER.txt` för tomma marknadsföringsfraser som bör granskas. Vanliga tjänstenamn,
+navigationsord och korrekta praktiska svar får delas med konkurrenterna; likhet är inget fel i sig. Copyrapportens
+träffar är råd att bedöma i sammanhang. Briefen är en hypotes; den prövas när ägaren och verksamheten ser resultatet.
 
 **Referenser — du hittar dem själv, och undersöker innan du låser urvalet.** Läs `kunskap/referensjakt.md` och följ
 den. Utgå från researchen och briefen: sök efter vad toppuppgifterna kräver, i tre roller: bransch (starka verkliga
@@ -247,8 +248,9 @@ verksamheten och DESIGN.md (den aktuella designen; KONCEPT.md har alternativen o
 Läs `kunskap/copy-kontroll.md`, `kunskap/redaktionellt-pass.md`, `kunskap/seo.md` och, om verksamheten är lokal,
 `kunskap/seo-lokal.md`.
 
-Skriv all text i `underlag/<slug>/INNEHALL.md` innan något ritas: per sida title (högst 60 tecken), description
-(högst 155), h1, sektioner, knappar. Under varje sektion: raden `Fråga:` med den fråga besökaren har som sektionen
+Skriv innehållsutkastet i `underlag/<slug>/INNEHALL.md`: per sida en beskrivande title, relevant description,
+h1, sektioner och knappar. Innehåll och komposition prövas tillsammans; utkastet utvecklas när formen visar behovet.
+Title och description har ingen fast teckengräns; längdmätningen är information. Under varje sektion: raden `Fråga:` med den fråga besökaren har som sektionen
 svarar på (ur toppuppgifterna, omdömena eller frågorna kunderna ställer); en sektion utan en sådan fråga stryks. När
 sektionens uppgift är att visa varför just de (första vyn, beviset, om) står raden `Specifikt:` med den sak ur
 "Bara de har" som den bär. En praktisk sektion (hur en offert går till, vilka orter, priser, hur en bokning ändras)

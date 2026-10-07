@@ -16,12 +16,17 @@ Utkatalogen är som standard `kunder/<slug>/kundrepo/` (utanför git); en tidiga
 `kunder/<slug>/kundrepo-tidigare/<tid>/` (raderas aldrig). Slutkod 0 klar, 1 läckage eller bygget föll, 2 fel i anropet.
 """
 import argparse
+import contextlib
+import fcntl
+import hashlib
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -100,8 +105,8 @@ def med_adapter(text):
 
 
 def licenser(slug, sajt, mal):
-    rader = ['# Licenser och källor', '', 'Bilderna i `src/assets/` är verksamhetens egna, publicerade med verksamhetens tillstånd, eller '
-             'licensierat material; källan och licensen för varje bild som inte är verksamhetens står nedan.']
+    rader = ['# Licenser och källor', '', 'Tillstånd för bilder och annat kundmaterial är inte verifierat av exportverktyget. '
+             'Kontrollera varje tillgång och dess användningsrätt före publicering. Nedan återges befintligt licensunderlag, inte ett nytt godkännande.']
     lic = UNDERLAG / slug / 'bilder' / 'LICENSER.md'
     if lic.is_file() and not lic.is_symlink():
         rader += ['', lic.read_text(encoding='utf-8').strip()]
@@ -167,16 +172,10 @@ def verifiera_bygge(mal, logg=None):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
+def skapa_export(slug, kandidat, mal, git, bygg):
     sajt = KUNDER / slug / ('kandidater/%s/sajt' % kandidat if kandidat else 'sajt')
     if not (sajt / 'package.json').is_file() or not (sajt / 'src' / 'pages' / 'index.astro').is_file():
         raise ValueError('%s saknar package.json eller startsidan' % sajt.relative_to(ROOT))
-    mal = Path(ut) if ut else KUNDER / slug / 'kundrepo'
-    if mal.exists():
-        undan = KUNDER / slug / 'kundrepo-tidigare' / nu().replace(':', '')
-        undan.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(mal, undan)
-    mal.mkdir(parents=True)
     for n in KALLOR:
         if (sajt / n).is_file() and not (sajt / n).is_symlink():
             shutil.copyfile(sajt / n, mal / n)
@@ -229,6 +228,196 @@ def exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
     return res
 
 
+
+def exportmanifest(rot):
+    """Allt som lämnas över, utom Git och installerade/byggda körfiler."""
+    ut = {}
+    def fel(e):
+        raise e
+    for katalog, kataloger, filer in os.walk(rot, followlinks=False, onerror=fel):
+        kataloger[:] = sorted(n for n in kataloger if n not in ('.git', 'node_modules', '.astro', 'dist', '.vercel'))
+        if any((Path(katalog) / n).is_symlink() for n in kataloger):
+            raise ValueError('exporten innehåller en kataloglänk')
+        for n in sorted(filer):
+            p = Path(katalog) / n
+            if p.is_symlink() or not p.is_file():
+                raise ValueError('exporten innehåller något annat än vanliga filer')
+            ut[p.relative_to(rot).as_posix()] = hashlib.sha256(p.read_bytes()).hexdigest()
+    return ut
+
+
+def manifest_sha(manifest):
+    return hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
+
+
+@contextlib.contextmanager
+def avbrott_som_fel():
+    """Fångbara stoppsignaler ska gå genom återställningen; SIGKILL kan inte fångas."""
+    gamla = {}
+    def avbryt(signum, _frame):
+        raise InterruptedError('exporten stoppades av signal %s' % signum)
+    try:
+        for s in (signal.SIGTERM, signal.SIGHUP):
+            try:
+                gamla[s] = signal.signal(s, avbryt)
+            except ValueError:  # ingen signalhanterare får sättas från en HTTP-tråd
+                break
+        yield
+    finally:
+        for s, handler in gamla.items():
+            signal.signal(s, handler)
+
+
+def exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
+    """Förbered och pröva en ny export innan den tidigare ersätts. Kvittot stannar privat."""
+    import atelje
+    import korregister
+    import korslut
+    import skapande
+    if not re.fullmatch(r'[a-z0-9-]{2,60}', slug) or kandidat and not re.fullmatch(r'k\d{2}', kandidat):
+        raise ValueError('ogiltig slug eller kandidat')
+    kund = KUNDER / slug
+    atelje.saker_vag(kund, KUNDER)
+    sajt = kund / ('kandidater/%s/sajt' % kandidat if kandidat else 'sajt')
+    atelje.saker_vag(sajt, kund)
+    if not (sajt / 'package.json').is_file() or not (sajt / 'src/pages/index.astro').is_file():
+        raise ValueError('sajten saknar package.json eller startsidan')
+    mal = Path(ut).absolute() if ut else kund / 'kundrepo'
+    # En extern utkatalog är tillåten, men aldrig projektets källor, mekanik eller en annan kund.
+    atelje.saker_vag(mal, mal.parent)
+    faktisk = mal.resolve()
+    if faktisk == sajt.resolve() or faktisk in sajt.resolve().parents or sajt.resolve() in faktisk.parents:
+        raise ValueError('exportens mål överlappar sajtens källor')
+    if ROOT.resolve() in faktisk.parents and faktisk != (kund / 'kundrepo').resolve():
+        raise ValueError('export inom repot får bara ligga i den egna kundens kundrepo; välj annars ett mål utanför repot')
+    if mal.exists() and not mal.is_dir():
+        raise ValueError('exportens mål är ingen katalog')
+    mal.parent.mkdir(parents=True, exist_ok=True)
+    rot = kund / 'exporter'
+    atelje.saker_vag(rot, kund)
+    rot.mkdir(exist_ok=True)
+    las = os.open(rot / '.las', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(las, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as e:
+            raise ValueError('en export pågår redan för kunden') from e
+        # Löpnummer under exportlåset: två försök samma sekund eller en ändrad
+        # väggklocka får aldrig vända ordningen på slutbeskeden.
+        nummer = 1 + max((int(p.name[:12]) for p in rot.iterdir() if re.match(r'^\d{12}-', p.name)), default=0)
+        id_ = '%012d-%s-%s' % (nummer, nu().replace(':', ''), uuid.uuid4().hex[:10])
+        postrot = rot / id_
+        postrot.mkdir()
+        kvitto = postrot / 'EXPORT.json'
+        fore = skapande.kallversion(sajt)
+        res = {'schema': 1, 'id': 'EXPORT-' + id_, 'typ': 'exportkvitto', 'titel': 'Kundrepots export',
+               'slug': slug, 'kandidat': kandidat, 'tid': nu(), 'ut': str(mal), 'ok': False,
+               'kvitto': str(kvitto), 'kallor_sha256': fore, 'export_sha256': None,
+               'klart_for_leverans': False, 'kontroller': {'exportbygge': {'varde': None}},
+               'tillstand': {n: {'varde': None, 'text': 'inget giltigt slutbesked för denna export'} for n, _ in korslut.TILLSTAND}}
+        res['tillstand']['klart_for_leverans'] = {'varde': False, 'text': 'export är inte en verifierad driftsättning',
+                                               'omfattning': 'kundrepo; domän, riktiga formulär och drift återstår'}
+        # På målets filsystem: slutbytet kopierar aldrig över gamla filer. Bara repo/ blir kundrepo.
+        tmp = Path(korregister.egen_tmp('nwp-export-', 'export före publicering', dir=mal.parent))
+        stage = tmp / 'repo'
+        stage.mkdir()
+        try:
+            data = skapa_export(slug, kandidat, stage, git, bygg)
+            res.update({n: v for n, v in data.items() if n not in ('ut', 'ok')})
+            res['kontroller']['exportbygge'] = {'varde': data.get('bygge_ok'),
+                                                'text': data.get('bygge') or 'inte kört (--inget-bygge)'}
+            if skapande.kallversion(sajt) != fore:
+                res['fel'] = 'källorna ändrades under exporten; ingen ny export publicerad'
+            elif data.get('ok'):
+                res['filer'] = exportmanifest(stage)
+                res['export_sha256'] = manifest_sha(res['filer'])
+                slut = korslut.aktuell(kund) if not kandidat else None
+                if slut:
+                    res['helbygge'] = {'korning': slut.get('korning'), 'dist_sha256': slut.get('dist_sha256'),
+                                      'kallor_sha256': slut.get('kallor_sha256'), 'slutpost': slut.get('slutpost')}
+                    if slut.get('kallor_sha256') == fore:
+                        for n, _ in korslut.TILLSTAND:
+                            if n != 'klart_for_leverans':
+                                res['tillstand'][n] = (slut.get('tillstand') or {}).get(n) or res['tillstand'][n]
+                    else:
+                        res['helbygge']['text'] = 'historiskt eller saknar koppling mellan källor och granskat dist'
+                undan = None
+                staged_id = (stage.stat().st_dev, stage.stat().st_ino)
+                try:
+                    with avbrott_som_fel():
+                        if mal.exists():
+                            undan = kund / 'kundrepo-tidigare' / id_
+                            atelje.saker_vag(undan, kund)
+                            undan.parent.mkdir(exist_ok=True)
+                            os.replace(mal, undan)
+                        os.replace(stage, mal)
+                        res['ok'] = True
+                        if undan:
+                            res['tidigare'] = str(undan)
+                except BaseException:
+                    res['ok'] = False
+                    # Även signalramens avslut ingår. Signalen kan komma efter att
+                    # replace gjort sitt byte; flytta bara tillbaka vår egen inode.
+                    if mal.exists() and not mal.is_symlink() and (mal.stat().st_dev, mal.stat().st_ino) == staged_id:
+                        os.replace(mal, stage)
+                    if undan and undan.exists() and not mal.exists():
+                        os.replace(undan, mal)
+                    raise
+            else:
+                res['fel'] = 'exportens läckagekontroll eller byggprov föll'
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as e:
+            res.update(ok=False, fel=type(e).__name__ + ': ' + str(e)[:600])
+        finally:
+            try:
+                shutil.rmtree(tmp)
+            finally:
+                atelje.skriv_json_atomiskt(kvitto, res)
+        return res
+    finally:
+        os.close(las)
+
+
+def aktuell(slug):
+    """Senaste exportförsöket och om dess källor och exporterade filer fortfarande är desamma."""
+    import skapande
+    import korslut
+    rot = KUNDER / slug / 'exporter'
+    def ordning(p):
+        m = re.match(r'^(\d{12})-', p.parent.name)
+        # Formatbytet: alla löpnumrerade försök kommer efter de äldre
+        # tidsstämpel-id:na. Inom nya formatet styr numret, inte väggklockan.
+        return (1, int(m.group(1)), p.parent.name) if m else (0, 0, p.parent.name)
+    poster = sorted(rot.glob('*/EXPORT.json'), key=ordning, reverse=True) if rot.is_dir() and not rot.is_symlink() else []
+    if not poster:
+        return None
+    try:
+        if poster[0].is_symlink():
+            raise ValueError('länkat exportkvitto')
+        post = json.loads(poster[0].read_text(encoding='utf-8'))
+        kandidat = post.get('kandidat')
+        sajt = KUNDER / slug / ('kandidater/%s/sajt' % kandidat if kandidat else 'sajt')
+        mal = Path(post['ut'])
+        post['aktuell'] = bool(post.get('ok') and mal.is_dir() and not mal.is_symlink()
+                               and skapande.kallversion(sajt) == post.get('kallor_sha256')
+                               and manifest_sha(exportmanifest(mal)) == post.get('export_sha256'))
+        # Exportfiler kan vara oförändrade medan dist, metod eller ägardom ändrats.
+        # Publiceringsögonblickets tillstånd ligger kvar i kvittot på disk; här
+        # kommer de aktuella beskeden ur samma prövning som helbyggets vy.
+        slut = korslut.aktuell(KUNDER / slug, (post.get('helbygge') or {}).get('korning')) if post.get('helbygge') else None
+        for n, _ in korslut.TILLSTAND:
+            if n == 'klart_for_leverans':
+                continue
+            fore = (post.get('tillstand') or {}).get(n) or {}
+            p = ((slut or {}).get('tillstand') or {}).get(n)
+            if post['aktuell'] and slut and slut.get('kallor_sha256') == post.get('kallor_sha256') and isinstance(p, dict):
+                post['tillstand'][n] = p
+            else:
+                post['tillstand'][n] = {'varde': None, 'historik': fore, 'text': 'inget aktuellt godkännande knutet till exporten'}
+        return post
+    except (OSError, ValueError, KeyError, TypeError):
+        return {'ok': False, 'aktuell': False, 'fel': 'exportkvittot eller dess filer kunde inte verifieras'}
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog='exportera', description=__doc__.split('\n\n')[0], allow_abbrev=False)
     p.add_argument('slug')
@@ -243,7 +432,7 @@ def main(argv=None):
     krav_slug(a.slug)
     try:
         r = exportera(a.slug, a.kandidat, a.ut, a.git, not a.inget_bygge)
-    except (ValueError, RuntimeError) as e:
+    except (OSError, ValueError, RuntimeError) as e:
         print(str(e), file=sys.stderr)
         return 2
     for f, s in r.get('lackor') or []:
@@ -252,7 +441,7 @@ def main(argv=None):
         print('hänvisningar till Nortropics publika repo eller verktyg (fäller inte): %s' % ', '.join(r['hanvisningar']))
     if r.get('bygge'):
         print(r['bygge'])
-    besked = ('Exporterat utan verifierat bygge (--inget-bygge)' if a.inget_bygge else 'Klart') if r['ok'] else 'Inte klart'
+    besked = ('Testexport utan verifierat bygge (--inget-bygge)' if a.inget_bygge else 'Exportens bygge verifierat; publicering återstår') if r['ok'] else 'Exporten misslyckades; tidigare export är orörd'
     print('%s: %s%s' % (besked, r['ut'], (' (commit %s)' % r['commit'][:12]) if r.get('commit') else ''))
     return 0 if r['ok'] else 1
 

@@ -18,11 +18,15 @@ eller motiverar varje fynd. Ingen poäng, inget godkännande, ingen stilregel: e
 | tankstreckskedja | två eller fler tankstreck i samma stycke | högst ett per stycke; variera konstruktionen (fråga, kolon, relativsats) |
 | utropstecken | fler än ett per sida | högst ett, helst inget |
 | spegelöppningar | tre stycken i rad som börjar med "Vi" | skriv om besökaren och uppgiften; variera subjektet |
-| metalängd | title över 60 tecken, description över 155 | sanningsenlig och kort; inga superlativ i metadata |
+| metalängd | title över 60 tecken, description över 155 visas som information | bedöm tydlighet och relevans; ingen fast teckengräns eller strykregel |
 | saknat element | obligatoriska element ur verksamhetsuppgifterna saknas (telefon på varje sida, organisationsnummer, serviceområde, publik adress) | elementen kommer ur `VERKSAMHET.json` (`kontroller/verksamhetsuppgifter.py krav`), inte ur en branschmall |
 
 Bransch- och kundspecifika fraser (briefens §6) ges som `--fraser FIL`, en fras per rad; de rapporteras som
 "kund-/branschfras ur briefen".
+
+Metadata: [Google om title](https://developers.google.com/search/docs/appearance/title-link) och
+[sökutdrag](https://developers.google.com/search/docs/appearance/snippet) anger ingen fast teckengräns. De lokala
+60/155-markeringarna pekar ut text att läsa; de sätter inte godkäntgränsen (källkontrollerat 2026-10-07).
 
 ## Redaktionella regler bakom fynden
 

@@ -6,9 +6,14 @@ beskrivet i kunskap/skapandeflodet.md).
 Ateljén (kontroller/atelje.py: utforska och välj) och prototypen (kontroller/prototyp.py: förfina, slutdom, ägaren,
 överlämning) använder samma delar, så att ägarens senaste kritik, metoden och referensunderlaget följer med i varje steg.
 
-- Domloggen underlag/<slug>/DESIGNDOMAR.jsonl: en rad per dom över designen (ägaren, ägaren via Codex, panelen), med
-  beslut godkand | putsa | ny_riktning och texten ordagrant. Den arkiveras aldrig; nästa körning läser den själv. Ett
-  beslut ny_riktning återöppnar alla designbeslut (ATEROPPNAR), aldrig verksamhetens fakta.
+- Domloggen underlag/<slug>/DESIGNDOMAR.jsonl: en rad per dom eller bedömning över designen, med källan (KALLOR och
+  avsändartyperna nedan), beslut godkand | putsa | ny_riktning | valj | jamfor | forkasta och texten ordagrant. Den
+  arkiveras aldrig; nästa körning läser den själv. Ett beslut ny_riktning återöppnar alla designbeslut (ATEROPPNAR),
+  aldrig verksamhetens fakta. Loggen läses på radslut och inget annat (jsonl_rader), och en rad som inte går att läsa
+  står med plats och skäl (domlogg) i stället för att hoppas över tyst.
+- Avsändarna (ägarens uppdrag 2026-10-07, punkt 7): AVSANDARTYPER och KALLOR är den enda källan i koden för vem en dom
+  kommer från. Bara ägarens egna beslut styr godkännandet, läget, stoppet och slutposterna (ar_agarens); en
+  vidarebefordrad AI-bedömning gör det aldrig, och ägaren via Codex räknas bara med ett belägg.
 - Historiken underlag/<slug>/RIKTNINGSHISTORIK.json: prövade grundidéer med sina drag och hur de dömdes. Prompterna får
   den som kort text: vad som underkändes och varför, aldrig den gamla lösningen som underlag att bygga vidare på.
 - METOD: metodfilerna och skillsen per steg; prompterna räknar upp dem och bildkedja.metodlasning prövar i transkriptet
@@ -26,16 +31,50 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 UNDERLAG = ROOT / 'underlag'
 DOMLOGG = 'DESIGNDOMAR.jsonl'
+BELAGGFIL = 'DESIGNDOMAR-belagg.jsonl'  # bilagan: ägarens belägg för en befintlig rad, bunden till radens sha256 (GR-20261007-r106#BÖR-2)
 HISTORIK = 'RIKTNINGSHISTORIK.json'
 BESLUT = ('godkand', 'putsa', 'ny_riktning', 'valj', 'jamfor', 'forkasta')
 # kandidatflödets beslut (ägarens uppdrag 2026-10-05, punkt 10): valj = en eller flera kandidater vidare till förfining,
 # jamfor = några kandidater sida vid sida (inget körs), forkasta = alla förkastade (flödet väntar på ny riktning);
 # varje sådant beslut bär kandidaterna med sina versioner, och delar = det ägaren gillade i en kandidat
 KANDIDATBESLUT = ('valj', 'jamfor', 'forkasta')
-KALLOR = ('ägaren', 'ägaren via Codex', 'panelen', 'skaparen')
-# ägarens domar: direkt i dashboarden eller ordagrant via Codex. Godkännandet, läget och stoppet räknar båda
-# (omgranskningen av skapandeflödet, fynd 2: en underkännande dom via Codex lämnade godkännandet giltigt)
-AGAREN = ('ägaren', 'ägaren via Codex')
+# Avsändartyperna (ägarens uppdrag 2026-10-07, punkt 7), en definition var. Den här tabellen och KALLOR är den enda
+# källan i koden för vem en dom eller bedömning kommer från: domloggen, godkännandet, läget, stoppvakten, ateljéns
+# slutpost och korslut läser dem (ar_agarens, avsandare). Att ägaren vidarebefordrar en AI-bedömning gör den inte till
+# ägarens beslut.
+AVSANDARTYPER = {  # typ: (namn, definition)
+    'agaren': ('ägarens egna ord och beslut', 'det ägaren själv har sagt eller beslutat; bara det styr godkännandet, läget, '
+                                              'stoppet och slutposterna'),
+    'codex': ('Codex bedömning', 'en bedömning som Codex har gjort; ett underlag, inget beslut'),
+    'claude': ('Claudes eller skaparens bedömning', 'en bedömning av Claude, skaparen eller en annan session i flödet; ett '
+                                                    'underlag, inget beslut'),
+    'granskare': ('en annan granskares bedömning', 'panelens eller en granskares bedömning, som skisskritiken och helbyggets '
+                                                   'granskare; rådgivande, inget beslut'),
+    'matning': ('maskinellt mätresultat', 'ett värde som ett verktyg har mätt, som provet, axe eller kontrasten; en mätning, '
+                                          'ingen bedömning'),
+    'hypotes': ('hypotes', 'ett antagande som inte är prövat; det prövas innan det styr något'),
+    'vidarebefordrad': ('vidarebefordrad AI-bedömning', 'en bedömning av Codex, Claude eller en annan modell som ägaren har '
+                                                        'skickat vidare; en egen källa och aldrig ägarens beslut, också i första person'),
+}
+# Domloggens källor (fältet kalla): avsändartypen och definitionen.
+KALLOR = {
+    'ägaren': ('agaren', 'ägarens egna ord och beslut: skrivna av ägaren i dashboardens vy Prototyp, eller förda in ordagrant '
+                         'med skapande.py dom och ett belägg för var ägarens egna ord står'),
+    'ägaren via Codex': ('agaren', 'ägarens egna ord, ordagrant förmedlade av Codex; räknas som ägarens bara med ett belägg (fältet '
+                                   'belagg: var ägarens egna ord står), annars är avsändaren ej belagd'),
+    'vidarebefordrad AI-bedömning': ('vidarebefordrad', 'en bedömning gjord av Codex, Claude eller en annan modell som ägaren har '
+                                     'vidarebefordrat; en egen källa och aldrig ägarens beslut, också när den är skriven i första person'),
+    'Codex': ('codex', 'Codex bedömning, som Codex själv lämnat den'),
+    'skaparen': ('claude', 'Claudes eller skaparens bedömning'),
+    'panelen': ('granskare', 'en annan granskares bedömning: panelen eller en granskare i flödet'),
+    'mätning': ('matning', 'ett maskinellt mätresultat'),
+    'hypotes': ('hypotes', 'en hypotes som inte är prövad'),
+}
+# Källan som alltid är ägarens egen (dashboardens vy Prototyp). Ägaren via Codex räknas bara med ett belägg: avgör
+# ägarens beslut med ar_agarens, inte med den här listan (omgranskningen av skapandeflödet, fynd 2, räknade båda).
+AGAREN = ('ägaren',)
+BELAGG_KRAVS = ('ägaren via Codex',)  # en källa som är ägarens bara med belägg
+EJ_BELAGD = 'ej belagd'
 # vad en dom återöppnar (Codex 2026-10-05, punkt 2: systemet behöver förstå vilka tidigare beslut ett underkännande
 # återöppnar); fakta om verksamheten återöppnas aldrig
 ATEROPPNAR = {
@@ -76,6 +115,77 @@ def textfil(slug, underlag=None):
     rubriker, ordning och formuleringar får skrivas om tillsammans med formen."""
     u = Path(underlag or UNDERLAG) / slug
     return u / 'INNEHALL.md' if (u / 'INNEHALL.md').is_file() else u / 'TEXTUNDERLAG.md'
+
+
+UNDERLAGSGRUND = ('VERKSAMHET.json', 'BRIEF.md', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md',
+                  'BESTALLNING.md', 'UPPDRAG.md', 'REFERENSER.md', 'KUNDSTART.json')
+
+
+def underlagsmanifest(slug, underlag=None):
+    """Fakta, innehåll och kundmaterial som designen beror på, utan domar eller körutdata.
+
+    Saknad fil är uttrycklig. Läsfel och länkar vägras; en oläsbar källa blir aldrig ett
+    oförändrat underlag. Manifestet är privat och sparas i befintliga versionsposter.
+    """
+    import hashlib
+    u = Path(underlag or UNDERLAG) / slug
+    if not re.fullmatch(r'[a-z0-9-]{2,60}', slug) or u.is_symlink() or u.parent.is_symlink():
+        raise ValueError('ogiltig underlagsrot')
+    filer = [u / namn for namn in UNDERLAGSGRUND]
+    for namn_ in ('bilder', 'kalla', 'referenser'):
+        bilder = u / namn_
+        if bilder.is_symlink():
+            raise ValueError('länkat kundmaterial eller källmaterial')
+        if not bilder.exists():
+            continue
+        def fel(e):
+            raise e
+        for rot_, kataloger, namn in os.walk(bilder, followlinks=False, onerror=fel):
+            if any((Path(rot_) / n).is_symlink() for n in kataloger):
+                raise ValueError('länk i kundmaterial')
+            filer.extend(Path(rot_) / n for n in namn)
+    ut = {}
+    for p in sorted(filer):
+        if p.is_symlink():
+            raise ValueError('länk i underlagsfil')
+        ut[p.relative_to(u).as_posix()] = hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+    return ut
+
+
+def underlagsversion(slug, underlag=None):
+    import hashlib
+    return hashlib.sha256(json.dumps(underlagsmanifest(slug, underlag), sort_keys=True).encode()).hexdigest()
+
+
+def kallmanifest(sajt):
+    """Källversionen som byggs och exporteras, utan beroendekataloger eller körutdata."""
+    sajt = Path(sajt)
+    if sajt.is_symlink():
+        raise ValueError('sajtkatalogen är en länk')
+    filer = [sajt / n for n in ('package.json', 'package-lock.json', 'astro.config.mjs', 'tsconfig.json', 'DESIGN.md')]
+    for n in ('src', 'public'):
+        rot = sajt / n
+        if rot.is_symlink():
+            raise ValueError('länk i sajtens källor')
+        if not rot.exists():
+            continue
+        def fel(e):
+            raise e
+        for katalog, kataloger, namn in os.walk(rot, followlinks=False, onerror=fel):
+            if any((Path(katalog) / d).is_symlink() for d in kataloger):
+                raise ValueError('kataloglänk i sajtens källor')
+            filer.extend(Path(katalog) / f for f in namn if f != '.DS_Store')
+    ut = {}
+    for p in sorted(filer):
+        if p.is_symlink() or (p.exists() and not p.is_file()):
+            raise ValueError('källan är inte en vanlig fil')
+        ut[p.relative_to(sajt).as_posix()] = sha256_fil(p) if p.exists() else None
+    return ut
+
+
+def kallversion(sajt):
+    import hashlib
+    return hashlib.sha256(json.dumps(kallmanifest(sajt), sort_keys=True).encode()).hexdigest()
 
 
 STEG_KARTA = {'utforska': 'skapa', 'forfina': 'forfina', 'forska': 'forska'}  # den äldre vägens steg i metodkartan
@@ -120,39 +230,210 @@ def metod_filer(steg):
     return list(dict.fromkeys(v for v, _ in k))
 
 
-# --- domloggen ---
+# --- JSONL-filerna och domloggen ---
 
-def domar(slug, underlag=None):
-    """Domloggens poster i tidsordning; en rad som inte går att läsa hoppas över och räknas i 'oläsbara'."""
-    f = Path(underlag or UNDERLAG) / slug / DOMLOGG
+def jsonl_rader(fil):
+    """En JSONL-fils rader, lästa på radslut (\\n) och inget annat: [{'rad', 'data', 'post', 'fel'}] med filens radnummer
+    (från 1), radens byte utan radslutet, posten och skälet när raden inte går att läsa. str.splitlines() delar också på
+    U+2028, U+2029, U+0085 och några styrtecken, som JSON tillåter oskyddade i en sträng (json.dumps med
+    ensure_ascii=False skriver dem som de är); en dom med ett sådant tecken blev två rader som inte gick att läsa och
+    hoppades över tyst (GR-20261007-r100-om#KAN-A). En tom rad, också den efter filens sista radslut, är ingen rad med
+    innehåll och hoppas över. Saknas filen: []; ett läsfel (OSError) går vidare."""
+    fil = Path(fil)
+    if not fil.is_file():
+        return []
     ut = []
-    if f.is_file():
-        for rad in f.read_text(encoding='utf-8').splitlines():
-            try:
-                post = json.loads(rad)
-            except ValueError:
-                continue
-            if isinstance(post, dict) and post.get('beslut') in BESLUT and isinstance(post.get('text'), str):
-                ut.append(post)
+    for i, data in enumerate(fil.read_bytes().split(b'\n'), 1):
+        if not data.strip():
+            continue
+        post, fel = None, None
+        try:
+            post = json.loads(data.decode('utf-8'))
+        except UnicodeDecodeError as e:
+            fel = 'inte UTF-8 (%s)' % str(e)[:80]
+        except ValueError as e:
+            fel = 'inte JSON (%s)' % str(e)[:80]
+        ut.append({'rad': i, 'data': data, 'post': post, 'fel': fel})
     return ut
 
 
+def bilagor(slug, underlag=None):
+    """Beläggbilagan (BELAGGFIL) rad för rad: {'fil', 'belagg': {sha256: post}, 'olasbara': [{'rad', 'skal'}]}. En giltig rad
+    är ägarens eget intyg (kalla ägaren) om att en befintlig rad i domloggen, utpekad med radens sha256, är ägarens egna
+    ord, med belägget för var orden står. Den sista raden för en sha gäller. En rad som inte går att läsa, eller inte har
+    bilagans form, står i olasbara: den räknas inte, och den domrad den kan gälla förblir ej belagd."""
+    f = Path(underlag or UNDERLAG) / slug / BELAGGFIL
+    ut = {'fil': 'underlag/%s/%s' % (slug, BELAGGFIL), 'belagg': {}, 'olasbara': []}
+    for r in jsonl_rader(f):
+        p = r['post']
+        if r['fel']:
+            ut['olasbara'].append({'rad': r['rad'], 'skal': r['fel']})
+        elif isinstance(p, dict) and p.get('kalla') in AGAREN and re.fullmatch(r'[0-9a-f]{64}', str(p.get('sha256') or '')) and belagg(p):
+            ut['belagg'][p['sha256']] = dict(p, rad=r['rad'])
+        else:
+            ut['olasbara'].append({'rad': r['rad'], 'skal': 'raden är JSON men inget belägg i bilagans form (kalla ägaren, sha256 och belagg)'})
+    return ut
+
+
+def domlogg(slug, underlag=None):
+    """Domloggen rad för rad: {'fil', 'domar': [(rad, sha256 av radens byte, post)], 'olasbara': [{'rad', 'skal'}],
+    'bilaga_olasbara': [...]}. Radnumren och hasharna är filens egna rader (jsonl_rader). En rad som inte går att läsa,
+    eller som är JSON men ingen dom i loggens form (beslut och text), står i olasbara med plats och skäl i stället för att
+    hoppas över tyst. Ett belägg som ägaren lagt till i efterhand för en rad som kräver det (BELAGG_KRAVS) ligger i bilagan
+    (bilagor), bundet till radens sha256, och fästs vid posten här (fälten belagg och belagg_bilaga) utan att loggen skrivs
+    om och utan att det blir en ny dom (GR-20261007-r106#BÖR-2)."""
+    import hashlib
+    f = Path(underlag or UNDERLAG) / slug / DOMLOGG
+    ut = {'fil': 'underlag/%s/%s' % (slug, DOMLOGG), 'domar': [], 'olasbara': [], 'bilaga_olasbara': []}
+    bil = None
+    for r in jsonl_rader(f):
+        p = r['post']
+        if r['fel']:
+            ut['olasbara'].append({'rad': r['rad'], 'skal': r['fel']})
+        elif isinstance(p, dict) and p.get('beslut') in BESLUT and isinstance(p.get('text'), str):
+            sha = hashlib.sha256(r['data']).hexdigest()
+            if p.get('kalla') in BELAGG_KRAVS and belagg(p) is None:
+                if bil is None:
+                    bil = bilagor(slug, underlag)
+                    ut['bilaga_olasbara'] = bil['olasbara']
+                b = bil['belagg'].get(sha)
+                if b:
+                    p = dict(p, belagg=belagg(b), belagg_bilaga={'fil': bil['fil'], 'rad': b['rad'], 'tid': b.get('tid'), 'kalla': b.get('kalla')})
+            ut['domar'].append((r['rad'], sha, p))
+        else:
+            ut['olasbara'].append({'rad': r['rad'], 'skal': 'raden är JSON men ingen dom (beslut eller text saknas eller är okända)'})
+    return ut
+
+
+def lagg_till_belagg(slug, rad, text, underlag=None, tid=None):
+    """Ägarens belägg i efterhand för en befintlig rad i domloggen (radnumret): en rad i bilagan (BELAGGFIL) med radens
+    sha256, belägget (var ägarens egna ord står), tiden och källan ägaren. Domloggen skrivs inte om, raden får ingen ny
+    tid och blir ingen ny dom; den räknas som ägarens från och med nu (ar_agarens genom domlogg). Bara en rad vars källa
+    kräver belägg (ägaren via Codex) kan få ett: källan ägaren behöver inget, och en vidarebefordrad AI-bedömning eller en
+    annan källa är aldrig ägarens beslut. Ger bilagans post."""
+    b = belagg({'belagg': text})
+    if b is None:
+        raise ValueError('belägget är tomt: skriv var ägarens egna ord står')
+    lg = domlogg(slug, underlag)
+    tr = next(((r, s, p) for r, s, p in lg['domar'] if r == int(rad)), None)
+    if tr is None:
+        raise ValueError('rad %s i %s är ingen läsbar dom' % (rad, lg['fil']))
+    r, sha, p = tr
+    if p.get('kalla') not in BELAGG_KRAVS:
+        raise ValueError('rad %d har källan %s: %s' % (r, p.get('kalla'), 'den är redan ägarens egen och behöver inget belägg' if p.get('kalla') in AGAREN
+                                                      else 'bara %s kan få ett belägg; en annan källa är aldrig ägarens beslut' % ', '.join(BELAGG_KRAVS)))
+    post = {'tid': tid or nu(), 'kalla': AGAREN[0], 'sha256': sha, 'dom_rad': r, 'dom_tid': p.get('tid'), 'belagg': b}
+    f = Path(underlag or UNDERLAG) / slug / BELAGGFIL
+    f.parent.mkdir(parents=True, exist_ok=True)
+    with open(f, 'ab') as fh:
+        if f.stat().st_size > 0:
+            with open(f, 'rb') as las_:
+                las_.seek(-1, os.SEEK_END)
+                slut_ = las_.read(1)
+            if slut_ != b'\n':
+                fh.write(b'\n')
+        fh.write((json.dumps(post, ensure_ascii=False) + '\n').encode('utf-8'))
+    return post
+
+
+def olasbara_text(lg):
+    """De oläsbara raderna i domloggen som en mening med antal och plats, eller None."""
+    o = (lg or {}).get('olasbara') or []
+    if not o:
+        return None
+    return '%s: %d %s inte att läsa (%s); %s räknas inte, och ingen rad skrivs om' % (
+        lg.get('fil') or DOMLOGG, len(o), 'rad går' if len(o) == 1 else 'rader går',
+        '; '.join('rad %d: %s' % (x['rad'], x['skal']) for x in o[:6]) + (' …' if len(o) > 6 else ''), 'den' if len(o) == 1 else 'de')
+
+
+def domar(slug, underlag=None):
+    """Domloggens poster i tidsordning; en rad som inte går att läsa står i domlogg(...)['olasbara']."""
+    return [p for _r, _s, p in domlogg(slug, underlag)['domar']]
+
+
+def belagg(d):
+    """Domens belägg för att orden är ägarens egna (fältet belagg: var ägarens egna ord står), eller None."""
+    b = d.get('belagg') if isinstance(d, dict) else None
+    return b.strip()[:1000] if isinstance(b, str) and b.strip() else None
+
+
+def ar_agarens(d):
+    """Är domen ägarens eget beslut? Källan ägaren, eller ägaren via Codex med ett belägg (ägarens uppdrag 2026-10-07,
+    punkt 7). En vidarebefordrad AI-bedömning, Codex, skaparen, panelen, en mätning, en hypotes, en okänd källa och
+    ägaren via Codex utan belägg är det aldrig, varken för godkännandet, läget, stoppet eller slutposterna."""
+    if not isinstance(d, dict):
+        return False
+    k = d.get('kalla')
+    return k in AGAREN or (k in BELAGG_KRAVS and belagg(d) is not None)
+
+
+def avsandare(d):
+    """Domens avsändare: {'kalla', 'typ', 'namn', 'agarens', 'belagg', 'text'}. Ägaren via Codex utan belägg och en okänd
+    eller saknad källa står som ej belagd (typ None); en äldre rad skrivs aldrig om för att få ett belägg."""
+    k = d.get('kalla') if isinstance(d, dict) else None
+    typ = KALLOR[k][0] if k in KALLOR else None
+    b = belagg(d)
+    if typ is None or (k in BELAGG_KRAVS and b is None):
+        return {'kalla': k, 'typ': None, 'namn': EJ_BELAGD, 'agarens': False, 'belagg': b,
+                'text': '%s (källan %s%s)' % (EJ_BELAGD, k or 'saknas', ', utan belägg' if k in BELAGG_KRAVS else ', okänd' if k else '')}
+    bil = d.get('belagg_bilaga') if isinstance(d.get('belagg_bilaga'), dict) else None
+    return {'kalla': k, 'typ': typ, 'namn': AVSANDARTYPER[typ][0], 'agarens': typ == 'agaren', 'belagg': b,
+            'text': '%s (%s%s%s)' % (AVSANDARTYPER[typ][0], k, '; belägg: %s' % b[:200] if b else '',
+                                    '; belägget i bilagan %s rad %s, %s' % (bil.get('fil'), bil.get('rad'), bil.get('tid') or 'utan tid') if bil else '')}
+
+
 def lagg_till_dom(slug, kalla, beslut, text, avser='', underlag=None, tid=None, **extra):
-    """En dom till loggen (en rad, tillagd i slutet). Ger posten."""
+    """En dom till loggen (en rad, tillagd i slutet). Ger posten. Ägaren via Codex kräver ett belägg (belagg=…): en
+    bedömning som ägaren vidarebefordrat förs in med källan vidarebefordrad AI-bedömning. Slutar loggen utan radslut (en
+    skrivning som avbröts) får den ett radslut först, så att den nya domen står på en egen rad och aldrig går förlorad."""
     if kalla not in KALLOR or beslut not in BESLUT or not isinstance(text, str) or not text.strip():
         raise ValueError('domen behöver källa (%s), beslut (%s) och text' % (', '.join(KALLOR), ', '.join(BESLUT)))
+    if kalla in BELAGG_KRAVS and belagg(extra) is None:
+        raise ValueError('%s kräver ett belägg för att orden är ägarens egna (var de står); en bedömning som ägaren har '
+                         'vidarebefordrat förs in med källan vidarebefordrad AI-bedömning' % kalla)
+    if 'belagg' in extra:
+        extra['belagg'] = belagg(extra)
+        if extra['belagg'] is None:
+            extra.pop('belagg')
     post = {'tid': tid or nu(), 'kalla': kalla, 'beslut': beslut, 'text': text.strip()[:20000], 'avser': str(avser)[:400],
             'ateroppnar': ATEROPPNAR[beslut], **extra}
     f = Path(underlag or UNDERLAG) / slug / DOMLOGG
     f.parent.mkdir(parents=True, exist_ok=True)
-    with open(f, 'a', encoding='utf-8') as fh:
-        fh.write(json.dumps(post, ensure_ascii=False) + '\n')
+    with open(f, 'ab') as fh:
+        if f.stat().st_size > 0:
+            with open(f, 'rb') as las_:
+                las_.seek(-1, os.SEEK_END)
+                slut_ = las_.read(1)
+            if slut_ != b'\n':
+                fh.write(b'\n')
+        fh.write((json.dumps(post, ensure_ascii=False) + '\n').encode('utf-8'))
     return post
 
 
-def senaste(slug, kallor=AGAREN, underlag=None):
-    """Den senaste domen från ägaren (direkt eller via Codex), eller None."""
-    return next((d for d in reversed(domar(slug, underlag)) if d.get('kalla') in kallor), None)
+def agarens_senaste(slug, underlag=None):
+    """Ägarens senaste beslut (ar_agarens) med plats: {'dom', 'rad', 'oklara', 'fil'}. oklara är de rader efter den domen
+    (eller i hela loggen, utan någon dom från ägaren) som inte går att läsa: där kan ägarens senare beslut stå, så ett
+    beslut som bygger på den senaste domen kan inte fattas förrän raden är rättad (ingen dom försvinner tyst)."""
+    lg = domlogg(slug, underlag)
+    rad, dom = next(((r, p) for r, _s, p in reversed(lg['domar']) if ar_agarens(p)), (0, None))
+    return {'dom': dom, 'rad': rad or None, 'oklara': [x for x in lg['olasbara'] if x['rad'] > rad], 'fil': lg['fil']}
+
+
+def oklara_text(ag):
+    o = (ag or {}).get('oklara') or []
+    if not o:
+        return None
+    return ('%s: %s efter ägarens senaste läsbara dom%s går inte att läsa (%s); där kan ägarens senare beslut stå, så det '
+            'senaste beslutet går inte att avgöra. Vägen vidare är ett nytt beslut från ägaren efter raden (vyn Prototyp, eller '
+            'skapande.py dom med belägg), som gäller från sin rad; raden skrivs inte om av sig själv' % (
+                ag.get('fil') or DOMLOGG, 'rad %d' % o[0]['rad'] if len(o) == 1 else 'raderna %s' % ', '.join(str(x['rad']) for x in o[:8]),
+                ' (rad %d)' % ag['rad'] if ag.get('rad') else '', '; '.join(x['skal'] for x in o[:3])))
+
+
+def senaste(slug, kallor=None, underlag=None):
+    """Den senaste domen från ägaren (ar_agarens: ägaren, eller ägaren via Codex med belägg), eller None. Med kallor (en
+    lista över källor) den senaste från någon av dem."""
+    return next((d for d in reversed(domar(slug, underlag)) if (d.get('kalla') in kallor if kallor is not None else ar_agarens(d))), None)
 
 
 AKTUELL_START = ('ny_riktning',)  # återöppnar designbesluten (ATEROPPNAR); en förkastning bara grundidéerna och referenserna
@@ -163,13 +444,13 @@ def aktuella_domar(slug, underlag=None):
     """Kundens aktuella domar: hela linjen från den senaste ägardomen som begärde en ny riktning (den återöppnar
     designbesluten); utan en sådan alla ägarens domar. De äldre är historik som slås upp (ägarens uppdrag 2026-10-05
     16:25Z; granskning 3, S6)."""
-    egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN]
+    egna = [d for d in domar(slug, underlag) if ar_agarens(d)]
     start = max((i for i, d in enumerate(egna) if d.get('beslut') in AKTUELL_START), default=0)
     return egna[start:]
 
 
 def aldre_domar(slug, underlag=None):
-    egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN]
+    egna = [d for d in domar(slug, underlag) if ar_agarens(d)]
     return egna[:len(egna) - len(aktuella_domar(slug, underlag))]
 
 
@@ -183,7 +464,7 @@ def kritikrader(slug, antal=3, underlag=None, aktuella=False):
         egna = linje if len(linje) <= MAX_AKTUELLA else linje[:1] + linje[-(MAX_AKTUELLA - 1):]
         utelamnade, aldre = len(linje) - len(egna), aldre_domar(slug, underlag)
     else:
-        egna = [d for d in domar(slug, underlag) if d.get('kalla') in AGAREN][-antal:]
+        egna = [d for d in domar(slug, underlag) if ar_agarens(d)][-antal:]
     if not egna:
         return []
     rader = ['Ägarens %s domar över designen (underlag/%s/%s), nyast först. De väger tyngst av allt du läser; en senare' % (
@@ -566,21 +847,57 @@ def sha256_katalog(p):
     return h.hexdigest()
 
 
+def sha256_katalog_strikt(p):
+    """Manifest för en fryst katalog: läsfel och utelämnade länkar ger inget kvitto."""
+    import stat
+    import hashlib
+    bas = Path(p)
+    if bas.is_symlink() or not bas.is_dir():
+        raise ValueError('fryst katalog saknas eller är länkad')
+    def fel(e):
+        raise e
+    filer = []
+    for rot_, kataloger, namn in os.walk(bas, followlinks=False, onerror=fel):
+        if any((Path(rot_) / n).is_symlink() for n in kataloger):
+            raise ValueError('länk i fryst katalog')
+        for n in namn:
+            f = Path(rot_) / n
+            if not stat.S_ISREG(f.lstat().st_mode):
+                raise ValueError('länk eller specialfil i fryst katalog')
+            filer.append(f)
+    h = hashlib.sha256()
+    for f in sorted(filer):
+        h.update(f.relative_to(bas).as_posix().encode() + b'\0' + f.read_bytes() + b'\0')
+    return h.hexdigest()
+
+
 def godkand_giltig(slug, underlag=None, kunder=None):
-    """(giltig, skäl): ägarens godkännande i atelje/VINNARE.json gäller bara när ägarens senaste dom i domloggen är just
-    det godkännandet och den godkända startsidan och DESIGN.md i atelje/vinnare/ är oförändrade sedan dess. kor.sh tar
-    vid först då; bygget skriver sedan om sajtens egna filer utan att godkännandet upphör."""
+    """(giltig, skäl): ägarens godkännande i atelje/VINNARE.json gäller bara när ägarens senaste dom i domloggen
+    (ar_agarens: ägaren, eller ägaren via Codex med belägg) är just det godkännandet och den godkända startsidan och
+    DESIGN.md i atelje/vinnare/ är oförändrade sedan dess. En vidarebefordrad AI-bedömning varken godkänner eller drar
+    tillbaka något. Går en rad efter godkännandet inte att läsa gäller det inte: där kan ägarens senare beslut stå. kor.sh
+    tar vid först när det gäller; bygget skriver sedan om sajtens egna filer utan att godkännandet upphör."""
     u = Path(underlag or UNDERLAG) / slug
     sajt = Path(kunder or (ROOT / 'kunder')) / slug / 'sajt'
     g = (las_json(u / 'atelje' / 'VINNARE.json') or {}).get('godkand')
     if not isinstance(g, dict) or not g.get('tid'):
         return False, 'inget godkännande i VINNARE.json'
-    egna = [d for d in domar(slug, u.parent) if d.get('kalla') in AGAREN]
-    if not egna or egna[-1].get('beslut') != 'godkand' or egna[-1].get('tid') != g['tid']:
-        return False, 'ägarens senaste dom i domloggen (direkt eller via Codex) är inte godkännandet'
+    ag = agarens_senaste(slug, u.parent)
+    if ag['oklara']:
+        return False, oklara_text(ag)
+    d_ = ag['dom']
+    if not d_ or d_.get('beslut') != 'godkand' or d_.get('tid') != g['tid']:
+        return False, 'ägarens senaste dom i domloggen (ägaren, eller ägaren via Codex med belägg) är inte godkännandet'
     st = las_json(u / 'atelje' / 'STATUS.json') or {}
     if str(st.get('startad') or '') > g['tid']:  # en ny förfining skriver i sajten: dess resultat behöver en ny dom (granskning 5)
         return False, 'en ny körning i skapandeflödet startade efter godkännandet (%s)' % st.get('startad')
+    try:
+        if g.get('underlag_sha') and underlagsversion(slug, u.parent) != g['underlag_sha']:
+            return False, 'underlaget ändrades sedan godkännandet; en ny bedömning behövs'
+        if g.get('sha_material') and sha256_katalog_strikt(u / 'atelje/vinnare/material') != g['sha_material']:
+            return False, 'kandidatens godkända material är ändrat sedan godkännandet'
+    except (OSError, ValueError):
+        return False, 'underlaget eller det godkända materialet kunde inte verifieras'
     # den dömda versionen, som vinnaren bevarar: bygget skriver om sajtens egna filer (omgranskning 3, fynd 1)
     kod, vd = u / 'atelje' / 'vinnare' / 'kod' / 'index.astro', u / 'atelje' / 'vinnare' / 'DESIGN.md'
     if g.get('sha_kod') and ((u / 'atelje' / 'vinnare' / 'kod').is_symlink() or sha256_katalog(u / 'atelje' / 'vinnare' / 'kod') != g['sha_kod']):
@@ -597,20 +914,31 @@ def godkand_giltig(slug, underlag=None, kunder=None):
 
 
 def main(argv=None):
-    """Ägarens domar och historiken utanför dashboarden: en dom som kom via Codex eller i en session förs in ordagrant
-    (granskningen av skapandeflödet, punkt 1). Aldrig inifrån ett bygge."""
+    """Domar och historiken utanför dashboarden: en dom som kom via Codex eller i en session förs in ordagrant
+    (granskningen av skapandeflödet, punkt 1), med rätt avsändare (KALLOR; ägarens uppdrag 2026-10-07, punkt 7): ägarens
+    egna ord med ett belägg (--belagg), en bedömning som ägaren vidarebefordrat som "vidarebefordrad AI-bedömning".
+    Aldrig inifrån ett bygge."""
     import argparse
     p = argparse.ArgumentParser(prog='skapande', description='domloggen och riktningshistoriken för skapandeflödet')
     sub = p.add_subparsers(dest='cmd', required=True)
     d = sub.add_parser('dom', help='lägg till en dom i underlag/<slug>/DESIGNDOMAR.jsonl')
     d.add_argument('slug')
-    d.add_argument('--kalla', required=True, choices=KALLOR)
+    d.add_argument('--kalla', required=True, choices=list(KALLOR), help='avsändaren (KALLOR): en bedömning som ägaren vidarebefordrat '
+                   'förs in med källan "vidarebefordrad AI-bedömning", aldrig som ägarens')
     d.add_argument('--beslut', required=True, choices=BESLUT)
     d.add_argument('--fil', required=True, help='textfil med domen ordagrant')
+    d.add_argument('--belagg', default='', help='för ägaren och ägaren via Codex (krävs): var ägarens egna ord står, till exempel '
+                   'meddelandet och tiden')
     d.add_argument('--avser', default='')
     d.add_argument('--tid', default=None)
     d.add_argument('--kandidater', default='', help='kandidatflödet: kandidaterna domen gäller (kNN eller Förslag X), '
                    'kommaseparerade; versionerna är de som gäller nu')
+    b = sub.add_parser('belagg', help='ägarens belägg i efterhand för en befintlig rad "ägaren via Codex" i domloggen: en rad i '
+                                      'underlag/<slug>/%s bunden till radens sha256; loggen skrivs inte om och raden blir ingen ny dom' % BELAGGFIL)
+    b.add_argument('slug')
+    b.add_argument('--rad', required=True, type=int, help='radnumret i domloggen (skapande.py visa)')
+    b.add_argument('--belagg', required=True, help='var ägarens egna ord står, till exempel meddelandet och tiden')
+    b.add_argument('--tid', default=None)
     h = sub.add_parser('historik', help='lägg till en prövad grundidé i underlag/<slug>/RIKTNINGSHISTORIK.json')
     h.add_argument('slug')
     for f in ('kalla', 'namn', 'drag', 'utfall', 'kritik'):
@@ -628,6 +956,14 @@ def main(argv=None):
     if a.cmd == 'dom':
         import atelje  # samma väg som dashboarden: godkännandet prövas före domen, en annan dom från ägaren drar tillbaka det
         extra = {}
+        # ägarens ord utanför dashboarden (ägarens uppdrag 2026-10-07, punkt 7): belägget säger var ägarens egna ord står;
+        # en bedömning som ägaren vidarebefordrat är källan "vidarebefordrad AI-bedömning", aldrig ägarens
+        if KALLOR[a.kalla][0] == 'agaren' and not a.belagg.strip():
+            print('domen skrevs inte: källan %s kräver --belagg (var ägarens egna ord står); en bedömning som ägaren '
+                  'vidarebefordrat förs in med --kalla "vidarebefordrad AI-bedömning"' % a.kalla, file=sys.stderr)
+            return 2
+        if a.belagg.strip():
+            extra['belagg'] = a.belagg.strip()
         if a.kandidater:  # en dom via Codex kan namnge förslagen med ägarens etiketter (Förslag C) eller id (k03)
             import kandidater
             omv = {v.split()[-1].upper(): k for k, v in kandidater.etiketter(a.slug, kandidater.lista(a.slug)).items()}
@@ -643,13 +979,32 @@ def main(argv=None):
         except ValueError as e:
             print('domen skrevs inte: %s' % e, file=sys.stderr)
             return 2
-        print('domen tillagd: %s, %s, %s%s' % (post['tid'], post['kalla'], post['beslut'], {'godkand': '; startsidan godkänd för bygget'}.get(post['beslut'], '') if post['kalla'] in AGAREN else ''))
+        print('domen tillagd: %s, %s, %s%s; avsändaren: %s' % (post['tid'], post['kalla'], post['beslut'],
+                                                                {'godkand': '; startsidan godkänd för bygget'}.get(post['beslut'], '') if ar_agarens(post) else '',
+                                                                avsandare(post)['text']))
+    elif a.cmd == 'belagg':
+        try:
+            post = lagg_till_belagg(a.slug, a.rad, a.belagg, tid=a.tid)
+        except ValueError as e:
+            print('belägget skrevs inte: %s' % e, file=sys.stderr)
+            return 2
+        d_ = next(p_ for r_, _s, p_ in domlogg(a.slug)['domar'] if r_ == a.rad)
+        print('belägget tillagt för rad %d (dom %s, sha256 %s…): avsändaren nu %s' % (a.rad, post['dom_tid'], post['sha256'][:12], avsandare(d_)['text']))
     elif a.cmd == 'historik':
         lagg_till_historik(a.slug, [{k: getattr(a, k) for k in ('kalla', 'namn', 'drag', 'utfall', 'kritik')} | ({'tid': a.tid} if a.tid else {})])
         print('historiken har %d poster' % len(historik(a.slug)))
     else:
         aktuella = kritikrader(a.slug, aktuella=True)  # det som gäller; historiken under, som uppslag
-        print('\n'.join((aktuella or ['Inga aktuella domar för kunden.']) + ['', 'Historik (slås upp, inga regler):'] + (historikrader(a.slug) or ['tom'])))
+        lg = domlogg(a.slug)
+        andra = [(r, avsandare(p)) for r, _s, p in lg['domar'] if not ar_agarens(p)]
+        bil_o = lg.get('bilaga_olasbara') or []
+        print('\n'.join((aktuella or ['Inga aktuella domar för kunden.'])
+                        + (['', 'Rader som inte är ägarens beslut (räknas aldrig som ägarens): '
+                            + '; '.join('rad %d: %s' % (r, x['text']) for r, x in andra)] if andra else [])
+                        + (['', olasbara_text(lg)] if lg['olasbara'] else [])
+                        + (['', 'underlag/%s/%s: %d rad(er) går inte att läsa och räknas inte (%s)' % (
+                            a.slug, BELAGGFIL, len(bil_o), '; '.join('rad %d: %s' % (x['rad'], x['skal']) for x in bil_o[:6]))] if bil_o else [])
+                        + ['', 'Historik (slås upp, inga regler):'] + (historikrader(a.slug) or ['tom'])))
     return 0
 
 

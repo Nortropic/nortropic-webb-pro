@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import inte_i_bygge  # noqa: E402  (revisionen 2026-10-03, F1: körs aldrig inne i ett bygge)
 import prova  # noqa: E402  dist_hash: armens slutversion fastställs av ab.py självt
 import korslut  # noqa: E402  armens slutpost
+import autonomi  # noqa: E402  råvärden och okända mått
 
 ROOT = Path(__file__).resolve().parents[1]
 KUNDER = ROOT / 'kunder'
@@ -53,26 +54,37 @@ def las(p):
         return None
 
 
-def kontextdjup(rader, fonster=1_000_000):
+def kontextdjup(rader, fonster=None):
     """Hur djupt bygget gick i modellens fönster: största kontexten i ett meddelande (indata, skriven och läst cache)
     och antal meddelanden över halva fönstret. Ingen regel, en variabel att ha när nästa par döms (ur caveman-intaget)."""
-    storlekar = []
+    storlekar, partiella, antal = [], [], 0
     for r in rader:
-        if r.get('type') == 'assistant':
-            u = (r.get('message') or {}).get('usage') or {}
-            storlekar.append(sum(u.get(k) or 0 for k in ('input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens')))
-    return {'kontext_max': max(storlekar, default=0), 'over_halva': sum(s > fonster // 2 for s in storlekar),
-            'meddelanden': len(storlekar)}
+        if isinstance(r, dict) and r.get('type') == 'assistant':
+            antal += 1
+            med = r.get('message') if isinstance(r.get('message'), dict) else {}
+            u = med.get('usage') if isinstance(med.get('usage'), dict) else {}
+            v = [u.get(k) for k in ('input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens')]
+            giltiga = [x for x in v if type(x) is int and x >= 0]
+            if giltiga:
+                partiella.append(sum(giltiga))
+            if len(giltiga) == len(v):
+                storlekar.append(sum(giltiga))
+    hel = bool(antal) and len(storlekar) == antal
+    return {'kontext_max': max(storlekar) if hel else None,
+            'over_halva': sum(s > fonster // 2 for s in storlekar) if hel and type(fonster) is int and fonster > 0 else None,
+            'observerad_kontext_max': max(partiella, default=None), 'meddelanden': antal}
 
 
 def skillanrop(rader):
     """Vilka skills bygget anropade, med antal, ur loggens Skill-anrop (backlogposten om Skill-räkningen): {namn: antal}."""
     ut = {}
     for r in rader:
-        if r.get('type') != 'assistant':
+        if not isinstance(r, dict) or r.get('type') != 'assistant':
             continue
-        for c in (r.get('message') or {}).get('content') or []:
-            if isinstance(c, dict) and c.get('type') == 'tool_use' and c.get('name') == 'Skill' and isinstance((c.get('input') or {}).get('skill'), str):
+        med = r.get('message') if isinstance(r.get('message'), dict) else {}
+        innehall = med.get('content') if isinstance(med.get('content'), list) else []
+        for c in innehall:
+            if isinstance(c, dict) and c.get('type') == 'tool_use' and c.get('name') == 'Skill' and isinstance(c.get('input'), dict) and isinstance(c['input'].get('skill'), str):
                 ut[c['input']['skill']] = ut.get(c['input']['skill'], 0) + 1
     return dict(sorted(ut.items()))
 
@@ -82,23 +94,46 @@ def matt(slug, efter=None):
     efter, en körningsidentitet): slutkoden, tillstånden, provet och granskarens dom och betyg för armens slutliga bygge
     med aktuell metod. Utan slutpost står det, och ingen dom läses någon annanstans ifrån."""
     k = KUNDER / slug
-    loggar = sorted(k.glob('korning-*.jsonl'))
-    resultat = {}
+    fil, post = korslut.senaste_slutpost(k, efter=efter)
+    loggar = sorted(p for p in k.glob('korning-*.jsonl') if not efter or p.stem.removeprefix('korning-') >= efter)
+    if post:
+        # En nyare sessionslogg får inte låna den föregående körningens slutbesked.
+        loggar = [p for p in loggar if p.name == 'korning-%s.jsonl' % post.get('korning')]
+    resultat = {'turer': None, 'minuter': None, 'modell': None, 'effort': None,
+                'kontext_max': None, 'over_halva': None, 'logg': None, 'logg_lasfel': False}
     if loggar:
         rader = []
-        for rad in loggar[-1].read_text(encoding='utf-8', errors='replace').splitlines():
-            try:
-                rader.append(json.loads(rad))
-            except ValueError:
+        lasfel = False
+        try:
+            raw = loggar[-1].read_text(encoding='utf-8').split('\n')
+        except (OSError, UnicodeError):
+            raw = []
+            lasfel = True
+        for rad in raw:  # JSONL: radslut, aldrig U+2028 (KAN-A)
+            if not rad.strip():
                 continue
-        slut = next((r for r in reversed(rader) if r.get('type') == 'result'), None)
+            try:
+                obj = json.loads(rad)
+                if isinstance(obj, dict):
+                    rader.append(obj)
+                else:
+                    lasfel = True
+            except ValueError:
+                lasfel = True
+        slut = autonomi.resultat_ur_rader(raw)
         if slut:
-            resultat = {'turer': slut.get('num_turns'), 'minuter': round((slut.get('duration_ms') or 0) / 60000, 1)}
+            m = autonomi.summa([slut])
+            resultat.update({x: m[x] for x in ('turer', 'minuter', 'duration_ms', 'listpris_usd')})
         init = next((r for r in rader if r.get('type') == 'system' and r.get('subtype') == 'init'), None) or {}
-        resultat.update(modell=init.get('model'), version=init.get('claude_code_version'), skills=skillanrop(rader))
-        fonster = max([m.get('contextWindow') or 0 for m in ((slut or {}).get('modelUsage') or {}).values()] or [0]) or 1_000_000
+        resultat.update(modell=init.get('model'), version=init.get('claude_code_version'), skills=skillanrop(rader), logg=loggar[-1].name)
+        anv = (slut or {}).get('modelUsage')
+        f = [m.get('contextWindow') for m in anv.values() if isinstance(m, dict)] if isinstance(anv, dict) else []
+        # Olika modellfönster saknar korrelation till varje meddelande: ingen gissad miljon.
+        fonster = f[0] if f and all(type(x) is int and x > 0 and x == f[0] for x in f) else None
         resultat.update(kontextdjup(rader, fonster))
-    fil, post = korslut.senaste_slutpost(k, efter=efter)
+        resultat['logg_lasfel'] = lasfel
+        if lasfel:
+            resultat.update(kontext_max=None, over_halva=None)
     dist = k / 'sajt' / 'dist'
     ut = {**resultat, 'dist_sha256': prova.dist_hash(dist) if (dist / 'index.html').is_file() else None,  # slutversionen, mätt här
           'omgangar': len(list((k / 'granskning').glob('runda-*'))) if (k / 'granskning').is_dir() else 0}

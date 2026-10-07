@@ -42,22 +42,31 @@ GRANSKNING_FRIST = 1750  # granskningen väntar högst 1700 s; provet och gransk
 UTFALL = {0: 'godkänd', 1: 'underkänd', 2: 'kunde inte startas', 3: 'taket för granskningar nått', 4: 'granskaren föll', 5: 'pågår'}
 
 
+def _kontroller(namn):
+    """En modul ur krokens egen utcheckning (kontroller/), så att en patchad ROOT i ett prov inte flyttar reglerna."""
+    kontroller = str(Path(__file__).resolve().parents[2] / 'kontroller')
+    if kontroller not in sys.path:
+        sys.path.insert(0, kontroller)
+    import importlib
+    return importlib.import_module(namn)
+
+
 def agarens_senare_dom(root, slug, efter):
-    """Ägarens senaste dom (direkt eller via Codex) i domloggen när den är putsa eller ny_riktning och kom efter tiden efter;
-    annars None. Samma läge som ger kontroller/atelje.py slutkod 6 i bygget (omgranskningen av skapandeflödet, fynd 2)."""
-    egna = []
+    """Ägarens senaste dom i domloggen när den är putsa eller ny_riktning och kom efter tiden efter; annars None. Samma läge
+    som ger kontroller/atelje.py slutkod 6 i bygget (omgranskningen av skapandeflödet, fynd 2). Bara ägarens egna beslut
+    räknas, med samma regel som skapandeflödet (kontroller/skapande.py, ar_agarens): en vidarebefordrad AI-bedömning och
+    ägaren via Codex utan belägg är aldrig ägarens (ägarens uppdrag 2026-10-07, punkt 7). Loggen läses på radslut, så att
+    en dom med U+2028 i texten räknas (GR-20261007-r100-om#KAN-A). Går en rad efter ägarens senaste läsbara dom inte att
+    läsa kan ägarens senare beslut stå där: då ges {'oklar': skälet}, och bygget byggs inte vidare."""
+    skapande = _kontroller('skapande')
     try:
-        for rad in (Path(root) / 'underlag' / slug / 'DESIGNDOMAR.jsonl').read_text(encoding='utf-8').splitlines():
-            try:
-                d = json.loads(rad)
-            except ValueError:
-                continue
-            if isinstance(d, dict) and d.get('kalla') in ('ägaren', 'ägaren via Codex'):
-                egna.append(d)
+        ag = skapande.agarens_senaste(slug, underlag=Path(root) / 'underlag')
     except OSError:
         return None
-    d = egna[-1] if egna else None
-    return d if d and d.get('beslut') in ('putsa', 'ny_riktning') and str(d.get('tid') or '') > efter else None
+    d = ag['dom']
+    if d and d.get('beslut') in ('putsa', 'ny_riktning') and str(d.get('tid') or '') > efter:
+        return d
+    return {'oklar': skapande.oklara_text(ag)} if ag['oklara'] else None
 
 
 def rapporten(kund):
@@ -100,6 +109,8 @@ def ateljen_forkastad(root, slug):
         return st.get('skal') or 'skaparen fann under förfiningen att grundidén inte bär, och omgångarna är slut'  # skapandeflödet
     if isinstance(st, dict) and st.get('steg') == 'klar' and not st.get('pid'):  # ägaren dömde startsidan efter körningen
         dom = agarens_senare_dom(root, slug, st.get('klar') or '')
+        if dom and dom.get('oklar'):
+            return '%s: startsidan byggs inte vidare' % dom['oklar']
         if dom:
             return 'ägaren dömde startsidan efter körningen (%s, %s, beslut %s): den byggs inte vidare' % (dom.get('tid'), dom.get('kalla'), dom.get('beslut'))
     try:  # panelens förkastning måste hålla ihop med valet; de andra två lägena behöver inget val

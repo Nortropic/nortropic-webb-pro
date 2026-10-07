@@ -1005,7 +1005,7 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     assert rv_hr.HUVUD.match('Huvudreferenskandidat: Snick — x') is None, 'en kandidatrad är ingen huvudreferens'
     # ägarens domlogg och historiken följer med (kontroller/skapande.py)
     import skapande as sk_hr
-    sk_hr.lagg_till_dom('provhr', 'ägaren via Codex', 'ny_riktning', 'Rubriken tar över.\nBildvalet bär inte.', avser='prov', underlag=tmp / 'underlag')
+    sk_hr.lagg_till_dom('provhr', 'ägaren via Codex', 'ny_riktning', 'Rubriken tar över.\nBildvalet bär inte.', avser='prov', underlag=tmp / 'underlag', belagg='prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)')
     sk_hr.lagg_till_historik('provhr', [{'kalla': 'prov', 'namn': 'Stenduken', 'drag': 'varm stenduk, versal serif', 'utfall': 'underkänd av ägaren', 'kritik': 'samma grundidé igen'}], tmp / 'underlag')
     dp = a.divergera_prompt('provhr', [])
     assert '> Rubriken tar över.' in dp and 'återöppnar: grundidén' in dp and 'Stenduken (prov' in dp and 'samma grundidé igen' in dp and 'inget drag är förbjudet i sig' in dp, dp
@@ -2705,7 +2705,7 @@ at_pt.UNDERLAG, at_pt.KUNDER = pt_und, tmp / 'pt-kunder'
 pt_u = pt_und / 'pt-prov'; (pt_u / 'bilder').mkdir(parents=True)
 # läget ur domloggen: ingen körning → ny, ägarens senaste dom avgör efter en körning
 assert pt.lage('pt-prov')[0] == 'om', pt.lage('pt-prov')
-sk.lagg_till_dom('pt-prov', 'ägaren via Codex', 'ny_riktning', 'Grundidén bär inte.', underlag=pt_und, tid='2026-10-05T04:49:00Z')
+sk.lagg_till_dom('pt-prov', 'ägaren via Codex', 'ny_riktning', 'Grundidén bär inte.', underlag=pt_und, tid='2026-10-05T04:49:00Z', belagg='prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)')
 assert pt.lage('pt-prov')[0] == 'ny-riktning'
 (pt_u / 'atelje').mkdir()
 (pt_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'startad': '2026-10-05T06:00:00Z', 'klar': '2026-10-05T07:00:00Z', 'lage': 'ny'}))
@@ -2731,6 +2731,11 @@ except ValueError:
 with open(pt_und / 'pt-prov' / sk.DOMLOGG, 'a') as f_:
     f_.write('inte json\n')
 assert len(sk.domar('pt-prov', pt_und)) == 3 and sk.senaste('pt-prov', underlag=pt_und)['beslut'] == 'godkand'
+# en oläsbar rad hoppas inte över tyst (GR-20261007-r100-om#KAN-A): den syns med plats, och läget gissar inte förbi den;
+# sedan rättas raden, och resten av provet går som förut
+assert [x_['rad'] for x_ in sk.domlogg('pt-prov', pt_und)['olasbara']] == [4] and 'rad 4' in pt.lage('pt-prov')[1], pt.lage('pt-prov')
+dl_pt = pt_und / 'pt-prov' / sk.DOMLOGG
+dl_pt.write_bytes(b''.join(r_ + b'\n' for r_ in dl_pt.read_bytes().split(b'\n') if r_ and r_ != b'inte json'))
 kr_pt = sk.kritikrader('pt-prov', underlag=pt_und)
 assert kr_pt.index('  > Godkänd.') < kr_pt.index('  > Grundidén bär inte.') and any('återöppnar: grundidén' in r for r in kr_pt), kr_pt
 sk.lagg_till_historik('pt-prov', [{'kalla': 'k', 'namn': 'A', 'drag': 'd', 'utfall': 'förkastad av panelen', 'kritik': 'platt'}], pt_und)
@@ -2904,7 +2909,7 @@ import hashlib as hashlib_om  # noqa: E402
 
 def hash_om(d):
     """Versionens hash räknad av provet självt, oberoende av koden som prövas (som kandidater.version): sha256 över
-    DESIGN.md, kod/ och kod-src/ i katalogen d, i sorterad ordning och utan länkar."""
+    DESIGN.md, kod/, kod-src/ och fryst material i katalogen d, utan länkar."""
     h_ = hashlib_om.sha256()
     d = Path(d)
     if (d / 'DESIGN.md').is_file() and not (d / 'DESIGN.md').is_symlink():
@@ -2919,6 +2924,10 @@ def hash_om(d):
                 if q_.is_symlink() or not q_.is_file():
                     continue
                 h_.update(str(q_.relative_to(d)).encode() + b'\0' + q_.read_bytes() + b'\0')
+    for q_ in sorted((d / 'material').rglob('*')):
+        assert not q_.is_symlink(), 'arkiverat material får inte innehålla länkar'
+        if q_.is_file():
+            h_.update(str(q_.relative_to(d)).encode() + b'\0' + q_.read_bytes() + b'\0')
     return h_.hexdigest()
 
 
@@ -3737,11 +3746,11 @@ with contextlib.redirect_stdout(io.StringIO()):
     assert pt.main(['pt-gammal']) == 2, 'inget tyst omtag över gamla beslut'
 (pt_g / 'dom.txt').write_text('Ashton-systemet bär inte.')
 with contextlib.redirect_stdout(io.StringIO()):
-    assert sk.main(['dom', 'pt-gammal', '--kalla', 'ägaren via Codex', '--beslut', 'ny_riktning', '--fil', str(pt_g / 'dom.txt')]) == 2, 'okänt underlag i den riktiga roten vägras'
+    assert sk.main(['dom', 'pt-gammal', '--kalla', 'ägaren via Codex', '--beslut', 'ny_riktning', '--fil', str(pt_g / 'dom.txt'), '--belagg', 'prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)']) == 2, 'okänt underlag i den riktiga roten vägras'
 gu_sk = sk.UNDERLAG; sk.UNDERLAG = pt_und
 try:
     with contextlib.redirect_stdout(io.StringIO()):
-        assert sk.main(['dom', 'pt-gammal', '--kalla', 'ägaren via Codex', '--beslut', 'ny_riktning', '--fil', str(pt_g / 'dom.txt')]) == 0
+        assert sk.main(['dom', 'pt-gammal', '--kalla', 'ägaren via Codex', '--beslut', 'ny_riktning', '--fil', str(pt_g / 'dom.txt'), '--belagg', 'prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)']) == 0
     os.environ['NWP_SLUG'] = 'pt-gammal'
     try:
         with contextlib.redirect_stderr(io.StringIO()):
@@ -3782,7 +3791,8 @@ assert at_pt.installera_godkand('pt-godk') == [], 'samma fil: inget att lägga'
 try:
     at_pt.installera_godkand('pt-godk'); raise AssertionError('en vinnarfil som inte är den godkända installeras inte')
 except RuntimeError as e_:
-    assert 'inte den godkända' in str(e_), e_
+    assert 'inte den godkända' in str(e_) or 'fil som inte är godkänd' in str(e_), e_
+    assert (sajt_g / 'src' / 'pages' / 'index.astro').read_text() == '<p>godkänd</p>', 'nekad förkontroll ändrade sajten'
 (ga_ / 'atelje' / 'vinnare' / 'kod' / 'index.astro').write_text('<p>godkänd</p>')
 shutil.move(str(at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt'), str(tmp / 'ersatt-sparad')); (tmp / 'ersatt-utanfor').mkdir()
 (at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt').symlink_to(tmp / 'ersatt-utanfor')
@@ -3896,7 +3906,7 @@ assert sk.godkand_giltig('om-prov', pt_und, at_pt.KUNDER)[0] and pt.lage('om-pro
 gu_sk = sk.UNDERLAG; sk.UNDERLAG = pt_und
 try:
     with contextlib.redirect_stdout(io.StringIO()):
-        assert sk.main(['dom', 'om-prov', '--kalla', 'ägaren via Codex', '--beslut', 'ny_riktning', '--fil', str(tmp / 'codex-dom.txt'), '--tid', '2026-10-05T10:00:00Z']) == 0
+        assert sk.main(['dom', 'om-prov', '--kalla', 'ägaren via Codex', '--beslut', 'ny_riktning', '--fil', str(tmp / 'codex-dom.txt'), '--tid', '2026-10-05T10:00:00Z', '--belagg', 'prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)']) == 0
 finally:
     sk.UNDERLAG = gu_sk
 assert not sk.godkand_giltig('om-prov', pt_und, at_pt.KUNDER)[0] and 'godkand' not in json.loads((om_u / 'atelje' / 'VINNARE.json').read_text()), 'domen via Codex drar tillbaka godkännandet'
@@ -3936,7 +3946,7 @@ finally:
 st_om = (om_u / 'atelje' / 'STATUS.json').read_text()
 (om_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'fel', 'fel': 'RuntimeError: förfiningen'}))
 try:
-    at_pt.doma('om-prov', 'ägaren via Codex', 'godkand', 'Godkänd.'); raise AssertionError('en körning som föll kan inte godkännas')
+    at_pt.doma('om-prov', 'ägaren via Codex', 'godkand', 'Godkänd.', belagg='prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)'); raise AssertionError('en körning som föll kan inte godkännas')
 except ValueError as e_:
     assert 'klar körning' in str(e_), e_
 (om_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'forfina', 'pid': os.getpid()}))
@@ -3964,7 +3974,7 @@ with contextlib.redirect_stdout(ut_om):
 assert 'domlogg' in ut_om.getvalue(), ut_om.getvalue()[-400:]
 # prototypens läge: en dom som inte gäller någon körning i skapandeflödet startar ingen
 (pt_und / 'lg-prov').mkdir()
-sk.lagg_till_dom('lg-prov', 'ägaren via Codex', 'putsa', 'Putsa vidare.', underlag=pt_und)
+sk.lagg_till_dom('lg-prov', 'ägaren via Codex', 'putsa', 'Putsa vidare.', underlag=pt_und, belagg='prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)')
 assert pt.lage('lg-prov')[0] == 'stopp' and 'gäller ingen körning' in pt.lage('lg-prov')[1], pt.lage('lg-prov')
 assert (pt.bygget_nekas('lg-prov') or '').startswith('stopp'), 'en dom som inte gäller någon körning stoppar också bygget (omgranskning 2, fynd 3)'
 # (fynd 4 och 7) --fortsatt: main skriver statusen med det som bär återupptagningen innan arbetaren startar; utan vinnare
@@ -4050,7 +4060,7 @@ at_pt.subprocess = types.SimpleNamespace(Popen=lambda *a_, **k_: (_ for _ in ())
                                          DEVNULL=subprocess.DEVNULL, STDOUT=subprocess.STDOUT, run=subprocess.run,
                                          TimeoutExpired=subprocess.TimeoutExpired, CompletedProcess=subprocess.CompletedProcess)
 try:
-    sk.lagg_till_dom('fs-prov', 'ägaren via Codex', 'putsa', 'Luften.', underlag=pt_und, tid='2026-10-05T08:00:00Z')
+    sk.lagg_till_dom('fs-prov', 'ägaren via Codex', 'putsa', 'Luften.', underlag=pt_und, tid='2026-10-05T08:00:00Z', belagg='prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)')
     (fs_u / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'startad': '2026-10-05T06:00:00Z', 'klar': '2026-10-05T07:00:00Z'}))
     with contextlib.redirect_stdout(io.StringIO()):
         assert at_pt.main(['fs-prov', '--bara-domare']) == 2, '--bara-domare efter ägarens dom'
@@ -4182,6 +4192,10 @@ try:
                                                        'rackvidd': {'orter': ['Luleå', 'Boden']}, 'orgnr': '556677-8899',
                                                        'kontaktvagar': [{'typ': 'telefon', 'varde': '070-111 22 33'}], 'webb': {'doman': 'provfirman-snickeri.se'}, 'e_post': 'info@provfirman.se', 'kategorier': ['Snickare']}))
     (u_kd / 'BRIEF.md').write_text('# Brief\n\n## §2 Målgrupper och toppuppgifter\n\n1. Se liknande jobb\n')
+    # Samma källunderlag före fotograferingen och förfiningen. En senare
+    # ändring ska ge en ny version, inte pröva återställning av den gamla.
+    for namn_ in ('RESEARCH.md', 'TEXTUNDERLAG.md'):
+        (u_kd / namn_).write_text('syntetiskt underlag')
     (u_kd / 'referenser' / 'paket-v01' / 'x').mkdir(parents=True)
     (u_kd / 'referenser' / 'paket-v01' / 'x' / 'vy.png').write_bytes(b'png')
     (u_kd / 'referenser' / 'tjanster').mkdir(); (u_kd / 'referenser' / 'tjanster' / 'TJANSTER.md').write_text('# tjänsterna')
@@ -4533,7 +4547,12 @@ try:
     (kd.rot(sl_kd) / 'STATUS.json').write_text(json.dumps({'steg': 'klar_for_bedomning', 'startad': '2026-10-05T10:00:00Z', 'klar': '2026-10-05T11:00:00Z', 'lage': 'ny'}))
     startat_ = []
     spara_popen_kd, spara_vanta_kd, spara_uov_kd = at_pt.subprocess.Popen, at_pt.vanta, at_pt.utforska_och_valj
-    at_pt.subprocess.Popen = lambda args, **kw: startat_.append(args) or type('P', (), {'pid': 999999998})()
+    def popen_kd_(args, **kw):
+        if '--arbetare' in args and any(str(a_).endswith('/atelje.py') for a_ in args):
+            startat_.append(args)
+            return type('P', (), {'pid': 999999998})()
+        return spara_popen_kd(args, **kw)
+    at_pt.subprocess.Popen = popen_kd_
     at_pt.vanta = lambda rot, sek: 0
     at_pt.utforska_och_valj = lambda *a, **k: (_ for _ in ()).throw(AssertionError('den äldre utforskningen startades'))
     try:
@@ -4552,16 +4571,17 @@ try:
         stn_ = json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())
         assert stn_['kandidatflode'] and stn_['valda'] == ['k02'] and stn_['forra_lage'] == 'valda', stn_
         # förfiningen faller efter sessionen (N10): den valda versionen återställs med bilderna
-        kd.fotografera = lambda slug, kid: (_ for _ in ()).throw(RuntimeError('den lokala servern startade inte')) \
-            if 'förfinad' in (kd.ksajt(slug, kid) / 'src' / 'pages' / 'index.astro').read_text() else spara_kd['fotografera'](slug, kid)
+        kd.fotografera = lambda slug, kid, **kw: (_ for _ in ()).throw(RuntimeError('den lokala servern startade inte')) \
+            if 'förfinad' in (kd.ksajt(slug, kid) / 'src' / 'pages' / 'index.astro').read_text() else spara_kd['fotografera'](slug, kid, **kw)
         n_kd = len(sess_kd)
         at_pt.arbetare(sl_kd, 'fortsatt')
     finally:
         at_pt.subprocess.Popen, at_pt.vanta, at_pt.utforska_och_valj = spara_popen_kd, spara_vanta_kd, spara_uov_kd
         kd.leverera_metod, kd.fotografera = spara_kd['leverera_metod'], spara_kd['fotografera']
     stn_ = json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())
-    assert stn_['steg'] == 'klar_for_bedomning' and stn_['fas'] == 'forfining' and [s_['ut'][:13] for s_ in sess_kd[n_kd:]] == ['svar-forfina-'], (stn_, sess_kd[n_kd:])
+    assert stn_['steg'] == 'klar_for_bedomning' and stn_['fas'] == 'forfining' and [s_['ut'][:13] for s_ in sess_kd[n_kd:]] == ['svar-forfina-'], (stn_, sess_kd[n_kd:], kd.las_status(sl_kd, 'k02'))
     st2n_ = kd.las_status(sl_kd, 'k02')
+    assert 'den lokala servern startade inte' in st2n_['skal'], st2n_['skal']
     assert st2n_['status'] == 'vald' and 'återställd' in st2n_['skal'] and st2n_['version'] == fore2_ and 'forfining_pagar' not in st2n_, st2n_
     assert 'förfinad' not in (kd.ksajt(sl_kd, 'k02') / 'src' / 'pages' / 'index.astro').read_text() and (kd.kdir(sl_kd, 'k02') / 'bilder' / 'start' / 'vy-390-forsta.png').is_file()
 
@@ -4571,7 +4591,7 @@ try:
     assert at_pt.avbruten(json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text()))
     assert pt.lage(sl_kd)[0] == 'stopp' and '--fortsatt' in pt.lage(sl_kd)[1], 'en död arbetare är ett avbrott, aldrig en ny körning (V2)'
     try:
-        at_pt.doma(sl_kd, 'ägaren via Codex', 'valj', 'Hellre C.', kandidater=[{'id': 'k03', 'version': kd.las_status(sl_kd, 'k03')['version']}])
+        at_pt.doma(sl_kd, 'ägaren via Codex', 'valj', 'Hellre C.', kandidater=[{'id': 'k03', 'version': kd.las_status(sl_kd, 'k03')['version']}], belagg='prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)')
         raise AssertionError('ingen dom under ett avbrott (N2)')
     except ValueError as e_:
         assert 'avbröts' in str(e_) and '--fortsatt' in str(e_), e_
@@ -4581,7 +4601,7 @@ try:
         assert at_pt.main([sl_kd]) == 4, 'utan flagga startas ingen ny körning över ett avbrott'
     startat_ = []
     spara_popen_kd, spara_vanta_kd = at_pt.subprocess.Popen, at_pt.vanta
-    at_pt.subprocess.Popen = lambda args, **kw: startat_.append(args) or type('P', (), {'pid': 999999998})()
+    at_pt.subprocess.Popen = popen_kd_
     at_pt.vanta = lambda rot, sek: 0
     try:
         with contextlib.redirect_stdout(io.StringIO()):
@@ -4653,7 +4673,10 @@ try:
     # installationen: alla sidor, och de ersatta behåller sin väg (M9)
     ers_kd = at_pt.installera_godkand(sl_kd)
     assert (huvud_kd / 'src' / 'pages' / 'index.astro').read_text() == 'start k02 förfinad' and (huvud_kd / 'src' / 'pages' / 'projekt' / 'a' / 'index.astro').read_text() == 'undersida'
-    assert (huvud_kd / 'DESIGN.md').is_file() and list((kd_k / sl_kd / 'startsida-ersatt').glob('*/src/pages/index.astro')) and len(ers_kd) == 3, ers_kd
+    assert (huvud_kd / 'DESIGN.md').is_file() and list((kd_k / sl_kd / 'startsida-ersatt').glob('*/src/pages/index.astro')), ers_kd
+    assert {str(Path(n_).relative_to(huvud_kd.relative_to(tmp))) for n_ in ers_kd} == {
+        'src/pages/index.astro', 'src/pages/projekt/a/index.astro', 'DESIGN.md', 'public/favicon.svg'}, ers_kd
+    assert (huvud_kd / 'src/assets/atelje/a.jpg').read_bytes() == b'jpg', 'redan identiskt kundmaterial bevaras'
     assert at_pt.installera_godkand(sl_kd) == [], 'en andra installation ändrar inget'
     (kd.rot(sl_kd) / 'vinnare' / 'kod' / 'projekt' / 'a' / 'index.astro').write_text('ändrad efter godkännandet')
     assert not sk.godkand_giltig(sl_kd, kd_u, kd_k)[0] and 'godkända sidor' in sk.godkand_giltig(sl_kd, kd_u, kd_k)[1]
@@ -4677,9 +4700,9 @@ try:
     gu_sk_kd = sk.UNDERLAG; sk.UNDERLAG = kd_u
     try:
         with contextlib.redirect_stderr(io.StringIO()):
-            assert sk.main(['dom', sl_kd, '--kalla', 'ägaren via Codex', '--beslut', 'jamfor', '--fil', str(u_kd / 'dom.txt'), '--kandidater', 'Förslag Q']) == 2
+            assert sk.main(['dom', sl_kd, '--kalla', 'ägaren via Codex', '--beslut', 'jamfor', '--fil', str(u_kd / 'dom.txt'), '--kandidater', 'Förslag Q', '--belagg', 'prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)']) == 2
         with contextlib.redirect_stdout(io.StringIO()):
-            assert sk.main(['dom', sl_kd, '--kalla', 'ägaren via Codex', '--beslut', 'forkasta', '--fil', str(u_kd / 'dom.txt'), '--tid', '2026-10-05T14:00:00Z']) == 0
+            assert sk.main(['dom', sl_kd, '--kalla', 'ägaren via Codex', '--beslut', 'forkasta', '--fil', str(u_kd / 'dom.txt'), '--tid', '2026-10-05T14:00:00Z', '--belagg', 'prov: ägarens egna ord, ordagrant förmedlade (syntetiskt)']) == 0
     finally:
         sk.UNDERLAG = gu_sk_kd
     assert pt.lage(sl_kd)[0] == 'stopp' and 'ny riktning' in pt.lage(sl_kd)[1] and not sk.godkand_giltig(sl_kd, kd_u, kd_k)[0], 'förkastningen drar tillbaka godkännandet'
@@ -5163,7 +5186,10 @@ try:
             efter_gk = next(k_ for k_ in kd.sammanstall(sl_sk) if k_['id'] == 'k02')['skisskritik']
         finally:
             kd.domd = spara_domd_gk
-        assert efter_gk['gjord'] and efter_gk['rekommendation'] == 'förkasta' and efter_gk['storsta_problem'] == 'rubriken tar över första vyn', efter_gk
+        # Svaret ändrade koden efter kritiken: historiken visas efter ägarbeslutet,
+        # men får inte framställas som en aktuell bedömning av de nya bilderna.
+        assert not efter_gk['gjord'] and not efter_gk['aktuell'] and efter_gk['historiskt_gjord'] and efter_gk['status'] == 'historisk', efter_gk
+        assert efter_gk['andrad_efter_bedomningen'] and efter_gk['rekommendation'] == 'förkasta' and efter_gk['storsta_problem'] == 'rubriken tar över första vyn', efter_gk
         assert 'skisskritik' not in next(k_ for k_ in kd.sammanstall(sl_sk) if k_['id'] == 'k02')
         blind_gk = next(k_ for k_ in kd.sammanstall(sl_sk) if k_['id'] == 'k02')
         assert 'GRANSKNINGENS ORD' not in json.dumps(blind_gk, ensure_ascii=False) and 'förkasta' not in json.dumps(blind_gk, ensure_ascii=False)
@@ -5314,6 +5340,9 @@ assert r_k3.returncode == 2 and not r_k3.stdout.strip(), 'en tom indata stoppas'
 # referenstjänsternas sessioner: kundvakten öppnar tjänstens verktyg, och sessionen kan inte läsa filer (granskningen 2026-10-05, fynd 6)
 import referenstjanster as rt_k3
 spara_run_k3 = rt_k3.subprocess.run
+spara_env_k3 = rt_k3.REFERO_ENV
+rt_k3.REFERO_ENV = tmp / 'refero-provnyckel.txt'  # attrappen läser aldrig användarens hemligheter, också med tomt HOME
+rt_k3.REFERO_ENV.write_text('REFERO_MCP_TOKEN=syntetisk-provnyckel\n')
 fangat_k3 = {}
 rt_k3.subprocess.run = lambda args, **kw: (fangat_k3.update(args=args) or subprocess.CompletedProcess(args, 0, b'', b''))
 try:
@@ -5333,6 +5362,7 @@ try:
         pass
 finally:
     rt_k3.subprocess.run = spara_run_k3
+    rt_k3.REFERO_ENV = spara_env_k3
 # passen efter fördjupningen (Codex punkt 8–9; granskning 4, G1, G4, G5, G7): tre delar, omförsök, återställning
 sl_kp = 'kp-prov'
 spara_kp = {n_: getattr(kd, n_) for n_ in ('fotografera', 'aterstall_och_fotografera', 'bevara_version', 'designkontroll')}
@@ -5588,7 +5618,8 @@ assert au.sammanstall([au2_])['median_minuter'] is None and au.sammanstall([au2_
 shutil.rmtree(b2_)
 assert au.byggen() == ['prov-bygge'], au.byggen()
 bb_ = au.bygge('prov-bygge')
-assert bb_['bygget'] == {'sessioner': 1, 'turer': 100, 'minuter': 10.0, 'listpris_usd': 10.5} and bb_['totalt'] == {'minuter': 16.0, 'turer': 185, 'listpris_usd': 18.0}, bb_
+assert {x: bb_['bygget'][x] for x in ('sessioner', 'turer', 'minuter', 'listpris_usd')} == {'sessioner': 1, 'turer': 100, 'minuter': 10.0, 'listpris_usd': 10.5}, bb_
+assert {x: bb_['totalt'][x] for x in ('minuter', 'turer', 'listpris_usd')} == {'minuter': 16.0, 'turer': 185, 'listpris_usd': 18.0} and bb_['totalt']['fullstandigt'], bb_
 assert bb_['granskning']['omgangar'] == 3 and bb_['granskning']['basta_runda'] == 'runda-02' and not bb_['granskning']['sista_ar_basta'] and bb_['granskning']['forsamrade_rundor'] == ['runda-03'], bb_['granskning']
 assert [x['runda'] for x in bb_['granskning']['fallna_rundor']] == ['runda-04'] and bb_['ateljen']['turer'] == 50, bb_
 assert bb_['provet'] == {'korningar': 2, 'roda_grindar': {'seo': 1}, 'forsta_hela_grona': 2} and bb_['agaren']['accepterad'] and bb_['agaren']['minuter'] == 12.5, bb_

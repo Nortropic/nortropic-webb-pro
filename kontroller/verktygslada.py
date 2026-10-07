@@ -381,7 +381,7 @@ def logga_andring(katalog, **post):
 def andringar(katalog, sedan=None):
     ut = []
     try:
-        for rad in (Path(katalog) / 'ANDRINGAR.jsonl').read_text(encoding='utf-8').splitlines():
+        for rad in (Path(katalog) / 'ANDRINGAR.jsonl').read_text(encoding='utf-8').split('\n'):  # JSONL: radslut (KAN-A)
             try:
                 d = json.loads(rad)
             except ValueError:

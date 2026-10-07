@@ -261,7 +261,7 @@ def transkript(handelser, sid):
 
 def sess_falsk(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
     SESSIONER.append({'prompt': prompt, 'verktyg': list(verktyg), 'ut': Path(ut).name, 'schema': schema, 'frist': frist, 'nekas': list(nekas),
-                      'slug': slug, 'modell': modell, 'max_turer': max_turer})
+                      'slug': slug, 'modell': modell, 'effort': effort, 'max_turer': max_turer})
     nyckel = next((k_ for k_ in SVAR if k_(prompt, schema)), None)
     so, sid = SVAR[nyckel](prompt, schema) if nyckel else (None, None)
     svar_ = {'structured_output': so, 'num_turns': 9, 'duration_ms': 60000, 'total_cost_usd': 0.1, 'session_id': sid}
@@ -853,5 +853,202 @@ def _lista():
     assert all(f_ in rad for f_ in kd.BLIND_HISTORIK) and 'ägarens beslut 2026-10-07' in rad and 'GR-20261007-r103#K4' in rad, rad
 
 
-print('skisskritikens prov: %d fall, %d föll' % (10, len(FEL)), file=sys.stderr)
+@fall('11 avbrutet försöks kritik och status följer med arkivet')
+def _arkiv_kritik():
+    kund(); d=kd.kdir(SLUG,'k01')
+    kd.satt_status(SLUG,'k01','under_arbete',forsok=1,skisskritik={'gjord':True})
+    skriv(d/'SKISSKRITIK.json',json.dumps({'version':'gammal','motivering':'syntetiskt gammalt omdöme'}))
+    skriv(d/'svar-skisskritik-1.json','{"result":"syntetiskt"}')
+    mal=kd.arkivera_forsok(SLUG,'k01',kd.las_status(SLUG,'k01'))
+    assert (mal/'SKISSKRITIK.json').is_file() and not (d/'SKISSKRITIK.json').exists()
+    assert json.loads((mal/'STATUS.json').read_text())['forsok']==1
+    assert (mal/'svar-skisskritik-1.json').is_file()
+
+
+@fall('12 behandla_skiss kör ny kritik efter avbrott trots gammal statusflagga')
+def _aterupptagen_kritik():
+    from unittest.mock import patch
+    kund(); d=kd.kdir(SLUG,'k01'); kritiker(); SESSIONER.clear()
+    huvud=atelje.KUNDER/SLUG/'sajt'
+    shutil.copytree(kd.ksajt(SLUG,'k01'),huvud)
+    (huvud/'node_modules').mkdir()
+    kd.satt_status(SLUG,'k01','under_arbete',forsok=1,skisskritik={'gjord':True})
+    skriv(d/'SKISSKRITIK.json',json.dumps({'version':'gammal'}))
+    riktig=kd.forbered_projekt
+    def forbered(slug,kid):
+        riktig(slug,kid)
+        skriv(kd.ksajt(slug,kid)/'src/pages/index.astro','<h1>Syntetiskt nytt försök</h1>')
+        vd=kd.kdir(slug,kid)/'varv/start/varv-01'
+        for b in ('390','1440'):
+            for slag in ('forsta','hela'):skriv(vd/('vy-%s-%s.png'%(b,slag)),png(int(b)))
+    with patch.object(kd,'forbered_projekt',forbered):
+        kd.behandla_skiss(SLUG,'k01')
+    anrop=[x for x in SESSIONER if x['schema'] is kd.SKISSKRITIK_SCHEMA]
+    assert len(anrop)==1,[(x['ut'],bool(x['schema'])) for x in SESSIONER]
+    post=json.loads((d/'SKISSKRITIK.json').read_text())
+    assert post['identitet']['forsok']==2 and post['identitet']['kandidat']=='k01'
+    assert (d/'forsok-1/SKISSKRITIK.json').is_file()
+
+
+@fall('13 kritikens giltighet kräver samma försök, underlag och artefakt; saknad fil är okänd')
+def _kritik_identitet():
+    kund(); d=kd.kdir(SLUG,'k01'); kritiker()
+    kd.satt_status(SLUG,'k01','under_arbete',forsok=1)
+    post=kd.skisskritik(SLUG,'k01')
+    assert kd.skisskritik_giltig(SLUG,'k01',post)
+    fil=atelje.UNDERLAG/SLUG/'BRIEF.md';innan=fil.read_bytes();fil.write_bytes(innan+b'\nAndrat syntetiskt uppdrag')
+    assert not kd.skisskritik_giltig(SLUG,'k01',post)
+    fil.write_bytes(innan); assert kd.skisskritik_giltig(SLUG,'k01',post)
+    index=kd.ksajt(SLUG,'k01')/'src/pages/index.astro';index.write_text('<h1>Ny version</h1>')
+    assert not kd.skisskritik_giltig(SLUG,'k01',post)
+    post=kd.skisskritik(SLUG,'k01'); assert kd.skisskritik_giltig(SLUG,'k01',post)
+    kd.satt_status(SLUG,'k01','under_arbete',forsok=2)
+    assert not kd.skisskritik_giltig(SLUG,'k01',post)
+    (d/'SKISSKRITIK.json').unlink()
+    assert not kd.skisskritik_giltig(SLUG,'k01')
+    kd.satt_status(SLUG,'k01','klar',forsok=2)
+    antal=len(SESSIONER);kd.behandla_skiss(SLUG,'k01')
+    assert len(SESSIONER)==antal,'färdig skiss arbetades om automatiskt'
+
+
+def godkann_foto():
+    st=kd.fotografera(SLUG,'k01',skiss=True)
+    assert st['status']=='klar',st
+    kd.satt_status(SLUG,'k01','forfinad',design_fel=[])
+    skriv(kd.rot(SLUG)/'STATUS.json',json.dumps({'kandidatflode':True,'steg':'klar_for_bedomning','fas':'forfining'}))
+    return atelje.doma(SLUG,'ägaren','godkand','Syntetiskt godkännande.',
+                       kandidater=[{'id':'k01','version':st['version']}],belagg='syntetiskt prov',tid=atelje.nu())
+
+
+@fall('14 godkänd kandidat överför samma public-filer och kundbilder till helbygget')
+def _materialoverforing():
+    kund();s=kd.ksajt(SLUG,'k01')
+    skriv(s/'public/illustration.svg','<svg><!-- syntetiskt original --></svg>')
+    skriv(s/'src/assets/atelje/material.png',png())
+    forhandsversion=kd.projektets_version(SLUG,'k01')
+    godkann_foto()
+    assert kd.version(SLUG,'k01')==forhandsversion
+    huvud=atelje.KUNDER/SLUG/'sajt'
+    skriv(huvud/'public/illustration.svg','annat tidigare material')
+    atelje.installera_godkand(SLUG)
+    assert (huvud/'public/illustration.svg').read_bytes()==(s/'public/illustration.svg').read_bytes()
+    assert (huvud/'src/assets/atelje/material.png').read_bytes()==png()
+    v=kd.projektets_version(SLUG,'k01')
+    skriv(s/'public/illustration.svg','ändrad bild')
+    assert kd.projektets_version(SLUG,'k01')!=v,'public-filen ingick inte i versionen'
+    assert any(p.read_text()=='annat tidigare material' for p in (atelje.KUNDER/SLUG/'startsida-ersatt').rglob('*.svg'))
+
+
+@fall('15 nytt underlag efter fotografering eller godkännande kräver ny bedömning')
+def _andrat_underlag():
+    kund();u=atelje.UNDERLAG/SLUG;st=kd.fotografera(SLUG,'k01',skiss=True)
+    brief=u/'BRIEF.md';innan=brief.read_bytes();brief.write_bytes(innan+b'\nNytt behov')
+    try:
+        tmp,_=kd.forbered_vinnare(SLUG,'k01',st['version'])
+    except ValueError as e:
+        assert 'underlag' in str(e)
+    else:
+        shutil.rmtree(tmp)
+        raise AssertionError('ändrat underlag godkändes mot äldre fotografering')
+    brief.write_bytes(innan);godkann_foto()
+    assert kd.skapande.godkand_giltig(SLUG,atelje.UNDERLAG,atelje.KUNDER)[0]
+    skriv(u/'bilder/nytillkommen.png',png())
+    ok,skal=kd.skapande.godkand_giltig(SLUG,atelje.UNDERLAG,atelje.KUNDER)
+    assert not ok and 'underlag' in skal,(ok,skal)
+    try:atelje.installera_godkand(SLUG)
+    except RuntimeError as e:assert 'underlag' in str(e)
+    else:raise AssertionError('överföringen accepterade ändrat underlag')
+
+
+@fall('16 ändrat fryst material och länkade tillgångar ger inget godkännande eller delvis installation')
+def _materialintegritet():
+    kund();s=kd.ksajt(SLUG,'k01');skriv(s/'public/bild.svg','<svg/>');godkann_foto()
+    fryst=kd.rot(SLUG)/'vinnare/material/public/bild.svg'
+    assert fryst.is_file(),'materialet frystes inte'
+    fryst.write_text('ändrat')
+    huvud=atelje.KUNDER/SLUG/'sajt';skriv(huvud/'src/pages/index.astro','behåll')
+    assert not kd.skapande.godkand_giltig(SLUG,atelje.UNDERLAG,atelje.KUNDER)[0]
+    try:atelje.installera_godkand(SLUG)
+    except RuntimeError:pass
+    else:raise AssertionError('ändrat material installerades')
+    assert (huvud/'src/pages/index.astro').read_text()=='behåll'
+    kund();s=kd.ksajt(SLUG,'k01');skriv(s/'utanforsajt.txt','syntetiskt')
+    (s/'public').mkdir();(s/'public/lank.txt').symlink_to('../utanforsajt.txt')
+    try:kd.fotografera(SLUG,'k01',skiss=True)
+    except (ValueError,RuntimeError):pass
+    else:raise AssertionError('länkad tillgång försvann tyst ur versionen')
+
+
+@fall('17 material som utelämnats ur den godkända kandidaten bevaras som tidigare material, inte i helbygget')
+def _material_som_tagits_bort():
+    kund();s=kd.ksajt(SLUG,'k01');skriv(s/'public/behall.svg','<svg/>');godkann_foto()
+    huvud=atelje.KUNDER/SLUG/'sajt';skriv(huvud/'public/borttagen.svg','tidigare syntetiskt material')
+    atelje.installera_godkand(SLUG)
+    assert not (huvud/'public/borttagen.svg').exists()
+    assert (huvud/'public/behall.svg').is_file()
+    assert any(p.read_text()=='tidigare syntetiskt material' for p in (atelje.KUNDER/SLUG/'startsida-ersatt').rglob('borttagen.svg'))
+    arkiv = atelje.KUNDER/SLUG/'startsida-ersatt'
+    fore = sorted(str(p.relative_to(arkiv)) for p in arkiv.rglob('*'))
+    assert atelje.installera_godkand(SLUG) == [], 'samma material ska inte installeras om'
+    assert sorted(str(p.relative_to(arkiv)) for p in arkiv.rglob('*')) == fore, 'återförsöket skapade ett nytt arkiv'
+
+
+@fall('18 fil på en godkänd underkatalogs plats stoppar före första ändringen')
+def _material_malkonflikt():
+    kund();s=kd.ksajt(SLUG,'k01');skriv(s/'public/bild/logo.svg','<svg/>');godkann_foto()
+    huvud=atelje.KUNDER/SLUG/'sajt';skriv(huvud/'src/pages/index.astro','behåll index');skriv(huvud/'public/bild','behåll fil')
+    try:atelje.installera_godkand(SLUG)
+    except RuntimeError:pass
+    else:raise AssertionError('en målkatalog var en vanlig fil')
+    assert (huvud/'src/pages/index.astro').read_text()=='behåll index'
+    assert (huvud/'public/bild').read_text()=='behåll fil'
+
+
+@fall('19 kritikens försöksidentitet når slutposten och saknat bevis är inte genomförd kritik')
+def _kritik_slutpost():
+    import ateljeslut
+    kund();kritiker();kd.satt_status(SLUG,'k01','under_arbete',forsok=1)
+    post=kd.skisskritik(SLUG,'k01')
+    kd.satt_status(SLUG,'k01','klar',version=post['version'],skisskritik={'gjord':True})
+    def las():return ateljeslut.skisskritiken(SLUG,'k01',kd.las_status(SLUG,'k01'))
+    assert las()['gjord'] and las()['aktuell'] and las()['identitet']==post['identitet']
+    brief=atelje.UNDERLAG/SLUG/'BRIEF.md';brief.write_text(brief.read_text()+'\nÄndrat behov')
+    assert not las()['gjord'] and las()['status']=='historisk' and las()['andrad_efter_bedomningen']
+    (kd.kdir(SLUG,'k01')/'SKISSKRITIK.json').unlink()
+    assert not las()['gjord'] and las()['status']=='okand'
+
+
+@fall('20 ändrad råkälla upphäver underlagets godkännande')
+def _rakalla():
+    kund();kalla=atelje.UNDERLAG/SLUG/'kalla/fakta.txt';skriv(kalla,'Syntetisk uppgift A');godkann_foto()
+    fore=kd.skapande.underlagsversion(SLUG,atelje.UNDERLAG);kalla.write_text('Syntetisk uppgift B')
+    assert kd.skapande.underlagsversion(SLUG,atelje.UNDERLAG)!=fore
+    assert not kd.skapande.godkand_giltig(SLUG,atelje.UNDERLAG,atelje.KUNDER)[0]
+
+
+@fall('21 skisskaparens modell och effort når bara skaparens två pass, inte kritik eller generell ateljé')
+def _skaparval():
+    from unittest.mock import patch
+    kund(); kritiker(); SESSIONER.clear()
+    with patch.dict(os.environ, {'NWP_SKISSSKAPARE_MODELL': 'syntetisk-skaparmodell', 'NWP_SKISSSKAPARE_EFFORT': 'medium'}):
+        kd.skissa(SLUG, 'k01')
+        skapare = [x for x in SESSIONER if x['schema'] is None]
+        krit = [x for x in SESSIONER if x['schema'] is kd.SKISSKRITIK_SCHEMA]
+        assert len(skapare) == 2 and len(krit) == 1, [(s['ut'],s['schema'] is None) for s in SESSIONER]
+        assert all(x['modell'] == 'syntetisk-skaparmodell' and x['effort'] == 'medium' for x in skapare), skapare
+        assert krit[0]['modell'] == kd.GRANSKARE_MODELL and krit[0]['effort'] == 'high', krit
+        args = atelje.session_args([], modell=skapare[0]['modell'], effort=skapare[0]['effort'])
+        assert args[args.index('--model')+1] == 'syntetisk-skaparmodell' and args[args.index('--effort')+1] == 'medium'
+        andra = atelje.session_args([])
+        assert andra[andra.index('--model')+1] == atelje.MODELL and andra[andra.index('--effort')+1] == atelje.EFFORT
+        st = kd.las_status(SLUG,'k01')
+        assert st['skaparinstallningar']['begart'] == {'modell':'syntetisk-skaparmodell','effort':'medium'}, st
+        assert st['skaparinstallningar']['observerat'] == {'modell':None,'effort':None}
+        rapport = kd.redovisa_skiss(SLUG, {'modell':'syntetisk-allman-modell','tider':{}}).read_text()
+        assert 'syntetisk-skaparmodell / medium' in rapport, 'rapporten tappade kandidatens begärda skaparval'
+        assert 'inte bekräftat av modellen' in rapport, 'begärda inställningar visades som observerade'
+    assert kd.skaparval() == {'modell':atelje.MODELL,'effort':kd.EFFORT_SKISS}
+
+
+print('skisskritikens prov: %d fall, %d föll' % (21, len(FEL)), file=sys.stderr)
 sys.exit(1 if FEL else 0)

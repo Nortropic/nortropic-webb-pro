@@ -324,7 +324,7 @@ echo "   A/B-mätningens kontextdjup"
 import sys; sys.path.insert(0, '$ROOT/kontroller'); import ab
 u = lambda n: {'type': 'assistant', 'message': {'usage': {'input_tokens': 10, 'cache_creation_input_tokens': 0, 'cache_read_input_tokens': n}}}
 k = ab.kontextdjup([u(100), u(600000), {'type': 'user'}, u(499990)], 1000000)
-assert k == {'kontext_max': 600010, 'over_halva': 1, 'meddelanden': 3}, k
+assert k == {'kontext_max': 600010, 'over_halva': 1, 'meddelanden': 3, 'observerad_kontext_max': 600010}, k
 " || { echo "FEL: kontextdjupet"; exit 1; }
 echo "   kontextdjupet ok"
 
@@ -649,6 +649,11 @@ echo "   flödesvyn (2026-10-06): kedjan ur README, blindningen före första va
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_flode.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/flode-prov.log" \
   || { echo "FEL: flödesvyns prov"; tail -20 "$ROOT/kunder/rokprov-mall/flode-prov.log"; exit 1; }
 echo "   flödesvyns prov ok"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_flodeshandling.py" >"$ROOT/kunder/rokprov-mall/flodeshandling-prov.log" 2>&1 \
+  || { echo "FEL: flödeshandlingens prov"; tail -20 "$ROOT/kunder/rokprov-mall/flodeshandling-prov.log"; exit 1; }
+node "$ROOT/kontroller/rokprov/revision/prov_flodeshandling_webb.mjs" "$ROOT" >"$ROOT/kunder/rokprov-mall/flodeshandling-webb-prov.log" 2>&1 \
+  || { echo "FEL: flödeshandlingens webbläsarprov"; tail -20 "$ROOT/kunder/rokprov-mall/flodeshandling-webb-prov.log"; exit 1; }
+echo "   flödeshandlingens API och webbläsarprov ok"
 echo "   dokumentationsvyn (2026-10-07): de fyra delarna, filtren, huvudena, besluten, blindningen, länkarna, saknade rapporter och avsändaren"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_dokumentationsvy.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" \
   || { echo "FEL: dokumentationsvyns prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log"; exit 1; }
@@ -665,6 +670,21 @@ echo "   skisskritikens kompetens (2026-10-07): blocket, kritikens egen katalog,
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_skisskritik.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/skisskritik-prov.log" \
   || { echo "FEL: skisskritikens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/skisskritik-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/skisskritik-prov.log"; exit 1; }
 echo "   skisskritikens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/skisskritik-prov.log") fall)"
+echo "   källgrundade krav och flödets ingångar"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_kallgap.py" >/dev/null 2>"$ROOT/kunder/rokprov-mall/kallgap-prov.log" \
+  || { echo "FEL: källgapets prov"; tail -20 "$ROOT/kunder/rokprov-mall/kallgap-prov.log"; exit 1; }
+echo "   exportens version och bevarade tidigare leverans"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_exportovergang.py" >/dev/null 2>"$ROOT/kunder/rokprov-mall/exportovergang-prov.log" \
+  || { echo "FEL: exportens övergångsprov"; tail -20 "$ROOT/kunder/rokprov-mall/exportovergang-prov.log"; exit 1; }
+echo "   resursmåttens råvärden, okända värden och identifierade kopior"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_autonomi.py" >"$ROOT/kunder/rokprov-mall/autonomi-prov.log" 2>&1 \
+  || { echo "FEL: resursmåttens prov"; tail -20 "$ROOT/kunder/rokprov-mall/autonomi-prov.log"; exit 1; }
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_abpass.py" >"$ROOT/kunder/rokprov-mall/abpass-prov.log" 2>&1 \
+  || { echo "FEL: A/B-måttens prov"; tail -20 "$ROOT/kunder/rokprov-mall/abpass-prov.log"; exit 1; }
+echo "   ateljéns slutpost (2026-10-07): stopp och fel, återupptagningen, startvägarna, avsändarna och domloggens radslut"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_ateljeslut.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/ateljeslut-prov.log" \
+  || { echo "FEL: ateljéns slutpost"; grep '^FEL' "$ROOT/kunder/rokprov-mall/ateljeslut-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/ateljeslut-prov.log"; exit 1; }
+echo "   ateljéns slutpost ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/ateljeslut-prov.log") fall)"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

@@ -517,6 +517,8 @@ def korvag(slug, start):
     Läget avgörs som ateljén avgör det (atelje.kandidatflode_pa och kandidatkorning; i kandidatflödet blir --putsa --valda
     före arbetaren), ur körningens STATUS.json, som arbetaren skriver före startkontrollen. En ny start arkiverar förra
     körningens research, så den är alltid före researchen. Kvittot gäller aldrig Figma-piloten."""
+    if start == 'forbered':
+        return {'id': 'forberedelse', 'namn': 'förberedelse av kundunderlaget', 'fas': 'forberedelse', 'fas_namn': 'före referensjakten'}
     if start == 'bygge':
         return {'id': 'helbygget', 'namn': 'helbygget (kor.sh med skillen bygg-sajt)', 'fas': 'bygge', 'fas_namn': 'före bygget'}
     if not slug or start == 'prov':
@@ -525,6 +527,8 @@ def korvag(slug, start):
     rot = vl.UNDERLAG / slug / 'atelje'
     st = vl.las_json(rot / 'STATUS.json', {}) or {}
     st = st if isinstance(st, dict) else {}
+    if st.get('fas') == 'forberedelse' or st.get('forra_lage') == 'forbered':
+        return {'id': 'forberedelse', 'namn': 'förberedelse av kundunderlaget', 'fas': 'forberedelse', 'fas_namn': 'före referensjakten'}
     if start == 'ny':
         kandidat = atelje.kandidatflode_pa()
     elif start == 'putsa':
@@ -809,7 +813,9 @@ def referensunderlag(slug, vag, rader):
     och den kördes före researchen). Kontrollen skapar aldrig REFERENSER.md och skriver inget i underlaget."""
     if not slug:
         return []
-    if vag['id'] == 'kandidatflodet':
+    if vag['id'] == 'forberedelse':
+        r = post('uppdrag', 'referensunderlaget', 'ej_tillampligt', tillstand='ej_observerat', detalj='förberedelsen föregår referensjakten; inga designreferenser krävs här')
+    elif vag['id'] == 'kandidatflodet':
         r = fore_research(slug, rader) if vag['fas'] == 'fore_research' else efter_research(slug)
     elif vag['id'] == 'aldre':
         r = vinnarens_referens(slug, 'putsningen') if vag['fas'] == 'efter_val' else referensfilen(slug)
@@ -1278,7 +1284,7 @@ def for_start(slug, start):
 def main(argv=None):
     p = argparse.ArgumentParser(prog='startkontroll', description=__doc__.split('\n\n')[0])
     p.add_argument('--slug')
-    p.add_argument('--start', default='ny', choices=('ny', 'fortsatt', 'valda', 'putsa', 'bygge', 'prov'))
+    p.add_argument('--start', default='ny', choices=('ny', 'fortsatt', 'valda', 'putsa', 'bygge', 'prov', 'forbered'))
     p.add_argument('--utan-prov', action='store_true')
     p.add_argument('--json', action='store_true')
     a = p.parse_args(argv)

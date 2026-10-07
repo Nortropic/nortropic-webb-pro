@@ -61,14 +61,14 @@ import metod  # noqa: E402  kalla(): repots kunskap/ eller en skills fil
 
 ROOT = Path(__file__).resolve().parents[1]
 BLOCK = re.compile(r'^```kompetens[ \t]+(?P<id>[a-z]+)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
-PASS = ('planera', 'planprovning', 'skapa', 'fordjupa', 'rorelse', 'granskning', 'forska', 'skisskritik', 'jamforelse', 'kritik_a', 'kritik_b')
-PASSNAMN = {'planera': 'planeringen', 'planprovning': 'planprövningen', 'skapa': 'skissen', 'fordjupa': 'fördjupningen',
+PASS = ('forbered', 'planera', 'planprovning', 'skapa', 'fordjupa', 'rorelse', 'granskning', 'forska', 'skisskritik', 'jamforelse', 'kritik_a', 'kritik_b')
+PASSNAMN = {'forbered': 'förberedelsen av kundunderlaget', 'planera': 'planeringen', 'planprovning': 'planprövningen', 'skapa': 'skissen', 'fordjupa': 'fördjupningen',
             'rorelse': 'interaktion och rörelse', 'granskning': 'tillgänglighet och visuell granskning',
             'forska': 'researchen', 'skisskritik': 'skisskritiken', 'jamforelse': 'jämförelsen',
             'kritik_a': 'granskningens första pass', 'kritik_b': 'granskningens andra pass'}
 GRANSKANDE = ('skisskritik', 'jamforelse', 'kritik_a', 'kritik_b')  # bedömer och ändrar aldrig sidan
 BLINDA = ('skisskritik', 'kritik_a')  # blinda för skaparens text, uppdrag, referenspaket och kod
-FORSKANDE = ('forska',)  # forskar och ändrar aldrig sidan
+FORSKANDE = ('forska', 'forbered')  # forskar och ändrar aldrig sidan
 FORHAND = '.venv/bin/python kontroller/forhandsvisa.py <slug> --kandidat <id>'
 
 # verktygen per namn: allowedTools-mönster (slug och kandidat fylls i, aldrig ett fritt *-argument som kan skriva utanför

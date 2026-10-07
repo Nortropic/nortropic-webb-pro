@@ -121,6 +121,12 @@ FRIST_SKISS_FORSKA = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS_FORSKA') or 12
 MAX_FORSOK_SKISS = 2  # det inledande försöket och ett omförsök (tekniskt fel eller avbrott); ingen förlängning för antalets skull
 MAX_PARALLELLT_SKISS = 3  # högst tre skisser samtidigt (ägarens försöksbudget 2026-10-05)
 EFFORT_SKISS = os.environ.get('NWP_KANDIDAT_EFFORT') or 'high'
+
+
+def skaparval():
+    """Namngivet metodförsök: endast skisskaparen och dess svar på kritiken, aldrig research eller granskare."""
+    return {'modell': os.environ.get('NWP_SKISSSKAPARE_MODELL') or atelje.MODELL,
+            'effort': os.environ.get('NWP_SKISSSKAPARE_EFFORT') or EFFORT_SKISS}
 # menyns stängda knapp i skissens snabba kontroll (inspektera.mjs --meny), som i axe.mjs: aria-expanded eller
 # details/summary, i sidhuvudet eller navigationen (ägaren 2026-10-06: menyn i k01 var en details/summary och klickades
 # aldrig); samma väljare som granskarens förhandsvisning tar
@@ -177,15 +183,29 @@ def las_status(slug, kid):
     return atelje.las_json(kdir(slug, kid) / 'STATUS.json') or {}
 
 
+STATUS_LAS = threading.RLock()  # kandidaternas status skrivs en i taget (satt_status och markera_avbrutna)
+
+
 def satt_status(slug, kid, status, skal='', ta_bort=(), **extra):
-    """Kandidatens status, atomiskt, med en logg över övergångarna. ta_bort: fält som inte längre gäller."""
+    """Kandidatens status, atomiskt, med en logg över övergångarna. ta_bort: fält som inte längre gäller. När arbetaren
+    har avslutat körningen efter ett stopp eller fel (atelje.SLUTFORD, markera_avbrutna) skrivs ingen status längre: en
+    tråd som lever kvar efter stoppet ändrar aldrig det som slutposten redan säger (ägarens uppdrag 2026-10-07, punkt 6)."""
     assert status in STATUSTEXT, status
+    with STATUS_LAS:
+        if atelje.SLUTFORD.is_set():
+            return las_status(slug, kid)
+        return _satt_status(slug, kid, status, skal, ta_bort, extra)
+
+
+def _satt_status(slug, kid, status, skal, ta_bort, extra):
     d = kdir(slug, kid)
     atelje.saker_vag(d, rot(slug))
     d.mkdir(parents=True, exist_ok=True)
     st = las_status(slug, kid)
     for f in ta_bort:
         st.pop(f, None)
+    if status != 'avbruten':  # märkningen vid stopp och fel gäller bara medan kandidaten står avbruten
+        st.pop('avbruten_vid', None)
     logg = list(st.get('logg') or [])[-40:] + [{'tid': nu(), 'status': status, 'skal': str(skal)[:400]}]
     st.update(extra, id=kid, status=status, skal=str(skal)[:1000], tid=nu(), logg=logg)
     tmp = d / '.STATUS.json.tmp'
@@ -194,7 +214,113 @@ def satt_status(slug, kid, status, skal='', ta_bort=(), **extra):
     return st
 
 
+def statustext(st):
+    """Kandidatens status i ägarens ord; en kandidat som stoppet eller ett fel avbröt säger det (avbruten_vid)."""
+    av = st.get('avbruten_vid') if isinstance(st.get('avbruten_vid'), dict) else {}
+    if st.get('status') == 'avbruten' and av.get('orsak') in ('stoppet', 'fel'):
+        return 'avbruten %s' % ('vid stoppet' if av['orsak'] == 'stoppet' else 'av fel')
+    return STATUSTEXT.get(st.get('status'), st.get('status'))
+
+
+def markera_avbrutna(slug, slag, tid, text='', efter=''):
+    """Vid stopp och fel (atelje.arbeta): varje kandidat som körningen satte under arbete märks avbruten, "avbruten vid
+    stoppet" eller "avbruten av fel", med tiden och det den gjorde (avbruten_vid). Efter ett stopp (eller ett annat
+    avbrott utifrån) skriver sedan ingen tråd i körningen kandidaternas status (atelje.SLUTFORD): trådarna kan leva kvar
+    efter stoppet, vilket ett fel i huvudtråden aldrig ger. Återupptagningen sparar försöket och gör om det
+    (behandla_skiss), som förut med en kandidat under arbete. En kandidat som stod under arbete redan före körningen
+    (efter: körningens start; en arbetare som dött) lämnas åt återupptagningen. Ger de märkta kandidaternas id."""
+    orsak = 'stoppet' if slag == 'stopp' else 'fel'
+    ut = []
+    with STATUS_LAS:
+        if slag in ('stopp', 'avbruten'):
+            atelje.SLUTFORD.set()
+        for kid in lista(slug):
+            st = las_status(slug, kid)
+            if st.get('status') != 'under_arbete':
+                continue
+            logg = [x for x in st.get('logg') or [] if isinstance(x, dict)]
+            i = len(logg)
+            while i > 0 and logg[i - 1].get('status') == 'under_arbete':
+                i -= 1
+            sedan = str((logg[i] if i < len(logg) else {}).get('tid') or '')
+            if efter and sedan < efter:
+                continue
+            fran = str(st.get('skal') or '')
+            _satt_status(slug, kid, 'avbruten', 'avbruten %s %s (%s)' % ('vid stoppet' if orsak == 'stoppet' else 'av fel', tid, fran[:200]), (),
+                         {'avbruten_vid': {'tid': tid, 'orsak': orsak, 'fran': fran[:300], 'forsok': st.get('forsok'), 'sedan': sedan or None,
+                                           'text': str(text or '')[:300]}})
+            ut.append(kid)
+    return ut
+
+
 KODSRC = 'kod-src'  # projektets src/ utom sidorna och kundens bilder: komponenter, layouter, stilar och egna tillgångar
+MATERIAL = 'material'  # public/, src/assets/atelje/ och fotograferingens underlagsmanifest
+
+
+def materialfiler(sajt):
+    """De faktiska tillgångarna som den tidigare kodöverföringen lämnade utanför.
+
+    Läsfel, specialfiler och länkar avvisas före kopiering, aldrig tyst utelämning.
+    """
+    import stat
+    sajt = Path(sajt)
+    ut = []
+    for namn in ('public', 'src/assets/atelje'):
+        bas = sajt / namn
+        for p in (bas, *list(bas.parents)[:len(Path(namn).parts) - 1]):
+            if p.is_symlink():
+                raise ValueError('länk i kandidatens material')
+        if not bas.exists():
+            continue
+        if not bas.is_dir():
+            raise ValueError('materialets katalog är inte en katalog')
+        def fel(e):
+            raise e
+        for katalog, kataloger, filer in os.walk(bas, followlinks=False, onerror=fel):
+            if any((Path(katalog) / n).is_symlink() for n in kataloger):
+                raise ValueError('länk i kandidatens material')
+            for n in filer:
+                p = Path(katalog) / n
+                if not stat.S_ISREG(p.lstat().st_mode):
+                    raise ValueError('materialet innehåller en länk eller specialfil')
+                ut.append((p.relative_to(sajt).as_posix(), p))
+    return sorted(ut)
+
+
+def underlagsbytes(slug):
+    return (json.dumps({'format': 1, 'filer': skapande.underlagsmanifest(slug, atelje.UNDERLAG)},
+                       sort_keys=True, ensure_ascii=False) + '\n').encode()
+
+
+def frys_material(slug, kid):
+    import korregister
+    d, sajt = kdir(slug, kid), ksajt(slug, kid)
+    filer = materialfiler(sajt)
+    grund = underlagsbytes(slug)
+    tmp = Path(korregister.egen_tmp('nwp-kandidatmaterial-', 'kandidatmaterial', dir=d))
+    try:
+        for namn, p in filer:
+            mal = tmp / namn
+            mal.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(p, mal, follow_symlinks=False)
+            if mal.is_symlink() or sha_materialfil(mal) != sha_materialfil(p):
+                raise ValueError('materialet ändrades under kopieringen')
+        (tmp / 'UNDERLAG.json').write_bytes(grund)
+        (tmp / korregister.AGARFIL).unlink(missing_ok=True)
+        mal = d / MATERIAL
+        atelje.saker_vag(mal, d)
+        if mal.exists():
+            shutil.rmtree(mal)
+        os.replace(tmp, mal)
+    finally:
+        if tmp.exists():
+            shutil.rmtree(tmp)
+
+
+def sha_materialfil(p):
+    if p.is_symlink() or not p.is_file():
+        raise ValueError('materialet är inte en vanlig fil')
+    return atelje.sha256_fil(p)
 
 
 def src_ovrigt(relp):
@@ -221,6 +347,11 @@ def version_filer(d):
                 if p.is_symlink() or not p.is_file():
                     continue
                 ut.append((str(p.relative_to(d)), p))
+    bas = d / MATERIAL
+    if bas.exists():
+        # Den frysta kopian inventeras strikt; ett brutet material gör inte versionen mindre.
+        skapande.sha256_katalog_strikt(bas)
+        ut.extend((p.relative_to(d).as_posix(), p) for p in sorted(bas.rglob('*')) if p.is_file())
     return ut
 
 
@@ -1240,6 +1371,8 @@ def skapa(slug, kid):
         except (subprocess.TimeoutExpired, RuntimeError) as e:  # det som hann göras fotograferas och bedöms ändå
             svar = {'avbruten': '%s: %s' % (type(e).__name__, str(e)[:300])}
         sessioner.append({'svar': ut.name, **{x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd', 'avbruten')}})
+        if atelje.STOPP.is_set():  # arbetaren stoppas: försöket står kvar under arbete och tas upp vid återupptagningen (GR-20261007-r106#B1)
+            raise atelje.Stoppad('försöket avbröts av stoppet')
         lasn = lasningen(slug, kid, ut, 'skapa')
         if not (d / skapande.KOMPLETTERING).is_file():
             break
@@ -1263,7 +1396,9 @@ def arkivera_forsok(slug, kid, st):
     mal = atelje.ledigt_namn(d, 'forsok-%s' % (st.get('forsok') or 0))
     atelje.saker_vag(mal, rot(slug))
     mal.mkdir(parents=True)  # före flyttarna: en fil flyttas aldrig in i en katalog som saknas (granskning 3, S1)
-    for n in ('RIKTNING.md', 'varv', 'bilder', forhandsvisa.GRANSKARE):  # kritikens bilder hör till försöket de bedömde
+    (mal / 'STATUS.json').write_text(json.dumps(st, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    for n in ('RIKTNING.md', 'varv', 'bilder', forhandsvisa.GRANSKARE, 'SKISSKRITIK.json', 'fore-svaret',
+              *(p.name for p in d.glob('svar-skisskritik-*.json'))):
         if (d / n).exists() and not (d / n).is_symlink():
             shutil.move(str(d / n), str(mal / n))
     if pr.exists() or pr.is_symlink():
@@ -1337,6 +1472,9 @@ def projektets_version(slug, kid):
                 if p.is_symlink() or not p.is_file() or not ta_med(relp):
                     continue
                 h.update(('%s/%s' % (namn, relp.as_posix())).encode() + b'\0' + p.read_bytes() + b'\0')
+    h.update(b'material/UNDERLAG.json\0' + underlagsbytes(slug) + b'\0')
+    for namn, p in materialfiler(sajt):
+        h.update(('material/' + namn).encode() + b'\0' + p.read_bytes() + b'\0')
     return h.hexdigest()
 
 
@@ -1418,6 +1556,25 @@ def skisskritik_prompt(slug, kid, bilder, varv, uppgift):
         atelje.MATERIAL])
 
 
+def skisskritik_identitet(slug, kid):
+    st = las_status(slug, kid)
+    korning = atelje.las_json(rot(slug) / 'STATUS.json') or {}
+    return {'korning': korning.get('startad') or plan_tid(slug), 'kandidat': kid, 'forsok': st.get('forsok'),
+            'underlag_sha256': skapande.underlagsversion(slug, atelje.UNDERLAG),
+            'version': projektets_version(slug, kid)}
+
+
+def skisskritik_giltig(slug, kid, post=None):
+    """Rådgivande kritik för just detta försök, underlag och bygge; saknat bevis är aldrig aktuellt."""
+    try:
+        post = post if post is not None else atelje.las_json(kdir(slug, kid) / 'SKISSKRITIK.json')
+        return (isinstance(post, dict) and bool(post.get('rekommendation'))
+                and las_status(slug, kid).get('status') != 'avbruten'
+                and post.get('identitet') == skisskritik_identitet(slug, kid))
+    except (OSError, ValueError):
+        return False
+
+
 def skisskritik(slug, kid):
     """Den kritiska granskaren i skissförsöket (ägarens uppdrag 2026-10-06, punkt 6) med rollen kritik i metodkartan
     (ägarens ord 2026-10-07: "Du behöver ju fixa luckan där med de verktyg vi har tillgängliga"): en egen session med
@@ -1437,6 +1594,7 @@ def skisskritik(slug, kid):
         return None
     uppgift = str(((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid, {}).get('uppgift') or '').strip()
     version_ = projektets_version(slug, kid)
+    identitet = skisskritik_identitet(slug, kid)
     blind = blind_nekas(slug, kid, ('varv', forhandsvisa.GRANSKARE))
     ut = d / ('svar-skisskritik-%d.json' % (len(list(d.glob('svar-skisskritik-*.json'))) + 1))
     start = time.monotonic()
@@ -1446,7 +1604,7 @@ def skisskritik(slug, kid):
     if not isinstance(so, dict) or not so.get('rekommendation'):
         return None
     kv = kompetens.kvitto([svar], 'skisskritik')
-    post = dict(so, tid=nu(), varv=v[-1], version=version_, karta=metod.sha(metod.KARTA.read_text(encoding='utf-8')),
+    post = dict(so, tid=nu(), varv=v[-1], version=version_, identitet=identitet, karta=metod.sha(metod.KARTA.read_text(encoding='utf-8')),
                 bilder=[rel(p) for p in bilder], bedomt=bedomt(svar.get('session_id'), slug, kid, so), kompetens=kompetens_kort(kv),
                 svar=ut.name, sekunder=int(time.monotonic() - start),
                 session={x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd')})
@@ -1489,19 +1647,32 @@ def skissa(slug, kid, fel=None):
     från försökets start med verktygsväntan inräknad, sedan fotografering och de snabba kontrollerna. fel: ett omförsök
     efter ett identifierat tekniskt fel, med kortare tid. Ingen förlängning."""
     st = las_status(slug, kid)
+    installningar = skaparval()
     forsok = int(st.get('forsok') or 0) + 1
+    d = kdir(slug, kid)
+    if (d / 'SKISSKRITIK.json').exists():  # tekniskt omförsök behåller koden, men den tidigare kritiken är historik
+        mal = atelje.ledigt_namn(d, 'kritik-forsok-%s' % (st.get('forsok') or 0))
+        atelje.saker_vag(mal, rot(slug))
+        mal.mkdir()
+        (mal / 'STATUS.json').write_text(json.dumps(st, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        for namn in ('SKISSKRITIK.json', forhandsvisa.GRANSKARE, *(p.name for p in d.glob('svar-skisskritik-*.json'))):
+            if (d / namn).exists() and not (d / namn).is_symlink():
+                shutil.move(str(d / namn), str(mal / namn))
+        if (d / 'varv').is_dir():
+            kopiera(d / 'varv', mal / 'varv')
     frist = FRIST_SKISS_OMFORSOK if fel else FRIST_SKISS
     start, startad = time.monotonic(), nu()  # försöket räknas från början, förberedelsen och fotograferingen inräknade (S8)
     forbered_projekt(slug, kid)
     stilpaket_i_projekt(slug, kid)
     satt_status(slug, kid, 'under_arbete', 'skiss, försök %d' % forsok, forsok=forsok, startad=startad, frist=frist,
-                metod=dict(st.get('metod') or {}, skiss=metodinfo(slug, 'skiss')['sha']), ta_bort=('tekniskt_fel',))
+                metod=dict(st.get('metod') or {}, skiss=metodinfo(slug, 'skiss')['sha']), ta_bort=('tekniskt_fel', 'skisskritik'),
+                skaparinstallningar={'begart': installningar, 'observerat': {'modell': None, 'effort': None}})
     d = kdir(slug, kid)
     res, sessioner, sessionsfel = None, [], []
     kompletterad = bool(st.get('kompletterad'))
     # den kritiska granskaren och skaparens svar (ägarens uppdrag 2026-10-06, punkt 6): inte i ett omförsök efter ett
     # tekniskt fel, och den första sessionen lämnar tiden för dem
-    granskas = not fel and os.environ.get('NWP_SKISSKRITIK') != 'av' and not st.get('skisskritik')
+    granskas = not fel and os.environ.get('NWP_SKISSKRITIK') != 'av'
     fortsatt = False  # en fortsättning efter en tidsgräns, med granskningens reserv (högst en)
     for k in range(3):
         rest = int(frist - FOTO_RESERV - (time.monotonic() - start))
@@ -1518,7 +1689,7 @@ def skissa(slug, kid, fel=None):
             svar = atelje.session(skiss_prompt(slug, kid, fel, res, erbjud=not kompletterad, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60,
                                                fortsattning=fortsatt),
                                   verktyg(slug, kid, komplettering=not kompletterad) + kompetens.verktyg('skapa', slug, kid), ut,
-                                  max_turer=500, effort=EFFORT_SKISS, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
+                                  max_turer=500, **installningar, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
                                   vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'skiss, försök %d' % forsok, session_pid=pid))
         except subprocess.TimeoutExpired:
             svar = {'avbruten': 'försökets tid (%d min) tog slut' % (frist // 60), 'tidsgrans': True}
@@ -1573,7 +1744,7 @@ def skissa(slug, kid, fel=None):
             try:
                 svar = atelje.session(skiss_prompt(slug, kid, None, None, erbjud=False, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60, kritik=kr),
                                       verktyg(slug, kid, komplettering=False) + kompetens.verktyg('skapa', slug, kid), ut,
-                                      max_turer=400, effort=EFFORT_SKISS, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
+                                      max_turer=400, **installningar, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
                                       vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen', session_pid=pid))
             except subprocess.TimeoutExpired:
                 svar = {'avbruten': 'svarets tid räckte inte', 'tidsgrans': True}  # försöket räknas inte som tidsgräns: skissen före svaret är hel
@@ -1916,17 +2087,21 @@ def planprovning(slug):
 
 def behandla_skiss(slug, kid):
     """En skiss: det inledande försöket, och ett omförsök bara vid ett identifierat tekniskt fel (bygget föll, skärmbilderna
-    saknas, sessionen föll). Ett försök som avbröts med processen sparas och startas om i ett nytt projekt (räknas som
-    försök). En skiss som inte blir klar redovisas som ofullständig med skälet och det sparade arbetet."""
+    saknas, sessionen föll). Ett försök som avbröts med processen, eller som stoppet eller ett fel avbröt (avbruten_vid,
+    markera_avbrutna), sparas och startas om i ett nytt projekt (räknas som försök). En skiss som inte blir klar redovisas
+    som ofullständig med skälet och det sparade arbetet."""
     st = las_status(slug, kid)
-    if st.get('status') == 'under_arbete':  # processen dog mitt i försöket
+    av = st.get('avbruten_vid') if st.get('status') == 'avbruten' and isinstance(st.get('avbruten_vid'), dict) else None
+    if st.get('status') == 'under_arbete' or av:  # processen dog mitt i försöket, eller körningen stoppades eller föll under det
         if nastlad_session(st.get('session_pid')):  # en kvarlevande session skriver aldrig i nästa försöks projekt (S3),
             atelje.doda_trad(st.get('session_pid'))  # och ett återanvänt pid tillhör aldrig någon annan (granskning 4, G6)
         mal = arkivera_forsok(slug, kid, st)
-        forsoken = (st.get('forsok_tider') or []) + [{'forsok': st.get('forsok'), 'startad': st.get('startad'), 'klar': nu(), 'sekunder': None,
-                                                      'utfall': 'avbruten', 'omforsok': False, 'tidsgrans': False, 'sparat': rel(mal)}]
-        st = satt_status(slug, kid, 'avbruten', 'försök %s avbröts med processen; arbetet är sparat i %s' % (st.get('forsok'), rel(mal)),
-                         sparat=rel(mal), forsok_tider=forsoken, ta_bort=('session_pid',))
+        forsoken = (st.get('forsok_tider') or []) + [dict({'forsok': st.get('forsok'), 'startad': st.get('startad'), 'klar': (av or {}).get('tid') or nu(),
+                                                           'sekunder': None, 'utfall': 'avbruten', 'omforsok': False, 'tidsgrans': False, 'sparat': rel(mal)},
+                                                          **({'orsak': av.get('orsak')} if av else {}))]
+        orsak = ('vid stoppet %s' % av.get('tid')) if av and av.get('orsak') == 'stoppet' else ('av ett fel %s' % av.get('tid')) if av else 'med processen'
+        st = satt_status(slug, kid, 'avbruten', 'försök %s avbröts %s; arbetet är sparat i %s' % (st.get('forsok'), orsak, rel(mal)),
+                         sparat=rel(mal), forsok_tider=forsoken, ta_bort=('session_pid', 'avbruten_vid', 'skisskritik'))
     while True:
         s_, f_ = st.get('status'), int(st.get('forsok') or 0)
         if s_ in VISBARA:  # före ägarens val ändrar ingen annan session skissen (Codex via ägaren 2026-10-05, punkt 8)
@@ -2179,6 +2354,8 @@ def fotografera(slug, kid, skiss=None):
     (granskning 3, S5)."""
     d, sajt = kdir(slug, kid), ksajt(slug, kid)
     brister, markeringar, upplysningar = [], [], []
+    fore_foto = projektets_version(slug, kid)
+    frys_material(slug, kid)
     kod = d / 'kod'
     atelje.saker_vag(d, rot(slug))
     if kod.is_symlink():
@@ -2255,6 +2432,8 @@ def fotografera(slug, kid, skiss=None):
             brister.append('RIKTNING.md saknar raden "Huvudreferens: <namn> — <vad den bär>" (eller "Huvudreferens: egen — …")')
         if korlage(slug) == 'full' and varv_antal(slug, kid) < MIN_VARV:
             brister.append('%d förhandsvarv av minst %d' % (varv_antal(slug, kid), MIN_VARV))
+    if projektets_version(slug, kid) != fore_foto:
+        brister.append('koden eller underlaget ändrades under fotograferingen; fotografera igen')
     v = version(slug, kid)
     bevara_version(slug, kid, v, bilder=False)
     status = 'klar' if not brister else 'ofullstandig'
@@ -2276,7 +2455,7 @@ def bevara_version(slug, kid, v, bilder=True):
     d = kdir(slug, kid)
     mal = d / 'versioner' / v[:12]
     atelje.saker_vag(d / 'versioner', d)
-    for under in ('kod', KODSRC) + (('bilder',) if bilder else ()):
+    for under in ('kod', KODSRC, MATERIAL) + (('bilder',) if bilder else ()):
         if (d / under).is_dir() and not (d / under).is_symlink() and not (mal / under).exists():
             mal.mkdir(parents=True, exist_ok=True)
             kopiera(d / under, mal / under)
@@ -2319,6 +2498,15 @@ def aterstall(slug, kid, v):
             if Path(katalog) != src and not any(Path(katalog).iterdir()) and src_ovrigt(Path(katalog).relative_to(src)):
                 Path(katalog).rmdir()
         kopiera(m / KODSRC, src)
+    if (m / MATERIAL).is_dir():
+        skapande.sha256_katalog_strikt(m / MATERIAL)
+        for namn in ('public', 'src/assets/atelje'):
+            mal = ksajt(slug, kid) / namn
+            atelje.saker_vag(mal, atelje.KUNDER / slug)
+            if mal.exists():
+                shutil.rmtree(mal)
+            if (m / MATERIAL / namn).is_dir():
+                kopiera(m / MATERIAL / namn, mal)
     design = m / 'DESIGN.md'
     designlage(slug, kid, design.read_text(encoding='utf-8') if design.is_file() and not design.is_symlink() else None,
                css_ocksa=not har_kodsrc)  # versionens design.css står redan i kod-src/
@@ -2675,6 +2863,8 @@ def forbattra(slug, kid):
                               nekas=andra_nekas(slug, kid), slug=slug)
     except (subprocess.TimeoutExpired, RuntimeError) as e:
         svar = {'avbruten': '%s: %s' % (type(e).__name__, str(e)[:300])}
+    if atelje.STOPP.is_set():  # stoppet: märkningen forbattras står kvar, och återupptagningen återställer föreversionen (GR-20261007-r106#B1)
+        raise atelje.Stoppad('förbättringsrundan avbröts av stoppet')
     lasn = lasningen(slug, kid, ut, 'skapa')
     st = fotografera(slug, kid)
     skal = st.get('skal', '')
@@ -2735,9 +2925,9 @@ def behandla(slug, kid):
                          forbattrad={'tid': nu(), 'avbruten': 'avbrottet under förbättringsrundan', 'fore': fore, 'efter': fore})
     if st.get('status') not in VISBARA:
         if int(st.get('forsok') or 0) >= MAX_FORSOK:
-            if st.get('status') != 'under_arbete':
+            if st.get('status') != 'under_arbete' and not (st.get('status') == 'avbruten' and st.get('avbruten_vid')):
                 return st
-            st = fotografera(slug, kid)  # den sista sessionen dog med processen: det den gjorde bedöms (granskning 2, N12)
+            st = fotografera(slug, kid)  # den sista sessionen dog med processen eller stoppet: det den gjorde bedöms (granskning 2, N12)
         else:
             st = skapa(slug, kid)
     if st.get('status') != 'klar':
@@ -2751,6 +2941,8 @@ def behandla(slug, kid):
         if st.get('status') == 'klar' and (atelje.las_json(d / 'KRITIK.json') or {}).get('version') != st.get('version'):
             granska_kandidat(slug, kid)
     except Exception as e:  # noqa: BLE001 — en granskning som faller lämnar kandidaten som den är
+        if atelje.STOPP.is_set():  # sessionen dödades av stoppet: kandidaten märks avbruten, inte som fel (GR-20261007-r106#B1)
+            raise atelje.Stoppad('granskningen avbröts av stoppet')
         st = las_status(slug, kid)
         if st.get('forbattras'):  # förbättringsrundan föll efter sessionen: föreversionen gäller (granskning 2, N10)
             fore = st['forbattras'].get('fore')
@@ -2767,7 +2959,11 @@ def behandla(slug, kid):
     return las_status(slug, kid)
 
 
-def kor_pool(slug, ids, arbete, status, skriv, parallellt=None):
+def kor_pool(slug, ids, arbete, status, skriv, parallellt=None, forsta=None):
+    """Kandidaternas arbete några åt gången. forsta (körningens tider): tiden till första valbara skiss sätts när den
+    första kandidaten blir valbar, också om körningen sedan stoppas (ägarens uppdrag 2026-10-07, punkt 6). Trådarna är
+    daemontrådar: efter arbetarens stopp väntar processen aldrig på en tråd vars session inte svarar, och det som en sådan
+    tråd skriver efter stoppet hindras (markera_avbrutna)."""
     kvar, las = list(ids), threading.Lock()
 
     def arbeta():
@@ -2778,15 +2974,19 @@ def kor_pool(slug, ids, arbete, status, skriv, parallellt=None):
                 kid = kvar.pop(0)
             try:
                 arbete(kid)
-            except atelje.Stoppad:  # kandidaten står kvar under arbete: återupptagningen sparar och startar om försöket
+            except atelje.Stoppad:  # kandidaten står kvar under arbete; arbetaren märker den avbruten vid stoppet
                 return
             except Exception as e:  # noqa: BLE001 — en kandidat som faller stoppar inte de andra
                 satt_status(slug, kid, 'fel', '%s: %s' % (type(e).__name__, str(e)[:300]))
             with las:
                 status['kandidater'] = {k: las_status(slug, k).get('status') for k in lista(slug)}
+                if forsta is not None and not forsta.get('forsta_valbara'):
+                    t_ = forsta_valbara(slug, str(forsta.get('start') or ''))
+                    if t_:
+                        forsta['forsta_valbara'] = t_
                 skriv()
 
-    tradar = [threading.Thread(target=arbeta) for _ in range(min(parallellt or PARALLELLT, len(kvar)))]
+    tradar = [threading.Thread(target=arbeta, daemon=True) for _ in range(min(parallellt or PARALLELLT, len(kvar)))]
     for t_ in tradar:
         t_.start()
     for t_ in tradar:
@@ -2833,20 +3033,22 @@ def kor(slug, status, skriv, n=None):
     status.update(steg='skapa', kandidater={k: las_status(slug, k).get('status') for k in ids})
     skriv()
     if lage == 'skiss':  # ingen granskningspanel, förbättringsrunda eller jämförelse före ägarens val
-        kor_pool(slug, ids, lambda kid: behandla_skiss(slug, kid), status, skriv, parallellt=min(PARALLELLT, MAX_PARALLELLT_SKISS))
+        kor_pool(slug, ids, lambda kid: behandla_skiss(slug, kid), status, skriv, parallellt=min(PARALLELLT, MAX_PARALLELLT_SKISS), forsta=tider)
         klara = [k for k in ids if las_status(slug, k).get('status') == 'klar']
-        tider.update(forsta_valbara=forsta_valbara(slug, tider['start']), klar=nu())
+        if not tider.get('forsta_valbara'):  # satt redan när den första blev valbar (kor_pool)
+            tider['forsta_valbara'] = forsta_valbara(slug, tider['start'])
+        tider['klar'] = nu()
         status.update(steg='klar_for_bedomning', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in ids},
                       skal='%d av %d skisser klara för ägarens bedömning' % (len(klara), len(ids)))
         skriv()
         return klara
-    kor_pool(slug, ids, lambda kid: behandla(slug, kid), status, skriv)
+    kor_pool(slug, ids, lambda kid: behandla(slug, kid), status, skriv, forsta=tider)
     andra = [k for k in ids if las_status(slug, k).get('status') in ('ofullstandig', 'fel', 'avbruten', 'under_arbete')
              and int(las_status(slug, k).get('forsok') or 0) < MAX_FORSOK]
     if andra:  # ett andra skaparförsök med bristerna som kritik
         status.update(steg='skapa', andra_forsok=andra)
         skriv()
-        kor_pool(slug, andra, lambda kid: behandla(slug, kid), status, skriv)
+        kor_pool(slug, andra, lambda kid: behandla(slug, kid), status, skriv, forsta=tider)
     status['steg'] = 'jamfora'
     skriv()
     try:
@@ -2866,12 +3068,28 @@ def forsta_valbara(slug, efter):
     return min(t) if t else None
 
 
+SATT = 'satt när kandidaten blev valbar'
+FRAMRAKNAD = 'framräknad ur kandidaternas statuslogg'
+
+
+def forsta_valbara_tid(slug, status):
+    """(tid, källa) för tiden till första valbara skiss: körningens eget fält, satt när den första kandidaten blev valbar
+    (SATT), annars framräknad ur kandidaternas statuslogg och märkt så (FRAMRAKNAD; en äldre körning, ägarens uppdrag
+    2026-10-07, punkt 6). (None, None) när ingen kandidat blivit valbar i körningen."""
+    t = (status or {}).get('tider') if isinstance((status or {}).get('tider'), dict) else {}
+    if t.get('forsta_valbara'):
+        return t['forsta_valbara'], SATT
+    f = forsta_valbara(slug, str(t.get('start') or (status or {}).get('startad') or ''))
+    return (f, FRAMRAKNAD) if f else (None, None)
+
+
 # --- ägarens beslut (dashboardens vy Prototyp och kontroller/skapande.py dom, via atelje.doma) ---
 
 def domd(slug):
-    """Har ägaren fattat något beslut sedan kandidatplanen? Förklaringarna, granskningen och redovisningen visas först då."""
+    """Har ägaren fattat något beslut sedan kandidatplanen? Förklaringarna, granskningen och redovisningen visas först då.
+    Bara ägarens egna beslut räknas (skapande.ar_agarens): en vidarebefordrad AI-bedömning lyfter aldrig blindningen."""
     pt = plan_tid(slug)
-    return bool(pt) and any(d.get('kalla') in skapande.AGAREN and d.get('tid', '') > pt for d in skapande.domar(slug, atelje.UNDERLAG))
+    return bool(pt) and any(skapande.ar_agarens(d) and d.get('tid', '') > pt for d in skapande.domar(slug, atelje.UNDERLAG))
 
 
 def valbara_versioner(st):
@@ -2951,14 +3169,19 @@ def forbered_vinnare(slug, kid, v):
     r, d = rot(slug), kdir(slug, kid)
     atelje.saker_vag(d, r)
     st = las_status(slug, kid)
-    if st.get('version') != v:
+    if st.get('version') != v or version(slug, kid) != v:
         raise ValueError('%s har ändrats sedan ägaren såg den' % kid)
+    if (d / MATERIAL).exists() and (d / MATERIAL / 'UNDERLAG.json').read_bytes() != underlagsbytes(slug):
+        raise ValueError('underlaget ändrades sedan fotograferingen; bedöm en ny version')
     if not (d / 'kod' / 'index.astro').is_file() or (d / 'kod').is_symlink():
         raise ValueError('%s saknar startsidan i kod/' % kid)
     tmp = Path(tempfile.mkdtemp(prefix='.vinnare-ny-', dir=r))
     filer = {'kod/' + k_: s for k_, s in kopiera(d / 'kod', tmp / 'kod').items()}
     if (d / KODSRC).is_dir() and not (d / KODSRC).is_symlink():  # komponenterna, layouterna och stilarna följer med
         filer.update({KODSRC + '/' + k_: s for k_, s in kopiera(d / KODSRC, tmp / KODSRC).items()})
+    if (d / MATERIAL).is_dir():
+        skapande.sha256_katalog_strikt(d / MATERIAL)
+        filer.update({MATERIAL + '/' + k_: s for k_, s in kopiera(d / MATERIAL, tmp / MATERIAL).items()})
     if (d / 'DESIGN.md').is_file() and not (d / 'DESIGN.md').is_symlink():
         shutil.copyfile(d / 'DESIGN.md', tmp / 'DESIGN.md')
     for sida in sorted(x for x in (d / 'bilder').iterdir() if x.is_dir() and not x.is_symlink()) if (d / 'bilder').is_dir() else []:
@@ -3147,6 +3370,15 @@ def forfina_valda(slug, status, skriv):
 
 # --- redovisningen ---
 
+def utfall_rad(status):
+    """Redovisningens huvud: körningens utfall, klar, eller steget och stoppet eller felet (ägarens uppdrag 2026-10-07,
+    punkt 6; samma text som slutposten, kontroller/ateljeslut.py). En körning som inte slutat säger steget."""
+    import ateljeslut
+    if status.get('steg') in ateljeslut.KLARA + ('forkastad', 'tillbaka', 'fel') or status.get('avbrott'):
+        return '**Körningens utfall:** %s.' % ateljeslut.utfall(status)[2]
+    return '**Körningens utfall:** pågår i steg %s.' % (status.get('steg') or '–')
+
+
 def material(slug, kid):
     """Avsnittet "Material" ur kandidatens RIKTNING.md: vad kunden saknar för riktningen."""
     f = kdir(slug, kid) / 'RIKTNING.md'
@@ -3236,19 +3468,21 @@ def redovisa_skiss(slug, status):
     ids = lista(slug)
     namn = etiketter(slug, ids)
     t = status.get('tider') or {}
+    fv, fv_kalla = forsta_valbara_tid(slug, status)
     f = atelje.las_json(r / 'FORSKNING.json') or {}
     m = metodinfo(slug, 'skiss')
-    rader = ['# Redovisning · %s · %s' % (slug, nu()), '',
-             'Skissläget (kontroller/kandidater.py): skaparna med %s, effort %s; högst %d samtidigt, %d minuter per inledande' % (
-                 status.get('modell'), EFFORT_SKISS, min(PARALLELLT, MAX_PARALLELLT_SKISS), FRIST_SKISS // 60),
+    rader = ['# Redovisning · %s · %s' % (slug, nu()), '', utfall_rad(status), '',
+             'Skissläget (kontroller/kandidater.py): begärda skaparinställningar per kandidat nedan (inte bekräftat av modellen); högst %d samtidigt, %d minuter per inledande' % (
+                 min(PARALLELLT, MAX_PARALLELLT_SKISS), FRIST_SKISS // 60),
              'försök med verktygsväntan, ett omförsök på %d minuter bara vid ett identifierat tekniskt fel. Ingen granskningspanel' % (FRIST_SKISS_OMFORSOK // 60),
              'och ingen förbättringsrunda före ägarens val. En intern granskare såg den renderade skissen (aldrig skaparens text) när tiden räckte, och skaparen fick',
              'svara; granskarens omdöme och svaret visas först efter ägarens första beslut. Ingen modell har rangordnat skisserna.', '',
              '## Tiderna', '',
              '- startad %s; researchen klar %s; planen klar %s; första valbara skissen %s; klar %s.' % (
-                 t.get('start', '–'), t.get('forskning', '–'), t.get('plan', '–'), t.get('forsta_valbara') or '–', t.get('klar') or '–'),
-             '- väntan till första valbara skissen: %s minuter; total väntan: %s minuter.' % (
-                 minuter_mellan(t.get('start'), t.get('forsta_valbara')) if t.get('forsta_valbara') else '–',
+                 t.get('start', '–'), t.get('forskning', '–'), t.get('plan', '–'),
+                 ('%s%s' % (fv, '' if fv_kalla == SATT else ' (%s)' % fv_kalla)) if fv else '–', t.get('klar') or '–'),
+             '- väntan till första valbara skissen: %s minuter%s; total väntan: %s minuter.' % (
+                 minuter_mellan(t.get('start'), fv) if fv else '–', '' if not fv or fv_kalla == SATT else ' (framräknad)',
                  minuter_mellan(t.get('start'), t.get('klar')) if t.get('klar') else '–'), '',
              '## Det som tillfördes varje uppdrag', '',
              '- UPPDRAG.md ur planen (designuppdraget, besökarens uppgift, den viktigaste sektionen, huvudreferensen och',
@@ -3259,15 +3493,18 @@ def redovisa_skiss(slug, status):
              '- Historiken: kundens äldre domar och riktningshistoriken som uppslag; LARDOMAR.md är historik och läses inte',
              '  (rensningen inför Nortropic 2.0).', '',
              '## Kandidaterna', '',
-             '| Kandidat | Status | Minuter | Försök | Brister ur de snabba kontrollerna | Referensbilder | Utkast och platshållare | Öppnat ur metoden | Verktyg |',
-             '|---|---|---|---|---|---|---|---|---|']
+             '| Kandidat | Status | Begärd modell / effort | Minuter | Försök | Brister ur de snabba kontrollerna | Referensbilder | Utkast och platshållare | Öppnat ur metoden | Verktyg |',
+             '|---|---|---|---|---|---|---|---|---|---|']
     fallna, behov = [], []
     for kid in ids:
         st = las_status(slug, kid)
         ft = st.get('forsok_tider') or []
         anv = st.get('anvandning') or {}
-        rader.append('| %s (%s) | %s | %s | %s | %s | %d | %d | %s | %s |' % (
-            namn.get(kid), kid, STATUSTEXT.get(st.get('status'), st.get('status')),
+        begart = (st.get('skaparinstallningar') or {}).get('begart') or {}
+        installningsrad = ('%s / %s' % (begart.get('modell') or 'okänd', begart.get('effort') or 'okänd')).replace('|', '/').replace('\n', ' ')
+        rader.append('| %s (%s) | %s | %s | %s | %s | %s | %d | %d | %s | %s |' % (
+            namn.get(kid), kid, statustext(st),
+            installningsrad,
             round(sum(x.get('sekunder') or 0 for x in ft) / 60) if ft else '–',
             ' + '.join('%d%s' % (x.get('forsok') or 0, ' (omförsök)' if x.get('omforsok') else ' (tiden slut)' if x.get('tidsgrans') else '') for x in ft) or '–',
             ('; '.join(st.get('brister') or []) or ('–' if st.get('status') in VISBARA else str(st.get('skal') or '')[:160])).replace('|', '/'),
@@ -3330,7 +3567,7 @@ def redovisa(slug, status):
     r = rot(slug)
     namn = etiketter(slug, lista(slug))
     f = atelje.las_json(r / 'FORSKNING.json') or {}
-    rader = ['# Redovisning · %s · %s' % (slug, nu()), '',
+    rader = ['# Redovisning · %s · %s' % (slug, nu()), '', utfall_rad(status), '',
              'Kandidatflödet (kontroller/kandidater.py). Läge %s · steg %s · modell %s %s · startad %s · metoden %s.' % (
                  status.get('lage'), status.get('steg'), status.get('modell'), status.get('effort'), status.get('startad'),
                  ', '.join('%s %s' % (s, str(h)[:12]) for s, h in sorted((status.get('metod') or {}).items())) or '–'), '',
@@ -3354,7 +3591,7 @@ def redovisa(slug, status):
         axe = st.get('axe') or {}
         teknik = 'bygger, inga konsolfel eller spill' if st.get('status') in VISBARA else str(st.get('skal') or '')[:120]
         rader.append('| %s (%s) %s | %s | %s%s | %s%s | %s | %s |' % (
-            namn.get(kid), kid, str(st.get('titel') or '').replace('|', '/'), STATUSTEXT.get(st.get('status'), st.get('status')),
+            namn.get(kid), kid, str(st.get('titel') or '').replace('|', '/'), statustext(st),
             upp.get('kan_genomforas', '–'), (': ' + str(upp.get('uppgift') or '').replace('|', '/')[:80]) if upp else '',
             k.get('niva') or '–', '' if not k or k.get('last') is True else ' (bilderna olästa)' if k.get('last') is False else ' (läsningen ej prövad)', teknik.replace('|', '/'),
             axe.get('allvarliga', axe.get('fel', '–'))))
@@ -3425,7 +3662,7 @@ def sammanstall(slug):
                     'undersida-390': b(under, '390', 'forsta') if under else None, 'undersida-1440': b(under, '1440', 'forsta') if under else None,
                     'undersida-390-hela': b(under, '390', 'hela') if under else None, 'undersida-1440-hela': b(under, '1440', 'hela') if under else None}
         under = forhandsvisa.sidnamn(st['undersidor'][0]) if st.get('undersidor') else None
-        post = {'id': kid, 'etikett': namn.get(kid), 'status': st.get('status'), 'statustext': STATUSTEXT.get(st.get('status'), st.get('status')),
+        post = {'id': kid, 'etikett': namn.get(kid), 'status': st.get('status'), 'statustext': statustext(st),
                 'skal': st.get('skal'), 'version': st.get('version'), 'varv': st.get('varv'), 'undersidor': st.get('undersidor') or [],
                 'bygd': (ksajt(slug, kid) / 'dist' / 'index.html').is_file(), 'design_fel': st.get('design_fel') or [],
                 'brister': st.get('brister') or [], 'upplysningar': st.get('upplysningar') or [],
@@ -3433,12 +3670,13 @@ def sammanstall(slug):
                 'hypotes': st.get('hypotes') or '', 'bilder': bilder(d / 'bilder', under),
                 'referensjamforelse': referensjamforelse(slug, kid), 'redovisning': kort_redovisning(slug, kid)}
         if not blind:
+            import ateljeslut
             k = atelje.las_json(d / 'KRITIK.json') or {}
             fore = (st.get('forbattrad') or {}).get('fore')
             sk_, skr_ = atelje.las_json(d / 'SKISSKRITIK.json') or {}, st.get('skisskritik') or {}
-            post['skisskritik'] = dict({x: sk_.get(x) for x in ('storsta_problem', 'synliga_problem', 'generiskt', 'rekommendation', 'motivering', 'varv', 'tid')},
-                                       gjord=bool(skr_.get('gjord')), skal=skr_.get('skal'), aterstallt=skr_.get('svaret_aterstallt'),
-                                       svarets_skal=skr_.get('svarets_skal')) if (sk_ or skr_) else None
+            post['skisskritik'] = dict(ateljeslut.skisskritiken(slug, kid, st) or {},
+                                       **{x: sk_.get(x) for x in ('storsta_problem', 'synliga_problem', 'generiskt', 'rekommendation', 'motivering', 'varv', 'tid')},
+                                       aterstallt=skr_.get('svaret_aterstallt'), svarets_skal=skr_.get('svarets_skal')) if (sk_ or skr_) else None
             post.update(titel=st.get('titel'), huvudreferens=st.get('huvudreferens'), material=material(slug, kid), referensbilder=uppdragets_bilder(slug, kid),
                         riktning=(d / 'RIKTNING.md').read_text(encoding='utf-8', errors='replace')[:30000] if (d / 'RIKTNING.md').is_file() else '',
                         kritik={x: k.get(x) for x in ('forsta_intryck', 'uppgift', 'helhet', 'styrkor', 'avvikelser', 'niva', 'material', 'referens',

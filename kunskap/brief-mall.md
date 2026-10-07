@@ -108,6 +108,25 @@ kolumner som aldrig blandas: tekniskt prövat (mätprofil, prelaunch-kontroller)
 granskning, provare), ej observerat hos verkliga användare. Mätplan efter lansering (`uppfoljning.md`) om kanaler
 ingår.
 
+Inför ett avgränsat användbarhetsprov fylls följande i här, utifrån §2:s verkliga toppuppgifter:
+
+| Fråga | Uppgift till deltagaren | Vad observeras | Fyndets möjliga följd |
+|---|---|---|---|
+| Går rätt erbjudande att hitta? | Beskriv en relevant situation och be personen ta reda på om verksamheten kan hjälpa. Nämn inte menyns etikett. | Första vägval, omvägar, rätt/fel slutsats och vilken information slutsatsen bygger på. | Ändra innehåll, benämningar eller struktur beroende på den observerade orsaken. |
+| Går erbjudandet att förstå? | Be personen med egna ord förklara vad som erbjuds och vad hen fortfarande behöver veta. | Missförstånd, saknad information och obelagda antaganden. | Pröva tydligare innehåll; en föredragen formulering är inte i sig bevis för begriplighet. |
+| Går kontakten att genomföra? | Ge ett konkret ärende och be personen visa hur hen skulle ta nästa steg. | Hittad kontaktväg, fältförståelse, felåterhämtning och förståelse av bekräftelsen. | Rätta det hinder som faktiskt observerades. Använd säker demomottagare, inget verkligt kundinskick. |
+
+Anpassa scenarierna till uppdraget; tabellen är en startpunkt, inte tre obligatoriska uppgifter för varje sajt.
+Ange version/hash, deltagarnas relevans, bredder och hjälpmedel, neutralt manus och vad som räknas som genomfört,
+genomfört med hjälp respektive inte genomfört. Anteckna observationer före tolkning. Led inte deltagaren till rätt
+knapp och ändra inte kriteriet efter att ha sett utfallet. Jämför varianter med motbalanserad ordning när samma
+person ser flera. Rekrytering, samtycke och lagring av personuppgifter hanteras före ett verkligt prov.
+
+Sätt läget till **förberett, ej genomfört** tills relevanta människor faktiskt har deltagit. Agentens simulering,
+ägarens smakdom, automatisk tillgänglighetskontroll och observerad användbarhet redovisas separat. Spara eventuell
+senare observationsrapport på repots befintliga privata rapportplats med koppling hit; skapa ingen ny rapportserie.
+Källa: [GOV.UK, Using moderated usability testing](https://www.gov.uk/service-manual/user-research/using-moderated-usability-testing).
+
 ## §12 Förbjudna påståenden och okändheter
 
 Vad sajten aldrig får påstå (obelagda superlativ, lånade meriter, certifikat som inte setts, betyg utan källa);

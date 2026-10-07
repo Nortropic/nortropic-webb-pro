@@ -224,6 +224,17 @@ mcp:
 visar: DESIGN.md stämmer med koden, och sidorna använder dess variabler eller stilpaketets
 ```
 
+```kompetens forberedelse
+namn: Kundunderlag och innehåll inför design
+uppgift: Förbereda verifierbara fakta, besökarnas antagna toppuppgifter och ett bearbetningsbart innehållsutkast. Skilj kundens ord från tolkningar, rekommendationer och obesvarade frågor. Budget och önskad tid är inte ett accepterat kommersiellt åtagande.
+pass: forbered
+kärna: kunskap/kundintervju.md; kunskap/research-underlag.md; kunskap/brief-mall.md; better-writing/SKILL.md
+välj: impeccable/reference/clarify.md; humanizer/SKILL.md; kunskap/redaktionellt-pass.md
+verktyg:
+mcp:
+visar: RESEARCH.md, BRIEF.md, TEXTUNDERLAG.md och BESTALLNING.md med belägg, hypoteser och öppna frågor; inga påhittade uppgifter. Referenssökning och designbedömning kommer i nästa pass. WebSearch/WebFetch får bara publika sökfrågor och adresser; privat kundmaterial skickas inte som sökfråga. Skill-laddning visar metodåtkomst, inte att slutsatserna är verifierade.
+```
+
 ```kompetens forska
 namn: Research och referensjakt
 uppgift: Formulera antagandena om besökarna som kan ändra designbesluten, och frågorna och sajterna som öppnar verkligt skilda grundidéer ur verksamhetens värld och material; pröva territorierna med egna generiska sökningar i Refero och Mobbin innan frågorna skrivs, så att referenssteget hämtar material som bär och inte frågar efter det tjänsterna saknar.

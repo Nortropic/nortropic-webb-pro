@@ -18,6 +18,21 @@ något fördjupas (ägarens uppdrag via Codex 2026-10-05); ingen panel utser en 
 
 ## Skissläget (standard): full verktygslåda, ren arbetsbänk
 
+**Förberedelse före designen.** `prototyp.py <slug> --forbered` kör ett avgränsat pass i samma ateljéarbetare.
+Verifierade verksamhetsuppgifter och kunduppdraget behövs, men ingen godkänd startsida eller installerad sajt.
+Passet skriver först ett privat paket; hela paketet och oförändrade indata prövas före publicering. Äldre arbetsfiler
+bevaras vid paketet. Ett äldre INNEHALL.md arkiveras så att det nya TEXTUNDERLAG.md faktiskt blir textkällan.
+Fakta, kundönskemål, antaganden och kommersiellt accepterade villkor hålls isär. Paketet och kompetenskvittot finns
+i `underlag/<slug>/atelje/forberedelse/`; FORBEREDELSE.json binder arbetsfilerna till indata. Ett avbrott mitt i
+publiceringen är inte en klar förberedelse. Referensjakt och skiss startas därefter uttryckligen från Flöde eller CLI.
+
+**Återupptagning och material.** Skisskritiken binds till körning, kandidat, försök, projektets innehåll och aktuellt
+underlag. Tidigare kritik och status följer med försöksarkivet; den används inte som ett nytt granskningsbevis.
+En fotograferad kandidat omfattar också public/, src/assets/atelje/ och underlagets manifest. Vinnaren bär samma
+material, och installationen av den godkända versionen ersätter dess materialområden så att borttagna filer inte
+återkommer. Målkonflikter prövas före installationen. Underlagsändringar gör godkännandet inaktuellt. Detta binder
+överlämningen till det bedömda exemplet; det bevisar inte att exemplet når ägarens designribba.
+
 Ägarens uppdrag 2026-10-05 16:25Z: kortare väg till professionella, tydligt olika kundanpassade förslag. Första omgången
 ger cirka tio skisser: första vyn, den viktigaste innehållssektionen, navigationen och de interaktioner som behövs för
 att förstå förslaget, genomarbetade i mobil och dator. De skiljer sig i hur kundens information presenteras och
@@ -152,7 +167,11 @@ kandidaterna och granskningarna.
 
 Kandidatens status i ägarens ord: under arbete, klar för ägarens bedömning, vald för vidareutveckling, förkastad,
 förfinad, godkänd för helbygge (och ofullständig eller föll, med skälen). Ett avbrott förstör inga klara kandidater:
-`atelje.py <slug> --fortsatt` tar bara det som inte är gjort. En halvgjord förbättringsrunda eller förfining är märkt med
+`atelje.py <slug> --fortsatt` tar bara det som inte är gjort. Stoppas körningen, eller faller den, märks varje kandidat
+som körningen satte under arbete "avbruten vid stoppet" eller "avbruten av fel", med tiden (fältet `avbruten_vid`), och
+en session som stoppet avslutade får sluttid och utfall i sessionsförteckningen (`atelje/sessioner/`). Efter ett stopp
+skriver ingen kvarlevande tråd i kandidaternas status. Återupptagningen sparar det avbrutna försöket i `forsok-<n>/` och
+gör om det, som förut. En halvgjord förbättringsrunda eller förfining är märkt med
 sin föreversion och återställs; en körning vars arbetare dött tas aldrig om som en ny körning (prototyp.py och atelje.py
 säger att den avbröts och pekar på `--fortsatt`), och ägaren dömer först när den tagits upp (vyn och `skapande.py dom`
 vägrar under ett avbrott). Kandidatflödet känns igen på ateljén (KANDIDATPLAN.json, `kandidater/`), så en körning som
@@ -214,15 +233,43 @@ designversionen överförs till fungerande webb och jämförs med webbläsarens 
 
 ## Domloggen och vad en dom återöppnar
 
-`underlag/<slug>/DESIGNDOMAR.jsonl` har en rad per dom: tid, källa (ägaren, ägaren via Codex, panelen), beslut och text
-ordagrant. Loggen arkiveras aldrig. Nästa körning läser den själv, och prompterna börjar med de senaste domarna. Vyn
-Prototyp skriver ägarens dom. En dom som kom på annat sätt, via Codex eller i en session, förs in ordagrant med
-`.venv/bin/python kontroller/skapande.py dom <slug> --kalla … --beslut … --fil <text>`. Båda går genom samma väg
-(`atelje.doma`): bara en klar körning kan godkännas, en pågående körning döms inte, ett godkännande prövas innan
-domen skrivs, och en annan dom från ägaren drar tillbaka det. Under ett
+`underlag/<slug>/DESIGNDOMAR.jsonl` har en rad per dom: tid, källa, beslut och text ordagrant. Loggen arkiveras aldrig.
+Nästa körning läser den själv, och prompterna börjar med ägarens senaste domar. Vyn Prototyp skriver ägarens dom.
+
+Källan är avsändaren (ägarens uppdrag 2026-10-07, punkt 7). Typerna och definitionerna står på ett ställe i koden,
+`kontroller/skapande.py` (`AVSANDARTYPER` och `KALLOR`):
+- ägarens egna ord och beslut: källan `ägaren`, eller `ägaren via Codex`, som bara betyder ägarens egna ord ordagrant
+  förmedlade och kräver ett belägg (fältet `belagg`: var ägarens egna ord står);
+- Codex bedömning (`Codex`), Claudes eller skaparens bedömning (`skaparen`), en annan granskares bedömning (`panelen`),
+  ett maskinellt mätresultat (`mätning`) och en hypotes (`hypotes`);
+- en vidarebefordrad AI-bedömning (`vidarebefordrad AI-bedömning`): en bedömning av Codex, Claude eller en annan modell
+  som ägaren skickat vidare. Den är en egen källa och aldrig ägarens beslut, också när den är skriven i första person.
+
+Bara ägarens egna beslut räknas (`skapande.ar_agarens`), av godkännandet, läget, stoppvakten, blindningen, omtaget och
+slutposterna. En äldre rad skrivs aldrig om: `ägaren via Codex` utan belägg står som "ej belagd" och räknas inte. Ett
+belägg i efterhand fästs vid raden i bilagan `underlag/<slug>/DESIGNDOMAR-belagg.jsonl`, bunden till radens sha256
+(`.venv/bin/python kontroller/skapande.py belagg <slug> --rad <radnummer> --belagg "<var ägarens egna ord står>"`;
+radnumret ur `skapande.py visa`): raden får ingen ny tid och blir ingen ny dom, utan räknas som ägarens från och med då.
+Bara en rad `ägaren via Codex` kan få ett belägg; källan `ägaren` behöver inget, och en vidarebefordrad bedömning är
+aldrig ägarens. En bilagerad som inte går att läsa syns i `skapande.py visa` och räknas inte.
+
+En dom som kom på annat sätt förs in ordagrant med
+`.venv/bin/python kontroller/skapande.py dom <slug> --kalla … --beslut … --fil <text>`. För ägarens egna ord, utanför
+dashboarden, krävs `--belagg`, och en bedömning som ägaren vidarebefordrat förs in med `--kalla "vidarebefordrad
+AI-bedömning"`. Båda vägarna går genom `atelje.doma`: bara en klar körning kan godkännas, en pågående körning döms inte,
+ett godkännande prövas innan domen skrivs, och en annan dom från ägaren drar tillbaka det. Under ett
 bygge är loggen låst (kor.sh, `chflags uchg`), så domen skrivs när bygget är klart; en ändring under bygget ger
 slutkod 3. Finns tidigare designbeslut utan dom, eller en dom som inte gäller någon körning i skapandeflödet, vägrar
 prototypen att gissa läget.
+
+Loggen läses på radslut och inget annat (`skapande.jsonl_rader`). En dom med U+2028, U+2029 eller U+0085 i texten
+räknas, och radnumren i omtagets kvitto är filens egna (GR-20261007-r100-om#KAN-A). En rad som inte går att läsa står med
+plats och skäl (`skapande.domlogg`, i ateljéns slutpost och i `skapande.py visa`) och hoppas aldrig över tyst; en rad
+som är JSON men ingen dom räknas också som oläsbar. Står den efter ägarens senaste läsbara dom gissar ingen förbi den,
+eftersom ägarens senare beslut kan stå där: läget stannar, godkännandet gäller inte och stoppvakten låter inte bygget
+fortsätta. Vägen vidare är ett nytt beslut från ägaren efter raden (vyn Prototyp, eller `skapande.py dom` med belägg),
+som gäller från sin rad, eller ett uttryckligt läge (`--ny-riktning`, `--putsa`, `--om`, `--valda`); raden skrivs inte
+om av sig själv. En ny dom efter en avbruten skrivning hamnar på en egen rad.
 
 - `ny_riktning` återöppnar alla designbeslut, aldrig fakta. `kontroller/atelje.py <slug> --ny-riktning` (eller
   prototyp.py) sparar först det ägaren bedömt (ägarens beslut 2026-10-07, `BESLUT.md`). Varje kandidat som ägaren dömt i
@@ -256,7 +303,13 @@ TILLBAKA; omtaget skriver ägarens dom.
 ## Avbrott
 
 Föll en körning tar `.venv/bin/python kontroller/atelje.py <slug> --fortsatt` vid efter den senaste klara fasen (i
-kandidatflödet: stycket efter stegen ovan). I den äldre utforskningen tar den vid i omgången som föll, med samma kritik
+kandidatflödet: stycket efter stegen ovan). Körningens slutpost säger om den stoppades eller föll, i vilket steg och när
+(Körspåret nedan). Ägarens stopp är `atelje.py <slug> --stoppa`: arbetaren får SIGTERM (SIGHUP och SIGINT är samma
+stopp), avslutar sina sessioner med deras processträd, märker kandidaterna under arbete och skriver posten; sessioner
+som överlevt arbetaren (kandidaternas `session_pid`, och förteckningens poster utan slut, som skisskritikens) avslutas
+av `--stoppa` och får slut och utfall. Läget full prövar stoppet efter varje session, som skissa gör. Ett annat
+avbrott i arbetaren (SystemExit) slutar också som fel med sessionerna avslutade, så statusen säger aldrig att körningen
+pågår. I den äldre utforskningen tar den vid i omgången som föll, med samma kritik
 som första gången (skaparens TILLBAKA.md eller panelens VAL.md), och i en putsning vid förfiningen eller slutdomen mot
 samma före. En avslutad körning (klar, förkastad, tillbaka) tas aldrig upp igen, och varken `--fortsatt` eller
 `--bara-domare` körs när ägaren dömt efter körningen; där avgör ägarens dom nästa steg. Det som den äldre utforskningen
@@ -291,9 +344,30 @@ och avsnittet Kompetenserna.
 
 ## Körspåret
 
+Varje körning får en slutpost, `kunder/<slug>/atelje/korningar/<körning>/SLUT.json` (`kontroller/ateljeslut.py`; ägarens
+uppdrag 2026-10-07, punkt 4), i helbyggets form: rapporthuvudets fält, de fem tillstånden var för sig, slutkoden,
+bristerna, nästa steg och länkarna. Arbetaren skriver den vid normalt avslut, fel och stopp, och när startkontrollen
+stoppar starten. Bredvid ligger körningens STATUS.json och REDOVISNING.md, så nästa körning skriver aldrig över dem
+utan att den förra körningens version står kvar. Posten binder ihop körningen, kandidaterna med sina versioner, repots
+commit, METOD.json:s sha256, skisskritiken och vem som gjort den (inte dess innehåll), ägarens beslut med avsändaren,
+stoppet eller felet med steget, och tiden till första valbara skiss. Platsen för kompetenskedjan står som "inte
+observerat". En start som stannar före körningen får en kort post (slutkod 2), och en körning utan post (en dödad
+arbetare, eller en körning från före posterna) får sin i efterhand innan nästa start skriver över dess status. Stoppar
+startkontrollen en ny start skriver den startens egen post (slutkod 4), som inte ersätter den förra körningens post,
+och prototyp.py:s besked och slutkod kommer ur den direkt. En körning som slutar utan en enda valbar kandidat får
+slutkod 6: ägaren har inget att välja bland. Ägarens `valj`, `jamfor` och `putsa` står i posten som ej bedömt med vad
+beslutet betyder; `forkasta` och `ny_riktning` som nej, `godkand` som ja.
+`atelje.py` och `prototyp.py` skriver beskedet ur posten och ger dess slutkod: 0 klar, 2 ingen körning startades, 4 föll,
+stoppades eller avbröts, 5 väntan slut medan körningen pågår (det vanligaste, eftersom skisserna tar längre tid än
+väntan), 6 ingen startsida att bygga vidare på. `.venv/bin/python kontroller/ateljeslut.py <slug>` visar den senaste
+posten, prövad mot domloggen nu.
+
 I kandidatflödet sammanställer REDOVISNING.md researchen (nytt och återanvänt), varje kandidat (status, skäl, varv,
 sessioner, minuter, listpris, granskningens nivå), kandidaterna som föll, falsk variation och materialbehoven; ägaren
-ser den efter sitt första beslut. I den äldre utforskningen skrivs REDOVISNING.md ur sessionernas transkript
+ser den efter sitt första beslut. Huvudet säger körningens utfall: klar, eller steget och stoppet eller felet. Tiden
+till första valbara skiss sätts när den första kandidaten blir valbar, också om körningen stoppas före resten; i en
+äldre körning utan fältet räknas den fram ur kandidaternas statuslogg och märks som framräknad. I den äldre
+utforskningen skrivs REDOVISNING.md ur sessionernas transkript
 (`kontroller/bildkedja.py`):
 
 - metodkvittot: vilka metodfiler och skills som lästes före första skrivningen;

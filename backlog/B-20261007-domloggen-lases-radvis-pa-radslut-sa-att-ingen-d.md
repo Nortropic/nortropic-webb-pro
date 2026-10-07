@@ -1,12 +1,13 @@
 ---
 id: B-20261007-domloggen-lases-radvis-pa-radslut-sa-att-ingen-d
-status: vilande
+status: pagar
 kalla: granskning
 kallref: granskningar/GR-20261007-r100-om.md
 fynd: GR-20261007-r100-om#KAN-A
 skapad: 2026-10-07
 prio: hog
 steg: gren C1: kontroller/skapande.py, .claude/hooks/stoppvakt.py, kontroller/atelje.py
+andrad: 2026-10-07T11:55Z
 ---
 # Domloggen läses radvis på radslut, så att ingen dom med U+2028 försvinner tyst
 
@@ -15,3 +16,5 @@ steg: gren C1: kontroller/skapande.py, .claude/hooks/stoppvakt.py, kontroller/at
 **Förslag:** Läs JSONL-filerna radvis på \n överallt där domloggen läses, och låt en oläsbar rad synas med antal och plats (uppgift 5 i gren C1).
 
 **Klart när:** En dom med U+2028 i texten räknas av skapande, stoppvakten och atelje, och kvittots radnummer stämmer.
+
+**Pagar (2026-10-07):** gren C1 (grenen ateljeslut-20261007): domloggen och de andra JSONL-filerna läses på radslut, en oläsbar rad syns med plats och skäl, och kvittots radnummer stämmer (prov_ateljeslut.py); klar med commit vid sammanslagningen

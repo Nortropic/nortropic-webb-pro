@@ -29,10 +29,14 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
    aldrig), fäller exporten om en fil nämner lokala sökvägar, Nortropics privata underlag eller en nyckel, och bygger
    kundrepot i en tom katalog utanför repot. `--git` gör ett lokalt repo med en första commit på `main`; inget skickas
    någonstans. Slutkod 0 klar, 1 läckage eller bygget föll, 2 fel i anropet.
-4. **Prövas inte i dag:** exporten prövar bara att sajten har package.json och en startsida, inte att bygget är godkänt
-   (korsluts slutkod, provet, granskningen, ägarens dom eller godkännandet i skapandeflödet), och `--kandidat kNN`
-   exporterar en kandidats projekt förbi helbygget. Exporten sparar inget besked: ingen dist-hash, körning eller
-   godkännande följer med till kundrepot, och resultatet skrivs bara ut.
+4. **Versionskvitto och omfattning:** `kunder/<slug>/exporter/<id>/EXPORT.json` sparar exportens kontroller,
+   källornas hash, exportens filmanifest och eventuell koppling till helbyggets körning och dist. Inget privat
+   protokoll följer med till kundrepot. Samma kunds export låses under kopieringen; förändrade källor eller ett
+   fallerat byggprov ersätter inte den tidigare exporten. `--kandidat kNN` är en testexport. Alla exporter går att
+   förbereda utan kundgodkännande, men det är uttryckligen inte samma sak som kundklar leverans. Slutpostens
+   godkännanden räknas om vid visning och blir historiska om version eller beslut inte längre gäller. Drift,
+   mottagning av formulär och domän är separata prov. SIGKILL kan inte fångas mitt i katalogbytet; tidigare export
+   finns då kvar i kundrepo-tidigare/, men återställning kan behövas innan nästa försök.
 5. **Kundrepot till GitHub och Vercel** har inget verktyg i repot: människa, eller en session med ägarens ja, enligt
    Vercel-steget nedan. Ingenting från leveransen sparas i repot; `kontroller/driftkoll.py` prövar svaren från en
    driftsatt adress och skriver bara ut.

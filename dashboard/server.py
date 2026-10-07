@@ -1604,6 +1604,38 @@ def _steg(nr, namn, status, **falt):
     return ut
 
 
+
+def flodesbesked(slug, blind=False):
+    """Fem separata besked från befintliga slutposter, aldrig härledda ur filers datum."""
+    import ateljeslut
+    import korslut
+    poster = [p for p in (korslut.aktuell(KUNDER / slug), ateljeslut.aktuell(slug)) if isinstance(p, dict)]
+    post = max(poster, key=lambda p: str(p.get('datum') or '')) if poster else None
+    st = las_json(UNDERLAG / slug / 'atelje/STATUS.json') or {}
+    pk = (post or {}).get('korning')
+    poststart = (pk.get('startad') if isinstance(pk, dict) else _stampel(pk)) or (post or {}).get('datum')
+    tidigare = bool(post and st.get('startad') and poststart and str(st['startad']) > str(poststart))
+    if post and post.get('typ') == korslut.TYP:
+        dist = str((post.get('provad') or {}).get('dist_nu') or post.get('dist_sha256') or '')[:12]
+        domar = (las_json(KUNDER / slug / 'DOM.json') or {}).get('domar') or []
+        blind = blind or not any(isinstance(d, dict) and dist and d.get('bygge_dist') == dist for d in domar)
+    tillstand = []
+    for namn, rubrik in korslut.TILLSTAND:
+        p = (post.get('tillstand') or {}).get(namn) if post else None
+        p = p if isinstance(p, dict) else {}
+        dolt = blind and namn in ('designgranskaren_godkanner', 'agaren_godkanner', 'klart_for_leverans')
+        v = None if dolt or tidigare else p.get('varde')
+        status = ('dolt före ditt val' if dolt else 'saknas' if not p else 'historiskt' if tidigare or p.get('historik') is not None
+                  else 'ja' if v is True else 'nej' if v is False else 'ej bedömt')
+        tillstand.append({'id': namn, 'namn': rubrik, 'varde': v, 'status': status,
+                          'text': 'visas efter ditt val' if dolt else 'Beskedet gäller föregående körning. ' + str(p.get('text') or '') if tidigare else str(p.get('text') or 'inget slutbesked finns'),
+                          'omfattning': None if dolt else p.get('omfattning')})
+    fil = None if blind or not post else post.get('slutpost')
+    return {'tillstand': tillstand, 'version': (post or {}).get('dist_sha256'), 'tid': (post or {}).get('datum'),
+            'brister': [] if blind else (post or {}).get('brister') or [],
+            'filer': [f for f in [_fil(ROOT / fil, 'slutposten för versionen') if isinstance(fil, str) else None] if f]}
+
+
 def flode(slug):
     """Det som hände för kunden, i README:s nio steg, bundet till den aktuella körningen: dina val efter körningens plan,
     förfiningen efter ditt senaste val, godkännandet prövat som kor.sh prövar det (skapande.godkand_giltig) och helbygget
@@ -1615,6 +1647,8 @@ def flode(slug):
     import kandidater
     import korslut
     import skapande
+    import prototyp as prototyp_kor
+    import exportera
     if ab_oavgjord(slug):  # lika för båda armarna: inget om ateljén, provet, stoppvakten eller granskningen före valet
         return {'slug': slug, 'blind': True, 'ab_dold': True, 'korning': None, 'tid': nu(),
                 'steg': [_steg(i, n, 'inte observerat') for i, n in enumerate(FLODESTEG, 1)]}
@@ -1645,12 +1679,12 @@ def flode(slug):
     karna = [n for n in ('RESEARCH.md', 'BRIEF.md') if not (u / n).is_file()] + ([] if (u / 'INNEHALL.md').is_file() or (u / 'TEXTUNDERLAG.md').is_file() else ['INNEHALL.md'])
     steg.append(_steg(1, 'Kundunderlaget', 'skapat' if filer and not karna else 'inte observerat' if not filer else 'skapat',
                       utfall=filer, brister=(['saknas: %s' % ', '.join(karna)] if filer and karna else [])
-                      + ['hashen ovan är beräknad nu; körningen låser inte kundens underlag'],
+                      + ['kandidatens fotografering och godkännande bär underlagets innehållshash; filerna ovan läses nu'],
                       nasta='Prototypen: `.venv/bin/python kontroller/prototyp.py %s` (du eller en session).' % slug))
 
     # 2. prototypen: research, plan och skisser
-    if not st:
-        steg.append(_steg(2, 'Prototypen', 'inte påbörjat', nasta='`.venv/bin/python kontroller/prototyp.py %s`' % slug))
+    if not st or st.get('steg') in ('forberedd', 'forbereder') or st.get('lage') == 'forbered':
+        steg.append(_steg(2, 'Prototypen', 'inte påbörjat', nasta='Förbered underlaget och starta sedan referensjakt och skiss med handlingen ovan.'))
         plan_t, kand = '', []
     else:
         stegnamn = st.get('steg') or ''
@@ -1854,6 +1888,21 @@ def flode(slug):
                                     {'text': 'kor.sh-körningen %s' % korning_id if korning_id else 'kor.sh-körningen är inte observerad'}],
                           utfall=[f for f in (_fil(k / 'prov' / 'PROV.md', 'provets rapport'), _fil(k / 'RAPPORT.md', 'byggets rapport')) if f]))
 
+    helpost = korslut.aktuell(k)
+    if isinstance(helpost, dict):
+        t = helpost.get('tillstand') or {}
+        tekniskt = t.get('tekniskt_godkant') or {}
+        s6 = ('inaktuellt' if tekniskt.get('historik') is not None else 'kontrollerat' if tekniskt.get('varde') is True
+              else 'underkänt' if tekniskt.get('varde') is False else 'inte observerat')
+        bygg_t = str(helpost.get('datum') or '')
+        bygge_id = str((helpost.get('provad') or {}).get('dist_nu') or helpost.get('dist_sha256') or '')[:12]
+        galler = [d for d in dom_b if bygge_id and d.get('bygge_dist') == bygge_id]
+        steg[5] = _steg(6, 'Helbygget', s6,
+                         underlag=[{'text': 'körning %s · dist %s' % (helpost.get('korning'), bygge_id or 'saknas')}],
+                         kontroller=[{'text': 'Tekniskt: ' + str(tekniskt.get('text') or 'ej bedömt')}],
+                         brister=[] if blind or not galler else list(helpost.get('brister') or []),
+                         utfall=[] if blind or not galler else [f for f in (_fil(k / 'prov/PROV.md'), _fil(k / 'RAPPORT.md')) if f])
+
     # 7. din dom över bygget: beslutad bara över just det bygge som ligger i dist/ (domens bygge_dist, spara_dom); en dom
     #    över ett annat bygge är inaktuell (granskningen av r96, B2)
     def domrader(ds):
@@ -1871,31 +1920,31 @@ def flode(slug):
         steg.append(_steg(7, 'Din dom över bygget', 'inte observerat' if dom_b else 'inte påbörjat',
                           brister=['domen kan inte knytas till ett bygge: provet saknas'] if dom_b else []))
 
-    # 8. exporten: inget i exporten binder den till ett bygge, så den är skapad bara när den gjordes efter att det prövade
-    #    bygget startade; en äldre är inaktuell, och en som inte går att knyta till ett bygge inte observerad (B2)
-    pj = k / 'kundrepo' / 'package.json'
-    if pj.is_file() and not pj.is_symlink():
-        t8 = datetime.fromtimestamp(pj.stat().st_mtime, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-        s8 = ('skapat' if s6 in ('kontrollerat', 'skapat', 'underkänt') and bygg_t and t8 >= bygg_t else
-              'inaktuellt' if s6 == 'inaktuellt' or (bygg_t and t8 < bygg_t) or (st and t8 < str(st.get('startad') or '')) else 'inte observerat')
-        steg.append(_steg(8, 'Exporten till kundrepo', s8, utfall=[{'text': 'kunder/%s/kundrepo' % slug, 'tid': t8}],
-                          brister=['exporten prövar inte godkännandet och sparar inget besked; kopplingen till bygget saknas']
-                          + {'inaktuellt': ['exporten är äldre än bygget eller körningen'],
-                             'inte observerat': ['exporten kan inte knytas till ett bygge i körningen']}.get(s8, [])))
-    elif pj.exists() or pj.is_symlink():
-        s8 = 'inte observerat'
-        steg.append(_steg(8, 'Exporten till kundrepo', s8, brister=['kunder/%s/kundrepo/package.json är ingen vanlig fil' % slug]))
+    # 8. Ny export har ett innehållsbundet kvitto. Äldre kataloger utan kvitto
+    # kan öppnas men filtid räcker aldrig för ett aktuellt exportbesked.
+    e = exportera.aktuell(slug)
+    if e:
+        s8 = 'skapat' if e.get('aktuell') else 'inaktuellt' if e.get('ok') else 'stoppat'
+        kontroll = (e.get('kontroller') or {}).get('exportbygge') or {}
+        steg.append(_steg(8, 'Exporten till kundrepo', s8,
+                          underlag=[{'text': 'exportversion %s · källversion %s' % (str(e.get('export_sha256') or 'saknas')[:12], str(e.get('kallor_sha256') or 'saknas')[:12])}],
+                          kontroller=[{'text': 'Exportens byggprov: ' + ('godkänt' if kontroll.get('varde') is True else 'underkänt' if kontroll.get('varde') is False else 'inte kört')}],
+                          brister=[str(e.get('fel'))] if e.get('fel') else ['exportfilerna är inte samma som i kvittot, eller källorna har ändrats'] if not e.get('aktuell') else [],
+                          utfall=[] if blind else [f for f in [_fil(Path(e['kvitto']), 'exportens versionskvitto') if e.get('kvitto') else None] if f]))
     else:
-        s8 = 'inte påbörjat'
-        steg.append(_steg(8, 'Exporten till kundrepo', s8))
+        pj = k / 'kundrepo/package.json'
+        s8 = 'inte observerat' if pj.exists() or pj.is_symlink() else 'inte påbörjat'
+        steg.append(_steg(8, 'Exporten till kundrepo', s8,
+                          brister=['äldre export utan versionskvitto; dess kontroller och aktualitet är inte belagda'] if s8 == 'inte observerat' else []))
 
     # 9. leveransen: inget verktyg sparar den, så den visas aldrig som kontrollerad; utan en export i körningen är den inte
     #    påbörjad
     steg.append(_steg(9, 'Leveransen', 'inte observerat' if s8 in ('skapat', 'inte observerat') else 'inte påbörjat',
-                      brister=['inget i repot sparar leveransen; driftkoll.py skriver bara ut']))
+                      brister=['exporten är förberedelse; verklig driftsättning, domän och formulärmottagning är inte verifierade av den']))
     return {'slug': slug, 'blind': blind, 'ab_dold': False,
             'korning': {'startad': st.get('startad'), 'steg': st.get('steg'), 'lage': st.get('lage')} if st else None,
-            'steg': steg, 'tid': nu()}
+            'steg': steg, 'tid': nu(), 'besked': flodesbesked(slug, blind=blind),
+            'handlingar': prototyp_kor.handlingar(slug)}
 
 
 def _pilotversion(namn, kanda):
@@ -2890,6 +2939,21 @@ class H(BaseHTTPRequestHandler):
         try:
             n = int(self.headers.get('Content-Length') or 0)
             data = json.loads(self.rfile.read(min(n, 56 * 1024 * 1024)) or b'{}')
+            m = re.match(r'^/api/flode/([a-z0-9-]{2,60})/start$', vag)
+            if m:
+                import prototyp as prototyp_kor
+                if not isinstance(data, dict):
+                    raise ValueError('handlingen ska vara ett objekt')
+                slug = m.group(1)
+                if data.get('handling') != 'stoppa' and ab_oavgjord(slug):
+                    raise ValueError('en blind jämförelse pågår; inga steg startas från flödesvyn')
+                rc = prototyp_kor.fran_dashboard(slug, data.get('handling'), data.get('start_id'))
+                return self.skicka(202 if rc == 5 else 200 if rc in (0, 4) else 409,
+                                   {'slutkod': rc, 'start_id': data.get('start_id'),
+                                    **({'fel': 'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'} if rc not in (0, 4, 5) else {}),
+                                    'besked': 'Arbetet är startat eller pågår redan.' if rc == 5 else
+                                              'Handlingen är klar; läs det aktuella beskedet.' if rc in (0, 4) else
+                                              'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'})
             m = re.match(r'^/api/dom/([a-z0-9-]{2,60})$', vag)
             if m:
                 return self.skicka(200, spara_dom(m.group(1), data))

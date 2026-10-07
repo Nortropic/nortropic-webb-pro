@@ -137,10 +137,10 @@ def kontrollera_fil(path, raw, extra_fraser):
         if m:
             title = html.unescape(TAGG.sub('', m.group(1))).strip()
             if len(title) > 60:
-                fynd.append({'typ': 'metalängd', 'rad': raw[:m.start()].count('\n') + 1, 'text': 'title %d tecken' % len(title), 'riktning': 'title ≤ 60 tecken; sanningsenlig, utan superlativ'})
+                fynd.append({'typ': 'metalängd', 'rad': raw[:m.start()].count('\n') + 1, 'text': 'title %d tecken' % len(title), 'riktning': 'information, ingen teckengräns: bedöm tydlighet och relevans; söktiteln kan kortas eller väljas om'})
         m = META_DESC.search(raw) or META_DESC2.search(raw)
         if m and len(html.unescape(m.group(1))) > 155:
-            fynd.append({'typ': 'metalängd', 'rad': raw[:m.start()].count('\n') + 1, 'text': 'description %d tecken' % len(m.group(1)), 'riktning': 'description ≤ 155 tecken'})
+            fynd.append({'typ': 'metalängd', 'rad': raw[:m.start()].count('\n') + 1, 'text': 'description %d tecken' % len(m.group(1)), 'riktning': 'information, ingen teckengräns: bedöm sammanfattningen; sökutdraget kan hämtas ur sidan'})
     return fynd, rows
 
 

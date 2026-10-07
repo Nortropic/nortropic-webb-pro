@@ -349,6 +349,8 @@ with fall('B2 planfas'):
     kontroll(st[3]['status'] == 'inte påbörjat' and not st[3]['beslut'], ('B2: förra körningens dom är beslutad i den nya körningen', st[3]['status'], st[3]['beslut']))
 
 # --- B2: en ny körning med förra körningens bygge, dom och export kvar i kunder/ ---
+# Exporter utan versionskvitto är nu alltid 'inte observerat': filtid bevisar varken
+# innehåll eller kontroller. prov_exportovergang prövar nya kvitton och inaktuell hash.
 s = 'b2-korsvis'
 underlag(s)
 h = bygge(s, '20261001T110000Z', '2026-10-01T12:00:00Z')
@@ -361,7 +363,7 @@ kandidat(s, 'k01', 'klar', version='c1' * 32)
 kandidat(s, 'k02', 'klar', version='c2' * 32)
 with fall('B2 korsvis'):
     f = dash.flode(s)
-    kontroll([x['status'] for x in f['steg']][2:] == ['väntar på ägaren', 'inte påbörjat', 'inte påbörjat', 'inaktuellt', 'inaktuellt', 'inaktuellt', 'inte påbörjat'],
+    kontroll([x['status'] for x in f['steg']][2:] == ['väntar på ägaren', 'inte påbörjat', 'inte påbörjat', 'inaktuellt', 'inaktuellt', 'inte observerat', 'inte observerat'],
              ('B2: förra körningens bygge, dom och export visas som den här körningens', [x['status'] for x in f['steg']]))
     kontroll(f['blind'] and not lackor(f), ('R4: läcka före första valet', lackor(f)))
 
@@ -442,11 +444,11 @@ with fall('B2 bundet bygge'):
 skriv(K / s / 'kundrepo' / 'package.json', '{}', tid='2026-10-06T12:30:00Z')  # efter körningens start, före byggets (B2-4)
 with fall('B2 export före bygget'):
     st = stegen(s)
-    kontroll((st[8]['status'], st[9]['status']) == ('inaktuellt', 'inte påbörjat'), ('B2: en export från före bygget är den här körningens', st[8]['status'], st[9]['status']))
+    kontroll((st[8]['status'], st[9]['status']) == ('inte observerat', 'inte observerat'), ('B2: en export från före bygget är den här körningens', st[8]['status'], st[9]['status']))
 skriv(K / s / 'kundrepo' / 'package.json', '{}', tid='2026-10-06T14:00:00Z')
 with fall('exporten'):
     st = stegen(s)
-    kontroll(st[8]['status'] == 'skapat' and any('kopplingen till bygget saknas' in t for t in texter(st[8], 'brister')) and st[9]['status'] == 'inte observerat',
+    kontroll(st[8]['status'] == 'inte observerat' and any('utan versionskvitto' in t for t in texter(st[8], 'brister')) and st[9]['status'] == 'inte observerat',
              (st[8]['status'], st[8]['brister'], st[9]['status']))
 skriv(K / s / 'DOM.json', {'schema': 1, 'slug': s, 'domar': [{'tid': '2026-10-06T15:00:00Z', 'bygge_dist': 'e0' * 6, 'svar': {'namn': 'Ja, som den är'}}]})
 with fall('B2 dom över ett annat bygge'):
@@ -465,7 +467,7 @@ sv = json.loads((K / s / 'prov' / 'STOPPVAKT.json').read_text(encoding='utf-8'))
 skriv(K / s / 'prov' / 'STOPPVAKT.json', dict(sv, korning='20261006T115900Z'))
 with fall('B2 bygge före godkännandet'):
     st = stegen(s)
-    kontroll((st[6]['status'], st[7]['status'], st[8]['status']) == ('inaktuellt', 'inaktuellt', 'inaktuellt'),
+    kontroll((st[6]['status'], st[7]['status'], st[8]['status']) == ('inaktuellt', 'inaktuellt', 'inte observerat'),
              ('B2: ett bygge från före godkännandet', st[6]['status'], st[7]['status'], st[8]['status']))
 (K / s / 'korning-20261006T115900Z.jsonl').rename(K / s / 'korning-20261006T130000Z.jsonl')
 skriv(K / s / 'prov' / 'STOPPVAKT.json', sv)

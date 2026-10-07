@@ -92,7 +92,13 @@ th { color: var(--dampad); font-weight: 560; font-size: 13px; }
 td.tal, th.tal { text-align: right; font-variant-numeric: tabular-nums; }
 .tabell { overflow-x: auto; }
 .prosa { max-width: 78ch; }
-.flode :is(code, a, li, p) { overflow-wrap: anywhere; }  /* långa kommandon och sökvägar bryts i mobilen */
+.flode :is(code, a, li, p) { overflow-wrap: anywhere; }
+.flode .flodesbesked { margin: 0; display: grid; gap: 14px; }
+.flodesbesked > div { min-width: 0; }
+.flodesbesked dt { font-weight: 560; }
+.flodesbesked dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.flode [data-flodeshandling], .flode [data-flode-las] { min-height: 44px; max-width: 100%; white-space: normal; }
+.flode .knapp:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }  /* långa kommandon och sökvägar bryts i mobilen */
 .prosa p, .prosa li { margin: 6px 0; }
 .prosa code, code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--yta2); border: 1px solid var(--linje); border-radius: 5px; padding: 1px 5px; }
 pre { background: var(--yta2); border: 1px solid var(--linje); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
@@ -766,7 +772,7 @@ async function kandidatvy(slug, d) {
         ${k.skisskritik.gjord ? `<p class="under">Största problemet: ${esc(k.skisskritik.storsta_problem || '')}</p>${(k.skisskritik.synliga_problem || []).length ? `<ul>${k.skisskritik.synliga_problem.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
           <p class="under">Generisk: ${k.skisskritik.generiskt ? 'ja' : 'nej'} · rekommendation: <b>${esc(k.skisskritik.rekommendation || '')}</b>${k.skisskritik.motivering ? ' — ' + esc(k.skisskritik.motivering) : ''}</p>
           <p class="under">Skaparens svar står under "Svar på granskningen" i RIKTNING.md nedan.${k.skisskritik.aterstallt ? ' Svaret blev inte klart eller bröt skissen (' + esc(k.skisskritik.svarets_skal || '') + '); skissen från före svaret visas.' : ''}</p>`
-        : `<p class="under">Granskningen gjordes inte: ${esc(k.skisskritik.skal || 'skälet är inte observerat')}.</p>`}</div>` : ''}
+        : `<p class="under">${k.skisskritik.status === 'historisk' ? 'Historisk granskning' : 'Granskning inte verifierad'}: ${esc(k.skisskritik.skal || 'skälet är inte observerat')}.</p>`}</div>` : ''}
       ${(k.referensbilder || []).length ? `<p class="under" style="margin-bottom:4px">Huvudreferensens bilder ur uppdraget:</p><div class="galleri">${k.referensbilder.map((p) => bild(p, 'referensen')).join('')}</div>` : ''}
       ${k.material ? `<p class="under">Material som saknas: ${esc(k.material)}</p>` : ''}
       ${(k.kompetens || []).length ? `<div class="kort" style="margin:10px 0;padding:10px"><b>Kompetensernas arbete</b>${k.kompetens.map((r) => `<div style="margin-top:8px"><p class="under"><b>${esc(KPASS[r.pass] || r.pass)}</b>${r.nyckel && !r.nyckel.startsWith('skiss:') ? ' (fördjupningen)' : ''} · ${r.genomford === true ? 'genomfört' : r.genomford === false ? '<span class="rod-text">ej genomfört</span>' : 'ej verifierat'} · kärnan läst hel ${((r.kvitto || {}).lasta || []).length} av ${((r.kvitto || {}).lasta || []).length + ((r.kvitto || {}).saknas || []).length}${((r.kvitto || {}).valda || []).length ? ' · valda alternativ: ' + esc(r.kvitto.valda.map((f) => f.split('/').slice(-2).join('/')).join(', ')) : ''}${r.aterstalld ? ' · återställt: ' + esc(r.aterstalld) : ''}</p><p class="under"><b>Kod ändrad:</b> ${r.andrad ? 'ja' : 'nej'}</p>${(r.andringar || []).length ? `<ul>${r.andringar.slice(0, 8).map((a) => `<li>${esc(a.skill)}: ${esc(a.vad)} (${esc(a.var)}) — ${esc(a.varfor)}</li>`).join('')}</ul>` : `<p class="under">${esc(r.ingen_andring || '')}</p>`}${(r.beteende_provat || []).length ? `<p class="under"><b>Beteende prövat:</b></p><ul>${r.beteende_provat.slice(0, 8).map((b) => `<li>${esc(b.vad)}: ${esc(b.resultat)} (${esc(b.hur)})${b.bild_finns === false ? ' <span class="rod-text">bilden saknas</span>' : ''}</li>`).join('')}</ul>` : ''}${r.visuell_bedomning && r.visuell_bedomning.omdome ? `<p class="under"><b>Visuell bedömning:</b> ${OMDOME[r.visuell_bedomning.omdome] || esc(r.visuell_bedomning.omdome)} — ${esc(r.visuell_bedomning.skal || '')}</p>` : ''}${(r.kvarstar || []).length ? `<p class="under">Kvarstår: ${esc(r.kvarstar.join('; '))}</p>` : ''}${((r.bilder || {}).fore || []).length ? `<div class="galleri" style="grid-template-columns:1fr 1fr">${bild(r.bilder.fore[0], 'före, 390')}${bild((r.bilder.efter || [])[0], 'efter, 390')}</div>` : ''}</div>`).join('')}</div>` : ''}
@@ -1208,6 +1214,52 @@ function flodelista(rubrik, poster) {
   return `<div class="under" style="margin:10px 0 2px">${esc(rubrik)}</div><ul style="margin:0;padding-left:18px">${poster.map((p) => typeof p === 'string' ? `<li>${kodtext(p)}</li>`
     : `<li>${p.lank ? `<a href="${esc(p.lank)}" target="_blank" rel="noopener">${esc(p.text)}</a>` : kodtext(p.text)}${p.tid ? ` <span class="under">${tid(p.tid)}</span>` : ''}${p.sha ? ` <code title="sha256, beräknad nu">${esc(p.sha)}</code>` : ''}</li>`).join('')}</ul>`;
 }
+function flodesbesked(b, handlingar, slug) {
+  const rader = b?.tillstand || [];
+  return `<section class="kort" aria-labelledby="flode-besked-rubrik" style="margin-bottom:18px">
+    <h3 id="flode-besked-rubrik" tabindex="-1" style="margin-top:0">Aktuellt besked</h3>
+    <p class="under">${b?.version ? 'Byggversion ' + esc(b.version.slice(0, 12)) + ' · ' : ''}${b?.tid ? 'Slutpost ' + tid(b.tid) : 'Ingen slutpost än'}. Godkännandena gäller bara angiven version och omfattning.</p>
+    <dl class="flodesbesked">${rader.map((r) => `<div><dt>${esc(r.namn)} <span class="chip ${r.status === 'ja' ? 'ok' : r.status === 'nej' ? 'rod' : r.status === 'historiskt' ? 'gul' : ''}">${esc(r.status)}</span></dt>
+      <dd>${esc(r.text)}${r.omfattning ? `<p class="under" style="margin:4px 0 0">Omfattning: ${esc(r.omfattning)}</p>` : ''}</dd></div>`).join('')}</dl>
+    ${flodelista('Kontrollera underlaget', b?.filer)}
+    <div class="rad" style="margin-top:18px">${(handlingar || []).map((h) => `<button class="knapp primar" data-flodeshandling="${esc(h.id)}" data-flode-slug="${esc(slug)}">${esc(h.text)}</button>`).join('')}
+      <button class="knapp" data-flode-las="${esc(slug)}">Läs aktuellt läge</button></div>
+    <p class="under">En startknapp beställer bara det namngivna steget. Att välja ett förslag eller öppna vyn startar inget arbete.</p>
+    <p id="flode-handlingssvar" role="status" aria-live="polite" aria-atomic="true"></p>
+  </section>`;
+}
+document.addEventListener('click', async (e) => {
+  const las = e.target.closest('[data-flode-las]');
+  if (las) {
+    las.disabled = true;
+    $('#flode-handlingssvar').textContent = 'Läser aktuellt läge…';
+    try { await flodesvy(las.dataset.flodeLas); $('#flode-besked-rubrik')?.focus(); }
+    catch (err) { $('#flode-handlingssvar').textContent = 'Läget gick inte att läsa: ' + err.message + '. Inget arbete startades.'; }
+    finally { las.disabled = false; }
+    return;
+  }
+  const knapp = e.target.closest('[data-flodeshandling]');
+  if (!knapp || knapp.disabled) return;
+  const slug = knapp.dataset.flodeSlug, handling = knapp.dataset.flodeshandling;
+  const key = 'nwp-start:' + slug + ':' + handling;
+  let startId;
+  try { startId = sessionStorage.getItem(key) || crypto.randomUUID(); sessionStorage.setItem(key, startId); }
+  catch { $('#flode-handlingssvar').textContent = 'Webbläsaren kunde inte spara start-id. Ingen start skickades; tillåt sessionslagring och försök igen.'; return; }
+  knapp.disabled = true; knapp.setAttribute('aria-busy', 'true');
+  $('#flode-handlingssvar').textContent = 'Skickar begäran… Du kan läsa aktuellt läge om svaret dröjer.';
+  try {
+    const r = await post('/api/flode/' + encodeURIComponent(slug) + '/start', { handling, start_id: startId });
+    sessionStorage.removeItem(key);
+    await flodesvy(slug);
+    $('#flode-handlingssvar').textContent = r.besked;
+    $('#flode-besked-rubrik')?.focus();
+  } catch (err) {
+    const svar = $('#flode-handlingssvar');
+    if (svar) svar.textContent = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs aktuellt läge eller försök igen; samma start-id används.';
+    knapp.disabled = false;
+  } finally { knapp.removeAttribute('aria-busy'); }
+});
+
 async function flodesvy(slug) {
   aktivNav('flode');
   const d = await api('/api/flode');
@@ -1220,6 +1272,7 @@ async function flodesvy(slug) {
     // en arm i en blind jämförelse som du inte valt i än: inga steg alls, lika för båda armarna (som vyn Bygge)
     const stegen = f.ab_dold ? '<div class="meddelande">Bygget är en arm i en blind jämförelse som du inte har valt i än. Flödet visas efter ditt val i Jämförelser, så att jämförelsen förblir blind.</div>'
       : `${f.blind ? '<div class="meddelande">Ditt första val i körningen är inte gjort: förslagen visas med neutrala etiketter, status, version och bilder, utan bedömningar.</div>' : ''}
+      ${flodesbesked(f.besked, f.handlingar, val)}
       ${f.korning ? `<p class="under">Körningen startad ${tid(f.korning.startad)} · steg ${esc(f.korning.steg || '?')} · läge ${esc(f.korning.lage || '?')} · läst ${tid(f.tid)}</p>` : ''}
       ${f.steg.map((s) => `<div class="kort" style="margin-bottom:10px"><div class="rad" style="justify-content:space-between"><div style="font-weight:560">${s.nr}. ${esc(s.namn)}</div>${flodechip(s.status)}</div>
         ${flodelista('Underlag och versioner', s.underlag)}${flodelista('Vad steget producerade', s.utfall)}${flodelista('Kontroller och bedömningar', s.kontroller)}

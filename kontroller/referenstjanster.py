@@ -168,7 +168,7 @@ def las_logg(logg, svar_ut=None, fel_ut=None):
     fel_ut (en mängd) också platserna i svar_ut för de svar som tjänsten gav som fel (is_error)."""
     anrop, res, slut, inne = {}, None, {}, {}
     try:
-        for rad in Path(logg).read_text(encoding='utf-8', errors='replace').splitlines():
+        for rad in Path(logg).read_text(encoding='utf-8', errors='replace').split('\n'):  # radslut, aldrig U+2028 i ett svar (KAN-A)
             try:
                 d = json.loads(rad)
             except ValueError:

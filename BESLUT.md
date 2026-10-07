@@ -1337,11 +1337,89 @@ koden före rättningen.
    (ägarens dom), B2 (`--visa` och aktuell metod), BÖR 1–9 och KAN 1–9 (KAN 7 för kommande rättelser). Granskarens
    mutationer kördes om mot rättelsen.
 
+**Gren C1: ateljéns slutpost, status vid stopp och fel, och avsändarna (punkt 4, 6, 7 och 10), 2026-10-07, grenen
+`ateljeslut-20261007`:**
+1. **Slutposten per ateljékörning.** `kontroller/ateljeslut.py` skriver `kunder/<slug>/atelje/korningar/<körning>/SLUT.json`
+   i helbyggets form, med korsluts fält och hjälpfunktioner: rapporthuvudets fält, de fem tillstånden var för sig,
+   slutkoden, bristerna, nästa steg och länkarna. Körningen är arbetarens starttid i kor.sh:s form.
+   - Arbetaren skriver posten i sin finally, vid normalt avslut, fel och stopp, och när startkontrollen stoppar starten.
+   - Posten binder ihop körningen (läge, start och slut), kandidaterna med sina versioner och repots commit. Den binder
+     också METOD.json:s sha256 och stegens metodhashar, kandidatplanen och skisskritiken med vem som gjorde den (rollen,
+     modellen och sessionen, aldrig omdömet), ägarens beslut med avsändaren och stoppet eller felet med steget.
+   - Platsen för kompetenskedjan står som "inte observerat"; gren C2 fyller den.
+   - Körningens STATUS.json och REDOVISNING.md ligger i postens katalog, så att nästa körning aldrig skriver över den
+     förra körningens version. En körning utan post (en dödad arbetare, eller en från före posterna) får en post i
+     efterhand, ur sin STATUS.json, innan nästa start skriver över den. En start som stannar före körningen
+     (prototyp.py:s stopp och ateljéns nekade starter) får en kort post med skälet och slutkod 2, men bara när
+     `kunder/<slug>/` redan finns, eftersom en ny post direkt under `kunder/` hör till ett bygges gräns.
+   - `atelje.py` och `prototyp.py` skriver beskedet ur posten och ger dess slutkod. Slutkoderna:
+     - 0: klar för ägarens bedömning;
+     - 2: ingen körning startades;
+     - 4: föll, stoppades eller avbröts, också när startkontrollen stoppade starten;
+     - 5: väntan slut medan körningen pågår, och då finns ingen post än;
+     - 6: ingen startsida att bygga vidare på.
+
+     Inventeringen fann att prototyp.py oftast ger 5. Det beror på att väntan är 540 sekunder, medan en körning med
+     skisser tar timmar. Nästa anrop ger postens besked när körningen har slutat.
+2. **Status vid stopp och fel (punkt 6).** En kandidat som körningen satte under arbete märks "avbruten vid stoppet" eller
+   "avbruten av fel", med tiden (`avbruten_vid`). Återupptagningen sparar försöket i `forsok-<n>/` och gör om det, som
+   förut. En session som stoppet avslutade får sluttid och utfall i sessionsförteckningen; i provet 10-06 hade k02
+   `utfall: null`.
+   - Efter stoppet skriver ingen kvarlevande tråd i kandidaternas status, och trådarna håller inte kvar processen.
+   - Skissredovisningens huvud säger körningens utfall: klar, eller steget och stoppet eller felet.
+3. **Första valbara skiss (punkt 6).** Tiden sätts när den första kandidaten blir valbar, också om körningen stoppas
+   före resten. I en äldre körning utan fältet räknas den fram ur statusloggen och märks som framräknad.
+4. **Avsändarna (punkt 7).** `kontroller/skapande.py` har avsändartyperna med en definition var (`AVSANDARTYPER`,
+   `KALLOR`), den enda källan i koden. Typerna är ägarens egna ord och beslut, Codex bedömning, Claudes eller skaparens
+   bedömning, en annan granskares bedömning, maskinellt mätresultat, hypotes och vidarebefordrad AI-bedömning.
+   - Bara ägarens egna beslut (`ar_agarens`) räknas: av godkännandet, läget, stoppvakten, blindningen, omtaget, ateljéns
+     slutkod 6 i bygget och slutposterna.
+   - En vidarebefordrad AI-bedömning är en egen källa. "Ägaren via Codex" räknas bara med ett belägg (fältet `belagg`),
+     och `skapande.py dom` kräver `--belagg` för ägarens ord utanför dashboarden.
+   - Befintliga domloggar skrivs inte om: en äldre rad utan belägg står som "ej belagd". Kundernas riktiga domloggar
+     (en logg, tre rader): två rader "ägaren via Codex" utan belägg står nu som ej belagda och räknas inte, och den
+     tredje, ägarens egen ur dashboarden, gäller. Ägarens senaste beslut är detsamma som förut, och prompternas aktuella
+     domar likaså; raden om två äldre domar i prompterna faller bort. Ingen VINNARE.json har ett godkännande.
+   - Bekräftar ägaren de två raderna kan en ny rad med belägg läggas till; de gamla skrivs inte om.
+   - Korslut visar godkännandets avsändare ur domloggen, i stället för texten "ägaren via ägaren via Codex".
+5. **Ingen dom försvinner tyst (GR-20261007-r100-om#KAN-A).** Domloggen läses på radslut och inget annat
+   (`skapande.jsonl_rader`), av skapande, stoppvakten, ateljéns domrader (omtagets kvitto) och dashboardens domläsning
+   genom `skapande.domar`.
+   - En dom med U+2028, U+2029 eller U+0085 räknas, och kvittots radnummer och radens hash är filens egna.
+   - En rad som inte går att läsa står med antal, plats och skäl (`skapande.domlogg`), i ateljéns slutpost och i
+     `skapande.py visa`.
+   - Står en oläsbar rad efter ägarens senaste läsbara dom gissar ingen förbi den: läget stannar, godkännandet gäller
+     inte och stoppvakten stannar bygget, tills raden är rättad.
+   - En ny dom efter en avbruten skrivning hamnar på en egen rad.
+   - Tjänstesessionernas loggar, underhållets ändringar, provets historik, A/B-loggen och förteckningen läses också på
+     radslut. Korsluts läsning av byggets logg gick redan på radslut och är oförändrad.
+6. **Proven.** `kontroller/rokprov/revision/prov_ateljeslut.py` (i rökprovet) prövar beteendet i 15 fall. Fallen gäller
+   en stoppad kandidat, en arbetare som slutar efter stoppet fast en sessions tråd aldrig svarar, fel mitt i en körning,
+   återupptagningen, prototyp.py:s stopp, den verkliga startvägen (i en repokopia med en falsk claude), en
+   vidarebefordrad AI-bedömning mot ett ägarbeslut, en äldre rad utan belägg, första valbara skiss och domloggens
+   radslut. Fallen var röda mot f1529c5 och är gröna här, och 31 mutationer av grenens kod, var och en i en egen kopia,
+   fälldes alla av proven. Revisionsprovets domar "ägaren via Codex" bär nu ett belägg, så att de prövar samma vägar som
+   förut.
+
 **Återstår:**
 - Gren B: startkvittot och åtkomsten (punkt 1–3).
-- Gren C: skapandeflödets status och kedjans data (punkt 4, 6 och 7): slutpost per ateljékörning, avbruten vid stopp,
-  första valbara skiss och vidarebefordrad AI-bedömning.
+- Gren C2: kompetenskedjan per steg och kandidat i ateljéns slutpost (fältet `kompetenskedjan`, nu "inte observerat").
 - Gren D: dashboarden.
+  - Ateljéns slutpost ska visas, med de fem tillstånden, stoppet och felet med steget, kandidaterna "avbruten vid
+    stoppet" och första valbara skiss med sin källa. Skisskritiken i posten visas först efter ägarens första beslut.
+  - Avsändaren ska visas per dom (`skapande.avsandare`), och "ej belagd" och vidarebefordrade bedömningar skiljas från
+    ägarens.
+  - Dashboarden avgör ägarens dom med `kalla in skapande.AGAREN`, där AGAREN nu bara är källan "ägaren". En
+    vidarebefordrad bedömning visas därför aldrig som ägarens, men en belagd "ägaren via Codex" räknas inte heller förrän
+    vyn använder `skapande.ar_agarens`. Det gäller prototyp_domd och flödesvyns steg 3.
+  - Domloggens oläsbara rader ska visas (`skapande.domlogg`).
+  - Dashboardens egna JSONL-läsningar delar fortfarande på U+2028 (`str.splitlines`): byggets logg (las_logg),
+    underhållets ANDRINGAR.jsonl och prospektvyns logg.jsonl.
+- Gren C1:s begränsningar:
+  - Den äldre utforskningens `--bara-domare` skriver ingen egen post. Förra körningen får sin i efterhand.
+  - En start som nekas före `kunder/<slug>/` finns skriver ingen post, och ett fel i anropet skriver ingen post.
+  - En arbetare som dödas med SIGKILL skriver ingen post; den skrivs i efterhand vid nästa start eller vid prototyp.py:s
+    besked om avbrottet.
   - De fem tillstånden ur slutposten i stället för "Klar: success", och granskningsdomen som aktuell eller historisk.
   - Demoposten och A/B-vyn mot slutposten. A/B-vyn visar i dag en arm utan granskning ("ej bedömt") som "underkände".
   - Kalibreringens rättelse i översikten.
@@ -1608,3 +1686,90 @@ svarade i frågeverktyget "Ja, neka historiken (Recommended)" på frågan om kri
   oberoende på att skaparna inte läser via bygget; en läsgräns per kandidat i processgränsen vore nästa steg.
 - Glob visar namnen på de nekade filerna i `underlag/<slug>` (innehållet nekas). Namnen bär inga skäl.
 - r103#K1–K3 (provtäckning, den syntaktiska kart-mot-kod-jämförelsen, kundvakten) står kvar som KAN.
+
+
+## Tillägg 2026-10-07: C1:s stoppväg, beläggbilaga och slutbesked efter granskning
+
+**Status:** gäller på grenen ateljeslut-20261007 som genomförande av det redan beslutade uppdraget; sammanslagning återstår.
+
+Detta är rättelser efter GR-20261007-r106 och Codex övertagande, inte nya smak- eller ägarbeslut. Det tidigare
+C1-avsnittet bevaras som historik. Dess anvisning att bekräfta en äldre dom med en ny domrad ersätts här av bilagan.
+
+- Arbetarens CLI och importer använder samma modulinstans. Stoppet når därmed kandidatflödets sessioner, även
+  skisskritik utan session_pid. Stopp avslutar sessionerna och ger dem sluttid och utfall; läget full prövar stoppet
+  efter varje session. SIGINT hanteras som SIGTERM, och andra avbrott ger felstatus och avslutar sessionerna.
+- Startkontrollens nekande ger besked och slutkod direkt, med en egen post som lämnar den förra körningens post
+  gällande. En status som bara säger startar arkiveras inte som ett tidigare resultat.
+- Ett efterhandsbelägg binds till en befintlig domrads sha256 i DESIGNDOMAR-belagg.jsonl. Domloggen, domens tid och
+  ordningen ändras inte. En vidarebefordrad AI-bedömning blir aldrig ägarens beslut. Inga verkliga domrader eller
+  belägg ändras i rättelsearbetet. Avsändarnas kontrakt finns i README och kunskap/skapandeflodet.md.
+- Efter en oläsbar domrad är vägen vidare ett nytt uttryckligt beslut från ägaren eller ett uttryckligt körläge.
+  Historiska rader skrivs inte om. Belägg som bara innehåller blanktecken räknas inte.
+- Kandidatflödet utan valbara kandidater, även med tom kandidatlista, ger slutkod 6. Val, jämförelse och putsning
+  visas som ej bedömt; avslag och godkännande visas för sig. Vid två domar samma sekund väljs ägarens avsändare.
+- Redovisningen kopieras atomiskt via en exklusivt skapad tempfil. Varken en länk på målet eller ett planterat
+  förutsägbart tempnamn följs. Två poster samma sekund får olika kataloger.
+
+**Kontroll:** prov_ateljeslut.py prövar den verkliga CLI- och stoppvägen med attrapper samt posternas och domloggens
+kontrakt. Röda basprov, gröna rättelseprov, mutationer och rökprov redovisas i överlämningsspåret; en attrapp visar
+lokal mekanik, aldrig fungerande modellåtkomst eller designkvalitet.
+
+**Lämnat:** dashboardens användning av avsändartyper och slutposter hör till gren D (KAN-1). Skisskritik vid
+återupptagning är separat arbete (KAN-3). Helbyggets skydd av ateljéprotokollet och DOM.json:s avsändarnamn måste
+samordnas med r105; omgranskningen av r105 fann kvarstående fel, så integrationen är inte verifierad (KAN-4 och
+KAN-7:s andra del). Verklig återupptagning med --resume och kontexten i nästlade Claude-sessioner lämnas till Claude.
+
+Rökprovets stubb för referenstjänstens session läser en egen syntetisk nyckelfil. Den ska gå med tomt HOME och
+aldrig behöva användarens verkliga hemligheter; det fulla provet i en isolerad kopia avslöjade beroendet.
+
+Den separata Codex-granskningens motfall ingår också: sessionsstarten och pid-registreringen hålls ihop mot stoppet,
+och en signal i huvudtrådens start skjuts upp tills barnet finns i registret. Stopp under städning eller redovisning
+bokförs i slutposten utan att avbryta avslutet. JSON-posternas temporära filer skapas exklusivt, och en oläsbar
+rad efter ägarens senaste dom ger inget aktuellt godkännande i slutposten. Proven använder bara syntetiskt underlag
+och sovande attrapper; verklig återupptagning och nästlad modellkontext återstår till Claude.
+
+## Tillägg 2026-10-07: versionsbundna övergångar i det befintliga flödet
+
+**Status:** gäller på grenen flodesovergangar-codex-20261007; sammanslagning och driftaktivering återstår.
+
+Genomförande av ägarens tillägg om befintliga flödet under Codex övertagande. Ingen ny smakregel, skisskvot,
+publiceringsrätt eller orkestreringsplattform införs. De tidigare gränserna för privat material och externa anrop gäller.
+
+- Förberedelsen körs i ateljéns befintliga arbetare före designgodkännande och före installation av webbprojektet.
+  Ett privat förslagspaket publiceras till samma arbetsfiler som flödet läser, med innehållsbundet kvitto, bevarat
+  äldre underlag och ett synligt avbrottsläge. Kundens önskemål blir inte automatiskt avtal eller bekräftade fakta.
+- Kritik och kandidatversion binder körning, försök, kod, tillgångar och kundunderlag. Gamla försök arkiveras och
+  räknas inte som aktuell kritik. Vinnaren för över den fotograferade versionens material; borttagna filer återkommer
+  inte ur äldre projekt. Konflikter i målvägar prövas innan installationen ändrar filer.
+- Flödesvyn använder samma CLI-ingång, start-id och lås som terminalen. Läsning och kandidatval beställer ingen
+  körning; nästa handling kräver ett eget klick. Stopp går förbi startlåset. Samma start-id återanvänder beställningen.
+- Flödesvyn visar fem separata besked: session, teknik, designgranskning, ägardom och leverans inom sin omfattning.
+  Historiskt och saknat är inte grönt. Skisskritik döljs före ägarens första val; helbyggets designgranskning döljs
+  före ägarens dom på samma bygge. Exportens filer och dess godkännanden har var sin aktualitetskontroll.
+- Exporten byggs först i en registrerad egen katalog och byter mål först när kontrollerna lyckats. Tidigare export
+  bevaras; fångbara signaler under bytet återställer den. SIGKILL kan kräva återställning ur det bevarade arkivet.
+  EXPORT.json är ett privat versionskvitto, inte kundmaterial i det publika repot. Testexport innebär aldrig
+  verifierad driftsättning eller kundklar leverans.
+- Titel- och beskrivningslängd är information. Saknade metadata och sakfel är fortfarande fel; en godtycklig
+  teckengräns används inte som kvalitetsbevis. Källorna och gränserna står i berörd kunskapstext.
+
+**Verifiering:** syntetiska prov genom CLI, arbetare, HTTP-ingång, export och webbläsare; separata granskningar,
+röda basfall, gröna rättelser och mutationer i egna kopior. Slutligt rökprov, commit och återstående integration
+redovisas i överlämningsspåret. Verklig modellåtkomst och designkvalitet är inte bevisade av dessa prov.
+
+**Kvar i denna etapp:** helbyggets processvakt och start från flödesvyn, passbundna A/B-parametrar och ett förberett
+metodförsök, sammanhängande förloppsprov samt Kundstart och Kirurgens särskilda tillägg. Dashboarden på 4771 ändras
+inte under Codex övertagande. Inget pushas eller slås ihop till main.
+
+## Tillägg 2026-10-08: mätbara resursmått och namngivet skisspass
+
+**Status:** gäller på grenen flodesovergangar-codex-20261007; integration och verkligt metodförsök återstår.
+
+Genomförande av uppdragets femte etapp, utan ändrade modellstandarder eller nytt kostnadsmandat. Resursrapporten
+summerar råvärden, särredovisar ofullständig observation och räknar identifierade kopior en gång. Rapporterat
+listpris är inte faktura eller abonnemangskvot; tid från öppnad vy till dom är inte aktiv arbetstid. A/B-mått binds
+till slutpostens egen sessionslogg och använder inte ett antaget kontextfönster.
+
+NWP_SKISSSKAPARE_EFFORT och NWP_SKISSSKAPARE_MODELL kan pröva bara skaparen och dess svar på kritik inom
+skissförsöket. Research, plan och granskare behåller sina inställningar. Begärd konfiguration skiljs från faktisk
+observation. Mekaniken prövas med syntetiska svar; inget verkligt modellförsök eller generell kvalitetsvinst hävdas.
