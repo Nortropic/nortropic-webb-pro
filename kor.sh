@@ -113,6 +113,13 @@ fi
 # Referenstjänster via MCP (A/B-posterna om Inspo och om Refero/Mobbin): bara när NWP_MCP_CONFIG pekar på en av filerna i
 # kontroller/mcp/ ansluts tjänsten, och bara dess läsande verktyg släpps igenom; annars laddas inga anslutningar alls.
 # Alla tre är hostade ändpunkter (ingen lokal kod); inloggningen (OAuth) gör ägaren en gång i en interaktiv session.
+# Refero och Mobbin: flödets verktyg ur referenstjanster.TJANSTER, samma lista som kundvakten släpper och metodkartans
+# beslut (Tjänsternas verktyg) prövas mot, så att det finns en källa (ägarens uppdrag 2026-10-07, punkt 3A).
+tjanstens_verktyg() {
+  "$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+import referenstjanster
+print(" ".join(referenstjanster.TJANSTER[sys.argv[2]]["verktyg"]))' "$ROOT" "$1"
+}
 INSPO=()
 if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
   [ -f "$NWP_MCP_CONFIG" ] || { echo "NWP_MCP_CONFIG pekar inte på en fil: $NWP_MCP_CONFIG"; exit 2; }
@@ -120,10 +127,12 @@ if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
   MCP_VERKLIG="$(cd "$(dirname "$NWP_MCP_CONFIG")" && pwd -P)/$(basename "$NWP_MCP_CONFIG")"
   case "$MCP_VERKLIG" in
     "$ROOT/kontroller/mcp/inspo.json")  INSPO=(mcp__inspo__recommend mcp__inspo__search_screens mcp__inspo__get_screen);;
-    "$ROOT/kontroller/mcp/mobbin.json") INSPO=(mcp__mobbin__search_screens mcp__mobbin__search_flows mcp__mobbin__search_sections);;
-    "$ROOT/kontroller/mcp/refero.json") INSPO=(mcp__refero__refero_search_styles mcp__refero__refero_get_style mcp__refero__refero_search_screens
-                                               mcp__refero__refero_get_screen mcp__refero__refero_get_similar_screens mcp__refero__refero_get_screen_image
-                                               mcp__refero__refero_search_flows mcp__refero__refero_get_flow mcp__refero__refero_search_sites)
+    "$ROOT/kontroller/mcp/mobbin.json")
+      TJ="$(tjanstens_verktyg mobbin)" && [ -n "$TJ" ] || { echo "Mobbins verktyg gick inte att läsa ur referenstjanster.TJANSTER"; exit 2; }
+      INSPO=($TJ);;
+    "$ROOT/kontroller/mcp/refero.json")
+      TJ="$(tjanstens_verktyg refero)" && [ -n "$TJ" ] || { echo "Referos verktyg gick inte att läsa ur referenstjanster.TJANSTER"; exit 2; }
+      INSPO=($TJ)
       # Refero ansluts med en personlig nyckel (ingen webbläsarinloggning): anslutningsfilen bär ${REFERO_MCP_TOKEN},
       # värdet ligger i ägarens hemlighetsmapp och exporteras bara till byggets claude-process. Aldrig i repot.
       REFERO_ENV="$HOME/.nortropic-hemligheter/webb-pro/refero.env"

@@ -111,6 +111,7 @@ TMP_PREFIX = (
     'nwp-flode-',                                                                     # prov_flode.py
     'nwp-dokvy-',                                                                     # prov_dokumentationsvy.py
     'nwp-stadprov-',                                                                  # prov_stadning.py
+    'nwp-startkvitto-',                                                               # prov_startkvitto.py
 )
 # fasta kataloger i /tmp som aldrig är tillfälliga: körregistret och intagslåset, läget när underlag/ är låst, och
 # granskarnas och byggenas arbetsrötter (deras verktyg städar dem)

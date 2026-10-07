@@ -201,13 +201,17 @@ def andra_kunder_nekas(slug):
 
 def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None):
     """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
-    slug ser sessionen alla skills (skillverktyget) och användarens MCP-servrar, och kundvakten prövar varje anrop till
-    en extern designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). Utan
-    slug: inga MCP:er. De inbyggda verktygen begränsas till dem sessionen använder (--tools). Prenumerationen: ingen
-    API-nyckel (nastlad.miljo)."""
+    slug ser sessionen alla skills (skillverktyget) och MCP-servrarna, och kundvakten prövar varje anrop till en extern
+    designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). MCP-servrarna:
+    repots lokala (Refero) och Mobbin ur kontroller/mcp/mobbin.json. Mobbin finns annars bara på användarnivån, som
+    --setting-sources project,local inte läser, så skaparna fick aldrig Mobbin fast metodkartan tilldelar den; filen ges
+    utan --strict-mcp-config, så att Refero står kvar (ägarens uppdrag 2026-10-07, punkt 2 och 3; startkontrollen prövar
+    åtkomsten med samma argument, verktygslada.prova_sessionen). Utan slug: inga MCP:er. De inbyggda verktygen
+    begränsas till dem sessionen använder (--tools). Prenumerationen: ingen API-nyckel (nastlad.miljo)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
+    mcp = ['--settings', kundvakt(slug), '--mcp-config', str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json')] if slug else ['--strict-mcp-config']
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
-            '--setting-sources', 'project,local'] + (['--settings', kundvakt(slug)] if slug else ['--strict-mcp-config']) + [
+            '--setting-sources', 'project,local'] + mcp + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
             '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools', *NEKAS,
             *andra_kunder_nekas(slug), *nekas]

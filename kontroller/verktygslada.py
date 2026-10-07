@@ -45,6 +45,7 @@ GILTIGHET = {
     'prov': 24 * TIMME,         # förmågeprov (Refero, webbläsarkedjan, detektorn) återanvänds ett dygn
     'modell': 24 * TIMME,
     'mcp': 5 * 60,              # nödvändiga MCP:er bekräftas vid varje start (en server som faller syns inom fem minuter)
+    'session': 5 * 60,          # vad ateljéns session når (MCP:er och skills) läser också användarens konfiguration: som mcp
     'mobbin': 48 * TIMME,       # Mobbins fullständiga prov görs i underhållet; starten bekräftar anslutningen
     'underhall_aldst': 36 * TIMME,
     'spaning': 7 * 24 * TIMME,
@@ -331,7 +332,7 @@ class Register:
 # förmågeprov som starten kan göra själv; ett misslyckat görs om i stället för att stoppa starter tills det går ut, och
 # underhållet gör dem om varje dygn (Mobbins prov är en liten session och görs i starten bara när det fallit eller gått
 # ut; granskningen av r72, M1)
-OMPROVBARA = ('prov:refero', 'prov:webblasare', 'prov:detektor', 'prov:vakt', 'prov:mobbin')
+OMPROVBARA = ('prov:refero', 'prov:webblasare', 'prov:detektor', 'prov:vakt', 'prov:mobbin', 'prov:session')
 
 
 class Kontext:
@@ -1298,6 +1299,74 @@ def prova_detektorn(k, prov_dir):
     fynd, fel = detektor.detektera(f)
     return k.spara('prov:detektor', str(m), resultat='ok' if fynd is not None else 'fel',
                    detalj=('motorn %s svarade (%d fynd på provsidan)' % (m.parent.name, len(fynd))) if fynd is not None else fel)
+
+
+PROVKUND = 'startprov'  # sessionsprovets slug: kundvakten får ingen kunds uppgifter, och inget anrop görs
+
+
+def sessionsavtryck(args, version):
+    """Det i ateljéns argument som avgör vad sessionen laddar: claude-versionen, modellen, --setting-sources,
+    --strict-mcp-config, --mcp-config med filernas innehåll och --settings. Listorna över nekade läsvägar (andra kunders
+    kataloger) ingår inte: de ändras med varje ny kund men laddar ingenting."""
+    delar = [str(version)]
+    for flagga in ('--model', '--setting-sources', '--settings', '--mcp-config'):
+        if flagga in args:
+            v = str(args[args.index(flagga) + 1])
+            delar.append('%s=%s' % (flagga, v))
+            if flagga == '--mcp-config':
+                delar.append(sha_fil(Path(v)) or 'saknas')
+    delar.append('strikt' if '--strict-mcp-config' in args else 'inte strikt')
+    return sha('|'.join(delar))
+
+
+def sessionens_init(args, timeout=180, cwd=None, env=None):
+    """Kör en kort session (modellen svarar OK, inga verktygsanrop) och läser dess init-besked ur stream-json: vilka
+    MCP-servrar med status, vilka verktyg och vilka skills sessionen fick. Ger (init, None) eller (None, felet)."""
+    try:
+        r = subprocess.run([str(a) for a in args], input='Svara med ordet OK och inget annat.', capture_output=True, text=True,
+                           timeout=timeout, cwd=str(cwd or ROOT), env=env)
+    except subprocess.TimeoutExpired:
+        return None, 'inget init-besked inom %d s' % timeout
+    except OSError as e:
+        return None, str(e)
+    for rad_ in (r.stdout or '').splitlines():
+        try:
+            d = json.loads(rad_)
+        except ValueError:
+            continue
+        if isinstance(d, dict) and d.get('type') == 'system' and d.get('subtype') == 'init':
+            return d, None
+    return None, 'sessionen gav inget init-besked (kod %d): %s' % (r.returncode, sista(r.stderr or r.stdout, 200))
+
+
+def prova_sessionen(k):
+    """Vad ateljéns sessioner faktiskt når (ägarens uppdrag 2026-10-07, punkt 3): en kort session med flödets egna argument
+    (atelje.session_args med en provkund, alltså samma --setting-sources, --mcp-config och --settings som skaparnas
+    sessioner, och samma miljö) som bara läser sitt init-besked. Inga verktygsanrop och inga kunduppgifter. `claude mcp
+    list` säger vad maskinen har, inte vad sessionen laddar: Mobbin fanns bara på användarnivån, som --setting-sources
+    project,local inte läser. Ger {'resultat', 'detalj', 'tid', 'servrar': {namn: status}, 'verktyg': [MCP-verktygen],
+    'skills': [...], 'flaggor': [flaggorna som avgör]}; återanvänds i fem minuter med samma avtryck."""
+    import atelje
+    args = atelje.session_args(['Read'], None, 1, PROVMODELL, 'low', (), PROVKUND)
+    args[0] = claude_bin()
+    i = args.index('--output-format')
+    args[i + 1:i + 2] = ['stream-json', '--verbose']
+    avtryck = sessionsavtryck(args, version_av([claude_bin(), '--version']))
+    x = k.minns('prov:session', avtryck, GILTIGHET['session'])
+    if x:
+        return dict(x, ateranvant=True)
+    if not k.prova:
+        return {'resultat': 'okand', 'detalj': 'inte provad (utan prov)'}
+    flaggor = [a for a in args if a in ('--setting-sources', '--strict-mcp-config', '--mcp-config', '--settings')]
+    init, fel = sessionens_init(args, env=atelje.session_miljo(PROVKUND))
+    if not init:
+        return k.spara('prov:session', avtryck, resultat='fel', detalj=fel, flaggor=flaggor)
+    servrar = {str(s.get('name')): str(s.get('status')) for s in init.get('mcp_servers') or [] if isinstance(s, dict)}
+    verktyg = sorted(str(t) for t in init.get('tools') or [] if str(t).startswith('mcp__'))
+    skills = sorted(str(s) for s in init.get('skills') or [])
+    return k.spara('prov:session', avtryck, resultat='ok', servrar=servrar, verktyg=verktyg, skills=skills, flaggor=flaggor,
+                   detalj='en session med ateljéns argument: %s; %d MCP-verktyg och %d skills' % (
+                       ', '.join('%s %s' % i_ for i_ in sorted(servrar.items())) or 'inga MCP-servrar', len(verktyg), len(skills)))
 
 
 def mcp_lista(k):

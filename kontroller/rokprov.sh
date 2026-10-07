@@ -653,6 +653,10 @@ echo "   dokumentationsvyn (2026-10-07): de fyra delarna, filtren, huvudena, bes
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_dokumentationsvy.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" \
   || { echo "FEL: dokumentationsvyns prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log"; exit 1; }
 echo "   dokumentationsvyns prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log") fall)"
+echo "   startkvittots betydelse (2026-10-07): körväg och fas, referensunderlaget, upptäckta verktyg, åtkomsten i ateljéns session och rollerna"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_startkvitto.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/startkvitto-prov.log" \
+  || { echo "FEL: startkvittots prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/startkvitto-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/startkvitto-prov.log"; exit 1; }
+echo "   startkvittots prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/startkvitto-prov.log") fall)"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

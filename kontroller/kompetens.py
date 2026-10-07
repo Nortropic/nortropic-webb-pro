@@ -26,6 +26,18 @@ Blocken i kartan, ett per roll:
 
 MCP:erna står aldrig i --allowedTools: kundvakten (kontroller/kundvakt.py) öppnar varje rent anrop uttryckligen, och en
 vakt som inte kan pröva lämnar anropet åt dontAsk, som nekar det (granskning 4, G3).
+
+Besluten om tjänsternas upptäckta verktyg står i samma avsnitt, ett block per tjänst och en rad per verktyg (ägarens
+uppdrag 2026-10-07, punkt 2 och 3): uppgift, eller ingen uppgift med skäl och provdatum. Verktygen med uppgift är exakt
+de som kundvakten släpper (referenstjanster.TJANSTER); prova() säger till när kartan och listan skiljer sig.
+
+    ```tjanstverktyg refero
+    refero_search_styles: uppgift — …
+    refero_search_apps: ingen uppgift — <skäl>; prövat 2026-10-07
+    ```
+
+Tillståndsorden (TILLSTAND) är en källa för startkvittot och kompetensens kvitton; tillstand() ger kompetenskvittot i
+dem. Ett läskvitto är belägg för läsning, inte för tillämpning.
 """
 import argparse
 import re
@@ -61,6 +73,25 @@ MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en käll
     'refero': None, 'mobbin': None,
 }
 MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)'}
+# Tillståndsorden (ägarens uppdrag 2026-10-07, punkt 3, ordagrant i minnet; inte observerat skilt från inte gjort enligt
+# ägarens tillägg samma dag). Startkvittot och kompetensens kvitton använder bara de här orden för kompetensen och
+# underlaget, och inget av dem står för ett annat: en anslutning som finns är inte provad, en provad tjänst är inte
+# tilldelad, och ett lyckat anrop är inte en tillämpning.
+TILLSTAND = {
+    'tillgangligt': 'tillgängligt',               # installerat, anslutet eller upptäckt; inget prov säger att det fungerar i flödet
+    'provat': 'provat och fungerande',            # ett prov visade att det fungerar, med tid
+    'tilldelat': 'tilldelat en uppgift',          # metodkartan ger det en roll och en uppgift
+    'anvant': 'använt med resultat',              # observerat använt, och användningen gav ett svar eller material
+    'planerat': 'planerat i ett senare steg',     # hör till ett steg som inte körts än, till exempel researchen
+    'blockerat': 'blockerat eller misslyckat',    # ett prov eller en körning visade att det inte fungerar eller inte når fram
+    'ej_observerat': 'inte observerat',           # ingen observation finns; säger inte att det inte gjorts
+    'ej_gjort': 'inte gjort (observerat)',        # observatören såg sessionen och ingen användning
+}
+LASBELAGG = 'belägg för läsning, inte för tillämpning'
+LASKVITTO = 'läst (%s)' % LASBELAGG
+VERKTYGSBLOCK = re.compile(r'^```tjanstverktyg[ \t]+(?P<tjanst>[a-z]+)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
+BESLUTSRAD = re.compile(r'^(?P<verktyg>[a-z][a-z0-9_]*):\s*(?P<beslut>uppgift|ingen uppgift)\s+—\s+(?P<text>.+?)\s*$')
+PROVDATUM = re.compile(r'prövat (20\d\d-\d\d-\d\d)')
 
 
 def mcp_verktyg(namn):
@@ -93,6 +124,48 @@ def tolka(text=None):
     return ut
 
 
+def tjanstverktyg(text=None):
+    """Besluten om tjänsternas upptäckta verktyg ur kartans block ```tjanstverktyg <tjänst>```: {tjänst: {verktyg:
+    {'beslut': 'uppgift' eller 'ingen uppgift', 'text', 'provat'}}}, verktyget utan tjänstens prefix (refero_search_apps,
+    search_screens) och provat som datumet efter "prövat" eller None. En rad som inte går att läsa ger 'beslut' None, så
+    att prova() kan säga vilken."""
+    text = metod.KARTA.read_text(encoding='utf-8') if text is None else text
+    ut = {}
+    for m in VERKTYGSBLOCK.finditer(text):
+        t = ut.setdefault(m.group('tjanst'), {})
+        for rad in m.group('rader').splitlines():
+            if not rad.strip():
+                continue
+            b = BESLUTSRAD.match(rad.strip())
+            if not b:
+                t[rad.strip().split(':', 1)[0].strip() or rad.strip()] = {'beslut': None, 'text': rad.strip(), 'provat': None}
+                continue
+            d = PROVDATUM.search(b.group('text'))
+            t[b.group('verktyg')] = {'beslut': b.group('beslut'), 'text': b.group('text'), 'provat': d.group(1) if d else None}
+    return ut
+
+
+def tjanstverktyg_fel(text=None):
+    """Kartans verktygsbeslut mot kundvaktens lista (referenstjanster.TJANSTER): varje verktyg flödet släpper har beslutet
+    uppgift, inget verktyg med uppgift saknas i listan, och varje "ingen uppgift" har skäl och provdatum."""
+    import referenstjanster
+    b, fel = tjanstverktyg(text), []
+    for t, d in referenstjanster.TJANSTER.items():
+        kort = [v.split('__')[-1] for v in d['verktyg']]
+        bt = b.get(t) or {}
+        fel += ['%s: %s släpps av kundvakten (referenstjanster.TJANSTER) men har inte beslutet uppgift i metodkartan' % (t, v)
+                for v in kort if (bt.get(v) or {}).get('beslut') != 'uppgift']
+        for v, x in bt.items():
+            if x['beslut'] is None:
+                fel.append('%s: raden "%s" går inte att läsa (<verktyg>: uppgift — … eller <verktyg>: ingen uppgift — <skäl>; prövat <datum>)' % (t, x['text'][:80]))
+            elif x['beslut'] == 'uppgift' and v not in kort:
+                fel.append('%s: metodkartan ger %s en uppgift, men kundvakten släpper det inte (referenstjanster.TJANSTER)' % (t, v))
+            elif x['beslut'] == 'ingen uppgift' and (not x['provat'] or len(x['text']) < 40):
+                fel.append('%s: %s har ingen uppgift men saknar skäl eller provdatum ("prövat ÅÅÅÅ-MM-DD")' % (t, v))
+    fel += ['metodkartans verktygsbeslut gäller en okänd tjänst: %s' % t for t in b if t not in referenstjanster.TJANSTER]
+    return fel
+
+
 def vag(fil):
     """Filens väg relativt repots rot (en skills fil ligger under .claude/skills/)."""
     return metod.kalla(fil).relative_to(metod.ROOT).as_posix()
@@ -110,8 +183,8 @@ def storlek(filer):
 
 
 def prova(text=None):
-    """Fel i kompetensblocken: varje fil finns, varje pass, verktyg och MCP är känt, varje pass har en roll, och varje
-    roll har en uppgift och en kärna."""
+    """Fel i kompetensblocken: varje fil finns, varje pass, verktyg och MCP är känt, varje pass har en roll, varje
+    roll har en uppgift och en kärna, och tjänsternas verktygsbeslut stämmer med kundvaktens lista."""
     fel = []
     k = tolka(text)
     if not k:
@@ -127,7 +200,7 @@ def prova(text=None):
         if not x['uppgift'] or not x['karna']:
             fel.append('%s: uppgiften eller kärnan saknas' % kid)
     fel += ['passet %s har ingen roll' % p_ for p_ in PASS if not for_pass(p_, k)]
-    return fel
+    return fel + tjanstverktyg_fel(text)
 
 
 def for_pass(pass_, k=None):
@@ -203,7 +276,9 @@ def prompt_rader(pass_, slug, kid=None, k=None):
             rader.append('- verktyg: ' + VERKTYG[v][1].replace('<slug>', slug).replace('<id>', kid or '<id>'))
         if x['mcp']:
             rader.append('- MCP: ' + ', '.join(MCPNAMN[m] for m in x['mcp']) + '; sök med branschen och uppgiften, aldrig kundens namn, ort,'
-                         ' webbadress eller nummer (kundvakten prövar varje anrop och stoppar sådana)')
+                         ' webbadress eller nummer (kundvakten prövar varje anrop och stoppar sådana)' +
+                         # skaparna når Mobbin sedan 2026-10-07 (atelje.session_args); samma råd som tjänstesessionen får
+                         ('; har ett Mobbin-verktyg parametern mode, använd standard (deep kostar krediter)' if 'mobbin' in x['mcp'] else ''))
         rader.append('- passet visar: ' + x['visar'])
     return rader
 
@@ -233,9 +308,44 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
         for x in h:
             if x[0] == 'anrop' and str(x[2]).startswith('mcp__') and x[1] not in felade:
                 mcp.append(str(x[2]))
-    return {'verifierad': sedda > 0, 'filer': filer, 'lasta': [f for f in filer if f in lasta], 'saknas': [f for f in filer if f not in lasta],
-            'fore_forsta_andring': [f for f in filer if f in fore], 'valda': [f for f in val if f in egna],
-            'skill_anrop': sorted(set(skill)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))}}
+    ut = {'verifierad': sedda > 0, 'filer': filer, 'lasta': [f for f in filer if f in lasta], 'saknas': [f for f in filer if f not in lasta],
+          'fore_forsta_andring': [f for f in filer if f in fore], 'valda': [f for f in val if f in egna],
+          'skill_anrop': sorted(set(skill)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))}}
+    ut['tillstand'] = tillstand(ut, pass_, k)
+    return ut
+
+
+def tillstand(kv, pass_, k=None):
+    """Kompetenskvittot i tillståndsorden, per roll i passet (ägarens uppdrag 2026-10-07, punkt 3): tilldelat ur
+    metodkartan; kärnan, alternativen och skillverktyget som läsning (ett läskvitto är belägg för läsning, inte för
+    tillämpning); MCP-anropen som använt med resultat (ett svar; om det blev användbart material avgörs i nästa led), inte
+    gjort (transkriptet sett, inget anrop) eller inte observerat (inget transkript); verktygen i Bash som inte observerat,
+    eftersom kvittot inte ser kommandona; tillämpningen som inte observerat, eftersom kvittot bara ser läsning och anrop.
+    Fungerar på hela kvittot och på urvalet kandidaternas status sparar (verifierad, lasta, saknas, valda, skill_anrop,
+    mcp_anrop)."""
+    k = tolka() if k is None else k
+    kv = kv if isinstance(kv, dict) else {}
+    sett = bool(kv.get('verifierad'))
+    inget = TILLSTAND['ej_gjort'] if sett else TILLSTAND['ej_observerat']
+    lasta, valda, skill = set(kv.get('lasta') or []), set(kv.get('valda') or []), set(kv.get('skill_anrop') or [])
+    mcp = kv.get('mcp_anrop') if isinstance(kv.get('mcp_anrop'), dict) else {}
+    ut = []
+    for x in for_pass(pass_, k):
+        karna = [vag(f) for f in x['karna']]
+        n = sum(1 for f in karna if f in lasta)
+        skills = sorted({f.split('/')[0] for f in x['karna'] + x['valj'] if not f.startswith(('kunskap/', 'kritik/', 'mall/'))})
+        anrop = {m: sum(v for a, v in mcp.items() if str(a).startswith('mcp__%s__' % m)) for m in x['mcp']}
+        valt = [f for f in (vag(f) for f in x['valj']) if f in valda]
+        ut.append({
+            'roll': x['id'], 'namn': x['namn'], 'tilldelat': TILLSTAND['tilldelat'],
+            'karna': {'filer': len(karna), 'lasta': n, 'tillstand': (LASKVITTO if n == len(karna) else 'läst %d av %d filer (%s)' % (
+                n, len(karna), LASBELAGG)) if sett else TILLSTAND['ej_observerat']},
+            'alternativ': {'valda': valt, 'tillstand': LASKVITTO if valt else inget},
+            'skillverktyget': {'anrop': sorted(s for s in skill if s in skills), 'tillstand': LASKVITTO if skill & set(skills) else inget},
+            'mcp': {m: {'anrop': a, 'tillstand': TILLSTAND['anvant'] if a else inget} for m, a in anrop.items()},
+            'verktyg': {v: TILLSTAND['ej_observerat'] for v in x['verktyg']},  # Bash-kommandona syns inte i kvittot
+            'tillampning': TILLSTAND['ej_observerat']})
+    return ut
 
 
 def main(argv=None):

@@ -20,8 +20,13 @@ sessionens behörigheter (`kontroller/kompetens.py` till `--allowedTools`) och r
 dokumentationen, prompten och behörigheten säger samma sak. Sessionerna har skillverktyget och verktygssökningen. Av
 MCP-anslutningarna används bara Refero och Mobbin, och bara genom kundvakten (`kontroller/kundvakt.py`, en krok före
 varje anrop): den tillåter ett anrop till flödets egna verktyg hos dem som inte bär kundens uppgifter och stoppar resten,
-och varje annat MCP-anrop nekas (dontAsk). Bygget och fotograferingen går genom förhandsvisningen, och beroendena kommer
-förberedda och låsta ur mallen (`kunskap/beroenden.md`); git, npm, npx och node körs inte direkt i sessionerna.
+och varje annat MCP-anrop nekas (dontAsk). Sessionerna når Refero genom repots lokala MCP-anslutning och Mobbin genom
+`kontroller/mcp/mobbin.json` (`--mcp-config` utan strikt läge i `atelje.session_args`): Mobbin finns annars bara på
+användarnivån, som sessionernas `--setting-sources project,local` inte läser, så skaparna fick aldrig Mobbin fast
+rollerna tilldelar den (fynd 2026-10-07). Startkontrollen prövar åtkomsten med flödets egna argument
+(`kunskap/beroenden.md`, Vad startkvittot säger). Bygget och fotograferingen går genom förhandsvisningen, och
+beroendena kommer förberedda och låsta ur mallen (`kunskap/beroenden.md`); git, npm, npx och node körs inte direkt i
+sessionerna.
 
 ## Avgöranden
 
@@ -195,6 +200,41 @@ verktyg: design
 mcp:
 visar: DESIGN.md stämmer med koden, och sidorna använder dess variabler eller stilpaketets
 ```
+
+**Tjänsternas verktyg** (ägarens uppdrag 2026-10-07, punkt 2 och 3): ett beslut per verktyg som Refero och Mobbin visar,
+uppgift eller ingen uppgift med skäl och provdatum. Verktygen med uppgift är exakt de som kundvakten släpper
+(`referenstjanster.TJANSTER`, som också helbyggets A/B-prövning läser), och `kontroller/kompetens.py --prova` säger till
+när kartan och listan skiljer sig. Ett upptäckt verktyg utan rad här nekas av kundvakten tills beslutet är skrivet;
+startkvittot visar besluten (`kunskap/beroenden.md`, Vad startkvittot säger).
+
+```tjanstverktyg refero
+refero_search_styles: uppgift — researchens stilfrågor (typ stil) i skilda estetiska territorier, och huvudreferensens stil i planen
+refero_get_style: uppgift — stilens belagda värden (typografi, färger, layout, rytm, komponenter) i researchen och huvudreferensens stilpaket (kontroller/stilpaket.py)
+refero_search_screens: uppgift — skärmar för första vyn, projekt- och tjänstesidor, förtroende och kontakt (typ skarm), i researchen och i skaparnas egna sökningar
+refero_get_screen: uppgift — skärmens typsnitt, färger, sidtyper och element, och skärmens bild i full storlek
+refero_get_similar_screens: uppgift — bredda från en stark träff till fler lösningar på samma uppgift
+refero_get_screen_image: uppgift — skärmens bild när svaret saknar den
+refero_search_flows: uppgift — flöden för förfrågan och projektgenomgång (typ flode)
+refero_get_flow: uppgift — flödets steg i ordning, med bilderna
+refero_search_sites: uppgift — hela sajter som förlagor till referenspaketet
+refero_search_apps: ingen uppgift — i webbflödet, eftersom verktyget bara söker iOS-appar: provet med frågan "home builder construction" gav 10 av 100 träffar, alla iOS-appar som LEGO Builder, Asana och LinkedIn, ingen om byggande eller lokala tjänster; dess nytta är ett app-id för iOS-skärmar och iOS-flöden, och webbflödet söker skärmar, sajter och flöden med refero_search_screens, refero_search_sites och refero_search_flows; prövat 2026-10-07
+```
+
+```tjanstverktyg mobbin
+search_screens: uppgift — sidor och tillstånd för besökarens uppgift, i researchen och i uppdragens material (en sökfras per uppdrag)
+search_flows: uppgift — användarresor med stegen i ordning
+search_sections: uppgift — avgränsade sektioner, som ett formulärsteg eller en projektlista
+```
+
+Om ägaren vill kan refero_search_apps få en smal roll i researchen: en namngiven app som förebild för ett mobilflöde.
+Då förs verktyget in i `referenstjanster.TJANSTER` och i tjänstesessionens uppdrag, och raden ovan blir en uppgift.
+
+**Tillståndsorden** (ägarens uppdrag 2026-10-07, punkt 3): startkvittot och kompetensens kvitton skiljer på
+tillgängligt, provat och fungerande, tilldelat en uppgift, använt med resultat, planerat i ett senare steg, blockerat
+eller misslyckat och inte observerat, och inte observerat skiljs från inte gjort (observatören såg sessionen men ingen
+användning). Ett läskvitto är belägg för läsning, inte för tillämpning: att kärnan lästs hel säger inte att den
+tillämpats, och ett lyckat anrop säger inte att svaret blev användbart material. Orden står i `kontroller/kompetens.py`
+(`TILLSTAND`, och `tillstand` för kompetenskvittot).
 
 **Ingen uppgift i flödet**, den enda listan över skills utan roll (de finns i verktygslådan; en skill i ett
 kompetensblock ovan har sin uppgift där): emil-write-swift (Swift), emil-animate-expo (React Native och Expo),

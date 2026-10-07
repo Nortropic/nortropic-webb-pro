@@ -61,8 +61,13 @@ hjalp = ' '.join(['--json-schema', '--allowedTools', '--disallowedTools', '--set
 (FAKE / 'help').write_text('Usage: claude ' + hjalp + '\n')
 MCP_OK = 'refero: https://api.refero.design/mcp (HTTP) - ✔ Connected\nmobbin: https://api.mobbin.com/mcp (HTTP) - ✔ Connected\nclaude.ai Gmail: https://x - ✔ Connected\n'
 (FAKE / 'mcp').write_text(MCP_OK)
+# sessionsprovet (verktygslada.prova_sessionen) läser init-beskedet: Mobbin laddas bara när argumenten ger
+# kontroller/mcp/mobbin.json, som i en riktig session med --setting-sources project,local (init-filerna skrivs nedan)
 (FAKE / 'bin' / 'claude').write_text('#!/bin/bash\nD=%s\necho "$*" >> "$D/claude-anrop"\ncase "$1" in --version) cat "$D/version";; --help) cat "$D/help";; '
-                                     'mcp) echo x >> "$D/mcp-anrop"; cat "$D/mcp";; *) echo "{}";; esac\n' % FAKE)
+                                     'mcp) echo x >> "$D/mcp-anrop"; cat "$D/mcp";; '
+                                     '*) case " $* " in *" stream-json "*) if [[ " $* " == *"/kontroller/mcp/mobbin.json "* ]]; then cat "$D/init-med"; '
+                                     'else cat "$D/init-utan"; fi; echo \'{"type":"result","subtype":"success","is_error":false,"result":"OK"}\';; '
+                                     '*) echo "{}";; esac;; esac\n' % FAKE)
 (FAKE / 'bin' / 'vercel').write_text('#!/bin/bash\necho "Vercel CLI 60.0.1"\n')
 (FAKE / 'bin' / 'npm').write_text('#!/bin/bash\ncase "$1" in root) echo %s/npm-global;; --version) echo 10.9.8;; ci) mkdir -p node_modules;; *) exit 1;; esac\n' % FAKE)
 for b in ('claude', 'vercel', 'npm'):
@@ -93,6 +98,21 @@ assert korregister.KATALOG == TMP / 'korregister' and uh.BYTESLAS == TMP / 'korr
 stadning.disk_matt = lambda p: (1000, 400)
 stadning.Ram.verklig = classmethod(lambda cls, *a, **k: (_ for _ in ()).throw(AssertionError('provet städar aldrig det verkliga systemet')))
 assert vl.ROOT == KOPIA and vl.LAGE == KOPIA / 'underlag' / 'startkontroll', vl.ROOT
+import referenstjanster  # noqa: E402
+ALLA_REFERO = [v.split('__')[-1] for v in referenstjanster.TJANSTER['refero']['verktyg']] + ['refero_search_apps']
+
+
+def init_rad(med_mobbin):
+    """Init-beskedet i en session med ateljéns argument: Refero ur den lokala nivån, Mobbin bara ur --mcp-config."""
+    servrar = [{'name': 'refero', 'status': 'connected', 'source': 'local'}] + ([{'name': 'mobbin', 'status': 'connected', 'source': 'dynamic'}] if med_mobbin else [])
+    verktyg = ['Glob', 'Grep', 'Read', 'Skill', 'ToolSearch'] + ['mcp__refero__' + v for v in ALLA_REFERO] + (
+        list(referenstjanster.TJANSTER['mobbin']['verktyg']) if med_mobbin else [])
+    return json.dumps({'type': 'system', 'subtype': 'init', 'mcp_servers': servrar, 'tools': verktyg,
+                       'skills': sorted(p.name for p in (KOPIA / '.claude' / 'skills').iterdir() if p.is_dir())}) + '\n'
+
+
+(FAKE / 'init-med').write_text(init_rad(True))
+(FAKE / 'init-utan').write_text(init_rad(False))
 
 # --- falska uppslag och prov (räknade) ---
 ANROP = {'npm': 0, 'pypi': 0, 'brew': 0, 'git': 0, 'modell': 0, 'refero': 0, 'webb': 0, 'detektor': 0, 'vakt': 0}
@@ -174,8 +194,8 @@ class FalskKlient:
     def starta(self):
         return {}
 
-    def verktyg(self):
-        return ['refero_search_styles', 'refero_get_style', 'refero_search_apps']
+    def verktyg(self):  # Referos hela lista: flödets verktyg och refero_search_apps, som saknar uppgift
+        return list(ALLA_REFERO)
 
     def json(self, namn, args):
         return {'records': [{'uuid': 'u1', 'preview_url': 'https://images.refero.design/x.jpg'}]} if namn == 'refero_search_styles' else \
@@ -244,7 +264,13 @@ assert kv1['status'] in ('redo', 'begransad'), (kv1['status'], kv1['stoppar'])
 rad = {r['namn']: r for r in kv1['rader']}
 assert rad['refero']['resultat'] == 'ok' and rad['mobbin']['resultat'] == 'ok', 'MCP-anslutningarna'
 assert rad['Refero (direkt)']['resultat'] == 'ok' and rad['webbläsarkedjan']['resultat'] == 'ok'
-assert rad['Referos verktyg utan uppgift i flödet']['detalj'] == 'refero_search_apps', 'en Refero-förmåga utan uppgift redovisas'
+# en Refero-förmåga utan uppgift redovisas med metodkartans beslut, aldrig som okänd (ägarens uppdrag 2026-10-07, punkt 3A)
+apps_ = rad['refero_search_apps (Refero)']
+assert apps_['resultat'] == 'ingen_uppgift' and 'prövat 2026-10-07' in apps_['detalj'] and 'iOS' in apps_['detalj'], apps_
+assert rad['Referos verktyg med uppgift']['resultat'] == 'ok' and rad['Mobbins verktyg med uppgift']['resultat'] == 'ok'
+# ateljéns session med flödets egna argument når båda tjänsterna (Mobbin genom kontroller/mcp/mobbin.json)
+assert rad['Refero i ateljéns session']['resultat'] == 'ok' and rad['Mobbin i ateljéns session']['resultat'] == 'ok', rad['Mobbin i ateljéns session']
+assert kv1['korvag']['id'] == 'kandidatflodet' and kv1['korvag']['fas'] == 'fore_research', kv1['korvag']
 assert any(r['grupp'] == 'uppdrag' and r['namn'] == 'bokning' and r['formaga'] == 'delvis' for r in kv1['rader']), 'kundens behov mot förmågan'
 assert (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').is_file() and (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.json').is_file()
 assert 'allt uppdaterat' not in (KOPIA / 'underlag' / SLUG / 'atelje' / 'STARTKVITTO.md').read_text().lower()

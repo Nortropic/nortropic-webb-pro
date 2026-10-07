@@ -75,6 +75,31 @@ varje körning låser sina versioner. Två verktyg delar komponenterna och läge
   ("ej angivet" utan git), och en informationsrad om dokumentationen (`README.md`, Var information finns) som aldrig
   stoppar en start.
 
+**Vad startkvittot säger** (ägarens uppdrag 2026-10-07, punkt 3, ordagrant i minnet):
+
+- **Körväg och fas.** Kvittot säger vilken körväg det gäller: prototypkörningen i kandidatflödet (före eller efter
+  researchen), prototypkörningen i den äldre utforskningen (före utforskningen eller efter valet) eller helbygget. Det
+  gäller aldrig Figma-piloten, vars sessioner startas utanför repots körvägar, och ett kvitto för en körväg verifierar
+  ingen annan.
+- **Referensunderlaget efter fasen.** Före researchen prövas förutsättningarna: underlaget som researchen läser, att
+  kundvakten kan läsa kundens uppgifter, Refero, Mobbin och kundvakten. Underlaget står då som planerat i researchen.
+  Efter researchen prövas FORSKNING.json (körningens egen), referenspaketet, TJANSTER.json och UPPDRAGSMATERIAL.json.
+  Fel, tomma tjänster, träffar utan bild och bilder som saknas på disken står som blockerade eller misslyckade, aldrig
+  som använda. Den äldre utforskningen prövar REFERENSER.md:s rader, och en tom eller inaktuell fil godtas inte;
+  helbygget och putsningen prövar VINNARE.json. Kontrollen skriver aldrig i underlaget och skapar aldrig REFERENSER.md.
+- **Vad sessionerna når.** Raderna ur `claude mcp list` säger vad maskinen har. Vad ateljéns sessioner laddar prövas med
+  en kort session med flödets egna argument (`verktygslada.prova_sessionen`: samma `--setting-sources`, `--mcp-config`
+  och `--settings`), som bara läser sitt init-besked, utan verktygsanrop och utan kunduppgifter.
+- **Tilldelad men åtkomst saknas.** En tilldelad tjänst som sessionen inte når står så, med konsekvens och åtgärd,
+  aldrig som ok. Den stoppar inte starten, eftersom researchens tjänstesessioner når tjänsterna på en egen väg, men
+  kvittot blir begränsat.
+- **Upptäckta verktyg.** Varje verktyg som Refero och Mobbin visar har ett beslut i metodkartan (Kompetenserna,
+  Tjänsternas verktyg), och kvittot visar det: uppgift, eller ingen uppgift med skälet. Ett verktyg utan beslut står
+  som "nytt, obedömt" med åtgärden att pröva det och skriva beslutet, och det begränsar inte kvittot.
+- **Rollerna och tillstånden.** Kvittot visar för varje roll i metodkartan det tilldelade och åtkomsten i sessionen,
+  i tillståndsorden (metodkartan, Tillståndsorden). Att något är tillgängligt eller provat säger inte att det använts;
+  användningen observeras i körningen.
+
 Städningen (`kontroller/stadning.py`) följer städregeln i `BESLUT.md` (tillägget 2026-10-06 om arbetskopior, processer
 och cacher). Underhållet kör den först i varje körning och skriver redovisningen i sin rapport (vad, sökväg, storlek
 före, tid, utfall och skäl; det som väntar på ägaren med sitt material). Startkontrollens diskvakt kör den före starten
