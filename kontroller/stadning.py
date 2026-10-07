@@ -29,11 +29,21 @@ argument) lämnas, och det prövas igen direkt före varje radering.
    tempprefix) eller scratchpad, utan levande förälder (ppid 1) och äldre än ett dygn, stoppas med SIGTERM, när pid och
    starttid fortfarande är processens. Allt annat lämnas. Punkten körs först, så att en kopia som en gammal
    förhandsvisning höll kan städas i samma körning.
-4. Tillfälliga filer: kataloger direkt i /tmp och $TMPDIR med repots egna tempfile- och mktemp-prefix (TMP_PREFIX) som
-   inte ändrats på ett dygn, och scratchpads sessionskataloger (<projekt>/<session>/) som inte ändrats på sju dygn,
-   raderas när ingen process använder dem. En sessions scratchpad rörs bara när ingen process nämner sessionens id
-   (argument eller öppen fil), ingen claude-process med okänt sessions-id hör till samma projekt och transkriptet inte
-   ändrats på sju dygn: när det är oklart står den kvar.
+4. Tillfälliga filer (villkoren delvis ersatta av ägarens beslut 2026-10-07, BESLUT.md: bara det som är registrerat som
+   eget, inte prefixet): en katalog direkt i /tmp och $TMPDIR med repots prefix (TMP_PREFIX) raderas bara när den är
+   registrerad som en körnings egen (ägarfilen ur korregister.egen_tmp, giltig enligt korregister.tmp_agare), körningen
+   som äger den är avslutad (korregister.tmp_avslutad), den inte ändrats på ett dygn och ingen process använder den. En
+   katalog med prefixet men utan giltig registrering är en äldre rest: den raderas aldrig, utan redovisas för sig med
+   sökväg, storlek och ålder ("äldre rest, väntar på identifiering"). Scratchpads sessionskataloger
+   (<projekt>/<session>/) som inte ändrats på sju dygn raderas när ingen process använder dem och varje rapport och bild
+   i dem (RAPPORTFILER) redan är beständigt registrerad (Kvitton: sha256 i underlag/granskningar/FORTECKNING.jsonl,
+   ett VERSION.json eller ett omtags KVITTO.json, med filen kvar i underlag/, eller byte för byte i huvudutcheckningens
+   git); annars väntar arbetsytan på ägaren med listan över de oregistrerade filerna. En sessions scratchpad rörs bara
+   när ingen process nämner sessionens id (argument eller öppen fil), ingen claude-process med okänt sessions-id hör
+   till samma projekt och transkriptet inte ändrats på sju dygn: när det är oklart står den kvar. Ingen symlänk följs
+   (lstat och os.walk med followlinks=False; en länk i en katalog som raderas tas bort som länk, och dess mål rörs
+   inte), och bara katalogen själv raderas: aldrig /tmp, $TMPDIR, scratchpads rot eller en annan gemensam förälder
+   (far_inte_raderas, direkt_under). En scratchpad-rot som är en symlänk följs inte alls.
 5. npm-cachen: npm cache clean --force när disken är fylld över 85 %, annars när förra rensningen är äldre än 30 dygn
    (tiden i underhållets läge, NPM-CACHE.json). Aldrig medan en körning, ett underhåll, ett intag eller en
    npm-installation pågår. npm avgör själv vilken cache den rensar; sökvägen och storleken i redovisningen är en
@@ -49,7 +59,9 @@ uppladdningar (granskningen av r94, B2).
 Ändrat betyder den senaste ändringen av en fil eller symlänk (den senare av mtime och ctime: en kopia med bevarade tider
 är ny fast filerna har gamla mtime) eller när en katalog skapades (en katalogs mtime flyttas när något tas bort ur den).
 Allt som rör omvärlden (rötterna, klockan, diskmåttet, processlistan, stoppet, npm och vad som pågår) går genom Ram, så
-att provet (kontroller/rokprov/revision/prov_stadning.py) aldrig rör det verkliga systemet. NWP_STADNING=av stänger av
+att provet (kontroller/rokprov/revision/prov_stadning.py) aldrig rör det verkliga systemet. Om en registrerad
+tempkatalogs körning lever prövas med ps för just den pid som registreringen anger (korregister.tmp_avslutad); det
+läser bara. NWP_STADNING=av stänger av
 städningen mot det verkliga systemet; rökprovet sätter den. --torr ändrar ingenting och listar vad som skulle göras. Två
 städningar körs aldrig samtidigt (ett lås bredvid körregistret).
 """
@@ -126,8 +138,14 @@ FIXTUR = ('kunder/rokprov-mall', 'underlag/rokprov-mall')  # rökprovets egen fi
 KOPIA_NAMN = re.compile(r'(?i)^(?:.*[-_.])?kopia(?:[-_.\d].*)?$')
 
 RADERAD, STOPPAD, RENSAD, KVAR, VANTAR, FEL = 'raderad', 'stoppad', 'rensad', 'kvar', 'väntar på ägaren', 'fel'
+REST = 'äldre rest, väntar på identifiering'  # repots prefix men ingen giltig registrering: raderas aldrig (2026-10-07)
 TORRT = {RADERAD: 'skulle raderas', STOPPAD: 'skulle stoppas', RENSAD: 'skulle rensas'}
-UTFALL = (RADERAD, STOPPAD, RENSAD, KVAR, VANTAR, FEL) + tuple(TORRT.values())
+UTFALL = (RADERAD, STOPPAD, RENSAD, KVAR, VANTAR, FEL, REST) + tuple(TORRT.values())
+# rapporter och bedömda bilder i en sessions arbetsyta: registrerade innan arbetsytan tas bort (ägarens beslut 2026-10-07)
+RAPPORTFILER = ('.md', '.json', '.png', '.jpg', '.jpeg', '.webp', '.pdf')
+INTE_RAPPORTER = ('node_modules', '__pycache__', '.git', '.venv', 'venv')  # det härledda i en arbetsyta: inga rapporter
+VERSION_KVITTON = ('*/VERSION.json', '*/*/VERSION.json')  # uppdragens kvitton i huvudutcheckningens underlag/ (pilotens moment)
+OMTAG_KVITTON = '*/omtag/*/*/*/KVITTO.json'  # det bedömda som omtaget sparat (kontroller/atelje.py, ta_bort_beslut)
 UUID = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 SESSION = re.compile(UUID)
 SESSION_ARG = re.compile(r'(?:--resume|--session-id|-r)(?:=|\s+)(%s)' % UUID)
@@ -245,7 +263,10 @@ class Ram:
         self.repos_rot = verklig_sokvag(repos_rot)
         self.tmp_rot = verklig_sokvag(tmp_rot) if tmp_rot else None
         self.tmp_extra = [verklig_sokvag(p) for p in tmp_extra if p]
-        self.scratch_rot = verklig_sokvag(scratch_rot) if scratch_rot else None
+        # scratchpads rot ligger i /tmp: är den själv en symlänk följs den inte, och då är den ingen rot (2026-10-07)
+        self.scratch_angiven = Path(os.path.abspath(scratch_rot)) if scratch_rot else None
+        self.scratch_lank = bool(scratch_rot) and os.path.islink(self.scratch_angiven)
+        self.scratch_rot = verklig_sokvag(scratch_rot) if scratch_rot and not self.scratch_lank else None
         self.npm_cache = Path(npm_cache) if npm_cache else None  # uppskattningen: bara för mätningen och redovisningen (KAN-2)
         self.tillstand = Path(tillstand) if tillstand else None
         self.claude_projekt = Path(claude_projekt) if claude_projekt else None
@@ -264,6 +285,7 @@ class Ram:
         self.skyddade = [self.repo / 'underlag', self.repo / 'kunder', Path.home() / 'Arkiv'] + [Path(p) for p in skyddade]
         self.worktree_vagar = []  # registrerade worktrees: tas bara bort av punkt 1 (git worktree remove)
         self.lankmal = []         # det huvudutcheckningen länkar till (K1)
+        self.kvitton = None       # det beständigt registrerade i huvudutcheckningen (Kvitton), läst när det behövs
 
     @classmethod
     def verklig(cls, tillstand=None, torr=False):
@@ -637,11 +659,15 @@ def relation(r, s):
 def far_inte_raderas(ram, p, worktree=False):
     """Skälet när p aldrig får raderas, annars None: en symlänk, huvudutcheckningen (HUVUDUTCHECKNING, realpath, och
     utcheckningen koden kör ur) eller något i eller runt den, underlag/ och kunder/, ~/Arkiv, en registrerad worktree
-    (utom i punkt 1), något huvudutcheckningen länkar till, en rot eller något utanför rötterna."""
+    (utom i punkt 1), något huvudutcheckningen länkar till, en rot eller en gemensam förälder till en rot (också en
+    $TMPDIR som ligger i /tmp; ägarens beslut 2026-10-07), eller något utanför rötterna."""
     p = Path(p)
     if p.is_symlink():
         return 'en symlänk'
     r = verklig_sokvag(p)
+    for x in ram.rotar() + [y for y in (ram.scratch_angiven,) if y]:
+        if r == verklig_sokvag(x) or r in verklig_sokvag(x).parents:
+            return 'en rot eller en gemensam förälder (%s)' % x
     for h in ram.huvuden():
         if relation(r, h):
             return 'huvudutcheckningen (%s)' % h
@@ -659,17 +685,70 @@ def far_inte_raderas(ram, p, worktree=False):
     return None
 
 
+def ta_bort_trad(p):
+    """Tar bort katalogen p och allt i den utan att följa någon symlänk (ägarens beslut 2026-10-07): lstat på varje post
+    och os.walk med followlinks=False, nedifrån och upp. En symlänk, också till en katalog, tas bort som länk, och dess mål
+    rörs aldrig. p själv måste vara en riktig katalog. Ger felen ([] när allt gick)."""
+    p = str(p)
+    st = os.lstat(p)
+    if stat.S_ISLNK(st.st_mode) or not stat.S_ISDIR(st.st_mode):
+        return ['%s är ingen riktig katalog (en länk eller en fil): inget borttaget' % p]
+    fel = []
+    for rot, mappar, filer in os.walk(p, topdown=False, followlinks=False, onerror=lambda e: fel.append('%s: %s' % (e.filename, e.strerror or e))):
+        for n in filer + mappar:
+            q = os.path.join(rot, n)
+            try:
+                if stat.S_ISDIR(os.lstat(q).st_mode):
+                    os.rmdir(q)  # en riktig katalog, redan tömd nedifrån; en länk till en katalog är ingen katalog här
+                else:
+                    os.unlink(q)  # en fil, eller en symlänk som länk
+            except OSError as e:
+                fel.append('%s: %s' % (q, e.strerror or e))
+    try:
+        os.rmdir(p)
+    except OSError as e:
+        fel.append('%s: %s' % (p, e.strerror or e))
+    return fel
+
+
 def radera(ram, p):
-    """None, eller felet. Bara inom rötterna och aldrig det skyddade (far_inte_raderas); symlänkar följs aldrig."""
+    """None, eller felet. Bara inom rötterna och aldrig det skyddade (far_inte_raderas); symlänkar följs aldrig
+    (ta_bort_trad)."""
     skal = far_inte_raderas(ram, p)
     if skal:
         return 'raderas aldrig: %s' % skal
-    fel = []
-    if sys.version_info >= (3, 12):
-        shutil.rmtree(p, onexc=lambda f, s, e: fel.append('%s: %s' % (s, e)))
-    else:
-        shutil.rmtree(p, onerror=lambda f, s, e: fel.append('%s: %s' % (s, e[1])))
+    try:
+        fel = ta_bort_trad(p)
+    except OSError as e:
+        fel = ['%s: %s' % (p, e.strerror or e)]
     return '; '.join(fel[:3]) if fel else None
+
+
+def direkt_under(ram, d, rotar):
+    """Skälet när d inte är en riktig katalog direkt under en av rotarna, annars None (ägarens beslut 2026-10-07: bara den
+    registrerade katalogen själv, aldrig /tmp, $TMPDIR eller en gemensam förälder). lstat: d är ingen länk; föräldern är
+    roten (rotens egna länkar, som /tmp → /private/tmp, är redan lösta); d löses inte till något annat; och d är varken en
+    rot eller en förälder till en."""
+    try:
+        st = os.lstat(d)
+    except OSError as e:
+        return 'går inte att läsa (%s)' % (e.strerror or e)
+    if stat.S_ISLNK(st.st_mode):
+        return 'en symlänk följs aldrig'
+    if not stat.S_ISDIR(st.st_mode):
+        return 'ingen katalog'
+    d = Path(d)
+    rotar = [verklig_sokvag(x) for x in rotar]
+    foralder = verklig_sokvag(d.parent)
+    if foralder not in rotar:
+        return 'ligger inte direkt under %s' % ' eller '.join(str(x) for x in rotar)
+    if verklig_sokvag(d) != foralder / d.name:
+        return 'sökvägen löses till %s' % verklig_sokvag(d)
+    r = foralder / d.name
+    for x in ram.rotar():
+        if r == x or r in x.parents:
+            return 'en rot eller en gemensam förälder (%s)' % x
+    return None
 
 
 # --- git ---
@@ -1067,7 +1146,9 @@ def punkt3(ram, red, wts, kop, processer):
 
 
 def punkt4(ram, red, anv):
-    """Gamla kataloger i /tmp och $TMPDIR med repots prefix och gamla scratchpad-sessioner, när ingen process använder dem."""
+    """Kataloger i /tmp och $TMPDIR med repots prefix: bara de som är registrerade som en körnings egna och vars körning är
+    avslutad raderas, och de oregistrerade redovisas som äldre rester (stada_tmp). Gamla scratchpad-sessioner, när ingen
+    process använder dem och deras rapporter och bilder är registrerade (stada_katalog). Ingen symlänk följs."""
     for rot in ram.tmp_alla():
         if not rot.is_dir():
             continue
@@ -1077,9 +1158,11 @@ def punkt4(ram, red, anv):
                 continue
             if ram.scratch_rot and relation(verklig_sokvag(d), ram.scratch_rot):
                 continue
-            stada_katalog(ram, red, d, anv, TMP_ALDER, 'tillfällig katalog', 'repots prefix %s, inte ändrad på ett dygn' % next(
-                x for x in TMP_PREFIX if n.startswith(x)))
-    if ram.scratch_rot and ram.scratch_rot.is_dir():
+            stada_tmp(ram, red, d, anv, next(x for x in TMP_PREFIX if n.startswith(x)))
+    if ram.scratch_lank:
+        red.post(4, 'scratchpad', ram.scratch_angiven, None, KVAR, 'scratchpads rot är en symlänk (till %s): den följs inte, och '
+                                                                   'inget i den rörs' % os.path.realpath(ram.scratch_angiven))
+    elif ram.scratch_rot and ram.scratch_rot.is_dir():
         for projekt in sorted(ram.scratch_rot.iterdir()):
             if not projekt.name.startswith('-') or projekt.is_symlink() or not projekt.is_dir():
                 continue
@@ -1089,6 +1172,55 @@ def punkt4(ram, red, anv):
                                   session=(projekt.name, s.name))
 
 
+def alder_text(sekunder):
+    if sekunder is None:
+        return 'okänd ålder'
+    d = int(sekunder // DYGN)
+    return ('%d dygn' % d) if d >= 1 else ('%d timmar' % int(sekunder // 3600))
+
+
+def stada_tmp(ram, red, d, anv, prefix):
+    """En katalog med repots prefix direkt i /tmp eller $TMPDIR (ägarens beslut 2026-10-07): raderas bara när den är en
+    riktig katalog direkt under roten, är registrerad som en körnings egen (korregister.tmp_agare), körningen är avslutad
+    (korregister.tmp_avslutad), den inte ändrats på ett dygn och ingen process använder den. Utan giltig registrering är
+    den en äldre rest: den raderas aldrig och redovisas med sökväg, storlek och ålder."""
+    storlek, senast, mfel = matt(d)
+    if mfel:
+        red.post(4, 'tillfällig katalog', d, storlek, KVAR, '%d sökvägar gick inte att läsa; ändringstiden är okänd' % mfel)
+        return
+    alder = ram.klocka() - senast
+    if alder <= TMP_ALDER:
+        return  # ung: lämnas och redovisas inte
+    skal = far_inte_raderas(ram, d) or direkt_under(ram, d, ram.tmp_alla())
+    if skal:
+        red.post(4, 'tillfällig katalog', d, storlek, KVAR, 'rörs inte: %s' % skal)
+        return
+    post, ogiltig = korregister.tmp_agare(d)
+    if not post:
+        red.post(4, 'tillfällig katalog', d, storlek, REST, 'repots prefix %s men %s: prefixet ensamt räcker inte, och katalogen '
+                                                              'raderas inte förrän den identifierats' % (prefix, ogiltig),
+                 alder=int(alder), andrad=iso(senast))
+        return
+    vem = '%s (pid %d, startad %s)' % (post['vad'], post['pid'], post.get('pstart') or '?')
+    avslutad, varfor = korregister.tmp_avslutad(post)
+    if not avslutad:
+        red.post(4, 'tillfällig katalog', d, storlek, KVAR, 'registrerad av %s, och körningen %s: %s' % (
+            vem, 'pågår' if avslutad is False else 'kan pågå', varfor), registrerad=post['vad'])
+        return
+    a = anvands(anv, d)
+    if a:
+        red.post(4, 'tillfällig katalog', d, storlek, KVAR, 'används: %s' % a, registrerad=post['vad'])
+        return
+    nu = None if ram.torr else anvands_nu(ram, d)
+    if nu:
+        red.post(4, 'tillfällig katalog', d, storlek, KVAR, 'används: %s' % nu, registrerad=post['vad'])
+        return
+    fel = None if ram.torr else radera(ram, d)
+    red.post(4, 'tillfällig katalog', d, storlek, FEL if fel else RADERAD, ('raderingen föll: %s' % fel) if fel else
+             'registrerad av %s, körningen avslutad (%s); repots prefix %s, inte ändrad på ett dygn (senast %s), ingen process' % (
+                 vem, varfor, prefix, iso(senast)), registrerad=post['vad'])
+
+
 def transkript_andrat(ram, projekt, uuid):
     """När sessionens transkript (~/.claude/projects/<projekt>/<uuid>.jsonl och katalogen bredvid) senast ändrades, eller 0."""
     if not ram.claude_projekt:
@@ -1096,6 +1228,118 @@ def transkript_andrat(ram, projekt, uuid):
     bas = ram.claude_projekt / projekt
     return max(matt(bas / (uuid + '.jsonl'))[1] if (bas / (uuid + '.jsonl')).exists() else 0.0,
                matt(bas / uuid)[1] if (bas / uuid).exists() else 0.0)
+
+
+class Kvitton:
+    """Det som är beständigt registrerat i huvudutcheckningen (ägarens beslut 2026-10-07: rapporter och bedömda bilder ska
+    ligga beständigt och vara registrerade innan en arbetsyta tas bort). En fil räknas när dess sha256 står i
+    underlag/granskningar/FORTECKNING.jsonl, i ett uppdrags VERSION.json (VERSION_KVITTON) eller i ett omtags KVITTO.json
+    (OMTAG_KVITTON), och den registrerade filen med samma sha256 också ligger kvar i underlag/ (förteckningens fil,
+    kvittots fil, eller en fil i VERSION.json:s katalog); eller när filen finns byte för byte som blob i huvudutcheckningens
+    git (den går att återskapa). Kvittona läses och de registrerade filerna hashas först när en fil i en arbetsyta har
+    samma sha256, och bara en gång per körning. Ingen länk följs."""
+
+    def __init__(self, repo):
+        self.repo = Path(repo)
+        self.underlag = self.repo / 'underlag'
+        self._sokvagar = None   # sha256 -> [registrerad fil] (förteckningen och omtagens kvitton)
+        self._version = None    # sha256 -> [VERSION.json:s katalog]
+        self._katalog = {}      # katalog -> {sha256} för dess filer
+        self._sha = {}          # fil -> sha256
+
+    @staticmethod
+    def _sha256_hex(x):
+        return isinstance(x, str) and re.fullmatch(r'[0-9a-f]{64}', x) is not None
+
+    def _las(self):
+        if self._sokvagar is not None:
+            return
+        self._sokvagar, self._version = {}, {}
+        f = self.underlag / 'granskningar' / 'FORTECKNING.jsonl'
+        if f.is_file() and not f.is_symlink():
+            for rad in f.read_text(encoding='utf-8').splitlines():
+                try:
+                    p = json.loads(rad)
+                except ValueError:
+                    continue
+                if isinstance(p, dict) and self._sha256_hex(p.get('sha256')) and isinstance(p.get('fil'), str):
+                    bas = self.repo / str(p.get('bas') or 'underlag/')
+                    self._sokvagar.setdefault(p['sha256'], []).append(bas / p['fil'])
+        for k in sorted(self.underlag.glob(OMTAG_KVITTON)):
+            d = vl.las_json(k, {}) if k.is_file() and not k.is_symlink() else {}
+            for rel_, s in ((d or {}).get('filer') or {}).items() if isinstance(d, dict) else ():
+                if self._sha256_hex(s) and isinstance(rel_, str):
+                    self._sokvagar.setdefault(s, []).append(k.parent / rel_)
+        for monster in VERSION_KVITTON:
+            for k in sorted(self.underlag.glob(monster)):
+                if k.is_file() and not k.is_symlink():
+                    for s in self._hexvarden(vl.las_json(k, None)):
+                        self._version.setdefault(s, []).append(k.parent)
+
+    def _hexvarden(self, x):
+        if isinstance(x, dict):
+            for v in x.values():
+                yield from self._hexvarden(v)
+        elif isinstance(x, list):
+            for v in x:
+                yield from self._hexvarden(v)
+        elif self._sha256_hex(x):
+            yield x
+
+    def _fil_sha(self, p):
+        """sha256 för en vanlig fil (ingen länk, inget annat), annars None."""
+        p = Path(p)
+        if p not in self._sha:
+            try:
+                st = os.lstat(p)
+                self._sha[p] = sha256_fil(p) if stat.S_ISREG(st.st_mode) else None
+            except OSError:
+                self._sha[p] = None
+        return self._sha[p]
+
+    def _katalogens(self, d):
+        if d not in self._katalog:
+            ut = set()
+            for rot, mappar, filer in os.walk(d, followlinks=False):
+                for n in filer:
+                    s = self._fil_sha(Path(rot) / n)
+                    if s:
+                        ut.add(s)
+            self._katalog[d] = ut
+        return self._katalog[d]
+
+    def var(self, sha):
+        """Var filen med sha256 ligger registrerad och beständigt, eller None."""
+        self._las()
+        for p in self._sokvagar.get(sha, ()):
+            if self._fil_sha(p) == sha:
+                return str(p.relative_to(self.repo)) if self.repo in p.parents else str(p)
+        for d in self._version.get(sha, ()):
+            if sha in self._katalogens(d):
+                return '%s (VERSION.json)' % (d.relative_to(self.repo) if self.repo in d.parents else d)
+        return None
+
+
+def oregistrerade(ram, d, kvitton):
+    """[(relativ sökväg, storlek)] för rapporterna och bilderna (RAPPORTFILER) i arbetsytan d som inte är beständigt
+    registrerade (Kvitton). Ingen länk följs; det härledda (INTE_RAPPORTER) räknas inte. Kastar OSError när något inte går
+    att läsa eller git inte svarar: då går arbetsytan inte att pröva, och den väntar på ägaren."""
+    d, kvar = Path(d), {}
+    for rot, mappar, filer in os.walk(d, onerror=_kasta, followlinks=False):
+        mappar[:] = [m for m in mappar if m not in INTE_RAPPORTER and not os.path.islink(os.path.join(rot, m))]
+        for f in filer:
+            if not f.lower().endswith(RAPPORTFILER):
+                continue
+            p = Path(rot) / f
+            st = os.lstat(p)
+            if not stat.S_ISREG(st.st_mode):  # en symlänk: tas bort som länk, dess mål rörs inte
+                continue
+            s256, blob = hasha(p)
+            if kvitton.var(s256):
+                continue
+            kvar.setdefault(blob, []).append((p.relative_to(d).as_posix(), st.st_size))
+    saknas = git_saknas(ram.repo, kvar)
+    return sorted(x for b, xs in kvar.items() if b in saknas for x in xs)
 
 
 def stada_katalog(ram, red, d, anv, alder, vad, varfor, session=None):
@@ -1118,13 +1362,31 @@ def stada_katalog(ram, red, d, anv, alder, vad, varfor, session=None):
         if ram.klocka() - t <= alder:
             red.post(4, vad, d, storlek, KVAR, 'sessionen kan leva: transkriptet ändrades %s' % iso(t))
             return
+    registrerat = ''
+    if session:  # rapporterna och de bedömda bilderna först registrerade (ägarens beslut 2026-10-07)
+        if ram.kvitton is None:
+            ram.kvitton = Kvitton(ram.repo)
+        try:
+            oreg = oregistrerade(ram, d, ram.kvitton)
+        except OSError as e:
+            red.post(4, vad, d, storlek, VANTAR, 'arbetsytans rapporter och bilder gick inte att pröva mot förteckningen och '
+                                                 'kvittona (%s); ägaren avgör' % (getattr(e, 'strerror', None) or e))
+            return
+        if oreg:
+            red.post(4, vad, d, storlek, VANTAR, '%d rapporter och bilder (%s) är inte beständigt registrerade (sha256 i '
+                                                 'underlag/granskningar/FORTECKNING.jsonl, ett VERSION.json eller ett omtags '
+                                                 'KVITTO.json, eller i huvudutcheckningens git): %s; ägaren avgör' % (
+                                                     len(oreg), storlek_text(sum(s for _r, s in oreg)), material_kort(oreg)),
+                     **material_falt(oreg))
+            return
+        registrerat = ', och varje rapport och bild i den är beständigt registrerad'
     nu = None if ram.torr else anvands_nu(ram, d, session)
     if nu:
         red.post(4, vad, d, storlek, KVAR, 'används: %s' % nu)
         return
     fel = None if ram.torr else radera(ram, d)
-    red.post(4, vad, d, storlek, FEL if fel else RADERAD, ('raderingen föll: %s' % fel) if fel else '%s (senast %s), ingen process%s' % (
-        varfor, iso(senast), ' och ingen levande session' if session else ''))
+    red.post(4, vad, d, storlek, FEL if fel else RADERAD, ('raderingen föll: %s' % fel) if fel else '%s (senast %s), ingen process%s%s' % (
+        varfor, iso(senast), ' och ingen levande session' if session else '', registrerat))
 
 
 def punkt5(ram, red):
@@ -1272,7 +1534,7 @@ def markdown(rap, rubrik='## Städningen'):
         return ut + ['**Städningen föll:** %s. Underhållet fortsatte.' % rap['fel'], '']
     if rap.get('besked'):
         ut += ['**%s.**' % rap['besked'], '']
-    ut += ['%sStädregeln i BESLUT.md (2026-10-06), %s–%s. Disken: %s före, %s efter. %s.' % (
+    ut += ['%sStädregeln i BESLUT.md (2026-10-06, villkoren för tempkatalogerna och arbetsytorna 2026-10-07), %s–%s. Disken: %s före, %s efter. %s.' % (
         '**Torrläge: inget ändrat.** ' if rap.get('torr') else '', rap.get('start'), rap.get('slut'), disk_text(rap.get('disk_fore')),
         disk_text(rap.get('disk_efter')), antal_text(rap.get('antal') or {})), '']
     if rap.get('poster'):
@@ -1282,6 +1544,12 @@ def markdown(rap, rubrik='## Städningen'):
                                                                storlek_text(p.get('storlek_fore')), p['tid'],
                                                                p['utfall'].upper() if p['utfall'] in (FEL, VANTAR) else p['utfall'],
                                                                str(p['skal']).replace('|', '/').replace('\n', ' ')))
+    rester = [p for p in rap.get('poster') or [] if p['utfall'] == REST]
+    if rester:  # ägarens beslut 2026-10-07: äldre rester identifieras separat innan de rensas
+        ut += ['', '**Äldre rester, väntar på identifiering** (repots prefix men ingen giltig registrering; raderas aldrig):', '']
+        for p in rester:
+            ut.append('- `%s` (%s, %s gammal, senast ändrad %s): %s' % (p['sokvag'], storlek_text(p.get('storlek_fore')),
+                                                                       alder_text(p.get('alder')), p.get('andrad') or '?', p['skal']))
     vantar = [p for p in rap.get('poster') or [] if p['utfall'] == VANTAR]
     if vantar:
         ut += ['', '**Väntar på ägaren** (raderas inte förrän ägaren avgjort):', '']

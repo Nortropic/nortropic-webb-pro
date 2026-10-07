@@ -379,7 +379,7 @@ def kor_i_worktree(k, etikett, forbered, kmd, path_forst=None, timeout=3600, sla
         return None, 'provet kräver en git-utcheckning för sin worktree', None
     if not os.access(processgrans.SANDBOX_EXEC, os.X_OK):
         return None, 'processgränsen (sandbox-exec) saknas: ett prov med en kandidat körs inte utan den', None
-    bas = Path(tempfile.mkdtemp(prefix='nwp-underhall-'))
+    bas = Path(korregister.egen_tmp('nwp-underhall-', 'underhall'))
     wt = bas / 'wt'
     rc, ut = git('worktree', 'add', '--detach', '-q', str(wt), 'HEAD')
     if rc:
@@ -454,7 +454,7 @@ def prova_globalt(k, r, kand):
     huvudversion också hela rökprovet med kandidaten först i PATH. Vercel CLI får aldrig ägarens inloggning i provet
     (fynd 4)."""
     paket, version = r['paket'], kand['version']
-    d = Path(tempfile.mkdtemp(prefix='nwp-global-'))
+    d = Path(korregister.egen_tmp('nwp-global-', 'underhall'))
     env = vl.provmiljo()
     fore = karensgrans()
     try:
@@ -1100,7 +1100,7 @@ def prova_skill(k, r, kand):
             return None, dict(g['staged'], ateranvant=g['tid'])
     if konflikter:
         return 'källan har ändrat filer som vi anpassat lokalt och sammanslagningen krockar: %s' % ', '.join(konflikter[:5]), None
-    tmp = Path(tempfile.mkdtemp(prefix='nwp-skill-'))
+    tmp = Path(korregister.egen_tmp('nwp-skill-', 'underhall'))
     try:
         repokopia_for_metod(tmp)
         ny = tmp / '.claude' / 'skills' / mapp.name
@@ -1155,7 +1155,7 @@ def ta_in_skill(k, r, kand, staged):
         return 'behallen', 'metodlåset stämmer inte före intaget (%s); låses inte om över det' % '; '.join(lasfel[:3]), None
     # utdragen och de känsliga ändringarna prövas igen mot den godkända mappen och kartan som den ser ut nu (ett
     # återanvänt prov kan vara äldre än kartan)
-    kontroll = Path(tempfile.mkdtemp(prefix='nwp-skillintag-'))
+    kontroll = Path(korregister.egen_tmp('nwp-skillintag-', 'underhall'))
     try:
         repokopia_for_metod(kontroll)
         ny_mapp = kontroll / '.claude' / 'skills' / mapp.name
@@ -1170,7 +1170,7 @@ def ta_in_skill(k, r, kand, staged):
     lasfil = ROOT() / 'kunskap' / 'metodkarta.lock.json'
     las_fore = lasfil.read_bytes() if lasfil.is_file() else None
     avtryck_fore = vl.mappavtryck(mapp)
-    reserv = Path(tempfile.mkdtemp(prefix='nwp-skillreserv-')) / mapp.name
+    reserv = Path(korregister.egen_tmp('nwp-skillreserv-', 'underhall')) / mapp.name
     shutil.copytree(mapp, reserv, symlinks=True)
 
     def aterstall():
@@ -1224,7 +1224,7 @@ def prova_sajt(k, r, kand):
     (processgrans.kor_i_katalog: skrivning bara i provkatalogen, inget nät, inga nycklar; fynd 4)."""
     import exportera
     import processgrans
-    tmp = Path(tempfile.mkdtemp(prefix='nwp-sajtpaket-'))
+    tmp = Path(korregister.egen_tmp('nwp-sajtpaket-', 'underhall'))
     try:
         mall, lev, repo = tmp / 'mall', tmp / 'leverans', tmp / 'kundrepo'
         kopiera(ROOT() / 'mall' / 'astro', mall)
@@ -1326,7 +1326,7 @@ def egen_katalog(p):
 
 
 def prova_instrument(k, r, kand):
-    tmp = Path(tempfile.mkdtemp(prefix='nwp-instrument-'))
+    tmp = Path(korregister.egen_tmp('nwp-instrument-', 'underhall'))
     try:
         for f in ('package.json', 'package-lock.json'):
             shutil.copy2(ROOT() / 'kontroller' / f, tmp / f)
@@ -1493,7 +1493,7 @@ def osv_granska(pins):
 
 def prova_pip(k, r, kand):
     krav, lasfil = vl.python_las_filer()
-    tmp = Path(tempfile.mkdtemp(prefix='nwp-pip-'))
+    tmp = Path(korregister.egen_tmp('nwp-pip-', 'underhall'))
     try:
         venv = tmp / 'venv'
         rc, ut = vl.kor([bas_python(), '-m', 'venv', venv], timeout=300)
@@ -1817,7 +1817,7 @@ def verifiera_formel(formel, version):
         v = vl.version_av(['node', '--version'])
         if v != version.split('_')[0]:
             return 'node svarar %s, väntade %s' % (v, version)
-        k2 = vl.Kontext(nat=False, prova=True, katalog=tempfile.mkdtemp(prefix='nwp-nodeprov-'))
+        k2 = vl.Kontext(nat=False, prova=True, katalog=korregister.egen_tmp('nwp-nodeprov-', 'underhall'))
         p = vl.prova_webblasaren(k2, k2.prov_dir)
         return None if p.get('resultat') == 'ok' else 'webbläsarkedjan med den nya node: ' + str(p.get('detalj'))
     if formel.startswith('python'):
@@ -1972,7 +1972,7 @@ def prova_motor(k, r, kand):
     version = kand['version']
     arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'x64'}.get(platform.machine(), platform.machine())
     url = 'https://github.com/pbakaus/impeccable/releases/download/engine-v%s/impeccable-darwin-%s' % (version, arch)
-    tmp = Path(tempfile.mkdtemp(prefix='nwp-motor-'))
+    tmp = Path(korregister.egen_tmp('nwp-motor-', 'underhall'))
     try:
         data = vl.hamta_url(url, timeout=120, max_byte=200_000_000)
         vantad = vl.hamta_url(url + '.sha256', timeout=60).decode().split()[0]

@@ -12,7 +12,8 @@
 // Prospektanalysen (kontroller/prospekt.py) kör en omgång och bara mobil: en främmande sajt ska mätas, inte nå kravet.
 // Krav (planen 2026-10-01): prestanda ≥ 90, tillgänglighet ≥ 95, bästa praxis ≥ 95, SEO ≥ 90 i båda formerna.
 // Chrome: CHROME_PATH, annars systemets Google Chrome, annars Playwrights chromium.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync, writeSync, constants as fsk } from 'node:fs';
 import { createRequire } from 'node:module';
 import { loadavg, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,6 +25,24 @@ import { vakta } from './slugvakt.mjs';
 import { viaTjanst, natgrans, natpolicy, arLokal } from './webblasare/gemensamt.mjs';
 
 await viaTjanst('lighthouse', process.argv.slice(2));  // sandlådat bygge: Chrome kan inte starta i sandlådan, tjänsten kör mätningen
+
+// Registrerar en tempkatalog som körningens egen, med samma ägarfil som kontroller/korregister.py (registrera_tmp):
+// pid, starttiden ur ps (LC_ALL=C, TZ=UTC), vad, användaren och katalogens egen sökväg. Faller registreringen står katalogen
+// kvar som oregistrerad (städningen redovisar den då som en äldre rest och raderar den aldrig); mätningen fortsätter.
+function registrera(katalog, vad) {
+  try {
+    let pstart = '';
+    try {
+      pstart = execFileSync('ps', ['-o', 'lstart=', '-p', String(process.pid)], { env: { ...process.env, LC_ALL: 'C', TZ: 'UTC' }, encoding: 'utf8', timeout: 10000 }).trim();
+    } catch { /* ps svarar inte (en sandlåda): starttiden saknas, och städningen räknar då en levande pid som pågående */ }
+    const post = { schema: 1, pid: process.pid, pstart, vad, uid: process.getuid(), sokvag: realpathSync(katalog),
+      start: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), utcheckning: realpathSync(join(import.meta.dirname, '..')) };
+    const fd = openSync(join(katalog, '.nwp-agare.json'), fsk.O_WRONLY | fsk.O_CREAT | fsk.O_EXCL | fsk.O_NOFOLLOW, 0o600);
+    try { writeSync(fd, JSON.stringify(post)); } finally { closeSync(fd); }
+  } catch (e) {
+    console.error(`lighthouse: tempkatalogen ${katalog} kunde inte registreras (${e.message})`);
+  }
+}
 
 const arg = (namn) => process.argv.find((a) => a.startsWith(`--${namn}=`))?.slice(namn.length + 3);
 const base = (arg('url') || '').replace(/\/$/, '');
@@ -57,6 +76,7 @@ const METOD = { omgangar, representativa: [...representativa], medianformer: [..
 mkdirSync(ut, { recursive: true });
 writeFileSync(join(ut, 'METOD.json'), JSON.stringify({ ...METOD, tid: new Date().toISOString(), sidor, former: FORMER }, null, 1) + '\n');  // före första mätningen
 const profil = mkdtempSync(join(tmpdir(), 'nwp-lh-'));
+registrera(profil, 'lighthouse');  // som korregister.egen_tmp: städningen raderar profilen bara när körningen slutat (2026-10-07)
 const grans = await natgrans([base]);  // i tjänstens läge: nätgränsen (domänpolicyn) också för sidans underresurser
 const chrome = await chromeLauncher.launch({ chromePath, userDataDir: profil, chromeFlags: ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-extensions', ...(grans ? grans.chromeFlags : [])] });
 const rader = [];

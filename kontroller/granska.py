@@ -31,7 +31,6 @@ import shutil
 import signal
 import subprocess
 import sys
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1204,7 +1203,8 @@ def main(argv=None):
     korning = os.environ.get('NWP_KORNING') or 'manuell'
 
     if a.torr:
-        rdir = Path(tempfile.mkdtemp(prefix='nwp-torr-'))
+        import korregister
+        rdir = Path(korregister.egen_tmp('nwp-torr-', 'granska --torr'))  # registrerad: städningen raderar den först när körningen slutat
         bilder = skarmbilder(kund, rdir / 'sajt')
         for namn in FRYSTA_FILER:
             if (kund / 'prov' / namn).exists():

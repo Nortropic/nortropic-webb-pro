@@ -15,7 +15,9 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 command -v claude >/dev/null || { echo "claude saknas i PATH"; exit 2; }
-P="$(mktemp -d /tmp/nwp-sandlada-prov.XXXXXX)"
+# registrerad som provets egen (kontroller/korregister.py, egen_tmp): städningen raderar den bara när provet slutat
+P="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korregister.py" tmp nwp-sandlada-prov. sandlada_prov --dir /tmp --pid $$)"
+[ -n "$P" ] && [ -d "$P" ] && [ ! -L "$P" ] || { echo "provkatalogen kunde inte skapas under /tmp"; exit 2; }
 SLUG=prov-bygge
 mkdir -p "$P/kontroller" "$P/underlag/$SLUG/skript" "$P/kunder/$SLUG" "$P/kunder/annan-kund" "$P/underlag/annan-kund" "$P/.venv/bin" "$P/hem/.nortropic-hemligheter"
 cp "$ROOT/kontroller/sandlada-domaner.txt" "$P/kontroller/"

@@ -10,14 +10,26 @@ vars pid återanvänts av något annat) räknas inte.
     .venv/bin/python kontroller/korregister.py in <vad> [--slug S] [--pid P]
     .venv/bin/python kontroller/korregister.py ut [--pid P]
     .venv/bin/python kontroller/korregister.py lista
+    .venv/bin/python kontroller/korregister.py tmp <prefix> <vad> [--pid P] [--dir D]   (skriver katalogens sökväg)
 
 Underhållets egna rökprov i en worktree (NWP_UNDERHALL_PROV=1) anmäls inte: de är underhållets egna prov.
+
+Tempkatalogerna (ägarens beslut 2026-10-07 om städningens villkor, BESLUT.md): egen_tmp skapar en katalog med
+tempfile och registrerar den som körningens egen, med ägarfilen .nwp-agare.json i katalogen (pid, starttid ur ps, vad,
+användaren och katalogens egen sökväg). Städningen (kontroller/stadning.py, punkt 4) raderar bara en sådan katalog, och
+först när körningen som äger den är avslutad; en katalog med repots prefix men utan giltig registrering är en äldre rest
+som redovisas och aldrig raderas.
 """
 import argparse
+import contextlib
 import json
 import os
+import re
+import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -154,13 +166,120 @@ def pagaende(utom=()):
             for d in poster() if int(d['pid']) not in utom]
 
 
+# --- körningens egna tempkataloger (ägarens beslut 2026-10-07: prefixet ensamt räcker inte) ---
+
+AGARFIL = '.nwp-agare.json'
+AGARFIL_MAX = 4096  # en ägarfil är liten; en större fil läses inte
+
+
+def registrera_tmp(katalog, vad, pid=None):
+    """Registrerar en befintlig tempkatalog som körningens egen: ägarfilen AGARFIL i katalogen, skapad exklusivt och utan
+    att följa en länk, med körningens pid, dess starttid ur ps (samma text som startad() ger), vad, användaren och
+    katalogens egen sökväg (realpath). Ger katalogen. Går registreringen inte att skriva står katalogen kvar som
+    oregistrerad (städningen redovisar den som en äldre rest och raderar den aldrig), och det står i stderr: registret får
+    aldrig stoppa en körning."""
+    try:
+        pid = int(pid or os.getpid())
+        d = os.path.realpath(katalog)
+        post = {'schema': 1, 'pid': pid, 'pstart': startad(pid), 'vad': str(vad)[:80], 'uid': os.getuid(), 'sokvag': d,
+                'start': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'utcheckning': str(Path(__file__).resolve().parents[1])}
+        fd = os.open(os.path.join(d, AGARFIL), os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(json.dumps(post, ensure_ascii=False))
+    except Exception as e:  # noqa: BLE001 — registret får aldrig stoppa en körning
+        print('korregister: tempkatalogen %s kunde inte registreras (%s: %s)' % (katalog, type(e).__name__, e), file=sys.stderr)
+    return str(katalog)
+
+
+def egen_tmp(prefix, vad, dir=None, pid=None):
+    """tempfile.mkdtemp(prefix=…, dir=…) som körningens registrerade katalog (registrera_tmp). Bara en sådan katalog får
+    städningen radera, och först när körningen är avslutad (kontroller/stadning.py, punkt 4). Ger sökvägen som mkdtemp."""
+    return registrera_tmp(tempfile.mkdtemp(prefix=prefix, dir=dir), vad, pid)
+
+
+@contextlib.contextmanager
+def egen_tmp_med(prefix, vad, dir=None):
+    """Som tempfile.TemporaryDirectory, med registreringen: katalogen tas bort när blocket slutar."""
+    d = egen_tmp(prefix, vad, dir)
+    try:
+        yield d
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def tmp_agare(katalog):
+    """(registreringen, None) när katalogens ägarfil är giltig, annars (None, skälet). Giltig är en vanlig fil, inte en
+    länk, i en katalog som inte heller är en länk; båda ägda av användaren; schema 1 med pid, vad och användaren; och en
+    registrerad sökväg som är katalogens egen (en ägarfil som kopierats eller flyttats till en annan katalog gäller inte
+    där). Ingen länk följs."""
+    try:
+        sd = os.lstat(katalog)
+    except OSError as e:
+        return None, 'katalogen går inte att läsa (%s)' % (e.strerror or e)
+    if stat.S_ISLNK(sd.st_mode) or not stat.S_ISDIR(sd.st_mode):
+        return None, 'ingen riktig katalog (en länk eller en fil)'
+    f = os.path.join(str(katalog), AGARFIL)
+    try:
+        sf = os.lstat(f)
+    except FileNotFoundError:
+        return None, 'ingen registrering (ägarfilen %s saknas)' % AGARFIL
+    except OSError as e:
+        return None, 'ägarfilen går inte att läsa (%s)' % (e.strerror or e)
+    if stat.S_ISLNK(sf.st_mode) or not stat.S_ISREG(sf.st_mode):
+        return None, 'ägarfilen %s är ingen vanlig fil (en länk följs aldrig)' % AGARFIL
+    if sd.st_uid != os.getuid() or sf.st_uid != os.getuid():
+        return None, 'katalogen eller ägarfilen ägs av en annan användare (uid %d, %d)' % (sd.st_uid, sf.st_uid)
+    if sf.st_size > AGARFIL_MAX:
+        return None, 'ägarfilen är för stor för en registrering (%d byte)' % sf.st_size
+    try:
+        fd = os.open(f, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd, 'r', encoding='utf-8') as fh:
+            post = json.loads(fh.read())
+    except (OSError, ValueError) as e:
+        return None, 'ägarfilen går inte att tolka (%s)' % type(e).__name__
+    if not isinstance(post, dict) or post.get('schema') != 1 or not str(post.get('vad') or '').strip():
+        return None, 'ägarfilen saknar schema 1 eller vad'
+    try:
+        pid = int(post.get('pid'))
+    except (TypeError, ValueError):
+        return None, 'ägarfilen saknar pid'
+    if pid <= 1 or post.get('uid') != os.getuid():
+        return None, 'ägarfilens pid eller användare stämmer inte (pid %s, uid %s)' % (post.get('pid'), post.get('uid'))
+    if post.get('sokvag') != os.path.realpath(katalog):
+        return None, 'den registrerade sökvägen (%s) är inte katalogens egen' % post.get('sokvag')
+    return dict(post, pid=pid), None
+
+
+def tmp_avslutad(post):
+    """(avslutad, skälet) för körningen som äger en registrerad katalog: True när processen inte lever, eller när pid:en
+    lever med en annan starttid än den registrerade (återanvänd); False när den lever med samma starttid; None när det
+    inte går att avgöra (ps svarar inte, eller registreringen saknar starttiden), och då räknas den som pågående."""
+    pid = int(post['pid'])
+    if not lever(pid):
+        return True, 'pid %d lever inte' % pid
+    nu_s = startad(pid)
+    if not nu_s or not post.get('pstart'):
+        return None, 'pid %d lever, och starttiden går inte att jämföra (%s)' % (pid, 'ps svarar inte' if not nu_s else 'registreringen saknar den')
+    if ' '.join(nu_s.split()) != ' '.join(str(post['pstart']).split()):
+        return True, 'pid %d har en annan starttid (%s) än den registrerade (%s): en annan process' % (pid, nu_s, post['pstart'])
+    return False, 'pid %d lever (startad %s)' % (pid, nu_s)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog='korregister', description=__doc__.split('\n\n')[0])
-    p.add_argument('atgard', choices=('in', 'ut', 'lista'))
+    p.add_argument('atgard', choices=('in', 'ut', 'lista', 'tmp'))
     p.add_argument('vad', nargs='?')
+    p.add_argument('tmp_vad', nargs='?', help=argparse.SUPPRESS)
     p.add_argument('--slug')
     p.add_argument('--pid', type=int)
+    p.add_argument('--dir')
     a = p.parse_args(argv)
+    if a.atgard == 'tmp':  # ett skalskript: tmp <prefix> <vad> --pid $$ ger en registrerad katalog
+        if not a.vad or not re.fullmatch(r'[A-Za-z0-9_.-]{2,40}', a.vad) or not a.tmp_vad:
+            print('tmp <prefix> <vad> [--pid P] [--dir D]', file=sys.stderr)
+            return 2
+        print(egen_tmp(a.vad, a.tmp_vad, dir=a.dir, pid=a.pid or os.getppid()))
+        return 0
     if a.atgard == 'in':
         if a.vad not in KANNETECKEN:
             print('vad: %s' % ', '.join(KANNETECKEN), file=sys.stderr)

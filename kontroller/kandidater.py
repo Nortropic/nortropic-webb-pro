@@ -185,13 +185,13 @@ def src_ovrigt(relp):
     return relp.parts[:1] != ('pages',) and relp.parts[:2] != ('assets', 'atelje')
 
 
-def version(slug, kid):
-    """Hashen över det som formger kandidaten: kod/, kod-src/ och DESIGN.md (inga länkar följs). Bilderna tas ur den, så
-    en ny fotografering av samma kod ger samma version. En version utan kod-src/ (före 2026-10-05) får samma hash som förut."""
-    h = hashlib.sha256()
-    d = kdir(slug, kid)
+def version_filer(d):
+    """Exakt de filer en version räknas över, i hashens ordning: [(relativ väg, sökväg)] för DESIGN.md, kod/ och kod-src/
+    i katalogen d (en kandidats katalog, en bevarad version versioner/<v12>/ eller det ett omtag sparat). Inga länkar
+    följs, och en länk räknas inte."""
+    d, ut = Path(d), []
     if (d / 'DESIGN.md').is_file() and not (d / 'DESIGN.md').is_symlink():
-        h.update(b'DESIGN.md\0' + (d / 'DESIGN.md').read_bytes() + b'\0')
+        ut.append(('DESIGN.md', d / 'DESIGN.md'))
     for bas in (d / 'kod', d / KODSRC):
         if not bas.is_dir() or bas.is_symlink():
             continue
@@ -201,8 +201,23 @@ def version(slug, kid):
                 p = Path(katalog) / fn
                 if p.is_symlink() or not p.is_file():
                     continue
-                h.update(str(p.relative_to(d)).encode() + b'\0' + p.read_bytes() + b'\0')
+                ut.append((str(p.relative_to(d)), p))
+    return ut
+
+
+def version_av(d):
+    """Hashen över det som formger en version i katalogen d (version_filer): så räknas en kandidats version, och så räknas
+    den om ur det ett omtag sparat (ägarens beslut 2026-10-07)."""
+    h = hashlib.sha256()
+    for relp, p in version_filer(d):
+        h.update(relp.encode() + b'\0' + p.read_bytes() + b'\0')
     return h.hexdigest()
+
+
+def version(slug, kid):
+    """Hashen över det som formger kandidaten: kod/, kod-src/ och DESIGN.md (inga länkar följs). Bilderna tas ur den, så
+    en ny fotografering av samma kod ger samma version. En version utan kod-src/ (före 2026-10-05) får samma hash som förut."""
+    return version_av(kdir(slug, kid))
 
 
 def korlage(slug, status=None):

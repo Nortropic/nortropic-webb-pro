@@ -22,7 +22,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -145,7 +144,8 @@ def verifiera_bygge(mal, logg=None):
     (paketens kod körs inte), och bygget innanför processgränsen (kontroller/processgrans.py, kor_i_katalog: skrivning
     bara i kopian, inget nät och en miljö utan nycklar; den oberoende granskningen 2026-10-05, fynd 2). Ger (ok, text)."""
     import processgrans
-    tmp = Path(tempfile.mkdtemp(prefix='nwp-kundrepo-'))
+    import korregister
+    tmp = Path(korregister.egen_tmp('nwp-kundrepo-', 'exportera'))  # registrerad som körningens egen (städregeln, 2026-10-07)
     try:
         kopiera(mal, tmp / 'repo')
         repo = tmp / 'repo'

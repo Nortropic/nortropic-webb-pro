@@ -109,8 +109,11 @@ före, tid, utfall och skäl; det som väntar på ägaren med sitt material). St
 när disken har under 15 % ledigt, och kvittot och underhållets rapport visar ledigt före och efter. Den städar bara när
 den körs från huvudutcheckningen (`~/nortropic-repos/nortropic-webb-pro`) eller en av dess worktrees, rör bara kopior
 som heter `kopia*`, och allt i en kopia eller worktree som inte går att återskapa ur huvudutcheckningen (också ignorerade
-filer som `kirurgen/` och `.env`) väntar på ägaren. Förra rensningen av npm-cachen står i
-`underlag/startkontroll/NPM-CACHE.json`. Rökprovet sätter `NWP_STADNING=av`, så att inget prov städar det verkliga
+filer som `kirurgen/` och `.env`) väntar på ägaren. En tempkatalog i /tmp och $TMPDIR raderas bara när den är registrerad
+som en körnings egen (`korregister.egen_tmp`, ägarfilen `.nwp-agare.json`) och körningen är avslutad. En katalog med
+repots prefix men utan registrering redovisas som äldre rest och raderas aldrig. Ingen symlänk följs, och ingen
+gemensam förälder raderas. En sessions arbetsyta tas bort först när dess rapporter och bilder är registrerade
+(tillägget 2026-10-07). Förra rensningen av npm-cachen står i `underlag/startkontroll/NPM-CACHE.json`. Rökprovet sätter `NWP_STADNING=av`, så att inget prov städar det verkliga
 systemet.
 
 Skydden runt en ny version (den oberoende granskningen 2026-10-06):

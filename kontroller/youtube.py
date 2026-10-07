@@ -19,7 +19,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
@@ -81,7 +80,8 @@ def undertexter(url, sprak):
     if not y:
         return None, None, 'yt-dlp saknas'
     langs = ','.join('%s.*' % s for s in sprak) or 'en.*'
-    with tempfile.TemporaryDirectory(prefix='nwp-sub-') as tmp:
+    import korregister
+    with korregister.egen_tmp_med('nwp-sub-', 'youtube') as tmp:  # registrerad som körningens egen (städregeln, 2026-10-07)
         p = subprocess.run([y, '--skip-download', '--no-warnings', '--write-subs', '--write-auto-subs', '--sub-langs', langs,
                             '--sub-format', 'vtt', '-o', str(Path(tmp) / 'sub'), url], capture_output=True, text=True, timeout=180)
         filer = sorted(Path(tmp).glob('sub*.vtt'), key=lambda f: ('auto' in f.name, f.name))
@@ -146,7 +146,8 @@ def bildrutor(url, langd, antal, kapitel, mapp, avsnitt=()):
     if not f:
         return [], 'ffmpeg saknas (.venv/bin/python -m pip install imageio-ffmpeg)'
     mapp.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='nwp-yt-') as tmp:
+    import korregister
+    with korregister.egen_tmp_med('nwp-yt-', 'youtube') as tmp:
         p = subprocess.run([y, '--no-playlist', '--no-warnings', '-f', 'bv*[height<=720][ext=mp4]/bv*[height<=720]/b[height<=720]/b',
                             '--ffmpeg-location', f, '-o', str(Path(tmp) / 'video.%(ext)s'), url],
                            capture_output=True, text=True, timeout=900)

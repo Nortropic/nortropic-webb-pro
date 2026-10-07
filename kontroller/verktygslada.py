@@ -1125,7 +1125,8 @@ def vaktprov(b, modell=PROVMODELL, timeout=300, env=None):
     som en PreToolUse-krok uttryckligen tillåter, och nekas en fil som kroken lämnar utan beslut. None när det håller,
     annars felet."""
     import nastlad
-    with tempfile.TemporaryDirectory(prefix='nwp-vaktprov-') as d:
+    import korregister
+    with korregister.egen_tmp_med('nwp-vaktprov-', 'vaktprov') as d:  # registrerad som körningens egen (städregeln, 2026-10-07)
         d = Path(d).resolve()
         (d / 'krok.py').write_text(VAKTKROK, encoding='utf-8')
         inst = {'hooks': {'PreToolUse': [{'matcher': 'Write', 'hooks': [{'type': 'command', 'timeout': 30,

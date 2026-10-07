@@ -38,6 +38,8 @@ os.environ['CLAUDE_CONFIG_DIR'] = str(KONFIG)  # före importen: bildkedja.PROJE
 os.environ.pop('NWP_OBSERVATION', None)
 sys.path.insert(0, str(ROOT / 'kontroller'))
 
+import korregister  # noqa: E402
+korregister.registrera_tmp(TMP, 'prov_observation')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 import atelje  # noqa: E402
 import bildkedja  # noqa: E402
 import observation  # noqa: E402

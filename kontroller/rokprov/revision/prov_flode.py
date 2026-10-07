@@ -55,6 +55,8 @@ if not os.environ.get('NWP_PROV_BEHALL'):
     atexit.register(shutil.rmtree, TMP, True)
 sys.path.insert(0, str(ROOT / 'kontroller'))
 sys.path.insert(0, str(ROOT / 'dashboard'))
+import korregister  # noqa: E402
+korregister.registrera_tmp(TMP, 'prov_flode')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 import atelje  # noqa: E402
 import granska  # noqa: E402
 import kandidater  # noqa: E402

@@ -92,6 +92,7 @@ import underhall as uh  # noqa: E402
 BREW_ORIGINAL = uh.brew  # den riktiga, före provens falska (spärren mot brew upgrade på allt prövas på den)
 import refero_mcp  # noqa: E402
 import korregister  # noqa: E402
+korregister.registrera_tmp(TMP, 'prov_startkontroll')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 import stadning  # noqa: E402
 assert korregister.KATALOG == TMP / 'korregister' and uh.BYTESLAS == TMP / 'korregister' / '.byte', korregister.KATALOG
 # diskvakten ser 40 % ledigt oberoende av maskinens disk, och städningen mot det verkliga systemet fäller provet

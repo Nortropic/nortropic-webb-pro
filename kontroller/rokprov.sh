@@ -470,8 +470,8 @@ case "$FH" in *"underlag/rokprov-mall/forhand/start/varv-01/vy-390-forsta.png"*"
 # (omgranskningen av skapandeflödet, fynd 5: den flyttades, och nästa omgång kunde aldrig bygga)
 "$ROOT/.venv/bin/python" -B -c "
 import sys, shutil, tempfile, pathlib, os
-sys.path.insert(0, '$ROOT/kontroller'); import atelje, prova
-t = pathlib.Path(tempfile.mkdtemp(prefix='nwp-tillbaka-'))
+sys.path.insert(0, '$ROOT/kontroller'); import atelje, prova, korregister
+t = pathlib.Path(korregister.egen_tmp('nwp-tillbaka-', 'rokprov tillbaka'))  # registrerad: städningen raderar den bara när provet slutat
 sajt = t / 'kunder' / 'tillbaka-prov' / 'sajt'
 shutil.copytree('$S', sajt, symlinks=True, ignore=shutil.ignore_patterns('node_modules', 'dist', '.astro'))
 os.symlink(os.path.realpath('$S/node_modules'), sajt / 'node_modules')

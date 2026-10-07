@@ -38,13 +38,16 @@ def tmp_omrade(slug):
 
 def tmp_katalog(prefix='nwp-'):
     """En temporär katalog som vakten tillåter: under körningens eget område när NWP_SLUG är satt, annars systemets.
-    Verktyg som startar barnprocesser (upptagna_val → stil.mjs) måste använda den (omgång fem, F30)."""
+    Verktyg som startar barnprocesser (upptagna_val → stil.mjs) måste använda den (omgång fem, F30). Katalogen registreras
+    som körningens egen (korregister.egen_tmp): städningen raderar bara en registrerad katalog vars körning slutat
+    (ägarens beslut 2026-10-07)."""
+    import korregister
     e = egen_slug()
     if e:
         rot = tmp_omrade(e)[0]
         rot.mkdir(parents=True, exist_ok=True)
-        return tempfile.mkdtemp(prefix=prefix, dir=str(rot))
-    return tempfile.mkdtemp(prefix=prefix)
+        return korregister.egen_tmp(prefix, 'tmp_katalog ' + prefix.rstrip('-'), dir=str(rot))
+    return korregister.egen_tmp(prefix, 'tmp_katalog ' + prefix.rstrip('-'))
 
 
 def symlank_ut(katalog, rotar):

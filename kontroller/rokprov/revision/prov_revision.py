@@ -41,6 +41,8 @@ tmp = stada_vid_slut(Path(tempfile.mkdtemp(prefix='nwp-rev-')))
 os.environ['NWP_STARTKONTROLL'] = 'av'
 # arbetarna i proven anmäler sig i ett eget körregister, aldrig i maskinens (/tmp/nwp-korningar)
 os.environ['NWP_KORREGISTER'] = str(tmp / 'korregister')
+import korregister as korregister_  # noqa: E402  (efter registrets miljö)
+korregister_.registrera_tmp(tmp, 'prov_revision')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 os.environ['NWP_KANDIDATFLODE'] = 'av'  # de äldre ateljéproven kör utforskningen med tre riktningar; kandidatflödet har eget avsnitt
 
 
@@ -2897,6 +2899,54 @@ try:
     assert '| forfina | svar-forfina.json | 9 | 2 |' in red_ and 'better-layout' in red_ and 'varv-01 ' in red_ and 'Slutdomen' in red_ and 'synligt bättre: ja' in red_, red_
 finally:
     bk_pt.ROOT = rot_bk
+import hashlib as hashlib_om  # noqa: E402
+
+
+def hash_om(d):
+    """Versionens hash räknad av provet självt, oberoende av koden som prövas (som kandidater.version): sha256 över
+    DESIGN.md, kod/ och kod-src/ i katalogen d, i sorterad ordning och utan länkar."""
+    h_ = hashlib_om.sha256()
+    d = Path(d)
+    if (d / 'DESIGN.md').is_file() and not (d / 'DESIGN.md').is_symlink():
+        h_.update(b'DESIGN.md\0' + (d / 'DESIGN.md').read_bytes() + b'\0')
+    for bas_ in (d / 'kod', d / 'kod-src'):
+        if not bas_.is_dir() or bas_.is_symlink():
+            continue
+        for kat_, kats_, fns_ in os.walk(bas_, followlinks=False):
+            kats_.sort()
+            for fn_ in sorted(fns_):
+                q_ = Path(kat_) / fn_
+                if q_.is_symlink() or not q_.is_file():
+                    continue
+                h_.update(str(q_.relative_to(d)).encode() + b'\0' + q_.read_bytes() + b'\0')
+    return h_.hexdigest()
+
+
+def kandidat_med_version(kdir_, sida, status='klar', titel=None, bilder=True):
+    """En fotograferad kandidat: kod/, kod-src/, DESIGN.md och skärmbilderna i fyra bredder, versionen bevarad med koden
+    i versioner/<v12>/ (som kandidater.fotografera och bevara_version) och i STATUS.json. Ger versionen."""
+    for x_ in ('kod', 'kod-src/styles', 'bilder/start'):
+        (kdir_ / x_).mkdir(parents=True, exist_ok=True)
+    (kdir_ / 'kod' / 'index.astro').write_text(sida)
+    (kdir_ / 'kod-src' / 'styles' / 'design.css').write_text(':root { --sida: "%s"; }\n' % sida)
+    (kdir_ / 'DESIGN.md').write_text('# Design\n\n%s\n' % sida)
+    if bilder:
+        for vy_ in ('390', '768', '1280', '1440'):
+            for s_ in ('forsta', 'hela'):
+                (kdir_ / 'bilder' / 'start' / ('vy-%s-%s.png' % (vy_, s_))).write_bytes(b'\x89PNG ' + ('%s %s %s' % (sida, vy_, s_)).encode())
+        (kdir_ / 'bilder' / 'start' / 'INSPEKTION.json').write_text('{}')  # ingen skärmbild
+    v_ = hash_om(kdir_)
+    m_ = kdir_ / 'versioner' / v_[:12]
+    if not m_.exists():
+        shutil.copytree(kdir_ / 'kod', m_ / 'kod')
+        shutil.copytree(kdir_ / 'kod-src', m_ / 'kod-src')
+        shutil.copy2(kdir_ / 'DESIGN.md', m_ / 'DESIGN.md')
+        (m_ / 'VERSION').write_text(v_ + '\n')
+    st_ = json.loads((kdir_ / 'STATUS.json').read_text()) if (kdir_ / 'STATUS.json').is_file() else {}
+    (kdir_ / 'STATUS.json').write_text(json.dumps(dict(st_, id=kdir_.name, status=status, version=v_, **({'titel': titel} if titel else {}))))
+    return v_
+
+
 # omtaget (ägarens beslut 2026-10-06): designbesluten raderas, inget arkiv; fakta, bilder, texten, referenspaketen,
 # domlogg och historik kvar; den dömda riktningen in i historiken först; en länk tas bort som länk, aldrig målet
 (at_pt.KUNDER / 'pt-prov' / 'sajt' / 'src').mkdir(parents=True, exist_ok=True)
@@ -3045,8 +3095,12 @@ try:
         'k01': {'titel': 'Den valda', 'ide': 'en idé'}, 'k02': {'titel': 'Den som föll', 'ide': 'en idé'}}}))
     (fo_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'under_arbete', 'fotograferad': '2026-10-06T03:00:00Z'}))
     (fo_ / 'atelje' / 'kandidater' / 'k02' / 'STATUS.json').write_text(json.dumps({'status': 'fel', 'fotograferad': '2026-10-06T03:00:00Z'}))
+    # den valda versionen är bevarad (efter_beslut), och kandidaten står under förfining utan version: omtaget sparar den valda
+    v_fo = kandidat_med_version(fo_ / 'atelje' / 'kandidater' / 'k01', '<h1>Den valda</h1>')
+    shutil.copytree(fo_ / 'atelje' / 'kandidater' / 'k01' / 'bilder', fo_ / 'atelje' / 'kandidater' / 'k01' / 'versioner' / v_fo[:12] / 'bilder')
+    (fo_ / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json').write_text(json.dumps({'status': 'under_arbete', 'fotograferad': '2026-10-06T03:00:00Z'}))
     sk.lagg_till_dom('pt-forfining', 'ägaren', 'valj', 'Förfina k01.', underlag=pt_und, tid='2026-10-06T03:50:00Z',
-                     kandidater=[{'id': 'k01', 'version': 'v1', 'plan': '2026-10-06T03:10:00Z'}, {'id': 'k02', 'version': 'v1', 'plan': 'en annan plan'}])
+                     kandidater=[{'id': 'k01', 'version': v_fo, 'plan': '2026-10-06T03:10:00Z'}, {'id': 'k02', 'version': 'v1', 'plan': 'en annan plan'}])
     try:
         at_pt.ta_bort_beslut('pt-forfining')
         raise AssertionError('en vald kandidat under förfining raderades utan dom')
@@ -3275,6 +3329,163 @@ finally:
         if p_.poll() is None:
             p_.kill()
             p_.wait(10)
+# ===== ägarens beslut 2026-10-07: omtaget sparar det bedömda (skärmbilderna, versionshashen, domen, länken till design och
+# kod, och underlaget som hashen räknas om ur) och registrerar det innan något raderas; faller sparandet raderas inget.
+# Varje fall redovisas för sig: mot 84c6994, som raderade utan att spara, blir vart och ett rött =====
+OMTAG_FEL = []
+
+
+def omtagsfall(namn):
+    def kor_fallet(f):
+        try:
+            f()
+            print('ok: omtaget 2026-10-07: ' + namn, file=sys.stderr)
+        except Exception as e_:  # noqa: BLE001 — varje fall redovisas för sig
+            OMTAG_FEL.append(namn)
+            print('FEL: omtaget 2026-10-07: %s: %s: %s' % (namn, type(e_).__name__, str(e_)[:900]), file=sys.stderr)
+        return f
+    return kor_fallet
+
+
+def omtagsplan(slug_, kand, st_run):
+    """En körning i kandidatflödet: planen (tid P_OM), kandidaterna med riktiga versioner och kandidaternas projekt."""
+    d_ = pt_und / slug_
+    (d_ / 'atelje' / 'kandidater').mkdir(parents=True)
+    (d_ / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': P_OM, 'kandidater': {k_: {'titel': t_, 'ide': 'en idé'} for k_, t_ in kand.items()}}))
+    (d_ / 'atelje' / 'STATUS.json').write_text(json.dumps(dict({'kandidatflode': True}, **st_run)))
+    for k_ in kand:
+        (at_pt.KUNDER / slug_ / 'kandidater' / k_ / 'sajt' / 'src').mkdir(parents=True)
+    return d_
+
+
+P_OM = '2026-10-06T05:00:00Z'
+KLAR_OM = {'steg': 'klar_for_bedomning', 'fas': 'forfining', 'startad': '2026-10-06T07:00:00Z', 'klar': '2026-10-06T08:00:00Z'}
+bo_ = omtagsplan('pt-bedomt', {'k01': 'Byggdagboken', 'k02': 'Kartan', 'k03': 'Aldrig visad'}, KLAR_OM)
+k1_ = bo_ / 'atelje' / 'kandidater' / 'k01'
+v1a_ = kandidat_med_version(k1_, '<h1>Byggdagboken, skissen</h1>', titel='Byggdagboken')
+shutil.copytree(k1_ / 'bilder', k1_ / 'versioner' / v1a_[:12] / 'bilder')  # den valda versionen bevaras med bilderna (efter_beslut)
+bilder_v1a = {q_.name: q_.read_bytes() for q_ in (k1_ / 'bilder' / 'start').glob('vy-*.png')}
+v1b_ = kandidat_med_version(k1_, '<h1>Byggdagboken, förfinad</h1>', status='forfinad')  # förfiningen: ny kod och nya bilder
+v2_om = kandidat_med_version(bo_ / 'atelje' / 'kandidater' / 'k02', '<h1>Kartan</h1>', titel='Kartan')
+v3_om = kandidat_med_version(bo_ / 'atelje' / 'kandidater' / 'k03', '<h1>Aldrig visad</h1>', status='fel')
+sk.lagg_till_dom('pt-bedomt', 'ägaren', 'valj', 'Bygg vidare på dagboken.', underlag=pt_und, tid='2026-10-06T06:10:00Z',
+                 kandidater=[{'id': 'k01', 'version': v1a_, 'plan': P_OM}], plan=P_OM)
+sk.lagg_till_dom('pt-bedomt', 'ägaren', 'jamfor', 'Kartan bredvid.', underlag=pt_und, tid='2026-10-06T06:20:00Z',
+                 kandidater=[{'id': 'k02', 'version': v2_om, 'plan': P_OM}], plan=P_OM)
+sk.lagg_till_dom('pt-bedomt', 'ägaren', 'valj', 'En tidigare plan.', underlag=pt_und, tid='2026-10-06T04:00:00Z',
+                 kandidater=[{'id': 'k03', 'version': v3_om, 'plan': 'en tidigare plan'}], plan='en tidigare plan')
+sk.lagg_till_dom('pt-bedomt', 'panelen', 'valj', 'Panelen väljer.', underlag=pt_und, tid='2026-10-06T06:30:00Z',
+                 kandidater=[{'id': 'k03', 'version': v3_om, 'plan': P_OM}])
+sk.lagg_till_dom('pt-bedomt', 'ägaren', 'ny_riktning', 'Ingen av dem bär; börja om.', underlag=pt_und)
+info_bo = {}
+try:
+    fl_bo = at_pt.ta_bort_beslut('pt-bedomt', info_bo)
+except Exception as e_:  # noqa: BLE001 — fallen nedan redovisar det
+    fl_bo = e_
+stamplar_bo = sorted((bo_ / 'omtag').iterdir()) if (bo_ / 'omtag').is_dir() else []
+
+
+@omtagsfall('det bedömda sparas och registreras i underlag/<slug>/omtag/<stämpel>/<kandidat>/<v12>/, och sedan raderas det som förut')
+def _omtag_sparat():
+    assert not isinstance(fl_bo, Exception), fl_bo
+    assert len(stamplar_bo) == 1 and not stamplar_bo[0].name.startswith('.'), ('inget sparat och registrerat före raderingen', stamplar_bo)
+    par_ = sorted((k_.parent.parent.name, k_.parent.name) for k_ in stamplar_bo[0].glob('*/*/KVITTO.json'))
+    assert par_ == sorted([('k01', v1a_[:12]), ('k01', v1b_[:12]), ('k02', v2_om[:12])]), par_
+    assert not (stamplar_bo[0] / 'k03').exists(), 'en kandidat som ägaren inte dömt sparas inte'
+    assert sorted(info_bo['sparade']) == sorted('underlag/pt-bedomt/omtag/%s/%s/%s/KVITTO.json' % (stamplar_bo[0].name, k_, v_) for k_, v_ in par_), info_bo
+    assert not (bo_ / 'atelje').exists() and not (at_pt.KUNDER / 'pt-bedomt' / 'kandidater').exists(), 'ateljén och projekten raderas'
+
+
+@omtagsfall('hashen räknas om ur det sparade underlaget och stämmer, och kvittot har sha256 för varje sparad fil')
+def _omtag_hash():
+    assert stamplar_bo, 'inget sparat'
+    for kv_ in sorted(stamplar_bo[0].glob('*/*/KVITTO.json')):
+        k_, d_ = json.loads(kv_.read_text()), kv_.parent
+        assert hash_om(d_ / 'underlag') == k_['version'] == k_['version_omraknad'] and k_['version'][:12] == d_.name, (kv_, k_['version'])
+        assert k_['kandidat'] == d_.parent.name and k_['id'].endswith('-%s-%s' % (k_['kandidat'], d_.name)) and k_['tid'] and k_['plan'] == P_OM
+        sparat_ = {q_.relative_to(d_).as_posix() for q_ in d_.rglob('*') if q_.is_file() and q_.name != 'KVITTO.json'}
+        assert sparat_ == set(k_['filer']) and all(hashlib_om.sha256((d_ / f_).read_bytes()).hexdigest() == s_ for f_, s_ in k_['filer'].items()), kv_
+        assert {f_ for f_ in k_['filer'] if f_.startswith('underlag/')} == {'underlag/DESIGN.md', 'underlag/kod/index.astro', 'underlag/kod-src/styles/design.css'}
+
+
+@omtagsfall('bilderna i de bredder som dömdes, domarna med rad och radens sha256, och länken till design och kod')
+def _omtag_bilder_domar():
+    assert stamplar_bo, 'inget sparat'
+    st_ = stamplar_bo[0]
+    rader_ = (bo_ / sk.DOMLOGG).read_bytes().split(b'\n')
+    beslut_ = {}
+    for kv_ in sorted(st_.glob('*/*/KVITTO.json')):
+        k_, d_ = json.loads(kv_.read_text()), kv_.parent
+        assert sorted(k_['bilder']) == sorted('bilder/start/vy-%s-%s.png' % (b_, s_) for b_ in ('390', '768', '1280', '1440') for s_ in ('forsta', 'hela')), k_['bilder']
+        assert 'bilder/start/INSPEKTION.json' not in k_['filer'] and not k_.get('bilder_saknas')
+        assert k_['design'] == 'underlag/DESIGN.md' and (d_ / k_['design']).is_file() and 'underlag/kod/' in k_['kod'] and 'underlag/kod-src/' in k_['kod']
+        assert k_['kalla']['projekt'] == 'kunder/pt-bedomt/kandidater/%s/sajt' % k_['kandidat'] and k_['kalla']['underlag'].startswith('underlag/pt-bedomt/atelje/kandidater/')
+        for dm_ in k_['domar']:
+            rad_ = rader_[dm_['rad'] - 1]
+            assert json.loads(rad_) == dm_['post'] and hashlib_om.sha256(rad_).hexdigest() == dm_['sha256_rad'] and dm_['fil'] == 'underlag/pt-bedomt/%s' % sk.DOMLOGG
+        beslut_[(k_['kandidat'], d_.name)] = [dm_['beslut'] for dm_ in k_['domar']]
+    assert beslut_ == {('k01', v1a_[:12]): ['valj'], ('k01', v1b_[:12]): ['ny_riktning'], ('k02', v2_om[:12]): ['jamfor', 'ny_riktning']}, beslut_
+    assert {q_.name: q_.read_bytes() for q_ in (st_ / 'k01' / v1a_[:12] / 'bilder' / 'start').glob('vy-*.png')} == bilder_v1a, 'den valda versionens egna bilder, ur versioner/'
+    assert {h_['namn']: h_.get('sparat') for h_ in sk.historik('pt-bedomt', pt_und)} == {'Byggdagboken': 'omtag/%s/k01/' % st_.name, 'Kartan': 'omtag/%s/k02/' % st_.name}
+
+
+@omtagsfall('faller sparandet, eller avbryts det, raderas inget och inget halvt sparat står kvar; när underlaget stämmer görs omtaget')
+def _omtag_faller():
+    fe_ = omtagsplan('pt-bedomt-fel', {'k01': 'Skissen'}, KLAR_OM)
+    kf_ = fe_ / 'atelje' / 'kandidater' / 'k01'
+    vf_ = kandidat_med_version(kf_, '<h1>Skissen</h1>', titel='Skissen')
+    shutil.rmtree(kf_ / 'versioner')  # den bevarade versionen saknas,
+    (kf_ / 'kod' / 'index.astro').write_text('<h1>ändrad efter fotograferingen</h1>')  # och kandidatens kod ger en annan hash
+    sk.lagg_till_dom('pt-bedomt-fel', 'ägaren', 'ny_riktning', 'Börja om.', underlag=pt_und)
+    h_fore = sk.historik('pt-bedomt-fel', pt_und)
+    try:
+        at_pt.ta_bort_beslut('pt-bedomt-fel')
+        raise AssertionError('omtaget raderade fast det bedömda inte gick att spara')
+    except RuntimeError as e_:
+        assert 'det bedömda gick inte att spara' in str(e_) and 'inget är borttaget' in str(e_), e_
+    assert (kf_ / 'kod' / 'index.astro').is_file() and (at_pt.KUNDER / 'pt-bedomt-fel' / 'kandidater' / 'k01' / 'sajt').is_dir() and not list(fe_.glob('.borttaget-*'))
+    assert not list((fe_ / 'omtag').iterdir()) and sk.historik('pt-bedomt-fel', pt_und) == h_fore, 'inget halvt sparat, ingen historik'
+    (kf_ / 'kod' / 'index.astro').write_text('<h1>Skissen</h1>')  # versionen stämmer igen
+    orig_cf_ = at_pt.shutil.copyfile
+    anrop_ = []
+
+    def avbruten_cf(a_, b_, *r_, **k_):
+        anrop_.append(1)
+        if len(anrop_) == 2:
+            raise KeyboardInterrupt()
+        return orig_cf_(a_, b_, *r_, **k_)
+
+    at_pt.shutil.copyfile = avbruten_cf
+    try:
+        at_pt.ta_bort_beslut('pt-bedomt-fel')
+        raise AssertionError('avbrottet gick inte vidare')
+    except KeyboardInterrupt:
+        pass
+    finally:
+        at_pt.shutil.copyfile = orig_cf_
+    assert (kf_ / 'kod' / 'index.astro').is_file() and not list((fe_ / 'omtag').iterdir()) and sk.historik('pt-bedomt-fel', pt_und) == h_fore, 'efter avbrottet'
+    info_fe = {}
+    at_pt.ta_bort_beslut('pt-bedomt-fel', info_fe)
+    kv_ = list((fe_ / 'omtag').glob('*/k01/%s/KVITTO.json' % vf_[:12]))
+    assert len(kv_) == 1 and hash_om(kv_[0].parent / 'underlag') == vf_ and not (fe_ / 'atelje').exists() and len(info_fe['sparade']) == 1, (kv_, info_fe)
+
+
+@omtagsfall('ett omtag skriver aldrig det bedömda genom en länk: underlag/<slug>/omtag som länk stoppar omtaget')
+def _omtag_lank():
+    la_ = omtagsplan('pt-bedomt-lank', {'k01': 'Länken'}, KLAR_OM)
+    kandidat_med_version(la_ / 'atelje' / 'kandidater' / 'k01', '<h1>Länken</h1>')
+    (tmp / 'pt-omtag-utanfor').mkdir()
+    (la_ / 'omtag').symlink_to(tmp / 'pt-omtag-utanfor', target_is_directory=True)
+    sk.lagg_till_dom('pt-bedomt-lank', 'ägaren', 'ny_riktning', 'Börja om.', underlag=pt_und)
+    try:
+        at_pt.ta_bort_beslut('pt-bedomt-lank')
+        raise AssertionError('omtaget skrev genom en länk')
+    except RuntimeError as e_:
+        assert 'länk' in str(e_) and (la_ / 'atelje' / 'kandidater' / 'k01' / 'kod').is_dir() and not list((tmp / 'pt-omtag-utanfor').iterdir()), e_
+
+
+assert not OMTAG_FEL, 'omtagets fall 2026-10-07 som föll: %s' % OMTAG_FEL
+print('omtaget 2026-10-07: det bedömda sparas, registreras och räknas om')
 # dashboarden: före och efter, panelens dom dold tills ägaren dömt körningen, domen till domloggen, godkänt till VINNARE.json
 gu_d = (dash.UNDERLAG, dash.ROOT)
 dash.UNDERLAG, dash.ROOT = pt_und, tmp
@@ -4309,6 +4520,16 @@ try:
     h_kd = sk.historik(sl_kd, kd_u)
     assert len(h_kd) == 3 and all(x_['utfall'] == 'underkänd av ägaren via Codex' for x_ in h_kd) and all(x_['referens'] == 'Xref' for x_ in h_kd), h_kd
     assert not (kd_k / sl_kd / 'kandidater').exists() and not (u_kd / 'atelje').exists(), 'kandidaternas projekt och ateljén tas bort'
+    # och först sparades det bedömda (ägarens beslut 2026-10-07): varje version ägaren namngett i en dom, och de förkastade i
+    # sin senaste version, med hashen omräknad ur det sparade underlaget och skärmbilderna
+    kv_kd = sorted((u_kd / 'omtag').glob('*/*/*/KVITTO.json'))
+    domda_kd = {(k_['id'], k_['version'][:12]) for d_ in sk.domar(sl_kd, kd_u) if d_.get('kalla') in sk.AGAREN for k_ in d_.get('kandidater') or []}
+    assert domda_kd and {(q_.parent.parent.name, q_.parent.name) for q_ in kv_kd} >= domda_kd, (kv_kd, domda_kd)
+    for q_ in kv_kd:
+        k_ = json.loads(q_.read_text())
+        assert hash_om(q_.parent / 'underlag') == k_['version'] and (q_.parent / 'underlag' / 'kod' / 'index.astro').is_file() and k_['domar'], q_
+        assert any(b_.startswith('bilder/start/vy-390-') for b_ in k_['bilder']), (q_, k_['bilder'])
+    assert {h_.get('sparat', '').split('/')[-2] for h_ in h_kd} == {'k01', 'k02', 'k03'}, h_kd
     (u_kd / 'atelje').mkdir(); (u_kd / 'atelje' / 'STATUS.json').write_text(json.dumps({'steg': 'klar', 'klar': '2026-10-05T15:00:00Z'}))
     try:
         at_pt.doma(sl_kd, 'ägaren', 'valj', 'x', kandidater=[])

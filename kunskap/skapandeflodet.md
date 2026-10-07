@@ -206,7 +206,10 @@ slutkod 3. Finns tidigare designbeslut utan dom, eller en dom som inte gäller n
 prototypen att gissa läget.
 
 - `ny_riktning` återöppnar alla designbeslut, aldrig fakta. `kontroller/atelje.py <slug> --ny-riktning` (eller
-  prototyp.py) för först in den dömda riktningen, eller kandidaterna ägaren såg, i historiken med domen. Sedan raderar
+  prototyp.py) sparar först det ägaren bedömt (ägarens beslut 2026-10-07, `BESLUT.md`). Varje kandidat som ägaren dömt i
+  körningen sparas i `underlag/<slug>/omtag/<stämpel>/<kandidat>/<v12>/` med skärmbilderna, versionshashen, domen och
+  underlaget som hashen räknas om ur, och `KVITTO.json` har sha256 för varje fil. Faller det raderas inget. Sedan för den
+  in den dömda riktningen, eller kandidaterna ägaren såg, i historiken med domen och en pekare till det sparade. Sist raderar
   den REFERENSER.md, KONCEPT.md, ateljén, äldre prototyper, förhandsvarven, tvåan och hela `kunder/<slug>/sajt` och
   `kunder/<slug>/kandidater` (ägarens beslut 2026-10-06: inget arkiv), också en godkänd och helbyggd sajt. Fakta,
   bilder, texten, referenspaketen, domloggen, historiken och leveransen (`kunder/<slug>/kundrepo`) står kvar. Sajten

@@ -44,6 +44,8 @@ if not os.environ.get('NWP_PROV_BEHALL'):
     import atexit
     atexit.register(shutil.rmtree, TMP, True)
 sys.path.insert(0, str(K))
+import korregister  # noqa: E402
+korregister.registrera_tmp(TMP, 'prov_dokumentation')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 
 # ägarens åtta slag (uppdraget 2026-10-06, punkt 2), i ordning; README får förtydliga efter namnet
 SLAG = ('Start och överblick', 'Gällande arbetssätt', 'Beslut', 'Förbättringsarbete', 'Projekt- och körningsrapporter',
@@ -61,7 +63,7 @@ INSTRUKTIONER = ('kunskap', '.claude/skills', 'kritik')  # kataloger; därtill C
 REPO_KATALOGER = ('backlog', 'kontroller', 'kunskap', 'kritik', '.claude', 'mall', 'dashboard')
 ROTFILER = ('README.md', 'CLAUDE.md', 'BESLUT.md', 'LARDOMAR.md', 'kor.sh', 'dashboard.sh', 'requirements.txt',
             'requirements-lock.txt')
-RELATIVA = ('prov/', 'bilder/', 'matning/', 'VERSION.json', 'FORTECKNING.jsonl')  # i ett uppdrags eller byggs katalog
+RELATIVA = ('prov/', 'bilder/', 'matning/', 'VERSION.json', 'FORTECKNING.jsonl', 'KVITTO.json')  # i ett uppdrags, byggs eller omtags katalog
 MASTE_PROVAS = {'CLAUDE.md', 'BESLUT.md', 'backlog/README.md', 'kritik/'}  # annars kan sökvägsprovet bli grönt utan att pröva
 STATUSVARDEN = ('gäller', 'delvis ersatt av', 'ersatt av')
 FEL = []
