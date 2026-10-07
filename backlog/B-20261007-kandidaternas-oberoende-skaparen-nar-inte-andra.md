@@ -7,7 +7,10 @@ fynd: GR-20261007-r103#B1
 skapad: 2026-10-07
 prio: hog
 steg: main: kontroller/kandidater.py (verktyg, andra_nekas), kontroller/rokprov/revision/prov_skisskritik.py
-andrad: 2026-10-07T12:49Z
+commit: 5fa801c
+verifierad: GR-20261007-r107
+verifierad_tid: 2026-10-07T13:19Z
+andrad: 2026-10-07T13:19Z
 ---
 # Kandidaternas oberoende: skaparen når inte andra kandidaters kod via skalet
 
@@ -18,3 +21,5 @@ andrad: 2026-10-07T12:49Z
 **Klart när:** Ett prov med skaparens behörigheter når inte en annan kandidats kod på något av granskarens sätt, och skaparens eget arbete går som förut. Görs före nästa skarpa kandidatkörning.
 
 **Klar (2026-10-07):** andra_nekas nekar de läsande skalkommandona (LASANDE_SKAL, skal_nekas) i varje session som arbetar med en kandidat; prövat i prov_skisskritik fall 9 och i en verklig session utan kunddata (gren kandidatskydd-20261007). Inte verifierad.
+
+**Verifierad (2026-10-07):** GR-20261007-r107

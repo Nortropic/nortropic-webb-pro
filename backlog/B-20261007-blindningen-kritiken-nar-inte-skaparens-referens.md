@@ -7,7 +7,10 @@ fynd: GR-20261007-r103#B2
 skapad: 2026-10-07
 prio: hog
 steg: main: kontroller/kandidater.py (blind_nekas), kontroller/rokprov/revision/prov_skisskritik.py
-andrad: 2026-10-07T12:49Z
+commit: 5fa801c
+verifierad: GR-20261007-r107
+verifierad_tid: 2026-10-07T13:19Z
+andrad: 2026-10-07T13:19Z
 ---
 # Blindningen: kritiken når inte skaparens referensskäl i kundens underlag
 
@@ -18,3 +21,5 @@ andrad: 2026-10-07T12:49Z
 **Klart när:** Ett prov med kritikens behörigheter når inte filerna, och kritikens eget arbete går som förut.
 
 **Klar (2026-10-07):** blind_nekas är en uttrycklig lista (BLIND_LASBART) med mönster för det som uppstår under sessionen (BLIND_MONSTER), kunder/<slug> nekas, och historiken och domloggen nekas som filer (BLIND_HISTORIK, K4, Claudes beslut i väntan på ägaren); prövat i prov_skisskritik fall 10 och i en verklig session (gren kandidatskydd-20261007). Inte verifierad.
+
+**Verifierad (2026-10-07):** GR-20261007-r107
