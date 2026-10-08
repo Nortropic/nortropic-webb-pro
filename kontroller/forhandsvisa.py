@@ -33,6 +33,7 @@ mätningen tas i granskarens form (inspektera.mjs --extrakt-utan-kod: inga CSS-r
 """
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -184,7 +185,7 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
             if t.get(n):
                 beteende.append('%s px %s: bild %s%s' % (vy, n, Path(t[n]).name, (' (fel: %s)' % t.get(n + '_fel')) if t.get(n + '_fel') else ''))
     rutor = sorted(p.name for p in ut.glob('vy-*-ruta-*.png'))
-    rel = lambda p: str(Path(p).relative_to(ROOT)) if str(p).startswith(str(ROOT)) else str(p)  # noqa: E731
+    rel = lambda p: str(Path(p).relative_to(ROOT)) if str(p).startswith(str(ROOT) + os.sep) else str(p)  # noqa: E731
     bild = lambda p: rel(p) if giltig_bild(p) else '%s (saknas eller är tom: inte bedömbar)' % rel(p)  # noqa: E731
     rader = ['# Förhandsvisning %s%s · %s%s' % ('(granskarens) ' if granskare else '', ut.name, slug, sida), '',
              'Läs med Read, i den här ordningen: mobilens första vy, mobilens hela sida, datorns första vy, datorns hela sida.',
