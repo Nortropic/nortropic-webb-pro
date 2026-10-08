@@ -508,7 +508,11 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
     behövs: skriv det.
 14. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
     verksamheten bör rätta. Inga avvikelser: skriv det. Lägg till tabellen Utgående länkar ur `prov/standard.md`: varje
-    adress och svar; en länk som inte svarar rättas eller förklaras.
+    adress och svar; en länk som inte svarar rättas eller förklaras. Lokal eller regional verksamhet som inte är fiktiv:
+    kör `.venv/bin/python kontroller/profilblad.py <slug> --beskrivning <fil med beskrivningen ur briefen> --avvikelser
+    <fil med avvikelserna>` och klistra in bladet under punkten (namn, kategori, adress eller serviceområde, telefon,
+    öppettider, tjänster, beskrivning, bilder; avvikelserna först), så att ägaren kan föra in profilen utan att öppna
+    sajten (`kunskap/lokal-synlighet.md`, Korrekta uppgifter). Fiktiv verksamhet får inget blad.
 15. **Verktygslådan:** vilka skills ur verktygslådan du använde och till vad, eller "inga". Då kan ägarens dom
     kopplas till dem.
 16. **Så tittar ägaren:** i dashboarden (`./dashboard.sh`), eller `cd kunder/<slug>/sajt && npx astro preview`.

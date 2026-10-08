@@ -734,6 +734,11 @@ echo "   byggets läsgräns per kandidat (2026-10-07): sidans kod når varken sy
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_lasgrans.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/lasgrans-prov.log" \
   || { echo "FEL: läsgränsens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/lasgrans-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/lasgrans-prov.log"; exit 1; }
 echo "   läsgränsens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/lasgrans-prov.log") fall)"
+echo "   småverktygen: profilbladet ur VERKSAMHET.json (rapportens punkt 14)"
+for litet in prov_profilblad; do
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/$litet.py" >"$ROOT/kunder/rokprov-mall/$litet.log" 2>&1 \
+    || { echo "FEL: $litet"; tail -20 "$ROOT/kunder/rokprov-mall/$litet.log"; exit 1; }
+done
 echo "   referensinspektionen (2026-10-07): bredderna ur prototypens, matchande regler, DOM-utdragets gräns, svepets brytpunkter, flera tillstånd, rörelsesekvensen, det kuraterade underlaget och DevTools-MCP:ns mekanik"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_referensinspektion.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/referensinspektion-prov.log" \
   || { echo "FEL: referensinspektionens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/referensinspektion-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/referensinspektion-prov.log"; exit 1; }
