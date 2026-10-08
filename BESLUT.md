@@ -1521,6 +1521,10 @@ Så gäller det sedan grenen `stadvillkor-omtag-20261007`, med rättelserna efte
 4. **Sessionernas arbetsytor.** En arbetsyta tas bort först när varje vanlig fil i den, oavsett ändelse, är registrerad
    eller går att återskapa. Det gäller rapporter, bilder och versionsunderlag. Bara det bevisligen härledda undantas:
    `node_modules/`, `__pycache__/` och, i en riktig venv med `pyvenv.cfg` i roten, venvens egna kataloger.
+   Skärpt 2026-10-08 (granskningen GR-20261007-r100-om, KAN-B): en riktig venv har också `bin/python` och
+   `lib/python3.*/site-packages`, och bara venvens egna delar undantas (`lib/python*/`, `include/site/`, tolken,
+   aktiveringsskripten och de ingångar som ett pakets `RECORD` listar med samma sha256). Projektets egna `lib/`,
+   `bin/` och `include/` prövas, också när venven ligger i projektets rot.
 
    Registrerad är en fil vars sha256 står i `underlag/granskningar/FORTECKNING.jsonl`, i ett `VERSION.json` eller i ett
    omtags `KVITTO.json` (aldrig i en dold katalog), med den registrerade filen kvar i `underlag/`. En sökväg i en

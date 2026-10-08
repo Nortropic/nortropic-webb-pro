@@ -733,9 +733,9 @@ try:
             return f
         return kor_fallet
 
-    def v7_ram(bas, tmp_extra=(), scratch=None, repo=None, klocka=None):
+    def v7_ram(bas, tmp_extra=(), scratch=None, repo=None, klocka=None, repos=None):
         (bas / 'tmp').mkdir(parents=True, exist_ok=True)
-        return stadning.Ram(repo=repo or HUVUD, repos_rot=REPOS, tmp_rot=bas / 'tmp', tmp_extra=list(tmp_extra), scratch_rot=scratch,
+        return stadning.Ram(repo=repo or HUVUD, repos_rot=repos or REPOS, tmp_rot=bas / 'tmp', tmp_extra=list(tmp_extra), scratch_rot=scratch,
                             npm_cache=NPM, tillstand=LAGE, claude_projekt=KONFIG, las=None, klocka=klocka or (lambda: T),
                             disk=lambda: (1000 * 2 ** 30, 500 * 2 ** 30), processer=lambda: [],
                             stoppa=lambda pid: (_ for _ in ()).throw(AssertionError('inget stopp i fallen 2026-10-07')),
@@ -949,7 +949,8 @@ try:
         skriv_filer(s1, dict.fromkeys(prov1))
         skriv_filer(s1, {'scratchpad/GRANSKNING.md': REG_MD, 'scratchpad/env/pyvenv.cfg': b'home = /usr/bin\n',
                          'scratchpad/env/lib/python3.12/site-packages/p/README.md': None, 'scratchpad/env/bin/activate': None,
-                         'scratchpad/env/include/p.h': None, 'node_modules/p/README.md': None, 'scratchpad/__pycache__/x.cpython-312.pyc': None})
+                         'scratchpad/env/bin/python': None, 'scratchpad/env/include/site/python3.12/p/p.h': None,
+                         'node_modules/p/README.md': None, 'scratchpad/__pycache__/x.cpython-312.pyc': None})
         s2 = session_v7(scr, 2)
         (s2 / 'scratchpad' / 'BORTA.md').write_bytes(BORTA_MD)  # i förteckningen, men den beständiga kopian saknas
         s3 = session_v7(scr, 3)  # registreringar som inte gäller (C7, C8, KAN-2 och KAN-3)
@@ -1006,6 +1007,74 @@ try:
         assert not s.exists() and p_['utfall'] == 'raderad', p_
         assert 'varje fil i den är beständigt registrerad eller nåbar i huvudutcheckningens git' in p_['skal'], p_
         assert (ute / 'HEMLIG.md').is_file(), 'länkens mål rörs inte'
+
+    @v7('en falsk venv och en venv i ett projekts rot gömmer inte projektets lib/, bin/ och include/ (KAN-B, scenariot C11)')
+    def _v7_arbetsyta_venv():
+        import base64
+        bas = TMP / 'v7' / 'arbetsyta-venv'
+        scr = bas / 'scratch' / 'claude-501'
+        s1 = session_v7(scr, 1)  # en pyvenv.cfg utan venvens kännetecken (bin/python): allt prövas, också pyvenv.cfg
+        falsk = ['scratchpad/falsk/pyvenv.cfg', 'scratchpad/falsk/lib/RAPPORT.md', 'scratchpad/falsk/lib/python3.12/site-packages/RAPPORT.md',
+                 'scratchpad/falsk/bin/bygg.sh', 'scratchpad/falsk/bin/activate', 'scratchpad/falsk/include/p.h']
+        skriv_filer(s1, dict.fromkeys(falsk))
+        s2 = session_v7(scr, 2)  # ett projekt utan pyvenv.cfg: allt prövas
+        vanlig = ['scratchpad/vanlig/lib/python3.12/site-packages/RAPPORT.md', 'scratchpad/vanlig/bin/activate',
+                  'scratchpad/vanlig/include/site/p.h']
+        skriv_filer(s2, dict.fromkeys(vanlig))
+        s3 = session_v7(scr, 3)  # python -m venv . i ett projekts rot (C11): bara venvens egna delar hoppas över
+        pip_, verktyg_ = b'#!/x/bin/python\nimport sys\n', b'#!/x/bin/python\nprint("original")\n'
+        h_ = lambda b_: 'sha256=' + base64.urlsafe_b64encode(hashlib.sha256(b_).digest()).rstrip(b'=').decode()  # noqa: E731
+        sp_ = 'scratchpad/proj/lib/python3.12/site-packages/'
+        skriv_filer(s3, {'scratchpad/proj/pyvenv.cfg': b'home = /usr/bin\n', 'scratchpad/proj/bin/python': None,
+                         'scratchpad/proj/bin/python3.12': None, 'scratchpad/proj/bin/activate': None,
+                         'scratchpad/proj/bin/Activate.ps1': None, 'scratchpad/proj/bin/pip': pip_,
+                         'scratchpad/proj/bin/verktyg': b'#!/x/bin/python\nprint("andrad i projektet")\n',  # listad, men ändrad
+                         sp_ + 'p/x.py': None, sp_ + 'p-1.0.dist-info/RECORD': (
+                             '../../../bin/pip,%s,%d\n../../../bin/verktyg,%s,%d\np/x.py,,\n' % (
+                                 h_(pip_), len(pip_), h_(verktyg_), len(verktyg_))).encode(),
+                         'scratchpad/proj/include/site/python3.12/p/p.h': None})
+        projekt = ['scratchpad/proj/lib/RAPPORT.md', 'scratchpad/proj/bin/bygg.sh', 'scratchpad/proj/include/projekt.h',
+                   'scratchpad/proj/src/index.astro', 'scratchpad/proj/bin/verktyg']
+        skriv_filer(s3, dict.fromkeys(projekt[:-1]))
+        rap = stadning.stada(v7_ram(bas, scratch=scr), punkter=(4,))
+        for s_, vant_ in ((s1, falsk), (s2, vanlig), (s3, projekt)):
+            p_ = en(rap, s_, 4)
+            assert s_.is_dir() and p_['utfall'] == 'väntar på ägaren', p_
+            assert [m['sokvag'] for m in p_['material']] == sorted(vant_), (s_.name, [m['sokvag'] for m in p_['material']])
+
+    @v7('en katalog som byts ut mellan prövningen och raderingen raderas inte, varken den inbytta eller den undanflyttade (KAN-C)')
+    def _v7_bytt():
+        bas = TMP / 'v7' / 'bytt'
+        r = v7_ram(bas, scratch=bas / 'scratch' / 'claude-501', repos=bas / 'repos')
+        tmpd = bas / 'tmp' / 'nwp-skill-bytt'  # en registrerad katalog vars körning är avslutad (scenariot A5)
+        tmpd.mkdir()
+        (tmpd / 'fil.txt').write_text('x')
+        agarfil(tmpd, *DOD, vad='provets avslutade körning')
+        sess = session_v7(bas / 'scratch' / 'claude-501', 1)  # en arbetsyta där allt är nåbart i git
+        skriv_filer(sess, {'scratchpad/regel.md': REG_GIT})
+        kop = bas / 'repos' / 'kopia-bytt'  # en kopia utan eget material
+        shutil.copytree(HUVUD, kop, symlinks=True)
+        byten, orig_ = [], stadning.anvands_nu
+
+        def byt(ram_, p, session=None):  # efter prövningen, direkt före raderingen: katalogen byts mot en annan
+            p = Path(p)
+            if p in (tmpd, sess, kop):
+                p.rename(p.with_name(p.name + '-undan'))
+                p.mkdir()
+                (p / 'VARDEFULL.md').write_text('# inbytt efter prövningen\n')
+                byten.append(p)
+            return None
+        stadning.anvands_nu = byt
+        try:
+            rap = stadning.stada(r, punkter=(2, 4))
+        finally:
+            stadning.anvands_nu = orig_
+        assert sorted(byten) == sorted((tmpd, sess, kop)), byten
+        for x_, punkt_ in ((tmpd, 4), (sess, 4), (kop, 2)):
+            assert (x_ / 'VARDEFULL.md').is_file(), 'den inbytta katalogen raderades: %s' % x_
+            assert x_.with_name(x_.name + '-undan').is_dir(), 'den undanflyttade katalogen försvann: %s' % x_
+            p_ = en(rap, x_, punkt_)
+            assert p_['utfall'] == 'fel' and 'byttes ut' in p_['skal'], p_
 
     @v7('git: bara det som nås från en ref räknas; ett löst objekt, en borttagen gren och ett git som inte svarar gör det inte')
     def _v7_git():

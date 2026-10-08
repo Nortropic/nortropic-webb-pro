@@ -156,10 +156,13 @@ TORRT = {RADERAD: 'skulle raderas', STOPPAD: 'skulle stoppas', RENSAD: 'skulle r
 UTFALL = (RADERAD, STOPPAD, RENSAD, KVAR, VANTAR, FEL, REST) + tuple(TORRT.values())
 # en sessions arbetsyta tas bort först när varje vanlig fil i den är registrerad eller går att återskapa (ägarens beslut
 # 2026-10-07; granskningen av r100, BÖR-1): alla filer prövas, oavsett ändelse. Undantaget är bara det som bevisligen är
-# härlett: node_modules/ och __pycache__/ var som helst, och i en riktig venv (pyvenv.cfg i katalogens rot) venvens egna
-# kataloger och pyvenv.cfg. En katalog som bara heter venv prövas som allt annat.
+# härlett: node_modules/ och __pycache__/ var som helst, och i en riktig venv (riktig_venv) bara venvens egna delar
+# (venv_harlett). En katalog som bara heter venv prövas som allt annat, och så gör projektets egna lib/, bin/ och include/
+# också när en venv ligger i projektets rot (granskningen GR-20261007-r100-om, KAN-B och scenariot C11).
 HARLETT_ALLTID = ('node_modules', '__pycache__')
-VENV_EGNA = ('bin', 'include', 'lib', 'lib64')  # site-packages ligger i lib/
+VENV_TOLK = re.compile(r'python(3(\.\d+)?)?w?$')  # bin/python, python3, python3.12: tolken eller länken till den
+VENV_AKTIVERA = ('activate', 'activate.bat', 'activate.csh', 'activate.fish', 'activate.nu', 'activate.ps1', 'activate.xsh',
+                 'activate_this.py', 'Activate.ps1', 'deactivate.bat')  # venv-modulens och virtualenvs aktiveringsskript
 VERSION_KVITTON = ('*/VERSION.json', '*/*/VERSION.json')  # uppdragens kvitton i huvudutcheckningens underlag/ (pilotens moment)
 OMTAG = 'omtag'  # underlag/<slug>/omtag/<stämpel>/…/KVITTO.json: det bedömda som omtaget sparat (kontroller/atelje.py)
 UUID = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
@@ -701,7 +704,16 @@ def far_inte_raderas(ram, p, worktree=False):
     return None
 
 
-def ta_bort_trad(p):
+def identitet(p):
+    """(st_dev, st_ino) för p med lstat, eller None."""
+    try:
+        st = os.lstat(p)
+        return (st.st_dev, st.st_ino)
+    except OSError:
+        return None
+
+
+def ta_bort_trad(p, ident=None):
     """Tar bort katalogen p och allt i den utan att följa någon symlänk (ägarens beslut 2026-10-07). p prövas först med
     lstat: en länk eller en fil tas inte bort. Själva raderingen görs av shutil.rmtree, som på den här plattformen går
     med filbeskrivare och prövar varje katalog med lstat och fstat (avoids_symlink_attacks): en länk som byts in mellan
@@ -711,6 +723,8 @@ def ta_bort_trad(p):
     st = os.lstat(p)
     if stat.S_ISLNK(st.st_mode) or not stat.S_ISDIR(st.st_mode):
         return ['%s är ingen riktig katalog (en länk eller en fil): inget borttaget' % p]
+    if ident is not None and (st.st_dev, st.st_ino) != tuple(ident):  # en katalog som bytts ut efter prövningen (KAN-C)
+        return ['%s byttes ut efter prövningen (en annan katalog under samma namn): inget borttaget' % p]
     if not shutil.rmtree.avoids_symlink_attacks:  # utan filbeskrivare går en utbytt länk inte att utesluta: inget raderas
         return ['%s: plattformens shutil.rmtree kan följa en länk som byts in; inget borttaget' % p]
     fel = []
@@ -718,14 +732,15 @@ def ta_bort_trad(p):
     return fel
 
 
-def radera(ram, p):
+def radera(ram, p, ident=None):
     """None, eller felet. Bara inom rötterna och aldrig det skyddade (far_inte_raderas); symlänkar följs aldrig
-    (ta_bort_trad)."""
+    (ta_bort_trad). ident: katalogens (st_dev, st_ino) vid prövningen; en katalog som bytts ut sedan dess raderas aldrig
+    (granskningen GR-20261007-r100-om, KAN-C)."""
     skal = far_inte_raderas(ram, p)
     if skal:
         return 'raderas aldrig: %s' % skal
     try:
-        fel = ta_bort_trad(p)
+        fel = ta_bort_trad(p, ident)
     except OSError as e:
         fel = ['%s: %s' % (p, e.strerror or e)]
     return '; '.join(fel[:3]) if fel else None
@@ -1052,6 +1067,7 @@ def punkt2(ram, red, kop, andra, anv):
         red.post(2, 'kopia', d, matt(d)[0], VANTAR, 'har repots kännetecken men heter inte kopia och är ingen registrerad '
                                                    'worktree: rörs inte, ägaren avgör')
     for d, kannetecken in kop:
+        ident = identitet(d)  # katalogens identitet vid prövningen; jämförs direkt före raderingen (KAN-C)
         storlek, senast, mfel = matt(d)
         skal = far_inte_raderas(ram, d)
         if skal:
@@ -1095,7 +1111,7 @@ def punkt2(ram, red, kop, andra, anv):
         if nu:
             red.post(2, 'kopia', d, storlek, KVAR, 'används: %s' % nu)
             continue
-        fel = None if ram.torr else radera(ram, d)
+        fel = None if ram.torr else radera(ram, d, ident)
         red.post(2, 'kopia', d, storlek, FEL if fel else RADERAD,
                  ('raderingen föll: %s' % fel) if fel else 'inget eget material och inga egna commits (jämfört med '
                                                            'huvudutcheckningen), ingen process')
@@ -1191,6 +1207,7 @@ def stada_tmp(ram, red, d, anv, prefix):
     riktig katalog direkt under roten, är registrerad som en körnings egen (korregister.tmp_agare), körningen är avslutad
     (korregister.tmp_avslutad), den inte ändrats på ett dygn och ingen process använder den. Utan giltig registrering är
     den en äldre rest: den raderas aldrig och redovisas med sökväg, storlek och ålder."""
+    ident = identitet(d)  # katalogens identitet vid prövningen; jämförs direkt före raderingen (KAN-C)
     storlek, senast, mfel = matt(d)
     if mfel:
         red.post(4, 'tillfällig katalog', d, storlek, KVAR, '%d sökvägar gick inte att läsa; ändringstiden är okänd' % mfel)
@@ -1222,7 +1239,7 @@ def stada_tmp(ram, red, d, anv, prefix):
     if nu:
         red.post(4, 'tillfällig katalog', d, storlek, KVAR, 'används: %s' % nu, registrerad=post['vad'])
         return
-    fel = None if ram.torr else radera(ram, d)
+    fel = None if ram.torr else radera(ram, d, ident)
     red.post(4, 'tillfällig katalog', d, storlek, FEL if fel else RADERAD, ('raderingen föll: %s' % fel) if fel else
              'registrerad av %s, körningen avslutad (%s); repots prefix %s, inte ändrad på ett dygn (senast %s), ingen process' % (
                  vem, varfor, prefix, iso(senast)), registrerad=post['vad'])
@@ -1390,21 +1407,82 @@ class Kvitton:
         return {b for b in blobbar if b in self._git}
 
 
+def _site_packages(rot):
+    import glob
+    return [x for x in glob.glob(os.path.join(glob.escape(str(rot)), 'lib', 'python3*', 'site-packages'))
+            if os.path.isdir(x) and not os.path.islink(x)]
+
+
+def riktig_venv(rot):
+    """En riktig venv har utöver pyvenv.cfg sina kännetecken: bin/python och lib/python3.*/site-packages. En pyvenv.cfg i
+    ett projekts rot gör alltså inte projektets egna lib/, bin/ och include/ oprövade (granskningen GR-20261007-r100-om,
+    KAN-B)."""
+    return os.path.lexists(os.path.join(rot, 'bin', 'python')) and bool(_site_packages(rot))
+
+
+def venv_harlett(rot):
+    """(kataloger, filer) med absoluta sökvägar till det som bevisligen är venvens eget i den riktiga venven rot:
+    lib/python*/ och lib64/python*/ (där site-packages ligger), include/site/ och include/python*/ (paketens huvudfiler),
+    pyvenv.cfg, och i bin/ tolken, aktiveringsskripten och de skript som ett installerat pakets RECORD i site-packages
+    listar med samma sha256 (pips ingångar). Allt annat i lib/, bin/ och include/ är projektets och prövas: en venv i ett
+    projekts rot (python -m venv .) gömmer inte projektets lib/RAPPORT.md eller bin/bygg.sh (scenariot C11, KAN-B)."""
+    import base64
+    import glob
+    rot = str(rot)
+    g = glob.escape(rot)
+    kat = {x for m in ('lib', 'lib64') for x in glob.glob(os.path.join(g, m, 'python*'))}
+    kat |= set(glob.glob(os.path.join(g, 'include', 'python*'))) | {os.path.join(rot, 'include', 'site')}
+    filer, binr, listat = {os.path.join(rot, 'pyvenv.cfg')}, os.path.join(rot, 'bin'), {}
+    for sp in _site_packages(rot):
+        for rec in glob.glob(os.path.join(glob.escape(sp), '*.dist-info', 'RECORD')):
+            try:
+                with open(rec, encoding='utf-8', errors='replace') as f:
+                    rader = f.read().split('\n')
+            except OSError:
+                continue
+            for rad in rader:
+                delar = rad.rstrip('\r').rsplit(',', 2)
+                if len(delar) == 3 and delar[1].startswith('sha256='):
+                    mal = os.path.normpath(os.path.join(sp, delar[0]))
+                    if os.path.dirname(mal) == binr:
+                        listat[mal] = delar[1][len('sha256='):]
+    try:
+        namn = os.listdir(binr)
+    except OSError:
+        namn = []
+    for n in namn:
+        p = os.path.join(binr, n)
+        if VENV_TOLK.match(n) or n in VENV_AKTIVERA:
+            filer.add(p)
+        elif p in listat and not os.path.islink(p):
+            try:
+                with open(p, 'rb') as f:
+                    h = base64.urlsafe_b64encode(hashlib.sha256(f.read()).digest()).rstrip(b'=').decode()
+            except OSError:
+                continue
+            if h == listat[p]:  # en ändrad ingång är projektets: den prövas
+                filer.add(p)
+    return kat, filer
+
+
 def oregistrerade(ram, d, kvitton):
     """[(relativ sökväg, storlek)] för de vanliga filerna i arbetsytan d som varken är beständigt registrerade
     (Kvitton.var) eller nås från en ref i huvudutcheckningens git (Kvitton.i_git). Alla filer prövas, oavsett ändelse och
     också utan ändelse: rapporter, bilder och versionsunderlag (granskningen av r100, BÖR-1). Bara det bevisligen
-    härledda undantas: node_modules/ och __pycache__/ var som helst, och i en riktig venv (pyvenv.cfg i katalogens rot)
-    venvens egna kataloger (bin, include, lib, lib64) och pyvenv.cfg. En katalog som bara heter venv prövas. Ingen länk
+    härledda undantas: node_modules/ och __pycache__/ var som helst, och i en riktig venv (riktig_venv) bara venvens egna
+    delar (venv_harlett); projektets egna lib/, bin/ och include/ prövas. En katalog som bara heter venv prövas. Ingen länk
     följs, och en länk prövas inte: den tas bort som länk, och dess mål rörs inte. Kastar OSError när något inte går att
     läsa eller git inte svarar: då går arbetsytan inte att pröva, och den väntar på ägaren."""
-    d, kvar = Path(d), {}
+    d, kvar, hopp_kat, hopp_fil = Path(d), {}, set(), set()
     for rot, mappar, filer in os.walk(d, onerror=_kasta, followlinks=False):
-        venv = 'pyvenv.cfg' in filer and stat.S_ISREG(os.lstat(os.path.join(rot, 'pyvenv.cfg')).st_mode)
-        mappar[:] = [m for m in mappar if m not in HARLETT_ALLTID and not (venv and m in VENV_EGNA)
+        if 'pyvenv.cfg' in filer and stat.S_ISREG(os.lstat(os.path.join(rot, 'pyvenv.cfg')).st_mode) and riktig_venv(rot):
+            k_, f_ = venv_harlett(rot)
+            hopp_kat |= k_
+            hopp_fil |= f_
+        mappar[:] = [m for m in mappar if m not in HARLETT_ALLTID and os.path.join(rot, m) not in hopp_kat
                      and not os.path.islink(os.path.join(rot, m))]
         for f in filer:
-            if venv and f == 'pyvenv.cfg':
+            if os.path.join(rot, f) in hopp_fil:
                 continue
             p = Path(rot) / f
             st = os.lstat(p)
@@ -1419,6 +1497,7 @@ def oregistrerade(ram, d, kvitton):
 
 
 def stada_katalog(ram, red, d, anv, alder, vad, varfor, session=None):
+    ident = identitet(d)  # katalogens identitet vid prövningen; jämförs direkt före raderingen (KAN-C)
     storlek, senast, mfel = matt(d)
     if mfel:
         red.post(4, vad, d, storlek, KVAR, '%d sökvägar gick inte att läsa; ändringstiden är okänd' % mfel)
@@ -1460,7 +1539,7 @@ def stada_katalog(ram, red, d, anv, alder, vad, varfor, session=None):
     if nu:
         red.post(4, vad, d, storlek, KVAR, 'används: %s' % nu)
         return
-    fel = None if ram.torr else radera(ram, d)
+    fel = None if ram.torr else radera(ram, d, ident)
     red.post(4, vad, d, storlek, FEL if fel else RADERAD, ('raderingen föll: %s' % fel) if fel else '%s (senast %s), ingen process%s%s' % (
         varfor, iso(senast), ' och ingen levande session' if session else '', registrerat))
 
