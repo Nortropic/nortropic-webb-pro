@@ -1,10 +1,12 @@
 ---
 id: B-20261005-dashboardens-api-tar-emot-agarens-domar-fran-vil
-status: vilande
+status: klar
 kalla: bevakning
 kallref: granskning 4 av skapandeflödet 2026-10-05, iakttagelse utanför uppdraget
 skapad: 2026-10-05
 prio: hog
+commit: b075827
+andrad: 2026-10-08T15:11Z
 ---
 # Dashboardens API tar emot ägarens domar från vilken lokal process som helst
 
