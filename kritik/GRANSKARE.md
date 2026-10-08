@@ -117,8 +117,9 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
    i typsnitt, toppsektion eller komposition skrivs alltid under `likhet_tidigare`; den sänker originaliteten när den
    gör sajten mindre specifik för verksamheten.
 3. **Hantverk.** Typografins roller, radlängd och radbrytningar; färg och kontrast; luft; bildernas beskärning,
-   kvalitet och placering; detaljer i knappar, länkar, fokus och tillstånd. Dimension 2 och 3, byggstandarden 3 och 4,
-   Vercels riktlinjer, Emils designteknik.
+   kvalitet och placering, och att huvudbilden har en uppgift i BILDER.md (resultat, människor, miljö, produkt eller
+   metod) som platsen kräver: en egen bild är inte automatiskt en bra huvudbild; detaljer i knappar, länkar, fokus och
+   tillstånd. Dimension 2 och 3, byggstandarden 3 och 4, Vercels riktlinjer, Emils designteknik.
 4. **Funktion.** Håller kraven i briefen? Kan besökaren lösa varje toppuppgift utan att fastna i den kognitiva
    genomgången? Provets resor (`RESOR.md` i omgången) visar vad som höll i webbläsaren, steg för steg; en resa som
    saknas för en toppuppgift är ett fynd, och likaså en bokningsuppgift som bara prövas som länk utan att den

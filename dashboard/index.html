@@ -269,6 +269,8 @@ function grindchips(prov) {
   if (!prov) return '<span class="chip">Inte provad</span>';
   return Object.entries(prov.grindar).map(([n, ok]) => `<span class="chip ${ok ? 'ok' : 'rod'}">${esc(GRINDNAMN[n] || n)}</span>`).join('');
 }
+// leveransens visuella status ur beställningen (kontroller/bildstatus.py): visuellt färdig, eller begränsad av saknat material
+const visuellchip = (b) => b.visuell && b.visuell.status ? `<span class="chip ${b.visuell.status === 'visuellt färdig' ? '' : 'gul'}" title="${esc(b.visuell.text)}">${esc(b.visuell.status)}</span>` : '';
 function statuschip(b) {
   if (b.pagar) return '<span class="chip acc puls">Körning pågår</span>';
   // avslutat är inte godkänt: stoppvakten släppte vid sitt tak (rött prov, saknad rapport eller underkänd granskning)
@@ -343,7 +345,7 @@ function kort(b) {
   return `<a class="kort bygge-kort" href="#/bygge/${esc(b.slug)}">
     <div class="rad mellan"><div><div class="namn">${esc(b.namn)}</div><div class="ort">${esc(b.ort || b.slug)}</div></div>${statuschip(b)}</div>
     <div class="steg">${b.steg.map((s) => `<i class="${s.klar ? 'klar' : ''}" title="${esc(s.namn)}"></i>`).join('')}</div>
-    <div class="chips">${grindchips(b.prov)}</div></a>`;
+    <div class="chips">${grindchips(b.prov)}${visuellchip(b)}</div></a>`;
 }
 
 async function byggevy(slug, behallFlik) {
@@ -354,7 +356,7 @@ async function byggevy(slug, behallFlik) {
   $('#vy').innerHTML = `
     <p class="under" style="margin-bottom:6px"><a href="#/">Översikt</a></p>
     <div class="rad mellan"><div><h1>${esc(b.namn)}</h1><div class="under" style="margin:0">${esc([b.ort, b.doman].filter(Boolean).join(' · ') || b.slug)}</div></div>
-      <div class="rad">${statuschip(b)}
+      <div class="rad">${statuschip(b)}${visuellchip(b)}
         ${b.steg[4].klar ? `<a class="knapp primar" href="/visa/${esc(b.slug)}" target="_blank" rel="noopener">Öppna vår sajt</a><button class="knapp" data-qr="${esc(b.slug)}">I telefonen</button>` : ''}
         ${b.doman ? `<a class="knapp" href="https://${esc(b.doman)}" target="_blank" rel="noopener">Deras sajt</a>` : ''}</div></div>
     <div class="steglista">${b.steg.map((s, i) => `<div class="${s.klar ? 'klar' : ''}">${i + 1}. ${esc(s.namn)}</div>`).join('')}</div>

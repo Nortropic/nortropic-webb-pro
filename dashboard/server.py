@@ -41,6 +41,7 @@ import backlog as bl  # noqa: E402  (samma backlog-format som kirurgen och bygge
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import prospektvy as pv  # noqa: E402  (prospekten: kampanjer, kort, brev; heter inte prospekt eftersom kontroller/prospekt.py ligger först på sys.path)
 import kallnyckel  # noqa: E402  (spanarens nyckel: är länken redan bedömd?)
+import bildstatus  # noqa: E402  (leveransens visuella status ur beställningen)
 import qr  # noqa: E402  (QR-koden till visningen i telefonen, ritad lokalt)
 
 STEG = [
@@ -303,6 +304,8 @@ def sammanfattning(slug):
         'prov': {'ok': s.get('ok'), 'tid': s.get('tid'), 'snabb': s.get('snabb'),
                  'grindar': {n: g['ok'] for n, g in s.get('grindar', {}).items()}} if s else None,
         'pagar': bool(k and k['pagar']), 'domd': (KUNDER / slug / 'DOM.json').is_file(),
+        # visuellt färdig eller begränsad av saknat material, ur beställningens bildavsnitt (kontroller/bildstatus.py)
+        'visuell': bildstatus.visuell_status(slug, UNDERLAG),
     }
 
 

@@ -89,7 +89,9 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    `kalla/SIDOR.md` och provar närliggande filnamn i samma mapp (k1, k3 … ger k2; en bra bild
    är inte alltid länkad). Titta på dem märkta okänd och ta bort det som inte är verksamhetens. Bilder ur deras kanaler laddas ned
    med `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil,
-   källa, vad bilden visar, datum, kvalitet. Datumet och dess källa (EXIF, filnamn eller okänt) ger `.venv/bin/python
+   källa, vad bilden visar, datum, kvalitet, och för en bild som används dess uppgift: resultat, människor, miljö,
+   produkt eller metod. En egen bild är inte automatiskt en bra huvudbild; huvudbilden har den uppgift platsen
+   kräver (granskarens kriterium 3). Datumet och dess källa (EXIF, filnamn eller okänt) ger `.venv/bin/python
    kontroller/bilddatum.py underlag/<slug>/bilder`; daterade jobbilder kan bära en sektion. Bilder som visar
    verksamheten är dess egna, aldrig stockfoton eller genererade (`kunskap/bild.md`). Räkna
    de användbara: färre än fem, eller saknas den som kommer hem till kunden, bilen eller verktyget, ett jobb före och
@@ -308,7 +310,9 @@ KONCEPT.md.
    var det bär formen (listmarkör, bildmask, avslut eller sidfot; ett ställe räcker om det bär), aldrig dekor utan
    funktion. Mall-lukt sitter i formen, inte i färgen: tjänstelistor, sektionsformer och sidfötter
    som kunde stå hos vilken firma som helst. En namngiven axel som riktningarna skiljer sig på: foto eller typografi
-   bär, ljust eller mörkt, tätt eller luftigt. Antal typsnittskategorier, motivets platser och sektionsformer är inga
+   bär, ljust eller mörkt, tätt eller luftigt. När egna foton saknas eller inte bär är den typografiska lösningen ett
+   medvetet formgivningsval, inte större rubriker: KONCEPT.md beskriver beskärningen, proportionerna och samspelet
+   mellan bild och typografi som egna punkter. Antal typsnittskategorier, motivets platser och sektionsformer är inga
    punkter att bocka av: de prövas mot kompositionen, och en riktning bedöms på vad den gör för sidan, inte på
    uppfyllda instruktioner (Codex 2026-10-04: fasta recept belönar uppfyllda punkter utan att förbättra
    kompositionen). Ingen halmgubbe; varje riktning ska kunna vinna. Välj en med skäl i KONCEPT.md och skriv den
@@ -512,7 +516,9 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
     står kvar till lanseringen (testintegration, verklig leverans).
 13. **Beställning till verksamheten:** sammanfattningen av `underlag/<slug>/BESTALLNING.md`, och att sajten är klar
     för att visas för verksamheten men inte klar att lanseras förrän beställningen är levererad. Ingen beställning
-    behövs: skriv det.
+    behövs: skriv det. Den visuella statusen står på en egen rad, som `.venv/bin/python kontroller/bildstatus.py <slug>`
+    ger den: visuellt färdig, eller visuellt begränsad av saknat material med de beställda bilderna (dashboarden visar
+    samma status som chip).
 14. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
     verksamheten bör rätta. Inga avvikelser: skriv det. Lägg till tabellen Utgående länkar ur `prov/standard.md`: varje
     adress och svar; en länk som inte svarar rättas eller förklaras. Lokal eller regional verksamhet som inte är fiktiv:
