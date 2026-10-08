@@ -239,12 +239,13 @@ def tillatna():
     return {v for t in kompetens.MCP for v in kompetens.mcp_verktyg(t)}
 
 
-def installningar(slug, underlag, timeout=30):
+def installningar(slug, underlag, timeout=30, rot=None):
     """--settings med kundvakten som PreToolUse-krok för Refero och Mobbin. Tjänsternas verktyg står inte i sessionens
     --allowedTools: bara vaktens uttryckliga tillåtelse öppnar ett rent anrop, och en krok som inte startar, dör eller
     når sin tidsgräns lämnar anropet åt dontAsk, som nekar det (prövat i en riktig session 2026-10-05; granskning 4, G3)."""
-    kommando = ('"$CLAUDE_PROJECT_DIR/.venv/bin/python" -B "$CLAUDE_PROJECT_DIR/kontroller/kundvakt.py" %s "%s" '
-                "|| { echo 'kundvakten kunde inte pröva anropet' >&2; exit 2; }") % (slug, underlag)
+    bas = str(rot) if rot else '$CLAUDE_PROJECT_DIR'  # en annan arbetsrot (R06): motorns rot som absolut väg
+    kommando = ('"%s/.venv/bin/python" -B "%s/kontroller/kundvakt.py" %s "%s" '
+                "|| { echo 'kundvakten kunde inte pröva anropet' >&2; exit 2; }") % (bas, bas, slug, underlag)
     return json.dumps({'hooks': {'PreToolUse': [{'matcher': MATCH, 'hooks': [{'type': 'command', 'timeout': timeout, 'command': kommando}]}]}})
 
 

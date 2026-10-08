@@ -87,6 +87,14 @@ VERKTYG = {
                  'byggda sidan); varje fynd prövas mot ägarbesluten och kundens domar innan det rättas'),
     'design': (['Bash(.venv/bin/python kontroller/design.py <slug> --kandidat <id>)', 'Bash(.venv/bin/python kontroller/design.py <slug> --kandidat <id> --skriv)'],
                'DESIGN.md-kontrollen: `.venv/bin/python kontroller/design.py <slug> --kandidat <id> [--skriv]`'),
+    # materialsteget, kandidatavgränsat (R05 i GR-20261008-06af6ff-omgranskning-codex): kommandot börjar alltid med kunden och
+    # kandidaten, och material.py vägrar en andra --kandidat och en fil utanför kandidatens katalog
+    'material': (['Bash(.venv/bin/python kontroller/material.py <slug> --kandidat <id> *)'],
+                 'materialsteget (illustrativt och koncept, aldrig verksamhetens egna bilder): `.venv/bin/python kontroller/material.py <slug> '
+                 '--kandidat <id> --canvas <fil i kandidatens koncept/> --bestall "<vad konceptet visar>"` registrerar ett koncept ur '
+                 'canvas-design, `--anvand <m-id> --plats <plats>` lägger en genererad tillgång i src/assets/material/ (en video kräver '
+                 '`--poster <bild-id>`), och `--anvandning` säger vad som är kopierat, importerat i källan och renderat i bygget; '
+                 'leverantörernas generering kräver konto och är inte införd'),
 }
 # granskarens form av förhandsvisningen och detektorn, i de granskande passen: bilderna i kandidatens granskare/ (aldrig
 # skaparens varv/), alla fyra bredderna med menyn, tangentbordet och reflow, och ingen kod i det som ges tillbaka
@@ -104,8 +112,8 @@ GRANSKARVERKTYG = {
 BLINDSAKRA = ('förhandsvisning', 'detektor', 'uxsok')  # i granskarens form ger de aldrig kod eller skaparens text
 # ett körkommando (python … kontroller/<verktyg>.py), aldrig en läsning av skriptet med cat, grep eller sed
 # (GR-20261008-r117-claude#C7)
-VERKTYGSKOMMANDO = re.compile(r'(?:^|[\s;&|(])(?:\S*/)?python[0-9.]*\s+(?:-[A-Za-z]+\s+)*(?:\S*/)?kontroller/(uxsok|forhandsvisa|detektor|design)\.py\b')
-SKRIPTVERKTYG = {'uxsok': 'uxsok', 'forhandsvisa': 'förhandsvisning', 'detektor': 'detektor', 'design': 'design'}
+VERKTYGSKOMMANDO = re.compile(r'(?:^|[\s;&|(])(?:\S*/)?python[0-9.]*\s+(?:-[A-Za-z]+\s+)*(?:\S*/)?kontroller/(uxsok|forhandsvisa|detektor|design|material)\.py\b')
+SKRIPTVERKTYG = {'uxsok': 'uxsok', 'forhandsvisa': 'förhandsvisning', 'detektor': 'detektor', 'design': 'design', 'material': 'material'}
 MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en källa). Trybloom används inte (ägarens ord 2026-10-05)
     'refero': None, 'mobbin': None,
     # Motions fria dokumentations-MCP (kontroller/mcp/motion.json; ägarens uppdrag 2026-10-07, punkt 5C, och beslutet "bara den
@@ -533,7 +541,12 @@ UTAN_FORM = 'svar utan känd form'  # ett textsvar som varken är fel, tomt elle
 def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     """Kvittot ur transkripten: kärnan som lästs hel före första ändringen (eller alls), alternativen som lästs,
     skillverktygets lyckade anrop och MCP-anropen som gav svar (ett nekat eller stoppat anrop räknas inte; granskning 4,
-    G7). Flera sessioner (ett omförsök) räknas tillsammans. Ett transkript som saknas gör kvittot ej verifierat; saknas
+    G7). Varje session är en egen kontext (flödet startar varje session på nytt med -p och återupptar aldrig en; R02 i
+    GR-20261008-06af6ff-omgranskning-codex): läsningen och läsordningen räknas per session ('per_session'), och kärnan
+    står som läst hel, och läst före första ändringen, bara när varje sedd session läste den så. En tidigare sessions
+    läsning döljer alltså aldrig att en ny saknar kärnan eller läste den först efter en ändring. Samma session-id två
+    gånger är samma kontext och räknas en gång. Alternativen, skillverktyget och MCP-anropen räknas över sessionerna
+    (alternativen är valfria; anropen redovisas per session i 'per_session'). Ett transkript som saknas gör kvittot ej verifierat; saknas
     ett av flera står kvittot som ofullständigt ('sessioner': förväntade, sedda och de saknade med skäl), och det som
     inte sågs är då inte observerat, aldrig "inte gjort" (motorinventeringen F04). En
     kärnfil som metodfilen levererade hel med samma sha är läst när metodfilen lästs hel (bildkedja.levererade_hela);
@@ -544,18 +557,26 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     filer, val = lasfiler(pass_, k), valbara(pass_, k)
     lasta, fore, skill, skill_fel, mcp, sedda, egna = set(), set(), [], [], [], 0, set()
     utfall, lage, observerad, verktyg_anrop = {}, {}, True, {}
-    forvantade, saknade = 0, []
+    forvantade, saknade, per, sedda_id, samma = 0, [], [], set(), 0
     for s in sessioner:
         sid = s.get('session_id') if isinstance(s, dict) else s
+        if sid and str(sid) in sedda_id:  # samma kontext igen (samma session-id): räknas en gång
+            samma += 1
+            continue
         forvantade += 1
         if not sid:
             saknade.append({'session': None, 'skal': 'sessionen fick aldrig ett session-id'})
             continue
+        sedda_id.add(str(sid))
         ml = bildkedja.metodlasning(sid, filer + val, skrivprefix=skrivprefix)
         if not ml.get('verifierad'):
             saknade.append({'session': str(sid), 'skal': str(ml.get('skal') or 'transkriptet kunde inte läsas')[:200]})
             continue
         sedda += 1
+        las_s, fore_s = set((ml.get('fore') or []) + (ml.get('efter') or [])), set(ml.get('fore') or [])
+        per.append({'session': str(sid), 'lasta': [f for f in filer if f in las_s], 'saknas': [f for f in filer if f not in las_s],
+                    'fore_forsta_andring': [f for f in filer if f in fore_s], 'andrade': bool(ml.get('forsta_skrivning')),
+                    'skill_anrop': sorted(set(ml.get('skill_anrop') or []))})
         fore.update(ml.get('fore') or [])
         lasta.update((ml.get('fore') or []) + (ml.get('efter') or []))
         egna.update(set((ml.get('fore') or []) + (ml.get('efter') or [])) - set(ml.get('via_metod') or []))
@@ -593,8 +614,10 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
             observerad = False
         for s_, st_ in (ob.get('mcp_lage') or {}).items():  # ansluten i någon av sessionerna räcker
             lage[s_] = st_ if lage.get(s_) != 'ansluten' else 'ansluten'
-    ut = {'verifierad': sedda > 0, 'filer': filer, 'lasta': [f for f in filer if f in lasta], 'saknas': [f for f in filer if f not in lasta],
-          'fore_forsta_andring': [f for f in filer if f in fore], 'valda': [f for f in val if f in egna],
+    alla_lasta = [f for f in filer if per and all(f in p_['lasta'] for p_ in per)]  # läst i varje sedd session (R02)
+    alla_fore = [f for f in filer if per and all(f in p_['fore_forsta_andring'] for p_ in per)]
+    ut = {'verifierad': sedda > 0, 'filer': filer, 'lasta': alla_lasta, 'saknas': [f for f in filer if f not in alla_lasta],
+          'fore_forsta_andring': alla_fore, 'per_session': per, 'samma_kontext': samma, 'valda': [f for f in val if f in egna],
           'skill_anrop': sorted(set(skill)), 'skill_fel': sorted(set(skill_fel)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))},
           'verktyg_anrop': verktyg_anrop, 'sessioner': {'forvantade': forvantade, 'sedda': sedda, 'saknade': saknade},
           'ofullstandig': 0 < sedda < forvantade}

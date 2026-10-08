@@ -2,7 +2,8 @@
 """urval.py — det aktiva urvalet för en kunds körning (ren start för Nortropic 2.0; ägarens uppdrag 2026-10-08, del 2).
 
 Historiken bevaras privat men styr inte automatiskt: andra kunders byggbilder i granskningen (granska.tidigare_byggen),
-UPPTAGNA-VAL.md ur tidigare byggen (atelje.underlag_rader) och äldre domar som generella regler är av tills de valts
+UPPTAGNA-VAL.md ur tidigare byggen (atelje.underlag_rader), planens förhandsläsning av RIKTNINGSHISTORIK.json
+(kandidater.plan_prompt; R04) och äldre domar som generella regler är av tills de valts
 uttryckligen här. Kundens aktuella fakta, uttryckliga beslut (designregler.md, kundens aktuella domar efter senaste
 ny_riktning), kunskapen och skills, de verifierade tekniska lärdomarna och proven gäller oförändrat. Bra externa
 referenser återväljs uttryckligen: det aktiva referenspaketet är det senaste (versionerna ärver), och urvalet skriver
@@ -12,7 +13,7 @@ Filen: underlag/<slug>/atelje/URVAL.json (privat), skriven när en körning star
 det här verktyget. En ny slug, en ny riktning eller flyttade filer är inte ett urval; filen är.
 
     .venv/bin/python kontroller/urval.py <slug> --visa
-    .venv/bin/python kontroller/urval.py <slug> --tidigare-byggbilder pa|av --upptagna-val pa|av [--skal "<varför>"]
+    .venv/bin/python kontroller/urval.py <slug> --tidigare-byggbilder pa|av --upptagna-val pa|av --riktningshistorik pa|av [--skal "<varför>"]
 """
 import argparse
 import hashlib
@@ -23,8 +24,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import atelje  # noqa: E402
 
-VAL = ('tidigare_byggbilder', 'upptagna_val')  # historik som bara ett uttryckligt urval kopplar in
-STANDARD = {'tidigare_byggbilder': False, 'upptagna_val': False}
+VAL = ('tidigare_byggbilder', 'upptagna_val', 'riktningshistorik')  # historik som bara ett uttryckligt urval kopplar in
+STANDARD = {'tidigare_byggbilder': False, 'upptagna_val': False, 'riktningshistorik': False}
 
 
 def fil(slug, underlag=None):
@@ -90,16 +91,18 @@ def main(argv=None):
     p.add_argument('--visa', action='store_true')
     p.add_argument('--tidigare-byggbilder', choices=('pa', 'av'))
     p.add_argument('--upptagna-val', choices=('pa', 'av'))
+    p.add_argument('--riktningshistorik', choices=('pa', 'av'))
     p.add_argument('--skal', default='')
     a = p.parse_args(argv)
     if not atelje.SLUG.match(a.slug):
         print('ogiltig slug', file=sys.stderr)
         return 2
-    if a.visa or (a.tidigare_byggbilder is None and a.upptagna_val is None):
+    if a.visa or (a.tidigare_byggbilder is None and a.upptagna_val is None and a.riktningshistorik is None):
         print(json.dumps(las(a.slug), ensure_ascii=False, indent=1))
         return 0
     d = skriv(a.slug, tidigare_byggbilder=None if a.tidigare_byggbilder is None else a.tidigare_byggbilder == 'pa',
-              upptagna_val=None if a.upptagna_val is None else a.upptagna_val == 'pa')
+              upptagna_val=None if a.upptagna_val is None else a.upptagna_val == 'pa',
+              riktningshistorik=None if a.riktningshistorik is None else a.riktningshistorik == 'pa')
     if a.skal:
         d['skal'] = a.skal[:300]
         atelje.skriv_json_atomiskt(fil(a.slug), d)

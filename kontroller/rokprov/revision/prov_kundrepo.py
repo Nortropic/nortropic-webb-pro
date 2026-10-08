@@ -58,6 +58,10 @@ st = Path(os.environ['PROV_GH_STATE']); st.mkdir(parents=True, exist_ok=True)
 (st / 'vercel.log').open('a').write(json.dumps(sys.argv[1:]) + '\n')
 a = sys.argv[1:]
 if a[:1] == ['link']:
+    if os.environ.get('PROV_BYT_UNDER_KOPPLING') and Path('public/markor.txt').read_text() != 'B':  # R07: ett annat arbete ändrar kundrepot (A→B) under kopplingen
+        Path('public/markor.txt').write_text('B')
+        import subprocess as sp
+        sp.run(['git', '-c', 'user.name=x', '-c', 'user.email=x@example.invalid', 'commit', '-qam', 'B under kopplingen'], check=True)
     namn = a[a.index('--project') + 1]
     if not (st / ('vercel-' + namn)).is_file():
         print('Error: Project not found', file=sys.stderr); sys.exit(1)
@@ -67,6 +71,8 @@ if a[:2] == ['project', 'create']:
 if a[:1] == ['deploy']:
     if os.environ.get('PROV_VERCEL_FEL'):
         print('Error: bygget föll i provet', file=sys.stderr); sys.exit(1)
+    m = Path('public/markor.txt')  # vad som faktiskt laddades upp (R07): arbetskatalogens innehåll när deploy körs
+    (st / 'uppladdat.log').open('a').write(json.dumps({'cwd': os.getcwd(), 'markor': m.read_text() if m.is_file() else None}) + '\n')
     print('Inspect: https://vercel.com/nortropic/x', file=sys.stderr); print('https://kund-prov-abc123.vercel.app'); sys.exit(0)
 if a[:1] == ['inspect']:
     print('  status      ● ' + os.environ.get('PROV_VERCEL_STATUS', 'Ready')); sys.exit(0)
@@ -113,7 +119,8 @@ class Kundrepo(unittest.TestCase):
         self.assertEqual(kv['fjarr']['status'], 'saknas'); self.assertIn('fiktiv', kv['fjarr']['fel']); self.assertEqual(self.gh_anrop(), [])
         self.assertEqual(subprocess.run(['git', 'status', '--porcelain'], cwd=r, capture_output=True, text=True).stdout, '')
         md = (r / 'CLAUDE.md').read_text()
-        self.assertIn('begära offert via formuläret', md); self.assertIn('Provfirman AB', md); self.assertIn('kund-prov-kund', md)
+        self.assertNotIn('begära offert via formuläret', md, 'briefens text är privat råunderlag och följer inte med (R08)')
+        self.assertIn('Nortropics brief', md); self.assertIn('Provfirman AB', md); self.assertIn('kund-prov-kund', md)
         self.assertEqual(exportera.lackor(r), [], 'CLAUDE.md får inte nämna lokala vägar, privat underlag eller nycklar')
         self.assertNotIn(str(self.root), md)
         kv2 = kundrepo.skapa(self.slug)
@@ -230,6 +237,54 @@ class Kundrepo(unittest.TestCase):
             pv2 = kundrepo.preview(self.slug)
         self.assertEqual(pv2['status'], 'fel'); self.assertTrue(any('vercel deploy' in h for h in pv2['hinder']), pv2)
         self.assertEqual(len(list((self.k / 'leverans').glob('PREVIEW-*.json'))), 2, 'varje försök får sitt kvitto')
+
+    def test_projektstart_med_lacka_avvisas_fore_commit_och_fjarrepo(self):
+        # R08: en syntetisk lokal sökväg och ett syntetiskt nyckelmönster i det som genereras till CLAUDE.md avvisar projektstarten
+        # innan något committas eller något fjärrepo skapas
+        self.skriv_verksamhet(False)
+        v = json.loads((self.u / 'VERKSAMHET.json').read_text())
+        for falsk in ('Provfirman /Users/fiktiv/privat/BRIEF.md', 'Provfirman ghp_' + 'A1' * 15):
+            v['namn'] = falsk
+            (self.u / 'VERKSAMHET.json').write_text(json.dumps(v))
+            with self.assertRaises(kundrepo.Hinder):
+                kundrepo.skapa(self.slug)
+            self.assertFalse(kundrepo.ar_repo(self.k / 'kundrepo'), 'ingen commit vid avvisad projektstart')
+            self.assertEqual([a for a in self.gh_anrop() if a[:1] == ['repo']], [], 'inget fjärrepo vid avvisad projektstart')
+            kv = json.loads((self.k / 'KUNDREPO.json').read_text())
+            self.assertEqual(kv['projektstart']['status'], 'avvisad'); self.assertTrue(kv['projektstart']['lackor'])
+        self.assertEqual(kundrepo.main([self.slug]), 1)
+        # en godkänd projektstart efter rättelsen; därefter fäller en läcka i repot en push och ett nytt fjärrepo
+        self.skriv_verksamhet(False)
+        kv = kundrepo.skapa(self.slug)
+        self.assertEqual((kv['projektstart']['status'], kv['fjarr']['status']), ('godkand', 'skapat'))
+        (self.k / 'kundrepo' / 'anteckning.md').write_text('se underlag/prov-kund/BRIEF.md\n')
+        subprocess.run(['git', '-c', 'user.name=x', '-c', 'user.email=x@example.invalid', 'add', '-A'], cwd=self.k / 'kundrepo', check=True)
+        subprocess.run(['git', '-c', 'user.name=x', '-c', 'user.email=x@example.invalid', 'commit', '-qm', 'läcka'], cwd=self.k / 'kundrepo', check=True)
+        p = kundrepo.push(self.slug)
+        self.assertFalse(p['ok']); self.assertIn('läckagekontrollen', p['hinder'])
+
+    def test_forhandsvisningen_laddar_upp_exportens_bytes_aven_om_repot_andras_under_kopplingen(self):
+        # R07: A är exporterad och kontrollerad; under Vercel-kopplingen ändras kundrepot till B. Det som laddas upp är A, och
+        # kvittot gäller A; kvittot är aldrig grönt för A medan B laddas upp
+        kundrepo.skapa(self.slug)
+        self.sajt()
+        (self.k / 'sajt' / 'public' / 'markor.txt').write_text('A')
+        with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
+            res = exportera.exportera(self.slug, git=True, bygg=False)
+        with patch.dict(os.environ, {'PROV_BYT_UNDER_KOPPLING': '1'}):
+            pv = kundrepo.preview(self.slug)
+        upp = [json.loads(x) for x in (self.state / 'uppladdat.log').read_text().splitlines()]
+        self.assertEqual([u['markor'] for u in upp], ['A'], 'det som laddades upp är exportens A (R07)')
+        self.assertNotEqual(Path(upp[0]['cwd']).resolve(), (self.k / 'kundrepo').resolve(), 'uppladdningen går ur det frysta underlaget')
+        self.assertEqual((pv['status'], pv['commit'], pv['export']), ('klar', res['commit'], res['id']))
+        self.assertEqual(pv['underlag_sha256'], res['export_sha256'])
+        self.assertEqual((self.k / 'kundrepo' / 'public' / 'markor.txt').read_text(), 'B')
+        self.assertFalse(kundrepo.preview_aktuell(self.slug)['aktuell'], 'kundrepot är nu B: kvittot för A är inte aktuellt')
+        self.assertFalse(Path(upp[0]['cwd']).exists(), 'det frysta underlaget tas bort efteråt')
+        # samma kontrakt för direkt CLI: kundens lås upptaget (en export pågår) ger ingen förhandsvisning
+        import flodesstart
+        with flodesstart.las(self.root, self.slug):
+            self.assertEqual(kundrepo.main([self.slug, '--preview']), 1)
 
     def test_utan_kundrepo_ar_exporten_som_forr(self):
         self.sajt()

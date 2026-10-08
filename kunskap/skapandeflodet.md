@@ -114,7 +114,9 @@ kandidaterna och granskningarna.
    återgång: kompletterande research på specialisternas begäran, omplanering av de uppdragen med samma identitet (ny
    hypotes eller huvudreferens, referensbrist avvisas) och nytt uppdragsmaterial för dem, och sedan en andra prövning,
    en gång per plan (PLANPROVNING-runda-1.json; uppdraget 2026-10-08, 2E). Ett konstaterat problem bokförs alltså inte
-   bara medan körningen fortsätter med samma låsta plan.
+   bara medan körningen fortsätter med samma låsta plan. Ger omplaneringen inget användbart uppdrag för en kandidat
+   stoppas den (status fel med `atergang_fel` och invändningen sparad); skaparen får aldrig det förkastade uppdraget, och
+   en körning som tas upp med Återuppta gör ett nytt omplaneringsförsök för den (R01).
 4. **Skissa.** Varje kandidat har en stabil identitet (k01–k12), ett eget Astro-projekt
    (`kunder/<slug>/kandidater/<id>/sajt`: sajtens nuvarande src/ och public/ utan tidigare sidor, kundens bilder, och
    node_modules som länk till sajtens) och en egen skaparsession med samma faktaunderlag; några körs åt gången
@@ -308,10 +310,20 @@ om av sig själv. En ny dom efter en avbruten skrivning hamnar på en egen rad.
 Ett tidigare designval, till exempel en färg, är inget förbud. Ett drag ur en underkänd grundidé behöver ett skäl ur
 verksamhetens material, och skälet ska också svara på kritiken mot den.
 
+**Arbetsroten** (R06; beställningen i BESLUT.md, tillägget 2026-10-07 punkt 3–4): med `NWP_ARBETSROT=kundrepo` startar
+ateljéns sessioner i kundprojektets eget repo (`kunder/<slug>/kundrepo`, `kontroller/kundrepo.py`). Kundrepot är ett eget
+git-repo, så kundens korta CLAUDE.md är projektkontexten; motorns skills och filer nås genom `--add-dir`, och varje regel,
+sökväg och kommando görs absolut (`atelje.regel_absolut`, `text_absolut`), så att datagränserna gäller oförändrade.
+Standard är motorns rot tills ett verkligt sessionsprov (init-beskedet) visat vilka CLAUDE.md, skills och MCP:er som
+laddas i kundrepots rot; helbygget (kor.sh) har ännu motorns rot. Skissens sparade kvitto bär hela kvittoformen, och
+kärnan står som läst bara när varje session observerades (R03); materialsteget nås av rollen komposition genom ett
+kandidatavgränsat verktyg (`material.py <slug> --kandidat <id>`; R05).
+
 **Det aktiva urvalet** (ren start för Nortropic 2.0, ägarens uppdrag 2026-10-08, del 2): `underlag/<slug>/atelje/URVAL.json`
 (`kontroller/urval.py`) skrivs när en körning startar och säger vilken historik som är inkopplad. Standard är av: andra
 kunders byggbilder når inte granskaren (`granska.tidigare_byggen`), UPPTAGNA-VAL.md ur tidigare byggen når inte
-agenterna (`atelje.underlag_rader`, startkontrollens styrning), och äldre domar styr bara det de uttryckligen beslutar
+agenterna (`atelje.underlag_rader`, startkontrollens styrning), planen läser inte RIKTNINGSHISTORIK.json i förväg
+(`riktningshistorik`; den slås upp vid en konkret fråga), och äldre domar styr bara det de uttryckligen beslutar
 (designregler.md, kundens aktuella domar efter senaste ny_riktning). Ett uttryckligt val (`urval.py <slug>
 --tidigare-byggbilder pa`) kopplar in dem för just den kunden och står kvar vid nästa start. Urvalet bär också det
 aktiva referenspaketet och kalibreringsankarnas hash som kvitto. En ny slug, en ny riktning eller flyttade filer är

@@ -239,11 +239,51 @@ def tjugoforsta_mcp_fil():
         return str(mall)
 
 
-def kundvakt(slug):
+def kundvakt(slug, rot=None):
     """Inställningarna (--settings) med kundvakten för skaparsessionerna (kontroller/kundvakt.py, installningar): bara
     flödets egna verktyg hos Refero och Mobbin kan tillåtas, och bara när anropet inte bär kundens uppgifter (Trybloom
-    används inte, ägarens ord 2026-10-05)."""
-    return kundvakt_mod.installningar(slug, UNDERLAG)
+    används inte, ägarens ord 2026-10-05). rot: motorns rot som absolut väg i krokens kommando, när sessionen har en
+    annan arbetsrot (R06)."""
+    return kundvakt_mod.installningar(slug, UNDERLAG, rot=rot)
+
+
+# R06 (GR-20261008-06af6ff-omgranskning-codex; beställningen i BESLUT.md, tillägget 2026-10-07 punkt 3 och 4): skaparens
+# sessioner startar i kundprojektets eget repo (kontroller/kundrepo.py) när NWP_ARBETSROT=kundrepo. Kundrepot är ett eget
+# git-repo, så Claude Code laddar dess korta CLAUDE.md som projektkontext och inte motorns (CLAUDE.md och projektets skills
+# läses från arbetskatalogen och uppåt till repots rot); motorns skills och filer nås genom --add-dir, och varje relativ
+# regel, sökväg och kommando görs absolut, så att datagränserna gäller oförändrade. Standard är motorns rot tills ett
+# verkligt sessionsprov (init-beskedet) visat vilka CLAUDE.md, skills och MCP:er som laddas i kundrepots rot.
+ARBETSROT_VAXEL = 'NWP_ARBETSROT'
+ROTDELAR = ('kunder', 'underlag', 'kunskap', 'kontroller', 'kritik', 'mall', '.claude', '.venv', 'backlog', 'dashboard')
+_RELATIV = re.compile(r'(?<![\w/.~$-])(?:\./)?((?:%s)/)' % '|'.join(re.escape(d) for d in ROTDELAR))
+
+
+def arbetsrot(slug):
+    """(rot, i_kundrepo): kundrepot när växeln står på kundrepo och repot finns, annars motorns rot."""
+    if not slug or os.environ.get(ARBETSROT_VAXEL) != 'kundrepo':
+        return ROOT, False
+    import kundrepo
+    r = KUNDER / slug / 'kundrepo'
+    return (r, True) if kundrepo.ar_repo(r) else (ROOT, False)
+
+
+def text_absolut(text, rot=None):
+    """Relativa vägar till motorns kataloger (kunder/, underlag/, kunskap/, kontroller/, .claude/, .venv/ …) blir absoluta."""
+    return _RELATIV.sub(lambda m: str(rot or ROOT) + '/' + m.group(1), text)
+
+
+def regel_absolut(regel, rot=None):
+    """En tillåtelse- eller nekanderegel med motorns relativa väg som absolut regel: Read(./x) blir Read(//<rot>/x), och ett
+    Bash-kommando får absoluta vägar (samma form som prompten ger modellen)."""
+    m = re.match(r'^(\w+)\((.*)\)$', str(regel), re.S)
+    if not m:
+        return regel
+    verktyg_, inn = m.groups()
+    if verktyg_ == 'Bash':
+        return 'Bash(%s)' % text_absolut(inn, rot)
+    if inn.startswith('./'):
+        return '%s(//%s/%s)' % (verktyg_, str(rot or ROOT).strip('/'), inn[2:])
+    return regel
 
 
 def andra_kunder_nekas(slug):
@@ -261,7 +301,7 @@ def andra_kunder_nekas(slug):
     return ut
 
 
-def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None):
+def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None, kundrot=False):
     """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
     slug ser sessionen alla skills (skillverktyget) och MCP-servrarna, och kundvakten prövar varje anrop till en extern
     designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). MCP-servrarna:
@@ -276,14 +316,19 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     De inbyggda verktygen begränsas till dem sessionen använder (--tools). Prenumerationen: ingen API-nyckel
     (nastlad.miljo)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
-    mcp = ['--settings', kundvakt(slug), '--strict-mcp-config', '--mcp-config', refero_mcp_fil(),
+    if kundrot:  # R06: sessionen startar i kundrepot; reglerna gäller motorns filer med absoluta vägar
+        verktyg = [regel_absolut(v) for v in verktyg]
+        nekas = [regel_absolut(v) for v in nekas]
+    mcp = ['--settings', kundvakt(slug, rot=ROOT if kundrot else None), '--strict-mcp-config', '--mcp-config', refero_mcp_fil(),
            str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json'),
            tjugoforsta_mcp_fil()] if slug else ['--strict-mcp-config']  # 21st.dev Builder: komponentresearch och hämtning (2C)
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local'] + mcp + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
-            '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools', *NEKAS,
-            *kompetens.skill_nekas(ROOT), *andra_kunder_nekas(slug), *nekas]
+            '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools',
+            *[regel_absolut(x) if kundrot else x for x in NEKAS + kompetens.skill_nekas(ROOT) + andra_kunder_nekas(slug)], *nekas]
+    if kundrot:  # motorns skills, kunskap och verktyg nås från kundrepots rot; motorns CLAUDE.md laddas inte (session_miljo)
+        args[args.index('--setting-sources'):args.index('--setting-sources')] = ['--add-dir', str(ROOT)]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
     return args
@@ -294,6 +339,7 @@ def session_miljo(slug=None):
     nådde den Bash och bygget av modellskriven kod; granskning 4, G15): användarens MCP-anslutning refero bär den själv."""
     m = ren_miljo()
     m.pop('REFERO_MCP_TOKEN', None)
+    m.pop('CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD', None)  # --add-dir laddar aldrig motorns CLAUDE.md (R06)
     return m
 
 
@@ -363,7 +409,10 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
     överlevt arbetaren). Vid tidsgräns avslutas hela processträdet, också Bash-kommandon i egna processgrupper."""
     if STOPP.is_set():
         raise Stoppad('arbetaren stoppas: ingen ny session')
-    args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug)
+    rot, kundrot = arbetsrot(slug)
+    args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot)
+    if kundrot:  # R06: prompten med absoluta vägar, eftersom sessionens arbetskatalog är kundrepot
+        prompt = text_absolut(prompt)
     sid, oslug = observerad(ut, slug)
     if STOPP.is_set():  # stoppet kan ha kommit medan observatören frågade claude --help
         raise Stoppad('arbetaren stoppas: ingen ny session')
@@ -382,7 +431,7 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                 with AKTIVA_LAS:
                     if STOPP.is_set():
                         raise Stoppad('arbetaren stoppas: ingen ny session')
-                    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=f, stderr=subprocess.PIPE, cwd=str(ROOT), env=session_miljo(slug),
+                    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=f, stderr=subprocess.PIPE, cwd=str(rot), env=session_miljo(slug),
                                          start_new_session=True)
                     AKTIVA.add(p.pid)
                     if sid:

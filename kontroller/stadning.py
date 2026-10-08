@@ -115,7 +115,8 @@ TMP_PREFIX = (
     'nwp-instrument-', 'nwp-pip-', 'nwp-nodeprov-', 'nwp-motor-',                  # underhall.py
     'nwp-vaktprov-',                                                                  # verktygslada.py
     'nwp-torr-',                                                                      # granska.py
-    'nwp-export-', 'nwp-kundrepo-',                                                                  # exportera.py
+    'nwp-export-', 'nwp-kundrepo-',                                                  # exportera.py, kundrepo.py
+    'nwp-preview-',                                                                   # kundrepo.py (förhandsvisningens frysta underlag)
     'nwp-yt-', 'nwp-sub-',                                                            # youtube.py
     'nwp-lh-',                                                                        # lighthouse.mjs
     'upptagna-',                                                                      # upptagna_val.py (slugvakt.tmp_katalog,

@@ -40,7 +40,10 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
 5. **Kundrepot till GitHub och Vercel**: `kontroller/kundrepo.py` skapar kundens eget repo vid projektstarten (lokalt,
    och privat `Nortropic/kund-<slug>` för en verklig verksamhet), gör exporten till en commit och pushar den när
    fjärrepot är bundet, kopplar repot till Vercel-projektet `kund-<slug>` i teamet nortropic och driftsätter en
-   förhandsvisning bunden till commit och export (`--preview`, kvitto i `kunder/<slug>/leverans/`). Produktion,
+   förhandsvisning bunden till commit och export (`--preview`, kvitto i `kunder/<slug>/leverans/`): det som laddas upp
+   är commitens filer ur git, prövade mot exportens manifest, under kundens lås, så att kvittot gäller exakt de bytes
+   som laddades upp (R07). Projektstarten, varje push och fjärrepot prövas först med exportens läckagekontroll, och
+   briefens text följer aldrig med till CLAUDE.md (R08). Produktion,
    skyddet och domänen: människa, eller en session med ägarens ja, enligt Vercel-steget nedan. `kontroller/driftkoll.py`
    prövar svaren från en driftsatt adress och skriver bara ut.
 

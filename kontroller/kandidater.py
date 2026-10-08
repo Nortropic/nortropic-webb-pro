@@ -689,6 +689,21 @@ def historik_rader(slug):
             'hittills har varit bra nog).']
 
 
+def material_anvandning(slug, kid):
+    """Materialstegets tillgångar i kandidaten (kontroller/material.py, anvandning); ett fel där fäller aldrig skissen."""
+    try:
+        import material
+        return material.anvandning(slug, kid)
+    except Exception as e:  # noqa: BLE001
+        return [{'fel': '%s: %s' % (type(e).__name__, str(e)[:200])}]
+
+
+def urval_aktivt(slug, val):
+    """Kundens aktiva urval (kontroller/urval.py; ren start 2026-10-08): historiken kopplas in bara när den valts uttryckligen."""
+    import urval
+    return urval.aktivt(slug, val, underlag=atelje.UNDERLAG)
+
+
 def regel_rader():
     return ['Reglerna i fyra slag med räckvidd (kunskap/designregler.md): gemensamma kvalitetskrav, Nortropics produkt- och',
             'ägarbeslut, kundens behov ur underlaget och designhypoteser som prövas. Läs den.']
@@ -985,8 +1000,10 @@ def plan_prompt(slug, n, skiss=False):
         *skapande.fakta_rader(slug, atelje.UNDERLAG), '',
         'Läs först: ' + ', '.join(filer) + '.',
         *historik_rader(slug),
+        # R04 (GR-20261008-06af6ff-omgranskning-codex): förhandsläsningen av riktningshistoriken bara med ett uttryckligt aktivt
+        # urval (kontroller/urval.py, riktningshistorik); historiken bevaras och slås annars upp (historik_rader)
         'Läs %s/%s innan du skriver planen, så att ingen underkänd grundidé upprepas utan nytt skäl.' % (rel(atelje.UNDERLAG / slug), skapande.HISTORIK)
-        if (atelje.UNDERLAG / slug / skapande.HISTORIK).is_file() else '',
+        if (atelje.UNDERLAG / slug / skapande.HISTORIK).is_file() and urval_aktivt(slug, 'riktningshistorik') else '',
         *regel_rader(), *metod_rader(slug, 'plan'), '',
         *kompetens.prompt_rader('planera', slug), '',
         *research_rader(slug), *(['Bildval som inte gick att läsa: ' + '; '.join(fel)] if fel else []), '',
@@ -1543,8 +1560,8 @@ def anvanda_verktyg(kv, pass_):
 def kompetens_kort(kv):
     """Det sparade kompetenskvittot: läsningen, de valda alternativen, skillverktyget, verktygens och tjänsternas anrop
     med utfall, sessionens läge hos tjänsterna och tillståndet per roll (kompetens.kvitto)."""
-    return {k_: kv.get(k_) for k_ in ('verifierad', 'ofullstandig', 'sessioner', 'lasta', 'saknas', 'fore_forsta_andring', 'valda', 'skill_anrop',
-                                       'skill_fel', 'mcp_anrop', 'mcp_utfall', 'mcp_lage', 'verktyg_anrop', 'tillstand') if k_ in (kv or {})}
+    return {k_: kv.get(k_) for k_ in ('verifierad', 'ofullstandig', 'sessioner', 'per_session', 'samma_kontext', 'lasta', 'saknas', 'fore_forsta_andring',
+                                       'valda', 'skill_anrop', 'skill_fel', 'mcp_anrop', 'mcp_utfall', 'mcp_lage', 'verktyg_anrop', 'tillstand') if k_ in (kv or {})}
 
 
 # underlag/<slug> för de blinda sessionerna (GR-20261007-r103#B2): bara en uttrycklig lista är läsbar, och allt annat
@@ -1921,12 +1938,19 @@ def skissa(slug, kid, fel=None):
     efter = kopiera_bilder(d / 'bilder' / 'start', d / 'kompetens' / 'skiss-skapa' / 'efter')
     kompetenser = dict(las_status(slug, kid).get('kompetens') or {})
     kompetenser['skiss:skapa'] = {'fas': 'skiss', 'pass': 'skapa', 'klar': nu(), 'sekunder': int(time.monotonic() - start),
-                                  'kvitto': {k: kv.get(k) for k in ('verifierad', 'lasta', 'saknas', 'valda', 'skill_anrop', 'mcp_anrop')},
+                                  # hela kvittoformen, också observationens (ofullständig, sessionerna per session, läsning före
+                                  # ändring, MCP-utfall och läge, tillståndet per roll; R03 i GR-20261008-06af6ff-omgranskning-codex)
+                                  'kvitto': kompetens_kort(kv),
                                   # kärnan läst hel (karnan_last): ett läskvitto, inte ett genomfört pass, eftersom ingen tillämpning
                                   # observeras i skissen (C4:s rest); MCP-anropen redovisas men krävs inte: researchen har redan hämtat
-                                  # materialet åt skaparna (ägarens uppdrag 2026-10-05 18:53Z, punkt 3)
-                                  'karnan_last': (not kv.get('saknas')) if kv.get('verifierad') else None,
-                                  'varv': len(varv_), 'bilder': {'fore': fore, 'efter': efter}}
+                                  # materialet åt skaparna (ägarens uppdrag 2026-10-05 18:53Z, punkt 3). Inte observerat (None) när
+                                  # ett transkript saknas: en saknad session ger aldrig ett komplett läskvitto
+                                  'karnan_last': (not kv.get('saknas')) if kv.get('verifierad') and not kv.get('ofullstandig') else None,
+                                  'karnan_fore_andring': (set(kv.get('fore_forsta_andring') or []) == set(kv.get('filer') or []))
+                                  if kv.get('verifierad') and not kv.get('ofullstandig') else None,
+                                  'varv': len(varv_), 'bilder': {'fore': fore, 'efter': efter},
+                                  # materialsteget i tre nivåer: kopierad, importerad i källan, renderad i bygget (R05)
+                                  'material': material_anvandning(slug, kid)}
     return satt_status(slug, kid, st['status'], st.get('skal', ''), tekniskt_fel=tekniskt, forsok_tider=forsoken,
                        anvandning=anvandning(sessioner), sessionsfel=sessionsfel or None, kompetens=kompetenser)
 
@@ -2009,7 +2033,8 @@ def pass_prompt(slug, kid, pass_, saknade=None, dom=None):
         'i %s. Specialisterna arbetar en gång var, efter varandra, på den färdiga sidan.' % rel(d / 'RIKTNING.md'),
         *(['', 'Ägarens dom som fördjupningen följer (%s): %s' % (dom.get('tid'), re.sub(r'\s+', ' ', str(dom.get('text') or '')).strip()[:1500] or '(utan text)')]
           if dom else []), '',
-        *(['Förra försöket saknade: %s. Läs saknade filer hela och slutför den angivna verktygsuppgiften först.' % ', '.join(saknade), ''] if saknade else []),
+        *(['Förra försöket saknade: %s. Dess ändringar är återställda. Detta är en ny session: aktivera och läs hela rollens kärna' % ', '.join(saknade),
+           'innan du ändrar något, och slutför den angivna verktygsuppgiften.', ''] if saknade else []),
         'Din uppgift: ' + PASSUPPGIFT[pass_], '',
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *regel_rader(), *metod_rader(slug, 'forfina'), '',
@@ -2054,7 +2079,9 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
     med rollens kärna, alternativ, verktyg och MCP:er, och efter (fotograferingen). Blir sidan ofullständig, eller får den
     fler allvarliga axe-fynd än före, återställs versionen före; faller återställningen blir kandidaten ofullständig med
     skälet (granskning 4, G5). Kvittot ur transkripten säger vilka filer som lästs hela; läste passet inte hela kärnan får
-    det ett omförsök, och båda sessionerna räknas tillsammans (G7). Redovisningen håller isär koden som ändrades,
+    det ett omförsök från versionen före passet: det första försökets ändringar återställs, och bara omförsökets session
+    räknas i kvittot, eftersom en ny session aldrig ärver arbete som gjorts utan kärnan (R02; det kasserade försöket står i
+    posten). Redovisningen håller isär koden som ändrades,
     beteendet som prövades och den visuella bedömningen (Codex via ägaren 2026-10-05, punkt 9). Återupptagbart: ett klart
     pass görs inte om, och ett avbrutet återställs till versionen före innan det görs om (G4)."""
     nyckel = '%s:%s' % (fas, pass_)
@@ -2080,9 +2107,18 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
     mal = d / 'kompetens' / re.sub(r'[^a-z0-9-]+', '-', '%s-%s' % (fas, pass_)).strip('-')
     fore = kopiera_bilder(d / 'bilder' / 'start', mal / 'fore')
     start, startad = time.monotonic(), nu()
-    svar, saknade, kv, ut, sessioner = {}, None, {}, None, []
+    svar, saknade, kv, ut, sessioner, kasserade = {}, None, {}, None, [], []
     for forsok in (1, 2):
         ut = d / ('svar-pass-%s-%s-%d.json' % (re.sub(r'[^a-z0-9-]+', '-', fas).strip('-'), pass_, forsok))
+        if forsok == 2:  # R02: omförsöket är en ny session; den börjar från versionen före passet och räknas för sig
+            kasserade.append({'forsok': 1, 'session': (sessioner[-1] or {}).get('session_id') if sessioner else None, 'saknade': list(saknade or []),
+                              'aterstalld_till': v0})
+            try:
+                aterstall_och_fotografera(slug, kid, v0)
+            except Exception as e:  # noqa: BLE001 — utan återställning görs inget omförsök ovanpå arbete utan kärnan
+                kasserade[-1]['aterstallning_fel'] = '%s: %s' % (type(e).__name__, str(e)[:200])
+                break
+            sessioner = []
         try:
             svar = atelje.session(pass_prompt(slug, kid, pass_, saknade, dom), verktyg(slug, kid, komplettering=False) + kompetens.verktyg(pass_, slug, kid),
                                   ut, PASS_SCHEMA, 300, effort=EFFORT_SKISS, frist=FRIST_PASS_OMFORSOK if saknade else FRIST_PASS,
@@ -2121,7 +2157,7 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
             provat.append(dict(b, bild_finns=bool(bild) and (atelje.ROOT / bild).is_file() and not (atelje.ROOT / bild).is_symlink()))
     andrad = st.get('version') != v0
     anvanda = anvanda_verktyg(kv, pass_) if kv.get('verifierad') else None
-    rec = {'fas': fas, 'pass': pass_, 'startad': startad, 'klar': nu(), 'sekunder': int(time.monotonic() - start),
+    rec = {'fas': fas, 'pass': pass_, 'startad': startad, 'klar': nu(), 'sekunder': int(time.monotonic() - start), 'kasserade_forsok': kasserade,
            'kod_andrad': {'andrad': andrad, 'version_fore': v0, 'version_efter': st.get('version'), 'andringar': so.get('kod_andrad') or []},
            'beteende_provat': provat, 'visuell_bedomning': so.get('visuell_bedomning') or {},
            'version_fore': v0, 'version_efter': st.get('version'), 'andrad': andrad, 'andringar': so.get('kod_andrad') or [],
@@ -2240,6 +2276,8 @@ def planprovning(slug):
                 ogjorda.append((kid, a, 'okänt fält'))
             elif not str(a.get('nytt') or '').strip():
                 ogjorda.append((kid, a, 'ingen ny text'))
+            elif las_status(slug, kid).get('atergang_fel'):  # R01: det förkastade uppdraget byggs inte, och putsas inte heller
+                ogjorda.append((kid, a, 'återgången misslyckades; uppdraget byggs inte'))
             else:
                 plan['kandidater'][kid][a['falt']] = str(a['nytt']).strip()
                 andrade.append((kid, a))
@@ -2268,11 +2306,12 @@ def planprovning(slug):
             'kandidater': [{'id': x.get('id'), 'bedomning': x.get('bedomning')} for x in so.get('kandidater') or []],
             'andrade': len(andrade), 'gjorda': [{'id': k_, **a} for k_, a in andrade],
             'ogjorda': [{'id': k_, 'falt': a.get('falt'), 'skal': s_} for k_, a, s_ in ogjorda],
-            'kvitto': {k: kv.get(k) for k in ('verifierad', 'lasta', 'saknas', 'valda', 'skill_anrop', 'mcp_anrop')},
+            'kvitto': kompetens_kort(kv),  # hela kvittoformen (R03)
             'runda': 2 if plan.get('atergang') else 1,
             'atergangar': [{'id': k_, **{a_: ag.get(a_) for a_ in ('typ', 'skal', 'ny_hypotes', 'ny_huvudreferens') if ag.get(a_)}} for k_, ag in atergangar]}
     if atergangar:  # runda 1 med en återgång: research, omplanering och en andra prövning; runda 1:s besked bevaras för sig
         post['atergang'] = atergang(slug, plan, atergangar)
+    if atergangar and post['atergang'].get('omplanerade'):
         (r / 'PLANPROVNING-runda-1.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         (r / 'PLANPROVNING-runda-1.md').write_text('\n'.join(
             ['# Planprövningen, runda 1 · %s · %s' % (slug, post['tid']), '', str(post['sammanfattning']), '', '## Återgången', '']
@@ -2304,6 +2343,11 @@ def planprovning(slug):
         rader += ['## Återgången (runda 1)', '', 'Specialisterna begärde en återgång för %s; omplanerade: %s%s. Runda 1 står i %s.' % (
             ', '.join(ag.get('kandidater') or []) or '–', ', '.join(ag.get('omplanerade') or []) or 'inga',
             ('; fel: ' + str(ag.get('fel'))) if ag.get('fel') else '', post['runda_1']), '']
+    misslyckade = (post.get('atergang') or {}).get('misslyckade') or []
+    if misslyckade:  # R01: en återgång som inte gav ett användbart uppdrag stoppar kandidaten; den förkastade planen byggs inte
+        rader += ['## Återgången misslyckades', '', 'Kandidaterna %s stoppas: omplaneringen gav inget användbart uppdrag (%s). Det förkastade' % (
+            ', '.join(misslyckade), (post.get('atergang') or {}).get('fel') or 'okänt skäl'),
+            'uppdraget byggs inte. En körning som tas upp med Återuppta (--fortsatt) gör ett nytt omplaneringsförsök för dem.', '']
     (r / 'PLANPROVNING.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
     return post
 
@@ -2313,7 +2357,9 @@ def atergang(slug, plan, atergangar):
     som researchpasset, skapande.komplettera), omplanering av de uppdrag som fick en invändning (samma identitet, ny hypotes
     eller huvudreferens) och nytt uppdragsmaterial för dem, innan planen prövas en andra gång. En gång per plan; budgeten
     är en researchbegäran, en planeringssession och en prövning till. Ett konstaterat problem bokförs alltså inte bara
-    medan körningen fortsätter med samma låsta plan. Ger {'tid', 'kandidater', 'research', 'slappta', 'omplanerade', 'fel'}."""
+    medan körningen fortsätter med samma låsta plan. En kandidat som inte fick ett nytt uppdrag stoppas med status fel och
+    atergang_fel (invändningen sparad), så att skaparen aldrig får den förkastade planen (R01); ett nytt försök görs när
+    körningen tas upp (atergang_omforsok). Ger {'tid', 'kandidater', 'research', 'slappta', 'omplanerade', 'misslyckade', 'fel'}."""
     r = rot(slug)
     res = {'tid': nu(), 'kandidater': [k_ for k_, _ in atergangar], 'research': None, 'slappta': [], 'omplanerade': [], 'fel': None}
     sajter, fragor = [], []
@@ -2334,13 +2380,21 @@ def atergang(slug, plan, atergangar):
         f = r / 'ATERGANG-begaran.json'
         f.write_text(json.dumps(begaran, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         res['research'] = skapande.komplettera(slug, f, r, atelje.UNDERLAG, frist=min(FRIST_HAMTA, 1800), bred=True)
+    OMPLANERING_AVVISADE.pop(r, None)
     try:
         res['omplanerade'] = omplanera(slug, plan, atergangar)
     except (RuntimeError, OSError, ValueError) as e:
         res['fel'] = '%s: %s' % (type(e).__name__, str(e)[:300])
+    res['misslyckade'] = [k_ for k_ in res['kandidater'] if k_ not in res['omplanerade']]
+    for k_, ag in atergangar:  # R01 (GR-20261008-06af6ff-omgranskning-codex): utan nytt uppdrag stoppas kandidaten; skaparen får aldrig det förkastade
+        if k_ in res['misslyckade']:
+            skal_ = avvisad_skal(r, k_, res['fel'])
+            satt_status(slug, k_, 'fel', 'planprövningens återgång misslyckades (%s); det förkastade uppdraget byggs inte' % skal_[:300],
+                        atergang_fel={'tid': nu(), 'fel': skal_,
+                                      'invandning': {a_: ag.get(a_) for a_ in ('typ', 'skal', 'ny_hypotes', 'ny_huvudreferens', 'sajter', 'fragor') if ag.get(a_)}})
     plan = atelje.las_json(r / 'KANDIDATPLAN.json') or plan
     plan['atergang'] = {'tid': res['tid'], 'kandidater': res['kandidater'], 'omplanerade': res['omplanerade'], 'fel': res['fel'],
-                        'research': bool(res['research'])}
+                        'research': bool(res['research']), 'misslyckade': res['misslyckade']}
     (r / 'KANDIDATPLAN.json').write_text(json.dumps(plan, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if res['omplanerade']:  # stilpaketet och Mobbins skärmar för de omplanerade uppdragen; de övriga behåller sitt material
         try:
@@ -2348,6 +2402,51 @@ def atergang(slug, plan, atergangar):
         except Exception as e:  # noqa: BLE001 — utan nytt material fortsätter skisserna, och det står i redovisningen
             res['uppdragsmaterial'] = {'fel': '%s: %s' % (type(e).__name__, str(e)[:200])}
     return res
+
+
+OMPLANERING_AVVISADE = {}  # rot → de avvisade uppdragen i den senaste omplaneringen ("kNN: skäl")
+
+
+def avvisad_skal(r, kid, fel):
+    """Skälet till att kid inte fick ett nytt uppdrag: omplaneringens rad för kandidaten, annars felet."""
+    rad = next((a for a in OMPLANERING_AVVISADE.get(r) or [] if a.startswith(kid + ':')), None)
+    return rad.split(':', 1)[1].strip() if rad else (fel or 'inget nytt uppdrag för kandidaten')
+
+
+def atergang_omforsok(slug, kids):
+    """Ett nytt omplaneringsförsök för kandidater som stoppades av en misslyckad återgång (R01), med den sparade
+    invändningen och researchen som redan finns. Lyckas det får kandidaten sitt nya uppdrag, status planerad och nytt
+    uppdragsmaterial; annars står den kvar som stoppad med det nya felet. Ger {'kandidater', 'omplanerade', 'fel'}."""
+    r = rot(slug)
+    plan = atelje.las_json(r / 'KANDIDATPLAN.json') or {}
+    atergangar = [(k_, (las_status(slug, k_).get('atergang_fel') or {}).get('invandning') or {}) for k_ in kids]
+    ut = {'tid': nu(), 'kandidater': list(kids), 'omplanerade': [], 'fel': None}
+    OMPLANERING_AVVISADE.pop(r, None)
+    try:
+        ut['omplanerade'] = omplanera(slug, plan, atergangar)
+    except (RuntimeError, OSError, ValueError) as e:
+        ut['fel'] = '%s: %s' % (type(e).__name__, str(e)[:300])
+    for k_ in kids:
+        st = las_status(slug, k_)
+        if k_ in ut['omplanerade']:
+            satt_status(slug, k_, 'planerad', 'omplanerad vid återupptagningen efter en misslyckad återgång', ta_bort=('atergang_fel',))
+        else:
+            skal_ = avvisad_skal(r, k_, ut['fel'])
+            satt_status(slug, k_, 'fel', 'planprövningens återgång misslyckades igen (%s); det förkastade uppdraget byggs inte' % skal_[:300],
+                        atergang_fel=dict(st.get('atergang_fel') or {}, tid=nu(), fel=skal_))
+    plan = atelje.las_json(r / 'KANDIDATPLAN.json') or plan
+    ag_ = dict(plan.get('atergang') or {})
+    ag_['omforsok'] = (ag_.get('omforsok') or []) + [ut]
+    ag_['misslyckade'] = [k_ for k_ in ag_.get('misslyckade') or [] if k_ not in ut['omplanerade']]
+    ag_['omplanerade'] = sorted(set(ag_.get('omplanerade') or []) | set(ut['omplanerade']))
+    plan['atergang'] = ag_
+    (r / 'KANDIDATPLAN.json').write_text(json.dumps(plan, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    if ut['omplanerade']:
+        try:
+            ut['uppdragsmaterial'] = uppdragsmaterial(slug, bara=ut['omplanerade'])
+        except Exception as e:  # noqa: BLE001 — utan nytt material fortsätter skisserna, och det står i redovisningen
+            ut['uppdragsmaterial'] = {'fel': '%s: %s' % (type(e).__name__, str(e)[:200])}
+    return ut
 
 
 def omplanera(slug, plan, atergangar):
@@ -2383,8 +2482,10 @@ def omplanera(slug, plan, atergangar):
             continue
         plan['kandidater'][k_] = k
         gjorda.append(k_)
+    avvisade += ['%s: planeraren gav inget uppdrag för den' % k_ for k_ in kids[len(nya):]]
     if not gjorda:
         raise RuntimeError('omplaneringen gav inget användbart uppdrag (%d av %d; %s)' % (len(nya), len(kids), '; '.join(avvisade) or 'planeraren svarade inte'))
+    OMPLANERING_AVVISADE[r] = avvisade  # skälet per stoppad kandidat (R01), för atergang och atergang_omforsok
     plan['omplanerad'] = nu()
     (r / 'KANDIDATPLAN.json').write_text(json.dumps(plan, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     for i, kid in enumerate(ids, 1):
@@ -2408,6 +2509,8 @@ def behandla_skiss(slug, kid):
     import ab
     ab.skisskrav(slug)
     st = las_status(slug, kid)
+    if st.get('atergang_fel'):  # R01: planprövningens återgång misslyckades; det förkastade uppdraget byggs inte
+        return ab.skissavslutad(slug, kid)
     av = st.get('avbruten_vid') if st.get('status') == 'avbruten' and isinstance(st.get('avbruten_vid'), dict) else None
     if st.get('status') == 'under_arbete' or av:  # processen dog mitt i försöket, eller körningen stoppades eller föll under det
         if nastlad_session(st.get('session_pid')):  # en kvarlevande session skriver aldrig i nästa försöks projekt (S3),
@@ -3344,13 +3447,18 @@ def kor(slug, status, skriv, n=None):
         skriv()
         status['uppdragsmaterial'] = uppdragsmaterial(slug)
         tider['material'] = nu()
+    stoppade = [k for k in ids if las_status(slug, k).get('atergang_fel')]  # R01: en misslyckad återgång från en tidigare start
+    if lage == 'skiss' and stoppade and not atelje.STOPP.is_set():
+        status['steg'] = 'atergang'
+        skriv()
+        status['atergang_omforsok'] = {k_: v_ for k_, v_ in atergang_omforsok(slug, stoppade).items() if k_ in ('kandidater', 'omplanerade', 'fel')}
     if lage == 'skiss' and not (r / 'PLANPROVNING.json').is_file() and all(las_status(slug, k).get('status') == 'planerad' for k in ids):
         status['steg'] = 'planprovning'  # specialisterna prövar planerarens designval innan någon bygger
         skriv()
         pp_ = planprovning(slug)
         status['planprovning'] = {k: v for k, v in pp_.items() if k in ('andrade', 'sekunder', 'runda')}
         if pp_.get('atergang'):
-            status['planprovning']['atergang'] = {k: pp_['atergang'].get(k) for k in ('kandidater', 'omplanerade', 'fel')}
+            status['planprovning']['atergang'] = {k: pp_['atergang'].get(k) for k in ('kandidater', 'omplanerade', 'misslyckade', 'fel')}
         tider['planprovning'] = nu()
     status.update(steg='skapa', kandidater={k: las_status(slug, k).get('status') for k in ids})
     skriv()

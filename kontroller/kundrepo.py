@@ -135,14 +135,10 @@ def motorversion():
 
 
 def primar_handling(slug, underlag=None):
-    """Besökarens viktigaste uppgift ur briefen, när raden finns; annars en hänvisning."""
-    try:
-        for rad in ((Path(underlag) if underlag else _underlag()) / slug / 'BRIEF.md').read_text(encoding='utf-8').splitlines():
-            if re.search(r'prim[aä]r[a]? handling', rad, re.I) and ':' in rad:
-                return rad.split(':', 1)[1].strip().strip('*').strip()[:200]
-    except OSError:
-        pass
-    return 'står i Nortropics brief för projektet'
+    """Besökarens viktigaste uppgift som en hänvisning, aldrig briefens text: briefen är Nortropics privata råunderlag och
+    följer inte med till kundrepot (R08 i GR-20261008-06af6ff-omgranskning-codex); i en export bär DESIGN.md designens
+    uppgift, som är godkänd text i projektet."""
+    return 'står i Nortropics brief (privat underlag, följer inte med hit); i en export beskriver DESIGN.md designens uppgift'
 
 
 def claude_md(slug, export_id=None, underlag=None):
@@ -208,12 +204,21 @@ def fjarr_skapa(slug, kv):
                 'fel': '%s/%s finns redan utan projektets markör i beskrivningen; repot binds inte (ingen koppling till fel kund)' % (ORG, i['namn'])}
     if 'HTTP 404' not in (r.stderr or '') and 'Not Found' not in (r.stderr or ''):
         return {'status': 'fel', 'tid': tid, 'adress': None, 'fel': 'gh api: %s' % (r.stderr or r.stdout)[-300:].strip()}
+    lackor = lackor_i(repo(slug))  # R08: inget fjärrepo och ingen push av något som läckagekontrollen fäller
+    if lackor:
+        return {'status': 'fel', 'tid': tid, 'adress': None, 'fel': 'läckagekontrollen fällde repot: %s' % '; '.join('%s (%s)' % x for x in lackor[:5])}
     beskrivning = '%s%s Webbplats åt %s, levererad av Nortropic' % (MARKOR, kv['projekt_id'], str(verksamhet(slug).get('namn') or slug)[:60])
     r = kommando([gh, 'repo', 'create', '%s/%s' % (ORG, i['namn']), '--private', '--description', beskrivning,
                   '--source', str(repo(slug)), '--remote', 'origin', '--push'], repo(slug), frist=300)
     if r.returncode:
         return {'status': 'fel', 'tid': tid, 'adress': None, 'fel': 'gh repo create: %s' % (r.stderr or r.stdout)[-300:].strip()}
     return {'status': 'skapat', 'tid': tid, 'fel': None, 'adress': i['fjarr_adress'], 'privat': True, 'ateranvant': False}
+
+
+def lackor_i(rot):
+    """Exportens läckagekontroll (exportera.lackor: lokala sökvägar, Nortropics privata underlag, nycklar) på katalogen."""
+    import exportera
+    return exportera.lackor(rot)
 
 
 def _lasfil(slug):
@@ -232,11 +237,25 @@ def skapa(slug, fjarr=None):
         kv.update({'slug': slug, 'namn': i['namn'], 'org': ORG, 'lokal': i['lokal'], 'team': TEAM})
         r = repo(slug)
         atelje.saker_vag(r, _kunder())
+        # R08: de genererade filerna prövas med exportens läckagekontroll innan något skrivs in eller committas; ett avvisat
+        # projekt får ingen commit, inget fjärrepo och ingen push
+        import korregister
+        md = claude_md(slug)
+        with korregister.egen_tmp_med('nwp-kundrepo-', 'projektstartens filer före läckagekontrollen') as tmp_:
+            filer_ = Path(tmp_) / 'projekt'  # en egen katalog: tempkatalogens registreringsfil hör inte till projektet
+            filer_.mkdir()
+            (filer_ / 'CLAUDE.md').write_text(md, encoding='utf-8')
+            shutil.copyfile(_root() / 'mall' / 'leverans' / 'gitignore', filer_ / '.gitignore')
+            lackor = lackor_i(filer_) + (lackor_i(r) if r.is_dir() else [])
+        if lackor:
+            kv['projektstart'] = {'status': 'avvisad', 'tid': nu(), 'lackor': [{'fil': f, 'skal': s} for f, s in lackor]}
+            atelje.skriv_json_atomiskt(kvittofil(slug), kv)
+            raise Hinder('projektstarten avvisades av läckagekontrollen: %s' % '; '.join('%s (%s)' % x for x in lackor[:5]))
+        kv['projektstart'] = {'status': 'godkand', 'tid': nu()}
         ny = not ar_repo(r)
         if ny:
             r.mkdir(parents=True, exist_ok=True)
             git_ok(r, 'init', '-q', '-b', 'main')
-        md = claude_md(slug)
         if not (r / 'CLAUDE.md').is_file() or (r / 'CLAUDE.md').read_text(encoding='utf-8') != md:
             (r / 'CLAUDE.md').write_text(md, encoding='utf-8')
         if not (r / '.gitignore').is_file():
@@ -295,6 +314,9 @@ def push(slug, rot=None):
         return {'ok': False, 'hinder': 'kundrepot finns inte'}
     if (kv.get('fjarr') or {}).get('status') != 'skapat':
         return {'ok': False, 'hinder': 'inget bundet fjärrepo (%s)' % ((kv.get('fjarr') or {}).get('fel') or (kv.get('fjarr') or {}).get('status'))}
+    lackor = lackor_i(r)  # R08: läckagekontrollen före varje push
+    if lackor:
+        return {'ok': False, 'hinder': 'läckagekontrollen fällde repot: %s' % '; '.join('%s (%s)' % x for x in lackor[:5])}
     res = git(r, 'push', '-u', 'origin', 'main', frist=300)
     ut = {'ok': res.returncode == 0, 'commit': huvud(r), 'tid': nu()}
     if res.returncode:
@@ -356,8 +378,35 @@ def preview_krav(slug):
 
 
 def preview(slug):
-    """Förhandsvisning av exportens commit med Vercels CLI (ingen produktion), med beständigt kvitto. Ger kvittot."""
+    """Förhandsvisning av exportens commit med Vercels CLI (ingen produktion), med beständigt kvitto. Ger kvittot. Alla
+    ingångar (Flöde, prototyp.py --preview, kundrepo.py --preview) går hit, under kundens lås (flodesstart.las, samma som
+    exporten), och det som laddas upp är ett fryst underlag: commitens filer ur git, prövade mot exportens manifest, så
+    att kvittot gäller exakt de bytes som laddades upp också om kundrepot ändras under kopplingen (R07 i
+    GR-20261008-06af6ff-omgranskning-codex)."""
+    import flodesstart
+    with flodesstart.las(_root(), slug, arv=True):
+        return _preview(slug)
+
+
+def fryst_underlag(r, commit, tmp):
+    """Commitens filer ur git (git archive) i tmp/repo; ger katalogen."""
+    ut = Path(tmp) / 'repo'  # en egen katalog: tempkatalogens registreringsfil hör inte till underlaget
+    ut.mkdir(parents=True)
+    arkiv = Path(tmp) / 'commit.tar'
+    with open(arkiv, 'wb') as fh:
+        res = subprocess.run(['git', 'archive', '--format=tar', commit], cwd=str(r), stdout=fh, stderr=subprocess.PIPE, timeout=FRIST)
+    if res.returncode:
+        raise RuntimeError('git archive föll: %s' % res.stderr.decode('utf-8', 'replace')[-300:])
+    import tarfile
+    with tarfile.open(arkiv) as t:
+        t.extractall(ut, filter='data')
+    arkiv.unlink()
+    return ut
+
+
+def _preview(slug):
     import exportera
+    import korregister
     i = identitet(slug)
     r = repo(slug)
     tid = nu()
@@ -365,21 +414,36 @@ def preview(slug):
             'slug': slug, 'tid': tid, 'team': TEAM, 'projekt': i['namn'], 'produktion': False, 'status': 'fel', 'url': None, 'hinder': [],
             'commit': None, 'export': None}
     hinder = preview_krav(slug)
+    tmp = None
     if hinder:
         post['hinder'].append(hinder)
     else:
         e = exportera.aktuell(slug)
         post.update(commit=huvud(r), export=e.get('id'), export_sha256=e.get('export_sha256'))
+        tmp = korregister.egen_tmp('nwp-preview-', 'förhandsvisningens frysta underlag')
+        try:
+            underlag = fryst_underlag(r, post['commit'], tmp)
+            post['underlag_sha256'] = exportera.manifest_sha(exportera.exportmanifest(underlag))
+            if post['underlag_sha256'] != post['export_sha256']:
+                post['hinder'].append('commitens filer stämmer inte med exportens manifest: exportera igen')
+        except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e_:
+            post['hinder'].append('det frysta underlaget kunde inte skapas: %s' % str(e_)[:200])
+    if tmp and not post['hinder']:
         kv = las_kvitto(slug)
         if (kv.get('vercel') or {}).get('status') != 'kopplat':
             vercel_koppla(slug)
             kv = las_kvitto(slug)
-        if (kv.get('vercel') or {}).get('status') != 'kopplat':
-            post['hinder'].append('Vercel-projektet är inte kopplat: %s' % (kv.get('vercel') or {}).get('fel'))
+        pj = r / '.vercel' / 'project.json'
+        if (kv.get('vercel') or {}).get('status') != 'kopplat' or not pj.is_file() or pj.is_symlink():
+            post['hinder'].append('Vercel-projektet är inte kopplat: %s' % ((kv.get('vercel') or {}).get('fel') or 'projektets länk saknas'))
         else:
+            (underlag / '.vercel').mkdir()
+            shutil.copyfile(pj, underlag / '.vercel' / 'project.json')
             v = shutil.which('vercel')
             res = kommando([v, 'deploy', '--yes', '--scope', TEAM, '--target', 'preview', '-m', 'nortropic_commit=%s' % post['commit'],
-                            '-m', 'nortropic_export=%s' % post['export']], r, frist=900)
+                            '-m', 'nortropic_export=%s' % post['export']], underlag, frist=900)
+            if exportera.manifest_sha(exportera.exportmanifest(underlag)) != post['underlag_sha256']:
+                post['hinder'].append('det frysta underlaget ändrades under uppladdningen')
             urlar = re.findall(r'https://[\w.-]+\.vercel\.app\S*', (res.stdout or '') + '\n' + (res.stderr or ''))
             if res.returncode or not urlar:
                 post['hinder'].append('vercel deploy: %s' % ((res.stderr or res.stdout)[-300:].strip() or 'ingen adress i svaret'))
@@ -393,6 +457,10 @@ def preview(slug):
                 post['status'] = 'klar' if 'ready' in rad else 'fel' if ('error' in rad or insp.returncode) else 'okänd'
                 if post['status'] != 'klar':
                     post['hinder'].append('driftsättningens status: %s' % (post['vercel_status'] or 'inte observerad'))
+            if post['hinder'] and post['status'] == 'klar':
+                post['status'] = 'fel'
+    if tmp:
+        shutil.rmtree(tmp, ignore_errors=True)
     post['text'] = ('förhandsvisning klar: %s (commit %s, export %s); ingen produktion' % (post['url'], (post['commit'] or '')[:12], post['export'])
                     if post['status'] == 'klar' else 'ingen förhandsvisning: ' + '; '.join(post['hinder']))
     d = leveransdir(slug)
@@ -447,11 +515,17 @@ def main(argv=None):
         ut = vercel_koppla(a.slug)
         ut = dict(ut, ok=ut.get('status') == 'kopplat')
     elif a.preview:
-        ut = preview(a.slug)
-        ut = dict(ut, ok=ut.get('status') == 'klar')
+        try:
+            ut = preview(a.slug)
+            ut = dict(ut, ok=ut.get('status') == 'klar')
+        except ValueError as e:  # kundens lås är upptaget: en export eller ett annat arbete pågår (R07)
+            ut = {'ok': False, 'hinder': str(e)}
     else:
-        kv = skapa(a.slug, fjarr=False if a.utan_fjarr else None)
-        ut = dict(kv, ok=True)
+        try:
+            kv = skapa(a.slug, fjarr=False if a.utan_fjarr else None)
+            ut = dict(kv, ok=True)
+        except Hinder as e:
+            ut = {'ok': False, 'hinder': str(e)}
     print(json.dumps(ut, ensure_ascii=False, indent=1))
     return 0 if ut.get('ok') else 1
 

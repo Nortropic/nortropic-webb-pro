@@ -4959,7 +4959,7 @@ try:
         return spara_prova_sk[1](cmd, cwd=cwd, timeout=timeout)
     prova.bygg_inom_grans, prova.kor, prova.Server = bygg_sk, kor_sk, SrvKd
     sess_sk, samtidiga_sk, max_sk, las_sk = [], [0], [0], thr_sk.Lock()
-    pp_sk_n = [0]  # planprövningens rundor (2E: återgången)
+    pp_sk_n, omp_sk_n = [0], [0]  # planprövningens rundor och omplaneringarna (2E: återgången; R01: en misslyckad tas upp igen)
     trasig_k03, dod_k05 = [True], [True]
 
     def sess_sk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None):
@@ -4974,18 +4974,28 @@ try:
         elif schema is kd.PLAN_SCHEMA:
             so = {'variation': 'fem grunder', 'kandidater': [dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/sk-prov/referenser/paket-v01/x/vy.png'])
                                                             for i_ in range(5)]}
-        elif schema is kd.PLANPROVNING_SCHEMA:  # specialisterna prövar planen och ändrar ett fält; k02 får en återgång (2E) i båda rundorna
+        elif schema is kd.PLANPROVNING_SCHEMA:  # specialisterna prövar planen och ändrar ett fält; k02 och k03 får en återgång (2E) i båda rundorna
             pp_sk_n[0] += 1
             so = {'sammanfattning': 'typografin i k01 skärptes', 'kandidater': [
                 {'id': 'k01', 'bedomning': 'riktningen bär', 'andringar': [{'falt': 'typografi', 'nytt': 'NY TYPOGRAFI ur planprövningen', 'skill': 'impeccable', 'varfor': 'hierarkin'}]},
-                {'id': 'k02', 'bedomning': 'hypotesen bär inte kundens material', 'andringar': [],
-                 'atergang': {'typ': 'ny_hypotes', 'skal': 'hypotesen bär inte kundens material', 'ny_hypotes': 'NY HYPOTES ur återgången'}},
+                {'id': 'k02', 'bedomning': 'hypotesen bär inte kundens material',
+                 'andringar': [{'falt': 'typografi', 'nytt': 'PUTS AV DET STOPPADE', 'skill': 'impeccable', 'varfor': 'runda 2'}] if pp_sk_n[0] == 2 else [],
+                 'atergang': {'typ': 'ny_hypotes', 'skal': 'hypotesen bär inte kundens material', 'ny_hypotes': 'NY HYPOTES k02'}},
+                {'id': 'k03', 'bedomning': 'referensen saknar kvaliteten', 'andringar': [],
+                 'atergang': {'typ': 'ny_referens', 'skal': 'referensen saknar kvaliteten', 'ny_huvudreferens': 'Xref'}},
                 {'id': 'k99', 'bedomning': 'finns inte', 'andringar': [{'falt': 'typografi', 'nytt': 'x', 'skill': 'x', 'varfor': 'x'}]}]}
             sid_sk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in kd.kompetens.lasfiler('planprovning')] + [('Skill', {'skill': 'impeccable'}, False)])
-        elif isinstance(schema, dict) and 'OMPLANERING' in prompt:  # återgångens omplanering: k02 med samma identitet
-            assert schema['properties']['kandidater']['minItems'] == 1 and schema['properties']['kandidater']['maxItems'] == 1 and 'k02' in prompt
-            so = {'variation': 'omplanerad', 'kandidater': [dict({f_: '%s omplanerad' % f_ for f_, _r in kd.PLANFALT}, titel='k02 omplanerad', hypotes='NY HYPOTES ur återgången',
-                                                                   referensbilder=['underlag/sk-prov/referenser/paket-v01/x/vy.png'])]}
+        elif isinstance(schema, dict) and 'OMPLANERING' in prompt:  # återgångens omplanering med samma identitet
+            omp_sk_n[0] += 1
+            n_ = schema['properties']['kandidater']['minItems']
+            assert n_ == schema['properties']['kandidater']['maxItems'] and n_ == (2 if omp_sk_n[0] == 1 else 1) and 'k02' in prompt, (omp_sk_n, n_)
+            ny_ = lambda kid_, hyp_, ref_: dict({f_: '%s omplanerad' % f_ for f_, _r in kd.PLANFALT}, titel='%s omplanerad' % kid_, hypotes=hyp_, huvudreferens='Xref',
+                                                referensbilder=[ref_])
+            if omp_sk_n[0] == 1:  # R01: k02:s nya uppdrag saknar referensunderlag (avvisas), k03:s håller
+                so = {'variation': 'omplanerad', 'kandidater': [ny_('k02', 'FEL HYPOTES utan referens', 'underlag/sk-prov/referenser/finns-inte.png'),
+                                                                ny_('k03', 'NY HYPOTES k03', 'underlag/sk-prov/referenser/paket-v01/x/vy.png')]}
+            else:  # återupptagningens nya försök för k02: nu med underlag
+                so = {'variation': 'omplanerad', 'kandidater': [ny_('k02', 'NY HYPOTES k02', 'underlag/sk-prov/referenser/paket-v01/x/vy.png')]}
             sid_sk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in kd.kompetens.lasfiler('planera')])
         elif schema is kd.PASS_SCHEMA:  # ett kompetenspass
             kid_ = re.search(r'Kandidaten (k\d\d)', prompt).group(1)
@@ -5044,6 +5054,17 @@ try:
     finally:
         thr_sk.excepthook = spara_hook_sk
     assert kd.las_status(sl_sk, 'k05')['status'] == 'under_arbete'
+    # R01 (GR-20261008-06af6ff-omgranskning-codex): k02:s omplanering gav inget användbart uppdrag; kandidaten stoppas med sitt
+    # skäl, och ingen skapare startar med det förkastade uppdraget (bara den lyckade k03 omplaneras)
+    s2_r01 = kd.las_status(sl_sk, 'k02')
+    assert s2_r01['status'] == 'fel' and s2_r01['atergang_fel']['invandning']['ny_hypotes'] == 'NY HYPOTES k02' and 'saknar underlag' in s2_r01['atergang_fel']['fel'], s2_r01
+    assert 'förkastade uppdraget byggs inte' in s2_r01['skal'] and s2_r01.get('hypotes') not in ('FEL HYPOTES utan referens', 'NY HYPOTES k02'), s2_r01
+    assert not any('EN skiss, k02' in s_['prompt'] for s_ in sess_sk if s_['schema'] is None), 'en skapare startade med det förkastade uppdraget (R01)'
+    assert 'FEL HYPOTES' not in (kd.kdir(sl_sk, 'k02') / 'UPPDRAG.md').read_text() and kd.las_status(sl_sk, 'k03')['hypotes'] == 'NY HYPOTES k03'
+    pp_r01 = json.loads((kd.rot(sl_sk) / 'PLANPROVNING.json').read_text())
+    assert pp_r01['atergang']['misslyckade'] == ['k02'] and pp_r01['atergang']['omplanerade'] == ['k03'] and 'Återgången misslyckades' in (kd.rot(sl_sk) / 'PLANPROVNING.md').read_text(), pp_r01.get('atergang')
+    assert any(x['id'] == 'k02' and x['falt'] == 'typografi' and 'återgången misslyckades' in x['skal'] for x in pp_r01['ogjorda']), 'det stoppade uppdraget putsas inte (R01)'
+    assert st_sk['planprovning']['atergang']['misslyckade'] == ['k02'], st_sk.get('planprovning')
     kd.LAGE = 'full'  # en återupptagning följer körningens plan, inte miljön
     klara_sk = kd.kor(sl_sk, st_sk, lambda: None, n=5)
     kd.LAGE = 'skiss'
@@ -5098,18 +5119,21 @@ try:
     pp_sk = json.loads((kd.rot(sl_sk) / 'PLANPROVNING.json').read_text())
     assert pp_sk['andrade'] == 1 and pp_sk['kvitto']['verifierad'] and not pp_sk['kvitto']['saknas'] and 'impeccable' in pp_sk['kvitto']['skill_anrop'], pp_sk
     assert 'NY TYPOGRAFI ur planprövningen' in (kd.kdir(sl_sk, 'k01') / 'UPPDRAG.md').read_text() and (kd.rot(sl_sk) / 'PLANPROVNING.md').is_file()
-    # 2E (uppdraget 2026-10-08): återgången: k02 fick en ny hypotes med samma identitet, planen prövades en andra gång, och en
-    # ny återgång i runda 2 bokförs som ogjord; runda 1:s besked bevaras för sig
-    assert pp_sk['runda'] == 2 and pp_sk['atergang']['omplanerade'] == ['k02'] and pp_sk['atergang']['research'] is None and pp_sk['atergang']['fel'] is None, pp_sk.get('atergang')
+    # 2E (uppdraget 2026-10-08): återgången: k03 fick ett nytt uppdrag med samma identitet, planen prövades en andra gång, och en
+    # ny återgång i runda 2 bokförs som ogjord; runda 1:s besked bevaras för sig. R01: k02, som stoppades, fick ett nytt
+    # omplaneringsförsök när körningen togs upp, och byggdes först då, med det nya uppdraget
+    assert pp_sk['runda'] == 2 and pp_sk['atergang']['omplanerade'] == ['k03'] and pp_sk['atergang']['research'] is None and pp_sk['atergang']['misslyckade'] == ['k02'], pp_sk.get('atergang')
     r1_sk = json.loads((kd.rot(sl_sk) / 'PLANPROVNING-runda-1.json').read_text())
-    assert r1_sk['runda'] == 1 and r1_sk['atergangar'] == [{'id': 'k02', 'typ': 'ny_hypotes', 'skal': 'hypotesen bär inte kundens material', 'ny_hypotes': 'NY HYPOTES ur återgången'}], r1_sk['atergangar']
+    assert r1_sk['runda'] == 1 and [a_['id'] for a_ in r1_sk['atergangar']] == ['k02', 'k03'] and r1_sk['atergangar'][0]['ny_hypotes'] == 'NY HYPOTES k02', r1_sk['atergangar']
     assert (kd.rot(sl_sk) / 'PLANPROVNING-runda-1.md').is_file() and 'Återgången (runda 1)' in (kd.rot(sl_sk) / 'PLANPROVNING.md').read_text()
-    assert kd.las_status(sl_sk, 'k02')['hypotes'] == 'NY HYPOTES ur återgången' and 'NY HYPOTES ur återgången' in (kd.kdir(sl_sk, 'k02') / 'UPPDRAG.md').read_text()
+    assert kd.las_status(sl_sk, 'k02')['hypotes'] == 'NY HYPOTES k02' and 'NY HYPOTES k02' in (kd.kdir(sl_sk, 'k02') / 'UPPDRAG.md').read_text()
+    assert 'atergang_fel' not in kd.las_status(sl_sk, 'k02') and any('EN skiss, k02' in s_['prompt'] for s_ in sess_sk if s_['schema'] is None), 'k02 byggdes efter rättelsen'
     assert any(x['falt'] == 'atergang' and 'en återgång per plan' in x['skal'] for x in pp_sk['ogjorda']), pp_sk['ogjorda']
-    assert pp_sk_n[0] == 2 and any('OMPLANERING' in s_['prompt'] and 'k02' in s_['prompt'] for s_ in sess_sk), 'två prövningar och en omplanering'
+    assert pp_sk_n[0] == 2 and omp_sk_n[0] == 2, 'två prövningar, en omplanering och ett nytt försök vid återupptagningen (%s, %s)' % (pp_sk_n, omp_sk_n)
     plan_sk_ = json.loads((kd.rot(sl_sk) / 'KANDIDATPLAN.json').read_text())
-    assert plan_sk_['atergang']['omplanerade'] == ['k02'] and plan_sk_['kandidater']['k02']['titel'] == 'k02 omplanerad' and 'Omplanerade efter planprövningens återgång' in (kd.rot(sl_sk) / 'KANDIDATPLAN.md').read_text()
-    assert st_sk['planprovning']['runda'] == 2 and st_sk['planprovning']['atergang']['omplanerade'] == ['k02'], st_sk.get('planprovning')
+    assert plan_sk_['atergang']['omplanerade'] == ['k02', 'k03'] and plan_sk_['atergang']['misslyckade'] == [] and plan_sk_['atergang']['omforsok'][0]['omplanerade'] == ['k02'], plan_sk_['atergang']
+    assert plan_sk_['kandidater']['k02']['titel'] == 'k02 omplanerad' and 'Omplanerade efter planprövningens återgång' in (kd.rot(sl_sk) / 'KANDIDATPLAN.md').read_text()
+    assert st_sk['planprovning']['runda'] == 2 and st_sk['atergang_omforsok'] == {'kandidater': ['k02'], 'omplanerade': ['k02'], 'fel': None}, (st_sk.get('planprovning'), st_sk.get('atergang_omforsok'))
     pp_p_ = next(s_ for s_ in sess_sk if s_['schema'] is kd.PLANPROVNING_SCHEMA)
     assert 'refero-design/SKILL.md' in pp_p_['prompt'] and 'impeccable/reference/shape.md' in pp_p_['prompt'] and 'Refero' in pp_p_['prompt'] and 'Skill' in pp_p_['verktyg'] and pp_p_['slug'] == sl_sk
     # granskning 4, G1: planprövningen får kundens aktuella domar, designreglerna och Avgörandena (METOD-plan.md)
@@ -5194,7 +5218,13 @@ try:
                 (kd.kdir(sl_sk, 'k02') / sk.KOMPLETTERING).write_text(json.dumps({'varfor': 'saknar kök i närbild'}))
             if GK.get('skapare_tidsgrans') and 'Förra sessionen nådde sin tidsgräns' not in prompt:
                 raise subprocess.TimeoutExpired('claude', frist)
-        svar_ = {'structured_output': so, 'num_turns': 7, 'duration_ms': 90000, 'total_cost_usd': 0.3, 'session_id': 's'}
+        sid_gk = 's'
+        if GK.get('kvitto_sid') and schema is None and 'En kritisk granskare har sett' not in prompt:  # R03: skaparen läser hela kärnan
+            sid_gk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in kd.kompetens.lasfiler('skapa')]
+                                   + [('Write', {'file_path': kd.rel(pages_ / 'index.astro')}, False)])
+        elif GK.get('kvitto_sid') and 'En kritisk granskare har sett' in prompt:  # R03: svarets transkript saknas
+            sid_gk = str(uuid_kd.uuid4())
+        svar_ = {'structured_output': so, 'num_turns': 7, 'duration_ms': 90000, 'total_cost_usd': 0.3, 'session_id': sid_gk}
         Path(ut).write_text(json.dumps(svar_))
         return svar_
 
@@ -5302,6 +5332,26 @@ try:
         skapare_gk = [x_ for x_ in sess_gk if x_['schema'] is None and 'En kritisk granskare har sett' not in x_['prompt']]
         assert len(skapare_gk) == 2 and 'RESEARCHENS SVAR' in skapare_gk[1]['prompt'], [x_['ut'] for x_ in sess_gk]
         assert not any(x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk) and 'researchen' in kd.las_status(sl_sk, 'k02')['skisskritik']['skal']
+        # (7) R03 (GR-20261008-06af6ff-omgranskning-codex): skapare med hela kärnan och ett svar vars transkript saknas, genom skissens
+        # riktiga statusutgång: det sparade kvittot är ofullständigt med den saknade sessionen, kärnan står som inte observerad
+        # (aldrig "läst hel"), och sammanställningen som dashboarden läser bär samma fält
+        omgang_gk(kvitto_sid=True)
+        rec_r03 = kd.las_status(sl_sk, 'k02')['kompetens']['skiss:skapa']
+        kv_r03 = rec_r03['kvitto']
+        assert kv_r03.get('ofullstandig') is True and kv_r03['sessioner']['forvantade'] == 2 and kv_r03['sessioner']['sedda'] == 1, kv_r03
+        assert kv_r03['sessioner']['saknade'][0]['skal'] == 'transkriptet saknas' and len(kv_r03['per_session']) == 1 and kv_r03['per_session'][0]['saknas'] == [], kv_r03
+        assert 'fore_forsta_andring' in kv_r03 and 'tillstand' in kv_r03, sorted(kv_r03)
+        assert rec_r03['karnan_last'] is None and rec_r03.get('karnan_fore_andring') is None, 'ett saknat transkript gav ett komplett läskvitto (R03): %s' % rec_r03.get('karnan_last')
+        spara_domd_r03 = kd.domd
+        kd.domd = lambda slug: True  # efter ägarens första beslut visar vyn kompetensens poster (före beslutet bara läget)
+        try:
+            vy_r03 = next(k_ for k_ in kd.sammanstall(sl_sk) if k_['id'] == 'k02')
+        finally:
+            kd.domd = spara_domd_r03
+        kort_r03 = next(r_ for r_ in vy_r03.get('kompetens') or [] if r_.get('nyckel') == 'skiss:skapa')
+        assert kort_r03['kvitto'].get('ofullstandig') is True and kort_r03['kvitto'].get('per_session') is not None, kort_r03.get('kvitto')
+        assert vy_r03['kompetenspass'].get('skapa') is None, vy_r03.get('kompetenspass')
+        print('R03 skissens sparade kvitto ok')
     finally:
         kd.time, at_pt.session, kd.FRIST_SKISS, sk.komplettera = spara_gk
 finally:
@@ -5458,7 +5508,7 @@ def sess_kp_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effor
     filer_ = kd.kompetens.lasfiler(pass_)
     if las_kp['saknas_forsta'] and 'Förra försöket saknade:' not in prompt:
         filer_ = filer_[1:]
-    elif las_kp['saknas_forsta']:
+    elif las_kp['saknas_forsta'] and las_kp.get('bara_saknade'):  # omförsöket läser bara det som saknades: den nya sessionen saknar resten (R02)
         filer_ = filer_[:1]
     so = {'kod_andrad': [{'skill': 'emil-animate', 'vad': 'menyns övergång', 'var': 'sidhuvudet', 'varfor': 'syfte'}],
           'beteende_provat': [{'vad': 'menyn', 'hur': 'forhandsvisa --meny', 'resultat': 'öppnas', 'bild': kd.rel(d_kp / 'bilder' / 'start' / 'vy-390-forsta.png')}],
@@ -5500,11 +5550,25 @@ try:
                    session_pid=os.getpid())
     st_kp = kd.kompetenspass(sl_kp, 'k01', 'rorelse', 'fordjupa:c', dom_kp)
     assert ater_kp[-1] == 'v5b' and st_kp['kompetens']['fordjupa:c:rorelse']['genomford'] and 'pass_pagar' not in st_kp, st_kp
-    # ett pass som inte läste hela kärnan får ett omförsök, och båda sessionerna räknas tillsammans (G7)
+    # ett pass som inte läste hela kärnan får ett omförsök från versionen före passet (R02 i GR-20261008-06af6ff-omgranskning-codex):
+    # det första försökets ändringar återställs, och bara omförsökets session räknas; den nya sessionen läser hela kärnan
     las_kp['saknas_forsta'] = True
+    v_fore_d = kd.las_status(sl_kp, 'k01')['version']
     foto_kp.update(version='v8')  # passet ändrade koden: en ny version (samma version och en tom ingen_andring vore ej genomfört)
+    n_ater_d = len(ater_kp)
     st_kp = kd.kompetenspass(sl_kp, 'k01', 'granskning', 'fordjupa:d', dom_kp)
-    assert (d_kp / 'svar-pass-fordjupa-d-granskning-2.json').is_file() and st_kp['kompetens']['fordjupa:d:granskning']['genomford'], st_kp['kompetens']['fordjupa:d:granskning']['kvitto']
+    r_d = st_kp['kompetens']['fordjupa:d:granskning']
+    assert (d_kp / 'svar-pass-fordjupa-d-granskning-2.json').is_file() and r_d['genomford'], r_d['kvitto']
+    assert ater_kp[n_ater_d:n_ater_d + 1] == [v_fore_d] and r_d['kasserade_forsok'][0]['aterstalld_till'] == v_fore_d and r_d['kasserade_forsok'][0]['saknade'], r_d.get('kasserade_forsok')
+    assert len(r_d['kvitto']['per_session']) == 1 and 'Dess ändringar är återställda' in prompt_kp[-1] and 'hela rollens kärna' in prompt_kp[-1], r_d['kvitto'].get('per_session')
+    # omförsöket som bara läser det som saknades: den nya sessionen saknar resten av kärnan, och passet är inte genomfört (R02)
+    las_kp['bara_saknade'] = True
+    foto_kp.update(version='v8b')
+    st_kp = kd.kompetenspass(sl_kp, 'k01', 'granskning', 'fordjupa:d2', dom_kp)
+    r_d2 = st_kp['kompetens']['fordjupa:d2:granskning']
+    assert r_d2['genomford'] is False and r_d2['kvitto']['saknas'] and r_d2['kvitto']['per_session'][0]['saknas'], r_d2['kvitto']
+    las_kp['bara_saknade'] = False
+    kd.satt_status(sl_kp, 'k01', 'forfinad', 'förfinad', version='v8')  # läget före nästa fall, som före omförsöksfallen
     las_kp['saknas_forsta'] = False
     foto_kp.update(version='v8')
     st_kp = kd.kompetenspass(sl_kp, 'k01', 'rorelse', 'fordjupa:f', dom_kp)

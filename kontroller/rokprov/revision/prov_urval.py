@@ -33,7 +33,7 @@ class Urval(unittest.TestCase):
         (self.u / 'BRIEF.md').write_text('# Brief\n'); (self.u / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Prov'}))
 
     def test_historiken_ar_av_tills_den_valts(self):
-        self.assertEqual(urval.las(self.slug)['historik'], {'tidigare_byggbilder': False, 'upptagna_val': False})
+        self.assertEqual(urval.las(self.slug)['historik'], {'tidigare_byggbilder': False, 'upptagna_val': False, 'riktningshistorik': False})
         self.assertEqual(granska.tidigare_byggen(self.slug), [], 'andra kunders bilder når inte granskaren av vana')
         filer, _, _ = atelje.underlag_rader(self.slug)
         self.assertFalse(any(f.endswith('UPPTAGNA-VAL.md') for f in filer), filer)
@@ -52,7 +52,7 @@ class Urval(unittest.TestCase):
         (self.u / 'referenser' / 'paket-v02').mkdir(parents=True); (self.u / 'referenser' / 'paket-v02' / 'PAKET.json').write_text('{"kandidater": []}')
         (self.root / 'underlag' / 'kalibrering').mkdir(); (self.root / 'underlag' / 'kalibrering' / 'ANKARE.txt').write_text('K06 · ankare\n')
         d = urval.vid_start(self.slug, korning='2026-10-08T18:00:00Z')
-        self.assertEqual((d['referenspaket'], d['korning'], d['historik']), ('paket-v02', '2026-10-08T18:00:00Z', {'tidigare_byggbilder': False, 'upptagna_val': False}))
+        self.assertEqual((d['referenspaket'], d['korning'], d['historik']), ('paket-v02', '2026-10-08T18:00:00Z', {'tidigare_byggbilder': False, 'upptagna_val': False, 'riktningshistorik': False}))
         self.assertEqual(len(d['ankare']), 12); self.assertIn('standard', d['skal'])
         self.assertTrue(urval.fil(self.slug).is_file())
         urval.skriv(self.slug, upptagna_val=True)
@@ -60,9 +60,9 @@ class Urval(unittest.TestCase):
         self.assertTrue(d2['historik']['upptagna_val'], 'ett uttryckligt val står kvar vid nästa start')
         self.assertEqual(d2['korning'], '2026-10-08T19:00:00Z')
         urval.fil(self.slug).write_text('{trasig')
-        self.assertEqual(urval.las(self.slug)['historik'], {'tidigare_byggbilder': False, 'upptagna_val': False}, 'en oläsbar fil är standard, aldrig på')
+        self.assertEqual(urval.las(self.slug)['historik'], {'tidigare_byggbilder': False, 'upptagna_val': False, 'riktningshistorik': False}, 'en oläsbar fil är standard, aldrig på')
         self.assertEqual(urval.main([self.slug, '--upptagna-val', 'av', '--tidigare-byggbilder', 'pa', '--skal', 'provets skäl']), 0)
-        self.assertEqual(urval.las(self.slug)['historik'], {'tidigare_byggbilder': True, 'upptagna_val': False})
+        self.assertEqual(urval.las(self.slug)['historik'], {'tidigare_byggbilder': True, 'upptagna_val': False, 'riktningshistorik': False})
 
 
 if __name__ == '__main__':

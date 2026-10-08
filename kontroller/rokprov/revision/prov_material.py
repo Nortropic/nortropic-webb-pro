@@ -85,5 +85,67 @@ class Material(unittest.TestCase):
         self.assertFalse(material.anvand(self.slug, k['id'], 'k01', 'Hero Bild')['ok'], 'platsen är en enkel sträng')
 
 
+class Skaparens_vag(unittest.TestCase):
+    """R05 (GR-20261008-06af6ff-omgranskning-codex): skaparens session når materialsteget kandidatavgränsat genom sina verkliga
+    argument, verktyget vägrar allt utanför kandidaten, och användningen redovisas i tre nivåer (kopierad, i källan, renderad)."""
+    def setUp(self):
+        self.stack = contextlib.ExitStack(); self.addCleanup(self.stack.close)
+        self.root = Path(self.stack.enter_context(korregister.egen_tmp_med('nwp-kallgap-', 'materialets väg i skaparen'))).resolve()
+        self.slug = 'prov-r05'
+        self.stack.enter_context(patch.multiple(atelje, UNDERLAG=self.root / 'underlag', KUNDER=self.root / 'kunder'))
+        self.stack.enter_context(patch.object(material, 'HEM', self.root / 'hem'))
+        (self.root / 'underlag' / self.slug).mkdir(parents=True)
+        self.k01, self.k02 = kandidater.kdir(self.slug, 'k01'), kandidater.kdir(self.slug, 'k02')
+        for k_ in ('k01', 'k02'):
+            (kandidater.ksajt(self.slug, k_) / 'src' / 'pages').mkdir(parents=True)
+        (self.k01 / 'koncept').mkdir(parents=True)
+        self.png = self.k01 / 'koncept' / 'hero__koncept-lager.png'; self.png.write_bytes(b'\x89PNG\r\n\x1a\nprov')
+
+    def test_sessionens_argument_bar_den_kandidatavgransade_vagen(self):
+        import kompetens
+        v = kandidater.verktyg(self.slug, 'k01') + kompetens.verktyg('skapa', self.slug, 'k01')
+        a = atelje.session_args(v, None, 10, 'm', 'high', (), None)
+        tillatna = a[a.index('--allowedTools') + 1:a.index('--disallowedTools')]
+        monster = 'Bash(.venv/bin/python kontroller/material.py %s --kandidat k01 *)' % self.slug
+        self.assertIn(monster, tillatna)
+        self.assertFalse(any('material.py' in x and x != monster for x in tillatna), [x for x in tillatna if 'material.py' in x])
+        self.assertNotIn('Bash', [x for x in tillatna if not x.startswith('Bash(')], 'ingen generell Bash-åtkomst')
+        self.assertNotIn('Bash(.venv/bin/python kontroller/material.py %s --kandidat k02 *)' % self.slug, tillatna)
+        p = '\n'.join(kompetens.prompt_rader('skapa', self.slug, 'k01'))
+        self.assertIn('kontroller/material.py %s --kandidat k01' % self.slug, p)
+
+    def kor(self, *args):
+        """material.py som skaparens kommando: förankrat på kunden och kandidaten som tillåtelsemönstret kräver."""
+        return material.main([self.slug, '--kandidat', 'k01', *args])
+
+    def test_kandidatens_canvas_registreras_och_anvands_i_tre_nivaer(self):
+        self.assertEqual(self.kor('--canvas', str(self.png), '--bestall', 'kompositionsstudie för hero'), 0)
+        tid = next(iter(material.las(self.slug)['tillgangar']))
+        self.assertEqual(self.kor('--anvand', tid, '--plats', 'hero'), 0)
+        a = material.anvandning(self.slug, 'k01')
+        self.assertEqual([(x['kopierad'], x['i_kallan'], x['renderad']) for x in a], [(True, False, False)], 'kopierad bevisar inte användning')
+        sajt = kandidater.ksajt(self.slug, 'k01')
+        namn = Path(a[0]['fil']).name
+        (sajt / 'src' / 'pages' / 'index.astro').write_text('---\nimport bild from "../assets/material/%s";\n---\n<img src={bild.src} alt="">\n' % namn)
+        self.assertEqual([(x['kopierad'], x['i_kallan'], x['renderad']) for x in material.anvandning(self.slug, 'k01')], [(True, True, False)])
+        (sajt / 'dist' / '_astro').mkdir(parents=True)
+        (sajt / 'dist' / '_astro' / ('%s.Ab12Cd.webp' % Path(namn).stem)).write_bytes(b'webp')
+        (sajt / 'dist' / 'index.html').write_text('<img src="/_astro/%s.Ab12Cd.webp" alt="">' % Path(namn).stem)
+        self.assertEqual([(x['kopierad'], x['i_kallan'], x['renderad']) for x in material.anvandning(self.slug, 'k01')], [(True, True, True)])
+        self.assertEqual(material.anvandning(self.slug, 'k02'), [], 'en annan kandidats användning syns inte här')
+
+    def test_allt_utanfor_kandidaten_vagras(self):
+        hemlig = self.root / 'hem' / 'nyckel.png'; hemlig.parent.mkdir(parents=True); hemlig.write_bytes(b'\x89PNG hemlig')
+        (self.k02 / 'koncept').mkdir(parents=True); annan = self.k02 / 'koncept' / 'x.png'; annan.write_bytes(b'\x89PNG k02')
+        for fil in (hemlig, annan, self.root / 'underlag' / self.slug / 'bilder' / 'foto.png'):
+            self.assertEqual(self.kor('--canvas', str(fil), '--bestall', 'x'), 1, fil)
+            self.assertEqual(self.kor('--fil', str(fil), '--bestall', 'x', '--kalla', 'x', '--rattigheter', 'x'), 1, fil)
+        lank = self.k01 / 'koncept' / 'lank.png'; lank.symlink_to(hemlig)
+        self.assertEqual(self.kor('--canvas', str(lank), '--bestall', 'x'), 1, 'en länk ut ur kandidaten')
+        self.assertEqual(material.main([self.slug, '--kandidat', 'k01', '--canvas', str(self.png), '--bestall', 'x', '--kandidat', 'k02']), 2, 'en andra --kandidat')
+        self.assertEqual(material.las(self.slug)['tillgangar'], {}, 'inget registrerades')
+        self.assertEqual(self.kor('--bestall', 'stämningsbild', '--leverantor', 'higgsfield'), 1, 'leverantörsanropet kräver konto: inget anrop')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -21,7 +21,14 @@ med Egen nej och påstår verksamhet nej; atelje.egna_bilder tar aldrig med den.
     material.py <slug> --fil <väg> --leverantor higgsfield --kalla "<var>" --rattigheter "<vad>" --bestall "<uppdrag>" [--typ video]
     material.py <slug> --canvas <png|pdf> --kandidat k01 --bestall "<vad konceptet visar>"
     material.py <slug> --anvand <id> --kandidat k01 --plats hero [--poster <bild-id>]
+    material.py <slug> --kandidat k01 --anvandning   # vad som är kopierat, importerat i källan och renderat i bygget
     material.py <slug> --visa
+
+Skaparens session når verktyget bara kandidatavgränsat (kompetens.VERKTYG['material'], R05 i
+GR-20261008-06af6ff-omgranskning-codex): kommandot börjar med `<slug> --kandidat <id>`, --kandidat får stå en gång, och en
+fil som importeras (--fil, --canvas) måste ligga i kandidatens egen katalog under ateljén; allt annat vägras. Tre nivåer
+hålls isär: lokal import och beredning (registret), leverantörsanrop (inte infört; konto krävs) och en tillgång som
+faktiskt används i renderingen (anvandning: kopierad, importerad i källan, med i bygget).
 Slutkod 0 när det begärda gjordes, 1 vid ett hinder (står i svaret), 2 vid ogiltigt anrop.
 """
 import argparse
@@ -241,7 +248,50 @@ def anvand(slug, tid, kandidat, plats, poster=None):
     return {'ok': True, 'fil': 'src/assets/material/' + namn, 'md': str(md)}
 
 
+def i_kandidaten(slug, kid, fil):
+    """Filen ligger i kandidatens egen katalog under ateljén (aldrig en länk, aldrig utanför): skaparens import är
+    kandidatavgränsad. Ger den upplösta vägen eller ValueError."""
+    import kandidater
+    rot = kandidater.kdir(slug, kid).resolve()
+    p = Path(fil)
+    p = (atelje.ROOT / p) if not p.is_absolute() else p
+    if p.is_symlink() or not p.resolve().is_relative_to(rot):
+        raise ValueError('filen ligger utanför kandidatens katalog (%s): skaparen importerar bara sitt eget material' % kandidater.rel(rot))
+    return p.resolve()
+
+
+def anvandning(slug, kid):
+    """Varje tillgång som lagts i kandidaten, i tre nivåer: kopierad (filen finns i src/assets/material/), importerad i
+    källan (en annan fil i src/ nämner filnamnet) och renderad (byggets dist/ har en fil eller en HTML-referens som bär
+    filens namn; astro:assets behåller namnet i den hashade filen). Att filen kopierats bevisar inte att den används."""
+    import kandidater
+    sajt = kandidater.ksajt(slug, kid)
+    src, dist = sajt / 'src', sajt / 'dist'
+    kallor = [p for p in src.rglob('*') if p.is_file() and not p.is_symlink() and p.suffix in ('.astro', '.md', '.mdx', '.ts', '.js', '.jsx', '.tsx', '.css')
+              and 'assets' not in p.relative_to(src).parts[:1]] if src.is_dir() else []
+    texter = {p: p.read_text(encoding='utf-8', errors='replace') for p in kallor}
+    html = [p.read_text(encoding='utf-8', errors='replace') for p in dist.rglob('*.html')] if dist.is_dir() else []
+    distfiler = [p.name for p in dist.rglob('*') if p.is_file()] if dist.is_dir() else []
+    ut = []
+    for t in las(slug)['tillgangar'].values():
+        for a in t.get('anvand') or []:
+            if a.get('kandidat') != kid:
+                continue
+            namn = Path(a['fil']).name
+            stam = Path(namn).stem
+            ut.append({'id': t['id'], 'fil': a['fil'], 'plats': a.get('plats'), 'version': a.get('version'), 'roll': t.get('roll'),
+                       'kopierad': (sajt / a['fil']).is_file(),
+                       'i_kallan': any(namn in x for x in texter.values()),
+                       'renderad': dist.is_dir() and (any(f.startswith(stam + '.') or f.startswith(stam + '_') for f in distfiler)
+                                                      or any(stam in h for h in html))})
+    return ut
+
+
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv.count('--kandidat') > 1 or sum(1 for x in argv if x.startswith('--kandidat=')) + argv.count('--kandidat') > 1:
+        print(json.dumps({'ok': False, 'hinder': '--kandidat får stå en gång'}, ensure_ascii=False))
+        return 2
     p = argparse.ArgumentParser(prog='material', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
     p.add_argument('--bestall', help='det visuella uppdraget')
@@ -258,21 +308,29 @@ def main(argv=None):
     p.add_argument('--plats')
     p.add_argument('--poster')
     p.add_argument('--visa', action='store_true')
+    p.add_argument('--anvandning', action='store_true')
     a = p.parse_args(argv)
     if not atelje.SLUG.match(a.slug):
         print('ogiltig slug', file=sys.stderr)
         return 2
     try:
+        if a.kandidat is not None and not re.fullmatch(r'k\d\d', a.kandidat):
+            raise ValueError('kandidaten anges som kNN')
         if a.visa:
             ut = las(a.slug)
+        elif a.anvandning:
+            if not a.kandidat:
+                raise ValueError('--anvandning kräver --kandidat')
+            ut = {'ok': True, 'anvandning': anvandning(a.slug, a.kandidat)}
         elif a.canvas:
             if not a.kandidat or not a.bestall:
                 raise ValueError('--canvas kräver --kandidat och --bestall')
-            ut = canvas(a.slug, a.canvas, a.kandidat, a.bestall)
+            ut = canvas(a.slug, i_kandidaten(a.slug, a.kandidat, a.canvas), a.kandidat, a.bestall)
         elif a.fil:
             if not a.bestall or not a.kalla or not a.rattigheter:
                 raise ValueError('--fil kräver --bestall, --kalla och --rattigheter')
-            ut = importera(a.slug, a.fil, a.leverantor, a.bestall, a.kalla, a.rattigheter, typ=a.typ, roll=a.roll, kandidat=a.kandidat)
+            fil = i_kandidaten(a.slug, a.kandidat, a.fil) if a.kandidat else a.fil  # ägarens import utan --kandidat; skaparens bara ur kandidaten
+            ut = importera(a.slug, fil, a.leverantor, a.bestall, a.kalla, a.rattigheter, typ=a.typ, roll=a.roll, kandidat=a.kandidat)
         elif a.anvand:
             ut = anvand(a.slug, a.anvand, a.kandidat, a.plats, a.poster)
         elif a.bestall:
