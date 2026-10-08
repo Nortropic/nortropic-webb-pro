@@ -2822,6 +2822,8 @@ fyra, dokumentprovets tre, flödesvyns två), 48 återstår: 37 genomförbara (s
 
 ## Tillägg 2026-10-08: ägarens uppdrag ~14:35Z — ren start för Nortropic 2.0 och samlad startbesiktning (köat)
 
+**Status:** gäller; köat 2026-10-08 (commit 7f77316, backlogposten B-20261008-ren-start-for-nortropic-2-0-och-samlad-startbesi); genomförs efter backlogavstämningen, delarna 3 och 5–7 sist på den gemensamma versionen.
+
 Ägaren klistrade uppdraget i sessionen mitt i backlogavstämningen (tillägget ovan). Plats i ordningen: efter det pågående
 uppdraget (backlogavstämningen 2026-10-08: steg 1–3 och slutrapporten) och före nästa ordinarie helbygge; inget parallellt
 projekt och ingen avbruten provkörning. Backlogposten: `B-20261008-ren-start-for-nortropic-2-0-och-samlad-startbesi.md`. Codex motorinventering som
@@ -2960,6 +2962,8 @@ Börja med att köa uppdraget och bekräfta dess plats efter det pågående arbe
 ```
 
 ## Tillägg 2026-10-08: ägarens uppdrag ~14:58Z — slutför tidigare beställt införande (köat)
+
+**Status:** gäller; köat 2026-10-08 (commit 62271a4, backlogposten B-20261008-slutfor-tidigare-bestallt-inforande-k01-k26-kund); genomförs efter backlogavstämningen, före ren start-uppdragets startbesiktning.
 
 Ägaren klistrade uppdraget i sessionen strax efter uppdraget om ren start (tillägget ovan). Plats i ordningen: efter det
 pågående uppdraget (backlogavstämningen 2026-10-08), sedan detta uppdrags del 1–5 tillsammans med ren start-uppdragets del 1–2
