@@ -1356,8 +1356,9 @@ const dokN = (n, en, flera) => `${n} ${n === 1 ? en : flera}`;  // numerus i lö
 const dokAvsandare = (a) => a === 'avsändaren ej belagd' ? a : `avsändare: ${a}`;
 const dokGaller = (r) => dokText([r.systemdel, r.uppdrag, r.kund, r.moment].find((v) => v && v !== DOK_EJ) || DOK_EJ);
 const FALTNAMN = { granskad_identitet: 'granskad identitet', rapportstatus: 'rapportstatus', bedomningsutfall: 'bedömningsutfall', datum: 'datum' };
-// ägarens dom i ett sammansatt utfall är en egen rad med ägaren som avsändare (granskningen av r99, BÖR-4)
-const dokAgarensDom = (r) => (r.agarens_dom || []).map((a) => `<div class="not"><strong>Ägarens dom</strong> (${esc(dokAvsandare(a.avsandare))}): ${kodtext(a.text.replace(/^ägarens (?:dom|beslut|bedömning)\s*/i, ''))}</div>`).join('');
+// ägarens dom i ett sammansatt utfall är en egen rad (granskningen av r99, BÖR-4); ägarens bara med ett belägg, annars
+// "enligt rapporten" med avsändaren ej belagd (GR-20261007-r99-om, BÖR-1)
+const dokAgarensDom = (r) => (r.agarens_dom || []).map((a) => `<div class="not"><strong>${a.belagd ? 'Ägarens dom' : 'Ägarens dom enligt rapporten'}</strong> (${esc(dokAvsandare(a.avsandare))})${a.belagd && a.belagg ? ` · belagd i <code>${esc(a.belagg)}</code>` : ''}: ${kodtext(a.text.replace(/^ägarens (?:dom|beslut|bedömning)\s*/i, ''))}</div>`).join('');
 const dokDelar = (r) => (r.agarens_dom || []).length ? `<div class="not">Rapportens eget utfall: ${esc(r.utfall_rapport)} (${esc(dokAvsandare(r.avsandare))})</div>${dokAgarensDom(r)}` : '';
 // rättade slutsatser och giltighet ur rapporthuvudet (rattelser, giltighet; granskningen av r99, BÖR-7)
 const dokRattchips = (r) => `${(r.rattelser || []).length ? `<span class="chip gul">${esc(dokN(r.rattelser.length, 'rättelse', 'rättelser'))}</span>` : ''}${r.giltighet && r.giltighet !== DOK_EJ ? `<span class="chip gul">giltighet: ${esc(dokText(r.giltighet).slice(0, 60))}</span>` : ''}`;

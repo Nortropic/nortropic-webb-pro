@@ -2219,12 +2219,15 @@ def _delar(t):
     return [d.strip() for d in ut + [t[start:]] if d.strip()]
 
 
-def utfallet(v, avsandare=None):
+def utfallet(v, avsandare=None, belagg=None):
     """Bedömningsutfallet som ett eller flera utfall (granskningen av r99, BÖR-4): rapportens egna delar klassas var för
-    sig efter hur de börjar (en del som inte börjar med en klass är en kommentar), och en del som är ägarens dom ("ägarens
-    dom 2026-10-07: inte ännu") blir en egen rad med ägaren som avsändare, så att den inte skrivs över av rapportens.
-    Ger (klassen, rapportens klass, ägarens domar). Klassen är blandat när delarna inte säger samma sak: då blir inget
-    av dem ett godkännande i sammanfattningen."""
+    sig efter hur de börjar (en del som inte börjar med en klass är en kommentar), och en del som säger ägarens dom
+    ("ägarens dom 2026-10-07: inte ännu") blir en egen rad, så att den inte skrivs över av rapportens. Den är ägarens bara
+    när ett fält belägger den (belagg, ur _agarens_belagg: ett VERSION.json bredvid rapporten vars agarens_dom har en
+    avsändare, och vars utfall och fil står i delen); annars är den "ägarens dom enligt rapporten" med avsändaren ej
+    belagd, som _pilotdomar gör med ett fält utan avsändare (granskningen GR-20261007-r99-om, BÖR-1). En obelagd del
+    ensam ger aldrig rapportens klass. Ger (klassen, rapportens klass, ägarens domar). Klassen är blandat när delarna inte
+    säger samma sak: då blir inget av dem ett godkännande i sammanfattningen."""
     t = _text(v).strip()
     if not t or t == EJ:
         return EJ, EJ, []
@@ -2232,13 +2235,41 @@ def utfallet(v, avsandare=None):
     for d in _delar(t):
         if AGARENS_DEL.match(d):
             dom = d.split(':', 1)[1].strip() if ':' in d else d
-            agaren.append({'text': d, 'klass': utfallsklass(dom), 'avsandare': 'ägaren'})
+            b = next((x for x in belagg or () if x['sokvag'] in d and dom.casefold().startswith(x['utfall'].casefold())), None)
+            agaren.append(dict({'text': d, 'klass': utfallsklass(dom)}, **({'avsandare': 'ägaren', 'belagd': True, 'belagg': b['fil']} if b else
+                                                                          {'avsandare': EJ_BELAGD, 'belagd': False, 'enligt': 'rapporten'})))
         else:
             egna.append(d)
     klasser = [k for k in (utfallsklass(d) for d in egna) if k not in ('annat', EJ)]
     rapportens = (klasser[0] if len(set(klasser)) == 1 else 'blandat') if klasser else (utfallsklass(egna[0]) if egna else EJ)
-    alla = {rapportens} | {a['klass'] for a in agaren} if egna else {a['klass'] for a in agaren}
-    return (next(iter(alla)) if len(alla) == 1 else 'blandat'), rapportens, agaren
+    alla = {rapportens} | {a['klass'] for a in agaren} if egna else {a['klass'] for a in agaren if a['belagd']}
+    return (next(iter(alla)) if len(alla) == 1 else 'blandat' if alla else EJ), rapportens, agaren
+
+
+def _agarens_belagg(p):
+    """Beläggen för ägarens domar i rapporten p: varje VERSION.json i rapportens katalog och katalogerna direkt under den
+    (ett pilotmoment) vars agarens_dom har en avsändare, ett utfall och en fil i momentet. [{'fil': VERSION.json:s sökväg
+    från rapportens katalog, 'sokvag': domens fil därifrån, 'utfall', 'avsandare'}]. Inget följer en länk."""
+    ut, rot = [], Path(p).parent
+    try:
+        kandidater = [rot / 'VERSION.json'] + sorted(rot.glob('*/VERSION.json'))
+    except OSError:
+        return ut
+    for v in kandidater:
+        try:
+            if v.is_symlink() or v.parent.is_symlink() or not v.is_file():
+                continue
+            d = json.loads(v.read_text(encoding='utf-8'))
+        except (OSError, ValueError, UnicodeDecodeError):
+            continue
+        a = d.get('agarens_dom') if isinstance(d, dict) else None
+        if not isinstance(a, dict):
+            continue
+        avs, utf, fil = (str(a.get(k) or '').strip() for k in ('avsandare', 'utfall', 'fil'))
+        if not avs or avs == EJ_BELAGD or not utf or not fil or Path(fil).is_absolute() or '..' in Path(fil).parts:
+            continue
+        ut.append({'fil': v.relative_to(rot).as_posix(), 'sokvag': (v.parent.relative_to(rot) / fil).as_posix(), 'utfall': utf, 'avsandare': avs})
+    return ut
 
 
 def rapportstatusklass(v):
@@ -2277,7 +2308,8 @@ def _rapport(p, slag):
     falt, lage = rapporthuvud(text)
     ut = {k: _falt(falt, k) for k in RAPPORTFALT}
     avsandare = _avsandare(falt)
-    utfall, rapportens, agaren = utfallet(ut['bedomningsutfall'], avsandare)
+    belagg = _agarens_belagg(p) if any(AGARENS_DEL.match(d) for d in _delar(_text(ut['bedomningsutfall']))) else []
+    utfall, rapportens, agaren = utfallet(ut['bedomningsutfall'], avsandare, belagg)
     ut.update(slag=slag, huvud=lage, avsandare=avsandare, utfall=utfall, utfall_rapport=rapportens, agarens_dom=agaren,
               rapportstatus_klass=rapportstatusklass(ut['rapportstatus']), version=_version(ut['granskad_identitet']),
               rattelser=[] if ut['rattelser'] == EJ else (ut['rattelser'] if isinstance(ut['rattelser'], list) else [ut['rattelser']]),
@@ -2330,23 +2362,27 @@ def granskningsrapporter():
     """Rapporterna med huvud (underlag/granskningar/GR-*.md, lägesrapporterna i underlag/rapporter/ och
     projektrapporterna utanför flödet, underlag/<uppdrag>/*.md med id och rapportstatus i huvudet) och förteckningens
     äldre rapporter utan huvud, med förteckningens integritet. Varje rapport är den verkliga filen (_rapportfil), en gång,
-    och bara om fil_tillaten låter dashboarden visa den."""
+    och bara om fil_tillaten låter dashboarden visa den. En fil räknas efter sin verkliga sökväg i NFC (_kanonisk löser
+    ./, // och länkar), så att två förteckningsrader för samma fil, också i NFC och NFD, ger en rapport och en rad i
+    listorna över saknade och ändrade filer (granskningen GR-20261007-r99-om, KAN-4)."""
     import startkontroll
+    import unicodedata
     ut, kanda = [], {}
+    nyckel = lambda s_: unicodedata.normalize('NFC', s_)  # noqa: E731
 
     def lagg_till(rel, slag):
         r = _rapport(_under(rel), slag)
-        kanda[rel] = r
+        kanda[nyckel(rel)] = r
         ut.append(r)
         return r
 
     for p in sorted((UNDERLAG / 'granskningar').glob('GR-*.md')):
         rel = _rapportfil('underlag/granskningar/' + p.name)
-        if rel and rel not in kanda and rel.startswith('underlag/granskningar/GR-') and rel.count('/') == 2:
+        if rel and nyckel(rel) not in kanda and rel.startswith('underlag/granskningar/GR-') and rel.count('/') == 2:
             lagg_till(rel, 'systemgranskning')
     for p in sorted((UNDERLAG / 'rapporter').glob('*.md')):
         rel = _rapportfil('underlag/rapporter/' + p.name)
-        if rel and rel not in kanda and rel.startswith('underlag/rapporter/') and rel.count('/') == 2:
+        if rel and nyckel(rel) not in kanda and rel.startswith('underlag/rapporter/') and rel.count('/') == 2:
             lagg_till(rel, 'lägesrapport')
     egna = set(flode_slugar()) | {'granskningar', 'rapporter'}  # kundernas kataloger och de två ovan har sina egna delar
     for d in sorted(UNDERLAG.iterdir()) if UNDERLAG.is_dir() else []:
@@ -2354,16 +2390,16 @@ def granskningsrapporter():
             continue
         for p in sorted(d.glob('*.md')):
             rel = _rapportfil('underlag/%s/%s' % (d.name, p.name))
-            if not rel or rel in kanda or rel.count('/') != 2 or rel.split('/')[1] in egna:
+            if not rel or nyckel(rel) in kanda or rel.count('/') != 2 or rel.split('/')[1] in egna:
                 continue  # också en katalog som är en länk dit: det är den verkliga filen som räknas
             r = _rapport(_under(rel), 'projektrapport')
             if r['huvud'] == 'ok' and r['id'] != EJ and r['rapportstatus'] != EJ:
-                kanda[rel] = r
+                kanda[nyckel(rel)] = r
                 ut.append(r)
     rader, fel_ = forteckningen()
     lage = {'finns': rader is not None, 'fel': fel_, 'poster': 0, 'trasiga_rader': 0, 'dolda': 0,
             'integritet': {k: 0 for k in INTEGRITET}, 'saknas': [], 'fel_sha': [], 'not': INTEGRITET_NOT}
-    rot = UNDERLAG.parent
+    rot, listade = UNDERLAG.parent, {'saknas': set(), 'fel_sha': set()}
     for rad, d in rader or []:
         lage['poster'] += 1
         integ = startkontroll.forteckningsrad(rot, rad)
@@ -2376,11 +2412,12 @@ def granskningsrapporter():
             lage['dolda'] += 1
             continue
         sokvag = k[0]  # den verkliga filen, också när raden skrivits med ./, //, .., en länk eller ett annat skiftläge
-        if integ in ('saknas', 'fel_sha'):
+        if integ in ('saknas', 'fel_sha') and nyckel(sokvag) not in listade[integ]:  # en gång per fil (KAN-4)
+            listade[integ].add(nyckel(sokvag))
             lage[integ].append(sokvag)
-        if sokvag in kanda:  # samma fil på en rad till (som ./ eller via en länk): den första raden för filen gäller
-            if kanda[sokvag].get('forteckning') is None:
-                kanda[sokvag]['forteckning'] = _forteckningspost(d, integ)
+        if nyckel(sokvag) in kanda:  # samma fil på en rad till (./, en länk, NFC eller NFD): den första raden för filen gäller
+            if kanda[nyckel(sokvag)].get('forteckning') is None:
+                kanda[nyckel(sokvag)]['forteckning'] = _forteckningspost(d, integ)
             continue
         if not sokvag.endswith('.md') or str(d.get('slag') or '').startswith(('bevis', 'mätskript')):
             continue  # bevis och mätskript är underlag till en rapport, inga egna rapporter
@@ -2394,7 +2431,7 @@ def granskningsrapporter():
         r['forteckning'] = _forteckningspost(d, integ)
         if r['typgrupp'] == EJ:  # typen står inte i rapporten; förteckningens slag visas som sådant
             r['typgrupp'] = '%s (förteckningens slag)' % r['forteckning']['slag'].split(' (')[0]
-        kanda[sokvag] = r
+        kanda[nyckel(sokvag)] = r
         ut.append(r)
     return ut, lage
 

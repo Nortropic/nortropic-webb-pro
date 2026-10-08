@@ -845,29 +845,62 @@ def _renderingen():
         assert namn in flikar, namn
 
 
-# Granskningarna som var registrerade i underlag/granskningar/ när provet skrevs, 2026-10-07: GR-filerna och
-# förteckningens systemgranskningar, bara id:n och inget innehåll. Rundor efter r99 prövas inte här; registreras en
-# granskning till r99 eller hänvisar koden till en ny runda till och med r99, uppdateras listorna.
-REGISTRERADE_GR = ('GR-20261006-r94-slut', 'GR-20261006-r96-om', 'GR-20261006-r98', 'GR-20261007-r96-om2', 'GR-20261007-r96-om3',
-                   'GR-20261007-r97', 'GR-20261007-r97-om', 'GR-20261007-r99')
-REGISTRERADE_SESSIONER = ('r70-r71', 'r72', 'r73', 'r74', 'r75', 'r76', 'r77', 'r79', 'r80', 'r81', 'r85', 'r86', 'r88', 'r92', 'r92b',
-                          'r92c', 'r92d', 'r93', 'r94-om', 'r94', 'r95', 'r96', 'steg1', 'steg2')
-SAKNADE_I_REPOT = ['r53', 'r54', 'r54b', 'r58', 'r59', 'r60', 'r62']
-
-
-@fall('saknade rapporter i repots eget kodträd: de riktiga r53–r62 och ingen ur provens fixturtext (B1)')
-def _saknade_i_repot():
-    rapporter = [{'slag': 'systemgranskning', 'fil': {'sokvag': 'underlag/granskningar/%s.md' % x}} for x in REGISTRERADE_GR]
-    rader = [('', {'fil': 'granskningar/sessioner/ab0a716f/GRANSKNING-%s.md' % x, 'slag': 'systemgranskning'}) for x in REGISTRERADE_SESSIONER]
-    dash.ROOT = ROOT
+def _registret():
+    """Registret som vyn läser det, ur repots egen underlag/: GR-filerna i underlag/granskningar/ och förteckningens rader
+    (dash.forteckningen). None när underlag/ saknas, som i en worktree eller kopia utan det privata materialet
+    (granskningen GR-20261007-r99-om, KAN-3: registret läses, det skrivs inte av i provet)."""
+    g_ = ROOT / 'underlag' / 'granskningar'
+    if not g_.is_dir():
+        return None
+    rapporter = [{'slag': 'systemgranskning', 'fil': {'sokvag': 'underlag/granskningar/%s' % p.name}} for p in sorted(g_.glob('GR-*.md'))]
+    spara = dash.UNDERLAG
+    dash.UNDERLAG = ROOT / 'underlag'
     try:
-        s = dash.saknade_rapporter(rapporter, rader)
+        rader, _fel = dash.forteckningen()
+    finally:
+        dash.UNDERLAG = spara
+    return rapporter, rader or []
+
+
+def _beslutets_saknade():
+    """Rundorna vars rapporter BESLUT.md, Återstår, säger saknas och inte återskapas: (första, sista)."""
+    m = re.search(r'rapporterna för granskningarna r(\d+)–r(\d+), som koden hänvisar till, saknas', (ROOT / 'BESLUT.md').read_text(encoding='utf-8'))
+    assert m, 'BESLUT.md, Återstår, nämner inte de saknade rapporterna (rNN–rMM)'
+    return int(m.group(1)), int(m.group(2))
+
+
+def _saknade(rot, register):
+    dash.ROOT = rot
+    try:
+        return dash.saknade_rapporter(*register)
     finally:
         dash.ROOT = TMP
-    till_r99 = [x['runda'] for x in s if dash._rundnyckel(x['runda']) <= (99, 'z')]
-    assert till_r99 == SAKNADE_I_REPOT, ('saknade rapporter i repots kodträd', till_r99, [(x['runda'], x['var'][:2]) for x in s if x['runda'] not in SAKNADE_I_REPOT][:4])
+
+
+@fall('saknade rapporter i repots eget kodträd: registret läses ur underlag/, de saknade till r99 är de som BESLUT.md säger, och ingen ur provens fixturtext (B1, GR-20261007-r99-om KAN-3)')
+def _saknade_i_repot():
+    register = _registret()
+    s = _saknade(ROOT, register or ([], []))
     i_proven = [v for x in s for v in x['var'] if 'prov_dokumentationsvy' in v]
     assert not i_proven, ('provets egen fixturtext räknas som en hänvisning', i_proven)
+    if register is None:
+        print('obs: underlag/ finns inte i den här utcheckningen; repots register prövas inte, bara regeln med fixturen', file=sys.stderr)
+        return
+    lo, hi = _beslutets_saknade()
+    till_r99 = [x['runda'] for x in s if dash._rundnyckel(x['runda']) <= (99, 'z')]
+    utanfor = [(x['runda'], x['var'][:2]) for x in s if x['runda'] in till_r99 and not lo <= dash._rundnyckel(x['runda'])[0] <= hi]
+    assert till_r99 and not utanfor, ('saknade rapporter i repots kodträd som BESLUT.md, Återstår (r%d–r%d), inte nämner' % (lo, hi), utanfor)
+
+
+@fall('registret avgör: en ny hänvisning till en registrerad runda är ingen saknad rapport, en till en oregistrerad är det, med rundans namn (GR-20261007-r99-om KAN-3)')
+def _registret_avgor():
+    rot_ = TMP / 'saknade-regel'
+    g_ = 'granskningen'  # delad, så att provets egen text inte blir en hänvisning i repots kodträd
+    skriv(rot_ / 'kontroller' / 'x.py', '# %s av r63 och r64\n# om%s av r65\n' % (g_, g_))
+    register = ([{'slag': 'systemgranskning', 'fil': {'sokvag': 'underlag/granskningar/GR-20261001-r63.md'}}],
+                [('', {'fil': 'granskningar/sessioner/x/GRANSKNING-r65.md', 'slag': 'systemgranskning'})])
+    s = _saknade(rot_, register)
+    assert [(x['runda'], x['var']) for x in s] == [('r64', ['kontroller/x.py:1'])], s
 
 
 @fall('förteckningens rader prövas som den verkliga filen: ./, //, .., en katalogsymlänk och versaler visar och länkar inget dolt (BÖR-1)')
@@ -961,6 +994,63 @@ def _sammansatt_utfall():
     assert dash.utfallet('godkänt mot A; underkänt mot B', 'x')[:2] == ('blandat', 'blandat')
     assert dash.utfallet('godkänt; ägarens dom: godkänt', 'x')[0] == 'godkänt' and dash.utfallet('godkänt; Ägarens beslut: nej', 'x')[0] == 'blandat'
     assert dash.utfallsklass('underkänt: två av tre delar godkända') == 'underkänt', 'klassen efter början, inte en delsträng'
+
+
+@fall('ägarens dom i ett utfall är ägarens bara med ett belägg: obelagd står den enligt rapporten, med avsändaren ej belagd och utan grönt chip; C5 har sitt belägg (GR-20261007-r99-om, BÖR-1)')
+def _agarens_dom_belagg():
+    rot_ = TMP / 'agar-prov'  # utanför serverns underlag: provets räknade rapporter ändras inte
+    skriv(rot_ / 'RAPPORT-agar.md', huvud(id='RAPPORT-2026-10-08-agar', titel='Ägarens dom enligt rapporten', typ='projektrapport (prov)',
+                                         rapportstatus='färdig', datum='2026-10-08',
+                                         bedomningsutfall='ägarens dom: godkänt; ägarens beslut 2026-10-07: nästan (moment-x/bedomningar/DOM.md)'))
+    # ett moment vars agarens_dom saknar avsändare belägger ingenting, också när utfallet och filen stämmer
+    skriv(rot_ / 'moment-x' / 'VERSION.json', {'moment': 'X', 'agarens_dom': {'version': 'v1', 'utfall': 'nästan', 'fil': 'bedomningar/DOM.md'}})
+    skriv(rot_ / 'moment-x' / 'bedomningar' / 'DOM.md', '# Dom\n')
+    r = dash._rapport(rot_ / 'RAPPORT-agar.md', 'projektrapport')
+    assert [(a['avsandare'], a['belagd'], a.get('enligt')) for a in r['agarens_dom']] == [(dash.EJ_BELAGD, False, 'rapporten')] * 2, r['agarens_dom']
+    assert (r['utfall'], r['utfall_rapport']) == (dash.EJ, dash.EJ), (r['utfall'], r['utfall_rapport'])
+    d = svar()
+    c5 = rapport(d, 'RAPPORT-2026-10-06-pilot')['agarens_dom']
+    assert [(a['avsandare'], a['belagd'], a.get('belagg')) for a in c5] == [('ägaren', True, 'moment-c/VERSION.json')], c5
+    d2 = json.loads(json.dumps(d, ensure_ascii=False))
+    d2['granskningar']['rapporter'].append(json.loads(json.dumps(r, ensure_ascii=False)))
+    v = vyn(d2)
+    html = v['rapporter']['RAPPORT-2026-10-08-agar']
+    assert html.count('<strong>Ägarens dom enligt rapporten</strong> (avsändaren ej belagd)') == 2 and '(avsändare: ägaren)' not in html, html[:1500]
+    assert 'class="chip ok">utfall' not in html, html[:900]
+    assert '<strong>Ägarens dom</strong> (avsändare: ägaren) · belagd i <code>moment-c/VERSION.json</code>' in v['rapporter']['RAPPORT-2026-10-06-pilot']
+    # direkt: en obelagd ägardel ensam ger ingen klass, med ett belägg gäller den, och en egen del gäller som förut
+    assert dash.utfallet('ägarens dom: godkänt', 'x')[0] == dash.EJ
+    assert dash.utfallet('ägarens dom: godkänt (m/D.md)', 'x', [{'fil': 'm/VERSION.json', 'sokvag': 'm/D.md', 'utfall': 'godkänt', 'avsandare': 'ägaren'}])[0] == 'godkänt'
+    assert dash.utfallet('ägarens dom: godkänt (m/E.md)', 'x', [{'fil': 'm/VERSION.json', 'sokvag': 'm/D.md', 'utfall': 'godkänt', 'avsandare': 'ägaren'}])[0] == dash.EJ, \
+        'ett belägg för en annan fil gäller inte'
+    assert dash.utfallet('godkänt; ägarens dom: underkänt', 'x')[0] == 'blandat', 'en obelagd ägardel som säger emot gör utfallet blandat'
+
+
+@fall('en fil med två förteckningsrader (./, NFC och NFD) står en gång i listorna över saknade och ändrade filer, och som rapport en gång (GR-20261007-r99-om, KAN-4)')
+def _dubbla_forteckningsrader():
+    import unicodedata
+    nfc = lambda s_: unicodedata.normalize('NFC', s_)  # noqa: E731
+    namn_ = 'granskningar/sessioner/abc/GRANSKNING-r71-översyn.md'  # finns inte: saknas, i två Unicode-former
+    extra_ = [{'fil': './granskningar/sessioner/abc/GRANSKNING-r72.md', 'sha256': sha(b'som det var'), 'slag': 'systemgranskning', 'bas': 'underlag/'},
+              {'fil': './granskningar/sessioner/abc/GRANSKNING-r71.md', 'sha256': sha(b'borta'), 'slag': 'systemgranskning', 'bas': 'underlag/'},
+              {'fil': unicodedata.normalize('NFC', namn_), 'sha256': sha(b'x'), 'slag': 'systemgranskning', 'bas': 'underlag/'},
+              {'fil': unicodedata.normalize('NFD', namn_), 'sha256': sha(b'x'), 'slag': 'systemgranskning', 'bas': 'underlag/'}]
+    assert extra_[2]['fil'] != extra_[3]['fil'], 'provet behöver två olika former'
+    spara = dash.forteckningen
+
+    def med_dubbla():
+        rader, fel = spara()
+        return (rader or []) + [(json.dumps(x, ensure_ascii=False), x) for x in extra_], fel
+    dash.forteckningen = med_dubbla
+    try:
+        rapporter, lage = dash.granskningsrapporter()
+    finally:
+        dash.forteckningen = spara
+    assert [nfc(x) for x in lage['saknas']] == ['underlag/granskningar/sessioner/abc/GRANSKNING-r71.md', nfc('underlag/' + namn_)], lage['saknas']
+    assert lage['fel_sha'] == ['underlag/granskningar/sessioner/abc/GRANSKNING-r72.md'], lage['fel_sha']
+    sok_ = [nfc((r.get('fil') or {}).get('sokvag') or '') for r in rapporter]
+    for s_ in ('underlag/granskningar/sessioner/abc/GRANSKNING-r72.md', 'underlag/granskningar/sessioner/abc/GRANSKNING-r71.md', nfc('underlag/' + namn_)):
+        assert sok_.count(s_) == 1, (s_, sok_.count(s_))
 
 
 @fall('instruktionerna i repot: de två historiska filerna i kunskap/ börjar med sin statusrad (BÖR-6)')
