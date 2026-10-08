@@ -1,12 +1,13 @@
 ---
 id: B-20261003-rapportens-punkt-14-far-ett-klistringsfardigt-pr
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Jono Catliff, Claude Code Local SEO Agent (YouTube vwzV-YsVswA)
 skapad: 2026-10-03
 prio: normal
 steg: 7 (rapport punkt 14, lokal synlighet)
-andrad: 2026-10-05T06:55Z
+commit: 43f21e0
+andrad: 2026-10-08T15:22Z
 ---
 # Rapportens punkt 14 får ett klistringsfärdigt profilblad för Google-företagsprofilen ur VERKSAMHET.json, med avvikelserna först
 
