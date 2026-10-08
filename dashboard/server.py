@@ -1674,7 +1674,7 @@ def flodesbesked(slug, blind=False):
         dolt = blind and namn in ('designgranskaren_godkanner', 'agaren_godkanner', 'klart_for_leverans')
         v = None if dolt or tidigare else p.get('varde')
         status = ('dolt före ditt val' if dolt else 'saknas' if not p else 'historiskt' if tidigare or p.get('historik') is not None
-                  else 'ja' if v is True else 'nej' if v is False else 'ej bedömt')
+                  else 'ja' if v is True else 'ja med villkor' if v == korslut.VILLKORAT else 'nej' if v is False else 'ej bedömt')
         tillstand.append({'id': namn, 'namn': rubrik, 'varde': v, 'status': status,
                           'text': 'visas efter ditt val' if dolt else 'Beskedet gäller föregående körning. ' + str(p.get('text') or '') if tidigare else str(p.get('text') or 'inget slutbesked finns'),
                           'omfattning': None if dolt else p.get('omfattning')})

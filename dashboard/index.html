@@ -1240,7 +1240,7 @@ function flodesbesked(b, handlingar, slug, miljo) {
   return `<section class="kort" aria-labelledby="flode-besked-rubrik" style="margin-bottom:18px">
     <h3 id="flode-besked-rubrik" tabindex="-1" style="margin-top:0">Aktuellt besked</h3>
     <p class="under">${b?.version ? 'Byggversion ' + esc(b.version.slice(0, 12)) + ' · ' : ''}${b?.tid ? 'Slutpost ' + tid(b.tid) : 'Ingen slutpost än'}. Godkännandena gäller bara angiven version och omfattning.</p>
-    <dl class="flodesbesked">${rader.map((r) => `<div><dt>${esc(r.namn)} <span class="chip ${r.status === 'ja' ? 'ok' : r.status === 'nej' ? 'rod' : r.status === 'historiskt' ? 'gul' : ''}">${esc(r.status)}</span></dt>
+    <dl class="flodesbesked">${rader.map((r) => `<div><dt>${esc(r.namn)} <span class="chip ${r.status === 'ja' ? 'ok' : r.status === 'nej' ? 'rod' : r.status === 'historiskt' || r.status === 'ja med villkor' ? 'gul' : ''}">${esc(r.status)}</span></dt>
       <dd>${esc(r.text)}${r.omfattning ? `<p class="under" style="margin:4px 0 0">Omfattning: ${esc(r.omfattning)}</p>` : ''}</dd></div>`).join('')}</dl>
     ${flodelista('Kontrollera underlaget', b?.filer)}
     ${miljo ? `<p class="under">Startmiljö: sandlåda ${esc(miljo.sandlada)}${miljo.kundstart_lager ? ' · Kundstarts ärendelager finns' : ''} (ärvd från dashboardens process).</p>` : ''}

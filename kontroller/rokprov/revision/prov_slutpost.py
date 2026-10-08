@@ -417,8 +417,14 @@ def _tillstanden():
     fore = sha(k / 'korningar' / ny / 'SLUT.json')
     skriv(k / 'DOM.json', {'domar': [{'tid': '2026-10-07T10:00:00Z', 'bygge_dist': h[:12], 'svar': {'namn': 'Ja, efter små ändringar'}}]})
     a = korslut.aktuell(k)
-    assert a['tillstand']['agaren_godkanner']['varde'] is False and 'ja med villkor' in a['tillstand']['agaren_godkanner']['text'], a['tillstand']['agaren_godkanner']
+    # ett ja med villkor är ett eget värde, varken ja eller nej, och inget godkännande för leveransen (GR-20261007-r101-om, KAN-7)
+    assert a['tillstand']['agaren_godkanner']['varde'] == korslut.VILLKORAT == 'villkorat' and 'ja med villkor' in a['tillstand']['agaren_godkanner']['text'], a['tillstand']['agaren_godkanner']
     assert a['tillstand']['klart_for_leverans']['varde'] is False and 'tolkning' in a['tillstand']['agaren_godkanner']['text'], a['tillstand']['klart_for_leverans']
+    assert 'med villkor (efter små ändringar)' in a['tillstand']['klart_for_leverans']['text'], a['tillstand']['klart_for_leverans']
+    _, vt_ = visa(k)
+    assert rad(vt_, 'ägaren godkänner:').startswith('ägaren godkänner: ja med villkor'), rad(vt_, 'ägaren')
+    skriv(k / 'DOM.json', {'domar': [{'tid': '2026-10-07T10:30:00Z', 'bygge_dist': h[:12], 'svar': {'namn': 'Nej, inte utan större ändringar'}}]})
+    assert korslut.aktuell(k)['tillstand']['agaren_godkanner']['varde'] is False, 'ett nej är fortfarande nej'
     skriv(k / 'DOM.json', {'domar': [{'tid': '2026-10-07T11:00:00Z', 'bygge_dist': 'a' * 12, 'svar': {'namn': 'Ja, som den är'}}]})
     assert korslut.aktuell(k)['tillstand']['agaren_godkanner']['varde'] is None, 'en dom över ett annat bygge räknas (M08)'
     skriv(k / 'DOM.json', {'domar': [{'tid': '2026-10-07T11:00:00Z', 'bygge_dist': h[:12], 'svar': {'namn': 'Ja, som den är'}}]})

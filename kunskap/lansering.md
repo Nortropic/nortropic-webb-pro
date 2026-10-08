@@ -20,7 +20,8 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
 2. **Ägarens dom över bygget** skrivs i dashboarden (bygget, fliken Din dom) till `kunder/<slug>/DOM.json`, med byggets
    dist-hash, när inget bygge pågår: under en körning är filen låst, och en dom som tillkommer då räknas inte.
    Slutposten räknar svaret "Ja, som den är" på frågan om ägaren sätter sitt namn på sajten som ägarens godkännande.
-   Det är Claudes tolkning av kärnfrågan och inte bekräftad av ägaren; "Ja, efter små ändringar" räknas inte.
+   Det är Claudes tolkning av kärnfrågan och inte bekräftad av ägaren; "Ja, efter små ändringar" räknas inte, och
+   posten och dashboarden visar det som ett eget värde, ja med villkor (`villkorat`), skilt från nej.
    `.venv/bin/python kontroller/korslut.py --visa kunder/<slug>` prövar domen mot posten, och har bygget, metoden eller
    startsidans godkännande ändrats sedan körningen är bygget inte klart för leverans.
 3. **Exporten** (ägaren eller en session): `.venv/bin/python kontroller/exportera.py <slug> [--git]`. Den lägger

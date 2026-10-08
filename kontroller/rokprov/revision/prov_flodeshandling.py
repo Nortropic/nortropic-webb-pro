@@ -51,6 +51,15 @@ class Flodeshandling(unittest.TestCase):
         self.assertTrue(s['tillstand'][1]['varde'])
         self.assertEqual(s['tillstand'][1]['status'], 'ja')
 
+    def test_villkorat_godkannande_visas_for_sig(self):
+        # GR-20261007-r101-om#KAN-7: "Ja, efter små ändringar" är ett eget värde i slutposten, och vyn visar det för sig
+        p = self.post()
+        p['tillstand']['agaren_godkanner'] = {'varde': korslut.VILLKORAT, 'text': 'kärnfrågan namn: Ja, efter små ändringar'}
+        with patch.object(korslut, 'aktuell', return_value=p), patch.object(ateljeslut, 'aktuell', return_value=None):
+            s = dash.flodesbesked(self.slug, blind=False)
+        ag = next(x for x in s['tillstand'] if x['id'] == 'agaren_godkanner')
+        self.assertEqual((ag['varde'], ag['status']), ('villkorat', 'ja med villkor'))
+
     def test_historik_blir_inte_gron(self):
         with patch.object(korslut, 'aktuell', return_value=self.post(True)), patch.object(ateljeslut, 'aktuell', return_value=None):
             s = dash.flodesbesked(self.slug, blind=False)

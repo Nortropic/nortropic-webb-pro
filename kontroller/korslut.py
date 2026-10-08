@@ -78,7 +78,8 @@ UPPDRAG = 'helbygget enligt skillen bygg-sajt, startat med kor.sh'
 MOMENT = 'helbygget (README.md, kedjan steg 6)'
 AGAREN_JA = 'Ja, som den är'  # kärnfrågan namn i dashboardens Din dom (dashboard/server.py, KARNFRAGOR)
 TOLKNING = 'tolkning: bara svaret "%s" räknas som godkännande; inte bekräftad av ägaren' % AGAREN_JA
-ORD = {True: 'ja', False: 'nej', None: 'ej bedömt'}  # ett tillstånds värde i klartext
+VILLKORAT = 'villkorat'  # ägaren godkänner med villkor: "Ja, efter små ändringar" (GR-20261007-r101-om, KAN-7)
+ORD = {True: 'ja', False: 'nej', None: 'ej bedömt', VILLKORAT: 'ja med villkor'}  # ett tillstånds värde i klartext
 TILLSTAND = (('sessionen_avslutad', 'sessionen avslutad normalt'), ('tekniskt_godkant', 'tekniskt godkänt'),
              ('designgranskaren_godkanner', 'designgranskaren godkänner'), ('agaren_godkanner', 'ägaren godkänner'),
              ('klart_for_leverans', 'klart för leverans'))
@@ -394,8 +395,9 @@ def agarens_domar(k):
 def agarens_dom(k, dist, ej_belagda=()):
     """Ägarens senaste dom över just det här bygget ur kunder/<slug>/DOM.json (dashboardens Din dom, bunden med bygge_dist
     till byggets dist_sha256). Godkänner betyder svaret "Ja, som den är" på kärnfrågan namn ("Skulle du sätta ditt namn på
-    sajten och visa den för verksamheten?"); "Ja, efter små ändringar" är ett ja med villkor och inget godkännande. Det
-    är Claudes tolkning av kärnfrågan, inte bekräftad av ägaren (TOLKNING). Domar i ej_belagda (de fanns i en DOM.json som
+    sajten och visa den för verksamheten?"); "Ja, efter små ändringar" är ett ja med villkor, värdet VILLKORAT, och inget
+    godkännande: leveransen kräver True (granskningen GR-20261007-r101-om, KAN-7). Det är Claudes tolkning av
+    kärnfrågan, inte bekräftad av ägaren (TOLKNING). Domar i ej_belagda (de fanns i en DOM.json som
     ändrades under en körning, så bygget kan ha skrivit dem) räknas aldrig. Utan dom över bygget: ej bedömt."""
     kalla = _rel(k, DOMFIL)
     if not dist:
@@ -412,7 +414,7 @@ def agarens_dom(k, dist, ej_belagda=()):
             if ignorerade else '')}
     d = aktuella[-1]
     namn = (d.get('svar') or {}).get('namn') if isinstance(d.get('svar'), dict) else None
-    varde = None if not namn else namn == AGAREN_JA
+    varde = None if not namn else True if namn == AGAREN_JA else VILLKORAT if str(namn).startswith('Ja') else False
     villkor = ' (ja med villkor: inget godkännande som den är)' if namn and namn != AGAREN_JA and str(namn).startswith('Ja') else ''
     return {'varde': varde, 'kalla': kalla, 'tid': d.get('tid'), 'avsandare': 'ägaren (dashboardens Din dom)', 'tolkning': TOLKNING,
             'text': 'dom %s, kärnfrågan namn: %s%s; %s' % (d.get('tid') or EJ, namn or 'obesvarad', villkor, TOLKNING)}
@@ -565,8 +567,9 @@ def leverans(t, slutkod, slug):
                                 ('sessionen avslutades inte normalt', t['sessionen_avslutad'].get('varde') is True),
                                 ('inte tekniskt godkänt', t['tekniskt_godkant'].get('varde') is True),
                                 ('designgranskaren har inte godkänt bygget', t['designgranskaren_godkanner'].get('varde') is True),
-                                ('väntar på ägarens dom' if t['agaren_godkanner'].get('varde') is None else 'ägaren har inte godkänt bygget',
-                                 t['agaren_godkanner'].get('varde') is True)) if not krav]
+                                ('väntar på ägarens dom' if t['agaren_godkanner'].get('varde') is None else
+                                 'ägaren godkänner med villkor (efter små ändringar), inte som den är' if t['agaren_godkanner'].get('varde') == VILLKORAT
+                                 else 'ägaren har inte godkänt bygget', t['agaren_godkanner'].get('varde') is True)) if not krav]
     return {'varde': not saknas, 'text': 'inom omfattningen' if not saknas else '; '.join(saknas),
             'omfattning': 'helbygget i kunder/%s/sajt/, att visa för verksamheten (bygg-sajt steg 7, punkt 13); exporten till '
                           'kundrepo och leveransen (GitHub, Vercel, DNS) ingår inte (README.md, kedjan steg 8 och 9; '
