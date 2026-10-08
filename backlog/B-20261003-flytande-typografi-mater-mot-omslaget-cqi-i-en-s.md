@@ -1,12 +1,13 @@
 ---
 id: B-20261003-flytande-typografi-mater-mot-omslaget-cqi-i-en-s
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-04 · Kevin Powell, Fixing fluid typography + Ana Tudor
 skapad: 2026-10-03
 prio: normal
 steg: steg 5, byggstandarden 3.2, kontroller/standard_kontroll.py
-andrad: 2026-10-05T06:55Z
+commit: 88b977d
+andrad: 2026-10-08T15:24Z
 ---
 # Flytande typografi mäter mot omslaget (cqi i en storleksbehållare), inte mot fönstret (vw)
 
