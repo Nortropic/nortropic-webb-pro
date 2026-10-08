@@ -1,12 +1,13 @@
 ---
 id: B-20261003-stilrapporten-mater-text-som-inte-ryms-i-sin-ege
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · OpenAI, Frontend prompt instructions
 skapad: 2026-10-03
 prio: normal
 steg: steg 6, stilrapporten (kontroller/stil.mjs)
-andrad: 2026-10-05T06:55Z
+commit: 83f05d6
+andrad: 2026-10-08T15:28Z
 ---
 # Stilrapporten mäter text som inte ryms i sin egen ruta i 390 och 320 px, inte bara spill i hela dokumentet
 
