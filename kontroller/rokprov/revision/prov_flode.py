@@ -560,6 +560,46 @@ with fall('B2 stoppad start, steg fel och ditt val efter stoppet'):
     kontroll(st[2]['status'] == 'stoppat' and st[3]['status'] == 'beslutat' and 'd2d2d2d2d2d2' in st[3]['beslut'][-1]['text'] and st[4]['status'] == 'inte påbörjat',
              ('B2: ditt val efter en stoppad start syns inte', st[2]['status'], st[3]['status'], st[3]['beslut'][-1:], st[4]['status']))
 
+# --- GR-20261007-r96-om3 BÖR-1 och BÖR-2: en vanlig körning i steg fel är ingen stoppad start (M3-2), och blindningen
+# håller efter en stoppad start över förslag som ingen valt i (M3-5) ---
+s = 'm32-fel'
+underlag(s)
+korning(s, steg='fel', fel='RuntimeError: arbetaren föll', startad='2026-10-06T09:00:00Z')
+plan(s, '2026-10-06T09:05:00Z', ['k01', 'k02'])
+kandidat(s, 'k01', 'klar', version='f1' * 32)
+kandidat(s, 'k02', 'under_arbete')
+s2 = 'm32-fel-forra'  # samma fel före den nya planen: förra körningens plan döljs, som efter varje ny start
+underlag(s2)
+korning(s2, steg='fel', fel='RuntimeError: arbetaren föll', startad='2026-10-06T09:00:00Z')
+plan(s2, '2026-10-05T10:05:00Z', ['k01', 'k02'])
+kandidat(s2, 'k01', 'klar', version='f2' * 32)
+kandidat(s2, 'k02', 'klar', version='f3' * 32)
+with fall('M3-2 en vanlig körning i steg fel räknas inte som en stoppad start'):
+    for s_ in (s, s2):
+        st = stegen(s_)
+        kontroll(st[2]['status'] == 'stoppat' and '--fortsatt' in st[2]['nasta'] and 'Startkontrollen' not in st[2]['nasta']
+                 and 'RuntimeError: arbetaren föll' in texter(st[2], 'brister'),
+                 ('M3-2: en vanlig körning i steg fel fick startkontrollens besked', s_, st[2]['status'], st[2]['nasta'], st[2]['brister']))
+    f = dash.flode(s2)
+    kontroll(f['blind'] and not lackor(f), ('M3-2: förra körningens plan efter ett vanligt fel', f['blind'], lackor(f)))
+s = 'm35-stopp'
+underlag(s)
+korning(s, steg='klar_for_bedomning', startad='2026-10-05T10:00:00Z', klar='2026-10-05T10:50:00Z')
+plan(s, '2026-10-05T10:05:00Z', ['k01', 'k02'])
+kandidat(s, 'k01', 'klar', version='g1' * 32, brister=['HEMLIG-BRIST k01'])
+kandidat(s, 'k02', 'klar', version='g2' * 32)
+skriv(U / s / 'atelje' / 'STATUS.json', {'slug': s, 'startad': '2026-10-06T09:00:00Z', 'steg': 'startar', 'lage': 'ny', 'kandidatflode': True,
+                                         'modell': 'opus', 'effort': 'max', 'antal': 3,
+                                         'startkontroll_stopp': {'tid': '2026-10-06T09:00:10Z', 'fel': 'Startkontrollen stoppade starten: prov',
+                                                                 'stoppar': ['prov']}})
+with fall('M3-5 blindningen håller efter en stoppad start över förslag som ingen valt i'):
+    f = dash.flode(s)
+    st = {x['nr']: x for x in f['steg']}
+    kontroll(st[2]['status'] == 'stoppat' and f['blind'] and not lackor(f) and st[3]['status'] == 'inte påbörjat',
+             ('M3-5: blindningen hävdes efter en stoppad start', st[2]['status'], f['blind'], lackor(f), st[3]['status']))
+    status_, data_ = hamta('/api/flode/%s' % s)
+    kontroll(status_ == 200 and not lackor(data_.decode('utf-8')), ('M3-5: API:t', status_, lackor(data_.decode('utf-8', 'replace'))))
+
 # --- R2: förfiningen efter valet ---
 VAL = '2026-10-06T10:30:00Z'
 EFTER = dict(startad='2026-10-06T11:00:00Z', lage='valda', dom=VAL, valda=['k01'])
