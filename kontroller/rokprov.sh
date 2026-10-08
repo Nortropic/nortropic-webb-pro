@@ -375,11 +375,14 @@ sys.path.insert(0, '$ROOT/kontroller'); import prova
 d = pathlib.Path(tempfile.mkdtemp())
 (d / 'index.html').write_text('<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>P</title><style>body{margin:0;font:16px sans-serif}nav a{display:inline-block;width:90px}h1{font-size:18px}h2{font-size:17px;margin:0 0 40px}.kant{border-left:4px solid #d00}.liten{font-size:11px}</style></head><body><header><nav><a href=\"/\">Start</a> <a href=\"/a/\">Våra tjänster inom el och data</a></nav></header><main><h1>Rubrik</h1><p>Inledning som är lång nog att räknas här.</p><h2>Andra</h2><p>Text efter rubriken som är lång nog.</p><h2>Tredje</h2><p>Mer text efter rubriken, lång nog.</p><div class=\"kant\">Citat med färgad kant.</div><p class=\"liten\">Mycket liten brödtext, längre än tjugo tecken.</p></main></body></html>')
 (d / 'platt').mkdir(); (d / 'platt' / 'index.html').write_text('<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><title>P</title><style>h1{font-size:18px}h2{font-size:17px}p{font-size:16px}main div{margin:16px 0;padding:16px 0}</style></head><body><main><h1>Platt</h1><p>Brödtext som är lång nog att räknas.</p><h2>Under</h2><p>Mer brödtext som är lång nog.</p><div>a</div><div>b</div><div>c</div><div>d</div></main></body></html>')
+# fast list längst ned (60 px) som täcker en tredjedel av en 320×180-vy (400 % zoom; byggstandarden 3.3)
+(d / 'fast').mkdir(); (d / 'fast' / 'index.html').write_text('<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>P</title><style>body{margin:0;font:16px sans-serif}.list{position:fixed;bottom:0;left:0;right:0;height:60px;background:#eee}</style></head><body><main><h1>Fast</h1><p>Text.</p></main><div class=\"list\" id=\"ring\"><a href=\"tel:+46700000000\">Ring</a></div></body></html>')
 # text som inte ryms i sin ruta: ett 28 tecken långt ord i en 160 px knapp och i en 120 px spalt (backloggen 2026-10-03)
 (d / 'ryms').mkdir(); (d / 'ryms' / 'index.html').write_text('<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>P</title><style>body{margin:0;font:16px sans-serif}</style></head><body><main><h1>Ryms</h1><p>Vanlig text som ryms.</p><button style=\"width:160px;overflow:hidden;white-space:nowrap\">Trädgårdsmästarutbildningen</button><div style=\"width:120px\"><p>Ett ord: Kvalitetssäkringsavdelningen</p></div></main></body></html>')
 with prova.Server(d) as srv:
-    subprocess.run(['node', '$ROOT/kontroller/stil.mjs', '--url=' + srv.url, '--sidor=/,/platt/,/ryms/', '--ut=' + str(d / 'ut')], check=True, capture_output=True)
+    subprocess.run(['node', '$ROOT/kontroller/stil.mjs', '--url=' + srv.url, '--sidor=/,/platt/,/ryms/,/fast/', '--ut=' + str(d / 'ut')], check=True, capture_output=True)
 v = ' '.join(json.loads((d / 'ut' / 'STIL.json').read_text())['varningar'])
+assert 'täcker 33 % av en 320×180-vy' in v and 'div#ring 60 px' in v and '/fast/' in v, v
 assert 'text som inte ryms i sin ruta' in v and 'Trädgårdsmästarutbildningen' in v and 'Kvalitetssäkringsavdelningen' in v and '/ryms/ @390' in v, v
 assert not any('inte ryms' in w and ('/platt/' in w or '(/ @' in w) for w in json.loads((d / 'ut' / 'STIL.json').read_text())['varningar']), 'sidorna utan överskjutande text ska inte varnas'
 for krav in ('bryts på två rader: \"Våra tjänster', 'rubriker står närmare', 'färgad sidkant', 'under 12 px', 'platt typskala', 'enformig luft'):
@@ -392,7 +395,7 @@ with prova.Server(d) as srv:
     subprocess.run(['node', '$ROOT/kontroller/stil.mjs', '--url=' + srv.url, '--sidor=/meny/', '--ut=' + str(d / 'ut2')], check=True, capture_output=True)
 m = next(x for x in json.loads((d / 'ut2' / 'STIL.json').read_text())['rader'] if x['vy'] == '390')['mobil']
 assert len(m['menyDolda']) >= 2 and m['telIForsta'] == 3 and m['dubbla'] == ['https://boka.example/x'], m
-assert not ren['varningar'] or not any('utanför skärmen' in v or 'gånger i startsidans' in v or 'två gånger' in v or 'inte ryms' in v for v in ren['varningar']), ren['varningar']
+assert not ren['varningar'] or not any('utanför skärmen' in v or 'gånger i startsidans' in v or 'två gånger' in v or 'inte ryms' in v or '320×180-vy' in v for v in ren['varningar']), ren['varningar']
 " || { echo "FEL: stilrapportens nya mätningar"; exit 1; }
 echo "   stilrapporten ok"
 

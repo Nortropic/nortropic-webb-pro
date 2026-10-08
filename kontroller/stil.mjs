@@ -234,6 +234,13 @@ function matPaSidan() {
   };
 }
 
+// fasta och klibbiga element som syns i en kort vy, med andel av vyhöjden (körs i sidan; samma mått som inspektera.mjs)
+function fastaIKortVy() {
+  const vh = window.innerHeight;
+  return [...document.querySelectorAll('body *')].filter((el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return (s.position === 'fixed' || s.position === 'sticky') && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < vh && s.visibility !== 'hidden'; })
+    .map((el) => { const r = el.getBoundingClientRect(); return { element: el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''), hojd: Math.round(r.height), andel: Math.round(100 * r.height / vh) }; }).filter((x) => x.andel >= 15).slice(0, 6);
+}
+
 // färgfamiljer som leverantörerna varnar för (OpenAI) och Opus 5.5:s egna standardval (Anthropic)
 function hsl([r, g, b]) {
   r /= 255; g /= 255; b /= 255;
@@ -273,6 +280,11 @@ try {
         await page.evaluate(() => document.fonts.ready);
         const m = await page.evaluate(matPaSidan);
         m.familjer = { bakgrund: familjAv(m.bakgrund), accent: m.accent ? familjAv(m.accent) : null };
+        if (vy === '390') {  // 400 % zoom (320×180): fasta och klibbiga element som täcker vyn (byggstandarden 3.3)
+          await page.setViewportSize({ width: 320, height: 180 }); await page.waitForTimeout(150);
+          m.fastaKortVy = await page.evaluate(fastaIKortVy);
+          await page.setViewportSize(VYER[vy].viewport);
+        }
         matningar.push({ sida, vy, ...m });
       } catch (e) {
         matningar.push({ sida, vy, fel: String(e.message).slice(0, 200) });  // en sida som inte går att mäta fäller inte rapporten
@@ -311,6 +323,7 @@ for (const r of rader) {
 for (const r of rader) {
   const var_ = `${r.sida} @${r.vy}`;
   if (r.vy === '390' && r.tvaRader?.length) varningar.push(`klickbar text bryts på två rader: ${r.tvaRader.slice(0, 4).map((x) => '"' + x + '"').join(', ')} (${var_})`);
+  if (r.vy === '390' && r.fastaKortVy?.length) varningar.push(`fast list eller klibbigt sidhuvud täcker ${Math.max(...r.fastaKortVy.map((f) => f.andel))} % av en 320×180-vy (400 % zoom): ${r.fastaKortVy.map((f) => f.element + ' ' + f.hojd + ' px').join(', ')}; fast bara i @media (min-height: 31.25rem) (byggstandarden 3.3; ${r.sida})`);
   if (r.vy === '390' && r.textRyms?.length) varningar.push(`text som inte ryms i sin ruta: ${r.textRyms.slice(0, 4).map((x) => '"' + x.text + '" (' + x.tagg + ', ' + x.bredd + ' px)').join(', ')} (${var_})`);
   const im = r.impeccable || {};
   if (im.trangaRubriker >= 2) varningar.push(`${im.trangaRubriker} rubriker står närmare blocket ovanför än sitt eget innehåll (${var_})`);

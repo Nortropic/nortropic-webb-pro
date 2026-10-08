@@ -11,6 +11,21 @@ import standard_kontroll as sk
 SIDA = '<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Prov</title><link rel="stylesheet" href="/stil.css"></head><body><main><h1>Prov</h1></main></body></html>'
 
 
+class Rotskrollaren(unittest.TestCase):
+    def info33(self, css):
+        with contextlib.ExitStack() as st:
+            d = Path(st.enter_context(korregister.egen_tmp_med('nwp-kallgap-', 'syntetisk byggstandard 3.3'))) / 'dist'
+            d.mkdir(); (d / 'index.html').write_text(SIDA, encoding='utf-8'); (d / 'stil.css').write_text(css, encoding='utf-8')
+            _, info, _ = sk.granska(d)
+            return [i['text'] for i in info if i['punkt'] == '3.3' and 'rotskrollaren' in i['text']]
+
+    def test_html_eller_body_med_hojd_och_overflow_ger_information(self):
+        for css in ('html,body{height:100%;overflow:hidden}', 'body{margin:0;height:100vh;overflow-y:auto}'):
+            t = self.info33(css); self.assertEqual(len(t), 1, css); self.assertIn('min-height: 100svh', t[0])
+        self.assertEqual(self.info33('body{min-height:100svh;overflow-x:clip}'), [])
+        self.assertEqual(self.info33('.panel{height:100%;overflow:auto}'), [], 'bara html och body')
+
+
 class Typografi(unittest.TestCase):
     def info32(self, css):
         with contextlib.ExitStack() as st:

@@ -385,7 +385,10 @@ KONCEPT.md.
    **Mobilens första vy** är riktningens: den godkända kandidatens kod och DESIGN.md (eller KONCEPT.md) avgör sidhuvud,
    meny, primär handling och bild. Kvalitetskraven gäller: den primära handlingen nås från första vyn, menyn fungerar
    med tangentbord och skärmläsare och rullar aldrig dold i sidled, kontaktvägarna följer BRIEF.md §4, och en fast
-   list skymmer aldrig innehåll. Stilrapporten redovisar mått (sidhuvudets höjd, hur ofta numret står) som underlag.
+   list skymmer aldrig innehåll. Listen och ett klibbigt sidhuvud är fasta bara när vyn är minst 500 px hög
+   (`@media (min-height: 31.25rem)`); i lägre vyer (400 % zoom, 320×180) står de i flödet (byggstandarden 3.3;
+   stilrapporten varnar och inspektionen fotograferar 320×180). Stilrapporten redovisar mått (sidhuvudets höjd, hur ofta
+   numret står) som underlag.
    **Brödsmulor** när DESIGN.md:s struktur har dem (`"struktur": {"brodsmulor": true}`): mallens
    `src/components/Brodsmulor.astro` (synlig "Du är här" och BreadcrumbList) mellan sidhuvudet och `<main>` på varje
    indexerbar undersida; standarden prövar det. **Formuläret** behåller mallens

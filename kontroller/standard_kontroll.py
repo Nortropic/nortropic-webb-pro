@@ -558,6 +558,13 @@ def granska(dist, kontakt=None):
     if rorelse and 'prefers-reduced-motion' not in all_css:
         F('3.5', '(alla)', 'sidan har rörelse (%s) men ingen @media (prefers-reduced-motion); mallens Bas.astro har blocket'
           % rorelse.group(0).split(':')[0].strip())
+    # 3.3 rotskrollaren: html eller body med fast höjd och overflow flyttar skrollningen från rotskrollaren (skrollposition,
+    # tangentbord, adressfält, utskrift; backloggen 2026-10-03, Polypane)
+    for m in re.finditer(r'(?:^|[}\s,])(html|body)\s*(?:,\s*(?:html|body)\s*)?\{([^}]*)\}', all_css):
+        if re.search(r'(?<![\w-])height\s*:\s*100(?:vh|%|dvh|svh)', m.group(2)) and re.search(r'(?<![\w-])overflow(?:-y)?\s*:\s*(?:hidden|auto|scroll|clip)', m.group(2)):
+            I('3.3', '(alla)', '%s har fast höjd och overflow (%s): skrollningen flyttas från rotskrollaren; använd min-height: 100svh och overflow-x: clip'
+              % (m.group(1), ' '.join(m.group(2).split())[:40]))
+            break
     if ':focus-visible' not in all_css:
         I('3.4', '(alla)', 'ingen :focus-visible-stil; webbläsarens standardfokus syns men följer inte designen')
     # 3.2 flytande typografi: bara vw växer inte med zoom; vw mot ett omslag med maxbredd växer förbi omslaget (cqi i en

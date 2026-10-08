@@ -272,6 +272,7 @@ def f5():
     assert insp['vyer']['390']['tillstand']['meny']['klickad'] and insp['vyer']['390']['tillstand']['meny']['expanded'] == 'true'
     assert rf.tillstand_utfall({'meny': {'knapp': False, 'lankar': {'totalt': 3, 'synliga': 2}}}, ('meny',)) == {'meny': False}, 'dolda länkar utan knapp är en brist'
     assert 'tangentbord' in t and 'reflow_320' in t
+    assert isinstance(t.get('reflow_320x180'), dict) and isinstance(t['reflow_320x180'].get('fasta'), list) and 'spill' in t['reflow_320x180'], 'reflow i 320×180 med fasta element (byggstandarden 3.3)'
     i = insp['vyer']['1440']['interaktiva']  # i 390 är navigationen dold bakom menyn och står inte i trädet
     assert i['antal'].get('link', 0) >= 6 and i['totalt'] == sum(i['antal'].values()), i
     i390 = insp['vyer']['390']['interaktiva']
