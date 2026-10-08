@@ -1,12 +1,13 @@
 ---
 id: B-20261003-sokkonsol-md-villkoren-for-api-verktyget-skrivs
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · RoboNuggets, 3 plugins that turn Claude Code into an SEO expert + AminForou/mcp-gsc
 skapad: 2026-10-03
 prio: normal
 steg: lanseringen, sökkonsolen (kunskap/sokkonsol.md)
-andrad: 2026-10-05T06:55Z
+commit: 962f74f
+andrad: 2026-10-08T15:22Z
 ---
 # sokkonsol.md: villkoren för API-verktyget skrivs nu: läsande scope, ägarens eget konto, ingen token i repot, och mcp-gsc som första kandidat
 

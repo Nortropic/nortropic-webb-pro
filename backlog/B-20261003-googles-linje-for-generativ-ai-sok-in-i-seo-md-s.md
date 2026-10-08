@@ -1,12 +1,13 @@
 ---
 id: B-20261003-googles-linje-for-generativ-ai-sok-in-i-seo-md-s
-status: vilande
+status: klar
 kalla: bevakning
 kallref: https://developers.google.com/search/docs/fundamentals/ai-optimization-guide
 skapad: 2026-10-03
 prio: hog
 steg: steg 4, lansering, sökkonsolen
-andrad: 2026-10-05T06:55Z
+commit: 962f74f
+andrad: 2026-10-08T15:22Z
 ---
 # Googles linje för generativ AI-sök in i seo.md, sokkonsol.md och lansering.md: AI-sök är SEO, inkludering i Search Console, AI-rapporten och företagsprofilen
 
