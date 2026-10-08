@@ -5661,7 +5661,9 @@ dom_ = sb['network']['allowedDomains']
 assert {'registry.npmjs.org', '*.npmjs.org', 'www.exempel.se', 'exempel.se', 'annan.se', 'www.annan.se'} <= set(dom_) and sb['network']['allowLocalBinding'], dom_
 assert sb['credentials']['envVars'][0] == {'name': 'REFERO_MCP_TOKEN', 'mode': 'deny'}
 utan_sb = sl.installningar('p', sandlada=False)
-assert 'sandbox' not in utan_sb and utan_sb['permissions']['deny'] == ['Read(//%s/**)' % str(ROOT / 'underlag/kundstart').strip('/'), *__import__('kompetens').skill_nekas()] and json.dumps(inst)
+# hemlighetsmappen nekas Read också utan sandlåda (dashboardnyckeln ligger där; b075827)
+assert 'sandbox' not in utan_sb and utan_sb['permissions']['deny'] == ['Read(//%s/**)' % str(ROOT / 'underlag/kundstart').strip('/'), *__import__('kompetens').skill_nekas(),
+                                                                       'Read(//%s/.nortropic-hemligheter/**)' % os.path.expanduser('~').strip('/')] and json.dumps(inst)
 kor_text = (ROOT / 'kor.sh').read_text()
 assert 'Bash(git commit *)' not in kor_text and 'Bash(git push origin main)' not in kor_text and 'sandlada.py' in kor_text, 'ingen git i bygget; sandlådan kopplad'
 # kor.sh i en kopia med en falsk claude som skriver en backlogpost: körningen committar den och pushar
