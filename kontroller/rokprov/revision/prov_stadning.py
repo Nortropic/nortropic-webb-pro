@@ -286,7 +286,7 @@ try:
         return wt
 
     SAMMAN = ('klar', 'smutsig', 'material', 'aktiv', 'anvand', 'kirurg', 'env', 'last', 'race', 'frikopplad', 'catfile', 'amend',
-              'reflogfel', 'logfel')
+              'reflogfel', 'logfel', 'catfel')
     WT = {g: worktree(g) for g in SAMMAN}
     WT['rebasad'] = worktree('rebasad', commit=False)  # Ö2: uppdateras senare med git rebase main, ingen egen commit
     WT['ff'] = worktree('ff', commit=False)            # Ö2, kontroll: uppdateras med git merge --ff-only main
@@ -300,6 +300,14 @@ try:
     git('commit', '-q', '-m', 'experiment på frikopplad HEAD', cwd=WT['frikopplad'])
     EXPERIMENT = git('rev-parse', 'HEAD', cwd=WT['frikopplad']).strip()
     git('checkout', '-q', 'frikopplad', cwd=WT['frikopplad'])
+    # K1d (GR-20261006-r98, KAN-A): samma slags experiment i en worktree vars filer annars finns i huvudutcheckningen;
+    # git cat-file faller just när worktreens HEAD-reflogg prövas (injektionen känner igen commiten i indata)
+    git('checkout', '-q', '--detach', cwd=WT['catfel'])
+    (WT['catfel'] / 'experiment.md').write_text('ett experiment som bara finns i catfel\n')
+    git('add', '-A', cwd=WT['catfel'])
+    git('commit', '-q', '-m', 'experiment på frikopplad HEAD (catfel)', cwd=WT['catfel'])
+    CATFEL_EXP = git('rev-parse', 'HEAD', cwd=WT['catfel']).strip()
+    git('checkout', '-q', 'catfel', cwd=WT['catfel'])
     git('merge', '-q', '--no-ff', '-m', 'sammanslagning', *SAMMAN, cwd=HUVUD)
     (HUVUD / 'kontroller' / 'x.py').write_text('x = 2\n')  # main går vidare: den gamla versionen finns bara i historiken
     git('commit', '-q', '-am', 'x = 2', cwd=HUVUD)
@@ -575,11 +583,23 @@ try:
             return 128, 'fatal: git log föll (provets fel)'
         return git_orig(*a, **k)
 
+    kor_fore_b = stadning.vl.kor
+
+    CATFEL_REFLOG = set(git('reflog', 'show', '--format=%H', 'HEAD', cwd=WT['catfel']).split())
+
+    def kor_catfel(args, *a, **k):  # K1d: git cat-file faller för frågan om worktreen catfels HEAD-reflogg, och bara den
+        fraga_ = set((k.get('indata') or '').split())  # (kopiornas git når samma commit, men deras fråga är större)
+        if list(args[:2]) == ['git', 'cat-file'] and CATFEL_EXP in fraga_ and fraga_ <= CATFEL_REFLOG:
+            return 128, 'fatal: git cat-file föll (provets fel)'
+        return kor_fore_b(args, *a, **k)
+
     stadning.git = git_med_sen_fil
+    stadning.vl.kor = kor_catfel
     try:
         rapB = stadning.stada(ram())
     finally:
         stadning.git = git_orig
+        stadning.vl.kor = kor_fore_b
     fel_ = [p for p in rapB['poster'] if p['utfall'] == 'fel']
     assert {p['sokvag'] for p in fel_} == {str(WT['race']), str(TMPROT / 'nwp-forhand-g')}, fel_
     assert WT['race'].is_dir() and (WT['race'] / 'sen-fil.txt').is_file() and 'git worktree remove föll' in en(rapB, WT['race'], 1)['skal']
@@ -673,12 +693,14 @@ try:
         assert s_ in git('reflog', 'show', '--format=%H', g_, cwd=HUVUD).split() and s_ in git('rev-list', '--all', '--reflog', cwd=HUVUD).split(), g_
     assert 'reflogg i huvudutcheckningen' in en(rapB, WT['frikopplad'], 1)['skal'], 'skälet säger vad som faktiskt försvinner'
     klar('BÖR-1: en amendad och en rebasad worktree, sammanslagna och pushade, tas bort; de ersatta commitarna står kvar i grenens reflogg')
-    for g_ in ('reflogfel', 'logfel'):  # KAN-1: Ö1:s skyddsgren
+    for g_ in ('reflogfel', 'logfel', 'catfel'):  # KAN-1: Ö1:s skyddsgren; catfel: git cat-file faller (K1d)
         p_ = en(rapB, WT[g_], 1)
         assert WT[g_].is_dir() and p_['utfall'] == 'väntar på ägaren' and 'HEAD-reflogg gick inte att pröva' in p_['skal'], (g_, p_)
     rap_k1 = stadning.stada(ram(), punkter=(1,))  # samma worktrees när git svarar: de tas bort
     for g_ in ('reflogfel', 'logfel'):
         assert not WT[g_].exists() and en(rap_k1, WT[g_], 1)['utfall'] == 'raderad', (g_, poster(rap_k1, WT[g_]))
+    p_ = en(rap_k1, WT['catfel'], 1)  # när git svarar syns experimentet: worktreen väntar fortfarande, nu med commiten
+    assert WT['catfel'].is_dir() and p_['utfall'] == 'väntar på ägaren' and [c['sha'] for c in p_.get('commits') or []] == [CATFEL_EXP], p_
     assert not [p for p in rap_k1['poster'] if p['utfall'] in ('raderad', 'fel') and p['sokvag'] not in (str(WT['reflogfel']), str(WT['logfel']))], \
         rap_k1['poster']
     klar('KAN-1: en worktree vars HEAD-reflogg eller git log inte svarar väntar på ägaren, och tas bort när git svarar')
