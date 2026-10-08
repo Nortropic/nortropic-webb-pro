@@ -1,12 +1,13 @@
 ---
 id: B-20261003-reddit-i-spaningen-slapp-igenom-reddit-com-med-p
-status: vilande
+status: klar
 kalla: bevakning
 kallref: kunskap/REGISTER.md 2026-10-02 (Reddit-inlägget i r/ai_website_builder); ägaren 2026-10-03
 skapad: 2026-10-03
 prio: normal
 steg: spaningen, kirurgen
-andrad: 2026-10-05T06:55Z
+commit: 26bc98c
+andrad: 2026-10-08T15:47Z
 ---
 # Reddit i spaningen: släpp igenom reddit.com med paus, och låt kirurgen läsa trådar via Reddits RSS
 
