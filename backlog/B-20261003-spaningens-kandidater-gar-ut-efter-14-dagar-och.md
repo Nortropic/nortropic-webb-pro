@@ -1,12 +1,12 @@
 ---
 id: B-20261003-spaningens-kandidater-gar-ut-efter-14-dagar-och
-status: vilande
+status: ersatt
 kalla: bevakning
 kallref: kirurgen/spaning/KANDIDATER.json 2026-10-03 (taket 200 nått)
 skapad: 2026-10-03
 prio: hog
 steg: spaningen, dashboarden
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-08T14:09Z
 ---
 # Spaningens kandidater går ut efter 14 dagar, och dashboarden visar Nytt sedan i går, de bästa per område och träffsäkerhet per källa
 
@@ -17,3 +17,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** KANDIDATER.json har inga kandidater med status ny äldre än 14 dagar, spaningsvyn har de tre delarna och träffsäkerheten, och rokprov.sh är grönt.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord, beroende av poängposten (område-fältet). Utgången ska vara en status, inte dagens tysta bortfall vid 90 dagar; belägget är ett prov med fixtur, eftersom kriteriet håller tomt i dag.
+
+**Ersatt (2026-10-08):** Backlogavstämningen 2026-10-08: sammanförd i B-20261003-spanaren-poangsatter-per-omrade-titel-2-negativa (utgången efter 14 dagar finns (spana.py:298, 5252e27); dashboardens delar och träffsäkerhet per källa tas i bäraren)

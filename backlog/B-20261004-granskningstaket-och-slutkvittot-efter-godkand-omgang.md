@@ -1,11 +1,12 @@
 ---
 id: B-20261004-granskningstaket-och-slutkvittot-efter-godkand-omgang
-status: vilande
+status: klar
 kalla: bevakning
 kallref: bygge 1–4 i sandlådat läge 2026-10-04; Codex R37 (kvittot ska knyta prov, granskning, stoppkrok och slutkod till samma dist)
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-05T10:59Z
+commit: 00b2ef4
+andrad: 2026-10-08T14:09Z
 ---
 # Granskningstaket och slutkvittot: bygget ändras efter en godkänd omgång, taket förbrukas, och kvittot pekar på fel omgång
 
@@ -20,3 +21,5 @@ andrad: 2026-10-05T10:59Z
 **Vilande (2026-10-05):** Avstämt 2026-10-05: kvittot är klart (UTFALL.json per omgång, korslut härleder domen för det slutliga bygget, regressionsfall). Kvar (paketet före nästa helbygge): granskningens dist i STOPPVAKT.json, skilltexten, stoppvaktens besked vid taket och takräkningen utan avbrutna omgångar; verifieringen delas med sandlådeposten. Färdigkriteriet omskrivet i avstämningen; tidigare: "Ett sandlådat helbygge slutar med prov, granskning, stoppkrok och slutkod 0 på samma dist; kor.sh:s kvitto visar granskad dist = slutlig dist; ett regressionsfall visar att kvittot säger "annan dist" när de skiljer sig."
 
 **Vilande (2026-10-05):** Implementerat (paketet före nästa helbygge): vid taket säger granskningen skälet (ett annat bygge, en annan metod eller ingen giltig omgång i körningen) och stoppvakten att en ny omgång behövs, med skälet i STOPPVAKT.json (tak_skal) bredvid granskningens dist; avbrutna omgångar räknas inte mot NWP_GRANSKNING_MAX men mot ett hårt tak (NWP_GRANSKNING_HART, 2 × taket); skillen säger att de sista rättningarna görs före beställningen. Prov för skälen och stoppvaktens besked. Kvar: verifiering i nästa sandlådade helbygge. (b7bf1c5)
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: commit 00b2ef4 (taket, tak_skal) och 1b7fb37 (avslutsreglerna); stoppvakt.py:194–210 granskning_dist_sha256/samma_dist, korslut.rapport_giltig/vald_granskning

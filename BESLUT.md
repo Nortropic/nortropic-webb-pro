@@ -2803,3 +2803,19 @@ Tre beslut:
 3. **Worktrees.** De sjutton worktrees r105–r122 var rena och deras innehåll finns i main (a108560 och 81a222d); katalogerna
    togs bort med `git worktree remove`, grenarna står kvar så att historiken nås från git. r105:s och r108:s original är
    underkänd historik enligt Codex omgranskningar och finns kvar som grenar.
+
+## Tillägg 2026-10-08: backlogavstämning och genomförande före första helbygget
+
+**Status:** gäller.
+
+Ägarens ord 2026-10-08 ~14:00Z, ordagrant: "Jag vill göra bort allt i backloggen innan vi sätter igång med första helbygget
+och testar på nytt." Uppdraget i sin helhet (inventera först och ändra inget; fyra grupper GJORT, INTE AKTUELLT, SAMMANFÖR,
+ÅTERSTÅR med belägg; genomför ÅTERSTÅR i ordningen A3/E1/C4:s rest/C6:s rest → D1/D3/D7/D8/D9 → småfynd → det som kräver
+externt konto, publicering eller kundkontakt redovisas som väntande ägarbeslut; avsluta med en rapport) står ordagrant i
+minnet och i `underlag/rapporter/RAPPORT-2026-10-08-backlogavstamning.md`. Helbygget väntar tills detta är klart; arbetet går
+på det lokala abonnemanget, inga faktiska kunder.
+
+Inventeringen 2026-10-08: 193 poster, 88 vilande. 31 var rättade i main (satta klar med commit och not), 3 ersatta av senare
+beslut (kandidatflödet 2026-10-05/06, verktygslådan 2026-10-07, den äldre utforskningen), 6 sammanförda i bärare (spaningens
+fyra, dokumentprovets tre, flödesvyns två), 48 återstår: 37 genomförbara (steg 1–3) och 11 som kräver verkligt prov,
+ägarbeslut eller externt konto (steg 4). En klar post verifierad av GR-20261007-r99. Belägg per post i rapporten.

@@ -1,12 +1,14 @@
 ---
 id: B-20261007-helbygget-ett-eget-skript-kan-inte-langre-fa-aga
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261007-r101-om.md
 fynd: GR-20261007-r101-om#BÖR-1
 skapad: 2026-10-07
 prio: hog
 steg: main: kor.sh, kontroller/korslut.py, kontroller/rokprov/revision/prov_slutpost.py, .claude/hooks/stoppvakt.py
+commit: a108560
+andrad: 2026-10-08T14:09Z
 ---
 # Helbygget: ett eget skript kan inte längre få ägarens godkännande räknat
 
@@ -15,3 +17,5 @@ steg: main: kor.sh, kontroller/korslut.py, kontroller/rokprov/revision/prov_slut
 **Förslag:** kor.sh håller hashlistans sha256 i minnet, som DOMSHA redan görs, och ger den till korslut. Neka Write och Edit för .skyddat-*. Stoppa byggets processgrupp efter körningen.
 
 **Klart när:** Granskarens två vägar och den kvarlevande processen ger slutkod 3 eller "ej belagd", aldrig "ägaren godkänner: ja", och en verklig ägardom räknas fortfarande.
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: a108560 (r105→r114, BESLUT 2026-10-07 skyddet av ägarens dom: #BÖR-1); korslut.agaren_vid_slut, kor.sh:s minne, README Helbyggets slutpost

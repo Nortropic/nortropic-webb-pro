@@ -1,12 +1,14 @@
 ---
 id: B-20261007-kundvakten-namnprovningen-soker-personnamn-bara
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261007-r102-om.md
 fynd: GR-20261007-r102-om#B1
 skapad: 2026-10-07
 prio: hog
 steg: main: kontroller/kundvakt.py, kontroller/rokprov/revision/prov_startkvitto.py
+commit: a4d58aa
+andrad: 2026-10-08T14:09Z
 ---
 # Kundvakten: namnprövningen söker personnamn bara där personer står
 
@@ -15,3 +17,5 @@ steg: main: kontroller/kundvakt.py, kontroller/rokprov/revision/prov_startkvitto
 **Förslag:** Sök namnpar bara i personrader (Ägare:, Kontakt), i attribution efter tankstreck eller citat och i omdömen. Hoppa över briefens designriktning (§7) och typsnittsnamn. Lägg falsklarmen som fall i prov_startkvitto.py.
 
 **Klart när:** Granskarens tio generiska frågor släpps, och hela namn i personrader och omdömen stoppas fortfarande. Görs före nästa designkörning.
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: a4d58aa (BESLUT 2026-10-07 kundvaktens namnprövning efter r102-om: om#B1); prov_startkvitto 10, 10a

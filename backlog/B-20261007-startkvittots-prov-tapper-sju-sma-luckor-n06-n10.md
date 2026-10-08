@@ -1,12 +1,14 @@
 ---
 id: B-20261007-startkvittots-prov-tapper-sju-sma-luckor-n06-n10
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261007-r102-om.md
 fynd: GR-20261007-r102-om#K4
 skapad: 2026-10-07
 prio: normal
 steg: main: kontroller/rokprov/revision/prov_startkvitto.py
+commit: a4d58aa
+andrad: 2026-10-08T14:09Z
 ---
 # Startkvittots prov täpper sju små luckor (N06, N10, N15, N20, N26, N27, N29)
 
@@ -15,3 +17,5 @@ steg: main: kontroller/rokprov/revision/prov_startkvitto.py
 **Förslag:** Ett fall per mutation, efter granskarens skript i underlag/granskningar/GR-20261007-r102-om/mut/.
 
 **Klart när:** De sju mutationerna fälls.
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: a4d58aa (om#K4): prov_startkvitto rad 44–46 (N06, N10, N15, N20, N26, N27, N29 fälls)

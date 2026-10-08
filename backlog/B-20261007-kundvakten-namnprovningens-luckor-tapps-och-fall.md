@@ -1,12 +1,14 @@
 ---
 id: B-20261007-kundvakten-namnprovningens-luckor-tapps-och-fall
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261007-r102-om.md
 fynd: GR-20261007-r102-om#B2
 skapad: 2026-10-07
 prio: hog
 steg: main: kontroller/kundvakt.py, kontroller/rokprov/revision/prov_startkvitto.py, kunskap/metodkarta.md
+commit: a4d58aa
+andrad: 2026-10-08T14:09Z
 ---
 # Kundvakten: namnprövningens luckor täpps, och fall 10 får verkliga datas form
 
@@ -15,3 +17,5 @@ steg: main: kontroller/kundvakt.py, kontroller/rokprov/revision/prov_startkvitto
 **Förslag:** Gör fixturen giltig mot schemat, läs Bokadirekts filer och ta bokstäverna med isupper och isalpha. Skala bort länkarnas markdown och rätta hopfogningen. Väg efternamnen mot B1. Kundvaktens beskrivning och metodkartan ska säga vad som faktiskt prövas.
 
 **Klart när:** Varje lucka har ett fall som stoppas, med fixturer i verkliga datas form, och B1:s generiska frågor släpps fortfarande.
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: a4d58aa (om#B2); prov_startkvitto 10b med fixtur i verkliga datas form

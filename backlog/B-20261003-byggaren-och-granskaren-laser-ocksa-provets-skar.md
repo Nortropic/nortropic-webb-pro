@@ -1,12 +1,13 @@
 ---
 id: B-20261003-byggaren-och-granskaren-laser-ocksa-provets-skar
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · waybarrios/opencode-power-pack
 skapad: 2026-10-03
 prio: normal
 steg: steg 5.5 och granskaren
-andrad: 2026-10-05T10:59Z
+commit: 1b7fb37
+andrad: 2026-10-08T14:09Z
 ---
 # Byggaren och granskaren läser också provets skärmrutor i 768 px, som provet redan tar men ingen tittar på
 
@@ -19,3 +20,5 @@ andrad: 2026-10-05T10:59Z
 **Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord; provet tar 768 (prova.py) men granska.py, GRANSKARE.md och SKILL.md steg 5.5 läser bara 390 och 1440. Ingår i paketet före nästa helbygge. Färdigkriteriet omskrivet i avstämningen; tidigare: "En granskningsrapport (kunder/<slug>/granskning/GRANSKNING.md) listar vy-768-rutor under sett, och steg 5.5 i skillen nämner 768."
 
 **Vilande (2026-10-05):** Implementerat (paketet före nästa helbygge): huvudgranskarna får 768-rutorna, GRANSKARE.md och SKILL.md steg 5.5 läser dem som mellanbredden; originalitetsdomaren och jämförelsen får bara 390 och 1440, som deras text säger (prov). Kvar: verifiering i nästa helbygges granskningsrapport. (b7bf1c5)
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: commit 1b7fb37 och 6c8c90f; granska.py:282 (vy-768-ruta), kritik/GRANSKARE.md:23, bygg-sajt SKILL.md:406–407

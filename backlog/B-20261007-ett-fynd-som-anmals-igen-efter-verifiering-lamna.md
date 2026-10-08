@@ -8,6 +8,8 @@ skapad: 2026-10-07
 prio: normal
 steg: kontroller/backlog.py ny; backlog/README.md
 commit: c4e0e2f
+verifierad: GR-20261007-r99
+verifierad_tid: 2026-10-08T14:09Z
 andrad: 2026-10-07T05:25Z
 ---
 # Ett fynd som anmäls igen efter verifiering lämnar inget spår
@@ -19,3 +21,5 @@ andrad: 2026-10-07T05:25Z
 **Klart när:** Ett fynd som består efter verifiering syns som öppet igen med rapporten i en not, prövat i prov_dokumentation.py.
 
 **Klar (2026-10-07):** ny --fynd från en senare rapport öppnar en klar post igen (vilande, not om rapporten, verifieringen borttagen); avvisade och ersatta poster och rapporten som hittade fyndet öppnar den inte. Prövat i prov_dokumentation.py. Inte verifierad: en senare granskning gör det.
+
+**Verifierad (2026-10-08):** GR-20261007-r99

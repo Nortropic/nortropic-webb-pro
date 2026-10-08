@@ -1,11 +1,12 @@
 ---
 id: B-20261004-designkontrakt-design-md-extraktion-och-refero-styles
-status: vilande
+status: klar
 kalla: bevakning
 kallref: Codex 2026-10-04 (på 7cea708): fem glapp i överföringen referens → gestaltning, glapp 1–3; femstegsuppdraget steg 1–2
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-05T06:55Z
+commit: 6c8c90f
+andrad: 2026-10-08T14:09Z
 ---
 # Designkontraktet: en aktuell DESIGN.md som styr bygget, riktad designextraktion ur referensfångsten, och Referos styles i tjänsteuppdraget
 
@@ -18,3 +19,5 @@ andrad: 2026-10-05T06:55Z
 **Vilande (2026-10-04):** väntar på bygge: kontraktet, grinden design, extraktionen och Refero-stilen levererades i 915b85e; kvar är ett riktigt bygge vars DESIGN.md genererar design.css med grönt prov
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: kontraktet, grinden design, extraktionen och Referos stilar levererade (6c8c90f, 915b85e), och extrakt finns för prototypens referenser. Skapandeflödet låter förfiningen skriva DESIGN.md ur den förfinade startsidan och lämnar den över med vinnaren (VINNARE.json: design). Den körbara designgrunden är sammanförd hit. Kvar: verifiering i ett helbygge som tar vid från en godkänd startsida. Färdigkriteriet omskrivet i avstämningen; tidigare: "Ett bygge har en DESIGN.md som genererar design.css och sajten använder variablerna (provet grönt på det); referenspaketet för en riktig referens innehåller EXTRAKT.json med uppmätta värden och källbild per utvald sektion; REFERENSER.md/DESIGN.md skiljer uppmätt, visuellt uppskattat och valt för kunden; tjänsteuppdraget kan beställa en Refero-style och svaret ligger strukturerat i paketet; skillen och kunskapstexten säger samma sak om KONCEPT.md och DESIGN.md."
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: commit 6c8c90f; prova.py grinden design (DESIGN.md mot koden), kunskap/bygge-referens.md; vinnarens DESIGN.md följer med helbygget (atelje.installera_godkand, b7bf1c5)

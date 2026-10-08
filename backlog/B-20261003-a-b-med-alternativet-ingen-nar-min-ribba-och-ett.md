@@ -1,11 +1,11 @@
 ---
 id: B-20261003-a-b-med-alternativet-ingen-nar-min-ribba-och-ett
-status: vilande
+status: ersatt
 kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: normal
-andrad: 2026-10-05T10:59Z
+andrad: 2026-10-08T14:09Z
 ---
 # A/B med alternativet 'ingen når min ribba' och ett jämförande försök på tre befintliga kundfall
 
@@ -20,3 +20,5 @@ andrad: 2026-10-05T10:59Z
 **Vilande (2026-10-05):** Avstämt 2026-10-05: valet saknas i Jämförelser (dashboard/server.py ab_val godtar bara A, B eller lika); ateljén och vyn Prototyp kan redan förkasta. Implementationen ingår i paketet före nästa helbygge; jämförelserna görs på fall byggda genom skapandeflödet (de tre gamla fallen är arkiverade), och måtten tas ur autonomi.py och kalibrering.py. Färdigkriteriet omskrivet i avstämningen; tidigare: "Valet finns i dashboarden och sparas; tre jämförelser är körda och dömda; LARDOMAR.md har måtten och ett beslut om vilken ändring som behålls."
 
 **Vilande (2026-10-05):** Implementerat (paketet före nästa helbygge): Jämförelser har valet "Ingen når min ribba", och LARDOMAR-raden bär det; prov. Kvar: tre blinda jämförelser på fall byggda genom skapandeflödet. (b7bf1c5)
+
+**Ersatt (2026-10-08):** Backlogavstämningen 2026-10-08: ersatt av BESLUT 2026-10-05 (ett skapandeflöde i stället för tre; cirka tio prototyper, ägaren väljer) och 2026-10-06 (kreativ frihet): jämförelsen mellan riktningar är kandidatflödets blinda val i vyn Prototyp, inte ett A/B-försök på gamla fall

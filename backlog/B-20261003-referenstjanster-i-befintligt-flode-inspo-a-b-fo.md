@@ -1,11 +1,12 @@
 ---
 id: B-20261003-referenstjanster-i-befintligt-flode-inspo-a-b-fo
-status: vilande
+status: klar
 kalla: bevakning
 kallref: Codex kartläggning av referenskällor och byggverktyg, 2026-10-03
 skapad: 2026-10-03
 prio: normal
-andrad: 2026-10-05T10:59Z
+commit: 7cea708
+andrad: 2026-10-08T14:09Z
 ---
 # Referenstjänster i befintligt flöde: Inspo-A/B först, sedan Refero som variabel och Mobbin på ett fall med flerstegsflöde (ägarbeslut om betald åtkomst)
 
@@ -22,3 +23,5 @@ andrad: 2026-10-05T10:59Z
 **Vilande (2026-10-05):** Avstämt 2026-10-05: åtkomst, belagda anrop och nedladdade bilder levererade (7cea708) och använda i prototypens paket; skapandeflödets research på begäran (KOMPLETTERING.json) kör referenstjanster.py. Kvar: integration (paketet före nästa helbygge): bygg-sajt steg 3 pekar på tjänstesteget (TJANSTEUPPDRAG.json); verifiering: ägarens blinda dom över förslag med tjänstebelägg och en LARDOMAR-rad om vilken tjänst som behålls. Inspo-posten är sammanförd hit: en A/B per tjänst, Inspo sist. Färdigkriteriet omskrivet i avstämningen; tidigare: "Ägaren har beslutat om betald åtkomst; en A/B per tjänst är körd och dömd; LARDOMAR.md säger vilken tjänst som behålls, eller att ingen gör sajterna bättre."
 
 **Vilande (2026-10-05):** Integrationen klar (paketet före nästa helbygge): bygg-sajt steg 3 beställer tjänstesteget (TJANSTEUPPDRAG.json, referenstjanster.py), och skapandeflödet beställer det på begäran. Kvar: verifiering (ägarens blinda dom över förslag med tjänstebelägg). (b7bf1c5)
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: commit 7cea708 (referenstjänsterna som belägg, TJANSTEUPPDRAG.json) och BESLUT 2026-10-03/2026-10-05 (Refero och Mobbin anslutna, alla MCP:er används); ägarens blinda dom hör till designomgången

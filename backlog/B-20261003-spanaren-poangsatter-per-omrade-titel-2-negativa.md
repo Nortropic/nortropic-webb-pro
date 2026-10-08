@@ -6,7 +6,7 @@ kallref: kirurgen/spaning/korning.log 2026-10-02 och 2026-10-03
 skapad: 2026-10-03
 prio: hog
 steg: spaningen (kirurgens intag)
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-08T14:09Z
 ---
 # Spanaren poängsätter per område: titel ×2, negativa ord, claude code eller skill räcker inte ensamt, och ord ur ägarens domar
 
@@ -17,3 +17,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** En torrkörning har inget av brusexemplen (schack, spelstudio, kylskåpsmagnet, Whiteboard) bland de 20 översta, varje kandidat har ett område, och rokprov.sh är grönt med prov för negativa ord, områdesmärkning och domstyrda ord.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord. Område-fältet per kandidat, "de bästa per område" och "svarar mot dina domar" samlas här (från 14-dagarsposten). Kriteriet om brusexemplen håller redan av fel skäl; pröva med en fixtur med de fyra titlarna daterade i dag.
+
+**Vilande (2026-10-08):** Backlogavstämningen 2026-10-08: bärare för B-20261003-spaningens-kandidater-gar-ut-efter-14-dagar-och, B-20261003-spanaren-jamfor-en-github-release-med-versionen, B-20261003-spanaren-marker-youtube-kandidater-vars-beskrivn; deras klartkriterier ingår här.

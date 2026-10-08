@@ -1,12 +1,13 @@
 ---
 id: B-20261007-dokumentprovet-provar-ateranvandningen-av-fyndet
-status: vilande
+status: ersatt
 kalla: granskning
 kallref: granskningar/GR-20261007-r97-om.md
 fynd: GR-20261007-r97-om#KAN-2
 skapad: 2026-10-07
 prio: normal
 steg: kontroller/rokprov/revision/prov_dokumentation.py
+andrad: 2026-10-08T14:09Z
 ---
 # Dokumentprovet prövar återanvändningen av fyndets identitet bara för källan granskning
 
@@ -15,3 +16,5 @@ steg: kontroller/rokprov/revision/prov_dokumentation.py
 **Förslag:** Pröva samma --fynd med en annan källa.
 
 **Klart när:** G07 blir röd.
+
+**Ersatt (2026-10-08):** Backlogavstämningen 2026-10-08: sammanförd i B-20261007-dokumentprovet-saknar-fallet-med-kontrolltecken (tre överlevande mutationer i samma prov (G03, G07, N08))

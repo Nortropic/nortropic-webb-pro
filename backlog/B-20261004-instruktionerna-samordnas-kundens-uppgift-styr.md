@@ -1,11 +1,12 @@
 ---
 id: B-20261004-instruktionerna-samordnas-kundens-uppgift-styr
-status: vilande
+status: klar
 kalla: bevakning
 kallref: Codex helhetsbedömning 2026-10-04 punkt 1, 2, 3, 5; rekommenderad ordning 1
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-05T10:59Z
+commit: 6c8c90f
+andrad: 2026-10-08T14:09Z
 ---
 # Kund-, innehålls- och designinstruktionerna samordnas: kundens uppgift styr, motsägande generella regler löses, varje metodregel får källa, tolkning och försök
 
@@ -20,3 +21,5 @@ andrad: 2026-10-05T10:59Z
 **Vilande (2026-10-05):** Avstämt 2026-10-05: textändringar, uppdragsmall och metodregler levererade (6c8c90f, 915b85e). Codex 2026-10-05 (ägarens senaste kritik till nästa uppdrag, återöppnade designbeslut, skills kopplade till skaparen) levereras i skapandeflödet (kontroller/skapande.py: domloggen, ATEROPPNAR, METOD). Kvar: implementation (paketet före nästa helbygge): textkontrollen i sviten; verifiering: ett bygge med bokning som uppgift.
 
 **Vilande (2026-10-05):** Textkontrollen i sviten klar: fjorton gamla meningar om telefonen som primär handling (också mobilens första vy och listen), strykregeln, standarddragen, beställda bilder och stockbilder är borta ur skillen, GRANSKARE.md, bild.md och brief-mallen, och elva nya står kvar; texten jämförs med blanktecken hopslagna, och varje gammal mening stod ordagrant före 6c8c90f (prov_revision). Kvar: verifiering i ett bygge med bokning som uppgift. (b7bf1c5)
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: commit 6c8c90f (Instruktionerna samordnade och designkontraktet: kundens uppgift styr)

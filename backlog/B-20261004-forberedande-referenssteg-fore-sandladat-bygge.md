@@ -1,11 +1,12 @@
 ---
 id: B-20261004-forberedande-referenssteg-fore-sandladat-bygge
-status: vilande
+status: klar
 kalla: bevakning
 kallref: Codex R27-uppföljning 2026-10-04; bygge 3 i sandlådat läge (kopia3, 759a547); code.claude.com/docs/en/sandboxing
 skapad: 2026-10-04
 prio: hog
-andrad: 2026-10-05T06:55Z
+commit: fd77dca
+andrad: 2026-10-08T14:09Z
 ---
 # Förberedande referenssteg före det sandlådade bygget: välj sajterna, tillåt deras resursdomäner, frys bilder och tillstånd
 
@@ -20,3 +21,5 @@ andrad: 2026-10-05T06:55Z
 **Pågår (2026-10-04T18:17Z, bygge 4):** steget använt skarpt i ett helbygge: byggaren skrev ett uppdrag med nio kandidater ur researchen, första paketet fick 404 av byggarens egna adressfel (sökvägen i både adress och sidor; vägras numera före inspektionen), byggaren läste bristerna och körde om: paket-v02 komplett 9/9 (516 s), REFERENSER.md med nio Bildval in i paket-v02 (valda rutor och undersidor, inte bara första vyn); granskarna fick samma frysta paket. Granskningen godkände omgång 4 (7/7/7/8/8), första godkända i ett sandlådat bygge; slutliga bygget granskades inte (taket). Kvar: en blind preferensjämförelse mellan två historiska byggen (bygge 3 på 759a547 utan steget mot bygge 4 på fd77dca med steget) kan visa vilken sajt ägaren föredrar men isolerar inte stegets effekt: mellan versionerna tillkom också kalibreringsankarna, visuell-niva.md och ändrade granskarinstruktioner (Codex R38). För att mäta effekten behövs nya parvisa körningar med samma gemensamma metod och referenssteget som enda planerade skillnad; rörelse som kort sekvens.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: steget levererat (fd77dca–6c07c9f) och använt i bygge 4 och prototypens paket (v01–v05); skapandeflödets research på begäran kör det. Kvar: rörelse som sekvens flyttas till B-20261005-observation-bildkedjan-matning-rorelse-dokument-ljud (steg 3); verifiering: ägarens dom över en startsida byggd på ett fryst paket i stället för parvisa helbyggen. Färdigkriteriet omskrivet i avstämningen; tidigare: "I ett sandlådat bygge är varje vald referens fångad med de bilder, typsnitt och tillstånd som referensbeslutet pekar ut (REFERENSER.md och de frysta bilderna finns före byggsessionen och är det ateljén och granskaren ser), oavsett korrekt blockerade sidoförfrågningar under inspektionen; jokertecknen står i sandlada-domaner.txt med ett rökprovsfall; LARDOMAR.md noterar om referensbilderna gjorde skillnad i ägarens dom."
+
+**Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: commit fd77dca (det förberedande referenssteget: versionsstyrt referenspaket), BESLUT 2026-10-04; ägarens dom över en startsida byggd på paketet hör till designomgången
