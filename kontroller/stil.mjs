@@ -195,6 +195,29 @@ function matPaSidan() {
   }
   const dubbla = Object.entries(perHref).filter(([, n]) => n >= 2).map(([h]) => h);
   const mobil = { sidhuvud: huvud ? Math.round(huvud.getBoundingClientRect().height) : null, menyLankar, hamburgare, bilder: bilder.length, fotoIForsta, fastList, menyDolda, telIForsta, dubbla };
+  // text som inte ryms i sin egen ruta (OpenAI:s frontendprompt, kvar omätt; backloggen 2026-10-03): elementets egen text
+  // spiller över sin bredd, eller ett enda ord är bredare än rutan (svenska sammansatta ord i knappar och spalter). Dokumentets
+  // spill ser inte ett ord som sticker ut ur en knapp med overflow hidden eller en spalt med min-width 0.
+  const textRyms = [];
+  for (const el of document.querySelectorAll(`${rot} h1, ${rot} h2, ${rot} h3, ${rot} p, ${rot} li, ${rot} td, ${rot} dd, ${rot} figcaption, a[href], button, label`)) {
+    if (!synlig(el) || !(el.textContent || '').trim()) continue;
+    const r = el.getBoundingClientRect();
+    let ord = el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1 ? (el.textContent || '').trim().replace(/\s+/g, ' ') : null;
+    if (!ord) {
+      const re = /\S{8,}/g;
+      for (const tn of [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim())) {
+        let m;
+        while (!ord && (m = re.exec(tn.textContent))) {
+          const rg = document.createRange(); rg.setStart(tn, m.index); rg.setEnd(tn, m.index + m[0].length);
+          const b = rg.getBoundingClientRect();
+          if (b.width > r.width + 1 || b.right > r.right + 1 || b.left < r.left - 1) ord = m[0];
+        }
+        if (ord) break;
+      }
+    }
+    if (ord) textRyms.push({ tagg: el.tagName.toLowerCase(), text: ord.slice(0, 40), bredd: Math.round(r.width) });
+    if (textRyms.length >= 8) break;
+  }
   // modellernas namngivna standardval
   const standardval = [];
   const rubriker = [...document.querySelectorAll('h1, h2')];
@@ -207,7 +230,7 @@ function matPaSidan() {
     typsnitt, ytor: [...ytor.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k),
     bakgrund: hex(bodyBg), text: text ? hex(text) : null, accent: accent ? hex(accent) : null, gradient,
     radier: [...radier.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r, n]) => ({ px: r, antal: n })),
-    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, smaKnappar, standardval, monster, mobil, tvaRader, impeccable,
+    kortRader, kortIKort, nastaSektionTopp: nasta, vyhojd: vh, nastaSkymtar: nasta !== null && nasta < vh - 8, smaYtor, smaKnappar, standardval, monster, mobil, tvaRader, impeccable, textRyms,
   };
 }
 
@@ -288,6 +311,7 @@ for (const r of rader) {
 for (const r of rader) {
   const var_ = `${r.sida} @${r.vy}`;
   if (r.vy === '390' && r.tvaRader?.length) varningar.push(`klickbar text bryts på två rader: ${r.tvaRader.slice(0, 4).map((x) => '"' + x + '"').join(', ')} (${var_})`);
+  if (r.vy === '390' && r.textRyms?.length) varningar.push(`text som inte ryms i sin ruta: ${r.textRyms.slice(0, 4).map((x) => '"' + x.text + '" (' + x.tagg + ', ' + x.bredd + ' px)').join(', ')} (${var_})`);
   const im = r.impeccable || {};
   if (im.trangaRubriker >= 2) varningar.push(`${im.trangaRubriker} rubriker står närmare blocket ovanför än sitt eget innehåll (${var_})`);
   if (im.enformigLuft) varningar.push(`enformig luft: ${im.enformigLuft} px står för över 60 procent av ${im.luftMatningar} avstånd (${var_})`);
