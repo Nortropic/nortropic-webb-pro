@@ -2,7 +2,7 @@
 """SEO-kontroll: teknisk och innehållsmässig läsning av ett renderat bygge (katalog med HTML eller en sitemap-lista av
 lokala filer) mot brief och verksamhetsuppgifter. Rapport, inga rankningslöften: metadata eller Lighthouse-SEO ensamt är
 ingen SEO-funktion (ordern avsnitt 4). Kontrollerar per sida: title och description (längd, unika), en h1, canonical,
-robots/noindex (samma bygge går till förhandsvisning och produktion: noindex bara på 404, tack- och felsidan; skyddet och
+robots/noindex (samma bygge går till förhandsvisning och produktion: noindex bara på 404, tack-, fel- och mottagen-sidan; skyddet och
 förhandsvisningens X-Robots-Tag prövas i de verkliga svaren av kontroller/driftkoll.py), hreflang-par, JSON-LD (giltig JSON,
 typ och egenskaper mot schema.org:s vokabulär, sanningsenlighet mot VERKSAMHET.json: namn, telefon, adress bara när
 publik, öppettider), interna länkar som löser, bildalt; per sajt: sitemap.xml och robots.txt finns och stämmer, kanonisk
@@ -85,8 +85,9 @@ def granska_sida(root, f, raw, lage, verksamhet, doman):
     fynd = []
     info = []
     url = url_for(root, f)
-    # 404-sidan, tacksidan och felsidan ska ha noindex och ingen canonical (byggstandarden 6.7 och 7.2, ägarens domar L1–L3)
-    ar_404 = f.relative_to(root).as_posix() in ('404.html', 'tack/index.html', 'fel/index.html')
+    # 404-sidan, tacksidan, felsidan och mottagen-sidan (sparad men ej aviserad förfrågan, D1) ska ha noindex och ingen canonical
+    # (byggstandarden 6.7 och 7.2, ägarens domar L1–L3)
+    ar_404 = f.relative_to(root).as_posix() in ('404.html', 'tack/index.html', 'fel/index.html', 'mottagen/index.html')
     m = TITLE.search(raw)
     title = htmlmod.unescape(re.sub(r'<[^>]+>', '', m.group(1))).strip() if m else ''
     if not title:
