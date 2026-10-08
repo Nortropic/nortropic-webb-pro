@@ -1,12 +1,14 @@
 ---
 id: B-20261007-kompetensprovet-jamforelsen-mellan-metodkartan-o
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261007-r103.md
 fynd: GR-20261007-r103#K2
 skapad: 2026-10-07
 prio: normal
 steg: main: kontroller/kompetens.py
+commit: 8b116d0
+andrad: 2026-10-08T21:28Z
 ---
 # Kompetensprovet: jämförelsen mellan metodkartan och koden går inte att lura med ett alias
 
@@ -15,3 +17,5 @@ steg: main: kontroller/kompetens.py
 **Förslag:** Registrera sessionernas pass vid anropet (till exempel ett obligatoriskt pass-argument i atelje.session) och jämför mot registreringen.
 
 **Klart när:** Ett alias för atelje.session fälls av provet.
+
+**Klar (2026-10-08):** Nattens uppdrag 2026-10-08: aliaset räknas och fälls av sessionsfel (värde, argument, import), rött mot basen och grönt efter; M63 fälls. Förslaget om ett obligatoriskt pass-argument genomfördes inte: aliaskontrollen räcker för klartkriteriet. Inte verifierad.

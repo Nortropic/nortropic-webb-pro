@@ -6,7 +6,7 @@ kallref: BESLUT.md
 skapad: 2026-10-08
 prio: hog
 steg: efter backlogavstämningen; samordnat med B-20261008-ren-start-for-nortropic-2-0-och-samlad-startbesi; BESLUT.md; GR-20261008-bestallning-mot-leverans-codex.md
-andrad: 2026-10-08T18:49Z
+andrad: 2026-10-08T21:28Z
 ---
 # Slutför tidigare beställt införande: K01–K26, kundrepon, Vercel, 21st, materialsteget, planprövningens återgång (ägarens uppdrag 2026-10-08 ~14:58Z, köat)
 
@@ -184,3 +184,5 @@ Avsluta köläggningen med:
 
 Samordna med det redan köade arbetet för ren 2.0-start och samlad startkontroll. Startkontrollen ska bedöma den slutliga gemensamma versionen. Köläggningen i sig ger inget mandat att starta nästa helbygge.
 ```
+
+**Pagar (2026-10-08):** Nattens uppdrag 2026-10-08: Codex fynd R01 (2E), R05 (2D), R06 (2A, mekaniken; av som förval), R07 (2B) och R08 (2A) rättade i 5a09fa8, med prov röda mot 06af6ff och gröna efter. Posten står kvar som pågår: det verkliga provet av arbetsroten i en riktig skaparsession, kundrepon på GitHub och Vercels förhandsvisning kräver ägarens start eller konton (nattrapporten, B).

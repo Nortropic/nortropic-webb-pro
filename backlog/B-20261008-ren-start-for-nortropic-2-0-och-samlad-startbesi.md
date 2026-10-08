@@ -6,7 +6,7 @@ kallref: BESLUT.md
 skapad: 2026-10-08
 prio: hog
 steg: efter backlogavstämningen; BESLUT.md; underlag/granskningar/GR-20261008-motorinventering-codex.md
-andrad: 2026-10-08T18:49Z
+andrad: 2026-10-08T21:28Z
 ---
 # Ren start för Nortropic 2.0 och samlad startbesiktning (ägarens uppdrag 2026-10-08 ~14:35Z, köat)
 
@@ -148,3 +148,5 @@ Lokalt fungerande mekanik, verklig extern åtkomst och professionell designkvali
 
 Börja med att köa uppdraget och bekräfta dess plats efter det pågående arbetet. Genomför sedan arbetet i ordningen ovan inom befintligt mandat.
 ```
+
+**Pagar (2026-10-08):** Nattens uppdrag 2026-10-08: Codex fynd R02 (F05, K06), R03 (F04, F05) och R04 (F01) rättade i 5a09fa8, med prov röda mot 06af6ff och gröna efter. Posten står kvar som pågår: startbesiktningens verkliga del kräver en verklig körning, som ägaren startar (nattrapporten, B).
