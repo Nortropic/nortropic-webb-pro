@@ -141,7 +141,22 @@ def kor(g):
     a.doma(slug, 'ägaren', 'godkand', 'Syntetiskt godkännande enbart av startsidans testversion.',
         kandidater=[{'id': 'k01', 'version': st['version']}], belagg='endast isolerat teknikprov')
     assert skapande.godkand_giltig(slug)[0]
-    flodesstart.krav(slug, 'helbygge')
+    # F07 (motorinventeringen): med Kundstarts ärendelager kräver Flöde-ingången sandlådan redan före starten, som kor.sh nedan
+    sparad_sandlada = os.environ.pop('NWP_SANDLADA', None)
+    try:
+        try:
+            flodesstart.krav(slug, 'helbygge')
+            raise AssertionError('helbygget fick starta utan sandlåda fast Kundstarts ärendelager finns (F07)')
+        except ValueError as e_:
+            assert 'sandlådan' in str(e_) and 'NWP_SANDLADA=pa' in str(e_), e_
+        assert flodesstart.startmiljo()['kundstart_lager'] and flodesstart.startmiljo()['hinder']
+        os.environ['NWP_SANDLADA'] = 'pa'
+        assert flodesstart.startmiljo()['hinder'] is None
+        flodesstart.krav(slug, 'helbygge')
+    finally:
+        os.environ.pop('NWP_SANDLADA', None)
+        if sparad_sandlada is not None:
+            os.environ['NWP_SANDLADA'] = sparad_sandlada
     a.installera_godkand(slug)
     assert (huvud / 'public/illustration.svg').read_bytes() == (kd.ksajt(slug, 'k01') / 'public/illustration.svg').read_bytes()
     # Riktig kor.sh/processvakt i kopian. Körbart lokalt program med namnet claude

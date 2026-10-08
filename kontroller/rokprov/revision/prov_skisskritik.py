@@ -1063,5 +1063,15 @@ def _ab_skiss():
     kor(globals())
 
 
-print('skisskritikens prov: %d fall, %d föll' % (23, len(FEL)), file=sys.stderr)
+@fall('24 K06: sessionen som svarar på granskningen eller fortsätter är en ny session utan minne: den får kompetensens rader och steg 0, aldrig beskedet att kärnan redan lästs')
+def _ny_session():
+    kr = {'varv': 1, 'storsta_problem': 'syntetiskt', 'synliga_problem': [], 'generiskt': False, 'rekommendation': 'behåll', 'motivering': 'm'}
+    for p in (kd.skiss_prompt(SLUG, 'k01', kritik=kr), kd.skiss_prompt(SLUG, 'k01', fortsattning=True)):
+        assert 'läste du i skissens första session' not in p and 'gjordes i skissens första session' not in p, p[-1500:]
+        assert 'Detta är en ny session' in p and 'Steg 0 görs i varje session' in p, p[-1500:]
+        assert 'Rollerna i ' in p and all(kompetens.vag(f) in p for f in kompetens.for_pass('skapa')[0]['karna']), 'kompetensens rader saknas i den nya sessionen'
+    assert 'Detta är en ny session' not in kd.skiss_prompt(SLUG, 'k01'), 'den första sessionen är ingen fortsättning'
+
+
+print('skisskritikens prov: %d fall, %d föll' % (24, len(FEL)), file=sys.stderr)
 sys.exit(1 if FEL else 0)

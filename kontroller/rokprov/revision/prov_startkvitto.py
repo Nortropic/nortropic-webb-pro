@@ -660,6 +660,16 @@ def _roller():
         assert r['karna']['tillstand'] == kompetens.LASKVITTO and r['tillampning'] == kompetens.TILLSTAND['ej_observerat'], r
         assert all(m['tillstand'] == kompetens.TILLSTAND['ej_gjort'] for m in r['mcp'].values()), r
     assert all(m['tillstand'] == kompetens.TILLSTAND['ej_observerat'] for r in blind for m in r['mcp'].values())
+    # F05 (motorinventeringen): läsordningen syns: kärnan läst hel men först efter första kodändringen är inte samma sak som
+    # läst före; ett granskande pass ändrar inget, så där gäller bara läsningen
+    sen = kompetens.tillstand({'verifierad': True, 'lasta': filer, 'fore_forsta_andring': [], 'saknas': [], 'valda': [], 'skill_anrop': [], 'mcp_anrop': {}, 'mcp_utfall': {}}, 'skapa')
+    assert all('läsordningen' in r['karna']['tillstand'] and r['karna']['fore_forsta_andring'] == 0 for r in sen if r['karna']['filer']), [r['karna'] for r in sen]
+    fore_ok = kompetens.tillstand({'verifierad': True, 'lasta': filer, 'fore_forsta_andring': filer, 'saknas': [], 'valda': [], 'skill_anrop': [], 'mcp_anrop': {}, 'mcp_utfall': {}}, 'skapa')
+    assert all(r['karna']['tillstand'] == kompetens.LASKVITTO for r in fore_ok), [r['karna'] for r in fore_ok]
+    assert all(r['karna']['tillstand'] == kompetens.LASKVITTO for r in sett) and 'fore_forsta_andring' not in sett[0]['karna'], 'ett kvitto utan ordningen döms inte'
+    gr_filer = kompetens.lasfiler('skisskritik')
+    gr_sen = kompetens.tillstand({'verifierad': True, 'lasta': gr_filer, 'fore_forsta_andring': [], 'saknas': [], 'valda': [], 'skill_anrop': [], 'mcp_anrop': {}, 'mcp_utfall': {}}, 'skisskritik')
+    assert all(r['karna']['tillstand'] == kompetens.LASKVITTO for r in gr_sen), [r['karna'] for r in gr_sen]
     T = kompetens.TILLSTAND
 
     def innehall(kv_, **kw):
@@ -717,6 +727,23 @@ def _roller():
     assert kv2['verifierad'] and 'mcp_lage' not in kv2 and 'mcp_utfall' not in kv2, 'en session som inte observerats gav ett känt utfall: %s' % kv2
     assert roll2['typografi']['mcp']['refero']['tillstand'] == T['ej_observerat'], roll2['typografi']['mcp']
     assert roll2['innehall']['mcp']['mobbin']['tillstand'] != T['blockerat'], roll2['innehall']['mcp']
+    assert not kv2['ofullstandig'] and kv2['sessioner'] == {'forvantade': 2, 'sedda': 2, 'saknade': []}, kv2['sessioner']
+    # N11 (F04, motorinventeringen): två sessioner, varav den andras transkript saknas helt: kvittot är ofullständigt och säger
+    # vilken session som saknas; det som inte sågs är inte observerat, aldrig "inte gjort" eller "blockerat"
+    sid3 = '2f2e2d2c-2b2a-4928-8726-252423222120'
+    bildkedja.PROJEKT = TMP / 'projekt'
+    try:
+        kv3 = kompetens.kvitto([sid, {'session_id': sid3}, {'session_id': None, 'avbruten': 'RuntimeError: claude startade inte'}], 'skapa')
+    finally:
+        bildkedja.PROJEKT = spara_projekt
+    assert kv3['verifierad'] and kv3['ofullstandig'] and kv3['sessioner']['forvantade'] == 3 and kv3['sessioner']['sedda'] == 1, kv3.get('sessioner')
+    assert kv3['sessioner']['saknade'] == [{'session': sid3, 'skal': 'transkriptet saknas'}, {'session': None, 'skal': 'sessionen fick aldrig ett session-id'}], kv3['sessioner']
+    assert 'mcp_lage' not in kv3 and 'mcp_utfall' not in kv3, 'ett saknat transkript får inte ge ett känt läge: %s' % kv3
+    assert kv3['mcp_anrop'] == {'mcp__refero__refero_search_screens': 1}, kv3['mcp_anrop']
+    roll3 = {r['roll']: r for r in kv3['tillstand']}
+    assert roll3['innehall']['karna']['tillstand'] == T['ej_observerat'] and roll3['innehall']['mcp']['mobbin']['tillstand'] == T['ej_observerat'], roll3['innehall']
+    assert roll3['typografi']['mcp']['refero']['tillstand'] == T['ej_observerat'] and roll3['innehall']['nivaer']['aktivering'] == T['ej_observerat'], roll3['typografi']['mcp']
+    assert not kv_['ofullstandig'] and kv_['sessioner'] == {'forvantade': 1, 'sedda': 1, 'saknade': []}, kv_['sessioner']
 
 
 # ===== 8. tåligheten =====

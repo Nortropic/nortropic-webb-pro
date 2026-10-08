@@ -1698,6 +1698,7 @@ def flode(slug):
     import skapande
     import prototyp as prototyp_kor
     import exportera
+    import flodesstart
     if ab_oavgjord(slug):  # lika för båda armarna: inget om ateljén, provet, stoppvakten eller granskningen före valet
         return {'slug': slug, 'blind': True, 'ab_dold': True, 'korning': None, 'tid': nu(),
                 'steg': [_steg(i, n, 'inte observerat') for i, n in enumerate(FLODESTEG, 1)]}
@@ -2002,7 +2003,7 @@ def flode(slug):
     return {'slug': slug, 'blind': blind, 'ab_dold': False,
             'korning': {'startad': st.get('startad'), 'steg': st.get('steg'), 'lage': st.get('lage')} if st else None,
             'steg': steg, 'tid': nu(), 'besked': flodesbesked(slug, blind=blind),
-            'handlingar': prototyp_kor.handlingar(slug)}
+            'handlingar': prototyp_kor.handlingar(slug), 'startmiljo': flodesstart.startmiljo()}
 
 
 def _pilotversion(namn, kanda):

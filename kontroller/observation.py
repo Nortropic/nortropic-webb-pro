@@ -281,6 +281,10 @@ def _anrop(c, t):
 # ett MCP-svar som är en feltext fast tjänsten inte satte is_error, och ett svar som säger att inget matchade
 FELTEXT = re.compile(r'^\s*(?:\[?error\]?|fel|mcp error)\b', re.I)
 INGA_TRAFFAR = re.compile(r'^\s*(?:no|inga|0)\b[^\n.]{0,80}\b(?:match|found|result|träff|hittade)', re.I)
+# tjänster vars svar är ett dokument i text (Motions dokumentationssök), inte en lista eller bilder: en text med innehåll är
+# där ett lyckat anrop med känd form (motorinventeringen F03). För Refero och Mobbin, vars svar är listor eller bilder, är
+# en text utan känd lista fortfarande 'svar utan känd form' (C6:s rest).
+DOKUMENTSVAR = ('mcp__motion__',)
 
 
 def _traffar(text):
@@ -339,8 +343,10 @@ def _svar(a, c, res, nekad, t):
                 return dict(ut, utfall='fel')
             if INGA_TRAFFAR.match(text):
                 return dict(ut, utfall='tomt resultat', traffar=0)
-            if text.strip():  # varken fel, tomt eller en läsbar lista: innehållet är inte observerat (C6:s rest; kompetens.UTAN_FORM)
-                return dict(ut, utfall='svar utan känd form')
+            if text.strip():
+                if namn.startswith(DOKUMENTSVAR):  # ett dokument i text är tjänstens form: svaret har innehåll
+                    return dict(ut, utfall='anrop lyckades', tecken=len(text.strip()))
+                return dict(ut, utfall='svar utan känd form')  # varken fel, tomt eller en läsbar lista: innehållet är inte observerat (C6:s rest; kompetens.UTAN_FORM)
         ut.update({k: v for k, v in (('traffar', tr), ('bilder', bilder), ('bildlankar', lankar)) if v})
         if bilder:
             return dict(ut, utfall='bild returnerad')
@@ -369,10 +375,10 @@ def sammanfatta(lage, slug=None):
         utfall = s.get('utfall') or 'inget svar observerat'
         v = verktyg.setdefault(a['namn'], {})
         v[utfall] = v.get(utfall, 0) + 1
-        if a['namn'].startswith(('mcp__refero__', 'mcp__mobbin__')):
+        if a['namn'].startswith('mcp__'):  # varje tjänst sessionen anropade, också Motion och sådana flödet inte tilldelat (F03)
             d = a['namn'].split('__', 2)
             mcp.append({'tjanst': d[1], 'verktyg': d[2] if len(d) > 2 else '', 'utfall': utfall, 'tid': a['tid'],
-                        **{k: s[k] for k in ('traffar', 'bilder', 'bildlankar') if s.get(k)}})
+                        **{k: s[k] for k in ('traffar', 'bilder', 'bildlankar', 'tecken') if s.get(k)}})
         elif a['namn'] == 'Skill':
             skills.append({'skill': a.get('skill'), 'utfall': utfall, 'tid': a['tid']})
         elif a['namn'] == 'Read' and a.get('fil'):

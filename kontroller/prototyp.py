@@ -127,7 +127,10 @@ def handlingar(slug):
         if lage_ == 'godkand':val=['helbygge']
         sajt=atelje.KUNDER/slug/'sajt'
         if (sajt/'package.json').is_file() and (sajt/'src/pages/index.astro').is_file():val.append('exportera')
-    return [{'id': n, 'text': HANDLINGAR[n]} for n in val]
+    ut=[{'id': n, 'text': HANDLINGAR[n]} for n in val]
+    for h in ut:  # ett hinder i startmiljön visas vid knappen, i stället för att starten nekas efteråt (F07)
+        if h['id']=='helbygge' and flodesstart.startmiljo()['hinder']:h['hinder']=flodesstart.startmiljo()['hinder']
+    return ut
 
 
 def fran_dashboard(slug, handling, start_id):

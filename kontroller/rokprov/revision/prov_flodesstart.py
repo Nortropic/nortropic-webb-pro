@@ -173,6 +173,26 @@ sys.exit(f.starta(sys.argv[1],'exportera',sys.argv[2]))
                 with self.assertRaises(ValueError):fs.starta(self.slug,'exportera','prov-annat-id')
                 spawn.assert_not_called()
 
+    def test_helbygge_kraver_sandladan_nar_kundstarts_lager_finns(self):
+        # F07 (motorinventeringen): villkoret kor.sh nekar på prövas före starten, i krav, och syns i startmiljön
+        sys.path.insert(0,str(self.root/'kontroller'))
+        import unittest.mock
+        import flodesstart as fs,atelje
+        (self.root/'underlag'/'kundstart').mkdir()
+        with unittest.mock.patch.object(atelje,'ROOT',self.root),unittest.mock.patch.object(atelje,'UNDERLAG',self.root/'underlag'), \
+             unittest.mock.patch.object(atelje,'KUNDER',self.root/'kunder'):
+            with unittest.mock.patch.dict(os.environ,{'NWP_SANDLADA':'av'}):
+                m=fs.startmiljo();self.assertEqual((m['sandlada'],m['kundstart_lager']),('av',True));self.assertIn('NWP_SANDLADA=pa',m['hinder'])
+                with self.assertRaises(ValueError) as c:fs.krav(self.slug,'helbygge')
+                self.assertIn('sandlådan',str(c.exception))
+            with unittest.mock.patch.dict(os.environ,{'NWP_SANDLADA':'pa'}):
+                self.assertIsNone(fs.startmiljo()['hinder'])
+                with self.assertRaises(ValueError) as c:fs.krav(self.slug,'helbygge')  # nästa villkor i ordningen: godkännandet
+                self.assertIn('godkännande',str(c.exception))
+            (self.root/'underlag'/'kundstart').rmdir()
+            with unittest.mock.patch.dict(os.environ,{'NWP_SANDLADA':'av'}):
+                self.assertEqual(fs.startmiljo(),{'sandlada':'av','kundstart_lager':False,'hinder':None})
+
     def lever(self,pid):
         try:os.kill(pid,0);return True
         except ProcessLookupError:return False

@@ -527,7 +527,9 @@ UTAN_FORM = 'svar utan känd form'  # ett textsvar som varken är fel, tomt elle
 def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     """Kvittot ur transkripten: kärnan som lästs hel före första ändringen (eller alls), alternativen som lästs,
     skillverktygets lyckade anrop och MCP-anropen som gav svar (ett nekat eller stoppat anrop räknas inte; granskning 4,
-    G7). Flera sessioner (ett omförsök) räknas tillsammans. Ett transkript som saknas gör kvittot ej verifierat. En
+    G7). Flera sessioner (ett omförsök) räknas tillsammans. Ett transkript som saknas gör kvittot ej verifierat; saknas
+    ett av flera står kvittot som ofullständigt ('sessioner': förväntade, sedda och de saknade med skäl), och det som
+    inte sågs är då inte observerat, aldrig "inte gjort" (motorinventeringen F04). En
     kärnfil som metodfilen levererade hel med samma sha är läst när metodfilen lästs hel (bildkedja.levererade_hela);
     ett alternativ är valt bara när sessionen själv läste det. Ur observatören (observation.py) också varje MCP-svars
     utfall (bild returnerad, anrop lyckades, tomt resultat, fel, nekat) och sessionens MCP-läge, så att ett tomt svar och
@@ -536,10 +538,16 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     filer, val = lasfiler(pass_, k), valbara(pass_, k)
     lasta, fore, skill, skill_fel, mcp, sedda, egna = set(), set(), [], [], [], 0, set()
     utfall, lage, observerad, verktyg_anrop = {}, {}, True, {}
+    forvantade, saknade = 0, []
     for s in sessioner:
         sid = s.get('session_id') if isinstance(s, dict) else s
+        forvantade += 1
+        if not sid:
+            saknade.append({'session': None, 'skal': 'sessionen fick aldrig ett session-id'})
+            continue
         ml = bildkedja.metodlasning(sid, filer + val, skrivprefix=skrivprefix)
         if not ml.get('verifierad'):
+            saknade.append({'session': str(sid), 'skal': str(ml.get('skal') or 'transkriptet kunde inte läsas')[:200]})
             continue
         sedda += 1
         fore.update(ml.get('fore') or [])
@@ -582,8 +590,9 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     ut = {'verifierad': sedda > 0, 'filer': filer, 'lasta': [f for f in filer if f in lasta], 'saknas': [f for f in filer if f not in lasta],
           'fore_forsta_andring': [f for f in filer if f in fore], 'valda': [f for f in val if f in egna],
           'skill_anrop': sorted(set(skill)), 'skill_fel': sorted(set(skill_fel)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))},
-          'verktyg_anrop': verktyg_anrop}
-    if sedda and observerad:  # bara när varje sedd session observerades: annars är utfallet och läget inte kända
+          'verktyg_anrop': verktyg_anrop, 'sessioner': {'forvantade': forvantade, 'sedda': sedda, 'saknade': saknade},
+          'ofullstandig': 0 < sedda < forvantade}
+    if sedda and observerad and not saknade:  # bara när varje session sågs och observerades: annars är utfallet och läget inte kända (F04)
         ut['mcp_utfall'], ut['mcp_lage'] = utfall, lage
     ut['tillstand'] = tillstand(ut, pass_, k)
     return ut
@@ -645,8 +654,10 @@ def tillstand(kv, pass_, k=None, mcp_lage=None):
     k = tolka() if k is None else k
     kv = kv if isinstance(kv, dict) else {}
     sett = bool(kv.get('verifierad'))
+    helt = sett and not kv.get('ofullstandig')  # varje session observerad: först då är ett uteblivet anrop "inte gjort" (F04)
     teknikval = kv.get('teknikval') if pass_ == 'rorelse' and isinstance(kv.get('teknikval'), list) else None
-    inget = TILLSTAND['ej_gjort'] if sett else TILLSTAND['ej_observerat']
+    inget = TILLSTAND['ej_gjort'] if helt else TILLSTAND['ej_observerat']
+    fore = set(kv['fore_forsta_andring']) if isinstance(kv.get('fore_forsta_andring'), list) else None  # läsordningen (F05)
     lasta, valda, skill = set(kv.get('lasta') or []), set(kv.get('valda') or []), set(kv.get('skill_anrop') or [])
     skill_fel = set(kv.get('skill_fel') or [])
     vb = kv.get('visuell_bedomning') if isinstance(kv.get('visuell_bedomning'), dict) else None
@@ -662,13 +673,20 @@ def tillstand(kv, pass_, k=None, mcp_lage=None):
         skills, _ = aktiverbara(x['karna'] + [f for f in x['valj'] if vag(f) in valda])
         anrop = {m: sum(v for a, v in mcp.items() if str(a).startswith('mcp__%s__' % m)) for m in x['mcp']}
         valt = [f for f in (vag(f) for f in x['valj']) if f in valda]
-        mcp_rader = {m: mcp_tillstand(m, a, utfall, lage, sett) for m, a in anrop.items()}
-        verktyg_rader = {v: verktygstillstand(v, va, sett) for v in x['verktyg']}
+        mcp_rader = {m: mcp_tillstand(m, a, utfall, lage, helt) for m, a in anrop.items()}
+        verktyg_rader = {v: verktygstillstand(v, va, helt) for v in x['verktyg']}
         aktiverade, misslyckade = sorted(s for s in skill if s in erbjudna), sorted(s for s in skill_fel if s in erbjudna)
+        n_fore = sum(1 for f in karna if f in fore) if fore is not None else None
+        if not sett:
+            karna_t = TILLSTAND['ej_observerat']
+        elif n == len(karna):  # hel läsning; i ett ändrande pass också ordningen: kärnan före första ändringen (F05)
+            karna_t = LASKVITTO if n_fore is None or n_fore == n or pass_ in GRANSKANDE + FORSKANDE else \
+                'läst hel, men %d av %d filer först efter första kodändringen (läsordningen; %s)' % (n - n_fore, n, LASBELAGG)
+        else:
+            karna_t = inget if not n else 'läst %d av %d filer (%s)' % (n, len(karna), LASBELAGG)
         ut.append({
             'roll': x['id'], 'namn': x['namn'], 'tilldelat': TILLSTAND['tilldelat'],
-            'karna': {'filer': len(karna), 'lasta': n, 'tillstand': (LASKVITTO if n == len(karna) else inget if not n else 'läst %d av %d filer (%s)' % (
-                n, len(karna), LASBELAGG)) if sett else TILLSTAND['ej_observerat']},
+            'karna': {'filer': len(karna), 'lasta': n, 'tillstand': karna_t, **({'fore_forsta_andring': n_fore} if n_fore is not None else {})},
             'alternativ': {'valda': valt, 'tillstand': LASKVITTO if valt else inget},
             'skillverktyget': {'anrop': aktiverade, 'misslyckade': misslyckade, 'tillstand': LASKVITTO if aktiverade else inget},
             'mcp': mcp_rader,
@@ -676,17 +694,18 @@ def tillstand(kv, pass_, k=None, mcp_lage=None):
             'tillampning': teknikval_text(teknikval) if teknikval is not None else TILLSTAND['ej_observerat'],
             **({'teknikval': teknikval} if teknikval is not None else {}),
             'nivaer': nivaer(skills, aktiverade, misslyckade, [s for s in skills if ('.claude/skills/%s/SKILL.md' % s) in lasta],
-                             mcp_rader, verktyg_rader, vb, sett)})
+                             mcp_rader, verktyg_rader, vb, sett, helt=helt)})
     return ut
 
 
-def nivaer(skills, aktiverade, misslyckade, lasta_skillmd, mcp_rader, verktyg_rader, vb, sett):
+def nivaer(skills, aktiverade, misslyckade, lasta_skillmd, mcp_rader, verktyg_rader, vb, sett, helt=None):
     """De tre nivåerna i ägarens förtydligande 2026-10-07, var för sig: aktivering (skillverktygets lyckade och misslyckade
     anrop ur transkriptet, och SKILL.md-filer lästa med Read i stället), lyckad användning (verktyg och MCP:er som gav ett
     svar med innehåll) och bedömd kvalitet (sessionens egen visuella bedömning, redovisad, aldrig observerad; kvaliteten
     bedöms av passet granskning, skisskritiken och ägarens dom). Ingen nivå står för en annan."""
     T = TILLSTAND
-    inget = T['ej_gjort'] if sett else T['ej_observerat']
+    helt = sett if helt is None else helt  # ett saknat transkript: det som inte sågs är inte observerat (F04)
+    inget = T['ej_gjort'] if helt else T['ej_observerat']
     utan = [s for s in skills if s not in aktiverade and s not in misslyckade]
     if not sett:
         akt = T['ej_observerat']

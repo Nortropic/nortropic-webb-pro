@@ -163,9 +163,21 @@ def stoppa(slug):
     return 5 if aktiva else 0  # begärt stopp är inte ett påstått slutfört stopp
 
 
+def startmiljo():
+    """Miljön ett helbygge startar i genom Flöde: sandlådan (NWP_SANDLADA, ärvd från dashboardens process) och om Kundstarts
+    ärendelager finns i underlag/, som kor.sh kräver sandlådan för. Villkoret prövas här före starten och visas i Flöde, i
+    stället för att kor.sh nekar efter att starten registrerats (motorinventeringen F07)."""
+    sandlada=os.environ.get('NWP_SANDLADA','av');lager=atelje.UNDERLAG/'kundstart';finns=lager.exists() or lager.is_symlink()
+    hinder=None
+    if finns and sandlada!='pa':hinder='Kundstarts ärendelager finns i underlag/, och kor.sh kräver då sandlådan: starta dashboarden med NWP_SANDLADA=pa (prova först kontroller/sandlada_prov.sh). Inget bygge startas.'
+    return {'sandlada':sandlada,'kundstart_lager':finns,'hinder':hinder}
+
+
 def krav(slug,handling):
     atelje_ledig(atelje.ROOT,slug)
     if handling=='helbygge':
+        m=startmiljo()
+        if m['hinder']:raise ValueError(m['hinder'])
         ok,skal=skapande.godkand_giltig(slug,atelje.UNDERLAG,atelje.KUNDER)
         if not ok:raise ValueError('Startsidan saknar aktuellt ägargodkännande: '+skal)
         v=json.loads((atelje.UNDERLAG/slug/'VERKSAMHET.json').read_text())

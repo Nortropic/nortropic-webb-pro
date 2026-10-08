@@ -4377,7 +4377,7 @@ try:
 
     def plan_ett_(prompt, verktyg, ut, schema=None, *a, **kw):
         sch_kd.append(schema)
-        return {'structured_output': {'variation': 'v', 'kandidater': [dict({f_: '%s 1' % f_ for f_, _r in kd.PLANFALT}, referensbilder=[])]}}
+        return {'structured_output': {'variation': 'v', 'kandidater': [dict({f_: '%s 1' % f_ for f_, _r in kd.PLANFALT}, huvudreferens='egen — provets riktning', referensbilder=[])]}}
     spara_sess_kd = at_pt.session
     shutil.copytree(u_kd, kd_u / 'kd-en', ignore=shutil.ignore_patterns('atelje'))  # kundens underlag, utan körningen
     at_pt.session = plan_ett_
@@ -4385,6 +4385,30 @@ try:
         kd.planera('kd-en', 1, 'skiss')
     finally:
         at_pt.session = spara_sess_kd
+    # F06 (motorinventeringen): ett uppdrag vars huvudreferens inte är "egen" och vars referensbilder inte finns är en falsk
+    # referensuppgift: avvisat i planen med skälet, och körningen stannar när inget användbart uppdrag återstår
+    def plan_brist_(prompt, verktyg, ut, schema=None, *a, **kw):
+        return {'structured_output': {'variation': 'v', 'kandidater': [dict({f_: '%s 1' % f_ for f_, _r in kd.PLANFALT}, huvudreferens='Xref',
+                                                                            referensbilder=['underlag/kd-tva/referenser/finns-inte.png'])]}}
+    shutil.copytree(u_kd, kd_u / 'kd-tva', ignore=shutil.ignore_patterns('atelje'))
+    at_pt.session = plan_brist_
+    try:
+        try:
+            kd.planera('kd-tva', 1, 'skiss')
+            raise AssertionError('en plan utan referensunderlag gick igenom')
+        except RuntimeError as e_:
+            assert 'saknar underlag' in str(e_) and 'finns-inte.png' in str(e_) and 'Xref' in str(e_), e_
+    finally:
+        at_pt.session = spara_sess_kd
+    assert kd.referensbrist('kd-en', {'huvudreferens': 'egen — provets', 'referensbilder': []}) is None
+    assert kd.referensbrist(sl_kd, {'huvudreferens': 'Xref', 'referensbilder': ['underlag/%s/referenser/paket-v01/x/vy.png' % sl_kd]}) is None
+    assert kd.referensbrist(sl_kd, {'huvudreferens': 'Xref', 'referensbilder': ['underlag/%s/VERKSAMHET.json' % sl_kd]}), 'en fil utanför referenser/ är inget referensunderlag'
+    assert 'inga referensbilder angivna' in kd.referensbrist(sl_kd, {'huvudreferens': 'Xref', 'referensbilder': []})
+    kd.rot('kd-tva').mkdir(parents=True, exist_ok=True)
+    (kd.rot('kd-tva') / 'FORSKNING.json').write_text(json.dumps({'referens': {'rc': 1, 'utdrag': 'brist'}, 'tjanster': {'rc': 0}}))
+    pp_br = kd.plan_prompt('kd-tva', 1, skiss=True)
+    assert 'leverans har brister' in pp_br and 'referenssteget slutkod 1' in pp_br and 'referenstjänsterna' not in pp_br.split('leverans har brister')[1][:60], pp_br[-900:]
+    assert 'leverans har brister' not in kd.plan_prompt('kd-en', 1, skiss=True) and 'avvisas av flödet när' in kd.plan_prompt('kd-en', 1, skiss=True)
     assert sch_kd[0]['properties']['kandidater']['minItems'] == 1 and sch_kd[0]['properties']['kandidater']['maxItems'] == 1, sch_kd[0]['properties']['kandidater']
     assert kd.PLAN_SCHEMA['properties']['kandidater']['minItems'] == 2 and kd.lista('kd-en') == ['k01'], kd.lista('kd-en')
     skapare_kd = [s_['prompt'] for s_ in sess_kd if s_['schema'] is None and 'Förbättringsrundan' not in s_['prompt']]
@@ -5171,7 +5195,8 @@ try:
         assert 'Read(./%s/**)' % kd.rel(kd.ksajt(sl_sk, 'k02').parent) in kr_gk[0]['nekas'], 'skissens kod och DESIGN.md nekas granskaren'
         assert 'vy-390-forsta.png' in kr_gk[0]['prompt'] and 'Köket i centrum' not in kr_gk[0]['prompt'], 'granskaren får aldrig skaparens text'
         assert 'det största problemet: rubriken tar över första vyn' in svar_gk[0]['prompt'] and 'rubriken "Svar på granskningen"' in svar_gk[0]['prompt']
-        assert 'Steg 0 gjordes i skissens första session' in svar_gk[0]['prompt'] and svar_gk[0]['frist'] >= kd.SVAR_MIN
+        assert 'Steg 0 görs i varje session' in svar_gk[0]['prompt'] and 'Detta är en ny session' in svar_gk[0]['prompt'] and svar_gk[0]['frist'] >= kd.SVAR_MIN  # K06
+        assert 'i skissens första session' not in svar_gk[0]['prompt'] and 'Rollerna i ' in svar_gk[0]['prompt'], 'svaret på granskningen är en ny session (K06)'
         assert 'Läs varje rolls kärna HEL' not in svar_gk[0]['prompt'], 'svaret läser inte om hela kärnan'
         st_gk = kd.las_status(sl_sk, 'k02')
         assert st_gk['status'] == 'klar' and st_gk['skisskritik']['gjord'] and st_gk['skisskritik']['session']['num_turns'] == 7, st_gk.get('skisskritik')

@@ -815,4 +815,25 @@ print('mätning: transkript %.1f MB, första läsningen %.0f ms, stegvis %.2f ms
 assert forsta < 10 and steg < 0.5, (forsta, steg)
 assert per_post < 600, per_post
 
+# 23. F03 (motorinventeringen): varje MCP-tjänst sessionen anropade står i den kompakta vyn, också Motion; Motions dokumentsvar
+#     i text är en känd form (anrop lyckades, med antalet tecken), ett "no results" är tomt, och Referos prosa utan lista är
+#     fortfarande ett svar utan känd form (C6:s rest)
+import tempfile
+f23 = Path(tempfile.mkdtemp(prefix='nwp-obs23-')) / 'session.jsonl'
+f23.write_text(strom(
+    rad(type='system', subtype='init', model='claude-sonnet-5-5', skills=[], mcp_servers=[{'name': 'motion', 'status': 'connected'}, {'name': 'refero', 'status': 'connected'}]),
+    anrop(1, 'm1', 'mcp__motion__search-motion-docs', {'platform': 'js', 'searchTerm': 'inView'}),
+    svar(2, 'm1', [{'type': 'text', 'text': 'Motion codex results for js. Docs: inView observes an element entering the viewport.'}]),
+    anrop(3, 'm2', 'mcp__motion__search-motion-docs', {'platform': 'js', 'searchTerm': 'zzz'}),
+    svar(4, 'm2', [{'type': 'text', 'text': 'No results found for zzz'}]),
+    anrop(5, 'r1', 'mcp__refero__refero_search_sites', {'query': FRAS}),
+    svar(6, 'r1', [{'type': 'text', 'text': 'Some prose answer without a list'}])))
+o23, _s23 = observation.observerad(f23, SLUG, 'provet')
+assert [(m['tjanst'], m['verktyg'], m['utfall']) for m in o23['mcp']] == [
+    ('motion', 'search-motion-docs', 'anrop lyckades'), ('motion', 'search-motion-docs', 'tomt resultat'), ('refero', 'refero_search_sites', 'svar utan känd form')], o23['mcp']
+assert o23['mcp'][0]['tecken'] > 40 and 'tecken' not in o23['mcp'][2] and o23['mcp_lage'] == {'motion': 'ansluten', 'refero': 'ansluten'}, o23
+assert o23['verktyg']['mcp__motion__search-motion-docs'] == {'anrop lyckades': 1, 'tomt resultat': 1}, o23['verktyg']
+assert 'inView' not in json.dumps(o23) and 'prose' not in json.dumps(o23), 'svarens innehåll står aldrig i vyn'
+shutil.rmtree(f23.parent, ignore_errors=True)
+
 print('observationens prov: alla gröna', file=sys.stderr)

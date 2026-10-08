@@ -18,6 +18,8 @@ import ateljeslut
 import korslut
 import korregister
 import prototyp
+import flodesstart
+import os
 
 
 class Flodeshandling(unittest.TestCase):
@@ -112,6 +114,23 @@ class Flodeshandling(unittest.TestCase):
         with patch.object(korslut, 'aktuell', return_value=post), patch.object(ateljeslut, 'aktuell', return_value=None), \
                 patch.object(dash, '_fil', return_value=None):
             self.assertEqual(dash.flode(self.slug)['steg'][5]['status'], 'kontrollerat')
+
+    def test_startmiljon_visas_och_hindrar_helbygget_fore_starten(self):
+        # F07 (motorinventeringen): Flöde visar startmiljön, och ett helbygge med Kundstarts lager utan sandlåda hindras vid
+        # knappen med skälet, i stället för att kor.sh nekar efter att starten registrerats
+        (self.u.parent / 'kundstart').mkdir()
+        with patch.dict(os.environ, {'NWP_SANDLADA': 'av'}), patch.object(korslut, 'aktuell', return_value=self.post()), patch.object(ateljeslut, 'aktuell', return_value=None):
+            f = dash.flode(self.slug)
+            self.assertEqual((f['startmiljo']['sandlada'], f['startmiljo']['kundstart_lager']), ('av', True))
+            self.assertIn('NWP_SANDLADA=pa', f['startmiljo']['hinder'])
+            with patch.object(prototyp, 'lage', return_value=('godkand', None)), patch.object(flodesstart, 'pagande', return_value=False):
+                h = {x['id']: x for x in prototyp.handlingar(self.slug)}
+            self.assertIn('helbygge', h); self.assertIn('NWP_SANDLADA=pa', h['helbygge']['hinder'])
+            self.assertTrue(all('hinder' not in x for i, x in h.items() if i != 'helbygge'), h)
+        with patch.dict(os.environ, {'NWP_SANDLADA': 'pa'}), patch.object(korslut, 'aktuell', return_value=self.post()), patch.object(ateljeslut, 'aktuell', return_value=None):
+            self.assertIsNone(dash.flode(self.slug)['startmiljo']['hinder'])
+            with patch.object(prototyp, 'lage', return_value=('godkand', None)), patch.object(flodesstart, 'pagande', return_value=False):
+                self.assertNotIn('hinder', {x['id']: x for x in prototyp.handlingar(self.slug)}['helbygge'])
 
     def test_avslutat_startid_svarar_med_sin_slutkod_inte_som_vagrad_start(self):
         # GR-20261008-r117-claude#B1: en begäran som redan är besvarad är inte en vägrad start; fliken får släppa sitt start-id

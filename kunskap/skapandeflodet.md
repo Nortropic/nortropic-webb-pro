@@ -105,7 +105,10 @@ kandidaterna och granskningarna.
    researchen (den får vara utgångspunkt för layout, palett och typografi, ägarbeslut 2026-10-03; om namnet finns i
    researchen prövas och redovisas per kandidat) med kvaliteten som ska återskapas, vad den kräver och om kundens
    material bär det, antagandena den vilar på, referensbilder, undersidan, materialbehovet och de fynd som formade det.
-   Sedan hämtas uppdragens material (huvudreferensens stilpaket och Mobbins skärmar, UPPDRAGSMATERIAL.json), och
+   Ett uppdrag vars huvudreferens inte är "egen" avvisas i planen när ingen av dess referensbilder finns i kundens
+   referenser (KANDIDATPLAN.json, Avvisade; `kandidater.referensbrist`): en misslyckad referensleverans följs inte av
+   planering på den referensen, och planeraren får veta när researchen levererade med brister (FORSKNING.json,
+   slutkoderna). Sedan hämtas uppdragens material (huvudreferensens stilpaket och Mobbins skärmar, UPPDRAGSMATERIAL.json), och
    planprövningen prövar uppdragen mot kunden, materialet och referenserna innan någon skiss byggs; titel, hypotes och
    huvudreferens står fast i prövningen (PLANPROVNING.md).
 4. **Skissa.** Varje kandidat har en stabil identitet (k01–k12), ett eget Astro-projekt
@@ -124,6 +127,8 @@ kandidaterna och granskningarna.
    bilderna i kandidatens `granskare/`, aldrig i skaparens varv), detektorn utan kodutdrag och förebilder ur Refero och
    Mobbin. SKISSKRITIK.json bär kandidatens version, det granskaren bevisligen såg (en tom eller saknad bild räknas
    aldrig som sedd) och kompetenskvittot, och skaparen svarar i en egen session ("Svar på granskningen" i RIKTNING.md).
+   Den sessionen är ny, som en fortsättning är: den får kompetensens rader och steg 0 igen och sägs aldrig ha läst
+   kärnan i en tidigare session; kvittot räknar sessionerna var för sig (motorinventeringen 2026-10-08, K06).
    Klar är skissen när den är byggd och
    renderad i 390, 1280 och 1440 och RIKTNING.md har huvudreferensen, idén, referenserna, det överförda och
    avvikelserna, de kvarvarande svagheterna, varven, materialet och kompetensernas synliga bidrag. Formulären postar
@@ -411,5 +416,7 @@ projekt köas (`kunder/<slug>/.bygglas`), liksom typsnittsinstallationerna. Kand
 node_modules. Där skriver deras byggen bara i Vites och Astros cacher, och det ett bygge lämnar i dem kan nästa
 kandidats bygge läsa; Vites förbuntade paket därifrån kör bygget inte (prövat 2026-10-07). Det är samma gräns som för
 sajtens eget bygge, nu delad av fler skapare. Ett sandlådat bygge (`NWP_SANDLADA=pa`)
-kräver därför en godkänd startsida och tar vid från den. Nästlade sessioner skriver aldrig i ägarens automatiska minne
+kräver därför en godkänd startsida och tar vid från den. Finns Kundstarts ärendelager kräver kor.sh sandlådan; Flöde
+prövar det före starten (`flodesstart.startmiljo`) och visar startmiljön vid knappen, så att starten nekas där med
+skälet i stället för i kor.sh efter att den registrerats (F07). Nästlade sessioner skriver aldrig i ägarens automatiska minne
 (`kontroller/nastlad.py`).

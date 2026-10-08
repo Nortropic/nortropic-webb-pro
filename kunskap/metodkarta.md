@@ -129,6 +129,11 @@ Varje roll har en **kärna** och **alternativ**. Kärnan är rollens sammanhäng
 ändrar eller bedömer något (en fil större än en läsning läses i delar med offset och limit tills alla rader är lästa).
 Kompetenskvittot visar ur transkriptet om den lästs: skissen och planprövningen redovisar det, i passen rörelse och
 granskning får en session som inte läst sin kärna ett omförsök, och förfiningen redovisar bara metodens läsning.
+Kvittot räknar sessionerna: saknas ett transkript av flera är kvittot ofullständigt (`sessioner`: förväntade, sedda och
+de saknade med skäl), och det som inte sågs är då inte observerat, aldrig inte gjort (F04). I ett ändrande pass visar
+kvittot också läsordningen: en kärna läst hel men först efter första kodändringen står som det (F05). Varje
+MCP-tjänst sessionen anropade står i observationen, också Motion, vars dokumentsvar i text är ett lyckat anrop med
+innehåll (F03); Referos och Mobbins svar är listor eller bilder, och en text utan känd lista där är ett svar utan känd form.
 Researchen, skisskritiken, jämförelsen och granskningens två pass sparar kvittot i FORSKNING.json, SKISSKRITIK.json,
 JAMFORELSE.json och KRITIK.json, med verktygsanropen och tjänsternas anrop och deras utfall. Alternativen är
 stilvarianter och recept för olika riktningar: sessionen väljer de som passar riktningen, läser dem hela och skriver

@@ -850,6 +850,10 @@ def forska(slug, n, skiss=False):
         rader.append('- referenstjänsterna %s: %s' % (post['nytt']['tjanster'], rel(u / 'referenser' / 'tjanster' / 'TJANSTER.md')))
     if not post['nytt']['paket'] and not post['nytt']['tjanster']:
         rader.append('- inget nytt material: %s' % (fel or 'hämtningen gav inget'))
+    for del_, namn_ in (('referens', 'referenssteget'), ('tjanster', 'referenstjänsterna')):  # brister i leveransen står här (F06)
+        r_ = post.get(del_)
+        if isinstance(r_, dict) and r_.get('rc') != 0:
+            rader.append('- %s levererade med brister (slutkod %s): %s' % (namn_, r_.get('rc'), ' '.join(str(r_.get('utdrag') or '')[-300:].split())))
     rader += ['', '## Återanvänt', '', '- referenspaketet före körningen: %s' % (post['fore']['paket'] or 'inget'),
               '- tjänsternas förra undersökning: %s' % (post['fore']['tjanster'] or 'ingen'), '',
               '## Riktningarna researchen ska öppna', '', str(post['riktningar'] or ''), '', '## Frågorna', '']
@@ -941,6 +945,14 @@ def research_rader(slug):
     if (tj / 'TJANSTER.md').is_file():
         rader.append('- referenstjänsterna (Refero och Mobbin): %s; varje Refero-stils hela dokument och tjänsternas svar ordagrant' % rel(tj / 'TJANSTER.md'))
         rader.append('  står där rapporten anger (ra-<tid>/)')
+    fo = atelje.las_json(rot(slug) / 'FORSKNING.json') or {}  # en leverans med brister sägs som den är (F06)
+    brister = ['%s slutkod %s' % (namn_, (fo.get(del_) or {}).get('rc')) for del_, namn_ in (('referens', 'referenssteget'), ('tjanster', 'referenstjänsterna'))
+               if isinstance(fo.get(del_), dict) and fo[del_].get('rc') != 0]
+    if fo.get('fel'):
+        brister.append('researchen: %s' % str(fo['fel'])[:200])
+    if brister:
+        rader.append('- researchens leverans har brister (%s; FORSKNING.md och paketets PAKET.md säger vilka): bygg bara på det som' % '; '.join(brister))
+        rader.append('  faktiskt finns, och välj "egen" som huvudreferens där underlaget saknas')
     if (u / 'REFERENSER.md').is_file():
         rader.append('- tidigare urval (bara underlag; ett urval som ägarens dom återöppnat är inget beslut): %s' % rel(u / 'REFERENSER.md'))
     if len(rader) == 1:
@@ -1009,7 +1021,8 @@ def plan_prompt(slug, n, skiss=False):
         'exempel stora arkitekturfoton, korta rubriker, få produkter), och om kundens faktiska material uppfyller det (små',
         'arbetsbilder, långa svenska rubriker och många tjänster ändrar förutsättningarna); när det inte gör det, hur uppdraget',
         'anpassas (kunskap/bild.md, art direction) och vad som beställs. Ange 1–4 referensbilder (sökvägar under',
-        'underlag/%s/referenser/) som visar kvaliteten.' % slug,
+        'underlag/%s/referenser/) som visar kvaliteten. Ett uppdrag vars huvudreferens inte är "egen" avvisas av flödet när' % slug,
+        'ingen av dess referensbilder finns: en referens utan underlag är ingen referens.',
         'Ange i "refero_stil" stilens id när huvudreferensen är en stil ur Referos stilar i researchen (TJANSTER.md, stil-<id>),',
         'annars en tom sträng: flödet hämtar då stilens paket (färgerna med roller, typsnitten, typskalan, avstånden, skuggorna och',
         'komponenternas variabler) till skaparens projekt, och skaparen bygger på det (kontroller/stilpaket.py).',
@@ -1049,7 +1062,8 @@ def skriv_uppdrag(slug, kid, k, nr, totalt):
     for falt, rubrik in PLANFALT:
         if rubrik and falt in FORMFORSLAG:
             rader += ['## %s' % rubrik, '', str(k.get(falt) or '').strip(), '']
-    rader += ['## Referensbilder', ''] + ['- ' + str(p) for p in k.get('referensbilder') or []] + ['']
+    rader += ['## Referensbilder', ''] + ['- %s%s' % (p, '' if referensbild_fil(slug, p) else ' (saknas: filen finns inte i kundens referenser)')
+                                          for p in k.get('referensbilder') or []] + ['']
     underlag = referensunderlag(k.get('referensbilder') or [])
     rader += ['## Referensunderlag', '',
               'Det kuraterade underlaget för referensbildernas sidor (ett avsnitt per sektion: bild, mått, renderade typsnitt, de',
@@ -1074,6 +1088,35 @@ def referensunderlag(bilder):
         if f.is_file() and not f.is_symlink() and rel(f) not in ut:
             ut.append(rel(f))
     return ut
+
+
+def referensbild_fil(slug, b):
+    """Referensbildens fil ur planens sökväg (under underlag/<slug>/referenser/: relativ repots rot, relativ kundens underlag
+    eller absolut), eller None när filen inte finns eller ligger utanför kundens referenser."""
+    try:
+        s = str(b)
+        p = Path(s)
+        if not p.is_absolute():
+            pre = 'underlag/%s/' % slug
+            p = atelje.UNDERLAG / slug / s[len(pre):] if s.startswith(pre) else atelje.ROOT / s
+        p = p.resolve()
+        ref = (atelje.UNDERLAG / slug / 'referenser').resolve()
+    except (TypeError, ValueError, OSError):
+        return None
+    return p if p.is_file() and ref in p.parents else None
+
+
+def referensbrist(slug, k):
+    """Ett uppdrag som utgår från en namngiven huvudreferens kräver identifierat underlag: minst en av planens referensbilder
+    finns i kundens referenser. Annars är uppdraget en falsk referensuppgift och avvisas i planen (motorinventeringen F06:
+    en misslyckad referensleverans får inte följas av planering på den referensen); en egen riktning ("egen …") kräver
+    ingen bild. Ger bristen som text, eller None."""
+    hr = str(k.get('huvudreferens') or '').strip()
+    bilder = [str(b) for b in (k.get('referensbilder') or []) if isinstance(b, str)]
+    if hr.lower().startswith('egen') or any(referensbild_fil(slug, b) for b in bilder):
+        return None
+    return 'huvudreferensen "%s" saknar underlag: %s' % (hr[:80] or '(tom)', ('ingen av referensbilderna finns (%s)' % ', '.join(b[:120] for b in bilder[:4]))
+                                                       if bilder else 'inga referensbilder angivna')
 
 
 def devtools_profiler(slug):
@@ -1112,17 +1155,25 @@ def planera(slug, n, lage=None):
     svar = atelje.session(plan_prompt(slug, n, lage == 'skiss'), LASVERKTYG + kompetens.verktyg('planera', slug), r / 'svar-plan.json', plan_schema(n), 200,
                           atelje.MODELL, EFFORT_SKISS if lage == 'skiss' else atelje.EFFORT, FRIST_PLAN, slug=slug)
     plan = svar.get('structured_output') or {}
-    kand = [k for k in plan.get('kandidater') or [] if isinstance(k, dict) and str(k.get('titel') or '').strip()][:n]
+    kand, avvisade = [], []
+    for k in plan.get('kandidater') or []:
+        if not isinstance(k, dict) or not str(k.get('titel') or '').strip():
+            continue
+        brist = referensbrist(slug, k)  # en namngiven referens utan underlag är ingen referens (F06)
+        (avvisade.append({'titel': str(k.get('titel'))[:120], 'skal': brist}) if brist else kand.append(k))
+    kand = kand[:n]
     if len(kand) < minsta_plan(n):
-        raise RuntimeError('planen gav %d användbara uppdrag av %d' % (len(kand), n))
+        raise RuntimeError('planen gav %d användbara uppdrag av %d%s' % (len(kand), n, ('; avvisade: ' + '; '.join(
+            '%s: %s' % (a['titel'], a['skal']) for a in avvisade)) if avvisade else ''))
     ids = ['k%02d' % i for i in range(1, len(kand) + 1)]
     for i, (kid, k) in enumerate(zip(ids, kand), 1):
         skriv_uppdrag(slug, kid, k, i, len(kand))
         satt_status(slug, kid, 'planerad', 'uppdraget skrivet', titel=k['titel'], hypotes=k.get('hypotes'), huvudreferens=k.get('huvudreferens'), forsok=0)
-    (r / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': nu(), 'antal': len(ids), 'lage': lage, 'variation': plan.get('variation'), 'kandidater': dict(zip(ids, kand))},
-                                                   ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    (r / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': nu(), 'antal': len(ids), 'lage': lage, 'variation': plan.get('variation'), 'kandidater': dict(zip(ids, kand)),
+                                                    'avvisade': avvisade}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     (r / 'KANDIDATPLAN.md').write_text('\n'.join(['# Kandidatplan · %s · %s' % (slug, nu()), '', '## Variationen', '', str(plan.get('variation') or ''), '']
-                                                 + ['- **%s · %s**: %s' % (kid, k['titel'], re.sub(r'\s+', ' ', k.get('hypotes') or k['ide'])[:300]) for kid, k in zip(ids, kand)]) + '\n',
+                                                 + ['- **%s · %s**: %s' % (kid, k['titel'], re.sub(r'\s+', ' ', k.get('hypotes') or k['ide'])[:300]) for kid, k in zip(ids, kand)]
+                                                 + (['', '## Avvisade uppdrag (referens utan underlag)', ''] + ['- %s: %s' % (a['titel'], a['skal']) for a in avvisade] if avvisade else [])) + '\n',
                                        encoding='utf-8')
     return ids
 
@@ -1258,7 +1309,7 @@ def skisskritik_rader(kr):
             'bara under rubriken "%s" sist i RIKTNING.md: ägaren läser det först efter sitt första beslut, så att den' % SVARSRUBRIK,
             'bedömningen är oberoende av granskningen. Under Idén, Referenser, Överfört och Kvarvarande svagheter står sidans läge',
             'med dina egna ord, utan granskningen, granskaren eller dess rekommendation. Rendera och titta igen, och uppdatera',
-            '"Kvarvarande svagheter". Kärnan läste du i skissens första session; slå upp i den när svaret behöver det.', '']
+            '"Kvarvarande svagheter". Kompetensen aktiveras och läses i den här sessionen som i varje session (raderna nedan).', '']
 
 
 def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=30, forsok_min=None, kritik=None, fortsattning=False):
@@ -1318,10 +1369,12 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         'inline-händelser som onclick= stoppas av CSP:n och syns som konsolfel (byggstandarden 8.2). Innehållet och',
         'navigationen fungerar utan JavaScript.', '',
         *(skapande.kompletteringsrader(komplettering) + [''] if komplettering else []),
-        *(['Kompetensernas kärna läste du i skissens första session; slå upp i den när det behövs.'] if (kritik or fortsattning)
-          else kompetens.prompt_rader('skapa', slug, kid)), '',
+        *(['Detta är en ny session: inget från en tidigare session finns i ditt minne, bara i filerna (RIKTNING.md, projektet, svaren',
+           'och bilderna under %s). Kompetensen aktiveras och läses i den här sessionen som i varje session; kvittot räknar' % rel(d),
+           'sessionerna var för sig (K06).'] if (kritik or fortsattning) else []),
+        *kompetens.prompt_rader('skapa', slug, kid), '',
         'Arbetsgången:',
-        *(['Steg 0 gjordes i skissens första session; gör det som %s behöver.' % ('svaret på granskningen' if kritik else 'fortsättningen')]
+        *(['Steg 0 görs i varje session, också den här; gör sedan det som %s behöver.' % ('svaret på granskningen' if kritik else 'fortsättningen')]
           if (kritik or fortsattning) else []),
         '0. Använd hela kompetensen: aktivera rollernas skills med skillverktyget och läs deras referensfiler hela (rollernas',
         '   rader nedan säger vilka; en aktivering som misslyckas skriver du i RIKTNING.md innan du går vidare), och välj bland',
@@ -1485,8 +1538,8 @@ def anvanda_verktyg(kv, pass_):
 def kompetens_kort(kv):
     """Det sparade kompetenskvittot: läsningen, de valda alternativen, skillverktyget, verktygens och tjänsternas anrop
     med utfall, sessionens läge hos tjänsterna och tillståndet per roll (kompetens.kvitto)."""
-    return {k_: kv.get(k_) for k_ in ('verifierad', 'lasta', 'saknas', 'valda', 'skill_anrop', 'skill_fel', 'mcp_anrop', 'mcp_utfall', 'mcp_lage',
-                                       'verktyg_anrop', 'tillstand') if k_ in (kv or {})}
+    return {k_: kv.get(k_) for k_ in ('verifierad', 'ofullstandig', 'sessioner', 'lasta', 'saknas', 'fore_forsta_andring', 'valda', 'skill_anrop',
+                                       'skill_fel', 'mcp_anrop', 'mcp_utfall', 'mcp_lage', 'verktyg_anrop', 'tillstand') if k_ in (kv or {})}
 
 
 # underlag/<slug> för de blinda sessionerna (GR-20261007-r103#B2): bara en uttrycklig lista är läsbar, och allt annat

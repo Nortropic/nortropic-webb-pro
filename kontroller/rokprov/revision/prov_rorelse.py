@@ -353,10 +353,10 @@ def _valet_och_kvittot():
     rad_ = '\n'.join(kd.kompetensrad(dict(bas, tillstand=None), 'rorelse'))
     assert 'aktivering: misslyckad aktivering: gsap' in rad_ and 'användning: ' in rad_ and 'bedömd kvalitet: ' in rad_ and 'tillämpning: ' in rad_, rad_
     # ur ett transkript: en misslyckad aktivering räknas aldrig som läsning och syns för sig
-    sid = transkript([('Skill', {'skill': 'motion'}, 'Skillen motion är laddad'), ('Skill', {'skill': 'gsap'}, ('fel', 'Unknown skill: gsap')),
-                      ('Read', {'file_path': str(KOPIA / '.claude' / 'skills' / 'motion' / 'best-practices' / 'css-or-motion.md')}, 'tabellen'),
-                      (MOTION_VERKTYG, {'platform': 'js', 'searchTerm': 'inView'}, 'Motion codex results for js. Docs: inView')],
-                     '3f0e0d0c-0b0a-4908-8706-050403020201')
+    handelser_m = [('Skill', {'skill': 'motion'}, 'Skillen motion är laddad'), ('Skill', {'skill': 'gsap'}, ('fel', 'Unknown skill: gsap')),
+                   ('Read', {'file_path': str(KOPIA / '.claude' / 'skills' / 'motion' / 'best-practices' / 'css-or-motion.md')}, 'tabellen'),
+                   (MOTION_VERKTYG, {'platform': 'js', 'searchTerm': 'inView'}, 'Motion codex results for js. Docs: inView')]
+    sid = transkript(handelser_m, '3f0e0d0c-0b0a-4908-8706-050403020201')
     ml = bildkedja.metodlasning(sid, [kompetens.vag(f) for f in r['karna']] + ['.claude/skills/motion/SKILL.md', '.claude/skills/gsap/SKILL.md',
                                                                              '.claude/skills/motion/best-practices/css-or-motion.md'])
     assert ml['verifierad'] and ml['skill_anrop'] == ['motion'] and ml['skill_fel'] == ['gsap'], ml
@@ -366,6 +366,19 @@ def _valet_och_kvittot():
     assert kv['verifierad'] and kv['skill_fel'] == ['gsap'] and kv['mcp_anrop'] == {MOTION_VERKTYG: 1}, kv
     tk = {x['roll']: x for x in kv['tillstand']}['rorelse']
     assert tk['nivaer']['aktivering'].startswith('misslyckad aktivering: gsap'), tk['nivaer']
+    assert 'mcp_utfall' not in kv, 'utan init-rad är sessionens MCP-läge inte observerat'
+    # F03 (motorinventeringen): med sessionens init-rad når Motions dokumentsvar hela vägen observatör → kvitto → tillstånd
+    # (ett nytt transkript: observatören läser stegvis, så ett redan observerat skrivs aldrig om)
+    sid_m = transkript(handelser_m, '4f0e0d0c-0b0a-4908-8706-050403020202')
+    f_ = bildkedja.PROJEKT / 'p' / (sid_m + '.jsonl')
+    f_.write_text(rad(type='system', subtype='init', model='claude-prov', skills=[], mcp_servers=[{'name': 'refero', 'status': 'connected'}, {'name': 'motion', 'status': 'connected'}])
+                  + '\n' + f_.read_text(encoding='utf-8'), encoding='utf-8')
+    kv_m = kompetens.kvitto([{'session_id': sid_m}], 'rorelse')
+    assert kv_m['mcp_utfall'] == {MOTION_VERKTYG: {'anrop lyckades': 1}} and kv_m['mcp_lage'] == {'refero': 'ansluten', 'motion': 'ansluten'}, kv_m
+    tk_m = {x['roll']: x for x in kv_m['tillstand']}['rorelse']
+    assert tk_m['mcp']['motion']['tillstand'] == kompetens.TILLSTAND['anvant'] and tk_m['mcp']['motion']['med_innehall'] == 1, tk_m['mcp']
+    assert tk_m['nivaer']['anvandning'].startswith(kompetens.TILLSTAND['anvant'] + ': motion'), tk_m['nivaer']
+    assert 'motion' in (kd.anvanda_verktyg(kv_m, 'rorelse') or []), kd.anvanda_verktyg(kv_m, 'rorelse')
 
 
 # ===== 6. metodlåset =====
