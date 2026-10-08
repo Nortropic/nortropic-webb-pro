@@ -314,6 +314,10 @@ async function verktygsladavy() {
     ${d.md ? `<details><summary>Senaste underhållet (UNDERHALL.md)</summary><div class="prosa">${d.md}</div></details>` : ''}`;
   $('#underhall-nu').onclick = async () => { $('#underhall-nu').disabled = true; try { await post('/api/underhall/kor', {}); setTimeout(verktygsladavy, 1500); } catch (err) { $('#underhall-svar').innerHTML = `<span class="rod-text">${esc(err.message)}</span>`; $('#underhall-nu').disabled = false; } };
 }
+// kvittots resultat som chips, med kvittots egna ord (startkontroll.NAMN genom sammanfattningens ord): det som begränsar,
+// det som är nytt och det som inte gäller starten var för sig (GR-20261007-r102#K2)
+const STARTKVITTO_CHIPS = [['fel', 'rod'], ['avvisad', 'rod'], ['behallen', 'gul'], ['okand', 'gul'], ['delvis', 'gul'], ['nytt', 'gul'], ['ej_tillampligt', '']];
+const startkvittoChips = (k) => STARTKVITTO_CHIPS.filter(([x]) => (k.antal || {})[x]).map(([x, f]) => `<span class="chip ${f}">${k.antal[x]} ${esc((k.ord || {})[x] || x)}</span>`).join('');
 // Startkontrollens kvitto för kundens senaste start, överst i prototypvyn
 function visaStartkvitto(d) {
   const k = d.startkvitto; if (!k) return;
@@ -325,10 +329,9 @@ function visaStartkvitto(d) {
   }
   const h1 = $('#vy h1'); if (!h1 || $('#startkvitto')) return;
   const etikett = { redo: ['ok', 'Startkontrollen: redo'], begransad: ['gul', 'Startkontrollen: redo med begränsningar'], stoppad: ['rod', 'Startkontrollen stoppade starten'] }[k.status] || ['', 'Startkontrollen'];
-  const a = k.antal || {};
   const sec = document.createElement('section'); sec.id = 'startkvitto'; sec.className = 'kort'; sec.style.marginBottom = '18px';
   sec.innerHTML = `<div class="rad" style="flex-wrap:wrap"><span class="chip ${etikett[0]}">${etikett[1]}</span><span class="chip">${tid(k.tid)} · ${esc(k.start || '')}</span>
-      ${['fel', 'avvisad', 'behallen', 'okand'].filter((x) => a[x]).map((x) => `<span class="chip ${x === 'fel' || x === 'avvisad' ? 'rod' : 'gul'}">${a[x]} ${{ fel: 'fel', avvisad: 'avvisade', behallen: 'behållna', okand: 'okända' }[x]}</span>`).join('')}
+      ${startkvittoChips(k)}
       ${(k.matinstrument_bytta || []).length ? `<span class="chip gul">mätinstrument bytta: ${k.matinstrument_bytta.map((x) => esc(x.namn)).join(', ')}</span>` : ''}</div>
     ${(k.stoppar || []).length ? `<p class="rod-text">${k.stoppar.map(esc).join('<br>')}</p>` : ''}
     ${d.startkontroll_stopp && k.stopp ? `<p class="under">Starten ${tid(d.startkontroll_stopp.tid)} gjordes inte; den förra körningens resultat och kvitto står kvar.</p>` : ''}

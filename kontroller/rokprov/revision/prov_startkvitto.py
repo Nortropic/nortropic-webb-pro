@@ -1335,5 +1335,22 @@ def _en_kalla():
     assert any('refero_search_apps' in f and 'provdatum' in f for f in fel), fel
 
 
+@fall('8 dashboardens chips: varje resultat som begränsar, är nytt eller inte gäller starten får ett chip med kvittots ord (GR-20261007-r102#K2)')
+def _chips():
+    kv = {'status': 'begransad', 'rader': [{'resultat': r} for r in ('fel', 'avvisad', 'behallen', 'okand', 'delvis', 'delvis', 'nytt',
+                                                                         'ej_tillampligt', 'ok', 'uppdaterad', 'planerat', 'ingen_uppgift')]}
+    s = sk.sammanfattning(kv)
+    assert s['ord'] == {r: sk.NAMN[r] for r in s['antal']}, s['ord']
+    rader = (ROOT_REAL / 'dashboard' / 'index.html').read_text(encoding='utf-8').split('\n')  # kopian har inte dashboarden
+    kod = [next(r for r in rader if r.startswith(b)) for b in ('const esc = ', 'const STARTKVITTO_CHIPS = ', 'const startkvittoChips = ')]
+    js = '\n'.join(kod) + '\nprocess.stdout.write(startkvittoChips(JSON.parse(process.argv[1])));'
+    r = subprocess.run(['node', '-e', js, json.dumps(s, ensure_ascii=False)], capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr[-400:]
+    fick = re.findall(r'<span class="chip ?([a-z]*)">([^<]*)</span>', r.stdout)
+    assert fick == [('rod', '1 FEL'), ('rod', '1 avvisad'), ('gul', '1 behållen'), ('gul', '1 okänd'), ('gul', '2 delvis'),
+                    ('gul', '1 nytt, obedömt'), ('', '1 gäller inte starten')], fick
+    assert 'ok' not in [t.split(' ', 1)[1] for _f, t in fick], 'det bekräftade får inget chip här'
+
+
 print('startkvittots prov: %d fel%s' % (len(FEL), (': ' + '; '.join(FEL)) if FEL else ''), file=sys.stderr)
 sys.exit(1 if FEL else 0)

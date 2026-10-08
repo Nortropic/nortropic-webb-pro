@@ -1289,7 +1289,9 @@ def sammanfattning(kv):
     kv = kv or {}
     for r in kv.get('rader') or []:
         antal[r['resultat']] = antal.get(r['resultat'], 0) + 1
-    return {'status': kv.get('status'), 'tid': kv.get('tid'), 'start': kv.get('start'), 'antal': antal, 'stoppar': kv.get('stoppar') or [],
+    # ord: kvittots egna ord för varje resultat, så att dashboardens chips säger samma sak (GR-20261007-r102#K2)
+    return {'status': kv.get('status'), 'tid': kv.get('tid'), 'start': kv.get('start'), 'antal': antal, 'ord': {r: NAMN.get(r, r) for r in antal},
+            'stoppar': kv.get('stoppar') or [],
             'underhall': kv.get('underhall'), 'matinstrument_bytta': kv.get('matinstrument_bytta') or [],
             'aterupptagen': kv.get('aterupptagen'), 'kvitto': kv.get('kvitto'), 'korvag': kv.get('korvag')}
 
