@@ -44,7 +44,7 @@ sälja: varje sida har ett tydligt nästa steg.
 | Punkt | Fas | Prövas av |
 |---|---|---|
 | 3.1 Designtokens för färg, typografi, avstånd och radie som CSS-variabler; en typografisk skala, ett avståndssystem. Stilrapporten visar typsnitt, färgfamiljer, radier, kort och modellernas namngivna standardval. | D | granskaren, stilrapporten (info) |
-| 3.2 Mobilen först (min-width), flex och grid. Flytande typografi med clamp() blandar rem och vw, annars växer texten inte med zoom. | D | info, granskaren |
+| 3.2 Mobilen först (min-width), flex och grid. Flytande typografi med clamp() blandar rem och cqi mot sidans omslag, som är en storleksbehållare (`container: omslag / inline-size`), så att texten slutar växa där omslaget slutar; vw bara utan ett omslag med maxbredd, och aldrig ensamt (zoom). | D | info, granskaren |
 | 3.3 Ingen horisontell skroll mellan 320 och 1920 px; träffytor minst 24×24 px, primära knappar 44×44. Länkar i listor och sidfot räknas, inte bara knappar. | D | `spill`, `axe`; 24 px: `standard` (fel, mätt av stilrapporten); 44 px: stilrapporten listar knappar och ring-/mejllänkar under 44 px som information, granskaren avgör vilka som är primära |
 | 3.4 Kontrast 4,5:1 för text och 3:1 för gränssnitt; synlig fokus med `:focus-visible`. | D | `axe`, inspektionen, info |
 | 3.5 `prefers-reduced-motion` respekteras när sidan har rörelse, också övergångar (mallens `Bas.astro` har blocket); inget rullar av sig självt. | D | `standard` |
@@ -143,8 +143,13 @@ förhandsvisningen hör till Vercel-steget (`kunskap/lansering.md`).
 - **FAQPage ger inga rikresultat.** Google slutade visa dem 7 maj 2026 och Rich Results Test prövar dem inte längre.
   Markeringen skadar inte men ger inget i Google.
   [Google](https://developers.google.com/search/docs/appearance/structured-data/faqpage)
-- **clamp() måste blanda rem och vw.** Med bara vw växer texten inte vid zoom och bryter WCAG 1.4.4.
+- **clamp() måste blanda rem och en flytande enhet.** Med bara vw växer texten inte vid zoom och bryter WCAG 1.4.4.
   [Smashing Magazine](https://www.smashingmagazine.com/2023/11/addressing-accessibility-concerns-fluid-type/)
+- **clamp() med vw växer förbi omslaget.** vw mäter mot fönstret: Holms h1 nådde sitt max vid 1 375 px fast omslaget
+  stannade vid 1 152 px (aby 1 250 mot 1 200), och provets vyer 390/768/1440 ser inte glappet. cqi i en storleksbehållare
+  (`container: omslag / inline-size` på omslaget) mäter mot omslaget; rem kvar för zoomen. `@property` (syntax `<length>`,
+  `inherits: true`, satt om på omslagets direkta barn) bara när ett bygge inför container queries på kort.
+  [Kevin Powell, Fixing fluid typography](https://www.youtube.com/watch?v=q-_cIlttYBc) (kirurgens intag 2026-10-04)
 - **CSP med nonce kräver en server.** Statiska Astro-sajter har inbyggd CSP med hashar sedan Astro 6; vi kör 7.
   frame-ancestors fungerar inte i en metatagg och kommer med svarshuvudena vid lansering.
   [Astro 6](https://astro.build/blog/astro-6/)

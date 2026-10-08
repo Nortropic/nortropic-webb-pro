@@ -742,8 +742,8 @@ echo "   byggets läsgräns per kandidat (2026-10-07): sidans kod når varken sy
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_lasgrans.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/lasgrans-prov.log" \
   || { echo "FEL: läsgränsens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/lasgrans-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/lasgrans-prov.log"; exit 1; }
 echo "   läsgränsens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/lasgrans-prov.log") fall)"
-echo "   småverktygen: profilbladet ur VERKSAMHET.json (rapportens punkt 14)"
-for litet in prov_profilblad; do
+echo "   småverktygen: profilbladet ur VERKSAMHET.json (rapportens punkt 14) och byggstandardens 3.2 (cqi)"
+for litet in prov_profilblad prov_standard; do
   "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/$litet.py" >"$ROOT/kunder/rokprov-mall/$litet.log" 2>&1 \
     || { echo "FEL: $litet"; tail -20 "$ROOT/kunder/rokprov-mall/$litet.log"; exit 1; }
 done

@@ -560,9 +560,17 @@ def granska(dist, kontakt=None):
           % rorelse.group(0).split(':')[0].strip())
     if ':focus-visible' not in all_css:
         I('3.4', '(alla)', 'ingen :focus-visible-stil; webbläsarens standardfokus syns men följer inte designen')
+    # 3.2 flytande typografi: bara vw växer inte med zoom; vw mot ett omslag med maxbredd växer förbi omslaget (cqi i en
+    # storleksbehållare mäter mot omslaget; backloggen 2026-10-03, Kevin Powell)
+    omslag = re.search(r'max-width\s*:\s*[\d.]+\s*(?:rem|ch|px)|width\s*:\s*min\([^)]*(?:rem|ch|px)', all_css)
     for m in re.finditer(r'font-size\s*:\s*clamp\(([^,]+),([^,]+),', all_css):
-        if 'vw' in m.group(2) and not re.search(r'r?em', m.group(2)):
-            I('3.2', '(alla)', 'clamp() med bara vw i mitten (%s); blanda in rem så att texten växer med zoom' % m.group(2).strip()[:30])
+        mitten = m.group(2)
+        if re.search(r'\bvw\b|\d\.?\d*vw', mitten) and not re.search(r'r?em', mitten):
+            I('3.2', '(alla)', 'clamp() med bara vw i mitten (%s); blanda in rem så att texten växer med zoom' % mitten.strip()[:30])
+            break
+        if 'vw' in mitten and 'cqi' not in mitten and omslag:
+            I('3.2', '(alla)', 'clamp() med vw (%s) mäter mot fönstret fast sidan har ett omslag med maxbredd (%s): texten växer vidare efter att '
+              'omslaget stannat; använd cqi i en storleksbehållare (container: omslag / inline-size)' % (mitten.strip()[:30], omslag.group(0)[:30]))
             break
     if re.search(r'font-awesome|material-icons|icomoon|glyphicons', all_css, re.I):
         F('3.6', '(alla)', 'ikonfont används; använd SVG')
