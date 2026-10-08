@@ -200,8 +200,9 @@ function matPaSidan() {
   // spill ser inte ett ord som sticker ut ur en knapp med overflow hidden eller en spalt med min-width 0.
   const textRyms = [];
   for (const el of document.querySelectorAll(`${rot} h1, ${rot} h2, ${rot} h3, ${rot} p, ${rot} li, ${rot} td, ${rot} dd, ${rot} figcaption, a[href], button, label`)) {
-    if (!synlig(el) || !(el.textContent || '').trim()) continue;
+    if (!synlig(el) || !(el.textContent || '').trim() || el.closest('[aria-hidden="true"]')) continue;
     const r = el.getBoundingClientRect();
+    if (r.width < 24) continue;  // en avsiktligt pytteliten ruta (honeypoten utanför skärmen) är ingen textruta
     let ord = el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1 ? (el.textContent || '').trim().replace(/\s+/g, ' ') : null;
     if (!ord) {
       const re = /\S{8,}/g;
