@@ -41,7 +41,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
          visar CSS formatbeskedet (ff-telefon-format) när fältet inte är tomt (placeholder-shown) och saknas-beskedet annars. -->
     <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40" placeholder=" "
       pattern="(?=.*[0-9])[0-9+\-\(\) ]{6,40}" aria-describedby="ff-telefon-fel ff-telefon-format" data-saknas={felTelefon} data-format={felTelefonFormat} />
-    <span id="ff-telefon-fel" class="ff-fel">{felTelefon}</span>
+    <span id="ff-telefon-fel" class="ff-fel">{felTelefon}</span>{' '}
     <span id="ff-telefon-format" class="ff-fel ff-format">{felTelefonFormat}</span>
   </p>
   <p>
