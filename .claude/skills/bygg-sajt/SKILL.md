@@ -403,6 +403,8 @@ KONCEPT.md.
    inskicket och visar tacksidan utan att spara eller skicka något.
    **Ikoner och delningsbild:** skriv `public/favicon.svg` ur verksamhetens märke, enkelt nog att läsas i 16 px. Kör
    sedan `node kontroller/ikoner.mjs --sajt kunder/<slug>/sajt --foto <ett av deras starkaste foton> --bakgrund '<hex>'`
+   (finns loggan bara som PNG på vit bakgrund: `--logga <png> --loggfarg '<hex>'` gör favicon.svg och
+   `public/logga-genomskinlig.png` ur den; inget eget skript i underlaget)
    för apple-touch-icon och delningsbild; justera beskärningen med `--fokus 'center 30%'` och titta på resultatet.
 4. **Snabbprov ofta:** `.venv/bin/python kontroller/prova.py <slug> --snabb`. Läs `kunder/<slug>/prov/PROV.md`.
    **Tvåan:** när startsidan står första gången, bygg den näst starkaste riktningens första vy som kastbar sida

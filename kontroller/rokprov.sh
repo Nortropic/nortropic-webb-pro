@@ -22,6 +22,24 @@ cp "$ROOT/kontroller/rokprov/DESIGN.md" "$S/DESIGN.md"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/design.py" rokprov-mall --skriv >/dev/null
 # apple-touch-icon och delningsbild görs av verktyget varje gång, så att verktyget också prövas
 node "$ROOT/kontroller/ikoner.mjs" --sajt "$S" --foto "$ROOT/kontroller/rokprov/foto.svg" --bakgrund '#0b57d0' >/dev/null
+echo "   ikoner.mjs --logga: favicon.svg och en genomskinlig logga ur en PNG på vit bakgrund"
+"$ROOT/.venv/bin/python" -B -c "
+import pathlib, shutil, struct, subprocess, zlib
+rot = pathlib.Path('$ROOT/kunder/rokprov-mall/ikonprov'); shutil.rmtree(rot, ignore_errors=True); (rot / 'sajt' / 'public').mkdir(parents=True)
+def png(w, h, px):
+    raw = b''.join(b'\\x00' + b''.join(bytes(px(x, y)) for x in range(w)) for y in range(h))
+    chunk = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+    return b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+(rot / 'logga.png').write_bytes(png(64, 64, lambda x, y: (20, 20, 20) if 16 <= x < 48 and 16 <= y < 48 else (255, 255, 255)))
+r = subprocess.run(['node', '$ROOT/kontroller/ikoner.mjs', '--sajt', str(rot / 'sajt'), '--foto', '$ROOT/kontroller/rokprov/foto.svg', '--logga', str(rot / 'logga.png'), '--loggfarg', '#0b57d0'], capture_output=True, text=True, timeout=120)
+assert r.returncode == 0, r.stderr[-400:]
+fav = (rot / 'sajt' / 'public' / 'favicon.svg').read_text(); gen = (rot / 'sajt' / 'public' / 'logga-genomskinlig.png').read_bytes()
+assert fav.startswith('<svg') and '<image href=\"data:image/png;base64,' in fav and 'viewBox=\"0 0 64 64\"' in fav, fav[:120]
+assert gen[:8] == b'\\x89PNG\\r\\n\\x1a\\n' and (rot / 'sajt' / 'public' / 'apple-touch-icon.png').is_file(), 'den genomskinliga loggan och ikonen ur den'
+import re; m = re.search(r'logga: (\\d+) genomskinliga och (\\d+) färgade', r.stdout); assert m and 3000 <= int(m.group(1)) <= 3100 and 1000 <= int(m.group(2)) <= 1100, r.stdout
+shutil.rmtree(rot, ignore_errors=True)
+" || { echo "FEL: ikoner.mjs --logga"; exit 1; }
+echo "   ikoner --logga ok"
 sed -i '' 's#https://ERSATT-MED-DOMAN.se#https://exempel-rokprov.se#' "$S/astro.config.mjs"
 # beroendena ur mallens låsfil: en ändrad låsfil installeras om (npm ci), så att provet alltid bygger mallens versioner
 if [ ! -d "$S/node_modules" ] || ! cmp -s "$ROOT/mall/astro/package-lock.json" "$S/node_modules/.nwp-las.json"; then

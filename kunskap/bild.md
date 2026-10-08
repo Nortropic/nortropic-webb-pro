@@ -64,7 +64,8 @@ beskriver innehållet (tom alt bara för dekor).
 
 ## Verktygen här
 
-`astro:assets` gör format och storlekar, `kontroller/ikoner.mjs` apple-touch-ikonen och delningsbilden,
+`astro:assets` gör format och storlekar, `kontroller/ikoner.mjs` apple-touch-ikonen och delningsbilden (och med `--logga`
+favicon.svg och en genomskinlig logga ur en PNG på vit bakgrund),
 `kontroller/bilddatum.py` datumen. Digitalas bildverktyg (normalisering och märkesfiler för Next.js) finns inte
 här och används inte.
 
