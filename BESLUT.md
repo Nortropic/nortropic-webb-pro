@@ -2778,3 +2778,28 @@ slutliga grenen redovisas i granskningen.
 promptkedja), D1 (202-sidan ska omdirigera), D3 (funktionens körtid i exporten), C4:s återstående krav på observerat
 verktygsanrop per pass, B5/B7/B9/B10, D8/D9 står i backloggen. Ingen verklig session, extern tjänst, publicering eller
 kundkontakt ingår; en grön gren är inte ett bevis för designkvalitet.
+
+## Tillägg 2026-10-08: piloten — Kundstarts AI-intervju på det lokala abonnemanget, helbygget väntar, worktrees städade
+
+**Status:** gäller.
+
+Ägarens ord 2026-10-08 ~13:30Z, efter att granskningen av r117 slagits ihop och pushats, ordagrant:
+
+> Vi väntar med helbygget, jag vill att ai intervjun ska ju gå på det lokala abonnemanget eftersom vi är i en pilot och inte mot faktiska kunder. du fixar worktrees som återstår också
+
+Tre beslut:
+
+1. **Helbygget väntar.** Inget verkligt helbygge genom den nya flödesingången nu; backlogposten om A3 (byggets skrivningar i
+   underlag/<slug>) prövas när ägaren beställer det.
+2. **Kundstarts AI-intervju går på det lokala Claude Code-abonnemanget i piloten.** Skälet är ägarens: piloten riktar sig
+   inte mot faktiska kunder. Det avgränsar beslutet 2026-08-24 (Claude-prenumerationen driver inga kundtjänster: kundvänd AI
+   går genom Gateway eller Console) till skarp kunddrift. Genomförandet i samma commit: `kundstart_modell.py --live-cli` kör en
+   nästlad session per köjobb på abonnemanget (`ClaudeCLI`: metodtexten som systemprompt, kontexten som prompt, en tur,
+   svaret i JSON-schema, utan verktyg, MCP:er eller API-nycklar, i en registrerad tempkatalog), och lagret lämnar bara jobb
+   för ärenden märkta fiktiva till den transporten (`Lager.ta_jobb(bara_fiktiva=True)`): ett verkligt ärendes jobb stängs av
+   utan lease och utan förbrukad budget. Server-API-vägen (`--live-api`) är oförändrad för skarp drift. Proven:
+   prov_kundstart.py (tre nya fall, röda före). Det första verkliga pilotsamtalet redovisas i
+   `underlag/rapporter/RAPPORT-2026-10-08-kundstart-pilot-abonnemang.md`.
+3. **Worktrees.** De sjutton worktrees r105–r122 var rena och deras innehåll finns i main (a108560 och 81a222d); katalogerna
+   togs bort med `git worktree remove`, grenarna står kvar så att historiken nås från git. r105:s och r108:s original är
+   underkänd historik enligt Codex omgranskningar och finns kvar som grenar.

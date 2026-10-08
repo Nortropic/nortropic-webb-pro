@@ -35,7 +35,7 @@ AI-anrop eller obevakade arbetare har aktiverats genom detta utvecklingsuppdrag.
 |---|---|---|
 | Kunden | `kundstart/`, server `kontroller/kundstart_server.py` på loopback | personlig ärendelänk, kontrollerad vid varje läsning och ändring |
 | Ärendet | `kontroller/kundstart.py`, privat SQLite på beständig lokal disk | mottagna ord, uppgifter, källor, revisioner, roller, material, kö och operationer |
-| AI | `kontroller/kundstart_modell.py` | en beständig lease åt gången per jobb; server-API, inga Claude Code-sessioner eller fria verktyg |
+| AI | `kontroller/kundstart_modell.py` | en beständig lease åt gången per jobb; två uttryckliga transporter: server-API (skarp kunddrift) och pilotens nästlade Claude Code-session på det lokala abonnemanget (bara fiktiva ärenden), båda utan fria verktyg |
 | Ägaren | befintliga dashboardens Kundstart-flik, `kontroller/kundstart_agare.py` | separata handlingar för erbjudande, personlig åtkomst, överlämning, komplettering och lagring |
 | Webbflödet | `kontroller/kundstart_beredning.py` och `kontroller/kundstart_fortsatt.py` | fil- och källbundna kvitton, verkligt material, returfrågor och integrationsbelägg |
 | Behörighet | `kontroller/kundstart_behorighet.py` | läsare, medverkande och beslutsfattare; återkallad länk nekas även vid omförsök |
@@ -68,8 +68,22 @@ vid behov NWP_KUNDSTART_API_WORKSPACE och ett aktuellt modell-id. Följande komm
 .venv/bin/python kontroller/kundstart_modell.py --modell MODELL_ID --live-api
 ```
 
-Utan `--live-api` sker inget nätanrop och jobbet får ett ärligt avstängningsbesked. Kommandot är ingen aktiverad
-schemaläggare; stängd webbläsare kör inte modellen. Totaltak i ärendet och försökstak i kön består vid omförsök.
+**Piloten (ägarens beslut 2026-10-08):** intervjun går på det lokala Claude Code-abonnemanget, eftersom piloten inte riktar
+sig mot faktiska kunder. `--live-cli` kör en nästlad session per köjobb (`ClaudeCLI`): samma metodtext och kontext som
+server-API-vägen, en tur och svaret i ett JSON-schema (`--json-schema`), utan verktyg, MCP:er eller API-nycklar i miljön
+(`nastlad.miljo`), i en registrerad tempkatalog så att varken repots CLAUDE.md, inställningar eller hookar laddas. Lagret
+lämnar bara jobb för ärenden märkta fiktiva till den transporten (`ta_jobb(bara_fiktiva=True)`); ett verkligt ärendes jobb
+stängs av utan lease och utan förbrukad budget, med beskedet att det kräver server-API.
+
+```sh
+.venv/bin/python kontroller/kundstart_modell.py --modell claude-sonnet-5-5 --live-cli [--effort medium] [--antal 1]
+```
+
+`--antal` tar högst så många köjobb i samma körning; ingen schemaläggare startas. Mätningen bokför begärd och observerad
+modell, tokens ur sessionens `usage` och metodhashen; kostnaden står som inte observerad (listpris är inte abonnemangskvot).
+
+Utan `--live-api` eller `--live-cli` sker inget nätanrop och jobbet får ett ärligt avstängningsbesked. Kommandot är ingen
+aktiverad schemaläggare; stängd webbläsare kör inte modellen. Totaltak i ärendet och försökstak i kön består vid omförsök.
 `kunskap/kundintervju.md` läses i sin helhet till metodstödet. Frågor och källkopplade förslag valideras av appen;
 modellen kan inte acceptera en beställning eller ge design- och publiceringsmandat.
 

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Avstängd som standard. Avgränsad server-API-koppling, aldrig Claude Code.
+"""Avstängd som standard. Två uttryckliga transporter, aldrig antagna:
 
-Offentlig kontraktskälla: platform.claude.com/docs/en/api/overview och
-api/messages/create, verifierade 2026-10-08. Liveåtkomst, kontovillkor och
-databehandling måste verifieras innan aktivering. Ingen nyckelfil läses.
+- `--live-api`: avgränsad server-API-koppling (platform.claude.com/docs/en/api/overview och api/messages/create,
+  verifierade 2026-10-08). Liveåtkomst, kontovillkor och databehandling måste verifieras innan aktivering. Ingen
+  nyckelfil läses. Vägen för skarp kunddrift.
+- `--live-cli`: pilotens transport (ägarens beslut 2026-10-08, BESLUT.md): en nästlad Claude Code-session på det lokala
+  abonnemanget, utan verktyg, MCP:er eller API-nycklar i miljön (nastlad.miljo), bara för ärenden som är märkta fiktiva
+  (piloten, inte faktiska kunder). Ett verkligt ärende (fiktiv=False) får aldrig abonnemangstransporten.
 """
 import argparse
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 import kundstart_matt as matt
@@ -160,12 +164,110 @@ class ClaudeAPI:
         except ValueError:raise Modellfel('ogiltigt_svar') from None
 
 
+# Svarets form för den nästlade sessionen (--json-schema): samma struktur som SYSTEM beskriver; lagret prövar innehållet
+# (kundstart.Lager.modellsvar) och kundens bekräftelse prövar verksamhetsförslaget.
+SVARSSCHEMA={'type':'object','additionalProperties':False,'required':['text','forslag','fragor'],'properties':{
+    'text':{'type':'string'},
+    'forslag':{'type':'array','maxItems':30,'items':{'type':'object','additionalProperties':False,'required':['id','amne','text','kunskap','kallor'],
+        'properties':{'id':{'type':'string'},'amne':{'type':'string'},'text':{'type':'string'},
+                      'kunskap':{'type':'string','enum':['tolkning','hypotes','preferens','okant']},'kallor':{'type':'array','items':{'type':'string'}}}}},
+    'fragor':{'type':'array','maxItems':20,'items':{'type':'object','additionalProperties':False,'required':['id','amne','text','varfor','paverkar','kritisk'],
+        'properties':{'id':{'type':'string'},'amne':{'type':'string'},'text':{'type':'string'},'varfor':{'type':'string'},
+                      'paverkar':{'type':'string'},'kritisk':{'type':'boolean'}}}},
+    'verksamhet':{'type':'object','additionalProperties':False,'required':['varden','kallor'],
+        'properties':{'varden':{'type':'object'},'kallor':{'type':'object'}}}}}
+
+
+def _kor_claude(args, prompt, env, cwd):
+    """Den verkliga nästlade sessionen: (slutkod, stdout, stderr). Testadaptern ersätter den och startar ingen claude."""
+    try:
+        r=subprocess.run(args,input=prompt,capture_output=True,text=True,timeout=240,env=env,cwd=cwd,start_new_session=True)
+    except subprocess.TimeoutExpired:raise Modellfel('timeout') from None
+    except OSError:raise Modellfel('transport') from None
+    return r.returncode,r.stdout,r.stderr
+
+
+class ClaudeCLI:
+    """Pilotens transport: en nästlad Claude Code-session på det lokala abonnemanget (ägarens beslut 2026-10-08).
+
+    Samma metodtext och kontext som server-API-vägen, en modellvända (tre turer för det strukturerade svaret), inga verktyg, inga MCP:er (--strict-mcp-config utan
+    --mcp-config), ingen API-nyckel i miljön (nastlad.miljo: sessionen går på abonnemanget), svaret i schemat ovan. Körs i
+    en registrerad tempkatalog, så varken repots CLAUDE.md, inställningar eller hookar laddas. Bara ett ärende märkt
+    fiktivt får transporten (tillaten): piloten är inte faktiska kunder.
+    """
+    def __init__(self, modell, aktiverad=False, korare=None, effort='medium'):
+        self.modell=modell
+        self.aktiverad=aktiverad
+        self.korare=korare or _kor_claude
+        self.effort=effort
+        self.observation={}
+        self.registrera_observation=None
+
+    def konfigurerad(self):
+        return bool(self.aktiverad and isinstance(self.modell,str) and self.modell.strip())
+
+    bara_fiktiva=True  # lagret tar aldrig ett verkligt ärendes jobb åt den här transporten (ta_jobb)
+
+    def tillaten(self,dokument):
+        return isinstance(dokument,dict) and dokument.get('fiktiv') is True
+
+    def observerat(self,**data):
+        self.observation.update(data)
+        if getattr(self,'registrera_observation',None):self.registrera_observation(data)
+
+    def args(self,system):
+        import atelje
+        # tre turer: modellens svar, det strukturerade svarets verktygsanrop och avslutet (med en tur blir det error_max_turns,
+        # prövat 2026-10-08); inga andra verktyg finns att anropa
+        return [atelje.claude(),'-p','--max-turns','3','--permission-mode','dontAsk','--output-format','json',
+                '--setting-sources','local','--strict-mcp-config','--tools','','--model',self.modell,'--effort',self.effort,
+                '--system-prompt',system,'--json-schema',json.dumps(SVARSSCHEMA,ensure_ascii=False)]
+
+    def svara(self,dokument):
+        if not self.aktiverad:
+            raise Avstangd('Live-AI är avstängd.')
+        if not isinstance(self.modell,str) or not self.modell.strip():
+            raise Avstangd('Modellval saknas.')
+        self.observation={}
+        system=metod()
+        prompt=kontext(dokument)
+        import atelje
+        import korregister
+        env=atelje.ren_miljo()
+        for k in ('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','ANTHROPIC_BASE_URL','NWP_KUNDSTART_API_KEY'):env.pop(k,None)
+        cwd=korregister.egen_tmp('nwp-kundstart-cli-','Kundstarts pilotsession')
+        self.observerat(metod_sha256=kundstart.sha(system.encode()),transportlage='forberedd')
+        try:
+            rc,ut,fel=self.korare(self.args(system),prompt,env,cwd)
+        finally:
+            import shutil
+            shutil.rmtree(cwd,ignore_errors=True)
+        self.observerat(transportlage='svar_mottaget')
+        try:obj=json.loads(ut or '')
+        except ValueError:raise Modellfel('transport') from None
+        if not isinstance(obj,dict):raise Modellfel('transport')
+        usage=obj.get('usage') if isinstance(obj.get('usage'),dict) else {}
+        self.observation.update({k:matt.tal(usage.get(k)) for k in ('input_tokens','output_tokens','cache_read_input_tokens','cache_creation_input_tokens')})
+        mu=obj.get('modelUsage') if isinstance(obj.get('modelUsage'),dict) else {}
+        self.observation['modell_observerad']=matt.namn(next(iter(mu),None))
+        if rc!=0 or obj.get('is_error') or obj.get('subtype')!='success':
+            text_=str(obj.get('result') or '')[:300].lower()
+            raise Modellfel('kvot' if ('limit' in text_ or 'quota' in text_ or 'kvot' in text_) else 'transport')
+        svar=obj.get('structured_output')
+        if svar is None and isinstance(obj.get('result'),str):
+            try:svar=json.loads(obj['result'])
+            except ValueError:raise Modellfel('ogiltigt_svar') from None
+        if not isinstance(svar,dict):raise Modellfel('ogiltigt_svar')
+        return svar
+
+
 def en_gang(lager, adapter):
     if not adapter.konfigurerad():
         jid=lager.avstangd_modell()
         return {'status':'avstangd' if jid else 'ingen_ko','jobb':jid}
-    jobb=lager.ta_jobb('kundstart-modell',lease=120,modell=adapter.modell)
+    jobb=lager.ta_jobb('kundstart-modell',lease=120,modell=adapter.modell,bara_fiktiva=bool(getattr(adapter,'bara_fiktiva',False)))
     if not jobb:return {'status':'ingen_ko'}
+    if jobb.get('nekad'):return {'status':'avstangd','jobb':jobb['id'],'skal':'abonnemangstransporten gäller bara fiktiva ärenden i piloten (%s)'%jobb['nekad']}
     matning=jobb['matning'];start=time.monotonic()
     adapter.observation={}
     utfall={'status':'avbruten','jobb':jobb['id']}
@@ -175,6 +277,9 @@ def en_gang(lager, adapter):
             with lager.trans() as c:d=lager._jobb(c,jobb)
             if d is None:
                 utfall={'status':'ersatt','jobb':jobb['id']}
+            elif getattr(adapter,'tillaten',None) and not adapter.tillaten(d):
+                # pilotens abonnemangstransport får aldrig ett verkligt ärende (ägarens beslut 2026-10-08)
+                raise Avstangd('Abonnemangstransporten gäller bara fiktiva ärenden i piloten.')
             else:
                 adapter.registrera_observation=lambda data:matt.observation(lager,jobb,data)
                 svar=adapter.svara(kundstart.vy(d))
@@ -197,9 +302,18 @@ def en_gang(lager, adapter):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--modell',required=True)
-    p.add_argument('--live-api',action='store_true',help='aktivera ett uttryckligt API-försök, aldrig CLI-abonnemanget')
+    g=p.add_mutually_exclusive_group()
+    g.add_argument('--live-api',action='store_true',help='ett uttryckligt server-API-försök (skarp kunddrift); aldrig abonnemanget')
+    g.add_argument('--live-cli',action='store_true',help='pilotens transport: en nästlad Claude Code-session på det lokala abonnemanget, bara fiktiva ärenden')
+    p.add_argument('--effort',default='medium',help='effort för --live-cli (standard medium)')
+    p.add_argument('--antal',type=int,default=1,help='högst så många köjobb i den här körningen (standard 1); ingen schemaläggare')
     a=p.parse_args()
-    print(kundstart.jsontext(en_gang(kundstart.Lager(),ClaudeAPI(a.modell,a.live_api))))
+    lager=kundstart.Lager()
+    adapter=ClaudeCLI(a.modell,True,effort=a.effort) if a.live_cli else ClaudeAPI(a.modell,a.live_api)
+    for _ in range(max(1,min(a.antal,100))):
+        ut=en_gang(lager,adapter)
+        print(kundstart.jsontext(ut),flush=True)
+        if ut.get('status') in ('ingen_ko','avstangd'):break
 
 
 if __name__=='__main__':main()

@@ -94,7 +94,9 @@ servrar eller kundbyggen startar vid skapande eller läsning. Körväg, ansvar o
 Ärende och kö ligger på beständig privat lokal disk i `underlag/kundstart/arenden.sqlite3`. GALLRING.json under
 samma rot styr avbruten gallring och återställning; säkerhetskopior ligger under `underlag/kundstart/sakerhetskopior/`.
 Kundservern startas uttryckligen med `.venv/bin/python kontroller/kundstart_server.py --port 4773`.
-Server-API till AI kräver egen verifierad konfiguration och aktivering, aldrig antagen rätt via privat CLI-abonnemang.
+Server-API till AI kräver egen verifierad konfiguration och aktivering. I piloten går intervjun i stället på det lokala
+Claude Code-abonnemanget (`kundstart_modell.py --live-cli`, ägarens beslut 2026-10-08), bara för ärenden märkta fiktiva;
+ett verkligt ärende kräver server-API.
 Ingen sådan drift är aktiverad genom denna gren. Kirurgens observation av överlämningen och avgränsade lokala
 försök beskrivs i `kunskap/kirurg-forbattring.md`. Koppling till byggövergångarna prövas separat vid integration.
 

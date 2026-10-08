@@ -396,7 +396,9 @@ class Lager:
             if not row: raise Obehorig('Materialet är inte tillgängligt.')
             return tuple(row)
 
-    def ta_jobb(self, arbetare, lease=120, modell=None):
+    def ta_jobb(self, arbetare, lease=120, modell=None, bara_fiktiva=False):
+        """bara_fiktiva: pilotens abonnemangstransport (ägarens beslut 2026-10-08) tar bara ärenden märkta fiktiva; ett
+        verkligt ärendes jobb stängs av utan lease och utan förbrukad budget."""
         nyckel(arbetare)
         if type(lease) is not int or not 1<=lease<=300: raise Vagrad('Ogiltig lease.')
         with self.trans() as c:
@@ -412,6 +414,11 @@ class Lager:
                 d=self._doc(c,row['arende'])
                 if row['revision'] != d['revision']:
                     c.execute("UPDATE jobb SET status='ersatt' WHERE id=?",(row['id'],)); continue
+                if bara_fiktiva and d.get('fiktiv') is not True:
+                    c.execute("UPDATE jobb SET status='avstangd' WHERE id=?",(row['id'],))
+                    d['modell']={'status':'avstangd','text':'Dina svar är sparade. Pilotens AI-koppling gäller bara fiktiva ärenden; ett verkligt ärende kräver server-API.'}
+                    self._spara(c,d)
+                    return {'nekad':'verkligt ärende','id':row['id'],'arende':row['arende']}  # ingen lease, ingen budget
                 if d['budget']['anrop']>=d['budget']['max_anrop'] or row['forsok']>=3:
                     c.execute("UPDATE jobb SET status='budget_slut' WHERE id=?",(row['id'],))
                     d['modell']={'status':'budget_slut','text':'Svaren är sparade. AI-budgeten behöver intern bedömning.'}

@@ -232,4 +232,72 @@ class Arendeprov(unittest.TestCase):
         self.assertNotEqual(rows[0]['id'],rows[1]['id']);self.assertEqual(rows[0]['input_tokens'],31);self.assertEqual(rows[0]['output_tokens'],99);self.assertIsNone(rows[1]['input_tokens'])
         self.assertIsNone(rows[-1]['output_tokens']);self.assertEqual(self.db.las(self.e,self.token)['budget']['anrop'],2)
 
+    # --- pilotens abonnemangstransport (ägarens beslut 2026-10-08): nästlad session, bara fiktiva ärenden ---
+    def _cli_resultat(self,svar=None,**extra):
+        obj={'type':'result','subtype':'success','is_error':False,'num_turns':1,'duration_ms':1200,'total_cost_usd':0.01,
+             'usage':{'input_tokens':321,'output_tokens':54,'cache_read_input_tokens':7,'cache_creation_input_tokens':0},
+             'modelUsage':{'claude-syntetisk-observerad':{'inputTokens':321}},
+             'result':json.dumps(svar) if svar is not None else 'x','structured_output':svar}
+        obj.update(extra);return obj
+
+    def test_cli_transporten_kor_pa_abonnemanget_utan_verktyg_nycklar_eller_mcp(self):
+        import kundstart_matt as km
+        self.gor('meddelande',{'text':'Vi är en pilotverksamhet; ingen betalning nu.'})
+        anrop=[]
+        def korare(args,prompt,env,cwd):
+            anrop.append((args,prompt,env,cwd))
+            data=json.loads(prompt);msg=data['meddelanden'][0]['id']
+            return 0,json.dumps(self._cli_resultat({'text':'Vilka tjänster erbjuder ni?','forslag':[{'id':'tj','amne':'A','text':'Tjänsterna först','kunskap':'hypotes','kallor':[msg]}],'fragor':[]})),''
+        ut=kundstart_modell.en_gang(self.db,kundstart_modell.ClaudeCLI('syntetisk-cli',True,korare))
+        self.assertEqual(ut['status'],'klar',ut)
+        self.assertEqual(len(anrop),1)
+        args,prompt,env,cwd=anrop[0]
+        self.assertEqual(args[1:3],['-p','--max-turns']);self.assertEqual(args[3],'3')  # svaret + det strukturerade svarets verktygsanrop
+        self.assertIn('--strict-mcp-config',args);self.assertNotIn('--mcp-config',args);self.assertEqual(args[args.index('--tools')+1],'')  # inga verktyg alls
+        self.assertIn('--json-schema',args);self.assertEqual(args[args.index('--model')+1],'syntetisk-cli')
+        system=args[args.index('--system-prompt')+1]
+        self.assertIn(kundstart_modell.METODFIL.read_text(),system)
+        for k in ('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','ANTHROPIC_BASE_URL','NWP_KUNDSTART_API_KEY','CLAUDECODE'):
+            self.assertNotIn(k,env)
+        self.assertEqual(env.get('CLAUDE_CODE_DISABLE_AUTO_MEMORY'),'1')
+        self.assertFalse(Path(cwd).exists(),'tempkatalogen städades inte');self.assertNotIn('nortropic-webb-pro/kontroller',str(cwd))
+        self.assertIn('ingen betalning nu',prompt);self.assertNotIn(self.token,prompt)
+        d=self.db.las(self.e,self.token)
+        self.assertEqual(d['meddelanden'][-1]['text'],'Vilka tjänster erbjuder ni?');self.assertEqual(d['budget']['anrop'],1)
+        m=km.lista(self.db,self.e)[0]
+        self.assertEqual((m['status'],m['input_tokens'],m['output_tokens'],m['cache_read_input_tokens']),('klar',321,54,7))
+        self.assertEqual(m['modell_observerad'],'claude-syntetisk-observerad');self.assertEqual(m['metod_sha256'],kundstart.sha(system.encode()))
+        self.assertIsNone(m['kostnad'])
+
+    def test_cli_transporten_nekar_verkliga_arenden_och_forbrukar_ingen_budget(self):
+        self.e,self.token=self.db.skapa('prov-verklig','Provperson',modellbudget=2,fiktiv=False)
+        self.gor('meddelande',{'text':'Syntetiskt ord i ett ärende märkt verkligt.'})
+        def korare(*a):raise AssertionError('abonnemangstransporten startade en session för ett verkligt ärende')
+        ut=kundstart_modell.en_gang(self.db,kundstart_modell.ClaudeCLI('syntetisk-cli',True,korare))
+        self.assertEqual(ut['status'],'avstangd',ut)
+        d=self.db.las(self.e,self.token);self.assertEqual(d['modell']['status'],'avstangd')
+        self.assertEqual(d['budget']['anrop'],0,'ett nekat verkligt ärende förbrukade budget');self.assertIn('fiktiva',d['modell']['text'])
+        # server-API-vägen är oförändrad för verkliga ärenden
+        self.gor('forsok_igen',{})
+        transport=lambda _:{'type':'message','stop_reason':'end_turn','content':[{'type':'text','text':json.dumps({'text':'Fortsätt.','forslag':[],'fragor':[]})}]}
+        self.assertEqual(kundstart_modell.en_gang(self.db,kundstart_modell.ClaudeAPI('syntetisk',True,transport))['status'],'klar')
+
+    def test_cli_transportens_fel_bokfors_och_svaret_lases_ur_schemat_eller_texten(self):
+        import kundstart_matt as km
+        self.gor('meddelande',{'text':'Syntetiskt sparat svar.'})
+        fall=[(1,json.dumps(self._cli_resultat(None,subtype='error_during_execution',is_error=True,result='Process failed')),'transport'),
+              (0,json.dumps(self._cli_resultat(None,is_error=True,result='You have hit your usage limit')),'kvot'),
+              (0,'inte json','transport'),
+              (0,json.dumps(self._cli_resultat(None,result='inte ett json-svar')),'ogiltigt_svar')]
+        for rc,ut_,slag in fall:
+            with self.subTest(slag=slag):
+                r=kundstart_modell.en_gang(self.db,kundstart_modell.ClaudeCLI('syntetisk-cli',True,lambda *a,rc=rc,ut_=ut_:(rc,ut_,'')))
+                self.assertEqual((r['status'],r.get('slag')),('fel',slag),r)
+                self.gor('forsok_igen',{})
+        # utan structured_output läses resultattexten som JSON
+        svar={'text':'Berätta mer om besökarna.','forslag':[],'fragor':[]}
+        r=kundstart_modell.en_gang(self.db,kundstart_modell.ClaudeCLI('syntetisk-cli',True,lambda *a:(0,json.dumps(self._cli_resultat(svar,structured_output=None)),'')))
+        self.assertEqual(r['status'],'klar',r)
+        self.assertEqual([x['status'] for x in km.lista(self.db,self.e)],['fel','fel','fel','fel','klar'])
+
 if __name__ == '__main__': unittest.main()
