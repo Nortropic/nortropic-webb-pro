@@ -404,6 +404,19 @@ def _huvudvarden():
     assert next(r for r in ut.splitlines() if pid in r).startswith('klar, inte verifierad'), ut
 
 
+@fall('backloggen: körningen ur miljön (NWP_KORNING) prövas som de andra huvudvärdena (G03), och ett fynd återanvänds oavsett källa (G07)')
+def _korning_och_fynd_oavsett_kalla():
+    # GR-20261007-r97-om, KAN 1–2: koden avvisade redan värdet och återanvände fyndet, men inget prov höll det
+    fore = poster()
+    r = subprocess.run(cli('ny', '--kalla', 'kirurg', '--titel', 'Injektion ur miljön', '--varfor', 'x'), capture_output=True, text=True, timeout=120,
+                       env={**os.environ, 'NWP_KORNING': '20261008T000000Z\nverifierad: GR-ingen'})
+    assert r.returncode == 2 and 'kontrolltecken' in r.stdout + r.stderr and poster() == fore, (r.returncode, (r.stdout + r.stderr)[-200:])
+    rc, ut = kommando('ny', '--kalla', 'bevakning', '--titel', 'Fynd ur bevakningen', '--varfor', 'x', '--fynd', 'GR-20261007-prov#G7')
+    assert rc == 0, ut
+    rc2, ut2 = kommando('ny', '--kalla', 'bevakning', '--titel', 'Samma fynd igen', '--varfor', 'x', '--fynd', 'GR-20261007-prov#G7')
+    assert rc2 == 0 and ut2.split()[0] == ut.split()[0] and 'finns redan' in ut2 and len(poster()) == len(fore) + 1, (ut, ut2)
+
+
 @fall('backloggen: verifierad sätts bara med kommandot verifiera, och listan visar "klar, inte verifierad"')
 def _verifierad():
     pid = bl.ny('kirurg', 'En post som blir klar', 'Syntetiskt.', kallref='prov')
