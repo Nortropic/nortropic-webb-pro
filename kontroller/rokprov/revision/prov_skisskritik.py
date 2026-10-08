@@ -814,6 +814,11 @@ def _lista():
     skriv(atelje.KUNDER / SLUG / 'kundrepo' / 'src' / 'pages' / 'index.astro', KODMARKOR)
     shutil.rmtree(u / 'referenser')  # referenssteget har inte gått ännu när kritiken startar
     (u / 'REFERENSER.md').unlink()
+    SENARE = ('UPPTAGNA-VAL.md', 'DESIGNDOMAR-belagg.jsonl', 'UPPDRAG.md', 'KUNDSTART.json', 'DIAGNOS.md', 'FRASER.txt', 'material/MATERIAL.json',
+              'diagnos/RAPPORT.md', 'forhand/vy-390-forsta.png', 'ateljestarter/start.json', 'kalla/extern/omdomen.txt', 'omtag/x/KVITTO.json')
+    for f_ in SENARE:  # det systemet kan skriva i underlag/<slug>/ under kritiken finns inte när den startar (GR-20261007-r107#K2)
+        if (u / f_).is_file():
+            (u / f_).unlink()
     kritiker()
     SESSIONER.clear()
     kd.skisskritik(SLUG, 'k01')
@@ -825,7 +830,9 @@ def _lista():
     skriv(u / 'TJANSTEUPPDRAG-2026-10-07T120000Z-sent01.json', json.dumps({'fragor': [{'syfte': SKAPARMARKOR}]}))
     skriv(u / 'REFERENSER.md', '# Referenser\n\nReferensbeslutet %s\n' % UPPDRAGSMARKOR)
     skriv(u / 'referenser' / 'paket-v01' / 'xref' / 'vy-390-forsta.png', png())
-    hemliga = ['%s/%s' % (U, f_) for f_ in ('REFERENSUPPDRAG-2026-10-07T081500Z-abc123.json', 'TJANSTEUPPDRAG-2026-10-07T081500Z-abc123.json',
+    for f_ in SENARE:
+        skriv(u / f_, png() if f_.endswith('.png') else '%s\n' % UPPDRAGSMARKOR)
+    hemliga = ['%s/%s' % ('underlag/%s' % SLUG, f_) for f_ in SENARE] + ['%s/%s' % (U, f_) for f_ in ('REFERENSUPPDRAG-2026-10-07T081500Z-abc123.json', 'TJANSTEUPPDRAG-2026-10-07T081500Z-abc123.json',
                                             'REFERENSUPPDRAG-2026-10-07T120000Z-sent01.json', 'TJANSTEUPPDRAG-2026-10-07T120000Z-sent01.json',
                                             'RIKTNINGSHISTORIK.json', 'DESIGNDOMAR.jsonl', 'UPPTAGNA-VAL.md', 'REFERENSER.md',
                                             'omtag/20261001T000000Z/k09/abc123def456/kod/index.astro', 'referenser/paket-v01/xref/vy-390-forsta.png')] + \

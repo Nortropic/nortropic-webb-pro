@@ -1574,8 +1574,14 @@ BLIND_LASBART = ('BRIEF.md', 'VERKSAMHET.json', 'RESEARCH.md', 'INNEHALL.md', 'T
 # listan räknas när sessionen startar; det som kan uppstå medan den pågår nekas med mönster: en annan kandidats research
 # på begäran (skapande.komplettera skriver begäran med skaparens skäl i REFERENSUPPDRAG-*.json och TJANSTEUPPDRAG-*.json
 # och materialet i referenser/), och referensbeslutet
+# och det övriga som systemet självt kan skriva i underlag/<slug>/ medan en blind session pågår och som inte är läsbart:
+# de upptagna valen (upptagna_val.py), ägarens belägg (skapande.BELAGGFIL), kundstartens uppdrag, diagnosen,
+# frasprovet och stegens kataloger (GR-20261007-r107#K2). En fil som något annat lägger i katalogens rot under sessionen
+# täcks inte: behörigheterna kan inte säga "allt utom listan", eftersom ett förbud går före en tillåtelse
 BLIND_MONSTER = ('REFERENSUPPDRAG-*', 'TJANSTEUPPDRAG-*', 'REFERENSER.md', 'referenser/**',
-                 'atelje/kandidater/*/koncept/**')  # också studier som tillkommer efter kritikens start
+                 'atelje/kandidater/*/koncept/**',  # också studier som tillkommer efter kritikens start
+                 'UPPTAGNA-VAL.md', skapande.BELAGGFIL, 'UPPDRAG.md', 'KUNDSTART.json', 'DIAGNOS.md', 'FRASER.txt',
+                 'material/**', 'diagnos/**', 'forhand/**', 'ateljestarter/**', 'kalla/**', 'omtag/**')
 # Claudes beslut i väntan på ägaren (GR-20261007-r103#K4), inte ägarens: de blinda sessionerna nekas riktningshistoriken
 # och domloggen som filer. Ägarens aktuella domar får de i uppdraget (skapande.kritikrader, aktuella=True), där urvalet
 # är avsiktligt. Skälet, ägaren 2026-10-06: "Mina tidigare underkännanden ska inte omvandlas till en allt smalare
