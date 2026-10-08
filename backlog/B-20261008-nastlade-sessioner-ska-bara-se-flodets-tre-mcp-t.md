@@ -1,12 +1,14 @@
 ---
 id: B-20261008-nastlade-sessioner-ska-bara-se-flodets-tre-mcp-t
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261008-r117-claude.md
 fynd: GR-20261008-r117-claude#E1
 skapad: 2026-10-08
 prio: normal
 steg: main: kontroller/atelje.py, kontroller/mcp/, kontroller/verktygslada.py
+commit: a97fc2c
+andrad: 2026-10-08T14:56Z
 ---
 # Nästlade sessioner ska bara se flödets tre MCP-tjänster, inte användarnivåns servrar
 

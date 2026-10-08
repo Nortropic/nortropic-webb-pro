@@ -1,12 +1,14 @@
 ---
 id: B-20261008-helbygget-far-inte-gora-sitt-eget-godkannande-hi
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261008-r117-claude.md
 fynd: GR-20261008-r117-claude#A3
 skapad: 2026-10-08
 prio: hog
 steg: main: .claude/skills/bygg-sajt/SKILL.md, kor.sh, kontroller/skapande.py
+commit: 6e09f70
+andrad: 2026-10-08T14:56Z
 ---
 # Helbygget får inte göra sitt eget godkännande historiskt genom att skriva i underlag/<slug>
 

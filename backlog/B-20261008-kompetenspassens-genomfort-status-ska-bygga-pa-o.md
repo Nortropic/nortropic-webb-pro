@@ -1,12 +1,14 @@
 ---
 id: B-20261008-kompetenspassens-genomfort-status-ska-bygga-pa-o
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261008-r117-claude.md
 fynd: GR-20261008-r117-claude#C4
 skapad: 2026-10-08
 prio: normal
 steg: main: kontroller/kandidater.py, kontroller/kompetens.py, dashboard/index.html
+commit: a97fc2c
+andrad: 2026-10-08T14:56Z
 ---
 # Kompetenspassens genomfört-status ska bygga på observerade anrop, inte bara läskvitto och sessionens egen lista
 
