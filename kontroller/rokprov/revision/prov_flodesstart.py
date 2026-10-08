@@ -178,6 +178,29 @@ sys.exit(f.starta(sys.argv[1],'exportera',sys.argv[2]))
         except ProcessLookupError:return False
         except PermissionError:return True
 
+    def test_exportens_egen_process_far_nwp_frist_fore_sigkill(self):
+        # GR-20261008-r117-claude#B9: exportens egen process får NWP_FRIST som kor.sh, inte ättlingarnas 2 s
+        (self.root/'kontroller/exportera.py').write_text('''import os,signal,time
+from pathlib import Path
+r=Path(__file__).resolve().parents[1]
+signal.signal(signal.SIGTERM,signal.SIG_IGN)
+(r/'egen-pid').write_text(str(os.getpid()))
+time.sleep(60)
+''')
+        self.env['NWP_FRIST']='30'
+        self.assertEqual(self.kor('--exportera','--start-id','prov-egen-frist').returncode,5)
+        self.vanta(lambda:(self.root/'egen-pid').exists())
+        egen=int((self.root/'egen-pid').read_text())
+        def doda():
+            try:os.kill(egen,signal.SIGKILL)
+            except ProcessLookupError:pass
+        self.addCleanup(doda)
+        self.assertEqual(self.kor('--stoppa-overgang').returncode,5)
+        time.sleep(2.6)
+        self.assertTrue(self.lever(egen),'exportens egen process fick SIGKILL före NWP_FRIST')
+        doda()
+        self.vanta(lambda:self.journal()[0]['status']=='slut')
+
     def test_stopp_vantar_pa_exportens_barn_aven_ny_session(self):
         (self.root/'hjartslag.py').write_text('''import signal,time,os
 from pathlib import Path

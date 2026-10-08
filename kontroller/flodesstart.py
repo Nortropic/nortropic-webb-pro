@@ -83,6 +83,12 @@ def post(slug,start_id):
     except FileNotFoundError:return p,None
 
 
+def huvudfrist():
+    """Sekunder från SIGTERM till SIGKILL för exportens egen process: NWP_FRIST som i kor.sh, annars 10 (B9)."""
+    v=os.environ.get('NWP_FRIST','')
+    return int(v) if v.isdigit() and len(v)<=4 else 10
+
+
 @contextlib.contextmanager
 def journallas(slug):
     p=lasfil(atelje.ROOT,slug).with_name('.flodesjournal.las')
@@ -253,7 +259,7 @@ def arbetare(slug,handling,start_id,fd):
         child=subprocess.Popen(args,cwd=atelje.ROOT,env=dict(os.environ,NWP_FLODE_START_ID=start_id),pass_fds=(FD,))
         with journallas(slug):  # barnets pid: ett stopp når arbetet också om arbetaren dör (GR-20261008-r117-claude#B3)
             _,d=post(slug,start_id);atelje.skriv_json_atomiskt(p,dict(d,barn_pid=child.pid,barn_startad=atelje.nu()))
-        frist=None;signalerade=set();avbrot=avbrot or stoppad;nasta_koll=0
+        frist=frist_huvud=None;signalerade=set();avbrot=avbrot or stoppad;nasta_koll=0
         while True:
             if trad:trad.skanna()
             rc=child.poll()
@@ -268,11 +274,12 @@ def arbetare(slug,handling,start_id,fd):
             barn=trad.under({trad.rot},()) if trad else []
             barn=[b for b in barn if b.pid!=os.getpid()]
             if stoppad or rc is not None:
-                if frist is None:frist=time.monotonic()+2
+                if frist is None:frist=time.monotonic()+2;frist_huvud=time.monotonic()+huvudfrist()
                 if not trad and stoppad and rc is None and 'hel' not in signalerade:
                     child.terminate();signalerade.add('hel')
                 for b in barn:
-                    sig=signal.SIGKILL if time.monotonic()>=frist else signal.SIGTERM
+                    # exportens egen process får NWP_FRIST (som kor.sh) från SIGTERM till SIGKILL, ättlingarna 2 s (GR-20261008-r117-claude#B9)
+                    sig=signal.SIGKILL if time.monotonic()>=(frist_huvud if b.pid==child.pid else frist) else signal.SIGTERM
                     if (b.uid,sig) not in signalerade:
                         korvakt.signalera(b,sig);signalerade.add((b.uid,sig))
             if rc is not None and not barn:break

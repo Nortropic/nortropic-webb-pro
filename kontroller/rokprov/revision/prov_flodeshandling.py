@@ -135,6 +135,33 @@ class Flodeshandling(unittest.TestCase):
             status, svar = anrop({'handling': 'exportera', 'start_id': 'prov-ej-bokford-2'})
             self.assertEqual(status, 409, svar)
 
+    def test_registrerad_kraver_journalpost_och_fliken_slapper_startid_efter_omlasning(self):
+        # GR-20261008-r117-claude#B5: slutkod 5 utan journalpost (upptaget kundlås) är 409, inte registrerad; B7: nyckeln släpps efter omläsningen
+        srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
+        self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        host = '127.0.0.1:%d' % srv.server_port
+        self.stack.enter_context(patch.dict(dash.VARD, {'tillatna': {host}}))
+        def anrop(data):
+            c = http.client.HTTPConnection('127.0.0.1', srv.server_port, timeout=4)
+            try:
+                c.request('POST', '/api/flode/' + self.slug + '/start', json.dumps(data), {'Origin': 'http://' + host})
+                r = c.getresponse(); return r.status, json.loads(r.read().decode())
+            finally:
+                c.close()
+        (self.u / 'ateljestarter').mkdir(parents=True)
+        with patch.object(prototyp, 'fran_dashboard', return_value=5):
+            status, svar = anrop({'handling': 'exportera', 'start_id': 'prov-upptaget-1'})
+            self.assertEqual(status, 409, svar); self.assertIn('journalpost', svar['fel']); self.assertEqual(svar['slutkod'], 5)
+            (self.u / 'ateljestarter/prov-upptaget-1.json').write_text(json.dumps({'handling': 'exportera', 'status': 'startad', 'pid': None}))
+            status, svar = anrop({'handling': 'exportera', 'start_id': 'prov-upptaget-1'})
+            self.assertEqual(status, 202, svar); self.assertIn('registrerad', svar['besked'])
+            status, svar = anrop({'handling': 'stoppa-overgang', 'start_id': 'prov-stopp-2'})
+            self.assertEqual(status, 202, svar)
+        html = (Path(__file__).resolve().parents[3] / 'dashboard' / 'index.html').read_text(encoding='utf-8')
+        block = html[html.index("const key = 'nwp-start:'"):html.index('async function flodesvy(slug)')]
+        self.assertGreater(block.index('sessionStorage.removeItem(key)'), block.index('await flodesvy(slug)'), 'start-id släpps först efter omläsningen (B7)')
+
     def test_http_start_delar_cli_och_upprepat_id_startar_inte_igen(self):
         srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
         self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)

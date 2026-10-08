@@ -1264,10 +1264,11 @@ document.addEventListener('click', async (e) => {
   $('#flode-handlingssvar').textContent = 'Skickar begäran… Du kan läsa aktuellt läge om svaret dröjer.';
   try {
     const r = await post('/api/flode/' + encodeURIComponent(slug) + '/start', { handling, start_id: startId });
-    if (sessionStorage.getItem(key)===startId) sessionStorage.removeItem(key);
     if (!aktuell()) return;
     generation=flodeGeneration+1;
     if (!await flodesvy(slug)) return;
+    // start-id släpps först när svaret är bekräftat och läget omläst (GR-20261008-r117-claude#B7); annars används samma id igen
+    if (sessionStorage.getItem(key)===startId) sessionStorage.removeItem(key);
     $('#flode-handlingssvar').textContent = r.besked;
     $('#flode-besked-rubrik')?.focus();
   } catch (err) {

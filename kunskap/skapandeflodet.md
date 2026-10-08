@@ -307,7 +307,8 @@ TILLBAKA; omtaget skriver ägarens dom.
 
 Föll en körning tar `.venv/bin/python kontroller/atelje.py <slug> --fortsatt` vid efter den senaste klara fasen (i
 kandidatflödet: stycket efter stegen ovan). Körningens slutpost säger om den stoppades eller föll, i vilket steg och när
-(Körspåret nedan). Ägarens stopp är `atelje.py <slug> --stoppa`: arbetaren får SIGTERM (SIGHUP och SIGINT är samma
+(Körspåret nedan). Startlåset `underlag/<slug>/.atelje-start.las` tas aldrig bort av någon kod: en raderad låsfil
+skulle låta nästa start låsa en ny inod fritt (GR-20261008-r117-claude#B10). Ägarens stopp är `atelje.py <slug> --stoppa`: arbetaren får SIGTERM (SIGHUP och SIGINT är samma
 stopp), avslutar sina sessioner med deras processträd, märker kandidaterna under arbete och skriver posten; sessioner
 som överlevt arbetaren (kandidaternas `session_pid`, och förteckningens poster utan slut, som skisskritikens) avslutas
 av `--stoppa` och får slut och utfall. Läget full prövar stoppet efter varje session, som skissa gör. Ett annat

@@ -2984,6 +2984,14 @@ class H(BaseHTTPRequestHandler):
                     # begäran är besvarad, inte vägrad: journalposten för samma start-id har slutat (GR-20261008-r117-claude#B1)
                     sf = atelje.startfil(UNDERLAG / slug / 'atelje', str(data.get('start_id')))
                     avslutad = bool(sf and sf.is_file() and (las_json(sf) or {}).get('status') == 'slut')
+                if rc == 5 and data.get('handling') not in ('stoppa', 'stoppa-overgang'):
+                    # registrerad kräver en journalpost: ett upptaget kundlås utan post (atelje.main, slutkod 5 före journalen) är
+                    # ingen registrerad begäran, och fliken ska behålla sitt start-id för ett nytt försök (GR-20261008-r117-claude#B5)
+                    sf = atelje.startfil(UNDERLAG / slug / 'atelje', str(data.get('start_id')))
+                    if not (sf and sf.is_file()):
+                        return self.skicka(409, {'slutkod': rc, 'start_id': data.get('start_id'),
+                                                 'fel': 'En annan start behandlas för kunden och ingen journalpost finns för detta start-id; '
+                                                        'ingen ny körning startades. Försök igen om en stund med samma start-id.'})
                 if avslutad:
                     return self.skicka(200, {'slutkod': rc, 'start_id': data.get('start_id'), 'avslutad': True,
                                              'besked': 'Begäran är redan avslutad med slutkod %s; läs det aktuella beskedet. En ny handling '
