@@ -235,7 +235,7 @@ class ClaudeCLI:
         import korregister
         env=atelje.ren_miljo()
         for k in ('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','ANTHROPIC_BASE_URL','NWP_KUNDSTART_API_KEY'):env.pop(k,None)
-        cwd=korregister.egen_tmp('nwp-kundstart-cli-','Kundstarts pilotsession')
+        cwd=korregister.egen_tmp('nwp-pilotsession-','Kundstarts pilotsession')
         self.observerat(metod_sha256=kundstart.sha(system.encode()),transportlage='forberedd')
         try:
             rc,ut,fel=self.korare(self.args(system),prompt,env,cwd)

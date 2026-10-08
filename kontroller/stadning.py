@@ -118,7 +118,7 @@ TMP_PREFIX = (
     'nwp-export-', 'nwp-kundrepo-',                                                                  # exportera.py
     'nwp-yt-', 'nwp-sub-',                                                            # youtube.py
     'nwp-lh-',                                                                        # lighthouse.mjs
-    'upptagna-',                                                                      # upptagna_val.py (slugvakt.tmp_katalog)
+    'upptagna-',                                                                      # upptagna_val.py (slugvakt.tmp_katalog,
     'nwp-tillbaka-',                                                                  # rokprov.sh
     'nwp-sandlada-prov.',                                                             # sandlada_prov.sh (mktemp)
     'nwp-startprov-', 'nwp-observation-', 'nwp-rev-', 'nwp-granskning-', 'nwp-pg-',  # rökprovets prov
@@ -136,6 +136,7 @@ TMP_PREFIX = (
     'nwp-refinsp-',                                                                   # prov_referensinspektion.py
     'nwp-canvashig-',                                                                 # prov_canvas_hig.py
     'nwp-rorelse-',                                                                   # prov_rorelse.py
+    'nwp-pilotsession-',                                                              # kundstart_modell.py (Kundstarts pilotsession)
 )
 # fasta kataloger i /tmp som aldrig är tillfälliga: körregistret och intagslåset, läget när underlag/ är låst, och
 # granskarnas och byggenas arbetsrötter (deras verktyg städar dem)
