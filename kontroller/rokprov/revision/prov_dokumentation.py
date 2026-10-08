@@ -384,6 +384,66 @@ def _ateroppningens_regler():
         orord(pid, 'GR-20261009-prov', 'en senare rapport mot en post som är %s' % status)
 
 
+@fall('backloggen: återöppningen ordnar rapporterna i tiden (registreringen, huvudets datum, rundan bara samma dag), och det som inte går att avgöra står på stdout')
+def _ateroppningens_ordning():
+    # granskningen GR-20261007-r99-om, KAN-1: tre fall gav falska nej, och ny sade det bara på stderr; därtill ordningen
+    # inom samma dag (N08, GR-20261007-r99-om#KAN-2), som ingen tidigare fall prövade
+    forteckning = bl.ROOT / 'underlag' / 'granskningar' / 'FORTECKNING.jsonl'
+    rapporter = bl.ROOT / 'underlag' / 'rapporter'
+    forteckning.parent.mkdir(parents=True, exist_ok=True)
+    rapporter.mkdir(parents=True, exist_ok=True)
+
+    def registrera(rapport, kopierad, fil=None):
+        with open(forteckning, 'a', encoding='utf-8') as f_:
+            f_.write(json.dumps({'fil': fil or 'granskningar/%s/bevis.txt' % rapport, 'sha256': '0' * 64, 'kopierad': kopierad,
+                                 'slag': 'bevis till %s' % rapport, 'bas': 'underlag/', 'rapport': None if fil else rapport}) + '\n')
+
+    def anmal(kallref, fynd):
+        r = subprocess.run(cli('ny', '--kalla', 'granskning', '--titel', 'Ett fynd i tiden', '--varfor', 'Syntetiskt.', '--kallref', kallref,
+                               '--fynd', fynd), capture_output=True, text=True, timeout=120)
+        assert r.returncode == 0, r.stdout + r.stderr
+        return r.stdout.split('\n')[0].strip(), r.stdout
+
+    def klar_post(fynd, verifierad=None):
+        pid = anmal(fynd.split('#')[0], fynd)[0]
+        bl.satt_status(pid, 'klar', commit='abc1234')
+        if verifierad:
+            bl.verifiera(pid, verifierad)
+        return pid
+    # 1. en lägre runda som skrevs senare samma dag öppnar (r96-om3 efter r97), och en högre runda som skrevs tidigare inte
+    registrera('GR-20261012-r97', '2026-10-12T00:15:34Z')
+    registrera('GR-20261012-r96-om3', '2026-10-12T00:54:36Z')
+    pid = klar_post('GR-20261012-r97#K1')
+    assert anmal('GR-20261012-r96-om3', 'GR-20261012-r97#K1')[0] == pid and meta(pid)['status'] == 'vilande', ('r96-om3 efter r97 öppnade inte', meta(pid))
+    pid = klar_post('GR-20261012-r96-om3#K2')
+    pid_, ut_ = anmal('GR-20261012-r97', 'GR-20261012-r96-om3#K2')
+    assert pid_ == pid and meta(pid)['status'] == 'klar', ('r97, registrerad före r96-om3, öppnade posten', meta(pid))
+    assert 'är inte senare än' in ut_ and 'status %s vilande' % pid in ut_, ('utfallet står inte på stdout', ut_)
+    # 2. en rapport utan ÅÅÅÅMMDD i id:t: registreringstiden, ett datum med bindestreck i id:t och rapporthuvudets datum ordnar
+    registrera('GRANSKNING-r98x', '2026-10-14T09:00:00Z', fil='granskningar/sessioner/prov/GRANSKNING-r98x.md')
+    (rapporter / 'LAGESRAPPORT-utan-datum.md').write_text('---\nid: LAGESRAPPORT-utan-datum\ndatum: 2026-10-16\n---\n# Läget\n', encoding='utf-8')
+    for ny_, fynd_ in (('GRANSKNING-r98x', 'GR-20261012-prov#K3'), ('RAPPORT-2026-10-15-x', 'GR-20261012-prov#K4'),
+                       ('LAGESRAPPORT-utan-datum', 'GR-20261012-prov#K5')):
+        pid = klar_post(fynd_)
+        assert anmal(ny_, fynd_)[0] == pid and meta(pid)['status'] == 'vilande', ('%s öppnade inte' % ny_, meta(pid))
+    # 3. en post som verifierats av en sådan rapport: en rapport efter den öppnar, en rapport samma dag i en annan form går
+    # inte att avgöra, och det står på stdout med kommandot
+    registrera('GRANSKNING-r98v', '2026-10-13T10:00:00Z', fil='granskningar/sessioner/prov/GRANSKNING-r98v.md')
+    pid = klar_post('GR-20261012-prov#K6', verifierad='GRANSKNING-r98v')
+    assert anmal('GR-20261014-prov', 'GR-20261012-prov#K6')[0] == pid and meta(pid)['status'] == 'vilande', ('en senare rapport öppnade inte', meta(pid))
+    pid = klar_post('GR-20261012-prov#K7', verifierad='GRANSKNING-r98v')
+    pid_, ut_ = anmal('GR-20261013-prov', 'GR-20261012-prov#K7')
+    assert pid_ == pid and meta(pid)['status'] == 'klar' and meta(pid).get('verifierad') == 'GRANSKNING-r98v', meta(pid)
+    rader_ = ut_.split('\n')
+    assert rader_[0] == pid and 'går inte att avgöra' in rader_[1] and 'backlog.py status %s vilande' % pid in rader_[1], ('stdout', ut_)
+    # 4. samma dag och samma form utan registrering: rundan ordnar (r97 före r97-om och r99 före r100, N08)
+    for fore_, efter_ in (('GR-20261017-r97', 'GR-20261017-r97-om'), ('GR-20261017-r99', 'GR-20261017-r100')):
+        pid = klar_post(fore_ + '#K8')
+        assert anmal(efter_, fore_ + '#K8')[0] == pid and meta(pid)['status'] == 'vilande', ('%s efter %s öppnade inte' % (efter_, fore_), meta(pid))
+        pid = klar_post(efter_ + '#K9')
+        assert anmal(fore_, efter_ + '#K9')[0] == pid and meta(pid)['status'] == 'klar', ('%s före %s öppnade' % (fore_, efter_), meta(pid))
+
+
 @fall('backloggen: huvudvärden utan radbrytningar och kontrolltecken, och --commit som hex med 7–40 tecken')
 def _huvudvarden():
     fore = poster()

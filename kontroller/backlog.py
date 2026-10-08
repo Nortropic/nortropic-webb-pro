@@ -15,7 +15,12 @@ sökvägar räknas från underlag/) och fynd är <rapportens id>#<fyndets id>. E
 en post, oavsett status, skapas ingen ny, och ny ger den postens id (slutkod 0). Är posten klar och anmäler en senare
 rapport (kallref) fyndet igen, består fyndet: posten blir vilande igen med en not om rapporten, och verifieringen tas
 bort. Senare betyder senare än varje rapport som posten redan nämner (den som hittade fyndet, den som verifierade
-rättelsen och de som anmält fyndet igen), efter datumet och numret i id:t. En rapport som posten redan nämner ändrar
+rättelsen och de som anmält fyndet igen), i tiden: efter förteckningens registreringstid när båda rapporterna är
+registrerade (underlag/granskningar/FORTECKNING.jsonl, kopierad), annars efter datumet ur registreringen,
+rapporthuvudet eller id:t, och inom samma dag efter numret i id:t bara när båda id:na har samma form (GR-20261007-r97
+före GR-20261007-r97-om). Rundans nummer ensamt ordnar aldrig rapporter över dagar eller former (GR-20261007-r99-om,
+KAN-1). Går det inte att avgöra öppnas posten inte, och ny säger det på stdout efter id:t, med kommandot för att öppna
+posten för hand. En rapport som posten redan nämner ändrar
 ingenting, så ny förblir idempotent, och en post som pågår, väntar, är avvisad eller ersatt öppnas inte. Ingen post genomförs av sig själv:
 ägaren startar en session och säger "implementera enligt backlog" (skillen backlog).
 
@@ -117,7 +122,13 @@ def lage(meta):
     return ('klar, verifierad av %s' % meta['verifierad']) if meta.get('verifierad') else 'klar, inte verifierad'
 
 
-def ny(kalla, titel, varfor, forslag=None, klart=None, steg=None, sar=None, kallref=None, prio='normal', fynd=None):
+def ny(kalla, titel, varfor, forslag=None, klart=None, steg=None, sar=None, kallref=None, prio='normal', fynd=None, besked=None):
+    """Postens id. besked: en lista som får utfallet för en klar post som anmäls igen (öppnad, inte senare, går inte att
+    avgöra), så att kommandoraden kan skriva det på stdout efter id:t; det skrivs alltid också på stderr."""
+    def meddela(text):
+        print(text, file=sys.stderr)
+        if besked is not None:
+            besked.append(text)
     if kalla not in KALLOR:
         raise ValueError('kalla ska vara en av ' + ', '.join(KALLOR))
     if not titel.strip() or not varfor.strip():
@@ -138,18 +149,22 @@ def ny(kalla, titel, varfor, forslag=None, klart=None, steg=None, sar=None, kall
                 # en senare rapport säger att fyndet består: posten får inte stå kvar som klar eller verifierad
                 # (granskningen av r97-om, BÖR-1; ägarens uppdrag 2026-10-07, punkt 9). Bara en rapport som är senare än
                 # varje rapport som posten redan nämner öppnar den (granskningen av r99, BÖR-5).
-                if _senare(rapport, tidigare):
+                senare = _senare(rapport, tidigare)
+                if senare:
                     ref = kallref.strip()
                     _andra_status(MAPP / (befintlig['id'] + '.md'), 'vilande',
                                   not_='%s anmälde fyndet %s igen%s: fyndet består, och posten är öppen igen.' % (
                                       rapport, fynd, (' (%s)' % ref) if ref != rapport else ''))
-                    print('fyndet %s fanns i %s (klar); %s anmälde det igen, så posten är vilande igen' % (fynd, befintlig['id'], rapport),
-                          file=sys.stderr)
+                    meddela('fyndet %s fanns i %s (klar); %s anmälde det igen, så posten är vilande igen' % (fynd, befintlig['id'], rapport))
                     return befintlig['id']
-                print('fyndet %s finns i %s (klar); %s är inte säkert senare än %s, så posten öppnas inte. Består fyndet: '
-                      'backlog.py status %s vilande --not "<rapporten>: fyndet består"' % (fynd, befintlig['id'], rapport,
-                                                                                          ', '.join(sorted(tidigare)), befintlig['id']),
-                      file=sys.stderr)
+                hand = 'backlog.py status %s vilande --not "%s: fyndet består"' % (befintlig['id'], rapport)
+                if senare is None:
+                    meddela('fyndet %s finns i %s (klar); det går inte att avgöra om %s är senare än %s (varken förteckningens '
+                            'registreringstid, rapporthuvudets datum eller id:t ordnar dem), så posten öppnas inte. Består '
+                            'fyndet: %s' % (fynd, befintlig['id'], rapport, ', '.join(sorted(tidigare)), hand))
+                else:
+                    meddela('fyndet %s finns i %s (klar); %s är inte senare än %s, så posten öppnas inte. Består fyndet: %s' % (
+                        fynd, befintlig['id'], rapport, ', '.join(sorted(tidigare)), hand))
                 return befintlig['id']
             print('fyndet %s finns redan i %s (%s); ingen ny post' % (fynd, befintlig['id'], befintlig.get('status')), file=sys.stderr)
             return befintlig['id']
@@ -196,19 +211,106 @@ def _rapporter_i(meta):
     return {_rapport_id(x).casefold() for x in ut if x}
 
 
-def _tidpunkt(rapport):
-    """En rapports plats i tiden ur id:t: datumet (ÅÅÅÅMMDD) och sedan resten med talen som tal, så att GR-20261007-r97
-    kommer före GR-20261007-r97-om och GR-20261007-r99 före GR-20261007-r100. None när id:t inte bär ett datum."""
-    m = re.search(r'(?<!\d)(\d{8})(?!\d)', rapport or '')
-    if not m:
+FORTECKNING = Path('underlag') / 'granskningar' / 'FORTECKNING.jsonl'  # räknas från ROOT
+RAPPORTMAPPAR = (Path('underlag') / 'granskningar', Path('underlag') / 'rapporter')  # rapporterna med huvud
+ISO_UTC = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
+
+
+def _registrerad(rapport):
+    """Den tidigaste registreringstiden (fältet kopierad, ISO 8601 i UTC) i förteckningen för rapporten: raderna vars fält
+    rapport är rapportens id, eller vars fil är rapporten själv. None när förteckningen saknas eller inte nämner den."""
+    try:
+        rader = (ROOT / FORTECKNING).read_text(encoding='utf-8').split('\n')
+    except (OSError, UnicodeDecodeError):
         return None
-    return m.group(1), [(int(x), '') if x.isdigit() else (-1, x) for x in re.split(r'(\d+)', rapport[m.end():].casefold()) if x]
+    r_, tider = rapport.casefold(), []
+    for rad in rader:
+        if r_ not in rad.casefold():
+            continue
+        try:
+            d = json.loads(rad)
+        except ValueError:
+            continue
+        if not isinstance(d, dict):
+            continue
+        stam = re.sub(r'\.md$', '', str(d.get('fil') or '').rsplit('/', 1)[-1], flags=re.I).casefold()
+        t = str(d.get('kopierad') or '')
+        if (str(d.get('rapport') or '').casefold() == r_ or stam == r_) and ISO_UTC.fullmatch(t):
+            tider.append(t)
+    return min(tider) if tider else None
+
+
+def _huvudets_datum(rapport):
+    """Rapporthuvudets datum (README.md, rapporthuvudet) för rapportens fil i underlag/granskningar/ eller
+    underlag/rapporter/ (<id>.md, oavsett skiftläge; ingen länk): ÅÅÅÅ-MM-DD, eller None."""
+    r_ = rapport.casefold()
+    for m in RAPPORTMAPPAR:
+        try:
+            filer = [p for p in sorted((ROOT / m).iterdir()) if p.suffix.lower() == '.md' and p.stem.casefold() == r_
+                     and not p.is_symlink() and p.is_file()]
+        except OSError:
+            continue
+        for p in filer:
+            try:
+                rader = p.read_text(encoding='utf-8').split('\n')[:200]
+            except (OSError, UnicodeDecodeError):
+                continue
+            if not rader or rader[0].rstrip() != '---':
+                continue
+            for r in rader[1:]:
+                if r.rstrip() == '---':
+                    break
+                d = re.match(r'datum:\s*["\']?(\d{4}-\d{2}-\d{2})(?!\d)', r)
+                if d:
+                    return d.group(1)
+    return None
+
+
+def _id_datum(rapport):
+    """Datumet i id:t (ÅÅÅÅMMDD eller ÅÅÅÅ-MM-DD) som (ÅÅÅÅ-MM-DD, prefixet före datumet, resten efter), eller None."""
+    m = re.search(r'(?<!\d)(\d{4})(-?)(\d{2})\2(\d{2})(?!\d)', rapport or '')
+    if not m or not ('01' <= m.group(3) <= '12' and '01' <= m.group(4) <= '31'):
+        return None
+    return '%s-%s-%s' % (m.group(1), m.group(3), m.group(4)), rapport[:m.start()].casefold(), rapport[m.end():].casefold()
+
+
+def _runda(rest):
+    """Resten av id:t efter datumet med talen som tal, så att r97 kommer före r97-om och r99 före r100."""
+    return [(int(x), '') if x.isdigit() else (-1, x) for x in re.split(r'(\d+)', rest) if x]
+
+
+def _tidpunkt(rapport):
+    """En rapports plats i tiden: registreringstiden i förteckningen (_registrerad), datumet (ur registreringen,
+    rapporthuvudet eller id:t, i den ordningen) och id:ts form (prefix, och resten efter datumet som runda)."""
+    tid, i_id = _registrerad(rapport), _id_datum(rapport)
+    datum = (tid[:10] if tid else None) or _huvudets_datum(rapport) or (i_id[0] if i_id else None)
+    return {'tid': tid, 'datum': datum, 'form': (i_id[0], i_id[1]) if i_id else None, 'runda': _runda(i_id[2]) if i_id else None}
+
+
+def _jamfor(rapport, tidigare):
+    """True när rapporten är senare än tidigare, False när den inte är det, None när det inte går att avgöra:
+    registreringstiderna när båda är registrerade, annars datumen, och samma dag rundorna bara när båda id:na har samma
+    datum och prefix (GR-20261007-r97 före GR-20261007-r97-om). Rundans nummer ordnar aldrig över dagar eller former:
+    GR-20261007-r96-om3 skrevs efter GR-20261007-r97 (granskningen GR-20261007-r99-om, KAN-1)."""
+    a, b = _tidpunkt(rapport), _tidpunkt(tidigare)
+    if a['tid'] and b['tid']:
+        return a['tid'] > b['tid']
+    if not a['datum'] or not b['datum']:
+        return None
+    if a['datum'] != b['datum']:
+        return a['datum'] > b['datum']
+    if a['form'] and a['form'] == b['form'] and a['form'][0] == a['datum']:
+        return a['runda'] > b['runda']
+    return None
 
 
 def _senare(rapport, tidigare):
-    """Är rapporten senare än varje rapport i tidigare? Nej när någon av dem saknar datum: då går det inte att avgöra."""
-    t = _tidpunkt(rapport)
-    return t is not None and all(_tidpunkt(x) is not None and _tidpunkt(x) < t for x in tidigare)
+    """Är rapporten senare än varje rapport i tidigare? True, False (någon är lika sen eller senare), eller None när det
+    inte går att avgöra för någon av dem."""
+    svar = [_jamfor(rapport, x) for x in tidigare]
+    if any(x is False for x in svar):
+        return False
+    return None if any(x is None for x in svar) else True
 
 
 def _med_fynd(fynd):
@@ -305,7 +407,10 @@ def main(argv=None):
     a = p.parse_args(argv)
     try:
         if a.cmd == 'ny':
-            print(ny(a.kalla, a.titel, a.varfor, a.forslag, a.klart, a.steg, a.sar, a.kallref, a.prio, a.fynd))
+            besked = []
+            print(ny(a.kalla, a.titel, a.varfor, a.forslag, a.klart, a.steg, a.sar, a.kallref, a.prio, a.fynd, besked=besked))
+            for b in besked:  # utfallet för en klar post som anmäls igen, efter id:t (GR-20261007-r99-om, KAN-1)
+                print(b)
         elif a.cmd == 'lista':
             poster = lista(a.status)
             if a.json:
