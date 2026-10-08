@@ -1,12 +1,14 @@
 ---
 id: B-20261008-exportens-vercel-adapter-ska-satta-funktionens-h
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261008-r117-claude.md
 fynd: GR-20261008-r117-claude#D3
 skapad: 2026-10-08
 prio: normal
 steg: main: kontroller/exportera.py, kunskap/lansering.md
+commit: 2b373ff
+andrad: 2026-10-08T15:07Z
 ---
 # Exportens Vercel-adapter ska sätta funktionens högsta körtid så att formulärets tidsbudget ryms
 

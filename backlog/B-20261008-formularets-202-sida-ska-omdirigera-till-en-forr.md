@@ -1,12 +1,14 @@
 ---
 id: B-20261008-formularets-202-sida-ska-omdirigera-till-en-forr
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261008-r117-claude.md
 fynd: GR-20261008-r117-claude#D1
 skapad: 2026-10-08
 prio: normal
 steg: main: mall/leverans/forfragan.js, kontroller/exportera.py, kunskap/forfragan.md
+commit: 2b373ff
+andrad: 2026-10-08T15:07Z
 ---
 # Formulärets 202-sida ska omdirigera till en förrenderad sida i stället för att svara på POST-adressen
 
