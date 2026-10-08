@@ -141,6 +141,8 @@ driftsättningar till Standard Protection när kundens domän pekar rätt.
 3. Sökkonsol och Bing Webmaster Tools: verifiera och lämna sitemap (människa, `kunskap/sokkonsol.md`).
 4. Mätning: konverteringshändelserna syns på produktionsdomänen.
 5. Verksamheten får sidan **Så ändrar du på sajten** (nedan).
+6. Google-företagsprofilen uppdateras samma dag: webbadress, öppettider och adress som på sajten (byggstandarden 7.4;
+   `kunskap/lokal-synlighet.md`, Korrekta uppgifter; profilbladet i rapportens punkt 14).
 
 ## Så ändrar du på sajten
 

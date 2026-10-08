@@ -99,7 +99,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 | 7.3 JSON-LD som matchar synligt innehåll: den mest specifika typen (Electrician, Plumber, RoofingContractor, HousePainter, GeneralContractor för snickare och byggare); BreadcrumbList bara med synliga brödsmulor, och när DESIGN.md:s struktur har brödsmulor (`"struktur": {"brodsmulor": true}`) finns båda på varje indexerbar undersida, mellan sidhuvudet och `<main>`. Brödsmulor är en designhypotes, inget krav. aggregateRating ur Google-omdömen ger inga rikresultat. Typer och egenskaper finns i schema.org:s vokabulär och hör till typen; en utgången term byts mot sin ersättare. | D | `standard`, `seo` (vokabulären), info |
 | 7.4 Namn, adress och telefon identiska med Google-företagsprofilen; den gatuadress verksamheten själv visar, och som ingen annan källa motsäger, står på kontaktsidan och i JSON-LD (var den står i övrigt, till exempel sidfoten, är riktningens val); säger källorna olika står adressen ingenstans förrän verksamheten svarat; öppettider eller telefontid och serviceområde som text, eller beställda; länk till omdömena. | D | `seo`, `standard` (adressen), steg 6, granskaren |
 | 7.5 En sida per huvudtjänst med egen h1, lokal koppling, riktiga jobbilder och nästa steg. | D | granskaren |
-| 7.6 robots.txt blockerar inte sökrobotar, inte heller AI-sök, om kunden vill synas där. llms.txt behövs inte. | D | info |
+| 7.6 robots.txt blockerar inte sökrobotar, inte heller AI-sök, om kunden vill synas där. llms.txt behövs inte (Googles guide om AI-funktioner i Sök, uppdaterad 2026-07-10, läst 2026-10-03; `kunskap/seo.md`, Generativ AI i Google Sök). | D | info |
 
 ## 8. Säkerhet och integritet (W+K)
 

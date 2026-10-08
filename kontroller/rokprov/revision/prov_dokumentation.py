@@ -240,6 +240,23 @@ def samtidigt(argument, markorer=None, start=None):
     return ps
 
 
+@fall('kunskapen: Googles linje för generativ AI-sök i seo.md, sokkonsol.md, lansering.md och byggstandarden 7.6; llms.txt bara som avfärdat; sökkonsolens API-villkor')
+def _ai_sok_i_kunskapen():
+    seo = (ROOT / 'kunskap' / 'seo.md').read_text(encoding='utf-8')
+    assert '## Generativ AI i Google Sök' in seo and 'developers.google.com/search/docs/appearance/ai-features' in seo and '2026-07-10' in seo, 'seo.md saknar stycket med källa och datum'
+    sok = (ROOT / 'kunskap' / 'sokkonsol.md').read_text(encoding='utf-8')
+    assert 'generativa AI-funktioner' in sok and 'Rapporten för generativ AI' in sok, 'sokkonsol.md saknar inkluderingen och rapporten'
+    assert 'webmasters.readonly' in sok and 'servicekonto' in sok and 'mcp-gsc' in sok, 'sokkonsol.md saknar API-verktygets villkor'
+    dag = (ROOT / 'kunskap' / 'lansering.md').read_text(encoding='utf-8').split('## Lanseringsdagen', 1)[1].split('\n## ', 1)[0]
+    assert 'företagsprofil' in dag and '7.4' in dag, 'lansering.md: företagsprofilen uppdateras på lanseringsdagen'
+    rad76 = next(r for r in (ROOT / 'kunskap' / 'byggstandard.md').read_text(encoding='utf-8').splitlines() if r.startswith('| 7.6'))
+    assert 'seo.md' in rad76 and '2026-07-10' in rad76, rad76
+    for p in sorted((ROOT / 'kunskap').glob('*.md')):
+        if not p.name.startswith('REGISTER'):
+            for r in p.read_text(encoding='utf-8').splitlines():
+                assert 'llms.txt' not in r or 'behövs inte' in r, (p.name, r[:120])
+
+
 @fall('backloggen: källan granskning godtas med kallref och fynd <rapportens id>#<fyndets id>')
 def _granskning():
     rc, ut = kommando('ny', '--kalla', 'granskning', '--titel', 'Ett fynd ur granskningen', '--varfor', 'Syntetiskt.',

@@ -17,7 +17,8 @@ har åtkomst till verksamhetens konto. En fiktiv verksamhet får ingen egenskap.
 
 Ordning (lansering.md): (1) noindex borta, verifierat med `curl -sI` och i sidans meta; (2) verifiera egenskapen och
 lämna `https://<domän>/sitemap.xml`; (3) URL-inspektion av startsidan och de viktigaste sidorna, och begär indexering;
-(4) Bing Webmaster Tools importerar egenskapen. Egenskapen är av URL-prefix-typ: www och apex är skilda egenskaper,
+(4) Bing Webmaster Tools importerar egenskapen; (5) inkluderingen i Googles generativa AI-funktioner slås på i
+egenskapens inställningar om kunden vill synas där (`seo.md`, Generativ AI i Google Sök). Egenskapen är av URL-prefix-typ: www och apex är skilda egenskaper,
 därför omdirigerar den andra varianten med 301 eller 308.
 
 ## Sökdata och tolkning: observationer till åtgärder
@@ -31,10 +32,16 @@ därför omdirigerar den andra varianten med 301 eller 308.
 | Återkommande frågor om ny tjänst eller ort | ett behov utan sida | ny sida bara med genuint innehåll |
 | Core Web Vitals-rapporten (fältdata) | verklig upplevelse hos besökare (saknas ofta vid låg trafik) | åtgärda LCP-, CLS- eller INP-orsaken; Lighthouse är labbdata och inget "Googles betyg" |
 | Manuella åtgärder | ska vara tom | vid post: åtgärda och begär omprövning |
+| Rapporten för generativ AI (visningar och klick i AI Overviews och AI Mode) | hur sajten syns i Googles AI-svar; låga tal är vanliga för lokala sajter | samma åtgärder som för vanliga sökresultat: innehåll som svarar på avsikten, inga AI-knep (`seo.md`) |
 
 Rutin: veckorna 1–2 efter lansering var 2–3 dag; därefter månadsvis (`kunskap/uppfoljning.md`). Söktermslistan är
 ofullständig (Google döljer sällsynta frågor); termer redovisas som exempel, aldrig som total. Data för en oindexerad
 förhandsvisning finns inte och hittas inte på.
 
 Ett API-verktyg (Site Verification API och Search Console API) byggs först när en lanserad kund behöver det och
-verksamheten har gett åtkomst; tills dess är det här en checklista för en människa.
+verksamheten har gett åtkomst; tills dess är det här en checklista för en människa. Villkoren när det byggs: verktyget
+läser bara (scope `webmasters.readonly`); det loggar in med ägarens eget Google-konto, som verksamheten lagt till som
+användare, aldrig med ett servicekonto på kundens egendom; token sparas utanför repot och `underlag/`. Första kandidat
+att pröva före ett eget skript: github.com/AminForou/mcp-gsc @ d49eea9 (MIT; tjugo läsande verktyg) med scopet ändrat
+till läsande, de destruktiva verktygen avstängda och bara läsande verktyg i allowedTools (registerposten 2026-10-03 om
+RoboNuggets och mcp-gsc).

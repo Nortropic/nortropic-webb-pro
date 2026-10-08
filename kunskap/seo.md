@@ -43,6 +43,17 @@ briefen §5: `lokal`, `varumärke/portfölj`, `hybrid` eller `ingen`. Verktyg: `
 - Text som svarar på avsikten med kundens ord och verkliga uppgifter; ortnamn där de är sanna, aldrig som stoppning;
   interna länkar med beskrivande text; bilder med innehåll (bild.md); ingen text för sökmotorer som inte är för läsare.
 
+## Generativ AI i Google Sök
+
+Googles egen linje (guiden om AI-funktioner i Sök, https://developers.google.com/search/docs/appearance/ai-features,
+publicerad 2026-05-15 och uppdaterad 2026-07-10; läst 2026-10-03): att synas i AI Overviews och AI Mode "is still SEO".
+Samma grund gäller: genomsökbar, indexerbar, tydligt innehåll som svarar på avsikten med verkliga uppgifter.
+llms.txt behövs inte, och inte heller särskild AI-märkning, uppstyckad text, omskrivning "för AI" eller sidor per
+frågevariant; strukturerad data bara för rikresultat (Strukturerad data ovan). Sajten ska vara inkluderad i Googles
+generativa AI-funktioner i Search Console (sokkonsol.md, Lanseringsdagen), och effekten läses i rapporten för generativ
+AI (sokkonsol.md, Sökdata och tolkning). AEO- och GEO-knep ur spaningens videor och artiklar tas inte in (kirurgens
+domar 2026-10-03).
+
 ## Vad SEO inte lovar
 
 Ingen rankning, ingen indexering och inga positioner utlovas. Observationer efter lansering läses i sökkonsolen
