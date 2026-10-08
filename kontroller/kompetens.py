@@ -312,7 +312,8 @@ def utan_block(text=None):
 def sessioner_i_koden(fil=None):
     """Varje session i kandidatflödet, ur koden (ast, ingen import): {funktionen i kandidater.py: [{'rad', 'kompetens'}]}
     för varje anrop atelje.session(...), där kompetens säger om verktygsargumentet bär kompetens.verktyg(...), direkt
-    eller genom en hjälpfunktion i samma fil (som forfina_verktyg)."""
+    eller genom en hjälpfunktion i samma fil (som forfina_verktyg). Ett alias (atelje.session som värde, argument eller
+    import) ger en post med 'alias': True, som sessionsfel alltid fäller (GR-20261007-r103#K2)."""
     import ast
     fil = Path(fil) if fil else Path(__file__).resolve().parent / 'kandidater.py'
     trad = ast.parse(fil.read_text(encoding='utf-8'))
@@ -328,13 +329,25 @@ def sessioner_i_koden(fil=None):
             if isinstance(f, ast.Name) and f.id in funktioner and f.id not in sett and bar(funktioner[f.id], sett + (f.id,)):
                 return True
         return False
-    ut = {}
+    ut, anropade = {}, set()
     for namn, fn in funktioner.items():
         for x in ast.walk(fn):
             if isinstance(x, ast.Call) and isinstance(x.func, ast.Attribute) and x.func.attr == 'session' \
                     and isinstance(x.func.value, ast.Name) and x.func.value.id == 'atelje':
+                anropade.add(id(x.func))
                 arg = x.args[1] if len(x.args) > 1 else next((k_.value for k_ in x.keywords if k_.arg == 'verktyg'), None)
                 ut.setdefault(namn, []).append({'rad': x.lineno, 'kompetens': arg is not None and bar(arg)})
+    # ett alias (s = atelje.session, ett argument eller from atelje import session) startar en session som jämförelsen
+    # inte kan följa: det räknas som en session utan block och fälls alltid (GR-20261007-r103#K2)
+    omslutande = {}
+    for namn, fn in funktioner.items():
+        for x in ast.walk(fn):
+            omslutande.setdefault(id(x), namn)
+    for x in ast.walk(trad):
+        alias = (isinstance(x, ast.Attribute) and x.attr == 'session' and isinstance(x.value, ast.Name) and x.value.id == 'atelje'
+                 and id(x) not in anropade) or (isinstance(x, ast.ImportFrom) and x.module == 'atelje' and any(a_.name in ('session', '*') for a_ in x.names))
+        if alias:
+            ut.setdefault(omslutande.get(id(x), '<modulen>'), []).append({'rad': x.lineno, 'kompetens': False, 'alias': True})
     return ut
 
 
@@ -344,6 +357,11 @@ def sessionsfel(text=None, fil=None):
     lista_, kod = utan_block(text), sessioner_i_koden(fil)
     fel = []
     for f, anrop in sorted(kod.items()):
+        fel += ['sessionen startas genom ett alias för atelje.session i %s (kandidater.py rad %s): jämförelsen med metodkartan kräver '
+                'ett direkt anrop' % (f, a['rad']) for a in anrop if a.get('alias')]
+        anrop = [a for a in anrop if not a.get('alias')]
+        if not anrop:
+            continue
         utan = [a for a in anrop if not a['kompetens']]
         if utan and f not in lista_:
             fel.append('sessionen %s (kandidater.py rad %s) har inget kompetensblock och inget skäl i metodkartans lista över sessioner '

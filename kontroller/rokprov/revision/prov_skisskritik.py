@@ -658,6 +658,16 @@ def _andra():
     assert any(sorted(utan)[0] in f_ for f_ in kompetens.sessionsfel(karta.replace(utan_rad + '\n', ''))), 'en session utan block och utan skäl fälls'
     assert any(sorted(utan)[0] in f_ for f_ in kompetens.prova(karta.replace(utan_rad + '\n', ''))), 'kompetens.prova fäller den också'
     assert any('skäl' in f_ for f_ in kompetens.sessionsfel(karta.replace(utan_rad, '%s: ingen tilldelning' % sorted(utan)[0]))), '"ingen tilldelning" är inget skäl'
+    # jämförelsen går inte att lura med ett alias för atelje.session: som värde, som argument eller som import fälls det
+    # (GR-20261007-r103#K2)
+    kod_ = (KOPIA / 'kontroller' / 'kandidater.py').read_text(encoding='utf-8')
+    for namn_, tillagg_ in (('värde', '\n\ndef smyg_a(slug):\n    s = atelje.session\n    return s(slug, [])\n'),
+                            ('argument', '\n\ndef smyg_b(slug, starta=atelje.session):\n    return starta(slug, [])\n'),
+                            ('import', '\n\nfrom atelje import session as _s\n\n\ndef smyg_c(slug):\n    return _s(slug, [])\n')):
+        f_ = Path(tempfile.mkdtemp(dir=TMP)) / 'kandidater.py'
+        f_.write_text(kod_ + tillagg_, encoding='utf-8')
+        fel_ = kompetens.sessionsfel(fil=f_)
+        assert any('alias för atelje.session' in x for x in fel_), ('ett alias som %s fälldes inte' % namn_, fel_)
 
 
 # ===== 7. en tom eller saknad 768-bild =====
@@ -1073,5 +1083,122 @@ def _ny_session():
     assert 'Detta är en ny session' not in kd.skiss_prompt(SLUG, 'k01'), 'den första sessionen är ingen fortsättning'
 
 
-print('skisskritikens prov: %d fall, %d föll' % (24, len(FEL)), file=sys.stderr)
+
+PNGHUVUD = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR' + (390).to_bytes(4, 'big') + (844).to_bytes(4, 'big') + b'\x08\x02\x00\x00\x00'
+
+
+@fall('25 granskarens 14 luckor (GR-20261007-r103#K1): skalförbuden, detektorns granskarform, kritik_a som blint pass, tangentbordet, versionen, bildprövningen, granskningens tid, skälet och bildernas kataloger')
+def _luckor_r103():
+    kund()
+    # M04–M06: de läsande skalkommandona base64, python3, cp, mv och ln nekas skaparen och kritiken
+    sn = kd.skal_nekas()
+    for c in ('base64', 'python3', 'cp', 'mv', 'ln'):
+        assert 'Bash(%s)' % c in sn and 'Bash(%s *)' % c in sn, (c, [x for x in sn if c in x])
+    # M16: detektorns granskarform har bara regelkatalogens fält, aldrig sidans kod eller plats
+    import detektor
+    g = detektor.for_granskaren([{'antipattern': 'tiny-text', 'name': 'Liten text', 'severity': 'hog', 'snippet': '<p>SIDANS KOD</p>',
+                                  'file': 'index.html', 'line': 12, 'message': 'SIDANS TEXT'}])
+    assert g and all(set(x) <= set(detektor.GRANSKARFALT) | {'antal'} for x in g) and 'SIDANS' not in json.dumps(g), g
+    # M17: motorns egen felutskrift når aldrig granskaren
+    dist = kd.ksajt(SLUG, 'k01') / 'dist'; dist.mkdir(parents=True, exist_ok=True)
+    if not (dist / 'index.html').is_file():
+        (dist / 'index.html').write_text('<p>bygget</p>')
+    import contextlib, io
+    spara_det = detektor.detektera
+    detektor.detektera = lambda fil: (None, 'motorn gav inget läsbart svar (kod 1): <p>SIDANS KOD</p>')
+    try:
+        fel_ = io.StringIO()
+        with contextlib.redirect_stderr(fel_):
+            rc_ = detektor.main([SLUG, '--kandidat', 'k01', '--granskare'])
+    finally:
+        detektor.detektera = spara_det
+    assert rc_ == 3 and 'SIDANS KOD' not in fel_.getvalue() and 'Impeccables motor' in fel_.getvalue(), fel_.getvalue()
+    # M21: granskningens första pass (kritik_a) är blint: ett verktyg som ger kod där är ett fel i kartan
+    karta = metod.KARTA.read_text(encoding='utf-8')
+    rid = kompetens.for_pass('kritik_a')[0]['id']
+    blk = re.search(r'```kompetens %s\n.*?```' % rid, karta, re.S).group(0)
+    utan_skiss = re.sub(r'(?m)^pass: (.*)$', lambda m_: 'pass: ' + ', '.join(x for x in m_.group(1).split(', ') if x != 'skisskritik'), blk)
+    lackt = karta.replace(blk, re.sub(r'(?m)^verktyg: (.*)$', r'verktyg: \1, design', utan_skiss))
+    assert any('kritik_a' in f_ and 'design' in f_ for f_ in kompetens.prova(lackt)), [f_ for f_ in kompetens.prova(lackt) if 'blind' in f_]
+    # M32: tangentbordet räknas bara ur granskarens egen FORHAND.md, aldrig ur skaparens
+    skaparens = kd.kdir(SLUG, 'k01') / 'varv' / 'start' / 'varv-01' / 'FORHAND.md'
+    skaparens.parent.mkdir(parents=True, exist_ok=True); skaparens.write_text('- 390 px tangentbord: 6 steg\ntangentbord: ok\n')
+    sid_ = transkript([('Read', {'file_path': str(skaparens)}, 'innehållet')], '5a0e0d0c-0b0a-4908-8706-050403020125')
+    assert kd.bedomt(sid_, SLUG, 'k01')['tillstand']['tangentbord'] == [], 'skaparens FORHAND.md är inte granskarens'
+    # M69: bilder utanför kandidatens egna kataloger räknas inte som bedömda
+    annan = kd.kdir(SLUG, 'k02') / 'varv' / 'start' / 'varv-01' / 'vy-390-forsta.png'
+    annan.parent.mkdir(parents=True, exist_ok=True); annan.write_bytes(PNGHUVUD)
+    sid_ = transkript([('Read', {'file_path': str(annan)}, ('bild',))], '5a0e0d0c-0b0a-4908-8706-050403020126')
+    assert kd.bedomt(sid_, SLUG, 'k01')['bedomda_bredder'] == [], 'en annan kandidats bild räknas inte som k01:s'
+    # M41–M42: bildprövningen godtar bara en hel PNG och följer aldrig en länk
+    bilddir = Path(tempfile.mkdtemp(dir=TMP))
+    (bilddir / 'gif.png').write_bytes(b'GIF89a' + b'\x00' * 30)
+    (bilddir / 'hel.png').write_bytes(PNGHUVUD)
+    (bilddir / 'lank.png').symlink_to(bilddir / 'hel.png')
+    (bilddir / 'fel-signatur.png').write_bytes(b'GIF89a\r\n' + PNGHUVUD[8:])  # IHDR och mått, men inte PNG:s signatur (M41)
+    (bilddir / 'utan-ihdr.png').write_bytes(PNGHUVUD[:12] + b'IDAT' + PNGHUVUD[16:])  # signaturen och mått, men inget IHDR
+    assert forhandsvisa.giltig_bild(bilddir / 'hel.png') and not forhandsvisa.giltig_bild(bilddir / 'gif.png') and not forhandsvisa.giltig_bild(bilddir / 'lank.png')
+    assert not forhandsvisa.giltig_bild(bilddir / 'fel-signatur.png') and not forhandsvisa.giltig_bild(bilddir / 'utan-ihdr.png')
+    # M35: kundens bilder i src/assets/atelje/ ingår inte i kod-src: kritikens version är fotograferingens för samma kod
+    atl = kd.ksajt(SLUG, 'k01') / 'src' / 'assets' / 'atelje'; atl.mkdir(parents=True, exist_ok=True)
+    (atl / 'kundbild.jpg').write_bytes(b'\xff\xd8jpg')
+    v_ = kd.projektets_version(SLUG, 'k01')
+    kd.fotografera(SLUG, 'k01', skiss=True)
+    assert kd.version(SLUG, 'k01') == v_, 'en kundbild i src/assets/atelje/ gav kritiken en annan version än fotograferingen'
+    # M60: ett skäl i listan över sessioner utan block måste vara prövbart, inte en kort fras
+    lista_ = kompetens.utan_block()
+    sess_ = next(iter(lista_))
+    kort = re.sub(r'(?m)^(%s):\s*.*$' % re.escape(sess_), r'\1: för kort skäl här', karta, count=1)
+    assert any(sess_ in f_ and 'prövbart skäl' in f_ for f_ in kompetens.sessionsfel(kort)), kompetens.sessionsfel(kort)
+
+
+@fall('26 granskningen startar bara när skaparen hinner svara på den (GR-20261007-r103#K1, M53)')
+def _granskningens_tid():
+    kund()
+
+    class Klocka:
+        t = 0.0
+
+        def __getattr__(self, n_):
+            import time as tid_
+            return getattr(tid_, n_)
+
+        def monotonic(self):
+            return Klocka.t
+    spara = kd.time
+    kd.time = Klocka()
+    # skaparen lämnar mer än granskningens frist men mindre än granskningen och ett svar
+    mal_kvar = kd.FRIST_SKISSKRITIK + kd.SVAR_MIN // 2
+
+    def skapa(p, s):
+        Klocka.t = kd.FRIST_SKISS - kd.FOTO_RESERV - mal_kvar
+        return None, None
+    SVAR.clear()
+    SVAR[lambda p, s: s is kd.SKISSKRITIK_SCHEMA] = lambda p, s: (dict(KRITIKSVAR), None)
+    SVAR[lambda p, s: s is None] = skapa
+    SESSIONER.clear()
+    kd.satt_status(SLUG, 'k01', 'planerad', 'prov', ta_bort=('skisskritik',))
+    try:
+        kd.skissa(SLUG, 'k01')
+    finally:
+        kd.time = spara
+    assert not [x for x in SESSIONER if x['schema'] is kd.SKISSKRITIK_SCHEMA], 'granskningen startade fast svaret inte hinner'
+    st_ = kd.las_status(SLUG, 'k01').get('skisskritik') or {}
+    assert st_.get('gjord') is False, st_
+
+
+@fall('27 kompetensprovet går inte att lura med ett alias för atelje.session (GR-20261007-r103#K2)')
+def _alias():
+    kod_ = (KOPIA / 'kontroller' / 'kandidater.py').read_text(encoding='utf-8')
+    assert kompetens.sessionsfel() == [], kompetens.sessionsfel()
+    for tillagg in ('\n\ndef _ny_session(slug):\n    s = atelje.session\n    return s("x", LASVERKTYG, Path("/dev/null"))\n',
+                    '\n\ndef _ny_session2(slug):\n    from atelje import session\n    return session("x", LASVERKTYG, Path("/dev/null"))\n',
+                    '\n\ndef _ny_session3(slug):\n    return kor_med(atelje.session, slug)\n'):
+        f_ = Path(tempfile.mkdtemp(dir=TMP)) / 'kandidater.py'
+        f_.write_text(kod_ + tillagg, encoding='utf-8')
+        fel_ = kompetens.sessionsfel(fil=f_)
+        assert any('alias' in x for x in fel_), (tillagg, fel_)
+
+
+print('skisskritikens prov: %d fall, %d föll' % (27, len(FEL)), file=sys.stderr)
 sys.exit(1 if FEL else 0)
