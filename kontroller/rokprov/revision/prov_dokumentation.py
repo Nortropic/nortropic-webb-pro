@@ -243,7 +243,7 @@ def samtidigt(argument, markorer=None, start=None):
 @fall('kunskapen: Googles linje för generativ AI-sök i seo.md, sokkonsol.md, lansering.md och byggstandarden 7.6; llms.txt bara som avfärdat; sökkonsolens API-villkor')
 def _ai_sok_i_kunskapen():
     seo = (ROOT / 'kunskap' / 'seo.md').read_text(encoding='utf-8')
-    assert '## Generativ AI i Google Sök' in seo and 'developers.google.com/search/docs/appearance/ai-features' in seo and '2026-07-10' in seo, 'seo.md saknar stycket med källa och datum'
+    assert '## Generativ AI i Google Sök' in seo and 'developers.google.com/search/docs/fundamentals/ai-optimization-guide' in seo and '2026-07-10' in seo, 'seo.md saknar stycket med källa och datum'
     sok = (ROOT / 'kunskap' / 'sokkonsol.md').read_text(encoding='utf-8')
     assert 'generativa AI-funktioner' in sok and 'Rapporten för generativ AI' in sok, 'sokkonsol.md saknar inkluderingen och rapporten'
     assert 'webmasters.readonly' in sok and 'servicekonto' in sok and 'mcp-gsc' in sok, 'sokkonsol.md saknar API-verktygets villkor'

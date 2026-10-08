@@ -45,14 +45,17 @@ briefen §5: `lokal`, `varumärke/portfölj`, `hybrid` eller `ingen`. Verktyg: `
 
 ## Generativ AI i Google Sök
 
-Googles egen linje (guiden om AI-funktioner i Sök, https://developers.google.com/search/docs/appearance/ai-features,
-publicerad 2026-05-15 och uppdaterad 2026-07-10; läst 2026-10-03): att synas i AI Overviews och AI Mode "is still SEO".
+Googles egen linje (guiden om optimering för generativ AI-sök, https://developers.google.com/search/docs/fundamentals/ai-optimization-guide,
+publicerad 2026-05-15 och uppdaterad 2026-07-10; läst 2026-10-03 och 2026-10-08; den äldre sidan om AI-funktioner är
+https://developers.google.com/search/docs/appearance/ai-features): "optimizing for generative AI search is optimizing for the
+search experience, and thus still SEO"; GEO och AEO är samma sak som SEO, inte egna discipliner.
 Samma grund gäller: genomsökbar, indexerbar, tydligt innehåll som svarar på avsikten med verkliga uppgifter.
 llms.txt behövs inte, och inte heller särskild AI-märkning, uppstyckad text, omskrivning "för AI" eller sidor per
 frågevariant; strukturerad data bara för rikresultat (Strukturerad data ovan). Sajten ska vara inkluderad i Googles
 generativa AI-funktioner i Search Console (sokkonsol.md, Lanseringsdagen), och effekten läses i rapporten för generativ
-AI (sokkonsol.md, Sökdata och tolkning). AEO- och GEO-knep ur spaningens videor och artiklar tas inte in (kirurgens
-domar 2026-10-03).
+AI (sokkonsol.md, Sökdata och tolkning). För lokala verksamheter pekar guiden på Google-företagsprofilen (och Merchant
+Center för produkter) som vägen att synas både i AI-svaren och i vanliga sökresultat (lokal-synlighet.md; profilbladet i
+rapportens punkt 14). AEO- och GEO-knep ur spaningens videor och artiklar tas inte in (kirurgens domar 2026-10-03).
 
 ## Vad SEO inte lovar
 
