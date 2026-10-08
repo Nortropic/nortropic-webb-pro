@@ -1,12 +1,13 @@
 ---
 id: B-20261003-hamta-sajt-py-bilder-laddar-inte-ned-bilderna-i
-status: vilande
+status: klar
 kalla: bygge
 kallref: kunder/holms-konditori-abx/RAPPORT.md
 skapad: 2026-10-03
 prio: normal
 steg: 1.2
-andrad: 2026-10-05T06:55Z
+commit: ea09346
+andrad: 2026-10-08T15:34Z
 ---
 # hamta_sajt.py --bilder laddar inte ned bilderna i ett inbäddat Instagramflöde
 
