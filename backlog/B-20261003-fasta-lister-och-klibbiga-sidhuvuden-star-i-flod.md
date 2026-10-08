@@ -1,12 +1,13 @@
 ---
 id: B-20261003-fasta-lister-och-klibbiga-sidhuvuden-star-i-flod
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Frontend Focus 759 (nyhetsbrev 2026-09-23) + Polypane, Matuzovic, WebKit Safari 27
 skapad: 2026-10-03
 prio: normal
 steg: bygg-sajt steg 5.3 och 6; byggstandarden 3.3 och 4.2; kontroller/webblasare/inspektera.mjs
-andrad: 2026-10-05T06:55Z
+commit: dd60841
+andrad: 2026-10-08T15:30Z
 ---
 # Fasta lister och klibbiga sidhuvuden står i flödet när vyn är lägre än 500 px (400 % zoom), rotskrollaren bevaras, och lata bilder får sizes="auto" med reserv
 
