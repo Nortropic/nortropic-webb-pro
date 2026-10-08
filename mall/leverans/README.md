@@ -24,8 +24,9 @@ npm run dev       # lokal server med omladdning
 ## Formuläret
 
 `src/pages/api/forfragan.js` tar emot förfrågningar: honeypot och tidsfälla, validering, en bild på högst 4 MB,
-lagring i ett privat Vercel Blob-lager före mejlet, och mejl genom Resend. Utan mottagare i en förhandsvisning skickas
-ingenting (demoläge). Serverns valideringsfel återger textfälten säkert, även utan JavaScript; en bild måste väljas
+lagring i ett privat Vercel Blob-lager före mejlet, och mejl genom Resend. Utanför produktionen (`VERCEL_ENV` annat än
+`production`: förhandsvisning och utveckling) sparas och skickas ingenting (demoläge), också när variablerna råkar gälla
+alla miljöer i Vercel. Serverns valideringsfel återger textfälten säkert, även utan JavaScript; en bild måste väljas
 igen. En oläsbar eller helt för stor begäran kan inte återställas.
 
 Utan lagringskvitto skickas inget mejl: besökaren får 503 och texten kvar. Finns lagringskvittot men mejlaviseringen
@@ -44,7 +45,9 @@ mejltjänsten returnerade ett identifierat acceptanskvitto. Saknas filen är avi
 kan också ha misslyckats efter mejlacceptans. Läs ärendet och kontrollera mejltjänstens logg innan eventuell
 manuell omsändning. Den här leveransen startar ingen automatisk omsändning eller ny aviseringskö.
 
-Ett helt tappat framgångssvar kan fortfarande ge dubbla inskick vid besökarens omförsök. Formuläret saknar ännu
+Ett helt tappat framgångssvar kan fortfarande ge dubbla inskick vid besökarens omförsök, och 202-sidan (mottagen, ej
+aviserad) svarar på POST-adressen: en omladdning av den sidan är ett nytt inskick om besökaren bekräftar webbläsarens
+fråga om att skicka formuläret igen. Formuläret saknar ännu
 individuell, beständig inskicksidentitet före första POST utan JS; här finns ingen garanti om exakt en sändning.
 Externa konton, kvitton, driftövervakning och ansvarigs åtkomst ska prövas uttryckligen inför lansering.
 
@@ -55,4 +58,6 @@ Bildkällor och eventuella licensuppgifter redovisas i `LICENSER.md`; filens exi
 användning är tillåten. Okända rättigheter måste klarläggas före publicering. Källkodens tekniska export
 ersätter inte verksamhetens beslut om innehåll, design eller bildanvändning.
 
-Bilagan lagras under ett fast separat namn. Lokala tidsgränser är 10 s för lagring, 8 s för mejl inklusive kvitto och 2 s för aviseringsfilen. Vid en tidsgräns är ett leverantörsutfall utan kvitto fortfarande okänt; kontrollera lagringen/mejltjänsten före manuell omsändning.
+Bilagan lagras under ett fast separat namn, före `forfragan.json`: faller lagringen av mottagningsfilen efter bildens kvitto
+ligger `bilaga/bild` kvar utan mottagningsfil och ska gallras med samma rutin som ärendena. Lokala tidsgränser är 10 s för
+lagring, 8 s för mejl inklusive kvitto och 2 s för aviseringsfilen. Vid en tidsgräns är ett leverantörsutfall utan kvitto fortfarande okänt; kontrollera lagringen/mejltjänsten före manuell omsändning.

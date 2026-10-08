@@ -483,6 +483,7 @@ def kritikens_transkript(slug=SLUG, kid='k01', karna=None, bilder=None):
     alt = kompetens.vag(kompetens.for_pass('skisskritik')[0]['valj'][0])
     h = [('Read', {'file_path': str(KOPIA / f)}, 'innehållet') for f in karna] + [('Read', {'file_path': str(KOPIA / alt)}, 'innehållet')]
     h += [('Bash', {'command': '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat %s --granskare' % (slug, kid)}, '# Förhandsvisning (granskarens)'),
+          ('Bash', {'command': 'cat kontroller/forhandsvisa.py | head -40'}, '#!/usr/bin/env python3'),  # en läsning av skriptet är inget anrop (GR-20261008-r117-claude#C7)
           ('Bash', {'command': '.venv/bin/python kontroller/detektor.py %s --kandidat %s --granskare' % (slug, kid)}, ('fel', 'Exit code 3\nmotorn saknas')),
           ('mcp__refero__refero_search_screens', {'query': 'carpenter website hero mobile', 'platform': 'web'}, ('bild',)),
           ('mcp__mobbin__search_screens', {'query': 'contractor landing page', 'mode': 'standard'}, '{"results": []}')]

@@ -2,7 +2,8 @@
 // Skriftlig förfrågan (byggstandarden 6: en skriftlig väg bredvid telefonen).
 // Fungerar med vanlig POST utan JavaScript; honeypot och tidsfälla mot spam. Mottagaren är /api/forfragan/ (med snedstreck: sajten har avslutande snedstreck, och utan det svarar Vercel 308 och webbläsaren skickar inskicket två gånger): i demon
 // svarar provets och dashboardens server och visar /tack/ utan att spara eller skicka något; vid lansering tar en
-// serverfunktion över med samma kontrakt (kunskap/forfragan.md). Bygget stylar formuläret och skriver etiketterna i
+// serverfunktion över med ett eget kontrakt (kunskap/forfragan.md): ett fältfel ger en felsida med texten bevarad, inte
+// #forfragan-saknas. Bygget stylar formuläret och skriver etiketterna i
 // verksamhetens ord; fältnamnen och fällorna ändras inte.
 interface Props {
   fraga?: string; // etiketten för meddelandet, i verksamhetens ord
@@ -20,7 +21,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   saknas = 'Namn, telefon och vad du vill ha hjälp med behövs. Fyll i dem och skicka igen.', telefon, telefonText,
   felNamn = 'Skriv ditt namn.', felTelefon = 'Skriv ett nummer vi kan ringa.',
   felTelefonFormat = 'Skriv numret med siffror, till exempel 070-123 45 67.', felMeddelande = 'Skriv vad du vill ha hjälp med.',
-  felBild = 'Bilden kunde inte tas emot: den får vara högst 4 MB och en vanlig bildfil (JPEG, PNG, HEIC eller WebP). Skicka utan bild eller med en mindre.' } = Astro.props;
+  felBild = 'Bilden kunde inte tas emot: den får vara högst 4 MB och en vanlig bildfil (JPEG, PNG, WebP, HEIC, HEIF, GIF eller AVIF). Skicka utan bild eller med en mindre.' } = Astro.props;
 ---
 <form class="forfragan" id="forfragan" action="/api/forfragan/" method="post" enctype="multipart/form-data">
   <!-- Felbesked utan JavaScript: mottagaren skickar ett ofullständigt inskick till #forfragan-saknas, och :target visar det. -->
@@ -37,7 +38,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
     <span id="ff-telefon-fel" class="ff-fel"></span>
     <!-- Siffror, mellanslag, +, - och parenteser, minst sex tecken: "abc" går inte igenom (byggstandarden 6.2). -->
     <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40"
-      pattern="[0-9+\-\(\) ]{6,40}" aria-describedby="ff-telefon-fel" data-saknas={felTelefon} data-format={felTelefonFormat} />
+      pattern="(?=.*[0-9])[0-9+\-\(\) ]{6,40}" aria-describedby="ff-telefon-fel" data-saknas={felTelefon} data-format={felTelefonFormat} />
   </p>
   <p>
     <label for="ff-meddelande">{fraga}</label>
@@ -47,7 +48,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   <p class="ff-fil">
     <!-- Egen knapp i stället för webbläsarens "Choose File / No file chosen"; etiketten öppnar väljaren även utan JS. -->
     <label for="ff-bild">Bild på jobbet (valfritt)</label>
-    <input id="ff-bild" class="ff-filfalt" name="bild" type="file" accept="image/*" aria-describedby="ff-filnamn ff-bild-fel" data-for-stor={felBild} />
+    <input id="ff-bild" class="ff-filfalt" name="bild" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,image/avif" aria-describedby="ff-filnamn ff-bild-fel" data-for-stor={felBild} />
     <label for="ff-bild" class="ff-filknapp">Välj bild</label>
     <span id="ff-filnamn" class="ff-filnamn">Ingen bild vald</span>
     <span id="ff-bild-fel" class="ff-fel"></span>

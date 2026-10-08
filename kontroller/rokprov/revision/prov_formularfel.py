@@ -63,6 +63,7 @@ if (mode === 'honeypot') values.webbplats = 'falla';
 if (mode === 'ingetlager') delete process.env.BLOB_STORE_ID;
 if (mode === 'ingenmottagare') delete process.env.RESEND_API_KEY;
 if (mode === 'demo') { process.env.VERCEL_ENV = 'preview'; delete process.env.RESEND_API_KEY; }
+if (mode === 'preview-konfigurerad') process.env.VERCEL_ENV = 'preview';  // variablerna gäller alla miljöer (GR-20261008-r117-claude#D2)
 const fd = new FormData(); for (const [k,v] of Object.entries(values)) fd.append(k,v);
 if (mode === 'bildtyp') fd.append('bild',new Blob(['<svg/>'],{type:'image/svg+xml'}),'syntetisk.svg');
 if (mode === 'bildstor') fd.append('bild',new Blob([new Uint8Array(4000001)],{type:'image/jpeg'}),'syntetisk.jpg');
@@ -192,7 +193,7 @@ class Formular(unittest.TestCase):
                 if status==202:self.assertNotIn('<form',d['html'])
 
     def test_demo_och_honeypot_ar_uttryckliga_utan_sandning(self):
-        for mode,utfall in [('demo','demo'),('honeypot','honeypot')]:
+        for mode,utfall in [('demo','demo'),('honeypot','honeypot'),('preview-konfigurerad','demo')]:
             d=self.kor(mode);self.assertEqual(d['status'],303)
             self.assertEqual(d['headers']['x-forfragan'],utfall);self.assertEqual(d['events'],[])
 

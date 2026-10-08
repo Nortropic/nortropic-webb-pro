@@ -82,6 +82,59 @@ class Flodeshandling(unittest.TestCase):
             s = dash.flodesbesked(self.slug, blind=False)
         self.assertTrue(all(x['varde'] is None and x['status'] == 'historiskt' for x in s['tillstand']))
 
+    def test_en_stopp_post_doljer_inte_helbyggets_gallande_besked(self):
+        # GR-20261008-r117-claude#A4: en kort post om en start som stannade före körningen ersätter ingen post
+        stopp = {'typ': ateljeslut.TYP_STOPP, 'datum': '2026-01-03T00:00:00Z', 'korning': {'startad': None}, 'skal': 'MARKOR-STOPPSKAL',
+                 'tillstand': {n: {'varde': None, 'text': 'ingen körning startades'} for n, _ in korslut.TILLSTAND}, 'brister': []}
+        with patch.object(korslut, 'aktuell', return_value=self.post()), patch.object(ateljeslut, 'aktuell', return_value=stopp):
+            s = dash.flodesbesked(self.slug, blind=False)
+        self.assertEqual([x['status'] for x in s['tillstand']], ['ja'] * 5)
+        self.assertTrue(any('MARKOR-STOPPSKAL' in b for b in s['brister']), s['brister'])
+        with patch.object(korslut, 'aktuell', return_value=None), patch.object(ateljeslut, 'aktuell', return_value=stopp):
+            s = dash.flodesbesked(self.slug, blind=False)
+        self.assertEqual({x['status'] for x in s['tillstand']}, {'saknas'})
+
+    def test_helbygget_ar_inte_kontrollerat_utan_godkand_granskning(self):
+        # GR-20261008-r117-claude#C3: steg 6 ur slutposten är grönt bara när både tekniskt och designgranskaren godkänner (som B1)
+        post = self.post()
+        post['tillstand']['designgranskaren_godkanner'] = {'varde': False, 'text': 'MARKOR-UNDERKAND'}
+        (self.k / 'DOM.json').write_text(json.dumps({'domar': []}))
+        with patch.object(korslut, 'aktuell', return_value=post), patch.object(ateljeslut, 'aktuell', return_value=None), \
+                patch.object(dash, '_fil', return_value=None):
+            f = dash.flode(self.slug)
+        s6 = f['steg'][5]
+        self.assertEqual(s6['namn'], 'Helbygget')
+        self.assertEqual(s6['status'], 'skapat')
+        self.assertTrue(any('korslut godkänner inte' in b for b in s6['brister']), s6['brister'])
+        self.assertTrue(any(t['text'].startswith('Designgranskaren: domen visas efter din dom') for t in s6['kontroller']), s6['kontroller'])
+        self.assertNotIn('MARKOR-UNDERKAND', json.dumps(s6))
+        post['tillstand']['designgranskaren_godkanner'] = {'varde': True, 'text': 'godkänd'}
+        with patch.object(korslut, 'aktuell', return_value=post), patch.object(ateljeslut, 'aktuell', return_value=None), \
+                patch.object(dash, '_fil', return_value=None):
+            self.assertEqual(dash.flode(self.slug)['steg'][5]['status'], 'kontrollerat')
+
+    def test_avslutat_startid_svarar_med_sin_slutkod_inte_som_vagrad_start(self):
+        # GR-20261008-r117-claude#B1: en begäran som redan är besvarad är inte en vägrad start; fliken får släppa sitt start-id
+        srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
+        self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        host = '127.0.0.1:%d' % srv.server_port
+        self.stack.enter_context(patch.dict(dash.VARD, {'tillatna': {host}}))
+        def anrop(data):
+            c = http.client.HTTPConnection('127.0.0.1', srv.server_port, timeout=4)
+            try:
+                c.request('POST', '/api/flode/' + self.slug + '/start', json.dumps(data), {'Origin': 'http://' + host})
+                r = c.getresponse(); return r.status, json.loads(r.read().decode())
+            finally:
+                c.close()
+        (self.u / 'ateljestarter').mkdir(parents=True)
+        (self.u / 'ateljestarter/prov-avslutad-1.json').write_text(json.dumps({'handling': 'exportera', 'status': 'slut', 'slutkod': 1}))
+        with patch.object(prototyp, 'fran_dashboard', return_value=1):
+            status, svar = anrop({'handling': 'exportera', 'start_id': 'prov-avslutad-1'})
+            self.assertEqual((status, svar['avslutad'], svar['slutkod']), (200, True, 1), svar)
+            status, svar = anrop({'handling': 'exportera', 'start_id': 'prov-ej-bokford-2'})
+            self.assertEqual(status, 409, svar)
+
     def test_http_start_delar_cli_och_upprepat_id_startar_inte_igen(self):
         srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
         self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)

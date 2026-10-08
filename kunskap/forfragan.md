@@ -63,10 +63,13 @@ felhanteringen och ordningen, inte fungerande externa konton eller faktisk motta
 
 `kontroller/driftkoll.py --formular` prövar det aktuella HTTP-kontraktet med syntetiska ogiltiga inskick
 samt giltigt demoinskick bara i förhandsvisning. Riktiga mottagningsprov görs uttryckligen med verksamhetens
-adress inför lansering. Mejlets variabler ska inte finnas i en förhandsvisning som ska vara demo.
+adress inför lansering. Mottagaren skickar och sparar bara i produktionen (`VERCEL_ENV=production`); i en förhandsvisning
+eller lokalt är den demo också när variablerna finns (GR-20261008-r117-claude#D2).
 
 **Kvarstående återförsöksrisk (G05-R):** tappar besökaren hela svaret efter ett lyckat första POST kan samma
-inskick sparas och aviseras igen vid ett omförsök. Dagens förrenderade formulär saknar individuellt inskicks-id
+inskick sparas och aviseras igen vid ett omförsök. 202-sidan (mottagen, ej aviserad) svarar på POST-adressen utan
+omdirigering: laddar besökaren om den och bekräftar webbläsarens fråga skickas formuläret igen (dubblett), fast sidan
+säger att det inte behövs; en omdirigering till en förrenderad sida är den minsta rättelsen (backloggen, GR-20261008-r117-claude#D1). Dagens förrenderade formulär saknar individuellt inskicks-id
 före första POST. Ny slumpnyckel i mottagaren eller innehållsdeduplikering utan tids-/avsiktsgräns löser inte
 kontraktet. Individuell serverrendering och beständig idempotens måste prövas tillsammans; ingen sådan garanti
 ges här. Resends idempotensnycklar gäller 24 timmar och kräver samma payload, men ersätter inte mottagarens
@@ -86,7 +89,8 @@ måste innehålla ett giltigt id utan felobjekt. HTTP 200 ensamt räcker inte. I
 2. Validera igen på servern: namn 1–100 tecken, telefon 6–40 tecken med minst en siffra och bara siffror, mellanslag, +, bindestreck eller parenteser, meddelande 1–4000 tecken.
 3. Honeypot ifylld: svara 303 till `/tack/` utan att skicka. Tidsfälla: `fylltid` under 1500 ms: samma sak. Tomt
    eller 0 (ingen JavaScript, direkt POST) godtas; fältet är ett botfilter, inte autentisering. Jämför aldrig en
-   klientstämpel med serverns klocka.
+   klientstämpel med serverns klocka. Felsidan (422/413/503) skriver `fylltid` 0, så tidsfällan är avstängd för omskick
+   därifrån; honeypoten gäller fortfarande (GR-20261008-r117-claude#D4).
 4. Begränsning: högst 3 inskick per 10 minuter och IP-adress, som en regel i Vercels brandvägg på `/api/forfragan/`
    (läggs vid lanseringen; tillgången på Pro är inte prövad); Turnstile om spam ändå kommer igenom.
 5. Spara varje giltigt inskick i ett privat Vercel Blob-lager (OIDC, i Stockholm) innan mejlet går, med fälten och

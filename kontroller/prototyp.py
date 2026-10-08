@@ -144,6 +144,10 @@ def fran_dashboard(slug, handling, start_id):
     return main([slug, '--' + handling, '--start-id', start_id, '--vanta', '0'])
 
 
+def prototyp_namn(handling):
+    return HANDLINGAR.get(handling, handling)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog='prototyp', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
@@ -173,10 +177,17 @@ def main(argv=None):
         return flodesstart.stoppa(a.slug)
     if a.helbygge or a.exportera:
         import flodesstart
-        try:return flodesstart.starta(a.slug,'helbygge' if a.helbygge else 'exportera',a.start_id)
+        handling = 'helbygge' if a.helbygge else 'exportera'
+        a.start_id = a.start_id or __import__('uuid').uuid4().hex
+        try:rc = flodesstart.starta(a.slug, handling, a.start_id)
         except (OSError,ValueError,RuntimeError) as e:
             print('Starten vägrades: %s'%e,file=sys.stderr)
             return 2
+        # beskedet: samma start-id läser samma begäran igen; stoppet är en egen handling (GR-20261008-r117-claude#B8)
+        print('%s %s: start-id %s, slutkod %d (%s). Läs läget i Flöde eller SLUT.json; samma --start-id läser samma begäran, '
+              '--stoppa-overgang begär stopp.' % (prototyp_namn(handling), a.slug, a.start_id, rc,
+                                                 'begäran registrerad eller pågår' if rc == 5 else 'avslutad'), flush=True)
+        return rc
     if a.forbered or a.fortsatt or a.stoppa:
         handling = 'forbered' if a.forbered else 'fortsatt' if a.fortsatt else 'stoppa'
         return atelje.main([a.slug, '--' + handling, '--vanta', str(a.vanta)] + extra)

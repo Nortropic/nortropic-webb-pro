@@ -2721,3 +2721,60 @@ Flödeshandlingens HTTP-fixtur serverar också dashboardens två separata skript
 funktioner laddats. Den tidigare allmänna HTML-reserven gav parserfel för skriptadresserna efter integrationen.
 Okända filer ger nu 404 i fixturen; produktionsservern och kravet på tom lista med JavaScript-undantag
 (`pageerror`) ändras inte. Provet intygar inte alla nät- eller konsolmeddelanden i andra vyer.
+
+## Tillägg 2026-10-08: Claudes granskning av integrationen r117 och rättelserna efter den
+
+**Status:** gäller på grenen `r117-granskning-claude-20261008` som genomförande av ägarens uppdrag 2026-10-08 (återupptagningen
+efter Codex, punkt 3: bedöm integrationen); inget nytt ägarbeslut.
+
+Ägarens uppdrag 2026-10-08 ~11:25Z, punkt 3, ordagrant:
+
+> Granska R117:s samlade beteende och dokumentation, särskilt:
+> - Kundstart → förberedelse → skiss → val → förfining → helbygge → export.
+> - Att ändrat underlag gör äldre besked historiska.
+> - Att stopp, återupptagning och återförsök fungerar utan dubbla starter.
+> - Att tekniskt resultat, designgranskning, ägardom och leveransberedskap hålls isär.
+> - Att kompetensens tillgänglighet, observerade användning och faktiska nytta inte blandas ihop.
+>
+> Återanvänd giltiga bevis. Kör om eller utöka prov när nya ändringar, fel eller konkreta frågetecken motiverar det.
+>
+> Vid fynd: skriv en ny granskning med reproduktion, konsekvens och minsta motiverade rättelse. Ändra inte historiska rapporter eller domar.
+
+Granskningen GR-20261008-r117-claude (privat, `underlag/granskningar/`) fann tjugotvå fynd i r117 (a108560), varav tretton är
+rättade här med prov som var röda mot a108560 och är gröna efter; resten står i backloggen med samma rapport som källa.
+
+1. **Giltighetskedjan.** Helbyggets prövade besked (`korslut.aktuell`, Flöde, exportens vy) prövar nu också startsidans
+   godkännande mot aktuellt underlag (`skapande.godkand_giltig`, samma kontroll som Flöde steg 5 och kor.sh), när det gällde
+   vid körningens slut (A1). Ateljéposten för en äldre körning tar inte in en senare körnings domar (A2). En kort post om en
+   start som stannade före körningen döljer inte det gällande beskedet i Flöde (A4).
+2. **De fem tillstånden.** En körning som avbröts med en signal får slutkod 4 också när claude hann avsluta med kod 0, och
+   klart för leverans kräver att sessionen avslutades normalt (C1). En dom som tillkommit efter en körning vars processer
+   inte stoppades räknas inte i den prövade läsningen, som efter en avbruten körning (C2). Flöde steg 6 ur slutposten är
+   kontrollerat bara när både tekniskt och designgranskaren godkänner; ett tekniskt ja utan godkänd granskning är skapat med
+   bristen, aldrig grönt (C3). Byggkortet skiljer avstängd granskning från godkänd (C8).
+3. **Stopp och omförsök.** Flödesarbetaren läser den sparade stoppbegäran under körningen och stoppar arbetet också när
+   signalen inte når den (B2); stoppet går till kor.sh/exportera.py när arbetaren själv dött (B3); en arbetare som dog i
+   steget startar är ett avbrott med återupptagning, inte en körning som pågår (B4); ett start-id vars begäran redan är
+   avslutad svarar med sin slutkod i stället för som vägrad start, så fliken släpper det (B1); CLI:n skriver start-id och
+   stoppväg (B8); förloraren av samma start-id under upptaget lås läser journalen (B6, rättelsen prövad bara med bokförd
+   begäran).
+4. **Kompetensens nivåer.** Ett MCP-svar som är en feltext utan felflagga, eller säger att inget matchade, är inte ett
+   lyckat anrop med innehåll (C6). En läsning av ett verktygsskript (`cat …`) räknas inte som ett verktygsanrop (C7). Ett
+   kompetenspass är genomfört bara när varje prövat beteende har sin bild, skissens pass visas som kärnan läst hel, och
+   sessionens egen visuella bedömning och ändringslista märks som redovisade, inte observerade (C4, C5). Ateljépostens
+   kompetenskedja säger var kvittona finns (C9).
+5. **Formuläret.** Mottagaren sparar och skickar bara i produktionen (`VERCEL_ENV=production`); förhandsvisning och
+   utveckling är demo också när variablerna råkar gälla alla miljöer (D2). Klientens och felsidans telefonmönster kräver en
+   siffra som servern, filväljaren och felbeskedet nämner samma bildtyper som mottagaren tar emot (D5); kommentarerna och
+   kunskapstexterna säger det som koden gör: 202-sidans omladdning, tidsfällan på felsidan, den föräldralösa bilagan och
+   funktionens körtid (D1, D4, D7, D3).
+
+**Kontroll:** prov_slutpost (46 fall), prov_kundstart_flode (23), prov_ateljeslut (26), prov_flodeshandling (12),
+prov_flodesstart (10), prov_formularfel (18), prov_observation, prov_skisskritik (23), prov_flode och prov_dokumentationsvy är
+gröna på grenen; de tio nya fallen är röda mot a108560 (loggarna i granskningens beviskatalog). Hela rökprovet på den
+slutliga grenen redovisas i granskningen.
+
+**Lämnat:** A3 (helbygget kan göra sitt eget godkännande historiskt genom att skriva i underlag/<slug>; gren E:s
+promptkedja), D1 (202-sidan ska omdirigera), D3 (funktionens körtid i exporten), C4:s återstående krav på observerat
+verktygsanrop per pass, B5/B7/B9/B10, D8/D9 står i backloggen. Ingen verklig session, extern tjänst, publicering eller
+kundkontakt ingår; en grön gren är inte ett bevis för designkvalitet.

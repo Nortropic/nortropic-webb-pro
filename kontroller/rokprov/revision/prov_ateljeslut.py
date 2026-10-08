@@ -322,7 +322,7 @@ def _stopp():
     assert post['tider']['forsta_valbara'] == klar_tid and post['tider']['forsta_valbara_kalla'] == kandidater.SATT, post['tider']
     t = post['tillstand']
     assert [t[n]['varde'] for n, _ in korslut.TILLSTAND] == [False, None, None, None, False], [t[n]['varde'] for n, _ in korslut.TILLSTAND]
-    assert post['kompetenskedjan'] == 'inte observerat' and post['metod']['metod_json_sha256'] == sha(rot / 'metod' / 'METOD.json')
+    assert post['kompetenskedjan'] == ateljeslut.KOMPETENSKEDJAN and post['metod']['metod_json_sha256'] == sha(rot / 'metod' / 'METOD.json')
     assert ('kandidat k01 version %s (klar för ägarens bedömning)' % k01['version']) in post['granskad_identitet'], post['granskad_identitet']
     assert post['metod']['repo'] and len(post['metod']['repo']['commit']) == 40, post['metod']['repo']
     # terminalens besked ur posten: kandidaterna med stoppet, och slutkoden
@@ -1067,6 +1067,30 @@ def _utan_valbara_och_valj():
     assert ateljeslut.bygg(s2, st2, '20261007T080000Z')['tillstand']['agaren_godkanner']['varde'] is False
     logg(s2, dom('2026-10-07T10:00:00Z', 'ägaren', 'godkand', 'Godkänd.'))
     assert ateljeslut.bygg(s2, st2, '20261007T080000Z')['tillstand']['agaren_godkanner']['varde'] is True
+
+
+@fall('aktuell(): en senare körnings godkännande räknas inte in i en äldre körnings post (GR-20261008-r117-claude#A2)')
+def _senare_kornings_dom():
+    import ateljeslut
+    s = 'prov-tva-korningar'
+    u, k = kund(s)
+    rot = u / 'atelje'
+    skriv(rot / 'KANDIDATPLAN.json', {'tid': '2026-10-08T08:00:00Z', 'lage': 'skiss', 'kandidater': {'k01': {'titel': 'Ett'}}})
+    k01 = klar_kandidat(s, 'k01')
+    st1 = {'slug': s, 'startad': '2026-10-08T08:00:00Z', 'klar': '2026-10-08T08:30:00Z', 'steg': 'klar_for_bedomning', 'lage': 'ny', 'kandidatflode': True,
+           'kandidatlage': 'skiss', 'kandidater': {'k01': 'klar'}, 'tider': {'start': '2026-10-08T08:00:00Z'}}
+    f1, _ = ateljeslut.skriv_korning(s, dict(st1))
+    logg(s, dom('2026-10-08T09:00:00Z', 'ägaren', 'valj', 'Välj Ett.', kandidater=[{'id': 'k01', 'version': k01['version']}]))
+    st2 = dict(st1, startad='2026-10-08T10:00:00Z', klar='2026-10-08T10:30:00Z', lage='valda', kandidatlage='forfining', tider={'start': '2026-10-08T10:00:00Z'})
+    skriv(rot / 'STATUS.json', st2)
+    f2, _ = ateljeslut.skriv_korning(s, dict(st2))
+    logg(s, dom('2026-10-08T11:00:00Z', 'ägaren', 'godkand', 'Godkänd efter förfiningen.'))
+    a1, a2 = ateljeslut.aktuell(s, fil=f1), ateljeslut.aktuell(s, fil=f2)
+    assert a2['tillstand']['agaren_godkanner']['varde'] is not False and a2['agarens_beslut']['efter'][-1]['beslut'] == 'godkand', a2['agarens_beslut']
+    assert a1['tillstand']['agaren_godkanner']['varde'] is None and [x['beslut'] for x in a1['agarens_beslut']['efter']] == ['valj'], \
+        ('den senare körningens godkännande togs in i den äldre postens besked', a1['tillstand']['agaren_godkanner'], a1['agarens_beslut']['efter'])
+    assert a1['agarens_beslut']['nasta_startad'] == '2026-10-08T10:00:00Z', a1['agarens_beslut']
+    assert ateljeslut.aktuell(s)['agarens_beslut']['efter'][-1]['beslut'] == 'godkand', 'utan fil: den senaste posten'
 
 
 @fall('postens skrivning: domen körningen följer är ägarens egen, två poster samma sekund får var sin katalog, en länk på målet följs inte när redovisningen kopieras, och en körning som pågår får ingen post i efterhand')

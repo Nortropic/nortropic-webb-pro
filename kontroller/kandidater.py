@@ -2059,8 +2059,9 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
            'aktivering': so.get('aktivering') or [], 'teknikval': so.get('teknikval') or [],
            'kvitto': dict(kompetens_kort(kv), teknikval=so.get('teknikval') or [], visuell_bedomning=so.get('visuell_bedomning') or {}),
            'uppgiftsbrister': passbrister(pass_, so, kv),
+           # genomfört kräver också att varje prövat beteende har sin bild (GR-20261008-r117-claude#C4); sessionens egen lista räcker inte
            'genomford': (not svar.get('avbruten') and bool(so) and not kv.get('saknas') and not passbrister(pass_, so, kv) and bool(provat)
-                         and (andrad or bool(so.get('ingen_andring')))) if kv.get('verifierad') else None,
+                         and all(b.get('bild_finns') for b in provat) and (andrad or bool(so.get('ingen_andring')))) if kv.get('verifierad') else None,
            'bilder': {'fore': fore, 'efter': efter}}
     kompetenser = dict(st.get('kompetens') or {})
     kompetenser[nyckel] = rec
@@ -3555,6 +3556,8 @@ def kompetens_rader(slug, ids, namn):
                     vad = ('ingen ändring: ' + str(rec.get('ingen_andring'))[:160]) if rec.get('ingen_andring') else (
                         'skaparens %d varv' % rec.get('varv') if pass_ == 'skapa' else '–')
                 gen = {True: 'ja', False: 'nej', None: 'ej verifierat'}[rec.get('genomford')]
+                if pass_ == 'skapa' and rec.get('genomford') is True:  # skissens pass: kärnan läst hel, ingen tillämpning observerad (C4)
+                    gen = 'kärnan läst hel (tillämpningen inte observerad)'
                 if rec.get('aterstalld'):
                     gen += ' (återställt: %s)' % str(rec['aterstalld'])[:80]
                 if rec.get('avbruten'):

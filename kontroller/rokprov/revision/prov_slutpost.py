@@ -433,6 +433,42 @@ def _tillstanden():
     assert sha(k / 'korningar' / ny / 'SLUT.json') == fore, 'aktuell() skrev om slutposten'
 
 
+@fall('korslut: en körning som avbröts med en signal får slutkod 4 också när claude hann avsluta med kod 0, och blir aldrig klar för leverans (GR-20261008-r117-claude#C1)')
+def _avbruten_med_kod_0():
+    ny = stampel(120)
+    k, h = bygge('ks-avbruten-0', ny)
+    rc, ut, fel = korslut_(k, ny, rc='0', NWP_AVBRUTEN='TERM')
+    post = slutpost(k, ny)
+    assert rc == 4 and post['slutkod'] == 4 and post.get('avbruten') == 'SIGTERM', (rc, post.get('slutkod'), post.get('avbruten'), ut[-600:], fel[-300:])
+    assert varden(post)[0] is False and varden(post)[4] is False, varden(post)
+    assert rad(ut, 'Slutkod 4').startswith('Slutkod 4: claude avslutade med kod 0, men körningen avbröts med SIGTERM'), rad(ut, 'Slutkod')
+    # ägarens ja efteråt gör inte en avbruten körning leveransklar
+    skriv(k / 'DOM.json', {'domar': [{'tid': '2026-10-08T12:00:00Z', 'bygge_dist': h[:12], 'svar': {'namn': 'Ja, som den är'}}]})
+    a = korslut.aktuell(k)
+    assert a['tillstand']['agaren_godkanner']['varde'] is True and a['tillstand']['klart_for_leverans']['varde'] is False, a['tillstand']['klart_for_leverans']
+    assert 'sessionen avslutades inte normalt' in a['tillstand']['klart_for_leverans']['text'], a['tillstand']['klart_for_leverans']['text']
+    _, vt = visa(k)
+    assert rad(vt, 'klart för leverans:').startswith('klart för leverans: nej'), rad(vt, 'klart')
+
+
+@fall('korslut: en dom som tillkommer efter en körning vars processer inte stoppades räknas inte i den aktuella läsningen (GR-20261008-r117-claude#C2)')
+def _hinder_sen_dom():
+    ny = stampel(120)
+    k, h = bygge('ks-hinder', ny)
+    kvar = json.dumps({'stoppade': [], 'kvar': [{'pid': 4242, 'namn': 'node', 'uid': 'x'}]})
+    rc, ut, fel = korslut_(k, ny, NWP_PROCESSER=kvar)
+    post = slutpost(k, ny)
+    proto = post['kontroller']['agarens_dom']
+    assert rc == 0 and proto['hinder'] and post['tillstand']['agaren_godkanner']['varde'] is None, (rc, proto, ut[-400:], fel[-300:])
+    skriv(k / 'DOM.json', {'domar': [{'tid': '2026-10-08T12:00:00Z', 'bygge_dist': h[:12], 'svar': {'namn': 'Ja, som den är'}}]})
+    a = korslut.aktuell(k)
+    ag = a['tillstand']['agaren_godkanner']
+    assert ag['varde'] is None and ag.get('avsandare') == korslut.EJ_BELAGD and 'processer' in ag['text'], ('en dom skriven efter en körning med hinder räknades', ag)
+    assert a['tillstand']['klart_for_leverans']['varde'] is False, a['tillstand']['klart_for_leverans']
+    _, vt = visa(k)
+    assert rad(vt, 'ägaren godkänner:').startswith('ägaren godkänner: ej bedömt'), rad(vt, 'ägaren godkänner')
+
+
 @fall('tillstånden: slutkoden, claudes kod, rapportens bindning och stoppvaktens egna kontroller avgör var sitt tillstånd')
 def _tillstandens_grund():
     ny = stampel(120)

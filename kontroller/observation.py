@@ -278,6 +278,11 @@ def _anrop(c, t):
     return a
 
 
+# ett MCP-svar som är en feltext fast tjänsten inte satte is_error, och ett svar som säger att inget matchade
+FELTEXT = re.compile(r'^\s*(?:\[?error\]?|fel|mcp error)\b', re.I)
+INGA_TRAFFAR = re.compile(r'^\s*(?:no|inga|0)\b[^\n.]{0,80}\b(?:match|found|result|träff|hittade)', re.I)
+
+
 def _traffar(text):
     """Antalet träffar i ett tjänstesvar när det går att läsa ut (Referos records, en lista); annars None."""
     try:
@@ -329,6 +334,11 @@ def _svar(a, c, res, nekad, t):
         return dict(ut, utfall='skill laddad via skillsystemet')
     if namn.startswith('mcp__'):
         tr, lankar = _traffar(text), len(set(BILDLANK.findall(text)))
+        if tr is None and not lankar and not bilder:  # ett textsvar utan känd lista (GR-20261008-r117-claude#C6)
+            if FELTEXT.match(text):
+                return dict(ut, utfall='fel')
+            if INGA_TRAFFAR.match(text):
+                return dict(ut, utfall='tomt resultat', traffar=0)
         ut.update({k: v for k, v in (('traffar', tr), ('bilder', bilder), ('bildlankar', lankar)) if v})
         if bilder:
             return dict(ut, utfall='bild returnerad')

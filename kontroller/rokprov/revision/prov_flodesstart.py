@@ -125,6 +125,59 @@ sys.exit(f.starta(sys.argv[1],'exportera',sys.argv[2]))
         self.assertEqual(r.returncode,4,r.stdout+r.stderr)
         self.assertEqual(self.journal()[0]['status'],'slut');self.assertFalse(self.counter.exists())
 
+    def test_stopp_nar_arbetet_ocksa_nar_signalen_inte_nar_arbetaren(self):
+        # GR-20261008-r117-claude#B2: arbetaren läser den beständiga stoppbegäran själv; stoppet får inte bero på att ps-raden matchar
+        r=self.kor('--exportera','--start-id','prov-stopp-journal');self.assertEqual(r.returncode,5,r.stdout+r.stderr)
+        self.vanta(self.counter.exists)
+        sys.path.insert(0,str(self.root/'kontroller'))
+        import importlib,unittest.mock
+        import flodesstart as fs,atelje,korregister as kr
+        with unittest.mock.patch.object(atelje,'ROOT',self.root),unittest.mock.patch.object(atelje,'UNDERLAG',self.root/'underlag'), \
+             unittest.mock.patch.object(atelje,'KUNDER',self.root/'kunder'),unittest.mock.patch.object(kr,'kommando',return_value=''):
+            self.assertEqual([x['verifierad_pid'] for x in fs.pagande(self.slug)],[None])
+            self.assertEqual(fs.stoppa(self.slug),5)
+        self.vanta(lambda:all(x['status']=='slut' for x in self.journal()))
+        self.assertTrue((self.root/'child-stopp').is_file(),'barnet fick aldrig stoppet')
+        self.assertEqual(self.journal()[0]['slutkod'],4)
+        self.assertNotIn('stoppbegard_sen',self.journal()[0])
+
+    def test_stopp_nar_barnet_nar_arbetaren_dott(self):
+        # GR-20261008-r117-claude#B3: arbetarens barn (kor.sh/exportera.py) får stoppet när arbetaren själv inte lever
+        r=self.kor('--exportera','--start-id','prov-stopp-dod-arbetare');self.assertEqual(r.returncode,5,r.stdout+r.stderr)
+        self.vanta(self.counter.exists)
+        self.vanta(lambda:type(self.journal()[0].get('barn_pid')) is int)
+        j=self.journal()[0];os.kill(j['pid'],signal.SIGKILL)
+        self.vanta(lambda:not self.lever(j['pid']))
+        self.assertTrue(self.lever(j['barn_pid']),'barnet dog med arbetaren')
+        r=self.kor('--stoppa-overgang');self.assertEqual(r.returncode,5,r.stdout+r.stderr)
+        self.vanta(lambda:(self.root/'child-stopp').is_file())
+        self.vanta(lambda:not self.lever(j['barn_pid']))
+        r=self.kor('--stoppa-overgang')  # låset är fritt: begäran får sitt slutbesked
+        self.vanta(lambda:self.journal()[0]['status']=='slut')
+        self.assertEqual(self.journal()[0]['slutkod'],4)
+
+    def test_samma_startid_under_upptaget_las_ar_registrerad_inte_vagrad(self):
+        # GR-20261008-r117-claude#B6: förloraren av två samtidiga begäranden med samma id läser journalen i stället för att svara vägrad
+        sys.path.insert(0,str(self.root/'kontroller'))
+        import unittest.mock
+        import flodesstart as fs,atelje
+        (self.u/'ateljestarter').mkdir(exist_ok=True)
+        (self.u/'ateljestarter/prov-samma-id.json').write_text(json.dumps({'handling':'exportera','tid':'2026-10-08T00:00:00Z','status':'startad','pid':None}))
+        self.addCleanup((self.u/'ateljestarter/prov-samma-id.json').unlink)  # den syntetiska posten är ingen arbetare
+        fd=os.open(self.u/'.atelje-start.las',os.O_CREAT|os.O_RDWR,0o600);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        self.addCleanup(os.close,fd)
+        with unittest.mock.patch.object(atelje,'ROOT',self.root),unittest.mock.patch.object(atelje,'UNDERLAG',self.root/'underlag'), \
+             unittest.mock.patch.object(atelje,'KUNDER',self.root/'kunder'):
+            with unittest.mock.patch.object(fs.subprocess,'Popen') as spawn:
+                self.assertEqual(fs.starta(self.slug,'exportera','prov-samma-id'),5)
+                with self.assertRaises(ValueError):fs.starta(self.slug,'exportera','prov-annat-id')
+                spawn.assert_not_called()
+
+    def lever(self,pid):
+        try:os.kill(pid,0);return True
+        except ProcessLookupError:return False
+        except PermissionError:return True
+
     def test_stopp_vantar_pa_exportens_barn_aven_ny_session(self):
         (self.root/'hjartslag.py').write_text('''import signal,time,os
 from pathlib import Path

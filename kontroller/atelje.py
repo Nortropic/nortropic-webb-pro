@@ -1931,7 +1931,9 @@ def forra_kritik(rot, omgang):
 def avbruten(st):
     """Dog arbetaren mitt i ett steg? Steget är inte avslutat och pid:en lever inte (en omstart eller ett kill); en körning
     som föll med ett undantag har steg fel. Ett avbrott tas upp med --fortsatt, aldrig med en ny körning."""
-    return bool(st.get('steg')) and st.get('steg') not in AVSLUTADE + ('fel', 'startar') and bool(st.get('pid')) and not lever(st['pid'])
+    # också steget startar: föräldern skriver det utan pid, arbetaren med sin; dog arbetaren där är det ett avbrott
+    # (GR-20261008-r117-claude#B4), inte en körning som pågår
+    return bool(st.get('steg')) and st.get('steg') not in AVSLUTADE + ('fel',) and bool(st.get('pid')) and not lever(st['pid'])
 
 
 def kandidatkorning(rot, st):

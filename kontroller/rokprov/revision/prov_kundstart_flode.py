@@ -324,6 +324,57 @@ class KundstartFlode(unittest.TestCase):
         self.assertEqual(fore,{p:p.read_bytes() for p in gamla})
         self.assertNotEqual(granska.aktuell_metod(self.slug)['metod_sha'],metod['metod_sha'])
 
+    def test_helbyggets_besked_historiskt_nar_godkannandets_underlag_andras(self):
+        # GR-20261008-r117-claude#A1: samma underlag som Flöde steg 5 och kor.sh prövar (skapande.godkand_giltig), inte bara metodhashen
+        import korslut,prova,granska,exportera
+        mekanik=Path(__file__).resolve().parents[3]
+        for namn in ('kunskap','kritik'):
+            (self.root/namn).symlink_to(mekanik/namn,target_is_directory=True)
+        for modul,varden in (
+            (granska,dict(ROOT=self.root,UNDERLAG=self.root/'underlag',KUNDER=self.root/'kunder',
+                SCHEMA=self.root/'kritik/SCHEMA-granskning.json',SCHEMA_ORIGINALITET=self.root/'kritik/SCHEMA-originalitet.json')),
+            (korslut,dict(ROOT=self.root)),
+            (exportera,dict(ROOT=self.root,KUNDER=self.root/'kunder',UNDERLAG=self.root/'underlag'))):
+            self.stack.enter_context(patch.multiple(modul,**varden))
+        self.stack.enter_context(patch.dict(os.environ,NWP_ATELJE='pa'))
+        self.godkand_slutpost()
+        k=self.root/'kunder'/self.slug;sajt=k/'sajt'
+        for d in ('src/pages','dist','public'):(sajt/d).mkdir(parents=True,exist_ok=True)
+        for f in ('src/pages/index.astro','dist/index.html'):(sajt/f).write_text('<h1>Syntetiskt helbygge</h1>')
+        (sajt/'package.json').write_text('{"dependencies":{}}')
+        (sajt/'astro.config.mjs').write_text("import { defineConfig } from 'astro/config';\nexport default defineConfig({ output: 'static', });")
+        dh=prova.dist_hash(sajt/'dist');korning='20261008T000100Z'
+        f=k/'korningar'/korning/'SLUT.json';f.parent.mkdir(parents=True)
+        rapport=k/'RAPPORT.md';rapport.write_text('Syntetiskt mekanikprov, ingen kvalitetsdom.')
+        metod=granska.aktuell_metod(self.slug)
+        status={'ok':True,'dist_sha256':dh,'kallor_sha256':skapande.kallversion(sajt)}
+        stopp={'kontroller_grona':True,'korning':korning,'dist_sha256':dh,'slapp':True,
+               'rapport_sha256':korslut.sha_fil(rapport),'rapport_korning':korning}
+        dom=k/'DOM.json';dom.write_text(json.dumps({'domar':[{'tid':'2026-10-08T00:01:02Z',
+            'bygge_dist':dh[:12],'svar':{'namn':korslut.AGAREN_JA}}]}))
+        granskning=dict(metod,dist_sha256=dh,godkand=True,runda=1,korning=korning,kriterier={})
+        post=korslut.slutpost(k,'0',korning,status,stopp,granskning,dh,None,None,[],[],False,None,0,'Syntetiskt prov')
+        f.write_text(json.dumps(post))
+        self.assertTrue(post['startsida']['giltig_nu']['varde'])
+        self.assertTrue(korslut.aktuell(k)['tillstand']['klart_for_leverans']['varde'])
+        self.assertTrue(exportera.exportera(self.slug,bygg=False)['ok'])
+        gamla=[f,dom,*list((k/'exporter').glob('*/EXPORT.json'))]
+        fore={p:p.read_bytes() for p in gamla}
+        metod_fore=granska.aktuell_metod(self.slug)['metod_sha']
+        # kundens text ändras: ingår i godkännandets underlag (skapande.UNDERLAGSGRUND) men inte i granskningens metodhash
+        (self.u/'TEXTUNDERLAG.md').write_text('Syntetisk ändrad text efter helbygget.')
+        self.assertEqual(granska.aktuell_metod(self.slug)['metod_sha'],metod_fore)
+        self.assertFalse(skapande.godkand_giltig(self.slug)[0])
+        nu=korslut.aktuell(k)
+        self.assertIsNone(nu['tillstand']['agaren_godkanner']['varde'])
+        self.assertTrue(nu['tillstand']['agaren_godkanner']['historik']['varde'])
+        self.assertFalse(nu['tillstand']['klart_for_leverans']['varde'])
+        self.assertTrue(any('godkännande' in x for x in nu['provad']['andrat']),nu['provad'])
+        self.assertEqual((self.agarbesked()['varde'],self.agarbesked()['status']),(None,'historiskt'))
+        ep=exportera.aktuell(self.slug)['tillstand']
+        self.assertIsNone(ep['agaren_godkanner']['varde']);self.assertFalse(ep['klart_for_leverans']['varde'])
+        self.assertEqual(fore,{p:p.read_bytes() for p in gamla})
+
     def test_helbyggets_agarbesked_historiskt_ocksa_i_exporten(self):
         import korslut,prova,granska,exportera
         k=self.root/'kunder'/self.slug;sajt=k/'sajt'

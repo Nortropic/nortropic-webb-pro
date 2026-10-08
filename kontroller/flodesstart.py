@@ -143,6 +143,16 @@ def stoppa(slug):
         if aktuell and aktuell['verifierad_pid']:
             try:os.kill(aktuell['verifierad_pid'],signal.SIGTERM)
             except ProcessLookupError:pass
+        elif aktuell and type(aktuell.get('barn_pid')) is int:
+            # arbetaren lever inte eller går inte att verifiera: stoppet går till arbetets egen process när den är vår (B3)
+            import korregister
+            try:args=shlex.split(korregister.kommando(aktuell['barn_pid']) or '')
+            except ValueError:args=[]
+            egen=(d['handling']=='helbygge' and args[1:3]==[str(atelje.ROOT/'kor.sh'),slug]) or \
+                 (d['handling']=='exportera' and str(atelje.ROOT/'kontroller/exportera.py') in args[:3] and slug in args[:4])
+            if egen:
+                try:os.kill(aktuell['barn_pid'],signal.SIGTERM)
+                except ProcessLookupError:pass
         aterhamta(slug,d['start_id'])
     return 5 if aktiva else 0  # begärt stopp är inte ett påstått slutfört stopp
 
@@ -161,6 +171,13 @@ def krav(slug,handling):
     else:raise ValueError('okänd flödeshandling')
 
 
+@contextlib.contextmanager
+def kundlas_stang(kundlas):
+    """Avslutar ett redan öppnat las()-sammanhang när blocket lämnas (starta öppnar det själv för att skilja upptaget lås från fel)."""
+    try:yield
+    finally:kundlas.__exit__(None,None,None)
+
+
 def starta(slug,handling,start_id=None):
     if os.environ.get('NWP_SLUG'):raise ValueError('flödeshandlingar startas utanför bygget')
     if handling not in HANDLINGAR:raise ValueError('okänd flödeshandling')
@@ -172,7 +189,15 @@ def starta(slug,handling,start_id=None):
         aterhamta(slug,start_id)
         _,tidigare=post(slug,start_id)
         return tidigare.get('slutkod',5) if tidigare.get('status')=='slut' else 5
-    with las(atelje.ROOT,slug) as fd:
+    try:
+        kundlas=las(atelje.ROOT,slug);fd=kundlas.__enter__()
+    except ValueError as e:
+        # samma begäran kan hålla låset just nu (två flikar, ett omförsök): då är den registrerad, inte vägrad (GR-20261008-r117-claude#B6)
+        if 'Ett arbete pågår' in str(e):
+            with journallas(slug):_,tidigare=post(slug,start_id)
+            if tidigare and tidigare['handling']==handling:return tidigare.get('slutkod',5) if tidigare.get('status')=='slut' else 5
+        raise
+    with kundlas_stang(kundlas):
         p,tidigare=post(slug,start_id)
         if tidigare:
             if tidigare['handling']!=handling:raise ValueError('Start-id hör till en annan handling.')
@@ -201,7 +226,7 @@ def arbetare(slug,handling,start_id,fd):
     os.set_inheritable(FD,True)
     p,d=post(slug,start_id)
     if not d or d['handling']!=handling or d['status']!='reserverad':raise ValueError('starten är inte reserverad')
-    child=None;stoppad=False
+    child=None;stoppad=False;avbrot=False
     def stopp(_sig,_ram):
         nonlocal stoppad
         stoppad=True
@@ -215,6 +240,8 @@ def arbetare(slug,handling,start_id,fd):
         if stoppad:return 4
         krav(slug,handling)  # Godkännandet prövas igen efter processstart.
         if stoppad:return 4
+        with journallas(slug):_,d=post(slug,start_id)
+        if d.get('stoppbegard'):stoppad=True;return 4
         if handling=='helbygge':
             v=json.loads((atelje.UNDERLAG/slug/'VERKSAMHET.json').read_text())
             args=['/bin/bash',str(atelje.ROOT/'kor.sh'),slug,v['namn']]
@@ -224,10 +251,20 @@ def arbetare(slug,handling,start_id,fd):
         import korvakt
         trad=korvakt.Trad(korvakt.las_process(os.getpid())) if handling=='exportera' else None
         child=subprocess.Popen(args,cwd=atelje.ROOT,env=dict(os.environ,NWP_FLODE_START_ID=start_id),pass_fds=(FD,))
-        frist=None;signalerade=set()
+        with journallas(slug):  # barnets pid: ett stopp når arbetet också om arbetaren dör (GR-20261008-r117-claude#B3)
+            _,d=post(slug,start_id);atelje.skriv_json_atomiskt(p,dict(d,barn_pid=child.pid,barn_startad=atelje.nu()))
+        frist=None;signalerade=set();avbrot=avbrot or stoppad;nasta_koll=0
         while True:
             if trad:trad.skanna()
             rc=child.poll()
+            if not stoppad and rc is None and time.monotonic()>=nasta_koll:
+                # den beständiga stoppbegäran gäller också när signalen inte nått arbetaren (GR-20261008-r117-claude#B2)
+                nasta_koll=time.monotonic()+1
+                try:
+                    with journallas(slug):_,dj=post(slug,start_id)
+                    stoppad=bool(dj and dj.get('stoppbegard'))
+                except (OSError,ValueError):pass
+            if stoppad and rc is None:avbrot=True
             barn=trad.under({trad.rot},()) if trad else []
             barn=[b for b in barn if b.pid!=os.getpid()]
             if stoppad or rc is not None:
@@ -241,12 +278,15 @@ def arbetare(slug,handling,start_id,fd):
             if rc is not None and not barn:break
             time.sleep(.03)
         child.wait()
-        if stoppad:rc=4
+        if avbrot:rc=4
         return rc
     finally:
         with journallas(slug):
             _,d=post(slug,start_id)
-            atelje.skriv_json_atomiskt(p,dict(d,status='slut',slut=atelje.nu(),slutkod=4 if stoppad or d.get('stoppbegard') else rc))
+            sen=bool(d.get('stoppbegard') or stoppad) and not avbrot and child is not None
+            # slutkod 4 bara när stoppet avbröt arbetet; ett stopp som kom efter att arbetet slutat bokförs som sent (B2)
+            atelje.skriv_json_atomiskt(p,dict(d,status='slut',slut=atelje.nu(),slutkod=4 if avbrot or child is None and (stoppad or d.get('stoppbegard')) else rc,
+                                              **({'stoppbegard_sen':True} if sen else {})))
         os.close(FD)
 
 

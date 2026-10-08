@@ -49,7 +49,7 @@ UPPDRAG = 'skapandeflödet för startsidan (kunskap/skapandeflodet.md), startat 
 MOMENT = {'forberedelse': 'kundunderlag före referensval och design', 'kandidatflodet': 'prototypen: research, plan och skisser (README.md, kedjan steg 2)',
           'forfining': 'förfiningen av de valda (README.md, kedjan steg 4)',
           'aldre': 'den äldre utforskningen med riktningar (nödvägen; kunskap/skapandeflodet.md)'}
-KOMPETENSKEDJAN = 'inte observerat'  # kompetenskedjan per steg och kandidat fylls i av gren C2 (ägarens tillägg 2026-10-07)
+KOMPETENSKEDJAN = 'ej sammanställd i posten; kompetenskvittot per kandidat ligger i kandidatens STATUS.json (fältet kompetens)'  # GR-20261008-r117-claude#C9
 KLARA = ('klar', 'klar_for_bedomning', 'forberedd')
 SLUTKODER = {0: 'körningen är klar', 2: 'ingen körning startades', 4: 'körningen föll, stoppades eller avbröts',
              6: 'ingen startsida att bygga vidare på'}
@@ -237,13 +237,15 @@ def agarens_beslut(slug, status):
     raderna efter starten, var och en med avsändaren (skapande.avsandare); och de oläsbara raderna."""
     lg = skapande.domlogg(slug, _atelje().UNDERLAG)
     start = str(status.get('startad') or '')
+    till = str(status.get('nasta_startad') or '')  # raderna efter nästa körnings start hör till den (GR-20261008-r117-claude#A2)
 
     def rad(r, p):
         return {'rad': r, 'tid': p.get('tid'), 'beslut': p.get('beslut'), 'kalla': p.get('kalla'),
                 'avsandare': skapande.avsandare(p)['text'], 'agarens': skapande.ar_agarens(p)}
     foljer = next(((r, p) for r, _s, p in reversed(lg['domar']) if skapande.ar_agarens(p) and str(p.get('tid') or '') <= start), None) if start else None
     return {'fil': lg['fil'], 'foljer': rad(*foljer) if foljer else None,
-            'efter': [rad(r, p) for r, _s, p in lg['domar'] if start and str(p.get('tid') or '') > start], 'olasbara': lg['olasbara'],
+            'efter': [rad(r, p) for r, _s, p in lg['domar'] if start and str(p.get('tid') or '') > start and (not till or str(p.get('tid') or '') <= till)],
+            'nasta_startad': till or None, 'olasbara': lg['olasbara'],
             'bilaga_olasbara': lg.get('bilaga_olasbara') or []}
 
 
@@ -547,7 +549,10 @@ def aktuell(slug, fil=None):
     p = json.loads(json.dumps(p))
     k = p.get('korning') if isinstance(p.get('korning'), dict) else {}
     if p.get('typ') in (TYP, TYP_EFTERHAND) and k.get('startad'):
-        b = agarens_beslut(slug, {'startad': k['startad']})
+        # en senare körnings domar hör till den körningen, inte till den här posten (GR-20261008-r117-claude#A2)
+        senare = [str(((korslut.las(g) or {}).get('korning') or {}).get('startad') or '') for g in poster if g != f]
+        senare = [x for x in senare if x and x > str(k['startad'])]
+        b = agarens_beslut(slug, {'startad': k['startad'], 'nasta_startad': min(senare) if senare else None})
         p['agarens_beslut'] = b
         st_ = {'startad': k['startad'], 'kandidatflode': k.get('fas') != 'aldre', 'lage': k.get('lage'), 'steg': k.get('steg')}
         t = p.get('tillstand') if isinstance(p.get('tillstand'), dict) else {}

@@ -291,7 +291,10 @@ def sammanfattning(slug):
     return {
         'slug': slug, 'namn': v.get('namn') or slug,
         # avslutat är inte godkänt: stoppvakten släpper vid sitt tak också utan godkänd granskning (ägarfråga 2 i revisionen)
-        'slappt_utan_godkannande': bool(sv.get('slapp')) and not str(sv.get('skal') or '').startswith('kontrollerna gröna'),
+        # en avstängd granskning skriver samma prefix som en godkänd (stoppvakten); fältet granskning avgör (GR-20261008-r117-claude#C8);
+        # ett äldre besked utan fältet läses som förut
+        'slappt_utan_godkannande': bool(sv.get('slapp')) and not (str(sv.get('skal') or '').startswith('kontrollerna gröna')
+                                                                  and sv.get('granskning') in (None, 'godkänd')),
         'ort': ', '.join(((v.get('rackvidd') or {}).get('orter') or [])[:2]) or ((v.get('adress') or {}).get('ort') or ''),
         'doman': (v.get('webb') or {}).get('doman') if isinstance(v.get('webb'), dict) else None,
         'steg': steg, 'steg_klara': sum(x['klar'] for x in steg),
@@ -1610,6 +1613,10 @@ def flodesbesked(slug, blind=False):
     import ateljeslut
     import korslut
     poster = [p for p in (korslut.aktuell(KUNDER / slug), ateljeslut.aktuell(slug)) if isinstance(p, dict)]
+    # en kort post om en start som stannade före körningen ersätter ingen post (ateljeslut.stopp, korslut.TYP_STOPP) och får
+    # inte dölja det gällande beskedet (GR-20261008-r117-claude#A4); dess skäl står i brister
+    stopp = [p for p in poster if p.get('typ') in (korslut.TYP_STOPP, ateljeslut.TYP_STOPP)]
+    poster = [p for p in poster if p.get('typ') not in (korslut.TYP_STOPP, ateljeslut.TYP_STOPP)]
     post = max(poster, key=lambda p: str(p.get('datum') or '')) if poster else None
     st = las_json(UNDERLAG / slug / 'atelje/STATUS.json') or {}
     pk = (post or {}).get('korning')
@@ -1632,7 +1639,8 @@ def flodesbesked(slug, blind=False):
                           'omfattning': None if dolt else p.get('omfattning')})
     fil = None if blind or not post else post.get('slutpost')
     return {'tillstand': tillstand, 'version': (post or {}).get('dist_sha256'), 'tid': (post or {}).get('datum'),
-            'brister': [] if blind else (post or {}).get('brister') or [],
+            'brister': [] if blind else ((post or {}).get('brister') or []) + ['senare start som stannade före körningen (%s): %s' % (
+                p.get('datum'), str(p.get('skal') or '')[:200]) for p in stopp if not post or str(p.get('datum') or '') > str(post.get('datum') or '')],
             'filer': [f for f in [_fil(ROOT / fil, 'slutposten för versionen') if isinstance(fil, str) else None] if f]}
 
 
@@ -1892,15 +1900,23 @@ def flode(slug):
     if isinstance(helpost, dict):
         t = helpost.get('tillstand') or {}
         tekniskt = t.get('tekniskt_godkant') or {}
-        s6 = ('inaktuellt' if tekniskt.get('historik') is not None else 'kontrollerat' if tekniskt.get('varde') is True
-              else 'underkänt' if tekniskt.get('varde') is False else 'inte observerat')
+        design = t.get('designgranskaren_godkanner') or {}
+        # kontrollerat betyder att korslut godkänner: tekniskt och designgranskaren (som B1 ovan); ett tekniskt ja utan godkänd
+        # granskning är skapat med bristen, aldrig grönt (GR-20261008-r117-claude#C3)
+        s6 = ('inaktuellt' if tekniskt.get('historik') is not None or design.get('historik') is not None
+              else 'kontrollerat' if tekniskt.get('varde') is True and design.get('varde') is True
+              else 'underkänt' if tekniskt.get('varde') is False
+              else 'skapat' if tekniskt.get('varde') is True else 'inte observerat')
         bygg_t = str(helpost.get('datum') or '')
         bygge_id = str((helpost.get('provad') or {}).get('dist_nu') or helpost.get('dist_sha256') or '')[:12]
         galler = [d for d in dom_b if bygge_id and d.get('bygge_dist') == bygge_id]
         steg[5] = _steg(6, 'Helbygget', s6,
                          underlag=[{'text': 'körning %s · dist %s' % (helpost.get('korning'), bygge_id or 'saknas')}],
-                         kontroller=[{'text': 'Tekniskt: ' + str(tekniskt.get('text') or 'ej bedömt')}],
-                         brister=[] if blind or not galler else list(helpost.get('brister') or []),
+                         kontroller=[{'text': 'Tekniskt: ' + str(tekniskt.get('text') or 'ej bedömt')},
+                                     {'text': 'Designgranskaren: ' + (str(design.get('text') or 'ej bedömt') if galler else
+                                                                      'domen visas efter din dom över det här bygget')}],
+                         brister=(['korslut godkänner inte: designgranskaren har inte godkänt bygget'] if s6 == 'skapat' else [])
+                                 + ([] if blind or not galler else list(helpost.get('brister') or [])),
                          utfall=[] if blind or not galler else [f for f in (_fil(k / 'prov/PROV.md'), _fil(k / 'RAPPORT.md')) if f])
 
     # 7. din dom över bygget: beslutad bara över just det bygge som ligger i dist/ (domens bygge_dist, spara_dom); en dom
@@ -2961,6 +2977,16 @@ class H(BaseHTTPRequestHandler):
                 if data.get('handling') not in ('stoppa','stoppa-overgang') and ab_oavgjord(slug):
                     raise ValueError('en blind jämförelse pågår; inga steg startas från flödesvyn')
                 rc = prototyp_kor.fran_dashboard(slug, data.get('handling'), data.get('start_id'))
+                import atelje
+                avslutad = False
+                if rc not in (0, 4, 5) and data.get('handling') not in ('stoppa', 'stoppa-overgang'):
+                    # begäran är besvarad, inte vägrad: journalposten för samma start-id har slutat (GR-20261008-r117-claude#B1)
+                    sf = atelje.startfil(UNDERLAG / slug / 'atelje', str(data.get('start_id')))
+                    avslutad = bool(sf and sf.is_file() and (las_json(sf) or {}).get('status') == 'slut')
+                if avslutad:
+                    return self.skicka(200, {'slutkod': rc, 'start_id': data.get('start_id'), 'avslutad': True,
+                                             'besked': 'Begäran är redan avslutad med slutkod %s; läs det aktuella beskedet. En ny handling '
+                                                       'får ett nytt start-id.' % rc})
                 return self.skicka(202 if rc == 5 else 200 if rc in (0, 4) else 409,
                                    {'slutkod': rc, 'start_id': data.get('start_id'),
                                     **({'fel': 'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'} if rc not in (0, 4, 5) else {}),

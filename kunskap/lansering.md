@@ -84,7 +84,10 @@ för formulärets funktion; kundrepot görs av exporten ovan.
   svarshuvuden i `vercel.json`, eftersom meta-CSP:n i mallen inte kan bära `frame-ancestors`.
 - **Formuläret:** serverfunktionen på `/api/forfragan/` (`src/pages/api/forfragan.js`, ur `kontroller/exportera.py`) enligt
   `kunskap/forfragan.md`, Vid lansering: spara först, mejla sedan och skilj mottagning från avisering i beskedet.
-  Hemligheter (mejltjänstens nyckel) ligger i Vercels miljövariabler, aldrig i repot.
+  Hemligheter (mejltjänstens nyckel) ligger i Vercels miljövariabler, aldrig i repot. Funktionens egna tidsgränser
+  summerar till omkring 20 s plus kroppsläsningen; kontrollera i projektet att funktionens högsta körtid (Fluid compute
+  eller `maxDuration`) är minst 30 s, annars kan plattformen avbryta med 504 efter att mejlet gått men före svaret
+  (GR-20261008-r117-claude#D3; inte prövat mot plattformen).
 - **Återgång:** föregående produktionsdriftsättning befordras tillbaka i Vercel (människa, eller Vercels CLI med
   ägarens ja). Det återställer inte DNS.
 

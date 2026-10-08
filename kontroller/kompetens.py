@@ -102,7 +102,9 @@ GRANSKARVERKTYG = {
                  'du ser i bilderna och mot ägarbesluten: en regel ur en skills lista är en fråga, aldrig ensam grund för ett problem'),
 }
 BLINDSAKRA = ('förhandsvisning', 'detektor', 'uxsok')  # i granskarens form ger de aldrig kod eller skaparens text
-VERKTYGSKOMMANDO = re.compile(r'(?:^|[\s/])kontroller/(uxsok|forhandsvisa|detektor|design)\.py\b')
+# ett körkommando (python … kontroller/<verktyg>.py), aldrig en läsning av skriptet med cat, grep eller sed
+# (GR-20261008-r117-claude#C7)
+VERKTYGSKOMMANDO = re.compile(r'(?:^|[\s;&|(])(?:\S*/)?python[0-9.]*\s+(?:-[A-Za-z]+\s+)*(?:\S*/)?kontroller/(uxsok|forhandsvisa|detektor|design)\.py\b')
 SKRIPTVERKTYG = {'uxsok': 'uxsok', 'forhandsvisa': 'förhandsvisning', 'detektor': 'detektor', 'design': 'design'}
 MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en källa). Trybloom används inte (ägarens ord 2026-10-05)
     'refero': None, 'mobbin': None,

@@ -35,7 +35,7 @@ function felvy(falt, fel, status, utfall, besked, bildVald = false) {
   return sida('Kontrollera din förfrågan', `<div class="sammanfattning"><p>${esc(besked)}</p>${lista ? `<ul>${lista}</ul>` : ''}</div>
   <form action="/api/forfragan/" method="post" enctype="multipart/form-data">
   <label for="namn">Namn</label><input id="namn" name="namn" autocomplete="name" required maxlength="100" value="${esc(falt.namn)}"${attrs('namn')}>${rad('namn')}
-  <label for="telefon">Telefon</label><input id="telefon" name="telefon" type="tel" autocomplete="tel" required maxlength="40" pattern="[0-9+\\-\\(\\) ]{6,40}" value="${esc(falt.telefon)}"${attrs('telefon')}>${rad('telefon')}
+  <label for="telefon">Telefon</label><input id="telefon" name="telefon" type="tel" autocomplete="tel" required maxlength="40" pattern="(?=.*[0-9])[0-9+\\-\\(\\) ]{6,40}" value="${esc(falt.telefon)}"${attrs('telefon')}>${rad('telefon')}
   <label for="meddelande">Meddelande</label><textarea id="meddelande" name="meddelande" required maxlength="4000"${attrs('meddelande')}>
 ${esc(falt.meddelande)}</textarea>${rad('meddelande')}
   <label for="bild">Bild (valfritt)</label><p class="hjalp" id="bild-hjalp">Högst 4 MB. JPEG, PNG, WebP, HEIC, HEIF, GIF eller AVIF.${bildVald ? ' Välj bilden igen om du vill bifoga den; webbläsaren kan inte fylla i filfältet åt dig.' : ''}</p><input id="bild" name="bild" type="file" accept="${BILDTYPER.join(',')}" aria-describedby="bild-hjalp${fel.bild ? ' bild-fel' : ''}"${fel.bild ? ' aria-invalid="true"' : ''}>${rad('bild')}
@@ -161,7 +161,9 @@ export async function POST({ request }) {
   else if (bild && !BILDTYPER.includes(bild.type)) fel.bild = 'Välj en bild i något av de angivna formaten.';
   if (Object.keys(fel).length) return felvy(raw, fel, status, utfall, 'Inget har skickats. Rätta de markerade fälten; texten finns kvar.', !!bild);
   const konfigurerad = miljo('RESEND_API_KEY') && miljo('FORFRAGAN_TILL').split(',').some(x => x.trim()) && miljo('FORFRAGAN_FRAN');
-  if (!konfigurerad && miljo('VERCEL_ENV') !== 'production') return svar('/tack/', 'demo');
+  // Utanför produktionen (förhandsvisning, utveckling) sparas och skickas aldrig något, också när mejl- och lagringsvariablerna
+  // råkar gälla alla miljöer (GR-20261008-r117-claude#D2): ett riktigt mejl ur en förhandsvisning vore ett fel (driftkoll.py).
+  if (miljo('VERCEL_ENV') !== 'production') return svar('/tack/', 'demo');
   let sparad = null;
   try { sparad = await tidsatt(10000, signal => spara(falt, bild, signal)); }
   catch { console.error('forfragan: lagringen kunde inte bekräftas'); }

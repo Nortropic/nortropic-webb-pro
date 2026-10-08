@@ -559,8 +559,10 @@ def ej_belagda_domar(k):
 
 
 def leverans(t, slutkod, slug):
-    """Klart för leverans inom omfattningen: slutkod 0, tekniskt godkänt, designgranskaren och ägaren godkänner."""
+    """Klart för leverans inom omfattningen: slutkod 0, sessionen avslutad normalt, tekniskt godkänt, designgranskaren och ägaren
+    godkänner (GR-20261008-r117-claude#C1: en avbruten körning blir aldrig leveransklar)."""
     saknas = [x for x, krav in (('slutkod %s' % slutkod, slutkod == 0),
+                                ('sessionen avslutades inte normalt', t['sessionen_avslutad'].get('varde') is True),
                                 ('inte tekniskt godkänt', t['tekniskt_godkant'].get('varde') is True),
                                 ('designgranskaren har inte godkänt bygget', t['designgranskaren_godkanner'].get('varde') is True),
                                 ('väntar på ägarens dom' if t['agaren_godkanner'].get('varde') is None else 'ägaren har inte godkänt bygget',
@@ -1206,6 +1208,19 @@ def aktuell(k, korning=None):
         provad['vinnare_nu'] = vin_nu
         if vin_nu != sida.get('vinnare_sha256'):
             andrat.append('startsidans godkännande (VINNARE.json) har ändrats sedan körningen')
+        # godkännandets eget underlag (skapande.godkand_giltig: UNDERLAGSGRUND, bilder/, kalla/, referenser/, den godkända koden)
+        # prövas nu när det gällde vid körningens slut: samma kontroll som Flöde steg 5, kor.sh och ateljéns besked
+        # (GR-20261008-r117-claude#A1). Gällde det inte redan då står det i posten, och inget har ändrats sedan dess.
+        if (sida.get('giltig_nu') or {}).get('varde') is True:
+            try:
+                import skapande
+                rot = k.resolve().parent.parent
+                ok_g, skal_g = skapande.godkand_giltig(k.name, underlag=rot / 'underlag', kunder=rot / 'kunder')
+            except Exception as e:  # noqa: BLE001 — prövningen är information, aldrig ett fel i läsningen
+                ok_g, skal_g = None, 'kunde inte prövas: %s' % str(e)[:120]
+            provad['godkannande_nu'] = {'varde': ok_g, 'text': skal_g}
+            if ok_g is False:
+                andrat.append('startsidans godkännande gäller inte längre: %s' % skal_g)
     # ägarens dom, prövad nu: bara domar som ingen körning kan ha skrivit
     dom_t = agarens_dom(k, post.get('dist_sha256'), ej_belagda_domar(k))
     dom_nu = sha_fil(k / DOMFIL)
@@ -1215,6 +1230,13 @@ def aktuell(k, korning=None):
                  'text': '%s: DOM.json har ändrats sedan körningen %s startade, och den körningen saknar slutpost (varken kor.sh eller vakten '
                          'skrev någon); bygget kan ha skrivit den. Nästa körning räknar inte domar som tillkom efter att den startade' % (
                              EJ_BELAGD, oprovade[0]['korning'])}
+    proto = (post.get('kontroller') or {}).get('agarens_dom') or {}
+    if proto.get('hinder') and dom_nu != proto.get('sha256_slut') and dom_t.get('varde') is not None:
+        # posten kunde inte belägga domen (byggets processer stoppades inte, eller hashlistorna prövades inte); en dom som
+        # tillkommit sedan dess kan bygget ha skrivit, som efter en avbruten körning (GR-20261008-r117-claude#C2)
+        dom_t = {'varde': None, 'avsandare': EJ_BELAGD, 'kalla': _rel(k, DOMFIL),
+                 'text': '%s: DOM.json har ändrats sedan körningen %s slutade, och den körningens dom var ej belagd (%s); bygget kan ha '
+                         'skrivit den. En ny körning behövs för att en dom ska räknas' % (EJ_BELAGD, pk, '; '.join(str(h) for h in proto['hinder']))}
     t['agaren_godkanner'] = dom_t
     if andrat:
         d = post.get('designgranskning') or {}
@@ -1246,10 +1268,12 @@ def _avbruten():
 def _slutkod(k, rc, v, mekanik, godkant):
     if mekanik:
         return 3, 'Slutkod 3: mekaniken eller gränsen ändrades under körningen: %s' % ', '.join(mekanik[:20])
-    if rc != '0':
-        avbruten = _avbruten()
+    avbruten = _avbruten()
+    if rc != '0' or avbruten:  # en avbruten körning godkänns aldrig, också när claude hann avsluta med kod 0 (GR-20261008-r117-claude#C1)
         if avbruten == AVBROTT_KORSH:
             return 4, 'Slutkod 4: körningen avbröts: %s' % avbruten
+        if rc == '0':
+            return 4, 'Slutkod 4: claude avslutade med kod 0, men körningen avbröts med %s' % avbruten
         return 4, 'Slutkod 4: claude avslutade med kod %s%s' % (rc, ' (körningen avbröts med %s)' % avbruten if avbruten else '')
     if v and v.get('ateljen_forkastad') and v.get('slapp'):
         return 6, 'Slutkod 6: bygget stannade utan sajt (ägarbeslut 2026-10-04): %s; underlaget i underlag/%s/atelje/' % (

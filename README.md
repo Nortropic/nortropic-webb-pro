@@ -32,7 +32,8 @@ brister som byggena hittar i verktygen. Inget genomförs av sig självt. Starta 
 
 Formulärens mottagning vid export beskrivs i `kunskap/forfragan.md`: bevarade textfält vid valideringsfel,
 lagringskvitto före mejl och separata mottagningsbesked. Den lokalt prövade felhanteringen innebär ingen
-verifierad extern tjänsteåtkomst; tappad första framgångskvittens kan fortfarande orsaka dubbletter.
+verifierad extern tjänsteåtkomst; tappad första framgångskvittens, och en omladdning av 202-sidan som besökaren
+bekräftar, kan fortfarande orsaka dubbletter. Utanför produktionen skickar mottagaren aldrig något.
 
 Den här tabellen är grundkällan för vem som startar vad, med vilket kommando. Kommandona körs från repots rot.
 Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sajt`; exporten och leveransen:
@@ -68,7 +69,11 @@ Läsningen ändrar varken den ursprungliga domen eller den sparade slutposten.
 
 Helbygge och export använder samma startjournal genom `kontroller/flodesstart.py`. Kundens flock-lås följer
 arbetaren och helbyggets vakt; direkta CLI-starter prövar samma lås. Stopp begärs med `--stoppa-overgang` och sparas
-också före processstart. En avbruten reservation får slutkod 4 när låset är fritt; samma start-id körs aldrig igen.
+också före processstart. Arbetaren läser den sparade stoppbegäran under körningen, så stoppet beror inte på att
+signalen når den, och stoppet går till arbetets egen process (kor.sh eller exportera.py) också när arbetaren själv
+inte lever. Slutkod 4 i journalen betyder att stoppet avbröt arbetet; ett stopp som kom efter att arbetet slutat står
+som sent, och arbetets slutkod gäller. Ett start-id vars begäran redan är avslutad svarar med sin slutkod (HTTP 200,
+`avslutad`), så fliken släpper det; bara ett okänt eller vägrat start-id ger 409 (GR-20261008-r117-claude, B1–B3). En avbruten reservation får slutkod 4 när låset är fritt; samma start-id körs aldrig igen.
 Exportens arbetare följer byggprocessernas identitet och väntar in deras avslut före slutstatus. Den har samma
 gräns för mycket kortlivade mellanprocesser som korvakt; att döda även arbetaren kan kräva manuell kontroll.
 Startjournalen är ett mottagnings-/processbesked. `SLUT.json` respektive `EXPORT.json` anger arbetets resultat.
@@ -178,7 +183,11 @@ rapporter och bevis, och `atgarder` är nästa steg. Därtill:
 Terminalens besked skrivs ur posten, också när terminalen har stängts: då är slutkoden postens.
 
 Ägarens dom räknas bara när ingen körning kan ha skrivit den: den fanns i `kunder/<slug>/DOM.json` när filen låstes vid
-körningens start, eller skrevs efter att körningen slutat.
+körningens start, eller skrevs efter att körningen slutat. En körning som avbröts med en signal får slutkod 4 också när claude hann avsluta
+med kod 0, och klart för leverans kräver att sessionen avslutades normalt. Prövas posten senare (`--visa`, Flöde)
+blir ett äldre ja historik också när startsidans godkännande inte längre gäller aktuellt underlag (samma kontroll som
+Flöde steg 5 och kor.sh), och en dom som tillkommit efter en körning vars processer inte stoppades räknas inte
+(GR-20261008-r117-claude, A1, C1 och C2).
 - **Under körningen** nekas byggets Write och Edit för DOM.json, kor.sh:s hashlistor (`kunder/<slug>/prov/.skyddat-*`)
   och körningarnas protokoll (`kunder/<slug>/korningar/`, `kunder/<slug>/rapporter/` och `kunder/<slug>/atelje/korningar/`).
   Domloggen och dess bilaga `underlag/<slug>/DESIGNDOMAR-belagg.jsonl` omfattas också. Förekomst och filtyp prövas,

@@ -501,20 +501,26 @@ def strom(*rader_):
         {'type': 'tool_use', 'id': 'n2', 'name': 'mcp__refero__refero_search_flows', 'input': {'query': FRAS}},
         {'type': 'tool_use', 'id': 'n3', 'name': 'Read', 'input': {'file_path': '/x/neka.md'}},
         {'type': 'tool_use', 'id': 'n4', 'name': 'mcp__refero__refero_search_sites', 'input': {'query': FRAS}},
-        {'type': 'tool_use', 'id': 'n5', 'name': 'mcp__refero__refero_get_flow', 'input': {'id': 1}}]}),
+        {'type': 'tool_use', 'id': 'n5', 'name': 'mcp__refero__refero_get_flow', 'input': {'id': 1}},
+        {'type': 'tool_use', 'id': 'n6', 'name': 'mcp__mobbin__search_screens', 'input': {'query': FRAS, 'mode': 'x'}},
+        {'type': 'tool_use', 'id': 'n7', 'name': 'mcp__mobbin__search_flows', 'input': {'query': FRAS}}]}),
     rad(type='user', timestamp=T0 % 2, message={'content': [
         {'type': 'tool_result', 'tool_use_id': 'n1', 'is_error': True, 'content': "Claude requested permissions to use mcp__refero__refero_search_screens, but you haven't granted it yet."},
         {'type': 'tool_result', 'tool_use_id': 'n2', 'is_error': True, 'content': 'PreToolUse:mcp__refero__refero_search_flows hook error: [x]: blockerat ' + EPOST},
         {'type': 'tool_result', 'tool_use_id': 'n3', 'is_error': True, 'content': '<tool_use_error>File is covered by a Read deny rule in your permission settings and cannot be written.</tool_use_error>'},
         {'type': 'tool_result', 'tool_use_id': 'n4', 'content': [{'type': 'text', 'text': json.dumps({'records': [
             {'url': 'https://refero.design/flows/7542', 'site': 'https://www.example.com/', 'thumbnail_url': 'https://images.refero.design/a.webp'}]})}]},
-        {'type': 'tool_result', 'tool_use_id': 'n5', 'is_error': True, 'content': 'MCP error -32603: internt fel'}]})))
+        {'type': 'tool_result', 'tool_use_id': 'n5', 'is_error': True, 'content': 'MCP error -32603: internt fel'},
+        {'type': 'tool_result', 'tool_use_id': 'n6', 'content': [{'type': 'text', 'text': 'Error: mode must be "standard" or "extended"'}]},
+        {'type': 'tool_result', 'tool_use_id': 'n7', 'content': [{'type': 'text', 'text': 'No screens matched your query.'}]}]})))
 o13 = [t_ for t_ in observation.tjanstesessioner(SLUG) if '/uppdrag/refero/' in t_['logg']][0]['observation']
 m13 = {m['verktyg']: m for m in o13['mcp']}
 assert m13['refero_search_screens']['utfall'] == 'nekat' and m13['refero_search_flows']['utfall'] == 'nekat', m13
 assert o13['verktyg']['Read'] == {'nekat': 1} and o13['nekade'] == 3, o13['verktyg']
 assert m13['refero_get_flow']['utfall'] == 'fel'
 assert m13['refero_search_sites']['utfall'] == 'anrop lyckades' and m13['refero_search_sites']['bildlankar'] == 1 and m13['refero_search_sites']['traffar'] == 1, m13
+# en feltext utan felflagga och ett svar som säger att inget matchade är inte lyckade anrop med innehåll (GR-20261008-r117-claude#C6)
+assert m13['search_screens']['utfall'] == 'fel' and m13['search_flows']['utfall'] == 'tomt resultat', m13
 f14 = TMP / 't14.jsonl'
 f14.write_text(strom(anrop(1, 'd1', 'Bash', {'command': 'ls'}), svar(2, 'd1', 'x', fel=True, nekad='permission-rule')))
 s14 = observation.sammanfattning(f14)
