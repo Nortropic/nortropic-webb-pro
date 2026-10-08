@@ -358,7 +358,7 @@ def kor_session(prompt, logg, miljo, frist=FRIST):
                     nastlad.doda_trad(p.pid)
                 try:
                     os.killpg(p.pid, signal.SIGKILL)
-                except ProcessLookupError:
+                except (ProcessLookupError, PermissionError):  # gruppen är redan borta, eller dess id återanvänt av någon annan (rökprovet 2026-10-08)
                     pass
                 p.wait(timeout=10)
                 for stream in (p.stdin, p.stderr):
