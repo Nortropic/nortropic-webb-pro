@@ -84,7 +84,8 @@ Läs `kunskap/kundintervju.md` (frågorna är din checklista) och `kunskap/resea
    domäner är ett fynd för rapporten. En enstaka extern sida (en tidningsartikel, en arkiverad sida på
    web.archive.org): `.venv/bin/python kontroller/sida_till_text.py <url> underlag/<slug>/kalla/extern/<namn>`. Det egna
    materialet kan ligga på en äldre domän.
-2. **Bilder:** `--bilder underlag/<slug>/bilder` på hämtningen i punkt 1 laddar ned raderna märkta foto och okänd i
+2. **Bilder:** `--bilder underlag/<slug>/bilder` på hämtningen i punkt 1 laddar ned raderna märkta foto och okänd (och
+   ett inbäddat Instagramflöde i full upplösning till `bilder/instagram/`, med inläggstexten som alt i SIDOR.md) i
    `kalla/SIDOR.md` och provar närliggande filnamn i samma mapp (k1, k3 … ger k2; en bra bild
    är inte alltid länkad). Titta på dem märkta okänd och ta bort det som inte är verksamhetens. Bilder ur deras kanaler laddas ned
    med `curl -sSL -o underlag/<slug>/bilder/<namn> <url>`. För en lista i `underlag/<slug>/bilder/BILDER.md`: fil,

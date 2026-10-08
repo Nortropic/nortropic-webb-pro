@@ -648,15 +648,20 @@ class Tyst(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
 d = pathlib.Path(tempfile.mkdtemp()); (d / 'up').mkdir()
 for n in (1, 2, 3): (d / 'up' / ('k%d.jpg' % n)).write_bytes(b'\xff\xd8\xff' + b'0' * 64)
-(d / 'index.html').write_text('<html><head><title>Prov</title></head><body><main><h1>Prov</h1><img src=\"/up/k1.jpg\" alt=\"Fasad\" width=\"800\" height=\"600\"><img src=\"/up/k3.jpg\" alt=\"Tak\" width=\"800\" height=\"600\"></main></body></html>')
+(d / 'up' / 'insta1.jpg').write_bytes(b'\\xff\\xd8\\xff' + b'1' * 64)
+(d / 'index.html').write_text('<html><head><title>Prov</title></head><body><main><h1>Prov</h1><img src=\"/up/k1.jpg\" alt=\"Fasad\" width=\"800\" height=\"600\"><img src=\"/up/k3.jpg\" alt=\"Tak\" width=\"800\" height=\"600\"><div id=\"sb_instagram\"><img src=\"/up/plats.gif\" data-full-res=\"/up/insta1.jpg\" data-img-src-set=\"{&quot;d&quot;:&quot;/up/insta1.jpg&quot;,&quot;320&quot;:&quot;/up/insta1-320.jpg&quot;}\" alt=\"Kanelbullar på disken\"></div></main></body></html>')
 srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Tyst, directory=str(d)))
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 bas = 'http://127.0.0.1:%d' % srv.server_port; ut = pathlib.Path(tempfile.mkdtemp())
 r = hs.hamta_sajt(bas, ut / 'kalla', 3, paus=0)
 rader = hs.ladda_bilder(r['bildlista'], ut / 'bilder', paus=0)
 assert {x['fil'] for x in rader if x['fil']} >= {'k1.jpg', 'k2.jpg', 'k3.jpg'} and any(x['fil'] == 'k2.jpg' and x['gissad'] for x in rader), rader
+# ett inbäddat Instagramflöde: bilden i full upplösning (data-full-res, inte platshållaren) till bilder/instagram/ med inläggets text som alt
+insta = [x for x in rader if x['fil'] == 'instagram/insta1.jpg']
+assert insta and insta[0]['alt'] == 'Kanelbullar på disken' and (ut / 'bilder' / 'instagram' / 'insta1.jpg').is_file() and not any('plats.gif' in x['url'] for x in rader), rader
 hs.lagg_till_i_sidor(ut / 'kalla', rader, [])
-assert '## Nedladdade bilder' in (ut / 'kalla' / 'SIDOR.md').read_text()
+sidor_md = (ut / 'kalla' / 'SIDOR.md').read_text()
+assert '## Nedladdade bilder' in sidor_md and '| instagram/insta1.jpg |' in sidor_md and 'Kanelbullar på disken' in sidor_md and '| instagram |' in sidor_md, sidor_md[-800:]
 assert 'salong-kreativ-lulea.se' in hs.domankandidater('Salong Kreativ, Luleå', 'salongkreativ.se')
 st.sida_till_text(bas + '/index.html', ut / 'extern' / 'artikel')
 assert (ut / 'extern' / 'artikel.txt').read_text().startswith('KÄLLA: ' + bas)

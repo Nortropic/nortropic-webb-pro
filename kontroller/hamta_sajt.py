@@ -11,7 +11,8 @@ externa domäner sajten länkar till (kanaler, kataloger, andra domäner).
   .venv/bin/python kontroller/hamta_sajt.py https://deras-doman.se --ut underlag/<slug>/kalla [--max 40]
 
 En andra domän hämtas till en egen katalog: --ut underlag/<slug>/kalla/<domän>.
-  --bilder underlag/<slug>/bilder     laddar ned bilderna märkta foto och okänd, och provar närliggande filnamn
+  --bilder underlag/<slug>/bilder     laddar ned bilderna märkta foto och okänd, och provar närliggande filnamn;
+                                      ett inbäddat Instagramflöde (Smash Balloon) hamnar i bilder/instagram/ med inläggstexten som alt
   --prova-domaner "Namn, Ort"          provar namnets .se, .com och .nu (hopskrivet, med bindestreck, med ort)
 Båda skriver sitt resultat sist i SIDOR.md.
 """
@@ -269,11 +270,30 @@ def antal(n, en, flera):
     return f"{n} {en if n == 1 else flera}"
 
 
+def instagram_kallor(a):
+    """Bildadresserna i full upplösning ur Smash Balloons attribut: data-full-res, och den största i data-img-src-set
+    ({"d": standard, "150"/"320"/"640": bredder})."""
+    ut = []
+    if a.get("data-full-res"):
+        ut.append(a["data-full-res"].strip())
+    try:
+        s = json.loads(a.get("data-img-src-set") or "{}")
+    except ValueError:
+        s = {}
+    if isinstance(s, dict):
+        v = s.get("d") or next((s[k] for k in sorted((k for k in s if str(k).isdigit()), key=int, reverse=True)), None)
+        if isinstance(v, str) and v.strip() and v.strip() not in ut:
+            ut.append(v.strip())
+    return ut
+
+
 def trolig_typ(url, alt, kalla, tecken):
     """Foto, logga/ikon eller okänd ur billiga tecken i HTML (crawl4ai-intaget): namn och klass med icon, logo, button
     och liknande, svg, angivna mått under 150 px, och srcset, picture eller en jpg/webp-adress som tecken på foto."""
     t = tecken or {}
     vag = urllib.parse.urlsplit(url).path.lower()
+    if kalla == "instagram":
+        return "foto"  # inläggsbilderna i ett Instagramflöde är verksamhetens egna foton
     if LOGGA_IKON.search(vag.rsplit("/", 1)[-1]) or LOGGA_IKON.search(t.get("klass", "")) or LOGGA_IKON.search(alt or ""):
         return "logga/ikon"
     if vag.endswith((".svg", ".ico", ".gif")):
@@ -409,6 +429,12 @@ class Sida(HTMLParser):
             self.kanonisk = a.get("href")
         if tag == "a" and a.get("href"):
             self.lank = [a["href"].strip(), []]
+        if tag == "img" and (a.get("data-full-res") or a.get("data-img-src-set")):
+            # ett inbäddat Instagramflöde (Smash Balloon): bilden i full upplösning och inläggets text som alt; platshållaren
+            # i src är inte bilden (Holm 2026-10-03, backloggen)
+            for src in instagram_kallor(a):
+                self.bilder.append((src, a.get("alt", ""), "instagram"))
+                self.bildtecken.setdefault(src, {"klass": "instagram", "bredd": "", "hojd": "", "srcset": True, "ram": False})
         if tag == "img":
             for k in ("src", "data-src", "data-lazy-src", "data-original"):
                 if a.get(k):
@@ -823,7 +849,7 @@ def hamta_sajt(start, ut, max_sidor=40, paus=0.5):
     (ut / "SIDOR.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     return {"ut": str(ut), "sidor": len(sidor), "bilder": len(bilder), "kvar": len(kvar), "nekade": len(nekade),
             "fel": len(fel), "robots": robotslage, "sidkarta": kartlogg, "generator": generator,
-            "bildlista": [{"url": u, "typ": b["typ"], "alt": b["alt"]} for u, b in bilder.items()],
+            "bildlista": [{"url": u, "typ": b["typ"], "alt": b["alt"], "kalla": b["kalla"]} for u, b in bilder.items()],
             "sidlista": [{"fil": x["fil"], "url": x["url"], "status": x["status"]} for x in sidor]}
 
 
@@ -834,7 +860,8 @@ NUMMER = re.compile(r"^(.*?)(\d{1,3})(\.(?:jpe?g|png|webp|avif))$", re.I)
 def ladda_bilder(bildlista, katalog, paus=0.5, max_prov=24):
     """Laddar ned bilderna märkta foto eller okänd till katalogen och provar närliggande filnamn i samma mapp (k1, k3
     … ger k2): salongens bästa bild låg på servern utan att vara länkad (salong-kreativ 2026-10-03). Bara GET,
-    robots.txt för varje värd, högst max_prov gissade adresser. Svarar med en rad per bild."""
+    robots.txt för varje värd, högst max_prov gissade adresser. Svarar med en rad per bild. Bilder ur ett inbäddat
+    Instagramflöde (källan instagram) hamnar i instagram/ med inläggets text som alt."""
     katalog = Path(katalog)
     katalog.mkdir(parents=True, exist_ok=True)
     robots, rader, tagna = {}, [], {f.name for f in katalog.iterdir()}
@@ -846,26 +873,30 @@ def ladda_bilder(bildlista, katalog, paus=0.5, max_prov=24):
             robots[bas] = las_robots(bas)[0]
         return robots[bas]
 
-    def spara(u, typ, gissad):
+    def spara(u, typ, gissad, undermapp="", alt=""):
         rp = robots_for(u)
         if not rp.can_fetch(UA_NAMN, u):
-            rader.append({"url": u, "typ": typ, "fil": "", "status": "nekad av robots.txt", "gissad": gissad})
+            rader.append({"url": u, "typ": typ, "fil": "", "status": "nekad av robots.txt", "gissad": gissad, "alt": alt})
             return False
         svar = hamta(u, max_byte=BILD_MAX, rp=rp)  # policyn följer med genom omdirigeringarna (omgång elva, F24)
         time.sleep(paus)
         if svar["status"] != 200 or not (svar["typ"] or "").startswith("image/"):
             if not gissad:
-                rader.append({"url": u, "typ": typ, "fil": "", "status": str(svar["status"] or svar.get("fel")), "gissad": gissad})
+                rader.append({"url": u, "typ": typ, "fil": "", "status": str(svar["status"] or svar.get("fel")), "gissad": gissad, "alt": alt})
             return False
         namn = urllib.parse.unquote(urllib.parse.urlsplit(u).path.rsplit("/", 1)[-1]) or "bild"
         namn = re.sub(r"[^\w.\-]+", "-", namn)
         stam, _, ext = namn.rpartition(".")
         kandidat, n = namn, 2
+        if undermapp:
+            (katalog / undermapp).mkdir(parents=True, exist_ok=True)
+            tagna.update(f.name for f in (katalog / undermapp).iterdir())
         while kandidat in tagna:
             kandidat, n = f"{stam or namn}-{n}.{ext}" if stam else f"{namn}-{n}", n + 1
         tagna.add(kandidat)
-        (katalog / kandidat).write_bytes(svar["data"])
-        rader.append({"url": u, "typ": typ, "fil": kandidat, "status": f"{len(svar['data'])} byte", "gissad": gissad})
+        rel = f"{undermapp}/{kandidat}" if undermapp else kandidat
+        (katalog / rel).write_bytes(svar["data"])
+        rader.append({"url": u, "typ": typ, "fil": rel, "status": f"{len(svar['data'])} byte", "gissad": gissad, "alt": alt})
         return True
 
     grupper = {}
@@ -873,7 +904,10 @@ def ladda_bilder(bildlista, katalog, paus=0.5, max_prov=24):
         u = b["url"]
         if b["typ"] not in ("foto", "okänd") or re.search(r"\.svg(\?|$)", u, re.I):
             continue
-        if spara(u, b["typ"], False):
+        if b.get("kalla") == "instagram":
+            spara(u, b["typ"], False, "instagram", b.get("alt", ""))
+            continue
+        if spara(u, b["typ"], False, "", b.get("alt", "")):
             mapp, _, fil = urllib.parse.urlsplit(u)._replace(query="", fragment="").geturl().rpartition("/")
             m = NUMMER.match(fil)
             if m and not re.search(r"-\d+x\d+$", m.group(1)):  # WordPress storleksvarianter är inte en serie
@@ -928,8 +962,8 @@ def lagg_till_i_sidor(ut, bilder=None, domaner=None):
     if bilder is not None:
         md += ["", f"## Nedladdade bilder (--bilder, {sum(1 for r in bilder if r['fil'])} filer)", "",
                "Gissad = hittad genom att pröva närliggande filnamn i samma mapp; den är inte länkad från sajten.", "",
-               "| Fil | Adress | Typ | Svar |", "|---|---|---|---|"]
-        md += [f"| {r['fil'] or '–'} | {r['url']} | {r['typ']} | {r['status']} |" for r in bilder] or ["| – | – | – | inga |"]
+               "| Fil | Adress | Typ | Alt | Svar |", "|---|---|---|---|---|"]
+        md += [f"| {r['fil'] or '–'} | {r['url']} | {r['typ']} | {str(r.get('alt') or '').replace('|', '/')} | {r['status']} |" for r in bilder] or ["| – | – | – | – | inga |"]
     if domaner is not None:
         md += ["", "## Andra domäner (--prova-domaner)", "",
                "Svarar en domän med 200 och en egen titel är den en källa: hämta den med --ut kalla/<domän>.", "",
