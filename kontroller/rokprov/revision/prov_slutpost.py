@@ -536,8 +536,8 @@ def _dom_korslut():
 KR = TMP / 'kor-repo'
 FALSK = TMP / 'falsk-claude'
 FALSK_SKRIPT = r'''#!/bin/sh
-cat > /dev/null
 K=kunder/"$NWP_SLUG"
+if [ -n "$PROV_ARGV" ]; then cat > "$K"/PROMPT.txt; else cat > /dev/null; fi
 [ -z "$PROV_IGNORERA_TERM" ] || trap '' TERM
 [ -z "$PROV_ARGV" ] || printf '%s\n' "$@" > "$K"/ARGV.txt
 dist12() { .venv/bin/python -B -c "import sys; from pathlib import Path; sys.path.insert(0, 'kontroller'); import prova; print(prova.dist_hash(Path('$K/sajt/dist'))[:12])"; }
@@ -984,6 +984,64 @@ def _kor_nekade():
     for verktyg in ('Write', 'Edit'):
         for vag in ('./kunder/nekad-prov/prov/.skyddat-*', './kunder/nekad-prov/korningar/**', './kunder/nekad-prov/rapporter/**', './kunder/nekad-prov/DOM.json'):
             assert '%s(%s)' % (verktyg, vag) in nekas, ('inte nekat', verktyg, vag, nekas[-12:])
+
+
+GODKANN = r'''
+import sys, json
+sys.path.insert(0, 'kontroller')
+import atelje, skapande
+slug = sys.argv[1]
+a = atelje.UNDERLAG / slug / 'atelje'
+kod = a / 'vinnare' / 'kod'
+atelje.skriv_status(a, {'startad': '2026-10-08T00:00:00Z', 'klar': '2026-10-08T00:00:01Z', 'kandidatflode': True, 'lage': 'valda', 'steg': 'klar_for_bedomning'})
+dom = skapande.lagg_till_dom(slug, 'ägaren', 'godkand', 'Syntetiskt teknikprov, ingen riktig ägardom.', tid='2026-10-08T00:00:02Z')
+atelje.skriv_json_atomiskt(a / 'VINNARE.json', {'godkand': {'tid': dom['tid'], 'sha_index': skapande.sha256_fil(kod / 'index.astro'),
+                                                            'sha_kod': skapande.sha256_katalog(kod), 'underlag_sha': skapande.underlagsversion(slug)}})
+print(json.dumps([skapande.godkand_giltig(slug), skapande.underlagsversion(slug)]))
+'''
+GILTIG = "import sys, json; sys.path.insert(0, 'kontroller'); import skapande; print(json.dumps([skapande.godkand_giltig(sys.argv[1]), skapande.underlagsversion(sys.argv[1])]))"
+
+
+@fall('kor.sh från en godkänd startsida: godkännandets underlag (steg 1–4) är fryst: Write och Edit nekas för underlagsgrunden, sandlådan nekar Bash, '
+      'prompten säger det, och godkännandet gäller efteråt (GR-20261008-r117-claude#A3)')
+def _kor_fryst_underlag():
+    kor_repo()
+    slug = 'fryst-prov'
+    u, k = KR / 'underlag' / slug, KR / 'kunder' / slug
+    skriv(u / 'INNEHALL.md', '# Innehåll\nSyntetisk sidtext.\n')
+    skriv(u / 'BRIEF.md', '# Brief\nSyntetisk.\n')
+    skriv(u / 'bilder' / 'BILDER.md', 'fil | källa\n')
+    skriv(u / 'atelje' / 'vinnare' / 'kod' / 'index.astro', '<h1>Syntetiskt godkänd startsida</h1>\n')
+    (k / 'sajt' / 'src' / 'pages').mkdir(parents=True, exist_ok=True)
+    g = subprocess.run([PY, '-B', '-c', GODKANN, slug], cwd=str(KR), capture_output=True, text=True, env=miljo())
+    assert g.returncode == 0 and json.loads(g.stdout)[0][0] is True, (g.stdout, g.stderr[-600:])
+    fore = json.loads(g.stdout)[1]
+    rc, ut, fel = kor(slug, PROV_ARGV='1')
+    assert (k / 'ARGV.txt').is_file(), ('kor.sh nådde inte claude', rc, ut[-800:], fel[-400:])
+    argv = (k / 'ARGV.txt').read_text().split('\n')
+    nekas = argv[argv.index('--disallowedTools') + 1:]
+    nekas = nekas[:next((i for i, x in enumerate(nekas) if x.startswith('--')), len(nekas))]
+    fryst = ['VERKSAMHET.json', 'BRIEF.md', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md', 'BESTALLNING.md', 'UPPDRAG.md', 'REFERENSER.md',
+             'KUNDSTART.json', 'bilder/**', 'kalla/**', 'referenser/**']
+    saknas = ['%s(./underlag/%s/%s)' % (v, slug, f) for v in ('Write', 'Edit') for f in fryst if '%s(./underlag/%s/%s)' % (v, slug, f) not in nekas]
+    assert not saknas, ('inte nekat', saknas, nekas[-14:])
+    assert not [x for x in nekas if x.endswith(('/KONCEPT.md)', '/FRASER.txt)', '/RESOR.json)'))], 'steg 5–7:s egna arbetsfiler får skrivas'
+    prompt = (k / 'PROMPT.txt').read_text(encoding='utf-8')
+    assert 'godkännandets underlag är fryst' in prompt and 'INNEHALL.md TEXTUNDERLAG.md' in prompt and 'bilder/** kalla/** referenser/**' in prompt \
+        and 'kunder/%s/INNEHALL-BYGGE.md' % slug in prompt, prompt[-1200:]
+    efter = json.loads(subprocess.run([PY, '-B', '-c', GILTIG, slug], cwd=str(KR), capture_output=True, text=True, env=miljo()).stdout)
+    assert efter[0][0] is True and efter[1] == fore, ('kor.sh självt gjorde godkännandet historiskt', efter[0])
+    # sandlådans skrivregler för Bash och barnen: underlagsgrunden nekas bara från en godkänd startsida, resten av
+    # underlag/<slug> skrivs som förut (nekande går före tillåtande)
+    def sb(*a):
+        p = subprocess.run([PY, '-B', str(KR / 'kontroller' / 'sandlada.py'), slug, '--root', str(KR), '--hem', str(TMP / 'hem'), *a],
+                           capture_output=True, text=True, cwd=str(KR))
+        assert p.returncode == 0, p.stderr[-400:]
+        return json.loads(p.stdout)['sandbox']['filesystem']
+    med, utan = sb('--fryst-underlag'), sb()
+    for f in ('INNEHALL.md', 'KUNDSTART.json', 'bilder', 'kalla', 'referenser'):
+        assert str(u / f) in med['denyWrite'] and str(u / f) not in utan['denyWrite'], (f, med['denyWrite'][-14:])
+    assert str(u) in med['allowWrite'] and str(u / 'KONCEPT.md') not in med['denyWrite'], med['allowWrite']
 
 
 @fall('kor.sh utan vakt: dör vakten under bygget stoppar kor.sh själv claudes processgrupp, med SIGKILL efter fristen, och ägarens dom räknas inte (BÖR 2, KAN 5)')

@@ -164,8 +164,9 @@ kandidaterna och granskningarna.
    tempkatalog och byts in först när domen är skriven (`atelje/vinnare/`: alla sidor, DESIGN.md, bilderna och hasharna
    i VINNARE.json i granskarens format), och godkännandet binds till hashen över alla sidorna. Före bygget lägger kor.sh
    sidorna, komponenterna och DESIGN.md i sajten (`atelje.installera_godkand`; de ersatta flyttas med sin väg till
-   `kunder/<slug>/startsida-ersatt/`), och bygget tar vid från dem (bygg-sajt steg 5.1). Utan godkänd startsida stannar
-   kor.sh före bygget. Vad som sedan gäller för helbygget, exporten och leveransen: `README.md`.
+   `kunder/<slug>/startsida-ersatt/`), och bygget tar vid från dem (bygg-sajt steg 5.1) utan att skriva om godkännandets
+   underlag (`skapande.UNDERLAGSGRUND` och katalogerna; Write, Edit och sandlådan nekar det). Utan godkänd startsida
+   stannar kor.sh före bygget. Vad som sedan gäller för helbygget, exporten och leveransen: `README.md`.
 
 Kandidatens status i ägarens ord: under arbete, klar för ägarens bedömning, vald för vidareutveckling, förkastad,
 förfinad, godkänd för helbygge (och ofullständig eller föll, med skälen). Ett avbrott förstör inga klara kandidater:

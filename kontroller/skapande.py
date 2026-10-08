@@ -119,6 +119,9 @@ def textfil(slug, underlag=None):
 
 UNDERLAGSGRUND = ('VERKSAMHET.json', 'BRIEF.md', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md',
                   'BESTALLNING.md', 'UPPDRAG.md', 'REFERENSER.md', 'KUNDSTART.json')
+# Kundmaterialet och källorna som också ingår i underlagsversionen. Från en godkänd startsida är grunden och katalogerna
+# frysta under helbygget: kor.sh nekar Write och Edit där och sandlådan Bash (GR-20261008-r117-claude#A3).
+UNDERLAGSKATALOGER = ('bilder', 'kalla', 'referenser')
 
 
 def underlagsmanifest(slug, underlag=None):
@@ -132,7 +135,7 @@ def underlagsmanifest(slug, underlag=None):
     if not re.fullmatch(r'[a-z0-9-]{2,60}', slug) or u.is_symlink() or u.parent.is_symlink():
         raise ValueError('ogiltig underlagsrot')
     filer = [u / namn for namn in UNDERLAGSGRUND]
-    for namn_ in ('bilder', 'kalla', 'referenser'):
+    for namn_ in UNDERLAGSKATALOGER:
         bilder = u / namn_
         if bilder.is_symlink():
             raise ValueError('länkat kundmaterial eller källmaterial')
@@ -1047,7 +1050,8 @@ def godkand_giltig(slug, underlag=None, kunder=None):
     (ar_agarens: ägaren, eller ägaren via Codex med belägg) är just det godkännandet och den godkända startsidan och
     DESIGN.md i atelje/vinnare/ är oförändrade sedan dess. En vidarebefordrad AI-bedömning varken godkänner eller drar
     tillbaka något. Går en rad efter godkännandet inte att läsa gäller det inte: där kan ägarens senare beslut stå. kor.sh
-    tar vid först när det gäller; bygget skriver sedan om sajtens egna filer utan att godkännandet upphör."""
+    tar vid först när det gäller; bygget skriver sedan om sajtens egna filer utan att godkännandet upphör, och nekas
+    underlagsgrunden (UNDERLAGSGRUND och UNDERLAGSKATALOGER; kor.sh och sandlada.py --fryst-underlag)."""
     u = Path(underlag or UNDERLAG) / slug
     sajt = Path(kunder or (ROOT / 'kunder')) / slug / 'sajt'
     import kundstart_kalla

@@ -251,6 +251,7 @@ GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.ar
 import skapande
 ok, skal = skapande.godkand_giltig(sys.argv[2])
 print("ja" if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
+FRYSTA=()   # godkännandets underlagsgrund, fylld nedan från en godkänd startsida
 AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import prototyp
 print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
@@ -268,11 +269,25 @@ if [ -n "$GODKAND" ]; then
 import atelje
 print(", ".join(atelje.installera_godkand(sys.argv[2])))' "$ROOT" "$SLUG")" || stopp "den godkända startsidan kunde inte läggas i sajten (atelje.installera_godkand)"
   [ -z "$ERSATT" ] || echo "den godkända startsidan lades i sajten: $ERSATT (de ersatta i kunder/$SLUG/startsida-ersatt/)"
+  # Godkännandet gäller en underlagsversion (VINNARE.json: underlag_sha över skapande.UNDERLAGSGRUND och katalogerna i
+  # UNDERLAGSKATALOGER): steg 1–4 är gjorda, och skriver bygget om de filerna blir godkännandet historik (godkand_giltig,
+  # Flöde steg 5; GR-20261008-r117-claude#A3). Bygget nekas därför Write och Edit där (--disallowedTools nedan) och Bash
+  # i sandlådan (sandlada.py --fryst-underlag); prompten säger var byggets eget innehåll skrivs i stället.
+  IFS=' ' read -r -a FRYSTA <<< "$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+import skapande
+print(" ".join(skapande.UNDERLAGSGRUND + tuple(k + "/**" for k in skapande.UNDERLAGSKATALOGER)))' "$ROOT")" \
+    || stopp "underlagsgrunden (kontroller/skapande.py UNDERLAGSGRUND) kunde inte läsas"
+  [ ${#FRYSTA[@]} -ge 9 ] || stopp "underlagsgrunden (kontroller/skapande.py UNDERLAGSGRUND) är tom"
   PROMPT="$PROMPT
 
 Ägaren har godkänt startsidan i skapandeflödet (underlag/$SLUG/atelje/VINNARE.json, fältet godkand): ta vid efter valet
 i steg 5.1, som från ateljévinnaren. Kör inte ateljén; startsidan står i kunder/$SLUG/sajt/src/pages/index.astro (en
-kandidat ur kandidatflödet har också sina undersidor där, och DESIGN.md i kunder/$SLUG/sajt/)."
+kandidat ur kandidatflödet har också sina undersidor där, och DESIGN.md i kunder/$SLUG/sajt/).
+Steg 1–4 är gjorda och godkännandets underlag är fryst: skriv inte om ${FRYSTA[*]} i underlag/$SLUG/ (Write, Edit och
+sandlådan nekar det; godkännandet gäller den underlagsversionen, VINNARE.json: underlag_sha, och en ändring gör det
+till historik). Saknas INNEHALL.md är TEXTUNDERLAG.md sidans text; innehåll som bygget behöver utöver underlaget
+skriver du i kunder/$SLUG/INNEHALL-BYGGE.md. Steg 5–7:s egna arbetsfiler (KONCEPT.md, FRASER.txt, RESOR.json,
+JAMFORELSE.md, GRANSKNINGSLOGG.md med flera) skrivs i underlag/$SLUG/ som förut."
 elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ -n "$AGARENS_STOPP" ]; then
   # ägarens dom tillåter inget bygge på startsidan (prototyp.bygget_nekas): nästa steg är skapandeflödet
   stopp "ägarens domlogg tillåter inget bygge på startsidan ($AGARENS_STOPP). Kör .venv/bin/python kontroller/prototyp.py $SLUG före bygget; NWP_ATELJE=av är nödvägen utan ateljé"
@@ -362,6 +377,9 @@ ARGS=(-p
   # skrivs bara av kor.sh, vakten och korslut (granskningen GR-20261007-r101-om, BÖR 1)
   "Write(./kunder/$SLUG/prov/.skyddat-*)" "Edit(./kunder/$SLUG/prov/.skyddat-*)"
   "Write(./kunder/$SLUG/korningar/**)" "Edit(./kunder/$SLUG/korningar/**)" "Write(./kunder/$SLUG/rapporter/**)" "Edit(./kunder/$SLUG/rapporter/**)")
+# Från en godkänd startsida: godkännandets underlagsgrund (FRYSTA ovan) nekas sessionens Write och Edit här, och Bash
+# i sandlådan (sandlada.py --fryst-underlag nedan). Steg 5–7:s egna arbetsfiler i underlag/$SLUG/ berörs inte.
+for f in ${FRYSTA[@]+"${FRYSTA[@]}"}; do ARGS+=("Write(./underlag/$SLUG/$f)" "Edit(./underlag/$SLUG/$f)"); done
 # Bara projektets inställningar: då gäller --allowedTools som vitlista (ägarens egna allow-regler i
 # ~/.claude/settings.json läses inte). Modell och effort anges därför uttryckligen; gh får sin konfigurationsmapp.
 GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
@@ -382,7 +400,7 @@ if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
 else
   SANDLADA+=(--av)
 fi
-SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} ${SANDLADA[@]+"${SANDLADA[@]}"})" || stopp "inställningarna (kontroller/sandlada.py) kunde inte skapas"
+SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} ${GODKAND:+--fryst-underlag} ${SANDLADA[@]+"${SANDLADA[@]}"})" || stopp "inställningarna (kontroller/sandlada.py) kunde inte skapas"
 if [ "$SETTINGS" != "{}" ]; then ARGS+=(--settings "$SETTINGS"); fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort; bygget skriver

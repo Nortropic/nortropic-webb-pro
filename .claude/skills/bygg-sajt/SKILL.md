@@ -336,7 +336,14 @@ KONCEPT.md.
    förslag blir aldrig vald, och en ny ateljé efter en förkastning startas av ägaren, inte inifrån bygget
    (`--bara-domare`, `--valda`, `--ny-riktning` och `--putsa` vägras där; `--om` svarar 6 när kandidaterna väntar på
    ägaren eller ateljén förkastat alla riktningar). Har ägaren godkänt startsidan i dashboardens vy
-   Prototyp säger prompten det: kör inte ateljén, utan ta vid härifrån med den godkända vinnaren.
+   Prototyp säger prompten det: kör inte ateljén, utan ta vid härifrån med den godkända vinnaren. Steg 1–4 är då gjorda
+   och godkännandets underlag fryst: `VERKSAMHET.json`, `BRIEF.md`, `RESEARCH.md`, `INNEHALL.md`, `TEXTUNDERLAG.md`,
+   `BESTALLNING.md`, `UPPDRAG.md`, `REFERENSER.md`, `KUNDSTART.json` och katalogerna `bilder/`, `kalla/` och
+   `referenser/` i `underlag/<slug>/` skrivs inte om (Write, Edit och sandlådan nekar det; listan är `UNDERLAGSGRUND`
+   och `UNDERLAGSKATALOGER` i `kontroller/skapande.py`), eftersom godkännandet gäller den underlagsversionen och en
+   ändring gör det till historik. Saknas `INNEHALL.md` är `TEXTUNDERLAG.md` sidans text; innehåll som bygget behöver
+   utöver underlaget skrivs i `kunder/<slug>/INNEHALL-BYGGE.md`. Steg 5–7:s egna arbetsfiler (`KONCEPT.md`,
+   `FRASER.txt`, `RESOR.json`, `JAMFORELSE.md`, `GRANSKNINGSLOGG.md` med flera) skrivs i `underlag/<slug>/` som förut.
    Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/` (koden i
    `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och när vinnarens startsida bygger på sin nya plats står
    den redan som `src/pages/index.astro` (`VINNARE.json`: `overford`); annars säger `overford` varför, och du bygger

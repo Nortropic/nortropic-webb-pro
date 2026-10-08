@@ -65,8 +65,20 @@ def nekade_skrivvagar(root, slug):
     return ut
 
 
-def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=None, extra_skriv=()):
-    """extra_skriv: ytterligare skrivbara kataloger, till exempel en granskares arbetskatalog under /tmp/nwp-granskning."""
+def fryst_underlagsvagar(root, slug):
+    """Godkännandets underlagsgrund under underlag/<slug>: filerna i skapande.UNDERLAGSGRUND och katalogerna i
+    UNDERLAGSKATALOGER. Från en godkänd startsida nekas bygget skrivning där (kor.sh: --fryst-underlag hit, Write och Edit
+    i --disallowedTools), eftersom en ändring ger en annan underlagsversion och gör godkännandet till historik
+    (skapande.godkand_giltig; GR-20261008-r117-claude#A3). Nekande går före tillåtande, så resten av underlag/<slug>
+    skrivs som förut."""
+    import skapande
+    u = Path(root) / 'underlag' / slug
+    return [str(u / n) for n in skapande.UNDERLAGSGRUND + skapande.UNDERLAGSKATALOGER]
+
+
+def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=None, extra_skriv=(), fryst_underlag=False):
+    """extra_skriv: ytterligare skrivbara kataloger, till exempel en granskares arbetskatalog under /tmp/nwp-granskning.
+    fryst_underlag: från en godkänd startsida nekas Bash och barnen godkännandets underlagsgrund (fryst_underlagsvagar)."""
     root = Path(root or ROOT)
     hem = hem or os.path.expanduser('~')
     rot = str(root)
@@ -80,7 +92,7 @@ def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=N
         ut['sandbox'] = {
             'enabled': True, 'failIfUnavailable': True, 'allowUnsandboxedCommands': False, 'autoAllowBashIfSandboxed': False,
             'filesystem': {
-                'denyWrite': nekade_skrivvagar(root, slug),
+                'denyWrite': nekade_skrivvagar(root, slug) + (fryst_underlagsvagar(root, slug) if fryst_underlag else []),
                 'allowWrite': ['%s/kunder/%s' % (rot, slug), '%s/underlag/%s' % (rot, slug), '%s/backlog' % rot, '/tmp/nwp-bygge-%s' % slug,
                                '%s/.npm' % hem, '%s/.cache' % hem, '%s/Library/Caches' % hem] + [str(x) for x in extra_skriv],
                 'denyRead': [p.replace('~', hem, 1) if p.startswith('~') else p for p in HEMLIGT] + [kundstart]},
@@ -99,8 +111,9 @@ def main(argv=None):
     p.add_argument('--av', action='store_true', help='ingen sandlåda, behåll sessionens nekanden och eventuell env-del')
     p.add_argument('--root', default=None)
     p.add_argument('--hem', default=None)
+    p.add_argument('--fryst-underlag', action='store_true', help='från en godkänd startsida: godkännandets underlagsgrund nekas skrivning')
     a = p.parse_args(argv)
-    print(json.dumps(installningar(a.slug, a.doman, a.gh_dir, not a.av, a.root, a.hem), ensure_ascii=False))
+    print(json.dumps(installningar(a.slug, a.doman, a.gh_dir, not a.av, a.root, a.hem, fryst_underlag=a.fryst_underlag), ensure_ascii=False))
     return 0
 
 
