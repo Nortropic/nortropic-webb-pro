@@ -1,13 +1,14 @@
 ---
 id: B-20261007-dokumentprovet-saknar-fallet-med-kontrolltecken
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261007-r97-om.md
 fynd: GR-20261007-r97-om#KAN-1
 skapad: 2026-10-07
 prio: normal
 steg: kontroller/rokprov/revision/prov_dokumentation.py
-andrad: 2026-10-08T14:09Z
+commit: c7d3733
+andrad: 2026-10-08T15:54Z
 ---
 # Dokumentprovet saknar fallet med kontrolltecken i NWP_KORNING
 
