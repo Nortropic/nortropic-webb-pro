@@ -115,6 +115,9 @@ DOLDA = re.compile(r'[​‌‍⁠﻿­‪-‮⁦-⁩]|[\x00-\x08\x0b\x0c\x0e-\x
 TILL_AGENT = re.compile(r'(ignore (all |previous |the above )?instructions|you are (an|a) (ai|assistant|agent)|system prompt|<\s*(system|assistant|instructions?)\b|do not tell the user|as an ai)', re.I)
 HOPPA_VARD = re.compile(r'(^|\.)(x|twitter|instagram|facebook|tiktok)\.com$', re.I)  # reddit.com släpps igenom med paus (backloggen 2026-10-03)
 PAUS_VARD = {'reddit.com': 20.0}  # minst så många sekunder mellan anrop till värden: Reddits RSS gav 429 vid 10 s och gick vid 20 s
+# Reddit svarar 429 på spanarens egen identitet oavsett takt (prövat 2026-10-08) men 200 på en vanlig webbläsarsträng: RSS:en är
+# till för läsare, så den värden får en webbläsarsträng med vårt namn sist; alla andra värdar får UA
+UA_VARD = {'reddit.com': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36 ' + UA.split(' ')[0]}
 STRAFF_VARD = {'medium.com': 0.7, 'linkedin.com': 0.5, 'dev.to': 0.9}
 
 
@@ -281,8 +284,10 @@ class Hamtare:
         import hamta_sajt
         from urllib.request import Request
         hamta_sajt.adress_ok(url)
-        self.fore((urlsplit(url).hostname or '').lower().removeprefix('www.'))
-        with hamta_sajt.oppnare(fore=self.fore).open(Request(url,headers={'User-Agent':UA}),timeout=15) as r:
+        vard = (urlsplit(url).hostname or '').lower().removeprefix('www.')
+        self.fore(vard)
+        ua = next((u for v, u in UA_VARD.items() if vard == v or vard.endswith('.' + v)), UA)
+        with hamta_sajt.oppnare(fore=self.fore).open(Request(url,headers={'User-Agent':ua}),timeout=15) as r:
             langd=r.headers.get('Content-Length')
             if langd is not None and (not langd.isascii() or not langd.isdigit()):raise OSError('Ogiltig deklarerad källstorlek.')
             data=r.read(tak+1)

@@ -18,3 +18,7 @@ andrad: 2026-10-08T15:47Z
 **Klart när:** En spaning ger Reddit-kandidater utan 429, kirurgen bedömer en Reddit-tråd med belägg ur trådens RSS, och rokprov.sh är grönt.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: allt återstår; rökprovet behöver ett fall som visar pausen per värd, inte bara att reddit släpps igenom.
+
+## Verklig läsning 2026-10-08
+
+Spanarens egen identitet får 429 av Reddit oavsett takt (två försök, 21 s emellan); en webbläsarsträng med vårt namn sist får 200 (spana.py UA_VARD). Verklig läsning: veckans toppflöde i r/web_design (42 807 byte) och dess första tråd via reddit_trad.till_text (8 902 byte RSS, 9 inlägg) på 20,5 s med takt per värd; underlaget i rapportkatalogen reddit-verklig-lasning.md. En hel spaning med Reddit-källorna påslagna är inte körd i detta uppdrag.

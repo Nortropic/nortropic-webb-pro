@@ -118,6 +118,7 @@ with korregister.egen_tmp_med('nwp-rev-', 'spanarens syntetiska fixturer') as pr
     ht = s.Hamtare(paus=0)
     t0 = _t.monotonic(); ht.fore('reddit.com'); ht.fore('x.se'); ht.fore('x.se'); assert _t.monotonic() - t0 < 0.2, 'andra värdar väntar inte'
     t0 = _t.monotonic(); ht.fore('www.reddit.com'); assert _t.monotonic() - t0 >= 0.25, 'minst PAUS_VARD mellan anrop till reddit.com'
+    assert s.UA_VARD['reddit.com'].startswith('Mozilla/5.0') and s.UA_VARD['reddit.com'].endswith(s.UA.split(' ')[0]), 'reddit.com får en webbläsarsträng med vårt namn sist'
     import reddit_trad
     txt = reddit_trad.till_text((FIX / 'reddit.xml').read_bytes())
     assert txt.startswith('# Why are small business sites so bad?') and 'no clear next step' in txt and '/u/kommentar' in txt and 'above the fold' in txt and '<' not in txt.split('\n')[4], txt
