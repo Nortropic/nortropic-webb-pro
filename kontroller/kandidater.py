@@ -1469,6 +1469,19 @@ def arkivera_forsok(slug, kid, st):
     return mal
 
 
+def anvanda_verktyg(kv, pass_):
+    """Verktygen och MCP-tjänsterna i passets roller som observerats använda med resultat (kompetens.tillstand ur kvittots
+    verktyg_anrop och mcp_utfall). Genomfört kräver minst ett (C4:s rest, B-20261008-kompetenspassens-genomfort-status):
+    sessionens egen lista och läskvittot räcker inte, metodkartan lovar ett faktiskt anrop med kontrollerat resultat. None
+    när passets roller inte har något verktyg eller någon tjänst tilldelad; då ställs inget krav."""
+    T = kompetens.TILLSTAND['anvant']
+    roller = kompetens.tillstand(kv, pass_)
+    if not any(r.get('mcp') or r.get('verktyg') for r in roller):
+        return None
+    return sorted({m for r in roller for m, x in (r.get('mcp') or {}).items() if isinstance(x, dict) and x.get('tillstand') == T}
+                  | {v for r in roller for v, s in (r.get('verktyg') or {}).items() if s == T})
+
+
 def kompetens_kort(kv):
     """Det sparade kompetenskvittot: läsningen, de valda alternativen, skillverktyget, verktygens och tjänsternas anrop
     med utfall, sessionens läge hos tjänsterna och tillståndet per roll (kompetens.kvitto)."""
@@ -1851,9 +1864,10 @@ def skissa(slug, kid, fel=None):
     kompetenser = dict(las_status(slug, kid).get('kompetens') or {})
     kompetenser['skiss:skapa'] = {'fas': 'skiss', 'pass': 'skapa', 'klar': nu(), 'sekunder': int(time.monotonic() - start),
                                   'kvitto': {k: kv.get(k) for k in ('verifierad', 'lasta', 'saknas', 'valda', 'skill_anrop', 'mcp_anrop')},
-                                  # kärnan läst hel; MCP-anropen redovisas men krävs inte: researchen har redan hämtat
+                                  # kärnan läst hel (karnan_last): ett läskvitto, inte ett genomfört pass, eftersom ingen tillämpning
+                                  # observeras i skissen (C4:s rest); MCP-anropen redovisas men krävs inte: researchen har redan hämtat
                                   # materialet åt skaparna (ägarens uppdrag 2026-10-05 18:53Z, punkt 3)
-                                  'genomford': (not kv.get('saknas')) if kv.get('verifierad') else None,
+                                  'karnan_last': (not kv.get('saknas')) if kv.get('verifierad') else None,
                                   'varv': len(varv_), 'bilder': {'fore': fore, 'efter': efter}}
     return satt_status(slug, kid, st['status'], st.get('skal', ''), tekniskt_fel=tekniskt, forsok_tider=forsoken,
                        anvandning=anvandning(sessioner), sessionsfel=sessionsfel or None, kompetens=kompetenser)
@@ -2048,6 +2062,7 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
             bild = str(b.get('bild') or '')
             provat.append(dict(b, bild_finns=bool(bild) and (atelje.ROOT / bild).is_file() and not (atelje.ROOT / bild).is_symlink()))
     andrad = st.get('version') != v0
+    anvanda = anvanda_verktyg(kv, pass_) if kv.get('verifierad') else None
     rec = {'fas': fas, 'pass': pass_, 'startad': startad, 'klar': nu(), 'sekunder': int(time.monotonic() - start),
            'kod_andrad': {'andrad': andrad, 'version_fore': v0, 'version_efter': st.get('version'), 'andringar': so.get('kod_andrad') or []},
            'beteende_provat': provat, 'visuell_bedomning': so.get('visuell_bedomning') or {},
@@ -2059,9 +2074,12 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
            'aktivering': so.get('aktivering') or [], 'teknikval': so.get('teknikval') or [],
            'kvitto': dict(kompetens_kort(kv), teknikval=so.get('teknikval') or [], visuell_bedomning=so.get('visuell_bedomning') or {}),
            'uppgiftsbrister': passbrister(pass_, so, kv),
-           # genomfört kräver också att varje prövat beteende har sin bild (GR-20261008-r117-claude#C4); sessionens egen lista räcker inte
+           # genomfört kräver också att varje prövat beteende har sin bild (GR-20261008-r117-claude#C4) och minst ett observerat
+           # verktygs- eller MCP-anrop med resultat i passets roller (anvanda_verktyg; C4:s rest); sessionens egen lista räcker inte
+           'anvanda_verktyg': anvanda,
            'genomford': (not svar.get('avbruten') and bool(so) and not kv.get('saknas') and not passbrister(pass_, so, kv) and bool(provat)
-                         and all(b.get('bild_finns') for b in provat) and (andrad or bool(so.get('ingen_andring')))) if kv.get('verifierad') else None,
+                         and all(b.get('bild_finns') for b in provat) and (andrad or bool(so.get('ingen_andring')))
+                         and (anvanda is None or bool(anvanda))) if kv.get('verifierad') else None,
            'bilder': {'fore': fore, 'efter': efter}}
     kompetenser = dict(st.get('kompetens') or {})
     kompetenser[nyckel] = rec
@@ -3555,9 +3573,15 @@ def kompetens_rader(slug, ids, namn):
                 if not ändr:
                     vad = ('ingen ändring: ' + str(rec.get('ingen_andring'))[:160]) if rec.get('ingen_andring') else (
                         'skaparens %d varv' % rec.get('varv') if pass_ == 'skapa' else '–')
-                gen = {True: 'ja', False: 'nej', None: 'ej verifierat'}[rec.get('genomford')]
-                if pass_ == 'skapa' and rec.get('genomford') is True:  # skissens pass: kärnan läst hel, ingen tillämpning observerad (C4)
-                    gen = 'kärnan läst hel (tillämpningen inte observerad)'
+                if pass_ == 'skapa':  # skissens pass: kärnan läst hel eller inte, ingen tillämpning observerad (C4); äldre poster bär genomford
+                    gen = {True: 'kärnan läst hel (tillämpningen inte observerad)', False: 'kärnan inte läst hel', None: 'ej verifierat'}[
+                        rec.get('karnan_last', rec.get('genomford'))]
+                else:
+                    gen = {True: 'ja', False: 'nej', None: 'ej verifierat'}[rec.get('genomford')]
+                    if rec.get('genomford') is False and rec.get('anvanda_verktyg') == []:
+                        gen += ' (inget observerat verktygs- eller MCP-anrop med resultat)'
+                    elif rec.get('anvanda_verktyg'):
+                        gen += ' (använda: %s)' % ', '.join(rec['anvanda_verktyg'])
                 if rec.get('aterstalld'):
                     gen += ' (återställt: %s)' % str(rec['aterstalld'])[:80]
                 if rec.get('avbruten'):
@@ -3777,7 +3801,9 @@ def sammanstall(slug):
                 'skal': st.get('skal'), 'version': st.get('version'), 'varv': st.get('varv'), 'undersidor': st.get('undersidor') or [],
                 'bygd': (ksajt(slug, kid) / 'dist' / 'index.html').is_file(), 'design_fel': st.get('design_fel') or [],
                 'brister': st.get('brister') or [], 'upplysningar': st.get('upplysningar') or [],
-                'kompetenspass': {rec.get('pass'): rec.get('genomford') for k_, rec in sorted((st.get('kompetens') or {}).items()) if k_.startswith('skiss:')},
+                # skissens pass bär kärnan läst hel (karnan_last; äldre poster genomford), passen efteråt genomfört (C4)
+                'kompetenspass': {rec.get('pass'): (rec.get('karnan_last', rec.get('genomford')) if rec.get('pass') == 'skapa' else rec.get('genomford'))
+                                  for k_, rec in sorted((st.get('kompetens') or {}).items()) if k_.startswith('skiss:')},
                 'hypotes': st.get('hypotes') or '', 'bilder': bilder(d / 'bilder', under),
                 'referensjamforelse': referensjamforelse(slug, kid), 'redovisning': kort_redovisning(slug, kid)}
         if not blind:

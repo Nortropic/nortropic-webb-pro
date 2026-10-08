@@ -1811,7 +1811,8 @@ def flode(slug):
             if l_ == 'pagar':
                 return 'pågår, från %s' % str((s_.get('forfining_pagar') or {}).get('fran') or '?')[:12]
             return 'inte påbörjad'
-        pass_ = [{'text': '%s: %s %s' % (e, rec.get('pass'), 'genomfört' if rec.get('genomford') else 'inte genomfört')}
+        pass_ = [{'text': '%s: %s %s' % (e, rec.get('pass'), ('genomfört' if rec.get('genomford') else 'inte genomfört') + (
+            ' (inget observerat verktygs- eller MCP-anrop med resultat)' if rec.get('genomford') is False and rec.get('anvanda_verktyg') == [] else ''))}
                  for e, s_, l_ in lagen if l_ == 'ny' for k_, rec in sorted((s_.get('kompetens') or {}).items()) if k_.startswith('fordjupa:')]
         brister = [('%s: %s' % (e, s_.get('skal')))[:300] for e, s_, l_ in lagen if l_ in ('ingen', 'fallen') and s_.get('skal')]
         brister += ['%s: förfiningen efter valet gav inget besked som går att läsa' % e for e, s_, l_ in lagen if l_ == 'okand']

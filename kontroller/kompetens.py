@@ -521,6 +521,7 @@ def skill_nekas(root=None):
 
 
 MED_INNEHALL = ('bild returnerad', 'anrop lyckades')  # observatörens utfall för ett MCP-svar med innehåll (observation.svar)
+UTAN_FORM = 'svar utan känd form'  # ett textsvar som varken är fel, tomt eller en läsbar lista: innehållet är inte observerat (C6:s rest)
 
 
 def kvitto(sessioner, pass_, skrivprefix=None, k=None):
@@ -591,7 +592,8 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
 def mcp_tillstand(m, anrop, utfall, lage, sett):
     """En tilldelad MCP-tjänsts tillstånd i en roll: blockerat när sessionen inte hade tjänsten (tilldelad men åtkomst
     saknas), använt med resultat bara när ett svar hade innehåll, blockerat när anropen bara gav tomma svar eller fel,
-    inte gjort när sessionen sågs utan anrop, och inte observerat när svarens innehåll eller sessionen inte observerades.
+    inte gjort när sessionen sågs utan anrop, och inte observerat när svarens innehåll eller sessionen inte observerades
+    (också ett svar i en form observatören inte läser, UTAN_FORM).
     Ett lyckat anrop säger inte att svaret blev användbart material (metodkartan, Tillståndsorden)."""
     ut = {'anrop': anrop}
     if isinstance(lage, dict) and lage.get(m) != 'ansluten':
@@ -603,6 +605,10 @@ def mcp_tillstand(m, anrop, utfall, lage, sett):
         med = sum(n for u, n in egna.items() if u in MED_INNEHALL)
         if med:
             return dict(ut, med_innehall=med, tillstand=TILLSTAND['anvant'])
+        okanda = sum(n for u, n in egna.items() if u == UTAN_FORM)
+        if okanda:  # svaren kom, men i en form observatören inte läser: varken använt med resultat eller blockerat (C6:s rest)
+            return dict(ut, med_innehall=0, tillstand=TILLSTAND['ej_observerat'],
+                        orsak='%d anrop med svar utan känd form; innehållet är inte observerat' % okanda)
         if egna:
             return dict(ut, med_innehall=0, tillstand=TILLSTAND['blockerat'],
                         orsak='anrop utan material: %s' % ', '.join('%s %d' % (u, n) for u, n in sorted(egna.items())))

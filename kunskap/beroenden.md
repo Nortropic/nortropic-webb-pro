@@ -148,8 +148,8 @@ varje körning låser sina versioner. Två verktyg delar komponenterna och läge
   utforskningen prövar REFERENSER.md:s rader, och en tom eller inaktuell fil godtas inte; helbygget och putsningen
   prövar VINNARE.json. Kontrollen skriver aldrig i underlaget och skapar aldrig REFERENSER.md.
 - **Vad sessionerna når.** Raderna ur `claude mcp list` säger vad maskinen har. Vad ateljéns sessioner laddar prövas med
-  en kort session med flödets egna argument (`verktygslada.prova_sessionen`: samma `--setting-sources`, `--mcp-config`
-  och `--settings`), som bara läser sitt init-besked och avslutas före modellens svar, utan verktygsanrop och utan
+  en kort session med flödets egna argument (`verktygslada.prova_sessionen`: samma `--setting-sources`,
+  `--strict-mcp-config`, `--mcp-config` och `--settings`), som bara läser sitt init-besked och avslutas före modellens svar, utan verktygsanrop och utan
   kunduppgifter. Det som inte gäller starten, till exempel underlaget vid en provstart, står för sig som inte prövat.
 - **Tilldelad men åtkomst saknas.** En tilldelad tjänst som sessionen inte når står så, med konsekvens och åtgärd,
   aldrig som ok. Den stoppar inte starten, eftersom researchens tjänstesessioner når tjänsterna på en egen väg, men

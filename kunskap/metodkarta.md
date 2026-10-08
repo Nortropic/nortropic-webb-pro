@@ -36,11 +36,11 @@ mening, stoppas som hela par. En ort stoppas efter ett platsverb och, utanför �
 §7, där förlagorna och typsnitten står, läses bara för orter och mailto-länkar. Ett typsnitt ur Google Fonts och en term
 som "Dark Mode" är inga namn, så en generisk fråga med en förlaga eller ett typsnitt ur designriktningen går.
 Detaljerna, och var felet går åt det säkra hållet, står i kundvaktens beskrivning. Mobbins `search_screens` går bara med
-`mode` "standard", eftersom verktygets standardläge deep kostar krediter. Sessionerna når Refero genom repots lokala
-MCP-anslutning och Mobbin genom `kontroller/mcp/mobbin.json` (`--mcp-config` utan strikt läge i
-`atelje.session_args`): Mobbin finns annars bara på
-användarnivån, som sessionernas `--setting-sources project,local` inte läser, så skaparna fick aldrig Mobbin fast
-rollerna tilldelar den (fynd 2026-10-07). Startkontrollen prövar åtkomsten med flödets egna argument
+`mode` "standard", eftersom verktygets standardläge deep kostar krediter. Sessionerna når Refero, Mobbin och Motion genom
+`kontroller/mcp/` (`--mcp-config` med `--strict-mcp-config` i `atelje.session_args`; Referos fil får nyckeln ur
+hemlighetsmappen, `atelje.refero_mcp_fil`): inga servrar på användarnivån laddas (det verkliga sessionsprovet
+2026-10-08 visade tio sådana bredvid flödets tre, GR-20261008-r117-claude#E1), och Mobbin, som annars bara finns på
+användarnivån, som sessionernas `--setting-sources project,local` inte läser, når skaparna ändå (fynd 2026-10-07). Startkontrollen prövar åtkomsten med flödets egna argument
 (`kunskap/beroenden.md`, Vad startkvittot säger). I de granskande passen (skisskritiken, jämförelsen och granskningens
 två pass) är förhandsvisningen och detektorn granskarens form (`--granskare`): bilderna hamnar i kandidatens
 `granskare/`, aldrig i skaparens varv, och verktygen ger ingen kod (inga byggloggar, inga kodutdrag, inga spårfiler). Ett

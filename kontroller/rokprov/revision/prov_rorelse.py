@@ -6,7 +6,7 @@ BESLUT.md, tillägget 2026-10-07 om Motion AI Kit och GSAP), i en isolerad kopia
 1. skillarna finns med KALLA.md: motion (11 upstream-filer, beslutstabellen css-or-motion.md) och gsap (åtta nästlade
    SKILL.md, llms.txt, LICENSE och vårt index), varje upstream-fil byte för byte lika den blob KALLA.md anger, och
    kontroller/mcp/motion.json bär bara den fria servern;
-2. MCP-konfigurationen ges rollen: ateljéns argument bär motion.json efter mobbin.json utan strikt läge, rollen rorelse
+2. MCP-konfigurationen ges rollen: ateljéns argument bär refero, mobbin.json och motion.json i strikt läge, rollen rorelse
    har mcp refero och motion, prompten säger vad som aktiveras med skillverktyget och vad som läses med Read, och
    startkontrollen visar Motion som tilldelad tjänst (provad, eller "tilldelad men åtkomst saknas"), aldrig som övrig
    anslutning, med verktygsbesluten ur metodkartan (uppgift, ingen uppgift, nytt);
@@ -187,15 +187,16 @@ def _skillarna():
 
 
 # ===== 2. MCP-konfigurationen ges rollen =====
-@fall('2 ateljéns argument bär motion.json efter mobbin.json utan strikt läge, rollen rorelse har MCP:n och aktiveringsraderna, och startkontrollen visar Motion som tilldelad')
+@fall('2 ateljéns argument bär refero, mobbin.json och motion.json i strikt läge (E1), rollen rorelse har MCP:n och aktiveringsraderna, och startkontrollen visar Motion som tilldelad')
 def _mcp_till_rollen():
     kund()
     a = atelje.session_args(['Read'], None, 10, 'm', 'high', (), SLUG)
     i = a.index('--mcp-config')
-    assert a[i + 1] == str(KOPIA / 'kontroller' / 'mcp' / 'mobbin.json') and a[i + 2] == str(KOPIA / 'kontroller' / 'mcp' / 'motion.json'), a[i:i + 3]
-    assert '--strict-mcp-config' not in a and a.count('--mcp-config') == 1, a
+    assert a[i + 1].endswith(('/refero.json', '/refero-mcp.json')) and a[i + 2] == str(KOPIA / 'kontroller' / 'mcp' / 'mobbin.json') \
+        and a[i + 3] == str(KOPIA / 'kontroller' / 'mcp' / 'motion.json'), a[i:i + 4]
+    assert '--strict-mcp-config' in a and a.count('--mcp-config') == 1, 'flödets tre tjänster och inga servrar på användarnivån (GR-20261008-r117-claude#E1)'
     b = atelje.session_args(['Read'], None, 10, 'm', 'high', ())
-    assert '--strict-mcp-config' in b and 'motion.json' not in ' '.join(b), 'utan slug inga MCP:er'
+    assert '--strict-mcp-config' in b and '--mcp-config' not in b, 'utan slug inga MCP:er'
     assert MOTION_VERKTYG not in a, 'tjänstens verktyg står aldrig i --allowedTools: kundvakten öppnar dem anrop för anrop'
     k = kompetens.tolka()
     assert k['rorelse']['mcp'] == ['refero', 'motion'], k['rorelse']['mcp']
@@ -516,6 +517,45 @@ def _passets_hela_kvitto():
          patch.object(kompetens, 'kvitto', return_value=deepcopy(kv)):
         rec = json.loads(json.dumps(kd.kompetenspass(SLUG, 'k01', 'rorelse', 'mekanikprov')))['kompetens']['mekanikprov:rorelse']
     assert rec['genomford'] is False and rec['beteende_provat'][0]['bild_finns'] is False, ('ett beteende utan bild räknades som genomfört', rec['genomford'])
+
+
+@fall('13 C4:s rest: passet är inte genomfört utan ett observerat verktygs- eller MCP-anrop med resultat, och ett MCP-svar utan känd form är inte observerat innehåll (C6:s rest)')
+def _krav_pa_observerat_anrop():
+    from copy import deepcopy
+    from unittest.mock import patch
+    kund()
+    bildfil = atelje.UNDERLAG / SLUG / 'syntetisk-beteendebild.png'
+    skriv(bildfil, b'\x89PNG syntetisk')
+    so = {'teknikval': [{'beteende': 'menyn', 'teknik': 'css', 'skal': 'syntetiskt'}],
+          'beteende_provat': [{'vad': 'menyn', 'hur': 'lokalt prov', 'resultat': 'öppnad', 'bild': str(bildfil)}],
+          'kod_andrad': [], 'ingen_andring': 'inget att ändra', 'aktivering': [], 'kvarstar': []}
+    bas = {'verifierad': True, 'saknas': [], 'lasta': [], 'valda': [], 'skill_anrop': [], 'skill_fel': [], 'mcp_anrop': {}, 'mcp_utfall': {},
+           'mcp_lage': {'motion': 'ansluten', 'refero': 'ansluten'}}
+    utfall = []
+    for namn, va, mu, so_ in (('inget anrop', {}, {}, so),
+                              ('förhandsvisning använd', {'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}}, {}, so),
+                              ('bara fel', {'förhandsvisning': {'anrop': 1, 'ok': 0, 'fel': 1}}, {}, so),
+                              ('Motion-svar utan känd form', {'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}}, {MOTION_VERKTYG: {'svar utan känd form': 1}},
+                               dict(so, teknikval=[{'beteende': 'menyn', 'teknik': 'motion', 'skal': 'syntetiskt'}]))):
+        st = {'status': 'klar', 'version': 'v1', 'kompetens': {}}
+        def spara(slug, kid, status, skal='', ta_bort=(), **extra):
+            st.update(status=status, skal=skal, **extra)
+            for key in ta_bort:
+                st.pop(key, None)
+            return deepcopy(st)
+        kv = dict(bas, verktyg_anrop=va, mcp_utfall=mu, mcp_anrop={k: 1 for k in mu})
+        with patch.object(kd, 'las_status', side_effect=lambda *a: deepcopy(st)), patch.object(kd, 'satt_status', side_effect=spara), \
+             patch.object(kd, 'bevara_version'), patch.object(kd, 'kopiera_bilder', return_value=[]), \
+             patch.object(kd, 'fotografera', side_effect=lambda *a, **k: deepcopy(st)), patch.object(atelje, 'session', return_value={'structured_output': so_}), \
+             patch.object(kompetens, 'kvitto', return_value=deepcopy(kv)):
+            rec = json.loads(json.dumps(kd.kompetenspass(SLUG, 'k01', 'rorelse', 'mekanikprov')))['kompetens']['mekanikprov:rorelse']
+        utfall.append((namn, rec['genomford'], rec['anvanda_verktyg']))
+    assert utfall == [('inget anrop', False, []), ('förhandsvisning använd', True, ['förhandsvisning']), ('bara fel', False, []),
+                      ('Motion-svar utan känd form', False, ['förhandsvisning'])], utfall
+    t = kompetens.mcp_tillstand('motion', 1, {MOTION_VERKTYG: {'svar utan känd form': 1}}, {'motion': 'ansluten'}, True)
+    assert t['tillstand'] == kompetens.TILLSTAND['ej_observerat'] and 'utan känd form' in t['orsak'], t
+    assert kompetens.mcp_tillstand('motion', 1, {MOTION_VERKTYG: {'anrop lyckades': 1}}, {'motion': 'ansluten'}, True)['tillstand'] == kompetens.TILLSTAND['anvant']
+    assert kompetens.mcp_tillstand('motion', 1, {MOTION_VERKTYG: {'fel': 1}}, {'motion': 'ansluten'}, True)['tillstand'] == kompetens.TILLSTAND['blockerat']
 
 
 @fall('12 obesvarad skill räknas inte som aktiverad eller läst')

@@ -339,6 +339,8 @@ def _svar(a, c, res, nekad, t):
                 return dict(ut, utfall='fel')
             if INGA_TRAFFAR.match(text):
                 return dict(ut, utfall='tomt resultat', traffar=0)
+            if text.strip():  # varken fel, tomt eller en läsbar lista: innehållet är inte observerat (C6:s rest; kompetens.UTAN_FORM)
+                return dict(ut, utfall='svar utan känd form')
         ut.update({k: v for k, v in (('traffar', tr), ('bilder', bilder), ('bildlankar', lankar)) if v})
         if bilder:
             return dict(ut, utfall='bild returnerad')

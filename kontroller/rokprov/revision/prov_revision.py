@@ -5065,7 +5065,7 @@ try:
         rec_ = kd.las_status(sl_sk, k_)['kompetens']
         assert set(rec_) == {'skiss:skapa'}, (k_, sorted(rec_))
         # kärnan läst hel; MCP-anropet räknas eftersom det gav svar (G7), men krävs inte (researchen hämtade materialet)
-        assert rec_['skiss:skapa']['genomford'] and rec_['skiss:skapa']['kvitto']['mcp_anrop'] == {'mcp__refero__refero_search_screens': 1}, rec_['skiss:skapa']
+        assert rec_['skiss:skapa']['karnan_last'] and 'genomford' not in rec_['skiss:skapa'] and rec_['skiss:skapa']['kvitto']['mcp_anrop'] == {'mcp__refero__refero_search_screens': 1}, rec_['skiss:skapa']
     assert not [s_ for s_ in sess_sk if s_['schema'] is kd.PASS_SCHEMA], 'inga pass före ägarens val'
     assert all(s_['slug'] == sl_sk for s_ in sess_sk if s_['schema'] in (None, kd.PLANPROVNING_SCHEMA, kd.PLAN_SCHEMA)), 'varje session får kundens slug: skills, MCP:er och kundvakten'
     sk1_p_ = next(s_ for s_ in sk_p if 'EN skiss, k01' in s_['prompt'])
@@ -5285,9 +5285,9 @@ assert 'läses inte i förväg' not in karta_k3 and 'Minst tre förhandsvarv är
 for x_ in ('--persist', '--force'):
     r_ux = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'uxsok.py'), 'x', x_], capture_output=True, text=True)
     assert r_ux.returncode == 2 and 'unrecognized' in r_ux.stderr, (x_, r_ux.returncode)
-# sessionerna: med en slug alla skills och MCP:er med kundvakten; utan slug inga MCP:er
+# sessionerna: med en slug alla skills och flödets tre MCP:er i strikt läge med kundvakten; utan slug inga MCP:er
 a_k3 = at_pt.session_args(['Read', 'Write(./x/**)'], None, 10, 'm', 'high', (), 'sk-prov')
-assert '--strict-mcp-config' not in a_k3 and '--settings' in a_k3 and 'kundvakt.py' in a_k3[a_k3.index('--settings') + 1] and '--disable-slash-commands' not in a_k3
+assert '--strict-mcp-config' in a_k3 and '--settings' in a_k3 and 'kundvakt.py' in a_k3[a_k3.index('--settings') + 1] and '--disable-slash-commands' not in a_k3
 assert 'Skill' in a_k3[a_k3.index('--tools') + 1].split(',') and 'mcp__refero__.*' in a_k3[a_k3.index('--settings') + 1]
 assert 'exit 2' in a_k3[a_k3.index('--settings') + 1], 'en krok som inte kan köras stoppar anropet'
 assert '--strict-mcp-config' in at_pt.session_args(['Read'], None, 10, 'm', 'high', ())
@@ -5298,6 +5298,19 @@ spara_miljo_k3 = os.environ.get('REFERO_MCP_TOKEN')
 os.environ['REFERO_MCP_TOKEN'] = 'provnyckel'
 try:
     assert 'REFERO_MCP_TOKEN' not in at_pt.session_miljo('sk-prov') and 'REFERO_MCP_TOKEN' not in at_pt.session_miljo(None), 'nyckeln når aldrig Bash (G15)'
+    # E1: Referos konfiguration till strikt läge bär nyckeln i en fil bredvid nyckelfilen (0600), aldrig i argumenten;
+    # mallen kontroller/mcp/refero.json läses ur ateljéns rot, som här är provets
+    (at_pt.ROOT / 'kontroller' / 'mcp').mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / 'kontroller' / 'mcp' / 'refero.json', at_pt.ROOT / 'kontroller' / 'mcp' / 'refero.json')
+    f_ref = at_pt.refero_mcp_fil()
+    assert f_ref == str(tmp / 'refero-mcp.json') and (os.stat(f_ref).st_mode & 0o777) == 0o600, (f_ref, oct(os.stat(f_ref).st_mode))
+    assert json.loads(Path(f_ref).read_text())['mcpServers']['refero']['headers']['Authorization'] == 'Bearer provnyckel'
+    a_e1 = at_pt.session_args(['Read'], None, 10, 'm', 'high', (), 'sk-prov')
+    assert 'provnyckel' not in ' '.join(a_e1) and a_e1[a_e1.index('--mcp-config') + 1] == f_ref, 'nyckeln står aldrig i argumenten'
+    (tmp / 'k3-refero.env').write_text('REFERO_MCP_TOKEN=nynyckel\n')
+    assert 'Bearer nynyckel' in Path(at_pt.refero_mcp_fil()).read_text(), 'förnyas när nyckeln ändrats'
+    at_pt.REFERO_ENV = tmp / 'k3-saknas' / 'refero.env'
+    assert at_pt.refero_mcp_fil() == str(at_pt.ROOT / 'kontroller' / 'mcp' / 'refero.json'), 'utan nyckel ges mallen som den är'
 finally:
     at_pt.REFERO_ENV = spara_ref_k3
     os.environ.pop('REFERO_MCP_TOKEN', None) if spara_miljo_k3 is None else os.environ.__setitem__('REFERO_MCP_TOKEN', spara_miljo_k3)
@@ -5395,7 +5408,9 @@ def sess_kp_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effor
     so = {'kod_andrad': [{'skill': 'emil-animate', 'vad': 'menyns övergång', 'var': 'sidhuvudet', 'varfor': 'syfte'}],
           'beteende_provat': [{'vad': 'menyn', 'hur': 'forhandsvisa --meny', 'resultat': 'öppnas', 'bild': kd.rel(d_kp / 'bilder' / 'start' / 'vy-390-forsta.png')}],
           'visuell_bedomning': {'fore': 'a', 'efter': 'b', 'omdome': 'battre', 'skal': 'tydligare'}, 'ingen_andring': '', 'valda': [], 'passade_inte': [], 'kvarstar': []}
-    sid_ = transkript_kd([('Read', {'file_path': f_}, False) for f_ in filer_] + [('mcp__refero__refero_search_screens', {'query': 'x'}, True)])
+    # ett observerat verktygsanrop med resultat (förhandsvisningen) krävs för genomfört (C4:s rest); det nekade MCP-anropet räknas inte (G7)
+    sid_ = transkript_kd([('Read', {'file_path': f_}, False) for f_ in filer_] + [('mcp__refero__refero_search_screens', {'query': 'x'}, True),
+                          ('Bash', {'command': '.venv/bin/python -B kontroller/forhandsvisa.py %s k01 --meny' % sl_kp}, False)])
     svar_ = {'structured_output': so, 'session_id': sid_}
     Path(ut).write_text(json.dumps(svar_))
     return svar_

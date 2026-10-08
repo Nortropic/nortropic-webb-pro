@@ -186,6 +186,32 @@ KUNDVAKT_MATCH = kundvakt_mod.MATCH  # externa designtjänster: kundvakten pröv
 REFERO_ENV = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env'
 
 
+def refero_mcp_fil():
+    """Referos MCP-konfiguration till --strict-mcp-config (GR-20261008-r117-claude#E1: det verkliga sessionsprovet visade
+    tio servrar på användarnivån bredvid flödets tre): kontroller/mcp/refero.json med nyckeln ur ägarens hemlighetsmapp
+    (REFERO_ENV) insatt, skriven bredvid nyckelfilen som refero-mcp.json (0600) och förnyad när mallen eller nyckeln
+    ändrats. Nyckeln står aldrig i argumenten eller i sessionens miljö (session_miljo, G15), och hemlighetsmappen nekas
+    sessionens Read (sandlada.HEMLIGT). Utan nyckel, eller när filen inte kan skrivas, ges mallen som den är: servern
+    står då som ej ansluten i sessionsprovet, och startkontrollen säger det."""
+    import refero_mcp
+    mall = ROOT / 'kontroller' / 'mcp' / 'refero.json'
+    try:
+        text = mall.read_text(encoding='utf-8').replace('${REFERO_MCP_TOKEN}', refero_mcp.nyckel(REFERO_ENV))
+        fil = Path(REFERO_ENV).parent / 'refero-mcp.json'
+        if fil.is_symlink():
+            return str(mall)
+        if not fil.is_file() or fil.read_text(encoding='utf-8') != text or (fil.stat().st_mode & 0o777) != 0o600:
+            tmp = fil.with_name(fil.name + '.tmp')
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                f.write(text)
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, fil)
+        return str(fil)
+    except (OSError, refero_mcp.ReferoFel):
+        return str(mall)
+
+
 def kundvakt(slug):
     """Inställningarna (--settings) med kundvakten för skaparsessionerna (kontroller/kundvakt.py, installningar): bara
     flödets egna verktyg hos Refero och Mobbin kan tillåtas, och bara när anropet inte bär kundens uppgifter (Trybloom
@@ -212,17 +238,18 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
     slug ser sessionen alla skills (skillverktyget) och MCP-servrarna, och kundvakten prövar varje anrop till en extern
     designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). MCP-servrarna:
-    repots lokala (Refero) och Mobbin ur kontroller/mcp/mobbin.json. Mobbin finns annars bara på användarnivån, som
-    --setting-sources project,local inte läser, så skaparna fick aldrig Mobbin fast metodkartan tilldelar den; filen ges
-    utan --strict-mcp-config, så att Refero står kvar (ägarens uppdrag 2026-10-07, punkt 2 och 3; startkontrollen prövar
-    åtkomsten med samma argument, verktygslada.prova_sessionen). Motions fria dokumentations-MCP ur
-    kontroller/mcp/motion.json ges på samma väg (--mcp-config tar flera filer; ägarens uppdrag 2026-10-07, punkt 5C, och
-    beslutet "bara den fria delen"), och kundvakten prövar dess anrop som Referos och Mobbins. Utan slug: inga MCP:er.
+    flödets tre ur kontroller/mcp/ i strikt läge, Refero (refero_mcp_fil, med nyckeln ur hemlighetsmappen), Mobbin
+    (mobbin.json) och Motions fria dokumentations-MCP (motion.json; ägarens uppdrag 2026-10-07, punkt 5C, och beslutet
+    "bara den fria delen"); kundvakten prövar varje anrop till dem. Mobbin finns annars bara på användarnivån, som
+    --setting-sources project,local inte läser, så skaparna fick aldrig Mobbin fast metodkartan tilldelar den (ägarens
+    uppdrag 2026-10-07, punkt 2 och 3). Utan --strict-mcp-config laddades också användarnivåns tio servrar (Gmail, Resend,
+    Trybloom med flera) i varje skaparsession (det verkliga sessionsprovet 2026-10-08, GR-20261008-r117-claude#E1).
+    Startkontrollen prövar åtkomsten med samma argument (verktygslada.prova_sessionen). Utan slug: inga MCP:er.
     De inbyggda verktygen begränsas till dem sessionen använder (--tools). Prenumerationen: ingen API-nyckel
     (nastlad.miljo)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
-    mcp = ['--settings', kundvakt(slug), '--mcp-config', str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'),
-           str(ROOT / 'kontroller' / 'mcp' / 'motion.json')] if slug else ['--strict-mcp-config']
+    mcp = ['--settings', kundvakt(slug), '--strict-mcp-config', '--mcp-config', refero_mcp_fil(),
+           str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json')] if slug else ['--strict-mcp-config']
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local'] + mcp + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),

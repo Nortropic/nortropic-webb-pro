@@ -548,11 +548,12 @@ def _atkomst():
     kund(slug)
     orig = atelje.session_args
 
-    def utan_mobbin(*a, **k):  # ateljéns argument som de var på 84c6994: ingen --mcp-config
+    def utan_mobbin(*a, **k):  # ateljéns argument som de var på 84c6994: ingen --mcp-config (flaggan och alla dess filer)
         args = orig(*a, **k)
         if '--mcp-config' in args:
             i = args.index('--mcp-config')
-            del args[i:i + 2]
+            j = next((x for x in range(i + 1, len(args)) if str(args[x]).startswith('--')), len(args))
+            del args[i:j]
         return args
     atelje.session_args = utan_mobbin
     glom('prov:session')
@@ -571,19 +572,22 @@ def _atkomst():
     for kid in ('plan', 'komposition', 'innehall', 'responsiv'):
         assert roll[kid]['atkomst']['mcp']['mobbin']['tillstand'] == 'blockerat', (kid, roll[kid]['atkomst'])
     assert 'tilldelad men åtkomst saknas' in kvitto_md(slug)
-    # med ateljéns egna argument: Mobbin genom kontroller/mcp/mobbin.json, utan strikt läge, så att Refero står kvar
+    # med ateljéns egna argument: Refero, Mobbin och Motion genom kontroller/mcp/ i strikt läge (GR-20261008-r117-claude#E1)
     kv = sk.kor_kontroll(slug, 'ny')
     rad = {r['namn']: r for r in kv['rader']}
     assert rad['Mobbin i ateljéns session']['resultat'] == 'ok' and rad['Refero i ateljéns session']['resultat'] == 'ok', rad['Mobbin i ateljéns session']
     a = atelje.session_args(['Read'], None, 10, 'm', 'high', (), slug)
-    assert a[a.index('--mcp-config') + 1] == str(KOPIA / 'kontroller' / 'mcp' / 'mobbin.json') and '--strict-mcp-config' not in a, a
+    i_m = a.index('--mcp-config')
+    assert a[i_m + 1].endswith(('/refero.json', '/refero-mcp.json')) and a[i_m + 2] == str(KOPIA / 'kontroller' / 'mcp' / 'mobbin.json') and '--strict-mcp-config' in a, a
     b = atelje.session_args(['Read'], None, 10, 'm', 'high', ())
     assert '--strict-mcp-config' in b and '--mcp-config' not in b, 'utan slug inga MCP:er'
-    # provet använde flödets egna argument: samma --setting-sources, --settings (kundvakten) och --mcp-config
+    # provet använde flödets egna argument: samma --setting-sources, --settings (kundvakten), --strict-mcp-config och --mcp-config
+    # med Refero före Mobbin och Motion (E1)
     sista = (FAKE / 'sessionsprov').read_text().splitlines()[-1]
-    for del_ in ('--setting-sources project,local', 'kundvakt.py', '--mcp-config %s' % (KOPIA / 'kontroller' / 'mcp' / 'mobbin.json'),
+    for del_ in ('--setting-sources project,local', 'kundvakt.py', '--strict-mcp-config', '%s %s' % (KOPIA / 'kontroller' / 'mcp' / 'mobbin.json', KOPIA / 'kontroller' / 'mcp' / 'motion.json'),
                  '--permission-mode dontAsk'):
         assert del_ in sista, (del_, sista[:300])
+    assert sista.split('--mcp-config ', 1)[1].split()[0].endswith(('/refero.json', '/refero-mcp.json')), sista[:300]
     # helbygget laddar ingen MCP och prövar inga ateljésessioner
     kvb = sk.kor_kontroll(slug, 'bygge')
     assert not [r for r in kvb['rader'] if r['grupp'] == 'åtkomst'] and kvb['roller'] == [], kvb['roller']
