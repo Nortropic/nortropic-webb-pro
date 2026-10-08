@@ -25,6 +25,7 @@ import { args, oppna, origin, skriv, nu, viaTjanst, arLokal, VYER, horisontellSp
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { vakta } from '../slugvakt.mjs';
+import { hitta, synligt } from './resevaljare.mjs';
 
 await viaTjanst('resor', process.argv.slice(2));
 const a = args(process.argv.slice(2));
@@ -40,7 +41,6 @@ const markera = (x) => String(x).split('{markering}').join(markering);
 const MOTORER = String(a.motorer || 'chromium').split(',').map((x) => x.trim()).filter(Boolean);
 if (!MOTORER.length || MOTORER.some((m) => !['chromium', 'webkit'].includes(m))) { console.error('--motorer: chromium och/eller webkit'); process.exit(2); }
 const norm = (p) => String(p).replace(/\/+$/, '') || '/';
-const synligt = (page, sel) => page.locator(sel).filter({ visible: true }).first();
 const r = { schema: 1, verktyg: 'resor', tid: nu(), adress: a.adress, motorer: MOTORER, resor: [], kvar: [], fel: [],
   not: 'Lokalt prov mot provets demomottagare: kontrollerar handling och synligt resultat, inte leverans till människa.' };
 
@@ -62,18 +62,16 @@ async function kontrollera(page, f) {
     return n ? null : `texten "${t}" syns inte`;
   }
   if (f.lank !== undefined) {
-    const alla = page.locator(f.lank.valjare);
-    if (!await alla.count()) return `ingen länk ${f.lank.valjare}`;
-    const l = alla.filter({ visible: true }).first();
+    const l = await synligt(page, f.lank.valjare);
     if (!await l.count()) return `länken ${f.lank.valjare} syns inte`;
     const href = await l.getAttribute('href') || '';
     return href.startsWith(f.lank.borjar || '') ? null : `länken går till ${href}, väntade ${f.lank.borjar}…`;
   }
   if (f.synlig !== undefined) {
-    return await synligt(page, f.synlig).count() ? null : `${f.synlig} syns inte`;
+    return await (await synligt(page, f.synlig)).count() ? null : `${f.synlig} syns inte`;
   }
   if (f.fel_vid_falt !== undefined) {
-    const falt = page.locator(f.fel_vid_falt);
+    const falt = await synligt(page, f.fel_vid_falt);
     if (!await falt.count()) return `fältet ${f.fel_vid_falt} finns inte`;
     let s;
     try {
@@ -130,7 +128,7 @@ for (const [nr, resa] of resor.entries()) {
       try {
         if (s.ga) { await b.page.goto(new URL(s.ga, a.adress).href, { waitUntil: 'load', timeout: 30000 }); await efterOmdirigering(b.page); }
         else if (s.klicka) {
-          const el = synligt(b.page, s.klicka);
+          const el = await synligt(b.page, s.klicka);
           if (!await el.count()) throw new Error(`inget synligt element för ${s.klicka}`);
           const lank = await el.evaluate((e) => { const l = e.closest('a'); return l ? { href: l.getAttribute('href') || '', target: l.getAttribute('target') || '',
             annan: /^https?:$/.test(l.protocol) && l.origin !== location.origin } : null; }, null, { timeout: 5000 });
@@ -141,15 +139,23 @@ for (const [nr, resa] of resor.entries()) {
           await b.page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
           await efterOmdirigering(b.page);
         }
-        else if (s.fyll) { for (const [sel, varde] of Object.entries(s.fyll)) await synligt(b.page, sel).fill(markera(varde), { timeout: 5000 }); }
+        else if (s.fyll) {
+          const falt = Array.isArray(s.fyll) ? s.fyll.map(x => {
+            if (!x || typeof x !== 'object' || !Object.hasOwn(x, 'falt') || !Object.hasOwn(x, 'varde') || Object.keys(x).some(k => !['falt','varde'].includes(k))) throw new Error('fyll kräver falt och varde');
+            return [x.falt, x.varde];
+          }) : Object.entries(s.fyll);
+          for (const [sel, varde] of falt) await (await synligt(b.page, sel)).fill(markera(varde), { timeout: 5000 });
+        }
         else if (s.skicka) {
-          const form = synligt(b.page, s.skicka);
-          const knapp = form.locator('button[type=submit], button:not([type]), input[type=submit]').filter({ visible: true }).first();
+          const form = await synligt(b.page, s.skicka);
+          const knappar = form.locator('button[type=submit], button:not([type]), input[type=submit]').filter({ visible: true });
+          if (typeof s.skicka !== 'string' && await knappar.count() !== 1) throw new Error('formuläret har inte en enda skickaknapp; använd klicka med roll och namn');
+          const knapp = knappar.first();
           await knapp.click({ timeout: 5000 });
           await b.page.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
           await efterOmdirigering(b.page);  // demomottagarens 303 till tacksidan går i WebKit via mellansidan
         } else if (s.tangent) await b.page.keyboard.press(s.tangent);
-        else if (s.vanta) await synligt(b.page, s.vanta).waitFor({ state: 'visible', timeout: 5000 });
+        else if (s.vanta) { await hitta(b.page, s.vanta).waitFor({ state: 'visible', timeout: 5000 }); await synligt(b.page, s.vanta); }
         else if (s.forvanta) { const k = await kontrollera(b.page, s.forvanta); if (k) throw new Error(k); }
         else throw new Error('okänt steg ' + JSON.stringify(s));
         post.ok = true;

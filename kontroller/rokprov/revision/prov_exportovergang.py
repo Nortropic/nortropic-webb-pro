@@ -77,6 +77,14 @@ class Exportovergang(unittest.TestCase):
         self.assertNotIn('publicerade med verksamhetens tillstånd', lic)
         self.assertIn('inte verifierat', lic)
 
+    def test_exportens_readme_intygar_inte_godkannanden_eller_bildursprung(self):
+        res = exportera.exportera(self.slug, bygg=False)
+        text = (Path(res['ut']) / 'README.md').read_text()
+        for obelagt in ('driftsatt på Vercel', 'är den godkända designens kontrakt', 'är verksamhetens egna'):
+            self.assertNotIn(obelagt, text)
+        self.assertIn('inte ett godkännande', text)
+        self.assertIn('Okända rättigheter', text)
+
 
     def test_bygget_binds_till_oforandrade_kallor(self):
         (self.sajt / 'node_modules').mkdir()

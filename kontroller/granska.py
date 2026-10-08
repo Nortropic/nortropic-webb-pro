@@ -83,7 +83,8 @@ def nu():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
-UNDERLAGSFILER = ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'REFERENSER.md', 'BESTALLNING.md', 'bilder/BILDER.md')
+UNDERLAGSFILER = ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'REFERENSER.md', 'BESTALLNING.md', 'bilder/BILDER.md',
+                 'KUNDSTART.json')
 
 
 def metod_sha(slug=None):

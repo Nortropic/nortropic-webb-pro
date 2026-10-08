@@ -17,3 +17,10 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** STIL.md på rökprovet visar varningen för det inlagda ordet och ingen varning på en sida utan överskjutande text; kontroller/rokprov.sh grönt.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: ogjord; mätningen finns varken i stilrapporten eller i inspektionen.
+
+**Nytt belägg (2026-10-08, D05):** det återkörda syntetiska provet ger dokumentbredd 515 px i både
+320- och 390-vyn när h1 innehåller ett långt sammansatt ord. Samma prov med en rubrik uppdelad i ord
+spiller inte. Bilder och mätning finns i GR-20261008-aterupptagning-codex, G12/D05 (källträd 55964733).
+Det tidigare oregistrerade bildbeviset försvann vid omstarten och används inte som verifiering.
+Ingen generell typografiregel eller visuellt godkänd lösning är införd. Postens föreslagna mätning av
+klippt text inne i ett element är fortfarande inte införd; dokumentets spillprov stänger inte posten.

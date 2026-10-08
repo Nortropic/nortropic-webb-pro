@@ -1,0 +1,32 @@
+---
+// Rökprovets testsida för GSAP ur mallens låsta beroenden (kunskap/beroenden.md; ägarens uppdrag 2026-10-07, punkt 5C):
+// sidan ska bygga utan konsolfel, och rörelsen ska stå stilla för den som bett om mindre rörelse. Mallens Bas.astro
+// stänger CSS-övergångar vid prefers-reduced-motion, men inte skriptdriven rörelse: det gör gsap.matchMedia() här.
+// rokprov.sh prövar sidan i båda lägena med Playwright.
+import Ram from '../../components/Ram.astro';
+---
+<Ram sida="Rörelse" titel="Rörelse i rökprovet: GSAP ur låset och dämpad rörelse" beskrivning="Testsidan prövar att GSAP ur mallens låsta beroenden bygger utan konsolfel och står stilla för den som bett om mindre rörelse.">
+  <h1>Rörelse</h1>
+  <p>Rutan nedan tonas in med GSAP när rörelse är tillåten, och står färdig direkt för den som bett om mindre rörelse.</p>
+  <div id="ruta" class="ruta"></div>
+  <p><a href="/">Tillbaka</a></p>
+  <style>
+    .ruta { width: 6rem; height: 6rem; background: var(--farg-accent); border-radius: var(--avstand-s); margin: var(--avstand-m) 0; }
+  </style>
+  <script>
+    import gsap from 'gsap';
+    const ruta = document.getElementById('ruta');
+    const mm = gsap.matchMedia();
+    // Rörelse bara när besökaren inte bett om mindre: ett avslutat tween märker sidan "gsap".
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.fromTo(ruta, { opacity: 0, x: -40 }, {
+        opacity: 1, x: 0, duration: 0.6, ease: 'power2.out',
+        onComplete: () => { document.documentElement.dataset.rorelse = 'gsap'; },
+      });
+    });
+    // Mindre rörelse: inget tween startas, rutan står färdig, och sidan märks "stilla".
+    mm.add('(prefers-reduced-motion: reduce)', () => {
+      document.documentElement.dataset.rorelse = 'stilla';
+    });
+  </script>
+</Ram>

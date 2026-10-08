@@ -62,6 +62,16 @@ assert str(s['info'].get('designavvikelser', '')).startswith('inga'), s['info'].
 " || { echo "FEL: designkontraktets grind, startsidans mätning eller jämförelsen med DESIGN.md på testsajten"; exit 1; }
 echo "   grönt (designgrinden med)"
 
+echo "   GSAP ur låset (2026-10-07): sidan /rorelse/ bygger utan konsolfel, står stilla vid reducerad rörelse och rör sig annars"
+"$ROOT/.venv/bin/python" -B -c "
+import sys, json, subprocess; sys.path.insert(0, '$ROOT/kontroller'); import prova
+with prova.Server('$S/dist') as srv:
+    r = subprocess.run(['node', '$ROOT/kontroller/rokprov/rorelse.mjs', srv.url], cwd='$ROOT/kontroller', capture_output=True, text=True, timeout=120)
+assert r.returncode == 0, r.stderr
+print(r.stdout)
+" || { echo "FEL: GSAP-sidan /rorelse/ (konsolfel, reducerad rörelse eller rörelsen)"; exit 1; }
+echo "   GSAP-sidan ok"
+
 echo "   granskarens uppdrag (torrt, ingen session) och godkännandets regel"
 UPPDRAG=$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/granska.py" rokprov-mall --torr)
 for krav in "kritik/GRANSKARE.md" "originalitet ≥ 7" "vy-390-ruta-01.png" "vy-1440-ruta-01.png" "kunskap/referenser-professionella.md" "kunskap/byggstandard.md" "standard.md"; do
@@ -665,6 +675,8 @@ echo "   startkvittots betydelse (2026-10-07): körväg och fas, referensunderla
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_startkvitto.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/startkvitto-prov.log" \
   || { echo "FEL: startkvittots prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/startkvitto-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/startkvitto-prov.log"; exit 1; }
 echo "   startkvittots prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/startkvitto-prov.log") fall)"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_kundvakt_rest.py" >"$ROOT/kunder/rokprov-mall/kundvakt-rest.log" 2>&1 \
+  || { echo "FEL: kundvaktens restprov"; tail -25 "$ROOT/kunder/rokprov-mall/kundvakt-rest.log"; exit 1; }
 echo "   slutbeskedet (2026-10-07): slutposten per körning, rapporten bunden till körningen, historisk granskning, kor.sh, demon och ab, kalibreringens rättelse"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_slutpost.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/slutpost-prov.log" \
   || { echo "FEL: slutbeskedets prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/slutpost-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/slutpost-prov.log"; exit 1; }
@@ -673,21 +685,67 @@ echo "   skisskritikens kompetens (2026-10-07): blocket, kritikens egen katalog,
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_skisskritik.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/skisskritik-prov.log" \
   || { echo "FEL: skisskritikens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/skisskritik-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/skisskritik-prov.log"; exit 1; }
 echo "   skisskritikens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/skisskritik-prov.log") fall)"
+echo "   metodens villkor och semantiska besökarresor"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_metodtillampning.py" >"$ROOT/kunder/rokprov-mall/metodtillampning-prov.log" 2>&1 \
+  || { echo "FEL: metodtillämpningens prov"; tail -20 "$ROOT/kunder/rokprov-mall/metodtillampning-prov.log"; exit 1; }
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_resor_semantik.py" >"$ROOT/kunder/rokprov-mall/resor-semantik-prov.log" 2>&1 \
+  || { echo "FEL: semantiska resors prov"; tail -20 "$ROOT/kunder/rokprov-mall/resor-semantik-prov.log"; exit 1; }
 echo "   källgrundade krav och flödets ingångar"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_kallgap.py" >/dev/null 2>"$ROOT/kunder/rokprov-mall/kallgap-prov.log" \
   || { echo "FEL: källgapets prov"; tail -20 "$ROOT/kunder/rokprov-mall/kallgap-prov.log"; exit 1; }
 echo "   exportens version och bevarade tidigare leverans"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_exportovergang.py" >/dev/null 2>"$ROOT/kunder/rokprov-mall/exportovergang-prov.log" \
   || { echo "FEL: exportens övergångsprov"; tail -20 "$ROOT/kunder/rokprov-mall/exportovergang-prov.log"; exit 1; }
+echo "   formulärfel: bevarad text utan JS, varaktig mottagning och separat mejlavisering"
+NWP_FORMULAR_WEBB=1 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_formularfel.py" >"$ROOT/kunder/rokprov-mall/formularfel-prov.log" 2>&1 \
+  || { echo "FEL: formulärets felvägar"; tail -30 "$ROOT/kunder/rokprov-mall/formularfel-prov.log"; exit 1; }
 echo "   resursmåttens råvärden, okända värden och identifierade kopior"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_autonomi.py" >"$ROOT/kunder/rokprov-mall/autonomi-prov.log" 2>&1 \
   || { echo "FEL: resursmåttens prov"; tail -20 "$ROOT/kunder/rokprov-mall/autonomi-prov.log"; exit 1; }
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_abpass.py" >"$ROOT/kunder/rokprov-mall/abpass-prov.log" 2>&1 \
   || { echo "FEL: A/B-måttens prov"; tail -20 "$ROOT/kunder/rokprov-mall/abpass-prov.log"; exit 1; }
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_ab_skiss.py" >"$ROOT/kunder/rokprov-mall/ab-skiss-prov.log" 2>&1 \
+  || { echo "FEL: skissens metodförsök"; tail -20 "$ROOT/kunder/rokprov-mall/ab-skiss-prov.log"; exit 1; }
 echo "   ateljéns slutpost (2026-10-07): stopp och fel, återupptagningen, startvägarna, avsändarna och domloggens radslut"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_ateljeslut.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/ateljeslut-prov.log" \
   || { echo "FEL: ateljéns slutpost"; grep '^FEL' "$ROOT/kunder/rokprov-mall/ateljeslut-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/ateljeslut-prov.log"; exit 1; }
 echo "   ateljéns slutpost ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/ateljeslut-prov.log") fall)"
+
+echo "   Kundstarts privata ärenden, källor, roller, återhämtning, överlämning och lagring"
+for kundprov in prov_kundstart prov_kundstart_http prov_kundstart_beredning prov_kundstart_fortsatt prov_kundstart_lagring prov_kundstart_behorighet prov_kundstart_agare prov_kundstart_matgrans prov_kundstart_flode prov_kundstart_flertur; do
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/$kundprov.py" >"$ROOT/kunder/rokprov-mall/$kundprov.log" 2>&1 \
+    || { echo "FEL: $kundprov"; tail -20 "$ROOT/kunder/rokprov-mall/$kundprov.log"; exit 1; }
+done
+for kundvy in prov_kundstart_webb prov_kundstart_agare_webb; do
+  node "$ROOT/kontroller/rokprov/revision/$kundvy.mjs" "$ROOT" >"$ROOT/kunder/rokprov-mall/$kundvy.log" 2>&1 \
+    || { echo "FEL: $kundvy"; tail -20 "$ROOT/kunder/rokprov-mall/$kundvy.log"; exit 1; }
+done
+echo "   Kundstarts lokala prov och webbläsare ok (syntetiska ärenden; ingen riktig AI)"
+
+echo "   Kirurgens källhälsa, överlämningssignaler, avgränsade försök och ägaryta"
+for kirurgprov in prov_kirurg_loop prov_kirurg_uppfoljning prov_kirurg_kallor prov_kirurg_signaler prov_kirurg_drift prov_kirurg_forbattring; do
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/$kirurgprov.py" >"$ROOT/kunder/rokprov-mall/$kirurgprov.log" 2>&1 \
+    || { echo "FEL: $kirurgprov"; tail -20 "$ROOT/kunder/rokprov-mall/$kirurgprov.log"; exit 1; }
+done
+node "$ROOT/kontroller/rokprov/revision/prov_kirurg_forbattring_webb.mjs" "$ROOT" >"$ROOT/kunder/rokprov-mall/prov_kirurg_forbattring_webb.log" 2>&1 \
+  || { echo "FEL: Kirurgens ägaryta"; tail -20 "$ROOT/kunder/rokprov-mall/prov_kirurg_forbattring_webb.log"; exit 1; }
+echo "   Kirurgens lokala prov ok (inga modeller, externa anrop eller aktiva införanden)"
+echo "   byggets läsgräns per kandidat (2026-10-07): sidans kod når varken syskonet eller underlaget, bygget, kritikens förhandsvisning och utdata som förut"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_lasgrans.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/lasgrans-prov.log" \
+  || { echo "FEL: läsgränsens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/lasgrans-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/lasgrans-prov.log"; exit 1; }
+echo "   läsgränsens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/lasgrans-prov.log") fall)"
+echo "   referensinspektionen (2026-10-07): bredderna ur prototypens, matchande regler, DOM-utdragets gräns, svepets brytpunkter, flera tillstånd, rörelsesekvensen, det kuraterade underlaget och DevTools-MCP:ns mekanik"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_referensinspektion.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/referensinspektion-prov.log" \
+  || { echo "FEL: referensinspektionens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/referensinspektion-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/referensinspektion-prov.log"; exit 1; }
+echo "   referensinspektionens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/referensinspektion-prov.log") fall)"
+echo "   canvas-design och HIG (2026-10-07): skillen med KALLA.md och licenser, uppgiften i komposition, hig-principer.md låst och i granskning och kritik, ett koncept aldrig en prototyp, egna_bilder"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_canvas_hig.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/canvashig-prov.log" \
+  || { echo "FEL: canvas-design- och HIG-provet"; grep '^FEL' "$ROOT/kunder/rokprov-mall/canvashig-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/canvashig-prov.log"; exit 1; }
+echo "   canvas-design- och HIG-provet ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/canvashig-prov.log") fall)"
+echo "   Motion AI Kit och GSAP (2026-10-07): skillarna med KALLA.md, MCP:n till rollen, kundvakten, metodkartans val, kvittots nivåer"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_rorelse.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/rorelse-prov.log" \
+  || { echo "FEL: rörelsens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/rorelse-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/rorelse-prov.log"; exit 1; }
+echo "   rörelsens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/rorelse-prov.log") fall)"
 
 echo "2/2 kända fel ska ge rött"
 F="$S/src/pages/om/index.astro"

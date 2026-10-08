@@ -60,6 +60,7 @@ os.environ['NWP_KORREGISTER'] = str(TMP / 'korregister')  # före importen: prov
 # den skarpa npm-rensningen låter npm själv avgöra cachen (KAN-2): varje npm som provet startar (npm-fallen, diskvakten och
 # underhållet) rensar då provets egen cache, aldrig ~/.npm; KAN-2-fallet byter den mot en egen npmrc och ett eget HOME
 os.environ['npm_config_cache'] = str(TMP / 'npm')
+os.environ.pop('NPM_CONFIG_CACHE', None)  # den yttre körningens cache får inte överstyra provets egen
 os.environ.pop('NWP_UNDERHALL_PROV', None)  # provets körningar anmäler sig, också inne i underhållets eget rökprov
 sys.path.insert(0, str(ROOT / 'kontroller'))
 import korregister  # noqa: E402
@@ -1263,8 +1264,9 @@ try:
             (c_ / '_cacache' / 'content-v2').mkdir(parents=True, exist_ok=True)
             (c_ / '_cacache' / 'content-v2' / 'paket').write_bytes(b'x' * 5000)
         r_e = ram(torr=torr, disk=lambda: (1000 * 2 ** 30, 100 * 2 ** 30))  # 90 % fylld: rensas
-        spara_e = {k_: os.environ.get(k_) for k_ in ('HOME', 'NPM_CONFIG_USERCONFIG', 'npm_config_cache', 'PATH')}
+        spara_e = {k_: os.environ.get(k_) for k_ in ('HOME', 'NPM_CONFIG_USERCONFIG', 'npm_config_cache', 'NPM_CONFIG_CACHE', 'PATH')}
         os.environ.pop('npm_config_cache', None)
+        os.environ.pop('NPM_CONFIG_CACHE', None)  # npm läser båda stavningarna före npmrc
         os.environ.update(HOME=str(NPM_HEM), NPM_CONFIG_USERCONFIG=str(NPM_HEM / 'egen-npmrc'))
         if falsk_npm:
             os.environ['PATH'] = '%s:%s' % (FALSK_NPM, spara_e['PATH'])

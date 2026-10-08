@@ -605,12 +605,176 @@ def vik(s):
 
 ALLMANNA_EPOSTORD = {'info', 'kontakt', 'mail', 'post', 'order', 'offert', 'support', 'hello', 'kundtjanst', 'noreply'}
 
+# --- adresser i fritext (granskningen GR-20261007-r104, B1): fritexten not och kontaktvägarnas belägg i
+# VERKSAMHET.json; kundvakten läser briefen, sidans text och RESEARCH.md med samma regler (kontroller/kundvakt.py) ---
+# Ett gatunamn känns igen på sitt led: med stor bokstav ("Exempelgatan", "Kungsvägen 12"), med gemener bara med ett
+# husnummer efter ("storgatan 5"). De svaga leden är också vanliga ord ("arbetsplan", "byggplatsen") och räknas bara med
+# stor bokstav och ett husnummer efter. Ett eget gatuord efter ett namn med stor bokstav ("Drottning Kristinas väg")
+# räknas, utom efter ett ensamt ord som inleder en mening utan husnummer ("Hela vägen …").
+GATULED = ('gatan', 'gata', 'vägen', 'väg', 'gränden', 'gränd', 'stigen', 'torget', 'backen', 'allén', 'allé', 'leden',
+           'kajen', 'stråket', 'slingan')
+GATULED_SVAGA = ('plan', 'platsen', 'plats', 'gången', 'ringen', 'torg', 'backe', 'stig', 'kaj', 'liden', 'höjden',
+                 'parken', 'kroken', 'svängen', 'hagen', 'udden', 'viken', 'berget', 'gärdet')
+GATUORD = {'väg', 'vägen', 'gata', 'gatan', 'gränd', 'torg', 'torget', 'plan', 'plats', 'platsen', 'allé', 'allén',
+           'backe', 'backen', 'stig', 'stigen', 'led', 'leden', 'kaj', 'kajen'}
+# ortsled och stora regioner: en ort ur bara dem ("Norra Sverige") pekar inte ut kunden; ett led framför ett ortnamn
+# hör till namnet ("Stora Mellösa", "Östra Hamngatan")
+REGIONER = set('norra sodra ostra vastra ovre nedre mellersta gamla nya stora lilla sankt st sverige sweden norden '
+               'skandinavien norrland svealand gotaland europa'.split())
+# tjänster och plattformar som en fritext nämner efter "på" eller "i" ("visas inte på Google")
+EJ_ORT = set('google maps facebook instagram linkedin youtube tiktok reco bokadirekt hitta eniro trustpilot allabolag '
+             'ratsit merinfo blocket offerta mittanbud servicefinder byggahus houzz'.split())
+ADRESSPREP = {'i', 'pa', 'vid', 'utanfor', 'nara', 'inom'}
+TEXTORD = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*|\d+|[^\w\s]")
+# postnummer, "999 99" eller "99999", inte en del av ett längre nummer ("070-000 11 22")
+POSTNUMMER_I_TEXT = re.compile(r'(?<!\d)(?<!\d[ \t-])(\d{3})[ \t]?(\d{2})(?![ \t]?\d)')
+# telefon- och organisationsnummer: minst åtta siffror med högst ett mellanslag eller bindestreck mellan grupperna
+NUMMER_I_TEXT = re.compile(r'(?<![\d+])\+?\d(?:[ \t-]?\d){7,13}(?![ \t-]?\d)')
+
+
+def _versal(w):
+    """Ett ord med stor begynnelsebokstav som inte är en förkortning i versaler (AB, SE)."""
+    return len(w) > 1 and w[0].isupper() and not re.sub(r"[-'’]", '', w).isupper() \
+        and bool(re.fullmatch(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", w))
+
+
+def adresser_i_text(text, ej=None, regioner=None):
+    """Gatorna, postnumren, orterna, namnen efter c/o och de långa numren i en fritext: {'gator', 'orter', 'namn',
+    'siffror'}. Gator, orter och namn i vik-form, ord med mellanslag emellan; siffror som siffersträngar (ett
+    telefonnummer också utan nollan och med de sex sista siffrorna, som i forbjudna_termer).
+    - Gatan: ett ord med ett gatuled (GATULED, GATULED_SVAGA), med ortsled framför ("Östra Hamngatan" ger också
+      "hamngatan"), eller ett namn med stor bokstav följt av ett gatuord (GATUORD; också utan sina första ord).
+    - Postnumret och orten efter det ("999 99 Fiktivby"), och orten efter gatan, husnumret och ett komma sist i en sats
+      ("Exempelgatan 3, Fiktivby").
+    - Namnet efter c/o ("c/o Anna Ek").
+    - Orten efter i, på, vid, utanför, nära eller inom i en adressmening: en mening med en gata, ett postnummer eller
+      ordet adress. En ort med ett ord ur ej (tjänster och plattformar) eller bara ur regioner räknas inte."""
+    ej = EJ_ORT if ej is None else ej
+    regioner = REGIONER if regioner is None else regioner
+    import unicodedata
+    gator, orter, namn, siffror = set(), set(), set(), set()
+
+    def fras(ord_):
+        return ' '.join(w for w in (re.sub(r'[^a-z0-9]+', ' ', vik(x)).strip() for x in ord_) if w)
+    rader = unicodedata.normalize('NFC', str(text or '')).splitlines()
+    # Ett sammanhängande postadressblock får ha orten på nästa rad. Gå
+    # aldrig över ett tomt stycke eller en Markdown-rubrik till nästa ämne.
+    extra = []
+    for i, (rad, nasta) in enumerate(zip(rader, rader[1:])):
+        if i + 2 < len(rader) and re.fullmatch(r'\s*(?:=+|-+)\s*', rader[i + 2]):
+            continue  # nästa rad hör till en setext-rubrik, inte postadressen
+        fore = rad.rstrip(' \t|')
+        post = list(POSTNUMMER_I_TEXT.finditer(fore))
+        if not post or post[-1].end() != len(fore):
+            continue
+        ort = nasta.strip().strip('|').strip()
+        ort = re.sub(r'^(?:[-+*]|\d+[.)])\s+', '', ort)
+        ort = re.sub(r'^(?:postort|ort)\s*[:|]\s*', '', ort, flags=re.I)
+        ort = ort.rstrip('.')
+        if ort and not any(c.islower() for c in ort):
+            ort = re.sub(r"[^\W\d_]+", lambda m: m.group(0).capitalize(), ort)
+        if not re.fullmatch(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*(?:[ \t]+[^\W\d_]+(?:[-'’][^\W\d_]+)*){0,3}", ort):
+            continue
+        ord_ = ort.split()
+        if all(_versal(w) or w.isupper() for w in ord_) and not any(vik(w) in ej for w in ord_) \
+                and not all(vik(w) in regioner for w in ord_):
+            extra.append(fore + ' ' + ort)
+    for rad in rader + extra:
+        rad = unicodedata.normalize('NFC', rad)
+        if not any(c.islower() for c in rad):  # en rad i versaler läses som vanlig text
+            rad = re.sub(r"[^\W\d_]+", lambda m: m.group(0).capitalize(), rad)
+        post = []
+        for m in POSTNUMMER_I_TEXT.finditer(rad):
+            siffror.add(m.group(1) + m.group(2))
+            post.append((m.start(), m.end()))
+        for m in NUMMER_I_TEXT.finditer(rad):
+            d = re.sub(r'\D', '', m.group(0))
+            siffror.update({d, d[-6:]} | ({d[1:]} if d.startswith('0') and len(d) >= 9 else set()))
+        tm = list(TEXTORD.finditer(rad))
+        t = [m.group(0) for m in tm]
+        stor = [_versal(w) for w in t]
+        # meningarna; en punkt efter ett tal eller ett kort ord ("St.", "ca.") avslutar ingen mening
+        meningar, a = [], 0
+        for i, w in enumerate(t):
+            if w in ('!', '?', ';') or (w == '.' and not (i and (t[i - 1].isdigit() or len(t[i - 1]) <= 3))):
+                meningar.append((a, i))
+                a = i + 1
+        meningar.append((a, len(t)))
+        def versalt(i, b, hogst):  # ord med stor bokstav från t[i], högst hogst stycken: index efter dem
+            k = i
+            while k < b and stor[k] and k - i < hogst:
+                k += 1
+            return k
+
+        def ort_ok(i, k):
+            ort = [vik(x) for x in t[i:k]]
+            return k > i and not any(o in ej for o in ort) and not all(o in regioner for o in ort)
+        for a, b in meningar:
+            if b <= a:
+                continue
+            gata_idx, gata_slut = set(), []
+            for i in range(a, b):
+                w, wl = t[i], t[i].lower()
+                nummer = i + 1 < b and t[i + 1].isdigit()
+                if not re.fullmatch(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", w):
+                    continue
+                stark = any(wl.endswith(s) and len(wl) >= len(s) + 2 for s in GATULED) and (stor[i] or nummer)
+                svag = any(wl.endswith(s) and len(wl) >= len(s) + 2 for s in GATULED_SVAGA) and stor[i] and nummer
+                if stark or svag:
+                    s = i
+                    while s > a and stor[s - 1] and vik(t[s - 1]) in regioner:
+                        s -= 1
+                    gator.add(fras([w]))
+                    gator.add(fras(t[s:i + 1]))
+                    gata_idx.update(range(s, i + 1))
+                    gata_slut.append(i)
+                elif wl in GATUORD and i > a and stor[i - 1]:
+                    s = i - 1
+                    while s > a and stor[s - 1]:
+                        s -= 1
+                    if i - s >= 2 or s > a or nummer:
+                        gator.update(fras(t[k:i + 1]) for k in range(s, i))
+                        gata_idx.update(range(s, i + 1))
+                        gata_slut.append(i)
+            # namnet efter c/o
+            for i in range(a, b - 3):
+                if t[i].lower() == 'c' and t[i + 1] == '/' and t[i + 2].lower() == 'o' and stor[i + 3]:
+                    namn.add(fras(t[i + 3:versalt(i + 3, b, 3)]))
+            # orten efter postnumret
+            postnr = [p for p in post if tm[a].start() <= p[0] < tm[b - 1].end()]
+            for _, slut in postnr:
+                i = next((k for k in range(a, b) if tm[k].start() >= slut), None)
+                if i is not None and stor[i]:
+                    orter.add(fras(t[i:versalt(i, b, 3)]))
+            # orten efter gatan, husnumret och ett komma, sist i satsen ("Exempelgatan 3, Fiktivby.")
+            for g in gata_slut:
+                i = g + 1
+                while i < b and (t[i].isdigit() or (len(t[i]) == 1 and t[i].isalpha() and t[i].isupper())):
+                    i += 1
+                if i > g + 1 and i + 1 < b and t[i] == ',' and stor[i + 1]:
+                    k = versalt(i + 1, b, 3)
+                    if (k == b or not re.fullmatch(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", t[k])) and ort_ok(i + 1, k):
+                        orter.add(fras(t[i + 1:k]))
+            # orten efter en preposition i en adressmening
+            if gata_idx or postnr or any('adress' in vik(t[k]) for k in range(a, b)):
+                for i in range(a + 1, b):
+                    if vik(t[i - 1]) in ADRESSPREP and stor[i] and i not in gata_idx:
+                        k = i
+                        while k < b and stor[k] and k not in gata_idx and k - i < 4:
+                            k += 1
+                        if ort_ok(i, k):
+                            orter.add(fras(t[i:k]))
+    return {'gator': {g for g in gator if g}, 'orter': {o for o in orter if o}, 'namn': {n for n in namn if n},
+            'siffror': {s for s in siffror if len(s) >= 5}}
+
 
 def forbjudna_termer(slug, underlag=None):
     """Kundens uppgifter som aldrig får gå till Refero eller Mobbin (BESLUT.md 2026-10-05, punkt 4; granskningen V9 och
     granskning 2, N3): namnet och dess ord (minst fyra tecken), orterna (adress och räckvidd), gatan, webbadressen
     (webb är ett objekt med strängvärden, till exempel doman), e-postadressernas domäner och namnord, och nummer
-    (organisationsnummer, postnummer, telefon) som siffersträngar. {'ord': set, 'siffror': set}."""
+    (organisationsnummer, postnummer, telefon) som siffersträngar. Fritexten not och kontaktvägarnas belägg läses för
+    gator, postnummer, orten efter postnumret eller gatan, orter i en adressmening, namnet efter c/o och långa nummer
+    (adresser_i_text; granskningen GR-20261007-r104, B1). {'ord': set, 'siffror': set, 'bransch': set}."""
     v = las_json(Path(underlag or UNDERLAG) / slug / 'VERKSAMHET.json') or {}
     ord_, siffror = set(), set()
     namn = vik(v.get('namn') or '').strip()
@@ -643,6 +807,13 @@ def forbjudna_termer(slug, underlag=None):
     siffror.update(d[1:] for d in list(siffror) if d.startswith('0') and len(d) >= 9)
     # telefonnumrets sista sex siffror ("11 22 33" utan riktnummer; granskningen 2026-10-05, fynd 8)
     siffror.update(re.sub(r'\D', '', k)[-6:] for k in kontakter if len(re.sub(r'\D', '', k)) >= 8)
+    # fritexten: en andra adress, ett postnummer eller ett nummer som inte står i fälten (GR-20261007-r104, B1)
+    fritext = [v.get('not')] + [k.get('belagg') for k in v.get('kontaktvagar') or [] if isinstance(k, dict)]
+    for x in fritext:
+        if isinstance(x, str):
+            a = adresser_i_text(x)
+            ord_.update(a['gator'] | a['orter'] | a['namn'])
+            siffror.update(a['siffror'])
     # branschens ord (kategorierna) ingår i ett namn som "Snickaren": de prövas bara som hela ord, aldrig som delsträng
     bransch = {w for k in (v.get('kategorier') or []) if isinstance(k, str) for w in re.split(r'[^a-z0-9]+', vik(k)) if len(w) >= 4}
     return {'ord': {o for o in ord_ if len(o) >= 3}, 'siffror': siffror, 'bransch': bransch}
@@ -879,6 +1050,9 @@ def godkand_giltig(slug, underlag=None, kunder=None):
     tar vid först när det gäller; bygget skriver sedan om sajtens egna filer utan att godkännandet upphör."""
     u = Path(underlag or UNDERLAG) / slug
     sajt = Path(kunder or (ROOT / 'kunder')) / slug / 'sajt'
+    import kundstart_kalla
+    if not kundstart_kalla.giltig(u):
+        return False, kundstart_kalla.SKAL
     g = (las_json(u / 'atelje' / 'VINNARE.json') or {}).get('godkand')
     if not isinstance(g, dict) or not g.get('tid'):
         return False, 'inget godkännande i VINNARE.json'

@@ -28,7 +28,8 @@ verktyg vi har tillgängliga"): bilderna hamnar i kritikens egen katalog,
 underlag/<slug>/atelje/kandidater/<id>/granskare/<sida>/varv-NN/, aldrig i skaparens varv/, så att skaparens
 varvräkning och bilderna skaparen läser är orörda. Utan andra val tar den 390, 768, 1280 och 1440, menyn klickad med
 flödets menyväljare (MENYKNAPP), tangentbordet och reflow 320. Den ger ingen kod: ett bygge eller en fotografering som
-faller säger bara att det föll (loggen kan visa källkod), och spårfilerna (vy-*-spar.zip, med sidans byggda kod) tas bort.
+faller säger bara att det föll (loggen kan visa källkod), spårfilerna (vy-*-spar.zip, med sidans byggda kod) tas bort, och
+mätningen tas i granskarens form (inspektera.mjs --extrakt-utan-kod: inga CSS-regler, DOM-utdrag eller SEKTIONER.md).
 """
 import argparse
 import json
@@ -146,6 +147,7 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
     with prova.Server(sajt / 'dist') as srv:
         rc, out = prova.kor([prova.NODE, insp, '--adress', srv.url + sida, '--ut', str(ut), '--vyer', ','.join(BREDDER) if mellan else '390,1440',
                              '--tillstand', ','.join(tillstand) or 'inga', '--extrahera', 'standard']
+                            + (['--extrakt-utan-kod'] if granskare else [])  # kritiken får måtten, aldrig regler, DOM-utdrag eller SEKTIONER.md
                             + sum((['--%s' % n, v] for n, v in (('meny', meny), ('hover', hover), ('fokus', fokus)) if v), []), timeout=420)
     if granskare:  # spåret bär sidans byggda kod (nätverkets resurser och DOM:en); kritiken behöver det inte
         for z in ut.glob('vy-*-spar.zip'):

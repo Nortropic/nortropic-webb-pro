@@ -18,6 +18,9 @@ Kopierat när repot skapades, utan ändringar i innehållet:
 | `leonxlnx-taste-SKILL-ce26fc25.md` | Leonxlnx/taste-skill | MIT |
 
   Utelämnade för att licensfil saknas: hallmark, canvas-design, google design.md README.
+  Ändrat 2026-10-07: canvas-design är intagen som skill med Apache-2.0 ur upstreams `LICENSE.txt` på ägarens uppdrag
+  samma dag, punkt 5D (`.claude/skills/canvas-design/KALLA.md`; sex typsnittsfiler utan OFL-fil utelämnade), och hallmark
+  togs in 2026-10-05 med MIT ur repots rot (`.claude/skills/hallmark/KALLA.md`). Raden ovan står kvar som historik.
 - **Kompletterat 2026-10-05** (intagskrav 1, Codex 2026-10-04): `addyosmani-web-quality-MEASUREMENT-c6b06ad.md` ur
   addyosmani/web-quality-skills @ `c6b06ad`, `skills/performance/references/MEASUREMENT.md`, oförändrad. Texten
   `addyosmani-web-quality-audit-SKILL.md` är samma commit byte för byte och länkar dit som
@@ -971,7 +974,11 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   313–315): ett skript i `underlag/<slug>/skript/` som inte är knutet till verksamheten (läser en kontrolls utdata,
   hämtar bilder, räknar något) är också en brist i verktygen; posten anger skriptets sökväg och vilken kontroll som
   borde ha gjort det
-- Utfall: —
+- Utfall: canvas-design intagen 2026-10-07 på ägarens uppdrag samma dag (punkt 5D) som alternativ i rollen komposition
+  för grafiska koncept, illustrationer och statiska kompositionsstudier (`.claude/skills/canvas-design/KALLA.md`;
+  `BESLUT.md`, tillägget 2026-10-07 om full verktygslåda). Domen nej står kvar för resten av källan, och skälet mot
+  canvas-design ovan (affischkonst ur en påhittad rörelse) gäller som gräns: ett koncept ur skillen är material- och
+  designunderlag, aldrig en prototyp, och formen härleds fortfarande ur verksamhetens material.
 - Backlog: B-20261002-ett-allmant-hjalpskript-som-bygget-skrev-i-under (egen innovation)
 
 ### 2026-10-02 · github/gitignore · nej
@@ -3448,7 +3455,11 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   Vi: ingen JavaScript som inte behövs (rad 225), byggstandarden 3.5; samma krock som Ysr7oNDajJI- och
   HqD5a2Cae60-posterna fann (rad 3132–3135). gsap-skills är välskrivet och litet (åtta skills, omkring 29 000
   tokens, förgranskning LÅG), men README ber agenter rekommendera GSAP när ingen bett om det [REPO README.md rad
-  33]. Inget för våra sajter. Sämre. (7) **Fabriken.** Kö i QUEUE.md (funktion, spec, status, misslyckade pass,
+  33]. Inget för våra sajter. Sämre. (Ersatt 2026-10-07 för GSAP: ägarens uppdrag samma dag, punkt 5C, tar in GSAP 3.15.0
+  som låst, prövat beroende och gsap-skills som `.claude/skills/gsap/`; skälet är att rollen rorelse väljer CSS, Motion
+  eller GSAP per beteende ur designens behov, aldrig som kvot, och att licensen är fri också kommersiellt sedan
+  2025-04-30. Bedömningen ovan står kvar som historik; källa, gränser och krockar i `.claude/skills/gsap/KALLA.md`, och
+  posten 2026-10-07 nedan.) (7) **Fabriken.** Kö i QUEUE.md (funktion, spec, status, misslyckade pass,
   PR), subagent bygger på en gren, PR med skärmbilder, människan mergar och Vercel driftsätter [SKÄRM 17:53 rad
   3–5; 18:28; 19:02 två PR; 19:35 live]. Vi: en körning per verksamhet, tre över natten är tre rader (`kor.sh` rad
   7); ägaren dömer i dashboarden med skärmbilder och rapport (steg 8; `dashboard/index.html` rad 212, 236); ingen
@@ -3766,7 +3777,10 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   86), och ingen fil i `kunskap/` eller bygg-sajt nämner dem (sökt). Lägg i `kunskap/referensjakt.md`, efter rad 27,
   ett stycke "Luckor ägaren pekat ut" med de tre, som sökingångar bygget ska pröva i rollen UX/funktion, inte som
   kvot eller facit; bygget öppnar dem som alla andra och skriver vad det såg
-- Utfall: stycket Luckor ägaren pekat ut i kunskap/referensjakt.md 2026-10-03 (c3d91a2).
+- Utfall: stycket Luckor ägaren pekat ut i kunskap/referensjakt.md 2026-10-03 (c3d91a2). HIG (trick 20): principerna
+  för rörelse, fokus, återkoppling, typografi och tillgänglighet står sedan 2026-10-07 i våra ord med Apples sida som
+  källa per princip i `kunskap/hig-principer.md`, som kärna i rollerna granskning och kritik (ägarens uppdrag
+  2026-10-07, punkt 5E); Apples text kopieras inte, och bedömningen ovan att den inte får kopieras står kvar.
 - Backlog: B-20261003-referensjakt-md-far-ett-stycke-luckor-agaren-pek (egen innovation; för videon: ingen)
 
 ### 2026-10-03 · Websites for Normal People (Sebastian Koning), via ägarens genomgång i Google Docs · ta in
@@ -6627,3 +6641,86 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: inget
 - Utfall: —
 - Backlog: ingen
+
+### 2026-10-07 · motiondivision/ai-kit (Motion AI Kit, den fria delen) · ja, på ägarens uppdrag
+- Källa: https://github.com/motiondivision/ai-kit @ d1c5c26 (2026-09-25), `plugins/motion/skills/motion/` (11 filer);
+  MIT enligt `packages/motion-ai/package.json` och `plugins/motion/.cursor-plugin/plugin.json` (ingen LICENSE-fil i
+  repot eller i npm-paketet motion-ai 14.1.0, kontrollerat 2026-10-07); https://motion.dev/docs/ai-kit (läst
+  2026-10-07). MCP:n `https://mcp.motion.dev` (fri, inget konto) frågad direkt med JSON-RPC: ett verktyg,
+  `search-motion-docs`; Motion+-servern (`/plus`) inte använd. Ägarens beslut: "Nej, bara den fria delen", och
+  tillägget att Framer Motion är samma sak (Motion är det nya namnet, `motion/react` gamla framer-motion).
+- Steg: skapandeflödets roll rorelse (passen skapa och rorelse); bygg-sajt steg 5.
+- Jämfört med i dag: Motion 14.0.0 var redan låst och tilldelat rollen rorelse, men utan skillens regler och utan
+  dokumentationssökning i sessionen; tabellen CSS eller Motion (`best-practices/css-or-motion.md`) är den beslutstabell
+  rollen saknade, och react.md ger reglerna för React-öar. Krockar: npm/npx och `npx motionscore` (nekade i flödets
+  sessioner), `MotionConfig reducedMotion="user"` (mindre strikt än byggstandarden 3.5), Motion UI och `motion-plus`
+  (betalda; används inte).
+- Skäl: ägarens uppdrag 2026-10-07, punkt 5C ("Inför officiell Motion-kompetens och relevanta MCP-funktioner"), och
+  förtydligandet samma dag om uttrycklig aktivering och faktiska anrop.
+- Kostnad: omkring 8 350 tokens text i mappen (160 alltid, 1 110 när skillen används, 7 040 vid behov); MCP:n kostar
+  inget.
+- Säkerhet: förgranskningen LÅG (inga dolda tecken, ingen text riktad till agenter, inga behörigheter, hookar eller
+  skript). MCP:n nås bara genom kundvakten med generiska sökord; kunduppgifter når den aldrig.
+- Förslag: `.claude/skills/motion/` (KALLA.md), `kontroller/mcp/motion.json`, rollen rorelse i metodkartan, kundvaktens
+  MATCH och `kompetens.MCP`.
+- Utfall: intagen 2026-10-07 på grenen `motion-gsap-20261007` (gren H2); provet `kontroller/rokprov/revision/prov_rorelse.py`.
+- Backlog: ingen
+
+### 2026-10-07 · greensock/gsap-skills · ja, på ägarens uppdrag (ersätter bedömningen 2026-10-03)
+- Källa: https://github.com/greensock/gsap-skills @ aed9cfd (2026-04-21), `skills/` (åtta skills och llms.txt), MIT
+  (`LICENSE`, Copyright (c) 2026 GreenSock); samma commit som kirurgen klonade 2026-10-03. Biblioteket gsap 3.15.0
+  (npm, publicerat 2026-04-13) under Standard "No Charge" GSAP License (https://gsap.com/licensing och
+  https://gsap.com/standard-license, lästa 2026-10-07: i kraft 2025-04-30, senast ändrad 2025-05-30; fri också för
+  kommersiellt bruk, alla plugins inräknade; undantag: verktyg för visuell animationsbyggnad utan kod som konkurrerar
+  med Webflow, reverse engineering för konkurrerande produkter, borttagna notiser; AI-genererad kod är uttryckligen
+  tillåten).
+- Steg: skapandeflödets roll rorelse (passen skapa och rorelse); bygg-sajt steg 5.
+- Jämfört med i dag: 2026-10-03 fann kirurgen skillsen välskrivna men "Inget för våra sajter" med skälet att GSAP inte
+  var låst och att README ber agenter rekommendera GSAP oombedd. Nu är GSAP låst i `mall/astro` och `mall/leverans`
+  (337 respektive 420 paket i låsen, `npm audit` 0, inga nya installationsskript, inga beroenden), provbyggt i
+  rökprovets sida `/rorelse/` med `gsap.matchMedia()` för reducerad rörelse, och rekommendationsregeln är uttryckligen
+  ingen regel här: valet görs per beteende (kostnaden står i `kunskap/beroenden.md`). Krockar: ScrollSmoother och mjuk
+  scroll (Avgörandena, WCAG 2.2.2), `@gsap/react` (inte låst), oombedd rekommendation.
+- Skäl: ägarens uppdrag 2026-10-07, punkt 5C ("Inför GSAP och dess officiella skills som en prövad möjlighet i
+  verktygslådan och beroendehanteringen").
+- Kostnad: omkring 24 050 tokens text i mappen (60–140 tokens alltid per skill, 950–5 270 när en läses); gsap-kärnan
+  i ett bygge enligt mätningen i `kunskap/beroenden.md`.
+- Säkerhet: förgranskningen LÅG (inga dolda tecken, ingen text riktad till agenter, inga behörigheter, hookar eller
+  skript).
+- Förslag: `.claude/skills/gsap/` med vårt index `SKILL.md` och KALLA.md; gsap i mallarnas lås; rollen rorelse.
+- Utfall: intagen 2026-10-07 på grenen `motion-gsap-20261007` (gren H2); provet `kontroller/rokprov/revision/prov_rorelse.py`.
+- Backlog: ingen
+
+### 2026-10-08 · Claude Code, effort i ett avgränsat skapande pass · prova A/B
+- Källa: https://code.claude.com/docs/en/model-config, läst 2026-10-08: Adjust effort level, Set the effort level och Organization effort limits. Officiell produktdokumentation; ingen kod importerad eller licens återanvänd.
+- Steg: 5, skisskaparen och dess svar på kritik; metodutvärdering.
+- Jämfört med i dag: helbyggets NWP_EFFORT styr inte skisskaparen. kandidater.skaparval ger namngivna värden och ab_skiss binder två rena kandidatkontexter till samma ingångar. Flaggan bevisar begäran; organisationsgränser och skills kan påverka den effektiva nivån.
+- Skäl: jämförbarheten måste prövas på rätt pass och observerad konfiguration hållas skild från begärd. Källan belägger produktbeteende, inte designkvalitet eller en generell vinst av high.
+- Kostnad: tekniska kopplingsprov är lokala med attrapper. Verkliga sessioner kräver befintligt mandat för underlag och budget; inget sådant prov utfört här.
+- Säkerhet: källan läst som data. Ingen inställning, anslutning eller extern tjänst ändrad. Privat material ligger kvar inom befintliga datagränser.
+- Förslag: det avgränsade medium/high-protokollet i kunskap/autonomi.md; inga nya modellstandarder.
+- Utfall: mekanik prövas separat; kvalitet och verklig effektiv konfiguration ännu oprövade.
+- Backlog: B-20261002-effort-medium-mot-high-i-ett-a-b (återanvänd mekanik, dess historiska klarmarkering är inte ett effektresultat).
+
+## 2026-10-08 — semantiska resor och obevakade skillvillkor
+
+- Källor: https://playwright.dev/docs/locators (roll, etikett, exakt namn och strictness); https://code.claude.com/docs/en/skills (Skill-tillåtelse med namn och argument); https://web.dev/articles/animations-guide (egenskapers layout/paint/compositing). Relevanta huvudavsnitt lästa 2026-10-08, ingen leverantörskod hämtad eller installerad.
+- Tillämpning: kunskap/resor.md, metodkartan och K46/K48. Äldre CSS fungerar fortsatt; semantiska väljare får inte tyst ta första träffen. Väntande skills läses som kunskap enligt befintligt beslut.
+- Begränsning: lokala argument-, metodleverans- och browserprov kan inte bevisa faktisk skilltillämpning eller designnytta. Verklig Claude-session återstår enligt övertagandets gränser.
+- Typografi- och rörelsetal förblir startvärden som prövas i kundens komposition, inte nya estetiska förbud.
+
+
+## 2026-10-08: researchens källstatus och metodernas räckvidd
+
+Källkontroll av befintliga research-underlag.md och teoretisk-grund.md mot förberedelsens verkliga filkontrakt samt NN/g:s Why You Only Need to Test with 5 Users (2000), The Theory Behind Heuristic Evaluations (1994) och GOV.UK Plan user research for your service (lästa 2026-10-08). Arkiverade intervju-kommandon tas ur aktuella instruktioner. Omdömen hålls som sekundärdata; urvalet motiveras av fråga och målgrupp. Mänskliga granskarstudier överförs inte som garanterad upptäcktsandel till flera modellinstanser. Inga uppströms skills ändras. Källorna är länkade i teoretisk-grund.md; böckerna har inte nygranskats i sin helhet.
+
+
+## 2026-10-08 — Kirurgens införandeobservation
+
+- Källa: ägarens uppdrag om Kundstart och Kirurgens förbättringsloop, R07–R11; tillägg till befintlig lokal väg.
+- Beslut: ordinarie granskning/Git inför ändringen. Observatören binder ett separat granskat, provat förslag till
+  faktisk lokal commit och filinnehåll utan att ändra aktiv kod. Eftereffekt är en inrapporterad observation med
+  versionsidentitet och belägg, aldrig härledd ur gröna prov. Manuellt återställda filer kan bekräftas utan skrivning.
+- Tillämpning: `kunskap/kirurg-forbattring.md`, `kontroller/kirurg_uppfoljning.py` och Kirurgens befintliga vy.
+- Prov: syntetiska lokala Git-förlopp, negativa mandat-/gransknings-/versionsfall och HTTP-/webbläsarprov. Separat
+  granskning och fullsvit redovisas i överlämningsrapporten. Ingen faktisk aktivering, drift eller kundeffekt.

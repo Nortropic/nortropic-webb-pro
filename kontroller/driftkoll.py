@@ -8,8 +8,8 @@ forhandsvisning: utan förbikoppling svarar sajten 302 eller 401 mot Vercels inl
 (hemligheten läses ur --bypass-fil och skrivs aldrig ut) svarar startsidan 200 med `X-Robots-Tag: noindex`.
 produktion: startsidan svarar 200 utan noindex (varken huvud eller meta), robots.txt tillåter, sitemap.xml finns.
 Båda: säkerhetshuvudena ur kundrepots vercel.json. --formular prövar funktionen /api/forfragan/: honeypot (303 till
-/tack/), ofullständigt (303 till /kontakt/), en bild över 4 MB och en begäran över 4,4 MB (303 tillbaka till
-formuläret med bildens besked, X-Forfragan for-stor), annan Origin (403), och i förhandsvisningen ett giltigt inskick
+/tack/), ofullständigt (422 med bevarad text), en bild över 4 MB och en begäran över 4,4 MB (413 med
+bildens besked, X-Forfragan for-stor), annan Origin (403), och i förhandsvisningen ett giltigt inskick
 (303 till /tack/ med X-Forfragan demo: Resends variabler gäller bara produktionen, och ett riktigt mejl ur en
 förhandsvisning vore ett fel). Ett giltigt inskick skickas aldrig till en produktion: det vore ett riktigt mejl.
 Slutkod 0 när allt håller, 1 annars, 2 vid fel i anropet.
@@ -88,16 +88,21 @@ def kontroll(adress, lage, bypass=None, formular=False):
         origin = {'Origin': adress}
         bas = {'namn': 'Driftkoll', 'telefon': '0700000000', 'meddelande': 'Prov av formuläret', 'fylltid': '9000'}
         fall = [('honeypot', dict(bas, webbplats='spam'), None, origin, 303, '/tack/', None),
-                ('ofullständigt', dict(bas, telefon=''), None, origin, 303, '/kontakt/', 'ofullstandig'),
-                ('bild på 4,2 MB', bas, ('stor.jpg', os.urandom(4_200_000), 'image/jpeg'), origin, 303, '/kontakt/?bild=for-stor', 'for-stor'),
-                ('begäran över 4,4 MB', bas, ('storre.jpg', os.urandom(4_450_000), 'image/jpeg'), origin, 303, '/kontakt/?bild=for-stor', 'for-stor'),
+                ('ofullständigt', dict(bas, telefon=''), None, origin, 422, None, 'ofullstandig'),
+                ('bild på 4,2 MB', bas, ('stor.jpg', os.urandom(4_200_000), 'image/jpeg'), origin, 413, None, 'for-stor'),
+                ('begäran över 4,4 MB', bas, ('storre.jpg', os.urandom(4_450_000), 'image/jpeg'), origin, 413, None, 'for-stor'),
                 ('annan Origin', bas, None, {'Origin': 'https://angripare.exempel'}, 403, None, None)]
         if lage == 'forhandsvisning':
             fall.append(('giltigt (demo)', bas, None, origin, 303, '/tack/', 'demo'))
         for namn, falt, fil, huv, vantad, plats, utfall in fall:
             data, typ = multipart(falt, fil)
-            s, h, _ = hamta(mal, 'POST', {**forbi, **huv, 'Content-Type': typ}, data)
+            s, h, kropp = hamta(mal, 'POST', {**forbi, **huv, 'Content-Type': typ}, data)
             ok = s == vantad and (plats is None or h.get('location', '').startswith(plats)) and (utfall is None or h.get('x-forfragan') == utfall)
+            if vantad in (422, 413):
+                ok = ok and 'text/html' in h.get('content-type','') and h.get('cache-control') == 'no-store' and 'noindex' in h.get('x-robots-tag','')
+                if namn != 'begäran över 4,4 MB':
+                    import html
+                    ok = ok and all(html.escape(falt[k], quote=True).encode() in kropp for k in ('namn','telefon','meddelande'))
             P(ok, 'formuläret, %s: %d %s %s' % (namn, s, h.get('location', ''), h.get('x-forfragan', '')))
     return ut
 

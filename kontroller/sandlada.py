@@ -6,8 +6,8 @@
 Skriver JSON för `claude --settings`: med sandlådan på (standard) får Bash bara skriva i kunder/<slug>, underlag/<slug>,
 backlog/ och tmp; mekaniken (kontroller, kritik, kunskap, mall, .claude, dashboard, kor.sh, .git …) är skrivskyddad;
 hemligheter (~/.nortropic-hemligheter, ~/.ssh, .env …) är olästa; nätet går bara till verksamhetens domän,
-NWP_NAT_DOMANER och listan i kontroller/sandlada-domaner.txt; REFERO_MCP_TOKEN syns inte för Bash. --av ger bara
-env-delen (GH_CONFIG_DIR). Backlogposten om gräns på processnivå (Codex-revisionen 2026-10-03, F1); docs:
+NWP_NAT_DOMANER och listan i kontroller/sandlada-domaner.txt; REFERO_MCP_TOKEN syns inte för Bash. --av lämnar
+sandlådan avstängd men behåller sessionens nekanden och eventuell GH_CONFIG_DIR. Backlogposten om gräns på processnivå (Codex-revisionen 2026-10-03, F1); docs:
 code.claude.com/docs/en/sandboxing. Sandlådan gäller Bash och dess barn, inte Read/Write/Edit, MCP eller krokar:
 tillåtelselistorna i kor.sh behövs fortfarande. Chromium kan inte starta inne i sandlådan (mach-register nekas), så
 webbläsarverktygen körs av kontroller/webbtjanst.py utanför den, med samma domänlista (domanlista) som proxyn.
@@ -17,6 +17,7 @@ import json
 import os
 import sys
 from pathlib import Path
+import kompetens
 
 ROOT = Path(__file__).resolve().parents[1]
 SKYDDAT = ('kontroller', 'kritik', 'kunskap', 'mall', '.claude', 'dashboard', 'kor.sh', 'dashboard.sh', 'CLAUDE.md', 'BESLUT.md',
@@ -69,7 +70,10 @@ def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=N
     root = Path(root or ROOT)
     hem = hem or os.path.expanduser('~')
     rot = str(root)
-    ut = {}
+    # Lagret samlar andra kunders råsvar och åtkomsttoken. Bara Kundstarts
+    # värdprocess får läsa det, inte byggsessionen eller dess Bash-barn.
+    kundstart = str(root / 'underlag/kundstart')
+    ut = {'permissions': {'deny': ['Read(//%s/**)' % kundstart.strip('/'), *kompetens.skill_nekas(root)]}}
     if gh_dir:
         ut['env'] = {'GH_CONFIG_DIR': gh_dir}
     if sandlada:
@@ -79,11 +83,11 @@ def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=N
                 'denyWrite': nekade_skrivvagar(root, slug),
                 'allowWrite': ['%s/kunder/%s' % (rot, slug), '%s/underlag/%s' % (rot, slug), '%s/backlog' % rot, '/tmp/nwp-bygge-%s' % slug,
                                '%s/.npm' % hem, '%s/.cache' % hem, '%s/Library/Caches' % hem] + [str(x) for x in extra_skriv],
-                'denyRead': [p.replace('~', hem, 1) if p.startswith('~') else p for p in HEMLIGT]},
+                'denyRead': [p.replace('~', hem, 1) if p.startswith('~') else p for p in HEMLIGT] + [kundstart]},
             'network': {'allowedDomains': domanlista(root, domaner), 'allowLocalBinding': True},
             'credentials': {'envVars': [{'name': 'REFERO_MCP_TOKEN', 'mode': 'deny'}]}}
         # Sandlådan gäller Bash; sessionens egna filverktyg (Read) nekas hemlighetsmappen med en vanlig regel (Codex R24)
-        ut['permissions'] = {'deny': ['Read(//%s/.nortropic-hemligheter/**)' % hem.strip('/')]}
+        ut['permissions']['deny'].append('Read(//%s/.nortropic-hemligheter/**)' % hem.strip('/'))
     return ut
 
 
@@ -92,7 +96,7 @@ def main(argv=None):
     p.add_argument('slug')
     p.add_argument('--doman', action='append', default=[])
     p.add_argument('--gh-dir', default=None)
-    p.add_argument('--av', action='store_true', help='bara env-delen, ingen sandlåda')
+    p.add_argument('--av', action='store_true', help='ingen sandlåda, behåll sessionens nekanden och eventuell env-del')
     p.add_argument('--root', default=None)
     p.add_argument('--hem', default=None)
     a = p.parse_args(argv)

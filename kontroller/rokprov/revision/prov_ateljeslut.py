@@ -465,9 +465,13 @@ def _aterupptagning():
     gammal = {k: st0[k] for k in ('faser',) + atelje.BARS + atelje.BARS_FORTSATT + ('foregaende',) + atelje.BARS_KANDIDAT if k in st0}
     time.sleep(1.1)  # en ny körning, en ny sekund
     starta(s, 'fortsatt', forra_lage='ny', **gammal)
+    # Den riktiga planläsningen förankrar sökvägen i reporoten. Provets underlag
+    # ligger i RT, inte i repot vars mekanik vi läser; bind roten till samma kopia.
+    gammal_rot, atelje.ROOT = atelje.ROOT, RT
     try:
         atelje.arbeta(s, 'fortsatt')
     finally:
+        atelje.ROOT = gammal_rot
         aterstall(spara)
     st = json.loads((rot / 'STATUS.json').read_text())
     k02 = kandidater.las_status(s, 'k02')

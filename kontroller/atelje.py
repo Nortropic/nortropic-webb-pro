@@ -79,6 +79,7 @@ import bildkedja  # noqa: E402  domarnas läsning ur transkripten (designprovet 
 import granska  # noqa: E402  frysta_ankare: ägarens kalibreringsankare till panelen (designprovet punkt 6)
 import skapande  # noqa: E402  domloggen, historiken, metoden per steg, research på begäran
 import sandlada  # noqa: E402  HEMLIGT: samma hemligheter nekas skaparens och domarnas sessioner
+import kompetens  # noqa: E402  K46: väntande skills läses med Read
 
 ROOT = prova.ROOT
 KUNDER = ROOT / 'kunder'
@@ -197,7 +198,7 @@ def andra_kunder_nekas(slug):
     aldrig förebilder (rensningen inför Nortropic 2.0; tidigare stod det bara i text). Utan slug: inga."""
     if not slug:
         return []
-    ut = []
+    ut = ['Read(//%s/**)' % str(UNDERLAG / 'kundstart').strip('/')]
     for rot, namn in ((KUNDER, 'kunder'), (UNDERLAG, 'underlag')):
         try:
             andra = sorted(p.name for p in rot.iterdir() if p.is_dir() and p.name != slug and not p.name.startswith('.'))
@@ -214,15 +215,19 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     repots lokala (Refero) och Mobbin ur kontroller/mcp/mobbin.json. Mobbin finns annars bara på användarnivån, som
     --setting-sources project,local inte läser, så skaparna fick aldrig Mobbin fast metodkartan tilldelar den; filen ges
     utan --strict-mcp-config, så att Refero står kvar (ägarens uppdrag 2026-10-07, punkt 2 och 3; startkontrollen prövar
-    åtkomsten med samma argument, verktygslada.prova_sessionen). Utan slug: inga MCP:er. De inbyggda verktygen
-    begränsas till dem sessionen använder (--tools). Prenumerationen: ingen API-nyckel (nastlad.miljo)."""
+    åtkomsten med samma argument, verktygslada.prova_sessionen). Motions fria dokumentations-MCP ur
+    kontroller/mcp/motion.json ges på samma väg (--mcp-config tar flera filer; ägarens uppdrag 2026-10-07, punkt 5C, och
+    beslutet "bara den fria delen"), och kundvakten prövar dess anrop som Referos och Mobbins. Utan slug: inga MCP:er.
+    De inbyggda verktygen begränsas till dem sessionen använder (--tools). Prenumerationen: ingen API-nyckel
+    (nastlad.miljo)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
-    mcp = ['--settings', kundvakt(slug), '--mcp-config', str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json')] if slug else ['--strict-mcp-config']
+    mcp = ['--settings', kundvakt(slug), '--mcp-config', str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'),
+           str(ROOT / 'kontroller' / 'mcp' / 'motion.json')] if slug else ['--strict-mcp-config']
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local'] + mcp + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
             '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools', *NEKAS,
-            *andra_kunder_nekas(slug), *nekas]
+            *kompetens.skill_nekas(ROOT), *andra_kunder_nekas(slug), *nekas]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
     return args
@@ -365,8 +370,8 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
 def egna_bilder(slug):
     """Verksamhetens egna bilder enligt BILDER.md. Har tabellen en kolumn Egen gäller den (ja = egen); annars är varje
     listad fil som finns i bilder/ egen, eftersom skillens format bara listar verksamhetens bilder (stock tas bort och
-    står under Borttagna). En rad som nämner stock eller genererad bild tas aldrig med. Saknas BILDER.md används alla
-    bilder i underlaget."""
+    står under Borttagna). En rad som nämner stock, genererad bild eller ett koncept ur canvas-design (kunskap/metodkarta.md,
+    Grafiska koncept ur canvas-design) tas aldrig med. Saknas BILDER.md används alla bilder i underlaget."""
     lista = UNDERLAG / slug / 'bilder' / 'BILDER.md'
     alla = sorted(f.name for f in (UNDERLAG / slug / 'bilder').glob('*') if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp', '.avif')) \
         if (UNDERLAG / slug / 'bilder').is_dir() else []
@@ -385,7 +390,7 @@ def egna_bilder(slug):
             egen_kolumn = next((i for i, c in enumerate(rubrik) if c.startswith('egen')), None)
             continue
         fil = celler[0].strip('`* ')
-        if fil not in alla or any(re.search(r'\bstock|genererad', c, re.I) for c in celler[1:]):
+        if fil not in alla or any(re.search(r'\bstock|genererad|koncept|canvas-design', c, re.I) for c in celler[1:]):
             continue
         if egen_kolumn is not None:
             if egen_kolumn < len(celler) and re.match(r'^\W*ja\b', celler[egen_kolumn].replace('*', ''), re.I):
@@ -2063,6 +2068,8 @@ def arbeta(slug, lage):
     status['steg'] = 'startkontroll'
     skriv_status(rot, status)
     try:
+        import kundstart_kalla
+        kundstart_kalla.krav(UNDERLAG / slug)
         import startkontroll
         kv = startkontroll.for_start(slug, lage)
         sk = startkontroll.sammanfattning(kv) if kv else None
@@ -3152,6 +3159,8 @@ def starta(a, rot):
             print('Begäran har redan behandlats; ingen ny körning startas. Läs körningens slutpost.')
             return 5
     forbereder = a.forbered or (a.fortsatt and (st.get('lage') == 'forbered' or st.get('forra_lage') == 'forbered'))
+    import kundstart_kalla
+    kundstart_kalla.krav(UNDERLAG / a.slug)
     if forbereder:
         if os.environ.get('NWP_SLUG'):
             print('förberedelsen startas utanför bygget')

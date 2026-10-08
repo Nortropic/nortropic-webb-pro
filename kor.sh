@@ -50,6 +50,10 @@ fi
 [ -x "$ROOT/.venv/bin/python" ] || { echo "saknar .venv — se README.md, Installation"; exit 2; }
 [ -d "$ROOT/kontroller/node_modules" ] || { echo "saknar kontroller/node_modules — kör: (cd kontroller && npm install)"; exit 2; }
 command -v claude >/dev/null || { echo "claude saknas i PATH"; exit 2; }
+if { [ -e "$ROOT/underlag/kundstart" ] || [ -L "$ROOT/underlag/kundstart" ]; } && [ "${NWP_SANDLADA:-av}" != pa ]; then
+  echo "Kundstarts ärendelager kräver sandlådan: använd NWP_SANDLADA=pa. Inget bygge startat."
+  exit 2
+fi
 FRIST="${NWP_FRIST:-10}"
 [[ "$FRIST" =~ ^[0-9]{1,4}$ ]] || { echo "NWP_FRIST ska vara ett antal sekunder"; exit 2; }
 

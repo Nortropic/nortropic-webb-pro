@@ -18,3 +18,10 @@ andrad: 2026-10-02T11:57Z
 **Klart när:** Ägarens val och siffrorna står i LARDOMAR.md, och kor.sh har den effort som vann.
 
 **Klar (2026-10-02):** mekanismen klar (ab.py + vyn Jämförelser); själva körningen startar ägaren, två fulla byggen
+
+**Avgränsning 2026-10-08, ägarens etapp 5:** den äldre klarmarkeringen avser mekaniken, inte ett genomfört
+kvalitetsförsök eller uppfyllt effektmått. Det prioriterade nya försöket gäller bara skisskaparens medium/high,
+inte helbyggets NWP_EFFORT. `ab.py forbered-skiss` förbereder två kandidater från samma plan utan att starta en
+session; vanliga Prototypvyn används för blind bedömning. Protokoll och mätgränser: `kunskap/autonomi.md`.
+Verkligt underlag, körmandat, observerad effektiv modellkonfiguration och ägarens bedömning återstår.
+Ingen standardinställning ändras av tekniska prov eller av den här postens gamla status.

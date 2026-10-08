@@ -4,14 +4,21 @@
 // tangentbord, reflow 320, meny, omladdning, bakåt/framåt), spår. Skärmbilder kompletterar interaktionen; ett textträd
 // är inte bildseende — bedöm layout i bilderna.
 //   node inspektera.mjs --adress URL --ut DIR [--vyer 390,1440] [--tillat ORIGIN;ORIGIN | --tillat-alla] [--undantag-fil F]
-//        [--hemligheter FIL] [--kontext FIL,FIL] [--hover SEL] [--fokus SEL] [--meny SEL] [--tillstand tangentbord,reflow,reload,bakat,reducerad]
+//        [--hemligheter FIL] [--kontext FIL,FIL] [--hover SEL;SEL] [--fokus SEL;SEL] [--meny SEL] [--tillstand tangentbord,reflow,reload,bakat,reducerad]
 //        reducerad: sidan omladdad med prefers-reduced-motion: reduce; animationer som fortfarande löper räknas och fotograferas
-//        [--extrahera standard | 'SEL;SEL'] — riktad designextraktion i samma session (extrahera.mjs): vy-<bredd>-extrakt.json och EXTRAKT.md
+//        [--extrahera standard | 'SEL;SEL'] — riktad designextraktion i samma session (extrahera.mjs): vy-<bredd>-extrakt.json,
+//        EXTRAKT.md (hela mätningen, med interaktiva element, rörelsesekvensen och spårets steg per vy) och SEKTIONER.md (det
+//        kuraterade underlaget: ett avsnitt per sektion med bild, mått, typsnitt, regler och DOM-utdrag)
+//        [--svep] — ett svep över bredderna 320–1600 som registrerar var layouten byter form (SVEP.json, avsnitt i EXTRAKT.md)
+//        [--extrakt-utan-kod] — granskarens form (forhandsvisa --granskare): måtten och typsnitten, men inga CSS-regler, inga
+//        DOM-utdrag, inget SEKTIONER.md och animationsmål utan klasser; den blinda kritiken får aldrig skaparens kod
+//        --hover och --fokus tar flera CSS-väljare åtskilda med semikolon: den första ger vy-<bredd>-hover.png, de följande
+//        vy-<bredd>-hover-2.png …; utfallet per väljare står i tillstand.hover_lista (ägarens uppdrag 2026-10-07, punkt 7)
 import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER, viaTjanst } from './gemensamt.mjs';
 import { readFileSync, rmSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { vakta } from '../slugvakt.mjs';
-import { extrahera, sammanfatta, STANDARD } from './extrahera.mjs';
+import { extrahera, sammanfatta, STANDARD, animationerPaSidan, interaktiva, sparsammanfattning, svep, svepsammanfattning, sektionsunderlag, MATERIALNOT } from './extrahera.mjs';
 
 await viaTjanst('inspektera', process.argv.slice(2));
 // Menyn i verkligt tillstånd (ägaren 2026-10-06: en bild med "meny" i filnamnet bevisar inte att menyn öppnades).
@@ -61,6 +68,23 @@ async function provaMeny(page, valjare, ut, vy) {
   return m;
 }
 
+// Flera väljare per tillstånd: varje väljare fotograferas för sig (hover: page.hover, fokus: page.focus); den första får
+// det gamla filnamnet och fälten hover/hover_fel, så att förhandsvisningen och referenspaketets äldre inlägg läser som
+// förut, och hover_lista bär utfallet per väljare.
+async function provaTillstand(page, namn, valjare, ut, vy, regAnim) {
+  const lista = [];
+  for (let i = 0; i < valjare.length; i++) {
+    const sel = valjare[i]; const post = { valjare: sel, bild: join(ut, i === 0 ? `vy-${vy}-${namn}.png` : `vy-${vy}-${namn}-${i + 1}.png`) };
+    try { if (namn === 'hover') await page.hover(sel, { timeout: 5000 }); else await page.focus(sel, { timeout: 5000 }); }
+    catch (e) { post.fel = String(e.message).split('\n')[0].slice(0, 120); }
+    await page.waitForTimeout(250);
+    if (!post.fel) await regAnim(`${namn} ${sel}`);
+    await page.screenshot({ path: post.bild });
+    lista.push(post);
+  }
+  return lista;
+}
+
 const a = args(process.argv.slice(2));
 vakta(a.ut);
 if (!a.adress || !a.ut) { console.error('användning: --adress URL --ut DIR [...]'); process.exit(2); }
@@ -72,21 +96,28 @@ const vyer = String(a.vyer || '390,1440').split(',');
 const tillstand = new Set(String(a.tillstand || 'tangentbord,reflow,reload,bakat').split(',').filter(Boolean));
 const kontext = (a.kontext ? String(a.kontext).split(',') : []).map(f => ({ fil: f, namn: basename(f), sha256: sha256(readFileSync(f)), byte: readFileSync(f).length }));
 const extraktSel = a.extrahera ? (String(a.extrahera) === 'standard' || a.extrahera === true ? STANDARD : String(a.extrahera).split(';').map((x) => x.trim()).filter(Boolean).slice(0, 24)) : null;
-const extraktMd = [];
+const valjare = (v) => (v && v !== true ? String(v).split(';').map((x) => x.trim()).filter(Boolean).slice(0, 8) : []);
+const hoverSel = valjare(a.hover), fokusSel = valjare(a.fokus);
+const medKod = !a['extrakt-utan-kod'];
+const extraktVyer = {};  // bredd → {x, rutor, skarmhojd}: EXTRAKT.md och SEKTIONER.md skrivs när alla vyer är klara
 const rapport = { schema: 1, verktyg: 'inspektera', adress: a.adress, tid: nu(), tillatna_ursprung: tillat.length ? tillat : 'alla', undantag: !!undantag, kontext, vyer: {}, not: 'utvecklarinspektion med kontext; skärmbilderna avgör layout (textträdet är inte bildseende); mobilvyerna är emulerade, inte fysisk enhet' };
 for (const vy of vyer) {
   const b = await oppna({ vy, tillat, undantag, hemliga, spar: true, mal: a.adress });
-  const r = { namn: b.vy.namn, sidor: [], tillstand: {} };
+  const r = { namn: b.vy.namn, sidor: [], tillstand: {}, rorelse: [] };
+  // rörelsesekvensen: sidans animationer vid varje händelse, med händelsen som trigger (extrahera.animationerPaSidan)
+  const regAnim = async (trigger) => { try { r.rorelse.push({ trigger, animationer: await b.page.evaluate(animationerPaSidan, medKod) }); } catch (e) { r.rorelse.push({ trigger, fel: String(e.message).slice(0, 120) }); } };
   try {
     const svar = await b.page.goto(a.adress, { waitUntil: 'load', timeout: 45000 });
     r.status = svar?.status() ?? null; r.titel = await b.page.title();
     await b.page.waitForTimeout(500);
     r.forsta_vyn = skriv(a.ut, `vy-${vy}-forsta.png`, ''); await b.page.screenshot({ path: r.forsta_vyn });
+    await regAnim('laddning');
     // Lata bilder (loading=lazy) och intoning vid skroll syns inte i en helsidesbild om sidan inte skrollats igenom först.
     await b.page.evaluate(async () => { const h = () => document.documentElement.scrollHeight; for (let y = 0; y < h(); y += innerHeight * 0.8) { scrollTo(0, y); await new Promise((ok) => setTimeout(ok, 150)); } scrollTo(0, 0); });
     await b.page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 8000 }).catch(() => {});
     await b.page.waitForTimeout(300);
     r.hela_sidan = join(a.ut, `vy-${vy}-hela.png`); await b.page.screenshot({ path: r.hela_sidan, fullPage: true });
+    await regAnim('skroll');
     // Skärmhöga rutor tagna genom att skrolla en skärm i taget: varje ruta är det besökaren ser i det läget, och
     // ruta 01 är alltid förstavyn. Chromiums helsidesbild kan börja mitt på sidan (lulea-snickaren-abx 2026-10-02),
     // så rutorna skärs inte ur den.
@@ -104,18 +135,20 @@ for (const vy of vyer) {
     r.skarmar = Math.ceil(sidhojd / skarmhojd);
     r.h1_i_forsta_vyn = await b.page.evaluate((h) => { const e = document.querySelector('h1'); return !!e && e.getBoundingClientRect().top < h; }, skarmhojd);
     if (extraktSel) {  // före tillstånden (hover, meny, reflow) som ändrar sidan; källbilden är vyns första ruta och helsida
-      const x = await extrahera(b.page, extraktSel).catch((e) => ({ fel: String(e.message || e).slice(0, 200) }));
+      const x = await extrahera(b.page, extraktSel, { kod: medKod }).catch((e) => ({ fel: String(e.message || e).slice(0, 200) }));
       x.kallbilder = { forsta: r.forsta_vyn, rutor: r.rutor, hela: r.hela_sidan }; x.vy = vy; x.adress = a.adress; x.tid = nu(); x.matning = 'uppmätt';
       r.extrakt = skriv(a.ut, `vy-${vy}-extrakt.json`, x);
-      if (x.fel) r.extrakt_fel = x.fel; else extraktMd.push(sammanfatta(vy, x, basename(r.forsta_vyn)));
+      if (x.fel) r.extrakt_fel = x.fel; else extraktVyer[vy] = { x, rutor: r.rutor.map((f) => basename(f)), skarmhojd, bild: basename(r.forsta_vyn), r };
       if (x.ogiltiga_valjare && x.ogiltiga_valjare.length) r.extrakt_ogiltiga = x.ogiltiga_valjare;
     }
-    r.tillganglighetstrad = skriv(a.ut, `vy-${vy}-aria.txt`, await b.page.locator('body').ariaSnapshot());
+    const aria = await b.page.locator('body').ariaSnapshot();
+    r.tillganglighetstrad = skriv(a.ut, `vy-${vy}-aria.txt`, aria);
+    r.interaktiva = interaktiva(aria);  // det besökaren kan göra: länkar, knappar, fält (ur trädet, inte ur koden)
     r.h1 = await b.page.locator('h1').count();
     r.spill = await horisontellSpill(b.page);
-    if (a.hover) { await b.page.hover(a.hover, { timeout: 5000 }).catch(e => { r.tillstand.hover_fel = e.message.slice(0, 120); }); r.tillstand.hover = join(a.ut, `vy-${vy}-hover.png`); await b.page.screenshot({ path: r.tillstand.hover }); }
-    if (a.fokus) { await b.page.focus(a.fokus, { timeout: 5000 }).catch(e => { r.tillstand.fokus_fel = e.message.slice(0, 120); }); r.tillstand.fokus = join(a.ut, `vy-${vy}-fokus.png`); await b.page.screenshot({ path: r.tillstand.fokus }); }
-    if (a.meny) r.tillstand.meny = await provaMeny(b.page, String(a.meny), a.ut, vy);
+    if (hoverSel.length) { r.tillstand.hover_lista = await provaTillstand(b.page, 'hover', hoverSel, a.ut, vy, regAnim); r.tillstand.hover = r.tillstand.hover_lista[0].bild; if (r.tillstand.hover_lista[0].fel) r.tillstand.hover_fel = r.tillstand.hover_lista[0].fel; }
+    if (fokusSel.length) { r.tillstand.fokus_lista = await provaTillstand(b.page, 'fokus', fokusSel, a.ut, vy, regAnim); r.tillstand.fokus = r.tillstand.fokus_lista[0].bild; if (r.tillstand.fokus_lista[0].fel) r.tillstand.fokus_fel = r.tillstand.fokus_lista[0].fel; }
+    if (a.meny) { r.tillstand.meny = await provaMeny(b.page, String(a.meny), a.ut, vy); if (r.tillstand.meny.klickad) await regAnim('meny'); }
     if (tillstand.has('tangentbord')) { await b.page.goto(a.adress, { waitUntil: 'load' }); r.tillstand.tangentbord = await tangentbord(b.page, 25); r.tillstand.tangentbord_utan_synlig_fokus = r.tillstand.tangentbord.filter(s => !s.synligFokus).length; }
     if (tillstand.has('reflow')) { await b.page.setViewportSize({ width: 320, height: 640 }); await b.page.waitForTimeout(300); r.tillstand.reflow_320 = await horisontellSpill(b.page); await b.page.screenshot({ path: join(a.ut, `vy-${vy}-reflow320.png`) }); await b.page.setViewportSize(b.vy.viewport); }
     if (tillstand.has('reducerad')) {  // rörelsen respekterar prefers-reduced-motion: löpande animationer efter omladdning
@@ -134,14 +167,29 @@ for (const vy of vyer) {
   } catch (e) { r.fel = String(e.message).slice(0, 300); }
   r.konsol = b.logg.konsol; r.sidfel = b.logg.sidfel; r.dialoger = b.logg.dialoger; r.natverk = { antal: b.logg.natverk.length, fel: b.logg.natverk.filter(x => x.status === null || x.status >= 400), blockerade: b.logg.blockerade, laddade: b.logg.natverk.filter(x => x.status === 200).reduce((m, x) => { m[x.typ || 'other'] = (m[x.typ || 'other'] || 0) + 1; return m; }, {}) };  // laddade per typ: referenspaketet verifierar att bilder och typsnitt kom med
   r.spar = join(a.ut, `vy-${vy}-spar.zip`); await b.stang(r.spar);
+  r.spar_sammanfattning = sparsammanfattning(r.spar);  // läsbar sammanfattning; filen förblir privat
   rapport.vyer[vy] = r;
+}
+if (a.svep) {  // svepet över bredderna: en egen datorkontext som bara byter bredd (extrahera.svep)
+  const bs = await oppna({ vy: '1440', tillat, undantag, hemliga, spar: false, mal: a.adress });
+  try { await bs.page.goto(a.adress, { waitUntil: 'load', timeout: 45000 }); await bs.page.waitForTimeout(300); rapport.svep = await svep(bs.page); }
+  catch (e) { rapport.svep = { fel: String(e.message || e).slice(0, 200) }; }
+  finally { await bs.stang(); }
+  skriv(a.ut, 'SVEP.json', rapport.svep);
 }
 rapport.spar_privat = !!undantag;
 if (undantag) rapport.not += '; spårfilerna bär skyddsundantaget i nätverksposter och är privata (delas aldrig); JSON-loggen är redigerad';
 skriv(a.ut, 'INSPEKTION.json', rapport);
-if (extraktSel) skriv(a.ut, 'EXTRAKT.md', ['# Extrakt — ' + a.adress + ' (' + rapport.tid + ')', '', 'Uppmätt i samma webbläsarsession som skärmbilderna (kontroller/webblasare/extrahera.mjs). Värdena är mätningar; tolkningen (uppskattat, valt för kunden) skrivs i REFERENSER.md och DESIGN.md.', '', ...extraktMd].join('\n') + '\n');
+if (extraktSel) {
+  const extraktMd = Object.keys(extraktVyer).sort((p, q) => Number(p) - Number(q)).map((vy) => { const v = extraktVyer[vy]; return sammanfatta(vy, v.x, v.bild, { interaktiva: v.r.interaktiva, rorelse: v.r.rorelse, spar: v.r.spar_sammanfattning }); });
+  skriv(a.ut, 'EXTRAKT.md', ['# Extrakt — ' + a.adress + ' (' + rapport.tid + ')', '', MATERIALNOT, '',
+    'Uppmätt i samma webbläsarsession som skärmbilderna (kontroller/webblasare/extrahera.mjs). Värdena är mätningar; tolkningen (uppskattat, valt för kunden) skrivs i REFERENSER.md och DESIGN.md.' + (medKod ? ' Det kuraterade underlaget per sektion står i SEKTIONER.md.' : ' Granskarens form: inga regler, utdrag eller SEKTIONER.md.'), '',
+    ...(rapport.svep ? [svepsammanfattning(rapport.svep), ''] : []), ...extraktMd].join('\n') + '\n');
+  if (medKod) skriv(a.ut, 'SEKTIONER.md', sektionsunderlag(a.adress, rapport.tid, Object.fromEntries(Object.entries(extraktVyer).map(([vy, v]) => [vy, { x: v.x, rutor: v.rutor, skarmhojd: v.skarmhojd }]))));
+}
 const md = ['# Inspektion — ' + a.adress + ' (' + rapport.tid + ')', '', 'Kontext bifogad: ' + (kontext.map(k => k.namn + ' ' + k.sha256.slice(0, 12)).join(', ') || 'ingen'), ''];
-for (const [vy, r] of Object.entries(rapport.vyer)) md.push(`## Vy ${vy} — ${r.namn}`, '', `- status ${r.status}, titel "${r.titel}", h1 ${r.h1}, horisontell spill ${r.spill?.spill}`, `- konsol ${r.konsol.length} (fel: ${r.konsol.filter(x => x.typ === 'error').length}), sidfel ${r.sidfel.length}, nätverksfel ${r.natverk.fel.length}, blockerade ${r.natverk.blockerade.length}`, `- tangentbord: ${r.tillstand.tangentbord?.length ?? '-'} steg, utan synlig fokus ${r.tillstand.tangentbord_utan_synlig_fokus ?? '-'}; reflow 320 spill ${r.tillstand.reflow_320?.spill ?? '-'}`, ...(r.tillstand.meny ? [`- meny: klickad ${r.tillstand.meny.klickad}, expanded ${r.tillstand.meny.expanded}; ${r.tillstand.meny.bild ? 'bild ' + r.tillstand.meny.bild : 'ingen bild: ' + r.tillstand.meny.skal}`] : []), `- bilder: ${r.forsta_vyn}, ${r.hela_sidan}; träd ${r.tillganglighetstrad}; spår ${r.spar}`, '');
+for (const [vy, r] of Object.entries(rapport.vyer)) md.push(`## Vy ${vy} — ${r.namn}`, '', `- status ${r.status}, titel "${r.titel}", h1 ${r.h1}, horisontell spill ${r.spill?.spill}`, `- konsol ${r.konsol.length} (fel: ${r.konsol.filter(x => x.typ === 'error').length}), sidfel ${r.sidfel.length}, nätverksfel ${r.natverk.fel.length}, blockerade ${r.natverk.blockerade.length}`, `- tangentbord: ${r.tillstand.tangentbord?.length ?? '-'} steg, utan synlig fokus ${r.tillstand.tangentbord_utan_synlig_fokus ?? '-'}; reflow 320 spill ${r.tillstand.reflow_320?.spill ?? '-'}`, ...(r.tillstand.meny ? [`- meny: klickad ${r.tillstand.meny.klickad}, expanded ${r.tillstand.meny.expanded}; ${r.tillstand.meny.bild ? 'bild ' + r.tillstand.meny.bild : 'ingen bild: ' + r.tillstand.meny.skal}`] : []), ...(['hover', 'fokus'].filter((n) => r.tillstand[n + '_lista']).map((n) => `- ${n}: ${r.tillstand[n + '_lista'].map((p) => `${p.valjare} → ${basename(p.bild)}${p.fel ? ' (fel: ' + p.fel + ')' : ''}`).join('; ')}`)), `- interaktiva element: ${r.interaktiva?.totalt ?? '-'}`, `- bilder: ${r.forsta_vyn}, ${r.hela_sidan}; träd ${r.tillganglighetstrad}; spår ${r.spar}`, '');
+if (rapport.svep && !rapport.svep.fel) md.push(`Svepet: ${rapport.svep.brytpunkter.length} brytpunkter (SVEP.json).`, '');
 md.push(rapport.not);
 skriv(a.ut, 'INSPEKTION.md', md.join('\n') + '\n');
 console.log(JSON.stringify({ ut: a.ut, vyer: Object.keys(rapport.vyer), blockerade: Object.values(rapport.vyer).reduce((s, r) => s + r.natverk.blockerade.length, 0), fel: Object.values(rapport.vyer).filter(r => r.fel).length }));

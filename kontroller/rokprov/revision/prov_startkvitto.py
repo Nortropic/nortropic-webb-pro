@@ -29,7 +29,12 @@ claude:
     granskarens generiska frågor går, också med förlagor och typsnitt ur briefens §7 och par i rubriker (10a); varje
     lucka stoppas: bara efternamnet eller förnamnet, en markdownlänk, två av tre namn, versaler och gemener, ł och ñ,
     hopskrivet, dubbel URL-kodning, Recos attribution, genitiv, VERKSAMHET.json:s fritext och Bokadirekts filer (10b);
-    kundens ort efter ett platsverb stoppas fortfarande, också i §7 (10c, ett skydd som var grönt redan före);
+    kundens ort efter ett platsverb stoppas fortfarande, också i §7 (10c, ett skydd som var grönt redan före); gator,
+    postnummer, orter och c/o-namn i en adress i fritexten not och belägg, briefen, sidtexten och researchen (10d);
+    namn i rubriker, under en rubrik om personer, först i en mening och efter "Möt", och orter utan platsverb (10e);
+    falsklarm utanför §7 i löptext och rubriker går, och en förlaga utanför §7 stoppas som par (10f); genitiv i
+    underlagets namn, genitiv efter en initial, fetstil efter ett personord, Bokadirekts frisör och ett förnamn i en
+    mening (10g);
 11. Mobbins search_screens går bara med mode standard (deep kostar krediter), och prompterna säger det;
 12. sessionsprovet läser init-beskedet och avslutar sessionen med hela processgruppen, utan att vänta på modellen.
 
@@ -38,7 +43,9 @@ claude:
 Fallen 1–5 var röda mot main 84c6994. Fallen för granskningens rättelser (B1, B3–B6, K4, K6, K8, K9) var röda mot
 7add728; fallen för de överlevande mutationerna (B2) fäller dem. Omgranskningen GR-20261007-r102-om: 2b (K1), 10, 10a
 (B1) och 10b (B2) var röda mot ea93ca9; de sju mutationer som överlevde där (K4: N06 i 2c, N10 i 6, N15 i 10b, N20 i
-10a, N26 och N27 i 12, N29 i 4) fälls nu. Varje fall redovisas för sig på stderr; slutkod 1 när något fall föll.
+10a, N26 och N27 i 12, N29 i 4) fälls nu. Omgranskningen GR-20261007-r104: 10d (B1), 10e (B2), 10f (K1) och 10g (K2)
+var röda mot a165e9c, 10g genom genitiven efter en initial; C17–C21 fälls av 10g. Varje fall redovisas för sig på
+stderr; slutkod 1 när något fall föll.
 Ingenting skrivs i repots underlag/ eller kunder/, och inga privata data läses.
 """
 import json
@@ -167,13 +174,14 @@ vl.Cache(vl.lagekatalog() / 'CACHE.json').spara('prov:mobbin', 'v1', resultat='o
 
 
 def skriv_init():
-    """Init-beskedet för en session med respektive utan kontroller/mcp/mobbin.json, med Referos aktuella verktygslista."""
+    """Init-beskedet för en session med respektive utan kontroller/mcp/mobbin.json och motion.json (ateljéns --mcp-config bär
+    båda sedan 2026-10-07), med Referos aktuella verktygslista."""
     for namn, med in (('init-med', True), ('init-utan', False)):
         servrar = [{'name': 'refero', 'status': 'connected', 'source': 'local'}] + (
-            [{'name': 'mobbin', 'status': 'connected', 'source': 'dynamic'}] if med else []) + [
+            [{'name': 'mobbin', 'status': 'connected', 'source': 'dynamic'}, {'name': 'motion', 'status': 'connected', 'source': 'dynamic'}] if med else []) + [
             {'name': 'claude.ai Claude Docs', 'status': 'connected', 'source': 'claudeai'}]
         verktyg = ['Glob', 'Grep', 'Read', 'Skill', 'ToolSearch', 'mcp__claude_ai_Claude_Docs__read'] + \
-            ['mcp__refero__' + v for v in REFERO['verktyg']] + (list(referenstjanster.TJANSTER['mobbin']['verktyg']) if med else [])
+            ['mcp__refero__' + v for v in REFERO['verktyg']] + (list(referenstjanster.TJANSTER['mobbin']['verktyg']) + kompetens.mcp_verktyg('motion') if med else [])
         skills = sorted(p.name for p in (KOPIA / '.claude' / 'skills').iterdir() if p.is_dir())
         (FAKE / namn).write_text(json.dumps({'type': 'system', 'subtype': 'init', 'mcp_servers': servrar, 'tools': verktyg, 'skills': skills}) + '\n')
 
@@ -642,7 +650,7 @@ def _roller():
     assert roll['responsiv']['atkomst']['skills']['saknas'] == ['better-layout'] and roll['responsiv']['atkomst']['tillstand'] == 'tillgangligt', roll['responsiv']['atkomst']
     # kompetenskvittot: ett läskvitto är belägg för läsning, inte för tillämpning; inte gjort skiljs från inte observerat
     filer = kompetens.lasfiler('skapa')
-    sett = kompetens.tillstand({'verifierad': True, 'lasta': filer, 'saknas': [], 'valda': [], 'skill_anrop': [], 'mcp_anrop': {}}, 'skapa')
+    sett = kompetens.tillstand({'verifierad': True, 'lasta': filer, 'saknas': [], 'valda': [], 'skill_anrop': [], 'mcp_anrop': {}, 'mcp_utfall': {}}, 'skapa')
     blind = kompetens.tillstand({'verifierad': False}, 'skapa')
     for r in sett:
         assert r['karna']['tillstand'] == kompetens.LASKVITTO and r['tillampning'] == kompetens.TILLSTAND['ej_observerat'], r
@@ -661,7 +669,8 @@ def _roller():
     # en roll vars session aldrig fick tjänsten är blockerad med konsekvens, inte "inte gjort"
     utan = innehall({'verifierad': True, 'lasta': filer, 'mcp_anrop': {}}, mcp_lage={'refero': 'ansluten'})
     assert utan['tillstand'] == T['blockerat'] and 'tilldelad men åtkomst saknas' in utan['orsak'], utan
-    assert innehall({'verifierad': True, 'lasta': filer, 'mcp_anrop': {}}, mcp_lage={'refero': 'ansluten', 'mobbin': 'ansluten'})['tillstand'] == T['ej_gjort']
+    assert innehall({'verifierad': True, 'lasta': filer, 'mcp_anrop': {}}, mcp_lage={'refero': 'ansluten', 'mobbin': 'ansluten'})['tillstand'] == T['ej_observerat']
+    assert innehall({'verifierad': True, 'lasta': filer, 'mcp_anrop': {}, 'mcp_utfall': {}}, mcp_lage={'refero': 'ansluten', 'mobbin': 'ansluten'})['tillstand'] == T['ej_gjort']
     # hela vägen: kvittot ur ett transkript där sessionen hade Refero men inte Mobbin, och Referos enda svar var tomt
     import bildkedja
     sid = '0f0e0d0c-0b0a-4908-8706-050403020100'
@@ -796,6 +805,8 @@ Allt i den här briefen är påhittat för provet.
 - Tack till nils holm för hjälpen med altanen.
 - Vide Brask, snickare sedan 2015, bygger altanerna.
 - Per Ask leder laget på helgerna.
+- Offerterna går via ägaren Yvar Klingbergs kontor. Altanen byggdes av Sixten förra sommaren.
+- Arbetsledare: **Ruben Frejvik**.
 TEAMLEDARE: GUNVOR TJÄLL
 
 | Fält | Värde |
@@ -815,6 +826,7 @@ Knappen "Get Started" och "Request A Quote".
 
 Visa Social Proof tidigt och en tydlig Primär Handling. Kitchen Renovation är vår specialitet.
 Rubrikerna i Playfair Display blir för tunga i mobilen.
+- Lägg Vigge elof R:s omdöme överst.
 
 ## §7 Designriktning
 
@@ -965,6 +977,250 @@ def _personnamn_orter():
     skal = vakt(slug, SKARM, {'query': 'upplands vasby builders', 'platform': 'web'}) or ''
     assert 'en ort ur kundens underlag' in skal or 'personnamn' in skal, 'orten i §7 släpptes: %r' % skal
     assert vakt(slug, SKARM, {'query': 'norra sverige craft', 'platform': 'web'}) is None
+
+
+# ===== 10d–10g. adresser, rubriker, meningsbörjan, orter och falsklarm (omgranskningen GR-20261007-r104) =====
+# Fixturerna har verkliga datas form (formen lästes 2026-10-07): fritexten not med en andra adress ("Gata 9, 999 99 Ort"),
+# kontaktvägarnas belägg, researchens belägg med en adress och c/o, sidtextens sidrubriker ("## /om-oss (Om oss)"),
+# avsnitt ("### Team"), pseudorubriker ("- h3: …") och tabeller. Alla namn, gator, orter och nummer är påhittade.
+
+NOT_ADRESS = ('Adressen i registret är en postadress. Verkstaden ligger på Grävlingsgränd 7, 989 98 Tallmyra; lagret finns '
+              'vid Knektstigen 2 i Hultabo och tar emot leveranser på vardagar.')
+BRIEF_ADRESS = """# Brief — Provfirman Exempel (2026-10-07)
+
+Allt i den här briefen är påhittat för provet.
+
+## §1 Verksamhet och problem
+
+- **Positionering:** snickeriet bygger kök och altaner.
+- Kunderna hämtar sina beställningar på Lerkrogsvägen 4 i Ekbyhamn.
+- Lagret: Sotarbacken 9, Vintermåla.
+
+## §4 Primär handling
+
+Ring eller skicka en förfrågan i formuläret.
+"""
+TEXT_ADRESS = """# Sidtext — Provfirman
+
+## /kontakt (Kontakt)
+
+### Hitta hit
+- h2: Hitta till verkstaden
+- Adress: Lärkvägen 12, 977 66 Ödmyra
+- Text: Parkera på gården.
+"""
+RESEARCH_ADRESS = """# Research — Provfirman
+
+## 1. Verksamheten
+
+- Allabolag: **Provfirman Exempel AB**, org.nr **559999-0000**.
+- Besöksadress enligt allabolag: "Rävgången 3, 966 55 Sjöliden"; fakturor c/o Majvor Lindeblad, Myrstigen 4, 966 55
+  Sjöliden.
+"""
+GENERISKA_ADRESS = ['contact page with map and opening hours', 'workshop exterior photo', 'warehouse with loading dock',
+                    'pickup point information section', 'quote request form with file upload', 'builders near the coast']
+
+
+def adresskund(slug):
+    """Kunden med en andra adress i fritexten och adresser i briefen, sidtexten och researchen (fall 10d)."""
+    u = kund(slug)
+    v = {'schema': 1, 'namn': 'Provfirman Exempel AB', 'fiktiv': True,
+         'kontaktvagar': [{'typ': 'telefon', 'varde': '070-000 11 22', 'belagg': 'provets sidfot; visningslokal på Ugglebacken 2'}],
+         'adress': {'postnummer': '999 99', 'ort': 'Provby', 'publik': False, 'roll': 'verksamhetsstalle'},
+         'rackvidd': {'typ': 'lokal', 'orter': ['Provby']}, 'kategorier': ['Byggfirma'], 'tjanster': ['Köksrenovering'],
+         'not': NOT_ADRESS}
+    (u / 'VERKSAMHET.json').write_text(json.dumps(v, ensure_ascii=False))
+    (u / 'BRIEF.md').write_text(BRIEF_ADRESS)
+    (u / 'TEXTUNDERLAG.md').write_text(TEXT_ADRESS)
+    (u / 'RESEARCH.md').write_text(RESEARCH_ADRESS)
+    return u, v
+
+
+@fall('10d gator, postnummer och orter i en adress stoppas: fritexten not och belägg, briefen, sidtexten och researchen (r104#B1)')
+def _kundvakt_adresser():
+    import skapande
+    import verksamhetsuppgifter
+    slug = 'k10d-adress'
+    u, v = adresskund(slug)
+    verksamhetsuppgifter.validera(v)
+    f = skapande.forbjudna_termer(slug, KOPIA / 'underlag')
+    saknas = [x for x in ('gravlingsgrand', 'tallmyra', 'knektstigen', 'hultabo', 'ugglebacken') if x not in f['ord']]
+    assert not saknas and '98998' in f['siffror'], ('fritextens adress saknas i forbjudna_termer', saknas)
+    assert not {'adressen', 'verkstaden', 'lagret', 'postadress'} & f['ord'], 'vanliga ord är inga adresser'
+    fel = []
+    for q, skal in (('Grävlingsgränd workshop exterior', 'kundens'), ('grävlingsgränd 7 facade', 'kundens'),
+                    ('builders 989 98', 'kundens'), ('Tallmyra carpenter', 'kundens'), ('Hultabo builders', 'kundens'),
+                    ('Knektstigen warehouse', 'kundens'), ('Ugglebacken showroom', 'kundens'),
+                    ('Lerkrogsvägen pickup', 'en ort'), ('Ekbyhamn builders', 'en ort'), ('Lärkvägen 12 entrance', 'en ort'),
+                    ('Sotarbacken storage', 'en ort'), ('Vintermåla builders', 'en ort'),
+                    ('Ödmyra builders', 'en ort'), ('Rävgången 3 facade', 'en ort'), ('Myrstigen office', 'en ort'),
+                    ('Sjöliden builders', 'en ort'), ('builders 977 66', 'kundens'), ('builders 966 55', 'kundens'),
+                    ('Majvor Lindeblad invoices', 'personnamn')):
+        s = vakt(slug, SKARM, {'query': q, 'platform': 'web'}) or ''
+        if skal not in s:
+            fel.append((q, s[:70]))
+    assert not fel, 'släpptes eller fel skäl: %s' % fel
+    assert 'kundens' in (skapande.kanal_fel({'tjanster': {'fragor': [{'fraga': 'carpenter on Grävlingsgränd', 'syfte': 'x'}]}},
+                                            forbjudna=f) or ''), 'kanalen ut prövar fritextens gata'
+    slappta = [q for q in GENERISKA_ADRESS if vakt(slug, SKARM, {'query': q, 'platform': 'web'}) is not None]
+    assert not slappta, 'generiska frågor stoppades: %s' % slappta
+
+
+BRIEF_RUBRIK = """# Brief — Provfirman Exempel (2026-10-07)
+
+Allt i den här briefen är påhittat för provet.
+
+## §1 Verksamhet och problem
+
+Snickeriet bygger kök och altaner.
+
+## §7 Designriktning
+
+Huvudreferens: Fjärran Studio. Kunderna bor i Lillnäs.
+"""
+TEXT_RUBRIK = """# Sidtext — Provfirman
+
+## /om-oss (Om oss)
+
+## Om Algot Frödin
+- Text: Firman bygger kök och altaner.
+
+### Team
+- h2: Möt teamet
+- h3: Hulda Fennö
+- Agda Lööf leder lagret på vardagar.
+
+## Möt Edla Brant
+
+## Valdemar Rydh
+
+## /tjanster (Tjänster)
+
+### Ansvariga
+- h3: Tekla Brodd
+
+| Namn | Roll |
+|---|---|
+| Ingolf Trana | Snickare |
+
+Eskil Tornell svarar på alla offerter. Tornell har byggt kök i tjugo år.
+Arnold Steen har ritat altanen. Möt Gerda Hjort på mässan i maj.
+Offerterna skrivs av Sigvard Lunde (arbetsledare).
+Kunderna bor i Rödhamra och Västerbyn, och vi tar jobb i Gräsmyra och på Eköholm.
+Vi verkar i Vara och Stora Kvarnby.
+"""
+
+
+def textkund(slug, brief, text):
+    """En kund med VERKSAMHET.json giltig mot schemat (personer bara i texterna), en brief och en sidtext (fall 10e, 10f)."""
+    import verksamhetsuppgifter
+    u = kund(slug)
+    v = {'schema': 1, 'namn': 'Provfirman Exempel AB', 'fiktiv': True, 'kontaktvagar': [],
+         'adress': {'postnummer': '999 99', 'ort': 'Provby', 'publik': False, 'roll': 'verksamhetsstalle'},
+         'rackvidd': {'typ': 'lokal', 'orter': ['Provby']}, 'kategorier': ['Byggfirma'], 'tjanster': ['Köksrenovering']}
+    verksamhetsuppgifter.validera(v)
+    (u / 'VERKSAMHET.json').write_text(json.dumps(v, ensure_ascii=False))
+    (u / 'BRIEF.md').write_text(brief)
+    (u / 'TEXTUNDERLAG.md').write_text(text)
+    return u
+
+
+@fall('10e namn i rubriker, i avsnitt om personer och först i en mening, och orter utan platsverb stoppas (r104#B2)')
+def _kundvakt_rubriker():
+    slug = 'k10e-rubrik'
+    textkund(slug, BRIEF_RUBRIK, TEXT_RUBRIK)
+    fel = []
+    for q, skal in (('Algot Frödin portfolio', 'personnamn'), ('Frödin carpentry', 'personnamn'),  # "## Om …"
+                    ('Edla Brant team', 'personnamn'), ('Brant workshop', 'personnamn'),  # "## Möt …"
+                    ('Valdemar Rydh', 'personnamn'), ('Rydh portfolio', 'personnamn'),  # en rubrik som bara är namnet
+                    ('Hulda Fennö', 'personnamn'), ('Fennö team page', 'personnamn'),  # pseudorubrik under Team
+                    ('Agda Lööf', 'personnamn'), ('Lööf warehouse', 'personnamn'),  # först i en mening under Team
+                    ('Tekla Brodd', 'personnamn'), ('Brodd portfolio', 'personnamn'),  # pseudorubrik utanför Team
+                    ('Ingolf Trana', 'personnamn'), ('Trana carpenter', 'personnamn'),  # tabellrad med rollen efter
+                    ('Lunde carpentry', 'personnamn'),  # rollen inom parentes efter namnet
+                    ('Eskil Tornell', 'personnamn'), ('Tornell kitchen', 'personnamn'),  # först i en mening, personverb
+                    ('Arnold Steen kitchen', 'personnamn'),  # först i en mening utan kännetecken: helt par
+                    ('Gerda Hjort', 'personnamn'), ('Hjort workshop', 'personnamn'),  # "Möt …" i löptext
+                    ('Rödhamra builders', 'en ort'), ('Västerbyn builders', 'en ort'), ('Gräsmyra builders', 'en ort'),
+                    ('Eköholm builders', 'en ort'),  # orter utan platsverb utanför §7
+                    ('vara builders', 'en ort'), ('stora kvarnby builders', 'en ort'),  # en ort som är ett vanligt ord, ortsled
+                    ('Lillnäs builders', 'en ort')):  # "bor i" i §7
+        s = vakt(slug, SKARM, {'query': q, 'platform': 'web'}) or ''
+        if skal not in s:
+            fel.append((q, s[:70]))
+    assert not fel, 'släpptes eller fel skäl: %s' % fel
+    for q in ('carpenter portfolio with project gallery', 'team section with portraits', 'about page for a family business'):
+        assert vakt(slug, SKARM, {'query': q, 'platform': 'web'}) is None, q
+
+
+BRIEF_FALSKLARM = """# Brief — Provfirman Exempel (2026-10-07)
+
+Allt i den här briefen är påhittat för provet.
+
+## §6 Röst och innehåll
+
+Kunden vill ha Dark Mode, en Art Deco-känsla och en Bento Layout, och Opening Hours ska synas tidigt.
+Vår specialitet är Kitchen Renovation, och vi gillar Kinfolk Magazine och Fjärran Studio.
+Kunden vill ha Bodoni Moda och Libre Baskerville som i trycksakerna; rubrikerna i Playfair Display och brödtexten i Work Sans.
+Omdömena finns på Google Maps och Reco, och bilderna kommer från Unsplash. Rubriken säger vad firman gör.
+Hon gillar också Ateljé Vindö.
+
+### Opening Hours
+
+### Featured Before After
+
+## §7 Designriktning
+
+Huvudreferens: Fjärran Studio och Kinfolk Magazine, med detaljer från Ateljé Norrsund. Typsnitt: Playfair Display och Work Sans.
+"""
+TEXT_FALSKLARM = """# Sidtext — Provfirman
+
+## /kontakt (Kontakt)
+
+### Parkering
+- h2: Parkera vid verkstaden
+- Text: Sidan svarar på var man parkerar.
+"""
+FALSKLARM_LOPTEXT = [(SKARM, {'query': 'dark mode portfolio', 'platform': 'web'}),
+                     ('mcp__refero__refero_search_styles', {'query': 'art deco style'}),
+                     (SKARM, {'query': 'bento layout grid', 'platform': 'web'}),
+                     (SKARM, {'query': 'opening hours section', 'platform': 'web'}),
+                     (SKARM, {'query': 'kitchen renovation website hero', 'platform': 'web'}),
+                     (SKARM, {'query': 'kinfolk magazine editorial layout', 'platform': 'web'}),
+                     ('mcp__refero__refero_search_sites', {'query': 'Fjärran Studio'}),
+                     ('mcp__refero__refero_search_styles', {'query': 'bodoni moda headings'}),
+                     ('mcp__refero__refero_search_styles', {'query': 'libre baskerville body text'}),
+                     ('mcp__refero__refero_search_styles', {'query': 'playfair display serif headings'}),
+                     ('mcp__refero__refero_search_styles', {'query': 'work sans clean body text'}),
+                     (SKARM, {'query': 'google maps embed on contact page', 'platform': 'web'}),
+                     (SKARM, {'query': 'unsplash style photography', 'platform': 'web'}),
+                     (SKARM, {'query': 'before after comparison slider', 'platform': 'web'}),
+                     (SKARM, {'query': 'parkering vid verkstaden', 'platform': 'web'}),  # ett ensamt ord under Kontakt
+                     (SKARM, {'query': 'rubriken stor och tydlig', 'platform': 'web'})]  # "Rubriken säger": ingen person
+
+
+@fall('10f falsklarm utanför §7 i löptext och rubriker går: termer, typsnitt, förlagor och tjänster (r104#K1)')
+def _kundvakt_falsklarm_lopetext():
+    slug = 'k10f-falsklarm'
+    textkund(slug, BRIEF_FALSKLARM, TEXT_FALSKLARM)
+    fel = [inn['query'] for verktyg, inn in FALSKLARM_LOPTEXT + FALSKLARM[-10:] if vakt(slug, verktyg, inn) is not None]
+    assert not fel, '%d falsklarm: %s' % (len(fel), fel)
+    # medvetet åt det säkra hållet (BESLUT.md, tillägget om kundvaktens adresser, rubriker och orter): en förlaga som
+    # briefen nämner utanför §7 är ett okänt par med stor bokstav och stoppas som helt par
+    assert 'personnamn' in (vakt(slug, 'mcp__refero__refero_search_sites', {'query': 'Ateljé Vindö'}) or '')
+
+
+@fall('10g K2: genitiv i underlagets namn (C17), genitiv efter en initial (C18), fetstil efter ett personord (C19), '
+      'Bokadirekts frisör (C20) och ett förnamn i en mening (C21)')
+def _kundvakt_k2():
+    slug = 'k10-namn'
+    namnkund(slug)
+    fel = []
+    for mut, q in (('C17', 'Klingberg portfolio'), ('C18', 'Vigge elof review'), ('C19', 'Frejvik portfolio'),
+                   ('C20', 'Hedvig hair salon'), ('C21', 'Sixten portfolio')):
+        if 'personnamn' not in (vakt(slug, SKARM, {'query': q, 'platform': 'web'}) or ''):
+            fel.append((mut, q))
+    assert not fel, 'släpptes igenom: %s' % fel
 
 
 # ===== 11. Mobbins krediter (B6) =====

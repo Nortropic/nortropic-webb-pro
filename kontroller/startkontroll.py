@@ -68,6 +68,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verktygslada as vl  # noqa: E402
 
 NODVANDIGA_MCP = ('refero', 'mobbin')
+# dokumentations-MCP:er som rollerna når genom kundvakten utan att researchen hämtar något ur dem (kompetens.MCP med egen
+# lista): Motions fria server (ägarens uppdrag 2026-10-07, punkt 5C). Tilldelade, men stoppar aldrig starten
+DOKUMENTATIONS_MCP = ('motion',)
 VANTA_INTAG = 1200  # s: ett intag i underhållet väntas ut högst så länge; sedan stoppas starten (fynd 2)
 DISKVAKT = 0.15  # under 15 % ledigt städas det före starten (städregeln, BESLUT.md 2026-10-06, punkt 6)
 EGNA_PROCESSKILLS = ('bygg-sajt', 'kirurg', 'backlog', 'writing-for-agents')
@@ -97,7 +100,7 @@ GRUPPER = (('Behöver uppmärksamhet', ('fel', 'delvis', 'avvisad', 'behallen', 
            ('Planerat i ett senare steg', ('planerat',)), ('Bekräftat', ('ok', 'uppdaterad')),
            ('Upptäckt utan uppgift i flödet (beslut i metodkartan)', ('ingen_uppgift',)),
            ('Gäller inte den här starten (inte prövat)', ('ej_tillampligt',)))
-TJNAMN = {'refero': 'Refero', 'mobbin': 'Mobbin'}
+TJNAMN = {'refero': 'Refero', 'mobbin': 'Mobbin', 'motion': 'Motion'}
 FIGMA = ('Kvittot gäller inte Figma-piloten: pilotens sessioner startas utanför repots körvägar och prövas inte av '
          'startkontrollen (kunskap/skapandeflodet.md, Figma).')
 # vad ägaren eller flödet gör när en tilldelad tjänst inte når ateljéns sessioner
@@ -106,7 +109,10 @@ ATGARD = {'mobbin': 'ateljéns sessioner får Mobbin genom --mcp-config kontroll
           # Referos nyckel ges aldrig till sessionerna (atelje.session_miljo tar bort den; granskning 4, G15)
           'refero': 'Refero når sessionerna bara genom repots lokala MCP-anslutning, som gäller i huvudutcheckningen och dess '
                     'worktrees: kör flödet därifrån, eller låt ägaren lägga tillbaka den lokala anslutningen. Sessionerna får '
-                    'aldrig Referos nyckel'}
+                    'aldrig Referos nyckel',
+          'motion': 'ateljéns sessioner får Motions fria dokumentations-MCP genom --mcp-config kontroller/mcp/motion.json '
+                    '(atelje.session_args, samma väg som Mobbin; inget konto, ingen nyckel): kontrollera filen och att '
+                    'https://mcp.motion.dev svarar, och kör startkontrollen igen'}
 EJ_ANGIVET = 'ej angivet'  # ett saknat värde gissas aldrig (README.md, Var information finns: rapporthuvudet)
 PLATSREGEL = '## Var information finns'  # README.md: var varje slag av information hör hemma (ägarens uppdrag 2026-10-06)
 FORTECKNING = Path('underlag') / 'granskningar' / 'FORTECKNING.jsonl'  # privat; sökvägarna i den räknas från underlag/
@@ -180,7 +186,7 @@ def prova_formagan(k, version, start='ny'):
     p = vl.prova_refero(k, k.prov_dir)
     ut.append(post('tjänst', 'Refero (direkt)', p.get('resultat'), provad=p.get('tid'), nodvandig=ateljen, tillstand=provtillstand(p.get('resultat')),
                    detalj=(p.get('detalj') or '') + (' (återanvänt prov)' if p.get('ateranvant') else '')))
-    upptackta = {'refero': set(p['verktyg']) if p.get('verktyg') else None, 'mobbin': None}
+    upptackta = {'refero': set(p['verktyg']) if p.get('verktyg') else None, 'mobbin': None, **{t: None for t in DOKUMENTATIONS_MCP}}
     # det fullständiga provet görs i underhållet; ateljéns start gör om det bara när det fallit eller gått ut (M1), och
     # helbygget, som inte laddar Mobbin, gör det aldrig
     ansluten = servrar is not None and (servrar.get('mobbin') or {}).get('status') == 'ok'
@@ -222,12 +228,13 @@ def prova_formagan(k, version, start='ny'):
 
 def mcp_atkomst(sess, tjanst):
     """(tillstånd, orsak) för en tjänst i ateljéns session ur sessionsprovet: provat och fungerande när sessionen laddar
-    tjänsten och flödets alla verktyg hos den syns, blockerat med orsaken annars, och inte observerat utan prov."""
-    import referenstjanster
+    tjänsten och flödets alla verktyg hos den syns, blockerat med orsaken annars, och inte observerat utan prov. Verktygen
+    ur kompetens.mcp_verktyg (referenstjänsternas listor och dokumentations-MCP:ernas egna)."""
+    import kompetens
     if not sess or sess.get('resultat') != 'ok':
         return 'ej_observerat', 'åtkomsten är inte prövad: %s' % ((sess or {}).get('detalj') or 'inget sessionsprov')
     status = (sess.get('servrar') or {}).get(tjanst)
-    saknas = [v.split('__')[-1] for v in referenstjanster.TJANSTER[tjanst]['verktyg'] if v not in (sess.get('verktyg') or [])]
+    saknas = [v.split('__')[-1] for v in kompetens.mcp_verktyg(tjanst) if v not in (sess.get('verktyg') or [])]
     if status == 'connected' and not saknas:
         return 'provat', None
     if not status:
@@ -245,10 +252,9 @@ def atkomstrader(sess, ateljen):
     if not ateljen:
         return []
     import kompetens
-    import referenstjanster
     roller_k = kompetens.tolka()
     ut = []
-    for t in NODVANDIGA_MCP:
+    for t in NODVANDIGA_MCP + DOKUMENTATIONS_MCP:
         roller = sorted(x['id'] for x in roller_k.values() if t in x['mcp'])
         tilld = ('tilldelad rollerna %s i metodkartan' % ', '.join(roller)) if roller else 'ingen roll i metodkartan'
         tillstand, orsak = mcp_atkomst(sess, t)
@@ -256,8 +262,14 @@ def atkomstrader(sess, ateljen):
         if tillstand == 'provat':
             ut.append(post('åtkomst', namn, 'ok', tillstand='provat', provad=sess.get('tid'),
                            detalj='%s; en session med ateljéns egna argument (%s) laddar %s, och flödets %d verktyg hos den syns%s' % (
-                               tilld, ', '.join(sess.get('flaggor') or []), TJNAMN[t], len(referenstjanster.TJANSTER[t]['verktyg']),
+                               tilld, ', '.join(sess.get('flaggor') or []), TJNAMN[t], len(kompetens.mcp_verktyg(t)),
                                ' (återanvänt prov)' if sess.get('ateranvant') else '')))
+        elif tillstand == 'blockerat' and t in DOKUMENTATIONS_MCP:
+            # en dokumentations-MCP har ingen tjänstesession i researchen: rollen förlorar sökningen, inte materialet
+            ut.append(post('åtkomst', namn, 'fel', tillstand='blockerat', provad=sess.get('tid'),
+                           detalj='tilldelad men åtkomst saknas: %s. Konsekvens: rollerna %s kan inte söka i %ss dokumentation i sina '
+                                  'sessioner; skillens egna regler (.claude/skills/%s) läses ändå. Raden stoppar inte starten. Åtgärd: %s' % (
+                                      orsak, ', '.join(roller) or '–', TJNAMN[t], t, ATGARD[t])))
         elif tillstand == 'blockerat':
             ut.append(post('åtkomst', namn, 'fel', tillstand='blockerat', provad=sess.get('tid'),
                            detalj='tilldelad men åtkomst saknas: %s. Konsekvens: rollerna %s kan inte göra egna anrop till %s i sina '
@@ -267,7 +279,7 @@ def atkomstrader(sess, ateljen):
                                       'Refero (direkt)' if t == 'refero' else 'Mobbin (sökning och bilder)', ATGARD[t])))
         else:
             ut.append(post('åtkomst', namn, 'okand', tillstand='ej_observerat', provad=(sess or {}).get('tid'), detalj='%s; %s' % (tilld, orsak)))
-    ovriga = sorted('%s (%s)' % (n, s) for n, s in ((sess or {}).get('servrar') or {}).items() if n not in NODVANDIGA_MCP) \
+    ovriga = sorted('%s (%s)' % (n, s) for n, s in ((sess or {}).get('servrar') or {}).items() if n not in NODVANDIGA_MCP + DOKUMENTATIONS_MCP) \
         if sess and sess.get('resultat') == 'ok' and isinstance(sess.get('servrar'), dict) else []
     if ovriga:  # till exempel claude.ai-kopplingarna: de laddas utan strikt läge, och dontAsk nekar varje anrop till dem
         ut.append(post('åtkomst', 'övriga MCP i ateljéns session', 'ingen_uppgift', tillstand='tillgangligt', provad=sess.get('tid'),
@@ -283,19 +295,19 @@ def tjanstverktyg_rader(upptackta):
     med skäl och provdatum, och ett verktyg utan beslut står som "nytt, obedömt" med åtgärd. Inget av dem är "okänt", och
     inget gör kvittot begränsat för att det är nytt; ett tilldelat verktyg som tjänsten inte längre har är ett fel."""
     import kompetens
-    import referenstjanster
     beslut = kompetens.tjanstverktyg()
     oense = kompetens.tjanstverktyg_fel()
+    slappta = kompetens.slappta()  # referenstjänsterna och dokumentations-MCP:erna med egen lista (kompetens.MCP)
     ut = []
-    for t in sorted(referenstjanster.TJANSTER):
+    for t in sorted(slappta):
         namn = TJNAMN.get(t, t)
-        tilldelade = [v.split('__')[-1] for v in referenstjanster.TJANSTER[t]['verktyg']]
+        tilldelade = list(slappta[t])
         sett = upptackta.get(t)
         fel = [f for f in oense if f.startswith(t + ':')]
         borta = [v for v in tilldelade if sett is not None and v not in sett]
         if borta:
             fel.append('tilldelade men saknas hos %s: %s (researchens och skaparnas anrop till dem går inte; pröva tjänstens '
-                       'nuvarande verktyg och skriv besluten i kunskap/metodkarta.md och referenstjanster.TJANSTER)' % (namn, ', '.join(borta)))
+                       'nuvarande verktyg och skriv besluten i kunskap/metodkarta.md och referenstjanster.TJANSTER eller kompetens.MCP)' % (namn, ', '.join(borta)))
         ut.append(post('möjlighet', '%ss verktyg med uppgift' % namn, 'fel' if fel else 'ok', tillstand='blockerat' if fel else 'tilldelat',
                        detalj='; '.join(fel) if fel else '%d verktyg med uppgift i flödet (beslut i metodkartan, släppta av kundvakten)%s' % (
                            len(tilldelade), '' if sett is not None else '; tjänstens verktygslista lästes inte i den här starten')))
@@ -303,8 +315,8 @@ def tjanstverktyg_rader(upptackta):
             b = (beslut.get(t) or {}).get(v) or {}
             if b.get('beslut') == 'uppgift':  # beslutet säger uppgift, men kundvakten släpper det inte
                 ut.append(post('möjlighet', '%s (%s)' % (v, namn), 'fel', tillstand='blockerat',
-                               detalj='metodkartan ger verktyget en uppgift, men kundvakten släpper det inte (referenstjanster.TJANSTER); '
-                                      'för in det där eller ändra beslutet'))
+                               detalj='metodkartan ger verktyget en uppgift, men kundvakten släpper det inte (referenstjanster.TJANSTER eller '
+                                      'kompetens.MCP); för in det där eller ändra beslutet'))
             elif b.get('beslut') == 'ingen uppgift':
                 skal = re.sub(r'[;,]?\s*prövat 20\d\d-\d\d-\d\d\.?\s*$', '', str(b.get('text') or ''))
                 ut.append(post('möjlighet', '%s (%s)' % (v, namn), 'ingen_uppgift', tillstand='tillgangligt',
@@ -314,8 +326,8 @@ def tjanstverktyg_rader(upptackta):
                 ut.append(post('möjlighet', '%s (%s)' % (v, namn), 'nytt', tillstand='tillgangligt',
                                detalj='nytt, obedömt: upptäckt hos %s utan beslut i metodkartan; kundvakten nekar anrop till det tills '
                                       'vidare. Åtgärd: pröva vad det tillför referensarbetet och skriv beslutet i kunskap/metodkarta.md '
-                                      '(Kompetenserna, tjänsternas verktyg): uppgift, med verktyget i referenstjanster.TJANSTER, eller '
-                                      'ingen uppgift med skäl och provdatum' % namn))
+                                      '(Kompetenserna, tjänsternas verktyg): uppgift, med verktyget i referenstjanster.TJANSTER eller '
+                                      'kompetens.MCP, eller ingen uppgift med skäl och provdatum' % namn))
     return ut
 
 

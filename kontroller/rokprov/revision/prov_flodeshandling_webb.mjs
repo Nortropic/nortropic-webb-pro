@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 const root = resolve(process.argv[2] || '.');
 const html = await readFile(resolve(root, 'dashboard/index.html'));
+const skript = new Map(await Promise.all(['kundstart-agare.js', 'kirurg-forbattring.js'].map(async namn =>
+  ['/' + namn, await readFile(resolve(root, 'dashboard', namn))])));
 const namn = ['Sessionen avslutades normalt', 'Tekniska kontroller', 'Designgranskning', 'Ägarens godkännande', 'Leverans inom angiven omfattning'];
 let fas = 'klar', getFel = false, postFel = true;
 let hallPost = false, slappPost;
@@ -39,6 +41,10 @@ const srv = createServer(async (req, res) => {
   if (req.url === '/api/flode/prov-andra') return json({...flode(),slug:'prov-andra'});
   if (req.url === '/api/oversikt') return json({ byggen: [], backlog_vilande: 0, intag_pagar: 0, prospekt_vantar: 0 });
   if (req.url?.startsWith('/api/')) return json({});
+  if (skript.has(req.url)) {
+    res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' }); res.end(skript.get(req.url)); return;
+  }
+  if (req.url !== '/') { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html);
 });
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
@@ -51,6 +57,8 @@ try {
   await page.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
   await page.goto(origin + '/#/flode/prov-flode');
   await page.getByRole('heading', { name: 'Aktuellt besked', exact: true }).waitFor();
+  assert.deepEqual(await page.evaluate(() => [typeof kundstartvy, typeof kirurgForbattring]), ['function', 'function'],
+    'dashboardens separata skript ska laddas som riktig JavaScript även i HTTP-fixturen');
   assert.equal(posts.length, 0, 'att läsa vyn startar inget');
   for (const width of [320, 390, 768, 1280, 1440]) {
     await page.setViewportSize({ width, height: 950 });

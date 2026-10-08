@@ -30,6 +30,10 @@ brister som byggena hittar i verktygen. Inget genomförs av sig självt. Starta 
 
 ## Kedjan från kundunderlag till leverans
 
+Formulärens mottagning vid export beskrivs i `kunskap/forfragan.md`: bevarade textfält vid valideringsfel,
+lagringskvitto före mejl och separata mottagningsbesked. Den lokalt prövade felhanteringen innebär ingen
+verifierad extern tjänsteåtkomst; tappad första framgångskvittens kan fortfarande orsaka dubbletter.
+
 Den här tabellen är grundkällan för vem som startar vad, med vilket kommando. Kommandona körs från repots rot.
 Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sajt`; exporten och leveransen:
 `kunskap/lansering.md`. Inget bygge har lanserats än.
@@ -37,7 +41,7 @@ Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sa
 | Steg | Vem startar, med vilket kommando | Resultat | Saknas i dag |
 |---|---|---|---|
 | 1. Kundunderlaget: verifierade fakta, research, brief och textutkast | Flöde → Förbered kundunderlaget, eller `.venv/bin/python kontroller/prototyp.py <slug> --forbered`; kräver VERKSAMHET.json och kunduppdrag eller befintlig research | privat förslagspaket, RESEARCH.md, BRIEF.md, TEXTUNDERLAG.md, BESTALLNING.md och versionsbundet FORBEREDELSE.json; inget webbprojekt behövs före steget | Kundstart och verklig modellkörning verifieras separat |
-| 2. Prototypen: research, plan och cirka tio skisser | ägaren eller en session i terminalen: `.venv/bin/python kontroller/prototyp.py <slug>` (läget följer domloggen) | förslagen i vyn Prototyp | – |
+| 2. Prototypen: research, plan och cirka tio skisser | ägaren eller en session i terminalen: `.venv/bin/python kontroller/prototyp.py <slug>` (läget följer domloggen) | förslagen i vyn Prototyp; researchens referenspaket `underlag/<slug>/referenser/paket-vNN/` med, per fångad sida, det kuraterade underlaget `SEKTIONER.md` (bild, mått, typsnitt, regler, utdrag) och hela mätningen `EXTRAKT.md` (`kunskap/referensjakt.md`, Underlaget per sida); för huvudreferensen kan en DevTools-profil tas med `.venv/bin/python kontroller/devtools.py <slug> --adress https://värd/` (en egen inspektionssession) | DevTools-profilen startas för hand: prototyp.py tar den inte själv |
 | 3. Ägarens val | ägaren i vyn Prototyp; en dom som kommit på annat sätt förs in med `.venv/bin/python kontroller/skapande.py dom` | en dom i domloggen, bunden till kandidat och version | valet startar inget arbete; nästa tillåtna handling visas i Flöde |
 | 4. Förfiningen av de valda | Flöde → Förfina de valda förslagen, eller `prototyp.py <slug>` igen (läget valda) | förfinade kandidater med DESIGN.md | – |
 | 5. Godkännandet | ägaren i vyn Prototyp: en förfinad kandidat godkänd för helbygge | `underlag/<slug>/atelje/vinnare/` och VINNARE.json | startar inget bygge; nästa handling finns i Flöde |
@@ -58,6 +62,9 @@ omförsök till samma beställning; dubbelklick, omladdning och nytt HTTP-förs�
 Läsning och val av kandidat startar inget. Stopp går förbi startlåset. En avbruten körning kan återupptas via samma
 ingång. De fem beskeden är sessionsavslut, teknik, designgranskning, ägarens godkännande och leverans inom angiven
 omfattning. Saknat, historiskt, dolt och underkänt är skilda lägen. Ingen grön markering betyder mer än sin omfattning.
+Även ett äldre ägar-ja visas som historik när dess underlag eller godkända version inte längre gäller.
+Ateljéns besked använder helbyggstartens giltighetskontroll; helbyggets besked prövar också aktuell Kundstart-källa.
+Läsningen ändrar varken den ursprungliga domen eller den sparade slutposten.
 
 Helbygge och export använder samma startjournal genom `kontroller/flodesstart.py`. Kundens flock-lås följer
 arbetaren och helbyggets vakt; direkta CLI-starter prövar samma lås. Stopp begärs med `--stoppa-overgang` och sparas
@@ -65,6 +72,36 @@ också före processstart. En avbruten reservation får slutkod 4 när låset ä
 Exportens arbetare följer byggprocessernas identitet och väntar in deras avslut före slutstatus. Den har samma
 gräns för mycket kortlivade mellanprocesser som korvakt; att döda även arbetaren kan kräva manuell kontroll.
 Startjournalen är ett mottagnings-/processbesked. `SLUT.json` respektive `EXPORT.json` anger arbetets resultat.
+## Kundstart i det befintliga flödet
+
+Kundens senare ändringar prövas mot den levande källan genom förberedelse, start och godkännandets aktualitet.
+En överlämnad snapshot är inte ett permanent godkännande. Helbygge med Kundstarts gemensamma ärendelager kräver
+`NWP_SANDLADA=pa`; den privata databasen är inte byggmaterial. Mekanik, felvägar och begränsat syntetiskt
+förloppsprov beskrivs i `kunskap/kundstart.md`. Live-AI och verklig designkvalitet är ännu inte verifierade.
+Granskningsmetoden binder också `KUNDSTART.json`: en ny överlämning av ändrade kundönskemål gör tidigare domar
+historiska även när `VERKSAMHET.json` är oförändrad. Äldre metodhashar gäller inte efter denna metodändring.
+
+Kundstart-fliken i dashboarden hanterar privata ärenden, deltagare, erbjudanden, kompletteringar och
+versionsbunden överlämning. Kunden har en separat lokal yta med Samtalet och Ditt uppdrag. Inga modeller,
+servrar eller kundbyggen startar vid skapande eller läsning. Körväg, ansvar och bevisgräns:
+`kunskap/kundstart.md`; professionen: `kunskap/kundintervju.md`.
+
+Ärende och kö ligger på beständig privat lokal disk i `underlag/kundstart/arenden.sqlite3`. GALLRING.json under
+samma rot styr avbruten gallring och återställning; säkerhetskopior ligger under `underlag/kundstart/sakerhetskopior/`.
+Kundservern startas uttryckligen med `.venv/bin/python kontroller/kundstart_server.py --port 4773`.
+Server-API till AI kräver egen verifierad konfiguration och aktivering, aldrig antagen rätt via privat CLI-abonnemang.
+Ingen sådan drift är aktiverad genom denna gren. Kirurgens observation av överlämningen och avgränsade lokala
+försök beskrivs i `kunskap/kirurg-forbattring.md`. Koppling till byggövergångarna prövas separat vid integration.
+
+Ett avgränsat metodförsök kan förberedas med `kontroller/ab.py forbered-skiss <slug> --kandidat k01` när en ensam
+skiss är planerad och prövad men ännu inte arbetad. Det startar inget arbete. Medium/high lottas för bara
+skisskaparens pass; ägaren ser kandidaterna i den vanliga blinda Prototypvyn. Förutsättningar, körmandat,
+återställning och mätgränser finns i `kunskap/autonomi.md`. Något verkligt kvalitetsexperiment är ännu inte verifierat.
+
+Resproven stöder också roll och tillgängligt namn eller etikett, med uttrycklig avgränsning vid flera träffar.
+Äldre CSS-resor fungerar fortsatt; användning och begränsningar står i `kunskap/resor.md`. Metodkartan beskriver
+hur väntande skillflöden läses i obevakade pass och hur varvkraven följer uppdragets läge. Dessa mekaniska
+kontroller är inte bevis för modellens tillämpning eller webbplatsens designkvalitet.
 
 ## Var information finns
 
@@ -81,6 +118,10 @@ rapportstrukturen, `BESLUT.md`). Andra dokument länkar hit i stället för att 
 | Systemgranskningar | `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>.md`, en fil per granskning, med bevisen i katalogen `underlag/granskningar/GR-ÅÅÅÅMMDD-<ämne>/`; en omgranskning är en ny fil som anger den föregående, och fynden heter `<rapportens id>#<fynd>`. Äldre rapporter ur sessioners arbetsytor ligger i `underlag/granskningar/sessioner/`. `FORTECKNING.jsonl` har en rad per fil, med ursprung och sha256 | den granskande sessionen |
 | Bevismaterial: bilder, mätningar, loggar och kvitton | där verktyget skriver (`prov/`, startkvitton, `VERSION.json`, `bilder/`, `matning/`). Det ägaren bedömt före ett omtag, med bilder, versionens underlag och `KVITTO.json`, ligger i `underlag/<slug>/omtag/<stämpel>/` (BESLUT.md 2026-10-07). Frysta kvitton skrivs aldrig över; ett mätskript som ett kvitto hänvisar till kopieras till uppdragets `matning/` | verktygen |
 | Historik och tillfälligt | git-historiken och filer märkta `Status: historik`. Tillfälliga anteckningar i sessionens arbetsyta och `/tmp` gallras (städregeln, `BESLUT.md`); det som en rapport, ett beslut eller en commit citerar kopieras först till `underlag/granskningar/`, och en arbetsyta tas bort först när varje fil i den är registrerad i `FORTECKNING.jsonl` eller ett annat kvitto, eller nås från en ref i git | agenten |
+
+Kundstarts primärkällor ligger i `underlag/kundstart/` (SQLite, gallringsjournal, egna backupkopior och bevis).
+Kund-API och interna ärendeoperationer härleder versionsbundna byggunderlag till `underlag/<slug>/KUNDSTART.json`
+och `underlag/<slug>/kundstart/`. Kunskapstexten `kunskap/kundstart.md` beskriver deras ansvar och återställning.
 
 Allt under `underlag/` och `kunder/` är privat. Inget innehåll därifrån står i det publika repot, inte heller titlar ur
 rapporter eller förteckningar; sökvägar och id:n får stå, i dokumentationen, commits och backlogposter, så länge de inte
@@ -201,6 +242,16 @@ Spanaren (`kontroller/spana.py`) letar kandidater åt kirurgen utan modell: flö
 Hacker News och YouTube-kanaler ur `kunskap/spaning-kallor.md`. Dashboarden kör den en gång i veckan och visar de
 rankade kandidaterna under Kirurgen; "Skicka till kirurgen" startar ett vanligt intag. Själv: `.venv/bin/python kontroller/spana.py
 spana --torr` visar vad den skulle hitta utan att spara.
+
+Kirurgens vy visar också signal → diagnos → försöksplan → lokalt resultat, källhälsa och paus.
+En misslyckad källa försvinner inte bakom ”inget nytt”. Kundstarts observation skiljer insamlat och överfört
+från ännu inte observerat använt/levererat. Läsning startar inget. Lokala regressionsförsök kräver ett separat
+begränsat ägarmandat och ändrar aldrig aktiv kod; körväg och gränser: `kunskap/kirurg-forbattring.md`.
+Privat primärlagring är `kirurgen/forbattringar/`, källhälsa `kirurgen/spaning/HALSA.json`; befintligt register och
+backlogg består. Ingen ny schemaläggning eller faktisk förbättringseffekt är påstådd. Separat granskade införanden
+kan registreras mot exakt lokal Git-version med ett särskilt observationsmandat; eftereffekt redovisas som
+inrapporterad observation med version och belägg. Återställningsbekräftelsen läser redan återställda filer och
+ändrar ingen kod. CLI-formerna och de betrodda operatörsfilerna beskrivs i samma kunskapsfil.
 
 ## Prospekt
 

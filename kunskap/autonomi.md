@@ -52,6 +52,43 @@ forsknings- och kandidatplan, referenspaket, verktygstillgång, övriga modellva
 armar ska börja i separata rena kontexter från samma plan. Alla försök och omarbete räknas. Ingen skillnad
 i kvalitet eller tidsvinst är belagd ännu; verkliga körningar och ägarens blinda bedömning återstår.
 
+### Körklar mekanik, inget körmandat
+
+`ab.py forbered-skiss <slug> --kandidat k01` förbereder just medium/high i **skisskaparen och dess svar på kritik**.
+Kräver en ensam ännu inte arbetad kandidat i skissläge, gemensam forskning, prövad plan, uppdragsmaterial och
+basprojekt. Ingen aktiv körning eller tidigare ägardom får finnas. Planen klonas till två egna kandidater med
+identisk designbrief, separata sessioner och samma befintliga tids-/omförsöksbudget. Inga standardvärden ändras.
+Förberedelsen gör inga modellanrop och ersätter inte forskningen, planeringen eller kundens startkontroll.
+
+Posten ligger privat i befintliga `kunder/ab/skiss-<slug>-<id>.json`. Den bevarar ursprunglig plan och uppdrag,
+lottad tilldelning och hashar över fakta, referenser, deklarerat material, kriterier, uppdrag, basprojekt, metod
+och effektiv begärd budget. Källorna kontrolleras före och efter arbetet. Detta är ett **identitetslås**: filerna
+skrivskyddas inte av mekanismen. Ändrade gemensamma förutsättningar nekar jämförelsen. Externa tjänsters nya svar
+kan fortfarande variera; de redovisas i det befintliga observationsspåret, inte som identiska experimentindata.
+En miljö med `CLAUDE_CODE_EFFORT_LEVEL` vägras för detta försök för att undvika konkurrerande inställningar.
+
+Efter uttryckligt mandat för underlag och budget körs det befintliga `prototyp.py <slug> --fortsatt` från samma
+version och miljö. Båda armarna ska ha avslutats innan ägaren väljer blint i Prototyp. Inget vanligt designval
+startar ett metodförsök. En teknisk stubb visar argumentkopplingen till `--model`/`--effort`, inte tjänstens
+effektiva inställning. Efter valet läser `ab.py skissresultat <slug>` försök, fel och rapporterad användning ur
+samma kandidater, också arkiverade misslyckade försök. Kända saknade svar gör totalen okänd; observerad delsumma
+står separat. Listpris är inte abonnemangskostnad. Modell/effort utan oberoende observation förblir okända.
+
+Försökets första dom får tillkomma efter två avslutade källkontroller; den omskriver inte vilket underlag
+skaparna fick. En ändrad kandidat eller andra ändrade källor gör fortfarande jämförelsen inaktuell. Visuellt
+val, kritikeromdöme, tekniska kontroller och verklig användbarhet är olika belägg. Ett par ger ingen generell
+effektskattning. Fullständiga versionsbundna rapporter krävs före beslut om nya standarder.
+
+Vid skrivfel under förberedelsen sparas den nya kandidatens material åt sidan vid A/B-posten och originalplanen
+återställs, så att kommandot kan prövas igen. Om även återställningens skrivning misslyckas står markören kvar
+som ofullständig och start nekas. Inspektera då den privata postens `ursprung` innan något återställs; ta aldrig
+bort arbetade kandidater för att komma runt spärren. Ingen automatisk städning av tidigare försöksbevis sker.
+
+Källkontroll 2026-10-08: [Claude Code, Model configuration](https://code.claude.com/docs/en/model-config),
+avsnitten om effort, prioritet och organisationsgränser. Begärd flagga kan begränsas och en skill kan påverka
+effort. Därför likställer försöket inte begärt och observerat. Detta leverantörsdokument visar produktbeteende,
+inte att högre effort ger bättre webbdesign i Nortropic.
+
 ## Förmågeprovet
 
 Rökprovet (`kontroller/rokprov.sh`) är ett regressionsprov: det visar att kända beteenden håller. Förmågeprovet visar

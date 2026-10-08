@@ -2812,6 +2812,19 @@ class H(BaseHTTPRequestHandler):
         try:
             if vag in ('/', '/index.html'):
                 return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8')
+            if vag in ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js'):
+                typ = 'text/javascript; charset=utf-8' if vag.endswith('.js') else 'text/css; charset=utf-8'
+                return self.skicka(200, (Path(__file__).parent / vag[1:]).read_bytes(), typ)
+            if vag == '/api/kundstart':
+                import kundstart_agare
+                return self.skicka(200, kundstart_agare.lista(ROOT))
+            if vag == '/api/kirurg/forbattringar':
+                import kirurg_forbattring
+                return self.skicka(200, kirurg_forbattring.vy(ROOT))
+            m = re.fullmatch(r'/api/kundstart/([a-f0-9]{32})', vag)
+            if m:
+                import kundstart_agare
+                return self.skicka(200, kundstart_agare.detalj(ROOT, m.group(1)))
             if vag == '/api/oversikt':
                 bk = backloggen()
                 return self.skicka(200, {'byggen': byggen(), 'lardomar': md(las_text(lardomar_original()) or las_text(ROOT / 'LARDOMAR.md')),
@@ -2955,6 +2968,21 @@ class H(BaseHTTPRequestHandler):
                                               'Begäran är registrerad. Läs aktuellt läge och körningens besked.' if rc == 5 else
                                               'Handlingen är klar; läs det aktuella beskedet.' if rc in (0, 4) else
                                               'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'})
+            m = re.fullmatch(r'/api/kirurg/forbattringar/([a-z]+)', vag)
+            if m:
+                import kirurg_forbattring
+                if m.group(1) not in kirurg_forbattring.HANDLINGAR:
+                    return self.skicka(404, {'fel': 'finns inte'})
+                return self.skicka(200, kirurg_forbattring.handling(ROOT, m.group(1), data))
+            if vag == '/api/kundstart':
+                import kundstart_agare
+                return self.skicka(200, kundstart_agare.skapa(ROOT, data))
+            m = re.fullmatch(r'/api/kundstart/([a-f0-9]{32})/([a-z_]+)', vag)
+            if m:
+                import kundstart_agare
+                if m.group(2) not in kundstart_agare.HANDLINGAR:
+                    return self.skicka(404, {'fel': 'finns inte'})
+                return self.skicka(200, kundstart_agare.handling(ROOT, m.group(1), m.group(2), data))
             m = re.match(r'^/api/dom/([a-z0-9-]{2,60})$', vag)
             if m:
                 return self.skicka(200, spara_dom(m.group(1), data))
@@ -3009,6 +3037,10 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, ta_in_kandidat(m.group(1)) if m.group(2) == 'ta-in' else avfarda_kandidat(m.group(1), data.get('skal')))
             return self.skicka(404, {'fel': 'finns inte'})
         except (ValueError, json.JSONDecodeError, OSError) as e:
+            if vag == '/api/kundstart' or vag.startswith('/api/kundstart/'):
+                import kundstart
+                if isinstance(e, kundstart.Konflikt):
+                    return self.skicka(409, {'fel': str(e)})
             if isinstance(e, PermissionError) and (KUNDER / '.bygge-pid').exists():  # kor.sh låser kunder/ och underlag/ under ett bygge
                 return self.skicka(400, {'fel': 'ett bygge pågår: kunder/ och underlag/ tar inga nya kataloger förrän det är klart (%s)' % e})
             return self.skicka(400, {'fel': str(e)})

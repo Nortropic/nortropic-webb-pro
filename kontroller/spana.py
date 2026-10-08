@@ -130,45 +130,50 @@ def las_kallor(fil=None):
 
 
 class Hamtare:
-    """requests-session med egen UA, tidsgränser, bytetak, en sekund mellan anrop till samma värd och ett hårt tak."""
+    """Gemensam adressvakt, bytetak och takt/anropstak också vid omdirigering.
+
+    En sekund mellan alla verkliga anrop är avsiktligt mer försiktigt än per
+    värd. Ett trunkerat svar kan inte bli en ny dokumentversion.
+    """
 
     def __init__(self, max_anrop=MAX_ANROP, paus=PAUS, hamta=None):
         self.max_anrop, self.paus, self.anrop, self.senast = max_anrop, paus, 0, {}
         self._hamta = hamta
         self.session = None
+        self.senaste_anrop = None
 
-    def hamta(self, url, tak=BYTE_SIDA):
+    def fore(self):
         if self.anrop >= self.max_anrop:
             raise SlutPaAnrop('taket %d anrop per spaning är nått' % self.max_anrop)
+        nu=time.monotonic()
+        if self.senaste_anrop is not None:
+            kvar=self.paus-(nu-self.senaste_anrop)
+            if kvar>0:time.sleep(kvar)
+        self.senaste_anrop=time.monotonic()
         self.anrop += 1
+
+    def hamta(self, url, tak=BYTE_SIDA):
         if self._hamta:
+            if self.anrop>=self.max_anrop:raise SlutPaAnrop('taket %d anrop per spaning är nått'%self.max_anrop)
+            self.anrop+=1
             return self._hamta(url, tak)
-        if self.session is None:
-            import requests
-            self.session = requests.Session()
-            self.session.headers['User-Agent'] = UA
-        vard = urlsplit(url).hostname or ''
-        v = self.paus - (time.time() - self.senast.get(vard, 0))
-        if v > 0:
-            time.sleep(v)
-        self.senast[vard] = time.time()
-        r = self.session.get(url, timeout=(5, 15), stream=True, allow_redirects=True)
-        if r.status_code >= 400:
-            r.close()
-            raise OSError('HTTP %d' % r.status_code)
-        data = b''
-        for bit in r.iter_content(16384):
-            data += bit
-            if len(data) > tak:
-                break
-        r.close()
-        return data[:tak]
+        import hamta_sajt
+        from urllib.request import Request
+        hamta_sajt.adress_ok(url)
+        self.fore()
+        with hamta_sajt.oppnare(fore=self.fore).open(Request(url,headers={'User-Agent':UA}),timeout=15) as r:
+            langd=r.headers.get('Content-Length')
+            if langd is not None and (not langd.isascii() or not langd.isdigit()):raise OSError('Ogiltig deklarerad källstorlek.')
+            data=r.read(tak+1)
+            if len(data)>tak:raise OSError('Källsvaret översteg bytetaket; ingen ny version sparas.')
+            if langd is not None and len(data)!=int(langd):raise OSError('Källsvaret är kortare än deklarerat; ingen ny version sparas.')
+            return data
 
 
-def rensa(text, langd=600):
+def rensa(text, langd=600, html_kalla=True):
     """Kontrolltecken och dolda tecken bort, HTML strippat, längd kapad. (text, varningar)."""
     varning = []
-    t = html.unescape(re.sub(r'<[^>]+>', ' ', text or ''))
+    t = html.unescape(re.sub(r'<[^>]+>', ' ', text or '')) if html_kalla else (text or '')
     if DOLDA.search(t):
         varning.append('dolda tecken')
         t = DOLDA.sub('', t)
@@ -196,7 +201,7 @@ def kandidat(url, titel, sammanfattning, kalla, publicerad=None, popularitet=Non
     t, v1 = rensa(titel, 200)
     s, v2 = rensa(sammanfattning, 600)
     k = {'id': kn.nyckel(url), 'url': url.strip(), 'nyckel': kn.normalisera(url), 'titel': t, 'sammanfattning': s, 'kalla': kalla['namn'],
-         'kalla_typ': kalla['typ'], 'kalla_vikt': kalla['vikt'], 'kallor': [kalla['namn']], 'publicerad': publicerad, 'hittad': nu(),
+         'kalla_typ': kalla['typ'], 'kalla_id': kalla.get('id'), 'kalla_vikt': kalla['vikt'], 'kallor': [kalla['namn']], 'publicerad': publicerad, 'hittad': nu(),
          'popularitet': popularitet, 'varning': sorted(set(v1 + v2)), 'status': 'ny', 'intag_id': None, 'avfardad': None}
     if extra:
         k.update(extra)
@@ -335,27 +340,34 @@ def awesome(kalla, h, snapshots):
 
 
 def sida(kalla, h, snapshots):
-    """Sidbevakning: texten hashas; vid ändring blir de tillagda raderna sammanfattningen."""
-    rå = h.hamta(kalla['url'], BYTE_SIDA).decode('utf-8', errors='replace')
-    text = re.sub(r'<(script|style|nav|footer)[^>]*>.*?</\1>', ' ', rå, flags=re.S | re.I)
-    text, _ = rensa(text, 200000)
-    rader = [r.strip() for r in re.split(r'(?<=[.!?])\s+|\n', text) if len(r.strip()) > 30]
-    hashen = hashlib.sha1('\n'.join(rader).encode('utf-8')).hexdigest()
+    """Hela textversioner; additions-, ändrings- och borttagningsfall. Fel är inte inget nytt."""
+    import kirurg_kallor as kk
+    data=h.hamta(kalla['url'], BYTE_SIDA)
+    if len(data)>=BYTE_SIDA:raise kk.Kallfel('Sidan nådde bytetaket; ingen fullständig textversion kan bokföras.')
+    try:rå=data.decode('utf-8')
+    except UnicodeDecodeError:raise kk.Kallfel('Sidans textkodning kunde inte läsas utan förlust.') from None
+    rader=kk.rader(rå,rensa)
+    hashen=kk.hashtext(rader);identitet=kk.identitet(kalla['url'])
     fil = SPANING / ('snapshot-%s.json' % kalla['id'])
     gammal = snapshots.get(kalla['id'])
     if gammal is None:
-        gammal = las_json(fil)
-    snapshots[kalla['id']] = {'tid': nu(), 'hash': hashen, 'rader': rader[:2000]}
+        gammal = kk.las_snapshot(fil)
+    snapshots[kalla['id']] = {'format':2,'tid':nu(),'hash':hashen,'rader':rader,'dokument':identitet}
     if gammal is None:
         return [], 'baslinje satt'
     if gammal.get('hash') == hashen:
         return [], None
-    tidigare = set(gammal.get('rader') or [])
-    tillagda = [r for r in rader if r not in tidigare][:12]
-    if not tillagda:
+    andringar=kk.jamfor(rader,gammal)
+    if not andringar['tillagda'] and not andringar['borttagna']:
         return [], None
     titel = re.search(r'<title[^>]*>(.*?)</title>', rå, re.S | re.I)
-    return [kandidat(kalla['url'] + '#andrad-' + nu()[:10], (titel.group(1) if titel else kalla['namn']) + ' (ändrad)', ' '.join(tillagda), kalla, nu()[:10], None, {'nyckel_override': kn.normalisera(kalla['url']) + '#' + nu()[:10]})], None
+    nyckel=identitet+'#innehall-'+hashen
+    sammanfattning='Tillagt: '+ ' '.join( andringar['tillagda'][:6])+' Borttaget: '+' '.join(andringar['borttagna'][:6])
+    extra={'id':hashlib.sha256(nyckel.encode()).hexdigest()[:12], 'nyckel_override':nyckel,
+           'dokument':identitet,'version':hashen,'foregaende_version':gammal.get('hash'),
+           'andringar':andringar,'materiell_andring':True,
+           'sammanfattning':rensa(sammanfattning,600,html_kalla=False)[0]}
+    return [kandidat(kalla['url'],(titel.group(1) if titel else kalla['namn'])+' (ändrad)',sammanfattning,kalla,nu()[:10],None,extra)],None
 
 
 # --- rankning ---
@@ -477,7 +489,7 @@ def spana(kallor, h, torr=False, bara=None, max_per_kalla=MAX_PER_KALLA, gh_json
     for kalla in kallor:
         if bara and kalla['typ'] != bara:
             continue
-        post = {'namn': kalla['namn'], 'typ': kalla['typ'], 'hamtade': 0, 'nya': 0, 'fel': None, 'not': None}
+        post = {'id': kalla['id'], 'namn': kalla['namn'], 'typ': kalla['typ'], 'hamtade': 0, 'nya': 0, 'fel': None, 'not': None}
         try:
             if kalla['typ'] == 'rss':
                 k = rss(kalla, h)
@@ -544,9 +556,13 @@ def _skriv_resultat(alla, rapport, fel, snapshots, redan, start, torr, h):
     if torr:
         skriv_json(SPANING / 'TORR.json', {'senast': senast, 'kandidater': [k for k in lista if k.get('status') == 'ny'][:20]})
         return senast, lista
+    import kirurg_kallhalsa
+    kirurg_kallhalsa.bokfor(SPANING,rapport,snapshots,alla)
+    skriv_json(SPANING / 'KANDIDATER.json', lista)
+    # Ny jämförelsebas får inte kvitteras före fynden. Vid avbrott efter listan
+    # upptäcks samma versions-id igen och slås ihop idempotent.
     for kid, snap in snapshots.items():
         skriv_json(SPANING / ('snapshot-%s.json' % kid), snap)
-    skriv_json(SPANING / 'KANDIDATER.json', lista)
     skriv_json(SPANING / 'SENAST.json', senast)
     with open(SPANING / 'logg.jsonl', 'a', encoding='utf-8') as f:
         f.write(json.dumps({'tid': nu(), 'handelse': 'spaning', **{k: senast[k] for k in ('sekunder', 'anrop', 'nya', 'redan_kanda', 'antal')}, 'fel': len(fel)}, ensure_ascii=False) + '\n')

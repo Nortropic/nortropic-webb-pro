@@ -1,0 +1,35 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": ".venv/bin/python",
+      "args": [
+        "kontroller/devtools_transport.py",
+        "-y",
+        "chrome-devtools-mcp@1.10.1",
+        "--isolated",
+        "--headless",
+        "--no-usage-statistics",
+        "--no-performance-crux",
+        "--no-category-input",
+        "--no-category-memory",
+        "--no-javascript-evaluation",
+        "--viewport=1440x900",
+        "--proxyServer=${NWP_DEVTOOLS_PROXY}",
+        "--executablePath=${NWP_DEVTOOLS_CHROME}",
+        "--chromeArg=--disable-extensions-except=${NWP_DEVTOOLS_SKYDD}",
+        "--chromeArg=--load-extension=${NWP_DEVTOOLS_SKYDD}",
+        "--ignoreDefaultChromeArg=--disable-extensions",
+        "--chromeArg=--proxy-bypass-list=<-loopback>",
+        "--chromeArg=--disable-quic",
+        "--chromeArg=--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+        "--allowedUrlPattern=http://*/*",
+        "--allowedUrlPattern=https://*/*"
+      ],
+      "env": {
+        "CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS": "1",
+        "CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY": "1"
+      }
+    }
+  }
+}

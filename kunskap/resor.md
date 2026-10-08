@@ -22,9 +22,21 @@ En resa har:
   `{"synlig": "väljare"}`, `{"fel_vid_falt": "väljare"}` (fältet ogiltigt med ett synligt besked via
   aria-describedby), `{"fokus_synlig": true}`.
 
-En väljare pekar på det första synliga elementet: en dold mobilmeny före en synlig länk fäller inte resan.
+En äldre CSS-väljare pekar på det första synliga elementet: en dold mobilmeny före en synlig länk fäller inte resan.
 `{markering}` blir provets testmarkering, i `fyll` och i `text`. Väljarna beror på den byggda HTML:en (`#ff-namn`,
 `nav a[href='/kontakt/']`): skriv resorna ur briefen i steg 2 och se över väljarna när sidorna finns.
+
+Semantiska väljare är ett bakåtkompatibelt tillägg som prövas lokalt före bred användning. De beskriver
+besökarens kontroll i stället för DOM-placeringen: `{"roll":"button","namn":"Visa kontakt"}` eller
+`{"etikett":"Meddelande"}`. Namnet jämförs exakt. Flera synliga träffar är ett fel, inte ett automatiskt
+val av första elementet. Avgränsa vid behov med `"inom":{"roll":"region","namn":"Kontakt"}`; även
+området ska vara entydigt. En CSS-sträng inuti `inom` tillåts inte. Äldre CSS-resor fungerar som tidigare.
+
+Formerna kan användas i klicka, vanta, skicka och förväntningarna synlig, lank.valjare och fel_vid_falt.
+För fyll används en lista: `{"fyll":[{"falt":{"etikett":"Meddelande"},"varde":"{markering}"}]}`.
+Ett semantiskt valt formulär med flera skickaknappar kräver ett uttryckligt klicka-steg med knappens namn.
+Att resan passerar efter en DOM-flytt visar bevarad åtkomst till kontrollen; det bevisar inte användbarhet
+för riktiga deltagare. Källgrund: [Playwrights locators och strictness](https://playwright.dev/docs/locators).
 
 Minst: den primära handlingen (ring, boka, offert, beställ) och den skriftliga vägen, med ett inmatningsfel och hur
 besökaren rättar det. För bokning skiljs länken (lokalt: rätt adress till rätt tjänst) från en genomförd bokning

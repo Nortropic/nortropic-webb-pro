@@ -256,18 +256,20 @@ def levererade_hela(metodfiler, krav):
 
 def metodlasning(session_id, filer, skills=(), skrivprefix=None):
     """Metodkvittot (Codex 2026-10-05, glapp 2: prototypens skapare läste inga designskills): vilka av metodfilerna
-    sessionen läste med Read och vilka skills den anropade med Skill, och om det skedde före första skrivningen under
+    sessionen fick ett matchat lyckat svar från Read eller Skill, och om svaret kom före första skrivningen under
     skrivprefix (en väg relativt roten, till exempel kunder/<slug>/sajt/src/). En skill räknas också som läst när dess
     SKILL.md lästes. Ett Read vars svar var ett fel räknas inte, och en fil räknas som läst först när läsningarna täckt
     alla dess rader (ett Read utan offset och limit täcker 2 000 rader); en fil som bara lästs i delar står i 'delvis'
     (granskning 2, N5). En fil som en helt läst metodfil bär hel, med samma sha, räknas som läst när metodfilen lästs
     (levererade_hela); de som bara lästs så står också i 'via_metod'. Ger {'verifierad', 'fore': [...], 'efter': [...], 'saknas': [...],
-    'delvis': [...], 'via_metod': [...], 'skill_anrop': [...]}; saknas omfattar de delvis lästa."""
+    'delvis': [...], 'via_metod': [...], 'skill_anrop': [...], 'skill_fel': [...]}; saknas omfattar de delvis lästa."""
     t = transkript(session_id)
     if t is None:
         return {'verifierad': False, 'skal': 'transkriptet saknas'}
     h = handelser(t)
     felade = {x[1] for x in h if x[0] == 'svar' and x[3]}
+    skill_fel = sorted({x[3]['skill'] for x in h if x[0] == 'anrop' and x[1] in felade
+                        and x[2] == 'Skill' and isinstance(x[3].get('skill'), str)})
     krav = [relativ(f).strip('/') for f in filer] + ['.claude/skills/%s/SKILL.md' % s for s in skills]
     radantal = {}
     for k in krav:
@@ -276,11 +278,18 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
         except OSError:
             radantal[k] = None
     forsta, sedda, anrop, tackt, metodhel, metodrader = None, {}, [], {}, {}, {}
+    vantar = {}
     for i, x in enumerate(h):
-        if x[0] != 'anrop':
+        if x[0] == 'anrop':
+            if forsta is None and skrivprefix and x[2] in ('Write', 'Edit', 'MultiEdit') and relativ(x[3].get('file_path', '')).startswith(skrivprefix):
+                forsta = i
+            if x[1] and x[1] not in felade:
+                vantar[x[1]] = x
             continue
-        if forsta is None and skrivprefix and x[2] in ('Write', 'Edit', 'MultiEdit') and relativ(x[3].get('file_path', '')).startswith(skrivprefix):
-            forsta = i
+        if x[0] != 'svar' or x[3] or x[1] not in vantar:
+            continue
+        # Tidpunkten är det matchade svarets; inget kvitto för ett obesvarat anrop.
+        x = vantar.pop(x[1])
         if x[2] == 'Read' and isinstance(x[3].get('file_path'), str) and x[1] not in felade:
             v = utan_punkt(relativ(x[3]['file_path']))
             try:
@@ -300,7 +309,8 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
                         metodrader[v] = None
                 if metodrader[v] and all(r in tackt[v] for r in range(1, metodrader[v] + 1)):
                     metodhel.setdefault(v, i)
-        elif x[2] == 'Skill' and isinstance(x[3].get('skill'), str):
+        elif x[2] == 'Skill' and isinstance(x[3].get('skill'), str) and x[1] not in felade:
+            # Aktivering/läsning är observerad mekanik, aldrig bevis för tillämpning eller designkvalitet.
             anrop.append(x[3]['skill'])
             sedda.setdefault('.claude/skills/%s/SKILL.md' % x[3]['skill'].split(':')[-1], i)
     via, direkt = (levererade_hela(metodhel, set(krav)) if metodhel else {}), set(sedda)
@@ -310,7 +320,7 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
     efter = [k for k in krav if k in sedda and k not in fore]
     return {'verifierad': True, 'fore': fore, 'efter': efter, 'saknas': [k for k in krav if k not in sedda],
             'delvis': [k for k in krav if k not in sedda and k in tackt], 'via_metod': [k for k in krav if k in via and k not in direkt],
-            'skill_anrop': anrop, 'forsta_skrivning': forsta is not None}
+            'skill_anrop': anrop, 'skill_fel': skill_fel, 'forsta_skrivning': forsta is not None}
 
 
 def klass(v):

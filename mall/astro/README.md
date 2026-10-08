@@ -9,7 +9,8 @@ Ingen design, inga typsnitt. Allt synligt skrivs för verksamheten. Byggstandard
 2. Skriv sidorna i `src/pages/` med `Bas.astro`: `titel` (50–60 tecken), `beskrivning` (120–155), `tema`
    (verksamhetens bärande färg som hex). Varje sida har `<header>` med `<nav>` och kundens kontaktvägar ur BRIEF.md §4
    (var de står är riktningens val), `<main id="innehall">`, en h1 och `<footer>`. Skriv om `404.astro` med samma
-   sidhuvud och sidfot. Beroendena (egen CSS, Tailwind, React-öar, Motion) står i `kunskap/beroenden.md`.
+   sidhuvud och sidfot. Beroendena (egen CSS, Tailwind, React-öar, Motion, GSAP) och valet mellan CSS, Motion och GSAP
+   per beteende står i `kunskap/beroenden.md`.
 3. Skapa `public/favicon.svg` ur verksamhetens märke. Kör sedan
    `node kontroller/ikoner.mjs --sajt kunder/<slug>/sajt --foto <eget foto> --bakgrund '<hex>'`, som gör
    `public/apple-touch-icon.png` (180×180) och `public/delningsbild.png` (1200×630).

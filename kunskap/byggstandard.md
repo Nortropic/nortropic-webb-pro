@@ -86,7 +86,7 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 | 6.3 Vanlig POST till `/api/forfragan/` fungerar utan JS; knappen låses under sändning; tacksidan säger vad som händer härnäst och när. | D formulär och tacksida, L mottagare | `standard`, demomottagaren |
 | 6.4 Servern validerar allt igen, begränsar längd, escapar i mejlmallen. | L | lansering |
 | 6.5 Spamskydd i lager: honeypot och tidsfälla i formuläret; rate limit och Turnstile i mottagaren. | D fällor, L resten | `standard`, lansering |
-| 6.6 Inskicket sparas före sändning och gallras efter integritetssidans lagringstid; transaktionsmejl med SPF, DKIM och DMARC; "skickat" först när mejlet accepterats; vid mejlfel säger `/fel/` att förfrågan är mottagen, visar telefonnumret, och inskicket finns kvar. | L | lansering |
+| 6.6 Inskicket sparas före sändning och gallras efter integritetssidans lagringstid; transaktionsmejl med SPF, DKIM och DMARC; "skickat" först när mejlet accepterats. Mottagningsbeskedet skiljer bekräftad lagring från okänd avisering; utan lagringskvitto påstås aldrig mottaget. Återhämtning och svar följer `kunskap/forfragan.md`, Vid lansering. | L | lansering |
 | 6.7 Tacksidan `/tack/` med noindex; konverteringshändelse vid lansering. | D sida, L händelse | `standard` |
 | 6.8 Integritetstext med länk vid knappen, integritetssida med ansvarig, ändamål, rättslig grund, lagringstid, rättigheter och kontakt; ingen förikryssad ruta. | D | `standard`, granskaren |
 

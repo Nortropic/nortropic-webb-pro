@@ -1298,7 +1298,7 @@ f23b()
 
 # ---------------------------------------------------------------- F25/F26: spanaren
 import spana as sp  # noqa: E402
-sp.SPANING = tmp / 'spaning'
+sp.SPANING = (tmp / 'spaning').resolve()  # egen provrot; macOS /var är en systemlänk
 kand = lambda i, poang: {'id': 'k%02d' % i, 'nyckel': 'n%02d' % i, 'url': 'https://x.se/%d' % i, 'titel': 'astro lighthouse %d' % i, 'sammanfattning': '', 'kalla': 'prov', 'kalla_typ': 'rss', 'kallor': ['prov'], 'status': 'ny', 'hittad': sp.nu(), 'publicerad': '2026-10-01', 'popularitet': poang}  # noqa: E731
 sp.rss = lambda kalla, h: [kand(i, 1000 - i) for i in range(1, 9)]
 kanda = {'n%02d' % i: {'dom': 'ta in', 'datum': '2026-09-01'} for i in range(1, 6)}
@@ -2883,10 +2883,11 @@ v1_, v2_ = 'underlag/pt-prov/forhand/start/varv-01', 'underlag/pt-prov/forhand/s
 rad_ = lambda c: json.dumps({'type': 'assistant', 'message': {'content': [c]}})  # noqa: E731
 svar_ = lambda i, text: json.dumps({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': i, 'content': text}]}})  # noqa: E731
 las_ = lambda i, v: rad_({'type': 'tool_use', 'id': i, 'name': 'Read', 'input': {'file_path': str(tmp / v)}})  # noqa: E731
-h_ = [las_('m1', 'kunskap/bild.md'), rad_({'type': 'tool_use', 'id': 's1', 'name': 'Skill', 'input': {'skill': 'better-layout'}}),
+h_ = [las_('m1', 'kunskap/bild.md'), svar_('m1', 'syntetisk hel läsning'),
+      rad_({'type': 'tool_use', 'id': 's1', 'name': 'Skill', 'input': {'skill': 'better-layout'}}), svar_('s1', 'Launching skill: better-layout'),
       rad_({'type': 'tool_use', 'id': 'b1', 'name': 'Bash', 'input': {'command': '.venv/bin/python kontroller/forhandsvisa.py pt-prov'}}), svar_('b1', '- %s/vy-390-forsta.png' % v1_),
       *[las_('r%d' % i, '%s/%s' % (v1_, n)) for i, n in enumerate(bk_pt.VARVBILDER)], las_('rr', 'underlag/pt-prov/referenser/ref.png'),
-      rad_({'type': 'tool_use', 'id': 'w1', 'name': 'Edit', 'input': {'file_path': str(tmp / 'kunder/pt-prov/sajt/src/pages/index.astro')}}), las_('m2', 'kunskap/copy-kontroll.md'),
+      rad_({'type': 'tool_use', 'id': 'w1', 'name': 'Edit', 'input': {'file_path': str(tmp / 'kunder/pt-prov/sajt/src/pages/index.astro')}}), las_('m2', 'kunskap/copy-kontroll.md'), svar_('m2', 'syntetisk hel läsning'),
       rad_({'type': 'tool_use', 'id': 'b2', 'name': 'Bash', 'input': {'command': '.venv/bin/python kontroller/forhandsvisa.py pt-prov'}}), svar_('b2', '- %s/vy-390-forsta.png' % v2_),
       las_('r9', '%s/vy-390-forsta.png' % v2_), rad_({'type': 'tool_use', 'id': 'w2', 'name': 'Write', 'input': {'file_path': str(tmp / 'kunder/pt-prov/sajt/src/pages/index.astro')}}),
       las_('r10', '%s/vy-1440-forsta.png' % v2_)]
@@ -3825,7 +3826,7 @@ assert 'är inte godkännandet' in sk.godkand_giltig('pt-godk', *gk_)[1], sk.god
 assert at_pt.aterkalla('pt-godk') and 'godkand' not in json.loads((ga_ / 'atelje' / 'VINNARE.json').read_text()) and not at_pt.aterkalla('pt-godk')
 # (3) metodkvittot räknar en skill som lästs med Read (lstrip tog punkten i .claude)
 sid_m = '00000000-0000-4000-8000-000000000056'
-(pt_kat / (sid_m + '.jsonl')).write_text('\n'.join([rad_({'type': 'tool_use', 'id': 'q1', 'name': 'Read', 'input': {'file_path': str(tmp / '.claude/skills/better-layout/SKILL.md')}}),
+(pt_kat / (sid_m + '.jsonl')).write_text('\n'.join([rad_({'type': 'tool_use', 'id': 'q1', 'name': 'Read', 'input': {'file_path': str(tmp / '.claude/skills/better-layout/SKILL.md')}}), svar_('q1', 'syntetisk hel läsning'),
                                                     rad_({'type': 'tool_use', 'id': 'q2', 'name': 'Write', 'input': {'file_path': str(tmp / 'kunder/pt-prov/sajt/src/pages/index.astro')}})]) + '\n')
 bk_pt.ROOT = tmp
 try:
@@ -4949,7 +4950,7 @@ try:
             pass_ = next(k_ for k_, n_ in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n_ in prompt)
             index_ = kd.ksajt(sl_sk, kid_) / 'src' / 'pages' / 'index.astro'
             filer_ = kd.kompetens.lasfiler(pass_)
-            if kid_ == 'k02' and pass_ == 'mobil' and 'Förra försöket läste inte' not in prompt:
+            if kid_ == 'k02' and pass_ == 'mobil' and 'Förra försöket saknade:' not in prompt:
                 filer_ = filer_[1:]  # läser inte alla: ett omförsök
             if kid_ == 'k03' and pass_ == 'kritik':
                 index_.write_text('TRASIG efter kritiken')  # passet bryter sidan: versionen före återställs
@@ -5387,7 +5388,7 @@ def sess_kp_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effor
     prompt_kp.append(prompt)
     pass_ = next(k_ for k_, n_ in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n_ in prompt)
     filer_ = kd.kompetens.lasfiler(pass_)
-    if las_kp['saknas_forsta'] and 'Förra försöket läste inte' not in prompt:
+    if las_kp['saknas_forsta'] and 'Förra försöket saknade:' not in prompt:
         filer_ = filer_[1:]
     elif las_kp['saknas_forsta']:
         filer_ = filer_[:1]
@@ -5579,11 +5580,11 @@ console.log(JSON.stringify(globalThis.__blob));
 r_nod = subprocess.run(['node', 'prov.mjs'], cwd=nod_ex, capture_output=True, text=True, timeout=60)
 assert r_nod.returncode == 0, r_nod.stderr[-500:]
 ut_nod, blob_nod = [json.loads(x) for x in r_nod.stdout.strip().splitlines()[-2:]]
-assert ut_nod == [[303, '/tack/', 'honeypot'], [303, '/kontakt/?saknas=1#forfragan-saknas', 'ofullstandig'], [303, '/kontakt/?bild=for-stor#forfragan-bild', 'for-stor'],
-                  [303, '/tack/', 'demo'], [303, '/fel/', 'fel'], [303, '/tack/', 'skickad'], [303, '/fel/', 'fel'],
-                  [303, '/kontakt/?bild=for-stor#forfragan-bild', 'for-stor'], [303, '/kontakt/?bild=typ#forfragan-bild', 'ofullstandig'],
-                  [303, '/fel/', 'sparad'], [303, '/fel/', 'sparad']], ut_nod
-assert blob_nod == [['b.jpg', 'private', 'image/jpeg'], ['forfragan.json', 'private', 'application/json'], ['forfragan.json', 'private', 'application/json']], blob_nod
+assert ut_nod == [[303, '/tack/', 'honeypot'], [422, None, 'ofullstandig'], [413, None, 'for-stor'],
+                  [303, '/tack/', 'demo'], [503, None, 'fel'], [503, None, 'fel'], [503, None, 'fel'],
+                  [413, None, 'for-stor'], [422, None, 'ofullstandig'],
+                  [202, None, 'sparad'], [202, None, 'sparad']], ut_nod
+assert blob_nod == [['bild', 'private', 'image/jpeg'], ['forfragan.json', 'private', 'application/json'], ['forfragan.json', 'private', 'application/json']], blob_nod
 # förhandsvisningens interaktionsväg: bara kända tillstånd och en enkel CSS-väljare (Codex punkt 9)
 import forhandsvisa as fv_k3  # noqa: E402
 assert fv_k3.main(['sk-prov', '--kandidat', 'k01', '--tillstand', 'tangentbord,okant']) == 2 and fv_k3.main(['sk-prov', '--meny', 'a;b{}']) == 2
@@ -5644,7 +5645,8 @@ assert str(tmp / 'sandrot' / 'kunder' / 'prov-bygge') in sb['filesystem']['allow
 dom_ = sb['network']['allowedDomains']
 assert {'registry.npmjs.org', '*.npmjs.org', 'www.exempel.se', 'exempel.se', 'annan.se', 'www.annan.se'} <= set(dom_) and sb['network']['allowLocalBinding'], dom_
 assert sb['credentials']['envVars'][0] == {'name': 'REFERO_MCP_TOKEN', 'mode': 'deny'}
-assert sl.installningar('p', sandlada=False) == {} and json.dumps(inst)
+utan_sb = sl.installningar('p', sandlada=False)
+assert 'sandbox' not in utan_sb and utan_sb['permissions']['deny'] == ['Read(//%s/**)' % str(ROOT / 'underlag/kundstart').strip('/'), *__import__('kompetens').skill_nekas()] and json.dumps(inst)
 kor_text = (ROOT / 'kor.sh').read_text()
 assert 'Bash(git commit *)' not in kor_text and 'Bash(git push origin main)' not in kor_text and 'sandlada.py' in kor_text, 'ingen git i bygget; sandlådan kopplad'
 # kor.sh i en kopia med en falsk claude som skriver en backlogpost: körningen committar den och pushar
@@ -6443,10 +6445,11 @@ print(' | '.join(ut))
                           capture_output=True, text=True, timeout=60)
     assert r_pg.stdout.split('\n')[:3] == ['SKREV sajt', 'NEKAD %s' % sl_pg, 'NEKAD %s' % sl_pg], (r_pg.stdout, r_pg.stderr[-300:])
     # --skrivbar (kandidatflödet): en kandidats projekt under kunder/<slug>/kandidater/ är skrivbart, sajten och underlaget inte;
-    # en väg utanför kunder/<slug> vägras
+    # en väg utanför kunder/<slug> vägras. Barnet kör Homebrews tolk direkt: kandidatens läsgräns släpper inte repots .venv
+    # (byggets läsgräns, 2026-10-07; prov_lasgrans.py prövar läsningen)
     kp_pg = rot_pg / 'kunder' / sl_pg / 'kandidater' / 'k01' / 'sajt'; kp_pg.mkdir(parents=True, exist_ok=True)
     mal_k_pg = [str(kp_pg / 'x.txt'), str(rot_pg / 'kunder' / sl_pg / 'sajt' / 'y.txt'), str(rot_pg / 'underlag' / sl_pg / 'DESIGNDOMAR.jsonl')]
-    r_pg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg), '--utan-nat', '--skrivbar', str(kp_pg), '--', PY, '-c', skriv_pg, *mal_k_pg],
+    r_pg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg), '--utan-nat', '--skrivbar', str(kp_pg), '--', os.path.realpath(PY), '-c', skriv_pg, *mal_k_pg],
                           capture_output=True, text=True, timeout=60)
     assert r_pg.stdout.split('\n')[:3] == ['SKREV sajt', 'NEKAD sajt', 'NEKAD %s' % sl_pg], (r_pg.stdout, r_pg.stderr[-300:])
     r_pg = subprocess.run([PY, '-B', str(ROOT / 'kontroller' / 'processgrans.py'), sl_pg, '--root', str(rot_pg), '--skrivbar', str(rot_pg / 'underlag' / sl_pg), '--', PY, '-c', 'print(1)'],
@@ -6811,10 +6814,10 @@ assert rf_.samma_referens('http://dinesen.com/', 'https://www.dinesen.com/') and
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokalt', portar_ref]) == 0, 'med ersatt: true får kandidaten byta referens'
 # Codex R34: en saknad inspektionsrapport är en dokumenterad brist i ett sparat paket (slutkod 1), inte ett raderat paket
 kor_orig_ = rf_.kor_inspektera
-def kor_utan_rapport_(adress, ut, tillat, tillstand, miljo, extrahera=None):
+def kor_utan_rapport_(adress, ut, tillat, tillstand, miljo, extrahera=None, bredder=rf_.BREDDER_STANDARD):
     if adress.endswith('/a-b'):
         return 1, {}, 'simulerad: ingen rapport'
-    return kor_orig_(adress, ut, tillat, tillstand, miljo, extrahera)
+    return kor_orig_(adress, ut, tillat, tillstand, miljo, extrahera, bredder)
 rf_.kor_inspektera = kor_utan_rapport_
 (u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'hel', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'fångas', 'sidor': ['/']}, {'namn': 'utan', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'ingen rapport', 'sidor': ['/a-b']}]}))
 assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar_ref]) == 1
@@ -6854,10 +6857,10 @@ assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--torr', '--tillat-lokal
 # Codex R35/R36, kontraktet för första passet: ett fel där raderar aldrig paketet och fäller inte kandidaten i sig. En sida med bara egna
 # resurser återhämtar sig i andra passet (fångad, med anmärkning); en sida som behövde ett resursursprung som inte upptäcktes fälls i andra
 # passet av den blockerade egna resursen, inte av första-pass-felet. Tidigare fångster bevaras.
-def kor_pass1_faller_(adress, ut, tillat, tillstand, miljo, extrahera=None):
+def kor_pass1_faller_(adress, ut, tillat, tillstand, miljo, extrahera=None, bredder=rf_.BREDDER_STANDARD):
     if str(ut).endswith('.pass1') and ('/a-b' in adress or '/egen' in adress):
         raise subprocess.TimeoutExpired(['node'], 1)
-    return kor_orig_(adress, ut, tillat, tillstand, miljo, extrahera)
+    return kor_orig_(adress, ut, tillat, tillstand, miljo, extrahera, bredder)
 rf_.kor_inspektera = kor_pass1_faller_
 (u_ref / 'prov-ref' / 'REFERENSUPPDRAG.json').write_text(json.dumps({'kandidater': [{'namn': 'hel', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'fångas', 'sidor': ['/']},
     {'namn': 'pass1', 'adress': a_ref + '/', 'roll': 'ux', 'varfor': 'pass 1 faller, bild från annat ursprung', 'sidor': ['/a-b']},
@@ -6872,8 +6875,8 @@ assert rf_.main(['prov-ref', '--underlag', str(u_ref), '--tillat-lokalt', portar
 rf_.kor_inspektera = kor_orig_
 # Codex R35: en bild som försvinner mellan observationen och inventeringen fäller sidan, och bristen dokumenteras
 obs_orig_ = rf_.observationer
-def obs_tar_bort_bild_(rapport, ut, bestallda=()):
-    o_ = obs_orig_(rapport, ut, bestallda)
+def obs_tar_bort_bild_(rapport, ut, bestallda=(), bredder=rf_.BREDDER_STANDARD):
+    o_ = obs_orig_(rapport, ut, bestallda, bredder)
     (Path(ut) / 'vy-390-forsta.png').unlink(missing_ok=True)
     return o_
 rf_.observationer = obs_tar_bort_bild_
@@ -7399,7 +7402,9 @@ def gammal_styrning():
     try:
         for d_ in ('sty-k/egen', 'sty-k/annan', 'sty-u/egen', 'sty-u/annan', 'sty-u/startkontroll'):
             (tmp / d_).mkdir(parents=True)
-        assert at_s.andra_kunder_nekas('egen') == ['Read(./kunder/annan/**)', 'Read(./underlag/annan/**)'], at_s.andra_kunder_nekas('egen')
+        assert at_s.andra_kunder_nekas('egen') == [
+            'Read(//%s/**)' % str(at_s.UNDERLAG / 'kundstart').strip('/'),
+            'Read(./kunder/annan/**)', 'Read(./underlag/annan/**)'], at_s.andra_kunder_nekas('egen')
         assert at_s.andra_kunder_nekas(None) == []
         args_s = at_s.session_args(['Read'], None, 10, 'm', 'high', (), 'egen')
         assert 'Read(./kunder/annan/**)' in args_s and 'Read(./LARDOMAR.md)' in args_s

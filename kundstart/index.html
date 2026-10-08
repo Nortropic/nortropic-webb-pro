@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ditt uppdrag · Nortropic</title><link rel="stylesheet" href="/kundstart.css"><script src="/kundstart.js" defer></script></head>
+<body><a class="hoppa" href="#samtal">Till samtalet</a>
+<header><a href="/" aria-label="Nortropic, Kundstart">Nortropic</a><span>Kundstart</span></header>
+<main><div class="intro"><p class="etikett">Från idé till ett tydligt uppdrag</p><h1>Vad vill ni att webbplatsen ska göra?</h1>
+<p>Berätta med egna ord. Ni kan pausa, komma tillbaka och rätta underlaget. Ett inskick är en förfrågan, inte ett löfte om pris eller leverans.</p></div>
+<p id="status" role="status" aria-live="polite">Öppna din ärendelänk för att fortsätta.</p>
+<div id="arbete" hidden><p id="din-behorighet"></p><div class="kolumner"><section id="samtal" aria-labelledby="samtalsrubrik"><h2 id="samtalsrubrik">Samtalet</h2>
+<p id="modellstatus"></p><div id="meddelanden" role="region" aria-label="Tidigare meddelanden"></div>
+<form id="svarform"><div id="svarar-pa" hidden><p id="fragetext"></p>
+<label for="svarslage">Hur vill du svara på kompletteringen?</label><select id="svarslage"><option value="svarad">Här är vårt svar</option><option value="vet_inte">Vi vet inte än, hjälp oss avgöra</option><option value="avstar">Vi avstår</option><option value="framtida">Det gäller längre fram</option></select>
+<button id="lamna-fraga" type="button" class="sekundar">Skriv i samtalet i stället</button></div>
+<label for="svar">Ditt svar</label><textarea id="svar" rows="5" maxlength="30000" aria-describedby="svarhjalp"></textarea>
+<p id="svarhjalp" class="hjalp">Skriv inte lösenord, nycklar eller känsliga personuppgifter. Utkastet stannar i den här fliken tills du skickar.</p>
+<button type="submit">Spara och fortsätt</button></form><button id="forsok" type="button" hidden>Fortsätt AI-samtalet</button>
+<button id="hamta" type="button" class="sekundar">Hämta senaste uppdateringen</button></section>
+<section aria-labelledby="uppdragsrubrik"><h2 id="uppdragsrubrik">Ditt uppdrag</h2><p>Här ser du det som finns i underlaget. AI-förslag är skilda från dina uppgifter.</p>
+<div id="uppgifter"></div><h3>Rätta eller lägg till en uppgift</h3>
+<form id="uppgiftsform"><input type="hidden" id="uppgiftid"><label for="amne">Vad gäller uppgiften?</label>
+<select id="amne"><option value="A">Verksamheten och målet</option><option value="B">Besökarna och deras uppgifter</option><option value="C">Det som finns i dag</option><option value="D">Uttryck och varumärke</option><option value="E">Innehåll</option><option value="F">Funktioner och befintliga system</option><option value="G">Synlighet och resultat</option><option value="H">Drift och uppdateringar</option><option value="I">Budget, tid och ansvar</option><option value="J">Osäkerhet och särskilda behov</option></select>
+<label for="uppgifttext">Uppgift</label><textarea id="uppgifttext" rows="3" maxlength="30000"></textarea>
+<label for="lage">Hur ska vi tolka den?</label><select id="lage"><option value="onskemal">Ett önskemål</option><option value="kundval">Det här väljer vi</option><option value="avstatt">Det vill vi inte ha</option><option value="framtida">Kanske längre fram</option><option value="okant">Vi vet inte än</option><option value="inte_relevant">Inte aktuellt för oss</option></select>
+<div id="klarlaggningsfalt" hidden><p>Beslutsfattaren anger vad som gäller efter att de motstridiga uppgifterna stämts av. Båda tidigare uppgifterna finns kvar i historiken.</p><label for="klarlaggningsskal">Hur har ni klarlagt motsägelsen?</label><textarea id="klarlaggningsskal" rows="3" maxlength="3000"></textarea></div>
+<button id="spara-uppgift" type="submit">Spara uppgiften</button><button type="button" id="avbryt-rattning" class="sekundar">Avbryt rättningen</button>
+<button type="button" id="jamfort-utkast" hidden>Jag har jämfört med senaste uppgiften och vill behålla mitt utkast</button></form>
+<h3>Förslag att ta ställning till</h3><div id="forslag"></div><h3>Det som behöver klarläggas</h3><div id="fragor"></div>
+<div id="returfragor"></div><div id="integrationsstatus"></div>
+<details><summary>Berätta om en funktion eller koppling ni behöver</summary><p>Beskriv vad besökaren ska kunna göra. Nortropic utreder den tekniska vägen; du behöver inte veta vilket API eller abonnemang som krävs.</p>
+<form id="integrationsform"><input id="integrationid" type="hidden"><label for="integrationsbehov">Vad vill ni kunna göra?</label><textarea id="integrationsbehov" rows="3" maxlength="3000" required></textarea>
+<label for="befintligt-system">Använder ni något system i dag? (frivilligt)</label><input id="befintligt-system" maxlength="3000">
+<label for="integrationslage">Är detta aktuellt nu?</label><select id="integrationslage"><option value="onskemal">Ett önskemål att undersöka</option><option value="framtida">Längre fram</option><option value="avstatt">Detta vill vi avstå från</option><option value="okant">Vi vill ha hjälp att avgöra</option></select>
+<button type="submit">Spara funktionsbehovet</button><button id="jamfort-integration" type="button" hidden>Jag har jämfört behovet med senaste versionen</button></form></details>
+<section id="grunduppgifter" aria-labelledby="grundrubrik" hidden><h3 id="grundrubrik">Verksamhetsuppgifter att stämma av</h3>
+<p>Sammanställningen används i webbunderlaget. Stämmer något inte, rätta det i samtalet. En avstämning är ingen beställning.</p>
+<div id="grundvarden"></div><button id="bekrafta-grund" type="button">Dessa verksamhetsuppgifter stämmer</button></section>
+<h3>Material</h3><p class="hjalp">Text, PNG, JPEG eller PDF. Högst 4 MB per fil. Uppladdning betyder inte att materialet har lästs eller att användningsrätten är klar.</p>
+<form id="bilageform"><label for="fil">Välj material</label><input id="fil" type="file" accept=".txt,.png,.jpg,.jpeg,.pdf"><button type="submit">Ladda upp</button></form><div id="material"></div>
+<form id="rattighetsform" hidden><h3>Beskriv materialets användningsrätt</h3><input id="rattfil" type="hidden"><p id="rattnamn"></p>
+<label for="rattlage">Får materialet användas på webbplatsen?</label><select id="rattlage"><option value="okand">Vi vet inte ännu</option><option value="kunden_uppger_ratt">Vi uppger att vi har rätt att använda det</option><option value="saknar_ratt">Nej, användningsrätt saknas</option></select>
+<label for="rattgrund">Beskriv källan och vad ni vet om tillståndet</label><textarea id="rattgrund" rows="3" maxlength="2000" required></textarea>
+<p class="hjalp">Ditt besked är underlag för rättighetskontrollen. Det är inte ett tillstånd för Nortropic att återanvända materialet i andra uppdrag.</p>
+<button type="submit">Spara rättighetsbeskedet</button><button id="jamfort-ratt" type="button" hidden>Jag har jämfört rättighetsbeskedet med senaste versionen</button></form>
+<div class="bestallning"><h3>Ta nästa steg</h3><p id="bestallningsstatus"></p><button id="forfragan" type="button">Skicka beställningsförfrågan</button>
+<div id="erbjudande"></div><p class="hjalp">Nortropic behöver bereda omfattning och villkor innan ett erbjudande kan accepteras. Att bekräfta en uppgift är inte att beställa hela projektet.</p></div>
+</section></div></div></main><footer>Din information hör till ditt ärende. Inga externa resurser laddas på den här sidan.</footer></body></html>

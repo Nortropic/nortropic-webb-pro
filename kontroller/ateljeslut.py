@@ -537,8 +537,8 @@ def bevara_forra(slug, st):
 
 
 def aktuell(slug, fil=None):
-    """Posten prövad mot domloggen nu, utan att posten på disk ändras: ägarens beslut efter körningen med avsändaren, och
-    tillståndet ägaren godkänner ur dem. Utan fil: den senaste posten. Ger None utan post."""
+    """Domloggen och godkännandets aktuella underlag prövas utan att den sparade posten ändras.
+    Ett äldre ja är historik när helbyggstartens giltighetskontroll nekar. Utan fil: senaste posten."""
     poster = slutposter(slug)
     f = Path(fil) if fil else (poster[-1] if poster else None)
     p = korslut.las(f) if f else None
@@ -552,8 +552,17 @@ def aktuell(slug, fil=None):
         st_ = {'startad': k['startad'], 'kandidatflode': k.get('fas') != 'aldre', 'lage': k.get('lage'), 'steg': k.get('steg')}
         t = p.get('tillstand') if isinstance(p.get('tillstand'), dict) else {}
         t['agaren_godkanner'] = tillstanden(slug, st_, (p.get('utfall') or {}).get('slag'), p.get('kandidater') or [], b)['agaren_godkanner']
+        ag = t['agaren_godkanner']
+        if ag.get('varde') is True:
+            try:
+                giltig, skal = skapande.godkand_giltig(slug, _atelje().UNDERLAG, _atelje().KUNDER)
+            except (OSError, ValueError):
+                giltig, skal = False, 'godkännandets underlag kunde inte verifieras'
+            if not giltig:
+                t['agaren_godkanner'] = dict(ag, varde=None, historik=ag,
+                    text='historik: %s; gäller inte aktuellt underlag: %s' % (ag['text'], skal))
         p['tillstand'] = t
-    p['provad'] = {'tid': korslut.nu(), 'text': 'ägarens beslut prövade mot domloggen nu'}
+    p['provad'] = {'tid': korslut.nu(), 'text': 'ägarens beslut prövade mot domloggen nu; ett ja kräver också aktuellt underlag och oförändrad godkänd startsida'}
     olas = skapande.olasbara_text((p.get('agarens_beslut') or {}) if isinstance(p.get('agarens_beslut'), dict) else {})
     if olas:
         p['provad']['text'] += '; %s' % olas

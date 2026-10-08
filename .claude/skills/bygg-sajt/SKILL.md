@@ -368,7 +368,8 @@ KONCEPT.md.
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
 3. **Bygg** sidorna ur INNEHALL.md: mobil först, semantisk HTML, en h1 per sida, självhostade typsnitt eller
    systemtypsnitt, verksamhetens bilder via `astro:assets`, en sammanhängande implementation ur de låsta beroendena
-   (egen CSS, stilpaketets variabler, Tailwind, Astro- och React-komponenter, Motion; `kunskap/beroenden.md`) där
+   (egen CSS, stilpaketets variabler, Tailwind, Astro- och React-komponenter, Motion och GSAP med valet per beteende;
+   `kunskap/beroenden.md`) där
    innehållet och navigationen fungerar utan JavaScript, JSON-LD med den mest specifika schema.org-typen sanningsenligt
    ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och kundens kontaktvägar ur BRIEF.md §4 (har
    kontaktmodellen telefonen: numret som tel-länk), `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande

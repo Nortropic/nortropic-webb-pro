@@ -16,12 +16,28 @@ här är verktygen, inte en standard: en sida som inte använder dem får inga s
 | sharp | 0.35.5 | Apache-2.0 (libvips LGPL-3.0) | `astro:assets`, bildformat och storlekar | – |
 | tailwindcss, @tailwindcss/vite | 4.3.3 | MIT | Tailwind 4 med `@theme` (stilpaketets tokens) | grundstilar och använda klasser: 2,4 kB CSS |
 | @astrojs/react, react, react-dom | 7.0.0, 19.3.0 | MIT | React-komponenter; som ö bara där interaktionen kräver det | en ö: cirka 69 kB JS på sidan som har den |
-| motion | 14.0.0 | MIT | rörelse i ett `<script>` | `motion/mini`: 3,3 kB; hela `motion`: 19 kB |
+| motion | 14.0.0 | MIT | rörelse i ett `<script>` (`motion`) och i en React-ö (`motion/react`, det som hette Framer Motion) | `motion/mini`: 3,3 kB; hela `motion`: 19 kB |
+| gsap | 3.15.0 | Standard "No Charge" GSAP License (fri också kommersiellt, alla plugins inräknade; se nedan) | tidslinjer och scrollsekvenser i ett `<script>` | kärnan: 27 kB; med ScrollTrigger: 44 kB (uppmätt 2026-10-07, gzip) |
 
 Granskningen 2026-10-05: 336 paket i låset, `npm audit` 0 sårbarheter, installationsskript bara i esbuild och fsevents
 (fanns redan genom Astro och Vite), licenserna MIT, Apache-2.0, BSD, ISC, 0BSD, BlueOak, CC0, MPL-2.0 (lightningcss)
 och LGPL-3.0 (sharps libvips). Provbygget av en sida med Tailwind, en React-ö och Motion gav inga konsolfel och inga
 CSP-överträdelser (Astros CSP hashar öns skript); en sida utan dem fick inga skript.
+
+Granskningen 2026-10-07 (gsap 3.15.0, ägarens uppdrag samma dag, punkt 5C): installerat utan skript i kopior av båda
+mallarna, 337 paket i `mall/astro` och 420 i `mall/leverans`, `npm audit --omit=dev` 0 sårbarheter, inga nya
+installationsskript, gsap utan egna beroenden; paketet deklarerar licensen "Standard 'no charge' license:
+https://gsap.com/standard-license". Licensen (gsap.com/licensing och gsap.com/standard-license, lästa 2026-10-07): i
+kraft 2025-04-30, senast ändrad 2025-05-30, efter Webflows förvärv; fri också för kommersiellt bruk och för alla
+plugins som förut var betalda (SplitText, MorphSVG, ScrollSmoother …); undantagen är verktyg för visuell
+animationsbyggnad utan kod som konkurrerar med Webflow, reverse engineering för konkurrerande produkter och borttagna
+notiser; AI-genererad kod är uttryckligen tillåten. Provbygget (rökprovets sida `/rorelse/`, `kontroller/rokprov.sh`):
+sidan bygger under mallens CSP utan konsolfel, står stilla och färdig för den som bett om mindre rörelse och rör sig
+annars. Beteendeprovet i `kontroller/rokprov/rorelse.mjs` mäter start, mellanläge och slutposition med Playwright
+Clock, också preferensbyte under rörelsen och innehållet utan JavaScript (källor lästa 2026-10-07:
+https://playwright.dev/docs/clock och https://gsap.com/docs/v3/GSAP/gsap.matchMedia()/). Kostnaden per sida, uppmätt i mallkopian: GSAP-kärnan 69,8 kB rå och 27,1 kB gzip,
+med ScrollTrigger 112,5 kB rå och 44,3 kB gzip; hela `motion` (animate och inView) 53,4 kB rå och 19,1 kB gzip. Allt
+under byggstandardens 200 kB (3.7), men GSAP är det tyngsta valet och bär sig bara när beteendet kräver det.
 
 ## Så används de
 
@@ -34,7 +50,25 @@ CSP-överträdelser (Astros CSP hashar öns skript); en sida utan dem fick inga 
   `client:visible` eller `client:idle` bara när interaktionen kräver tillstånd i webbläsaren. Innehållet och
   navigationen fungerar utan JavaScript (byggstandarden).
 - **Motion:** `import { animate } from 'motion/mini'` i ett `<script>` (Astro bundlar och hashar det), med
-  `prefers-reduced-motion` respekterat; hela `motion` (scroll, inView, fjädrar) när rörelsen kräver det.
+  `prefers-reduced-motion` respekterat; hela `motion` (scroll, inView, fjädrar) när rörelsen kräver det; i en React-ö
+  `import { motion } from 'motion/react'`. Motion är det nya namnet på Framer Motion: `motion/react` är gamla
+  framer-motion, och npm-paketet `framer-motion` 14.0.0 är ett alias som aldrig installeras bredvid (båda får inte
+  finnas). Skillen `.claude/skills/motion/` (Motion AI Kit, fria delen) är därför också Framer Motion-skillen, och
+  dess MCP (`kontroller/mcp/motion.json`, `search-motion-docs`) söker dokumentation och exempel för `motion`,
+  `motion/react` och `motion-v`; ingen separat Framer Motion-skill eller -MCP finns eller behövs.
+- **GSAP:** `import gsap from 'gsap'` (och `import { ScrollTrigger } from 'gsap/ScrollTrigger'` med
+  `gsap.registerPlugin`) i ett `<script>`. Varje rörelse står innanför `gsap.matchMedia()` med
+  `(prefers-reduced-motion: no-preference)`, så att den som bett om mindre rörelse får sidan färdig och stilla
+  (mallens `Bas.astro` stänger CSS-övergångar, inte skriptdriven rörelse; rökprovets `/rorelse/` prövar det). Ingen
+  ScrollSmoother eller annan mjuk scroll (metodkartans Avgöranden, WCAG 2.2.2); det ScrollTrigger avtäcker syns
+  också utan skript. Skillen `.claude/skills/gsap/` (gsap-skills, MIT) med vårt index.
+- **Valet per beteende (ägarens uppdrag 2026-10-07, punkt 5C):** rollen rorelse väljer tekniken per beteende ur
+  designens och implementationens behov och skriver valet med skäl i passets `teknikval` och i RIKTNING.md: CSS först
+  när den räcker (tillstånd, enkla övergångar, `@starting-style`, korta staggers med `transition-delay`), Motion för
+  fjädrar, avbrytbara gester, layoutanimationer och React-öar, GSAP för tidslinjer med flera steg och scrollsekvenser
+  (ScrollTrigger). Ett genomtänkt beslut kan vara att något ska vara stilla, och ingen rörelse läggs till för att fylla
+  en kvot. Beslutstabellen är `motion/best-practices/css-or-motion.md` (läses hel före valet i passet rörelse)
+  tillsammans med raden ovan.
 - **Komponentbibliotek** som kräver nya paket (shadcn/ui med Radix, Fluent, Carbon) finns inte i låset. Ett behov
   förbereds som ett nytt beroende nedan; mönstren går ofta att bygga som Astro-komponenter med de låsta paketen.
 
@@ -56,6 +90,30 @@ Flödets sessioner kör aldrig npm, npx eller node direkt (`kontroller/atelje.py
 3. Provbygg en sida som använder det, under mallens CSP, och mät kostnaden (gzip) och konsolen i webbläsaren.
 4. Lägg `package.json` och `package-lock.json` i `mall/astro/`, uppdatera tabellen ovan med granskningen, och kör
   `kontroller/rokprov.sh` tills det är grönt. Nya sajter installerar med `npm ci` mot låset (`kontroller/ny_sajt.py`).
+
+## Chrome DevTools MCP (låst verktyg för inspektionssessionen)
+
+Ägarens uppdrag 2026-10-07, punkt 7 och 5: MCP:n prövas i en egen inspektionssession (`kontroller/devtools.py`), aldrig i
+skaparens eller kritikens session och aldrig på användarnivån. Den är inget paket i mallen eller i `kontroller/package.json`:
+versionen låses i konfigurationen och körs ur npm:s npx-cache.
+
+| Verktyg | Version | Källa och datum | Licens | Krav | Så körs den |
+|---|---|---|---|---|---|
+| chrome-devtools-mcp | 1.10.1 (npm 2026-09-23; prövad 2026-10-07) | github.com/ChromeDevTools/chrome-devtools-mcp (README, docs/configuration.md, docs/tool-reference.md, lästa 2026-10-07) och `npx chrome-devtools-mcp@1.10.1 --help` | Apache-2.0 | Node ^20.19 ‖ ^22.12 ‖ ≥23 (node@22 och node@24 går); Chrome: Playwrights Chromium ur `kontroller/node_modules` (`NWP_DEVTOOLS_CHROME`), aldrig ägarens installerade | `kontroller/mcp/chrome-devtools.json`: `npx -y chrome-devtools-mcp@1.10.1 --isolated --headless --no-usage-statistics --no-performance-crux --no-category-input --no-category-memory --no-javascript-evaluation --viewport=1440x900 --proxyServer=${NWP_DEVTOOLS_PROXY} --executablePath=${NWP_DEVTOOLS_CHROME}`, med `CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS=1`; `--strict-mcp-config` i sessionen |
+
+Gränserna: `--isolated` ger en tillfällig profil som tas bort efteråt; `--autoConnect`, `--browserUrl` och `--wsEndpoint`
+(anslutning till en körande Chrome med öppen felsökningsport) används aldrig, och `devtools.konfig()` vägrar en
+konfiguration som har dem eller saknar någon av de fyra flaggorna. Nätet går genom nätgränsen
+(`kontroller/webblasare/natproxy.mjs`, samma regler som webbtjänsten: referensens värdar och resursursprungen ur
+paketet, uppslag till publika adresser, allt annat nekat och loggat i `natgrans.json`); utan proxy- och Chrome-variablerna
+står de oexpanderade i konfigurationen och ingen sida nås. Googles användningsstatistik och CrUX-anropen är avstängda.
+Verktygen med uppgift är exakt de sessionen släpper (`devtools.VERKTYG`), beslutet per verktyg står i metodkartan
+(Tjänsternas verktyg), och `kontroller/kompetens.py --prova` fäller en skillnad.
+
+Ny version: pröva först med `devtools.py --torr` och sedan en verklig session mot provets syntetiska sajt (som
+`prov_referensinspektion.py` fall 8 gör med provklienten), uppdatera versionen i konfigurationen och den här tabellen i
+samma commit, och kör rökprovet. Underhållet (`kontroller/underhall.py`) slår ännu inte upp den här versionen: den byts för
+hand, med samma karenstid som de globala npm-paketen.
 
 ## Underhåll: den senaste versionen som klarat proven
 
@@ -169,3 +227,18 @@ Slagen och vad som gäller för dem:
 Intag i kontrollernas `node_modules` och i `.venv` görs bara i utcheckningen som äger dem (en worktree länkar dem).
 Läget (uppslag, prov, avvisade och godkända versioner, ändringslogg) ligger i `underlag/startkontroll/`, utanför git;
 körregistret och intagslåset i `/tmp/nwp-korningar/`.
+
+H1:s rättelse använder även ett lokalt, versionsbundet tillägg i `kontroller/webblasare/devtools-lasande/`.
+Källverifierat 2026-10-07 mot npm 1.10.1 (gitHead e52c6b59b476c5e04d8dd9fd4bd017ba3b3d65df), dess
+[konfigurationsdokumentation](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/e52c6b59b476c5e04d8dd9fd4bd017ba3b3d65df/docs/configuration.md),
+[Chromes DNR-regler](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest) och
+[Playwrights tilläggsstöd](https://playwright.dev/docs/chrome-extensions). Exakta argument finns i
+`kontroller/mcp/chrome-devtools.json` och prövas i `devtools.konfig`; den kortare kommandoraden ovan är inte hela
+startkonfigurationen efter rättelsen. `allowedUrlPattern` kräver Chromium 149+. Den låsta versionens startkod
+fick `chromeArg` och `ignoreDefaultChromeArg` verifierade läsande; ingen ny MCP-session startades av Codex.
+Dagens dokumentation för main är inte ett versionsbevis för 1.10.1.
+
+Den låsta serverns `new_page.isolatedContext` skapar en extra webbläsarkontext som saknar tilläggsskyddet.
+Startkommandot går därför genom `.venv/bin/python kontroller/devtools_transport.py` före samma låsta npx-paket.
+Vakten kontrollerar verktyg och argument enligt [MCP:s stdio-transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
+(läst 2026-10-07); ingen ny extern paketdependency. Provet använder en lokal npx-attrapp, inte verklig MCP-åtkomst.

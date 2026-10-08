@@ -13,11 +13,11 @@ Författare (år) i texten; fullständiga referenser under C.
 
 | Processmodellen (A) | Våra steg | Det vi inte gör obevakat |
 |---|---|---|
-| 1 Förstå | 1 Underlag, 2 Diagnos (med heuristisk utvärdering och kognitiv genomgång av deras sajt) | JTBD-intervjuer med 3–5 slutkunder; omdömena används som ersättning |
+| 1 Förstå | 1 Underlag, 2 Diagnos (med heuristisk utvärdering och kognitiv genomgång av deras sajt) | Intervjuer med verkliga slutkunder; omdömen är sekundärdata och hypotesunderlag, inte en ersättning |
 | 2 Specificera | 3 Brief med toppuppgifter och krav i EARS-form; Definition of Done = provets grindar och granskaren | MoSCoW görs implicit i sajtkartan |
 | 3 Designa | 4 Innehåll före form, 5 Koncept och bygge | |
 | 4 Bygga | 5 Bygge, snabbprov | CI/CD och grenar hör till lanseringen |
-| 5 Utvärdera | 6 Prov (axe, Lighthouse, byggstandarden, femsekunderstest), den oberoende granskaren (heuristisk utvärdering, kognitiv genomgång, WCAG-EM-urval) | Användartest med fem personer och SUS; en modellbaserad besökare är inte en människa |
+| 5 Utvärdera | 6 Prov (axe, Lighthouse, byggstandarden, femsekunderstest), den oberoende granskaren (heuristisk utvärdering, kognitiv genomgång, WCAG-EM-urval) | Användartest med motiverat urval och eventuell SUS; en modellbaserad besökare är inte en människa |
 | 6 Lansera och lära | 7 Rapport, 8 Ägarens dom som textändring (build–measure–learn) | Fältdata (CrUX, sökkonsolen) finns först efter lansering |
 
 ## A. Processmodell – så byggs en sajt enligt litteraturen
@@ -27,7 +27,7 @@ Lean UX (Gothelf & Seiden 2021). På uppsatsnivå: Design Science Research (Hevn
 bygg artefakten, utvärdera, iterera.
 
 1. **Förstå.** Kundens verksamhet och kundens kunder: rich picture/CATWOE (Checkland 1999), jobs-to-be-done-intervjuer
-   med 3–5 verkliga slutkunder (Christensen m.fl. 2016), kundresa/service blueprint (Stickdorn m.fl. 2018),
+   med verkliga slutkunder, urval efter fråga och målgrupp (Christensen m.fl. 2016), kundresa/service blueprint (Stickdorn m.fl. 2018),
    innehållsinventering (Halvorson & Rach 2012).
 2. **Specificera.** Krav i EARS-syntax (Mavin m.fl. 2009), prioritering MoSCoW, Definition of Done (Schwaber &
    Sutherland 2020) = standardens 10.3.
@@ -37,8 +37,8 @@ bygg artefakten, utvärdera, iterera.
    prestandabudget som CI-gate (Kadlec 2013).
 5. **Utvärdera.** Expertgranskning: heuristisk utvärdering (Nielsen & Molich 1990; Nielsen 1994), kognitiv genomgång av
    nyckeluppgiften (Wharton m.fl. 1994), WCAG-EM-stickprov (W3C 2014), lab- och fältmätning (Walton 2020).
-   Användartest: 5 användare per runda (Nielsen & Landauer 1993), SUS (Brooke 1996; riktvärde 68 enligt Sauro & Lewis
-   2016).
+   Användartest: små iterativa urval för kvalitativ problemupptäckt (Nielsen & Landauer 1993), anpassade efter
+   målgrupper och undersökningsfråga. SUS (Brooke 1996) kräver verkliga deltagares svar; ett referensvärde är ingen godkännandegräns.
 6. **Lansera och lära.** Gate enligt DoD, fältdata (CrUX/GSC), build–measure–learn (Ries 2011), leveransmått enligt
    DORA (Forsgren, Humble & Kim 2018).
 
@@ -112,7 +112,7 @@ klarspråk (Språkrådet). M: 5-sekunderstest av startsidan; innehållsinventeri
 för DoD – funktionell lämplighet, prestandaeffektivitet, kompatibilitet, interaktionsförmåga (f.d. användbarhet, nu
 inkl. inkludering), tillförlitlighet, säkerhet, underhållbarhet, flexibilitet, safety; användbarhet = ändamålsenlighet,
 effektivitet och tillfredsställelse i ett sammanhang (ISO 9241-11:2018). M: RUM/CrUX + GSC; uptime-övervakning;
-incidentlogg; SUS vid överlämning och efter större ändring; användartest med 5 användare per runda; månatlig
+incidentlogg; SUS när uppgift och urval motiverar det; användartest med motiverat urval per målgrupp; månatlig
 underhållscykel. L: ISO/IEC 25010 (2023); ISO 9241-11 (2018); Ries (2011); Forsgren m.fl. (2018); Sauro & Lewis
 (2016); Krug (2010); Rubin & Chisnell (2008).
 
@@ -125,10 +125,17 @@ principer. M/L: Leverantörsdokumentation (för oss Astro och Vercel) – primä
 standarder · 5 Felförebyggande · 6 Igenkänning framför ihågkommande · 7 Flexibilitet och effektivitet · 8 Estetisk och
 minimalistisk design · 9 Hjälp att känna igen, förstå och återhämta sig från fel · 10 Hjälp och dokumentation.
 
-En ensam expertgranskare hittar i snitt omkring 35 procent av problemen; tre till fem oberoende granskare omkring 75
-procent ([NN/g](https://www.nngroup.com/articles/how-to-conduct-a-heuristic-evaluation/theory-heuristic-evaluations/)).
+Historiska studier av mänskliga granskare visar nyttan av flera oberoende bedömningar
+([NN/g](https://www.nngroup.com/articles/how-to-conduct-a-heuristic-evaluation/theory-heuristic-evaluations/)).
+Deras upptäcktsandelar är inte täckningslöften för vår sajt eller för flera modellinstanser.
 En studie av multimodala språkmodeller som granskare fann att de hittade fler problem än fem erfarna människor men
 missade fel som sträcker sig över flera skärmar ([arXiv 2507.02306](https://arxiv.org/abs/2507.02306)).
+
+Forskningsplanen ska därför ange uppgift, målgrupp, urval, obesvarad fråga och vilket beslut resultatet kan ändra.
+Fem deltagare är en tumregel för vissa kvalitativa rundor, inte för alla metoder eller för statistiska slutsatser
+([NN/g](https://www.nngroup.com/articles/why-you-only-need-to-test-with-5-users/)). Kundintervju, expertgranskning,
+modellprov och observation av verkliga användare redovisas var för sig
+([GOV.UK](https://www.gov.uk/service-manual/user-research/plan-user-research-for-your-service)).
 
 ## B.3 Kognitiv genomgång (Wharton m.fl. 1994) – fyra frågor per steg
 

@@ -1050,5 +1050,17 @@ def _skaparval():
     assert kd.skaparval() == {'modell':atelje.MODELL,'effort':kd.EFFORT_SKISS}
 
 
-print('skisskritikens prov: %d fall, %d föll' % (21, len(FEL)), file=sys.stderr)
+@fall('22 sammanhängande syntetiskt kundförlopp genom verkliga övergångar och kor.sh')
+def _forlopp():
+    import prov_forlopp
+    prov_forlopp.kor(globals())
+
+@fall('23 förberett A/B träffar bara skisskaparens två pass genom riktiga körvägen')
+def _ab_skiss():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from prov_ab_skiss_kedja import kor
+    kor(globals())
+
+
+print('skisskritikens prov: %d fall, %d föll' % (23, len(FEL)), file=sys.stderr)
 sys.exit(1 if FEL else 0)

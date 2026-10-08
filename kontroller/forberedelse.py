@@ -15,6 +15,7 @@ import atelje
 import skapande
 import verksamhetsuppgifter
 import kompetens
+import kundstart_kalla
 
 FILER = ('RESEARCH.md', 'BRIEF.md', 'TEXTUNDERLAG.md', 'BESTALLNING.md')
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['klar', 'saknas'],
@@ -31,6 +32,7 @@ def indata(slug):
 def giltig(slug, post=None):
     u = atelje.UNDERLAG / slug
     try:
+        kundstart_kalla.krav(u)
         post = post if post is not None else atelje.las_json(u / 'atelje/FORBEREDELSE.json')
         return bool(isinstance(post, dict) and post.get('status') == 'klar' and post.get('indata') == indata(slug)['kund']
                     and not (u / 'INNEHALL.md').exists() and not (u / 'INNEHALL.md').is_symlink()
@@ -44,6 +46,7 @@ def giltig(slug, post=None):
 def krav(slug):
     u = atelje.UNDERLAG / slug
     atelje.saker_vag(u, atelje.UNDERLAG)
+    kundstart_kalla.krav(u)
     v = u / 'VERKSAMHET.json'
     if not v.is_file() or v.is_symlink():
         raise ValueError('VERKSAMHET.json behövs: Kundstart eller ägarens verifierade grunduppgifter')
@@ -80,6 +83,11 @@ def prompt(slug, paket):
 
 def publicera(slug, paket, grund):
     """Pröva hela paketet först. Behåll ersatta arbetsfiler och vägra parallella indataändringar."""
+    with kundstart_kalla.last(atelje.UNDERLAG / slug):
+        return _publicera(slug, paket, grund)
+
+
+def _publicera(slug, paket, grund):
     u = atelje.UNDERLAG / slug
     atelje.saker_vag(u, atelje.UNDERLAG)
     atelje.saker_vag(paket, u)

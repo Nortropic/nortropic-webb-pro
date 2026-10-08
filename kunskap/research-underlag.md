@@ -1,11 +1,11 @@
 # Research — faktaunderlag före brief
 
 Professionsfil (HELHET-20260927, avsnitt 3–4; ägarens tillägg 2, avsnitt 4–5), återvunnen och generaliserad ur det
-arkiverade repots forskningskontrakt (v3.1.0). Laddas i steget `research` tillsammans med `referensjakt.md`
-(referensjakten är en del av researchen, inte hela) och i steget `intervju`. Kundens research skrivs i kundmappens
-`research.md`: den kundspecifika ingången för kvalificerat underlag — vad vi vet och behöver förstå; briefen
-motiverar vad vi väljer att göra. Ingen konkurrerande kundsanning: research.md hänvisar till intervjun (avsnitt 19),
-VERKSAMHET.json och källfilerna, och de pekar tillbaka.
+arkiverade repots forskningskontrakt (v3.1.0). Används vid förberedelsen av kundunderlag; den visuella
+referensjakten följer `referensjakt.md` och är bara en del av researchen. Aktuell leverans styrs av metodkartan.
+Förberedelsen skriver `RESEARCH.md`: vad vi vet och behöver förstå; briefen motiverar vad vi väljer att göra.
+Äldre `research.md` är källmaterial, inte en parallell aktuell leverans. RESEARCH.md hänvisar till kundsvaren (avsnitt 19),
+VERKSAMHET.json och källfilerna; källorna skrivs inte om av förberedelsen.
 
 ## Status per nyckeluppgift
 
@@ -14,7 +14,7 @@ observation), `externt belagt` (register, plattform, dokumentation), `tolkning` 
 `preferens` (kundens önskemål, skilt från fakta och från en beslutad gräns) eller `okänt`. Inte varje mening
 registreras — bara det som styr val. Kundens aktuella uppgift ersätts aldrig tyst av gammal webbtext; ett önskemål blir
 inte ett externt belagt faktum. Motsägelser bevaras med båda uppgifterna, undersöks och följs upp med en riktad fråga
-(intervju.py `fakta`/`avgor`).
+i kunddialogens befintliga returväg. Det arkiverade repots intervju.py-kommandon körs inte här.
 
 ## Faktadisciplin
 
@@ -88,7 +88,8 @@ RESEARCH-KONTROLL v1 | org=<ja|nej> | kontaktvag=<ja|nej> | erbjudande=<ja|nej> 
 `status=KOMPLETT` kräver `ja` på org, kontaktvag, erbjudande och rackvidd; `osakra` och `konflikter` nollställs
 aldrig av sig själva; OFULLSTÄNDIG skrivs överst i filen; ett oundersökt fält är `OSÄKER`, aldrig `nej`.
 
-19. **Intervju och status per uppgift** (sist i filen) — skrivs av `verktyg/intervju.py research` (Digitalas verktyg, finns inte här): kanal, omgångar,
+19. **Kundsvar och status per uppgift** (sist i filen) — härleds ur mottagna svar och, när Kundstart används,
+    dess överlämnade `KUNDSTART.json`; ange kanal och omgångar,
     kundens svar ordagrant per område A–H, fakta med status och källa, motsägelser, luckor som påverkar lösningen
     (även ställda frågor utan svar), följdregler som utlöstes, och svaren på de fyra användbarhetsfrågorna: vilken
     uppgift är viktigast; vad måste formuläret åstadkomma efter inskick; vilket befintligt system ska ta emot; vad vet
@@ -96,12 +97,13 @@ aldrig av sig själva; OFULLSTÄNDIG skrivs överst i filen; ett oundersökt fä
 
 ## Användbarhet, inte rubriker
 
-Research.md är klar för brief när den kan besvara: vilken uppgift är viktigast för besökaren och verksamheten; vad
+RESEARCH.md är klar för brief när den kan besvara: vilken uppgift är viktigast för besökaren och verksamheten; vad
 formuläret (eller bokningen) måste åstadkomma efter inskick och vilket system som tar emot; vilka kanaler som är
 relevanta för just denna kund; vad som är tillräckligt utrett, inte tillämpligt, motsägelsefullt eller ännu okänt.
 Geografisk räckvidd, kontaktkanaler och integrationer beskrivs för den aktuella kunden, inte efter ett tidigare
-falls modell. Nya kundsvar slår igenom i berörda slutsatser, brief, implementation och prov; tidigare versioner bevaras
-(fallets `overforing-*/fore/research.md` via ordinarie överföring; äldre research-rN.md bevaras), och ett uppdaterat research.md lämnar inga gamla antaganden styrande.
+falls modell. Nya kundsvar kräver ny förberedelse av berörda slutsatser, brief, implementation och prov; äldre
+underlag bevaras och får inte fortsätta styra utan prövning. Förberedelsens versionsbundna kvitto visar vilken
+kundgrund och vilka filer som användes. Ett kvitto ersätter inte kontroll av att slutsatserna följer kundsvaren.
 
 ## Skärpningar när uppdraget är lokalt
 
@@ -112,4 +114,4 @@ Lokala krav tvingas inte på nationella eller icke-lokala uppdrag.
 ## Vad research aldrig gör
 
 Ingen strategi, ingen juridisk bedömning, ingen bildnedladdning utan rättighetsläge, ingen kontakt med kundens
-kunder, inga inskick, inga nya konton. Research pinnas inte här: kundens `research.md` bor i kundmappen.
+kunder, inga inskick, inga nya konton. Research pinnas inte här: kundens `RESEARCH.md` bor i den privata underlagsmappen.

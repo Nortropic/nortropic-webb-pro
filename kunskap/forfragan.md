@@ -33,23 +33,57 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
 - **Citat som nämner formuläret** ("skickade förfrågan via hemsidan") får stå, eftersom formuläret nu finns. Ett citat
   får aldrig berömma något som sajten inte har.
 
-## Vid lansering (byggd och prövad 2026-10-05)
+## Vid lansering
 
-En serverfunktion på `/api/forfragan/` (`mall/leverans/forfragan.js`, lagd i kundrepot av `kontroller/exportera.py`) tar över med samma kontrakt.
-Den är prövad med riktiga HTTP-svar i provprojektet `nortropic-leveransprov` (`kontroller/driftkoll.py --formular`):
-honeypot och tidsfälla 303 till `/tack/`, ofullständigt till `/kontakt/`, annan Origin 403 (Astros CSRF-skydd), giltigt
-inskick i förhandsvisningen 303 till `/tack/` som demo och i produktion utan mottagare till `/fel/`. En bild som inte kan
-tas emot (över 4 MB, eller en begäran över 4,4 MB) skickas tillbaka till formuläret med ett eget besked
-(`/kontakt/?bild=for-stor#forfragan-bild`), och formuläret prövar storleken redan i webbläsaren; över Vercels gräns
-4,5 MB svarar plattformen 413 innan funktionen körs. Mejlet genom Resend och lagringen i Blob är prövade utan nät (Node,
-`mall/leverans/forfragan.js`, med en ersättare för `@vercel/blob` som tar emot det som sparas), inte mot tjänsterna: de
-prövas med verksamhetens egen adress vid lanseringen. Resends variabler sätts bara för produktionen i Vercel, så att en
-förhandsvisning aldrig skickar ett riktigt mejl (driftkollen kräver utfallet demo där).
+En serverfunktion på `/api/forfragan/` (`mall/leverans/forfragan.js`, lagd i kundrepot av `kontroller/exportera.py`)
+tar över. Produktionskontraktet är nu skilt från den enklare, osparande demomottagaren. Lokala prov kör den
+verkliga funktionen och HTTP/Chromium, men Blob och mejltjänsten ersätts med testdubblar. Det bevisar
+felhanteringen och ordningen, inte fungerande externa konton eller faktisk mottagning hos verksamheten.
+Äldre driftprov från 2026-10-05 gällde tidigare 303-kontrakt och verifierar inte det nya beteendet.
+
+- Valideringsfel: **422**, skyddad HTML-sida med bevarade textfält, fellista som länkar till fälten och
+  fältnära besked. Den fungerar utan JavaScript och skriver inte fältvärden i URL, logg eller lokallagring.
+- Bild över 4 MB: **413** med bevarad text när kroppen kunde läsas; fel bildtyp: **422**. Filfältet kan inte
+  återfyllas av servern, så sidan säger att bilden måste väljas igen. Mottagaren har samma telefonteckenregel
+  som formuläret. HTML escapas och felsidan får no-store, noindex, no-referrer och CSP utan skript.
+- Oläsbar kropp: **400**. Begäran över 4,4 MB: **413**. Dessa svar säger uttryckligen att uppgifterna inte
+  kunde återställas. Taket mäts också på strömmen, även utan Content-Length. Plattformen kan stoppa en för
+  stor begäran före funktionen; det svaret och den faktiska plattformsgränsen måste prövas vid lansering.
+- Saknat lagringskvitto, inklusive saknad lagerkonfiguration: **503** med texten kvar och beskedet att
+  mottagningen inte kunde bekräftas. **Inget mejl försöks före lagringskvittot.**
+- Lagringen bekräftad men mejlaviseringen inte bekräftad: **202**, eget mottaget-besked utan omskicksknapp.
+  Det lovar ingen svarstid och säger att förfrågan inte behöver skickas igen. Verksamheten behöver ha en
+  faktisk rutin för att läsa lagrade ärenden; någon automatisk aviseringskö byggs inte av detta svar. Mottagningsfilen
+  anger `avisering: inte_bekraftad`. Efter identifierad mejlacceptans försöks ett separat `avisering.json`
+  med mottagningsfil och mejl-id. Saknat aviseringskvitto betyder okänt, eftersom kvittoskrivningen också kan
+  falla efter mejlacceptans. Kundrepots README ger uppföljningsvägen via projektets behöriga Blob-verktyg och
+  kontroll mot mejltjänstens logg före manuell omsändning.
+- Både lagring och mejltjänstens acceptans bekräftade: **303** till `/tack/`. Acceptans hos mejltjänsten
+  betyder inte leverans till inkorgen eller ett mänskligt läst ärende.
+
+`kontroller/driftkoll.py --formular` prövar det aktuella HTTP-kontraktet med syntetiska ogiltiga inskick
+samt giltigt demoinskick bara i förhandsvisning. Riktiga mottagningsprov görs uttryckligen med verksamhetens
+adress inför lansering. Mejlets variabler ska inte finnas i en förhandsvisning som ska vara demo.
+
+**Kvarstående återförsöksrisk (G05-R):** tappar besökaren hela svaret efter ett lyckat första POST kan samma
+inskick sparas och aviseras igen vid ett omförsök. Dagens förrenderade formulär saknar individuellt inskicks-id
+före första POST. Ny slumpnyckel i mottagaren eller innehållsdeduplikering utan tids-/avsiktsgräns löser inte
+kontraktet. Individuell serverrendering och beständig idempotens måste prövas tillsammans; ingen sådan garanti
+ges här. Resends idempotensnycklar gäller 24 timmar och kräver samma payload, men ersätter inte mottagarens
+identitet och lagringshantering: https://resend.com/changelog/idempotency-keys . Blob stöder nekad överskrivning
+och villkorliga skrivningar: https://vercel.com/docs/vercel-blob/using-blob-sdk . Originalavsnitten lästa
+2026-10-08; även https://resend.com/docs/api-reference/emails/send-email (svarets id) lästes.
+Bilagan sparas som `bilaga/bild`, skilt från de interna JSON-filerna; klientens filnamn styr inte lagringsvägen.
+Lagringen har en gemensam lokal tidsgräns på 10 s, mejlanrop inklusive JSON-kvitto 8 s och aviseringsfilen 2 s.
+AbortSignal skickas till leverantörsanropen och sena svar startar inte nästa steg. En tidsgräns bevisar inte att
+leverantören saknar sidoeffekt: lagrings-/mejlutfallet är fortfarande okänt utan kvitto. Det sista kvittots timeout
+ändrar inte ett redan identifierat mejlacceptansbesked. Blob-SDK:ns abortSignal kontrollerad i källan ovan.
+Lagringskvittots pathname måste vara just begärd fil (slumpmässigt suffix uttryckligen avstängt), och mejlkvittot
+måste innehålla ett giltigt id utan felobjekt. HTTP 200 ensamt räcker inte. Ingen konfigurationsändring eller extern sändning gjordes.
 
 1. Bara POST; multipart eller urlencoded; begäran högst 4,4 MB och bilden högst 4 MB (Vercels gräns för en funktions
-   begäran är 4,5 MB, och demons mottagare har samma tak), bara bildtyper i `bild`; en bild som inte tas emot ger
-   beskedet `#forfragan-bild`, aldrig beskedet om saknade fält.
-2. Validera igen på servern: namn 1–100 tecken, telefon 6–40 tecken med siffror, meddelande 1–4000 tecken.
+   begäran är 4,5 MB, och demons mottagare har samma tak), bara bildtyper i `bild`; en bild som inte tas emot får ett eget fältnära besked.
+2. Validera igen på servern: namn 1–100 tecken, telefon 6–40 tecken med minst en siffra och bara siffror, mellanslag, +, bindestreck eller parenteser, meddelande 1–4000 tecken.
 3. Honeypot ifylld: svara 303 till `/tack/` utan att skicka. Tidsfälla: `fylltid` under 1500 ms: samma sak. Tomt
    eller 0 (ingen JavaScript, direkt POST) godtas; fältet är ett botfilter, inte autentisering. Jämför aldrig en
    klientstämpel med serverns klocka.
@@ -62,7 +96,6 @@ förhandsvisning aldrig skickar ett riktigt mejl (driftkollen kräver utfallet d
    Inskicket gallras när integritetssidans lagringstid har gått; ingen annan läser det.
 6. Mejl till verksamheten via en dedikerad tjänst med SPF, DKIM och DMARC på domänen; allt innehåll escapas i mallen;
    bilden som bilaga.
-7. Svara 303 till `/tack/` först när tjänsten har accepterat mejlet. Vid mejlfel: 303 till `/fel/`, som säger att
-   förfrågan är mottagen och att verksamheten hör av sig, med telefonnumret som väg vidare; inskicket finns kvar i
-   lagringen och verksamheten kan hämta det. Fel loggas utan personuppgifter.
+7. Svara enligt de separata utfallen ovan. Fel loggas som fasta felkategorier utan råa leverantörsfel eller
+   personuppgifter. Vid mejlfel finns inskicket kvar i lagringen; hanteringsrutinen ska vara klar före lansering.
 8. Konverteringshändelser för skickad förfrågan och telefonklick, i kakfri mätning.

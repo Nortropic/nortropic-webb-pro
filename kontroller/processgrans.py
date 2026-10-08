@@ -11,12 +11,22 @@ härinne) innan kommandot startas (Codex R26, F1/F27). Chromium och claude kan i
 webbläsarsteg och granskarnas sessioner delegerar till webbtjänsten: NWP_PROCESSGRANS=1 räknas som sandlådemarkering
 i webbtjanst.delegeras och i webbläsarhjälparens viaTjanst.
 
+Byggets läsgräns per kandidat (GR-20261007-r107#K1; BESLUT.md, tillägget 2026-10-07: byggets läsgräns per kandidat):
+när --skrivbar är en kandidats projekt (kunder/<slug>/kandidater/kNN/…) nekas läsning som standard och släpps bara för
+det bygget behöver, mätt med ett verkligt bygge (lasgrans, SYSTEMETS): kandidatens projekt, sajtens delade node_modules,
+kandidatens egen temp (/tmp/nwp-bygge-<slug>/tmp-kNN), systemets delar och repots .gitignore och .git. De andra
+kandidaternas kataloger, underlag/ och allt annat i repot och hemkatalogen förblir olästa, också för kritikens
+förhandsvisning, som bygger genom samma väg (prova.bygg_inom_grans). Bygget startar i kandidatens projekt. En
+node_modules-länk som pekar bort från sajtens vägras, liksom ett program som läsgränsen inte släpper: det skulle fastna
+i kärnan. Sajtens eget bygge har ingen läsgräns.
+
     .venv/bin/python kontroller/processgrans.py <slug> [--root R] [--hem H] [--skriv-profil] [--utan-nat] [--bara-sajt | --skrivbar DIR] -- <kommando …>
 Slutkoden är kommandots. Utan sandbox-exec (annat system) vägras körningen (slutkod 2): gränsen får aldrig tyst saknas.
 """
 import argparse
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -36,15 +46,20 @@ def regex_ur_glob(monster):
     return '/' + re.escape(namn).replace('\\*', '[^/]*') + '$'
 
 
-def tempkatalog(slug):
-    """Körningens egen tempkatalog innanför gränsen: under byggets eget tempområde, aldrig systemets (Codex R26, F1)."""
-    return '/tmp/nwp-bygge-%s/tmp' % slug
+def tempkatalog(slug, kid=None):
+    """Körningens egen tempkatalog innanför gränsen: under byggets eget tempområde, aldrig systemets (Codex R26, F1). En
+    kandidats bygge får en egen, tmp-<id>: två kandidaters byggen delar ingen temp, där Node bland annat lägger sin
+    kompileringscache (byggets läsgräns, 2026-10-07)."""
+    return '/tmp/nwp-bygge-%s/tmp' % slug + ('-%s' % kid if kid else '')
 
 
-def ren_miljo(miljo=None, slug=None, root=None, hem=None):
+def ren_miljo(miljo=None, slug=None, root=None, hem=None, kid=None):
     """Miljön innanför gränsen: samma skydd som den vanliga sandlådans credentials-policy (sandlada.py, REFERO_MCP_TOKEN)
     plus proxyvariablerna, som inte gäller härinne (nätet är localhost; en proxyvariabel utifrån skulle bara vilseleda
-    hamta_sajt), och markören NWP_PROCESSGRANS=1 samt TMPDIR i körningens egen tempkatalog (Codex R26, F1/F27)."""
+    hamta_sajt), och markören NWP_PROCESSGRANS=1 samt TMPDIR i körningens egen tempkatalog (Codex R26, F1/F27), för en
+    kandidat dess egen (kid). Astros telemetri och npm:s versionskoll är av: telemetrin kör git i repot, läser
+    hemkatalogen och försöker nå nätet, och versionskollen frågar registret; inget av det hör till ett bygge (mätt
+    2026-10-07)."""
     import sandlada
     miljo = dict(os.environ if miljo is None else miljo)
     policy = sandlada.installningar(slug or 'x', root=root, hem=hem)['sandbox'].get('credentials', {}).get('envVars', [])
@@ -53,9 +68,67 @@ def ren_miljo(miljo=None, slug=None, root=None, hem=None):
         if k in nekade or k.upper().endswith('_PROXY'):
             del miljo[k]
     miljo['NWP_PROCESSGRANS'] = '1'
+    miljo['ASTRO_TELEMETRY_DISABLED'] = '1'
+    miljo['npm_config_update_notifier'] = 'false'
     if slug:
-        miljo['TMPDIR'] = tempkatalog(slug)
+        miljo['TMPDIR'] = tempkatalog(slug, kid)
     return miljo
+
+
+KANDIDAT = re.compile(r'^k\d{2}$')  # en kandidats id, samma form som kandidater.ID
+# Byggets läsgräns per kandidat: det ett bygge läser utanför sitt projekt, de delade node_modules och sin temp. Mätt
+# 2026-10-07 med en rapporterande profil ((allow file-read* (with report)) och kärnans logg) under ett verkligt bygge av
+# en syntetisk kandidat (Astro, Vite, Tailwind, en React-ö, en bild genom sharp och ett typsnitt ur Fontsource): dyld:s
+# delade cache och ramverken, skalet (/bin/sh väljer skal i /private/var/select), /usr/bin/env i paketens skript,
+# teckenkodningarna och ICU-data i /usr/share, tidszonen, enheterna, och Node, npm och deras bibliotek i Homebrew.
+SYSTEMETS = ('/System/Library', '/System/Cryptexes', '/System/Volumes/Preboot/Cryptexes', '/usr/lib', '/usr/bin', '/usr/share', '/bin',
+             '/private/etc', '/private/var/db/timezone', '/private/var/select', '/dev',
+             '/opt/homebrew/Cellar', '/opt/homebrew/opt', '/opt/homebrew/lib', '/opt/homebrew/bin', '/opt/homebrew/etc')
+
+
+def kandidat_i(projekt, root, slug):
+    """Bevara den angivna kandidatens identitet före länkupplösning. Bara reporoten får ha ett annat namn
+    (exempelvis /tmp i stället för /private/tmp). Länkar inne i kundträdet får varken ta bort läsgränsen eller
+    byta kandidat. Avvikande skiftläge vägras även på ett filsystem som annars behandlar namnen som lika."""
+    def neka():
+        raise SystemExit('processgräns: kandidatens väg måste behålla kunder/%s/kandidater/kNN/ utan alias, .. eller länkar till ett annat projekt: %s' % (slug, projekt))
+
+    if '..' in Path(projekt).parts:
+        neka()  # förenkla inte bort kandidatens namn före prövningen
+    p = Path(os.path.abspath(projekt))
+    rot = Path(os.path.realpath(root))
+    # Yttersta föräldern som är reporoten: en länk längre ned får inte tolkas som en ny rot.
+    ankare = None
+    for a in reversed(p.parents):
+        try:
+            if a.samefile(rot):
+                ankare = a
+                break
+        except FileNotFoundError:
+            continue
+        except OSError:
+            neka()
+    delar = p.relative_to(ankare).parts if ankare else ()
+    prefix = ('kunder', slug, 'kandidater')
+    kand = rot.joinpath(*prefix)
+    for r in (rot / 'kunder', rot / 'kunder' / slug, kand):
+        if Path(os.path.realpath(r)) != r:
+            neka()  # också ett internt alias måste bedömas mot förankrade rötter
+    upplost = Path(os.path.realpath(p))
+    angiven_kandidat = tuple(x.casefold() for x in delar[:3]) == tuple(x.casefold() for x in prefix)
+    if not angiven_kandidat:
+        # Ett internt alias till en kandidat är inte sajtens obegränsade huvudbygge.
+        verkliga = upplost.parts
+        if tuple(x.casefold() for x in verkliga[:len(kand.parts)]) == tuple(x.casefold() for x in kand.parts):
+            neka()
+        return None
+    if delar[:3] != prefix or len(delar) < 4 or not KANDIDAT.fullmatch(delar[3]):
+        neka()
+    kid = delar[3]
+    egen = kand / kid
+    if Path(os.path.realpath(egen)) != egen or not upplost.is_relative_to(egen):
+        neka()
+    return kid
 
 
 def profil(slug, root=None, hem=None, tmp=None, nat=True, bara_sajt=False, skrivbar=None):
@@ -63,20 +136,29 @@ def profil(slug, root=None, hem=None, tmp=None, nat=True, bara_sajt=False, skriv
     root = Path(root or ROOT)
     hem = hem or os.path.expanduser('~')
     fs = sandlada.installningar(slug, root=root, hem=hem)['sandbox']['filesystem']
+    kid = None
     if bara_sajt or skrivbar:  # byggen av skaparens sidor: bara projektet och tempkatalogen, aldrig underlag/<slug> med
         # ägarens domlogg, VINNARE.json och statusen, eller kunder/<slug> utanför projektet (granskning 6)
-        projekt = Path(skrivbar) if skrivbar else root / 'kunder' / slug / 'sajt'
+        angivet = skrivbar if skrivbar else root / 'kunder' / slug / 'sajt'
+        kid = kandidat_i(angivet, root, slug)
+        projekt = Path(os.path.abspath(angivet))
         kund = os.path.realpath(root / 'kunder' / slug)
         if not os.path.realpath(projekt).startswith(kund + os.sep):  # en kandidats projekt ligger i kunder/<slug>/kandidater/
             raise SystemExit('processgräns: %s ligger inte under kunder/%s/' % (projekt, slug))
-        skriv = [str(projekt), tmp or tempkatalog(slug)]
+        tmp = tmp or tempkatalog(slug, kid)
+        skriv = [str(projekt), tmp]
     else:
         projekt = root / 'kunder' / slug / 'sajt'
-        skriv = list(fs['allowWrite']) + ['/tmp/nwp-granskning/%s' % slug, tmp or tempkatalog(slug)]
+        tmp = tmp or tempkatalog(slug)
+        skriv = list(fs['allowWrite']) + ['/tmp/nwp-granskning/%s' % slug, tmp]
     nm = Path(projekt) / 'node_modules'
+    delad = None
     if nm.is_symlink():  # en worktree eller en kandidat delar sajtens beroenden: bara byggets cacher (.vite, .astro) skrivs
         # där, aldrig paketen som de andra kandidaterna och sajtens eget bygge kör (den oberoende granskningen 2026-10-05, fynd 3)
         delad = os.path.realpath(nm)
+        if kid and delad != os.path.realpath(root / 'kunder' / slug / 'sajt' / 'node_modules'):
+            # länken ligger i kandidatens skrivbara projekt: en sida kan ha bytt den, och läsgränsen släpper det den pekar på
+            raise SystemExit('processgräns: %s pekar inte på kunder/%s/sajt/node_modules (%s)' % (nm, slug, delad))
         skriv += [os.path.join(delad, '.vite'), os.path.join(delad, '.astro')]
     # seatbelt matchar subpath mot den verkliga sökvägen: /tmp är en symlänk till /private/tmp på macOS, så varje väg ges
     # både som angiven och upplöst (annars träffar varken skrivtillåtelsen i byggets kataloger eller läsförbudet)
@@ -88,13 +170,53 @@ def profil(slug, root=None, hem=None, tmp=None, nat=True, bara_sajt=False, skriv
     # policyns uttryckliga skrivförbud efter tillåtelserna (sista träffande regel gäller): mekaniken i en repokopia under en
     # tillåten katalog förblir skrivskyddad (Codex R26, F1)
     rader += ['(deny file-write* (subpath %s))' % sbpl(p) for p in verkliga(fs['denyWrite'])]
-    rader += lasforbud(fs, verkliga)
+    if kid:
+        rader += lasgrans(root, slug, kid, projekt, tmp, delad, verkliga)
+    rader += lasforbud(fs, verkliga)  # efter läsgränsen: hemligheterna förblir olästa också i det den släpper
     if nat:
         rader += ['(deny network-outbound)', '(allow network-outbound (remote ip "localhost:*"))', '(allow network-outbound (remote unix-socket))',
                   '(allow network-bind (local ip "localhost:*"))', '(allow network-inbound (local ip "localhost:*"))']
     else:  # --utan-nat: ett bygge behöver inget nät; localhost når dashboardens API och unix-sockeln namnuppslagen (granskning 4 och 5)
         rader += ['(deny network-outbound)', '(deny network-bind)', '(deny network-inbound)']
     return '\n'.join(rader) + '\n'
+
+
+def lasgrans(root, slug, kid, projekt, tmp, delad, verkliga):
+    """Byggets läsgräns för kandidaten kid (GR-20261007-r107#K1): sidans kod körs när den byggs, och utan gränsen läste den
+    en annan kandidats källkod och skaparens text i underlaget. Läsning nekas som standard; undantagen är det bygget
+    behöver (mätt): kandidatens eget projekt, sajtens delade node_modules (länken prövad i profil), kandidatens egen temp
+    och systemets delar (SYSTEMETS), och metadata (stat, inte innehåll eller listning) för katalogerna ovanför dem, som
+    vägupplösningen behöver. Sist ett stängsel: underlag/ och kunder/<slug>/kandidater/ nekas också om en tillåtelse ovan
+    skulle täcka dem, och bara det egna projektet släpps igen. Sista träffande regel gäller."""
+    root = Path(os.path.abspath(root))
+    kand = root / 'kunder' / slug / 'kandidater'
+    egna = verkliga([projekt, tmp] + ([delad] if delad else []))
+    tillatna = verkliga(SYSTEMETS) + egna
+    forfader = sorted({str(a) for p in tillatna for a in Path(p).parents} | {'/etc', '/tmp', '/var'})  # och rotens länkar
+    # Tailwinds källsökning läser repots .gitignore och .git (filen i en worktree, katalogen i huvudutcheckningen; bara
+    # själva posten, inte det som ligger i katalogen). Utan dem blir kandidatens CSS en annan än sajtens bygge ger (mätt:
+    # 11 kB mot 46 kB), så de släpps: .gitignore är publik och .git en hänvisning
+    git = verkliga([root / '.gitignore', root / '.git'])
+    return ['; byggets läsgräns för kandidaten %s (kontroller/processgrans.py, lasgrans)' % kid,
+            '(deny file-read*)',
+            '(allow file-read-metadata %s)' % ' '.join('(literal %s)' % sbpl(p) for p in forfader),
+            '(allow file-read* (literal "/") %s)' % ' '.join('(subpath %s)' % sbpl(p) for p in tillatna),
+            '(allow file-read* %s)' % ' '.join('(literal %s)' % sbpl(p) for p in git),
+            '(deny file-read* %s)' % ' '.join('(subpath %s)' % sbpl(p) for p in verkliga([root / 'underlag', kand])),
+            '(allow file-read* %s)' % ' '.join('(subpath %s)' % sbpl(p) for p in verkliga([projekt])),
+            '(allow file-read-metadata %s)' % ' '.join('(literal %s)' % sbpl(p) for p in verkliga([kand, kand / kid]))]
+
+
+def utanfor_lasgransen(kmd, projekt, root, slug, path):
+    """Programmet i kommandot, eller node som npm och paketens skript startar, upplöst, när läsgränsen inte släpper det;
+    annars None. Ett sådant program fastnar i kärnan när det startas innanför gränsen (prövat 2026-10-07: processen
+    hamnar i tillståndet UE och går inte att döda förrän datorn startas om), så bygget vägras i stället."""
+    inom = [os.path.realpath(p) for p in SYSTEMETS + (str(projekt), str(Path(root) / 'kunder' / slug / 'sajt' / 'node_modules'))]
+    for namn in (kmd[0], 'node'):
+        v = shutil.which(namn, path=path)
+        if v and not any(os.path.realpath(v) == p or os.path.realpath(v).startswith(p + os.sep) for p in inom):
+            return os.path.realpath(v)
+    return None
 
 
 def lasforbud(fs, verkliga):
@@ -195,9 +317,11 @@ def main(argv=None):
     p.add_argument('--skriv-profil', action='store_true', help='skriv profilen och avsluta')
     p.add_argument('--utan-nat', action='store_true', help='inget nät alls, inte heller localhost (byggen av skaparens sidor)')
     p.add_argument('--bara-sajt', action='store_true', help='skrivning bara i kunder/<slug>/sajt och tempkatalogen (byggen av skaparens sidor)')
-    p.add_argument('--skrivbar', default=None, help='skrivning bara i den här projektkatalogen under kunder/<slug>/ (en kandidats sajt) och tempkatalogen')
+    p.add_argument('--skrivbar', default=None, help='skrivning bara i den här projektkatalogen under kunder/<slug>/ och tempkatalogen; '
+                                                    'en kandidats projekt (kunder/<slug>/kandidater/kNN/) får dessutom byggets läsgräns')
     a = p.parse_args(egna)
     prof = profil(a.slug, a.root, a.hem, nat=not a.utan_nat, bara_sajt=a.bara_sajt, skrivbar=a.skrivbar)
+    kid = kandidat_i(a.skrivbar, a.root or ROOT, a.slug) if a.skrivbar else None  # profil har prövat vägen
     if a.skriv_profil:
         sys.stdout.write(prof)
         return 0
@@ -208,8 +332,13 @@ def main(argv=None):
         print('processgräns saknas: %s finns inte; byggsteget körs inte utan gräns' % SANDBOX_EXEC, file=sys.stderr)
         return 2
     print('processgräns: sandbox-exec kring %s' % ' '.join(kmd[:3]), file=sys.stderr, flush=True)
-    miljo = ren_miljo(slug=a.slug, root=a.root, hem=a.hem)
+    miljo = ren_miljo(slug=a.slug, root=a.root, hem=a.hem, kid=kid)
+    if kid and (fel := utanfor_lasgransen(kmd, os.path.abspath(a.skrivbar), a.root or ROOT, a.slug, miljo.get('PATH'))):
+        print('processgräns: %s ligger utanför byggets läsgräns (SYSTEMETS); bygget körs inte' % fel, file=sys.stderr)
+        return 2
     os.makedirs(miljo['TMPDIR'], exist_ok=True)
+    if kid:  # en kandidats bygge startar i sitt projekt: utanför läsgränsen kan processen inte läsa sin arbetskatalog (getcwd ger EPERM)
+        os.chdir(os.path.abspath(a.skrivbar))
     os.execve(SANDBOX_EXEC, ['sandbox-exec', '-p', prof, *kmd], miljo)
     return 2
 

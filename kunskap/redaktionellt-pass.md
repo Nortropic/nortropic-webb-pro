@@ -1,16 +1,12 @@
 # Redaktionellt pass — svenskt arbetsunderlag (P2)
 
-Härlett underlag (kedjedrivaren, 2026-09-26). Källor: webbgrundens `references/copy-blocklist.md` @ `e4c8c52` rad 26–40
-(strukturregler: spegelöppnare, trippelfyllnad, FAQ ingen ställer, utropstecken, "Välkommen till", tankstrecks-kadens),
-`agents/content-designer.md` rad 23–31 (sidregler: hero anger utfall och ort, formulärtext lovar bara det briefen
-bekräftar, FAQ med frågor folk ställer, "om inget lokalt är sant, säg det"), frontend-design "More on writing in design"
-(`externa/anthropic-frontend-design-SKILL.md`: aktiv röst, samma namn genom flödet, fel förklarar vad som hände) och
-Norrgläntas fynd i den riktade kontrollen (område 1 kedjan, område 5 upprepning och plannerspråk). Blocklistans
-universella krav på org.nr, F-skatt och upprepad ort på tjänstesidor följer **inte** med; de passar inte en fiktiv demo.
+Härlett arbetsunderlag (2026-09-26). Källor: webbgrundens `references/copy-blocklist.md` @ `e4c8c52`, rad 26–40,
+`agents/content-designer.md`, rad 23–31, samt frontend-designs "More on writing in design"
+(`externa/anthropic-frontend-design-SKILL.md`). Stöd för struktur, kundnytta, aktiv röst, enhetliga begrepp och
+begripliga fel. Universella krav på org.nr, F-skatt och upprepad ort följer inte med; kundens belagda uppgifter styr.
 
-**Allt nedan är stöd för en bedömning, inte språkförbud.** Inget ord fälls oavsett sammanhang; antal upprepningar är inte
-målet. Passet görs efter bygget och före slutgranskningen, av kedjedrivaren, som läser varje sida som besökare. Två saker
-hålls isär och rapporteras var för sig:
+**Allt nedan är bedömningsstöd, inte språkförbud.** Sammanhanget avgör, inte antalet upprepningar. Kedjedrivaren läser
+varje sida som besökare efter bygget, före slutgranskningen, och rapporterar två saker separat:
 
 - **Faktatrohet** — `faktakontroll.mjs` och källtaggarna avgör; passet ändrar inget här.
 - **Redaktionell kvalitet** — passets egen fråga.

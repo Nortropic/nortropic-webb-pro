@@ -29,7 +29,9 @@ vakt som inte kan pröva lämnar anropet åt dontAsk, som nekar det (granskning 
 
 Besluten om tjänsternas upptäckta verktyg står i samma avsnitt, ett block per tjänst och en rad per verktyg (ägarens
 uppdrag 2026-10-07, punkt 2 och 3): uppgift, eller ingen uppgift med skäl och provdatum. Verktygen med uppgift är exakt
-de som kundvakten släpper (referenstjanster.TJANSTER); prova() säger till när kartan och listan skiljer sig.
+de som flödet släpper: för Refero och Mobbin kundvakten (referenstjanster.TJANSTER), för Chrome DevTools MCP
+inspektionssessionens lista (devtools.VERKTYG; MCP:n körs aldrig i skaparens eller kritikens session); prova() säger
+till när kartan och en lista skiljer sig (tjanstregister).
 
     ```tjanstverktyg refero
     refero_search_styles: uppgift — …
@@ -104,8 +106,14 @@ VERKTYGSKOMMANDO = re.compile(r'(?:^|[\s/])kontroller/(uxsok|forhandsvisa|detekt
 SKRIPTVERKTYG = {'uxsok': 'uxsok', 'forhandsvisa': 'förhandsvisning', 'detektor': 'detektor', 'design': 'design'}
 MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en källa). Trybloom används inte (ägarens ord 2026-10-05)
     'refero': None, 'mobbin': None,
+    # Motions fria dokumentations-MCP (kontroller/mcp/motion.json; ägarens uppdrag 2026-10-07, punkt 5C, och beslutet "bara den
+    # fria delen"): verktygen vid tools/list 2026-10-07. Ingen referenstjänst (inga bilder, researchen frågar den aldrig), så
+    # listan står här och inte i referenstjanster.TJANSTER; kundvakten släpper den genom kundvakt.tillatna (mcp_verktyg)
+    'motion': ('mcp__motion__search-motion-docs',),
 }
-MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)'}
+MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)',
+           'motion': 'Motion (dokumentation och exempel för motion, motion/react och motion-v; den fria servern)'}
+REDOVISAT = 'redovisat av sessionen, inte observerat'  # passets egen redovisning (teknikval), skild från observationen
 # Tillståndsorden (ägarens uppdrag 2026-10-07, punkt 3, ordagrant i minnet; inte observerat skilt från inte gjort enligt
 # ägarens tillägg samma dag). Startkvittot och kompetensens kvitton använder bara de här orden för kompetensen och
 # underlaget, och inget av dem står för ett annat: en anslutning som finns är inte provad, en provad tjänst är inte
@@ -122,8 +130,8 @@ TILLSTAND = {
 }
 LASBELAGG = 'belägg för läsning, inte för tillämpning'
 LASKVITTO = 'läst (%s)' % LASBELAGG
-VERKTYGSBLOCK = re.compile(r'^```tjanstverktyg[ \t]+(?P<tjanst>[a-z]+)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
-BESLUTSRAD = re.compile(r'^(?P<verktyg>[a-z][a-z0-9_]*):\s*(?P<beslut>uppgift|ingen uppgift)\s+—\s+(?P<text>.+?)\s*$')
+VERKTYGSBLOCK = re.compile(r'^```tjanstverktyg[ \t]+(?P<tjanst>[a-z][a-z0-9-]*)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)  # tjänstnamn med bindestreck (chrome-devtools)
+BESLUTSRAD = re.compile(r'^(?P<verktyg>[a-z][a-z0-9_-]*):\s*(?P<beslut>uppgift|ingen uppgift)\s+—\s+(?P<text>.+?)\s*$')  # bindestreck: search-motion-docs
 PROVDATUM = re.compile(r'prövat (20\d\d-\d\d-\d\d)')
 
 
@@ -132,6 +140,23 @@ def mcp_verktyg(namn):
         import referenstjanster
         return list(referenstjanster.TJANSTER[namn]['verktyg'])
     return list(MCP[namn])
+
+
+def slappta():
+    """{tjänst: [verktyg utan tjänstens prefix]} för varje tjänst kundvakten kan släppa: referenstjänsterna
+    (referenstjanster.TJANSTER) och MCP:erna med egen lista här (MCP). En källa för kundvakten (kundvakt.tillatna),
+    kartans verktygsbeslut (tjanstverktyg_fel) och startkvittot (startkontroll.tjanstverktyg_rader)."""
+    import referenstjanster
+    return {t: [v.split('__')[-1] for v in mcp_verktyg(t)] for t in dict.fromkeys(list(MCP) + list(referenstjanster.TJANSTER))}
+
+
+def teknikval_text(val):
+    """Valet CSS, Motion, GSAP eller stilla per beteende ur passets egen redovisning (teknikval i kandidater.PASS_SCHEMA),
+    som en rad i kvittot. Det är sessionens redovisning, inte en observation (ägarens uppdrag 2026-10-07, punkt 6 och
+    11: observerat arbete skilt från agentens egen redovisning), så raden säger det."""
+    rader = ['%s → %s (%s)' % (str(v.get('beteende') or '?')[:60], str(v.get('teknik') or '?'), str(v.get('skal') or '')[:120])
+             for v in val if isinstance(v, dict)]
+    return '%s: %s' % (REDOVISAT, '; '.join(rader) if rader else 'inget teknikval redovisat')
 
 
 class KompetensFel(Exception):
@@ -178,24 +203,34 @@ def tjanstverktyg(text=None):
     return ut
 
 
-def tjanstverktyg_fel(text=None):
-    """Kartans verktygsbeslut mot kundvaktens lista (referenstjanster.TJANSTER): varje verktyg flödet släpper har beslutet
-    uppgift, inget verktyg med uppgift saknas i listan, och varje "ingen uppgift" har skäl och provdatum."""
+def tjanstregister():
+    """Tjänsterna med listan över de verktyg flödet släpper, per tjänst: Refero och Mobbin genom kundvakten
+    (referenstjanster.TJANSTER) och Chrome DevTools MCP genom inspektionssessionens tillåtelselista (devtools.VERKTYG;
+    aldrig i skaparens eller kritikens session). {tjänst: (verktyg utan prefix, var listan står)}."""
+    import devtools
     import referenstjanster
+    ut = {t: (verktyg, 'kundvakten (referenstjanster.TJANSTER och kompetens.MCP)') for t, verktyg in slappta().items()}
+    ut[devtools.TJANST] = ([v.split('__')[-1] for v in devtools.VERKTYG], 'inspektionssessionen (devtools.VERKTYG)')
+    return ut
+
+
+def tjanstverktyg_fel(text=None):
+    """Kartans verktygsbeslut mot listorna över vad flödet släpper (tjanstregister): varje verktyg som släpps har
+    beslutet uppgift, inget verktyg med uppgift saknas i listan, och varje "ingen uppgift" har skäl och provdatum."""
     b, fel = tjanstverktyg(text), []
-    for t, d in referenstjanster.TJANSTER.items():
-        kort = [v.split('__')[-1] for v in d['verktyg']]
+    register = tjanstregister()
+    for t, (kort, var) in register.items():
         bt = b.get(t) or {}
-        fel += ['%s: %s släpps av kundvakten (referenstjanster.TJANSTER) men har inte beslutet uppgift i metodkartan' % (t, v)
+        fel += ['%s: %s släpps av %s men har inte beslutet uppgift i metodkartan' % (t, v, var)
                 for v in kort if (bt.get(v) or {}).get('beslut') != 'uppgift']
         for v, x in bt.items():
             if x['beslut'] is None:
                 fel.append('%s: raden "%s" går inte att läsa (<verktyg>: uppgift — … eller <verktyg>: ingen uppgift — <skäl>; prövat <datum>)' % (t, x['text'][:80]))
             elif x['beslut'] == 'uppgift' and v not in kort:
-                fel.append('%s: metodkartan ger %s en uppgift, men kundvakten släpper det inte (referenstjanster.TJANSTER)' % (t, v))
+                fel.append('%s: metodkartan ger %s en uppgift, men %s släpper det inte' % (t, v, var))
             elif x['beslut'] == 'ingen uppgift' and (not x['provat'] or len(x['text']) < 40):
                 fel.append('%s: %s har ingen uppgift men saknar skäl eller provdatum ("prövat ÅÅÅÅ-MM-DD")' % (t, v))
-    fel += ['metodkartans verktygsbeslut gäller en okänd tjänst: %s' % t for t in b if t not in referenstjanster.TJANSTER]
+    fel += ['metodkartans verktygsbeslut gäller en okänd tjänst: %s' % t for t in b if t not in register]
     return fel
 
 
@@ -362,36 +397,77 @@ def mcp_for_pass(pass_, k=None):
     return list(dict.fromkeys(ut))
 
 
+def aktiverbara(filer):
+    """(skills som aktiveras med skillverktyget, filer som läses med Read) för rollens filer: en skill är aktiverbar när
+    filen är dess SKILL.md i skillmappens rot (Claude Code känner bara den); referensfiler, nästlade SKILL.md (gsap/gsap-core/)
+    och kunskap/, kritik/ läses med Read enligt skillens egna instruktioner. K46:s väntande
+    Initial Response-skills läses också med Read, samma klassificering som sessionsnekandet."""
+    skills, las = [], []
+    vantande = vantande_skills()
+    for f in filer:
+        delar = f.split('/')
+        if len(delar) == 2 and delar[1] == 'SKILL.md' and delar[0] not in ('kunskap', 'kritik', 'mall') and delar[0] not in vantande:
+            skills.append(delar[0])
+        else:
+            las.append(f)
+    return list(dict.fromkeys(skills)), las
+
+
+def aktiveringstext(filer):
+    """Raden i uppdraget för en lista filer: vad som aktiveras med Skill (namnet och filen aktiveringen laddar) och vad
+    som läses med Read."""
+    skills, las = aktiverbara(filer)
+    delar = []
+    if skills:
+        delar.append('aktivera med skillverktyget: ' + ', '.join('%s (%s)' % (s, vag(s + '/SKILL.md')) for s in skills))
+    if las:
+        delar.append('läs hela med Read: ' + ', '.join(vag(f) for f in las))
+    return '; '.join(delar)
+
+
 def prompt_rader(pass_, slug, kid=None, k=None):
     """Raderna i passets uppdrag: varje roll med sin uppgift, kärnan som läses hel, alternativen att välja bland,
     verktygen, MCP:erna och vad passet visar."""
     k = tolka() if k is None else k
     roller = for_pass(pass_, k)
     if pass_ in GRANSKANDE + FORSKANDE:  # passet ändrar aldrig sidan: läs före bedömningen eller frågorna, inget om att rätta
-        rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Läs varje rolls kärna HEL med' % PASSNAMN[pass_],
-                 'Read innan du %s (en fil större än en läsning läses i delar med offset och limit tills alla rader är' % (
+        rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Aktivera varje rolls skills' % PASSNAMN[pass_],
+                 'med skillverktyget (Skill) och läs rollens referensfiler HELA med Read innan du %s (en fil' % (
                      'bedömer något' if pass_ in GRANSKANDE else 'skriver frågorna och antagandena'),
-                 'lästa), eller ladda skillen med skillverktyget. Välj sedan bland alternativen de som passar %s, läs dem hela,' % (
+                 'större än en läsning läses i delar med offset och limit tills alla rader är lästa); en aktivering eller läsning som',
+                 'misslyckas skriver du i svaret innan beroende arbete fortsätter. Välj sedan bland alternativen de som passar %s,' % (
                      'det du bedömer' if pass_ in GRANSKANDE else 'kunden och riktningarna'),
-                 'och skriv valet med skäl, eller varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller',
+                 'aktivera eller läs dem hela, och skriv valet med skäl, eller varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller',
                  'kundens behov avgörs av metodkartans Avgöranden, designreglerna och kundens aktuella domar: en skills lista över',
                  'förbjudna drag (paletter, typsnitt, centrering, etiketter över rubriker, gradienter) är granskningsfrågan "valt av',
                  'vana utan skäl?", aldrig ensam grund för ett fynd. Beskriver en skill ett eget arbetsflöde (underagenter, källkod,',
                  'frågor till användaren, sparade rapporter) gäller dess bedömning, inte flödet: du arbetar i den här sessionen med',
                  'verktygen nedan och svarar i schemat.']
     else:
-        rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Läs varje rolls kärna HEL med' % PASSNAMN[pass_],
-                 'Read innan du ändrar något (en fil större än en läsning läses i delar med offset och limit tills alla rader är lästa),',
-                 'eller ladda skillen med skillverktyget. Välj sedan bland alternativen de som passar riktningen, läs dem hela, och skriv',
-                 'valet med skäl, eller varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller kundens behov',
+        rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Aktivera varje rolls skills' % PASSNAMN[pass_],
+                 'med skillverktyget (Skill) och läs rollens referensfiler HELA med Read innan du ändrar något (en fil större än en',
+                 'läsning läses i delar med offset och limit tills alla rader är lästa); en aktivering eller läsning som misslyckas',
+                 'skriver du i svaret innan beroende arbete fortsätter. Välj sedan bland alternativen de som passar riktningen, aktivera',
+                 'eller läs dem hela, och skriv valet med skäl, eller varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller kundens behov',
                  'avgörs av Avgörandena i metoden, designreglerna och kundens aktuella domar ovan. Följ arbetsflödet: rätt metod för',
                  'uppgiften, craft-floor.md direkt före ändringar i gränssnittet, och kontroll i avgränsade omgångar (bygg, inspektera',
-                 'mobil och dator tillsammans, rätta allt i en omgång, bekräfta högst en gång till).']
+                 'mobil och dator tillsammans, rätta allt i en omgång).']
+    rader += ['Lokala processvillkor gäller även när en skill laddas: ingen svarar i denna session; uppdraget är svaret.',
+              'Skills med rubriken Initial Response läses bara med Read, aldrig med Skill. Deras kunskap används,',
+              'men det inledande väntesvaret och krav på nya användarsvar utförs inte.']
+    if pass_ in ('skapa', 'fordjupa'):
+        rader += ['Varven följer uppdragets läge: i skissläget inget fast antal; i läget full och i förfiningen minst tre',
+                  'förhandsvarv enligt metodkartan. En extern skills varvtak ersätter inte detta, och antal varv bevisar inte kvalitet.']
+    elif pass_ in ('rorelse', 'granskning'):
+        rader += ['Detta avgränsade specialistpass: rätta i en samlad omgång, bekräfta högst en gång till.']
+    rader += ['En aktiverbar SKILL.md aktiverar du med Skill-verktyget, med undantaget för Initial Response ovan; varje referensfil läses HEL med Read.',
+              'En aktivering som nekas eller misslyckas redovisas innan beroende arbete fortsätter.',
+              'Ett lyckat anrop eller en hel läsning visar laddningen, aldrig tillämpningen eller designkvaliteten.']
     for x in roller:
         rader += ['', '%s: %s' % (x['namn'], x['uppgift'])]
-        rader.append('- kärnan, läs hel: ' + ', '.join(vag(f) for f in x['karna']))
+        rader.append('- kärnan, hel före arbetet: ' + aktiveringstext(x['karna']))
         if x['valj']:
-            rader.append('- alternativen, välj efter %s: ' % ('det du bedömer' if pass_ in GRANSKANDE else 'riktningen') + ', '.join(vag(f) for f in x['valj']))
+            rader.append('- alternativen, välj efter %s: ' % ('det du bedömer' if pass_ in GRANSKANDE else 'riktningen') + aktiveringstext(x['valj']))
         for v in x['verktyg']:
             if v == 'design' and not kid:
                 continue
@@ -405,9 +481,41 @@ def prompt_rader(pass_, slug, kid=None, k=None):
                          ' kundens namn, ort, webbadress eller nummer, personnamn, citat eller kundens egna texter, och task_intent'
                          ' bara bransch och uppgift (kundvakten prövar varje anrop och stoppar sådana)' +
                          ('; Mobbins search_screens kräver mode "standard": ett anrop utan mode eller med deep stoppas (deep kostar'
-                          ' krediter)' if 'mobbin' in x['mcp'] else ''))
+                          ' krediter)' if 'mobbin' in x['mcp'] else '') +
+                         ('; Motions search-motion-docs söker mönstret du bygger (inView, stagger, spring, layout) med platform js'
+                          ' eller react, och träffar märkta Motion+ (betalda) används inte' if 'motion' in x['mcp'] else ''))
         rader.append('- passet visar: ' + x['visar'])
     return rader
+
+
+def vantande_skills(root=None):
+    """K46: väntande skillflöden läses som kunskap, de anropas inte i en obevakad session.
+
+    Både mappens och frontmatterns namn nekas, med och utan argument. Inga upstream-
+    filer ändras och Read förblir tillgängligt. Detta prövar argumenten, inte en verklig
+    Claude-process; den senare kontrollen ingår i nästa tillåtna sessionsprov.
+    """
+    ut = {}
+    for f in sorted((Path(root or ROOT) / '.claude/skills').glob('*/SKILL.md')):
+        text = f.read_text(encoding='utf-8')
+        if not re.search(r'^##[ \t]+Initial Response[ \t]*$', text, re.M):
+            continue
+        namn = {f.parent.name}
+        huvud = text.split('---', 2)[1] if text.startswith('---\n') else ''
+        m = re.search(r'^name:[ \t]*(.+?)\s*$', huvud, re.M)
+        if m:
+            namn.add(m.group(1).strip('\"\''))
+        for n in namn:
+            if not re.fullmatch(r'[a-z0-9][a-z0-9-]*', n):
+                raise ValueError('ogiltigt skillnamn i väntande skill')
+        ut[f.parent.name] = sorted(namn)
+    return ut
+
+
+def skill_nekas(root=None):
+    """Samma väntande skills som rollraderna och kvittot; båda namnformerna nekas."""
+    return sorted({regel for namn in vantande_skills(root).values() for n in namn
+                   for regel in ('Skill(%s)' % n, 'Skill(%s *)' % n)})
 
 
 MED_INNEHALL = ('bild returnerad', 'anrop lyckades')  # observatörens utfall för ett MCP-svar med innehåll (observation.svar)
@@ -423,7 +531,7 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     en tjänst som sessionen aldrig fick inte ser ut som använda (granskningen GR-20261007-r102, B3)."""
     import bildkedja
     filer, val = lasfiler(pass_, k), valbara(pass_, k)
-    lasta, fore, skill, mcp, sedda, egna = set(), set(), [], [], 0, set()
+    lasta, fore, skill, skill_fel, mcp, sedda, egna = set(), set(), [], [], [], 0, set()
     utfall, lage, observerad, verktyg_anrop = {}, {}, True, {}
     for s in sessioner:
         sid = s.get('session_id') if isinstance(s, dict) else s
@@ -435,6 +543,7 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
         lasta.update((ml.get('fore') or []) + (ml.get('efter') or []))
         egna.update(set((ml.get('fore') or []) + (ml.get('efter') or [])) - set(ml.get('via_metod') or []))
         skill += ml.get('skill_anrop') or []
+        skill_fel += ml.get('skill_fel') or []
         t = bildkedja.transkript(sid)
         h = bildkedja.handelser(t) if t else []
         felade = {x[1] for x in h if x[0] == 'svar' and x[3]}
@@ -469,7 +578,8 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
             lage[s_] = st_ if lage.get(s_) != 'ansluten' else 'ansluten'
     ut = {'verifierad': sedda > 0, 'filer': filer, 'lasta': [f for f in filer if f in lasta], 'saknas': [f for f in filer if f not in lasta],
           'fore_forsta_andring': [f for f in filer if f in fore], 'valda': [f for f in val if f in egna],
-          'skill_anrop': sorted(set(skill)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))}, 'verktyg_anrop': verktyg_anrop}
+          'skill_anrop': sorted(set(skill)), 'skill_fel': sorted(set(skill_fel)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))},
+          'verktyg_anrop': verktyg_anrop}
     if sedda and observerad:  # bara när varje sedd session observerades: annars är utfallet och läget inte kända
         ut['mcp_utfall'], ut['mcp_lage'] = utfall, lage
     ut['tillstand'] = tillstand(ut, pass_, k)
@@ -497,7 +607,7 @@ def mcp_tillstand(m, anrop, utfall, lage, sett):
         return dict(ut, tillstand=TILLSTAND['ej_gjort'] if sett else TILLSTAND['ej_observerat'])
     if anrop:  # ett sparat kvitto utan utfallet: svaren kom, men deras innehåll observerades inte
         return dict(ut, tillstand=TILLSTAND['ej_observerat'], orsak='%d anrop med svar; svarens innehåll är inte observerat' % anrop)
-    return dict(ut, tillstand=TILLSTAND['ej_gjort'] if sett else TILLSTAND['ej_observerat'])
+    return dict(ut, tillstand=TILLSTAND['ej_observerat'])
 
 
 def verktygstillstand(v, anrop, sett):
@@ -519,13 +629,19 @@ def tillstand(kv, pass_, k=None, mcp_lage=None):
     metodkartan; kärnan, alternativen och skillverktyget som läsning (ett läskvitto är belägg för läsning, inte för
     tillämpning); MCP-tjänsterna enligt mcp_tillstand, med sessionens MCP-läge (mcp_lage, eller kvittots eget) när det
     finns; verktygen i Bash enligt verktygstillstand ur kvittots verktygsanrop (inte observerat i ett kvitto utan dem);
-    tillämpningen som inte observerat, eftersom kvittot bara ser läsning och anrop. Fungerar på hela kvittot och på
-    urvalet kandidaternas status sparar (verifierad, lasta, saknas, valda, skill_anrop, mcp_anrop)."""
+    tillämpningen som inte observerat, eftersom kvittot bara ser läsning och anrop, utom i passet rörelse, där
+    sessionens egen redovisning av valet CSS, Motion, GSAP eller stilla per beteende (kvittots teknikval, ur
+    kandidater.PASS_SCHEMA) står som just redovisad, inte observerad (ägarens uppdrag 2026-10-07, punkt 5C). Fungerar
+    på hela kvittot och på urvalet kandidaternas status sparar (verifierad, lasta, saknas, valda, skill_anrop,
+    mcp_anrop, teknikval)."""
     k = tolka() if k is None else k
     kv = kv if isinstance(kv, dict) else {}
     sett = bool(kv.get('verifierad'))
+    teknikval = kv.get('teknikval') if pass_ == 'rorelse' and isinstance(kv.get('teknikval'), list) else None
     inget = TILLSTAND['ej_gjort'] if sett else TILLSTAND['ej_observerat']
     lasta, valda, skill = set(kv.get('lasta') or []), set(kv.get('valda') or []), set(kv.get('skill_anrop') or [])
+    skill_fel = set(kv.get('skill_fel') or [])
+    vb = kv.get('visuell_bedomning') if isinstance(kv.get('visuell_bedomning'), dict) else None
     mcp = kv.get('mcp_anrop') if isinstance(kv.get('mcp_anrop'), dict) else {}
     lage = mcp_lage if isinstance(mcp_lage, dict) else kv.get('mcp_lage') if isinstance(kv.get('mcp_lage'), dict) else None
     utfall = kv.get('mcp_utfall') if isinstance(kv.get('mcp_utfall'), dict) else None
@@ -534,19 +650,66 @@ def tillstand(kv, pass_, k=None, mcp_lage=None):
     for x in for_pass(pass_, k):
         karna = [vag(f) for f in x['karna']]
         n = sum(1 for f in karna if f in lasta)
-        skills = sorted({f.split('/')[0] for f in x['karna'] + x['valj'] if not f.startswith(('kunskap/', 'kritik/', 'mall/'))})
+        erbjudna, _ = aktiverbara(x['karna'] + x['valj'])
+        skills, _ = aktiverbara(x['karna'] + [f for f in x['valj'] if vag(f) in valda])
         anrop = {m: sum(v for a, v in mcp.items() if str(a).startswith('mcp__%s__' % m)) for m in x['mcp']}
         valt = [f for f in (vag(f) for f in x['valj']) if f in valda]
+        mcp_rader = {m: mcp_tillstand(m, a, utfall, lage, sett) for m, a in anrop.items()}
+        verktyg_rader = {v: verktygstillstand(v, va, sett) for v in x['verktyg']}
+        aktiverade, misslyckade = sorted(s for s in skill if s in erbjudna), sorted(s for s in skill_fel if s in erbjudna)
         ut.append({
             'roll': x['id'], 'namn': x['namn'], 'tilldelat': TILLSTAND['tilldelat'],
             'karna': {'filer': len(karna), 'lasta': n, 'tillstand': (LASKVITTO if n == len(karna) else inget if not n else 'läst %d av %d filer (%s)' % (
                 n, len(karna), LASBELAGG)) if sett else TILLSTAND['ej_observerat']},
             'alternativ': {'valda': valt, 'tillstand': LASKVITTO if valt else inget},
-            'skillverktyget': {'anrop': sorted(s for s in skill if s in skills), 'tillstand': LASKVITTO if skill & set(skills) else inget},
-            'mcp': {m: mcp_tillstand(m, a, utfall, lage, sett) for m, a in anrop.items()},
-            'verktyg': {v: verktygstillstand(v, va, sett) for v in x['verktyg']},
-            'tillampning': TILLSTAND['ej_observerat']})
+            'skillverktyget': {'anrop': aktiverade, 'misslyckade': misslyckade, 'tillstand': LASKVITTO if aktiverade else inget},
+            'mcp': mcp_rader,
+            'verktyg': verktyg_rader,
+            'tillampning': teknikval_text(teknikval) if teknikval is not None else TILLSTAND['ej_observerat'],
+            **({'teknikval': teknikval} if teknikval is not None else {}),
+            'nivaer': nivaer(skills, aktiverade, misslyckade, [s for s in skills if ('.claude/skills/%s/SKILL.md' % s) in lasta],
+                             mcp_rader, verktyg_rader, vb, sett)})
     return ut
+
+
+def nivaer(skills, aktiverade, misslyckade, lasta_skillmd, mcp_rader, verktyg_rader, vb, sett):
+    """De tre nivåerna i ägarens förtydligande 2026-10-07, var för sig: aktivering (skillverktygets lyckade och misslyckade
+    anrop ur transkriptet, och SKILL.md-filer lästa med Read i stället), lyckad användning (verktyg och MCP:er som gav ett
+    svar med innehåll) och bedömd kvalitet (sessionens egen visuella bedömning, redovisad, aldrig observerad; kvaliteten
+    bedöms av passet granskning, skisskritiken och ägarens dom). Ingen nivå står för en annan."""
+    T = TILLSTAND
+    inget = T['ej_gjort'] if sett else T['ej_observerat']
+    utan = [s for s in skills if s not in aktiverade and s not in misslyckade]
+    if not sett:
+        akt = T['ej_observerat']
+    elif not skills and not aktiverade and not misslyckade:
+        akt = 'inga Skill-aktiveringar tilldelade rollen; Read redovisas separat'
+    elif misslyckade:
+        akt = 'misslyckad aktivering: %s%s' % (', '.join(misslyckade), ('; aktiverade: ' + ', '.join(aktiverade)) if aktiverade else '')
+    elif aktiverade and not utan:
+        akt = 'aktiverad med skillverktyget: ' + ', '.join(aktiverade)
+    elif aktiverade or lasta_skillmd:
+        akt = 'delvis: %s%s%s' % (('aktiverade ' + ', '.join(aktiverade)) if aktiverade else '',
+                                  ('; SKILL.md läst med Read i stället: ' + ', '.join(s for s in lasta_skillmd if s not in aktiverade)) if lasta_skillmd else '',
+                                  ('; utan aktivering: ' + ', '.join(utan)) if utan else '')
+    else:
+        akt = inget
+    anvanda = [m for m, r in mcp_rader.items() if r.get('tillstand') == T['anvant']] + [v for v, s in verktyg_rader.items() if s == T['anvant']]
+    blockerade = [m for m, r in mcp_rader.items() if r.get('tillstand') == T['blockerat']] + [v for v, s in verktyg_rader.items() if s == T['blockerat']]
+    okanda = [m for m, r in mcp_rader.items() if r.get('tillstand') == T['ej_observerat']] + [v for v, s in verktyg_rader.items() if s == T['ej_observerat']]
+    if anvanda:
+        anv = '%s: %s%s' % (T['anvant'], ', '.join(anvanda), ('; %s: %s' % (T['blockerat'], ', '.join(blockerade))) if blockerade else '')
+    elif blockerade:
+        anv = '%s: %s' % (T['blockerat'], ', '.join(blockerade))
+    elif not mcp_rader and not verktyg_rader:
+        anv = 'inga verktyg eller MCP:er tilldelade rollen'
+    else:
+        anv = inget
+    if okanda:
+        anv = (anv + '; ' if anvanda or blockerade else '') + T['ej_observerat'] + ': ' + ', '.join(okanda)
+    kval = ('%s: %s (%s)' % (REDOVISAT, vb.get('omdome') or '?', str(vb.get('skal') or '')[:160])) if vb else T['ej_observerat']
+    return {'aktivering': akt, 'anvandning': anv,
+            'bedomd_kvalitet': {'av_sessionen': kval, 'av_granskningen': 'bedöms av passet granskning, skisskritiken och ägarens dom, inte av kvittot'}}
 
 
 def main(argv=None):

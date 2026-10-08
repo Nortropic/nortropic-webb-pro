@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Nortropic läsande inspektion",
+  "version": "1.0.0",
+  "permissions": ["declarativeNetRequest"],
+  "declarative_net_request": {
+    "rule_resources": [{"id": "lasande", "enabled": true, "path": "regler.json"}]
+  }
+}

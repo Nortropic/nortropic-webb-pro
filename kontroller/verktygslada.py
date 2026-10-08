@@ -1310,14 +1310,28 @@ def sessionsavtryck(args, version):
     --strict-mcp-config, --mcp-config med filernas innehåll och --settings. Listorna över nekade läsvägar (andra kunders
     kataloger) ingår inte: de ändras med varje ny kund men laddar ingenting."""
     delar = [str(version)]
-    for flagga in ('--model', '--setting-sources', '--settings', '--mcp-config'):
-        if flagga in args:
-            v = str(args[args.index(flagga) + 1])
-            delar.append('%s=%s' % (flagga, v))
-            if flagga == '--mcp-config':
-                delar.append(sha_fil(Path(v)) or 'saknas')
+    args = [str(x) for x in args]
+    flaggor = ('--model', '--setting-sources', '--settings', '--mcp-config')
+    i = 0
+    while i < len(args):
+        flagga, eq, inline = args[i].partition('=')
+        i += 1
+        if flagga not in flaggor:
+            continue
+        varden = [inline] if eq else []
+        while i < len(args) and not args[i].startswith('--') and (flagga == '--mcp-config' or not varden):
+            varden.append(args[i])
+            i += 1
+        delar.append([flagga, varden])
+        if flagga == '--mcp-config':
+            # Flera filer och upprepade flaggor är tillåtna. Inline JSON är redan bunden ovan.
+            for v in varden:
+                if not v.lstrip().startswith('{'):
+                    p = Path(v)
+                    p = p if p.is_absolute() else ROOT / p
+                    delar.append([str(p), sha_fil(p) or 'saknas'])
     delar.append('strikt' if '--strict-mcp-config' in args else 'inte strikt')
-    return sha('|'.join(delar))
+    return sha(json.dumps(delar, ensure_ascii=False))
 
 
 def sessionens_init(args, timeout=180, cwd=None, env=None):

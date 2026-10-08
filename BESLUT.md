@@ -1615,6 +1615,10 @@ Gjort (grenen `skisskritik-kompetens-20261007`, ovanpå gren B):
 
 **Status:** gäller.
 
+**Delvis ersatt av:** tillägget 2026-10-07 om kundvaktens adresser, rubriker och orter (sist i den här filen), i fråga
+om punkt 1: ett par först i en mening stoppas som helt par, och en rubrik som bara är ett par är ett säkert namn.
+Övrigt gäller.
+
 Omgranskningen GR-20261007-r102-om (privat, `underlag/granskningar/`) godkände gren B men fann tre BÖR i kundvaktens
 namnprövning och proven. Grenen `kundvakt-namn-20261007` rättar om#B1–B3, K1, K3 och K4. Ägarens regel gäller som
 förut: Refero och Mobbin ska fortsatt få generiska researchfrågor utan kunduppgifter. Vad som prövas i detalj står i
@@ -1845,3 +1849,875 @@ beställer aldrig två arbeten; ett stopp före processstart består. Kundens l�
 processer avslutats. Processbeskedet och det versionsbundna resultatkvittot hålls isär. Inga nya köer, schemalagda
 starter, designregler eller externa rättigheter införs. De lokala proven använder syntetiska processer; verkliga
 modellsessioner lämnas till Claude enligt övertagandets gränser.
+## Tillägg 2026-10-08: Kundstarts lokala ärende och överlämning
+
+**Status:** gäller på grenen kundstart-kirurg-codex-20261008; inte sammanslaget eller driftaktiverat.
+
+Genomförande av ägarens beställda Kundstart inom befintligt repo. Ingen ny kommersiell regel, publiceringsrätt,
+lagringsperiod eller modellkostnad godkänns här. Kirurgens förbättringsloop är nästa separata genomförandedel.
+
+Kundens ord, uppgifter och rättelser lagras före AI-bearbetningen i ett privat revisionshanterat ärende. Kund-API:t
+har personliga roller och saknar administrativa modell-/kommandoingångar. Kundens fakta, förfrågan och acceptans av
+ett faktiskt definierat erbjudande är skilda handlingar. Sen modellutdata får inte skriva över nyare kundval.
+Överlämningen prövar källrevision, exakt målrot och skrivna filhashar, och kan återupptas eller återställas utan
+överskrivning av främmande ändringar. Mottagna kompletteringssvar blir inte automatiskt lösta kritiska frågor.
+
+Den befintliga dashboarden får en Kundstart-vy på grenen. Sena svar binds till rätt vy och ärende; privata lokala
+utkast behåller sin grundrevision. Ingen server, modell, kontakt eller återkommande process startas av en läsning.
+Gallring kräver ett verkligt lagringsbeslut och ger ett bestående spärrat läge vid avbrott. Egna backupkopior hanteras
+med SQLite onlinebackup; återställning gäller ny rot med aktuell gallringsjournal och återkallade gamla länkar.
+
+Professionsstödet i kunskap/kundintervju.md är omskrivet för verkliga ingångar här och läses till modelladaptern.
+Kunskapstextens äldre Runtime-väg finns i Git-historiken. Mått skiljer begärd från observerad modell, bevarar misslyckade
+försök och anger saknad kostnad som okänd. Läsning, schemagiltighet och anropsmetadata bevisar inte yrkeskvalitet.
+
+**Prov och begränsning:** syntetiska transportdubblar, riktig lokal SQLite/HTTP/Chromium, negativa behörighetsfall,
+avbrott och separata granskningar. Inga riktiga AI-, MCP- eller kundanrop. Slutprov och commit redovisas i uppdragets
+rapport. Live-AI, offentlig drift, databehandlingsbeslut, verklig intervju-/designkvalitet och mänsklig användningsprövning
+återstår. Det privata CLI-abonnemanget används inte som antagen serverlicens. Inget pushas eller slås ihop till main.
+
+## Tillägg 2026-10-08: Kirurgens avgränsade observationer och försök
+**Status:** gäller för den lokala förbättringsvägen; ingen skarp aktivering eller nytt ägarmandat.
+
+Ägarens ord: ”Bygg två sammanhängande förmågor inom dagens system” och ”Skilj ditt byggmandat från den framtida agentens rättigheter.”
+
+Kirurgens befintliga vy får versionsbundna signaler, diagnos, plan, disposition, stickprov och paus. Befintlig spaning
+redovisar källhälsa; Kundstart observerar aktuell överlämning utan att kopiera kundsvar till förbättringsregistret.
+Avgränsade lokala regressionsförsök behöver separat giltigt klassmandat, fryst facit, processgräns, totalbudget och
+oberoende granskning. Registrerat kundarbete har företräde. Aktiva införanden, publicering och eftereffekt är inte
+självauktoriserade. Ingen ny modell, extern anslutning eller återkommande drift har startats genom implementationen.
+
+Räckvidd och kvarstående live-/införandeprov: `kunskap/kirurg-forbattring.md`. Äldre beslut och rapporter bevaras.
+
+## Tillägg 2026-10-08: Kundstarts källa genom skapandeflödet
+
+**Status:** gäller på integrationsgrenen; ingen sammanslagning eller driftaktivering.
+
+Genomförande inom ägarens beställda sammanhängande kundförlopp. En senare kundändring ska upphäva gammalt underlag
+också när snapshotfilerna ligger kvar. Start, kort publicering och godkännandets aktualitet prövar därför den levande
+källan och hela överlämningsmanifestet. Saknad markör, trasig databas eller manifest innebär aldrig återgång till ett
+äldre godkännande. Den läsande kontrollen skapar inga SQLite-sidofiler och släpper sina lås även när den faller.
+
+Ärendelagret får inte vara läsbart för byggets egna skript. Ett helbygge i en rot med Kundstarts lager kräver den
+befintliga sandlådan; det överlämnade kundmaterialet är fortfarande åtkomligt. Detta inför ingen ny ägargrind eller
+rätt att starta modeller. Ingen riktig modell-/MCP-session eller kundkontakt har körts under övertagandet.
+
+Förloppsprovet använder ordinarie kodvägar med lokala transport-, modell- och renderingsdubblar. Fem syntetiska
+flertursfall visar bevarade källor, omfattning och ändringars följder. Dessa prov är utvecklingsbevis, aldrig ett
+oberoende kvalitetsmått, ägarens verkliga godkännande eller belägg för en bra autonom intervju.
+
+
+## Tillägg 2026-10-08 — formulärens felvägar, G04/G05
+
+**Status:** gäller som avgränsad rättelse på arbetsgrenen; ingen driftaktivering eller extern sändning.
+
+Ägarens käll- och professionsuppdrag rättar mottagaren som tappade text vid fel och kunde avisera utan lagringskvitto.
+Validering ger 422 med texten kvar och fältnära fel; en läsbar för stor bild ger 413 med texten kvar. Oläsbar eller
+helt för stor kropp lovar inte återställning. Utan bekräftad lagring försöks inget mejl och 503 visar osäker
+mottagning med texten kvar. Bekräftad lagring men utebliven mejlacceptans ger 202 och eget mottaget-besked utan
+uppmaning att skicka igen. Lyckad lagring och mejlacceptans ger 303 till tacksidan. Uppgifterna hamnar inte i URL
+eller felloggen. Demomottagaren är fortsatt en osparande provstubb, inte detta produktionskontrakt.
+
+G05-R kvarstår uttryckligen: det statiska formuläret saknar en individuell identitet före första POST; ett helt
+tappat lyckat svar kan därför ge en dubblett vid omförsök. Det kräver ett sammanhängande idempotenskontrakt, inte
+bara annan statuskod eller slumpnyckel på servern. Lokala dubbelprov bevisar inte Blob/Resend i drift.
+
+I samma rättelse skyddas metadatafiler från bilagans klientnamn. Lagring, mejl och aviseringskvitto har lokala tidsgränser med avbrottssignal; sena svar fortsätter inte kedjan. Detta är en implementerad felgräns, inte ett nytt leverans- eller idempotenslöfte.
+## Tillägg 2026-10-07: byggets läsgräns per kandidat
+
+**Status:** gäller på grenen.
+
+Omgranskningen GR-20261007-r107 (privat, `underlag/granskningar/`) bekräftade den sista kända luckan i kandidaternas
+oberoende (r107#K1): byggets profil tillät all läsning utom hemligheterna, så en sidas kod kunde läsa en annan
+kandidats källkod och skaparens text i underlaget när sidan byggdes. Grenen `byggets-lasgrans-20261007` stänger luckan
+i `kontroller/processgrans.py` (backlogposten B-20261007-kandidaternas-oberoende-byggets-processgrans-hin); modulens
+beskrivning och Sandlådan i `kunskap/skapandeflodet.md` säger hur.
+
+1. **Läsgränsen.** Ett bygge av en kandidats projekt nekar läsning som standard. Undantagen är det bygget behöver, mätt
+   med en rapporterande profil och kärnans logg under ett verkligt bygge: kandidatens projekt, sajtens delade
+   node_modules, kandidatens egen temp, systemets delar, metadata för katalogerna ovanför dem och repots .gitignore och
+   .git, som Tailwind läser. Ett stängsel sist nekar `underlag/` och `kunder/<slug>/kandidater/` också om ett undantag
+   skulle täcka dem. Kritikens förhandsvisning bygger genom samma väg och har samma gräns.
+2. **Det som följer med.** Varje kandidat har en egen temp (`/tmp/nwp-bygge-<slug>/tmp-kNN`), och bygget startar i
+   projektet. En node_modules-länk som pekar bort från sajtens vägras, liksom en väg i `kandidater/` utan id och ett
+   program som läsgränsen inte släpper: ett sådant program fastnade i kärnan (tillståndet UE, går inte att döda före en
+   omstart) när det startades innanför gränsen. Astros telemetri och npm:s versionskoll är av; de körde git i repot,
+   läste hemkatalogen och försökte nå nätet.
+3. **Samma utdata.** Samma kandidat byggd med 8cc786c och med läsgränsen gav samma filer byte för byte, i worktreen och i
+   repokopior där .git är en katalog, en fil eller saknas.
+4. **Proven.** `kontroller/rokprov/revision/prov_lasgrans.py` bygger en syntetisk kund på riktigt. Fall 1 och 3–5 var
+   röda mot 8cc786c och är gröna efter; fall 2, att ett vanligt bygge ger samma utdata som sajtens eget, är grönt före
+   och efter. Codex omprov och mutationer redovisas i den privata genomföranderapporten, med respektive revisionsidentitet.
+
+**Återstår:**
+- De delade node_modules är läsbara för varje kandidats bygge och cacherna där (.vite, .astro) skrivbara, så det ett
+  bygge lämnar där kan nästa kandidats bygge läsa. Vite kräver att cachen går att skriva. En egen cache per kandidat,
+  i projektets astro.config.mjs, stänger det.
+- En nekad väg ger EPERM om den finns och ENOENT annars. Namnen går inte att lista, men en gissad väg kan prövas.
+- Sajtens eget bygge har ingen läsgräns.
+- Tailwinds källsökning ger i repots läge omkring 35 kB fler klasser än sidan använder, i kandidatens och sajtens bygge.
+  Det är oförändrat.
+- Ingen verklig skissomgång med kundmaterial har gått med läsgränsen. Posten verifieras av en granskning.
+
+**Rättelse i Codex övertagande:** kandidatens identitet prövas före länkupplösningen. En länk till huvudbygget eller
+en annan kandidat, skiftlägesalias inne i kundträdet och `..` får inte avaktivera eller byta läsgränsen. Ett annat namn
+på själva reporoten, exempelvis `/tmp` i stället för `/private/tmp`, behåller gränsen. Motprov genom riktiga CLI:n
+visade läsning av en syntetisk syskonfil i tre sådana fall före rättelsen. Provets nya fall täcker även huvudrotens
+alias och säkra ordinarie körningar. Städningen registrerar bara exklusivt skapade kataloger och redovisar fel.
+Den äldre Refero-fixturen använder egen syntetisk nyckeltext; inga verkliga nycklar eller MCP-anrop ingår.
+
+Den separata granskningen GR-20261007-r109-codex-oberoende fann en kvarvarande aliasväg när kund- eller
+kandidatroten var länkad. Båda vägarna reproducerades genom CLI:n med syntetisk syskonfil. Rötterna förankras nu
+före klassificeringen, och fall 7 kräver nekande före barnstart. Det är en rättelse inom samma läsgräns.
+## Tillägg 2026-10-07: referensinspektionen och Chrome DevTools MCP (gren H1)
+
+**Status:** gäller.
+
+Gren H1 (`referensinspektion-20261007`) i ägarens uppdrag 2026-10-07 ~14:05Z om full verktygslåda och kundrepon, punkt 7 och
+punkt 5 (MCP-delen); uppdraget står ordagrant i tillägget från gren H5 (`canvas-hig-20261007`) och i minnet
+`nortropic-agaren-full-verktygslada-kundrepo-uppdrag-20261007`. Ägarens förtydligande samma dag, mottaget via
+samordnaren, ordagrant:
+
+> Varje arbetssteg ska uttryckligen aktivera sina tilldelade skills genom skillsystemet där det stöds. Referensfiler som
+> saknar egen aktivering ska läsas enligt skillens instruktioner. Saknad aktivering eller misslyckad laddning ska synas och
+> hanteras innan beroende arbete fortsätter. Varje tilldelad verktygs-/MCP-uppgift ska genomföras genom ett faktiskt anrop
+> och ge ett kontrollerat resultat. Att verktyget finns installerat räcker inte. Dokumentera därefter hur resultatet
+> användes. Verifiera detta i den riktiga skaparsessionen. Skilj aktivering, lyckad användning och bedömd kvalitet åt.
+
+**Infört** (proven i `kontroller/rokprov/revision/prov_referensinspektion.py`, tio fall, röda mot 2b4045e och gröna efter;
+en rad i `kontroller/rokprov.sh`):
+
+1. Referensens vyer tas ur prototypens källa (`forhandsvisa.BREDDER`): 390 och 1440 alltid, 768 och 1280 per uppdrag
+   (`referens.py`, fältet `bredder`; researchen får beställa dem, `kandidater.FORSKA_SCHEMA`).
+2. Per mätt element de CSS-regler som träffar (CDP `CSS.getMatchedStylesForNode`), och per sektion sektionens och
+   layoutbehållarens regler: bara regeltexten med mediefrågan, högst åtta, aldrig stilmallen (`extrahera.mjs`).
+3. Ett DOM-utdrag per sektion utan skript, händelse- och data-attribut, högst 1 500 tecken med markör (`MAX_UTDRAG`).
+4. Svepet över bredderna 320–1600 (`--svep`, `SVEP.json`): kolumner, menyknapp, rubrikens rader, bildandel, spill och
+   sajtens egna mediefrågor; brytpunkterna står i EXTRAKT.md och PAKET.md.
+5. Flera hover- och fokusväljare per uppdrag (högst sex, en bild var, utfall per väljare) och de interaktiva elementen ur
+   tillgänglighetsträdet; ingen menyknapp där alla länkar syns är ingen brist (som `kandidater.menyprovet`).
+6. Rörelsesekvensen: sidans animationer med namn, längd och trigger (laddning, skroll, hovring, fokus, meny) och spårets
+   steg i EXTRAKT.md; spårfilen förblir privat och nekad kritiken.
+7. Det kuraterade underlaget `SEKTIONER.md` per sida (bild, mått, typsnitt, regler, utdrag), med materialnoten (samma ord
+   som `atelje.MATERIAL`); `research_rader`, `forska_prompt`, FORSKNING.md, PAKET.md och UPPDRAG.md ("Referensunderlag")
+   pekar på det i stället för hela EXTRAKT.md.
+8. Chrome DevTools MCP 1.10.1 (npm 2026-09-23, Apache-2.0) i `kontroller/mcp/chrome-devtools.json` (`npx` med låst version,
+   `--isolated --headless --no-usage-statistics --no-performance-crux`, inmatning, minne och skriptkörning avstängda,
+   Playwrights Chromium, nätgränsen `natproxy.mjs` med webbtjänstens regler) i en egen inspektionssession
+   (`kontroller/devtools.py`, `--strict-mcp-config`, bara verktygen med uppgift); aldrig i skaparens eller kritikens
+   session (kundvakten släpper den inte, `atelje.session_args` bär den inte) och inget på användarnivån. Beslutet per
+   verktyg i `kunskap/metodkarta.md` (Tjänsternas verktyg): nio med uppgift, 23 utan med skäl och provdatum;
+   `kompetens.tjanstregister` prövar blocket mot `devtools.VERKTYG`. K51 i `kunskap/skillkrockar.md` omprövad.
+9. Metodkartans Research-avsnitt beskriver underlaget och profilen; `kunskap/referensjakt.md` (låst källa, `metod.py --las`),
+   `kunskap/beroenden.md`, README-kedjans steg 2.
+10. Granskarens form: kritikens förhandsvisning (`forhandsvisa --granskare`) mäter med `inspektera.mjs --extrakt-utan-kod`,
+    utan CSS-regler, DOM-utdrag, SEKTIONER.md eller klasser i animationsmålen, så att den blinda kritiken aldrig får
+    skaparens kod (luckan uppstod med punkt 2 och 3 och stängdes i samma gren).
+
+**Det verkliga provet** (två sessioner 2026-10-07 15:44Z och 15:47Z, modellen claude-sonnet-5-5, mot provets syntetiska
+sajt på 127.0.0.1, utan kunddata): aktivering — MCP:n `connected`, 19 verktyg listade, inget utan beslut; lyckad
+användning — 13 respektive 14 anrop, alla med kontrollerat resultat i form och innehåll (new_page, emulate 390×844 Slow 4G,
+performance_start_trace med LCP 1 322/1 297 ms, CLS 0, TTFB 5/27 ms, fem insikter analyserade, take_snapshot,
+get_css_styles för LCP-elementet, list_network_requests, lighthouse_audit: tillgänglighet 95, bästa praxis 100, seo 91;
+prestandakategorin utesluter verktyget självt), uppgiften genomförd i alla grupper, 17 turer, 75 s; bedömd kvalitet —
+`ej_bedomt`, kritikens och ägarens. Nätgränsen nekade 16 anrop per session: Chromes egen trafik till Google (update,
+accounts, clients2, android.clients) och blockprovets `http://blockerad.example/` (två anrop); i den andra sessionen
+visade modellens snapshot av den sidan bara proxyns text "blockerad". Mutationer i egna kopior, tolv, alla dödade (se
+grenens slutrapport).
+
+**Återstår:**
+- DevTools-profilen startas för hand (`devtools.py`); prototyp.py tar den inte själv för huvudreferensen, och ingen
+  verklig kundkörning har läst `SEKTIONER.md` eller en profil än. Hur skaparen använde resultatet redovisas i RIKTNING.md
+  enligt prompten, men observeras inte maskinellt.
+- `list_network_requests` ger inga storlekar; byte står som null. Lighthouse-rapportens underkända granskningar namnges
+  inte i verktygets svar.
+- Underhållet slår inte upp chrome-devtools-mcp: versionen byts för hand enligt `kunskap/beroenden.md`.
+- Svepet mäts i en datorkontext som bara byter bredd: mediefrågor om pekare och hovring slår inte om.
+- En hover- eller fokusväljare som bara finns i en bredd fäller fångsten i de andra; regeln står i referensjakt.md.
+
+
+**Rättelse i Codex övertagande 2026-10-07:** de tidigare tio lokala fallen gick igenom, men fyra nya motfall visade
+gröna kvitton för ogiltiga sessioner, länkade skrivmål, skiftande sektionsidentitet och skrivande HTTPS-anrop.
+Rättelsen prövar hela konfigurationen och skrivmålen, slutstatus och schema samt slutförda verktygsuppgifter.
+Sektionsidentiteten sätts före synlighetsfiltreringen; mobila sektioner får också följa med i kurateringen.
+Ett lokalt Chromium-tillägg begränsar metoder även inuti HTTPS och blockerar WebSocket/WebTransport; proxyn ensam
+gör inte detta. Sessionens tidsgräns avslutar även barnen. Dessa rättelser ändrar inte ägarens verktygsuppdrag.
+De äldre uppgifterna om verkliga sessioner ovan är tidigare agentens redovisning, inte prov av den här rättelsen.
+Codex kör inga verkliga Claude- eller MCP-sessioner under övertagandet. Den samlade konfigurationen och modellens
+användning av resultatet lämnas uttryckligen till Claude. Se genomföranderapporten för slutligt lokalt provutfall.
+
+Den separata Codex-granskningen fann även ett tomt spåranalyssvar som räknades som lyckat, utebliven barnstädning vid
+SIGTERM och breddsvepets jämförelse av olika sektioner. Alla tre reproducerades före rättelse. Ett lokalt Chromium-prov
+bekräftade dessutom att en extra isolerad kontext saknade tilläggets skydd. `devtools_transport.py` nekar därför
+`isolatedContext` och verktyg utanför profilen före MCP-servern; konfigurationen kräver denna startväg.
+Spåranalysen måste följa ett avslutat spår och får inte vara ett besked om saknad inspelning. SIGTERM/SIGINT städar
+sessionens processer och proxy. Breddsvepet jämför stabila sektionsidentiteter, med separat besked om synlighet.
+Kravet på ett verkligt samlat MCP-prov hos Claude kvarstår; lokal protokollattrapp bevisar inte det.
+Avbrott under själva Popen-starten skjuts upp tills processobjektet är registrerat för städning; signalerna blockeras
+inte hos barnet. Barriärprovet lägger SIGTERM efter verklig barnstart men före Popen-returen, både för sessionen och
+transporten. Båda städas före slutkod 143.
+
+
+## Tillägg 2026-10-07: DevTools utan klientvalda skrivmål
+
+**Status:** gäller.
+
+Den avslutande tekniska omgranskningen fann att fyra av de läsande verktygen också kan skriva till ett valt mål.
+Stdio-vakten nekar därför `filePath` och `outputDirPath` före vidarebefordran. Normala verktygssvar och deras egna
+temporära artefakter påverkas inte. Det riktiga transportprovet visar nekande för alla fyra vägar och oförändrade
+tillåtna anrop. Provet använder en lokal attrapp; verklig nästlad MCP-åtkomst är fortfarande oprövad.
+## Tillägg 2026-10-07: full verktygslåda, promptkedjan och automatiska kundrepon
+
+**Status:** gäller.
+
+Ägarens uppdrag kom ~14:05Z den 7 oktober som ett inklistrat block, mitt i arbetet med uppdraget om kompetensens
+användning och tillförlitlig rapportering (tillägget ovan), medan grenarna r105, r106, r108 och r109 byggdes och main
+stod på df4091b, som Codex granskat. Sparat ordagrant i minnet 14:18:50Z, här med kundspecifikt namnexempel utelämnat enligt överlämningens publiceringsgräns. Nulägeskontrollen delade
+arbetet i grenar (E–O och H1–H6); varje gren hänvisar hit och skriver sitt eget avsnitt nedan.
+
+```text
+Genomför detta i nortropic-webb-pro: fullt införande av den förstärkta verktygslådan, sammanhängande promptar och överlämningar samt automatisk skapning av separata kundrepon.
+
+Detta är ett implementationsuppdrag. Leverera fungerande integrationer i det ordinarie flödet, med dokumentation och verifiering. Stanna inte vid en plan, rekommendation, ny metodtext eller backlogposter.
+
+Målet är att Nortropic ska kunna gå från kundunderlag till en visuellt genomarbetad, fungerande webbplats i ett eget kundrepo, med spårbar användning av vår kompetens och en fungerande leveransväg till Vercel.
+
+Behåll principen ”full verktygslåda, ren arbetsbänk”: kompetensen ska användas konkret i rätt arbetsmoment, medan varje session får ett tydligt uppdrag och rätt aktuellt underlag.
+
+1. Utgå från verkligt nuläge
+
+Läs aktuell kod, dokumentation, ägarbeslut och pågående arbete innan du ändrar något. Codex granskade df4091b; kontrollera vilka fynd som fortfarande gäller.
+
+Återanvänd sådant som redan fungerar. Undvik parallella register, rapportformat, observationssystem och orkestrerare för samma uppgift.
+
+Arbeta isolerat från pågående kundkörningar. Bevara befintliga prototyper, domar, bilder, versionshashar och historiska rapporter.
+
+Kontrollera aktuella officiella källor för de produkter och integrationer som införs. Lås prövade versioner per körning. Uppdatera inte verktyg eller metod mitt under en pågående körning.
+
+2. Rätta promptkedjan och sessionernas överlämningar
+
+Verifiera och rätta följande fynd:
+
+- Svaret på skisskritiken startar en ny Claude-session, men prompten säger att kärnkompetensen redan lästs i föregående session.
+- Kompetenstexten föreskriver högst ett rättningsvarv och en bekräftelse, skissen säger inget fast antal varv och fördjupningen kräver minst tre.
+- Byggprompten säger både att börja med steg 1–7 och att ta vid efter ett redan godkänt val i steg 5.1.
+- Planprövningen kan invända mot hypotes och huvudreferens utan en tydlig väg att få dessa omprövade och referensmaterialet uppdaterat.
+
+En ny session ska uttryckligen behandlas som en ny session. Ge den en kort överlämning med:
+- uppgiften och aktuell version;
+- vad som är godkänt respektive fortfarande öppet;
+- relevanta kundfakta och designunderlag;
+- vilka kompetenser den ska ladda och tillämpa;
+- senaste kritik och kvarstående frågor;
+- hur resultatet ska verifieras.
+
+Använd faktisk återupptagning endast när det är avsikten och när den gamla kontexten fortfarande är lämplig.
+
+Ge varje arbetsmoment ett entydigt stoppvillkor. Behåll konfigurerbara tids-, användnings- och försöksgränser, men använd inte ett visst antal varv som kvalitetsbevis. Vid utebliven förbättring ska arbetet kunna återgå till hypotes, komposition eller materialval.
+
+Granska de färdigsammansatta promptarna, inklusive infogade rolltexter och projektinstruktioner. Det räcker inte att varje mall ser rimlig ut för sig.
+
+3. Skapa ett eget kundrepo automatiskt
+
+Varje nytt kundprojekt ska automatiskt få:
+- ett separat lokalt Git-repo;
+- ett privat GitHub-repo i vår befintliga avsedda organisation eller vårt konto;
+- en stabil koppling mellan projektidentitet, slug, lokal sökväg och fjärrrepo;
+- ett eget kort CLAUDE.md;
+- projektets kod, låsta beroenden och nödvändig projektkonfiguration.
+
+Exempel på namn: kund-exempel.
+
+Ett nytt kundprojekt betyder en ny självständig webbplats eller leverans. En ny kandidat, rättning, omstart eller byggkörning inom samma projekt ska återanvända samma repo, med isolerade arbetsgrenar eller worktrees där det behövs.
+
+Skapandet ska vara återupptagbart och tåla upprepade eller samtidiga starter:
+- inga dubbletter;
+- inga överskrivna befintliga projekt;
+- ingen koppling till fel kund vid namnkonflikt;
+- tydligt tillstånd om lokal skapning lyckats men fjärrskapning misslyckats.
+
+Använd befintlig autentisering och konfiguration. Härled inte ett GitHub-konto eller Vercel-team genom gissning. Om en nödvändig uppgift inte går att fastställa, fråga om just den och fortsätt övrigt oberoende arbete.
+
+Nortropic ska förbli den gemensamma motorn. Kopiera inte hela motorn, dess historik och alla administrativa instruktioner till varje kundrepo. Bind i stället varje körning till den motor-, metod- och verktygsversion som användes.
+
+Ett privat GitHub-repo innebär inte att allt kundunderlag får laddas upp. Definiera uttryckligen vilka filer som är levererbara. Råunderlag, hemligheter, interna transkript, privata bedömningar och referensmaterial som inte får distribueras ska ligga utanför den publicerade projektmängden.
+
+4. Flytta kontext och skydd tillsammans med projektet
+
+Starta kundens skaparsessioner med korrekt projektkontext. Kontrollera faktisk arbetskatalog, CLAUDE.md-laddning, skills och MCP-konfiguration i den nästlade sessionen.
+
+Kundens CLAUDE.md ska vara kort och projektspecifik:
+- projektets syfte och viktigaste besökaruppgift;
+- teknik och verifierade kommandon;
+- kodstruktur;
+- aktuell designkälla och faktakälla;
+- projektets begränsningar;
+- hur arbetet provas och levereras.
+
+Länka till större underlag i stället för att stoppa in hela historiken. En ny kund ska inte ärva en tidigare kunds färgval, smakdomar eller misslyckade designriktning.
+
+Skilj instruktionerna för underhåll av Nortropic från instruktionerna för kundskapande och granskning.
+
+Anpassa sandlåda, hooks, kundvakt, sökvägskontroller, processregistrering och tillåtelselistor till den nya repostrukturen. Gamla relativa sökvägsregler får inte antas fungera efter flytten.
+
+Kundsessionen ska fortsatt vara avgränsad från andra kunder och från ändringar i motorn. Bevara skyddet mot symlänkar och felaktigt upplösta sökvägar.
+
+Behåll prenumerationsbaserad Claude Code-körning. Inför inte ett API-baserat beroende som ändrar kostnadsmodellen utan mitt beslut.
+
+5. Inför och koppla verktygslådan till riktiga arbetsuppgifter
+
+Inventera först vad som redan är installerat, autentiserat, tillgängligt och fungerande i respektive nästlad session. Installation i huvudsessionen är inte bevis på åtkomst i skaparsessionen.
+
+Inför följande förmågor i det ordinarie flödet:
+
+A. 21st MCP
+Använd aktuell officiell integration, inte en föråldrad Magic-konfiguration.
+Koppla komponentinventering och komponentutförande till designarbetet.
+Valda komponenter ska anpassas till projektets komposition, tokens, tillstånd och beroenden.
+Skilj komponentåtkomst från AI-generering och dess eventuella krediter.
+Bevara källa och licens för faktiskt använda komponenter.
+
+B. Higgsfield och bild-/videoproduktion
+Inför ett fungerande materialsteg för bilder och video.
+Stöd Nano Banana för bildgenerering/redigering och Seedance för videoproduktion, utifrån aktuellt tillgängliga modeller.
+Behandla Nano Banana → bild → Seedance som en möjlig kedja, inte som att Nano Banana självt är en videomodell.
+
+Materialsteget ska få ett konkret visuellt uppdrag: användningsplats, uttryck, format, beskärning och vad materialet ska bidra med.
+Leverera webboptimerade tillgångar med spårbar källa och vald version.
+För video ingår lämplig stillbild, mobilanpassning och beteende vid reducerad rörelse.
+
+Genererat material får inte framställas som dokumentation av kundens verkliga personal, arbeten eller resultat.
+Tillåtna uppladdningar till medietjänster måste definieras separat från generiska Refero-/Mobbin-sökningar. Skicka inte privat material bara för att tjänsten tekniskt kan ta emot det.
+
+C. Motion AI Kit och GSAP
+Inför officiell Motion-kompetens och relevanta MCP-funktioner.
+Inför GSAP och dess officiella skills som en prövad möjlighet i verktygslådan och beroendehanteringen.
+Använd ett medvetet val mellan CSS, Motion och GSAP för respektive beteende.
+Valet ska följa designen och implementationens behov. Animationer ska inte läggas till för att fylla en användningskvot.
+
+D. Canvas-design
+Gör skillen tillgänglig för grafiska koncept, illustrationer och statiska kompositionsstudier.
+Koppla dess resultat till det faktiska material- och designarbetet.
+Beskriv inte en PNG/PDF som en fungerande responsiv prototyp.
+
+E. Apple-design och befintlig designkompetens
+Använd den befintliga Apple-inspirerade kompetensen tillsammans med relevanta officiella HIG-principer i interaktionsgranskningen.
+Bedöm återkoppling, fokus, avbrytbar rörelse, begriplighet, textstorlek och tillgänglighet.
+Detta är inte ett krav att alla kunder ska få Apples visuella stil.
+
+F. MotionSites och promptbaserade referenspaket
+Bekräfta vilken tjänst som avses innan en produktspecifik integration görs. MotionSites är inte samma produkt som Motion.dev.
+Inför stöd för att använda ett tillåtet paket med förhandsvisning, prompt och tillgångar som sammanhängande designunderlag.
+Bevara kopplingen mellan det synliga målet, instruktionen och rätt materialversion.
+Lita inte på leverantörens ”pixel-perfect”-påstående utan att jämföra faktisk rendering.
+Använd tillgängligt/licensierat material; köp inte åtkomst utan mitt beslut.
+
+G. Refero och Mobbin
+Behåll och verifiera båda genom hela kedjan.
+Materialet ska kunna användas och kompletteras i de steg som tilldelats tjänsterna.
+Tomma resultat, nekad åtkomst och saknade bilder ska synas tydligt och hanteras, inte räknas som genomfört referensarbete.
+
+För alla tjänster: återanvänd befintliga konton där det går. Redovisa saknad autentisering eller åtkomst separat. Gör inga nya köp eller obegränsade kostnadsåtaganden utan mitt beslut.
+
+6. Säkerställ faktisk användning av kompetensen
+
+All kärnkompetens som metodkartan tilldelar ett steg ska laddas och användas i det steget. Den får inte reduceras till en frivillig lista som modellen kan ignorera.
+
+Använd uttrycklig skillaktivering eller förladdning där det stöds. För referensfiler som inte är fristående skills ska korrekt fullständig läsning användas och redovisas som just läsning.
+
+Kontrollera att externa resurser och referensfiler som skillen behöver faktiskt är tillgängliga.
+
+Följ kedjan:
+kompetens → uppgift → beslut → implementation/material → verifierat resultat.
+
+Skilj på:
+- tillgänglig;
+- laddad eller läst;
+- verktyg anropat;
+- användbart resultat mottaget;
+- resultat använt;
+- effekten granskad.
+
+Ett lyckat anrop eller läskvitto är inget kvalitetsbevis.
+En utebliven observation är inte heller automatiskt bevis på att arbetet inte gjorts.
+
+Alla relevanta kompetensområden ska få en tydlig uppgift. Kräv inte meningslösa anrop till varje endpoint eller betald generation i varje projekt för att få en grön ruta.
+
+7. Fördjupa referensinspektionen
+
+Utöka befintlig extraktion och webbtjänst. Bygg inte en separat konkurrerande inspektionskedja.
+
+För utvalda sektioner och tillstånd ska underlaget kunna innehålla:
+- skärmbilder vid samma bredder som prototypen;
+- relevant DOM och semantisk struktur;
+- beräknade stilar och matchande CSS-regler;
+- faktiskt renderade typsnitt;
+- proportioner, radbrytningar och bildbeskärning;
+- responsiva omställningar;
+- meny, hover, fokus och tangentbordsbeteende;
+- rörelsesekvens eller trace när rörelsen bär designen.
+
+Pröva Chrome DevTools MCP och Playwrights befintliga möjligheter. Integrera dem inom nuvarande datagräns och webbläsaravgränsning.
+
+Ge skaparen relevant, undersökningsbart underlag. Stoppa inte in hela sajtens minifierade JavaScript och CSS i varje prompt.
+Externt sidinnehåll ska behandlas som underlag, inte som instruktioner till agenten.
+
+Inspektionen ska leda till en användbar förståelse av varför referensen fungerar och hur dessa kvaliteter kan bevaras med kundens innehåll.
+
+8. Gör designunderlaget konkret och sammanhängande
+
+Återanvänd UPPDRAG.md, RIKTNING.md och DESIGN.md.
+
+De ska tillsammans klargöra:
+- besökarens uppgift och kundens erbjudande;
+- komposition och visuell hierarki;
+- bildstrategi och namngivna tillgångar;
+- typografi och färgernas roller;
+- responsiva principer;
+- komponenttillstånd och rörelse;
+- öppna hypoteser;
+- vad ägaren faktiskt har godkänt;
+- vad nästa granskning ska jämföra.
+
+Tidiga planer får inte låsa svaga designbeslut. Skaparen ska kunna ändra grundkompositionen när renderingen visar att den inte håller.
+
+Granskningen börjar med resultatet före skaparens förklaring.
+När helheten är svag ska rättningen kunna ändra helheten.
+Undvik långa serier av marginaljusteringar kring en misslyckad grundidé.
+
+Bevara befintliga ägarval och urvalsflöden. Ett tekniskt grönt resultat ersätter inte min designbedömning.
+
+9. Stabilisera orkestrering, context management och code review
+
+Behåll en tydlig yttre kedja med versionsbundna övergångar och kreativa arbetssteg innanför den.
+
+Varje steg ska ha:
+- identifierad input;
+- aktuell uppgift och behörighet;
+- förväntad leverabel;
+- verifiering;
+- definierad hantering av fel, avbrott och återförsök.
+
+Återanvänd befintlig mekanik för identiteter, lås, utfall och godkännanden.
+Godkännanden ska gälla rätt körning, projektversion och metod.
+
+Utvärdera Claude Codes aktuella Dynamic Workflows för avgränsade delar där de ersätter egen specialkod eller förbättrar parallellt arbete. Kontrollera faktisk CLI-version, aktivering, behörigheter och observation av underagenter.
+Anta inte att ett nyckelord i en -p-prompt aktiverar funktionen.
+
+Inför inte samtidigt LangGraph, Spec Kit och ytterligare en egen orkestrerare.
+Använd spec-driven-principer i vår befintliga kedja: begripligt uppdrag, plan, implementation och granskning mot samma underlag.
+Om ett separat ramverk behövs ska det ersätta ansvar som annars skulle dubbleras.
+
+Planera före nya riktningar, större funktioner och osäkra ändringar. Undvik en ny tung planeringsfas före varje liten visuell rättning.
+
+Code review ska pröva diffen mot aktuell specifikation, korrekthet och tydliga krav.
+Visuell granskning ska separat bedöma komposition, utförande och interaktion.
+Ingen granskare ska behöva hitta ett visst antal fel.
+
+10. Koppla kundrepo till Vercel
+
+Koppla automatiskt det nya kundrepot till rätt Vercel-team och projekt, med verifierad byggkonfiguration och preview-flöde.
+
+Nya körningar ska återanvända projektet.
+Preview ska kunna knytas till rätt commit och visas i Nortropics dashboard.
+Bevara befintliga beslut och gränser för produktionspublicering.
+
+Astro och Vercel är inte konkurrerande alternativ.
+Behåll lämplig stack per projekt och gör React-komponenter, Motion och GSAP möjliga där projektet använder dem.
+Överge inte en fungerande stack bara för att ett nytt verktyg demonstrerar en annan.
+
+11. Uppdatera dashboard och dokumentation som del av leveransen
+
+Dashboarden ska visa:
+- kundprojektets repo och aktuell arbetsversion;
+- GitHub- och preview-länkar;
+- aktuellt steg och ansvarig session;
+- vilka kompetenser och verktyg som används;
+- vilket material och vilka referenser arbetet bygger på;
+- observerat arbete separat från agentens egen redovisning;
+- aktuell granskning, ägarbeslut och kvarstående hinder.
+
+Återanvänd befintlig observation och dokumentationsstruktur.
+Gör aktuell status härledd ur körningens verkliga data där det går.
+Undvik manuella sammanfattningar som kan fortsätta visa ett gammalt godkännande.
+
+Uppdatera metodkarta, flödesvy, projektinstruktioner och relevanta guider tillsammans med implementationen.
+Markera ersatta instruktioner så att de inte fortsätter laddas som gällande.
+Bevara historiska rapporter som historik.
+
+12. Verifiera hela införandet
+
+Gör ändringarna stegvis och genomför relevanta regressions- och integrationsprov.
+
+Verifiera särskilt:
+- en ny kund får rätt lokalt och privat fjärrrepo;
+- en upprepad start återanvänder samma repo;
+- samtidiga starter inte skapar dubbletter;
+- två kundprojekt är avgränsade från varandra;
+- nya sessioner får korrekt överlämning;
+- obligatorisk kompetens finns i den session som ska använda den;
+- nya MCP-integrationer fungerar genom den riktiga ingången;
+- privat material inte följer med i commit, push eller otillåtna tjänsteanrop;
+- avbrott och återupptagning bevarar rätt tillstånd;
+- dashboard, rapport och godkännande pekar på samma version;
+- preview fungerar från kundrepot.
+
+Stubbar får verifiera mekanik, men får inte redovisas som bevis på fungerande extern åtkomst eller verklig designkvalitet.
+
+Genomför därefter ett avgränsat verkligt kundexempel genom kedjan, med befintliga kostnadsgränser och nödvändiga ägarsteg.
+Visa att en sammanhängande design, mobilanpassning och viktig interaktionsväg överlever hela vägen till kundrepo och preview.
+
+Migrera äldre projekt kontrollerat när den nya vägen är verifierad. Radera inte ursprung eller historiska bevis som del av införandet.
+
+Leverera en samlad slutrapport i vår ordinarie dokumentationsstruktur:
+- infört och verifierat;
+- befintligt som återanvändes;
+- exakt vad som ändrats;
+- verkliga prov och deras resultat;
+- eventuella kvarstående åtkomst- eller ägarhinder;
+- länkar till kundrepo, preview, designunderlag och aktuellt slutkvitto.
+
+Kalla inte införandet färdigt om verktygen bara är installerade eller dokumentationen uppdaterad. Det ska fungera i den faktiska kundkedjan.
+
+Börja med nulägeskontrollen och genomför arbetet. Be bara om sådant som faktiskt saknas och inte går att fastställa ur befintlig konfiguration eller tidigare beslut.
+```
+
+### Ägarens förtydligande 2026-10-07 (~15:20Z)
+
+Mottaget via samordnaren medan gren H5 byggdes; gäller varje gren från och med då. Ordagrant:
+
+> Varje arbetssteg ska uttryckligen aktivera sina tilldelade skills genom skillsystemet där det stöds. Referensfiler som saknar egen aktivering ska läsas enligt skillens instruktioner. Saknad aktivering eller misslyckad laddning ska synas och hanteras innan beroende arbete fortsätter. Varje tilldelad verktygs-/MCP-uppgift ska genomföras genom ett faktiskt anrop och ge ett kontrollerat resultat. Att verktyget finns installerat räcker inte. Dokumentera därefter hur resultatet användes. Verifiera detta i den riktiga skaparsessionen. Skilj aktivering, lyckad användning och bedömd kvalitet åt.
+
+### Gren H5: canvas-design och Apple-design med HIG-principerna (punkt 5D och 5E)
+
+Grenen `canvas-hig-20261007` ovanpå 2b4045e, byggd i worktreen r111 medan r105, r106, r108, r109, r110 och r112 arbetade
+med andra grenar. Inget ur `underlag/` eller `kunder/`, inga MCP-anrop, inga köp.
+
+1. **canvas-design är intagen** (punkt 5D): `.claude/skills/canvas-design/` ur anthropics/skills @ 683bc88e, Apache-2.0
+   ur upstreams `LICENSE.txt`, 77 filer kontrollerade byte för byte mot upstreams blobbar: SKILL.md, LICENSE.txt och
+   48 typsnittsfiler med 27 OFL-filer. Sex typsnittsfiler utelämnade (IBM Plex Serif, Instrument Serif) eftersom
+   deras OFL-fil saknas i upstream; `KALLA.md` säger varför och när de kan tas in. Förgranskningen gav LÅG. Rollen
+   komposition har skillen som alternativ, och metodkartans stycke Grafiska koncept ur canvas-design ger uppgiften:
+   grafiska koncept, illustrationer och statiska kompositionsstudier som material- och designunderlag. En PNG eller
+   PDF ur skillen är ett koncept, aldrig en fungerande responsiv prototyp: kandidaten är den byggda sidan i 390, 768,
+   1280 och 1440. Resultatet registreras i `bilder/BILDER.md` med källa (`canvas-design @ <commit>`) och version och
+   får `Egen: nej`; `atelje.egna_bilder` tar aldrig med en rad som nämner koncept eller canvas-design bland
+   verksamhetens egna bilder. Formen står i metodkartans stycke Grafiska koncept ur canvas-design, och
+   `kunskap/bild.md` bär regeln och hänvisar dit: bild.md ingår i skaparens kärna, som rökprovet håller under 160 000
+   tecken (baslinjen låg 362 tecken under taket; en första version med formen i bild.md bröt det). Materialsteget (gren H4) har uppdraget
+   att ta koncepten som ingång till ett konkret visuellt uppdrag. Beroenden: skillen namnger inga bibliotek; Pillow och
+   reportlab saknas i `.venv` och låses inte här (intag enligt `kunskap/beroenden.md`); utan nya paket går SVG/HTML
+   renderad till PNG med Playwrights Chromium. Kirurgens register: ursprungsnoten "utelämnad för att licensfil saknas"
+   och posten 2026-10-02 står kvar med utfallet 2026-10-07.
+2. **HIG-principerna i interaktionsgranskningen** (punkt 5E): `kunskap/hig-principer.md` (under 10 000 tecken) med
+   principerna för rörelse, fokus och val, återkoppling, begriplighet, typografi och textstorlek samt tillgänglighet i
+   våra ord, en källa per princip (developer.apple.com/design/human-interface-guidelines/motion, focus-and-selection,
+   feedback, typography och accessibility, lästa 2026-10-07 ur Apples sidor), ingen kopierad Apple-text. Filen är
+   kärna i rollerna granskning och kritik, vars uppgift nu är att bedöma återkoppling, fokus, avbrytbar rörelse,
+   begriplighet, textstorlek och tillgänglighet mot principerna; emil-apple-design är alternativ i granskningen. Det
+   är inget krav på Apples visuella stil: principerna gäller hur sidan beter sig och läses, huvudreferensen bär
+   fortsatt utseendet, och kvalitetskraven förblir kraven medan principerna är frågor. Källan är låst med
+   `metod.py --las` (92 källor, förut 90). Kritikens kärna växte från 58 850 till 68 083 tecken (mätningen 107–109 s
+   gällde den mindre kärnan; fristen 480 s har marginal); granskningens från 89 286 till 98 519.
+3. **Ägarens förtydligande ~15:20Z** är infört där grenens block når sessionerna: `kompetens.prompt_rader` säger till
+   varje pass att en skill aktiveras med Skill-verktyget (dess SKILL.md), att en referensfil som inte är en skill
+   läses hel med Read som skillen anger, att en aktivering eller läsning som nekas eller misslyckas skrivs i svaret
+   innan beroende arbete fortsätter, och att kvittot visar aktiveringen och läsningen, aldrig tillämpningen.
+   Metodkartans stycke Aktivering, användning och bedömning säger vad kvittot skiljer (aktivering och läsning,
+   användning med utfall, bedömd kvalitet som kvittot aldrig ser) och hur en saknad laddning hanteras i dag (omförsök
+   i passen rörelse och granskning, `genomford` i skissen, kvittot i SKISSKRITIK.json). En lucka rättades:
+   `bildkedja.metodlasning` räknade ett Skill-anrop som gav fel (okänd skill) som en aktivering och dess SKILL.md som
+   läst; nu räknas, som för Read, bara anrop utan fel. Skissprompten i `kandidater.py` (rad "0. Använd hela
+   kompetensen") säger fortfarande "eller ladda skillen" och rörs inte här (gren E; r106 och r108 ändrar filen).
+4. **Prövat i verklig nästlad session** (flödets argument, utan kund, haiku): init-beskedet listade canvas-design och
+   emil-apple-design bland 73 skills; en session aktiverade canvas-design med Skill-verktyget (8 turer, 29 s); en
+   andra session (6 turer, 17 s) gav kvittot: `skill_anrop` canvas-design och alternativet valt för rollen
+   komposition, `kunskap/hig-principer.md` läst hel för granskning och kritik, en delvis läst fil inte vald,
+   `tillampning` inte observerat, och den misslyckade aktiveringen av en skill som inte finns borta ur kvittot efter
+   rättelsen. Samma session läste skillens injicerade instruktioner ("Output only .md … .pdf … .png") som ett nytt
+   uppdrag och stannade: kvittot visade aktiveringen ändå, vilket är varför aktivering, användning och kvalitet hålls
+   isär, och metodkartan säger nu att skillens arbetsgång gäller konceptet, inte sessionen.
+5. **Proven:** `kontroller/rokprov/revision/prov_canvas_hig.py`, sju fall i rökprovet (skillen med licenser, uppgiften
+   i komposition med skaparens kärna under 160 000 tecken, hig-principer.md låst och i rollerna, ett koncept aldrig en
+   prototyp, `egna_bilder`, formen i kartan med bild.md:s hänvisning, kvittot på en sessions radformat). Alla sju röda
+   mot 2b4045e, gröna här. Mutationer i egna kopior, en i
+   taget: licensfilen, en OFL-fil, blockraden i komposition, kärnraden i kritik, en ändrad källa utan lås, ett
+   uppgiftsord, negationen vid prototyp, `egna_bilder`, låsets hash, KALLA.md:s licensrad, meningen om Apples stil,
+   bild.md:s Egen-rad, emil-apple-design i granskningens välj, bildkedjans Skill-filter och prompttexten; var och en
+   fälldes av sitt fall sedan två luckor i provet rättats (negationen prövades över hela meningen, prompttexten
+   prövades inte alls). `metod.py --prova` och `kompetens.py --prova` är gröna.
+
+**Återstår:**
+- Ingen verklig skissomgång med kundmaterial har gått med blocken; proven gäller flödets argument, syntetiska loggar och
+  en haiku-session utan kund. Att skaparen tillämpar HIG-frågorna och canvas-design i en riktig körning är inte
+  observerat.
+- Materialsteget (gren H4) bygger körvägen från koncept till tillgång; tills dess är en PNG eller PDF ur skillen
+  något som tas fram utanför flödets sessioner (Pillow och reportlab saknas), och skaparen skriver en
+  kompositionsstudie som SVG i det egna projektet.
+- En misslyckad aktivering av ett alternativ stoppar inget automatiskt: sessionen skriver felet och väljer något annat;
+  bara kärnan ger omförsök (passen rörelse och granskning) eller `genomford` falskt (skissen). Ett stopp för alternativ
+  kräver en regel i kandidater.py (gren E eller I).
+- De sex typsnittsfilerna utan OFL-fil tas in när licensfilen finns i upstream eller hämtas från typsnittets källa.
+- Krockarna i canvas-designs KALLA.md har inga K-nummer i `kunskap/skillkrockar.md`.
+- Skaparens kärna ligger 29 tecken under taket 160 000 (prov_revision, kompetenskedjan och granskning 3; 362 före
+  grenen). Nästa tillägg i `bild.md`, `copy-kontroll.md` eller `redaktionellt-pass.md` kräver att något kortas, eller
+  att taket omprövas med en mätning av lästiden; taket höjs inte utan den (inventeringens fynd e om läsvolymen).
+
+## Tillägg 2026-10-07: H5:s webbanpassning, läskvitto och konceptgräns
+
+**Status:** gäller.
+
+Codex samlade rättelse efter källkontroll och separat granskning. Inga nya ägarbeslut eller universella
+storleksregler införs. HIG-principerna skiljer webb från native: disclosure från modal dialog, textförstoring från
+reflow, WCAG:s rörelsevillkor och stor text från egna designkrav. Axe och stillbilder bevisar inte full
+WCAG-täckning eller fungerande interaktion; mänsklig bedömning och funktionella prov redovisas separat.
+
+Metodkvittot kräver ett matchat lyckat Read-/Skill-svar och använder dess tidpunkt. Obesvarade anrop räknas inte
+som lästa och sena svar räknas inte före en redan gjord kodändring. Äldre syntetiska positiva provloggar har fått
+explicita svar; produktionskravet försvagas inte. Koncept, filosofitext och studier registreras i kandidatens
+koncept/BILDER.md, aldrig bland gemensamma kundbilder; den befintliga blindgränsen gäller därmed också dessa filer.
+
+Regressionsfallen prövar de felaktiga HIG-formuleringarna, obesvarade och sena Skill-/Read-svar, positiv svarsföljd
+och den dokumenterade konceptvägen genom blindkritikens verkliga nekanden. Detta visar lokal mekanik och
+instruktionernas avgränsning. Verklig skaparsession, extern åtkomst och förbättrad designkvalitet lämnas oprövade
+under övertagandets sessionsförbud. Slutliga provbevis redovisas i överlämningens rapportförteckning.
+## Tillägg 2026-10-07: Motion AI Kit och GSAP (gren H2)
+
+**Status:** gäller.
+
+Ägarens uppdrag 2026-10-07 om full verktygslåda och kundrepon (ordagrant i gren H5:s post), punkt 5C: "Inför officiell
+Motion-kompetens och relevanta MCP-funktioner. Inför GSAP och dess officiella skills som en prövad möjlighet i
+verktygslådan och beroendehanteringen. Använd ett medvetet val mellan CSS, Motion och GSAP för respektive beteende.
+Valet ska följa designen och implementationens behov. Animationer ska inte läggas till för att fylla en
+användningskvot." Ägarens beslut om Motion+: "Nej, bara den fria delen." Ägarens tillägg: "Du glömde Framer Motion
+mcp/skill också" — Framer Motion är det äldre namnet på Motion, `motion/react` är gamla framer-motion och npm-paketet
+`framer-motion` ett alias, så skillen `motion` är också Framer Motion-skillen (`kunskap/beroenden.md`, metodkartan).
+
+Ägarens förtydligande samma dag (via samordnaren), ordagrant: "Varje arbetssteg ska uttryckligen aktivera sina
+tilldelade skills genom skillsystemet där det stöds. Referensfiler som saknar egen aktivering ska läsas enligt skillens
+instruktioner. Saknad aktivering eller misslyckad laddning ska synas och hanteras innan beroende arbete fortsätter.
+Varje tilldelad verktygs-/MCP-uppgift ska genomföras genom ett faktiskt anrop och ge ett kontrollerat resultat. Att
+verktyget finns installerat räcker inte. Dokumentera därefter hur resultatet användes. Verifiera detta i den riktiga
+skaparsessionen. Skilj aktivering, lyckad användning och bedömd kvalitet åt."
+
+Genomfört på grenen `motion-gsap-20261007`:
+
+1. **Motion AI Kit, fria delen.** Skillen i `.claude/skills/motion/` (MIT enligt paketets deklaration; ingen
+   LICENSE-fil finns hos källan, KALLA.md säger det), MCP:n `https://mcp.motion.dev` i `kontroller/mcp/motion.json`,
+   given till ateljéns sessioner på samma väg som Mobbin (`atelje.session_args`), och kundvakten släpper dess enda
+   verktyg `search-motion-docs` med Referos och Mobbins regel (`kundvakt.MATCH`, `kundvakt.tillatna` ur
+   `kompetens.MCP`). Ingen Motion+-server, inget konto. Prövat i en verklig nästlad session utan kunddata.
+2. **GSAP som låst, prövat beroende.** gsap 3.15.0 i `mall/astro` och `mall/leverans` (Standard "No Charge" GSAP
+   License, fri sedan 2025-04-30), granskat enligt `kunskap/beroenden.md` och provbyggt i rökprovets sida `/rorelse/`,
+   som står stilla vid `prefers-reduced-motion` (gsap.matchMedia) och bygger utan konsolfel. gsap-skills (MIT) i
+   `.claude/skills/gsap/`. Kirurgens post 2026-10-03 står kvar som historik med en rad om ersättningen.
+3. **Valet per beteende.** Rollen rorelse väljer CSS, Motion eller GSAP (eller stilla) per beteende med skäl i passets
+   `teknikval` (kandidater.PASS_SCHEMA) och RIKTNING.md; kompetenskvittot visar valet som sessionens redovisning,
+   inte som observation, och skiljer aktivering, lyckad användning och bedömd kvalitet åt (`kompetens.nivaer`).
+   Passen redovisar också aktiveringen av sina skills, och prompten säger vad som aktiveras med skillverktyget och vad
+   som läses med Read.
+4. **Metodlåset** skrivet om efter de nya källorna; `metod.py --prova` och `kompetens.py --prova` gröna.
+
+**Återstår:**
+- Helbygget (`kor.sh`) laddar ingen MCP utan `NWP_MCP_CONFIG`, och dess kända lista har inte motion.json (filen hör
+  till gren r105); passet rorelse i ateljén har den.
+- Ingen verklig designkörning har gått med rollen rorelses nya val; provet gäller en syntetisk kund och en verklig
+  session utan kunddata.
+- Motion AI Kits licens är deklarerad (MIT) men saknar licensfil hos källan; ägaren avgör om det räcker.
+- `generate-css-easing`, som skillen nämner, fanns inte på servern 2026-10-07 (beslut "ingen uppgift" i metodkartan
+  tills det prövats).
+
+
+## Tillägg 2026-10-07: H2:s verifieringsrättelse
+
+**Status:** gäller.
+
+Ingen ny teknik- eller designregel. Den separata förgranskningens B1–B4 rättas i den befintliga H2-vägen:
+
+- Sessionsavtrycket binder alla MCP-konfigurationer, också fil två, upprepade flaggor, inline JSON och saknade filer.
+- Kompetenspasset sparar observerade verktygs-/MCP-utfall och misslyckade skillanrop. Ett okänt utfall förblir okänt,
+  även när andra verktyg i samma roll har lyckats. Aktiveringskravet gäller kärnans aktiverbara skills och de valda
+  alternativen; rena referensfiler och ej valda alternativ är inte saknade Skill-anrop. Read och Skill hålls isär.
+- Ett pass som redovisar Motion kräver observerat svar med innehåll från search-motion-docs. Ett saknat resultat
+  ger ett avgränsat omförsök och därefter uppgiftsbrist, inte genomfört. CSS, GSAP och stilla kräver inget Motion-anrop.
+- H5:s rättelse av obesvarade anrop och svarstid återanvänds; H2 bevarar dessutom skill_fel. Vid integration ska båda
+  grenarnas ändringar bevaras. Ett laddningskvitto är fortfarande inte bevis för tillämpning eller designkvalitet.
+- GSAP-provet mäter start, mellanläge, slutposition, reducerad rörelse och preferensbyte under en pågående rörelse,
+  samt synligt innehåll utan JavaScript. Det använder den låsta biblioteksversionen och Playwright Clock.
+
+Källorna för rörelseprovet lästa 2026-10-07: https://playwright.dev/docs/clock och
+https://gsap.com/docs/v3/GSAP/gsap.matchMedia()/. Standardlicensen på https://gsap.com/standard-license/ verifierad
+mot den tidigare beskrivningen. Provet gäller lokal mekanik; ingen ny riktig modell- eller MCP-session körs av Codex.
+Resultat och kvarstående integration redovisas i RAPPORT-2026-10-07-r112-codex; inget pushas eller slås ihop här.
+
+
+## Tillägg 2026-10-08: avgränsat metodförsök i skisskaparen
+
+**Status:** gäller på försöksgrenen; sammanslagning och verklig körning återstår.
+
+Genomförande av ägarens etapp 5: A/B-verktyget kan förbereda medium/high i det namngivna skisskaparpasset,
+med samma ännu inte arbetade plan och separata kandidater. Bara skaparen och dess svar får försöksvärdet.
+Gemensamma källor, kriterier och budget versionsbinds, tidigare material bevaras och den befintliga Prototypvyn
+håller armarnas förklaring dold före ägarens val. Misslyckade försök och kända saknade svar räknas.
+
+Detta ändrar varken standardmodell, effort, antal kandidater, granskningsnivå eller budget. Förberedelse ger
+inte mandat att starta en modell eller ett betalt prov. Effektiv modellkonfiguration och designkvalitet är
+oprövade när endast tekniska attrapper finns. Körmandat, privat underlag och senare ägardom lämnas uttryckligen
+till nästa ordinarie session. README och kunskap/autonomi.md beskriver gränserna och återställningsvägen.
+
+
+## Tillägg 2026-10-08: metodens villkor och semantiska resor
+
+**Status:** gäller på arbetsgrenen; ingen ändrad skisskvot eller driftaktivering.
+
+Genomförande av ägarens käll- och professionsuppdrag P4/P5 och G09. Den befintliga K46-regeln om väntande
+skillflöden förs in i verkliga sessionsargument och inställningar: deras kunskap läses med Read, medan
+Initial Response-anrop via Skill nekas. Uppdragets befintliga läge avgör varvkraven; ingen ny kvot införs.
+CSS-animation är inte generellt fri från arbete på huvudtråden; den levererade metoden beskriver villkoret
+och skiljer estetiska startvärden från normer. Uppströms skillfiler ändras inte.
+
+Resformatets semantiska tillägg väljer kontroller genom roll och exakt namn eller etikett. Flera träffar
+kräver ett entydigt område; CSS behåller det äldre beteendet. Provet prövas lokalt före bred användning och
+är inget nytt obligatoriskt format för alla byggen. Lästa instruktioner, lokal åtkomst och passerade prov
+får inte beskrivas som empirisk användbarhet, verklig modellåtkomst eller visad designförbättring.
+
+Dokumentationens researchväg följer nu förberedelsens RESEARCH.md och mottagna kundsvar, inte det arkiverade repots intervju-kommandon. Omdömen är sekundärdata, aldrig ersättning för slutkundsintervjuer. Historiska urval och upptäcktsandelar är villkorade metodexempel, inga garantier för modellernas täckning. Detta inför inga nya obligatoriska intervjuer eller varv.
+
+## Tillägg 2026-10-08: samstämmig läsning och aktivering i integrationen
+
+**Status:** gäller genomförandet av befintliga K46-villkoret på integrationsgrenen, inte ett nytt ägarbeslut.
+
+Samma klassificering av väntande Initial Response-skills styr sessionsnekandet, rollens instruktioner och
+kompetenskvittot. Read får inte redovisas som saknad Skill-aktivering när den aktiveringen uttryckligen nekas.
+Valda, aktiverbara Motion- och GSAP-skills behåller sina observerade lyckade eller misslyckade anrop. Kvitton
+över läsning och aktivering intygar fortfarande varken tillämpning eller visuell kvalitet.
+
+
+## Tillägg 2026-10-08: Kirurgens införandeobservation och versionsbundna uppföljning
+**Status:** gäller implementationen på grenen kirurg-uppfoljning-codex-20261008, ingen aktivering eller nytt ägarmandat.
+
+Genomförande av ägarens krav att förberedd patch, införd ändring och observerad eftereffekt ska skiljas åt.
+Ordinarie separat kodgranskning och Git-väg består. Ett särskilt, av operatören tillhandahållet mandat och
+versionsbundet granskningskvitto krävs för att registrera införandet. Observatören läser exakt Git-version och
+berörda arbetsfiler; den kan inte skriva kod, mandat, granskningskvitton eller publicera. Uppföljning är märkt
+inrapporterad observation med version, omfattning och belägg. En manuell återställning verifieras utan att
+observatören ändrar arbetsfiler. Ingen positiv design-, drift- eller kundeffekt följer automatiskt av registreringen.
+
+Lokala Git-/process-/HTTP-/webbläsarprov är syntetiska. Inga riktiga modeller, kunduppgifter, externa anrop,
+införandemandat eller återkommande jobb skapas. Körformer och tillitsgränser: `kunskap/kirurg-forbattring.md`.
+
+## Tillägg 2026-10-08: aktuellt ägarbesked genom hela flödet
+**Status:** gäller integrationsrättelsen enligt befintligt krav på giltiga besked; inget nytt ägarbeslut.
+
+Ett ja i domloggen är inte ett aktuellt godkännande när dess underlag eller version inte längre gäller.
+Ateljéns läsande sammanfattning använder samma giltighetskontroll som helbyggstarten. Helbyggets och exportens
+aktuella sammanfattning visar också ägardomen som historik när slutpostens beroenden ändrats. Okänd dom
+förblir okänd. Den historiska domloggen och slutposten skrivs inte om av en statusläsning.
+
+Riktiga lokala ingångar prövas med syntetisk Kundstart-databas, versionsbyte, ändrad eller saknad vinnare,
+dashboardens besked och exportens aktualitetsvy. Proven är inte riktiga ägargodkännanden eller designbedömningar.
+
+## Tillägg 2026-10-07: kundvaktens adresser, rubriker och orter
+
+**Status:** gäller.
+
+Omgranskningen GR-20261007-r104 (privat, `underlag/granskningar/`) fann två BÖR och två KAN i kundvakten. Adresser i
+fritexten skyddades inte, och namn utan kännetecken i rubriker och först i en mening släpptes. Grenen
+`kundvakt-adress-20261007` rättar r104#B1, B2, K1 och K2. Ägarens regler gäller som förut, ordagrant: "Refero och
+Mobbin ska fortsatt få generiska researchfrågor utan kunduppgifter." och "Skicka inte kundmaterial till externa
+loggtjänster, publika ärenden eller webbsökningar." Vad som prövas i detalj står i beskrivningen i
+`kontroller/kundvakt.py`.
+
+1. **Adresser (B1).** `skapande.forbjudna_termer` läser fritexten `not` och kontaktvägarnas belägg: gatan (känns igen
+   på gatuledet, med eller utan husnummer), postnumret, orten efter postnumret eller gatan, orter i en mening med en
+   adress, namnet efter c/o och långa nummer. Kundvakten läser samma uppgifter ur briefen, sidans text och RESEARCH.md.
+2. **Namn och orter (B2).** "Möt", "Träffa" och "Enligt" är personord, och "Om" först i en rubrik. Säkra namn är också
+   en rubrik som bara är ett par med stor bokstav, ett par under en rubrik om personer (Om oss, Team, Omdömen, Kontakt),
+   ett par före ett personverb och genitiv efter en initial ("Ö:s"). En roll räknas också efter en tabellkant eller
+   inom parentes. Ett par först i en mening stoppas som helt par. Orter stoppas efter fler platsverb och, utanför §7,
+   efter varje platspreposition.
+3. **Falsklarm (K1).** Engelska termer och rubriker ("Dark Mode", "Opening Hours", "Kitchen Renovation") delar paren,
+   och ett typsnitt ur Google Fonts (listan i skillen ui-ux-pro-max) är varken ett namn eller en ort, också utanför §7.
+4. **Där precisionen och täckningen krockar** går felet åt det säkra hållet:
+   - en förlaga som briefen nämner utanför §7 stoppas som helt par, eftersom den inte går att skilja från ett firmanamn
+     eller en person;
+   - en rubrik som bara är ett par stoppas ord för ord, eftersom en sådan rubrik på en teamsida oftast är ett namn;
+   - en ort som också är ett vanligt ord ("Mark", "Vara") stoppas, också i en generisk fråga som "check mark list";
+   - ett säkert namn stoppas ord för ord också när ordet är vanligt ("White"), och ett efternamn som också är ett
+     typsnitt ("Garamond") stoppas;
+   - texternas långa nummer, också datum, prövas mot frågans siffror.
+
+   Två regler går åt andra hållet. I provet mot verkliga data gav de två strängar som också står med liten bokstav i
+   kundens texter, alltså vanliga ord: ett personverb räknas bara efter två ord ("Sidan svarar" är ingen person), och
+   ett ensamt ord under en rubrik om personer räknas inte ("### Parkering" under Kontakt).
+5. **Proven.** prov_startkvitto.py har fyra nya fall med fixturer i verkliga datas form, giltiga mot schemat: 10d (B1),
+   10e (B2), 10f (K1) och 10g (K2). Alla fyra var röda mot a165e9c och är gröna här; 10g var röd genom genitiven efter
+   en initial. 31 mutationer i egna kopior, minst en per rättelse och granskarens C17–C21, fälls alla: adresserna av
+   10d, namnen och orterna av 10e, falsklarmen av 10f (en också av 10a) och C17–C21 av 10g. C19, som granskningen
+   kallade likvärdig, var det inte: ett namn i fetstil efter ett personord tappade personordet.
+6. **Mot verkliga data**, prövat i sandbox-exec utan nät och skrivningar (nekandet prövat med touch, curl och Python):
+   - fritexten `not`: båda gatunamnen och båda postnumren hör nu till de förbjudna termerna (förut inget gatunamn och
+     ett postnummer), och frågor med gatunamnen stoppas. Av granskarens fyra ord med stor bokstav stoppas tre. Det
+     fjärde står först i en sats och har bestämd form, som ett vanligt ord;
+   - briefens tre gatunamn och researchens två gatunamn och tre postnummer stoppas (förut inget gatunamn och ett
+     postnummer);
+   - personsträngarna är 15 som förut, och orterna är 4 (förut 0). Alla fyra står bara med stor bokstav i texterna;
+   - de 41 generiska frågorna släpps. De verkliga tjänsteanropen får samma beslut som förut: 92 i kundens loggar, 93 i
+     huvudutcheckningens transkript och 165 i alla repots transkript. Inget av dem nämner en av de nya strängarna;
+   - kundvakten tar 66 ms per anrop i median (förut 31 ms) och högst 113 ms, mot fristen 20 s.
+7. **Återstår:**
+   - Ett hopskrivet namn under sex bokstäver släpps (HOPGRANS), liksom efternamnet ensamt efter ett par först i en
+     mening utan kännetecken. Ett ensamt ord först i en sats räknas inte.
+   - Recos omdömesfil läses inte, och RESEARCH.md läses bara för adresser.
+   - Typsnittslistan är skillens data. Ändras dess format stoppas typsnitt utanför §7 som par igen.
+   - Ingen verklig designkörning har observerats med rättelsen. Posterna verifieras av granskningen.
+   - Ägaren avgör om en andra adress ska bli ett eget fält i schemat. r104#K3, radbrottet i metodkartan, har ingen post.
+
+
+## Tillägg 2026-10-08: kundvaktens verifierade restvägar
+
+**Status:** gäller på rättelsegrenen; sammanslagning och verklig åtkomst återstår.
+
+Genomförande av den befintliga kundgränsen efter GR-20261007-r108-codex, inte ett nytt ägarbeslut. Kända nummer
+ur samtliga lästa kundtexter prövas även i tjänsternas ID- och URL-fält. Befintliga underlag som inte kan läsas
+eller avkodas ger inget anropstillstånd; bara frånvarande valfria filer lämnas. Bokadirekts underlag följer samma
+princip. En postort i ett sammanhängande adressblock läses även på raden efter postnumret, utan att en ny
+Markdown-rubrik eller ett nytt stycke fogas till adressen.
+
+Även postorten med slutpunkt och listade kontaktfält omfattas. En följande setext-rubrik läggs inte till
+adressblocket; dess streck eller likhetstecken kan vara korta enligt Markdown-syntaxen.
+
+Riktiga krokingången provas med enbart syntetiska filer, också verkligt läsfel. Inga externa tjänster anropas.
+Mönsterigenkänning har fortfarande begränsningar: provade exempel är inget generellt anonymiseringsbevis.
+Originalgrenen r108 och dess underkända rapport bevaras; rättelsen ligger på en ny gren.
+
+Den redan använda provisoleringen för Refero återanvänds här: processattrappen får en egen syntetisk
+provnyckelfil i provets registrerade katalog, aldrig läsning av användarens hemligheter eller ett nätanrop.
+
+## Tillägg 2026-10-08: helbyggets dom binds till kundöverlämningen
+
+**Status:** gäller på integrationsgrenen; sammanslagning och verklig körning återstår.
+
+Rättelse inom ägarens befintliga uppdrag om giltiga övergångar och godkännanden, inget nytt ägarbeslut.
+`KUNDSTART.json` ingår i granskningens befintliga metodhash. En ny kundöverlämning kan ändra önskemål utan att
+ändra företagsuppgifterna i `VERKSAMHET.json`; då får helbyggets gamla ägar-ja inte bli aktuellt igen. Slutbesked,
+dashboard och export använder samma aktualitetskontroll, utan att skriva om tidigare domar eller slutposter.
+Metodändringen gör även äldre granskningshashar för manuella underlag historiska; ingen gammal dom migreras till
+ett nytt godkännande. Provet använder verklig metodhash och slutpost med en syntetisk kundkälla, ingen modell.
+
+Det äldre provet för nekad riktningshistorik kräver nu också det tillkomna absoluta läsförbudet för Kundstarts
+gemensamma lager. De båda tidigare kundnekandena och fallet utan slug prövas fortsatt exakt.
+
+Städprovet tar bort ärvd `NPM_CONFIG_CACHE` när dess egen cache sätts. Dess eget npmrc-fall tar bort och återställer
+båda stavningarna, eftersom npm läser dem före konfigurationsfilen. Därmed kan provet köras under en isolerad yttre cache utan att pröva fel cache;
+produktionsstädningen ändras inte. Skapandeflödets beskrivning av ägarvalet följer nu README: själva valet startar
+inget, medan nästa uttryckliga handling kan startas från Flöde eller samma CLI.
+
+Lanseringsguiden och byggstandardens 6.6 hänvisar till samma nya mottagningskontrakt som formulärmottagaren.
+Driftmätningen från 2026-10-05 räknas inte som verifiering av 422/413/503/202-kontraktet. Lagringskvittot och
+mejlaviseringen hålls isär även i instruktionerna; inga historiska driftresultat eller ägardomar skrivs om.
+
+Flödeshandlingens HTTP-fixtur serverar också dashboardens två separata skript som JavaScript och kräver att deras
+funktioner laddats. Den tidigare allmänna HTML-reserven gav parserfel för skriptadresserna efter integrationen.
+Okända filer ger nu 404 i fixturen; produktionsservern och kravet på tom lista med JavaScript-undantag
+(`pageerror`) ändras inte. Provet intygar inte alla nät- eller konsolmeddelanden i andra vyer.

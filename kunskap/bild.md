@@ -43,6 +43,12 @@ material: en komposition som förutsätter arkitekturfoto av hög klass byts mot
 (Codex 2026-10-04). Behandling (beskärning, ton, kontrast) ger sammanhållning när bilderna har olika ursprung; ett
 material som redan håller ihop behandlas inte.
 
+## Grafiska koncept ur canvas-design
+
+`illustrative`: PNG/PDF är koncept, aldrig responsiv prototyp eller verksamhetsfoto. Kandidatens koncept/BILDER.md:
+källa, version, `Egen: nej`. Studier/skapartext nekas blindkritiken; aldrig i gemensamma bilder/.
+`atelje.egna_bilder` och materialsteget: `kunskap/metodkarta.md`, Grafiska koncept ur canvas-design.
+
 ## Beskärning, storlekar och optimering
 
 Filnamn `<plats>__<beskrivning>.<ext>`. Beskärningen följer den valda designen och huvudreferensens bildbehandling

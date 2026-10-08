@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {"type": "block"},
+    "condition": {
+      "excludedRequestMethods": ["get", "head", "options"],
+      "resourceTypes": ["main_frame", "sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "webtransport", "other"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {"type": "block"},
+    "condition": {"resourceTypes": ["websocket", "webtransport"]}
+  }
+]

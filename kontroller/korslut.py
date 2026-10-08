@@ -1138,7 +1138,7 @@ def aktuell(k, korning=None):
     - Utan körning väljs den senaste fullständiga posten som gäller bygget i dist/ nu, annars den senaste fullständiga,
       annars den senaste posten; senare starter som stannade och körningar utan slutpost nämns.
     - Har dist/, granskningens metod (metod_sha) eller startsidans godkännande (VINNARE.json) ändrats sedan posten står
-      det tekniska godkännandet och granskningen som historik ("gällde dist X och metod Y") och klart för leverans är nej.
+      godkännandena som historik ("gällde dist X och metod Y") och klart för leverans är nej.
     - Ägarens dom prövas mot DOM.json nu, utan domar som en körning kan ha skrivit (ej_belagda, ur slutposterna och
       UTEBLEV.json). En körning som dödas med SIGKILL får sin post av vakten, så ägarens senare dom räknas (KAN 4). Dog
       också vakten (ingen post och inget protokoll) är domen ej belagd så länge DOM.json ändrats sedan den körningen
@@ -1178,6 +1178,9 @@ def aktuell(k, korning=None):
     if post.get('typ') != TYP or not all(n in t for n, _ in TILLSTAND):
         return post
     andrat = provad['andrat']
+    import kundstart_kalla
+    if not kundstart_kalla.giltig(k.parent.parent / 'underlag' / k.name):
+        andrat.append(kundstart_kalla.SKAL)
     if post.get('kallor_sha256'):
         try:
             import skapande
@@ -1220,6 +1223,9 @@ def aktuell(k, korning=None):
         d['andrat'] = andrat
         post['designgranskning'] = d
         orsak = '; '.join(andrat)
+        if dom_t.get('varde') is not None:
+            t['agaren_godkanner'] = dict(dom_t, varde=None, historik=dom_t,
+                text='historik: ägardomen gäller postens bygge (dist %s); %s' % (_kort(post.get('dist_sha256')), orsak))
         for nyckel, vad in (('tekniskt_godkant', 'det tekniska godkännandet'), ('designgranskaren_godkanner', 'granskningen')):
             gammal = t[nyckel]
             t[nyckel] = {'varde': None, 'historik': gammal,

@@ -63,10 +63,12 @@ för formulärets funktion; kundrepot görs av exporten ovan.
   skyddade.
 - **Svaren** (`kontroller/driftkoll.py <adress> --lage forhandsvisning|produktion`): förhandsvisningen svarar 302 till
   Vercels inloggning utan förbikoppling och `X-Robots-Tag: noindex` (Vercel sätter det på genererade adresser);
-  produktionen svarar 200 utan noindex. Formulärets funktion svarar 303 till `/tack/` (förhandsvisning: demo, och
-  Resends variabler bara i produktionen), `/fel/` i produktion utan mottagare, 303 tillbaka till formuläret med bildens
-  besked för en bild över 4 MB (över Vercels gräns 4,5 MB svarar plattformen 413), och Astros CSRF-skydd ger 403 när
-  Origin är en annan sajt.
+  produktionen svarar 200 utan noindex. Formulärsvaren som mättes 2026-10-05 gällde det äldre kontraktet och verifierar
+  inte dagens mottagare. Det aktuella kontraktet är `kunskap/forfragan.md`, Vid lansering: 422/413 med bevarad text
+  där kroppen kunde läsas, 503 utan lagringskvitto, 202 när lagringen är bekräftad men mejlaviseringen är okänd,
+  och 303 till `/tack/` efter både lagringskvitto och identifierad mejlacceptans. Förhandsvisningens demo sparar
+  och skickar inget; mejlvariabler finns bara i produktionen. Plattformens storleksgräns och Astros Origin-skydd
+  ska prövas i den faktiska driftsättningen före lansering.
 
 - **Projekt (människa eller session med ägarens ja):** ett Vercel-projekt per verksamhet i teamet Nortropic, kopplat
   till kundens privata repo; funktionen i Stockholm (`regions: ["arn1"]` i `vercel.json`) och ett privat Blob-lager i
@@ -80,8 +82,9 @@ för formulärets funktion; kundrepot görs av exporten ovan.
   omdirigerar med 308; canonical, sitemap och `site` i `astro.config.mjs` pekar på den kanoniska. HSTS
   (`Strict-Transport-Security: max-age=63072000; includeSubDomains`) och `frame-ancestors 'none'` sätts som
   svarshuvuden i `vercel.json`, eftersom meta-CSP:n i mallen inte kan bära `frame-ancestors`.
-- **Formuläret:** serverfunktionen på `/api/forfragan/` (`src/pages/api/forfragan.js`, ur `kontroller/exportera.py`) enligt `kunskap/forfragan.md`, Vid lansering: spara först,
-  mejla sedan, `/fel/` vid mejlfel. Hemligheter (mejltjänstens nyckel) ligger i Vercels miljövariabler, aldrig i repot.
+- **Formuläret:** serverfunktionen på `/api/forfragan/` (`src/pages/api/forfragan.js`, ur `kontroller/exportera.py`) enligt
+  `kunskap/forfragan.md`, Vid lansering: spara först, mejla sedan och skilj mottagning från avisering i beskedet.
+  Hemligheter (mejltjänstens nyckel) ligger i Vercels miljövariabler, aldrig i repot.
 - **Återgång:** föregående produktionsdriftsättning befordras tillbaka i Vercel (människa, eller Vercels CLI med
   ägarens ja). Det återställer inte DNS.
 

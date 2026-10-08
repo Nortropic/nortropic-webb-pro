@@ -47,6 +47,47 @@ def nu():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
+def forbered_skiss(slug, kid):
+    import ab_skiss
+    return ab_skiss.forbered(sys.modules[__name__], slug, kid)
+
+
+def skissval(slug, kid, standard):
+    import ab_skiss
+    return ab_skiss.val(sys.modules[__name__], slug, kid, standard)
+
+
+def skisskrav(slug):
+    import ab_skiss
+    return ab_skiss.krav(sys.modules[__name__], slug)
+
+
+def skissavslutad(slug, kid):
+    import ab_skiss
+    return ab_skiss.avslutad(sys.modules[__name__], slug, kid)
+
+
+def skissresultat(slug):
+    import ab_skiss
+    return ab_skiss.resultat(sys.modules[__name__], slug)
+
+
+def skisskommando(a):
+    try:
+        if a.kommando == 'forbered-skiss':
+            p = forbered_skiss(a.slug, a.kandidat)
+            print('Förberett %s; inga sessioner startade. Kräver mandat för underlag och budget före körning.' % p['id'])
+            print('Kör sedan befintligt prototypflöde med --fortsatt. Bedöm bilderna blint i Prototyp före resultatet.')
+        else:
+            import kandidater
+            if not kandidater.domd(a.slug):
+                raise ValueError('bedöm kandidaterna blint i Prototyp före resultatsammanställningen')
+            print(json.dumps(skissresultat(a.slug), ensure_ascii=False, indent=2))
+        return 0
+    except (OSError, ValueError) as e:
+        print(str(e)); return 2
+
+
 def las(p):
     try:
         return json.loads(Path(p).read_text(encoding='utf-8'))
@@ -240,9 +281,15 @@ def main(argv=None):
     sub.add_parser('lista')
     h = sub.add_parser('hash', help='sätt saknad dist-hash för en äldre, ovald jämförelse')
     h.add_argument('id')
+    f = sub.add_parser('forbered-skiss', help='förbered medium mot high i skisskaparen; startar inga sessioner')
+    f.add_argument('slug')
+    f.add_argument('--kandidat', default='k01')
+    r = sub.add_parser('skissresultat', help='mått efter ägarens blinda val; ändrar inga standardvärden')
+    r.add_argument('slug')
     a = p.parse_args(argv)
     inte_i_bygge('ab.py')
-    return {'starta': starta, 'lista': lista, 'hash': hash_}[a.kommando](a)
+    return {'starta': starta, 'lista': lista, 'hash': hash_,
+            'forbered-skiss': skisskommando, 'skissresultat': skisskommando}[a.kommando](a)
 
 
 if __name__ == '__main__':

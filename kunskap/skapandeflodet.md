@@ -147,8 +147,10 @@ kandidaterna och granskningarna.
    designen. Skisskritiken (granskarens omdöme och skaparens svar), planens titlar och körningens redovisning visas
    först efter ägarens första beslut. Ägaren väljer en eller flera för vidareutveckling, sparar en jämförelse, markerar
    det ägaren gillar per förslag (det följer med ordagrant till de valda), förkastar alla eller ber om en ny riktning.
-   Beslutet binds till kandidat och version. Dashboarden startar ingen körning: nästa steg startas med prototyp.py.
-7. **Förfina de valda, och två kompetenspass.** Ägaren kör prototyp.py igen (läget valda). Varje vald kandidat förfinas
+   Beslutet binds till kandidat och version. Valet startar ingen körning. Nästa tillåtna handling startas uttryckligen
+   i vyn Flöde eller med prototyp.py; båda använder samma körlogik (`README.md`, Kedjan).
+7. **Förfina de valda, och två kompetenspass.** Ägaren väljer Förfina de valda förslagen i Flöde eller kör prototyp.py
+   igen (läget valda). Varje vald kandidat förfinas
    för sig i sitt eget projekt, från den version ägaren valde, med ägarens ord och det ägaren gillade i andra förslag
    (inarbetat i idén, inte inklistrat): hela startsidan, den relevanta undersidan och besökarens centrala flöde, i
    skissens form. Skaparen skriver DESIGN.md ur sidan och låter sidorna använda dess variabler (`design.py --kandidat`).
@@ -397,9 +399,15 @@ en gräns för verktygen, inte för koden: sidorna är kod som körs när sajten
 bygge av skaparens sidor innanför processgränsen (`kontroller/processgrans.py`): förhandsvisningen, fotograferingen och
 slutdomen. Där skrivs bara i det projekt som byggs (sajtens eller kandidatens katalog) och körningens tempkatalog, aldrig i
 underlag/<slug> med domloggen och VINNARE.json, och bygget når inget nät: inte localhost, där dashboarden tar emot
-ägarens domar, och inte namnuppslag (`processgrans.py --utan-nat --skrivbar <projektet>`). Byggen i samma kunds
+ägarens domar, och inte namnuppslag (`processgrans.py --utan-nat --skrivbar <projektet>`). En kandidats bygge har
+dessutom en läsgräns, mätt med ett verkligt bygge (`processgrans.lasgrans`; BESLUT.md, tillägget 2026-10-07 om
+byggets läsgräns per kandidat): sidans kod läser bara kandidatens eget projekt, sajtens delade node_modules,
+kandidatens egen temp, systemets delar och repots .gitignore och .git. De andra kandidaterna, underlaget med skaparens
+text, sajtens grund, resten av repot och hemkatalogen är stängda, också när kritiken bygger kandidaten
+(`forhandsvisa.py --granskare`), så kandidatens direkta filåtkomst är avgränsad även vid bygget. Kund- och kandidatrötterna måste vara förankrade utan länkar. Kandidatens angivna id bevaras före länkupplösning; länkar till andra projekt och skiftlägesalias i kundträdet vägras. Reporotens `/tmp`-alias tillåts. Sajtens eget bygge har ingen läsgräns. Byggen i samma kunds
 projekt köas (`kunder/<slug>/.bygglas`), liksom typsnittsinstallationerna. Kandidaternas projekt delar sajtens
-node_modules, som deras byggen kan skriva i (Vites och Astros cache ligger där); paketkod som en sida ändrat där körs
-alltså i de andra kandidaternas byggen. Det är samma gräns som för sajtens eget bygge, nu delad av fler skapare. Ett sandlådat bygge (`NWP_SANDLADA=pa`)
+node_modules. Där skriver deras byggen bara i Vites och Astros cacher, och det ett bygge lämnar i dem kan nästa
+kandidats bygge läsa; Vites förbuntade paket därifrån kör bygget inte (prövat 2026-10-07). Det är samma gräns som för
+sajtens eget bygge, nu delad av fler skapare. Ett sandlådat bygge (`NWP_SANDLADA=pa`)
 kräver därför en godkänd startsida och tar vid från den. Nästlade sessioner skriver aldrig i ägarens automatiska minne
 (`kontroller/nastlad.py`).
