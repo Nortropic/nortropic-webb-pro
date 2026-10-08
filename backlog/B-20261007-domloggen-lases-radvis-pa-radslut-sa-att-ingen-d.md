@@ -1,13 +1,14 @@
 ---
 id: B-20261007-domloggen-lases-radvis-pa-radslut-sa-att-ingen-d
-status: pagar
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261007-r100-om.md
 fynd: GR-20261007-r100-om#KAN-A
 skapad: 2026-10-07
 prio: hog
 steg: gren C1: kontroller/skapande.py, .claude/hooks/stoppvakt.py, kontroller/atelje.py
-andrad: 2026-10-07T11:55Z
+commit: a108560de54c571e182e585e4a24f93cf950d14f
+andrad: 2026-10-08T13:39Z
 ---
 # Domloggen läses radvis på radslut, så att ingen dom med U+2028 försvinner tyst
 
