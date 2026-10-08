@@ -5,7 +5,9 @@ med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens beslut) o
 `underlag/<slug>/DESIGNDOMAR.jsonl`. Historiken bevaras och slås upp när den besvarar en konkret fråga: varför och vad
 som beslutats i `BESLUT.md`, ägarens domar över tidigare byggen i `LARDOMAR.md` (publik, utan personuppgifter) och
 ordagrant i `underlag/LARDOMAR-original.md` (privat). Domarna över tidigare byggen är historik: inget bygge hittills har
-varit bra nog (ägaren 2026-10-05), så de styr inga agenter och är aldrig förebilder.
+varit bra nog (ägaren 2026-10-05), så de styr inga agenter och är aldrig förebilder. Det aktiva urvalet per körning står
+i `underlag/<slug>/atelje/URVAL.json` (`kontroller/urval.py`): andra byggens bilder i granskningen och tidigare byggens
+upptagna val är av tills de väljs uttryckligen (ren start 2026-10-08).
 
 ## Skills
 

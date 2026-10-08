@@ -465,9 +465,12 @@ def underlag_rader(slug):
     u = UNDERLAG / slug
     filer = [u / f for f in ('BRIEF.md', 'RESEARCH.md', skapande.textfil(slug, UNDERLAG).name, 'BESTALLNING.md', 'REFERENSER.md', 'UPPTAGNA-VAL.md',
                              'VERKSAMHET.json') if (u / f).is_file()]
-    # en UPPTAGNA-VAL.md från före rensningen (domcitat, ett gammalt bygge som förebild) läses inte förrän den skrivits om
+    # en UPPTAGNA-VAL.md från före rensningen (domcitat, ett gammalt bygge som förebild) läses inte förrän den skrivits om, och
+    # bara när kundens aktiva urval valt tidigare byggens val uttryckligen (kontroller/urval.py; ren start 2026-10-08, del 2)
     import upptagna_val
-    filer = [f for f in filer if f.name != 'UPPTAGNA-VAL.md' or upptagna_val.VERSION in f.read_text(encoding='utf-8', errors='replace')]
+    import urval
+    filer = [f for f in filer if f.name != 'UPPTAGNA-VAL.md'
+             or (urval.aktivt(slug, 'upptagna_val') and upptagna_val.VERSION in f.read_text(encoding='utf-8', errors='replace'))]
     if (u / 'bilder' / 'BILDER.md').is_file():
         filer.append(u / 'bilder' / 'BILDER.md')
     # referensbeslutets utpekade rutor och tillstånd först, första vyn som reserv (kontroller/referensval.py)

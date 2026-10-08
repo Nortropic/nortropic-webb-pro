@@ -1,11 +1,12 @@
 ---
 id: B-20261008-ren-start-for-nortropic-2-0-och-samlad-startbesi
-status: vilande
+status: pagar
 kalla: dom
 kallref: BESLUT.md
 skapad: 2026-10-08
 prio: hog
 steg: efter backlogavstämningen; BESLUT.md; underlag/granskningar/GR-20261008-motorinventering-codex.md
+andrad: 2026-10-08T18:49Z
 ---
 # Ren start för Nortropic 2.0 och samlad startbesiktning (ägarens uppdrag 2026-10-08 ~14:35Z, köat)
 

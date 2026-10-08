@@ -89,13 +89,16 @@ def prova(slug=None, root=None, med_metod=True):
         # UPPTAGNA-VAL.md läses aldrig av agenterna (atelje.underlag_rader); fynden där märks som cache och stoppar
         # ingen start (granskningen av r73, N1)
         import upptagna_val
+        import urval
         u = root / 'underlag' / slug
         for f in sorted((u / 'atelje' / 'metod').glob('METOD-*.md')) + [u / 'UPPTAGNA-VAL.md']:
             if not f.is_file():
                 continue
             text = f.read_text(encoding='utf-8', errors='replace')
             if f.name == 'UPPTAGNA-VAL.md':
-                if upptagna_val.VERSION in text:  # den aktuella läses av agenterna som den står (granskningen av r74, L4)
+                # den aktuella läses av agenterna som den står (granskningen av r74, L4), men bara när kundens aktiva urval
+                # valt den (kontroller/urval.py; ren start 2026-10-08): annars läses den inte och fynden där stoppar inget
+                if upptagna_val.VERSION in text and urval.aktivt(slug, 'upptagna_val', underlag=root / 'underlag'):
                     ut += fynd_i(text, str(f.relative_to(root)))
                 continue
             ut += [dict(x, cache=True, vad=x['vad'] + ' (cache: körningens metodkopia, levereras om vid starten)') for x in fynd_i(text, str(f.relative_to(root)))]

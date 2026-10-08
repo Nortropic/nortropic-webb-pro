@@ -2040,6 +2040,15 @@ m18a = gr.metod_sha('ett-abx'); rdir18b = tmp / 'underlag' / 'ett-abx' / 'refere
 (rdir18b / 'vy-390-forsta.png').write_bytes(b'bild B'); assert gr.metod_sha('ett-abx') != m18b, 'en utbytt bild på samma sökväg ska ge ny hash (F18)'
 fr18 = gr.frysta_referenser('ett-abx', tmp / 'runda18'); assert fr18 and fr18[0][0].read_bytes() == b'bild B' and str(fr18[0][0]).startswith(str(tmp / 'runda18')), fr18
 print('R11 F18 referensbilder ok')
+# F02 (motorinventeringen 2026-10-08): kalibreringens aktiva ankare ingår i domens identitet; ett undanhållet exempel gör det inte
+m18_fore = gr.metod_sha('ett-abx'); kal18 = tmp / 'underlag' / 'kalibrering'; (kal18 / 'K06' / 'start').mkdir(parents=True, exist_ok=True)
+(kal18 / 'K06' / 'start' / 'vy-390-forsta.png').write_bytes(b'ankarbild'); (kal18 / 'DOMAR.json').write_text(json.dumps({'K06': {'niva': 'over', 'skiljer': 'lugnet'}, 'K07': {'niva': 'generisk', 'skiljer': 'x'}}))
+assert gr.metod_sha('ett-abx') == m18_fore, 'ett exempel utan ankarrad ändrar inte identiteten (undanhållet)'
+(kal18 / 'ANKARE.txt').write_text('K06 · ankare\n'); m18c = gr.metod_sha('ett-abx'); assert m18c != m18_fore, 'ett aktivt ankare ska ingå i metodhashen (F02)'
+(kal18 / 'DOMAR.json').write_text(json.dumps({'K06': {'niva': 'over', 'skiljer': 'ljuset'}, 'K07': {'niva': 'generisk', 'skiljer': 'x'}})); m18d = gr.metod_sha('ett-abx'); assert m18d != m18c, 'ägarens ord om ankaret ingår'
+(kal18 / 'K06' / 'start' / 'vy-390-forsta.png').write_bytes(b'ankarbild 2'); assert gr.metod_sha('ett-abx') != m18d, 'ankarets bild ingår'
+(kal18 / 'ANKARE.txt').unlink(); assert gr.metod_sha('ett-abx') == m18_fore, 'utan ankarraden är identiteten den gamla'
+print('R11 F02 ankare ok')
 
 # F8: en misslyckad jämförelse blir aldrig 'lika'
 kj = tmp / 'kunder' / 'jamf' / 'granskning'  # gr.KUNDER är tmp/kunder
@@ -4950,6 +4959,7 @@ try:
         return spara_prova_sk[1](cmd, cwd=cwd, timeout=timeout)
     prova.bygg_inom_grans, prova.kor, prova.Server = bygg_sk, kor_sk, SrvKd
     sess_sk, samtidiga_sk, max_sk, las_sk = [], [0], [0], thr_sk.Lock()
+    pp_sk_n = [0]  # planprövningens rundor (2E: återgången)
     trasig_k03, dod_k05 = [True], [True]
 
     def sess_sk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None):
@@ -4964,11 +4974,19 @@ try:
         elif schema is kd.PLAN_SCHEMA:
             so = {'variation': 'fem grunder', 'kandidater': [dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/sk-prov/referenser/paket-v01/x/vy.png'])
                                                             for i_ in range(5)]}
-        elif schema is kd.PLANPROVNING_SCHEMA:  # specialisterna prövar planen och ändrar ett fält
+        elif schema is kd.PLANPROVNING_SCHEMA:  # specialisterna prövar planen och ändrar ett fält; k02 får en återgång (2E) i båda rundorna
+            pp_sk_n[0] += 1
             so = {'sammanfattning': 'typografin i k01 skärptes', 'kandidater': [
                 {'id': 'k01', 'bedomning': 'riktningen bär', 'andringar': [{'falt': 'typografi', 'nytt': 'NY TYPOGRAFI ur planprövningen', 'skill': 'impeccable', 'varfor': 'hierarkin'}]},
+                {'id': 'k02', 'bedomning': 'hypotesen bär inte kundens material', 'andringar': [],
+                 'atergang': {'typ': 'ny_hypotes', 'skal': 'hypotesen bär inte kundens material', 'ny_hypotes': 'NY HYPOTES ur återgången'}},
                 {'id': 'k99', 'bedomning': 'finns inte', 'andringar': [{'falt': 'typografi', 'nytt': 'x', 'skill': 'x', 'varfor': 'x'}]}]}
             sid_sk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in kd.kompetens.lasfiler('planprovning')] + [('Skill', {'skill': 'impeccable'}, False)])
+        elif isinstance(schema, dict) and 'OMPLANERING' in prompt:  # återgångens omplanering: k02 med samma identitet
+            assert schema['properties']['kandidater']['minItems'] == 1 and schema['properties']['kandidater']['maxItems'] == 1 and 'k02' in prompt
+            so = {'variation': 'omplanerad', 'kandidater': [dict({f_: '%s omplanerad' % f_ for f_, _r in kd.PLANFALT}, titel='k02 omplanerad', hypotes='NY HYPOTES ur återgången',
+                                                                   referensbilder=['underlag/sk-prov/referenser/paket-v01/x/vy.png'])]}
+            sid_sk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in kd.kompetens.lasfiler('planera')])
         elif schema is kd.PASS_SCHEMA:  # ett kompetenspass
             kid_ = re.search(r'Kandidaten (k\d\d)', prompt).group(1)
             pass_ = next(k_ for k_, n_ in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n_ in prompt)
@@ -5080,6 +5098,18 @@ try:
     pp_sk = json.loads((kd.rot(sl_sk) / 'PLANPROVNING.json').read_text())
     assert pp_sk['andrade'] == 1 and pp_sk['kvitto']['verifierad'] and not pp_sk['kvitto']['saknas'] and 'impeccable' in pp_sk['kvitto']['skill_anrop'], pp_sk
     assert 'NY TYPOGRAFI ur planprövningen' in (kd.kdir(sl_sk, 'k01') / 'UPPDRAG.md').read_text() and (kd.rot(sl_sk) / 'PLANPROVNING.md').is_file()
+    # 2E (uppdraget 2026-10-08): återgången: k02 fick en ny hypotes med samma identitet, planen prövades en andra gång, och en
+    # ny återgång i runda 2 bokförs som ogjord; runda 1:s besked bevaras för sig
+    assert pp_sk['runda'] == 2 and pp_sk['atergang']['omplanerade'] == ['k02'] and pp_sk['atergang']['research'] is None and pp_sk['atergang']['fel'] is None, pp_sk.get('atergang')
+    r1_sk = json.loads((kd.rot(sl_sk) / 'PLANPROVNING-runda-1.json').read_text())
+    assert r1_sk['runda'] == 1 and r1_sk['atergangar'] == [{'id': 'k02', 'typ': 'ny_hypotes', 'skal': 'hypotesen bär inte kundens material', 'ny_hypotes': 'NY HYPOTES ur återgången'}], r1_sk['atergangar']
+    assert (kd.rot(sl_sk) / 'PLANPROVNING-runda-1.md').is_file() and 'Återgången (runda 1)' in (kd.rot(sl_sk) / 'PLANPROVNING.md').read_text()
+    assert kd.las_status(sl_sk, 'k02')['hypotes'] == 'NY HYPOTES ur återgången' and 'NY HYPOTES ur återgången' in (kd.kdir(sl_sk, 'k02') / 'UPPDRAG.md').read_text()
+    assert any(x['falt'] == 'atergang' and 'en återgång per plan' in x['skal'] for x in pp_sk['ogjorda']), pp_sk['ogjorda']
+    assert pp_sk_n[0] == 2 and any('OMPLANERING' in s_['prompt'] and 'k02' in s_['prompt'] for s_ in sess_sk), 'två prövningar och en omplanering'
+    plan_sk_ = json.loads((kd.rot(sl_sk) / 'KANDIDATPLAN.json').read_text())
+    assert plan_sk_['atergang']['omplanerade'] == ['k02'] and plan_sk_['kandidater']['k02']['titel'] == 'k02 omplanerad' and 'Omplanerade efter planprövningens återgång' in (kd.rot(sl_sk) / 'KANDIDATPLAN.md').read_text()
+    assert st_sk['planprovning']['runda'] == 2 and st_sk['planprovning']['atergang']['omplanerade'] == ['k02'], st_sk.get('planprovning')
     pp_p_ = next(s_ for s_ in sess_sk if s_['schema'] is kd.PLANPROVNING_SCHEMA)
     assert 'refero-design/SKILL.md' in pp_p_['prompt'] and 'impeccable/reference/shape.md' in pp_p_['prompt'] and 'Refero' in pp_p_['prompt'] and 'Skill' in pp_p_['verktyg'] and pp_p_['slug'] == sl_sk
     # granskning 4, G1: planprövningen får kundens aktuella domar, designreglerna och Avgörandena (METOD-plan.md)
@@ -7432,6 +7462,10 @@ def gammal_styrning():
     assert {Path(x['kalla']).name for x in cache_} == {'METOD-skiss.md'} and all(x.get('cache') and 'cache' in x['vad'] for x in cache_), cache_
     import upptagna_val as uv_sty
     (rot_ / 'underlag' / 'sty-kund' / 'UPPTAGNA-VAL.md').write_text('<!-- %s -->\nÄgaren godtog Archivo för målaren i dom L2.\n' % uv_sty.VERSION)
+    cache_ = sty_.prova('sty-kund', root=rot_, med_metod=False)
+    assert {Path(x['kalla']).name for x in cache_} == {'METOD-skiss.md'}, 'utan ett uttryckligt urval läses UPPTAGNA-VAL.md inte (ren start 2026-10-08): %s' % cache_
+    import urval as uv_urval
+    uv_urval.fil('sty-kund', rot_ / 'underlag').write_text(json.dumps({'schema': 1, 'historik': {'upptagna_val': True}}))
     cache_ = sty_.prova('sty-kund', root=rot_, med_metod=False)
     # den aktuella läses av agenterna som den står: dess fynd är inte cache och stoppar en start (granskningen av r74, L4)
     assert {Path(x['kalla']).name for x in cache_ if x.get('cache')} == {'METOD-skiss.md'}, cache_

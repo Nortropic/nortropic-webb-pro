@@ -1,11 +1,12 @@
 ---
 id: B-20261008-slutfor-tidigare-bestallt-inforande-k01-k26-kund
-status: vilande
+status: pagar
 kalla: dom
 kallref: BESLUT.md
 skapad: 2026-10-08
 prio: hog
 steg: efter backlogavstämningen; samordnat med B-20261008-ren-start-for-nortropic-2-0-och-samlad-startbesi; BESLUT.md; GR-20261008-bestallning-mot-leverans-codex.md
+andrad: 2026-10-08T18:49Z
 ---
 # Slutför tidigare beställt införande: K01–K26, kundrepon, Vercel, 21st, materialsteget, planprövningens återgång (ägarens uppdrag 2026-10-08 ~14:58Z, köat)
 

@@ -467,7 +467,7 @@ def ordlikhet(a, b):
     return len(ta & tb) / len(ta | tb) if ta and tb else 0.0
 
 
-def uppdragsmaterial(slug, klient=None):
+def uppdragsmaterial(slug, klient=None, bara=None):
     """Huvudreferensens stilpaket och Mobbins skärmar för besökarens uppgift, per uppdrag (ägarens uppdrag 2026-10-05
     18:53Z: Referos stilpaket till skaparen och in i CSS:en; Mobbins skärmar per uppgift med vad de bidrar med). Stilens
     original hämtas en gång och bevaras (kontroller/stilpaket.py) och läggs i kandidatens projekt vid varje försök; Mobbin
@@ -478,6 +478,9 @@ def uppdragsmaterial(slug, klient=None):
     import stilpaket
     r = rot(slug)
     kand = (atelje.las_json(r / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}
+    tidigare = ((atelje.las_json(r / UPPDRAGSMATERIAL) or {}).get('kandidater') or {}) if bara else {}  # bara: de omplanerade (återgången), de övriga behåller sitt
+    if bara:
+        kand = {k_: v_ for k_, v_ in kand.items() if k_ in set(bara)}
     ut = {kid: {} for kid in kand}
     hamtade = {}
     for kid, k in kand.items():
@@ -528,7 +531,7 @@ def uppdragsmaterial(slug, klient=None):
     for kid, v in ut.items():
         if v.get('mobbin_fraga') and not v.get('mobbin'):
             v['mobbin_fel'] = mobbin.get('fel') or 'inga skärmar kunde knytas till sökfrasen'
-    (r / UPPDRAGSMATERIAL).write_text(json.dumps({'tid': nu(), 'kandidater': ut, 'mobbin': mobbin}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    (r / UPPDRAGSMATERIAL).write_text(json.dumps({'tid': nu(), 'kandidater': {**tidigare, **ut}, 'mobbin': mobbin}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     return {kid: {'stil': bool(v.get('stil') and not v['stil'].get('fel')), 'mobbin': len(v.get('mobbin') or [])} for kid, v in ut.items()}
 
 
@@ -2168,7 +2171,13 @@ PLANPROVNING_SCHEMA = {
             'properties': {'id': {'type': 'string'}, 'bedomning': {'type': 'string'},
                            'andringar': {'type': 'array', 'maxItems': 10, 'items': {
                                'type': 'object', 'additionalProperties': False, 'required': ['falt', 'nytt', 'skill', 'varfor'],
-                               'properties': {k: {'type': 'string'} for k in ('falt', 'nytt', 'skill', 'varfor')}}}}}}}}
+                               'properties': {k: {'type': 'string'} for k in ('falt', 'nytt', 'skill', 'varfor')}}},
+                           # återgången (uppdraget 2026-10-08, 2E): en invändning som gör uppdraget ohållbart, med förslag
+                           'atergang': {'type': 'object', 'additionalProperties': False, 'required': ['typ', 'skal'], 'properties': {
+                               'typ': {'type': 'string', 'enum': ['ingen', 'ny_hypotes', 'ny_referens', 'mer_research']}, 'skal': {'type': 'string'},
+                               'ny_hypotes': {'type': 'string'}, 'ny_huvudreferens': {'type': 'string'},
+                               'sajter': {'type': 'array', 'maxItems': 4, 'items': json.loads(json.dumps(FORSKA_SCHEMA['properties']['sajter']['items']))},
+                               'fragor': {'type': 'array', 'maxItems': 6, 'items': json.loads(json.dumps(FORSKA_SCHEMA['properties']['fragor']['items']))}}}}}}}}
 
 
 def planprovning(slug):
@@ -2198,7 +2207,13 @@ def planprovning(slug):
         'Ändra ett fält bara när kompetensen kräver det, och skriv då fältets nya hela text; annars säg i bedömningen',
         'varför valen håller. Titel, hypotes och huvudreferens är låsta (titeln och hypotesen visas för ägaren före det blinda',
         'valet och nämner ingen referens eller sajt vid namn), liksom Referos stil och Mobbins sökfras (materialet är redan',
-        'hämtat); en invändning mot dem skrivs i bedömningen.', '',
+        'hämtat); en invändning mot dem skrivs i bedömningen. En invändning som gör ett uppdrag ohållbart (hypotesen bär inte',
+        'kundens material, huvudreferensen saknar den kvalitet uppdraget påstår, researchen saknar det som behövs) skrivs som',
+        '"atergang" på uppdraget: typ ny_hypotes, ny_referens eller mer_research, skälet och förslaget (ny_hypotes, ny_huvudreferens',
+        'ur researchen, eller sajter och fragor att hämta). Flödet gör då om researchen, planerar om de uppdragen med samma',
+        'identitet och prövar planen en gång till; en återgång per plan. Utan invändning: typ ingen, eller inget atergang.',
+        *(['Planen är redan omplanerad efter en återgång (%s): en ny återgång görs inte; kvarstående invändningar skrivs i' % ', '.join(
+            plan['atergang'].get('omplanerade') or plan['atergang'].get('kandidater') or []), 'bedömningen.'] if plan.get('atergang') else []), '',
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *regel_rader(), *metod_rader(slug, 'plan'), '',
         *kompetens.prompt_rader('planprovning', slug), '',
@@ -2228,6 +2243,18 @@ def planprovning(slug):
             else:
                 plan['kandidater'][kid][a['falt']] = str(a['nytt']).strip()
                 andrade.append((kid, a))
+    atergangar = []  # återgången (uppdraget 2026-10-08, 2E): invändningar som kräver ny hypotes, ny referens eller mer research
+    for x in so.get('kandidater') or []:
+        kid, ag = str(x.get('id') or ''), x.get('atergang') if isinstance(x.get('atergang'), dict) else None
+        if not ag or ag.get('typ') in (None, 'ingen'):
+            continue
+        if kid not in (plan.get('kandidater') or {}):
+            ogjorda.append((kid, {'falt': 'atergang'}, 'okänt uppdrag'))
+        elif plan.get('atergang'):
+            ogjorda.append((kid, {'falt': 'atergang'}, 'en återgång per plan är gjord (%s); invändningen står i bedömningen' % ', '.join(
+                plan['atergang'].get('omplanerade') or plan['atergang'].get('kandidater') or [])))
+        else:
+            atergangar.append((kid, ag))
     if andrade:
         plan['provad'] = nu()
         (r / 'KANDIDATPLAN.json').write_text(json.dumps(plan, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
@@ -2241,9 +2268,25 @@ def planprovning(slug):
             'kandidater': [{'id': x.get('id'), 'bedomning': x.get('bedomning')} for x in so.get('kandidater') or []],
             'andrade': len(andrade), 'gjorda': [{'id': k_, **a} for k_, a in andrade],
             'ogjorda': [{'id': k_, 'falt': a.get('falt'), 'skal': s_} for k_, a, s_ in ogjorda],
-            'kvitto': {k: kv.get(k) for k in ('verifierad', 'lasta', 'saknas', 'valda', 'skill_anrop', 'mcp_anrop')}}
+            'kvitto': {k: kv.get(k) for k in ('verifierad', 'lasta', 'saknas', 'valda', 'skill_anrop', 'mcp_anrop')},
+            'runda': 2 if plan.get('atergang') else 1,
+            'atergangar': [{'id': k_, **{a_: ag.get(a_) for a_ in ('typ', 'skal', 'ny_hypotes', 'ny_huvudreferens') if ag.get(a_)}} for k_, ag in atergangar]}
+    if atergangar:  # runda 1 med en återgång: research, omplanering och en andra prövning; runda 1:s besked bevaras för sig
+        post['atergang'] = atergang(slug, plan, atergangar)
+        (r / 'PLANPROVNING-runda-1.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        (r / 'PLANPROVNING-runda-1.md').write_text('\n'.join(
+            ['# Planprövningen, runda 1 · %s · %s' % (slug, post['tid']), '', str(post['sammanfattning']), '', '## Återgången', '']
+            + ['- %s: %s — %s%s' % (a['id'], a.get('typ'), a.get('skal'), (' → ' + (a.get('ny_hypotes') or a.get('ny_huvudreferens') or '')) if (a.get('ny_hypotes') or a.get('ny_huvudreferens')) else '')
+               for a in post['atergangar']]
+            + ['', '- omplanerade: %s' % (', '.join(post['atergang'].get('omplanerade') or []) or 'inga'),
+               '- research: %s' % ('gjord (%s)' % post['atergang']['research'].get('tid') if post['atergang'].get('research') else 'ingen begärd'),
+               '- fel: %s' % (post['atergang'].get('fel') or 'inget'), '', 'Runda 2 står i PLANPROVNING.md.', '']) + '\n', encoding='utf-8')
+        return planprovning(slug)
+    if (r / 'PLANPROVNING-runda-1.json').is_file():  # runda 2: återgången och runda 1:s begäran följer med i det samlade beskedet
+        runda1 = atelje.las_json(r / 'PLANPROVNING-runda-1.json') or {}
+        post.update(runda_1=rel(r / 'PLANPROVNING-runda-1.json'), atergang=runda1.get('atergang'), atergangar_runda_1=runda1.get('atergangar') or [])
     (r / 'PLANPROVNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    rader = ['# Planprövningen · %s · %s' % (slug, post['tid']), '',
+    rader = ['# Planprövningen · %s · %s%s' % (slug, post['tid'], ' · runda 2 (efter återgången)' if post['runda'] == 2 else ''), '',
              'Specialisterna för art direction och UX prövade planerarens designval (kunskap/metodkarta.md, Kompetenserna).',
              'Filer lästa hela: %d av %d%s. Skillverktyget: %s. MCP-anrop: %s.' % (
                  len(kv.get('lasta') or []), len(kv.get('filer') or []), '' if kv.get('verifierad') else ' (ej verifierat)',
@@ -2256,8 +2299,105 @@ def planprovning(slug):
         rader.append('')
     if post['ogjorda']:
         rader += ['## Föreslaget men inte gjort', ''] + ['- %s, %s: %s' % (x['id'], x['falt'], x['skal']) for x in post['ogjorda']] + ['']
+    if post.get('runda_1'):
+        ag = (plan.get('atergang') or {})
+        rader += ['## Återgången (runda 1)', '', 'Specialisterna begärde en återgång för %s; omplanerade: %s%s. Runda 1 står i %s.' % (
+            ', '.join(ag.get('kandidater') or []) or '–', ', '.join(ag.get('omplanerade') or []) or 'inga',
+            ('; fel: ' + str(ag.get('fel'))) if ag.get('fel') else '', post['runda_1']), '']
     (r / 'PLANPROVNING.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
     return post
+
+
+def atergang(slug, plan, atergangar):
+    """Planprövningens återgång (uppdraget 2026-10-08, 2E): kompletterande research på specialisternas begäran (samma kanal
+    som researchpasset, skapande.komplettera), omplanering av de uppdrag som fick en invändning (samma identitet, ny hypotes
+    eller huvudreferens) och nytt uppdragsmaterial för dem, innan planen prövas en andra gång. En gång per plan; budgeten
+    är en researchbegäran, en planeringssession och en prövning till. Ett konstaterat problem bokförs alltså inte bara
+    medan körningen fortsätter med samma låsta plan. Ger {'tid', 'kandidater', 'research', 'slappta', 'omplanerade', 'fel'}."""
+    r = rot(slug)
+    res = {'tid': nu(), 'kandidater': [k_ for k_, _ in atergangar], 'research': None, 'slappta': [], 'omplanerade': [], 'fel': None}
+    sajter, fragor = [], []
+    forbjudna = skapande.forbjudna_termer(slug, atelje.UNDERLAG)
+    for k_, ag in atergangar:
+        for s in ag.get('sajter') or []:
+            f_ = skapande.kanal_fel({'referens': {'kandidater': [s]}}, bred=True)
+            (res['slappta'].append('%s: sajten %s: %s' % (k_, str((s or {}).get('adress'))[:80], f_)) if f_ else sajter.append(s))
+        for q in ag.get('fragor') or []:
+            f_ = skapande.kanal_fel({'tjanster': {'fragor': [q]}}, bred=True, forbjudna=forbjudna)
+            (res['slappta'].append('%s: frågan "%s": %s' % (k_, str((q or {}).get('fraga'))[:80], f_)) if f_ else fragor.append(q))
+    if sajter or fragor:
+        begaran = {'varfor': ('planprövningens återgång: ' + '; '.join(str(ag.get('skal') or '')[:200] for _, ag in atergangar))[:1000]}
+        if sajter:
+            begaran['referens'] = {'kandidater': sajter[:skapande.MAX_KANDIDATER_BRED]}
+        if fragor:
+            begaran['tjanster'] = {'fragor': fragor[:skapande.MAX_FRAGOR_BRED]}
+        f = r / 'ATERGANG-begaran.json'
+        f.write_text(json.dumps(begaran, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        res['research'] = skapande.komplettera(slug, f, r, atelje.UNDERLAG, frist=min(FRIST_HAMTA, 1800), bred=True)
+    try:
+        res['omplanerade'] = omplanera(slug, plan, atergangar)
+    except (RuntimeError, OSError, ValueError) as e:
+        res['fel'] = '%s: %s' % (type(e).__name__, str(e)[:300])
+    plan = atelje.las_json(r / 'KANDIDATPLAN.json') or plan
+    plan['atergang'] = {'tid': res['tid'], 'kandidater': res['kandidater'], 'omplanerade': res['omplanerade'], 'fel': res['fel'],
+                        'research': bool(res['research'])}
+    (r / 'KANDIDATPLAN.json').write_text(json.dumps(plan, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    if res['omplanerade']:  # stilpaketet och Mobbins skärmar för de omplanerade uppdragen; de övriga behåller sitt material
+        try:
+            res['uppdragsmaterial'] = uppdragsmaterial(slug, bara=res['omplanerade'])
+        except Exception as e:  # noqa: BLE001 — utan nytt material fortsätter skisserna, och det står i redovisningen
+            res['uppdragsmaterial'] = {'fel': '%s: %s' % (type(e).__name__, str(e)[:200])}
+    return res
+
+
+def omplanera(slug, plan, atergangar):
+    """Planeraren skriver om de uppdrag som fick en återgång, med samma identitet (k01…), ur researchen (också det som nyss
+    hämtades). Ett nytt uppdrag utan referensunderlag avvisas som i planera (referensbrist). Ger de omplanerade id:na;
+    RuntimeError när inget användbart uppdrag kom."""
+    r = rot(slug)
+    kids = [k_ for k_, _ in atergangar]
+    ids = sorted(plan.get('kandidater') or {})
+    ovriga = [k_ for k_ in ids if k_ not in kids]
+    rader = ['', 'OMPLANERING efter planprövningens återgång (%s). Specialisterna prövade planen och fann att följande uppdrag inte håller:' % nu()]
+    for k_, ag in atergangar:
+        k = plan['kandidater'].get(k_) or {}
+        forslag = ' '.join(x for x in (('ny hypotes: ' + str(ag.get('ny_hypotes'))) if ag.get('ny_hypotes') else '',
+                                       ('ny huvudreferens: ' + str(ag.get('ny_huvudreferens'))) if ag.get('ny_huvudreferens') else '') if x)
+        rader.append('- %s (%s): %s (%s). %s' % (k_, str(k.get('titel') or '')[:80], str(ag.get('skal') or '')[:400], ag.get('typ'), forslag or 'förslag saknas'))
+    rader += ['Skriv exakt %d uppdrag i samma ordning som %s, som ersätter dem med samma identitet: en ny hypotes och/eller' % (len(kids), ', '.join(kids)),
+              'huvudreferens enligt invändningen, ur researchen (också det som nyss hämtades: FORSKNING.md, paketets PAKET.md och',
+              'tjänsternas rapport). %s' % (('De övriga uppdragen (%s) står fast och upprepas inte; det nya ska skilja sig från dem i' % ', '.join(ovriga)) if ovriga else 'Det nya uppdraget ska skilja sig från det förkastade i'),
+              'komposition, berättelse och bildanvändning. Ett uppdrag vars huvudreferens inte är "egen" avvisas när ingen av',
+              'referensbilderna finns.']
+    prompt = plan_prompt(slug, len(ids), plan.get('lage') == 'skiss') + '\n' + '\n'.join(rader)
+    sch = json.loads(json.dumps(PLAN_SCHEMA))
+    sch['properties']['kandidater'].update(minItems=len(kids), maxItems=len(kids))
+    svar = atelje.session(prompt, LASVERKTYG + kompetens.verktyg('planera', slug), r / 'svar-omplanering.json', sch, 200,
+                          atelje.MODELL, EFFORT_SKISS if plan.get('lage') == 'skiss' else atelje.EFFORT, FRIST_PLAN, slug=slug)
+    nya = [k for k in (svar.get('structured_output') or {}).get('kandidater') or [] if isinstance(k, dict) and str(k.get('titel') or '').strip()]
+    gjorda, avvisade = [], []
+    for k_, k in zip(kids, nya):
+        brist = referensbrist(slug, k)
+        if brist:
+            avvisade.append('%s: %s' % (k_, brist))
+            continue
+        plan['kandidater'][k_] = k
+        gjorda.append(k_)
+    if not gjorda:
+        raise RuntimeError('omplaneringen gav inget användbart uppdrag (%d av %d; %s)' % (len(nya), len(kids), '; '.join(avvisade) or 'planeraren svarade inte'))
+    plan['omplanerad'] = nu()
+    (r / 'KANDIDATPLAN.json').write_text(json.dumps(plan, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    for i, kid in enumerate(ids, 1):
+        if kid in gjorda:
+            k = plan['kandidater'][kid]
+            skriv_uppdrag(slug, kid, k, i, len(ids))
+            satt_status(slug, kid, 'planerad', 'omplanerad efter planprövningens återgång', titel=k['titel'], hypotes=k.get('hypotes'),
+                        huvudreferens=k.get('huvudreferens'), forsok=0)
+    with open(r / 'KANDIDATPLAN.md', 'a', encoding='utf-8') as fh:
+        fh.write('\n## Omplanerade efter planprövningens återgång · %s\n\n' % nu() + '\n'.join(
+            '- **%s · %s**: %s' % (kid, plan['kandidater'][kid]['titel'], re.sub(r'\s+', ' ', plan['kandidater'][kid].get('hypotes') or plan['kandidater'][kid].get('ide') or '')[:300])
+            for kid in gjorda) + ('\n' + '\n'.join('- avvisat: ' + a for a in avvisade) if avvisade else '') + '\n')
+    return gjorda
 
 
 def behandla_skiss(slug, kid):
@@ -3181,6 +3321,8 @@ def kor(slug, status, skriv, n=None):
     tider = status.setdefault('tider', {})
     tider.setdefault('start', status.get('startad') or nu())
     skriv()  # flaggan på disk före allt som kan falla (granskning 2, N1)
+    import urval
+    status['urval'] = {k: v for k, v in urval.vid_start(slug, korning=tider['start']).items() if k in ('historik', 'referenspaket', 'ankare')}  # ren start, del 2
     status['metod'] = {s: m['sha'] for s, m in leverera_metod(slug).items()}
     if not lista(slug):
         arkiverad = arkivera_projekt(slug, status)
@@ -3205,7 +3347,10 @@ def kor(slug, status, skriv, n=None):
     if lage == 'skiss' and not (r / 'PLANPROVNING.json').is_file() and all(las_status(slug, k).get('status') == 'planerad' for k in ids):
         status['steg'] = 'planprovning'  # specialisterna prövar planerarens designval innan någon bygger
         skriv()
-        status['planprovning'] = {k: v for k, v in planprovning(slug).items() if k in ('andrade', 'sekunder')}
+        pp_ = planprovning(slug)
+        status['planprovning'] = {k: v for k, v in pp_.items() if k in ('andrade', 'sekunder', 'runda')}
+        if pp_.get('atergang'):
+            status['planprovning']['atergang'] = {k: pp_['atergang'].get(k) for k in ('kandidater', 'omplanerade', 'fel')}
         tider['planprovning'] = nu()
     status.update(steg='skapa', kandidater={k: las_status(slug, k).get('status') for k in ids})
     skriv()

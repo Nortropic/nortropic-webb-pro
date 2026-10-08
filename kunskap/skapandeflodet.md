@@ -110,7 +110,11 @@ kandidaterna och granskningarna.
    planering på den referensen, och planeraren får veta när researchen levererade med brister (FORSKNING.json,
    slutkoderna). Sedan hämtas uppdragens material (huvudreferensens stilpaket och Mobbins skärmar, UPPDRAGSMATERIAL.json), och
    planprövningen prövar uppdragen mot kunden, materialet och referenserna innan någon skiss byggs; titel, hypotes och
-   huvudreferens står fast i prövningen (PLANPROVNING.md).
+   huvudreferens står fast i prövningen (PLANPROVNING.md), men en invändning som gör ett uppdrag ohållbart blir en
+   återgång: kompletterande research på specialisternas begäran, omplanering av de uppdragen med samma identitet (ny
+   hypotes eller huvudreferens, referensbrist avvisas) och nytt uppdragsmaterial för dem, och sedan en andra prövning,
+   en gång per plan (PLANPROVNING-runda-1.json; uppdraget 2026-10-08, 2E). Ett konstaterat problem bokförs alltså inte
+   bara medan körningen fortsätter med samma låsta plan.
 4. **Skissa.** Varje kandidat har en stabil identitet (k01–k12), ett eget Astro-projekt
    (`kunder/<slug>/kandidater/<id>/sajt`: sajtens nuvarande src/ och public/ utan tidigare sidor, kundens bilder, och
    node_modules som länk till sajtens) och en egen skaparsession med samma faktaunderlag; några körs åt gången
@@ -303,6 +307,15 @@ om av sig själv. En ny dom efter en avbruten skrivning hamnar på en egen rad.
 
 Ett tidigare designval, till exempel en färg, är inget förbud. Ett drag ur en underkänd grundidé behöver ett skäl ur
 verksamhetens material, och skälet ska också svara på kritiken mot den.
+
+**Det aktiva urvalet** (ren start för Nortropic 2.0, ägarens uppdrag 2026-10-08, del 2): `underlag/<slug>/atelje/URVAL.json`
+(`kontroller/urval.py`) skrivs när en körning startar och säger vilken historik som är inkopplad. Standard är av: andra
+kunders byggbilder når inte granskaren (`granska.tidigare_byggen`), UPPTAGNA-VAL.md ur tidigare byggen når inte
+agenterna (`atelje.underlag_rader`, startkontrollens styrning), och äldre domar styr bara det de uttryckligen beslutar
+(designregler.md, kundens aktuella domar efter senaste ny_riktning). Ett uttryckligt val (`urval.py <slug>
+--tidigare-byggbilder pa`) kopplar in dem för just den kunden och står kvar vid nästa start. Urvalet bär också det
+aktiva referenspaketet och kalibreringsankarnas hash som kvitto. En ny slug, en ny riktning eller flyttade filer är
+inte ett urval. Historiken raderas inte: den slås upp när den besvarar en konkret fråga.
 
 `underlag/<slug>/RIKTNINGSHISTORIK.json` samlar prövade grundidéer: namn, huvudreferens, drag, utfall (vald eller
 förkastad av panelen, lämnad av skaparen, underkänd av ägaren) och kritiken. Ateljén skriver efter varje panel och vid

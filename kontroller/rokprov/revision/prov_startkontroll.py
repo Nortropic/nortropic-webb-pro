@@ -1784,10 +1784,16 @@ assert not any('UPPTAGNA-VAL' in str(r_.get('detalj')) for r_ in styr_n1), 'en �
 import upptagna_val as uv_n1  # noqa: E402
 (KOPIA / 'underlag' / SLUG / 'UPPTAGNA-VAL.md').write_text('<!-- %s -->\n# Upptagna val\n\nArchivo för målaren.\n' % uv_n1.VERSION)
 kv_n1 = sk.kor_kontroll(SLUG, 'ny')
+assert kv_n1['status'] != 'stoppad' and not any('UPPTAGNA-VAL' in str(r_.get('detalj')) for r_ in kv_n1['rader'] if r_['namn'].startswith('gammal styrning')), \
+    'utan ett uttryckligt urval läses den aktuella UPPTAGNA-VAL.md inte heller (ren start 2026-10-08)'
+import urval as uv_urval_n1  # noqa: E402
+uv_urval_n1.skriv(SLUG, upptagna_val=True)
+kv_n1 = sk.kor_kontroll(SLUG, 'ny')
 styr_n1 = next(r_ for r_ in kv_n1['rader'] if r_['namn'] == 'gammal styrning i agentuppdragen och metoden')
 assert styr_n1.get('nodvandig') and 'UPPTAGNA-VAL.md' in styr_n1['detalj'] and kv_n1['status'] == 'stoppad', styr_n1
 shutil.rmtree(metodkat)
 (KOPIA / 'underlag' / SLUG / 'UPPTAGNA-VAL.md').unlink()
+uv_urval_n1.fil(SLUG).unlink()
 
 # N2: formelns senaste ändring är färsk: ingen kandidat, också när det lokala indexet visar en äldre version än API:t
 spara_n2 = (dict(BREW), dict(BREW_API))

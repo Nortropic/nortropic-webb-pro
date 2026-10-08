@@ -90,7 +90,8 @@ UNDERLAGSFILER = ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'REFERENSER.md',
 def metod_sha(slug=None):
     """Hash av granskningsunderlaget: kriterierna, svarsschemana, trösklarna, måttstockarna (byggstandarden med flera) och
     verksamhetens underlag (brief, research, beställning). En dom återanvänds bara för samma bygge och samma underlag
-    (revisionen 2026-10-03, F18). Ägarens domar och kalibreringsankarna ingår inte: de är ankare, inte kriterier; nivåfilen
+    (revisionen 2026-10-03, F18). Ägarens domar över byggen ingår inte (de är historik), men kalibreringens aktiva ankare
+    med ägarens ord ingår (F02, 2026-10-08: domen är bunden till det bedömningsunderlag granskaren faktiskt fick); nivåfilen
     kunskap/visuell-niva.md ingår (måttstock som granskartexten kräver; Codex R30), liksom ateljéns vinnare (VINNARE.json
     och vinnarens bilder: startsidans måttstock, designprovet 2026-10-04)."""
     import hashlib
@@ -107,6 +108,13 @@ def metod_sha(slug=None):
         h.update(b'atelje/VINNARE.json\0' + (v.read_bytes() if v.is_file() else b'') + b'\0')
         for b in sorted((UNDERLAG / slug / 'atelje' / 'vinnare' / 'bilder').glob('*.png')):  # bilderna själva, inte bara deras hashar
             h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + b.read_bytes() + b'\0')
+    # kalibreringens aktiva ankare (motorinventeringen F02, 2026-10-08): ankarlistan, ägarens ord om dem och deras bilder
+    # ingår i domens identitet, så att en ändrad kalibrering gör äldre domar historiska i stället för återanvända
+    for k in kalibreringsexempel():
+        if k['ankare']:
+            h.update(('ankare:%s:%s:%s' % (k['id'], k['niva'], k['skiljer'])).encode() + b'\0')
+            for b in k['bilder']:
+                h.update(str(b.name).encode() + b'\0' + b.read_bytes() + b'\0')
     h.update(json.dumps({'troskel': TROSKEL, 'kriterier': KRITERIER}, sort_keys=True).encode())
     return h.hexdigest()
 
@@ -320,6 +328,11 @@ def frysta_referenser(slug, rdir):
 
 
 def tidigare_byggen(slug):
+    """Andra kunders första vyer till granskaren, bara när kundens aktiva urval valt dem uttryckligen (kontroller/urval.py;
+    ren start 2026-10-08, del 2): historiken styr inte granskningen av vana."""
+    import urval
+    if not urval.aktivt(slug, 'tidigare_byggbilder'):
+        return []
     syskon = (KUNDER / slug / 'AB-SYSKON').read_text().strip() if (KUNDER / slug / 'AB-SYSKON').is_file() else None
     andra = [p for p in KUNDER.iterdir() if p.is_dir() and SLUG.match(p.name) and p.name not in (slug, syskon, 'ab')
              and not p.name.startswith('rokprov')]

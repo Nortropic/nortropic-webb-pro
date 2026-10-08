@@ -780,7 +780,7 @@ def _oberoende():
                     utan.add(fn.name)
                 else:
                     med.setdefault(fn.name, set()).add(ast.unparse(nek).split('(')[0])
-    assert utan == {'forska', 'planera', 'planprovning', 'jamfor'}, utan
+    assert utan == {'forska', 'planera', 'planprovning', 'omplanera', 'jamfor'}, utan  # omplanera: återgångens planeringssession (2E), som planera
     assert all(v <= {'andra_nekas', 'blind'} for v in med.values()) and {'skissa', 'skapa', 'forbattra', 'forfina_kandidat', 'kompetenspass'} <= set(med), med
     assert all('blind_nekas' in ast.unparse(fn) for fn in fns if 'blind' in med.get(fn.name, set())), 'blind är blind_nekas'
 

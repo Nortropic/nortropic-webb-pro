@@ -379,7 +379,9 @@ format och beskärning, och ordet koncept); `datum`; `kvalitet` efter renderinge
 `atelje.egna_bilder` tar aldrig med en rad som nämner koncept eller canvas-design bland verksamhetens egna bilder,
 också om kolumnen saknas eller säger ja. Typsnitten i `canvas-fonts/` är OFL-1.1 med licensfil per familj; en PNG
 rasteriserar texten, en PDF bäddar in typsnittet, som då står i `TYPSNITT-IKONER.json` när filen levereras. Ett koncept
-som bara var en studie står kvar i samma kandidats koncept/BILDER.md som underlag. Bild, filosofi och skapartext
+som bara var en studie står kvar i samma kandidats koncept/BILDER.md som underlag. Ett koncept som ska in i sidan går
+genom materialsteget (`kontroller/material.py --canvas`, roll koncept; uppdraget 2026-10-08, 2D), som lägger det i
+kandidatens src/assets/material/ med källa och rättigheter. Bild, filosofi och skapartext
 stannar i kandidatens konceptkatalog, som blindkritiken inte får läsa; de läggs aldrig i gemensamma `bilder/`.
 Gemensamma kundbilder och deras faktauppgifter är fortsatt läsbara. Ett koncept som används i sidan bedöms i sidans
 rendering, utan att ge blindkritiken andra studier eller skaparens avsikt. Materialsteget (gren H4 i uppdraget) får
