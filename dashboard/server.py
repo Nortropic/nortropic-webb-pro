@@ -7,11 +7,13 @@ Visar byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag, 
 lärdomarna, kirurgens register och kommandona. Skriver bara när ägaren skickar frågeformuläret efter ett bygge:
 kunder/<slug>/DOM.json (strukturerat, privat), underlag/LARDOMAR-original.md (ordagrant, privat) och en post utan
 personuppgifter i LARDOMAR.md (i git): bara betygen och valen; lärdomen skriver sessionen som gör ändringen (BESLUT.md 2026-10-03).
-Lyssnar bara på 127.0.0.1. POST kräver samma ursprung. Undantaget är visningen av en byggd sajt i telefonen: knappen
+Lyssnar bara på 127.0.0.1. POST kräver samma ursprung och dashboardnyckeln (NYCKEL; dashboard.sh öppnar sidan med den). Undantaget är visningen av en byggd sajt i telefonen: knappen
 I telefonen startar en statisk server för kunder/<slug>/sajt/dist på datorns adress i det lokala nätverket och visar
 den som QR-kod (dashboard/qr.py, ritad lokalt). Den servern visar bara sajten; --utan-lan stänger av den.
 """
 import argparse
+import hmac
+import secrets
 import hashlib
 import html
 import ipaddress
@@ -1444,6 +1446,13 @@ VISNING_LAN = {}
 LAN = {'pa': True, 'tid': 2 * 3600}  # visningen i telefonen stängs efter två timmar; knappen startar den igen
 LAN_LAS = threading.Lock()
 VARD = {'tillatna': set()}  # Host-värden dashboarden svarar på (sätts i main); annat är DNS-rebinding eller fel adress
+# Dashboardnyckeln (backlogposten B-20261005-dashboardens-api-tar-emot-agarens-domar-fran-vil): Origin lika med Host räcker inte
+# mot en lokal process som sätter Origin fritt (ett bygge, en sidas byggkod, ett skript). Varje skrivande anrop kräver nyckeln
+# som bara ägarens webbläsare får: dashboard.sh öppnar adressen med #nyckel=… och sidan skickar den som X-Nyckel. Sätts i
+# main ur NWP_DASHBOARD_NYCKEL (som tas bort ur miljön så att inga barnprocesser ärver den) eller skapas där och skrivs till
+# NYCKELFIL (0600, i hemlighetsmappen som byggena nekas läsa). None (proven utan main): inget nyckelkrav.
+NYCKEL = {'varde': None}
+NYCKELFIL = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'dashboard-nyckel'
 
 
 def natverksadress():
@@ -2966,6 +2975,8 @@ class H(BaseHTTPRequestHandler):
         vard = (self.headers.get('Host') or '').strip().lower()
         if ursprung.scheme != 'http' or ursprung.netloc.lower() != vard:
             return self.skicka(403, {'fel': 'fel ursprung'})
+        if NYCKEL['varde'] and not hmac.compare_digest(str(self.headers.get('X-Nyckel') or ''), NYCKEL['varde']):
+            return self.skicka(403, {'fel': 'saknad eller fel dashboardnyckel: skrivande anrop går bara från dashboarden öppnad via ./dashboard.sh'})
         try:
             n = int(self.headers.get('Content-Length') or 0)
             data = json.loads(self.rfile.read(min(n, 56 * 1024 * 1024)) or b'{}')
@@ -3092,8 +3103,17 @@ def main():
     a = p.parse_args()
     LAN['pa'] = not a.utan_lan
     VARD['tillatna'] = {'127.0.0.1:%d' % a.port, 'localhost:%d' % a.port}
+    NYCKEL['varde'] = os.environ.pop('NWP_DASHBOARD_NYCKEL', None) or secrets.token_urlsafe(24)
+    try:  # dashboard.sh läser filen när dashboarden redan kör; aldrig i loggen eller i barnens miljö
+        NYCKELFIL.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(NYCKELFIL, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(NYCKEL['varde'] + '\n')
+        os.chmod(NYCKELFIL, 0o600)
+    except OSError as e:
+        print('dashboardnyckeln kunde inte skrivas till %s: %s' % (NYCKELFIL, e), flush=True)
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
-    print('Dashboard: http://127.0.0.1:%d' % a.port, flush=True)
+    print('Dashboard: http://127.0.0.1:%d (öppna via ./dashboard.sh: skrivande anrop kräver nyckeln i %s)' % (a.port, NYCKELFIL), flush=True)
     def spaningsklocka():
         while True:
             try:

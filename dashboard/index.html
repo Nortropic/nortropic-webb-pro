@@ -248,7 +248,11 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const api = async (p) => { const r = await fetch(p, { cache: 'no-store' }); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).fel || r.status); return r.json(); };
-const post = async (p, body) => { const r = await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.fel || r.status); return j; };
+// Dashboardnyckeln: dashboard.sh öppnar sidan med #nyckel=…; den sparas i webbläsaren och följer varje skrivande anrop (X-Nyckel).
+// Utan den nekar servern (403): en lokal process som bara sätter Origin kan inte skriva ägarens domar (backloggen 2026-10-05).
+(() => { const m = location.hash.match(/^#nyckel=([A-Za-z0-9_-]{8,})$/); if (m) { try { localStorage.setItem('nwp-dashboardnyckel', m[1]); } catch {} history.replaceState(null, '', location.pathname + location.search); } })();
+const nyckel = () => { try { return localStorage.getItem('nwp-dashboardnyckel') || ''; } catch { return ''; } };
+const post = async (p, body) => { const r = await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Nyckel': nyckel() }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.fel || r.status); return j; };
 const tid = (t) => t ? new Date(t).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
 const GRINDNAMN = { bygge: 'Bygge', seo: 'SEO', standard: 'Byggstandard', axe: 'Tillgänglighet (axe)', lighthouse: 'Lighthouse', spill: 'Spill', 'utan-js': 'Utan JS' };
 const kopiera = (text, knapp) => { navigator.clipboard?.writeText(text); const t = knapp.textContent; knapp.textContent = 'Kopierat'; setTimeout(() => (knapp.textContent = t), 1400); };

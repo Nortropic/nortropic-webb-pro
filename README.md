@@ -6,7 +6,8 @@ domare. Varför repot finns och vad som beslutades: `BESLUT.md`.
 ## Dashboarden
 
 ```sh
-./dashboard.sh        # http://127.0.0.1:4771
+./dashboard.sh        # http://127.0.0.1:4771 (öppnar sidan med dashboardnyckeln: ägarens domar och flödets handlingar
+                      # skrivs bara av ett anrop med nyckeln, som ingen annan lokal process har; dashboard/server.py NYCKEL)
 ```
 
 Allt på ett ställe: vyn Prototyp, där du väljer bland förslagen och godkänner en startsida (besluten skrivs i

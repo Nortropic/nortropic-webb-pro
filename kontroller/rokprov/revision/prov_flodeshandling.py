@@ -162,6 +162,36 @@ class Flodeshandling(unittest.TestCase):
         block = html[html.index("const key = 'nwp-start:'"):html.index('async function flodesvy(slug)')]
         self.assertGreater(block.index('sessionStorage.removeItem(key)'), block.index('await flodesvy(slug)'), 'start-id släpps först efter omläsningen (B7)')
 
+    def test_skrivande_anrop_kraver_dashboardnyckeln(self):
+        # B-20261005-dashboardens-api-tar-emot-agarens-domar-fran-vil: Origin lika med Host räcker inte; nyckeln krävs
+        srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
+        self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        host = '127.0.0.1:%d' % srv.server_port
+        self.stack.enter_context(patch.dict(dash.VARD, {'tillatna': {host}}))
+        self.stack.enter_context(patch.dict(dash.NYCKEL, {'varde': 'provnyckel-0123456789'}))
+        def anrop(data, nyckel=None):
+            c = http.client.HTTPConnection('127.0.0.1', srv.server_port, timeout=4)
+            try:
+                h = {'Origin': 'http://' + host}
+                if nyckel is not None: h['X-Nyckel'] = nyckel
+                c.request('POST', '/api/flode/' + self.slug + '/start', json.dumps(data), h)
+                r = c.getresponse(); return r.status, json.loads(r.read().decode())
+            finally:
+                c.close()
+        with patch.object(prototyp, 'fran_dashboard', return_value=0) as fd:
+            status, svar = anrop({'handling': 'exportera', 'start_id': 'prov-nyckel-1'})
+            self.assertEqual(status, 403, svar); self.assertIn('dashboardnyckel', svar['fel']); fd.assert_not_called()
+            status, svar = anrop({'handling': 'exportera', 'start_id': 'prov-nyckel-1'}, 'fel-nyckel-0123456789')
+            self.assertEqual(status, 403, svar); fd.assert_not_called()
+            status, svar = anrop({'handling': 'exportera', 'start_id': 'prov-nyckel-1'}, 'provnyckel-0123456789')
+            self.assertEqual(status, 200, svar); fd.assert_called_once()
+        rot = Path(__file__).resolve().parents[3]
+        html = (rot / 'dashboard' / 'index.html').read_text(encoding='utf-8')
+        self.assertIn("'X-Nyckel': nyckel()", html); self.assertIn('#nyckel=', html)
+        self.assertIn('#nyckel=$NYCKEL', (rot / 'dashboard.sh').read_text(encoding='utf-8'))
+        self.assertEqual(len([l for l in html.splitlines() if "method: 'POST'" in l]), 1, 'ett enda POST-anrop i sidan, med nyckeln')
+
     def test_http_start_delar_cli_och_upprepat_id_startar_inte_igen(self):
         srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
         self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)

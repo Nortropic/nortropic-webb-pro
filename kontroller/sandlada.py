@@ -98,8 +98,9 @@ def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=N
                 'denyRead': [p.replace('~', hem, 1) if p.startswith('~') else p for p in HEMLIGT] + [kundstart]},
             'network': {'allowedDomains': domanlista(root, domaner), 'allowLocalBinding': True},
             'credentials': {'envVars': [{'name': 'REFERO_MCP_TOKEN', 'mode': 'deny'}]}}
-        # Sandlådan gäller Bash; sessionens egna filverktyg (Read) nekas hemlighetsmappen med en vanlig regel (Codex R24)
-        ut['permissions']['deny'].append('Read(//%s/.nortropic-hemligheter/**)' % hem.strip('/'))
+    # Sessionens egna filverktyg (Read) nekas hemlighetsmappen med en vanlig regel, med eller utan sandlåda (Codex R24; där
+    # ligger också dashboardnyckeln, dashboard/server.py NYCKELFIL)
+    ut['permissions']['deny'].append('Read(//%s/.nortropic-hemligheter/**)' % hem.strip('/'))
     return ut
 
 
