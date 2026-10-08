@@ -1,12 +1,14 @@
 ---
 id: B-20261007-dokumentationsprovet-registret-over-saknade-gran
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261007-r99-om.md
 fynd: GR-20261007-r99-om#KAN-3
 skapad: 2026-10-07
 prio: normal
 steg: main: kontroller/rokprov/revision/prov_dokumentationsvy.py
+commit: 7dfb8e3
+andrad: 2026-10-08T22:15Z
 ---
 # Dokumentationsprovet: registret över saknade granskningar läses, inte hårdkodas
 
@@ -15,3 +17,5 @@ steg: main: kontroller/rokprov/revision/prov_dokumentationsvy.py
 **Förslag:** Läs listan ur samma källa som vyn (BESLUT.md, Återstår, och förteckningen), så att provet prövar regeln och inte en avskrift.
 
 **Klart när:** En ny hänvisning till en registrerad runda håller provet grönt, och en till en oregistrerad gör det rött med rundans namn.
+
+**Klar (2026-10-08):** Nattens uppdrag 2026-10-08/09: provet läser registret ur underlag/ och BESLUT.md, och regeln prövas med en fixtur; i en kopia med eget register håller en ny hänvisning till en registrerad runda provet grönt och en till en oregistrerad gör det rött med rundans namn (RAPPORT-2026-10-08-natt-codex-rester-backlog). Inte verifierad.

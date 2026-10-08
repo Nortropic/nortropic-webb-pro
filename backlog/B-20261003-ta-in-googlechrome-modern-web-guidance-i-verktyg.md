@@ -1,12 +1,13 @@
 ---
 id: B-20261003-ta-in-googlechrome-modern-web-guidance-i-verktyg
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Chrome for Developers, Modern Web Guidance: Swipe to remove + GoogleChrome/modern-web-guidance
 skapad: 2026-10-03
 prio: normal
 steg: verktygslådan (bygg-sajt steg 5.3 och 5.5); byggstandarden avsnitt 3
-andrad: 2026-10-05T06:55Z
+commit: 8fdcd43
+andrad: 2026-10-08T22:15Z
 ---
 # Ta in GoogleChrome/modern-web-guidance i verktygslådan som ett urval guider utan npx och telemetri, och skriv en rad om webbläsarstöd (Baseline) i byggstandarden
 
@@ -17,3 +18,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** Mappen finns med KALLA.md, LICENSE, nytt SKILL.md med svensk beskrivning och index, och de uppräknade guiderna; ingen fil nämner npx som något att köra, inga pluginmanifest följer med; kontroller/granska_repo.py på mappen ger LÅG; byggstandarden har raden 3.8; CLAUDE.md:s beskrivning av verktygslådan behöver inte ändras; kontroller/rokprov.sh slutar grönt.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: inget påbörjat. Intaget följer de nya intagskraven (hela guidemappen, KALLA.md); Baseline-raden i byggstandarden kan tas separat.
+
+**Klar (2026-10-08):** Nattens uppdrag 2026-10-08/09: intagen @ a972868 (v0.0.193, den senaste; förslaget pekade på 84ae725), hela guidemappen utom en guide, npx-hänvisningarna ersatta med sökvägar, svensk SKILL.md, GUIDER.md, KALLA.md; granska_repo LÅG; byggstandarden 3.8. Ett avgränsat försök i ett bygge återstår (intagskrav 4) (RAPPORT-2026-10-08-natt-codex-rester-backlog). Inte verifierad.
