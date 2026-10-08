@@ -399,7 +399,8 @@ KONCEPT.md.
    så att bilden kan läggas in i `src/assets/bestallt/` utan omdesign, och så att sektionen står rätt utan den; aldrig
    en synlig platshållare (byggstandarden 9.4). Saknas telefontid eller svarstid: skriv inget påhittat.
    **Skriftlig förfrågan:** mallens `src/components/Forfragan.astro` på kontaktsidan, med etiketten för meddelandet i
-   verksamhetens ord; tacksidan `src/pages/tack.astro` med sidhuvud, sidfot och vad som händer härnäst; integritetssidan
+   verksamhetens ord; tacksidan `src/pages/tack.astro` med sidhuvud, sidfot och vad som händer härnäst; mottagen-sidan `src/pages/mottagen.astro`
+   (sparad men ej aviserad förfrågan, funktionens 303-mål) och felsidan `src/pages/fel.astro` med samma sidhuvud och sidfot; integritetssidan
    `/integritet/` enligt `kunskap/forfragan.md`. Fältnamnen och fällorna ändras inte. Provets lokala server tar emot
    inskicket och visar tacksidan utan att spara eller skicka något.
    **Ikoner och delningsbild:** skriv `public/favicon.svg` ur verksamhetens märke, enkelt nog att läsas i 16 px. Kör
