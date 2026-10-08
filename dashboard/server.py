@@ -26,7 +26,7 @@ import re
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlsplit
@@ -1268,11 +1268,43 @@ def spaning_pagar():
         return None
 
 
+def spaning_traffsakerhet():
+    """Per källa: hur många intag som hittades av spanaren (registerposternas not 'Hittad av spanaren … via <källa>') och vad
+    domen blev (rubrikens sista led: ta in, prova, parkera, nej …). Vikterna ändras efter beslut, inte automatiskt."""
+    import re as re_
+    ut = {}
+    try:
+        text = (ROOT / 'kunskap' / 'REGISTER.md').read_text(encoding='utf-8')
+    except OSError:
+        return []
+    for post in re_.split(r'(?m)^(?=### )', text):
+        m = re_.search(r'Hittad av spanaren[^\n]*?via ([^.\n]+)', post)
+        if not m:
+            continue
+        rubrik = post.splitlines()[0]
+        dom = rubrik.rsplit(' · ', 1)[-1].strip().lower() if ' · ' in rubrik else 'okänd'
+        kalla = m.group(1).strip()
+        k = ut.setdefault(kalla, {'kalla': kalla, 'antal': 0, 'domar': {}})
+        k['antal'] += 1
+        k['domar'][dom] = k['domar'].get(dom, 0) + 1
+    return sorted(ut.values(), key=lambda x: -x['antal'])
+
+
 def spaning_lista():
     lista = las_json(SPANING / 'KANDIDATER.json') or []
     nya = [k for k in lista if k.get('status') == 'ny']
+    # tre delar (backloggen 2026-10-03): nytt sedan i går, de två bästa per område, det som svarar mot ägarens domar
+    igar = (datetime.now(timezone.utc) - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    per_omrade = {}
+    for k in nya:
+        per_omrade.setdefault(k.get('omrade') or 'okänt', []).append(k)
     return {'kandidater': nya[:20], 'antal': len(nya), 'senast': las_json(SPANING / 'SENAST.json'), 'pagar': bool(spaning_pagar()),
-            'av': bool(os.environ.get('NWP_SPANING_AV')), 'intervall_dagar': SPANING_INTERVALL}
+            'av': bool(os.environ.get('NWP_SPANING_AV')), 'intervall_dagar': SPANING_INTERVALL,
+            'nytt_sedan_igar': [k for k in nya if (k.get('hittad') or '') >= igar][:10],
+            'basta_per_omrade': {o: v[:2] for o, v in sorted(per_omrade.items())},
+            'svarar_mot_domar': [k for k in nya if k.get('svarar_mot')][:10],
+            'utgangna': sum(1 for k in lista if k.get('status') == 'utgangen'),
+            'traffsakerhet': spaning_traffsakerhet()}
 
 
 def starta_spaning(skal='ägaren'):

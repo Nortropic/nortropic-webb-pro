@@ -62,6 +62,53 @@ TERMER = {3: ['core web vitals', 'lcp', 'inp', 'cls', 'lighthouse', 'wcag', 'axe
           1: ['web', 'website', 'frontend', 'design', 'javascript', 'react', 'template', 'theme', 'checklist', 'audit', 'guide', 'best practices',
               'workflow', 'release', 'update', 'nytt', 'ny']}
 TERM_RE = {vikt: [(t, re.compile(r'(?<![a-zåäö0-9])' + re.escape(t) + r'(?![a-zåäö0-9])', re.I)) for t in lista] for vikt, lista in TERMER.items()}
+ORD = lambda t: re.compile(r'(?<![a-zåäö0-9])' + re.escape(t) + r'(?![a-zåäö0-9])', re.I)  # noqa: E731
+# Områdena ur källtabellens kolumn 6 (kunskap/spaning-kallor.md) och termerna som märker en kandidat i ett område när källan
+# inte gör det (backloggen 2026-10-03: brus överst för att claude code, skill och mcp gav poäng i alla sammanhang)
+OMRADE_TERMER = {
+    'ai-webbdesign': ['ai web design', 'ai website', 'vibe coding', 'website builder', 'generative ui', 'ai-genererad', 'ai-generated'],
+    'stacken': ['astro', 'vite', 'playwright', 'lighthouse', 'vercel', 'tailwind', 'static site'],
+    'modeller och guider': ['anthropic', 'prompting', 'prompt engineering', 'opus', 'sonnet', 'haiku', 'model release', 'modellsläpp'],
+    'ux och forskning': ['ux', 'usability', 'nielsen', 'user research', 'användbarhet', 'heuristic', 'heuristisk'],
+    'provet': ['core web vitals', 'lcp', 'inp', 'cls', 'axe', 'audit', 'lighthouse'],
+    'agentflödet': ['hooks', 'subagent', 'subagents', 'headless', 'agentic', 'slash command', 'cli agent'],  # de allmänna orden (ALLMANNA) ger inget område
+    'lokal synlighet': ['local seo', 'lokal seo', 'google business profile', 'företagsprofil', 'nap', 'citations', 'local business'],
+    'tillgänglighet': ['accessibility', 'a11y', 'wcag', 'screen reader', 'tillgänglighet', 'kontrast', 'contrast'],
+    'form och typografi': ['typography', 'typografi', 'fonts', 'typsnitt', 'layout', 'color', 'färg', 'grid'],
+    'juridik och förtroende': ['gdpr', 'privacy', 'cookie', 'integritet', 'trust', 'förtroende'],
+    'granskning': ['review', 'critique', 'evaluation', 'evals', 'granskning', 'kritik'],
+    'innehåll och copy': ['copywriting', 'copy', 'content', 'innehåll', 'microcopy', 'tone of voice'],
+}
+OMRADE_RE = {o: [ORD(t) for t in lista] for o, lista in OMRADE_TERMER.items()}
+# ord som nästan aldrig hör till våra sajter: straff ×0,3 (schackskillen, spelstudion, kylskåpsmagneten, Whiteboard-IDE:n 2026-10-02)
+NEGATIVA = ['spel', 'game', 'games', 'gaming', 'krypto', 'crypto', 'bitcoin', 'nft', 'jobb', 'hiring', 'schack', 'chess', 'ios', 'kubernetes', 'k8s',
+            'magnet', 'whiteboard', 'ide', 'trading', 'casino', 'fridge']
+NEGATIVA_RE = [(t, ORD(t)) for t in NEGATIVA]
+ALLMANNA = {'claude code', 'skill', 'mcp', 'agent', 'hooks', 'plugin', 'prompt'}  # räknas bara med en områdesträff eller från en källa med vikt 1,5
+# Domstyrda ord: ägarens svar i LARDOMAR.md (Om du fick ändra en sak …), standardpunkter som faller (kunder/*/prov/standard.json)
+# och granskarnas blockerande fynd (kunder/*/granskning/GRANSKNING.json) mappas till sökord; en träff ger påslag och märket
+# svarar mot <dom> (backloggen 2026-10-03). Nycklarna är ord i ägarens svar; punkterna är byggstandardens.
+DOMORD = {'formulär': ('skriftlig förfrågningsväg', ['contact form', 'form validation', 'formulär', 'förfrågan']),
+          'bild': ('bildunderlaget', ['photography', 'imagery', 'photos', 'bilder', 'foton']),
+          'belägg': ('belägg', ['fact-check', 'fact-checking', 'claims', 'evidence', 'belägg']),
+          'mobilmeny': ('mobilmenyn', ['navigation', 'mobile menu', 'hamburger']),
+          'telefon': ('telefonen som väg', ['click to call', 'tel link', 'telefon'])}
+PUNKT_ORD = {'3.2': ('byggstandarden 3.2 typografi', ['fluid typography', 'clamp', 'typografi']), '3.3': ('byggstandarden 3.3 träffytor', ['touch target', 'tap target', 'träffyta']),
+             '3.5': ('byggstandarden 3.5 rörelse', ['reduced motion', 'prefers-reduced-motion']), '4.3': ('byggstandarden 4.3 typsnitt', ['font loading', 'font fallback', 'size-adjust']),
+             '6.2': ('byggstandarden 6.2 formulärfel', ['form validation', 'error message', 'felbesked']), '7.4': ('byggstandarden 7.4 NAP', ['nap', 'google business profile', 'local listing']),
+             '7.6': ('byggstandarden 7.6 AI-sök', ['ai overviews', 'ai search', 'llms.txt']), '9.3': ('byggstandarden 9.3 egna bilder', ['photography', 'stock photos', 'imagery'])}
+KRITERIUM_ORD = {'originalitet': ('granskarnas originalitet', ['originality', 'template look', 'distinctive design', 'originalitet']),
+                 'hantverk': ('granskarnas hantverk', ['craft', 'polish', 'attention to detail', 'hantverk']),
+                 'text': ('granskarnas text', ['copywriting', 'microcopy', 'tone of voice']),
+                 'funktion': ('granskarnas funktion', ['usability', 'forms', 'navigation']),
+                 'designkvalitet': ('granskarnas designkvalitet', ['visual hierarchy', 'design quality', 'layout'])}
+DOMSTYRDA_ROT = None  # roten som domstyrda_ord läser (proven sätter en egen); None = repots
+DOMSTYRDA = []        # [(etikett, [regex])] för den pågående spaningen
+BETALT = re.compile(r'paid partnership|includes paid promotion|sponsored by|#ad(?![a-z0-9])', re.I)
+GITHUB_RELEASE = re.compile(r'^https://github\.com/([^/]+/[^/]+)/releases\.atom$', re.I)
+REPO_PAKET = {'googlechrome/lighthouse': 'lighthouse', 'dequelabs/axe-core': 'axe-core', 'microsoft/playwright': 'playwright', 'withastro/astro': 'astro'}
+PINNADE_CACHE = None  # {paket: version} ur kontroller/package.json och mall/astro/package.json; proven sätter en egen
+GITHUB_VAR_N_DAG = 3  # GitHub-sökningarna körs var tredje dygn (backloggen 2026-10-03)
 KALLVIKT = {'rss': 1.0, 'sida': 1.0, 'github': 1.0, 'hn': 1.0, 'awesome': 1.0}
 LISTICLE = re.compile(r'^\s*\d+\s+(best|top|tools|tips|ways|things)', re.I)
 DOLDA = re.compile(r'[​‌‍⁠﻿­‪-‮⁦-⁩]|[\x00-\x08\x0b\x0c\x0e-\x1f]')
@@ -106,8 +153,74 @@ def last():
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
+def domstyrda_ord(rot=None):
+    """[(etikett, [regex])] ur ägarens svar i LARDOMAR.md, de standardpunkter som faller i kunder/*/prov/standard.json och
+    granskarnas blockerande fynd i kunder/*/granskning/GRANSKNING.json. Läser bara; fel ger en tom lista."""
+    rot = Path(rot or DOMSTYRDA_ROT or ROOT)
+    ut = {}
+    try:
+        for rad in (rot / 'LARDOMAR.md').read_text(encoding='utf-8').splitlines() if (rot / 'LARDOMAR.md').is_file() else []:
+            if 'Om du fick ändra en sak' in rad:
+                svar = rad.split('?**', 1)[-1].lower()
+                for nyckel, (etikett, ord) in DOMORD.items():
+                    if nyckel in svar:
+                        ut.setdefault(etikett, ord)
+        for f in sorted((rot / 'kunder').glob('*/prov/standard.json')) if (rot / 'kunder').is_dir() else []:
+            d = las_json(f) or {}
+            for x in d.get('fel') or []:
+                p = str((x or {}).get('punkt') or '')
+                if p in PUNKT_ORD:
+                    ut.setdefault(*PUNKT_ORD[p])
+        for f in sorted((rot / 'kunder').glob('*/granskning/GRANSKNING.json')) if (rot / 'kunder').is_dir() else []:
+            d = las_json(f) or {}
+            for x in d.get('blockerande') or []:
+                kr = str((x or {}).get('kriterium') or '')
+                if kr in KRITERIUM_ORD:
+                    ut.setdefault(*KRITERIUM_ORD[kr])
+    except (OSError, ValueError):
+        return []
+    return [(etikett, [ORD(o) for o in ord]) for etikett, ord in ut.items()]
+
+
+def pinnade():
+    """{paket: pinnad version} ur kontroller/package.json och mall/astro/package.json (utan ^ och ~)."""
+    global PINNADE_CACHE
+    if PINNADE_CACHE is None:
+        ut = {}
+        for f in (ROOT / 'kontroller' / 'package.json', ROOT / 'mall' / 'astro' / 'package.json'):
+            d = las_json(f) or {}
+            for k, v in {**(d.get('dependencies') or {}), **(d.get('devDependencies') or {})}.items():
+                if isinstance(v, str):
+                    ut.setdefault(k, v.lstrip('^~'))
+        PINNADE_CACHE = ut
+    return PINNADE_CACHE
+
+
+def version_tal(v):
+    return tuple(int(x) if x.isdigit() else 0 for x in re.split(r'[.\-+]', str(v).lstrip('v'))[:4])
+
+
+def release_mot_pinnad(k, repo, lank):
+    """En GitHub-release ur ett releases.atom-flöde jämförs med den pinnade versionen (backloggen 2026-10-03): lika eller äldre
+    = redan i bruk (utanför kön); nyare får varningen 'pinnad X, release Y' så att kirurgen bedömer en uppdatering."""
+    m = re.search(r'/releases/tag/([^/?#]+)', lank or '')
+    paket = REPO_PAKET.get(repo.lower())
+    pinnad = pinnade().get(paket) if paket else None
+    if not m or not pinnad:
+        return
+    tagg = m.group(1).lstrip('v')
+    k['release'] = {'paket': paket, 'tagg': tagg, 'pinnad': pinnad}
+    k['nyckel_override'] = k['url']  # varje release är sin egen kandidat; nyckeln och id:t för github-adresser är annars repot
+    k['id'] = hashlib.sha1(('release:' + k['url']).encode()).hexdigest()[:12]
+    if version_tal(tagg) <= version_tal(pinnad):
+        k['status'] = 'redan i bruk'
+        k['varfor'] = ['%s %s är pinnad (%s): redan i bruk' % (paket, tagg, 'samma version' if tagg == pinnad else 'äldre än ' + pinnad)]
+    else:
+        k['varning'] = sorted(set(k.get('varning', []) + ['pinnad %s, release %s' % (pinnad, tagg)]))
+
+
 def las_kallor(fil=None):
-    """Raderna i tabellen: typ, namn, url (eller fråga), varfor, vikt. vikt 0 hoppas över."""
+    """Raderna i tabellen: typ, namn, url (eller fråga), varfor, vikt, område. vikt 0 hoppas över."""
     ut = []
     try:
         text = Path(fil or KALLOR).read_text(encoding='utf-8')
@@ -120,12 +233,13 @@ def las_kallor(fil=None):
         if len(celler) < 5:
             continue
         typ, namn, url, varfor, vikt = celler[:5]
+        omrade = celler[5] if len(celler) > 5 else ''
         try:
             vikt = float(vikt.replace(',', '.'))
         except ValueError:
             vikt = 1.0
         if typ in ('rss', 'sida', 'github', 'hn', 'awesome') and vikt > 0 and url:
-            ut.append({'typ': typ, 'namn': namn, 'url': url, 'varfor': varfor, 'vikt': vikt, 'id': hashlib.sha1((typ + url).encode()).hexdigest()[:8]})
+            ut.append({'typ': typ, 'namn': namn, 'url': url, 'varfor': varfor, 'vikt': vikt, 'omrade': omrade, 'id': hashlib.sha1((typ + url).encode()).hexdigest()[:8]})
     return ut
 
 
@@ -180,7 +294,10 @@ def rensa(text, langd=600, html_kalla=True):
     t = unicodedata.normalize('NFC', re.sub(r'\s+', ' ', t)).strip()
     if TILL_AGENT.search(t):
         varning.append('text till agenter')
-    return t[:langd], varning
+    if len(t) > langd:  # kapa vid ett ord med …, inte mitt i ett (backloggen 2026-10-03)
+        kap = t[:langd] if t[langd] == ' ' else t[:langd].rsplit(' ', 1)[0]
+        t = (kap.rstrip() or t[:langd]) + '…'
+    return t, varning
 
 
 def datum_av(s):
@@ -202,7 +319,7 @@ def kandidat(url, titel, sammanfattning, kalla, publicerad=None, popularitet=Non
     s, v2 = rensa(sammanfattning, 600)
     k = {'id': kn.nyckel(url), 'url': url.strip(), 'nyckel': kn.normalisera(url), 'titel': t, 'sammanfattning': s, 'kalla': kalla['namn'],
          'kalla_typ': kalla['typ'], 'kalla_id': kalla.get('id'), 'kalla_vikt': kalla['vikt'], 'kallor': [kalla['namn']], 'publicerad': publicerad, 'hittad': nu(),
-         'popularitet': popularitet, 'varning': sorted(set(v1 + v2)), 'status': 'ny', 'intag_id': None, 'avfardad': None}
+         'popularitet': popularitet, 'varning': sorted(set(v1 + v2)), 'status': 'ny', 'intag_id': None, 'avfardad': None, 'omrade': kalla.get('omrade') or ''}
     if extra:
         k.update(extra)
     return k
@@ -246,7 +363,13 @@ def rss(kalla, h):
             if st is not None and st.get('views', '').isdigit():
                 pop = int(st.get('views'))
             pub = datum_av(e.findtext('atom:published', None, NS) or e.findtext('atom:updated', None, NS))
-            ut.append(kandidat(lank, titel, samm, kalla, pub, pop))
+            k_ = kandidat(lank, titel, samm, kalla, pub, pop)
+            if BETALT.search(samm or ''):  # YouTube: den fulla beskrivningen, före kapningen (backloggen 2026-10-03)
+                k_['varning'] = sorted(set(k_['varning'] + ['betalt partnerskap']))
+            m_ = GITHUB_RELEASE.match(kalla['url'])
+            if m_:
+                release_mot_pinnad(k_, m_.group(1), lank)
+            ut.append(k_)
     else:  # RSS 2.0
         for e in rot.iter('item'):
             lank = (e.findtext('link') or '').strip() or (e.find('guid').text.strip() if e.find('guid') is not None and e.find('guid').text and e.find('guid').text.startswith('http') else '')
@@ -373,20 +496,37 @@ def sida(kalla, h, snapshots):
 # --- rankning ---
 
 def poang(k):
-    hay = (k.get('titel') or '') + ' ' + (k.get('sammanfattning') or '')
-    traffar, relevans = [], 0.0
+    titel_, samm_ = (k.get('titel') or ''), (k.get('sammanfattning') or '')
+    hay = titel_ + ' ' + samm_
+    traffar, relevans, i_titel = [], 0.0, []
     for vikt, lista in TERM_RE.items():
         for term, rx in lista:
             if rx.search(hay):
                 traffar.append(term)
                 relevans += vikt
+                if rx.search(titel_):  # titelträffar väger dubbelt (backloggen 2026-10-03)
+                    relevans += vikt
+                    i_titel.append(term)
+    varfor = []
+    # området: källans kolumn, annars det område vars termer träffar; allmänna ord räknas bara med en områdesträff eller
+    # från en källa med vikt 1,5 (brus 2026-10-02: schackskillen, spelstudion, kylskåpsmagneten, Whiteboard-IDE:n)
+    omraden = [o for o, rxs in OMRADE_RE.items() if any(rx.search(hay) for rx in rxs)]
+    k['omraden'] = omraden
+    k['omrade'] = k.get('omrade') or (omraden[0] if omraden else 'okänt')
+    if traffar and set(traffar) <= ALLMANNA and not omraden and k.get('kalla_vikt', 1.0) < 1.5:
+        varfor.append('bara allmänna ord (%s) utan områdesträff: ingen relevans' % ', '.join(sorted(set(traffar))))
+        relevans = 0.0
+    svarar = sorted({etikett for etikett, rxs in DOMSTYRDA if any(rx.search(hay) for rx in rxs)})
+    k['svarar_mot'] = svarar
+    if svarar:
+        relevans += 1.5 * len(svarar)
+        varfor.append('svarar mot dom: ' + ', '.join(svarar))
     relevans = min(10.0, relevans)
     if k.get('kalla_vikt', 1.0) >= 1.5:
         relevans = max(relevans, 2.0)
     vikt = float(k.get('kalla_vikt') or 1.0)
-    varfor = []
     if traffar:
-        varfor.append('träffar: ' + ', '.join(sorted(set(traffar))[:8]))
+        varfor.append('träffar: ' + ', '.join(sorted(set(traffar))[:8]) + ((' (i titeln ×2: ' + ', '.join(sorted(set(i_titel))[:4]) + ')') if i_titel else ''))
     if k.get('kalla_vikt', 1.0) >= 1.5:
         varfor.append('leverantörsdokumentation ×%.1f' % vikt)
     elif vikt != 1.0:
@@ -409,6 +549,10 @@ def poang(k):
     varfor.append('%d dagar ×%.2f' % (dagar, farsk))
     straff = 1.0
     titel = (k.get('titel') or '').lower()
+    neg = [t for t, rx in NEGATIVA_RE if rx.search(hay)]
+    if neg:
+        straff *= 0.3
+        varfor.append('negativt ord ×0,3: ' + ', '.join(neg[:3]))
     if 'awesome' in titel or 'curated list' in (k.get('sammanfattning') or '').lower() or 'awesome-' in (k.get('url') or '').lower():
         straff *= 0.5
         varfor.append('samlingslista ×0,5')
@@ -484,17 +628,31 @@ def spana(kallor, h, torr=False, bara=None, max_per_kalla=MAX_PER_KALLA, gh_json
     start = time.time()
     snapshots, rapport, alla, fel = {}, [], [], []
     kanda = kn.kanda_kallor() if kanda is None else kanda
+    global DOMSTYRDA
+    DOMSTYRDA = domstyrda_ord()
     nyckel = lambda x: x.get('nyckel_override') or x['nyckel']  # noqa: E731
+    github_stamp = SPANING / 'github-senast'
+    github_nyligen = False
+    try:
+        github_nyligen = (datetime.now(timezone.utc) - datetime.strptime(github_stamp.read_text().strip(), '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)).days < GITHUB_VAR_N_DAG
+    except (OSError, ValueError):
+        pass
     redan = set()  # nycklar som sållats bort som kända, räknade en gång var
     for kalla in kallor:
         if bara and kalla['typ'] != bara:
             continue
         post = {'id': kalla['id'], 'namn': kalla['namn'], 'typ': kalla['typ'], 'hamtade': 0, 'nya': 0, 'fel': None, 'not': None}
+        if kalla['typ'] == 'github' and gh_json is None and github_nyligen and not torr:
+            post['not'] = 'hoppad: GitHub-sökningarna körs var %d:e dygn' % GITHUB_VAR_N_DAG
+            rapport.append(post)
+            continue
         try:
             if kalla['typ'] == 'rss':
                 k = rss(kalla, h)
             elif kalla['typ'] == 'github':
                 k = github(kalla, h, (gh_json or {}).get(kalla['id']) if gh_json else None)
+                if gh_json is None and not torr:
+                    SPANING.mkdir(parents=True, exist_ok=True); github_stamp.write_text(nu())
             elif kalla['typ'] == 'hn':
                 k = hn(kalla, h)
             elif kalla['typ'] == 'awesome':
@@ -539,8 +697,13 @@ def _skriv_resultat(alla, rapport, fel, snapshots, redan, start, torr, h):
     alla = [k for k in alla if k['id'] not in beslutade and (k.get('nyckel_override') or k.get('nyckel')) not in sedda_nu]
     behall = []
     grans = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    grans14 = (datetime.now(timezone.utc) - timedelta(days=14)).strftime('%Y-%m-%dT%H:%M:%SZ')
     nya_nycklar = {k['id'] for k in alla}
     for g in gamla:
+        if g.get('status') == 'ny' and g['id'] not in nya_nycklar and (g.get('hittad') or '') < grans14:  # 14 dagar utan beslut (backloggen 2026-10-03)
+            g['status'] = 'utgangen'
+            behall.append(g)
+            continue
         if g.get('status') != 'ny' or g['id'] in nya_nycklar or (g.get('hittad') or '') < grans:
             if g.get('status') != 'ny':
                 behall.append(g)
