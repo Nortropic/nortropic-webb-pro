@@ -1,12 +1,13 @@
 ---
 id: B-20261003-mallens-formular-visar-det-svenska-felbeskedet-s
-status: vilande
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Chrome for Developers, Modern Web Guidance: Swipe to remove + GoogleChrome/modern-web-guidance
 skapad: 2026-10-03
 prio: normal
 steg: 5 (mallens formulär)
-andrad: 2026-10-05T06:55Z
+commit: 405a0be
+andrad: 2026-10-08T15:24Z
 ---
 # Mallens formulär visar det svenska felbeskedet som text vid fältet utan JavaScript, med :user-invalid i CSS
 
