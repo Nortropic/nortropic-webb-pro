@@ -1,4 +1,12 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git merge --ff-only *)",
+      "Bash(git push origin main)",
+      "Bash(git -C /Users/elinhaggstrom/nortropic-repos/nortropic-webb-pro merge --ff-only *)",
+      "Bash(git -C /Users/elinhaggstrom/nortropic-repos/nortropic-webb-pro push origin main)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
