@@ -485,8 +485,11 @@ def _passets_hela_kvitto():
               'mcp_anrop': {MOTION_VERKTYG: 1} if outcome else {},
               'mcp_utfall': {MOTION_VERKTYG: {outcome: 1}} if outcome else {},
               'mcp_lage': {'motion': 'ansluten'}, 'verktyg_anrop': {'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}}}
+        # schemat kräver bildens väg per prövat beteende, och genomfört kräver att bilden finns (GR-20261008-r117-claude#C4)
+        bildfil = atelje.UNDERLAG / SLUG / 'syntetisk-beteendebild.png'
+        skriv(bildfil, b'\x89PNG syntetisk')
         so = {'teknikval': [{'beteende': 'menyn', 'teknik': tech, 'skal': 'syntetiskt mekanikprov'}],
-              'beteende_provat': [{'vad': 'menyn', 'hur': 'lokalt prov', 'resultat': 'öppnad', 'bild': ''}],
+              'beteende_provat': [{'vad': 'menyn', 'hur': 'lokalt prov', 'resultat': 'öppnad', 'bild': str(bildfil)}],
               'kod_andrad': [], 'ingen_andring': '', 'aktivering': [], 'kvarstar': []}
         with patch.object(kd, 'las_status', side_effect=lambda *a: deepcopy(st)), patch.object(kd, 'satt_status', side_effect=spara), \
              patch.object(kd, 'bevara_version'), patch.object(kd, 'kopiera_bilder', return_value=[]), \
@@ -498,8 +501,21 @@ def _passets_hela_kvitto():
             if rec['kvitto'].get(key) != kv[key]:
                 errors.append((tech, outcome, 'borttappat', key))
         if rec['genomford'] is not expected:
-            errors.append((tech, outcome, 'genomford', rec['genomford'], expected))
+            errors.append((tech, outcome, 'genomford', rec['genomford'], expected, rec['beteende_provat']))
     assert not errors, errors
+    # utan bild för ett prövat beteende är passet inte genomfört, fast sessionen rapporterar det (C4)
+    st = {'status': 'klar', 'version': 'v1', 'kompetens': {}}
+    kv = {'verifierad': True, 'saknas': [], 'lasta': [], 'valda': [], 'skill_anrop': [], 'skill_fel': [], 'mcp_anrop': {}, 'mcp_utfall': {},
+          'mcp_lage': {'motion': 'ansluten'}, 'verktyg_anrop': {'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}}}
+    so = {'teknikval': [{'beteende': 'menyn', 'teknik': 'css', 'skal': 'syntetiskt'}],
+          'beteende_provat': [{'vad': 'menyn', 'hur': 'lokalt prov', 'resultat': 'öppnad', 'bild': ''}],
+          'kod_andrad': [], 'ingen_andring': '', 'aktivering': [], 'kvarstar': []}
+    with patch.object(kd, 'las_status', side_effect=lambda *a: deepcopy(st)), patch.object(kd, 'satt_status', side_effect=spara), \
+         patch.object(kd, 'bevara_version'), patch.object(kd, 'kopiera_bilder', return_value=[]), \
+         patch.object(kd, 'fotografera', side_effect=foto), patch.object(atelje, 'session', return_value={'structured_output': so}), \
+         patch.object(kompetens, 'kvitto', return_value=deepcopy(kv)):
+        rec = json.loads(json.dumps(kd.kompetenspass(SLUG, 'k01', 'rorelse', 'mekanikprov')))['kompetens']['mekanikprov:rorelse']
+    assert rec['genomford'] is False and rec['beteende_provat'][0]['bild_finns'] is False, ('ett beteende utan bild räknades som genomfört', rec['genomford'])
 
 
 @fall('12 obesvarad skill räknas inte som aktiverad eller läst')
