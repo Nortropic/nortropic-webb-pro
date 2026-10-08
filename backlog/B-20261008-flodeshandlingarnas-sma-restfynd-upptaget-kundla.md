@@ -1,12 +1,14 @@
 ---
 id: B-20261008-flodeshandlingarnas-sma-restfynd-upptaget-kundla
-status: vilande
+status: klar
 kalla: granskning
 kallref: granskningar/GR-20261008-r117-claude.md
 fynd: GR-20261008-r117-claude#B5
 skapad: 2026-10-08
 prio: normal
 steg: main: kontroller/flodesstart.py, kontroller/atelje.py, dashboard/index.html
+commit: 5e38146
+andrad: 2026-10-08T15:09Z
 ---
 # Flödeshandlingarnas små restfynd: upptaget kundlås utan journalpost, nyckeln i fliken, exportens frist, borttagen låsfil
 
