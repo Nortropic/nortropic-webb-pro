@@ -386,7 +386,9 @@ KONCEPT.md.
    ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och kundens kontaktvägar ur BRIEF.md §4 (har
    kontaktmodellen telefonen: numret som tel-länk), `<main id="innehall">` och sidfot. `Bas.astro` får `tema` med verksamhetens bärande
    färg. Formulär skickar ingenting i demon; den primära handlingen går via telefon, mejl eller deras befintliga
-   boknings- eller beställningssystem.
+   boknings- eller beställningssystem. Skriver bygget en komponent utanför mallen (formulärfel, bilder, rubriker, meny,
+   övergång, kontrast, typsnittsreserv): recepten med webbläsarstöd och reserv i `.claude/skills/modern-web-guidance/`
+   (läs dess SKILL.md först; standarden 3.8 gäller webbläsarstödet).
    **Mobilens första vy** är riktningens: den godkända kandidatens kod och DESIGN.md (eller KONCEPT.md) avgör sidhuvud,
    meny, primär handling och bild. Kvalitetskraven gäller: den primära handlingen nås från första vyn, menyn fungerar
    med tangentbord och skärmläsare och rullar aldrig dold i sidled, kontaktvägarna följer BRIEF.md §4, och en fast

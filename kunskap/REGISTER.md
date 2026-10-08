@@ -5422,7 +5422,9 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   view transitions, font-size-adjust) eller med en reserv; begränsat stöd aldrig för menyn, formuläret eller första
   vyn. Status kontrolleras mot MDN." Fas D, prövas av granskaren. Egen innovation, egen post: mallens formulär visar
   det svenska felbeskedet som text vid fältet utan JavaScript med `:user-invalid`
-- Utfall: —
+- Utfall: A och B intagna 2026-10-08 i `.claude/skills/modern-web-guidance/` (källan @ a972868, v0.0.193, hela
+  guidemappen utom en guide; npx-hänvisningarna ersatta med sökvägar; `KALLA.md`) och byggstandardens 3.8. Ingen roll i
+  skapandeflödet än; ett avgränsat försök i ett bygge (intagskrav 4) återstår.
 - Backlog: B-20261003-ta-in-googlechrome-modern-web-guidance-i-verktyg (A och B) och
   B-20261003-mallens-formular-visar-det-svenska-felbeskedet-s (egen innovation)
 

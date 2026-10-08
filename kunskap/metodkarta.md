@@ -546,6 +546,8 @@ tillämpats, och ett lyckat anrop säger inte att svaret blev användbart materi
 **Ingen uppgift i flödet**, den enda listan över skills utan roll (de finns i verktygslådan; en skill i ett
 kompetensblock ovan har sin uppgift där): emil-write-swift (Swift), emil-animate-expo (React Native och Expo),
 emil-ask-sonner (en toast i en app), slides (presentationer), taste-imagegen-frontend-mobile (appskärmar),
+modern-web-guidance (helbyggets recept med webbläsarstöd, bygg-sajt steg 5.3 och 5.5; ingen roll i skapandet förrän ett
+avgränsat försök visat vad den ger, intagskrav 4),
 emil-pick-ui-library (paketval görs utanför flödet, `kunskap/beroenden.md`), emil-prototype (kandidaterna är
 varianterna), taste-v1 (ersatt av taste), taste-gpt (fast AIDA-ordning mot K22; dess GSAP-recept används inte heller
 sedan GSAP togs in 2026-10-07, eftersom rollen rorelse väljer CSS, Motion eller GSAP per beteende med skillen gsap och

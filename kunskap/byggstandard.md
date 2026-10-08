@@ -50,6 +50,7 @@ sälja: varje sida har ett tydligt nästa steg.
 | 3.5 `prefers-reduced-motion` respekteras när sidan har rörelse, också övergångar (mallens `Bas.astro` har blocket); inget rullar av sig självt. | D | `standard` |
 | 3.6 Ikoner som SVG, aldrig ikonfont. | D | `standard` |
 | 3.7 Högst 200 kB JavaScript och 100 kB CSS per sida vid första rendering. | D | `standard` |
+| 3.8 Webbläsarstöd: en funktion som är Baseline Widely available används utan reserv; Newly available bara som en förbättring som kan falla bort utan att något går sönder (text-wrap, view transitions, font-size-adjust) eller med en reserv; begränsat stöd aldrig för menyn, formuläret eller första vyn. Statusen kontrolleras mot MDN, inte mot en guides egen rad (`.claude/skills/modern-web-guidance/`). | D | granskaren |
 
 ## 4. Prestanda (W)
 
