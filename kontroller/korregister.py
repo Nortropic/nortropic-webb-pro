@@ -111,10 +111,12 @@ VANTAR = KATALOG / 'vantar'  # startkontroller som väntar på intagslåset: <pi
 
 
 def vill_starta(pid=None):
-    """Startkontrollen väntar på intagslåset: ett långt prov efter ett byte på plats avbryts då (underhall.py)."""
+    """Startkontrollen väntar på intagslåset: ett långt prov efter ett byte på plats avbryts då (underhall.py). Väntefilen
+    bär processens starttid, så att en kvarlämnad fil vars pid nu tillhör en annan process räknas som gammal."""
+    pid = int(pid or os.getpid())
     try:
         VANTAR.mkdir(parents=True, exist_ok=True)
-        (VANTAR / str(int(pid or os.getpid()))).write_text(time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+        (VANTAR / str(pid)).write_text(json.dumps({'tid': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'pstart': startad(pid)}))
     except OSError:
         pass
 
@@ -127,9 +129,28 @@ def startat(pid=None):
 
 
 def start_vantar():
-    """Väntar en start på intagslåset? (en levande process i VANTAR)"""
+    """Väntar en start på intagslåset? En levande process i VANTAR vars identitet stämmer: väntefilens starttid är processens
+    (också när processen bara svarar med EPERM, som en annan användares), och en äldre fil utan starttid räknas bara för en
+    process vars kommandorad är motorns (python med kontroller/ eller kor.sh). En kvarlämnad fil vars pid nu tillhör en
+    annan process väntar inte (granskningen GR-20261007-r100-om, KAN-D). Svarar inte ps räknas filen som förr."""
     for f in (VANTAR.iterdir() if VANTAR.is_dir() else ()):
-        if f.name.isdigit() and lever(int(f.name)):
+        if not f.name.isdigit() or not lever(int(f.name)):
+            continue
+        pid = int(f.name)
+        try:
+            d = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            d = None
+        d = d if isinstance(d, dict) else {}
+        nu_s = startad(pid)
+        if not nu_s:  # ps svarar inte (en sandlåda): processen räknas
+            return True
+        if d.get('pstart'):
+            if d['pstart'] in (nu_s, startad_lokalt(pid)):
+                return True
+            continue  # pid:en är återanvänd: filen är gammal
+        k_ = kommando(pid)
+        if 'kor.sh' in k_ or ('python' in k_ and 'kontroller/' in k_):
             return True
     return False
 

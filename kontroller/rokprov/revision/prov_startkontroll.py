@@ -1028,6 +1028,19 @@ with vl.las(korregister.BYTESLAS):
     tr_.join()
 assert vantade and res_['kv']['status'] == 'stoppad' and any(x.startswith('intag') for x in res_['kv']['stoppar']), res_['kv']['stoppar']
 assert not korregister.start_vantar()
+# en kvarlämnad väntefil vars pid nu tillhör en annan process väntar inte, också när processen bara svarar med EPERM
+# (granskningen GR-20261007-r100-om, KAN-D): pid 1 tillhör root, och lever räknar den som levande
+korregister.VANTAR.mkdir(parents=True, exist_ok=True)
+(korregister.VANTAR / '1').write_text('2026-10-01T00:00:00Z')  # det äldre formatet, utan starttid
+assert korregister.lever(1) and not korregister.start_vantar(), 'en gammal väntefil med en främmande pid räknades som en start som väntar'
+(korregister.VANTAR / '1').write_text(json.dumps({'tid': '2026-10-01T00:00:00Z', 'pstart': 'Mon Jan  1 00:00:00 2024'}))
+assert not korregister.start_vantar(), 'en väntefil vars starttid inte är processens räknades som en start som väntar'
+(korregister.VANTAR / '1').unlink()
+korregister.vill_starta()
+assert json.loads((korregister.VANTAR / str(os.getpid())).read_text())['pstart'] == korregister.startad(os.getpid())
+assert korregister.start_vantar(), 'den egna väntefilen, med processens starttid, räknas'
+korregister.startat()
+assert not korregister.start_vantar()
 # förmågeprovens förutsättningar: ett ändrat inspektionsverktyg och en ny motor gör om proven (fynd 14)
 a1 = vl.webblasar_avtryck()
 insp = KOPIA / 'kontroller' / 'webblasare' / 'inspektera.mjs'
