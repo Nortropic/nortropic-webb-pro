@@ -111,4 +111,14 @@ with korregister.egen_tmp_med('nwp-rev-', 'spanarens syntetiska fixturer') as pr
     d = dash.spaning_lista()
     assert d['nytt_sedan_igar'] and isinstance(d['basta_per_omrade'], dict) and all(len(v) <= 2 for v in d['basta_per_omrade'].values()) and d['svarar_mot_domar'] and d['utgangna'] == 1, {k: (len(v) if isinstance(v, (list, dict)) else v) for k, v in d.items() if k != 'kandidater'}
     assert d['svarar_mot_domar'][0]['svarar_mot'] == ['skriftlig förfrågningsväg'] and isinstance(d['traffsakerhet'], list)
+    # Reddit (backloggen 2026-10-03): reddit.com släpps igenom, värdens egen takt, och kirurgen läser tråden ur RSS:en
+    assert not s.HOPPA_VARD.search('www.reddit.com') and not s.HOPPA_VARD.search('reddit.com') and s.HOPPA_VARD.search('x.com'), 'reddit släpps igenom, x inte'
+    import time as _t
+    s.PAUS_VARD = {'reddit.com': 0.3}
+    ht = s.Hamtare(paus=0)
+    t0 = _t.monotonic(); ht.fore('reddit.com'); ht.fore('x.se'); ht.fore('x.se'); assert _t.monotonic() - t0 < 0.2, 'andra värdar väntar inte'
+    t0 = _t.monotonic(); ht.fore('www.reddit.com'); assert _t.monotonic() - t0 >= 0.25, 'minst PAUS_VARD mellan anrop till reddit.com'
+    import reddit_trad
+    txt = reddit_trad.till_text((FIX / 'reddit.xml').read_bytes())
+    assert txt.startswith('# Why are small business sites so bad?') and 'no clear next step' in txt and '/u/kommentar' in txt and 'above the fold' in txt and '<' not in txt.split('\n')[4], txt
     print('PROV OK')

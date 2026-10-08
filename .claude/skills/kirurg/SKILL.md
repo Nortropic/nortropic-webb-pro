@@ -93,6 +93,9 @@ citattecken i kommandon, annars tolkar skalet `?` och `&`.
   lägen, inte rörelsen mellan dem; säg det om rörelsen spelar roll.
 - Spärrar sidan (inloggning, robotkontroll): skriv det, och påstå inget du inte har sett. WebFetch bara som reserv
   för text; den sammanfattar långa sidor och visar ingen design.
+- Reddit: sidan spärrar, men trådens RSS går utan inloggning: `.venv/bin/python kontroller/reddit_trad.py '<trådens
+  adress>' --ut /tmp/kirurg/<namn>/reddit.md` ger inlägget och kommentarerna som text (minst 20 s mellan anrop till
+  reddit.com, annars 429). Belägg ur trådtexten med citat, aldrig ur spärrsidan.
 - PDF: `curl -sSL -o /tmp/kirurg/<namn>.pdf 'URL'` och Read.
 
 **Video** (YouTube och de flesta andra sajter)

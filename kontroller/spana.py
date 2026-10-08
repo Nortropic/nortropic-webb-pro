@@ -113,7 +113,8 @@ KALLVIKT = {'rss': 1.0, 'sida': 1.0, 'github': 1.0, 'hn': 1.0, 'awesome': 1.0}
 LISTICLE = re.compile(r'^\s*\d+\s+(best|top|tools|tips|ways|things)', re.I)
 DOLDA = re.compile(r'[​‌‍⁠﻿­‪-‮⁦-⁩]|[\x00-\x08\x0b\x0c\x0e-\x1f]')
 TILL_AGENT = re.compile(r'(ignore (all |previous |the above )?instructions|you are (an|a) (ai|assistant|agent)|system prompt|<\s*(system|assistant|instructions?)\b|do not tell the user|as an ai)', re.I)
-HOPPA_VARD = re.compile(r'(^|\.)(reddit|x|twitter|instagram|facebook|tiktok)\.com$', re.I)
+HOPPA_VARD = re.compile(r'(^|\.)(x|twitter|instagram|facebook|tiktok)\.com$', re.I)  # reddit.com släpps igenom med paus (backloggen 2026-10-03)
+PAUS_VARD = {'reddit.com': 20.0}  # minst så många sekunder mellan anrop till värden: Reddits RSS gav 429 vid 10 s och gick vid 20 s
 STRAFF_VARD = {'medium.com': 0.7, 'linkedin.com': 0.5, 'dev.to': 0.9}
 
 
@@ -252,17 +253,23 @@ class Hamtare:
 
     def __init__(self, max_anrop=MAX_ANROP, paus=PAUS, hamta=None):
         self.max_anrop, self.paus, self.anrop, self.senast = max_anrop, paus, 0, {}
+        self.senast_vard = {}  # värd → monotonisk tid för senaste anropet (PAUS_VARD)
         self._hamta = hamta
         self.session = None
         self.senaste_anrop = None
 
-    def fore(self):
+    def fore(self, vard=None):
         if self.anrop >= self.max_anrop:
             raise SlutPaAnrop('taket %d anrop per spaning är nått' % self.max_anrop)
         nu=time.monotonic()
         if self.senaste_anrop is not None:
             kvar=self.paus-(nu-self.senaste_anrop)
             if kvar>0:time.sleep(kvar)
+        nyckel = next((v for v in PAUS_VARD if vard and (vard == v or vard.endswith('.' + v))), None)
+        if nyckel and nyckel in self.senast_vard:  # värdens egen takt (reddit.com: 20 s), utöver den gemensamma
+            kvar = PAUS_VARD[nyckel] - (time.monotonic() - self.senast_vard[nyckel])
+            if kvar > 0: time.sleep(kvar)
+        if nyckel: self.senast_vard[nyckel] = time.monotonic()
         self.senaste_anrop=time.monotonic()
         self.anrop += 1
 
@@ -274,7 +281,7 @@ class Hamtare:
         import hamta_sajt
         from urllib.request import Request
         hamta_sajt.adress_ok(url)
-        self.fore()
+        self.fore((urlsplit(url).hostname or '').lower().removeprefix('www.'))
         with hamta_sajt.oppnare(fore=self.fore).open(Request(url,headers={'User-Agent':UA}),timeout=15) as r:
             langd=r.headers.get('Content-Length')
             if langd is not None and (not langd.isascii() or not langd.isdigit()):raise OSError('Ogiltig deklarerad källstorlek.')
