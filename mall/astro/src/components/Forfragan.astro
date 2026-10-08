@@ -30,20 +30,24 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   <p id="forfragan-bild" class="ff-saknas" tabindex="-1" role="alert">{felBild}</p>
   <p>
     <label for="ff-namn">Namn</label>
-    <span id="ff-namn-fel" class="ff-fel"></span>
+    <!-- Beskedet står i HTML:en och visas av CSS (:user-invalid) när besökaren lämnat fältet eller försökt skicka, också utan
+         JavaScript (byggstandarden 6.2; backloggen 2026-10-03). Med JavaScript töms spannen vid laddning och fylls vid invalid. -->
     <input id="ff-namn" name="namn" type="text" autocomplete="name" required maxlength="100" aria-describedby="ff-namn-fel" data-saknas={felNamn} />
+    <span id="ff-namn-fel" class="ff-fel">{felNamn}</span>
   </p>
   <p>
     <label for="ff-telefon">Telefon</label>
-    <span id="ff-telefon-fel" class="ff-fel"></span>
-    <!-- Siffror, mellanslag, +, - och parenteser, minst sex tecken: "abc" går inte igenom (byggstandarden 6.2). -->
-    <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40"
-      pattern="(?=.*[0-9])[0-9+\-\(\) ]{6,40}" aria-describedby="ff-telefon-fel" data-saknas={felTelefon} data-format={felTelefonFormat} />
+    <!-- Siffror, mellanslag, +, - och parenteser, minst sex tecken: "abc" går inte igenom (byggstandarden 6.2). Utan JavaScript
+         visar CSS formatbeskedet (ff-telefon-format) när fältet inte är tomt (placeholder-shown) och saknas-beskedet annars. -->
+    <input id="ff-telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required maxlength="40" placeholder=" "
+      pattern="(?=.*[0-9])[0-9+\-\(\) ]{6,40}" aria-describedby="ff-telefon-fel ff-telefon-format" data-saknas={felTelefon} data-format={felTelefonFormat} />
+    <span id="ff-telefon-fel" class="ff-fel">{felTelefon}</span>
+    <span id="ff-telefon-format" class="ff-fel ff-format">{felTelefonFormat}</span>
   </p>
   <p>
     <label for="ff-meddelande">{fraga}</label>
-    <span id="ff-meddelande-fel" class="ff-fel"></span>
     <textarea id="ff-meddelande" name="meddelande" rows="5" required maxlength="4000" aria-describedby="ff-meddelande-fel" data-saknas={felMeddelande}></textarea>
+    <span id="ff-meddelande-fel" class="ff-fel">{felMeddelande}</span>
   </p>
   <p class="ff-fil">
     <!-- Egen knapp i stället för webbläsarens "Choose File / No file chosen"; etiketten öppnar väljaren även utan JS. -->
@@ -70,11 +74,13 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   const start = performance.now();
   for (const f of document.querySelectorAll<HTMLFormElement>('form.forfragan')) {
     // Svenska besked som text vid fältet (aria-describedby) i stället för webbläsarens bubbla, som följer
-    // webbläsarens språk (byggstandarden 6.2, WCAG 3.3.1). Första felaktiga fältet får fokus. Utan JavaScript
-    // stoppar webbläsaren inskicket med sitt eget besked, och POST fungerar som förut.
+    // webbläsarens språk (byggstandarden 6.2, WCAG 3.3.1). Första felaktiga fältet får fokus. Utan JavaScript visar
+    // CSS (:user-invalid) beskeden som står i HTML:en; med JavaScript töms de här och fylls vid invalid, så att
+    // beskrivningen inte läses upp i förväg. POST fungerar som förut.
+    for (const s of f.querySelectorAll<HTMLElement>('.ff-fel')) s.textContent = '';
     let forsta = true;
     for (const falt of f.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[required][data-saknas]')) {
-      const fel = document.getElementById(falt.getAttribute('aria-describedby') || '');
+      const fel = document.getElementById((falt.getAttribute('aria-describedby') || '').split(' ')[0]);
       falt.addEventListener('invalid', (e) => {
         e.preventDefault();
         const besked = (falt.validity.patternMismatch && falt.dataset.format) || falt.dataset.saknas || '';
@@ -112,8 +118,13 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   .ff-falla { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
   .ff-saknas { display: none; }
   .ff-saknas:target { display: block; }
-  .ff-fel { display: block; font-weight: 600; }
-  .ff-fel:empty { display: none; }
+  /* Beskedet vid fältet: dolt tills fältet är :user-invalid (besökaren har lämnat det eller försökt skicka), utan JavaScript;
+     med JavaScript styr aria-invalid. Telefonfältet: formatbeskedet när fältet inte är tomt, annars saknas-beskedet. */
+  .ff-fel { display: none; font-weight: 600; }
+  :user-invalid + .ff-fel, [aria-invalid="true"] + .ff-fel, .ff-filfalt[aria-invalid="true"] ~ .ff-fel { display: block; }
+  #ff-telefon:user-invalid:not(:placeholder-shown) + .ff-fel { display: none; }
+  #ff-telefon:user-invalid:not(:placeholder-shown) ~ .ff-format { display: block; }
+  #ff-telefon[aria-invalid="true"] ~ .ff-format { display: none; }
   /* Filfältet: knappen är etiketten; själva fältet är osynligt men fokuserbart, och fokus syns på knappen. */
   .ff-filfalt { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
   .ff-filknapp { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; border: 1px solid currentColor; cursor: pointer; }

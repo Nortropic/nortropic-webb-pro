@@ -563,11 +563,14 @@ const b = await chromium.launch(); const ut = {};
 for (const js of [true, false]) {
   const s = await b.newContext({ locale: \"en-US\", javaScriptEnabled: js }); const p = await s.newPage();
   await p.goto(process.argv[1] + \"/kontakt/\"); await p.click(\"form.forfragan button[type=submit]\");
+  const synlig = (sel) => p.\$eval(sel, (e) => getComputedStyle(e).display !== \"none\");
   const r = { besked: await p.\$eval(\"#ff-namn\", (e) => e.validationMessage), adress: p.url(),
-    vid: await p.textContent(\"#ff-namn-fel\"), fokus: await p.evaluate(() => document.activeElement?.id) };
+    vid: await p.textContent(\"#ff-namn-fel\"), vidSynlig: await synlig(\"#ff-namn-fel\"), fokus: await p.evaluate(() => document.activeElement?.id) };
   await p.fill(\"#ff-namn\", \"Prov\"); await p.fill(\"#ff-telefon\", \"abc\"); await p.fill(\"#ff-meddelande\", \"Hej\");
   await p.click(\"form.forfragan button[type=submit]\");
   r.format = await p.\$eval(\"#ff-telefon\", (e) => e.validity.patternMismatch); r.tel = await p.textContent(\"#ff-telefon-fel\");
+  r.telFormat = await p.textContent(\"#ff-telefon-format\"); r.telFormatSynlig = await synlig(\"#ff-telefon-format\"); r.telSaknasSynlig = await synlig(\"#ff-telefon-fel\");
+  r.namnSynlig = await synlig(\"#ff-namn-fel\");
   r.namnKvar = await p.textContent(\"#ff-namn-fel\"); r.kvar = p.url();
   ut[js ? \"med\" : \"utan\"] = r;
   await s.close();
@@ -580,6 +583,11 @@ assert ut['med']['besked'] == 'Skriv ditt namn.' and ut['med']['vid'] == 'Skriv 
 assert ut['med']['format'] and ut['med']['tel'].startswith('Skriv numret med siffror') and ut['med']['namnKvar'] == '' and ut['med']['kvar'].endswith('/kontakt/'), ut
 assert ut['utan']['besked'] and ut['utan']['besked'] != 'Skriv ditt namn.' and ut['utan']['adress'].endswith('/kontakt/'), ut
 assert ut['utan']['format'] and ut['utan']['kvar'].endswith('/kontakt/'), ut
+# utan JavaScript: det svenska beskedet står vid fältet och visas av CSS (:user-invalid) efter inskicksförsöket; telefonfältet
+# visar formatbeskedet, inte saknas-beskedet, när det har bokstäver (backloggen 2026-10-03, :user-invalid)
+assert ut['utan']['vid'] == 'Skriv ditt namn.' and ut['utan']['vidSynlig'] and not ut['utan']['namnSynlig'], ut['utan']
+assert ut['utan']['telFormat'].startswith('Skriv numret med siffror') and ut['utan']['telFormatSynlig'] and not ut['utan']['telSaknasSynlig'], ut['utan']
+assert ut['med']['telFormat'] == '' and not ut['med']['namnSynlig'], 'med JavaScript töms de statiska beskeden och fylls bara vid fel'
 print('   ', ut['med']['besked'], '|', ut['utan']['besked'])
 " || { echo "FEL: formulärets svenska besked"; exit 1; }
 echo "   formulärets besked ok"

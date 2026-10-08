@@ -14,8 +14,10 @@ gäller; teorin står i `kunskap/teoretisk-grund.md` (Jarrett & Gaffney, Wroblew
 - **Fälten:** namn, telefon, meddelande med etiketten i verksamhetens ord ("Vad vill du bygga?"), och en valfri bild.
   Det valfria märks "(valfritt)"; resten krävs. Inga fler fält utan skäl ur briefen. Beskedet vid ett tomt fält och
   vid ett nummer med bokstäver är svenskt, i verksamhetens ord (mallens `felNamn`, `felTelefon`, `felTelefonFormat`,
-  `felMeddelande`) och står som text vid fältet med `aria-describedby` när JavaScript körs (WCAG 3.3.1);
-  utan JavaScript stoppar telefonfältets `pattern` bokstäverna med webbläsarens eget besked.
+  `felMeddelande`) och står som text vid fältet med `aria-describedby`, med och utan JavaScript (WCAG 3.3.1): CSS
+  (`:user-invalid`) visar beskedet när besökaren lämnat fältet eller försökt skicka, och med JavaScript får det första
+  felet fokus och beskeden fylls först vid fel; utan JavaScript visar webbläsaren dessutom sin egen bubbla, och
+  telefonfältets `pattern` stoppar bokstäverna med formatbeskedet synligt vid fältet.
 - **Fällorna** ändras inte: honeypoten `webbplats` (dold, `tabindex="-1"`) och tidsfällan `fylltid`, varaktigheten i
   millisekunder från laddning till inskick mätt på webbläsarens klocka (`kunskap/formularsakerhet.md`, princip b).
 - **Integritetstexten** vid knappen länkar till `/integritet/`. Integritetssidan anger personuppgiftsansvarig
