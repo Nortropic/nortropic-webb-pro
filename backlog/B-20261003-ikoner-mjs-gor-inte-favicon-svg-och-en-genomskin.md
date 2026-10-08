@@ -1,12 +1,13 @@
 ---
 id: B-20261003-ikoner-mjs-gor-inte-favicon-svg-och-en-genomskin
-status: vilande
+status: klar
 kalla: bygge
 kallref: kunder/holms-konditori-abx/RAPPORT.md
 skapad: 2026-10-03
 prio: normal
 steg: 5.3
-andrad: 2026-10-05T06:55Z
+commit: a5b9052
+andrad: 2026-10-08T15:34Z
 ---
 # ikoner.mjs gör inte favicon.svg och en genomskinlig logga ur en rasterlogga med vit bakgrund
 
