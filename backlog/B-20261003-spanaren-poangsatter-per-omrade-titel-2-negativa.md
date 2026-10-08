@@ -1,12 +1,13 @@
 ---
 id: B-20261003-spanaren-poangsatter-per-omrade-titel-2-negativa
-status: vilande
+status: klar
 kalla: bevakning
 kallref: kirurgen/spaning/korning.log 2026-10-02 och 2026-10-03
 skapad: 2026-10-03
 prio: hog
 steg: spaningen (kirurgens intag)
-andrad: 2026-10-08T14:09Z
+commit: c4a092c
+andrad: 2026-10-08T15:45Z
 ---
 # Spanaren poängsätter per område: titel ×2, negativa ord, claude code eller skill räcker inte ensamt, och ord ur ägarens domar
 

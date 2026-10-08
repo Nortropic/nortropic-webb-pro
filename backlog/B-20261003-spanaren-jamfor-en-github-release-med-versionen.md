@@ -1,12 +1,13 @@
 ---
 id: B-20261003-spanaren-jamfor-en-github-release-med-versionen
-status: ersatt
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Lighthouse v13.5.0 (GoogleChrome/lighthouse, release)
 skapad: 2026-10-03
 prio: normal
 steg: spanaren (kontroller/spana.py), kirurgen
-andrad: 2026-10-08T14:09Z
+commit: c4a092c
+andrad: 2026-10-08T15:45Z
 ---
 # Spanaren jämför en GitHub-release med versionen i kontroller/package.json och märker den som redan i bruk eller som uppdateringsfråga
 

@@ -1,12 +1,13 @@
 ---
 id: B-20261003-spanaren-marker-youtube-kandidater-vars-beskrivn
-status: ersatt
+status: klar
 kalla: kirurg
 kallref: kunskap/REGISTER.md · 2026-10-03 · Jack Roberts, "Claude Code + TinyFish = Unlimited FREE Scraping" (YouTube qqRo3vwAoPw)
 skapad: 2026-10-03
 prio: normal
 steg: spaningen (kontroller/spana.py, dashboarden)
-andrad: 2026-10-08T14:09Z
+commit: c4a092c
+andrad: 2026-10-08T15:45Z
 ---
 # Spanaren märker YouTube-kandidater vars beskrivning anger betalt partnerskap
 

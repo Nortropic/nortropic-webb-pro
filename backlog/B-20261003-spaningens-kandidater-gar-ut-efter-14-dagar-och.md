@@ -1,12 +1,13 @@
 ---
 id: B-20261003-spaningens-kandidater-gar-ut-efter-14-dagar-och
-status: ersatt
+status: klar
 kalla: bevakning
 kallref: kirurgen/spaning/KANDIDATER.json 2026-10-03 (taket 200 nått)
 skapad: 2026-10-03
 prio: hog
 steg: spaningen, dashboarden
-andrad: 2026-10-08T14:09Z
+commit: c4a092c
+andrad: 2026-10-08T15:45Z
 ---
 # Spaningens kandidater går ut efter 14 dagar, och dashboarden visar Nytt sedan i går, de bästa per område och träffsäkerhet per källa
 
