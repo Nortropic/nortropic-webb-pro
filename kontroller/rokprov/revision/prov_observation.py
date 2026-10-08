@@ -818,8 +818,8 @@ assert per_post < 600, per_post
 # 23. F03 (motorinventeringen): varje MCP-tjänst sessionen anropade står i den kompakta vyn, också Motion; Motions dokumentsvar
 #     i text är en känd form (anrop lyckades, med antalet tecken), ett "no results" är tomt, och Referos prosa utan lista är
 #     fortfarande ett svar utan känd form (C6:s rest)
-import tempfile
-f23 = Path(tempfile.mkdtemp(prefix='nwp-obs23-')) / 'session.jsonl'
+f23 = TMP / 'obs23' / 'session.jsonl'  # under provets egen tempkatalog (städregeln: inga egna prefix)
+f23.parent.mkdir(parents=True, exist_ok=True)
 f23.write_text(strom(
     rad(type='system', subtype='init', model='claude-sonnet-5-5', skills=[], mcp_servers=[{'name': 'motion', 'status': 'connected'}, {'name': 'refero', 'status': 'connected'}]),
     anrop(1, 'm1', 'mcp__motion__search-motion-docs', {'platform': 'js', 'searchTerm': 'inView'}),

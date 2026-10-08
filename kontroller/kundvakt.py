@@ -76,7 +76,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import skapande  # noqa: E402
 
 FRIST = 20  # sekunder; krokens egen tidsgräns är 30 (installningar nedan)
-MATCH = 'mcp__refero__.*|mcp__mobbin__.*|mcp__motion__.*'  # externa designtjänster och Motions dokumentation: kroken prövar varje anrop; andra MCP-anrop får ingen tillåtelse
+MATCH = 'mcp__refero__.*|mcp__mobbin__.*|mcp__motion__.*|mcp__21st__.*'  # externa designtjänster, Motions dokumentation och 21st.dev: kroken prövar varje anrop; andra MCP-anrop får ingen tillåtelse
 ID_NYCKEL = re.compile(r'(^|_)(id|ids)$')
 SMA_NYCKEL = re.compile(r'(^|_)(page|limit)$')  # sidnummer och gränser: bara korta tal
 UUID = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
@@ -668,7 +668,7 @@ def provning(slug, underlag, anrop):
         return 'kundens uppgifter gick inte att läsa (underlag/%s/VERKSAMHET.json); anropet stoppas' % slug
     namn = anrop.get('tool_name')
     if namn not in tillatna():
-        return 'verktyget %s är inte ett av flödets verktyg hos Refero och Mobbin; anropet stoppas' % namn
+        return 'verktyget %s är inte ett av flödets verktyg hos Refero, Mobbin, Motion eller 21st.dev (metodkartans verktygsbeslut); anropet stoppas' % namn
     if namn == MOBBIN_SKARMAR and str((anrop.get('tool_input') or {}).get('mode') or '').strip().lower() not in MOBBIN_LAGEN:
         return ('%s kräver mode "standard": verktygets standardläge deep kostar krediter, och flödet söker i standardläget; '
                 'anropet stoppas' % namn)

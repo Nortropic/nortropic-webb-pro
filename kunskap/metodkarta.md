@@ -207,7 +207,7 @@ pass: skapa, fordjupa
 kärna: refero-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md; frontend-design/SKILL.md
 välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md; canvas-design/SKILL.md
 verktyg: uxsok, förhandsvisning
-mcp: refero, mobbin
+mcp: refero, mobbin, 21st
 visar: riktningen syns i den renderade sidan i mobil, mellanbredd och dator; referensens bärande kvaliteter är prövade eller ersatta med något lika genomarbetat; RIKTNING.md säger vilken synlig förbättring varje kompetens gav; skissen skiljer sig från de andra i komposition, berättelse och bildanvändning; ett koncept ur canvas-design står i BILDER.md med källa, version och Egen nej och är aldrig prototypen (metodkartan, Grafiska koncept ur canvas-design)
 ```
 
@@ -471,6 +471,60 @@ screencast_stop: ingen uppgift — avslutar en inspelning som aldrig startas (se
 ```tjanstverktyg motion
 search-motion-docs: uppgift — rollen rorelses sökning i Motions dokumentation, exempel och Motion UI (platform js för motion i ett <script>, react för motion/react i en React-ö; sökordet är mönstret som byggs: inView, stagger, spring, layout) när ett beteende byggs med Motion; svaret är text och länkar, inga bilder, och träffar märkta Motion+ (betalda) används inte (ägarens beslut 2026-10-07: bara den fria delen); prövat 2026-10-07
 generate-css-easing: ingen uppgift — verktyget står i skillen (motion/codex/index.md och css-spring/index.md) men fanns inte på servern vid tools/list, så CSS-fjädrar skrivs för hand med linear() eller cubic-bezier tills verktyget finns och prövats; prövat 2026-10-07
+```
+
+```tjanstverktyg 21st
+search: uppgift — rollen kompositions komponentresearch i 21st.dev Builder (fritt): generiska sökningar efter komponenttyper för besökarens uppgift (hero, tjänstelista, kontaktformulär, galleri), aldrig kundens uppgifter; svaret är metadata med förhandsbild och id, som bedöms i bild innan något hämtas
+get_component: uppgift — hämtning av en vald komponents kod och demo med installationskommando och beroenden (förbrukar Builders dagliga hämtningar; svaret kan vara låst eller saknat och är då inget material); koden är material att anpassa till riktningen, mallens CSS och CSP:n, aldrig ett paket som installeras på egen hand (kunskap/beroenden.md); källan (adressen), författaren, licensen och beroendena skrivs i RIKTNING.md under Referenser
+get_inspiration: uppgift — inspirationsflödet som generisk förebild för komposition och detaljer, bedömt som referensbilder och aldrig kopierat rakt av
+search_logo: ingen uppgift — logotyper tillhör kunden och hämtas ur kundens underlag, aldrig genom en logotypsökning i katalogen; prövat 2026-10-08
+search_picker: ingen uppgift — ett interaktivt urvalsverktyg för en människa i Builder; sessionen söker med search och bedömer själv; prövat 2026-10-08
+get_profile: ingen uppgift — profilen på 21st.dev är ägarens konto och ändras aldrig av flödets sessioner; prövat 2026-10-08
+edit_profile: ingen uppgift — profilen på 21st.dev är ägarens konto och ändras aldrig av flödets sessioner; prövat 2026-10-08
+upload_profile_media: ingen uppgift — profilen på 21st.dev är ägarens konto och ändras aldrig av flödets sessioner; prövat 2026-10-08
+get_usage: ingen uppgift — kvoten för hämtningar läses av ägaren eller underhållet, inte av skaparsessionen; prövat 2026-10-08
+bookmark: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
+create_bookmark_list: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
+add_to_list: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
+get_bookmark_list: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
+list_bookmark_lists: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
+list_bookmarks: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
+list_teams: ingen uppgift — teamets bibliotek hos 21st.dev är tomt, och kundens kod läggs aldrig där; prövat 2026-10-08
+list_team_components: ingen uppgift — teamets bibliotek hos 21st.dev är tomt, och kundens kod läggs aldrig där; prövat 2026-10-08
+list_team_libraries: ingen uppgift — teamets bibliotek hos 21st.dev är tomt, och kundens kod läggs aldrig där; prövat 2026-10-08
+list_team_lists: ingen uppgift — teamets bibliotek hos 21st.dev är tomt, och kundens kod läggs aldrig där; prövat 2026-10-08
+submit_component: ingen uppgift — publicering eller ändring av komponenter i katalogen är extern publicering som kräver ägarens beslut; kundens kod lämnar aldrig repot den vägen; prövat 2026-10-08
+resubmit_component: ingen uppgift — publicering eller ändring av komponenter i katalogen är extern publicering som kräver ägarens beslut; kundens kod lämnar aldrig repot den vägen; prövat 2026-10-08
+edit_component: ingen uppgift — publicering eller ändring av komponenter i katalogen är extern publicering som kräver ägarens beslut; kundens kod lämnar aldrig repot den vägen; prövat 2026-10-08
+delete_component: ingen uppgift — publicering eller ändring av komponenter i katalogen är extern publicering som kräver ägarens beslut; kundens kod lämnar aldrig repot den vägen; prövat 2026-10-08
+withdraw_component: ingen uppgift — publicering eller ändring av komponenter i katalogen är extern publicering som kräver ägarens beslut; kundens kod lämnar aldrig repot den vägen; prövat 2026-10-08
+remove_component_from_catalog: ingen uppgift — publicering eller ändring av komponenter i katalogen är extern publicering som kräver ägarens beslut; kundens kod lämnar aldrig repot den vägen; prövat 2026-10-08
+edit_template: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
+delete_template: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
+edit_theme: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
+delete_theme: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
+get_theme: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
+get_generation: ingen uppgift — genererade komponenter ur Builder beställs inte av sessionen; en färdig komponent hämtas med get_component när den valts; prövat 2026-10-08
+get_generation_job: ingen uppgift — genererade komponenter ur Builder beställs inte av sessionen; en färdig komponent hämtas med get_component när den valts; prövat 2026-10-08
+get_changes: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
+get_notes: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
+update_note: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
+get_take: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
+edit_take: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
+record_take_outcome: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
+record_inspiration_feedback: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
+send_feedback: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
+video_apply_ops: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_create_project: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_export: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_export_status: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_finalize_asset: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_get_doc: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_list_blocks: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_propose_variants: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_search_blocks: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_snapshot: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
+video_upload_asset: ingen uppgift — videoverktygen hör till materialsteget (uppdraget 2026-10-08, 2D), som byggs med egen mekanik och kräver ägarens kontobeslut; prövat 2026-10-08
 ```
 
 Om ägaren vill kan refero_search_apps få en smal roll i researchen: en namngiven app som förebild för ett mobilflöde.

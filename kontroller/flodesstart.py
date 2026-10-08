@@ -24,7 +24,7 @@ import atelje
 import skapande
 
 FD = 8
-HANDLINGAR = ('helbygge', 'exportera')
+HANDLINGAR = ('helbygge', 'exportera', 'preview')
 
 
 def lasfil(root, slug):
@@ -186,6 +186,10 @@ def krav(slug,handling):
         s=atelje.KUNDER/slug/'sajt'
         atelje.saker_vag(s,atelje.KUNDER)
         if not (s/'package.json').is_file() or not (s/'src/pages/index.astro').is_file():raise ValueError('Ingen sajt finns att exportera.')
+    elif handling=='preview':
+        import kundrepo
+        h=kundrepo.preview_krav(slug)
+        if h:raise ValueError('Ingen förhandsvisning: '+h)
     else:raise ValueError('okänd flödeshandling')
 
 
@@ -263,11 +267,12 @@ def arbetare(slug,handling,start_id,fd):
         if handling=='helbygge':
             v=json.loads((atelje.UNDERLAG/slug/'VERKSAMHET.json').read_text())
             args=['/bin/bash',str(atelje.ROOT/'kor.sh'),slug,v['namn']]
+        elif handling=='preview':args=[sys.executable,'-B',str(atelje.ROOT/'kontroller/kundrepo.py'),slug,'--preview']
         else:args=[sys.executable,'-B',str(atelje.ROOT/'kontroller/exportera.py'),slug,'--git']
         # Exportens npm och byggskript kan skapa barn i egna sessioner. Följ samma
         # macOS-processidentiteter som korvakt, inte bara Popen-processens pid.
         import korvakt
-        trad=korvakt.Trad(korvakt.las_process(os.getpid())) if handling=='exportera' else None
+        trad=korvakt.Trad(korvakt.las_process(os.getpid())) if handling in ('exportera','preview') else None
         child=subprocess.Popen(args,cwd=atelje.ROOT,env=dict(os.environ,NWP_FLODE_START_ID=start_id),pass_fds=(FD,))
         with journallas(slug):  # barnets pid: ett stopp når arbetet också om arbetaren dör (GR-20261008-r117-claude#B3)
             _,d=post(slug,start_id);atelje.skriv_json_atomiskt(p,dict(d,barn_pid=child.pid,barn_startad=atelje.nu()))

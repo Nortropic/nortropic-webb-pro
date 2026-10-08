@@ -184,31 +184,58 @@ def claude():
 import kundvakt as kundvakt_mod  # noqa: E402
 KUNDVAKT_MATCH = kundvakt_mod.MATCH  # externa designtjänster: kundvakten prövar varje anrop; andra MCP-anrop får ingen tillåtelse
 REFERO_ENV = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env'
+TJUGOFORSTA_ENV = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / '21st.env'  # 21st.dev Builder (ägarens val 2026-10-07): TWENTYFIRST_API_KEY=
+
+
+def envvarde(fil, var):
+    """Värdet på raden VAR=… i en env-fil i ägarens hemlighetsmapp; OSError när filen eller raden saknas."""
+    for rad in Path(fil).read_text(encoding='utf-8').splitlines():
+        if rad.startswith(var + '='):
+            v = rad.split('=', 1)[1].strip().strip('"\'')
+            if v:
+                return v
+    raise OSError('%s saknar %s' % (fil, var))
+
+
+def nyckel_mcp_fil(mall, envfil, platshallare, nyckel):
+    """En MCP-mall i kontroller/mcp/ med nyckeln insatt, skriven bredvid nyckelfilen som <mall>-mcp.json (0600) och förnyad
+    när mallen eller nyckeln ändrats. Nyckeln står aldrig i argumenten eller i sessionens miljö (session_miljo, G15), och
+    hemlighetsmappen nekas sessionens Read (sandlada.HEMLIGT). OSError när filen inte kan skrivas."""
+    text = mall.read_text(encoding='utf-8').replace(platshallare, nyckel)
+    fil = Path(envfil).parent / (mall.stem + '-mcp.json')
+    if fil.is_symlink():
+        raise OSError('%s är en länk' % fil)
+    if not fil.is_file() or fil.read_text(encoding='utf-8') != text or (fil.stat().st_mode & 0o777) != 0o600:
+        tmp = fil.with_name(fil.name + '.tmp')
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(text)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, fil)
+    return str(fil)
 
 
 def refero_mcp_fil():
     """Referos MCP-konfiguration till --strict-mcp-config (GR-20261008-r117-claude#E1: det verkliga sessionsprovet visade
     tio servrar på användarnivån bredvid flödets tre): kontroller/mcp/refero.json med nyckeln ur ägarens hemlighetsmapp
-    (REFERO_ENV) insatt, skriven bredvid nyckelfilen som refero-mcp.json (0600) och förnyad när mallen eller nyckeln
-    ändrats. Nyckeln står aldrig i argumenten eller i sessionens miljö (session_miljo, G15), och hemlighetsmappen nekas
-    sessionens Read (sandlada.HEMLIGT). Utan nyckel, eller när filen inte kan skrivas, ges mallen som den är: servern
+    (REFERO_ENV) insatt (nyckel_mcp_fil). Utan nyckel, eller när filen inte kan skrivas, ges mallen som den är: servern
     står då som ej ansluten i sessionsprovet, och startkontrollen säger det."""
     import refero_mcp
     mall = ROOT / 'kontroller' / 'mcp' / 'refero.json'
     try:
-        text = mall.read_text(encoding='utf-8').replace('${REFERO_MCP_TOKEN}', refero_mcp.nyckel(REFERO_ENV))
-        fil = Path(REFERO_ENV).parent / 'refero-mcp.json'
-        if fil.is_symlink():
-            return str(mall)
-        if not fil.is_file() or fil.read_text(encoding='utf-8') != text or (fil.stat().st_mode & 0o777) != 0o600:
-            tmp = fil.with_name(fil.name + '.tmp')
-            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                f.write(text)
-            os.chmod(tmp, 0o600)
-            os.replace(tmp, fil)
-        return str(fil)
+        return nyckel_mcp_fil(mall, REFERO_ENV, '${REFERO_MCP_TOKEN}', refero_mcp.nyckel(REFERO_ENV))
     except (OSError, refero_mcp.ReferoFel):
+        return str(mall)
+
+
+def tjugoforsta_mcp_fil():
+    """21st.dev Builders MCP (kontroller/mcp/21st.json, https://21st.dev/api/mcp med x-api-key; ägarens val 2026-10-07 och
+    uppdraget 2026-10-08, 2C) med nyckeln ur 21st.env (TWENTYFIRST_API_KEY) insatt, som refero_mcp_fil. Utan nyckel ges
+    mallen som den är, och startkontrollen visar 21st.dev som tilldelad utan åtkomst."""
+    mall = ROOT / 'kontroller' / 'mcp' / '21st.json'
+    try:
+        return nyckel_mcp_fil(mall, TJUGOFORSTA_ENV, '${TWENTYFIRST_API_KEY}', envvarde(TJUGOFORSTA_ENV, 'TWENTYFIRST_API_KEY'))
+    except OSError:
         return str(mall)
 
 
@@ -239,8 +266,9 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     slug ser sessionen alla skills (skillverktyget) och MCP-servrarna, och kundvakten prövar varje anrop till en extern
     designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). MCP-servrarna:
     flödets tre ur kontroller/mcp/ i strikt läge, Refero (refero_mcp_fil, med nyckeln ur hemlighetsmappen), Mobbin
-    (mobbin.json) och Motions fria dokumentations-MCP (motion.json; ägarens uppdrag 2026-10-07, punkt 5C, och beslutet
-    "bara den fria delen"); kundvakten prövar varje anrop till dem. Mobbin finns annars bara på användarnivån, som
+    (mobbin.json), Motions fria dokumentations-MCP (motion.json; ägarens uppdrag 2026-10-07, punkt 5C, och beslutet
+    "bara den fria delen") och 21st.dev Builder (tjugoforsta_mcp_fil, nyckeln ur hemlighetsmappen; uppdraget 2026-10-08, 2C);
+    kundvakten prövar varje anrop till dem. Mobbin finns annars bara på användarnivån, som
     --setting-sources project,local inte läser, så skaparna fick aldrig Mobbin fast metodkartan tilldelar den (ägarens
     uppdrag 2026-10-07, punkt 2 och 3). Utan --strict-mcp-config laddades också användarnivåns tio servrar (Gmail, Resend,
     Trybloom med flera) i varje skaparsession (det verkliga sessionsprovet 2026-10-08, GR-20261008-r117-claude#E1).
@@ -249,7 +277,8 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     (nastlad.miljo)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
     mcp = ['--settings', kundvakt(slug), '--strict-mcp-config', '--mcp-config', refero_mcp_fil(),
-           str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json')] if slug else ['--strict-mcp-config']
+           str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json'),
+           tjugoforsta_mcp_fil()] if slug else ['--strict-mcp-config']  # 21st.dev Builder: komponentresearch och hämtning (2C)
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local'] + mcp + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
@@ -3106,7 +3135,14 @@ def startfil(rot, identitet):
 
 
 def ny_sajt(slug):
-    return subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'ny_sajt.py'), slug, '--installera'], cwd=str(ROOT)).returncode
+    rc = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'ny_sajt.py'), slug, '--installera'], cwd=str(ROOT)).returncode
+    if rc == 0:  # kundprojektets eget repo från projektstarten (kontroller/kundrepo.py; uppdraget 2026-10-08, 2A); ett fel där stoppar inte ateljén
+        try:
+            import kundrepo
+            kundrepo.skapa(slug)
+        except Exception as e:  # noqa: BLE001 — kvittot KUNDREPO.json och Flöde visar vad som saknas
+            print('kundrepot kunde inte skapas: %s: %s' % (type(e).__name__, str(e)[:200]), file=sys.stderr)
+    return rc
 
 
 def main(argv=None):

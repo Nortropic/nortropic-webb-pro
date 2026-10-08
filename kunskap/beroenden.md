@@ -56,6 +56,12 @@ under byggstandardens 200 kB (3.7), men GSAP är det tyngsta valet och bär sig 
   finnas). Skillen `.claude/skills/motion/` (Motion AI Kit, fria delen) är därför också Framer Motion-skillen, och
   dess MCP (`kontroller/mcp/motion.json`, `search-motion-docs`) söker dokumentation och exempel för `motion`,
   `motion/react` och `motion-v`; ingen separat Framer Motion-skill eller -MCP finns eller behövs.
+- **21st.dev Builder** (ägarens val 2026-10-07): MCP:n `kontroller/mcp/21st.json` (https://21st.dev/api/mcp, nyckeln
+  `TWENTYFIRST_API_KEY` ur `~/.nortropic-hemligheter/webb-pro/21st.env`, insatt av `atelje.tjugoforsta_mcp_fil` i en
+  0600-fil bredvid nyckeln) ger rollen komposition komponentsök (`search`, fritt), en vald komponents kod
+  (`get_component`, förbrukar Builders hämtningar) och inspiration. Komponenterna är React/shadcn med Tailwind: koden
+  är material som anpassas till Astro, mallens CSS och CSP:n; `npx shadcn add` och Tailwind installeras aldrig på egen
+  hand (beslut här först). Källa, författare, licens och beroenden skrivs i RIKTNING.md under Referenser.
 - **GSAP:** `import gsap from 'gsap'` (och `import { ScrollTrigger } from 'gsap/ScrollTrigger'` med
   `gsap.registerPlugin`) i ett `<script>`. Varje rörelse står innanför `gsap.matchMedia()` med
   `(prefers-reduced-motion: no-preference)`, så att den som bett om mindre rörelse får sidan färdig och stilla

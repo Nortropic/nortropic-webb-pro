@@ -1996,10 +1996,30 @@ def flode(slug):
         steg.append(_steg(8, 'Exporten till kundrepo', s8,
                           brister=['äldre export utan versionskvitto; dess kontroller och aktualitet är inte belagda'] if s8 == 'inte observerat' else []))
 
-    # 9. leveransen: inget verktyg sparar den, så den visas aldrig som kontrollerad; utan en export i körningen är den inte
-    #    påbörjad
-    steg.append(_steg(9, 'Leveransen', 'inte observerat' if s8 in ('skapat', 'inte observerat') else 'inte påbörjat',
-                      brister=['exporten är förberedelse; verklig driftsättning, domän och formulärmottagning är inte verifierade av den']))
+    import kundrepo
+    kr = kundrepo.las_kvitto(slug)
+    if kr:  # kundprojektets eget repo (kundrepo.py): identiteten, fjärrepot och Vercel-kopplingen som kvittot säger
+        fj, vc, pu = kr.get('fjarr') or {}, kr.get('vercel') or {}, kr.get('senaste_push') or {}
+        steg[-1]['underlag'].append({'text': 'kundrepo %s: lokalt %s · fjärr %s%s · Vercel %s%s' % (
+            kr.get('namn'), 'git' if kundrepo.ar_repo(kundrepo.repo(slug)) else 'saknas', fj.get('status') or 'inte observerat',
+            ' (%s)' % fj['adress'] if fj.get('adress') else (' (%s)' % fj['fel']) if fj.get('fel') else '',
+            vc.get('status') or 'inte kopplat', ' · senaste push %s %s' % ('ok' if pu.get('ok') else 'föll', str(pu.get('commit') or '')[:12]) if pu else '')})
+        if e and e.get('commit'):
+            steg[-1]['underlag'].append({'text': 'exportens commit i kundrepot: %s' % str(e['commit'])[:12]})
+    # 9. leveransen: förhandsvisningens kvitto (kundrepo.preview) när det finns; produktion sparas aldrig av ett verktyg, så
+    #    steget visas aldrig som kontrollerat
+    pv = kundrepo.preview_aktuell(slug)
+    if pv:
+        s9 = 'skapat' if pv.get('aktuell') else 'inaktuellt' if pv.get('status') == 'klar' else 'stoppat'
+        steg.append(_steg(9, 'Leveransen', s9,
+                          underlag=[{'text': 'förhandsvisning %s · commit %s · export %s · %s' % (pv.get('url') or 'saknas', str(pv.get('commit') or '')[:12], pv.get('export') or '?', pv.get('tid'))}],
+                          kontroller=[{'text': 'Vercel: %s (förhandsvisning, inte produktion)' % (pv.get('vercel_status') or pv.get('status'))}],
+                          brister=(['förhandsvisningen gäller en annan commit eller export än den aktuella'] if pv.get('status') == 'klar' and not pv.get('aktuell') else list(pv.get('hinder') or []))
+                                  + ['förhandsvisning är inte produktion; domän, riktiga formulär och drift är inte verifierade'],
+                          utfall=[] if blind else [f for f in [_fil(Path(pv['fil']), 'förhandsvisningens kvitto') if pv.get('fil') else None] if f]))
+    else:
+        steg.append(_steg(9, 'Leveransen', 'inte observerat' if s8 in ('skapat', 'inte observerat') else 'inte påbörjat',
+                          brister=['exporten är förberedelse; verklig driftsättning, domän och formulärmottagning är inte verifierade av den']))
     return {'slug': slug, 'blind': blind, 'ab_dold': False,
             'korning': {'startad': st.get('startad'), 'steg': st.get('steg'), 'lage': st.get('lage')} if st else None,
             'steg': steg, 'tid': nu(), 'besked': flodesbesked(slug, blind=blind),

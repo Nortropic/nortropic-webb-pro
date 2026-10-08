@@ -174,14 +174,16 @@ vl.Cache(vl.lagekatalog() / 'CACHE.json').spara('prov:mobbin', 'v1', resultat='o
 
 
 def skriv_init():
-    """Init-beskedet för en session med respektive utan kontroller/mcp/mobbin.json och motion.json (ateljéns --mcp-config bär
-    båda sedan 2026-10-07), med Referos aktuella verktygslista."""
+    """Init-beskedet för en session med respektive utan kontroller/mcp/mobbin.json, motion.json och 21st (ateljéns --mcp-config
+    bär dem sedan 2026-10-07 respektive 2026-10-08), med Referos aktuella verktygslista."""
     for namn, med in (('init-med', True), ('init-utan', False)):
         servrar = [{'name': 'refero', 'status': 'connected', 'source': 'local'}] + (
-            [{'name': 'mobbin', 'status': 'connected', 'source': 'dynamic'}, {'name': 'motion', 'status': 'connected', 'source': 'dynamic'}] if med else []) + [
+            [{'name': 'mobbin', 'status': 'connected', 'source': 'dynamic'}, {'name': 'motion', 'status': 'connected', 'source': 'dynamic'},
+             {'name': '21st', 'status': 'connected', 'source': 'dynamic'}] if med else []) + [
             {'name': 'claude.ai Claude Docs', 'status': 'connected', 'source': 'claudeai'}]
         verktyg = ['Glob', 'Grep', 'Read', 'Skill', 'ToolSearch', 'mcp__claude_ai_Claude_Docs__read'] + \
-            ['mcp__refero__' + v for v in REFERO['verktyg']] + (list(referenstjanster.TJANSTER['mobbin']['verktyg']) + kompetens.mcp_verktyg('motion') if med else [])
+            ['mcp__refero__' + v for v in REFERO['verktyg']] + (list(referenstjanster.TJANSTER['mobbin']['verktyg']) + kompetens.mcp_verktyg('motion')
+                                                                + kompetens.mcp_verktyg('21st') if med else [])  # 21st.dev sedan 2026-10-08 (2C)
         skills = sorted(p.name for p in (KOPIA / '.claude' / 'skills').iterdir() if p.is_dir())
         (FAKE / namn).write_text(json.dumps({'type': 'system', 'subtype': 'init', 'mcp_servers': servrar, 'tools': verktyg, 'skills': skills}) + '\n')
 

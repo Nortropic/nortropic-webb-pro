@@ -37,9 +37,12 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
    godkännanden räknas om vid visning och blir historiska om version eller beslut inte längre gäller. Drift,
    mottagning av formulär och domän är separata prov. SIGKILL kan inte fångas mitt i katalogbytet; tidigare export
    finns då kvar i kundrepo-tidigare/, men återställning kan behövas innan nästa försök.
-5. **Kundrepot till GitHub och Vercel** har inget verktyg i repot: människa, eller en session med ägarens ja, enligt
-   Vercel-steget nedan. Ingenting från leveransen sparas i repot; `kontroller/driftkoll.py` prövar svaren från en
-   driftsatt adress och skriver bara ut.
+5. **Kundrepot till GitHub och Vercel**: `kontroller/kundrepo.py` skapar kundens eget repo vid projektstarten (lokalt,
+   och privat `Nortropic/kund-<slug>` för en verklig verksamhet), gör exporten till en commit och pushar den när
+   fjärrepot är bundet, kopplar repot till Vercel-projektet `kund-<slug>` i teamet nortropic och driftsätter en
+   förhandsvisning bunden till commit och export (`--preview`, kvitto i `kunder/<slug>/leverans/`). Produktion,
+   skyddet och domänen: människa, eller en session med ägarens ja, enligt Vercel-steget nedan. `kontroller/driftkoll.py`
+   prövar svaren från en driftsatt adress och skriver bara ut.
 
 ## Vercel-steget
 
@@ -58,7 +61,8 @@ för formulärets funktion; kundrepot görs av exporten ovan.
 - **Före lanseringen: skydd för alla driftsättningar** (`ssoProtection: all`). Standard Protection släpper
   produktionsdomänerna, också projektets `<projekt>.vercel.app`, och den första CLI-driftsättningen i ett nytt projekt
   blev produktion: i provet svarade aliaset 200 utan inloggning tills skyddet ändrades till alla driftsättningar.
-  Driftsätt förhandsvisningar med `vercel deploy --target preview`.
+  Driftsätt förhandsvisningar med `vercel deploy --target preview` (`kundrepo.py <slug> --preview` gör det med commit och
+  export som metadata och sparar kvittot).
 - **Vid lanseringen: Standard Protection** (`all_except_custom_domains`): kundens domän är publik, förhandsvisningarna
   skyddade.
 - **Svaren** (`kontroller/driftkoll.py <adress> --lage forhandsvisning|produktion`): förhandsvisningen svarar 302 till

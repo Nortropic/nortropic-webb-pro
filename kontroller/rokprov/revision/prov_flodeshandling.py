@@ -249,7 +249,8 @@ class Flodeshandling(unittest.TestCase):
         with patch.object(prototyp,'lage',return_value=('vanta','syntetisk klar för bedömning')):
             handlingar = prototyp.handlingar(self.slug)
         self.assertIn('exportera',[x['id'] for x in handlingar])
-        self.assertIn('förbered',[x['text'].lower() for x in handlingar if x['id']=='exportera'][0])
+        text_=[x['text'].lower() for x in handlingar if x['id']=='exportera'][0]
+        self.assertIn('kundrepot',text_);self.assertIn('ingen publicering',text_)
 
 
 if __name__ == '__main__':

@@ -213,7 +213,8 @@ def verifiera_bygge(mal, logg=None):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def skapa_export(slug, kandidat, mal, git, bygg):
+def skapa_export(slug, kandidat, mal, git, bygg, export_id=None):
+    import kundrepo
     sajt = KUNDER / slug / ('kandidater/%s/sajt' % kandidat if kandidat else 'sajt')
     if not (sajt / 'package.json').is_file() or not (sajt / 'src' / 'pages' / 'index.astro').is_file():
         raise ValueError('%s saknar package.json eller startsidan' % sajt.relative_to(ROOT))
@@ -245,6 +246,7 @@ def skapa_export(slug, kandidat, mal, git, bygg):
     except (OSError, ValueError):
         namn = slug
     (mal / 'README.md').write_text((LEVERANS / 'README.md').read_text(encoding='utf-8').replace('{{NAMN}}', namn), encoding='utf-8')
+    (mal / 'CLAUDE.md').write_text(kundrepo.claude_md(slug, export_id, underlag=UNDERLAG), encoding='utf-8')  # projektets korta kontext (2A)
     shutil.copyfile(LEVERANS / 'gitignore', mal / '.gitignore')
     shutil.copyfile(LEVERANS / 'env.example', mal / '.env.example')
     shutil.copyfile(LEVERANS / 'vercel.json', mal / 'vercel.json')
@@ -371,8 +373,10 @@ def _exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
         tmp = Path(korregister.egen_tmp('nwp-export-', 'export före publicering', dir=mal.parent))
         stage = tmp / 'repo'
         stage.mkdir()
+        import kundrepo
+        bestandigt = kundrepo.ar_repo(mal)  # kundprojektets eget repo (kundrepo.py): exporten blir en commit där, inget katalogbyte
         try:
-            data = skapa_export(slug, kandidat, stage, git, bygg)
+            data = skapa_export(slug, kandidat, stage, git and not bestandigt, bygg, export_id=res['id'])
             res.update({n: v for n, v in data.items() if n not in ('ut', 'ok')})
             res['kontroller']['exportbygge'] = {'varde': data.get('bygge_ok'),
                                                 'text': data.get('bygge') or 'inte kört (--inget-bygge)'}
@@ -393,26 +397,33 @@ def _exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
                         res['helbygge']['text'] = 'historiskt eller saknar koppling mellan källor och granskat dist'
                 undan = None
                 staged_id = (stage.stat().st_dev, stage.stat().st_ino)
-                try:
-                    with avbrott_som_fel():
-                        if mal.exists():
-                            undan = kund / 'kundrepo-tidigare' / id_
-                            atelje.saker_vag(undan, kund)
-                            undan.parent.mkdir(exist_ok=True)
-                            os.replace(mal, undan)
-                        os.replace(stage, mal)
-                        res['ok'] = True
-                        if undan:
-                            res['tidigare'] = str(undan)
-                except BaseException:
-                    res['ok'] = False
-                    # Även signalramens avslut ingår. Signalen kan komma efter att
-                    # replace gjort sitt byte; flytta bara tillbaka vår egen inode.
-                    if mal.exists() and not mal.is_symlink() and (mal.stat().st_dev, mal.stat().st_ino) == staged_id:
-                        os.replace(mal, stage)
-                    if undan and undan.exists() and not mal.exists():
-                        os.replace(undan, mal)
-                    raise
+                if bestandigt:
+                    c = kundrepo.synka_export(slug, stage, res['id'], 'kandidat %s' % kandidat if kandidat else 'sajten', rot=mal)
+                    res['commit'], res['kundrepo'] = c['commit'], {'lokal': str(mal), 'oforandrad': c['oforandrad']}
+                    res['ok'] = True
+                    if ((kundrepo.las_kvitto(slug, mal.parent) or {}).get('fjarr') or {}).get('status') == 'skapat':
+                        res['push'] = kundrepo.push(slug, rot=mal)  # det bundna privata fjärrepot (ingen publicering)
+                if not bestandigt:
+                    try:
+                        with avbrott_som_fel():
+                            if mal.exists():
+                                undan = kund / 'kundrepo-tidigare' / id_
+                                atelje.saker_vag(undan, kund)
+                                undan.parent.mkdir(exist_ok=True)
+                                os.replace(mal, undan)
+                            os.replace(stage, mal)
+                            res['ok'] = True
+                            if undan:
+                                res['tidigare'] = str(undan)
+                    except BaseException:
+                        res['ok'] = False
+                        # Även signalramens avslut ingår. Signalen kan komma efter att
+                        # replace gjort sitt byte; flytta bara tillbaka vår egen inode.
+                        if mal.exists() and not mal.is_symlink() and (mal.stat().st_dev, mal.stat().st_ino) == staged_id:
+                            os.replace(mal, stage)
+                        if undan and undan.exists() and not mal.exists():
+                            os.replace(undan, mal)
+                        raise
             else:
                 res['fel'] = 'exportens läckagekontroll eller byggprov föll'
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as e:

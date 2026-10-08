@@ -102,7 +102,8 @@ def bygget_nekas(slug):
 HANDLINGAR = {'forbered': 'Förbered kundunderlaget', 'fortsatt': 'Återuppta arbetet', 'stoppa': 'Stoppa arbetet',
               'om': 'Starta referensjakt och skiss', 'valda': 'Förfina de valda förslagen', 'putsa': 'Förfina riktningen',
               'ny-riktning': 'Arkivera försöket och sök en ny riktning', 'helbygge':'Starta helbygge från godkänd design',
-              'exportera':'Förbered lokalt kundrepo (ingen publicering)', 'stoppa-overgang':'Begär stopp av helbygge eller export'}
+              'exportera':'Exportera till kundrepot (commit, ingen publicering)', 'preview':'Förhandsvisa exportens commit i Vercel (ingen produktion)',
+              'stoppa-overgang':'Begär stopp av helbygge, export eller förhandsvisning'}
 
 
 def handlingar(slug):
@@ -126,7 +127,10 @@ def handlingar(slug):
             val = ['ny-riktning']
         if lage_ == 'godkand':val=['helbygge']
         sajt=atelje.KUNDER/slug/'sajt'
-        if (sajt/'package.json').is_file() and (sajt/'src/pages/index.astro').is_file():val.append('exportera')
+        if (sajt/'package.json').is_file() and (sajt/'src/pages/index.astro').is_file():
+            val.append('exportera')
+            import kundrepo
+            if kundrepo.preview_mojlig(slug):val.append('preview')  # exportens commit är kundrepots HEAD (kundrepo.py)
     ut=[{'id': n, 'text': HANDLINGAR[n]} for n in val]
     for h in ut:  # ett hinder i startmiljön visas vid knappen, i stället för att starten nekas efteråt (F07)
         if h['id']=='helbygge' and flodesstart.startmiljo()['hinder']:h['hinder']=flodesstart.startmiljo()['hinder']
@@ -161,8 +165,9 @@ def main(argv=None):
     grupp.add_argument('--fortsatt', action='store_true', help='återuppta avbrutet arbete utan att göra om klara steg')
     grupp.add_argument('--stoppa', action='store_true', help='stoppa arbetaren och dess sessioner')
     grupp.add_argument('--helbygge', action='store_true', help='starta kor.sh från aktuell ägargodkänd design')
-    grupp.add_argument('--exportera', action='store_true', help='förbered lokalt kundrepo med byggprov, ingen publicering')
-    grupp.add_argument('--stoppa-overgang', action='store_true', help='begär stopp av en pågående helbygges-/exporthandling')
+    grupp.add_argument('--exportera', action='store_true', help='exportera till kundrepot med byggprov (en commit), ingen publicering')
+    grupp.add_argument('--preview', action='store_true', help='förhandsvisa exportens commit i Vercel-projektet (ingen produktion)')
+    grupp.add_argument('--stoppa-overgang', action='store_true', help='begär stopp av en pågående helbygges-, export- eller förhandsvisningshandling')
     grupp.add_argument('--ny-riktning', action='store_true', help='omtag: designbesluten tas bort, ny utforskning ur mallen')
     grupp.add_argument('--putsa', action='store_true', help='förfina den valda riktningen vidare med ägarens senaste dom')
     grupp.add_argument('--om', action='store_true', help='en ny körning utan att ta bort designbesluten')
@@ -178,9 +183,9 @@ def main(argv=None):
     if a.stoppa_overgang:
         import flodesstart
         return flodesstart.stoppa(a.slug)
-    if a.helbygge or a.exportera:
+    if a.helbygge or a.exportera or a.preview:
         import flodesstart
-        handling = 'helbygge' if a.helbygge else 'exportera'
+        handling = 'helbygge' if a.helbygge else 'exportera' if a.exportera else 'preview'
         a.start_id = a.start_id or __import__('uuid').uuid4().hex
         try:rc = flodesstart.starta(a.slug, handling, a.start_id)
         except (OSError,ValueError,RuntimeError) as e:

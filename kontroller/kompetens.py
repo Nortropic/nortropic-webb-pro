@@ -112,9 +112,15 @@ MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en käll
     # fria delen"): verktygen vid tools/list 2026-10-07. Ingen referenstjänst (inga bilder, researchen frågar den aldrig), så
     # listan står här och inte i referenstjanster.TJANSTER; kundvakten släpper den genom kundvakt.tillatna (mcp_verktyg)
     'motion': ('mcp__motion__search-motion-docs',),
+    # 21st.dev Builder (kontroller/mcp/21st.json; ägarens val 2026-10-07, uppdraget 2026-10-08, 2C): verktygen vid tools/list
+    # 2026-10-08 (51 på servern; sessionsprovet i rapporten). Rollen komposition söker komponenter generiskt (search, fritt),
+    # hämtar en vald komponents kod med källa, licens och beroenden (get_component, förbrukar Builders hämtningar) och
+    # läser inspirationsflödet (get_inspiration); katalogens publicerings-, konto- och videoverktyg har ingen uppgift
+    '21st': ('mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration'),
 }
 MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)',
-           'motion': 'Motion (dokumentation och exempel för motion, motion/react och motion-v; den fria servern)'}
+           'motion': 'Motion (dokumentation och exempel för motion, motion/react och motion-v; den fria servern)',
+           '21st': '21st.dev Builder (komponentsök, en vald komponents kod med källa och licens, inspiration; koden är material att anpassa)'}
 REDOVISAT = 'redovisat av sessionen, inte observerat'  # passets egen redovisning (teknikval), skild från observationen
 # Tillståndsorden (ägarens uppdrag 2026-10-07, punkt 3, ordagrant i minnet; inte observerat skilt från inte gjort enligt
 # ägarens tillägg samma dag). Startkvittot och kompetensens kvitton använder bara de här orden för kompetensen och
@@ -132,7 +138,7 @@ TILLSTAND = {
 }
 LASBELAGG = 'belägg för läsning, inte för tillämpning'
 LASKVITTO = 'läst (%s)' % LASBELAGG
-VERKTYGSBLOCK = re.compile(r'^```tjanstverktyg[ \t]+(?P<tjanst>[a-z][a-z0-9-]*)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)  # tjänstnamn med bindestreck (chrome-devtools)
+VERKTYGSBLOCK = re.compile(r'^```tjanstverktyg[ \t]+(?P<tjanst>[a-z0-9][a-z0-9-]*)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)  # tjänstnamn med bindestreck (chrome-devtools) eller siffra först (21st)
 BESLUTSRAD = re.compile(r'^(?P<verktyg>[a-z][a-z0-9_-]*):\s*(?P<beslut>uppgift|ingen uppgift)\s+—\s+(?P<text>.+?)\s*$')  # bindestreck: search-motion-docs
 PROVDATUM = re.compile(r'prövat (20\d\d-\d\d-\d\d)')
 
