@@ -1207,6 +1207,7 @@ document.addEventListener('click', async (e) => {
 // Flödet (ägarens tillägg 2026-10-06, punkt 4): det tänkta flödet ur README:s kedja, det som faktiskt hände för en kund
 // steg för steg, och Figma-metodprovet. En fil som finns är inte ett kontrollerat steg; ett steg som inte gjorts visas så.
 const FLODESTATUS = { skapat: '', kontrollerat: 'ok', 'underkänt': 'rod', 'väntar på ägaren': 'gul', beslutat: 'acc', inaktuellt: 'gul', 'pågår': 'acc puls', stoppat: 'rod', 'inte observerat': '', 'inte påbörjat': '' };
+let flodeGeneration = 0;
 const flodechip = (s) => `<span class="chip ${FLODESTATUS[s] ?? ''}">${esc(s)}</span>`;
 const kodtext = (t) => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>');
 function flodelista(rubrik, poster) {
@@ -1231,16 +1232,19 @@ function flodesbesked(b, handlingar, slug) {
 document.addEventListener('click', async (e) => {
   const las = e.target.closest('[data-flode-las]');
   if (las) {
+    const generation = flodeGeneration + 1, hash = location.hash;
     las.disabled = true;
     $('#flode-handlingssvar').textContent = 'Läser aktuellt läge…';
-    try { await flodesvy(las.dataset.flodeLas); $('#flode-besked-rubrik')?.focus(); }
-    catch (err) { $('#flode-handlingssvar').textContent = 'Läget gick inte att läsa: ' + err.message + '. Inget arbete startades.'; }
+    try { if (await flodesvy(las.dataset.flodeLas)) $('#flode-besked-rubrik')?.focus(); }
+    catch (err) { if (generation===flodeGeneration && hash===location.hash && $('#flode-handlingssvar')) $('#flode-handlingssvar').textContent = 'Läget gick inte att läsa: ' + err.message + '. Inget arbete startades.'; }
     finally { las.disabled = false; }
     return;
   }
   const knapp = e.target.closest('[data-flodeshandling]');
   if (!knapp || knapp.disabled) return;
   const slug = knapp.dataset.flodeSlug, handling = knapp.dataset.flodeshandling;
+  const hash=location.hash; let generation=flodeGeneration;
+  const aktuell=()=>generation===flodeGeneration && hash===location.hash;
   const key = 'nwp-start:' + slug + ':' + handling;
   let startId;
   try { startId = sessionStorage.getItem(key) || crypto.randomUUID(); sessionStorage.setItem(key, startId); }
@@ -1249,26 +1253,33 @@ document.addEventListener('click', async (e) => {
   $('#flode-handlingssvar').textContent = 'Skickar begäran… Du kan läsa aktuellt läge om svaret dröjer.';
   try {
     const r = await post('/api/flode/' + encodeURIComponent(slug) + '/start', { handling, start_id: startId });
-    sessionStorage.removeItem(key);
-    await flodesvy(slug);
+    if (sessionStorage.getItem(key)===startId) sessionStorage.removeItem(key);
+    if (!aktuell()) return;
+    generation=flodeGeneration+1;
+    if (!await flodesvy(slug)) return;
     $('#flode-handlingssvar').textContent = r.besked;
     $('#flode-besked-rubrik')?.focus();
   } catch (err) {
     const svar = $('#flode-handlingssvar');
-    if (svar) svar.textContent = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs aktuellt läge eller försök igen; samma start-id används.';
+    if (svar && aktuell()) svar.textContent = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs aktuellt läge eller försök igen; samma start-id används.';
     knapp.disabled = false;
   } finally { knapp.removeAttribute('aria-busy'); }
 });
 
 async function flodesvy(slug) {
+  const generation=++flodeGeneration, hash=location.hash;
+  const aktuell=()=>generation===flodeGeneration && hash===location.hash;
+  try {
   aktivNav('flode');
   const d = await api('/api/flode');
+  if (!aktuell()) return false;
   const val = slug || d.slugar[0] || '';
   const tankt = d.kedjan.fel ? `<div class="meddelande fel">${esc(d.kedjan.fel)}</div>`
     : d.kedjan.steg.map((s) => `<div class="kort" style="margin-bottom:8px"><div style="font-weight:560">${s.steg}</div><p style="margin:6px 0 0">${s.vem}</p><p class="under" style="margin:4px 0 0">Resultat: ${s.resultat}</p>${s.saknas ? `<p class="under" style="margin:4px 0 0"><span class="chip gul">saknas i dag</span> ${s.saknas}</p>` : ''}</div>`).join('');
   let hande = '<p>Ingen kund med underlag eller bygge än.</p>';
   if (val) {
     const f = await api('/api/flode/' + encodeURIComponent(val));
+    if (!aktuell()) return false;
     // en arm i en blind jämförelse som du inte valt i än: inga steg alls, lika för båda armarna (som vyn Bygge)
     const stegen = f.ab_dold ? '<div class="meddelande">Bygget är en arm i en blind jämförelse som du inte har valt i än. Flödet visas efter ditt val i Jämförelser, så att jämförelsen förblir blind.</div>'
       : `${f.blind ? '<div class="meddelande">Ditt första val i körningen är inte gjort: förslagen visas med neutrala etiketter, status, version och bilder, utan bedömningar.</div>' : ''}
@@ -1292,6 +1303,8 @@ async function flodesvy(slug) {
     <h2>Det här hände${val ? ': ' + esc(val) : ''}</h2>${hande}
     <h2 style="margin-top:28px">Så är flödet tänkt</h2>${tankt}
     ${pilot ? `<h2 style="margin-top:28px">Figma-metodprovet</h2><p class="under">Pilotens tre moment: A återskapar en referens, B anpassar till kundens material, C överför till webb. Inget i leveransen är verifierat genom piloten.</p>${pilot}` : ''}</div>`;
+  return true;
+  } catch (err) { if (!aktuell()) return false; throw err; }
 }
 
 // <dokumentationsvyn>

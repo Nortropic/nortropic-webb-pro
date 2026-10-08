@@ -24,7 +24,15 @@ granskningen av r101, GR-20261007-r101):
   rader, inte bara mot postens egen text;
 - den äldre postens länk pekar på den flyttade rapporten;
 - kalibreringen: läckageprovet går inte igenom utan texter eller utan nivåfilen, och inte när ett exempel inte kunde
-  prövas; huvudvägen prövar mot det granskaren läste; en äldre rapport rättas med ett daterat block överst.
+  prövas; huvudvägen prövar mot det granskaren läste; en äldre rapport rättas med ett daterat block överst;
+- skyddet av ägarens dom och byggets processer (omgranskningen GR-20261007-r101-om, BÖR 1, BÖR 2, KAN 1–6 och KAN 8;
+  GR-20261007-r101-om2, KAN 5), genom kor.sh med en attrapp: ett eget skript som förfalskar hashlistan, tar bort låset på
+  DOM.json eller ändrar mekaniken ger slutkod 3 eller ej belagd, aldrig "ägaren godkänner: ja"; en demon som lämnat sin
+  session stoppas innan låset släpps; ägarens verkliga dom räknas, också de äldre domarna när bygget lagt till en;
+  ingen process blir kvar efter SIGTERM, SIGINT eller SIGHUP till kor.sh eller gruppen, och claude som inte avslutar på
+  SIGTERM får SIGKILL efter fristen; slutkoden vid en stängd terminal är postens; efter SIGKILL skriver vakten posten och
+  släpper låsen, och ägarens senare dom räknas; en körning utan post sägs som avbruten eller med en post som uteblev; ett
+  kommando som faller under set -e ger en post med skälet; avslutet fullföljs trots en signal till gruppen.
 
     .venv/bin/python kontroller/rokprov/revision/prov_slutpost.py <repo>
 
@@ -254,10 +262,24 @@ def listor(k, fore=None, efter=None):
     return f, e
 
 
-def korslut_(k, korning, rc='0', fore=None, efter=None, rot=None, env=None):
+INGA_KVAR = json.dumps({'stoppade': [], 'kvar': []})
+
+
+def minne(k, f, e):
+    """kor.sh:s minne som korslut får det: hashlistornas sha256, sha256 för DOM.json när den låstes (här ur listan före)
+    och vaktens besked om byggets processer."""
+    start = korslut.hashlista(f).get('kunder/%s/DOM.json' % Path(k).name)
+    return {'NWP_SKYDDAT_SHA256': '%s %s' % (sha(f), sha(e)), 'NWP_DOM_START_SHA256': start or 'saknas', 'NWP_PROCESSER': INGA_KVAR}
+
+
+def korslut_(k, korning, rc='0', fore=None, efter=None, rot=None, env=None, med_minne=True, **andra):
     f, e = listor(k, fore, efter)
+    m = dict(os.environ if env is None else env)
+    if med_minne:
+        m.update(minne(k, f, e))
+    m.update(andra)
     p = subprocess.run([PY, '-B', str((rot or ROOT) / 'kontroller' / 'korslut.py'), str(k), rc, str(f), str(e), korning],
-                       capture_output=True, text=True, timeout=300, env=env)
+                       capture_output=True, text=True, timeout=300, env=m)
     return p.returncode, p.stdout, p.stderr
 
 
@@ -479,19 +501,81 @@ KR = TMP / 'kor-repo'
 FALSK = TMP / 'falsk-claude'
 FALSK_SKRIPT = r'''#!/bin/sh
 cat > /dev/null
-if [ -n "$PROV_ANDRA_PROTOKOLL" ]; then for f in kunder/"$NWP_SLUG"/korningar/*/SLUT.json; do echo " " >> "$f"; done; fi
-if [ -n "$PROV_KATALOG_POST" ]; then mkdir -p kunder/"$NWP_SLUG"/korningar/"$NWP_KORNING"/SLUT.json; fi
+K=kunder/"$NWP_SLUG"
+[ -z "$PROV_IGNORERA_TERM" ] || trap '' TERM
+[ -z "$PROV_ARGV" ] || printf '%s\n' "$@" > "$K"/ARGV.txt
+dist12() { .venv/bin/python -B -c "import sys; from pathlib import Path; sys.path.insert(0, 'kontroller'); import prova; print(prova.dist_hash(Path('$K/sajt/dist'))[:12])"; }
+egen_dom() { printf '{"schema": 1, "domar": [{"tid": "2026-10-07T09:00:00Z", "bygge_dist": "%s", "svar": {"namn": "Ja, som den är"}}]}\n' "$(dist12)"; }
+if [ -n "$PROV_ANDRA_PROTOKOLL" ]; then for f in "$K"/korningar/*/SLUT.json; do echo " " >> "$f"; done; fi
+if [ -n "$PROV_KATALOG_POST" ]; then mkdir -p "$K"/korningar/"$NWP_KORNING"/SLUT.json; fi
 if [ -n "$PROV_BYGG" ]; then
-  mkdir -p kunder/"$NWP_SLUG"/sajt/dist; echo "<p>$PROV_BYGG</p>" > kunder/"$NWP_SLUG"/sajt/dist/index.html
+  mkdir -p "$K"/sajt/dist; echo "<p>$PROV_BYGG</p>" > "$K"/sajt/dist/index.html
 fi
 if [ -n "$PROV_RAPPORT" ]; then
-  printf -- "---\nkorning: %s\n---\n# Rapport\n%s\n" "$NWP_KORNING" "$(printf 'Rapporten for korningen. %.0s' $(seq 1 30))" > kunder/"$NWP_SLUG"/RAPPORT.md
+  printf -- "---\nkorning: %s\n---\n# Rapport\n%s\n" "$NWP_KORNING" "$(printf 'Rapporten for korningen. %.0s' $(seq 1 30))" > "$K"/RAPPORT.md
 fi
 if [ -n "$PROV_DOM" ]; then
-  H=$(.venv/bin/python -B -c "import sys; from pathlib import Path; sys.path.insert(0, 'kontroller'); import prova; print(prova.dist_hash(Path('kunder/$NWP_SLUG/sajt/dist'))[:12])")
-  { printf '{"schema": 1, "domar": [{"tid": "2026-10-07T09:00:00Z", "bygge_dist": "%s", "svar": {"namn": "Ja, som den är"}}]}' "$H" > kunder/"$NWP_SLUG"/DOM.json; } 2> kunder/"$NWP_SLUG"/DOM-FEL.txt
-  echo "rc=$?" > kunder/"$NWP_SLUG"/DOM-RC.txt
+  { egen_dom > "$K"/DOM.json; } 2> "$K"/DOM-FEL.txt
+  echo "rc=$?" > "$K"/DOM-RC.txt
 fi
+# ett eget skript: en dom kopierad på plats (cp är tillåtet), eller låset borttaget med os.chflags och domen omskriven eller
+# tillagd, och hashlistan före körningen omskriven så att DOM.json och kritik/GRANSKARE.md ser oförändrade ut
+if [ -n "$PROV_DOM_CP" ]; then egen_dom > "$K"/utkast.json; cp "$K"/utkast.json "$K"/DOM.json; fi
+if [ -n "$PROV_DOM_SKRIPT" ]; then
+  egen_dom > "$K"/utkast.json
+  .venv/bin/python -B -c "
+import json, os, stat
+p = '$K/DOM.json'
+os.chflags(p, 0)
+ny = json.load(open('$K/utkast.json'))
+if '$PROV_DOM_SKRIPT' == 'lagg_till':
+    d = json.load(open(p)); d['domar'] += ny['domar']; ny = d
+open(p, 'w').write(json.dumps(ny))
+os.chflags(p, stat.UF_IMMUTABLE)
+"
+fi
+if [ -n "$PROV_MEKANIK" ]; then echo "<!-- ändrad av bygget -->" >> kritik/GRANSKARE.md; fi
+if [ -n "$PROV_LISTA" ]; then
+  .venv/bin/python -B -c "
+import hashlib
+f = '$K/prov/.skyddat-fore'
+rader = open(f).read().splitlines()
+for p in ('$K/DOM.json', 'kritik/GRANSKARE.md'):
+    try:
+        h = hashlib.sha256(open(p, 'rb').read()).hexdigest()
+    except OSError:
+        continue
+    rader = [r for r in rader if not r.endswith('  ' + p)] + [h + '  ' + p]
+open(f, 'w').write('\n'.join(rader) + '\n')
+"
+fi
+# en process som lever kvar efter sessionen: lämnar sin session (setsid), får en ny förälder när skalet slutar, väntar tills
+# låset är borta och skriver då domen
+if [ -n "$PROV_DEMON" ]; then
+  egen_dom > "$K"/utkast.json
+  nohup .venv/bin/python -B -c "
+import os, shutil, time
+os.setsid()
+open('$K/DEMON.pid', 'w').write(str(os.getpid()))
+slut = time.time() + 60
+while time.time() < slut and os.path.exists('kunder/.bygge-pid'):
+    time.sleep(0.1)
+time.sleep(0.5)
+shutil.copyfile('$K/utkast.json', '$K/DOM.json')
+open('$K/DEMON-SKREV', 'w').write('ja')
+" > /dev/null 2>&1 &
+  for _ in $(seq 1 100); do [ -s "$K"/DEMON.pid ] && break; sleep 0.1; done
+fi
+if [ -n "$PROV_BARNBARN" ]; then  # ett barnbarn i en egen session, som sover
+  nohup .venv/bin/python -B -c "
+import os, time
+os.setsid()
+open('$K/BARNBARN.pid', 'w').write(str(os.getpid()))
+time.sleep(120)
+" > /dev/null 2>&1 &
+  for _ in $(seq 1 100); do [ -s "$K"/BARNBARN.pid ] && break; sleep 0.1; done
+fi
+if [ -n "$PROV_BARN" ]; then sleep "$PROV_BARN" & echo $! > "$K"/BARN.pid; wait; fi
 if [ -n "$PROV_SOV" ]; then exec sleep "$PROV_SOV"; fi
 echo '{"type":"result","subtype":"success","num_turns":3,"duration_ms":1000}'
 exit 0
@@ -500,8 +584,10 @@ exit 0
 
 def kor_repo():
     """En repokopia med mekaniken (kor.sh, kontroller, krokarna, kritik, kunskap, dashboarden), länkad körmiljö, git och
-    en falsk claude vars beteende styrs med PROV_*-variabler."""
+    en falsk claude vars beteende styrs med PROV_*-variabler. Lås som ett tidigare fall lämnat (en dödad körning) tas
+    bort, så att fallen inte beror av varandra."""
     if KR.is_dir():
+        subprocess.run(['chflags', 'nouchg', str(KR / 'kunder'), str(KR / 'underlag')], capture_output=True)
         return
     KR.mkdir()
     for namn in ('kor.sh', 'CLAUDE.md', 'BESLUT.md', 'LARDOMAR.md', '.gitignore', 'dashboard.sh'):
@@ -527,7 +613,8 @@ def kor_repo():
 
 def miljo(**extra):
     m = {k: v for k, v in os.environ.items() if not k.startswith(('CLAUDE_CODE_', 'NWP_', 'PROV_')) and k != 'CLAUDECODE'}
-    m.update(PATH=str(FALSK) + os.pathsep + m.get('PATH', ''), NWP_STARTKONTROLL='av', NWP_SANDLADA='av', NWP_KORREGISTER=str(TMP / 'korregister'))
+    m.update(PATH=str(FALSK) + os.pathsep + m.get('PATH', ''), NWP_STARTKONTROLL='av', NWP_SANDLADA='av', NWP_KORREGISTER=str(TMP / 'korregister'),
+             NWP_FRIST='2')
     m.update(extra)
     return m
 
@@ -541,6 +628,79 @@ def kor(slug, **extra):
 def korningar(slug):
     d = KR / 'kunder' / slug / 'korningar'
     return sorted(x.name for x in d.iterdir() if (x / 'SLUT.json').is_file()) if d.is_dir() else []
+
+
+# hjälparna för skyddet av ägarens dom och byggets processer (omgranskningen GR-20261007-r101-om och -om2)
+
+LAS = KR / 'kunder' / '.bygge-pid'
+
+
+def flaggor(p):
+    return subprocess.run(['stat', '-f', '%Sf', str(p)], capture_output=True, text=True).stdout.strip()
+
+
+def lever(k, namn):
+    """Pid:en i kunder/<slug>/<namn> när processen lever, annars None."""
+    try:
+        pid = int((Path(k) / namn).read_text().strip())
+        os.kill(pid, 0)
+        return pid
+    except (OSError, ValueError):
+        return None
+
+
+def doda(k, *namn):
+    for x in namn:
+        pid = lever(k, x)
+        if pid:
+            os.kill(pid, signal.SIGKILL)
+
+
+def stada_grupp(p):
+    try:
+        os.killpg(p.pid, signal.SIGKILL)  # det som kor.sh lämnat i sin grupp
+    except OSError:
+        pass
+
+
+def kor_bakgrund(slug, vanta=('BARN.pid',), **extra):
+    """kor.sh i bakgrunden, i en egen session, tills attrappens pid-filer finns. Ger (processen, loggen)."""
+    k = KR / 'kunder' / slug
+    logg = TMP / ('%s.out' % slug)
+    with open(logg, 'w') as ut_:
+        p = subprocess.Popen(['bash', str(KR / 'kor.sh'), slug, 'Prov AB, Umeå'], stdout=ut_, stderr=subprocess.STDOUT, cwd=str(KR),
+                             env=miljo(**extra), start_new_session=True)
+    slut = time.time() + 120
+    while time.time() < slut and not all((k / x).is_file() and (k / x).read_text().strip() for x in vanta):
+        if p.poll() is not None:
+            break
+        time.sleep(0.1)
+    time.sleep(0.3)
+    return p, logg
+
+
+def dist12(innehall):
+    """dist-hashen (12 tecken) för en dist med bara index.html, som attrappen bygger den (PROV_BYGG)."""
+    d = TMP / 'disthash' / innehall / 'dist'
+    skriv(d / 'index.html', '<p>%s</p>\n' % innehall)
+    return prova.dist_hash(d)[:12]
+
+
+def agardom(k, d12, namn='Ja, som den är', tid='2026-10-06T20:00:00Z'):
+    """En dom som dashboardens Din dom skriver den, före körningen."""
+    return skriv(Path(k) / 'DOM.json', {'schema': 1, 'domar': [{'tid': tid, 'bygge_dist': d12, 'svar': {'namn': namn}}]})
+
+
+def agaren(k, korning=None):
+    """(raden 'ägaren godkänner:' ur --visa i provrepot, tillståndet ur posten)."""
+    _, vt = visa(k, rot=KR, env=miljo())
+    post_ = slutpost(k, korning or korningar(Path(k).name)[-1])
+    return rad(vt, 'ägaren godkänner:'), post_['tillstand']['agaren_godkanner']
+
+
+def korningar_alla(slug):
+    d = KR / 'kunder' / slug / 'korningar'
+    return sorted(x.name for x in d.iterdir() if (x / 'START.json').is_file()) if d.is_dir() else []
 
 
 @fall('kor.sh direkt: en start som stannar före bygget ger en kort slutpost och lämnar den äldre rapporten')
@@ -577,6 +737,9 @@ def _kor_helt():
     assert rad(ut, 'sessionen avslutad normalt:').startswith('sessionen avslutad normalt: ja — claude avslutade med kod 0 (success, 3 turer)'), rad(ut, 'sessionen')
     assert rad(ut, 'klart för leverans:').startswith('klart för leverans: nej — slutkod 1'), rad(ut, 'klart')
     assert rad(ut, 'Slutkod 1') == 'Slutkod 1 : avslutat utan grönt prov och godkänd granskning', rad(ut, 'Slutkod')
+    # postens status i terminalen och uppdraget i en fullständig post (omgranskningen av r101, KAN 8: N44 och N47)
+    assert rad(ut, 'Posten:') == 'Posten: färdig', rad(ut, 'Posten:')
+    assert post['uppdrag'] == '%s: Prov AB, Umeå, https://exempel.se' % korslut.UPPDRAG, ('uppdraget bär verksamheten', post['uppdrag'])
     flyttad = k / 'rapporter' / ('RAPPORT-fore-%s.md' % m.group(1))
     assert flyttad.is_file() and flyttad.read_bytes() == innehall and not (k / 'RAPPORT.md').exists(), 'den äldre rapporten flyttades inte orörd'
     assert any(('rapporter/RAPPORT-fore-%s.md' % m.group(1)) in u for u in post['underlag']), ('posten länkar inte den flyttade rapporten', post['underlag'])
@@ -667,6 +830,7 @@ def _kor_stopp_ovriga():
     k = KR / 'kunder' / 'krock-prov'
     gammal = skriv(k / 'RAPPORT.md', rapport('20261001T080000Z'))
     innehall = gammal.read_bytes()
+    skriv(k / 'DOM.json', {'domar': [{'tid': '2026-10-06T20:00:00Z', 'bygge_dist': 'c' * 12, 'svar': {'namn': 'Nej'}}]})
     nu_ = datetime.now(timezone.utc)
     upptagna = [skriv(k / 'rapporter' / ('RAPPORT-fore-%s.md' % (nu_ + timedelta(seconds=s)).strftime('%Y%m%dT%H%M%SZ')), 'en befintlig fil %d\n' % s)
                 for s in range(0, 90)]
@@ -674,46 +838,512 @@ def _kor_stopp_ovriga():
     k_ = korningar('krock-prov')
     assert rc == 2 and k_ and 'kunde inte flyttas' in slutpost(k, k_[-1])['skal'], (rc, ut[-300:])
     assert gammal.read_bytes() == innehall and all(p.read_text().startswith('en befintlig fil') for p in upptagna), 'flytten skrev över något'
+    # stoppet kom efter att DOM.json låsts: avslutet tar bort låset (omgranskningen av r101, KAN 8: N08)
+    assert 'uchg' not in flaggor(k / 'DOM.json') and 'uchg' not in flaggor(KR / 'kunder'), ('låset ligger kvar efter stoppet', flaggor(k / 'DOM.json'))
 
 
-@fall('kor.sh: SIGTERM ger en post med slutkoden; efter SIGKILL säger nästa start och --visa att körningen avbröts utan slutpost (BÖR 1)')
-def _kor_signal():
+# ===== skyddet av ägarens dom och byggets processer (omgranskningen GR-20261007-r101-om och -om2) =====
+
+@fall('ägarens dom genom kor.sh (BÖR 1): ett eget skript som kopierar in en dom, tar bort låset eller ändrar mekaniken och förfalskar hashlistan ger slutkod 3 och aldrig "ägaren godkänner: ja"; ägarens verkliga dom räknas')
+def _kor_forfalskning():
     kor_repo()
-    for slug, sig in (('term-prov', signal.SIGTERM), ('kill-prov', signal.SIGKILL)):
-        k = KR / 'kunder' / slug
-        skriv(k / 'RAPPORT.md', rapport('20261001T080000Z'))
-        logg = TMP / ('%s.out' % slug)
-        with open(logg, 'w') as ut_:
-            p = subprocess.Popen(['bash', str(KR / 'kor.sh'), slug, 'Prov AB, Umeå'], stdout=ut_, stderr=subprocess.STDOUT, cwd=str(KR),
-                                 env=miljo(NWP_ATELJE='av', PROV_SOV='60'), start_new_session=True)
-        slut = time.time() + 120
-        while time.time() < slut and 'startad' not in logg.read_text():
-            time.sleep(0.2)
-        time.sleep(1.5)
-        start = re.search(r'startad (\d{8}T\d{6}Z)', logg.read_text())
-        os.kill(p.pid, sig)
-        try:
-            rc = p.wait(timeout=90)
-        finally:
+    d12 = dist12('bygget')
+    fel = []
+    # c: DOM.json saknas vid start; en dom kopieras in och hashlistan skrivs om
+    rc, ut, _ = kor('fa-c', NWP_ATELJE='av', PROV_BYGG='bygget', PROV_DOM_CP='1', PROV_LISTA='1')
+    vt, ag = agaren(KR / 'kunder' / 'fa-c')
+    if not (rc == 3 and 'lista:kunder/fa-c/prov/.skyddat-fore' in rad(ut, 'Slutkod 3') and ag['varde'] is None and ag.get('avsandare') == 'ej belagd'
+            and not vt.startswith('ägaren godkänner: ja')):
+        fel.append(('c', rc, rad(ut, 'Slutkod'), ag, vt))
+    # d: ägarens dom över ett annat bygge, låst; ett eget skript tar bort låset, skriver om filen, låser igen och skriver om listan
+    agardom(KR / 'kunder' / 'fa-d', 'a' * 12)
+    rc, ut, _ = kor('fa-d', NWP_ATELJE='av', PROV_BYGG='bygget', PROV_DOM_SKRIPT='ersatt', PROV_LISTA='1')
+    vt, ag = agaren(KR / 'kunder' / 'fa-d')
+    if not (rc == 3 and 'kunder/fa-d/DOM.json' in rad(ut, 'Slutkod 3') and ag['varde'] is None and not vt.startswith('ägaren godkänner: ja')):
+        fel.append(('d', rc, rad(ut, 'Slutkod'), ag, vt))
+    # m: kritik/GRANSKARE.md ändrad, och listan skriven om så att den ser oförändrad ut
+    gm = KR / 'kritik' / 'GRANSKARE.md'
+    orig = gm.read_bytes()
+    try:
+        rc, ut, _ = kor('fa-m', NWP_ATELJE='av', PROV_BYGG='bygget', PROV_MEKANIK='1', PROV_LISTA='1')
+    finally:
+        gm.write_bytes(orig)
+    if not (rc == 3 and 'lista:kunder/fa-m/prov/.skyddat-fore' in rad(ut, 'Slutkod 3')):
+        fel.append(('m', rc, rad(ut, 'Slutkod')))
+    # k: ägarens verkliga dom, skriven före körningen över samma bygge, räknas
+    agardom(KR / 'kunder' / 'fa-k', d12)
+    rc, ut, _ = kor('fa-k', NWP_ATELJE='av', PROV_BYGG='bygget')
+    vt, ag = agaren(KR / 'kunder' / 'fa-k')
+    if not (rc == 1 and ag['varde'] is True and rad(ut, 'ägaren godkänner:').startswith('ägaren godkänner: ja') and vt.startswith('ägaren godkänner: ja')):
+        fel.append(('k', rc, ag, vt))
+    assert not fel, fel
+
+
+@fall('ägarens dom genom kor.sh (KAN 3): bygget lägger till en dom i en låst DOM.json; ägarens äldre dom räknas fortfarande, aldrig den tillagda')
+def _kor_tillagd_dom():
+    kor_repo()
+    k = KR / 'kunder' / 'tillagd-prov'
+    agardom(k, dist12('bygget'), namn='Nej')
+    agarens = korslut.dom_nyckel(json.loads((k / 'DOM.json').read_text())['domar'][0])
+    rc, ut, _ = kor('tillagd-prov', NWP_ATELJE='av', PROV_BYGG='bygget', PROV_DOM_SKRIPT='lagg_till')
+    vt, ag = agaren(k)
+    proto = slutpost(k, korningar('tillagd-prov')[-1])['kontroller']['agarens_dom']
+    assert rc == 3 and len(json.loads((k / 'DOM.json').read_text())['domar']) == 2, (rc, rad(ut, 'Slutkod'))
+    assert ag['varde'] is False and vt.startswith('ägaren godkänner: nej'), ('ägarens äldre dom räknas inte', ag, vt)
+    assert len(proto['ej_belagda']) == 1 and agarens not in proto['ej_belagda'], proto
+
+
+@fall('en process som lever kvar efter sessionen (egen session, ny förälder) stoppas innan låset släpps och kan inte skriva ägarens dom (BÖR 1, punkt l)')
+def _kor_demon():
+    kor_repo()
+    k = KR / 'kunder' / 'demon-prov'
+    rc, ut, _ = kor('demon-prov', NWP_ATELJE='av', PROV_BYGG='bygget', PROV_DEMON='1')
+    slut = time.time() + 5
+    while time.time() < slut and not (k / 'DEMON-SKREV').exists():
+        time.sleep(0.2)
+    kvar = lever(k, 'DEMON.pid')
+    doda(k, 'DEMON.pid')
+    vt, _ = agaren(k)
+    proc = slutpost(k, korningar('demon-prov')[-1])['kontroller'].get('processer') or {}
+    assert not (k / 'DEMON-SKREV').exists() and not kvar, ('demonen levde kvar och skrev domen', kvar, vt)
+    assert not vt.startswith('ägaren godkänner: ja') and any(x.get('pid') == int((k / 'DEMON.pid').read_text()) for x in proc.get('stoppade') or []), (vt, proc)
+    assert rad(ut, 'Byggets processer:').startswith('Byggets processer: ingen process ur bygget kvar; vakten stoppade'), rad(ut, 'Byggets processer:')
+
+
+@fall('kor.sh: SIGTERM, SIGINT och SIGHUP under bygget, till kor.sh och till gruppen, ger slutkod 4 och lämnar ingen process, inget lås och ingen låst DOM.json (BÖR 2; KAN 8: N19, N20, N08)')
+def _kor_signaler():
+    kor_repo()
+    fel = []
+    for sig in ('TERM', 'INT', 'HUP'):
+        for grupp in (False, True):
+            slug = 'sig-%s-%s' % (sig.lower(), 'grupp' if grupp else 'kor')
+            k = KR / 'kunder' / slug
+            agardom(k, 'b' * 12, namn='Nej')
+            p, logg = kor_bakgrund(slug, ('BARN.pid', 'BARNBARN.pid'), NWP_ATELJE='av', PROV_BYGG='bygget', PROV_BARNBARN='1', PROV_BARN='60')
             try:
-                os.killpg(p.pid, signal.SIGKILL)  # en kvarlämnad falsk claude efter SIGKILL
+                (os.killpg if grupp else os.kill)(p.pid, getattr(signal, 'SIG' + sig))
+                rc = p.wait(timeout=90)
+            except subprocess.TimeoutExpired:
+                rc = 'väntar'
+            finally:  # det som lever kvar räknas före provets egen städning
+                kvar = [x for x in ('BARN.pid', 'BARNBARN.pid') if lever(k, x)]
+                stada_grupp(p)
+                doda(k, 'BARN.pid', 'BARNBARN.pid')
+            post_ = slutpost(k, korningar(slug)[-1]) if korningar(slug) else {}
+            if not (rc == 4 and post_.get('slutkod') == 4 and post_.get('avbruten') == 'SIG' + sig and ('SIG' + sig) in rad(logg.read_text(), 'Slutkod 4')
+                    and not kvar and not LAS.exists() and 'uchg' not in flaggor(k / 'DOM.json')):
+                fel.append((slug, rc, post_.get('slutkod'), post_.get('avbruten'), kvar, LAS.exists(), flaggor(k / 'DOM.json')))
+            subprocess.run(['chflags', 'nouchg', str(KR / 'kunder'), str(KR / 'underlag'), str(k / 'DOM.json')], capture_output=True)
+    assert not fel, fel
+
+
+@fall('kor.sh: byggets Write och Edit nekas för hashlistorna och körningarnas protokoll, och claude får dem i --disallowedTools (BÖR 1)')
+def _kor_nekade():
+    kor_repo()
+    k = KR / 'kunder' / 'nekad-prov'
+    rc, ut, _ = kor('nekad-prov', NWP_ATELJE='av', PROV_ARGV='1')
+    argv = (k / 'ARGV.txt').read_text().split('\n')
+    nekas = argv[argv.index('--disallowedTools') + 1:]
+    nekas = nekas[:next((i for i, x in enumerate(nekas) if x.startswith('--')), len(nekas))]
+    for verktyg in ('Write', 'Edit'):
+        for vag in ('./kunder/nekad-prov/prov/.skyddat-*', './kunder/nekad-prov/korningar/**', './kunder/nekad-prov/rapporter/**', './kunder/nekad-prov/DOM.json'):
+            assert '%s(%s)' % (verktyg, vag) in nekas, ('inte nekat', verktyg, vag, nekas[-12:])
+
+
+@fall('kor.sh utan vakt: dör vakten under bygget stoppar kor.sh själv claudes processgrupp, med SIGKILL efter fristen, och ägarens dom räknas inte (BÖR 2, KAN 5)')
+def _kor_utan_vakt():
+    kor_repo()
+    k = KR / 'kunder' / 'utan-vakt'
+    agardom(k, dist12('bygget'))
+    p, logg = kor_bakgrund('utan-vakt', ('BARN.pid',), NWP_ATELJE='av', PROV_BYGG='bygget', PROV_BARN='60', PROV_IGNORERA_TERM='1', NWP_FRIST='2')
+    start = re.search(r'startad (\d{8}T\d{6}Z)', logg.read_text())
+    assert start, logg.read_text()[-300:]
+    for pid in subprocess.run(['pgrep', '-f', 'korvakt.py.*%s' % start.group(1)], capture_output=True, text=True).stdout.split():
+        os.kill(int(pid), signal.SIGKILL)
+    time.sleep(0.5)
+    t0 = time.time()
+    try:
+        os.kill(p.pid, signal.SIGTERM)
+        rc = p.wait(timeout=45)
+    except subprocess.TimeoutExpired:
+        rc = 'väntar'
+    finally:  # det som lever kvar räknas före provets egen städning
+        sek = time.time() - t0
+        kvar = lever(k, 'BARN.pid')
+        stada_grupp(p)
+        doda(k, 'BARN.pid')
+    post_ = slutpost(k, start.group(1))
+    ag = post_['tillstand']['agaren_godkanner']
+    assert rc == 4 and sek < 30 and not kvar and not LAS.exists(), (rc, round(sek, 1), kvar, LAS.exists())
+    assert ag['varde'] is None and ag.get('avsandare') == 'ej belagd' and post_['kontroller']['processer']['varde'] is None, (ag, post_['kontroller']['processer'])
+
+@fall('kor.sh: claude som inte avslutar på SIGTERM, och ett barnbarn i en egen session som inte heller gör det, får SIGKILL efter fristen (KAN 5)')
+def _kor_frist():
+    kor_repo()
+    k = KR / 'kunder' / 'frist-prov'
+    p, _ = kor_bakgrund('frist-prov', ('BARN.pid', 'BARNBARN.pid'), NWP_ATELJE='av', PROV_BARN='60', PROV_BARNBARN='1', PROV_IGNORERA_TERM='1',
+                        NWP_FRIST='2')
+    t0 = time.time()
+    try:
+        os.kill(p.pid, signal.SIGTERM)
+        rc = p.wait(timeout=45)
+    except subprocess.TimeoutExpired:
+        rc = 'väntar'
+    finally:  # det som lever kvar räknas före provets egen städning
+        sek = time.time() - t0
+        kvar = [x for x in ('BARN.pid', 'BARNBARN.pid') if lever(k, x)]
+        stada_grupp(p)
+        doda(k, 'BARN.pid', 'BARNBARN.pid')
+    assert rc == 4 and sek < 30 and not kvar and slutpost(k, korningar('frist-prov')[-1])['slutkod'] == 4, (rc, round(sek, 1), kvar)
+
+
+@fall('kor.sh: SIGHUP när terminalen stängs ger samma slutkod i processen som i posten (KAN 1)')
+def _kor_terminal():
+    import pty
+    import select
+    kor_repo()
+    k = KR / 'kunder' / 'pty-prov'
+    master, slav = pty.openpty()
+    p = subprocess.Popen(['bash', str(KR / 'kor.sh'), 'pty-prov', 'Prov AB, Umeå'], stdin=slav, stdout=slav, stderr=slav, cwd=str(KR),
+                         env=miljo(NWP_ATELJE='av', PROV_BARN='60'), start_new_session=True)
+    os.close(slav)
+    slut = time.time() + 120
+    while time.time() < slut and not lever(k, 'BARN.pid'):
+        if select.select([master], [], [], 0.1)[0]:
+            try:
+                os.read(master, 65536)
             except OSError:
-                pass
-        assert start, ('kor.sh startade inte bygget', logg.read_text()[-300:])
-        if sig == signal.SIGTERM:
-            post = slutpost(k, start.group(1))
-            assert rc == 4 and post['slutkod'] == 4 and post.get('avbruten') == 'SIGTERM' and 'SIGTERM' in rad(logg.read_text(), 'Slutkod 4'), (rc, post.get('avbruten'), logg.read_text()[-400:])
-            assert any(('rapporter/RAPPORT-fore-%s.md' % start.group(1)) in u for u in post['underlag']), post['underlag']
-            assert not (KR / 'kunder' / '.bygge-pid').exists(), 'låset ligger kvar efter SIGTERM'
-        else:
-            assert not (k / 'korningar' / start.group(1) / 'SLUT.json').exists() and (k / 'korningar' / start.group(1) / 'START.json').is_file(), 'SIGKILL'
-            subprocess.run(['chflags', 'nouchg', str(KR / 'kunder'), str(KR / 'underlag')], capture_output=True)
-            _, vt = visa(k)
-            assert ('körningen %s' % start.group(1)) in rad(vt, 'Avbruten utan slutpost:') and 'RAPPORT-fore-%s' % start.group(1) in vt, vt[-500:]
-            rc2, ut2, _ = kor(slug, NWP_ATELJE='av')
-            nasta = slutpost(k, korningar(slug)[-1])
-            assert ('Förra körningen: körningen %s' % start.group(1)) in ut2 and any(('körningen %s' % start.group(1)) in b and 'avbröts utan slutpost' in b
-                                                                                 for b in nasta['brister']), (ut2[-500:], nasta['brister'])
+                break
+    os.close(master)  # terminalen stängs
+    try:
+        os.killpg(p.pid, signal.SIGHUP)
+        rc = p.wait(timeout=60)
+    except subprocess.TimeoutExpired:
+        rc = 'väntar'
+    finally:  # det som lever kvar räknas före provets egen städning
+        kvar = lever(k, 'BARN.pid')
+        stada_grupp(p)
+        doda(k, 'BARN.pid')
+    post_ = slutpost(k, korningar('pty-prov')[-1])
+    assert rc == post_['slutkod'] == 4 and post_.get('avbruten') == 'SIGHUP' and not kvar, (rc, post_['slutkod'], post_.get('avbruten'), kvar)
+
+
+@fall('kor.sh: efter SIGKILL stoppar vakten bygget, skriver posten och släpper låsen; ägarens dom kan sparas utan en ny körning, och den senare domen räknas (BÖR 2, KAN 2, KAN 4)')
+def _kor_sigkill():
+    kor_repo()
+    slug = 'kill-prov'
+    metod = json.loads(subprocess.run([PY, '-B', '-c', 'import sys, json; sys.path.insert(0, %r); import granska; print(json.dumps(granska.aktuell_metod(%r)))'
+                                       % (str(KR / 'kontroller'), slug)], capture_output=True, text=True, cwd=str(KR), env=miljo()).stdout)
+    ny = stampel(300)
+    k, h = bygge(slug, ny, rot=KR, metod=metod)  # ett godkänt bygge med sin post
+    rc, _, fel_ = korslut_(k, ny, rot=KR, env=miljo())
+    assert rc == 0, (rc, fel_[-300:])
+    agardom(k, 'c' * 12, namn='Nej')  # en äldre dom över ett annat bygge: DOM.json finns och låses
+    p, logg = kor_bakgrund(slug, ('BARN.pid', 'BARNBARN.pid'), NWP_ATELJE='av', PROV_BARN='60', PROV_BARNBARN='1')
+    start = re.search(r'startad (\d{8}T\d{6}Z)', logg.read_text())
+    try:
+        os.kill(p.pid, signal.SIGKILL)
+        p.wait(timeout=30)
+        slut = time.time() + 60
+        while time.time() < slut and LAS.exists():
+            time.sleep(0.2)
+    finally:  # det som lever kvar räknas före provets egen städning
+        kvar = [x for x in ('BARN.pid', 'BARNBARN.pid') if lever(k, x)]
+        stada_grupp(p)
+        doda(k, 'BARN.pid', 'BARNBARN.pid')
+    assert start, logg.read_text()[-300:]
+    lasen = (LAS.exists(), flaggor(KR / 'kunder'), flaggor(k / 'DOM.json'))
+    try:  # dashboardens Din dom, som den skriver: utan en ny körning
+        d = json.loads((k / 'DOM.json').read_text())
+        d['domar'].append({'tid': '2026-10-07T12:00:00Z', 'bygge_dist': h[:12], 'svar': {'namn': 'Ja, som den är'}})
+        (k / 'DOM.json').write_text(json.dumps(d))
+        sparad = True
+    except OSError as e:
+        sparad = str(e)
+    post_ = slutpost(k, start.group(1)) if (k / 'korningar' / start.group(1) / 'SLUT.json').is_file() else {}
+    assert not kvar and lasen == (False, '-', '-') and sparad is True, ('processer eller lås kvar efter SIGKILL', kvar, lasen, sparad)
+    assert post_.get('slutkod') == 4 and post_.get('avbruten') == korslut.AVBROTT_KORSH and 'korvakt' in post_.get('forfattare', ''), post_.get('slutkod')
+    _, vt = visa(k, rot=KR, env=miljo())
+    assert rad(vt, 'ägaren godkänner:').startswith('ägaren godkänner: ja') and rad(vt, 'klart för leverans:') == 'klart för leverans: ja — inom omfattningen', (
+        'ägarens senare dom räknas inte efter körningen som dödades', rad(vt, 'ägaren godkänner:'), rad(vt, 'klart för leverans:'))
+    rc2, ut2, _ = kor(slug, NWP_ATELJE='av')
+    assert 'Förra körningen' not in ut2, ut2[-400:]
+
+
+@fall('Codex: planterad slutpost följd av SIGKILL blir obestyrkt bevis, aldrig körningens giltiga post')
+def _codex_planterad_post():
+    kor_repo()
+    slug = 'prov-planterad-post'
+    fake = FALSK / 'claude'
+    fore = fake.read_text()
+    fake.write_text('''#!/bin/sh
+exec .venv/bin/python -B - <<'PY'
+import json, os, signal, time
+from pathlib import Path
+k = Path('kunder') / os.environ['NWP_SLUG']
+p = k / 'korningar' / os.environ['NWP_KORNING'] / 'SLUT.json'
+p.write_text(json.dumps({'markor': 'syntetisk-obestyrkt', 'slutkod': 0}))
+os.kill(int(Path('kunder/.bygge-pid').read_text()), signal.SIGKILL)
+time.sleep(30)
+PY
+''')
+    try:
+        p, logg = kor_bakgrund(slug, ('finns-inte',), NWP_ATELJE='av')
+        p.wait(timeout=40)
+        slut = time.monotonic() + 60
+        while LAS.exists() and time.monotonic() < slut:
+            time.sleep(.1)
+        d = KR / 'kunder' / slug / 'korningar' / korningar_alla(slug)[-1]
+        post = json.loads((d / 'SLUT.json').read_text())
+        assert post.get('slutkod') == 3 and 'markor' not in post, post
+        gamla = [json.loads(f.read_text()) for f in d.glob('SLUT-obestyrkt-*.json')]
+        assert any(x.get('markor') == 'syntetisk-obestyrkt' for x in gamla), gamla
+        assert not LAS.exists()
+    finally:
+        fake.write_text(fore)
+
+
+@fall('Codex: en bekräftad färdig slutpost bevaras när kor.sh dör efter publiceringen')
+def _codex_fardig_post():
+    kor_repo()
+    slug = 'prov-bekraftad-post'
+    skript = KR / 'kontroller/backlog_commit.py'
+    fore = skript.read_text()
+    skript.write_text('''import os, signal, sys
+from pathlib import Path
+k = Path('kunder') / sys.argv[1]
+p = k / 'korningar' / sys.argv[2] / 'SLUT.json'
+(k / 'BEKRAFTAD.json').write_bytes(p.read_bytes())
+os.kill(int(Path('kunder/.bygge-pid').read_text()), signal.SIGKILL)
+''')
+    try:
+        p, logg = kor_bakgrund(slug, ('BEKRAFTAD.json',), NWP_ATELJE='av', PROV_BYGG='syntetiskt')
+        p.wait(timeout=40)
+        slut = time.monotonic() + 60
+        while LAS.exists() and time.monotonic() < slut:
+            time.sleep(.1)
+        k = KR / 'kunder' / slug
+        post = k / 'korningar' / korningar_alla(slug)[-1] / 'SLUT.json'
+        assert post.read_bytes() == (k / 'BEKRAFTAD.json').read_bytes()
+        assert json.loads(post.read_text())['slutkod'] == 1
+        assert not LAS.exists()
+    finally:
+        skript.write_text(fore)
+
+
+@fall('Codex: C1-protokoll och beläggbilaga skyddas också när de inte finns vid starten')
+def _codex_c1_skydd():
+    kor_repo()
+    fake = FALSK / 'claude'
+    fore = fake.read_text()
+    fake.write_text('''#!/bin/sh
+exec .venv/bin/python -B - <<'PY'
+import os
+from pathlib import Path
+slug = os.environ['NWP_SLUG']
+p = Path('kunder') / slug / 'atelje/korningar/prov/SLUT.json' if os.environ['PROV_TYP'].startswith('protokoll') else Path('underlag') / slug / 'DESIGNDOMAR-belagg.jsonl'
+p.parent.mkdir(parents=True, exist_ok=True)
+if os.environ['PROV_TYP'] == 'belagg-lank':
+    mal = p.with_name('syntetiskt.jsonl')
+    mal.write_text('{"syntetiskt": true}')
+    p.symlink_to(mal.name)
+elif os.environ['PROV_TYP'] == 'belagg-katalog':
+    p.mkdir()
+else:
+    p.write_text('{"syntetiskt": true}')
+PY
+''')
+    try:
+        for typ_ in ('protokoll', 'protokoll-andra', 'belagg', 'belagg-lank', 'belagg-katalog'):
+            if typ_ == 'protokoll-andra':
+                skriv(KR / 'kunder' / ('prov-c1-' + typ_) / 'atelje/korningar/prov/SLUT.json', {'syntetiskt': 'tidigare'})
+            rc, ut, fel = kor('prov-c1-' + typ_, NWP_ATELJE='av', PROV_TYP=typ_)
+            assert rc == 3, (typ_, rc, ut[-500:], fel[-200:])
+    finally:
+        fake.write_text(fore)
+
+
+@fall('Codex: samtidiga byggstarter reserverar atomiskt, och bara en når START.json')
+def _codex_startlas():
+    kor_repo()
+    skript = KR / 'kor.sh'
+    fore = skript.read_text()
+    # Gör fönstret mellan den gamla PID-kontrollen och skrivningen deterministiskt synligt i den egna kopian.
+    punkt = 'chflags nouchg "$ROOT/kunder" "$ROOT/underlag" 2>/dev/null || true   # kvarlämnad flagga'
+    assert punkt in fore
+    skript.write_text(fore.replace(punkt, 'sleep 0.4\n' + punkt, 1))
+    processer = []
+    try:
+        for i in range(3):
+            slug = 'prov-samtidig-%d' % i
+            (KR / 'kunder' / slug).mkdir(parents=True, exist_ok=True)
+            (KR / 'underlag' / slug).mkdir(parents=True, exist_ok=True)
+        for i in range(3):
+            processer.append(subprocess.Popen(['bash', str(skript), 'prov-samtidig-%d' % i, 'Syntetisk verksamhet'],
+                                             cwd=KR, env=miljo(NWP_ATELJE='av', PROV_SOV='3'),
+                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True))
+        utfall_ = [p.communicate(timeout=45) for p in processer]
+        starter = [f for i in range(3) for f in (KR / 'kunder' / ('prov-samtidig-%d' % i) / 'korningar').glob('*/START.json')]
+        assert len(starter) == 1 and sorted(p.returncode for p in processer) == [1, 2, 2], (len(starter), [p.returncode for p in processer], utfall_)
+    finally:
+        for p in processer:
+            if p.poll() is None:
+                stada_grupp(p)
+                p.wait(timeout=30)
+        skript.write_text(fore)
+
+
+@fall('Codex: en återanvänd orelaterad PID är status, inte ett aktivt bygglås')
+def _codex_ateranvand_pid():
+    kor_repo()
+    LAS.parent.mkdir(parents=True, exist_ok=True)
+    LAS.write_text(str(os.getpid()))
+    try:
+        rc, ut, fel = kor('prov-gammal-pid', NWP_ATELJE='av')
+        assert rc == 1 and korningar_alla('prov-gammal-pid'), (rc, ut[-500:], fel[-300:])
+        os.kill(os.getpid(), 0)  # inget stopp skickas till den orelaterade processen
+    finally:
+        if LAS.exists():
+            LAS.unlink()
+
+
+@fall('Codex: ett relativt äldre kor.sh hör till sin egen utcheckning')
+def _codex_aldre_cwd():
+    kor_repo()
+    annan = TMP / 'aldre-utcheckning'
+    (annan / 'kunder').mkdir(parents=True, exist_ok=True)
+    skriv(annan / 'kor.sh', '#!/bin/bash\nsleep 30 &\nwait\nexit 0\n')
+    p = subprocess.Popen(['bash', './kor.sh'], cwd=annan, start_new_session=True)
+    try:
+        time.sleep(.1)
+        LAS.parent.mkdir(parents=True, exist_ok=True)
+        LAS.write_text(str(p.pid))
+        (annan / 'kunder/.bygge-pid').write_text(str(p.pid))
+        args = [str(KR / '.venv/bin/python'), '-B', str(KR / 'kontroller/bygglas.py'), '--aldre']
+        fel_rot = subprocess.run(args + [str(KR)], env=miljo(), capture_output=True, text=True, timeout=15)
+        ratt_rot = subprocess.run(args + [str(annan)], env=miljo(), capture_output=True, text=True, timeout=15)
+        assert fel_rot.returncode == 1 and ratt_rot.returncode == 0, (fel_rot.returncode, fel_rot.stdout, ratt_rot.returncode, ratt_rot.stdout)
+    finally:
+        stada_grupp(p)
+        p.wait(timeout=10)
+        if LAS.exists():
+            LAS.unlink()
+
+
+@fall('Codex: vaktens root måste stämma exakt och oläsbar PID-status nekas')
+def _codex_aldre_status():
+    kor_repo()
+    annan = KR.with_name(KR.name + '-annat')
+    annan.mkdir(exist_ok=True)
+    p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)', str(annan / 'kontroller/korvakt.py'), '--root', str(annan)], cwd=annan)
+    try:
+        LAS.parent.mkdir(parents=True, exist_ok=True)
+        LAS.write_text(str(p.pid))
+        args = [str(KR / '.venv/bin/python'), '-B', str(KR / 'kontroller/bygglas.py'), '--aldre', str(KR)]
+        annan_rot = subprocess.run(args, env=miljo(), capture_output=True, text=True, timeout=15)
+        assert annan_rot.returncode == 1, (annan_rot.returncode, annan_rot.stdout)
+        LAS.write_bytes(b'\xff\xfe')
+        olasbar = subprocess.run(args, env=miljo(), capture_output=True, text=True, timeout=15)
+        assert olasbar.returncode == 0 and 'väntar' in olasbar.stdout, (olasbar.returncode, olasbar.stdout)
+    finally:
+        p.terminate()
+        p.wait(timeout=10)
+        if LAS.exists():
+            LAS.unlink()
+
+
+@fall('kor.sh: en körning utan post sägs som avbruten när kor.sh och vakten dödats, och som en post som inte kunde skrivas när korslut föll (KAN 6); en dom som tillkom under den avbrutna körningen räknas inte i nästa (KAN 4, BÖR 1)')
+def _kor_utan_post():
+    kor_repo()
+    k = KR / 'kunder' / 'utan-post'
+    agardom(k, dist12('bygget'), namn='Nej')  # ägarens dom före körningen; bygget lägger till ett ja och dödar sedan kor.sh och vakten
+    p, logg = kor_bakgrund('utan-post', ('BARN.pid',), NWP_ATELJE='av', PROV_BYGG='bygget', PROV_DOM_SKRIPT='lagg_till', PROV_BARN='60')
+    start = re.search(r'startad (\d{8}T\d{6}Z)', logg.read_text())
+    assert start, logg.read_text()[-300:]
+    vakt = subprocess.run(['pgrep', '-f', 'korvakt.py.*%s' % start.group(1)], capture_output=True, text=True).stdout.split()
+    try:
+        for pid in vakt:
+            os.kill(int(pid), signal.SIGKILL)
+        os.kill(p.pid, signal.SIGKILL)
+        p.wait(timeout=30)
+    finally:
+        stada_grupp(p)
+        doda(k, 'BARN.pid')
+        subprocess.run(['chflags', 'nouchg', str(KR / 'kunder'), str(KR / 'underlag')], capture_output=True)
+    _, vt = visa(k, rot=KR, env=miljo())
+    avbruten = rad(vt, 'Utan slutpost:')
+    assert ('körningen %s' % start.group(1)) in avbruten and 'avbröts utan slutpost' in avbruten and 'vakten' in avbruten, (vakt, vt[-500:])
+    # nästa körning räknar ägarens dom från före den avbrutna körningen, aldrig domen som tillkom under den
+    rc, ut, _ = kor('utan-post', NWP_ATELJE='av', PROV_BYGG='bygget')
+    ag = slutpost(k, korningar('utan-post')[-1])['tillstand']['agaren_godkanner']
+    assert len(json.loads((k / 'DOM.json').read_text())['domar']) == 2 and ag['varde'] is False and start.group(1) in ag.get('text', ''), (rc, ag)
+    # korslut föll: SLUT.json är en katalog som bygget skapade
+    rc, ut, _ = kor('utan-post', NWP_ATELJE='av', PROV_KATALOG_POST='1')
+    uteblev = korningar_alla('utan-post')[-1]
+    nasta = subprocess.run([PY, '-B', str(KR / 'kontroller' / 'korslut.py'), '--avbrutna', str(k), 'ingen'], capture_output=True, text=True, env=miljo()).stdout
+    rad_ = next((r for r in nasta.split('\n') if uteblev in r), '')
+    assert rc == 3 and (k / 'korningar' / uteblev / 'UTEBLEV.json').is_file() and 'posten kunde inte skrivas' in rad_ and 'avbröts' not in rad_, (rc, nasta)
+
+
+@fall('kor.sh: ett kommando som faller under set -e före bygget, eller en trasig fil som läses in, ger en kort post och slutkod 2 (GR-20261007-r101-om2, KAN 5)')
+def _kor_set_e():
+    kor_repo()
+    k = KR / 'kunder' / 'sete-prov'
+    skriv(k / 'prov', 'en fil där katalogen prov/ ska ligga\n')
+    rc, ut, _ = kor('sete-prov', NWP_ATELJE='av')
+    (k / 'prov').unlink()
+    post_ = slutpost(k, korningar('sete-prov')[-1]) if korningar('sete-prov') else {}
+    assert rc == 2 and post_.get('slutkod') == 2 and str(post_.get('skal', '')).startswith('kor.sh föll före bygget:') and 'prov' in post_.get('skal', ''), (rc, post_.get('skal'), ut[-300:])
+    assert korslut.text(post_) in ut, ut[-400:]
+    rc2, ut2, _ = kor('sete-prov', NWP_ATELJE='av')
+    assert rc2 == 1 and 'Förra körningen' not in ut2, (rc2, ut2[-300:])
+    # en trasig refero.env avslutar bash med kod 0 utan att set -e fångar något: kor.sh stannar ändå med en post
+    hem = TMP / 'hem-sete'
+    skriv(hem / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env', 'REFERO_MCP_TOKEN=(\n')
+    rc3, ut3, _ = kor('sete-prov', NWP_ATELJE='av', HOME=str(hem), NWP_MCP_CONFIG=str(KR / 'kontroller' / 'mcp' / 'refero.json'))
+    post3 = slutpost(k, korningar('sete-prov')[-1])
+    assert rc3 == 2 and post3['slutkod'] == 2 and 'före bygget' in str(post3.get('skal', '')), (rc3, post3.get('skal'), ut3[-300:])
+
+
+@fall('kor.sh: en signal till gruppen i avslutet avbryter varken avslutet eller dess barn (KAN 8: N22)')
+def _kor_avslutet():
+    kor_repo()
+    k = KR / 'kunder' / 'avslut-prov'
+    bc = KR / 'kontroller' / 'backlog_commit.py'
+    orig = bc.read_bytes()
+    markor = TMP / 'avslut-prov.markor'
+    bc.write_text('import sys, time\nfrom pathlib import Path\nm = Path(%r)\nm.write_text("start")\ntime.sleep(3)\nm.write_text("klar")\n' % str(markor))
+    try:
+        p, logg = kor_bakgrund('avslut-prov', (), NWP_ATELJE='av', PROV_BYGG='bygget')
+        slut = time.time() + 120
+        while time.time() < slut and not (markor.is_file() and markor.read_text() == 'start'):
+            time.sleep(0.1)
+        try:
+            os.killpg(p.pid, signal.SIGTERM)
+            rc = p.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            rc = 'väntar'
+        finally:
+            stada_grupp(p)
+    finally:
+        bc.write_bytes(orig)
+    post_ = slutpost(k, korningar('avslut-prov')[-1])
+    assert rc == post_['slutkod'] == 1 and markor.read_text() == 'klar' and not post_.get('avbruten'), (rc, post_['slutkod'], markor.read_text())
+
+
+@fall('korslut utan kor.sh:s minne, och med en process ur bygget kvar: ägarens dom är ej belagd (BÖR 1)')
+def _minnet():
+    ny = stampel(120)
+    k, h = bygge('ks-minne', ny)
+    agardom(k, h[:12])
+    rc, ut, _ = korslut_(k, ny, med_minne=False)
+    ag = slutpost(k, ny)['tillstand']['agaren_godkanner']
+    assert rc == 0 and ag['varde'] is None and 'hashlistorna prövades inte' in ag['text'], ag
+    rc, ut, _ = korslut_(k, ny, NWP_PROCESSER=json.dumps({'stoppade': [], 'kvar': [{'pid': 1234, 'namn': 'demon'}]}))
+    post_ = slutpost(k, ny)
+    assert post_['tillstand']['agaren_godkanner']['varde'] is None and any('demon (pid 1234' in b for b in post_['brister']), post_['brister']
+    rc, ut, _ = korslut_(k, ny)
+    assert slutpost(k, ny)['tillstand']['agaren_godkanner']['varde'] is True, 'ägarens dom räknas med kor.sh:s minne och inga processer kvar'
 
 
 @fall('--visa: en ändrad metod (GRANSKARE.md), en annan godkänd startsida och en ändrad dist gör godkännandena till historik (B2)')

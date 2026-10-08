@@ -2945,13 +2945,14 @@ class H(BaseHTTPRequestHandler):
                 if not isinstance(data, dict):
                     raise ValueError('handlingen ska vara ett objekt')
                 slug = m.group(1)
-                if data.get('handling') != 'stoppa' and ab_oavgjord(slug):
+                if data.get('handling') not in ('stoppa','stoppa-overgang') and ab_oavgjord(slug):
                     raise ValueError('en blind jämförelse pågår; inga steg startas från flödesvyn')
                 rc = prototyp_kor.fran_dashboard(slug, data.get('handling'), data.get('start_id'))
                 return self.skicka(202 if rc == 5 else 200 if rc in (0, 4) else 409,
                                    {'slutkod': rc, 'start_id': data.get('start_id'),
                                     **({'fel': 'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'} if rc not in (0, 4, 5) else {}),
-                                    'besked': 'Arbetet är startat eller pågår redan.' if rc == 5 else
+                                    'besked': 'Stopp har begärts. Läs aktuellt läge tills arbetet har avslutats.' if data.get('handling')=='stoppa-overgang' and rc==5 else
+                                              'Begäran är registrerad. Läs aktuellt läge och körningens besked.' if rc == 5 else
                                               'Handlingen är klar; läs det aktuella beskedet.' if rc in (0, 4) else
                                               'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'})
             m = re.match(r'^/api/dom/([a-z0-9-]{2,60})$', vag)

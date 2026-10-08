@@ -40,10 +40,10 @@ Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sa
 | 2. Prototypen: research, plan och cirka tio skisser | ägaren eller en session i terminalen: `.venv/bin/python kontroller/prototyp.py <slug>` (läget följer domloggen) | förslagen i vyn Prototyp | – |
 | 3. Ägarens val | ägaren i vyn Prototyp; en dom som kommit på annat sätt förs in med `.venv/bin/python kontroller/skapande.py dom` | en dom i domloggen, bunden till kandidat och version | valet startar inget arbete; nästa tillåtna handling visas i Flöde |
 | 4. Förfiningen av de valda | Flöde → Förfina de valda förslagen, eller `prototyp.py <slug>` igen (läget valda) | förfinade kandidater med DESIGN.md | – |
-| 5. Godkännandet | ägaren i vyn Prototyp: en förfinad kandidat godkänd för helbygge | `underlag/<slug>/atelje/vinnare/` och VINNARE.json | vyn visar inget kommando för helbygget; det står i prototyp.py:s utskrift |
-| 6. Helbygget | ägaren i terminalen: `./kor.sh <slug> "<verksamhet>"`; utan godkänd startsida stannar kor.sh med slutkod 2 | sajt, prov, granskning, RAPPORT.md, FRAGOR.json och SLUT.json per körning; Flöde visar slutpostens fem separata besked | automatiserad start väntar på integrationen av processvakten; terminalens promptövergång rättas i samma integrationsarbete |
+| 5. Godkännandet | ägaren i vyn Prototyp: en förfinad kandidat godkänd för helbygge | `underlag/<slug>/atelje/vinnare/` och VINNARE.json | startar inget bygge; nästa handling finns i Flöde |
+| 6. Helbygget | Flöde → Starta helbygget, `prototyp.py <slug> --helbygge --start-id <id>`, eller `./kor.sh <slug> "<verksamhet>"`; aktuell godkänd startsida krävs | sajt, prov, granskning, RAPPORT.md, FRAGOR.json och SLUT.json per körning; Flöde visar slutpostens fem separata besked | verklig modellkörning genom den nya flödesingången återstår |
 | 7. Ägarens dom över bygget | ägaren i dashboarden: bygget, fliken Din dom | `kunder/<slug>/DOM.json`, lärdomarna och en backlogpost | – |
-| 8. Exporten till kundrepo | ägaren eller en session: `.venv/bin/python kontroller/exportera.py <slug> [--git]` | kundrepo, byggprov och privat EXPORT.json per export med käll- och exporthash samt godkännandenas omfattning; tidigare export bevaras | en testexport får göras utan godkännande, men är aldrig i sig en kundklar leverans; extern publicering återstår |
+| 8. Exporten till kundrepo | Flöde → Förbered kundrepo, `prototyp.py <slug> --exportera --start-id <id>`, eller `exportera.py <slug> [--git]` | kundrepo, byggprov och privat EXPORT.json per export med käll- och exporthash samt godkännandenas omfattning; tidigare export bevaras | en testexport får göras utan godkännande, men är aldrig i sig en kundklar leverans; extern publicering återstår |
 | 9. Leveransen: GitHub, Vercel, skydd och DNS | GitHub, Vercel och skyddet: människa, eller en session med ägarens ja; DNS: bara en behörig människa | – | inget verktyg i repot för GitHub och Vercel; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut |
 
 Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
@@ -58,6 +58,13 @@ omförsök till samma beställning; dubbelklick, omladdning och nytt HTTP-förs�
 Läsning och val av kandidat startar inget. Stopp går förbi startlåset. En avbruten körning kan återupptas via samma
 ingång. De fem beskeden är sessionsavslut, teknik, designgranskning, ägarens godkännande och leverans inom angiven
 omfattning. Saknat, historiskt, dolt och underkänt är skilda lägen. Ingen grön markering betyder mer än sin omfattning.
+
+Helbygge och export använder samma startjournal genom `kontroller/flodesstart.py`. Kundens flock-lås följer
+arbetaren och helbyggets vakt; direkta CLI-starter prövar samma lås. Stopp begärs med `--stoppa-overgang` och sparas
+också före processstart. En avbruten reservation får slutkod 4 när låset är fritt; samma start-id körs aldrig igen.
+Exportens arbetare följer byggprocessernas identitet och väntar in deras avslut före slutstatus. Den har samma
+gräns för mycket kortlivade mellanprocesser som korvakt; att döda även arbetaren kan kräva manuell kontroll.
+Startjournalen är ett mottagnings-/processbesked. `SLUT.json` respektive `EXPORT.json` anger arbetets resultat.
 
 ## Var information finns
 
@@ -127,16 +134,52 @@ rapporter och bevis, och `atgarder` är nästa steg. Därtill:
   godkänner och klart för leverans inom angiven omfattning;
 - bristerna.
 
-Terminalens besked skrivs ur posten. Ägarens dom räknas bara ur en `kunder/<slug>/DOM.json` som är oförändrad sedan
-körningens start, och en dom som tillkom under en körning räknas inte. Under körningen nekas byggets Write och Edit för
-filen. Finns den vid starten låses den, och en DOM.json som ändras eller tillkommer under körningen ger slutkod 3.
-Skyddet är ofullständigt (GR-20261007-r101-om#BÖR-1, i backloggen): ett eget skript i bygget kan ta bort låset och
-förfalska hashlistan, och en process som lever kvar efter sessionen kan skriva filen efteråt. `.venv/bin/python
-kontroller/korslut.py --visa kunder/<slug>` prövar posten mot läget nu. Har bygget i `kunder/<slug>/sajt/dist/`,
-granskningens metod eller startsidans godkännande ändrats sedan körningen står postens godkännanden som historik, och
-klart för leverans är nej.
-En körning som avbröts utan slutpost (SIGKILL) syns där och i nästa körnings post. Slutkod 5 betyder att posten
-uteblev.
+Terminalens besked skrivs ur posten, också när terminalen har stängts: då är slutkoden postens.
+
+Ägarens dom räknas bara när ingen körning kan ha skrivit den: den fanns i `kunder/<slug>/DOM.json` när filen låstes vid
+körningens start, eller skrevs efter att körningen slutat.
+- **Under körningen** nekas byggets Write och Edit för DOM.json, kor.sh:s hashlistor (`kunder/<slug>/prov/.skyddat-*`)
+  och körningarnas protokoll (`kunder/<slug>/korningar/`, `kunder/<slug>/rapporter/` och `kunder/<slug>/atelje/korningar/`).
+  Domloggen och dess bilaga `underlag/<slug>/DESIGNDOMAR-belagg.jsonl` omfattas också. Förekomst och filtyp prövas,
+  så en länk eller tom katalog i en skyddad fils ställe inte faller utanför innehållshashningen. Finns DOM.json vid starten
+  låses den och kopieras till `kunder/<slug>/korningar/<körning>/DOM-START.json`.
+- **Hashlistorna** prövas mot kor.sh:s minne. kor.sh håller deras sha256, och sha256 för DOM.json när den låstes, i
+  minnet. Har ett eget skript skrivit om en lista blir slutkoden 3. Ändras eller tillkommer DOM.json blir slutkoden
+  också 3, även när listan förfalskats.
+- **Ändrade domar:** domarna i kopian från starten räknas fortfarande, aldrig de som tillkom (GR-20261007-r101-om#BÖR-1
+  och #KAN-3).
+- **Vakten** (`kontroller/korvakt.py`) följer byggets processer, också dem som lämnat sin session och bytt förälder. Den
+  stoppar dem innan något jämförs eller låsen släpps.
+- **Samtidiga starter** reserverar samma fasta flock-fil genom `kontroller/bygglas.py`. kor.sh och vakten håller
+  filbeskrivaren till avslutet; byggsessionen och webbtjänsten ärver den inte. PID-filen visar status men är inte låset.
+- **En signal under bygget** går till claudes processgrupp. claude får SIGKILL efter `NWP_FRIST` sekunder, 10 om inget
+  annat anges (#BÖR-2, #KAN-5).
+- **Dödas kor.sh** (SIGKILL) gör vakten avslutet: den stoppar bygget, skriver posten (slutkod 4, eller en kort post
+  när kor.sh dog före bygget) och släpper låsen. En befintlig slutpost räcker inte som bevis: korslut måste ha bekräftat
+  just dess innehållshash genom kor.sh:s privata rör. En oförändrad bekräftad post bevaras; en obekräftad post flyttas
+  till `kunder/<slug>/korningar/<korning>/SLUT-obestyrkt-<id>.json` och avslutet räknas om. Skyddsbrott ger kod 3 även vid avbrott. Avbrott mellan
+  skrivningen och bekräftelsen räknas konservativt om. Ägarens dom kan sparas efter att vakten släppt låsen (#KAN-2,
+  #KAN-4).
+- **Gränsen:** några vägar når fortfarande förbi skyddet, och en del är inte prövad. Gränsen på processnivå är ett eget
+  steg i backloggen.
+  - Ett eget skript kan ändra kontrollerna: kor.sh, korslut.py, korvakt.py och Python-miljön är skrivbara när
+    sandlådan är av.
+  - Ett eget skript kan döda vakten.
+  - En process kan startas via launchd, eller byta förälder två gånger innan vakten sett den mellersta.
+  - Vakten är prövad med en attrapp i stället för claude, inte med claudes egna verktygsskal.
+
+`.venv/bin/python kontroller/korslut.py --visa kunder/<slug>` prövar posten mot läget nu. Har bygget i
+`kunder/<slug>/sajt/dist/`, granskningens metod eller startsidans godkännande ändrats sedan körningen står postens
+godkännanden som historik, och klart för leverans är nej.
+
+En körning utan slutpost syns där och i nästa körnings post, på ett av två sätt:
+- **avbruten:** både kor.sh och vakten dödades (SIGKILL mot båda, eller en omstart). Har DOM.json ändrats sedan
+  körningen startade är ägarens dom ej belagd, och nästa körning räknar inte de domar som tillkom efter den starten.
+- **en post som inte kunde skrivas:** `kunder/<slug>/korningar/<körning>/UTEBLEV.json` med felet och slutkoden.
+  Slutkod 5 betyder att posten uteblev för en körning som annars fått 0 eller 1.
+
+Slutar kor.sh före bygget utan att stanna med en post (ett kommando som faller under set -e, eller en trasig fil som
+läses in) skrivs en kort post med skälet, och slutkoden blir 2.
 
 **Läsordningen:**
 1. slutsatsen och vad den gäller;

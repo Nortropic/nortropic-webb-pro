@@ -1296,16 +1296,22 @@ koden före rättningen.
      rapportens bindning, inte på om stoppvakten släppte avslutet.
    - Terminalens besked skrivs ur posten. En start som stannar före bygget (slutkod 2) får en kort post. SIGTERM, SIGINT
      och SIGHUP under bygget stoppar claude, och korslut skriver posten (slutkod 4). En körning som dödas med SIGKILL
-     lämnar `START.json` utan slutpost; nästa start och `--visa` säger att den avbröts.
+     lämnar `START.json` utan slutpost; nästa start och `--visa` säger att den avbröts. **Delvis ersatt av:** tillägget
+     2026-10-07 om skyddet av ägarens dom och byggets processer: signalen går till claudes hela processgrupp, och efter
+     SIGKILL mot kor.sh skriver vakten posten och släpper låsen. Posten saknas bara när både kor.sh och vakten dödas.
+     Övrigt gäller.
    - En ny post ersätter de tidigare (`rapportstatus: ersatt` och `ersatt_av`) bara när den gäller ett annat bygge eller
      en annan metod. Den äldre postens länk till rapporten pekar på den flyttade filen.
    - Ägarens dom räknas bara ur en `DOM.json` som är oförändrad sedan körningens start. Byggets Write och Edit nekas för
      filen under körningen. Finns den vid starten låses den, och en DOM.json som ändras eller tillkommer under
-     körningen ger slutkod 3. Skyddet är ofullständigt (omgranskningen GR-20261007-r101-om, i backloggen):
-     - #BÖR-1: ett eget skript i bygget kan ta bort låset och förfalska hashlistan `prov/.skyddat-fore`, och en process
-       som lever kvar efter sessionen kan skriva filen efteråt. Samma lucka döljer en ändrad `kritik/GRANSKARE.md`, så
-       den gäller hela skyddet från F10.
-     - #BÖR-2: barnprocesser kan leva kvar efter en signal under bygget.
+     körningen ger slutkod 3. Skyddet var ofullständigt när grenen slogs ihop (omgranskningen GR-20261007-r101-om):
+     - #BÖR-1: ett eget skript i bygget kunde ta bort låset och förfalska hashlistan `prov/.skyddat-fore`, och en
+       process som levde kvar efter sessionen kunde skriva filen efteråt. Samma lucka dolde en ändrad
+       `kritik/GRANSKARE.md`, så den gällde hela skyddet från F10.
+     - #BÖR-2: barnprocesser kunde leva kvar efter en signal under bygget.
+
+     **Delvis ersatt av:** tillägget 2026-10-07 om skyddet av ägarens dom och byggets processer, där #BÖR-1 och #BÖR-2
+     är rättade och gränsen som återstår står. Övrigt gäller.
 
      Att svaret "Ja, som den är" räknas som godkännande är Claudes tolkning, inte bekräftad av ägaren.
    - `korslut.py --visa` prövar posten mot läget nu. Har bygget, granskningens metod eller startsidans godkännande ändrats
@@ -1428,7 +1434,8 @@ koden före rättningen.
 - Uppdraget står här ordagrant; de andra grenarna lägger inte in det igen.
 - En start som nekas före låset skriver ingen slutpost: fel i anropet, verktyg som saknas eller ett bygge som redan
   pågår. Skrivningen kunde ändra det pågående byggets gräns, så skälet står bara i terminalen. En körning som dödas med
-  SIGKILL får ingen post; den syns bara som avbruten.
+  SIGKILL får ingen post; den syns bara som avbruten. **Delvis ersatt av:** tillägget 2026-10-07 om skyddet av ägarens
+  dom och byggets processer: efter SIGKILL mot kor.sh skriver vakten posten. Övrigt gäller.
 - Byggen från före den här ändringen saknar rapportens identitet i STOPPVAKT.json. Korslut och flödesvyn godkänner dem
   inte längre, och beskedet säger att stoppvaktens besked är från före 2026-10-07.
 - Läckageprovet hittar ordagranna spår av de prövade exemplen, inte en omskriven destillering av domarna.
@@ -1773,3 +1780,68 @@ till slutpostens egen sessionslogg och använder inte ett antaget kontextfönste
 NWP_SKISSSKAPARE_EFFORT och NWP_SKISSSKAPARE_MODELL kan pröva bara skaparen och dess svar på kritik inom
 skissförsöket. Research, plan och granskare behåller sina inställningar. Begärd konfiguration skiljs från faktisk
 observation. Mekaniken prövas med syntetiska svar; inget verkligt modellförsök eller generell kvalitetsvinst hävdas.
+## Tillägg 2026-10-07: skyddet av ägarens dom och byggets processer
+
+**Status:** gäller.
+
+**Varför:** omgranskningen av gren A (GR-20261007-r101-om, och -om2 för integrationen med gren B) fann luckor som är
+äldre än grenen. Ett eget skript i bygget kunde få "ägaren godkänner: ja" räknat, och byggets processer kunde leva kvar
+efter en signal. Ägarens uppdrag samma dag (tillägget ovan, punkt 4, 5 och 7) håller ägarens beslut isär från allt
+annat, och enligt uppdraget om dokumentations- och rapportstrukturen (tillägget 2026-10-06, punkt 7) får automatik inte
+"hitta på beslut eller godkännanden".
+
+**Rättelsen:**
+1. **Hashlistorna och DOM.json prövas mot kor.sh:s minne** (#BÖR-1, #KAN-3).
+   - kor.sh håller listornas sha256, och sha256 för DOM.json när den låstes, i minnet och ger dem till korslut.
+   - En omskriven lista ger slutkod 3, och en ändrad DOM.json ger slutkod 3 även när listan förfalskats.
+   - Kopian `korningar/<körning>/DOM-START.json` gör att ägarens äldre domar räknas, aldrig de som tillkom.
+   - Byggets Write och Edit nekas för listorna och körningarnas protokoll.
+2. **Vakten** (`kontroller/korvakt.py`; #BÖR-1 punkt l, #BÖR-2, #KAN-2, #KAN-5).
+   - Vakten lever i en egen session. Den följer byggets processer genom deras unika id, också dem som lämnat sin
+     session och bytt förälder, och stoppar dem innan något jämförs eller låsen släpps.
+   - claude startas i en egen processgrupp. En signal går till hela gruppen, och SIGKILL följer efter `NWP_FRIST`
+     sekunder.
+   - Dör kor.sh gör vakten avslutet och skriver posten (slutkod 4, eller en kort post när kor.sh dog före bygget), så
+     att ägarens dom kan sparas direkt.
+3. **Slutbeskedet** (#KAN-1, #KAN-4, #KAN-6; GR-20261007-r101-om2#KAN-5).
+   - Slutkoden är postens också när terminalen stängts.
+   - Ägarens senare dom räknas efter en körning som dödats.
+   - En körning utan post sägs som avbruten, eller som en post som inte kunde skrivas (`UTEBLEV.json`).
+   - En utgång före bygget utan post (ett kommando som faller under set -e, eller en trasig fil som läses in) ger en
+     kort post med skälet.
+4. **kor.sh läses i sin helhet** innan något körs: en ändring av filen under ett bygge påverkar inte körningen.
+
+**Gränsen** (`README.md`, Helbyggets slutpost):
+- Ett eget skript kan fortfarande nå förbi skyddet på tre sätt: genom att ändra kontrollerna (kor.sh, korslut.py,
+  korvakt.py eller Python-miljön, som är skrivbara när sandlådan är av), genom att döda vakten, eller genom att starta
+  en process via launchd eller byta förälder två gånger innan vakten sett den mellersta.
+- Dödas både kor.sh och vakten saknas posten.
+- Gränsen på processnivå är ett eget steg i backloggen.
+- Att svaret "Ja, som den är" räknas som godkännande är fortfarande Claudes tolkning.
+
+**Prövat:** `kontroller/rokprov/revision/prov_slutpost.py` i rökprovet; fallen för rättelserna var röda mot 1f0b035.
+Granskarens scenarier kördes före och efter, och mutationer i egna kopior. Vakten är prövad med en attrapp i stället för
+claude, inte med claudes egna verktygsskal; ingen verklig körning har gått med vakten.
+
+**Kvar:** gren D (dashboarden), där också GR-20261007-r101-om#KAN-7 hör hemma (ett eget ägarvärde för "Ja, efter små
+ändringar"). Backlogposterna markeras inte här: klar sätts med commit när rättelsen slagits ihop, och verifierad först
+när en senare granskning säger det.
+
+## Tillägg 2026-10-08: bekräftat avslut och atomisk byggreservation
+
+**Status:** gäller på rättelsegrenen; sammanslagning och driftsättning återstår.
+
+Genomförande inom ägarens övertagandeuppdrag och tillägget om befintliga flödets övergångar. R105:s blockerande motfall rättas: vakten bevarar en befintlig slutpost efter kor.sh:s död bara när korslut bekräftat exakt dess hash genom körningens privata rör. En obekräftad post bevaras separat, skyddet mäts och avslutet räknas om. Bekräftelsen är intern processkommunikation, inte ett påstående i postens JSON.
+
+Helbyggets reservation sker med ett beständigt flock-lås som kor.sh och vakten håller genom avslutet. PID-filen är status. C1:s ateljéprotokoll och domarnas beläggbilaga omfattas av innehålls- och typkontrollen samt Write/Edit-nekanden. Dessa rättelser bygger på isolerade prov med syntetiska sessioner och innebär ingen verifiering av verkliga Claude-verktygsskal, extern åtkomst eller designkvalitet. README beskriver skyddets kvarvarande processgräns.
+
+## Tillägg 2026-10-08: uttryckliga övergångar till helbygge och kundrepo
+
+**Status:** gäller på flödesgrenen; sammanslagning och drift återstår.
+
+Ägarens beställda övergångar återanvänder ateljéns startjournal, den befintliga byggvakten och exporten. En aktuell
+ägardom krävs före helbygge. Export är en teknisk förberedelse och innebär inget publiceringsmandat. Samma start-id
+beställer aldrig två arbeten; ett stopp före processstart består. Kundens lås hålls från reservation tills arbetets
+processer avslutats. Processbeskedet och det versionsbundna resultatkvittot hålls isär. Inga nya köer, schemalagda
+starter, designregler eller externa rättigheter införs. De lokala proven använder syntetiska processer; verkliga
+modellsessioner lämnas till Claude enligt övertagandets gränser.

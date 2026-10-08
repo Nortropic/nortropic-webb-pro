@@ -176,11 +176,15 @@ class Exportovergang(unittest.TestCase):
         mal = self.k / 'kundrepo'; mal.mkdir()
         (mal / 'bevara.txt').write_text('syntetisk tidigare export')
         riktig = exportera.avbrott_som_fel
+        skickad = False
         @contextlib.contextmanager
         def sen_signal():
+            nonlocal skickad
             with riktig():
                 yield
-                signal.raise_signal(signal.SIGTERM)
+                if not skickad:
+                    skickad = True  # ett sent stopp vid publiceringen, inte ett andra under avslutet
+                    signal.raise_signal(signal.SIGTERM)
         with patch.object(exportera, 'avbrott_som_fel', sen_signal):
             ut = exportera.exportera(self.slug, bygg=False)
         self.assertFalse(ut['ok'])

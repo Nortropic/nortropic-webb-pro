@@ -269,6 +269,13 @@ def avbrott_som_fel():
 
 
 def exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
+    import flodesstart
+    with flodesstart.las(ROOT,slug,arv=True), avbrott_som_fel():
+        flodesstart.atelje_ledig(ROOT,slug)
+        return _exportera(slug,kandidat,ut,git,bygg)
+
+
+def _exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
     """Förbered och pröva en ny export innan den tidigare ersätts. Kvittot stannar privat."""
     import atelje
     import korregister
@@ -312,6 +319,7 @@ def exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
         fore = skapande.kallversion(sajt)
         res = {'schema': 1, 'id': 'EXPORT-' + id_, 'typ': 'exportkvitto', 'titel': 'Kundrepots export',
                'slug': slug, 'kandidat': kandidat, 'tid': nu(), 'ut': str(mal), 'ok': False,
+               'start_id':os.environ.get('NWP_FLODE_START_ID') if re.fullmatch(r'[A-Za-z0-9_-]{8,80}',os.environ.get('NWP_FLODE_START_ID','')) else None,
                'kvitto': str(kvitto), 'kallor_sha256': fore, 'export_sha256': None,
                'klart_for_leverans': False, 'kontroller': {'exportbygge': {'varde': None}},
                'tillstand': {n: {'varde': None, 'text': 'inget giltigt slutbesked för denna export'} for n, _ in korslut.TILLSTAND}}

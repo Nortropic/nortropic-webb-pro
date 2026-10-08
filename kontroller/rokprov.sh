@@ -654,6 +654,9 @@ echo "   flödesvyns prov ok"
 node "$ROOT/kontroller/rokprov/revision/prov_flodeshandling_webb.mjs" "$ROOT" >"$ROOT/kunder/rokprov-mall/flodeshandling-webb-prov.log" 2>&1 \
   || { echo "FEL: flödeshandlingens webbläsarprov"; tail -20 "$ROOT/kunder/rokprov-mall/flodeshandling-webb-prov.log"; exit 1; }
 echo "   flödeshandlingens API och webbläsarprov ok"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_flodesstart.py" >"$ROOT/kunder/rokprov-mall/flodesstart-prov.log" 2>&1 \
+  || { echo "FEL: flödesstartens processprov"; tail -25 "$ROOT/kunder/rokprov-mall/flodesstart-prov.log"; exit 1; }
+echo "   flödesstartens processprov ok"
 echo "   dokumentationsvyn (2026-10-07): de fyra delarna, filtren, huvudena, besluten, blindningen, länkarna, saknade rapporter och avsändaren"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_dokumentationsvy.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" \
   || { echo "FEL: dokumentationsvyns prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log"; exit 1; }

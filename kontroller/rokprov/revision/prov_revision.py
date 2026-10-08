@@ -5935,8 +5935,12 @@ assert 'rc=1' in (kr / 'kunder' / 'prov-bygge' / 'NYKUND-RC').read_text() and 'O
 assert (kr / 'kunder' / 'smyg').is_dir() and 'syskon:kunder/smyg' in rs.stdout and 'flagga:kunder' in rs.stdout, 'lyft flagga och insmugen katalog är ändrad mekanik: %s' % rs.stdout[-400:]
 assert 'uchg' not in subprocess.run(['stat', '-f', '%Sf', str(kr / 'kunder')], capture_output=True, text=True).stdout and not (kr / 'kunder' / '.bygge-pid').exists(), 'flaggan och låset tas bort vid avslut'
 shutil.rmtree(kr / 'kunder' / 'smyg')
-(kr / 'kunder' / '.bygge-pid').write_text('%d\n' % os.getpid())  # ett andra bygge medan det första pågår vägras
-rv = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_s, timeout=60)
+(kr / 'kunder' / '.bygge-pid').write_text('%d\n' % os.getpid())
+# Reservationen är flock, inte en godtycklig levande PID. Håll den på riktigt medan nästa kor.sh försöker starta.
+import fcntl
+with open(kr / 'kunder' / '.bygge.las', 'a') as bygglas_prov:
+    fcntl.flock(bygglas_prov.fileno(), fcntl.LOCK_EX)
+    rv = subprocess.run(['bash', str(kr / 'kor.sh'), 'prov-bygge', 'Prov AB, https://exempel.se'], capture_output=True, text=True, cwd=str(kr), env=miljo_s, timeout=60)
 assert rv.returncode == 2 and 'pågår redan' in rv.stdout, (rv.returncode, rv.stdout[-200:])
 assert (kr / 'kunder' / '.bygge-pid').read_text().strip() == str(os.getpid()), 'den vägrade körningen rör inte låset'
 (kr / 'kunder' / '.bygge-pid').write_text('999999\n'); subprocess.run(['chflags', 'uchg', str(kr / 'kunder')], check=True)  # avbruten körning: död pid, kvar flagga

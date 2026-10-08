@@ -31,11 +31,18 @@ ett huvud. Fem tillstånd hålls isär: sessionen avslutad normalt, tekniskt god
 godkänner och klart för leverans inom angiven omfattning. Terminalens besked skrivs ur posten (text).
 - Utan körning skrivs ingen post. En ny post ersätter de tidigare (rapportstatus ersatt, ersatt_av) bara när den gäller
   ett annat bygge eller en annan metod; en kort post från en start som stannade före bygget ersätter ingen.
-- Ägarens dom räknas bara ur en DOM.json som är oförändrad sedan körningens start (kor.sh:s hashlistor), och efter
-  körningen bara domar som inte fanns i en DOM.json som ändrades under en körning. Avsändaren är annars ej belagd.
+- kor.sh håller hashlistornas sha256, och sha256 för DOM.json när den låstes, i minnet och ger dem hit
+  (NWP_SKYDDAT_SHA256, NWP_DOM_START_SHA256), tillsammans med vaktens besked om byggets processer (NWP_PROCESSER,
+  kontroller/korvakt.py). En hashlista som ändrats under körningen är slutkod 3 (granskningen GR-20261007-r101-om, BÖR 1).
+- Ägarens dom räknas bara när DOM.json är oförändrad sedan den låstes, enligt kor.sh:s minne och hashlistan efter
+  körningen, och när vakten stoppat alla byggets processer. Ändrades den räknas domarna i kopian från starten
+  (korningar/<körning>/DOM-START.json, prövad mot sha256 ur minnet), aldrig de som tillkom (KAN 3). Avsändaren är annars
+  ej belagd. Efter körningen räknas bara domar som ingen körning kan ha skrivit (protokollens ej_belagda).
 - aktuell() och --visa prövar posten mot läget nu: ägarens dom, dist/, granskningens metod och startsidans godkännande.
   Har något ändrats står postens godkännanden som historik och klart för leverans är nej. En körning som startade
-  (START.json) men saknar slutpost och inte pågår är avbruten utan slutpost, och det sägs.
+  (START.json) men saknar slutpost och inte pågår sägs: avbruten (varken kor.sh eller vakten skrev någon post) eller
+  med en post som inte kunde skrivas (UTEBLEV.json, slutkod 5; KAN 6).
+- Beskedet skrivs också när terminalen stängts: slutkoden är postens (KAN 1).
 """
 import hashlib
 import json
@@ -58,7 +65,10 @@ EJ = 'ej angivet'  # ett saknat värde gissas aldrig (README.md, rapporthuvudet)
 EJ_BELAGD = skapande.EJ_BELAGD  # avsändarna och "ej belagd" har en källa i koden: kontroller/skapande.py (GR-20261007-r106#KAN-7)
 SLUTPOST = 'SLUT.json'
 START = 'START.json'  # kor.sh skriver den när körningen får sin identitet: en körning utan SLUT.json syns
+UTEBLEV = 'UTEBLEV.json'  # en körning vars slutpost inte kunde skrivas (slutkod 5), skild från en avbruten (KAN 6)
 DOMFIL = 'DOM.json'
+DOMSTART = 'DOM-START.json'  # kor.sh:s kopia av DOM.json när den låstes, i körningens katalog (KAN 3)
+AVBROTT_KORSH = 'kor.sh dog utan avslut (SIGKILL eller krasch); vakten stoppade bygget och skrev posten'
 DATUM_IDENTITET = '2026-10-07'  # från den dagen bär stoppvaktens besked rapportens identitet
 KORNING_ID = re.compile(r'(?<![0-9A-Za-z])(\d{8}T\d{6}Z)(?![0-9A-Za-z])')  # kor.sh: date -u +%Y%m%dT%H%M%SZ
 KORNING_NAMN = re.compile(r'[0-9A-Za-z][0-9A-Za-z_-]{0,63}')  # körningen som katalognamn, aldrig en sökväg
@@ -332,8 +342,11 @@ def sessionen(k, korning, rc, avbruten=None):
         kod = int(rc)
     except (TypeError, ValueError):
         kod = rc
-    ut = {'varde': kod == 0 and not avbruten, 'kod': kod,
-          'text': 'claude avslutade med kod %s%s%s' % (kod, '' if kod == 0 else ' (föll)', ', körningen avbröts med %s' % avbruten if avbruten else '')}
+    if isinstance(kod, int):
+        text = 'claude avslutade med kod %s%s%s' % (kod, '' if kod == 0 else ' (föll)', ', körningen avbröts med %s' % avbruten if avbruten else '')
+    else:  # vakten gjorde avslutet: claude var kor.sh:s barn, och dess slutkod gick förlorad med kor.sh
+        text = 'claudes slutkod är okänd%s' % (', körningen avbröts: %s' % avbruten if avbruten else '')
+    ut = {'varde': kod == 0 and not avbruten, 'kod': kod, 'text': text}
     if avbruten:
         ut['avbruten'] = avbruten
     logg = Path(k) / ('korning-%s.jsonl' % korning) if korning else None
@@ -405,31 +418,143 @@ def agarens_dom(k, dist, ej_belagda=()):
             'text': 'dom %s, kärnfrågan namn: %s%s; %s' % (d.get('tid') or EJ, namn or 'obesvarad', villkor, TOLKNING)}
 
 
-def agaren_vid_slut(k, nu_hash, dom_fore, dom_efter):
-    """(tillstånd, protokoll) för ägarens dom när körningen slutar. DOM.json hör till kor.sh:s skyddade filer, så
-    hashlistorna säger om den ändrades under körningen. Bara en DOM.json som är oförändrad sedan körningens start räknas.
-    Ändrades den, eller går den inte att pröva mot starten (hashlistorna tar inte med den), kan bygget ha skrivit den:
-    avsändaren är då ej belagd, och domarna i filen räknas aldrig, inte heller senare (protokollets ej_belagda)."""
+def startdomar(k, korning, start_sha):
+    """Nycklarna för domarna i DOM.json när kor.sh låste den: ur kopian korningar/<körning>/DOM-START.json, bara när dess
+    sha256 är den som kor.sh höll i minnet (start_sha). En tom mängd när DOM.json saknades vid starten ('saknas'); None när
+    kopian saknas, är en länk eller inte stämmer, och då är ingen dom i filen belagd (KAN 3)."""
+    if not start_sha:
+        return None
+    if start_sha == 'saknas':
+        return set()
+    kopia = Path(k) / 'korningar' / str(korning or '') / DOMSTART
+    if not korning or kopia.is_symlink() or sha_fil(kopia) != start_sha:
+        return None
+    d, fel = las_objekt(kopia)
+    domar = (d or {}).get('domar')
+    return {dom_nyckel(x) for x in domar if isinstance(x, dict)} if not fel and isinstance(domar, list) else set()
+
+
+def hashlistorna(k, fore, efter):
+    """(prövning, mekanik) för kor.sh:s hashlistor. kor.sh håller listornas sha256 i minnet (NWP_SKYDDAT_SHA256, "<före>
+    <efter>"): en lista som ändrats under körningen, av ett eget skript i bygget, döljer annars en ändrad DOM.json eller
+    mekanik (granskningen GR-20261007-r101-om, BÖR 1). En ändrad eller oskriven lista är ändrad mekanik (slutkod 3). Utan
+    värdena (korslut kördes utan kor.sh) är listorna inte prövade, och ägarens dom kan då inte beläggas."""
+    k = Path(k)
+    v = (os.environ.get('NWP_SKYDDAT_SHA256') or '').split()
+    fel = os.environ.get('NWP_EFTER_FEL') or ''
+    if len(v) != 2:
+        return {'varde': None, 'text': 'ej prövade mot kor.sh:s minne (korslut kördes utan kor.sh)'}, []
+    fore_ok, efter_ok = sha_fil(fore) == v[0], sha_fil(efter) == v[1] and not fel
+    andrade = ['lista:kunder/%s/prov/%s' % (k.name, Path(fil).name) for fil, ok in ((fore, fore_ok), (efter, sha_fil(efter) == v[1])) if not ok]
+    if fel:
+        andrade.append('lista:efter körningen (%s)' % fel[:160])
+    return {'varde': not andrade, 'fore_ok': fore_ok, 'efter_ok': efter_ok, 'andrade': andrade,
+            'text': 'oförändrade sedan kor.sh skrev dem' if not andrade else 'ändrade eller oskrivna under körningen: %s' % ', '.join(andrade)}, andrade
+
+
+def processer_efter():
+    """Vaktens besked om byggets processer när claude avslutats (NWP_PROCESSER, JSON från kontroller/korvakt.py): vilka
+    den stoppade och vilka som fanns kvar. En process som lever kvar efter körningen kan skriva DOM.json när låset släpps
+    (granskningen GR-20261007-r101-om, BÖR 1, punkt l); utan besked är det inte prövat."""
+    try:
+        d = json.loads(os.environ.get('NWP_PROCESSER') or 'null')
+    except ValueError:
+        d = None
+    if not isinstance(d, dict):
+        return {'varde': None, 'stoppade': [], 'kvar': [], 'text': 'ej prövat: inget besked från vakten om byggets processer'}
+    stoppade = [x for x in d.get('stoppade') or [] if isinstance(x, dict)]
+    kvar = [x for x in d.get('kvar') or [] if isinstance(x, dict)]
+    namn = lambda xs: ', '.join('%s (pid %s%s)' % (x.get('namn'), x.get('pid'), ', %s' % x['signal'] if x.get('signal') else '') for x in xs[:8])  # noqa: E731
+    text = ('%d process(er) ur bygget fanns kvar efter SIGKILL: %s' % (len(kvar), namn(kvar)) if kvar else 'ingen process ur bygget kvar') + (
+        '; vakten stoppade %d: %s' % (len(stoppade), namn(stoppade)) if stoppade else '')
+    return {'varde': not kvar, 'stoppade': stoppade, 'kvar': kvar, 'foljda': d.get('foljda'), 'frist': d.get('frist'), 'text': text}
+
+
+def tillkomna_efter_avbrutna(k, korning, nycklar, start_sha=None):
+    """Domar (nycklar, ur DOM.json när den här körningen startade) som inte fanns när en tidigare körning startade, som
+    claude hann starta i men som saknar både slutpost och UTEBLEV.json: den avbröts utan att kor.sh eller vakten skrev
+    någon post, så dess bygge kan ha skrivit dem (KAN 4). Domarna vid den körningens start kommer ur dess DOM-START.json;
+    saknas kopian och är DOM.json oförändrad sedan dess (START.json:s sha256 = start_sha) har inget tillkommit, annars räknas
+    alla som tillkomna. Ger (nycklar, körningarna)."""
+    k = Path(k)
+    ut, vilka = set(), []
+    for a in avbrutna(k, efter=_senaste_post_fore(k, korning) if korning else None, utom=korning):
+        if a.get('uteblev') is not None or not a.get('logg'):
+            continue
+        d = k / 'korningar' / a['korning']
+        start = None if a.get('dom_sha256_start') else set()
+        if (d / DOMSTART).is_file() and not (d / DOMSTART).is_symlink():
+            x, fel = las_objekt(d / DOMSTART)
+            if not fel and isinstance((x or {}).get('domar'), list):
+                start = {dom_nyckel(y) for y in x['domar'] if isinstance(y, dict)}
+        if start is None and start_sha and a.get('dom_sha256_start') == start_sha:
+            continue  # DOM.json är oförändrad sedan den körningen startade
+        nya = set(nycklar) - (start or set())
+        if nya:
+            ut |= nya
+            vilka.append(a['korning'])
+    return ut, vilka
+
+
+def agaren_vid_slut(k, nu_hash, dom_fore, dom_efter, korning=None, start_sha=None, hinder=()):
+    """(tillstånd, protokoll) för ägarens dom när körningen slutar.
+    - Starten: sha256 för DOM.json när kor.sh låste den, ur kor.sh:s minne (start_sha, NWP_DOM_START_SHA256; 'saknas' när
+      filen saknades), annars ur hashlistan före körningen. Slutet: hashlistan efter, skriven när byggets processer stoppats.
+    - Ändrades DOM.json räknas domarna i kopian från starten, aldrig de som tillkom; går kopian inte att lita på räknas
+      ingen dom i filen (KAN 3). Går filen inte att pröva mot starten räknas inte heller de som tillkommit.
+    - Domar som tillkom efter att en tidigare körning avbröts utan post räknas inte (tillkomna_efter_avbrutna).
+    - Domarna som inte räknas står i protokollets ej_belagda och räknas aldrig, inte heller senare.
+    - hinder: hashlistorna prövades inte mot kor.sh:s minne, eller byggets processer stoppades inte. Domen är då ej belagd
+      i den här posten."""
     k = Path(k)
     nu_ = sha_fil(k / DOMFIL)
     domar, _ = agarens_domar(k)
-    andrad = dom_fore != dom_efter
+    start = (None if start_sha == 'saknas' else start_sha) if start_sha else dom_fore
+    andrad = start != dom_efter
+    kanda = startdomar(k, korning, start_sha) if start_sha else (set() if dom_fore is None else None)
+    alla = [dom_nyckel(d) for d in domar]
+    tillkomna = [n for n in alla if kanda is None or n not in kanda]
+    efter_avbrutna, avbrutna_ = tillkomna_efter_avbrutna(k, korning, [n for n in alla if n not in tillkomna], start)
+    proto = {'andrad_under_korningen': andrad, 'provad_mot_start': nu_ == dom_efter, 'sha256_start': start, 'sha256_slut': nu_,
+             'start_ur': 'kor.sh:s minne' if start_sha else 'hashlistan före körningen', 'startkopian': None if kanda is None else len(kanda),
+             'ej_belagda': [], 'hinder': list(hinder)}
+    ej = set()
+    skal = []
     if andrad or nu_ != dom_efter:
-        orsak = 'ändrades under körningen' if andrad else 'går inte att pröva mot körningens start'
+        ej |= set(tillkomna)
+        skal.append('%s %s%s' % (DOMFIL, 'ändrades under körningen' if andrad else 'går inte att pröva mot körningens start',
+                                 ', så bygget kan ha skrivit den' if kanda is None else ', så bygget kan ha skrivit %d dom(ar) i den' % len(tillkomna)
+                                 if tillkomna else ', men ingen dom tillkom'))
+    if efter_avbrutna:
+        ej |= efter_avbrutna
+        proto['efter_avbrutna'] = avbrutna_
+        skal.append('%d dom(ar) tillkom efter att körningen %s startade och avbröts utan slutpost' % (len(efter_avbrutna), ', '.join(avbrutna_)))
+    proto['ej_belagda'] = [n for n in alla if n in ej]
+    t = agarens_dom(k, nu_hash, ej_belagda_domar(k) | ej)
+    # en dom över bygget som inte räknas gör tillståndet ej belagt, när ingen belagd dom finns över samma bygge
+    uteslutna = [d for d in domar if dom_nyckel(d) in ej and nu_hash and d.get('bygge_dist') == str(nu_hash)[:12]]
+    if hinder or (t.get('varde') is None and (uteslutna or ((andrad or nu_ != dom_efter) and kanda is None))):
+        orsak = '; '.join(skal + list(hinder))
         return ({'varde': None, 'avsandare': EJ_BELAGD, 'kalla': _rel(k, DOMFIL),
-                 'text': '%s: %s %s, så bygget kan ha skrivit den; ägarens domar skrivs bara av dashboarden när inget bygge pågår' % (EJ_BELAGD, DOMFIL, orsak)},
-                {'andrad_under_korningen': andrad, 'provad_mot_start': nu_ == dom_efter, 'sha256_start': dom_fore,
-                 'sha256_slut': nu_, 'ej_belagda': [dom_nyckel(d) for d in domar]})
-    return agarens_dom(k, nu_hash, ej_belagda_domar(k)), {'andrad_under_korningen': False, 'provad_mot_start': True, 'sha256_start': dom_fore,
-                                                          'sha256_slut': nu_, 'ej_belagda': []}
+                 'text': '%s: %s; ägarens domar skrivs bara av dashboarden när inget bygge pågår' % (EJ_BELAGD, orsak)}, proto)
+    if skal:
+        t = dict(t, text='%s (räknas inte: %s)' % (t.get('text'), '; '.join(skal)))
+    return t, proto
 
 
 def ej_belagda_domar(k):
-    """Domar som fanns i en DOM.json som ändrades under en körning, ur alla körningars slutposter."""
+    """Domar som aldrig räknas, eftersom en körning kan ha skrivit dem, ur alla körningars protokoll: slutposterna och
+    UTEBLEV.json (en körning vars post inte kunde skrivas)."""
     ut = set()
+    d = Path(k) / 'korningar'
+    uteblev = sorted(f for f in d.glob('*/' + UTEBLEV) if f.is_file() and not f.is_symlink() and not f.parent.is_symlink()) \
+        if d.is_dir() and not d.is_symlink() else []
     for f in slutposter(k):
         p = las(f) or {}
         ut |= set((((p.get('kontroller') or {}).get('agarens_dom') or {}).get('ej_belagda')) or [])
+    for f in uteblev:
+        p = las(f) or {}
+        ut |= set(((p.get('agarens_dom') or {}).get('ej_belagda')) or [])
     return ut
 
 
@@ -498,9 +623,23 @@ def foregaende(k, korning):
                           '; trasig: %s' % fel if fel else '')
 
 
+def _vakten_avslutar(pid, korning):
+    """Håller korvakten låset för körningen (kor.sh dog, och vakten gör avslutet)?"""
+    if not pid or not _lever(pid):
+        return False
+    try:
+        cmd = subprocess.run(['ps', '-o', 'command=', '-p', str(int(pid))], capture_output=True, text=True, timeout=10,
+                             env=dict(os.environ, LC_ALL='C')).stdout
+    except Exception:  # noqa: BLE001
+        return False
+    return 'korvakt.py' in cmd and str(korning) in cmd
+
+
 def avbrutna(k, efter=None, utom=None):
-    """Körningar som startade (korningar/<körning>/START.json, skriven av kor.sh) men saknar slutpost och inte pågår (kor.sh
-    håller inte låset med körningens pid): avbrutna utan slutpost, till exempel med SIGKILL (granskningen av r101, BÖR 1).
+    """Körningar som startade (korningar/<körning>/START.json, skriven av kor.sh) men saknar slutpost och inte pågår (varken
+    kor.sh eller dess vakt håller låset för körningen). Två slag (granskningen av r101, BÖR 1 och KAN 6):
+    - uteblev: korslut gjorde avslutet men kunde inte skriva posten (UTEBLEV.json, slutkod 5);
+    - avbruten: varken kor.sh eller vakten skrev någon post (SIGKILL mot båda, eller en omstart).
     Bara körningar efter efter. Äldre körningar utan START.json är från före slutposterna och räknas inte."""
     k = Path(k)
     d = k / 'korningar'
@@ -514,22 +653,30 @@ def avbrutna(k, efter=None, utom=None):
     for x in sorted(d.iterdir()):
         if x.is_symlink() or not x.is_dir() or not KORNING_NAMN.fullmatch(x.name) or x.name == utom or (efter and x.name <= efter):
             continue
-        if (x / SLUTPOST).exists() or (x / SLUTPOST).is_symlink() or not (x / START).is_file():
-            continue
+        if ((x / SLUTPOST).is_file() and not (x / SLUTPOST).is_symlink()) or not (x / START).is_file():
+            continue  # en post finns; en katalog eller länk i postens ställe är ingen post
         s, fel = las_objekt(x / START)
         pid = (s or {}).get('pid')
-        if pid and pid == las_pid and _pagar(pid):
-            continue  # pågår
+        if (pid and pid == las_pid and _pagar(pid)) or (las_pid and las_pid != pid and _vakten_avslutar(las_pid, x.name)):
+            continue  # pågår, eller vakten gör avslutet
+        u = las_objekt(x / UTEBLEV)[0] if not (x / UTEBLEV).is_symlink() else None
         flyttad = k / 'rapporter' / ('RAPPORT-fore-%s.md' % x.name)
-        ut.append({'korning': x.name, 'start': (s or {}).get('start'), 'dom_sha256_start': (s or {}).get('dom_sha256'), 'fel': fel,
-                   'logg': _rel(k, 'korning-%s.jsonl' % x.name) if (k / ('korning-%s.jsonl' % x.name)).is_file() else None,
-                   'rapport_flyttad': _rel(k, 'rapporter', flyttad.name) if flyttad.is_file() else None})
+        a = {'korning': x.name, 'start': (s or {}).get('start'), 'dom_sha256_start': (s or {}).get('dom_sha256'), 'fel': fel,
+             'logg': _rel(k, 'korning-%s.jsonl' % x.name) if (k / ('korning-%s.jsonl' % x.name)).is_file() else None,
+             'rapport_flyttad': _rel(k, 'rapporter', flyttad.name) if flyttad.is_file() else None}
+        if u is not None:
+            a.update(uteblev=str(u.get('fel') or EJ), uteblev_slutkod=u.get('slutkod'), uteblev_protokoll=isinstance(u.get('agarens_dom'), dict))
+        ut.append(a)
     return ut
 
 
 def _avbruten_text(a):
-    return 'körningen %s (startad %s) avbröts utan slutpost%s%s' % (
-        a['korning'], a.get('start') or EJ, '; logg %s' % a['logg'] if a.get('logg') else '',
+    if a.get('uteblev') is not None:
+        vad = 'slutade utan slutpost: posten kunde inte skrivas (%s; slutkod %s)' % (a['uteblev'], a.get('uteblev_slutkod') or EJ)
+    else:
+        vad = 'avbröts utan slutpost: varken kor.sh eller vakten skrev någon (SIGKILL mot båda, eller en omstart)'
+    return 'körningen %s (startad %s) %s%s%s' % (
+        a['korning'], a.get('start') or EJ, vad, '; logg %s' % a['logg'] if a.get('logg') else '',
         '; den äldre rapporten flyttades till %s' % a['rapport_flyttad'] if a.get('rapport_flyttad') else '')
 
 
@@ -555,11 +702,12 @@ def _skiljer(h):
 
 
 def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, domlogg, skal_ej, slutkod, slutkod_text, dom=None, lasfel=(),
-             bevis=None, avbruten=None):
+             bevis=None, avbruten=None, processer=None, listor=None):
     """Körningens slutpost: rapporthuvudets fält, de fem tillstånden var för sig, kontrollerna, granskningen, metoden,
     startsidan, bristerna, nästa steg och länkarna. Bara uppgifter som avslutet har; det som saknas står som ej angivet.
     dom: (tillstånd, protokoll) för ägarens dom (agaren_vid_slut); bevis: {namn: relativ väg} för provets och stoppvaktens
-    besked kopierade till postens katalog."""
+    besked kopierade till postens katalog; processer: vaktens besked (processer_efter); listor: hashlistornas prövning mot
+    kor.sh:s minne (hashlistorna)."""
     k = Path(k)
     slug = k.name
     tid = nu()
@@ -659,14 +807,16 @@ def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, do
                       ORD.get(dom_t.get('varde')), dom_t.get('text'))),
               1: '%s av korslut (slutkod 1): %s' % ('underkänt' if underkant else 'ofullständigt', skal_ej or EJ),
               3: 'ofullständigt (slutkod 3): mekaniken eller gränsen ändrades under körningen; inget av proven gäller',
-              4: 'ofullständigt (slutkod 4): claude avslutade med kod %s%s' % (rc, ', körningen avbröts med %s' % avbruten if avbruten else ''),
+              4: 'ofullständigt (slutkod 4): %s' % tillstand['sessionen_avslutad']['text'],
               6: 'ofullständigt (slutkod 6): bygget stannade utan sajt (%s)' % (sv.get('skal') or EJ)}[slutkod]
     tidigare_avbrutna = avbrutna(k, efter=_senaste_post_fore(k, korning), utom=korning) if korning else []
+    processer = processer if isinstance(processer, dict) else processer_efter()
     brister = [x for x in [
         None if tillstand['sessionen_avslutad']['varde'] else tillstand['sessionen_avslutad']['text'],
         None if tekniskt['varde'] else 'tekniskt: %s' % tekniskt['text'],
         None if dg['varde'] is True else 'designgranskningen: %s' % dg['text'],
         None if dom_t.get('avsandare') != EJ_BELAGD else 'ägarens dom: %s' % dom_t.get('text'),
+        None if processer.get('varde') is True else 'byggets processer: %s' % processer['text'],
         'skyddade texter ändrades under körningen: %s' % ', '.join(x for x in skydd[:10] if x not in mekanik) if [x for x in skydd if x not in mekanik] else None,
         ('inte godkänt: %s' % skal_ej) if skal_ej else None] + ['läsfel: %s' % x for x in lasfel if x]
         + [_avbruten_text(a) for a in tidigare_avbrutna] if x]
@@ -687,6 +837,7 @@ def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, do
                             _rel(k, 'RAPPORT.md') if rapporten['finns'] else None,
                             '%s (den äldre rapporten, flyttad när körningen startade)' % rapporten['aldre_flyttad'] if rapporten['aldre_flyttad'] else None,
                             _rel(k, 'FRAGOR.json') if (k / 'FRAGOR.json').is_file() else None,
+                            _rel(k, 'korvakt-%s.log' % korning) if korning and (k / ('korvakt-%s.log' % korning)).is_file() else None,
                             sida.get('vinnare'), 'underlag/%s/atelje/STARTKVITTO-BYGGE.md' % slug
                             if (k.resolve().parent.parent / 'underlag' / slug / 'atelje' / 'STARTKVITTO-BYGGE.md').is_file() else None] if x]
     beslut = [x for x in [('ägarens godkännande av startsidan %s (%s)' % (sida['godkand'], sida['vinnare'])) if sida.get('godkand') else None,
@@ -694,13 +845,15 @@ def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, do
     verksamhet = os.environ.get('NWP_VERKSAMHET')
     post = {'schema': 1, 'id': 'SLUT-%s-%s' % (slug, korning or EJ), 'titel': 'Slutbesked för helbygget %s, körningen %s' % (slug, korning or EJ),
             'typ': TYP, 'uppdrag': '%s: %s' % (UPPDRAG, verksamhet) if verksamhet else UPPDRAG, 'kund': slug, 'moment': MOMENT,
-            'forfattare': 'kontroller/korslut.py (kor.sh:s avslut)',
+            'forfattare': _forfattare('kontroller/korslut.py (kor.sh:s avslut)'),
             'datum': tid, 'granskad_identitet': ident, 'rapportstatus': 'färdig', 'bedomningsutfall': utfall,
             'foregaende': foregaende(k, korning) if korning else EJ, 'ersatt_av': EJ, 'underlag': underlag, 'beslut': beslut or EJ,
             'atgarder': atgarder, 'korning': korning, 'dist_sha256': nu_hash, 'kallor_sha256': (s or {}).get('kallor_sha256'),
             'slutkod': slutkod, 'slutkod_text': slutkod_text,
             'tillstand': tillstand,
-            'kontroller': {'provet': provet, 'stoppvakten': stoppvakten, 'rapporten': rapporten, 'mekaniken': mek, 'agarens_dom': dom_p},
+            'kontroller': {'provet': provet, 'stoppvakten': stoppvakten, 'rapporten': rapporten, 'mekaniken': mek, 'agarens_dom': dom_p,
+                           'processer': processer, 'hashlistorna': listor if isinstance(listor, dict) else
+                           {'varde': None, 'text': 'ej prövade mot kor.sh:s minne'}},
             'designgranskning': design, 'metod': {'granskning': metod, 'bygget': bygget, 'repo': repo}, 'startsida': sida,
             'brister': brister, 'inte_godkant': skal_ej or None, 'titta': 'cd %s && npx astro preview' % _rel(k, 'sajt')}
     if avbruten:
@@ -754,7 +907,7 @@ def _provad_text(p):
     for x in p.get('senare_stopp') or []:
         r.append('Senare start som stannade före bygget: %s' % x)
     for a in p.get('avbrutna') or []:
-        r.append('Avbruten utan slutpost: %s' % _avbruten_text(a))
+        r.append('Utan slutpost: %s' % _avbruten_text(a))
     return r
 
 
@@ -765,7 +918,11 @@ def text(post):
         return '\n'.join(huvud + [str(post.get('skal') or EJ)] + ['Brist: %s' % b for b in (post.get('brister') or [])[1:]]
                          + ['Slutpost: %s' % (post.get('slutpost') or 'skrevs inte: %s' % post.get('slutpost_fel', EJ)), post['slutkod_text']])
     t, kn = post['tillstand'], post['kontroller']
-    r = huvud + ['claude avslutade med kod %s%s' % (t['sessionen_avslutad'].get('kod'), ' (avbruten med %s)' % post['avbruten'] if post.get('avbruten') else '')]
+    kod = t['sessionen_avslutad'].get('kod')
+    r = huvud + ['claude avslutade med kod %s%s' % (kod, ' (avbruten med %s)' % post['avbruten'] if post.get('avbruten') else '') if isinstance(kod, int)
+                 else t['sessionen_avslutad'].get('text') or 'claudes slutkod är okänd']
+    if isinstance(kn.get('processer'), dict):
+        r.append('Byggets processer: %s' % kn['processer'].get('text'))
     mek = kn['mekaniken']
     if mek['antal']:
         r.append('VARNING: skyddade filer ändrades under körningen, av bygget eller någon annan (kirurgen, ägarens dom):\n' + '\n'.join(mek['andrade'])
@@ -927,13 +1084,14 @@ def stopp(k, korning, skal):
     verksamhet = os.environ.get('NWP_VERKSAMHET')
     post = {'schema': 1, 'id': 'SLUT-%s-%s' % (k.name, korning), 'titel': 'Slutbesked: kor.sh stannade före bygget, körningen %s' % korning,
             'typ': TYP_STOPP, 'uppdrag': '%s: %s' % (UPPDRAG, verksamhet) if verksamhet else UPPDRAG, 'kund': k.name, 'moment': MOMENT,
-            'forfattare': 'kontroller/korslut.py (kor.sh)', 'datum': tid,
+            'forfattare': _forfattare('kontroller/korslut.py (kor.sh)'), 'datum': tid,
             'granskad_identitet': ['körning %s' % korning], 'rapportstatus': 'färdig',
             'bedomningsutfall': 'ej bedömt (slutkod 2): bygget startade inte; %s' % skal, 'foregaende': foregaende(k, korning), 'ersatt_av': EJ,
             'underlag': [x for x in [_rel(k, 'startkontroll.log') if 'startkontroll' in skal and (k / 'startkontroll.log').is_file() else None,
                                      'underlag/%s/atelje/STARTKVITTO-BYGGE-STOPP.md' % k.name if 'startkontroll' in skal else None,
                                      '%s (den äldre rapporten, flyttad när körningen startade)' % _rel(k, 'rapporter', flyttad.name)
-                                     if flyttad.is_file() else None] if x] or EJ,
+                                     if flyttad.is_file() else None,
+                                     _rel(k, 'korvakt-%s.log' % korning) if (k / ('korvakt-%s.log' % korning)).is_file() else None] if x] or EJ,
             'beslut': EJ, 'atgarder': ['rätta det som stoppade starten (skälet) och starta ./kor.sh %s "<verksamhet>" igen' % k.name],
             'korning': korning, 'slutkod': 2, 'slutkod_text': 'Slutkod 2: bygget startade inte; kor.sh stannade före bygget', 'skal': skal,
             'tillstand': {'sessionen_avslutad': {'varde': None, 'text': 'ingen session startades'},
@@ -948,7 +1106,31 @@ def stopp(k, korning, skal):
         skriv_slutpost(k, korning, post, ersatt=False)
     except (OSError, ValueError) as e:
         post.update(slutpost=None, slutpost_fel=str(e)[:300])
+        skriv_uteblev(k, korning, 'den korta posten kunde inte skrivas: %s' % str(e)[:200], 2)
     return post
+
+
+def _forfattare(standard):
+    return 'kontroller/korslut.py (korvaktens avslut, kontroller/korvakt.py: kor.sh dog)' if os.environ.get('NWP_AVBRUTEN') == 'KORSH' else standard
+
+
+def skriv_uteblev(k, korning, fel, slutkod, dom_p=None):
+    """En körning vars slutpost inte kunde skrivas lämnar korningar/<körning>/UTEBLEV.json, när katalogen går att skriva
+    utan att följa en länk: nästa start och --visa skiljer den från en körning som avbröts (KAN 6), och domarna som inte
+    räknades står kvar (ej_belagda_domar). Ger filen eller None."""
+    try:
+        if not KORNING_NAMN.fullmatch(str(korning or '')):
+            return None
+        d = Path(k) / 'korningar' / korning
+        if Path(k).is_symlink() or d.parent.is_symlink() or d.is_symlink() or not d.is_dir() or (d / UTEBLEV).is_symlink():
+            return None
+        data = {'korning': korning, 'tid': nu(), 'fel': fel, 'slutkod': slutkod}
+        if isinstance(dom_p, dict):
+            data['agarens_dom'] = dom_p
+        _skriv_json(d / UTEBLEV, data)
+        return d / UTEBLEV
+    except (OSError, ValueError):
+        return None
 
 
 def aktuell(k, korning=None):
@@ -957,8 +1139,10 @@ def aktuell(k, korning=None):
       annars den senaste posten; senare starter som stannade och körningar utan slutpost nämns.
     - Har dist/, granskningens metod (metod_sha) eller startsidans godkännande (VINNARE.json) ändrats sedan posten står
       det tekniska godkännandet och granskningen som historik ("gällde dist X och metod Y") och klart för leverans är nej.
-    - Ägarens dom prövas mot DOM.json nu, utan domar som en körning kan ha skrivit (ej_belagda), och är ej belagd när en
-      senare körning avbröts utan slutpost efter att DOM.json ändrats.
+    - Ägarens dom prövas mot DOM.json nu, utan domar som en körning kan ha skrivit (ej_belagda, ur slutposterna och
+      UTEBLEV.json). En körning som dödas med SIGKILL får sin post av vakten, så ägarens senare dom räknas (KAN 4). Dog
+      också vakten (ingen post och inget protokoll) är domen ej belagd så länge DOM.json ändrats sedan den körningen
+      startade; nästa körning räknar inte domar som tillkom efter det.
     Ger None utan post."""
     k = Path(k)
     dist = k / 'sajt' / 'dist'
@@ -1022,11 +1206,12 @@ def aktuell(k, korning=None):
     # ägarens dom, prövad nu: bara domar som ingen körning kan ha skrivit
     dom_t = agarens_dom(k, post.get('dist_sha256'), ej_belagda_domar(k))
     dom_nu = sha_fil(k / DOMFIL)
-    oprovade = [a for a in senare_avbrutna if a.get('dom_sha256_start') != dom_nu]
+    oprovade = [a for a in senare_avbrutna if not a.get('uteblev_protokoll') and a.get('dom_sha256_start') != dom_nu]
     if oprovade and dom_t.get('varde') is not None:
         dom_t = {'varde': None, 'avsandare': EJ_BELAGD, 'kalla': _rel(k, DOMFIL),
-                 'text': '%s: DOM.json har ändrats sedan körningen %s startade, och den körningen avbröts utan slutpost; bygget kan ha skrivit den' % (
-                     EJ_BELAGD, oprovade[0]['korning'])}
+                 'text': '%s: DOM.json har ändrats sedan körningen %s startade, och den körningen saknar slutpost (varken kor.sh eller vakten '
+                         'skrev någon); bygget kan ha skrivit den. Nästa körning räknar inte domar som tillkom efter att den startade' % (
+                             EJ_BELAGD, oprovade[0]['korning'])}
     t['agaren_godkanner'] = dom_t
     if andrat:
         d = post.get('designgranskning') or {}
@@ -1046,12 +1231,20 @@ def aktuell(k, korning=None):
     return post
 
 
+def _avbruten():
+    """Hur körningen avbröts, ur NWP_AVBRUTEN: TERM, INT eller HUP (kor.sh:s fälla) eller KORSH (vakten gjorde avslutet)."""
+    x = os.environ.get('NWP_AVBRUTEN')
+    return AVBROTT_KORSH if x == 'KORSH' else ('SIG' + x) if x else None
+
+
 def _slutkod(k, rc, v, mekanik, godkant):
     if mekanik:
         return 3, 'Slutkod 3: mekaniken eller gränsen ändrades under körningen: %s' % ', '.join(mekanik[:20])
     if rc != '0':
-        avbruten = os.environ.get('NWP_AVBRUTEN')
-        return 4, 'Slutkod 4: claude avslutade med kod %s%s' % (rc, ' (körningen avbröts med SIG%s)' % avbruten if avbruten else '')
+        avbruten = _avbruten()
+        if avbruten == AVBROTT_KORSH:
+            return 4, 'Slutkod 4: körningen avbröts: %s' % avbruten
+        return 4, 'Slutkod 4: claude avslutade med kod %s%s' % (rc, ' (körningen avbröts med %s)' % avbruten if avbruten else '')
     if v and v.get('ateljen_forkastad') and v.get('slapp'):
         return 6, 'Slutkod 6: bygget stannade utan sajt (ägarbeslut 2026-10-04): %s; underlaget i underlag/%s/atelje/' % (
             v.get('skal') or 'ateljén förkastade alla riktningar', k.name)
@@ -1060,29 +1253,45 @@ def _slutkod(k, rc, v, mekanik, godkant):
     return 1, 'Slutkod 1 : avslutat utan grönt prov och godkänd granskning'
 
 
+def skriv_ut(text_):
+    """Skriver beskedet på stdout. En stängd terminal (SIGHUP) eller ett rör utan läsare får aldrig ändra slutkoden: felet
+    sväljs, och stdout pekas om till /dev/null, så att Python inte avslutas med kod 120 när bufferten töms (granskningen
+    av r101, KAN 1). Ger False när beskedet inte kunde skrivas."""
+    try:
+        print(text_)
+        sys.stdout.flush()
+        return True
+    except (OSError, ValueError):
+        try:
+            fd = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(fd, sys.stdout.fileno())
+            os.close(fd)
+        except (OSError, ValueError):
+            pass
+        return False
+
+
 def main(argv):
     if len(argv) >= 5 and argv[1] == '--stopp':
         post = stopp(argv[2], argv[3], ' '.join(argv[4:]))
-        print(text(post))
+        skriv_ut(text(post))
         return 0
     if len(argv) == 4 and argv[1] == '--avbrutna':
         k = Path(argv[2])
         for a in avbrutna(k, utom=argv[3]):
             if not any(f.parent.name > a['korning'] for f in slutposter(k)):  # sagt en gång: en senare post nämner den redan
-                print('Förra körningen: %s.' % _avbruten_text(a))
+                skriv_ut('Förra körningen: %s.' % _avbruten_text(a))
         return 0
     if len(argv) in (3, 4) and argv[1] == '--visa':
         post = aktuell(argv[2], argv[3] if len(argv) > 3 else None)
         if not post:
-            print('ingen slutpost i %s/korningar/' % argv[2])
-            for a in avbrutna(argv[2]):
-                print('Avbruten utan slutpost: %s' % _avbruten_text(a))
+            skriv_ut('\n'.join(['ingen slutpost i %s/korningar/' % argv[2]] + ['Utan slutpost: %s' % _avbruten_text(a) for a in avbrutna(argv[2])]))
             return 1
-        print(text(post))
+        skriv_ut(text(post))
         return 0
     k, rc, fore, efter = Path(argv[1]), argv[2], argv[3], argv[4]
     korning = argv[5] if len(argv) > 5 else None
-    avbruten = ('SIG' + os.environ['NWP_AVBRUTEN']) if os.environ.get('NWP_AVBRUTEN') else None
+    avbruten = _avbruten()
     s, s_fel = las_objekt(k / 'prov' / 'STATUS.json')
     v, v_fel = las_objekt(k / 'prov' / 'STOPPVAKT.json')
     g, nu_hash, senaste, gfel = vald_granskning(k, korning)
@@ -1090,31 +1299,50 @@ def main(argv):
     f_lista, e_lista = hashlista(fore), hashlista(efter)
     # ägarens domlogg och dom (DOM.json) är låsta under bygget (kor.sh, chflags uchg): en ändring kom inte från dashboarden
     # (omgranskningen, fynd 2; granskningen av r101, B1). Körningarnas slutposter och de flyttade rapporterna är
-    # körningarnas protokoll: bygget ändrar dem aldrig (ägarens uppdrag 2026-10-07, punkt 4 och 5)
+    # körningarnas protokoll: bygget ändrar dem aldrig (ägarens uppdrag 2026-10-07, punkt 4 och 5). Hashlistorna prövas mot
+    # kor.sh:s minne: en lista som ett eget skript skrivit om döljer annars allt detta (GR-20261007-r101-om, BÖR 1)
     dom_rel = 'kunder/%s/%s' % (k.name, DOMFIL)
-    domlogg = [f for f in skydd if f.startswith('underlag/') and f.endswith('/DESIGNDOMAR.jsonl')]
+    listor, lista_fel = hashlistorna(k, fore, efter)
+    start_sha = os.environ.get('NWP_DOM_START_SHA256') or None
+    domlogg = [f for f in skydd if f.startswith('underlag/') and f.endswith(('/DESIGNDOMAR.jsonl', '/DESIGNDOMAR-belagg.jsonl'))]
     agarfil = [f for f in skydd if f == dom_rel]
-    protokoll = [f for f in skydd if f.startswith(('kunder/%s/korningar/' % k.name, 'kunder/%s/rapporter/' % k.name))]
-    mekanik = [f for f in skydd if f.startswith(MEKANIK)] + domlogg + agarfil + protokoll
+    if start_sha and (None if start_sha == 'saknas' else start_sha) != e_lista.get(dom_rel) and dom_rel not in agarfil:
+        agarfil.append(dom_rel)  # ändrad enligt kor.sh:s minne, fast hashlistan före säger annat
+    protokoll = [f for f in skydd if f.startswith(('kunder/%s/korningar/' % k.name, 'kunder/%s/rapporter/' % k.name,
+                                                'kunder/%s/atelje/korningar/' % k.name))]
+    mekanik = [f for f in skydd if f.startswith(MEKANIK)] + domlogg + agarfil + protokoll + lista_fel
     godkant, skal = ar_godkant(k, s, v, g, korning)
     slutkod, slutkod_text = _slutkod(k, rc, v, mekanik, godkant)
-    fel, bevis_fel = None, None
+    processer = processer_efter()
+    hinder = [x for x, galler in (
+        ('hashlistorna prövades inte mot kor.sh:s minne', listor.get('varde') is None),
+        ('hashlistan efter körningen ändrades eller kunde inte skrivas', listor.get('efter_ok') is False),
+        ('byggets processer: %s' % processer['text'], processer.get('varde') is not True)) if galler]
+    fel, bevis_fel, dom = None, None, None
     try:
         bevis = kopiera_bevis(k, korning) if korning else {}
     except (OSError, ValueError) as e:  # posten skrivs ändå (eller faller nedan med samma skäl); bristen står i den
         bevis, bevis_fel = {}, 'provets och stoppvaktens besked kunde inte kopieras till posten: %s' % str(e)[:200]
     try:
-        dom = agaren_vid_slut(k, nu_hash, f_lista.get(dom_rel), e_lista.get(dom_rel))
+        dom = agaren_vid_slut(k, nu_hash, f_lista.get(dom_rel), e_lista.get(dom_rel), korning=korning, start_sha=start_sha, hinder=hinder)
         _, dom_lasfel = agarens_domar(k)
         vin_fel = las_objekt(_vinnare(k))[1]
         post = slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, domlogg, '' if godkant else skal, slutkod, slutkod_text,
                         dom=dom, lasfel=[s_fel, v_fel, dom_lasfel, ('VINNARE.json: %s' % vin_fel) if vin_fel else None, bevis_fel],
-                        bevis=bevis, avbruten=avbruten)
+                        bevis=bevis, avbruten=avbruten, processer=processer, listor=listor)
     except Exception as e:  # noqa: BLE001 — slutkoden står kvar; att posten uteblir sägs och får en egen slutkod
         post, fel = None, 'slutposten kunde inte byggas: %s: %s' % (type(e).__name__, str(e)[:300])
     if post is not None and korning:
         try:
-            skriv_slutpost(k, korning, post)
+            postfil = skriv_slutpost(k, korning, post)
+            # Endast kor.sh ger detta privata rör till det betrodda avslutet; byggsessionen ärver det inte.
+            # Ingen bekräftelse vid ett skrivfel, och ingen efterhandsbedömning av en fil som bygget kan ha lagt dit.
+            if os.environ.get('NWP_VAKT_BEKRAFTA_FD') == '3':
+                try:
+                    digest = hashlib.sha256(postfil.read_bytes()).hexdigest()
+                    os.write(3, ('bekrafta %s\n' % digest).encode('ascii'))
+                except OSError:
+                    pass  # vakten räknar om ett obekräftat avslut om kor.sh dör
         except (OSError, ValueError) as e:
             post.update(slutpost=None, slutpost_fel=str(e)[:300])
             fel = 'slutposten kunde inte skrivas: %s' % str(e)[:300]
@@ -1122,13 +1350,16 @@ def main(argv):
         slutkod, slutkod_text = 5, 'Slutkod 5: slutposten uteblev (%s); körningen räknas inte som avslutad' % fel
         if post is not None:
             post.update(slutkod=slutkod, slutkod_text=slutkod_text)
+    if fel and korning:  # nästa start och --visa skiljer en utebliven post från ett avbrott (KAN 6)
+        skriv_uteblev(k, korning, fel, slutkod, dom[1] if dom else None)
     if post is not None:
         try:
-            print('\n' + text(post))
+            ut = '\n' + text(post)
         except Exception as e:  # noqa: BLE001 — beskedet uteblir aldrig helt: skälet och slutkoden skrivs ändå
-            print('\nbeskedet kunde inte skrivas ur posten: %s: %s\n%s' % (type(e).__name__, str(e)[:200], slutkod_text))
+            ut = '\nbeskedet kunde inte skrivas ur posten: %s: %s\n%s' % (type(e).__name__, str(e)[:200], slutkod_text)
     else:
-        print('\nclaude avslutade med kod %s\n%s\n%s' % (rc, fel, slutkod_text))
+        ut = '\nclaude avslutade med kod %s\n%s\n%s' % (rc, fel, slutkod_text)
+    skriv_ut(ut)
     return slutkod
 
 

@@ -108,6 +108,20 @@ class Flodeshandling(unittest.TestCase):
             self.assertEqual(anrop('POST', {'handling': 'godkand', 'start_id': 'prov-http-start-2'})[0], 400)
         self.assertFalse((self.u / 'DESIGNDOMAR.jsonl').exists())
 
+    def test_godkand_startsida_har_en_uttrycklig_bygghandling(self):
+        with patch.object(prototyp, 'lage', return_value=('godkand','syntetiskt giltigt beslut')):
+            handlingar = prototyp.handlingar(self.slug)
+        self.assertIn('helbygge', [x['id'] for x in handlingar])
+
+    def test_teknisk_export_ar_en_handling_utan_publiceringslofte(self):
+        (self.k/'sajt/src/pages').mkdir(parents=True)
+        (self.k/'sajt/src/pages/index.astro').write_text('<h1>Syntetiskt prov</h1>')
+        (self.k/'sajt/package.json').write_text('{}')
+        with patch.object(prototyp,'lage',return_value=('vanta','syntetisk klar för bedömning')):
+            handlingar = prototyp.handlingar(self.slug)
+        self.assertIn('exportera',[x['id'] for x in handlingar])
+        self.assertIn('förbered',[x['text'].lower() for x in handlingar if x['id']=='exportera'][0])
+
 
 if __name__ == '__main__':
     unittest.main()

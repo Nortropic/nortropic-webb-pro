@@ -8,6 +8,7 @@ const root = resolve(process.argv[2] || '.');
 const html = await readFile(resolve(root, 'dashboard/index.html'));
 const namn = ['Sessionen avslutades normalt', 'Tekniska kontroller', 'Designgranskning', 'Ägarens godkännande', 'Leverans inom angiven omfattning'];
 let fas = 'klar', getFel = false, postFel = true;
+let hallPost = false, slappPost;
 const posts = [], starter = new Set();
 function flode() {
   return { slug: 'prov-flode', blind: false, ab_dold: false, tid: '2026-01-01T00:00:00Z',
@@ -23,6 +24,7 @@ const srv = createServer(async (req, res) => {
   if (req.method === 'POST') {
     let body = ''; for await (const b of req) body += b;
     const p = JSON.parse(body); posts.push(p);
+    if (hallPost) await new Promise(resolve => { slappPost = resolve; });
     if (p.handling === 'stoppa') { fas = 'avbruten'; return json({ slutkod: 4, besked: 'Arbetet är stoppat.' }); }
     starter.add(p.start_id); // bara attrappens mekanik; den riktiga serverns idempotens provas i Python.
     await new Promise(r => setTimeout(r, 250));
@@ -31,9 +33,10 @@ const srv = createServer(async (req, res) => {
   }
   if (req.url === '/api/flode') {
     if (getFel) { getFel = false; return json({ fel: 'Syntetiskt läsfel' }, 503); }
-    return json({ slugar: ['prov-flode'], pilot: [], kedjan: { steg: [] } });
+    return json({ slugar: ['prov-flode','prov-andra'], pilot: [], kedjan: { steg: [] } });
   }
   if (req.url === '/api/flode/prov-flode') return json(flode());
+  if (req.url === '/api/flode/prov-andra') return json({...flode(),slug:'prov-andra'});
   if (req.url === '/api/oversikt') return json({ byggen: [], backlog_vilande: 0, intag_pagar: 0, prospekt_vantar: 0 });
   if (req.url?.startsWith('/api/')) return json({});
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html);
@@ -80,6 +83,16 @@ try {
   await page.getByRole('status').filter({ hasText: 'Arbetet är stoppat' }).waitFor();
   assert.equal(posts[2].handling, 'stoppa');
   assert(await page.locator('.flodesbesked').textContent().then(t => t.includes('Ingen ny version godkändes')));
+  // Ett sent svar för A får inte byta tillbaka från B eller skriva besked i B:s vy.
+  fas='klar';hallPost=true;
+  await page.reload();await page.getByRole('button',{name:'Förbered kundunderlaget'}).click();
+  while(!slappPost) await new Promise(r=>setTimeout(r,10));
+  await page.goto(origin+'/#/flode/prov-andra');
+  await page.getByRole('heading',{name:'Det här hände: prov-andra',exact:true}).waitFor();
+  slappPost();hallPost=false;
+  await page.waitForTimeout(450);
+  assert.equal(await page.getByRole('heading',{name:'Det här hände: prov-andra',exact:true}).count(),1,'sena A-svaret skrev över B');
+  assert.equal(await page.locator('#flode-handlingssvar').textContent(),'','A:s besked får inte stå i B');
   assert.deepEqual(errors, []);
   if (process.env.NWP_UI_BEVISET) await page.screenshot({ path: process.env.NWP_UI_BEVISET, fullPage: true });
   console.log(JSON.stringify({ bredder: [320, 390, 768, 1280, 1440], axe_fynd: axe.violations.length, dubbla_starter: false,
