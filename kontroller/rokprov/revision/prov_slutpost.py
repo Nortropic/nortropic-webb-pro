@@ -418,7 +418,8 @@ def _tillstanden():
     skriv(k / 'DOM.json', {'domar': [{'tid': '2026-10-07T10:00:00Z', 'bygge_dist': h[:12], 'svar': {'namn': 'Ja, efter små ändringar'}}]})
     a = korslut.aktuell(k)
     # ett ja med villkor är ett eget värde, varken ja eller nej, och inget godkännande för leveransen (GR-20261007-r101-om, KAN-7)
-    assert a['tillstand']['agaren_godkanner']['varde'] == korslut.VILLKORAT == 'villkorat' and 'ja med villkor' in a['tillstand']['agaren_godkanner']['text'], a['tillstand']['agaren_godkanner']
+    assert a['tillstand']['agaren_godkanner']['varde'] == 'villkorat' and 'ja med villkor' in a['tillstand']['agaren_godkanner']['text'], a['tillstand']['agaren_godkanner']
+    assert korslut.VILLKORAT == 'villkorat'
     assert a['tillstand']['klart_for_leverans']['varde'] is False and 'tolkning' in a['tillstand']['agaren_godkanner']['text'], a['tillstand']['klart_for_leverans']
     assert 'med villkor (efter små ändringar)' in a['tillstand']['klart_for_leverans']['text'], a['tillstand']['klart_for_leverans']
     _, vt_ = visa(k)
