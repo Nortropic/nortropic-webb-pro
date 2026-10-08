@@ -25,11 +25,16 @@ BLOB = '''export async function put(pathname, body, options) {
     await new Promise(resolve=>globalThis.verkligTimer(resolve,80));
   }
   if (globalThis.kvittolagring && pathname.endsWith('/avisering.json')) throw new Error('SYNTETISKT-HEMLIGT kvittofel');
+  if (globalThis.jsonfel && pathname.endsWith('/forfragan.json')) throw new Error('SYNTETISKT-HEMLIGT lagringsfel');
   if (globalThis.lagerfel) throw new Error('SYNTETISKT-HEMLIGT lagringsfel');
   if (globalThis.tomtkvitto) return {};
   if (globalThis.felkvitto === 'blankt') return {pathname:'   '};
   if (globalThis.felkvitto === 'annan') return {pathname:'annan/forfragan.json'};
   return { pathname };
+}
+export async function del(pathname, options) {
+  globalThis.events.push(['radering', pathname, !!(options && options.abortSignal)]);
+  if (globalThis.raderfel) throw new Error('SYNTETISKT-HEMLIGT raderingsfel');
 }'''
 NODE = r'''import { POST, ALL } from './forfragan.mjs';
 const mode = process.argv[2];
@@ -41,6 +46,7 @@ globalThis.langsam = mode.startsWith('langsam-') ? mode.slice(8) : null;
 globalThis.skrivna = new Set();
 globalThis.events = []; globalThis.lagerfel = mode === 'lagerfel'; globalThis.tomtkvitto = mode === 'tomtkvitto';
 globalThis.kvittolagring = mode === 'kvittolagring';
+globalThis.jsonfel = mode.startsWith('jsonfel'); globalThis.raderfel = mode === 'jsonfel-raderfel';
 globalThis.felkvitto = mode === 'blanktkvitto' ? 'blankt' : mode === 'annatkvitto' || mode === 'annanbild' ? 'annan' : null;
 const logs = []; console.error = (...x) => logs.push(x.join(' '));
 globalThis.fetch = async (url, opts) => {
@@ -67,7 +73,7 @@ if (mode === 'preview-konfigurerad') process.env.VERCEL_ENV = 'preview';  // var
 const fd = new FormData(); for (const [k,v] of Object.entries(values)) fd.append(k,v);
 if (mode === 'bildtyp') fd.append('bild',new Blob(['<svg/>'],{type:'image/svg+xml'}),'syntetisk.svg');
 if (mode === 'bildstor') fd.append('bild',new Blob([new Uint8Array(4000001)],{type:'image/jpeg'}),'syntetisk.jpg');
-if (mode === 'annanbild' || mode === 'langsam-lagring') fd.append('bild',new Blob(['syntetiskt'],{type:'image/jpeg'}),'syntetisk.jpg');
+if (mode === 'annanbild' || mode === 'langsam-lagring' || mode.startsWith('jsonfel')) fd.append('bild',new Blob(['syntetiskt'],{type:'image/jpeg'}),'syntetisk.jpg');
 if (mode === 'filnamn-mottagning' || mode === 'filnamn-avisering') fd.append('bild',new Blob(['syntetisk bild'],{type:'image/png'}),mode === 'filnamn-mottagning' ? 'forfragan.json' : 'avisering.json');
 let req = new Request('https://example.invalid/api/forfragan/', {method:'POST',body:fd});
 if (mode === 'olast') req = new Request(req.url,{method:'POST',body:'x',headers:{'content-type':'multipart/form-data; boundary=saknas'}});
@@ -142,11 +148,12 @@ class Formular(unittest.TestCase):
     def test_sparat_vid_mejlfel_far_eget_mottaget_besked_utan_omskick(self):
         for mode in ('mejlfel','mejlkast','ingenmottagare'):
             with self.subTest(mode=mode):
-                d=self.kor(mode);self.assertEqual(d['status'],202)
-                self.assertEqual(d['headers']['x-forfragan'],'sparad')
-                self.assertIn('Förfrågan är mottagen',d['html']);self.assertNotIn('<form',d['html'])
-                self.assertIn('inte skicka',d['html']);self.assertEqual(d['events'][0][0],'lagring')
-                self.assertNotIn('SYNTETISKT-HEMLIGT',json.dumps(d['logs'])+d['html']+json.dumps(d['headers']))
+                # 303 till den förrenderade /mottagen/, aldrig en sida på POST-adressen (GR-20261008-r117-claude#D1)
+                d=self.kor(mode);self.assertEqual(d['status'],303)
+                self.assertEqual(d['headers']['location'],'/mottagen/');self.assertEqual(d['headers']['x-forfragan'],'sparad')
+                self.assertEqual(d['headers']['cache-control'],'no-store');self.assertEqual(d['html'],'')
+                self.assertEqual(d['events'][0][0],'lagring')
+                self.assertNotIn('SYNTETISKT-HEMLIGT',json.dumps(d['logs'])+json.dumps(d['headers']))
 
     def test_lagringskvittot_maste_galla_den_faktiska_filen(self):
         for mode in ('blanktkvitto','annatkvitto','annanbild'):
@@ -155,8 +162,36 @@ class Formular(unittest.TestCase):
 
     def test_ogiltigt_mejlkvitto_ar_inte_bekraftad_mejlacceptans(self):
         for mode in ('tomtmejlkvitto','felmejlkvitto','htmlmejlkvitto'):
-            d=self.kor(mode);self.assertEqual(d['status'],202)
-            self.assertEqual(d['headers']['x-forfragan'],'sparad')
+            d=self.kor(mode);self.assertEqual(d['status'],303)
+            self.assertEqual(d['headers']['location'],'/mottagen/');self.assertEqual(d['headers']['x-forfragan'],'sparad')
+
+    def test_bilagan_tas_bort_nar_mottagningsfilen_inte_kunde_sparas(self):
+        # bilagan lagras före mottagningsfilen; faller den skrivningen är bilden annars föräldralös (GR-20261008-r117-claude#D7)
+        d=self.kor('jsonfel');self.assertEqual(d['status'],503)
+        self.assertFalse(any(x[0]=='mejl' for x in d['events']))
+        raderingar=[x for x in d['events'] if x[0]=='radering']
+        self.assertEqual(len(raderingar),1);self.assertTrue(raderingar[0][1].endswith('/bilaga/bild') and raderingar[0][2],raderingar)
+        self.assertEqual([x[1] for x in d['events'] if x[0]=='lagring' and x[1].endswith('/bilaga/bild')],[raderingar[0][1]])
+        self.assertNotIn('SYNTETISKT-HEMLIGT',json.dumps(d['logs'])+d['html'])
+        d=self.kor('jsonfel-raderfel');self.assertEqual(d['status'],503)
+        self.assertTrue(any('bilagan kunde inte tas bort' in l and '/bilaga/bild' in l for l in d['logs']),d['logs'])
+        self.assertNotIn('SYNTETISKT-HEMLIGT',json.dumps(d['logs'])+d['html'])
+        d=self.kor('lagerfel');self.assertFalse(any(x[0]=='radering' for x in d['events']),'utan lagrad bilaga raderas inget')
+
+    def test_exporten_bar_mottagen_sidan_och_adapterns_kortid(self):
+        with patch.multiple(exportera,ROOT=self.tmp,KUNDER=self.tmp/'kunder',UNDERLAG=self.tmp/'underlag'):
+            res=exportera.exportera('prov-formular',bygg=False)
+        ut=Path(res['ut']);self.assertTrue((ut/'src/pages/mottagen.astro').is_file() and (ut/'src/pages/fel.astro').is_file())
+        self.assertIn('noindex',(ut/'src/pages/mottagen.astro').read_text(encoding='utf-8'))
+        self.assertIn('adapter: vercel({ maxDuration: 30 })',(ut/'astro.config.mjs').read_text(encoding='utf-8'))
+        # SDK-optionerna prövas mot installerade typer: syntetiska node_modules utan dem ger brister, med dem inga
+        self.assertTrue(exportera.sdk_optioner(self.tmp))
+        for katalog,namn in exportera.SDK_KRAV.items():  # optionerna får ligga i vilken typfil som helst i katalogen (chunk-filer)
+            d=self.tmp/'sdk'/katalog;d.mkdir(parents=True,exist_ok=True);(d/'index.d.ts').write_text(namn[-1]);(d/'chunk-x.d.ts').write_text('\n'.join(namn[:-1]))
+        self.assertEqual(exportera.sdk_optioner(self.tmp/'sdk'),[])
+        f=self.tmp/'sdk/.vercel/output/functions/_render.func/.vc-config.json';f.parent.mkdir(parents=True)
+        f.write_text('{"runtime":"nodejs22.x","maxDuration":30}')
+        self.assertEqual(exportera.funktionens_kortid(self.tmp/'sdk/.vercel/output'),{'_render.func':30})
 
     def test_fungerande_sandning_kommer_efter_varaktigt_kvitto(self):
         d=self.kor('giltig');self.assertEqual(d['status'],303)
@@ -183,14 +218,15 @@ class Formular(unittest.TestCase):
             self.assertEqual(skriv[2][3]['utfall'],'accepterat_av_mejltjansten')
 
     def test_lokala_deadliner_avbryter_anrop_och_forhindrar_sena_foljdsteg(self):
-        for mode,status,antal_mejl,antal_put in [('lagring',503,0,1),('mejl',202,1,1),('json',202,1,1),('kvittot',303,1,2)]:
+        # långsamt mejl eller mejlkvitto: sparad men inte aviserad, 303 till /mottagen/ (D1); långsamt aviseringskvitto: 303 till /tack/
+        for mode,status,antal_mejl,antal_put in [('lagring',503,0,1),('mejl',303,1,1),('json',303,1,1),('kvittot',303,1,2)]:
             with self.subTest(mode=mode):
                 d=self.kor('langsam-'+mode);self.assertEqual(d['status'],status)
+                if status==303:self.assertEqual(d['headers']['location'],'/tack/' if mode=='kvittot' else '/mottagen/')
                 self.assertTrue(any(e[0]=='avbrutet' for e in d['events']),d['events'])
                 self.assertEqual(sum(e[0]=='mejl' for e in d['events']),antal_mejl)
                 self.assertEqual(sum(e[0]=='lagring' for e in d['events']),antal_put)
                 if status==503:self.bevarat(d)
-                if status==202:self.assertNotIn('<form',d['html'])
 
     def test_demo_och_honeypot_ar_uttryckliga_utan_sandning(self):
         for mode,utfall in [('demo','demo'),('honeypot','honeypot'),('preview-konfigurerad','demo')]:

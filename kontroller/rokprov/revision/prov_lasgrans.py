@@ -80,7 +80,7 @@ NM = ROOT / 'kunder' / 'rokprov-mall' / 'sajt' / 'node_modules'  # rökprovets b
 T = TMP / 'repo'  # provets repo: repots .gitignore och en .git-hänvisning som i en worktree, som Tailwinds källsökning läser
 KUND, UNDER = T / 'kunder' / SLUG, T / 'underlag' / SLUG
 HUVUD = KUND / 'sajt'
-MALLSIDOR = ('404.astro', 'tack.astro', 'fel.astro', 'robots.txt.ts', 'sitemap.xml.ts')
+MALLSIDOR = ('404.astro', 'tack.astro', 'fel.astro', 'mottagen.astro', 'robots.txt.ts', 'sitemap.xml.ts')
 
 
 def fall(namn):

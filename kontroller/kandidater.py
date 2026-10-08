@@ -146,7 +146,7 @@ STATUSTEXT = {'planerad': 'planerad', 'under_arbete': 'under arbete', 'klar': 'k
               'ofullstandig': 'ofullständig', 'avbruten': 'avbruten', 'fel': 'föll', 'vald': 'vald för vidareutveckling',
               'jamfors': 'vald för jämförelse', 'forkastad': 'förkastad', 'forfinad': 'förfinad', 'godkand': 'godkänd för helbygge'}
 VISBARA = ('klar', 'vald', 'jamfors', 'forkastad', 'forfinad', 'godkand')  # kandidater ägaren kan bedöma
-MALLSIDOR = {'404.astro', 'tack.astro', 'fel.astro', 'robots.txt.ts', 'sitemap.xml.ts'}
+MALLSIDOR = {'404.astro', 'tack.astro', 'fel.astro', 'mottagen.astro', 'robots.txt.ts', 'sitemap.xml.ts'}
 # läsverktygen som varje session får; skillverktyget och verktygssökningen lägger atelje.session_args alltid till (ägarens
 # ord 2026-10-05 18:15Z), så en roll läser sin kärna med Read eller laddar skillen med skillverktyget
 # (kompetens.prompt_rader; kunskap/metodkarta.md, Kompetenserna)

@@ -28,7 +28,8 @@ const server = http.createServer(async (req,res) => {
       res.writeHead(r.status,Object.fromEntries(r.headers));res.end(Buffer.from(await r.arrayBuffer()));
     } else {
       res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});
-      res.end(req.url === '/tack/' ? '<!doctype html><html lang="sv"><title>Tack</title><main><h1>Provets tacksida</h1></main></html>' : start);
+      res.end(req.url === '/tack/' ? '<!doctype html><html lang="sv"><title>Tack</title><main><h1>Provets tacksida</h1></main></html>'
+        : req.url === '/mottagen/' ? '<!doctype html><html lang="sv"><title>Mottagen</title><main><h1>Provets mottagen-sida</h1></main></html>' : start);
     }
   } catch (e) { res.writeHead(500);res.end('Provfel');console.error(e.stack); }
 });
@@ -78,8 +79,8 @@ try {
     assert.equal(events.filter(e=>e[0]==='mejl').length,fore);
     assert.equal(await page.getByLabel('Meddelande',{exact:true}).inputValue(),meddelande);
     globalThis.lagerfel=false;mode='mejlfel';
-    assert.equal((await skicka()).status(),202);
-    assert.equal(await page.getByRole('heading',{level:1}).innerText(),'Förfrågan är mottagen');
+    assert.equal((await skicka()).status(),303);assert.equal(new URL(page.url()).pathname,'/mottagen/');  // D1: aldrig en sida på POST-adressen
+    assert.equal(await page.getByRole('heading',{level:1}).innerText(),'Provets mottagen-sida');
     assert.equal(await page.locator('form').count(),0);
     console.log(JSON.stringify({bredd:width,utan_js:true,aterhamtning:true,sparad_skild_fran_osaker:true}));
     mode='ok';await context.close();

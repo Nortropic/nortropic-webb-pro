@@ -32,8 +32,8 @@ brister som byggena hittar i verktygen. Inget genomförs av sig självt. Starta 
 
 Formulärens mottagning vid export beskrivs i `kunskap/forfragan.md`: bevarade textfält vid valideringsfel,
 lagringskvitto före mejl och separata mottagningsbesked. Den lokalt prövade felhanteringen innebär ingen
-verifierad extern tjänsteåtkomst; tappad första framgångskvittens, och en omladdning av 202-sidan som besökaren
-bekräftar, kan fortfarande orsaka dubbletter. Utanför produktionen skickar mottagaren aldrig något.
+verifierad extern tjänsteåtkomst; en tappad första framgångskvittens kan fortfarande orsaka dubbletter (mottagen-sidan
+är förrenderad och nås med 303, så en omladdning där skickar inget). Utanför produktionen skickar mottagaren aldrig något.
 
 Den här tabellen är grundkällan för vem som startar vad, med vilket kommando. Kommandona körs från repots rot.
 Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sajt`; exporten och leveransen:

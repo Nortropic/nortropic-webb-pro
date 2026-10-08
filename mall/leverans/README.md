@@ -30,7 +30,8 @@ alla miljöer i Vercel. Serverns valideringsfel återger textfälten säkert, ä
 igen. En oläsbar eller helt för stor begäran kan inte återställas.
 
 Utan lagringskvitto skickas inget mejl: besökaren får 503 och texten kvar. Finns lagringskvittot men mejlaviseringen
-inte kunde bekräftas visas ett eget mottaget-besked (202), utan uppmaning att skicka igen. Både lagring och
+inte kunde bekräftas omdirigeras besökaren (303) till den förrenderade sidan `/mottagen/`, ett eget mottaget-besked
+utan uppmaning att skicka igen. Både lagring och
 mejlacceptans ger 303 till tacksidan. Mejltjänstens acceptans bevisar inte inkorgsleverans eller mänsklig läsning.
 
 ### Följ upp mottagna ärenden
@@ -45,9 +46,9 @@ mejltjänsten returnerade ett identifierat acceptanskvitto. Saknas filen är avi
 kan också ha misslyckats efter mejlacceptans. Läs ärendet och kontrollera mejltjänstens logg innan eventuell
 manuell omsändning. Den här leveransen startar ingen automatisk omsändning eller ny aviseringskö.
 
-Ett helt tappat framgångssvar kan fortfarande ge dubbla inskick vid besökarens omförsök, och 202-sidan (mottagen, ej
-aviserad) svarar på POST-adressen: en omladdning av den sidan är ett nytt inskick om besökaren bekräftar webbläsarens
-fråga om att skicka formuläret igen. Formuläret saknar ännu
+Ett helt tappat framgångssvar kan fortfarande ge dubbla inskick vid besökarens omförsök. Mottagen-sidan (sparad, ej
+aviserad) är förrenderad och nås med 303, så en omladdning där är ingen ny POST. Kunde mottagningsfilen inte sparas
+tas en redan lagrad bilaga bort (bästa försök; annars står dess väg i funktionens logg). Formuläret saknar ännu
 individuell, beständig inskicksidentitet före första POST utan JS; här finns ingen garanti om exakt en sändning.
 Externa konton, kvitton, driftövervakning och ansvarigs åtkomst ska prövas uttryckligen inför lansering.
 

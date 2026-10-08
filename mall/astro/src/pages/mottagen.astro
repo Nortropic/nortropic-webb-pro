@@ -1,0 +1,15 @@
+---
+// Mottagen-sidan efter en förfrågan som sparades men vars mejlavisering inte kunde bekräftas (kunskap/forfragan.md, Vid
+// lansering): funktionen svarar 303 hit, aldrig med en sida på POST-adressen, så att en omladdning inte blir ett nytt inskick
+// (GR-20261008-r117-claude#D1). Noindex, lovar ingen svarstid, säger att inget behöver skickas igen och ger telefonen som väg
+// vidare. Skriv om med sajtens sidhuvud, sidfot och verksamhetens ord.
+import Bas from '../layouts/Bas.astro';
+---
+<Bas titel="Förfrågan är mottagen" beskrivning="Förfrågan är sparad." noindex>
+  <main id="innehall">
+    <h1>Förfrågan är mottagen</h1>
+    <p>Din förfrågan är sparad, men mejlaviseringen till verksamheten kunde inte bekräftas. Du behöver inte skicka formuläret igen.</p>
+    <p>Vill du nå verksamheten direkt: ange tiden när du skickade förfrågan, så hittar vi den. <a href="/kontakt/">Andra kontaktvägar</a>.</p>
+    <p><a href="/">Till startsidan</a></p>
+  </main>
+</Bas>

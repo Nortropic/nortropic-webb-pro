@@ -1,6 +1,7 @@
 // Produktionsmottagare för vanlig POST, även utan JavaScript. Exporteras till kundrepot.
 // Valideringsfel återger texten i en skyddad felsida. Bara ett lagringskvitto får följas
-// av mejl. Mottaget men ej aviserat skiljs från mottagning som inte kunde bekräftas.
+// av mejl. Mottaget men ej aviserat skiljs från mottagning som inte kunde bekräftas, och svarar med 303 till den
+// förrenderade /mottagen/, aldrig på POST-adressen (GR-20261008-r117-claude#D1).
 // Ingen idempotensgaranti: ett helt tappat första svar kan ännu ge dubbla inskick.
 export const prerender = false;
 
@@ -45,7 +46,10 @@ ${esc(falt.meddelande)}</textarea>${rad('meddelande')}
 }
 
 function mottagen() {
-  return sida('Förfrågan är mottagen', '<p>Din förfrågan är sparad, men mejlaviseringen till verksamheten kunde inte bekräftas.</p><p>Du behöver inte skicka formuläret igen. Om du behöver nå verksamheten direkt finns <a href="/kontakt/">andra kontaktvägar</a>.</p>', 202, 'sparad');
+  // Sparad men inte aviserad: 303 till den förrenderade sidan /mottagen/ (mall/astro/src/pages/mottagen.astro, som exporten
+  // lägger i varje kundrepo) i stället för ett svar på POST-adressen, så att en omladdning eller bakåt/framåt aldrig blir
+  // ett nytt inskick (GR-20261008-r117-claude#D1). Sidan lovar ingen svarstid och säger att inget behöver skickas igen.
+  return svar('/mottagen/', 'sparad');
 }
 
 function miljo(namn) {
@@ -80,9 +84,27 @@ async function spara(falt, bild, signal) {
     bildvag = r.pathname;
   }
   const vag = `${mapp}/forfragan.json`;
-  const r = await put(vag, JSON.stringify({ schema: 1, ...falt, tid, bild: bildvag, avisering: 'inte_bekraftad' }), { access: 'private', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: false, abortSignal: signal });
+  let r;
+  try {
+    r = await put(vag, JSON.stringify({ schema: 1, ...falt, tid, bild: bildvag, avisering: 'inte_bekraftad' }), { access: 'private', contentType: 'application/json', addRandomSuffix: false, allowOverwrite: false, abortSignal: signal });
+  } catch (fel) {
+    // Bilagan lagrades före mottagningsfilen: utan den vore bilden föräldralös utanför gallringen (GR-20261008-r117-claude#D7).
+    if (bildvag) await radera(bildvag);
+    throw fel;
+  }
   signal.throwIfAborted();
-  return r && r.pathname === vag ? r.pathname : null;
+  if (r && r.pathname === vag) return r.pathname;
+  if (bildvag) await radera(bildvag);
+  return null;
+}
+
+async function radera(vag) {
+  // Bästa försök med egen kort tidsgräns (budgetens signal kan redan vara avbruten). Misslyckas det loggas vägen, aldrig innehållet,
+  // så att ärendet kan gallras för hand (kundrepots README, Följ upp mottagna ärenden).
+  try {
+    const { del } = await import('@vercel/blob');
+    await del(vag, { abortSignal: AbortSignal.timeout(1500) });
+  } catch { console.error(`forfragan: mottagningsfilen kunde inte sparas och bilagan kunde inte tas bort: ${vag}`); }
 }
 
 async function mejla(falt, bild, signal) {

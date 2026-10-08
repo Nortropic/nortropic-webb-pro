@@ -51,7 +51,8 @@ felhanteringen och ordningen, inte fungerande externa konton eller faktisk motta
   stor begäran före funktionen; det svaret och den faktiska plattformsgränsen måste prövas vid lansering.
 - Saknat lagringskvitto, inklusive saknad lagerkonfiguration: **503** med texten kvar och beskedet att
   mottagningen inte kunde bekräftas. **Inget mejl försöks före lagringskvittot.**
-- Lagringen bekräftad men mejlaviseringen inte bekräftad: **202**, eget mottaget-besked utan omskicksknapp.
+- Lagringen bekräftad men mejlaviseringen inte bekräftad: **303** till den förrenderade `/mottagen/` (`X-Forfragan: sparad`),
+  ett eget mottaget-besked utan omskicksknapp, aldrig ett svar på POST-adressen (GR-20261008-r117-claude#D1).
   Det lovar ingen svarstid och säger att förfrågan inte behöver skickas igen. Verksamheten behöver ha en
   faktisk rutin för att läsa lagrade ärenden; någon automatisk aviseringskö byggs inte av detta svar. Mottagningsfilen
   anger `avisering: inte_bekraftad`. Efter identifierad mejlacceptans försöks ett separat `avisering.json`
@@ -67,9 +68,9 @@ adress inför lansering. Mottagaren skickar och sparar bara i produktionen (`VER
 eller lokalt är den demo också när variablerna finns (GR-20261008-r117-claude#D2).
 
 **Kvarstående återförsöksrisk (G05-R):** tappar besökaren hela svaret efter ett lyckat första POST kan samma
-inskick sparas och aviseras igen vid ett omförsök. 202-sidan (mottagen, ej aviserad) svarar på POST-adressen utan
-omdirigering: laddar besökaren om den och bekräftar webbläsarens fråga skickas formuläret igen (dubblett), fast sidan
-säger att det inte behövs; en omdirigering till en förrenderad sida är den minsta rättelsen (backloggen, GR-20261008-r117-claude#D1). Dagens förrenderade formulär saknar individuellt inskicks-id
+inskick sparas och aviseras igen vid ett omförsök. Den sparade men ej aviserade förfrågan svarar med 303 till den
+förrenderade `/mottagen/` (rättat 2026-10-08, GR-20261008-r117-claude#D1), så en omladdning eller bakåt/framåt där är
+ingen ny POST. Dagens förrenderade formulär saknar individuellt inskicks-id
 före första POST. Ny slumpnyckel i mottagaren eller innehållsdeduplikering utan tids-/avsiktsgräns löser inte
 kontraktet. Individuell serverrendering och beständig idempotens måste prövas tillsammans; ingen sådan garanti
 ges här. Resends idempotensnycklar gäller 24 timmar och kräver samma payload, men ersätter inte mottagarens

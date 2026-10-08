@@ -94,6 +94,38 @@ def installerade_extra(sajt, bas):
     return ut
 
 
+MAX_KORTID = 30  # funktionens högsta körtid i sekunder (kunskap/lansering.md, Formuläret)
+# Optionerna forfragan.js och astro.config.mjs använder, belagda i de installerade paketens typdefinitioner vid byggprovet
+# (GR-20261008-r117-claude D3 och D8: den låsta versionen kunde tidigare inte läsas lokalt)
+# katalog med typdefinitioner (*.d.ts; Blobs optioner ligger i en chunk-fil, inte i index.d.ts) → strängar som ska finnas
+SDK_KRAV = {
+    'node_modules/@vercel/blob/dist': ('abortSignal?: AbortSignal', 'addRandomSuffix?: boolean', 'allowOverwrite?: boolean',
+                                       "type BlobAccessType = 'public' | 'private'", 'declare function del('),
+    'node_modules/@astrojs/vercel/dist': ('maxDuration?: number',),
+}
+
+
+def sdk_optioner(repo):
+    """Brister mot SDK_KRAV i det installerade kundrepot: [text]; tom lista när varje option står i typerna."""
+    ut = []
+    for katalog, namn in SDK_KRAV.items():
+        d = Path(repo) / katalog
+        t = '\n'.join(p.read_text(encoding='utf-8') for p in sorted(d.glob('*.d.ts')) if p.is_file()) if d.is_dir() else ''
+        ut += (['%s: %s saknas' % (katalog, n) for n in namn if n not in t]) if t else ['%s saknar typdefinitioner' % katalog]
+    return ut
+
+
+def funktionens_kortid(ut_):
+    """maxDuration per funktion ur .vercel/output/functions/*.func/.vc-config.json: {funktion: värde eller None}."""
+    ut = {}
+    for p in sorted((Path(ut_) / 'functions').glob('*.func/.vc-config.json')) if (Path(ut_) / 'functions').is_dir() else []:
+        try:
+            ut[p.parent.name] = json.loads(p.read_text(encoding='utf-8')).get('maxDuration')
+        except (OSError, ValueError):
+            ut[p.parent.name] = None
+    return ut
+
+
 def med_adapter(text):
     """astro.config.mjs med Vercel-adaptern: sidorna förrenderas, formulärets funktion körs på servern."""
     if '@astrojs/vercel' in text:
@@ -101,7 +133,9 @@ def med_adapter(text):
     text = text.replace("import { defineConfig", "import vercel from '@astrojs/vercel';\nimport { defineConfig", 1)
     if "output: 'static'," not in text:
         raise RuntimeError("astro.config.mjs saknar raden output: 'static',")
-    return text.replace("output: 'static',", "output: 'static',\n  adapter: vercel(),  // formulärets funktion på servern; sidorna förrenderas", 1)
+    # maxDuration: formulärets tidsbudget (10 + 8 + 2 s plus kroppsläsningen) ryms i funktionens körtid (GR-20261008-r117-claude#D3);
+    # optionen är belagd i @astrojs/vercel 11.0.11 (dist/index.d.ts) och byggprovet läser den ur funktionens .vc-config.json
+    return text.replace("output: 'static',", "output: 'static',\n  adapter: vercel({ maxDuration: %d }),  // formulärets funktion på servern med körtid för hela tidsbudgeten; sidorna förrenderas" % MAX_KORTID, 1)
 
 
 def licenser(slug, sajt, mal):
@@ -159,6 +193,10 @@ def verifiera_bygge(mal, logg=None):
         rader = ['$ npm ci --ignore-scripts → %d' % r.returncode]
         if r.returncode:
             return False, '\n'.join(rader + [(r.stdout + r.stderr)[-1500:]])
+        brister = sdk_optioner(repo)
+        rader.append('SDK-optionerna (D3, D8): ' + ('belagda i de installerade typerna (%s)' % ', '.join(sorted(SDK_KRAV)) if not brister else '; '.join(brister)))
+        if brister:
+            return False, '\n'.join(rader)
         rc, ut = processgrans.kor_i_katalog(repo, [repo / 'node_modules' / '.bin' / 'astro', 'build'])
         rader.append('$ astro build (innanför processgränsen: utan nät, skrivning bara i kopian) → %d' % rc)
         if rc:
@@ -167,7 +205,10 @@ def verifiera_bygge(mal, logg=None):
         statiskt = (ut_ / 'static' / 'index.html').is_file()
         funktioner = sorted(str(p.relative_to(ut_)) for p in (ut_ / 'functions').glob('*.func')) if (ut_ / 'functions').is_dir() else []
         rader.append('.vercel/output/static/index.html: %s; funktioner: %s' % ('finns' if statiskt else 'saknas', ', '.join(funktioner) or 'inga'))
-        return statiskt and bool(funktioner), '\n'.join(rader)
+        kortid = funktionens_kortid(ut_)
+        rader.append('funktionens maxDuration (.vc-config.json): %s' % (', '.join('%s %s s' % (k, v) for k, v in kortid.items()) or 'saknas'))
+        ok_tid = bool(kortid) and all(isinstance(v, (int, float)) and v >= MAX_KORTID for v in kortid.values())
+        return statiskt and bool(funktioner) and ok_tid, '\n'.join(rader)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -182,8 +223,9 @@ def skapa_export(slug, kandidat, mal, git, bygg):
     for k in KATALOGER:
         if (sajt / k).is_dir() and not (sajt / k).is_symlink():
             kopiera(sajt / k, mal / k)
-    if not (mal / 'src' / 'pages' / 'fel.astro').is_file():
-        shutil.copyfile(MALL / 'src' / 'pages' / 'fel.astro', mal / 'src' / 'pages' / 'fel.astro')
+    for sida in ('fel.astro', 'mottagen.astro'):  # funktionens 303-mål (fel, och sparad men ej aviserad; D1) finns i varje export
+        if not (mal / 'src' / 'pages' / sida).is_file():
+            shutil.copyfile(MALL / 'src' / 'pages' / sida, mal / 'src' / 'pages' / sida)
     (mal / 'src' / 'pages' / 'api').mkdir(parents=True, exist_ok=True)
     shutil.copyfile(LEVERANS / 'forfragan.js', mal / 'src' / 'pages' / 'api' / 'forfragan.js')
     (mal / 'astro.config.mjs').write_text(med_adapter((mal / 'astro.config.mjs').read_text(encoding='utf-8')), encoding='utf-8')

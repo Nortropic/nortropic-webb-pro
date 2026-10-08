@@ -5549,7 +5549,7 @@ assert any('tillstand.mork: kontrast' in f_ for f_ in ds_k3.validera(v2_ds)), 'k
 import exportera as ex_k3  # noqa: E402
 konf_ex = "import { defineConfig } from 'astro/config';\nexport default defineConfig({\n  site: 'https://x.se',\n  output: 'static',\n});\n"
 ut_ex = ex_k3.med_adapter(konf_ex)
-assert "import vercel from '@astrojs/vercel';" in ut_ex and 'adapter: vercel()' in ut_ex and ex_k3.med_adapter(ut_ex) == ut_ex
+assert "import vercel from '@astrojs/vercel';" in ut_ex and 'adapter: vercel({ maxDuration: 30 })' in ut_ex and ex_k3.med_adapter(ut_ex) == ut_ex, 'körtiden (D3)'
 lk_ex = tmp / 'lk-ex'; (lk_ex / 'src').mkdir(parents=True)
 (lk_ex / 'src' / 'a.astro').write_text('<!-- underlag/kund-x/BRIEF.md -->')
 (lk_ex / 'src' / 'b.astro').write_text('<!-- byggd med kontroller/design.py -->')
@@ -5598,7 +5598,7 @@ ut_nod, blob_nod = [json.loads(x) for x in r_nod.stdout.strip().splitlines()[-2:
 assert ut_nod == [[303, '/tack/', 'honeypot'], [422, None, 'ofullstandig'], [413, None, 'for-stor'],
                   [303, '/tack/', 'demo'], [503, None, 'fel'], [503, None, 'fel'], [503, None, 'fel'],
                   [413, None, 'for-stor'], [422, None, 'ofullstandig'],
-                  [202, None, 'sparad'], [202, None, 'sparad']], ut_nod
+                  [303, '/mottagen/', 'sparad'], [303, '/mottagen/', 'sparad']], ut_nod  # sparad men ej aviserad: 303 till /mottagen/ (D1)
 assert blob_nod == [['bild', 'private', 'image/jpeg'], ['forfragan.json', 'private', 'application/json'], ['forfragan.json', 'private', 'application/json']], blob_nod
 # förhandsvisningens interaktionsväg: bara kända tillstånd och en enkel CSS-väljare (Codex punkt 9)
 import forhandsvisa as fv_k3  # noqa: E402
