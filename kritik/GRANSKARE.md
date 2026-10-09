@@ -31,7 +31,9 @@ Uppdraget räknar upp sökvägarna. Du har:
 - **Ägarens godkända startsida**, när skapandeflödet kördes: den startsida ägaren valt och godkänt, med bilderna
   byggaren hade att bygga ur. Jämför startsidan ruta för ruta mot dem; en annan riktning, komposition, typografi eller
   bildbehandling utan ett nytt godkännande är ett blockerande fynd. En startsida som bara panelen valt är ingen
-  måttstock.
+  måttstock. Svara i `prototypjamforelse` sida för sida och bredd för bredd med klassen (försämring, godkänd anpassning,
+  förbättring, oförändrad); det du inte kunde jämföra står där. Jämförelsen redovisas för sig: betygen säger inget om
+  att den är gjord.
 - **Tidigare byggens första vy**, bara så att du ser om det här bygget är en variant av dem. De är exempel på det
   generiska som ska undvikas, aldrig en måttstock: ägaren har sagt (2026-10-05) att inget bygge hittills har varit bra
   nog. Ribban är professionell nivå enligt referenserna och måttstockarna. Ägarens domar över tidigare byggen

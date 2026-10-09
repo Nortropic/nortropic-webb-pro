@@ -51,7 +51,8 @@ förebilder eller regler för en ny kund, och bygget läser dem inte.
 - **Verktygslådan.** Skills i `.claude/skills/` utöver bygg-sajt, kirurg och backlog är intagna med källa i KALLA.md.
   Vilka av dem, och vilka avsnitt, som stöder ett steg, och hur motsägande råd avgörs, står i `kunskap/metodkarta.md`;
   använd dem därifrån. Vid krock gäller ägarens aktuella beslut (`kunskap/designregler.md`) och kundens domar, regeln
-  mot slop och verksamhetens egna bilder och ord före skillen.
+  mot slop och verksamhetens egna bilder och ord före skillen. Arbetsprincipen, osäkerheterna och helbyggets uppgift,
+  kompetens, bedömning och återgång står i metodkartan (Avgöranden; Helbygge och prov).
 - **Rör inte** `kontroller/`, `kunskap/`, `kritik/`, `mall/`, `.claude/` eller `LARDOMAR.md` under en körning
   (behörigheterna nekar Edit och Write där, och sammanfattningen efter körningen visar varje ändring). Verkar en
   kontroll fel: skriv det i rapporten under "Kontroller som verkar fel".

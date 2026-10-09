@@ -6,6 +6,12 @@ best practice som helhet; synpunkterna på kartan samma dag). Företrädet står
 kvalitetskrav, Nortropics produkt- och ägarbeslut med räckvidd, kundens behov, designhypoteser; en skills standardråd
 står sist. Citaten och källorna bakom varje avgörande: `kunskap/skillkrockar.md` (K-numren nedan).
 
+**Stegens sju delar** (ägarens uppdrag 2026-10-09 om ett källförankrat arbetssätt, punkt 4): varje stegavsnitt nedan
+säger uppgiften (Fråga), kompetensen (rollen i Kompetenserna och stegets utdrag), tillämpningen, resultatet och
+överlämningen (Till nästa steg), bedömningen (Visar) och återgången. Helbygget och leveransen har egna avsnitt sist;
+de levereras inte som metod till skapandeflödets sessioner. En specialistroll är en uppgift med sin kompetens, inte
+nödvändigtvis en egen session.
+
 **Så levereras metoden:** `kontroller/metod.py` läser stegens block ```` ```utdrag ```` (en rad per källa: väg, och
 rader eller en rubrik) och skriver vid varje körning stegets filer i `underlag/<slug>/atelje/metod/`: kartans text för
 steget, avgörandena och utdragen med källa och hash, delade så att varje fil ryms i ett Read utan offset och limit
@@ -51,6 +57,22 @@ sessionerna.
 
 ## Avgöranden
 
+- **Arbetsprincipen** (ägarens uppdrag 2026-10-09): varje steg utgår från tillämpliga, trovärdiga källor och kundens
+  faktiska förutsättningar; rätt specialistkompetens används för att fatta och genomföra motiverade beslut; osäkerheter
+  undersöks med den metod som kan besvara dem; resultatet bedöms innan steget räknas som uppfyllt. Källornas slag och
+  vad som går före står i `kunskap/designregler.md`, Källornas slag. Vid motstridiga råd avgör källornas syfte och
+  räckvidd, aldrig vilken instruktion som lästes sist. Ett betydande vägval (komposition, informationsordning,
+  bildbehandling, teknisk lösning) står kort i RIKTNING.md:s beslutsliggare: problemet det löser, underlaget och källan,
+  det övervägda alternativet, det som fortfarande är ett antagande och hur effekten bedöms. En marginaljustering behöver
+  ingen rad.
+- **Osäkerheter:** skriv först vad som är osäkert, och välj metod efter slaget: teknik genom aktuell officiell
+  dokumentation och ett avgränsat tekniskt prov; metod genom primärkällor med deras tillämpningsområde, vid behov ett
+  jämförande försök; kundens fakta genom kunden eller verifierat underlag; besökarnas behov genom beteendedata,
+  intervjuer, observation eller ett besökarprov (`kunskap/besokarprov.md`); en visuell lösning genom renderade
+  alternativ och bildbedömning; modellens förmåga genom ett representativt förmågeprov (`kunskap/autonomi.md`);
+  motstridiga krav genom en skriven avvägning inom mandatet. En AI-genererad målgruppshypotes är ett antagande, aldrig
+  forskning med verkliga användare. Sökningen avgränsas till frågan och slutar när underlaget räcker för ett motiverat
+  nästa steg; det källorna inte besvarar står kvar som osäkert.
 - **Bilder (äkthet):** en bild som visar verksamheten (arbeten, personer, lokaler, resultat) är dess egen; illustrativt
   material som inte utger sig för att dokumentera den (licensierade illustrationer, texturer, konceptbilder, form i
   koden) är tillåtet med källa i BILDER.md eller DESIGN.md (`kunskap/bild.md`). Bilderna serveras från sajten. Saknat
@@ -93,6 +115,8 @@ sessionerna.
   (komposition, hierarki, bildval, rytm, kundens särprägel) och får byta grundidé, referens eller komposition, och varje
   varv därefter åtgärdar det största visuella problemet skaparen ser i sina bilder eller vid jämförelsen med referensen
   i samma bredd; i läget full och i förfiningen är minst tre förhandsvarv en arbetsregel, ingen kvalitetsbedömning.
+  Impeccables metod har högst två samlade inspektionsomgångar och sedan en färsk granskare; vårt minimum är ett lokalt
+  processval (`kunskap/metodregler.md`), oprövat, och gäller tills ett jämförbart prov visar något annat.
   Verktygen per pass står i kompetensblocken. Inga test-, variant- eller prototypsidor i src/pages: varje index.astro
   där blir en undersida. DESIGN.md är kontraktet: värdena, valda tillstånd (mörkt läge) och importerade stilvärden
   (`kunskap/bygge-referens.md`). Granskaren svarar bara i sitt schema (K46–K55, K57, K58).
@@ -119,6 +143,13 @@ sessionerna.
   argument och helbyggets inställningar. Övriga tillåtna skills kan fortfarande laddas med Skill (K46/P5).
 
 ## Kompetenserna
+
+**Användningen i sex nivåer** (ägarens uppdrag 2026-10-09 om ett källförankrat arbetssätt, punkt 5): observationen
+redovisar varje nivå för sig och okänt som okänt (`kompetens.anvandningsnivaer`, i specialistpassens post): erbjuden
+(rollens kärna i uppdraget), laddad (kärnan läst hel, ur transkriptet), anrop med användbart resultat (verktygs- och
+MCP-anrop med innehåll), redovisad av skaparen (ändringar knutna till en skill), belagd i artefakten (versionen ändrades
+och står kvar) och effekt bedömd (bara av en oberoende bedömning: granskningen eller ägaren). En skill tillskrivs aldrig
+en förbättring som inte går att belägga, och ett anrop görs aldrig bara för att fylla en ruta.
 
 Ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"; ägarens uppdrag 18:53Z, punkt 5: varje
 roll läser de fullständiga relevanta delarna, utan tunna sammanfattningar och utan att varje metodtext läggs i varje
@@ -585,6 +616,12 @@ utseende; varje antagande har underlag eller "ännu inte observerat", en prövni
 avslöja knappen, och en följd. Sessionen arbetar med rollen forska (avsnittet Kompetenserna) och prövar territorierna
 med egna generiska sökningar; FORSKNING.json bär kompetenskvittot.
 
+**Tillämpning:** referensanalysen identifierar i bilderna och mätningen proportioner, hierarki, rytm, bildroller och de
+tillstånd som spelar roll, och skiljer uppmätt från uppskattat; Refero och Mobbin ger förebilder för besökarens uppgift.
+
+**Återgång:** det materialet inte räcker till står i FORSKNING.md som ännu inte observerat eller som beställning, och
+planprövningen kan begära mer research för ett uppdrag (återgången, en per plan).
+
 ```utdrag före
 kunskap/designregler.md
 kunskap/referensjakt.md
@@ -618,6 +655,13 @@ typsnitt; varje uppdrag besvarar uppgiften, beslutsinnehållet, antagandena och 
 researchen och kundens material; inget uppdrag är avsiktligt svagt. Antalet (cirka tio) är vårt val för omgången: parallella prototyper före låsning har stöd (Dow m.fl.
 2010), men ingen studie fastställer ett antal.
 
+**Tillämpning:** art direction och UX gör uppdragen till skilda lösningar på kundens uppgift; varje uppdrag säger vilken
+kvalitet i huvudreferensen det prövar och om kundens material bär den, och väljer Mobbins skärm eller flöde efter
+uppgiften (`mobbin_typ`: ett flöde när uppgiften är en resa i steg).
+
+**Återgång:** planprövningen bedömer varje uppdrag den släpper; ett uppdrag utan en giltig bedömning går inte till
+skaparen, och en invändning som gör uppdraget ohållbart ger ny hypotes, ny referens eller mer research.
+
 ```utdrag före
 kunskap/designregler.md
 kunskap/bild.md # Art direction
@@ -649,6 +693,10 @@ håller ihop; kvalitetskraven håller (bygget, konsolen, spill, axe). Huvudrefer
 med referensbild och kandidatens bild bredvid varandra i RIKTNING.md: bildens beskärning mot rubriken, de typografiska
 storlekarna och hierarkin, täta och luftiga sektioner och rytmen, navigation och interaktion mot innehållet. Skaparen
 skriver under "Visar" vilken bild som visar var och en. Arbetsregel i läget full: minst tre förhandsvarv.
+
+**Tillämpning:** som i skissen nedan, för hela startsidan och undersidan.
+
+**Återgång:** som i skissen nedan.
 
 ```utdrag före
 kunskap/designregler.md
@@ -703,6 +751,14 @@ med rollen kritik (avsnittet Kompetenserna, Avgörandena): blind för skaparens 
 egen förhandsvisning i 390, 768, 1280 och 1440, menyn öppen, tangentbordet och reflow; SKISSKRITIK.json belägger
 versionen, bilderna och kompetenskvittot.
 
+**Tillämpning:** typografikompetensen avgör rollerna, storlekarna och hierarkin i den renderade sidan; art direction
+bildernas uppgift och beskärning; UX uppgiftsflödet, återkopplingen och felhanteringen; responsiviteten hur
+kompositionen håller från 390 till 1440. Referos stilpaket och Mobbins skärmar eller flödessteg knyts i
+beslutsliggaren till de formbeslut de används för.
+
+**Återgång:** håller inte helheten byter skaparen grundkomposition eller referens, med skälet, i stället för att putsa;
+en stark mellanversion får stå kvar; material som saknas beställs och märks.
+
 ```utdrag före
 kunskap/designregler.md
 kunskap/bild.md
@@ -724,6 +780,11 @@ krav; ägaren ser granskningen efter sitt första beslut.
 
 **Visar:** varje avvikelse har plats, bredd, vad, åtgärd, allvar och slag; en skills förbud bär aldrig ensamt ett fynd;
 granskaren har läst de första vyerna (prövas i transkriptet; annars styr granskningen ingenting).
+
+**Tillämpning:** kritiken bedömer bilderna först, som en besökare, och skaparens motivering sedan; tillgänglighets-
+kompetensen används vid kontrollen (axe i tillstånd, tangentbordet, reflow) som i utformningen.
+
+**Återgång:** ett fynd som kräver en ny riktning blir en rekommendation, och skaparen svarar i en egen session.
 
 ```utdrag
 kunskap/designregler.md
@@ -753,6 +814,12 @@ andra förslag och DESIGN.md i takt med koden?
 uppgiften går att genomföra och mobilen håller ihop; DESIGN.md är giltig och koden använder dess variabler
 (`kontroller/design.py --kandidat`). Arbetsregel: minst tre förfiningsvarv.
 
+**Tillämpning:** passen interaktion och rörelse och tillgänglighet och visuell granskning ändrar den färdiga sidan i en
+samlad omgång, med kärnan läst före ändringen; utvecklingskompetensen avgör beteendet, strukturen och robustheten.
+
+**Återgång:** ett pass vars kärnkrav brister återställs till versionen före och står som ej uppfyllt i kandidatens
+besked; ett nytt försök begärs uttryckligen inom budgeten (`kontroller/kandidater.py <slug> --nytt-passforsok`).
+
 ```utdrag före
 kunskap/designregler.md
 kunskap/bygge-referens.md
@@ -770,6 +837,10 @@ kunskap/bygge-referens.md
 **Visar:** inga påhittade uppgifter, inga AI-mönster ur humanizer, svenska citattecken och tankstreck enligt
 copy-kontroll.md.
 
+**Tillämpning:** copy-kontrollen och humanizer avgör ordval, längd och ton i kompositionen.
+
+**Återgång:** en uppgift utan belägg stryks eller beställs.
+
 ```utdrag
 kunskap/copy-kontroll.md
 kunskap/redaktionellt-pass.md
@@ -781,6 +852,26 @@ taste/SKILL.md rad 321–331
 better-typography/SKILL.md # Write copy naturally, style with CSS
 brand/references/voice-framework.md
 ```
+
+## Helbygge och prov
+
+**Fråga:** genomför bygget den godkända prototypen på alla sidor, med fungerande tillgänglighet, prestanda, säkerhet och
+sökbarhet? **Kompetens:** `.claude/skills/bygg-sajt/SKILL.md` steg 1–7, `kunskap/byggstandard.md`, `kunskap/seo.md`,
+förfiningens DESIGN.md och provet (`kontroller/prova.py`: axe i tillstånd, Lighthouse-metoden, WebKit, resorna,
+säkerhetshuvudena). **Tillämpning:** responsivitet, rörelse och tillgänglighet byggs in och kontrolleras med samma
+kompetens. **Resultat och överlämning:** `kunder/<slug>/sajt/` med dist, provets rapporter och jämförelsen mot den
+godkända prototypen, bunden till vinnarens version och byggets dist. **Bedömning:** provets grindar (tekniskt), två
+oberoende granskare (designnivån), jämförelsen mot prototypen som ett eget besked (`visuell_jamforelse`) och ägarens
+dom. **Återgång:** stoppvakten släpper inte bygget förrän granskningen godkänner eller taket nås; en försämring mot det
+godkända är ett blockerande fynd.
+
+## Leverans och uppföljning
+
+**Fråga:** når sajten kunden i den granskade versionen, och fungerar den i drift och för besökarna? **Kompetens:**
+`kunskap/lansering.md`, kundrepot och exporten (`kontroller/kundrepo.py`, `kontroller/exportera.py`) och besökarprovet
+(`kunskap/besokarprov.md`). **Resultat och överlämning:** kundrepot med exakt den granskade dist och slutposten SLUT.json
+med de fem tillstånden. **Bedömning:** lanseringens Definition of Done (byggstandarden 10.3) och, inför skarp lansering,
+ett besökarprov. **Återgång:** en push som historikgranskningen stoppar görs inte; ett fynd i drift blir en backlogpost.
 
 ## Kundstart före skapandeflödet
 

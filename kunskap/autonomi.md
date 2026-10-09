@@ -104,3 +104,37 @@ om flödet kan lösa en svår kunduppgift, och redovisas för sig.
 - **När:** först när designprovet visat att ateljévägen håller (ägarens blinda dom i dashboarden) och granskaren
   prövats på de orörda exemplen K14–K19. Annars mäts en väg som ändå ska ändras. (Skrivet när ateljévägen var
   standard; normalflödet är nu kandidatflödet, och villkoret är inte omprövat.)
+
+## Kvalitetsprovet: ett sammanhängande fall
+
+Ägarens uppdrag 2026-10-09 om metod, utförande och kvalitet (punkt 8) och om ett källförankrat arbetssätt (punkt 9).
+Ett avgränsat fall följs genom hela kedjan: referensavsikt, kundanpassning, renderad webb, oberoende bildbedömning och
+ägarens dom. Den första metodvariabeln är H01, ett preliminärt visuellt mål före kod (`kunskap/metodregler.md`). Allt
+annat hålls fast. Provet är förberett, inte kört: verkliga sessioner och helbygget kräver ägarens mandat.
+
+- **Material:** en fiktiv verksamhet med ett skrivet underlag och licensierat eller tydligt illustrativt bildmaterial
+  med källa, eller material som ägaren uttryckligen tillåtit. Kalibreringens undanhållna exempel (K14–K19) används
+  aldrig.
+- **Underlag och plan:** skapandeflödet till en planprövad plan med en kandidat (`NWP_KANDIDATER=1 .venv/bin/python
+  kontroller/prototyp.py <slug>`), i skissläget.
+- **Två armar:** `ab.py forbered-skiss <slug> --kandidat k01 --variabel metodvariant` lottar grund och h01 på två
+  kandidater med samma uppdrag, material, modell, effort, budget och metod i övrigt. Identitetslåset nekar jämförelsen
+  om något gemensamt ändras. Efter mandatet kör `prototyp.py <slug> --fortsatt` båda armarna.
+- **Bedömningen börjar med bilderna:** ägaren väljer blint i dashboardens Prototyp, före skaparnas förklaringar. Valet
+  får vara ingen av dem, och en arm som bytt grundkomposition med skäl är inte felaktig.
+- **Var kvaliteten bevaras eller försvagas:** efter domen ställs referensbilderna, det visuella målet (h01), referenslåset
+  och skissens bilder bredvid varandra i de fyra relationerna (bildens beskärning mot rubriken, de typografiska
+  storlekarna och hierarkin, täta och luftiga sektioner och rytmen, navigation och interaktion mot innehållet). Det som
+  syns i bilderna står som observation, och förklaringar av orsaken som hypotes.
+- **Vidare till webben:** den godkända kandidaten fördjupas och helbyggs (ägaren startar). Provets jämförelse mot
+  prototypen, granskarnas `visuell_jamforelse` och ägarens dom visar om det godkända bevarades.
+- **Bevaras vid varje övergång:** kandidaternas versioner och bilder (arkiverade försök), A/B-posten med källornas
+  identitet, VINNARE.json med hasharna, byggets dist-sha, granskningen med metodberoendena och jämförelsens besked, och
+  slutposten SLUT.json.
+- **Färdigt när:** båda armarna är avslutade och kontrollerade (`ab.py skissresultat <slug>` utan fel), ägaren har dömt
+  båda blint, skillnaden står som observation med bilderna, och helbygget från det godkända har en jämförelse som är
+  `verifierad`, eller en redovisad brist.
+
+Ett fall är det första belägget, inte generell förmåga: varierade kundfall (förmågeprovet ovan) och oberoende
+kalibrering behövs sedan. Når modellen inte ribban trots korrekt underlag och fungerande överlämningar prövas modellvalet,
+uppgiftens svårighet och behovet av mänsklig art direction, inte fler regler eller fler agenter.

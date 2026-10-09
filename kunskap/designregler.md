@@ -17,6 +17,24 @@ avsnitt varje steg använder, och hur deras motsägelser avgörs, i `kunskap/met
 
 En skills standardråd står under alla fyra.
 
+## Källornas slag
+
+Ägarens uppdrag 2026-10-09 om ett källförankrat arbetssätt, punkt 2. Varje regel och metodval hör till ett slag, och
+slaget avgör hur den gäller:
+
+| Slag | Här | Så gäller det |
+|---|---|---|
+| Standarder och teknisk dokumentation | WCAG 2.2, webbläsarstöd, ramverkens och tjänsternas dokumentation | kvalitetskraven nedan och byggstandarden; korrekt användning prövas mot aktuell officiell dokumentation |
+| Forskningsbaserade metoder | `kunskap/teoretisk-grund.md` (Double Diamond, heuristisk utvärdering, användartest) | ett arbetssätt med syfte, tillämpningsområde och begränsning; vår tolkning och prövningen står i `kunskap/metodregler.md` |
+| Specialistguider och skills | `.claude/skills/` med `KALLA.md` (version och lokal anpassning) | tekniker, arbetsmoment och bedömningskriterier inom rollen (`kunskap/metodkarta.md`, Kompetenserna); en skills råd blir aldrig ett krav av sig självt |
+| Referenser och inspirationsmaterial | referenspaketen, Refero, Mobbin, kalibreringens exempel | konkreta exempel vars relevanta kvaliteter analyseras och prövas mot kundens material; aldrig regler |
+| Kundens fakta, mål och användarunderlag | VERKSAMHET.json, BRIEF.md, RESEARCH.md, domloggen | förutsättningarna för uppdraget; en AI-genererad målgruppshypotes är ett antagande tills den prövats |
+| Ägarbeslut | `BESLUT.md` och tabellen nedan | uttryckliga beslut med avsändare och räckvidd |
+| Lokala hypoteser och processval | tabellen Designhypoteser nedan och `kunskap/metodregler.md` | Nortropics egna antaganden med motivering och prövningsstatus; ett lokalt val beskrivs aldrig som något litteraturen föreskriver |
+
+En ersatt instruktion står kvar som historik i `BESLUT.md`; styrningsvakten (`kontroller/styrning.py`) fäller den i det
+som når agenterna.
+
 ## Gemensamma kvalitetskrav
 
 - **Sanning:** namn, nummer, orter, år, tjänster, omdömenas ordalydelse och varje påstående om hur verksamheten
