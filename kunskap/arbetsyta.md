@@ -103,13 +103,16 @@ startjournalen eller domloggen. En ändring går därför genom ditt beslut och 
 egna sessioner.
 
 **Markeringen.** Det en ändring gäller fryses när du markerar: när du väljer Ändring, väljer en kandidat medan
-Ändring är vald, eller trycker Markera för en ändring vid en fil i kodvyn. Markeringen bär kund, körning, kandidat och
+Ändring är vald, börjar skriva i läget Ändring utan markering, eller trycker Markera för en ändring vid en fil i
+kodvyn. Utan markering skickas ingen ändring. Markeringen bär kund, körning, kandidat och
 hel version, vyn där den gjordes, och sida, del och fil; den följer med när du byter flik och står kvar tills du
 skickar eller rensar den. Har körningen eller kandidatens version bytts sedan dess står den som inaktuell, och Skicka
 ändring är spärrad tills du stämt av mot den aktuella versionen. Servern prövar samma sak: en ändring utan hel version
 och körning nekas, och en som inte stämmer med läget nu svarar Inaktuell (409); ingenting vidarebefordras blint.
-Ändringens och partnermeddelandets id är en hash av innehållet och markeringen, så samma ändring från ett dubbelklick,
-ett omförsök efter ett tappat svar eller en andra flik blir en rad, och en ändrad text blir en ny.
+Ändringens id är en hash av texten och markeringen (beslutet, valj eller putsa, fryses med markeringen och ingår inte),
+och servern känner dessutom igen samma text för samma kandidat, version och körning: ett dubbelklick, ett omförsök
+efter ett tappat svar eller en andra flik blir en rad, och en ändrad text blir en ny. Partnermeddelandets id bär
+också samtalets position, så samma tur i två flikar blir ett meddelande medan ett senare "Ja" blir ett nytt.
 
 I domloggen är din text domens text, ordagrant, och markeringen står i fältet `arbetsyta`. Skaparen läser markeringen
 som en egen rad ("ändringen gäller (ägarens markering i arbetsytan …)", `skapande.kritikrader`), skild från det du
@@ -178,7 +181,8 @@ sessioners transkript. Helbyggets session identifieras ur stream-json-loggens f�
   maskerar värden efter ord som nyckel, token och lösenord, efter `Authorization` och `Bearer`, i `sk-`-nycklar och
   i parametrar som `?key=`; en maskering är ett skyddsnät, inget löfte om att en hemlighet aldrig kan stå i en logg.
 - **Blindningen** gäller på servervägen, före ditt första val i körningen: läget, strömmen, partnerns kontext, följvyn
-  och kodvyn bär inga bedömningar, skäl eller sökvägar i sessionernas aktivitet, körningsloggens text visas inte,
+  och kodvyn bär inga bedömningar, skäl, sessionernas roller (bara ansvaret: utförare eller granskare) eller sökvägar
+  i sessionernas aktivitet, körningsloggens text visas inte,
   DESIGN.md döljs och bara kandidatens aktuella version kan väljas och jämföras (föreversionen före en förbättringsrunda
   och diffen mot den visas efter valet, som i vyn Prototyp). En kund som är en arm i en blind jämförelse som du inte
   valt i än visas inte alls: läget, strömmen, partnerns kontext, modden, koden, loggarna och ändringen är stängda tills

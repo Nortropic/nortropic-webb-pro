@@ -3377,8 +3377,11 @@ Ersatt (ur `kunskap/designregler.md`, gemensamma kvalitetskrav, bevarat här):
 
 ## Tillägg 2026-10-09: den visuella arbetsytan — ägarens uppdrag ~07:24Z och genomförarens huvudväg
 
-**Status:** gäller; uppdraget pågår (backlogposten `B-20261009-visuella-arbetsytan-samtal-preview-sessioner-och`). Valet av
-huvudväg nedan är genomförarens teknikbeslut inom uppdraget, inte ett ägarbeslut; ägarens beslut är uppdraget självt.
+**Status:** gäller; genomfört och lokalt aktiverat 2026-10-09 (backlogposten
+`B-20261009-visuella-arbetsytan-samtal-preview-sessioner-och`; hur arbetsytan fungerar, dess gränser och vad som inte är
+prövat: `kunskap/arbetsyta.md`; granskningarna: `underlag/granskningar/GR-20261009-arbetsyta-oberoende.md` och
+`GR-20261009-arbetsyta-omgranskning.md`). Valet av huvudväg nedan är genomförarens teknikbeslut inom uppdraget, inte ett
+ägarbeslut; ägarens beslut är uppdraget självt.
 
 Ägaren skickade uppdraget och ett byggpaket med tre konceptbilder i en ny session (första klockavläsning 07:24:48Z). Paketet
 ligger privat i `underlag/arbetsyta/uppdraget-20261009/` (BYGGPROMPT.md, LAS-MIG.txt, `referenser/01-arbetsyta.png`,
