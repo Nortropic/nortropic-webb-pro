@@ -4277,3 +4277,14 @@ arbetsplatsen är därför inte klar, trots att genomföraren efter aktiveringen
 - Därefter tas knappen Klassisk vy, menyn Fler vyer och de gamla vyerna bort.
 - Ingen funktion får försvinna på vägen (uppdraget ~07:24Z: "flytta inte bort … utan ersättande navigering").
 - Gränserna för helbygge, publicering, kundkontakt, köp, privat material och blinda försök gäller som förut.
+
+**Genomförarens tillämpning** (teknikval inom beskedet):
+- **En ram.** Arbetsytan ritar varje adress. Delarna ritas i dess ram (`arbetsytaSektion` i `dashboard/arbetsyta.js`)
+  med huvudet, kunden och arbetsytans färger. Delarnas egna klasser får arbetsytans värden genom samma variabler.
+- **Samma funktioner.** Delarnas kod, adresser, skrivvägar och skydd är oförändrade (dashboardnyckeln, start-id,
+  bekräftelser, utkast och generationsvakter). Ingen funktion skrevs om, så ingen kunde tappas på vägen.
+- **Navigeringen.** Projektets tre vyer står bredvid två menyer, Kundproduktion och Systemförbättring, som hålls isär
+  enligt uppdraget ~07:24Z, och Dokumentation och rapporter står för sig. Underhåll och verktygslådan blev en egen del,
+  i stället för att ligga sist i Översikten. Översikten heter nu Byggen och dina domar.
+- **Kvar efter flytten:** några funktioner finns två gånger i arbetsytan. Flöde ligger bredvid Byggflöde, och
+  Prototyps beslut ligger bredvid beslutet i Arbetsyta. Att slå ihop dem är nästa steg och redovisas för ägaren.

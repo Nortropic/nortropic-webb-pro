@@ -86,19 +86,18 @@
     if (!A.strom && !A.pollTimer) oppnaStrom(slug);
   };
   function localStorageSenaste() { try { return localStorage.getItem('nwp-arbetsyta:senaste'); } catch { return null; } }
-  window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#/arbetsyta')) { stangStrom(); document.body.classList.remove('ay-aktiv'); A.slug = null; A.lage = null; } });
 
   function tomtLage() {
-    document.getElementById('vy').innerHTML = `<div class="ay">${huvudTom()}<div class="ay-tom" style="padding:40px 18px">Inga kunder med underlag än. Starta ett ärende i <a href="#/kundstart">Kundstart</a> eller förbered en kund i <a href="#/flode">Flöde</a>.</div></div>`;
+    document.getElementById('rot').innerHTML = `<div class="ay">${huvudTom()}${flikrad()}<div class="ay-tom" style="padding:40px 18px">Inga kunder med underlag än. Starta ett ärende i <a href="#/kundstart">Kundstart</a> eller förbered en kund i <a href="#/flode">Flöde</a>.</div></div>`;
   }
   function visaFel(text) {
-    const v = document.getElementById('vy');
-    if (!v.querySelector('.ay')) v.innerHTML = `<div class="ay">${huvudTom()}</div>`;
+    const v = document.getElementById('rot');
+    if (!v.querySelector('.ay')) v.innerHTML = `<div class="ay">${huvudTom()}${flikrad()}</div>`;
     const ruta = v.querySelector('.ay-felruta') || Object.assign(document.createElement('div'), { className: 'ay-felruta' });
     ruta.innerHTML = `<div class="ay-notis fel" role="alert" style="margin:12px 18px">${e_(text)}</div>`;
     v.querySelector('.ay').prepend(ruta);
   }
-  const huvudTom = () => `<header class="ay-huvud"><div class="ay-marke">${SVG.marke}Nortropic arbetsyta</div><div class="ay-hoger-huvud"><a class="ay-knapp liten" href="#/oversikt">Klassisk vy</a></div></header>`;
+  const huvudTom = () => `<header class="ay-huvud"><div class="ay-marke">${SVG.marke}Nortropic arbetsyta</div></header>`;
 
   // --- strömmen ---
   function oppnaStrom(slug) {
@@ -157,24 +156,65 @@
 
   // --- ramen ---
   function ram() {
-    const v = document.getElementById('vy');
+    const v = document.getElementById('rot');
     const l = layout(A.slug);
-    v.innerHTML = `<div class="ay" data-vy="${e_(A.vy)}">
-      <header class="ay-huvud" id="ay-huvud"></header>
-      <div class="ay-flikrad">
-        <nav aria-label="Arbetsytans vyer" style="display:flex;gap:4px">${[['', 'Arbetsyta'], ['flode', 'Byggflöde'], ['kod', 'Kod och preview']].map(([k, n]) =>
-          `<a href="#/arbetsyta/${e_(A.slug)}${k ? '/' + k : ''}"${A.vy === k ? ' aria-current="page"' : ''}>${n}</a>`).join('')}</nav>
-        <details class="ay-meny"><summary>Fler vyer</summary><nav aria-label="Dashboardens övriga vyer">
-          <h4>Kundproduktion</h4><a href="#/flode/${e_(A.slug)}">Flöde (klassisk)</a><a href="#/prototyp/${e_(A.slug)}">Prototyp och ditt val</a><a href="#/kundstart">Kundstart</a><a href="#/ab">Jämförelser</a><a href="#/oversikt">Översikt och byggen</a><a href="#/starta">Starta</a>
-          <h4>Systemförbättring</h4><a href="#/oversikt">Underhåll och verktygslådan</a><a href="#/kirurgen">Kirurgen</a><a href="#/backlog">Backlog</a><a href="#/kalibrering">Kalibrering</a><a href="#/lardomar">Lärdomar</a><a href="#/designprov">Designprov</a><a href="#/prospekt">Prospekt</a>
-          <h4>Rapporter</h4><a href="#/dokumentation">Dokumentation och rapporter</a></nav></details>
-      </div>
+    v.innerHTML = `<div class="ay" data-vy="${e_(A.vy)}"${A.vy === 'sektion' ? ` data-sektion="${e_(A.sektion)}"` : ''}>
+      <header class="ay-huvud" id="ay-huvud">${huvudTom().replace(/^<header[^>]*>|<\/header>$/g, '')}</header>
+      ${flikrad()}
       <p id="ay-meddelande" class="dolt" role="status" aria-live="polite" aria-atomic="true"></p>
-      <div id="ay-innehall">${A.vy === 'flode' ? '<div class="ay-flode" id="ay-flode"></div>' : A.vy === 'kod' ? kodRam() : ytRam(l)}</div>
+      <div id="ay-innehall">${A.vy === 'sektion' ? '<div id="vy" class="ay-sektion"><p class="under">Laddar …</p></div>' : A.vy === 'flode' ? '<div class="ay-flode" id="ay-flode"></div>' : A.vy === 'kod' ? kodRam() : ytRam(l)}</div>
     </div>`;
     if (A.vy === '') kopplaDelare();
     if (A.vy === 'kod') laddaKod();
   }
+  // Arbetsytans delar utöver projektets tre vyer (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan). Adresserna
+  // är desamma som förut (#/backlog, #/kundstart/<id> …), så länkar, bokmärken och vyernas egna kontroller av adressen
+  // gäller; varje del ritas i arbetsytans ram med samma funktioner och skrivvägar som förut. Kundproduktionen och
+  // systemförbättringen hålls isär (uppdraget 2026-10-09 ~07:24Z).
+  const DELAR = [
+    ['Kundproduktion', [['prototyp', 'Prototyp', 'kandidaterna sida vid sida, jämförelsen och ditt val', true], ['flode', 'Flöde', 'kundens körningar steg för steg, med starterna', true],
+      ['oversikt', 'Byggen och dina domar', 'helbyggena, deras prov och din dom'], ['ab', 'Jämförelser', 'blinda par: välj utan att veta vilket som är vilket'],
+      ['kundstart', 'Kundstart', 'kundens ärende, underlag och överlämning'], ['prospekt', 'Prospekt', 'kampanjer, analyser och utskick', false, 'n-prospekt'],
+      ['starta', 'Starta', 'kommandona för helbygge, backlog och prov']]],
+    ['Systemförbättring', [['underhall', 'Underhåll och verktygslådan', 'det dagliga underhållet och versionerna'], ['kirurgen', 'Kirurgen', 'intag, spaningen och förbättringsarbetet', false, 'n-kirurg'],
+      ['backlog', 'Backlog', 'vilande, pågående och klara poster', false, 'n-backlog'], ['kalibrering', 'Kalibrering', 'externa sajter att döma blint'],
+      ['lardomar', 'Lärdomar', 'dina domar och granskarnas samstämmighet'], ['designprov', 'Designprov', 'ateljéns förslag per bygge, blint']]],
+  ];
+  const DELNAMN = Object.fromEntries([...DELAR.flatMap(([, d]) => d), ['dokumentation', 'Dokumentation och rapporter'], ['bygge', 'Bygget och din dom']].map(([k, n]) => [k, n]));
+  function flikrad() {
+    const del = A.vy === 'sektion' ? (A.sektion === 'bygge' ? 'oversikt' : A.sektion) : null;
+    const sl = A.slug ? encodeURIComponent(A.slug) : '';
+    const href = (k, projekt) => `#/${k}${projekt && sl ? '/' + sl : ''}`;
+    const post = ([k, n, om, projekt, raknare]) => `<a href="${href(k, projekt)}" data-v="${k}"${del === k ? ' aria-current="page"' : ''}><span>${n}${raknare ? ` <b id="${raknare}" hidden></b>` : ''}</span><span class="ay-menyom">${om}</span></a>`;
+    return `<div class="ay-flikrad">
+        <nav aria-label="Arbetsytans vyer" class="ay-projektflikar">${[['', 'Arbetsyta'], ['flode', 'Byggflöde'], ['kod', 'Kod och preview']].map(([k, n]) =>
+          `<a href="#/arbetsyta${sl ? '/' + sl : ''}${k && sl ? '/' + k : ''}"${A.vy === k ? ' aria-current="page"' : ''}>${n}</a>`).join('')}</nav>
+        <nav aria-label="Arbetsytans delar" class="ay-delar">${DELAR.map(([grupp, delar]) => { const har = delar.some(([k]) => k === del);
+          return `<details class="ay-meny"><summary${har ? ' data-aktiv' : ''}>${grupp}${har ? `<span class="ay-meny-val">: ${e_(DELNAMN[A.sektion])}</span>` : ''}</summary>
+          <div class="ay-menylista">${delar.map(post).join('')}</div></details>`; }).join('')}<a href="#/dokumentation" data-v="dokumentation"${del === 'dokumentation' ? ' aria-current="page"' : ''}>Dokumentation och rapporter</a></nav>
+      </div>`;
+  }
+  window.arbetsytaSektion = function arbetsytaSektion(h) {
+    const [forsta, andra] = String(h || '').split('/');
+    const sektion = DELNAMN[forsta] ? forsta : 'oversikt';
+    document.body.classList.add('ay-aktiv');
+    const gen = ++A.generation;  // en pågående läsning av en vy ger inte längre ramen
+    let slug = ['prototyp', 'flode', 'bygge'].includes(forsta) && andra ? decodeURIComponent(andra) : (A.slug || localStorageSenaste());
+    if (A.projekt.length && slug && !A.projekt.some((p) => p.slug === slug)) slug = A.projekt.some((p) => p.slug === A.slug) ? A.slug : null;  // ett bygge utan arbetsyta behåller kunden i huvudet
+    if (A.slug !== slug) { stangStrom(); Object.assign(A, { mark: undefined, slug, lage: null, valdKandidat: null, folj: null, partner: null, partnerNyckel: null, material: null, logg: null, loggNyckel: null, svar: '', kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null } }); }
+    A.vy = 'sektion'; A.sektion = sektion;
+    ram();
+    if (A.lage) rita();
+    (async () => {  // huvudet: kunden och dess läge, om de går att läsa; delen ritas oavsett
+      try {
+        if (!A.projekt.length) A.projekt = (await hamta('/api/arbetsyta')).projekt || [];
+        if (gen !== A.generation || !A.slug) return;
+        if (!A.projekt.some((p) => p.slug === A.slug)) { A.slug = null; return; }
+        if (!A.lage) tillampa(await hamta('/api/arbetsyta/' + encodeURIComponent(A.slug)), true);
+        if (gen === A.generation && !A.strom && !A.pollTimer) oppnaStrom(A.slug);
+      } catch { /* utan kundens läge visas huvudet utan det; delen påverkas inte */ }
+    })();
+  };
   function ytRam(l) {
     return `<div class="ay-omraden"><div class="ay-segment" role="group" aria-label="Visa område">${[['samtal', 'Samtal'], ['resultat', 'Resultat'], ['sessioner', 'Sessioner']].map(([k, n]) =>
         `<button type="button" data-omrade="${k}" aria-pressed="${(l.omrade || 'resultat') === k}">${n}</button>`).join('')}</div></div>
@@ -220,8 +260,9 @@
     if (nyckel) el.querySelector(`[data-fokus="${CSS.escape(nyckel)}"]`)?.focus();
   }
   function rita() {
-    if (!A.lage || !document.querySelector('.ay')) return;
+    if (!document.querySelector('.ay')) return;
     const h = document.getElementById('ay-huvud');
+    if (!A.lage) { if (h && !h.contains(document.activeElement)) h.innerHTML = huvud(); return; }
     if (h && !h.contains(document.activeElement)) h.innerHTML = huvud();
     else ritaAnslutning();
     if (A.vy === '') { ritaMaterial(); behallFokus(document.getElementById('ay-remsa'), () => { document.getElementById('ay-remsa').innerHTML = remsa(); });
@@ -233,6 +274,7 @@
     if (A.vy === 'kod') { ritaMaterial(); ritaKodaktivitet(); laddaLogg(); if (A.kod.kandidat !== kodKandidat()) laddaKod(); }
   }
   function huvud() {
+    if (!A.lage) return `<div class="ay-marke">${SVG.marke}<span>Nortropic</span></div>${A.projekt.length ? `<div class="ay-falt"><span><label for="ay-kund">Kund</label></span><select id="ay-kund" data-fokus="kund">${A.slug ? '' : '<option value="" selected>Välj kund</option>'}${A.projekt.map((x) => `<option value="${e_(x.slug)}"${x.slug === A.slug ? ' selected' : ''}>${e_(x.namn || x.slug)}</option>`).join('')}</select></div>` : ''}`;
     const l = A.lage, p = l.projekt || {}, k = l.korning || {}, kand = (l.kandidater || []).find((x) => x.id === A.valdKandidat);
     return `<div class="ay-marke">${SVG.marke}<span>Nortropic</span></div>
       <div class="ay-falt"><span><label for="ay-kund">Kund</label></span><select id="ay-kund" data-fokus="kund">${A.projekt.map((x) => `<option value="${e_(x.slug)}"${x.slug === A.slug ? ' selected' : ''}>${e_(x.namn || x.slug)}${x.testdata && !/testdata/i.test(x.namn || '') ? ' (testdata)' : ''}</option>`).join('')}</select></div>
@@ -240,7 +282,7 @@
       <div class="ay-falt mindre"><span>Uppdrag</span><span>${k.startad ? `Körning ${e_(kort(k.startad))}, ${e_(LAGESNAMN[k.lage] || k.lage || 'läge okänt')}${A.fokusStart && k.start_id === A.fokusStart ? ' (din start)' : ''}` : 'Ingen körning'}</span></div>
       <div class="ay-falt mindre"><span>Kandidat och version</span><span>${kand ? `${e_(kand.etikett)} · ${kand.version ? 'version ' + e_(kand.version) : 'ingen version'}` : 'ingen vald'}</span></div>
       <div class="ay-falt"><span>Moment</span><span>${l.moment ? `${e_(l.moment.nr)}. ${e_(l.moment.namn)} · ${e_(l.moment.status)}` : 'okänt'}</span></div>
-      <div class="ay-hoger-huvud">${anslutning()}<a class="ay-knapp liten" href="#/flode/${e_(A.slug)}">Klassisk vy</a></div>`;
+      <div class="ay-hoger-huvud">${anslutning()}</div>`;
   }
   function anslutning() {
     const text = A.anslutning === 'ansluten' ? `Följer live, läst ${klocka(A.senastLast)}` : A.anslutning === 'ateransluter' ? `Återansluter… senast läst ${klocka(A.senastLast)}`
@@ -583,7 +625,7 @@
           : '<div class="ay-tom">Inga sessioner i körningen än. När en körning startar dyker dess sessioner upp här av sig själva.</div>'}
         ${vald ? `<section class="ay-panel" aria-labelledby="ay-detalj-rubrik"><div class="ay-panelhuvud"><h2 id="ay-detalj-rubrik">${e_(roll(vald))}${vald.kandidat ? ' · ' + e_(etikett(vald.kandidat)) : ''}</h2>${lagechip(vald.lage, vald.lage_text)}<button class="ay-knapp liten" type="button" data-folj-slut>Stäng</button></div><div class="ay-panelkropp ay-detalj">${detalj(vald)}</div></section>` : ''}
         <section class="ay-panel"><details class="metod"><summary>Så är flödet tänkt (metodkartan, README)</summary><div class="ay-panelkropp" id="ay-metod">${metod()}</div></details></section>
-        <section class="ay-panel" aria-labelledby="ay-system"><div class="ay-panelhuvud"><h2 id="ay-system">Bevakning och systemförbättring, skilt från kundproduktionen</h2></div><div class="ay-panelkropp">${bevakningsvy()}<div class="ay-knapprad"><a class="ay-knapp liten" href="#/oversikt">Underhåll och verktygslådan</a><a class="ay-knapp liten" href="#/kirurgen">Kirurgen och förbättringsloopen</a><a class="ay-knapp liten" href="#/backlog">Backlog</a><a class="ay-knapp liten" href="#/kalibrering">Kalibrering</a><a class="ay-knapp liten" href="#/dokumentation">Dokumentation och rapporter</a></div></div></section>
+        <section class="ay-panel" aria-labelledby="ay-system"><div class="ay-panelhuvud"><h2 id="ay-system">Bevakning och systemförbättring, skilt från kundproduktionen</h2></div><div class="ay-panelkropp">${bevakningsvy()}<div class="ay-knapprad"><a class="ay-knapp liten" href="#/underhall">Underhåll och verktygslådan</a><a class="ay-knapp liten" href="#/kirurgen">Kirurgen och förbättringsloopen</a><a class="ay-knapp liten" href="#/backlog">Backlog</a><a class="ay-knapp liten" href="#/kalibrering">Kalibrering</a><a class="ay-knapp liten" href="#/dokumentation">Dokumentation och rapporter</a></div></div></section>
       </div>
       <section class="ay-panel" aria-labelledby="ay-tl"><div class="ay-panelhuvud"><h2 id="ay-tl">Sessionsflöde</h2>${anslutning()}</div><div class="ay-panelkropp">
         <ul class="ay-tidslinje">${tidslinje().map((x) => `<li><time datetime="${e_(x.tid)}">${e_(klocka(x.tid).slice(0, 5))}</time><span>${e_(x.text)}</span></li>`).join('') || '<li><span class="dampad">Inget observerat än.</span></li>'}</ul>
@@ -1079,7 +1121,8 @@
     if (ev.target.id === 'ay-foljdform') { ev.preventDefault(); stallFoljdfraga(); }
   });
   document.addEventListener('change', (ev) => {
-    if (ev.target.id === 'ay-kund') location.hash = '#/arbetsyta/' + encodeURIComponent(ev.target.value) + (A.vy ? '/' + A.vy : '');
+    if (ev.target.id === 'ay-kund' && ev.target.value) location.hash = A.vy === 'sektion' ? (['prototyp', 'flode'].includes(A.sektion) ? `#/${A.sektion}/` : '#/arbetsyta/') + encodeURIComponent(ev.target.value)
+      : '#/arbetsyta/' + encodeURIComponent(ev.target.value) + (A.vy ? '/' + A.vy : '');
     if (ev.target.id === 'ay-kodkand') { A.valdKandidat = ev.target.value; A.kod.fil = null; A.kod.mot = null; laddaKod(); ritaMaterial(); }
     if (ev.target.id === 'ay-kodmot') laddaKod(undefined, ev.target.value || null);
     if (ev.target.id === 'ay-mottagare') { A.mottagareVald = ev.target.value; const f = document.getElementById('ay-skriv'); const t = f?.querySelector('textarea')?.value; f.dataset.ritad = ''; ritaMeddelandeform(); const nt = document.getElementById('ay-mtext'); if (nt && t) nt.value = t; document.getElementById('ay-mottagare')?.focus(); }
@@ -1088,5 +1131,9 @@
   document.addEventListener('input', (ev) => { if (ev.target.id === 'ay-text' && A.avsikt === 'andring' && !A.mark && levande().kandidat) { markera(); ritaGaller(); uppdateraSkrivstatus(); }
     if (ev.target.dataset?.falt && A.mark) { A.mark[ev.target.dataset.falt] = ev.target.value; sparaMark(A.mark); } if (ev.target.id === 'ay-text') { try { sessionStorage.setItem('nwp-arbetsyta-utkast:' + A.slug, ev.target.value); } catch { /* */ } } });
   document.addEventListener('keydown', (ev) => { if (ev.target.id === 'ay-text' && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); A.avsikt === 'andring' ? skickaAndring() : skickaPartner(); } });
+  // delarnas menyer: en öppen åt gången; ett klick utanför eller Escape stänger, och fokus går tillbaka till knappen
+  document.addEventListener('toggle', (ev) => { if (ev.target.classList?.contains('ay-meny') && ev.target.open) document.querySelectorAll('.ay-meny[open]').forEach((m) => { if (m !== ev.target) m.open = false; }); }, true);
+  document.addEventListener('click', (ev) => { document.querySelectorAll('.ay-meny[open]').forEach((m) => { if (!m.contains(ev.target) || ev.target.closest('.ay-menylista a')) m.open = false; }); });
+  document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; const m = document.querySelector('.ay-meny[open]'); if (m) { m.open = false; m.querySelector('summary')?.focus(); } });
   window.__arbetsyta = A;  // för proven: läget i vyn, aldrig något att skriva i
 })();

@@ -21,10 +21,6 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
 a { color: var(--accent); }
-.topp { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--linje); }
-.topp-inre { max-width: 1180px; margin: 0 auto; padding: 12px 20px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
-.mark { font-weight: 650; letter-spacing: -.01em; }
-.mark span { color: var(--dampad); font-weight: 500; }
 nav { display: flex; gap: 4px; flex-wrap: wrap; }
 nav a { text-decoration: none; color: var(--dampad); padding: 6px 10px; border-radius: 8px; font-size: 14px; }
 nav a:hover { color: var(--text); background: var(--yta); }
@@ -222,26 +218,7 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 <link rel="stylesheet" href="/arbetsyta.css">
 </head>
 <body>
-<header class="topp"><div class="topp-inre">
-  <div class="mark">Nortropic <span>webb-pro</span></div>
-  <nav>
-    <a href="#/arbetsyta" data-v="arbetsyta">Arbetsyta</a>
-    <a href="#/oversikt" data-v="oversikt">Översikt</a>
-    <a href="#/backlog" data-v="backlog">Backlog <b id="n-backlog" hidden></b></a>
-    <a href="#/kundstart" data-v="kundstart">Kundstart</a>
-    <a href="#/kirurgen" data-v="kirurgen">Kirurgen <b id="n-kirurg" hidden></b></a>
-    <a href="#/prospekt" data-v="prospekt">Prospekt <b id="n-prospekt" hidden></b></a>
-    <a href="#/lardomar" data-v="lardomar">Lärdomar</a>
-    <a href="#/ab" data-v="ab">Jämförelser</a>
-    <a href="#/kalibrering" data-v="kalibrering">Kalibrering</a>
-    <a href="#/prototyp" data-v="prototyp">Prototyp</a>
-    <a href="#/flode" data-v="flode">Flöde</a>
-    <a href="#/dokumentation" data-v="dokumentation">Dokumentation</a>
-    <a href="#/designprov" data-v="designprov">Designprov</a>
-    <a href="#/starta" data-v="starta">Starta</a>
-  </nav>
-</div></header>
-<main id="vy"><p class="under">Laddar …</p></main>
+<main id="rot"><p class="under" style="padding:28px 20px">Laddar …</p></main>
 <dialog id="qr" aria-label="Sajten i telefonen"><form method="dialog" class="rad mellan"><b>Sajten i telefonen</b><button class="knapp">Stäng</button></form><div class="innehall"></div></dialog>
 
 <script src="/kundstart-agare.js"></script>
@@ -265,8 +242,8 @@ let timer = null, flik = 'oversikt';
 
 function aktivNav(v) { document.querySelectorAll('nav a').forEach((a) => a.classList.toggle('aktiv', a.dataset.v === v)); }
 function raknare(o) {
-  const b = $('#n-backlog'); b.hidden = !o.backlog_vilande; b.textContent = o.backlog_vilande;
-  const k = $('#n-kirurg'); k.hidden = !o.intag_pagar; k.textContent = o.intag_pagar ? o.intag_pagar + ' pågår' : '';
+  const b = $('#n-backlog'); if (b) { b.hidden = !o.backlog_vilande; b.textContent = o.backlog_vilande; }
+  const k = $('#n-kirurg'); if (k) { k.hidden = !o.intag_pagar; k.textContent = o.intag_pagar ? o.intag_pagar + ' pågår' : ''; }
   const pr = $('#n-prospekt'); if (pr) { pr.hidden = !o.prospekt_vantar; pr.textContent = o.prospekt_vantar || ''; }
 }
 function grindchips(prov) {
@@ -292,7 +269,7 @@ async function oversikt() {
   const b = o.byggen;
   const vantar = b.filter((x) => !x.domd && x.steg[6].klar && !x.pagar);
   $('#vy').innerHTML = `
-    <h1>Översikt</h1><p class="under">Byggen åt riktiga verksamheter. Du dömer, backloggen fångar resten.</p>
+    <h1>Byggen och dina domar</h1><p class="under">Byggen åt riktiga verksamheter. Du dömer, backloggen fångar resten.</p>
     <div class="siffror">
       <div class="kort siffra"><div class="tal">${b.length}</div><div class="etikett">byggen</div></div>
       <div class="kort siffra"><div class="tal">${b.filter((x) => x.pagar).length}</div><div class="etikett">körningar pågår</div></div>
@@ -301,10 +278,13 @@ async function oversikt() {
     </div>
     ${vantar.length ? `<h2>Väntar på din dom</h2><div class="rutnat">${vantar.map(kort).join('')}</div>` : ''}
     <h2>Alla byggen</h2>
-    ${b.length ? `<div class="rutnat">${b.map(kort).join('')}</div>` : `<div class="tom">Inga byggen än. Starta ett under <a href="#/starta">Starta</a>.</div>`}
-    <div id="verktygslada"></div>`;
-  verktygsladavy();
+    ${b.length ? `<div class="rutnat">${b.map(kort).join('')}</div>` : `<div class="tom">Inga byggen än. Starta ett under <a href="#/starta">Starta</a>.</div>`}`;
   timer = setTimeout(oversikt, b.some((x) => x.pagar) ? 6000 : 20000);
+}
+async function underhallvy() {
+  aktivNav('underhall');
+  $('#vy').innerHTML = `<h1>Underhåll och verktygslådan</h1><p class="under">Det dagliga underhållet prövar verktygslådans versioner och tar in dem som klarar proven.</p><div id="verktygslada"><p class="under">Laddar …</p></div>`;
+  verktygsladavy();
 }
 // Verktygslådan: det dagliga underhållet prövar och tar in uppdateringar mellan byggena (kontroller/underhall.py)
 async function verktygsladavy() {
@@ -312,7 +292,7 @@ async function verktygsladavy() {
   const d = await api('/api/underhall').catch(() => null); if (!d) return;
   const s = d.senast, a = (s && s.antal) || {};
   const bytta = d.andringar.filter((x) => x.matinstrument);
-  el.innerHTML = `<h2>Verktygslådan</h2><div class="rad" style="margin-bottom:12px;flex-wrap:wrap">${d.pagar ? `<span class="chip acc puls">Underhåller … (sedan ${tid(d.pagar.start)})</span>` : s ? `<span class="chip">senast ${tid(s.slut || s.start)}</span>` : '<span class="chip gul">underhållet har inte körts</span>'}
+  el.innerHTML = `<div class="rad" style="margin-bottom:12px;flex-wrap:wrap">${d.pagar ? `<span class="chip acc puls">Underhåller … (sedan ${tid(d.pagar.start)})</span>` : s ? `<span class="chip">senast ${tid(s.slut || s.start)}</span>` : '<span class="chip gul">underhållet har inte körts</span>'}
       ${s && !d.pagar ? `<span class="chip ok">${a.uppdaterad || 0} uppdaterade</span><span class="chip ${a.avvisad ? 'rod' : ''}">${a.avvisad || 0} avvisade</span><span class="chip ${a.behallen ? 'gul' : ''}">${a.behallen || 0} behållna</span>` : ''}
       ${d.av ? '<span class="chip">automatiken är av (NWP_UNDERHALL_AV)</span>' : `<span class="chip">körs ${d.intervall_dagar === 1 ? 'en gång per dygn' : 'var ' + d.intervall_dagar + ' dygn'}, när inget bygge pågår</span>`}
       <button class="knapp" id="underhall-nu" ${d.pagar ? 'disabled' : ''}>Kör underhållet nu</button><span id="underhall-svar" class="under"></span></div>
@@ -1595,7 +1575,7 @@ async function dokumentationsvy(vag) {
     dokFiltreraVy(d, exakt);
   }
   const mal = flik === 'beslut' && rest ? document.getElementById('tillagg-' + rest) : null;
-  if (mal) window.scrollTo(0, mal.getBoundingClientRect().top + window.scrollY - ($('.topp')?.offsetHeight || 0) - 12);  // under den klistrade toppraden
+  if (mal) window.scrollTo(0, mal.getBoundingClientRect().top + window.scrollY - ($('.ay-huvud')?.offsetHeight || 0) - 12);  // under arbetsytans klistrade huvud
 }
 // </dokumentationsvyn>
 
@@ -1603,8 +1583,11 @@ async function route() {
   clearTimeout(timer);
   const h = location.hash.replace(/^#\/?/, '');
   try {
-    if (h !== '' && h !== 'arbetsyta' && !h.startsWith('arbetsyta/')) document.body.classList.remove('ay-aktiv');
-    if (h === '' || h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));  // arbetsytan är startvyn (ägarens uppdrag 2026-10-09)
+    // arbetsytan är startvyn (ägarens uppdrag 2026-10-09), och varje annan del ritas i dess ram med samma adress och
+    // samma funktioner som förut (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan)
+    if (h === '' || h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
+    if (typeof arbetsytaSektion === 'function') arbetsytaSektion(h);  // utan arbetsytans skript ritas delen ändå, utan ram
+    else $('#rot').innerHTML = '<div id="vy"></div>';
     if (h.startsWith('bygge/')) return await byggevy(decodeURIComponent(h.slice(6)));
     if (h === 'backlog') return await backlogvy();
     if (h === 'kundstart' || h.startsWith('kundstart/')) return await kundstartvy(decodeURIComponent(h.slice(10)));
@@ -1618,8 +1601,9 @@ async function route() {
     if (h === 'flode' || h.startsWith('flode/')) return await flodesvy(decodeURIComponent(h.slice(6)));
     if (h === 'dokumentation' || h.startsWith('dokumentation/')) return await dokumentationsvy(h.slice(14));
     if (h === 'starta') return startavy();
+    if (h === 'underhall') return await underhallvy();
     return await oversikt();
-  } catch (e) { $('#vy').innerHTML = `<div class="meddelande fel">Fel: ${esc(e.message)}</div>`; }
+  } catch (e) { ($('#vy') || $('#rot')).innerHTML = `<div class="meddelande fel">Fel: ${esc(e.message)}</div>`; }
 }
 window.addEventListener('hashchange', route);
 route();

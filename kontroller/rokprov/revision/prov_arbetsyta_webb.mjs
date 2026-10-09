@@ -434,28 +434,49 @@ try {
   await system.locator('.ay-bevakning, .ay-notis, .svag').first().waitFor({ timeout: 10000 });  // bevakningens läge ritas, eller varför det inte gick
   assert.equal(await system.locator('.ay-stegrad, .ay-grupp, a[href^="#/flode"], a[href^="#/prototyp"], a[href^="#/kundstart"]').count(), 0,
     'systemförbättringen ska stå skild från kundproduktionen');
-  await page.locator('.ay-meny summary').filter({ hasText: 'Fler vyer' }).click();
-  const meny = page.getByRole('navigation', { name: 'Dashboardens övriga vyer' });
-  await meny.waitFor();
-  const menyn = await meny.evaluate((n) => [...n.children].map((x) => [x.tagName, x.textContent.trim()]));
-  const grupp = (text) => { let g = null; for (const [tag, t] of menyn) { if (tag === 'H4') g = t; else if (t === text) return g; } return undefined; };
-  for (const [text, g] of [['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'], ['Dokumentation och rapporter', 'Rapporter'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring']])
-    assert.equal(grupp(text), g, `Fler vyer ska ha ${text} under ${g}`);
-  await page.locator('.ay-meny summary').click();
-  // menyn går att använda i varje bredd: flikraden rullar i sidled under 900 px och klippte förut hela listan (0 av 13 nåbara)
+  // allt i arbetsytan (ägarens besked 2026-10-09 ~17:11Z): ingen klassisk vy och inga Fler vyer; delarna står i arbetsytans
+  // egen navigering, kundproduktionen skild från systemförbättringen, och en del ritas i arbetsytans ram
+  assert.equal(await page.locator('header.topp').count(), 0, 'den klassiska topplisten ska vara borta');
+  assert.equal(await page.getByRole('link', { name: 'Klassisk vy' }).count(), 0, 'knappen Klassisk vy ska vara borta');
+  assert.equal(await page.locator('.ay-meny summary').filter({ hasText: 'Fler vyer' }).count(), 0, 'Fler vyer ska vara borta');
+  const delar = page.getByRole('navigation', { name: 'Arbetsytans delar' });
+  const grupper = await delar.locator('details.ay-meny').evaluateAll((ds) => ds.map((d) => [d.querySelector('summary').textContent.trim(),
+    [...d.querySelectorAll('.ay-menylista a')].map((a) => a.querySelector('span').textContent.trim())]));
+  const grupp = (text) => (grupper.find(([, l]) => l.includes(text)) || [])[0];
+  for (const [text, g] of [['Prototyp', 'Kundproduktion'], ['Flöde', 'Kundproduktion'], ['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'],
+    ['Underhåll och verktygslådan', 'Systemförbättring'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring']])
+    assert.equal(grupp(text), g, `arbetsytans delar ska ha ${text} under ${g}`);
+  assert.equal(await delar.getByRole('link', { name: 'Dokumentation och rapporter' }).count(), 1, 'Dokumentation och rapporter ska stå i delarna');
+  // menyerna går att använda i varje bredd: flikraden rullar i sidled under 900 px och klippte förut hela listan (0 av 13 nåbara)
   for (const w of [1440, 390, 320]) {
     await page.setViewportSize({ width: w, height: 900 }); await ram();
-    await page.locator('.ay-meny summary').scrollIntoViewIfNeeded();
-    await page.locator('.ay-meny summary').click();
-    await meny.waitFor();
-    // utan att rulla något: en länk som bara syns när flikraden själv rullas på höjden är inte nåbar
-    const traffar = await meny.evaluate((n) => [...n.querySelectorAll('a')].map((a) => {
-      const r = a.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      return [a.textContent.trim(), !!e && (e === a || a.contains(e)) && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight];
-    }));
-    assert.deepEqual(traffar.filter(([, ok]) => !ok).map(([t]) => t), [], `Fler vyer vid ${w} px: varje länk ska synas och gå att klicka`);
-    await page.locator('.ay-meny summary').click();
+    for (const namn of ['Kundproduktion', 'Systemförbättring']) {
+      const knapp = delar.locator('summary').filter({ hasText: namn });
+      await knapp.scrollIntoViewIfNeeded();
+      await knapp.click();
+      const lista = delar.locator('.ay-meny[open] .ay-menylista');
+      await lista.waitFor();
+      // utan att rulla något: en länk som bara syns när flikraden själv rullas på höjden är inte nåbar
+      const traffar = await lista.evaluate((n) => [...n.querySelectorAll('a')].map((a) => {
+        const r = a.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return [a.textContent.trim(), !!e && (e === a || a.contains(e)) && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight];
+      }));
+      assert.deepEqual(traffar.filter(([, ok]) => !ok).map(([t]) => t), [], `${namn} vid ${w} px: varje länk ska synas och gå att klicka`);
+      await page.keyboard.press('Escape');
+      assert.equal(await delar.locator('.ay-meny[open]').count(), 0, `Escape ska stänga ${namn}`);
+    }
   }
+  await page.setViewportSize({ width: 1440, height: 900 }); await ram();
+  await delar.locator('summary').filter({ hasText: 'Kundproduktion' }).click();
+  await delar.locator('.ay-menylista a').filter({ hasText: 'Byggen och dina domar' }).click();
+  await page.locator('#vy h1').filter({ hasText: 'Byggen och dina domar' }).waitFor();
+  assert.equal(await page.evaluate(() => location.hash), '#/oversikt', 'delen behåller sin adress');
+  assert.equal(await page.locator('.ay #vy.ay-sektion').count(), 1, 'delen ritas i arbetsytans ram');
+  assert.equal(await delar.locator('.ay-meny[open]').count(), 0, 'menyn stängs när en del öppnas');
+  assert.equal((await delar.locator('summary[data-aktiv]').textContent()).trim(), 'Kundproduktion: Byggen och dina domar', 'navigeringen visar var du är');
+  assert.equal((await page.locator('#ay-kund option:checked').textContent()).trim(), `${NAMN} (testdata)`, 'huvudet behåller kunden i en del');
+  await page.evaluate((s) => { location.hash = '#/arbetsyta/' + s + '/flode'; }, SLUG);
+  await page.locator('ol.ay-stegrad').waitFor();
   await page.setViewportSize({ width: 1440, height: 900 }); await ram();
   sammanfattning.lagen_med_text.byggflode = await statustexter('Byggflöde');
   await axeKor('Byggflöde 1440');

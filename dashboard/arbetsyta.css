@@ -1,5 +1,7 @@
 /* Arbetsytan (ägarens uppdrag 2026-10-09; kunskap/arbetsyta.md). Egna värden under .ay: mörk grafit och en återhållsam blå
-   accent, som målbilderna. Påverkar varken dashboardens klassiska vyer eller kundsajternas designsystem. */
+   accent, som målbilderna. Varje del av dashboarden ritas i arbetsytan (ägarens besked 2026-10-09 ~17:11Z); delarnas egna
+   klasser (kort, chip, knapp, tabeller, formulär) får arbetsytans värden genom variablerna nedan. Kundsajternas
+   designsystem påverkas inte. */
 .ay {
   --ay-bg: #11161e; --ay-yta: #171d27; --ay-yta2: #1d2431; --ay-yta3: #242c3a; --ay-linje: #283141; --ay-linje2: #36404f;
   --ay-text: #e7ebf1; --ay-dampad: #a3adbb; --ay-svag: #8792a2; --ay-accent: #79acff; --ay-accent-text: #0c1a2f;
@@ -10,9 +12,13 @@
   font: 14px/1.5 -apple-system, "SF Pro Text", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   font-variant-numeric: tabular-nums; min-height: 100vh; display: flex; flex-direction: column;
 }
-body.ay-aktiv { background: #11161e; }
-body.ay-aktiv > .topp { display: none; }
-body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
+body.ay-aktiv { background: #11161e; color-scheme: dark;
+  /* delarnas variabler (index.html) med arbetsytans värden; också dialogen för telefonen, som ligger utanför ramen */
+  --bg: #11161e; --yta: #171d27; --yta2: #1d2431; --text: #e7ebf1; --dampad: #a3adbb; --linje: #283141;
+  --accent: #79acff; --accent-mjuk: #1c2b45; --gron: #66c792; --gron-mjuk: #16291f; --rod: #f19087; --rod-mjuk: #34201f;
+  --gul: #e4b95e; --gul-mjuk: #302714; --skugga: none; }
+body.ay-aktiv > main#rot { max-width: none; padding: 0; margin: 0; }
+body.ay-aktiv input[type=file]::file-selector-button { font: inherit; color: var(--text); background: var(--yta2); border: 1px solid var(--linje); border-radius: 6px; padding: 5px 10px; margin-right: 10px; cursor: pointer; }
 .ay *, .ay *::before, .ay *::after { box-sizing: border-box; }
 .ay a { color: var(--ay-accent); }
 .ay :focus-visible { outline: 2px solid var(--ay-accent); outline-offset: 2px; border-radius: 4px; }
@@ -25,6 +31,16 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 /* index.html ger pre och code ljus botten (--yta2, #faf9f6 i ljust läge): i arbetsytan blev koden ljus text på nästan vitt */
 .ay pre, .ay code { background: var(--ay-bg); border-color: var(--ay-linje); }
 .ay .dolt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* en del av arbetsytan utöver projektets tre vyer: läsbar bredd och arbetsytans rubrikskala */
+.ay-sektion { width: 100%; max-width: 1180px; margin: 0 auto; padding: 22px 18px 80px; font-size: 14.5px; }
+.ay .ay-sektion h1 { font-size: 22px; line-height: 1.25; margin: 0 0 4px; letter-spacing: -.015em; }
+.ay .ay-sektion h2 { font-size: 16px; margin: 26px 0 10px; }
+.ay .ay-sektion h3 { font-size: 14px; margin: 16px 0 6px; }
+.ay .ay-sektion h4 { font-size: 13.5px; margin: 12px 0 4px; }
+.ay-sektion .kort { border-radius: var(--ay-radie); }
+.ay-sektion .knapp { font-size: 13.5px; border-radius: var(--ay-radie-s); }
+.ay-sektion :focus-visible { outline: 2px solid var(--ay-accent); outline-offset: 2px; }
 
 /* projekthuvudet */
 .ay-huvud { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 18px; padding: 10px 18px; min-height: var(--ay-huvud);
@@ -47,19 +63,28 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-testdata { font-size: 11.5px; font-weight: 600; color: var(--ay-varn); border: 1px solid color-mix(in srgb, var(--ay-varn) 55%, transparent); border-radius: 99px; padding: 0 8px; margin-left: 6px; }
 
 /* vyernas flikar */
-.ay-flikrad { display: flex; align-items: center; gap: 4px; padding: 8px 18px 0; border-bottom: 1px solid var(--ay-linje); }
+.ay-flikrad { display: flex; align-items: center; gap: 4px 12px; padding: 8px 18px 0; border-bottom: 1px solid var(--ay-linje); }
+.ay-flikrad > nav { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+.ay-flikrad .ay-delar { margin-left: auto; }
 .ay-flikrad a { color: var(--ay-dampad); text-decoration: none; padding: 9px 12px; border-bottom: 2px solid transparent; font-size: 13.5px; font-weight: 520; margin-bottom: -1px; }
 .ay-flikrad a[aria-current="page"] { color: var(--ay-text); border-color: var(--ay-accent); }
 .ay-flikrad a:hover { color: var(--ay-text); background: transparent; }  /* den klassiska vyns nav a:hover gav ljus text på vit botten */
-.ay-flikrad .ay-meny { margin-left: auto; position: relative; }
+.ay-flikrad .ay-meny { position: relative; }
 .ay-meny summary { list-style: none; cursor: pointer; white-space: nowrap; color: var(--ay-dampad); font-size: 13px; padding: 8px 10px; border-radius: var(--ay-radie-s); }
 .ay-meny summary::-webkit-details-marker { display: none; }
 .ay-meny[open] summary, .ay-meny summary:hover { color: var(--ay-text); background: var(--ay-yta2); }
-.ay-meny nav { position: absolute; right: 0; top: 100%; z-index: 20; background: var(--ay-yta2); border: 1px solid var(--ay-linje2); border-radius: var(--ay-radie); padding: 8px; min-width: 240px;
+.ay-meny summary[data-aktiv] { color: var(--ay-text); box-shadow: inset 0 -2px 0 var(--ay-accent); border-radius: var(--ay-radie-s) var(--ay-radie-s) 0 0; }
+.ay-meny summary::after { content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 0 3px 8px; border: solid currentColor; border-width: 0 1.4px 1.4px 0; transform: rotate(45deg); opacity: .7; }
+.ay-meny-val { color: var(--ay-dampad); font-weight: 450; }
+.ay-flikrad .ay-meny b, .ay-flikrad nav b { font-size: 11.5px; font-weight: 600; background: var(--ay-accent-mjuk); color: var(--ay-accent); border-radius: 99px; padding: 0 7px; margin-left: 6px; }
+.ay-menylista { position: absolute; right: 0; top: 100%; z-index: 20; background: var(--ay-yta2); border: 1px solid var(--ay-linje2); border-radius: var(--ay-radie); padding: 8px; min-width: 240px;
   display: grid; gap: 2px; box-shadow: 0 12px 32px rgb(0 0 0 / .45); }
-.ay-meny nav a { color: var(--ay-text); text-decoration: none; padding: 7px 10px; border-radius: var(--ay-radie-s); font-size: 13.5px; }
-.ay-meny nav a:hover { background: var(--ay-yta3); }
-.ay-meny nav h4 { font-size: 12px; color: var(--ay-svag); font-weight: 560; padding: 8px 10px 2px; }
+.ay-flikrad .ay-menylista a { color: var(--ay-text); text-decoration: none; padding: 7px 10px; border: 0; border-radius: var(--ay-radie-s); font-size: 13.5px; margin: 0; white-space: nowrap; }
+.ay-flikrad .ay-menylista a:hover { background: var(--ay-yta3); }
+.ay-flikrad .ay-menylista a[aria-current="page"] { background: var(--ay-accent-mjuk); color: var(--ay-text); }
+.ay-flikrad .ay-menylista a { display: grid; gap: 1px; }
+.ay-menyom { color: var(--ay-svag); font-size: 12px; font-weight: 400; white-space: normal; }
+.ay-menylista { min-width: 300px; max-width: 340px; }
 
 /* gemensamma delar */
 .ay-panel { background: var(--ay-yta); border: 1px solid var(--ay-linje); border-radius: var(--ay-radie); min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -290,11 +315,14 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
   .ay-falt { padding-left: 10px; }
   .ay-falt.mindre { display: none; }
   .ay-hoger-huvud { margin-left: 0; width: 100%; justify-content: space-between; }
-  .ay-flikrad { padding: 4px 14px 0; overflow-x: auto; flex-wrap: nowrap; }
-  .ay-flikrad nav { flex-wrap: nowrap; }
+  /* projektets vyer på en rad och arbetsytans delar på nästa; raderna rullar i sidled, och menyn lyfts ur raden med fast
+     position under sin knapp, så att inget klipps */
+  .ay-flikrad { padding: 4px 14px 0; flex-wrap: wrap; }
+  .ay-flikrad > nav { overflow-x: auto; max-width: 100%; }
+  .ay-flikrad .ay-delar { margin-left: 0; width: 100%; border-top: 1px solid var(--ay-linje); }
   .ay-flikrad a { white-space: nowrap; }
-  /* flikraden rullar i sidled och klipper allt som sticker ut; fast position lyfter menyn ur den, under sin knapp */
-  .ay-meny nav { position: fixed; top: auto; left: auto; right: 14px; max-height: 70vh; overflow-y: auto; }
+  .ay-menylista { position: fixed; top: auto; left: 14px; right: 14px; max-height: 70vh; overflow-y: auto; }
+  .ay-sektion { padding: 16px 14px 64px; }
   .ay-jamfor, .ay-beslut { grid-template-columns: minmax(0, 1fr); }
   .ay-ytan, .ay-kod { height: auto; }
   .ay-mitten { grid-template-rows: auto auto; }

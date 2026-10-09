@@ -14,14 +14,22 @@ kompletta arbetsplatsen. Arbetet: `backlog/B-20261009-visuella-arbetsytan-samtal
 ./dashboard.sh genvag               # engångsinstallation: Mac-appen ~/Applications/Nortropic arbetsyta.app (anropar start)
 ```
 
-Arbetsytan öppnas på dashboardens rot (`#/`); Översikten ligger på `#/oversikt`, och alla tidigare vyer finns under
-Fler vyer och i menyn. Startgenvägen startar inga modellsessioner. Mac-appen kör `dashboard.sh start` genom
+Arbetsytan öppnas på dashboardens rot (`#/`) och är dashboardens enda ram (ägarens besked 2026-10-09 ~17:11Z: "allt
+ska ju in i det här nya vyn"). Bredvid projektets tre vyer står arbetsytans delar i två menyer, kundproduktionen skild
+från systemförbättringen:
+- **Kundproduktion:** Prototyp, Flöde, Byggen och dina domar, Jämförelser, Kundstart, Prospekt och Starta.
+- **Systemförbättring:** Underhåll och verktygslådan, Kirurgen, Backlog, Kalibrering, Lärdomar och Designprov.
+- **Dokumentation och rapporter** står för sig.
+
+Varje del behåller sin adress (`#/backlog`, `#/kundstart/<id>`, `#/bygge/<slug>` …) och sina funktioner, skrivvägar och
+skydd. Den ritas i arbetsytans ram med huvudet, kunden och arbetsytans färger (`arbetsytaSektion` i
+`dashboard/arbetsyta.js`). Startgenvägen startar inga modellsessioner. Mac-appen kör `dashboard.sh start` genom
 inloggningsskalet (`/bin/zsh -l`), så att claude och node hittas som i terminalen; ett dubbelklick startar en tjänst,
 och den andra starten öppnar den körande med dess nyckel. Genvägen skapas från huvudutcheckningen, eftersom appen pekar
 på den utcheckning där den skapades. Appens logg: `~/Library/Logs/nortropic-arbetsyta-app.log`. Dashboardens timklocka kör i huvudutcheckningen som
 förut spanaren (ingen modell) och det dagliga underhållet, som en gång per dygn prövar verktygslådan med en kort
 kontrollsession (tre turer; `kontroller/underhall.py`). Tjänstens logg i bakgrunden: `~/Library/Logs/nortropic-dashboard.log`.
-Att gå tillbaka: Översikten och Flöde finns kvar, och en revert av arbetsytans commits lämnar motorn, domloggen och
+Att gå tillbaka: en revert av arbetsytans commits lämnar motorn, domloggen och
 bevisen orörda; meddelandebussen och löparen stängs av med `NWP_MEDDELANDEN=av` i arbetarens miljö (sessionerna körs
 då exakt som före 2026-10-09).
 
