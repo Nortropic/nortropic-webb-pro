@@ -63,13 +63,17 @@ import metod  # noqa: E402  kalla(): repots kunskap/ eller en skills fil
 
 ROOT = Path(__file__).resolve().parents[1]
 BLOCK = re.compile(r'^```kompetens[ \t]+(?P<id>[a-z]+)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
-PASS = ('forbered', 'planera', 'planprovning', 'skapa', 'fordjupa', 'rorelse', 'granskning', 'forska', 'skisskritik', 'jamforelse', 'kritik_a', 'kritik_b')
-PASSNAMN = {'forbered': 'förberedelsen av kundunderlaget', 'planera': 'planeringen', 'planprovning': 'planprövningen', 'skapa': 'skissen', 'fordjupa': 'fördjupningen',
+PASS = ('forbered', 'planera', 'planprovning', 'skapa', 'fordjupa', 'rorelse', 'granskning', 'forska', 'skisskritik', 'jamforelse', 'kritik_a', 'kritik_b',
+        'fore_efter')
+PASSNAMN = {'forbered': 'förberedelsen av kundunderlaget', 'planera': 'planeringen', 'planprovning': 'planprövningen', 'skapa': 'skissen', 'fordjupa': 'uppdraget',
             'rorelse': 'interaktion och rörelse', 'granskning': 'tillgänglighet och visuell granskning',
             'forska': 'researchen', 'skisskritik': 'skisskritiken', 'jamforelse': 'jämförelsen',
-            'kritik_a': 'granskningens första pass', 'kritik_b': 'granskningens andra pass'}
-GRANSKANDE = ('skisskritik', 'jamforelse', 'kritik_a', 'kritik_b')  # bedömer och ändrar aldrig sidan
-BLINDA = ('skisskritik', 'kritik_a')  # blinda för skaparens text, uppdrag, referenspaket och kod
+            'kritik_a': 'granskningens första pass', 'kritik_b': 'granskningens andra pass',
+            'fore_efter': 'före/efter-bedömningen'}
+GRANSKANDE = ('skisskritik', 'jamforelse', 'kritik_a', 'kritik_b', 'fore_efter')  # bedömer och ändrar aldrig sidan
+# blinda för skaparens text, uppdrag, referenspaket och kod; före/efter-bedömningen ser bara de två versionernas bilder
+# (ägarens uppdrag 2026-10-09, punkt 10: bilderna bedöms före skaparens förklaring)
+BLINDA = ('skisskritik', 'kritik_a', 'fore_efter')
 FORSKANDE = ('forska', 'forbered')  # forskar och ändrar aldrig sidan
 FORHAND = '.venv/bin/python kontroller/forhandsvisa.py <slug> --kandidat <id>'
 
@@ -491,8 +495,9 @@ def prompt_rader(pass_, slug, kid=None, k=None):
               'Skills med rubriken Initial Response läses bara med Read, aldrig med Skill. Deras kunskap används,',
               'men det inledande väntesvaret och krav på nya användarsvar utförs inte.']
     if pass_ in ('skapa', 'fordjupa'):
-        rader += ['Varven följer uppdragets läge: i skissläget inget fast antal; i läget full och i förfiningen minst tre',
-                  'förhandsvarv enligt metodkartan. En extern skills varvtak ersätter inte detta, och antal varv bevisar inte kvalitet.']
+        rader += ['Varven: inget minsta antal i något läge (ägarens uppdrag 2026-10-09). Varje varv är en observerad brist, en ändring',
+                  'och en efterkontroll; två varv i rad utan synlig förbättring är rundgång och ett skäl att sluta eller byta grundidé.',
+                  'En extern skills varvtak ersätter inte detta, och antal varv bevisar inte kvalitet.']
     elif pass_ in ('rorelse', 'granskning'):
         rader += ['Detta avgränsade specialistpass: rätta i en samlad omgång, bekräfta högst en gång till.']
     rader += ['En aktiverbar SKILL.md aktiverar du med Skill-verktyget, med undantaget för Initial Response ovan; varje referensfil läses HEL med Read.',

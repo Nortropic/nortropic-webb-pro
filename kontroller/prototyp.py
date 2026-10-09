@@ -75,8 +75,18 @@ def lage(slug):
             if not ok:
                 return 'stopp', 'ägarens senaste dom (%s) godkänner startsidan, men godkännandet gäller inte: %s' % (efter['tid'], skal)
         skal = 'ägarens dom %s (%s)' % (efter['tid'], efter['kalla'])
-        if efter['beslut'] == 'valj' or (efter['beslut'] == 'putsa' and atelje.kandidatkorning(atelje.UNDERLAG / slug / 'atelje', st)):
-            return 'valda', skal + ': förfina de valda kandidaterna'
+        if efter['beslut'] == 'uppdrag':  # rätta, omarbeta designen eller bygg ut (ägarens uppdrag 2026-10-09, punkt 8)
+            u = (efter.get('uppdrag') or {})
+            return 'valda', skal + ': %s %s' % (u.get('namn') or 'uppdraget', ', '.join(str(k.get('id')) for k in efter.get('kandidater') or [] if isinstance(k, dict)))
+        if efter['beslut'] == 'valj':  # ett val startar inget; en tidigare version tas fram när det startas uttryckligen
+            import kandidater
+            if kandidater.versionsval(slug, efter):
+                return 'valda', skal + ': ta fram den valda tidigare versionen'
+            return 'vanta', skal + (': vald för vidareutveckling; nästa steg är ett uppdrag (rätta, omarbeta designen eller bygg ut) '
+                                    'eller ägarens godkännande för helbygge')
+        if efter['beslut'] == 'putsa' and atelje.kandidatkorning(atelje.UNDERLAG / slug / 'atelje', st):
+            return 'stopp', skal + (': "putsa" i kandidatflödet är ersatt av uppdragen (2026-10-09); ge ett uppdrag: rätta, omarbeta '
+                                    'designen eller bygg ut, med version, resultat, omfattning och det som ska bevaras')
         if efter['beslut'] == 'jamfor':
             return 'vanta', skal + ': ägaren jämför kandidater; inget körs förrän ägaren väljer'
         if efter['beslut'] == 'forkasta':
@@ -103,10 +113,27 @@ def bygget_nekas(slug):
 
 
 HANDLINGAR = {'forbered': 'Förbered kundunderlaget', 'fortsatt': 'Återuppta arbetet', 'stoppa': 'Stoppa arbetet',
-              'om': 'Starta referensjakt och skiss', 'valda': 'Förfina de valda förslagen', 'putsa': 'Förfina riktningen',
+              'om': 'Starta referensjakt och skiss', 'valda': 'Starta uppdraget', 'putsa': 'Förfina riktningen',
               'ny-riktning': 'Arkivera försöket och sök en ny riktning', 'helbygge':'Starta helbygge från godkänd design',
               'exportera':'Exportera till kundrepot (commit, ingen publicering)', 'preview':'Förhandsvisa exportens commit i Vercel (ingen produktion)',
               'stoppa-overgang':'Begär stopp av helbygge, export eller förhandsvisning'}
+
+
+def valda_text(slug):
+    """Handlingen 'valda' med det som faktiskt startas: uppdragets namn och förslagen, eller framtagningen av en vald
+    tidigare version."""
+    import kandidater
+    dom = skapande.senaste(slug, underlag=atelje.UNDERLAG) or {}
+    try:
+        namn = kandidater.etiketter(slug, kandidater.lista(slug))
+    except Exception:  # noqa: BLE001
+        namn = {}
+    vilka = ', '.join(namn.get(str(k.get('id')), str(k.get('id'))) for k in dom.get('kandidater') or [] if isinstance(k, dict))
+    if dom.get('beslut') == 'uppdrag':
+        return 'Starta uppdraget: %s %s' % ((dom.get('uppdrag') or {}).get('namn') or 'uppdraget', vilka)
+    if dom.get('beslut') == 'valj':
+        return 'Ta fram den valda versionen av %s' % vilka
+    return HANDLINGAR['valda']
 
 
 def handlingar(slug):
@@ -135,6 +162,9 @@ def handlingar(slug):
             import kundrepo
             if kundrepo.preview_mojlig(slug):val.append('preview')  # exportens commit är kundrepots HEAD (kundrepo.py)
     ut=[{'id': n, 'text': HANDLINGAR[n]} for n in val]
+    for h in ut:  # benämningen är det som faktiskt startas (ägarens uppdrag 2026-10-09, punkt 8)
+        if h['id'] == 'valda':
+            h['text'] = valda_text(slug)
     for h in ut:  # ett hinder i startmiljön visas vid knappen, i stället för att starten nekas efteråt (F07)
         if h['id']=='helbygge' and flodesstart.startmiljo()['hinder']:h['hinder']=flodesstart.startmiljo()['hinder']
     return ut

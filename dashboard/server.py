@@ -890,7 +890,7 @@ PR_BESLUT = ('godkand', 'putsa', 'ny_riktning')
 KAND_FIL = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/kandidater/k\d{2}/(?:versioner/[0-9a-f]{12}/)?bilder/[a-z0-9-]{1,80}/vy-(390|768|1280|1440)-(forsta|hela|ruta-\d{2})\.png$')
 # skaparens senaste förhandsvarv, som observationen visar medan kandidaten arbetar (ägarens uppdrag 2026-10-06)
 KAND_VARV = re.compile(r'^underlag/([a-z0-9-]{2,60})/atelje/kandidater/k\d{2}/varv/start/varv-\d{2}/vy-(390|1280|1440)-forsta\.png$')
-KAND_BESLUT = ('valj', 'jamfor', 'forkasta', 'ny_riktning', 'putsa', 'godkand')
+KAND_BESLUT = ('valj', 'jamfor', 'forkasta', 'ny_riktning', 'uppdrag', 'godkand')  # putsa är ersatt av uppdragen (2026-10-09)
 
 
 def prototyp_slugar():
@@ -1036,14 +1036,24 @@ def spara_kandidatbeslut(slug, st, data, minuter=None, arbetsyta=None):
     kand = [{'id': str(k.get('id') or ''), 'version': str(k.get('version') or '')} for k in data.get('kandidater') or [] if isinstance(k, dict)][:12]
     delar = {str(k): str(v)[:2000] for k, v in (data.get('delar') or {}).items() if str(v).strip()} if isinstance(data.get('delar'), dict) else {}
     text = (data.get('text') or '').strip()
-    if not text and b in ('forkasta', 'ny_riktning', 'putsa'):
+    if not text and b in ('forkasta', 'ny_riktning', 'putsa', 'uppdrag'):
         raise ValueError('skriv vad som inte håller och vad nästa försök ska pröva: din text är nästa körnings kritik')
     if not text:  # ingen standardfras som ägarens ordagranna ord: domloggen och prompterna säger att ägaren inte skrev något
         text = '(ägaren skrev ingen text)'
+    # avsändaren (ägarens uppdrag 2026-10-09, punkt 11): ägaren, eller kunden när ägaren för in kundens egna ord med ett
+    # belägg för var de står; en AI-bedömning bokförs aldrig som kundens
+    kalla, extra = 'ägaren', {}
+    if data.get('avsandare') == 'kunden':
+        kalla = 'kunden'
+        extra['belagg'] = str(data.get('belagg') or '').strip()[:1000]
+        if not extra['belagg']:
+            raise ValueError('kundens beslut behöver ett belägg: var kundens egna ord står (samtalet, meddelandet och tiden)')
+    if b == 'uppdrag':
+        extra['uppdrag'] = data.get('uppdrag')
     with PR_LAS:
-        dom = atelje.doma(slug, 'ägaren', b, text[:20000], avser='skapandeflödet, kandidatplanen %s' % (las_json(UNDERLAG / slug / 'atelje' / 'KANDIDATPLAN.json') or {}).get('tid'),
+        dom = atelje.doma(slug, kalla, b, text[:20000], avser='skapandeflödet, kandidatplanen %s' % (las_json(UNDERLAG / slug / 'atelje' / 'KANDIDATPLAN.json') or {}).get('tid'),
                           kandidater=kand, **({'delar': delar} if delar else {}), **({'minuter': minuter} if minuter is not None else {}),
-                          **({'arbetsyta': arbetsyta} if arbetsyta else {}))  # arbetsytans markering och ändringens id (dashboard/arbetsyta.py)
+                          **({'arbetsyta': arbetsyta} if arbetsyta else {}), **extra)  # arbetsytans markering och ändringens id (dashboard/arbetsyta.py)
     return {'ok': True, 'dom': dom}
 
 

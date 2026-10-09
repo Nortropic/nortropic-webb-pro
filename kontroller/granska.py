@@ -63,7 +63,6 @@ ARBETSROT = Path('/tmp/nwp-granskning')
 MATTSTOCKAR = [
     ('Byggstandarden (punkterna fynden hänvisar till)', 'kunskap/byggstandard.md'),
     ('De åtta dimensionerna', 'kunskap/referenser-professionella.md'),
-    ('Ribban i tre nivåer ur ägarens kalibrering', 'kunskap/visuell-niva.md'),
     ('Regeln mot slop', 'kunskap/copy-kontroll.md'),
     ('Redaktionellt pass', 'kunskap/redaktionellt-pass.md'),
     ('AI-mönster och designprinciper', 'kunskap/externa/anthropic-frontend-design-SKILL.md'),
@@ -101,9 +100,9 @@ def metod_sha(slug=None):
     """Hash av granskningsunderlaget: kriterierna, svarsschemana, trösklarna, måttstockarna (byggstandarden med flera) och
     verksamhetens underlag (brief, research, beställning). En dom återanvänds bara för samma bygge och samma underlag
     (revisionen 2026-10-03, F18). Ägarens domar över byggen ingår inte (de är historik), men kalibreringens aktiva ankare
-    med ägarens ord ingår (F02, 2026-10-08: domen är bunden till det bedömningsunderlag granskaren faktiskt fick); nivåfilen
-    kunskap/visuell-niva.md ingår (måttstock som granskartexten kräver; Codex R30), liksom ateljéns vinnare (VINNARE.json
-    och vinnarens bilder: startsidans måttstock, designprovet 2026-10-04)."""
+    med ägarens ord ingår när de finns (F02, 2026-10-08: domen är bunden till det bedömningsunderlag granskaren faktiskt
+    fick), liksom ateljéns vinnare (VINNARE.json och vinnarens bilder: startsidans måttstock, designprovet 2026-10-04).
+    Nivåfilen ur de gamla ankarna är borttagen vid den rena designstarten 2026-10-09 (kunskap/ren-designstart.md)."""
     import hashlib
     h = hashlib.sha256()
     filer = [SCHEMA, SCHEMA_ORIGINALITET] + [ROOT / f for _, f in METODBEROENDEN]  # F02: beroendelistan, med designreglerna
@@ -402,6 +401,22 @@ def kalibreringsexempel(underlag=None):
     return ut
 
 
+def kalibreringsstatus(underlag=None):
+    """Granskarens kalibrering, sanningsenligt (ägarens uppdrag 2026-10-09, punkt 3: gamla kalibreringsresultat får inte
+    presenteras som verifiering av den nya metoden). Kalibrerad bara när ägaren dömt exempel blint som nu är ankare i
+    underlag/kalibrering/; efter den rena designstarten finns inga, och då säger statusen det."""
+    try:
+        ankare = [e for e in kalibreringsexempel(underlag) if e['ankare'] and e['bilder']]
+    except Exception as e:  # noqa: BLE001 — en oläsbar kalibrering är ingen kalibrering
+        return {'kalibrerad': False, 'ankare': 0, 'text': 'okänd: kalibreringen gick inte att läsa (%s); döm som okalibrerad' % type(e).__name__}
+    if not ankare:
+        return {'kalibrerad': False, 'ankare': 0,
+                'text': ('okalibrerad. Inga kalibreringsankare finns efter den rena designstarten 2026-10-09: gamla '
+                         'kalibreringsresultat gäller inte den nya metoden, och dina betyg är inte prövade mot ägarens domar.')}
+    return {'kalibrerad': True, 'ankare': len(ankare),
+            'text': '%d ankare som ägaren dömt blint (underlag/kalibrering/ANKARE.txt); deras bilder och ägarens ord står nedan.' % len(ankare)}
+
+
 def frysta_ankare(rdir, underlag=None):
     """Kalibreringsankarna kopierade till omgången: första vyn 390 och 1440 och helsidan i 1440 under kalibrering/ och ägarens ord ordagrant i
     kalibrering.md (ägaren 2026-10-04: texterna är skrivna för att klistras in ordagrant som måttstock), så att alla granskare
@@ -533,9 +548,11 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         'Sidor: %s' % ', '.join(url + s for s in sidor),
         'Din arbetskatalog för egna skärmbilder och sida.mjs-utdata: %s' % arbetskatalog,
         'Trösklar för godkänt: %s, och inga blockerande fynd. Godkännandet räknas ut av verktyget.' % trosklar, '',
-        'Ribban är professionell nivå enligt kalibreringsankarna, referensernas skärmbilder nedan och exemplaren i kunskap/referenser-professionella.md.',
-        'Tidigare egna byggen är exempel på det generiska som ska undvikas, aldrig en måttstock (ägaren 2026-10-05: inget',
-        'bygge hittills har varit bra nog); de visas bara för att du ska se om det här bygget är en variant av dem.', '',
+        'Ribban är professionell nivå enligt referensernas skärmbilder nedan, exemplaren i kunskap/referenser-professionella.md',
+        'och kalibreringsankarna när uppdraget har några.',
+        'Kalibreringen: %s' % kalibreringsstatus()['text'],
+        'Inga tidigare egna byggen är måttstock (den rena designstarten 2026-10-09, kunskap/ren-designstart.md); visas några',
+        'nedan har ägaren valt in dem uttryckligen, och de är då bara till för att du ska se om bygget är en variant av dem.', '',
         *(['Kalibreringsankare: externa sajter som ägaren dömt blint (%s). Ägarens ord om vad som skiljer, ordagrant: %s' % (KALIBRERING_SKALA, rad(ankare[0])[2:]),
            'Första vyn 390 och 1440 och helsidan i 1440 per sajt (läs varje, med ägarens ord bredvid):', *[rad(p) + ' — ' + t for p, t in ankare[1]], '']
           if ankare else []),
@@ -715,6 +732,7 @@ def arbetare(rdir):
                 'startad': upp['tid'], 'dist_sha256': upp['dist_sha256'], 'modell': upp['modell'], 'effort': upp['effort'],
                 'metod_sha': upp.get('metod_sha'), 'granskare': antal, 'originalitet': lage,
                 'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res, 'visuell_jamforelse': jamforelse,
+                'kalibrering': kalibreringsstatus(),  # sanningsenlig: okalibrerad utan ankare efter den rena designstarten
                 'metodberoenden': [f for _n, f in METODBEROENDEN] + ['underlag/%s/%s' % (slug, f) for _n, f in KUNDBEROENDEN],
                 'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}, 'sessioner': sessioner}
         def skriv_dom():  # inne i låset: tmp + replace, och tillståndet blir klar först efteråt; en läsare ser pagar till dess
@@ -949,6 +967,7 @@ def markdown(g):
            '%s · %s, %s · bygge %s. Godkänt kräver %s och inga blockerande fynd.' % (
                g['tid'], g['modell'], g['effort'], g['dist_sha256'][:12],
                ', '.join('%s ≥ %d' % (k, g['troskel'][k]) for k in KRITERIER)), '',
+           *(['Granskarens kalibrering: %s' % g['kalibrering']['text'], ''] if isinstance(g.get('kalibrering'), dict) else []),
            '| Kriterium | Betyg | Motivering |', '|---|---|---|']
     for k in KRITERIER:
         x = (g.get('kriterier') or {}).get(k) or {}

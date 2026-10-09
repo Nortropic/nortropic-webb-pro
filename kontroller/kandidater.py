@@ -80,7 +80,13 @@ FRIST_HAMTA = int(os.environ.get('NWP_KANDIDAT_FRIST_HAMTA') or 5400)  # referen
 FRIST_FORFINA = int(os.environ.get('NWP_KANDIDAT_FRIST_FORFINA') or 5400)
 GRANSKARE_MODELL = os.environ.get('NWP_KANDIDAT_GRANSKARE') or 'claude-sonnet-5-5[1m]'
 MAX_FORSOK = 2  # skaparsessioner per kandidat i en körning: en ofullständig kandidat får ett andra försök med bristerna
-MIN_VARV = 3  # arbetsregel i läget full: varvens antal är ingen kvalitetsbedömning (granskningen och ägaren bedömer kvaliteten)
+# Inget minsta antal varv (ägarens uppdrag 2026-10-09 ~17:53Z, punkt 10; ersätter arbetsregeln "minst tre"): varje varv är en
+# observerad brist, en ändring och en efterkontroll. Resursgränserna är fristerna och turerna, rundgången stoppas av
+# arbetsregeln nedan (två varv utan synlig förbättring) och av ägarens stopp; varvens antal är ingen kvalitetsbedömning.
+VARVREGEL = ('varje varv: den största brist du ser i dina bilder (eller vid jämförelsen med referensen), ändringen och '
+             'efterkontrollen i nästa varvs bilder; inget minsta antal varv. Sluta när ett varv inte visar något du kan förbättra, '
+             'när varje punkt i uppdraget är åtgärdad eller besvarad med skäl, eller när två varv i rad inte gett en synlig '
+             'förbättring (rundgång: skriv det och vad som skulle krävas)')
 # skissläget (standard) och en tillfällig växel till förvalet med granskning och förbättringsrunda (läget full), för
 # jämförelse och återställning; växeln tas bort när ägaren dömt skissläget (BESLUT.md 2026-10-05, kväll)
 LAGE = 'full' if os.environ.get('NWP_KANDIDATLAGE') == 'full' else 'skiss'  # bara skiss och full (granskning 3, S13)
@@ -964,15 +970,56 @@ PLANFALT = (('titel', None), ('hypotes', 'Hypotesen: varför lösningen passar v
             ('antaganden', 'Antagandena om besökarna som uppdraget vilar på'), ('undersida', 'Undersidan eller tillståndet'),
             ('material', 'Material'), ('skillnad', 'Hur den skiljer sig från de andra'), ('fynd', 'Researchens fynd som formade uppdraget'))
 
+# Underlagets slag (ägarens uppdrag 2026-10-09, punkt 5): en referensbild är en bild, ett stilpaket är värden och beskrivning,
+# komponentkod är kod att anpassa och en körbar mall är ett projekt som bygger; en skärmbild kallas aldrig en kodmall.
+UTGANGSPUNKTER = ('referenssajt', 'refero_stil', 'refero_skarm', 'mobbin_skarm', 'komponent_21st', 'tema_21st', 'mall', 'egen')
+IMPLEMENTATIONSGRUNDER = ('mall', 'komponenter', 'tema', 'egen')
+DIMENSIONER = ('komposition', 'bildbehandling', 'typografi', 'innehallshierarki', 'interaktion', 'farg')
 PLAN_SCHEMA = {
-    'type': 'object', 'additionalProperties': False, 'required': ['kandidater', 'variation'],
+    'type': 'object', 'additionalProperties': False, 'required': ['kandidater', 'variation', 'bransch', 'forebilder_utanfor'],
     'properties': {
         'variation': {'type': 'string'},
+        # branschgenomgången (punkt 5): hur starka relevanta sajter hanterar tjänster, förtroende, priser, navigation och
+        # kontakt, och deras svagheter; att något förekommer hos konkurrenter gör det inte till bästa praxis
+        'bransch': {'type': 'array', 'maxItems': 8, 'items': {
+            'type': 'object', 'additionalProperties': False,
+            'required': ['sajt', 'tjanster', 'fortroende', 'priser', 'navigation', 'kontakt', 'svagheter'],
+            'properties': {k: {'type': 'string'} for k in ('sajt', 'tjanster', 'fortroende', 'priser', 'navigation', 'kontakt', 'svagheter')}}},
+        # visuella förebilder också utanför branschen, vars kvaliteter kan fungera med kundens material
+        'forebilder_utanfor': {'type': 'array', 'maxItems': 8, 'items': {
+            'type': 'object', 'additionalProperties': False, 'required': ['namn', 'kvalitet', 'kundens_material'],
+            'properties': {k: {'type': 'string'} for k in ('namn', 'kvalitet', 'kundens_material')}}},
         'kandidater': {'type': 'array', 'minItems': 2, 'maxItems': 12, 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': [f for f, _ in PLANFALT] + ['referensbilder'],
+            'type': 'object', 'additionalProperties': False,
+            'required': [f for f, _ in PLANFALT] + ['referensbilder', 'utgangspunkt', 'implementationsgrund', 'skiljer_sig_i'],
             'properties': {f: {'type': 'string'} for f, _ in PLANFALT} | {'referensbilder': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 6},
                                                                           # T01: en skärm för en komposition, ett flöde för en resa i steg
-                                                                          'mobbin_typ': {'type': 'string', 'enum': ['skarm', 'flode']}}}}}}
+                                                                          'mobbin_typ': {'type': 'string', 'enum': ['skarm', 'flode']},
+                'utgangspunkt': {'type': 'object', 'additionalProperties': False, 'required': ['slag', 'namn', 'kalla'],
+                                 'properties': {'slag': {'type': 'string', 'enum': list(UTGANGSPUNKTER)}, 'namn': {'type': 'string'},
+                                                'kalla': {'type': 'string'}}},
+                'implementationsgrund': {'type': 'object', 'additionalProperties': False,
+                                         'required': ['slag', 'kalla', 'ateranvands', 'aterskapas_ur_bild', 'insats'],
+                                         'properties': {'slag': {'type': 'string', 'enum': list(IMPLEMENTATIONSGRUNDER)}, 'kalla': {'type': 'string'},
+                                                        'ateranvands': {'type': 'string'}, 'aterskapas_ur_bild': {'type': 'boolean'},
+                                                        'insats': {'type': 'string'}}},
+                'skiljer_sig_i': {'type': 'array', 'minItems': 1, 'maxItems': 6, 'items': {'type': 'string', 'enum': list(DIMENSIONER)}}}}}}}
+
+
+def planbrist(k):
+    """Ett uppdrag som inte är ett eget förslag enligt ägarens uppdrag 2026-10-09 (punkt 1 och 5–6), som text, eller None:
+    skillnaden får inte bara vara färg, och en implementationsgrund av slaget mall eller komponenter måste peka på kod eller
+    ett projekt, aldrig på en referensbild (en skärmbild är ingen importerbar kodmall)."""
+    dim = [d for d in (k.get('skiljer_sig_i') or []) if d in DIMENSIONER]
+    if dim and set(dim) <= {'farg'}:
+        return 'skiljer sig bara i färg (ett färgbyte på samma sida är inget eget förslag)'
+    ig = k.get('implementationsgrund') if isinstance(k.get('implementationsgrund'), dict) else {}
+    kalla = str(ig.get('kalla') or '')
+    if ig.get('slag') in ('mall', 'komponenter') and re.search(r'\.(png|jpe?g|webp|gif|avif)\b', kalla, re.I):
+        return 'implementationsgrunden %s pekar på en bild (%s); en skärmbild är ingen kodmall' % (ig.get('slag'), kalla[:80])
+    if ig.get('slag') in ('mall', 'komponenter') and ig.get('aterskapas_ur_bild'):
+        return 'implementationsgrunden %s sägs återskapas ur en bild; då är den egen implementation, med insatsen synlig' % ig.get('slag')
+    return None
 
 
 def material_rader(slug):
@@ -1104,6 +1151,19 @@ def plan_prompt(slug, n, skiss=False):
         'eller återanvända (FORSKNING.md säger vilket).',
         ('Skriv i "variation" varför den här riktningen och huvudreferensen valdes framför de andra i researchen.' if n == 1 else
          'Skriv i "variation" hur uppdragen skiljer sig längs de dimensionerna och var två ligger nära varandra.'),
+        'Branschgenomgången först (ägarens uppdrag 2026-10-09, punkt 5): skriv i "bransch" för de starkaste relevanta sajterna i',
+        'researchen hur de hanterar tjänster, förtroende, priser, navigation och kontakt, och deras svagheter; att något',
+        'förekommer hos konkurrenter gör det inte till bästa praxis. Skriv i "forebilder_utanfor" visuella förebilder utanför',
+        'branschen vars kvaliteter kan fungera med kundens material, och varför materialet bär dem.',
+        'Varje uppdrag har en identifierad visuell utgångspunkt ("utgangspunkt": slaget, namnet och källan, till exempel en',
+        'fångad sajt, en Refero-stil eller -skärm, en Mobbin-skärm, en komponent eller ett tema ur 21st.dev, en mall eller egen)',
+        'och en faktisk implementationsgrund ("implementationsgrund": mall, komponenter, tema eller egen, med källan, det som',
+        'återanvänds, om något måste återskapas ur bilder och insatsen det kräver). Återanvänd kod där det går och passar; ett',
+        'förslag som kräver omfattande återskapande ur bilder redovisas så, med insatsen synlig. En referensbild är aldrig en',
+        'kodmall. "skiljer_sig_i" säger i vilka av komposition, bildbehandling, typografi, innehallshierarki, interaktion och',
+        'farg uppdraget skiljer sig från de andra; ett uppdrag som bara skiljer sig i färg avvisas. Tio förslag är ägarens',
+        'beslut; går tio verkligt olika inte att göra med underlaget, ge färre och säg varför i "variation", aldrig kosmetiska',
+        'dubbletter.',
         'Svara med uppdragen i schemat.', atelje.MATERIAL])
 
 
@@ -1129,6 +1189,17 @@ def skriv_uppdrag(slug, kid, k, nr, totalt):
     for falt, rubrik in PLANFALT:
         if rubrik and falt in FORMFORSLAG:
             rader += ['## %s' % rubrik, '', str(k.get(falt) or '').strip(), '']
+    ug = k.get('utgangspunkt') if isinstance(k.get('utgangspunkt'), dict) else {}
+    ig = k.get('implementationsgrund') if isinstance(k.get('implementationsgrund'), dict) else {}
+    rader += ['## Utgångspunkt och implementationsgrund', '',
+              '- Visuell utgångspunkt: %s (%s), källa %s.' % (ug.get('namn') or '–', ug.get('slag') or '–', ug.get('kalla') or '–'),
+              '- Implementationsgrund: %s, källa %s; återanvänds: %s.' % (ig.get('slag') or '–', ig.get('kalla') or '–', ig.get('ateranvands') or '–'),
+              '- %s Insatsen: %s.' % ('Återskapas ur bilder (ingen kod finns att återanvända).' if ig.get('aterskapas_ur_bild') else 'Ingen återskapning ur bilder.',
+                                      ig.get('insats') or '–'),
+              '- Skiljer sig från de andra i: %s.' % (', '.join(k.get('skiljer_sig_i') or []) or '–'),
+              'En referensbild är en bild, ett stilpaket är värden och beskrivning, komponentkod är kod att anpassa och en körbar',
+              'mall är ett projekt som bygger; kalla aldrig en skärmbild en kodmall. Komponentkod ur 21st.dev och en mall bär',
+              'källa, författare och licens i RIKTNING.md under Referenser.', '']
     rader += ['## Referensbilder', ''] + ['- %s%s' % (p, '' if referensbild_fil(slug, p) else ' (saknas: filen finns inte i kundens referenser)')
                                           for p in k.get('referensbilder') or []] + ['']
     underlag = referensunderlag(k.get('referensbilder') or [])
@@ -1226,7 +1297,7 @@ def planera(slug, n, lage=None):
     for k in plan.get('kandidater') or []:
         if not isinstance(k, dict) or not str(k.get('titel') or '').strip():
             continue
-        brist = referensbrist(slug, k)  # en namngiven referens utan underlag är ingen referens (F06)
+        brist = referensbrist(slug, k) or planbrist(k)  # en namngiven referens utan underlag är ingen referens (F06)
         (avvisade.append({'titel': str(k.get('titel'))[:120], 'skal': brist}) if brist else kand.append(k))
     kand = kand[:n]
     if len(kand) < minsta_plan(n):
@@ -1236,8 +1307,13 @@ def planera(slug, n, lage=None):
     for i, (kid, k) in enumerate(zip(ids, kand), 1):
         skriv_uppdrag(slug, kid, k, i, len(kand))
         satt_status(slug, kid, 'planerad', 'uppdraget skrivet', titel=k['titel'], hypotes=k.get('hypotes'), huvudreferens=k.get('huvudreferens'), forsok=0)
-    (r / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': nu(), 'antal': len(ids), 'lage': lage, 'variation': plan.get('variation'), 'kandidater': dict(zip(ids, kand)),
-                                                    'avvisade': avvisade}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    (r / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': nu(), 'antal': len(ids), 'begart': n, 'lage': lage, 'variation': plan.get('variation'),
+                                                    'kandidater': dict(zip(ids, kand)), 'avvisade': avvisade, 'bransch': plan.get('bransch') or [],
+                                                    'forebilder_utanfor': plan.get('forebilder_utanfor') or [],
+                                                    # färre än begärt redovisas, och fylls aldrig upp med kosmetiska dubbletter (punkt 6)
+                                                    'brist_mot_begart': (None if len(ids) >= n else '%d av %d användbara förslag%s' % (
+                                                        len(ids), n, ('; avvisade: ' + '; '.join('%s: %s' % (a['titel'], a['skal']) for a in avvisade)) if avvisade else ''))},
+                                                   ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     (r / 'KANDIDATPLAN.md').write_text('\n'.join(['# Kandidatplan · %s · %s' % (slug, nu()), '', '## Variationen', '', str(plan.get('variation') or ''), '']
                                                  + ['- **%s · %s**: %s' % (kid, k['titel'], re.sub(r'\s+', ' ', k.get('hypotes') or k['ide'])[:300]) for kid, k in zip(ids, kand)]
                                                  + (['', '## Avvisade uppdrag (referens utan underlag)', ''] + ['- %s: %s' % (a['titel'], a['skal']) for a in avvisade] if avvisade else [])) + '\n',
@@ -1335,7 +1411,7 @@ def skapar_prompt(slug, kid, kritik=None, komplettering=None, forbattra=None, er
         '   layouten byter form mellan bredderna). Läs med Read i varje varv dina egna bilder och minst en referensbild (de',
         '   äldsta bilderna trängs undan ur kontexten). Skriv i RIKTNING.md under "Varv N" varje konkret avvikelse och åtgärden,',
         '   och vad i metoden som gav åtgärden. Kontrollera bildurval, beskärning, typografiska proportioner, linjering,',
-        '   innehållstäthet och sektionsövergångar. Arbetsregeln är minst %d varv; antalet varv är ingen kvalitetsbedömning.' % MIN_VARV,
+        '   innehållstäthet och sektionsövergångar. Varven: %s.' % VARVREGEL,
         '   Fler små justeringar av färg och avstånd är inte alltid svaret: byt grundidé när den inte bär.',
         'Typsnitt: systemtypsnitt, eller `.venv/bin/python kontroller/typsnitt.py %s @fontsource-variable/<namn>` (eller' % slug,
         '@fontsource/<namn>) och importera CSS-filen i sidan. Ringlänken är numret ur VERKSAMHET.json%s.' % ((' (%s)' % tel) if tel else ''),
@@ -1624,7 +1700,7 @@ def kompetens_kort(kv):
 # (atelje.underlag_rader utom referensbeslutet och de upptagna valen). RESEARCH.md är intagets research om
 # verksamheten med källor och listan "Bara de har" (bygg-sajt steg 1), inte skaparens text, och kritiken dömer kundens
 # särprägel. I ateljén gäller metoden och kandidatens egna regler (blind_nekas).
-BLIND_LASBART = ('BRIEF.md', 'VERKSAMHET.json', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md', 'BESTALLNING.md', 'bilder', 'atelje')
+BLIND_LASBART = ('BRIEF.md', 'VERKSAMHET.json', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md', 'BESTALLNING.md', 'KUNDFORSTAELSE.md', 'bilder', 'atelje')
 # listan räknas när sessionen startar; det som kan uppstå medan den pågår nekas med mönster: en annan kandidats research
 # på begäran (skapande.komplettera skriver begäran med skaparens skäl i REFERENSUPPDRAG-*.json och TJANSTEUPPDRAG-*.json
 # och materialet i referenser/), och referensbeslutet
@@ -2068,10 +2144,13 @@ PASS_SCHEMA = {
         'beteende_provat': {'type': 'array', 'maxItems': 24, 'items': {
             'type': 'object', 'additionalProperties': False, 'required': ['vad', 'hur', 'resultat', 'bild'],
             'properties': {k: {'type': 'string'} for k in ('vad', 'hur', 'resultat', 'bild')}}},
+        # tekniskt_nodvandig: ändringen rättar ett kvalitetskrav eller ett tillgänglighetsfel, så den behövs också om
+        # bilden blev sämre (ägarens uppdrag 2026-10-09, punkt 10); valfri, saknad = nej
         'visuell_bedomning': {'type': 'object', 'additionalProperties': False, 'required': ['fore', 'efter', 'omdome', 'skal'],
                               'properties': {'fore': {'type': 'string'}, 'efter': {'type': 'string'},
                                              'omdome': {'type': 'string', 'enum': ['battre', 'oforandrad', 'samre', 'ej_bedomd']},
-                                             'skal': {'type': 'string'}}},
+                                             'skal': {'type': 'string'}, 'tekniskt_nodvandig': {'type': 'boolean'}}},
+        'fynd': {'type': 'array', 'maxItems': 16, 'items': skapande.FYND_SCHEMA},
         'ingen_andring': {'type': 'string'},
         'valda': {'type': 'array', 'maxItems': 16, 'items': {'type': 'string'}},
         'passade_inte': {'type': 'array', 'maxItems': 16, 'items': {
@@ -2110,7 +2189,7 @@ def kopiera_bilder(fran, till):
     return [rel(till / n) for n in PASSBILDER if (till / n).is_file()]
 
 
-def pass_prompt(slug, kid, pass_, saknade=None, dom=None):
+def pass_prompt(slug, kid, pass_, saknade=None, dom=None, lage='andra'):
     """Passets uppdrag efter fördjupningen: ägarens dom som fördjupningen följer, kundens aktuella domar, designreglerna,
     metoden med Avgörandena (granskning 4, G1), rollens kärna och alternativ, interaktionsvägen och redovisningen i tre
     delar: kod ändrad, beteende prövat, visuell bedömning (Codex via ägaren 2026-10-05, punkt 9)."""
@@ -2126,6 +2205,10 @@ def pass_prompt(slug, kid, pass_, saknade=None, dom=None):
         *(['Förra försöket saknade: %s. Dess ändringar är återställda. Detta är en ny session: aktivera och läs hela rollens kärna' % ', '.join(saknade),
            'innan du ändrar något, och slutför den angivna verktygsuppgiften.', ''] if saknade else []),
         'Din uppgift: ' + PASSUPPGIFT[pass_], '',
+        *(['Läget är BEDÖM: området fungerar och ska bedömas utan att ändras (ägarens uppdrag 2026-10-09, punkt 9). Du ändrar',
+           'inga filer. Redovisa varje brist du ser som ett fynd: bild, version, element eller område (en CSS-väljare när du kan),',
+           'tillstånd och avvikelse, och kodkopplingen (fil:rad) när du ser den; skriv skälet till att inget ändrades i',
+           'ingen_andring. Arbetsgångens steg 2 och 3 gäller inte.', ''] if lage == 'bedom' else []),
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *regel_rader(), *metod_rader(slug, 'forfina'), '',
         *kompetens.prompt_rader(pass_, slug, kid), '',
@@ -2140,7 +2223,10 @@ def pass_prompt(slug, kid, pass_, saknade=None, dom=None):
         'som säger emot ägarens dom eller designreglerna följs inte. Tiden: högst %d minuter.' % minuter,
         'Svara i schemat med tre saker var för sig: kod_andrad (varje ändring med skill, vad, var och varför), beteende_provat',
         '(varje beteende du prövade: vad, hur, alltså kommandot och tillståndet, resultatet och bildens väg) och',
-        'visuell_bedomning (bilden före och efter som du läst, omdömet battre, oforandrad, samre eller ej_bedomd, och skälet).',
+        'visuell_bedomning (bilden före och efter som du läst, omdömet battre, oforandrad, samre eller ej_bedomd, skälet, och',
+        'tekniskt_nodvandig när ändringen rättar ett kvalitetskrav eller tillgänglighetsfel och behövs också om bilden blev sämre;',
+        'en sämre bild utan teknisk nödvändighet förs inte vidare). Fynd du inte rättade står i fynd (bild, version, element,',
+        'tillstånd, avvikelse, kodkoppling).',
         'Skriv aktivering (varje skill du aktiverade med skillverktyget: lyckades, annars felet; en misslyckad aktivering',
         'hanteras innan beroende arbete fortsätter) och teknikval (i passet rörelse varje beteende med tekniken css, motion,',
         'gsap eller stilla och skälet; i passet granskning tom om du inte bytte teknik). Den tilldelade MCP-uppgiften genomförs',
@@ -2164,7 +2250,7 @@ def passbrister(pass_, svar, kv):
     return ['Motion-valet saknar observerat svar med innehåll från search-motion-docs']
 
 
-def kompetenspass(slug, kid, pass_, fas, dom=None):
+def kompetenspass(slug, kid, pass_, fas, dom=None, lage='andra'):
     """Ett pass efter fördjupningen på kandidatens renderade sida: före (versionen bevaras och bilderna sparas), sessionen
     med rollens kärna, alternativ, verktyg och MCP:er, och efter (fotograferingen). Blir sidan ofullständig, eller får den
     fler allvarliga axe-fynd än före, återställs versionen före; faller återställningen blir kandidaten ofullständig med
@@ -2216,7 +2302,9 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
                 break
             sessioner = []
         try:
-            svar = atelje.session(pass_prompt(slug, kid, pass_, saknade, dom), verktyg(slug, kid, komplettering=False) + kompetens.verktyg(pass_, slug, kid),
+            passverktyg = ([v_ for v_ in verktyg(slug, kid, komplettering=False) if not str(v_).startswith(('Write(', 'Edit('))]
+                           if lage == 'bedom' else verktyg(slug, kid, komplettering=False))  # bedöm: läsande verktyg, ingen ändring
+            svar = atelje.session(pass_prompt(slug, kid, pass_, saknade, dom, lage), passverktyg + kompetens.verktyg(pass_, slug, kid),
                                   ut, PASS_SCHEMA, 300, effort=EFFORT_SKISS, frist=FRIST_PASS_OMFORSOK if saknade else FRIST_PASS,
                                   nekas=andra_nekas(slug, kid), slug=slug,
                                   vid_start=lambda pid: satt_status(slug, kid, status0, 'kompetenspass %s' % pass_, session_pid=pid))
@@ -2247,6 +2335,17 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
         except Exception as e:  # noqa: BLE001 — då är kandidaten ofullständig, aldrig klar med en trasig sida (G5)
             aterstalld = 'passet försämrade sidan (%s) och återställningen föll: %s' % (orsak, str(e)[:200])
             status0 = 'ofullstandig'
+    elif (lage == 'andra' and las_status(slug, kid).get('version') != v0
+          and ((svar.get('structured_output') or {}).get('visuell_bedomning') or {}).get('omdome') == 'samre'
+          and not ((svar.get('structured_output') or {}).get('visuell_bedomning') or {}).get('tekniskt_nodvandig')):
+        # passets egen bild: sämre och inte tekniskt nödvändigt förs inte vidare (ägarens uppdrag 2026-10-09, punkt 10); en
+        # bättre eller oförändrad självbedömning räcker däremot inte som bevis, den separata före/efter-bedömningen avgör
+        try:
+            aterstall_och_fotografera(slug, kid, v0)
+            aterstalld = 'passet bedömde själv sin ändring som sämre i bilden och utan teknisk nödvändighet; versionen före är återställd'
+        except Exception as e:  # noqa: BLE001
+            aterstalld = 'passet bedömde sin ändring som sämre, och återställningen föll: %s' % str(e)[:200]
+            status0 = 'ofullstandig'
     elif karna_brist and las_status(slug, kid).get('version') != v0:
         orsak = 'kärnkravet uppfylldes inte i sista försöket: %s' % ', '.join(karna_brist)
         try:
@@ -2266,7 +2365,9 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
     andrad = st.get('version') != v0
     anvanda = anvanda_verktyg(kv, pass_) if kv.get('verifierad') else None
     sena = kompetens.sen_karna(kv)  # läsordningen: läst kompetens, skild från observerad användning och bedömd kvalitet
-    rec = {'fas': fas, 'pass': pass_, 'startad': startad, 'klar': nu(), 'sekunder': int(time.monotonic() - start), 'kasserade_forsok': kasserade,
+    rec = {'fas': fas, 'pass': pass_, 'lage': lage, 'startad': startad, 'klar': nu(), 'sekunder': int(time.monotonic() - start), 'kasserade_forsok': kasserade,
+           'fynd': [dict(f, kodkoppling=f.get('kodkoppling') or ', '.join(kodkoppling(slug, kid, f.get('element'))))
+                    for f in so.get('fynd') or [] if isinstance(f, dict)],
            'kod_andrad': {'andrad': andrad, 'version_fore': v0, 'version_efter': st.get('version'), 'andringar': so.get('kod_andrad') or []},
            'beteende_provat': provat, 'visuell_bedomning': so.get('visuell_bedomning') or {},
            'version_fore': v0, 'version_efter': st.get('version'), 'andrad': andrad, 'andringar': so.get('kod_andrad') or [],
@@ -2325,17 +2426,38 @@ def begar_nytt_passforsok(slug, kid, nyckel):
 
 
 def efter_fordjupning(slug, kid, dom):
-    """Passen efter fördjupningen, en gång var och i ordning (interaktion och rörelse, sedan tillgänglighet och visuell
-    granskning), sedan DESIGN.md-kontrollen på den slutliga koden (granskning 4, G11). Återupptagbart: ett avbrutet pass
-    återställs och görs om, klara pass görs inte om (G4)."""
+    """Efter uppdragets session: de specialistpass uppdraget begär, var och en i sitt läge (ändra eller bedöm) och i
+    passens ordning, sedan den separata före/efter-bedömningen mellan versionen beslutet gällde och resultatet, regeln för
+    fortsättningen och DESIGN.md-kontrollen på den slutliga koden. Inga begärda pass: inga pass (ägarens uppdrag
+    2026-10-09, punkt 9). Återupptagbart: ett avbrutet pass återställs och görs om, klara pass och en gjord före/efter-
+    bedömning görs inte om (G4)."""
     st = las_status(slug, kid)
-    for pass_ in KOMPETENSPASS:
+    u = uppdraget(dom)
+    fas = 'fordjupa:%s' % dom.get('tid')
+    for pass_, lage in specialisterna(u):
         if st.get('status') not in ('forfinad',):
             break
-        st = kompetenspass(slug, kid, pass_, 'fordjupa:%s' % dom.get('tid'), dom)
+        st = kompetenspass(slug, kid, pass_, fas, dom, lage=lage)
+    passens = {p_: ((st.get('kompetens') or {}).get('%s:%s' % (fas, p_)) or {}) for p_, _l in specialisterna(u)}
+    forf = dict(st.get('forfining') or {})
+    if u and st.get('status') == 'forfinad' and forf.get('dom') == dom.get('tid') and not forf.get('fore_efter') and forf.get('fran'):
+        post = fore_efter(slug, kid, forf['fran'], st.get('version') or '')
+        beslut, skal_fe = fore_efter_regel(u, post, passens)
+        forf.update(fore_efter=post, fortsattning={'beslut': beslut, 'skal': skal_fe, 'tid': nu()})
+        if beslut == 'aterstall':
+            efter_v = st.get('version')
+            bevara_version(slug, kid, efter_v, bilder=True)  # efter-versionen kan väljas senare
+            try:
+                aterstall_och_fotografera(slug, kid, forf['fran'])
+                forf['fortsattning']['bevarad_efter'] = efter_v
+                st = satt_status(slug, kid, 'vald', '%s; efter-versionen %s är bevarad och kan väljas' % (skal_fe, str(efter_v)[:12]), forfining=forf)
+            except Exception as e:  # noqa: BLE001
+                st = satt_status(slug, kid, 'forfinad', '%s, men återställningen föll (%s)' % (skal_fe, str(e)[:200]), forfining=forf)
+        else:
+            st = satt_status(slug, kid, st.get('status'), '%s; %s' % (st.get('skal', ''), skal_fe), forfining=forf,
+                             **({'kraver_losning': skal_fe} if beslut == 'kraver_losning' else {}))
     k = designkontroll(slug, kid)
     skal = st.get('skal', '')
-    fas = 'fordjupa:%s' % dom.get('tid')  # F03: ett pass som inte uppfyllts står kvar i kandidatens besked, också efter nästa pass
     brister = {p_: ((st.get('kompetens') or {}).get('%s:%s' % (fas, p_)) or {}) for p_ in KOMPETENSPASS}
     ej = [p_ for p_, r_ in brister.items() if r_.get('klar') and not pass_uppfyllt(r_)]
     if ej and 'ej uppfyllda' not in skal:
@@ -3123,8 +3245,6 @@ def fotografera(slug, kid, skiss=None):
             brister.append('undersidan eller tillståndet saknas (uppdraget anger vilken)')
         if not riktningens_referens(slug, kid):
             brister.append('RIKTNING.md saknar raden "Huvudreferens: <namn> — <vad den bär>" (eller "Huvudreferens: egen — …")')
-        if korlage(slug) == 'full' and varv_antal(slug, kid) < MIN_VARV:
-            brister.append('%d förhandsvarv av minst %d' % (varv_antal(slug, kid), MIN_VARV))
     if projektets_version(slug, kid) != fore_foto:
         brister.append('koden eller underlaget ändrades under fotograferingen; fotografera igen')
     v = version(slug, kid)
@@ -3474,7 +3594,7 @@ def kritik(slug, kid, namn='KRITIK.json'):
         'Du granskar en kandidat till en riktig kunds startsida, rådgivande: ägaren dömer själv. Det här är granskningens',
         'första pass: bedöm det en besökare uppfattar, ur bilderna och sidans struktur, mot besökarens uppgift. Uppdraget,',
         'skaparens motivering, referenspaketet och koden läser du inte (motiveringen bedöms i ett andra pass). Ribban:',
-        'kunskap/visuell-niva.md och ägarens domar nedan.',
+        'kvalitetskraven i kunskap/designregler.md och ägarens domar nedan.',
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *regel_rader(), *metod_rader(slug, 'granska'), '',
         *kompetens.prompt_rader('kritik_a', slug, kid), '',
@@ -3819,12 +3939,14 @@ def domd(slug):
 
 
 def valbara_versioner(st):
-    """Versionerna ägaren kan välja: den aktuella, och föreversionen när en förbättringsrunda ändrade kandidaten."""
-    ut = [st.get('version')]
-    fore = (st.get('forbattrad') or {}).get('fore')
-    if fore and fore not in ut:
-        ut.append(fore)
-    return [v for v in ut if v]
+    """Versionerna beställaren kan välja: den aktuella, föreversionen när en förbättringsrunda ändrade kandidaten, och
+    versionerna före och efter varje uppdrag (ägarens uppdrag 2026-10-09, punkt 10: en tidigare bättre version ska kunna
+    väljas). Bara bevarade versioner kan väljas (prova_beslut prövar det)."""
+    ut = [st.get('version'), (st.get('forbattrad') or {}).get('fore')]
+    for f in [st.get('forfining') or {}] + list(st.get('uppdragen') or []):
+        if isinstance(f, dict):
+            ut += [f.get('fran'), (f.get('fortsattning') or {}).get('bevarad_efter'), (f.get('fore_efter') or {}).get('efter')]
+    return [v for v in dict.fromkeys(ut) if v]
 
 
 def prova_beslut(slug, beslut, kandidater):
@@ -3879,7 +4001,7 @@ def efter_beslut(slug, dom):
     for kid in lista(slug):
         st = las_status(slug, kid)
         ny = None
-        if kid in kand and b in ('valj', 'putsa'):
+        if kid in kand and b in ('valj', 'putsa', 'uppdrag'):
             ny = 'vald'
             bevara_version(slug, kid, kand[kid]['version'], bilder=kand[kid]['version'] == st.get('version'))
         elif kid in kand and b == 'godkand':
@@ -3960,50 +4082,123 @@ def delar_rader(slug, dom, kid):
     return rader
 
 
-def forfina_prompt(slug, kid, dom):
+# --- uppdragen: rätta, omarbeta designen, bygg ut (ägarens uppdrag 2026-10-09 ~17:53Z, punkt 8–10) ---
+
+# Specialistpassen ett uppdrag får när det inte anger några: en rättelse startar inga redigerande pass, ett designomtag
+# bedöms av granskningen utan att den ändrar, och en utbyggnad får båda passen på det nya. Ett fungerande område får
+# bedömas utan att ändras (läget bedom).
+STANDARD_SPECIALISTER = {'ratta': {}, 'omarbeta': {'granskning': 'bedom'}, 'bygg_ut': {'rorelse': 'andra', 'granskning': 'andra'}}
+FRIST_FORE_EFTER = int(os.environ.get('NWP_KANDIDAT_FRIST_FORE_EFTER') or 600)
+MAX_TURER_FORE_EFTER = 80
+UPPDRAGSPROMPT = {
+    'ratta': ['Rätta bara det som omfattningen anger, inom kandidatens befintliga sidor och sektioner. Lägg inte till sidor,',
+              'sektioner eller funktioner, och ändra inte komposition, typografi eller bildregi utöver det rättelsen kräver. En',
+              'rättelse som inte går att göra utan att gå utanför omfattningen skrivs i RIKTNING.md under "Uppdrag" med skälet och',
+              'görs inte. Flödet jämför sidorna före och efter: en ny sida gör att rättelsen inte förs vidare.'],
+    'omarbeta': ['Omarbeta designen: komposition, bildregi och beskärning, typografi, rytm och hierarki får ändras i grunden inom',
+                 'det avtalade innehållet (samma sakuppgifter, sidor och sektionernas innehåll). Bär grundkompositionen inte: byt den,',
+                 'inte bara detaljer; det här är uppdraget att lösa grundproblemet, med samma kreativa frihet som skissen hade. Lägg',
+                 'inte till sidor eller funktioner. Det som står under Bevara står kvar. En separat granskare jämför före och efter',
+                 'i bilderna utan din förklaring, och en sämre version förs inte vidare.'],
+    'bygg_ut': ['Bygg ut: skapa det omfattningen anger (sektioner, undersidor, funktioner) i kandidatens form, med samma typografi,',
+                'färger, komponenter och rytm (DESIGN.md och de befintliga komponenterna i projektet). Ändra inte det som redan',
+                'finns utöver det utbyggnaden kräver. En undersida står i src/pages/<väg>/index.astro; formulär postar till',
+                '/api/forfragan/ och landar på /tack/ (lokal demonstration). Flödet prövar att varje angiven väg finns efteråt.'],
+}
+FORE_EFTER_SCHEMA = {
+    'type': 'object', 'additionalProperties': False, 'required': ['totalt', 'skal', 'omraden', 'fynd', 'lasta'],
+    'properties': {
+        'totalt': {'type': 'string', 'enum': ['X', 'Y', 'likvardiga', 'oklart']},
+        'skal': {'type': 'string'},
+        'omraden': {'type': 'array', 'maxItems': 12, 'items': {
+            'type': 'object', 'additionalProperties': False, 'required': ['omrade', 'battre', 'skal'],
+            'properties': {'omrade': {'type': 'string'}, 'battre': {'type': 'string', 'enum': ['X', 'Y', 'lika', 'oklart']},
+                           'skal': {'type': 'string'}}}},
+        'fynd': {'type': 'array', 'maxItems': 12, 'items': skapande.FYND_SCHEMA},
+        'lasta': {'type': 'array', 'maxItems': 16, 'items': {'type': 'string'}}}}
+
+
+def uppdraget(dom):
+    """Uppdraget i ett beslut, prövat (skapande.uppdrag_giltigt), eller None."""
+    u = dom.get('uppdrag') if isinstance(dom, dict) else None
+    try:
+        return skapande.uppdrag_giltigt(u) if u else None
+    except ValueError:
+        return None
+
+
+def specialisterna(u):
+    """De specialistpass uppdraget begär, i passens ordning: [(pass, läge)]. Utan uppdrag inga; ett uppdrag som inte anger
+    specialister får typens standard (STANDARD_SPECIALISTER). En liten ändring startar alltså aldrig samtliga redigerande
+    pass av sig själv (ägarens uppdrag 2026-10-09, punkt 9)."""
+    if not u:
+        return []
+    spec = u.get('specialister')
+    spec = STANDARD_SPECIALISTER.get(u.get('typ'), {}) if spec is None else spec
+    return [(p, spec[p]) for p in KOMPETENSPASS if spec.get(p) in skapande.SPECIALISTLAGEN]
+
+
+def sidvagar(slug, kid):
+    """Kandidatens sidor som vägar: / och undersidorna."""
+    sajt = ksajt(slug, kid) / 'src' / 'pages'
+    return (['/'] if (sajt / 'index.astro').is_file() else []) + undersidor(slug, kid)
+
+
+def omfattningsbrister(u, fore, efter):
+    """Uppdragets omfattning prövad mot sidorna före och efter: en rättelse och ett designomtag lägger inte till sidor
+    (ägarens uppdrag 2026-10-09, punkt 8: en begäran om putsning ska inte beställa en undersida och nya funktioner), och
+    en utbyggnad har varje väg den angav. Ger bristerna som text."""
+    ut = []
+    if u.get('typ') in ('ratta', 'omarbeta'):
+        nya = [v for v in efter if v not in fore]
+        if nya:
+            ut.append('uppdraget %s lade till sidor utanför omfattningen: %s' % (u.get('namn'), ', '.join(nya)))
+    if u.get('typ') == 'bygg_ut':
+        vagar = [m.group(0) for r in u.get('omfattning') or [] for m in re.finditer(r'(?<![\w/])/(?:[a-z0-9-]+/)+', r)]
+        saknas = [v for v in dict.fromkeys(vagar) if v not in efter]
+        if saknas:
+            ut.append('utbyggnaden saknar %s' % ', '.join(saknas))
+    return ut
+
+
+def uppdrag_prompt(slug, kid, dom, u):
     d, s = kdir(slug, kid), 'kunder/%s/kandidater/%s/sajt' % (slug, kid)
     forhand = '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat %s' % (slug, kid)
     tel = skapande.telefon(slug, atelje.UNDERLAG)
     namn = etiketter(slug, lista(slug)).get(kid, kid)
+    st = las_status(slug, kid)
     delar = delar_rader(slug, dom, kid)
-    kritiker = [rel(d / n) for n in ('KRITIK.json', 'KRITIK-fore.json') if (d / n).is_file()]
     return '\n'.join([
-        'Du förfinar en kandidat i skapandeflödet (kunskap/skapandeflodet.md) för en riktig verksamhet. Ägaren såg',
-        'kandidaterna sida vid sida och valde %s (%s) för vidareutveckling. Kandidatens projekt är %s; uppdraget och' % (namn, kid, s),
-        'skaparens anteckningar står i %s och %s. Målet: en startsida och undersida som ägaren godkänner' % (rel(d / 'UPPDRAG.md'), rel(d / 'RIKTNING.md')),
-        'för helbygget, i mobil, surfplatta och dator.', '',
-        *(['Kandidaten är en skiss: första vyn och den viktigaste sektionen. Fördjupningen bygger i skissens form hela',
-           'startsidan (de sektioner besökarens uppgifter kräver), den relevanta undersidan (uppdragets "Undersidan eller',
-           'tillståndet") och besökarens centrala flöde (till exempel förfrågan: formuläret med felbesked vid fälten och',
-           '/tack/), i mobil och dator. Det skissen redan visar ändras bara där ägarens ord eller en brist du ser kräver det.', '']
-          if korlage(slug) == 'skiss' else []),
+        'Du utför ett uppdrag på kandidaten %s (%s) i skapandeflödet (kunskap/skapandeflodet.md) för en riktig verksamhet.' % (namn, kid),
+        'Uppdraget gäller versionen %s i projektet %s; uppdraget och skaparens anteckningar står i %s och %s.' % (
+            str(st.get('version') or '')[:12], s, rel(d / 'UPPDRAG.md'), rel(d / 'RIKTNING.md')), '',
+        'Uppdraget: %s — %s.' % (u['namn'], skapande.UPPDRAGSTYPER[u['typ']][1]),
+        'Beställt av: %s, %s. Ordagrant: "%s"' % (skapande.avsandare(dom)['text'], dom.get('tid'), re.sub(r'\s+', ' ', str(dom.get('text') or ''))[:1500]),
+        'Önskat resultat: %s' % u['resultat'],
+        'Omfattning:', *['- ' + x for x in u['omfattning']],
+        'Bevara:', *['- ' + x for x in u['bevara']],
+        'Kandidatens sidor nu: %s.' % (', '.join(sidvagar(slug, kid)) or '–'), '',
+        *UPPDRAGSPROMPT[u['typ']], '',
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
-        *(['Det ägaren gillade (ta in en del ur en annan kandidat bara när den passar idén; anpassa den till kandidatens',
-           'typografi, färger och rytm i stället för att klistra in den, och skriv i RIKTNING.md hur och varför):', *delar, '']
-          if delar else []),
-        *(['Den rådgivande granskningen (ägaren har sett den; den går före ingenting ägaren skrivit): ' + ', '.join(kritiker), ''] if kritiker else []),
+        *(['Det beställaren gillade i andra förslag (ta in en del bara när den passar idén; anpassa den till kandidatens',
+           'typografi, färger och rytm, och skriv i RIKTNING.md hur och varför):', *delar, ''] if delar else []),
         *skapande.fakta_rader(slug, atelje.UNDERLAG), '',
         *regel_rader(), *metod_rader(slug, 'forfina'), '',
         *kompetens.prompt_rader('fordjupa', slug, kid), '',
-        'Arbetsgången, varv för varv (arbetsregeln är minst %d varv; antalet är ingen kvalitetsbedömning):' % atelje.MIN_VARV_FORFINA,
-        '1. Kör `%s --mellan` (tidsgräns 600000 ms) och för undersidan `--sida /<väg>/`. Läs med Read mobilens,' % forhand,
-        '   surfplattans och datorns första vy och hela sida, och huvudreferensens bilder i samma varv.',
-        '2. Skriv i RIKTNING.md under "Förfining, varv N" vad du såg, mobilen först: ägarens ord punkt för punkt, bildurval och',
-        '   beskärning, typografiska proportioner, linjering, innehållstäthet, sektionsövergångar; vad du rättar, hur, och vad i',
-        '   metoden som gav åtgärden.',
-        '3. Rätta i %s/src/pages/. Sakuppgifterna ändras aldrig; rubriker och ordning får bearbetas med formen.' % s,
-        '4. Nästa varv bygger på det du såg. Sluta när ett varv inte visar något du kan förbättra och varje punkt i ägarens dom',
-        '   är åtgärdad eller besvarad med skäl i RIKTNING.md. Bär grundidén inte ägarens kritik: byt det som bär, inte bara detaljer.',
-        'DESIGN.md: skriv %s/DESIGN.md ur den förfinade sidan i formatet i kunskap/bygge-referens.md (värdena märkta' % s,
-        '`uppmätt:` med var i din kod de står, `uppskattat:` eller `valt:` med skäl; huvudreferensen är den i RIKTNING.md), kör',
-        '`.venv/bin/python kontroller/design.py %s --kandidat %s --skriv` och låt sidorna använda variablerna (importera' % (slug, kid),
-        '../styles/design.css och använd var(--farg-…) och var(--typ-…)), så att DESIGN.md och koden säger samma sak. Kör',
-        'förhandsvisningen igen efter det och läs bilderna.',
-        'Typsnitt: `.venv/bin/python kontroller/typsnitt.py %s @fontsource-variable/<namn>`. Ringlänken är numret ur' % slug,
-        'VERKSAMHET.json%s. Formulär postar till /api/forfragan/ och landar på /tack/ (lokal demonstration).' % ((' (%s)' % tel) if tel else ''), '',
-        'Du är klar när den renderade sidan visar att %s, att %s, att %s och att %s, varje punkt i' % VISAR,
-        'ägarens dom är åtgärdad eller besvarad, och DESIGN.md är giltig och används; skriv under "Visar" i RIKTNING.md vilken',
-        'bild som visar var och en.', atelje.MATERIAL])
+        'Arbetsgången, varv för varv (%s):' % VARVREGEL,
+        '1. Kör `%s --mellan` (tidsgräns 600000 ms) och för en undersida `--sida /<väg>/`. Läs med Read mobilens,' % forhand,
+        '   surfplattans och datorns första vy och hela sida.',
+        '2. Skriv i RIKTNING.md under "Uppdrag %s, varv N": bristen du ser (bild, bredd, element eller område, tillstånd),' % dom.get('tid'),
+        '   ändringen och var i koden, och i nästa varv efterkontrollen: blev det bättre i bilderna, och vad står kvar.',
+        '3. Ändra i %s/src/. Sakuppgifterna ändras aldrig.' % s,
+        'DESIGN.md: håll %s/DESIGN.md i takt med koden i formatet i kunskap/bygge-referens.md (värdena märkta `uppmätt:`' % s,
+        'med var i koden de står, `uppskattat:` eller `valt:` med skäl), kör `.venv/bin/python kontroller/design.py %s --kandidat %s --skriv`' % (slug, kid),
+        'och låt sidorna använda variablerna (../styles/design.css, var(--farg-…) och var(--typ-…)).',
+        'Typsnitt: `.venv/bin/python kontroller/typsnitt.py %s @fontsource-variable/<namn>`. Ringlänken är numret ur VERKSAMHET.json%s.' % (
+            slug, (' (%s)' % tel) if tel else ''), '',
+        'Du är klar när bilderna visar det önskade resultatet, omfattningen är gjord eller besvarad med skäl, det som ska',
+        'bevaras står kvar och DESIGN.md är giltig och används; skriv under "Visar" i RIKTNING.md vilken bild som visar var',
+        'och en.', atelje.MATERIAL])
 
 
 def forfina_verktyg(slug, kid):
@@ -4019,84 +4214,251 @@ def designkontroll(slug, kid):
                            huvudreferens=(riktningens_referens(slug, kid) or {}).get('namn'))
 
 
+def fore_efter_prompt(slug, kid, x, y, uppgift):
+    forhand = '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat %s --granskare' % (slug, kid)
+    return '\n'.join([
+        'Du jämför två versioner, X och Y, av samma förslag till en riktig verksamhets startsida. Du vet inte vilken som är',
+        'före och vilken som är efter, och du får ingen förklaring: bilderna bedöms först och för sig (ägarens uppdrag',
+        '2026-10-09). Skaparens text, uppdrag, referenspaket och kod nekas dig. Omdömet är en separat granskares, rådgivande.', '',
+        'Besökarens viktigaste uppgift: %s Besökarnas uppgifter står i %s.' % (uppgift or '(se briefen).', rel(atelje.UNDERLAG / slug / 'BRIEF.md')), '',
+        *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
+        *kompetens.prompt_rader('fore_efter', slug, kid), '',
+        'Version X:', *['- ' + rel(p) for p in x], 'Version Y:', *['- ' + rel(p) for p in y], '',
+        'Arbetsgången:',
+        '1. Läs rollens kärna. Läs med Read varje bild ovan, X och Y i samma bredd efter varandra.',
+        '2. Bedöm område för område vilken version som är bättre för besökaren och verksamheten: första vyn, hierarkin,',
+        '   typografin, bildregin och beskärningen, rytmen, mobilen, datorn och tillstånden som bilderna visar.',
+        '3. Svara i schemat: totalt X, Y, likvardiga eller oklart (oklart när bilderna inte räcker; gissa aldrig), skälet,',
+        '   områdena, och varje skillnad som fynd: bild, version (X eller Y), element eller område (en CSS-väljare när du kan',
+        '   se en i förhandsvisningens utdata, annars området i ord), tillstånd (bredd, menyn, fokus) och avvikelsen;',
+        '   kodkoppling lämnar du tom. lasta: bilderna du läste.',
+        '   Förhandsvisningen (`%s`) visar den nuvarande versionen; använd den bara för tillstånd som bilderna inte visar.' % forhand,
+        'Tiden: högst %d minuter.' % max(2, FRIST_FORE_EFTER // 60), atelje.MATERIAL])
+
+
+def fore_efter(slug, kid, v_fore, v_efter):
+    """Den separata före/efter-bedömningen (ägarens uppdrag 2026-10-09, punkt 10): en blind granskare med rollen kritik
+    ser två versioners bilder som X och Y i slumpad ordning, utan skaparens förklaring, och säger vilken som är bättre,
+    område för område, eller att det är oklart. Ger posten med utfallet ur efter-versionens synvinkel (battre, samre,
+    likvardig, oklart), avsändaren (panelen: en annan granskares bedömning) och vad den bevisligen läste; None när en av
+    versionerna saknar bilder eller svaret uteblev (då är utfallet oklart och står så)."""
+    d = kdir(slug, kid)
+    fore_bilder = d / 'versioner' / v_fore[:12] / 'bilder' / 'start'
+    efter_bilder = d / 'bilder' / 'start'
+    namn = [n for n in ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
+            if forhandsvisa.giltig_bild(fore_bilder / n) and forhandsvisa.giltig_bild(efter_bilder / n)]
+    if not namn:
+        return {'utfall': 'oklart', 'skal': 'versionerna saknar jämförbara bilder', 'fore': v_fore, 'efter': v_efter, 'tid': nu(),
+                'avsandare': skapande.AVSANDARTYPER['granskare'][0]}
+    n = len(list((d / 'fore-efter').glob('*'))) + 1 if (d / 'fore-efter').is_dir() else 1
+    mapp = d / 'fore-efter' / ('%02d' % n)
+    efter_ar_x = random.random() < 0.5
+    x_kalla, y_kalla = (efter_bilder, fore_bilder) if efter_ar_x else (fore_bilder, efter_bilder)
+    for bokstav, kalla_ in (('X', x_kalla), ('Y', y_kalla)):
+        (mapp / bokstav).mkdir(parents=True, exist_ok=True)
+        for f in namn:
+            shutil.copyfile(kalla_ / f, mapp / bokstav / f)
+    x = [mapp / 'X' / f for f in namn]
+    y = [mapp / 'Y' / f for f in namn]
+    uppgift = str(((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid, {}).get('uppgift') or '').strip()
+    blind = blind_nekas(slug, kid, ('fore-efter', forhandsvisa.GRANSKARE))
+    ut = mapp / 'svar.json'
+    tillatet = blind_tillatet(slug, kid, ('fore-efter', forhandsvisa.GRANSKARE), mapp / 'blind.json')
+    try:
+        svar = atelje.session(fore_efter_prompt(slug, kid, x, y, uppgift), LASVERKTYG + kompetens.verktyg('fore_efter', slug, kid), ut,
+                              FORE_EFTER_SCHEMA, MAX_TURER_FORE_EFTER, GRANSKARE_MODELL, 'high', FRIST_FORE_EFTER, nekas=blind, slug=slug,
+                              blind=str(tillatet))
+    except (subprocess.TimeoutExpired, RuntimeError) as e:
+        svar = {'avbruten': '%s: %s' % (type(e).__name__, str(e)[:200])}
+    so = svar.get('structured_output') if isinstance(svar.get('structured_output'), dict) else {}
+    efter_bokstav = 'X' if efter_ar_x else 'Y'
+    totalt = so.get('totalt')
+    utfall = ('battre' if totalt == efter_bokstav else 'samre' if totalt in ('X', 'Y') else 'likvardig' if totalt == 'likvardiga' else 'oklart')
+    lasning = bildkedja.lasning(svar.get('session_id'), {'X': [str(p) for p in x], 'Y': [str(p) for p in y]}) if svar.get('session_id') else None
+    sett = bool(lasning and lasning.get('verifierad') and all(not g['saknas'] for g in lasning['grupper'].values()))
+    if so and not sett and lasning and lasning.get('verifierad'):
+        utfall = 'oklart'  # en jämförelse utan bevisligen lästa bilder är ingen jämförelse
+    kodkopplade = []
+    for f in so.get('fynd') or []:
+        if isinstance(f, dict):
+            kodkopplade.append(dict(f, version=('efter' if f.get('version') == efter_bokstav else 'före' if f.get('version') in ('X', 'Y') else f.get('version')),
+                                    kodkoppling=f.get('kodkoppling') or kodkoppling(slug, kid, f.get('element'))))
+    post = {'tid': nu(), 'fore': v_fore, 'efter': v_efter, 'utfall': utfall, 'skal': so.get('skal') or svar.get('avbruten') or 'inget svar',
+            'omraden': [dict(o, battre={'X': 'efter' if efter_bokstav == 'X' else 'före', 'Y': 'efter' if efter_bokstav == 'Y' else 'före'}.get(o.get('battre'), o.get('battre')))
+                        for o in so.get('omraden') or [] if isinstance(o, dict)],
+            'fynd': kodkopplade, 'efter_var': efter_bokstav, 'katalog': rel(mapp), 'lasning': lasning, 'sett': sett,
+            'avsandare': skapande.AVSANDARTYPER['granskare'][0], 'session': {k_: svar.get(k_) for k_ in ('session_id', 'num_turns', 'duration_ms')}}
+    (mapp / 'FORE-EFTER.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return post
+
+
+def kodkoppling(slug, kid, element):
+    """En heuristisk koppling från ett utpekat element (en CSS-väljare) till kandidatens källkod: filerna och raderna där
+    väljarens klasser och id står (Onlook och Astros dev-annoteringar som jämförelse: förhandsvisningens bygge bär inga
+    källattribut, så kopplingen söker i koden). Ger ['fil:rad', …] eller []; en tom lista betyder ingen träff, inte fel."""
+    if not isinstance(element, str) or not element.strip():
+        return []
+    namn = [m for m in re.findall(r'[.#]([A-Za-z_][\w-]{1,60})', element)]
+    src = ksajt(slug, kid) / 'src'
+    ut = []
+    if not namn or not src.is_dir():
+        return ut
+    for f in sorted(src.rglob('*')):
+        if not f.is_file() or f.is_symlink() or f.suffix not in ('.astro', '.css', '.tsx', '.jsx', '.ts', '.js'):
+            continue
+        try:
+            rader = f.read_text(encoding='utf-8', errors='replace').splitlines()
+        except OSError:
+            continue
+        for i, r in enumerate(rader, 1):
+            if any(re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(n), r) for n in namn):
+                ut.append('%s:%d' % (rel(f), i))
+                if len(ut) >= 6:
+                    return ut
+    return ut
+
+
+def fore_efter_regel(u, post, passens):
+    """Före/efter styr fortsättningen (ägarens uppdrag 2026-10-09, punkt 10). Ger (beslut, skäl):
+    - fora_vidare: efter-versionen är bättre eller likvärdig och tekniskt fungerande;
+    - kraver_losning: efter-versionen är sämre i bilderna men behövs tekniskt (ett pass rättade tillgänglighet eller ett
+      kvalitetskrav): den står kvar och kräver fortsatt lösning;
+    - aterstall: efter-versionen är sämre och inte tekniskt nödvändig: versionen före gäller, och efter-versionen är
+      bevarad och kan väljas;
+    - oklart: bedömningen gav inget besked; resultatet står som oklart, och båda versionerna kan väljas."""
+    utfall = (post or {}).get('utfall') or 'oklart'
+    if utfall in ('battre', 'likvardig'):
+        return 'fora_vidare', 'den separata granskaren bedömde efter-versionen som %s' % ('bättre' if utfall == 'battre' else 'likvärdig')
+    if utfall == 'samre':
+        nodvandig = [p_ for p_, r in (passens or {}).items() if (r.get('visuell_bedomning') or {}).get('tekniskt_nodvandig')]
+        if nodvandig:
+            return 'kraver_losning', 'sämre i bilderna enligt den separata granskaren, men tekniskt nödvändig (%s): kräver fortsatt lösning' % ', '.join(nodvandig)
+        return 'aterstall', 'sämre i bilderna enligt den separata granskaren; versionen före gäller'
+    return 'oklart', 'före/efter-bedömningen gav inget besked (%s)' % ((post or {}).get('skal') or 'inget svar')
+
+
 def forfina_kandidat(slug, kid, v, dom):
-    """En vald kandidat förfinas i sitt eget projekt: från den version ägaren valde, med ägarens ord och delar, och
-    DESIGN.md i takt med koden. Förfiningen märks medan den pågår; en avbruten förfining tas om från den valda versionen
-    vid återupptagningen. Gör förfiningen inget eget varv, eller blir resultatet ofullständigt, står den valda versionen
-    kvar (status vald) med skälet; förfiningens egna varv räknas från dess start."""
+    """Ett uppdrag (rätta, omarbeta designen eller bygg ut) på en vald kandidat i dess eget projekt, från den version
+    beslutet gäller: sessionen med uppdragets prompt, omfattningskontrollen, de specialistpass uppdraget begär (ändra eller
+    bedöm), den separata före/efter-bedömningen och regeln för fortsättningen. Märkt medan det pågår; ett avbrutet uppdrag
+    tas om från versionen före vid återupptagningen. Ger kandidatens status."""
+    u = uppdraget(dom)
+    if not u:
+        raise ValueError('beslutet bär inget giltigt uppdrag (rätta, omarbeta designen eller bygg ut med resultat, omfattning och bevara)')
     st = las_status(slug, kid)
     if st.get('status') == 'forfinad' and (st.get('forfining') or {}).get('dom') == dom.get('tid'):
-        return efter_fordjupning(slug, kid, dom)  # redan förfinad efter domen: passen som saknas görs (granskning 4, G4)
-    if st.get('forfining_pagar') and nastlad_session(st.get('session_pid')):  # en förfining som överlevde arbetaren (G16)
+        return efter_fordjupning(slug, kid, dom)  # redan utfört efter beslutet: passen som saknas görs (granskning 4, G4)
+    if st.get('forfining_pagar') and nastlad_session(st.get('session_pid')):  # ett uppdrag som överlevde arbetaren (G16)
         atelje.doda_trad(st.get('session_pid'))
-    if st.get('version') != v or st.get('forfining_pagar') or st.get('forbattras'):  # projektet är det ägaren valde, inget halvgjort
+    if st.get('version') != v or st.get('forfining_pagar') or st.get('forbattras'):  # projektet är versionen beslutet gäller
         aterstall_och_fotografera(slug, kid, v)
     bevara_version(slug, kid, v, bilder=True)
     start_varv = max(varvnummer(slug, kid) or [0])
-    satt_status(slug, kid, 'under_arbete', 'förfining efter ägarens dom %s' % dom.get('tid'),
-                forfining_pagar={'dom': dom.get('tid'), 'fran': v, 'start_varv': start_varv}, metod=dict(st.get('metod') or {}, forfina=metodinfo(slug, 'forfina')['sha']))
+    fore_sidor = sidvagar(slug, kid)
+    satt_status(slug, kid, 'under_arbete', '%s efter beslutet %s' % (u['namn'], dom.get('tid')),
+                forfining_pagar={'dom': dom.get('tid'), 'fran': v, 'start_varv': start_varv, 'typ': u['typ']},
+                metod=dict(st.get('metod') or {}, forfina=metodinfo(slug, 'forfina')['sha']))
     d = kdir(slug, kid)
-    ut = d / ('svar-forfina-%s.json' % nu().replace(':', ''))
+    ut = d / ('svar-uppdrag-%s-%s.json' % (u['typ'], nu().replace(':', '')))
     delar = [k for k in (dom.get('delar') or {}) if ID.fullmatch(str(k))] if isinstance(dom.get('delar'), dict) else []
     try:
-        svar = atelje.session(forfina_prompt(slug, kid, dom), forfina_verktyg(slug, kid), ut, max_turer=400, frist=FRIST_FORFINA,
+        svar = atelje.session(uppdrag_prompt(slug, kid, dom, u), forfina_verktyg(slug, kid), ut, max_turer=400, frist=FRIST_FORFINA,
                               nekas=andra_nekas(slug, kid, utom=delar), slug=slug,
-                              vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'förfining efter ägarens dom %s' % dom.get('tid'),
+                              vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', '%s efter beslutet %s' % (u['namn'], dom.get('tid')),
                                                                 session_pid=pid))  # --stoppa och återupptagningen hittar sessionen (G16)
     except (subprocess.TimeoutExpired, RuntimeError) as e:
         svar = {'avbruten': '%s: %s' % (type(e).__name__, str(e)[:300])}
     lasn = lasningen(slug, kid, ut, 'forfina')
     nya_varv = varv_antal(slug, kid, efter=start_varv)
-    st = fotografera(slug, kid, skiss=False)  # den fördjupade sidan prövas helt: startsidan, undersidan och kontrollerna
-    info = {'dom': dom.get('tid'), 'fran': v, 'klar': nu(), 'svar': ut.name, 'avbruten': svar.get('avbruten'), 'varv': nya_varv, 'lasning': lasn}
-    if st['status'] != 'klar' or nya_varv == 0:
-        skal = st.get('skal', '') if st['status'] != 'klar' else 'förfiningen gjorde inget eget förhandsvarv (%s)' % (svar.get('avbruten') or 'sessionen slutade')
+    skiss = not (u['typ'] == 'bygg_ut' or st.get('fordjupad'))
+    st2 = fotografera(slug, kid, skiss=skiss)
+    efter_sidor = sidvagar(slug, kid)
+    omf = omfattningsbrister(u, fore_sidor, efter_sidor)
+    info = {'dom': dom.get('tid'), 'typ': u['typ'], 'uppdrag': u, 'fran': v, 'klar': nu(), 'svar': ut.name, 'avbruten': svar.get('avbruten'),
+            'varv': nya_varv, 'lasning': lasn, 'sidor_fore': fore_sidor, 'sidor_efter': efter_sidor, 'omfattning_brister': omf,
+            'avsandare': skapande.avsandare(dom)['text']}
+    if st2['status'] != 'klar' or nya_varv == 0 or (omf and u['typ'] in ('ratta', 'omarbeta')):
+        skal = (st2.get('skal', '') if st2['status'] != 'klar' else '; '.join(omf) if omf
+                else 'uppdraget gjorde inget eget förhandsvarv (%s)' % (svar.get('avbruten') or 'sessionen slutade'))
         try:
             aterstall_och_fotografera(slug, kid, v)
         except Exception as e:  # noqa: BLE001
             skal += '; återställningen föll: %s' % str(e)[:200]
-        return satt_status(slug, kid, 'vald', 'förfiningen gav ingen användbar version (%s); den valda versionen står kvar' % skal[:400],
-                           ta_bort=('forfining_pagar',), forfining=info)
+        return satt_status(slug, kid, 'vald', '%s gav ingen användbar version (%s); versionen %s står kvar' % (u['namn'], skal[:400], v[:12]),
+                           ta_bort=('forfining_pagar',), forfining=info, uppdragen=list(st.get('uppdragen') or []) + [info])
     k = designkontroll(slug, kid)
-    skal = 'förfinad efter ägarens dom %s' % dom.get('tid')
-    if nya_varv < atelje.MIN_VARV_FORFINA:
-        skal += '; %d förfiningsvarv av arbetsregelns %d' % (nya_varv, atelje.MIN_VARV_FORFINA)
-    if not k['ok']:
-        skal += '; DESIGN.md har brister'
-    satt_status(slug, kid, 'forfinad', skal, ta_bort=('forfining_pagar', 'session_pid'), forfining=info, design_fel=k['fel'][:8], fordjupad=True)
-    return efter_fordjupning(slug, kid, dom)  # passen på den fördjupade sidan, och DESIGN.md-kontrollen efter dem
+    skal = '%s utfört efter beslutet %s' % (u['namn'], dom.get('tid')) + ('; ' + '; '.join(omf) if omf else '') + ('' if k['ok'] else '; DESIGN.md har brister')
+    satt_status(slug, kid, 'forfinad', skal, ta_bort=('forfining_pagar', 'session_pid'), forfining=info, design_fel=k['fel'][:8],
+                fordjupad=bool(st.get('fordjupad') or u['typ'] == 'bygg_ut'), uppdragen=list(st.get('uppdragen') or []) + [info])
+    return efter_fordjupning(slug, kid, dom)  # de begärda passen, före/efter och DESIGN.md-kontrollen
 
 
 def forfina_valda(slug, status, skriv):
-    """Läget valda (prototyp.py, efter ägarens beslut valj eller putsa): varje vald kandidat förfinas för sig, några åt
-    gången; flera valda hålls isär. Återupptagbar: en klar förfining efter samma dom görs inte om, en avbruten tas om
-    från den valda versionen. Sedan väntar flödet på ägarens bedömning igen."""
+    """Läget valda (prototyp.py och atelje.py --valda, efter ett beslut uppdrag): varje kandidat i beslutet får uppdraget
+    för sig, några åt gången. Ett val (valj) startar inget; en rättelse, ett designomtag och en utbyggnad är egna uppdrag
+    (ägarens uppdrag 2026-10-09, punkt 8). Återupptagbart: ett utfört uppdrag efter samma beslut görs inte om, ett avbrutet
+    tas om från versionen före. Sedan väntar flödet på beställarens bedömning igen."""
     status['kandidatflode'] = True  # först: faller något nedan är körningen ändå kandidatflödets (granskning 2, N1)
     dom = skapande.senaste(slug, underlag=atelje.UNDERLAG)
-    if not dom or dom.get('beslut') not in ('valj', 'putsa') or not dom.get('kandidater'):
-        raise RuntimeError('ägarens senaste dom väljer ingen kandidat att förfina')
+    if dom and dom.get('beslut') == 'valj' and versionsval(slug, dom):
+        return ta_fram_valda_versioner(slug, status, skriv, dom)
+    if not dom or dom.get('beslut') != 'uppdrag' or not dom.get('kandidater') or not uppdraget(dom):
+        raise RuntimeError('det senaste beslutet är inget uppdrag på en kandidat (rätta, omarbeta designen eller bygg ut)')
     valda = [(k['id'], k['version']) for k in dom['kandidater'] if isinstance(k, dict) and k.get('id') in lista(slug)]
-    status.update(steg='forfina', valda=[k for k, _ in valda], dom=dom.get('tid'))
+    status.update(steg='forfina', valda=[k for k, _ in valda], dom=dom.get('tid'), uppdrag=uppdraget(dom)['typ'])
     skriv()
     status['metod'] = {s: m['sha'] for s, m in leverera_metod(slug).items()}
     skriv()
     versioner = dict(valda)
     kor_pool(slug, [k for k, _ in valda], lambda kid: forfina_kandidat(slug, kid, versioner[kid], dom), status, skriv)
-    for kid, v in valda:  # en förfining som föll med ett undantag: den valda versionen återställs (granskning 2, N10)
+    for kid, v in valda:  # ett uppdrag som föll med ett undantag: versionen beslutet gällde återställs (granskning 2, N10)
         st = las_status(slug, kid)
         if st.get('status') in ('fel', 'under_arbete'):
             skal = str(st.get('skal'))[:300]
             try:
                 aterstall_och_fotografera(slug, kid, v)
-                satt_status(slug, kid, 'vald', 'förfiningen föll (%s); den valda versionen är återställd' % skal, ta_bort=('forfining_pagar',))
-            except Exception as e:  # noqa: BLE001 — märkningen står kvar: nästa förfining börjar från den valda versionen
-                satt_status(slug, kid, 'vald', 'förfiningen föll (%s) och återställningen föll (%s); nästa förfining börjar från den valda versionen'
-                            % (skal, str(e)[:200]), forfining_pagar=st.get('forfining_pagar') or {'fran': v})
+                satt_status(slug, kid, 'vald', 'uppdraget föll (%s); versionen %s är återställd' % (skal, v[:12]), ta_bort=('forfining_pagar',))
+            except Exception as e:  # noqa: BLE001 — märkningen står kvar: nästa försök börjar från versionen
+                satt_status(slug, kid, 'vald', 'uppdraget föll (%s) och återställningen föll (%s); nästa försök börjar från versionen %s'
+                            % (skal, str(e)[:200], v[:12]), forfining_pagar=st.get('forfining_pagar') or {'fran': v})
     klara = [k for k, _ in valda if las_status(slug, k).get('status') == 'forfinad']
     status.update(steg='klar_for_bedomning', fas='forfining', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in lista(slug)},
-                  skal='%d av %d valda kandidater förfinade; ägaren bedömer dem och godkänner en för helbygget' % (len(klara), len(valda)))
+                  skal='%s: %d av %d kandidater klara; beställaren bedömer resultatet (och ägaren godkänner för helbygget)' % (
+                      uppdraget(dom)['namn'], len(klara), len(valda)))
     skriv()
     return klara
+
+
+def versionsval(slug, dom):
+    """Kandidaterna i ett val (valj) vars valda version inte är den aktuella men är bevarad: [(id, version)]. Ett sådant val
+    tar fram den tidigare versionen när det startas uttryckligen; det startar inget av sig självt."""
+    ut = []
+    for k in dom.get('kandidater') or []:
+        if isinstance(k, dict) and k.get('id') in lista(slug):
+            v = str(k.get('version') or '')
+            if v and v != las_status(slug, k['id']).get('version') and bevarad(slug, k['id'], v):
+                ut.append((k['id'], v))
+    return ut
+
+
+def ta_fram_valda_versioner(slug, status, skriv, dom):
+    """Den valda tidigare versionen blir kandidatens aktuella (återställd och fotograferad), utan någon session; den
+    version som var aktuell är redan bevarad och kan väljas igen."""
+    status['kandidatflode'] = True
+    par = versionsval(slug, dom)
+    status.update(steg='forfina', valda=[k for k, _ in par], dom=dom.get('tid'), uppdrag='versionsval')
+    skriv()
+    for kid, v in par:
+        bevara_version(slug, kid, las_status(slug, kid).get('version') or '', bilder=True)
+        try:
+            aterstall_och_fotografera(slug, kid, v)
+            satt_status(slug, kid, 'vald', 'den valda versionen %s är framtagen efter beslutet %s' % (v[:12], dom.get('tid')), vald_version=v)
+        except Exception as e:  # noqa: BLE001
+            satt_status(slug, kid, 'vald', 'den valda versionen %s gick inte att ta fram: %s' % (v[:12], str(e)[:200]))
+    status.update(steg='klar_for_bedomning', fas='forfining', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in lista(slug)},
+                  skal='den valda versionen är framtagen för %s; nästa steg är ett uppdrag eller ett godkännande' % ', '.join(k for k, _ in par))
+    skriv()
+    return [k for k, _ in par]
 
 
 # --- redovisningen ---

@@ -886,7 +886,7 @@ def korningslogg(dash, slug, rader=200):
 # --- ägarens ändring ---
 
 ANDRING_ID = re.compile(r'^[A-Za-z0-9_-]{8,80}$')
-ANDRINGSBESLUT = ('valj', 'putsa')
+ANDRINGSBESLUT = ('uppdrag',)  # en ändring är ett uppdrag: rätta, omarbeta designen eller bygg ut (ägarens uppdrag 2026-10-09, punkt 8)
 
 
 def skicka_andring(dash, slug, data):
@@ -894,13 +894,15 @@ def skicka_andring(dash, slug, data):
     atelje.doma), bundet till körningen, kandidaten och versionen ägaren såg, med arbetsytans markering (vy, sida, del)
     och ändringens id på raden. Samma id ger samma rad (dubbelklick, två flikar, tappat svar). En annan körning, en
     inaktuell version eller en körning som inte väntar på ditt beslut nekas med skälet (Inaktuell, HTTP 409); inget
-    vidarebefordras blint, och inget arbete startar här: nästa handling (Förfina de valda) startas uttryckligen."""
+    vidarebefordras blint, och inget arbete startar här: nästa handling (Starta uppdraget) startas uttryckligen. Ändringen är
+    ett uppdrag med typen (rätta, omarbeta designen eller bygg ut), det önskade resultatet, omfattningen och det som ska
+    bevaras; avsändaren är ägaren, eller kunden med ett belägg."""
     _kontroller()
     import kandidater
     import skapande
     if not isinstance(data, dict):
         raise ValueError('ändringen ska vara ett objekt')
-    aid, text, beslut = str(data.get('andring_id') or ''), str(data.get('text') or '').strip(), data.get('beslut') or 'valj'
+    aid, text, beslut = str(data.get('andring_id') or ''), str(data.get('text') or '').strip(), data.get('beslut') or 'uppdrag'
     kid, version, korning = str(data.get('kandidat') or ''), str(data.get('version') or ''), str(data.get('korning') or '')
     if dold(dash, slug)[1]:  # stängt vid fel: en jämförelse som inte går att pröva räknas som oavgjord
         raise ValueError('kunden är en arm i en blind jämförelse, eller jämförelsen kunde inte prövas; välj i Jämförelser först')
@@ -909,7 +911,8 @@ def skicka_andring(dash, slug, data):
     if not ANDRING_ID.fullmatch(aid):
         raise ValueError('ett ändrings-id behövs')
     if beslut not in ANDRINGSBESLUT:
-        raise ValueError('en ändring är valj (förfina kandidaten) eller putsa (förfina vidare)')
+        raise ValueError('en ändring är ett uppdrag: rätta, omarbeta designen eller bygg ut (valj startar inget arbete)')
+    uppdrag = skapande.uppdrag_giltigt(data.get('uppdrag'))  # ValueError med skälet när typ, resultat, omfattning eller bevara saknas
     if not text or len(text) > 8000:
         raise ValueError('skriv vad som ska ändras (högst 8000 tecken)')
     if not KID.fullmatch(kid) or kid not in kandidater.lista(slug):
@@ -932,7 +935,9 @@ def skicka_andring(dash, slug, data):
             raise Inaktuell('körningen väntar inte på ditt beslut (steg %s); ändringen skickas inte' % st.get('steg'))
         # din text är domens text, ordagrant; markeringen står för sig (skapande.kritikrader visar den som markerad i
         # arbetsytan), aldrig i delar, som skaparen läser som det du gillade
-        res = dash.spara_kandidatbeslut(slug, st, {'beslut': beslut, 'kandidater': [{'id': kid, 'version': version}], 'text': text},
+        res = dash.spara_kandidatbeslut(slug, st, {'beslut': beslut, 'kandidater': [{'id': kid, 'version': version}], 'text': text,
+                                                   'uppdrag': dict(uppdrag, omrade=markering) if markering else uppdrag,
+                                                   **({'avsandare': 'kunden', 'belagg': data.get('belagg')} if data.get('avsandare') == 'kunden' else {})},
                                         arbetsyta=dict(markering, andring_id=aid, kandidat=kid, version=version[:12], korning=korning))
     return dict(res, upprepat=False)
 

@@ -33,11 +33,29 @@ UNDERLAG = ROOT / 'underlag'
 DOMLOGG = 'DESIGNDOMAR.jsonl'
 BELAGGFIL = 'DESIGNDOMAR-belagg.jsonl'  # bilagan: ägarens belägg för en befintlig rad, bunden till radens sha256 (GR-20261007-r106#BÖR-2)
 HISTORIK = 'RIKTNINGSHISTORIK.json'
-BESLUT = ('godkand', 'putsa', 'ny_riktning', 'valj', 'jamfor', 'forkasta')
-# kandidatflödets beslut (ägarens uppdrag 2026-10-05, punkt 10): valj = en eller flera kandidater vidare till förfining,
-# jamfor = några kandidater sida vid sida (inget körs), forkasta = alla förkastade (flödet väntar på ny riktning);
-# varje sådant beslut bär kandidaterna med sina versioner, och delar = det ägaren gillade i en kandidat
-KANDIDATBESLUT = ('valj', 'jamfor', 'forkasta')
+BESLUT = ('godkand', 'putsa', 'ny_riktning', 'valj', 'jamfor', 'forkasta', 'uppdrag')
+# kandidatflödets beslut (ägarens uppdrag 2026-10-05, punkt 10, och 2026-10-09 ~17:53Z, punkt 8 och 11): valj = en eller
+# flera kandidater valda för vidareutveckling (det startar inget), jamfor = några kandidater sida vid sida (inget körs),
+# forkasta = alla underkända (flödet väntar på ny riktning), uppdrag = ett av de tre uppdragen nedan för en kandidat i en
+# bestämd version; varje sådant beslut bär kandidaterna med sina versioner, och delar = det ägaren gillade i en kandidat.
+# Val för vidareutveckling, godkännande för helbygge (godkand) och godkännande för publicering (leveransen, README steg 9)
+# är tre olika beslut.
+KANDIDATBESLUT = ('valj', 'jamfor', 'forkasta', 'uppdrag')
+# De tre uppdragen i körvägen (ägarens uppdrag 2026-10-09, punkt 8). Varje uppdrag anger versionen det gäller, det önskade
+# resultatet, omfattningen och det som ska bevaras; benämningarna är de som visas där uppdraget startas.
+UPPDRAGSTYPER = {
+    'ratta': ('Rätta', 'åtgärda de angivna bristerna inom befintlig omfattning: inga nya sidor, sektioner eller funktioner'),
+    'omarbeta': ('Omarbeta designen', 'ändra komposition, bildregi, typografi, rytm och hierarki inom det avtalade innehållet; '
+                                      'grundidén får bytas när den inte bär'),
+    'bygg_ut': ('Bygg ut', 'skapa de överenskomna sektionerna, undersidorna och funktionerna i kandidatens form'),
+}
+UPPDRAGSFALT = ('typ', 'resultat', 'omfattning', 'bevara')  # versionen bärs av kandidaterna i beslutet
+SPECIALISTLAGEN = ('andra', 'bedom')  # ett specialistpass ändrar, eller bedömer ett fungerande område utan att ändra det
+# Återkopplingens form (ägarens uppdrag 2026-10-09, punkt 9): bild, version, element eller område, tillstånd och avvikelse,
+# och kodkopplingen (fil:rad) när den finns; samma form i före/efter-bedömningen, specialistpassen och uppdragen.
+FYND_SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['bild', 'version', 'element', 'tillstand', 'avvikelse', 'kodkoppling'],
+               'properties': {'bild': {'type': 'string'}, 'version': {'type': 'string'}, 'element': {'type': 'string'},
+                              'tillstand': {'type': 'string'}, 'avvikelse': {'type': 'string'}, 'kodkoppling': {'type': 'string'}}}
 # Avsändartyperna (ägarens uppdrag 2026-10-07, punkt 7), en definition var. Den här tabellen och KALLOR är den enda
 # källan i koden för vem en dom eller bedömning kommer från: domloggen, godkännandet, läget, stoppvakten, ateljéns
 # slutpost och korslut läser dem (ar_agarens, avsandare). Att ägaren vidarebefordrar en AI-bedömning gör den inte till
@@ -55,6 +73,9 @@ AVSANDARTYPER = {  # typ: (namn, definition)
     'hypotes': ('hypotes', 'ett antagande som inte är prövat; det prövas innan det styr något'),
     'vidarebefordrad': ('vidarebefordrad AI-bedömning', 'en bedömning av Codex, Claude eller en annan modell som ägaren har '
                                                         'skickat vidare; en egen källa och aldrig ägarens beslut, också i första person'),
+    'kunden': ('kundens egna ord och beslut', 'det kunden själv har valt, begärt eller underkänt bland förslagen; räknas för '
+                                             'kundens val och uppdrag, aldrig för godkännandet för helbygge eller publicering, '
+                                             'och en AI-bedömning bokförs aldrig som kundens'),
 }
 # Domloggens källor (fältet kalla): avsändartypen och definitionen.
 KALLOR = {
@@ -69,11 +90,14 @@ KALLOR = {
     'panelen': ('granskare', 'en annan granskares bedömning: panelen eller en granskare i flödet'),
     'mätning': ('matning', 'ett maskinellt mätresultat'),
     'hypotes': ('hypotes', 'en hypotes som inte är prövad'),
+    'kunden': ('kunden', 'kundens egna ord och beslut, ordagrant: förda in av ägaren i arbetsytan eller med skapande.py dom, '
+                         'med ett belägg för var kundens ord står (samtalet, meddelandet och tiden)'),
 }
 # Källan som alltid är ägarens egen (dashboardens vy Prototyp). Ägaren via Codex räknas bara med ett belägg: avgör
 # ägarens beslut med ar_agarens, inte med den här listan (omgranskningen av skapandeflödet, fynd 2, räknade båda).
 AGAREN = ('ägaren',)
-BELAGG_KRAVS = ('ägaren via Codex',)  # en källa som är ägarens bara med belägg
+BELAGG_KRAVS = ('ägaren via Codex', 'kunden')  # en källa som räknas bara med belägg
+KUNDENS_BESLUT = ('valj', 'jamfor', 'forkasta', 'uppdrag', 'ny_riktning')  # kunden väljer, begär ändringar eller underkänner
 EJ_BELAGD = 'ej belagd'
 # vad en dom återöppnar (Codex 2026-10-05, punkt 2: systemet behöver förstå vilka tidigare beslut ett underkännande
 # återöppnar); fakta om verksamheten återöppnas aldrig
@@ -85,15 +109,22 @@ ATEROPPNAR = {
     'valj': [],
     'jamfor': [],
     'forkasta': ['grundidéerna i kandidaterna', 'referensurvalet och huvudreferenserna'],
+    'uppdrag': [],  # vad ett uppdrag återöppnar beror på typen (ATEROPPNAR_UPPDRAG)
+}
+ATEROPPNAR_UPPDRAG = {
+    'ratta': [],
+    'omarbeta': ['komposition och proportioner', 'bildurval och beskärning', 'typografin', 'rytmen', 'hierarkin',
+                 'grundidén när den inte bär'],
+    'bygg_ut': [],
 }
 # metoden per steg: filerna läses med Read, skillsen med Skill eller genom att läsa deras SKILL.md (Codex 2026-10-05,
 # glapp 2: prototypens skapare läste ingen av dem; en installerad skill finns inte i kontexten förrän den laddas)
 METOD = {
-    'forska': {'filer': ['kunskap/referensjakt.md', 'kunskap/referenser-professionella.md', 'kunskap/visuell-niva.md',
+    'forska': {'filer': ['kunskap/referensjakt.md', 'kunskap/referenser-professionella.md',
                          'kunskap/externa/anthropic-frontend-design-SKILL.md'], 'skills': []},
     'utforska': {'filer': ['kunskap/externa/anthropic-frontend-design-SKILL.md', 'kunskap/externa/leonxlnx-taste-SKILL-ce26fc25.md',
-                           'kunskap/externa/emil-emil-design-eng-SKILL.md', 'kunskap/bild.md', 'kunskap/referenser-professionella.md',
-                           'kunskap/visuell-niva.md'], 'skills': ['better-layout', 'better-typography']},
+                           'kunskap/externa/emil-emil-design-eng-SKILL.md', 'kunskap/bild.md', 'kunskap/referenser-professionella.md'],
+               'skills': ['better-layout', 'better-typography']},
     'forfina': {'filer': ['kunskap/referenser-professionella.md', 'kunskap/bild.md', 'kunskap/copy-kontroll.md'],
                 'skills': ['better-layout', 'better-typography', 'better-ui', 'better-colors', 'better-writing', 'humanizer']},
 }
@@ -118,7 +149,7 @@ def textfil(slug, underlag=None):
 
 
 UNDERLAGSGRUND = ('VERKSAMHET.json', 'BRIEF.md', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md',
-                  'BESTALLNING.md', 'UPPDRAG.md', 'REFERENSER.md', 'KUNDSTART.json')
+                  'BESTALLNING.md', 'UPPDRAG.md', 'REFERENSER.md', 'KUNDSTART.json', 'KUNDFORSTAELSE.md')
 # Kundmaterialet och källorna som också ingår i underlagsversionen. Från en godkänd startsida är grunden och katalogerna
 # frysta under helbygget: kor.sh nekar Write och Edit där och sandlådan Bash (GR-20261008-r117-claude#A3).
 UNDERLAGSKATALOGER = ('bilder', 'kalla', 'referenser')
@@ -363,11 +394,24 @@ def belagg(d):
 def ar_agarens(d):
     """Är domen ägarens eget beslut? Källan ägaren, eller ägaren via Codex med ett belägg (ägarens uppdrag 2026-10-07,
     punkt 7). En vidarebefordrad AI-bedömning, Codex, skaparen, panelen, en mätning, en hypotes, en okänd källa och
-    ägaren via Codex utan belägg är det aldrig, varken för godkännandet, läget, stoppet eller slutposterna."""
+    ägaren via Codex utan belägg är det aldrig, varken för godkännandet, läget, stoppet eller slutposterna. Kundens beslut
+    är kundens (ar_kundens), inte ägarens."""
     if not isinstance(d, dict):
         return False
     k = d.get('kalla')
-    return k in AGAREN or (k in BELAGG_KRAVS and belagg(d) is not None)
+    return k in AGAREN or (k == 'ägaren via Codex' and belagg(d) is not None)
+
+
+def ar_kundens(d):
+    """Är domen kundens eget val, uppdrag eller underkännande (källan kunden med belägg, ett av KUNDENS_BESLUT)? Ägarens
+    uppdrag 2026-10-09, punkt 11: kunden kan välja, begära ändringar eller underkänna alla; godkännandet för helbygge och
+    publicering är ägarens."""
+    return isinstance(d, dict) and d.get('kalla') == 'kunden' and belagg(d) is not None and d.get('beslut') in KUNDENS_BESLUT
+
+
+def ar_beslut(d):
+    """Styr domen flödet? Ägarens beslut, eller kundens inom kundens beslut."""
+    return ar_agarens(d) or ar_kundens(d)
 
 
 def avsandare(d):
@@ -392,14 +436,19 @@ def lagg_till_dom(slug, kalla, beslut, text, avser='', underlag=None, tid=None, 
     if kalla not in KALLOR or beslut not in BESLUT or not isinstance(text, str) or not text.strip():
         raise ValueError('domen behöver källa (%s), beslut (%s) och text' % (', '.join(KALLOR), ', '.join(BESLUT)))
     if kalla in BELAGG_KRAVS and belagg(extra) is None:
-        raise ValueError('%s kräver ett belägg för att orden är ägarens egna (var de står); en bedömning som ägaren har '
-                         'vidarebefordrat förs in med källan vidarebefordrad AI-bedömning' % kalla)
+        raise ValueError('%s kräver ett belägg för att orden är %s egna (var de står); en bedömning som ägaren har '
+                         'vidarebefordrat förs in med källan vidarebefordrad AI-bedömning' % (kalla, 'kundens' if kalla == 'kunden' else 'ägarens'))
+    if kalla == 'kunden' and beslut not in KUNDENS_BESLUT:
+        raise ValueError('kunden väljer, begär uppdrag eller underkänner (%s); godkännandet för helbygge och publicering är '
+                         'ägarens' % ', '.join(KUNDENS_BESLUT))
+    if beslut == 'uppdrag':
+        extra['uppdrag'] = uppdrag_giltigt(extra.get('uppdrag'))
     if 'belagg' in extra:
         extra['belagg'] = belagg(extra)
         if extra['belagg'] is None:
             extra.pop('belagg')
     post = {'tid': tid or nu(), 'kalla': kalla, 'beslut': beslut, 'text': text.strip()[:20000], 'avser': str(avser)[:400],
-            'ateroppnar': ATEROPPNAR[beslut], **extra}
+            'ateroppnar': ATEROPPNAR_UPPDRAG[extra['uppdrag']['typ']] if beslut == 'uppdrag' else ATEROPPNAR[beslut], **extra}
     f = Path(underlag or UNDERLAG) / slug / DOMLOGG
     f.parent.mkdir(parents=True, exist_ok=True)
     with open(f, 'ab') as fh:
@@ -413,12 +462,45 @@ def lagg_till_dom(slug, kalla, beslut, text, avser='', underlag=None, tid=None, 
     return post
 
 
+def uppdrag_giltigt(u):
+    """Uppdraget i ett beslut, prövat och normaliserat: typ (UPPDRAGSTYPER), resultat (text), omfattning och bevara
+    (listor med minst en rad; bevara får vara tom bara när inget särskilt ska bevaras och det sägs), specialister (rollen
+    rorelse eller granskning med läget andra eller bedom). ValueError med skälet."""
+    if not isinstance(u, dict):
+        raise ValueError('uppdraget saknas: typ (%s), resultat, omfattning och bevara' % ', '.join(UPPDRAGSTYPER))
+    typ = u.get('typ')
+    if typ not in UPPDRAGSTYPER:
+        raise ValueError('okänd uppdragstyp %r; välj %s' % (typ, ', '.join(UPPDRAGSTYPER)))
+    lista = lambda x: [str(r).strip()[:600] for r in (x if isinstance(x, list) else [x] if isinstance(x, str) else []) if str(r).strip()][:20]  # noqa: E731
+    resultat = str(u.get('resultat') or '').strip()[:2000]
+    omfattning, bevara = lista(u.get('omfattning')), lista(u.get('bevara'))
+    if not resultat:
+        raise ValueError('uppdraget saknar det önskade resultatet')
+    if not omfattning:
+        raise ValueError('uppdraget saknar omfattningen (bristerna att rätta, områdena att omarbeta eller det som ska byggas ut)')
+    if not bevara:
+        raise ValueError('uppdraget saknar vad som ska bevaras (skriv "inget särskilt" när inget ska bevaras)')
+    spec = u.get('specialister') or {}
+    if not isinstance(spec, dict) or any(k not in ('rorelse', 'granskning') or v not in SPECIALISTLAGEN for k, v in spec.items()):
+        raise ValueError('specialisterna anges som rorelse/granskning med läget andra eller bedom')
+    return {'typ': typ, 'namn': UPPDRAGSTYPER[typ][0], 'resultat': resultat, 'omfattning': omfattning, 'bevara': bevara,
+            # utan uttryckliga specialister får uppdraget typens standard (kandidater.STANDARD_SPECIALISTER); {} betyder inga
+            'specialister': dict(spec) if u.get('specialister') is not None else None,
+            **({'omrade': u['omrade']} if isinstance(u.get('omrade'), dict) else {})}
+
+
+def uppdragstext(u):
+    """Uppdraget i ord, som det visas och bokförs."""
+    return '%s: %s. Omfattning: %s. Bevara: %s.' % (u.get('namn') or UPPDRAGSTYPER.get(u.get('typ'), ('?',))[0], u.get('resultat'),
+                                                 '; '.join(u.get('omfattning') or []), '; '.join(u.get('bevara') or []))
+
+
 def agarens_senaste(slug, underlag=None):
     """Ägarens senaste beslut (ar_agarens) med plats: {'dom', 'rad', 'oklara', 'fil'}. oklara är de rader efter den domen
     (eller i hela loggen, utan någon dom från ägaren) som inte går att läsa: där kan ägarens senare beslut stå, så ett
     beslut som bygger på den senaste domen kan inte fattas förrän raden är rättad (ingen dom försvinner tyst)."""
     lg = domlogg(slug, underlag)
-    rad, dom = next(((r, p) for r, _s, p in reversed(lg['domar']) if ar_agarens(p)), (0, None))
+    rad, dom = next(((r, p) for r, _s, p in reversed(lg['domar']) if ar_beslut(p)), (0, None))
     return {'dom': dom, 'rad': rad or None, 'oklara': [x for x in lg['olasbara'] if x['rad'] > rad], 'fil': lg['fil']}
 
 
@@ -434,9 +516,9 @@ def oklara_text(ag):
 
 
 def senaste(slug, kallor=None, underlag=None):
-    """Den senaste domen från ägaren (ar_agarens: ägaren, eller ägaren via Codex med belägg), eller None. Med kallor (en
-    lista över källor) den senaste från någon av dem."""
-    return next((d for d in reversed(domar(slug, underlag)) if (d.get('kalla') in kallor if kallor is not None else ar_agarens(d))), None)
+    """Det senaste beslutet som styr flödet (ar_beslut: ägarens, eller kundens val, uppdrag och underkännanden), eller
+    None. Med kallor (en lista över källor) den senaste från någon av dem."""
+    return next((d for d in reversed(domar(slug, underlag)) if (d.get('kalla') in kallor if kallor is not None else ar_beslut(d))), None)
 
 
 AKTUELL_START = ('ny_riktning',)  # återöppnar designbesluten (ATEROPPNAR); en förkastning bara grundidéerna och referenserna
@@ -1114,8 +1196,14 @@ def main(argv=None):
                    'meddelandet och tiden')
     d.add_argument('--avser', default='')
     d.add_argument('--tid', default=None)
-    d.add_argument('--kandidater', default='', help='kandidatflödet: kandidaterna domen gäller (kNN eller Förslag X), '
-                   'kommaseparerade; versionerna är de som gäller nu')
+    d.add_argument('--kandidater', default='', help='kandidatflödet: kandidaterna domen gäller (kNN eller Förslag X, och kNN@<version> '
+                   'för en tidigare bevarad version), kommaseparerade; utan @ gäller versionen som är aktuell nu')
+    d.add_argument('--uppdrag', choices=list(UPPDRAGSTYPER), help='beslutet uppdrag: ratta, omarbeta eller bygg_ut')
+    d.add_argument('--resultat', default='', help='beslutet uppdrag: det önskade resultatet')
+    d.add_argument('--omfattning', action='append', default=[], help='beslutet uppdrag: en rad i omfattningen (upprepas)')
+    d.add_argument('--bevara', action='append', default=[], help='beslutet uppdrag: det som ska bevaras (upprepas)')
+    d.add_argument('--specialist', action='append', default=[], help='beslutet uppdrag: rorelse=andra|bedom eller granskning=andra|bedom; '
+                   'utan flaggan typens standard, med "inga" inga pass')
     b = sub.add_parser('belagg', help='ägarens belägg i efterhand för en befintlig rad "ägaren via Codex" i domloggen: en rad i '
                                       'underlag/<slug>/%s bunden till radens sha256; loggen skrivs inte om och raden blir ingen ny dom' % BELAGGFIL)
     b.add_argument('slug')
@@ -1141,10 +1229,22 @@ def main(argv=None):
         extra = {}
         # ägarens ord utanför dashboarden (ägarens uppdrag 2026-10-07, punkt 7): belägget säger var ägarens egna ord står;
         # en bedömning som ägaren vidarebefordrat är källan "vidarebefordrad AI-bedömning", aldrig ägarens
-        if KALLOR[a.kalla][0] == 'agaren' and not a.belagg.strip():
-            print('domen skrevs inte: källan %s kräver --belagg (var ägarens egna ord står); en bedömning som ägaren '
-                  'vidarebefordrat förs in med --kalla "vidarebefordrad AI-bedömning"' % a.kalla, file=sys.stderr)
+        if KALLOR[a.kalla][0] in ('agaren', 'kunden') and not a.belagg.strip():
+            print('domen skrevs inte: källan %s kräver --belagg (var %s egna ord står); en bedömning som ägaren '
+                  'vidarebefordrat förs in med --kalla "vidarebefordrad AI-bedömning"' % (a.kalla, 'kundens' if a.kalla == 'kunden' else 'ägarens'),
+                  file=sys.stderr)
             return 2
+        if a.beslut == 'uppdrag':
+            spec = None
+            if a.specialist:
+                spec = {}
+                for x in a.specialist:
+                    if x == 'inga':
+                        continue
+                    k_, _, v_ = x.partition('=')
+                    spec[k_.strip()] = v_.strip()
+            extra['uppdrag'] = {'typ': a.uppdrag, 'resultat': a.resultat, 'omfattning': a.omfattning, 'bevara': a.bevara,
+                                **({'specialister': spec} if spec is not None else {})}
         if a.belagg.strip():
             extra['belagg'] = a.belagg.strip()
         if a.kandidater:  # en dom via Codex kan namnge förslagen med ägarens etiketter (Förslag C) eller id (k03)
@@ -1152,11 +1252,14 @@ def main(argv=None):
             omv = {v.split()[-1].upper(): k for k, v in kandidater.etiketter(a.slug, kandidater.lista(a.slug)).items()}
             extra['kandidater'] = []
             for x in (s.strip() for s in a.kandidater.split(',') if s.strip()):
+                x, _, ver = x.partition('@')
                 kid = x if kandidater.ID.fullmatch(x) else omv.get(x.split()[-1].upper())
                 if not kid:
                     print('domen skrevs inte: okänd kandidat %r' % x, file=sys.stderr)
                     return 2
-                extra['kandidater'].append({'id': kid, 'version': kandidater.las_status(a.slug, kid).get('version')})
+                aktuell = kandidater.las_status(a.slug, kid).get('version') or ''
+                full = next((v_ for v_ in kandidater.valbara_versioner(kandidater.las_status(a.slug, kid)) if ver and v_.startswith(ver)), None)
+                extra['kandidater'].append({'id': kid, 'version': full or (ver if ver else aktuell)})
         try:
             post = atelje.doma(a.slug, a.kalla, a.beslut, Path(a.fil).read_text(encoding='utf-8'), avser=a.avser, tid=a.tid, **extra)
         except ValueError as e:
