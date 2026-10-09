@@ -50,6 +50,16 @@ byggsession eller ägarens dator. Nortropics förvaltningsarbete (kontroll, rapp
 från kundlösningens driftmiljö. Övervakning, ansvar och återgång står i drift.md och lansering.md.
 
 
+## Katalogen K01–K18 (2026-10-10)
+
+Integrationskatalogen (`kontroller/integrationer/katalog.json`, validerad av `kontroller/integrationskatalog.py
+--prova`) har ett eller flera paket per område: leveransnivå, när det passar och inte, kunduppgifter, vad som ska
+bevaras, källor med läsdatum, beroenden och uteslutningar, konto och rättigheter, dataflöde, kostnad (okänt är okänt),
+funktioner per steg, färdighet med omfattning och prov. Färdigheten är ärlig: bara leveransvägen på Cloudflare Workers
+(K02, K03, K04) är kontraktsprovad, lokalt; övriga paket är dokumenterade, och körvägarna som fanns i Digitalas verktyg
+(nedan) finns inte här. Ägaren väljer paketen i Kundstart (`kunskap/kundstart.md`, Funktioner och anslutningar), och
+planen räknas fram ur valen.
+
 ## Körbara etablerade standardvägar – 2026-09-28
 
 Vid relevant behov används [integrationer-standardvagar.md](integrationer-standardvagar.md) och

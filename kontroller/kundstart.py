@@ -84,9 +84,14 @@ def kundkallor(d):
 def omfattning(d):
     # Samtal och servermetadata är inte nya omfattningsbeslut. En ändrad uppgift,
     # kundens val eller materialrätt påverkar däremot den accepterade versionen.
-    return sha({'uppgifter': d['uppgifter'], 'material': d['material'],
-                'verksamhet':(d.get('verksamhet') or {}).get('varden'),
-                'integrationer':{k:{n:v for n,v in i.items() if n not in ('utredning',)} for k,i in d.get('integrationer',{}).items()}})
+    o = {'uppgifter': d['uppgifter'], 'material': d['material'],
+         'verksamhet':(d.get('verksamhet') or {}).get('varden'),
+         'integrationer':{k:{n:v for n,v in i.items() if n not in ('utredning',)} for k,i in d.get('integrationer',{}).items()}}
+    # Ägarens paketval ur integrationskatalogen (kundstart_integration.py) är också omfattning; ett ärende utan val
+    # behåller sin tidigare hash.
+    if d.get('integrationsval'):
+        o['integrationsval'] = {k:{n:v for n,v in i.items() if n != 'tid'} for k,i in d['integrationsval'].items()}
+    return sha(o)
 
 
 def vy(d):

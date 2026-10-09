@@ -129,6 +129,17 @@ Leverantörsuppgiften innehåller källadress/datum/hash, men första versionen 
 verifiera den angivna hashen. Konto- och provbesked kräver lokala bevis med verifierad filhash. Okänt är okänt;
 produktens funktionslista blir inte kundens kontoåtkomst. Ingen teknisk rekommendation blir beställd automatiskt.
 
+**Funktioner och anslutningar** (ägarens vy i ärendet; `kontroller/kundstart_integration.py`, uppdraget 2026-10-09):
+ägaren väljer paket ur integrationskatalogen (`kontroller/integrationer/katalog.json`, områdena K01–K18) för kundens
+behov. Valet sparas med katalogens och paketets version och, när det pekar på ett behov, behovets hash. Kundens läge
+styr beställningen: ett val som pekar på ett behov får behovets läge, ett val utan behov är ett förslag, och bara
+grundleveransens paket (hosting, formuläret och dess avisering; katalogens `grund`) ingår utan att kunden kryssar i
+dem. Ändras behovet blir valet inaktuellt och står utanför planen tills ägaren väljer igen; historiken bevaras. Ett nytt
+eller ändrat val är en materiell ändring av den accepterade omfattningen. Planen räknas fram ur valen utan modell
+(`integrationskatalog.planera`) och visar beroenden, konflikter, utredningsvägar, okänd kostnad och de handlingar en
+människa gör. Fyra dimensioner står var för sig: kundens läge, paketets färdighet, anslutningen (utredningens belägg)
+och genomförandet. Valen är manuella; AI-förslag till valen finns inte än.
+
 ## Skydd och lagring
 
 Privat lagring ligger under `underlag/kundstart/`: arenden.sqlite3, GALLRING.json, egna säkerhetskopior och begränsade

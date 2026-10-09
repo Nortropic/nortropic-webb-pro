@@ -24,7 +24,7 @@
   ],
   "paket": [
     {
-      "id": "k01-zon-pa-cloudflare", "version": "1.0.0", "omrade": "K01", "niva": "forvaltning",
+      "id": "k01-zon-pa-cloudflare", "version": "1.0.0", "omrade": "K01", "niva": "forvaltning", "grund": false,
       "funktion": "Webbplatsen på kundens egen domän, med domänens DNS hos Cloudflare och registraren kvar där den är.",
       "passar": "Kunden har eller skaffar en domän och kan låta namnservrarna peka på Cloudflare.",
       "passar_inte": "Kunden vill eller får inte flytta DNS (då k01-dns-kvar-hos-kunden), eller domänen saknas och ingen köpt den.",
@@ -43,7 +43,7 @@
       "manniska": ["zonimport och jämförelse mot sparade poster", "namnserverbyte hos registraren", "Custom Domain på produktionens Worker"]
     },
     {
-      "id": "k01-dns-kvar-hos-kunden", "version": "1.0.0", "omrade": "K01", "niva": "utreds",
+      "id": "k01-dns-kvar-hos-kunden", "version": "1.0.0", "omrade": "K01", "niva": "utreds", "grund": false,
       "funktion": "Kunden behåller DNS hos sin nuvarande leverantör.",
       "passar": "Kunden kan inte flytta DNS.",
       "passar_inte": "Som standard: kräver partiell zon (Business) eller Cloudflare for SaaS, där apex bara kan proxas med Enterprise.",
@@ -59,7 +59,7 @@
       "manniska": ["ägarens planbeslut"]
     },
     {
-      "id": "k02-cloudflare-workers", "version": "1.0.0", "omrade": "K02", "niva": "forvaltning",
+      "id": "k02-cloudflare-workers", "version": "1.0.0", "omrade": "K02", "niva": "forvaltning", "grund": true,
       "funktion": "Webbplatsen förrenderad som statiska filer på Cloudflare Workers, med en skyddad förhandsvisning före varje release.",
       "passar": "Alla nya webbplatser (ägarens beslut 2026-10-09).",
       "passar_inte": "Webbplatser som redan ligger på Vercel (ägarens besked 2026-10-09: de flyttas inte).",
@@ -78,7 +78,7 @@
       "manniska": ["ansluta kontot (cloudflare.env)", "Access-applikationen för förhandsvisningen", "D1 och R2 med EU-jurisdiktion", "produktionens release"]
     },
     {
-      "id": "k02-vercel-befintlig", "version": "1.0.0", "omrade": "K02", "niva": "forvaltning",
+      "id": "k02-vercel-befintlig", "version": "1.0.0", "omrade": "K02", "niva": "forvaltning", "grund": false,
       "funktion": "En webbplats som redan ligger på Vercel förvaltas där.",
       "passar": "Bara de befintliga sajterna på Vercel (ägarens besked 2026-10-09).", "passar_inte": "Nya webbplatser.",
       "kunduppgifter": [], "bevara": ["Vercel-projektet, dess domän och data"],
@@ -92,7 +92,7 @@
       "begransningar": ["Ingen ny kund."], "paverkar": {"brief": null, "design": null, "kod": null, "externt": null}, "manniska": []
     },
     {
-      "id": "k03-formular-worker", "version": "1.0.0", "omrade": "K03", "niva": "inbyggd",
+      "id": "k03-formular-worker", "version": "1.0.0", "omrade": "K03", "niva": "inbyggd", "grund": true,
       "funktion": "Förfrågningsformulär med valfri bild, som sparar varje förfrågan innan verksamheten aviseras.",
       "passar": "Varje webbplats (ägarens regel 2026-10-02: en skriftlig väg utan mejlklient).", "passar_inte": "Kunden har redan en formtjänst som ska behållas (utreds då som eget val).",
       "kunduppgifter": ["vem som tar emot förfrågningar", "svarstid som får lovas", "lagringstid för förfrågningar"], "bevara": [],
@@ -110,7 +110,7 @@
       "manniska": ["riktigt inskick från verksamheten före lansering"]
     },
     {
-      "id": "k03-turnstile", "version": "1.0.0", "omrade": "K03", "niva": "inbyggd",
+      "id": "k03-turnstile", "version": "1.0.0", "omrade": "K03", "niva": "inbyggd", "grund": false,
       "funktion": "Cloudflare Turnstile som extra spamskydd när honeypot och tidsfälla inte räcker.",
       "passar": "Spam kommer igenom trots fällorna.", "passar_inte": "Som standard (fällorna räcker oftast och Turnstile kräver skript från tredje part).",
       "kunduppgifter": [], "bevara": [], "kallor": [{"url": "https://developers.cloudflare.com/turnstile/", "last": "2026-10-10"}],
@@ -123,7 +123,7 @@
       "begransningar": ["Samtyckesfrågan för tredjepartsskript prövas före."], "paverkar": {"brief": null, "design": "widgeten i formuläret", "kod": "Forfragan.astro, worker/index.js", "externt": "Turnstile"}, "manniska": []
     },
     {
-      "id": "k04-resend-transaktion", "version": "1.0.0", "omrade": "K04", "niva": "api",
+      "id": "k04-resend-transaktion", "version": "1.0.0", "omrade": "K04", "niva": "api", "grund": true,
       "funktion": "Webbplatsens egna mejl (aviseringen om en förfrågan) från verksamhetens domän.",
       "passar": "Formuläret ska avisera verksamheten.", "passar_inte": "Nyhetsbrev och utskick (K14 har annat ändamål och behörighet).",
       "kunduppgifter": ["avsändaradress på domänen", "mottagare"], "bevara": ["verksamhetens befintliga brevlådor och MX"],
@@ -140,7 +140,7 @@
       "manniska": ["domänverifiering hos Resend (DNS)", "biträdesavtalet accepterat"]
     },
     {
-      "id": "k04-befintlig-brevlada", "version": "1.0.0", "omrade": "K04", "niva": "forvaltning",
+      "id": "k04-befintlig-brevlada", "version": "1.0.0", "omrade": "K04", "niva": "forvaltning", "grund": false,
       "funktion": "Verksamhetens befintliga e-post (Microsoft 365, Google Workspace eller annan) behålls orörd.",
       "passar": "Alltid när verksamheten har e-post på domänen.", "passar_inte": "-",
       "kunduppgifter": ["e-postleverantör"], "bevara": ["MX, SPF, DKIM, DMARC och autodiscover"],
@@ -154,7 +154,7 @@
       "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": null}, "manniska": ["spara posterna före bytet"]
     },
     {
-      "id": "k05-search-console", "version": "1.0.0", "omrade": "K05", "niva": "forvaltning",
+      "id": "k05-search-console", "version": "1.0.0", "omrade": "K05", "niva": "forvaltning", "grund": false,
       "funktion": "Search Console för domänen: verifiering, sitemap och uppföljning av indexering. Inget löfte om placering.",
       "passar": "Varje lanserad webbplats.", "passar_inte": "En förhandsvisning.",
       "kunduppgifter": ["vem som äger egenskapen"], "bevara": ["befintlig egenskap och dess ägare"],
@@ -169,7 +169,7 @@
       "manniska": ["verifiera och lämna sitemap"]
     },
     {
-      "id": "k06-hitta-hit", "version": "1.0.0", "omrade": "K06", "niva": "inbyggd",
+      "id": "k06-hitta-hit", "version": "1.0.0", "omrade": "K06", "niva": "inbyggd", "grund": false,
       "funktion": "Adress som text med en vanlig länk till vägbeskrivning; en karta laddas först efter besökarens val.",
       "passar": "Verksamheter med en plats besökare kommer till.", "passar_inte": "Verksamheter utan besöksadress.",
       "kunduppgifter": ["besöksadress", "öppettider"], "bevara": [],
@@ -183,7 +183,7 @@
       "begransningar": [], "paverkar": {"brief": "adress och öppettider", "design": "kontaktsidan", "kod": "kontaktsidan", "externt": null}, "manniska": []
     },
     {
-      "id": "k06-foretagsprofil", "version": "1.0.0", "omrade": "K06", "niva": "forvaltning",
+      "id": "k06-foretagsprofil", "version": "1.0.0", "omrade": "K06", "niva": "forvaltning", "grund": false,
       "funktion": "Google-företagsprofilen uppdateras med samma uppgifter som webbplatsen; befintlig profil ersätts eller dupliceras aldrig.",
       "passar": "Lokala verksamheter.", "passar_inte": "-", "kunduppgifter": ["vem som äger profilen"], "bevara": ["befintlig profil och omdömen"],
       "kallor": [{"url": "https://support.google.com/business/", "last": "2026-09-30"}],
@@ -196,7 +196,7 @@
       "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "profilen"}, "manniska": ["uppdatera profilen på lanseringsdagen"]
     },
     {
-      "id": "k07-matning-utreds", "version": "1.0.0", "omrade": "K07", "niva": "utreds",
+      "id": "k07-matning-utreds", "version": "1.0.0", "omrade": "K07", "niva": "utreds", "grund": false,
       "funktion": "Mätning av förfrågningar och telefonklick utifrån verksamhetens mål, med samtycke där det krävs.",
       "passar": "När verksamheten vill följa upp vad webbplatsen ger.", "passar_inte": "Utan ett mål att följa.",
       "kunduppgifter": ["affärsmål", "befintligt analysverktyg"], "bevara": ["befintlig mätning"],
@@ -210,7 +210,7 @@
       "begransningar": ["Inget verktyg installeras före bedömd samtyckesfråga."], "paverkar": {"brief": "mål", "design": null, "kod": "händelser", "externt": "verktyget"}, "manniska": ["val av verktyg"]
     },
     {
-      "id": "k08-nortropic-forvaltning", "version": "1.0.0", "omrade": "K08", "niva": "forvaltning",
+      "id": "k08-nortropic-forvaltning", "version": "1.0.0", "omrade": "K08", "niva": "forvaltning", "grund": false,
       "funktion": "Verksamheten ber Nortropic om en ändring; den görs i kundrepot, förhandsvisas och släpps efter godkännande, och kan återställas.",
       "passar": "Statiska webbplatser med sällsynta ändringar.", "passar_inte": "Verksamheter som själva vill ändra ofta (utred CMS).",
       "kunduppgifter": ["hur ofta innehållet ändras", "vem som beställer ändringar"], "bevara": [],
@@ -224,7 +224,7 @@
       "begransningar": [], "paverkar": {"brief": "redigeringsbehovet", "design": null, "kod": null, "externt": null}, "manniska": ["sidan Så ändrar du på sajten"]
     },
     {
-      "id": "k08-cms-utreds", "version": "1.0.0", "omrade": "K08", "niva": "utreds",
+      "id": "k08-cms-utreds", "version": "1.0.0", "omrade": "K08", "niva": "utreds", "grund": false,
       "funktion": "Ett redigeringsverktyg där rätt person ändrar, förhandsvisar, publicerar och återställer innehåll.",
       "passar": "Verksamheter som ändrar ofta själva.", "passar_inte": "Sällsynta ändringar.", "kunduppgifter": ["vilket innehåll", "vilka roller"], "bevara": ["befintligt CMS"],
       "kallor": [], "formagor": ["redigering"], "kraver": ["k02-cloudflare-workers"], "utesluter": ["k08-nortropic-forvaltning"],
@@ -235,7 +235,7 @@
       "begransningar": [], "paverkar": {"brief": "roller", "design": null, "kod": "innehållsmodellen", "externt": "tjänsten"}, "manniska": []
     },
     {
-      "id": "k09-bokningslank", "version": "1.0.0", "omrade": "K09", "niva": "lank",
+      "id": "k09-bokningslank", "version": "1.0.0", "omrade": "K09", "niva": "lank", "grund": false,
       "funktion": "Länk till verksamhetens bokningssida i en etablerad bokningstjänst (befintlig tjänst först, annars Cal.com).",
       "passar": "En eller några personers bokningar.", "passar_inte": "Resurser, kapacitet eller betalning som måste låsa en tid (utreds).",
       "kunduppgifter": ["befintligt bokningssystem", "tjänster och längder", "vem som bokas"], "bevara": ["befintligt bokningssystem"],
@@ -249,7 +249,7 @@
       "begransningar": ["En länk är inte en verifierad bokning."], "paverkar": {"brief": "bokningsbehovet", "design": "primär handling", "kod": "länken", "externt": null}, "manniska": ["en testbokning i kundens konto"]
     },
     {
-      "id": "k10-crm-utreds", "version": "1.0.0", "omrade": "K10", "niva": "utreds",
+      "id": "k10-crm-utreds", "version": "1.0.0", "omrade": "K10", "niva": "utreds", "grund": false,
       "funktion": "Förfrågningar till verksamhetens kundregister med fältmappning, dubblettskydd och ansvarig.",
       "passar": "Verksamheter som redan arbetar i ett kundregister.", "passar_inte": "Få förfrågningar som hanteras i mejlen.",
       "kunduppgifter": ["befintligt kundregister", "fält", "ansvarig"], "bevara": ["kundregistret"],
@@ -261,7 +261,7 @@
       "begransningar": [], "paverkar": {"brief": "uppföljningen", "design": null, "kod": "Workerns utkorg", "externt": "kundregistret"}, "manniska": []
     },
     {
-      "id": "k11-stripe-betallank", "version": "1.0.0", "omrade": "K11", "niva": "lank",
+      "id": "k11-stripe-betallank", "version": "1.0.0", "omrade": "K11", "niva": "lank", "grund": false,
       "funktion": "Betalning eller deposition genom en betallänk där leverantören håller kassan (kort, och Swish eller Klarna där de passar).",
       "passar": "Fristående engångsbetalning i SEK.", "passar_inte": "Betalning som måste låsa en bokad tid (utreds med bokningstjänstens egen betalning).",
       "kunduppgifter": ["vad som betalas", "pris och moms", "verksamhetens Stripe-konto"], "bevara": ["befintlig kassa"],
@@ -274,7 +274,7 @@
       "begransningar": ["Ingen verklig betalning i ett prov; juridikflaggan e-handel."], "paverkar": {"brief": "betalningen", "design": "knappen", "kod": "länken", "externt": "Stripe"}, "manniska": ["betallänken skapas i kundens konto"]
     },
     {
-      "id": "k12-handel-utreds", "version": "1.0.0", "omrade": "K12", "niva": "utreds",
+      "id": "k12-handel-utreds", "version": "1.0.0", "omrade": "K12", "niva": "utreds", "grund": false,
       "funktion": "Webbutik med katalog, lager, order, frakt och returer i en etablerad handelsplattform.",
       "passar": "Verksamheter som säljer varor online.", "passar_inte": "Enstaka betalningar (K11).", "kunduppgifter": ["sortiment", "befintlig plattform"], "bevara": ["befintlig plattform"],
       "kallor": [], "formagor": ["handel"], "kraver": [], "utesluter": [],
@@ -285,7 +285,7 @@
       "begransningar": [], "paverkar": {"brief": "sortiment", "design": "butiken", "kod": null, "externt": "plattformen"}, "manniska": []
     },
     {
-      "id": "k13-ekonomi-utreds", "version": "1.0.0", "omrade": "K13", "niva": "utreds",
+      "id": "k13-ekonomi-utreds", "version": "1.0.0", "omrade": "K13", "niva": "utreds", "grund": false,
       "funktion": "Avgränsad överföring av kund-, order- eller fakturaunderlag till ekonomisystemet, utan bokförda handlingar som bieffekt.",
       "passar": "Verksamheter med fakturering från webbplatsens flöden.", "passar_inte": "Annars.", "kunduppgifter": ["ekonomisystem"], "bevara": ["ekonomisystemet"],
       "kallor": [], "formagor": ["ekonomi"], "kraver": [], "utesluter": [],
@@ -296,7 +296,7 @@
       "begransningar": ["Inga bokförda fakturor i prov."], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "ekonomisystemet"}, "manniska": []
     },
     {
-      "id": "k14-nyhetsbrev-utreds", "version": "1.0.0", "omrade": "K14", "niva": "utreds",
+      "id": "k14-nyhetsbrev-utreds", "version": "1.0.0", "omrade": "K14", "niva": "utreds", "grund": false,
       "funktion": "Anmälan till nyhetsbrev med dokumenterat samtycke, avregistrering och spärr mot återanmälan.",
       "passar": "Verksamheter som skickar nyhetsbrev.", "passar_inte": "Annars.", "kunduppgifter": ["befintlig tjänst", "listor"], "bevara": ["befintlig lista"],
       "kallor": [], "formagor": ["nyhetsbrev"], "kraver": [], "utesluter": [],
@@ -307,7 +307,7 @@
       "begransningar": [], "paverkar": {"brief": null, "design": "anmälan", "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
-      "id": "k15-paminnelser-utreds", "version": "1.0.0", "omrade": "K15", "niva": "utreds",
+      "id": "k15-paminnelser-utreds", "version": "1.0.0", "omrade": "K15", "niva": "utreds", "grund": false,
       "funktion": "Påminnelser och meddelanden kopplade till en händelse, utan dubbla eller försenade utskick.",
       "passar": "Bokningar eller händelser som behöver påminnelse.", "passar_inte": "Annars.", "kunduppgifter": ["händelser", "kanal"], "bevara": [],
       "kallor": [], "formagor": ["paminnelse"], "kraver": ["bokning"], "utesluter": [],
@@ -318,7 +318,7 @@
       "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
-      "id": "k16-annonser-utreds", "version": "1.0.0", "omrade": "K16", "niva": "utreds",
+      "id": "k16-annonser-utreds", "version": "1.0.0", "omrade": "K16", "niva": "utreds", "grund": false,
       "funktion": "Koppling till annonskonton och produktflöden, utan att aktivera kampanjer, ändra budget eller spendera.",
       "passar": "Verksamheter som annonserar.", "passar_inte": "Annars.", "kunduppgifter": ["annonskonton"], "bevara": ["befintliga kampanjer"],
       "kallor": [], "formagor": ["annonser"], "kraver": [], "utesluter": [],
@@ -329,7 +329,7 @@
       "begransningar": ["Ingen spendering utan uttryckligt mandat."], "paverkar": {"brief": null, "design": null, "kod": "konverteringshändelser", "externt": "annonskonton"}, "manniska": []
     },
     {
-      "id": "k17-portal-utreds", "version": "1.0.0", "omrade": "K17", "niva": "utreds",
+      "id": "k17-portal-utreds", "version": "1.0.0", "omrade": "K17", "niva": "utreds", "grund": false,
       "funktion": "Medlemskap, kundportal eller eventanmälan i en etablerad tjänst med roller per objekt.",
       "passar": "Föreningar, kurser och verksamheter med inloggade kunder.", "passar_inte": "Annars.", "kunduppgifter": ["roller", "befintlig tjänst"], "bevara": ["befintlig tjänst"],
       "kallor": [], "formagor": ["portal"], "kraver": [], "utesluter": [],
@@ -340,7 +340,7 @@
       "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
-      "id": "k18-esignering-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds",
+      "id": "k18-esignering-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
       "funktion": "E-signering av avtal eller offerter i en etablerad tjänst.",
       "passar": "Verksamheter som skriver avtal med kunder.", "passar_inte": "Annars.", "kunduppgifter": ["avtalsflödet"], "bevara": [],
       "kallor": [], "formagor": ["esignering"], "kraver": [], "utesluter": [],
@@ -350,7 +350,7 @@
       "fardighet": "dokumenterat", "fardighet_omfattning": "Ej kvalificerad.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
-      "id": "k18-bankid-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds",
+      "id": "k18-bankid-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
       "funktion": "Identifiering med BankID genom en avtalad förmedlare.",
       "passar": "När verksamheten måste veta vem besökaren är.", "passar_inte": "Annars.", "kunduppgifter": ["skälet till identifiering"], "bevara": [],
       "kallor": [], "formagor": ["identifiering"], "kraver": [], "utesluter": [],
@@ -360,7 +360,7 @@
       "fardighet": "dokumenterat", "fardighet_omfattning": "Saknat avtal blockerar.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "förmedlaren"}, "manniska": []
     },
     {
-      "id": "k18-branschsystem-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds",
+      "id": "k18-branschsystem-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
       "funktion": "Koppling till ett namngivet branschsystem (till exempel journal-, fastighets- eller bilsystem) med verklig anslutningsväg.",
       "passar": "När systemet är namngivet och dess API och villkor kända.", "passar_inte": "Ett ospecificerat övrigt system (går till komplettering).", "kunduppgifter": ["systemets namn", "uppgiften"], "bevara": ["systemet"],
       "kallor": [], "formagor": ["branschsystem"], "kraver": [], "utesluter": [],
@@ -370,7 +370,7 @@
       "fardighet": "dokumenterat", "fardighet_omfattning": "Varje namngivet system kvalificeras för sig.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "systemet"}, "manniska": []
     },
     {
-      "id": "k18-flersprak-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds",
+      "id": "k18-flersprak-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
       "funktion": "Webbplatsen på fler språk, med översatt innehåll som verksamheten godkänt.",
       "passar": "Verksamheter med besökare som inte läser svenska.", "passar_inte": "Annars.", "kunduppgifter": ["språk", "vem som godkänner översättningen"], "bevara": [],
       "kallor": [], "formagor": ["flersprak"], "kraver": [], "utesluter": [],
@@ -380,7 +380,7 @@
       "fardighet": "dokumenterat", "fardighet_omfattning": "Ej byggt i mallen.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": "språk", "design": "språkval", "kod": "sidstruktur", "externt": null}, "manniska": []
     },
     {
-      "id": "k18-sok-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds",
+      "id": "k18-sok-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
       "funktion": "Sök på webbplatsen.",
       "passar": "Webbplatser med mycket innehåll.", "passar_inte": "Små webbplatser.", "kunduppgifter": ["innehållets omfattning"], "bevara": [],
       "kallor": [], "formagor": ["sok"], "kraver": [], "utesluter": [],
@@ -390,7 +390,7 @@
       "fardighet": "dokumenterat", "fardighet_omfattning": "Ej byggt.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": "sökfältet", "kod": "sökindex", "externt": null}, "manniska": []
     },
     {
-      "id": "k18-ai-assistent-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds",
+      "id": "k18-ai-assistent-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
       "funktion": "En AI-assistent för besökarna, utan åtkomst till privata uppgifter.",
       "passar": "När verksamheten har ett avgränsat ämne och en ansvarig.", "passar_inte": "Som allmän chatt.", "kunduppgifter": ["ämne", "ansvarig"], "bevara": [],
       "kallor": [], "formagor": ["ai-assistent"], "kraver": [], "utesluter": [],

@@ -770,7 +770,7 @@ echo "   ateljéns slutpost (2026-10-07): stopp och fel, återupptagningen, star
 echo "   ateljéns slutpost ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/ateljeslut-prov.log") fall)"
 
 echo "   Kundstarts privata ärenden, källor, roller, återhämtning, överlämning och lagring"
-for kundprov in prov_kundstart prov_kundstart_http prov_kundstart_beredning prov_kundstart_fortsatt prov_kundstart_lagring prov_kundstart_behorighet prov_kundstart_agare prov_kundstart_matgrans prov_kundstart_flode prov_kundstart_flertur; do
+for kundprov in prov_kundstart prov_kundstart_http prov_kundstart_beredning prov_kundstart_fortsatt prov_kundstart_lagring prov_kundstart_behorighet prov_kundstart_agare prov_kundstart_matgrans prov_kundstart_flode prov_kundstart_flertur prov_kundstart_integration; do
   "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/$kundprov.py" >"$ROOT/kunder/rokprov-mall/$kundprov.log" 2>&1 \
     || { echo "FEL: $kundprov"; tail -20 "$ROOT/kunder/rokprov-mall/$kundprov.log"; exit 1; }
 done

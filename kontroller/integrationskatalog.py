@@ -30,14 +30,17 @@ KATALOG = Path(__file__).resolve().parent / 'integrationer' / 'katalog.json'
 
 NIVAER = ('forvaltning', 'lank', 'inbaddning', 'inbyggd', 'api', 'formedlad', 'utreds')
 FARDIGHET = ('dokumenterat', 'implementerat', 'kontraktsprovat', 'leverantorsprovat', 'inaktuellt')
-LAGEN = ('onskemal', 'kundval', 'framtida', 'avstatt', 'okant', 'inte_relevant')
+LAGEN = ('onskemal', 'kundval', 'framtida', 'avstatt', 'okant', 'inte_relevant', 'grund')
+# grund: grundleveransens paket (katalogens grund: true), som ingår utan att kunden kryssar i dem (uppdraget, avsnitt 4:
+# kvalitet är inte ett tillval); läget gäller bara sådana paket.
+OMFATTNING = ('kundval', 'grund')
 STEG = ('inspektera', 'planera', 'tillampa', 'aterlas', 'prova', 'avveckla')
 # De enda funktioner ett paket får peka på: granskade, i repot, utan godtyckliga kommandon.
 FUNKTIONER = {
     'kundrepo.preview_krav', 'kundrepo.preview', 'kundrepo.preview_aktuell', 'exportera.exportera',
     'workersprov.prova', 'driftkoll.kontroll', 'seo_kontroll.main',
 }
-FALT = ('id', 'version', 'omrade', 'niva', 'funktion', 'passar', 'passar_inte', 'kunduppgifter', 'bevara', 'kallor',
+FALT = ('id', 'version', 'omrade', 'niva', 'grund', 'funktion', 'passar', 'passar_inte', 'kunduppgifter', 'bevara', 'kallor',
         'formagor', 'kraver', 'utesluter', 'konto', 'rattigheter', 'dataflode', 'lagring', 'kostnad', 'funktioner',
         'fardighet', 'fardighet_omfattning', 'prov', 'driftkontroll', 'begransningar', 'paverkar', 'manniska')
 OMRADEN = ['K%02d' % i for i in range(1, 19)]
@@ -85,6 +88,10 @@ def brister(k, rot=ROOT, importera=True):
             ut.append('%s: version ska vara x.y.z' % pid)
         if p['omrade'] not in OMRADEN:
             ut.append('%s: okänt område %s' % (pid, p['omrade']))
+        if not isinstance(p['grund'], bool):
+            ut.append('%s: grund ska vara true eller false' % pid)
+        elif p['grund'] and p['niva'] == 'utreds':
+            ut.append('%s: en utredningsväg kan inte vara grundleverans' % pid)
         if p['niva'] not in NIVAER:
             ut.append('%s: okänd nivå %s' % (pid, p['niva']))
         if p['fardighet'] not in FARDIGHET:
@@ -170,7 +177,7 @@ def sha(obj):
 
 def planera(val, katalog=None, arende=None):
     """Integrationsplanen ur val: [{'omrade', 'paket', 'lage', 'instans'?}]. arende: {'id', 'revision'} binder planen.
-    Bara valen i läget kundval ingår i omfattningen; önskemål och framtida står som sådana. Inga sidoeffekter."""
+    Bara kundval och grundleveransen ingår i omfattningen; önskemål och framtida står som sådana. Inga sidoeffekter."""
     k = katalog or las()
     paket = {p['id']: p for p in k['paket']}
     ut = {'schema': 1, 'katalog': k['version'], 'arende': arende, 'omfattning': [], 'ovriga': [], 'hinder': [],
@@ -188,6 +195,9 @@ def planera(val, katalog=None, arende=None):
         if p['omrade'] != v.get('omrade'):
             ut['hinder'].append('%s hör till %s, inte %s' % (p['id'], p['omrade'], v.get('omrade')))
             continue
+        if v['lage'] == 'grund' and not p['grund']:
+            ut['hinder'].append('%s ingår inte i grundleveransen: kunden väljer det' % p['id'])
+            continue
         nyckel = (p['id'], v.get('instans') or '')
         if nyckel in sedda:
             ut['hinder'].append('%s valt två gånger utan egen instans' % p['id'])
@@ -195,8 +205,8 @@ def planera(val, katalog=None, arende=None):
         sedda.add(nyckel)
         post = {'omrade': p['omrade'], 'paket': p['id'], 'version': p['version'], 'instans': v.get('instans'), 'lage': v['lage'],
                 'niva': p['niva'], 'fardighet': p['fardighet'], 'fardighet_omfattning': p['fardighet_omfattning']}
-        (ut['omfattning'] if v['lage'] == 'kundval' else ut['ovriga']).append(post)
-        if v['lage'] == 'kundval':
+        (ut['omfattning'] if v['lage'] in OMFATTNING else ut['ovriga']).append(post)
+        if v['lage'] in OMFATTNING:
             valda.append(p)
     valda.sort(key=lambda p: (p['omrade'], p['id']))  # valens ordning ändrar inte planen
     vid = {p['id'] for p in valda}

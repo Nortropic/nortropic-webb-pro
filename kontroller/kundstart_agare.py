@@ -6,11 +6,12 @@ import kundstart as ks
 import kundstart_beredning as kb
 import kundstart_behorighet as kh
 import kundstart_fortsatt as kf
+import kundstart_integration as ki
 import kundstart_lagring as kl
 import kundstart_matt as km
 
 HANDLINGAR=('overlamna','aterstall_overlamning','erbjudande','deltagare','aterkalla_person','returfraga','bedom_retursvar',
-            'lagringsbeslut','gallra','sakerhetskopia')
+            'lagringsbeslut','gallra','sakerhetskopia','integrationsval','avmarkera_integration')
 
 
 def lager(repo):return ks.Lager(Path(repo)/'underlag/kundstart')
@@ -60,7 +61,9 @@ def faser(d,repo):
 
 def detalj(repo,eid):
     db=lager(repo);d=db.internt(ks.nyckel(eid))
-    return {'arende':d,'faser':faser(d,repo),'modellanrop':km.lista(db,eid),
+    try:funktioner=ki.vy(d)  # katalogen och planen; läser bara
+    except (OSError,ValueError,KeyError) as e:funktioner={'fel':'Integrationskatalogen kunde inte läsas: %s'%str(e)[:200]}
+    return {'arende':d,'faser':faser(d,repo),'modellanrop':km.lista(db,eid),'funktioner':funktioner,
             'retursvar':{k:{'svar_sha256':kf.svaridentitet(d,q),'klarlagd':kf.klarlagd(d,q)}
                         for k,q in d.get('returfragor',{}).items()},
             'drift':{'kundserver_aktiverad':None,'modell_aktiverad':None,
@@ -103,5 +106,11 @@ def handling(repo,eid,namn,data):
     if namn=='lagringsbeslut':
         ks.falt(data,('revision','radera_efter','andamal','ansvarig'),('revision','radera_efter','andamal','ansvarig'))
         return kl.lagringsbeslut(db,eid,data['revision'],data['radera_efter'],data['andamal'],data['ansvarig'])
+    if namn=='integrationsval':
+        ks.falt(data,('revision','val'),('revision','val'))
+        return ki.valj(db,eid,data['revision'],data['val'])
+    if namn=='avmarkera_integration':
+        ks.falt(data,('revision','val'),('revision','val'))
+        return ki.avmarkera(db,eid,data['revision'],data['val'])
     if namn=='gallra':
         ks.falt(data,('revision',),('revision',));return kl.gallra(db,eid,data['revision'])

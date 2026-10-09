@@ -24,6 +24,18 @@ try{
  await page.getByRole('heading',{name:'prov-agaryta',exact:true}).waitFor();
  assert(await page.getByRole('button',{name:'Lämna aktuellt underlag till förberedelsen',exact:true}).isDisabled());
  assert(!(await page.locator('#vy').innerText()).includes(link));
+ // Funktioner och anslutningar: katalogens områden, ett manuellt val av grundleveransen och planens besked i fyra dimensioner
+ await page.getByRole('heading',{name:'Funktioner och anslutningar',exact:true}).waitFor();
+ assert((await page.locator('#vy').innerText()).includes('Inga funktioner är valda.'));
+ await page.getByText('Välj en funktion ur katalogen',{exact:true}).click();
+ await page.getByLabel('Område',{exact:true}).selectOption('K02');
+ await page.getByLabel('Paket',{exact:true}).selectOption('k02-cloudflare-workers');
+ assert((await page.locator('#ks-paket-besked').innerText()).includes('kontraktsprovat'));
+ await page.getByLabel('Varför passar paketet?',{exact:true}).fill('Grundleveransen för alla nya webbplatser.');
+ await page.getByRole('button',{name:'Välj paketet',exact:true}).click();
+ await page.getByRole('status').filter({hasText:'Handlingen är sparad'}).waitFor();
+ {const t=await page.locator('#vy').innerText();
+  for(const del of ['ingår i grundleveransen','kontraktsprovat lokalt','inte ansluten','inte startat','Planen kan gå vidare till bygget.'])assert(t.includes(del),del+': '+t.slice(0,600));}
  for(const width of [320,390,768,1440]){
   await page.setViewportSize({width,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'spill '+width);
   await page.evaluate(()=>scrollTo(0,0));

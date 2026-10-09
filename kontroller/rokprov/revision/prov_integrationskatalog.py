@@ -54,6 +54,8 @@ class Katalog(unittest.TestCase):
         self.brist(lambda k: p(k, 'k05-search-console')['kraver'].append('okand-formaga'), 'okänt paket eller förmåga')
         self.brist(lambda k: p(k, 'k06-hitta-hit').update(id='k07-hitta-hit'), 'börja med sitt område')
         self.brist(lambda k: p(k, 'k06-hitta-hit')['kallor'].append({'url': 'http://x', 'last': 'igår'}), 'utan https-adress')
+        self.brist(lambda k: p(k, 'k12-handel-utreds').update(grund=True), 'kan inte vara grundleverans')
+        self.brist(lambda k: p(k, 'k06-hitta-hit').update(grund='ja'), 'grund ska vara true eller false')
 
 
 class Plan(unittest.TestCase):
@@ -94,6 +96,13 @@ class Plan(unittest.TestCase):
         self.assertTrue(any('hör till K03' in h for h in pl['hinder']))
         pl = ik.planera([{'omrade': 'K02', 'paket': 'k02-cloudflare-workers', 'lage': 'beslutat'}])
         self.assertTrue(any('okänt läge' in h for h in pl['hinder']))
+
+    def test_grundleveransen_ingar_utan_kundens_kryss_men_bara_for_grundpaket(self):
+        pl = ik.planera(val('k02-cloudflare-workers', 'k03-formular-worker', 'k04-resend-transaktion', lage='grund'))
+        self.assertTrue(pl['klar_for_bygge'], pl['hinder']); self.assertEqual(len(pl['omfattning']), 3)
+        self.assertEqual(sorted(p['id'] for p in KAT['paket'] if p['grund']), ['k02-cloudflare-workers', 'k03-formular-worker', 'k04-resend-transaktion'])
+        pl = ik.planera(val('k11-stripe-betallank', lage='grund'))
+        self.assertEqual(pl['omfattning'], []); self.assertTrue(any('ingår inte i grundleveransen' in h for h in pl['hinder']))
 
     def test_flera_instanser_kraver_egen_identitet(self):
         two = [{'omrade': 'K09', 'paket': 'k09-bokningslank', 'lage': 'kundval', 'instans': 'filial-a'},
