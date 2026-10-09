@@ -1,11 +1,12 @@
 ---
 id: B-20261003-kalibrering-av-visuell-niva-externa-exempel-i-tr
-status: vilande
+status: klar
 kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-09T08:37Z
+commit: bded91b
+andrad: 2026-10-09T09:31Z
 ---
 # Kalibrering av visuell nivå: externa exempel i tre nivåer, granskarna prövade på osedda exempel
 
@@ -32,3 +33,5 @@ andrad: 2026-10-09T08:37Z
 **Vilande (2026-10-09):** Avstämt 2026-10-09 (ägarens uppdrag punkt 2; RAPPORT-2026-10-09-sju-backlogomraden). Färdigt med bevis: frysningen före utvärderingen (kalibrering.py --frys; ett försök med --bara körs bara mot det frysta läget, annars är det utvecklingsdata; 319f500, prov_kalibrering rött mot 12b7004 och grönt efter); K17 och K18 är ensidiga sajter och döms som ensidiga (UNDERSIDA.txt, dashboardens kort); K14–K19 omfångade 2026-10-09 med inspektera.mjs --samtycke --lugn 8000 i samma motor, ägarens godkännande samma dag (de gamla fångsterna ligger kvar i <sida>-fore-omfangning-20261009): K14 var fångad mitt i en intoning, K16 och K19 bakom samtyckesdialoger. Omfångningen av K01 och K04 struken: de är dömda utvecklingsdata, och ägaren dömde bilderna som de var. Ägarbeslut med underlag i rapporten: ankaret K03 (huvudbildens video fångas varken i Chromium eller WebKit, och sajtens innehåll har bytts) och ankaret K07 (samtyckesdialogen täcker mobilens första vy; omfångad utan den med samma innehåll). Kvar i ordning: ägarens beslut om K03 och K07 och om mobilkravet (det ändrar granskarens text) → frysningen → ägarens blinda dom över K14–K19 → kalibrering.py --bara K14,K15,K16,K17,K18,K19 (verkliga granskarsessioner) → falska godkännanden och falska underkännanden var för sig med nämnare, ogiltiga anrop för sig.
 
 **Vilande (2026-10-09):** Ägarens beslut 2026-10-09: K03 är historik (alternativ 2; 07b7f3a och privat K03/FANGST.md), nivån nästan har tills vidare bara ankaret K05, och K14–K19 kompletterar inte ankarna. K07 (alternativ 1): den nya fångsten ligger i K07/start-omfangad-20261009 med beslutsunderlaget K07/BESLUTSUNDERLAG-20261009.md; ankaret byts först när ägaren bekräftat eller ändrat sin dom, och den gamla fångsten med domen bevaras som historik. Därefter: ändringarna prövas och pushas, frysningen (kalibrering.py --frys --bara K14,K15,K16,K17,K18,K19), ägarens blinda dom, och de sex granskarsessionerna (ägarens klartecken i samma beslut). Kvalitetsprovet och förmågeprovet ingår inte.
+
+**Klar (2026-10-09):** Färdigkriteriet uppfyllt 2026-10-09: ägaren dömde K14–K19 blint (09:08Z); kalibrering.py --bara K14,K15,K16,K17,K18,K19 efter frysningen (09:15:44Z, höll) gav felaktiga godkännanden 0 av 5 och felaktiga underkännanden 0 av 1, ofullständiga 0 av 6, i LARDOMAR.md (bded91b); K17 och K18 ensidiga; omfångningen gjord för K14–K19, K07 bytt med ägarens nya ord, K03 historik, K01 och K04 strukna (utvecklingsdata). Resultatet privat i underlag/kalibrering/FORSOK-20261009/. Sex exempel är ett första diagnostiskt resultat; en metodändring efter resultatet gör urvalet till utvecklingsdata. Inte verifierad av en oberoende granskning.
