@@ -646,6 +646,17 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     return ut
 
 
+def sen_karna(kv):
+    """Kärnfilerna som en ändrande session läste hela först efter sin första ändring (läsordningen, F05): [] när varje
+    session läste kärnan före första ändringen, None när kvittot inte är verifierat (då är ordningen inte observerad).
+    Sen läsning är läst kompetens, inte observerad tillämpning; arbete före kärnan godkänns aldrig som genomfört (N03 i
+    GR-20261009-natt-omgranskning-codex)."""
+    if not isinstance(kv, dict) or not kv.get('verifierad'):
+        return None
+    fore = set(kv.get('fore_forsta_andring') or [])
+    return [f for f in kv.get('lasta') or [] if f not in fore]
+
+
 def mcp_tillstand(m, anrop, utfall, lage, sett):
     """En tilldelad MCP-tjänsts tillstånd i en roll: blockerat när sessionen inte hade tjänsten (tilldelad men åtkomst
     saknas), använt med resultat bara när ett svar hade innehåll, blockerat när anropen bara gav tomma svar eller fel,

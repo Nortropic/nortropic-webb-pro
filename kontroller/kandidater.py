@@ -2086,10 +2086,12 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
     """Ett pass efter fördjupningen på kandidatens renderade sida: före (versionen bevaras och bilderna sparas), sessionen
     med rollens kärna, alternativ, verktyg och MCP:er, och efter (fotograferingen). Blir sidan ofullständig, eller får den
     fler allvarliga axe-fynd än före, återställs versionen före; faller återställningen blir kandidaten ofullständig med
-    skälet (granskning 4, G5). Kvittot ur transkripten säger vilka filer som lästs hela; läste passet inte hela kärnan får
-    det ett omförsök från versionen före passet: det första försökets ändringar återställs, och bara omförsökets session
-    räknas i kvittot, eftersom en ny session aldrig ärver arbete som gjorts utan kärnan (R02; det kasserade försöket står i
-    posten). Redovisningen håller isär koden som ändrades,
+    skälet (granskning 4, G5). Kvittot ur transkripten säger vilka filer som lästs hela och i vilken ordning; läste passet
+    inte hela kärnan, eller läste det en kärnfil först efter sin första ändring (kompetens.sen_karna; N03 i
+    GR-20261009-natt-omgranskning-codex), får det ett omförsök från versionen före passet: det första försökets ändringar
+    återställs, och bara omförsökets session räknas i kvittot, eftersom en ny session aldrig ärver arbete som gjorts utan
+    kärnan (R02; det kasserade försöket står i posten). Ett pass med arbete före kärnan är aldrig genomfört, inte heller
+    när ett tidigare försök läste i rätt ordning. Redovisningen håller isär koden som ändrades,
     beteendet som prövades och den visuella bedömningen (Codex via ägaren 2026-10-05, punkt 9). Återupptagbart: ett klart
     pass görs inte om, och ett avbrutet återställs till versionen före innan det görs om (G4)."""
     nyckel = '%s:%s' % (fas, pass_)
@@ -2140,7 +2142,8 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
             raise atelje.Stoppad('kompetenspasset avbröts av stoppet')
         sessioner.append(svar)
         kv = kompetens.kvitto(sessioner, pass_, skrivprefix=rel(ksajt(slug, kid) / 'src') + '/')
-        saknade = [Path(f).name for f in kv.get('saknas') or []] + passbrister(pass_, svar.get('structured_output') or {}, kv)
+        saknade = ([Path(f).name for f in kv.get('saknas') or []] + ['%s (läst först efter första ändringen)' % Path(f).name for f in kompetens.sen_karna(kv) or []]
+                   + passbrister(pass_, svar.get('structured_output') or {}, kv))
         if svar.get('avbruten') or not kv.get('verifierad') or not saknade:
             break
     efter_st = fotografera(slug, kid)
@@ -2165,6 +2168,7 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
             provat.append(dict(b, bild_finns=bool(bild) and (atelje.ROOT / bild).is_file() and not (atelje.ROOT / bild).is_symlink()))
     andrad = st.get('version') != v0
     anvanda = anvanda_verktyg(kv, pass_) if kv.get('verifierad') else None
+    sena = kompetens.sen_karna(kv)  # läsordningen: läst kompetens, skild från observerad användning och bedömd kvalitet
     rec = {'fas': fas, 'pass': pass_, 'startad': startad, 'klar': nu(), 'sekunder': int(time.monotonic() - start), 'kasserade_forsok': kasserade,
            'kod_andrad': {'andrad': andrad, 'version_fore': v0, 'version_efter': st.get('version'), 'andringar': so.get('kod_andrad') or []},
            'beteende_provat': provat, 'visuell_bedomning': so.get('visuell_bedomning') or {},
@@ -2175,11 +2179,11 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
            # sessionens egen redovisning (aktivering, teknikval), skild från det observerade (kvittot ur transkriptet)
            'aktivering': so.get('aktivering') or [], 'teknikval': so.get('teknikval') or [],
            'kvitto': dict(kompetens_kort(kv), teknikval=so.get('teknikval') or [], visuell_bedomning=so.get('visuell_bedomning') or {}),
-           'uppgiftsbrister': passbrister(pass_, so, kv),
+           'uppgiftsbrister': passbrister(pass_, so, kv), 'sen_karna': sena,
            # genomfört kräver också att varje prövat beteende har sin bild (GR-20261008-r117-claude#C4) och minst ett observerat
            # verktygs- eller MCP-anrop med resultat i passets roller (anvanda_verktyg; C4:s rest); sessionens egen lista räcker inte
            'anvanda_verktyg': anvanda,
-           'genomford': (not svar.get('avbruten') and bool(so) and not kv.get('saknas') and not passbrister(pass_, so, kv) and bool(provat)
+           'genomford': (not svar.get('avbruten') and bool(so) and not kv.get('saknas') and not sena and not passbrister(pass_, so, kv) and bool(provat)
                          and all(b.get('bild_finns') for b in provat) and (andrad or bool(so.get('ingen_andring')))
                          and (anvanda is None or bool(anvanda))) if kv.get('verifierad') else None,
            'bilder': {'fore': fore, 'efter': efter}}
