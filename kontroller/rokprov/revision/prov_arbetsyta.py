@@ -935,10 +935,13 @@ class Arbetsyta(unittest.TestCase):
         nycklar = self.root / 'granskarnycklar'
         nycklar.mkdir()
         (nycklar / 'codex.nyckel').write_text('granskar-provnyckel-0123456789\n')
+        (nycklar / 'codex.nyckel').chmod(0o644)
         self.stack.enter_context(patch.dict(os.environ, {'NWP_GRANSKARE_NYCKLAR': str(nycklar)}))
         port, host, anropa = self.server()
         b = {'Authorization': 'Bearer granskar-provnyckel-0123456789'}
         bas = '/api/extern/%s' % SLUG
+        self.assertEqual(anropa('GET', bas + '/underlag', huvud=b)[0], 401, 'en nyckelfil som andra kan läsa gäller inte (0600)')
+        (nycklar / 'codex.nyckel').chmod(0o600)
         self.assertEqual(anropa('GET', bas + '/underlag')[0], 401)
         self.assertEqual(anropa('GET', bas + '/underlag', huvud={'Authorization': 'Bearer fel'})[0], 401)
         self.assertEqual(anropa('GET', bas + '/underlag', huvud=dict(b, Origin='http://' + host))[0], 403)
@@ -948,6 +951,7 @@ class Arbetsyta(unittest.TestCase):
         u = json.loads(kropp)
         self.assertEqual((status, u['granskare'], u['blind']), (200, 'codex', True))
         self.assertIn('k01', [k['id'] for k in u['kandidater']])
+        self.assertFalse([k for k in u['kandidater'] if 'status' in k], 'kandidatens status (ägarens val) lämnas inte ut')
         for dolt in ('Testdata k01', 'ägaren'):
             self.assertNotIn('"%s"' % dolt, kropp.decode())
         bild = 'underlag/%s/atelje/kandidater/k01/bilder/start/vy-390-forsta.png' % SLUG
@@ -977,8 +981,19 @@ class Arbetsyta(unittest.TestCase):
         r_ = meddelanden.hamta(SLUG, json.loads(kropp)['id'])
         self.assertEqual((r_['mandat']['id'], r_['mottagare']), ('mandat-codex-0001', {'typ': 'adress', 'ansvar': 'utforande', 'kandidat': 'k01'}))
         self.assertIn('kontrast och läsbarhet', meddelanden.ramtext(r_))
-        a = json.loads(anropa('GET', bas + '/aterkoppling', huvud=b)[2])['aterkoppling']
+        # en kritikers svar på granskarens fynd och mottagarens turtext: läget och tiden, aldrig texten (A2)
+        g = str(uuid.uuid4())
+        meddelanden._skriv(meddelanden.styrfil(SLUG, g), {'session_id': g, 'roll': 'skisskritik-k01', 'ansvar': 'granskning', 'kandidat': 'k01',
+                                                          'blind': False, 'korning': meddelanden.korning(SLUG), 'pid': os.getpid(), 'lopare_pid': os.getpid(),
+                                                          'slut': None, 'lage': 'arbetar'})
+        meddelanden.skapa(SLUG, {'typ': 'session', 'session_id': g}, {'typ': 'agare'}, 'forslag', 'KRITIKERNS-BEDOMNING: k01 är svagast.', svar_pa=mid)
+        meddelanden.uppdatera(SLUG, r_['id'], 'besvarat', svar={'tid': meddelanden.nu(), 'text': 'SKAPARENS-TURTEXT med roll och vägar'})
+        kropp = anropa('GET', bas + '/aterkoppling', huvud=b)[2].decode()
+        for dolt in ('KRITIKERNS-BEDOMNING', 'SKAPARENS-TURTEXT'):
+            self.assertNotIn(dolt, kropp)
+        a = json.loads(kropp)['aterkoppling']
         self.assertEqual({x['id'] for x in a if x.get('eget')}, {mid, r_['id']})
+        self.assertIn('agent', [x.get('avsandare') for x in a if not x.get('eget')])
         # kommandoradsverktyget (kontroller/extern_granskare.py): paketet, schemat och postningen med samma nyckel
         paket = self.root / 'granskningspaket'
         u_ = extern_granskare.paket('http://' + host, 'codex', SLUG, paket)
@@ -1013,6 +1028,23 @@ class Arbetsyta(unittest.TestCase):
                 break
             time.sleep(0.1)
         self.assertTrue(any('sleep 60' in x['kommando'] for x in tj), tj)
+        self.assertEqual(json.loads(anropa('GET', '/api/arbetsyta/%s/meddelanden' % SLUG)[2])['styrning']['projekt']['lage'], 'pausad',
+                         'ett bygge eller en fotografering redovisas men hindrar inte pausen')
+        # en modellsession utan löpare under arbetaren (som Referos och Mobbins tjänstesessioner): inte pausat förrän den slutat (B4)
+        cl = self.root / 'bin-paus' / 'claude'
+        cl.parent.mkdir()
+        cl.write_text('#!/bin/sh\nsleep 60\n')
+        cl.chmod(0o755)
+        arb2 = ORIG_POPEN(['/bin/sh', '-c', '"%s" & wait' % cl], stdin=subprocess.DEVNULL, start_new_session=True)
+        self.addCleanup(lambda: (os.killpg(arb2.pid, 9), arb2.wait()))
+        self.skriv_status(pid=arb2.pid, steg='skiss')
+        pp = {}
+        for _ in range(50):
+            pp = json.loads(anropa('GET', '/api/arbetsyta/%s/meddelanden' % SLUG)[2])['styrning']['projekt']
+            if any(x.get('modell') for x in pp.get('tjanster') or []):
+                break
+            time.sleep(0.1)
+        self.assertEqual(pp['lage'], 'paus_begard', pp)
         self.assertTrue(meddelanden.paus_galler(SLUG))
         self.assertEqual(anropa('POST', '/api/arbetsyta/%s/paus' % SLUG, {'omfattning': 'session', 'session_id': str(uuid.uuid4())}, skriv)[0], 400,
                          'en session utan löpare kan inte pausas')
@@ -1085,6 +1117,18 @@ class Arbetsyta(unittest.TestCase):
         # rätt bild, men arbetsversionen har ändrats efter fotograferingen (fixturen): inget tyst godkännande
         status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, dict(bas, sedd=[{'kandidat': 'k01', 'version': v1, 'bild': bild, 'bild_sha': sha}]), skriv)
         self.assertEqual(status, 400, kropp)
+        # en annan fil med samma bytes under underlag/ är inte kandidatens ögonblicksbild (K8)
+        annan = self.u / 'annan.png'
+        annan.write_bytes(PNG)
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, dict(bas, sedd=[{'kandidat': 'k01', 'version': v1, 'bild': 'underlag/%s/annan.png' % SLUG,
+                                                                                            'bild_sha': sha}]), skriv)
+        self.assertEqual(status, 400, kropp)
+        self.assertIn('ögonblicksbilden', json.loads(kropp)['fel'])
+        # en version som inte är kandidatens nu, också med rätt bild: nekas som inaktuell (A6)
+        gammal = 'e' * 64
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, dict(bas, kandidater=[{'id': 'k01', 'version': gammal}],
+                                                                                    sedd=[{'kandidat': 'k01', 'version': gammal, 'bild': bild, 'bild_sha': sha}]), skriv)
+        self.assertEqual((status, json.loads(kropp)['slag']), (409, 'Inaktuell'))
         self.assertFalse((self.las(self.u / 'atelje' / 'VINNARE.json') if (self.u / 'atelje' / 'VINNARE.json').is_file() else {}).get('godkand'))
         self.assertEqual(self.domrader(), [])
         val = {'beslut': 'valj', 'kandidater': [{'id': 'k01', 'version': v1}], 'korning': self.status['startad'],

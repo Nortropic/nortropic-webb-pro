@@ -52,8 +52,9 @@ Du granskar kandidaterna i det här paketet åt ägaren. Du läser bara; du änd
   i bilder/<kandidat>/. Gäller bara den version som står där.
 - Lämna fynd som JSON enligt fynd-schema.json. Ett granskningsfynd har belägg: vilken bild, vilken del, mått eller
   kontrast, så att någon annan kan kontrollera det. Utan belägg, skriv ett förslag eller en fråga.
-- till: agare, utom när underlag.json visar ett mandat från ägaren för kandidaten; då får du begära en rättelse
-  (syfte andringsinstruktion, till utforande) inom mandatets omfattning, och inget annat.
+- till: agare, utom när underlag.json visar ett mandat från ägaren för kandidaten; då får du inom mandatets omfattning
+  också skicka förslag, granskningsfynd och begäran om rättelse (syfte andringsinstruktion) till kandidatens utförare
+  (till utforande), som hanterar dem inom sitt eget uppdrag.
 - Inget du skriver är ägarens ord eller ett godkännande. Upprepa inte samma fynd; skicka bara det som tillför något nytt.
 """
 

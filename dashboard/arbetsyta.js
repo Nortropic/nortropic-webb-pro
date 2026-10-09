@@ -874,8 +874,10 @@
     const p = A.lage?.samverkan?.projektpaus, d = A.samverkan?.styrning?.projekt;
     if (p) {
       const kvar = [...(A.samverkan?.pausade || []).flatMap((x) => (x.verktyg_kvar || []).filter((v) => v.pid).map((v) => v.kommando)),
-        ...(d?.tjanster || []).map((v) => v.kommando + ' (arbetarens eget steg)')];
-      return `<div class="ay-notis${d?.lage === 'pausad' ? '' : ' varn'}"><b>${d?.lage === 'pausad' ? 'Pausad' : 'Paus begärd'}</b>: ${e_(d?.lage_text || 'ingen ny session startar')}${p.vantande_start ? '; en session väntar på återupptagningen' : ''}.${kvar.length ? ' Arbetar fortfarande: ' + e_(kvar.join(', ')) + '.' : ''} En paus återställer inga filändringar.</div>
+        ...(d?.tjanster || []).map((v) => v.kommando + (v.modell ? ' (en modellsession utan paus, till exempel en tjänstesession)' : ' (arbetarens eget steg)'))];
+      const vantar = Number(d?.vantande || 0) || (p.vantande_start ? 1 : 0);
+      const tak = (A.samverkan?.pausade || []).map((x) => x.tak).filter(Boolean).sort()[0];
+      return `<div class="ay-notis${d?.lage === 'pausad' ? '' : ' varn'}"><b>${d?.lage === 'pausad' ? 'Pausad' : 'Paus begärd'}</b>: ${e_(d?.lage_text || 'ingen ny session startar')}${vantar ? `; ${vantar === 1 ? 'en session väntar' : vantar + ' sessioner väntar'} på återupptagningen` : ''}.${kvar.length ? ' Arbetar fortfarande: ' + e_(kvar.join(', ')) + '.' : ''} En paus återställer inga filändringar.${tak ? ` En pausad session avslutas med tidsgräns om pausen varar förbi ${e_(kort(tak))}.` : ''}</div>
         <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-aterta-projekt data-fokus="aterta-projekt">Återuppta körningen</button></div>`;
     }
     if (!(A.lage?.korning?.arbetaren === 'lever')) return '';
@@ -923,7 +925,7 @@
     const b = A.beslutBekrafta;
     const godk = ['forfinad'].includes(k.status);
     return `<p style="margin:0">Beslutet gäller <b>${e_(k.etikett)}</b>, version ${e_(k.version)}, fotograferad ${e_(kort(k.snapshot.tid))}: bilden nedan${A.enhet === 'mobil' ? ' (beslutet binds till skärmbilden i 1440 px)' : ''}.</p>
-      ${b ? `<div class="ay-bekraftruta"><p style="margin:0">${e_(b.text)}</p>${['forkasta', 'ny_riktning'].includes(b.beslut) || b.beslut === 'valj' ? `<label class="svag" for="ay-beslutstext">${b.beslut === 'valj' ? 'Vad du gillar (valfritt)' : 'Vad håller inte, och vad ska nästa försök pröva?'}</label><textarea id="ay-beslutstext" rows="3" data-fokus="beslutstext"></textarea>` : ''}
+      ${b ? `<div class="ay-bekraftruta"><p style="margin:0">${e_(b.text)}</p>${b.version_hel && b.version_hel !== k.version_hel ? `<p class="ay-notis varn" role="alert" style="margin:0">${e_(k.etikett)} har fått en ny version (${e_(k.version)}) sedan du öppnade beslutet. Beslutet gäller version ${e_(b.version)}, som inte längre är kandidatens, och nekas: avbryt och se den nya versionen först.</p>` : ''}${['forkasta', 'ny_riktning'].includes(b.beslut) || b.beslut === 'valj' ? `<label class="svag" for="ay-beslutstext">${b.beslut === 'valj' ? 'Vad du gillar (valfritt)' : 'Vad håller inte, och vad ska nästa försök pröva?'}</label><textarea id="ay-beslutstext" rows="3" data-fokus="beslutstext"></textarea>` : ''}
           <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut-ja data-fokus="beslut-ja">${e_(b.knapp)}</button><button class="ay-knapp" type="button" data-beslut-nej>Avbryt</button></div></div>`
         : `<div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut="valj" data-fokus="b-valj">Välj vidare</button>${godk ? '<button class="ay-knapp primar" type="button" data-beslut="godkand" data-fokus="b-godkand">Godkänn denna version</button>' : ''}<button class="ay-knapp" type="button" data-beslut="forkasta">Underkänn alla</button><button class="ay-knapp" type="button" data-beslut="ny_riktning">Ny riktning</button></div>
           <p class="svag" style="margin:0">Jämför kandidaterna under Resultat → Jämför, eller sida vid sida i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>. Ett godkännande lämnar över till helbygget men startar det inte.</p>`}
@@ -939,10 +941,11 @@
     const b = A.beslutBekrafta, k = (A.lage.kandidater || []).find((x) => x.id === b.kandidat);
     const text = (document.getElementById('ay-beslutstext')?.value || '').trim();
     if (['forkasta', 'ny_riktning'].includes(b.beslut) && !text) { A.beslutSvar = 'Skriv vad som inte håller och vad nästa försök ska pröva.'; rita(); return; }
-    const sedd = [{ kandidat: k.id, version: k.version_hel, bild: b.bild, bild_sha: b.bild_sha }];
-    const body = { beslut: b.beslut, kandidater: ['forkasta', 'ny_riktning'].includes(b.beslut) ? [] : [{ id: k.id, version: k.version_hel }], text, sedd, korning: A.lage.korning?.startad || null };
+    // det du såg när du öppnade beslutet, inte det levande läget nu; servern nekar när det inte längre är kandidatens version
+    const sedd = [{ kandidat: b.kandidat, version: b.version_hel, bild: b.bild, bild_sha: b.bild_sha }];
+    const body = { beslut: b.beslut, kandidater: ['forkasta', 'ny_riktning'].includes(b.beslut) ? [] : [{ id: b.kandidat, version: b.version_hel }], text, sedd, korning: A.lage.korning?.startad || null };
     A.beslutSvar = 'Sparar beslutet…'; rita();
-    try { await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/beslut', body); A.beslutBekrafta = null; A.beslutSvar = 'Beslutet är sparat i domloggen, bundet till ' + k.etikett + ' version ' + k.version + '.';
+    try { await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/beslut', body); A.beslutBekrafta = null; A.beslutSvar = 'Beslutet är sparat i domloggen, bundet till ' + (k?.etikett || b.kandidat) + ' version ' + b.version + '.';
       tillampa(await hamta('/api/arbetsyta/' + encodeURIComponent(A.slug))); }
     catch (err) { A.beslutSvar = (err.status === 409 ? 'Inaktuellt: ' : 'Beslutet sparades inte: ') + err.message; rita(); }
   }
@@ -1021,7 +1024,9 @@
     if (d.historikSlut !== undefined) { const id = A.historik?.session_id; A.historik = null; clearInterval(A.grenTimer); rita(); document.querySelector(`[data-historik="${CSS.escape(id || '')}"]`)?.focus(); return; }
     if (d.beslut) { const k = (A.lage.kandidater || []).find((x) => x.id === A.valdKandidat); if (!k) return;
       const [text, knapp] = BESLUTSTEXT[d.beslut](k); const fyra = Boolean(k.snapshot['1440']);
-      A.beslutBekrafta = { beslut: d.beslut, kandidat: k.id, text, knapp, bild: fyra ? k.snapshot['1440'] : k.snapshot['390'], bild_sha: fyra ? k.snapshot.sha?.['1440'] : k.snapshot.sha?.['390'] };
+      // versionen och bilden tas när du öppnar beslutet: ett senare läge byter aldrig tyst det du godkänner (A6)
+      A.beslutBekrafta = { beslut: d.beslut, kandidat: k.id, text, knapp, version_hel: k.version_hel, version: k.version,
+        bild: fyra ? k.snapshot['1440'] : k.snapshot['390'], bild_sha: fyra ? k.snapshot.sha?.['1440'] : k.snapshot.sha?.['390'] };
       A.beslutSvar = ''; rita(); document.querySelector('[data-fokus="beslutstext"]')?.focus() || document.querySelector('[data-fokus="beslut-ja"]')?.focus(); return; }
     if (d.beslutJa !== undefined) { fattaBeslut(); return; }
     if (d.beslutNej !== undefined) { A.beslutBekrafta = null; A.beslutSvar = ''; rita(); return; }

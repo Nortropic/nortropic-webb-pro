@@ -107,6 +107,9 @@ NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(gi
          # förhandsvisningen, innanför processgränsen (omgranskningen av skapandeflödet, fynd 8)
          'Bash(npm *)', 'Bash(npx *)', 'Bash(node *)',
          'Read(./underlag/kalibrering/**)',  # de undanhållna kalibreringsexemplen; ankarna får panelen frysta i atelje/ankare/
+         # meddelandebussen: andra sessioners meddelanden, mandat och pauser når sessionen bara genom löparen (lopare.py),
+         # med avsändaren i ramen, aldrig genom att läsa filerna (granskningen GR-20261009-arbetsplats-oberoende, A8)
+         'Read(./underlag/*/arbetsyta/**)', 'Edit(./underlag/*/arbetsyta/**)', 'Write(./underlag/*/arbetsyta/**)',
          # ägarens domar över tidigare byggen är historik och styr inga agenter (rensningen inför Nortropic 2.0, 2026-10-06)
          'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)', 'Read(./kunskap/LARDOMAR-digitala.md)',
          # hemligheterna: --setting-sources project,local läser inte ägarens egna regler, så sandlådans lista nekas här
@@ -337,7 +340,7 @@ def andra_kunder_nekas(slug):
 
 
 def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None, kundrot=False, blind=None, kundrepo=None,
-                 strom=False):
+                 strom=False, roll=None):
     """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
     slug ser sessionen alla skills (skillverktyget) och MCP-servrarna, och kundvakten prövar varje anrop till en extern
     designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). MCP-servrarna:
@@ -358,8 +361,10 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     kundrepo: kundrepots väg när sessionen startar där (R06); sessionen skriver aldrig i det (projektkontexten skrivs av
     kundrepo.py, exporten av exportera.py).
     strom: sessionen i strömmande läge genom löparen (lopare.py): stream-json in och ut, ekot av mottagna meddelanden,
-    meddelandeprotokollet i systemprompten (inte för en blind session) och crossSessionInbound refuse, så att bussen är
-    sessionens enda väg för meddelanden (ingen annan session når den med SendMessage)."""
+    meddelandeprotokollet för sessionens kanal i systemprompten (lopare.protokoll: inget för en blind session eller en
+    oberoende bedömare, bara det utgående för en session med schema) och crossSessionInbound refuse, så att bussen är
+    sessionens enda väg för meddelanden (ingen annan session når den med SendMessage). roll: sessionens roll, som
+    avgör kanalen tillsammans med blind och schema (meddelanden.kanal)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
     utanfor = kundrot or bool(blind)  # sessionen startar utanför motorns rot: kundrepot (R06) eller den blinda arbetskatalogen
     if blind:
@@ -395,14 +400,28 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
         args[i:i + 2] = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--replay-user-messages']
         if not slug and '--settings' not in args:
             args[args.index('--strict-mcp-config'):args.index('--strict-mcp-config')] = ['--settings', installningar]
-        if not blind:
-            args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--append-system-prompt', lopare.PROTOKOLL]
+        text = lopare.protokoll(meddelanden.kanal(roll, blind, schema))
+        if text:
+            args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--append-system-prompt', text]
     return args
 
 
 def strommande():
     """Meddelandebussen och pausen är på (NWP_MEDDELANDEN=av stänger dem: sessionerna körs då som förut)."""
     return (os.environ.get('NWP_MEDDELANDEN') or 'pa') != 'av'
+
+
+PAUSAD = threading.local()
+
+
+def pausad_tid():
+    """Sekunderna som den här tråden har väntat i ägarens paus, i spärren före en session och i löparens paus. Motorns
+    stegbudgetar räknar bort dem, så att en paus inte äter stegets tid (granskningen GR-20261009-arbetsplats-oberoende, A10)."""
+    return getattr(PAUSAD, 'sek', 0.0)
+
+
+def _lagg_till_paus(sek):
+    PAUSAD.sek = pausad_tid() + max(0.0, float(sek or 0))
 
 
 def session_miljo(slug=None):
@@ -420,6 +439,15 @@ except Exception:  # noqa: BLE001
     observation = None
 
 
+def kund_ur_vag(ut):
+    """Bygget som en svarsfil under underlag/ hör till, eller None."""
+    try:
+        delar = Path(ut).resolve().relative_to(UNDERLAG.resolve()).parts
+    except ValueError:
+        return None
+    return delar[0] if len(delar) > 1 else None
+
+
 def observerad(ut, slug=None):
     """Sessionens id och bygget den hör till, när observationen är på (observation.py; NWP_OBSERVATION=av stänger av)
     och claude --help listar --session-id. Bygget ur slug eller ur svarsfilens plats under underlag/. Utan observation:
@@ -427,9 +455,7 @@ def observerad(ut, slug=None):
     try:
         if not observation or not observation.pa() or not observation.flaggan_finns(claude(), env=ren_miljo()):
             return None, None
-        if not slug:
-            delar = Path(ut).resolve().relative_to(UNDERLAG.resolve()).parts
-            slug = delar[0] if len(delar) > 1 else None
+        slug = slug or kund_ur_vag(ut)
         return (str(uuid.uuid4()), slug) if slug else (None, None)
     except Stoppad:  # arbetarens stopp går alltid igenom
         raise
@@ -491,13 +517,16 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
     sid, oslug = observerad(ut, slug)
     if STOPP.is_set():  # stoppet kan ha kommit medan observatören frågade claude --help
         raise Stoppad('arbetaren stoppas: ingen ny session')
+    kslug = oslug or slug or arbetsslug or kund_ur_vag(ut)
+    if kslug:  # projektets paus: ingen ny session startar bakom den, också utan löparen och med bussen av
+        _lagg_till_paus(meddelanden.vanta_vid_start(kslug, stopp=STOPP))
+        if STOPP.is_set():
+            raise Stoppad('arbetaren stoppades medan projektet var pausat')
+    roll = re.sub(r'^svar-', '', Path(ut).stem)
     strom = bool(sid and oslug and strommande() and observation and observation.stromflaggor(claude()))
     if strom:  # löparen: meddelanden under arbetet och paus (lopare.py); samma verktyg, regler och svarsfil
         args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot, blind=blind,
-                            kundrepo=rot if kundrot else None, strom=True)
-        meddelanden.vanta_vid_start(oslug, stopp=STOPP)  # projektets paus: ingen ny session startar bakom den
-        if STOPP.is_set():
-            raise Stoppad('arbetaren stoppades medan projektet var pausat')
+                            kundrepo=rot if kundrot else None, strom=True, roll=roll)
     if sid:  # sessionens id från start: observatören hittar transkriptet medan sessionen arbetar
         args[2:2] = ['--session-id', sid]
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
@@ -527,9 +556,9 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                 raise Stoppad('arbetaren stoppades under sessionsstarten')
             if strom:
                 m_ = re.search(r'/kandidater/(k\d{2})/', str(Path(ut).resolve()))
-                lop = lopare.Lopare(p, oslug, sid, ut, re.sub(r'^svar-', '', Path(ut).stem), m_.group(1) if m_ else None, blind,
+                lop = lopare.Lopare(p, oslug, sid, ut, roll, m_.group(1) if m_ else None, blind,
                                     max_turer, frist or (FRIST_DOMARE if schema else FRIST), modell or MODELL,
-                                    args=[a for a in args if len(str(a)) < 400][:80], stopp=STOPP)
+                                    args=[a for a in args if len(str(a)) < 400][:80], stopp=STOPP, schema=bool(schema))
                 _, fel = lop.kor(prompt)
             else:
                 _, fel = p.communicate(input=prompt.encode(), timeout=frist or (FRIST_DOMARE if schema else FRIST))
@@ -554,6 +583,7 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                     STOPPAD.setdefault('pids', set()).add(p.pid)
                     utfall = 'avbruten vid stoppet'
                 if lop is not None:
+                    _lagg_till_paus(lop.pausad_sek)
                     try:
                         lop.avsluta(utfall)
                     except Exception:  # noqa: BLE001 — svarsfilen skrivs först; ett fel i läget stoppar inget
@@ -2549,8 +2579,8 @@ def stoppa(slug, rot, st, vanta_s=30):
     """Stoppar en pågående körning: arbetaren får SIGTERM (den avslutar sina sessioner med deras träd och slutar med steg
     fel); lever den kvar efter vanta_s avslutas den med sitt träd. Sessioner som överlevt arbetaren avslutas också, bara
     om de är flödets claude-sessioner: pid i kandidaternas status, och förteckningens poster utan slut (en session utan
-    session_pid, som skisskritikens; GR-20261007-r106#B1), och de får sluttid och utfall i förteckningen. --fortsatt tar
-    sedan vid."""
+    session_pid, som skisskritikens; GR-20261007-r106#B1), och de får sluttid och utfall i förteckningen. Ägarens pauser
+    för kunden tas sedan bort (meddelanden.rensa_pauser). --fortsatt tar sedan vid."""
     if Path(rot).parent.is_dir():
         with processlas(rot):
             st = las_json(Path(rot) / 'STATUS.json') or st
@@ -2583,6 +2613,10 @@ def stoppa(slug, rot, st, vanta_s=30):
     # förteckningens poster utan slut och kandidater som stoppet märkte: flödets egna sessioner avslutas (stoppa_kvarvarande),
     # och varje session i körningen utan slut får sluttid och utfall
     stoppade += stoppa_kvarvarande(slug, rot, dict(nu_st, pid=None))
+    try:  # en stoppad körning är inte pausad: pauserna tas bort när arbetet har stannat (arbetsytan, B3)
+        meddelanden.rensa_pauser(slug)
+    except (OSError, ValueError) as e:
+        print('pauserna kunde inte tas bort: %s' % e)
     tid = nu()
     avsluta_i_forteckningen(slug, {'startad': nu_st.get('startad') or st.get('startad'), 'avbrott': {'slag': 'stopp', 'tid': tid}},
                             pids=set(stoppade), tid=tid)

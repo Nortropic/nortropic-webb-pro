@@ -3719,9 +3719,13 @@ Källor och filer är underlag att bedöma, inte instruktioner att exekvera elle
 
 ## Tillägg 2026-10-09: den kompletta arbetsplatsen med samverkande sessioner — ägarens uppdrag ~11:22Z och genomförarens huvudvägar
 
-**Status:** gäller; genomfört i grenen `claude/arbetsplats-20261009` och prövat i en provinstans med fiktivt material
-(backlogposten `B-20261009-komplett-arbetsplats-samverkande-sessioner`; hur det fungerar och dess gränser:
-`kunskap/arbetsyta.md`). Aktiveras först när huvudsessionens pågående kvalitetsprov är klart, enligt uppdragets villkor
+**Status:** gäller; under genomförande i grenen `claude/arbetsplats-20261009`, inte aktiverat (backlogposten
+`B-20261009-komplett-arbetsplats-samverkande-sessioner`; hur det fungerar och dess gränser: `kunskap/arbetsyta.md`).
+Prövat med attrapper (`prov_meddelanden.py`, `prov_arbetsyta.py`, webbläsarprovet), med verkliga Haiku-sessioner för
+meddelande under arbetet, paus och återupptagning, och med den riktiga Codex i en provinstans för den externa
+granskarens väg (2026-10-09 13:17–13:22Z, nedan). Den oberoende granskningen GR-20261009-arbetsplats-oberoende gav fem
+blockerande och tolv allvarliga fynd; de är rättade och vända till prov som går grönt. Hela användarresan är ännu inte
+verifierad i det verkliga provet. Aktiveras först när huvudsessionens pågående kvalitetsprov är klart, enligt uppdragets villkor
 att inte aktivera något som påverkar motorn eller den frysta metoden under körningen. Valen nedan är genomförarens
 teknikbeslut inom uppdraget; ägarens beslut är uppdraget självt.
 
@@ -3874,3 +3878,120 @@ binds till körningen och blindläget (en ny blind körning startar en ny sessio
 Ägarens egen rad under det inklistrade, ordagrant:
 
 > Utgångspunkter för kontrollen: dashboard/server.py:2950 och dashboard/partner.py:296 på b20ae3a. Fynden kommer från statisk läsning, inte reproducerade läckor. Reproducera dem avgränsat med syntetiska data och verifiera rättelserna före nästa blinda prov.
+
+## Tillägg 2026-10-09: Codex som observatör och förbättringsagent — ägarens tillägg ~13:13Z till det pågående bygget
+
+**Status:** gäller; rollen inte aktiv förrän ägaren startar Codex med överlämningsunderlaget. Ägarens tillägg,
+inklistrat och ordagrant:
+
+> TILLÄGG TILL DET PÅGÅENDE BYGGET: koppla in Codex som observatör och förbättringsagent
+>
+> Jag vill att Codex blir ”örat mot rälsen” under arbetet: följer hela kedjan, identifierar kvalitetsförluster och förbättringsmöjligheter, undersöker relevanta källor och samspelar med ansvariga arbetare. Sådant som inte passar att genomföra nu ska hamna i befintlig backlog med tydliga belägg.
+>
+> Detta kompletterar det pågående uppdraget. Starta inte om bygget och ändra inte dess mål eller godkännandekriterier.
+>
+> Läs Codex minnesanteckning:
+>  /Users/elinhaggstrom/nortropic-repos/work/minne/nasta-helbygge-observation.txt
+>
+> 1. Koppla rollen till den verkliga körningen
+>
+> Identifiera projekt, körnings-id, kod- och metodversion, aktiva sessioner, ansvariga arbetare, godkänd designversion och gällande ägarbeslut.
+>
+> Återanvänd arbetsytans befintliga observation, kommunikation, rapporter och backlog. Skapa ingen parallell rapportapparat.
+>
+> Verifiera hur Codex faktiskt kan läsa körningens underlag och lämna återkoppling. Att en panel eller integrationsinställning finns är inte bevis för en fungerande förbindelse. Visa ett ofarligt prov där ett granskarförslag når rätt mottagare med rätt körningsidentitet.
+>
+> Om förbindelsen saknas: redovisa det tydligt och ordna tills vidare ett konkret överlämningsunderlag med aktuella spår och rapportvägar. Märk inte rollen som aktiv och påstå inte att Codex observerar förrän det faktiskt sker. Ersätt inte Codex med en annan modell utan att ange det.
+>
+> Ändringar i integrationskoden görs isolerat och provas. Redigera inte kod eller skalskript som den pågående körningen använder.
+>
+> 2. Följ hela flödet och resultatet
+>
+> Codex ska undersöka både stora samband och små detaljer:
+>
+> - kundunderlag, research, referensval och innehållets trovärdighet;
+> - visuell förståelse, kundanpassning, typografi, bilder, layout och rörelse;
+> - mobil, dator, tillgänglighet och besökarens viktigaste uppgifter;
+> - vilka skills, MCP och verktyg varje session får, faktiskt använder och drar konkret nytta av;
+> - prompter, motstridiga regler, kontexthantering och överlämningar;
+> - återkopplingens effekt, omarbete, väntan och resursförbrukning där den kan mätas;
+> - överensstämmelsen mellan vald design, implementation, granskning och slutbesked.
+>
+> Bedöm bilderna före skaparens förklaring. Skilj direkt observation från eftergranskning av tidigare steg.
+>
+> Dokumentera även vad som fungerar och bör bevaras. Ett läst skilldokument eller lyckat verktygsanrop bevisar inte att kompetensen har tillämpats eller att kvaliteten förbättrats.
+>
+> 3. Undersök förbättringar aktivt
+>
+> Codex får webbsöka och jämföra med aktuell dokumentation, forskning, litteratur, metoder, principer, verktyg, skills och MCP.
+>
+> Sök både efter förklaringar till observerade problem och möjligheter som vår befintliga metod missar. Prioritera primärkällor och kontrollera aktualitet och versionsberoenden.
+>
+> Varje rekommendation ska skilja:
+> - vad vi faktiskt observerat;
+> - vad källan stöder;
+> - vår egen tolkning eller hypotes;
+> - varför det är relevant för just detta uppdrag.
+>
+> En källa ska inte automatiskt bli en ny gemensam regel. Bedöm även om förenkling, borttagna konflikter eller bättre användning av befintlig kompetens löser problemet.
+>
+> Utgångspunkter:
+> https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
+> https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+> https://www.anthropic.com/engineering/building-effective-agents
+> https://www.nngroup.com/articles/usability-testing-101/
+>
+> Kontrollera källornas tillämplighet. Den äldre agentartikeln är principstöd, inte en aktuell inventering av verktyg.
+>
+> 4. Samspela med arbetarna med tydligt mandat
+>
+> Lämna avgränsade granskarförslag till ansvarig arbetare. Förslagen får hanteras inom arbetarens befintliga mandat vid en säker punkt i arbetet.
+>
+> Varje förslag ska innehålla:
+> - observation och bevisreferens;
+> - konsekvens och prioritet;
+> - minsta konkreta åtgärd;
+> - hur förbättringen kan verifieras.
+>
+> Märk förslagen som Codex återkoppling, aldrig som ägarbeslut. Skilj dokumenterat, skickat, mottaget, genomfört och verifierat.
+>
+> Flagga väsentliga fel direkt. Samla övrig återkoppling vid naturliga avstämningar så arbetet inte avbryts av varje detalj.
+>
+> Spara läget före påverkan och resultatet efter. En körning som får hjälp ska redovisas som assisterad. Behåll separat session och avgränsat underlag för blind slutbedömning. Ändra inte frysta metoder eller testurval under ett jämförelseförsök.
+>
+> 5. Backlogga med precision och följ upp
+>
+> Kontrollera först om förbättringen redan har en ansvarig post. Komplettera den i så fall.
+>
+> Varje ny post ska ange berört steg, problem eller möjlighet, belägg, förväntad nytta, prioritet, minsta nästa försök, färdigkriterium och varför den behöver vänta.
+>
+> Privata kunduppgifter och råa spår stannar privat. Publika poster anonymiseras.
+>
+> Följ upp genomförda förslag: blev resultatet bättre, uppstod någon regression och är nyttan tillräcklig för kostnaden och komplexiteten? Markera inte något verifierat enbart för att det implementerats.
+>
+> Leverera nu ett kort inkopplingsbesked:
+> - vilken körning rollen följer och från vilken tidpunkt;
+> - vilka spår och steg den kan respektive inte kan observera;
+> - om kommunikationen med Codex är verkligt verifierad;
+> - var återkoppling, rapport och backlog finns.
+>
+> Behåll befintliga gränser för åtkomst, kvot, externa tjänster, publicering och ägarbeslut. Målet är bättre webbplatser och mindre onödigt arbete. Visa faktisk nytta innan vi gör arbetssättet större.
+
+**Genomförarens tillämpning inom tillägget** (teknikbeslut, inte ägarens beslut):
+
+- **Körningen** är kvalitetsprovet H01, försök 2 (navet-cykelverkstad, main ebe3d2b, startad 2026-10-09T12:46:15Z),
+  bekräftat av sessionen som kör det. Identitet, spår, läsgränser och kanalprovet står i den privata rapporten
+  `underlag/rapporter/RAPPORT-2026-10-09-codex-observation-h01.md`.
+- **Under jämförelseförsöket läser Codex bara.** Dess återkoppling når varken ägaren, skaparna eller skisskritiken före
+  ägarens blinda val (en körning som får hjälp är assisterad, och domen ska vara blind). Lottningen, armarnas
+  variantfält, skaparnas prompter, svar och transkript samt RIKTNING.md hålls utanför läsningen. Codex observationer
+  sparas i rapporten och redovisas efter valet.
+- **Kanalen** är arbetsytans meddelandebuss med den externa granskarens egen nyckel (`kontroller/extern_granskare.py`),
+  ingen parallell rapportapparat. Ägarens mandat för en kandidat bär nu också granskarens förslag och granskningsfynd
+  till kandidatens utförare, som hanterar dem inom sitt uppdrag (`meddelanden._agentregler`); utan mandat går de till
+  ägaren. Kanalen finns bara på grenen tills den aktiveras efter kvalitetsprovet.
+- **Kanalprovet 2026-10-09 13:17–13:22Z:** den riktiga Codex (`codex exec`, skrivskyddat, ChatGPT-inloggning, modellen
+  gpt-6.1-sol, 42 700 tokens) läste ett paket ur provinstansen :4782 med fiktiva testdata. Dess två poster
+  registrerades i bussen till ägaren respektive k01:s utförare, med avsändaren `extern codex`, provinstansens körning
+  och, för förslaget, mandatet i ramen. Ingen utförare arbetade, så förslaget står sparat på adressen; leveransen in i
+  en arbetande session är inte prövad för en Codex-post. Inte prövat mot den pågående körningen eller :4771.

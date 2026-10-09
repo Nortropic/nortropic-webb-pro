@@ -146,11 +146,16 @@ FRIST = int(os.environ.get('NWP_TJANST_FRIST') or 1800)
 def kor_session(tjanst, prompt, logg, modell, frist=FRIST):
     """En tjänstesession: tjänstens verktyg öppnas bara av kundvakten (kontroller/kundvakt.py), anrop för anrop, och
     sessionen kan inte läsa filer (kundens uppgifter i underlag/ når aldrig frågorna; den oberoende granskningen
-    2026-10-05, fynd 6). Kunden och underlaget ur loggens plats: <underlag>/<slug>/referenser/<katalog>/<tjänst>/."""
+    2026-10-05, fynd 6). Kunden och underlaget ur loggens plats: <underlag>/<slug>/referenser/<katalog>/<tjänst>/. Medan
+    ägaren pausat projektet väntar sessionen före start (meddelanden.vanta_vid_start); stoppet avslutar den väntan med
+    processträdet."""
     import kundvakt
     p_ = Path(logg).resolve()
     if p_.parents[2].name != 'referenser':
         raise ValueError('loggen ligger inte under <underlag>/<slug>/referenser/<katalog>/: kundvakten kan inte sättas')
+    import meddelanden
+    if p_.parents[4] == meddelanden.UNDERLAG.resolve():  # projektets paus: ingen tjänstesession startar bakom den (arbetsytan, B4)
+        meddelanden.vanta_vid_start(p_.parents[3].name)
     claude = os.environ.get('NWP_CLAUDE') or 'claude'
     args = [claude, '-p', '--max-turns', '90', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--mcp-config', str(MCP / ('%s.json' % tjanst)),

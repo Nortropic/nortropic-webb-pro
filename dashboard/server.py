@@ -3381,15 +3381,18 @@ def main():
     LAN['pa'] = not a.utan_lan
     VARD['tillatna'] = {'127.0.0.1:%d' % a.port, 'localhost:%d' % a.port}
     NYCKEL['varde'] = os.environ.pop('NWP_DASHBOARD_NYCKEL', None) or secrets.token_urlsafe(24)
+    # porten först: en andra start som inte får porten skriver aldrig över den körande dashboardens nyckel (A11)
+    srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
     try:  # dashboard.sh läser filen när dashboarden redan kör; aldrig i loggen eller i barnens miljö
         NYCKELFIL.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(NYCKELFIL, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        tmp = NYCKELFIL.with_name('.%s.%d.tmp' % (NYCKELFIL.name, os.getpid()))
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(NYCKEL['varde'] + '\n')
-        os.chmod(NYCKELFIL, 0o600)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, NYCKELFIL)
     except OSError as e:
         print('dashboardnyckeln kunde inte skrivas till %s: %s' % (NYCKELFIL, e), flush=True)
-    srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
     print('Dashboard: http://127.0.0.1:%d (öppna via ./dashboard.sh: skrivande anrop kräver nyckeln i %s)' % (a.port, NYCKELFIL), flush=True)
     def spaningsklocka():
         while True:

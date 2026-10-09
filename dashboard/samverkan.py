@@ -102,8 +102,12 @@ def _vy(slug, m, blind):
         for sida in ('avsandare', 'mottagare'):
             if isinstance(ut.get(sida), dict) and ut[sida].get('roll'):
                 ut[sida] = {k: v for k, v in ut[sida].items() if k != 'roll'}
-        if agent:
-            ut.update(text=DOLT, belagg=[], dolt=True)
+        if agent:  # också syftet och kandidaten: antalet fynd per kandidat är en bedömningssignal (granskningen, K3)
+            ut.update(text=DOLT, belagg=[], dolt=True, syfte=None, syfte_text='Meddelande från en agent', kandidat=None, version=None,
+                      svar_pa=None, mandat=None)
+            for sida in ('avsandare', 'mottagare', 'levererat_till'):
+                if isinstance(ut.get(sida), dict) and 'kandidat' in ut[sida]:
+                    ut[sida] = {k: v for k, v in ut[sida].items() if k != 'kandidat'}
         if ut.get('svar'):
             ut['svar'] = {'tid': ut['svar'].get('tid'), 'text': DOLT, 'dolt': True}
         if ut.get('kvitto'):
@@ -129,23 +133,31 @@ def lage(dash, slug):
     if p and p.get('omfattning') == 'projekt':
         arbetar = [s for s in levande if s.get('lage') != 'pausad']
         tjanster = _tjanster(dash, slug, levande)
-        projekt = {'begard': p.get('begard'), 'lage': 'pausad' if not arbetar else 'paus_begard',
-                   'lage_text': 'pausad: inga sessioner arbetar och ingen ny startar' if not arbetar else
-                   'paus begärd: %d session(er) arbetar ännu' % len(arbetar),
-                   'vantande_start': p.get('vantande_start'), 'arbetar': [{'session_id': s['session_id'], 'ansvar': s.get('ansvar'), 'kandidat': s.get('kandidat'),
-                                                                          'lage': s.get('lage')} for s in arbetar],
+        modell = [d for d in tjanster or [] if d.get('modell')]  # claude-processer utanför en pausad löpare (tjänstesessioner)
+        if tjanster is None:
+            lage_, text_ = 'paus_begard', 'paus begärd: processlistan gick inte att läsa, så det går inte att belägga att arbetet stannat'
+        elif arbetar or modell:
+            lage_, text_ = 'paus_begard', 'paus begärd: %d session(er) arbetar ännu' % (len(arbetar) + len(modell))
+        else:
+            lage_, text_ = 'pausad', 'pausad: inga sessioner arbetar och ingen ny startar'
+        projekt = {'begard': p.get('begard'), 'lage': lage_, 'lage_text': text_,
+                   'vantande_start': p.get('vantande_start'), 'vantande': p.get('vantande'),
+                   'arbetar': [{'session_id': s['session_id'], 'ansvar': s.get('ansvar'), 'kandidat': s.get('kandidat'),
+                                'lage': s.get('lage')} for s in arbetar],
                    'tjanster': tjanster}
     return {'tid': M.nu(), 'korning': kn, 'blind': blind, 'meddelanden': alla,
             'oppna': [m['id'] for m in alla if m['agent'] and (m.get('mottagare') or {}).get('typ') == 'agare' and not m.get('beslut')],
             'mandat': [dict(x, aktivt=not x.get('aterkallat') and x.get('korning') == kn) for x in M.mandat(slug)],
             'styrning': {'projekt': projekt, 'sessioner': {sid: dict(v, omfattning='session') for sid, v in (styr.get('sessioner') or {}).items()}},
-            'pausade': [{'session_id': s['session_id'], 'verktyg_kvar': s.get('verktyg_kvar'), 'sedan': s.get('sedan')} for s in pausade],
+            'pausade': [{'session_id': s['session_id'], 'verktyg_kvar': s.get('verktyg_kvar'), 'sedan': s.get('sedan'),
+                         'tak': (s.get('paus') or {}).get('tak')} for s in pausade],
             'syften': M.SYFTEN, 'lagen': M.LAGEN}
 
 
 def _tjanster(dash, slug, levande):
-    """Arbetarens egna processer utanför sessionerna (ett bygge, en fotografering) som fortfarande arbetar under en
-    projektpaus: de pausas inte, de redovisas. None när processlistan inte gick att läsa."""
+    """Arbetarens egna processer utanför sessionerna med löpare (ett bygge, en fotografering, en tjänstesession mot
+    Refero eller Mobbin) som fortfarande arbetar under en projektpaus: de pausas inte, de redovisas, och en claude-process
+    bland dem (modell: true) gör att projektet inte är pausat än. None när processlistan inte gick att läsa."""
     _kontroller()
     import lopare
     st = dash.las_json(dash.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
@@ -158,7 +170,7 @@ def _tjanster(dash, slug, levande):
     under = set(sessioner)
     for sp in sessioner:
         under |= {d['pid'] for d in lopare._barn(sp) or []}
-    return [d for d in alla if d['pid'] not in under and 'claude' not in str(d.get('kommando'))][:20]
+    return [{'pid': d['pid'], 'kommando': d['kommando'], 'modell': bool(d.get('claude'))} for d in alla if d['pid'] not in under][:20]
 
 
 def skicka(dash, slug, data):
@@ -392,7 +404,11 @@ def _bild_sha(dash, rel):
     p = (dash.ROOT / str(rel or '')).resolve()
     if not str(p).startswith(str((dash.UNDERLAG).resolve()) + '/') or not p.is_file():
         return None
-    return hashlib.sha256(p.read_bytes()).hexdigest()
+    h = hashlib.sha256()
+    with open(p, 'rb') as f:
+        for bit in iter(lambda: f.read(1 << 20), b''):
+            h.update(bit)
+    return h.hexdigest()
 
 
 def beslut(dash, slug, data):
@@ -407,13 +423,23 @@ def beslut(dash, slug, data):
     kand = [{'id': str(k.get('id') or ''), 'version': str(k.get('version') or '')} for k in data.get('kandidater') or [] if isinstance(k, dict)]
     if not kand and data.get('beslut') not in ('forkasta', 'ny_riktning'):
         raise ValueError('välj kandidaten beslutet gäller')
+    nu_ = {}
+    if data.get('beslut') == 'godkand':
+        lista, _fel = arbetsyta.kandidatlista(dash, slug, True)
+        nu_ = {k['id']: k for k in lista}
     for k in kand:
         bev = [x for x in sedd if isinstance(x, dict) and x.get('kandidat') == k['id'] and x.get('version') == k['version']]
         if data.get('beslut') == 'godkand':
             if not bev:
                 raise ValueError('godkänn den version du ser: bilden av %s i version %s saknas i beslutet' % (k['id'], k['version'][:12]))
+            kn_ = nu_.get(k['id']) or {}
+            if kn_.get('version_hel') != k['version']:  # den version ägaren öppnade beslutet för, aldrig en senare (A6)
+                raise M.Inaktuell('%s har en annan version nu än den du såg; se den nya versionen först' % k['id'])
+            bilder = {v for b_, v in (kn_.get('snapshot') or {}).items() if b_ in ('390', '1440') and v}
             for b in bev:
-                if not b.get('bild') or _bild_sha(dash, b['bild']) != b.get('bild_sha'):
+                if b.get('bild') not in bilder:  # kandidatens ögonblicksbild, inte en annan fil under underlag/ (K8)
+                    raise ValueError('bilden i beslutet är inte ögonblicksbilden av %s' % k['id'])
+                if _bild_sha(dash, b['bild']) != b.get('bild_sha'):
                     raise M.Inaktuell('bilden du såg av %s är inte den som finns nu; läs om och se den nya versionen först' % k['id'])
     if data.get('korning') and data['korning'] != M.korning(slug):
         raise M.Inaktuell('körningen har bytts sedan läget lästes; läs om läget')
@@ -455,6 +481,9 @@ def extern_namn(huvud):
         if f.is_symlink() or not NAMN.fullmatch(f.stem):
             continue
         try:
+            st = f.stat()
+            if st.st_mode & 0o077 or st.st_uid != os.getuid():  # bara ägarens egen fil med rättigheterna 0600 (K6)
+                continue
             ratt = f.read_text(encoding='utf-8').strip().encode()
         except OSError:
             continue
@@ -472,7 +501,7 @@ def extern_underlag(dash, slug, namn):
     M = _m()
     kand, _fel = arbetsyta.kandidatlista(dash, slug, True)
     return {'kund': slug, 'korning': M.korning(slug), 'blind': blind, 'granskare': namn,
-            'kandidater': [{'id': k['id'], 'etikett': k['etikett'], 'status': k.get('status'), 'version': k.get('version_hel'),
+            'kandidater': [{'id': k['id'], 'etikett': k['etikett'], 'version': k.get('version_hel'),
                             'fotograferad': k.get('fotograferad'), 'bilder': {b: k['snapshot'].get(b) for b in ('390', '1440')}} for k in kand],
             'mandat': [x for x in M.mandat(slug) if (x.get('granskare') or {}).get('typ') == 'extern' and x['granskare'].get('namn') == namn
                        and not x.get('aterkallat') and x.get('korning') == M.korning(slug)],
@@ -508,15 +537,23 @@ def extern_fynd(dash, slug, namn, data):
 
 
 def extern_aterkoppling(dash, slug, namn):
-    """Återkopplingen till granskaren: meddelanden till den, svar på dess meddelanden och ägarens beslut över dem."""
-    _spärr(dash, slug)
+    """Återkopplingen till granskaren: ägarens meddelanden till den och svar på dess meddelanden (maskerade), och
+    leveransläget och ägarens beslut för dess egna. Andra sessioners text lämnas aldrig ut: av deras svar och kvitton
+    ges bara läget, tiden och syftet. Före ägarens första val i körningen ges ingen text alls utom ägarens egen
+    (blindningen på servervägen, som i ägarens vy; granskningen GR-20261009-arbetsplats-oberoende, A2)."""
+    import arbetsyta
+    blind = _spärr(dash, slug)
     M = _m()
     egna = {m['id'] for m in M.alla(slug) if m.get('avsandare') == {'typ': 'extern', 'namn': namn}}
     ut = []
     for m in M.alla(slug):
         if (m.get('mottagare') or {}) == {'typ': 'extern', 'namn': namn} or m.get('svar_pa') in egna:
-            ut.append({k: m.get(k) for k in ('id', 'tid', 'syfte', 'text', 'kandidat', 'version', 'svar_pa')} | {'avsandare': m['avsandare'].get('typ')})
+            agare = (m.get('avsandare') or {}).get('typ') == 'agare'
+            rad = {k: m.get(k) for k in ('id', 'tid', 'syfte', 'svar_pa')} | {'avsandare': 'agare' if agare else 'agent', 'lage': M.lage(m)}
+            if agare:
+                rad.update(text=arbetsyta.maskera(str(m.get('text') or '')), kandidat=m.get('kandidat'), version=m.get('version'))
+            ut.append(rad)
         if m['id'] in egna:
             ut.append({'id': m['id'], 'eget': True, 'lage': M.lage(m), 'beslut': (m.get('beslut') or {}).get('val'),
-                       'svar': (m.get('svar') or {}).get('text')})
-    return {'aterkoppling': ut}
+                       'svar': {'tid': (m.get('svar') or {}).get('tid'), 'text': 'mottagarens svar lämnas inte ut'} if m.get('svar') else None})
+    return {'aterkoppling': ut, 'blind': blind}

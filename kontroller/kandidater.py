@@ -1877,6 +1877,11 @@ def aterstall_fore_svaret(slug, kid, mal):
         shutil.copy2(mal / 'RIKTNING.md', d / 'RIKTNING.md')
 
 
+def gatt(start, paus0):
+    """Stegets tid sedan start (time.monotonic), utan tiden i ägarens pauser sedan paus0 (atelje.pausad_tid)."""
+    return time.monotonic() - start - (atelje.pausad_tid() - paus0)
+
+
 def skissa(slug, kid, fel=None):
     """Ett skaparförsök i skissläget: en session (och en till efter en begärd komplettering) inom försökets tid, räknad
     från försökets start med verktygsväntan inräknad, sedan fotografering och de snabba kontrollerna. fel: ett omförsök
@@ -1897,6 +1902,7 @@ def skissa(slug, kid, fel=None):
             kopiera(d / 'varv', mal / 'varv')
     frist = FRIST_SKISS_OMFORSOK if fel else FRIST_SKISS
     start, startad = time.monotonic(), nu()  # försöket räknas från början, förberedelsen och fotograferingen inräknade (S8)
+    paus0 = atelje.pausad_tid()  # ägarens pauser räknas inte (arbetsytan, A10)
     forbered_projekt(slug, kid)
     stilpaket_i_projekt(slug, kid)
     satt_status(slug, kid, 'under_arbete', 'skiss, försök %d' % forsok, forsok=forsok, startad=startad, frist=frist,
@@ -1910,7 +1916,7 @@ def skissa(slug, kid, fel=None):
     granskas = not fel and os.environ.get('NWP_SKISSKRITIK') != 'av'
     fortsatt = False  # en fortsättning efter en tidsgräns, med granskningens reserv (högst en)
     for k in range(3):
-        rest = int(frist - FOTO_RESERV - (time.monotonic() - start))
+        rest = int(frist - FOTO_RESERV - gatt(start, paus0))
         if granskas and k and rest - SKISSKRITIK_RESERV < FORTSATT_MIN <= rest:
             # den uppföljande sessionen (researchens resultat) går före granskningen när den annars får under tio minuter
             granskas = False
@@ -1942,7 +1948,7 @@ def skissa(slug, kid, fel=None):
             continue
         if not (d / skapande.KOMPLETTERING).is_file():
             break
-        kvar = int(frist - (time.monotonic() - start))
+        kvar = int(frist - gatt(start, paus0))
         if svar.get('avbruten') or kompletterad or kvar < 600:  # en begäran som inte ryms i tiden sparas obesvarad
             arkiv = d / 'kompletteringar'
             arkiv.mkdir(parents=True, exist_ok=True)
@@ -1958,7 +1964,7 @@ def skissa(slug, kid, fel=None):
                     skisskritik={'tid': nu(), 'gjord': False, 'skal': 'skaparens session nådde tidsgränsen'})
     fore_svaret, svar_avbrutet = None, None
     if granskas and not atelje.STOPP.is_set():
-        kvar = int(frist - FOTO_RESERV - (time.monotonic() - start))
+        kvar = int(frist - FOTO_RESERV - gatt(start, paus0))
         kr, kr_fel = None, None
         if kvar >= FRIST_SKISSKRITIK + SVAR_MIN:  # granskningen görs bara när skaparen hinner svara på den
             satt_status(slug, kid, 'under_arbete', 'den kritiska granskaren ser bilderna')
@@ -1968,7 +1974,7 @@ def skissa(slug, kid, fel=None):
                 kr_fel = '%s: %s' % (type(e).__name__, str(e)[:200])
             if atelje.STOPP.is_set():  # ett stopp under granskningen: försöket står kvar under arbete och tas upp igen
                 raise atelje.Stoppad('försöket avbröts av stoppet')
-        kvar = int(frist - FOTO_RESERV - (time.monotonic() - start))
+        kvar = int(frist - FOTO_RESERV - gatt(start, paus0))
         satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen' if kr and kvar >= SVAR_MIN else 'granskningen gjordes inte' if not kr else
                     'ingen tid kvar för ett svar', skisskritik={'tid': nu(), 'rekommendation': (kr or {}).get('rekommendation'),
                                                                  'storsta_problem': (kr or {}).get('storsta_problem'), 'fel': kr_fel,
