@@ -1,0 +1,7 @@
+{
+  "name": "nortropic-arbetsyta",
+  "version": "0.1.0",
+  "description": "Nortropics arbetsyta i Claude Code: kund, moment och rollsessioner ur dashboardens läsväg, och en länk till arbetsytan. Läser bara.",
+  "author": { "name": "Nortropic" },
+  "types": "./types/index.d.ts"
+}

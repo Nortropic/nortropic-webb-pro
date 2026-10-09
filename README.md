@@ -8,7 +8,11 @@ domare. Varför repot finns och vad som beslutades: `BESLUT.md`.
 ```sh
 ./dashboard.sh        # http://127.0.0.1:4771 (öppnar sidan med dashboardnyckeln: ägarens domar och flödets handlingar
                       # skrivs bara av ett anrop med nyckeln, som ingen annan lokal process har; dashboard/server.py NYCKEL)
+./dashboard.sh arbetsyta [kund]   # arbetsytan: samtalet med partnern, förhandsvisningen, sessionerna och koden för en kund
 ```
+
+Arbetsytan samlar en kunds samtal med Nortropic-partnern, riktiga förhandsvisning, sessioner som arbetar, byggflöde och
+kod över samma läge; hur den fungerar, dess gränser och Claude-panelen (`mod/nortropic-arbetsyta`): `kunskap/arbetsyta.md`.
 
 Allt på ett ställe: vyn Prototyp, där du väljer bland förslagen och godkänner en startsida (besluten skrivs i
 domloggen `underlag/<slug>/DESIGNDOMAR.jsonl`), byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag,

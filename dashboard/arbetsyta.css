@@ -22,6 +22,8 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay .dampad { color: var(--ay-dampad); }
 .ay .svag { color: var(--ay-svag); font-size: 12.5px; }
 .ay code, .ay .mono { font-family: var(--ay-mono); font-size: 12.5px; }
+/* index.html ger pre och code ljus botten (--yta2, #faf9f6 i ljust läge): i arbetsytan blev koden ljus text på nästan vitt */
+.ay pre, .ay code { background: var(--ay-bg); border-color: var(--ay-linje); }
 .ay .dolt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* projekthuvudet */
@@ -48,7 +50,7 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-flikrad { display: flex; align-items: center; gap: 4px; padding: 8px 18px 0; border-bottom: 1px solid var(--ay-linje); }
 .ay-flikrad a { color: var(--ay-dampad); text-decoration: none; padding: 9px 12px; border-bottom: 2px solid transparent; font-size: 13.5px; font-weight: 520; margin-bottom: -1px; }
 .ay-flikrad a[aria-current="page"] { color: var(--ay-text); border-color: var(--ay-accent); }
-.ay-flikrad a:hover { color: var(--ay-text); }
+.ay-flikrad a:hover { color: var(--ay-text); background: transparent; }  /* den klassiska vyns nav a:hover gav ljus text på vit botten */
 .ay-flikrad .ay-meny { margin-left: auto; position: relative; }
 .ay-meny summary { list-style: none; cursor: pointer; color: var(--ay-dampad); font-size: 13px; padding: 8px 10px; border-radius: var(--ay-radie-s); }
 .ay-meny summary::-webkit-details-marker { display: none; }
@@ -119,6 +121,8 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-msg ul { margin: 4px 0 6px; padding-left: 18px; }
 .ay-msg code { background: var(--ay-bg); padding: 1px 4px; border-radius: 4px; }
 .ay-kontextrad { font-size: 11.5px; color: var(--ay-svag); margin-bottom: 4px; }
+/* den svaga gråtonen når 4,49:1 mot ägarens blå bubbla (axe, 4,5:1 för liten text); den dämpade når över */
+.ay-msg.agaren .meta, .ay-msg.agaren .ay-kontextrad { color: var(--ay-dampad); }
 .ay-overlamning { margin-top: 8px; border: 1px solid #2c4672; border-radius: 8px; padding: 9px 10px; background: var(--ay-bg); }
 .ay-overlamning dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 6px 0 8px; font-size: 12.5px; }
 .ay-overlamning dt { color: var(--ay-svag); }

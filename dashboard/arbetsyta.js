@@ -40,8 +40,12 @@
   function meddela(text) { const r = document.getElementById('ay-meddelande'); if (!r || !text) return; r.textContent = ''; setTimeout(() => { r.textContent = text; }, 60); }
   function nyttId(nyckel) { let id; try { id = sessionStorage.getItem(nyckel); } catch { id = null; } if (!id) { id = crypto.randomUUID(); try { sessionStorage.setItem(nyckel, id); } catch { /* utan lagring: ett nytt id per klick */ } } return id; }
   function slappId(nyckel, id) { try { if (sessionStorage.getItem(nyckel) === id) sessionStorage.removeItem(nyckel); } catch { /* inget att släppa */ } }
-  async function postJson(url, body) {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Nyckel': (typeof nyckel === 'function' ? nyckel() : '') }, body: JSON.stringify(body) });
+  async function postJson(url, body, ms = 45000) {
+    const avbryt = new AbortController(), t = setTimeout(() => avbryt.abort(), ms);
+    let r;
+    try { r = await fetch(url, { method: 'POST', signal: avbryt.signal, headers: { 'Content-Type': 'application/json', 'X-Nyckel': (typeof nyckel === 'function' ? nyckel() : '') }, body: JSON.stringify(body) }); }
+    catch (err) { throw new Error(err?.name === 'AbortError' ? `inget svar inom ${ms / 1000} s (begäran kan ha tagits emot)` : (err?.message || String(err))); }
+    finally { clearTimeout(t); }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const fel = new Error(j.fel || ('HTTP ' + r.status)); fel.status = r.status; fel.slag = j.slag; throw fel; }
     return j;
@@ -108,9 +112,12 @@
     es.onerror = () => {
       if (A.strom !== es) return;
       if (!A.avbrott) { A.avbrott = new Date().toISOString(); satt('ateransluter'); clearTimeout(A.inaktuellTimer); A.inaktuellTimer = setTimeout(() => { if (A.avbrott) { satt('inaktuellt'); meddela('Anslutningen till dashboarden är bruten; läget som visas kan vara inaktuellt. Arbetet påverkas inte.'); } }, 12000); }
+      // ett felsvar på återanslutningen (503 vid för många strömmar, 403) stänger EventSource för gott och webbläsaren
+      // försöker aldrig igen: vyn öppnar då en ny ström efter serverns retry-tid, tills kunden byts eller vyn lämnas
+      if (es.readyState === EventSource.CLOSED) { clearTimeout(A.omTimer); A.omTimer = setTimeout(() => { if (A.strom === es && A.slug === slug) oppnaStrom(slug); }, 3000); }
     };
   }
-  function stangStrom() { if (A.strom) { A.strom.close(); A.strom = null; } clearInterval(A.pollTimer); A.pollTimer = null; clearTimeout(A.inaktuellTimer); }
+  function stangStrom() { if (A.strom) { A.strom.close(); A.strom = null; } clearInterval(A.pollTimer); A.pollTimer = null; clearTimeout(A.inaktuellTimer); clearTimeout(A.omTimer); }
   function satt(l) { A.anslutning = l; ritaAnslutning(); }
 
   // --- läget kommer in ---
@@ -187,10 +194,10 @@
   function kodRam() {
     return `<div class="ay-kod">
       <section class="ay-panel ay-filer" aria-labelledby="ay-filer-rubrik"><div class="ay-panelhuvud"><h2 id="ay-filer-rubrik">Projektets filer</h2></div><div class="ay-panelkropp" id="ay-filer"></div></section>
-      <section class="ay-panel" aria-labelledby="ay-fil-rubrik"><div class="ay-panelhuvud" id="ay-filhuvud"><h2 id="ay-fil-rubrik">Fil</h2></div><div class="ay-panelkropp" id="ay-filvy" style="padding:0"></div></section>
+      <section class="ay-panel" aria-labelledby="ay-fil-rubrik"><div class="ay-panelhuvud" id="ay-filhuvud"><h2 id="ay-fil-rubrik">Fil</h2></div><div class="ay-panelkropp" id="ay-filvy" style="padding:0" tabindex="0"></div></section>
       <section class="ay-panel ay-preview" aria-labelledby="ay-material-rubrik" id="ay-material"></section>
-      <section class="ay-panel" aria-labelledby="ay-logg-rubrik"><div class="ay-panelhuvud"><h2 id="ay-logg-rubrik">Körningslogg</h2><button class="ay-knapp liten" type="button" data-logg-las>Läs om</button></div><div class="ay-panelkropp" id="ay-logg"></div></section>
-      <section class="ay-panel" aria-labelledby="ay-akt-rubrik"><div class="ay-panelhuvud"><h2 id="ay-akt-rubrik">Sessionens aktivitet</h2></div><div class="ay-panelkropp" id="ay-kodaktivitet"></div></section>
+      <section class="ay-panel" aria-labelledby="ay-logg-rubrik"><div class="ay-panelhuvud"><h2 id="ay-logg-rubrik">Körningslogg</h2><button class="ay-knapp liten" type="button" data-logg-las>Läs om</button></div><div class="ay-panelkropp" id="ay-logg" tabindex="0"></div></section>
+      <section class="ay-panel" aria-labelledby="ay-akt-rubrik"><div class="ay-panelhuvud"><h2 id="ay-akt-rubrik">Sessionens aktivitet</h2></div><div class="ay-panelkropp" id="ay-kodaktivitet" tabindex="0"></div></section>
     </div>`;
   }
 
@@ -217,7 +224,7 @@
     return `<div class="ay-marke">${SVG.marke}<span>Nortropic</span></div>
       <div class="ay-falt"><span><label for="ay-kund">Kund</label></span><select id="ay-kund" data-fokus="kund">${A.projekt.map((x) => `<option value="${e_(x.slug)}"${x.slug === A.slug ? ' selected' : ''}>${e_(x.namn || x.slug)}${x.testdata && !/testdata/i.test(x.namn || '') ? ' (testdata)' : ''}</option>`).join('')}</select></div>
       ${p.testdata ? '<span class="ay-testdata" title="Fiktiv verksamhet: testdata, aldrig en riktig kund">Testdata</span>' : ''}
-      <div class="ay-falt mindre"><span>Uppdrag</span><span>${k.startad ? `Körning ${e_(kort(k.startad))}, ${e_(LAGESNAMN[k.lage] || k.lage || 'läge okänt')}` : 'Ingen körning'}</span></div>
+      <div class="ay-falt mindre"><span>Uppdrag</span><span>${k.startad ? `Körning ${e_(kort(k.startad))}, ${e_(LAGESNAMN[k.lage] || k.lage || 'läge okänt')}${A.fokusStart && k.start_id === A.fokusStart ? ' (din start)' : ''}` : 'Ingen körning'}</span></div>
       <div class="ay-falt mindre"><span>Kandidat och version</span><span>${kand ? `${e_(kand.etikett)} · ${kand.version ? 'version ' + e_(kand.version) : 'ingen version'}` : 'ingen vald'}</span></div>
       <div class="ay-falt"><span>Moment</span><span>${l.moment ? `${e_(l.moment.nr)}. ${e_(l.moment.namn)} · ${e_(l.moment.status)}` : 'okänt'}</span></div>
       <div class="ay-hoger-huvud">${anslutning()}<a class="ay-knapp liten" href="#/flode/${e_(A.slug)}">Klassisk vy</a></div>`;
@@ -241,15 +248,20 @@
   function ritaMaterial() {
     const el = document.getElementById('ay-material'); if (!el) return;
     const val = A.vy === 'kod' ? 'forhandsvisning' : materialval();
-    const pv = previewFor(), nyckel = JSON.stringify([val, pv?.url, A.enhet, A.valdKandidat, pv?.byggd, A.lage.blind]);
+    const pv = previewFor(), nyckel = JSON.stringify([val, pv?.url, val === 'snapshot' ? A.enhet : '', A.valdKandidat, pv?.byggd, A.lage.blind]);
     const huvud_ = `<div class="ay-panelhuvud"><h2 id="ay-material-rubrik">${A.vy === 'kod' ? 'Förhandsvisning' : 'Resultat'}</h2>
       ${A.vy === 'kod' ? '' : `<div class="ay-segment" role="group" aria-label="Vad som visas">${[['forhandsvisning', 'Förhandsvisning'], ['snapshot', 'Ögonblicksbild'], ['kandidater', 'Kandidater'], ['underlag', 'Underlag']].map(([k, n]) =>
         `<button type="button" data-material="${k}" data-fokus="m-${k}" aria-pressed="${val === k}">${n}</button>`).join('')}</div>`}
       <div class="ay-segment" role="group" aria-label="Skärmbredd"><button type="button" data-enhet="dator" data-fokus="e-dator" aria-pressed="${A.enhet === 'dator'}">Dator</button><button type="button" data-enhet="mobil" data-fokus="e-mobil" aria-pressed="${A.enhet === 'mobil'}">Mobil</button></div>
       ${pv ? `<a class="ay-ikon" href="${e_(pv.url)}" target="_blank" rel="noopener" aria-label="Öppna förhandsvisningen i en ny flik">${SVG.lank}</a><button class="ay-ikon" type="button" data-ladda-om aria-label="Ladda om förhandsvisningen">${SVG.ladda}</button>` : ''}</div>`;
-    if (el.dataset.nyckel === nyckel) { el.querySelector('.ay-panelhuvud').outerHTML = huvud_; return; }
+    if (el.dataset.nyckel === nyckel) {  // samma innehåll: bara huvudet och bredden, så att ramen inte laddas om
+      el.querySelector('.ay-panelhuvud').outerHTML = huvud_;
+      el.querySelector('.ay-scen')?.setAttribute('data-enhet', A.enhet);
+      return;
+    }
     el.dataset.nyckel = nyckel;
     el.innerHTML = huvud_ + materialKropp(val, pv);
+    el.querySelector('.ay-scen')?.setAttribute('tabindex', '0');  // scenen rullar (ramen, en hel skärmbild): den ska nås med tangentbordet
   }
   function previewFor() {
     const p = A.lage.preview || [];
@@ -293,13 +305,13 @@
     const stopp = hs.filter((h) => ['stoppa', 'stoppa-overgang'].includes(h.id)), ovriga = hs.filter((h) => !['stoppa', 'stoppa-overgang'].includes(h.id));
     const kontroller = `<section class="ay-panel" aria-labelledby="ay-ktl"><div class="ay-panelhuvud"><h2 id="ay-ktl">Kontroller</h2></div><div class="ay-panelkropp ay-bekrafta">
       ${A.bekrafta ? `<p style="margin:0">${e_(A.bekrafta.text)}</p><div class="ay-knapprad"><button class="ay-knapp fara" type="button" data-handling="${e_(A.bekrafta.id)}" data-bekraftad data-fokus="bekrafta">Stoppa</button><button class="ay-knapp" type="button" data-avbryt-bekraftelse data-fokus="avbryt">Avbryt</button></div>`
-        : `<div class="ay-knapprad">${ovriga.map((h) => `<button class="ay-knapp primar" type="button" data-handling="${e_(h.id)}" data-fokus="h-${e_(h.id)}"${h.hinder ? ' aria-disabled="true" title="' + e_(h.hinder) + '"' : ''}>${e_(h.text)}</button>`).join('')}
-           ${stopp.map((h) => `<button class="ay-knapp fara" type="button" data-handling="${e_(h.id)}" data-fokus="h-${e_(h.id)}">Stoppa</button>`).join('')}
+        : `<div class="ay-knapprad">${ovriga.map((h) => `<button class="ay-knapp primar" type="button" data-handling="${e_(h.id)}" data-fokus="h-${e_(h.id)}"${h.hinder || A.pagar ? ' aria-disabled="true"' : ''}${h.hinder ? ' title="' + e_(h.hinder) + '"' : ''}>${e_(h.text)}</button>`).join('')}
+           ${stopp.map((h) => `<button class="ay-knapp fara" type="button" data-handling="${e_(h.id)}" data-fokus="h-${e_(h.id)}"${A.pagar ? ' aria-disabled="true"' : ''}>Stoppa</button>`).join('')}
            ${hs.length ? '' : '<span class="dampad">Ingen handling är möjlig just nu.</span>'}</div>`}
       ${ovriga.filter((h) => h.hinder).map((h) => `<p class="svag" style="margin:0">${e_(h.text)} går inte att starta: ${e_(h.hinder)}</p>`).join('')}
       <p class="svag" style="margin:0" role="status" aria-live="polite" id="ay-handlingssvar">${e_(A.svar)}</p></div></section>`;
     const handelser = senasteHandelser(6);
-    const obs = `<section class="ay-panel" aria-labelledby="ay-obs"><div class="ay-panelhuvud"><h2 id="ay-obs">Senast observerat</h2></div><div class="ay-panelkropp">
+    const obs = `<section class="ay-panel" aria-labelledby="ay-obs"><div class="ay-panelhuvud"><h2 id="ay-obs">Senast observerat</h2></div><div class="ay-panelkropp" tabindex="0" data-fokus="obs">
       ${handelser.length ? `<ul class="ay-handelser">${handelser.map((x) => `<li><time datetime="${e_(x.tid)}">${e_(klocka(x.tid).slice(0, 5))}</time><span>${e_(x.text)}</span></li>`).join('')}</ul>` : '<div class="ay-tom">Inga observerade händelser i körningen än.</div>'}
       ${(l.ofullstandig || []).length ? `<div class="ay-notis varn" style="margin-top:8px">Ofullständigt: ${e_(l.ofullstandig.join('; '))}</div>` : ''}</div></section>`;
     const k = l.korning || {}, b = l.besked || {};
@@ -412,10 +424,12 @@
   }
   function ritaSkriv() {
     const f = document.getElementById('ay-skriv'); if (!f || !A.lage) return;
-    if (f.contains(document.activeElement) && f.dataset.ritad) { uppdateraSkrivstatus(); return; }
-    const utkast = f.querySelector('textarea')?.value ?? (sessionStorageLas('nwp-arbetsyta-utkast:' + A.slug) || '');
     const mk = markering(), kand = mk.kandidat ? etikett(mk.kandidat) : null;
-    f.dataset.ritad = '1';
+    const form = JSON.stringify([A.avsikt, A.lage.blind, mk.kandidat, mk.version, mk.vy, A.lage.projekt?.namn]);
+    if (f.dataset.ritad === form || (f.contains(document.activeElement) && f.dataset.ritad)) { uppdateraSkrivstatus(); return; }
+    const utkast = f.querySelector('textarea')?.value ?? (sessionStorageLas('nwp-arbetsyta-utkast:' + A.slug) || '');
+    const behall = { sida: f.querySelector('[data-falt="sida"]')?.value || '', del: f.querySelector('[data-falt="del"]')?.value || '', svar: f.querySelector('#ay-skrivsvar')?.textContent || '' };
+    f.dataset.ritad = form;
     f.innerHTML = `<div class="ay-segment" role="group" aria-label="Avsikt">${[['fraga', 'Fråga'], ['plan', 'Planförslag'], ['andring', 'Ändring']].map(([k, n]) => `<button type="button" data-avsikt="${k}" data-fokus="a-${k}" aria-pressed="${A.avsikt === k}">${n}</button>`).join('')}</div>
       <label class="dolt" for="ay-text">Meddelande</label>
       <textarea id="ay-text" data-fokus="text" placeholder="${A.avsikt === 'andring' ? 'Vad ska ändras, och var?' : A.avsikt === 'plan' ? 'Vad vill du ha en plan för?' : 'Skriv en fråga om läget'}">${e_(utkast)}</textarea>
@@ -425,6 +439,9 @@
       <div class="ay-skrivrad"><span class="svag" id="ay-skrivsvar" role="status" aria-live="polite"></span><span class="ay-knapprad">
         ${A.avsikt === 'andring' ? `<button class="ay-knapp" type="submit" data-skicka="partner" data-fokus="s-partner">Be partnern formulera</button><button class="ay-knapp primar" type="button" data-skicka="andring" data-fokus="s-andring">Skicka ändring</button>`
           : `<button class="ay-knapp primar" type="submit" data-skicka="partner" data-fokus="s-partner">Skicka</button>`}</span></div>`;
+    if (behall.sida && f.querySelector('[data-falt="sida"]')) f.querySelector('[data-falt="sida"]').value = behall.sida;
+    if (behall.del && f.querySelector('[data-falt="del"]')) f.querySelector('[data-falt="del"]').value = behall.del;
+    if (behall.svar) document.getElementById('ay-skrivsvar').textContent = behall.svar;
     uppdateraSkrivstatus();
   }
   function sessionStorageLas(k) { try { return sessionStorage.getItem(k); } catch { return null; } }
@@ -473,19 +490,21 @@
 
   // --- handlingarna: flödets befintliga start, samma start-id som Flöde ---
   async function handling(id, bekraftad) {
+    if (A.pagar) return;  // en begäran väntar på svar: ett dubbelklick eller ett extra klick skickar ingen andra
     if (['stoppa', 'stoppa-overgang'].includes(id) && !bekraftad) {
       A.bekrafta = { id, text: id === 'stoppa' ? 'Stoppa arbetaren och dess sessioner? Det som är klart bevaras; körningen kan återupptas med Återuppta arbetet.' : 'Begär stopp av helbygget, exporten eller förhandsvisningen? Stoppet sparas före processen nås; arbetets slutpost säger vad som hann bli klart.' };
       rita(); document.querySelector('[data-fokus="bekrafta"]')?.focus(); return;
     }
     A.bekrafta = null;
     const nyckel = 'nwp-start:' + A.slug + ':' + id, startId = nyttId(nyckel);
-    A.svar = 'Skickar begäran…'; rita();
+    A.pagar = id; A.svar = 'Skickar begäran…'; rita();
     try {
       const r = await postJson('/api/flode/' + encodeURIComponent(A.slug) + '/start', { handling: id, start_id: startId });
       slappId(nyckel, startId);
       A.fokusStart = startId;
       A.svar = (r.besked || 'Begäran är registrerad.') + ` (start-id ${startId.slice(0, 8)})`;
-    } catch (err) { A.svar = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs läget eller försök igen; samma start-id används.'; }
+      if (A.vy !== '' && !['stoppa', 'stoppa-overgang'].includes(id)) { location.hash = '#/arbetsyta/' + encodeURIComponent(A.slug); return; }
+    } catch (err) { A.svar = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs läget eller försök igen; samma start-id används.'; } finally { A.pagar = null; }
     rita();
   }
 
@@ -562,6 +581,7 @@
     if (A.kod.visning === 'diff') {
       el.innerHTML = f.diff == null ? '<div class="ay-tom" style="padding:14px">Ingen bevarad version att jämföra med.</div>' : f.diff.length ? `<pre class="ay-kodtext">${f.diff.map((r) => `<span class="${r.startsWith('@@') ? 'hunk' : r.startsWith('+') ? 'plus' : r.startsWith('-') ? 'minus' : ''}">${e_(r)}</span>`).join('')}</pre>` : '<div class="ay-tom" style="padding:14px">Ingen skillnad mot den bevarade versionen.</div>';
     } else el.innerHTML = f.text == null ? '<div class="ay-tom" style="padding:14px">Filen finns inte i arbetsversionen.</div>' : `<pre class="ay-kodtext">${e_(f.text).split('\n').map((r) => `<span>${r || ' '}</span>`).join('')}</pre>`;
+    el.querySelector('pre')?.setAttribute('tabindex', '0');  // långa rader rullar i sidled: nås med tangentbordet
   }
   async function laddaLogg(tvinga) {
     const el = document.getElementById('ay-logg'); if (!el || !A.lage) return;
@@ -588,6 +608,8 @@
       const sida = d.dataset.delare, ytan = document.getElementById('ay-ytan');
       const satt = (px) => { px = Math.max(240, Math.min(560, Math.round(px))); ytan.style.setProperty(sida === 'vanster' ? '--ay-vanster' : '--ay-hoger', px + 'px'); d.setAttribute('aria-valuenow', px); sparaLayout({ [sida]: px }); };
       d.setAttribute('aria-valuemin', 240); d.setAttribute('aria-valuemax', 560);
+      // en fokuserbar avdelare ska säga sitt värde från början, inte först efter ett drag (WAI-ARIA separator; axe aria-required-attr)
+      d.setAttribute('aria-valuenow', parseInt(getComputedStyle(ytan).getPropertyValue(sida === 'vanster' ? '--ay-vanster' : '--ay-hoger')) || (sida === 'vanster' ? 360 : 320));
       d.addEventListener('pointerdown', (ev) => {
         ev.preventDefault(); d.setPointerCapture(ev.pointerId);
         const rect = ytan.getBoundingClientRect();
@@ -627,7 +649,7 @@
       if (o.sida) document.querySelector('[data-falt="sida"]').value = o.sida; if (o.del) document.querySelector('[data-falt="del"]').value = o.del;
       document.getElementById('ay-text').focus(); return; }
     if (d.handling) { if (t.getAttribute('aria-disabled') === 'true') return; handling(d.handling, d.bekraftad !== undefined); return; }
-    if (d.avbrytBekraftelse !== undefined) { A.bekrafta = null; rita(); return; }
+    if (d.avbrytBekraftelse !== undefined) { const id = A.bekrafta?.id; A.bekrafta = null; rita(); document.querySelector(`[data-fokus="h-${CSS.escape(id || '')}"]`)?.focus(); return; }  // fokus tillbaka till Stoppa, inte till sidan
     if (d.kodfil) { laddaKod(d.kodfil); return; }
     if (d.kodvisning) { A.kod.visning = d.kodvisning; ritaFil(); return; }
     if (d.oppnaFil) { postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/oppna', { kandidat: A.kod.kandidat, fil: d.oppnaFil }).then((r) => meddela('Öppnad i ' + r.program)).catch((err) => meddela('Kunde inte öppna: ' + err.message)); return; }
