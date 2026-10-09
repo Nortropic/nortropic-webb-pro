@@ -120,6 +120,9 @@ def _lage_ateljesession(post, ob, akt):
         if utfall == 'avslutad, kod 0':
             fel = bool(((ob or {}).get('slut') or {}).get('fel'))
             return ('avbruten', 'avslutad med fel i sessionens svar') if fel else ('avslutad', 'avslutad %s' % post['slut'])
+        m = re.search(r'kod -(\d+)', utfall)
+        if m:  # en negativ slutkod är en signal: processen avbröts utifrån, till exempel av ett stopp
+            return 'avbruten', 'avbruten av signal %s (%s)' % (m.group(1), utfall)
         return 'avbruten', utfall or 'avslutad utan känt utfall'
     if post.get('pagar'):
         if not post.get('transkript'):
@@ -256,7 +259,7 @@ def roller(sessioner, korning, konf, partnerlage):
             text = '%d sessioner i körningen, %d lever' % (len(egna), len(lev))
         else:
             lage = 'vantar'
-            text = ('ingen %s-session har startat i körningen%s' % (rubrik.lower(), ' än; körningen pågår' if aktiv else ''))
+            text = ('ingen session för %s har startat i körningen%s' % (rubrik.lower(), ' än; körningen pågår' if aktiv else ''))
         if nyckel != 'arbetsledning' and korning.get('vantar_pa_agaren') and lage not in ('aktiv', 'verktyg', 'startar'):
             text += '; körningen väntar på ditt beslut'
         ut[nyckel] = {'rubrik': rubrik, 'lage': lage, 'lage_text': text, 'sessioner': [s.get('session_id') for s in egna],

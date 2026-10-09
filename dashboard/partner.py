@@ -133,7 +133,10 @@ def andra_processer(sid, utom=()):
     ut = []
     for rad in _ps().splitlines():
         d = rad.strip().split(None, 1)
-        if len(d) == 2 and d[0].isdigit() and int(d[0]) not in utom and sid in d[1] and 'claude' in d[1] and 'ps -A' not in d[1]:
+        # bara ett claude-program (som städningens ar_claude), inte ett skal eller en sökning som råkar nämna id:t
+        forsta = d[1].split()[0] if len(d) == 2 and d[1].split() else ''
+        ar_claude = os.path.basename(forsta) == 'claude' or '/@anthropic-ai/claude-code/' in (d[1] if len(d) == 2 else '')
+        if len(d) == 2 and d[0].isdigit() and int(d[0]) not in utom and sid in d[1] and ar_claude:
             ut.append({'pid': int(d[0]), 'kommando': 'claude %s' % ('-p (partnerns tur)' if ' -p ' in d[1] + ' ' else '(interaktiv)')})
     return ut
 

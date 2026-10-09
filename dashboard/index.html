@@ -219,11 +219,13 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 #kirurg-forbattring summary { padding-block: 10px; cursor: pointer; }
 </style>
 <link rel="stylesheet" href="/kundstart-agare.css">
+<link rel="stylesheet" href="/arbetsyta.css">
 </head>
 <body>
 <header class="topp"><div class="topp-inre">
   <div class="mark">Nortropic <span>webb-pro</span></div>
   <nav>
+    <a href="#/arbetsyta" data-v="arbetsyta">Arbetsyta</a>
     <a href="#/" data-v="">Översikt</a>
     <a href="#/backlog" data-v="backlog">Backlog <b id="n-backlog" hidden></b></a>
     <a href="#/kundstart" data-v="kundstart">Kundstart</a>
@@ -244,13 +246,15 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 
 <script src="/kundstart-agare.js"></script>
 <script src="/kirurg-forbattring.js"></script>
+<script src="/arbetsyta.js"></script>
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const api = async (p) => { const r = await fetch(p, { cache: 'no-store' }); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).fel || r.status); return r.json(); };
 // Dashboardnyckeln: dashboard.sh öppnar sidan med #nyckel=…; den sparas i webbläsaren och följer varje skrivande anrop (X-Nyckel).
 // Utan den nekar servern (403): en lokal process som bara sätter Origin kan inte skriva ägarens domar (backloggen 2026-10-05).
-(() => { const m = location.hash.match(/^#nyckel=([A-Za-z0-9_-]{8,})$/); if (m) { try { localStorage.setItem('nwp-dashboardnyckel', m[1]); } catch {} history.replaceState(null, '', location.pathname + location.search); } })();
+// &till=<vy> (dashboard.sh arbetsyta [kund]) väljer vyn efter att nyckeln sparats; nyckeln stannar aldrig i adressen
+(() => { const m = location.hash.match(/^#nyckel=([A-Za-z0-9_-]{8,})(?:&till=([a-z0-9/-]{1,80}))?$/); if (m) { try { localStorage.setItem('nwp-dashboardnyckel', m[1]); } catch {} history.replaceState(null, '', location.pathname + location.search + (m[2] ? '#/' + m[2] : '')); } })();
 const nyckel = () => { try { return localStorage.getItem('nwp-dashboardnyckel') || ''; } catch { return ''; } };
 const post = async (p, body) => { const r = await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Nyckel': nyckel() }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.fel || r.status); return j; };
 const tid = (t) => t ? new Date(t).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
@@ -1599,6 +1603,8 @@ async function route() {
   clearTimeout(timer);
   const h = location.hash.replace(/^#\/?/, '');
   try {
+    if (h !== 'arbetsyta' && !h.startsWith('arbetsyta/')) document.body.classList.remove('ay-aktiv');
+    if (h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
     if (h.startsWith('bygge/')) return await byggevy(decodeURIComponent(h.slice(6)));
     if (h === 'backlog') return await backlogvy();
     if (h === 'kundstart' || h.startsWith('kundstart/')) return await kundstartvy(decodeURIComponent(h.slice(10)));
