@@ -4245,3 +4245,35 @@ i ~/Arkiv.
   A/B-bedömning i samtalet före det bokförda valet 13:58:47Z. Valet är ägarens bekräftade val efter den bedömningen,
   inte en oberoende mänsklig blinddom. Daterade tillägg står i RAPPORT-2026-10-09-codex-observation-h01 och i 97:s
   RAPPORT-2026-10-09-formagoprov-kvalitetsprov. Domloggens rad är orörd.
+
+**Status 2026-10-09 ~17:25Z** (byggt, provat i provinstans, aktiverat, verifierat i drift och visad förbättring hålls isär):
+- **Aktiverat** 16:52Z: main a787bc5, efter fullprovet på exakt den versionen (slutraden "rökprovet OK"). :4771 är
+  omstartad med samma nyckel.
+- **Verifierat i drift:**
+  - Codex-kanalen: läsning med driftens nyckel, utan nyckel 401, och ett riktigt Codex-fynd registrerat 16:58:04Z.
+  - Konsumentverkets flöde hämtades av spanaren i drift 16:55Z; luckan är löst.
+  - Bevakningens första automatiska körning 17:04:27Z gav utfallet delvis. Juridik är ofullständig, eftersom PTS svarade
+    med en tidsgräns.
+- **Visad förbättring:** ingen än.
+- **Rättat efter aktiveringen** (1879f82): intervallen räknades i timmar. Efter den sena första körningen hade nästa dags
+  07:00-körning därför hoppat över de dagliga frågorna. De räknas nu i lokala dagar.
+
+## Ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan
+
+Efter aktiveringen frågade ägaren ~17:05Z: "varför är den klassiska vyn kvar?". På genomförarens svar (knappen Klassisk
+vy är en reservväg, flera funktioner nås via Fler vyer i de gamla vyerna, förslaget att ta bort knappen nu och göra
+flytten som en egen post) svarade ägaren ~17:11Z, ordagrant:
+
+> hur menar du? allt ska ju in i det här nya vyn?
+
+**Vad det rättar:** uppdragets punkt 2 ~11:22Z ("Arbetsytan ska vara normal startvy och ge tillgång till: …") tillämpades
+som länkar från arbetsytan till de gamla vyerna. Ägaren menade att allt ska finnas i arbetsytan. Den kompletta
+arbetsplatsen är därför inte klar, trots att genomföraren efter aktiveringen sa att den var det.
+
+**Tillämpning:**
+- Varje funktion i de klassiska vyerna flyttas in i arbetsytan, med arbetsytans navigering och utseende. Det gäller
+  Flöde, Prototyp, Kundstart, Jämförelser, Översikt och byggen, Starta, Underhåll, Kirurgen, Backlog, Kalibrering,
+  Lärdomar, Designprov, Prospekt och Dokumentation.
+- Därefter tas knappen Klassisk vy, menyn Fler vyer och de gamla vyerna bort.
+- Ingen funktion får försvinna på vägen (uppdraget ~07:24Z: "flytta inte bort … utan ersättande navigering").
+- Gränserna för helbygge, publicering, kundkontakt, köp, privat material och blinda försök gäller som förut.
