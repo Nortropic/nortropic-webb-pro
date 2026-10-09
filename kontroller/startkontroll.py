@@ -85,12 +85,12 @@ AKTIVA_UPPDRAG = ('CLAUDE.md', 'kritik/GRANSKARE.md', '.claude/skills/bygg-sajt/
                   'kontroller/skapande.py', 'kunskap/metodkarta.md', 'kunskap/designregler.md', 'kunskap/byggstandard.md', 'kunskap/bild.md',
                   'kunskap/skapandeflodet.md', 'kunskap/bygge-referens.md', 'kunskap/brief-mall.md')
 FORMAGOR = {  # kundens behov (ord i BRIEF.md) mot flödets förmåga
-    'formulär': (r'formulär|förfrågan|offert', 'ja', 'mallens formulär och serverfunktionen (mall/leverans/forfragan.js), prövad med riktiga HTTP-svar'),
+    'formulär': (r'formulär|förfrågan|offert', 'ja', 'mallens formulär och Workerns mottagning i D1 och R2 (mall/leverans/worker/index.js), prövad i workerd med riktiga HTTP-svar (kontroller/workersprov.py)'),
     'bokning': (r'\bbok(a|ning)|tidsbok', 'delvis', 'länk till verksamhetens egen bokningstjänst; ingen inbyggd bokning'),
     'flera språk': (r'engelsk|english|flera språk|flerspråk', 'nej', 'mallen är svensk (lang="sv"); flera språk kräver ett eget beslut'),
     'karta': (r'\bkarta\b|hitta hit|vägbeskrivning', 'delvis', 'adress och länk; ingen inbäddad karttjänst (CSP och integritet)'),
     'butik och betalning': (r'\bbutik|betalning|beställ online|webshop|kassa', 'nej', 'eget beslut (designreglerna: dagens erbjudande)'),
-    'publicering': (r'lansering|domän|publicer', 'ja', 'kontroller/exportera.py, kundrepo och Vercel (kunskap/lansering.md)'),
+    'publicering': (r'lansering|domän|publicer', 'ja', 'kontroller/exportera.py, kundrepo och Cloudflare Workers (kunskap/lansering.md)'),
     'förvaltning': (r'uppdatera själv|redigera själv|ändra själv|\bcms\b', 'delvis', 'sidan "Så ändrar du på sajten"; inget redigeringsverktyg'),
 }
 NAMN = {'ok': 'ok', 'uppdaterad': 'uppdaterad', 'behallen': 'behållen', 'avvisad': 'avvisad', 'okand': 'okänd', 'fel': 'FEL',

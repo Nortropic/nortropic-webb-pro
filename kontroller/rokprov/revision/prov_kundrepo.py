@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Kundrepot (kontroller/kundrepo.py) med attrapper för gh och vercel: lokalt repo från projektstarten, idempotent och
-låst, fjärrepo bara för en verklig verksamhet och bara när beskrivningen bär projektets markör, CLAUDE.md utan läckor,
-exporten som commit i det beständiga repot (exportera.py), push, Vercel-koppling och förhandsvisningens kvitto. Inget nät."""
+"""Kundrepot (kontroller/kundrepo.py) med attrapper för gh, Wrangler-uppladdningen och Access-prövningen: lokalt repo från
+projektstarten, idempotent och låst, fjärrepo bara för en verklig verksamhet och bara när beskrivningen bär projektets
+markör, CLAUDE.md utan läckor, exporten som commit i det beständiga repot (exportera.py), push, och förhandsvisningen på
+Cloudflare Workers med kvitto: väntar på kontot utan cloudflare.env, laddar aldrig upp verkligt material till en adress
+som Cloudflare Access inte skyddar, och kvittot gäller de bytes som laddades upp. Inget nät, inget riktigt konto."""
 import contextlib
 import json
 import os
@@ -52,33 +54,9 @@ if a[:2] == ['repo', 'create']:
     sys.exit(0)
 print('gh: okänt anrop i provet', file=sys.stderr); sys.exit(1)
 '''
-VERCEL = r'''#!/usr/bin/env python3
-import json, os, sys
-from pathlib import Path
-st = Path(os.environ['PROV_GH_STATE']); st.mkdir(parents=True, exist_ok=True)
-(st / 'vercel.log').open('a').write(json.dumps(sys.argv[1:]) + '\n')
-a = sys.argv[1:]
-if a[:1] == ['link']:
-    if os.environ.get('PROV_BYT_UNDER_KOPPLING') and Path('public/markor.txt').read_text() != 'B':  # R07: ett annat arbete ändrar kundrepot (A→B) under kopplingen
-        Path('public/markor.txt').write_text('B')
-        import subprocess as sp
-        sp.run(['git', '-c', 'user.name=x', '-c', 'user.email=x@example.invalid', 'commit', '-qam', 'B under kopplingen'], check=True)
-    namn = a[a.index('--project') + 1]
-    if not (st / ('vercel-' + namn)).is_file():
-        print('Error: Project not found', file=sys.stderr); sys.exit(1)
-    Path('.vercel').mkdir(exist_ok=True); Path('.vercel/project.json').write_text(json.dumps({'projectId': 'prj_' + namn, 'orgId': 'team_nortropic'})); sys.exit(0)
-if a[:2] == ['project', 'create']:
-    (st / ('vercel-' + a[2])).write_text('x'); sys.exit(0)
-if a[:1] == ['deploy']:
-    if os.environ.get('PROV_VERCEL_FEL'):
-        print('Error: bygget föll i provet', file=sys.stderr); sys.exit(1)
-    m = Path('public/markor.txt')  # vad som faktiskt laddades upp (R07): arbetskatalogens innehåll när deploy körs
-    (st / 'uppladdat.log').open('a').write(json.dumps({'cwd': os.getcwd(), 'markor': m.read_text() if m.is_file() else None}) + '\n')
-    print('Inspect: https://vercel.com/nortropic/x', file=sys.stderr); print('https://kund-prov-abc123.vercel.app'); sys.exit(0)
-if a[:1] == ['inspect']:
-    print('  status      ● ' + os.environ.get('PROV_VERCEL_STATUS', 'Ready')); sys.exit(0)
-print('vercel: okänt anrop i provet', file=sys.stderr); sys.exit(1)
-'''
+VERSION = '11111111-2222-4333-8444-555555555555'
+KONTO = 'a' * 32
+TOKEN = 'SYNTETISK-CLOUDFLARE-TOKEN-0001'
 
 
 class Kundrepo(unittest.TestCase):
@@ -88,9 +66,8 @@ class Kundrepo(unittest.TestCase):
         self.slug = 'prov-kund'
         self.k, self.u = self.root / 'kunder' / self.slug, self.root / 'underlag' / self.slug
         self.u.mkdir(parents=True); self.k.mkdir(parents=True)
-        (self.root / 'mall' / 'leverans').mkdir(parents=True)
-        for n in ('gitignore', 'README.md', 'env.example', 'vercel.json', 'package.json', 'package-lock.json', 'forfragan.js'):
-            (self.root / 'mall' / 'leverans' / n).write_bytes((Path(__file__).resolve().parents[3] / 'mall' / 'leverans' / n).read_bytes())
+        shutil.copytree(Path(__file__).resolve().parents[3] / 'mall' / 'leverans', self.root / 'mall' / 'leverans',
+                        ignore=shutil.ignore_patterns('node_modules', '.wrangler'))
         (self.root / 'mall' / 'astro' / 'src' / 'pages').mkdir(parents=True)
         for n in ('fel.astro', 'mottagen.astro'):
             (self.root / 'mall' / 'astro' / 'src' / 'pages' / n).write_text('---\n---\n<p>%s</p>\n' % n)
@@ -98,12 +75,38 @@ class Kundrepo(unittest.TestCase):
         self.stack.enter_context(patch.multiple(exportera, ROOT=self.root, KUNDER=self.root / 'kunder', UNDERLAG=self.root / 'underlag',
                                                 LEVERANS=self.root / 'mall' / 'leverans', MALL=self.root / 'mall' / 'astro'))
         self.bin = self.root / 'bin'; self.bin.mkdir()
-        for n, t in (('gh', GH), ('vercel', VERCEL)):
-            (self.bin / n).write_text(t); (self.bin / n).chmod(0o700)
+        (self.bin / 'gh').write_text(GH); (self.bin / 'gh').chmod(0o700)
         self.state = self.root / 'gh-state'
-        self.stack.enter_context(patch.dict(os.environ, {'PATH': str(self.bin) + os.pathsep + os.environ['PATH'], 'PROV_GH_STATE': str(self.state)}))
+        self.cf = self.root / 'hemligt' / 'cloudflare.env'  # finns inte förrän ett prov ansluter kontot
+        self.stack.enter_context(patch.dict(os.environ, {'PATH': str(self.bin) + os.pathsep + os.environ['PATH'], 'PROV_GH_STATE': str(self.state),
+                                                         'NWP_CLOUDFLARE_FIL': str(self.cf)}))
+        self.uppladdat, self.skyddsprov = [], []
+        self.deploy_fel, self.skydd_svar, self.under_uppladdning = None, [], None
         self.skriv_verksamhet(True)
         (self.u / 'BRIEF.md').write_text('# Brief\n\n**Primär handling:** begära offert via formuläret.\n')
+
+    def anslut_konto(self, rattighet=0o600, **andra):
+        self.cf.parent.mkdir(exist_ok=True)
+        v = {'CLOUDFLARE_API_TOKEN': TOKEN, 'CLOUDFLARE_ACCOUNT_ID': KONTO, 'CLOUDFLARE_WORKERS_UNDERDOMAN': 'nortropic-prov', **andra}
+        self.cf.write_text(''.join('%s=%s\n' % kv for kv in v.items() if kv[1] is not None)); self.cf.chmod(rattighet)
+
+    def deploy(self, underlag, konto, post, tmp):
+        # Wrangler-uppladdningens attrapp: registrerar vad som laddades upp och ur vilken katalog
+        if self.under_uppladdning:
+            self.under_uppladdning()
+        m = Path(underlag) / 'public' / 'markor.txt'
+        self.uppladdat.append({'cwd': str(underlag), 'markor': m.read_text() if m.is_file() else None, 'konto': konto['konto'],
+                               'wrangler': (Path(underlag) / 'wrangler.jsonc').is_file(), 'commit': post['commit'], 'export': post['export']})
+        if self.deploy_fel:
+            return 1, self.deploy_fel
+        return 0, 'Uploaded kund-prov-kund-forhandsvisning\nDeployed kund-prov-kund-forhandsvisning triggers\nCurrent Version ID: ' + VERSION
+
+    def skydd(self, url):
+        self.skyddsprov.append(url)
+        return self.skydd_svar.pop(0) if self.skydd_svar else (True, 'HTTP 302 till Cloudflare Access')
+
+    def forhandsvisa(self):
+        return kundrepo.preview(self.slug, deploy=self.deploy, skydd=self.skydd)
 
     def skriv_verksamhet(self, fiktiv):
         (self.u / 'VERKSAMHET.json').write_text(json.dumps({'schema': 1, 'namn': 'Provfirman AB', 'fiktiv': fiktiv, 'tjanster': ['Prov', 'Kontroll'], 'kontaktvagar': []}))
@@ -190,7 +193,9 @@ class Kundrepo(unittest.TestCase):
             res = exportera.exportera(self.slug, git=True, bygg=False)
         self.assertTrue(res['ok'], res.get('fel'))
         self.assertTrue(res.get('commit')); self.assertTrue(res['push']['ok'], res.get('push'))
-        self.assertEqual((r / 'public' / 'markor.txt').read_text(), 'v1'); self.assertTrue((r / 'CLAUDE.md').is_file() and (r / 'src' / 'pages' / 'api' / 'forfragan.js').is_file())
+        self.assertEqual((r / 'public' / 'markor.txt').read_text(), 'v1')
+        self.assertTrue(all((r / n).is_file() for n in ('CLAUDE.md', 'worker/index.js', 'wrangler.jsonc', 'migrations/0001_forfragningar.sql', 'public/_headers')))
+        self.assertFalse((r / 'src' / 'pages' / 'api').exists() or (r / 'vercel.json').exists(), 'ingen Vercel-funktion i en ny export')
         self.assertIn(res['id'], (r / 'CLAUDE.md').read_text())
         self.assertFalse((self.k / 'kundrepo-tidigare').exists(), 'historiken ligger i git, inte i en undankatalog')
         logg = subprocess.run(['git', 'log', '--format=%s'], cwd=r, capture_output=True, text=True).stdout.splitlines()
@@ -206,24 +211,48 @@ class Kundrepo(unittest.TestCase):
         self.assertEqual((r / 'public' / 'markor.txt').read_text(), 'v2')
         self.assertEqual(json.loads((self.k / 'KUNDREPO.json').read_text())['senaste_export']['id'], res2['id'])
 
-    def test_forhandsvisningen_binds_till_commit_och_export_med_kvitto(self):
+    def exportera_med_repo(self):
         kundrepo.skapa(self.slug)
-        self.sajt()
+        if not (self.k / 'sajt').is_dir():
+            self.sajt()
         with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
             res = exportera.exportera(self.slug, git=True, bygg=False)
-        self.assertTrue(res['ok'])
-        pv = kundrepo.preview(self.slug)
-        self.assertEqual(pv['status'], 'klar', pv); self.assertEqual(pv['url'], 'https://kund-prov-abc123.vercel.app')
-        self.assertEqual((pv['commit'], pv['export'], pv['produktion']), (res['commit'], res['id'], False))
-        logg = [json.loads(r) for r in (self.state / 'vercel.log').read_text().splitlines()]
-        self.assertEqual([a[0] for a in logg], ['link', 'project', 'link', 'deploy', 'inspect'])
-        dep = [a for a in logg if a[0] == 'deploy'][0]
-        self.assertIn('nortropic_commit=' + res['commit'], dep); self.assertIn('nortropic_export=' + res['id'], dep); self.assertIn('nortropic', dep)
-        self.assertIn('preview', dep); self.assertNotIn('production', ' '.join(dep))
-        self.assertEqual(json.loads((self.k / 'KUNDREPO.json').read_text())['vercel']['projekt_id'], 'prj_kund-prov-kund')
+        self.assertTrue(res['ok'], res.get('fel'))
+        return res
+
+    def test_forhandsvisningen_vantar_pa_kontot_utan_cloudflare_env(self):
+        self.exportera_med_repo()
+        pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'vantar_pa_konto'); self.assertIn('Cloudflare-kontot är inte anslutet', pv['hinder'][0])
+        self.assertIn('CLOUDFLARE_API_TOKEN', pv['hinder'][0]); self.assertEqual(self.uppladdat, [])
+        self.anslut_konto(rattighet=0o644)
+        pv = self.forhandsvisa(); self.assertEqual(pv['status'], 'vantar_pa_konto'); self.assertIn('chmod 600', pv['hinder'][0])
+        self.anslut_konto(CLOUDFLARE_WORKERS_UNDERDOMAN=None)
+        pv = self.forhandsvisa(); self.assertIn('CLOUDFLARE_WORKERS_UNDERDOMAN', pv['hinder'][0])
+        self.anslut_konto(CLOUDFLARE_ACCOUNT_ID='inte-ett-id')
+        pv = self.forhandsvisa(); self.assertIn('fel form', pv['hinder'][0])
+        self.assertEqual(self.uppladdat, [], 'utan ett giltigt konto laddas ingenting upp')
+        self.assertEqual(len(list((self.k / 'leverans').glob('PREVIEW-*.json'))), 4, 'varje försök får sitt kvitto')
+
+    def test_forhandsvisningen_binds_till_commit_och_export_med_kvitto(self):
+        res = self.exportera_med_repo()
+        self.anslut_konto()
+        pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'klar', pv)
+        self.assertEqual(pv['url'], 'https://kund-prov-kund-forhandsvisning.nortropic-prov.workers.dev')
+        self.assertEqual((pv['commit'], pv['export'], pv['produktion'], pv['version_id']), (res['commit'], res['id'], False, VERSION))
+        self.assertEqual((pv['plattform'], pv['miljo'], pv['worker'], pv['konto']), ('cloudflare-workers', 'forhandsvisning', 'kund-prov-kund-forhandsvisning', KONTO))
+        self.assertEqual(len(self.uppladdat), 1); self.assertTrue(self.uppladdat[0]['wrangler'])
+        self.assertEqual(self.skyddsprov, [pv['url']], 'en fiktiv verksamhet prövas efter uppladdningen; skyddet noteras')
+        kvitto = (self.k / 'leverans' / (pv['id'] + '.json')).read_text()
+        self.assertNotIn(TOKEN, kvitto, 'tokenen hamnar aldrig i kvittot')
         akt = kundrepo.preview_aktuell(self.slug)
         self.assertTrue(akt['aktuell'] and akt['fil'].endswith('.json'))
-        self.assertFalse((self.k / 'kundrepo' / '.vercel').is_dir() and 'vercel' in exportera.exportmanifest(self.k / 'kundrepo'), '.vercel ingår aldrig i manifestet')
+        kopia = self.root / 'manifestkopia'; shutil.copytree(self.k / 'kundrepo', kopia, ignore=shutil.ignore_patterns('.git'))
+        fore = exportera.exportmanifest(kopia)
+        for x in ('.wrangler/state/v3/d1/db.sqlite', 'paket/index.js', '.vercel/project.json'):
+            (kopia / x).parent.mkdir(parents=True, exist_ok=True); (kopia / x).write_text('lokalt')
+        self.assertEqual(exportera.exportmanifest(kopia), fore, 'Wranglers lokala lager, provpaketet och Vercels koppling ingår aldrig i manifestet')
         # handlingen i Flöde: preview är nästa steg först när exportens commit är HEAD
         with patch.object(prototyp, 'lage', return_value=('valda', None)), patch.object(flodesstart, 'pagande', return_value=False):
             self.assertIn('preview', [h['id'] for h in prototyp.handlingar(self.slug)])
@@ -232,12 +261,58 @@ class Kundrepo(unittest.TestCase):
         self.assertFalse(kundrepo.preview_aktuell(self.slug)['aktuell'] if exportera.aktuell(self.slug)['aktuell'] else False)
         with self.assertRaises(ValueError):
             flodesstart.krav(self.slug, 'preview')
-        with patch.dict(os.environ, {'PROV_VERCEL_FEL': '1'}):
-            with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
-                exportera.exportera(self.slug, git=True, bygg=False)
-            pv2 = kundrepo.preview(self.slug)
-        self.assertEqual(pv2['status'], 'fel'); self.assertTrue(any('vercel deploy' in h for h in pv2['hinder']), pv2)
-        self.assertEqual(len(list((self.k / 'leverans').glob('PREVIEW-*.json'))), 2, 'varje försök får sitt kvitto')
+        with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
+            exportera.exportera(self.slug, git=True, bygg=False)
+        self.deploy_fel = '✘ [ERROR] bygget föll i provet'
+        pv2 = self.forhandsvisa()
+        self.assertEqual(pv2['status'], 'fel'); self.assertTrue(any('wrangler deploy' in h for h in pv2['hinder']), pv2)
+        self.assertIsNone(pv2['version_id'])
+        self.deploy_fel = None
+        with patch.object(self, 'deploy', return_value=(0, 'Uploaded utan versionsrad')):
+            pv3 = self.forhandsvisa()
+        self.assertEqual(pv3['status'], 'fel', 'utan versions-id finns inget att binda kvittot till')
+        self.assertEqual(len(list((self.k / 'leverans').glob('PREVIEW-*.json'))), 3, 'varje försök får sitt kvitto')
+
+    def test_verkligt_material_laddas_aldrig_upp_utan_access(self):
+        self.skriv_verksamhet(False)
+        self.exportera_med_repo()
+        self.anslut_konto()
+        self.skydd_svar = [(False, 'HTTP 200 utan inloggning')]
+        pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'vantar_pa_skydd'); self.assertIn('Cloudflare Access skyddar inte', pv['hinder'][0])
+        self.assertEqual(self.uppladdat, [], 'ingen uppladdning till en oskyddad adress')
+        # skyddad före, öppen efter (Access-applikationen togs bort under tiden): kvittot är rött
+        self.skydd_svar = [(True, 'HTTP 302 till Cloudflare Access'), (False, 'HTTP 200 utan inloggning')]
+        pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'fel'); self.assertTrue(any('svarar utan Cloudflare Access' in h for h in pv['hinder']), pv)
+        self.skydd_svar = []
+        pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'klar'); self.assertEqual((pv['skydd_fore'], pv['skydd']), ('HTTP 302 till Cloudflare Access',) * 2)
+
+    def test_wranglers_miljo_och_kommandon(self):
+        tmp = self.root / 'wr-tmp'; tmp.mkdir()
+        konto = {'token': TOKEN, 'konto': KONTO, 'underdoman': 'nortropic-prov'}
+        with patch.dict(os.environ, {'NWP_HEMLIG': 'x', 'ANTHROPIC_API_KEY': 'x', 'CLAUDE_CODE_X': 'x', 'GH_TOKEN': 'x'}):
+            m = kundrepo.cloudflare_miljo(konto, tmp)
+            self.assertEqual((m['CLOUDFLARE_API_TOKEN'], m['CLOUDFLARE_ACCOUNT_ID'], m['WRANGLER_SEND_METRICS']), (TOKEN, KONTO, 'false'))
+            self.assertTrue(m['XDG_CONFIG_HOME'].startswith(str(tmp)), 'ingen ägarinloggning: Wranglers konfiguration i tmp')
+            self.assertFalse([k for k in m if k.startswith(('NWP_', 'ANTHROPIC', 'CLAUDE', 'GH_'))])
+            anrop = []
+            def kommando(argv, cwd, frist=None, env=None):
+                anrop.append((argv, env)); return subprocess.CompletedProcess(argv, 0, 'Current Version ID: ' + VERSION, '')
+            import processgrans
+            with patch.object(kundrepo, 'kommando', side_effect=kommando), patch.object(processgrans, 'kor_i_katalog', return_value=(0, 'byggd')), \
+                    patch.object(exportera, 'publika_brister', return_value=[]):
+                rc, ut = kundrepo.wrangler_deploy(tmp, konto, {'commit': 'c' * 40, 'export': 'EXPORT-1'}, tmp)
+        self.assertEqual(rc, 0); self.assertIn(VERSION, ut)
+        npm, wr = anrop
+        self.assertEqual(npm[0][:2], ['npm', 'ci']); self.assertFalse([k for k in npm[1] if k.startswith(('CLOUDFLARE', 'NWP_', 'ANTHROPIC', 'CLAUDE'))], 'npm ci får ingen nyckel')
+        self.assertEqual(wr[0][1:4], ['deploy', '--env', 'forhandsvisning']); self.assertNotIn('production', ' '.join(wr[0]))
+        self.assertIn('nortropic_commit=' + 'c' * 40, ' '.join(wr[0])); self.assertEqual(wr[1]['CLOUDFLARE_API_TOKEN'], TOKEN)
+        with patch.object(kundrepo, 'kommando', side_effect=kommando), patch.object(processgrans, 'kor_i_katalog', return_value=(0, 'byggd')), \
+                patch.object(exportera, 'publika_brister', return_value=['wrangler.jsonc']):
+            rc, ut = kundrepo.wrangler_deploy(tmp, konto, {'commit': 'c' * 40, 'export': 'EXPORT-1'}, tmp)
+        self.assertEqual(rc, 1); self.assertIn('inte får bli publika', ut); self.assertEqual(len(anrop), 3, 'ingen uppladdning när dist/ bär privata filer')
 
     def test_projektstart_med_lacka_avvisas_fore_commit_och_fjarrepo(self):
         # R08: en syntetisk lokal sökväg och ett syntetiskt nyckelmönster i det som genereras till CLAUDE.md avvisar projektstarten
@@ -265,16 +340,19 @@ class Kundrepo(unittest.TestCase):
         self.assertFalse(p['ok']); self.assertIn('läckagekontrollen', p['hinder'])
 
     def test_forhandsvisningen_laddar_upp_exportens_bytes_aven_om_repot_andras_under_kopplingen(self):
-        # R07: A är exporterad och kontrollerad; under Vercel-kopplingen ändras kundrepot till B. Det som laddas upp är A, och
+        # R07: A är exporterad och kontrollerad; under uppladdningen ändras kundrepot till B. Det som laddas upp är A, och
         # kvittot gäller A; kvittot är aldrig grönt för A medan B laddas upp
-        kundrepo.skapa(self.slug)
         self.sajt()
         (self.k / 'sajt' / 'public' / 'markor.txt').write_text('A')
-        with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
-            res = exportera.exportera(self.slug, git=True, bygg=False)
-        with patch.dict(os.environ, {'PROV_BYT_UNDER_KOPPLING': '1'}):
-            pv = kundrepo.preview(self.slug)
-        upp = [json.loads(x) for x in (self.state / 'uppladdat.log').read_text().splitlines()]
+        res = self.exportera_med_repo()
+        self.anslut_konto()
+        def byt():
+            r = self.k / 'kundrepo'
+            (r / 'public' / 'markor.txt').write_text('B')
+            subprocess.run(['git', '-c', 'user.name=x', '-c', 'user.email=x@example.invalid', 'commit', '-qam', 'B under uppladdningen'], cwd=r, check=True)
+        self.under_uppladdning = byt
+        pv = self.forhandsvisa()
+        upp = self.uppladdat
         self.assertEqual([u['markor'] for u in upp], ['A'], 'det som laddades upp är exportens A (R07)')
         self.assertNotEqual(Path(upp[0]['cwd']).resolve(), (self.k / 'kundrepo').resolve(), 'uppladdningen går ur det frysta underlaget')
         self.assertEqual((pv['status'], pv['commit'], pv['export']), ('klar', res['commit'], res['id']))

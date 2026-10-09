@@ -753,6 +753,10 @@ echo "   exportens version och bevarade tidigare leverans"
 echo "   formulärfel: bevarad text utan JS, varaktig mottagning och separat mejlavisering"
 NWP_FORMULAR_WEBB=1 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_formularfel.py" >"$ROOT/kunder/rokprov-mall/formularfel-prov.log" 2>&1 \
   || { echo "FEL: formulärets felvägar"; tail -30 "$ROOT/kunder/rokprov-mall/formularfel-prov.log"; exit 1; }
+echo "   leveransvägen till Cloudflare Workers: mallsajtens export byggd och förpackad (dry-run), Workern i workerd med lokal D1 och R2"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_workers.py" "$S" >"$ROOT/kunder/rokprov-mall/workers-prov.log" 2>&1 \
+  || { echo "FEL: leveransvägens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/workers-prov.log" | cut -c1-400 || true; tail -5 "$ROOT/kunder/rokprov-mall/workers-prov.log"; exit 1; }
+echo "   leveransvägens prov ok ($(grep -c '^ok ' "$ROOT/kunder/rokprov-mall/workers-prov.log") fall)"
 echo "   resursmåttens råvärden, okända värden och identifierade kopior"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_autonomi.py" >"$ROOT/kunder/rokprov-mall/autonomi-prov.log" 2>&1 \
   || { echo "FEL: resursmåttens prov"; tail -20 "$ROOT/kunder/rokprov-mall/autonomi-prov.log"; exit 1; }

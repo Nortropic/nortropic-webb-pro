@@ -6,7 +6,9 @@
 // - en förfrågan sparas beständigt i D1, och en bilaga privat i R2, före varje avisering; inget sparat ger 503 med texten kvar;
 // - aviseringen är en utkorg i D1 (vantar → skickar → accepterad | fel): sparad men inte aviserad svarar 303 till den
 //   förrenderade /mottagen/, och raden står kvar för uppföljning; "skickar" utan slut är ett osäkert utfall som stäms av
-//   mot mejltjänsten före ett nytt försök, aldrig ett nytt mejl i blindo;
+//   mot mejltjänsten före ett nytt försök, aldrig ett nytt mejl i blindo; mejlet bär ärendets id som idempotensnyckel, så ett
+//   nytt försök inom ett dygn blir aldrig ett andra mejl;
+// - varje lagringssteg har en frist: utan bekräftelse inom den svarar Workern i stället för att vänta;
 // - samma inskick två gånger (formulärets inskicks-id, annars innehållet inom tio minuter) blir ett ärende, inte två;
 // - utanför produktionen (MILJO annat än produktion) sparas och skickas ingenting.
 // Svar som Workern skapar får sina säkerhetshuvuden här; _headers gäller bara de statiska filerna.
@@ -17,8 +19,12 @@ const BILDTYPER = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image
 const TOMT = { namn: '', telefon: '', meddelande: '' };
 const RUBRIKER = { namn: 'Namn', telefon: 'Telefon', meddelande: 'Meddelande', bild: 'Bild' };
 const RESEND = 'https://api.resend.com/emails';
+const FRIST_LAGRING = 10000;
+const FRIST_MEJL = 8000;
+// Referrer-Policy same-origin: felvyns formulär skickar då sitt Origin (no-referrer ger "Origin: null" på en POST och
+// stänger ute ett nytt försök), och ingen adress lämnar webbplatsen.
 const SAKERHET = {
-  'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', 'X-Frame-Options': 'DENY',
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains', 'Cache-Control': 'no-store',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
 };
@@ -61,8 +67,23 @@ ${esc(falt.meddelande)}</textarea>${rad('meddelande')}
 // Sparad men inte aviserad: 303 till den förrenderade /mottagen/, aldrig ett svar på POST-adressen, så att en omladdning
 // eller bakåt/framåt aldrig blir ett nytt inskick. Sidan lovar ingen svarstid och säger att inget behöver skickas igen.
 const mottagen = () => svar('/mottagen/', 'sparad');
+// Klientens filnamn är bara en etikett i mejlet och ärendet: utan katalogdel och styrtecken.
+const filnamn = (bild) => String(bild.name || '').split(/[\\/]/).pop().replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 120) || 'bild';
 const giltigtInskick = (v) => typeof v === 'string' && /^[A-Za-z0-9-]{16,64}$/.test(v);
-const kort = (e) => String((e && e.message) || e).slice(0, 200);
+const OBEKRAFTAD = 'Vi kunde inte bekräfta att förfrågan sparades. Texten finns kvar. Försök igen senare eller använd en annan kontaktväg.';
+// Loggen och utkorgen får bara Workerns egna orsaker, aldrig en leverantörs feltext (den kan bära innehåll eller nycklar).
+const egen = (text, extra = {}) => Object.assign(new Error(text), { egen: true }, extra);
+const orsak = (e) => e && e.egen ? e.message.slice(0, 200)
+  : e && (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'avbrutet vid fristen'
+  : 'fel hos leverantören (' + String((e && e.name) || 'okänt').slice(0, 40) + ')';
+
+// Ett lagringssteg som inte bekräftas inom fristen räknas som obekräftat. Steget kan ändå bli klart senare; därför tas en
+// bilaga bara bort efter ett uttryckligt fel, aldrig efter en frist (ärendet kan ha sparats och peka på den).
+function frist(lofte, ms, vad) {
+  let t;
+  const tid = new Promise((_, nej) => { t = setTimeout(() => nej(egen(vad + ': ingen bekräftelse inom fristen', { frist: true })), ms); });
+  return Promise.race([lofte, tid]).finally(() => clearTimeout(t));
+}
 
 function konfigurerad(env) {
   return Boolean(env.RESEND_API_KEY && String(env.FORFRAGAN_TILL || '').split(',').some((x) => x.trim()) && env.FORFRAGAN_FRAN);
@@ -113,8 +134,8 @@ function base64(bytes) {
 }
 
 async function befintlig(env, nyckel) {
-  return env.DB.prepare('SELECT f.id AS id, u.status AS status FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id WHERE f.nyckel = ?')
-    .bind(nyckel).first();
+  return frist(env.DB.prepare('SELECT f.id AS id, u.status AS status FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id WHERE f.nyckel = ?')
+    .bind(nyckel).first(), FRIST_LAGRING, 'kontrollen av tidigare inskick');
 }
 
 async function radera(env, nyckel) {
@@ -124,63 +145,66 @@ async function radera(env, nyckel) {
 
 async function spara(env, id, nyckel, falt, bild, nu) {
   let bilaga = null;
-  if (bild) {
-    bilaga = `forfragningar/${nu.slice(0, 10)}/${id}/bilaga`; // Klientens filnamn styr aldrig lagringsnamnet.
-    const obj = await env.BILAGOR.put(bilaga, await bild.arrayBuffer(), {
-      httpMetadata: { contentType: bild.type }, customMetadata: { forfragan: id },
-    });
-    if (!obj || obj.key !== bilaga) throw new Error('Bilagans lagringskvitto stämmer inte');
-  }
   const dagar = Math.max(1, Number(env.GALLRING_DAGAR || 365));
   const gallras = new Date(Date.parse(nu) + dagar * 86400000).toISOString();
   let resultat;
   try {
+    if (bild) {
+      bilaga = `forfragningar/${nu.slice(0, 10)}/${id}/bilaga`; // Klientens filnamn styr aldrig lagringsnamnet.
+      const obj = await frist(env.BILAGOR.put(bilaga, await bild.arrayBuffer(), {
+        httpMetadata: { contentType: bild.type }, customMetadata: { forfragan: id },
+      }), FRIST_LAGRING, 'bilagan');
+      if (!obj || obj.key !== bilaga) throw egen('Bilagans lagringskvitto stämmer inte');
+    }
     // En batch är en transaktion: ärendet och dess utkorgsrad finns båda eller ingen av dem.
-    resultat = await env.DB.batch([
+    resultat = await frist(env.DB.batch([
       env.DB.prepare(`INSERT INTO forfragningar (id, nyckel, mottagen, namn, telefon, meddelande, bilaga, bilaga_typ, bilaga_storlek, bilaga_namn, gallras)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(nyckel) DO NOTHING`)
         .bind(id, nyckel, nu, falt.namn, falt.telefon, falt.meddelande, bilaga, bild ? bild.type : null, bild ? bild.size : null,
-          bild ? String(bild.name || '').slice(0, 200) : null, gallras),
+          bild ? filnamn(bild) : null, gallras),
       env.DB.prepare(`INSERT INTO utkorg (forfragan, status, forsok, uppdaterad) SELECT ?, 'vantar', 0, ? WHERE EXISTS (SELECT 1 FROM forfragningar WHERE id = ?)`)
         .bind(id, nu, id),
-    ]);
+    ]), FRIST_LAGRING, 'ärendet');
   } catch (e) {
-    if (bilaga) await radera(env, bilaga);
+    if (bilaga && !e.frist) await radera(env, bilaga);
     throw e;
   }
   if (!resultat[0].meta.changes) {  // samma inskick hann före: det första ärendet gäller
     if (bilaga) await radera(env, bilaga);
-    return { dubblett: await befintlig(env, nyckel) };
+    return { dubblett: (await befintlig(env, nyckel).catch(() => null)) || {} };
   }
   return { id, bilaga };
 }
 
-async function mejla(env, falt, bild, signal) {
-  const text = [`Namn: ${falt.namn}`, `Telefon: ${falt.telefon}`, '', falt.meddelande, '', bild ? `Bild: ${bild.name || 'bild'}` : 'Ingen bild'].join('\n');
+async function mejla(env, id, falt, bild, signal) {
+  const text = [`Namn: ${falt.namn}`, `Telefon: ${falt.telefon}`, '', falt.meddelande, '', bild ? `Bild: ${filnamn(bild)}` : 'Ingen bild'].join('\n');
   const kropp = {
     from: env.FORFRAGAN_FRAN, to: String(env.FORFRAGAN_TILL).split(',').map((x) => x.trim()).filter(Boolean),
     subject: `Förfrågan från webbplatsen: ${falt.namn.slice(0, 60)}`, text,
   };
-  if (bild) kropp.attachments = [{ filename: bild.name || 'bild', content: base64(new Uint8Array(await bild.arrayBuffer())) }];
+  if (bild) kropp.attachments = [{ filename: filnamn(bild), content: base64(new Uint8Array(await bild.arrayBuffer())) }];
   const r = await fetch(mejladress(env), {
-    method: 'POST', signal, headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(kropp),
+    method: 'POST', signal, headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `forfragan-${id}` }, body: JSON.stringify(kropp),
   });
-  if (!r.ok) throw new Error('Mejltjänsten bekräftade inte mottagningen (' + r.status + ')');
+  if (!r.ok) throw egen('Mejltjänsten bekräftade inte mottagningen (' + r.status + ')');
   const kvitto = await r.json();
-  if (!kvitto || Array.isArray(kvitto) || typeof kvitto.id !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(kvitto.id) || kvitto.error) throw new Error('Mejltjänstens kvitto stämmer inte');
+  if (!kvitto || Array.isArray(kvitto) || typeof kvitto.id !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(kvitto.id) || kvitto.error) throw egen('Mejltjänstens kvitto stämmer inte');
   return kvitto.id;
 }
 
 async function utkorg(env, id, status, falt = {}) {
   const nu = new Date().toISOString();
-  return env.DB.prepare(`UPDATE utkorg SET status = ?, forsok = forsok + ?, mejl_id = COALESCE(?, mejl_id), fel = ?, uppdaterad = ? WHERE forfragan = ?`)
-    .bind(status, falt.forsok || 0, falt.mejl_id || null, falt.fel || null, nu, id).run();
+  return frist(env.DB.prepare(`UPDATE utkorg SET status = ?, forsok = forsok + ?, mejl_id = COALESCE(?, mejl_id), fel = ?, uppdaterad = ? WHERE forfragan = ?`)
+    .bind(status, falt.forsok || 0, falt.mejl_id || null, falt.fel || null, nu, id).run(), FRIST_LAGRING, 'utkorgen');
 }
 
 async function forfragan(request, env) {
   const url = new URL(request.url);
+  // Webbläsarens Sec-Fetch-Site först (sätts oberoende av referrer-policyn); utan den ett Origin som inte är webbplatsens.
+  const site = request.headers.get('sec-fetch-site');
   const origin = request.headers.get('origin');
-  if (origin && origin !== url.origin) return enkel(403, 'Förfrågan kom från en annan webbplats och togs inte emot.');
+  const frammande = site ? !['same-origin', 'none'].includes(site) : Boolean(origin && origin !== url.origin);
+  if (frammande) return enkel(403, 'Förfrågan kom från en annan webbplats och togs inte emot.');
   let result;
   try { result = await lasForm(request); }
   catch {
@@ -207,26 +231,30 @@ async function forfragan(request, env) {
   if (Object.keys(fel).length) return felvy(raw, fel, status, utfall, 'Inget har skickats. Rätta de markerade fälten; texten finns kvar.', !!bild, t('inskick'));
   // Utanför produktionen (förhandsvisning, test utan egna resurser, lokalt) sparas och skickas aldrig något, också om en
   // variabel råkar finnas: ett riktigt mejl eller ett riktigt ärende ur en förhandsvisning vore ett fel.
-  if (env.MILJO !== 'produktion' || !env.DB) return svar('/tack/', 'demo');
+  if (env.MILJO !== 'produktion') return svar('/tack/', 'demo');
+  if (!env.DB) {  // produktion utan ärendelager är en felkonfiguration, aldrig ett tyst tack
+    console.error('forfragan: ärendelagret (D1) saknas i produktionen');
+    return felvy(raw, {}, 503, 'fel', OBEKRAFTAD, !!bild, t('inskick'));
+  }
   const nyckel = await idempotens(t('inskick'), falt, bild);
   const redan = await befintlig(env, nyckel).catch(() => null);
   if (redan) return svar(redan.status === 'accepterad' ? '/tack/' : '/mottagen/', 'dubblett');
   const id = crypto.randomUUID(), nu = new Date().toISOString();
   let sparad;
   try { sparad = await spara(env, id, nyckel, falt, bild, nu); }
-  catch (e) { console.error('forfragan: lagringen kunde inte bekräftas: ' + kort(e)); }
-  if (!sparad) return felvy(raw, {}, 503, 'fel', 'Vi kunde inte bekräfta att förfrågan sparades. Texten finns kvar. Försök igen senare eller använd en annan kontaktväg.', !!bild, t('inskick'));
+  catch (e) { console.error('forfragan: lagringen kunde inte bekräftas: ' + orsak(e)); }
+  if (!sparad) return felvy(raw, {}, 503, 'fel', OBEKRAFTAD, !!bild, t('inskick'));
   if (sparad.dubblett) return svar(sparad.dubblett.status === 'accepterad' ? '/tack/' : '/mottagen/', 'dubblett');
   if (!konfigurerad(env)) { console.error('forfragan: mejlmottagaren är inte konfigurerad'); return mottagen(); }
   // Avsikten före nätanropet: "skickar" utan slutläge efter ett avbrott är ett osäkert utfall, inte ett skäl att skicka igen.
   try { await utkorg(env, id, 'skickar'); } catch { return mottagen(); }
   try {
-    const mejlId = await mejla(env, falt, bild, AbortSignal.timeout(8000));
+    const mejlId = await mejla(env, id, falt, bild, AbortSignal.timeout(FRIST_MEJL));
     try { await utkorg(env, id, 'accepterad', { forsok: 1, mejl_id: mejlId }); }
     catch { console.error('forfragan: mejlet accepterades men utkorgen kunde inte uppdateras; stäm av mot mejltjänsten'); }
     return svar('/tack/', 'skickad');
   } catch (e) {
-    try { await utkorg(env, id, 'fel', { forsok: 1, fel: kort(e) }); }
+    try { await utkorg(env, id, 'fel', { forsok: 1, fel: orsak(e) }); }
     catch { console.error('forfragan: aviseringen föll och utkorgen kunde inte uppdateras'); }
     return mottagen();
   }

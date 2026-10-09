@@ -312,7 +312,7 @@ class Githistorik(unittest.TestCase):
         import prov_kundrepo
         self.skriv_verksamhet = types.MethodType(prov_kundrepo.Kundrepo.skriv_verksamhet, self)
         self.gh_anrop = types.MethodType(prov_kundrepo.Kundrepo.gh_anrop, self)
-        prov_kundrepo.Kundrepo.setUp(self)  # samma kund, attrapper av gh och vercel och tempkatalog som kundrepots prov
+        prov_kundrepo.Kundrepo.setUp(self)  # samma kund, attrapp av gh och tempkatalog som kundrepots prov
         import kundrepo
         self.kr = kundrepo
         self.slug = 'prov-kund'

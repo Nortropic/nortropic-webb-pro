@@ -158,7 +158,7 @@ def f_git(repo):
 
 
 vl.npm_versioner, vl.pypi_versioner, vl.brew_info, vl.git_head = f_npm, f_pypi, f_brew, f_git
-vl.node_lts_vercel = lambda: dict(NODE_MAL)
+vl.node_lts = lambda: dict(NODE_MAL)
 vl.motor_releaser = lambda: '0.1.11'
 vl.softwareupdate_lista = lambda: []
 vl.brew_senaste_release = lambda: '6.0.22'
@@ -569,33 +569,25 @@ assert uh.osv_granska({'a': '1', 'b': '2'}) == [('b', '2', ['GHSA-xxxx'])]
 vl.urllib.request.urlopen = gammal_urlopen
 print('Python: sårbarhetsgranskningen (OSV) ok')
 
-# Homebrew: bara node, python@3.12, git och gh; Node följer senaste LTS som Vercel stöder
+# Homebrew: bara node, python@3.12, git och gh; Node följer senaste LTS (bygget; Workern körs i workerd)
 brew_rader = [r for r in vl.inventera(vl.Kontext(nat=True, prova=False), ('brew',))]
 assert sorted(r['id'] for r in brew_rader) == ['brew:gh', 'brew:git', 'brew:node', 'brew:python@3.12'], [r['id'] for r in brew_rader]
 
 
 def falsk_hamta(url, **kw):
-    if 'nodejs.org' in url:
-        return json.dumps([{'version': 'v26.10.0', 'lts': False}, {'version': 'v25.9.0', 'lts': False}, {'version': 'v24.21.0', 'lts': 'Krypton'},
-                           {'version': 'v22.23.3', 'lts': 'Jod'}, {'version': 'v20.20.2', 'lts': 'Iron'}]).encode()
-    return VERCEL_HTML.encode()
+    assert 'nodejs.org' in url, 'Node-målet läses bara ur nodejs.org (ingen värds dokumentation): %s' % url
+    return json.dumps([{'version': 'v26.10.0', 'lts': False}, {'version': 'v25.9.0', 'lts': False}, {'version': 'v24.21.0', 'lts': 'Krypton'},
+                       {'version': 'v22.23.3', 'lts': 'Jod'}, {'version': 'v20.20.2', 'lts': 'Iron'}]).encode()
 
 
-VERCEL_HTML = '<p>Current available versions are:</p><ul><li>24.x (default)</li><li>22.x</li><li>20.x</li></ul><p>Only major versions are available.</p>'
-import importlib  # noqa: E402
-vl_ren = importlib.import_module('verktygslada')
-riktig_lts = vl_ren.__dict__['node_lts_vercel']
-vl.hamta_url = falsk_hamta
-mal = vl_ren.node_lts_vercel.__wrapped__() if hasattr(vl_ren.node_lts_vercel, '__wrapped__') else None
 src = (KOPIA / 'kontroller' / 'verktygslada.py').read_text()
 ns = {}
-exec(compile('import json, re\n' + src[src.index('def node_lts_vercel'):src.index('def motor_releaser')], 'lts', 'exec'),
-     {'json': json, 're': __import__('re'), 'hamta_url': falsk_hamta, 'huvud': vl.huvud, 'NODE_INDEX': vl.NODE_INDEX, 'VERCEL_NODE': vl.VERCEL_NODE}, ns)
-mal = ns['node_lts_vercel']()
-assert mal['major'] == 24 and mal['version'] == '24.21.0' and mal['vercel'] == [20, 22, 24], mal
-VERCEL_HTML = '<p>Current available versions are: 22.x (default) 20.x</p><p>Only major versions are available.</p>'
-assert ns['node_lts_vercel']()['major'] == 22, 'en LTS som Vercel inte stöder (24) väljs inte; udda 25 och 26 aldrig'
-print('Homebrew: fyra formler, Node efter LTS som Vercel stöder ok')
+exec(compile('import json, re\n' + src[src.index('def node_lts'):src.index('def motor_releaser')], 'lts', 'exec'),
+     {'json': json, 're': __import__('re'), 'hamta_url': falsk_hamta, 'huvud': vl.huvud, 'NODE_INDEX': vl.NODE_INDEX}, ns)
+mal = ns['node_lts']()
+assert mal['major'] == 24 and mal['version'] == '24.21.0' and mal['lts'] == [20, 22, 24], mal
+assert 'vercel' not in mal, 'ingen värds versionslista styr Node-målet'
+print('Homebrew: fyra formler, Node efter senaste LTS (udda versioner aldrig) ok')
 
 # en avvisad huvudversion (node@24 rött i rökprovet), en uppdatering som tas in (patchen), och en avvisad version
 # prövas igen först när en nyare kommer
@@ -2123,6 +2115,7 @@ assert 'Homebrew: brew update t, 4.6.1 → 4.6.2' in sk.markdown(dict(kv, homebr
 print('brew update en gång per dygn, före uppslagen, med versionen före och efter, och aldrig brew upgrade på allt, ok')
 
 # worktree-mekanismen för hela rökprovet: grönt och rött, och worktreen städas
+import importlib  # noqa: E402
 riktig = importlib.reload(uh)
 for f in ('kontroller/rokprov.sh',):
     (KOPIA / f).write_text('#!/bin/bash\nR="$(dirname "$0")/.."\nif [ -f "$R/KANDIDAT-SOV" ]; then sleep 60; fi\n'

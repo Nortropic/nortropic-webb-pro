@@ -5696,61 +5696,82 @@ assert any('#ff0000' in f_ for f_ in ds_k3.kontroll('ds-kund', kunder=tmp / 'ds-
 assert any('ändrad sedan stilexporten' in f_ for f_ in ds_k3.kontroll('ds-kund', kunder=tmp / 'ds-k')['fel']), 'originalexporten står orörd'
 v2_ds = json.loads(json.dumps(v_ds)); v2_ds['tillstand']['mork']['farger'] = {'text': '#777777', 'yta': '#888888'}
 assert any('tillstand.mork: kontrast' in f_ for f_ in ds_k3.validera(v2_ds)), 'kontrasten prövas i tillståndet'
-# leveransen (Codex leveransluckorna): adaptern läggs in, läckor fälls, en publik hänvisning redovisas
+# leveransen (Codex leveransluckorna; ägarens beslut 2026-10-09: Cloudflare Workers): läckor fälls, en publik hänvisning
+# redovisas, leveranslagret är en Worker utan Vercel, och dist/ prövas negativt
 import exportera as ex_k3  # noqa: E402
-konf_ex = "import { defineConfig } from 'astro/config';\nexport default defineConfig({\n  site: 'https://x.se',\n  output: 'static',\n});\n"
-ut_ex = ex_k3.med_adapter(konf_ex)
-assert "import vercel from '@astrojs/vercel';" in ut_ex and 'adapter: vercel({ maxDuration: 30 })' in ut_ex and ex_k3.med_adapter(ut_ex) == ut_ex, 'körtiden (D3)'
 lk_ex = tmp / 'lk-ex'; (lk_ex / 'src').mkdir(parents=True)
 (lk_ex / 'src' / 'a.astro').write_text('<!-- underlag/kund-x/BRIEF.md -->')
 (lk_ex / 'src' / 'b.astro').write_text('<!-- byggd med kontroller/design.py -->')
 (lk_ex / '.env.example').write_text('RESEND_API_KEY=\n# kommentar\n')
 (lk_ex / 'src' / 'c.js').write_text("const k = 're_Ab12Cd34_Ef56Gh78Ij90Kl12Mn34Op56';")  # Resends form: re_ + 8 + _ + 24
-assert sorted(f_ for f_, _s in ex_k3.lackor(lk_ex)) == ['src/a.astro', 'src/c.js'] and ex_k3.hanvisningar(lk_ex) == ['src/b.astro'], (ex_k3.lackor(lk_ex), ex_k3.hanvisningar(lk_ex))
+(lk_ex / 'src' / 'd.json').write_text('{"CLOUDFLARE_API_TOKEN": "abcd1234efgh5678"}')
+assert sorted(f_ for f_, _s in ex_k3.lackor(lk_ex)) == ['src/a.astro', 'src/c.js', 'src/d.json'] and ex_k3.hanvisningar(lk_ex) == ['src/b.astro'], (ex_k3.lackor(lk_ex), ex_k3.hanvisningar(lk_ex))
 lev_ex = json.loads((ROOT / 'mall' / 'leverans' / 'package.json').read_text())
-assert lev_ex['dependencies']['@astrojs/vercel'] and lev_ex['overrides']['path-to-regexp'] == '6.3.0' and (ROOT / 'mall' / 'leverans' / 'package-lock.json').is_file()
-assert json.loads((ROOT / 'mall' / 'leverans' / 'vercel.json').read_text())['regions'] == ['arn1'], 'formulärets funktion i Stockholm'
-# serverfunktionen: varje väg i kontraktet, utan nät (Node)
-nod_ex = tmp / 'forfragan-prov'; nod_ex.mkdir()
-shutil.copyfile(ROOT / 'mall' / 'leverans' / 'forfragan.js', nod_ex / 'forfragan.mjs')
-# en ersättare för @vercel/blob utan nät: lagringen prövas på riktigt (den oberoende granskningen 2026-10-05, fynd 13)
-(nod_ex / 'node_modules' / '@vercel' / 'blob').mkdir(parents=True)
-(nod_ex / 'node_modules' / '@vercel' / 'blob' / 'package.json').write_text('{"name": "@vercel/blob", "type": "module", "main": "index.js"}')
-(nod_ex / 'node_modules' / '@vercel' / 'blob' / 'index.js').write_text('export async function put(vag, kropp, opt) { globalThis.__blob.push([vag.split("/").pop(), opt.access, opt.contentType]); return { pathname: vag }; }')
-(nod_ex / 'prov.mjs').write_text('''import { POST } from './forfragan.mjs';
-const ut = [];
+las_ex = json.loads((ROOT / 'mall' / 'leverans' / 'package-lock.json').read_text())
+assert lev_ex['devDependencies']['wrangler'] == las_ex['packages']['node_modules/wrangler']['version'], 'Wrangler låst, samma version i manifest och lås'
+assert not [n_ for n_ in las_ex['packages'] if '/@vercel/' in n_ or n_.endswith('/vercel') or '@astrojs/vercel' in n_], 'inga Vercel-paket i leveransen'
+assert not (ROOT / 'mall' / 'leverans' / 'vercel.json').exists() and not (ROOT / 'mall' / 'leverans' / 'forfragan.js').exists()
+import re as re_ex  # noqa: E402
+wr_ex = json.loads(re_ex.sub(r'(?m)^\s*//.*$', '', (ROOT / 'mall' / 'leverans' / 'wrangler.jsonc').read_text()))
+assert re_ex.fullmatch(r'\d{4}-\d{2}-\d{2}', wr_ex['compatibility_date']) and wr_ex['workers_dev'] is False and wr_ex['preview_urls'] is False, wr_ex
+assert wr_ex['assets']['run_worker_first'] == ['/api/*'] and wr_ex['assets']['directory'] == './dist' and wr_ex['vars']['MILJO'] == 'produktion'
+fh_ex = wr_ex['env']['forhandsvisning']
+assert fh_ex['vars'] == {'MILJO': 'forhandsvisning'} and not {'d1_databases', 'r2_buckets'} & set(fh_ex), 'förhandsvisningen har ingen databas, bucket eller mejlhemlighet'
+assert ex_k3.wrangler_namn((ROOT / 'mall' / 'leverans' / 'wrangler.jsonc').read_text(), 'kund-x').count('kund-kund-x') == 4
+pub_ex = tmp / 'pub-ex'; (pub_ex / 'om').mkdir(parents=True)
+for f_ in ('index.html', 'om/index.html', '_astro/a.js', 'worker/index.js', 'wrangler.jsonc', '.dev.vars', 'migrations/0001.sql', 'x.js.map'):
+    (pub_ex / f_).parent.mkdir(parents=True, exist_ok=True); (pub_ex / f_).write_text('x')
+assert ex_k3.publika_brister(pub_ex) == ['.dev.vars', 'migrations/0001.sql', 'worker/index.js', 'wrangler.jsonc', 'x.js.map'], ex_k3.publika_brister(pub_ex)
+# Workerns kontrakt, snabbt i Node med märkta attrapper för D1, R2 och mejltjänsten (det riktiga runtimeprovet i workerd:
+# kontroller/workersprov.py, eget steg i rökprovet)
+nod_ex = tmp / 'worker-prov'; nod_ex.mkdir()
+shutil.copyfile(ROOT / 'mall' / 'leverans' / 'worker' / 'index.js', nod_ex / 'worker.mjs')
+(nod_ex / 'prov.mjs').write_text(r"""import worker from './worker.mjs';
+const lager = { rader: [], utkorg: [], r2: new Map(), mejl: [] };
+const DB = (fel) => ({
+  prepare(sql) { const st = { sql, args: [], bind(...a) { st.args = a; return st; },
+    async first() { const r = lager.rader.find((x) => x.nyckel === st.args[0]); if (!r) return null; const u = lager.utkorg.find((x) => x.forfragan === r.id); return { id: r.id, status: u && u.status }; },
+    async run() { const u = lager.utkorg.find((x) => x.forfragan === st.args[5]); if (u) u.status = st.args[0]; return { meta: { changes: u ? 1 : 0 } }; } }; return st; },
+  async batch([ins]) { if (fel) throw new Error('D1 svarar inte'); const [id, nyckel] = ins.args;
+    if (lager.rader.some((x) => x.nyckel === nyckel)) return [{ meta: { changes: 0 } }, { meta: { changes: 0 } }];
+    lager.rader.push({ id, nyckel, bilaga: ins.args[6] }); lager.utkorg.push({ forfragan: id, status: 'vantar' }); return [{ meta: { changes: 1 } }, { meta: { changes: 1 } }]; } });
+const R2 = { async put(k, b, o) { lager.r2.set(k, o.httpMetadata.contentType); return { key: k }; }, async delete(k) { lager.r2.delete(k); } };
+const ASSETS = { fetch: async () => new Response('<html>sida</html>', { headers: { 'content-type': 'text/html' } }) };
 const form = (f, bild) => { const fd = new FormData(); for (const [k, v] of Object.entries(f)) fd.append(k, v); if (bild) fd.append('bild', bild, 'b.jpg');
   return new Request('https://x.se/api/forfragan/', { method: 'POST', body: fd }); };
 const g = { namn: 'Prov', telefon: '0700000000', meddelande: 'Hej', fylltid: '9000' };
-globalThis.__blob = [];
-async function kor(req, env = {}, svar = null) {
-  for (const k of ['RESEND_API_KEY', 'FORFRAGAN_TILL', 'FORFRAGAN_FRAN', 'VERCEL_ENV', 'BLOB_STORE_ID']) delete process.env[k];
-  Object.assign(process.env, env);
-  globalThis.fetch = svar ? async () => svar() : async () => { throw new Error('inget nät'); };
-  const r = await POST({ request: req }); ut.push([r.status, r.headers.get('location'), r.headers.get('x-forfragan')]); }
-await kor(form({ ...g, webbplats: 'x' }));
-await kor(form({ ...g, telefon: '' }));
-await kor(new Request('https://x.se/api/forfragan/', { method: 'POST', headers: { 'content-length': '5000000' }, body: 'x' }));
-await kor(form(g), { VERCEL_ENV: 'preview' });
-await kor(form(g), { VERCEL_ENV: 'production' });
-const konf = { VERCEL_ENV: 'production', RESEND_API_KEY: 'k', FORFRAGAN_TILL: 'a@x.se', FORFRAGAN_FRAN: 'w@x.se' };
-await kor(form(g, new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' })), konf, () => new Response('{}', { status: 200 }));
-await kor(form(g), konf, () => new Response('fel', { status: 500 }));
-await kor(form(g, new Blob([new Uint8Array(4200000)], { type: 'image/jpeg' })));
-await kor(form(g, new Blob(['text'], { type: 'text/plain' })));
-await kor(form(g, new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' })), { VERCEL_ENV: 'production', BLOB_STORE_ID: 's' });
-await kor(form(g), { ...konf, BLOB_STORE_ID: 's' }, () => new Response('fel', { status: 500 }));
+const ut = [];
+async function kor(req, env = {}, mejl = null) {
+  globalThis.fetch = mejl ? async (u, o) => { lager.mejl.push(u); return mejl(); } : async () => { throw new Error('inget nät'); };
+  const r = await worker.fetch(req, { ASSETS, ...env }); ut.push([r.status, r.headers.get('location'), r.headers.get('x-forfragan')]); }
+const prod = { MILJO: 'produktion', DB: DB(false), BILAGOR: R2 };
+const konf = { ...prod, RESEND_API_KEY: 'k', FORFRAGAN_TILL: 'a@x.se', FORFRAGAN_FRAN: 'w@x.se' };
+await kor(form({ ...g, webbplats: 'x' }), prod);
+await kor(form({ ...g, telefon: '' }), prod);
+await kor(new Request('https://x.se/api/forfragan/', { method: 'POST', headers: { 'content-length': '5000000' }, body: 'x' }), prod);
+await kor(form(g), { MILJO: 'forhandsvisning' });
+await kor(form(g), { MILJO: 'produktion', DB: DB(true), BILAGOR: R2 });
+await kor(form({ ...g, inskick: 'prov-inskick-00000001' }, new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' })), konf, () => new Response('{"id":"m1"}', { status: 200 }));
+await kor(form({ ...g, inskick: 'prov-inskick-00000001' }), konf, () => new Response('{"id":"m2"}', { status: 200 }));
+await kor(form({ ...g, meddelande: 'Annan' }), konf, () => new Response('fel', { status: 500 }));
+await kor(form(g, new Blob([new Uint8Array(4200000)], { type: 'image/jpeg' })), prod);
+await kor(form(g, new Blob(['text'], { type: 'text/plain' })), prod);
+await kor(new Request('https://x.se/api/forfragan/', { method: 'POST', headers: { origin: 'https://annan.se' }, body: new FormData() }), prod);
+await kor(new Request('https://x.se/api/forfragan/'), prod);
+await kor(new Request('https://x.se/om/'), { MILJO: 'forhandsvisning' });
+ut.push(['noindex', (await worker.fetch(new Request('https://x.se/om/'), { ASSETS, MILJO: 'forhandsvisning' })).headers.get('x-robots-tag')]);
+ut.push(['produktion', (await worker.fetch(new Request('https://x.se/om/'), { ASSETS, MILJO: 'produktion' })).headers.get('x-robots-tag')]);
 console.log(JSON.stringify(ut));
-console.log(JSON.stringify(globalThis.__blob));
-''')
+console.log(JSON.stringify({ rader: lager.rader.length, utkorg: lager.utkorg.map((u) => u.status), r2: [...lager.r2.values()], mejl: lager.mejl.length }));
+""")
 r_nod = subprocess.run(['node', 'prov.mjs'], cwd=nod_ex, capture_output=True, text=True, timeout=60)
 assert r_nod.returncode == 0, r_nod.stderr[-500:]
-ut_nod, blob_nod = [json.loads(x) for x in r_nod.stdout.strip().splitlines()[-2:]]
-assert ut_nod == [[303, '/tack/', 'honeypot'], [422, None, 'ofullstandig'], [413, None, 'for-stor'],
-                  [303, '/tack/', 'demo'], [503, None, 'fel'], [503, None, 'fel'], [503, None, 'fel'],
-                  [413, None, 'for-stor'], [422, None, 'ofullstandig'],
-                  [303, '/mottagen/', 'sparad'], [303, '/mottagen/', 'sparad']], ut_nod  # sparad men ej aviserad: 303 till /mottagen/ (D1)
-assert blob_nod == [['bild', 'private', 'image/jpeg'], ['forfragan.json', 'private', 'application/json'], ['forfragan.json', 'private', 'application/json']], blob_nod
+ut_nod, lager_nod = [json.loads(x) for x in r_nod.stdout.strip().splitlines()[-2:]]
+assert ut_nod[:12] == [[303, '/tack/', 'honeypot'], [422, None, 'ofullstandig'], [413, None, 'for-stor'], [303, '/tack/', 'demo'],
+                       [503, None, 'fel'], [303, '/tack/', 'skickad'], [303, '/tack/', 'dubblett'], [303, '/mottagen/', 'sparad'],
+                       [413, None, 'for-stor'], [422, None, 'ofullstandig'], [403, None, None], [405, None, None]], ut_nod
+assert ut_nod[13:] == [['noindex', 'noindex, nofollow'], ['produktion', None]], ut_nod[13:]
+assert lager_nod == {'rader': 2, 'utkorg': ['accepterad', 'fel'], 'r2': ['image/jpeg'], 'mejl': 2}, lager_nod
 # förhandsvisningens interaktionsväg: bara kända tillstånd och en enkel CSS-väljare (Codex punkt 9)
 import forhandsvisa as fv_k3  # noqa: E402
 assert fv_k3.main(['sk-prov', '--kandidat', 'k01', '--tillstand', 'tangentbord,okant']) == 2 and fv_k3.main(['sk-prov', '--meny', 'a;b{}']) == 2
@@ -6280,7 +6301,7 @@ function server(st, html) {
   return new Promise((res) => {
     st.srv = http.createServer((req, r) => {
       let body = ''; req.on('data', (d) => body += d); req.on('end', () => {
-        st.traffar.push({ metod: req.method, url: req.url, bypass: req.headers['x-vercel-protection-bypass'] || null, body, ct: req.headers['content-type'] || null, cookie: req.headers.cookie || null, xprov: req.headers['x-prov'] || null });
+        st.traffar.push({ metod: req.method, url: req.url, bypass: req.headers['cf-access-client-secret'] || null, accessId: req.headers['cf-access-client-id'] || null, body, ct: req.headers['content-type'] || null, cookie: req.headers.cookie || null, xprov: req.headers['x-prov'] || null });
         if (req.url === '/langsam') { st.langsam = r; st.langsamSocket = req.socket; req.socket.on('close', () => { st.langsamStangd = true; }); return; }  // svarar aldrig; socketen, inte begäran, bevisar stängningen (R27)
         if (req.url === '/post307-lokal') { r.writeHead(307, { Location: '/mottagare' }); return r.end(); }
         if (req.url === '/post307b') { r.writeHead(307, { Location: html.BL + '/final' }); return r.end(); }  // B under namnet localhost: kakan för 127.0.0.1 skickas inte ur kakburken
@@ -6302,15 +6323,15 @@ html.sida = `<html><body><img src="${b}/x.png"><script>try { new WebSocket('ws:/
 <form method="post" action="/post"><input name="n" value="x"><button type="submit">s</button></form></body></html>`;
 const ut = {};
 // 1. omdirigering från tillåtet A till B (inte i tillat): B nås aldrig, hoppet loggas som blockerat
-let o = await oppna({ tillat: [a], mal: a + '/', undantag: 'HEMLIG' });
+let o = await oppna({ tillat: [a], mal: a + '/', undantag: { 'cf-access-client-id': 'ID-HEMLIG-0001', 'cf-access-client-secret': 'HEMLIG' } });
 try { await o.page.goto(a + '/start', { timeout: 10000 }); } catch (e) { ut.gotoFel = String(e.message).slice(0, 60); }
 ut.bTraffar1 = B.traffar.length; ut.aBypass = A.traffar[0]?.bypass; ut.blockeradB = o.logg.blockerade.some((x) => (x.skal || '').includes(b) || x.url.startsWith(b));
 await o.stang();
 // 2. omdirigering med B tillåtet: B nås men utan skyddsundantaget (headern bara till målets ursprung)
 B.traffar.length = 0; A.traffar.length = 0;
-o = await oppna({ tillat: [a, b], mal: a + '/', undantag: 'HEMLIG' });
+o = await oppna({ tillat: [a, b], mal: a + '/', undantag: { 'cf-access-client-id': 'ID-HEMLIG-0001', 'cf-access-client-secret': 'HEMLIG' } });
 await o.page.goto(a + '/till-b-sida', { timeout: 10000 });
-ut.bTraffar2 = B.traffar.length; ut.bBypass = B.traffar[0]?.bypass; ut.aBypass2 = A.traffar[0]?.bypass;
+ut.bTraffar2 = B.traffar.length; ut.bBypass = B.traffar[0]?.bypass; ut.aBypass2 = A.traffar[0]?.bypass; ut.bAccess = B.traffar[0]?.accessId ?? null; ut.aAccess = A.traffar[0]?.accessId;
 await o.stang();
 // 3. sida med bild från B, WebSocket och formulär: bild blockerad, WS blockerad, POST blockerad utan skrivbara
 B.traffar.length = 0; A.traffar.length = 0;
@@ -6405,7 +6426,7 @@ await o.stang();
 //     skyddsundantaget) följer bara inom samma ursprung, aldrig till ett annat skrivbart ursprung (R26, F31/F36). B nås här som
 //     localhost (annan värd än A:s 127.0.0.1), så att en kaka hos B bara kan komma ur hoppets huvuden, inte ur kakburken.
 A.traffar.length = 0; B.traffar.length = 0;
-o = await oppna({ tillat: [a, html.BL], mal: a + '/', skrivbara: [a, html.BL], undantag: 'HEMLIG' });
+o = await oppna({ tillat: [a, html.BL], mal: a + '/', skrivbara: [a, html.BL], undantag: { 'cf-access-client-id': 'ID-HEMLIG-0001', 'cf-access-client-secret': 'HEMLIG' } });
 await o.page.goto(a + '/sida', { timeout: 10000 });
 await o.page.evaluate(() => { document.cookie = 'k=v'; document.forms[0].action = '/post307-lokal'; document.forms[0].submit(); }).catch(() => {});
 await o.page.waitForTimeout(1000);
@@ -6426,7 +6447,7 @@ rg = subprocess.run(['node', str(prov_g)], capture_output=True, text=True, cwd=s
 assert rg.returncode == 0, (rg.returncode, rg.stdout[-400:], rg.stderr[-800:])
 ug = json.loads(rg.stdout.strip().splitlines()[-1])
 assert ug['bTraffar1'] == 0 and ug['blockeradB'] and ug['aBypass'] == 'HEMLIG', 'omdirigeringen till ett otillåtet ursprung stoppas före anslutning: %s' % ug
-assert ug['bTraffar2'] == 1 and ug['bBypass'] is None and ug['aBypass2'] == 'HEMLIG', 'skyddsundantaget följer inte med till nästa ursprung: %s' % ug
+assert ug['bTraffar2'] == 1 and ug['bBypass'] is None and ug['bAccess'] is None and ug['aBypass2'] == 'HEMLIG' and ug['aAccess'] == 'ID-HEMLIG-0001', 'Access-paret följer inte med till nästa ursprung: %s' % ug
 assert ug['bTraffar3'] == 0 and ug['ws'] and ug['postBlockerad'] and ug['aPost3'] == 0, 'bild från B, WebSocket och POST blockeras under läsande inspektion: %s' % ug
 assert ug['aPost4'] == 1 and ug['aPost5'] == 0, 'inskick bara till lokala skrivbara ursprung: %s' % ug
 assert ug['policy'] == [True, True, True, False, True, True, False], 'domänpolicyn: %s' % ug['policy']

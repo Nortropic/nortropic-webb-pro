@@ -4,10 +4,12 @@
 in). Ägarens uppdrag 2026-10-05 19:13Z, 20:27Z och ~20:50Z (ordagrant i minnet): ingenting i verktygslådan släpar efter;
 målet är alltid den senaste versionen som klarat våra prov, låst för varje körning.
 
-Komponenterna: Claude Code och Vercel CLI (globala npm-paket), skillsen (källa och commit ur KALLA.md), sajtens paket
-(mall/astro och mall/leverans, i grupper som byts tillsammans), mätinstrumenten (kontroller/package.json och Playwrights
-Chromium), Python-paketen (requirements.txt och requirements-lock.txt), Homebrew-formlerna node (senaste LTS som Vercel
-stöder), python@3.12, git och gh, Impeccables motor, och macOS, Xcode-verktygen och Homebrew självt (bara redovisade).
+Komponenterna: Claude Code (globalt npm-paket; Vercel CLI står kvar som icke nödvändig, bara för de äldre sajterna som
+ligger kvar på Vercel enligt ägarens beslut 2026-10-09), skillsen (källa och commit ur KALLA.md), sajtens paket
+(mall/astro och mall/leverans med Wrangler för Cloudflare Workers, i grupper som byts tillsammans), mätinstrumenten
+(kontroller/package.json och Playwrights Chromium), Python-paketen (requirements.txt och requirements-lock.txt),
+Homebrew-formlerna node (senaste LTS; bygget körs på Node, Workern i Cloudflares workerd), python@3.12, git och gh,
+Impeccables motor, och macOS, Xcode-verktygen och Homebrew självt (bara redovisade).
 Hur var och en prövas och tas in: kunskap/beroenden.md, avsnittet Underhåll.
 
 Läget ligger i underlag/startkontroll/ (utanför git): CACHE.json (uppslag och prov med fingeravtryck och tid),
@@ -70,10 +72,11 @@ FLAGGOR = ('--json-schema', '--allowedTools', '--disallowedTools', '--settings',
 PROVMODELL = 'claude-haiku-4-5-20251001'  # en kandidatversion av Claude Code prövas med den minsta modellen
 GLOBALA = (  # (npm-paket, binär, namn, grupp, nödvändig)
     ('@anthropic-ai/claude-code', 'claude', 'Claude Code', 'Claude Code', True),
-    ('vercel', 'vercel', 'Vercel CLI', 'leverans', False),
+    ('vercel', 'vercel', 'Vercel CLI', 'leverans', False),  # historik: bara de äldre sajterna på Vercel; normalvägen är Wrangler i kundrepot
 )
 SAJT_GRUPPER = {  # paket som byts tillsammans (samma huvudversion, kamrater)
-    'astro': ('astro', '@astrojs/react', '@astrojs/vercel'),
+    'astro': ('astro', '@astrojs/react'),
+    'cloudflare': ('wrangler',),  # leveransens Worker (mall/leverans): kompatibilitetsdatumet ändras bara efter prov
     'react': ('react', 'react-dom'),
     'tailwind': ('tailwindcss', '@tailwindcss/vite'),
 }
@@ -81,7 +84,6 @@ MATINSTRUMENT = ('playwright', 'axe-core', 'lighthouse', 'html-validate', 'chrom
 BREW_FORMLER = ('python@3.12', 'git', 'gh')  # node hanteras efter LTS-regeln
 EGNA_TILLAGG = ('KALLA.md', 'LICENSE', 'NOTICE.md', 'LICENSE-nous-research')
 NODE_INDEX = 'https://nodejs.org/dist/index.json'
-VERCEL_NODE = 'https://vercel.com/docs/functions/runtimes/node-js/node-js-versions'
 MOTOR_RELEASER = 'https://api.github.com/repos/pbakaus/impeccable/releases?per_page=40'
 BREW_RELEASE = 'https://api.github.com/repos/Homebrew/brew/releases/latest'
 
@@ -550,26 +552,19 @@ def git_head(repo):
     return h if re.fullmatch(r'[0-9a-f]{40}', h) else None
 
 
-def node_lts_vercel():
-    """Senaste LTS-huvudversionen som Vercel stöder: Nodes versionslista (nodejs.org) och Vercels dokumentation."""
+def node_lts():
+    """Senaste LTS-huvudversionen ur Nodes versionslista (nodejs.org). Bygget körs på Node; kundens Worker körs i
+    Cloudflares workerd, så ingen värds lista över Node-versioner styr längre (ägarens beslut 2026-10-09)."""
     idx = json.loads(hamta_url(NODE_INDEX, max_byte=20_000_000))
     lts, datum = {}, {}
     for x in idx:  # nyast först
         if x.get('lts'):
             lts.setdefault(huvud(x['version']), x['version'].lstrip('v'))
             datum[x['version'].lstrip('v')] = x.get('date')
-    html = hamta_url(VERCEL_NODE).decode('utf-8', 'replace')
-    text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', html))
-    m = re.search(r'Current available versions are:\s*((?:\d{2}\.x(?:\s*\([^)]*\))?\s*)+)', text)
-    vercel = sorted({int(x) for x in re.findall(r'(\d{2})\.x', m.group(1))}) if m else []
-    if not vercel:
-        raise RuntimeError('Vercels lista över Node-versioner gick inte att läsa (%s)' % VERCEL_NODE)
-    mojliga = [mj for mj in lts if mj in vercel]
-    if not mojliga:
-        raise RuntimeError('ingen LTS-version som Vercel stöder (LTS %s, Vercel %s)' % (sorted(lts), vercel))
-    mj = max(mojliga)
-    return {'major': mj, 'version': lts[mj], 'vercel': vercel, 'lts': sorted(lts),
-            'datum': {v: d for v, d in datum.items() if huvud(v) in mojliga}}
+    if not lts:
+        raise RuntimeError('Nodes versionslista saknar LTS-versioner (%s)' % NODE_INDEX)
+    mj = max(lts)
+    return {'major': mj, 'version': lts[mj], 'lts': sorted(lts), 'datum': {v: d for v, d in datum.items() if huvud(v) == mj}}
 
 
 def motor_releaser():
@@ -682,7 +677,9 @@ def inv_skills(k):
 
 
 def paketberoenden(katalog):
-    return dict((las_json(Path(katalog) / 'package.json', {}) or {}).get('dependencies') or {})
+    """dependencies och devDependencies (leveransens Wrangler är ett utvecklingsberoende men låst som allt annat)."""
+    pj = las_json(Path(katalog) / 'package.json', {}) or {}
+    return {**(pj.get('devDependencies') or {}), **(pj.get('dependencies') or {})}
 
 
 def installerat_i(node_modules, paket):
@@ -884,9 +881,9 @@ def inv_brew(k):
     ut = []
     formel, inst = node_formel()
     inst = (brew_aktiv(formel) if formel else None) or inst  # Homebrews version med revision (22.23.3_1), jämförbar med brew info
-    mal, tid, fel = uppslag(k, 'node-mal', node_lts_vercel)
+    mal, tid, fel = uppslag(k, 'node-mal-lts', node_lts)
     r = rad('brew:node', 'Homebrew', 'node', 'brew-node', formel=formel, installerat=inst, kontrollerad=tid, nodvandig=True,
-            kalla='Homebrew; regeln: senaste LTS som Vercel stöder (%s)' % ('%s.x' % mal['major'] if mal else 'okänd'), uppslagsfel=fel,
+            kalla='Homebrew; regeln: senaste LTS (%s)' % ('%s.x' % mal['major'] if mal else 'okänd'), uppslagsfel=fel,
             mal=mal)
     r['pinnad'] = node_pinnad(formel)
     if mal and inst:

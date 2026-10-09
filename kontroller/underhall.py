@@ -29,7 +29,7 @@ Samma regler för allt:
    Städningen. En städning som faller stoppar inte underhållet; --torr listar bara.
 
 Per slag (kunskap/beroenden.md, avsnittet Underhåll):
-- Claude Code och Vercel CLI: installation i en provkatalog, npm audit, versionen, för Claude också flaggorna flödet
+- Claude Code och Vercel CLI (historik: bara de äldre sajterna på Vercel): installation i en provkatalog, npm audit, versionen, för Claude också flaggorna flödet
   använder och ett strukturerat modellsvar med den minsta modellen; sedan globalt, och den förra versionen tillbaka om
   något faller.
 - Skillsen: i den senaste commit i källan som är äldre än karenstiden; trevägssammanslagning (källan vid vår commit,
@@ -39,14 +39,14 @@ Per slag (kunskap/beroenden.md, avsnittet Underhåll):
   Avgöranden; metodkartan och kompetensblocken prövas i en kopia av repot. Omlåsningen kräver rena kunskap/, skills,
   kritik/ och mall/.
 - Sajtens paket (grupper: astro med @astrojs/*, react med react-dom, tailwind med @tailwindcss/vite): installation
-  utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge med Vercel-adaptern; en huvudversion
+  utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge som Cloudflare Worker; en huvudversion
   också hela rökprovet.
 - Mätinstrumenten (kontroller/package.json) och Playwrights webbläsare: alltid hela rökprovet i en worktree med egna
   node_modules och webbläsarna installerade.
 - Python-paketen: låset (requirements.txt, requirements-lock.txt) skapas först; en uppdatering i en egen venv, pip check,
   OSV:s sårbarhetsdatabas, regressionsfallen i en worktree med den venv:en (huvudversion: hela rökprovet).
-- Homebrew: bara node, python@3.12, git och gh, aldrig brew upgrade på allt. Node följer den senaste LTS som Vercel
-  stöder: en ny huvudversion installeras bredvid (node@NN), prövas med hela rökprovet och länkas sedan om; pinnar PATH
+- Homebrew: bara node, python@3.12, git och gh, aldrig brew upgrade på allt. Node följer den senaste LTS (bygget;
+  Workern körs i workerd): en ny huvudversion installeras bredvid (node@NN), prövas med hela rökprovet och länkas sedan om; pinnar PATH
   den gamla formeln (ägarens skalprofil, som underhållet aldrig ändrar) behålls bytet med skäl. En formel som byts på
   plats kan inte prövas bredvid den gamla: flaskans kontrollsumma prövas (brew fetch), uppgraderingen verifieras, en ny
   huvudversion (git, gh) prövas med hela rökprovet efter bytet (avbrutet om en start väntar), och den förra kegen länkas
@@ -140,7 +140,7 @@ def foreg(text, fel):
     return text + fel
 
 
-def kopiera(kalla, mal, utom=('node_modules', 'dist', '.astro', '.vercel', '__pycache__')):
+def kopiera(kalla, mal, utom=('node_modules', 'dist', '.astro', '.vercel', '.wrangler', '__pycache__')):
     shutil.copytree(kalla, mal, symlinks=True, ignore=shutil.ignore_patterns(*utom), dirs_exist_ok=True)
 
 
@@ -1214,8 +1214,9 @@ def ta_in_skill(k, r, kand, staged):
 def satt_versioner(pj_fil, paket):
     pj = vl.las_json(pj_fil, {})
     for p, v in paket.items():
-        if p in (pj.get('dependencies') or {}):
-            pj['dependencies'][p] = v
+        for falt in ('dependencies', 'devDependencies'):
+            if p in (pj.get(falt) or {}):
+                pj[falt][p] = v
     Path(pj_fil).write_text(json.dumps(pj, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 
 
@@ -1260,25 +1261,26 @@ def prova_sajt(k, r, kand):
         rc, ut = processgrans.kor_i_katalog(mall, [mall / 'node_modules' / '.bin' / 'astro', 'build'])
         if rc or not (mall / 'dist' / 'index.html').is_file() or not (mall / 'dist' / 'om' / 'index.html').is_file():
             return 'provbygget med mallen (innanför processgränsen) föll: ' + vl.sista(ut, 300), None
-        # kundrepots bygge med Vercel-adaptern, som exportera.py gör det
+        # kundrepots bygge som Cloudflare Worker, som exportera.py gör det: förrenderade sidor, Workern paketerad utan nät
         repo.mkdir()
         for d in ('src', 'public'):
             kopiera(mall / d, repo / d)
-        for f in ('tsconfig.json',):
+        for f in ('tsconfig.json', 'astro.config.mjs'):
             if (mall / f).is_file():
                 shutil.copy2(mall / f, repo / f)
-        (repo / 'src' / 'pages' / 'api').mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT() / 'mall' / 'leverans' / 'forfragan.js', repo / 'src' / 'pages' / 'api' / 'forfragan.js')
-        (repo / 'astro.config.mjs').write_text(exportera.med_adapter(konf.read_text(encoding='utf-8')), encoding='utf-8')
-        shutil.copy2(ROOT() / 'mall' / 'leverans' / 'vercel.json', repo / 'vercel.json')
+        for d in ('worker', 'migrations'):
+            kopiera(ROOT() / 'mall' / 'leverans' / d, repo / d)
+        (repo / 'wrangler.jsonc').write_text(exportera.wrangler_namn((ROOT() / 'mall' / 'leverans' / 'wrangler.jsonc').read_text(encoding='utf-8'), 'underhallsprov'),
+                                             encoding='utf-8')
+        shutil.copy2(ROOT() / 'mall' / 'leverans' / '_headers', repo / 'public' / '_headers')
         for f in ('package.json', 'package-lock.json'):
             shutil.copy2(lev / f, repo / f)
         ok, text = exportera.verifiera_bygge(repo)
         if not ok:
-            fel = 'kundrepots bygge med Vercel-adaptern föll: ' + vl.sista(text, 300)
+            fel = 'kundrepots bygge som Cloudflare Worker föll: ' + vl.sista(text, 300)
             return (fel if '$ astro build' in text else nat(fel)), None  # bara installationen före bygget går över nätet
-        prov = ('installation utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge med Vercel-adaptern, '
-                'båda innanför processgränsen' + ''.join('; ' + x for x in noter) + '')
+        prov = ('installation utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge som Cloudflare Worker '
+                '(wrangler deploy --dry-run), innanför processgränsen' + ''.join('; ' + x for x in noter) + '')
         if kand.get('huvudversion'):
             def forbered(wt):
                 for del_ in ('astro', 'leverans'):
