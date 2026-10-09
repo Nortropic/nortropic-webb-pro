@@ -289,6 +289,45 @@ class Kundrepo(unittest.TestCase):
         pv = self.forhandsvisa()
         self.assertEqual(pv['status'], 'klar'); self.assertEqual((pv['skydd_fore'], pv['skydd']), ('HTTP 302 till Cloudflare Access',) * 2)
 
+    def test_okant_utfall_sparrar_nytt_forsok_tills_avstamning(self):
+        # T10/T11: ett tappat svar efter uppladdningen är ett okänt utfall; inget nytt försök i blindo, och avstämningen
+        # mot Cloudflares lista (läsande) avgör
+        res = self.exportera_med_repo()
+        self.anslut_konto()
+        with patch.object(self, 'deploy', return_value=(124, 'tidsgränsen 900 s nåddes')):
+            pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'osaker'); self.assertIn('--stam-av', pv['hinder'][0])
+        self.assertFalse(kundrepo.preview_aktuell(self.slug)['aktuell'])
+        pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'vantar_pa_avstamning'); self.assertEqual(self.uppladdat, [], 'inget nytt försök före avstämningen')
+        self.assertEqual(kundrepo.main([self.slug, '--preview']), 1)
+        markor = 'nortropic_commit=%s nortropic_export=%s' % (res['commit'], res['id'])
+        lista = lambda konto, tmp: [{'id': 'd0', 'annotations': {'workers/message': 'annat'}, 'versions': [{'version_id': 'x'}]},  # noqa: E731
+                                    {'id': 'd1', 'annotations': {'workers/message': markor}, 'versions': [{'version_id': VERSION, 'percentage': 100}]}]
+        av = kundrepo.avstam(self.slug, lista=lista, skydd=self.skydd)
+        self.assertEqual((av['status'], av['version_id'], av['typ']), ('klar', VERSION, 'avstämning'))
+        self.assertTrue(kundrepo.preview_aktuell(self.slug)['aktuell'], 'den avstämda deploymenten är kvittot')
+        self.assertIsNone(kundrepo.osakert_forsok(self.slug))
+        self.assertEqual(kundrepo.avstam(self.slug, lista=lista)['status'], 'inget_att_stamma_av')
+        self.assertNotIn(TOKEN, ''.join(f.read_text() for f in (self.k / 'leverans').glob('PREVIEW-*.json')))
+
+    def test_avstamning_utan_traff_slapper_ett_nytt_forsok_och_ett_fel_i_avstamningen_ar_fortsatt_okant(self):
+        self.exportera_med_repo()
+        self.anslut_konto()
+        with patch.object(self, 'deploy', return_value=(1, 'Error: fetch failed (ECONNRESET)')):
+            self.assertEqual(self.forhandsvisa()['status'], 'osaker')
+        def faller(konto, tmp):
+            raise RuntimeError('wrangler deployments list: nätet svarar inte')
+        self.assertEqual(kundrepo.avstam(self.slug, lista=faller)['status'], 'osaker')
+        self.assertIsNotNone(kundrepo.osakert_forsok(self.slug), 'en misslyckad avstämning är fortfarande okänd')
+        self.assertEqual(kundrepo.avstam(self.slug, lista=lambda konto, tmp: [])['status'], 'avstamd_ingen')
+        pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'klar'); self.assertEqual(len(self.uppladdat), 1)
+        # ett verktyg som inte kan köras är ett fel, inget okänt utfall
+        with patch.object(self, 'deploy', side_effect=FileNotFoundError('wrangler')):
+            pv = self.forhandsvisa()
+        self.assertEqual(pv['status'], 'fel'); self.assertIsNone(kundrepo.osakert_forsok(self.slug))
+
     def test_wranglers_miljo_och_kommandon(self):
         tmp = self.root / 'wr-tmp'; tmp.mkdir()
         konto = {'token': TOKEN, 'konto': KONTO, 'underdoman': 'nortropic-prov'}
@@ -299,20 +338,31 @@ class Kundrepo(unittest.TestCase):
             self.assertFalse([k for k in m if k.startswith(('NWP_', 'ANTHROPIC', 'CLAUDE', 'GH_'))])
             anrop = []
             def kommando(argv, cwd, frist=None, env=None):
-                anrop.append((argv, env)); return subprocess.CompletedProcess(argv, 0, 'Current Version ID: ' + VERSION, '')
+                anrop.append((argv, env))
+                ut = ('konto ' + KONTO) if argv[1:2] == ['whoami'] else 'Current Version ID: ' + VERSION
+                return subprocess.CompletedProcess(argv, 0, ut, '')
             import processgrans
             with patch.object(kundrepo, 'kommando', side_effect=kommando), patch.object(processgrans, 'kor_i_katalog', return_value=(0, 'byggd')), \
                     patch.object(exportera, 'publika_brister', return_value=[]):
                 rc, ut = kundrepo.wrangler_deploy(tmp, konto, {'commit': 'c' * 40, 'export': 'EXPORT-1'}, tmp)
         self.assertEqual(rc, 0); self.assertIn(VERSION, ut)
-        npm, wr = anrop
+        npm, vem, wr = anrop
+        self.assertEqual(vem[0][1:], ['whoami'], 'kontots identitet prövas hos leverantören före uppladdningen')
         self.assertEqual(npm[0][:2], ['npm', 'ci']); self.assertFalse([k for k in npm[1] if k.startswith(('CLOUDFLARE', 'NWP_', 'ANTHROPIC', 'CLAUDE'))], 'npm ci får ingen nyckel')
         self.assertEqual(wr[0][1:4], ['deploy', '--env', 'forhandsvisning']); self.assertNotIn('production', ' '.join(wr[0]))
         self.assertIn('nortropic_commit=' + 'c' * 40, ' '.join(wr[0])); self.assertEqual(wr[1]['CLOUDFLARE_API_TOKEN'], TOKEN)
         with patch.object(kundrepo, 'kommando', side_effect=kommando), patch.object(processgrans, 'kor_i_katalog', return_value=(0, 'byggd')), \
                 patch.object(exportera, 'publika_brister', return_value=['wrangler.jsonc']):
             rc, ut = kundrepo.wrangler_deploy(tmp, konto, {'commit': 'c' * 40, 'export': 'EXPORT-1'}, tmp)
-        self.assertEqual(rc, 1); self.assertIn('inte får bli publika', ut); self.assertEqual(len(anrop), 3, 'ingen uppladdning när dist/ bär privata filer')
+        self.assertEqual(rc, 1); self.assertIn('inte får bli publika', ut); self.assertEqual(len(anrop), 4, 'ingen uppladdning när dist/ bär privata filer')
+        # en token som inte når kontot: ingen uppladdning
+        anrop.clear()
+        def annat_konto(argv, cwd, frist=None, env=None):
+            anrop.append(argv); return subprocess.CompletedProcess(argv, 0, 'konto ' + 'b' * 32, '')
+        with patch.object(kundrepo, 'kommando', side_effect=annat_konto), patch.object(processgrans, 'kor_i_katalog', return_value=(0, 'byggd')), \
+                patch.object(exportera, 'publika_brister', return_value=[]):
+            rc, ut = kundrepo.wrangler_deploy(tmp, konto, {'commit': 'c' * 40, 'export': 'EXPORT-1'}, tmp)
+        self.assertEqual(rc, 1); self.assertIn('når inte kontot', ut); self.assertFalse(any('deploy' in a_ for a_ in anrop))
 
     def test_projektstart_med_lacka_avvisas_fore_commit_och_fjarrepo(self):
         # R08: en syntetisk lokal sökväg och ett syntetiskt nyckelmönster i det som genereras till CLAUDE.md avvisar projektstarten

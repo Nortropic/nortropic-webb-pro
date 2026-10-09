@@ -78,6 +78,9 @@ async function kundstartvy(eid='',besked='',personlig=null) {
     <p>Katalog ${safe(fu.katalog)}. Manuella val av ägaren, ingen AI-bedömning. Ett val utan kundens behov är ett förslag; bara kundens eget val eller grundleveransen ingår i planen.</p>
     <p><strong>${pl.klar_for_bygge?'Planen kan gå vidare till bygget.':'Planen har hinder.'}</strong> ${pl.omfattning.length} i omfattningen, ${pl.ovriga.length} utanför.${pl.okand_kostnad.length?' Okänd kostnad: '+safe(pl.okand_kostnad.join(', '))+'.':''}</p>
     ${hinder.length?`<ul>${hinder.map(h=>`<li>${safe(h)}</li>`).join('')}</ul>`:''}
+    ${fu.forslag&&fu.forslag.forslag.length?`<details><summary>AI-förslag till funktioner (${fu.forslag.forslag.length}), inte kundens val</summary>${fu.forslag.forslag.map(f=>`<article class="ks-kort"><h3>${safe(f.omrade)}: ${safe(f.utreds?'utreds'+(f.avvisat_paket?' (okänt paket '+f.avvisat_paket+' avvisat)':''):(paket[f.paket]?.funktion||f.paket))}</h3>
+      <p>Nytta, som hypotes: ${safe(f.nytta)}</p><p>Alternativ: ${safe(f.alternativ)}</p><p>Konsekvens: ${safe(f.konsekvens)}</p><p>Osäkert: ${safe(f.osakerhet)}</p>${f.foljdfraga?`<p>Följdfråga: ${safe(f.foljdfraga)}</p>`:''}</article>`).join('')}
+      <p>Förslagen gäller revision ${safe(fu.forslag.revision)}. Ett förslag blir aldrig ett val; välj själv nedan.</p></details>`:'<p>Inga AI-förslag till funktioner.</p>'}
     ${fu.val.length?fu.val.map(v=>{const p=paket[v.paket]||{};return `<article class="ks-kort"><h3>${safe(v.omrade)} ${safe(p.omrade||'')}: ${safe(p.funktion||v.paket)}</h3>
       <dl><dt>Kundens läge</dt><dd>${safe(lageFor(v))}${v.behov&&behov[v.behov]?' · '+safe(behov[v.behov].behov):''}</dd>
       <dt>Paketet</dt><dd>${safe(v.paket)} ${safe(v.paketversion)} · ${safe(niva[p.niva]||p.niva||'')} · ${safe(fard[p.fardighet]||p.fardighet||'finns inte längre')}</dd>

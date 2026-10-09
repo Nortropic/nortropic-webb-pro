@@ -530,6 +530,10 @@ def wrangler_deploy(underlag, konto, post, tmp):
     brister = exportera.publika_brister(underlag / 'dist')
     if brister:
         return 1, 'filer som inte får bli publika ligger i dist/: %s' % ', '.join(brister[:5])
+    # Kontots identitet hos leverantören, inte bara etiketten i filen: tokenen ska nå just det angivna kontot.
+    vem = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'whoami'], underlag, frist=120, env=cloudflare_miljo(konto, tmp))
+    if vem.returncode or konto['konto'] not in (vem.stdout or '') + (vem.stderr or ''):
+        return 1, 'tokenen når inte kontot %s… (wrangler whoami): ingen uppladdning' % konto['konto'][:6]
     res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'deploy', '--env', 'forhandsvisning',
                     '--message', 'nortropic_commit=%s nortropic_export=%s' % (post['commit'], post['export'])],
                    underlag, frist=900, env=cloudflare_miljo(konto, tmp))
@@ -594,13 +598,27 @@ def _preview(slug, deploy, skydd):
                                           'uppladdningen' % (post['url'], obs))
                     post['status'] = 'vantar_pa_skydd'
     if konto and not post['hinder']:
-        rc, ut = deploy(underlag, konto, post, tmp)
+        oklar = osakert_forsok(slug)
+        if oklar:
+            post['hinder'].append('ett tidigare försök (%s) har okänt utfall: stäm av med kundrepo.py %s --stam-av innan ett nytt '
+                                  'försök' % (oklar['id'], slug))
+            post['status'] = 'vantar_pa_avstamning'
+    if konto and not post['hinder']:
+        try:
+            rc, ut = deploy(underlag, konto, post, tmp)
+        except (OSError, subprocess.SubprocessError) as e_:  # verktyget kunde inte köras: ingenting laddades upp
+            rc, ut = None, 'uppladdningen kunde inte köras: %s' % type(e_).__name__
         if exportera.manifest_sha(exportera.exportmanifest(underlag)) != post['underlag_sha256']:
             post['hinder'].append('det frysta underlaget ändrades under bygget eller uppladdningen')
         m = re.search(r'Current Version ID:\s*([0-9a-f-]{36})', ut)
         post['version_id'] = m.group(1) if m else None
-        if rc or not post['version_id']:
-            post['hinder'].append('wrangler deploy: %s' % (ut[-300:].strip() or 'inget versions-id i svaret'))
+        if rc == 124 or (rc and not post['version_id'] and NATFEL.search(ut or '')):
+            # Svaret förlorades efter att uppladdningen kan ha börjat: utfallet är okänt, inte ett fel att försöka om.
+            post['status'] = 'osaker'
+            post['hinder'].append('utfallet är okänt (%s): stäm av med kundrepo.py %s --stam-av innan ett nytt försök'
+                                  % ((ut or '')[-160:].strip(), slug))
+        elif rc or not post['version_id']:
+            post['hinder'].append('wrangler deploy: %s' % ((ut or '')[-300:].strip() or 'inget versions-id i svaret'))
         else:
             ok, obs = skydd(post['url'])
             post['skydd'] = obs if ok else 'öppen: ' + obs
@@ -617,13 +635,110 @@ def _preview(slug, deploy, skydd):
     return post
 
 
+NATFEL = re.compile(r'ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket hang up|fetch failed|network|tidsgränsen', re.I)
+
+
+def _kvitton(slug):
+    d = leveransdir(slug)
+    if not d.is_dir() or d.is_symlink():
+        return []
+    ut = []
+    # skrivordningen, inte namnet: två kvitton inom samma sekund har slumpade suffix
+    for f in sorted(d.glob('PREVIEW-*.json'), key=lambda f: (f.stat().st_mtime_ns, f.name)):
+        try:
+            ut.append(json.loads(f.read_text(encoding='utf-8')))
+        except (OSError, ValueError):
+            continue
+    return ut
+
+
+def osakert_forsok(slug):
+    """Det senaste kvittot om dess utfall är okänt och inte avstämt, annars None."""
+    oklar = None
+    for k in _kvitton(slug):
+        if k.get('status') == 'osaker':
+            oklar = k
+        elif oklar and k.get('avstammer') == oklar.get('id') and k.get('status') in ('klar', 'avstamd_ingen', 'fel'):
+            oklar = None  # avstämt: utfallet är känt
+    return oklar
+
+
+def wrangler_deployments(underlag, konto, tmp):
+    """Förhandsvisningens deployments ur Cloudflare (läsande): wrangler deployments list --json."""
+    r = kommando(['npm', 'ci', '--no-audit', '--no-fund', '--ignore-scripts'], underlag, frist=900,
+                 env={k: v for k, v in os.environ.items() if not k.startswith(('NWP_', 'CLAUDE', 'CLOUDFLARE', 'ANTHROPIC'))})
+    if r.returncode:
+        raise RuntimeError('npm ci föll')
+    res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'deployments', 'list', '--env', 'forhandsvisning', '--json'],
+                   underlag, frist=120, env=cloudflare_miljo(konto, tmp))
+    if res.returncode:
+        raise RuntimeError('wrangler deployments list: %s' % (res.stderr or res.stdout)[-200:])
+    return json.loads(res.stdout or '[]')
+
+
+def avstam(slug, lista=None, skydd=None):
+    """Stämmer av ett försök med okänt utfall mot Cloudflares lista över deployments (läsande). Hittas en deployment
+    med försökets commit och export blir den kvittot; annars är det säkert att försöka igen. Ger det nya kvittot."""
+    import exportera
+    import flodesstart
+    import korregister
+    with flodesstart.las(_root(), slug, arv=True):
+        fore = osakert_forsok(slug)
+        tid = nu()
+        post = {'schema': 2, 'id': 'PREVIEW-%s-%s' % (tid.replace(':', '').replace('-', ''), os.urandom(2).hex()), 'typ': 'avstämning',
+                'plattform': 'cloudflare-workers', 'slug': slug, 'tid': tid, 'produktion': False, 'status': 'fel', 'hinder': [],
+                'url': None, 'commit': None, 'export': None, 'version_id': None, 'skydd': None, 'konto': None,
+                'avstammer': fore['id'] if fore else None}
+        if not fore:
+            return {'status': 'inget_att_stamma_av', 'text': 'det senaste försöket har inget okänt utfall'}
+        post.update({k: fore.get(k) for k in ('url', 'commit', 'export', 'worker', 'miljo', 'konto', 'export_sha256', 'underlag_sha256')})
+        konto, hinder = cloudflare_konto()
+        tmp = None
+        try:
+            if hinder:
+                post['hinder'].append(hinder)
+                post['status'] = 'vantar_pa_konto'
+            else:
+                tmp = korregister.egen_tmp('nwp-preview-', 'förhandsvisningens avstämning')
+                if lista is None:
+                    underlag = fryst_underlag(repo(slug), fore['commit'], tmp)
+                    deps = wrangler_deployments(underlag, konto, tmp)
+                else:
+                    deps = lista(konto, tmp)
+                markor = 'nortropic_commit=%s nortropic_export=%s' % (fore['commit'], fore['export'])
+                hittad = next((x for x in deps if markor in json.dumps(x, ensure_ascii=False)), None)
+                if hittad is None:
+                    post['status'] = 'avstamd_ingen'
+                    post['text_avstamning'] = 'ingen deployment med försökets commit och export: ett nytt försök är säkert'
+                else:
+                    versioner = hittad.get('versions') or []
+                    post['version_id'] = (versioner[0].get('version_id') if versioner and isinstance(versioner[0], dict) else None) or hittad.get('id')
+                    ok, obs = (skydd or access_skyddar)(post['url'])
+                    post['skydd'] = obs if ok else 'öppen: ' + obs
+                    if not ok and not fiktiv(slug):
+                        post['hinder'].append('förhandsvisningen svarar utan Cloudflare Access (%s): ta ner den eller skydda den' % obs)
+                    post['status'] = 'klar' if not post['hinder'] else 'fel'
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as e_:
+            post['hinder'].append('avstämningen kunde inte göras: %s' % str(e_)[:200])
+            post['status'] = 'osaker'  # fortfarande okänt; nästa avstämning försöker igen
+        finally:
+            if tmp:
+                shutil.rmtree(tmp, ignore_errors=True)
+        post['text'] = {'klar': 'avstämd: deploymenten finns (version %s)' % post['version_id'],
+                        'avstamd_ingen': 'avstämd: ingen deployment, ett nytt försök är säkert'}.get(post['status'], 'ingen avstämning: ' + '; '.join(post['hinder']))
+        d = leveransdir(slug)
+        d.mkdir(parents=True, exist_ok=True)
+        atelje.skriv_json_atomiskt(d / (post['id'] + '.json'), post)
+        return post
+
+
 def preview_aktuell(slug):
     """Senaste förhandsvisningskvittot med 'aktuell': commit är kundrepots HEAD och exporten är aktuell."""
     import exportera
     d = leveransdir(slug)
     if not d.is_dir() or d.is_symlink():
         return None
-    poster = sorted(d.glob('PREVIEW-*.json'))
+    poster = sorted(d.glob('PREVIEW-*.json'), key=lambda f: (f.stat().st_mtime_ns, f.name))
     if not poster:
         return None
     try:
@@ -648,6 +763,7 @@ def main(argv=None):
     g.add_argument('--push', action='store_true')
     g.add_argument('--preview', action='store_true')
     g.add_argument('--visa', action='store_true')
+    g.add_argument('--stam-av', action='store_true', help='stäm av ett försök med okänt utfall mot Cloudflare (läsande)')
     p.add_argument('--utan-fjarr', action='store_true')
     a = p.parse_args(argv)
     if not SLUG.match(a.slug):
@@ -658,6 +774,12 @@ def main(argv=None):
         return 0
     if a.push:
         ut = push(a.slug)
+    elif a.stam_av:
+        try:
+            ut = avstam(a.slug)
+            ut = dict(ut, ok=ut.get('status') in ('klar', 'avstamd_ingen', 'inget_att_stamma_av'))
+        except ValueError as e:
+            ut = {'ok': False, 'hinder': str(e)}
     elif a.preview:
         try:
             ut = preview(a.slug)

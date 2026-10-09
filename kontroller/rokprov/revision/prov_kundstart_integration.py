@@ -111,6 +111,62 @@ class Funktioner(unittest.TestCase):
         self.assertEqual(p['fardighet'], 'dokumenterat')
 
 
+class AiForslag(unittest.TestCase):
+    """T02: modellen föreslår funktioner i samma tur som intervjun; förslagen prövas och blir aldrig val."""
+    gor = grundprov.Beredning.gor
+    forslag = grundprov.Beredning.forslag
+
+    def setUp(self):
+        grundprov.Beredning.setUp(self)
+        self.gor('meddelande', {'text': 'Kunderna vill kunna boka tid själva på webben.'})
+        self.jobb = self.db.ta_jobb('beredare')
+        self.assertIsNotNone(self.jobb)
+        self.mid = [m for m in self.jobb['dokument']['meddelanden'] if m['roll'] == 'kund'][-1]['id']
+        self.bas = {'nytta': 'Färre samtal om tider (hypotes).', 'alternativ': 'Behåll telefonbokningen.',
+                    'konsekvens': 'Kundens konto i en bokningstjänst krävs.', 'osakerhet': 'Okänt om ett system redan finns.',
+                    'foljdfraga': 'Använder ni ett bokningssystem i dag?'}
+
+    def svar(self, *forslag):
+        return {'text': 'Tack, det hjälper.', 'forslag': [], 'fragor': [], 'integrationsforslag': list(forslag)}
+
+    def test_forslag_ar_forslag_och_okanda_paket_blir_utredning(self):
+        f = lambda i, o, p: dict(self.bas, id=i, omrade=o, paket=p, kallor=[self.mid])  # noqa: E731
+        self.assertTrue(self.db.modellsvar(self.jobb, self.svar(f('bok', 'K09', 'k09-bokningslank'), f('crm', 'K10', 'k10-hubspot-api'),
+                                                               f('hosting', 'K02', 'k02-cloudflare-workers'), f('fel-omrade', 'K11', 'k09-bokningslank'),
+                                                               f('oklart', 'K18', 'utreds'))))
+        d = self.db.internt(self.e)
+        x = {p['id']: p for p in d['integrationsforslag']['forslag']}
+        self.assertEqual((x['bok']['paket'], x['bok']['utreds'], x['bok']['paketversion']), ('k09-bokningslank', False, '1.0.0'))
+        self.assertEqual((x['crm']['paket'], x['crm']['utreds'], x['crm']['avvisat_paket']), (None, True, 'k10-hubspot-api'))
+        self.assertTrue(x['hosting']['utreds'] and x['fel-omrade']['utreds'] and x['oklart']['utreds'])
+        self.assertIsNone(x['oklart']['avvisat_paket'])
+        self.assertEqual(d['integrationsforslag']['avsandare'], 'modell')
+        self.assertNotIn('integrationsval', d, 'ett förslag blir aldrig ett val')
+        self.assertEqual(ki.plan(d)['omfattning'], [])
+        self.assertEqual(ki.vy(d)['forslag']['revision'], self.jobb['revision'])
+
+    def test_forslag_utan_kundkalla_eller_med_eget_val_faller_hela_svaret(self):
+        rev = self.db.internt(self.e)['revision']
+        for felaktigt in (dict(self.bas, id='a', omrade='K09', paket='k09-bokningslank', kallor=[]),
+                          dict(self.bas, id='a', omrade='K09', paket='k09-bokningslank', kallor=['påhittad-källa']),
+                          dict(self.bas, id='a', omrade='K09', paket='k09-bokningslank', kallor=[self.mid], kundval=True),
+                          dict(self.bas, id='a', omrade='K99', paket='utreds', kallor=[self.mid])):
+            with self.subTest(f=felaktigt):
+                with self.assertRaises(ks.Vagrad):
+                    self.db.modellsvar(self.jobb, self.svar(felaktigt))
+        d = self.db.internt(self.e)
+        self.assertEqual(d['revision'], rev); self.assertNotIn('integrationsforslag', d)
+
+    def test_kontexten_bar_katalogen_utan_grundpaket_och_schemat_faltet(self):
+        import kundstart_modell as km
+        v = json.loads(km.kontext(self.db.internt(self.e)))
+        ids = {p['id'] for p in v['integrationskatalog']}
+        self.assertIn('k09-bokningslank', ids); self.assertNotIn('k02-cloudflare-workers', ids)
+        self.assertIn('integrationsforslag', km.SVARSSCHEMA['properties'])
+        self.assertNotIn('integrationsforslag', km.SVARSSCHEMA['required'])
+        self.assertIn('Hitta aldrig på ett paket', km.SYSTEM)
+
+
 class Http(unittest.TestCase):
     def setUp(self):
         self.stack = contextlib.ExitStack(); self.addCleanup(self.stack.close)

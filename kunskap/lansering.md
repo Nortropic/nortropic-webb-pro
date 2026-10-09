@@ -48,6 +48,10 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
    --env forhandsvisning` ur commitens filer, prövade mot exportens manifest, under kundens lås, så att kvittot gäller
    exakt de bytes som laddades upp (R07). Utan `cloudflare.env` väntar kvittot på kontot; för en verklig verksamhet
    laddas ingenting upp förrän Cloudflare Access skyddar adressen, och skyddet prövas igen efter uppladdningen.
+   Före uppladdningen prövas att tokenen når just det angivna kontot (`wrangler whoami`). Ett tappat svar efter att
+   uppladdningen kan ha börjat (tidsgräns eller nätfel) ger kvittot `osaker`: ett nytt försök spärras tills
+   `kundrepo.py <slug> --stam-av` har stämt av mot Cloudflares lista över deployments (läsande, med commit och
+   export som märke). Hittas försökets deployment blir den kvittot; annars är ett nytt försök säkert.
    Projektstarten, varje push och fjärrepot prövas först med exportens läckagekontroll, och briefens text följer aldrig
    med till CLAUDE.md (R08). Produktion, D1, R2, Access och domänen: människa, eller en session med ägarens ja, enligt
    Cloudflare-steget nedan. `kontroller/driftkoll.py` prövar svaren från en driftsatt adress och skriver bara ut.

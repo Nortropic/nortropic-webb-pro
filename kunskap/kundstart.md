@@ -138,7 +138,10 @@ dem. Ändras behovet blir valet inaktuellt och står utanför planen tills ägar
 eller ändrat val är en materiell ändring av den accepterade omfattningen. Planen räknas fram ur valen utan modell
 (`integrationskatalog.planera`) och visar beroenden, konflikter, utredningsvägar, okänd kostnad och de handlingar en
 människa gör. Fyra dimensioner står var för sig: kundens läge, paketets färdighet, anslutningen (utredningens belägg)
-och genomförandet. Valen är manuella; AI-förslag till valen finns inte än.
+och genomförandet. Valen är manuella. AI kan föreslå funktioner i samma modelltur som intervjun (det valfria fältet
+`integrationsforslag`, med katalogens paket i kontexten): varje förslag kräver kundkällor, ett okänt paket eller ett
+paket i fel område blir en uttrycklig utredning, grundleveransen föreslås inte, och ett förslag blir aldrig ett val.
+Ägarvyn visar förslagen skilda från valen. Inget verkligt modellprov av förslagen är gjort än.
 
 ## Skydd och lagring
 

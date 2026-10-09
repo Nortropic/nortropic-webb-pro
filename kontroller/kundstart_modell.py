@@ -65,6 +65,15 @@ och ställ relevant fråga. Kontaktvägar kan vara tomma när uppgift saknas, me
 typ (telefon, e-post, formular, bokning, dm, plats), varde och belagg. Kopiera bara kundens verkliga uppgifter.
 Varje toppfält ska ha befintliga kundkällor. Skriv aldrig schema eller fiktiv. Appen prövar formatet och kunden
 stämmer av sammanställningen före överlämning. Den är inget generellt godkännande av material, design eller order.
+
+När kundens egna ord visar ett behov av en verksamhetsfunktion (till exempel att boka, betala, få förfrågningar, synas
+lokalt) får du lämna det valfria fältet integrationsforslag: en lista med {"id":"stabil-id","omrade":"K01–K18",
+"paket":"ett paket-id ur integrationskatalogen i ärendet, eller utreds","kallor":["kundkälla"],
+"nytta":"förväntad nytta som hypotes","alternativ":"att behålla nuvarande lösning eller avstå",
+"konsekvens":"konto, åtkomst och kostnad som kan krävas","osakerhet":"det som är okänt","foljdfraga":"frågan som behövs, eller tom"}.
+Funktionen före leverantören och den lägsta nivå som räcker. Hitta aldrig på ett paket eller en leverantör; skriv utreds
+när inget paket passar. Ett förslag är aldrig kundens val, ett konto, en anslutning eller ett godkännande, och nämner
+inga belopp, vinster eller besparingar. Grundleveransen (hosting, formuläret och dess avisering) föreslås inte.
 '''
 
 
@@ -93,6 +102,12 @@ def kontext(dokument):
     # Inga tokens, databasvägar eller interna åtkomstuppgifter finns i denna vy.
     v={k:dokument[k] for k in ('revision','meddelanden','uppgifter','forslag','fragor','material','bestallning','beredskap')}
     v.update({k:dokument.get(k) for k in ('verksamhet','verksamhet_forslag','returfragor','integrationer')})
+    try:
+        import integrationskatalog
+        v['integrationskatalog']=[{n:p[n] for n in ('id','omrade','niva','funktion','passar')}
+                                  for p in integrationskatalog.las()['paket'] if not p['grund']]
+    except (OSError,ValueError,KeyError):
+        v['integrationskatalog']=[]  # utan katalog kan modellen bara skriva utreds
     data=kundstart.jsontext(v)
     if len(data.encode('utf-8'))>200000:
         raise Modellfel('kontextgrans')  # ingen tyst beskärning av kundens tidigare svar
@@ -175,7 +190,12 @@ SVARSSCHEMA={'type':'object','additionalProperties':False,'required':['text','fo
         'properties':{'id':{'type':'string'},'amne':{'type':'string'},'text':{'type':'string'},'varfor':{'type':'string'},
                       'paverkar':{'type':'string'},'kritisk':{'type':'boolean'}}}},
     'verksamhet':{'type':'object','additionalProperties':False,'required':['varden','kallor'],
-        'properties':{'varden':{'type':'object'},'kallor':{'type':'object'}}}}}
+        'properties':{'varden':{'type':'object'},'kallor':{'type':'object'}}},
+    'integrationsforslag':{'type':'array','maxItems':18,'items':{'type':'object','additionalProperties':False,
+        'required':['id','omrade','paket','kallor','nytta','alternativ','konsekvens','osakerhet','foljdfraga'],
+        'properties':{'id':{'type':'string'},'omrade':{'type':'string'},'paket':{'type':'string'},'kallor':{'type':'array','items':{'type':'string'}},
+                      'nytta':{'type':'string'},'alternativ':{'type':'string'},'konsekvens':{'type':'string'},
+                      'osakerhet':{'type':'string'},'foljdfraga':{'type':'string'}}}}}}
 
 
 def _kor_claude(args, prompt, env, cwd):

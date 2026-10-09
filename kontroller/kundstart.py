@@ -480,7 +480,7 @@ class Lager:
             return True
 
     def modellsvar(self,jobb,svar):
-        falt(svar, ('text','forslag','fragor','verksamhet'), ('text','forslag','fragor'))
+        falt(svar, ('text','forslag','fragor','verksamhet','integrationsforslag'), ('text','forslag','fragor'))
         svartext=text(svar['text'])
         if not isinstance(svar['forslag'],list) or len(svar['forslag'])>30 or not isinstance(svar['fragor'],list) or len(svar['fragor'])>20:
             raise Vagrad('Modellsvaret är för stort eller ogiltigt.')
@@ -506,6 +506,9 @@ class Lager:
                 for n in ('text','varfor','paverkar'): text(q[n],3000)
                 fragor.append(q)
             d['fragor']=fragor
+            if svar.get('integrationsforslag') is not None:
+                import kundstart_integration
+                d['integrationsforslag']=kundstart_integration.modellforslag(svar['integrationsforslag'],kallor,jobb['revision'])
             d['meddelanden'].append({'id':id_(),'roll':'assistent','text':svartext,'tid':time.time(),'bas_revision':jobb['revision']})
             d['modell']={'status':'klar','text':'AI-förslag finns. Du kan rätta och välja i Ditt uppdrag.'}
             c.execute("UPDATE jobb SET status='klar' WHERE id=?",(jobb['id'],))

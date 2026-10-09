@@ -84,6 +84,41 @@ def lage(d, v, p):
     return ('grund', None) if p and p.get('grund') else ('onskemal', None)
 
 
+def modellforslag(lista, kallor, revision, katalog=None):
+    """Modellens förslag till funktioner, prövade mot katalogen och kundkällorna. Ett okänt paket blir en uttrycklig
+    utredning (inget konto, ingen anslutning); ett förslag utan kundkälla fäller hela svaret. Förslagen blir aldrig val."""
+    k = katalog or ik.las()
+    paket = {p['id']: p for p in k['paket']}
+    if not isinstance(lista, list) or len(lista) > 18:
+        raise ks.Vagrad('Integrationsförslagen är för många eller ogiltiga.')
+    ut, sedda = [], set()
+    for f in lista:
+        ks.falt(f, ('id', 'omrade', 'paket', 'kallor', 'nytta', 'alternativ', 'konsekvens', 'osakerhet', 'foljdfraga'),
+                ('id', 'omrade', 'paket', 'kallor', 'nytta', 'alternativ', 'konsekvens', 'osakerhet', 'foljdfraga'))
+        fid = ks.nyckel(f['id'])
+        if fid in sedda:
+            raise ks.Vagrad('Två integrationsförslag har samma id.')
+        sedda.add(fid)
+        if f['omrade'] not in ik.OMRADEN:
+            raise ks.Vagrad('Integrationsförslaget har ett okänt område.')
+        if not isinstance(f['kallor'], list) or not f['kallor'] or any(not isinstance(x, str) or x not in kallor for x in f['kallor']):
+            raise ks.Vagrad('Integrationsförslaget saknar giltig kundkälla.')
+        for n in ('nytta', 'alternativ', 'konsekvens', 'osakerhet'):
+            ks.text(f[n], 1500)
+        if not isinstance(f['foljdfraga'], str) or len(f['foljdfraga']) > 1500:
+            raise ks.Vagrad('Följdfrågan är ogiltig.')
+        p = paket.get(f['paket'])
+        post = {**f, 'foljdfraga': f['foljdfraga'].strip() or None, 'utreds': False, 'avvisat_paket': None}
+        if f['paket'] != 'utreds' and (not p or p['omrade'] != f['omrade'] or p['grund']):
+            post.update(paket=None, utreds=True, avvisat_paket=str(f['paket'])[:80])  # T02: aldrig en påhittad anslutning
+        elif f['paket'] == 'utreds':
+            post.update(paket=None, utreds=True)
+        else:
+            post['paketversion'] = p['version']
+        ut.append(post)
+    return {'revision': revision, 'katalog': k['version'], 'avsandare': 'modell', 'forslag': ut}
+
+
 def plan(d, katalog=None):
     """Integrationsplanen för ärendet, med de inaktuella valen och ändrade paketversioner redovisade för sig."""
     k = katalog or ik.las()
@@ -119,6 +154,7 @@ def vy(d, katalog=None):
                      'paket': [{n: p[n] for n in ('id', 'version', 'niva', 'funktion', 'fardighet', 'fardighet_omfattning', 'grund')}
                                for p in k['paket'] if p['omrade'] == o['id']]} for o in k['omraden']],
         'val': sorted(d.get('integrationsval', {}).values(), key=lambda x: (x['omrade'], x['id'])),
+        'forslag': d.get('integrationsforslag'),
         'behov': [{'id': i, 'behov': b['behov'], 'bestallning': b['bestallning'],
                    'anslutning': {'utredning': b['utredning'].get('status'), 'konto': b['utredning'].get('konto', {}).get('status'),
                                   'prov': b['utredning'].get('prov', {}).get('status')}} for i, b in sorted(behov.items())],
