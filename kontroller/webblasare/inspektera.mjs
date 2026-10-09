@@ -14,6 +14,10 @@
 //        DOM-utdrag, inget SEKTIONER.md och animationsmål utan klasser; den blinda kritiken får aldrig skaparens kod
 //        --hover och --fokus tar flera CSS-väljare åtskilda med semikolon: den första ger vy-<bredd>-hover.png, de följande
 //        vy-<bredd>-hover-2.png …; utfallet per väljare står i tillstand.hover_lista (ägarens uppdrag 2026-10-07, punkt 7)
+//        [--samtycke] [--lugn MS] [--motor webkit] — för fångst av främmande sajter (kalibreringen, ägarens uppdrag 2026-10-09,
+//        punkt 2): en samtyckesdialog stängs med sitt eget val, helst det som avböjer; första vyn fotograferas först när
+//        sidans animationer är klara och synliga videor har en bild (högst MS); WebKit spelar video som Chromium saknar
+//        kodek för. Utfallen står i vyns samtycke och lugn. Utan flaggorna är fångsten som förut.
 import { args, oppna, origin, horisontellSpill, tangentbord, skriv, sha256, nu, lasUndantag, hemligheter, VYER, viaTjanst } from './gemensamt.mjs';
 import { readFileSync, rmSync } from 'node:fs';
 import { join, basename } from 'node:path';
@@ -101,10 +105,40 @@ const extraktSel = a.extrahera ? (String(a.extrahera) === 'standard' || a.extrah
 const valjare = (v) => (v && v !== true ? String(v).split(';').map((x) => x.trim()).filter(Boolean).slice(0, 8) : []);
 const hoverSel = valjare(a.hover), fokusSel = valjare(a.fokus);
 const medKod = !a['extrakt-utan-kod'];
+const motor = a.motor ? String(a.motor) : 'chromium';
+// samtyckesdialogens knappar, i den ordning de väljs: först det som avböjer, sist det som godkänner
+const SAMTYCKE = [/^(reject|decline|deny)( all)?( non-essential)?( cookies)?$/i, /^(avvisa|neka|avböj)( alla)?( kakor| cookies)?$/i,
+  /^(only|endast|bara) (necessary|nödvändiga)( cookies| kakor)?$/i, /^(use )?necessary( cookies)? only$/i,
+  /^(accept|godkänn|tillåt|acceptera)( all| alla)?( cookies| kakor)?$/i, /^(ok|i agree|i understand|jag godkänner|jag förstår|got it|förstått)$/i];
+async function stangSamtycke(page) {
+  // en knapp, en länk, eller sist en text utan roll, men bara inne i något som heter cookie, consent, gdpr eller samtycke
+  const iDialog = (e) => { for (let n = e; n && n !== document.body; n = n.parentElement) if (/cookie|consent|samtyck|gdpr/i.test(`${n.id || ''} ${typeof n.className === 'string' ? n.className : ''}`)) return true; return false; };
+  for (const re of SAMTYCKE) for (const roll of ['button', 'link', 'text']) {
+    const alla = (roll === 'text' ? page.getByText(re) : page.getByRole(roll, { name: re })).filter({ visible: true });
+    let knapp = null;
+    for (let i = 0, n = Math.min(await alla.count().catch(() => 0), 10); i < n && !knapp; i++) {
+      if (roll !== 'text' || await alla.nth(i).evaluate(iDialog).catch(() => false)) knapp = alla.nth(i);
+    }
+    if (!knapp) continue;
+    const namn = (await knapp.innerText().catch(() => '')).trim().slice(0, 60);
+    try { await knapp.click({ timeout: 3000 }); await page.waitForTimeout(600); return { stangd: true, knapp: namn, roll }; }
+    catch (e) { return { stangd: false, knapp: namn, fel: String(e.message).split('\n')[0].slice(0, 120) }; }
+  }
+  return { stangd: false, skal: 'ingen synlig samtyckesknapp' };
+}
+async function vantaLugn(page, ms) {
+  const t0 = Date.now();
+  const lage = () => page.evaluate(() => ({
+    anim: document.getAnimations ? document.getAnimations().filter((x) => x.playState === 'running' && (x.effect?.getTiming?.().iterations ?? 1) !== Infinity).length : 0,
+    vid: [...document.querySelectorAll('video')].filter((v) => { const r = v.getBoundingClientRect(); return r.width > 0 && r.bottom > 0 && r.top < innerHeight && v.readyState < 2; }).length }));
+  let l = await lage().catch(() => ({ anim: 0, vid: 0 }));
+  while ((l.anim || l.vid) && Date.now() - t0 < ms) { await page.waitForTimeout(250); l = await lage().catch(() => ({ anim: 0, vid: 0 })); }
+  return { ms: Date.now() - t0, animationer_kvar: l.anim, videor_utan_bild: l.vid };
+}
 const extraktVyer = {};  // bredd → {x, rutor, skarmhojd}: EXTRAKT.md och SEKTIONER.md skrivs när alla vyer är klara
 const rapport = { schema: 1, verktyg: 'inspektera', adress: a.adress, tid: nu(), tillatna_ursprung: tillat.length ? tillat : 'alla', undantag: !!undantag, kontext, vyer: {}, not: 'utvecklarinspektion med kontext; skärmbilderna avgör layout (textträdet är inte bildseende); mobilvyerna är emulerade, inte fysisk enhet' };
 for (const vy of vyer) {
-  const b = await oppna({ vy, tillat, undantag, hemliga, spar: true, mal: a.adress });
+  const b = await oppna({ vy, tillat, undantag, hemliga, spar: true, mal: a.adress, motor });
   const r = { namn: b.vy.namn, sidor: [], tillstand: {}, rorelse: [] };
   // rörelsesekvensen: sidans animationer vid varje händelse, med händelsen som trigger (extrahera.animationerPaSidan)
   const regAnim = async (trigger) => { try { r.rorelse.push({ trigger, animationer: await b.page.evaluate(animationerPaSidan, medKod) }); } catch (e) { r.rorelse.push({ trigger, fel: String(e.message).slice(0, 120) }); } };
@@ -112,6 +146,8 @@ for (const vy of vyer) {
     const svar = await b.page.goto(a.adress, { waitUntil: 'load', timeout: 45000 });
     r.status = svar?.status() ?? null; r.titel = await b.page.title();
     await b.page.waitForTimeout(500);
+    if (a.samtycke) r.samtycke = await stangSamtycke(b.page);
+    if (a.lugn) r.lugn = await vantaLugn(b.page, Number(a.lugn) || 8000);
     r.forsta_vyn = skriv(a.ut, `vy-${vy}-forsta.png`, ''); await b.page.screenshot({ path: r.forsta_vyn });
     await regAnim('laddning');
     // Lata bilder (loading=lazy) och intoning vid skroll syns inte i en helsidesbild om sidan inte skrollats igenom först.

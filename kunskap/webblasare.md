@@ -33,6 +33,11 @@ laddning (nätverksfel listas), dialoger (avvisas och loggas). Legitima popup- o
 ursprung (`--tillat`); allt annat blockeras på route-nivå och listas som blockerat så att det inte misstas för
 produktens beteende.
 
+Fångst av främmande sajter (kalibreringens exempel och referenser): `--samtycke` stänger en samtyckesdialog med dess
+eget val, helst det som avböjer, och `--lugn MS` fotograferar första vyn när sidans ändliga animationer är klara och
+synliga videor har en bild (högst MS). `--motor webkit` byter motor. Utfallen står i vyns `samtycke` och `lugn`; utan
+flaggorna är fångsten som förut (`kontroller/rokprov/revision/prov_fangst.py`).
+
 ## Gränser och hemligheter
 
 - Värdverkställd ursprungsgräns i alla tre användningarna: i 1 och 2 avbryter verktyget förfrågningar utanför

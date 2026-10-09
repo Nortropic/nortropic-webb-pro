@@ -711,7 +711,10 @@ def kalibrering_lista():
             for fil in ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-390-hela.png'):
                 if (bas / mapp / fil).is_file():
                     bilder['%s-%s' % (mapp, fil[3:-4])] = 'underlag/kalibrering/%s/%s/%s' % (e['id'], mapp, fil)
-        post = {'id': e['id'], 'bilder': bilder, 'dom': domar.get(e['id'])}
+        not_ = (las_text(bas / 'UNDERSIDA.txt') or '').strip()
+        # en ensidig sajt har ingen undersida att döma: anteckningen visas i stället för bilderna (ägarens uppdrag 2026-10-09, punkt 2)
+        post = {'id': e['id'], 'bilder': bilder, 'dom': domar.get(e['id']),
+                'undersida_saknas': not_.split(':', 1)[1].strip() if not_.lower().startswith('ingen:') else None}
         if post['dom']:  # avslöjas efter domen
             post.update(url=e['url'], roll=e['roll'], hypotes=e['hypotes'])
         ut.append(post)

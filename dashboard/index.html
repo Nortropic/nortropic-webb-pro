@@ -622,9 +622,10 @@ async function kalibreringvy() {
       : `<div class="rad" style="margin-top:10px;flex-wrap:wrap;gap:12px">${Object.keys(NIVA).map((n) => `<label><input type="radio" name="niva-${e.id}" value="${n}"> ${NIVA[n]}</label>`).join('')}</div>
          <textarea id="sk-${e.id}" rows="3" style="width:100%;margin-top:8px" placeholder="Vad skiljer nivån? Bildval, beskärning, typografiska proportioner, komposition, rytm, detaljarbete."></textarea>
          <div class="rad" style="margin-top:8px"><button class="knapp primar" data-kal="${e.id}">Spara domen</button></div>`;
-    return `<section class="kort" style="margin-bottom:24px"><h2>${esc(e.id)}</h2>${rad('start', 'Startsidan')}${rad('undersida', 'En undersida')}${form}</section>`;
+    const undersida = rad('undersida', 'En undersida') || (e.undersida_saknas ? `<p class="under"><b>En undersida:</b> finns inte, ${esc(e.undersida_saknas)}. Döm startsidan som hela sajten.</p>` : '');
+    return `<section class="kort" style="margin-bottom:24px"><h2>${esc(e.id)}</h2>${rad('start', 'Startsidan')}${undersida}${form}</section>`;
   };
-  $('#vy').innerHTML = `<h1>Kalibrering</h1><p class="under">Externa sajter utan namn. Döm var och en på mobil och dator: tydligt över ribban, nästan, eller generisk, och skriv exakt vad som skiljer. Adressen och agentens hypotes visas efter din dom. Domarna sparas privat (underlag/kalibrering/DOMAR.json) när du trycker Spara domen; tills dess ligger nivån och texten kvar som utkast i den här webbläsaren, också efter omladdning. Hälften blir ankare för granskarna, hälften hålls undan för att pröva dem.</p>${lista.map(kort).join('') || '<p>Inga exempel fångade än.</p>'}`;
+  $('#vy').innerHTML = `<h1>Kalibrering</h1><p class="under">Externa sajter utan namn. Döm var och en på mobil och dator: tydligt över ribban, nästan, eller generisk, och skriv exakt vad som skiljer. Adressen och agentens hypotes visas efter din dom. Domarna sparas privat (underlag/kalibrering/DOMAR.json) när du trycker Spara domen; tills dess ligger nivån och texten kvar som utkast i den här webbläsaren, också efter omladdning. Av K01–K13 blev hälften ankare för granskarna och hälften hölls undan; K14–K19 hålls alla undan och prövar granskaren oberoende, med metoden frusen före dina domar.</p>${lista.map(kort).join('') || '<p>Inga exempel fångade än.</p>'}`;
   // utkast per exempel i localStorage (ägaren 2026-10-04: texten försvann vid omladdning innan domen var sparad)
   const utkastNyckel = (id) => 'kalibrering-utkast-' + id;
   for (const e of lista.filter((x) => !x.dom)) {

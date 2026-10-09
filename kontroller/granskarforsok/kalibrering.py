@@ -26,6 +26,16 @@ ursprungsresultatet står kvar, och den ursprungliga RAPPORT.json sparas ordagra
 
     .venv/bin/python kontroller/granskarforsok/kalibrering.py --ratta <katalog> --datum ÅÅÅÅ-MM-DD --skal "…" \
         [--giltighet utvecklingsdata] [--hanvisning "…"]… [--uppdrag "…"] [--atgard "…"]…
+
+Frysningen före domarna (ägarens uppdrag 2026-10-09, punkt 2: frys modell, instruktioner, kriterier, ankare och bilder före
+utvärderingen, och använd inte domarna för att ändra måttstocken före det oberoende försöket):
+
+    .venv/bin/python kontroller/granskarforsok/kalibrering.py --frys --bara K14,K15,K16,K17,K18,K19 [--modell M] [--effort E]
+
+skriver underlag/kalibrering/FRYSNING-<id>.json med modell, effort, sha256 för granskarens metodfiler, ankarna, exemplens
+bilder och tillgänglighetsträd, undersidans anteckning och koden som skriver det granskaren läser. En frysning skrivs inte om. Försöket med
+samma --bara jämför läget med frysningen: har något ändrats sedan dess, eller saknas frysningen, stannar det med listan,
+och med --trots-frysning körs det men räknas som utvecklingsdata. Ägarens domar ingår aldrig i frysningen.
 """
 import argparse
 import hashlib
@@ -79,8 +89,18 @@ def forbered(e, ut, underlag=None):
     return bilder, aria, gr.frysta_ankare(ut, underlag)
 
 
-def uppdrag(e, ut, bilder, aria, ankare):
+def undersidans_not(ident, underlag=None):
+    """Anteckningen i underlag/kalibrering/<id>/UNDERSIDA.txt: undersidans adress, eller "ingen: …" för en ensidig sajt."""
+    try:
+        return (Path(underlag or gr.UNDERLAG) / 'kalibrering' / ident / 'UNDERSIDA.txt').read_text(encoding='utf-8').strip()
+    except OSError:
+        return ''
+
+
+def uppdrag(e, ut, bilder, aria, ankare, underlag=None):
     rad = lambda p: '- ' + str(p)  # noqa: E731
+    med_undersida = any('/sajt/undersida/' in str(p) for p in bilder)
+    not_ = undersidans_not(e['id'], underlag)
     trosklar = ', '.join('%s ≥ %d' % (k, gr.TROSKEL[k]) for k in gr.KRITERIER)
     delar = [
         'Du är granskaren. Läs %s först och följ den. Du ändrar inga filer.' % gr.INSTRUKTION, '',
@@ -94,7 +114,9 @@ def uppdrag(e, ut, bilder, aria, ankare):
         *(['Kalibreringsankare: externa sajter som ägaren dömt blint (%s). Ägarens ord om vad som skiljer, ordagrant: %s' % (gr.KALIBRERING_SKALA, ankare[0]),
            'Första vyn 390 och 1440 per sajt (läs varje, med ägarens ord bredvid):', *[rad(p) + ' — ' + t for p, t in ankare[1]], '']
           if ankare else []),
-        'Sajtens skärmbilder: startsidan och en undersida, första vyn i 390 och 1440, hela sidan i 390 och skärmhöga rutor (läs varje):',
+        ('Sajtens skärmbilder: startsidan och en undersida, första vyn i 390 och 1440, hela sidan i 390 och skärmhöga rutor (läs varje):'
+         if med_undersida else 'Sajtens skärmbilder: startsidan, första vyn i 390 och 1440, hela sidan i 390 och skärmhöga rutor (läs varje). '
+         'Sajten har ingen undersida att döma%s:' % ((' (' + not_.split(':', 1)[1].strip() + ')') if not_.lower().startswith('ingen:') else '')),
         *[rad(p) for p in bilder], '',
         'Tillgänglighetsträd:', *([rad(p) for p in aria] or ['- saknas']), '',
         'Måttstockar:', *['- %s: %s' % (namn, f) for namn, f in gr.MATTSTOCKAR if (ROOT / f).is_file()],
@@ -275,6 +297,72 @@ def kor_en(e, ut, modell, effort, frist, claude):
     return e['id'], round(time.time() - t0)
 
 
+FRYSNING = 'FRYSNING-%s.json'
+
+
+def frysningens_lage(ids, modell, effort, underlag=None):
+    """Det som frysningen binder, räknat nu: modell, effort, granskarens metodfiler, ankarna (bilder och ägarens ord om
+    dem), exemplens bilder och tillgänglighetsträd, undersidans anteckning och koden som skriver det granskaren läser
+    (uppdraget, ankarnas text, kriterierna och trösklarna). Aldrig ägarens domar över de prövade exemplen."""
+    rot = Path(underlag or gr.UNDERLAG) / 'kalibrering'
+    ex = {}
+    for ident in ids:
+        filer = {}
+        for sida in ('start', 'undersida'):
+            for fil in sorted((rot / ident / sida).iterdir()) if (rot / ident / sida).is_dir() else []:
+                if fil.suffix == '.png' and (fil.name in VYER or '-ruta-' in fil.name) or fil.name.endswith('-aria.txt'):
+                    filer['%s/%s' % (sida, fil.name)] = hash_fil(fil)
+        ex[ident] = {'filer': filer, 'undersida': undersidans_not(ident, underlag)}
+    ank = {e['id']: {'skiljer': hashlib.sha256(e['skiljer'].encode('utf-8')).hexdigest(), 'niva': e['niva'],
+                     'bilder': {b.name: hash_fil(b) for b in e['bilder']}}
+           for e in gr.kalibreringsexempel(underlag) if e['ankare']}
+    import inspect
+    sha = lambda t: hashlib.sha256(t.encode('utf-8')).hexdigest()  # noqa: E731
+    kod = {'kalibrering.uppdrag': sha(inspect.getsource(uppdrag)), 'kalibrering.forbered': sha(inspect.getsource(forbered)),
+           'granska.frysta_ankare': sha(inspect.getsource(gr.frysta_ankare)),
+           'granska.kriterier': sha(json.dumps([list(gr.KRITERIER), gr.TROSKEL, gr.KALIBRERING_SKALA, gr.KALIBRERING_NIVAER, str(gr.INSTRUKTION),
+                                                [list(x) for x in gr.MATTSTOCKAR]], ensure_ascii=False, sort_keys=True, default=str))}
+    return {'id': list(ids), 'modell': modell, 'effort': effort, 'regler': {f: hash_fil(ROOT / f) for f in metodfiler()},
+            'ankare': ank, 'exempel': ex, 'kod': kod}
+
+
+def frysningsfil(ids, underlag=None):
+    return Path(underlag or gr.UNDERLAG) / 'kalibrering' / (FRYSNING % '-'.join(ids))
+
+
+def frys(ids, modell, effort, underlag=None):
+    """Skriver frysningen före ägarens domar; en befintlig frysning skrivs aldrig om. Ger filen."""
+    f = frysningsfil(ids, underlag)
+    if f.exists():
+        raise ValueError('frysningen finns redan (%s) och skrivs inte om' % f.name)
+    domar = gr.las_json(f.parent / 'DOMAR.json') or {}
+    domda = [i for i in ids if i in domar]
+    lage = dict(frysningens_lage(ids, modell, effort, underlag), tid=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                domda_vid_frysningen=domda)
+    f.write_text(json.dumps(lage, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return f
+
+
+def frysningsbrott(ids, modell, effort, underlag=None):
+    """None när läget är det frysta, annars listan med det som skiljer (en saknad frysning är ett brott)."""
+    f = frysningsfil(ids, underlag)
+    fryst = gr.las_json(f) if f.is_file() else None
+    if not isinstance(fryst, dict):
+        return ['ingen frysning före domarna (%s)' % f.name]
+    nu_ = frysningens_lage(ids, modell, effort, underlag)
+    ut = []
+    for nyckel in ('modell', 'effort', 'regler', 'ankare', 'exempel', 'kod'):
+        if fryst.get(nyckel) != nu_.get(nyckel):
+            if isinstance(nu_.get(nyckel), dict) and isinstance(fryst.get(nyckel), dict):
+                andrade = sorted(k for k in set(fryst[nyckel]) | set(nu_[nyckel]) if fryst[nyckel].get(k) != nu_[nyckel].get(k))
+                ut.append('%s: %s' % (nyckel, ', '.join(andrade[:8])))
+            else:
+                ut.append('%s: %s fryst, %s nu' % (nyckel, fryst.get(nyckel), nu_.get(nyckel)))
+    if fryst.get('domda_vid_frysningen'):
+        ut.append('frysningen gjordes efter domar över %s' % ', '.join(fryst['domda_vid_frysningen']))
+    return ut or None
+
+
 def jamfor(exempel, svar, schema=None):
     """Granskarens utfall mot ägarens nivå. svar: {id: hela svaret från claude (eller (structured_output, fel))}. Ett svar som
     inte validerar mot schemat räknas som ofullständigt försök, aldrig som dom. Ger (rader, sammanfattning)."""
@@ -373,16 +461,21 @@ def giltighet(lackage):
                                'på granskarens träffsäkerhet.' % varfor)
 
 
-def rapport(rader, s, mal, modell, effort, lackage=None, nivafil=None):
-    """RAPPORT.json och RAPPORT.md med måtten, nivåfilens sha256, läckageprovet och giltigheten. "Undanhållna" står bara
-    när läckageprovet gått igenom; annars heter exemplen prövade och siffran är utvecklingsdata."""
+def rapport(rader, s, mal, modell, effort, lackage=None, nivafil=None, frysning=None):
+    """RAPPORT.json och RAPPORT.md med måtten, nivåfilens sha256, läckageprovet, frysningen och giltigheten. "Undanhållna"
+    står bara när läckageprovet gått igenom och (för ett nytt urval) frysningen före domarna höll; annars heter exemplen
+    prövade och siffran är utvecklingsdata. frysning: None (inget nytt urval), [] (höll) eller listan med brotten."""
     galler, skal = giltighet(lackage)
+    if frysning:
+        galler, skal = 'utvecklingsdata', ('frysningen före domarna höll inte (%s), så siffran är utvecklingsdata och inget oberoende '
+                                           'mått.' % '; '.join(frysning[:6]))
     belagt = galler != 'utvecklingsdata'
     summa = dict(s)
     if not belagt:
         summa['provade'] = summa.pop('undanhallna')
     (mal / 'RAPPORT.json').write_text(json.dumps({'tid': gr.nu(), 'modell': modell, 'effort': effort, 'rader': rader, 'sammanfattning': summa,
-                                                  'giltighet': galler, 'giltighet_skal': skal, 'nivafil': nivafil, 'lackageprov': lackage},
+                                                  'giltighet': galler, 'giltighet_skal': skal, 'nivafil': nivafil, 'lackageprov': lackage,
+                                                  'frysning': None if frysning is None else ('höll' if not frysning else frysning)},
                                                  ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     lp = ('inte gjort' if not lackage else '%s; %d spår, %d exempel kunde inte prövas; %s. %s' % (
         lackage.get('status') or ('inga ordagranna spår' if lackage.get('ok') else 'ej godkänt'), len(lackage.get('traffar') or []),
@@ -405,7 +498,7 @@ def rapport(rader, s, mal, modell, effort, lackage=None, nivafil=None):
     return mal / 'RAPPORT.md'
 
 
-def slutrapport(exempel, mal, modell, effort):
+def slutrapport(exempel, mal, modell, effort, frysning=None):
     """Försökets rapport ur exemplens svar: jämförelsen, läckageprovet mot det granskaren läste (den frysta metoden och de
     frysta ankarna i det första exemplets katalog; ägarens uppdrag 2026-10-07, punkt 8) och nivåfilens sha256. Ger
     (RAPPORT.md, rader, sammanfattning)."""
@@ -413,7 +506,8 @@ def slutrapport(exempel, mal, modell, effort):
     svar = {e['id']: giltigt_svar(mal / e['id']) for e in exempel}
     rader, s = jamfor(exempel, svar)
     fryst = mal / exempel[0]['id']
-    return rapport(rader, s, mal, modell, effort, lackage=lackageprov(exempel, lackagetexter(fryst)), nivafil=nivafilen(fryst / 'metod')), rader, s
+    return rapport(rader, s, mal, modell, effort, lackage=lackageprov(exempel, lackagetexter(fryst)), nivafil=nivafilen(fryst / 'metod'),
+                   frysning=frysning), rader, s
 
 
 def ratta(mal, datum, galler, skal, hanvisningar=(), uppdrag=None, atgarder=()):
@@ -477,6 +571,8 @@ def main(argv=None):
     p.add_argument('--ut', default=None, help='utdatakatalog (standard $NWP_FORSOK/kalibrering)')
     p.add_argument('--underlag', default=None, help=argparse.SUPPRESS)
     p.add_argument('--bara', default=None, help='bara dessa exempel, kommaseparerade id (K14,K15,…): ett nytt orört urval prövas för sig')
+    p.add_argument('--frys', action='store_true', help='frys metoden, ankarna och exemplen (--bara) före ägarens domar')
+    p.add_argument('--trots-frysning', action='store_true', help='kör fast frysningen saknas eller bröts: resultatet är utvecklingsdata')
     p.add_argument('--ratta', default=None, help='rätta en äldre rapport i katalogen: daterat block överst, giltigheten i RAPPORT.json')
     p.add_argument('--datum', default=None)
     p.add_argument('--giltighet', default='utvecklingsdata')
@@ -493,7 +589,20 @@ def main(argv=None):
             print('%s: sha256 före %s, efter %s' % (namn, fore, efter))
         return 0
     mal = Path(a.ut) if a.ut else G
+    if a.frys:
+        ids = [x.strip() for x in (a.bara or '').split(',') if x.strip()]
+        if not ids or not all(re.fullmatch(r'K\d{2}', x) for x in ids):
+            print('--frys kräver --bara med id som K14,K15')
+            return 2
+        try:
+            f = frys(ids, a.modell, a.effort, a.underlag)
+        except ValueError as e:
+            print(e)
+            return 2
+        print('Fryst före domarna: %s (modell %s, effort %s)' % (f, a.modell, a.effort))
+        return 0
     exempel = undanhallna(a.underlag)
+    brott = None
     if a.bara:  # ett oberoende mått: bara det orörda urvalet, aldrig blandat med utvecklingsexemplen (Codex helhetsbedömning, ordning 3)
         onskade = [x.strip() for x in a.bara.split(',') if x.strip()]
         if not all(re.fullmatch(r'K\d{2}', x) for x in onskade):
@@ -504,6 +613,13 @@ def main(argv=None):
             print('saknar dom, bilder eller är ankare: %s (ägaren dömer i dashboardens Kalibrering)' % ', '.join(saknas))
             return 2
         exempel = [e for e in exempel if e['id'] in onskade]
+        brott = frysningsbrott(onskade, a.modell, a.effort, a.underlag)
+        if brott and a.torr:  # en torrkörning dömer inget: bristen skrivs ut
+            print('Frysningen före domarna håller inte: ' + '; '.join(brott))
+        elif brott and not a.trots_frysning:
+            print('Frysningen före domarna håller inte, så försöket är inget oberoende mått:\n- ' + '\n- '.join(brott)
+                  + '\nKör med --trots-frysning för utvecklingsdata.')
+            return 2
     if not exempel:
         print('inga undanhållna exempel med dom och bilder (underlag/kalibrering/DOMAR.json, ANKARE.txt)')
         return 2
@@ -520,7 +636,7 @@ def main(argv=None):
         bilder, aria, ankare = forbered(e, ut, a.underlag)
         frysta = frys_metod(ut)
         las_schema(fryst_schema(ut))  # oläsbart schema är ett försöksfel, före varje anrop
-        prompt = uppdrag(e, ut, bilder, aria, ankare)
+        prompt = uppdrag(e, ut, bilder, aria, ankare, a.underlag)
         (ut / 'PROMPT.txt').write_text(prompt, encoding='utf-8')
         nytt = manifest(ut, a.modell, a.effort, prompt, bilder, aria, ankare, frysta)
         (ut / 'MANIFEST.json').write_text(json.dumps(nytt, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
@@ -544,7 +660,7 @@ def main(argv=None):
     with ThreadPoolExecutor(max_workers=max(1, a.parallellt)) as pool:
         for ident, sek in pool.map(lambda e: kor_en(e, mal / e['id'], a.modell, a.effort, a.frist, claude), att_kora):
             print('%s klar efter %d s' % (ident, sek), flush=True)
-    f, rader, s = slutrapport(exempel, mal, a.modell, a.effort)
+    f, rader, s = slutrapport(exempel, mal, a.modell, a.effort, frysning=(brott or []) if a.bara else None)
     print('Falska godkännanden: %d av %d · falska underkännanden: %d av %d · giltiga svar %d av %d (ofullständiga %d) · %s' % (
         s['falska_godkannanden'], s['av_ej_over'], s['falska_underkannanden'], s['av_over'], s['svar'], s['undanhallna'], s['ofullstandiga'], f))
     return 0 if s['ofullstandiga'] == 0 else 1
