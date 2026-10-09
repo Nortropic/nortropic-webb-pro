@@ -12,15 +12,16 @@ nekas när den läses, om den inte ligger i en tillåten katalog. Vägen prövas
 katalog till något utanför nekas. Glob och Grep tillåts bara med en väg i en tillåten katalog (utan väg söker de i hela
 arbetskatalogen och nekas), och ett Glob-mönster får inte gå uppåt eller vara absolut.
 
-Vakten stoppar en läsning utanför listan med slutkod 2 och skälet på stderr, och den stoppar också när den inte kan
-pröva läsningen (listan saknas eller är trasig, ett okänt verktyg, egen frist) eller inte startar alls (kommandots
-`|| exit 2`). Inom sessionens arbetskatalog är vaktens slutkod 2 den enda spärren: dontAsk nekar inte Read där, också
-när Read inte står i --allowedTools (ett verkligt prov 2026-10-09 av en parallell session, Claude Code 2.1.290). Slår
-Claude Codes egen tidsgräns för kroken till först räknas det som ett fel som inte blockerar, och läsningen går igenom.
-Därför är krokens tidsgräns (KROK_FRIST) klart längre än vaktens egen frist (FRIST): vakten hinner alltid svara 2 själv.
-En krok som hänger längre än KROK_FRIST (processen startar aldrig klart) släpper fortfarande igenom en läsning i
-arbetskatalogen; det är en kvarstående begränsning som kräver ett verkligt sessionsprov (kontroller/formagoprov.py, S3)
-och, om den ska stängas helt, blinda sessioner i en arbetskatalog utan något hemligt.
+Vakten tillåter en läsning på listan (permissionDecision allow) och stoppar en läsning utanför listan med slutkod 2 och
+skälet på stderr. Den stoppar också när den inte kan pröva läsningen (listan saknas eller är trasig, ett okänt verktyg,
+egen frist) eller inte startar alls (kommandots `|| exit 2`). Slår Claude Codes egen tidsgräns för kroken till, eller
+slutar kroken med en annan kod än 0 och 2, räknas det som ett fel som inte blockerar: anropet prövas då mot de vanliga
+reglerna. Därför startar den blinda sessionen i en egen tom arbetskatalog utanför motorns rot (atelje.blind_arbetsyta):
+där nekar dontAsk varje läsning som ingen regel och ingen krok tillåtit, så en krok som dör öppnar ingenting. Inom en
+arbetskatalog nekar dontAsk inte Read (ett verkligt prov 2026-10-09, Claude Code 2.1.290); den blinda arbetskatalogen
+har bara länken till motorns skills. Krokens tidsgräns (KROK_FRIST) är ändå klart längre än vaktens egen frist (FRIST),
+så att en långsam vakt svarar 2 själv i stället för att läsningen nekas utan skäl. Det verkliga belägget för gränsen är
+förmågeprovets sessioner (kontroller/formagoprov.py, S2 och S3), inte bytet av arbetskatalog.
 """
 import json
 import os

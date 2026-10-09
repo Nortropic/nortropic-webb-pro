@@ -275,6 +275,30 @@ def arbetsrot(slug):
     return r, True
 
 
+# Blindningens rättelse (förmågeprovet 2026-10-09, ägarens mandat): en blind session startar i en egen tom arbetskatalog
+# utanför motorns rot, aldrig i motorns rot eller i kundrepot och aldrig med --add-dir till roten. Utanför arbetskatalogen
+# nekar dontAsk varje läsning som inte tillåts uttryckligen, och blindvakten tillåter läsningarna på sessionens lista en i
+# taget (permissionDecision allow). Svarar kroken inte eller fallerar den, finns ingen tillåtelse och läsningen nekas:
+# spärren håller utan vakten. Arbetskatalogen har bara .claude/skills, en länk till motorns skills (skillverktyget hittar
+# dem där; innehållet är metoden och står på listan). Att katalogen bytts verifierar ingenting: det gör förmågeprovets
+# verkliga sessioner (kontroller/formagoprov.py, S2 och S3).
+BLIND_PREFIX = 'nwp-blind-'
+
+
+def blind_arbetsyta(vad='blind session'):
+    """En ny tom arbetskatalog för en blind session: registrerad tempkatalog (korregister.egen_tmp, städas enligt
+    städregeln när körningen slutat) med .claude/skills som länk till motorns skills. Ger dess upplösta väg."""
+    import korregister
+    import tempfile
+    bas, rot = Path(os.path.realpath(tempfile.gettempdir())), Path(os.path.realpath(ROOT))
+    if bas == rot or bas.is_relative_to(rot):  # prövas före skapandet: inget skapas i motorns rot
+        raise RuntimeError('den blinda sessionens arbetskatalog skulle hamna i motorns rot (%s)' % bas)
+    d = Path(os.path.realpath(korregister.egen_tmp(BLIND_PREFIX, vad, dir=str(bas))))
+    (d / '.claude').mkdir()
+    (d / '.claude' / 'skills').symlink_to(ROOT / '.claude' / 'skills', target_is_directory=True)
+    return d
+
+
 def text_absolut(text, rot=None):
     """Relativa vägar till motorns kataloger (kunder/, underlag/, kunskap/, kontroller/, .claude/, .venv/ …) blir absoluta."""
     return _RELATIV.sub(lambda m: str(rot or ROOT) + '/' + m.group(1), text)
@@ -323,22 +347,25 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     Startkontrollen prövar åtkomsten med samma argument (verktygslada.prova_sessionen). Utan slug: inga MCP:er.
     De inbyggda verktygen begränsas till dem sessionen använder (--tools). Prenumerationen: ingen API-nyckel
     (nastlad.miljo). blind: tillåtelselistan för en blind session (kandidater.blind_tillatet): Read, Glob och Grep står
-    då inte i --allowedTools, och blindvakten (blindvakt.py) prövar varje läsning mot listan när den görs och stoppar den
-    som inte står där (slutkod 2). Inom arbetskatalogen nekar dontAsk inte Read, så vaktens slutkod är spärren; dess
-    tidsgräns ligger därför klart över vaktens egen frist (blindvakt.KROK_FRIST). kundrepo: kundrepots väg när sessionen startar där (R06); sessionen
-    skriver aldrig i det (projektkontexten skrivs av kundrepo.py, exporten av exportera.py)."""
+    då inte i --allowedTools, och blindvakten (blindvakt.py) tillåter varje läsning på listan när den görs och stoppar
+    resten (slutkod 2). Den blinda sessionen startar i en egen tom arbetskatalog (blind_arbetsyta), så att dontAsk nekar
+    det som vakten inte tillåter också när kroken inte svarar; reglerna gäller då motorns filer med absoluta vägar, som i
+    kundrepot, men utan --add-dir. Vaktens tidsgräns ligger klart över vaktens egen frist (blindvakt.KROK_FRIST).
+    kundrepo: kundrepots väg när sessionen startar där (R06); sessionen skriver aldrig i det (projektkontexten skrivs av
+    kundrepo.py, exporten av exportera.py)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
+    utanfor = kundrot or bool(blind)  # sessionen startar utanför motorns rot: kundrepot (R06) eller den blinda arbetskatalogen
     if blind:
         verktyg = [v for v in verktyg if str(v) not in blindvakt.VERKTYG]
-    if kundrot:  # R06: sessionen startar i kundrepot; reglerna gäller motorns filer med absoluta vägar
+    if utanfor:  # reglerna gäller motorns filer med absoluta vägar
         verktyg = [regel_absolut(v) for v in verktyg]
         nekas = [regel_absolut(v) for v in nekas]
-        if kundrepo:
+        if kundrepo and not blind:
             nekas = list(nekas) + ['%s(//%s/**)' % (v_, str(kundrepo).strip('/')) for v_ in ('Write', 'Edit')]
-    installningar = kundvakt(slug, rot=ROOT if kundrot else None) if slug else None
+    installningar = kundvakt(slug, rot=ROOT if utanfor else None) if slug else None
     if blind:
         d_ = json.loads(installningar) if installningar else {'hooks': {'PreToolUse': []}}
-        d_['hooks']['PreToolUse'].append(blindvakt.krok(blind, rot=ROOT if kundrot else None))
+        d_['hooks']['PreToolUse'].append(blindvakt.krok(blind, rot=ROOT))
         installningar = json.dumps(d_)
     mcp = ['--settings', installningar, '--strict-mcp-config', '--mcp-config', refero_mcp_fil(),
            str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json'),
@@ -347,8 +374,8 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
             '--setting-sources', 'project,local'] + mcp + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
             '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools',
-            *[regel_absolut(x) if kundrot else x for x in NEKAS + kompetens.skill_nekas(ROOT) + andra_kunder_nekas(slug)], *nekas]
-    if kundrot:  # motorns skills, kunskap och verktyg nås från kundrepots rot; motorns CLAUDE.md laddas inte (session_miljo)
+            *[regel_absolut(x) if utanfor else x for x in NEKAS + kompetens.skill_nekas(ROOT) + andra_kunder_nekas(slug)], *nekas]
+    if kundrot and not blind:  # motorns skills, kunskap och verktyg nås från kundrepots rot; motorns CLAUDE.md laddas inte (session_miljo)
         args[args.index('--setting-sources'):args.index('--setting-sources')] = ['--add-dir', str(ROOT)]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
@@ -429,14 +456,14 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
     """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger).
     vid_start(pid) får sessionens pid (kandidatens status bär den, så att en återupptagning kan avsluta en session som
     överlevt arbetaren). Vid tidsgräns avslutas hela processträdet, också Bash-kommandon i egna processgrupper.
-    blind: tillåtelselistan för en blind session (session_args). arbetsslug: kunden vars kundrepo blir arbetsrot med
-    växeln NWP_ARBETSROT=kundrepo, för de äldre vägarna som inte skickar slug (och därför inte får kundvakten och
-    MCP:erna; R06)."""
+    blind: tillåtelselistan för en blind session (session_args); den startar alltid i en egen tom arbetskatalog
+    (blind_arbetsyta), också när växeln står på kundrepo. arbetsslug: kunden vars kundrepo blir arbetsrot med växeln
+    NWP_ARBETSROT=kundrepo, för de äldre vägarna som inte skickar slug (och därför inte får kundvakten och MCP:erna; R06)."""
     if STOPP.is_set():
         raise Stoppad('arbetaren stoppas: ingen ny session')
-    rot, kundrot = arbetsrot(slug or arbetsslug)
+    rot, kundrot = (blind_arbetsyta(('blind session %s' % (slug or arbetsslug or '')).strip()), False) if blind else arbetsrot(slug or arbetsslug)
     args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot, blind=blind, kundrepo=rot if kundrot else None)
-    if kundrot:  # R06: prompten med absoluta vägar, eftersom sessionens arbetskatalog är kundrepot
+    if kundrot or blind:  # prompten med absoluta vägar, eftersom sessionens arbetskatalog ligger utanför motorns rot
         prompt = text_absolut(prompt)
     sid, oslug = observerad(ut, slug)
     if STOPP.is_set():  # stoppet kan ha kommit medan observatören frågade claude --help

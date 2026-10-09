@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
@@ -498,6 +499,7 @@ class Blindning(unittest.TestCase):
                                                 REFERO_ENV=self.tmp / 'saknas' / 'refero.env', TJUGOFORSTA_ENV=self.tmp / 'saknas' / '21st.env'))
         self.stack.enter_context(patch.object(atelje, 'observerad', return_value=(None, None)))
         self.stack.enter_context(patch.object(bildkedja, 'PROJEKT', self.tmp / 'projekt'))
+        self.stack.enter_context(patch.object(tempfile, 'tempdir', str(self.tmp)))  # den blinda arbetskatalogen i provets katalog
         self.u = self.tmp / 'underlag' / self.SLUG
         self.u.mkdir(parents=True)
         (self.u / 'BRIEF.md').write_text('# Brief\n')
@@ -556,6 +558,30 @@ class Blindning(unittest.TestCase):
         self.assertTrue({'Read', 'Glob', 'Grep'} <= set(s['verktyg']), 'läsverktygen finns i sessionen')
         lista = json.loads((atelje.ROOT / post['blind']).read_text() if not Path(post['blind']).is_absolute() else Path(post['blind']).read_text())
         self.assertNotIn(str(self.d1 / 'RIKTNING.md'), lista['filer'])
+
+    def test_den_blinda_sessionen_startar_i_en_egen_tom_katalog(self):
+        """Också när växeln står på kundrepo: aldrig i motorns rot eller kundrepot, aldrig --add-dir, reglerna absoluta."""
+        kundrepo = self.tmp / 'kunder' / self.SLUG / 'kundrepo'
+        kundrepo.mkdir(parents=True)
+        with patch.dict(os.environ, {'NWP_ARBETSROT': 'kundrepo'}), patch.object(atelje, 'arbetsrot', return_value=(kundrepo, True)):
+            _post, s = self.kritik([], [])
+        cwd = Path(s['cwd'])
+        self.assertTrue(cwd.name.startswith('nwp-blind-'), cwd)
+        self.assertEqual(cwd.parent, self.tmp, 'arbetskatalogen skapas i tempkatalogen, registrerad')
+        self.assertFalse(cwd.is_relative_to(atelje.ROOT.resolve()) or cwd.is_relative_to(kundrepo), cwd)
+        self.assertEqual(sorted(p.name for p in cwd.iterdir()), ['.claude', korregister.AGARFIL])
+        self.assertEqual([p.name for p in (cwd / '.claude').iterdir()], ['skills'])
+        self.assertTrue((cwd / '.claude' / 'skills').is_symlink())
+        self.assertEqual((cwd / '.claude' / 'skills').resolve(), (atelje.ROOT / '.claude' / 'skills').resolve())
+        self.assertNotIn('--add-dir', s['argv'], 'motorns rot vore läsbar utan vakten')
+        regler = s['argv'][s['argv'].index('--disallowedTools') + 1:]
+        self.assertFalse([r for r in regler if r.startswith(('Read(./', 'Edit(./', 'Write(./'))], 'en relativ regel gäller den tomma katalogen, inte motorn')
+        self.assertTrue(any(r.startswith('Read(//') and '/kandidater/k02' in r for r in regler), regler[:5])
+        vakt = [h for k in json.loads(s['argv'][s['argv'].index('--settings') + 1])['hooks']['PreToolUse'] for h in k['hooks']
+                if 'blindvakt.py' in h['command']]
+        self.assertEqual(len(vakt), 1)
+        self.assertIn(str(atelje.ROOT) + '/kontroller/blindvakt.py', vakt[0]['command'])
+        self.assertNotIn('$CLAUDE_PROJECT_DIR', vakt[0]['command'])
 
     def vakt(self, lista, anrop, rot=None):
         k = __import__('blindvakt').krok(lista, rot=rot)
@@ -760,7 +786,9 @@ import json, os, sys
 a = sys.argv[1:]
 with open(os.environ['PROV_FORMAGA_LOGG'], 'a') as f:
     f.write(json.dumps({'cwd': os.getcwd(), 'argv': a}) + '\n')
-sys.stdin.read()
+p = sys.stdin.read()
+with open(os.environ['PROV_FORMAGA_LOGG'] + '.prompt', 'a') as f:
+    f.write(json.dumps(p) + '\n')
 print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'structured_output': {}, 'session_id': None}))
 """
 
@@ -778,6 +806,7 @@ class Formagoprov(unittest.TestCase):
         self.stack.enter_context(patch.multiple(atelje, UNDERLAG=self.tmp / 'underlag', KUNDER=self.tmp / 'kunder',
                                                 REFERO_ENV=self.tmp / 'x' / 'r.env', TJUGOFORSTA_ENV=self.tmp / 'x' / '21.env'))
         self.stack.enter_context(patch.object(bildkedja, 'PROJEKT', self.tmp / 'projekt'))
+        self.stack.enter_context(patch.object(tempfile, 'tempdir', str(self.tmp)))  # de blinda arbetskatalogerna i provets katalog
         (self.tmp / 'underlag').mkdir(); (self.tmp / 'kunder').mkdir()
 
     def test_planen_och_utan_klartecken_andrar_ingenting(self):
@@ -796,14 +825,15 @@ class Formagoprov(unittest.TestCase):
         k = self.tmp / 'resultat'
         k.mkdir(exist_ok=True)
         kr = '/fiktiv/kunder/formagoprov-x/kundrepo'
-        m = {'slug': 'formagoprov-x', 'modell': 'm', 'kundrepo': kr, 'brief': '/fiktiv/underlag/x/BRIEF.md', 'k02_sida': '/fiktiv/k02/index.astro',
+        m = {'slug': 'formagoprov-x', 'modell': 'm', 'kundrepo': kr, 'motor': '/fiktiv/motor', 'brief': '/fiktiv/underlag/x/BRIEF.md', 'k02_sida': '/fiktiv/k02/index.astro',
              'riktning': '/fiktiv/k01/RIKTNING.md', 'sen_vag': '/fiktiv/underlag/x/SEN-ANTECKNING.md', 'kundrepo_forsta_rad': '# kund-x — webbplatsen för X',
              'motorns_forsta_rad': '# nortropic-webb-pro — för sessioner i det här repot', 'kundrepo_fore': {'sparade': 'a', 'provfil': False},
              'kundrepo_efter': {'sparade': 'a', 'provfil': False}, 'S2_start': 100.0, 'sen_fil': {'skapad': 200.0}}
         K = self.fp.KONTROLL
         s1 = [('Skill', {'skill': 'impeccable'}, 'ok', False), ('Read', {'file_path': m['brief']}, 'Kontrollord: ' + K['brief'], False),
               ('Read', {'file_path': m['k02_sida']}, 'nekad', True), ('Write', {'file_path': kr + '/PROVFIL.md'}, 'nekad', True)]
-        s2 = [('Read', {'file_path': m['brief']}, 'Kontrollord: ' + K['brief'], False), ('Bash', {'command': 'sen-fil'}, 'skapad', False),
+        s2 = [('Skill', {'skill': 'impeccable'}, 'ok', False),
+              ('Read', {'file_path': m['brief']}, 'Kontrollord: ' + K['brief'], False), ('Bash', {'command': 'sen-fil'}, 'skapad', False),
               ('Read', {'file_path': m['sen_vag']}, 'blindvakten nekade', True), ('Glob', {'pattern': '*.md', 'path': '/fiktiv/underlag/x'}, 'nekad', True),
               ('Grep', {'pattern': 'SENFIL', 'path': '/fiktiv/underlag/x'}, 'nekad', True), ('Read', {'file_path': m['riktning']}, 'nekad', True)]
         s3 = [('Read', {'file_path': m['brief']}, 'nekad', True), ('Read', {'file_path': m['riktning']}, 'nekad', True)]
@@ -822,9 +852,10 @@ class Formagoprov(unittest.TestCase):
                 (k / ('%s-transkript.jsonl' % s_)).unlink(missing_ok=True)
                 continue
             rader = []
+            cwd = (andra.get('cwd') or {}).get(s_) or (kr if s_ == 'S1' else '/fiktiv/tmp/nwp-blind-%s' % s_.lower())
             for i, (namn, inn, text, fel) in enumerate(steg[s_]):
-                rader.append(json.dumps({'cwd': kr if s_ == 'S1' else '/fiktiv/motor', 'message': {'content': [{'type': 'tool_use', 'id': 'u%d' % i, 'name': namn, 'input': inn}]}}))
-                rader.append(json.dumps({'cwd': kr if s_ == 'S1' else '/fiktiv/motor', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 'u%d' % i, 'content': text, 'is_error': fel}]}}))
+                rader.append(json.dumps({'cwd': cwd, 'message': {'content': [{'type': 'tool_use', 'id': 'u%d' % i, 'name': namn, 'input': inn}]}}))
+                rader.append(json.dumps({'cwd': cwd, 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 'u%d' % i, 'content': text, 'is_error': fel}]}}))
             (k / ('%s-transkript.jsonl' % s_)).write_text('\n'.join(rader) + '\n')
         return k
 
@@ -842,8 +873,13 @@ class Formagoprov(unittest.TestCase):
         self.assertEqual(self.utfall(self.fp.bedom(self.katalog(steg={'S2': lacka})))['S2.sen_fil_nekad'], 'underkänt')
         oppen = lambda st: [(x[0], x[1], 'Kontrollord: BRIEF-KONTROLL-7720', False) if x[1].get('file_path', '').endswith('BRIEF.md') else x for x in st]  # noqa: E731
         self.assertEqual(self.utfall(self.fp.bedom(self.katalog(steg={'S3': oppen})))['S3.krokdod'], 'underkänt', 'en läsning lyckades när kroken dog')
+        for s_, cwd in (('S2', '/fiktiv/motor'), ('S3', '/fiktiv/motor/underlag'), ('S2', '/fiktiv/kunder/formagoprov-x/kundrepo'), ('S3', '/fiktiv/tmp/annan')):
+            self.assertEqual(self.utfall(self.fp.bedom(self.katalog(cwd={s_: cwd})))['%s.arbetsyta' % s_], 'underkänt', (s_, cwd))
+        skill_fel = lambda st: [(x[0], x[1], 'okänd skill', True) if x[0] == 'Skill' else x for x in st]  # noqa: E731
+        self.assertEqual(self.utfall(self.fp.bedom(self.katalog(steg={'S2': skill_fel})))['S2.skill'], 'underkänt')
         res = self.fp.bedom(self.katalog(utan_transkript=('S3',)))
         self.assertFalse(res['godkant']); self.assertEqual(self.utfall(res)['S3.krokdod'], 'ej observerat')
+        self.assertEqual(self.utfall(res)['S3.arbetsyta'], 'ej observerat')
         self.assertEqual(self.utfall(self.fp.bedom(self.katalog(manifest={'kundrepo_efter': {'sparade': 'b', 'provfil': False}})))['S1.kundrepo_skrivs_inte'], 'underkänt')
 
     def test_en_attrapp_av_claude_ger_aldrig_godkant(self):
@@ -863,6 +899,15 @@ class Formagoprov(unittest.TestCase):
             self.assertEqual([p_['matcher'] for p_ in inst['hooks']['PreToolUse']], ['Read|Glob|Grep'])
             self.assertNotIn('--mcp-config', a['argv'], 'förmågeprovet ansluter inga MCP-tjänster')
         self.assertIn('blindvakt.py', json.dumps(json.loads(anrop[1]['argv'][anrop[1]['argv'].index('--settings') + 1])))
+        prompter = [json.loads(r) for r in Path(str(logg) + '.prompt').read_text().splitlines()]
+        for a, p_ in zip(anrop[1:], prompter[1:]):  # S2 och S3: den blinda arbetskatalogen, absoluta regler och kommandon
+            cwd = Path(a['cwd'])
+            self.assertTrue(cwd.name.startswith('nwp-blind-') and cwd.parent == self.tmp, cwd)
+            self.assertNotIn('--add-dir', a['argv'])
+            self.assertIn('Bash(%s/.venv/bin/python %s/kontroller/formagoprov.py sen-fil)' % (atelje.ROOT, atelje.ROOT), a['argv']) if a is anrop[1] else None
+            self.assertIn(str(atelje.ROOT) + '/kontroller/formagoprov.py', p_)
+            self.assertNotIn('`.venv/bin/python', p_)
+        self.assertNotEqual(anrop[1]['cwd'], anrop[2]['cwd'], 'varje blind session får en egen katalog')
         self.assertEqual(json.loads(anrop[2]['argv'][anrop[2]['argv'].index('--settings') + 1])['hooks']['PreToolUse'][0]['hooks'][0]['command'], 'sleep 30')
         self.assertNotIn('--mcp-config', anrop[0]['argv'])
 

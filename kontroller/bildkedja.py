@@ -70,11 +70,17 @@ def lasta(fil):
 
 
 def relativ(v):
-    """Vägen relativt repots rot när den ligger där, annars som den står; alltid med snedstreck."""
+    """Vägen relativt repots rot när den ligger där, annars som den står; alltid med snedstreck. En absolut väg genom en
+    länk in i roten (den blinda arbetskatalogens .claude/skills, atelje.blind_arbetsyta) räknas som filen den pekar på,
+    så länge länken finns; en kopia under en annan rot är en annan fil."""
     v = str(v).replace('\\', '/')
     for rot in {str(ROOT), os.path.realpath(ROOT)}:
         if v.startswith(rot + '/'):
             return v[len(rot) + 1:]
+    if v.startswith('/'):
+        verklig, rot = os.path.realpath(v), os.path.realpath(ROOT)
+        if verklig.startswith(rot + '/'):
+            return verklig[len(rot) + 1:]
     return v
 
 

@@ -29,6 +29,7 @@ ingången med attrapper bara vid modellsessionerna, fotograferingen och nätet:
 import contextlib
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -36,12 +37,14 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import atelje  # noqa: E402
+import bildkedja  # noqa: E402
 import blindvakt  # noqa: E402
 import granska  # noqa: E402
 import kandidater as kd  # noqa: E402
 import kompetens  # noqa: E402
 import korregister  # noqa: E402
 import skapande  # noqa: E402
+import stadning  # noqa: E402
 import ab  # noqa: E402
 import prov_ab_skiss  # noqa: E402  fixturen för metodförsöket
 import prov_omgranskning  # noqa: E402  fixturen för planversionen (N01)
@@ -455,6 +458,39 @@ class Blindvaktensfrist(unittest.TestCase):
         with self.assertRaises(ValueError):
             blindvakt.krok('/tmp/lista.json', timeout=blindvakt.FRIST)
 
+
+
+class Blindarbetsyta(unittest.TestCase):
+    """Den blinda sessionens tomma arbetskatalog: aldrig i motorns rot, och en läsning genom länken till motorns skills
+    räknas som filen den pekar på (kompetensens kvitto), medan en kopia under en annan rot är en annan fil."""
+
+    def setUp(self):
+        self.tmp = Path(self.enterContext(korregister.egen_tmp_med('nwp-kallgap-', 'den blinda arbetskatalogen'))).resolve()
+
+    def test_arbetskatalogen_har_bara_lanken_till_skills(self):
+        with patch.object(tempfile, 'tempdir', str(self.tmp)):
+            d = atelje.blind_arbetsyta('prov')
+        self.assertEqual(d.parent, self.tmp)
+        self.assertTrue(d.name.startswith('nwp-blind-'))
+        self.assertIn('nwp-blind-', stadning.TMP_PREFIX, 'städningen känner inte igen katalogen')
+        self.assertEqual((d / '.claude' / 'skills').resolve(), (atelje.ROOT / '.claude' / 'skills').resolve())
+        self.assertEqual(sorted(p.name for p in d.iterdir()), ['.claude', korregister.AGARFIL])
+
+    def test_aldrig_i_motorns_rot(self):
+        fore = sorted(p.name for p in atelje.ROOT.iterdir())
+        with patch.object(tempfile, 'tempdir', str(atelje.ROOT)), self.assertRaises(RuntimeError):
+            atelje.blind_arbetsyta('prov')
+        self.assertEqual(sorted(p.name for p in atelje.ROOT.iterdir()), fore, 'något skapades i roten')
+
+    def test_lasning_genom_lanken_raknas_som_motorns_fil(self):
+        with patch.object(tempfile, 'tempdir', str(self.tmp)):
+            d = atelje.blind_arbetsyta('prov')
+        skill = sorted((atelje.ROOT / '.claude' / 'skills').glob('*/SKILL.md'))[0]
+        rel = skill.relative_to(atelje.ROOT).as_posix()
+        self.assertEqual(bildkedja.relativ(str(d / rel)), rel)
+        kopia = self.tmp / 'kopia' / rel
+        kopia.parent.mkdir(parents=True); kopia.write_bytes(skill.read_bytes())
+        self.assertEqual(bildkedja.relativ(str(kopia)), str(kopia), 'en kopia under en annan rot är en annan fil')
 
 
 class Metodvariant(unittest.TestCase):
