@@ -46,6 +46,7 @@ import server as dash  # noqa: E402
 import arbetsyta  # noqa: E402
 import partner  # noqa: E402
 import samverkan  # noqa: E402
+import extern_granskare  # noqa: E402
 import atelje  # noqa: E402
 import bildkedja  # noqa: E402
 import kandidater  # noqa: E402
@@ -978,6 +979,18 @@ class Arbetsyta(unittest.TestCase):
         self.assertIn('kontrast och läsbarhet', meddelanden.ramtext(r_))
         a = json.loads(anropa('GET', bas + '/aterkoppling', huvud=b)[2])['aterkoppling']
         self.assertEqual({x['id'] for x in a if x.get('eget')}, {mid, r_['id']})
+        # kommandoradsverktyget (kontroller/extern_granskare.py): paketet, schemat och postningen med samma nyckel
+        paket = self.root / 'granskningspaket'
+        u_ = extern_granskare.paket('http://' + host, 'codex', SLUG, paket)
+        self.assertEqual((u_['mandat'], sorted(p_.name for p_ in paket.iterdir())), (1, ['AGENTS.md', 'bilder', 'fynd-schema.json', 'underlag.json']))
+        self.assertEqual((paket / 'bilder' / 'k01' / '390.png').read_bytes(), PNG)
+        self.assertNotIn('granskar-provnyckel', ''.join(p_.read_text(errors='replace') for p_ in paket.rglob('*') if p_.is_file() and p_.suffix != '.png'))
+        svar_ = self.root / 'fynd.json'
+        svar_.write_text(json.dumps({'fynd': [dict(fynd, till='agare', belagg=['390.png: rubriken bryts på fyra rader'], text='Rubriken bryts på fyra rader i 390 px.'),
+                                              dict(fynd, till='agare', belagg=[], text='Utan belägg.')]}), encoding='utf-8')
+        ut_ = extern_granskare.posta('http://' + host, 'codex', SLUG, svar_)
+        self.assertEqual([x['ok'] for x in ut_], [True, False], ut_)
+        self.assertTrue(extern_granskare.posta('http://' + host, 'codex', SLUG, svar_)[0]['upprepat'], 'samma fynd igen: samma meddelande')
         with patch.object(dash, 'ab_oavgjord', return_value=True):
             self.assertEqual(anropa('GET', bas + '/underlag', huvud=b)[0], 409)
             self.assertEqual(anropa('POST', bas + '/fynd', dict(fynd, belagg=['y']), b)[0], 409)
