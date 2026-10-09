@@ -442,6 +442,28 @@ def _ateroppningens_ordning():
         assert anmal(efter_, fore_ + '#K8')[0] == pid and meta(pid)['status'] == 'vilande', ('%s efter %s öppnade inte' % (efter_, fore_), meta(pid))
         pid = klar_post(efter_ + '#K9')
         assert anmal(fore_, efter_ + '#K9')[0] == pid and meta(pid)['status'] == 'klar', ('%s före %s öppnade' % (fore_, efter_), meta(pid))
+    # 5. registreringstiderna i förteckningens egna former (GR-20261009-natt-omgranskning-codex#N06): bråksekunder med +00:00
+    # och hela sekunder med Z är tidpunkter, och samma ögonblick är lika oavsett skrivsätt; rundan avgör aldrig när båda är
+    # registrerade. Raderna skrivs som förteckningen har dem, aldrig om.
+    registrera('GR-20261019-r97', '2026-10-19T00:15:34.000000+00:00')
+    registrera('GR-20261019-r96-om3', '2026-10-19T00:54:36Z')
+    pid = klar_post('GR-20261019-r97#K10')
+    assert anmal('GR-20261019-r96-om3', 'GR-20261019-r97#K10')[0] == pid and meta(pid)['status'] == 'vilande', ('r96-om3 registrerad efter r97 (+00:00) öppnade inte', meta(pid))
+    pid = klar_post('GR-20261019-r96-om3#K11')
+    pid_, ut_ = anmal('GR-20261019-r97', 'GR-20261019-r96-om3#K11')
+    assert pid_ == pid and meta(pid)['status'] == 'klar' and 'är inte senare än' in ut_, ('r97 (+00:00), registrerad före r96-om3, öppnade', meta(pid), ut_)
+    registrera('GR-20261020-x1', '2026-10-20T01:00:00Z')
+    registrera('GR-20261020-x2', '2026-10-20T01:00:00.000000+00:00')
+    pid = klar_post('GR-20261020-x1#K12')
+    pid_, ut_ = anmal('GR-20261020-x2', 'GR-20261020-x1#K12')
+    assert pid_ == pid and meta(pid)['status'] == 'klar' and 'är inte senare än' in ut_, ('samma ögonblick i två skrivsätt räknades som senare', meta(pid), ut_)
+    registrera('GR-20261020-x3', '2026-10-20T01:00:00.500000+00:00')
+    pid = klar_post('GR-20261020-x1#K13')
+    assert anmal('GR-20261020-x3', 'GR-20261020-x1#K13')[0] == pid and meta(pid)['status'] == 'vilande', ('en halv sekund senare öppnade inte', meta(pid))
+    registrera('GR-20261021-y1', '2026-10-21T01:30:00Z')
+    registrera('GR-20261021-y2', '2026-10-21T03:00:00+02:00')  # 01:00 i UTC: före y1, fast klockslaget är senare
+    pid = klar_post('GR-20261021-y1#K14')
+    assert anmal('GR-20261021-y2', 'GR-20261021-y1#K14')[0] == pid and meta(pid)['status'] == 'klar', ('en annan tidszon jämfördes som text', meta(pid))
 
 
 @fall('backloggen: huvudvärden utan radbrytningar och kontrolltecken, och --commit som hex med 7–40 tecken')

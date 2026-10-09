@@ -213,12 +213,27 @@ def _rapporter_i(meta):
 
 FORTECKNING = Path('underlag') / 'granskningar' / 'FORTECKNING.jsonl'  # räknas från ROOT
 RAPPORTMAPPAR = (Path('underlag') / 'granskningar', Path('underlag') / 'rapporter')  # rapporterna med huvud
-ISO_UTC = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
+# en ISO 8601-tidsstämpel med tidszon, i de former förteckningen redan har: hela sekunder med Z, och bråksekunder med
+# +00:00 (registreringsskripten skriver datetime.isoformat()); en annan zon räknas om till UTC, en utan zon räknas inte
+ISO_TID = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})')
+
+
+def _tidsvarde(t):
+    """Tidsstämpeln som tidpunkt i UTC, eller None när den inte är en giltig ISO-tidsstämpel med tidszon. Samma ögonblick
+    ger samma värde oavsett skrivsätt (Z eller +00:00, med eller utan bråksekunder; GR-20261009-natt-omgranskning-codex#N06)."""
+    if not isinstance(t, str) or not ISO_TID.fullmatch(t):
+        return None
+    try:
+        v = datetime.fromisoformat(t[:-1] + '+00:00' if t.endswith('Z') else t)
+    except ValueError:
+        return None
+    return v.astimezone(timezone.utc) if v.tzinfo else None
 
 
 def _registrerad(rapport):
-    """Den tidigaste registreringstiden (fältet kopierad, ISO 8601 i UTC) i förteckningen för rapporten: raderna vars fält
-    rapport är rapportens id, eller vars fil är rapporten själv. None när förteckningen saknas eller inte nämner den."""
+    """Den tidigaste registreringstiden (fältet kopierad, ISO 8601 med tidszon) i förteckningen för rapporten, som tidpunkt
+    i UTC (_tidsvarde): raderna vars fält rapport är rapportens id, eller vars fil är rapporten själv. None när
+    förteckningen saknas eller inte nämner den. Förteckningens rader läses som de står och skrivs aldrig om."""
     try:
         rader = (ROOT / FORTECKNING).read_text(encoding='utf-8').split('\n')
     except (OSError, UnicodeDecodeError):
@@ -234,8 +249,8 @@ def _registrerad(rapport):
         if not isinstance(d, dict):
             continue
         stam = re.sub(r'\.md$', '', str(d.get('fil') or '').rsplit('/', 1)[-1], flags=re.I).casefold()
-        t = str(d.get('kopierad') or '')
-        if (str(d.get('rapport') or '').casefold() == r_ or stam == r_) and ISO_UTC.fullmatch(t):
+        t = _tidsvarde(d.get('kopierad'))
+        if (str(d.get('rapport') or '').casefold() == r_ or stam == r_) and t is not None:
             tider.append(t)
     return min(tider) if tider else None
 
@@ -283,13 +298,13 @@ def _tidpunkt(rapport):
     """En rapports plats i tiden: registreringstiden i förteckningen (_registrerad), datumet (ur registreringen,
     rapporthuvudet eller id:t, i den ordningen) och id:ts form (prefix, och resten efter datumet som runda)."""
     tid, i_id = _registrerad(rapport), _id_datum(rapport)
-    datum = (tid[:10] if tid else None) or _huvudets_datum(rapport) or (i_id[0] if i_id else None)
+    datum = (tid.date().isoformat() if tid else None) or _huvudets_datum(rapport) or (i_id[0] if i_id else None)
     return {'tid': tid, 'datum': datum, 'form': (i_id[0], i_id[1]) if i_id else None, 'runda': _runda(i_id[2]) if i_id else None}
 
 
 def _jamfor(rapport, tidigare):
     """True när rapporten är senare än tidigare, False när den inte är det, None när det inte går att avgöra:
-    registreringstiderna när båda är registrerade, annars datumen, och samma dag rundorna bara när båda id:na har samma
+    registreringstiderna som tidpunkter när båda är registrerade (samma ögonblick är inte senare), annars datumen, och samma dag rundorna bara när båda id:na har samma
     datum och prefix (GR-20261007-r97 före GR-20261007-r97-om). Rundans nummer ordnar aldrig över dagar eller former:
     GR-20261007-r96-om3 skrevs efter GR-20261007-r97 (granskningen GR-20261007-r99-om, KAN-1)."""
     a, b = _tidpunkt(rapport), _tidpunkt(tidigare)
