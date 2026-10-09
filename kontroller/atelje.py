@@ -182,6 +182,8 @@ def claude():
 
 
 import blindvakt  # noqa: E402  (de blinda sessionernas tillåtelselista vid varje läsning)
+import meddelanden  # noqa: E402  (arbetsytans meddelandebuss och paus; lopare.py)
+import lopare  # noqa: E402  (sessionen i strömmande läge: meddelanden under arbetet, paus och återupptagning)
 import kundvakt as kundvakt_mod  # noqa: E402
 KUNDVAKT_MATCH = kundvakt_mod.MATCH  # externa designtjänster: kundvakten prövar varje anrop; andra MCP-anrop får ingen tillåtelse
 REFERO_ENV = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env'
@@ -334,7 +336,8 @@ def andra_kunder_nekas(slug):
     return ut
 
 
-def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None, kundrot=False, blind=None, kundrepo=None):
+def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None, kundrot=False, blind=None, kundrepo=None,
+                 strom=False):
     """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
     slug ser sessionen alla skills (skillverktyget) och MCP-servrarna, och kundvakten prövar varje anrop till en extern
     designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). MCP-servrarna:
@@ -353,7 +356,10 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     det som vakten inte tillåter också när kroken inte svarar; reglerna gäller då motorns filer med absoluta vägar, som i
     kundrepot, men utan --add-dir. Vaktens tidsgräns ligger klart över vaktens egen frist (blindvakt.KROK_FRIST).
     kundrepo: kundrepots väg när sessionen startar där (R06); sessionen skriver aldrig i det (projektkontexten skrivs av
-    kundrepo.py, exporten av exportera.py)."""
+    kundrepo.py, exporten av exportera.py).
+    strom: sessionen i strömmande läge genom löparen (lopare.py): stream-json in och ut, ekot av mottagna meddelanden,
+    meddelandeprotokollet i systemprompten (inte för en blind session) och crossSessionInbound refuse, så att bussen är
+    sessionens enda väg för meddelanden (ingen annan session når den med SendMessage)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
     utanfor = kundrot or bool(blind)  # sessionen startar utanför motorns rot: kundrepot (R06) eller den blinda arbetskatalogen
     if blind:
@@ -368,6 +374,10 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
         d_ = json.loads(installningar) if installningar else {'hooks': {'PreToolUse': []}}
         d_['hooks']['PreToolUse'].append(blindvakt.krok(blind, rot=ROOT))
         installningar = json.dumps(d_)
+    if strom:  # bussen är den enda vägen in: andra sessioners SendMessage vägras (cross-session-messaging, crossSessionInbound)
+        d_ = json.loads(installningar) if installningar else {}
+        d_['crossSessionInbound'] = 'refuse'
+        installningar = json.dumps(d_)
     mcp = ['--settings', installningar, '--strict-mcp-config', '--mcp-config', refero_mcp_fil(),
            str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json'),
            tjugoforsta_mcp_fil()] if slug else (['--settings', installningar] if installningar else []) + ['--strict-mcp-config']  # 21st.dev Builder (2C)
@@ -380,7 +390,19 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
         args[args.index('--setting-sources'):args.index('--setting-sources')] = ['--add-dir', str(ROOT)]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
+    if strom:
+        i = args.index('--output-format')
+        args[i:i + 2] = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--replay-user-messages']
+        if not slug and '--settings' not in args:
+            args[args.index('--strict-mcp-config'):args.index('--strict-mcp-config')] = ['--settings', installningar]
+        if not blind:
+            args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--append-system-prompt', lopare.PROTOKOLL]
     return args
+
+
+def strommande():
+    """Meddelandebussen och pausen är på (NWP_MEDDELANDEN=av stänger dem: sessionerna körs då som förut)."""
+    return (os.environ.get('NWP_MEDDELANDEN') or 'pa') != 'av'
 
 
 def session_miljo(slug=None):
@@ -469,11 +491,19 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
     sid, oslug = observerad(ut, slug)
     if STOPP.is_set():  # stoppet kan ha kommit medan observatören frågade claude --help
         raise Stoppad('arbetaren stoppas: ingen ny session')
+    strom = bool(sid and oslug and strommande() and observation and observation.stromflaggor(claude()))
+    if strom:  # löparen: meddelanden under arbetet och paus (lopare.py); samma verktyg, regler och svarsfil
+        args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot, blind=blind,
+                            kundrepo=rot if kundrot else None, strom=True)
+        meddelanden.vanta_vid_start(oslug, stopp=STOPP)  # projektets paus: ingen ny session startar bakom den
+        if STOPP.is_set():
+            raise Stoppad('arbetaren stoppades medan projektet var pausat')
     if sid:  # sessionens id från start: observatören hittar transkriptet medan sessionen arbetar
         args[2:2] = ['--session-id', sid]
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
     # krockar med fotograferingens bygge i samma katalog; granskningen av r59, punkt 2)
     utfall = 'avbruten'
+    lop = None
     with open(ut, 'wb') as f:
         p = None
         try:
@@ -484,8 +514,8 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                 with AKTIVA_LAS:
                     if STOPP.is_set():
                         raise Stoppad('arbetaren stoppas: ingen ny session')
-                    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=f, stderr=subprocess.PIPE, cwd=str(rot), env=session_miljo(slug),
-                                         start_new_session=True)
+                    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE if strom else f, stderr=subprocess.PIPE,
+                                         cwd=str(rot), env=session_miljo(slug), start_new_session=True)
                     AKTIVA.add(p.pid)
                     if sid:
                         observera('anmal', oslug, sid, ut, modell or MODELL, p.pid)
@@ -495,7 +525,14 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                 SESSIONSTART.pagar = False
             if STOPP.is_set():
                 raise Stoppad('arbetaren stoppades under sessionsstarten')
-            _, fel = p.communicate(input=prompt.encode(), timeout=frist or (FRIST_DOMARE if schema else FRIST))
+            if strom:
+                m_ = re.search(r'/kandidater/(k\d{2})/', str(Path(ut).resolve()))
+                lop = lopare.Lopare(p, oslug, sid, ut, re.sub(r'^svar-', '', Path(ut).stem), m_.group(1) if m_ else None, blind,
+                                    max_turer, frist or (FRIST_DOMARE if schema else FRIST), modell or MODELL,
+                                    args=[a for a in args if len(str(a)) < 400][:80], stopp=STOPP)
+                _, fel = lop.kor(prompt)
+            else:
+                _, fel = p.communicate(input=prompt.encode(), timeout=frist or (FRIST_DOMARE if schema else FRIST))
             utfall = 'avslutad, kod %s' % p.returncode
         except subprocess.TimeoutExpired:
             utfall = 'tidsgräns'
@@ -504,18 +541,23 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                 os.killpg(p.pid, signal.SIGKILL)
             except (ProcessLookupError, PermissionError):
                 p.kill()
-            p.communicate()
+            p.wait() if strom else p.communicate()  # löparens trådar läser strömmen själva
             raise
         finally:
             if p is not None:
                 if p.poll() is None:
                     doda_trad(p.pid)
-                    p.communicate()  # även fel i anmälan/startåterropet får ett avslutat, skördat barn
+                    p.wait() if strom else p.communicate()  # även fel i anmälan/startåterropet får ett avslutat, skördat barn
                 with AKTIVA_LAS:
                     AKTIVA.discard(p.pid)
                 if STOPP.is_set():
                     STOPPAD.setdefault('pids', set()).add(p.pid)
                     utfall = 'avbruten vid stoppet'
+                if lop is not None:
+                    try:
+                        lop.avsluta(utfall)
+                    except Exception:  # noqa: BLE001 — svarsfilen skrivs först; ett fel i läget stoppar inget
+                        pass
                 if sid:
                     observera('uppdatera', oslug, sid, slut=nu(), utfall=utfall)
     svar = las_json(ut) or {}

@@ -83,6 +83,7 @@ def pa():
 
 _HJALP = {}
 _HJALP_LAS = threading.Lock()
+_STROM = {}  # claude --help listar --input-format och --replay-user-messages (löparen, lopare.py); fylls av samma fråga
 
 
 def flaggan_finns(claude_bin, env=None):
@@ -96,9 +97,17 @@ def flaggan_finns(claude_bin, env=None):
         try:
             r = subprocess.run([claude_bin, '--help'], capture_output=True, text=True, timeout=HJALP_FRIST, stdin=subprocess.DEVNULL, env=env)
             _HJALP[claude_bin] = ('--session-id' in r.stdout, None) if r.returncode == 0 else (False, time.time())
+            _STROM[claude_bin] = r.returncode == 0 and '--input-format' in r.stdout and '--replay-user-messages' in r.stdout
         except (OSError, subprocess.SubprocessError, ValueError):
             _HJALP[claude_bin] = (False, time.time())
         return _HJALP[claude_bin][0]
+
+
+def stromflaggor(claude_bin):
+    """Listade samma claude --help som flaggan_finns läste strömmande in- och utdata med eko? Ingen egen fråga: utan ett
+    svar från flaggan_finns är det nej, och sessionen körs som förut."""
+    with _HJALP_LAS:
+        return bool(_STROM.get(claude_bin))
 
 
 # --- förteckningen (atelje.session skriver; ett fel här stoppar aldrig en session) ---
