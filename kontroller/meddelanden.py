@@ -623,7 +623,8 @@ def ramtext(m):
     if m.get('syfte') in ('fraga', 'andringsinstruktion', 'granskningsfynd'):
         rader += ['', 'Kvittera just det här meddelandet med dess id när du har gjort det eller avstått (ett kvitto för ett annat '
                       'meddelande räknas inte för det här; genomfort false och varför om du avstod), och fortsätt sedan med ditt uppdrag:',
-                  '```kvitto', '{"meddelande": "%s", "genomfort": true, "beskrivning": "vad du gjorde"}' % m['id'], '```']
+                  '```kvitto', '{"meddelande": "%s", "genomfort": <true eller false>, "beskrivning": "<vad du gjorde>"}' % m['id'], '```',
+                  '(Mallen ovan är inget kvitto: ersätt det som står inom <>.)']
     return '\n'.join(rader)
 
 

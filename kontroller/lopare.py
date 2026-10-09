@@ -263,10 +263,11 @@ class Lopare:
         text = '\n\n'.join(self.text_i_tur) or str(d.get('result') or '')
         self.text_i_tur = []
         kvitton = {}
-        for k in self._egna_block(text):  # ett kvitto kan nämna ett meddelande eller flera (meddelande eller meddelanden)
-            ids = k.get('meddelanden') if isinstance(k.get('meddelanden'), list) else k.get('meddelande')
-            for mid_ in ids if isinstance(ids, list) else [ids]:
-                kvitton[str(mid_)] = k
+        for k in self._egna_block(text):  # ett kvitto kan nämna ett meddelande eller flera (meddelande och meddelanden, sträng eller lista)
+            for falt in ('meddelande', 'meddelanden'):
+                ids = k.get(falt)
+                for mid_ in ids if isinstance(ids, list) else [ids] if ids else []:
+                    kvitton[str(mid_)] = k
         for mid in list(self.levererade):
             if avbruten or (mid not in self.mottagna and mid not in uids):
                 continue  # en avbruten tur besvarar inget; ett meddelande som inte ekats har sessionen inte sett än

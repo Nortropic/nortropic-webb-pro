@@ -1449,9 +1449,12 @@ def bevakning_vid_behov():
     import bevakning
     if not bevakning.dags():
         return None
-    for r in bevakning.codex_vid_behov():
-        print('bevakningen, Codex: %s %s (%s tokens, %s s)%s' % (r.get('fraga') or '', 'föll: ' + r['fel'] if r.get('fel') else 'klar',
-                                                                 r.get('tokens'), r.get('sekunder'), ' ' + r['hoppad'] if r.get('hoppad') else ''), flush=True)
+    try:  # ett fel i Codex-steget får aldrig hindra den dagliga kontrollen
+        for r in bevakning.codex_vid_behov():
+            print('bevakningen, Codex: %s %s (%s tokens, %s s)%s' % (r.get('fraga') or '', 'föll: ' + r['fel'] if r.get('fel') else 'klar',
+                                                                     r.get('tokens'), r.get('sekunder'), ' ' + r['hoppad'] if r.get('hoppad') else ''), flush=True)
+    except Exception as e:  # noqa: BLE001
+        print('bevakningen, Codex: steget föll: %s: %s' % (type(e).__name__, e), flush=True)
     d = bevakning.kor(automatisk=True)
     s = d.get('senast') or {}
     print('bevakningen: %s (%s, %s h efter klockslaget); nästa %s' % (s.get('utfall') or d.get('hoppad'), s.get('start'), s.get('sen_timmar'),

@@ -116,7 +116,8 @@ class Bevakning(unittest.TestCase):
                                                          'kallor': [{}, {}]}))
         (self.sp / 'KANDIDATER.json').write_text('[]')
         (self.uh / 'UNDERHALL.json').write_text(json.dumps({'status': 'klart', 'slut': (underhall_slut or nar).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                                                            'sammanfattning': 'prov', 'rader': list(rader)}))
+                                                            'sammanfattning': 'prov', 'rader': list(rader),
+                                                            'inventering': [{'id': 'npm-global:@anthropic-ai/claude-code', 'namn': 'Claude Code'}]}))
 
     def test_registret_och_dess_fel(self):
         f, fel = bevakning.register()
@@ -240,11 +241,14 @@ class Bevakning(unittest.TestCase):
                                                        'kallor': [{'url': 'https://example.org', 'datum_eller_version': '2026-10-09', 'last': 'originalet'}]}]}))
             Path(logg).write_text('model: prov-modell\ntokens used\n12 345\n')
             return 0, 'prov-modell', 12345
+        self.assertEqual(bevakning.codex_vid_behov(nar=nar, korare=korare), [], 'utanför huvudutcheckningen är Codex av som standard')
+        os.environ['NWP_BEVAKNING_CODEX'] = 'pa'
         self.assertEqual(sorted(bevakning.codex_dags(nar=nar)), ['en-lucka', 'veckofraga'])
         rader = bevakning.codex_vid_behov(nar=nar, korare=korare)
         self.assertEqual(sorted(anrop), ['en-lucka', 'veckofraga'])
         self.assertEqual({r['fraga']: (r.get('tokens'), bool(r.get('fel'))) for r in rader}, {'veckofraga': (12345, False), 'en-lucka': (None, True)})
-        self.assertEqual(bevakning.codex_dags(nar=nar + timedelta(days=1)), [], 'nästa granskning först när intervallet gått')
+        self.assertEqual(bevakning.codex_dags(nar=nar + timedelta(hours=12)), [], 'ingen ny granskning inom samma dygn')
+        self.assertEqual(bevakning.codex_dags(nar=nar + timedelta(days=1, minutes=1)), ['en-lucka'], 'en fallen granskning görs om efter ett dygn')
         self.assertIn('veckofraga', bevakning.codex_dags(nar=nar + timedelta(days=7)))
         d = bevakning.kor(nar=nar)
         self.assertEqual(d['fragor']['en-lucka']['utfall'], 'misslyckad', 'en fallen granskning är aldrig inget nytt')
@@ -253,6 +257,54 @@ class Bevakning(unittest.TestCase):
         self.assertEqual(len(logg), 2)
         with patch.dict(os.environ, {'NWP_BEVAKNING_CODEX': 'av'}):
             self.assertEqual(bevakning.codex_vid_behov(nar=nar + timedelta(days=40), korare=korare), [])
+
+    def test_tokens_med_hart_mellanslag_och_svar_per_fraga(self):
+        import subprocess as sp
+        logg = self.rot / 'codex.log'
+        kat = self.rot / 'kat'
+        kat.mkdir()
+        (kat / 'schema.json').write_text('{}')
+
+        class Klar:
+            pid = 0
+
+            def __init__(self, *a, **kw):
+                Path(logg).write_text('model: gpt-prov\ntokens used\n59\u00a0720\n')
+
+            def wait(self, timeout=None):
+                return 0
+        with patch.object(sp, 'Popen', Klar), patch('shutil.which', return_value='/bin/codex'):
+            self.assertEqual(bevakning._kor_codex(kat, 'p', kat / 'svar.json', logg), (0, 'gpt-prov', 59720))
+        nar = datetime.now(timezone.utc)
+        self.drift(nar)
+        svar = self.rot / 'tva.json'
+        rad = {'steg': 'x', 'observerat': 'x', 'kallans_stod': 'x', 'tolkning': 'x', 'nytta_risk': 'x', 'minsta_forsok': 'x', 'hur_vi_vet': 'x',
+               'kallor': [{'url': 'https://example.org', 'datum_eller_version': '2026-10-09', 'last': 'originalet'}]}
+        svar.write_text(json.dumps({'fynd': [dict(rad, fraga='veckofraga', forandring='ett fynd', beslut='senare'),
+                                             dict(rad, fraga='veckofraga', forandring='inget', beslut='inget_nytt'),
+                                             dict(rad, fraga='en-lucka', forandring='annan fråga', beslut='nu')]}))
+        ut = bevakning.codex_svar(svar, bara='veckofraga')
+        self.assertIn({'fraga': 'en-lucka', 'fel': 'gäller inte den granskade frågan'}, ut)
+        filer = list((self.ut / 'codex').glob('*.json'))
+        self.assertEqual([f.name.split('-2')[0] for f in filer], ['veckofraga'], 'en fil för frågan, ingen för en annan fråga')
+        self.assertEqual(len(json.loads(filer[0].read_text())['fynd']), 1, 'fyndet försvinner inte för att en senare post säger inget nytt')
+
+    def test_underhallets_fel_och_saknade_beroenden_ar_problem(self):
+        nar = datetime.now(timezone.utc)
+        self.drift(nar)
+        u = json.loads((self.uh / 'UNDERHALL.json').read_text())
+        u.update(rader=[{'id': 'npm-global:@anthropic-ai/claude-code', 'namn': 'Claude Code', 'resultat': 'behallen', 'detalj': 'tillfälligt fel: npm svarade inte'}],
+                 inventering=[{'id': 'npm-global:@anthropic-ai/claude-code', 'namn': 'Claude Code'}])
+        (self.uh / 'UNDERHALL.json').write_text(json.dumps(u))
+        q = bevakning.register()[0]['sessioner']
+        f, p_, _ = bevakning._underhall(q, bevakning.kataloger(), {})
+        self.assertTrue(any('tillfälligt fel' in x for x in p_), p_)
+        q2 = dict(q, beror=['mobbin'])
+        u['prov'] = {'Mobbin': {'resultat': 'fel', 'detalj': 'inloggningen gick ut'}}
+        (self.uh / 'UNDERHALL.json').write_text(json.dumps(u))
+        self.assertTrue(any('förmågeprovet Mobbin' in x for x in bevakning._underhall(q2, bevakning.kataloger(), {})[1]))
+        q3 = dict(q, beror=['finns-inte'])
+        self.assertTrue(any('finns inte i underhållets' in x for x in bevakning._underhall(q3, bevakning.kataloger(), {})[1]))
 
     def test_forbrukningen_matts_och_kvoten_star_som_saknad(self):
         nar = datetime.now(timezone.utc)

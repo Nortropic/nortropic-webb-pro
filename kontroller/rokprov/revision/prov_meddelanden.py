@@ -633,8 +633,10 @@ class Granskning(Bas):
         for m in (m1, m2, m3):
             lop.levererade[m['id']] = m
             lop._handelse({'type': 'user', 'isReplay': True, 'uuid': m['id']})
+        # sessionen citerar ramen för m3 ordagrant (mallen står på egna rader): mallen är ingen kvittering (granskningen, fynd 13)
         lop._handelse({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': 'Klart.\n```kvitto\n{"meddelanden": ["agare-kv-0001", '
-                                                                     '"agare-kv-0002"], "genomfort": true, "beskrivning": "båda"}\n```'}]}})
+                                                                     '"agare-kv-0002"], "genomfort": true, "beskrivning": "båda"}\n```\n\n'
+                                                                     + meddelanden.ramtext(m3)}]}})
         lop._handelse({'type': 'result', 'subtype': 'success', 'num_turns': 1, 'uuid': 'r1'})
         self.assertEqual([meddelanden.lage(meddelanden.hamta(SLUG, m['id'])) for m in (m1, m2, m3)], ['besvarat', 'besvarat', 'okant'])
         self.assertIn('Kvittera just det här meddelandet med dess id', meddelanden.ramtext(m3))
