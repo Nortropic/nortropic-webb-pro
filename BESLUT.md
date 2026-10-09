@@ -4443,3 +4443,40 @@ i arbetsytan och mandatet ~18:28Z, "Gör det det du anser är rekommendationen",
   sparas som förut. Kunden kan vara avsändare med belägg för alla beslut utom godkännandet, som är ägarens.
 - `POST /api/prototyp/<kund>` står kvar för den äldre utforskningen med riktningar och för proven. Den används inte av
   Förslagen.
+
+## Ägarens beslut 2026-10-09 ~21:17Z: Cloudflare Workers är målplattformen; sajterna på Vercel stannar
+
+**Status:** gäller; under genomförande (b3, grenen `claude/cloudflare-20261009`). Ersätter Vercel som målväg för nya
+leveranser i tidigare beslut ("Vercel väntar tills en kund ska ut"); historiken om Vercel står kvar som den var.
+
+Ägarens ord ~21:17Z, ordagrant: "Då köar jag nästa arbete hos dig som du har fullt autonomt mandat att köra inatt." och
+i samma meddelande: "Läs hela den bifogade filen: PROMPT-Nortropic-integrationer-och-Cloudflare-migrering-v2.md. Detta
+är mitt gällande, samlade genomförandeuppdrag. Det ersätter den tidigare integrationsprompten. Cloudflare Workers är
+beslutad målplattform. Genomför hela integrationsomfattningen och migreringen från Vercel enligt de åtta etapperna.
+Gör inte en ny hostingjämförelse. Kontrollera aktuellt repo och pågående arbete först. Behåll redan verifierade
+resultat och undvik dubbelarbete. Fortsätt sedan med implementation, migrering, dokumentation och prov — inte bara en
+ny plan. Skilj implementerat, verifierat, driftaktiverat och avvecklat. Genomför externa åtgärder inom faktiskt
+tillämpligt mandat."
+
+Ägarens ord ~21:22Z, efter beskedet om inventeringen av Vercel-projekten, ordagrant: "inga att de som är på vercel ska
+flyttas över, hemsidor alltså"
+
+**Tolkning** (genomförarens, redovisad för ägaren att rätta): inga befintliga webbplatser på Vercel flyttas. De står
+kvar där som tidigare drift, med status per projekt i uppdragets privata rapport, utan migrering eller avveckling.
+Migreringen gäller leveransvägen: mallen, exporten, förhandsvisningen, proven, verktygen och dokumentationen.
+
+**Räckvidd och gränser** (ur uppdragsfilen, som ligger privat i `underlag/uppdrag/`):
+- Inga köp av domäner, abonnemang eller tjänster, inga uppgraderade planer, inga accepterade avtal, inga verkliga
+  betalningar, återbetalningar, bokföringshandlingar, utskick eller kundpubliceringar utan ett separat tillämpligt
+  mandat; ingen publik OAuth-app eller publik callback som bieffekt av ett lokalt prov.
+- Befintliga nycklar är inte i sig tillstånd att använda dem; kundvalvet läses aldrig in i en modells kontext; inga
+  privata kunduppgifter, leverantörsbevis eller hemligheter i det publika motorrepot.
+- Ägarval, kundbeställningar, kontoåtkomst, samtycken, användarprov och leverantörsresultat förfalskas aldrig.
+- Domänomkoppling, kopiering av personuppgifter, aktivering av skarpa resurser och avveckling görs bara inom
+  tillämpligt kund-, konto- och kostnadsmandat.
+- "Allt är klart" sägs inte när katalogen är fylld men anslutningskod, kombinationsprov eller leverantörsbevis saknas.
+
+**Läget när detta skrevs:** leveransvägen är omskriven för Workers och prövad lokalt (export och förpackning utan
+konto, Workern i workerd, formulärets felvägar), integrationskatalogen K01–K18 finns med validering och plan, och
+Nortropics Cloudflare-konto är inte anslutet: inget är prövat mot Cloudflare, och inget är driftaktiverat eller
+avvecklat. Var vägen och fakta står: `kunskap/lansering.md` (Cloudflare-steget) och `kunskap/forfragan.md`.
