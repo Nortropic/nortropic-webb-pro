@@ -323,8 +323,9 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     Startkontrollen prövar åtkomsten med samma argument (verktygslada.prova_sessionen). Utan slug: inga MCP:er.
     De inbyggda verktygen begränsas till dem sessionen använder (--tools). Prenumerationen: ingen API-nyckel
     (nastlad.miljo). blind: tillåtelselistan för en blind session (kandidater.blind_tillatet): Read, Glob och Grep står
-    då inte i --allowedTools, och blindvakten (blindvakt.py) prövar varje läsning mot listan när den görs; utan vaktens
-    uttryckliga tillåtelse nekar dontAsk läsningen. kundrepo: kundrepots väg när sessionen startar där (R06); sessionen
+    då inte i --allowedTools, och blindvakten (blindvakt.py) prövar varje läsning mot listan när den görs och stoppar den
+    som inte står där (slutkod 2). Inom arbetskatalogen nekar dontAsk inte Read, så vaktens slutkod är spärren; dess
+    tidsgräns ligger därför klart över vaktens egen frist (blindvakt.KROK_FRIST). kundrepo: kundrepots väg när sessionen startar där (R06); sessionen
     skriver aldrig i det (projektkontexten skrivs av kundrepo.py, exporten av exportera.py)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
     if blind:

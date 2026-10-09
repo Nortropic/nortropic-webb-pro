@@ -17,7 +17,11 @@ Sessionerna (kontrollord i filerna visar vad sessionen faktiskt fick se, utan at
 - S2, blindningen: en blind session med blindvakten (tillåtelselistan ur kandidater.blind_tillatet). Den läser briefen
   (tillåten), kör `sen-fil` som skapar SEN-ANTECKNING.md i kundens underlag efter starten, och försöker sedan läsa den,
   söka efter den med Glob och Grep och läsa skaparens RIKTNING.md (allt ska nekas).
-- S3, krokdöd: som S2 men blindvaktens krok byts mot en som inte svarar inom sin frist: ingen läsning får lyckas.
+- S3, krokdöd: som S2 men blindvaktens krok byts mot en som inte svarar inom sin frist: ingen läsning får lyckas. Ett
+  verkligt prov av en parallell session 2026-10-09 (Claude Code 2.1.290) visade att dontAsk inte nekar Read i
+  arbetskatalogen och att en krok vars tidsgräns slår till inte blockerar: S3 väntas alltså falla så länge de blinda
+  sessionerna har motorns rot som arbetskatalog. Blindvaktens tidsgräns ligger klart över vaktens egen frist
+  (blindvakt.KROK_FRIST), så en vakt som svarar långsamt stoppar ändå; en krok som hänger helt är kvar som risk.
 
 Godkänt kräver varje kriterium i KRITERIER, observerat i transkriptet eller filsystemet. Ett kriterium som inte kan
 observeras (transkriptet saknas) är ej observerat och underkänner provet; en attrapp av claude ger aldrig godkänt.

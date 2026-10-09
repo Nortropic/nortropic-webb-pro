@@ -12,12 +12,15 @@ nekas när den läses, om den inte ligger i en tillåten katalog. Vägen prövas
 katalog till något utanför nekas. Glob och Grep tillåts bara med en väg i en tillåten katalog (utan väg söker de i hela
 arbetskatalogen och nekas), och ett Glob-mönster får inte gå uppåt eller vara absolut.
 
-Vakten stänger vid fel, som kundvakten: Read, Glob och Grep står inte i den blinda sessionens --allowedTools, så bara
-vaktens uttryckliga tillåtelse (permissionDecision allow på stdout, slutkod 0) öppnar en läsning. En läsning utanför
-listan stoppas med slutkod 2 och skälet på stderr. Kan vakten inte pröva läsningen (listan saknas eller är trasig, ett
-okänt verktyg, egen frist), eller startar den inte alls, får läsningen ingen tillåtelse och dontAsk nekar den
-(kontroller/atelje.py, session_args). Att Claude Code verkligen nekar en läsning som vakten inte tillåter, också när
-kroken dör, är prövat med attrapper här och kräver ett verkligt sessionsprov (kontroller/formagoprov.py).
+Vakten stoppar en läsning utanför listan med slutkod 2 och skälet på stderr, och den stoppar också när den inte kan
+pröva läsningen (listan saknas eller är trasig, ett okänt verktyg, egen frist) eller inte startar alls (kommandots
+`|| exit 2`). Inom sessionens arbetskatalog är vaktens slutkod 2 den enda spärren: dontAsk nekar inte Read där, också
+när Read inte står i --allowedTools (ett verkligt prov 2026-10-09 av en parallell session, Claude Code 2.1.290). Slår
+Claude Codes egen tidsgräns för kroken till först räknas det som ett fel som inte blockerar, och läsningen går igenom.
+Därför är krokens tidsgräns (KROK_FRIST) klart längre än vaktens egen frist (FRIST): vakten hinner alltid svara 2 själv.
+En krok som hänger längre än KROK_FRIST (processen startar aldrig klart) släpper fortfarande igenom en läsning i
+arbetskatalogen; det är en kvarstående begränsning som kräver ett verkligt sessionsprov (kontroller/formagoprov.py, S3)
+och, om den ska stängas helt, blinda sessioner i en arbetskatalog utan något hemligt.
 """
 import json
 import os
@@ -25,7 +28,8 @@ import signal
 import sys
 from pathlib import Path
 
-FRIST = 20
+FRIST = 20  # vaktens egen frist: när den tar slut stoppas läsningen (slutkod 2)
+KROK_FRIST = 60  # Claude Codes tidsgräns för kroken: klart över FRIST, annars kan en långsam vakt släppa igenom en läsning
 VERKTYG = ('Read', 'Glob', 'Grep')
 MATCH = 'Read|Glob|Grep'
 
@@ -85,9 +89,12 @@ def provning(lista, anrop):
     return 'den blinda sessionen får inte söka i %s: vägen står inte på sessionens tillåtelselista' % v
 
 
-def krok(listfil, rot=None, timeout=FRIST):
+def krok(listfil, rot=None, timeout=KROK_FRIST):
     """Krokens post i --settings (PreToolUse) för en blind session. rot: motorns rot som absolut väg i kommandot, när
-    sessionen har en annan arbetsrot (R06); annars $CLAUDE_PROJECT_DIR. Startar vakten inte, stoppas läsningen (exit 2)."""
+    sessionen har en annan arbetsrot (R06); annars $CLAUDE_PROJECT_DIR. Startar vakten inte, stoppas läsningen (exit 2).
+    timeout måste vara klart längre än vaktens egen frist, så att vakten själv hinner stoppa läsningen."""
+    if timeout < FRIST + 15:
+        raise ValueError('krokens tidsgräns (%s s) måste vara klart längre än vaktens frist (%d s)' % (timeout, FRIST))
     bas = str(rot) if rot else '$CLAUDE_PROJECT_DIR'
     kommando = ('"%s/.venv/bin/python" -B "%s/kontroller/blindvakt.py" "%s" '
                 "|| { echo 'blindvakten kunde inte pröva läsningen' >&2; exit 2; }") % (bas, bas, listfil)
