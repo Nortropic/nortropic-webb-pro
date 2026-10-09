@@ -6,7 +6,7 @@ kallref: BESLUT.md
 skapad: 2026-10-08
 prio: hog
 steg: efter backlogavstämningen; samordnat med B-20261008-ren-start-for-nortropic-2-0-och-samlad-startbesi; BESLUT.md; GR-20261008-bestallning-mot-leverans-codex.md
-andrad: 2026-10-08T21:28Z
+andrad: 2026-10-09T05:48Z
 ---
 # Slutför tidigare beställt införande: K01–K26, kundrepon, Vercel, 21st, materialsteget, planprövningens återgång (ägarens uppdrag 2026-10-08 ~14:58Z, köat)
 
@@ -186,3 +186,5 @@ Samordna med det redan köade arbetet för ren 2.0-start och samlad startkontrol
 ```
 
 **Pagar (2026-10-08):** Nattens uppdrag 2026-10-08: Codex fynd R01 (2E), R05 (2D), R06 (2A, mekaniken; av som förval), R07 (2B) och R08 (2A) rättade i 5a09fa8, med prov röda mot 06af6ff och gröna efter. Posten står kvar som pågår: det verkliga provet av arbetsroten i en riktig skaparsession, kundrepon på GitHub och Vercels förhandsvisning kräver ägarens start eller konton (nattrapporten, B).
+
+**Pagar (2026-10-09):** Ägarens uppdrag 2026-10-09 ~04:54Z, Codex omgranskning GR-20261009-natt-omgranskning-codex: N01 (2E) planprövningen bunden till planversionen per kandidat; ett uppdrag som omplanerats vid återupptagningen prövas före skaparen, och ett oprövat stoppas (f7d94b6). N02 (2D) materialverktygets kandidatgräns: inga förkortade flaggor, den slutligt tolkade kandidaten prövas, registret visar och använder bara egna och uttryckligen gemensamma tillgångar, och skaparens Read nekas registret (efc70ee). N04 (2A) läckagekontrollen före push gäller hela historiken som skickas, också vid första fjärrskapningen (utan gh --push) och för ett återanvänt kundrepo, bunden till den commit som pushas; projektstarten committar bara sina egna filer (e4a95cb). R06 (2A) kundrepot som arbetsrot i alla fyra vägarna: kandidatskissen och kandidatförfiningen (slug), de äldre vägarna (arbetsslug) och helbygget genom kor.sh (kontroller/arbetsrot.py med projektets krokar); sessionerna skriver aldrig i kundrepot, och ett kundrepo med egna inställningar används inte (fcfd3e9, 920e441). Växeln är av som standard. Förmågeprovet för arbetsroten och blindningen är förberett (kontroller/formagoprov.py, 6eb592b), inte kört. Prov: prov_omgranskning och prov_material, röda mot 2c7aa5a och gröna efter (RAPPORT-2026-10-09-n01-n06-blindning-arbetsrot). Inte verifierat; posten står kvar som pågår: förmågeprovet, kundrepo i organisationen och en verklig förhandsvisning återstår.

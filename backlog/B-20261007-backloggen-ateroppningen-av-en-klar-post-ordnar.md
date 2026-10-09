@@ -7,8 +7,8 @@ fynd: GR-20261007-r99-om#KAN-1
 skapad: 2026-10-07
 prio: normal
 steg: main: kontroller/backlog.py, kontroller/rokprov/revision/prov_dokumentation.py
-commit: 6784340
-andrad: 2026-10-08T21:28Z
+commit: 2a32952
+andrad: 2026-10-09T05:48Z
 ---
 # Backloggen: återöppningen av en klar post ordnar rapporterna efter tid, inte efter rundans nummer
 
@@ -19,3 +19,5 @@ andrad: 2026-10-08T21:28Z
 **Klart när:** De tre fallen i GR-20261007-r99-om#KAN-1 har var sitt prov i prov_dokumentation.py, och det som inte kan avgöras säger ny tydligt i sin utdata.
 
 **Klar (2026-10-08):** Nattens uppdrag 2026-10-08: ordningen efter registreringstid, rapporthuvudets datum och rundan bara samma dag och form; de tre fallen och N08 i prov_dokumentation, utfallet på stdout; rött mot basen, grönt efter, fem mutanter fälls. Inte verifierad.
+
+**Klar (2026-10-09):** GR-20261009-natt-omgranskning-codex#N06: registreringstiderna tolkas som tidpunkter med tidszon (Z och +00:00, med bråksekunder; en annan zon räknas om); samma ögonblick är aldrig senare. prov_dokumentation fall 5 genom backlog.py ny, rött mot 2c7aa5a. Förteckningens rader orörda. Inte verifierad.

@@ -5,8 +5,8 @@ kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
-commit: e0d918f
-andrad: 2026-10-08T22:15Z
+commit: 44cb6d3
+andrad: 2026-10-09T05:48Z
 ---
 # Bildernas uppgift och leveransens visuella status: färdig mot begränsad av saknat material
 
@@ -19,3 +19,5 @@ andrad: 2026-10-08T22:15Z
 **Vilande (2026-10-05):** Avstämt 2026-10-05: granskarens tvådelade bedömning av saknat underlag levererad (GRANSKARE.md, via instruktionsposten); skapandeflödets riktningar skiljer sig i bildstrategi, så en typografisk grundidé prövas när fotona inte bär. Kvar: uppgift per bild i BILDER.md med granskarens kriterium för huvudbilden, och statusen "visuellt begränsad av saknat material" i rapport och dashboard.
 
 **Klar (2026-10-08):** Nattens uppdrag 2026-10-08/09: bildstatus.py och statusen i dashboarden, uppgiften per bild i BILDER.md, den typografiska lösningen i KONCEPT.md, rapportens punkt 13 och granskarens kriterium 3; prov_bildstatus. Statusen i en verklig RAPPORT.md prövas först i ett helbygge (RAPPORT-2026-10-08-natt-codex-rester-backlog). Inte verifierad.
+
+**Klar (2026-10-09):** GR-20261009-natt-omgranskning-codex#N05: kontraktet mellan BESTALLNING.md:s skrivare och statusen: förberedelsen och bygg-sajt steg 3 skriver ett uttryckligt besked (Bildmaterial: komplett eller saknas); en rad om en saknad bild ger begränsad också i förberedelsens format; tomt, okänt eller utan besked ger okänd, aldrig färdig; det som hette visuellt färdig heter bildmaterialet komplett och är inget godkännande av formgivningen. prov_bildstatus omskrivet (fallen som befäste färdigbeskedet), rött mot 2c7aa5a på beteendet. Inte verifierad.
