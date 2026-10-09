@@ -1112,6 +1112,7 @@ class Arbetsyta(unittest.TestCase):
                 '200 med JSON': ({'status': 200, 'innehallstyp': 'application/json; charset=utf-8'}, 1),
                 'inget svar': ({'status': None}, 1),
                 '200 med HTML': ({'status': 200, 'innehallstyp': 'text/html; charset=utf-8'}, 0),
+                'inspektion utan statusfält': ({'konsol': []}, 0),
                 'äldre inspektion utan typ': ({'status': 200}, 0)}
         for namn, (r, antal) in fall.items():
             with self.subTest(namn):

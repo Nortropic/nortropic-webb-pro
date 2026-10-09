@@ -78,10 +78,13 @@ def ogiltig_sida(ins):
     """Skälen till att en fotograferad vy inte är kandidatens sida, ur INSPEKTION.json: huvuddokumentet svarade inte 200,
     eller svarade med något annat än HTML (ett JSON-fel, en fil). Det fångar en felsida som fotograferats som
     ögonblicksbild (arbetsytans testdata 2026-10-09, Codex fynd O1). Det fångar inte en sida som svarar 200 med HTML men
-    visar ett fel, en tom sida eller fel innehåll; den bedöms av den som ser bilden. Saknas uppgiften (äldre
-    inspektioner utan innehållstyp) prövas bara statusen."""
+    visar ett fel, en tom sida eller fel innehåll; den bedöms av den som ser bilden. En uppgift som saknas prövas inte:
+    utan statusfält (en inspektion som inte bär det) ingen statusprövning, utan innehållstyp bara statusen; status null
+    betyder att sidan inte svarade alls, och det är ett fel."""
     skal = []
     for vy, r in sorted(((ins or {}).get('vyer') or {}).items()):
+        if 'status' not in r:
+            continue
         st, typ = r.get('status'), str(r.get('innehallstyp') or '')
         if st != 200:
             skal.append('%s px: sidan svarade %s, inte 200' % (vy, st if st is not None else 'inte alls'))
