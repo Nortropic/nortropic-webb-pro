@@ -2285,6 +2285,36 @@ def planprovning_behov(slug, ids):
     return [kid for kid in ids if ska_skapas(las_status(slug, kid)) and (kid not in k or provade.get(kid) != uppdrag_sha(k.get(kid)))]
 
 
+def planprovningens_tackning(so, plan, provas):
+    """F01 (GR-20261009-metod-till-resultat-codex): vilka av de begärda uppdragen svaret faktiskt bedömt. Ett uppdrag räknas
+    bara med exakt en post i svaret och en användbar bedömning (en text med ord, inte tom eller bara tecken); ett id som
+    står flera gånger, ett okänt id och ett id utanför omprövningen räknas aldrig som täckning. Ger (bedomda, tackning):
+    bedomda {kid: posten}, och tackning med de begärda, de bedömda och skälet för varje obedömt uppdrag."""
+    poster = [x for x in (so or {}).get('kandidater') or [] if isinstance(x, dict)]
+    antal = {}
+    for x in poster:
+        antal[str(x.get('id') or '')] = antal.get(str(x.get('id') or ''), 0) + 1
+    kanda = (plan or {}).get('kandidater') or {}
+    bedomda, skal, okanda = {}, {}, []
+    for x in poster:
+        kid = str(x.get('id') or '')
+        if kid not in kanda:
+            okanda.append(kid)
+        elif kid not in provas:
+            continue
+        elif antal[kid] > 1:
+            skal[kid] = 'id:t står %d gånger i svaret' % antal[kid]
+        elif not (isinstance(x.get('bedomning'), str) and re.search(r'\w{2,}', x['bedomning'])):
+            skal[kid] = 'bedömningen är tom eller oanvändbar'
+        else:
+            bedomda[kid] = x
+    for kid in provas:
+        if kid not in bedomda and kid not in skal:
+            skal[kid] = 'svaret saknar en bedömning av uppdraget' if so else 'prövningen gav inget giltigt svar'
+    return bedomda, {'begarda': list(provas), 'bedomda': sorted(bedomda), 'obedomda': {k: skal[k] for k in provas if k in skal},
+                     'okanda': sorted(set(okanda))}
+
+
 def arkivera_planprovning(slug):
     """Den tidigare prövningen (PLANPROVNING.json och .md) flyttas till PLANPROVNING-tidigare-<n>.*, så att den bevaras och
     aldrig gäller en annan planversion. Ger {'fil', 'tid', 'provade'}."""
@@ -2297,7 +2327,10 @@ def arkivera_planprovning(slug):
     os.replace(r / 'PLANPROVNING.json', mal)
     if (r / 'PLANPROVNING.md').is_file():
         os.replace(r / 'PLANPROVNING.md', r / ('PLANPROVNING-tidigare-%d.md' % n))
-    return {'fil': rel(mal), 'tid': gammal.get('tid'), 'provade': gammal.get('provade') if isinstance(gammal.get('provade'), dict) else {}}
+    return {'fil': rel(mal), 'tid': gammal.get('tid'), 'provade': gammal.get('provade') if isinstance(gammal.get('provade'), dict) else {},
+            'bedomningar': {**((gammal.get('tidigare_bedomningar') or {}) if isinstance(gammal.get('tidigare_bedomningar'), dict) else {}),
+                            **{str(x.get('id')): x.get('bedomning') for x in gammal.get('kandidater') or []
+                               if isinstance(x, dict) and str(x.get('id') or '') in (gammal.get('provade') or {})}}}
 
 
 def planprovning(slug, bara=None, _foregaende=None):
@@ -2350,21 +2383,27 @@ def planprovning(slug, bara=None, _foregaende=None):
         *research_rader(slug), '', *material_rader(slug), '',
         *skapande.fakta_rader(slug, atelje.UNDERLAG), '',
         'Fälten du kan ändra: %s.' % ', '.join(falt),
-        'Svara i schemat: per uppdrag (id som k01) bedömningen och ändringarna (fält, ny text, skill, varför); och en kort',
-        'sammanfattning av vad specialisterna ändrade i planen.', atelje.MATERIAL])
+        'Svara i schemat: exakt en post per uppdrag som prövas (%s), med bedömningen och ändringarna (fält, ny text, skill,' % ', '.join(provas),
+        'varför); och en kort sammanfattning av vad specialisterna ändrade i planen. Ett uppdrag utan en egen bedömning räknas',
+        'som oprövat och går inte till skaparen.', atelje.MATERIAL])
     start = time.monotonic()
     svar = atelje.session(prompt, LASVERKTYG + kompetens.verktyg('planprovning', slug), r / 'svar-planprovning.json', PLANPROVNING_SCHEMA, 200,
                           atelje.MODELL, EFFORT_SKISS, FRIST_PLAN, slug=slug)
     so = svar.get('structured_output') or {}
     kv = kompetens.kvitto([svar], 'planprovning')
+    bedomda, tackning = planprovningens_tackning(so, plan, provas)  # F01: täckningen före stämpeln
     andrade, ogjorda = [], []
     for x in so.get('kandidater') or []:
+        if not isinstance(x, dict):
+            continue
         kid = str(x.get('id') or '')
         for a in x.get('andringar') or []:
             if kid not in (plan.get('kandidater') or {}):
                 ogjorda.append((kid, a, 'okänt uppdrag'))
             elif kid not in provas:  # N01: omprövningen ändrar bara de uppdrag den prövar
                 ogjorda.append((kid, a, 'redan prövat; bara %s prövas nu' % ', '.join(provas)))
+            elif bedomda.get(kid) is not x:  # F01: en ändring utan en giltig, unik bedömning görs inte
+                ogjorda.append((kid, a, 'uppdraget är inte giltigt bedömt (%s)' % tackning['obedomda'].get(kid, 'dubblerad post')))
             elif a.get('falt') in lasta:
                 ogjorda.append((kid, a, 'fältet är låst'))
             elif a.get('falt') not in falt:
@@ -2378,6 +2417,8 @@ def planprovning(slug, bara=None, _foregaende=None):
                 andrade.append((kid, a))
     atergangar = []  # återgången (uppdraget 2026-10-08, 2E): invändningar som kräver ny hypotes, ny referens eller mer research
     for x in so.get('kandidater') or []:
+        if not isinstance(x, dict):
+            continue
         kid, ag = str(x.get('id') or ''), x.get('atergang') if isinstance(x.get('atergang'), dict) else None
         if not ag or ag.get('typ') in (None, 'ingen'):
             continue
@@ -2385,6 +2426,8 @@ def planprovning(slug, bara=None, _foregaende=None):
             ogjorda.append((kid, {'falt': 'atergang'}, 'okänt uppdrag'))
         elif kid not in provas:
             ogjorda.append((kid, {'falt': 'atergang'}, 'redan prövat; bara %s prövas nu' % ', '.join(provas)))
+        elif bedomda.get(kid) is not x:
+            ogjorda.append((kid, {'falt': 'atergang'}, 'uppdraget är inte giltigt bedömt (%s)' % tackning['obedomda'].get(kid, 'dubblerad post')))
         elif plan.get('atergang'):
             ogjorda.append((kid, {'falt': 'atergang'}, 'en återgång per plan är gjord (%s); invändningen står i bedömningen' % ', '.join(
                 plan['atergang'].get('omplanerade') or plan['atergang'].get('kandidater') or [])))
@@ -2400,7 +2443,8 @@ def planprovning(slug, bara=None, _foregaende=None):
                 satt_status(slug, kid, las_status(slug, kid).get('status') or 'planerad', 'uppdraget prövat av specialisterna',
                             titel=k.get('titel'), hypotes=k.get('hypotes'), huvudreferens=k.get('huvudreferens'))
     post = {'tid': nu(), 'sekunder': int(time.monotonic() - start), 'sammanfattning': so.get('sammanfattning') or '',
-            'kandidater': [{'id': x.get('id'), 'bedomning': x.get('bedomning')} for x in so.get('kandidater') or []],
+            'kandidater': [{'id': x.get('id'), 'bedomning': x.get('bedomning')} for x in so.get('kandidater') or [] if isinstance(x, dict)],
+            'tackning': tackning,
             'andrade': len(andrade), 'gjorda': [{'id': k_, **a} for k_, a in andrade],
             'ogjorda': [{'id': k_, 'falt': a.get('falt'), 'skal': s_} for k_, a, s_ in ogjorda],
             'kvitto': kompetens_kort(kv),  # hela kvittoformen (R03)
@@ -2426,7 +2470,10 @@ def planprovning(slug, bara=None, _foregaende=None):
     plan_nu = atelje.las_json(r / 'KANDIDATPLAN.json') or plan
     fore_ = (_foregaende or {}).get('provade') or {}
     post['provade'] = dict({k_: v_ for k_, v_ in fore_.items() if k_ not in provas and v_ == uppdrag_sha((plan_nu.get('kandidater') or {}).get(k_))},
-                           **provade_uppdrag(slug, plan_nu, provas))
+                           **provade_uppdrag(slug, plan_nu, [k_ for k_ in provas if k_ in bedomda]))  # F01: bara de giltigt bedömda
+    behallna = {k_: b_ for k_, b_ in ((_foregaende or {}).get('bedomningar') or {}).items() if k_ in post['provade'] and k_ not in provas}
+    if behallna:  # de oförändrade uppdragens giltiga bedömningar följer med, så att posten säger vad varje stämpel vilar på
+        post['tidigare_bedomningar'] = behallna
     if bara:
         post['omprovning'] = {'kandidater': provas, 'foregaende': (_foregaende or {}).get('fil'), 'foregaende_tid': (_foregaende or {}).get('tid')}
         if (post.get('atergang') or {}).get('misslyckade'):  # runda 1:s besked gäller inte de uppdrag som sedan omplanerats
@@ -2439,6 +2486,9 @@ def planprovning(slug, bara=None, _foregaende=None):
              'Filer lästa hela: %d av %d%s. Skillverktyget: %s. MCP-anrop: %s.' % (
                  len(kv.get('lasta') or []), len(kv.get('filer') or []), '' if kv.get('verifierad') else ' (ej verifierat)',
                  ', '.join(kv.get('skill_anrop') or []) or 'inga', ', '.join('%s ×%d' % i for i in (kv.get('mcp_anrop') or {}).items()) or 'inga'), '',
+             'Täckning: %d av %d begärda uppdrag giltigt bedömda%s.' % (
+                 len(tackning['bedomda']), len(tackning['begarda']), (' Obedömda, som inte går till skaparen förrän de prövats: %s.' % '; '.join(
+                     '%s (%s)' % kv_ for kv_ in tackning['obedomda'].items())) if tackning['obedomda'] else ''), '',
              str(post['sammanfattning']), '']
     for x in post['kandidater']:  # bara de ändringar som gjordes; de som inte gjordes står för sig med skälet (G8)
         rader += ['## %s' % x.get('id'), '', str(x.get('bedomning') or '')]
@@ -3578,8 +3628,11 @@ def kor(slug, status, skriv, n=None):
         for kid in ids:
             st_ = las_status(slug, kid)
             if kid in saknas_ and not st_.get('planprovning_saknas'):
-                satt_status(slug, kid, 'fel', 'uppdraget i sin nuvarande version är inte planprövat; skaparen får det först efter en prövning',
-                            planprovning_saknas={'tid': nu(), 'uppdrag_sha': uppdrag_sha(plan_.get(kid)), 'status_fore': st_.get('status')})
+                skal_pp = ((atelje.las_json(r / 'PLANPROVNING.json') or {}).get('tackning') or {}).get('obedomda', {}).get(kid)  # F01
+                satt_status(slug, kid, 'fel', 'uppdraget i sin nuvarande version är inte planprövat%s; skaparen får det först efter en prövning'
+                            ' (nästa start prövar det igen)' % ((': ' + skal_pp) if skal_pp else ''),
+                            planprovning_saknas={'tid': nu(), 'uppdrag_sha': uppdrag_sha(plan_.get(kid)), 'status_fore': st_.get('status'),
+                                                 **({'skal': skal_pp} if skal_pp else {})})
             elif kid not in saknas_ and st_.get('planprovning_saknas'):
                 satt_status(slug, kid, (st_['planprovning_saknas'] or {}).get('status_fore') or 'planerad', 'uppdraget är planprövat',
                             ta_bort=('planprovning_saknas',))
