@@ -240,7 +240,7 @@ async function vantaPa(villkor, text, ms = 5000) { const slut = Date.now() + ms;
 const startPosts = () => posts.filter((p) => p.vag === `/api/flode/${SLUG}/start`).map((p) => p.body);
 
 let browser;
-const sammanfattning = { bredder: [320, 390, 768, 1280, 1440, 1672] };
+const sammanfattning = { bredder: [320, 390, 768, 1024, 1280, 1440, 1672] };
 try {
   browser = await chromium.launch({ headless: true });
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -347,6 +347,19 @@ try {
         assert(s2.bredd <= s2.fonster, `Arbetsyta, ${knapp}: sidledes spill vid ${w} px (${s2.bredd} > ${s2.fonster})`);
       }
     } else assert.deepEqual(await synliga(), ['ay-dialog', 'ay-mitten', 'ay-roller'], `vid ${w} px ska samtal, resultat och sessioner synas samtidigt`);
+    // klippt inuti panelerna, inte spill på sidan: rubriken Resultat och Kontrollers knappar (sett med verklig data vid 1440)
+    const klippt = await page.evaluate(() => {
+      const ut = [], h = document.getElementById('ay-material-rubrik');
+      if (!h || h.scrollWidth > h.clientWidth) ut.push('rubriken ' + (h ? h.textContent : 'saknas'));
+      const k = document.getElementById('ay-ktl')?.closest('.ay-panel');
+      if (!k) ut.push('Kontroller saknas');
+      else for (const b of k.querySelectorAll('.ay-knapp')) {
+        const r = b.getBoundingClientRect(), p = k.getBoundingClientRect();
+        if (r.right > p.right + 0.5 || b.scrollWidth > b.clientWidth + 0.5) ut.push('knappen ' + b.textContent.trim());
+      }
+      return ut;
+    });
+    assert.deepEqual(klippt, [], `Arbetsyta vid ${w} px: klippt innehåll i panelerna`);
     if ([390, 1440].includes(w)) await bild('arbetsyta', w);
   }
   sammanfattning.ett_omrade_at_gangen = true;

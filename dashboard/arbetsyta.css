@@ -103,8 +103,8 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-ytan[data-vanster-dold] > .ay-dialog, .ay-ytan[data-hoger-dold] > .ay-roller, .ay-ytan[data-vanster-dold] > [data-delare="vanster"], .ay-ytan[data-hoger-dold] > [data-delare="hoger"] { display: none; }
 .ay-delare { cursor: col-resize; border-radius: 3px; align-self: stretch; background: transparent; }
 .ay-delare:hover, .ay-delare:focus-visible { background: var(--ay-linje2); }
-.ay-mitten { display: grid; grid-template-rows: minmax(300px, 1fr) minmax(150px, 210px); gap: var(--ay-gap); min-width: 0; min-height: 0; }
-.ay-remsa > .ay-panel { min-height: 0; overflow: hidden; }
+.ay-mitten { display: grid; grid-template-rows: minmax(300px, 1fr) auto; gap: var(--ay-gap); min-width: 0; min-height: 0; container: mitten / inline-size; }
+.ay-remsa > .ay-panel { min-height: 150px; max-height: 210px; overflow: hidden; }
 .ay-remsa .ay-panelhuvud { min-height: 40px; padding: 8px 14px; }
 .ay-bekrafta { align-content: start; }
 .ay-fallknapp { display: none; }
@@ -137,6 +137,7 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 
 /* huvudmaterialet */
 .ay-material .ay-panelhuvud { flex-wrap: wrap; gap: 8px; }
+.ay-material .ay-panelhuvud h2 { flex: 1 0 auto; }  /* rubriken behåller sin bredd; verktygen bryts till nästa rad */
 .ay-segment { flex-wrap: wrap; max-width: 100%; }
 .ay-adress { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--ay-linje); font-size: 12.5px; color: var(--ay-dampad); min-width: 0; }
 .ay-adress .etikett { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -153,12 +154,19 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-underlagslista { display: grid; gap: 6px; align-content: start; }
 .ay-underlagslista a { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid var(--ay-linje); border-radius: 7px; text-decoration: none; color: var(--ay-text); background: var(--ay-yta); }
 .ay-remsa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr); gap: var(--ay-gap); }
+/* smal mittkolumn (1280 px med sidopanelerna, eller dragna delare): tre kolumner blev ~140 px och klippte knapparna;
+   Kontroller tar då hela raden och de två andra står bredvid varandra */
+@container mitten (max-width: 640px) {
+  .ay-remsa { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ay-remsa > .ay-panel:first-child { grid-column: 1 / -1; min-height: 0; }
+}
 .ay-remsa .ay-panelkropp { padding: 10px 14px 12px; }
 .ay-handelser { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 12.5px; }
 .ay-handelser li { display: grid; grid-template-columns: 52px 1fr; gap: 8px; }
 .ay-handelser time { color: var(--ay-svag); }
 .ay-knapprad { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .ay-bekrafta { display: grid; gap: 8px; }
+.ay-bekrafta .ay-knapp { white-space: normal; overflow-wrap: anywhere; max-width: 100%; text-align: left; }  /* långa handlingsnamn bryts i stället för att klippas */
 
 /* rollsessionerna */
 .ay-roller .ay-panelkropp { display: grid; gap: 14px; align-content: start; }
@@ -224,8 +232,8 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 /* smala skärmar: ett område åt gången */
 .ay-omraden { display: none; }
 @media (max-width: 1100px) {
-  .ay { --ay-vanster: 300px; --ay-hoger: 270px; }
-  .ay-remsa { grid-template-columns: 1fr 1fr; }
+  .ay { --ay-vanster: 260px; --ay-hoger: 240px; }  /* 300 + 270 + mitten 420 spillde 44 px vid 1024 */
+  .ay-ytan { grid-template-columns: var(--ay-vanster) 6px minmax(300px, 1fr) 6px var(--ay-hoger); }
   .ay-kod { grid-template-columns: 210px minmax(0, 1fr); grid-template-rows: auto; }
   .ay-kod .ay-filer { grid-row: auto; }
   .ay-kod .ay-preview { grid-column: 1 / -1; }
@@ -243,7 +251,7 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
   .ay-meny nav { position: fixed; top: auto; left: auto; right: 14px; max-height: 70vh; overflow-y: auto; }
   .ay-ytan, .ay-kod { height: auto; }
   .ay-mitten { grid-template-rows: auto auto; }
-  .ay-remsa > .ay-panel { overflow: visible; }
+  .ay-remsa > .ay-panel { overflow: visible; min-height: 0; max-height: none; }
   .ay-omraden { display: flex; padding: 10px 14px 0; }
   .ay-ytan, .ay-ytan[data-vanster-dold], .ay-ytan[data-hoger-dold] { grid-template-columns: 1fr; padding: 10px 14px 16px; }
   .ay-delare { display: none; }
