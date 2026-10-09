@@ -52,6 +52,8 @@ class KundstartFlode(unittest.TestCase):
     def paket(self):
         p=self.u/'atelje/forberett';p.mkdir(parents=True)
         for n in fb.FILER:(p/n).write_text('Syntetiskt arbetsunderlag '+n)
+        (p/'KUNDFORSTAELSE.md').write_text('\n\n'.join('## %s\n\n%s'%(r,'- Antaget: syntetiskt.' if r==fb.KUNDFORSTAELSE_RUBRIKER[-1] else 'Syntetiskt.')
+                                                    for r in fb.KUNDFORSTAELSE_RUBRIKER)+'\n')  # förberedelsens sex rubriker (2026-10-09)
         return p
 
     def test_ny_kundrattelse_nekar_start_trots_oforandrade_snapshotfiler(self):
