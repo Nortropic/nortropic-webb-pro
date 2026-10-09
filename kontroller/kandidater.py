@@ -138,6 +138,7 @@ MENYKNAPP = forhandsvisa.MENYKNAPP
 STARTVYER = '390,768,1280,1440'  # startsidans bilder; 1280 är mellanbredden där en fast datorlayout spiller (ägaren 2026-10-06)
 FOTO_RESERV = 180  # sekunder av försökets tid för fotograferingen och kontrollerna efter sessionen
 KOMPETENSPASS = ('rorelse', 'granskning')  # efter fördjupningen, en gång var och i den ordningen; inga redigerande pass före ägarens val (Codex via ägaren 2026-10-05, punkt 8)
+PASS_OMGANGAR = 2  # F03: passets omgångar, det första och ett uttryckligt nytt försök (begar_nytt_passforsok); ingen slinga
 FRIST_PASS = int(os.environ.get('NWP_KANDIDAT_FRIST_PASS') or 720)  # ett kompetenspass: läsningen, en omgång och en bekräftelse
 FRIST_PASS_OMFORSOK = 420  # ett pass som inte läste sina filer får ett omförsök
 PASSBILDER = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
@@ -2120,8 +2121,12 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
     pass görs inte om, och ett avbrutet återställs till versionen före innan det görs om (G4)."""
     nyckel = '%s:%s' % (fas, pass_)
     st = las_status(slug, kid)
-    if ((st.get('kompetens') or {}).get(nyckel) or {}).get('klar'):
-        return st
+    rec0 = (st.get('kompetens') or {}).get(nyckel) or {}
+    if rec0.get('klar'):  # F03: ett avslutat försök är inte ett uppfyllt pass
+        if pass_uppfyllt(rec0):
+            return st
+        if not rec0.get('nytt_forsok') or int(rec0.get('omgang') or 1) >= PASS_OMGANGAR:
+            return st  # misslyckat och inget nytt försök begärt (eller budgeten slut): står kvar som ej uppfyllt, görs inte om av sig självt
     d = kdir(slug, kid)
     pagar = st.get('pass_pagar') or {}
     if pagar.get('nyckel') == nyckel and pagar.get('fore'):  # ett pass som avbröts: versionen före gäller
@@ -2174,6 +2179,9 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
     aterstalld = None
     axe1 = (efter_st.get('axe') or {}).get('allvarliga')
     samre = isinstance(axe0, int) and isinstance(axe1, int) and axe1 > axe0
+    # F03: brister kärnkravet också i sista försöket gäller versionen före passet; arbete utan kärnan blir aldrig kvar
+    karna_brist = ([Path(f).name for f in kv.get('saknas') or []] + ['%s (läst först efter första ändringen)' % Path(f).name
+                                                                     for f in kompetens.sen_karna(kv) or []]) if kv.get('verifierad') else []
     if efter_st.get('status') != 'klar' or samre:  # passet bröt eller försämrade sidan: versionen före gäller
         orsak = ('fler allvarliga axe-fynd (%d mot %d före)' % (axe1, axe0)) if efter_st.get('status') == 'klar' else str(efter_st.get('skal'))[:200]
         try:
@@ -2181,6 +2189,14 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
             aterstalld = 'passet försämrade sidan (%s); versionen före är återställd' % orsak
         except Exception as e:  # noqa: BLE001 — då är kandidaten ofullständig, aldrig klar med en trasig sida (G5)
             aterstalld = 'passet försämrade sidan (%s) och återställningen föll: %s' % (orsak, str(e)[:200])
+            status0 = 'ofullstandig'
+    elif karna_brist and las_status(slug, kid).get('version') != v0:
+        orsak = 'kärnkravet uppfylldes inte i sista försöket: %s' % ', '.join(karna_brist)
+        try:
+            aterstall_och_fotografera(slug, kid, v0)
+            aterstalld = '%s; sista försökets ändringar är återställda till versionen före passet' % orsak
+        except Exception as e:  # noqa: BLE001 — arbetet utan kärnan kunde inte tas bort: kandidaten är ofullständig
+            aterstalld = '%s, och återställningen föll: %s' % (orsak, str(e)[:200])
             status0 = 'ofullstandig'
     st = las_status(slug, kid)
     efter = kopiera_bilder(d / 'bilder' / 'start', mal / 'efter')
@@ -2211,11 +2227,43 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
                          and all(b.get('bild_finns') for b in provat) and (andrad or bool(so.get('ingen_andring')))
                          and (anvanda is None or bool(anvanda))) if kv.get('verifierad') else None,
            'bilder': {'fore': fore, 'efter': efter}}
+    # F03: passet är uppfyllt bara när det är genomfört; klar säger bara att försöket avslutades
+    rec.update(uppfyllt=rec['genomford'] is True, omgang=int(rec0.get('omgang') or 1) + 1 if rec0 else 1, karna_brist=karna_brist,
+               **({'foregaende_omgang': {k_: rec0.get(k_) for k_ in ('klar', 'genomford', 'aterstalld', 'nytt_forsok', 'omgang')}} if rec0 else {}))
     kompetenser = dict(st.get('kompetens') or {})
     kompetenser[nyckel] = rec
     ny_status = 'ofullstandig' if status0 == 'ofullstandig' else (status0 if status0 in VISBARA else st.get('status'))
-    return satt_status(slug, kid, ny_status, aterstalld if status0 == 'ofullstandig' else st.get('skal', ''), kompetens=kompetenser,
-                       ta_bort=('session_pid', 'pass_pagar'))
+    skal = aterstalld if status0 == 'ofullstandig' else st.get('skal', '')
+    if rec['genomford'] is False:  # misslyckandet syns i kandidatens besked, inte bara i posten
+        skal = ('kompetenspasset %s uppfylldes inte%s%s' % (pass_, (': ' + aterstalld) if aterstalld else '',
+                                                             '' if rec['omgang'] >= PASS_OMGANGAR else '; ett nytt försök kan begäras (kandidater.py --nytt-passforsok)'))
+    return satt_status(slug, kid, ny_status, skal, kompetens=kompetenser, ta_bort=('session_pid', 'pass_pagar'))
+
+
+def pass_uppfyllt(rec):
+    """F03: är kompetenspasset uppfyllt? Ja bara när det genomförts (genomford true). En äldre post utan fältet uppfyllt
+    räknas som förut, utom när den redovisar genomford false: då är den aldrig uppfylld."""
+    if 'uppfyllt' in (rec or {}):
+        return rec['uppfyllt'] is True
+    return bool(rec) and rec.get('genomford') is not False
+
+
+def begar_nytt_passforsok(slug, kid, nyckel):
+    """F03: ett uttryckligt nytt försök för ett misslyckat kompetenspass, inom budgeten (PASS_OMGANGAR omgångar per pass).
+    Nästa återupptagning av fördjupningen gör passet om från den gällande versionen. Ger posten; ValueError med skälet."""
+    st = las_status(slug, kid)
+    rec = dict((st.get('kompetens') or {}).get(nyckel) or {})
+    if not rec.get('klar'):
+        raise ValueError('%s har inget avslutat pass %s' % (kid, nyckel))
+    if pass_uppfyllt(rec):
+        raise ValueError('passet %s är redan uppfyllt' % nyckel)
+    if int(rec.get('omgang') or 1) >= PASS_OMGANGAR:
+        raise ValueError('passet %s har redan gjorts %d gånger; budgeten är slut' % (nyckel, PASS_OMGANGAR))
+    rec['nytt_forsok'] = nu()
+    kompetenser = dict(st.get('kompetens') or {})
+    kompetenser[nyckel] = rec
+    satt_status(slug, kid, st.get('status'), 'ett nytt försök med kompetenspasset %s är begärt' % nyckel, kompetens=kompetenser)
+    return rec
 
 
 def efter_fordjupning(slug, kid, dom):
@@ -2229,9 +2277,15 @@ def efter_fordjupning(slug, kid, dom):
         st = kompetenspass(slug, kid, pass_, 'fordjupa:%s' % dom.get('tid'), dom)
     k = designkontroll(slug, kid)
     skal = st.get('skal', '')
+    fas = 'fordjupa:%s' % dom.get('tid')  # F03: ett pass som inte uppfyllts står kvar i kandidatens besked, också efter nästa pass
+    brister = {p_: ((st.get('kompetens') or {}).get('%s:%s' % (fas, p_)) or {}) for p_ in KOMPETENSPASS}
+    ej = [p_ for p_, r_ in brister.items() if r_.get('klar') and not pass_uppfyllt(r_)]
+    if ej and 'ej uppfyllda' not in skal:
+        skal = ('%s; kompetenspass ej uppfyllda: %s' % (skal, ', '.join(ej))).strip('; ')
     if not k['ok'] and 'DESIGN.md har brister' not in skal:
         skal = (skal + '; DESIGN.md har brister').strip('; ')
-    return satt_status(slug, kid, st.get('status'), skal, design_fel=k['fel'][:8], design_version=st.get('version'))
+    return satt_status(slug, kid, st.get('status'), skal, design_fel=k['fel'][:8], design_version=st.get('version'),
+                       kompetens_ej_uppfyllda=['%s:%s' % (fas, p_) for p_ in ej])
 
 
 PLANPROVNING_SCHEMA = {
@@ -4317,9 +4371,24 @@ def main(argv=None):
     p.add_argument('slug')
     p.add_argument('--status', action='store_true')
     p.add_argument('--fotografera', default=None, help='fotografera om en kandidat (kNN), utan session')
+    p.add_argument('--nytt-passforsok', nargs=2, metavar=('KID', 'NYCKEL'), default=None,
+                   help='begär ett nytt försök med ett misslyckat kompetenspass (nyckeln som fordjupa:<tid>:rorelse), inom budgeten')
     a = p.parse_args(argv)
     if not atelje.SLUG.match(a.slug):
         return 2
+    if a.nytt_passforsok:
+        kid, nyckel = a.nytt_passforsok
+        if not ID.fullmatch(kid) or kid not in lista(a.slug):
+            print('okänd kandidat: %s' % kid)
+            return 2
+        try:
+            rec = begar_nytt_passforsok(a.slug, kid, nyckel)
+        except ValueError as e:
+            print(e)
+            return 2
+        print('nytt försök begärt för %s %s (omgång %d av %d); det görs när fördjupningen återupptas' % (
+            kid, nyckel, int(rec.get('omgang') or 1) + 1, PASS_OMGANGAR))
+        return 0
     if a.fotografera:
         if not ID.fullmatch(a.fotografera) or a.fotografera not in lista(a.slug):
             print('okänd kandidat: %s' % a.fotografera)
