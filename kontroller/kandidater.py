@@ -613,9 +613,11 @@ def andra_nekas(slug, kid, utom=()):
     Grep och Glob; de läsande skalkommandona nekas (skal_nekas), annars läser de förbi förbuden (GR-20261007-r103#B1).
     Skaparens egna verktyg (förhandsvisningen, typsnitten, design, detektorn, uxsok) och Write, Edit och Read i det egna
     projektet berörs inte. Och skrivförbud för kundens bilder i det egna projektet (src/assets/atelje/): skaparen arbetar
-    i hela src/, men kundens original ändras aldrig (kvalitetskravet äkthet)."""
+    i hela src/, men kundens original ändras aldrig (kvalitetskravet äkthet). Materialregistret med tillgångarnas filer
+    (underlag/<slug>/material/) läses bara genom materialverktyget, som visar kandidatens egna och det gemensamma: en
+    annan kandidats koncept nås inte heller när det tillkommer under sessionen (GR-20261009-natt-omgranskning-codex#N02)."""
     egna = 'kunder/%s/kandidater/%s/sajt/src/assets/atelje/**' % (slug, kid)
-    ut = ['Write(./%s)' % egna, 'Edit(./%s)' % egna]
+    ut = ['Write(./%s)' % egna, 'Edit(./%s)' % egna, 'Read(./underlag/%s/material/**)' % slug]
     for annan in lista(slug):
         if annan != kid and annan not in utom:
             ut += ['Read(./kunder/%s/kandidater/%s/**)' % (slug, annan), 'Read(./underlag/%s/atelje/kandidater/%s/**)' % (slug, annan)]

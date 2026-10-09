@@ -26,7 +26,15 @@ med Egen nej och påstår verksamhet nej; atelje.egna_bilder tar aldrig med den.
 
 Skaparens session når verktyget bara kandidatavgränsat (kompetens.VERKTYG['material'], R05 i
 GR-20261008-06af6ff-omgranskning-codex): kommandot börjar med `<slug> --kandidat <id>`, --kandidat får stå en gång, och en
-fil som importeras (--fil, --canvas) måste ligga i kandidatens egen katalog under ateljén; allt annat vägras. Tre nivåer
+fil som importeras (--fil, --canvas) måste ligga i kandidatens egen katalog under ateljén; allt annat vägras.
+Kandidatgränsen prövas på de slutligt tolkade argumenten (N02 i GR-20261009-natt-omgranskning-codex): inga förkortade
+flaggor (--kand tolkades som --kandidat), och den kandidat som kommandot börjar med är den som verktyget arbetar för.
+Ägarskapet: en tillgång som en kandidat skapat (--canvas, --fil eller --bestall med --kandidat) är kandidatens privata
+(fältet kandidat); en tillgång som ägaren lagt in utan --kandidat är uttryckligen gemensamt kundmaterial (gemensam: true;
+en äldre rad utan kandidat räknas så). Med --kandidat ser --visa bara kandidatens egna och de gemensamma, och användningen,
+posterbilden och en ny version (--igen) vägras för en annan kandidats tillgång, med samma besked som för en okänd; en ny
+version av gemensamt material görs bara av ägaren. Registret och tillgångarnas filer nekas skaparens Read
+(kandidater.andra_nekas): verktyget är vägen dit. Tre nivåer
 hålls isär: lokal import och beredning (registret), leverantörsanrop (inte infört; konto krävs) och en tillgång som
 faktiskt används i renderingen (anvandning: kopierad, importerad i källan, med i bygget).
 Slutkod 0 när det begärda gjordes, 1 vid ett hinder (står i svaret), 2 vid ogiltigt anrop.
@@ -83,6 +91,25 @@ def skriv(slug, d):
     atelje.skriv_json_atomiskt(registerfil(slug), d)
 
 
+def tillhor(t, kandidat):
+    """Får kandidaten se och använda tillgången? Kandidatens egen eller uttryckligen gemensam; utan kandidat (ägaren) allt."""
+    if not kandidat:
+        return True
+    if not isinstance(t, dict):
+        return False
+    agare = t.get('kandidat')
+    return agare == kandidat or (not agare and t.get('gemensam', True) is not False)
+
+
+def synliga(d, kandidat):
+    """Registret som kandidaten får se: bara egna och gemensamma tillgångar, och i de gemensamma bara kandidatens egen
+    användning (var en annan kandidat lagt materialet är dess val; ägaren utan kandidat ser allt)."""
+    if not kandidat:
+        return d
+    return dict(d, tillgangar={k: dict(t, anvand=[a for a in t.get('anvand') or [] if a.get('kandidat') == kandidat])
+                               for k, t in d['tillgangar'].items() if tillhor(t, kandidat)})
+
+
 def nytt_id(d):
     n = 1 + max([int(k[1:]) for k in d['tillgangar'] if re.fullmatch(r'm\d{3,}', k)] or [0])
     return 'm%03d' % n
@@ -125,8 +152,9 @@ def webb(typ, ext):
             'hinder': ['posterbild krävs före användning (--poster <bild-id>)', 'mobilvariant saknas: leverantörens eller egen']}
 
 
-def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', igen=None, prompt=None):
-    """Ett visuellt uppdrag blir en tillgång (ny, eller en ny version av igen) hos leverantören. Ger tillgången."""
+def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', igen=None, prompt=None, kandidat=None):
+    """Ett visuellt uppdrag blir en tillgång (ny, eller en ny version av igen) hos leverantören. Ger tillgången. kandidat:
+    kandidatens privata tillgång, och en ny version bara av kandidatens egen (N02); utan kandidat ägarens, gemensam."""
     if typ not in TYPER or roll not in ROLLER or leverantor not in LEVERANTORER:
         raise ValueError('typ, roll eller leverantör är okänd')
     if typ not in LEVERANTORER[leverantor]['typer']:
@@ -134,10 +162,10 @@ def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', i
     d = las(slug)
     if igen:
         t = d['tillgangar'].get(igen)
-        if not t:
-            raise ValueError('okänd tillgång %s' % igen)
+        if not t or (kandidat and t.get('kandidat') != kandidat):  # en annan kandidats, eller gemensamt material: ägarens
+            raise ValueError('okänd tillgång %s' % igen + (' för kandidaten %s' % kandidat if kandidat else ''))
     else:
-        t = {'id': nytt_id(d), 'skapad': nu(), 'versioner': []}
+        t = {'id': nytt_id(d), 'skapad': nu(), 'versioner': [], 'kandidat': kandidat, 'gemensam': not kandidat}
     t.update({'uppdrag': str(uppdrag)[:1000], 'typ': typ, 'roll': roll, 'leverantor': leverantor, 'prompt': (prompt or uppdrag)[:2000],
               'pastar_verksamhet': False})
     n = len(t['versioner']) + 1
@@ -175,7 +203,7 @@ def importera(slug, fil, leverantor, uppdrag, kalla, rattigheter, typ=None, roll
         raise ValueError('%s gör inte %s' % (leverantor, typ))
     d = las(slug)
     t = {'id': nytt_id(d), 'skapad': nu(), 'versioner': [], 'uppdrag': str(uppdrag)[:1000], 'typ': typ, 'roll': roll, 'leverantor': leverantor,
-         'prompt': None, 'pastar_verksamhet': False, 'kandidat': kandidat}
+         'prompt': None, 'pastar_verksamhet': False, 'kandidat': kandidat, 'gemensam': not kandidat}
     f = version_fil(slug, t, 1, ext)
     shutil.copyfile(p, f)
     v = {'version': 1, 'tid': nu(), 'leverantor': leverantor, 'status': 'genererad', 'fil': 'material/%s/%s' % (t['id'], f.name),
@@ -204,12 +232,13 @@ def canvas(slug, fil, kandidat, uppdrag):
 def anvand(slug, tid, kandidat, plats, poster=None):
     """Den faktiska användningen: tillgångens senaste version in i kandidatens projekt (src/assets/material/) och en rad i
     kandidatens material/MATERIAL.md med Egen nej och påstår verksamhet nej. En stubb, en tillgång utan konto och en video
-    utan posterbild används aldrig. Ger {'ok', 'fil' | 'hinder'}."""
+    utan posterbild används aldrig. En annan kandidats tillgång, också som posterbild, är okänd för kandidaten (N02).
+    Ger {'ok', 'fil' | 'hinder'}."""
     import kandidater
     d = las(slug)
     t = d['tillgangar'].get(tid)
-    if not t:
-        return {'ok': False, 'hinder': 'okänd tillgång %s' % tid}
+    if not t or not tillhor(t, kandidat):
+        return {'ok': False, 'hinder': 'okänd tillgång %s för kandidaten %s' % (tid, kandidat)}
     v = t['versioner'][-1] if t.get('versioner') else {}
     if v.get('status') != 'genererad' or not v.get('fil'):
         return {'ok': False, 'hinder': 'tillgången %s är %s (%s) och används inte' % (tid, v.get('status') or 'utan version', v.get('hinder') or 'bara genererat material används')}
@@ -218,6 +247,7 @@ def anvand(slug, tid, kandidat, plats, poster=None):
     posterrad = ''
     if t['typ'] == 'video':
         p = d['tillgangar'].get(poster or '')
+        p = p if tillhor(p, kandidat) else None
         pv = p['versioner'][-1] if p and p.get('versioner') else {}
         if not p or p.get('typ') != 'bild' or pv.get('status') != 'genererad':
             return {'ok': False, 'hinder': 'en video kräver en genererad posterbild (--poster <bild-id>); den visas också vid reducerad rörelse'}
@@ -292,7 +322,10 @@ def main(argv=None):
     if argv.count('--kandidat') > 1 or sum(1 for x in argv if x.startswith('--kandidat=')) + argv.count('--kandidat') > 1:
         print(json.dumps({'ok': False, 'hinder': '--kandidat får stå en gång'}, ensure_ascii=False))
         return 2
-    p = argparse.ArgumentParser(prog='material', description=__doc__.split('\n\n')[0])
+    # N02: inga förkortningar (argparse tolkade --kand som --kandidat), och kandidaten i kommandots början (skaparens
+    # tillåtna form `<slug> --kandidat <id> …`) prövas mot den slutligt tolkade
+    bunden = argv[2] if len(argv) > 2 and argv[1] == '--kandidat' else None
+    p = argparse.ArgumentParser(prog='material', description=__doc__.split('\n\n')[0], allow_abbrev=False)
     p.add_argument('slug')
     p.add_argument('--bestall', help='det visuella uppdraget')
     p.add_argument('--typ', choices=TYPER, default=None)
@@ -309,15 +342,21 @@ def main(argv=None):
     p.add_argument('--poster')
     p.add_argument('--visa', action='store_true')
     p.add_argument('--anvandning', action='store_true')
-    a = p.parse_args(argv)
+    try:
+        a = p.parse_args(argv)
+    except SystemExit:
+        return 2
     if not atelje.SLUG.match(a.slug):
         print('ogiltig slug', file=sys.stderr)
+        return 2
+    if bunden is not None and a.kandidat != bunden:
+        print(json.dumps({'ok': False, 'hinder': 'kandidaten ändrades efter kommandots början (%s); verktyget arbetar bara för den' % bunden}, ensure_ascii=False))
         return 2
     try:
         if a.kandidat is not None and not re.fullmatch(r'k\d\d', a.kandidat):
             raise ValueError('kandidaten anges som kNN')
         if a.visa:
-            ut = las(a.slug)
+            ut = synliga(las(a.slug), a.kandidat)
         elif a.anvandning:
             if not a.kandidat:
                 raise ValueError('--anvandning kräver --kandidat')
@@ -334,7 +373,7 @@ def main(argv=None):
         elif a.anvand:
             ut = anvand(a.slug, a.anvand, a.kandidat, a.plats, a.poster)
         elif a.bestall:
-            ut = bestall(a.slug, a.bestall, a.typ or 'bild', a.leverantor, a.roll, a.igen)
+            ut = bestall(a.slug, a.bestall, a.typ or 'bild', a.leverantor, a.roll, a.igen, kandidat=a.kandidat)
         else:
             p.print_usage()
             return 2

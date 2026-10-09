@@ -147,5 +147,96 @@ class Skaparens_vag(unittest.TestCase):
         self.assertEqual(self.kor('--bestall', 'stämningsbild', '--leverantor', 'higgsfield'), 1, 'leverantörsanropet kräver konto: inget anrop')
 
 
+class Kandidatgrans(unittest.TestCase):
+    """N02 (GR-20261009-natt-omgranskning-codex): kandidatgränsen i materialsteget, två vägar var för sig. Väg A: de
+    slutligt tolkade argumenten; ett tillåtet k01-prefix skriver aldrig till k02, inte heller med en förkortad flagga.
+    Väg B: registret; k01 når inte k02:s privata koncept genom --visa, ett känt id, en posterbild eller en ny version,
+    och inte med Read i sessionen. k01:s eget och ägarens uttryckligen gemensamma material fungerar."""
+
+    kor = Skaparens_vag.kor
+
+    def setUp(self):
+        Skaparens_vag.setUp(self)  # samma kund och kandidater som R05:s prov, utan dess fall
+        (self.k02 / 'koncept').mkdir(parents=True)
+        p2 = self.k02 / 'koncept' / 'hero__k02-hemligt.png'; p2.write_bytes(b'\x89PNG\r\n\x1a\nk02')
+        self.assertEqual(material.main([self.slug, '--kandidat', 'k02', '--canvas', str(p2), '--bestall', 'K02 PRIVAT KONCEPT']), 0)
+        self.m_k02 = self.id_for('K02 PRIVAT KONCEPT')
+
+    def id_for(self, uppdrag):
+        return next(k for k, t in material.las(self.slug)['tillgangar'].items() if t['uppdrag'] == uppdrag)
+
+    def kopierat(self, kid):
+        d = kandidater.ksajt(self.slug, kid) / 'src' / 'assets' / 'material'
+        return sorted(x.name for x in d.iterdir()) if d.is_dir() else []
+
+    def utdata(self, *args):
+        import io
+        ut = io.StringIO()
+        with contextlib.redirect_stdout(ut):
+            rc = material.main([self.slug, '--kandidat', 'k01', *args])
+        return rc, ut.getvalue()
+
+    def test_a_ett_k01_prefix_skriver_aldrig_till_k02(self):
+        for forkortad in (['--kand', 'k02'], ['--kandi', 'k02'], ['--kand=k02'], ['--kandidat=k02']):
+            rc = material.main([self.slug, '--kandidat', 'k01', *forkortad, '--anvand', self.m_k02, '--plats', 'hero'])
+            self.assertEqual(rc, 2, forkortad)
+        self.assertEqual(self.kopierat('k02'), [], 'k01:s tillåtna prefix lade något i k02:s projekt')
+        self.assertEqual(self.kopierat('k01'), [])
+        self.assertNotIn('anvand', material.las(self.slug)['tillgangar'][self.m_k02], 'ingen användning bokfördes')
+        rc = material.main([self.slug, '--kandidat', 'k01', '--kand', 'k02', '--canvas', str(self.png), '--bestall', 'x'])
+        self.assertEqual(rc, 2, 'en förkortad flagga i importen')
+        self.assertEqual(len(material.las(self.slug)['tillgangar']), 1, 'inget registrerades')
+
+    def test_b1_visa_ger_inte_k02_privata_koncept(self):
+        rc, ut = self.utdata('--visa')
+        self.assertEqual(rc, 0)
+        self.assertNotIn('K02 PRIVAT KONCEPT', ut, '--visa gav k02:s koncept')
+        self.assertNotIn(self.m_k02, json.loads(ut)['tillgangar'])
+
+    def test_b2_ett_kant_id_ger_inte_k02_privata_koncept(self):
+        rc, ut = self.utdata('--anvand', self.m_k02, '--plats', 'hero')
+        self.assertEqual(rc, 1)
+        self.assertNotIn('K02 PRIVAT', ut)
+        self.assertEqual(self.kopierat('k01'), [], 'k01 använde k02:s koncept genom ett känt id')
+        fore = json.dumps(material.las(self.slug)['tillgangar'][self.m_k02], sort_keys=True)
+        self.assertEqual(self.utdata('--bestall', 'ny version', '--igen', self.m_k02)[0], 1, 'en ny version av k02:s koncept')
+        self.assertEqual(json.dumps(material.las(self.slug)['tillgangar'][self.m_k02], sort_keys=True), fore, 'k02:s tillgång ändrades')
+        # posterbilden: en video ur k01:s egen import med k02:s bild som poster vägras
+        (self.k01 / 'koncept' / 'film.mp4').write_bytes(b'mp4')
+        self.assertEqual(self.utdata('--fil', str(self.k01 / 'koncept' / 'film.mp4'), '--bestall', 'k01 film', '--kalla', 'egen', '--rattigheter', 'egna')[0], 0)
+        film = self.id_for('k01 film')
+        rc, ut = self.utdata('--anvand', film, '--plats', 'hero', '--poster', self.m_k02)
+        self.assertEqual(rc, 1, 'k02:s bild som poster')
+        self.assertEqual(self.kopierat('k01'), [])
+        # direkt läsning förbi verktyget: registret och filerna nekas skaparens Read i sessionens argument
+        import kompetens
+        a = atelje.session_args(kandidater.verktyg(self.slug, 'k01') + kompetens.verktyg('skapa', self.slug, 'k01'), None, 10, 'm', 'high',
+                                kandidater.andra_nekas(self.slug, 'k01'), self.slug)
+        nekade = a[a.index('--disallowedTools') + 1:]
+        self.assertIn('Read(./underlag/%s/material/**)' % self.slug, nekade)
+        self.assertEqual(material.main([self.slug, '--kandidat', 'k02', '--anvand', self.m_k02, '--plats', 'hero']), 0, 'k02 använder sitt eget')
+
+    def test_eget_och_gemensamt_material_fungerar(self):
+        self.assertEqual(self.kor('--canvas', str(self.png), '--bestall', 'K01 EGET'), 0)
+        egen = self.id_for('K01 EGET')
+        agarens = self.root / 'agarens.png'; agarens.write_bytes(b'\x89PNG agaren')
+        self.assertEqual(material.main([self.slug, '--fil', str(agarens), '--bestall', 'GEMENSAMT KUNDMATERIAL', '--kalla', 'kunden',
+                                        '--rattigheter', 'kundens']), 0, 'ägarens import utan --kandidat')
+        gem = self.id_for('GEMENSAMT KUNDMATERIAL')
+        t = material.las(self.slug)['tillgangar']
+        self.assertEqual((t[gem]['gemensam'], t[gem]['kandidat'], t[egen]['kandidat'], t[egen]['gemensam']), (True, None, 'k01', False))
+        rc, ut = self.utdata('--visa')
+        self.assertEqual(sorted(json.loads(ut)['tillgangar']), sorted([egen, gem]))
+        self.assertEqual(self.kor('--anvand', egen, '--plats', 'hero'), 0)
+        self.assertEqual(self.kor('--anvand', gem, '--plats', 'tjanster'), 0)
+        self.assertEqual(len(self.kopierat('k01')), 2)
+        self.assertEqual(material.main([self.slug, '--kandidat', 'k02', '--anvand', gem, '--plats', 'hero']), 0, 'det gemensamma för k02 också')
+        k02_vy = material.synliga(material.las(self.slug), 'k02')['tillgangar']
+        self.assertNotIn(egen, k02_vy, 'k01:s eget syns inte för k02')
+        self.assertEqual([a['kandidat'] for a in k02_vy[gem]['anvand']], ['k02'], 'var k01 lade det gemensamma är k01:s val')
+        self.assertEqual(self.kor('--bestall', 'ny version av det gemensamma', '--igen', gem), 1, 'en ny version av gemensamt material är ägarens')
+        self.assertEqual(material.main([self.slug, '--bestall', 'ägarens nya version', '--igen', gem]), 0)
+
+
 if __name__ == '__main__':
     unittest.main()

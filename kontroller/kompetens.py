@@ -93,7 +93,8 @@ VERKTYG = {
                  'materialsteget (illustrativt och koncept, aldrig verksamhetens egna bilder): `.venv/bin/python kontroller/material.py <slug> '
                  '--kandidat <id> --canvas <fil i kandidatens koncept/> --bestall "<vad konceptet visar>"` registrerar ett koncept ur '
                  'canvas-design, `--anvand <m-id> --plats <plats>` lägger en genererad tillgång i src/assets/material/ (en video kräver '
-                 '`--poster <bild-id>`), och `--anvandning` säger vad som är kopierat, importerat i källan och renderat i bygget; '
+                 '`--poster <bild-id>`), `--visa` visar kandidatens egna tillgångar och det gemensamma kundmaterialet, och '
+                 '`--anvandning` säger vad som är kopierat, importerat i källan och renderat i bygget; '
                  'leverantörernas generering kräver konto och är inte införd'),
 }
 # granskarens form av förhandsvisningen och detektorn, i de granskande passen: bilderna i kandidatens granskare/ (aldrig
