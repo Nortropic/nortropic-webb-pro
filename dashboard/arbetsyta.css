@@ -152,6 +152,8 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-historik time { color: var(--ay-svag); font-size: 12px; }
 .ay-beslut { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: start; }
 .ay-beslut img { width: 96px; border-radius: 6px; border: 1px solid var(--ay-linje2); }
+.ay-beslutsrad { display: grid; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--ay-linje); background: color-mix(in srgb, var(--ay-accent) 7%, var(--ay-yta)); }
+.ay-beslutsrad:empty { display: none; }
 .ay-jamfor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
 .ay-jamfor figure { margin: 0; display: grid; gap: 6px; }
 .ay-jamfor figcaption { font-size: 12.5px; color: var(--ay-dampad); }

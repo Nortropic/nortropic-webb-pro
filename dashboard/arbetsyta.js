@@ -258,7 +258,7 @@
   function ritaMaterial() {
     const el = document.getElementById('ay-material'); if (!el) return;
     const val = A.vy === 'kod' ? 'forhandsvisning' : materialval();
-    const pv = previewFor(), nyckel = JSON.stringify([val, pv?.url, ['snapshot', 'jamfor'].includes(val) ? A.enhet : '', A.valdKandidat, pv?.byggd, pv?.osaker, A.lage.blind, val === 'jamfor' ? A.jamforMed : '', val === 'jamfor' ? (A.lage.kandidater || []).map((k) => k.version).join() : '']);  // osaker: ombygget ändrar inte byggd
+    const pv = previewFor(), nyckel = JSON.stringify([val, pv?.url, ['snapshot', 'jamfor'].includes(val) ? A.enhet : '', A.valdKandidat, pv?.byggd, pv?.osaker, A.lage.blind, val === 'jamfor' ? A.jamforMed : '', val === 'jamfor' ? (A.lage.kandidater || []).map((k) => k.version).join() : '', Boolean(A.lage.korning?.vantar_pa_agaren)]);  // osaker: ombygget ändrar inte byggd
     const huvud_ = `<div class="ay-panelhuvud"><h2 id="ay-material-rubrik">${A.vy === 'kod' ? 'Förhandsvisning' : 'Resultat'}</h2>
       ${A.vy === 'kod' ? '' : `<div class="ay-segment" role="group" aria-label="Vad som visas">${[['forhandsvisning', 'Förhandsvisning'], ['snapshot', 'Ögonblicksbild'], ['jamfor', 'Jämför'], ['kandidater', 'Kandidater'], ['underlag', 'Underlag']].map(([k, n]) =>
         `<button type="button" data-material="${k}" data-fokus="m-${k}" aria-pressed="${val === k}">${n}</button>`).join('')}</div>`}
@@ -267,12 +267,15 @@
     if (el.dataset.nyckel === nyckel) {  // samma innehåll: bara huvudet och bredden, så att ramen inte laddas om
       el.querySelector('.ay-panelhuvud').outerHTML = huvud_;
       el.querySelector('.ay-scen')?.setAttribute('data-enhet', A.enhet);
+      ritaBeslutsrad();
       return;
     }
     el.dataset.nyckel = nyckel;
-    el.innerHTML = huvud_ + materialKropp(val, pv);
+    el.innerHTML = huvud_ + (['snapshot', 'jamfor'].includes(val) && A.lage.korning?.vantar_pa_agaren ? '<div class="ay-beslutsrad" id="ay-beslutsrad"></div>' : '') + materialKropp(val, pv);
     el.querySelector('.ay-scen')?.setAttribute('tabindex', '0');  // scenen rullar (ramen, en hel skärmbild): den ska nås med tangentbordet
+    ritaBeslutsrad();
   }
+  function ritaBeslutsrad() { const r = document.getElementById('ay-beslutsrad'); if (r) behallFokus(r, () => { r.innerHTML = beslutsruta(); }); }
   function previewFor() {
     const p = A.lage.preview || [];
     return p.find((x) => x.typ === 'arbetsversion' && x.kandidat === A.valdKandidat) || (A.valdKandidat ? null : p.find((x) => x.typ === 'arbetsversion' && x.kalla === 'helbygget'))
@@ -328,7 +331,7 @@
       ${(l.ofullstandig || []).length ? `<div class="ay-notis varn" style="margin-top:8px">Ofullständigt: ${e_(l.ofullstandig.join('; '))}</div>` : ''}</div></section>`;
     const k = l.korning || {}, b = l.besked || {};
     const beslut = `<section class="ay-panel" aria-labelledby="ay-besl"><div class="ay-panelhuvud"><h2 id="ay-besl">Nästa beslut</h2></div><div class="ay-panelkropp ay-bekrafta">
-      ${k.vantar_pa_agaren ? beslutsruta()
+      ${k.vantar_pa_agaren ? `<p style="margin:0">Kandidaterna väntar på ditt beslut. Du beslutar under den bevarade bilden, som beslutet binds till.</p><div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-visa-beslut data-fokus="visa-beslut">Visa bilden och besluta</button></div>`
         : k.avbruten ? '<p style="margin:0">Körningen avbröts. Återuppta den under Kontroller; inget klart görs om.</p>'
         : k.arbetaren === 'lever' ? '<p style="margin:0">Inget beslut väntar på dig: arbetet pågår.</p>' : '<p style="margin:0">Inget beslut väntar på dig just nu.</p>'}
       ${(b.tillstand || []).length ? `<details><summary class="svag">Slutbeskedens fem lägen</summary><ul class="ay-handelser" style="margin-top:6px">${b.tillstand.map((t) => `<li><span>${e_(t.status)}</span><span>${e_(t.namn)}</span></li>`).join('')}</ul></details>` : ''}
@@ -914,10 +917,11 @@
     const k = (A.lage.kandidater || []).find((x) => x.id === A.valdKandidat);
     if (!k) return '<p style="margin:0">Kandidaterna väntar på ditt val. Välj en kandidat under Kandidater.</p>';
     const bild = k.snapshot['1440'] || k.snapshot['390'], sha = k.snapshot['1440'] ? k.snapshot.sha?.['1440'] : k.snapshot.sha?.['390'];
-    if (!bild || !k.version_hel) return `<p style="margin:0">${e_(k.etikett)} har ingen fotograferad version att besluta över än.</p>`;
+    if (!k.version_hel) return `<p style="margin:0">${e_(k.etikett)} har ingen fotograferad version att besluta över än.</p>`;
+    if (!bild) return `<p style="margin:0">${e_(k.etikett)} har version ${e_(k.version)} men ingen bevarad bild: ett beslut binds till bilden du ser, så fotografera kandidaten först (eller välj i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>).</p>`;
     const b = A.beslutBekrafta;
     const godk = ['forfinad'].includes(k.status);
-    return `<div class="ay-beslut"><img src="/fil/${e_(bild)}" alt="${e_(k.etikett)}, version ${e_(k.version)}, bilden beslutet gäller"><div><p style="margin:0">Beslutet gäller <b>${e_(k.etikett)}</b>, version ${e_(k.version)}, fotograferad ${e_(kort(k.snapshot.tid))}: bilden du ser här och under Ögonblicksbild.</p></div></div>
+    return `<p style="margin:0">Beslutet gäller <b>${e_(k.etikett)}</b>, version ${e_(k.version)}, fotograferad ${e_(kort(k.snapshot.tid))}: bilden nedan${A.enhet === 'mobil' ? ' (beslutet binds till skärmbilden i 1440 px)' : ''}.</p>
       ${b ? `<div class="ay-bekraftruta"><p style="margin:0">${e_(b.text)}</p>${['forkasta', 'ny_riktning'].includes(b.beslut) || b.beslut === 'valj' ? `<label class="svag" for="ay-beslutstext">${b.beslut === 'valj' ? 'Vad du gillar (valfritt)' : 'Vad håller inte, och vad ska nästa försök pröva?'}</label><textarea id="ay-beslutstext" rows="3" data-fokus="beslutstext"></textarea>` : ''}
           <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut-ja data-fokus="beslut-ja">${e_(b.knapp)}</button><button class="ay-knapp" type="button" data-beslut-nej>Avbryt</button></div></div>`
         : `<div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut="valj" data-fokus="b-valj">Välj vidare</button>${godk ? '<button class="ay-knapp primar" type="button" data-beslut="godkand" data-fokus="b-godkand">Godkänn denna version</button>' : ''}<button class="ay-knapp" type="button" data-beslut="forkasta">Underkänn alla</button><button class="ay-knapp" type="button" data-beslut="ny_riktning">Ny riktning</button></div>
@@ -948,13 +952,14 @@
     if (!k) return '<div class="ay-scen"><div class="ay-tom">Välj en kandidat under Kandidater först.</div></div>';
     const bredd = A.enhet === 'mobil' ? '390' : '1440';
     const bild = (x) => x.snapshot[bredd] || x.snapshot['1440'] || x.snapshot['390'];
+    if (!bild(k)) return `<div class="ay-scen"><div class="ay-tom">${e_(k.etikett)} har ingen bevarad bild än; jämförelsen visar bevarade bilder sida vid sida.</div></div>`;
     const val = ks.filter((x) => x.id !== k.id && bild(x)).map((x) => ['k:' + x.id, x.etikett + (x.version ? ' v' + x.version : '')]);
     const vers = (k.versioner || []).filter((v) => v !== k.version).map((v) => ['v:' + v, 'Tidigare version ' + v]);
     const med = A.jamforMed && [...val, ...vers].some(([x]) => x === A.jamforMed) ? A.jamforMed : (val[0] || vers[0] || [''])[0];
     const hoger = med.startsWith('k:') ? (() => { const x = ks.find((y) => y.id === med.slice(2)); return x ? `<figure><figcaption>${e_(x.etikett)}${x.version ? ', version ' + e_(x.version) : ''}</figcaption><img src="/fil/${e_(bild(x))}" alt="${e_(x.etikett)}"></figure>` : ''; })()
       : med.startsWith('v:') ? `<figure><figcaption>${e_(k.etikett)}, version ${e_(med.slice(2))}</figcaption><img src="/fil/${e_(String(bild(k)).replace(/\/bilder\//, '/versioner/' + med.slice(2) + '/bilder/'))}" alt="${e_(k.etikett)}, version ${e_(med.slice(2))}" onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'svag',textContent:'Den versionen bevarades utan bilder; jämför koden under Kod och preview.'}))"></figure>` : '<p class="svag">Inget att jämföra med än.</p>';
     return `<div class="ay-adress"><span class="etikett">Bevarade bilder, ${bredd} px. ${A.lage.blind ? 'Före ditt första val bara kandidaterna; tidigare versioner och referensen visas efter valet (i Prototyp).' : 'Referensen visas sida vid sida i Prototyp.'}</span>
-        <label class="svag">Jämför med <select id="ay-jamformed" class="ay-knapp liten">${[...val, ...vers].map(([x, n]) => `<option value="${e_(x)}"${x === med ? ' selected' : ''}>${e_(n)}</option>`).join('')}</select></label></div>
+        ${[...val, ...vers].length ? `<label class="svag">Jämför med <select id="ay-jamformed" class="ay-knapp liten">${[...val, ...vers].map(([x, n]) => `<option value="${e_(x)}"${x === med ? ' selected' : ''}>${e_(n)}</option>`).join('')}</select></label>` : ''}</div>
       <div class="ay-scen"><div class="ay-jamfor"><figure><figcaption>${e_(k.etikett)}${k.version ? ', version ' + e_(k.version) : ''} (vald)</figcaption><img src="/fil/${e_(bild(k))}" alt="${e_(k.etikett)}"></figure>${hoger}</div></div>`;
   }
 
@@ -1014,6 +1019,7 @@
       A.beslutSvar = ''; rita(); document.querySelector('[data-fokus="beslutstext"]')?.focus() || document.querySelector('[data-fokus="beslut-ja"]')?.focus(); return; }
     if (d.beslutJa !== undefined) { fattaBeslut(); return; }
     if (d.beslutNej !== undefined) { A.beslutBekrafta = null; A.beslutSvar = ''; rita(); return; }
+    if (d.visaBeslut !== undefined) { A.material = 'snapshot'; const ytan = document.getElementById('ay-ytan'); if (ytan) ytan.dataset.omrade = 'resultat'; ritaMaterial(); document.querySelector('[data-fokus="b-valj"]')?.focus(); return; }
   });
   document.addEventListener('submit', (ev) => {
     if (ev.target.id === 'ay-skriv') { ev.preventDefault(); A.vflik === 'meddelanden' ? skickaMeddelande() : skickaPartner(); }
