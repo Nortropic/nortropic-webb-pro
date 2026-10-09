@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.1",
+  "version": "2026-10-10.2",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -249,6 +249,23 @@
       "begransningar": ["En länk är inte en verifierad bokning."], "paverkar": {"brief": "bokningsbehovet", "design": "primär handling", "kod": "länken", "externt": null}, "manniska": ["en testbokning i kundens konto"]
     },
     {
+      "id": "k10-csv-export", "version": "1.0.0", "omrade": "K10", "niva": "forvaltning", "grund": false,
+      "funktion": "Förfrågningarna som en fil för verksamhetens befintliga kundregister eller kalkylark, på begäran.",
+      "passar": "Verksamheten vill föra in förfrågningar i sitt eget register utan en API-koppling.", "passar_inte": "När förfrågningarna ska in automatiskt (då en kundregisterkoppling, som utreds).",
+      "kunduppgifter": ["vem som tar emot filen", "hur ofta"], "bevara": ["verksamhetens kundregister"],
+      "kallor": [{"url": "https://owasp.org/www-community/attacks/CSV_Injection", "last": "2026-10-10"}],
+      "formagor": ["kundregister-export"], "kraver": ["k03-formular-worker"], "utesluter": [],
+      "konto": {"agare": "nortropic", "typ": "Cloudflare-kontot (läsning av kundens D1)", "plan": null, "region": null},
+      "rattigheter": {"aterlas": "wrangler d1 execute --remote (läsande)"},
+      "dataflode": "Förfrågningarnas namn, telefon och meddelande ur D1 till en privat fil hos Nortropic, sedan till verksamheten.", "lagring": "Filen (0600) i Nortropics privata underlag tills den lämnats över.",
+      "kostnad": {"modell": "inom Workers Free", "belopp": 0, "valuta": "USD", "kalla": "https://developers.cloudflare.com/d1/platform/limits/", "datum": "2026-10-10"},
+      "funktioner": {"inspektera": "forfragningar.lage", "planera": null, "tillampa": "forfragningar.exportera_csv", "aterlas": null, "prova": null, "avveckla": null},
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Exporten prövad mot SQLite med mallens schema (formler neutraliserade, 0600, aldrig i det publika repot); inte mot en verklig D1.",
+      "prov": ["kontroller/rokprov/revision/prov_forfragningar.py"], "driftkontroll": null,
+      "begransningar": ["Ingen koppling till ett kundregister: importen gör verksamheten.", "Överlämningen av filen är en mänsklig handling."],
+      "paverkar": {"brief": "uppföljningen", "design": null, "kod": null, "externt": null}, "manniska": ["lämna filen till verksamheten på ett säkert sätt"]
+    },
+    {
       "id": "k10-crm-utreds", "version": "1.0.0", "omrade": "K10", "niva": "utreds", "grund": false,
       "funktion": "Förfrågningar till verksamhetens kundregister med fältmappning, dubblettskydd och ansvarig.",
       "passar": "Verksamheter som redan arbetar i ett kundregister.", "passar_inte": "Få förfrågningar som hanteras i mejlen.",
@@ -257,7 +274,7 @@
       "konto": {"agare": "kund", "typ": "kundregistrets API-nyckel med minsta behörighet", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Förfrågans fält till kundregistret.", "lagring": "Kundregistret.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "CSV-exporten och CRM-kopplingen fanns i Digitalas verktyg, som inte finns här.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "CRM-kopplingen fanns i Digitalas verktyg, som inte finns här; filen för kundregistret är k10-csv-export.", "prov": [], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": "uppföljningen", "design": null, "kod": "Workerns utkorg", "externt": "kundregistret"}, "manniska": []
     },
     {

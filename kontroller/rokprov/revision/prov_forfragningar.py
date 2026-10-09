@@ -77,6 +77,31 @@ class Drift(unittest.TestCase):
         self.assertFalse(plan['utfort']); self.assertTrue(plan['fel'])
         self.assertEqual(self.db.execute('SELECT count(*) FROM forfragningar').fetchone()[0], 5, 'ärendet står kvar och pekar på bilagan')
 
+    def test_csv_for_kundregistret_ar_privat_och_utan_formler(self):
+        import csv
+        import tempfile
+        self.db.execute("UPDATE forfragningar SET namn = '=HYPERLINK(\"https://x.invalid\")', meddelande = '+46 ring mig' WHERE id LIKE '%1'")
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / 'arenden.csv'
+            self.assertEqual(ff.exportera_csv(self.kor, f), 5)
+            self.assertEqual(f.stat().st_mode & 0o777, 0o600)
+            rader = list(csv.reader(f.read_text(encoding='utf-8-sig').splitlines()))
+            self.assertEqual(rader[0], ['id', 'mottagen', 'namn', 'telefon', 'meddelande', 'bild', 'avisering'])
+            forsta = next(r for r in rader[1:] if r[0].endswith('1'))
+            self.assertTrue(forsta[2].startswith("'=") and forsta[4].startswith("'+"), forsta)
+            self.assertEqual(next(r for r in rader[1:] if r[0].endswith('2'))[5:], ['ja', 'fel'])
+        for fel in (ROOT / 'kontroller' / 'arenden.csv', ROOT / 'arenden.csv'):
+            with self.assertRaises(ValueError):
+                ff.exportera_csv(self.kor, fel)
+        self.assertFalse((ROOT / 'arenden.csv').exists())
+        privat = ROOT / 'underlag' / 'prov-forfragningar-csv'
+        try:
+            privat.mkdir(parents=True, exist_ok=True)
+            self.assertEqual(ff.exportera_csv(self.kor, privat / 'a.csv'), 5)
+        finally:
+            import shutil
+            shutil.rmtree(privat, ignore_errors=True)
+
     def test_kommandoraden_kraver_konto_for_remote(self):
         import os
         from unittest.mock import patch

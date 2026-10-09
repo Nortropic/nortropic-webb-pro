@@ -9,6 +9,12 @@ transaktion) och deras bilagor ur R2. Mot kundens riktiga D1 (`--remote`) är de
 
     .venv/bin/python kontroller/forfragningar.py <kundrepo> --remote [--gallra [--utfor]]
     .venv/bin/python kontroller/forfragningar.py <kundrepo> --lokal <persist-katalog> [--gallra [--utfor]]
+    .venv/bin/python kontroller/forfragningar.py <kundrepo> --remote --csv <fil>
+
+`--csv` är katalogens K10-grundnivå (k10-csv-export): ärendena som CSV för verksamhetens befintliga kundregister, med
+personuppgifter, därför bara till en privat fil (0600) utanför det publika repot eller i dess privata underlag/ och
+kunder/. Celler som ett kalkylprogram skulle läsa som formel inleds med en apostrof. Det är ingen koppling till ett
+kundregister: importen gör verksamheten.
 """
 import argparse
 from datetime import datetime, timedelta, timezone
@@ -69,6 +75,45 @@ def gallra(kor, ta_bort_bilaga, nu=None, utfor=False):
     return plan
 
 
+FORMEL = ('=', '+', '-', '@', '\t', '\r')
+REPO = Path(__file__).resolve().parents[1]
+
+
+def csv_fil(fil):
+    """Målet för en export med personuppgifter: aldrig i motorrepot utom underlag/ och kunder/, aldrig en symlänk."""
+    f = Path(fil).absolute()
+    if f.is_symlink() or (f.exists() and not f.is_file()):
+        raise ValueError('exportens mål ska vara en ny eller vanlig fil')
+    r = f.resolve()
+    if REPO in r.parents and not any((REPO / d) in r.parents for d in ('underlag', 'kunder')):
+        raise ValueError('ärenden med personuppgifter skrivs aldrig i det publika repot (bara under underlag/ eller kunder/)')
+    return f
+
+
+def exportera_csv(kor, fil):
+    """Ärendena som CSV (UTF-8 med BOM för kalkylprogram), filen 0600. Ger antalet rader."""
+    import csv
+    import io
+    import os
+    f = csv_fil(fil)
+    rader = kor('SELECT f.id AS id, f.mottagen AS mottagen, f.namn AS namn, f.telefon AS telefon, f.meddelande AS meddelande, '
+                'f.bilaga AS bilaga, u.status AS avisering FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id ORDER BY f.mottagen')
+    ut = io.StringIO()
+    w = csv.writer(ut)
+    w.writerow(['id', 'mottagen', 'namn', 'telefon', 'meddelande', 'bild', 'avisering'])
+    def cell(v):
+        v = '' if v is None else str(v)
+        return "'" + v if v.startswith(FORMEL) else v
+    for x in rader:
+        w.writerow([cell(x['id']), cell(x['mottagen']), cell(x['namn']), cell(x['telefon']), cell(x['meddelande']),
+                    'ja' if x['bilaga'] else 'nej', cell(x['avisering'] or 'okänd')])
+    fd = os.open(str(f), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8-sig', newline='') as h:
+        h.write(ut.getvalue())
+    os.chmod(str(f), 0o600)
+    return len(rader)
+
+
 def wrangler_kor(kundrepo, plats, konto=None, tmp=None):
     """kor(sql) mot kundrepots D1 genom Wrangler: --remote med kontots miljö, eller --local med en persist-katalog."""
     import kundrepo as kr
@@ -111,6 +156,7 @@ def main(argv=None):
     g.add_argument('--lokal', help='en lokal persist-katalog (wrangler dev --persist-to)')
     a.add_argument('--gallra', action='store_true')
     a.add_argument('--utfor', action='store_true', help='tar bort utgångna ärenden; mot --remote bara med ägarens ja')
+    a.add_argument('--csv', help='ärendena som CSV till en privat fil (K10-grundnivån)')
     x = a.parse_args(argv)
     tmp = None
     konto = None
@@ -124,7 +170,10 @@ def main(argv=None):
         tmp = korregister.egen_tmp('nwp-preview-', 'formulärärendenas läge')
     try:
         kor, ta_bort = wrangler_kor(Path(x.kundrepo).resolve(), 'remote' if x.remote else Path(x.lokal).resolve(), konto, tmp)
-        ut = gallra(kor, ta_bort, utfor=x.utfor) if x.gallra else {k: v for k, v in lage(kor).items() if not k.startswith('_')}
+        if x.csv:
+            ut = {'csv': str(csv_fil(x.csv)), 'rader': exportera_csv(kor, x.csv)}
+        else:
+            ut = gallra(kor, ta_bort, utfor=x.utfor) if x.gallra else {k: v for k, v in lage(kor).items() if not k.startswith('_')}
         print(json.dumps(dict(ut, ok=True), ensure_ascii=False, indent=1))
         return 0
     except (OSError, RuntimeError, ValueError) as e:

@@ -38,7 +38,7 @@ STEG = ('inspektera', 'planera', 'tillampa', 'aterlas', 'prova', 'avveckla')
 # De enda funktioner ett paket får peka på: granskade, i repot, utan godtyckliga kommandon.
 FUNKTIONER = {
     'kundrepo.preview_krav', 'kundrepo.preview', 'kundrepo.preview_aktuell', 'exportera.exportera',
-    'workersprov.prova', 'driftkoll.kontroll', 'seo_kontroll.main',
+    'workersprov.prova', 'driftkoll.kontroll', 'seo_kontroll.main', 'forfragningar.lage', 'forfragningar.exportera_csv',
 }
 FALT = ('id', 'version', 'omrade', 'niva', 'grund', 'funktion', 'passar', 'passar_inte', 'kunduppgifter', 'bevara', 'kallor',
         'formagor', 'kraver', 'utesluter', 'konto', 'rattigheter', 'dataflode', 'lagring', 'kostnad', 'funktioner',
