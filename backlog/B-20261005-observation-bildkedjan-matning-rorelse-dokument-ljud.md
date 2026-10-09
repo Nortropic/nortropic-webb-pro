@@ -5,8 +5,8 @@ kalla: bevakning
 kallref: Codex tillägg 3 (natten 2026-10-04/05): observationsverktyg; ägarmandat 2026-10-04
 skapad: 2026-10-05
 prio: hog
-commit: cba65bb
-andrad: 2026-10-08T14:09Z
+commit: 91f70a5
+andrad: 2026-10-09T08:16Z
 ---
 # Observation: verifierad bildkedja, bild → mätning → beslut, rörelse, dokument och ljud, nytta mot facit
 
@@ -40,3 +40,7 @@ ett facitprov visar att bildverktyget fångar en layoutskillnad med identisk tex
 **Vilande (2026-10-05):** Avstämt 2026-10-05: steg 1 levererat för ateljén, granskaren och prototypen; skapandeflödet lägger till läsningen per förhandsvarv i ordning och metodkvittot (bildkedja.varvordning och metodlasning, atelje/REDOVISNING.md), och Claude Codes medietak är uppmätt (de äldsta bilderna trängs undan). Kvar: upplösning, tillstånd och källa per läst bild i rapporten; steg 2 genom förfiningens DESIGN.md, verifierat; steg 3 rörelse (inflyttad från referenssteget); steg 4 dokument och ljud; steg 5 facitprovet.
 
 **Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: commit cba65bb (observationen, BESLUT 2026-10-06), kontroller/bildkedja.py, H1 referensinspektion (r110) och H2 rörelse (r112) i a108560; nyttan mot facit är ägarens designbedömning, ingen backlogpost
+
+**Pagar (2026-10-09):** Återöppnad 2026-10-09: GR-20261009-metod-till-resultat-codex#T02 (verifierad avgränsning): prototypens bilder ingick inte i läsobservationen, och ett grönt helbyggebesked skiljde inte designnivån från om den föreskrivna jämförelsen gjorts.
+
+**Klar (2026-10-09):** T02 rättad (91f70a5): prototypens och byggets motsvarande bilder är läskrav, granskaren svarar strukturerat i prototypjamforelse, och domen bär visuell_jamforelse skilt från godkännandet: underlaget saknas eller fel version, ej bedömd, oläst, ej observerbar, verifierad. Ingen generell läsregel. prov_metodglapp Jamforelsebesked (8 fall) och prov_revision (verklig omgång med falsk claude). Verklig granskares svar är oprövat.

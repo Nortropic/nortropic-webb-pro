@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex helhetsbedömning 2026-10-04 punkt 8 (byggförmågan), 9; rekommenderad ordning 5
 skapad: 2026-10-04
 prio: mellan
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-09T08:16Z
 ---
 # Jämförbara byggen på varierade kundfall, och autonomins mått: acceptans utan omdesign, total kostnad, ägarens minuter, variation, bevarade kandidater
 
@@ -18,3 +18,5 @@ andrad: 2026-10-05T06:55Z
 **Vilande (2026-10-04):** väntar på bygge: måtten är klara (kontroller/autonomi.py, kunskap/autonomi.md, ägarens minuter i dashboarden); förmågeprovet körs när designprovet dömts och granskaren prövats på K14–K19
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: måtten levererade (autonomi.py, autonomi.md, ägarens minuter i dashboarden); fallen är inte namngivna och kandidater bevaras bara som hash och dom. Körs efter K14–K19-försöket och ett godkänt skapandeflöde. Färdigkriteriet omskrivet i avstämningen; tidigare: "Förmågeprovet har körts på de varierade fallen med samma metod; sammanställningen visar acceptansandel, kostnad och variation per fall; de bästa kandidaterna är bevarade och jämförbara."
+
+**Vilande (2026-10-09):** 2026-10-09: kvalitetsprovet förberett (kunskap/autonomi.md, Kvalitetsprovet; 6ef1de6, b7104e9): ett sammanhängande fall med H01 som första metodvariabel i det befintliga metodförsöket (ab.py forbered-skiss --variabel metodvariant). Inte kört: verkliga sessioner och helbygget kräver ägarens mandat. Ett fall är första belägget; varierade fall är denna posts uppgift.

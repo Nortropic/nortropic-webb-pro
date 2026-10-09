@@ -5,8 +5,8 @@ kalla: bevakning
 kallref: Codex kartläggning av referenskällor och byggverktyg, 2026-10-03
 skapad: 2026-10-03
 prio: normal
-commit: 7cea708
-andrad: 2026-10-08T14:09Z
+commit: 0f8e8d4
+andrad: 2026-10-09T08:16Z
 ---
 # Referenstjänster i befintligt flöde: Inspo-A/B först, sedan Refero som variabel och Mobbin på ett fall med flerstegsflöde (ägarbeslut om betald åtkomst)
 
@@ -25,3 +25,7 @@ andrad: 2026-10-08T14:09Z
 **Vilande (2026-10-05):** Integrationen klar (paketet före nästa helbygge): bygg-sajt steg 3 beställer tjänstesteget (TJANSTEUPPDRAG.json, referenstjanster.py), och skapandeflödet beställer det på begäran. Kvar: verifiering (ägarens blinda dom över förslag med tjänstebelägg). (b7bf1c5)
 
 **Klar (2026-10-08):** Backlogavstämningen 2026-10-08 (RAPPORT-2026-10-08-backlogavstamning): rättat i main; belägg: commit 7cea708 (referenstjänsterna som belägg, TJANSTEUPPDRAG.json) och BESLUT 2026-10-03/2026-10-05 (Refero och Mobbin anslutna, alla MCP:er används); ägarens blinda dom hör till designomgången
+
+**Pagar (2026-10-09):** Återöppnad 2026-10-09: GR-20261009-metod-till-resultat-codex#T01: uppdragsledet beställde alltid skärmar och förde bara över omslag, titel och beskrivning; ett flödes steg nådde aldrig skaparen.
+
+**Klar (2026-10-09):** T01 rättad (0f8e8d4): planens mobbin_typ väljer skärm eller flöde efter uppgiften; flödets steg i ordning med bildvägar, förklaring och ursprungsrapporten når skaparens uppdrag; ett flöde utan omslag är inte tomt; startkontrollen räknar stegbilderna. prov_metodglapp Mobbinflode (6 fall, attrapp vid tjänstens session). Inga verkliga Mobbin-anrop i uppdraget.

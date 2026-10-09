@@ -6,7 +6,7 @@ kallref: BESLUT.md
 skapad: 2026-10-08
 prio: hog
 steg: efter backlogavstämningen; BESLUT.md; underlag/granskningar/GR-20261008-motorinventering-codex.md
-andrad: 2026-10-09T05:48Z
+andrad: 2026-10-09T08:16Z
 ---
 # Ren start för Nortropic 2.0 och samlad startbesiktning (ägarens uppdrag 2026-10-08 ~14:35Z, köat)
 
@@ -152,3 +152,5 @@ Börja med att köa uppdraget och bekräfta dess plats efter det pågående arbe
 **Pagar (2026-10-08):** Nattens uppdrag 2026-10-08: Codex fynd R02 (F05, K06), R03 (F04, F05) och R04 (F01) rättade i 5a09fa8, med prov röda mot 06af6ff och gröna efter. Posten står kvar som pågår: startbesiktningens verkliga del kräver en verklig körning, som ägaren startar (nattrapporten, B).
 
 **Pagar (2026-10-09):** GR-20261009-natt-omgranskning-codex#N03 (F05, K06): specialistpassets beslut använder läsordningen; en kärnfil läst först efter första ändringen ger omförsök från versionen före passet och aldrig genomford=true, också när ett tidigare försök läste i ordning, och en återställning som faller lämnar passet ej genomfört (kompetens.sen_karna, aac1d2e). Prov genom efter_fordjupning och kompetenspass med sparad status: prov_omgranskning Lasordning, rött mot 2c7aa5a. Inte verifierat; posten står kvar som pågår.
+
+**Pagar (2026-10-09):** 2026-10-09: GR-20261009-metod-till-resultat-codex#F02 rättad (5ee6b1c): helgranskningens metodidentitet har en uttrycklig beroendelista med skäl (designreglerna, instruktionen, måttstockarna; kundens underlag, domlogg och urval; tidigare byggens bilder), och granskarens uppdrag får designreglerna och de aktuella domarna. prov_metodglapp Metodidentitet, rött mot b427aa7 och grönt efter.
