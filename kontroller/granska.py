@@ -41,6 +41,7 @@ import nastlad  # noqa: E402  (nästlade sessioner: inget automatiskt minne)
 import bildkedja  # noqa: E402  granskarnas läsning ur transkripten (designprovet 2026-10-05)
 from slugvakt import krav_slug, krav_vag  # noqa: E402  (revisionen 2026-10-03, F1: bara det egna bygget)
 import prova  # noqa: E402  dist_hash, sidor_i, Server
+import skapande  # noqa: E402  kundens aktuella domar till granskaren (kritikrader; F02)
 
 ROOT = prova.ROOT
 KUNDER = ROOT / 'kunder'
@@ -85,6 +86,15 @@ def nu():
 
 UNDERLAGSFILER = ('VERKSAMHET.json', 'RESEARCH.md', 'BRIEF.md', 'REFERENSER.md', 'BESTALLNING.md', 'bilder/BILDER.md',
                  'KUNDSTART.json')
+# Metodens beroenden (F02 i GR-20261009-metod-till-resultat-codex): det granskaruppdraget kräver att granskaren läser eller
+# följer, med skälet. metod_sha hashar exakt dessa, och domen gäller bara samma metod: en ändring gör äldre domar inaktuella.
+# Bakgrundstexter som GRANSKARE.md bara hänvisar till (kunskap/teoretisk-grund.md) styr inte domen och ingår inte.
+METODBEROENDEN = [('granskarens instruktion och kriterier', INSTRUKTION),
+                  ('designreglerna: kvalitetskraven och ägarens beslut med räckvidd, läses först (GRANSKARE.md, steg 1)',
+                   'kunskap/designregler.md')] + [(namn, f) for namn, f in MATTSTOCKAR]
+KUNDBEROENDEN = [(namn, f) for namn, f in (('verksamhetens underlag', x) for x in UNDERLAGSFILER)] + [
+    ('kundens domlogg: de aktuella domarna väger tyngst (GRANSKARE.md, steg 1)', 'DESIGNDOMAR.jsonl'),
+    ('det aktiva urvalet: om tidigare byggens bilder visas', 'atelje/URVAL.json')]
 
 
 def metod_sha(slug=None):
@@ -96,11 +106,14 @@ def metod_sha(slug=None):
     och vinnarens bilder: startsidans måttstock, designprovet 2026-10-04)."""
     import hashlib
     h = hashlib.sha256()
-    filer = [ROOT / INSTRUKTION, SCHEMA, SCHEMA_ORIGINALITET] + [ROOT / f for _, f in MATTSTOCKAR]
+    filer = [SCHEMA, SCHEMA_ORIGINALITET] + [ROOT / f for _, f in METODBEROENDEN]  # F02: beroendelistan, med designreglerna
     if slug:
-        filer += [UNDERLAG / slug / f for f in UNDERLAGSFILER]
+        filer += [UNDERLAG / slug / f for _, f in KUNDBEROENDEN]
     for f in filer:
         h.update(str(f.name).encode() + b'\0' + (f.read_bytes() if f.is_file() else b'') + b'\0')
+    if slug:  # tidigare byggens bilder, när urvalet visar dem: granskaren jämför likheten med dem
+        for b in tidigare_byggen(slug):
+            h.update(str(b.relative_to(KUNDER)).encode() + b'\0' + (b.read_bytes() if b.is_file() else b'') + b'\0')
     if slug:  # referensbilderna granskaren ser (omgång elva, F18: en utbytt bild på samma sökväg gav samma hash)
         for b, _ in referensbilder(slug):
             h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + (b.read_bytes() if b.is_file() else b'') + b'\0')
@@ -523,6 +536,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
         *(['Kalibreringsankare: externa sajter som ägaren dömt blint (%s). Ägarens ord om vad som skiljer, ordagrant: %s' % (KALIBRERING_SKALA, rad(ankare[0])[2:]),
            'Första vyn 390 och 1440 och helsidan i 1440 per sajt (läs varje, med ägarens ord bredvid):', *[rad(p) + ' — ' + t for p, t in ankare[1]], '']
           if ankare else []),
+        'Först, före bilderna (GRANSKARE.md, steg 1): kunskap/designregler.md, kvalitetskraven och ägarens beslut med räckvidd,',
+        'och kundens aktuella domar nedan; de väger tyngst.',
+        *(skapande.kritikrader(slug, underlag=UNDERLAG, aktuella=True) or ['Kundens aktuella domar: inga.']), '',
         'Verksamhetens underlag:', *[rad(p) for p in underlag], '',
         'Sajtens skärmbilder från provet, varje sida uppifrån och ned i skärmhöga rutor i 390, 768 och 1440 (läs varje; 768 är',
         'mellanbredden, där rubriker spiller och datorlayouten staplas):',
