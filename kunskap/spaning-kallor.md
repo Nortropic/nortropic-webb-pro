@@ -137,7 +137,8 @@ område, steg, kompetens, det den berör, källorna (namnen i tabellen ovan), k�
 ansvarig funktion och backlogpost.
 
 `kontroller/bevakning.py` läser blocken. Dashboardens timklocka prövar varje fråga när dess intervall gått, en gång per
-dag efter 07:00 Europe/Stockholm. Kontrollerna:
+dag efter 07:00 Europe/Stockholm. Intervallen räknas i lokala dagar: en dag, sju eller trettio dagar efter den senast
+lyckade kontrollen prövas frågan vid den dagens körning, också när förra körningen kom sent. Kontrollerna:
 
 - `kalla`: spanarens hälsa, version och nya poster för källorna;
 - `underhall`: underhållets körning och vad som hänt med beroendena i `berör`;

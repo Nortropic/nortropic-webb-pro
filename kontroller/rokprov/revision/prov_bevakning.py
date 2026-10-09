@@ -149,6 +149,42 @@ class Bevakning(unittest.TestCase):
         self.assertEqual((d['senast']['tidszon'], d['senast']['klockslag']), ('Europe/Stockholm', '07:00'))
         self.assertFalse(bevakning.dags(nar=sen + timedelta(hours=1)))
 
+    def test_intervallen_raknas_i_lokala_dagar(self):
+        # i drift 2026-10-09: den första schemalagda körningen kom 19:04 lokal tid (12,1 h sent). Nästa dags körning 07:00
+        # prövar ändå de dagliga frågorna, och veckans fråga prövas sju lokala dagar senare, inte först dagen därpå
+        idag = datetime.now(bevakning.TZ).date()
+
+        def lokal(dagar, h, m):
+            d = idag + timedelta(days=dagar)
+            return datetime(d.year, d.month, d.day, h, m, tzinfo=bevakning.TZ).astimezone(timezone.utc)
+
+        def z(t):
+            return t.strftime('%Y-%m-%dT%H:%M:%SZ')
+        forsta = lokal(0, 19, 4)
+        self.drift(forsta)
+        d = bevakning.kor(automatisk=True, nar=forsta)
+        self.assertEqual(d['fragor']['sessioner']['nasta'], z(lokal(1, 7, 0)))
+        self.assertEqual(d['fragor']['veckofraga']['nasta'], z(lokal(7, 7, 0)))
+        self.assertEqual({q['id']: q['nasta'] for q in bevakning.lage()['fragor']}['sessioner'], z(lokal(1, 7, 0)), 'dashboarden visar samma tid')
+        morgon = lokal(1, 7, 5)
+        self.assertTrue(bevakning.dags(nar=morgon))
+        self.drift(morgon)
+        d = bevakning.kor(automatisk=True, nar=morgon)
+        self.assertEqual(d['fragor']['sessioner']['senaste_forsok'], z(morgon), 'den dagliga frågan prövas nästa lokala dag, också efter en sen körning')
+        self.assertEqual(d['fragor']['veckofraga']['senaste_forsok'], z(forsta), 'veckans fråga väntar')
+        sjunde = lokal(7, 7, 5)
+        self.drift(sjunde)
+        d = bevakning.kor(automatisk=True, nar=sjunde)
+        self.assertEqual(d['fragor']['veckofraga']['senaste_forsok'], z(sjunde))
+        # Codex granskningar: en vecka räknas i lokala dagar, och en fallen görs om vid nästa lokala dags körning
+        (self.ut / 'codex').mkdir(parents=True, exist_ok=True)
+        (self.ut / 'codex' / 'veckofraga-a.json').write_text(json.dumps({'tid': z(lokal(0, 18, 55)), 'fraga': 'veckofraga', 'fynd': []}))
+        (self.ut / 'codex' / 'en-lucka-a.json').write_text(json.dumps({'tid': z(lokal(0, 18, 58)), 'fraga': 'en-lucka', 'fynd': [], 'fel': 'prov'}))
+        self.assertEqual(bevakning.codex_dags(nar=lokal(0, 23, 59)), [])
+        self.assertEqual(bevakning.codex_dags(nar=lokal(1, 7, 0)), ['en-lucka'])
+        self.assertNotIn('veckofraga', bevakning.codex_dags(nar=lokal(6, 7, 0)))
+        self.assertIn('veckofraga', bevakning.codex_dags(nar=lokal(7, 7, 0)))
+
     def test_fynd_kanns_igen_och_blir_signaler_en_gang(self):
         nar = datetime.now(timezone.utc)
         self.drift(nar, version='v1')
@@ -247,8 +283,10 @@ class Bevakning(unittest.TestCase):
         rader = bevakning.codex_vid_behov(nar=nar, korare=korare)
         self.assertEqual(sorted(anrop), ['en-lucka', 'veckofraga'])
         self.assertEqual({r['fraga']: (r.get('tokens'), bool(r.get('fel'))) for r in rader}, {'veckofraga': (12345, False), 'en-lucka': (None, True)})
-        self.assertEqual(bevakning.codex_dags(nar=nar + timedelta(hours=12)), [], 'ingen ny granskning inom samma dygn')
-        self.assertEqual(bevakning.codex_dags(nar=nar + timedelta(days=1, minutes=1)), ['en-lucka'], 'en fallen granskning görs om efter ett dygn')
+        idag = datetime.now(bevakning.TZ).date()
+        self.assertEqual(bevakning.codex_dags(nar=datetime(idag.year, idag.month, idag.day, 23, 59, tzinfo=bevakning.TZ)), [],
+                         'ingen ny granskning samma lokala dag')
+        self.assertEqual(bevakning.codex_dags(nar=nar + timedelta(days=1, minutes=1)), ['en-lucka'], 'en fallen granskning görs om nästa lokala dag')
         self.assertIn('veckofraga', bevakning.codex_dags(nar=nar + timedelta(days=7)))
         d = bevakning.kor(nar=nar)
         self.assertEqual(d['fragor']['en-lucka']['utfall'], 'misslyckad', 'en fallen granskning är aldrig inget nytt')

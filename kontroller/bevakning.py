@@ -21,7 +21,8 @@ exempel Codex) eller inte_dags. "Inget handlingsbart i dag" står bara när kont
 
 Schemat: dashboardens timklocka (server.py, bevakning_vid_behov) kör den dagliga kontrollen en gång per dag efter
 KLOCKSLAG Europe/Stockholm. Har datorn eller tjänsten varit avstängd blir det en körning vid nästa timslag, märkt med hur
-sent den kom. Veckans och månadens frågor prövas i den dagliga körningen när deras intervall gått. Ett lås hindrar två
+sent den kom. Veckans och månadens frågor prövas i den dagliga körningen när deras intervall gått, räknat i lokala dagar,
+så att en körning som kom sent inte flyttar nästa dags eller veckas prövning. Ett lås hindrar två
 körningar samtidigt. Tidigare fynd känns igen på sitt fingeravtryck och rapporteras som kvarstående, inte som nya.
 
     .venv/bin/python kontroller/bevakning.py kor                 # den dagliga kontrollen nu (manuell)
@@ -96,6 +97,27 @@ def tid(s):
         return datetime.strptime(str(s)[:20], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
     except (TypeError, ValueError):
         return None
+
+
+def dagar_sedan(nar, t):
+    """Hela lokala dagar (Europe/Stockholm) från t till nar. Den dagliga körningen går en gång per lokal dag, så
+    intervallen räknas i lokala dagar och inte i timmar: en körning som kom sent (19:04 i stället för 07:00 den
+    2026-10-09) gör inte nästa dags frågor för tidiga."""
+    return (nar.astimezone(TZ).date() - t.astimezone(TZ).date()).days
+
+
+def nasta_for(q, post, nar=None):
+    """När frågan prövas nästa gång: klockslaget den lokala dag dess intervall gått sedan den senast lyckade
+    kontrollen, tidigast nästa schemalagda körning."""
+    if q.get('intervall') == 'byggstart':
+        return 'nästa byggstart'
+    forst = nasta_korning(nar)
+    sist = tid((post or {}).get('senast_lyckad'))
+    if not sist or q.get('intervall') not in INTERVALL:
+        return forst
+    d = sist.astimezone(TZ).date() + timedelta(days=INTERVALL[q['intervall']])
+    h, m = klockslag()
+    return max(datetime(d.year, d.month, d.day, h, m, tzinfo=TZ).astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), forst)
 
 
 def las_json(p, standard=None):
@@ -252,7 +274,7 @@ def prova(q, k, fore, nar):
         return 'inte_dags', [], ['prövas inför nästa byggstart'], {}
     dagar = INTERVALL[q['intervall']]
     sist = tid((fore or {}).get('senast_lyckad'))
-    if sist and nar - sist < timedelta(days=dagar) - timedelta(hours=2):
+    if sist and dagar_sedan(nar, sist) < dagar:
         return 'inte_dags', [], [], {}
     fynd, problem, extra, lagen = [], [], {}, []
     for kontroll in q['kontroll']:
@@ -445,9 +467,7 @@ def kor(automatisk=False, k=None, nar=None):
             post.update(extra)
             if utfall in ('inget_nytt', 'fynd', 'ofullstandig'):
                 post['senast_lyckad'] = start
-            dagar = INTERVALL.get(q['intervall'])
-            post['nasta'] = ((tid(post.get('senast_lyckad')) + timedelta(days=dagar)).strftime('%Y-%m-%dT%H:%M:%SZ')
-                             if dagar and post.get('senast_lyckad') else ('nästa byggstart' if q['intervall'] == 'byggstart' else nasta_korning(nar)))
+            post['nasta'] = nasta_for(q, post, nar)
             for f in fynd:
                 (kvar if f['nyckel'] in kanda else nya).append(dict(f, fraga=qid))
                 kanda[f['nyckel']] = {'forst': (kanda.get(f['nyckel']) or {}).get('forst') or start, 'senast': start,
@@ -579,7 +599,8 @@ def lage():
             'codex': {'aktiv': codex_pa(), 'korningar': codex, 'dags': codex_dags(k)},
             'forbrukning': forbrukning,
             'aktiv': bool(d.get('senast') and (d['senast'] or {}).get('automatisk')), 'meta': d.get('meta') or [],
-            'fragor': [dict(q, **{x: (rader.get(qid) or {}).get(x) for x in ('utfall', 'senast_lyckad', 'nasta', 'problem')}) for qid, q in fragor.items()],
+            'fragor': [dict(q, **{x: (rader.get(qid) or {}).get(x) for x in ('utfall', 'senast_lyckad', 'problem')}, nasta=nasta_for(q, rader.get(qid)))
+                       for qid, q in fragor.items()],
             'registerfel': regfel, 'tackning': tackning(fragor, rader), 'dag': dag}
 
 
@@ -685,8 +706,8 @@ def codex_dags(k=None, nar=None):
         filer = sorted((k['ut'] / 'codex').glob('%s-*.json' % q['id'])) if (k['ut'] / 'codex').is_dir() else []
         sista = (las_json(filer[-1], {}) or {}) if filer else {}
         t = tid(sista.get('tid'))
-        vanta = timedelta(days=1) if sista.get('fel') else timedelta(days=INTERVALL[q['intervall']]) - timedelta(hours=2)  # en fallen görs om efter ett dygn
-        if not t or nar - t >= vanta:
+        vanta = 1 if sista.get('fel') else INTERVALL[q['intervall']]  # i lokala dagar; en fallen görs om nästa lokala dags körning
+        if not t or dagar_sedan(nar, t) >= vanta:
             ut.append(q['id'])
     return ut
 
