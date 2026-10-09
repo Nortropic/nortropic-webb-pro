@@ -203,3 +203,22 @@ exemplen är ankare i granskarens uppdrag, sex hölls undan och granskaren (opus
   slutmått kräver ett nytt, orört urval som ägaren dömer blint. Försöket mäter dessutom en enskild granskare från
   bilder, inte produktionsgrinden med två granskare och levande funktioner.
 
+## Kalibrering · 2026-10-09 · granskarförsöket på ett orört urval
+
+Ägaren dömde sex orörda externa sajter (K14–K19) blint 2026-10-09 i samma tre nivåer: en tydligt över ribban (K18),
+två nästan (K14, K19) och tre generiska (K15, K16, K17), med mobil och dator, hela startsidorna och undersidorna där de
+finns. Exemplen och orden står privat i `underlag/kalibrering/`. Före domen fotograferades urvalet om med samma
+inställningar (samtyckesdialoger stängda, animationer klara), K03 blev historik och K07 fick en ny fångst med ägarens
+nya ord (BESLUT.md, tillägget 2026-10-09). Metoden frystes 09:15:44Z: modell (opus[1m], effort high), granskarens regler,
+de sex ankarna, exemplens bilder och koden. Domen kom 09:08Z, när metoden och koden redan var färdiga, och fördes in
+efter frysningen; frysningen höll vid försöket. En granskare dömde varje exempel från samma skärmbilder som ägaren.
+
+- **Felaktiga godkännanden: 0 av 5** (K14 och K19 "nästan", K15, K16 och K17 "generisk": alla underkända).
+- **Felaktiga underkännanden: 0 av 1** (K18 "tydligt över ribban": godkänd, betyg 8 9 7 7 7).
+- **Ofullständiga körningar: 0 av 6.**
+- Diagnostiskt: K19 var närmast gränsen (8 9 7 6 7, ett blockerande detaljfynd). K14 fick 5 5 5 5 4 och ett fynd som kräver
+  ny riktning, alltså strängare än ägarens "nästan". De generiska fick 3–5.
+- **Giltighet:** urvalet var orört, och läckageprovet fann inga ordagranna spår av ägarens domar i det granskaren läste.
+  En omskriven destillering är inte prövad. Sex exempel ger ett första diagnostiskt resultat, inte ett säkert mått på
+  generell träffsäkerhet, och måttet gäller en granskare som dömer från bilder, inte produktionsgrinden med två
+  granskare och levande funktioner. Ändras metoden efter resultatet blir urvalet utvecklingsdata.
