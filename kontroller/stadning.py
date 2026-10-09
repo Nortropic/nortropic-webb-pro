@@ -129,6 +129,7 @@ TMP_PREFIX = (
     'nwp-dokvy-',                                                                     # prov_dokumentationsvy.py
     'nwp-stadprov-',                                                                  # prov_stadning.py
     'nwp-startkvitto-',                                                               # prov_startkvitto.py
+    'nwp-dyad-',                                                                      # prov_dyad.py (repots kopia och dumparna)
     'nwp-slutpost-',                                                                  # prov_slutpost.py
     'nwp-skisskritik-',                                                               # prov_skisskritik.py
     'nwp-ateljeslut-',                                                                # prov_ateljeslut.py

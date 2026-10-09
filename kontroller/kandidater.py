@@ -4386,6 +4386,13 @@ def fore_efter_regel(u, post, passens):
     return 'oklart', 'före/efter-bedömningen gav inget besked (%s)' % ((post or {}).get('skal') or 'inget svar')
 
 
+def uppdrag_session(slug, kid, dom, u, ut, delar=(), vid_start=None):
+    """Uppdragets session: skaparens roll med uppdragets prompt, verktyg och förbud (också Dyad-provets roll skaparen,
+    som kör samma anrop mot den falska modellen)."""
+    return atelje.session(uppdrag_prompt(slug, kid, dom, u), forfina_verktyg(slug, kid), ut, max_turer=400, frist=FRIST_FORFINA,
+                          nekas=andra_nekas(slug, kid, utom=delar), slug=slug, vid_start=vid_start)
+
+
 def forfina_kandidat(slug, kid, v, dom):
     """Ett uppdrag (rätta, omarbeta designen eller bygg ut) på en vald kandidat i dess eget projekt, från den version
     beslutet gäller: sessionen med uppdragets prompt, omfattningskontrollen, de specialistpass uppdraget begär (ändra eller
@@ -4411,10 +4418,9 @@ def forfina_kandidat(slug, kid, v, dom):
     ut = d / ('svar-uppdrag-%s-%s.json' % (u['typ'], nu().replace(':', '')))
     delar = [k for k in (dom.get('delar') or {}) if ID.fullmatch(str(k))] if isinstance(dom.get('delar'), dict) else []
     try:
-        svar = atelje.session(uppdrag_prompt(slug, kid, dom, u), forfina_verktyg(slug, kid), ut, max_turer=400, frist=FRIST_FORFINA,
-                              nekas=andra_nekas(slug, kid, utom=delar), slug=slug,
-                              vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', '%s efter beslutet %s' % (u['namn'], dom.get('tid')),
-                                                                session_pid=pid))  # --stoppa och återupptagningen hittar sessionen (G16)
+        svar = uppdrag_session(slug, kid, dom, u, ut, delar=delar,
+                               vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', '%s efter beslutet %s' % (u['namn'], dom.get('tid')),
+                                                                 session_pid=pid))  # --stoppa och återupptagningen hittar sessionen (G16)
     except (subprocess.TimeoutExpired, RuntimeError) as e:
         svar = {'avbruten': '%s: %s' % (type(e).__name__, str(e)[:300])}
     lasn = lasningen(slug, kid, ut, 'forfina')

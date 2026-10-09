@@ -4359,7 +4359,9 @@ uppdraget (b3:s förslag, delningen 2026-10-09 ~18:28Z).
 
 ## Ägarens besked 2026-10-09 ~18:2xZ: Dyad-provet, köat efter uppdraget ovan
 
-**Status:** gäller; köat efter uppdraget ovan, inte påbörjat.
+**Status:** gäller; genomfört 2026-10-10 i alla tre stegen (`kunskap/dyad-prov.md`, `kontroller/falsk_modell.py`,
+provläget i `kontroller/nastlad.py` och `kontroller/rokprov/revision/prov_dyad.py` i rökprovets lista). Steg 1 gick att
+genomföra, och steg 2 och 3 höll för skisskritiken, före/efter-granskaren och skaparen i ett uppdrag.
 
 Ordagrant:
 

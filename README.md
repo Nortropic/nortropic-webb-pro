@@ -310,6 +310,11 @@ Katalogen 0700, filerna 0600.
 kontroller/rokprov.sh                                 # regressionsprov efter ändringar i kontroller/ eller mall/
 ```
 
+Dyad-provet (`kontroller/rokprov/revision/prov_dyad.py`, i rökprovets lista; `kunskap/dyad-prov.md`) fångar det som
+verkligen når modellen per roll med en falsk Messages-server (`kontroller/falsk_modell.py`): modellen, ansträngningen,
+instruktionen, bilderna (sha256) och att de blinda rollerna saknar skaparens material. Provläget i `kontroller/nastlad.py`
+gäller bara i prov, aldrig i huvudutcheckningen.
+
 Grindar (nio): bygge, design, seo, standard, axe, lighthouse, spill, utan-js, resor. Grinden standard prövar
 byggstandardens maskinkontrollerbara punkter (`kunskap/byggstandard.md`, `kontroller/standard_kontroll.py`), med giltig
 HTML via html-validate lokalt. Grinden design prövar DESIGN.md mot koden (`kunskap/bygge-referens.md`), och grinden

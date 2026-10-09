@@ -180,8 +180,9 @@ def las_json(p):
 
 
 def ren_miljo():
-    """Egen session: inga variabler från en omgivande Claude-session eller från bygget (NWP_SLUG väcker stoppvakten)."""
-    return nastlad.miljo()  # och inget automatiskt minne i ägarens ~/.claude/memory
+    """Egen session: inga variabler från en omgivande Claude-session eller från bygget (NWP_SLUG väcker stoppvakten).
+    Repots rot följer med till provläget (nastlad.provlage), som aldrig gäller i huvudutcheckningen."""
+    return nastlad.miljo(rot=ROOT)  # och inget automatiskt minne i ägarens ~/.claude/memory
 
 
 def claude():
