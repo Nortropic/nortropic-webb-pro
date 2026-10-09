@@ -165,11 +165,13 @@ dokumentationsbehovet i stället.
 Ett värde som saknas skrivs "ej angivet". Rapportstatus och utfall är olika saker: en färdig rapport kan underkänna
 resultatet. Ett exempel är `underlag/figma-pilot/BESLUTSUNDERLAG.md`.
 
-**Avsändarna** (ägarens uppdrag 2026-10-07, punkt 7). Varje dom och bedömning har en avsändare av sju slag, med en
-definition var i `kontroller/skapande.py` (`AVSANDARTYPER` och `KALLOR`), den enda källan i koden: ägarens egna ord och
-beslut, Codex bedömning, Claudes eller skaparens bedömning, en annan granskares bedömning, maskinellt mätresultat,
-hypotes och vidarebefordrad AI-bedömning. Bara ägarens egna ord och beslut räknas som ägarens: av godkännandet, läget,
-stoppvakten och slutposterna. En AI-bedömning som ägaren vidarebefordrat är en egen källa, också när den är skriven i
+**Avsändarna** (ägarens uppdrag 2026-10-07, punkt 7, och 2026-10-09, punkt 11). Varje dom och bedömning har en avsändare
+av åtta slag, med en definition var i `kontroller/skapande.py` (`AVSANDARTYPER` och `KALLOR`), den enda källan i koden:
+ägarens egna ord och beslut, kundens egna ord och beslut, Codex bedömning, Claudes eller skaparens bedömning, en annan
+granskares bedömning, maskinellt mätresultat, hypotes och vidarebefordrad AI-bedömning. Bara ägarens egna ord och beslut
+räknas som ägarens: av godkännandet, läget, stoppvakten och slutposterna. Kundens egna ord (källan `kunden`, alltid med
+ett belägg för var de står) styr kundens val, uppdrag och underkännanden, aldrig godkännandet för helbygge eller
+publicering, och en AI-bedömning bokförs aldrig som kundens. En AI-bedömning som ägaren vidarebefordrat är en egen källa, också när den är skriven i
 första person. "Ägaren via Codex" betyder bara ägarens egna ord, ordagrant förmedlade, och kräver ett belägg för var
 orden står. En äldre rad utan belägg skrivs inte om; den står som "ej belagd" och räknas inte. Ett belägg i efterhand
 fästs vid raden i bilagan `underlag/<slug>/DESIGNDOMAR-belagg.jsonl`, bunden till radens sha256
