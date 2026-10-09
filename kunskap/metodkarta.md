@@ -58,21 +58,16 @@ sessionerna.
 ## Avgöranden
 
 - **Arbetsprincipen** (ägarens uppdrag 2026-10-09): varje steg utgår från tillämpliga, trovärdiga källor och kundens
-  faktiska förutsättningar; rätt specialistkompetens används för att fatta och genomföra motiverade beslut; osäkerheter
-  undersöks med den metod som kan besvara dem; resultatet bedöms innan steget räknas som uppfyllt. Källornas slag och
-  vad som går före står i `kunskap/designregler.md`, Källornas slag. Vid motstridiga råd avgör källornas syfte och
-  räckvidd, aldrig vilken instruktion som lästes sist. Ett betydande vägval (komposition, informationsordning,
-  bildbehandling, teknisk lösning) står kort i RIKTNING.md:s beslutsliggare: problemet det löser, underlaget och källan,
-  det övervägda alternativet, det som fortfarande är ett antagande och hur effekten bedöms. En marginaljustering behöver
-  ingen rad.
-- **Osäkerheter:** skriv först vad som är osäkert, och välj metod efter slaget: teknik genom aktuell officiell
-  dokumentation och ett avgränsat tekniskt prov; metod genom primärkällor med deras tillämpningsområde, vid behov ett
-  jämförande försök; kundens fakta genom kunden eller verifierat underlag; besökarnas behov genom beteendedata,
-  intervjuer, observation eller ett besökarprov (`kunskap/besokarprov.md`); en visuell lösning genom renderade
-  alternativ och bildbedömning; modellens förmåga genom ett representativt förmågeprov (`kunskap/autonomi.md`);
-  motstridiga krav genom en skriven avvägning inom mandatet. En AI-genererad målgruppshypotes är ett antagande, aldrig
-  forskning med verkliga användare. Sökningen avgränsas till frågan och slutar när underlaget räcker för ett motiverat
-  nästa steg; det källorna inte besvarar står kvar som osäkert.
+  faktiska förutsättningar, fattar motiverade beslut med rätt specialistkompetens, undersöker osäkerheter med en metod
+  som kan besvara dem och bedömer resultatet innan steget räknas som uppfyllt. Källornas slag: `kunskap/designregler.md`.
+  Vid motstridiga råd avgör källornas syfte och räckvidd, inte vilken instruktion som lästes sist. Ett betydande vägval
+  står i beslutsliggaren: problemet, underlaget och källan, alternativet, antagandet och hur effekten bedöms.
+- **Osäkerheter:** skriv först vad som är osäkert och välj metod efter slaget: teknik genom aktuell officiell
+  dokumentation och ett avgränsat prov; metod genom primärkällor och vid behov ett jämförande försök; kundens fakta genom
+  kunden eller verifierat underlag; besökarnas behov genom data, intervjuer, observation eller besökarprov
+  (`kunskap/besokarprov.md`); en visuell lösning genom renderade alternativ; modellens förmåga genom ett förmågeprov;
+  motstridiga krav genom en skriven avvägning. En AI-genererad målgruppshypotes är ett antagande. Sök avgränsat och
+  redovisa det som förblir osäkert.
 - **Bilder (äkthet):** en bild som visar verksamheten (arbeten, personer, lokaler, resultat) är dess egen; illustrativt
   material som inte utger sig för att dokumentera den (licensierade illustrationer, texturer, konceptbilder, form i
   koden) är tillåtet med källa i BILDER.md eller DESIGN.md (`kunskap/bild.md`). Bilderna serveras från sajten. Saknat
@@ -751,13 +746,12 @@ med rollen kritik (avsnittet Kompetenserna, Avgörandena): blind för skaparens 
 egen förhandsvisning i 390, 768, 1280 och 1440, menyn öppen, tangentbordet och reflow; SKISSKRITIK.json belägger
 versionen, bilderna och kompetenskvittot.
 
-**Tillämpning:** typografikompetensen avgör rollerna, storlekarna och hierarkin i den renderade sidan; art direction
-bildernas uppgift och beskärning; UX uppgiftsflödet, återkopplingen och felhanteringen; responsiviteten hur
-kompositionen håller från 390 till 1440. Referos stilpaket och Mobbins skärmar eller flödessteg knyts i
-beslutsliggaren till de formbeslut de används för.
+**Tillämpning:** typografin avgör rollerna och hierarkin i den renderade sidan, art direction bildernas uppgift och
+beskärning, UX uppgiftsflödet och återkopplingen, responsiviteten kompositionen från 390 till 1440; stilpaketet och
+Mobbins underlag knyts i beslutsliggaren till formbesluten de används för.
 
-**Återgång:** håller inte helheten byter skaparen grundkomposition eller referens, med skälet, i stället för att putsa;
-en stark mellanversion får stå kvar; material som saknas beställs och märks.
+**Återgång:** en svag helhet byter grundkomposition eller referens, med skälet, i stället för putsning; en stark
+mellanversion får stå kvar; saknat material beställs och märks.
 
 ```utdrag före
 kunskap/designregler.md
