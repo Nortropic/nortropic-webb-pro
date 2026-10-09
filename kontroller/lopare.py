@@ -8,13 +8,17 @@ lämnar processen hit. Löparen äger sessionens stdin, och det är därför den
 - motorns uppgift går in som första meddelandet, utan ursprung, som förut;
 - meddelanden ur bussen (meddelanden.py) levereras medan sessionen arbetar; Claude Code läser dem mellan verktygsanropen
   i samma tur. Ägarens bär origin human, andras origin peer och en ram som säger avsändaren (meddelanden.ramtext);
-- ekot (isReplay med meddelandets id) blir mottaget, och en tur vars resultat bär id:t i user_message_uuids blir besvarat,
-  med turens text och mottagarens kvitto;
+- ekot (isReplay med meddelandets id) blir mottaget: meddelandet står då i samtalet. Nästa tur som slutar utan avbrott
+  är den första där sessionen haft det framför sig, och då blir det besvarat, med turens text och mottagarens kvitto
+  (user_message_uuids i resultatet räcker inte som bevis: Claude Code listar inte varje meddelande när flera slås ihop
+  till en tur, prövat 2026-10-09);
 - sessionens egna meddelandeblock (```meddelande {...}```) registreras i bussen med sessionen som avsändare;
 - paus: ett avbrott (control_request interrupt med cancel_queued) stoppar turen och verktygen som kör; köade
   meddelanden läggs tillbaka i bussen. Pausad blir det först när turens resultat kommit; verktyg som ändå lever
-  redovisas. Under pausen hålls stdin öppen och ingenting levereras; återupptagningen är ett nytt meddelande från
-  ägaren, följt av det som kom under pausen. En paus återställer inga filändringar;
+  redovisas. Under pausen hålls stdin öppen och ingenting levereras; återupptagningen är ett enda meddelande från
+  ägaren med det som kom under pausen och uppmaningen att slutföra den ursprungliga uppgiften utan att vänta (en
+  återupptagning som bara bad sessionen läsa meddelandena som följer fick Haiku att stanna och vänta, prövat
+  2026-10-09). En paus återställer inga filändringar;
 - när en tur slutar utan något att leverera och utan paus stängs stdin, och processen avslutas som en vanlig claude -p.
   Det sista resultatet skrivs till svarsfilen i samma form som --output-format json gav, så resten av motorn läser det
   som förut.
@@ -58,18 +62,19 @@ def nu():
 def _barn(pid):
     """Processerna under pid (hela trädet), som (pid, kommando): verktyg som fortfarande arbetar."""
     try:
-        r = subprocess.run(['ps', '-A', '-o', 'pid=,ppid=,command='], capture_output=True, text=True, timeout=10)
+        r = subprocess.run(['ps', '-A', '-o', 'pid=,ppid=,stat=,command='], capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
         return None
     barn = {}
     for rad in r.stdout.splitlines():
-        delar = rad.split(None, 2)
-        if len(delar) >= 2 and delar[0].isdigit() and delar[1].isdigit():
-            barn.setdefault(int(delar[1]), []).append((int(delar[0]), delar[2] if len(delar) > 2 else ''))
+        delar = rad.split(None, 3)
+        if len(delar) >= 3 and delar[0].isdigit() and delar[1].isdigit():
+            barn.setdefault(int(delar[1]), []).append((int(delar[0]), delar[2], delar[3] if len(delar) > 3 else ''))
     ut, kvar = [], [int(pid)]
     while kvar:
         for b in barn.get(kvar.pop(), []):
-            ut.append({'pid': b[0], 'kommando': b[1][:120]})
+            if not b[1].startswith('Z'):  # en avslutad process som ännu inte skördats arbetar inte
+                ut.append({'pid': b[0], 'kommando': b[2][:120]})
             kvar.append(b[0])
     return ut
 
@@ -82,6 +87,8 @@ class Lopare:
         self.handelser, self.fel = queue.Queue(), bytearray()
         self.sista, self.turer, self.text_i_tur = None, 0, []
         self.levererade = {}  # meddelande-id -> meddelandet, för det som är köat i processen
+        self.mottagna = set()  # levererade som Claude Code ekat: de står i samtalet
+        self.samlade = {}  # en återupptagnings uuid -> meddelandena den bär
         self.paus, self.avbrott_skickat, self.stangd = None, False, False
         self.aktiv_tid, self.senast = 0.0, time.time()
         self.lage = {'session_id': sid, 'roll': roll, 'ansvar': meddelanden.ansvar(roll), 'kandidat': kandidat, 'blind': self.blind,
@@ -108,12 +115,21 @@ class Lopare:
     # --- in och ut ---
 
     def _las_ut(self):
-        for rad in self.p.stdout:
-            try:
-                self.handelser.put(json.loads(rad))
-            except ValueError:
-                continue
-        self.handelser.put(None)
+        ra = os.environ.get('NWP_LOPARE_RA')  # bara för prov: strömmen rad för rad i en egen katalog
+        f = open(Path(ra) / ('%s.jsonl' % self.sid), 'ab') if ra else None
+        try:
+            for rad in self.p.stdout:
+                if f:
+                    f.write(rad)
+                    f.flush()
+                try:
+                    self.handelser.put(json.loads(rad))
+                except ValueError:
+                    continue
+        finally:
+            if f:
+                f.close()
+            self.handelser.put(None)
 
     def _las_fel(self):
         for bit in iter(lambda: self.p.stderr.read(4096), b''):
@@ -202,16 +218,14 @@ class Lopare:
         text = '\n\n'.join(self.text_i_tur) or str(d.get('result') or '')
         self.text_i_tur = []
         kvitton = {str(k.get('meddelande')): k for k in self._egna_block(text)}
-        for mid in d.get('user_message_uuids') or []:
-            m = self.levererade.pop(mid, None)
-            if not m:
-                continue
-            if d.get('subtype') == 'error_during_execution' and self.avbrott_skickat:
-                meddelanden.uppdatera(self.slug, mid, 'tillbaka', notis='turen avbröts av pausen innan meddelandet besvarades')
-                self.levererade[mid] = m
-                continue
+        avbruten = d.get('subtype') == 'error_during_execution' and self.avbrott_skickat
+        for mid in list(self.levererade):
+            if avbruten or (mid not in self.mottagna and mid not in (d.get('user_message_uuids') or [])):
+                continue  # en avbruten tur besvarar inget; ett meddelande som inte ekats har sessionen inte sett än
+            self.levererade.pop(mid)
+            self.mottagna.discard(mid)
             k = kvitton.get(mid)
-            meddelanden.uppdatera(self.slug, mid, 'besvarat', bevis='turens resultat bär meddelandets id', resultat=d.get('uuid'),
+            meddelanden.uppdatera(self.slug, mid, 'besvarat', bevis='en tur slutade efter att Claude Code ekat meddelandet', resultat=d.get('uuid'),
                                   svar={'tid': nu(), 'text': text[:4000], 'session_id': self.sid},
                                   **({'kvitto': {k_: k.get(k_) for k_ in ('genomfort', 'beskrivning')}} if k else {}))
         self.lage['turer'] = self.turer
@@ -226,7 +240,13 @@ class Lopare:
                                  'version': d.get('claude_code_version')}
             self._spara()
         elif typ == 'user' and d.get('isReplay') and d.get('uuid') in self.levererade:
+            self.mottagna.add(d['uuid'])
             meddelanden.uppdatera(self.slug, d['uuid'], 'mottaget', bevis='Claude Code ekade meddelandet (--replay-user-messages)')
+        elif typ == 'user' and d.get('isReplay') and d.get('uuid') in self.samlade:
+            for mid in self.samlade.pop(d['uuid']):
+                if mid in self.levererade:
+                    self.mottagna.add(mid)
+                    meddelanden.uppdatera(self.slug, mid, 'mottaget', bevis='Claude Code ekade återupptagningen som bär meddelandet')
         elif typ == 'assistant':
             for c in (d.get('message') or {}).get('content') or []:
                 if isinstance(c, dict) and c.get('type') == 'text' and c.get('text'):
@@ -273,19 +293,30 @@ class Lopare:
             time.sleep(1.0)
         self.paus, self.avbrott_skickat = None, False
         self._satt('arbetar', verktyg_kvar=[], paus=None, aterupptagen=nu())
-        tillbaka = list(self.levererade)  # köade i processen när pausen kom, eller lästa i en tur som avbröts
-        for mid in tillbaka:
+        lasta = [mid for mid in self.levererade if mid in self.mottagna]  # står redan i samtalet: levereras inte igen
+        for mid in [mid for mid in self.levererade if mid not in self.mottagna]:  # köade i processen när pausen kom
+            self.levererade.pop(mid)
             m = meddelanden.hamta(self.slug, mid)
             if m and meddelanden.lage(m) != 'tillbaka':
-                meddelanden.uppdatera(self.slug, mid, 'tillbaka', notis='turen avbröts av pausen innan meddelandet besvarades')
-        self.levererade = {}
+                meddelanden.uppdatera(self.slug, mid, 'tillbaka', notis='köat i processen när pausen kom; levereras med återupptagningen')
+        nya = [] if self.blind or self.turer >= self.max_turer else meddelanden.att_leverera(self.slug, self.lage)
         rader = ['[Meddelande från ÄGAREN (via arbetsytan) — återupptagning]',
-                 'Arbetet pausades av ägaren och återupptas nu. Fortsätt uppdraget från där du var; filändringar som gjordes före '
-                 'pausen står kvar. Läs de meddelanden som följer innan du fortsätter.' if tillbaka else
-                 'Arbetet pausades av ägaren och återupptas nu. Fortsätt uppdraget från där du var; filändringar som gjordes före '
-                 'pausen står kvar.']
-        self._anvandare('\n'.join(rader), uid='aterupptag-%d' % time.time(), origin={'kind': 'human'})
-        self._leverera()  # det som lades tillbaka och det som kom under pausen
+                 'Ägaren pausade arbetet, och det återupptas nu. Filändringar som gjordes före pausen står kvar; ett verktyg som '
+                 'avbröts kan behöva köras om.']
+        if lasta:
+            rader.append('Besvara meddelandena %s, som du fick strax före pausen.' % ', '.join(lasta))
+        for m in nya:
+            rader += ['', meddelanden.ramtext(m)]
+        rader += ['', 'Svara kort på meddelandena ovan med kvitto där det efterfrågas. Slutför sedan den ursprungliga uppgiften från '
+                      'sessionens första meddelande, till slut, utan att vänta på fler meddelanden.']
+        uid = 'aterupptag-%d' % time.time()
+        self.samlade[uid] = [m['id'] for m in nya]
+        for m in nya:
+            self.levererade[m['id']] = m
+        if not self._anvandare('\n'.join(rader), uid=uid, origin={'kind': 'human'}):
+            for m in nya:
+                self.levererade.pop(m['id'], None)
+                meddelanden.uppdatera(self.slug, m['id'], 'tillbaka', notis='processen tog inte emot återupptagningen')
         return 'aterupptagen'
 
     # --- huvudslingan ---

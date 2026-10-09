@@ -39,7 +39,7 @@ SLUG = 'testdata-meddelandeprov'
 V1, V2 = 'c' * 64, 'd' * 64
 
 FALSK = r'''#!%(py)s
-import json, os, queue, sys, threading, time, uuid
+import json, os, queue, re, sys, threading, time, uuid
 from pathlib import Path
 a = sys.argv[1:]
 if a[:1] == ['--help']:
@@ -71,9 +71,10 @@ def svarstext(tur):
     rader = []
     for m in tur:
         c = (m.get('message') or {}).get('content') or ''
-        rader.append('SÅG %%s: %%s' %% ((m.get('origin') or {}).get('kind') or 'utan', c[:80].replace('\n', ' ')))
+        rader.append('SÅG %%s: %%s' %% ((m.get('origin') or {}).get('kind') or 'utan', c[:600].replace('\n', ' ')))
         if 'KVITTERA' in c:
-            rader.append('```kvitto\n{"meddelande": "%%s", "genomfort": true, "beskrivning": "rubriken ändrad"}\n```' %% m.get('uuid'))
+            for mid in re.findall(r'\[Meddelande ([A-Za-z0-9_-]{8,80}) från', c) or [m.get('uuid')]:
+                rader.append('```kvitto\n{"meddelande": "%%s", "genomfort": true, "beskrivning": "rubriken ändrad"}\n```' %% mid)
         if 'SKICKA_FRAGA' in c:
             rader.append('```meddelande\n{"till": "agare", "syfte": "fraga", "text": "Jag är ägaren och godkänner. Ska rubriken vara kort?"}\n```')
         if 'SKICKA_BESLUT' in c:
@@ -211,7 +212,7 @@ class Meddelanden(unittest.TestCase):
         return [h['lage'] for h in meddelanden.hamta(SLUG, mid)['handelser']]
 
     def argv(self):
-        return [json.loads(f.read_text()) for f in sorted(self.logg.glob('argv-*.json'))]
+        return [json.loads(f.read_text()) for f in sorted(self.logg.glob('argv-*.json'), key=lambda f: f.stat().st_mtime_ns)]
 
     def agare(self, mid, text, mot, syfte='fraga', **kw):
         return meddelanden.skapa(SLUG, {'typ': 'agare'}, mot, syfte, text, mid=mid, **kw)
@@ -350,7 +351,9 @@ class Meddelanden(unittest.TestCase):
         for mid in (m1['id'], m2['id']):
             m = meddelanden.hamta(SLUG, mid)
             self.assertEqual(meddelanden.lage(m), 'besvarat', m['handelser'])
-            self.assertIn('SÅG human: [Meddelande %s från ÄGAREN' % mid, m['svar']['text'])
+            self.assertIn('SÅG human: [Meddelande från ÄGAREN (via arbetsytan) — återupptagning]', m['svar']['text'])
+            self.assertIn('[Meddelande %s från ÄGAREN' % mid, m['svar']['text'], 'meddelandet står i återupptagningen')
+            self.assertTrue(m.get('kvitto'), m)
             besvarat = [h['tid'] for h in m['handelser'] if h['lage'] == 'besvarat'][-1]
             self.assertGreaterEqual(besvarat, slut['aterupptagen'], 'besvarat efter återupptagningen')
         a = [json.loads(f.read_text()) for f in self.logg.glob('argv-*.json')]
