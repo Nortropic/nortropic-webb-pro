@@ -253,9 +253,10 @@ def kundvakt(slug, rot=None):
 # (kontroller/kundrepo.py) med dess korta CLAUDE.md: skapandeflödets sessioner med slug, de äldre vägarna med arbetsslug
 # och helbygget genom kor.sh (kontroller/arbetsrot.py). Motorns skills och filer nås genom --add-dir, varje relativ regel,
 # sökväg och kommando görs absolut så att datagränserna gäller oförändrade, och sessionen skriver aldrig i kundrepot.
-# Vilka CLAUDE.md, skills och MCP:er Claude Code faktiskt laddar där (också om motorns CLAUDE.md i en katalog ovanför
-# kommer med) är inte prövat; standard är motorns rot tills det verkliga sessionsprovet (kontroller/formagoprov.py) gett
-# belägg. Ett kundrepo med egna Claude Code-inställningar används aldrig som arbetsrot.
+# Det verkliga förmågeprovet 2026-10-09 (kontroller/formagoprov.py, S1, underlag/formagoprov/20261009t1004) visade att
+# motorns CLAUDE.md ändå kommer med i kontexten: kundrepot ligger under motorns rot, och Claude Code läser CLAUDE.md i
+# katalogerna ovanför arbetskatalogen. Växeln står därför av, och standard är motorns rot. Ett kundrepo med egna Claude
+# Code-inställningar används aldrig som arbetsrot.
 ARBETSROT_VAXEL = 'NWP_ARBETSROT'
 ROTDELAR = ('kunder', 'underlag', 'kunskap', 'kontroller', 'kritik', 'mall', '.claude', '.venv', 'backlog', 'dashboard')
 _RELATIV = re.compile(r'(?<![\w/.~$-])(?:\./)?((?:%s)/)' % '|'.join(re.escape(d) for d in ROTDELAR))
@@ -375,7 +376,7 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
             '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools',
             *[regel_absolut(x) if utanfor else x for x in NEKAS + kompetens.skill_nekas(ROOT) + andra_kunder_nekas(slug)], *nekas]
-    if kundrot and not blind:  # motorns skills, kunskap och verktyg nås från kundrepots rot; motorns CLAUDE.md laddas inte (session_miljo)
+    if kundrot and not blind:  # motorns skills, kunskap och verktyg nås från kundrepots rot (motorns CLAUDE.md kommer ändå med ovanifrån: förmågeprovet S1)
         args[args.index('--setting-sources'):args.index('--setting-sources')] = ['--add-dir', str(ROOT)]
     if schema:
         args[args.index('--allowedTools'):args.index('--allowedTools')] = ['--json-schema', json.dumps(schema)]
@@ -387,7 +388,7 @@ def session_miljo(slug=None):
     nådde den Bash och bygget av modellskriven kod; granskning 4, G15): användarens MCP-anslutning refero bär den själv."""
     m = ren_miljo()
     m.pop('REFERO_MCP_TOKEN', None)
-    m.pop('CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD', None)  # --add-dir laddar aldrig motorns CLAUDE.md (R06)
+    m.pop('CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD', None)  # --add-dir laddar inte motorns CLAUDE.md (R06; katalogerna ovanför kundrepot gör det ändå)
     return m
 
 

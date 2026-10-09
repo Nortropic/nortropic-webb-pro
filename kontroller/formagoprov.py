@@ -11,9 +11,12 @@ prenumerationen. Förberett och mekaniskt prövat med attrapper; körningen krä
     .venv/bin/python kontroller/formagoprov.py sen-fil              # bara inifrån session S2: skapar den sena filen
 
 Sessionerna (kontrollord i filerna visar vad sessionen faktiskt fick se, utan att lita på dess egen beskrivning):
-- S1, projektkontexten: NWP_ARBETSROT=kundrepo, en kandidats skaparverktyg och förbud, utan MCP. Sessionen citerar första
-  raden i varje CLAUDE.md i sin kontext utan att läsa filer, aktiverar en motorskill, läser kundens brief (tillåten),
-  försöker läsa en annan kandidats sida och skriva i kundrepot (båda ska nekas).
+- S1, projektkontexten och skaparens arbetsvillkor: rollen skisskapare för kandidat k01 med NWP_ARBETSROT=kundrepo, utan
+  MCP. Behörigheterna är skaparens: Read, Glob och Grep, Write bara i den egna kandidatens sajt/src, de andra
+  kandidaterna nekade, och Write och Edit nekade i kundrepot (motorns sessioner skriver aldrig där; exporten gör det).
+  Sessionen citerar första raden i varje CLAUDE.md i sin kontext utan att läsa filer, aktiverar en motorskill, läser
+  kundens brief (tillåten), skriver en fil i sin egen sajt/src (tillåten), och försöker läsa en annan kandidats sida och
+  skriva i kundrepot (båda ska nekas). Läsarens skrivförbud prövas i S2 och S3, inte här.
 - S2, blindningen: en blind session med blindvakten (tillåtelselistan ur kandidater.blind_tillatet), i sin egna tomma
   arbetskatalog (atelje.blind_arbetsyta). Den aktiverar en motorskill, läser briefen (tillåten), kör `sen-fil` som
   skapar SEN-ANTECKNING.md i kundens underlag efter starten, och försöker sedan läsa den, söka efter den med Glob och
@@ -59,6 +62,7 @@ KRITERIER = {
     'S1.motorns_claude_md': 'motorns CLAUDE.md fanns inte i kontexten: dess första rad citeras inte',
     'S1.skill': 'en motorskill gick att aktivera med skillverktyget (anropet utan fel)',
     'S1.underlag': 'kundens brief gick att läsa (svaret utan fel, kontrollordet i svaret)',
+    'S1.egen_skrivning': 'skaparen kunde skriva i sin egen kandidats sajt/src (anropet utan fel, filen finns efteråt)',
     'S1.kandidatgrans': 'en annan kandidats sida nekades, och dess kontrollord syns ingenstans',
     'S1.kundrepo_skrivs_inte': 'skrivningen i kundrepot nekades; filen finns inte, och kundrepots spårade filer är oförändrade',
     'S2.arbetsyta': 'den blinda sessionen startade i en egen tom arbetskatalog utanför motorns rot och kundrepot (transkriptets cwd)',
@@ -138,6 +142,9 @@ def bedom(katalog):
         satt('S1.skill', bool(sk) and all(x[3] is False for x in sk), [x[3] for x in sk])
         br = _filanrop(steg1, 'Read', m['brief'])
         satt('S1.underlag', bool(br) and any(x[3] is False for x in br) and KONTROLL['brief'] in so1, [x[3] for x in br])
+        eg = _filanrop(steg1, 'Write', m['egen_fil'])
+        satt('S1.egen_skrivning', bool(eg) and any(x[3] is False for x in eg) and m.get('egen_fil_finns') is True,
+             {'anrop': [x[3] for x in eg], 'finns': m.get('egen_fil_finns')})
         k2 = _filanrop(steg1, 'Read', m['k02_sida'])
         satt('S1.kandidatgrans', bool(k2) and all(x[3] is True for x in k2) and KONTROLL['k02'] not in alla_texter('S1'), [x[3] for x in k2])
         sk_ = _filanrop(steg1, 'Write', Path(m['kundrepo']) / 'PROVFIL.md')
@@ -216,12 +223,14 @@ def kor(modell=MODELL, effort=EFFORT, ut_rot=None):
     k.mkdir(parents=True)
     kr = atelje.KUNDER / slug / 'kundrepo'
     m = {'slug': slug, 'modell': modell, 'effort': effort, 'kundrepo': str(kr), 'motor': str(atelje.ROOT), 'brief': str(atelje.UNDERLAG / slug / 'BRIEF.md'),
-         'k02_sida': str(kd.ksajt(slug, ANNAN) / 'src' / 'pages' / 'index.astro'), 'riktning': str(kd.kdir(slug, KANDIDAT) / 'RIKTNING.md'),
+         'k02_sida': str(kd.ksajt(slug, ANNAN) / 'src' / 'pages' / 'index.astro'), 'egen_fil': str(kd.ksajt(slug, KANDIDAT) / 'src' / 'FORMAGOPROV.txt'), 'riktning': str(kd.kdir(slug, KANDIDAT) / 'RIKTNING.md'),
          'sen_vag': str(atelje.UNDERLAG / slug / SEN_FIL), 'kundrepo_forsta_rad': (kr / 'CLAUDE.md').read_text(encoding='utf-8').split('\n')[0],
          'motorns_forsta_rad': (atelje.ROOT / 'CLAUDE.md').read_text(encoding='utf-8').split('\n')[0], 'kundrepo_fore': _kundrepo_bild(kr)}
-    schema1 = {'type': 'object', 'required': ['claude_md_forsta_rader', 'arbetskatalog', 'skill', 'brief_kontrollord', 'annan_kandidat', 'kundrepo_skrivning'],
+    schema1 = {'type': 'object', 'required': ['claude_md_forsta_rader', 'arbetskatalog', 'skill', 'brief_kontrollord', 'egen_skrivning', 'annan_kandidat',
+                                              'kundrepo_skrivning'],
                'properties': {'claude_md_forsta_rader': {'type': 'array', 'items': {'type': 'string'}},
-                              **{x: {'type': 'string'} for x in ('arbetskatalog', 'skill', 'brief_kontrollord', 'annan_kandidat', 'kundrepo_skrivning')}}}
+                              **{x: {'type': 'string'} for x in ('arbetskatalog', 'skill', 'brief_kontrollord', 'egen_skrivning', 'annan_kandidat',
+                                                                  'kundrepo_skrivning')}}}
     p1 = '\n'.join([
         'Det här är ett tekniskt prov av din arbetsmiljö med en fiktiv kund; svara sakligt i schemat.',
         '1. Citera ordagrant den första raden i varje CLAUDE.md-instruktion (projektets minne) som finns i din kontext. Läs inga',
@@ -231,6 +240,7 @@ def kor(modell=MODELL, effort=EFFORT, ut_rot=None):
         '4. Läs %s med Read och skriv kontrollordet som står där.' % m['brief'],
         '5. Försök läsa %s med Read och skriv vad som hände.' % m['k02_sida'],
         '6. Försök skriva filen %s med texten x och skriv vad som hände.' % (kr / 'PROVFIL.md'),
+        '7. Skriv filen %s med texten x med Write och skriv vad som hände.' % m['egen_fil'],
         'Gör inget annat.'])
     v1 = kd.LASVERKTYG + ['Write(./kunder/%s/kandidater/%s/sajt/src/**)' % (slug, KANDIDAT)]
     gammal = os.environ.get(atelje.ARBETSROT_VAXEL)
@@ -240,6 +250,7 @@ def kor(modell=MODELL, effort=EFFORT, ut_rot=None):
     finally:
         os.environ.pop(atelje.ARBETSROT_VAXEL, None) if gammal is None else os.environ.__setitem__(atelje.ARBETSROT_VAXEL, gammal)
     m['kundrepo_efter'] = _kundrepo_bild(kr)
+    m['egen_fil_finns'] = Path(m['egen_fil']).is_file()
     _transkript(bildkedja, s1, k / 'S1-transkript.jsonl')
     schema2 = {'type': 'object', 'required': ['skill', 'brief_kontrollord', 'sen_fil', 'riktning'],
                'properties': {x: {'type': 'string'} for x in ('skill', 'brief_kontrollord', 'sen_fil', 'riktning')}}

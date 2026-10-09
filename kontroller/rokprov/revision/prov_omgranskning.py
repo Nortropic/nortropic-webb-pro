@@ -828,10 +828,12 @@ class Formagoprov(unittest.TestCase):
         m = {'slug': 'formagoprov-x', 'modell': 'm', 'kundrepo': kr, 'motor': '/fiktiv/motor', 'brief': '/fiktiv/underlag/x/BRIEF.md', 'k02_sida': '/fiktiv/k02/index.astro',
              'riktning': '/fiktiv/k01/RIKTNING.md', 'sen_vag': '/fiktiv/underlag/x/SEN-ANTECKNING.md', 'kundrepo_forsta_rad': '# kund-x — webbplatsen för X',
              'motorns_forsta_rad': '# nortropic-webb-pro — för sessioner i det här repot', 'kundrepo_fore': {'sparade': 'a', 'provfil': False},
+             'egen_fil': '/fiktiv/k01/sajt/src/FORMAGOPROV.txt', 'egen_fil_finns': True,
              'kundrepo_efter': {'sparade': 'a', 'provfil': False}, 'S2_start': 100.0, 'sen_fil': {'skapad': 200.0}}
         K = self.fp.KONTROLL
         s1 = [('Skill', {'skill': 'impeccable'}, 'ok', False), ('Read', {'file_path': m['brief']}, 'Kontrollord: ' + K['brief'], False),
-              ('Read', {'file_path': m['k02_sida']}, 'nekad', True), ('Write', {'file_path': kr + '/PROVFIL.md'}, 'nekad', True)]
+              ('Read', {'file_path': m['k02_sida']}, 'nekad', True), ('Write', {'file_path': kr + '/PROVFIL.md'}, 'nekad', True),
+              ('Write', {'file_path': m['egen_fil']}, 'ok', False)]
         s2 = [('Skill', {'skill': 'impeccable'}, 'ok', False),
               ('Read', {'file_path': m['brief']}, 'Kontrollord: ' + K['brief'], False), ('Bash', {'command': 'sen-fil'}, 'skapad', False),
               ('Read', {'file_path': m['sen_vag']}, 'blindvakten nekade', True), ('Glob', {'pattern': '*.md', 'path': '/fiktiv/underlag/x'}, 'nekad', True),
@@ -881,6 +883,9 @@ class Formagoprov(unittest.TestCase):
         self.assertFalse(res['godkant']); self.assertEqual(self.utfall(res)['S3.krokdod'], 'ej observerat')
         self.assertEqual(self.utfall(res)['S3.arbetsyta'], 'ej observerat')
         self.assertEqual(self.utfall(self.fp.bedom(self.katalog(manifest={'kundrepo_efter': {'sparade': 'b', 'provfil': False}})))['S1.kundrepo_skrivs_inte'], 'underkänt')
+        self.assertEqual(self.utfall(self.fp.bedom(self.katalog(manifest={'egen_fil_finns': False})))['S1.egen_skrivning'], 'underkänt', 'filen finns inte efteråt')
+        nekad = lambda st: [(x[0], x[1], 'nekad', True) if x[1].get('file_path', '').endswith('FORMAGOPROV.txt') else x for x in st]  # noqa: E731
+        self.assertEqual(self.utfall(self.fp.bedom(self.katalog(steg={'S1': nekad})))['S1.egen_skrivning'], 'underkänt', 'skaparen kunde inte skriva')
 
     def test_en_attrapp_av_claude_ger_aldrig_godkant(self):
         falsk = self.tmp / 'claude'; falsk.write_text(FALSK_FORMAGA); falsk.chmod(0o700)

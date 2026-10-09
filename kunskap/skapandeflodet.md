@@ -327,9 +327,9 @@ kor.sh (`kontroller/arbetsrot.py`, med projektets krokar, stoppvakten och commit
 filer nås genom `--add-dir`, varje regel, sökväg och kommando görs absolut (`atelje.regel_absolut`, `text_absolut`), så att
 datagränserna gäller oförändrade, och sessionen skriver aldrig i kundrepot (Write och Edit nekas där, och sandlådan nekar
 Bash det). Ett kundrepo med egna Claude Code-inställningar används aldrig som arbetsrot. Granskarna i helbygget
-(`granska.py`) är domare, inte arbetssessioner, och har motorns rot. Växeln är av som standard: vilka CLAUDE.md, skills och
-MCP:er Claude Code faktiskt laddar i kundrepots rot, och om motorns CLAUDE.md i en katalog ovanför kommer med, visar först
-det verkliga förmågeprovet (`kontroller/formagoprov.py`, ägarens klartecken). Skissens sparade kvitto bär hela
+(`granska.py`) är domare, inte arbetssessioner, och har motorns rot. Växeln är av som standard: det verkliga förmågeprovet
+2026-10-09 (`kontroller/formagoprov.py`, S1) visade att motorns CLAUDE.md kommer med i kontexten ovanifrån, eftersom
+kundrepot ligger under motorns rot; skillen, briefen, kandidatgränsen och skrivförbudet i kundrepot höll. Skissens sparade kvitto bär hela
 kvittoformen, och kärnan står som läst bara när varje session observerades (R03); materialsteget nås av rollen
 komposition genom ett kandidatavgränsat verktyg (`material.py <slug> --kandidat <id>`; R05) som prövar den slutligt
 tolkade kandidaten och visar och använder bara kandidatens egna och det uttryckligen gemensamma kundmaterialet; registret
