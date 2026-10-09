@@ -2047,12 +2047,14 @@ def flode(slug):
 
     import kundrepo
     kr = kundrepo.las_kvitto(slug)
-    if kr:  # kundprojektets eget repo (kundrepo.py): identiteten, fjärrepot och Vercel-kopplingen som kvittot säger
+    if kr:  # kundprojektets eget repo (kundrepo.py): identiteten och fjärrepot som kvittot säger; en äldre Vercel-koppling
+        #     visas som historik, aldrig som leveransväg (ägarens beslut 2026-10-09: Cloudflare Workers)
         fj, vc, pu = kr.get('fjarr') or {}, kr.get('vercel') or {}, kr.get('senaste_push') or {}
-        steg[-1]['underlag'].append({'text': 'kundrepo %s: lokalt %s · fjärr %s%s · Vercel %s%s' % (
+        steg[-1]['underlag'].append({'text': 'kundrepo %s: lokalt %s · fjärr %s%s%s%s' % (
             kr.get('namn'), 'git' if kundrepo.ar_repo(kundrepo.repo(slug)) else 'saknas', fj.get('status') or 'inte observerat',
             ' (%s)' % fj['adress'] if fj.get('adress') else (' (%s)' % fj['fel']) if fj.get('fel') else '',
-            vc.get('status') or 'inte kopplat', ' · senaste push %s %s' % ('ok' if pu.get('ok') else 'föll', str(pu.get('commit') or '')[:12]) if pu else '')})
+            ' · äldre Vercel-koppling (historik): %s' % vc['status'] if vc.get('status') else '',
+            ' · senaste push %s %s' % ('ok' if pu.get('ok') else 'föll', str(pu.get('commit') or '')[:12]) if pu else '')})
         if e and e.get('commit'):
             steg[-1]['underlag'].append({'text': 'exportens commit i kundrepot: %s' % str(e['commit'])[:12]})
     # 9. leveransen: förhandsvisningens kvitto (kundrepo.preview) när det finns; produktion sparas aldrig av ett verktyg, så
@@ -2062,7 +2064,8 @@ def flode(slug):
         s9 = 'skapat' if pv.get('aktuell') else 'inaktuellt' if pv.get('status') == 'klar' else 'stoppat'
         steg.append(_steg(9, 'Leveransen', s9,
                           underlag=[{'text': 'förhandsvisning %s · commit %s · export %s · %s' % (pv.get('url') or 'saknas', str(pv.get('commit') or '')[:12], pv.get('export') or '?', pv.get('tid'))}],
-                          kontroller=[{'text': 'Vercel: %s (förhandsvisning, inte produktion)' % (pv.get('vercel_status') or pv.get('status'))}],
+                          kontroller=[{'text': ('Cloudflare Workers: %s, version %s, skydd %s (förhandsvisning, inte produktion)' % (pv.get('status'), pv.get('version_id') or 'inte observerad', pv.get('skydd') or 'inte prövat'))
+                                       if pv.get('plattform') == 'cloudflare-workers' else 'äldre Vercel-förhandsvisning (historik): %s' % (pv.get('vercel_status') or pv.get('status'))}],
                           brister=(['förhandsvisningen gäller en annan commit eller export än den aktuella'] if pv.get('status') == 'klar' and not pv.get('aktuell') else list(pv.get('hinder') or []))
                                   + ['förhandsvisning är inte produktion; domän, riktiga formulär och drift är inte verifierade'],
                           utfall=[] if blind else [f for f in [_fil(Path(pv['fil']), 'förhandsvisningens kvitto') if pv.get('fil') else None] if f]))

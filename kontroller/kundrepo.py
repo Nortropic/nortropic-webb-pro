@@ -4,16 +4,21 @@
 Varje kundprojekt får från projektstarten (kontroller/ny_sajt.py --installera, via ateljén) ett eget lokalt git-repo i
 kunder/<slug>/kundrepo med ett kort CLAUDE.md, och en verklig verksamhet (VERKSAMHET.json utan fiktiv: true) ett privat
 GitHub-repo Nortropic/kund-<slug> (ägarens svar 2026-10-07: organisationen Nortropic). Identiteten står i
-kunder/<slug>/KUNDREPO.json: projekt-id, slug, namn, lokal väg, fjärrepot med status, Vercel-projektet och senaste push.
+kunder/<slug>/KUNDREPO.json: projekt-id, slug, namn, lokal väg, fjärrepot med status och senaste push.
 Samma repo återanvänds vid fortsättning, nya kandidater och återförsök; skapandet är idempotent och låst per kund
 (.kundrepo.las), och ett GitHub-repo med samma namn som inte bär projektets markör i beskrivningen binds aldrig
 (status namnkonflikt). Lokal skapning som lyckats men fjärrskapning som misslyckats står som det (status fel, med skälet).
 
 Exporten (kontroller/exportera.py) blir en commit i det beständiga repot (synka_export) i stället för ett katalogbyte,
-pushas till fjärrepot när det är bundet (push), och förhandsvisningen (preview) driftsätts med Vercels CLI i teamet
-nortropic (vercel_koppla: projektet kund-<slug>; Vercels GitHub-app saknas i organisationen, ägarens nulägeskontroll
-2026-10-07) med commit och export-id som metadata; kvittot kunder/<slug>/leverans/PREVIEW-<tid>.json bär commit,
-export, adress och status. En förhandsvisning är aldrig produktion; produktionspublicering är ett eget ägarbeslut.
+pushas till fjärrepot när det är bundet (push), och förhandsvisningen (preview) driftsätts på Cloudflare Workers
+(ägarens beslut 2026-10-09: Cloudflare är målplattform, Vercel är det inte längre) som Workern kund-<slug>-forhandsvisning
+(wrangler deploy --env forhandsvisning, utan databas, bucket och mejlhemlighet), byggd ur commitens frysta filer; kvittot
+kunder/<slug>/leverans/PREVIEW-<tid>.json bär commit, export, Cloudflares versions-id, adress, skydd och status. Kontot
+är Nortropics anslutna Cloudflare-konto (~/.nortropic-hemligheter/webb-pro/cloudflare.env, 0600: en avgränsad API-token,
+konto-id och workers.dev-underdomänen); saknas det står förhandsvisningen som väntande med den exakta handlingen, och inget
+faller tillbaka på Vercel. För en verklig verksamhet laddas inget upp förrän Cloudflare Access skyddar förhandsvisningens
+adress, och skyddet prövas igen efter uppladdningen. En förhandsvisning är aldrig produktion; produktionspublicering är
+ett eget ägarbeslut.
 
 Privat underlag och hemligheter följer aldrig med: repot får bara exportens filer (exportera.lackor fäller lokala
 sökvägar, privat underlag och nycklar) och CLAUDE.md nämner inget privat. Före varje push, också den första vid
@@ -22,13 +27,12 @@ commit som ska pushas, med varje fils innehåll, sökväg och commitmeddelande, 
 bort (historikens_lackor; N04 i GR-20261009-natt-omgranskning-codex). Granskningen och pushen gäller samma commit
 (git push origin <commit>:refs/heads/main), och beskedet nämner commit, fil och slag av läcka, aldrig värdet. Historiken
 skrivs aldrig om eller raderas här: en läcka i en tidigare commit stoppar pushen och väntar på ägaren. Projektstarten
-committar bara sina egna filer (CLAUDE.md och .gitignore). gh och vercel används som de är inloggade
-(ägarens konto); saknas de står det i kvittot, och inget skapas av gissning.
+committar bara sina egna filer (CLAUDE.md och .gitignore). gh används som det är inloggat (ägarens konto); Wrangler får
+bara det anslutna Cloudflare-kontots token, i sin egen process; saknas något står det i kvittot, och inget skapas av gissning.
 
     .venv/bin/python kontroller/kundrepo.py <slug>              # skapa eller återanvänd (lokalt + fjärr när tillåtet)
     .venv/bin/python kontroller/kundrepo.py <slug> --utan-fjarr # bara lokalt
     .venv/bin/python kontroller/kundrepo.py <slug> --push       # pusha main till det bundna fjärrepot
-    .venv/bin/python kontroller/kundrepo.py <slug> --vercel     # koppla till Vercel-projektet kund-<slug> i teamet nortropic
     .venv/bin/python kontroller/kundrepo.py <slug> --preview    # förhandsvisning av exportens commit, med kvitto
     .venv/bin/python kontroller/kundrepo.py <slug> --visa       # kvittot
 Slutkod 0 när det begärda gjordes, 1 när ett hinder stod i vägen (står i kvittot), 2 vid ogiltigt anrop.
@@ -60,7 +64,7 @@ def _underlag():
 
 
 ORG = 'Nortropic'          # ägarens svar 2026-10-07 ~14:30Z: kundrepona i organisationen, inte på kontot
-TEAM = 'nortropic'         # Vercel-teamet (Pro), inloggat med ägarens konto
+CLOUDFLARE_FIL = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'cloudflare.env'  # NWP_CLOUDFLARE_FIL i proven
 MARKOR = 'nortropic-projekt:'
 SLUG = re.compile(r'^[a-z0-9-]{2,60}$')
 FRIST = 180
@@ -76,7 +80,7 @@ def identitet(slug):
     if not SLUG.match(slug or ''):
         raise ValueError('ogiltig slug')
     namn = 'kund-%s' % slug
-    return {'slug': slug, 'namn': namn, 'org': ORG, 'team': TEAM, 'lokal': 'kunder/%s/kundrepo' % slug,
+    return {'slug': slug, 'namn': namn, 'org': ORG, 'worker': namn, 'worker_forhandsvisning': namn + '-forhandsvisning', 'lokal': 'kunder/%s/kundrepo' % slug,
             'fjarr_adress': 'https://github.com/%s/%s' % (ORG, namn)}
 
 
@@ -163,22 +167,24 @@ def claude_md(slug, export_id=None, underlag=None):
         '- Verksamheten: %s%s.' % (namn, (' (%s)' % ', '.join(tjanster)) if tjanster else ''),
         '- Besökarens viktigaste uppgift: %s.' % primar_handling(slug, underlag), '',
         '## Teknik och kommandon', '',
-        'Astro med Vercels adapter, Node 24. `npm ci` installerar de låsta versionerna, `npm run build` bygger (Vercel-utdata i',
-        '.vercel/output), `npm run dev` kör lokalt, `npm run preview` visar bygget.', '',
+        'Astro för Cloudflare Workers, Node 24 för bygget. `npm ci` installerar de låsta versionerna, `npm run build` bygger de',
+        'förrenderade sidorna i dist/, `npm run dev` kör lokalt, `npx wrangler dev` kör sidorna och Workern lokalt i workerd.', '',
         '## Kodstruktur', '',
-        '`src/pages/` sidorna och formulärets funktion `src/pages/api/forfragan.js`, `src/components/`, `src/layouts/`, `src/styles/`,',
-        '`public/` statiska filer. `DESIGN.md` beskriver designen när den är exporterad; `LICENSER.md` licensunderlaget.', '',
+        '`src/pages/` sidorna, `src/components/`, `src/layouts/`, `src/styles/`, `public/` statiska filer (med `_headers`),',
+        '`worker/index.js` formulärets mottagning, `migrations/` dess D1-schema och `wrangler.jsonc` Workerns konfiguration.',
+        '`DESIGN.md` beskriver designen när den är exporterad; `LICENSER.md` licensunderlaget.', '',
         '## Design- och faktakälla', '',
         '- Designen: `DESIGN.md` i repot%s. Ändra inte riktningen utan Nortropics och kundens beslut.' % (' (export %s)' % export_id if export_id else ''),
         '- Fakta om verksamheten: Nortropics verifierade underlag, aldrig påhittade uppgifter, omdömen, siffror eller meriter.',
         '- Ingen tidigare kunds färgval, typsnitt, smakdomar eller riktning ärvs av det här projektet.', '',
         '## Begränsningar', '',
-        '- Inga hemligheter eller miljövärden i repot: variablerna står i `.env.example` och sätts i Vercels projektinställningar.',
-        '- Formuläret postar till `/api/forfragan/` (Vercel Blob) och landar på `/tack/`, `/mottagen/` eller `/fel/`.',
+        '- Inga hemligheter i repot: de läggs med `wrangler secret put` (se `.env.example`), aldrig i `vars` eller i en fil här.',
+        '- Formuläret postar till `/api/forfragan/` (Workern sparar i D1 och R2 före aviseringen) och landar på `/tack/`,',
+        '  `/mottagen/` eller en felsida med texten kvar.',
         '- Innehåll och navigation fungerar utan JavaScript; inline-händelser stoppas av CSP:n.', '',
         '## Prov och leverans', '',
         '- `npm run build` ska gå igenom; Nortropics export kör byggprovet och läckagekontrollen före varje commit hit.',
-        '- Leveransen: export → commit i det här repot → förhandsvisning i Vercel-projektet %s (teamet %s), bunden till' % (i['namn'], i['team']),
+        '- Leveransen: export → commit i det här repot → förhandsvisning i Workern %s (Cloudflare, skyddad), bunden till' % i['worker_forhandsvisning'],
         '  commit och export-id → produktion först efter Nortropics och kundens uttryckliga godkännande.', ''])
 
 
@@ -326,7 +332,7 @@ def skapa(slug, fjarr=None):
     with open(_lasfil(slug), 'w') as las:
         fcntl.flock(las, fcntl.LOCK_EX)
         kv = las_kvitto(slug) or {'schema': 1, 'projekt_id': uuid.uuid4().hex, 'skapad': nu(), 'skapad_med': motorversion()}
-        kv.update({'slug': slug, 'namn': i['namn'], 'org': ORG, 'lokal': i['lokal'], 'team': TEAM})
+        kv.update({'slug': slug, 'namn': i['namn'], 'org': ORG, 'lokal': i['lokal']})
         r = repo(slug)
         atelje.saker_vag(r, _kunder())
         # R08: de genererade filerna prövas med exportens läckagekontroll innan något skrivs in eller committas; ett avvisat
@@ -381,7 +387,7 @@ def synka_export(slug, stage, export_id, text='', rot=None):
         raise RuntimeError('kundrepot är inget git-repo: %s' % r)
     stage = Path(stage)
     for p in list(r.iterdir()):
-        if p.name in ('.git', '.vercel', 'node_modules'):
+        if p.name in ('.git', '.vercel', '.wrangler', 'node_modules'):
             continue
         (shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink())
     for p in stage.iterdir():
@@ -414,32 +420,65 @@ def push(slug, rot=None):
     return ut
 
 
-def vercel_koppla(slug):
-    """Kundrepot till Vercel-projektet kund-<slug> i teamet nortropic (skapas när det saknas). Skriver vercel i kvittot."""
-    kv = las_kvitto(slug)
-    r = repo(slug)
-    if not kv or not ar_repo(r):
-        return {'status': 'fel', 'fel': 'kundrepot finns inte'}
-    v = shutil.which('vercel')
-    i = identitet(slug)
-    if not v:
-        ut = {'status': 'fel', 'tid': nu(), 'fel': 'vercel saknas i PATH', 'team': TEAM, 'projekt': i['namn']}
-    else:
-        res = kommando([v, 'link', '--yes', '--scope', TEAM, '--project', i['namn']], r)
-        if res.returncode and re.search(r'not found|does not exist|finns inte|Could not find', (res.stderr or '') + (res.stdout or ''), re.I):
-            skapat = kommando([v, 'project', 'create', i['namn'], '--scope', TEAM], r)
-            res = kommando([v, 'link', '--yes', '--scope', TEAM, '--project', i['namn']], r) if skapat.returncode == 0 else skapat
-        if res.returncode:
-            ut = {'status': 'fel', 'tid': nu(), 'fel': (res.stderr or res.stdout)[-300:].strip(), 'team': TEAM, 'projekt': i['namn']}
-        else:
-            try:
-                pj = json.loads((r / '.vercel' / 'project.json').read_text(encoding='utf-8'))
-            except (OSError, ValueError):
-                pj = {}
-            ut = {'status': 'kopplat', 'tid': nu(), 'fel': None, 'team': TEAM, 'projekt': i['namn'], 'projekt_id': pj.get('projectId'), 'org_id': pj.get('orgId')}
-    kv['vercel'] = ut
-    atelje.skriv_json_atomiskt(kvittofil(slug), kv)
-    return ut
+def cloudflare_konto():
+    """Det anslutna Cloudflare-kontot ur cloudflare.env (0600): ({'token', 'konto', 'underdoman'}, None) eller
+    (None, hindret med den exakta handlingen). Tokenen läses bara här och går bara till Wrangler-processen."""
+    fil = Path(os.environ.get('NWP_CLOUDFLARE_FIL') or CLOUDFLARE_FIL)
+    handling = ('anslut Nortropics Cloudflare-konto: lägg %s (0600) med CLOUDFLARE_API_TOKEN (avgränsad: Workers-skript, D1 och '
+                'R2 för kontot), CLOUDFLARE_ACCOUNT_ID och CLOUDFLARE_WORKERS_UNDERDOMAN (kontots workers.dev-underdomän)' % fil)
+    if not fil.is_file() or fil.is_symlink():
+        return None, 'Cloudflare-kontot är inte anslutet: ' + handling
+    if fil.stat().st_mode & 0o077:
+        return None, 'cloudflare.env är läsbar för andra än ägaren: chmod 600 %s' % fil
+    v = {}
+    for rad in fil.read_text(encoding='utf-8').splitlines():
+        k, _, val = rad.partition('=')
+        if k.strip() and not k.strip().startswith('#'):
+            v[k.strip()] = val.strip().strip('"\'')
+    konto = {'token': v.get('CLOUDFLARE_API_TOKEN'), 'konto': v.get('CLOUDFLARE_ACCOUNT_ID'), 'underdoman': v.get('CLOUDFLARE_WORKERS_UNDERDOMAN')}
+    saknas = [k for k, n in (('token', 'CLOUDFLARE_API_TOKEN'), ('konto', 'CLOUDFLARE_ACCOUNT_ID'), ('underdoman', 'CLOUDFLARE_WORKERS_UNDERDOMAN')) if not konto[k]]
+    if saknas:
+        return None, 'cloudflare.env saknar %s: %s' % (', '.join(saknas), handling)
+    if not re.fullmatch(r'[a-f0-9]{32}', konto['konto']) or not re.fullmatch(r'[a-z0-9-]{1,63}', konto['underdoman']):
+        return None, 'cloudflare.env har ett konto-id eller en underdomän i fel form'
+    return konto, None
+
+
+def cloudflare_miljo(konto, tmp):
+    """Wranglers miljö: bara det anslutna kontots token och id, ingen ägarinloggning (konfigurationen i tmp), inga
+    NWP_-, Claude- eller andra nycklar, inga mätdata."""
+    m = {k: os.environ[k] for k in ('PATH', 'HOME', 'USER', 'LANG') if k in os.environ}
+    m.update(CLOUDFLARE_API_TOKEN=konto['token'], CLOUDFLARE_ACCOUNT_ID=konto['konto'], WRANGLER_SEND_METRICS='false',
+             XDG_CONFIG_HOME=str(Path(tmp) / 'xdg'), WRANGLER_LOG_PATH=str(Path(tmp) / 'wrangler-logg'), CI='1', NO_COLOR='1')
+    return m
+
+
+def forhandsadress(slug, konto):
+    return 'https://%s.%s.workers.dev' % (identitet(slug)['worker_forhandsvisning'], konto['underdoman'])
+
+
+def access_skyddar(url, frist=15):
+    """(skyddad, observation): en anonym begäran utan omdirigering ska mötas av Cloudflare Access (302 till
+    *.cloudflareaccess.com eller 401/403 från Access). Ett 200 betyder att adressen är öppen."""
+    import urllib.error
+    import urllib.request
+
+    class Ingen(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):
+            return None
+    oppna = urllib.request.build_opener(urllib.request.ProxyHandler({}), Ingen)
+    try:
+        r = oppna.open(urllib.request.Request(url + '/', method='GET'), timeout=frist)
+        return False, 'HTTP %d utan inloggning' % r.status
+    except urllib.error.HTTPError as e:
+        plats = e.headers.get('Location') or ''
+        if e.code in (301, 302, 303, 307) and re.match(r'https://[a-z0-9-]+\.cloudflareaccess\.com/', plats):
+            return True, 'HTTP %d till Cloudflare Access' % e.code
+        if e.code in (401, 403) and (e.headers.get('cf-access-domain') or 'cloudflareaccess' in (e.read(4096) or b'').decode('utf-8', 'replace')):
+            return True, 'HTTP %d från Cloudflare Access' % e.code
+        return False, 'HTTP %d utan Access' % e.code
+    except (OSError, ValueError) as e:
+        return False, 'adressen kunde inte prövas: %s' % str(e)[:120]
 
 
 def leveransdir(slug):
@@ -465,15 +504,36 @@ def preview_krav(slug):
     return None
 
 
-def preview(slug):
-    """Förhandsvisning av exportens commit med Vercels CLI (ingen produktion), med beständigt kvitto. Ger kvittot. Alla
-    ingångar (Flöde, prototyp.py --preview, kundrepo.py --preview) går hit, under kundens lås (flodesstart.las, samma som
-    exporten), och det som laddas upp är ett fryst underlag: commitens filer ur git, prövade mot exportens manifest, så
-    att kvittot gäller exakt de bytes som laddades upp också om kundrepot ändras under kopplingen (R07 i
-    GR-20261008-06af6ff-omgranskning-codex)."""
+def preview(slug, deploy=None, skydd=None):
+    """Förhandsvisning av exportens commit på Cloudflare Workers (ingen produktion), med beständigt kvitto. Ger kvittot.
+    Alla ingångar (Flöde, prototyp.py --preview, kundrepo.py --preview) går hit, under kundens lås (flodesstart.las, samma
+    som exporten), och det som byggs och laddas upp är ett fryst underlag: commitens filer ur git, prövade mot exportens
+    manifest, så att kvittot gäller exakt de bytes som laddades upp också om kundrepot ändras under tiden (R07 i
+    GR-20261008-06af6ff-omgranskning-codex). deploy och skydd byts bara ut i proven."""
     import flodesstart
     with flodesstart.las(_root(), slug, arv=True):
-        return _preview(slug)
+        return _preview(slug, deploy or wrangler_deploy, skydd or access_skyddar)
+
+
+def wrangler_deploy(underlag, konto, post, tmp):
+    """npm ci, astro build innanför processgränsen och wrangler deploy --env forhandsvisning i det frysta underlaget.
+    Ger (slutkod, utdata)."""
+    import exportera
+    import processgrans
+    r = kommando(['npm', 'ci', '--no-audit', '--no-fund', '--ignore-scripts'], underlag, frist=900,
+                 env={k: v for k, v in os.environ.items() if not k.startswith(('NWP_', 'CLAUDE', 'CLOUDFLARE', 'ANTHROPIC'))})
+    if r.returncode:
+        return r.returncode, 'npm ci föll: %s' % (r.stdout + r.stderr)[-400:]
+    rc, ut = processgrans.kor_i_katalog(underlag, [underlag / 'node_modules' / '.bin' / 'astro', 'build'])
+    if rc:
+        return rc, 'astro build föll: %s' % ut[-400:]
+    brister = exportera.publika_brister(underlag / 'dist')
+    if brister:
+        return 1, 'filer som inte får bli publika ligger i dist/: %s' % ', '.join(brister[:5])
+    res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'deploy', '--env', 'forhandsvisning',
+                    '--message', 'nortropic_commit=%s nortropic_export=%s' % (post['commit'], post['export'])],
+                   underlag, frist=900, env=cloudflare_miljo(konto, tmp))
+    return res.returncode, (res.stdout or '') + '\n' + (res.stderr or '')
 
 
 def fryst_underlag(r, commit, tmp):
@@ -492,15 +552,16 @@ def fryst_underlag(r, commit, tmp):
     return ut
 
 
-def _preview(slug):
+def _preview(slug, deploy, skydd):
     import exportera
     import korregister
     i = identitet(slug)
     r = repo(slug)
     tid = nu()
-    post = {'schema': 1, 'id': 'PREVIEW-%s-%s' % (tid.replace(':', '').replace('-', ''), os.urandom(2).hex()), 'typ': 'förhandsvisningskvitto',
-            'slug': slug, 'tid': tid, 'team': TEAM, 'projekt': i['namn'], 'produktion': False, 'status': 'fel', 'url': None, 'hinder': [],
-            'commit': None, 'export': None}
+    post = {'schema': 2, 'id': 'PREVIEW-%s-%s' % (tid.replace(':', '').replace('-', ''), os.urandom(2).hex()), 'typ': 'förhandsvisningskvitto',
+            'plattform': 'cloudflare-workers', 'slug': slug, 'tid': tid, 'worker': i['worker_forhandsvisning'], 'miljo': 'forhandsvisning',
+            'produktion': False, 'status': 'fel', 'url': None, 'hinder': [], 'commit': None, 'export': None, 'version_id': None,
+            'skydd': None, 'konto': None}
     hinder = preview_krav(slug)
     tmp = None
     if hinder:
@@ -516,41 +577,40 @@ def _preview(slug):
                 post['hinder'].append('commitens filer stämmer inte med exportens manifest: exportera igen')
         except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e_:
             post['hinder'].append('det frysta underlaget kunde inte skapas: %s' % str(e_)[:200])
+    konto = None
     if tmp and not post['hinder']:
-        kv = las_kvitto(slug)
-        if (kv.get('vercel') or {}).get('status') != 'kopplat':
-            vercel_koppla(slug)
-            kv = las_kvitto(slug)
-        pj = r / '.vercel' / 'project.json'
-        if (kv.get('vercel') or {}).get('status') != 'kopplat' or not pj.is_file() or pj.is_symlink():
-            post['hinder'].append('Vercel-projektet är inte kopplat: %s' % ((kv.get('vercel') or {}).get('fel') or 'projektets länk saknas'))
+        konto, hinder = cloudflare_konto()
+        if hinder:
+            post['hinder'].append(hinder)
+            post['status'] = 'vantar_pa_konto'
         else:
-            (underlag / '.vercel').mkdir()
-            shutil.copyfile(pj, underlag / '.vercel' / 'project.json')
-            v = shutil.which('vercel')
-            res = kommando([v, 'deploy', '--yes', '--scope', TEAM, '--target', 'preview', '-m', 'nortropic_commit=%s' % post['commit'],
-                            '-m', 'nortropic_export=%s' % post['export']], underlag, frist=900)
-            if exportera.manifest_sha(exportera.exportmanifest(underlag)) != post['underlag_sha256']:
-                post['hinder'].append('det frysta underlaget ändrades under uppladdningen')
-            urlar = re.findall(r'https://[\w.-]+\.vercel\.app\S*', (res.stdout or '') + '\n' + (res.stderr or ''))
-            if res.returncode or not urlar:
-                post['hinder'].append('vercel deploy: %s' % ((res.stderr or res.stdout)[-300:].strip() or 'ingen adress i svaret'))
-            else:
-                post['url'] = urlar[-1].strip()
-                insp = kommando([v, 'inspect', post['url'], '--scope', TEAM, '--wait', '--timeout', '5m'], r, frist=400)
-                text = (insp.stdout or '') + '\n' + (insp.stderr or '')
-                m = re.search(r'(?im)^\s*status\b[^\n]*', text)
-                rad = (m.group(0) if m else '').lower()
-                post['vercel_status'] = (m.group(0).strip() if m else None)
-                post['status'] = 'klar' if 'ready' in rad else 'fel' if ('error' in rad or insp.returncode) else 'okänd'
-                if post['status'] != 'klar':
-                    post['hinder'].append('driftsättningens status: %s' % (post['vercel_status'] or 'inte observerad'))
-            if post['hinder'] and post['status'] == 'klar':
-                post['status'] = 'fel'
+            post['konto'] = konto['konto']
+            post['url'] = forhandsadress(slug, konto)
+            if not fiktiv(slug):  # verkligt material laddas aldrig upp till en oskyddad adress
+                ok, obs = skydd(post['url'])
+                post['skydd_fore'] = obs
+                if not ok:
+                    post['hinder'].append('Cloudflare Access skyddar inte %s (%s): skapa Access-applikationen för adressen före '
+                                          'uppladdningen' % (post['url'], obs))
+                    post['status'] = 'vantar_pa_skydd'
+    if konto and not post['hinder']:
+        rc, ut = deploy(underlag, konto, post, tmp)
+        if exportera.manifest_sha(exportera.exportmanifest(underlag)) != post['underlag_sha256']:
+            post['hinder'].append('det frysta underlaget ändrades under bygget eller uppladdningen')
+        m = re.search(r'Current Version ID:\s*([0-9a-f-]{36})', ut)
+        post['version_id'] = m.group(1) if m else None
+        if rc or not post['version_id']:
+            post['hinder'].append('wrangler deploy: %s' % (ut[-300:].strip() or 'inget versions-id i svaret'))
+        else:
+            ok, obs = skydd(post['url'])
+            post['skydd'] = obs if ok else 'öppen: ' + obs
+            if not ok and not fiktiv(slug):
+                post['hinder'].append('förhandsvisningen svarar utan Cloudflare Access (%s): ta ner den eller skydda den' % obs)
+            post['status'] = 'klar' if not post['hinder'] else 'fel'
     if tmp:
         shutil.rmtree(tmp, ignore_errors=True)
-    post['text'] = ('förhandsvisning klar: %s (commit %s, export %s); ingen produktion' % (post['url'], (post['commit'] or '')[:12], post['export'])
-                    if post['status'] == 'klar' else 'ingen förhandsvisning: ' + '; '.join(post['hinder']))
+    post['text'] = ('förhandsvisning klar: %s (version %s, commit %s, export %s); ingen produktion' % (post['url'], post['version_id'],
+                    (post['commit'] or '')[:12], post['export']) if post['status'] == 'klar' else 'ingen förhandsvisning: ' + '; '.join(post['hinder']))
     d = leveransdir(slug)
     d.mkdir(parents=True, exist_ok=True)
     atelje.skriv_json_atomiskt(d / (post['id'] + '.json'), post)
@@ -586,7 +646,6 @@ def main(argv=None):
     p.add_argument('slug')
     g = p.add_mutually_exclusive_group()
     g.add_argument('--push', action='store_true')
-    g.add_argument('--vercel', action='store_true')
     g.add_argument('--preview', action='store_true')
     g.add_argument('--visa', action='store_true')
     p.add_argument('--utan-fjarr', action='store_true')
@@ -599,9 +658,6 @@ def main(argv=None):
         return 0
     if a.push:
         ut = push(a.slug)
-    elif a.vercel:
-        ut = vercel_koppla(a.slug)
-        ut = dict(ut, ok=ut.get('status') == 'kopplat')
     elif a.preview:
         try:
             ut = preview(a.slug)

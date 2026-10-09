@@ -1,9 +1,10 @@
 ---
 // Skriftlig förfrågan (byggstandarden 6: en skriftlig väg bredvid telefonen).
-// Fungerar med vanlig POST utan JavaScript; honeypot och tidsfälla mot spam. Mottagaren är /api/forfragan/ (med snedstreck: sajten har avslutande snedstreck, och utan det svarar Vercel 308 och webbläsaren skickar inskicket två gånger): i demon
-// svarar provets och dashboardens server och visar /tack/ utan att spara eller skicka något; vid lansering tar en
-// serverfunktion över med ett eget kontrakt (kunskap/forfragan.md): ett fältfel ger en felsida med texten bevarad, inte
-// #forfragan-saknas. Bygget stylar formuläret och skriver etiketterna i
+// Fungerar med vanlig POST utan JavaScript; honeypot och tidsfälla mot spam. Mottagaren är /api/forfragan/ (med snedstreck,
+// som sajtens övriga adresser; utan det svarar Workern 308): i demon svarar provets och dashboardens server och visar
+// /tack/ utan att spara eller skicka något; i kundrepot tar Cloudflare-Workern över med ett eget kontrakt
+// (kunskap/forfragan.md): ett fältfel ger en felsida med texten bevarad, inte #forfragan-saknas. Inskicks-id:t sätts när
+// sidan laddas, så att samma inskick två gånger (ett tappat svar, ett dubbelklick) blir ett ärende hos mottagaren. Bygget stylar formuläret och skriver etiketterna i
 // verksamhetens ord; fältnamnen och fällorna ändras inte.
 interface Props {
   fraga?: string; // etiketten för meddelandet, i verksamhetens ord
@@ -62,6 +63,7 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
     <input id="ff-webbplats" name="webbplats" type="text" tabindex="-1" autocomplete="off" />
   </p>
   <input type="hidden" name="fylltid" value="" />
+  <input type="hidden" name="inskick" value="" />
   <p class="ff-integritet">
     <slot name="integritet">Vi använder uppgifterna bara för att svara på din förfrågan.{' '}<a href="/integritet/">Så hanterar vi personuppgifter</a>.</slot>
   </p>
@@ -73,6 +75,9 @@ const { fraga = 'Vad vill du ha hjälp med?', knapp = 'Skicka förfrågan',
   // (kunskap/formularsakerhet.md, princip b). Utan JavaScript står fältet tomt och mottagaren godtar inskicket.
   const start = performance.now();
   for (const f of document.querySelectorAll<HTMLFormElement>('form.forfragan')) {
+    // Ett inskicks-id per laddad sida: mottagaren känner igen samma inskick (utan JavaScript känner den igen innehållet).
+    const inskick = f.querySelector<HTMLInputElement>('input[name="inskick"]');
+    if (inskick && !inskick.value && globalThis.crypto?.randomUUID) inskick.value = crypto.randomUUID();
     // Svenska besked som text vid fältet (aria-describedby) i stället för webbläsarens bubbla, som följer
     // webbläsarens språk (byggstandarden 6.2, WCAG 3.3.1). Första felaktiga fältet får fokus. Utan JavaScript visar
     // CSS (:user-invalid) beskeden som står i HTML:en; med JavaScript töms de här och fylls vid invalid, så att

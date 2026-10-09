@@ -1,56 +1,57 @@
 # Webbplatsen för {{NAMN}}
 
-Webbplatsens källkod, förberedd av Nortropic med [Astro](https://astro.build) och adapter för Vercel.
+Webbplatsens källkod, förberedd av Nortropic med [Astro](https://astro.build) för Cloudflare Workers. Sidorna är
+förrenderade och serveras som statiska filer; bara formulärets mottagning körs i Workern (`worker/index.js`).
 Exporten är inte ett godkännande av design, rättigheter eller publicering. Driftsättning och leveransgodkännande
 kontrolleras separat för den version och omfattning som faktiskt lämnas över.
 
 ## Bygga och se lokalt
 
 ```sh
-npm ci            # installerar de låsta versionerna ur package-lock.json
-npm run build     # bygger sajten (Vercel-adaptern skriver .vercel/output)
-npm run dev       # lokal server med omladdning
+npm ci                                                  # de låsta versionerna ur package-lock.json
+npm run build                                           # förrenderade sidor i dist/
+npx wrangler d1 migrations apply DB --local             # formulärets tabeller i en lokal D1
+npx wrangler dev                                        # sidorna och Workern lokalt i workerd
 ```
+
+Lokalt (`wrangler dev`) är `MILJO` produktion men utan mejlhemlighet: förfrågningar sparas i den lokala D1 och
+aviseras inte. Lägg aldrig en riktig nyckel i `.dev.vars` i repot.
 
 ## Driftsättning
 
-- Ett Vercel-projekt per webbplats, kopplat till det här repot. Före lanseringen skyddas alla driftsättningar, också
-  produktionsadressen, med Vercel Authentication; kunden ser förhandsvisningen genom en delbar länk. Vid lanseringen
-  byts skyddet till Standard Protection: kundens domän blir publik, och varje gren får en skyddad förhandsvisning.
-  `main` är produktion på kundens domän.
-- Förhandsvisningar svarar med `X-Robots-Tag: noindex` från Vercel; produktionen indexeras.
-- Miljövariablerna står i `.env.example`. Värdena läggs bara i Vercels projektinställningar, aldrig i repot.
+- En Cloudflare Worker per webbplats (`wrangler.jsonc`): produktionen på kundens godkända domän, utan workers.dev- och
+  versionsadresser. `compatibility_date` är låst och ändras bara efter prov.
+- Förhandsvisningen är en egen Worker (`--env forhandsvisning`) utan databas, bucket och mejlhemlighet: den kan inte
+  läsa eller skriva produktionens data eller skicka ett riktigt mejl. Den skyddas med Cloudflare Access före första
+  uppladdningen av verkligt material; `noindex` ersätter aldrig åtkomstskyddet.
+- Hemligheter läggs med `wrangler secret put` (till exempel `RESEND_API_KEY`), aldrig i repot eller i `vars`.
+- D1-databasen och R2-bucketen skapas vid aktiveringen, med placering enligt kundens krav, och deras id skrivs in i
+  `wrangler.jsonc`. Schemat ligger i `migrations/`.
 
 ## Formuläret
 
-`src/pages/api/forfragan.js` tar emot förfrågningar: honeypot och tidsfälla, validering, en bild på högst 4 MB,
-lagring i ett privat Vercel Blob-lager före mejlet, och mejl genom Resend. Utanför produktionen (`VERCEL_ENV` annat än
-`production`: förhandsvisning och utveckling) sparas och skickas ingenting (demoläge), också när variablerna råkar gälla
-alla miljöer i Vercel. Serverns valideringsfel återger textfälten säkert, även utan JavaScript; en bild måste väljas
-igen. En oläsbar eller helt för stor begäran kan inte återställas.
+`worker/index.js` tar emot förfrågningar: skräpfälla och tidsfälla, kontroll att begäran kommer från webbplatsen,
+validering och en bild på högst 4 MB. Förfrågan sparas i D1, och bilden privat i R2, före varje avisering. Utanför
+produktionen (`MILJO` annat än `produktion`) sparas och skickas ingenting (demoläge). Serverns valideringsfel återger
+textfälten säkert, även utan JavaScript; en bild måste väljas igen.
 
-Utan lagringskvitto skickas inget mejl: besökaren får 503 och texten kvar. Finns lagringskvittot men mejlaviseringen
-inte kunde bekräftas omdirigeras besökaren (303) till den förrenderade sidan `/mottagen/`, ett eget mottaget-besked
-utan uppmaning att skicka igen. Både lagring och
-mejlacceptans ger 303 till tacksidan. Mejltjänstens acceptans bevisar inte inkorgsleverans eller mänsklig läsning.
+Utan bekräftad lagring skickas inget mejl: besökaren får 503 och texten kvar. Är förfrågan sparad men mejlet inte
+bekräftat omdirigeras besökaren (303) till den förrenderade `/mottagen/`, utan uppmaning att skicka igen. Sparad och
+accepterad av mejltjänsten ger 303 till tacksidan. Mejltjänstens acceptans bevisar inte inkorgsleverans eller läsning.
+
+Samma inskick två gånger blir ett ärende: formuläret bär ett inskicks-id, och utan JavaScript känns samma innehåll
+igen inom tio minuter.
 
 ### Följ upp mottagna ärenden
 
-Före lansering ska en ansvarig ha åtkomst till det privata Blob-lagret och en rutin för att läsa inkomna ärenden.
-I Vercel-projektets anslutna lagring ligger varje mottagen förfrågan i `forfragningar/<datum>/<id>/forfragan.json`
-med text, tid och eventuell bildsökväg. Läs filerna endast via projektets behöriga lagringsverktyg och hantera dem
-enligt integritetssidans lagringstid; kopiera dem aldrig till Git, publika rapporter eller öppna loggar.
+Varje förfrågan står i D1-tabellen `forfragningar`, och dess avisering i `utkorg`:
+- `accepterad`: mejltjänsten tog emot mejlet (`mejl_id`).
+- `fel`: mejlet föll; ärendet är sparat och ska följas upp. Kontrollera mejltjänstens logg innan en omsändning.
+- `vantar` eller `skickar` som blir stående: utfallet är okänt. Stäm av mot mejltjänsten innan något skickas igen.
 
-I samma katalog betyder `avisering.json` med matchande mottagningsfil och `accepterat_av_mejltjansten` att
-mejltjänsten returnerade ett identifierat acceptanskvitto. Saknas filen är aviseringen **okänd**: kvittoskrivningen
-kan också ha misslyckats efter mejlacceptans. Läs ärendet och kontrollera mejltjänstens logg innan eventuell
-manuell omsändning. Den här leveransen startar ingen automatisk omsändning eller ny aviseringskö.
-
-Ett helt tappat framgångssvar kan fortfarande ge dubbla inskick vid besökarens omförsök. Mottagen-sidan (sparad, ej
-aviserad) är förrenderad och nås med 303, så en omladdning där är ingen ny POST. Kunde mottagningsfilen inte sparas
-tas en redan lagrad bilaga bort (bästa försök; annars står dess väg i funktionens logg). Formuläret saknar ännu
-individuell, beständig inskicksidentitet före första POST utan JS; här finns ingen garanti om exakt en sändning.
-Externa konton, kvitton, driftövervakning och ansvarigs åtkomst ska prövas uttryckligen inför lansering.
+Läs ärendena bara med behörig åtkomst, till exempel `npx wrangler d1 execute DB --remote --command "SELECT ..."`.
+Kopiera dem aldrig till Git, publika rapporter eller öppna loggar. `gallras` anger när ett ärende ska tas bort enligt
+integritetssidans lagringstid. Ingen schemalagd omsändning eller gallring körs förrän den uttryckligen aktiverats.
 
 ## Innehåll
 
@@ -58,7 +59,3 @@ Externa konton, kvitton, driftövervakning och ansvarigs åtkomst ska prövas ut
 Bildkällor och eventuella licensuppgifter redovisas i `LICENSER.md`; filens existens intygar inte att varje
 användning är tillåten. Okända rättigheter måste klarläggas före publicering. Källkodens tekniska export
 ersätter inte verksamhetens beslut om innehåll, design eller bildanvändning.
-
-Bilagan lagras under ett fast separat namn, före `forfragan.json`: faller lagringen av mottagningsfilen efter bildens kvitto
-ligger `bilaga/bild` kvar utan mottagningsfil och ska gallras med samma rutin som ärendena. Lokala tidsgränser är 10 s för
-lagring, 8 s för mejl inklusive kvitto och 2 s för aviseringsfilen. Vid en tidsgräns är ett leverantörsutfall utan kvitto fortfarande okänt; kontrollera lagringen/mejltjänsten före manuell omsändning.

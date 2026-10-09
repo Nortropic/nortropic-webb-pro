@@ -109,6 +109,7 @@ MATERIAL_MAX = 200               # så många filer av det egna materialet spara
 # koden, skapar en katalog för varje prefix där tempfile skapar den och blir rött när ett prefix saknas här. Pythons
 # förval (tmp) och andra verktygs kataloger rörs aldrig.
 TMP_PREFIX = (
+    'nwp-workersprov-',  # kundrepots Worker i workerd (kontroller/workersprov.py)
     'nwp-kandidatmaterial-',                                                         # kandidater.py
     'nwp-kallgap-',                                                                  # prov_kallgap.py
     'nwp-underhall-', 'nwp-global-', 'nwp-skill-', 'nwp-skillintag-', 'nwp-skillreserv-', 'nwp-sajtpaket-',

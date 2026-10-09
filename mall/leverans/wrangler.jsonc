@@ -1,0 +1,44 @@
+// Kundsajtens Cloudflare Worker (kontroller/exportera.py fyller i SLUG; kunskap/lansering.md, Cloudflare-steget).
+// Sidorna är förrenderade och serveras som Static Assets ur dist/; bara /api/* körs i Workern (worker/index.js).
+// compatibility_date är låst: den ändras bara genom underhållets prov, aldrig till dagens datum vid en start.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kund-SLUG",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-01",
+  // Ingen workers.dev-adress och inga versionsadresser i produktionen: varje publik ingång är den godkända domänen.
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "MILJO": "produktion",
+    "FORFRAGAN_TILL": "",
+    "FORFRAGAN_FRAN": "",
+    "GALLRING_DAGAR": "365"
+  },
+  // database_id och bucket skapas vid aktiveringen (wrangler d1 create / r2 bucket create, EU-jurisdiktion enligt
+  // kundens krav) och skrivs in här; RESEND_API_KEY är en hemlighet (wrangler secret put), aldrig en variabel.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "kund-SLUG-forfragningar", "database_id": "AKTIVERAS-VID-LANSERING", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [
+    { "binding": "BILAGOR", "bucket_name": "kund-SLUG-bilagor" }
+  ],
+  "env": {
+    // Skyddad förhandsvisning: en egen Worker utan databas, bucket eller mejlhemlighet (bindningar ärvs inte mellan
+    // miljöer), så att den aldrig kan läsa eller skriva produktionens data eller skicka ett riktigt mejl. Adressen skyddas
+    // med Cloudflare Access före första uppladdningen av verkligt material (lansering.md).
+    "forhandsvisning": {
+      "name": "kund-SLUG-forhandsvisning",
+      "workers_dev": true,
+      "preview_urls": false,
+      "vars": { "MILJO": "forhandsvisning" }
+    }
+  }
+}

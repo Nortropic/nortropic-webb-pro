@@ -4,13 +4,17 @@
 
     .venv/bin/python kontroller/exportera.py <slug> [--kandidat kNN] [--ut KATALOG] [--git] [--inget-bygge]
 
-Kundrepot får sajtens källor (src/, public/, astro.config.mjs, tsconfig.json, DESIGN.md), leveransens låsta beroenden
-(`mall/leverans/package.json` och `package-lock.json`: mallens paket, Vercel-adaptern och Vercel Blob, granskade med
-`npm audit`), formulärets serverfunktion (`src/pages/api/forfragan.js`), felsidan, README, `.gitignore`,
-`.env.example`, `vercel.json` och `LICENSER.md`. Nortropics underlag (referenser, intervjuer, domar, råmaterial) följer
-aldrig med. Läckagekontrollen fäller exporten om en fil nämner repots lokala vägar, interna filer eller en nyckel.
-Bygget verifieras i en tom katalog utanför Nortropics repo (`npm ci` och `npm run build`) innan exporten räknas som
-klar. Med --git blir katalogen ett git-repo med en första commit på `main` (lokalt; inget skickas någonstans).
+Kundrepot är en Cloudflare Worker (ägarens beslut 2026-10-09: Cloudflare Workers är målplattform, Vercel är det
+inte längre): sajtens källor (src/, public/, astro.config.mjs, tsconfig.json, DESIGN.md) byggs till förrenderade sidor i
+dist/, som Workern serverar som Static Assets; bara /api/* körs i Workern (`worker/index.js`, formulärets mottagning i
+D1 och R2 före aviseringen). Dessutom: leveransens låsta beroenden (`mall/leverans/package.json` och
+`package-lock.json`: mallens paket och Wrangler), `wrangler.jsonc` med kundens namn, D1-schemat (`migrations/`),
+säkerhetshuvudena för de statiska filerna (`public/_headers`), felsidan, README, `.gitignore`, `.env.example` och
+`LICENSER.md`. Nortropics underlag (referenser, intervjuer, domar, råmaterial) följer aldrig med. Läckagekontrollen fäller
+exporten om en fil nämner repots lokala vägar, interna filer eller en nyckel. Bygget verifieras i en tom katalog utanför
+Nortropics repo (`npm ci`, `astro build` och `wrangler deploy --dry-run`, utan nät och utan konto) innan exporten räknas
+som klar, och dist/ prövas negativt: ingen serverfil, konfiguration, miljöfil eller källkarta får bli en publik fil.
+Med --git blir katalogen ett git-repo med en första commit på `main` (lokalt; inget skickas någonstans).
 
 Utkatalogen är som standard `kunder/<slug>/kundrepo/` (utanför git); en tidigare export flyttas till
 `kunder/<slug>/kundrepo-tidigare/<tid>/` (raderas aldrig). Slutkod 0 klar, 1 läckage eller bygget föll, 2 fel i anropet.
@@ -48,7 +52,7 @@ LACKA = [(re.compile(p), skal) for p, skal in (
     (r'/Users/|/private/tmp/|/home/[a-z]', 'en lokal sökväg'),
     (r'\bunderlag/[a-z0-9-]+/|LARDOMAR-original|DESIGNDOMAR|RIKTNINGSHISTORIK|REFERENSUPPDRAG|TJANSTEUPPDRAG|/kalibrering/', 'Nortropics privata underlag'),
     (r'\bre_[A-Za-z0-9]{6,}_[A-Za-z0-9]{16,}|\bre_[A-Za-z0-9]{16,}|\bsk-[A-Za-z0-9_-]{20,}|\bghp_[A-Za-z0-9]{20,}|\bvercel_blob_rw_[A-Za-z0-9_]{10,}', 'en nyckel'),
-    (r'(RESEND_API_KEY|BLOB_READ_WRITE_TOKEN|REFERO_MCP_TOKEN)[ \t]*=[ \t]*[^\s#]', 'ett nyckelvärde'),
+    (r'(RESEND_API_KEY|BLOB_READ_WRITE_TOKEN|REFERO_MCP_TOKEN|CLOUDFLARE_API_TOKEN|CF_API_TOKEN)[ \t]*[=:][ \t]*["\']?[^\s#"\']', 'ett nyckelvärde'),
 )]
 HANVISNINGAR = re.compile(r'nortropic-webb-pro|\bkontroller/[a-z_]+\.py')
 
@@ -94,48 +98,21 @@ def installerade_extra(sajt, bas):
     return ut
 
 
-MAX_KORTID = 30  # funktionens högsta körtid i sekunder (kunskap/lansering.md, Formuläret)
-# Optionerna forfragan.js och astro.config.mjs använder, belagda i de installerade paketens typdefinitioner vid byggprovet
-# (GR-20261008-r117-claude D3 och D8: den låsta versionen kunde tidigare inte läsas lokalt)
-# katalog med typdefinitioner (*.d.ts; Blobs optioner ligger i en chunk-fil, inte i index.d.ts) → strängar som ska finnas
-SDK_KRAV = {
-    'node_modules/@vercel/blob/dist': ('abortSignal?: AbortSignal', 'addRandomSuffix?: boolean', 'allowOverwrite?: boolean',
-                                       "type BlobAccessType = 'public' | 'private'", 'declare function del('),
-    'node_modules/@astrojs/vercel/dist': ('maxDuration?: number',),
-}
+# Det som aldrig får bli en publik fil i dist/ (Workers Static Assets publicerar hela katalogen): Workerns kod och
+# konfiguration, D1-schemat, miljö- och hemlighetsfiler, källkartor och Nortropics underlag (uppdraget 2026-10-09, 8.4)
+INTE_PUBLIKT = re.compile(r'(^|/)(worker/|migrations/|wrangler\.(jsonc?|toml)$|\.dev\.vars|\.env|package(-lock)?\.json$|CLAUDE\.md$|DESIGN\.md$|LICENSER\.md$|README\.md$)|\.map$')
 
 
-def sdk_optioner(repo):
-    """Brister mot SDK_KRAV i det installerade kundrepot: [text]; tom lista när varje option står i typerna."""
-    ut = []
-    for katalog, namn in SDK_KRAV.items():
-        d = Path(repo) / katalog
-        t = '\n'.join(p.read_text(encoding='utf-8') for p in sorted(d.glob('*.d.ts')) if p.is_file()) if d.is_dir() else ''
-        ut += (['%s: %s saknas' % (katalog, n) for n in namn if n not in t]) if t else ['%s saknar typdefinitioner' % katalog]
-    return ut
+def publika_brister(dist):
+    """[fil] i dist/ som inte får publiceras; tom lista när katalogen bara har sajtens publika filer."""
+    return sorted(str(p.relative_to(dist)) for p in Path(dist).rglob('*') if p.is_file() and INTE_PUBLIKT.search(p.relative_to(dist).as_posix()))
 
 
-def funktionens_kortid(ut_):
-    """maxDuration per funktion ur .vercel/output/functions/*.func/.vc-config.json: {funktion: värde eller None}."""
-    ut = {}
-    for p in sorted((Path(ut_) / 'functions').glob('*.func/.vc-config.json')) if (Path(ut_) / 'functions').is_dir() else []:
-        try:
-            ut[p.parent.name] = json.loads(p.read_text(encoding='utf-8')).get('maxDuration')
-        except (OSError, ValueError):
-            ut[p.parent.name] = None
-    return ut
-
-
-def med_adapter(text):
-    """astro.config.mjs med Vercel-adaptern: sidorna förrenderas, formulärets funktion körs på servern."""
-    if '@astrojs/vercel' in text:
-        return text
-    text = text.replace("import { defineConfig", "import vercel from '@astrojs/vercel';\nimport { defineConfig", 1)
-    if "output: 'static'," not in text:
-        raise RuntimeError("astro.config.mjs saknar raden output: 'static',")
-    # maxDuration: formulärets tidsbudget (10 + 8 + 2 s plus kroppsläsningen) ryms i funktionens körtid (GR-20261008-r117-claude#D3);
-    # optionen är belagd i @astrojs/vercel 11.0.11 (dist/index.d.ts) och byggprovet läser den ur funktionens .vc-config.json
-    return text.replace("output: 'static',", "output: 'static',\n  adapter: vercel({ maxDuration: %d }),  // formulärets funktion på servern med körtid för hela tidsbudgeten; sidorna förrenderas" % MAX_KORTID, 1)
+def wrangler_namn(text, slug):
+    """wrangler.jsonc med kundens namn i stället för SLUG; allt annat (kompatibilitetsdatum, bindningar) som i mallen."""
+    if 'kund-SLUG' not in text:
+        raise RuntimeError('mallens wrangler.jsonc saknar platshållaren kund-SLUG')
+    return text.replace('kund-SLUG', 'kund-%s' % slug)
 
 
 def licenser(slug, sajt, mal):
@@ -193,22 +170,24 @@ def verifiera_bygge(mal, logg=None):
         rader = ['$ npm ci --ignore-scripts → %d' % r.returncode]
         if r.returncode:
             return False, '\n'.join(rader + [(r.stdout + r.stderr)[-1500:]])
-        brister = sdk_optioner(repo)
-        rader.append('SDK-optionerna (D3, D8): ' + ('belagda i de installerade typerna (%s)' % ', '.join(sorted(SDK_KRAV)) if not brister else '; '.join(brister)))
-        if brister:
-            return False, '\n'.join(rader)
         rc, ut = processgrans.kor_i_katalog(repo, [repo / 'node_modules' / '.bin' / 'astro', 'build'])
         rader.append('$ astro build (innanför processgränsen: utan nät, skrivning bara i kopian) → %d' % rc)
         if rc:
             return False, '\n'.join(rader + [ut[-1500:]])
-        ut_ = repo / '.vercel' / 'output'
-        statiskt = (ut_ / 'static' / 'index.html').is_file()
-        funktioner = sorted(str(p.relative_to(ut_)) for p in (ut_ / 'functions').glob('*.func')) if (ut_ / 'functions').is_dir() else []
-        rader.append('.vercel/output/static/index.html: %s; funktioner: %s' % ('finns' if statiskt else 'saknas', ', '.join(funktioner) or 'inga'))
-        kortid = funktionens_kortid(ut_)
-        rader.append('funktionens maxDuration (.vc-config.json): %s' % (', '.join('%s %s s' % (k, v) for k, v in kortid.items()) or 'saknas'))
-        ok_tid = bool(kortid) and all(isinstance(v, (int, float)) and v >= MAX_KORTID for v in kortid.values())
-        return statiskt and bool(funktioner) and ok_tid, '\n'.join(rader)
+        dist = repo / 'dist'
+        statiskt = (dist / 'index.html').is_file()
+        huvuden = (dist / '_headers').is_file()
+        brister = publika_brister(dist) if dist.is_dir() else ['dist/ saknas']
+        rader.append('dist/index.html: %s; dist/_headers: %s; filer som inte får bli publika: %s' % (
+            'finns' if statiskt else 'saknas', 'finns' if huvuden else 'saknas', ', '.join(brister) or 'inga'))
+        # Workern paketeras som vid en driftsättning, men inget skickas: --dry-run kräver varken konto eller nät
+        rc, ut = processgrans.kor_i_katalog(repo, [repo / 'node_modules' / '.bin' / 'wrangler', 'deploy', '--dry-run', '--outdir', 'paket'],
+                                            miljo_extra={'WRANGLER_LOG': 'warn'})
+        paketerad = sorted(str(p.relative_to(repo / 'paket')) for p in (repo / 'paket').rglob('*.js')) if (repo / 'paket').is_dir() else []
+        rader.append('$ wrangler deploy --dry-run (utan nät och konto) → %d; paketerat: %s' % (rc, ', '.join(paketerad) or 'inget'))
+        if rc:
+            rader.append(ut[-1500:])
+        return statiskt and huvuden and not brister and not rc and bool(paketerad), '\n'.join(rader)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -227,13 +206,17 @@ def skapa_export(slug, kandidat, mal, git, bygg, export_id=None):
     for sida in ('fel.astro', 'mottagen.astro'):  # funktionens 303-mål (fel, och sparad men ej aviserad; D1) finns i varje export
         if not (mal / 'src' / 'pages' / sida).is_file():
             shutil.copyfile(MALL / 'src' / 'pages' / sida, mal / 'src' / 'pages' / sida)
-    (mal / 'src' / 'pages' / 'api').mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(LEVERANS / 'forfragan.js', mal / 'src' / 'pages' / 'api' / 'forfragan.js')
-    (mal / 'astro.config.mjs').write_text(med_adapter((mal / 'astro.config.mjs').read_text(encoding='utf-8')), encoding='utf-8')
+    # Cloudflare Worker: formulärets mottagning, D1-schemat, konfigurationen och de statiska filernas huvuden; sajten
+    # förblir förrenderad (ingen adapter i astro.config.mjs)
+    kopiera(LEVERANS / 'worker', mal / 'worker')
+    kopiera(LEVERANS / 'migrations', mal / 'migrations')
+    (mal / 'wrangler.jsonc').write_text(wrangler_namn((LEVERANS / 'wrangler.jsonc').read_text(encoding='utf-8'), slug), encoding='utf-8')
+    (mal / 'public').mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(LEVERANS / '_headers', mal / 'public' / '_headers')
     paket = json.loads((LEVERANS / 'package.json').read_text(encoding='utf-8'))
     extra = installerade_extra(sajt, paket['dependencies'])
     paket['name'] = 'kund-%s' % slug
-    paket['dependencies'] = dict(sorted({**paket['dependencies'], **extra}.items()))
+    paket['dependencies'] = dict(sorted({**paket['dependencies'], **extra}.items()))  # devDependencies (Wrangler) som i mallen
     (mal / 'package.json').write_text(json.dumps(paket, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
     shutil.copyfile(LEVERANS / 'package-lock.json', mal / 'package-lock.json')
     if extra:  # sajtens typsnitt läggs in i låset (exakta versioner, inga installationsskript)
@@ -249,7 +232,6 @@ def skapa_export(slug, kandidat, mal, git, bygg, export_id=None):
     (mal / 'CLAUDE.md').write_text(kundrepo.claude_md(slug, export_id, underlag=UNDERLAG), encoding='utf-8')  # projektets korta kontext (2A)
     shutil.copyfile(LEVERANS / 'gitignore', mal / '.gitignore')
     shutil.copyfile(LEVERANS / 'env.example', mal / '.env.example')
-    shutil.copyfile(LEVERANS / 'vercel.json', mal / 'vercel.json')
     licenser(slug, sajt, mal)
     res = {'slug': slug, 'kandidat': kandidat, 'ut': str(mal), 'tid': nu(), 'extra': extra, 'lackor': lackor(mal),
            'hanvisningar': hanvisningar(mal)}
@@ -279,7 +261,7 @@ def exportmanifest(rot):
     def fel(e):
         raise e
     for katalog, kataloger, filer in os.walk(rot, followlinks=False, onerror=fel):
-        kataloger[:] = sorted(n for n in kataloger if n not in ('.git', 'node_modules', '.astro', 'dist', '.vercel'))
+        kataloger[:] = sorted(n for n in kataloger if n not in ('.git', 'node_modules', '.astro', 'dist', '.wrangler', 'paket', '.vercel'))
         if any((Path(katalog) / n).is_symlink() for n in kataloger):
             raise ValueError('exporten innehåller en kataloglänk')
         for n in sorted(filer):

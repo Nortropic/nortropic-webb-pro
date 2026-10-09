@@ -288,9 +288,11 @@ def profil_underhallsprov(root, wt, hem=None):
     return '\n'.join(rader) + '\n'
 
 
-def kor_i_katalog(katalog, kmd, timeout=900):
+def kor_i_katalog(katalog, kmd, timeout=900, miljo_extra=None):
     """(slutkod, utdata) för kmd i katalogen innanför gränsen, med en minimal miljö: inga nycklar, inga NWP_- eller
-    Claude-variabler, ingen proxy."""
+    Claude-variabler, ingen proxy. miljo_extra är verktygets egna inställningar (Wranglers mätdata av); en nyckel eller ett
+    konto får aldrig komma den vägen. Wranglers logg och konfiguration ligger i katalogens .tmp, så att verktyget varken
+    skriver utanför kopian eller läser ägarens inloggning."""
     import subprocess
     katalog = Path(katalog)
     if not os.access(SANDBOX_EXEC, os.X_OK):
@@ -298,7 +300,12 @@ def kor_i_katalog(katalog, kmd, timeout=900):
     tmp = katalog / '.tmp'
     tmp.mkdir(exist_ok=True)
     miljo = {k: os.environ[k] for k in MILJO_KATALOG if k in os.environ}
-    miljo.update(TMPDIR=str(tmp), NWP_PROCESSGRANS='1', ASTRO_TELEMETRY_DISABLED='1')
+    miljo.update(TMPDIR=str(tmp), NWP_PROCESSGRANS='1', ASTRO_TELEMETRY_DISABLED='1', WRANGLER_SEND_METRICS='false',
+                 WRANGLER_LOG_PATH=str(tmp / 'wrangler-logg'), XDG_CONFIG_HOME=str(tmp / 'xdg'))
+    for k, v in (miljo_extra or {}).items():
+        if re.search(r'TOKEN|KEY|SECRET|NYCKEL|ACCOUNT|AUTH', k, re.I):
+            raise ValueError('en nyckel eller ett konto får inte gå in i processgränsen genom miljo_extra: %s' % k)
+        miljo[k] = str(v)
     try:
         r = subprocess.run([SANDBOX_EXEC, '-p', profil_katalog(katalog), *[str(x) for x in kmd]], cwd=str(katalog), env=miljo,
                            capture_output=True, text=True, timeout=timeout)
