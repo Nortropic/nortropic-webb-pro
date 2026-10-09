@@ -113,7 +113,7 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | Reddit: lokal SEO, copy och tillgänglighet | https://www.reddit.com/r/SEO+LocalSEO+copywriting+accessibility+smallbusiness/top/.rss?t=week | veckans mest lästa trådar (påslaget 2026-10-08: spana.py håller minst 20 s mellan anrop till reddit.com, kirurgen läser trådar med kontroller/reddit_trad.py) | 0.8 | lokal synlighet |
 | sida | IMY | https://www.imy.se/nyheter/ | GDPR, integritetssidan | 1.3 | juridik och förtroende |
 | rss | Konsumentverket | https://www.konsumentverket.se/api/feed/rss/nyheter/ | marknadsföring, omdömen, priser (det officiella nyhetsflödet; sidan /aktuellt/ kräver JavaScript, 2026-10-09) | 1.3 | juridik och förtroende |
-| sida | PTS | https://pts.se/sv/nyheter/ | kakor, e-post | 1.2 | juridik och förtroende |
+| rss | PTS | https://via.tt.se/rss/releases/latest?publisherId=3236104 | kakor, e-post (PTS officiella pressrum hos TT; pts.se ger automatiska anrop en Radware-kontrollsida, 2026-10-09; bara pressmeddelanden, inte ändrade vägledningssidor) | 1.2 | juridik och förtroende |
 | sida | Webbriktlinjer | https://webbriktlinjer.se/ | svenska riktlinjer för webben | 1.2 | juridik och förtroende |
 | rss | Hamel Husain | https://hamel.dev/index.xml | evals, LLM som domare | 1.3 | granskning |
 | rss | Eugene Yan | https://eugeneyan.com/rss/ | evals, domare | 1.2 | granskning |
