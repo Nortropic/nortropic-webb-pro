@@ -7,7 +7,7 @@
     valdKandidat: null, material: null, enhet: 'dator', folj: null, partner: null, partnerNyckel: null, avsikt: 'fraga',
     kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null }, logg: null, loggNyckel: null,
     bekrafta: null, svar: '', metod: null, generation: 0, inaktuellTimer: null, pollTimer: null };
-  const LAGESNAMN = { ny: 'ny utforskning', om: 'ny körning', valda: 'förfining av valda', putsa: 'putsning', forbered: 'förberedelse', fortsatt: 'återupptagen' };
+  const LAGESNAMN = { ny: 'ny utforskning', om: 'ny körning', valda: 'uppdrag', putsa: 'putsning', forbered: 'förberedelse', fortsatt: 'återupptagen' };
   const LAGEN = { vantar: 'väntar på start', startar: 'start pågår', aktiv: 'arbetar', verktyg: 'väntar på verktyg', beslut: 'väntar på ditt beslut',
     avslutad: 'avslutad', avbruten: 'avbruten', okant: 'okänt läge' };
   const IKON = {
@@ -544,7 +544,7 @@
   function markera(tillagg) {
     const m = Object.assign({}, levande(tillagg?.kandidat), tillagg || {});
     const k = (A.lage?.kandidater || []).find((x) => x.id === m.kandidat);
-    m.beslut = k && ['forfinad', 'vald'].includes(k.status) ? 'putsa' : 'valj';  // som kandidaten stod när du markerade
+    m.beslut = 'uppdrag';  // en ändring är ett uppdrag: rätta, omarbeta designen eller bygg ut (2026-10-09); ett val startar inget
     sparaMark(m); return m;
   }
   // det ändringen gäller: den frysta markeringen om du gjort en, annars den kandidat som är vald just nu
@@ -571,21 +571,42 @@
     if (f.dataset.ritad === form || (f.contains(document.activeElement) && f.dataset.ritad)) { uppdateraSkrivstatus(); return; }
     const utkast = f.querySelector('textarea')?.value ?? (sessionStorageLas('nwp-arbetsyta-utkast:' + A.slug) || '');
     const behall = { sida: f.querySelector('[data-falt="sida"]')?.value || mk.sida || '', del: f.querySelector('[data-falt="del"]')?.value || mk.del || '', svar: f.querySelector('#ay-skrivsvar')?.textContent || '' };
+    const falt = {}; f.querySelectorAll('[data-uppdrag]').forEach((x) => { falt[x.dataset.uppdrag] = x.value; });  // uppdragets fält står kvar när formuläret ritas om
     f.dataset.ritad = form;
     f.innerHTML = `<div class="ay-segment" role="group" aria-label="Avsikt">${[['fraga', 'Fråga'], ['plan', 'Planförslag'], ['andring', 'Ändring']].map(([k, n]) => `<button type="button" data-avsikt="${k}" data-fokus="a-${k}" aria-pressed="${A.avsikt === k}">${n}</button>`).join('')}</div>
       <label class="dolt" for="ay-text">Meddelande</label>
       <textarea id="ay-text" data-fokus="text" placeholder="${A.avsikt === 'andring' ? 'Vad ska ändras, och var?' : A.avsikt === 'plan' ? 'Vad vill du ha en plan för?' : 'Skriv en fråga om läget'}">${e_(utkast)}</textarea>
-      ${A.avsikt === 'andring' ? `<div class="ay-skrivrad"><label class="svag">Sida <input data-falt="sida" data-fokus="sida" style="width:110px" class="ay-knapp liten" placeholder="/ (startsidan)"></label><label class="svag">Del <input data-falt="del" data-fokus="del" style="width:140px" class="ay-knapp liten" placeholder="t.ex. första vyn"></label></div>` : ''}
+      ${A.avsikt === 'andring' ? `<div class="ay-skrivrad"><label class="svag">Sida <input data-falt="sida" data-fokus="sida" style="width:110px" class="ay-knapp liten" placeholder="/ (startsidan)"></label><label class="svag">Del <input data-falt="del" data-fokus="del" style="width:140px" class="ay-knapp liten" placeholder="t.ex. första vyn"></label></div>
+      <div class="ay-skrivrad"><label class="svag">Uppdrag <select data-uppdrag="typ" data-fokus="u-typ" class="ay-knapp liten">${UPPDRAGSTYPER.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select></label>
+        <label class="svag">Från <select data-uppdrag="avsandare" data-fokus="u-avs" class="ay-knapp liten"><option value="agaren">mig (ägaren)</option><option value="kunden">kunden</option></select></label></div>
+      <p class="svag" style="margin:0" id="ay-uppdragstext"></p>
+      <label class="svag" for="ay-resultat">Önskat resultat</label><input id="ay-resultat" data-uppdrag="resultat" data-fokus="u-resultat" class="ay-knapp">
+      <label class="svag" for="ay-omfattning">Omfattning: en rad per brist, område eller del (för Bygg ut: vägarna, till exempel /tjanster/)</label><textarea id="ay-omfattning" data-uppdrag="omfattning" data-fokus="u-omfattning" rows="3"></textarea>
+      <label class="svag" for="ay-bevara">Bevara: en rad per sak som ska stå kvar ("inget särskilt" om inget)</label><textarea id="ay-bevara" data-uppdrag="bevara" data-fokus="u-bevara" rows="2"></textarea>
+      <label class="svag" for="ay-belagg" data-kundbelagg hidden>Var kundens egna ord står (samtalet, meddelandet och tiden)</label><input id="ay-belagg" data-uppdrag="belagg" data-kundbelagg hidden class="ay-knapp">` : ''}
       ${A.avsikt === 'andring' && A.lage.blind ? '<p class="ay-notis varn" style="margin:0">En ändring som du skickar är ditt val av kandidaten i körningen. Bedömningarna visas efter det.</p>' : ''}
       <div class="ay-markering" id="ay-markering">${gallerRad()}</div>
       <div id="ay-inaktuell"></div>
       <div class="ay-skrivrad"><span class="svag" id="ay-skrivsvar" role="status" aria-live="polite"></span><span class="ay-knapprad">
-        ${A.avsikt === 'andring' ? `<button class="ay-knapp" type="submit" data-skicka="partner" data-fokus="s-partner">Be partnern formulera</button><button class="ay-knapp primar" type="button" data-skicka="andring" data-fokus="s-andring">Skicka ändring</button>`
+        ${A.avsikt === 'andring' ? `<button class="ay-knapp" type="submit" data-skicka="partner" data-fokus="s-partner">Be partnern formulera</button><button class="ay-knapp primar" type="button" data-skicka="andring" data-fokus="s-andring">Spara uppdraget</button>`
           : `<button class="ay-knapp primar" type="submit" data-skicka="partner" data-fokus="s-partner">Skicka</button>`}</span></div>`;
     if (behall.sida && f.querySelector('[data-falt="sida"]')) f.querySelector('[data-falt="sida"]').value = behall.sida;
     if (behall.del && f.querySelector('[data-falt="del"]')) f.querySelector('[data-falt="del"]').value = behall.del;
     if (behall.svar) document.getElementById('ay-skrivsvar').textContent = behall.svar;
+    Object.entries(falt).forEach(([k, v]) => { const x = f.querySelector(`[data-uppdrag="${k}"]`); if (x) x.value = v; });
+    visaUppdragstext();
     uppdateraSkrivstatus();
+  }
+  // de tre uppdragen (ägarens uppdrag 2026-10-09, punkt 8); benämningen är det som startas
+  const UPPDRAGSTYPER = [['ratta', 'Rätta'], ['omarbeta', 'Omarbeta designen'], ['bygg_ut', 'Bygg ut']];
+  const UPPDRAGSHJALP = { ratta: 'Rätta: de angivna bristerna inom befintlig omfattning. Inga nya sidor, sektioner eller funktioner.',
+    omarbeta: 'Omarbeta designen: komposition, bildregi, typografi, rytm och hierarki inom det avtalade innehållet. En separat granskare jämför före och efter i bilderna.',
+    bygg_ut: 'Bygg ut: de överenskomna sektionerna, undersidorna och funktionerna i förslagets form.' };
+  function visaUppdragstext() {
+    const f = document.getElementById('ay-skriv'); const typ = f?.querySelector('[data-uppdrag="typ"]')?.value; const p = document.getElementById('ay-uppdragstext');
+    if (p) p.textContent = UPPDRAGSHJALP[typ] || '';
+    const kund = f?.querySelector('[data-uppdrag="avsandare"]')?.value === 'kunden';
+    f?.querySelectorAll('[data-kundbelagg]').forEach((x) => { x.hidden = !kund; });
   }
   function sessionStorageLas(k) { try { return sessionStorage.getItem(k); } catch { return null; } }
   function uppdateraSkrivstatus() {
@@ -627,19 +648,25 @@
   }
   async function skickaAndring() {
     const t = document.getElementById('ay-text'), svar = document.getElementById('ay-skrivsvar'), mk = markering();
-    const text = t.value.trim(); if (!text) { svar.textContent = 'Skriv vad som ska ändras.'; t.focus(); return; }
-    if (!A.mark || !A.mark.kandidat || !A.mark.version_hel) { svar.textContent = 'Markera kandidaten ändringen gäller först (välj den under Kandidater).'; return; }
+    const text = t.value.trim(); if (!text) { svar.textContent = 'Skriv vad som ska ändras, med dina eller kundens egna ord.'; t.focus(); return; }
+    if (!A.mark || !A.mark.kandidat || !A.mark.version_hel) { svar.textContent = 'Markera kandidaten uppdraget gäller först (välj den under Kandidater).'; return; }
     if (inaktuellMark()) { svar.textContent = 'Inaktuell: ' + inaktuellMark() + '. Stäm av mot den aktuella versionen först.'; return; }
-    const body = { text, beslut: mk.beslut || 'valj', kandidat: mk.kandidat, version: mk.version_hel, korning: mk.korning,
-      vy: mk.vy, fil: mk.fil || null, sida: document.querySelector('[data-falt="sida"]')?.value || null, del: document.querySelector('[data-falt="del"]')?.value || null };
-    const id = await innehallsId('a', [A.slug, body.text, body.kandidat, body.version, body.korning, body.vy, body.fil, body.sida, body.del]);  // beslutet ingår inte
-    svar.textContent = 'Skickar ändringen…';
+    const u = (k) => document.querySelector(`#ay-skriv [data-uppdrag="${k}"]`)?.value || '';
+    const rader = (k) => u(k).split('\n').map((x) => x.trim()).filter(Boolean);
+    const uppdrag = { typ: u('typ'), resultat: u('resultat').trim(), omfattning: rader('omfattning'), bevara: rader('bevara') };
+    const saknas = !uppdrag.resultat ? 'det önskade resultatet' : !uppdrag.omfattning.length ? 'omfattningen' : !uppdrag.bevara.length ? 'vad som ska bevaras' : u('avsandare') === 'kunden' && !u('belagg').trim() ? 'var kundens ord står' : null;
+    if (saknas) { svar.textContent = 'Uppdraget saknar ' + saknas + '.'; return; }
+    const body = { text, beslut: 'uppdrag', uppdrag, kandidat: mk.kandidat, version: mk.version_hel, korning: mk.korning,
+      vy: mk.vy, fil: mk.fil || null, sida: document.querySelector('[data-falt="sida"]')?.value || null, del: document.querySelector('[data-falt="del"]')?.value || null,
+      ...(u('avsandare') === 'kunden' ? { avsandare: 'kunden', belagg: u('belagg').trim() } : {}) };
+    const id = await innehallsId('a', [A.slug, body.text, body.kandidat, body.version, body.korning, body.vy, body.fil, body.sida, body.del, uppdrag, body.avsandare || '']);
+    svar.textContent = 'Sparar uppdraget…';
     try {
       await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/andring', Object.assign({ andring_id: id }, body));
       t.value = ''; sparaMark(null); ritaGaller(); try { sessionStorage.removeItem('nwp-arbetsyta-utkast:' + A.slug); } catch { /* */ }  // som skickaPartner: en skickad ändring kommer inte tillbaka som utkast
       const f_ = document.getElementById('ay-skriv'); if (f_) { f_.dataset.ritad = ''; ritaSkriv(); }
-      const nasta = (A.lage.handlingar || []).find((h) => ['valda', 'putsa'].includes(h.id));
-      (document.getElementById('ay-skrivsvar') || svar).textContent = 'Ändringen är sparad som ditt beslut i domloggen, bunden till kandidat och version. Inget arbete har startat: starta förfiningen under Kontroller.' + (nasta ? '' : ' Läs om läget om knappen inte syns.');
+      const nasta = (A.lage.handlingar || []).find((h) => h.id === 'valda');
+      (document.getElementById('ay-skrivsvar') || svar).textContent = 'Uppdraget är sparat i domloggen' + (body.avsandare === 'kunden' ? ' som kundens beslut' : '') + ', bundet till kandidat och version. Inget arbete har startat: starta det under Kontroller' + (nasta ? ' (' + nasta.text + ').' : '. Läs om läget om knappen inte syns.');
     } catch (err) { svar.textContent = err.status === 409 ? 'Inaktuell: ' + err.message + ' Stäm av mot den aktuella versionen och läs igenom ändringen innan du skickar igen.' : 'Svaret gick inte att bekräfta: ' + err.message + '. Försök igen: samma ändring ger samma id, så den sparas inte två gånger.'; }
   }
 
@@ -1132,14 +1159,15 @@
     const ogiltig = k.snapshot.giltig === false;  // en fotograferad felsida: ingen version att välja eller godkänna
     const godk = ['forfinad'].includes(k.status) && !ogiltig;
     return `<p style="margin:0">Beslutet gäller <b>${e_(k.etikett)}</b>, version ${e_(k.version)}, fotograferad ${e_(kort(k.snapshot.tid))}: bilden nedan${A.enhet === 'mobil' ? ' (beslutet binds till skärmbilden i 1440 px)' : ''}.</p>
-      ${b ? `<div class="ay-bekraftruta"><p style="margin:0">${e_(b.text)}</p>${b.version_hel && b.version_hel !== k.version_hel ? `<p class="ay-notis varn" role="alert" style="margin:0">${e_(k.etikett)} har fått en ny version (${e_(k.version)}) sedan du öppnade beslutet. Beslutet gäller version ${e_(b.version)}, som inte längre är kandidatens, och nekas: avbryt och se den nya versionen först.</p>` : ''}${['forkasta', 'ny_riktning'].includes(b.beslut) || b.beslut === 'valj' ? `<label class="svag" for="ay-beslutstext">${b.beslut === 'valj' ? 'Vad du gillar (valfritt)' : 'Vad håller inte, och vad ska nästa försök pröva?'}</label><textarea id="ay-beslutstext" rows="3" data-fokus="beslutstext"></textarea>` : ''}
+      ${b ? `<div class="ay-bekraftruta"><p style="margin:0">${e_(b.text)}</p>${b.version_hel && b.version_hel !== k.version_hel && !b.aldre ? `<p class="ay-notis varn" role="alert" style="margin:0">${e_(k.etikett)} har fått en ny version (${e_(k.version)}) sedan du öppnade beslutet. Beslutet gäller version ${e_(b.version)}, som inte längre är kandidatens, och nekas: avbryt och se den nya versionen först.</p>` : ''}${['forkasta', 'ny_riktning'].includes(b.beslut) || b.beslut === 'valj' ? `<label class="svag" for="ay-beslutstext">${b.beslut === 'valj' ? 'Vad du gillar (valfritt)' : 'Vad håller inte, och vad ska nästa försök pröva?'}</label><textarea id="ay-beslutstext" rows="3" data-fokus="beslutstext"></textarea>` : ''}
           <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut-ja data-fokus="beslut-ja">${e_(b.knapp)}</button><button class="ay-knapp" type="button" data-beslut-nej>Avbryt</button></div></div>`
         : `${ogiltig ? `<p class="ay-notis varn" role="alert" style="margin:0">Ögonblicksbilden av ${e_(k.etikett)} är ingen sida (${e_((k.snapshot.ogiltig || []).join('; '))}). Fotografera kandidaten igen innan du väljer eller godkänner den.</p>` : ''}<div class="ay-knapprad">${ogiltig ? '' : '<button class="ay-knapp primar" type="button" data-beslut="valj" data-fokus="b-valj">Välj vidare</button>'}${godk ? '<button class="ay-knapp primar" type="button" data-beslut="godkand" data-fokus="b-godkand">Godkänn denna version</button>' : ''}<button class="ay-knapp" type="button" data-beslut="forkasta">Underkänn alla</button><button class="ay-knapp" type="button" data-beslut="ny_riktning">Ny riktning</button></div>
-          <p class="svag" style="margin:0">Jämför kandidaterna under Resultat → Jämför, eller sida vid sida i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>. Ett godkännande lämnar över till helbygget men startar det inte.</p>`}
+          <p class="svag" style="margin:0">Jämför kandidaterna under Resultat → Jämför, eller sida vid sida i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>. Välj vidare startar inget; ett uppdrag (Rätta, Omarbeta designen eller Bygg ut) ger du under Ändring, och det startas under Kontroller. Ett godkännande lämnar över till helbygget men startar det inte, och publiceringen är ett eget beslut.</p>`}
       <p class="svag" role="status" aria-live="polite" id="ay-beslutssvar" style="margin:0">${e_(A.beslutSvar || '')}</p>`;
   }
   const BESLUTSTEXT = {
-    valj: (k) => [`Välj ${k.etikett} (version ${k.version}) att gå vidare med?`, 'Välj vidare'],
+    valj: (k) => [`Välj ${k.etikett} (version ${k.version}) för vidareutveckling? Inget arbete startar: nästa steg är ett uppdrag (Rätta, Omarbeta designen eller Bygg ut) eller ägarens godkännande.`, 'Välj vidare'],
+    valj_version: (k, v) => [`Välj den tidigare versionen ${v} av ${k.etikett}? Den tas fram när du startar det under Kontroller; den nuvarande versionen ${k.version} står kvar bevarad och kan väljas igen.`, 'Välj versionen'],
     godkand: (k) => [`Godkänn ${k.etikett}, version ${k.version}, den bild du ser? Godkännandet binds till bilden och versionen; har arbetsversionen ändrats sedan fotograferingen nekas det. Helbygget startar inte.`, 'Godkänn'],
     forkasta: () => ['Underkänn alla kandidater i körningen? Din text blir nästa körnings kritik.', 'Underkänn alla'],
     ny_riktning: () => ['Be om en ny riktning? Din text blir nästa körnings kritik.', 'Be om ny riktning'],
@@ -1176,7 +1204,10 @@
     const utanRef = k.referens && !refbild ? ` Referensen: ${e_(k.referens.saknas || 'ingen fångad sida')}.` : '';
     return `<div class="ay-adress"><span class="etikett">Bevarade bilder, ${bredd} px.${A.lage.blind ? ' Tidigare versioner visas efter ditt första val.' : ''}${utanRef}</span>
         ${alla.length ? `<label class="svag">Jämför med <select id="ay-jamformed" class="ay-knapp liten">${alla.map(([x, n]) => `<option value="${e_(x)}"${x === med ? ' selected' : ''}>${e_(n)}</option>`).join('')}</select></label>` : ''}</div>
-      <div class="ay-scen"><div class="ay-jamfor"><figure><figcaption>${e_(k.etikett)}${k.version ? ', version ' + e_(k.version) : ''} (vald)</figcaption><img src="/fil/${e_(bild(k))}" alt="${e_(k.etikett)}"></figure>${hoger}</div></div>`;
+      <div class="ay-scen"><div class="ay-jamfor"><figure><figcaption>${e_(k.etikett)}${k.version ? ', version ' + e_(k.version) : ''} (vald)</figcaption><img src="/fil/${e_(bild(k))}" alt="${e_(k.etikett)}"></figure>${hoger}</div></div>
+      ${(() => { const v12 = med.startsWith('v:') ? med.slice(2) : null, hel = v12 && (k.valbara || []).find((x) => x.startsWith(v12));
+        return hel && !A.lage.blind ? `<div class="ay-knapprad"><button class="ay-knapp" type="button" data-valj-version="${e_(hel)}" data-fokus="valj-version">Välj version ${e_(v12)}</button><span class="svag"> En tidigare bättre version kan väljas; den nuvarande står kvar bevarad.</span></div>` : ''; })()}
+      ${k.uppdrag ? `<p class="svag" style="margin:0">Senaste uppdraget: ${e_(k.uppdrag.namn || k.uppdrag.typ)} från version ${e_(k.uppdrag.fran)}. Före och efter (${e_(k.uppdrag.avsandare || 'separat granskare')}, bilderna utan förklaring): ${e_({ battre: 'efter är bättre', samre: 'efter är sämre', likvardig: 'likvärdiga', oklart: 'oklart' }[k.uppdrag.utfall] || 'inte bedömd')}${k.uppdrag.fortsattning ? '; ' + e_({ fora_vidare: 'förs vidare', kraver_losning: 'tekniskt nödvändig men sämre: kräver fortsatt lösning', aterstall: 'versionen före gäller, efter-versionen kan väljas', oklart: 'står som oklart' }[k.uppdrag.fortsattning] || k.uppdrag.fortsattning) : ''}.</p>` : ''}`;
   }
 
   // --- händelserna ---
@@ -1235,6 +1266,11 @@
       A.beslutBekrafta = { beslut: d.beslut, kandidat: k.id, text, knapp, version_hel: k.version_hel, version: k.version,
         bild: fyra ? k.snapshot['1440'] : k.snapshot['390'], bild_sha: fyra ? k.snapshot.sha?.['1440'] : k.snapshot.sha?.['390'] };
       A.beslutSvar = ''; rita(); document.querySelector('[data-fokus="beslutstext"]')?.focus() || document.querySelector('[data-fokus="beslut-ja"]')?.focus(); return; }
+    if (d.valjVersion) { const k = (A.lage.kandidater || []).find((x) => x.id === A.valdKandidat); if (!k) return;
+      const v12 = d.valjVersion.slice(0, 12), [text, knapp] = BESLUTSTEXT.valj_version(k, v12), b14 = k.snapshot['1440'] || k.snapshot['390'];
+      A.beslutBekrafta = { beslut: 'valj', aldre: true, kandidat: k.id, text, knapp, version_hel: d.valjVersion, version: v12,
+        bild: b14 ? String(b14).replace(/\/bilder\//, '/versioner/' + v12 + '/bilder/') : null, bild_sha: null };
+      A.material = 'snapshot'; A.beslutSvar = ''; rita(); document.querySelector('[data-fokus="beslut-ja"]')?.focus(); return; }
     if (d.beslutJa !== undefined) { fattaBeslut(); return; }
     if (d.beslutNej !== undefined) { A.beslutBekrafta = null; A.beslutSvar = ''; rita(); return; }
     if (d.visaBeslut !== undefined) { A.material = 'snapshot'; const ytan = document.getElementById('ay-ytan'); if (ytan) ytan.dataset.omrade = 'resultat'; ritaMaterial(); document.querySelector('[data-fokus="b-valj"]')?.focus(); return; }
@@ -1253,6 +1289,7 @@
     if (ev.target.id === 'ay-kodkand') { A.valdKandidat = ev.target.value; A.kod.fil = null; A.kod.mot = null; laddaKod(); ritaMaterial(); }
     if (ev.target.id === 'ay-kodmot') laddaKod(undefined, ev.target.value || null);
     if (ev.target.id === 'ay-mottagare') { A.mottagareVald = ev.target.value; const f = document.getElementById('ay-skriv'); const t = f?.querySelector('textarea')?.value; f.dataset.ritad = ''; ritaMeddelandeform(); const nt = document.getElementById('ay-mtext'); if (nt && t) nt.value = t; document.getElementById('ay-mottagare')?.focus(); }
+    if (ev.target.dataset?.uppdrag === 'typ' || ev.target.dataset?.uppdrag === 'avsandare') { visaUppdragstext(); return; }
     if (ev.target.id === 'ay-jamformed') { A.jamforMed = ev.target.value; ritaMaterial(); document.getElementById('ay-jamformed')?.focus(); }
   });
   document.addEventListener('input', (ev) => { if (ev.target.id === 'ay-text' && A.avsikt === 'andring' && !A.mark && levande().kandidat) { markera(); ritaGaller(); uppdateraSkrivstatus(); }

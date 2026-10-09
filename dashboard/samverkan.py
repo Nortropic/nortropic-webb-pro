@@ -412,7 +412,7 @@ def _bild_sha(dash, rel):
 
 
 def beslut(dash, slug, data):
-    """Ägarens beslut från arbetsytan (välj, jämför, förkasta, ny riktning, putsa, godkänn) genom samma tjänst och
+    """Beställarens beslut från arbetsytan (välj, jämför, förkasta, ny riktning, uppdrag, godkänn) genom samma tjänst och
     samma skydd som vyn Prototyp (server.spara_kandidatbeslut → atelje.doma → kandidater.prova_beslut och
     forbered_vinnare: versionen ägaren såg måste vara kandidatens fotograferade och dess filer oförändrade). Arbetsytan
     lägger till belägget för vad ägaren såg: bilden och dess hash, prövad mot filen nu. Sedan ett ägarbeslut i bussen."""
@@ -449,7 +449,10 @@ def beslut(dash, slug, data):
     markering = {'vy': 'Arbetsyta, beslut', 'sedd': [{k_: x.get(k_) for k_ in ('kandidat', 'version', 'bild', 'bild_sha')} for x in sedd if isinstance(x, dict)][:12],
                  'korning': st.get('startad')}
     svar = dash.spara_kandidatbeslut(slug, st, {'beslut': data.get('beslut'), 'kandidater': kand, 'text': data.get('text'),
-                                                'delar': data.get('delar')}, arbetsyta=markering)
+                                                'delar': data.get('delar'), 'uppdrag': data.get('uppdrag'),
+                                                # kundens egna beslut med belägg (ägarens uppdrag 2026-10-09, punkt 11)
+                                                **({'avsandare': 'kunden', 'belagg': data.get('belagg')} if data.get('avsandare') == 'kunden' else {})},
+                                     arbetsyta=markering)
     dom = svar.get('dom') or {}
     try:  # ägarbeslutet i bussen: historiken och, när en utförare lever för kandidaten, beskedet till den
         for k in kand or [{'id': None, 'version': None}]:

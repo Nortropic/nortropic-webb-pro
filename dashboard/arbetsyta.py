@@ -436,6 +436,18 @@ def bild_sha(dash, rel):
     return _BILDSHA[nyckel]
 
 
+def _uppdragspost(st):
+    """Det senaste uppdraget på kandidaten, som arbetsytan visar det: typen, versionen före, före/efter-bedömningens
+    utfall med avsändare och fortsättningen (förs vidare, kräver fortsatt lösning, återställd eller oklart)."""
+    f = st.get('forfining') if isinstance(st.get('forfining'), dict) else {}
+    if not f.get('typ'):
+        return None
+    fe = f.get('fore_efter') if isinstance(f.get('fore_efter'), dict) else {}
+    return {'typ': f.get('typ'), 'namn': (f.get('uppdrag') or {}).get('namn'), 'fran': str(f.get('fran') or '')[:12], 'klar': f.get('klar'),
+            'utfall': fe.get('utfall'), 'skal': fe.get('skal'), 'avsandare': fe.get('avsandare'), 'sett': fe.get('sett'),
+            'fortsattning': (f.get('fortsattning') or {}).get('beslut'), 'omfattning_brister': f.get('omfattning_brister') or []}
+
+
 def kandidatlista(dash, slug, blind):
     """Kandidaterna med neutrala etiketter (kandidater.sammanstall, som vyn Prototyp), version, förhandsvisning och den
     bevarade ögonblicksbilden. Före ägarens första val utan skapare- och granskningstext."""
@@ -467,7 +479,10 @@ def kandidatlista(dash, slug, blind):
                                 'tid': st.get('fotograferad'),
                                 'sha': {'390': bild_sha(dash, b.get('390-forsta')), '1440': bild_sha(dash, b.get('1440-forsta') or b.get('1280-forsta'))},
                                 'giltig': None if ins is None else not ogiltig, 'ogiltig': ogiltig},
-                   'versioner': versioner, 'referens': _referens(k.get('referensjamforelse'))})
+                   'versioner': versioner, 'referens': _referens(k.get('referensjamforelse')),
+                   # versionerna som kan väljas (före och efter varje uppdrag), med hela versionen; ägarens uppdrag 2026-10-09, punkt 10
+                   'valbara': [] if blind else [v for v in kandidater.valbara_versioner(st) if kandidater.bevarad(slug, kid, v)],
+                   'uppdrag': None if blind else _uppdragspost(st)})
     return ut, None
 
 

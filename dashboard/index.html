@@ -728,9 +728,9 @@ async function prototypvy(slug) {
 // bedömer bilderna först, sedan referensen bredvid och sist redovisningen: jämförelsen och skaparens korta redovisning står
 // hopfällda efter bilderna, de tekniska kontrollerna för sig. Panelens granskning och planens titlar efter första beslutet.
 const KBESLUT = {
-  valj: 'Välj för vidareutveckling: de markerade förfinas, var för sig, med din text och det du gillade',
+  valj: 'Välj för vidareutveckling: de markerade är valda (inget startar; nästa steg är ett uppdrag eller ett godkännande)',
   jamfor: 'Jämför vidare: spara de markerade som din jämförelse (inget körs)',
-  putsa: 'Putsa vidare: de markerade förfinade förfinas igen med din text',
+  uppdrag: 'Ge ett uppdrag: Rätta, Omarbeta designen eller Bygg ut det markerade förslaget, med resultat, omfattning och det som ska bevaras',
   godkand: 'Godkänn för helbygge: den markerade förfinade kandidaten blir sajtens grund',
   forkasta: 'Förkasta alla: inget av förslagen håller (inget körs förrän du ber om en ny riktning)',
   ny_riktning: 'Be om en ny riktning: förslagen och sajten raderas (förslagen står i historiken med din dom) och en ny utforskning börjar med din text',
@@ -828,10 +828,10 @@ async function kandidatvy(slug, d) {
     : d.avbruten ? `Körningen avbröts i steg ${esc(d.steg || '')}; den tas upp igen med atelje.py --fortsatt utan att något klart görs om.`
     : `Pågår (steg ${esc(d.steg || '')}, startad ${tid(d.startad)}): ${visbara.length} av ${alla.length} klara.`;
   const forsiktig = visbara.length < (d.antal || alla.length) && klara && d.fas !== 'forfining' ? `<p class="meddelande fel">Färre förslag än planerat blev klara (${visbara.length} av ${d.antal || alla.length}); skälen står under "Förslag som inte blev klara".</p>` : '';
-  const valbara = Object.keys(KBESLUT).filter((b) => (b === 'putsa' || b === 'godkand') ? forfinade : true);
+  const valbara = Object.keys(KBESLUT).filter((b) => b === 'godkand' ? forfinade : true);
   const tidigare = (d.domar || []).map((x) => `<p class="under">${tid(x.tid)} · ${esc(x.kalla)} · <b>${esc((KBESLUT[x.beslut] || BESLUT[x.beslut] || x.beslut).split(':')[0])}</b>${(x.kandidater || []).length ? ' · ' + esc(x.kandidater.map((k) => k.etikett || k.id).join(', ')) : ''}: ${esc(String(x.text || '').slice(0, 300))}</p>`).join('');
   $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1>
-    <p class="under">${lage} ${d.godkand ? `<b>Godkänd för helbygge ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : d.kandidatlage === 'skiss' && d.fas !== 'forfining' ? 'Skisser: första vyn och den viktigaste sektionen, i mobil och dator. Förslagen har neutrala namn i slumpad ordning. En intern granskare ser skisserna när tiden räcker, och skaparen får svara; granskarens omdöme och skaparens svar visas efter ditt första beslut, och ingen modell har rangordnat förslagen. Körningens redovisning visas efter ditt första beslut, och de du väljer fördjupas till hela startsidan, undersidan och besökarens flöde.' : 'Förslagen har neutrala namn i slumpad ordning. Panelens granskning, planens titlar och körningens redovisning visas efter ditt första beslut.'}</p>
+    <p class="under">${lage} ${d.godkand ? `<b>Godkänd för helbygge ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : d.kandidatlage === 'skiss' && d.fas !== 'forfining' ? 'Skisser: första vyn och den viktigaste sektionen, i mobil och dator. Förslagen har neutrala namn i slumpad ordning. En intern granskare ser skisserna när tiden räcker, och skaparen får svara; granskarens omdöme och skaparens svar visas efter ditt första beslut, och ingen modell har rangordnat förslagen. Körningens redovisning visas efter ditt första beslut. Ett val startar inget; den riktade förbättringen är ett uppdrag (Rätta, Omarbeta designen eller Bygg ut) som du ger och startar uttryckligen.' : 'Förslagen har neutrala namn i slumpad ordning. Panelens granskning, planens titlar och körningens redovisning visas efter ditt första beslut.'}</p>
     ${forsiktig}
     <div class="kverktyg" role="group" aria-label="Bredd">
       ${bredder.map((b) => `<button class="knapp" data-bredd="${b}" aria-pressed="${b === kBredd}">${esc(KBREDDER[b])}</button>`).join('')}
@@ -847,6 +847,13 @@ async function kandidatvy(slug, d) {
     ${klara && visbara.length ? `<section class="kort" style="margin-top:24px"><h2>Ditt beslut</h2>
       <p class="under">Välj en riktning: markera förslaget och välj vidareutveckling. Kombinera kvaliteter: markera de förslag som ska bära vidare och skriv under "Det jag gillar här" i andra förslag vad du vill ta därifrån; det följer med ordagrant. Underkänn allt: förkasta alla. Beslutet sparas i domloggen med förslagens versioner och läses av nästa körning.</p>
       <div>${valbara.map((b) => `<div><label><input type="radio" name="k-b" value="${b}"> ${esc(KBESLUT[b])}</label></div>`).join('')}</div>
+      <fieldset id="k-uppdrag" hidden style="margin-top:8px"><legend>Uppdraget</legend>
+        <label>Typ <select id="k-u-typ"><option value="ratta">Rätta: de angivna bristerna, inga nya sidor eller funktioner</option><option value="omarbeta">Omarbeta designen: komposition, bildregi, typografi, rytm och hierarki</option><option value="bygg_ut">Bygg ut: överenskomna sektioner, undersidor och funktioner</option></select></label>
+        <label style="display:block">Önskat resultat <input id="k-u-resultat" style="width:100%"></label>
+        <label style="display:block">Omfattning, en rad per brist, område eller del (för Bygg ut vägarna, till exempel /tjanster/) <textarea id="k-u-omfattning" rows="3" style="width:100%"></textarea></label>
+        <label style="display:block">Bevara, en rad per sak ("inget särskilt" om inget) <textarea id="k-u-bevara" rows="2" style="width:100%"></textarea></label>
+        <label>Från <select id="k-u-avs"><option value="agaren">mig (ägaren)</option><option value="kunden">kunden</option></select></label>
+        <label style="display:block">Var kundens egna ord står (när kunden beslutar) <input id="k-u-belagg" style="width:100%"></label></fieldset>
       <textarea id="k-text" rows="5" style="width:100%;margin-top:8px" placeholder="Vad bär, vad håller inte, vad ska nästa steg pröva? Dina ord följer med ordagrant."></textarea>
       <div class="rad" style="margin-top:8px"><button class="knapp primar" id="k-spara">Spara beslutet</button> <span class="under" id="k-antal"></span></div>
       ${tidigare ? `<details style="margin-top:12px"><summary>Domloggen (${d.domar.length})</summary>${tidigare}</details>` : ''}</section>` : ''}
@@ -876,17 +883,25 @@ async function kandidatvy(slug, d) {
   visaJamforelse();
   observationsvy(slug, alla);
   const knapp = $('#k-spara');
+  document.querySelectorAll('input[name="k-b"]').forEach((r) => r.onchange = () => { const f = $('#k-uppdrag'); if (f) f.hidden = r.value !== 'uppdrag' || !r.checked; });
   if (knapp) knapp.onclick = async () => {
     const b = (document.querySelector('input[name="k-b"]:checked') || {}).value;
     const text = $('#k-text').value;
     if (!b) { alert('Välj ett beslut.'); return; }
     const kand = visbara.filter((k) => markerade.has(k.id)).map((k) => ({ id: k.id, version: foreval.has(k.id) && k.forbattring ? k.forbattring.fore : k.version }));
-    if (['valj', 'putsa', 'godkand'].includes(b) && !kand.length) { alert('Markera förslaget eller förslagen beslutet gäller.'); return; }
+    if (['valj', 'uppdrag', 'godkand'].includes(b) && !kand.length) { alert('Markera förslaget eller förslagen beslutet gäller.'); return; }
+    if (b === 'uppdrag' && kand.length !== 1) { alert('Ett uppdrag gäller ett förslag: markera exakt ett.'); return; }
+    const rader = (id) => ($(id).value || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const uppdrag = b === 'uppdrag' ? { typ: $('#k-u-typ').value, resultat: $('#k-u-resultat').value.trim(), omfattning: rader('#k-u-omfattning'), bevara: rader('#k-u-bevara') } : null;
+    if (uppdrag && (!uppdrag.resultat || !uppdrag.omfattning.length || !uppdrag.bevara.length)) { alert('Uppdraget behöver önskat resultat, omfattning och det som ska bevaras.'); return; }
+    const kunden = b !== 'godkand' && $('#k-u-avs') && $('#k-u-avs').value === 'kunden' && b === 'uppdrag';
+    if (kunden && !$('#k-u-belagg').value.trim()) { alert('Skriv var kundens egna ord står.'); return; }
     if (b === 'jamfor' && kand.length < 2) { alert('Markera minst två förslag att jämföra.'); return; }
     if (b === 'godkand' && kand.length !== 1) { alert('Markera exakt ett förfinat förslag att godkänna.'); return; }
-    if (['forkasta', 'ny_riktning', 'putsa'].includes(b) && !text.trim()) { alert('Skriv vad som inte håller och vad nästa steg ska pröva.'); return; }
+    if (['forkasta', 'ny_riktning', 'uppdrag'].includes(b) && !text.trim()) { alert('Skriv vad som inte håller och vad nästa steg ska pröva.'); return; }
     knapp.disabled = true;
-    try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, kandidater: kand, delar, text, startad }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
+    try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, kandidater: kand, delar, text, startad, ...(uppdrag ? { uppdrag } : {}),
+      ...(kunden ? { avsandare: 'kunden', belagg: $('#k-u-belagg').value.trim() } : {}) }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
   };
 }
 
