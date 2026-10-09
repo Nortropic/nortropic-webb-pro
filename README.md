@@ -6,13 +6,15 @@ domare. Varför repot finns och vad som beslutades: `BESLUT.md`.
 ## Dashboarden
 
 ```sh
-./dashboard.sh        # http://127.0.0.1:4771 (öppnar sidan med dashboardnyckeln: ägarens domar och flödets handlingar
-                      # skrivs bara av ett anrop med nyckeln, som ingen annan lokal process har; dashboard/server.py NYCKEL)
-./dashboard.sh arbetsyta [kund]   # arbetsytan: samtalet med partnern, förhandsvisningen, sessionerna och koden för en kund
+./dashboard.sh start [kund]   # tjänsten i bakgrunden och arbetsytan (startvyn); startar inget arbete; Mac-appen: ./dashboard.sh genvag
+./dashboard.sh        # http://127.0.0.1:4771 i terminalen (öppnar sidan med dashboardnyckeln: ägarens domar och flödets
+                      # handlingar skrivs bara av ett anrop med nyckeln, som ingen annan lokal process har; dashboard/server.py NYCKEL)
 ```
 
-Arbetsytan samlar en kunds samtal med Nortropic-partnern, riktiga förhandsvisning, sessioner som arbetar, byggflöde och
-kod över samma läge; hur den fungerar, dess gränser och Claude-panelen (`mod/nortropic-arbetsyta`): `kunskap/arbetsyta.md`.
+Arbetsytan är dashboardens startvy och ägarens arbetsplats: samtalet med Nortropic-partnern, meddelanden till och från
+sessionerna som arbetar (med paus och återupptagning), kundens riktiga förhandsvisning, besluten bundna till den bild och
+version som visas, byggflödet och koden över samma läge. Hur den fungerar, meddelandebussen, den externa granskarens väg,
+dess gränser och Claude-panelen (`mod/nortropic-arbetsyta`): `kunskap/arbetsyta.md`.
 
 Allt på ett ställe: vyn Prototyp, där du väljer bland förslagen och godkänner en startsida (besluten skrivs i
 domloggen `underlag/<slug>/DESIGNDOMAR.jsonl`), byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag,

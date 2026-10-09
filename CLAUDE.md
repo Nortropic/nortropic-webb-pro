@@ -29,7 +29,7 @@ upptagna val är av tills de väljs uttryckligen (ren start 2026-10-08).
 `kunskap/` professionstexter (regeln mot slop: `copy-kontroll.md`, `redaktionellt-pass.md`,
 `referenser-professionella.md`; ribban i tre nivåer ur ägarens kalibrering: `visuell-niva.md`; designflödet för startsidan, ett för alla ingångar: `skapandeflodet.md`; byggstandarden med verifierbara punkter: `byggstandard.md`; litteraturen och
 metoderna bakom den: `teoretisk-grund.md`) · `kontroller/` provet och verktygen · `backlog/` vilande poster · `dashboard/`
-ägarens vy (`./dashboard.sh`, http://127.0.0.1:4771; arbetsytan `./dashboard.sh arbetsyta`, `kunskap/arbetsyta.md`) · `underlag/` och `kunder/` privat material och byggen,
+ägarens vy (`./dashboard.sh start`, http://127.0.0.1:4771; arbetsytan är startvyn, meddelandebussen och pausen: `kunskap/arbetsyta.md`) · `underlag/` och `kunder/` privat material och byggen,
 utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglerna för prospekt och utskick:
 `kunskap/prospekt-och-utskick.md`; spanarens källor: `kunskap/spaning-kallor.md` · var varje slag av information hör
 hemma, rapporthuvudet och arbetsregeln om dokumentation: `README.md`, Var information finns.
