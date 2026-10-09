@@ -349,8 +349,10 @@ def prova(root=None):
     root = Path(root or ROOT)
     reg = register(root)
     ut = []
-    if not reg:
-        return [{'vad': 'registret saknas', 'detalj': 'ingen ren designstart registrerad i %s' % REGISTER}]
+    if not reg:  # ingen arkivering här (en provrot, en ny utcheckning): de kända gamla platserna prövas ändå
+        gamla = [{'vad': 'gammalt material utan register', 'detalj': rel} for rel in [*EXPERIMENT, *GIT_POSTER]
+                 if rel != 'LARDOMAR.md' and (root / rel).exists()]
+        return gamla + [{'vad': 'registret saknas', 'detalj': 'ingen ren designstart registrerad i %s' % REGISTER}]
     arkiv = Path(reg.get('arkiv') or ARKIV)
     try:
         if root.resolve() in arkiv.resolve().parents:

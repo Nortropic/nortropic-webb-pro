@@ -71,8 +71,9 @@ class Metodtillampning(unittest.TestCase):
         for pass_ in ('skapa','fordjupa'):
             text='\n'.join(kompetens.prompt_rader(pass_,'prov-metod','k01'))
             self.assertNotIn('bekräfta högst en gång',text)
-            self.assertIn('skissläget inget fast antal',text)
-            self.assertIn('minst tre',text)
+            # inget minsta antal varv i något läge (ägarens uppdrag 2026-10-09, punkt 10): de tre varven är borttagna
+            self.assertIn('inget minsta antal i något läge',text)
+            self.assertNotIn('minst tre',text)
         self.assertIn('bekräfta högst en gång','\n'.join(kompetens.prompt_rader('rorelse','prov-metod','k01')))
 
     def test_css_radets_begransning_foljer_med_metodleveransen(self):

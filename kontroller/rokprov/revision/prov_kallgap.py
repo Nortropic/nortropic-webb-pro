@@ -24,6 +24,14 @@ import forberedelse
 import startkontroll
 
 
+def kf(text, namn):
+    """KUNDFORSTAELSE.md med förberedelsens sex rubriker i ordning (forberedelse.kundforstaelse_brister, 2026-10-09); andra filer som de är."""
+    if namn != 'KUNDFORSTAELSE.md':
+        return text
+    r_ = forberedelse.KUNDFORSTAELSE_RUBRIKER
+    return text + '\n\n' + '\n\n'.join('## %s\n\n%s' % (r, '- Antaget: syntetiskt.' if r == r_[-1] else 'Syntetiskt.') for r in r_) + '\n'
+
+
 class Kallgap(unittest.TestCase):
     def setUp(self):
         self.stack = contextlib.ExitStack()
@@ -59,7 +67,7 @@ class Kallgap(unittest.TestCase):
         def session(_prompt, tools, output, *_args, **_kw):
             self.assertNotIn('Bash', tools)
             for name in forberedelse.FILER:
-                (output.parent / name).write_text('Syntetiskt utkast ' + name)
+                (output.parent / name).write_text(kf('Syntetiskt utkast ' + name, name))
             return {'structured_output': {'klar': True, 'saknas': []}}
         st = {}
         with patch.object(atelje, 'session', side_effect=session) as sess:
@@ -101,7 +109,7 @@ class Kallgap(unittest.TestCase):
         atelje.STOPP.clear()
         def session(_prompt, _tools, output, *_args, **_kw):
             for name in forberedelse.FILER:
-                (output.parent / name).write_text('Syntetiskt underlag ' + name)
+                (output.parent / name).write_text(kf('Syntetiskt underlag ' + name, name))
             return {'structured_output': {'klar': True, 'saknas': []}}
         with patch.object(startkontroll, 'for_start', return_value=None), \
              patch.object(atelje, 'session', side_effect=session), patch.object(atelje, 'stada') as clean, \
@@ -127,7 +135,7 @@ class Kallgap(unittest.TestCase):
     def test_avbrott_vid_publicering_ar_aldrig_forberett_underlag(self):
         paket = self.u / 'atelje/paket'; paket.mkdir()
         for n in forberedelse.FILER:
-            (paket / n).write_text('Syntetiskt nytt underlag')
+            (paket / n).write_text(kf('Syntetiskt nytt underlag', n))
         replace = os.replace
         def fel(src, dst):
             if Path(dst).name == 'TEXTUNDERLAG.md':
@@ -143,7 +151,7 @@ class Kallgap(unittest.TestCase):
     def test_slutkvitto_skrivs_inte_genom_planterad_templank(self):
         paket = self.u / 'atelje/paket'; paket.mkdir()
         for n in forberedelse.FILER:
-            (paket / n).write_text('Syntetiskt nytt underlag')
+            (paket / n).write_text(kf('Syntetiskt nytt underlag', n))
         marker = self.root / 'markor.txt'; marker.write_text('orörd')
         (self.u / 'atelje/.FORBEREDELSE.json.tmp').symlink_to(marker)
         forberedelse.publicera(self.slug, paket, forberedelse.indata(self.slug))
@@ -202,7 +210,7 @@ class Kallgap(unittest.TestCase):
         grund = forberedelse.indata(self.slug)
         paket = self.u / 'atelje/paket'; paket.mkdir()
         for n in forberedelse.FILER:
-            (paket / n).write_text('Syntetiskt nytt underlag ' + n)
+            (paket / n).write_text(kf('Syntetiskt nytt underlag ' + n, n))
         research.write_text('Syntetisk källa B')
         with self.assertRaises(ValueError):
             forberedelse.publicera(self.slug, paket, grund)

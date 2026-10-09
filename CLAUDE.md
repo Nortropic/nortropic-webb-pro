@@ -7,7 +7,8 @@ kundens val → riktad förbättring (Rätta, Omarbeta designen, Bygg ut) → he
 beslut) och kundens aktuella domar i `underlag/<slug>/DESIGNDOMAR.jsonl`. Den rena designstarten 2026-10-09
 (`kunskap/ren-designstart.md`) tog gamla byggen, prototyper, bedömningar, kalibreringsankare och de regler som
 härletts ur dem ur den aktiva miljön; de styr ingenting och verifierar inte den nya metoden, och flödets sessioner läser
-inte arkivet, rapporterna eller granskningarna. Varför och vad som beslutats står i `BESLUT.md`.
+inte arkivet, rapporterna eller granskningarna. Varför och vad som beslutats står i `BESLUT.md`, som slås upp när det
+besvarar en konkret fråga.
 
 ## Skills
 

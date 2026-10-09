@@ -4238,11 +4238,13 @@ try:
     assert any('finns inte' in f_ for f_ in md_kd.prova(karta_md.replace('taste/SKILL.md rad 17–23', 'taste/SKILL.md rad 17–99999'), las=kallor_md)[0])
     (tmp / 'kd-metod').mkdir(); (tmp / 'kd-metod' / 'METOD-skapa-9.md').write_text('en gammal del')
     lev_md = md_kd.leverera('skapa', tmp / 'kd-metod')
-    assert list(dict.fromkeys(f_['del'] for f_ in lev_md['filer'])) == ['före', 'varv', 'text', 'uppslag'] and len(lev_md['filer']) > 3, [f_['fil'].name for f_ in lev_md['filer']]
-    # kalibreringen är uppslag, aldrig före-läsning (ägarens uppdrag 2026-10-06, punkt 3; granskningen av designintegrationen)
+    assert list(dict.fromkeys(f_['del'] for f_ in lev_md['filer'])) == ['före', 'varv', 'text'] and len(lev_md['filer']) > 3, [f_['fil'].name for f_ in lev_md['filer']]
+    # utdrag att slå upp levereras i egna filer, aldrig i före-läsningen (planen har sådana)
+    lev_pl = md_kd.leverera('plan', tmp / 'kd-metod-plan')
+    assert list(dict.fromkeys(f_['del'] for f_ in lev_pl['filer']))[0] == 'före' and 'uppslag' in {f_['del'] for f_ in lev_pl['filer']}, [f_['fil'].name for f_ in lev_pl['filer']]
+    # den rena designstarten 2026-10-09: kalibreringens innehåll (den borttagna nivåfilen) levereras inte i något steg
     kal_md = 'Ägaren dömde 2026-10-04 tretton externa sajter blint'  # kalibreringens innehåll, inte en hänvisning till filen
-    assert not any(kal_md in f_['fil'].read_text() for f_ in lev_md['filer'] if f_['del'] == 'före')
-    assert any(kal_md in f_['fil'].read_text() for f_ in lev_md['filer'] if f_['del'] == 'uppslag')
+    assert not any(kal_md in f_['fil'].read_text() or 'visuell-niva.md' in f_['fil'].read_text() for s_ in md_kd.STEG for f_ in md_kd.leverera(s_, tmp / 'kd-metod-kal')['filer'])
     assert not (tmp / 'kd-metod' / 'METOD-skapa-9.md').exists(), 'en ny leverans lämnar inga gamla delar'
     for s_ in md_kd.STEG:  # varje levererad fil ryms i ett Read utan offset och limit (granskning 2, N5)
         for f_ in md_kd.leverera(s_, tmp / 'kd-metod-alla')['filer']:
@@ -4346,15 +4348,16 @@ try:
         else:  # en skapare (skapa, förbättra eller förfina)
             kid_ = re.search(r'kunder/kd-prov/kandidater/(k\d\d)/sajt', prompt).group(1)
             pages_ = kd.ksajt(sl_kd, kid_) / 'src' / 'pages'
-            if 'valde' in prompt and 'INGET-VARV' in (kd.kdir(sl_kd, kid_) / 'RIKTNING.md').read_text():
+            forfina_ = 'valde' in prompt or 'Du utför ett uppdrag på kandidaten' in prompt  # den äldre förfiningen eller ett uppdrag (2026-10-09)
+            if forfina_ and 'INGET-VARV' in (kd.kdir(sl_kd, kid_) / 'RIKTNING.md').read_text():
                 svar_ = {'is_error': True}
                 Path(ut).write_text(json.dumps(svar_)); raise RuntimeError('sessionen föll direkt')
-            (pages_ / 'index.astro').write_text('start %s%s' % (kid_, ' förbättrad' if 'Förbättringsrundan' in prompt else ' förfinad' if 'valde' in prompt else ''))
+            (pages_ / 'index.astro').write_text('start %s%s' % (kid_, ' förbättrad' if 'Förbättringsrundan' in prompt else ' förfinad' if forfina_ else ''))
             if not (kid_ == 'k03' and tom_k03[0]):
                 (pages_ / 'projekt' / 'a').mkdir(parents=True, exist_ok=True); (pages_ / 'projekt' / 'a' / 'index.astro').write_text('undersida')
             elif 'Förra sessionen slutade' not in prompt:
                 tom_k03[0] = False
-            if 'valde' in prompt:
+            if forfina_:
                 (kd.ksajt(sl_kd, kid_) / 'DESIGN.md').write_text('# DESIGN.md förfinad\n')
             r_ = kd.kdir(sl_kd, kid_) / 'RIKTNING.md'
             if not r_.exists() or 'Förbättringsrundan' not in prompt:
@@ -4553,8 +4556,11 @@ try:
     assert pt.lage(sl_kd)[0] == 'vanta' and kd.las_status(sl_kd, 'k01')['status'] == 'klar' and pt.bygget_nekas(sl_kd), 'jämförelsen ändrar ingen status (V5)'
     # valet av föreversionen före en förbättringsrunda (ägaren kan föredra den)
     fore2_ = kd.las_status(sl_kd, 'k02')['forbattrad']['fore']
+    nu2_ = kd.las_status(sl_kd, 'k02')['version']
     dom_v = at_pt.doma(sl_kd, 'ägaren', 'valj', 'Den här vill jag gå vidare med.', kandidater=[{'id': 'k02', 'version': fore2_}], tid='2026-10-05T12:09:00Z')
-    assert kd.las_status(sl_kd, 'k02')['status'] == 'vald' and pt.lage(sl_kd)[0] == 'vanta' and 'nästa steg är ett uppdrag' in pt.lage(sl_kd)[1], 'ett val startade arbete (2026-10-09)'
+    # ett val startar inget (2026-10-09): versionen står kvar tills den tidigare versionen tas fram uttryckligen (handlingen valda)
+    assert kd.las_status(sl_kd, 'k02')['status'] == 'vald' and kd.las_status(sl_kd, 'k02')['version'] == nu2_ != fore2_, 'ett val startade arbete (2026-10-09)'
+    assert pt.lage(sl_kd)[0] == 'valda' and 'ta fram den valda tidigare versionen' in pt.lage(sl_kd)[1] and kd.versionsval(sl_kd, dom_v) == [('k02', fore2_)], pt.lage(sl_kd)
     # den riktade förbättringen är ett uppdrag (ägarens uppdrag 2026-10-09, punkt 8): här Bygg ut, utan specialistpass
     dom_kd = at_pt.doma(sl_kd, 'ägaren', 'uppdrag', 'Bygg vidare på den.', kandidater=[{'id': 'k02', 'version': fore2_}], delar={'k03': 'tidslinjen', 'x': 'bort'},
                         tid='2026-10-05T12:10:00Z', uppdrag={'typ': 'bygg_ut', 'resultat': 'hela startsidan och projektsidan', 'omfattning': ['startsidans sektioner'],
@@ -4930,8 +4936,9 @@ try:
     lev_sk = md_kd.leverera('skiss', tmp / 'sk-metod')
     fore_sk = [f_ for f_ in lev_sk['filer'] if f_['del'] == 'före']
     upp_sk = [f_ for f_ in lev_sk['filer'] if f_['del'] == 'uppslag']
-    assert len(fore_sk) == 1 and not upp_sk and '## Att slå upp' not in fore_sk[0]['fil'].read_text(), 'inga frivilliga utdrag: kompetenserna bär skillsen'
-    assert '### kunskap/designregler.md' in fore_sk[0]['fil'].read_text() and 'Kompetenserna' in fore_sk[0]['fil'].read_text()
+    fore_sk_text = ''.join(f_['fil'].read_text() for f_ in fore_sk)  # kärnan kan delas i flera filer som ryms i ett Read var
+    assert fore_sk and not upp_sk and '## Att slå upp' not in fore_sk_text, 'inga frivilliga utdrag: kompetenserna bär skillsen'
+    assert '### kunskap/designregler.md' in fore_sk_text and 'Kompetenserna' in fore_sk_text
 
     # --- instruktionsvägarna: CLAUDE.md (laddas i varje nästlad session), helbyggets uppstart och miljön ---
     claude_md_ = (ROOT / 'CLAUDE.md').read_text()

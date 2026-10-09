@@ -412,8 +412,8 @@ def kalibreringsstatus(underlag=None):
         return {'kalibrerad': False, 'ankare': 0, 'text': 'okänd: kalibreringen gick inte att läsa (%s); döm som okalibrerad' % type(e).__name__}
     if not ankare:
         return {'kalibrerad': False, 'ankare': 0,
-                'text': ('okalibrerad. Inga kalibreringsankare finns efter den rena designstarten 2026-10-09: gamla '
-                         'kalibreringsresultat gäller inte den nya metoden, och dina betyg är inte prövade mot ägarens domar.')}
+                'text': ('okalibrerad. Ägaren har inte dömt några nya exempel blint efter den rena designstarten 2026-10-09: '
+                         'gamla kalibreringsresultat gäller inte den nya metoden, och dina betyg är inte prövade mot ägarens domar.')}
     return {'kalibrerad': True, 'ankare': len(ankare),
             'text': '%d ankare som ägaren dömt blint (underlag/kalibrering/ANKARE.txt); deras bilder och ägarens ord står nedan.' % len(ankare)}
 

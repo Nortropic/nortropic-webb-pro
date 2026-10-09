@@ -4304,6 +4304,10 @@ Genomförarens tillämpning, på det mandatet:
 
 ## Tillägg 2026-10-09 ~17:53Z: ägarens uppdrag om tio förslag och en ren designstart
 
+**Status:** gäller; genomfört 2026-10-09 (lägesrapporten `RAPPORT-2026-10-09-tio-forslag-ren-designstart`). Det ersätter
+minimiantalet tre varv, valet som startade fördjupningen och ribban ur de gamla kalibreringsankarna (tabellen Ersatta
+designregler). Inget helbygge och ingen publicering är godkända genom det.
+
 Ägaren klistrade in ett uppdrag i tolv punkter (ordagrant i minnet, `nortropic-agaren-tio-forslag-ren-designstart-uppdrag-20261009`),
 med raden "Var noggrann med att gå in på varje nämnd källa för förståelsen och websaercha". Ägarens egna formuleringar
 som styr, ordagrant:
@@ -4354,6 +4358,8 @@ lagring och kundleveranser blir rutin. Prototyps funktioner flyttas in i arbetsy
 uppdraget (b3:s förslag, delningen 2026-10-09 ~18:28Z).
 
 ## Ägarens besked 2026-10-09 ~18:2xZ: Dyad-provet, köat efter uppdraget ovan
+
+**Status:** gäller; köat efter uppdraget ovan, inte påbörjat.
 
 Ordagrant:
 

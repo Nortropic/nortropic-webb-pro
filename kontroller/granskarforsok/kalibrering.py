@@ -60,6 +60,9 @@ VYER = ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-390-hela.png')
 NEKAS_EXTRA = ['Read(%s/**)' % ROOT, 'Read(%s/.claude/**)' % HEM]  # granskaren ser bara sin katalog: bilderna, ankarna och metodkopian
 METODFILER_MONSTER = r'(?:kunskap|kritik)/[A-Za-z0-9_./-]+\.(?:md|json)'
 NIVAFIL = 'kunskap/visuell-niva.md'
+# Nivåfilen är granskarens måttstock bara i kalibreringen: den gamla togs bort vid den rena designstarten 2026-10-09, och en
+# ny byggs ur ägarens nya blinda domar innan kalibreringen kan köras (main vägrar utan den).
+NIVANAMN = 'Ribban i tre nivåer ur ägarens kalibrering'
 LACKAGE_ORD = 8  # så många ord i följd ur ägarens dom över ett prövat exempel, i det granskaren läser, är läckage
 LACKAGE_GRANS = ('Provet fångar bara ordagranna spår av de prövade exemplen (id och ordföljder ur ägarens domar) i det '
                  'granskaren läser, inte en omskriven destillering av domarna, som den som fällde försöket 2026-10-04 '
@@ -120,7 +123,7 @@ def uppdrag(e, ut, bilder, aria, ankare, underlag=None):
          'Sajten har ingen undersida att döma%s:' % ((' (' + not_.split(':', 1)[1].strip() + ')') if not_.lower().startswith('ingen:') else '')),
         *[rad(p) for p in bilder], '',
         'Tillgänglighetsträd:', *([rad(p) for p in aria] or ['- saknas']), '',
-        'Måttstockar:', *['- %s: %s' % (namn, f) for namn, f in gr.MATTSTOCKAR if (ROOT / f).is_file()],
+        'Måttstockar:', *['- %s: %s' % (namn, f) for namn, f in gr.MATTSTOCKAR + [(NIVANAMN, NIVAFIL)] if (ROOT / f).is_file()],
     ]
     return '\n'.join(delar) + '\n'
 
@@ -132,7 +135,7 @@ def hash_fil(p):
 def metodfiler():
     """Granskartexten, schemana, måttstockarna och de kunskaps- och kritikfiler de pekar på (ett led): det granskaren
     får läsa om metoden, alla relativt repots rot."""
-    ut = [gr.INSTRUKTION, 'kritik/' + gr.SCHEMA.name, 'kritik/' + gr.SCHEMA_ORIGINALITET.name] + [f for _, f in gr.MATTSTOCKAR]  # schemana ligger i kritik/ (namnen ur granska, vägarna relativt repot)
+    ut = [gr.INSTRUKTION, 'kritik/' + gr.SCHEMA.name, 'kritik/' + gr.SCHEMA_ORIGINALITET.name] + [f for _, f in gr.MATTSTOCKAR] + [NIVAFIL]  # schemana ligger i kritik/ (namnen ur granska, vägarna relativt repot)
     for f in list(ut):
         p = ROOT / f
         if p.is_file() and p.suffix == '.md':
@@ -431,7 +434,8 @@ def lackagetexter(fryst):
     """Det granskaren läste i ett exempels frysta katalog: metodfilerna i metod/ (bland dem nivåfilen) och ankarnas ord
     (kalibrering.md). Läckageprovet prövas mot dem."""
     fryst = Path(fryst)
-    texter = {f: (fryst / 'metod' / f).read_text(encoding='utf-8', errors='replace') for f in metodfiler() if (fryst / 'metod' / f).is_file()}
+    texter = {f: (fryst / 'metod' / f).read_text(encoding='utf-8', errors='replace') for f in dict.fromkeys(metodfiler() + [NIVAFIL])
+              if (fryst / 'metod' / f).is_file()}  # nivåfilen ur den frysta kopian, också när repot inte har någon (2026-10-09)
     if (fryst / 'kalibrering.md').is_file():
         texter['kalibrering.md (ankarna)'] = (fryst / 'kalibrering.md').read_text(encoding='utf-8', errors='replace')
     return texter

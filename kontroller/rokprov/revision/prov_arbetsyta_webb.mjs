@@ -767,6 +767,7 @@ try {
   assert.match(await gallerText(), /vy Kod och preview, fil src\/pages\/index\.astro/, 'raden Gäller ska visa kodvyns markering');
   assert.equal(await page.locator('#ay-skriv [data-avsikt="andring"]').getAttribute('aria-pressed'), 'true', 'en markering i kodvyn ska välja Ändring');
   await page.locator('#ay-text').fill('Korta rubriken i Hero till fyra ord.');
+  await fyllUppdrag(page);  // ett sparat uppdrag tömmer fälten
   await page.locator('#ay-skriv').getByRole('button', { name: 'Spara uppdraget' }).click();
   await page.locator('#ay-skrivsvar').filter({ hasText: 'Uppdraget är sparat' }).waitFor();
   const kp = andringPosts().at(-1);

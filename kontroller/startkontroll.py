@@ -485,10 +485,10 @@ def regler(servrar, slug=None):
         rfynd = ren_designstart.prova(vl.ROOT)
         utan_register = [x for x in rfynd if x['vad'] == 'registret saknas']
         tillbaka = [x for x in rfynd if x['vad'] != 'registret saknas']
-        ut.append(post('regler', 'gammalt designmaterial i den aktiva miljön',
-                       'fel' if tillbaka else 'okand' if utan_register else 'ok', nodvandig=bool(tillbaka),
-                       detalj='; '.join('%s: %s' % (x['vad'], x['detalj']) for x in (tillbaka or utan_register)[:6])
-                       or 'inget arkiverat material har kommit tillbaka (kontroller/ren_designstart.py --prova)'))
+        ut.append(post('regler', 'gammalt designmaterial i den aktiva miljön', 'fel' if tillbaka else 'ok', nodvandig=bool(tillbaka),
+                       detalj='; '.join('%s: %s' % (x['vad'], x['detalj']) for x in tillbaka[:6])
+                       or ('ingen ren designstart registrerad här, och ingen av de kända gamla platserna finns' if utan_register
+                           else 'inget arkiverat material har kommit tillbaka (kontroller/ren_designstart.py --prova)')))
     except Exception as e:  # noqa: BLE001
         ut.append(post('regler', 'gammalt designmaterial i den aktiva miljön', 'okand', detalj='%s: %s' % (type(e).__name__, str(e)[:160])))
     texter = {}

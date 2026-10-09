@@ -1845,20 +1845,23 @@ def flode(slug):
             d.get('beslut'), (' · ' + ', '.join('%s (%s)' % (namn.get(c.get('id'), c.get('id')), str(c.get('version') or '')[:12])
                                                 for c in d.get('kandidater') or [] if isinstance(c, dict))) if d.get('kandidater') else '',
             (' · ' + re.sub(r'\s+', ' ', str(d.get('text') or ''))[:160]) if d.get('text') else '')} for d in domar[-5:]],
-            nasta={'valj': 'Förfiningen: `prototyp.py %s` igen (läget valda).' % slug, 'putsa': 'Förfiningen: `prototyp.py %s` igen.' % slug,
+            nasta={'valj': 'Valet startar inget. Nästa steg är ett uppdrag (Rätta, Omarbeta designen eller Bygg ut) eller ditt godkännande för helbygge.',
+                   'uppdrag': 'Uppdraget: Starta uppdraget i Byggflöde, eller `prototyp.py %s` (läget valda).' % slug,
+                   'putsa': ('"Putsa vidare" i kandidatflödet är ersatt av uppdragen (2026-10-09): ge ett uppdrag.' if kfl else
+                             'Förfiningen: `prototyp.py %s` igen.' % slug),
                    'godkand': 'Helbygget: `./kor.sh %s "<verksamhet>"`.' % slug, 'ny_riktning': 'Omtaget: `prototyp.py %s`.' % slug,
                    'forkasta': 'Omtaget: `prototyp.py %s`.' % slug}.get(sista, 'Fortsätt i vyn Prototyp.')))
     else:
         steg.append(_steg(3, 'Ditt val', 'väntar på ägaren' if steg[-1]['status'] == 'skapat' else 'inte påbörjat', underlag=tidigare))
 
-    # 4. förfiningen efter ditt senaste val (valj eller putsa) i körningen, ur kandidatens förfiningspost
+    # 4. förfiningen efter ditt senaste val eller uppdrag (valj, putsa eller uppdrag) i körningen, ur kandidatens förfiningspost
     #    (kandidater.forfina_kandidat: forfining_pagar medan den pågår, forfining när den är klar för just det valet). En
     #    förfining som inte gav någon ny version står kvar på den valda versionen och är underkänd, en som pågår visas
     #    så, och en som stannade med körningen är stoppad (granskningen av r96, R2). En förfining som föll med ett
     #    undantag lämnar ingen post för valet: kandidater.forfina_valda återställer kandidaten till vald med skälet, och
     #    körningen slutar som vanligt. När körningen efter valet är avslutad och en vald kandidat saknar post för valet är
     #    förfiningen underkänd med kandidatens skäl, och utan skäl inte observerad (omgranskningen av r96, R2-rest).
-    vd = next((d for d in reversed(domar) if d.get('beslut') in ('valj', 'putsa')), None) if kfl else None
+    vd = next((d for d in reversed(domar) if d.get('beslut') in ('valj', 'putsa', 'uppdrag')), None) if kfl else None
     # valets förfining är den körning som bär valet i fältet dom (kandidater.forfina_valda skriver det, och --fortsatt av en
     # förfining för det vidare); en annan körning efter valet, som utforskningen med --fortsatt, är det inte (omgranskning 2)
     efter = bool(vd) and st.get('dom') == vd.get('tid')

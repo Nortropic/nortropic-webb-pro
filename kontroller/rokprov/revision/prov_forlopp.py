@@ -51,6 +51,8 @@ def kor(g):
         paket = next((u / 'atelje/forberedelse').iterdir())
         for namn in fb.FILER:
             skriv(paket / namn, '# Syntetiskt arbetsunderlag\nService, nationell räckvidd. Öppna materialfrågor kvar.\n')
+        skriv(paket / 'KUNDFORSTAELSE.md', '# Kundförståelse\n\n' + '\n\n'.join(  # förberedelsens sex rubriker (2026-10-09)
+            '## %s\n\n%s' % (r, '- Antaget: syntetiskt.' if r == fb.KUNDFORSTAELSE_RUBRIKER[-1] else 'Syntetiskt.') for r in fb.KUNDFORSTAELSE_RUBRIKER) + '\n')
         return {'klar': True, 'saknas': []}, None
     g['SVAR'][lambda p, s: s is fb.SCHEMA] = bered
     status = {'fas': 'forberedelse'}

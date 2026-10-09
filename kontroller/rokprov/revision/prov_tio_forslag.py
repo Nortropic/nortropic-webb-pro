@@ -165,6 +165,10 @@ class RenDesignstart(unittest.TestCase):
         with self.assertRaises(ValueError):
             rd.arkivera(self.rot, self.rot / 'underlag' / 'arkiv')
         self.assertEqual(rd.prova(self.tmp / 'utan-register')[0]['vad'], 'registret saknas')
+        # utan register prövas ändå de kända gamla platserna (en utcheckning där arkiveringen aldrig körts)
+        (self.tmp / 'utan-register' / 'underlag' / 'kalibrering').mkdir(parents=True)
+        self.assertEqual([(x['vad'], x['detalj']) for x in rd.prova(self.tmp / 'utan-register')][0],
+                         ('gammalt material utan register', 'underlag/kalibrering'))
 
 
 class GamlaNarInte(unittest.TestCase):
