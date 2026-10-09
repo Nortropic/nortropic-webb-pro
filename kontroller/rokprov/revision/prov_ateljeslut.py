@@ -198,8 +198,9 @@ def ersatt_stegen(slug, ids, fel_i=None):
 
     kandidater.leverera_metod, kandidater.forska, kandidater.planera = leverera_metod, forska, planera
     kandidater.uppdragsmaterial = lambda s, klient=None: skriv(kandidater.rot(s) / kandidater.UPPDRAGSMATERIAL, {'tid': kandidater.nu()}) and {}
-    kandidater.planprovning = lambda s: skriv(kandidater.rot(s) / 'PLANPROVNING.json', {'tid': kandidater.nu(), 'andrade': 0, 'sekunder': 1,
-                                                                                         'kvitto': {}}) and {'andrade': 0, 'sekunder': 1}
+    # samma form som den riktiga prövningen, med bindningen till planversionen (N01: provade)
+    kandidater.planprovning = lambda s, bara=None: skriv(kandidater.rot(s) / 'PLANPROVNING.json', {'tid': kandidater.nu(), 'andrade': 0, 'sekunder': 1,
+                                                                                                    'kvitto': {}, 'provade': kandidater.provade_uppdrag(s)}) and {'andrade': 0, 'sekunder': 1}
     kandidater.PARALLELLT = 2
     return spara
 
@@ -358,7 +359,7 @@ def planera(slug, n, lage=None):
     return plan
 kandidater.forska, kandidater.planera = forska, planera
 kandidater.uppdragsmaterial = lambda slug, klient=None: skriv(kandidater.rot(slug) / kandidater.UPPDRAGSMATERIAL, {'tid': atelje.nu()}) and {}
-kandidater.planprovning = lambda slug: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1}) and {'andrade': 0, 'sekunder': 1}
+kandidater.planprovning = lambda slug, bara=None: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1, 'provade': kandidater.provade_uppdrag(slug)}) and {'andrade': 0, 'sekunder': 1}
 kandidater.PARALLELLT = 2
 def behandla_skiss(slug, kid):
     kandidater.satt_status(slug, kid, 'under_arbete', 'skiss, försök 1', forsok=1, startad=atelje.nu(), frist=2700)
@@ -834,7 +835,7 @@ if os.environ.get('NWP_PROV_ATELJE_STEG'):
     kandidater.forska = lambda slug, n, skiss=False: skriv(kandidater.rot(slug) / 'FORSKNING.json', {'tid': atelje.nu(), 'fel': None, 'nytt': {'paket': None, 'sajter': [], 'tjanster': None}})
     kandidater.planera = planera
     kandidater.uppdragsmaterial = lambda slug, klient=None: skriv(kandidater.rot(slug) / kandidater.UPPDRAGSMATERIAL, {'tid': atelje.nu()}) and {}
-    kandidater.planprovning = lambda slug: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1}) and {'andrade': 0, 'sekunder': 1}
+    kandidater.planprovning = lambda slug, bara=None: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1, 'provade': kandidater.provade_uppdrag(slug)}) and {'andrade': 0, 'sekunder': 1}
     kandidater.PARALLELLT = 2
     kandidater.behandla_skiss = behandla_skiss
 '''

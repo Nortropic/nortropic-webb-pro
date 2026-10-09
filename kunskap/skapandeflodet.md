@@ -116,7 +116,12 @@ kandidaterna och granskningarna.
    en gång per plan (PLANPROVNING-runda-1.json; uppdraget 2026-10-08, 2E). Ett konstaterat problem bokförs alltså inte
    bara medan körningen fortsätter med samma låsta plan. Ger omplaneringen inget användbart uppdrag för en kandidat
    stoppas den (status fel med `atergang_fel` och invändningen sparad); skaparen får aldrig det förkastade uppdraget, och
-   en körning som tas upp med Återuppta gör ett nytt omplaneringsförsök för den (R01).
+   en körning som tas upp med Återuppta gör ett nytt omplaneringsförsök för den (R01). Prövningen är bunden till
+   planversionen: PLANPROVNING.json bär `provade`, uppdragets sha256 för varje uppdrag som prövningen släpper till
+   skaparen. Ett uppdrag som ändrats sedan dess, som det omplanerade vid en återupptagning, prövas igen innan skaparen får
+   det (den tidigare prövningen bevaras i PLANPROVNING-tidigare-N.json, och de redan prövade uppdragen ändras inte), och ett
+   uppdrag utan prövning av sin nuvarande version står stoppat (`planprovning_saknas`) tills en prövning finns (N01 i
+   GR-20261009-natt-omgranskning-codex).
 4. **Skissa.** Varje kandidat har en stabil identitet (k01–k12), ett eget Astro-projekt
    (`kunder/<slug>/kandidater/<id>/sajt`: sajtens nuvarande src/ och public/ utan tidigare sidor, kundens bilder, och
    node_modules som länk till sajtens) och en egen skaparsession med samma faktaunderlag; några körs åt gången

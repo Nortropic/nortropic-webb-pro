@@ -5115,8 +5115,9 @@ try:
     # k05: det avbrutna försöket sparades och startades om i ett nytt projekt
     assert s5_['status'] == 'klar' and s5_['forsok'] == 2 and (kd.kdir(sl_sk, 'k05') / 'forsok-1' / 'projekt' / 'src' / 'pages' / 'index.astro').read_text() == '<h1>halv skiss</h1>', s5_
     assert 'halv' not in (kd.ksajt(sl_sk, 'k05') / 'src' / 'pages' / 'index.astro').read_text()
-    # --- planprövningen: specialisterna ändrade ett fält i k01:s uppdrag; ett okänt id ändrar inget ---
-    pp_sk = json.loads((kd.rot(sl_sk) / 'PLANPROVNING.json').read_text())
+    # --- planprövningen: specialisterna ändrade ett fält i k01:s uppdrag; ett okänt id ändrar inget. Runda 2 står i
+    # PLANPROVNING-tidigare-1.json sedan återupptagningen prövade k02:s nya uppdrag (N01 i GR-20261009-natt-omgranskning-codex) ---
+    pp_sk = json.loads((kd.rot(sl_sk) / 'PLANPROVNING-tidigare-1.json').read_text())
     assert pp_sk['andrade'] == 1 and pp_sk['kvitto']['verifierad'] and not pp_sk['kvitto']['saknas'] and 'impeccable' in pp_sk['kvitto']['skill_anrop'], pp_sk
     assert 'NY TYPOGRAFI ur planprövningen' in (kd.kdir(sl_sk, 'k01') / 'UPPDRAG.md').read_text() and (kd.rot(sl_sk) / 'PLANPROVNING.md').is_file()
     # 2E (uppdraget 2026-10-08): återgången: k03 fick ett nytt uppdrag med samma identitet, planen prövades en andra gång, och en
@@ -5129,11 +5130,20 @@ try:
     assert kd.las_status(sl_sk, 'k02')['hypotes'] == 'NY HYPOTES k02' and 'NY HYPOTES k02' in (kd.kdir(sl_sk, 'k02') / 'UPPDRAG.md').read_text()
     assert 'atergang_fel' not in kd.las_status(sl_sk, 'k02') and any('EN skiss, k02' in s_['prompt'] for s_ in sess_sk if s_['schema'] is None), 'k02 byggdes efter rättelsen'
     assert any(x['falt'] == 'atergang' and 'en återgång per plan' in x['skal'] for x in pp_sk['ogjorda']), pp_sk['ogjorda']
-    assert pp_sk_n[0] == 2 and omp_sk_n[0] == 2, 'två prövningar, en omplanering och ett nytt försök vid återupptagningen (%s, %s)' % (pp_sk_n, omp_sk_n)
+    assert pp_sk_n[0] == 3 and omp_sk_n[0] == 2, 'tre prövningar (runda 1, runda 2 och omprövningen av k02:s nya uppdrag), en omplanering och ett nytt försök (%s, %s)' % (pp_sk_n, omp_sk_n)
+    # N01: k02:s nya uppdrag prövades vid återupptagningen innan skaparen fick det, och prövningen är bunden till den versionen
+    pp_om_ = json.loads((kd.rot(sl_sk) / 'PLANPROVNING.json').read_text())
+    i_pp_ = [i_ for i_, s_ in enumerate(sess_sk) if s_['schema'] is kd.PLANPROVNING_SCHEMA]
+    i_k02_ = next(i_ for i_, s_ in enumerate(sess_sk) if s_['schema'] is None and 'EN skiss, k02' in s_['prompt'])
+    assert len(i_pp_) == 3 and i_pp_[2] < i_k02_ and 'Omprövning: uppdragen k02' in sess_sk[i_pp_[2]]['prompt'], (i_pp_, i_k02_)
+    plan_om_ = json.loads((kd.rot(sl_sk) / 'KANDIDATPLAN.json').read_text())['kandidater']
+    assert pp_om_['omprovning']['kandidater'] == ['k02'] and pp_om_['provade']['k02'] == kd.uppdrag_sha(plan_om_['k02']), pp_om_.get('omprovning')
+    assert pp_om_['provade']['k01'] == kd.uppdrag_sha(plan_om_['k01']) and pp_om_['atergang']['misslyckade'] == [], pp_om_.get('atergang')
+    assert any(x['id'] == 'k01' and 'redan prövat' in x['skal'] for x in pp_om_['ogjorda']), 'omprövningen ändrar inte ett redan prövat uppdrag'
     plan_sk_ = json.loads((kd.rot(sl_sk) / 'KANDIDATPLAN.json').read_text())
     assert plan_sk_['atergang']['omplanerade'] == ['k02', 'k03'] and plan_sk_['atergang']['misslyckade'] == [] and plan_sk_['atergang']['omforsok'][0]['omplanerade'] == ['k02'], plan_sk_['atergang']
     assert plan_sk_['kandidater']['k02']['titel'] == 'k02 omplanerad' and 'Omplanerade efter planprövningens återgång' in (kd.rot(sl_sk) / 'KANDIDATPLAN.md').read_text()
-    assert st_sk['planprovning']['runda'] == 2 and st_sk['atergang_omforsok'] == {'kandidater': ['k02'], 'omplanerade': ['k02'], 'fel': None}, (st_sk.get('planprovning'), st_sk.get('atergang_omforsok'))
+    assert st_sk['planprovning']['runda'] == 2 and st_sk['planprovning']['omprovning']['kandidater'] == ['k02'] and st_sk['atergang_omforsok'] == {'kandidater': ['k02'], 'omplanerade': ['k02'], 'fel': None}, (st_sk.get('planprovning'), st_sk.get('atergang_omforsok'))
     pp_p_ = next(s_ for s_ in sess_sk if s_['schema'] is kd.PLANPROVNING_SCHEMA)
     assert 'refero-design/SKILL.md' in pp_p_['prompt'] and 'impeccable/reference/shape.md' in pp_p_['prompt'] and 'Refero' in pp_p_['prompt'] and 'Skill' in pp_p_['verktyg'] and pp_p_['slug'] == sl_sk
     # granskning 4, G1: planprövningen får kundens aktuella domar, designreglerna och Avgörandena (METOD-plan.md)

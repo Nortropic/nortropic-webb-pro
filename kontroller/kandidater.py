@@ -2228,16 +2228,70 @@ PLANPROVNING_SCHEMA = {
                                'fragor': {'type': 'array', 'maxItems': 6, 'items': json.loads(json.dumps(FORSKA_SCHEMA['properties']['fragor']['items']))}}}}}}}}
 
 
-def planprovning(slug):
+def uppdrag_sha(k):
+    """Uppdragets identitet (N01 i GR-20261009-natt-omgranskning-codex): sha256 över kandidatens fält i planen, det som
+    skriv_uppdrag lägger i UPPDRAG.md och skaparen får. En omplanering eller en ändring i prövningen ger en ny identitet."""
+    return hashlib.sha256(json.dumps(k or {}, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
+
+
+def provade_uppdrag(slug, plan=None, ids=None):
+    """{kid: uppdrag_sha} för planens uppdrag som prövningen släpper till skaparen: alla utom de som en misslyckad återgång
+    stoppat (atergang_fel). ids: bara dessa."""
+    plan = plan if plan is not None else (atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {})
+    return {kid: uppdrag_sha(k) for kid, k in sorted((plan.get('kandidater') or {}).items())
+            if (ids is None or kid in ids) and not las_status(slug, kid).get('atergang_fel')}
+
+
+def ska_skapas(st):
+    """Ska skaparen få kandidaten i skissens kedja (behandla_skiss)? Planerad, avbruten eller under arbete; ett tekniskt fel
+    med omförsök; eller stoppad i väntan på en planprövning. Aldrig en som en misslyckad återgång stoppat, eller en valbar."""
+    s_ = st.get('status')
+    if st.get('atergang_fel') or s_ in VISBARA:
+        return False
+    return s_ in ('planerad', 'avbruten', 'under_arbete') or (s_ in ('ofullstandig', 'fel') and bool(st.get('tekniskt_fel') or st.get('planprovning_saknas')))
+
+
+def planprovning_behov(slug, ids):
+    """N01: de kandidater som skaparen ska få vars uppdrag i sin nuvarande version saknar en planprövning, alltså där
+    PLANPROVNING.json:s provade inte bär uppdragets sha: en ny eller ändrad plan, en äldre prövning utan bindning, eller en
+    prövning som inte går att läsa. Ett sparat prövningsdokument för en annan planversion godkänner aldrig den här."""
+    pp = atelje.las_json(rot(slug) / 'PLANPROVNING.json') or {}
+    provade = pp.get('provade') if isinstance(pp.get('provade'), dict) else {}
+    k = (atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}
+    return [kid for kid in ids if ska_skapas(las_status(slug, kid)) and (kid not in k or provade.get(kid) != uppdrag_sha(k.get(kid)))]
+
+
+def arkivera_planprovning(slug):
+    """Den tidigare prövningen (PLANPROVNING.json och .md) flyttas till PLANPROVNING-tidigare-<n>.*, så att den bevaras och
+    aldrig gäller en annan planversion. Ger {'fil', 'tid', 'provade'}."""
+    r = rot(slug)
+    n = 1
+    while (r / ('PLANPROVNING-tidigare-%d.json' % n)).exists() or (r / ('PLANPROVNING-tidigare-%d.md' % n)).exists():
+        n += 1
+    gammal = atelje.las_json(r / 'PLANPROVNING.json') or {}
+    mal = r / ('PLANPROVNING-tidigare-%d.json' % n)
+    os.replace(r / 'PLANPROVNING.json', mal)
+    if (r / 'PLANPROVNING.md').is_file():
+        os.replace(r / 'PLANPROVNING.md', r / ('PLANPROVNING-tidigare-%d.md' % n))
+    return {'fil': rel(mal), 'tid': gammal.get('tid'), 'provade': gammal.get('provade') if isinstance(gammal.get('provade'), dict) else {}}
+
+
+def planprovning(slug, bara=None, _foregaende=None):
     """Specialisterna prövar planerarens designval (art direction och UX, med sina skills fullständiga instruktioner,
     verktyg och MCP:er): varje uppdrag bedöms mot kunden, materialet och referenserna, och ett fält ändras när
     kompetensen kräver det. Ändringarna skrivs in i planen och uppdragen; PLANPROVNING.md säger vad som ändrades och
-    varför. Görs en gång per plan."""
+    varför. Görs en gång per planversion: posten bär provade, uppdrag_sha för varje uppdrag som prövningen släpper till
+    skaparen (N01). bara: en omprövning av de uppdrag som ändrats sedan förra prövningen (återupptagningens omplanering);
+    den tidigare prövningen arkiveras, de övriga uppdragen ändras inte, och deras prövning gäller så länge uppdraget är
+    oförändrat."""
     r = rot(slug)
     if (r / 'PLANPROVNING.json').is_file():
-        return atelje.las_json(r / 'PLANPROVNING.json') or {}
+        if not bara:
+            return atelje.las_json(r / 'PLANPROVNING.json') or {}
+        _foregaende = arkivera_planprovning(slug)
     plan = atelje.las_json(r / 'KANDIDATPLAN.json') or {}
     ids = sorted(plan.get('kandidater') or {})
+    provas = [k_ for k_ in ids if not bara or k_ in bara]
     # titel, hypotes och huvudreferens är låsta: hypotesen och titeln visas för ägaren före det blinda valet, och en ny
     # huvudreferens saknar sina referensbilder (granskning 4, G8)
     # stilen hör till huvudreferensen; Mobbins sökfras är redan sökt och skärmarna hämtade (uppdragsmaterial; fynd 12)
@@ -2261,7 +2315,10 @@ def planprovning(slug):
         'ur researchen, eller sajter och fragor att hämta). Flödet gör då om researchen, planerar om de uppdragen med samma',
         'identitet och prövar planen en gång till; en återgång per plan. Utan invändning: typ ingen, eller inget atergang.',
         *(['Planen är redan omplanerad efter en återgång (%s): en ny återgång görs inte; kvarstående invändningar skrivs i' % ', '.join(
-            plan['atergang'].get('omplanerade') or plan['atergang'].get('kandidater') or []), 'bedömningen.'] if plan.get('atergang') else []), '',
+            plan['atergang'].get('omplanerade') or plan['atergang'].get('kandidater') or []), 'bedömningen.'] if plan.get('atergang') else []),
+        *(['Omprövning: uppdragen %s har ändrats sedan förra prövningen och prövas nu, innan någon skapare får dem. De övriga' % ', '.join(provas),
+           '(%s) är redan prövade och byggs eller är byggda; bedöm dem inte och ändra dem inte.' % (', '.join(k_ for k_ in ids if k_ not in provas) or 'inga')]
+          if bara else []), '',
         *skapande.kritikrader(slug, underlag=atelje.UNDERLAG, aktuella=True), '',
         *regel_rader(), *metod_rader(slug, 'plan'), '',
         *kompetens.prompt_rader('planprovning', slug), '',
@@ -2282,6 +2339,8 @@ def planprovning(slug):
         for a in x.get('andringar') or []:
             if kid not in (plan.get('kandidater') or {}):
                 ogjorda.append((kid, a, 'okänt uppdrag'))
+            elif kid not in provas:  # N01: omprövningen ändrar bara de uppdrag den prövar
+                ogjorda.append((kid, a, 'redan prövat; bara %s prövas nu' % ', '.join(provas)))
             elif a.get('falt') in lasta:
                 ogjorda.append((kid, a, 'fältet är låst'))
             elif a.get('falt') not in falt:
@@ -2300,6 +2359,8 @@ def planprovning(slug):
             continue
         if kid not in (plan.get('kandidater') or {}):
             ogjorda.append((kid, {'falt': 'atergang'}, 'okänt uppdrag'))
+        elif kid not in provas:
+            ogjorda.append((kid, {'falt': 'atergang'}, 'redan prövat; bara %s prövas nu' % ', '.join(provas)))
         elif plan.get('atergang'):
             ogjorda.append((kid, {'falt': 'atergang'}, 'en återgång per plan är gjord (%s); invändningen står i bedömningen' % ', '.join(
                 plan['atergang'].get('omplanerade') or plan['atergang'].get('kandidater') or [])))
@@ -2332,13 +2393,25 @@ def planprovning(slug):
             + ['', '- omplanerade: %s' % (', '.join(post['atergang'].get('omplanerade') or []) or 'inga'),
                '- research: %s' % ('gjord (%s)' % post['atergang']['research'].get('tid') if post['atergang'].get('research') else 'ingen begärd'),
                '- fel: %s' % (post['atergang'].get('fel') or 'inget'), '', 'Runda 2 står i PLANPROVNING.md.', '']) + '\n', encoding='utf-8')
-        return planprovning(slug)
-    if (r / 'PLANPROVNING-runda-1.json').is_file():  # runda 2: återgången och runda 1:s begäran följer med i det samlade beskedet
+        return planprovning(slug, bara=bara, _foregaende=_foregaende)
+    if (r / 'PLANPROVNING-runda-1.json').is_file() and 'atergang' not in post:  # runda 2: återgången och runda 1:s begäran följer med
         runda1 = atelje.las_json(r / 'PLANPROVNING-runda-1.json') or {}
         post.update(runda_1=rel(r / 'PLANPROVNING-runda-1.json'), atergang=runda1.get('atergang'), atergangar_runda_1=runda1.get('atergangar') or [])
+    # N01: prövningen binds till planversionen som skaparen får: de prövade uppdragens sha efter prövningens egna ändringar
+    # och återgången (ett stoppat uppdrag släpps inte), och de tidigare prövade som är oförändrade
+    plan_nu = atelje.las_json(r / 'KANDIDATPLAN.json') or plan
+    fore_ = (_foregaende or {}).get('provade') or {}
+    post['provade'] = dict({k_: v_ for k_, v_ in fore_.items() if k_ not in provas and v_ == uppdrag_sha((plan_nu.get('kandidater') or {}).get(k_))},
+                           **provade_uppdrag(slug, plan_nu, provas))
+    if bara:
+        post['omprovning'] = {'kandidater': provas, 'foregaende': (_foregaende or {}).get('fil'), 'foregaende_tid': (_foregaende or {}).get('tid')}
+        if (post.get('atergang') or {}).get('misslyckade'):  # runda 1:s besked gäller inte de uppdrag som sedan omplanerats
+            post['atergang'] = dict(post['atergang'], misslyckade=[k_ for k_ in post['atergang']['misslyckade'] if las_status(slug, k_).get('atergang_fel')])
     (r / 'PLANPROVNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     rader = ['# Planprövningen · %s · %s%s' % (slug, post['tid'], ' · runda 2 (efter återgången)' if post['runda'] == 2 else ''), '',
              'Specialisterna för art direction och UX prövade planerarens designval (kunskap/metodkarta.md, Kompetenserna).',
+             *(['Omprövning av %s, som ändrats sedan förra prövningen; den står i %s.' % (', '.join(provas), post['omprovning']['foregaende'] or 'ingen fil')]
+               if bara else []),
              'Filer lästa hela: %d av %d%s. Skillverktyget: %s. MCP-anrop: %s.' % (
                  len(kv.get('lasta') or []), len(kv.get('filer') or []), '' if kv.get('verifierad') else ' (ej verifierat)',
                  ', '.join(kv.get('skill_anrop') or []) or 'inga', ', '.join('%s ×%d' % i for i in (kv.get('mcp_anrop') or {}).items()) or 'inga'), '',
@@ -3464,14 +3537,27 @@ def kor(slug, status, skriv, n=None):
         status['steg'] = 'atergang'
         skriv()
         status['atergang_omforsok'] = {k_: v_ for k_, v_ in atergang_omforsok(slug, stoppade).items() if k_ in ('kandidater', 'omplanerade', 'fel')}
-    if lage == 'skiss' and not (r / 'PLANPROVNING.json').is_file() and all(las_status(slug, k).get('status') == 'planerad' for k in ids):
-        status['steg'] = 'planprovning'  # specialisterna prövar planerarens designval innan någon bygger
+    behov = planprovning_behov(slug, ids) if lage == 'skiss' else []
+    if behov:  # specialisterna prövar planerarens designval innan någon bygger, och en ny eller ändrad plan prövas igen (N01)
+        status['steg'] = 'planprovning'
         skriv()
-        pp_ = planprovning(slug)
-        status['planprovning'] = {k: v for k, v in pp_.items() if k in ('andrade', 'sekunder', 'runda')}
+        omprovning = (r / 'PLANPROVNING.json').is_file() or set(behov) != set(ids)
+        pp_ = planprovning(slug, bara=behov) if omprovning else planprovning(slug)
+        status['planprovning'] = {k: v for k, v in pp_.items() if k in ('andrade', 'sekunder', 'runda', 'omprovning')}
         if pp_.get('atergang'):
             status['planprovning']['atergang'] = {k: pp_['atergang'].get(k) for k in ('kandidater', 'omplanerade', 'misslyckade', 'fel')}
         tider['planprovning'] = nu()
+    if lage == 'skiss':  # N01: skaparen får bara ett uppdrag vars nuvarande version är prövad; annars står kandidaten stoppad
+        saknas_ = planprovning_behov(slug, ids)
+        plan_ = (atelje.las_json(r / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}
+        for kid in ids:
+            st_ = las_status(slug, kid)
+            if kid in saknas_ and not st_.get('planprovning_saknas'):
+                satt_status(slug, kid, 'fel', 'uppdraget i sin nuvarande version är inte planprövat; skaparen får det först efter en prövning',
+                            planprovning_saknas={'tid': nu(), 'uppdrag_sha': uppdrag_sha(plan_.get(kid)), 'status_fore': st_.get('status')})
+            elif kid not in saknas_ and st_.get('planprovning_saknas'):
+                satt_status(slug, kid, (st_['planprovning_saknas'] or {}).get('status_fore') or 'planerad', 'uppdraget är planprövat',
+                            ta_bort=('planprovning_saknas',))
     status.update(steg='skapa', kandidater={k: las_status(slug, k).get('status') for k in ids})
     skriv()
     if lage == 'skiss':  # ingen granskningspanel, förbättringsrunda eller jämförelse före ägarens val
