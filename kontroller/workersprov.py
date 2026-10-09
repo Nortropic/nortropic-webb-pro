@@ -197,6 +197,7 @@ def prova(kundrepo):
         workers.append(w)
         s, h, b = begar(w.bas + '/')
         fall('startsidan som statisk fil', s == 200 and 'text/html' in h.get('Content-Type', ''), s)
+        fall('produktionen är inte märkt noindex', 'noindex' not in (h.get('X-Robots-Tag') or ''), h.get('X-Robots-Tag'))
         fall('säkerhetshuvudena på statiska svar (_headers)', h.get('X-Frame-Options') == 'DENY' and h.get('X-Content-Type-Options') == 'nosniff'
              and 'max-age' in h.get('Strict-Transport-Security', ''), dict(h))
         s, h, b = begar(w.bas + '/finns-inte-alls/')
@@ -261,6 +262,10 @@ def prova(kundrepo):
         efter = d1(repo, tmp, 'SELECT count(*) AS n FROM forfragningar')[0]['n']
         fall('förhandsvisningen sparar och skickar inget (demo)', s == 303 and h.get('X-Forfragan') == 'demo' and efter == fore
              and len(attrapp.anrop) == anrop_fore, (h.get('X-Forfragan'), efter, len(attrapp.anrop)))
+        s, h, b = begar(f.bas + '/')
+        fall('förhandsvisningens sidor är märkta noindex', s == 200 and 'noindex' in (h.get('X-Robots-Tag') or ''), (s, h.get('X-Robots-Tag')))
+        s, h, b = begar(f.bas + '/wrangler.jsonc')
+        fall('förhandsvisningen serverar inte heller konfigurationen', s == 404, s)
     finally:
         for w in workers:
             w.stang()

@@ -241,6 +241,11 @@ export default {
     }
     if (url.pathname === '/api/forfragan') return new Response(null, { status: 308, headers: { ...SAKERHET, Location: '/api/forfragan/' } });
     if (url.pathname.startsWith('/api/')) return enkel(404, 'Finns inte.');
-    return env.ASSETS.fetch(request);
+    const svar = await env.ASSETS.fetch(request);
+    if (env.MILJO === 'produktion') return svar;
+    // Förhandsvisningen (wrangler.jsonc: run_worker_first för alla vägar där) indexeras aldrig; skyddet är ändå Access.
+    const ny = new Response(svar.body, svar);
+    ny.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return ny;
   },
 };

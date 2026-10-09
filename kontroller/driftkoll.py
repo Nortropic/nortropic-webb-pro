@@ -2,12 +2,16 @@
 """driftkoll.py — läsande kontroll av en driftsatt sajt med riktiga HTTP-svar (kunskap/lansering.md, "Förhandsvisning,
 produktion och skydd"; Codex via ägaren 2026-10-05: välj skyddsmetod uttryckligen och kontrollera de verkliga svaren).
 
-    .venv/bin/python kontroller/driftkoll.py <adress> --lage forhandsvisning|produktion [--bypass-fil FIL] [--formular]
+    .venv/bin/python kontroller/driftkoll.py <adress> --lage forhandsvisning|produktion [--access-fil FIL] [--formular]
 
-forhandsvisning: utan förbikoppling svarar sajten 302 eller 401 mot Vercels inloggning (skyddet); med förbikopplingen
-(hemligheten läses ur --bypass-fil och skrivs aldrig ut) svarar startsidan 200 med `X-Robots-Tag: noindex`.
+forhandsvisning (Cloudflare Workers, ägarens beslut 2026-10-09): utan behörighet möts en anonym begäran av Cloudflare
+Access (302 till *.cloudflareaccess.com, eller 401/403 från Access); med Access-servicetoken (--access-fil, privat fil
+0600 med raderna `CF-Access-Client-Id: …` och `CF-Access-Client-Secret: …`; värdena skrivs aldrig ut) svarar startsidan
+200 med `X-Robots-Tag: noindex`. En äldre Vercel-förhandsvisning (historik) prövas med --bypass-fil: 302 eller 401 mot
+Vercels inloggning utan förbikoppling.
 produktion: startsidan svarar 200 utan noindex (varken huvud eller meta), robots.txt tillåter, sitemap.xml finns.
-Båda: säkerhetshuvudena ur kundrepots vercel.json. --formular prövar funktionen /api/forfragan/: honeypot (303 till
+Båda: säkerhetshuvudena (kundrepots _headers för statiska svar, Workerns egna för /api/*). --formular prövar mottagaren
+/api/forfragan/: honeypot (303 till
 /tack/), ofullständigt (422 med bevarad text), en bild över 4 MB och en begäran över 4,4 MB (413 med
 bildens besked, X-Forfragan for-stor), annan Origin (403), och i förhandsvisningen ett giltigt inskick
 (303 till /tack/ med X-Forfragan demo: Resends variabler gäller bara produktionen, och ett riktigt mejl ur en
@@ -55,19 +59,39 @@ def multipart(falt, fil=None):
     return b''.join(delar), 'multipart/form-data; boundary=%s' % grans
 
 
-def kontroll(adress, lage, bypass=None, formular=False):
+def las_access(fil):
+    """{huvud: värde} ur Access-filen: raderna CF-Access-Client-Id och CF-Access-Client-Secret (båda krävs)."""
+    p = Path(fil)
+    if p.stat().st_mode & 0o077:
+        raise ValueError('access-filen ska ha rättighet 0600')
+    ut = {}
+    for rad in p.read_text(encoding='utf-8').splitlines():
+        m = re.match(r'^\s*(CF-Access-Client-Id|CF-Access-Client-Secret)\s*:\s*(\S{8,})\s*$', rad, re.I)
+        if m:
+            ut[m.group(1).lower()] = m.group(2)
+    if len(ut) != 2:
+        raise ValueError('access-filen ska bära både CF-Access-Client-Id och CF-Access-Client-Secret')
+    return ut
+
+
+def kontroll(adress, lage, bypass=None, formular=False, access=None):
     adress = adress.rstrip('/')
     ut = []
 
     def P(ok, text):
         ut.append((bool(ok), text))
-    forbi = {'x-vercel-protection-bypass': bypass} if bypass else {}
+    forbi = dict(access) if access else {'x-vercel-protection-bypass': bypass} if bypass else {}
     if lage == 'forhandsvisning':
-        s, h, _ = hamta(adress + '/')
-        P(s in (302, 401) and ('vercel.com/sso' in h.get('location', '') or s == 401),
-          'skyddet: utan förbikoppling %d %s' % (s, h.get('location', '')[:60]))
-        if not bypass:
-            P(False, 'ingen förbikoppling (--bypass-fil): sidan och formuläret prövas inte')
+        s, h, kropp = hamta(adress + '/')
+        plats = h.get('location', '')
+        if bypass and not access:  # historik: en äldre Vercel-förhandsvisning
+            P(s in (302, 401) and ('vercel.com/sso' in plats or s == 401), 'skyddet (äldre Vercel): utan förbikoppling %d %s' % (s, plats[:60]))
+        else:
+            via_access = (s in (301, 302, 303, 307) and re.match(r'https://[a-z0-9-]+\.cloudflareaccess\.com/', plats)) or (
+                s in (401, 403) and (h.get('cf-access-domain') or b'cloudflareaccess' in (kropp or b'')))
+            P(via_access, 'skyddet (Cloudflare Access): utan behörighet %d %s' % (s, plats[:60]))
+        if not forbi:
+            P(False, 'ingen behörighet (--access-fil): sidan och formuläret prövas inte')
             return ut
     s, h, kropp = hamta(adress + '/', huvuden=forbi)
     P(s == 200, 'startsidan: %d' % s)
@@ -111,14 +135,16 @@ def main(argv=None):
     p = argparse.ArgumentParser(prog='driftkoll', description=__doc__.split('\n\n')[0])
     p.add_argument('adress')
     p.add_argument('--lage', required=True, choices=('forhandsvisning', 'produktion'))
-    p.add_argument('--bypass-fil')
+    p.add_argument('--access-fil', help='Cloudflare Access-servicetoken (privat fil 0600)')
+    p.add_argument('--bypass-fil', help='historik: förbikoppling för en äldre Vercel-förhandsvisning')
     p.add_argument('--formular', action='store_true')
     a = p.parse_args(argv)
     if not re.match(r'^https://[a-z0-9.-]+(/|$)', a.adress):
         print('adressen ska vara https://värd/', file=sys.stderr)
         return 2
     bypass = Path(a.bypass_fil).read_text(encoding='utf-8').strip() if a.bypass_fil else None
-    ut = kontroll(a.adress, a.lage, bypass, a.formular)
+    access = las_access(a.access_fil) if a.access_fil else None
+    ut = kontroll(a.adress, a.lage, bypass, a.formular, access)
     for ok, text in ut:
         print('%s %s' % ('ok ' if ok else 'FEL', text))
     return 0 if all(ok for ok, _ in ut) else 1

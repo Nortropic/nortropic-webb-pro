@@ -15,7 +15,7 @@ export const VYER = { '390': { viewport: { width: 390, height: 844 }, deviceScal
                       '1280': { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false, namn: 'dator, mellanbredd' },
                       '1440': { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false, namn: 'dator' },
                       '320': { viewport: { width: 320, height: 640 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, namn: 'reflow 320 px (WCAG 1.4.10)' } };
-const HEMLIGA_NAMN = /^(authorization|cookie|set-cookie|x-vercel-protection-bypass|x-vercel-set-bypass-cookie|proxy-authorization)$/i;
+const HEMLIGA_NAMN = /^(authorization|cookie|set-cookie|x-vercel-protection-bypass|x-vercel-set-bypass-cookie|proxy-authorization|cf-access-client-id|cf-access-client-secret|cf-access-jwt-assertion)$/i;
 const HEMLIGA_PARAM = /^(x-vercel-protection-bypass|x-vercel-set-bypass-cookie|token|key|api_key|apikey|secret|password)$/i;
 
 export function args(argv) {
@@ -35,15 +35,25 @@ export function args(argv) {
 export function sha256(buf) { return createHash('sha256').update(buf).digest('hex'); }
 export function nu() { return new Date().toISOString().replace(/\.\d+Z$/, 'Z'); }
 
-/** Skyddsundantag: privat fil (rättighet 0600, en rad ≥ 16 tecken, utanför tmp). Värdet skrivs aldrig ut. */
+/** Skyddsundantag: privat fil (rättighet 0600, utanför tmp). Cloudflare Access (förhandsvisningen på Workers): två rader
+ *  `CF-Access-Client-Id: …` och `CF-Access-Client-Secret: …`, en servicetoken. En ensam rad om minst 16 tecken är en äldre
+ *  Vercel-förbikoppling (historik, för de sajter som ligger kvar på Vercel). Ger {huvud: värde}; värdena skrivs aldrig ut
+ *  och skickas bara till målets ursprung. */
 export function lasUndantag(fil) {
   if (!fil) return null;
   const st = statSync(fil);
   if ((st.mode & 0o077) !== 0) throw new Error('undantagsfilen ska ha rättighet 0600');
   if (/^\/(tmp|etc|var\/folders)\//.test(fil) || fil.startsWith('/private/tmp')) throw new Error('undantagsfilen får inte ligga i tmp, etc eller var/folders');
-  const v = readFileSync(fil, 'utf8').trim().split('\n')[0].trim();
-  if (v.length < 16) throw new Error('undantagsfilen ska bära en rad om minst 16 tecken');
-  return v;
+  const rader = readFileSync(fil, 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const ut = {};
+  for (const r of rader) { const m = r.match(/^(CF-Access-Client-Id|CF-Access-Client-Secret)\s*:\s*(\S{8,})$/i); if (m) ut[m[1].toLowerCase()] = m[2]; }
+  if (Object.keys(ut).length) {
+    if (!ut['cf-access-client-id'] || !ut['cf-access-client-secret']) throw new Error('undantagsfilen ska bära både CF-Access-Client-Id och CF-Access-Client-Secret');
+    return ut;
+  }
+  const v = (rader[0] || '').trim();
+  if (v.length < 16 || /\s/.test(v)) throw new Error('undantagsfilen ska bära Cloudflare Access-servicetokenens två rader (eller en äldre förbikoppling om minst 16 tecken)');
+  return { 'x-vercel-protection-bypass': v };  // historik: äldre Vercel-förhandsvisningar
 }
 
 export function hemligheter(fil) {
@@ -248,7 +258,7 @@ export async function natgrans(ursprung = [], skrivbara = []) {
 // Huvuden som följer kroppen vid ett metodbevarande hopp (307/308): innehållstypen och det allmänna, som webbläsaren
 // själv skulle skicka; ursprungsbundna huvuden (cookie, authorization, skyddsundantaget, origin, referer) bara när hoppet
 // stannar i samma ursprung; host och content-length sätts om av hämtningen (Codex R26, F31/F36).
-const URSPRUNGSBUNDNA = new Set(['cookie', 'authorization', 'proxy-authorization', 'x-vercel-protection-bypass', 'origin', 'referer']);
+const URSPRUNGSBUNDNA = new Set(['cookie', 'authorization', 'proxy-authorization', 'x-vercel-protection-bypass', 'cf-access-client-id', 'cf-access-client-secret', 'origin', 'referer']);
 const BORT_VID_HOPP = new Set(['host', 'content-length', 'connection', 'keep-alive', 'transfer-encoding', 'upgrade', 'te']);
 export function hopphuvuden(huvuden, sammaUrsprung) {
   const ut = {};
@@ -279,7 +289,7 @@ async function installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, m
     if (tillatna.size && !tillatna.has(o)) { blockera(req); return route.abort('blockedbyclient'); }
     if (!LAS.has(req.method()) && !skrivbaraSet.has(o)) { blockera(req, 'skrivande anrop under läsande inspektion'); return route.abort('blockedbyclient'); }
     const headers = { ...req.headers() };
-    if (undantag && o === malUrsprung) headers['x-vercel-protection-bypass'] = undantag;  // bara målets ursprung, aldrig tredje part
+    if (undantag && o === malUrsprung) Object.assign(headers, undantag);  // bara målets ursprung, aldrig tredje part
     let svar;
     try { svar = await route.fetch({ headers, maxRedirects: 0 }); }
     catch (e) { logg.natverk.push({ metod: req.method(), url: redigeraUrl(u), id: sha256(String(u).split('#')[0]), status: null, fel: String(e.message).slice(0, 200), tid: nu() }); return route.abort('failed'); }
@@ -297,7 +307,7 @@ async function installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, m
       }
       if (LAS.has(nasta)) {  // WebKit, skript-anrop: läsande hopp följs här, varje hopp prövat som ovan
         if (++hopp > 10) { blockera(req, 'för många omdirigeringar'); return route.abort('blockedbyclient'); }
-        const h3 = hopphuvuden(req.headers(), m.origin === o); if (undantag && m.origin === malUrsprung) h3['x-vercel-protection-bypass'] = undantag;
+        const h3 = hopphuvuden(req.headers(), m.origin === o); if (undantag && m.origin === malUrsprung) Object.assign(h3, undantag);
         // byter hoppet metod (303, eller POST vid 301/302) följer kroppen inte med (Fetch-standarden), inte heller dess huvuden
         const byter = nasta !== metodNu;
         if (byter) for (const n of Object.keys(h3)) if (/^content-(type|length|encoding|language)$/i.test(n)) delete h3[n];
@@ -308,7 +318,7 @@ async function installeraVakt(ctx, { policy, tillatna, skrivbaraSet, undantag, m
       // ett skrivande anrop som förs vidare (POST vid 307/308, PUT/PATCH/DELETE också vid 301/302): varje hopp måste gå till ett skrivbart ursprung och följs här
       if (!skrivbaraSet.has(m.origin)) { blockera(req, 'skrivande omdirigering (' + nasta + ') till ' + redigeraUrl(mal)); return route.abort('blockedbyclient'); }
       if (++hopp > 10) { blockera(req, 'för många omdirigeringar'); return route.abort('blockedbyclient'); }
-      const h2 = hopphuvuden(req.headers(), m.origin === o); if (undantag && m.origin === malUrsprung) h2['x-vercel-protection-bypass'] = undantag;
+      const h2 = hopphuvuden(req.headers(), m.origin === o); if (undantag && m.origin === malUrsprung) Object.assign(h2, undantag);
       try { svar = await route.fetch({ url: mal, method: nasta, headers: h2, maxRedirects: 0 }); } catch (e) { return route.abort('failed'); }
       aktuell = mal; metodNu = nasta;
     }
@@ -378,7 +388,7 @@ export async function oppna({ vy = '1440', tillat = [], undantag = null, hemliga
   const malUrsprung = mal ? origin(mal) : (tillat.length ? origin(tillat[0]) : null);
   if (!['chromium', 'webkit'].includes(motor)) throw new Error('okänd motor: ' + motor + ' (chromium, webkit)');
   const v = motor === 'webkit' ? webkitVy(vy) : VYER[vy]; if (!v) throw new Error('okänd vy: ' + vy + ' (' + Object.keys(VYER).join(', ') + ')');
-  const red = redigerare([undantag, ...hemliga].filter(Boolean));
+  const red = redigerare([...Object.values(undantag || {}), ...hemliga].filter(Boolean));
   const logg = { konsol: [], natverk: [], blockerade: [], dialoger: [], sidfel: [], omdirigeringar: [] };
   const policy = natpolicy();
   const tillatna = new Set(tillat.map(o => origin(o)));
