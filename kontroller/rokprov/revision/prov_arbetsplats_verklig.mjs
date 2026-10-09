@@ -175,11 +175,25 @@ try {
   await page.getByRole('tab', { name: /Meddelanden/ }).click(); await bild(page, '9a-meddelanden');
   const historik = page.locator(`[data-historik="${arbetare.session_id}"]`);
   let rader = 0;
-  if (await historik.count()) { await historik.click(); await page.locator('.ay-historik li').first().waitFor({ timeout: 30000 }); rader = await page.locator('.ay-historik li').count(); await bild(page, '9b-historik'); await page.locator('[data-historik-slut]').click(); }
-  await page.goto(`${bas}/#/prototyp/${slug}`); await page.waitForTimeout(2500); await bild(page, '9c-prototyp');
+  let gren = null;
+  if (await historik.count()) {
+    await historik.click(); await page.locator('.ay-historik li').first().waitFor({ timeout: 30000 }); rader = await page.locator('.ay-historik li').count(); await bild(page, '9b-historik');
+    // följdfrågan till den avslutade sessionen: en förgrening som bara läser, registrerad med föräldern
+    if (await page.locator('#ay-ftext').count()) {
+      await page.locator('#ay-ftext').fill('Vilka filer ändrade du för rubriken, och varför?');
+      await page.locator('#ay-foljdform').getByRole('button', { name: 'Fråga' }).click();
+      gren = await vanta(() => { const d = path.join(U, 'arbetsyta', 'grenar'); try { return fs.readdirSync(d).filter((f) => f.endsWith('.json') && !f.startsWith('svar-')).map((f) => las(path.join(d, f))).find((g) => g && g.foralder === arbetare.session_id && g.slut); } catch { return null; } }, 10 * 60000, 'följdfrågans svar', 3000);
+      const svar = las(path.join(U, 'arbetsyta', 'grenar', `svar-${gren.id}.json`)) || {};
+      gren = { id: gren.id, foralder: gren.foralder, session_id: gren.session_id, ansvar: gren.ansvar, behorighet: gren.behorighet, fel: Boolean(svar.is_error), svar: String(svar.result || '').slice(0, 300),
+        egen_session: Boolean(gren.session_id) && gren.session_id !== gren.foralder };
+      await page.waitForTimeout(4500); await bild(page, '9c-foljdfraga');
+    }
+    await page.locator('[data-historik-slut]').click();
+  }
+  await page.goto(`${bas}/#/prototyp/${slug}`); await page.waitForTimeout(2500); await bild(page, '9d-prototyp');
   const prototypText = await page.locator('#vy').innerText();
-  await page.goto(`${bas}/#/dokumentation`); await page.waitForTimeout(2000); await bild(page, '9d-dokumentation');
-  punkt(9, rader > 0 && meddelanden().length >= 4, { historikrader: rader, meddelanden: meddelanden().length, domar: domar().map((d) => d.beslut), prototyp_nämner_godkänd: /godk/i.test(prototypText) });
+  await page.goto(`${bas}/#/dokumentation`); await page.waitForTimeout(2000); await bild(page, '9e-dokumentation');
+  punkt(9, rader > 0 && meddelanden().length >= 4 && Boolean(gren?.egen_session && !gren.fel), { historikrader: rader, foljdfraga: gren, meddelanden: meddelanden().length, domar: domar().map((d) => d.beslut), prototyp_nämner_godkänd: /godk/i.test(prototypText) });
 } catch (e) {
   logg('FEL:', e.stack || e.message); sammanfattning.fel = String(e.message || e); await bild(page, 'fel').catch(() => {});
 } finally {

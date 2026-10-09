@@ -461,8 +461,17 @@ def kandidatlista(dash, slug, blind):
                    'snapshot': {'390': b.get('390-forsta'), '1440': b.get('1440-forsta') or b.get('1280-forsta'), 'version': str(st.get('version') or '')[:12] or None,
                                 'tid': st.get('fotograferad'),
                                 'sha': {'390': bild_sha(dash, b.get('390-forsta')), '1440': bild_sha(dash, b.get('1440-forsta') or b.get('1280-forsta'))}},
-                   'versioner': versioner})
+                   'versioner': versioner, 'referens': _referens(k.get('referensjamforelse'))})
     return ut, None
+
+
+def _referens(rj):
+    """Huvudreferensens fångade startsida bredvid kandidaten (kandidater.referensjamforelse, som vyn Prototyp visar också
+    före ditt första val), eller skälet att den saknas."""
+    if not isinstance(rj, dict):
+        return None
+    r = rj.get('referens') or {}
+    return {'namn': r.get('namn'), '390': r.get('390-forsta'), '1440': r.get('1440-forsta'), 'saknas': rj.get('saknas'), 'egen': rj.get('egen')}
 
 
 def overlamningar(dash, slug, kandidater_, korning):

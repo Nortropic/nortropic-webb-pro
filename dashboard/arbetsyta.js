@@ -166,7 +166,7 @@
           `<a href="#/arbetsyta/${e_(A.slug)}${k ? '/' + k : ''}"${A.vy === k ? ' aria-current="page"' : ''}>${n}</a>`).join('')}</nav>
         <details class="ay-meny"><summary>Fler vyer</summary><nav aria-label="Dashboardens övriga vyer">
           <h4>Kundproduktion</h4><a href="#/flode/${e_(A.slug)}">Flöde (klassisk)</a><a href="#/prototyp/${e_(A.slug)}">Prototyp och ditt val</a><a href="#/kundstart">Kundstart</a><a href="#/ab">Jämförelser</a><a href="#/oversikt">Översikt och byggen</a><a href="#/starta">Starta</a>
-          <h4>Systemförbättring</h4><a href="#/kirurgen">Kirurgen</a><a href="#/backlog">Backlog</a><a href="#/kalibrering">Kalibrering</a><a href="#/lardomar">Lärdomar</a><a href="#/designprov">Designprov</a><a href="#/prospekt">Prospekt</a>
+          <h4>Systemförbättring</h4><a href="#/oversikt">Underhåll och verktygslådan</a><a href="#/kirurgen">Kirurgen</a><a href="#/backlog">Backlog</a><a href="#/kalibrering">Kalibrering</a><a href="#/lardomar">Lärdomar</a><a href="#/designprov">Designprov</a><a href="#/prospekt">Prospekt</a>
           <h4>Rapporter</h4><a href="#/dokumentation">Dokumentation och rapporter</a></nav></details>
       </div>
       <p id="ay-meddelande" class="dolt" role="status" aria-live="polite" aria-atomic="true"></p>
@@ -580,7 +580,7 @@
           : '<div class="ay-tom">Inga sessioner i körningen än. När en körning startar dyker dess sessioner upp här av sig själva.</div>'}
         ${vald ? `<section class="ay-panel" aria-labelledby="ay-detalj-rubrik"><div class="ay-panelhuvud"><h2 id="ay-detalj-rubrik">${e_(roll(vald))}${vald.kandidat ? ' · ' + e_(etikett(vald.kandidat)) : ''}</h2>${lagechip(vald.lage, vald.lage_text)}<button class="ay-knapp liten" type="button" data-folj-slut>Stäng</button></div><div class="ay-panelkropp ay-detalj">${detalj(vald)}</div></section>` : ''}
         <section class="ay-panel"><details class="metod"><summary>Så är flödet tänkt (metodkartan, README)</summary><div class="ay-panelkropp" id="ay-metod">${metod()}</div></details></section>
-        <section class="ay-panel" aria-labelledby="ay-system"><div class="ay-panelhuvud"><h2 id="ay-system">Systemförbättring, skilt från kundproduktionen</h2></div><div class="ay-panelkropp ay-knapprad"><a class="ay-knapp liten" href="#/kirurgen">Kirurgen</a><a class="ay-knapp liten" href="#/backlog">Backlog</a><a class="ay-knapp liten" href="#/kalibrering">Kalibrering</a><a class="ay-knapp liten" href="#/dokumentation">Dokumentation och rapporter</a></div></section>
+        <section class="ay-panel" aria-labelledby="ay-system"><div class="ay-panelhuvud"><h2 id="ay-system">Systemförbättring, skilt från kundproduktionen</h2></div><div class="ay-panelkropp ay-knapprad"><a class="ay-knapp liten" href="#/oversikt">Underhåll och verktygslådan</a><a class="ay-knapp liten" href="#/kirurgen">Kirurgen</a><a class="ay-knapp liten" href="#/backlog">Backlog</a><a class="ay-knapp liten" href="#/kalibrering">Kalibrering</a><a class="ay-knapp liten" href="#/dokumentation">Dokumentation och rapporter</a></div></section>
       </div>
       <section class="ay-panel" aria-labelledby="ay-tl"><div class="ay-panelhuvud"><h2 id="ay-tl">Sessionsflöde</h2>${anslutning()}</div><div class="ay-panelkropp">
         <ul class="ay-tidslinje">${tidslinje().map((x) => `<li><time datetime="${e_(x.tid)}">${e_(klocka(x.tid).slice(0, 5))}</time><span>${e_(x.text)}</span></li>`).join('') || '<li><span class="dampad">Inget observerat än.</span></li>'}</ul>
@@ -955,11 +955,16 @@
     if (!bild(k)) return `<div class="ay-scen"><div class="ay-tom">${e_(k.etikett)} har ingen bevarad bild än; jämförelsen visar bevarade bilder sida vid sida.</div></div>`;
     const val = ks.filter((x) => x.id !== k.id && bild(x)).map((x) => ['k:' + x.id, x.etikett + (x.version ? ' v' + x.version : '')]);
     const vers = (k.versioner || []).filter((v) => v !== k.version).map((v) => ['v:' + v, 'Tidigare version ' + v]);
-    const med = A.jamforMed && [...val, ...vers].some(([x]) => x === A.jamforMed) ? A.jamforMed : (val[0] || vers[0] || [''])[0];
-    const hoger = med.startsWith('k:') ? (() => { const x = ks.find((y) => y.id === med.slice(2)); return x ? `<figure><figcaption>${e_(x.etikett)}${x.version ? ', version ' + e_(x.version) : ''}</figcaption><img src="/fil/${e_(bild(x))}" alt="${e_(x.etikett)}"></figure>` : ''; })()
+    const ref = k.referens && (k.referens[bredd] || k.referens['1440'] || k.referens['390']) ? [['r:', 'Huvudreferensen' + (k.referens.namn ? ': ' + k.referens.namn : '')]] : [];
+    const alla = [...ref, ...val, ...vers];
+    const med = A.jamforMed && alla.some(([x]) => x === A.jamforMed) ? A.jamforMed : (alla[0] || [''])[0];
+    const refbild = k.referens && (k.referens[bredd] || k.referens['1440'] || k.referens['390']);
+    const hoger = med === 'r:' ? `<figure><figcaption>Huvudreferensen${k.referens.namn ? ': ' + e_(k.referens.namn) : ''} (fångad startsida)</figcaption><img src="/fil/${e_(refbild)}" alt="Huvudreferensen ${e_(k.referens.namn || '')}"></figure>`
+      : med.startsWith('k:') ? (() => { const x = ks.find((y) => y.id === med.slice(2)); return x ? `<figure><figcaption>${e_(x.etikett)}${x.version ? ', version ' + e_(x.version) : ''}</figcaption><img src="/fil/${e_(bild(x))}" alt="${e_(x.etikett)}"></figure>` : ''; })()
       : med.startsWith('v:') ? `<figure><figcaption>${e_(k.etikett)}, version ${e_(med.slice(2))}</figcaption><img src="/fil/${e_(String(bild(k)).replace(/\/bilder\//, '/versioner/' + med.slice(2) + '/bilder/'))}" alt="${e_(k.etikett)}, version ${e_(med.slice(2))}" onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'svag',textContent:'Den versionen bevarades utan bilder; jämför koden under Kod och preview.'}))"></figure>` : '<p class="svag">Inget att jämföra med än.</p>';
-    return `<div class="ay-adress"><span class="etikett">Bevarade bilder, ${bredd} px. ${A.lage.blind ? 'Före ditt första val bara kandidaterna; tidigare versioner och referensen visas efter valet (i Prototyp).' : 'Referensen visas sida vid sida i Prototyp.'}</span>
-        ${[...val, ...vers].length ? `<label class="svag">Jämför med <select id="ay-jamformed" class="ay-knapp liten">${[...val, ...vers].map(([x, n]) => `<option value="${e_(x)}"${x === med ? ' selected' : ''}>${e_(n)}</option>`).join('')}</select></label>` : ''}</div>
+    const utanRef = k.referens && !refbild ? ` Referensen: ${e_(k.referens.saknas || 'ingen fångad sida')}.` : '';
+    return `<div class="ay-adress"><span class="etikett">Bevarade bilder, ${bredd} px.${A.lage.blind ? ' Tidigare versioner visas efter ditt första val.' : ''}${utanRef}</span>
+        ${alla.length ? `<label class="svag">Jämför med <select id="ay-jamformed" class="ay-knapp liten">${alla.map(([x, n]) => `<option value="${e_(x)}"${x === med ? ' selected' : ''}>${e_(n)}</option>`).join('')}</select></label>` : ''}</div>
       <div class="ay-scen"><div class="ay-jamfor"><figure><figcaption>${e_(k.etikett)}${k.version ? ', version ' + e_(k.version) : ''} (vald)</figcaption><img src="/fil/${e_(bild(k))}" alt="${e_(k.etikett)}"></figure>${hoger}</div></div>`;
   }
 
