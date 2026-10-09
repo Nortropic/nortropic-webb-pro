@@ -500,20 +500,24 @@ def uppdragsmaterial(slug, klient=None, bara=None):
                 hamtade[stil] = {'id': stil, 'fel': str(e)[:200] if isinstance(e, (refero_mcp.ReferoFel, ValueError, OSError)) else
                                  '%s: %s' % (type(e).__name__, str(e)[:200])}
         ut[kid]['stil'] = hamtade[stil]
-    fragor = {}  # frasen utan skillnad i versaler och mellanslag → (frasen, uppdragen som delar den)
+    fragor = {}  # frasen utan skillnad i versaler och mellanslag → (frasen, uppdragen som delar den, typen)
     for kid, k in kand.items():
         f = ' '.join(str(k.get('mobbin_fraga') or '').split())[:160]
         if f:
-            fragor.setdefault(f.lower(), (f, []))[1].append(kid)
-            ut[kid]['mobbin_fraga'] = f
+            typ = 'flode' if k.get('mobbin_typ') == 'flode' else 'skarm'  # T01: uppgiften väljer skärm eller flöde
+            fore_ = fragor.get(f.lower())
+            fragor[f.lower()] = (f, (fore_[1] if fore_ else []) + [kid], 'flode' if typ == 'flode' or (fore_ and fore_[2] == 'flode') else 'skarm')
+            ut[kid].update(mobbin_fraga=f, mobbin_typ=typ)
     mobbin = {}
     if fragor:
         try:
-            _rot, res = referenstjanster.samla(slug, {'fragor': [{'tjanst': 'mobbin', 'fraga': f, 'syfte': 'uppdragens uppgifter', 'typ': 'skarm'}
-                                                                 for f, _k in fragor.values()]}, underlag=atelje.UNDERLAG, katalog='uppdrag')
+            rot_t, res = referenstjanster.samla(slug, {'fragor': [{'tjanst': 'mobbin', 'fraga': f, 'syfte': 'uppdragens uppgifter', 'typ': typ}
+                                                                  for f, _k, typ in fragor.values()]}, underlag=atelje.UNDERLAG, katalog='uppdrag')
+            rapport = rel(Path(rot_t) / 'TJANSTER.md') if rot_t else None  # ursprunget, så att sammanhanget går att kontrollera
             m = (res.get('tjanster') or {}).get('mobbin') or {}
             for tr in m.get('traffar') or []:
-                if not tr.get('fil'):
+                steg = [s for s in tr.get('steg') or [] if isinstance(s, dict)]
+                if not tr.get('fil') and not any(s.get('fil') for s in steg):  # ett flöde utan omslag men med stegbilder är inte tomt
                     continue
                 svar = str(tr.get('fraga') or '')
                 nyckel = ' '.join(svar.lower().split())
@@ -523,15 +527,19 @@ def uppdragsmaterial(slug, klient=None, bara=None):
                 if not nyckel:
                     continue
                 for kid in fragor[nyckel][1]:
-                    ut[kid].setdefault('mobbin', []).append({'fil': 'underlag/%s/%s' % (slug, tr['fil']), 'titel': str(tr.get('titel') or '')[:200],
-                                                             'beskrivning': ' '.join(str(tr.get('beskrivning') or '').split())[:400]})
+                    ut[kid].setdefault('mobbin', []).append({
+                        'fil': ('underlag/%s/%s' % (slug, tr['fil'])) if tr.get('fil') else None, 'titel': str(tr.get('titel') or '')[:200],
+                        'beskrivning': ' '.join(str(tr.get('beskrivning') or '').split())[:400], 'typ': 'flode' if steg else 'skarm',
+                        'steg': [{'nr': s.get('nr'), 'fil': ('underlag/%s/%s' % (slug, s['fil'])) if s.get('fil') else None,
+                                  'beskrivning': ' '.join(str(s.get('beskrivning') or '').split())[:300], 'fel': s.get('fel')} for s in steg],
+                        'rapport': rapport})
             mobbin = {'ok': bool(m.get('ok')), 'bilder': m.get('bilder') or 0, 'anmarkningar': m.get('anmarkningar') or [],
                       'stoppade_fragor': len(res.get('slappta') or [])}
         except Exception as e:  # noqa: BLE001 — utan Mobbins skärmar fortsätter skisserna, och det står i redovisningen
             mobbin = {'ok': False, 'fel': '%s: %s' % (type(e).__name__, str(e)[:200])}
     for kid, v in ut.items():
         if v.get('mobbin_fraga') and not v.get('mobbin'):
-            v['mobbin_fel'] = mobbin.get('fel') or 'inga skärmar kunde knytas till sökfrasen'
+            v['mobbin_fel'] = mobbin.get('fel') or 'inga %s kunde knytas till sökfrasen' % ('flöden' if v.get('mobbin_typ') == 'flode' else 'skärmar')
     (r / UPPDRAGSMATERIAL).write_text(json.dumps({'tid': nu(), 'kandidater': {**tidigare, **ut}, 'mobbin': mobbin}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     return {kid: {'stil': bool(v.get('stil') and not v['stil'].get('fel')), 'mobbin': len(v.get('mobbin') or [])} for kid, v in ut.items()}
 
@@ -571,12 +579,20 @@ def uppdragsmaterial_rader(slug, kid):
     elif s.get('fel'):
         ut += ['- huvudreferensens stil i Refero (%s) kunde inte hämtas (%s): bygg på huvudreferensens bilder;' % (s.get('id'), s['fel'])]
     if v.get('mobbin'):
-        ut += ['- Mobbins skärmar för besökarens uppgift ("%s"), titta på dem med Read:' % v.get('mobbin_fraga')]
-        ut += ['  - %s: %s. %s' % (m['fil'], m['titel'], m['beskrivning']) for m in v['mobbin'][:8]]
-        ut += ['  Skriv i RIKTNING.md under rubriken "Mobbin" vad du tog från varje skärm (ett mönster, en ordning, ett',
-               '  formulärsteg) eller varför den inte passade;']
+        ut += ['- Mobbins %s för besökarens uppgift ("%s"), titta på dem med Read:' % (
+            'flöden' if v.get('mobbin_typ') == 'flode' else 'skärmar', v.get('mobbin_fraga'))]
+        for m in v['mobbin'][:8]:
+            ut.append('  - %s: %s. %s' % (m.get('fil') or 'flöde utan omslagsbild', m.get('titel'), m.get('beskrivning')))
+            for s in m.get('steg') or []:  # T01: stegen i ordning, med bilden och vad steget visar
+                ut.append('    %s. %s%s' % (s.get('nr'), s.get('fil') or 'ingen bild (%s)' % (s.get('fel') or 'saknas'),
+                                            (' — ' + s['beskrivning']) if s.get('beskrivning') else ''))
+        if any(m.get('rapport') for m in v['mobbin']):
+            ut.append('  Ursprunget, med frågorna och tjänstens svar: %s' % next(m['rapport'] for m in v['mobbin'] if m.get('rapport')))
+        ut += ['  Skriv i RIKTNING.md under rubriken "Mobbin" vad du tog från varje skärm eller flöde (ett mönster, en ordning,',
+               '  ett formulärsteg, återkopplingen mellan stegen) eller varför det inte passade;']
     elif v.get('mobbin_fraga'):
-        ut += ['- Mobbin gav inga skärmar för sökfrasen "%s" (%s);' % (v['mobbin_fraga'], v.get('mobbin_fel') or 'okänt skäl')]
+        ut += ['- Mobbin gav inga %s för sökfrasen "%s" (%s);' % ('flöden' if v.get('mobbin_typ') == 'flode' else 'skärmar',
+                                                                  v['mobbin_fraga'], v.get('mobbin_fel') or 'okänt skäl')]
     return ut
 
 
@@ -930,7 +946,9 @@ PLAN_SCHEMA = {
         'variation': {'type': 'string'},
         'kandidater': {'type': 'array', 'minItems': 2, 'maxItems': 12, 'items': {
             'type': 'object', 'additionalProperties': False, 'required': [f for f, _ in PLANFALT] + ['referensbilder'],
-            'properties': {f: {'type': 'string'} for f, _ in PLANFALT} | {'referensbilder': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 6}}}}}}
+            'properties': {f: {'type': 'string'} for f, _ in PLANFALT} | {'referensbilder': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 6},
+                                                                          # T01: en skärm för en komposition, ett flöde för en resa i steg
+                                                                          'mobbin_typ': {'type': 'string', 'enum': ['skarm', 'flode']}}}}}}
 
 
 def material_rader(slug):
@@ -1051,7 +1069,9 @@ def plan_prompt(slug, n, skiss=False):
         'komponenternas variabler) till skaparens projekt, och skaparen bygger på det (kontroller/stilpaket.py).',
         'Skriv i "mobbin_fraga" en kort engelsk sökfras för Mobbin om besökarens viktiga uppgift i just det uppdraget (till',
         'exempel "quote request form for a renovation company" eller "project gallery with categories"), utan kundens namn,',
-        'orter, adress eller nummer: flödet hämtar skärmar för den till skaparen, som skriver vad de bidrog med.',
+        'orter, adress eller nummer: flödet hämtar underlaget till skaparen, som skriver vad det bidrog med. Skriv i',
+        '"mobbin_typ" flode när uppgiften är en resa i steg (bokning, kontakt, offert, beställning): då hämtas flödets steg i',
+        'ordning; annars skarm, för en enskild komposition eller sektion.',
         'Ange i "sektion" den viktigaste innehållssektionen efter första vyn för just den idén (den skissen visar), och varför.',
         'En referens som en förkastad eller underkänd riktning redan byggt på (historiken) väljs bara med ett skäl i "skillnad"',
         'som svarar på kritiken. Ange vilken undersida eller vilket tillstånd som visar idén bäst (ett projekt, en tjänst,',

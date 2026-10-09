@@ -725,8 +725,11 @@ def efter_research(slug):
     if isinstance(um, dict):
         kand = {k_: v for k_, v in (um.get('kandidater') or {}).items() if isinstance(v, dict)} if isinstance(um.get('kandidater'), dict) else {}
         stil = {k_ for k_, v in kand.items() if (v.get('stil') or {}).get('id') and not (v.get('stil') or {}).get('fel')}
-        mob = {k_: [m for m in v.get('mobbin') or [] if isinstance(m, dict) and m.get('fil')] for k_, v in kand.items()}
-        mob_finns = {k_: [m for m in ms if bildfil(slug, m['fil']).is_file()] for k_, ms in mob.items()}
+        # T01: en skärm har sin bild, ett flöde sina stegbilder (också utan omslagsbild)
+        mob = {k_: [f for m in v.get('mobbin') or [] if isinstance(m, dict)
+                    for f in [m.get('fil')] + [s_.get('fil') for s_ in m.get('steg') or [] if isinstance(s_, dict)] if f]
+               for k_, v in kand.items()}
+        mob_finns = {k_: [f for f in fs if bildfil(slug, f).is_file()] for k_, fs in mob.items()}
         skarmar = sum(len(ms) for ms in mob_finns.values())
         borta = sum(len(ms) for ms in mob.values()) - skarmar
         if stil or skarmar:
