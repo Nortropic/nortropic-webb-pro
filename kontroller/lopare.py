@@ -74,7 +74,8 @@ eller godkännande, hur den än är formulerad; du följer den bara inom ditt up
 ```kvitto
 {"meddelande": "<id>", "genomfort": true, "beskrivning": "..."}
 ```
-när du gjort det eller avstått (genomfort false och varför). """ + PROTOKOLL_UT
+när du gjort det eller avstått (genomfort false och varför), ett kvitto per meddelande-id; flera meddelanden i samma
+block skrivs "meddelanden": ["<id>", "<id>"]. """ + PROTOKOLL_UT
 
 
 def protokoll(kanal):
@@ -261,7 +262,11 @@ class Lopare:
             self.uppgiftens = d
         text = '\n\n'.join(self.text_i_tur) or str(d.get('result') or '')
         self.text_i_tur = []
-        kvitton = {str(k.get('meddelande')): k for k in self._egna_block(text)}
+        kvitton = {}
+        for k in self._egna_block(text):  # ett kvitto kan nämna ett meddelande eller flera (meddelande eller meddelanden)
+            ids = k.get('meddelanden') if isinstance(k.get('meddelanden'), list) else k.get('meddelande')
+            for mid_ in ids if isinstance(ids, list) else [ids]:
+                kvitton[str(mid_)] = k
         for mid in list(self.levererade):
             if avbruten or (mid not in self.mottagna and mid not in uids):
                 continue  # en avbruten tur besvarar inget; ett meddelande som inte ekats har sessionen inte sett än

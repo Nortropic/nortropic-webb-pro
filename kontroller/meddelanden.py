@@ -621,8 +621,9 @@ def ramtext(m):
     else:  # agentens text citerad rad för rad: en rad i den kan aldrig stå först som ett meddelandehuvud
         rader += ['', 'Avsändarens text, citerad:'] + ['> ' + r for r in (m.get('text') or '').split('\n')]
     if m.get('syfte') in ('fraga', 'andringsinstruktion', 'granskningsfynd'):
-        rader += ['', 'Svara i ett block ```kvitto {"meddelande": "%s", "genomfort": true/false, "beskrivning": "..."}``` när du '
-                      'har gjort det eller avstått, och fortsätt sedan med ditt uppdrag.' % m['id']]
+        rader += ['', 'Kvittera just det här meddelandet med dess id när du har gjort det eller avstått (ett kvitto för ett annat '
+                      'meddelande räknas inte för det här; genomfort false och varför om du avstod), och fortsätt sedan med ditt uppdrag:',
+                  '```kvitto', '{"meddelande": "%s", "genomfort": true, "beskrivning": "vad du gjorde"}' % m['id'], '```']
     return '\n'.join(rader)
 
 

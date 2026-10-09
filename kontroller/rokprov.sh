@@ -718,6 +718,9 @@ echo "   meddelandebussen och löparen: ägarens meddelanden under arbetet, agen
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_meddelanden.py" >"$ROOT/kunder/rokprov-mall/meddelanden-prov.log" 2>&1 \
   || { echo "FEL: meddelandebussens prov"; tail -30 "$ROOT/kunder/rokprov-mall/meddelanden-prov.log"; exit 1; }
 echo "   meddelandebussens prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/meddelanden-prov.log" | tr '\n' ' '))"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_bevakning.py" >"$ROOT/kunder/rokprov-mall/bevakning-prov.log" 2>&1 \
+  || { echo "FEL: bevakningens prov"; tail -30 "$ROOT/kunder/rokprov-mall/bevakning-prov.log"; exit 1; }
+echo "   bevakningens prov ok: registret, schemat i Europe/Stockholm, låset, igenkänningen och Codex svar ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/bevakning-prov.log" | tr '\n' ' '))"
 echo "   dokumentationsvyn (2026-10-07): de fyra delarna, filtren, huvudena, besluten, blindningen, länkarna, saknade rapporter och avsändaren"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_dokumentationsvy.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" \
   || { echo "FEL: dokumentationsvyns prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log"; exit 1; }

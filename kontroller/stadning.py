@@ -139,7 +139,7 @@ TMP_PREFIX = (
     'nwp-rorelse-',                                                                   # prov_rorelse.py
     'nwp-fangst-',                                                                    # prov_fangst.py
     'nwp-arbetsyta-',                                                                 # prov_arbetsyta.py
-    'nwp-meddelanden-',                                                               # prov_meddelanden.py
+    'nwp-meddelanden-', 'nwp-bevakning-',                                                               # prov_meddelanden.py
     'nwp-pilotsession-',                                                              # kundstart_modell.py (Kundstarts pilotsession)
     'nwp-blind-',                                                                     # atelje.py (de blinda sessionernas arbetskatalog)
 )

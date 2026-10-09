@@ -618,6 +618,27 @@ class Granskning(Bas):
         self.assertEqual(meddelanden.lage(m), 'okant', m['handelser'])
         self.assertTrue(m.get('svar'), 'turens text står kvar som underlag')
 
+    def test_ett_kvitto_kan_namna_flera_meddelanden_och_bara_de_namnda_besvaras(self):
+        """Det verkliga provet 2026-10-09 (försök 4): sessionen genomförde ägarens instruktion men kvitterade bara granskarens
+        fynd; ägarens instruktion blev okänd. Ett kvitto nämner ett meddelande eller flera; bara de nämnda blir besvarade."""
+        s = self.lage_for('skiss-1', 'k01')
+        sid = s['session_id']
+        m1 = self.agare('agare-kv-0001', 'Ett. KVITTERA', {'typ': 'session', 'session_id': sid})
+        m2 = self.agare('agare-kv-0002', 'Två. KVITTERA', {'typ': 'session', 'session_id': sid})
+        m3 = self.agare('agare-kv-0003', 'Tre. KVITTERA', {'typ': 'session', 'session_id': sid})
+
+        class P:
+            pid = os.getpid()
+        lop = lopare.Lopare(P(), SLUG, sid, self.ut(), 'skiss-1', 'k01', False, 20, 60)
+        for m in (m1, m2, m3):
+            lop.levererade[m['id']] = m
+            lop._handelse({'type': 'user', 'isReplay': True, 'uuid': m['id']})
+        lop._handelse({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': 'Klart.\n```kvitto\n{"meddelanden": ["agare-kv-0001", '
+                                                                     '"agare-kv-0002"], "genomfort": true, "beskrivning": "båda"}\n```'}]}})
+        lop._handelse({'type': 'result', 'subtype': 'success', 'num_turns': 1, 'uuid': 'r1'})
+        self.assertEqual([meddelanden.lage(meddelanden.hamta(SLUG, m['id'])) for m in (m1, m2, m3)], ['besvarat', 'besvarat', 'okant'])
+        self.assertIn('Kvittera just det här meddelandet med dess id', meddelanden.ramtext(m3))
+
     def test_a5_versionen_provas_vid_leveransen_och_godta_binds_till_fyndets(self):
         o = self.agare('agare-a5-0001', 'Korta rubriken.', {'typ': 'adress', 'ansvar': 'utforande', 'kandidat': 'k01'}, 'andringsinstruktion',
                        kandidat='k01', version=V1)

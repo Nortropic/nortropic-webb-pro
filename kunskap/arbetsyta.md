@@ -40,7 +40,11 @@ visar (successiv fördjupning, högst två nivåer).
   beslutsraden när körningen väntar på dig), Jämför, Kandidater och Underlag. Panelerna fälls ihop och dras i bredd;
   under 900 px visas ett område i taget (Samtal, Resultat, Sessioner).
 - **Byggflöde**: kundens nio observerade steg, sessionerna per moment och kandidat med detaljvy, Sessionsflödet och
-  helbyggets körningar; Kirurgen, backloggen, kalibreringen och rapporterna i en egen del, skild från kundproduktionen.
+  helbyggets körningar; bevakningen och systemförbättringen i en egen del, skild från kundproduktionen: bevakningens
+  läge (aktiv först efter en schemalagd körning; senaste och nästa körning i Europe/Stockholm), dagens besked och nya
+  fynd med belägg, kontroller som inte lyckades, täckningen per område med luckorna, förbättringsloopens steg och det
+  som väntar på ditt beslut (`GET /api/bevakning`, `kontroller/bevakning.py`; registret: `kunskap/spaning-kallor.md`,
+  Bevakningsfrågor), och länkarna till Kirurgen, backloggen, kalibreringen och rapporterna.
 - **Kod och preview**: kandidatens filer, diff mot en namngiven bevarad version, Markera för en ändring, förhandsvisningen,
   körningsloggen och sessionens aktivitet. Kod redigeras inte i webbläsaren: en ändring är en ändringsinstruktion till
   utföraren eller ditt beslut (se Meddelanden och Beslut), aldrig en andra skrivare i kandidatens filer. Öppna i editorn
@@ -101,8 +105,9 @@ granskare; `dashboard/samverkan.py` är dashboardens del och `kontroller/lopare.
   utförare i stället. Varje meddelande bär projekt, körning och, när det gäller en kandidat, kandidat och hel
   version. En ändringsinstruktion utan den version du såg nekas; en annan körning eller en nyare version svarar
   Inaktuell (409), och inget vidarebefordras blint.
-- **Leveranslägen**, med tid och belägg: sparat (i bussen), köat (en löpare har tagit det för sin session), mottaget
-  (Claude Code ekade meddelandet med dess id, `--replay-user-messages`), besvarat (mottagaren kvitterade meddelandet i
+- **Leveranslägen**, med tid och belägg: sparat (registrerat i bussen), köat (en löpare har tagit det för sin session),
+  levererat (skrivet till sessionens inmatning), mottaget (Claude Code ekade meddelandet med dess id,
+  `--replay-user-messages`), besvarat (mottagaren kvitterade meddelandet i
   turen efter ekot; turens text står som underlag) och, för en ändringsinstruktion, genomfört: bara när mottagaren
   kvitterat den och kandidatens fotograferade version ändrats efter mottagandet; annars står genomförandet som påstått
   eller okänt. En fråga, ett fynd eller en instruktion som turen inte kvitterade blir okänt, med turens text; ett
@@ -196,8 +201,9 @@ andra flik nekas av servern.
 ## Mandat och extern granskare
 
 **Mandatet** (Meddelanden → Mandat för granskare): du ger en granskare (motorns granskare, en bestämd session eller en
-extern granskare) rätt att lämna förslag och granskningsfynd till en kandidats utförare och begära rättelser av den, i
-den aktuella körningen och inom en omfattning du skriver. Utföraren hanterar dem inom sitt eget uppdrag; ramen säger
+extern granskare) rätt att lämna de åtgärder du kryssar i (förslag, granskningsfynd, begäran om rättelse) till en
+kandidats utförare, i den körning du ser och inom en omfattning du skriver. Åtgärderna anges alltid uttryckligen; ett
+äldre mandat utan dem gäller bara begäran om rättelse, och ett mandat från en annan körning gäller aldrig. Utföraren hanterar dem inom sitt eget uppdrag; ramen säger
 mandatet och omfattningen, och omfattningen prövas inte maskinellt. Utan mandat går en granskares fynd och förslag
 till dig. Ett mandat återkallas när som helst; det gäller inte i nästa körning.
 
@@ -238,7 +244,10 @@ som vyn Prototyp: `server.spara_kandidatbeslut` → `atelje.doma` → `kandidate
 `forbered_vinnare`, som nekar om kandidatens filer ändrats sedan den fotograferade versionen. Arbetsytan binder
 dessutom beslutet till det du såg när du öppnade det: versionen och bildens väg och sha256 tas vid klicket och skickas
 med. Servern nekar ett godkännande (Inaktuell) när versionen inte längre är kandidatens eller bilden har ändrats, och
-när bilden inte är kandidatens ögonblicksbild; beslutet står i domloggen under `arbetsyta.sedd`. Ett godkännande lämnar över till helbygget men startar det inte. Ett ägarbeslut speglas i
+när bilden inte är kandidatens ögonblicksbild; beslutet står i domloggen under `arbetsyta.sedd`. En ögonblicksbild
+vars sida inte svarade 200 med HTML (en fotograferad felsida, `forhandsvisa.ogiltig_sida` ur fotograferingens
+INSPEKTION.json) går inte att välja eller godkänna; en sida som svarar 200 men visar ett fel upptäcks inte av den
+kontrollen. Ett godkännande lämnar över till helbygget men startar det inte. Ett ägarbeslut speglas i
 bussen som en rad med syftet ägarbeslut och domens tid.
 
 **Jämför** visar den valda kandidatens bevarade bild bredvid en annan kandidats eller en tidigare bevarad version

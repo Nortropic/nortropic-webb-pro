@@ -414,7 +414,7 @@ def kunskap(k):
         nya = sum(1 for x in kand if isinstance(x, dict) and x.get('status') == 'ny')
         gammal = vl.alder(t) > vl.GILTIGHET['spaning']
         ut.append(post('kunskap', 'spaningen', 'okand' if gammal else 'ok', provad=t,
-                       detalj='%s; %d obedömda kandidater åt kirurgen' % ('äldre än en vecka' if gammal else 'körd', nya)))
+                       detalj='%s; %d obedömda kandidater åt kirurgen' % ('äldre än två av spanarens intervall' if gammal else 'körd', nya)))
     stamplar = []
     for f in sorted((vl.ROOT / 'kunskap').glob('*.md')):
         try:

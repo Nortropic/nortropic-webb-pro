@@ -181,7 +181,11 @@ class Bevakning(unittest.TestCase):
         self.assertEqual(meta['spanaren']['utfall'], 'fynd')
         self.assertIn('äldre än två intervall', meta['spanaren']['text'])
         self.assertEqual(meta['underhallet']['utfall'], 'fynd')
-        self.assertEqual(meta['startkontrollens-grans']['utfall'], 'fynd', 'startkontrollen tål 7 dygn för en daglig spaning')
+        self.assertNotIn('startkontrollens-grans', meta, 'startkontrollens gräns följer spanarens intervall (två intervall)')
+        import verktygslada
+        with patch.dict(verktygslada.GILTIGHET, {'spaning': 7 * 24 * 3600}):  # gränsen före 2026-10-09: en vecka
+            meta = {m['id']: m for m in bevakning.meta(bevakning.kataloger(), nar)}
+        self.assertEqual(meta['startkontrollens-grans']['utfall'], 'fynd', 'en gräns på 7 dygn för en daglig spaning upptäcks')
 
     def test_tva_korningar_samtidigt(self):
         nar = datetime.now(timezone.utc)
