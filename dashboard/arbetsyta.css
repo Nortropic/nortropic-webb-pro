@@ -316,3 +316,13 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
   .ay-lage[data-lage="aktiv"] svg, .ay-lage[data-lage="verktyg"] svg { animation: ay-andas 2.4s ease-in-out infinite; }
   @keyframes ay-andas { 50% { opacity: .45; } }
 }
+
+.ay-bevakning { font-size: 13px; color: var(--ay-text); margin-bottom: 10px; }
+.ay-bev-lista { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.ay-bev-del { margin-top: 8px; }
+.ay-bev-del > summary { cursor: pointer; color: var(--ay-text); }
+.ay-bev-tackning { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.ay-bev-tackning li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.ay-bev-tackning li > span:first-child { flex: 1 1 260px; }
+.ay-bev-tackning li[data-lage="saknar_tackning"] b::before, .ay-bev-tackning li[data-lage="inaktuell"] b::before { content: "! "; }
+.ay-bev-tackning li > .svag { flex-basis: 100%; }

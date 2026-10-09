@@ -250,6 +250,13 @@ const srv = createServer(async (req, res) => {
   if (vag === '/api/flode') return json({ slugar: [SLUG], pilot: [], kedjan: { steg: [{ steg: 'Kundunderlaget', vem: 'Kundstart samlar underlaget; du godkänner det.' },
     { steg: 'Prototypen', vem: 'Ateljén skapar kandidater med neutrala etiketter; granskarna dömer var för sig.' }] } });
   if (vag === '/api/oversikt') return json({ byggen: [], backlog_vilande: 0, intag_pagar: 0, prospekt_vantar: 0 });
+  if (vag === '/api/bevakning') return json({ senast: { start: T(30), slut: T(29), automatisk: true, utfall: 'delvis', sen_timmar: 0.2 }, nasta: T(-600), tidszon: 'Europe/Stockholm',
+    klockslag: '07:00', aktiv: true, forbattringar: { bevakade: 3, bedomda: 1, provade: 0, inforda: 0, verifierade: 0 },
+    beslut: [{ id: 'besokarprov', fraga: 'När prövar vi en sajt med verkliga besökare?', lucka: 'ingen verklig användarobservation' }],
+    tackning: { ux: { namn: 'UX-forskning, informationsarkitektur, innehåll och konvertering', fragor: 1, luckor: ['ingen verklig användarobservation'], lage: 'inaktuell' },
+      frontend: { namn: 'Frontend, komponenter, ramverk, prestanda och testning', fragor: 2, luckor: [], lage: 'bevakad' } },
+    dag: { besked: '1 nya fynd', handlingsbart: [{ fraga: 'matinstrumenten', typ: 'beroende_avvisad', text: 'axe-core: avvisad 4.13.0 → 4.14.0', belagg: 'underlag/startkontroll/UNDERHALL.md' }],
+      kontroller_som_inte_lyckades: [{ id: 'modeller', utfall: 'misslyckad', problem: ['Claude platform release notes: senaste hämtningen föll'] }] } });
   if (vag.startsWith('/api/')) return json({});
   if (vag === `/visa/${SLUG}/k01`) {
     forhandsvisningar++;
@@ -415,9 +422,10 @@ try {
   assert(await page.locator('.ay-grupper .ay-notis').filter({ hasText: 'Ditt första val i körningen är inte gjort' }).isVisible(), 'blindningen ska stå i Byggflöde');
   const kortnamn = await page.locator('.ay-grupper .ay-session .namn').allTextContents();
   assert(kortnamn.length >= 2 && kortnamn.every((t) => /^(Utförare|Granskare|Nortropic-partnern)\b/.test(t.trim())), `Byggflödets sessionskort ska visa ansvaret, inte rollen, före första valet: ${kortnamn.join(' | ')}`);
-  const system = page.getByRole('region', { name: 'Systemförbättring, skilt från kundproduktionen' });
-  assert.deepEqual(await system.getByRole('link').evaluateAll((a) => a.map((x) => [x.textContent.trim(), x.getAttribute('href')])).then((l) => l.filter(([t]) => ['Kirurgen', 'Backlog'].includes(t))),
-    [['Kirurgen', '#/kirurgen'], ['Backlog', '#/backlog']], 'Kirurgen och Backlog ska nås från systemförbättringen');
+  const system = page.getByRole('region', { name: 'Bevakning och systemförbättring, skilt från kundproduktionen' });
+  assert.deepEqual(await system.getByRole('link').evaluateAll((a) => a.map((x) => [x.textContent.trim(), x.getAttribute('href')])).then((l) => l.filter(([t]) => ['Kirurgen och förbättringsloopen', 'Backlog'].includes(t))),
+    [['Kirurgen och förbättringsloopen', '#/kirurgen'], ['Backlog', '#/backlog']], 'Kirurgen och Backlog ska nås från systemförbättringen');
+  await system.locator('.ay-bevakning, .ay-notis, .svag').first().waitFor({ timeout: 10000 });  // bevakningens läge ritas, eller varför det inte gick
   assert.equal(await system.locator('.ay-stegrad, .ay-grupp, a[href^="#/flode"], a[href^="#/prototyp"], a[href^="#/kundstart"]').count(), 0,
     'systemförbättringen ska stå skild från kundproduktionen');
   await page.locator('.ay-meny summary').filter({ hasText: 'Fler vyer' }).click();

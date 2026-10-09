@@ -226,7 +226,10 @@
     else ritaAnslutning();
     if (A.vy === '') { ritaMaterial(); behallFokus(document.getElementById('ay-remsa'), () => { document.getElementById('ay-remsa').innerHTML = remsa(); });
       behallFokus(document.getElementById('ay-roller'), () => { document.getElementById('ay-roller').innerHTML = roller(); }); ritaVanster(); }
-    if (A.vy === 'flode') behallFokus(document.getElementById('ay-flode'), () => { document.getElementById('ay-flode').innerHTML = flode(); });
+    if (A.vy === 'flode') {
+      if (!A.bevakningLast || Date.now() - A.bevakningLast > 300000) laddaBevakning();  // en gång och sedan var femte minut
+      behallFokus(document.getElementById('ay-flode'), () => { document.getElementById('ay-flode').innerHTML = flode(); });
+    }
     if (A.vy === 'kod') { ritaMaterial(); ritaKodaktivitet(); laddaLogg(); if (A.kod.kandidat !== kodKandidat()) laddaKod(); }
   }
   function huvud() {
@@ -580,11 +583,40 @@
           : '<div class="ay-tom">Inga sessioner i körningen än. När en körning startar dyker dess sessioner upp här av sig själva.</div>'}
         ${vald ? `<section class="ay-panel" aria-labelledby="ay-detalj-rubrik"><div class="ay-panelhuvud"><h2 id="ay-detalj-rubrik">${e_(roll(vald))}${vald.kandidat ? ' · ' + e_(etikett(vald.kandidat)) : ''}</h2>${lagechip(vald.lage, vald.lage_text)}<button class="ay-knapp liten" type="button" data-folj-slut>Stäng</button></div><div class="ay-panelkropp ay-detalj">${detalj(vald)}</div></section>` : ''}
         <section class="ay-panel"><details class="metod"><summary>Så är flödet tänkt (metodkartan, README)</summary><div class="ay-panelkropp" id="ay-metod">${metod()}</div></details></section>
-        <section class="ay-panel" aria-labelledby="ay-system"><div class="ay-panelhuvud"><h2 id="ay-system">Systemförbättring, skilt från kundproduktionen</h2></div><div class="ay-panelkropp ay-knapprad"><a class="ay-knapp liten" href="#/oversikt">Underhåll och verktygslådan</a><a class="ay-knapp liten" href="#/kirurgen">Kirurgen</a><a class="ay-knapp liten" href="#/backlog">Backlog</a><a class="ay-knapp liten" href="#/kalibrering">Kalibrering</a><a class="ay-knapp liten" href="#/dokumentation">Dokumentation och rapporter</a></div></section>
+        <section class="ay-panel" aria-labelledby="ay-system"><div class="ay-panelhuvud"><h2 id="ay-system">Bevakning och systemförbättring, skilt från kundproduktionen</h2></div><div class="ay-panelkropp">${bevakningsvy()}<div class="ay-knapprad"><a class="ay-knapp liten" href="#/oversikt">Underhåll och verktygslådan</a><a class="ay-knapp liten" href="#/kirurgen">Kirurgen och förbättringsloopen</a><a class="ay-knapp liten" href="#/backlog">Backlog</a><a class="ay-knapp liten" href="#/kalibrering">Kalibrering</a><a class="ay-knapp liten" href="#/dokumentation">Dokumentation och rapporter</a></div></div></section>
       </div>
       <section class="ay-panel" aria-labelledby="ay-tl"><div class="ay-panelhuvud"><h2 id="ay-tl">Sessionsflöde</h2>${anslutning()}</div><div class="ay-panelkropp">
         <ul class="ay-tidslinje">${tidslinje().map((x) => `<li><time datetime="${e_(x.tid)}">${e_(klocka(x.tid).slice(0, 5))}</time><span>${e_(x.text)}</span></li>`).join('') || '<li><span class="dampad">Inget observerat än.</span></li>'}</ul>
         ${(l.helbygge || []).length ? `<h3 style="margin:14px 0 6px">Helbyggets körningar (historik)</h3><ul class="ay-tidslinje">${l.helbygge.map((k) => `<li><time>${e_(k.id.slice(9, 13))}</time><span>${e_(k.id)}: ${e_(LAGEN[k.lage] || k.lage)}${k.slutkod != null ? ', slutkod ' + e_(k.slutkod) : ''}${k.uteblev ? ', slutposten uteblev' : ''}</span></li>`).join('')}</ul>` : ''}</div></section>`;
+  }
+  // --- bevakningen: Nortropics löpande bevakning (kontroller/bevakning.py), läst ur /api/bevakning ---
+  const BEVLAGE = { bevakad: 'bevakad', ofullstandig: 'ofullständig', inaktuell: 'inaktuell', saknar_tackning: 'saknar täckning' };
+  const BEVUTFALL = { misslyckad: 'misslyckad', ofullstandig: 'ofullständig', ej_utford: 'inte gjord', fynd: 'fynd', inget_nytt: 'inget nytt' };
+  async function laddaBevakning() {
+    A.bevakningLast = Date.now();
+    try { A.bevakning = await hamta('/api/bevakning'); } catch (e) { A.bevakning = { fel: e.message }; }
+    if (A.vy === 'flode') rita();
+  }
+  function bevakningsvy() {
+    const b = A.bevakning;
+    if (!b) return '<p class="svag" style="margin:0 0 10px">Läser bevakningen…</p>';
+    if (b.fel) return `<p class="ay-notis fel" style="margin:0 0 10px">Bevakningen gick inte att läsa: ${e_(b.fel)}</p>`;
+    const s = b.senast, d = b.dag || {};
+    const lage = !s ? 'Inte aktiv: bevakningen har aldrig körts.'
+      : !b.aktiv ? `Inte aktiv: den senaste körningen (${e_(kort(s.start))}) var manuell, och ingen schemalagd körning har gjorts än.`
+        : `Aktiv: den senaste schemalagda körningen var ${e_(kort(s.start))}${s.sen_timmar ? `, ${e_(s.sen_timmar)} timmar efter klockslaget` : ''}; utfall ${e_(s.utfall)}.`;
+    const fynd = (d.handlingsbart || []).slice(0, 8), ej = d.kontroller_som_inte_lyckades || [], fb = b.forbattringar || {};
+    const tack = Object.values(b.tackning || {});
+    return `<div class="ay-bevakning">
+      <p style="margin:0">${lage} Nästa planerade körning: ${e_(kort(b.nasta))} (${e_(b.klockslag)} ${e_(b.tidszon)}).</p>
+      ${d.besked ? `<p style="margin:8px 0 0"><b>I dag: ${e_(d.besked)}.</b></p>` : ''}
+      ${fynd.length ? `<ul class="ay-bev-lista">${fynd.map((f) => `<li><b>${e_(f.fraga)}</b>: ${e_(String(f.text).slice(0, 280))}${f.konsekvens ? ` <span class="svag">Konsekvens: ${e_(f.konsekvens)}.</span>` : ''}${f.belagg ? ` <span class="svag">Belägg: <code>${e_(String(f.belagg).slice(0, 160))}</code></span>` : ''}</li>`).join('')}</ul>` : ''}
+      ${ej.length ? `<details class="ay-bev-del"><summary>Kontroller som inte lyckades eller inte gjordes (${ej.length})</summary><ul class="ay-bev-lista">${ej.map((x) => `<li><b>${e_(x.id)}</b>: ${e_(BEVUTFALL[x.utfall] || x.utfall)}. ${e_((x.problem || []).join('; ').slice(0, 300))}</li>`).join('')}</ul></details>` : ''}
+      <details class="ay-bev-del"><summary>Täckning per område (${tack.filter((t) => t.lage === 'bevakad').length} av ${tack.length} bevakade)</summary>
+        <ul class="ay-bev-tackning">${tack.map((t) => `<li data-lage="${e_(t.lage)}"><span>${e_(t.namn)}</span><b>${e_(BEVLAGE[t.lage] || t.lage)}</b>${t.luckor.length ? `<span class="svag">Lucka: ${e_(t.luckor.join('; '))}</span>` : ''}</li>`).join('')}</ul></details>
+      <p class="svag" style="margin:8px 0 0">Förbättringsloopen, bevakningens poster: ${e_(fb.bevakade ?? 0)} bevakade, ${e_(fb.bedomda ?? 0)} bedömda, ${e_(fb.provade ?? 0)} prövade, ${e_(fb.inforda ?? 0)} införda, ${e_(fb.verifierade ?? 0)} verifierade (Kirurgen).</p>
+      ${(b.beslut || []).length ? `<details class="ay-bev-del"><summary>Behöver ditt beslut (${b.beslut.length})</summary><ul class="ay-bev-lista">${b.beslut.map((x) => `<li><b>${e_(x.fraga)}</b> <span class="svag">${e_(x.lucka)}</span></li>`).join('')}</ul></details>` : ''}
+    </div>`;
   }
   function detalj(s) {
     const h = s.aktivitet?.handelser || [];

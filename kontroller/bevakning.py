@@ -483,7 +483,16 @@ def lage():
     datum = sorted((k['ut'] / 'dag').glob('*.json')) if (k['ut'] / 'dag').is_dir() else []
     dag = las_json(datum[-1], {}) if datum else None
     rader = d.get('fragor') or {}
+    fb = las_json(k['forbattringar'] / 'FORBATTRINGAR.json', {}) or {}
+    poster = [x for x in (fb.get('poster') or {}).values() if str(x.get('problem') or '').startswith('bevakning-')]
+    forbattringar = {'bevakade': len(poster), 'bedomda': sum(1 for x in poster if x.get('diagnoser') or x.get('disposition') != 'oppen'),
+                     'provade': sum(1 for x in poster if x.get('forsok')), 'inforda': sum(1 for x in poster if x.get('inforande') not in (None, 'inte_infort')),
+                     'verifierade': sum(1 for x in poster if x.get('effekt') not in (None, 'inte_observerad')),
+                     'register': 'kirurgen/forbattringar/FORBATTRINGAR.json'}
+    beslut = [{'id': q['id'], 'fraga': q['fraga'], 'lucka': q.get('lucka'), 'ansvar': q.get('ansvar')} for q in fragor.values()
+              if q.get('lucka') and 'ägaren' in (q.get('ansvar') or '')]
     return {'senast': d.get('senast'), 'nasta': nasta_korning(), 'tidszon': 'Europe/Stockholm', 'klockslag': '%02d:%02d' % klockslag(),
+            'forbattringar': forbattringar, 'beslut': beslut,
             'aktiv': bool(d.get('senast') and (d['senast'] or {}).get('automatisk')), 'meta': d.get('meta') or [],
             'fragor': [dict(q, **{x: (rader.get(qid) or {}).get(x) for x in ('utfall', 'senast_lyckad', 'nasta', 'problem')}) for qid, q in fragor.items()],
             'registerfel': regfel, 'tackning': tackning(fragor, rader), 'dag': dag}

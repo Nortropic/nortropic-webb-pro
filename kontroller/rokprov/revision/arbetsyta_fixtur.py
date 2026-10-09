@@ -49,6 +49,9 @@ def bygg(rot, slug=SLUG, mallsajt=MALLSAJT, med_sajt=True):
         d = u / 'atelje' / 'kandidater' / kid
         skriv(d / 'STATUS.json', {'id': kid, 'status': status, 'skal': 'testdata', 'tid': '2026-10-09T05:30:00Z', 'titel': 'Testdata %s' % kid,
                                   'logg': [{'tid': '2026-10-09T05:30:00Z', 'status': status, 'skal': 'testdata'}]})
+        # riktningen med huvudreferensraden, som motorn kräver av en förfinad version (kandidater.riktningens_referens)
+        (d / 'RIKTNING.md').write_text('# Riktning (testdata)\n\nHuvudreferens: egen — en enkel testriktning utan extern referens, '
+                                       'för provets fiktiva material.\n', encoding='utf-8')
     if med_sajt:
         sajt = k / 'kandidater' / 'k01' / 'sajt'
         sajt.mkdir(parents=True)
