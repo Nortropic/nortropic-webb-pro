@@ -141,6 +141,7 @@ motorns sessioner, så att samma instruktion aldrig går två vägar.
 | **Följ** | sessionens kort | sessionens observerade händelser ur transkriptet | skickar inget |
 | **Skriv** | sessionens kort, Meddelanden | en fråga eller ändringsinstruktion till sessionen som arbetar, eller till kandidatens utförare | ändrar inget själv; utföraren gör det i sin session |
 | **Historik** | sessionens kort (efter ditt första val) | sessionens samtal ur transkriptet, maskerat och avkortat, med verktygens namn | visar inga verktygssvar |
+| **Fortsätta arbetet** | Meddelanden, Kontroller | en ändringsinstruktion till kandidatens utförare (sessionen som arbetar med kandidaten nu eller härnäst) och Förfina under Kontroller: motorns egen förfiningssession med dess behörigheter genomför den | ingen förgrening skriver i kandidatens filer, och två aktörer skriver aldrig samtidigt |
 | **Följdfråga** | Historik, för en avslutad session | en förgrening (`--resume <id> --fork-session`) med eget id, registrerad med föräldern och ansvaret, som bara läser (Read, Glob, Grep; dontAsk) i en egen tom katalog | förgrenar aldrig en session som arbetar; föräldern får aldrig en andra process |
 | **Pausa** | sessionens kort (en session), Kontroller (körningen) | se Paus och återupptagning | återställer inga filändringar eller externa handlingar |
 | **Återuppta** | samma ställen | fortsätter samma process från känt läge med det som kom under pausen | startar inget nytt |

@@ -873,7 +873,8 @@
   function projektpaus() {
     const p = A.lage?.samverkan?.projektpaus, d = A.samverkan?.styrning?.projekt;
     if (p) {
-      const kvar = (A.samverkan?.pausade || []).flatMap((x) => (x.verktyg_kvar || []).filter((v) => v.pid).map((v) => v.kommando));
+      const kvar = [...(A.samverkan?.pausade || []).flatMap((x) => (x.verktyg_kvar || []).filter((v) => v.pid).map((v) => v.kommando)),
+        ...(d?.tjanster || []).map((v) => v.kommando + ' (arbetarens eget steg)')];
       return `<div class="ay-notis${d?.lage === 'pausad' ? '' : ' varn'}"><b>${d?.lage === 'pausad' ? 'Pausad' : 'Paus begärd'}</b>: ${e_(d?.lage_text || 'ingen ny session startar')}${p.vantande_start ? '; en session väntar på återupptagningen' : ''}.${kvar.length ? ' Arbetar fortfarande: ' + e_(kvar.join(', ')) + '.' : ''} En paus återställer inga filändringar.</div>
         <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-aterta-projekt data-fokus="aterta-projekt">Återuppta körningen</button></div>`;
     }

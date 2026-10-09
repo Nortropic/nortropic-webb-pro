@@ -128,17 +128,37 @@ def lage(dash, slug):
     projekt = None
     if p and p.get('omfattning') == 'projekt':
         arbetar = [s for s in levande if s.get('lage') != 'pausad']
+        tjanster = _tjanster(dash, slug, levande)
         projekt = {'begard': p.get('begard'), 'lage': 'pausad' if not arbetar else 'paus_begard',
                    'lage_text': 'pausad: inga sessioner arbetar och ingen ny startar' if not arbetar else
                    'paus begärd: %d session(er) arbetar ännu' % len(arbetar),
                    'vantande_start': p.get('vantande_start'), 'arbetar': [{'session_id': s['session_id'], 'ansvar': s.get('ansvar'), 'kandidat': s.get('kandidat'),
-                                                                          'lage': s.get('lage')} for s in arbetar]}
+                                                                          'lage': s.get('lage')} for s in arbetar],
+                   'tjanster': tjanster}
     return {'tid': M.nu(), 'korning': kn, 'blind': blind, 'meddelanden': alla,
             'oppna': [m['id'] for m in alla if m['agent'] and (m.get('mottagare') or {}).get('typ') == 'agare' and not m.get('beslut')],
             'mandat': [dict(x, aktivt=not x.get('aterkallat') and x.get('korning') == kn) for x in M.mandat(slug)],
             'styrning': {'projekt': projekt, 'sessioner': {sid: dict(v, omfattning='session') for sid, v in (styr.get('sessioner') or {}).items()}},
             'pausade': [{'session_id': s['session_id'], 'verktyg_kvar': s.get('verktyg_kvar'), 'sedan': s.get('sedan')} for s in pausade],
             'syften': M.SYFTEN, 'lagen': M.LAGEN}
+
+
+def _tjanster(dash, slug, levande):
+    """Arbetarens egna processer utanför sessionerna (ett bygge, en fotografering) som fortfarande arbetar under en
+    projektpaus: de pausas inte, de redovisas. None när processlistan inte gick att läsa."""
+    _kontroller()
+    import lopare
+    st = dash.las_json(dash.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
+    if not st.get('pid') or not _lever(st['pid']):
+        return []
+    alla = lopare._barn(st['pid'])
+    if alla is None:
+        return None
+    sessioner = {s.get('pid') for s in levande if s.get('pid')}
+    under = set(sessioner)
+    for sp in sessioner:
+        under |= {d['pid'] for d in lopare._barn(sp) or []}
+    return [d for d in alla if d['pid'] not in under and 'claude' not in str(d.get('kommando'))][:20]
 
 
 def skicka(dash, slug, data):

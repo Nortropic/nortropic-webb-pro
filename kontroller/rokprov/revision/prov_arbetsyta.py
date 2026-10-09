@@ -1002,6 +1002,17 @@ class Arbetsyta(unittest.TestCase):
         self.assertEqual(status, 200, kropp)
         p = json.loads(kropp)['styrning']['projekt']
         self.assertEqual(p['lage'], 'pausad', 'inga sessioner arbetar: pausen gäller direkt')
+        # arbetarens eget steg utanför sessionerna (här en sleep under arbetaren) pausas inte men redovisas
+        arb = ORIG_POPEN(['/bin/sh', '-c', 'sleep 60 & wait'], stdin=subprocess.DEVNULL, start_new_session=True)
+        self.addCleanup(lambda: (os.killpg(arb.pid, 9), arb.wait()))
+        self.skriv_status(pid=arb.pid, steg='forfina')
+        tj = []
+        for _ in range(50):
+            tj = json.loads(anropa('GET', '/api/arbetsyta/%s/meddelanden' % SLUG)[2])['styrning']['projekt']['tjanster']
+            if tj:
+                break
+            time.sleep(0.1)
+        self.assertTrue(any('sleep 60' in x['kommando'] for x in tj), tj)
         self.assertTrue(meddelanden.paus_galler(SLUG))
         self.assertEqual(anropa('POST', '/api/arbetsyta/%s/paus' % SLUG, {'omfattning': 'session', 'session_id': str(uuid.uuid4())}, skriv)[0], 400,
                          'en session utan löpare kan inte pausas')
