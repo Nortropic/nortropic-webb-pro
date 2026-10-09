@@ -118,7 +118,10 @@ eller mejlnyckel och är demo också om en variabel skulle finnas (GR-20261008-r
    (kirurgens intag 2026-10-03, Websites for Normal People). Ärendet bär `gallras` (integritetssidans lagringstid,
    `GALLRING_DAGAR`); ingen annan än verksamheten och Nortropic läser det.
 6. Mejl till verksamheten via en dedikerad tjänst (Resend) med SPF, DKIM och DMARC på domänen; texten som ren text,
-   bilden som bilaga.
+   bilden som bilaga. Resend lagrar kontots data, också mejlens metadata och loggar, i USA oavsett vald sändregion
+   (standardavtalsklausuler och EU–US Data Privacy Framework; https://resend.com/docs/dashboard/domains/regions, läst
+   2026-10-10). Integritetstexten säger det, och biträdesavtalet är accepterat före lanseringen; D1 och R2 skapas med
+   EU-jurisdiktion.
 7. Svara enligt de separata utfallen ovan. Vid mejlfel finns ärendet kvar i D1; hanteringsrutinen ska vara klar före
    lansering.
 8. Konverteringshändelser för skickad förfrågan och telefonklick, i kakfri mätning.

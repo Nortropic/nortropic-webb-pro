@@ -5714,7 +5714,7 @@ assert not (ROOT / 'mall' / 'leverans' / 'vercel.json').exists() and not (ROOT /
 import re as re_ex  # noqa: E402
 wr_ex = json.loads(re_ex.sub(r'(?m)^\s*//.*$', '', (ROOT / 'mall' / 'leverans' / 'wrangler.jsonc').read_text()))
 assert re_ex.fullmatch(r'\d{4}-\d{2}-\d{2}', wr_ex['compatibility_date']) and wr_ex['workers_dev'] is False and wr_ex['preview_urls'] is False, wr_ex
-assert wr_ex['assets']['run_worker_first'] == ['/api/*'] and wr_ex['assets']['directory'] == './dist' and wr_ex['vars']['MILJO'] == 'produktion'
+assert wr_ex['assets']['run_worker_first'] == ['/api', '/api/*'] and wr_ex['r2_buckets'][0].get('jurisdiction') == 'eu' and wr_ex['assets']['directory'] == './dist' and wr_ex['vars']['MILJO'] == 'produktion'
 fh_ex = wr_ex['env']['forhandsvisning']
 assert fh_ex['vars'] == {'MILJO': 'forhandsvisning'} and not {'d1_databases', 'r2_buckets'} & set(fh_ex), 'förhandsvisningen har ingen databas, bucket eller mejlhemlighet'
 assert ex_k3.wrangler_namn((ROOT / 'mall' / 'leverans' / 'wrangler.jsonc').read_text(), 'kund-x').count('kund-kund-x') == 4

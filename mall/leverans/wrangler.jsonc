@@ -14,7 +14,9 @@
     "binding": "ASSETS",
     "not_found_handling": "404-page",
     "html_handling": "auto-trailing-slash",
-    "run_worker_first": ["/api/*"]
+    // Bara formulärets vägar kör Workern först; en annan saknad väg ger 404-sidan (navigering) eller Workern, som då
+    // själv svarar med 404-sidan ur ASSETS. Över gratisnivåns dagliga gräns får de här vägarna 429 (Cloudflares gränser).
+    "run_worker_first": ["/api", "/api/*"]
   },
   "vars": {
     "MILJO": "produktion",
@@ -22,17 +24,18 @@
     "FORFRAGAN_FRAN": "",
     "GALLRING_DAGAR": "365"
   },
-  // database_id och bucket skapas vid aktiveringen (wrangler d1 create / r2 bucket create, EU-jurisdiktion enligt
-  // kundens krav) och skrivs in här; RESEND_API_KEY är en hemlighet (wrangler secret put), aldrig en variabel.
+  // database_id och bucket skapas vid aktiveringen med EU-jurisdiktion (wrangler d1 create --jurisdiction eu,
+  // wrangler r2 bucket create --jurisdiction eu); jurisdiktionen kan inte ändras efteråt och R2-bindningen ska bära den.
+  // RESEND_API_KEY är en hemlighet (wrangler secret put), aldrig en variabel.
   "d1_databases": [
     { "binding": "DB", "database_name": "kund-SLUG-forfragningar", "database_id": "AKTIVERAS-VID-LANSERING", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [
-    { "binding": "BILAGOR", "bucket_name": "kund-SLUG-bilagor" }
+    { "binding": "BILAGOR", "bucket_name": "kund-SLUG-bilagor", "jurisdiction": "eu" }
   ],
   "env": {
-    // Skyddad förhandsvisning: en egen Worker utan databas, bucket eller mejlhemlighet (bindningar ärvs inte mellan
-    // miljöer), så att den aldrig kan läsa eller skriva produktionens data eller skicka ett riktigt mejl. Adressen skyddas
+    // Skyddad förhandsvisning: en egen Worker utan databas, bucket eller mejlhemlighet (vars, d1_databases och
+    // r2_buckets ärvs inte mellan miljöer; assets, workers_dev och preview_urls gör det och sätts därför här), så att den aldrig kan läsa eller skriva produktionens data eller skicka ett riktigt mejl. Adressen skyddas
     // med Cloudflare Access före första uppladdningen av verkligt material (lansering.md).
     "forhandsvisning": {
       "name": "kund-SLUG-forhandsvisning",

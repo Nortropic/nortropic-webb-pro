@@ -1,8 +1,9 @@
 # Lansering: procedur, kontroll, oåterkalleligt och återgång
 
-Gäller när en verksamhet har sagt ja till sajten och ägaren beslutar att den ska ut. Inget bygge har lanserats än,
-och Vercel väntar tills en kund ska ut (ägarens beslut, `BESLUT.md`). Privat förhandsvisning och slutrapport kommer
-alltid först. Verktygen i repot: `kontroller/prova.py` (provet, också mot en förhandsvisning),
+Gäller när en verksamhet har sagt ja till sajten och ägaren beslutar att den ska ut. Inget bygge har lanserats på den
+nya vägen än. Målplattformen är Cloudflare Workers (ägarens beslut 2026-10-09, `BESLUT.md`); sajterna som redan ligger
+på Vercel stannar där (ägarens besked samma kväll). Privat förhandsvisning och slutrapport kommer alltid först.
+Verktygen i repot: `kontroller/prova.py` (provet, också mot en förhandsvisning),
 `kontroller/seo_kontroll.py --lage lansering`, `kontroller/webblasare/arkivera.mjs` (arkiv av den gamla sajten).
 Det som inget verktyg gör står som **människa**: ägaren eller verksamheten gör det, ingen session.
 
@@ -25,11 +26,13 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
    `.venv/bin/python kontroller/korslut.py --visa kunder/<slug>` prövar domen mot posten, och har bygget, metoden eller
    startsidans godkännande ändrats sedan körningen är bygget inte klart för leverans.
 3. **Exporten** (ägaren eller en session): `.venv/bin/python kontroller/exportera.py <slug> [--git]`. Den lägger
-   sajtens källor, leveransens låsta beroenden, formulärets funktion, README, `.env.example`, `vercel.json` och
-   LICENSER.md i `kunder/<slug>/kundrepo/` (en tidigare export flyttas till `kundrepo-tidigare/<tid>/` och raderas
-   aldrig), fäller exporten om en fil nämner lokala sökvägar, Nortropics privata underlag eller en nyckel, och bygger
-   kundrepot i en tom katalog utanför repot. `--git` gör ett lokalt repo med en första commit på `main`; inget skickas
-   någonstans. Slutkod 0 klar, 1 läckage eller bygget föll, 2 fel i anropet.
+   sajtens källor, leveransens låsta beroenden (med Wrangler), Workern (`worker/index.js`), D1-schemat (`migrations/`),
+   `wrangler.jsonc` med kundens namn, `public/_headers`, README, `.env.example` och LICENSER.md i
+   `kunder/<slug>/kundrepo/` (en tidigare export flyttas till `kundrepo-tidigare/<tid>/` och raderas aldrig), fäller
+   exporten om en fil nämner lokala sökvägar, Nortropics privata underlag eller en nyckel, och bygger kundrepot i en
+   tom katalog utanför repot: `npm ci`, `astro build` innanför processgränsen, `dist/` utan filer som inte får bli
+   publika och `wrangler deploy --dry-run` (förpackningen utan konto). `--git` gör ett lokalt repo med en första
+   commit på `main`; inget skickas någonstans. Slutkod 0 klar, 1 läckage eller bygget föll, 2 fel i anropet.
 4. **Versionskvitto och omfattning:** `kunder/<slug>/exporter/<id>/EXPORT.json` sparar exportens kontroller,
    källornas hash, exportens filmanifest och eventuell koppling till helbyggets körning och dist. Inget privat
    protokoll följer med till kundrepot. Samma kunds export låses under kopieringen; förändrade källor eller ett
@@ -38,67 +41,111 @@ Kedjan före det här steget, och vem som startar vad: `README.md`.
    godkännanden räknas om vid visning och blir historiska om version eller beslut inte längre gäller. Drift,
    mottagning av formulär och domän är separata prov. SIGKILL kan inte fångas mitt i katalogbytet; tidigare export
    finns då kvar i kundrepo-tidigare/, men återställning kan behövas innan nästa försök.
-5. **Kundrepot till GitHub och Vercel**: `kontroller/kundrepo.py` skapar kundens eget repo vid projektstarten (lokalt,
-   och privat `Nortropic/kund-<slug>` för en verklig verksamhet), gör exporten till en commit och pushar den när
-   fjärrepot är bundet, kopplar repot till Vercel-projektet `kund-<slug>` i teamet nortropic och driftsätter en
-   förhandsvisning bunden till commit och export (`--preview`, kvitto i `kunder/<slug>/leverans/`): det som laddas upp
-   är commitens filer ur git, prövade mot exportens manifest, under kundens lås, så att kvittot gäller exakt de bytes
-   som laddades upp (R07). Projektstarten, varje push och fjärrepot prövas först med exportens läckagekontroll, och
-   briefens text följer aldrig med till CLAUDE.md (R08). Produktion,
-   skyddet och domänen: människa, eller en session med ägarens ja, enligt Vercel-steget nedan. `kontroller/driftkoll.py`
-   prövar svaren från en driftsatt adress och skriver bara ut.
+5. **Kundrepot till GitHub och Cloudflare**: `kontroller/kundrepo.py` skapar kundens eget repo vid projektstarten
+   (lokalt, och privat `Nortropic/kund-<slug>` för en verklig verksamhet), gör exporten till en commit och pushar den
+   när fjärrepot är bundet, och laddar upp en förhandsvisning bunden till commit och export (`--preview`, kvitto i
+   `kunder/<slug>/leverans/`): Workern `kund-<slug>-forhandsvisning` på kontots workers.dev-adress, med `wrangler deploy
+   --env forhandsvisning` ur commitens filer, prövade mot exportens manifest, under kundens lås, så att kvittot gäller
+   exakt de bytes som laddades upp (R07). Utan `cloudflare.env` väntar kvittot på kontot; för en verklig verksamhet
+   laddas ingenting upp förrän Cloudflare Access skyddar adressen, och skyddet prövas igen efter uppladdningen.
+   Projektstarten, varje push och fjärrepot prövas först med exportens läckagekontroll, och briefens text följer aldrig
+   med till CLAUDE.md (R08). Produktion, D1, R2, Access och domänen: människa, eller en session med ägarens ja, enligt
+   Cloudflare-steget nedan. `kontroller/driftkoll.py` prövar svaren från en driftsatt adress och skriver bara ut.
 
-## Vercel-steget
+## Cloudflare-steget
 
-Byggstandardens L-punkter 1.4, 4.5, 4.6 och 8.1 pekar hit. Stacken är Astro med förrenderade sidor och Vercel-adaptern
-för formulärets funktion; kundrepot görs av exporten ovan.
+Byggstandardens L-punkter 1.4, 4.5, 4.6 och 8.1 pekar hit. Stacken är Astro med förrenderade sidor som Static Assets och
+en avgränsad Worker för formuläret (`mall/leverans/`, `kunskap/forfragan.md`); kundrepot görs av exporten ovan. Fakta
+nedan är lästa i Cloudflares dokumentation 2026-10-10 (källorna sist i avsnittet). Workern är prövad lokalt i
+Cloudflares runtime (workerd, `kontroller/workersprov.py`); **ingenting här är prövat mot ett verkligt konto än**.
 
-**Förhandsvisning, produktion och skydd** (prövat med riktiga HTTP-svar 2026-10-05 i provprojektet
-`nortropic-leveransprov`; Vercels dokumentation läst samma dag):
+**Kontot (aktiveringen, människa eller session med ägarens ja).** Nortropics Cloudflare-konto ansluts med filen
+`~/.nortropic-hemligheter/webb-pro/cloudflare.env` (0600, utanför repot): `CLOUDFLARE_API_TOKEN` (en API-token
+avgränsad till kontot: Workers-skript, D1 och R2), `CLOUDFLARE_ACCOUNT_ID` och `CLOUDFLARE_WORKERS_UNDERDOMAN`.
+Tokenen går bara till Wrangler-processen (`kundrepo.cloudflare_miljo`), aldrig till byggets eller sajtens kod, och
+skrivs aldrig i ett kvitto. Ingen ägarinloggning: Wranglers konfiguration ligger i körningens tempkatalog.
 
-- **Ett bygge, två lägen.** Förhandsvisningen och produktionen är samma bygge. HTML:en har noindex bara på 404, `/tack/`
-  och `/fel/`, och robots.txt tillåter genomsökning i båda lägena; skillnaden ligger i driftsättningen.
-- **Skyddsmetoden är Vercel Authentication** (ingår i Pro). Lösenordsskydd är ett betalt tillägg på Pro (20 USD per
-  skyddat projekt och månad) och används inte. Kunden ser en förhandsvisning genom en delbar länk (Shareable Links,
-  alla planer); våra egna prov går genom förbikopplingen för automatisering (`x-vercel-protection-bypass`, hemligheten
-  bara i en privat fil, aldrig i repot eller loggen).
-- **Före lanseringen: skydd för alla driftsättningar** (`ssoProtection: all`). Standard Protection släpper
-  produktionsdomänerna, också projektets `<projekt>.vercel.app`, och den första CLI-driftsättningen i ett nytt projekt
-  blev produktion: i provet svarade aliaset 200 utan inloggning tills skyddet ändrades till alla driftsättningar.
-  Driftsätt förhandsvisningar med `vercel deploy --target preview` (`kundrepo.py <slug> --preview` gör det med commit och
-  export som metadata och sparar kvittot).
-- **Vid lanseringen: Standard Protection** (`all_except_custom_domains`): kundens domän är publik, förhandsvisningarna
-  skyddade.
-- **Svaren** (`kontroller/driftkoll.py <adress> --lage forhandsvisning|produktion`): förhandsvisningen svarar 302 till
-  Vercels inloggning utan förbikoppling och `X-Robots-Tag: noindex` (Vercel sätter det på genererade adresser);
-  produktionen svarar 200 utan noindex. Formulärsvaren som mättes 2026-10-05 gällde det äldre kontraktet och verifierar
-  inte dagens mottagare. Det aktuella kontraktet är `kunskap/forfragan.md`, Vid lansering: 422/413 med bevarad text
-  där kroppen kunde läsas, 503 utan lagringskvitto, 202 när lagringen är bekräftad men mejlaviseringen är okänd,
-  och 303 till `/tack/` efter både lagringskvitto och identifierad mejlacceptans. Förhandsvisningens demo sparar
-  och skickar inget; mejlvariabler finns bara i produktionen. Plattformens storleksgräns och Astros Origin-skydd
-  ska prövas i den faktiska driftsättningen före lansering.
+**Förhandsvisning och skydd.**
 
-- **Projekt (människa eller session med ägarens ja):** ett Vercel-projekt per verksamhet i teamet Nortropic, kopplat
-  till kundens privata repo; funktionen i Stockholm (`regions: ["arn1"]` i `vercel.json`) och ett privat Blob-lager i
-  samma region för inskicken.
-- **Grenar (1.4):** en gren per ändring; varje gren får en egen skyddad förhandsvisning; `main` är produktion.
+- **Två Workers.** Förhandsvisningen är en egen Worker (`--env forhandsvisning`, namnet `kund-<slug>-forhandsvisning`)
+  på kontots workers.dev-adress, utan D1, R2 eller mejlhemlighet: `vars`, `d1_databases` och `r2_buckets` ärvs inte
+  mellan miljöer, så den kan varken läsa produktionens ärenden eller skicka ett riktigt mejl. Workern går före varje
+  fil där och märker varje svar `X-Robots-Tag: noindex, nofollow`. Produktionen har `workers_dev: false` och
+  `preview_urls: false`: dess enda publika ingång är kundens domän.
+- **Skyddsmetoden är Cloudflare Access** (Zero Trust Free räcker för färre än 50 användare). Access slås på för
+  förhandsvisningens workers.dev-adress i Workerns inställningar (Domains). En anonym webbläsare får 302 till
+  `<team>.cloudflareaccess.com`. Våra egna prov går genom en servicetoken (policy med handlingen Service Auth) med
+  huvudena `CF-Access-Client-Id` och `CF-Access-Client-Secret`, i en privat fil (0600) som bara skickas till målets
+  ursprung (`driftkoll.py --access-fil`, `webblasare/gemensamt.mjs`). Kunden släpps in med en Access-policy för sin
+  e-postadress.
+- **Ordningen för en verklig verksamhet:** Access-applikationen först, sedan uppladdningen. `kundrepo.py --preview`
+  prövar att adressen svarar med Access före och efter uppladdningen och stannar annars med `vantar_pa_skydd`.
+- **Svaren** (`kontroller/driftkoll.py <adress> --lage forhandsvisning|produktion [--access-fil F] [--formular]`):
+  förhandsvisningen 302 till Access utan behörighet, med behörighet 200 och noindex; produktionen 200 utan noindex,
+  robots.txt och sitemap.xml 200, säkerhetshuvudena på plats. Formulärets kontrakt: `kunskap/forfragan.md`.
+
+**Data (aktiveringen).** D1 och R2 skapas per kund med EU-jurisdiktion: `wrangler d1 create kund-<slug>-forfragningar
+--jurisdiction eu` och `wrangler r2 bucket create kund-<slug>-bilagor --jurisdiction eu`. Jurisdiktionen sätts bara
+när resursen skapas och kan inte ändras efteråt; R2-bindningen i `wrangler.jsonc` bär `"jurisdiction": "eu"`.
+`database_id` skrivs in i kundrepots `wrangler.jsonc`, schemat läggs med `wrangler d1 migrations apply DB --remote`,
+mottagarna i `vars` (`FORFRAGAN_TILL`, `FORFRAGAN_FRAN`) och mejlnyckeln som hemlighet (`wrangler secret put
+RESEND_API_KEY`). Resend lagrar kontots data, också mejlens metadata och loggar, i USA oavsett vald sändregion
+(överföringen vilar på standardavtalsklausuler och EU–US Data Privacy Framework): det ska stå i integritetstexten och
+vara accepterat i personuppgiftsbiträdesavtalet före lanseringen.
+
+**Gränser på gratisnivån** (Workers Free; läst 2026-10-10, prövas mot kontots faktiska plan): statiska filer är
+gratis och obegränsade; Workern 100 000 anrop per dygn för hela kontot (därefter svarar `/api/*` 429 i stället för
+att falla tillbaka), 10 ms CPU per anrop (väntan på D1, R2 och fetch räknas inte); D1 500 MB per databas, 5 GB per
+konto, 10 databaser, 5 miljoner lästa och 100 000 skrivna rader per dygn; R2 10 GB-månader; 20 000 filer och 25 MiB per
+fil i en sajt; 5 schemalagda körningar (Cron Triggers) per konto. Tio databaser per konto räcker inte för många
+kunder på gratisnivån: en planfråga för ägaren före den elfte kunden, aldrig en uppgradering som bieffekt.
+
+- **Grenar (1.4):** en gren per ändring; varje gren förhandsvisas (`kundrepo.py --preview` laddar upp exportens
+  commit); `main` är produktion.
 - **Cache (4.5):** filerna under `/_astro/` har hash i namnet och får `Cache-Control: public, max-age=31536000,
-  immutable`; HTML får kort cache eller `must-revalidate`, så att en rättelse syns direkt. Pröva båda med `curl -sI`.
+  immutable` ur `_headers`; HTML får plattformens förval. Pröva båda med `curl -sI`.
 - **Mätning per ändring (4.6):** varje förhandsvisning prövas innan den slås ihop: `kontroller/prova.py` mot bygget,
-  och Lighthouse mot förhandsvisningens adress. En regression mot 4.1 stoppar sammanslagningen.
-- **HTTPS och värd (8.1):** Vercel ger certifikatet. En variant (med eller utan www) är kanonisk och den andra
-  omdirigerar med 308; canonical, sitemap och `site` i `astro.config.mjs` pekar på den kanoniska. HSTS
-  (`Strict-Transport-Security: max-age=63072000; includeSubDomains`) och `frame-ancestors 'none'` sätts som
-  svarshuvuden i `vercel.json`, eftersom meta-CSP:n i mallen inte kan bära `frame-ancestors`.
-- **Formuläret:** serverfunktionen på `/api/forfragan/` (`src/pages/api/forfragan.js`, ur `kontroller/exportera.py`) enligt
-  `kunskap/forfragan.md`, Vid lansering: spara först, mejla sedan och skilj mottagning från avisering i beskedet.
-  Hemligheter (mejltjänstens nyckel) ligger i Vercels miljövariabler, aldrig i repot. Funktionens egna tidsgränser
-  summerar till omkring 20 s plus kroppsläsningen; exporten sätter därför adapterns `maxDuration: 30` (`exportera.med_adapter`;
-  optionen belagd i `@astrojs/vercel` 11.0.11, och byggprovet läser funktionens `.vc-config.json`). Kontrollera ändå i
-  projektet att inget kortare förval gäller, annars kan plattformen avbryta med 504 efter att mejlet gått men före svaret
-  (GR-20261008-r117-claude#D3; inte prövat mot plattformen).
-- **Återgång:** föregående produktionsdriftsättning befordras tillbaka i Vercel (människa, eller Vercels CLI med
-  ägarens ja). Det återställer inte DNS.
+  och Lighthouse mot förhandsvisningens adress (genom Access). En regression mot 4.1 stoppar sammanslagningen.
+- **HTTPS och värd (8.1):** Cloudflare ger certifikatet för en Custom Domain. En variant (med eller utan www) är
+  kanonisk och den andra omdirigerar med 308; canonical, sitemap och `site` i `astro.config.mjs` pekar på den
+  kanoniska. HSTS och `frame-ancestors 'none'` sätts i `public/_headers` för de statiska filerna och i Workerns kod för
+  dess egna svar (`_headers` gäller inte svar som Workern skapar).
+- **Formuläret:** Workern på `/api/forfragan/` enligt `kunskap/forfragan.md`, Vid lansering: spara först i D1 och R2,
+  mejla sedan och skilj mottagning från avisering i beskedet.
+- **Återgång:** `wrangler rollback [<version-id>]` till en tidigare version (de 100 senaste går att välja; `wrangler
+  deployments list` visar historiken). Återgången rör inte data: D1 och R2 står kvar som de är, och en återgång
+  stoppas om en bunden bucket har tagits bort. Den återställer inte heller DNS.
+
+**Domänen (K01; människa med kundens och ägarens ja).** En Workers Custom Domain kräver att domänens zon är aktiv på
+Cloudflare (namnservrarna pekar dit), och den kan inte läggas på ett värdnamn som redan har en CNAME-post. Vägarna:
+
+1. **Zonen till Cloudflare** (gratisplanen; standardvägen): zonen importeras, varje post jämförs med den sparade
+   förteckningen (nedan), MX, SPF, DKIM och DMARC står kvar oförändrade, och först därefter byts namnservrarna hos
+   registraren. Registraren kan vara kvar.
+2. **Kunden behåller DNS hos sin nuvarande leverantör:** en partiell zon (CNAME-uppsättning) kräver Business-plan;
+   Cloudflare for SaaS ger 100 egna värdnamn utan kostnad, med Workern som ursprung genom en route, men apex-domänen
+   kan bara proxas med ett Enterprise-tillägg. Båda är planbeslut för ägaren, inte en standardväg.
+
+Källor (lästa 2026-10-10): [Static Assets: run_worker_first](https://developers.cloudflare.com/workers/static-assets/binding/),
+[_headers](https://developers.cloudflare.com/workers/static-assets/headers/),
+[gränser](https://developers.cloudflare.com/workers/platform/limits/),
+[statiska filers kostnad](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/),
+[Access för workers.dev](https://developers.cloudflare.com/workers/configuration/cloudflare-access/),
+[servicetokens](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/),
+[D1:s placering](https://developers.cloudflare.com/d1/configuration/data-location/),
+[D1:s gränser](https://developers.cloudflare.com/d1/platform/limits/),
+[R2:s jurisdiktion](https://developers.cloudflare.com/r2/reference/data-location/),
+[Wranglers miljöer](https://developers.cloudflare.com/workers/wrangler/configuration/),
+[Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/),
+[partiell zon](https://developers.cloudflare.com/dns/zone-setups/partial-setup/),
+[Cloudflare for SaaS](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/),
+[återgång](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/),
+[Resends regioner och lagring](https://resend.com/docs/dashboard/domains/regions).
+
+**Sajterna som ligger kvar på Vercel** (ägarens besked 2026-10-09: inga befintliga hemsidor flyttas) förvaltas som
+förut: Vercels CLI finns kvar i verktygslådan, driftkollen tar `--bypass-fil` för en äldre förhandsvisning, och
+återgång sker där genom att föregående produktionsdriftsättning befordras. Vercel-vägens tidigare mätningar
+(provprojektet `nortropic-leveransprov`, 2026-10-05) gäller bara den vägen.
 
 ## Före lanseringsdagen
 
@@ -134,15 +181,16 @@ ska omdirigeras. Verktyget förenar dem med sidkartan och sparar HTML, HAR och h
 anger varje adress, status, fel och SHA-256. Läs alla fel innan den gamla sajten försvinner. Arkivet är privat
 kundmaterial.
 
-**Lanseringskonfigurationen** är densamma som förhandsvisningens bygge (ett bygge, två lägen ovan): kanonisk värd
-vald, omdirigeringar från gamla adresser i `vercel.json` (301 eller 308), sökkonsolens verifieringstagg renderad,
-formulärets mottagare satt i Vercels miljövariabler (`RESEND_API_KEY`, `FORFRAGAN_TILL`, `FORFRAGAN_FRAN`) och Blob-lagret
-kopplat, provet grönt mot bygget och `kontroller/seo_kontroll.py --lage lansering` utan fynd. Skyddet byts från alla
-driftsättningar till Standard Protection när kundens domän pekar rätt.
+**Lanseringskonfigurationen** är samma bygge som förhandsvisningens: kanonisk värd vald, omdirigeringar från gamla
+adresser i `public/_redirects` (301 eller 308; högst 2 000 statiska regler, och de gäller inte vägar som Workern
+svarar på, [källa](https://developers.cloudflare.com/workers/static-assets/redirects/), läst 2026-10-10), sökkonsolens verifieringstagg renderad,
+D1 och R2 skapade med EU-jurisdiktion och bundna i `wrangler.jsonc`, schemat lagt, mottagarna i `vars` och
+`RESEND_API_KEY` som hemlighet, provet grönt mot bygget och `kontroller/seo_kontroll.py --lage lansering` utan fynd.
+Produktionens Worker får kundens domän som Custom Domain först när domänvägen ovan är vald och posterna sparade.
 
 ## Lanseringsdagen
 
-1. Driftsätt `main`; startsidan svarar 200 med rätt innehåll.
+1. Driftsätt `main` (`wrangler deploy` i kundrepot, med ägarens ja); startsidan svarar 200 med rätt innehåll.
 2. Läsande kontroll mot den riktiga domänen: noindex borta (`curl -sI` och meta), sitemap 200, robots tillåter,
    kanonisk variant, och varje gammal adress ger 301 eller 308 och landar på sitt mål med 200 inom fem hopp
    (`curl -sIL <gammal adress>`). Formulärets riktiga väg prövas med ett inskick från verksamheten själv, inte från oss.
@@ -160,8 +208,8 @@ utvecklarens README (byggstandarden 1.6). Den säger:
 - **vad som kan ändras utan ny beställning:** öppettider, telefon, priser, en bild, ett omdöme, en text som blivit fel;
 - **hur man ber om det:** till vem, på vilket sätt, och vad som behövs (texten eller bilden, och var den ska stå);
 - **svarstid:** när ändringen syns;
-- **vem som äger domän och konton:** domänen, Vercel-projektet, mejltjänsten, sökkonsolen, och hur de lämnas över om
-  verksamheten vill byta leverantör.
+- **vem som äger domän och konton:** domänen, Workern och dess data (D1, R2) i Nortropics Cloudflare-konto,
+  mejltjänsten, sökkonsolen, och hur de lämnas över om verksamheten vill byta leverantör.
 
 Sajten är statisk utan redigeringsverktyg, så kunden kan inte ändra själv; sidan ska säga det rakt.
 
@@ -173,8 +221,9 @@ förhandsvisningen.
 
 ## Återgång
 
-Driftsättning: befordra föregående produktionsdriftsättning i Vercel; skydda alla driftsättningar igen om innehållet
-inte får synas. DNS: en behörig människa återställer posterna till filen från före bytet. Ingen session ändrar DNS.
+Driftsättning: `wrangler rollback` till föregående version (data i D1 och R2 rörs inte); ta bort Custom Domain om
+innehållet inte får synas alls. För en sajt som ligger kvar på Vercel: befordra föregående produktionsdriftsättning
+där. DNS: en behörig människa återställer posterna till filen från före bytet. Ingen session ändrar DNS.
 Återgången kan ta upp till den TTL som gällde innan; vid namnserverbyte räknas också delegeringens TTL. En återgång av
 driftsättningen återställer inte DNS. Skriv tid, orsak, vem som beslutade och vad som återställdes i kundmappen, och
 kör provet igen före nästa försök.
