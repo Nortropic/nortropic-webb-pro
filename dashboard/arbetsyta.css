@@ -117,6 +117,46 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-msg.agaren { align-self: flex-end; background: var(--ay-accent-mjuk); border: 1px solid #2c4672; }
 .ay-msg.partnern { align-self: flex-start; background: var(--ay-yta2); border: 1px solid var(--ay-linje); }
 .ay-msg .meta { display: flex; gap: 8px; justify-content: space-between; color: var(--ay-svag); font-size: 11.5px; margin-top: 6px; }
+/* meddelandena genom bussen (kontroller/meddelanden.py): agenternas skiljs från ägarens, och leveransläget står som steg */
+.ay-flikar button { display: inline-flex; align-items: center; gap: 6px; }
+.ay-flikar button[aria-selected="true"] { background: var(--ay-yta3); color: var(--ay-text); }
+.ay-rakning:not(:empty) { min-width: 18px; padding: 0 5px; border-radius: 99px; background: var(--ay-varn); color: #1b1404; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.ay-msg.agent { align-self: flex-start; background: var(--ay-yta2); border: 1px dashed var(--ay-linje2); max-width: 100%; }
+.ay-msg.avvisad { opacity: .6; }
+.ay-msg .ay-kontextrad b { color: var(--ay-text); font-weight: 600; }
+.ay-underrubrik { font-size: 12.5px; color: var(--ay-dampad); font-weight: 600; margin: 10px 0 2px; }
+.ay-leverans { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0; margin: 8px 0 2px; font-size: 11.5px; }
+.ay-leverans li { padding: 1px 8px; border-radius: 99px; border: 1px solid var(--ay-linje2); color: var(--ay-svag); }
+.ay-leverans li[data-gjort="true"] { color: var(--ay-text); border-color: color-mix(in srgb, var(--ay-ok) 45%, var(--ay-linje2)); }
+.ay-leverans li[aria-current="step"] { background: color-mix(in srgb, var(--ay-ok) 18%, transparent); font-weight: 600; }
+.ay-leverans-text { margin: 8px 0 2px; font-size: 12.5px; color: var(--ay-varn); }
+.ay-leverans-text[data-lage="tillbaka"] { color: var(--ay-dampad); }
+[data-genomforande="belagt"] { color: var(--ay-ok); }
+.ay-bekraftruta { display: grid; gap: 8px; margin-top: 8px; padding: 10px; border-radius: 8px; border: 1px solid var(--ay-linje2); background: var(--ay-bg); }
+.ay-bekraftruta textarea, .ay-mandatform input { font: inherit; font-size: 13px; color: var(--ay-text); background: var(--ay-yta); border: 1px solid var(--ay-linje2); border-radius: 6px; padding: 6px 8px; }
+.ay-mandat { margin-top: 12px; border-top: 1px solid var(--ay-linje); padding-top: 10px; }
+.ay-mandat summary { cursor: pointer; color: var(--ay-dampad); font-size: 13px; }
+.ay-mandatrad { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 12.5px; padding: 4px 0; }
+.ay-mandatform { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 6px; }
+.ay-styr { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--ay-linje2); }
+.ay-styr[data-styr="pausad"] { color: var(--ay-info); border-color: color-mix(in srgb, var(--ay-info) 45%, transparent); }
+.ay-styr[data-styr="paus_begard"] { color: var(--ay-varn); border-color: color-mix(in srgb, var(--ay-varn) 45%, transparent); }
+.ay-kompetens summary { cursor: pointer; }
+.ay-kompetens dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 0; font-size: 12px; }
+.ay-kompetens dt { color: var(--ay-svag); }
+.ay-kompetens dd { margin: 0; overflow-wrap: anywhere; }
+.ay-historik { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
+.ay-historik li { display: grid; grid-template-columns: 44px 1fr; gap: 8px; font-size: 13px; }
+.ay-historik li[data-typ="in"] > div { border-left: 2px solid var(--ay-accent); padding-left: 8px; }
+.ay-historik li[data-typ="verktyg"] { font-size: 12px; color: var(--ay-svag); }
+.ay-historik time { color: var(--ay-svag); font-size: 12px; }
+.ay-beslut { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: start; }
+.ay-beslut img { width: 96px; border-radius: 6px; border: 1px solid var(--ay-linje2); }
+.ay-jamfor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.ay-jamfor figure { margin: 0; display: grid; gap: 6px; }
+.ay-jamfor figcaption { font-size: 12.5px; color: var(--ay-dampad); }
+.ay-jamfor img { width: 100%; border-radius: 6px; border: 1px solid var(--ay-linje2); }
+.ay-adress label { display: inline-flex; gap: 6px; align-items: center; margin-left: auto; }
 .ay-msg .meta time { flex: none; }
 .ay-msg p { margin: 0 0 6px; } .ay-msg p:last-child { margin-bottom: 0; }
 .ay-msg ul { margin: 4px 0 6px; padding-left: 18px; }
@@ -249,6 +289,7 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
   .ay-flikrad a { white-space: nowrap; }
   /* flikraden rullar i sidled och klipper allt som sticker ut; fast position lyfter menyn ur den, under sin knapp */
   .ay-meny nav { position: fixed; top: auto; left: auto; right: 14px; max-height: 70vh; overflow-y: auto; }
+  .ay-jamfor, .ay-beslut { grid-template-columns: minmax(0, 1fr); }
   .ay-ytan, .ay-kod { height: auto; }
   .ay-mitten { grid-template-rows: auto auto; }
   .ay-remsa > .ay-panel { overflow: visible; min-height: 0; max-height: none; }

@@ -98,7 +98,7 @@
     ruta.innerHTML = `<div class="ay-notis fel" role="alert" style="margin:12px 18px">${e_(text)}</div>`;
     v.querySelector('.ay').prepend(ruta);
   }
-  const huvudTom = () => `<header class="ay-huvud"><div class="ay-marke">${SVG.marke}Nortropic arbetsyta</div><div class="ay-hoger-huvud"><a class="ay-knapp liten" href="#/">Klassisk vy</a></div></header>`;
+  const huvudTom = () => `<header class="ay-huvud"><div class="ay-marke">${SVG.marke}Nortropic arbetsyta</div><div class="ay-hoger-huvud"><a class="ay-knapp liten" href="#/oversikt">Klassisk vy</a></div></header>`;
 
   // --- strömmen ---
   function oppnaStrom(slug) {
@@ -137,6 +137,8 @@
     }
     const pn = JSON.stringify(d.partner?.senaste || null);
     if (pn !== A.partnerNyckel) { A.partnerNyckel = pn; laddaPartner(); }
+    const sn = JSON.stringify([d.samverkan?.nyckel, d.blind, d.korning?.startad]);
+    if (sn !== A.samverkanNyckel) { A.samverkanNyckel = sn; laddaSamverkan(); }
     rita();
   }
   function overgangar(f, n) {
@@ -163,7 +165,7 @@
         <nav aria-label="Arbetsytans vyer" style="display:flex;gap:4px">${[['', 'Arbetsyta'], ['flode', 'Byggflöde'], ['kod', 'Kod och preview']].map(([k, n]) =>
           `<a href="#/arbetsyta/${e_(A.slug)}${k ? '/' + k : ''}"${A.vy === k ? ' aria-current="page"' : ''}>${n}</a>`).join('')}</nav>
         <details class="ay-meny"><summary>Fler vyer</summary><nav aria-label="Dashboardens övriga vyer">
-          <h4>Kundproduktion</h4><a href="#/flode/${e_(A.slug)}">Flöde (klassisk)</a><a href="#/prototyp/${e_(A.slug)}">Prototyp och ditt val</a><a href="#/kundstart">Kundstart</a><a href="#/ab">Jämförelser</a><a href="#/">Översikt och byggen</a><a href="#/starta">Starta</a>
+          <h4>Kundproduktion</h4><a href="#/flode/${e_(A.slug)}">Flöde (klassisk)</a><a href="#/prototyp/${e_(A.slug)}">Prototyp och ditt val</a><a href="#/kundstart">Kundstart</a><a href="#/ab">Jämförelser</a><a href="#/oversikt">Översikt och byggen</a><a href="#/starta">Starta</a>
           <h4>Systemförbättring</h4><a href="#/kirurgen">Kirurgen</a><a href="#/backlog">Backlog</a><a href="#/kalibrering">Kalibrering</a><a href="#/lardomar">Lärdomar</a><a href="#/designprov">Designprov</a><a href="#/prospekt">Prospekt</a>
           <h4>Rapporter</h4><a href="#/dokumentation">Dokumentation och rapporter</a></nav></details>
       </div>
@@ -179,7 +181,10 @@
       <div class="ay-ytan" id="ay-ytan" data-omrade="${e_(l.omrade || 'resultat')}"${l.vansterDold ? ' data-vanster-dold' : ''}${l.hogerDold ? ' data-hoger-dold' : ''}
         style="${l.vanster ? `--ay-vanster:${Number(l.vanster)}px;` : ''}${l.hoger ? `--ay-hoger:${Number(l.hoger)}px;` : ''}">
         <section class="ay-panel ay-dialog" aria-labelledby="ay-dialog-rubrik">
-          <div class="ay-panelhuvud"><h2 id="ay-dialog-rubrik">Nortropic-partnern</h2><span id="ay-partnerchip"></span>
+          <div class="ay-panelhuvud"><h2 id="ay-dialog-rubrik">Samtal</h2>
+            <div class="ay-segment ay-flikar" role="tablist" aria-label="Samtal och meddelanden">${[['partner', 'Partnern'], ['meddelanden', 'Meddelanden']].map(([k, n]) =>
+              `<button type="button" role="tab" data-vflik="${k}" data-fokus="vf-${k}" aria-selected="${(A.vflik || 'partner') === k}" aria-controls="ay-samtal">${n}${k === 'meddelanden' ? ' <span class="ay-rakning" id="ay-oppna"></span>' : ''}</button>`).join('')}</div>
+            <span id="ay-partnerchip"></span>
             <button class="ay-ikon" type="button" data-falla="vanster" aria-label="Fäll ihop samtalet">${SVG.vanster}</button></div>
           <div class="ay-panelkropp" id="ay-samtal" aria-live="off"></div>
           <form class="ay-skriv" id="ay-skriv" autocomplete="off"></form>
@@ -220,7 +225,7 @@
     if (h && !h.contains(document.activeElement)) h.innerHTML = huvud();
     else ritaAnslutning();
     if (A.vy === '') { ritaMaterial(); behallFokus(document.getElementById('ay-remsa'), () => { document.getElementById('ay-remsa').innerHTML = remsa(); });
-      behallFokus(document.getElementById('ay-roller'), () => { document.getElementById('ay-roller').innerHTML = roller(); }); ritaPartner(); ritaSkriv(); }
+      behallFokus(document.getElementById('ay-roller'), () => { document.getElementById('ay-roller').innerHTML = roller(); }); ritaVanster(); }
     if (A.vy === 'flode') behallFokus(document.getElementById('ay-flode'), () => { document.getElementById('ay-flode').innerHTML = flode(); });
     if (A.vy === 'kod') { ritaMaterial(); ritaKodaktivitet(); laddaLogg(); if (A.kod.kandidat !== kodKandidat()) laddaKod(); }
   }
@@ -253,9 +258,9 @@
   function ritaMaterial() {
     const el = document.getElementById('ay-material'); if (!el) return;
     const val = A.vy === 'kod' ? 'forhandsvisning' : materialval();
-    const pv = previewFor(), nyckel = JSON.stringify([val, pv?.url, val === 'snapshot' ? A.enhet : '', A.valdKandidat, pv?.byggd, pv?.osaker, A.lage.blind]);  // osaker: ombygget ändrar inte byggd
+    const pv = previewFor(), nyckel = JSON.stringify([val, pv?.url, ['snapshot', 'jamfor'].includes(val) ? A.enhet : '', A.valdKandidat, pv?.byggd, pv?.osaker, A.lage.blind, val === 'jamfor' ? A.jamforMed : '', val === 'jamfor' ? (A.lage.kandidater || []).map((k) => k.version).join() : '']);  // osaker: ombygget ändrar inte byggd
     const huvud_ = `<div class="ay-panelhuvud"><h2 id="ay-material-rubrik">${A.vy === 'kod' ? 'Förhandsvisning' : 'Resultat'}</h2>
-      ${A.vy === 'kod' ? '' : `<div class="ay-segment" role="group" aria-label="Vad som visas">${[['forhandsvisning', 'Förhandsvisning'], ['snapshot', 'Ögonblicksbild'], ['kandidater', 'Kandidater'], ['underlag', 'Underlag']].map(([k, n]) =>
+      ${A.vy === 'kod' ? '' : `<div class="ay-segment" role="group" aria-label="Vad som visas">${[['forhandsvisning', 'Förhandsvisning'], ['snapshot', 'Ögonblicksbild'], ['jamfor', 'Jämför'], ['kandidater', 'Kandidater'], ['underlag', 'Underlag']].map(([k, n]) =>
         `<button type="button" data-material="${k}" data-fokus="m-${k}" aria-pressed="${val === k}">${n}</button>`).join('')}</div>`}
       <div class="ay-segment" role="group" aria-label="Skärmbredd"><button type="button" data-enhet="dator" data-fokus="e-dator" aria-pressed="${A.enhet === 'dator'}">Dator</button><button type="button" data-enhet="mobil" data-fokus="e-mobil" aria-pressed="${A.enhet === 'mobil'}">Mobil</button></div>
       ${pv ? `<a class="ay-ikon" href="${e_(pv.url)}" target="_blank" rel="noopener" aria-label="Öppna förhandsvisningen i en ny flik">${SVG.lank}</a><button class="ay-ikon" type="button" data-ladda-om aria-label="Ladda om förhandsvisningen">${SVG.ladda}</button>` : ''}</div>`;
@@ -275,6 +280,7 @@
   }
   function materialKropp(val, pv) {
     const l = A.lage;
+    if (val === 'jamfor') return jamforelse();
     if (val === 'underlag') {
       const st = (l.steg || [])[0] || {}, filer = [...(st.utfall || [])];
       return `<div class="ay-adress"><span class="etikett">Kundunderlaget, läst ur körningens filer</span></div><div class="ay-scen"><div class="ay-underlagslista">${filer.length
@@ -314,6 +320,7 @@
            ${stopp.map((h) => `<button class="ay-knapp fara" type="button" data-handling="${e_(h.id)}" data-fokus="h-${e_(h.id)}"${A.pagar ? ' aria-disabled="true"' : ''}>Stoppa</button>`).join('')}
            ${hs.length ? '' : '<span class="dampad">Ingen handling är möjlig just nu.</span>'}</div>`}
       ${ovriga.filter((h) => h.hinder).map((h) => `<p class="svag" style="margin:0">${e_(h.text)} går inte att starta: ${e_(h.hinder)}</p>`).join('')}
+      ${projektpaus()}
       <p class="svag" style="margin:0" role="status" aria-live="polite" id="ay-handlingssvar">${e_(A.svar)}</p></div></section>`;
     const handelser = senasteHandelser(6);
     const obs = `<section class="ay-panel" aria-labelledby="ay-obs"><div class="ay-panelhuvud"><h2 id="ay-obs">Senast observerat</h2></div><div class="ay-panelkropp" tabindex="0" data-fokus="obs">
@@ -321,7 +328,7 @@
       ${(l.ofullstandig || []).length ? `<div class="ay-notis varn" style="margin-top:8px">Ofullständigt: ${e_(l.ofullstandig.join('; '))}</div>` : ''}</div></section>`;
     const k = l.korning || {}, b = l.besked || {};
     const beslut = `<section class="ay-panel" aria-labelledby="ay-besl"><div class="ay-panelhuvud"><h2 id="ay-besl">Nästa beslut</h2></div><div class="ay-panelkropp ay-bekrafta">
-      ${k.vantar_pa_agaren ? `<p style="margin:0">Kandidaterna väntar på ditt val. Ditt val och godkännande görs i Prototyp; en avgränsad ändring skickar du från samtalet.</p><div class="ay-knapprad"><a class="ay-knapp primar" href="#/prototyp/${e_(A.slug)}">Öppna valet</a></div>`
+      ${k.vantar_pa_agaren ? beslutsruta()
         : k.avbruten ? '<p style="margin:0">Körningen avbröts. Återuppta den under Kontroller; inget klart görs om.</p>'
         : k.arbetaren === 'lever' ? '<p style="margin:0">Inget beslut väntar på dig: arbetet pågår.</p>' : '<p style="margin:0">Inget beslut väntar på dig just nu.</p>'}
       ${(b.tillstand || []).length ? `<details><summary class="svag">Slutbeskedens fem lägen</summary><ul class="ay-handelser" style="margin-top:6px">${b.tillstand.map((t) => `<li><span>${e_(t.status)}</span><span>${e_(t.namn)}</span></li>`).join('')}</ul></details>` : ''}
@@ -349,11 +356,14 @@
       <div class="rad">${e_(s.lage_text || '')}</div>
       <div class="rad">Senaste händelse: ${e_(sedan(s.senaste_handelse))}${sista ? ` · ${e_(sista.verktyg)} (${e_(sista.utfall)})` : ''}</div>
       ${s.kontext ? `<div class="rad" title="Indata i senaste modellanropet, en uppskattning; fönstrets storlek står inte i transkriptet">Kontext cirka ${Math.round(s.kontext.tokens / 1000)} k tokens (uppskattning)</div>` : ''}
-      <div class="knappar"><button class="ay-knapp liten" type="button" data-folj="${e_(s.session_id || '')}" data-fokus="f-${e_(s.session_id || '')}"${s.session_id ? '' : ' disabled'}>Följ</button></div></article>`;
+      ${styrrad(s)}${kompetensrad(s)}
+      <div class="knappar"><button class="ay-knapp liten" type="button" data-folj="${e_(s.session_id || '')}" data-fokus="f-${e_(s.session_id || '')}"${s.session_id ? '' : ' disabled'}>Följ</button>${sessionsknappar(s)}</div>
+      ${A.pausBekrafta?.session_id === s.session_id ? `<div class="ay-bekraftruta" role="group" aria-label="Bekräfta pausen"><p>Pausa bara den här sessionen? Den avbryts vid nästa möjlighet och väntar med samma process; resten av körningen fortsätter. Filändringar som redan gjorts står kvar.</p><div class="ay-knapprad"><button class="ay-knapp primar liten" type="button" data-paus-ja="${e_(s.session_id)}" data-fokus="pj-${e_(s.session_id)}">Pausa sessionen</button><button class="ay-knapp liten" type="button" data-paus-nej>Avbryt</button></div></div>` : ''}</article>`;
   }
   function roller() {
     const l = A.lage;
     if (A.folj) return foljvy();
+    if (A.historik) return historikvy();
     const r = l.roller || {}, sess = l.sessioner || [];
     return `<div class="ay-panelhuvud"><h2 id="ay-roller-rubrik">Rollsessioner</h2><span class="svag">${sess.filter((s) => ['aktiv', 'verktyg', 'startar'].includes(s.lage)).length} lever</span>
         <button class="ay-ikon" type="button" data-falla="hoger" aria-label="Fäll ihop sessionerna">${SVG.hoger}</button></div>
@@ -378,7 +388,7 @@
         ${(a.pagaende || []).length ? `<div class="ay-notis">Väntar på verktyg: ${e_(a.pagaende.join(', '))}</div>` : ''}
         ${(a.handelser || []).length ? `<ol aria-label="Observerade händelser, nyast sist">${a.handelser.slice(-30).map((h) => `<li><time datetime="${e_(h.tid)}">${e_(klocka(h.tid))}</time><span>${e_(h.verktyg)} · ${e_(h.utfall)}${h.skill ? ' · ' + e_(h.skill) : ''}${h.fil ? `<div class="fil">${e_(h.fil)}</div>` : ''}</span></li>`).join('')}</ol>`
           : `<div class="ay-tom">${e_(s.ofullstandig || 'Inga verktygsanrop observerade i transkriptet än.')}</div>`}
-        <p class="svag" style="margin:0">Följningen läser transkriptet; den startar ingen modell och skickar inget till sessionen. ${s.kalla === 'partnersamtalet' ? 'Partnern når du i samtalet.' : 'Motorns -p-arbetare tar inte emot meddelanden under arbetet: en ändring går genom ditt beslut och nästa handling.'}</p></div>`;
+        <p class="svag" style="margin:0">Följningen läser transkriptet; den startar ingen modell och skickar inget till sessionen. ${s.kalla === 'partnersamtalet' ? 'Partnern når du i samtalet.' : s.styrning?.kan_meddelas ? 'Skriv till sessionen under Meddelanden; den läser meddelandet mellan sina verktygsanrop.' : 'Den här sessionen tar inte emot meddelanden (' + e_(s.styrning?.blind ? 'en blind bedömning' : s.styrning?.text || 'den arbetar inte') + ').'}</p></div>`;
   }
 
   // --- partnern ---
@@ -394,7 +404,7 @@
       ? `<ul>${d.split('\n').filter((r) => r.trim()).map((r) => `<li>${inline(r.replace(/^\s*[-*] /, ''))}</li>`).join('')}</ul>` : `<p>${inline(d).replace(/\n/g, '<br>')}</p>`).join('');
   }
   function ritaPartner() {
-    const el = document.getElementById('ay-samtal'); if (!el) return;
+    const el = document.getElementById('ay-samtal'); if (!el || A.vflik === 'meddelanden') return;
     const p = A.partner, chip = document.getElementById('ay-partnerchip');
     if (chip) chip.innerHTML = p && p.lage && p.lage !== 'vantar' ? lagechip(p.lage, p.lage_text) : '';
     const med = p?.meddelanden || [];
@@ -455,7 +465,7 @@
   }
   function ritaGaller() { const g = document.getElementById('ay-markering'); if (g && A.lage) g.innerHTML = gallerRad(); }
   function ritaSkriv() {
-    const f = document.getElementById('ay-skriv'); if (!f || !A.lage) return;
+    const f = document.getElementById('ay-skriv'); if (!f || !A.lage || A.vflik === 'meddelanden') return;
     const mk = markering(), kand = mk.kandidat ? etikett(mk.kandidat) : null;
     const form = JSON.stringify([A.avsikt, A.lage.blind, mk.kandidat, mk.version, mk.vy, mk.fil, A.lage.projekt?.namn, inaktuellMark(), Boolean(A.mark)]);  // fryst eller levande syns på raden Gäller
     if (f.dataset.ritad === form || (f.contains(document.activeElement) && f.dataset.ritad)) { uppdateraSkrivstatus(); return; }
@@ -678,6 +688,276 @@
     });
   }
 
+  // --- meddelanden: ägaren och sessionerna genom bussen (kontroller/meddelanden.py, dashboard/samverkan.py) ---
+  async function laddaSamverkan() {
+    if (!A.slug) return;
+    const slug = A.slug;
+    try { const d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug) + '/meddelanden'); if (slug === A.slug) { A.samverkan = d; ritaVanster(); ritaRakning(); } }
+    catch { /* nästa läge försöker igen */ }
+  }
+  function ritaRakning() { const el = document.getElementById('ay-oppna'); if (el) { const n = A.lage?.samverkan?.oppna || 0; el.textContent = n ? String(n) : ''; el.title = n ? `${n} meddelanden från sessionerna väntar på ditt beslut` : ''; } }
+  function ritaVanster() {
+    ritaRakning();
+    document.querySelectorAll('[data-vflik]').forEach((b) => b.setAttribute('aria-selected', String((A.vflik || 'partner') === b.dataset.vflik)));
+    if (A.vflik !== 'meddelanden') { ritaPartner(); ritaSkriv(); return; }
+    const chip = document.getElementById('ay-partnerchip'); if (chip) chip.innerHTML = '';
+    const el = document.getElementById('ay-samtal'), f = document.getElementById('ay-skriv'); if (!el || !f) return;
+    const nere = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    behallFokus(el, () => { el.innerHTML = meddelandelista(); });
+    if (nere) el.scrollTop = el.scrollHeight;
+    ritaMeddelandeform();
+  }
+  const ROLLNAMN = (r) => (typeof rollnamn === 'function' ? rollnamn(r) : r);
+  function avsandare(a) {
+    if (!a) return 'okänd';
+    if (a.typ === 'agare') return 'Du';
+    if (a.typ === 'extern') return 'Extern granskare: ' + a.namn;
+    return `${a.ansvar === 'granskning' ? 'Granskare' : 'Utförare'}${a.roll ? ' (' + ROLLNAMN(a.roll) + ')' : ''}${a.kandidat ? ' · ' + etikett(a.kandidat) : ''}`;
+  }
+  function mottagare(m) {
+    if (!m) return '?';
+    if (m.typ === 'agare') return 'dig';
+    if (m.typ === 'extern') return 'den externa granskaren ' + m.namn;
+    const vem = `${m.ansvar === 'granskning' ? 'granskaren' : 'utföraren'}${m.kandidat ? ' för ' + etikett(m.kandidat) : ''}`;
+    return m.typ === 'adress' ? vem + ' (sessionen som arbetar med den nu eller härnäst)' : vem + ' (session ' + String(m.session_id).slice(0, 8) + ')';
+  }
+  const STEG = [['sparat', 'sparat'], ['koat', 'köat'], ['mottaget', 'mottaget'], ['besvarat', 'besvarat'], ['genomfort', 'genomfört']];
+  function leveransrad(m) {
+    const sista = (m.handelser || []).slice(-1)[0] || {};
+    if (['okant', 'ej_levererat', 'tillbaka'].includes(m.lage)) return `<div class="ay-leverans-text" data-lage="${e_(m.lage)}"><b>${e_(m.lage_text)}</b>${sista.notis ? ': ' + e_(sista.notis) : ''}</div>`;
+    const i = STEG.findIndex(([k]) => k === m.lage);
+    const stegen = m.syfte === 'andringsinstruktion' ? STEG : STEG.slice(0, 4);
+    return `<ol class="ay-leverans" aria-label="Leveransläge: ${e_(m.lage_text)}">${stegen.map(([k, n], j) => { const h = (m.handelser || []).filter((x) => x.lage === k).slice(-1)[0];
+      return `<li data-gjort="${j <= i}"${j === i ? ' aria-current="step"' : ''} title="${e_(h ? klocka(h.tid) + (h.bevis ? ' · ' + h.bevis : '') : 'inte belagt')}">${n}</li>`; }).join('')}</ol>`;
+  }
+  function meddelandekort(m) {
+    const egen = !m.agent, avvisad = m.beslut?.val === 'avvisa';
+    const g = m.genomforande;
+    const knappar = m.agent && m.mottagare?.typ === 'agare' && !m.beslut && !A.samverkan?.blind
+      ? (A.beslutOm === m.id ? `<div class="ay-bekraftruta"><label class="svag" for="ay-bt-${e_(m.id)}">${A.beslutVal === 'diskutera' ? 'Din fråga tillbaka' : 'Din text (valfri; förslaget används annars)'}</label><textarea id="ay-bt-${e_(m.id)}" data-fokus="bt-${e_(m.id)}" rows="3"></textarea>
+          <div class="ay-knapprad"><button class="ay-knapp primar liten" type="button" data-besluta="${e_(m.id)}" data-val="${e_(A.beslutVal)}">${A.beslutVal === 'godta' ? 'Godta som min ändringsinstruktion' : A.beslutVal === 'diskutera' ? 'Skicka frågan' : 'Avvisa'}</button><button class="ay-knapp liten" type="button" data-besluta-avbryt>Avbryt</button></div></div>`
+        : `<div class="ay-knapprad">${m.kandidat ? `<button class="ay-knapp liten" type="button" data-beslut-om="${e_(m.id)}" data-val="godta">Godta</button>` : ''}<button class="ay-knapp liten" type="button" data-beslut-om="${e_(m.id)}" data-val="diskutera">Diskutera</button><button class="ay-knapp liten" type="button" data-beslut-om="${e_(m.id)}" data-val="avvisa">Avvisa</button></div>`)
+      : '';
+    return `<article class="ay-msg ${egen ? 'agaren' : 'agent'}${avvisad ? ' avvisad' : ''}" aria-label="${e_(m.syfte_text)} från ${e_(avsandare(m.avsandare))}">
+      <div class="ay-kontextrad"><b>${e_(m.syfte_text)}</b> · ${e_(avsandare(m.avsandare))} till ${e_(mottagare(m.mottagare))}${m.kandidat ? ' · ' + e_(etikett(m.kandidat)) : ''}${m.version ? ' v' + e_(String(m.version).slice(0, 12)) : ''}</div>
+      ${m.agent ? `<div class="ay-notis${m.dolt ? '' : ' svag'}" style="margin:4px 0">${m.dolt ? 'Texten ' + e_(m.text) + '.' : 'Inte dina ord och inget godkännande: ' + e_(m.avsandare?.typ === 'extern' ? 'en extern granskare' : 'en session i motorn') + ' skrev det.'}</div>` : ''}
+      ${m.dolt ? '' : formatera(m.text)}
+      ${m.mandat ? `<div class="svag">Inom ditt mandat: ${e_(m.mandat.omfattning)}</div>` : ''}
+      ${(m.belagg || []).length ? `<details><summary class="svag">Belägg (${m.belagg.length})</summary><ul class="ay-handelser">${m.belagg.map((b) => `<li><span>${e_(b)}</span></li>`).join('')}</ul></details>` : ''}
+      ${leveransrad(m)}
+      ${m.svar ? `<details${m.svar.dolt ? '' : ' open'}><summary class="svag">Svar ${e_(klocka(m.svar.tid).slice(0, 5))}</summary>${m.svar.dolt ? `<p class="svag">${e_(m.svar.text)}</p>` : formatera(String(m.svar.text || '').replace(/```kvitto[\s\S]*?```/g, ''))}</details>` : ''}
+      ${m.kvitto ? `<div class="svag">Kvitto från mottagaren: ${m.kvitto.genomfort === false ? 'avstod' : 'säger genomfört'}${m.kvitto.beskrivning ? ' — ' + e_(m.kvitto.beskrivning) : ''}</div>` : ''}
+      ${g ? `<div class="svag" data-genomforande="${e_(g.lage)}">Genomförande: ${e_(g.text)}${g.version_efter ? ` (${e_(g.version_fore)} → ${e_(g.version_efter)})` : ''}</div>` : ''}
+      ${m.beslut ? `<div class="svag">Ditt beslut: ${e_({ godta: 'godtaget', avvisa: 'avvisat', diskutera: 'under diskussion' }[m.beslut.val] || m.beslut.val)} ${e_(kort(m.beslut.tid))}</div>` : ''}
+      ${knappar}
+      <div class="meta"><span>${e_(m.id)}</span><time datetime="${e_(m.tid)}">${e_(klocka(m.tid).slice(0, 5))}</time></div></article>`;
+  }
+  function meddelandelista() {
+    const d = A.samverkan;
+    if (!d) return '<div class="ay-tom">Läser meddelandena…</div>';
+    if (d.dold) return '<div class="ay-notis">Kunden är en arm i en blind jämförelse som du inte valt i än: meddelandena visas efter ditt val.</div>';
+    const lista = d.meddelanden || [], oppna = lista.filter((m) => (d.oppna || []).includes(m.id));
+    return `<p class="svag" style="margin:0 0 8px">Meddelanden mellan dig och sessionerna i körningen, med leveransläget som går att belägga. Ett skickat meddelande är inget bevis för att något är utfört.${d.blind ? ' Före ditt första val visas inte sessionernas text.' : ''}</p>
+      ${oppna.length ? `<h3 class="ay-underrubrik">Väntar på ditt beslut (${oppna.length})</h3>${oppna.map(meddelandekort).join('')}<h3 class="ay-underrubrik">Alla</h3>` : ''}
+      ${lista.length ? lista.filter((m) => !(d.oppna || []).includes(m.id)).map(meddelandekort).join('') : '<div class="ay-tom">Inga meddelanden i körningen än. Skriv till en session som arbetar, eller till kandidatens utförare, nedan.</div>'}
+      ${mandatruta()}`;
+  }
+  function mandatruta() {
+    const d = A.samverkan || {}, akt = (d.mandat || []).filter((x) => x.aktivt);
+    const ks = A.lage?.kandidater || [];
+    return `<details class="ay-mandat"${A.mandatOppen ? ' open' : ''}><summary>Mandat för granskare (${akt.length})</summary>
+      <p class="svag" style="margin:6px 0">En granskare med mandat får begära rättelser av kandidatens utförare i körningen, inom omfattningen du skriver. Utan mandat går granskarens fynd till dig.</p>
+      ${akt.map((x) => `<div class="ay-mandatrad"><span>${e_(x.granskare?.typ === 'extern' ? 'Extern: ' + x.granskare.namn : x.granskare?.typ === 'ansvar' ? 'Motorns granskare' : 'Session ' + String(x.granskare?.session_id).slice(0, 8))} · ${e_(etikett(x.kandidat))}: ${e_(x.omfattning)}</span><button class="ay-knapp liten" type="button" data-mandat-aterkalla="${e_(x.id)}">Återkalla</button></div>`).join('')}
+      <form id="ay-mandatform" class="ay-mandatform" autocomplete="off"><label class="svag">Granskare <select data-mandat="granskare" class="ay-knapp liten"><option value="ansvar">Motorns granskare</option><option value="extern:codex">Codex (extern granskare)</option></select></label>
+        <label class="svag">Kandidat <select data-mandat="kandidat" class="ay-knapp liten">${ks.map((k) => `<option value="${e_(k.id)}"${k.id === A.valdKandidat ? ' selected' : ''}>${e_(k.etikett)}</option>`).join('')}</select></label>
+        <label class="svag" style="width:100%">Omfattning <input data-mandat="omfattning" class="ay-knapp liten" style="width:100%" placeholder="t.ex. kontrast och radbrytning i rubriken"></label>
+        <button class="ay-knapp liten" type="submit"${ks.length ? '' : ' disabled'}>Ge mandat</button><span class="svag" id="ay-mandatsvar" role="status" aria-live="polite"></span></form></details>`;
+  }
+  function mottagarval() {
+    const ut = [];
+    for (const s of A.lage?.sessioner || []) if (s.styrning?.kan_meddelas) ut.push([`session:${s.session_id}`, `${roll(s)}${s.kandidat ? ' · ' + etikett(s.kandidat) : ''} (arbetar nu)`]);
+    for (const k of A.lage?.kandidater || []) ut.push([`adress:utforande:${k.id}`, `Utföraren för ${k.etikett} (nu eller härnäst)`]);
+    return ut;
+  }
+  function ritaMeddelandeform() {
+    const f = document.getElementById('ay-skriv'); if (!f || !A.lage) return;
+    const val = mottagarval(), nyckel = JSON.stringify([val, A.mottagareVald, A.syfte, A.lage.blind, A.lage.korning?.startad]);
+    if (f.dataset.ritad === 'm' + nyckel || f.contains(document.activeElement)) return;
+    const utkast = f.querySelector('textarea')?.value || '';
+    f.dataset.ritad = 'm' + nyckel;
+    const vald = A.mottagareVald && val.some(([k]) => k === A.mottagareVald) ? A.mottagareVald : (val[0] || [''])[0];
+    f.innerHTML = `<label class="svag" for="ay-mottagare">Till</label><select id="ay-mottagare" class="ay-knapp liten" style="width:100%" data-fokus="mottagare">${val.map(([k, n]) => `<option value="${e_(k)}"${k === vald ? ' selected' : ''}>${e_(n)}</option>`).join('') || '<option value="">Ingen session eller kandidat att skriva till</option>'}</select>
+      <div class="ay-segment" role="group" aria-label="Syfte">${[['fraga', 'Fråga'], ['andringsinstruktion', 'Ändringsinstruktion']].map(([k, n]) => `<button type="button" data-syfte="${k}" data-fokus="sy-${k}" aria-pressed="${(A.syfte || 'fraga') === k}">${n}</button>`).join('')}</div>
+      <label class="dolt" for="ay-mtext">Meddelande</label><textarea id="ay-mtext" data-fokus="mtext" placeholder="${A.syfte === 'andringsinstruktion' ? 'Vad ska ändras, var, och hur känner man igen att det är klart?' : 'Skriv en fråga till sessionen'}">${e_(utkast)}</textarea>
+      <div class="ay-markering">${(() => { const k = (A.lage.kandidater || []).find((x) => x.id === (vald.split(':')[2] || A.valdKandidat)); return k ? `Gäller: <b>${e_(k.etikett)}</b>${k.version ? ', version ' + e_(k.version) : ''} (den fotograferade, som du ser under Ögonblicksbild)` : 'Gäller ingen kandidat'; })()}</div>
+      <div class="ay-skrivrad"><span class="svag" id="ay-msvar" role="status" aria-live="polite"></span><button class="ay-knapp primar" type="submit" data-fokus="m-skicka"${val.length ? '' : ' disabled'}>Skicka</button></div>`;
+  }
+  async function skickaMeddelande() {
+    const t = document.getElementById('ay-mtext'), svar = document.getElementById('ay-msvar'), till = document.getElementById('ay-mottagare')?.value || '';
+    const text = (t?.value || '').trim(); if (!text) { svar.textContent = 'Skriv meddelandet först.'; t.focus(); return; }
+    const [typ, a, b] = till.split(':');
+    const mot = typ === 'session' ? { typ: 'session', session_id: a } : { typ: 'adress', ansvar: a, kandidat: b };
+    const kid = mot.kandidat || ((A.lage.sessioner || []).find((s) => s.session_id === mot.session_id) || {}).kandidat || null;
+    const k = (A.lage.kandidater || []).find((x) => x.id === kid);
+    const syfte = A.syfte || 'fraga';
+    if (syfte === 'andringsinstruktion' && !k?.version_hel) { svar.textContent = 'En ändringsinstruktion binds till en fotograferad version: välj en kandidat som har en.'; return; }
+    const body = { mottagare: mot, syfte, text, kandidat: kid, version: k?.version_hel || null, korning: A.lage.korning?.startad || null };
+    body.id = await innehallsId('o', [A.slug, body.mottagare, body.syfte, body.text, body.kandidat, body.version, body.korning]);
+    svar.textContent = 'Sparar…';
+    try {
+      const r = await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/meddelande', body);
+      t.value = '';
+      svar.textContent = r.upprepat ? 'Samma meddelande finns redan; inget nytt skickades.' : 'Sparat. Läget visar när sessionen tagit emot och besvarat det.';
+      await laddaSamverkan();
+    } catch (err) { svar.textContent = (err.status === 409 ? '' : 'Svaret gick inte att bekräfta: ') + err.message + (err.status === 409 ? '' : '. Försök igen: samma text ger samma id, så det sparas inte två gånger.'); }
+  }
+  async function besluta(id, val) {
+    const m = (A.samverkan?.meddelanden || []).find((x) => x.id === id); if (!m) return;
+    const text = (document.getElementById('ay-bt-' + id)?.value || '').trim();
+    if (val === 'diskutera' && !text) { meddela('Skriv vad du vill diskutera.'); return; }
+    const k = (A.lage.kandidater || []).find((x) => x.id === m.kandidat);
+    const body = { val, text, version: k?.version_hel || null, korning: A.lage.korning?.startad || null };
+    body.nytt_id = await innehallsId('b', [A.slug, id, val, text, body.version]);
+    try { await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/meddelande/' + encodeURIComponent(id) + '/beslut', body); A.beslutOm = null; meddela(val === 'godta' ? 'Godtaget: förslaget är nu din ändringsinstruktion till kandidatens utförare.' : val === 'avvisa' ? 'Avvisat.' : 'Din fråga är skickad tillbaka.'); await laddaSamverkan(); }
+    catch (err) { meddela('Beslutet sparades inte: ' + err.message); }
+  }
+  async function geMandat(form) {
+    const v = (n) => form.querySelector(`[data-mandat="${n}"]`)?.value || '';
+    const g = v('granskare'), omf = v('omfattning').trim(), svar = document.getElementById('ay-mandatsvar');
+    if (!omf) { svar.textContent = 'Skriv omfattningen.'; return; }
+    const body = { kandidat: v('kandidat'), omfattning: omf, korning: A.lage.korning?.startad || null,
+      granskare: g === 'ansvar' ? { typ: 'ansvar' } : { typ: 'extern', namn: g.split(':')[1] } };
+    body.id = await innehallsId('md', [A.slug, body.kandidat, body.granskare, body.omfattning, body.korning]);
+    try { await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/mandat', body); A.mandatOppen = true; await laddaSamverkan(); meddela('Mandatet gäller i den här körningen.'); }
+    catch (err) { svar.textContent = 'Mandatet sparades inte: ' + err.message; }
+  }
+
+  // --- sessionernas styrning: paus, återupptagning, historik och följdfrågor ---
+  function styrrad(s) {
+    const st = s.styrning;
+    if (!st || s.kalla === 'partnersamtalet') return '';
+    if (!st.lopare) return '';
+    const paus = st.lage === 'pausad' ? `<span class="ay-styr" data-styr="pausad">Pausad${st.paus?.omfattning === 'projekt' ? ' (projektet)' : ''} sedan ${e_(klocka(st.sedan).slice(0, 5))}</span>`
+      : st.lage === 'paus_begard' ? '<span class="ay-styr" data-styr="paus_begard">Paus begärd: turen avbryts</span>' : '';
+    const kvar = (st.verktyg_kvar || []).filter((x) => x.pid);
+    return `${paus ? `<div class="rad">${paus}</div>` : ''}${st.lage === 'pausad' ? `<div class="rad svag">${kvar.length ? 'Arbetar fortfarande: ' + e_(kvar.map((x) => x.kommando).join(', ')) : 'Inga verktyg arbetar.'}</div>` : ''}`;
+  }
+  function kompetensrad(s) {
+    const k = s.kompetens; if (!k) return '';
+    const er = k.erbjuden || {}, la = k.laddad || {}, an = k.anropad || {};
+    const mcp = er.mcp ? Object.entries(er.mcp).map(([n, v]) => `${n} ${v}`).join(', ') : null;
+    return `<details class="ay-kompetens"><summary class="svag">Kompetens: ${er.skills ?? '?'} erbjudna, ${(la.skills || []).length} laddade, ${an.mcp ?? 0} MCP-anrop</summary>
+      <dl><dt>Erbjuden</dt><dd>${er.skills ?? 'okänt'} skills i sessionens lista${mcp ? '; MCP: ' + e_(mcp) : ''}</dd>
+      <dt>Laddad</dt><dd>${(la.skills || []).length ? e_(la.skills.join(', ')) : 'inga skills aktiverade'}${la.skillfiler ? `; ${la.skillfiler} skillfiler lästa` : ''}</dd>
+      <dt>Anropad</dt><dd>${an.mcp || 0} MCP-anrop${(an.mcp_tjanster || []).length ? ' (' + e_(an.mcp_tjanster.join(', ')) + ')' : ''}, ${an.skillanrop || 0} skillanrop</dd>
+      <dt>Påverkan</dt><dd>${e_(k.paverkan)}</dd></dl></details>`;
+  }
+  function sessionsknappar(s) {
+    const st = s.styrning || {}, ut = [];
+    if (st.kan_meddelas) ut.push(`<button class="ay-knapp liten" type="button" data-skriv-till="${e_(s.session_id)}">Skriv</button>`);
+    if (st.kan_pausas) ut.push(`<button class="ay-knapp liten" type="button" data-paus-session="${e_(s.session_id)}" data-fokus="p-${e_(s.session_id)}">Pausa</button>`);
+    if (st.paus?.omfattning === 'session') ut.push(`<button class="ay-knapp liten" type="button" data-aterta-session="${e_(s.session_id)}">Återuppta</button>`);
+    if (s.session_id && s.kalla !== 'partnersamtalet' && !A.lage.blind) ut.push(`<button class="ay-knapp liten" type="button" data-historik="${e_(s.session_id)}">Historik</button>`);
+    return ut.join('');
+  }
+  async function pausa(om, sid, aterta) {
+    const body = { omfattning: om, session_id: sid || null, korning: A.lage.korning?.startad || null, aterta: Boolean(aterta) };
+    try { const r = await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/paus', body); A.samverkan = r; A.pausBekrafta = null; A.projektPausBekrafta = false;
+      meddela(aterta ? 'Återupptagning begärd: sessionen fortsätter från där den var, med meddelandena som kom under pausen.' : om === 'projekt' ? 'Paus begärd för hela körningen: ingen ny session startar, och de som arbetar avbryts vid nästa möjlighet.' : 'Paus begärd för sessionen.');
+      tillampa(await hamta('/api/arbetsyta/' + encodeURIComponent(A.slug))); }
+    catch (err) { meddela('Pausen sparades inte: ' + err.message); }
+  }
+  function projektpaus() {
+    const p = A.lage?.samverkan?.projektpaus, d = A.samverkan?.styrning?.projekt;
+    if (p) {
+      const kvar = (A.samverkan?.pausade || []).flatMap((x) => (x.verktyg_kvar || []).filter((v) => v.pid).map((v) => v.kommando));
+      return `<div class="ay-notis${d?.lage === 'pausad' ? '' : ' varn'}"><b>${d?.lage === 'pausad' ? 'Pausad' : 'Paus begärd'}</b>: ${e_(d?.lage_text || 'ingen ny session startar')}${p.vantande_start ? '; en session väntar på återupptagningen' : ''}.${kvar.length ? ' Arbetar fortfarande: ' + e_(kvar.join(', ')) + '.' : ''} En paus återställer inga filändringar.</div>
+        <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-aterta-projekt data-fokus="aterta-projekt">Återuppta körningen</button></div>`;
+    }
+    if (!(A.lage?.korning?.arbetaren === 'lever')) return '';
+    if (A.projektPausBekrafta) {
+      const n = (A.lage.sessioner || []).filter((s) => s.styrning?.kan_pausas).length;
+      return `<div class="ay-bekraftruta"><p style="margin:0">Pausa hela körningen? Ingen ny session startar, och ${n} session${n === 1 ? '' : 'er'} som arbetar avbryts vid nästa möjlighet och väntar med sina processer. Byggen och fotograferingar som redan kör redovisas. Filändringar som redan gjorts står kvar.</p>
+        <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-paus-projekt-ja data-fokus="paus-projekt-ja">Pausa körningen</button><button class="ay-knapp" type="button" data-paus-projekt-nej>Avbryt</button></div></div>`;
+    }
+    return '<div class="ay-knapprad"><button class="ay-knapp" type="button" data-paus-projekt data-fokus="paus-projekt">Pausa körningen</button></div>';
+  }
+  async function laddaHistorik(sid) {
+    A.historik = { session_id: sid, data: null, fel: null }; rita();
+    try { const d = await hamta('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/historik/' + encodeURIComponent(sid)); if (A.historik?.session_id === sid) { A.historik.data = d; rita(); } }
+    catch (err) { if (A.historik?.session_id === sid) { A.historik.fel = err.message; rita(); } }
+  }
+  function historikvy() {
+    const h = A.historik, d = h.data, s = (A.lage.sessioner || []).find((x) => x.session_id === h.session_id) || {};
+    const kropp = h.fel ? `<div class="ay-notis fel">${e_(h.fel)}</div>` : !d ? '<div class="ay-tom">Läser sessionens historik…</div>'
+      : `<p class="svag" style="margin:0">${e_(d.kalla)}; ${d.antal} rader, de senaste visas. Inga promptar till andra sessioner och inga verktygssvar.</p>
+        <ol class="ay-historik">${d.rader.map((r) => `<li data-typ="${e_(r.typ)}"><time>${e_(klocka(r.tid).slice(0, 5))}</time><div>${r.typ === 'verktyg' ? '<span class="svag">verktyg</span> ' + e_(r.text) : `<span class="svag">${r.typ === 'in' ? 'till sessionen' : 'sessionen'}</span>${formatera(r.text)}`}</div></li>`).join('')}</ol>
+        ${(d.grenar || []).map((g) => `<div class="ay-msg agent"><div class="ay-kontextrad"><b>Följdfråga</b> · förgrening ${e_(String(g.session_id || '…').slice(0, 8))} av ${e_(String(g.foralder).slice(0, 8))} · ${e_(g.ansvar)}</div>${formatera(g.text)}${g.svar ? `<div class="svag">Svar:</div>${formatera(g.svar.text)}${g.svar.listpris_usd != null ? `<div class="svag">Listpris enligt Claude Code ${e_(Number(g.svar.listpris_usd).toFixed(2))} USD, inte fakturerat</div>` : ''}` : `<div class="svag">${e_(g.lage === 'arbetar' ? 'Förgreningen svarar…' : g.lage || '')}</div>`}</div>`).join('')}
+        ${s.styrning?.lever ? '<p class="svag">Sessionen arbetar: skriv till den under Meddelanden. En följdfråga förgrenar den först när den slutat.</p>'
+          : `<form id="ay-foljdform" autocomplete="off"><label class="svag" for="ay-ftext">Följdfråga (en förgrening som bara läser; den ursprungliga sessionen ändras inte)</label><textarea id="ay-ftext" data-fokus="ftext" rows="3"></textarea>
+            <div class="ay-skrivrad"><span class="svag" id="ay-fsvar" role="status" aria-live="polite"></span><button class="ay-knapp primar liten" type="submit">Fråga</button></div></form>`}`;
+    return `<div class="ay-panelhuvud"><h2 id="ay-roller-rubrik">Historik: ${e_(roll(s))}${s.kandidat ? ' · ' + e_(etikett(s.kandidat)) : ''}</h2><button class="ay-knapp liten" type="button" data-historik-slut data-fokus="historik-slut">Tillbaka</button></div>
+      <div class="ay-panelkropp ay-folj">${kropp}</div>`;
+  }
+  async function stallFoljdfraga() {
+    const t = document.getElementById('ay-ftext'), svar = document.getElementById('ay-fsvar'), sid = A.historik?.session_id;
+    const text = (t?.value || '').trim(); if (!text || !sid) { if (svar) svar.textContent = 'Skriv frågan först.'; return; }
+    const id = await innehallsId('g', [A.slug, sid, text]);
+    svar.textContent = 'Startar förgreningen…';
+    try { await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/foljdfraga', { id, session_id: sid, text }); t.value = ''; laddaHistorik(sid);
+      clearInterval(A.grenTimer); A.grenTimer = setInterval(() => { if (A.historik?.session_id !== sid) { clearInterval(A.grenTimer); return; } laddaHistorik(sid); if ((A.historik?.data?.grenar || []).every((g) => g.lage !== 'arbetar')) clearInterval(A.grenTimer); }, 4000); }
+    catch (err) { svar.textContent = err.message; }
+  }
+
+  // --- besluten: Prototypvyns beslutstjänst, bunden till den bild och version du ser ---
+  function beslutsruta() {
+    const k = (A.lage.kandidater || []).find((x) => x.id === A.valdKandidat);
+    if (!k) return '<p style="margin:0">Kandidaterna väntar på ditt val. Välj en kandidat under Kandidater.</p>';
+    const bild = k.snapshot['1440'] || k.snapshot['390'], sha = k.snapshot['1440'] ? k.snapshot.sha?.['1440'] : k.snapshot.sha?.['390'];
+    if (!bild || !k.version_hel) return `<p style="margin:0">${e_(k.etikett)} har ingen fotograferad version att besluta över än.</p>`;
+    const b = A.beslutBekrafta;
+    const godk = ['forfinad'].includes(k.status);
+    return `<div class="ay-beslut"><img src="/fil/${e_(bild)}" alt="${e_(k.etikett)}, version ${e_(k.version)}, bilden beslutet gäller"><div><p style="margin:0">Beslutet gäller <b>${e_(k.etikett)}</b>, version ${e_(k.version)}, fotograferad ${e_(kort(k.snapshot.tid))}: bilden du ser här och under Ögonblicksbild.</p></div></div>
+      ${b ? `<div class="ay-bekraftruta"><p style="margin:0">${e_(b.text)}</p>${['forkasta', 'ny_riktning'].includes(b.beslut) || b.beslut === 'valj' ? `<label class="svag" for="ay-beslutstext">${b.beslut === 'valj' ? 'Vad du gillar (valfritt)' : 'Vad håller inte, och vad ska nästa försök pröva?'}</label><textarea id="ay-beslutstext" rows="3" data-fokus="beslutstext"></textarea>` : ''}
+          <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut-ja data-fokus="beslut-ja">${e_(b.knapp)}</button><button class="ay-knapp" type="button" data-beslut-nej>Avbryt</button></div></div>`
+        : `<div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut="valj" data-fokus="b-valj">Välj vidare</button>${godk ? '<button class="ay-knapp primar" type="button" data-beslut="godkand" data-fokus="b-godkand">Godkänn denna version</button>' : ''}<button class="ay-knapp" type="button" data-beslut="forkasta">Underkänn alla</button><button class="ay-knapp" type="button" data-beslut="ny_riktning">Ny riktning</button></div>
+          <p class="svag" style="margin:0">Jämför kandidaterna under Resultat → Jämför, eller sida vid sida i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>. Ett godkännande lämnar över till helbygget men startar det inte.</p>`}
+      <p class="svag" role="status" aria-live="polite" id="ay-beslutssvar" style="margin:0">${e_(A.beslutSvar || '')}</p>`;
+  }
+  const BESLUTSTEXT = {
+    valj: (k) => [`Välj ${k.etikett} (version ${k.version}) att gå vidare med?`, 'Välj vidare'],
+    godkand: (k) => [`Godkänn ${k.etikett}, version ${k.version}, den bild du ser? Godkännandet binds till bilden och versionen; har arbetsversionen ändrats sedan fotograferingen nekas det. Helbygget startar inte.`, 'Godkänn'],
+    forkasta: () => ['Underkänn alla kandidater i körningen? Din text blir nästa körnings kritik.', 'Underkänn alla'],
+    ny_riktning: () => ['Be om en ny riktning? Din text blir nästa körnings kritik.', 'Be om ny riktning'],
+  };
+  async function fattaBeslut() {
+    const b = A.beslutBekrafta, k = (A.lage.kandidater || []).find((x) => x.id === b.kandidat);
+    const text = (document.getElementById('ay-beslutstext')?.value || '').trim();
+    if (['forkasta', 'ny_riktning'].includes(b.beslut) && !text) { A.beslutSvar = 'Skriv vad som inte håller och vad nästa försök ska pröva.'; rita(); return; }
+    const sedd = [{ kandidat: k.id, version: k.version_hel, bild: b.bild, bild_sha: b.bild_sha }];
+    const body = { beslut: b.beslut, kandidater: ['forkasta', 'ny_riktning'].includes(b.beslut) ? [] : [{ id: k.id, version: k.version_hel }], text, sedd, korning: A.lage.korning?.startad || null };
+    A.beslutSvar = 'Sparar beslutet…'; rita();
+    try { await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/beslut', body); A.beslutBekrafta = null; A.beslutSvar = 'Beslutet är sparat i domloggen, bundet till ' + k.etikett + ' version ' + k.version + '.';
+      tillampa(await hamta('/api/arbetsyta/' + encodeURIComponent(A.slug))); }
+    catch (err) { A.beslutSvar = (err.status === 409 ? 'Inaktuellt: ' : 'Beslutet sparades inte: ') + err.message; rita(); }
+  }
+
+  // --- jämförelsen: den valda kandidatens bevarade bild bredvid en annan kandidats eller en tidigare version ---
+  function jamforelse() {
+    const ks = A.lage.kandidater || [], k = ks.find((x) => x.id === A.valdKandidat);
+    if (!k) return '<div class="ay-scen"><div class="ay-tom">Välj en kandidat under Kandidater först.</div></div>';
+    const bredd = A.enhet === 'mobil' ? '390' : '1440';
+    const bild = (x) => x.snapshot[bredd] || x.snapshot['1440'] || x.snapshot['390'];
+    const val = ks.filter((x) => x.id !== k.id && bild(x)).map((x) => ['k:' + x.id, x.etikett + (x.version ? ' v' + x.version : '')]);
+    const vers = (k.versioner || []).filter((v) => v !== k.version).map((v) => ['v:' + v, 'Tidigare version ' + v]);
+    const med = A.jamforMed && [...val, ...vers].some(([x]) => x === A.jamforMed) ? A.jamforMed : (val[0] || vers[0] || [''])[0];
+    const hoger = med.startsWith('k:') ? (() => { const x = ks.find((y) => y.id === med.slice(2)); return x ? `<figure><figcaption>${e_(x.etikett)}${x.version ? ', version ' + e_(x.version) : ''}</figcaption><img src="/fil/${e_(bild(x))}" alt="${e_(x.etikett)}"></figure>` : ''; })()
+      : med.startsWith('v:') ? `<figure><figcaption>${e_(k.etikett)}, version ${e_(med.slice(2))}</figcaption><img src="/fil/${e_(String(bild(k)).replace(/\/bilder\//, '/versioner/' + med.slice(2) + '/bilder/'))}" alt="${e_(k.etikett)}, version ${e_(med.slice(2))}" onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'svag',textContent:'Den versionen bevarades utan bilder; jämför koden under Kod och preview.'}))"></figure>` : '<p class="svag">Inget att jämföra med än.</p>';
+    return `<div class="ay-adress"><span class="etikett">Bevarade bilder, ${bredd} px. ${A.lage.blind ? 'Före ditt första val bara kandidaterna; tidigare versioner och referensen visas efter valet (i Prototyp).' : 'Referensen visas sida vid sida i Prototyp.'}</span>
+        <label class="svag">Jämför med <select id="ay-jamformed" class="ay-knapp liten">${[...val, ...vers].map(([x, n]) => `<option value="${e_(x)}"${x === med ? ' selected' : ''}>${e_(n)}</option>`).join('')}</select></label></div>
+      <div class="ay-scen"><div class="ay-jamfor"><figure><figcaption>${e_(k.etikett)}${k.version ? ', version ' + e_(k.version) : ''} (vald)</figcaption><img src="/fil/${e_(bild(k))}" alt="${e_(k.etikett)}"></figure>${hoger}</div></div>`;
+  }
+
   // --- händelserna ---
   document.addEventListener('click', (ev) => {
     const ay = ev.target.closest('.ay'); if (!ay) return;
@@ -711,12 +991,41 @@
     if (d.kodvisning) { A.kod.visning = d.kodvisning; ritaFil(); return; }
     if (d.oppnaFil) { postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/oppna', { kandidat: A.kod.kandidat, fil: d.oppnaFil }).then((r) => meddela('Öppnad i ' + r.program)).catch((err) => meddela('Kunde inte öppna: ' + err.message)); return; }
     if (d.loggLas !== undefined) { laddaLogg(true); return; }
+    if (d.vflik) { A.vflik = d.vflik; const f = document.getElementById('ay-skriv'); if (f) f.dataset.ritad = ''; ritaVanster(); document.querySelector(`[data-fokus="vf-${d.vflik}"]`)?.focus(); if (d.vflik === 'meddelanden') laddaSamverkan(); return; }
+    if (d.syfte) { A.syfte = d.syfte; const f = document.getElementById('ay-skriv'); const t = f?.querySelector('textarea')?.value; f.dataset.ritad = ''; ritaMeddelandeform(); const nt = document.getElementById('ay-mtext'); if (nt && t) nt.value = t; document.querySelector(`[data-fokus="sy-${d.syfte}"]`)?.focus(); return; }
+    if (d.skrivTill) { A.vflik = 'meddelanden'; A.mottagareVald = 'session:' + d.skrivTill; const f = document.getElementById('ay-skriv'); if (f) f.dataset.ritad = ''; const ytan = document.getElementById('ay-ytan'); if (ytan) { ytan.dataset.omrade = 'samtal'; ytan.removeAttribute('data-vanster-dold'); } ritaVanster(); laddaSamverkan(); document.getElementById('ay-mtext')?.focus(); return; }
+    if (d.beslutOm) { A.beslutOm = d.beslutOm; A.beslutVal = d.val; ritaVanster(); document.getElementById('ay-bt-' + d.beslutOm)?.focus(); return; }
+    if (d.beslutaAvbryt !== undefined) { A.beslutOm = null; ritaVanster(); return; }
+    if (d.besluta) { besluta(d.besluta, d.val); return; }
+    if (d.mandatAterkalla) { postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/mandat/' + encodeURIComponent(d.mandatAterkalla) + '/aterkalla', {}).then(() => { meddela('Mandatet är återkallat.'); laddaSamverkan(); }).catch((err) => meddela('Kunde inte återkalla: ' + err.message)); return; }
+    if (d.pausSession) { A.pausBekrafta = { session_id: d.pausSession }; rita(); document.querySelector(`[data-fokus="pj-${CSS.escape(d.pausSession)}"]`)?.focus(); return; }
+    if (d.pausJa) { pausa('session', d.pausJa, false); return; }
+    if (d.pausNej !== undefined) { const id = A.pausBekrafta?.session_id; A.pausBekrafta = null; rita(); document.querySelector(`[data-fokus="p-${CSS.escape(id || '')}"]`)?.focus(); return; }
+    if (d.atertaSession) { pausa('session', d.atertaSession, true); return; }
+    if (d.pausProjekt !== undefined) { A.projektPausBekrafta = true; rita(); document.querySelector('[data-fokus="paus-projekt-ja"]')?.focus(); return; }
+    if (d.pausProjektJa !== undefined) { pausa('projekt', null, false); return; }
+    if (d.pausProjektNej !== undefined) { A.projektPausBekrafta = false; rita(); document.querySelector('[data-fokus="paus-projekt"]')?.focus(); return; }
+    if (d.atertaProjekt !== undefined) { pausa('projekt', null, true); return; }
+    if (d.historik) { A.folj = null; laddaHistorik(d.historik); return; }
+    if (d.historikSlut !== undefined) { const id = A.historik?.session_id; A.historik = null; clearInterval(A.grenTimer); rita(); document.querySelector(`[data-historik="${CSS.escape(id || '')}"]`)?.focus(); return; }
+    if (d.beslut) { const k = (A.lage.kandidater || []).find((x) => x.id === A.valdKandidat); if (!k) return;
+      const [text, knapp] = BESLUTSTEXT[d.beslut](k); const fyra = Boolean(k.snapshot['1440']);
+      A.beslutBekrafta = { beslut: d.beslut, kandidat: k.id, text, knapp, bild: fyra ? k.snapshot['1440'] : k.snapshot['390'], bild_sha: fyra ? k.snapshot.sha?.['1440'] : k.snapshot.sha?.['390'] };
+      A.beslutSvar = ''; rita(); document.querySelector('[data-fokus="beslutstext"]')?.focus() || document.querySelector('[data-fokus="beslut-ja"]')?.focus(); return; }
+    if (d.beslutJa !== undefined) { fattaBeslut(); return; }
+    if (d.beslutNej !== undefined) { A.beslutBekrafta = null; A.beslutSvar = ''; rita(); return; }
   });
-  document.addEventListener('submit', (ev) => { if (ev.target.id === 'ay-skriv') { ev.preventDefault(); skickaPartner(); } });
+  document.addEventListener('submit', (ev) => {
+    if (ev.target.id === 'ay-skriv') { ev.preventDefault(); A.vflik === 'meddelanden' ? skickaMeddelande() : skickaPartner(); }
+    if (ev.target.id === 'ay-mandatform') { ev.preventDefault(); geMandat(ev.target); }
+    if (ev.target.id === 'ay-foljdform') { ev.preventDefault(); stallFoljdfraga(); }
+  });
   document.addEventListener('change', (ev) => {
     if (ev.target.id === 'ay-kund') location.hash = '#/arbetsyta/' + encodeURIComponent(ev.target.value) + (A.vy ? '/' + A.vy : '');
     if (ev.target.id === 'ay-kodkand') { A.valdKandidat = ev.target.value; A.kod.fil = null; A.kod.mot = null; laddaKod(); ritaMaterial(); }
     if (ev.target.id === 'ay-kodmot') laddaKod(undefined, ev.target.value || null);
+    if (ev.target.id === 'ay-mottagare') { A.mottagareVald = ev.target.value; const f = document.getElementById('ay-skriv'); const t = f?.querySelector('textarea')?.value; f.dataset.ritad = ''; ritaMeddelandeform(); const nt = document.getElementById('ay-mtext'); if (nt && t) nt.value = t; document.getElementById('ay-mottagare')?.focus(); }
+    if (ev.target.id === 'ay-jamformed') { A.jamforMed = ev.target.value; ritaMaterial(); document.getElementById('ay-jamformed')?.focus(); }
   });
   document.addEventListener('input', (ev) => { if (ev.target.id === 'ay-text' && A.avsikt === 'andring' && !A.mark && levande().kandidat) { markera(); ritaGaller(); uppdateraSkrivstatus(); }
     if (ev.target.dataset?.falt && A.mark) { A.mark[ev.target.dataset.falt] = ev.target.value; sparaMark(A.mark); } if (ev.target.id === 'ay-text') { try { sessionStorage.setItem('nwp-arbetsyta-utkast:' + A.slug, ev.target.value); } catch { /* */ } } });

@@ -187,12 +187,17 @@ def ateljesessioner(dash, slug, korning, blind):
             continue
         if korning.get('startad') and str(post.get('start') or '') < str(korning['startad']):
             continue  # en äldre körnings session som ligger kvar (förteckningen arkiveras vid nästa start)
-        akt = None
+        akt, sam = None, None
         tr = bildkedja.transkript(post['session_id'])
         if tr:
             akt, _skal = observation.aktivitet(tr, slug, vagar=not blind)
+            try:
+                sam = observation.sammanfattning(tr, slug)
+            except Exception:  # noqa: BLE001 — kompetensraden är en extra
+                sam = None
         ob = post.get('observation') or {}
         lage, text = _lage_ateljesession(post, ob, akt, _svarsfel(dash, slug, post))
+        styr = styrning_for(slug, post['session_id'])
         ut.append({'session_id': post['session_id'], 'roll': None if blind else post.get('roll'), 'roll_dold': bool(blind),
                    'ansvar': ansvar_for(post.get('roll')),
                    'kandidat': post.get('kandidat'), 'korning': korning.get('id'), 'start': post.get('start'), 'slut': post.get('slut'),
@@ -201,8 +206,61 @@ def ateljesessioner(dash, slug, korning, blind):
                    'modell_konfigurerad': post.get('modell'), 'modell_observerad': ob.get('modell'),
                    'senaste_handelse': ob.get('senaste_handelse'), 'kontext': ob.get('kontext'),
                    'komprimeringar': len(ob.get('komprimeringar') or []), 'nekade': ob.get('nekade') or 0,
-                   'aktivitet': akt, 'lasfel': ob.get('lasfel'), 'ofullstandig': post.get('ofullstandig'), 'kalla': 'ateljén'})
+                   'aktivitet': akt, 'lasfel': ob.get('lasfel'), 'ofullstandig': post.get('ofullstandig'), 'kalla': 'ateljén',
+                   'styrning': styr, 'kompetens': kompetensnivaer(sam, styr, blind)})
     return ut
+
+
+def samverkan_kort(dash, slug, blind):
+    """Bussens läge i korthet för huvudvyn: öppna meddelanden till ägaren, senaste ändring (vyn hämtar listan när den
+    ändras) och projektets paus."""
+    _kontroller()
+    import meddelanden
+    alla = meddelanden.alla(slug)
+    kn = meddelanden.korning(slug)
+    oppna = [m for m in alla if (m.get('avsandare') or {}).get('typ') != 'agare' and (m.get('mottagare') or {}).get('typ') == 'agare' and not m.get('beslut')]
+    p = meddelanden.paus_galler(slug)
+    return {'antal': len(alla), 'oppna': len(oppna), 'senast': max([h.get('tid') or '' for m in alla for h in m.get('handelser') or []] or [''] ) or None,
+            'nyckel': '%d:%s' % (len(alla), max([str(len(m.get('handelser') or [])) + (m.get('id') or '') for m in alla] or [''])),
+            'projektpaus': p and p.get('omfattning') == 'projekt' and {'begard': p.get('begard'), 'vantande_start': p.get('vantande_start')},
+            'mandat': len([x for x in meddelanden.mandat(slug) if not x.get('aterkallat') and x.get('korning') == kn])}
+
+
+def styrning_for(slug, sid):
+    """Löparens läge för sessionen (kontroller/meddelanden.py, lopare.py), utan argumenten: om den går att nå med
+    meddelanden och pausa, om paus är begärd eller gäller, och vilka verktyg som fortfarande arbetar."""
+    _kontroller()
+    import meddelanden
+    s = meddelanden.sessionslage(slug, sid)
+    if not s:
+        return {'lopare': False, 'text': 'startad utan löpare: tar inte emot meddelanden och kan bara stoppas'}
+    lever = not s.get('slut') and _lever(s.get('pid')) and _lever(s.get('lopare_pid'))
+    p = meddelanden.paus_galler(slug, sid)
+    lage = s.get('lage') if lever else 'avslutad'
+    if lever and p and lage == 'arbetar':
+        lage = 'paus_begard'
+    return {'lopare': True, 'lever': lever, 'blind': bool(s.get('blind')), 'lage': lage, 'sedan': s.get('sedan'),
+            'paus': p and {'omfattning': p.get('omfattning'), 'begard': p.get('begard')},
+            'verktyg_kvar': s.get('verktyg_kvar') or [], 'turer': s.get('turer'), 'max_turer': s.get('max_turer'),
+            'aterupptagen': s.get('aterupptagen'), 'avvisade': len(s.get('avvisade') or []),
+            'kan_meddelas': lever and not s.get('blind'), 'kan_pausas': lever and lage == 'arbetar' and not p}
+
+
+def kompetensnivaer(sam, styr, blind):
+    """Kompetensen i fyra nivåer, var för sig (ägarens uppdrag 2026-10-09, punkt 10): erbjuden (skills i sessionens
+    lista och MCP-servrarnas anslutning), laddad (skills aktiverade med skillverktyget eller vars SKILL.md lästs),
+    anropad (MCP- och skillanrop) och belagd påverkan, som inte går att se i en session: den bedöms i kandidatens
+    kompetenskvitto och granskning. Ingen nivå står för en annan."""
+    if not sam:
+        return None
+    mcp = sam.get('mcp_lage') or {}
+    return {'erbjuden': {'skills': sam.get('skills_erbjudna'), 'mcp': {k: v for k, v in mcp.items()} if mcp else None},
+            'laddad': {'skills': sorted({x.get('skill') for x in sam.get('skills_laddade') or [] if x.get('skill')}),
+                       'skillfiler': len(sam.get('skillfiler') or [])},
+            'anropad': {'mcp': len(sam.get('mcp') or []), 'mcp_tjanster': sorted({x.get('tjanst') for x in sam.get('mcp') or [] if x.get('tjanst')}),
+                        'skillanrop': len(sam.get('skills_laddade') or []),
+                        'per_verktyg': {k: sum(v.values()) for k, v in (sam.get('verktyg') or {}).items() if isinstance(v, dict)}},
+            'paverkan': 'inte observerbar i sessionen: bedöms i kandidatens kompetenskvitto och granskning' + (' (efter ditt första val)' if blind else '')}
 
 
 def _init_ur_logg(f):
@@ -357,6 +415,27 @@ def synliga_versioner(slug, kid, st, blind):
     return [v for v in alla if v == nu12] if blind else alla
 
 
+_BILDSHA = {}
+
+
+def bild_sha(dash, rel):
+    """sha256 för en bild under underlag/ (ögonblicksbilden ägaren ser och godkänner), cachad på väg, ändringstid och
+    storlek; None när filen saknas."""
+    if not rel:
+        return None
+    p = dash.ROOT / str(rel)
+    try:
+        st = os.stat(p)
+    except OSError:
+        return None
+    nyckel = (str(p), st.st_mtime_ns, st.st_size)
+    if nyckel not in _BILDSHA:
+        if len(_BILDSHA) > 2000:
+            _BILDSHA.clear()
+        _BILDSHA[nyckel] = hashlib.sha256(Path(p).read_bytes()).hexdigest()
+    return _BILDSHA[nyckel]
+
+
 def kandidatlista(dash, slug, blind):
     """Kandidaterna med neutrala etiketter (kandidater.sammanstall, som vyn Prototyp), version, förhandsvisning och den
     bevarade ögonblicksbilden. Före ägarens första val utan skapare- och granskningstext."""
@@ -380,7 +459,8 @@ def kandidatlista(dash, slug, blind):
                    'preview': {'url': '/visa/%s/%s' % (slug, kid), 'finns': dist.is_file(),
                                'byggd': _iso(_mtid(dist)) if dist.is_file() else None},
                    'snapshot': {'390': b.get('390-forsta'), '1440': b.get('1440-forsta') or b.get('1280-forsta'), 'version': str(st.get('version') or '')[:12] or None,
-                                'tid': st.get('fotograferad')},
+                                'tid': st.get('fotograferad'),
+                                'sha': {'390': bild_sha(dash, b.get('390-forsta')), '1440': bild_sha(dash, b.get('1440-forsta') or b.get('1280-forsta'))}},
                    'versioner': versioner})
     return ut, None
 
@@ -491,6 +571,11 @@ def lage(dash, slug):
         sessioner.insert(0, p['session'])
     ut['sessioner'] = sessioner
     try:
+        ut['samverkan'] = samverkan_kort(dash, slug, ut.get('blind'))
+    except Exception as e:  # noqa: BLE001
+        ut['samverkan'] = None
+        ut['ofullstandig'].append('meddelandena: %s: %s' % (type(e).__name__, str(e)[:160]))
+    try:
         ut['startjournal'] = startjournal(dash, slug)
     except Exception as e:  # noqa: BLE001
         ut['startjournal'] = []
@@ -587,6 +672,11 @@ def signatur(dash, slug):
         tr = bildkedja.transkript(pj['session_id'])
         if tr:
             lagg(tr)
+    a = u / 'arbetsyta'  # meddelandebussen, löparnas lägen, pauserna och mandaten (kontroller/meddelanden.py)
+    lagg(a / 'STYRNING.json')
+    for under in ('meddelanden', 'styrning', 'mandat'):
+        for p in sorted((a / under).glob('*.json')) if (a / under).is_dir() else []:
+            lagg(p)
     return hashlib.sha256('\n'.join(delar).encode()).hexdigest()[:16]
 
 

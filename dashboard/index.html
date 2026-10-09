@@ -226,7 +226,7 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
   <div class="mark">Nortropic <span>webb-pro</span></div>
   <nav>
     <a href="#/arbetsyta" data-v="arbetsyta">Arbetsyta</a>
-    <a href="#/" data-v="">Översikt</a>
+    <a href="#/oversikt" data-v="oversikt">Översikt</a>
     <a href="#/backlog" data-v="backlog">Backlog <b id="n-backlog" hidden></b></a>
     <a href="#/kundstart" data-v="kundstart">Kundstart</a>
     <a href="#/kirurgen" data-v="kirurgen">Kirurgen <b id="n-kirurg" hidden></b></a>
@@ -287,7 +287,7 @@ function statuschip(b) {
 }
 
 async function oversikt() {
-  aktivNav('');
+  aktivNav('oversikt');
   const o = await api('/api/oversikt'); raknare(o);
   const b = o.byggen;
   const vantar = b.filter((x) => !x.domd && x.steg[6].klar && !x.pagar);
@@ -354,12 +354,12 @@ function kort(b) {
 }
 
 async function byggevy(slug, behallFlik) {
-  aktivNav('');
+  aktivNav('oversikt');
   const b = await api('/api/bygge/' + encodeURIComponent(slug));
   if (!behallFlik) flik = (!b.domd && b.steg[6].klar) ? 'dom' : 'oversikt';
   const flikar = [['oversikt', 'Översikt'], ['rapport', 'Rapport'], ['underlag', 'Underlag'], ['korning', 'Körning'], ['prov', 'Prov'], ['granskning', 'Granskning'], ['dom', b.domd ? 'Dom ✓' : 'Din dom']];
   $('#vy').innerHTML = `
-    <p class="under" style="margin-bottom:6px"><a href="#/">Översikt</a></p>
+    <p class="under" style="margin-bottom:6px"><a href="#/oversikt">Översikt</a></p>
     <div class="rad mellan"><div><h1>${esc(b.namn)}</h1><div class="under" style="margin:0">${esc([b.ort, b.doman].filter(Boolean).join(' · ') || b.slug)}</div></div>
       <div class="rad">${statuschip(b)}${visuellchip(b)}
         ${b.steg[4].klar ? `<a class="knapp primar" href="/visa/${esc(b.slug)}" target="_blank" rel="noopener">Öppna vår sajt</a><button class="knapp" data-qr="${esc(b.slug)}">I telefonen</button>` : ''}
@@ -1603,8 +1603,8 @@ async function route() {
   clearTimeout(timer);
   const h = location.hash.replace(/^#\/?/, '');
   try {
-    if (h !== 'arbetsyta' && !h.startsWith('arbetsyta/')) document.body.classList.remove('ay-aktiv');
-    if (h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
+    if (h !== '' && h !== 'arbetsyta' && !h.startsWith('arbetsyta/')) document.body.classList.remove('ay-aktiv');
+    if (h === '' || h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));  // arbetsytan är startvyn (ägarens uppdrag 2026-10-09)
     if (h.startsWith('bygge/')) return await byggevy(decodeURIComponent(h.slice(6)));
     if (h === 'backlog') return await backlogvy();
     if (h === 'kundstart' || h.startsWith('kundstart/')) return await kundstartvy(decodeURIComponent(h.slice(10)));
