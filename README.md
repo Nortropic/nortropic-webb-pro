@@ -258,9 +258,14 @@ I dashboarden under Kirurgen, eller i en session i repots rot: `/kirurg <url>` (
 Bara transkriptet: `.venv/bin/python kontroller/youtube.py URL --ut video.md`.
 
 Spanaren (`kontroller/spana.py`) letar kandidater åt kirurgen utan modell: flöden, leverantörsdokumentation, GitHub,
-Hacker News och YouTube-kanaler ur `kunskap/spaning-kallor.md`. Dashboarden kör den en gång i veckan och visar de
-rankade kandidaterna under Kirurgen; "Skicka till kirurgen" startar ett vanligt intag. Själv: `.venv/bin/python kontroller/spana.py
-spana --torr` visar vad den skulle hitta utan att spara.
+Hacker News och YouTube-kanaler ur `kunskap/spaning-kallor.md`. Dashboardens timklocka kör den en gång per dygn under
+piloten (ägaren 2026-10-03: "jag vill ha den frekventare"; `NWP_SPANING_INTERVALL_DAGAR`, GitHub-sökningarna var tredje
+dygn) och visar de rankade kandidaterna under Kirurgen; "Skicka till kirurgen" startar ett vanligt intag. Själv:
+`.venv/bin/python kontroller/spana.py spana --torr` visar vad den skulle hitta utan att spara.
+
+Bevakningen (`kontroller/bevakning.py`) prövar bevakningsfrågorna i `kunskap/spaning-kallor.md` mot spanarens och
+underhållets resultat, en gång per dag efter 07:00 Europe/Stockholm i samma timklocka, och för nya fynd till
+förbättringsloopen. Läget: `GET /api/bevakning` och `.venv/bin/python kontroller/bevakning.py lage`.
 
 Kirurgens vy visar också signal → diagnos → försöksplan → lokalt resultat, källhälsa och paus.
 En misslyckad källa försvinner inte bakom ”inget nytt”. Kundstarts observation skiljer insamlat och överfört

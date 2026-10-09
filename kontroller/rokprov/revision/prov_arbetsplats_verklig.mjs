@@ -35,7 +35,7 @@ async function oppna() {
   page.on('pageerror', (e) => sammanfattning.sidfel.push(e.message));
   page.on('request', (r) => { if (r.method() !== 'GET') sammanfattning.natanrop.push(`${r.method()} ${new URL(r.url()).pathname}`); });
   await page.goto(`${bas}/#nyckel=${nyckel}&till=arbetsyta/${slug}`);
-  await page.locator('#ay-huvud').getByText('Testdata').waitFor({ timeout: 30000 });
+  await page.locator('#ay-huvud').getByText('Testdata', { exact: true }).waitFor({ timeout: 30000 });
   return { ctx, page };
 }
 const bild = async (page, namn) => page.screenshot({ path: path.join(bilder, namn + '.png') });
@@ -159,7 +159,7 @@ try {
   logg('körningen:', forfinad.steg, JSON.stringify(forfinad.fel || '').slice(0, 200));
 
   // 7. Jämföra versioner och begära en ändring
-  await page.reload(); await page.locator('#ay-huvud').getByText('Testdata').waitFor({ timeout: 30000 });
+  await page.reload(); await page.locator('#ay-huvud').getByText('Testdata', { exact: true }).waitFor({ timeout: 30000 });
   await page.locator('[data-material="jamfor"]').click();
   await page.waitForTimeout(1500);
   const jamfor = await page.locator('#ay-jamformed option').allTextContents().catch(() => []);

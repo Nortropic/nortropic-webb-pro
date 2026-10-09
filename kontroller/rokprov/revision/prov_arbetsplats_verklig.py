@@ -3,8 +3,8 @@
 (ägarens uppdrag 2026-10-09 om den kompletta arbetsplatsen, punkt 11; kunskap/arbetsyta.md, Prov).
 
 Förbereder och kör provet, aldrig i huvudutcheckningen:
-1. testprojektet (arbetsyta_fixtur.py) i rotens underlag/ och kunder/, och kandidaten fotograferad av motorns egen
-   fotografering (kandidater.py --fotografera);
+1. testprojektet (arbetsyta_fixtur.py) i rotens underlag/ och kunder/, kundens grundprojekt ur mallen (ny_sajt.py
+   --installera) och kandidaten fotograferad av motorns egen fotografering (kandidater.py --fotografera);
 2. en granskarnyckel för provets externa granskare i en egen katalog (NWP_GRANSKARE_NYCKLAR), aldrig hemlighetsmappen;
 3. provinstansens dashboard ur roten på en egen port med en egen nyckel och de billiga modellerna i miljön, som
    arbetaren ärver (NWP_ATELJE_MODELL, NWP_KANDIDAT_GRANSKARE, frister);
@@ -67,6 +67,8 @@ def main(argv=None):
     # 1. testprojektet och motorns fotografering av kandidaten
     if not (rot / 'underlag' / a.slug).exists():
         kor(py, '-B', 'kontroller/rokprov/revision/arbetsyta_fixtur.py', str(rot), '--slug', a.slug)
+    if not (rot / 'kunder' / a.slug / 'sajt' / 'package.json').is_file():  # kundens grundprojekt, som motorn kräver före en körning
+        kor(py, '-B', 'kontroller/ny_sajt.py', a.slug, '--installera', timeout=900)
     kor(py, '-B', 'kontroller/kandidater.py', a.slug, '--fotografera', 'k01', timeout=900)
     # 2. provets granskarnyckel
     nycklar = ut / 'granskarnycklar'

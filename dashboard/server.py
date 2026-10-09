@@ -1437,6 +1437,22 @@ def spaning_vid_behov():
     starta_spaning('automatisk, var %g dygn' % SPANING_INTERVALL)
 
 
+def bevakning_vid_behov():
+    """Den löpande bevakningen (kontroller/bevakning.py) i samma timklocka som spanaren och underhållet, ingen egen klocka:
+    en gång per lokal dag efter klockslaget i Europe/Stockholm (07:00, NWP_BEVAKNING_KLOCKSLAG); har datorn eller
+    tjänsten varit av tas den vid nästa timslag, märkt med hur sent den kom. NWP_BEVAKNING_AV stänger av den."""
+    if os.environ.get('NWP_BEVAKNING_AV'):
+        return None
+    import bevakning
+    if not bevakning.dags():
+        return None
+    d = bevakning.kor(automatisk=True)
+    s = d.get('senast') or {}
+    print('bevakningen: %s (%s, %s h efter klockslaget); nästa %s' % (s.get('utfall') or d.get('hoppad'), s.get('start'), s.get('sen_timmar'),
+                                                                      s.get('nasta')), flush=True)
+    return d
+
+
 def kandidat(ident):
     lista = las_json(SPANING / 'KANDIDATER.json') or []
     k = next((x for x in lista if x.get('id') == ident), None)
@@ -3143,6 +3159,9 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, spaning_lista())
             if vag == '/api/underhall':
                 return self.skicka(200, underhall_lage())
+            if vag == '/api/bevakning':  # den löpande bevakningen: läget, täckningen och dagens sammanfattning (kontroller/bevakning.py)
+                import bevakning
+                return self.skicka(200, bevakning.lage())
             if vag == '/api/kirurg/kand':
                 return self.skicka(200, redan_bedomd(dict(parse_qsl(urlsplit(self.path).query)).get('url')))
             if vag == '/api/prospekt':
@@ -3369,7 +3388,9 @@ def main():
     p.add_argument('--port', type=int, default=4771)
     p.add_argument('--utan-lan', action='store_true', help='ingen visning av sajten på nätverksadressen (I telefonen)')
     p.add_argument('--nyckelfil', help='var nyckeln skrivs (standard: hemlighetsmappen för huvudutcheckningen, kunder/.dashboard-nyckel annars)')
-    p.add_argument('--klockor', choices=('pa', 'av'), help='spanarens och underhållets timklocka (standard: på bara i huvudutcheckningen)')
+    p.add_argument('--klockor', choices=('pa', 'av', 'bevakning'),
+                   help='timklockan för spanaren, underhållet och bevakningen (standard: på bara i huvudutcheckningen); bevakning: bara '
+                        'bevakningen, för en provinstans')
     a = p.parse_args()
     global NYCKELFIL
     huvud = ROOT.resolve() == (Path.home() / 'nortropic-repos' / 'nortropic-webb-pro').resolve()
@@ -3377,7 +3398,8 @@ def main():
         NYCKELFIL = Path(a.nyckelfil)
     elif not huvud:  # en worktree eller kopia skriver aldrig över ägarens nyckel (kunskap/arbetsyta.md, Prov)
         NYCKELFIL = KUNDER / '.dashboard-nyckel'
-    klockor = (a.klockor or ('pa' if huvud else 'av')) == 'pa'
+    klocklage = a.klockor or ('pa' if huvud else 'av')
+    klockor = klocklage in ('pa', 'bevakning')
     LAN['pa'] = not a.utan_lan
     VARD['tillatna'] = {'127.0.0.1:%d' % a.port, 'localhost:%d' % a.port}
     NYCKEL['varde'] = os.environ.pop('NWP_DASHBOARD_NYCKEL', None) or secrets.token_urlsafe(24)
@@ -3396,19 +3418,24 @@ def main():
     print('Dashboard: http://127.0.0.1:%d (öppna via ./dashboard.sh: skrivande anrop kräver nyckeln i %s)' % (a.port, NYCKELFIL), flush=True)
     def spaningsklocka():
         while True:
+            if klocklage == 'pa':
+                try:
+                    spaning_vid_behov()
+                except Exception as e:  # en klocka som dör ska inte ta med servern
+                    print('spaningen startade inte: %s' % e, flush=True)
+                try:
+                    underhall_vid_behov()
+                except Exception as e:  # noqa: BLE001
+                    print('underhållet startade inte: %s' % e, flush=True)
             try:
-                spaning_vid_behov()
-            except Exception as e:  # en klocka som dör ska inte ta med servern
-                print('spaningen startade inte: %s' % e, flush=True)
-            try:
-                underhall_vid_behov()
+                bevakning_vid_behov()
             except Exception as e:  # noqa: BLE001
-                print('underhållet startade inte: %s' % e, flush=True)
-            time.sleep(3600)
+                print('bevakningen startade inte: %s' % e, flush=True)
+            time.sleep(int(os.environ.get('NWP_KLOCKA_SEKUNDER') or 3600))
     if klockor:
         threading.Thread(target=spaningsklocka, daemon=True).start()
     else:
-        print('Spanarens och underhållets timklocka är av (inte huvudutcheckningen, eller --klockor av).', flush=True)
+        print('Timklockan för spanaren, underhållet och bevakningen är av (inte huvudutcheckningen, eller --klockor av).', flush=True)
     threading.Thread(target=lan_klocka, daemon=True).start()
     try:
         srv.serve_forever()

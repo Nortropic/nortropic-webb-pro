@@ -273,7 +273,8 @@ def meta(k, nar):
                'text': ('senaste spaningen %s (%.0f h sedan)%s' % (sen.get('slut'), sen_h, '' if ok else ', äldre än två intervall'))
                + ('; %d av %d källor föll' % (len(fel), len(sen.get('kallor') or [])) if fel else ''),
                'konsekvens': 'källor som faller bevakas inte; de frågor som bygger på dem blir ofullständiga' if fel else None,
-               'belagg': 'kirurgen/spaning/SENAST.json', 'nyckel': fingeravtryck('spanaren', len(fel), ok)}
+               'belagg': 'kirurgen/spaning/SENAST.json',
+               'nyckel': fingeravtryck('spanaren', sorted((x.get('namn') if isinstance(x, dict) else str(x).split(':', 1)[0]) for x in fel), ok)}
         if fel:
             rad['fel'] = [('%s: %s' % (x.get('namn'), str(x.get('fel'))[:80])) if isinstance(x, dict) else str(x)[:120] for x in fel[:6]]
         ut.append(rad)
@@ -345,7 +346,7 @@ def kor(automatisk=False, k=None, nar=None):
         if not fick:
             return {'hoppad': 'en annan bevakningskörning pågår'}
         fore = las_json(k['ut'] / 'LAGE.json', {}) or {}
-        start = nu()
+        start, t0 = nar.strftime('%Y-%m-%dT%H:%M:%SZ'), time.monotonic()
         fragor, regfel = register()
         lage_f = dict(fore.get('fragor') or {})
         kanda = dict(fore.get('kanda') or {})
@@ -387,7 +388,8 @@ def kor(automatisk=False, k=None, nar=None):
             h, m = klockslag()
             lokal = nar.astimezone(TZ)
             sen_h = round((lokal - lokal.replace(hour=h, minute=m, second=0, microsecond=0)).total_seconds() / 3600, 1)
-        senast = {'start': start, 'slut': nu(), 'automatisk': bool(automatisk), 'sen_timmar': sen_h,
+        slut = (nar + timedelta(seconds=time.monotonic() - t0)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        senast = {'start': start, 'slut': slut, 'automatisk': bool(automatisk), 'sen_timmar': sen_h,
                   'utfall': 'misslyckad' if regfel and not fragor else 'delvis' if any(x in ('misslyckad', 'ofullstandig') for x in utfall) or regfel else 'lyckad',
                   'nasta': nasta_korning(nar), 'tidszon': 'Europe/Stockholm', 'klockslag': '%02d:%02d' % klockslag()}
         lage = {'schema': SCHEMA, 'senast': senast, 'fragor': lage_f, 'meta': metarader, 'registerfel': regfel, 'kanda': kanda,

@@ -12,7 +12,8 @@ backloggen eller en not, och kör eller installerar aldrig något ur en källa.
 
 Exit: 0 klar (enskilda källor får falla) · 1 alla källor föll · 2 fel i anropet eller en spaning pågår.
 Miljö: NWP_SPANING_MAX_KANDIDATER (200), NWP_SPANING_MAX_ANROP (120), NWP_SPANING_MAX_PER_KALLA (5), NWP_SPANING_PAUS (1,0 s
-mellan anrop till samma värd), NWP_SPANING_INTERVALL_DAGAR (7, används av dashboarden), NWP_SPANING_AV (dashboarden kör inte).
+mellan anrop till samma värd), NWP_SPANING_INTERVALL_DAGAR (1 under piloten, 7 efter; används av dashboarden),
+NWP_SPANING_BYTE_SIDA (4 MB), NWP_SPANING_AV (dashboarden kör inte).
 """
 import argparse
 import contextlib
