@@ -15,7 +15,10 @@ kompletta arbetsplatsen. Arbetet: `backlog/B-20261009-visuella-arbetsytan-samtal
 ```
 
 Arbetsytan öppnas på dashboardens rot (`#/`); Översikten ligger på `#/oversikt`, och alla tidigare vyer finns under
-Fler vyer och i menyn. Startgenvägen startar inga modellsessioner. Dashboardens timklocka kör i huvudutcheckningen som
+Fler vyer och i menyn. Startgenvägen startar inga modellsessioner. Mac-appen kör `dashboard.sh start` genom
+inloggningsskalet (`/bin/zsh -l`), så att claude och node hittas som i terminalen; ett dubbelklick startar en tjänst,
+och den andra starten öppnar den körande med dess nyckel. Genvägen skapas från huvudutcheckningen, eftersom appen pekar
+på den utcheckning där den skapades. Appens logg: `~/Library/Logs/nortropic-arbetsyta-app.log`. Dashboardens timklocka kör i huvudutcheckningen som
 förut spanaren (ingen modell) och det dagliga underhållet, som en gång per dygn prövar verktygslådan med en kort
 kontrollsession (tre turer; `kontroller/underhall.py`). Tjänstens logg i bakgrunden: `~/Library/Logs/nortropic-dashboard.log`.
 Att gå tillbaka: Översikten och Flöde finns kvar, och en revert av arbetsytans commits lämnar motorn, domloggen och
@@ -93,16 +96,20 @@ granskare; `dashboard/samverkan.py` är dashboardens del och `kontroller/lopare.
   beslutstjänsten när du fattat beslutet. En ändringsinstruktion kommer från dig eller från en granskare inom ditt
   mandat, märkt som granskarens. Ett granskningsfynd kommer från en granskande session eller en extern granskare och
   har belägg (bild, del, mått, version). Ett svar går bara till den som frågade, och en agent besvarar inte ett svar.
-- **Mottagaren**: en session som arbetar, kandidatens utförare (sessionen som arbetar med kandidaten nu eller härnäst),
-  dig eller en extern granskare. Varje meddelande bär projekt, körning och, när det gäller en kandidat, kandidat och hel
+- **Mottagaren**: en session som arbetar och tar emot meddelanden, kandidatens utförare (sessionen som arbetar med
+  kandidaten nu eller härnäst), dig eller en extern granskare. En session som slutat nekas; skriv till kandidatens
+  utförare i stället. Varje meddelande bär projekt, körning och, när det gäller en kandidat, kandidat och hel
   version. En ändringsinstruktion utan den version du såg nekas; en annan körning eller en nyare version svarar
   Inaktuell (409), och inget vidarebefordras blint.
 - **Leveranslägen**, med tid och belägg: sparat (i bussen), köat (en löpare har tagit det för sin session), mottaget
-  (Claude Code ekade meddelandet med dess id, `--replay-user-messages`), besvarat (nästa tur som slutade utan avbrott
-  efter ekot, med turens text och mottagarens kvitto) och, för en ändringsinstruktion, genomfört: bara när mottagaren
+  (Claude Code ekade meddelandet med dess id, `--replay-user-messages`), besvarat (mottagaren kvitterade meddelandet i
+  turen efter ekot; turens text står som underlag) och, för en ändringsinstruktion, genomfört: bara när mottagaren
   kvitterat den och kandidatens fotograferade version ändrats efter mottagandet; annars står genomförandet som påstått
-  eller okänt. Okänt när sessionen slutade utan belägg för ett svar; köat igen när en paus lade tillbaka det. Ett
-  skickat meddelande är inget bevis för att något är utfört.
+  eller okänt. En fråga, ett fynd eller en instruktion som turen inte kvitterade blir okänt, med turens text; ett
+  förslag eller svar stannar på mottaget. Okänt också när sessionen slutade utan belägg för ett svar; köat igen när en
+  paus lade tillbaka det; inte levererat när sessionen det gällde slutade innan det togs, eller när kandidaten fått en
+  nyare version än meddelandet gäller (prövas vid leveransen). Ett skickat meddelande är inget bevis för att något är
+  utfört. En omsändning efter okänt eller inte levererat blir ett nytt meddelande, kopplat till det förra.
 - **Idempotens**: ditt meddelandes id är en hash av mottagaren, syftet, texten, kandidaten, versionen och körningen;
   ett dubbelklick, ett omförsök efter ett tappat svar eller en andra flik blir samma meddelande, och samma id med en
   annan text nekas. En agents id är en hash av avsändaren och innehållet. Löparen tar ett meddelande under kundens lås,
@@ -112,23 +119,33 @@ granskare; `dashboard/samverkan.py` är dashboardens del och `kontroller/lopare.
 - **Rundgång** hålls borta med regler: högst `NWP_MEDDELANDEN_PER_AGENT` (6) meddelanden per agent och körning och
   `NWP_MEDDELANDEN_PER_EXTERN` (30) per extern granskare, samma text två gånger blir samma meddelande, inget svar på ett
   svar, och sessionernas egna uppgifter, gränser och avslut är motorns som förut.
-- **Blindningen**: före ditt första val i körningen visas inte agenternas text, belägg, svar och kvitton eller rollerna
-  (bara ansvaret), och historik, följdfrågor och beslut över agenternas förslag öppnas efter valet. Blinda sessioner (en
-  oberoende blind bedömning) är utanför bussen åt båda håll: de kan bara pausas och stoppas. En arm i en blind jämförelse
-  visar ingenting.
+- **Kanalerna**: varje session med löpare har en kanal (`meddelanden.kanal`). **Öppen** tar emot och lämnar
+  meddelanden. **Ut** gäller en session med strukturerat svar (kritiken, panelen): den lämnar fynd men tar inga, så att
+  dess svar alltid är uppgiftens. **Stängd** gäller blinda sessioner och de oberoende bedömarna (domarna,
+  planprövningen, jämförelsen): utanför bussen åt båda håll, med varken protokoll eller meddelanden; de kan bara pausas
+  och stoppas. Ingen session får sitt eget meddelande.
+- **Blindningen**: före ditt första val i körningen visas inte agenternas text, belägg, svar och kvitton, inte heller
+  deras syfte och kandidat eller rollerna (bara ansvaret), och historik, följdfrågor och beslut över agenternas förslag
+  öppnas efter valet. En arm i en blind jämförelse visar ingenting.
 
 **Hur ett meddelande når en arbetare.** Motorns sessioner startas genom `atelje.session`; när bussen är på och
 `claude --help` listar `--input-format` och `--replay-user-messages` (samma fråga som observationens) körs sessionen i
 strömmande läge (`--input-format stream-json --output-format stream-json --verbose --replay-user-messages`) genom
 löparen, med samma verktyg, regler, skills, MCP:er, kundvakt och svarsfil som förut. Uppgiften går in som första
 meddelandet; ditt meddelande går in med `origin: human` och andras med `origin: peer` och en ram som säger avsändaren
-(`meddelanden.ramtext`). Claude Code läser meddelandet mellan verktygsanropen i samma tur (prövat 2026-10-09).
-`crossSessionInbound: refuse` i sessionens inställningar gör bussen till sessionens enda väg in: ingen annan session når
-den med SendMessage. Sessionens egna meddelandeblock (`` ```meddelande {...}``` ``, protokollet i systemprompten,
-`lopare.PROTOKOLL`) registreras i bussen med sessionen som avsändare; ett block som bryter mot reglerna står bland
-löparens avvisade. När en tur slutar utan något att leverera och utan paus stängs stdin och processen avslutas som en
-vanlig `claude -p`; svarsfilen är det sista resultatet i samma form som förut. `--max-turns` gäller varje tur, och
-löparen levererar inget mer när sessionens turer sammanlagt nått motorns tak; fristen räknar aktiv tid.
+(`meddelanden.ramtext`), där andras text står citerad rad för rad med `> `, så att en förfalskad rubrik aldrig står
+först på en rad. Varje meddelande går in för sig med sitt eget ursprung. Claude Code läser meddelandet mellan
+verktygsanropen i samma tur (prövat 2026-10-09). `crossSessionInbound: refuse` i sessionens inställningar gör bussen
+till sessionens enda väg in: ingen annan session når den med SendMessage, och bussens katalog
+(`underlag/<kund>/arbetsyta/`) är nekad för sessionernas Read, Edit och Write. Sessionens egna meddelandeblock
+(`` ```meddelande {...}``` ``, protokollet för kanalen i systemprompten, `lopare.protokoll`) registreras i bussen med
+sessionen som avsändare; ett block som bryter mot reglerna står bland löparens avvisade. När en tur slutar utan något
+att leverera, utan paus och utan meddelanden som skrivits men inte ekats stängs stdin och processen avslutas som en
+vanlig `claude -p` (ekas ett skrivet meddelande inte inom `NWP_EKO_TAK` sekunder utan händelser, 15, stängs den ändå
+och meddelandet blir okänt). Svarsfilen är uppgiftens: resultatet av den senaste turen som bar uppgiften eller en
+återupptagning, i samma form som förut, med sessionens sammanlagda turer och listpris; en tur som bara bar meddelanden
+ersätter den aldrig. `--max-turns` gäller varje tur, och löparen levererar inget mer när sessionens turer sammanlagt
+nått motorns tak; fristen räknar aktiv tid.
 
 Agent Teams används inte: det är experimentellt och startar inga lagkamrater i `-p`. Agent View (`--bg`) går inte ihop
 med `-p` och är inte motorns sessionsmodell. Claudes egna meddelanden mellan sessioner (SendMessage) är stängda för
@@ -160,33 +177,47 @@ andra flik nekas av servern.
   turens resultat kommit; då **pausad**, med de processer under sessionen som ändå lever (redovisas, inte avslutade).
   Under pausen hålls stdin öppen, inget levereras och fristen står still; högst `NWP_PAUS_TAK` sekunder (sex timmar),
   sedan stoppas sessionen. Resten av körningen fortsätter.
-- **Hela körningen**: ingen ny session startar (spärren i `atelje.session` före varje start) och varje levande session
-  pausas som ovan. Pausad när inga sessioner arbetar; arbetarens egna steg utanför sessionerna (ett bygge, en
-  fotografering) som redan kör redovisas, de avbryts inte. En paus från en tidigare körning gäller inte.
-- **Återupptagning**: ett enda meddelande från dig till sessionen med det som köats eller kommit under pausen och
-  uppmaningen att slutföra den ursprungliga uppgiften utan att vänta (prövat med en verklig session 2026-10-09: den
-  kvitterade båda meddelandena, körde om kommandot som avbrutits och slutförde uppgiften). Filändringar före pausen står
-  kvar; en paus återställer ingenting.
+- **Hela körningen**: ingen ny session startar och varje levande session pausas som ovan. Spärren gäller före varje
+  modellsession för kunden: i `atelje.session` (också utan löpare och med bussen av) och före Referos och Mobbins
+  tjänstesessioner (`referenstjanster.kor_session`). Vyn säger hur många starter som väntar. Pausad först när inga
+  sessioner arbetar och ingen claude-process under arbetaren lever utanför en pausad löpare; arbetarens egna steg
+  utanför sessionerna (ett bygge, en fotografering) redovisas men avbryts inte. En paus från en tidigare körning
+  gäller inte, och stoppet tar bort kundens pauser när arbetet har stannat.
+- **Tiden**: sessionens frist står still under pausen, och skissförsökets budget räknar bort pausen
+  (`atelje.pausad_tid`, `kandidater.gatt`). Övriga steg i motorn räknar pausen som vanlig tid. Vyn visar när en pausad
+  session når taket och stoppas.
+- **Återupptagning**: ett eget meddelande från dig med uppmaningen att slutföra den ursprungliga uppgiften utan att
+  vänta, och därefter det som köats eller kommit under pausen, var för sig med sitt eget ursprung (meddelandet med
+  uppmaningen prövat med en verklig session 2026-10-09: den kvitterade meddelandena, körde om kommandot som avbrutits och
+  slutförde uppgiften). Har sessionen nått motorns turtak slutar den i stället. Filändringar före pausen står kvar; en
+  paus återställer ingenting.
 - En stängd flik pausar eller stoppar ingenting. Löparen bor i arbetarens process, inte i webbläsaren eller dashboarden.
 
 ## Mandat och extern granskare
 
 **Mandatet** (Meddelanden → Mandat för granskare): du ger en granskare (motorns granskare, en bestämd session eller en
-extern granskare) rätt att begära rättelser av en kandidats utförare i den aktuella körningen, inom en omfattning du
-skriver. Utan mandat går en granskares fynd till dig. Ett mandat återkallas när som helst; det gäller inte i nästa
-körning.
+extern granskare) rätt att lämna förslag och granskningsfynd till en kandidats utförare och begära rättelser av den, i
+den aktuella körningen och inom en omfattning du skriver. Utföraren hanterar dem inom sitt eget uppdrag; ramen säger
+mandatet och omfattningen, och omfattningen prövas inte maskinellt. Utan mandat går en granskares fynd och förslag
+till dig. Ett mandat återkallas när som helst; det gäller inte i nästa körning.
 
 **Extern granskare (Codex).** Inkopplat och prövat mot den riktiga hanteraren: dashboardens externa väg
 (`/api/extern/<kund>/underlag|bild|fynd|aterkoppling`) med en egen granskarnyckel (`Authorization: Bearer`, filen
 `~/.nortropic-hemligheter/webb-pro/granskare/<namn>.nyckel`, 0600); avsändaren är nyckelns namn. Vägen tar inga anrop
 från en webbläsare (`Origin` eller `Sec-Fetch-Site` ger 403), ger bara kandidaterna med neutrala etiketter, versionerna,
-bilderna och granskarens egna mandat, och tar emot fynd, förslag, frågor, svar och (med mandat) begäran om rättelse.
+bilderna och granskarens egna mandat (aldrig kandidaternas status eller dina val), och tar emot fynd, förslag, frågor,
+svar och, med mandat, poster till utföraren. En nyckelfil som andra än du kan läsa gäller inte. Återkopplingen ger
+dina egna meddelanden och svar, maskerade, och leveransläget och ditt beslut för granskarens poster; andra sessioners
+text lämnas aldrig ut.
 `kontroller/extern_granskare.py` gör nyckeln, granskningspaketet (AGENTS.md, `fynd-schema.json`, underlaget och
 bilderna, ingen nyckel och ingen `.codex/`) och postningen. Granskaren skriver aldrig i skaparens filer och når aldrig
 dashboarden själv.
 
-Förberett, inte prövat: att köra Codex själv. Codex kör `exec` skrivskyddat och utan nät som standard (Codex
-dokumentation, non-interactive mode och sandboxing), så det läser paketet och lämnar fynden i en fil som skriptet postar:
+Codex kör `exec` skrivskyddat och utan nät som standard (Codex dokumentation, non-interactive mode och sandboxing), så
+det läser paketet och lämnar fynden i en fil som skriptet postar. Prövat 2026-10-09 med den riktiga Codex i en
+provinstans med fiktiva testdata: posterna registrerades till dig och till kandidatens utförare med rätt avsändare och
+körning (privat rapport `RAPPORT-2026-10-09-codex-observation-h01`). Inte prövat: leveransen av en Codex-post in i en
+arbetande session och vägen i huvudutcheckningens dashboard.
 
 ```sh
 kontroller/extern_granskare.py nyckel codex                       # en gång
@@ -205,8 +236,9 @@ Besluten (Välj vidare, Godkänn denna version, Underkänn alla, Ny riktning) fa
 (Ögonblicksbild eller Jämför; aldrig under arbetsversionens förhandsvisning) och går genom samma tjänst och samma skydd
 som vyn Prototyp: `server.spara_kandidatbeslut` → `atelje.doma` → `kandidater.prova_beslut` och, för ett godkännande,
 `forbered_vinnare`, som nekar om kandidatens filer ändrats sedan den fotograferade versionen. Arbetsytan binder
-dessutom beslutet till bilden du ser: dess väg och sha256 skickas med och prövas mot filen nu, och står i domloggen
-under `arbetsyta.sedd`. Ett godkännande lämnar över till helbygget men startar det inte. Ett ägarbeslut speglas i
+dessutom beslutet till det du såg när du öppnade det: versionen och bildens väg och sha256 tas vid klicket och skickas
+med. Servern nekar ett godkännande (Inaktuell) när versionen inte längre är kandidatens eller bilden har ändrats, och
+när bilden inte är kandidatens ögonblicksbild; beslutet står i domloggen under `arbetsyta.sedd`. Ett godkännande lämnar över till helbygget men startar det inte. Ett ägarbeslut speglas i
 bussen som en rad med syftet ägarbeslut och domens tid.
 
 **Jämför** visar den valda kandidatens bevarade bild bredvid en annan kandidats eller en tidigare bevarad version
@@ -283,7 +315,7 @@ till exempel i Ghostty) är ingen interaktiv webbläsare och behövs inte: arbet
 | Prov | Vad | Hur |
 |---|---|---|
 | `kontroller/rokprov/revision/prov_arbetsyta.py` | läsvägen, sessionernas lägen, blindningen (också partnerns A/B-spärr och sessionsbindning), koden, ändringarna, partnern, bussens HTTP-vägar, den externa granskaren och dess kommandoradsverktyg, mandatet, pausen, historiken och följdfrågan, beslutet bundet till bilden | i rökprovet |
-| `kontroller/rokprov/revision/prov_meddelanden.py` | bussen och löparen med en falsk strömmande claude: leveranslägena, origin, avsändaren, mandatet, paus och återupptagning, projektets paus, blinda sessioner, inaktuella versioner, okänt, turtaket | i rökprovet |
+| `kontroller/rokprov/revision/prov_meddelanden.py` | bussen och löparen med en falsk strömmande claude: leveranslägena, origin, avsändaren, mandatet, paus och återupptagning, projektets paus, blinda sessioner, inaktuella versioner, okänt, turtaket; klassen Granskning prövar fynden i GR-20261009-arbetsplats-oberoende (svarsfilen, kanalerna, pausens spärr och kvitton, förfalskade rubriker, mandatet, kvittot för besvarat, versionen vid leveransen, omsändning, bussens katalog, sena avbrottskvitton) | i rökprovet |
 | `kontroller/rokprov/revision/prov_arbetsyta_webb.mjs` | vyerna med syntetiska svar: bredder, axe, tangentbord, start-id, stopp, återanslutning, menyn | i rökprovet |
 | `mod/nortropic-arbetsyta/tests/` | modden | `claude plugin test mod/nortropic-arbetsyta` |
 | `kontroller/rokprov/revision/prov_arbetsplats_verklig.mjs` | användarresan med verkliga sessioner i en provinstans med fiktivt material (se nedan) | för hand; kostar modellanrop |
@@ -301,7 +333,8 @@ skapas med `arbetsyta_fixtur.py <worktree> --slug <testdata-…>`, aldrig i huvu
   före 2026-10-09), den är blind, eller den arbetar inte längre. Stoppa finns alltid.
 - Ett meddelande står kvar som sparat: ingen session med den adressen arbetar; det levereras till nästa session för
   kandidaten, eller när mottagaren är du, väntar det på ditt beslut.
-- Ett meddelande står som okänt: sessionen slutade utan ett resultat efter ekot; skicka det igen eller fråga i historiken.
+- Ett meddelande står som okänt: sessionen slutade utan ett resultat efter ekot, eller turen kvitterade det inte; turens
+  text står vid meddelandet. Skicka det igen (ett nytt meddelande) eller fråga i historiken.
 - Inaktuell (409): körningen eller kandidatens version har bytts sedan läget lästes; läs om och skriv om.
 - Partnern svarar 409: en tur pågår, sessionen är öppen i en terminal, eller kunden är en dold arm.
 - Panelen säger att dashboarden inte svarar: `./dashboard.sh start`, eller sätt `NWP_DASHBOARD_PORT`.
