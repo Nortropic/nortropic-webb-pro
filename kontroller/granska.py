@@ -152,7 +152,8 @@ def syskon_till(slug):
 
 def nekas_for(slug):
     """Granskarens egna nekanden utöver NEKAS: ägarens dom om bygget och syskonet, och tidigare omgångars domar."""
-    ut = ['Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)']
+    ut = ['Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)', 'Read(./underlag/rapporter/**)', 'Read(./underlag/granskningar/**)',
+          'Read(./underlag/rensning/**)', 'Read(~/Arkiv/**)']  # den rena designstarten 2026-10-09
     for s in (slug, syskon_till(slug)):
         if s:
             ut += ['Read(./kunder/%s/DOM.json)' % s, 'Read(./kunder/%s/granskning/GRANSKNING.*)' % s,

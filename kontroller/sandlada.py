@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SKYDDAT = ('kontroller', 'kritik', 'kunskap', 'mall', '.claude', 'dashboard', 'kor.sh', 'dashboard.sh', 'CLAUDE.md', 'BESLUT.md',
            'LARDOMAR.md', '.gitignore', '.git')
 HEMLIGT = ('~/.nortropic-hemligheter', '~/.ssh', '~/.aws', '~/.config/gh', '~/.claude.json', '**/.env', '**/.env.*', '**/*.pem', '**/*.key')
+# den rena designstartens återställningsarkiv och det äldre arkivet (kontroller/ren_designstart.py): utanför flödets material
+ARKIVERAT = ('~/Arkiv',)
 
 
 def domanlista(root, extra=()):
@@ -95,7 +97,7 @@ def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=N
                 'denyWrite': nekade_skrivvagar(root, slug) + (fryst_underlagsvagar(root, slug) if fryst_underlag else []),
                 'allowWrite': ['%s/kunder/%s' % (rot, slug), '%s/underlag/%s' % (rot, slug), '%s/backlog' % rot, '/tmp/nwp-bygge-%s' % slug,
                                '%s/.npm' % hem, '%s/.cache' % hem, '%s/Library/Caches' % hem] + [str(x) for x in extra_skriv],
-                'denyRead': [p.replace('~', hem, 1) if p.startswith('~') else p for p in HEMLIGT] + [kundstart]},
+                'denyRead': [p.replace('~', hem, 1) if p.startswith('~') else p for p in HEMLIGT + ARKIVERAT] + [kundstart]},
             'network': {'allowedDomains': domanlista(root, domaner), 'allowLocalBinding': True},
             'credentials': {'envVars': [{'name': 'REFERO_MCP_TOKEN', 'mode': 'deny'}]}}
     # Sessionens egna filverktyg (Read) nekas hemlighetsmappen med en vanlig regel, med eller utan sandlåda (Codex R24; där

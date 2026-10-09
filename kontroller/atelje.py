@@ -112,6 +112,10 @@ NEKAS = ['WebFetch', 'WebSearch', 'Task', 'NotebookEdit', 'Bash(rm *)', 'Bash(gi
          'Read(./underlag/*/arbetsyta/**)', 'Edit(./underlag/*/arbetsyta/**)', 'Write(./underlag/*/arbetsyta/**)',
          # ägarens domar över tidigare byggen är historik och styr inga agenter (rensningen inför Nortropic 2.0, 2026-10-06)
          'Read(./LARDOMAR.md)', 'Read(./underlag/LARDOMAR-original.md)', 'Read(./kunskap/LARDOMAR-digitala.md)',
+         # den rena designstarten 2026-10-09 (kontroller/ren_designstart.py): rapporterna och granskningarna är historik med
+         # gamla skärmbilder och omdömen, rensningens register och återställningsarkivet ligger utanför flödets material
+         'Read(./underlag/rapporter/**)', 'Read(./underlag/granskningar/**)', 'Read(./underlag/rensning/**)',
+         'Read(//%s/**)' % str(Path.home() / 'Arkiv').strip('/'),
          # hemligheterna: --setting-sources project,local läser inte ägarens egna regler, så sandlådans lista nekas här
          # (omgranskning 3, fynd 3); Read-regler gäller också Grep och Glob
          *[r for p_ in sandlada.HEMLIGT for r in (

@@ -1,13 +1,13 @@
 # nortropic-webb-pro — för sessioner i det här repot
 
-Bygger webbplatser åt riktiga verksamheter enligt litteraturens åtta steg. Ägaren dömer resultatet. Det som gäller nu,
-med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens beslut) och kundens aktuella domar i
-`underlag/<slug>/DESIGNDOMAR.jsonl`. Historiken bevaras och slås upp när den besvarar en konkret fråga: varför och vad
-som beslutats i `BESLUT.md`, ägarens domar över tidigare byggen i `LARDOMAR.md` (publik, utan personuppgifter) och
-ordagrant i `underlag/LARDOMAR-original.md` (privat). Domarna över tidigare byggen är historik: inget bygge hittills har
-varit bra nog (ägaren 2026-10-05), så de styr inga agenter och är aldrig förebilder. Det aktiva urvalet per körning står
-i `underlag/<slug>/atelje/URVAL.json` (`kontroller/urval.py`): andra byggens bilder i granskningen och tidigare byggens
-upptagna val är av tills de väljs uttryckligen (ren start 2026-10-08).
+Bygger webbplatser åt riktiga verksamheter. Normalflödet (ägarens uppdrag 2026-10-09): kundunderlag → kundförståelse →
+starka branschreferenser → visuell inspiration och användbara mallar och komponenter → tio kundanpassade förslag →
+kundens val → riktad förbättring (Rätta, Omarbeta designen, Bygg ut) → helbygge → verifierad leverans
+(`kunskap/skapandeflodet.md`). Det som gäller nu, med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens
+beslut) och kundens aktuella domar i `underlag/<slug>/DESIGNDOMAR.jsonl`. Den rena designstarten 2026-10-09
+(`kunskap/ren-designstart.md`) tog gamla byggen, prototyper, bedömningar, kalibreringsankare och de regler som
+härletts ur dem ur den aktiva miljön; de styr ingenting och verifierar inte den nya metoden, och flödets sessioner läser
+inte arkivet, rapporterna eller granskningarna. Varför och vad som beslutats står i `BESLUT.md`.
 
 ## Skills
 
@@ -27,7 +27,8 @@ upptagna val är av tills de väljs uttryckligen (ren start 2026-10-08).
 ## Var saker finns
 
 `kunskap/` professionstexter (regeln mot slop: `copy-kontroll.md`, `redaktionellt-pass.md`,
-`referenser-professionella.md`; ribban i tre nivåer ur ägarens kalibrering: `visuell-niva.md`; designflödet för startsidan, ett för alla ingångar: `skapandeflodet.md`; byggstandarden med verifierbara punkter: `byggstandard.md`; litteraturen och
+`referenser-professionella.md`; designflödet för startsidan, ett för alla ingångar: `skapandeflodet.md`; den rena
+designstarten: `ren-designstart.md`; byggstandarden med verifierbara punkter: `byggstandard.md`; litteraturen och
 metoderna bakom den: `teoretisk-grund.md`) · `kontroller/` provet och verktygen · `backlog/` vilande poster · `dashboard/`
 ägarens vy (`./dashboard.sh start`, http://127.0.0.1:4771; arbetsytan är startvyn, meddelandebussen och pausen: `kunskap/arbetsyta.md`) · `underlag/` och `kunder/` privat material och byggen,
 utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglerna för prospekt och utskick:

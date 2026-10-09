@@ -35,9 +35,14 @@ MONSTER = (
     (r'Inga stockbilder eller genererade bilder|Använd inga andra bilder|Inga andra bilder', 'ersatt bildregel'),
     (r'gäller som hypotes för andra kunder', 'en kunds smak som hypotes för andra'),
     (r'nås med tummen|går att nå med tummen', 'ersatt mobilkrav: den primära handlingen nådd med tummen (ägaren 2026-10-09)'),
+    # den rena designstarten och uppdragen (ägarens uppdrag 2026-10-09 ~17:53Z)
+    (r'minst tre (?:förhands|förfinings)?varv|arbetsregeln är minst|minst \d+ varv', 'ersatt arbetsregel: ett minsta antal varv (ägaren 2026-10-09)'),
+    (r'visuell-niva\.md', 'nivåfilen ur de gamla kalibreringsankarna (borttagen vid den rena designstarten 2026-10-09)'),
+    (r'de valda förfinas|Förfina de valda förslagen|valet startar (?:förfiningen|fördjupningen)|du väljer fördjupas',
+     'ett val som startar fördjupningen (ersatt av uppdragen rätta, omarbeta och bygg ut, 2026-10-09)'),
 )
 HISTORIK = {'BESLUT.md', 'LARDOMAR.md', 'REGISTER.md', 'REGISTER-arkiv-20261001.md', 'KIRURG-OMDOMEN.md', 'LARDOMAR-digitala.md',
-            'GRUPPERING.md', 'rensning-nortropic-2.md'}  # historiken, och rensningens egen förteckning över det ersatta
+            'GRUPPERING.md', 'rensning-nortropic-2.md', 'ren-designstart.md'}  # historiken, och rensningarnas egna förteckningar över det ersatta
 ERSATT = re.compile(r'Ersatt[^:\n]{0,60}:\s*"[^"\n]*"', re.I)
 MALLTEXT = ('.md', '.astro', '.ts', '.mjs', '.js', '.css')
 

@@ -129,11 +129,11 @@ MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en käll
     # 2026-10-08 (51 på servern; sessionsprovet i rapporten). Rollen komposition söker komponenter generiskt (search, fritt),
     # hämtar en vald komponents kod med källa, licens och beroenden (get_component, förbrukar Builders hämtningar) och
     # läser inspirationsflödet (get_inspiration); katalogens publicerings-, konto- och videoverktyg har ingen uppgift
-    '21st': ('mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration'),
+    '21st': ('mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration', 'mcp__21st__get_theme'),
 }
 MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)',
            'motion': 'Motion (dokumentation och exempel för motion, motion/react och motion-v; den fria servern)',
-           '21st': '21st.dev Builder (komponentsök, en vald komponents kod med källa och licens, inspiration; koden är material att anpassa)'}
+           '21st': '21st.dev Builder (komponentsök, en vald komponents kod med källa och licens, ett tema som CSS-variabler, inspiration; koden och temat är material att anpassa)'}
 REDOVISAT = 'redovisat av sessionen, inte observerat'  # passets egen redovisning (teknikval), skild från observationen
 # Tillståndsorden (ägarens uppdrag 2026-10-07, punkt 3, ordagrant i minnet; inte observerat skilt från inte gjort enligt
 # ägarens tillägg samma dag). Startkvittot och kompetensens kvitton använder bara de här orden för kompetensen och

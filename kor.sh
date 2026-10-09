@@ -368,6 +368,8 @@ ARGS=(-p
   "Edit(./kontroller/**)" "Edit(./kritik/**)" "Edit(./kunskap/**)" "Edit(./mall/**)" "Edit(./.claude/**)"
   "Edit(./LARDOMAR.md)" "Write(./kontroller/**)" "Write(./kritik/**)" "Write(./kunskap/**)" "Write(./mall/**)"
   "Write(./.claude/**)" "Write(./LARDOMAR.md)"
+  # den rena designstarten 2026-10-09: rapporterna, granskningarna, rensningens register och arkivet är inget byggmaterial
+  "Read(./underlag/rapporter/**)" "Read(./underlag/granskningar/**)" "Read(./underlag/rensning/**)" "Read(~/Arkiv/**)"
   # ägarens domar över designen och godkännandet skrivs bara av ägaren (dashboarden), aldrig av bygget
   "Write(./underlag/$SLUG/DESIGNDOMAR.jsonl)" "Edit(./underlag/$SLUG/DESIGNDOMAR.jsonl)"
   "Write(./underlag/$SLUG/DESIGNDOMAR-belagg.jsonl)" "Edit(./underlag/$SLUG/DESIGNDOMAR-belagg.jsonl)"

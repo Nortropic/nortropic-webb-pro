@@ -108,9 +108,10 @@ sessionerna.
   avgör motstridiga råd. Varven: i skissläget inget fast antal; första varvet efter renderingen prövar grunden
   (komposition, hierarki, bildval, rytm, kundens särprägel) och får byta grundidé, referens eller komposition, och varje
   varv därefter åtgärdar det största visuella problemet skaparen ser i sina bilder eller vid jämförelsen med referensen
-  i samma bredd; i läget full och i förfiningen är minst tre förhandsvarv en arbetsregel, ingen kvalitetsbedömning.
-  Impeccables metod har högst två samlade inspektionsomgångar och sedan en färsk granskare; vårt minimum är ett lokalt
-  processval (`kunskap/metodregler.md`), oprövat, och gäller tills ett jämförbart prov visar något annat.
+  i samma bredd. Inget läge har ett minsta antal varv (ägarens uppdrag 2026-10-09, punkt 10): varje varv är en observerad
+  brist, en ändring och en efterkontroll, och två varv i rad utan synlig förbättring är rundgång och ett skäl att sluta
+  eller byta grundidé. Resursgränserna är fristerna och turerna, och ägaren kan stoppa. Impeccables metod har högst två
+  samlade inspektionsomgångar och sedan en färsk granskare, vilket är förenligt (`kunskap/metodregler.md`).
   Verktygen per pass står i kompetensblocken. Inga test-, variant- eller prototypsidor i src/pages: varje index.astro
   där blir en undersida. DESIGN.md är kontraktet: värdena, valda tillstånd (mörkt läge) och importerade stilvärden
   (`kunskap/bygge-referens.md`). Granskaren svarar bara i sitt schema (K46–K55, K57, K58).
@@ -364,8 +365,9 @@ visar: varje avvikelse har avsiktlig och välgrundad med skäl; referensens kval
 ```
 
 **Skälen för de bedömande och forskande rollerna** (ägarens ord 2026-10-07: "Du behöver ju fixa luckan där med de verktyg
-vi har tillgängliga"). Kritikens kärna är det som avgör om en skiss bär: ribban i tre nivåer ur ägarens kalibrering
-(`visuell-niva.md`), jämförelsen med en förebild av samma slag i bredder och tillstånd som går att jämföra
+vi har tillgängliga"). Kritikens kärna är det som avgör om en skiss bär: kvalitetskraven och ägarbesluten
+(`designregler.md`, Helhet och hierarki; nivåfilen ur de gamla ankarna är borttagen vid den rena designstarten), jämförelsen
+med en förebild av samma slag i bredder och tillstånd som går att jämföra
 (`referenser-professionella.md`), Impeccables kritik (om formen är skriven för just den här verksamheten eller utbytbar,
 hierarkin, den kognitiva belastningen, heuristikerna och personerna) och golvet för hantverket (`craft-floor.md`). Kärnan
 är omkring 60 000 tecken och ryms i kritikens frist (mätningen i `BESLUT.md`, tillägget 2026-10-07). Listorna över
@@ -535,7 +537,7 @@ edit_template: ingen uppgift — teman och mallar hos 21st.dev är kontots; flö
 delete_template: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
 edit_theme: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
 delete_theme: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
-get_theme: ingen uppgift — teman och mallar hos 21st.dev är kontots; flödets stilpaket kommer ur Refero och mallens CSS (stilpaket.py); prövat 2026-10-08
+get_theme: uppgift — ett tema ur 21st.dev (CSS-variabler i :root och .dark i shadcn-format, ur förinställningar eller utdraget ur verkliga sajter) som implementationsgrund av slaget tema, när planen anger det: värdena mappas till projektets CSS-variabler med bevarade roller och märks `valt:` med källan i DESIGN.md, ett webbplatstemas varumärkesursprung skrivs i RIKTNING.md, och temat är aldrig ett paket; mallar (hela projekt med författarens villkor) har inget sessionsverktyg och väljs bara av en människa (källgenomgången 2026-10-09)
 get_generation: ingen uppgift — genererade komponenter ur Builder beställs inte av sessionen; en färdig komponent hämtas med get_component när den valts; prövat 2026-10-08
 get_generation_job: ingen uppgift — genererade komponenter ur Builder beställs inte av sessionen; en färdig komponent hämtas med get_component när den valts; prövat 2026-10-08
 get_changes: ingen uppgift — anteckningar, utfall och återkoppling till 21st.dev är kontots dialog med tjänsten, inte designarbetet; prövat 2026-10-08
@@ -606,8 +608,12 @@ prompterna pekar på när kvittot visar genomförd användning, och som skaparen
 påverkade ett val.
 
 **Visar:** frågorna och sajterna spänner över skilda grundidéer ur verksamhetens värld, inte varianter av samma
-utseende; varje antagande har underlag eller "ännu inte observerat", en prövning som beskriver besökarens mål utan att
-avslöja knappen, och en följd. Sessionen arbetar med rollen forska (avsnittet Kompetenserna) och prövar territorierna
+utseende, och omfattar både starka sajter i branschen och visuella förebilder utanför den vars kvaliteter kan fungera
+med kundens material (ägarens uppdrag 2026-10-09, punkt 5); varje antagande har underlag eller "ännu inte observerat", en
+prövning som beskriver besökarens mål utan att avslöja knappen, och en följd. Underlagets slag hålls isär: referensbild
+(en bild), stilpaket (Referos värden och beskrivning; typsnitten som namn, inte filer eller licenser), komponentkod
+(21st.dev, kod att anpassa med källa och licens) och körbar mall (ett projekt som bygger); en skärmbild kallas aldrig en
+kodmall. Sessionen arbetar med rollen forska (avsnittet Kompetenserna) och prövar territorierna
 med egna generiska sökningar; FORSKNING.json bär kompetenskvittot.
 
 **Tillämpning:** referensanalysen identifierar i bilderna och mätningen proportioner, hierarki, rytm, bildroller och de
@@ -623,7 +629,6 @@ kunskap/referensjakt.md
 
 ```utdrag uppslag
 kunskap/referenser-professionella.md
-kunskap/visuell-niva.md
 frontend-design/SKILL.md rad 11–13, 38–45
 impeccable/reference/new-work.md rad 45–46
 better-explain-interface/SKILL.md rad 26–35, 54–107
@@ -640,14 +645,19 @@ verksamheten och besökaren?
 **Till nästa steg:** ett uppdrag per kandidat (UPPDRAG.md): hypotesen, idén, den viktiga uppgift besökaren ska klara,
 innehållet som hjälper besökaren att fatta beslut, hur förslaget prövas (en besökaruppgift som beskriver målet utan att
 avslöja knappen), innehållshierarkin, bildstrategin, typografin, navigationen, hur förtroende byggs, huvudreferensen med
-kvaliteten som uppdraget prövar, vad den kräver och om kundens material bär det, antagandena, undersidan, materialbehovet och
-skillnaden mot de andra.
+kvaliteten som uppdraget prövar, vad den kräver och om kundens material bär det, antagandena, undersidan, materialbehovet,
+skillnaden mot de andra, den visuella utgångspunkten och implementationsgrunden (mall, komponenter, tema eller egen, med
+källan, det som återanvänds och insatsen när något återskapas ur bilder). Planen bär också branschgenomgången (hur de
+starka sajterna hanterar tjänster, förtroende, priser, navigation och kontakt, och deras svagheter) och förebilderna
+utanför branschen.
 
 **Visar:** uppdragen är olika sätt att presentera verksamheten och skiljer sig i hur sidan organiserar kundens
 information (innehållshierarki, bildstrategi, typografiskt system, navigation, hur förtroende byggs), inte bara i färg och
 typsnitt; varje uppdrag besvarar uppgiften, beslutsinnehållet, antagandena och prövningen och har en hypotes ur
-researchen och kundens material; inget uppdrag är avsiktligt svagt. Antalet (cirka tio) är vårt val för omgången: parallella prototyper före låsning har stöd (Dow m.fl.
-2010), men ingen studie fastställer ett antal.
+researchen och kundens material; inget uppdrag är avsiktligt svagt, och ett uppdrag som bara skiljer sig i färg avvisas
+(`kandidater.planbrist`). Tio förslag är ägarens beslut (2026-10-09, `kunskap/designregler.md`); parallella prototyper
+före låsning har stöd (Dow m.fl. 2010). Går tio verkligt olika inte att göra med underlaget redovisas bristen
+(KANDIDATPLAN.json, `brist_mot_begart`), utan kosmetiska dubbletter.
 
 **Tillämpning:** art direction och UX gör uppdragen till skilda lösningar på kundens uppgift; varje uppdrag säger vilken
 kvalitet i huvudreferensen det prövar och om kundens material bär den, och väljer Mobbins skärm eller flöde efter
@@ -663,7 +673,6 @@ kunskap/bild.md # Art direction
 
 ```utdrag uppslag
 kunskap/referenser-professionella.md
-kunskap/visuell-niva.md
 better-variant/SKILL.md rad 13–37
 frontend-design/SKILL.md rad 15–34, 47–53
 impeccable/reference/new-work.md rad 65–67
@@ -686,7 +695,7 @@ efter materialet och bristen beställd); den viktigaste besökaruppgiften går a
 håller ihop; kvalitetskraven håller (bygget, konsolen, spill, axe). Huvudreferensens kvalitet syns i fyra relationer,
 med referensbild och kandidatens bild bredvid varandra i RIKTNING.md: bildens beskärning mot rubriken, de typografiska
 storlekarna och hierarkin, täta och luftiga sektioner och rytmen, navigation och interaktion mot innehållet. Skaparen
-skriver under "Visar" vilken bild som visar var och en. Arbetsregel i läget full: minst tre förhandsvarv.
+skriver under "Visar" vilken bild som visar var och en. Varven: observerad brist, ändring, efterkontroll; inget minsta antal.
 
 **Tillämpning:** som i skissen nedan, för hela startsidan och undersidan.
 
@@ -700,10 +709,6 @@ taste/SKILL.md rad 15–31, 38–39, 166–167, 179, 183, 213–260, 298–331, 
 impeccable/reference/craft-floor.md rad 5–42
 impeccable/reference/new-work.md rad 126–127, 130, 132–134, 140
 impeccable/reference/animate.md rad 13–48, 71–77
-```
-
-```utdrag uppslag
-kunskap/visuell-niva.md
 ```
 
 ```utdrag varv
@@ -727,14 +732,15 @@ besökaren förstår verksamheten och löser sin viktigaste uppgift, i mobil och
 (VERKSAMHET.json, textunderlaget, RESEARCH.md) och bilder (BILDER.md), och den här filen: kvalitetskraven, besluten med
 räckvidd och avgörandena. Kompetenserna (avsnittet Kompetenserna) är obligatoriska: skaparen tillämpar rollerna med
 passet skapa (art direction och typografi, layout och bild, innehåll, responsivitet och rörelse) med sina skills
-fullständiga instruktioner i en sammanhängande skiss. Före ägarens val ändrar ingen annan session skissen; passen
-interaktion och rörelse och tillgänglighet och visuell granskning görs först efter fördjupningen. Ägarens domar över
-tidigare byggen och kundens historik slås upp när de besvarar en konkret fråga.
+fullständiga instruktioner i en sammanhängande skiss. Före beställarens val ändrar ingen annan session skissen;
+specialistpassen interaktion och rörelse och tillgänglighet och visuell granskning görs bara när ett uppdrag begär dem.
+Material från före den rena designstarten 2026-10-09 finns inte i den aktiva miljön och slås inte upp.
 
 **Till nästa steg:** en byggd skiss (första vyn, den viktigaste sektionen, navigationen och de interaktioner som behövs
 för att förstå förslaget), skärmbilder i 390, 768, 1280 och 1440, de snabba kontrollerna (bygget, konsolen, spill, axe,
 siffror utan belägg, menyn i verkligt öppnat läge) och RIKTNING.md med huvudreferensen, idén, referenserna, det överförda
-och avvikelserna, de kvarvarande svagheterna, varven, materialet och kompetensernas synliga bidrag. Hela startsidan, undersidan och besökarens centrala flöde byggs först när ägaren valt (Förfina).
+och avvikelserna, de kvarvarande svagheterna, varven, materialet och kompetensernas synliga bidrag. Hela startsidan,
+undersidan och besökarens centrala flöde byggs först efter valet, och bara som uppdraget Bygg ut (Förfina).
 
 **Visar:** grundidén syns i den renderade skissen och skiljer sig från de andra i hur kundens information presenteras och
 uppgiften löses, inte bara i färg; kundens material bär kompositionen, eller ett tydligt märkt utkast eller en
@@ -781,7 +787,6 @@ kompetensen används vid kontrollen (axe i tillstånd, tangentbordet, reflow) so
 
 ```utdrag
 kunskap/designregler.md
-kunskap/visuell-niva.md
 kritik/GRANSKARE.md # Fem kriterier, betyg 1–10
 frontend-design/SKILL.md rad 38–45
 better-interface/SKILL.md # 6. Rank by user impact
@@ -795,23 +800,37 @@ emil-review-animations/SKILL.md rad 27–68
 
 ## Förfina
 
-**Fråga:** hur blir den valda kandidaten en sida ägaren godkänner för helbygget, med ägarens ord, det ägaren gillade i
-andra förslag och DESIGN.md i takt med koden?
+Den riktade förbättringen efter beställarens val, i tre uppdrag (ägarens uppdrag 2026-10-09, punkt 8; `skapande.UPPDRAGSTYPER`):
+**Rätta** åtgärdar angivna brister inom befintlig omfattning, **Omarbeta designen** ändrar komposition, bildregi,
+typografi, rytm och hierarki inom avtalat innehåll, och **Bygg ut** skapar överenskomna sektioner, undersidor och
+funktioner. Ett val startar inget av dem.
 
-**Underlag:** ägarens dom och delar, RIKTNING.md, KRITIK.json, de andra kandidaternas kod och bilder för de delar
-ägaren gillade.
+**Fråga:** når det valda förslaget uppdragets önskade resultat inom uppdragets omfattning, med det som ska bevaras
+kvar och DESIGN.md i takt med koden?
 
-**Till nästa steg:** förfinade sidor, DESIGN.md som sidorna använder, och RIKTNING.md med förfiningens varv och "Visar".
+**Underlag:** uppdraget (typen, versionen det gäller, det önskade resultatet, omfattningen, det som ska bevaras och
+avsändaren), beställarens ord och det beställaren gillade i andra förslag, RIKTNING.md och kundens fakta och material.
 
-**Visar:** varje punkt i ägarens dom är åtgärdad eller besvarad med skäl; grundidén syns, kundens material bär,
-uppgiften går att genomföra och mobilen håller ihop; DESIGN.md är giltig och koden använder dess variabler
-(`kontroller/design.py --kandidat`). Arbetsregel: minst tre förfiningsvarv.
+**Till nästa steg:** den nya versionen (den gamla bevarad och valbar), DESIGN.md som sidorna använder, RIKTNING.md med
+uppdragets varv (brist, ändring, efterkontroll) och "Visar", de begärda specialistpassens poster (ändra eller bedöm, med
+fynd i formen bild, version, element, tillstånd, avvikelse och kodkoppling) och den separata före/efter-bedömningen.
 
-**Tillämpning:** passen interaktion och rörelse och tillgänglighet och visuell granskning ändrar den färdiga sidan i en
-samlad omgång, med kärnan läst före ändringen; utvecklingskompetensen avgör beteendet, strukturen och robustheten.
+**Visar:** det önskade resultatet syns i bilderna; en rättelse och ett designomtag lägger inte till sidor
+(`kandidater.omfattningsbrister`), en utbyggnad har varje angiven väg; DESIGN.md är giltig och koden använder dess
+variabler (`kontroller/design.py --kandidat`). Före och efter styr fortsättningen (`kandidater.fore_efter_regel`): en
+separat, blind granskare med rollen kritik ser de två versionernas bilder som X och Y utan skaparens förklaring, och en
+bättre eller likvärdig version förs vidare, en sämre men tekniskt nödvändig kräver fortsatt lösning, en sämre utan
+teknisk nödvändighet återställs (den sämre står bevarad och valbar), och ett oklart resultat står som oklart. Inget
+minsta antal varv.
 
-**Återgång:** ett pass vars kärnkrav brister återställs till versionen före och står som ej uppfyllt i kandidatens
-besked; ett nytt försök begärs uttryckligen inom budgeten (`kontroller/kandidater.py <slug> --nytt-passforsok`).
+**Tillämpning:** uppdraget har rollerna i passet fordjupa (design och komposition, typografi, innehåll, responsivitet);
+designomtaget har skissens kreativa frihet att lösa grundproblemet. Specialistpassen körs bara när uppdraget begär dem
+(Rätta: inga; Omarbeta designen: granskningen bedömer utan att ändra; Bygg ut: båda ändrar det nya), med kärnan läst
+före första ändringen.
+
+**Återgång:** ett uppdrag som går utanför sin omfattning, inte gör något eget varv eller inte bygger återställs till
+versionen det gällde; ett pass vars kärnkrav brister återställs och står som ej uppfyllt; ett nytt försök begärs
+uttryckligen inom budgeten (`kontroller/kandidater.py <slug> --nytt-passforsok`).
 
 ```utdrag före
 kunskap/designregler.md
