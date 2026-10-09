@@ -172,7 +172,9 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
   underlaget saknar, skrivet så att verksamheten kan svara på fem minuter. Bilder när de har färre än fem egna eller
   saknar någon av sorterna ovan: vilka, varför och till vilken sida och sektion (3–8 stycken). Telefontid, försäkring
   och F-skatt, svarstid för formuläret, och tre meningar i ägarens egna ord när en sektion bygger på dem. En rad per
-  sak: vad, varför, var på sajten. En förenklad form av loggan föreslås bara som fråga här, aldrig på sajten.
+  sak: vad, varför, var på sajten. Överst en egen rad med beskedet om bildmaterialet, `Bildmaterial: komplett` eller
+  `Bildmaterial: saknas`, och de saknade bilderna under `## Bilder` (`kontroller/bildstatus.py` läser beskedet; utan
+  det är statusen okänd). En förenklad form av loggan föreslås bara som fråga här, aldrig på sajten.
   Inget skickas under körningen; ägaren tar beställningen med sig.
 
 Skriv `underlag/<slug>/RESOR.json` ur toppuppgifterna (`kunskap/resor.md`): den primära handlingen och den skriftliga
@@ -519,8 +521,8 @@ Skriv `kunder/<slug>/RAPPORT.md` för ägaren, kort och ärligt, utan säljton:
 13. **Beställning till verksamheten:** sammanfattningen av `underlag/<slug>/BESTALLNING.md`, och att sajten är klar
     för att visas för verksamheten men inte klar att lanseras förrän beställningen är levererad. Ingen beställning
     behövs: skriv det. Den visuella statusen står på en egen rad, som `.venv/bin/python kontroller/bildstatus.py <slug>`
-    ger den: visuellt färdig, eller visuellt begränsad av saknat material med de beställda bilderna (dashboarden visar
-    samma status som chip).
+    ger den: bildmaterialet komplett (materialet, inte formgivningen), visuellt begränsad av saknat material med de
+    saknade bilderna, eller okänd när beställningen saknar ett giltigt besked (dashboarden visar samma status som chip).
 14. **Lokal synlighet:** avvikelser i namn, adress och telefon mellan sajten, Google-profilen och katalogerna, och vad
     verksamheten bör rätta. Inga avvikelser: skriv det. Lägg till tabellen Utgående länkar ur `prov/standard.md`: varje
     adress och svar; en länk som inte svarar rättas eller förklaras. Lokal eller regional verksamhet som inte är fiktiv:

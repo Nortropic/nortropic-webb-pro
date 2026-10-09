@@ -269,8 +269,9 @@ function grindchips(prov) {
   if (!prov) return '<span class="chip">Inte provad</span>';
   return Object.entries(prov.grindar).map(([n, ok]) => `<span class="chip ${ok ? 'ok' : 'rod'}">${esc(GRINDNAMN[n] || n)}</span>`).join('');
 }
-// leveransens visuella status ur beställningen (kontroller/bildstatus.py): visuellt färdig, eller begränsad av saknat material
-const visuellchip = (b) => b.visuell && b.visuell.status ? `<span class="chip ${b.visuell.status === 'visuellt färdig' ? '' : 'gul'}" title="${esc(b.visuell.text)}">${esc(b.visuell.status)}</span>` : '';
+// leveransens visuella status ur beställningen (kontroller/bildstatus.py): bildmaterialet komplett (bara med beställningens
+// uttryckliga besked; inget godkännande av formgivningen), visuellt begränsad av saknat material, eller okänd
+const visuellchip = (b) => b.visuell && b.visuell.status ? `<span class="chip ${b.visuell.status === 'bildmaterialet komplett' ? '' : 'gul'}" title="${esc(b.visuell.text)}">${esc(b.visuell.status)}</span>` : '';
 function statuschip(b) {
   if (b.pagar) return '<span class="chip acc puls">Körning pågår</span>';
   // avslutat är inte godkänt: stoppvakten släppte vid sitt tak (rött prov, saknad rapport eller underkänd granskning)
