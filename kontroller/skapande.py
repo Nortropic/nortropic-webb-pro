@@ -79,7 +79,7 @@ AVSANDARTYPER = {  # typ: (namn, definition)
 }
 # Domloggens källor (fältet kalla): avsändartypen och definitionen.
 KALLOR = {
-    'ägaren': ('agaren', 'ägarens egna ord och beslut: skrivna av ägaren i dashboardens vy Prototyp, eller förda in ordagrant '
+    'ägaren': ('agaren', 'ägarens egna ord och beslut: skrivna av ägaren i arbetsytans Förslagen, eller förda in ordagrant '
                          'med skapande.py dom och ett belägg för var ägarens egna ord står'),
     'ägaren via Codex': ('agaren', 'ägarens egna ord, ordagrant förmedlade av Codex; räknas som ägarens bara med ett belägg (fältet '
                                    'belagg: var ägarens egna ord står), annars är avsändaren ej belagd'),
@@ -93,7 +93,7 @@ KALLOR = {
     'kunden': ('kunden', 'kundens egna ord och beslut, ordagrant: förda in av ägaren i arbetsytan eller med skapande.py dom, '
                          'med ett belägg för var kundens ord står (samtalet, meddelandet och tiden)'),
 }
-# Källan som alltid är ägarens egen (dashboardens vy Prototyp). Ägaren via Codex räknas bara med ett belägg: avgör
+# Källan som alltid är ägarens egen (arbetsytans Förslagen). Ägaren via Codex räknas bara med ett belägg: avgör
 # ägarens beslut med ar_agarens, inte med den här listan (omgranskningen av skapandeflödet, fynd 2, räknade båda).
 AGAREN = ('ägaren',)
 BELAGG_KRAVS = ('ägaren via Codex', 'kunden')  # en källa som räknas bara med belägg
@@ -509,7 +509,7 @@ def oklara_text(ag):
     if not o:
         return None
     return ('%s: %s efter ägarens senaste läsbara dom%s går inte att läsa (%s); där kan ägarens senare beslut stå, så det '
-            'senaste beslutet går inte att avgöra. Vägen vidare är ett nytt beslut från ägaren efter raden (vyn Prototyp, eller '
+            'senaste beslutet går inte att avgöra. Vägen vidare är ett nytt beslut från ägaren efter raden (arbetsytans Förslagen, eller '
             'skapande.py dom med belägg), som gäller från sin rad; raden skrivs inte om av sig själv' % (
                 ag.get('fil') or DOMLOGG, 'rad %d' % o[0]['rad'] if len(o) == 1 else 'raderna %s' % ', '.join(str(x['rad']) for x in o[:8]),
                 ' (rad %d)' % ag['rad'] if ag.get('rad') else '', '; '.join(x['skal'] for x in o[:3])))

@@ -86,6 +86,17 @@ function kandidater() {
       preview: { url: `/visa/${SLUG}/k02`, finns: false, byggd: null }, snapshot: { 390: null, 1440: null, version: null, tid: null }, versioner: [] },
   ];
 }
+// Förslagen (förr vyn Prototyp): kandidatvyns data som server.kandidatvy ger den, före ditt första val (domd: false)
+const bilder_ = (kid) => Object.fromEntries(['390-forsta', '1440-forsta', '390-hela', '1440-hela'].map((b) => [b, `kunder/${SLUG}/kandidater/${kid}/bilder/${b}.png`]));
+const prototypData = () => ({ slug: SLUG, kandidatflode: true, kandidatlage: 'skiss', tider: {}, steg: 'klar_for_bedomning', fas: S.forslagFas || 'skiss', lage: 'ny',
+  startad: T(-60), klar: T(-30), fel: null, skal: null, domd: false, avbruten: false, antal: 3, forbattring_agaren: [], jamforelse: null, redovisning_md: null,
+  forskning_md: null, domar: [], godkand: null, godkand_kandidat: null,
+  kandidater: [
+    { id: 'k01', etikett: 'Förslag A', status: S.forslagK01 || 'klar', statustext: S.forslagK01 === 'forfinad' ? 'förfinad' : 'klar', version: S.k01v, bygd: true,
+      undersidor: ['/om/'], bilder: bilder_('k01'), referensjamforelse: { egen: true }, redovisning: [], brister: [], design_fel: [] },
+    { id: 'k02', etikett: 'Förslag B', status: 'klar', statustext: 'klar', version: V2, bygd: false, bilder: bilder_('k02'), referensjamforelse: { egen: true },
+      redovisning: [], brister: [], design_fel: [] },
+    { id: 'k03', etikett: 'Förslag C', status: 'fel', statustext: 'föll', skal: 'bygget föll i varv 2', bilder: {} }] });
 function preview(kand) {  // som arbetsyta.preview(): arbetsversion, bevarad ögonblicksbild, märkta för sig
   const ut = [];
   for (const k of kand) {
@@ -249,6 +260,7 @@ const srv = createServer(async (req, res) => {
   if (vag === `/api/arbetsyta/${SLUG}/logg`) return json(LOGG());
   if (vag === '/api/flode') return json({ slugar: [SLUG], pilot: [], kedjan: { steg: [{ steg: 'Kundunderlaget', vem: 'Kundstart samlar underlaget; du godkänner det.' },
     { steg: 'Prototypen', vem: 'Ateljén skapar kandidater med neutrala etiketter; granskarna dömer var för sig.' }] } });
+  if (vag === `/api/prototyp/${SLUG}`) return json(prototypData());
   if (vag === '/api/oversikt') return json({ byggen: [], backlog_vilande: 3, intag_pagar: 1, prospekt_vantar: 0 });
   if (vag === '/api/underhall') return json({ senast: { start: T(90), slut: T(80), antal: { uppdaterad: 2, avvisad: 0, behallen: 1 } }, andringar: [], intervall_dagar: 1, pagar: null, md: '' });
   if (vag === '/api/bevakning') return json({ senast: { start: T(30), slut: T(29), automatisk: true, utfall: 'delvis', sen_timmar: 0.2 }, nasta: T(-600), tidszon: 'Europe/Stockholm',
@@ -328,8 +340,8 @@ try {
   assert.equal((await page.locator('#ay-kund option:checked').textContent()).trim(), `${NAMN} (testdata)`, 'huvudet ska visa kundens namn, märkt som testdata');
   assert(await page.locator('#ay-huvud .ay-testdata').filter({ hasText: 'Testdata' }).isVisible(), 'huvudet ska visa märket Testdata');
   const flikar = page.getByRole('navigation', { name: 'Arbetsytans vyer' }).getByRole('link');
-  assert.deepEqual(await flikar.allTextContents(), ['Arbetsyta', 'Byggflöde', 'Kod och preview'], 'arbetsytan ska ha tre vyer');
-  assert.deepEqual(await flikar.evaluateAll((a) => a.map((x) => x.getAttribute('aria-current'))), ['page', null, null], 'aria-current ska stå på Arbetsyta');
+  assert.deepEqual(await flikar.allTextContents(), ['Arbetsyta', 'Förslagen', 'Byggflöde', 'Kod och preview'], 'arbetsytan ska ha fyra vyer: Förslagen är förra vyn Prototyp');
+  assert.deepEqual(await flikar.evaluateAll((a) => a.map((x) => x.getAttribute('aria-current'))), ['page', null, null, null], 'aria-current ska stå på Arbetsyta');
   assert.equal(posts.length, 0, 'att läsa arbetsytan skickar inget');
   // partnerns användningsrad: cache-siffrorna och listpriset som Claude Code rapporterar det, aldrig som en faktura
   const anv = page.locator('#ay-samtal .ay-msg.partnern .meta').first();
@@ -423,7 +435,7 @@ try {
   await flikar.filter({ hasText: 'Byggflöde' }).click();
   await page.locator('ol.ay-stegrad').waitFor();
   assert.equal(await page.evaluate(() => location.hash), `#/arbetsyta/${SLUG}/flode`);
-  assert.deepEqual(await flikar.evaluateAll((a) => a.map((x) => x.getAttribute('aria-current'))), [null, 'page', null], 'aria-current ska stå på Byggflöde');
+  assert.deepEqual(await flikar.evaluateAll((a) => a.map((x) => x.getAttribute('aria-current'))), [null, null, 'page', null], 'aria-current ska stå på Byggflöde');
   assert.deepEqual(await page.locator('ol.ay-stegrad > li .namn').allTextContents(), STEGNAMN, 'stegraden ska visa README:s nio steg');
   assert.equal(await page.locator('ol.ay-stegrad > li[data-pagar]').count(), 1, 'ett steg pågår');
   assert(await page.locator('.ay-grupper .ay-notis').filter({ hasText: 'Ditt första val i körningen är inte gjort' }).isVisible(), 'blindningen ska stå i Byggflöde');
@@ -445,7 +457,8 @@ try {
     [...d.querySelectorAll('.ay-menylista a')].map((a) => a.querySelector('span').firstChild.textContent.trim())]));
   const grupp = (text) => (grupper.find(([, l]) => l.includes(text)) || [])[0];
   assert.equal(grupp('Flöde'), undefined, 'Flöde är en del av Byggflöde, inte en egen post i menyn');
-  for (const [text, g] of [['Prototyp', 'Kundproduktion'], ['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'],
+  assert.equal(grupp('Prototyp'), undefined, 'Prototyp är projektets flik Förslagen, inte en egen post i menyn');
+  for (const [text, g] of [['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'],
     ['Underhåll och verktygslådan', 'Systemförbättring'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring']])
     assert.equal(grupp(text), g, `arbetsytans delar ska ha ${text} under ${g}`);
   assert.equal(await delar.getByRole('link', { name: 'Dokumentation och rapporter' }).count(), 1, 'Dokumentation och rapporter ska stå i delarna');
@@ -952,6 +965,54 @@ try {
   S.korning = forraKorning; S.sessioner.splice(S.sessioner.indexOf(s14), 1); skickaLage();
   sammanfattning.samverkan.beslut = 'bundet till bildens hash';
   await page.getByRole('tab', { name: /Partnern/ }).click();
+
+  // 12b. Förslagen (förr vyn Prototyp; ägarens besked 2026-10-09 ~17:11Z: allt in i arbetsytan): den gamla adressen leder
+  // dit, och besluten går genom arbetsytans beslutsväg med det du gillar, kundens belägg och bilderna du ser
+  const beslutPosts = () => posts.filter((p) => p.vag === `/api/arbetsyta/${SLUG}/beslut`).map((p) => p.body);
+  const forslag = () => page.getByRole('heading', { name: `Förslagen · ${SLUG}` });
+  let fore_ = beslutPosts().length;
+  await page.goto(origin + `/#/prototyp/${SLUG}`);
+  await forslag().waitFor();
+  assert.equal(await page.evaluate(() => location.hash), `#/arbetsyta/${SLUG}/forslag`, '#/prototyp/<kund> ska leda till Förslagen för samma kund');
+  assert.equal(await page.getByRole('navigation', { name: 'Arbetsytans vyer' }).locator('a[aria-current="page"]').textContent(), 'Förslagen');
+  assert.equal(await page.locator('.kkort').count(), 2, 'de två klara förslagen står i Förslagen');
+  assert.equal(await page.locator('details summary').filter({ hasText: 'Förslag som inte blev klara (1)' }).count(), 1, 'förslaget som föll står med skälet');
+  assert.equal(await page.locator('.kkort[data-k="k01"] a[href$="?sida=%2Fom%2F"]').count(), 1, 'undersidan öppnas från förslaget');
+  await axeKor('Förslagen');
+  await page.locator('[data-markera="k01"]').check(); await page.locator('[data-markera="k02"]').check();
+  await page.locator('#k-jamfor h2').filter({ hasText: 'Sida vid sida (2)' }).waitFor();
+  await page.locator('.kkort[data-k="k02"] summary').filter({ hasText: 'Det jag gillar här' }).click();
+  await page.locator('[data-del="k02"]').fill('Rubrikernas tyngd.');
+  await page.locator('input[name="k-b"][value="valj"]').check();
+  await page.locator('#k-spara').click();
+  await vantaPa(() => beslutPosts().length > fore_, 'valet ur Förslagen skickas genom arbetsytans beslutsväg');
+  let fb = beslutPosts().at(-1);
+  assert.deepEqual([fb.beslut, fb.kandidater.map((k) => k.id), fb.delar, typeof fb.startad, fb.avsandare, fb.sedd], ['valj', ['k01', 'k02'], { k02: 'Rubrikernas tyngd.' }, 'string', undefined, undefined],
+    'valet bär båda förslagen, det du gillar och vyns tid');
+  fore_ = beslutPosts().length;
+  await forslag().waitFor();
+  await page.locator('input[name="k-b"][value="jamfor"]').check();
+  await page.locator('#k-u-avs').selectOption('kunden');
+  await page.locator('#k-u-belagg').fill('Kundens mejl 2026-10-09 kl. 21.40');
+  await page.locator('#k-spara').click();
+  await vantaPa(() => beslutPosts().length > fore_, 'kundens jämförelse skickas');
+  fb = beslutPosts().at(-1);
+  assert.deepEqual([fb.beslut, fb.avsandare, fb.belagg], ['jamfor', 'kunden', 'Kundens mejl 2026-10-09 kl. 21.40'], 'kundens eget beslut bär belägget');
+  // godkännandet av det förfinade förslaget binds till ögonblicksbilderna och deras hash ur arbetsytans läge
+  S.forslagK01 = 'forfinad'; S.forslagFas = 'forfining';
+  await flikar.filter({ hasText: 'Arbetsyta' }).click(); await flikar.filter({ hasText: 'Förslagen' }).click();
+  await page.locator('.kkort[data-k="k01"] .chip').filter({ hasText: 'förfinad' }).waitFor();
+  await page.locator('[data-markera="k02"]').uncheck();
+  fore_ = beslutPosts().length;
+  await page.locator('input[name="k-b"][value="godkand"]').check();
+  assert(await page.locator('#k-avsandare').isHidden(), 'godkännandet är ägarens: ingen avsändare att välja');
+  await page.locator('#k-spara').click();
+  await vantaPa(() => beslutPosts().length > fore_, 'godkännandet skickas');
+  fb = beslutPosts().at(-1);
+  assert.deepEqual([fb.beslut, fb.kandidater, fb.sedd.map((x) => [x.bild.split('/').pop(), x.bild_sha, x.version])],
+    ['godkand', [{ id: 'k01', version: S.k01v }], [['390-forsta.png', '9'.repeat(64), S.k01v], ['1440-forsta.png', BILDSHA, S.k01v]]], 'godkännandet bär versionen och bilderna du ser');
+  S.forslagK01 = undefined; S.forslagFas = undefined;
+  sammanfattning.forslagen = { adressen_leder_dit: true, val_med_delar: true, kundens_belagg: true, godkannande_med_bildernas_hash: true };
 
   // 13. Inga sidfel; konsolfelen är bara de nätfel provet självt framkallar
   const avsiktliga = [/\/api\/flode\/prov-kund\/start$/, /\/api\/arbetsyta\/prov-kund\/andring$/, /\/api\/arbetsyta\/prov-kund\/strom$/, /\/api\/arbetsyta\/prov-kund\/kod$/];

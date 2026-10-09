@@ -212,7 +212,7 @@ try {
     }
     await page.locator('[data-historik-slut]').click();
   }
-  await page.goto(`${bas}/#/prototyp/${slug}`); await page.waitForTimeout(2500); await bild(page, '9d-prototyp');
+  await page.goto(`${bas}/#/arbetsyta/${slug}/forslag`); await page.waitForTimeout(2500); await bild(page, '9d-forslagen');  // förr vyn Prototyp
   const prototypText = await page.locator('#vy').innerText();
   await page.goto(`${bas}/#/dokumentation`); await page.waitForTimeout(2000); await bild(page, '9e-dokumentation');
   punkt(9, rader > 0 && meddelanden().length >= 4 && Boolean(gren?.egen_session && !gren.fel), { historikrader: rader, foljdfraga: gren, meddelanden: meddelanden().length, domar: domar().map((d) => d.beslut), prototyp_nämner_godkänd: /godk/i.test(prototypText) });

@@ -2696,12 +2696,12 @@ def besked(rot, st):
         print('%s %s' % (st.get('skal') or 'Körningen stannade efter planprövningen.', saknas))
         return 0
     if steg == 'klar_for_bedomning':
-        print('Kandidaterna är klara för ägarens bedömning (%s). Ägaren jämför och väljer i dashboardens vy Prototyp; '
+        print('Kandidaterna är klara för ägarens bedömning (%s). Ägaren jämför och väljer i arbetsytans Förslagen; '
               'panelens granskning visas först efter ägarens val. %s' % (st.get('skal') or '', saknas))
         return 0
     if steg == 'klar':
-        if not os.environ.get('NWP_SLUG'):  # ägaren dömer först, panelens dom visas efter (dashboardens vy Prototyp)
-            print('Skapandeflödet är klart (underlag/%s/atelje/). Döm startsidan i dashboardens vy Prototyp; panelens val och '
+        if not os.environ.get('NWP_SLUG'):  # ägaren dömer först, panelens dom visas efter (arbetsytans Förslagen)
+            print('Skapandeflödet är klart (underlag/%s/atelje/). Döm startsidan i arbetsytans Förslagen; panelens val och '
                   'slutdom visas där efter din dom. %s' % (st.get('slug'), saknas))
         return 0
     if steg == 'tillbaka':
@@ -3105,7 +3105,7 @@ def ta_bort_beslut(slug, info=None):
         raise RuntimeError('kunder/%s/sajt är ett eget git-repo och raderas inte av ett omtag; fråga ägaren. Inget är borttaget.' % slug)
     if sedda and not galler and not bokford:
         raise RuntimeError('ingen dom från ägaren gäller körningen (senaste: %s), och det ägaren sett (%s) står inte i historiken; '
-                           'döm först i dashboardens vy Prototyp (ny riktning eller förkasta). Inget är borttaget.'
+                           'döm först i arbetsytans Förslagen (ny riktning eller förkasta). Inget är borttaget.'
                            % ('%s %s' % (dom.get('beslut'), dom.get('tid')) if dom else 'ingen dom', ', '.join(sedda)[:300]))
     # allt som ska raderas på underlagssidan, och rester av ett tidigare omtag, ska gå att gå igenom innan något stoppas:
     # en katalog som inte går att lista kan innehålla ägarens egna filer (r93, BÖR 2)
@@ -3471,10 +3471,10 @@ def starta(a, rot):
               'görs om; --om gör en ny körning.' % st.get('steg'))
         return post['slutkod'] if post else 4
     if os.environ.get('NWP_SLUG') and kflode and st.get('steg') == 'klar_for_bedomning':
-        print('Kandidaterna väntar på ägarens val i dashboardens vy Prototyp; inget bygge tar vid före valet och godkännandet.')
+        print('Kandidaterna väntar på ägarens val i arbetsytans Förslagen; inget bygge tar vid före valet och godkännandet.')
         return 6
     if os.environ.get('NWP_SLUG') and not st.get('steg'):
-        print('Skapandeflödet körs utanför bygget och slutar i ägarens val (kontroller/prototyp.py, dashboardens vy Prototyp); '
+        print('Skapandeflödet körs utanför bygget och slutar i ägarens val (kontroller/prototyp.py, arbetsytans Förslagen); '
               'ett bygge tar vid först från en godkänd startsida. NWP_ATELJE=av är nödvägen utan ateljé.')
         return 2
     if (a.ny_riktning or a.putsa) and os.environ.get('NWP_SLUG'):

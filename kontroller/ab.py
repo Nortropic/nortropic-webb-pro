@@ -82,11 +82,11 @@ def skisskommando(a):
         if a.kommando == 'forbered-skiss':
             p = forbered_skiss(a.slug, a.kandidat, a.variabel)
             print('Förberett %s; inga sessioner startade. Kräver mandat för underlag och budget före körning.' % p['id'])
-            print('Kör sedan befintligt prototypflöde med --fortsatt. Bedöm bilderna blint i Prototyp före resultatet.')
+            print('Kör sedan befintligt prototypflöde med --fortsatt. Bedöm bilderna blint i arbetsytans Förslagen före resultatet.')
         else:
             import kandidater
             if not kandidater.domd(a.slug):
-                raise ValueError('bedöm kandidaterna blint i Prototyp före resultatsammanställningen')
+                raise ValueError('bedöm kandidaterna blint i arbetsytans Förslagen före resultatsammanställningen')
             print(json.dumps(skissresultat(a.slug), ensure_ascii=False, indent=2))
         return 0
     except (OSError, ValueError) as e:

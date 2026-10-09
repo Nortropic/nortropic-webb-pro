@@ -75,7 +75,7 @@
     }
     if (!A.projekt.some((p) => p.slug === slug)) { visaFel(`Arbetsytan känner inte till kunden ${slug}. Välj en kund i listan.`); return; }
     const byte = A.slug !== slug;
-    A.vy = ['flode', 'kod'].includes(vy) ? vy : '';
+    A.vy = ['flode', 'kod', 'forslag'].includes(vy) ? vy : '';
     if (byte) { stangStrom(); Object.assign(A, { mark: undefined, slug, lage: null, valdKandidat: null, folj: null, partner: null, partnerNyckel: null, material: null, logg: null, loggNyckel: null, svar: '', kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null } }); }
     try { localStorage.setItem('nwp-arbetsyta:senaste', slug); } catch { /* bekvämlighet */ }
     const l = layout(slug);
@@ -88,6 +88,7 @@
       if (gen !== A.generation || A.slug !== slug) return;  // ägaren har gått vidare under läsningen
       tillampa(d, true);
     }
+    if (A.vy === 'forslag' && gen === A.generation) laddaForslagen();
     if (!A.strom && !A.pollTimer && A.slug === slug) oppnaStrom(slug);
   };
   function localStorageSenaste() { try { return localStorage.getItem('nwp-arbetsyta:senaste'); } catch { return null; } }
@@ -169,18 +170,19 @@
       <header class="ay-huvud" id="ay-huvud">${huvudTom().replace(/^<header[^>]*>|<\/header>$/g, '')}</header>
       ${flikrad()}
       <p id="ay-meddelande" class="dolt" role="status" aria-live="polite" aria-atomic="true"></p>
-      <main id="ay-innehall">${A.vy === 'sektion' ? '<div id="vy" class="ay-sektion"><p class="under">Laddar …</p></div>' : A.vy === 'flode' ? '<div class="ay-flode" id="ay-flode"></div>' : A.vy === 'kod' ? kodRam() : ytRam(l)}</main>
+      <main id="ay-innehall">${A.vy === 'sektion' ? '<div id="vy" class="ay-sektion"><p class="under">Laddar …</p></div>'
+        : A.vy === 'forslag' ? '<div id="ay-forslagsnotis"></div><div id="vy" class="ay-sektion ay-forslagen"><p class="under">Laddar förslagen …</p></div>' : A.vy === 'flode' ? '<div class="ay-flode" id="ay-flode"></div>' : A.vy === 'kod' ? kodRam() : ytRam(l)}</main>
     </div>`;
     if (A.vy === '') kopplaDelare();
     if (A.vy === 'kod') laddaKod();
+    if (A.vy === 'forslag') A.forslagNyckel = undefined;  // vyn är inte ritad än
   }
   // Arbetsytans delar utöver projektets tre vyer (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan). Adresserna
   // är desamma som förut (#/backlog, #/kundstart/<id> …), så länkar, bokmärken och vyernas egna kontroller av adressen
   // gäller; varje del ritas i arbetsytans ram med samma funktioner och skrivvägar som förut. Kundproduktionen och
   // systemförbättringen hålls isär (uppdraget 2026-10-09 ~07:24Z).
   const DELAR = [
-    ['Kundproduktion', [['prototyp', 'Prototyp', 'kandidaterna sida vid sida, jämförelsen och ditt val', true],
-      ['oversikt', 'Byggen och dina domar', 'helbyggena, deras prov och din dom'], ['ab', 'Jämförelser', 'blinda par: välj utan att veta vilket som är vilket'],
+    ['Kundproduktion', [['oversikt', 'Byggen och dina domar', 'helbyggena, deras prov och din dom'], ['ab', 'Jämförelser', 'blinda par: välj utan att veta vilket som är vilket'],
       ['kundstart', 'Kundstart', 'kundens ärende, underlag och överlämning'], ['prospekt', 'Prospekt', 'kampanjer, analyser och utskick', false, 'n-prospekt'],
       ['starta', 'Starta', 'kommandona för helbygge, backlog och prov']]],
     ['Systemförbättring', [['underhall', 'Underhåll och verktygslådan', 'det dagliga underhållet och versionerna'], ['kirurgen', 'Kirurgen', 'intag, spaningen och förbättringsarbetet', false, 'n-kirurg'],
@@ -194,7 +196,7 @@
     const href = (k, projekt) => `#/${k}${projekt && sl ? '/' + sl : ''}`;
     const post = ([k, n, om, projekt, raknare]) => `<a href="${href(k, projekt)}" data-v="${k}"${del === k ? ' aria-current="page"' : ''}><span>${n}${raknare ? ` <b id="${raknare}" hidden></b>` : ''}</span><span class="ay-menyom">${om}</span></a>`;
     return `<div class="ay-flikrad">
-        <nav aria-label="Arbetsytans vyer" class="ay-projektflikar">${[['', 'Arbetsyta'], ['flode', 'Byggflöde'], ['kod', 'Kod och preview']].map(([k, n]) =>
+        <nav aria-label="Arbetsytans vyer" class="ay-projektflikar">${[['', 'Arbetsyta'], ['forslag', 'Förslagen'], ['flode', 'Byggflöde'], ['kod', 'Kod och preview']].map(([k, n]) =>
           `<a href="#/arbetsyta${sl ? '/' + sl : ''}${k && sl ? '/' + k : ''}"${A.vy === k ? ' aria-current="page"' : ''}>${n}</a>`).join('')}</nav>
         <nav aria-label="Arbetsytans delar" class="ay-delar">${DELAR.map(([grupp, delar]) => { const har = delar.some(([k]) => k === del);
           return `<details class="ay-meny"><summary${har ? ' data-aktiv' : ''}>${grupp}${har ? `<span class="ay-meny-val">: ${e_(DELNAMN[A.sektion])}</span>` : ''}</summary>
@@ -206,7 +208,7 @@
     const sektion = DELNAMN[forsta] ? forsta : 'oversikt';
     document.body.classList.add('ay-aktiv');
     const gen = ++A.generation;  // en pågående läsning av en vy ger inte längre ramen
-    let slug = ['prototyp', 'bygge'].includes(forsta) && andra ? decodeURIComponent(andra) : (A.slug || localStorageSenaste());
+    let slug = forsta === 'bygge' && andra ? decodeURIComponent(andra) : (A.slug || localStorageSenaste());
     if (A.projekt.length && slug && !A.projekt.some((p) => p.slug === slug)) slug = A.projekt.some((p) => p.slug === A.slug) ? A.slug : null;  // ett bygge utan arbetsyta behåller kunden i huvudet
     bytKund(slug);
     A.vy = 'sektion'; A.sektion = sektion;
@@ -324,7 +326,44 @@
       behallFokus(document.getElementById('ay-flode'), () => { document.getElementById('ay-flode').innerHTML = flode(); });
     }
     if (A.vy === 'kod') { ritaMaterial(); ritaKodaktivitet(); laddaLogg(); if (A.kod.kandidat !== kodKandidat()) laddaKod(); }
+    if (A.vy === 'forslag') ritaForslagsnotis();
   }
+  // Förslagen (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan): kandidatflödets hela vy, förr Prototyp, i
+  // arbetsytans ram: bilderna i alla bredder, förslagen sida vid sida, referensen bredvid, det du gillar per förslag,
+  // redovisningen, de tekniska kontrollerna, avslöjandet efter ditt första beslut, observationen och hela beslutet. Vyn
+  // ritas när fliken öppnas; ett nytt läge visas som en notis när du har skrivit något, så att inget du skrivit töms.
+  function forslagsnyckel() {
+    const l = A.lage || {}, k = l.korning || {};
+    return JSON.stringify([A.slug, k.startad, k.steg, (l.kandidater || []).map((x) => [x.id, x.version, x.status])]);
+  }
+  async function laddaForslagen() {
+    const slug = A.slug, gen = A.generation;
+    if (!slug || typeof prototypvy !== 'function') return;
+    A.forslagNyckel = A.lage ? forslagsnyckel() : null;
+    const n = document.getElementById('ay-forslagsnotis'); if (n) n.innerHTML = '';
+    try { await prototypvy(slug); } catch (err) {
+      if (gen !== A.generation || A.slug !== slug) return;
+      const v = document.getElementById('vy'); if (v) v.innerHTML = `<div class="ay-notis varn">Förslagen kunde inte läsas: ${e_(err.message)}</div>`;
+    }
+  }
+  function ritaForslagsnotis() {
+    if (!A.lage || A.forslagNyckel === undefined) return;
+    const nyckel = forslagsnyckel();
+    if (A.forslagNyckel === null) { A.forslagNyckel = nyckel; return; }  // läget lästes efter vyn: det är samma läge
+    if (nyckel === A.forslagNyckel) return;
+    const vy = document.getElementById('vy');
+    const skrivet = vy && [...vy.querySelectorAll('textarea, input:not([type=checkbox]):not([type=radio])')].some((f) => f.value.trim());
+    if (!skrivet && !(vy && vy.contains(document.activeElement))) { laddaForslagen(); return; }
+    const n = document.getElementById('ay-forslagsnotis');
+    if (n && !n.innerHTML) n.innerHTML = `<div class="ay-notis varn" role="status">Läget har ändrats sedan förslagen ritades: en ny version, ett nytt steg eller ett nytt beslut. <button class="ay-knapp" type="button" data-las-om-forslag>Läs om förslagen</button> Det du har skrivit här töms då.</div>`;
+  }
+  // det ägaren ser i Förslagen, ur arbetsytans läge: kandidatens fotograferade version och ögonblicksbildernas hash. Ett
+  // godkännande binds till dem, och samverkan.beslut prövar dem mot filerna nu (som raden under ögonblicksbilden).
+  window.arbetsytaSett = function arbetsytaSett(slug) {
+    if (!A.lage || A.slug !== slug) return null;
+    return Object.fromEntries((A.lage.kandidater || []).map((k) => [k.id, { version: k.version_hel, sedd: ['390', '1440']
+      .filter((b) => k.snapshot?.[b] && k.snapshot?.sha?.[b]).map((b) => ({ kandidat: k.id, version: k.version_hel, bild: k.snapshot[b], bild_sha: k.snapshot.sha[b] })) }]));
+  };
   function huvud() {
     if (!A.lage) return `<div class="ay-marke">${SVG.marke}<span>Nortropic</span></div>${A.projekt.length ? `<div class="ay-falt"><span><label for="ay-kund">Kund</label></span><select id="ay-kund" data-fokus="kund">${A.slug ? '' : '<option value="" selected>Välj kund</option>'}${A.projekt.map((x) => `<option value="${e_(x.slug)}"${x.slug === A.slug ? ' selected' : ''}>${e_(x.namn || x.slug)}</option>`).join('')}</select></div>` : ''}`;
     const l = A.lage, p = l.projekt || {}, k = l.korning || {}, kand = (l.kandidater || []).find((x) => x.id === A.valdKandidat);
@@ -389,7 +428,7 @@
     }
     if (val === 'kandidater') {
       const ks = l.kandidater || [];
-      return `<div class="ay-adress"><span class="etikett">${l.blind ? 'Neutrala etiketter i slumpad ordning; bedömningar visas efter ditt första val (i Prototyp)' : 'Kandidaterna i körningen'}</span></div>
+      return `<div class="ay-adress"><span class="etikett">${l.blind ? 'Neutrala etiketter i slumpad ordning; bedömningar visas efter ditt första val (i Förslagen)' : 'Kandidaterna i körningen'}</span></div>
         <div class="ay-scen"><div class="ay-kandidatrutnat">${ks.length ? ks.map((k) => `<button type="button" class="ay-kandidat" data-kandidat="${e_(k.id)}" data-fokus="k-${e_(k.id)}" aria-pressed="${k.id === A.valdKandidat}">
           ${k.snapshot['1440'] ? `<img loading="lazy" src="/fil/${e_(k.snapshot['1440'])}" alt="${e_(k.etikett)}, bevarad skärmbild">` : '<span class="utan-bild">Ingen skärmbild än</span>'}
           <strong>${e_(k.etikett)}</strong><span class="svag">${e_(k.statustext || k.status)}${k.version ? ' · version ' + e_(k.version) : ''}</span></button>`).join('')
@@ -428,7 +467,7 @@
       ${(l.ofullstandig || []).length ? `<div class="ay-notis varn" style="margin-top:8px">Ofullständigt: ${e_(l.ofullstandig.join('; '))}</div>` : ''}</div></section>`;
     const k = l.korning || {}, b = l.besked || {};
     const beslut = `<section class="ay-panel" aria-labelledby="ay-besl"><div class="ay-panelhuvud"><h2 id="ay-besl">Nästa beslut</h2></div><div class="ay-panelkropp ay-bekrafta">
-      ${k.vantar_pa_agaren ? `<p style="margin:0">Kandidaterna väntar på ditt beslut. Du beslutar under den bevarade bilden, som beslutet binds till.</p><div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-visa-beslut data-fokus="visa-beslut">Visa bilden och besluta</button></div>`
+      ${k.vantar_pa_agaren ? `<p style="margin:0">Kandidaterna väntar på ditt beslut. Du beslutar under den bevarade bilden, som beslutet binds till.</p><div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-visa-beslut data-fokus="visa-beslut">Visa bilden och besluta</button><a class="ay-knapp" href="#/arbetsyta/${e_(A.slug)}/forslag">Alla förslag i Förslagen</a></div>`
         : k.avbruten ? '<p style="margin:0">Körningen avbröts. Återuppta den under Kontroller; inget klart görs om.</p>'
         : k.arbetaren === 'lever' ? '<p style="margin:0">Inget beslut väntar på dig: arbetet pågår.</p>' : '<p style="margin:0">Inget beslut väntar på dig just nu.</p>'}
       ${(b.tillstand || []).length ? `<details><summary class="svag">Slutbeskedens fem lägen</summary><ul class="ay-handelser" style="margin-top:6px">${b.tillstand.map((t) => `<li><span>${e_(t.status)}</span><span>${e_(t.namn)}</span></li>`).join('')}</ul></details>` : ''}
@@ -1148,13 +1187,13 @@
     catch (err) { svar.textContent = err.message; }
   }
 
-  // --- besluten: Prototypvyns beslutstjänst, bunden till den bild och version du ser ---
+  // --- besluten: samma beslutstjänst som Förslagen, bunden till den bild och version du ser ---
   function beslutsruta() {
     const k = (A.lage.kandidater || []).find((x) => x.id === A.valdKandidat);
     if (!k) return '<p style="margin:0">Kandidaterna väntar på ditt val. Välj en kandidat under Kandidater.</p>';
     const bild = k.snapshot['1440'] || k.snapshot['390'], sha = k.snapshot['1440'] ? k.snapshot.sha?.['1440'] : k.snapshot.sha?.['390'];
     if (!k.version_hel) return `<p style="margin:0">${e_(k.etikett)} har ingen fotograferad version att besluta över än.</p>`;
-    if (!bild) return `<p style="margin:0">${e_(k.etikett)} har version ${e_(k.version)} men ingen bevarad bild: ett beslut binds till bilden du ser, så fotografera kandidaten först (eller välj i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>).</p>`;
+    if (!bild) return `<p style="margin:0">${e_(k.etikett)} har version ${e_(k.version)} men ingen bevarad bild: ett beslut binds till bilden du ser, så fotografera kandidaten först (eller besluta i <a href="#/arbetsyta/${e_(A.slug)}/forslag">Förslagen</a>).</p>`;
     const b = A.beslutBekrafta;
     const ogiltig = k.snapshot.giltig === false;  // en fotograferad felsida: ingen version att välja eller godkänna
     const godk = ['forfinad'].includes(k.status) && !ogiltig;
@@ -1162,7 +1201,7 @@
       ${b ? `<div class="ay-bekraftruta"><p style="margin:0">${e_(b.text)}</p>${b.version_hel && b.version_hel !== k.version_hel && !b.aldre ? `<p class="ay-notis varn" role="alert" style="margin:0">${e_(k.etikett)} har fått en ny version (${e_(k.version)}) sedan du öppnade beslutet. Beslutet gäller version ${e_(b.version)}, som inte längre är kandidatens, och nekas: avbryt och se den nya versionen först.</p>` : ''}${['forkasta', 'ny_riktning'].includes(b.beslut) || b.beslut === 'valj' ? `<label class="svag" for="ay-beslutstext">${b.beslut === 'valj' ? 'Vad du gillar (valfritt)' : 'Vad håller inte, och vad ska nästa försök pröva?'}</label><textarea id="ay-beslutstext" rows="3" data-fokus="beslutstext"></textarea>` : ''}
           <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut-ja data-fokus="beslut-ja">${e_(b.knapp)}</button><button class="ay-knapp" type="button" data-beslut-nej>Avbryt</button></div></div>`
         : `${ogiltig ? `<p class="ay-notis varn" role="alert" style="margin:0">Ögonblicksbilden av ${e_(k.etikett)} är ingen sida (${e_((k.snapshot.ogiltig || []).join('; '))}). Fotografera kandidaten igen innan du väljer eller godkänner den.</p>` : ''}<div class="ay-knapprad">${ogiltig ? '' : '<button class="ay-knapp primar" type="button" data-beslut="valj" data-fokus="b-valj">Välj vidare</button>'}${godk ? '<button class="ay-knapp primar" type="button" data-beslut="godkand" data-fokus="b-godkand">Godkänn denna version</button>' : ''}<button class="ay-knapp" type="button" data-beslut="forkasta">Underkänn alla</button><button class="ay-knapp" type="button" data-beslut="ny_riktning">Ny riktning</button></div>
-          <p class="svag" style="margin:0">Jämför kandidaterna under Resultat → Jämför, eller sida vid sida i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>. Välj vidare startar inget; ett uppdrag (Rätta, Omarbeta designen eller Bygg ut) ger du under Ändring, och det startas under Kontroller. Ett godkännande lämnar över till helbygget men startar det inte, och publiceringen är ett eget beslut.</p>`}
+          <p class="svag" style="margin:0">Jämför kandidaterna under Resultat → Jämför, eller alla sida vid sida i <a href="#/arbetsyta/${e_(A.slug)}/forslag">Förslagen</a>, där också hela beslutet finns. Välj vidare startar inget; ett uppdrag (Rätta, Omarbeta designen eller Bygg ut) ger du under Ändring, och det startas under Kontroller. Ett godkännande lämnar över till helbygget men startar det inte, och publiceringen är ett eget beslut.</p>`}
       <p class="svag" role="status" aria-live="polite" id="ay-beslutssvar" style="margin:0">${e_(A.beslutSvar || '')}</p>`;
   }
   const BESLUTSTEXT = {
@@ -1215,6 +1254,7 @@
     const ay = ev.target.closest('.ay'); if (!ay) return;
     const t = ev.target.closest('button, a'); if (!t) return;
     const d = t.dataset;
+    if ('lasOmForslag' in d) { laddaForslagen(); return; }
     if (d.material) { A.material = d.material; ritaMaterial(); document.querySelector(`[data-fokus="m-${d.material}"]`)?.focus(); return; }
     if (d.enhet) { A.enhet = d.enhet; sparaLayout({ enhet: d.enhet }); ritaMaterial(); document.querySelector(`[data-fokus="e-${d.enhet}"]`)?.focus(); return; }
     if (d.kandidat) { A.valdKandidat = d.kandidat; A.material = null; if ((A.avsikt === 'andring' || A.mark) && A.mark?.kandidat !== d.kandidat) markera({ kandidat: d.kandidat }); /* samma kandidat: markeringen (fil, sida, del) står kvar */ rita(); ritaSkriv(); return; }
@@ -1283,7 +1323,6 @@
   document.addEventListener('change', (ev) => {
     if (ev.target.id === 'ay-kund' && ev.target.value) {
       if (A.vy !== 'sektion') location.hash = '#/arbetsyta/' + encodeURIComponent(ev.target.value) + (A.vy ? '/' + A.vy : '');
-      else if (A.sektion === 'prototyp') location.hash = `#/${A.sektion}/` + encodeURIComponent(ev.target.value);
       else { bytKund(ev.target.value); const gen = ++A.generation; ritaFlikrad(); rita(); lasHuvud(gen); }
     }
     if (ev.target.id === 'ay-kodkand') { A.valdKandidat = ev.target.value; A.kod.fil = null; A.kod.mot = null; laddaKod(); ritaMaterial(); }

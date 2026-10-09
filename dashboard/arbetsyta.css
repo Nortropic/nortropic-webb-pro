@@ -35,10 +35,12 @@ body.ay-aktiv input[type=file]::file-selector-button { font: inherit; color: var
 .ay .dolt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* en del av arbetsytan utöver projektets tre vyer: läsbar bredd och arbetsytans rubrikskala */
-.ay[data-vy="sektion"] > .ay-huvud { position: static; }
-.ay[data-vy="sektion"] > .ay-flikrad { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--ay-bg) 94%, transparent); backdrop-filter: blur(8px); }
+.ay:is([data-vy="sektion"], [data-vy="forslag"]) > .ay-huvud { position: static; }
+.ay:is([data-vy="sektion"], [data-vy="forslag"]) > .ay-flikrad { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--ay-bg) 94%, transparent); backdrop-filter: blur(8px); }
 .ay-summa { font-size: 11.5px; font-weight: 600; background: var(--ay-accent-mjuk); color: var(--ay-accent); border-radius: 99px; padding: 0 7px; margin-left: 6px; }
 .ay-sektion { width: 100%; max-width: 1180px; margin: 0 auto; padding: 22px 18px 80px; font-size: 14.5px; }
+/* Förslagen (förr vyn Prototyp): notisen om ett nytt läge står över vyn, i samma bredd */
+#ay-forslagsnotis:not(:empty) { max-width: 1180px; margin: 14px auto 0; padding: 0 18px; }
 /* rubrikskalan med låg specificitet (:where), så att delarnas egna regler (.kkort h3, .obs-grid h4) gäller som förut */
 :where(.ay-sektion) h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.015em; }
 :where(.ay-sektion) h2 { font-size: 16px; }

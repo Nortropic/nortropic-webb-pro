@@ -306,7 +306,7 @@ def tillstanden(slug, status, slag, kand, beslut_):
     elif slag == 'klar' and kand and not any(k['valbar'] for k in kand):
         ag = {'varde': None, 'text': 'ingen kandidat blev valbar: ägaren har inget att bedöma, och en ny körning behövs'}
     else:
-        ag = {'varde': None, 'text': 'väntar på ägarens bedömning i dashboardens vy Prototyp' if slag == 'klar' else 'ingen dom från ägaren efter körningen'}
+        ag = {'varde': None, 'text': 'väntar på ägarens bedömning i arbetsytans Förslagen' if slag == 'klar' else 'ingen dom från ägaren efter körningen'}
     if ff == 'forberedelse':
         ag = {'varde': None, 'text': 'förberett underlag; inget designgodkännande begärs i detta steg'}
     if andra:
@@ -384,9 +384,9 @@ def bygg(slug, status, korning, typ=TYP, efterhand=None):
                 'forsok-<n>/ och görs om' % slug, 'eller en ny körning: .venv/bin/python kontroller/prototyp.py %s --om' % slug]
     ny = ['ägaren avgör nästa steg: en ny riktning (.venv/bin/python kontroller/prototyp.py %s --ny-riktning) eller nytt underlag' % slug]
     atgarder = {
-        'klar': {'forberedelse': ['underlaget är förberett; nästa steg: .venv/bin/python kontroller/prototyp.py %s' % slug], 'kandidatflodet': ['ägaren jämför och väljer i dashboardens vy Prototyp; nästa steg startas med .venv/bin/python kontroller/prototyp.py %s' % slug],
-                 'forfining': ['ägaren bedömer de förfinade i vyn Prototyp och godkänner en för helbygget; sedan ./kor.sh %s "<verksamhet>"' % slug],
-                 'aldre': ['ägaren dömer startsidan i dashboardens vy Prototyp; panelens val och slutdom visas där efter domen']}[ff],
+        'klar': {'forberedelse': ['underlaget är förberett; nästa steg: .venv/bin/python kontroller/prototyp.py %s' % slug], 'kandidatflodet': ['ägaren jämför och väljer i arbetsytans Förslagen; nästa steg startas med .venv/bin/python kontroller/prototyp.py %s' % slug],
+                 'forfining': ['ägaren bedömer de förfinade i arbetsytans Förslagen och godkänner en för helbygget; sedan ./kor.sh %s "<verksamhet>"' % slug],
+                 'aldre': ['ägaren dömer startsidan i arbetsytans Förslagen; panelens val och slutdom visas där efter domen']}[ff],
         'forkastad': ny, 'tillbaka': ny,
         'startkontrollen': ['rätta det startkontrollen stoppade på (%s) och starta igen med .venv/bin/python kontroller/prototyp.py %s' % (
             (status.get('startkontroll') or {}).get('kvitto') or 'underlag/%s/atelje/STARTKVITTO-STOPP.md' % slug, slug)],

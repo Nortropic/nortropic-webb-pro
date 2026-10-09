@@ -15,9 +15,10 @@ kompletta arbetsplatsen. Arbetet: `backlog/B-20261009-visuella-arbetsytan-samtal
 ```
 
 Arbetsytan öppnas på dashboardens rot (`#/`) och är dashboardens enda ram (ägarens besked 2026-10-09 ~17:11Z: "allt
-ska ju in i det här nya vyn"). Bredvid projektets tre vyer står arbetsytans delar i två menyer, kundproduktionen skild
+ska ju in i det här nya vyn"). Bredvid projektets fyra vyer står arbetsytans delar i två menyer, kundproduktionen skild
 från systemförbättringen:
-- **Kundproduktion:** Prototyp, Byggen och dina domar, Jämförelser, Kundstart, Prospekt och Starta. Flöde är en del av
+- **Kundproduktion:** Byggen och dina domar, Jämförelser, Kundstart, Prospekt och Starta. Prototyp är projektets flik
+  Förslagen, och `#/prototyp/<kund>` leder dit (se nedan). Flöde är en del av
   Byggflöde: beskedet med version, omfattning och starterna, stegen i detalj (underlag, utfall, kontroller, beslut och
   brister), startmiljön, det tänkta flödet med det som saknas i dag och Figma-piloten. `#/flode/<kund>` leder dit.
 - **Systemförbättring:** Underhåll och verktygslådan, Kirurgen, Backlog, Kalibrering, Lärdomar och Designprov.
@@ -39,7 +40,7 @@ Claude-panelen i Claude Code: `claude --plugin-dir mod/nortropic-arbetsyta`, och
 
 ## Vyerna
 
-Tre vyer över samma läge och samma identiteter (kund, körning, kandidat och version, roll, sessions-id). Det som syns
+Fyra vyer över samma läge och samma identiteter (kund, körning, kandidat och version, roll, sessions-id). Det som syns
 direkt är läget, nästa handling och det som väntar på dig; resten ligger ett steg ned bakom etiketter som säger vad de
 visar (successiv fördjupning, högst två nivåer).
 
@@ -49,6 +50,16 @@ visar (successiv fördjupning, högst två nivåer).
   materialet. Huvudmaterialet: Förhandsvisning (arbetsversionen), Ögonblicksbild (den bevarade versionen, med
   beslutsraden när körningen väntar på dig), Jämför, Kandidater och Underlag. Panelerna fälls ihop och dras i bredd;
   under 900 px visas ett område i taget (Samtal, Resultat, Sessioner).
+- **Förslagen** (förr vyn Prototyp, `#/arbetsyta/<kund>/forslag`; `#/prototyp/<kund>` leder dit): alla förslag i
+  körningen med neutrala etiketter, i mobil och dator bredvid varandra eller en bredd i taget (768 och 1280 när de
+  finns), första vyn eller hela sidan, bilderna i full storlek, prototypen och dess undersidor klickbara, markerade
+  förslag sida vid sida, referensen bredvid, skaparens redovisning, de tekniska kontrollerna för sig, det du gillar per
+  förslag, förslag som inte blev klara med skälen, observationen och hela beslutet: välj (ett eller flera), jämför,
+  uppdrag, godkänn, förkasta och ny riktning, med din text, versionen före en förbättringsrunda och kunden som
+  avsändare med belägg (godkännandet är alltid ditt). Skaparens förklaringar, granskningen, skisskritiken och
+  körningens redovisning visas först efter ditt första beslut, som förut. Vyn ritas när fliken öppnas; ändras läget
+  (en ny version, ett nytt steg eller ett beslut) medan du har skrivit något, visas en notis med Läs om förslagen i
+  stället för att tömma det du skrivit.
 - **Byggflöde**: kundens nio observerade steg, sessionerna per moment och kandidat med detaljvy, Sessionsflödet och
   helbyggets körningar; bevakningen och systemförbättringen i en egen del, skild från kundproduktionen: bevakningens
   läge (aktiv först efter en schemalagd körning; senaste och nästa körning i Europe/Stockholm), dagens besked och nya
@@ -173,7 +184,7 @@ motorns sessioner, så att samma instruktion aldrig går två vägar.
 | **Följ** | sessionens kort | sessionens observerade händelser ur transkriptet | skickar inget |
 | **Skriv** | sessionens kort, Meddelanden | en fråga eller ändringsinstruktion till sessionen som arbetar, eller till kandidatens utförare | ändrar inget själv; utföraren gör det i sin session |
 | **Historik** | sessionens kort (efter ditt första val) | sessionens samtal ur transkriptet, maskerat och avkortat, med verktygens namn | visar inga verktygssvar |
-| **Ge ett uppdrag** | Skriv → Ändring, Prototyp | ett av de tre uppdragen på den markerade kandidaten och versionen: **Rätta** (angivna brister inom befintlig omfattning), **Omarbeta designen** (komposition, bildregi, typografi, rytm och hierarki inom avtalat innehåll) eller **Bygg ut** (överenskomna sektioner, undersidor och funktioner), med önskat resultat, omfattning, det som ska bevaras och avsändaren (du, eller kunden med ett belägg för var kundens ord står); sparas i domloggen | startar inget; uppdraget startas under Kontroller med knappen "Starta uppdraget: …", och motorns egen session med dess behörigheter genomför det (`kunskap/skapandeflodet.md`, steg 7) |
+| **Ge ett uppdrag** | Skriv → Ändring, eller Förslagen | ett av de tre uppdragen på den markerade kandidaten och versionen: **Rätta** (angivna brister inom befintlig omfattning), **Omarbeta designen** (komposition, bildregi, typografi, rytm och hierarki inom avtalat innehåll) eller **Bygg ut** (överenskomna sektioner, undersidor och funktioner), med önskat resultat, omfattning, det som ska bevaras och avsändaren (du, eller kunden med ett belägg för var kundens ord står); sparas i domloggen | startar inget; uppdraget startas under Kontroller med knappen "Starta uppdraget: …", och motorns egen session med dess behörigheter genomför det (`kunskap/skapandeflodet.md`, steg 7) |
 | **Välj en tidigare version** | Resultat → Jämför, en tidigare version | väljer den bevarade versionen (före eller efter ett uppdrag); den tas fram med "Ta fram den valda versionen …" under Kontroller | den nuvarande versionen står kvar bevarad och kan väljas igen |
 | **Fortsätta arbetet** | Meddelanden, Kontroller | en ändringsinstruktion till kandidatens utförare (sessionen som arbetar med kandidaten nu eller härnäst) | ingen förgrening skriver i kandidatens filer, och två aktörer skriver aldrig samtidigt |
 | **Följdfråga** | Historik, för en avslutad session | en förgrening (`--resume <id> --fork-session`) med eget id, registrerad med föräldern och ansvaret, som bara läser (Read, Glob, Grep; dontAsk) i en egen tom katalog | förgrenar aldrig en session som arbetar; föräldern får aldrig en andra process |
@@ -252,12 +263,13 @@ Claude Mods omfattar inte Codex; integrationen är den här vägen och inget ann
 
 ## Beslut och godkännande
 
-Besluten (Välj vidare, Godkänn denna version, Underkänn alla, Ny riktning) fattas under den bevarade bilden
-(Ögonblicksbild eller Jämför; aldrig under arbetsversionens förhandsvisning) och går genom samma tjänst och samma skydd
-som vyn Prototyp: `server.spara_kandidatbeslut` → `atelje.doma` → `kandidater.prova_beslut` och, för ett godkännande,
+Besluten fattas i Förslagen eller, för den valda kandidaten, under den bevarade bilden (Ögonblicksbild eller Jämför;
+aldrig under arbetsversionens förhandsvisning: Välj vidare, Godkänn denna version, Underkänn alla, Ny riktning). Båda
+går genom samma väg (`POST /api/arbetsyta/<kund>/beslut`, `samverkan.beslut`) och samma tjänst och skydd:
+`server.spara_kandidatbeslut` → `atelje.doma` → `kandidater.prova_beslut` och, för ett godkännande,
 `forbered_vinnare`, som nekar om kandidatens filer ändrats sedan den fotograferade versionen. Arbetsytan binder
-dessutom beslutet till det du såg när du öppnade det: versionen och bildens väg och sha256 tas vid klicket och skickas
-med. Servern nekar ett godkännande (Inaktuell) när versionen inte längre är kandidatens eller bilden har ändrats, och
+dessutom beslutet till det du såg: versionen och bildens väg och sha256 ur arbetsytans läge skickas med (i Förslagen
+för ett godkännande, med versionen när vyn ritades), och minuterna från att vyn ritades till beslutet sparas som förut. Servern nekar ett godkännande (Inaktuell) när versionen inte längre är kandidatens eller bilden har ändrats, och
 när bilden inte är kandidatens ögonblicksbild; beslutet står i domloggen under `arbetsyta.sedd`. En ögonblicksbild
 vars sida inte svarade 200 med HTML (en fotograferad felsida, `forhandsvisa.ogiltig_sida` ur fotograferingens
 INSPEKTION.json) går inte att välja eller godkänna; en sida som svarar 200 men visar ett fel upptäcks inte av den
@@ -265,7 +277,7 @@ kontrollen. Ett godkännande lämnar över till helbygget men startar det inte. 
 bussen som en rad med syftet ägarbeslut och domens tid.
 
 **Jämför** visar den valda kandidatens bevarade bild bredvid en annan kandidats eller en tidigare bevarad version
-(efter ditt första val), i samma bredd; referensen sida vid sida finns i Prototyp. Kodens diff mot en bevarad version
+(efter ditt första val), i samma bredd; referensen sida vid sida finns i Förslagen. Kodens diff mot en bevarad version
 finns under Kod och preview.
 
 ## Partnern (arbetsledningen)

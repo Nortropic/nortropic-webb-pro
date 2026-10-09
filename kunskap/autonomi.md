@@ -68,7 +68,7 @@ kan fortfarande variera; de redovisas i det befintliga observationsspåret, inte
 En miljö med `CLAUDE_CODE_EFFORT_LEVEL` vägras för detta försök för att undvika konkurrerande inställningar.
 
 Efter uttryckligt mandat för underlag och budget körs det befintliga `prototyp.py <slug> --fortsatt` från samma
-version och miljö. Båda armarna ska ha avslutats innan ägaren väljer blint i Prototyp. Inget vanligt designval
+version och miljö. Båda armarna ska ha avslutats innan ägaren väljer blint i arbetsytans Förslagen. Inget vanligt designval
 startar ett metodförsök. En teknisk stubb visar argumentkopplingen till `--model`/`--effort`, inte tjänstens
 effektiva inställning. Efter valet läser `ab.py skissresultat <slug>` försök, fel och rapporterad användning ur
 samma kandidater, också arkiverade misslyckade försök. Kända saknade svar gör totalen okänd; observerad delsumma
@@ -127,7 +127,7 @@ annat hålls fast. Provet är förberett, inte kört: verkliga sessioner och hel
   referenspaket ur research på begäran (`tillkomna_under_forsoket` i `ab.py skissresultat`). Efter mandatet kör
   `prototyp.py <slug> --fortsatt` båda armarna från `planprovad`. `--om` är en ny körning som flyttar planen till
   `atelje/foregaende/` och börjar forska.
-- **Bedömningen börjar med bilderna:** ägaren väljer blint i dashboardens Prototyp, före skaparnas förklaringar. Valet
+- **Bedömningen börjar med bilderna:** ägaren väljer blint i arbetsytans Förslagen, före skaparnas förklaringar. Valet
   får vara ingen av dem, och en arm som bytt grundkomposition med skäl är inte felaktig.
 - **Var kvaliteten bevaras eller försvagas:** efter domen ställs referensbilderna, det visuella målet (h01), referenslåset
   och skissens bilder bredvid varandra i de fyra relationerna (bildens beskärning mot rubriken, de typografiska

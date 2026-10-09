@@ -449,7 +449,7 @@ def _uppdragspost(st):
 
 
 def kandidatlista(dash, slug, blind):
-    """Kandidaterna med neutrala etiketter (kandidater.sammanstall, som vyn Prototyp), version, förhandsvisning och den
+    """Kandidaterna med neutrala etiketter (kandidater.sammanstall, som Förslagen), version, förhandsvisning och den
     bevarade ögonblicksbilden. Före ägarens första val utan skapare- och granskningstext."""
     _kontroller()
     import forhandsvisa
@@ -487,7 +487,7 @@ def kandidatlista(dash, slug, blind):
 
 
 def _referens(rj):
-    """Huvudreferensens fångade startsida bredvid kandidaten (kandidater.referensjamforelse, som vyn Prototyp visar också
+    """Huvudreferensens fångade startsida bredvid kandidaten (kandidater.referensjamforelse, som Förslagen visar också
     före ditt första val), eller skälet att den saknas."""
     if not isinstance(rj, dict):
         return None
@@ -905,7 +905,7 @@ ANDRINGSBESLUT = ('uppdrag',)  # en ändring är ett uppdrag: rätta, omarbeta d
 
 
 def skicka_andring(dash, slug, data):
-    """Ägarens ändring från arbetsytan: ett beslut i domloggen genom samma väg som vyn Prototyp (server.spara_prototyp,
+    """Ägarens ändring från arbetsytan: ett beslut i domloggen genom samma väg som Förslagen (server.spara_prototyp,
     atelje.doma), bundet till körningen, kandidaten och versionen ägaren såg, med arbetsytans markering (vy, sida, del)
     och ändringens id på raden. Samma id ger samma rad (dubbelklick, två flikar, tappat svar). En annan körning, en
     inaktuell version eller en körning som inte väntar på ditt beslut nekas med skälet (Inaktuell, HTTP 409); inget

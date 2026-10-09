@@ -3939,7 +3939,7 @@ def forsta_valbara_tid(slug, status):
     return (f, FRAMRAKNAD) if f else (None, None)
 
 
-# --- ägarens beslut (dashboardens vy Prototyp och kontroller/skapande.py dom, via atelje.doma) ---
+# --- ägarens beslut (arbetsytans Förslagen och kontroller/skapande.py dom, via atelje.doma) ---
 
 def domd(slug):
     """Har ägaren fattat något beslut sedan kandidatplanen? Förklaringarna, granskningen och redovisningen visas först då.

@@ -1823,7 +1823,7 @@ def flode(slug):
                 if n_:
                     brister.append('%s: %d brister eller DESIGN.md-fel' % (x.get('etikett') or x.get('id'), n_))
         steg.append(_steg(2, 'Prototypen', status, underlag=underlag_, utfall=utfall, kontroller=kontroller, brister=brister,
-                          nasta='Ditt val i vyn Prototyp.' if status == 'skapat' else
+                          nasta='Ditt val i Förslagen.' if status == 'skapat' else
                           'Startkontrollen stoppade starten, och förra körningens förslag och val står kvar: starta om när '
                           'verktygslådan fungerar (startkontrollens kvitto).' if start_stoppad else
                           'Ta vid med `.venv/bin/python kontroller/atelje.py %s --fortsatt`, eller börja om.' % slug if status == 'stoppat' else ''))
@@ -1850,7 +1850,7 @@ def flode(slug):
                    'putsa': ('"Putsa vidare" i kandidatflödet är ersatt av uppdragen (2026-10-09): ge ett uppdrag.' if kfl else
                              'Förfiningen: `prototyp.py %s` igen.' % slug),
                    'godkand': 'Helbygget: `./kor.sh %s "<verksamhet>"`.' % slug, 'ny_riktning': 'Omtaget: `prototyp.py %s`.' % slug,
-                   'forkasta': 'Omtaget: `prototyp.py %s`.' % slug}.get(sista, 'Fortsätt i vyn Prototyp.')))
+                   'forkasta': 'Omtaget: `prototyp.py %s`.' % slug}.get(sista, 'Fortsätt i Förslagen.')))
     else:
         steg.append(_steg(3, 'Ditt val', 'väntar på ägaren' if steg[-1]['status'] == 'skapat' else 'inte påbörjat', underlag=tidigare))
 

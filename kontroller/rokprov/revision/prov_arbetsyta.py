@@ -35,6 +35,7 @@ import threading
 import time
 import unittest
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -1172,12 +1173,15 @@ class Arbetsyta(unittest.TestCase):
         self.assertEqual((status, json.loads(kropp)['slag']), (409, 'Inaktuell'))
         self.assertFalse((self.las(self.u / 'atelje' / 'VINNARE.json') if (self.u / 'atelje' / 'VINNARE.json').is_file() else {}).get('godkand'))
         self.assertEqual(self.domrader(), [])
-        val = {'beslut': 'valj', 'kandidater': [{'id': 'k01', 'version': v1}], 'korning': self.status['startad'],
+        # Förslagen skickar vyns tid (startad): minuterna till beslutet sparas som förut i vyn Prototyp (kontroller/autonomi.py)
+        startad = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat().replace('+00:00', 'Z')
+        val = {'beslut': 'valj', 'kandidater': [{'id': 'k01', 'version': v1}], 'korning': self.status['startad'], 'startad': startad,
                'sedd': [{'kandidat': 'k01', 'version': v1, 'bild': bild, 'bild_sha': sha}], 'text': 'Den här vidare.'}
         status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, val, skriv)
         self.assertEqual(status, 200, kropp)
         d = self.domrader()[-1]
         self.assertEqual((d['kalla'], d['beslut'], d['arbetsyta']['vy']), ('ägaren', 'valj', 'Arbetsyta, beslut'))
+        self.assertTrue(4.5 <= d.get('minuter', 0) <= 6, d.get('minuter'))
         self.assertEqual(d['arbetsyta']['sedd'][0]['bild_sha'], sha)
         b = [m for m in meddelanden.alla(SLUG) if m['syfte'] == 'agarbeslut']
         self.assertEqual([(m['avsandare']['typ'], m['kandidat'], m['dom']['beslut']) for m in b], [('agare', 'k01', 'valj')])

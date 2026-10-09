@@ -4428,3 +4428,18 @@ har fulla godkännande för alla våra verktyg, mcps, skills, källor etc."
   kunddatagränsen mot externa tjänster, prenumerationsgränsen (2026-10-08) och att ursprung och licens noteras per
   komponent, typsnitt och bild (RIKTNING.md, DESIGN.md, BILDER.md). Lagkrav som dataskydd och marknadsföringslagen
   gäller som förut.
+
+## Tillägg 2026-10-09 ~22Z: Prototyp är arbetsytans Förslagen
+
+**Status:** gäller; genomfört (dubbletten Prototyp och arbetsytans beslut, efter ägarens besked ~17:11Z att allt ska in
+i arbetsytan och mandatet ~18:28Z, "Gör det det du anser är rekommendationen", med b3:s och 97:s delning).
+
+- **Förslagen** är en av projektets fyra flikar (`#/arbetsyta/<kund>/forslag`). Den har allt som vyn Prototyp hade:
+  bilderna i alla bredder, förslagen sida vid sida, referensen bredvid, redovisningen, de tekniska kontrollerna, det du
+  gillar per förslag, observationen och hela beslutet. Posten Prototyp i menyn är borta, och `#/prototyp/<kund>` leder
+  till Förslagen för samma kund. Vyns innehåll flyttades oförändrat, och bara beslutets väg och avsändaren ändrades.
+- **En beslutsväg.** Förslagens beslut går nu genom arbetsytans väg (`samverkan.beslut`), som raden under
+  ögonblicksbilden. Ett godkännande binds alltså till versionen och bildernas sha256, och minuterna till beslutet
+  sparas som förut. Kunden kan vara avsändare med belägg för alla beslut utom godkännandet, som är ägarens.
+- `POST /api/prototyp/<kund>` står kvar för den äldre utforskningen med riktningar och för proven. Den används inte av
+  Förslagen.

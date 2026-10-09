@@ -411,7 +411,7 @@ def _skriv(p, d):
     os.replace(tmp, p)
 
 
-# --- beslutet: Prototypvyns beslutstjänst, bunden till den version ägaren sett ---
+# --- beslutet: Förslagens beslutstjänst (förr vyn Prototyp), bunden till den version ägaren sett ---
 
 def _bild_sha(dash, rel):
     p = (dash.ROOT / str(rel or '')).resolve()
@@ -425,10 +425,11 @@ def _bild_sha(dash, rel):
 
 
 def beslut(dash, slug, data):
-    """Beställarens beslut från arbetsytan (välj, jämför, förkasta, ny riktning, uppdrag, godkänn) genom samma tjänst och
-    samma skydd som vyn Prototyp (server.spara_kandidatbeslut → atelje.doma → kandidater.prova_beslut och
-    forbered_vinnare: versionen ägaren såg måste vara kandidatens fotograferade och dess filer oförändrade). Arbetsytan
-    lägger till belägget för vad ägaren såg: bilden och dess hash, prövad mot filen nu. Sedan ett ägarbeslut i bussen."""
+    """Beställarens beslut från arbetsytan, ur Förslagen eller raden under ögonblicksbilden (välj, jämför, förkasta, ny
+    riktning, uppdrag, godkänn), genom samma tjänst och samma skydd som förut (server.spara_kandidatbeslut →
+    atelje.doma → kandidater.prova_beslut och forbered_vinnare: versionen ägaren såg måste vara kandidatens
+    fotograferade och dess filer oförändrade). Arbetsytan lägger till belägget för vad ägaren såg: bilden och dess hash,
+    prövad mot filen nu. Sedan ett ägarbeslut i bussen."""
     import arbetsyta
     _spärr(dash, slug)
     M = _m()
@@ -465,6 +466,8 @@ def beslut(dash, slug, data):
                                                 'delar': data.get('delar'), 'uppdrag': data.get('uppdrag'),
                                                 # kundens egna beslut med belägg (ägarens uppdrag 2026-10-09, punkt 11)
                                                 **({'avsandare': 'kunden', 'belagg': data.get('belagg')} if data.get('avsandare') == 'kunden' else {})},
+                                     # minuterna från att Förslagen ritades till beslutet (kontroller/autonomi.py), som förr i vyn Prototyp
+                                     minuter=dash.minuter_sedan(data.get('startad')) if data.get('startad') else None,
                                      arbetsyta=markering)
     dom = svar.get('dom') or {}
     try:  # ägarbeslutet i bussen: historiken och, när en utförare lever för kandidaten, beskedet till den

@@ -345,8 +345,8 @@ KONCEPT.md.
    förfiningen funnit att grundidén inte bär och omgångarna är slut (`atelje/TILLBAKA.md`). Bäst av tre undermåliga
    förslag blir aldrig vald, och en ny ateljé efter en förkastning startas av ägaren, inte inifrån bygget
    (`--bara-domare`, `--valda`, `--ny-riktning` och `--putsa` vägras där; `--om` svarar 6 när kandidaterna väntar på
-   ägaren eller ateljén förkastat alla riktningar). Har ägaren godkänt startsidan i dashboardens vy
-   Prototyp säger prompten det: kör inte ateljén, utan ta vid härifrån med den godkända vinnaren. Steg 1–4 är då gjorda
+   ägaren eller ateljén förkastat alla riktningar). Har ägaren godkänt startsidan i arbetsytans
+   Förslagen säger prompten det: kör inte ateljén, utan ta vid härifrån med den godkända vinnaren. Steg 1–4 är då gjorda
    och godkännandets underlag fryst: `VERKSAMHET.json`, `BRIEF.md`, `RESEARCH.md`, `INNEHALL.md`, `TEXTUNDERLAG.md`,
    `BESTALLNING.md`, `UPPDRAG.md`, `REFERENSER.md`, `KUNDSTART.json` och katalogerna `bilder/`, `kalla/` och
    `referenser/` i `underlag/<slug>/` skrivs inte om (Write, Edit och sandlådan nekar det; listan är `UNDERLAGSGRUND`

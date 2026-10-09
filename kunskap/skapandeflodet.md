@@ -7,7 +7,7 @@ som startar vad: `README.md`. Normalflödet är skissläget nedan; läget full, 
 står i egna avsnitt. Ingångarna:
 
 - **Ägarens prototyp:** `.venv/bin/python kontroller/prototyp.py <slug>`, utanför bygget. Läget följer ägarens senaste
-  dom i domloggen. Ägaren dömer i dashboardens vy Prototyp.
+  dom i domloggen. Ägaren dömer i arbetsytans Förslagen (förr vyn Prototyp).
 - **Byggets steg 5.1:** `kor.sh` tar vid bara från en startsida som ägaren godkänt, som från ateljévinnaren; utan en
   stannar kor.sh före bygget och pekar på prototyp.py. `NWP_ATELJE=av` är nödvägen, där byggaren skriver KONCEPT.md
   själv.
@@ -178,7 +178,7 @@ kandidaterna och granskningarna.
    startsidan eller bilderna saknas) gör skissen ofullständig med skälen; bristerna (konsolfel, spill, axe, siffror utan
    belägg, menyn, huvudreferensraden) markeras, och skissen går ändå att bedöma. Ett omförsök ges bara vid ett
    identifierat tekniskt fel.
-6. **Ägarens val.** Vyn Prototyp visar alla kandidater med neutrala namn (Förslag A–L, slumpad ordning ur planens tid)
+6. **Ägarens val.** Arbetsytans Förslagen visar alla kandidater med neutrala namn (Förslag A–L, slumpad ordning ur planens tid)
    och lika stora bilder, mobil och dator bredvid varandra eller en bredd i taget (surfplattan, och mellanbredden 1280
    när den finns); bilderna öppnas i full storlek, varje prototyp klickbar med sina undersidor, och markerade förslag
    står sida vid sida. Ägaren bedömer bilderna först, sedan referensen och sist redovisningen (ägarens uppdrag
@@ -196,7 +196,7 @@ kandidaterna och granskningarna.
    handling startas uttryckligen i arbetsytan (Byggflöde) eller med prototyp.py, och dess benämning säger vad som
    startas; alla använder samma körlogik (`README.md`, Kedjan).
 7. **Riktad förbättring: Rätta, Omarbeta designen eller Bygg ut.** Beställaren ger ett uppdrag på en vald kandidat
-   (arbetsytan: Ändring; Prototyp; eller `skapande.py dom <slug> --beslut uppdrag --uppdrag ratta|omarbeta|bygg_ut
+   (arbetsytan: Ändring eller Förslagen; eller `skapande.py dom <slug> --beslut uppdrag --uppdrag ratta|omarbeta|bygg_ut
    --resultat … --omfattning … --bevara … --kandidater kNN[@version]`): versionen det gäller, det önskade resultatet,
    omfattningen och det som ska bevaras (`skapande.uppdrag_giltigt`), och startar det uttryckligen ("Starta uppdraget:
    …", läget valda i prototyp.py). Kandidaten arbetas i sitt eget projekt från den versionen (`kandidater.forfina_kandidat`):
@@ -293,7 +293,7 @@ designversionen överförs till fungerande webb och jämförs med webbläsarens 
 `underlag/<slug>/DESIGNDOMAR.jsonl` har en rad per dom: tid, källa, beslut och text ordagrant. Loggen arkiveras aldrig av
 flödet; den rena designstarten 2026-10-09 flyttade de gamla loggarna till återställningsarkivet efter ägarens uppdrag,
 med manifest och sha256 (`kunskap/ren-designstart.md`).
-Nästa körning läser den själv, och prompterna börjar med ägarens senaste domar. Vyn Prototyp skriver ägarens dom.
+Nästa körning läser den själv, och prompterna börjar med ägarens senaste domar. Förslagen skriver ägarens dom.
 
 Källan är avsändaren (ägarens uppdrag 2026-10-07, punkt 7). Typerna och definitionerna står på ett ställe i koden,
 `kontroller/skapande.py` (`AVSANDARTYPER` och `KALLOR`):
@@ -328,7 +328,7 @@ räknas, och radnumren i omtagets kvitto är filens egna (GR-20261007-r100-om#KA
 plats och skäl (`skapande.domlogg`, i ateljéns slutpost och i `skapande.py visa`) och hoppas aldrig över tyst; en rad
 som är JSON men ingen dom räknas också som oläsbar. Står den efter ägarens senaste läsbara dom gissar ingen förbi den,
 eftersom ägarens senare beslut kan stå där: läget stannar, godkännandet gäller inte och stoppvakten låter inte bygget
-fortsätta. Vägen vidare är ett nytt beslut från ägaren efter raden (vyn Prototyp, eller `skapande.py dom` med belägg),
+fortsätta. Vägen vidare är ett nytt beslut från ägaren efter raden (arbetsytans Förslagen, eller `skapande.py dom` med belägg),
 som gäller från sin rad, eller ett uttryckligt läge (`--ny-riktning`, `--putsa`, `--om`, `--valda`); raden skrivs inte
 om av sig själv. En ny dom efter en avbruten skrivning hamnar på en egen rad.
 

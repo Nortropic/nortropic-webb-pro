@@ -15,7 +15,7 @@ efter en förfining → valda (de valda kandidaterna förfinas, var för sig); j
 → stopp tills ägaren begär en ny riktning. Ingen körning än → en ny, som omtag om domloggen redan säger ny_riktning; en
 annan dom, eller tidigare designbeslut utan dom, stoppar tills --ny-riktning eller --om väljs. Går en rad i domloggen
 efter ägarens senaste dom inte att läsa stoppar läget också: där kan ägarens senare beslut stå. En körning som pågår
-väntas in. Ägaren dömer i dashboardens vy Prototyp.
+väntas in. Ägaren dömer i arbetsytans Förslagen.
 
 Beskedet och slutkoden när en körning har slutat kommer ur körningens slutpost (kunder/<slug>/atelje/korningar/
 <körning>/SLUT.json, kontroller/ateljeslut.py); ett stopp före körningen får en kort post. Slutkoderna: 0 klar (eller
@@ -43,7 +43,7 @@ def lage(slug):
                          'som tar vid utan att något klart görs om' % (st.get('steg'), slug))
     ag = skapande.agarens_senaste(slug, underlag=atelje.UNDERLAG)
     if ag['oklara']:  # ingen dom försvinner tyst (GR-20261007-r100-om#KAN-A): läget gissas inte förbi en oläsbar rad
-        return 'stopp', ('%s. Vägen vidare: ett nytt beslut från ägaren efter raden (vyn Prototyp, eller skapande.py dom med belägg) gäller '
+        return 'stopp', ('%s. Vägen vidare: ett nytt beslut från ägaren efter raden (arbetsytans Förslagen, eller skapande.py dom med belägg) gäller '
                          'från sin rad, eller välj läget uttryckligen (--ny-riktning, --putsa, --om eller --valda); raden skrivs inte om av sig '
                          'själv' % skapande.oklara_text(ag))
     if not st.get('steg'):
@@ -94,7 +94,7 @@ def lage(slug):
         return {'ny_riktning': 'ny-riktning', 'putsa': 'putsa', 'godkand': 'godkand'}[efter['beslut']], skal
     if st.get('steg') == 'fel':
         return 'vanta', 'förra körningen föll (%s); --fortsatt i kontroller/atelje.py tar vid efter den senaste klara fasen' % str(st.get('fel'))[:200]
-    return 'vanta', 'körningen är %s och väntar på ägarens dom i dashboardens vy Prototyp' % st.get('steg')
+    return 'vanta', 'körningen är %s och väntar på ägarens dom i arbetsytans Förslagen' % st.get('steg')
 
 
 def bygget_nekas(slug):

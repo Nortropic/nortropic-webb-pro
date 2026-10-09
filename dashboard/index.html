@@ -675,8 +675,8 @@ async function prototypvy(slug) {
   aktivNav('prototyp');
   if (!slug) {
     const lista = await api('/api/prototyp');
-    if (lista.length === 1) { location.hash = '#/prototyp/' + encodeURIComponent(lista[0]); return; }
-    $('#vy').innerHTML = `<h1>Prototyp</h1><p class="under">Startsidor ur skapandeflödet: skilda förslag, ditt val, fördjupningen och godkännandet.</p>${lista.map((s) => `<p><a href="#/prototyp/${esc(s)}">${esc(s)}</a></p>`).join('') || '<p>Ingen körning än.</p>'}`;
+    if (lista.length === 1) { location.hash = '#/arbetsyta/' + encodeURIComponent(lista[0]) + '/forslag'; return; }
+    $('#vy').innerHTML = `<h1>Prototyp</h1><p class="under">Startsidor ur skapandeflödet: skilda förslag, ditt val, fördjupningen och godkännandet.</p>${lista.map((s) => `<p><a href="#/arbetsyta/${esc(s)}/forslag">${esc(s)}</a></p>`).join('') || '<p>Ingen körning än.</p>'}`;
     return;
   }
   const d = await api('/api/prototyp/' + encodeURIComponent(slug));
@@ -704,7 +704,7 @@ async function prototypvy(slug) {
     ${d.slutdom_md ? `<details><summary>Slutdomen: före mot efter (SLUTDOM.md)</summary><div class="prosa">${d.slutdom_md}</div></details>` : ''}
     ${d.redovisning_md ? `<details><summary>Vad körningen använde (REDOVISNING.md)</summary><div class="prosa">${d.redovisning_md}</div></details>` : ''}`
     : (klar ? '<p class="under" style="margin-top:16px">Panelens val och slutdom, förfiningens logg och redovisningen ur körspåret visas när du har dömt.</p>' : '');
-  $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1><p class="under">${lage} ${d.godkand ? `<b>Godkänd ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : 'Döm efter-bilderna mot huvudreferensen; före är startsidan som panelen valde, innan förfiningen.'}</p>${ref}
+  $('#vy').innerHTML = `<h1>Förslagen · ${esc(slug)}</h1><p class="under">${lage} ${d.godkand ? `<b>Godkänd ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : 'Döm efter-bilderna mot huvudreferensen; före är startsidan som panelen valde, innan förfiningen.'}</p>${ref}
     ${Object.keys(d.efter || {}).length ? `<section class="kort"><div class="galleri" style="grid-template-columns:1fr 1fr;gap:24px">${kol('Före · panelens val', d.fore || {})}${kol('Efter · förfinad', d.efter || {})}</div></section>` : ''}
     ${riktn}${form}${efter}
     ${d.riktningar_md ? `<details style="margin-top:24px"><summary>Riktningarna (RIKTNINGAR.md)</summary><div class="prosa">${d.riktningar_md}</div></details>` : ''}
@@ -830,7 +830,7 @@ async function kandidatvy(slug, d) {
   const forsiktig = visbara.length < (d.antal || alla.length) && klara && d.fas !== 'forfining' ? `<p class="meddelande fel">Färre förslag än planerat blev klara (${visbara.length} av ${d.antal || alla.length}); skälen står under "Förslag som inte blev klara".</p>` : '';
   const valbara = Object.keys(KBESLUT).filter((b) => b === 'godkand' ? forfinade : true);
   const tidigare = (d.domar || []).map((x) => `<p class="under">${tid(x.tid)} · ${esc(x.kalla)} · <b>${esc((KBESLUT[x.beslut] || BESLUT[x.beslut] || x.beslut).split(':')[0])}</b>${(x.kandidater || []).length ? ' · ' + esc(x.kandidater.map((k) => k.etikett || k.id).join(', ')) : ''}: ${esc(String(x.text || '').slice(0, 300))}</p>`).join('');
-  $('#vy').innerHTML = `<h1>Prototyp · ${esc(slug)}</h1>
+  $('#vy').innerHTML = `<h1>Förslagen · ${esc(slug)}</h1>
     <p class="under">${lage} ${d.godkand ? `<b>Godkänd för helbygge ${tid(d.godkand.tid)}</b>; bygget tar vid från den.` : d.kandidatlage === 'skiss' && d.fas !== 'forfining' ? 'Skisser: första vyn och den viktigaste sektionen, i mobil och dator. Förslagen har neutrala namn i slumpad ordning. En intern granskare ser skisserna när tiden räcker, och skaparen får svara; granskarens omdöme och skaparens svar visas efter ditt första beslut, och ingen modell har rangordnat förslagen. Körningens redovisning visas efter ditt första beslut. Ett val startar inget; den riktade förbättringen är ett uppdrag (Rätta, Omarbeta designen eller Bygg ut) som du ger och startar uttryckligen.' : 'Förslagen har neutrala namn i slumpad ordning. Panelens granskning, planens titlar och körningens redovisning visas efter ditt första beslut.'}</p>
     ${forsiktig}
     <div class="kverktyg" role="group" aria-label="Bredd">
@@ -852,8 +852,10 @@ async function kandidatvy(slug, d) {
         <label style="display:block">Önskat resultat <input id="k-u-resultat" style="width:100%"></label>
         <label style="display:block">Omfattning, en rad per brist, område eller del (för Bygg ut vägarna, till exempel /tjanster/) <textarea id="k-u-omfattning" rows="3" style="width:100%"></textarea></label>
         <label style="display:block">Bevara, en rad per sak ("inget särskilt" om inget) <textarea id="k-u-bevara" rows="2" style="width:100%"></textarea></label>
-        <label>Från <select id="k-u-avs"><option value="agaren">mig (ägaren)</option><option value="kunden">kunden</option></select></label>
-        <label style="display:block">Var kundens egna ord står (när kunden beslutar) <input id="k-u-belagg" style="width:100%"></label></fieldset>
+</fieldset>
+      <div id="k-avsandare" style="margin-top:8px"><label>Beslutet är <select id="k-u-avs"><option value="agaren">mitt (ägaren)</option><option value="kunden">kundens egna (jag för in kundens ord)</option></select></label>
+        <label style="display:block" id="k-belagg-rad" hidden>Var kundens egna ord står: samtalet, meddelandet och tiden <input id="k-u-belagg" style="width:100%"></label>
+        <p class="under" style="margin:4px 0 0">Godkännandet för helbygge och publiceringen är alltid ägarens. En AI-bedömning förs aldrig in som kundens.</p></div>
       <textarea id="k-text" rows="5" style="width:100%;margin-top:8px" placeholder="Vad bär, vad håller inte, vad ska nästa steg pröva? Dina ord följer med ordagrant."></textarea>
       <div class="rad" style="margin-top:8px"><button class="knapp primar" id="k-spara">Spara beslutet</button> <span class="under" id="k-antal"></span></div>
       ${tidigare ? `<details style="margin-top:12px"><summary>Domloggen (${d.domar.length})</summary>${tidigare}</details>` : ''}</section>` : ''}
@@ -883,7 +885,9 @@ async function kandidatvy(slug, d) {
   visaJamforelse();
   observationsvy(slug, alla);
   const knapp = $('#k-spara');
-  document.querySelectorAll('input[name="k-b"]').forEach((r) => r.onchange = () => { const f = $('#k-uppdrag'); if (f) f.hidden = r.value !== 'uppdrag' || !r.checked; });
+  document.querySelectorAll('input[name="k-b"]').forEach((r) => r.onchange = () => { const f = $('#k-uppdrag'); if (f) f.hidden = r.value !== 'uppdrag' || !r.checked;
+    const a = $('#k-avsandare'); if (a) a.hidden = r.checked && r.value === 'godkand'; });
+  const avs = $('#k-u-avs'); if (avs) avs.onchange = () => { $('#k-belagg-rad').hidden = avs.value !== 'kunden'; };
   if (knapp) knapp.onclick = async () => {
     const b = (document.querySelector('input[name="k-b"]:checked') || {}).value;
     const text = $('#k-text').value;
@@ -894,14 +898,23 @@ async function kandidatvy(slug, d) {
     const rader = (id) => ($(id).value || '').split('\n').map((x) => x.trim()).filter(Boolean);
     const uppdrag = b === 'uppdrag' ? { typ: $('#k-u-typ').value, resultat: $('#k-u-resultat').value.trim(), omfattning: rader('#k-u-omfattning'), bevara: rader('#k-u-bevara') } : null;
     if (uppdrag && (!uppdrag.resultat || !uppdrag.omfattning.length || !uppdrag.bevara.length)) { alert('Uppdraget behöver önskat resultat, omfattning och det som ska bevaras.'); return; }
-    const kunden = b !== 'godkand' && $('#k-u-avs') && $('#k-u-avs').value === 'kunden' && b === 'uppdrag';
+    const kunden = b !== 'godkand' && $('#k-u-avs') && $('#k-u-avs').value === 'kunden';
     if (kunden && !$('#k-u-belagg').value.trim()) { alert('Skriv var kundens egna ord står.'); return; }
     if (b === 'jamfor' && kand.length < 2) { alert('Markera minst två förslag att jämföra.'); return; }
     if (b === 'godkand' && kand.length !== 1) { alert('Markera exakt ett förfinat förslag att godkänna.'); return; }
     if (['forkasta', 'ny_riktning', 'uppdrag'].includes(b) && !text.trim()) { alert('Skriv vad som inte håller och vad nästa steg ska pröva.'); return; }
+    // godkännandet binds till ögonblicksbilderna du ser och deras hash ur arbetsytans läge (samverkan.beslut prövar dem)
+    const sett = typeof arbetsytaSett === 'function' ? arbetsytaSett(slug) : null;
+    let sedd = [];
+    if (b === 'godkand') {
+      const s_ = sett && sett[kand[0].id];
+      if (!s_ || !s_.sedd.length) { alert('Arbetsytans läge med ögonblicksbilderna är inte läst än. Vänta ett ögonblick och försök igen.'); return; }
+      if (s_.version !== kand[0].version) { alert('Godkännandet gäller förslagets aktuella fotograferade version. Har förslaget fått en ny version sedan vyn ritades, läs om förslagen; vill du godkänna en tidigare version, välj den först.'); return; }
+      sedd = s_.sedd;
+    }
     knapp.disabled = true;
-    try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, kandidater: kand, delar, text, startad, ...(uppdrag ? { uppdrag } : {}),
-      ...(kunden ? { avsandare: 'kunden', belagg: $('#k-u-belagg').value.trim() } : {}) }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
+    try { await post('/api/arbetsyta/' + encodeURIComponent(slug) + '/beslut', { beslut: b, kandidater: kand, delar, text, startad, ...(uppdrag ? { uppdrag } : {}),
+      ...(sedd.length ? { sedd } : {}), ...(kunden ? { avsandare: 'kunden', belagg: $('#k-u-belagg').value.trim() } : {}) }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
   };
 }
 
@@ -1204,7 +1217,7 @@ function startavy() {
   aktivNav('starta');
   $('#vy').innerHTML = `
     <h1>Starta</h1><p class="under">Kommandona körs i Terminal, i repots rot. Hela kedjan från kundunderlag till leverans, med vem som startar vad och vilket kommando: README.md, avsnittet Kedjan från kundunderlag till leverans.</p>
-    <div class="kort"><h3 style="margin-top:0">Helbygget åt en verksamhet</h3><p class="under" style="margin:0">Tar vid från startsidan du godkänt i vyn Prototyp och går sedan obevakat, oftast en till två timmar. Utan godkänd startsida stannar kor.sh och pekar på prototypen. Följ bygget under Byggen och dina domar.</p>
+    <div class="kort"><h3 style="margin-top:0">Helbygget åt en verksamhet</h3><p class="under" style="margin:0">Tar vid från startsidan du godkänt i Förslagen i arbetsytan och går sedan obevakat, oftast en till två timmar. Utan godkänd startsida stannar kor.sh och pekar på prototypen. Följ bygget under Byggen och dina domar.</p>
       ${kommando('./kor.sh <slug> "Verksamhetens namn, Ort, https://deras-doman.se"')}
       <h3>Tre helbyggen över natten</h3><p class="under" style="margin:0">Vart och ett med en godkänd startsida; de körs ett i taget.</p>${kommando('./kor.sh a-slug "…" ; ./kor.sh b-slug "…" ; ./kor.sh c-slug "…"')}
       <h3>Genomför backloggen</h3><p class="under" style="margin:0">I en Claude Code-session i repot:</p>${kommando('implementera enligt backlog')}
@@ -1498,9 +1511,12 @@ async function route() {
     // arbetsytan är startvyn (ägarens uppdrag 2026-10-09), och varje annan del ritas i dess ram med samma adress och
     // samma funktioner som förut (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan)
     if (h === '' || h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
-    if (h === 'flode' || h.startsWith('flode/')) {  // Flöde är en del av Byggflöde (ägarens mandat 2026-10-09 ~18:28Z): adressen leder dit
-      let s = decodeURIComponent(h.slice(6)); if (!s) { try { s = localStorage.getItem('nwp-arbetsyta:senaste') || ''; } catch { s = ''; } }
-      location.replace('#/arbetsyta' + (s ? '/' + encodeURIComponent(s) + '/flode' : '')); return;
+    if (h === 'flode' || h.startsWith('flode/') || h === 'prototyp' || h.startsWith('prototyp/')) {
+      // Flöde är en del av Byggflöde (ägarens mandat 2026-10-09 ~18:28Z) och Prototyp är arbetsytans Förslagen (samma
+      // mandat, b3:s och 97:s delning): de gamla adresserna leder dit, för samma kund
+      const [del, ...rest] = h.split('/'), mal = del === 'flode' ? 'flode' : 'forslag';
+      let s = decodeURIComponent(rest.join('/')); if (!s) { try { s = localStorage.getItem('nwp-arbetsyta:senaste') || ''; } catch { s = ''; } }
+      location.replace('#/arbetsyta' + (s ? '/' + encodeURIComponent(s) + '/' + mal : '')); return;
     }
     if (typeof arbetsytaSektion === 'function') arbetsytaSektion(h);  // utan arbetsytans skript ritas delen ändå, utan ram
     else $('#rot').innerHTML = '<div id="vy"></div>';
@@ -1512,7 +1528,6 @@ async function route() {
     if (h === 'ab') return await abvy();
     if (h === 'kalibrering') return await kalibreringvy();
     if (h === 'designprov' || h.startsWith('designprov/')) return await designprovvy(decodeURIComponent(h.slice(11)));
-    if (h === 'prototyp' || h.startsWith('prototyp/')) return await prototypvy(decodeURIComponent(h.slice(9)));
     if (h.startsWith('prospekt')) { const d = h.split('/'); return d[2] ? await prospektkortvy(decodeURIComponent(d[1]), decodeURIComponent(d[2])) : d[1] ? await kampanjvy(decodeURIComponent(d[1])) : await prospektvy(); }
     if (h === 'dokumentation' || h.startsWith('dokumentation/')) return await dokumentationsvy(h.slice(14));
     if (h === 'starta') return startavy();
