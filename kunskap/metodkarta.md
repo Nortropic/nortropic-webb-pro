@@ -144,7 +144,12 @@ redovisar varje nivå för sig och okänt som okänt (`kompetens.anvandningsniva
 (rollens kärna i uppdraget), laddad (kärnan läst hel, ur transkriptet), anrop med användbart resultat (verktygs- och
 MCP-anrop med innehåll), redovisad av skaparen (ändringar knutna till en skill), belagd i artefakten (versionen ändrades
 och står kvar) och effekt bedömd (bara av en oberoende bedömning: granskningen eller ägaren). En skill tillskrivs aldrig
-en förbättring som inte går att belägga, och ett anrop görs aldrig bara för att fylla en ruta.
+en förbättring som inte går att belägga, och ett anrop görs aldrig bara för att fylla en ruta. Med ägarens ord
+2026-10-09 (punkt 9): tillgänglig = erbjuden (och startkvittots sessionsprov), aktiverad = skillverktygets anrop
+(`skill_anrop`), läst = laddad, använd = anrop med användbart resultat och belagd i artefakten, och bedömd effekt =
+effekt bedömd. En misslyckad åtkomst (nekad av kundvakten, fel, saknad nyckel) står som det den är, en faktisk
+begränsning, och aldrig som oanvänd. Återkopplingen har formen bild, version, element eller område, tillstånd och
+avvikelse, med kodkoppling när den finns (`skapande.FYND_SCHEMA`, `kandidater.kodkoppling`).
 
 Ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"; ägarens uppdrag 18:53Z, punkt 5: varje
 roll läser de fullständiga relevanta delarna, utan tunna sammanfattningar och utan att varje metodtext läggs i varje

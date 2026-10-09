@@ -11,8 +11,11 @@ att slå upp i; historiken slås upp vid behov. Högst tre samtidigt, 45 minuter
 den interna granskningen och skaparens svar inräknade, ett omförsök bara vid ett identifierat tekniskt fel, inget
 minimiantal varv. Ingen granskningspanel och ingen förbättringsrunda före ägarens val: en intern granskare ser
 den renderade skissen (aldrig skaparens text) när tiden räcker och skaparen svarar, men omdömet och svaret visas för ägaren först efter första beslutet; snabba
-objektiva kontroller (bygget, konsolen, spill, axe, siffror utan belägg, menyn) markerar brister. Fördjupningen (hela startsidan, undersidan och besökarens centrala flöde, DESIGN.md) kommer
-efter ägarens val. NWP_KANDIDATLAGE=full är en tillfällig växel till förvalet nedan, för jämförelse och återställning.
+objektiva kontroller (bygget, konsolen, spill, axe, siffror utan belägg, menyn) markerar brister. Efter beställarens
+val kommer den riktade förbättringen som uppdrag (ägarens uppdrag 2026-10-09 ~17:53Z, punkt 8): Rätta, Omarbeta
+designen eller Bygg ut (hela startsidan, undersidan och besökarens centrala flöde), var och en med version, resultat,
+omfattning och det som bevaras, de specialistpass uppdraget begär och en separat före/efter-bedömning (forfina_kandidat).
+Tio förslag är ägarens beslut (2026-10-09). NWP_KANDIDATLAGE=full är en tillfällig växel till förvalet nedan.
 
 Varje kandidat har en stabil identitet (k01–k12) och
 - ett eget litet Astro-projekt, kunder/<slug>/kandidater/<id>/sajt, med sajtens nuvarande src/ och public/ utan
@@ -121,7 +124,9 @@ SKISSKRITIK_SCHEMA = {
                        'properties': {'tjanst': {'type': 'string', 'enum': ['refero', 'mobbin']}, 'forebild': {'type': 'string'}, 'jamforelse': {'type': 'string'}}}},
                    'valda': {'type': 'array', 'maxItems': 10, 'items': {
                        'type': 'object', 'additionalProperties': False, 'required': ['fil', 'varfor'],
-                       'properties': {'fil': {'type': 'string'}, 'varfor': {'type': 'string'}}}}}}
+                       'properties': {'fil': {'type': 'string'}, 'varfor': {'type': 'string'}}}},
+                   # återkopplingens form (ägarens uppdrag 2026-10-09, punkt 9): bild, version, element, tillstånd, avvikelse
+                   'fynd': {'type': 'array', 'maxItems': 12, 'items': skapande.FYND_SCHEMA}}}
 FRIST_SKISS_OMFORSOK = int(os.environ.get('NWP_KANDIDAT_FRIST_OMFORSOK') or 900)  # ett omförsök efter ett identifierat tekniskt fel
 FRIST_SKISS_FORSKA = int(os.environ.get('NWP_KANDIDAT_FRIST_SKISS_FORSKA') or 1200)
 MAX_FORSOK_SKISS = 2  # det inledande försöket och ett omförsök (tekniskt fel eller avbrott); ingen förlängning för antalets skull
@@ -1862,7 +1867,9 @@ def skisskritik_prompt(slug, kid, bilder, varv, uppgift):
         '   först; om formen är generisk; rekommendationen fortsätt (riktningen bär; åtgärda problemen), byt komposition (idén',
         '   bär men formen gör det inte) eller förkasta riktningen (den är generisk eller bär inte kundens substans), med',
         '   motivering; bredder och tillstand: det du faktiskt såg i en bild; forebilder: förebilderna och vad jämförelsen',
-        '   visade; valda: alternativen du valde med skäl. Skriv vad du ser, inga allmänna formregler; skaparen avgör åtgärden.',
+        '   visade; valda: alternativen du valde med skäl; fynd: varje synligt problem med bild, version (den du fick), element',
+        '   eller område (en CSS-väljare när förhandsvisningen visar den), tillstånd (bredd, menyn, fokus) och avvikelse, med',
+        '   kodkoppling tom. Skriv vad du ser, inga allmänna formregler; skaparen avgör åtgärden.',
         'Tiden: högst %d minuter, verktygen inräknade; svara innan dess med det du hunnit se.' % max(2, FRIST_SKISSKRITIK // 60),
         atelje.MATERIAL])
 

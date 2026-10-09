@@ -47,7 +47,7 @@ TYP_STOPP = 'slutpost (skapandeflödet stannade före körningen)'
 TYP_EFTERHAND = 'slutpost (ateljén, skriven i efterhand)'
 UPPDRAG = 'skapandeflödet för startsidan (kunskap/skapandeflodet.md), startat med kontroller/prototyp.py eller kontroller/atelje.py'
 MOMENT = {'forberedelse': 'kundunderlag före referensval och design', 'kandidatflodet': 'prototypen: research, plan och skisser (README.md, kedjan steg 2)',
-          'forfining': 'förfiningen av de valda (README.md, kedjan steg 4)',
+          'forfining': 'den riktade förbättringen: ett uppdrag (Rätta, Omarbeta designen eller Bygg ut) eller en vald tidigare version (README.md, kedjan steg 4)',
           'aldre': 'den äldre utforskningen med riktningar (nödvägen; kunskap/skapandeflodet.md)'}
 KOMPETENSKEDJAN = 'ej sammanställd i posten; kompetenskvittot per kandidat ligger i kandidatens STATUS.json (fältet kompetens)'  # GR-20261008-r117-claude#C9
 KLARA = ('klar', 'klar_for_bedomning', 'forberedd')
