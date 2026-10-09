@@ -1529,7 +1529,9 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         '   räcker (branschen och uppgiften, aldrig kundens uppgifter). Ett tomt eller misslyckat sökresultat skrivs som det är',
         '   och räknas inte som underlag. Komponenter ur 21st.dev (search, sedan get_component för en vald) är material: koden',
         '   anpassas till riktningen, mallens CSS och CSP:n (inga paket installeras på egen hand; kunskap/beroenden.md), och källan,',
-        '   författaren, licensen och beroendena skrivs i RIKTNING.md under Referenser.',
+        '   författaren, licensen och beroendena skrivs i RIKTNING.md under Referenser. Ett tema ur 21st.dev (search med type',
+        '   "theme" och en generisk fråga, sedan get_theme) är CSS-variabler som mappas till projektets variabler med bevarade',
+        '   roller. Uppdragets implementationsgrund (UPPDRAG.md) säger vad som återanvänds; en skärmbild är aldrig en kodmall.',
         '1. Skriv %s med överst raden `Huvudreferens: <namn> — <vad den bär i skissen>` (eller `Huvudreferens: egen — …`, eller' % rel(d / 'RIKTNING.md'),
         '   flera namn), sedan hypotesen i en mening, och rubriken "Idén" med idén och varför den passar kunden.%s' % (
             ' Skriv därefter, före' if metodvariant(slug, kid) == 'h01' else ' Bygg sedan en'),
