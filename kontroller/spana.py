@@ -49,7 +49,10 @@ MAX_KANDIDATER = int(os.environ.get('NWP_SPANING_MAX_KANDIDATER') or 200)
 MAX_ANROP = int(os.environ.get('NWP_SPANING_MAX_ANROP') or 120)
 MAX_PER_KALLA = int(os.environ.get('NWP_SPANING_MAX_PER_KALLA') or 5)
 PAUS = float(os.environ.get('NWP_SPANING_PAUS') or 1.0)
-BYTE_FLODE, BYTE_SIDA, BYTE_KANDIDAT = 4_000_000, 256_000, 64_000
+# en sida som når taket bokförs aldrig som en ofullständig version (a108560); taket för sidor var 256 kB och fällde de
+# stora dokumentationssidorna (Claudes release notes, Anthropic news, IMY med flera; bevakningen 2026-10-09)
+BYTE_FLODE, BYTE_KANDIDAT = 4_000_000, 64_000
+BYTE_SIDA = int(os.environ.get('NWP_SPANING_BYTE_SIDA') or 4_000_000)
 NS = {'atom': 'http://www.w3.org/2005/Atom', 'media': 'http://search.yahoo.com/mrss/', 'yt': 'http://www.youtube.com/xml/schemas/2015', 'dc': 'http://purl.org/dc/elements/1.1/'}
 
 # Termerna är det spanaren letar efter: våra åtta steg och arbetet runt dem. Justera här, inte i koden under.
@@ -276,7 +279,9 @@ class Hamtare:
         self.senaste_anrop=time.monotonic()
         self.anrop += 1
 
-    def hamta(self, url, tak=BYTE_SIDA):
+    def hamta(self, url, tak=BYTE_SIDA, klipp=False):
+        """Svaret, högst tak byte. En sida som når taket nekas (ingen ofullständig version bokförs); klipp gäller flöden,
+        vars poster är oberoende och lagas vid sista hela posten (tolka_flode)."""
         if self._hamta:
             if self.anrop>=self.max_anrop:raise SlutPaAnrop('taket %d anrop per spaning är nått'%self.max_anrop)
             self.anrop+=1
@@ -291,6 +296,8 @@ class Hamtare:
             langd=r.headers.get('Content-Length')
             if langd is not None and (not langd.isascii() or not langd.isdigit()):raise OSError('Ogiltig deklarerad källstorlek.')
             data=r.read(tak+1)
+            if len(data)>tak and klipp:
+                return data[:tak]
             if len(data)>tak:raise OSError('Källsvaret översteg bytetaket; ingen ny version sparas.')
             if langd is not None and len(data)!=int(langd):raise OSError('Källsvaret är kortare än deklarerat; ingen ny version sparas.')
             return data
@@ -353,7 +360,7 @@ def tolka_flode(data):
 
 
 def rss(kalla, h):
-    data = h.hamta(kalla['url'], BYTE_FLODE)
+    data = h.hamta(kalla['url'], BYTE_FLODE, klipp=True)
     rot = tolka_flode(data)
     ut = []
     tag = rot.tag.lower()

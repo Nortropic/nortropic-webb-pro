@@ -129,3 +129,302 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | awesome | awesome-claude-code | https://github.com/hesreallyhim/awesome-claude-code | bara nya länkar räknas | 1.0 | agentflödet |
 | awesome | awesome-design-md | https://github.com/VoltAgent/awesome-design-md | dömd nej som källa; här en pekare | 1.0 | ai-webbdesign |
 | rss | Vercel changelog | https://vercel.com/atom | lanseringen väntar; höj vikten när en kund ska ut | 0.3 | lansering |
+
+## Bevakningsfrågor
+
+Källorna ovan bevakas för att besvara konkreta frågor om Nortropic. Varje block knyter en fråga till ett område, ett
+steg, en kompetens, det den berör, källorna (namnen i tabellen ovan), källans slag, en version, en kontroll, ett
+intervall, en ansvarig funktion och en eventuell backlogpost. `kontroller/bevakning.py` läser blocken och prövar
+varje fråga när dess intervall gått, i dashboardens dagliga körning (07:00 Europe/Stockholm). Kontrollerna:
+
+- `kalla`: spanarens hälsa, version och nya poster för källorna;
+- `underhall`: underhållets körning och vad som hänt med beroendena i `berör`;
+- `codex`: Codex prövar frågan med webbsökning (`bevakning.py codex-paket`, `codex --search exec`, `codex-svar`);
+- `manuell`: ett registrerat svar;
+- `byggstart`: prövas inför nästa byggstart.
+
+Ett block med `lucka` anger något vi vet att vi saknar. Det står i täckningsbilden tills det har en kontroll. Nya fynd
+blir signaler i förbättringsloopen (`kirurgen/forbattringar`). Där bedöms, prövas, införs och verifieras de som
+förut. Källans slag är ett av: standard, regelverk, kompatibilitet, forskning, metod, leverantor, bransch, inspiration
+och eget_beslut.
+
+```bevakning claude-code-sessioner
+fråga: Har ändrade sessions-, hook- eller behörighetsbeteenden i Claude Code påverkat våra blinda granskare, kundvakten eller löparen?
+område: ai
+steg: granskning
+kompetens: kritik, jamforelse
+berör: kontroller/blindvakt.py; kontroller/kundvakt.py; kontroller/atelje.py; kontroller/lopare.py; claude code
+källor: Claude Code releases; Claude Code best practices
+källtyp: leverantor
+version: Claude Code 2.1.290 (underhållet 2026-10-08)
+kontroll: kalla, underhall
+intervall: dag
+ansvar: underhållet (versionen och vaktprovet), granskningen (blindvakten)
+```
+
+```bevakning modeller
+fråga: Har en modell vi använder (claude-fable-5-1, claude-sonnet-5-5, opus-aliaset, haiku-4-5) fått ett nytt beteende, en ny version bakom aliaset eller ett utfasningsdatum?
+område: ai
+steg: forvaltning
+kompetens: alla roller
+berör: kontroller/atelje.py; kontroller/kandidater.py; kontroller/granska.py; kor.sh; dashboard/partner.py
+källor: Claude platform release notes; Anthropic news
+källtyp: leverantor
+version: modell-id:na i koden 2026-10-09
+kontroll: kalla
+intervall: dag
+ansvar: underhållet och granskningen (kalibreringen görs om vid modellbyte)
+```
+
+```bevakning prompter-och-kontext
+fråga: Ändrar Anthropics råd om prompter, kontext och agenter något i våra uppdragstexter (metodkartan, skissprompten, löparens protokoll)?
+område: ai
+steg: skiss
+kompetens: plan, komposition
+berör: kunskap/metodkarta.md; kontroller/kandidater.py; kontroller/lopare.py
+källor: Prompting Claude; Anthropic engineering
+källtyp: leverantor
+version: läst 2026-10-09
+kontroll: kalla, codex
+intervall: vecka
+ansvar: skapandeflödet
+```
+
+```bevakning referenstjanster
+fråga: Har Refero eller Mobbin bytt verktygsnamn, standardläge eller krediter, så att startkvittot visar nya, obedömda verktyg eller tjänstesessionerna faller?
+område: referenser
+steg: referenser
+kompetens: forska, plan
+berör: refero; mobbin; kunskap/metodkarta.md; kontroller/referenstjanster.py
+källtyp: leverantor
+version: verktygsbesluten i metodkartan (tjanstverktyg)
+kontroll: underhall
+intervall: dag
+ansvar: underhållet och startkontrollen
+```
+
+```bevakning wcag-och-lag
+fråga: Har WCAG, EN 301 549 eller tillämpningen i svensk lag ändrats så att byggstandardens krav (WCAG 2.2 AA som mål, 2.1 som lagkrav) behöver ändras?
+område: tillganglighet
+steg: helbygge
+kompetens: granskning
+berör: kunskap/byggstandard.md; kunskap/teoretisk-grund.md; kritik/GRANSKARE.md
+källor: W3C WAI; Webbriktlinjer
+källtyp: standard
+version: WCAG 2.2 (W3C-rekommendation, uppdaterad 2024-12-12; WCAG 2 Overview läst 2026-10-09); EN 301 549 v3.2.1
+kontroll: kalla
+intervall: vecka
+ansvar: granskningen
+```
+
+```bevakning baseline
+fråga: Har en webbfunktion som byggstandarden förlitar sig på bytt Baseline-status (kompatibilitet, inte kvalitet)?
+område: tillganglighet
+steg: helbygge
+kompetens: responsiv
+berör: kunskap/byggstandard.md; kunskap/webblasare.md
+källor: web-features (Baseline)
+källtyp: kompatibilitet
+version: MDN Baseline-definitionen ändrad 2026-08-27
+kontroll: kalla
+intervall: vecka
+ansvar: granskningen
+```
+
+```bevakning matinstrumenten
+fråga: Har axe-core, Lighthouse, Playwright eller html-validate ändrats så att våra gränser (Lighthouse ≥ 90, axe utan allvarliga fynd) betyder något annat?
+område: frontend
+steg: granskning
+kompetens: granskning
+berör: axe-core; lighthouse; playwright; html-validate; kontroller/prova.py; kunskap/byggstandard.md
+källor: axe-core releases; Lighthouse releases; Playwright releases; html-validate
+källtyp: leverantor
+version: underhållet 2026-10-08 (axe-core 4.14.0 avvisad: rökprovet rött)
+kontroll: kalla, underhall
+intervall: dag
+ansvar: underhållet
+```
+
+```bevakning stacken
+fråga: Har Astro, Tailwind eller Node ändrat något som bryter mallen (CSP-hashar, typsnitt, byggutdata)?
+område: frontend
+steg: helbygge
+kompetens: leverans
+berör: astro; tailwind; node; mall/astro; kunskap/beroenden.md
+källor: Astro releases; Astro blog; Chrome for Developers
+källtyp: leverantor
+version: Astro 7.3.5, Tailwind 4.3.3, Node 24 (godkänd, PATH pinnar 22)
+kontroll: kalla, underhall
+intervall: dag
+ansvar: underhållet
+```
+
+```bevakning sok-och-ai-funktioner
+fråga: Har Google ändrat kraven för lokala företagssajter, AI-funktionerna i sökningen eller schema.org-typer vi använder?
+område: synlighet
+steg: helbygge
+kompetens: leverans
+berör: kunskap/seo.md; kunskap/seo-lokal.md; kontroller/seo_kontroll.py; kunskap/byggstandard.md
+källor: Google Search Central; Google Search Status; Google: AI-funktioner och din webbplats; schema.org
+källtyp: leverantor
+version: läst 2026-10-09
+kontroll: kalla
+intervall: vecka
+ansvar: helbygget
+```
+
+```bevakning matning-efter-leverans
+fråga: Vilken minsta mätning efter leverans behöver vi, och vad säger IMY och PTS om kakfri analys?
+område: synlighet
+steg: forvaltning
+lucka: mätning och uppföljning efter leverans har ingen kod eller roll; kunskap/uppfoljning.md hänvisar till verktyg som inte finns här
+källor: IMY; PTS
+källtyp: regelverk
+kontroll: codex
+intervall: manad
+ansvar: ägaren (beslut om en roll)
+```
+
+```bevakning juridik
+fråga: Har IMY, Konsumentverket eller PTS ändrat tolkningen av kakor, marknadsföring eller omdömen så att juridikflaggorna eller byggstandarden behöver ändras?
+område: juridik
+steg: helbygge
+kompetens: leverans
+berör: kunskap/juridikflaggor.md; kunskap/byggstandard.md
+källor: IMY; Konsumentverket; PTS
+källtyp: regelverk
+version: läst 2026-10-09
+kontroll: kalla
+intervall: vecka
+ansvar: helbygget
+```
+
+```bevakning upphovsratt-och-ai-material
+fråga: Hur förhåller sig vår kopiering av referensers palett och layout, och AI-genererat material, till upphovsrätten och EU:s AI-förordning?
+område: juridik
+steg: referenser
+lucka: ingen bedömning av upphovsrätt när en referens kopieras (ägarbeslutet 2026-10-03), och AI-förordningens märkning nämns inte
+källtyp: regelverk
+kontroll: codex
+intervall: manad
+ansvar: ägaren (juridisk bedömning)
+```
+
+```bevakning ux-metod
+fråga: Besvarar våra arbetsmoment rätt frågor, och undersöker vi verkliga användarbehov (Double Diamond, NN/g om metodval)?
+område: ux
+steg: forberedelse
+kompetens: forska, plan
+berör: kunskap/skapandeflodet.md; kunskap/resor.md; kunskap/besokarprov.md
+källor: NN/g; GOV.UK design notes; Baymard blog
+källtyp: metod
+version: NN/g "When to Use Which UX Research Methods" (granskad 2026-07-15); Design Council Framework for Innovation
+kontroll: kalla, codex
+intervall: manad
+ansvar: skapandeflödet
+```
+
+```bevakning besokarprov
+fråga: När och hur prövar vi en sajt med verkliga besökare?
+område: ux
+steg: leverans
+lucka: ingen verklig användarobservation; kunskap/besokarprov.md är ett protokoll som inte körts
+kontroll: manuell
+intervall: manad
+ansvar: ägaren
+```
+
+```bevakning designskills-uppstroms
+fråga: Har uppströmskällorna för våra designskills ändrats så att metodkartans kärnfiler eller granskarens kriterier är inaktuella?
+område: gestaltning
+steg: skiss
+kompetens: komposition, typografi
+berör: impeccable; taste; better; emil; frontend-design; kunskap/metodkarta.md
+källor: Anthropic frontend-design; Impeccable; Taste-skill; Jakub Krehels skills; Emil Kowalskis skills
+källtyp: inspiration
+version: KALLA.md per skill (underhållet 2026-10-08)
+kontroll: kalla, underhall
+intervall: dag
+ansvar: underhållet (intaget), skapandeflödet (metodkartan)
+```
+
+```bevakning rorelse-och-material
+fråga: Har GSAP:s eller Motions licens eller API ändrats, och finns ett prövat sätt att få bild, video och ljud?
+område: material
+steg: skiss
+kompetens: rorelse
+berör: gsap; motion; kontroller/material.py
+källtyp: leverantor
+version: gsap 3.15.0, motion 14.0.0
+kontroll: underhall
+intervall: dag
+ansvar: underhållet
+```
+
+```bevakning bild-video-ljud
+fråga: Vilket material (bild, video, ljud) kan vi ta fram med licens och kvalitet som räcker?
+område: material
+steg: forberedelse
+lucka: ljud saknas helt; video och bildgenerering har inga konton (material.py: saknar_konto)
+kontroll: manuell
+intervall: manad
+ansvar: ägaren (konton)
+```
+
+```bevakning kundintaget
+fråga: Fångar kundintaget och briefen verkliga verksamheters mål och målgrupper?
+område: kundintag
+steg: kundstart
+lucka: kundintaget är inte prövat med en verklig kund (README: live-AI inte verifierad)
+kontroll: manuell
+intervall: manad
+ansvar: ägaren
+```
+
+```bevakning evals-och-domare
+fråga: Säger aktuell praxis om evals och LLM-domare något om vår kalibrering (13 sajter, ett tillfälle), blindningen eller förmågeproven?
+område: granskning
+steg: granskning
+kompetens: kritik, jamforelse
+berör: kontroller/granskarforsok; kritik/GRANSKARE.md; kontroller/formagoprov.py
+källor: Hamel Husain; Eugene Yan; Anthropic engineering
+källtyp: bransch
+version: "Demystifying evals for AI agents" (2026-01-09)
+kontroll: kalla, codex
+intervall: vecka
+ansvar: granskningen
+```
+
+```bevakning leveransvagen
+fråga: Har Vercel ändrat CLI-driftsättningens förval (produktion, skydd), regionen eller adaptern så att leveransvägen beter sig annorlunda?
+område: leverans
+steg: leverans
+kompetens: leverans
+berör: vercel; kontroller/kundrepo.py; kontroller/exportera.py
+källor: Vercel changelog
+källtyp: leverantor
+version: Vercel CLI 62.4.0, @astrojs/vercel 11.0.11
+kontroll: kalla, underhall
+intervall: dag
+ansvar: underhållet och leveransen
+```
+
+```bevakning forbrukning-och-vantan
+fråga: Följer vi förbrukningen mot kvoten, väntan och omarbete i körningarna, och visar de något mönster?
+område: larande
+steg: forvaltning
+lucka: kvoten observeras inte (listpriset är inte kvoten); veckobeskedet i kunskap/drift.md har inget verktyg
+kontroll: manuell
+intervall: vecka
+ansvar: ägaren
+```
+
+```bevakning infor-byggstart
+fråga: Inför byggstart: projektets särskilda behov, förändringar sedan föregående kontroll, prövad metodversion och kända brister som påverkar just detta bygge.
+område: larande
+steg: forberedelse
+berör: kontroller/startkontroll.py; underlag/<kund>/atelje/STARTKVITTO.md
+kontroll: byggstart
+intervall: byggstart
+ansvar: startkontrollen
+```
