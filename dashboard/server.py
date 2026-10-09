@@ -2938,10 +2938,20 @@ class H(BaseHTTPRequestHandler):
         dash = sys.modules[__name__]
         if vag == '/api/arbetsyta':
             return self.skicka(200, {'tid': nu(), 'projekt': arbetsyta.projekt(dash), 'lagen': arbetsyta.LAGEN})
-        m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})(?:/(strom|partner|kod|logg))?', vag)
+        m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})(?:/(strom|partner|kod|logg|meddelanden|grenar|historik/[0-9a-f-]{36}))?', vag)
         if not m or m.group(1) not in {p['slug'] for p in arbetsyta.projekt(dash)}:
             return self.skicka(404, {'fel': 'ingen kund som arbetsytan känner till'})
         slug, del_ = m.groups()
+        if del_ in ('meddelanden', 'grenar') or (del_ or '').startswith('historik/'):  # samverkan.py: blindat på servervägen
+            import samverkan
+            try:
+                if del_ == 'meddelanden':
+                    return self.skicka(200, samverkan.lage(dash, slug))
+                if del_ == 'grenar':
+                    return self.skicka(200, samverkan.grenar(dash, slug))
+                return self.skicka(200, samverkan.historik(dash, slug, del_.split('/', 1)[1]))
+            except ValueError as e:
+                return self.skicka(409 if type(e).__name__ in ('Dold', 'Nekad') else 404, {'fel': str(e), 'slag': type(e).__name__})
         q = dict(parse_qsl(urlsplit(self.path).query))
         if del_ is None:
             return self.skicka(200, arbetsyta.lage(dash, slug))
@@ -2955,6 +2965,36 @@ class H(BaseHTTPRequestHandler):
             except ValueError as e:
                 return self.skicka(404, {'fel': str(e)})
         return self.skicka(200, arbetsyta.korningslogg(dash, slug))
+
+    def extern(self, vag, data):
+        """Den externa granskarens väg (dashboard/samverkan.py): granskarnyckeln som Bearer, aldrig från en webbläsare
+        (Origin eller Sec-Fetch-Site ger 403), bara kundens underlag, bilder, återkoppling och fynd. Avsändaren är
+        nyckelfilens namn."""
+        import arbetsyta
+        import samverkan
+        if self.headers.get('Origin') or self.headers.get('Sec-Fetch-Site'):
+            return self.skicka(403, {'fel': 'den externa granskarens väg tas inte emot från en webbläsare'})
+        namn = samverkan.extern_namn(self.headers.get('Authorization'))
+        if not namn:
+            return self.skicka(401, {'fel': 'saknad eller fel granskarnyckel'}, extra={'WWW-Authenticate': 'Bearer'})
+        dash = sys.modules[__name__]
+        m = re.fullmatch(r'/api/extern/([a-z0-9-]{2,60})/(underlag|aterkoppling|bild|fynd)', vag)
+        if not m or m.group(1) not in {p['slug'] for p in arbetsyta.projekt(dash)}:
+            return self.skicka(404, {'fel': 'finns inte'})
+        slug, del_ = m.groups()
+        try:
+            if data is None and del_ == 'underlag':
+                return self.skicka(200, samverkan.extern_underlag(dash, slug, namn))
+            if data is None and del_ == 'aterkoppling':
+                return self.skicka(200, samverkan.extern_aterkoppling(dash, slug, namn))
+            if data is None and del_ == 'bild':
+                q = dict(parse_qsl(urlsplit(self.path).query))
+                return self.skicka(200, samverkan.extern_bild(dash, slug, namn, q.get('fil')), 'image/png')
+            if data is not None and del_ == 'fynd':
+                return self.skicka(200, samverkan.extern_fynd(dash, slug, namn, data))
+            return self.skicka(405, {'fel': 'fel metod'})
+        except ValueError as e:
+            return self.skicka(409 if type(e).__name__ in ('Dold', 'Inaktuell', 'Nekad') else 400, {'fel': str(e), 'slag': type(e).__name__})
 
     def strom(self, slug):
         """Läget som en ström (text/event-stream): ett nytt läge när signaturen över källorna ändrats, en puls med tiden var
@@ -3019,6 +3059,8 @@ class H(BaseHTTPRequestHandler):
         vag = unquote(urlsplit(self.path).path)
         if not self.vard_ok():
             return self.skicka(421, {'fel': 'fel värd: använd http://127.0.0.1:<port>'})
+        if vag.startswith('/api/extern/'):
+            return self.extern(vag, None)
         try:
             if vag in ('/', '/index.html'):  # aldrig inramad av en annan sida, som en förhandsvisad sajt (arbetsytan, 2026-10-09)
                 return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8',
@@ -3158,6 +3200,13 @@ class H(BaseHTTPRequestHandler):
         vag = urlsplit(self.path).path
         if not self.vard_ok():
             return self.skicka(421, {'fel': 'fel värd: använd http://127.0.0.1:<port>'})
+        if vag.startswith('/api/extern/'):
+            try:
+                n = int(self.headers.get('Content-Length') or 0)
+                data = json.loads(self.rfile.read(min(n, 1024 * 1024)) or b'{}')
+            except (ValueError, json.JSONDecodeError):
+                return self.skicka(400, {'fel': 'kroppen ska vara JSON'})
+            return self.extern(vag, data if isinstance(data, dict) else {})
         ursprung = urlsplit(self.headers.get('Origin') or '')
         vard = (self.headers.get('Host') or '').strip().lower()
         if ursprung.scheme != 'http' or ursprung.netloc.lower() != vard:
@@ -3201,6 +3250,24 @@ class H(BaseHTTPRequestHandler):
                                               'Begäran är registrerad. Läs aktuellt läge och körningens besked.' if rc == 5 else
                                               'Handlingen är klar; läs det aktuella beskedet.' if rc in (0, 4) else
                                               'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'})
+            m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(meddelande|mandat|paus|foljdfraga|beslut)(?:/([A-Za-z0-9_-]{8,80})/(beslut|aterkalla))?', vag)
+            if m:  # samverkan: ägarens meddelanden, beslut över förslag, mandat, paus, följdfrågor och beslut (dashboard/samverkan.py)
+                import arbetsyta
+                import samverkan
+                dash = sys.modules[__name__]
+                slug, del_, id_, under = m.groups()
+                if slug not in {p['slug'] for p in arbetsyta.projekt(dash)}:
+                    return self.skicka(404, {'fel': 'ingen kund som arbetsytan känner till'})
+                if not isinstance(data, dict):
+                    raise ValueError('kroppen ska vara ett objekt')
+                if del_ == 'meddelande' and under == 'beslut':
+                    return self.skicka(200, samverkan.besluta(dash, slug, id_, data))
+                if del_ == 'mandat' and under == 'aterkalla':
+                    return self.skicka(200, samverkan.aterkalla_mandat(dash, slug, id_))
+                if under:
+                    return self.skicka(404, {'fel': 'finns inte'})
+                return self.skicka(200, {'meddelande': samverkan.skicka, 'mandat': samverkan.mandat, 'paus': samverkan.paus,
+                                         'foljdfraga': samverkan.foljdfraga, 'beslut': samverkan.beslut}[del_](dash, slug, data))
             m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(partner|andring|oppna)', vag)
             if m:  # arbetsytans skrivningar: ett meddelande till partnern, ägarens ändring och öppning i editorn (dashboard/arbetsyta.py)
                 import arbetsyta
@@ -3282,7 +3349,7 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, ta_in_kandidat(m.group(1)) if m.group(2) == 'ta-in' else avfarda_kandidat(m.group(1), data.get('skal')))
             return self.skicka(404, {'fel': 'finns inte'})
         except (ValueError, json.JSONDecodeError, OSError) as e:
-            if type(e).__name__ in ('Upptagen', 'Inaktuell', 'Dold'):  # arbetsytan: en tur pågår, ändringen gäller en äldre version eller kunden är en dold arm
+            if type(e).__name__ in ('Upptagen', 'Inaktuell', 'Dold', 'Nekad'):  # arbetsytan: en tur pågår, ändringen gäller en äldre version eller kunden är en dold arm
                 return self.skicka(409, {'fel': str(e), 'slag': type(e).__name__})
             if vag == '/api/kundstart' or vag.startswith('/api/kundstart/'):
                 import kundstart

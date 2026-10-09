@@ -45,9 +45,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import server as dash  # noqa: E402
 import arbetsyta  # noqa: E402
 import partner  # noqa: E402
+import samverkan  # noqa: E402
 import atelje  # noqa: E402
 import bildkedja  # noqa: E402
 import kandidater  # noqa: E402
+import meddelanden  # noqa: E402
 import korregister  # noqa: E402
 import nastlad  # noqa: E402
 import observation  # noqa: E402
@@ -193,6 +195,7 @@ class Arbetsyta(unittest.TestCase):
         for m in (dash, atelje):
             self.stack.enter_context(patch.multiple(m, ROOT=self.root, UNDERLAG=self.root / 'underlag', KUNDER=self.root / 'kunder'))
         self.stack.enter_context(patch.multiple(observation, ROOT=self.root, UNDERLAG=self.root / 'underlag'))
+        self.stack.enter_context(patch.object(meddelanden, 'UNDERLAG', self.root / 'underlag'))
         self.stack.enter_context(patch.object(bildkedja, 'PROJEKT', self.projekt))
         if hasattr(arbetsyta, '_DELAT'):  # strömmarnas delade läge gäller provets egen rot
             self.stack.enter_context(patch.dict(arbetsyta._DELAT, clear=True))
@@ -869,6 +872,206 @@ class Arbetsyta(unittest.TestCase):
             a = falsk.anrop[-1]
             self.assertIn('--session-id', a)
             self.assertNotIn(a[a.index('--session-id') + 1], (s1, s2))
+
+    # --- samverkan: meddelanden, extern granskare, mandat, paus, historik, följdfrågor och beslut (2026-10-09) ---
+
+    def granskarsession(self, ansvar='granskning', kid='k01'):
+        """En granskande session med löpare (som lopare.Lopare skriver läget), utan process: avsändare i bussen."""
+        sid = str(uuid.uuid4())
+        meddelanden._skriv(meddelanden.styrfil(SLUG, sid), {'session_id': sid, 'roll': 'skisskritik-%s' % kid, 'ansvar': ansvar, 'kandidat': kid,
+                                                            'blind': False, 'korning': meddelanden.korning(SLUG), 'pid': os.getpid(),
+                                                            'lopare_pid': os.getpid(), 'slut': None, 'lage': 'arbetar'})
+        return {'typ': 'session', 'session_id': sid}
+
+    def test_agarens_meddelanden_och_agenternas_text_blindas_fore_valet(self):
+        if self.sajt is None:  # kandidatens fotograferade version kommer ur mallsajten (fixturen)
+            self.skipTest(utan_sajt())
+        port, host, anropa = self.server()
+        skriv = {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'}
+        mot = {'typ': 'adress', 'ansvar': 'utforande', 'kandidat': 'k01'}
+        data = {'id': 'agare-http-0001', 'syfte': 'fraga', 'text': 'Hur ser rubriken ut i mobil?', 'mottagare': mot, 'korning': self.status['startad']}
+        self.assertEqual(anropa('POST', '/api/arbetsyta/%s/meddelande' % SLUG, data, {'Origin': 'http://' + host})[0], 403)
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/meddelande' % SLUG, data, skriv)
+        self.assertEqual(status, 200, kropp)
+        m = json.loads(kropp)
+        self.assertEqual((m['avsandare']['typ'], m['lage'], m['upprepat']), ('agare', 'sparat', False))
+        self.assertTrue(json.loads(anropa('POST', '/api/arbetsyta/%s/meddelande' % SLUG, data, skriv)[2])['upprepat'], 'dubbelklick: samma meddelande')
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/meddelande' % SLUG, dict(data, id='agare-http-0002', korning='2026-10-01T00:00:00Z'), skriv)
+        self.assertEqual((status, json.loads(kropp)['slag']), (409, 'Inaktuell'))
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/meddelande' % SLUG, dict(data, id='agare-http-0003', syfte='agarbeslut'), skriv)
+        self.assertEqual(status, 400, 'ett ägarbeslut skickas inte som meddelande')
+        g = self.granskarsession()
+        fynd = meddelanden.skapa(SLUG, g, {'typ': 'agare'}, 'granskningsfynd', 'Rubriken bryts på fyra rader.', kandidat='k01', belagg=['vy-390-forsta'])
+        l = json.loads(anropa('GET', '/api/arbetsyta/%s/meddelanden' % SLUG)[2])
+        self.assertTrue(l['blind'])
+        f = [x for x in l['meddelanden'] if x['id'] == fynd['id']][0]
+        self.assertEqual((f['text'], f['belagg'], f['agent']), (samverkan.DOLT, [], True))
+        self.assertNotIn('fyra rader', json.dumps(l, ensure_ascii=False))
+        self.assertNotIn('roll', f['avsandare'], 'rollen döljs före valet, som i sessionskorten')
+        self.assertIn(fynd['id'], l['oppna'])
+        self.assertEqual([x['text'] for x in l['meddelanden'] if x['id'] == 'agare-http-0001'], ['Hur ser rubriken ut i mobil?'], 'ägarens egna ord syns')
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/meddelande/%s/beslut' % (SLUG, fynd['id']), {'val': 'godta'}, skriv)
+        self.assertEqual(status, 409, 'beslut över agenternas förslag först efter valet')
+        self.agarens_val()
+        l = json.loads(anropa('GET', '/api/arbetsyta/%s/meddelanden' % SLUG)[2])
+        self.assertFalse(l['blind'])
+        self.assertEqual([x['text'] for x in l['meddelanden'] if x['id'] == fynd['id']], ['Rubriken bryts på fyra rader.'])
+        v1 = kandidater.las_status(SLUG, 'k01')['version']
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/meddelande/%s/beslut' % (SLUG, fynd['id']),
+                                   {'val': 'godta', 'version': v1, 'korning': self.status['startad'], 'nytt_id': 'agare-godta-0001'}, skriv)
+        self.assertEqual(status, 200, kropp)
+        ny = meddelanden.hamta(SLUG, 'agare-godta-0001')
+        self.assertEqual((ny['avsandare']['typ'], ny['syfte'], ny['svar_pa'], ny['mottagare']['kandidat']), ('agare', 'andringsinstruktion', fynd['id'], 'k01'))
+        self.assertEqual(meddelanden.hamta(SLUG, fynd['id'])['beslut']['val'], 'godta')
+        with patch.object(dash, 'ab_oavgjord', return_value=True):
+            l = json.loads(anropa('GET', '/api/arbetsyta/%s/meddelanden' % SLUG)[2])
+            self.assertEqual((l.get('dold'), l['meddelanden']), (True, []))
+            self.assertEqual(anropa('POST', '/api/arbetsyta/%s/meddelande' % SLUG, dict(data, id='agare-http-0004'), skriv)[0], 409)
+
+    def test_den_externa_granskarens_vag_med_egen_nyckel_och_mandat(self):
+        if self.sajt is None:  # kandidatens fotograferade version kommer ur mallsajten (fixturen)
+            self.skipTest(utan_sajt())
+        nycklar = self.root / 'granskarnycklar'
+        nycklar.mkdir()
+        (nycklar / 'codex.nyckel').write_text('granskar-provnyckel-0123456789\n')
+        self.stack.enter_context(patch.dict(os.environ, {'NWP_GRANSKARE_NYCKLAR': str(nycklar)}))
+        port, host, anropa = self.server()
+        b = {'Authorization': 'Bearer granskar-provnyckel-0123456789'}
+        bas = '/api/extern/%s' % SLUG
+        self.assertEqual(anropa('GET', bas + '/underlag')[0], 401)
+        self.assertEqual(anropa('GET', bas + '/underlag', huvud={'Authorization': 'Bearer fel'})[0], 401)
+        self.assertEqual(anropa('GET', bas + '/underlag', huvud=dict(b, Origin='http://' + host))[0], 403)
+        self.assertEqual(anropa('GET', bas + '/underlag', huvud=dict(b, **{'Sec-Fetch-Site': 'same-origin'}))[0], 403)
+        self.assertEqual(anropa('GET', '/api/extern/okand-kund/underlag', huvud=b)[0], 404)
+        status, _r, kropp = anropa('GET', bas + '/underlag', huvud=b)
+        u = json.loads(kropp)
+        self.assertEqual((status, u['granskare'], u['blind']), (200, 'codex', True))
+        self.assertIn('k01', [k['id'] for k in u['kandidater']])
+        for dolt in ('Testdata k01', 'ägaren'):
+            self.assertNotIn('"%s"' % dolt, kropp.decode())
+        bild = 'underlag/%s/atelje/kandidater/k01/bilder/start/vy-390-forsta.png' % SLUG
+        status, r, kropp = anropa('GET', bas + '/bild?fil=' + bild, huvud=b)
+        self.assertEqual((status, r.getheader('Content-Type'), kropp), (200, 'image/png', PNG))
+        for fel in ('underlag/%s/arbetsyta/PARTNER.json' % SLUG, '../../etc/passwd', 'underlag/%s/DESIGNDOMAR.jsonl' % SLUG):
+            self.assertEqual(anropa('GET', bas + '/bild?fil=' + fel, huvud=b)[0], 400, fel)
+        v1 = kandidater.las_status(SLUG, 'k01')['version']
+        fynd = {'syfte': 'granskningsfynd', 'kandidat': 'k01', 'version': v1, 'text': 'Kontrasten i rubriken är 3,1:1.'}
+        self.assertEqual(anropa('POST', bas + '/fynd', fynd, b)[0], 400, 'fynd utan belägg')
+        status, _r, kropp = anropa('POST', bas + '/fynd', dict(fynd, belagg=['vy-1440-forsta: rubriken #9aa mot #fff']), b)
+        self.assertEqual(status, 200, kropp)
+        mid = json.loads(kropp)['id']
+        self.assertEqual(meddelanden.hamta(SLUG, mid)['avsandare'], {'typ': 'extern', 'namn': 'codex'})
+        self.assertEqual(anropa('POST', bas + '/fynd', dict(fynd, belagg=['x']), dict(b, Origin='http://' + host))[0], 403)
+        ratt = {'syfte': 'andringsinstruktion', 'till': 'utforande', 'kandidat': 'k01', 'version': v1, 'text': 'Mörka rubriken till minst 4,5:1.'}
+        self.assertEqual(anropa('POST', bas + '/fynd', ratt, b)[0], 409, 'ingen rättelse utan ägarens mandat')
+        self.assertEqual(anropa('POST', bas + '/fynd', {'syfte': 'agarbeslut', 'text': 'Godkänt.'}, b)[0], 409)
+        skriv = {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'}
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/mandat' % SLUG, {'id': 'mandat-codex-0001', 'kandidat': 'k01', 'granskare': {'typ': 'extern', 'namn': 'codex'},
+                                                                             'omfattning': 'kontrast och läsbarhet i rubriken', 'korning': self.status['startad']}, skriv)
+        self.assertEqual(status, 200, kropp)
+        self.assertEqual(anropa('POST', '/api/arbetsyta/%s/mandat' % SLUG, {'id': 'mandat-codex-0002', 'kandidat': 'k01', 'granskare': {'typ': 'extern', 'namn': 'codex'},
+                                                                          'omfattning': 'x'}, b)[0], 403, 'granskaren ger sig inte själv mandat')
+        status, _r, kropp = anropa('POST', bas + '/fynd', ratt, b)
+        self.assertEqual(status, 200, kropp)
+        r_ = meddelanden.hamta(SLUG, json.loads(kropp)['id'])
+        self.assertEqual((r_['mandat']['id'], r_['mottagare']), ('mandat-codex-0001', {'typ': 'adress', 'ansvar': 'utforande', 'kandidat': 'k01'}))
+        self.assertIn('kontrast och läsbarhet', meddelanden.ramtext(r_))
+        a = json.loads(anropa('GET', bas + '/aterkoppling', huvud=b)[2])['aterkoppling']
+        self.assertEqual({x['id'] for x in a if x.get('eget')}, {mid, r_['id']})
+        with patch.object(dash, 'ab_oavgjord', return_value=True):
+            self.assertEqual(anropa('GET', bas + '/underlag', huvud=b)[0], 409)
+            self.assertEqual(anropa('POST', bas + '/fynd', dict(fynd, belagg=['y']), b)[0], 409)
+
+    def test_paus_via_arbetsytan_med_omfattning(self):
+        port, host, anropa = self.server()
+        skriv = {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'}
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/paus' % SLUG, {'omfattning': 'projekt', 'korning': self.status['startad']}, skriv)
+        self.assertEqual(status, 200, kropp)
+        p = json.loads(kropp)['styrning']['projekt']
+        self.assertEqual(p['lage'], 'pausad', 'inga sessioner arbetar: pausen gäller direkt')
+        self.assertTrue(meddelanden.paus_galler(SLUG))
+        self.assertEqual(anropa('POST', '/api/arbetsyta/%s/paus' % SLUG, {'omfattning': 'session', 'session_id': str(uuid.uuid4())}, skriv)[0], 400,
+                         'en session utan löpare kan inte pausas')
+        self.assertEqual(anropa('POST', '/api/arbetsyta/%s/paus' % SLUG, {'omfattning': 'projekt', 'korning': '2026-10-01T00:00:00Z'}, skriv)[0], 409)
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/paus' % SLUG, {'omfattning': 'projekt', 'aterta': True}, skriv)
+        self.assertEqual((status, json.loads(kropp)['styrning']['projekt']), (200, None))
+        self.assertIsNone(meddelanden.paus_galler(SLUG))
+
+    def test_historik_och_foljdfraga_stangda_fore_valet_och_skrivskyddade_efter(self):
+        if self.sajt is None:  # kandidatens fotograferade version kommer ur mallsajten (fixturen)
+            self.skipTest(utan_sajt())
+        rader = [{'type': 'user', 'timestamp': '2026-10-09T05:10:00Z', 'message': {'role': 'user', 'content': 'Uppgiften: skissa startsidan.'}},
+                 {'type': 'assistant', 'timestamp': '2026-10-09T05:11:00Z', 'message': {'content': [
+                     {'type': 'text', 'text': 'Jag väljer en mörk rubrik. Nyckeln sk-ant-api03-ABCDEFGHIJ syns inte.'},
+                     {'type': 'tool_use', 'id': 't1', 'name': 'Edit', 'input': {'file_path': 'x'}}]}}]
+        sid = self.session('skiss-k01', rader=rader, slut='2026-10-09T05:20:00Z', utfall='avslutad, kod 0')
+        port, host, anropa = self.server()
+        skriv = {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'}
+        self.assertEqual(anropa('GET', '/api/arbetsyta/%s/historik/%s' % (SLUG, sid))[0], 409, 'historiken visas efter valet')
+        fraga = {'id': 'gren-prov-0001', 'session_id': sid, 'text': 'Varför valde du den mörka rubriken?'}
+        self.assertEqual(anropa('POST', '/api/arbetsyta/%s/foljdfraga' % SLUG, fraga, skriv)[0], 409)
+        self.agarens_val()
+        status, _r, kropp = anropa('GET', '/api/arbetsyta/%s/historik/%s' % (SLUG, sid))
+        h = json.loads(kropp)
+        self.assertEqual(status, 200, kropp)
+        self.assertEqual([r['typ'] for r in h['rader']], ['in', 'ut', 'verktyg'])
+        self.assertNotIn('ABCDEFGHIJ', kropp.decode())
+        falsk = FalskClaude()
+        self.addCleanup(falsk.stada)
+        self.stack.enter_context(patch.object(samverkan, 'subprocess', SimpleNamespace(
+            Popen=falsk, PIPE=subprocess.PIPE, TimeoutExpired=subprocess.TimeoutExpired)))
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/foljdfraga' % SLUG, fraga, skriv)
+        self.assertEqual(status, 200, kropp)
+        g = json.loads(kropp)
+        self.assertEqual((g['foralder'], g['ansvar']), (sid, 'följdfråga, skrivskyddad'))
+        a = falsk.anrop[-1]
+        self.assertEqual(a[a.index('--resume') + 1], sid)
+        self.assertIn('--fork-session', a)
+        self.assertEqual(a[a.index('--tools') + 1], 'Read,Glob,Grep')
+        self.assertNotIn('Edit', ' '.join(a[a.index('--allowedTools') + 1:]))
+        for t in threading.enumerate():
+            if t.name.startswith('gren-'):
+                t.join(20)
+        status, _r, kropp = anropa('GET', '/api/arbetsyta/%s/grenar' % SLUG)
+        self.assertEqual(status, 200, kropp)
+        gr = json.loads(kropp)['grenar']
+        self.assertEqual([(x['id'], x['lage'], x['foralder']) for x in gr], [('gren-prov-0001', 'besvarad', sid)])
+        self.assertTrue(json.loads(anropa('POST', '/api/arbetsyta/%s/foljdfraga' % SLUG, fraga, skriv)[2])['upprepat'])
+        self.assertEqual(len(falsk.anrop), 1)
+        levande = self.session('skiss-k02', kandidat='k02', pid=self.levande())
+        meddelanden._skriv(meddelanden.styrfil(SLUG, levande), {'session_id': levande, 'roll': 'skiss-k02', 'kandidat': 'k02', 'ansvar': 'utforande',
+                                                               'korning': meddelanden.korning(SLUG), 'pid': self.levande(), 'lopare_pid': os.getpid(), 'slut': None})
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/foljdfraga' % SLUG, dict(fraga, id='gren-prov-0002', session_id=levande), skriv)
+        self.assertEqual(status, 409, 'en session som arbetar förgrenas inte: föräldern får aldrig en andra process')
+
+    def test_beslutet_binds_till_den_version_och_bild_agaren_sett(self):
+        if self.sajt is None:  # kandidatens fotograferade version kommer ur mallsajten (fixturen)
+            self.skipTest(utan_sajt())
+        port, host, anropa = self.server()
+        skriv = {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'}
+        v1 = kandidater.las_status(SLUG, 'k01')['version']
+        bild = 'underlag/%s/atelje/kandidater/k01/bilder/start/vy-390-forsta.png' % SLUG
+        import hashlib
+        sha = hashlib.sha256(PNG).hexdigest()
+        bas = {'beslut': 'godkand', 'kandidater': [{'id': 'k01', 'version': v1}], 'korning': self.status['startad']}
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, bas, skriv)
+        self.assertEqual(status, 400, kropp)
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, dict(bas, sedd=[{'kandidat': 'k01', 'version': v1, 'bild': bild, 'bild_sha': '0' * 64}]), skriv)
+        self.assertEqual((status, json.loads(kropp)['slag']), (409, 'Inaktuell'))
+        # rätt bild, men arbetsversionen har ändrats efter fotograferingen (fixturen): inget tyst godkännande
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, dict(bas, sedd=[{'kandidat': 'k01', 'version': v1, 'bild': bild, 'bild_sha': sha}]), skriv)
+        self.assertEqual(status, 400, kropp)
+        self.assertFalse((self.las(self.u / 'atelje' / 'VINNARE.json') if (self.u / 'atelje' / 'VINNARE.json').is_file() else {}).get('godkand'))
+        self.assertEqual(self.domrader(), [])
+        val = {'beslut': 'valj', 'kandidater': [{'id': 'k01', 'version': v1}], 'korning': self.status['startad'],
+               'sedd': [{'kandidat': 'k01', 'version': v1, 'bild': bild, 'bild_sha': sha}], 'text': 'Den här vidare.'}
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, val, skriv)
+        self.assertEqual(status, 200, kropp)
+        d = self.domrader()[-1]
+        self.assertEqual((d['kalla'], d['beslut'], d['arbetsyta']['vy']), ('ägaren', 'valj', 'Arbetsyta, beslut'))
+        self.assertEqual(d['arbetsyta']['sedd'][0]['bild_sha'], sha)
+        b = [m for m in meddelanden.alla(SLUG) if m['syfte'] == 'agarbeslut']
+        self.assertEqual([(m['avsandare']['typ'], m['kandidat'], m['dom']['beslut']) for m in b], [('agare', 'k01', 'valj')])
 
     # --- HTTP genom den riktiga hanteraren ---
 
