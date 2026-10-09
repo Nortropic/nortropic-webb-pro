@@ -55,8 +55,20 @@ ansvar: skapandeflödet
 fråga: Vad saknar vi?
 område: juridik
 lucka: ingen juridisk bedömning
-kontroll: manuell
+kontroll: codex
 intervall: manad
+ansvar: ägaren
+post: B-prov
+nästa: Codex lämnar underlag
+förutsättning: en jurist
+```
+
+```bevakning forbrukningen
+fråga: Vad förbrukar vi?
+område: larande
+kontroll: forbrukning
+intervall: vecka
+ansvar: bevakningen
 ```
 """
 FEL = """
@@ -108,7 +120,7 @@ class Bevakning(unittest.TestCase):
 
     def test_registret_och_dess_fel(self):
         f, fel = bevakning.register()
-        self.assertEqual(sorted(f), ['en-lucka', 'sessioner', 'veckofraga'])
+        self.assertEqual(sorted(f), ['en-lucka', 'forbrukningen', 'sessioner', 'veckofraga'])
         self.assertEqual(f['sessioner']['kallor'], ['Provets release notes'])
         self.reg.write_text(TABELL + BLOCK + FEL, encoding='utf-8')
         f, fel = bevakning.register()
@@ -160,18 +172,19 @@ class Bevakning(unittest.TestCase):
         self.assertGreaterEqual(dag['kvarstaende'], 1)
         poster = json.loads((self.fb / 'FORBATTRINGAR.json').read_text())['poster']
         self.assertEqual(sum(len(p['signaler']) for p in poster.values()), antal)
-        self.assertEqual(d2['fragor']['en-lucka']['utfall'], 'lucka')
+        self.assertEqual(d2['fragor']['en-lucka']['utfall'], 'ej_utford', 'luckan har sin kontroll: Codex granskning, inte gjord än')
 
     def test_misslyckad_kontroll_ar_inte_inget_nytt(self):
         nar = datetime.now(timezone.utc)
         self.drift(nar, fel='OSError: Källsvaret översteg bytetaket')
         d = bevakning.kor(nar=nar)
-        self.assertEqual(d['fragor']['sessioner']['utfall'], 'misslyckad')
+        self.assertEqual(d['fragor']['sessioner']['utfall'], 'ofullstandig', 'källan föll, underhållet lyckades: ofullständig, aldrig inget nytt')
         self.assertEqual(d['senast']['utfall'], 'delvis')
         dag = json.loads(sorted((self.ut / 'dag').glob('*.json'))[-1].read_text())
         self.assertNotEqual(dag['besked'], 'inget handlingsbart i dag', 'inget handlingsbart kräver lyckade kontroller')
         self.assertIn('sessioner', [x['id'] for x in dag['kontroller_som_inte_lyckades']])
-        self.assertEqual(d['fragor']['veckofraga']['utfall'], 'ej_utford', 'Codex granskning har inte gjorts')
+        self.assertEqual(d['fragor']['veckofraga']['utfall'], 'ofullstandig', 'källan prövad men Codex analys utebliven: ofullständig')
+        self.assertTrue(any('Codex granskning har inte gjorts' in x for x in d['fragor']['veckofraga']['problem']))
 
     def test_bevakningen_av_bevakningen(self):
         nar = datetime.now(timezone.utc)
@@ -209,8 +222,62 @@ class Bevakning(unittest.TestCase):
         f = [x for x in dag['handlingsbart'] if x['fraga'] == 'veckofraga' and x['typ'] == 'codex'][0]
         self.assertIn('Granskarförslag från codex (inte ägarens beslut)', f['text'])
         paket = bevakning.codex_paket(self.rot / 'paket')
-        self.assertEqual(paket['fragor'], ['veckofraga'])
+        self.assertEqual(paket['fragor'], ['veckofraga', 'en-lucka'])
         self.assertEqual(sorted(p.name for p in (self.rot / 'paket').iterdir()), ['AGENTS.md', 'bevakning.json', 'schema.json'])
+
+    def test_automatisk_codex_granskning_efter_intervall(self):
+        nar = datetime.now(timezone.utc)
+        self.drift(nar)
+        anrop = []
+
+        def korare(kat, prompt, ut, logg):
+            q = json.loads((Path(kat) / 'bevakning.json').read_text())['fragor'][0]['id']
+            anrop.append(q)
+            if q == 'en-lucka':
+                return 1, 'prov-modell', None  # en granskning som faller
+            Path(ut).write_text(json.dumps({'fynd': [{'fraga': q, 'forandring': 'inget', 'steg': 'x', 'observerat': 'x', 'kallans_stod': 'x',
+                                                       'tolkning': 'x', 'nytta_risk': 'x', 'minsta_forsok': 'x', 'hur_vi_vet': 'x', 'beslut': 'inget_nytt',
+                                                       'kallor': [{'url': 'https://example.org', 'datum_eller_version': '2026-10-09', 'last': 'originalet'}]}]}))
+            Path(logg).write_text('model: prov-modell\ntokens used\n12 345\n')
+            return 0, 'prov-modell', 12345
+        self.assertEqual(sorted(bevakning.codex_dags(nar=nar)), ['en-lucka', 'veckofraga'])
+        rader = bevakning.codex_vid_behov(nar=nar, korare=korare)
+        self.assertEqual(sorted(anrop), ['en-lucka', 'veckofraga'])
+        self.assertEqual({r['fraga']: (r.get('tokens'), bool(r.get('fel'))) for r in rader}, {'veckofraga': (12345, False), 'en-lucka': (None, True)})
+        self.assertEqual(bevakning.codex_dags(nar=nar + timedelta(days=1)), [], 'nästa granskning först när intervallet gått')
+        self.assertIn('veckofraga', bevakning.codex_dags(nar=nar + timedelta(days=7)))
+        d = bevakning.kor(nar=nar)
+        self.assertEqual(d['fragor']['en-lucka']['utfall'], 'misslyckad', 'en fallen granskning är aldrig inget nytt')
+        self.assertEqual(d['fragor']['veckofraga']['utfall'], 'inget_nytt', 'källan hämtad och Codex har faktiskt kontrollerat: inget nytt')
+        logg = [json.loads(r) for r in (self.ut / 'codex-korningar.jsonl').read_text().splitlines()]
+        self.assertEqual(len(logg), 2)
+        with patch.dict(os.environ, {'NWP_BEVAKNING_CODEX': 'av'}):
+            self.assertEqual(bevakning.codex_vid_behov(nar=nar + timedelta(days=40), korare=korare), [])
+
+    def test_forbrukningen_matts_och_kvoten_star_som_saknad(self):
+        nar = datetime.now(timezone.utc)
+        self.drift(nar)
+        sv = self.rot / 'underlag' / 'en-kund' / 'atelje' / 'svar-plan.json'
+        sv.parent.mkdir(parents=True)
+        sv.write_text(json.dumps({'total_cost_usd': 7.41, 'num_turns': 72, 'duration_ms': 352985,
+                                  'modelUsage': {'claude-fable-5-1': {'outputTokens': 24023, 'costUSD': 7.41}}}))
+        with patch.dict(os.environ, {'NWP_FORBRUKNING_ROT': str(self.rot / 'underlag')}):
+            d = bevakning.kor(nar=nar)
+        r = d['fragor']['forbrukningen']
+        self.assertEqual(r['utfall'], 'fynd')
+        self.assertEqual((r['forbrukning']['sessioner'], r['forbrukning']['listpris_usd'], r['forbrukning']['tokens_ut']), (1, 7.41, 24023))
+        self.assertTrue(any('kvot' in x for x in r['problem']), 'kvoten är ett saknat mätvärde')
+
+    def test_byggstarten_redovisar_bevakningen(self):
+        nar = datetime.now(timezone.utc)
+        self.drift(nar)
+        self.assertEqual(bevakning.byggstart('en-kund', nar=nar)['status'], 'okand', 'bevakningen har inte körts')
+        bevakning.kor(nar=nar)
+        b = bevakning.byggstart('en-kund', nar=nar)
+        self.assertIn('senaste bevakningen', b['detalj'])
+        self.assertIn('en-lucka', b['luckor'])
+        lage = json.loads((self.ut / 'LAGE.json').read_text())
+        self.assertEqual(lage['fragor']['infor-byggstart']['kund'], 'en-kund')
 
     def test_lage_for_dashboarden(self):
         nar = datetime.now(timezone.utc)
@@ -218,7 +285,7 @@ class Bevakning(unittest.TestCase):
         bevakning.kor(nar=nar)
         lage = bevakning.lage()
         self.assertEqual(set(lage['tackning']), set(bevakning.OMRADEN))
-        self.assertEqual(lage['tackning']['juridik']['lage'], 'saknar_tackning')
+        self.assertEqual(lage['tackning']['juridik']['lage'], 'inaktuell', 'luckans kontroll är inte gjord')
         self.assertEqual(lage['tackning']['juridik']['luckor'], ['ingen juridisk bedömning'])
         self.assertFalse(lage['aktiv'], 'en manuell körning gör inte bevakningen aktiv')
         self.assertTrue(lage['dag'])

@@ -4177,3 +4177,71 @@ i ~/Arkiv.
   a108560 avvisas en större sida helt), bland dem Claudes release notes, Anthropic news, Prompting Claude och IMY.
   Taket för sidor är nu 4 MB, och flöden klipps åter vid sista hela posten. I torrkörningen föll 1 av de 20
   (Konsumentverket, utan läsbar text).
+
+## Ägarbeslut 2026-10-09 ~14:25Z: aktivera arbetsytan, Codex-kanalen och bevakningen i ordinarie drift
+
+**Status:** gäller. Det ersätter beskeden att vänta med Codex rytm, spanarens rytm efter piloten och luckorna
+(tillägget om kontinuerlig bevakning, ovan). Inklistrat och ordagrant (texten började med "garbeslut:"):
+
+> garbeslut: aktivera arbetsytan, Codex-kanalen och bevakningen i ordinarie drift
+> Jag vill aktivera hela det planerade upplägget. Förslaget om en begränsad pilot med en Codex-fråga per vecka gäller inte.
+> Du har mandat att genomföra återstående rättelser, kontroller, sammanslagning, push och aktivering enligt nedan. Återkom inte för samma klartecken igen.
+> 1. Slutför och aktivera
+> - Slutför den sammanhängande användarresans nio punkter i samma körning.
+> - Rätta eventuella fel och kör hela rökprovet på det slutliga trädet.
+> - Samordna med pågående förfining så att körande kod och sessioner inte störs. Ett tungt prov åt gången.
+> - Efter godkända kontroller: slå samman, pusha och starta om arbetsytan på :4771 med bibehållen åtkomst.
+> - Aktivera Codex-kanalen, arbetsytans funktioner och bevakningen. Verifiera dem även efter aktiveringen.
+> Detta är mandat att slutföra och driftsätta nu. Ett faktiskt blockerande fel ska rättas och redovisas.
+> 2. Bevakningen ska gå i ordinarie drift
+> - Behåll spanarens dagliga körning som ordinarie drift. Ta bort den oavgjorda övergången till veckovis efter en pilot.
+> - Aktivera automatisk Codex-granskning enligt bevakningsfrågornas planerade vecko- och månadsintervall.
+> - Samtliga 22 frågor och 13 områden ska omfattas av sina angivna kontroller. Återanvänd den befintliga klockan, registret och förbättringsloopen.
+> - Slutför kopplingen inför byggstart och visningen i arbetsytan.
+> - Visa senaste lyckade kontroll, eventuella fel, nästa körning och kvarstående täckningsluckor.
+> - Misslyckad hämtning, ofullständigt underlag och utebliven analys får aldrig presenteras som ”inget nytt”.
+> - Hantera Konsumentverkets återstående hämtproblem genom en fungerande officiell källa eller lämplig läsmetod. Markera luckan tills den är verifierat löst.
+> Bevakningen ska både upptäcka förändringar och undersöka obesvarade frågor. Förslag förs vidare genom befintlig bedömning, prövning och uppföljning. Införanden följer gällande mandat.
+> 3. Alla identifierade luckor ska få ansvar och nästa åtgärd
+> Det gäller verklig användarobservation, uppföljning efter leverans, upphovsrätt och AI-regler, ljud och video, verkligt kundintag samt förbrukning och kvot.
+> Koppla varje lucka till befintlig roll och ansvarig post. Genomför det som ryms inom mandatet. Ange exakt vilket underlag eller vilken extern förutsättning som behövs för resten. Undvik dubbla poster.
+> 4. Rätta och stäm av redovisningen
+> - Precisera H01:s bedömningshistorik: den nya Codex-kanalen var inte aktiv under försöket, men ägaren fick Codex blinda A/B-bedömning i samtalet före det bokförda valet. Skilj detta från en oberoende mänsklig blinddom. Bevara historiken med ett daterat tillägg.
+> - Stäm av rapporternas uppgifter om arbetsytans bevakningsvy och byggstartskopplingen mot den levererade koden.
+> - Redovisa 59 720 tokens som ett uppmätt anrop. Det är inte en fast kostnad per fråga eller en mätning av abonnemangets kvot. Dokumentera faktisk förbrukning och saknade mätvärden.
+> - Precisera OpenAI-uppgiften: kravet på påslagen dator och öppen app gäller schemalagt arbete med lokala projekt. Behåll Nortropics befintliga klocka. Källa: https://learn.chatgpt.com/docs/automations
+> - Skilj genomgående mellan byggt, provat i provinstans, aktiverat, verifierat i drift och visad förbättring.
+> 5. Leverera ett sammanhängande driftsbesked
+> Redovisa slutlig commit, fullprovets slutrad, resultatet av användarresan, aktiverade funktioner, verifieringen på :4771 och nästa schemalagda körning. Följ därefter upp den första automatiska körningen och rapportera dess faktiska resultat.
+> Befintliga gränser för helbyggstart, publicering, kundkontakt, köp, privat material och blinda försök gäller fortsatt.
+> Målet är att hela det beställda upplägget arbetar i ordinarie drift och att kvarstående begränsningar är synliga och omhändertagna.
+
+**Genomförarens tillämpning** (teknikbeslut inom beslutet):
+
+- **Spanaren** körs dagligen i ordinarie drift. Övergången till veckovis efter en pilot är borttagen ur koden, README
+  och källregistret.
+- **Codex granskar automatiskt.** Frågor med kontrollen codex prövas av `codex --search exec`, i dashboardens befintliga
+  timklocka, före den dagliga kontrollen, när frågans vecko- eller månadsintervall gått (`bevakning.codex_vid_behov`).
+  - En granskning som faller registreras som fallen och ger utfallet misslyckad, aldrig "inget nytt".
+  - Varje körning loggas med tid, modell och de tokens Codex redovisar (`codex-korningar.jsonl`).
+- **Alla 22 frågor har en körbar kontroll.** De frågor som tidigare hade en manuell kontroll prövas av Codex, och
+  förbrukningen har en egen mätande kontroll (`forbrukning`). En fråga med lucka prövas också, och luckan redovisas för
+  sig.
+- **Utfallet följer kontrollerna.** Det är ej utförd när ingen kontroll gjorts, misslyckad när de gjorda föll, och
+  ofullständig eller fynd när något återstår. Inget nytt står bara när varje kontroll lyckats.
+- **Luckorna.** Var och en har ansvar, befintlig post, nästa åtgärd och extern förutsättning i registret.
+  - Två poster var nya, eftersom ingen fanns: upphovsrätt och AI-regler, samt förbrukning mot kvot.
+  - Ljud fördes in som en daterad not i materialpostens del D.
+- **Inför byggstart.** Startkontrollen får raden "bevakningen" (`bevakning.byggstart`): senaste körningen, fynd sedan
+  kundens förra start, kontroller som inte lyckats och luckorna. Raden stoppar inget.
+- **Konsumentverket.** Källan är det officiella nyhetsflödet `api/feed/rss/nyheter/`, eftersom sidan /aktuellt/ kräver
+  JavaScript. Torrkörningen gav 5 poster och 0 fel. Luckan står som ofullständig tills spanaren har hämtat flödet i drift.
+- **Precisering av OpenAI-uppgiften** (rättar tillägget om kontinuerlig bevakning, ovan, och historiken står kvar).
+  Enligt https://learn.chatgpt.com/docs/automations gäller kravet på påslagen dator och öppen ChatGPT-app schemalagt
+  arbete med lokala projekt. Nortropic behåller sin befintliga klocka.
+- **Precisering av förbrukningen.** De 59 720 tokens från bevakningens Codex-prov 2026-10-09 är ett uppmätt anrop. De är
+  ingen fast kostnad per fråga och ingen mätning av abonnemangets kvot, som inte exponeras.
+- **H01:s bedömningshistorik.** Den nya Codex-kanalen var inte aktiv under försöket. Ägaren fick Codex blinda
+  A/B-bedömning i samtalet före det bokförda valet 13:58:47Z. Valet är ägarens bekräftade val efter den bedömningen,
+  inte en oberoende mänsklig blinddom. Daterade tillägg står i RAPPORT-2026-10-09-codex-observation-h01 och i 97:s
+  RAPPORT-2026-10-09-formagoprov-kvalitetsprov. Domloggens rad är orörd.

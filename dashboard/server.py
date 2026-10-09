@@ -1262,7 +1262,8 @@ def starta_intag(url, not_, filer=None):
 
 # --- spanaren: kandidater åt kirurgen, utan modell (kontroller/spana.py) ---
 SPANING = INTAG / 'spaning'
-# Varje dygn under piloten (ägaren 2026-10-03: "jag vill ha den frekventare"); 7 när piloten är över.
+# Varje dygn i ordinarie drift (ägaren 2026-10-03: "jag vill ha den frekventare"; ägarbeslutet 2026-10-09: ingen övergång
+# till veckovis).
 SPANING_INTERVALL = float(os.environ.get('NWP_SPANING_INTERVALL_DAGAR') or 1)
 
 
@@ -1440,12 +1441,17 @@ def spaning_vid_behov():
 def bevakning_vid_behov():
     """Den löpande bevakningen (kontroller/bevakning.py) i samma timklocka som spanaren och underhållet, ingen egen klocka:
     en gång per lokal dag efter klockslaget i Europe/Stockholm (07:00, NWP_BEVAKNING_KLOCKSLAG); har datorn eller
-    tjänsten varit av tas den vid nästa timslag, märkt med hur sent den kom. NWP_BEVAKNING_AV stänger av den."""
+    tjänsten varit av tas den vid nästa timslag, märkt med hur sent den kom. Först Codex-granskningarna vars vecko- eller
+    månadsintervall gått (ägarbeslutet 2026-10-09 ~14:25Z; NWP_BEVAKNING_CODEX=av stänger av dem), sedan den dagliga
+    kontrollen, som läser deras svar. NWP_BEVAKNING_AV stänger av alltihop."""
     if os.environ.get('NWP_BEVAKNING_AV'):
         return None
     import bevakning
     if not bevakning.dags():
         return None
+    for r in bevakning.codex_vid_behov():
+        print('bevakningen, Codex: %s %s (%s tokens, %s s)%s' % (r.get('fraga') or '', 'föll: ' + r['fel'] if r.get('fel') else 'klar',
+                                                                 r.get('tokens'), r.get('sekunder'), ' ' + r['hoppad'] if r.get('hoppad') else ''), flush=True)
     d = bevakning.kor(automatisk=True)
     s = d.get('senast') or {}
     print('bevakningen: %s (%s, %s h efter klockslaget); nästa %s' % (s.get('utfall') or d.get('hoppad'), s.get('start'), s.get('sen_timmar'),

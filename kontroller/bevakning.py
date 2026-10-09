@@ -49,7 +49,8 @@ REGISTER = ROOT / 'kunskap' / 'spaning-kallor.md'
 TZ = ZoneInfo('Europe/Stockholm')
 SCHEMA = 1
 INTERVALL = {'dag': 1, 'vecka': 7, 'manad': 30}
-KONTROLLER = ('kalla', 'underhall', 'codex', 'manuell', 'byggstart')
+KONTROLLER = ('kalla', 'underhall', 'codex', 'forbrukning', 'manuell', 'byggstart')
+CODEX_TAK = int(os.environ.get('NWP_BEVAKNING_CODEX_FRIST') or 900)  # sekunder per Codex-granskning
 KALLTYPER = {'standard': 'standard', 'regelverk': 'lag, myndighet och regelverk', 'kompatibilitet': 'kompatibilitetsdata (inte kvalitet)',
              'forskning': 'forskning', 'metod': 'etablerad metod', 'leverantor': 'leverantörsdokumentation', 'bransch': 'branscherfarenhet',
              'inspiration': 'inspiration', 'eget_beslut': 'Nortropics eget beslut'}
@@ -130,7 +131,7 @@ def register(text=None):
              'kompetens': lista(f.get('kompetens'), ','), 'beror': lista(f.get('berör')), 'kallor': lista(f.get('källor')),
              'kalltyp': f.get('källtyp', ''), 'version': f.get('version', ''), 'kontroll': lista(f.get('kontroll'), ','),
              'intervall': f.get('intervall', ''), 'ansvar': f.get('ansvar', ''), 'post': f.get('post') or None,
-             'lucka': f.get('lucka') or None}
+             'lucka': f.get('lucka') or None, 'nasta_atgard': f.get('nästa') or None, 'forutsattning': f.get('förutsättning') or None}
         problem = []
         if not q['fraga']:
             problem.append('frågan saknas')
@@ -140,6 +141,8 @@ def register(text=None):
             problem.append('kontrollen ska vara %s' % ', '.join(KONTROLLER))
         if q['intervall'] not in INTERVALL and q['intervall'] != 'byggstart':
             problem.append('intervallet ska vara dag, vecka, manad eller byggstart')
+        if q['lucka'] and not (q['post'] and q['nasta_atgard'] and q['forutsattning'] and q['ansvar']):
+            problem.append('en lucka anger ansvar, post, nästa åtgärd och förutsättning')
         if q['kalltyp'] and q['kalltyp'] not in KALLTYPER:
             problem.append('okänd källtyp %r' % q['kalltyp'])
         okanda = [k for k in q['kallor'] if not k.startswith('http') and k not in kallnamn]
@@ -219,6 +222,8 @@ def _svar(q, k, slag, intervall_dagar):
     t = tid((sista or {}).get('tid'))
     if not t or datetime.now(timezone.utc) - t > timedelta(days=intervall_dagar + 1):
         return None, ['%s har inte gjorts inom intervallet' % ('Codex granskning' if slag == 'codex' else 'den manuella kontrollen')], {}
+    if sista.get('fel'):  # granskningen kördes men föll: en misslyckad kontroll, aldrig "inget nytt"
+        return [], ['Codex granskning föll %s: %s' % (sista.get('tid'), str(sista['fel'])[:200])], {'svar': str(filer[-1].name)}
     fynd = [{'typ': slag, 'text': str(f.get('text'))[:600], 'belagg': '; '.join(f.get('belagg') or [])[:600],
              'nyckel': fingeravtryck(q['id'], slag, f.get('text')), 'avsandare': sista.get('avsandare')} for f in sista.get('fynd') or []]
     return fynd, [], {'svar': str(filer[-1].name)}
@@ -232,28 +237,83 @@ def prova(q, k, fore, nar):
     sist = tid((fore or {}).get('senast_lyckad'))
     if sist and nar - sist < timedelta(days=dagar) - timedelta(hours=2):
         return 'inte_dags', [], [], {}
-    fynd, problem, extra, ej = [], [], {}, False
+    fynd, problem, extra, lagen = [], [], {}, []
     for kontroll in q['kontroll']:
         if kontroll == 'kalla':
             f, p, e = _kalla(q, k, fore, dagar)
+            lagen.append('fel' if p and len(p) >= len(q['kallor']) and not f else 'delvis' if p else 'ok')
         elif kontroll == 'underhall':
             f, p, e = _underhall(q, k, fore)
+            lagen.append('fel' if p else 'ok')
         elif kontroll in ('codex', 'manuell'):
             f, p, e = _svar(q, k, kontroll, dagar)
-            if f is None:
-                ej, f = True, []
+            lagen.append('ej' if f is None else 'fel' if p else 'ok')
+            f = f or []
+        elif kontroll == 'forbrukning':
+            f, p, e = _forbrukning(q, k, nar)
+            lagen.append('delvis' if p else 'ok')
         else:
             f, p, e = [], ['prövas inför nästa byggstart'], {}
+            lagen.append('ej')
         fynd += f
         problem += p
         extra.update(e)
-    if ej and not fynd and not [p for p in problem if 'har inte gjorts' not in p]:
+    # utfallet säger aldrig "inget nytt" när en hämtning föll, underlaget var ofullständigt eller analysen uteblev
+    if all(x == 'ej' for x in lagen):
         return 'ej_utford', fynd, problem, extra
-    if problem and not fynd and len(problem) >= max(1, len(q['kallor'])) and 'kalla' in q['kontroll']:
+    if all(x in ('fel', 'ej') for x in lagen) and not fynd:
         return 'misslyckad', fynd, problem, extra
-    if problem:
-        return 'ofullstandig' if not fynd else 'fynd', fynd, problem, extra
+    if any(x != 'ok' for x in lagen):
+        return ('fynd' if fynd else 'ofullstandig'), fynd, problem, extra
     return ('fynd' if fynd else 'inget_nytt'), fynd, problem, extra
+
+
+def _forbrukning(q, k, nar, dagar=7):
+    """Den uppmätta förbrukningen de senaste dagarna: motorns sessioner (svarsfilerna, Claude Codes listpris och tokens,
+    costBasis list, aldrig fakturerat belopp) och bevakningens egna Codex-granskningar (tokens ur Codex utdata). Kvoten i
+    abonnemangen exponeras inte och mäts inte; den står som saknat mätvärde, så kontrollen blir ofullständig, aldrig
+    "inget nytt"."""
+    grans = nar - timedelta(days=dagar)
+    rot = Path(os.environ.get('NWP_FORBRUKNING_ROT') or ROOT / 'underlag')
+    summa = {'sessioner': 0, 'listpris_usd': 0.0, 'turer': 0, 'sekunder': 0, 'tokens_ut': 0, 'per_modell': {}}
+    for f in rot.glob('*/atelje/**/svar-*.json'):
+        try:
+            if datetime.fromtimestamp(f.stat().st_mtime, timezone.utc) < grans:
+                continue
+            r = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(r, dict) or 'total_cost_usd' not in r:
+            continue
+        summa['sessioner'] += 1
+        summa['listpris_usd'] += float(r.get('total_cost_usd') or 0)
+        summa['turer'] += int(r.get('num_turns') or 0)
+        summa['sekunder'] += int((r.get('duration_ms') or 0) / 1000)
+        for modell, m in (r.get('modelUsage') or {}).items():
+            pm = summa['per_modell'].setdefault(modell, {'sessioner': 0, 'listpris_usd': 0.0, 'tokens_ut': 0})
+            pm['sessioner'] += 1
+            pm['listpris_usd'] += float(m.get('costUSD') or 0)
+            pm['tokens_ut'] += int(m.get('outputTokens') or 0)
+            summa['tokens_ut'] += int(m.get('outputTokens') or 0)
+    codex = [x for x in (las_jsonl(k['ut'] / 'codex-korningar.jsonl')) if (tid(x.get('tid')) or grans) >= grans]
+    summa['codex'] = {'granskningar': len(codex), 'tokens': sum(int(x.get('tokens') or 0) for x in codex),
+                      'utan_tokenuppgift': sum(1 for x in codex if not x.get('tokens'))}
+    summa['listpris_usd'] = round(summa['listpris_usd'], 2)
+    text = ('%d dygn: %d motorsessioner, listpris %.2f USD (inte fakturerat), %d turer, %d min; Codex %d granskningar, %d tokens'
+            % (dagar, summa['sessioner'], summa['listpris_usd'], summa['turer'], summa['sekunder'] // 60, summa['codex']['granskningar'], summa['codex']['tokens']))
+    problem = ['abonnemangens kvot (Claude och ChatGPT) exponeras inte och mäts inte: förbrukningen ovan är listpris och tokens, inte kvot']
+    if summa['codex']['utan_tokenuppgift']:
+        problem.append('%d Codex-granskningar saknar tokenuppgift' % summa['codex']['utan_tokenuppgift'])
+    fynd = [{'typ': 'forbrukning', 'text': text, 'belagg': 'underlag/*/atelje/**/svar-*.json; kirurgen/bevakning/codex-korningar.jsonl',
+             'nyckel': fingeravtryck(q['id'], nar.astimezone(TZ).strftime('%G-%V'))}]  # en rapport per vecka, inte en ny varje dag
+    return fynd, problem, {'forbrukning': summa}
+
+
+def las_jsonl(p):
+    try:
+        return [json.loads(r) for r in Path(p).read_text(encoding='utf-8').splitlines() if r.strip()]
+    except (OSError, ValueError):
+        return []
 
 
 def meta(k, nar):
@@ -353,9 +413,6 @@ def kor(automatisk=False, k=None, nar=None):
         nya, kvar, rader = [], [], []
         for qid, q in fragor.items():
             f0 = lage_f.get(qid) or {}
-            if q.get('lucka'):  # en känd lucka: den står i täckningsbilden tills den har en kontroll, och prövas inte
-                lage_f[qid] = dict(f0, id=qid, utfall='lucka', problem=[q['lucka']], nasta=None)
-                continue
             try:
                 utfall, fynd, problem, extra = prova(q, k, f0, nar)
             except Exception as e:  # noqa: BLE001 — en fråga som inte går att pröva fäller inte de andra
@@ -432,7 +489,7 @@ def tackning(fragor, lage_f):
     ut = {}
     for oid, namn in OMRADEN.items():
         qs = [q for q in fragor.values() if q['omrade'] == oid]
-        aktiva = [q for q in qs if not q.get('lucka')]
+        aktiva = qs  # också en fråga med lucka har sin kontroll; luckan redovisas för sig
         utfall = [(lage_f.get(q['id']) or {}).get('utfall') for q in aktiva]
         ut[oid] = {'namn': namn, 'fragor': len(aktiva), 'luckor': [q['lucka'] for q in qs if q.get('lucka')],
                    'lage': 'saknar_tackning' if not aktiva else 'inaktuell' if any(x in ('misslyckad', 'ej_utford', None) for x in utfall)
@@ -442,7 +499,8 @@ def tackning(fragor, lage_f):
 
 def sammanfattning(lage, fragor, nya, kvar, nar):
     rader = lage['fragor']
-    ej = [{'id': q, 'utfall': r['utfall'], 'problem': r.get('problem')} for q, r in rader.items() if r.get('utfall') in ('misslyckad', 'ofullstandig', 'ej_utford')]
+    ej = [{'id': q, 'utfall': r['utfall'], 'problem': r.get('problem')} for q, r in rader.items()
+          if r.get('utfall') in ('misslyckad', 'ofullstandig', 'ej_utford') or (r.get('problem') and r.get('utfall') == 'fynd')]
     meta_fel = [m for m in lage['meta'] if m['utfall'] in ('misslyckad', 'ofullstandig')]
     handlingsbart = [dict(f, fraga_text=(fragor.get(f['fraga']) or {}).get('fraga'), post=(fragor.get(f['fraga']) or {}).get('post')) for f in nya]
     lyckad = lage['senast']['utfall'] == 'lyckad'
@@ -489,10 +547,14 @@ def lage():
                      'provade': sum(1 for x in poster if x.get('forsok')), 'inforda': sum(1 for x in poster if x.get('inforande') not in (None, 'inte_infort')),
                      'verifierade': sum(1 for x in poster if x.get('effekt') not in (None, 'inte_observerad')),
                      'register': 'kirurgen/forbattringar/FORBATTRINGAR.json'}
-    beslut = [{'id': q['id'], 'fraga': q['fraga'], 'lucka': q.get('lucka'), 'ansvar': q.get('ansvar')} for q in fragor.values()
-              if q.get('lucka') and 'ägaren' in (q.get('ansvar') or '')]
+    beslut = [{'id': q['id'], 'fraga': q['fraga'], 'lucka': q.get('lucka'), 'ansvar': q.get('ansvar'), 'post': q.get('post'),
+               'nasta_atgard': q.get('nasta_atgard'), 'forutsattning': q.get('forutsattning')} for q in fragor.values() if q.get('lucka')]
+    codex = las_jsonl(k['ut'] / 'codex-korningar.jsonl')[-12:]
+    forbrukning = next(((rader.get(q['id']) or {}).get('forbrukning') for q in fragor.values() if 'forbrukning' in q['kontroll']), None)
     return {'senast': d.get('senast'), 'nasta': nasta_korning(), 'tidszon': 'Europe/Stockholm', 'klockslag': '%02d:%02d' % klockslag(),
-            'forbattringar': forbattringar, 'beslut': beslut,
+            'forbattringar': forbattringar, 'luckor': beslut, 'beslut': [x for x in beslut if 'ägaren' in (x.get('ansvar') or '')],
+            'codex': {'aktiv': (os.environ.get('NWP_BEVAKNING_CODEX') or 'pa') != 'av', 'korningar': codex, 'dags': codex_dags(k)},
+            'forbrukning': forbrukning,
             'aktiv': bool(d.get('senast') and (d['senast'] or {}).get('automatisk')), 'meta': d.get('meta') or [],
             'fragor': [dict(q, **{x: (rader.get(qid) or {}).get(x) for x in ('utfall', 'senast_lyckad', 'nasta', 'problem')}) for qid, q in fragor.items()],
             'registerfel': regfel, 'tackning': tackning(fragor, rader), 'dag': dag}
@@ -511,6 +573,9 @@ Du läser bara; du ändrar inga filer. Svara med JSON enligt schema.json, en pos
 - vad som är observerat, vad källan stöder och vad som är din tolkning eller hypotes; motsägande belägg;
 - nytta eller risk, minsta rimliga försök och hur vi avgör om det hjälper;
 - nu, senare eller avfärda. "Inget relevant nytt" är ett giltigt svar när du faktiskt kontrollerat källan.
+
+En fråga med lucka gäller något Nortropic saknar: undersök vad som krävs för att stänga luckan, vilket minsta försök som
+ryms utan frågans förutsättning, och om förutsättningen fortfarande gäller.
 
 Ditt svar är ett granskarförslag till ägaren och den ansvariga funktionen, aldrig ett ägarbeslut eller en ny regel.
 Kundmaterial finns inte i paketet och ska inte sökas efter.
@@ -567,6 +632,127 @@ def codex_svar(fil, avsandare='codex'):
     return ut
 
 
+def codex_dags(k=None, nar=None):
+    """Frågorna vars Codex-granskning är dags: kontrollen codex och ingen granskning (lyckad eller fallen) inom intervallet."""
+    k = k or kataloger()
+    nar = nar or datetime.now(timezone.utc)
+    fragor, _ = register()
+    ut = []
+    for q in fragor.values():
+        if 'codex' not in q['kontroll'] or q['intervall'] not in INTERVALL:
+            continue
+        filer = sorted((k['ut'] / 'codex').glob('%s-*.json' % q['id'])) if (k['ut'] / 'codex').is_dir() else []
+        t = tid((las_json(filer[-1], {}) or {}).get('tid')) if filer else None
+        if not t or nar - t >= timedelta(days=INTERVALL[q['intervall']]) - timedelta(hours=2):
+            ut.append(q['id'])
+    return ut
+
+
+def _kor_codex(katalog, prompt, ut_fil, logg):
+    """codex --search exec, skrivskyddat i paketets katalog, med svarsschemat. Ger (returkod, modell, tokens)."""
+    import shutil
+    import subprocess
+    codex = shutil.which('codex')
+    if not codex:
+        raise FileNotFoundError('codex finns inte i PATH')
+    with open(logg, 'w', encoding='utf-8') as f:
+        r = subprocess.run([codex, '--search', 'exec', '--ignore-user-config', '-s', 'read-only', '--skip-git-repo-check', '--ephemeral', '-C', str(katalog),
+                            '--output-schema', str(Path(katalog) / 'schema.json'), '-o', str(ut_fil), prompt],
+                           stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT, timeout=CODEX_TAK)
+    text = Path(logg).read_text(encoding='utf-8', errors='replace')
+    modell = next((r_.split(':', 1)[1].strip() for r_ in text.splitlines() if r_.startswith('model:')), None)
+    rader = text.splitlines()
+    tokens = None
+    for i, r_ in enumerate(rader):
+        if r_.strip() == 'tokens used' and i + 1 < len(rader):
+            try:
+                tokens = int(rader[i + 1].replace(' ', '').replace('\u202f', '').replace(',', ''))
+            except ValueError:
+                pass
+    return r.returncode, modell, tokens
+
+
+def codex_vid_behov(k=None, nar=None, korare=None):
+    """Den automatiska Codex-granskningen (ägarbeslutet 2026-10-09 ~14:25Z): varje fråga med kontrollen codex vars
+    intervall gått prövas av Codex med webbsökning, en i taget, och svaret förs in som granskarförslag (codex_svar). En
+    granskning som faller registreras som fallen, så att frågan blir misslyckad, aldrig "inget nytt". Varje körning
+    loggas med tid, modell och de tokens Codex själv redovisar (codex-korningar.jsonl); kvoten mäts inte."""
+    if (os.environ.get('NWP_BEVAKNING_CODEX') or 'pa') == 'av':
+        return []
+    k = k or kataloger()
+    nar = nar or datetime.now(timezone.utc)
+    korare = korare or _kor_codex
+    ut = []
+    k['ut'].mkdir(parents=True, exist_ok=True)
+    with open(k['ut'] / '.codex.las', 'w') as las:
+        try:
+            fcntl.flock(las, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return [{'hoppad': 'en annan Codex-granskning pågår'}]
+        for qid in codex_dags(k, nar):
+            t = nu()
+            kat = k['ut'] / 'codex-paket' / ('%s-%s' % (qid, t.replace(':', '')))
+            codex_paket(kat, [qid])
+            svar, logg = kat / 'svar.json', kat / 'codex.log'
+            prompt = ('Läs AGENTS.md och bevakning.json. Pröva frågan %s med webbsökning mot primärkällor; för en fråga med lucka: '
+                      'undersök vad som krävs för att stänga luckan och vilket minsta försök som ryms. Svara enligt schemat; '
+                      '"inget_nytt" bara när du faktiskt kontrollerat källorna.' % qid)
+            t0 = time.monotonic()
+            rad = {'tid': t, 'fraga': qid}
+            try:
+                rc, modell, tokens = korare(kat, prompt, svar, logg)
+                rad.update(rc=rc, modell=modell, tokens=tokens, sekunder=round(time.monotonic() - t0))
+                if rc or not svar.is_file():
+                    raise RuntimeError('codex slutade med kod %s utan svar' % rc)
+                importerade = codex_svar(svar)
+                rad['beslut'] = [x.get('beslut') for x in importerade]
+                if not any(x.get('fraga') == qid for x in importerade):
+                    raise RuntimeError('svaret gällde inte frågan')
+            except Exception as e:  # noqa: BLE001 — en fallen granskning registreras, och nästa fråga prövas
+                rad['fel'] = '%s: %s' % (type(e).__name__, str(e)[:200])
+                skriv_json(k['ut'] / 'codex' / ('%s-%s.json' % (qid, t.replace(':', ''))), {'tid': t, 'avsandare': {'typ': 'extern', 'namn': 'codex'},
+                                                                                         'fraga': qid, 'fynd': [], 'fel': rad['fel']})
+            with open(k['ut'] / 'codex-korningar.jsonl', 'a', encoding='utf-8') as f:
+                f.write(json.dumps(rad, ensure_ascii=False) + '\n')
+            ut.append(rad)
+    return ut
+
+
+def byggstart(slug, k=None, nar=None):
+    """Kontrollen inför byggstart (startkontrollen): bevakningens senaste körning, fynd som kommit sedan kundens förra
+    start, kontroller som inte lyckats och luckorna, som en rad i startkvittot. Stoppar inget; den säger vad som är känt
+    och vad som inte är kontrollerat. Registrerar frågan infor-byggstart som kontrollerad."""
+    k = k or kataloger()
+    nar = nar or datetime.now(timezone.utc)
+    d = las_json(k['ut'] / 'LAGE.json', {}) or {}
+    s = d.get('senast') or {}
+    fragor, _ = register()
+    forra = None
+    try:
+        forra = (las_json(ROOT / 'underlag' / slug / 'atelje' / 'STARTKVITTO.json', {}) or {}).get('tid')
+    except Exception:  # noqa: BLE001
+        forra = None
+    nya = [x for x in (d.get('kanda') or {}).values() if (x.get('forst') or '') > (forra or '')]
+    ej = [qid for qid, r in (d.get('fragor') or {}).items() if r.get('utfall') in ('misslyckad', 'ofullstandig', 'ej_utford')]
+    luckor = [q['id'] for q in fragor.values() if q.get('lucka')]
+    t = tid(s.get('start'))
+    if not t:
+        status, text = 'okand', 'bevakningen har inte körts'
+    else:
+        alder = (nar - t).total_seconds() / 3600
+        status = 'ok' if alder <= 36 and s.get('utfall') != 'misslyckad' else 'okand'
+        text = 'senaste bevakningen %s (%.0f h sedan, %s, %s); %d fynd sedan kundens förra start; kontroller som inte lyckades: %s; luckor: %s' % (
+            s.get('start'), alder, 'schemalagd' if s.get('automatisk') else 'manuell', s.get('utfall'), len(nya), ', '.join(ej) or 'inga', ', '.join(luckor) or 'inga')
+    with last(k) as fick:
+        if fick and d:
+            r = (d.get('fragor') or {}).setdefault('infor-byggstart', {'id': 'infor-byggstart'})
+            r.update(utfall='inget_nytt' if status == 'ok' and not ej else 'ofullstandig', senast_lyckad=nar.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                     problem=([] if status == 'ok' else [text])[:1] + (['kontroller som inte lyckades: ' + ', '.join(ej)] if ej else []), nasta='nästa byggstart',
+                     kund=slug)
+            skriv_json(k['ut'] / 'LAGE.json', d)
+    return {'status': status, 'detalj': text, 'nya_fynd': len(nya), 'ej_lyckade': ej, 'luckor': luckor}
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     sub = p.add_subparsers(dest='kommando', required=True)
@@ -578,6 +764,9 @@ def main(argv=None):
     c.add_argument('--fraga', action='append')
     s = sub.add_parser('codex-svar')
     s.add_argument('fil')
+    sub.add_parser('codex')
+    b = sub.add_parser('byggstart')
+    b.add_argument('slug')
     a = p.parse_args(argv)
     if a.kommando == 'kor':
         d = kor()
@@ -590,6 +779,10 @@ def main(argv=None):
         return 1 if fel else 0
     elif a.kommando == 'codex-paket':
         print(json.dumps(codex_paket(a.katalog, a.fraga), ensure_ascii=False))
+    elif a.kommando == 'codex':
+        print(json.dumps(codex_vid_behov(), ensure_ascii=False, indent=1))
+    elif a.kommando == 'byggstart':
+        print(json.dumps(byggstart(a.slug), ensure_ascii=False, indent=1))
     else:
         print(json.dumps(codex_svar(a.fil), ensure_ascii=False))
     return 0

@@ -1,7 +1,7 @@
 # Spanarens källor
 
-Tabellen läses av `kontroller/spana.py`; dashboarden kör den en gång per dygn under piloten (`NWP_SPANING_INTERVALL_DAGAR`,
-7 efter piloten), utan modell. En rad per källa: `typ` är rss, sida, github, hn eller awesome; `vikt` 0 stänger av raden;
+Tabellen läses av `kontroller/spana.py`; dashboarden kör den en gång per dygn i ordinarie drift (ägarbeslutet
+2026-10-09; `NWP_SPANING_INTERVALL_DAGAR`; GitHub-raderna var tredje dygn), utan modell. En rad per källa: `typ` är rss, sida, github, hn eller awesome; `vikt` 0 stänger av raden;
 1,5 är primärkällor (leverantörsdokumentation, standarder, verktyg vi använder: den klass som gav flest genomförda
 poster), 1,2–1,3 facklitteratur, 1,0 vanliga flöden, under 1 brusiga. `område` är var i vårt flöde fynden hör hemma.
 `github`-rader skriver gh-sökningen med flaggor (`--stars ">=200" --updated 90d`); `hn`-rader skriver Algolia-frågan.
@@ -112,7 +112,7 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | Search Engine Roundtable | https://www.seroundtable.com/index.rdf | daglig SEO-nyhet, brusig | 0.9 | lokal synlighet |
 | rss | Reddit: lokal SEO, copy och tillgänglighet | https://www.reddit.com/r/SEO+LocalSEO+copywriting+accessibility+smallbusiness/top/.rss?t=week | veckans mest lästa trådar (påslaget 2026-10-08: spana.py håller minst 20 s mellan anrop till reddit.com, kirurgen läser trådar med kontroller/reddit_trad.py) | 0.8 | lokal synlighet |
 | sida | IMY | https://www.imy.se/nyheter/ | GDPR, integritetssidan | 1.3 | juridik och förtroende |
-| sida | Konsumentverket | https://www.konsumentverket.se/aktuellt/ | marknadsföring, omdömen, priser | 1.3 | juridik och förtroende |
+| rss | Konsumentverket | https://www.konsumentverket.se/api/feed/rss/nyheter/ | marknadsföring, omdömen, priser (det officiella nyhetsflödet; sidan /aktuellt/ kräver JavaScript, 2026-10-09) | 1.3 | juridik och förtroende |
 | sida | PTS | https://pts.se/sv/nyheter/ | kakor, e-post | 1.2 | juridik och förtroende |
 | sida | Webbriktlinjer | https://webbriktlinjer.se/ | svenska riktlinjer för webben | 1.2 | juridik och förtroende |
 | rss | Hamel Husain | https://hamel.dev/index.xml | evals, LLM som domare | 1.3 | granskning |
@@ -132,21 +132,34 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 
 ## Bevakningsfrågor
 
-Källorna ovan bevakas för att besvara konkreta frågor om Nortropic. Varje block knyter en fråga till ett område, ett
-steg, en kompetens, det den berör, källorna (namnen i tabellen ovan), källans slag, en version, en kontroll, ett
-intervall, en ansvarig funktion och en eventuell backlogpost. `kontroller/bevakning.py` läser blocken och prövar
-varje fråga när dess intervall gått, i dashboardens dagliga körning (07:00 Europe/Stockholm). Kontrollerna:
+Källorna ovan bevakas för att besvara konkreta frågor om Nortropic. Varje block knyter en fråga till följande fält:
+område, steg, kompetens, det den berör, källorna (namnen i tabellen ovan), källans slag, version, kontroll, intervall,
+ansvarig funktion och backlogpost.
+
+`kontroller/bevakning.py` läser blocken. Dashboardens timklocka prövar varje fråga när dess intervall gått, en gång per
+dag efter 07:00 Europe/Stockholm. Kontrollerna:
 
 - `kalla`: spanarens hälsa, version och nya poster för källorna;
 - `underhall`: underhållets körning och vad som hänt med beroendena i `berör`;
-- `codex`: Codex prövar frågan med webbsökning (`bevakning.py codex-paket`, `codex --search exec`, `codex-svar`);
-- `manuell`: ett registrerat svar;
-- `byggstart`: prövas inför nästa byggstart.
+- `codex`: Codex prövar frågan med webbsökning (`codex --search exec`, skrivskyddat), automatiskt när frågans vecko- eller
+  månadsintervall gått, före den dagliga kontrollen; svaret är ett granskarförslag;
+- `forbrukning`: den uppmätta förbrukningen (listpris och tokens; kvoten står som saknat mätvärde);
+- `byggstart`: startkontrollens rad inför varje byggstart.
 
-Ett block med `lucka` anger något vi vet att vi saknar. Det står i täckningsbilden tills det har en kontroll. Nya fynd
-blir signaler i förbättringsloopen (`kirurgen/forbattringar`). Där bedöms, prövas, införs och verifieras de som
-förut. Källans slag är ett av: standard, regelverk, kompatibilitet, forskning, metod, leverantor, bransch, inspiration
-och eget_beslut.
+**Utfallen:**
+- **inget nytt:** varje kontroll lyckades.
+- **misslyckad:** de kontroller som gjordes föll.
+- **ofullständig:** en del av underlaget eller analysen saknas.
+- **ej utförd:** ingen kontroll har gjorts.
+
+**Luckor.** Ett block med `lucka` anger något Nortropic saknar. Det har ändå sin kontroll, och därtill fälten `nästa`
+(nästa åtgärd inom mandatet) och `förutsättning` (det externa som krävs för resten).
+
+**Fynd.** Nya fynd blir signaler i förbättringsloopen (`kirurgen/forbattringar`). Där bedöms, prövas, införs och
+verifieras de som förut.
+
+**Källans slag** är ett av: standard, regelverk, kompatibilitet, forskning, metod, leverantor, bransch, inspiration och
+eget_beslut.
 
 ```bevakning claude-code-sessioner
 fråga: Har ändrade sessions-, hook- eller behörighetsbeteenden i Claude Code påverkat våra blinda granskare, kundvakten eller löparen?
@@ -282,7 +295,10 @@ källor: IMY; PTS
 källtyp: regelverk
 kontroll: codex
 intervall: manad
-ansvar: ägaren (beslut om en roll)
+ansvar: helbygget och leveransen (uppföljningen); ägaren för beslutet om mätverktyg
+post: B-20261004-leveransovning-forsta-kunden-och-verklig-anvandning
+nästa: Codex prövar månadsvis vilken kakfri mätning och vilken mätplan som räcker för en lanserad småföretagssajt
+förutsättning: en lanserad sajt med en verklig kund (ingen är lanserad)
 ```
 
 ```bevakning juridik
@@ -307,7 +323,10 @@ lucka: ingen bedömning av upphovsrätt när en referens kopieras (ägarbeslutet
 källtyp: regelverk
 kontroll: codex
 intervall: manad
-ansvar: ägaren (juridisk bedömning)
+ansvar: referensarbetet och helbygget; ägaren eller en jurist för bedömningen
+post: B-20261009-upphovsratt-nar-en-referens-kopieras-och-ai-foro
+nästa: Codex lämnar månadsvis ett källbelagt underlag om upphovsrätt vid kopierade referenser och AI-förordningens märkning
+förutsättning: en juridisk bedömning av ägaren eller en jurist
 ```
 
 ```bevakning ux-metod
@@ -329,9 +348,12 @@ fråga: När och hur prövar vi en sajt med verkliga besökare?
 område: ux
 steg: leverans
 lucka: ingen verklig användarobservation; kunskap/besokarprov.md är ett protokoll som inte körts
-kontroll: manuell
+kontroll: codex
 intervall: manad
-ansvar: ägaren
+ansvar: skapandeflödet (besökarprovet, kunskap/besokarprov.md); ägaren för deltagarna
+post: B-20261005-prototyp-mot-helbygge-matt-automatiskt-och-ett-l
+nästa: Codex prövar månadsvis metoden mot NN/g och protokollet; besökarprovet körs vid första skarpa uppdrag
+förutsättning: ett skarpt uppdrag och 3–5 relevanta personer som besökare
 ```
 
 ```bevakning designskills-uppstroms
@@ -366,9 +388,12 @@ fråga: Vilket material (bild, video, ljud) kan vi ta fram med licens och kvalit
 område: material
 steg: forberedelse
 lucka: ljud saknas helt; video och bildgenerering har inga konton (material.py: saknar_konto)
-kontroll: manuell
+kontroll: codex
 intervall: manad
-ansvar: ägaren (konton)
+ansvar: materialsteget (kontroller/material.py); ägaren för konton
+post: B-20261008-slutfor-tidigare-bestallt-inforande-k01-k26-kund
+nästa: Codex prövar månadsvis licensierade källor och tjänster för ljud, video och bild mot kvalitet och villkor
+förutsättning: ett konto eller en licensierad källa som ägaren beslutar (mekanik nu, konto senare)
 ```
 
 ```bevakning kundintaget
@@ -376,9 +401,12 @@ fråga: Fångar kundintaget och briefen verkliga verksamheters mål och målgrup
 område: kundintag
 steg: kundstart
 lucka: kundintaget är inte prövat med en verklig kund (README: live-AI inte verifierad)
-kontroll: manuell
+kontroll: codex
 intervall: manad
-ansvar: ägaren
+ansvar: Kundstart (kontroller/kundstart*.py); ägaren för kunden
+post: B-20261004-leveransovning-forsta-kunden-och-verklig-anvandning
+nästa: Codex prövar månadsvis intervjuns områden mot källor om småföretags mål och målgrupper
+förutsättning: en verklig kund som går igenom kundintaget
 ```
 
 ```bevakning evals-och-domare
@@ -414,9 +442,12 @@ fråga: Följer vi förbrukningen mot kvoten, väntan och omarbete i körningarn
 område: larande
 steg: forvaltning
 lucka: kvoten observeras inte (listpriset är inte kvoten); veckobeskedet i kunskap/drift.md har inget verktyg
-kontroll: manuell
+kontroll: forbrukning
 intervall: vecka
-ansvar: ägaren
+ansvar: bevakningen (mätningen); ägaren för kvotbeslut
+post: B-20261009-forbrukning-mot-kvot-listpris-och-tokens-mats-kv
+nästa: bevakningen redovisar veckovis uppmätt listpris, tokens, turer och tid och Codex-granskningarnas tokens
+förutsättning: att Claude och ChatGPT exponerar kvoten maskinläsbart (gör de inte i dag)
 ```
 
 ```bevakning infor-byggstart

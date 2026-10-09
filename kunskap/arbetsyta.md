@@ -220,7 +220,9 @@ bilderna, ingen nyckel och ingen `.codex/`) och postningen. Granskaren skriver a
 dashboarden själv.
 
 Codex kör `exec` skrivskyddat och utan nät som standard (Codex dokumentation, non-interactive mode och sandboxing), så
-det läser paketet och lämnar fynden i en fil som skriptet postar. Prövat 2026-10-09 med den riktiga Codex i en
+det läser paketet och lämnar fynden i en fil som skriptet postar. Bevakningens Codex-granskning går en annan väg: den
+körs automatiskt av timklockan med webbsökning och förs in som granskarförslag i förbättringsloopen
+(`kontroller/bevakning.py`; kunskap/spaning-kallor.md, Bevakningsfrågor). Prövat 2026-10-09 med den riktiga Codex i en
 provinstans med fiktiva testdata: posterna registrerades till dig och till kandidatens utförare med rätt avsändare och
 körning (privat rapport `RAPPORT-2026-10-09-codex-observation-h01`). Inte prövat: leveransen av en Codex-post in i en
 arbetande session och vägen i huvudutcheckningens dashboard.

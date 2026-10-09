@@ -48,7 +48,7 @@ GILTIGHET = {
     'session': 5 * 60,          # vad ateljéns session når (MCP:er och skills) läser också användarens konfiguration: som mcp
     'mobbin': 48 * TIMME,       # Mobbins fullständiga prov görs i underhållet; starten bekräftar anslutningen
     'underhall_aldst': 36 * TIMME,
-    # två av spanarens intervall (dagligen under piloten, NWP_SPANING_INTERVALL_DAGAR): en stillastående spaning syns efter
+    # två av spanarens intervall (dagligen i ordinarie drift, NWP_SPANING_INTERVALL_DAGAR): en stillastående spaning syns efter
     # två dygn, inte efter en vecka (bevakningen 2026-10-09, startkontrollens gräns)
     'spaning': 2 * float(os.environ.get('NWP_SPANING_INTERVALL_DAGAR') or 1) * 24 * TIMME,
     'lasdatum': 365 * 24 * TIMME,

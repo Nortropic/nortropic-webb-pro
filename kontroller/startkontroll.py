@@ -509,6 +509,16 @@ def regler(servrar, slug=None):
     return ut
 
 
+def bevakningen(slug):
+    """Inför byggstart (bevakningsfrågan infor-byggstart, kontroller/bevakning.py): bevakningens senaste körning, fynd
+    sedan kundens förra start, kontroller som inte lyckats och luckorna. En rad som redovisar; den stoppar inget."""
+    if not slug:
+        return []
+    import bevakning
+    b = bevakning.byggstart(slug)
+    return [post('kunskap', 'bevakningen', b['status'], detalj=b['detalj'])]
+
+
 def uppdraget(slug):
     if not slug:
         return []
@@ -1219,6 +1229,7 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     rader += kunskap(k)
     rader += regler(servrar, slug)
     rader += uppdraget(slug)
+    rader += skyddat('bevakningen inför byggstarten', bevakningen, slug)
     rader += skyddat('referensunderlaget', referensunderlag, slug, vag, rader)
     rader.append(disk_rad)
     if not fick:  # verktygslådan byts just nu: en start på den skulle inte veta vilka versioner den kör med (fynd 2)
