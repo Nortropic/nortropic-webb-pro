@@ -704,10 +704,11 @@ def spana(kallor, h, torr=False, bara=None, max_per_kalla=MAX_PER_KALLA, gh_json
     alla, _ = dedupe(alla, kanda)
     redan |= fore - {nyckel(x) for x in alla}
     with last():
-        return _skriv_resultat(alla, rapport, fel, snapshots, len(redan), start, torr, h)
+        # en hel körning känner registrets källor; --bara känner bara en del
+        return _skriv_resultat(alla, rapport, fel, snapshots, len(redan), start, torr, h, aktuella=None if bara else {k['id'] for k in kallor})
 
 
-def _skriv_resultat(alla, rapport, fel, snapshots, redan, start, torr, h):
+def _skriv_resultat(alla, rapport, fel, snapshots, redan, start, torr, h, aktuella=None):
     """Slå ihop med listan på disk och skriv, under låset: ägarens avfärdande under spaningen får inte återställas."""
     gamla = las_json(SPANING / 'KANDIDATER.json') or []
     # ägarens beslut under spaningen vinner: en kandidat som avfärdats eller tagits in (KANDIDATER, SEDDA) sedan spaningen
@@ -740,7 +741,8 @@ def _skriv_resultat(alla, rapport, fel, snapshots, redan, start, torr, h):
         skriv_json(SPANING / 'TORR.json', {'senast': senast, 'kandidater': [k for k in lista if k.get('status') == 'ny'][:20]})
         return senast, lista
     import kirurg_kallhalsa
-    kirurg_kallhalsa.bokfor(SPANING,rapport,snapshots,alla)
+    # hälsan för en källa som tagits bort ur registret tas bort, men bara vid en hel körning (aktuella)
+    kirurg_kallhalsa.bokfor(SPANING,rapport,snapshots,alla,aktuella=aktuella)
     skriv_json(SPANING / 'KANDIDATER.json', lista)
     # Ny jämförelsebas får inte kvitteras före fynden. Vid avbrott efter listan
     # upptäcks samma versions-id igen och slås ihop idempotent.

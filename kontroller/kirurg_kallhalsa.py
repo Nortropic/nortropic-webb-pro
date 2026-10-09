@@ -18,7 +18,7 @@ def las(rot):
     except (OSError,ValueError,TypeError,AttributeError):raise Vagrad('Källhälsan kunde inte läsas. Den skrivs inte över.') from None
 
 
-def bokfor(rot,rapporter,snapshots,kandidater):
+def bokfor(rot,rapporter,snapshots,kandidater,aktuella=None):
     """Anropas under spanarens befintliga flock före nya snapshots kvitteras.
 
     Hela källans hämtning räknas; ett tomt men lyckat svar är inte ett fel.
@@ -33,6 +33,9 @@ def bokfor(rot,rapporter,snapshots,kandidater):
                          'status':'fel' if r.get('fel') else 'ok','fel':r.get('fel'),
                          'version':snapshots.get(kid,{}).get('hash',gammal.get('version'))}
         if not r.get('fel'):d['kallor'][kid]['senast_lyckad']=nu
+    # En källa som tagits bort ur registret står inte kvar som frisk eller fallen (2026-10-09: PTS och Konsumentverket
+    # byttes till officiella flöden, och de gamla raderna stod kvar som fel). aktuella ges bara vid en hel körning.
+    if aktuella is not None:d['kallor']={k:v for k,v in d['kallor'].items() if k in aktuella}
     # Hälsan får inte ligga kvar som frisk bara för att ett efterföljande
     # förslagsregister eller kandidatlista inte går att skriva.
     kb.atomiskt(rot/'HALSA.json',(json.dumps(d,ensure_ascii=False,sort_keys=True)+'\n').encode())

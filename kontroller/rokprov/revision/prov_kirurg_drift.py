@@ -109,6 +109,16 @@ else:raise AssertionError('specialfil räknades som ledig kapacitet')
                 spana.spana([k],spana.Hamtare(hamta=hamta),kanda={})
         self.assertEqual(h.las(self.span)['kallor']['prov']['status'],'fel')
         with self.assertRaises(kl.Vagrad):h.krav(self.span,[{'kalla':'spaning:prov','version':h.las(self.span)['kallor']['prov']['version']}])
+    def test_borttagen_kalla_tas_bort_ur_halsan_vid_hel_korning(self):
+        # 2026-10-09: PTS och Konsumentverket byttes till officiella flöden, och de gamla raderna stod kvar i hälsan som fel
+        import spana
+        h.bokfor(self.span,[{'id':'gammal','namn':'Gammal källa','fel':'Syntetiskt fel'}],{},[])
+        k={'id':'prov','namn':'Provkälla','url':'https://example.invalid/metod','typ':'sida','vikt':1}
+        with patch.object(spana,'SPANING',self.span):
+            spana.spana([k],spana.Hamtare(hamta=lambda *_:b'<p>Bevara uppgiften.</p>'),bara='sida',kanda={})
+            self.assertIn('gammal',h.las(self.span)['kallor'],'en körning med --bara känner inte hela registret och tar inte bort något')
+            spana.spana([k],spana.Hamtare(hamta=lambda *_:b'<p>Bevara uppgiften.</p>'),kanda={})
+        self.assertEqual(sorted(h.las(self.span)['kallor']),['prov'],'en hel körning tar bort källan som inte längre finns i registret')
     def test_kallfel_bevarar_senaste_lyckade_och_nekar_beroende_forsok(self):
         r={'id':'provkalla','namn':'Syntetisk källa','fel':None}
         d=h.bokfor(self.span,[r],{'provkalla':{'hash':'v1'}},[]);tid=d['kallor']['provkalla']['senast_lyckad']
