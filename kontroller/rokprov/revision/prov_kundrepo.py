@@ -46,7 +46,8 @@ if a[:2] == ['repo', 'create']:
     bare = st / (namn + '.git'); subprocess.run(['git', 'init', '--bare', '-q', str(bare)], check=True)
     src = d['--source']
     subprocess.run(['git', '-C', src, 'remote', 'add', d.get('--remote', 'origin'), str(bare)], check=True)
-    subprocess.run(['git', '-C', src, 'push', '-q', '-u', d.get('--remote', 'origin'), 'main'], check=True)
+    if '--push' in d:  # som gh: bara med --push skickas lokala commits vid skapandet
+        subprocess.run(['git', '-C', src, 'push', '-q', '-u', d.get('--remote', 'origin'), 'main'], check=True)
     (st / (namn + '.json')).write_text(json.dumps({'description': d.get('--description', ''), 'private': True, 'html_url': 'https://github.com/Nortropic/' + namn, 'clone_url': str(bare)}))
     sys.exit(0)
 print('gh: okänt anrop i provet', file=sys.stderr); sys.exit(1)

@@ -16,7 +16,13 @@ nortropic (vercel_koppla: projektet kund-<slug>; Vercels GitHub-app saknas i org
 export, adress och status. En förhandsvisning är aldrig produktion; produktionspublicering är ett eget ägarbeslut.
 
 Privat underlag och hemligheter följer aldrig med: repot får bara exportens filer (exportera.lackor fäller lokala
-sökvägar, privat underlag och nycklar) och CLAUDE.md nämner inget privat. gh och vercel används som de är inloggade
+sökvägar, privat underlag och nycklar) och CLAUDE.md nämner inget privat. Före varje push, också den första vid
+fjärrskapningen och när ett äldre kundrepo återanvänds, prövas det som faktiskt skickas: varje commit som nås från den
+commit som ska pushas, med varje fils innehåll, sökväg och commitmeddelande, också det som lagts till och sedan tagits
+bort (historikens_lackor; N04 i GR-20261009-natt-omgranskning-codex). Granskningen och pushen gäller samma commit
+(git push origin <commit>:refs/heads/main), och beskedet nämner commit, fil och slag av läcka, aldrig värdet. Historiken
+skrivs aldrig om eller raderas här: en läcka i en tidigare commit stoppar pushen och väntar på ägaren. Projektstarten
+committar bara sina egna filer (CLAUDE.md och .gitignore). gh och vercel används som de är inloggade
 (ägarens konto); saknas de står det i kvittot, och inget skapas av gissning.
 
     .venv/bin/python kontroller/kundrepo.py <slug>              # skapa eller återanvänd (lokalt + fjärr när tillåtet)
@@ -204,21 +210,107 @@ def fjarr_skapa(slug, kv):
                 'fel': '%s/%s finns redan utan projektets markör i beskrivningen; repot binds inte (ingen koppling till fel kund)' % (ORG, i['namn'])}
     if 'HTTP 404' not in (r.stderr or '') and 'Not Found' not in (r.stderr or ''):
         return {'status': 'fel', 'tid': tid, 'adress': None, 'fel': 'gh api: %s' % (r.stderr or r.stdout)[-300:].strip()}
-    lackor = lackor_i(repo(slug))  # R08: inget fjärrepo och ingen push av något som läckagekontrollen fäller
+    # R08 och N04: inget fjärrepo och ingen push av något som läckagekontrollen fäller, i arbetskatalogen eller i historiken
+    kandidat = huvud(repo(slug))
+    lackor = granskning_fore_push(repo(slug), kandidat)
     if lackor:
-        return {'status': 'fel', 'tid': tid, 'adress': None, 'fel': 'läckagekontrollen fällde repot: %s' % '; '.join('%s (%s)' % x for x in lackor[:5])}
+        return {'status': 'fel', 'tid': tid, 'adress': None, 'fel': 'läckagekontrollen fällde repot: %s' % besked(lackor)}
     beskrivning = '%s%s Webbplats åt %s, levererad av Nortropic' % (MARKOR, kv['projekt_id'], str(verksamhet(slug).get('namn') or slug)[:60])
+    # fjärrepot skapas utan --push: den första pushen går genom samma granskning och samma commit som varje senare (N04)
     r = kommando([gh, 'repo', 'create', '%s/%s' % (ORG, i['namn']), '--private', '--description', beskrivning,
-                  '--source', str(repo(slug)), '--remote', 'origin', '--push'], repo(slug), frist=300)
+                  '--source', str(repo(slug)), '--remote', 'origin'], repo(slug), frist=300)
     if r.returncode:
         return {'status': 'fel', 'tid': tid, 'adress': None, 'fel': 'gh repo create: %s' % (r.stderr or r.stdout)[-300:].strip()}
-    return {'status': 'skapat', 'tid': tid, 'fel': None, 'adress': i['fjarr_adress'], 'privat': True, 'ateranvant': False}
+    ut = {'status': 'skapat', 'tid': tid, 'fel': None, 'adress': i['fjarr_adress'], 'privat': True, 'ateranvant': False}
+    if kandidat:
+        ut['forsta_push'] = pusha_granskad(repo(slug), kandidat)
+    return ut
 
 
 def lackor_i(rot):
     """Exportens läckagekontroll (exportera.lackor: lokala sökvägar, Nortropics privata underlag, nycklar) på katalogen."""
     import exportera
     return exportera.lackor(rot)
+
+
+def _textblob(data):
+    """Texten i en blob som inte ser binär ut (ingen NUL-byte i början), annars None."""
+    if b'\x00' in data[:8000]:
+        return None
+    return data.decode('utf-8', errors='replace')
+
+
+def historikens_lackor(rot, commit):
+    """N04: läckagekontrollen på det som en push av commit faktiskt skickar: varje commit som nås från den, med varje
+    textfils innehåll (också en fil som lagts till och sedan tagits bort, och en fil utan känd ändelse som .env), varje
+    sökväg och varje commitmeddelande, mot exportens mönster (exportera.LACKA; package-lock.json och node_modules som där).
+    Ger [(commit, plats, skäl)] utan värden. Kan historiken inte läsas blir det en egen rad: kontrollen stänger vid fel."""
+    import exportera
+    if not commit:
+        return []
+    fel = lambda e: [(str(commit)[:12], '-', 'historiken gick inte att läsa (%s)' % e)]  # noqa: E731
+    try:
+        rl = git(rot, 'rev-list', commit)
+        if rl.returncode:
+            return fel('rev-list')
+        commits = rl.stdout.split()
+        ut, sedda, blobbar = [], set(), {}
+        for c in commits:
+            m = subprocess.run(['git', 'log', '-1', '--format=%B', c], cwd=str(rot), capture_output=True, timeout=FRIST)
+            if m.returncode:
+                return fel('log')
+            text = m.stdout.decode('utf-8', errors='replace')
+            ut += [(c[:12], 'commitmeddelandet', skal) for monster, skal in exportera.LACKA if monster.search(text)]
+            lt = subprocess.run(['git', 'ls-tree', '-r', '-z', c], cwd=str(rot), capture_output=True, timeout=FRIST)
+            if lt.returncode:
+                return fel('ls-tree')
+            for post in lt.stdout.split(b'\x00'):
+                if not post:
+                    continue
+                meta, vag = post.split(b'\t', 1)
+                typ, sha = meta.split()[1].decode(), meta.split()[2].decode()
+                vag = vag.decode('utf-8', errors='replace')
+                if (sha, vag) in sedda:
+                    continue
+                sedda.add((sha, vag))
+                ut += [(c[:12], vag, '%s i sökvägen' % skal) for monster, skal in exportera.LACKA if monster.search(vag)]
+                if typ == 'blob' and Path(vag).name != 'package-lock.json' and 'node_modules' not in Path(vag).parts:
+                    blobbar.setdefault(sha, (c[:12], vag))
+        for sha, (c, vag) in blobbar.items():
+            b = subprocess.run(['git', 'cat-file', 'blob', sha], cwd=str(rot), capture_output=True, timeout=FRIST)
+            if b.returncode:
+                return fel('cat-file')
+            text = _textblob(b.stdout)
+            if text is not None:
+                ut += [(c, vag, skal) for monster, skal in exportera.LACKA if monster.search(text)]
+        return list(dict.fromkeys(ut))
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError) as e:
+        return fel(type(e).__name__)
+
+
+def granskning_fore_push(rot, commit):
+    """Läckorna i det som en push av commit skickar: arbetskatalogen (R08) och historiken (N04). [(plats, skäl) eller
+    (commit, plats, skäl)]; tomt när inget fälls."""
+    return [x for x in lackor_i(rot)] + historikens_lackor(rot, commit)
+
+
+def besked(lackor):
+    """Läckorna som text, högst fem: commit, plats och slag av läcka, aldrig det funna värdet."""
+    return '; '.join(('%s (%s)' % x) if len(x) == 2 else ('%s i %s (%s)' % (x[2], x[1], x[0])) for x in lackor[:5]) + (
+        ' och %d till' % (len(lackor) - 5) if len(lackor) > 5 else '')
+
+
+def pusha_granskad(r, kandidat):
+    """Granskar och pushar exakt kandidat till origin/main (N04): granskningen och pushen gäller samma commit, också om
+    main flyttas emellan. Ger {'ok', 'commit', 'tid', 'hinder'|'fel'}."""
+    lackor = granskning_fore_push(r, kandidat)
+    if lackor:
+        return {'ok': False, 'commit': kandidat, 'tid': nu(), 'hinder': 'läckagekontrollen fällde det som skulle pushas: %s' % besked(lackor)}
+    res = git(r, 'push', 'origin', '%s:refs/heads/main' % kandidat, frist=300)
+    ut = {'ok': res.returncode == 0, 'commit': kandidat, 'tid': nu(), 'granskad': kandidat}
+    if res.returncode:
+        ut['fel'] = (res.stderr or res.stdout)[-300:].strip()
+    return ut
 
 
 def _lasfil(slug):
@@ -260,7 +352,7 @@ def skapa(slug, fjarr=None):
             (r / 'CLAUDE.md').write_text(md, encoding='utf-8')
         if not (r / '.gitignore').is_file():
             shutil.copyfile(_root() / 'mall' / 'leverans' / 'gitignore', r / '.gitignore')
-        git_ok(r, 'add', '-A')
+        git_ok(r, 'add', '--', 'CLAUDE.md', '.gitignore')  # bara projektstartens egna filer (N04): inget annat i katalogen committas här
         if git(r, 'diff', '--cached', '--quiet').returncode:
             git_ok(r, 'commit', '-q', '-m', ('Projektstart: %s' if ny else 'Projektkontext uppdaterad: %s') % i['namn'])
         kv['commit'] = huvud(r)
@@ -272,6 +364,8 @@ def skapa(slug, fjarr=None):
                 kv['fjarr'] = {'status': 'saknas', 'tid': nu(), 'adress': None, 'fel': 'fiktiv verksamhet: inget fjärrepo skapas i organisationen'}
             elif vill:
                 kv['fjarr'] = fjarr_skapa(slug, kv)
+                if kv['fjarr'].get('forsta_push'):
+                    kv['senaste_push'] = kv['fjarr']['forsta_push']
             else:
                 kv['fjarr'] = {'status': 'saknas', 'tid': nu(), 'adress': None, 'fel': 'fjärrepo inte begärt'}
         atelje.skriv_json_atomiskt(kvittofil(slug), kv)
@@ -314,13 +408,7 @@ def push(slug, rot=None):
         return {'ok': False, 'hinder': 'kundrepot finns inte'}
     if (kv.get('fjarr') or {}).get('status') != 'skapat':
         return {'ok': False, 'hinder': 'inget bundet fjärrepo (%s)' % ((kv.get('fjarr') or {}).get('fel') or (kv.get('fjarr') or {}).get('status'))}
-    lackor = lackor_i(r)  # R08: läckagekontrollen före varje push
-    if lackor:
-        return {'ok': False, 'hinder': 'läckagekontrollen fällde repot: %s' % '; '.join('%s (%s)' % x for x in lackor[:5])}
-    res = git(r, 'push', '-u', 'origin', 'main', frist=300)
-    ut = {'ok': res.returncode == 0, 'commit': huvud(r), 'tid': nu()}
-    if res.returncode:
-        ut['fel'] = (res.stderr or res.stdout)[-300:].strip()
+    ut = pusha_granskad(r, huvud(r))  # R08 och N04: arbetskatalogen och historiken, bundna till den commit som pushas
     kv['senaste_push'] = ut
     atelje.skriv_json_atomiskt(kvittofil(slug, r.parent), kv)
     return ut
