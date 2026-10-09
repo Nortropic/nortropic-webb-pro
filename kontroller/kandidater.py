@@ -523,7 +523,8 @@ def uppdragsmaterial(slug, klient=None, bara=None):
         if f:
             typ = 'flode' if k.get('mobbin_typ') == 'flode' else 'skarm'  # T01: uppgiften väljer skärm eller flöde
             fore_ = fragor.get(f.lower())
-            fragor[f.lower()] = (f, (fore_[1] if fore_ else []) + [kid], 'flode' if typ == 'flode' or (fore_ and fore_[2] == 'flode') else 'skarm')
+            fragor[f.lower()] = ((fore_[0] if fore_ else f), (fore_[1] if fore_ else []) + [kid],  # den först sedda frasen gäller
+                                 'flode' if typ == 'flode' or (fore_ and fore_[2] == 'flode') else 'skarm')
             ut[kid].update(mobbin_fraga=f, mobbin_typ=typ)
     mobbin = {}
     if fragor:

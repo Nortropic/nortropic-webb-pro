@@ -4988,6 +4988,8 @@ try:
                  'atergang': {'typ': 'ny_hypotes', 'skal': 'hypotesen bär inte kundens material', 'ny_hypotes': 'NY HYPOTES k02'}},
                 {'id': 'k03', 'bedomning': 'referensen saknar kvaliteten', 'andringar': [],
                  'atergang': {'typ': 'ny_referens', 'skal': 'referensen saknar kvaliteten', 'ny_huvudreferens': 'Xref'}},
+                # F01 (GR-20261009-metod-till-resultat-codex): varje uppdrag som släpps till skaparen har en egen bedömning
+                {'id': 'k04', 'bedomning': 'uppdraget bär', 'andringar': []}, {'id': 'k05', 'bedomning': 'uppdraget bär', 'andringar': []},
                 {'id': 'k99', 'bedomning': 'finns inte', 'andringar': [{'falt': 'typografi', 'nytt': 'x', 'skill': 'x', 'varfor': 'x'}]}]}
             sid_sk = transkript_kd([('Read', {'file_path': f_}, False) for f_ in kd.kompetens.lasfiler('planprovning')] + [('Skill', {'skill': 'impeccable'}, False)])
         elif isinstance(schema, dict) and 'OMPLANERING' in prompt:  # återgångens omplanering med samma identitet
