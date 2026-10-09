@@ -791,7 +791,9 @@ def _oberoende():
                 else:
                     med.setdefault(fn.name, set()).add(ast.unparse(nek).split('(')[0])
     assert utan == {'forska', 'planera', 'planprovning', 'omplanera', 'jamfor'}, utan  # omplanera: återgångens planeringssession (2E), som planera
-    assert all(v <= {'andra_nekas', 'blind'} for v in med.values()) and {'skissa', 'skapa', 'forbattra', 'forfina_kandidat', 'kompetenspass'} <= set(med), med
+    assert all(v <= {'andra_nekas', 'blind'} for v in med.values()) and {'skissa', 'skapa', 'forbattra', 'uppdrag_session', 'kompetenspass'} <= set(med), med
+    # uppdragets session (2026-10-10, samma anrop som Dyad-provet kör) startas av forfina_kandidat
+    assert 'uppdrag_session' in {x.func.id for fn in fns if fn.name == 'forfina_kandidat' for x in ast.walk(fn) if isinstance(x, ast.Call) and isinstance(x.func, ast.Name)}
     assert all('blind_nekas' in ast.unparse(fn) for fn in fns if 'blind' in med.get(fn.name, set())), 'blind är blind_nekas'
 
 
