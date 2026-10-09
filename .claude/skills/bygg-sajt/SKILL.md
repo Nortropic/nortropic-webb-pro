@@ -360,8 +360,10 @@ KONCEPT.md.
    Kör sedan `kontroller/design.py <slug> --skriv`. Bygg vidare ur startsidan (flytta dess stil till Bas.astro och gemensam CSS med DESIGN.md:s variabler
    när de andra sidorna behöver den, utan att ändra hur startsidan ser ut), bygg
    undersidorna ur `kod/undersida/` och värdena i `kod/stiltavla/`, och håll dig till riktningen. Provet jämför
-   startsidan pixel för pixel mot vinnaren (`prov/vinnare/VINNARJAMFORELSE.md`; förändring, inte kvalitet);
-   granskaren jämför den mot vinnarens bilder, och en annan riktning utan ny ateljéomgång är ett blockerande fynd.
+   startsidan och de godkända undersidorna pixel för pixel mot den godkända prototypen, i dess bredder och med menyn
+   öppen när den finns (`prov/vinnare/VINNARJAMFORELSE.md`; förändring, inte kvalitet, och det som inte kunde jämföras
+   står där); granskaren jämför mot vinnarens bilder och klassar varje förändring som försämring, godkänd anpassning
+   eller förbättring, och en annan riktning utan ny ateljéomgång är ett blockerande fynd.
    Läs `underlag/<slug>/atelje/VAL.md`, `RIKTNINGAR.md` och bilderna i `atelje/<N>/`, och skriv i KONCEPT.md de
    prövade riktningarna, beslutet och varför de andra förkastades; det som lånas från de andra gäller undersidorna
    och detaljerna, aldrig startsidans riktning. Avinstallera typsnitt som bara bortvalda riktningar använde. Tvåan i

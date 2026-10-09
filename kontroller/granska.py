@@ -106,7 +106,8 @@ def metod_sha(slug=None):
             h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + (b.read_bytes() if b.is_file() else b'') + b'\0')
         v = UNDERLAG / slug / 'atelje' / 'VINNARE.json'  # ateljéns vinnare är startsidans måttstock (designprovet punkt 5)
         h.update(b'atelje/VINNARE.json\0' + (v.read_bytes() if v.is_file() else b'') + b'\0')
-        for b in sorted((UNDERLAG / slug / 'atelje' / 'vinnare' / 'bilder').glob('*.png')):  # bilderna själva, inte bara deras hashar
+        vrot = UNDERLAG / slug / 'atelje' / 'vinnare'  # bilderna själva, inte bara deras hashar, också undersidornas
+        for b in sorted(vrot.glob('bilder/*.png')) + sorted(vrot.glob('undersidor/*/*.png')):
             h.update(str(b.relative_to(UNDERLAG)).encode() + b'\0' + b.read_bytes() + b'\0')
     # kalibreringens aktiva ankare (motorinventeringen F02, 2026-10-08): ankarlistan, ägarens ord om dem och deras bilder
     # ingår i domens identitet, så att en ändrad kalibrering gör äldre domar historiska i stället för återanvända
@@ -428,16 +429,20 @@ def vinnarfel(rot, v):
     for p in sorted((Path(rot) / 'vinnare' / 'bilder').glob('*')):
         if 'bilder/' + p.name not in filer:
             fel.append('bilder/%s finns inte i VINNARE.json' % p.name)
+    for p in sorted((Path(rot) / 'vinnare' / 'undersidor').glob('*/*')):  # de godkända undersidornas bilder, lika bundna
+        if 'undersidor/%s/%s' % (p.parent.name, p.name) not in filer:
+            fel.append('undersidor/%s/%s finns inte i VINNARE.json' % (p.parent.name, p.name))
     if not any(n.startswith('bilder/') for n in filer):
         fel.append('VINNARE.json saknar bilder')
     return fel
 
 
 def frysta_vinnare(slug, rdir):
-    """Ateljéns vinnare (underlag/<slug>/atelje/VINNARE.json och vinnare/bilder/*.png) kopierad till omgången som vinnare/,
-    så att alla granskare jämför startsidan mot samma bilder (designprovet punkt 5, ägarbeslut 2026-10-04). Bilderna och
-    koden prövas mot hasharna i VINNARE.json först: en utbytt måttstock stoppar granskningen.
-    Ger (VINNARE.json som dict, [Path]) eller None när ateljén inte kördes."""
+    """Ateljéns vinnare (underlag/<slug>/atelje/VINNARE.json, vinnare/bilder/*.png och de godkända undersidornas
+    vinnare/undersidor/<sida>/*.png) kopierad till omgången som vinnare/ och vinnare/undersidor/<sida>/, så att alla
+    granskare jämför startsidan och undersidorna mot samma bilder (designprovet punkt 5, ägarbeslut 2026-10-04; ägarens
+    uppdrag 2026-10-09, punkt 4). Bilderna och koden prövas mot hasharna i VINNARE.json först: en utbytt måttstock stoppar
+    granskningen. Ger (VINNARE.json som dict, [Path]) eller None när ateljén inte kördes."""
     rot = UNDERLAG / slug / 'atelje'
     v = las_json(rot / 'VINNARE.json')
     if not isinstance(v, dict) or not isinstance(v.get('riktning'), int):
@@ -452,6 +457,11 @@ def frysta_vinnare(slug, rdir):
     bilder = []
     for b in sorted((rot / 'vinnare' / 'bilder').glob('vy-*.png')):
         mal = mapp / b.name
+        shutil.copy2(sakert_original(b, rot), mal)
+        bilder.append(mal)
+    for b in sorted((rot / 'vinnare' / 'undersidor').glob('*/vy-*.png')):
+        mal = mapp / 'undersidor' / b.parent.name / b.name
+        mal.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(sakert_original(b, rot), mal)
         bilder.append(mal)
     return v, bilder
@@ -539,6 +549,12 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
             'riktningen genomförd: jämför startsidan ruta för ruta mot vinnarens bilder; en annan riktning, komposition, typografi eller'),
            ('komposition, typografi eller bildbehandling utan ett nytt godkännande är ett blockerande fynd.' if vinnare[0].get('kandidat') else
             'bildbehandling utan ett nytt godkännande är ett blockerande fynd.'), *([rad(p) for p in vinnare[1]] or ['- bilder saknas']),
+           'Jämför varje sida och bredd som har en godkänd bild (startsidan och undersidorna under vinnare/undersidor/), och',
+           'klassa varje synlig förändring: en försämring (blockerande när den gäller riktning, komposition, typografi,',
+           'bildbehandling eller en besökaruppgift), en godkänd anpassning (det godkända genomfört i riktigt innehåll, fler',
+           'sidor eller en bredd, utan att riktningen ändras; en avsiktlig avvikelse står i DESIGN.md med skäl) eller en',
+           'förbättring. En sida eller bredd utan godkänd bild, eller ett par som inte kunde jämföras, är inte bedömd mot det',
+           'godkända: skriv det, aldrig att designen är bevarad.',
            *(['Avvikelsen mot vinnaren mätt pixel för pixel (förändring, inte kvalitet; du avgör): %s' % rad(rdir / 'VINNARJAMFORELSE.md')[2:]]
              if (rdir / 'VINNARJAMFORELSE.md').is_file() else []),
            *(['Skillnadsbilderna (röda pixlar skiljer):'] + [rad(p) for p in sorted((rdir / 'vinnarjamforelse').glob('*.png'))]

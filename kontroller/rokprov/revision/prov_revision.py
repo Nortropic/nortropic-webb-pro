@@ -1180,8 +1180,8 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
         p.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rader)) + chunk(b'IEND', b''))
 
 
-    vd, hd, ud = tmp / 'atelje-v' / 'vinnare' / 'bilder', tmp / 'hem', tmp / 'ut-vinnare'
-    vd.mkdir(parents=True); hd.mkdir()
+    vd, hd, ud = tmp / 'atelje-v' / 'vinnare' / 'bilder', tmp / 'insp-v' / 'hem', tmp / 'ut-vinnare'
+    vd.mkdir(parents=True); hd.mkdir(parents=True)
     gra = lambda x, y: (200, 200, 200, 255)  # noqa: E731
     png_hr(vd / 'vy-390-ruta-01.png', 40, 20, gra); png_hr(hd / 'vy-390-ruta-01.png', 40, 20, lambda x, y: (200, 200, 200, 255) if x >= 10 else (20, 20, 20, 255))
     png_hr(vd / 'vy-390-hela.png', 40, 20, gra); png_hr(hd / 'vy-390-hela.png', 40, 30, gra)
@@ -1189,11 +1189,14 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     png_hr(hd / 'vy-1440-hela.png', 40, 20, gra)
     import hashlib as hl_hr
     (tmp / 'atelje-v' / 'VINNARE.json').write_text(json.dumps({'riktning': 1, 'filer': {'bilder/' + p.name: hl_hr.sha256(p.read_bytes()).hexdigest() for p in vd.glob('*.png')}}))
+    assert pv_hr.vinnarjamforelse(vd, hd, ud).startswith('ingen jämförelse'), 'en vinnare som ägaren inte godkänt jämförs inte'
+    (tmp / 'atelje-v' / 'VINNARE.json').write_text(json.dumps({'riktning': 1, 'godkand': {'tid': '2026-10-06T00:00:00Z'},
+                                                              'filer': {'bilder/' + p.name: hl_hr.sha256(p.read_bytes()).hexdigest() for p in vd.glob('*.png')}}))
     text_v = pv_hr.vinnarjamforelse(vd, hd, ud)
     jv = json.loads((ud / 'VINNARJAMFORELSE.json').read_text())
     assert jv['hashfel'] == [] and 'STÄMMER INTE' not in text_v, jv['hashfel']
     assert jv['par'][0]['andel'] == 0.25 and jv['par'][1]['hojdskillnad'] == 10 and jv['par'][1]['andel'] == 0, jv
-    assert 'saknas: byggets bild' in jv['par'][2]['fel'] and 'saknas: vinnarens bild' in jv['par'][3]['fel'] and (ud / 'skillnad-vy-390-ruta-01.png').is_file(), jv
+    assert 'saknas: byggets bild' in jv['par'][2]['fel'] and 'saknas: prototypens bild' in jv['par'][3]['fel'] and (ud / 'skillnad-vy-390-ruta-01.png').is_file(), jv
     assert '25.0 % olika' in text_v and 'höjd +10 px' in text_v and 'förändring, inte kvalitet' in text_v and (ud / 'VINNARJAMFORELSE.md').read_text().count('\n- ') == 4, text_v
     png_hr(hd / 'vy-1440-ruta-01.png', 50, 20, gra)
     png_hr(vd / 'vy-390-hela.png', 40, 20, lambda x, y: (0, 0, 0, 255))  # måttstocken utbytt efter ateljén
