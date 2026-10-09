@@ -10,6 +10,9 @@ export type Sammanfattning = {
   handlingar: string[]
   avbrutna: string[]
   lever: number
+  oppna: number
+  paus: string | null
+  pausade: number
   last: string | null
   url: string | null
   fel: string | null

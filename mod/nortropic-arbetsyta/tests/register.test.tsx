@@ -13,7 +13,8 @@ const LAGE = {
     utforande: { rubrik: 'Utförande', lage: 'aktiv', lage_text: '1 session lever', sessioner: ['a'] },
     granskning: { rubrik: 'Granskning', lage: 'vantar', lage_text: 'ingen session för granskning har startat', sessioner: [] },
   },
-  handlingar: [{ text: 'Förfina de valda förslagen' }], sessioner: [{ session_id: 'a', lage: 'aktiv' }],
+  handlingar: [{ text: 'Förfina de valda förslagen' }], sessioner: [{ session_id: 'a', lage: 'aktiv' }, { session_id: 'b', lage: 'aktiv', styrning: { lage: 'pausad' } }],
+  samverkan: { oppna: 2, projektpaus: { begard: '2026-10-09T09:59:00Z' } },
 }
 const BAND = { component: 'AbovePrompt' as const, props: { hasSurvey: false, isWorking: false, maxRows: 4, bodyColumns: 140, scroll: { offset: 0, bodyRows: 4 }, view: {} } }
 const PANEL = { component: 'Pane' as const, requestId: 'nortropic', props: { title: 'Nortropic', isFocused: true, bodyColumns: 80, placement: 'dock' as const, scroll: { offset: 0, bodyRows: 30 }, view: {} } }
@@ -39,8 +40,11 @@ describe('nortropic-arbetsyta', () => {
     expect(s.testdata).toBe(true)
     expect(s.url).toBe('http://localhost:4771/#/arbetsyta/testdata-provverkstaden')
     expect(s.roller.map((r) => r.lage)).toEqual(['beslut', 'aktiv', 'vantar'])
-    expect(s.lever).toBe(1)
+    expect(s.lever).toBe(2)
     expect(s.vantar).toBe(true)
+    expect(s.oppna).toBe(2)
+    expect(s.pausade).toBe(1)
+    expect(s.paus).toBeTruthy()
   })
 
   test('raden och panelen ritas ur läget på terminalen och i Desktop', async ($, on) => {
@@ -50,11 +54,13 @@ describe('nortropic-arbetsyta', () => {
     await $.command.run({ command: 'nortropic', args: '' })
     for (const surface of ['terminal', 'desktop'] as const) {
       const rad = await $.ui.mount({ plugin: 'nortropic-arbetsyta', surface, ...BAND })
-      expect(await rad.find({ type: 'Text', text: /Provverkstaden \(testdata\).*utförande arbetar, granskning väntar på start/ })).toBeDefined()
+      expect(await rad.find({ type: 'Text', text: /Provverkstaden \(testdata\).*utförande arbetar, granskning väntar på start; pausad; 2 meddelanden väntar på dig/ })).toBeDefined()
       expect(await rad.find({ type: 'Text', text: /en annan modds rad/ })).toBeDefined()  // andra moddars rader står kvar
       await rad.unmount()
       const panel = await $.ui.mount({ plugin: 'nortropic-arbetsyta', surface, ...PANEL })
       expect(await panel.find({ type: 'Text', text: /väntar på ditt beslut/ })).toBeDefined()
+      expect(await panel.find({ type: 'Text', text: /2 meddelanden från sessionerna väntar på ditt beslut under Meddelanden/ })).toBeDefined()
+      expect(await panel.find({ type: 'Text', text: /1 session pausad/ })).toBeDefined()
       expect(await panel.find({ type: 'Link' })).toBeDefined()
       await panel.unmount()
     }

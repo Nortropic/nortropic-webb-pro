@@ -20,7 +20,8 @@ type Lage = {
   slug?: string; projekt?: { namn?: string; testdata?: boolean }; moment?: { nr: number; namn: string; status: string } | null
   korning?: { startad?: string; lage?: string; vantar_pa_agaren?: boolean } | null
   roller?: Record<string, { rubrik: string; lage: string; lage_text: string; sessioner: string[] }>
-  handlingar?: { text: string }[]; sessioner?: { session_id?: string; roll?: string; lage?: string; kandidat?: string }[]
+  handlingar?: { text: string }[]; sessioner?: { session_id?: string; roll?: string; lage?: string; kandidat?: string; styrning?: { lage?: string } }[]
+  samverkan?: { oppna?: number; projektpaus?: { begard?: string } | null } | null
 }
 
 export function sammanfatta(d: Lage, bas: string, nu: string): Sammanfattning {
@@ -40,6 +41,9 @@ export function sammanfatta(d: Lage, bas: string, nu: string): Sammanfattning {
     handlingar: (d.handlingar ?? []).map((h) => h.text),
     avbrutna: sess.filter((s) => s.lage === 'avbruten' && s.session_id).map((s) => String(s.session_id)),
     lever: sess.filter((s) => s.lage === 'aktiv' || s.lage === 'verktyg' || s.lage === 'startar').length,
+    oppna: d.samverkan?.oppna ?? 0,
+    paus: d.samverkan?.projektpaus ? 'körningen är pausad eller har paus begärd' : null,
+    pausade: sess.filter((s) => s.styrning?.lage === 'pausad').length,
     last: nu,
     url: d.slug ? `${bas}/#/arbetsyta/${encodeURIComponent(d.slug)}` : `${bas}/#/arbetsyta`,
     fel: null,
@@ -70,6 +74,7 @@ async function las($: EngineInterface) {
       if (!forra.vantar && ny.vantar) $.ui.toast(`Nortropic: ${ny.namn} väntar på ditt beslut`)
       const nyaAvbrott = ny.avbrutna.filter((s) => !forra!.avbrutna.includes(s)).length
       if (nyaAvbrott) $.ui.toast(`Nortropic: ${nyaAvbrott} session${nyaAvbrott > 1 ? 'er' : ''} avbröts hos ${ny.namn}`)
+      if (ny.oppna > forra.oppna) $.ui.toast(`Nortropic: ${ny.oppna} meddelande${ny.oppna > 1 ? 'n' : ''} från sessionerna väntar på ditt beslut`)
     }
     forra = ny
     await update($, lage, () => ny)
@@ -106,7 +111,7 @@ export const register: Register = on => {
     const { Box, Text } = $.ui.resolve(e)
     const utf = l.roller.find((r) => r.rubrik === 'Utförande'), gr = l.roller.find((r) => r.rubrik === 'Granskning')
     const text = l.fel && !l.slug ? `Nortropic: ${l.fel}`
-      : `Nortropic ${l.namn ?? ''}${l.testdata ? ' (testdata)' : ''}: ${l.moment ?? 'moment okänt'}; utförande ${LAGEN[utf?.lage ?? 'okant'] ?? utf?.lage}, granskning ${LAGEN[gr?.lage ?? 'okant'] ?? gr?.lage}; läst ${(l.last ?? '').slice(11, 16)} UTC${l.fel ? ' (inaktuellt)' : ''} · /nortropic`
+      : `Nortropic ${l.namn ?? ''}${l.testdata ? ' (testdata)' : ''}: ${l.moment ?? 'moment okänt'}; utförande ${LAGEN[utf?.lage ?? 'okant'] ?? utf?.lage}, granskning ${LAGEN[gr?.lage ?? 'okant'] ?? gr?.lage}${l.paus ? '; pausad' : ''}${l.oppna ? `; ${l.oppna} meddelande${l.oppna > 1 ? 'n' : ''} väntar på dig` : ''}; läst ${(l.last ?? '').slice(11, 16)} UTC${l.fel ? ' (inaktuellt)' : ''} · /nortropic`
     const andras = await next(e)  // andra moddars rader står kvar under vår
     return (
       <Box flexDirection="column">
@@ -127,6 +132,8 @@ export const register: Register = on => {
           <Text bold>{(l.namn ?? 'Ingen kund') + (l.testdata ? ' (testdata)' : '')}</Text>
           <Text>{l.moment ?? 'Moment okänt'}{l.korning ? `, ${l.korning}` : ''}</Text>
           {l.vantar ? <Text color="yellow">Körningen väntar på ditt beslut.</Text> : <Text dimColor>{l.lever} sessioner lever.</Text>}
+          {l.paus ? <Text color="cyan">{`Paus: ${l.paus}${l.pausade ? ` (${l.pausade} session${l.pausade > 1 ? 'er' : ''} pausad${l.pausade > 1 ? 'e' : ''})` : ''}.`}</Text> : null}
+          {l.oppna ? <Text color="yellow">{`${l.oppna} meddelande${l.oppna > 1 ? 'n' : ''} från sessionerna väntar på ditt beslut under Meddelanden.`}</Text> : null}
           {l.fel ? <Text color="red">{`Inaktuellt: ${l.fel}`}</Text> : null}
         </Box>
         <Box flexDirection="column">
@@ -139,12 +146,12 @@ export const register: Register = on => {
             ? <Button key="oppna" label="Öppna i webbläsaren" onPress={async () => { try { await $.process.run(['open', oppna]) } catch { $.ui.toast('Kunde inte öppna webbläsaren') } }} />
             : null}
         </Box>
-        <Text dimColor>{`Läst ${(l.last ?? '').slice(11, 19)} UTC ur dashboardens läsväg var ${INTERVALL / 1000}:e sekund. Panelen startar inget och skickar inget; följ, skicka och stoppa gör du i arbetsytan.`}</Text>
+        <Text dimColor>{`Läst ${(l.last ?? '').slice(11, 19)} UTC ur dashboardens läsväg var ${INTERVALL / 1000}:e sekund. Panelen startar inget, skickar inget och beslutar inget; meddelanden, paus, beslut och godkännande gör du i arbetsytan, där din nyckel och beslutstjänsten gäller.`}</Text>
       </Box>
     )
   })
 }
 
 function tom(nu: string): Sammanfattning {
-  return { slug: null, namn: null, testdata: false, moment: null, korning: null, vantar: false, roller: [], handlingar: [], avbrutna: [], lever: 0, last: nu, url: null, fel: null }
+  return { slug: null, namn: null, testdata: false, moment: null, korning: null, vantar: false, roller: [], handlingar: [], avbrutna: [], lever: 0, oppna: 0, paus: null, pausade: 0, last: nu, url: null, fel: null }
 }
