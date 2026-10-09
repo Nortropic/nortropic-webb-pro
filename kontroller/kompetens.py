@@ -646,6 +646,31 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     return ut
 
 
+def anvandningsnivaer(kv, svar=None, anvanda=None, andrad=None, aterstalld=None):
+    """Kompetensens användning i sex nivåer, var och en för sig (ägarens uppdrag 2026-10-09 om ett källförankrat
+    arbetssätt, punkt 5): erbjuden (rollens kärna i uppdraget), laddad (kärnan läst hel, ur transkriptet), anrop med
+    användbart resultat (verktygs- och MCP-anrop med innehåll; None när rollen inte har något tilldelat), redovisad av
+    skaparen (svarets ändringar knutna till en skill), belagd i artefakten (versionen ändrades och står kvar) och effekt
+    bedömd (bara av en oberoende bedömning; skaparens eget omdöme står som källa). Värdet är True, False eller None för
+    okänt, med källan bredvid. Ett lyckat anrop eller en läst fil visar bara laddningen."""
+    so = svar if isinstance(svar, dict) else {}
+    verifierad = bool((kv or {}).get('verifierad'))
+    skillknutna = [x for x in so.get('kod_andrad') or [] if isinstance(x, dict) and x.get('skill')]
+    eget = (so.get('visuell_bedomning') or {}).get('omdome') if isinstance(so.get('visuell_bedomning'), dict) else None
+    return {
+        'erbjuden': {'varde': bool((kv or {}).get('filer')), 'kalla': 'rollens kärna i passets uppdrag'},
+        'laddad': {'varde': (not (kv or {}).get('saknas')) if verifierad else None,
+                   'kalla': 'transkriptet: kärnan läst hel' if verifierad else 'transkriptet saknas: okänt'},
+        'anrop_med_resultat': {'varde': (bool(anvanda) if anvanda is not None else None) if verifierad else None,
+                               'kalla': 'verktygs- och MCP-anrop med innehåll' if anvanda is not None else 'inget verktyg tilldelat eller okänt'},
+        'redovisad': {'varde': bool(skillknutna) if so else None, 'kalla': 'svarets ändringar knutna till en skill (skaparens egen redovisning)'},
+        'belagd_i_artefakten': {'varde': (bool(andrad) and not aterstalld) if andrad is not None else None,
+                                'kalla': 'versionen ändrades och står kvar' + ('; återställd' if aterstalld else '')},
+        'effekt_bedomd': {'varde': None, 'kalla': 'ingen oberoende bedömning i passet%s' % (
+            ('; skaparens eget omdöme: %s' % eget) if eget else '')},
+    }
+
+
 def sen_karna(kv):
     """Kärnfilerna som en ändrande session läste hela först efter sin första ändring (läsordningen, F05): [] när varje
     session läste kärnan före första ändringen, None när kvittot inte är verifierat (då är ordningen inte observerad).

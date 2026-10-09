@@ -2248,6 +2248,7 @@ def kompetenspass(slug, kid, pass_, fas, dom=None):
                          and (anvanda is None or bool(anvanda))) if kv.get('verifierad') else None,
            'bilder': {'fore': fore, 'efter': efter}}
     # F03: passet är uppfyllt bara när det är genomfört; klar säger bara att försöket avslutades
+    rec['nivaer'] = kompetens.anvandningsnivaer(kv, so, anvanda, andrad, aterstalld)  # de sex nivåerna var för sig, okänt som okänt
     rec.update(uppfyllt=rec['genomford'] is True, omgang=int(rec0.get('omgang') or 1) + 1 if rec0 else 1, karna_brist=karna_brist,
                **({'foregaende_omgang': {k_: rec0.get(k_) for k_ in ('klar', 'genomford', 'aterstalld', 'nytt_forsok', 'omgang')}} if rec0 else {}))
     kompetenser = dict(st.get('kompetens') or {})
