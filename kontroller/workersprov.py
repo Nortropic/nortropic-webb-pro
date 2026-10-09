@@ -16,6 +16,7 @@ redovisas som väntande fjärrprov (M16).
     .venv/bin/python kontroller/workersprov.py <kundrepo> [--json]
 """
 import argparse
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import re
@@ -251,6 +252,24 @@ def prova(kundrepo):
         fall('fallet mejl: sparad, 303 /mottagen/, och utkorgen visar felet för uppföljning', s == 303 and h.get('Location') == '/mottagen/'
              and fel and fel[0]['status'] == 'fel' and fel[0]['forsok'] == 1, (s, h.get('Location'), fel))
         attrapp.fel = False
+        # driftens verktyg (kontroller/forfragningar.py) mot samma lokala D1 och R2 genom Wrangler: läget utan
+        # personuppgifter, torrkörd gallring, och gallring när gallringsdatumet har passerat
+        import forfragningar
+        kor, ta_bort = forfragningar.wrangler_kor(repo, tmp / 'tillstand')
+        lage = forfragningar.lage(kor)
+        offentligt = json.dumps({k: v for k, v in lage.items() if not k.startswith('_')}, ensure_ascii=False)
+        fall('driftens läge: per status och fallna aviseringar, utan personuppgifter', lage['status'] == {'accepterad': 1, 'fel': 1}
+             and len(lage['fel']) == 1 and not lage['utgangna'] and 'Provsson' not in offentligt and 'Syntetisk förfrågan' not in offentligt, lage['status'])
+        framtid = datetime.now(timezone.utc) + timedelta(days=400)
+        torr = forfragningar.gallra(kor, ta_bort, nu=framtid)
+        fall('gallringen är en torrkörning utan --utfor', torr == dict(torr, antal=2, bilagor=1, utfort=False)
+             and d1(repo, tmp, 'SELECT count(*) AS n FROM forfragningar')[0]['n'] == 2, torr)
+        gjord = forfragningar.gallra(kor, ta_bort, nu=framtid, utfor=True)
+        kvar = d1(repo, tmp, 'SELECT count(*) AS n FROM forfragningar')[0]['n']
+        rc_obj, _ = wrangler(repo, ['r2', 'object', 'get', '%s/%s' % (bucket, rader[0]['bilaga']), '--local', '--persist-to', str(tmp / 'tillstand'),
+                                    '--file', str(tmp / 'bilaga-efter.bin')], tmp) if rader and rader[0]['bilaga'] else (0, '')
+        fall('gallringen tar bort utgångna ärenden ur D1 och bilagan ur R2', gjord['utfort'] and kvar == 0
+             and d1(repo, tmp, 'SELECT count(*) AS n FROM utkorg')[0]['n'] == 0 and (rc_obj != 0 or not (tmp / 'bilaga-efter.bin').exists()), (gjord, kvar, rc_obj))
         w.stang()
         workers.pop()
         fore = d1(repo, tmp, 'SELECT count(*) AS n FROM forfragningar')[0]['n']

@@ -81,8 +81,9 @@ Utfallen:
 `skickar` utan slutläge är ett osäkert utfall, inte ett skäl att skicka igen i blindo. Mejlet bär ärendets id som
 `Idempotency-Key` hos Resend: ett nytt försök med samma innehåll inom 24 timmar ger samma svar utan ett andra mejl
 (https://resend.com/docs/dashboard/emails/idempotency-keys, läst 2026-10-10). Loggen och utkorgen får bara Workerns
-egna orsaker, aldrig en leverantörs feltext. Ett automatiskt nytt försök och gallringen av ärenden vars `gallras` har
-passerat körs inte än: det är driftens uppgift och väntar på beslutet om schemalagd körning (`kunskap/drift.md`).
+egna orsaker, aldrig en leverantörs feltext. Läget och gallringen sköts med `kontroller/forfragningar.py` (`kunskap/drift.md`,
+Formulärets ärenden); ett automatiskt nytt försök och en schemalagd gallring körs inte, eftersom de väntar på
+beslutet om schemalagd körning (Cron Triggers är 5 per konto på gratisnivån).
 
 **Idempotensen (G05-R):** formuläret sätter ett inskicks-id (`crypto.randomUUID()`) när sidan laddas; utan JavaScript
 är nyckeln innehållet (namn, telefon, meddelande och bildens typ och storlek) i ett tiominutersfönster, där också det

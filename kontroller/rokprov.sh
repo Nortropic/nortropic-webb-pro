@@ -757,6 +757,8 @@ echo "   leveransvägen till Cloudflare Workers: mallsajtens export byggd och f�
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_workers.py" "$S" >"$ROOT/kunder/rokprov-mall/workers-prov.log" 2>&1 \
   || { echo "FEL: leveransvägens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/workers-prov.log" | cut -c1-400 || true; tail -5 "$ROOT/kunder/rokprov-mall/workers-prov.log"; exit 1; }
 echo "   leveransvägens prov ok ($(grep -c '^ok ' "$ROOT/kunder/rokprov-mall/workers-prov.log") fall)"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_forfragningar.py" >"$ROOT/kunder/rokprov-mall/forfragningar-prov.log" 2>&1 \
+  || { echo "FEL: formulärärendenas drift"; tail -20 "$ROOT/kunder/rokprov-mall/forfragningar-prov.log"; exit 1; }
 echo "   resursmåttens råvärden, okända värden och identifierade kopior"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_autonomi.py" >"$ROOT/kunder/rokprov-mall/autonomi-prov.log" 2>&1 \
   || { echo "FEL: resursmåttens prov"; tail -20 "$ROOT/kunder/rokprov-mall/autonomi-prov.log"; exit 1; }

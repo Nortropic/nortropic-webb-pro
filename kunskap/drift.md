@@ -25,6 +25,15 @@ Tre lägen: **ok**, **incident** (egen adress svarar fel, fel slutadress, felsid
 utgång) och **okänt** (tredje parts 403, 429 eller tidsgräns). Okänt är aldrig ok och står i beskedet med skäl. En
 utebliven vecka redovisas i stället för att tigas om.
 
+## Formulärets ärenden
+
+Veckovis för varje lanserad sajt på Cloudflare: `.venv/bin/python kontroller/forfragningar.py <kundrepo> --remote` visar
+antalet ärenden per avisering, aviseringar som väntat eller har okänt utfall i mer än 15 minuter, fallna aviseringar
+och ärenden som passerat sitt gallringsdatum, med id:n och tider men utan namn, telefon eller meddelande. En fallen eller
+okänd avisering följs upp mot mejltjänstens logg innan något skickas igen (`kunskap/forfragan.md`, Utkorgen).
+Gallringen är en torrkörning; `--gallra --utfor` tar bort utgångna ärenden och deras bilagor och görs mot kundens D1
+bara med ägarens ja. Ingen schemalagd körning finns. Verktyget kräver Nortropics Cloudflare-konto (`cloudflare.env`).
+
 ## Incident
 
 Läs felet, sedan Cloudflares status (cloudflarestatus.com), sedan senaste versionen (`wrangler deployments list` i
