@@ -197,7 +197,7 @@ for n in (1, 2, 3):
 (rot / 'FOTOGRAFERADE.json').write_text(json.dumps({'riktningar': {str(n): ['vy-390-ruta-01.png', 'vy-1440-ruta-01.png'] for n in (1, 2, 3)}}))  # det här försökets riktningar (R11, F34)
 a.ROOT = rot.parent; a.UNDERLAG = rot.parent / 'underlag'  # inga kalibreringsankare i provet
 sedda = {}
-def attrapp(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
+def attrapp(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None, **kw):  # kw: arbetsslug med flera
     # varje domare rangordnar riktning 2 först, oavsett vilken bokstav den fått
     import re
     karta = {m.group(1): m.group(2) for m in (re.match(r'- riktning ([A-F]): .*?atelje/(\\d)/', rad) for rad in prompt.splitlines()) if m}

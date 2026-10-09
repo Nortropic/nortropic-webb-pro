@@ -641,7 +641,7 @@ a.ROOT = tmp; a.KUNDER = k; a.UNDERLAG = tmp / 'underlag'
 svar_per_domare = {}
 
 
-def attrapp(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
+def attrapp(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None, **kw):
     karta = {m.group(1): m.group(2) for m in (re.match(r'- riktning ([A-F]): .*?atelje[^/]*/(\d)/', rad) for rad in prompt.splitlines()) if m}
     namn = ut.name.replace('svar-domare-', '').replace('.json', '')
     return {'structured_output': svar_per_domare[namn]({v: b for b, v in karta.items()})}
@@ -668,7 +668,7 @@ forsta_ = [str(arot / str(n) / v_) for n in (1, 2, 3) for v_ in ('vy-390-ruta-01
 anrop_ = []
 
 
-def attrapp_las(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
+def attrapp_las(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None, **kw):
     namn = ut.name.replace('svar-domare-', '').replace('.json', '')
     anrop_.append(namn)
     sid = '00000000-0000-4000-8000-%012d' % len(anrop_)
@@ -769,7 +769,7 @@ def f23b():  # egen funktion: blockets namn (u, v, p, …) får inte skugga svit
     prompter = []
 
 
-    def attrapp2(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None):
+    def attrapp2(prompt, verktyg, ut, schema=None, max_turer=0, modell=None, effort=None, **kw):
         prompter.append(prompt)
         karta = {}
         for rad in prompt.splitlines():
