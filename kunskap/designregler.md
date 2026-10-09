@@ -4,7 +4,8 @@
 formgivningen delas i fyra slag, och varje regel gäller inom sin räckvidd. Den här filen säger vilket slag en regel är
 och vad som går före vad. Källan, vår tolkning och försöken per regel står i `kunskap/metodregler.md`; vilka skills och
 avsnitt varje steg använder, och hur deras motsägelser avgörs, i `kunskap/metodkarta.md`. Kundens domar står i domloggen
-`underlag/<slug>/DESIGNDOMAR.jsonl`; ägarens domar över tidigare byggen (`LARDOMAR.md`) är historik (avsnittet sist).
+`underlag/<slug>/DESIGNDOMAR.jsonl`. Allt designmaterial från före den rena designstarten 2026-10-09 är borttaget ur den
+aktiva miljön och styr ingenting (`kunskap/ren-designstart.md`; avsnittet Historik sist).
 
 ## Ordningen
 
@@ -43,6 +44,10 @@ Ersatta instruktioner är historik i `BESLUT.md`, och `kontroller/styrning.py` f
   fältet, synligt tangentbordsfokus, klickytor minst 24×24 px (WCAG 2.2 AA, 2.5.8; byggstandarden 3.3), inget
   sidled-spill i 390, 768 eller 1440, inga konsolfel.
 - **Den primära handlingen är tydlig och lätt att hitta** (ägaren 2026-10-09); var och hur den står är riktningens val.
+- **Helhet och hierarki:** en sammanhängande idé genomförd överallt, hierarki och proportioner som bär innehållet, och
+  verksamhetens egna bilder och ord. Kvaliteten bedöms i bildval, beskärning, typografiska proportioner, komposition, rytm
+  och detaljarbete (ägarens bedömningsgrunder, ur kalibreringen 2026-10-04; exemplen och nivåfilen därifrån är borttagna
+  vid den rena designstarten, kraven består).
 - **Bilder med uppgift och äkthet:** alt-text efter bildens uppgift. En bild som visar verksamheten (dess arbeten,
   personer, lokaler, fordon, resultat och referenser) är verksamhetens egen; ett stockfoto eller en genererad bild utger
   sig aldrig för att visa den. Visuellt material som inte utger sig för att dokumentera verksamheten (licensierade
@@ -70,6 +75,9 @@ Ersatta instruktioner är historik i `BESLUT.md`, och `kontroller/styrning.py` f
 | Ägaren dömer blint och först; panelens omdöme visas efter (2026-10-03–04) | dashboardens vyer |
 | Den godkända prototypen gäller i bygget; en annan riktning utan nytt godkännande är ett blockerande fynd | byggen efter ett godkännande |
 | Domloggens aktuella domar för en kund (från den senaste som begärde en ny riktning; en förkastning återöppnar bara grundidéerna och referenserna); den senaste går före | den kunden |
+| Tio kundanpassade förslag per omgång, var och en ur en identifierad professionell förebild eller fungerande designgrund och med en faktisk implementationsgrund; skillnaden syns i komposition, bildbehandling, typografi, innehållshierarki eller interaktion, aldrig bara i färg. Går tio inte att göra redovisas bristen, utan kosmetiska dubbletter (ägaren 2026-10-09 ~17:53Z; inte en hypotes) | skapandeflödet |
+| Val för vidareutveckling, godkännande för helbygge och godkännande för publicering är tre beslut. Kunden kan välja, begära ett uppdrag (rätta, omarbeta designen, bygg ut) eller underkänna alla; godkännandena är ägarens. En AI-bedömning bokförs aldrig som kundens (ägaren 2026-10-09) | skapandeflödet och leveransen |
+| Före och efter styr: en bättre och tekniskt fungerande version förs vidare, en tekniskt nödvändig men visuellt sämre kräver fortsatt lösning, en tidigare bättre version kan väljas, och ett oklart resultat står som oklart; skaparens självbedömning räcker inte för betydande designändringar (ägaren 2026-10-09) | skapandeflödet |
 
 ## Kundens behov
 
@@ -92,29 +100,24 @@ Ersatta instruktioner är historik i `BESLUT.md`, och `kontroller/styrning.py` f
 
 | Hypotes | Ursprung | Som utgångspunkt i |
 |---|---|---|
-| Brödsmulor på varje undersida | ett omdöme över ett tidigare bygge (historik) | en lösning bland flera; DESIGN.md:s struktur säger om sajten har dem, och då prövar byggstandarden 7.3 att de finns |
 | Högst två typsnittsfamiljer | prestanda (byggstandarden 4.3) och läsbarhet | bygget; en godkänd DESIGN.md med fler roller avgör |
 | En huvudreferens bär helheten | ägarbeslut 2026-10-04, Codex via ägaren 2026-10-05 | varje kandidat har sin egen |
 | Ett motiv ur märket eller "Bara de har" | Anthropic frontend-design | utforskningen |
-| Undvik de upptagna valen (`UPPTAGNA-VAL.md`) om inte verksamhetens material motiverar dem | våra egna byggens generiska mönster (inget bygge hittills har varit bra nog) | utforskningen |
 | Standarddrag bedöms efter användning | frontend-design | panelen och granskningen |
-| Den primära handlingen inom tummens räckvidd, eller i en fast nederlist | kvalitetskravet till 2026-10-09 (historik) | en lösning bland flera, aldrig ett generellt layoutkrav (ägaren 2026-10-09) |
 | Synliga menypunkter i stället för en dold meny när punkterna ryms | byggstandarden 5.2 till 2026-10-09 | en lösning bland flera; menyns form är riktningens |
 
 Det finns ingen fast sektionsordning: ordningen är riktningens val och motiveras ur besökarens frågor.
 
-## Historik och smakdomar (slås upp, gäller inte automatiskt)
+## Historik (borttagen ur den aktiva miljön)
 
-Ägarens domar över tidigare byggen (`LARDOMAR.md`, ordagrant i det privata `underlag/LARDOMAR-original.md`) är
-historik: inget bygge hittills har varit bra nog, allt har varit generiskt (ägaren 2026-10-05). De bevaras men läses
-inte av agenterna (läsförbud i sessionerna, rensningen inför Nortropic 2.0) och blir aldrig regler eller förebilder.
-Kundens äldre domar i domloggen, riktningshistoriken (`underlag/<slug>/RIKTNINGSHISTORIK.json`), kalibreringen och
-beslutshistoriken i `BESLUT.md` bevaras och slås upp när de besvarar en konkret fråga; de läses inte i förväg och blir
-aldrig regler för en ny kund. Ett gammalt färgval, en uppskattad
-mobilmeny eller en viss rubrikstil är ett exempel ur ett bygge, ingen designregel. Det som gäller nu står ovan: ett
-uttryckligt ägarbeslut med sin räckvidd i tabellen, och kundens aktuella domar (från den senaste domen som begärde en ny
-riktning, och de efter den) i domloggen; ett uttryckligt beslut i en äldre dom om annat än designen gäller tills en
-senare dom återöppnar det.
+Den rena designstarten 2026-10-09 (ägarens uppdrag ~17:53Z, `kunskap/ren-designstart.md`) tog gamla byggen, prototyper,
+kandidater, skärmbilder, designomdömen, kalibreringsankare, riktningar, referenspaket och de regler som härletts ur dem ur
+den aktiva miljön, efter ett privat manifest och ett verifierat återställningsarkiv. Ägarens domar över tidigare byggen,
+den gamla domloggen, riktningshistoriken och kalibreringen står i git-historiken och arkivet; de läses inte av agenterna
+och blir aldrig regler, förebilder eller verifiering av den nya metoden. Ett gammalt färgval, en uppskattad mobilmeny
+eller en viss rubrikstil är inget designbeslut för ett nytt förslag. Gamla externa referenser återanvänds bara efter ett
+nytt uttryckligt urval för ett aktuellt uppdrag, och gamla kommentarer om hur de ska tillämpas följer inte med. Det som
+gäller nu står ovan: ägarbesluten med räckvidd, och kundens aktuella domar efter brytpunkten.
 
 ## Ersatt
 

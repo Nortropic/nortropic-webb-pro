@@ -34,11 +34,11 @@ Uppdraget räknar upp sökvägarna. Du har:
   måttstock. Svara i `prototypjamforelse` sida för sida och bredd för bredd med klassen (försämring, godkänd anpassning,
   förbättring, oförändrad); det du inte kunde jämföra står där. Jämförelsen redovisas för sig: betygen säger inget om
   att den är gjord.
-- **Tidigare byggens första vy**, bara så att du ser om det här bygget är en variant av dem. De är exempel på det
-  generiska som ska undvikas, aldrig en måttstock: ägaren har sagt (2026-10-05) att inget bygge hittills har varit bra
-  nog. Ribban är professionell nivå enligt referenserna och måttstockarna. Ägarens domar över tidigare byggen
-  (`LARDOMAR.md`) är historik och ingår inte i granskningen; det som gäller med räckvidd står i
-  `kunskap/designregler.md`, och kundens aktuella domar i domloggen går före.
+- **Inga tidigare byggen som måttstock.** Efter den rena designstarten 2026-10-09 (`kunskap/ren-designstart.md`) finns
+  inga tidigare byggen, kandidater eller domar över dem i den aktiva miljön. Visar uppdraget ändå tidigare byggens första
+  vy har ägaren valt in dem uttryckligen (`kontroller/urval.py`), och de är då bara till för att se om bygget är en
+  variant av dem. Ribban är professionell nivå enligt referenserna och måttstockarna; det som gäller med räckvidd står
+  i `kunskap/designregler.md`, och kundens aktuella domar i domloggen går före.
 - **Provets maskinella fynd:** byggstandardens rapport, stilrapporten (typsnitt, färgfamiljer, radlängd, radhöjd,
   modellernas standardval) och copykontrollens. Det som redan står där behöver du inte
   pröva igen; döm det som kräver ögon och omdöme. Läs dem sist, efter betygen på designkvalitet och originalitet.
@@ -93,10 +93,11 @@ räcker, till exempel för rörelse.
 ## Fem kriterier, betyg 1–10
 
 Varje kriterium får också ett **ja eller nej** (`visa`): räcker det här för att ägaren ska visa sajten för
-verksamheten? Godkänt kräver både betyget och ett ja. **Kalibreringsankarna** i uppdraget visar första vyn (390 och 1440) och helsidan (1440) av
-externa sajter som ägaren dömt blint i tre nivåer, med ägarens ord om vad som skiljer (kalibrering.md i omgången):
-tydligt över ribban = 8–9, nästan = 6 (under tröskeln), generisk = 5 eller lägre. Använd dem för att se var nivåerna
-ligger; kännetecknen per nivå står i kunskap/visuell-niva.md. Tidigare egna byggen är ingen måttstock.
+verksamheten? Godkänt kräver både betyget och ett ja. **Kalibreringen:** uppdraget säger din kalibreringsstatus. Efter
+den rena designstarten finns inga kalibreringsankare: du är inte kalibrerad mot ägarens domar för den nya metoden, gamla
+kalibreringsresultat gäller inte, och dina betyg är dina egna mot ankarna nedan och måttstockarna. Dömer ägaren nya
+externa exempel blint får uppdraget dem som ankare, med första vyn (390 och 1440), helsidan (1440) och ägarens ord
+(kalibrering.md i omgången): tydligt över ribban = 8–9, nästan = 6 (under tröskeln), generisk = 5 eller lägre.
 
 Ankare för alla fem: **3** trasigt eller amatörmässigt · **5** fungerar men är en mall, ett annat företagsnamn kunde
 sättas dit utan större ändring · **7** professionell nivå som ägaren kan visa för verksamheten · **9** i nivå med de

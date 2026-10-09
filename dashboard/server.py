@@ -1106,7 +1106,9 @@ def spara_dom(slug, data):
 
     lar = ROOT / 'LARDOMAR.md'
     befintlig = las_text(lar) or '# Lärdomar — ägarens domar\n'
-    n = max([int(x) for x in re.findall(r'^## L(\d+) ', befintlig, re.M)] or [-1]) + 1
+    # numreringen fortsätter efter den rena designstarten (2026-10-09): domarna före står i git-historiken och arkivet
+    n = max([int(x) for x in re.findall(r'^## L(\d+) ', befintlig, re.M)]
+            + [int(x) for x in re.findall(r'Senaste dom före brytpunkten: L(\d+)', befintlig)] or [-1]) + 1
     alla = {f['id']: f for f in KARNFRAGOR + (post['fragor']['egna'] if isinstance(post['fragor']['egna'], list) else []) if isinstance(f, dict) and 'id' in f}
     karn = {f['id']: f for f in KARNFRAGOR}
     fasta = {f['id'] for f in KARNFRAGOR if f.get('typ') in ('val', 'skala', 'matris')}  # fasta svar utan fritext: får stå publikt
