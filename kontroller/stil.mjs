@@ -362,7 +362,7 @@ const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val 
     `- Fast list längst ned: ${mobilStart.fastList ? [mobilStart.fastList.ring && 'Ring', mobilStart.fastList.skriv && 'Skriv'].filter(Boolean).join(' och ') || 'utan Ring och Skriv' : 'ingen'}`] : ['- startsidan mättes inte']), '',
   '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',
   '## Klickytor under 24 px i 390 (byggstandarden 3.3)', '', ...(smaYtor.length ? smaYtor.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), '',
-  '## Knappar, ring- och mejllänkar under 44 px i 390 (kandidater: byggstandarden 3.3 kräver 44×44 bara för knappen för den primära handlingen, som granskaren pekar ut; WCAG:s minimum är 24 px)', '',
+  '## Knappar, ring- och mejllänkar under 44 px i 390 (kandidater: byggstandarden 3.3 kräver minst 44×44 för primära interaktiva kontroller, som granskaren pekar ut; WCAG:s minimum är 24 px)', '',
   ...(smaKnappar.length ? smaKnappar.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), ''];
 writeFileSync(join(ut, 'STIL.md'), md.join('\n'));
 console.log(`stil: ${rader.length} mätningar, ${fel.length} fel, ${varningar.length} varningar, ${smaYtor.length} små klickytor`);

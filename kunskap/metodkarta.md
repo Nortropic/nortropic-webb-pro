@@ -64,10 +64,9 @@ sessionerna.
   står i beslutsliggaren: problemet, underlaget och källan, alternativet, antagandet och hur effekten bedöms.
 - **Osäkerheter:** skriv först vad som är osäkert och välj metod efter slaget: teknik genom aktuell officiell
   dokumentation och ett avgränsat prov; metod genom primärkällor och vid behov ett jämförande försök; kundens fakta genom
-  kunden eller verifierat underlag; besökarnas behov genom data, intervjuer, observation eller besökarprov
-  (`kunskap/besokarprov.md`); en visuell lösning genom renderade alternativ; modellens förmåga genom ett förmågeprov;
-  motstridiga krav genom en skriven avvägning. En AI-genererad målgruppshypotes är ett antagande. Sök avgränsat och
-  redovisa det som förblir osäkert.
+  kunden eller verifierat underlag; besökarnas behov genom data, intervjuer, observation eller besökarprov; en visuell
+  lösning genom renderade alternativ; modellens förmåga genom ett förmågeprov; motstridiga krav genom en skriven
+  avvägning. Sök avgränsat och redovisa det som förblir osäkert.
 - **Bilder (äkthet):** en bild som visar verksamheten (arbeten, personer, lokaler, resultat) är dess egen; illustrativt
   material som inte utger sig för att dokumentera den (licensierade illustrationer, texturer, konceptbilder, form i
   koden) är tillåtet med källa i BILDER.md eller DESIGN.md (`kunskap/bild.md`). Bilderna serveras från sajten. Saknat
@@ -751,7 +750,7 @@ beskärning, UX uppgiftsflödet och återkopplingen, responsiviteten komposition
 Mobbins underlag knyts i beslutsliggaren till formbesluten de används för.
 
 **Återgång:** en svag helhet byter grundkomposition eller referens, med skälet, i stället för putsning; en stark
-mellanversion får stå kvar; saknat material beställs och märks.
+mellanversion får stå kvar.
 
 ```utdrag före
 kunskap/designregler.md

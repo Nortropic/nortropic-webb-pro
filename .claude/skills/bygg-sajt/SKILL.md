@@ -395,7 +395,8 @@ KONCEPT.md.
    övergång, kontrast, typsnittsreserv): recepten med webbläsarstöd och reserv i `.claude/skills/modern-web-guidance/`
    (läs dess SKILL.md först; standarden 3.8 gäller webbläsarstödet).
    **Mobilens första vy** är riktningens: den godkända kandidatens kod och DESIGN.md (eller KONCEPT.md) avgör sidhuvud,
-   meny, primär handling och bild. Kvalitetskraven gäller: den primära handlingen nås från första vyn, menyn fungerar
+   meny, primär handling och bild. Kvalitetskraven gäller: den primära handlingen är tydlig och lätt att hitta (i första
+   vyn när briefens prioriterade uppgift motiverar det), menyn fungerar
    med tangentbord och skärmläsare och rullar aldrig dold i sidled, kontaktvägarna följer BRIEF.md §4, och en fast
    list skymmer aldrig innehåll. Listen och ett klibbigt sidhuvud är fasta bara när vyn är minst 500 px hög
    (`@media (min-height: 31.25rem)`); i lägre vyer (400 % zoom, 320×180) står de i flödet (byggstandarden 3.3;

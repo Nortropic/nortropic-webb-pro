@@ -83,8 +83,9 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
    själv såg i bilderna. Stilrapportens varningar är val att motivera, inte fel. Dess mått av mobilens första vy
    (sidhuvudets höjd, menyns form, foto i första skärmen, fast list) är underlag: sidhuvud, meny, rubrikens
    komposition, foto och list är riktningens val. Navigation och formulär får vara standard: där besökaren ska
-   hitta och fylla i är det invanda mönstret rätt. Mobilens första vy är riktningens: döm om den primära handlingen
-   syns och nås med tummen, och om menyn fungerar; en godkänd startsida ur skapandeflödet går före.
+   hitta och fylla i är det invanda mönstret rätt. Mobilens första vy är riktningens: döm om den primära handlingen är
+   tydlig och lätt att hitta, om den står i första vyn när briefens prioriterade uppgift motiverar det, och om menyn
+   fungerar; funktionen och den visuella kvaliteten var för sig. En godkänd startsida ur skapandeflödet går före.
 
 Håll isär vad du **ser** i bilderna och vad du **läser** i text eller designfakta. Skriv "okänt" där bilderna inte
 räcker, till exempel för rörelse.
@@ -126,7 +127,7 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
 4. **Funktion.** Håller kraven i briefen? Kan besökaren lösa varje toppuppgift utan att fastna i den kognitiva
    genomgången? Provets resor (`RESOR.md` i omgången) visar vad som höll i webbläsaren, steg för steg; en resa som
    saknas för en toppuppgift är ett fynd, och likaså en bokningsuppgift som bara prövas som länk utan att den
-   genomförda bokningen står kvar till lanseringen (testintegration) i samma fil. Syns den primära handlingen i första vyn på mobil, och går den att nå med tummen? Är
+   genomförda bokningen står kvar till lanseringen (testintegration) i samma fil. Är den primära handlingen tydlig och lätt att hitta, och står den i mobilens första vy när briefens prioriterade uppgift motiverar det? Är
    förtroendesignalerna verkliga? Står det något som blir inaktuellt (datum, annonser, erbjudanden, säsong, "just
    nu"), och syns det när? Fungerar menyn, undersidorna och 404-sidan? Dimension 5, 6 och 7, byggstandarden 5
    och 9, Osmanis tillgänglighet.

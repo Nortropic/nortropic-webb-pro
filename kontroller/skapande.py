@@ -549,8 +549,8 @@ def fakta_rader(slug, underlag=None):
             'uppgift med belägg. De står i %s/VERKSAMHET.json, %s/RESEARCH.md (raderna Belägg och listan "Bara de har"),' % (u, u),
             '%s/kalla/ och verksamhetens egna bilder i %s/bilder/ (BILDER.md beskriver dem). Sakuppgifterna i %s gäller,' % (u, u, rel(textfil(slug, underlag))),
             'men dess rubriker, ordning, blockindelning och formuleringar är ett utkast som skrivs om tillsammans med formen.',
-            '%s/BRIEF.md: toppuppgifterna, den primära handlingen och kravens innehåll gäller, och den primära handlingen syns i' % u,
-            'mobilens första vy och nås med tummen (designreglerna); hur den gestaltas (sidhuvud, knapp, fast list) och var övriga',
+            '%s/BRIEF.md: toppuppgifterna, den primära handlingen och kravens innehåll gäller; den primära handlingen är tydlig' % u,
+            'och lätt att hitta, i mobilens första vy när briefens prioriterade uppgift motiverar det (designreglerna); hur den gestaltas och var övriga',
             'handlingar och sajtkartans bilder hamnar är förslag. Designbeslut',
             '(grundidé, referensurval, palett, typografi, komposition, bildurval och beskärning, rubrikernas form) prövas mot',
             'ägarens domar nedan; ett beslut en dom återöppnat fattas på nytt med eget skäl.']

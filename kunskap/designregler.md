@@ -31,7 +31,7 @@ Varje regel och metodval hör till ett slag (ägarens uppdrag 2026-10-09), och s
 | Ägarbeslut (`BESLUT.md`, tabellen nedan) | med avsändare och räckvidd |
 | Lokala hypoteser och processval | med motivering och prövningsstatus; aldrig beskrivna som litteraturens |
 
-Ersatta instruktioner står som historik i `BESLUT.md`; styrningsvakten (`kontroller/styrning.py`) fäller dem.
+Ersatta instruktioner är historik i `BESLUT.md`, och `kontroller/styrning.py` fäller dem i agenternas texter.
 
 ## Gemensamma kvalitetskrav
 
@@ -42,8 +42,7 @@ Ersatta instruktioner står som historik i `BESLUT.md`; styrningsvakten (`kontro
 - **Fungerande interaktion:** varje länk och knapp leder dit den säger, formulär har etiketter och felbesked vid
   fältet, synligt tangentbordsfokus, klickytor minst 24×24 px (WCAG 2.2 AA, 2.5.8; byggstandarden 3.3), inget
   sidled-spill i 390, 768 eller 1440, inga konsolfel.
-- **Den primära handlingen nås:** den syns i första vyn på mobilen och går att nå med tummen. Hur den löses (sidhuvud,
-  list, sektion) är riktningens val.
+- **Den primära handlingen är tydlig och lätt att hitta** (ägaren 2026-10-09); var och hur den står är riktningens val.
 - **Bilder med uppgift och äkthet:** alt-text efter bildens uppgift. En bild som visar verksamheten (dess arbeten,
   personer, lokaler, fordon, resultat och referenser) är verksamhetens egen; ett stockfoto eller en genererad bild utger
   sig aldrig för att visa den. Visuellt material som inte utger sig för att dokumentera verksamheten (licensierade
@@ -64,7 +63,7 @@ Ersatta instruktioner står som historik i `BESLUT.md`; styrningsvakten (`kontro
 | Astro med förrenderade sidor; varje riktning väljer en sammanhängande implementation ur de förberedda, granskade och låsta beroendena (egen CSS, Referos CSS-variabler, Tailwind, Astro- och React-komponenter, Motion; `kunskap/beroenden.md`); självhostade typsnitt eller systemtypsnitt; verksamhetens bilder genom `astro:assets`. Nortropics standardval: ägaren godkände 2026-10-05 18:53Z att de tidigare förbuden omprövas, och urvalet av beroenden är agentens | dagens erbjudande: webbplatser för lokala tjänsteföretag. En bokningstjänst, en butik eller en större innehållssajt kan behöva andra lösningar och får då ett eget beslut |
 | Inga karuseller, marquees eller sidor som rullar av sig själva (byggstandarden) | dagens erbjudande |
 | Inga paketinstallationer i flödets sessioner: beroendena förbereds, granskas och låses i mallen (`kunskap/beroenden.md`), typsnitt genom `kontroller/typsnitt.py`; formulären demonstreras lokalt (`/api/forfragan` → `/tack/`) | skapandeflödet |
-| Knappen för briefens primära handling är minst 44×44 px i 390. Ett produktkrav för den knappen, inte för alla länkar, och strängare än WCAG:s minimum (24 px, 2.5.8; 44 px är 2.5.5, AAA) (byggstandarden 3.3) | dagens erbjudande |
+| Primära interaktiva kontroller minst 44×44 CSS-pixlar; skilt från WCAG:s minimum (24 px, 2.5.8) och inget krav på alla länkar (ägaren 2026-10-09; byggstandarden 3.3) | dagens erbjudande |
 | Kundens kontaktvägar ur briefen (§4) finns på varje sida: har kontaktmodellen telefonen står numret som tel-länk på varje sida; placeringen är riktningens val (byggstandarden 9.2; Codex via ägaren 2026-10-05, punkt 2) | dagens erbjudande |
 | En namngiven referens får vara utgångspunkt för layout, palett och typografi (2026-10-03); dess identitet, texter och bilder blir aldrig kundens | allt designarbete |
 | Bäst av tre undermåliga godkänns aldrig (2026-10-04) | panelen och granskningen |
@@ -85,8 +84,9 @@ Ersatta instruktioner står som historik i `BESLUT.md`; styrningsvakten (`kontro
 - **"Bara de har"** i `RESEARCH.md`: det som skiljer verksamheten från andra bär positioneringen.
 - **Materialet** i `bilder/BILDER.md`: vad fotona visar och håller för (resultat, detalj, arbete, person). En riktning
   som kräver material kunden inte har skriver behovet under "Material".
-- För en lokal tjänsteverksamhet brukar orten och kontaktvägen höra till första vyn; det avgörs av briefens
-  toppuppgifter och belägg, inte av en allmän regel.
+- **Mobilens första vy:** den primära handlingen står där när briefens prioriterade besökaruppgift motiverar det (för
+  en lokal tjänsteverksamhet ofta också orten och kontaktvägen), ur kundunderlag och research; utan direkt
+  användarbevis är motiveringen en hypotes att pröva. Funktion och visuell kvalitet bedöms var för sig (ägaren 2026-10-09).
 
 ## Designhypoteser och preferenser (prövas, aldrig krav)
 
@@ -98,6 +98,7 @@ Ersatta instruktioner står som historik i `BESLUT.md`; styrningsvakten (`kontro
 | Ett motiv ur märket eller "Bara de har" | Anthropic frontend-design | utforskningen |
 | Undvik de upptagna valen (`UPPTAGNA-VAL.md`) om inte verksamhetens material motiverar dem | våra egna byggens generiska mönster (inget bygge hittills har varit bra nog) | utforskningen |
 | Standarddrag bedöms efter användning | frontend-design | panelen och granskningen |
+| Den primära handlingen inom tummens räckvidd, eller i en fast nederlist | kvalitetskravet till 2026-10-09 (historik) | en lösning bland flera, aldrig ett generellt layoutkrav (ägaren 2026-10-09) |
 | Synliga menypunkter i stället för en dold meny när punkterna ryms | byggstandarden 5.2 till 2026-10-09 | en lösning bland flera; menyns form är riktningens |
 
 Det finns ingen fast sektionsordning: ordningen är riktningens val och motiveras ur besökarens frågor.

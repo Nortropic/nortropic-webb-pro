@@ -3318,3 +3318,59 @@ Markera aldrig uppskjutet, attrappat eller oprövat arbete som verifierat.
 
 Målet är att nästa bygge ska kunna bevara en design jag faktiskt godkänt, och att vi kan se var kvaliteten förändras. Prioritera konkreta förbättringar i den kedjan. Leverera inte fler verktyg eller mer dokumentation som ersättning för ett bedömbart resultat.
 ```
+
+## Tillägg 2026-10-09: ägarens beslut om den primära handlingen på mobilen, ankarna K07 och K03 och kalibreringsförsöket
+
+**Status:** gäller. Mobilbeslutet genomfört i designreglerna, byggstandarden, granskarens text och uppdragen; K03 är
+historik i kalibreringen; K07 väntar på ägarens bekräftelse; försöket följer ordningen nedan.
+
+Ägaren klistrade besluten i sessionen 2026-10-09 ~08:30Z, som svar på underlaget i RAPPORT-2026-10-09-sju-backlogomraden
+(alternativen A–C för mobilen, och för ankarna). Räckvidd: dagens erbjudande och kalibreringen av granskaren.
+Kvalitetsprovet och förmågeprovet beslutas separat, och beskedet startar inget helbygge. Ordagrant:
+
+```text
+Mina beslut och nästa steg:
+
+1. Mobil: C, med följande precisering.
+Den primära handlingen ska vara tydlig och lätt att hitta. Placering i mobilens
+första vy krävs när briefens prioriterade besökaruppgift motiverar det.
+Motiveringen kan bygga på kundunderlag och relevant research; saknas direkt
+användarbevis ska den märkas som en hypotes att pröva.
+
+Behåll minst 44×44 CSS-pixlar som Nortropics produktkrav för primära
+interaktiva kontroller. Skilj detta från WCAG:s minimikrav.
+”Med tummen” och fast nederlist är inga generella layoutkrav.
+Bedöm funktion och visuell kvalitet var för sig.
+
+2. K07: förbered alternativ 1.
+Visa den gamla och nya fångsten sida vid sida, tillsammans med mina tidigare
+ord. Jag bekräftar eller ändrar domen innan den nya bilden används som ankare.
+Bevara den gamla bilden med dess ursprungliga dom som historik.
+
+3. K03: alternativ 2 för den aktiva kalibreringen.
+Ta bort K03 som helhetsankare. Bevara bilderna och domen som historik med
+fångstbegränsningen dokumenterad. Redovisa att nästan-nivån tills vidare bara
+har K05. Använd inte K14–K19 för att komplettera ankarna.
+
+Efter K07-bekräftelsen:
+- genomför och prova ändringarna;
+- frys metod, ankare, bilder, bedömningsregler och försöksupplägg;
+- låt mig döma K14–K19 blint;
+- därefter får du köra de sex planerade granskarsessionerna utan ytterligare
+  klartecken, inom det redan beskrivna omfånget.
+
+De undanhållna exemplens ägardomar får inte nå granskarna. Redovisa felaktiga
+godkännanden, felaktiga underkännanden och ofullständiga körningar separat.
+Sex exempel ger ett första diagnostiskt resultat, inte ett säkert mått på
+generell träffsäkerhet. Ändras metoden efter resultatet blir urvalet
+utvecklingsdata.
+
+Kvalitetsprovet och förmågeprovet beslutas separat; de ingår inte i detta
+klartecken. Starta inget helbygge genom detta besked.
+```
+
+Ersatt (ur `kunskap/designregler.md`, gemensamma kvalitetskrav, bevarat här):
+
+| Ersatt regel | Hade räckvidd | Ersatt av | Varför |
+|---|---|---|---|
+| "Den primära handlingen nås: den syns i första vyn på mobilen och går att nå med tummen. Hur den löses (sidhuvud, list, sektion) är riktningens val." | alla kunder | kvalitetskravet att den primära handlingen är tydlig och lätt att hitta; första vyn på mobilen som kundens behov när briefens prioriterade uppgift motiverar det; tummens räckvidd och fast nederlist som designhypotes | ägarens beslut 2026-10-09 (alternativ C med precisering) |

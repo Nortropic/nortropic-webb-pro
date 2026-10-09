@@ -34,6 +34,7 @@ MONSTER = (
     (r'tel-länk i sidhuvudet på varje sida|telefonnumret som tel-länk(?! när)', 'ersatt kontaktregel'),
     (r'Inga stockbilder eller genererade bilder|Använd inga andra bilder|Inga andra bilder', 'ersatt bildregel'),
     (r'gäller som hypotes för andra kunder', 'en kunds smak som hypotes för andra'),
+    (r'nås med tummen|går att nå med tummen', 'ersatt mobilkrav: den primära handlingen nådd med tummen (ägaren 2026-10-09)'),
 )
 HISTORIK = {'BESLUT.md', 'LARDOMAR.md', 'REGISTER.md', 'REGISTER-arkiv-20261001.md', 'KIRURG-OMDOMEN.md', 'LARDOMAR-digitala.md',
             'GRUPPERING.md', 'rensning-nortropic-2.md'}  # historiken, och rensningens egen förteckning över det ersatta

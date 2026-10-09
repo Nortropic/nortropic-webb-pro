@@ -26,7 +26,7 @@ parentes är exemplens vanliga lägen, inte gränser.
 5. **Substans** — får besökaren innehåll direkt, eller en ridå; svarar första vyn på vad, för vem och hur, när
    uppgiften kräver det?
 6. **Förtroende** — är signalerna verkliga (kunder, arbeten, priser, kontaktbarhet) eller dekorativa märken?
-7. **Mobil ergonomi** — går handlingar, formulär och meny att använda med tummen; är träffytorna tillräckliga?
+7. **Mobil ergonomi** — går handlingar, formulär och meny att använda på telefonen; är träffytorna tillräckliga?
 8. **Konsekvens** — håller draget genom första vyn, en sektion till och sidfoten?
 
 ## Urval av exempel att jämföra med

@@ -138,9 +138,9 @@ DOMARE = [
      'kognitiv genomgång; kunskap/byggstandard.md avsnitt 9 (första vyn: vad, var, för vem, nästa steg) och 3.3 '
      '(träffytor); och .claude/skills/better-accessibility/SKILL.md och better-writing/SKILL.md. Döm hela sidan: om första '
      'vyn löser toppuppgiften och sidan sedan leder vidare (tjänsterna, beviset, kontakten, undersidans början) utan att '
-     'besökaren fastnar, om den primära handlingen syns och nås med tummen, om kvittona är verkliga (egna bilder, omdömen '
-     'med källa), och hur mobilen löser kontakten (riktningens val; den primära handlingen ska synas och nås med tummen, och '
-     'menyn ska fungera).'),
+     'besökaren fastnar, om den primära handlingen är tydlig och lätt att hitta, om kvittona är verkliga (egna bilder, '
+     'omdömen med källa), och hur mobilen löser kontakten (riktningens val; den primära handlingen står i första vyn när '
+     'briefens prioriterade uppgift motiverar det, och menyn ska fungera).'),
     ('kunden', os.environ.get('NWP_ATELJE_DOMARE_KUND') or 'sonnet',
      'Ditt område är förstaintrycket, dömt med femsekunderstestets metod (kritik/FRAGA-femsekunderstest.md; NN/g om '
      'förstaintryck och visuell testning). Du är en förstagångsbesökare ur briefens målgrupp: se först varje riktnings '
