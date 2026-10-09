@@ -4354,7 +4354,7 @@ utanför uppdraget står kvar.
 
 **Öppna frågor för ägaren:** Mobbins villkor (§3.2) förbjuder cache och arkiv utan skriftligt medgivande, och
 21st:s villkor (§3) är oklara för komponentkod i kundsajter; båda bör klaras ut skriftligt med leverantörerna innan
-lagring och kundleveranser blir rutin. Prototyps funktioner flyttas in i arbetsytans förslagsyta efter det här
+lagring och kundleveranser blir rutin. (Besvarat: ägarens besked 2026-10-09 ~21Z om licenserna, nedan.) Prototyps funktioner flyttas in i arbetsytans förslagsyta efter det här
 uppdraget (b3:s förslag, delningen 2026-10-09 ~18:28Z).
 
 ## Ägarens besked 2026-10-09 ~18:2xZ: Dyad-provet, köat efter uppdraget ovan
@@ -4400,3 +4400,31 @@ Efter att det visat sig att juridikfrågan inte granskas av Codex, och att PTS b
 - **Kostnaden** är uppskattad ur dagens uppmätta granskningar, ungefär 60 000 tokens var. Det blir cirka 2–5 miljoner
   tokens i månaden, mot cirka 0,9 miljoner före ändringen. Den faktiska förbrukningen mäts i förbrukningsfrågan. Kvoten
   exponeras inte.
+
+## Tillägg 2026-10-09 ~21Z: ägarens besked om licenserna och godkännandena för verktygen
+
+**Status:** gäller.
+
+Efter rapporten om tio förslag och den rena designstarten klistrade ägaren in, ordagrant (platshållarna som de kom):
+
+> ÄGARENS BESKED om licenserna (Mobbin och 21st), efter rapporten om tio förslag och den rena designstarten:
+>
+> Jag har skriftliga godkännanden från båda. Licensfrågorna i rapportens avsnitt 8 är därmed besvarade.
+>
+> 1. Mobbin: [datum, avsändare hos Mobbin]. Godkännandet gäller [t.ex. att vi sparar skärmar och flöden per körning
+>    för vårt interna designarbete, och att de får ligga kvar i återställningsarkivet]. Villkor: [inga / ange].
+> 2. 21st: [datum, avsändare hos 21st]. Godkännandet gäller [t.ex. att komponentkod från 21st får användas i våra
+>    kunders webbplatser utan synlig länk tillbaka, med komponentens egen licens]. Villkor: [inga / ange].
+
+På genomförarens fråga om omfattningen svarade ägaren för båda, ordagrant: "allt får vi göra". Därefter, ordagrant: "vi
+har fulla godkännande för alla våra verktyg, mcps, skills, källor etc."
+
+**Räckvidd:**
+- Licens- och användningsvillkoren hos verktygen, MCP:erna, skills och källorna är klarade. Mobbins skärmar och flöden
+  får sparas per körning och ligga kvar i återställningsarkivet. Komponentkod från 21st får användas i kundernas
+  webbplatser utan synlig länk tillbaka, med komponentens egen licens.
+- De skriftliga godkännandena har ägaren. Datum och avsändare är inte angivna här.
+- Ägarens egna beslut om gränser som inte är licensfrågor står kvar tills ägaren säger annat. Det gäller
+  kunddatagränsen mot externa tjänster, prenumerationsgränsen (2026-10-08) och att ursprung och licens noteras per
+  komponent, typsnitt och bild (RIKTNING.md, DESIGN.md, BILDER.md). Lagkrav som dataskydd och marknadsföringslagen
+  gäller som förut.

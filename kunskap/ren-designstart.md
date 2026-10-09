@@ -52,9 +52,10 @@ filer), `SHA256SUMS` (varje fils sha256) och `LASMIG.md`. Arkiveringen flyttade 
 att varje fil hade samma sha256 före och efter; en post som inte stämde flyttades tillbaka. Återställ en post med
 `.venv/bin/python kontroller/ren_designstart.py --aterstall <sökväg>`.
 
-Licensförbehåll ur källgenomgången 2026-10-09: Mobbins villkor (§3.2) förbjuder att material cachas eller arkiveras
-utan skriftligt medgivande, och bland referenspaketen finns skärmar ur Mobbin. De flyttades in i arkivet utan ny kopia;
-om de ska raderas i stället är ett ägarbeslut.
+Licenserna: källgenomgången 2026-10-09 fann att Mobbins villkor (§3.2) kräver skriftligt medgivande för cache och arkiv,
+och bland referenspaketen finns skärmar ur Mobbin. Ägaren har skriftliga godkännanden från Mobbin och 21st och fulla
+godkännanden för alla verktyg, MCP:er, skills och källor (`BESLUT.md`, ägarens besked 2026-10-09 ~21Z), så skärmarna
+ligger kvar i arkivet.
 
 ## Vakten
 
