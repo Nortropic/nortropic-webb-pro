@@ -134,7 +134,9 @@ kandidaterna och granskningarna.
    En kritisk granskare bedömer den renderade skissen när tiden räcker, med rollen kritik (blind för skaparens text,
    uppdrag, referenspaket och kod och för tidigare riktningar; i `underlag/<slug>` läser den bara briefen och kundens
    fakta och material, och domloggen och riktningshistoriken nekas som filer, ett beslut av Claude i väntan på ägaren:
-   `kandidater.blind_nekas`, metodkartans block kritik): skaparens senaste bilder och sin egen förhandsvisning (`forhandsvisa.py --granskare`,
+   `kandidater.blind_nekas`, metodkartans block kritik; varje läsning med Read, Glob och Grep prövas dessutom när den görs
+   mot sessionens tillåtelselista, `kandidater.blind_tillatet` och `kontroller/blindvakt.py`, så att en fil som tillkommer
+   efter starten inte blir läsbar, och en vakt som faller öppnar ingenting): skaparens senaste bilder och sin egen förhandsvisning (`forhandsvisa.py --granskare`,
    bilderna i kandidatens `granskare/`, aldrig i skaparens varv), detektorn utan kodutdrag och förebilder ur Refero och
    Mobbin. SKISSKRITIK.json bär kandidatens version, det granskaren bevisligen såg (en tom eller saknad bild räknas
    aldrig som sedd) och kompetenskvittot, och skaparen svarar i en egen session ("Svar på granskningen" i RIKTNING.md).

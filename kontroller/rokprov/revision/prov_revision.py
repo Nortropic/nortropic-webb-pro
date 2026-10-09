@@ -5197,8 +5197,8 @@ try:
                  'Granskaren rekommenderade att förkasta riktningen.\nEfter kritiken behöll jag riktningen.\nBedömningen att riktningen var generisk.\n'
                  '\n### Granskningen\n\nGRANSKNINGENS ORD: generisk\n\n## Svar på granskningen\n\nJag står kvar.\n')
 
-    def sess_gk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None):
-        sess_gk.append({'prompt': prompt, 'schema': schema, 'nekas': list(nekas), 'frist': frist, 'ut': Path(ut).name})
+    def sess_gk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None, blind=None):
+        sess_gk.append({'prompt': prompt, 'schema': schema, 'nekas': list(nekas), 'frist': frist, 'ut': Path(ut).name, 'blind': blind})
         pages_ = kd.ksajt(sl_sk, 'k02') / 'src' / 'pages'
         so = None
         if schema is kd.SKISSKRITIK_SCHEMA:

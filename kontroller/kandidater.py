@@ -1578,8 +1578,8 @@ BLIND_LASBART = ('BRIEF.md', 'VERKSAMHET.json', 'RESEARCH.md', 'INNEHALL.md', 'T
 # och materialet i referenser/), och referensbeslutet
 # och det övriga som systemet självt kan skriva i underlag/<slug>/ medan en blind session pågår och som inte är läsbart:
 # de upptagna valen (upptagna_val.py), ägarens belägg (skapande.BELAGGFIL), kundstartens uppdrag, diagnosen,
-# frasprovet och stegens kataloger (GR-20261007-r107#K2). En fil som något annat lägger i katalogens rot under sessionen
-# täcks inte: behörigheterna kan inte säga "allt utom listan", eftersom ett förbud går före en tillåtelse
+# frasprovet och stegens kataloger (GR-20261007-r107#K2). Förbuden är det första lagret; det som inte står på listan
+# nekas av blindvakten vid varje läsning, också en fil som något annat lägger dit under sessionen (blind_tillatet)
 BLIND_MONSTER = ('REFERENSUPPDRAG-*', 'TJANSTEUPPDRAG-*', 'REFERENSER.md', 'referenser/**',
                  'atelje/kandidater/*/koncept/**',  # också studier som tillkommer efter kritikens start
                  'UPPTAGNA-VAL.md', skapande.BELAGGFIL, 'UPPDRAG.md', 'KUNDSTART.json', 'DIAGNOS.md', 'FRASER.txt',
@@ -1681,6 +1681,28 @@ def bedomt(session_id, slug, kid, pastadda=None):
     return ut
 
 
+def blind_tillatet(slug, kid, tillat, ut):
+    """Den blinda sessionens tillåtelselista (blindvakt.py), skriven i ut när sessionen startar: kandidatens tillåtna
+    kataloger (bilderna eller varven, och granskarens egen katalog där förhandsvisningen skriver), kundens läsbara underlag
+    (BLIND_LASBART: briefen, verksamheten, researchen om verksamheten, sidans text, beställningen och kundens bilder),
+    den levererade metoden i ateljén, och repots kunskap, skills och granskarkriterier (rollens kärna och alternativ
+    ligger där). Allt annat nekas när det läses, också det som tillkommer efter starten: skaparens redovisning (RIKTNING.md,
+    svaren, statusen), andra kandidater och tidigare bedömningar, ateljéns planer och jämförelser, kundens referenser och
+    beslut, och sessionernas transkript. Ger listans väg."""
+    d, u = kdir(slug, kid), atelje.UNDERLAG / slug
+    filer = [str(u / f) for f in BLIND_LASBART if f not in ('bilder', 'atelje')]
+    filer += [str(u / f) for f in (skapande.HISTORIK, skapande.DOMLOGG) if f not in BLIND_HISTORIK]
+    kataloger = [str(d / t) for t in tillat] + [str(u / 'bilder'), str(metodkatalog(slug))]
+    kataloger += [str(atelje.ROOT / x) for x in ('kunskap', '.claude/skills', 'kritik')]
+    for f in kompetens.lasfiler(kompetens.BLINDA[0]) + kompetens.lasfiler(kompetens.BLINDA[1]):  # rollernas filer, om någon ligger utanför
+        p = atelje.ROOT / f
+        if not any(str(p).startswith(x + os.sep) for x in kataloger):
+            filer.append(str(p))
+    Path(ut).write_text(json.dumps({'slug': slug, 'kandidat': kid, 'tid': nu(), 'filer': sorted(set(filer)), 'kataloger': kataloger},
+                                   ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return Path(ut)
+
+
 def skisskritik_prompt(slug, kid, bilder, varv, uppgift):
     """Kritikens uppdrag: rollen kritik ur metodkartan (uppgiften, kärnan, alternativen, verktygen och tjänsterna; inga egna
     kriterier här), besökarens uppgift, kundens aktuella domar och skaparens senaste giltiga bilder, aldrig skaparens text."""
@@ -1756,15 +1778,17 @@ def skisskritik(slug, kid):
     identitet = skisskritik_identitet(slug, kid)
     blind = blind_nekas(slug, kid, ('varv', forhandsvisa.GRANSKARE))
     ut = d / ('svar-skisskritik-%d.json' % (len(list(d.glob('svar-skisskritik-*.json'))) + 1))
+    tillatet = blind_tillatet(slug, kid, ('varv', forhandsvisa.GRANSKARE), ut.with_suffix('.blind.json'))
     start = time.monotonic()
     svar = atelje.session(skisskritik_prompt(slug, kid, bilder, v[-1], uppgift), LASVERKTYG + kompetens.verktyg('skisskritik', slug, kid), ut,
-                          SKISSKRITIK_SCHEMA, MAX_TURER_SKISSKRITIK, GRANSKARE_MODELL, 'high', FRIST_SKISSKRITIK, nekas=blind, slug=slug)
+                          SKISSKRITIK_SCHEMA, MAX_TURER_SKISSKRITIK, GRANSKARE_MODELL, 'high', FRIST_SKISSKRITIK, nekas=blind, slug=slug,
+                          blind=str(tillatet))
     so = svar.get('structured_output')
     if not isinstance(so, dict) or not so.get('rekommendation'):
         return None
     kv = kompetens.kvitto([svar], 'skisskritik')
     post = dict(so, tid=nu(), varv=v[-1], version=version_, identitet=identitet, karta=metod.sha(metod.KARTA.read_text(encoding='utf-8')),
-                bilder=[rel(p) for p in bilder], bedomt=bedomt(svar.get('session_id'), slug, kid, so), kompetens=kompetens_kort(kv),
+                bilder=[rel(p) for p in bilder], bedomt=bedomt(svar.get('session_id'), slug, kid, so), kompetens=kompetens_kort(kv), blind=rel(tillatet),
                 svar=ut.name, sekunder=int(time.monotonic() - start),
                 session={x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd')})
     (d / 'SKISSKRITIK.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
@@ -3303,8 +3327,9 @@ def kritik(slug, kid, namn='KRITIK.json'):
         'spill, sanning) eller hindrar besökarens uppgift; smak när den är ett estetiskt omdöme. Ange nivån (over, nastan,',
         'generisk) mot ribban och vilket material kunden saknar. Inga allmänna råd.', atelje.MATERIAL])
     ut_a = d / ('svar-kritik-a-%d.json' % n)
+    tillatet = blind_tillatet(slug, kid, ('bilder', forhandsvisa.GRANSKARE), ut_a.with_suffix('.blind.json'))
     svar = atelje.session(prompt_a, LASVERKTYG + kompetens.verktyg('kritik_a', slug, kid), ut_a, KRITIK_A_SCHEMA, 160, GRANSKARE_MODELL, 'high',
-                          FRIST_GRANSKA, nekas=blind, slug=slug)
+                          FRIST_GRANSKA, nekas=blind, slug=slug, blind=str(tillatet))
     a = svar.get('structured_output')
     if not a:
         raise RuntimeError('granskningens första pass gav inget svar (%s)' % str(svar.get('subtype') or '?')[:200])

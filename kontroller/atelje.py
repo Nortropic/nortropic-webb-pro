@@ -181,6 +181,7 @@ def claude():
     return shutil.which('claude') or str(Path.home() / '.local' / 'bin' / 'claude')
 
 
+import blindvakt  # noqa: E402  (de blinda sessionernas tillåtelselista vid varje läsning)
 import kundvakt as kundvakt_mod  # noqa: E402
 KUNDVAKT_MATCH = kundvakt_mod.MATCH  # externa designtjänster: kundvakten prövar varje anrop; andra MCP-anrop får ingen tillåtelse
 REFERO_ENV = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env'
@@ -247,12 +248,14 @@ def kundvakt(slug, rot=None):
     return kundvakt_mod.installningar(slug, UNDERLAG, rot=rot)
 
 
-# R06 (GR-20261008-06af6ff-omgranskning-codex; beställningen i BESLUT.md, tillägget 2026-10-07 punkt 3 och 4): skaparens
-# sessioner startar i kundprojektets eget repo (kontroller/kundrepo.py) när NWP_ARBETSROT=kundrepo. Kundrepot är ett eget
-# git-repo, så Claude Code laddar dess korta CLAUDE.md som projektkontext och inte motorns (CLAUDE.md och projektets skills
-# läses från arbetskatalogen och uppåt till repots rot); motorns skills och filer nås genom --add-dir, och varje relativ
-# regel, sökväg och kommando görs absolut, så att datagränserna gäller oförändrade. Standard är motorns rot tills ett
-# verkligt sessionsprov (init-beskedet) visat vilka CLAUDE.md, skills och MCP:er som laddas i kundrepots rot.
+# R06 (GR-20261008-06af6ff-omgranskning-codex och GR-20261009-natt-omgranskning-codex; beställningen i BESLUT.md, tillägget
+# 2026-10-07 punkt 3 och 4): med NWP_ARBETSROT=kundrepo startar kundens arbetssessioner i kundprojektets eget repo
+# (kontroller/kundrepo.py) med dess korta CLAUDE.md: skapandeflödets sessioner med slug, de äldre vägarna med arbetsslug
+# och helbygget genom kor.sh (kontroller/arbetsrot.py). Motorns skills och filer nås genom --add-dir, varje relativ regel,
+# sökväg och kommando görs absolut så att datagränserna gäller oförändrade, och sessionen skriver aldrig i kundrepot.
+# Vilka CLAUDE.md, skills och MCP:er Claude Code faktiskt laddar där (också om motorns CLAUDE.md i en katalog ovanför
+# kommer med) är inte prövat; standard är motorns rot tills det verkliga sessionsprovet (kontroller/formagoprov.py) gett
+# belägg. Ett kundrepo med egna Claude Code-inställningar används aldrig som arbetsrot.
 ARBETSROT_VAXEL = 'NWP_ARBETSROT'
 ROTDELAR = ('kunder', 'underlag', 'kunskap', 'kontroller', 'kritik', 'mall', '.claude', '.venv', 'backlog', 'dashboard')
 _RELATIV = re.compile(r'(?<![\w/.~$-])(?:\./)?((?:%s)/)' % '|'.join(re.escape(d) for d in ROTDELAR))
@@ -264,7 +267,12 @@ def arbetsrot(slug):
         return ROOT, False
     import kundrepo
     r = KUNDER / slug / 'kundrepo'
-    return (r, True) if kundrepo.ar_repo(r) else (ROOT, False)
+    if not kundrepo.ar_repo(r):
+        return ROOT, False
+    egna = [n for n in ('settings.json', 'settings.local.json') if (r / '.claude' / n).exists() or (r / '.claude' / n).is_symlink()]
+    if egna:  # --setting-sources project,local skulle ladda dem i sessionen
+        raise RuntimeError('kundrepot %s har egna Claude Code-inställningar (%s) och används inte som arbetsrot' % (r, ', '.join(egna)))
+    return r, True
 
 
 def text_absolut(text, rot=None):
@@ -301,7 +309,7 @@ def andra_kunder_nekas(slug):
     return ut
 
 
-def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None, kundrot=False):
+def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None, kundrot=False, blind=None, kundrepo=None):
     """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
     slug ser sessionen alla skills (skillverktyget) och MCP-servrarna, och kundvakten prövar varje anrop till en extern
     designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). MCP-servrarna:
@@ -314,14 +322,26 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     Trybloom med flera) i varje skaparsession (det verkliga sessionsprovet 2026-10-08, GR-20261008-r117-claude#E1).
     Startkontrollen prövar åtkomsten med samma argument (verktygslada.prova_sessionen). Utan slug: inga MCP:er.
     De inbyggda verktygen begränsas till dem sessionen använder (--tools). Prenumerationen: ingen API-nyckel
-    (nastlad.miljo)."""
+    (nastlad.miljo). blind: tillåtelselistan för en blind session (kandidater.blind_tillatet): Read, Glob och Grep står
+    då inte i --allowedTools, och blindvakten (blindvakt.py) prövar varje läsning mot listan när den görs; utan vaktens
+    uttryckliga tillåtelse nekar dontAsk läsningen. kundrepo: kundrepots väg när sessionen startar där (R06); sessionen
+    skriver aldrig i det (projektkontexten skrivs av kundrepo.py, exporten av exportera.py)."""
     namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
+    if blind:
+        verktyg = [v for v in verktyg if str(v) not in blindvakt.VERKTYG]
     if kundrot:  # R06: sessionen startar i kundrepot; reglerna gäller motorns filer med absoluta vägar
         verktyg = [regel_absolut(v) for v in verktyg]
         nekas = [regel_absolut(v) for v in nekas]
-    mcp = ['--settings', kundvakt(slug, rot=ROOT if kundrot else None), '--strict-mcp-config', '--mcp-config', refero_mcp_fil(),
+        if kundrepo:
+            nekas = list(nekas) + ['%s(//%s/**)' % (v_, str(kundrepo).strip('/')) for v_ in ('Write', 'Edit')]
+    installningar = kundvakt(slug, rot=ROOT if kundrot else None) if slug else None
+    if blind:
+        d_ = json.loads(installningar) if installningar else {'hooks': {'PreToolUse': []}}
+        d_['hooks']['PreToolUse'].append(blindvakt.krok(blind, rot=ROOT if kundrot else None))
+        installningar = json.dumps(d_)
+    mcp = ['--settings', installningar, '--strict-mcp-config', '--mcp-config', refero_mcp_fil(),
            str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json'),
-           tjugoforsta_mcp_fil()] if slug else ['--strict-mcp-config']  # 21st.dev Builder: komponentresearch och hämtning (2C)
+           tjugoforsta_mcp_fil()] if slug else (['--settings', installningar] if installningar else []) + ['--strict-mcp-config']  # 21st.dev Builder (2C)
     args = [claude(), '-p', '--max-turns', str(max_turer), '--permission-mode', 'dontAsk', '--output-format', 'json',
             '--setting-sources', 'project,local'] + mcp + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
@@ -403,14 +423,18 @@ class Stoppad(Exception):
     pass
 
 
-def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
+def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None,
+            blind=None, arbetsslug=None):
     """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger).
     vid_start(pid) får sessionens pid (kandidatens status bär den, så att en återupptagning kan avsluta en session som
-    överlevt arbetaren). Vid tidsgräns avslutas hela processträdet, också Bash-kommandon i egna processgrupper."""
+    överlevt arbetaren). Vid tidsgräns avslutas hela processträdet, också Bash-kommandon i egna processgrupper.
+    blind: tillåtelselistan för en blind session (session_args). arbetsslug: kunden vars kundrepo blir arbetsrot med
+    växeln NWP_ARBETSROT=kundrepo, för de äldre vägarna som inte skickar slug (och därför inte får kundvakten och
+    MCP:erna; R06)."""
     if STOPP.is_set():
         raise Stoppad('arbetaren stoppas: ingen ny session')
-    rot, kundrot = arbetsrot(slug)
-    args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot)
+    rot, kundrot = arbetsrot(slug or arbetsslug)
+    args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot, blind=blind, kundrepo=rot if kundrot else None)
     if kundrot:  # R06: prompten med absoluta vägar, eftersom sessionens arbetskatalog är kundrepot
         prompt = text_absolut(prompt)
     sid, oslug = observerad(ut, slug)
@@ -810,14 +834,14 @@ def panel(slug, rot, slut=False, svagheter=None):
         try:
             prompt = domar_prompt(slug, uppdrag, bokstaver, bilder, ankare, ofull, ankare_fel, referenser, slut, svagheter)
             # 100 turer: domarna läser en bild per tur, och ankarna, huvudreferensen och förslagen är omkring 75 läsningar
-            svar = session(prompt, ['Read', 'Glob', 'Grep'], rot / ('svar-domare-%s.json' % namn), PANEL_SCHEMA, 100, modell, 'high')
+            svar = session(prompt, ['Read', 'Glob', 'Grep'], rot / ('svar-domare-%s.json' % namn), PANEL_SCHEMA, 100, modell, 'high', arbetsslug=slug)
             forsta = {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'total_cost_usd')}
             las = bildkedja.lasning(svar.get('session_id'), krav)
             if bildkedja.brister(las):  # en ny session, med det som inte lästes uppräknat
                 saknas = [v for g in las['grupper'].values() for v in g['saknas']]
                 svar = session(prompt + '\n\nLäs de här filerna med Read innan du dömer; de krävs för att rösten ska räknas:\n'
                                + '\n'.join('- ' + v for v in saknas), ['Read', 'Glob', 'Grep'],
-                               rot / ('svar-domare-%s-omdom.json' % namn), PANEL_SCHEMA, 100, modell, 'high')
+                               rot / ('svar-domare-%s-omdom.json' % namn), PANEL_SCHEMA, 100, modell, 'high', arbetsslug=slug)
                 las = dict(bildkedja.lasning(svar.get('session_id'), krav), omdom=True, forsta_sessionen=forsta)
             res = svar.get('structured_output') or {}
             karta = dict(bokstaver)
@@ -1414,7 +1438,7 @@ def utforska_och_valj(slug, rot, status, skriv, bilder, kritik=None, forsta=1):
         skriv()
         ankare = frys_skaparens_ankare(rot)
         try:  # 400 turer: förhandsvisningen och läsningen av bilderna kostar omkring 20 turer per riktning och varv
-            d = session(divergera_prompt(slug, bilder, kritik, ankare=ankare), verktyg, rot / 'svar-divergera.json', max_turer=400)
+            d = session(divergera_prompt(slug, bilder, kritik, ankare=ankare), verktyg, rot / 'svar-divergera.json', max_turer=400, arbetsslug=slug)
             for k in range(1, MAX_KOMPLETTERINGAR + 1):  # research på begäran: skaparen skrev KOMPLETTERING.json och avslutade
                 if not (rot / skapande.KOMPLETTERING).is_file():
                     break
@@ -1425,7 +1449,7 @@ def utforska_och_valj(slug, rot, status, skriv, bilder, kritik=None, forsta=1):
                 status['steg'] = 'divergera'
                 skriv()
                 d = session(divergera_prompt(slug, bilder, kritik, komplettering=res, ankare=ankare), verktyg,
-                            rot / ('svar-divergera-%d.json' % k), max_turer=400)
+                            rot / ('svar-divergera-%d.json' % k), max_turer=400, arbetsslug=slug)
         except (subprocess.TimeoutExpired, RuntimeError) as e:
             # sidorna som hann skrivas fotograferas och döms ändå: en tidsgräns eller en session som föll i slutet ska
             # inte kasta färdiga förslag (designprovet 2026-10-05); en riktning utan undersida blir ofullständig
@@ -1530,7 +1554,7 @@ def forfina(slug, rot, status, skriv):
     for k in range(MAX_KOMPLETTERINGAR + 1):
         ut = rot / ('svar-forfina%s.json' % ('-%d' % k if k else ''))
         try:
-            svar = session(forfina_prompt(slug, rot, res), verktyg, ut, max_turer=300, frist=FRIST_FORFINA)
+            svar = session(forfina_prompt(slug, rot, res), verktyg, ut, max_turer=300, frist=FRIST_FORFINA, arbetsslug=slug)
         except (subprocess.TimeoutExpired, RuntimeError) as e:  # det som hann göras döms ändå i slutdomen
             status['forfina_avbruten'] = '%s: %s' % (type(e).__name__, str(e)[:300])
             svar = las_json(ut) or {}

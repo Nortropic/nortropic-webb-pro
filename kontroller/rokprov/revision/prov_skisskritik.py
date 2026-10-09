@@ -259,9 +259,9 @@ def transkript(handelser, sid):
     return sid
 
 
-def sess_falsk(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
+def sess_falsk(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, blind=None):
     SESSIONER.append({'prompt': prompt, 'verktyg': list(verktyg), 'ut': Path(ut).name, 'schema': schema, 'frist': frist, 'nekas': list(nekas),
-                      'slug': slug, 'modell': modell, 'effort': effort, 'max_turer': max_turer})
+                      'slug': slug, 'modell': modell, 'effort': effort, 'max_turer': max_turer, 'blind': blind})
     nyckel = next((k_ for k_ in SVAR if k_(prompt, schema)), None)
     so, sid = SVAR[nyckel](prompt, schema) if nyckel else (None, None)
     svar_ = {'structured_output': so, 'num_turns': 9, 'duration_ms': 60000, 'total_cost_usd': 0.1, 'session_id': sid}
