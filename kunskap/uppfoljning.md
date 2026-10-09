@@ -51,7 +51,7 @@ Leverantörens beskrivning är underlag, ingen generell svensk juridisk slutsats
 
 | Verktyg | Teknisk grund och bedömning | Läst |
 |---|---|---|
-| Vercel Analytics | [Request-baserad identifiering och sidvisningsdata](https://vercel.com/docs/analytics/privacy-policy). Utred vilka terminaluppgifter skriptet läser; [OSÄKER] tills den aktuella konfigurationen prövats mot LEK/EDPB. | 2026-09-30 |
+| Vercel Analytics (bara för sajterna som ligger kvar på Vercel; nya sajter levereras på Cloudflare Workers) | [Request-baserad identifiering och sidvisningsdata](https://vercel.com/docs/analytics/privacy-policy). Utred vilka terminaluppgifter skriptet läser; [OSÄKER] tills den aktuella konfigurationen prövats mot LEK/EDPB. | 2026-09-30 |
 | Plausible | [Daglig hash av bland annat IP och User-Agent](https://plausible.io/data-policy), inga kakor. Avsaknad av permanent identifierare avgör inte samtyckesfrågan; [OSÄKER] för användningen tills bedömd. | 2026-09-30 |
 | Matomo utan kakor | [disableCookies och konfigurationsberoende insamling](https://matomo.org/faq/general/faq_157/). Pröva kvarvarande insamling och nationella undantag; [OSÄKER], inte automatiskt samtyckesfritt. | 2026-09-30 |
 | GA4 med Consent Mode v2 | [Taggbeteendet ändras med samtyckesval](https://developers.google.com/tag-platform/security/concepts/consent-mode); nekat lagringssamtycke kan fortfarande ge mätanrop. Utred faktisk nättrafik, håll samtycke nekat som standard och blockera spårning som kräver samtycke. [OSÄKER] före bedömd konfiguration. | 2026-09-30 |

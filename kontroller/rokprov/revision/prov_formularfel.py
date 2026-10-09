@@ -225,6 +225,10 @@ class Formular(unittest.TestCase):
         d=self.kor('dubblett-innehall')
         self.assertEqual([s['headers'].get('x-forfragan') for s in d['svar']],['skickad','dubblett','skickad'])
         self.assertEqual(len(d['rader']),2);self.assertTrue(all(r['nyckel'].startswith('h:') for r in d['rader']))
+        # över en fönstergräns är det fortfarande samma ärende; efter 25 minuter ett nytt
+        for mode,vantat in (('fonstergrans',['skickad','dubblett']),('nytt-fonster',['skickad','skickad'])):
+            with self.subTest(mode=mode):
+                d=self.kor(mode);self.assertEqual([s['headers'].get('x-forfragan') for s in d['svar']],vantat)
         # två samtidiga inskick med samma id: ett ärende, ett mejl
         d=self.kor('samtidigt')
         self.assertEqual(sorted(s['headers'].get('x-forfragan') for s in d['svar']),['dubblett','skickad'])

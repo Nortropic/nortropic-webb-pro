@@ -56,7 +56,7 @@ Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sa
 | 6. Helbygget | Byggflöde → Starta helbygget, `prototyp.py <slug> --helbygge --start-id <id>`, eller `./kor.sh <slug> "<verksamhet>"`; aktuell godkänd startsida krävs, och godkännandets underlag (steg 1–4) är fryst under bygget; finns Kundstarts ärendelager krävs sandlådan (`NWP_SANDLADA=pa ./dashboard.sh`), och Flöde visar startmiljön och nekar vid knappen i stället för i kor.sh | sajt, prov, granskning, RAPPORT.md, FRAGOR.json och SLUT.json per körning; Flöde visar slutpostens fem separata besked | verklig modellkörning genom den nya flödesingången återstår |
 | 7. Ägarens dom över bygget | ägaren i dashboarden: bygget, fliken Din dom | `kunder/<slug>/DOM.json`, lärdomarna och en backlogpost | – |
 | 8. Exporten till kundrepo | Byggflöde → Exportera till kundrepot, `prototyp.py <slug> --exportera --start-id <id>`, eller `exportera.py <slug> [--git]`; kundrepot (`kunder/<slug>/kundrepo`, ett eget git-repo med kort CLAUDE.md) skapas av `kontroller/kundrepo.py` när sajten skapas, och en verklig verksamhet får det privata `Nortropic/kund-<slug>` | en commit i kundrepot per export (pushad när fjärrepot är bundet; projektstart, push och fjärrepo prövas först med läckagekontrollen, som vid push gäller hela historiken som skickas: varje commit, fil och commitmeddelande, bunden till den commit som pushas), byggprov och privat EXPORT.json per export med käll- och exporthash, commit och godkännandenas omfattning; identiteten i `kunder/<slug>/KUNDREPO.json`; tidigare export bevaras i git | en testexport får göras utan godkännande, men är aldrig i sig en kundklar leverans; en fiktiv verksamhet får aldrig ett fjärrepo; extern publicering återstår |
-| 9. Leveransen: förhandsvisning, skydd och DNS | Byggflöde → Förhandsvisa exportens commit, `prototyp.py <slug> --preview --start-id <id>` eller `kundrepo.py <slug> --preview` (Vercels CLI i teamet nortropic, projektet `kund-<slug>`, metadata commit och export); produktion, skyddet och DNS: människa med ägarens ja | privat `kunder/<slug>/leverans/PREVIEW-<tid>.json` med adress, commit, export, det frysta underlagets sha256 och status; uppladdningen går ur commitens filer under kundens lås; Flöde visar den | en förhandsvisning är inte produktion; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut; verklig driftsättning är inte prövad av provet |
+| 9. Leveransen: förhandsvisning, skydd och DNS | Byggflöde → Förhandsvisa exportens commit, `prototyp.py <slug> --preview --start-id <id>` eller `kundrepo.py <slug> --preview` (Wrangler i Nortropics Cloudflare-konto ur den privata `cloudflare.env`, Workern `kund-<slug>-forhandsvisning` bakom Cloudflare Access, metadata commit och export); produktion, D1, R2, Access och domänen: människa med ägarens ja (`kunskap/lansering.md`, Cloudflare-steget) | privat `kunder/<slug>/leverans/PREVIEW-<tid>.json` med adress, versions-id, commit, export, det frysta underlagets sha256, skyddet före och efter och status (`vantar_pa_konto` utan konto, `vantar_pa_skydd` när Access saknas för en verklig verksamhet); uppladdningen går ur commitens filer under kundens lås; Flöde visar den | en förhandsvisning är inte produktion; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut; Workern är prövad lokalt i workerd, men verklig driftsättning är inte prövad: kontot är inte anslutet |
 
 Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
 tills grindarna är gröna och två oberoende granskare godkänt, eller tills taket nås (slutkod 1), och skriver `kunder/<slug>/RAPPORT.md` och sina egna
@@ -84,7 +84,7 @@ som sent, och arbetets slutkod gäller. Ett start-id vars begäran redan är avs
 Exportens arbetare följer byggprocessernas identitet och väntar in deras avslut före slutstatus. Den har samma
 gräns för mycket kortlivade mellanprocesser som korvakt; att döda även arbetaren kan kräva manuell kontroll.
 Startjournalen är ett mottagnings-/processbesked. `SLUT.json`, `EXPORT.json` respektive `PREVIEW-<tid>.json` anger arbetets resultat;
-`KUNDREPO.json` kundrepots identitet (projekt-id, fjärrepots status, Vercel-projektet, senaste push).
+`KUNDREPO.json` kundrepots identitet (projekt-id, fjärrepots status, Workerns namn, senaste push; en äldre Vercel-koppling står kvar som historik).
 ## Kundstart i det befintliga flödet
 
 Kundens senare ändringar prövas mot den levande källan genom förberedelse, start och godkännandets aktualitet.
@@ -325,7 +325,8 @@ görs med `node kontroller/ikoner.mjs`.
 (cd kontroller && npm ci && npx playwright install chromium chromium-headless-shell webkit)
 ```
 
-Kräver Node i den senaste LTS-versionen som Vercel stöder (Homebrews `node@NN`), Claude Code och Vercel CLI. Det
+Kräver Node i den senaste LTS-versionen (Homebrews `node@NN`) och Claude Code; Wrangler följer kundrepots låsfil, och
+Vercel CLI finns kvar för de sajter som ligger kvar på Vercel (ägarens beslut 2026-10-09). Det
 dagliga underhållet (`kontroller/underhall.py`, från dashboarden) håller allt detta i den senaste versionen som klarat
 proven, och startkontrollen (`kontroller/startkontroll.py`) bekräftar läget före varje start (`kunskap/beroenden.md`,
 Underhåll).

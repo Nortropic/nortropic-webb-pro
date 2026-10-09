@@ -27,8 +27,10 @@ utebliven vecka redovisas i stället för att tigas om.
 
 ## Incident
 
-Läs felet, sedan Vercels status, sedan senaste driftsättningen. Är innehållet eller driftsättningen orsaken:
-återgång enligt `kunskap/lansering.md` (föregående driftsättning befordras), med ägarens ja. Skriv tid, orsak, vem
+Läs felet, sedan Cloudflares status (cloudflarestatus.com), sedan senaste versionen (`wrangler deployments list` i
+kundrepot). Är innehållet eller driftsättningen orsaken: återgång enligt `kunskap/lansering.md` (`wrangler rollback`
+till föregående version), med ägarens ja. För en sajt som ligger kvar på Vercel: Vercels status och föregående
+driftsättning. Skriv tid, orsak, vem
 som beslutade och vad som återställdes i kundmappen; verksamheten informeras. Ingen självläkning i kod.
 
 ## Beroenden

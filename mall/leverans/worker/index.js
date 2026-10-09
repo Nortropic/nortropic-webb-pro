@@ -119,12 +119,15 @@ async function sha256(text) {
   return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Idempotensnyckeln: formulärets inskicks-id (sätts i webbläsaren när sidan laddas), annars innehållet i ett tiominutersfönster,
-// så att också ett inskick utan JavaScript som skickas igen efter ett tappat svar blir samma ärende.
+// Idempotensnycklarna: formulärets inskicks-id (sätts i webbläsaren när sidan laddas), annars innehållet i ett
+// tiominutersfönster, så att också ett inskick utan JavaScript som skickas igen efter ett tappat svar blir samma ärende.
+// Det föregående fönstret räknas också, så att två inskick på var sin sida av en fönstergräns inte blir två ärenden; den
+// första nyckeln är den som sparas.
 async function idempotens(inskick, falt, bild) {
-  if (giltigtInskick(inskick)) return 'i:' + inskick;
+  if (giltigtInskick(inskick)) return ['i:' + inskick];
   const fonster = Math.floor(Date.now() / 600000);
-  return 'h:' + await sha256([falt.namn, falt.telefon, falt.meddelande, bild ? `${bild.type}/${bild.size}` : '', fonster].join('\n'));
+  const innehall = [falt.namn, falt.telefon, falt.meddelande, bild ? `${bild.type}/${bild.size}` : ''].join('\n');
+  return Promise.all([fonster, fonster - 1].map(async (f) => 'h:' + await sha256(innehall + '\n' + f)));
 }
 
 function base64(bytes) {
@@ -133,9 +136,10 @@ function base64(bytes) {
   return btoa(s);
 }
 
-async function befintlig(env, nyckel) {
-  return frist(env.DB.prepare('SELECT f.id AS id, u.status AS status FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id WHERE f.nyckel = ?')
-    .bind(nyckel).first(), FRIST_LAGRING, 'kontrollen av tidigare inskick');
+async function befintlig(env, nycklar) {
+  const platser = nycklar.map(() => '?').join(', ');
+  return frist(env.DB.prepare(`SELECT f.id AS id, u.status AS status FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id WHERE f.nyckel IN (${platser}) ORDER BY f.mottagen LIMIT 1`)
+    .bind(...nycklar).first(), FRIST_LAGRING, 'kontrollen av tidigare inskick');
 }
 
 async function radera(env, nyckel) {
@@ -143,7 +147,7 @@ async function radera(env, nyckel) {
   try { await env.BILAGOR.delete(nyckel); } catch { console.error('forfragan: bilagan kunde inte tas bort efter ett fel'); }
 }
 
-async function spara(env, id, nyckel, falt, bild, nu) {
+async function spara(env, id, nycklar, falt, bild, nu) {
   let bilaga = null;
   const dagar = Math.max(1, Number(env.GALLRING_DAGAR || 365));
   const gallras = new Date(Date.parse(nu) + dagar * 86400000).toISOString();
@@ -160,7 +164,7 @@ async function spara(env, id, nyckel, falt, bild, nu) {
     resultat = await frist(env.DB.batch([
       env.DB.prepare(`INSERT INTO forfragningar (id, nyckel, mottagen, namn, telefon, meddelande, bilaga, bilaga_typ, bilaga_storlek, bilaga_namn, gallras)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(nyckel) DO NOTHING`)
-        .bind(id, nyckel, nu, falt.namn, falt.telefon, falt.meddelande, bilaga, bild ? bild.type : null, bild ? bild.size : null,
+        .bind(id, nycklar[0], nu, falt.namn, falt.telefon, falt.meddelande, bilaga, bild ? bild.type : null, bild ? bild.size : null,
           bild ? filnamn(bild) : null, gallras),
       env.DB.prepare(`INSERT INTO utkorg (forfragan, status, forsok, uppdaterad) SELECT ?, 'vantar', 0, ? WHERE EXISTS (SELECT 1 FROM forfragningar WHERE id = ?)`)
         .bind(id, nu, id),
@@ -171,7 +175,7 @@ async function spara(env, id, nyckel, falt, bild, nu) {
   }
   if (!resultat[0].meta.changes) {  // samma inskick hann före: det första ärendet gäller
     if (bilaga) await radera(env, bilaga);
-    return { dubblett: (await befintlig(env, nyckel).catch(() => null)) || {} };
+    return { dubblett: (await befintlig(env, nycklar).catch(() => null)) || {} };
   }
   return { id, bilaga };
 }
@@ -236,12 +240,12 @@ async function forfragan(request, env) {
     console.error('forfragan: ärendelagret (D1) saknas i produktionen');
     return felvy(raw, {}, 503, 'fel', OBEKRAFTAD, !!bild, t('inskick'));
   }
-  const nyckel = await idempotens(t('inskick'), falt, bild);
-  const redan = await befintlig(env, nyckel).catch(() => null);
+  const nycklar = await idempotens(t('inskick'), falt, bild);
+  const redan = await befintlig(env, nycklar).catch(() => null);
   if (redan) return svar(redan.status === 'accepterad' ? '/tack/' : '/mottagen/', 'dubblett');
   const id = crypto.randomUUID(), nu = new Date().toISOString();
   let sparad;
-  try { sparad = await spara(env, id, nyckel, falt, bild, nu); }
+  try { sparad = await spara(env, id, nycklar, falt, bild, nu); }
   catch (e) { console.error('forfragan: lagringen kunde inte bekräftas: ' + orsak(e)); }
   if (!sparad) return felvy(raw, {}, 503, 'fel', OBEKRAFTAD, !!bild, t('inskick'));
   if (sparad.dubblett) return svar(sparad.dubblett.status === 'accepterad' ? '/tack/' : '/mottagen/', 'dubblett');

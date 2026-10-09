@@ -71,7 +71,7 @@ ORD = lambda t: re.compile(r'(?<![a-zåäö0-9])' + re.escape(t) + r'(?![a-zåä
 # inte gör det (backloggen 2026-10-03: brus överst för att claude code, skill och mcp gav poäng i alla sammanhang)
 OMRADE_TERMER = {
     'ai-webbdesign': ['ai web design', 'ai website', 'vibe coding', 'website builder', 'generative ui', 'ai-genererad', 'ai-generated'],
-    'stacken': ['astro', 'vite', 'playwright', 'lighthouse', 'vercel', 'tailwind', 'static site'],
+    'stacken': ['astro', 'vite', 'playwright', 'lighthouse', 'cloudflare', 'wrangler', 'vercel', 'tailwind', 'static site'],
     'modeller och guider': ['anthropic', 'prompting', 'prompt engineering', 'opus', 'sonnet', 'haiku', 'model release', 'modellsläpp'],
     'ux och forskning': ['ux', 'usability', 'nielsen', 'user research', 'användbarhet', 'heuristic', 'heuristisk'],
     'provet': ['core web vitals', 'lcp', 'inp', 'cls', 'axe', 'audit', 'lighthouse'],

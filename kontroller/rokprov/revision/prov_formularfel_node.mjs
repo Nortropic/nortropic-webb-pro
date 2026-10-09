@@ -54,7 +54,11 @@ if (mode === 'langtext') values.meddelande = 'x\n'.repeat(1999) + 'xx';
 if (mode === 'honeypot') values.webbplats = 'falla';
 if (mode === 'snabb') values.fylltid = '500';
 if (mode === 'ogiltigt-inskick') { values.inskick = '"><script>x</script>'; values.telefon = ''; }
-if (mode === 'utan-inskick' || mode === 'dubblett-innehall') delete values.inskick;
+if (['utan-inskick', 'dubblett-innehall', 'fonstergrans', 'nytt-fonster'].includes(mode)) delete values.inskick;
+// innehållsnyckelns tiominutersfönster: en sekund före en gräns, sedan över den (samma ärende) eller 25 minuter senare (nytt)
+const verkligNu = Date.now.bind(Date);
+let klocka = ['fonstergrans', 'nytt-fonster'].includes(mode) ? Math.ceil(verkligNu() / 600000) * 600000 - 1000 : null;
+Date.now = () => klocka ?? verkligNu();
 const bas = 'https://kund.example.invalid';
 const begaran = (falt = values) => {
   const fd = new FormData(); for (const [k, v] of Object.entries(falt)) fd.append(k, v);
@@ -82,7 +86,9 @@ const kor = async (r) => { const s = await worker.fetch(r, env); svar.push({ sta
 if (mode === 'samtidigt') await Promise.all([kor(begaran()), kor(begaran())]);
 else await kor(req);
 if (mode.startsWith('langsam-')) await vanta(150);  // den sena operationen hinner bli klar innan lagret läses
-if (['dubblett-inskick', 'dubblett-innehall', 'langsam-batch', 'mejlfel'].includes(mode)) await kor(begaran());
+if (mode === 'fonstergrans') klocka += 2000;
+if (mode === 'nytt-fonster') klocka += 25 * 60000;
+if (['dubblett-inskick', 'dubblett-innehall', 'langsam-batch', 'mejlfel', 'fonstergrans', 'nytt-fonster'].includes(mode)) await kor(begaran());
 if (mode === 'dubblett-innehall') await kor(begaran({ ...values, meddelande: 'Ett annat meddelande' }));
 const rader = DB.db.prepare('SELECT f.*, u.status, u.forsok, u.mejl_id, u.fel FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id ORDER BY f.mottagen').all();
 console.log(JSON.stringify({ ...svar[0], svar, events, logs, values, rader, r2: [...BILAGOR.objekt.entries()] }));

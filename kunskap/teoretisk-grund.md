@@ -117,7 +117,7 @@ underhållscykel. L: ISO/IEC 25010 (2023); ISO 9241-11 (2018); Ries (2011); Fors
 (2016); Krug (2010); Rubin & Chisnell (2008).
 
 **11 Ramverk och hosting.** P: Statisk förrendering och minimal klient-JS är tillämpning av 1, 4 och 8, inte egna
-principer. M/L: Leverantörsdokumentation (för oss Astro och Vercel) – primärkälla men inte granskad litteratur.
+principer. M/L: Leverantörsdokumentation (för oss Astro och Cloudflare) – primärkälla men inte granskad litteratur.
 
 ## B.2 Nielsens tio heuristiker (Nielsen & Molich 1990; Nielsen 1994)
 

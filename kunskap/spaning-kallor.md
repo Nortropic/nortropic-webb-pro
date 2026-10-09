@@ -129,7 +129,11 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | hn | HN: småföretagssajt | "small business" website | | 1.1 | ux och forskning |
 | awesome | awesome-claude-code | https://github.com/hesreallyhim/awesome-claude-code | bara nya länkar räknas | 1.0 | agentflödet |
 | awesome | awesome-design-md | https://github.com/VoltAgent/awesome-design-md | dömd nej som källa; här en pekare | 1.0 | ai-webbdesign |
-| rss | Vercel changelog | https://vercel.com/atom | lanseringen väntar; höj vikten när en kund ska ut | 0.3 | lansering |
+| rss | Vercel changelog | https://vercel.com/atom | bara för sajterna som ligger kvar på Vercel (ägarens beslut 2026-10-09) | 0.3 | lansering |
+| rss | Cloudflare Workers changelog | https://developers.cloudflare.com/changelog/rss/workers.xml | leveransvägen: Workers, Static Assets, workers.dev och förhandsadresser | 1.0 | lansering |
+| rss | Cloudflare D1 changelog | https://developers.cloudflare.com/changelog/rss/d1.xml | formulärets ärendelager: gränser, jurisdiktion | 0.8 | lansering |
+| rss | Wrangler releases | https://github.com/cloudflare/workers-sdk/releases.atom | låst i mall/leverans; underhållet tar in | 0.8 | lansering |
+| rss | Resend changelog | https://resend.com/changelog/rss.xml | formulärets mejl: API, idempotens, avsändarkrav | 0.6 | lansering |
 
 ## Bevakningsfrågor
 
@@ -441,14 +445,14 @@ ansvar: granskningen
 ```
 
 ```bevakning leveransvagen
-fråga: Har Vercel ändrat CLI-driftsättningens förval (produktion, skydd), regionen eller adaptern så att leveransvägen beter sig annorlunda?
+fråga: Har Cloudflare ändrat Workers (Static Assets, run_worker_first, workers.dev och förhandsadresser, Access), D1, R2 eller Wrangler så att leveransvägen beter sig annorlunda, eller ändrats gränserna för gratisnivån?
 område: leverans
 steg: leverans
 kompetens: leverans
-berör: vercel; kontroller/kundrepo.py; kontroller/exportera.py
-källor: Vercel changelog
+berör: wrangler; mall/leverans/; kontroller/kundrepo.py; kontroller/exportera.py; kontroller/workersprov.py
+källor: Cloudflare Workers changelog; Cloudflare D1 changelog; Wrangler releases
 källtyp: leverantor
-version: Vercel CLI 62.4.0, @astrojs/vercel 11.0.11
+version: Wrangler 4.148.0, compatibility_date 2026-10-01
 kontroll: kalla, underhall, codex
 bedömning: vid-fynd
 intervall: dag
@@ -480,12 +484,12 @@ ansvar: startkontrollen
 ```
 
 ```bevakning sakerhet
-fråga: Har en sårbarhet eller ett säkerhetsråd publicerats för vår stack, verktygslådan eller kundsajternas plattform (Node, Astro, Vite och mallens npm-paket, Vercel, skills och MCP:er) som kräver en åtgärd, och följer mallens säkerhetshuvuden aktuell praxis?
+fråga: Har en sårbarhet eller ett säkerhetsråd publicerats för vår stack, verktygslådan eller kundsajternas plattform (Node, Astro, Vite och mallens npm-paket, Cloudflare Workers och Wrangler, Vercel för sajterna som ligger kvar där, skills och MCP:er) som kräver en åtgärd, och följer mallens säkerhetshuvuden aktuell praxis?
 område: juridik
 steg: helbygge
 kompetens: leverans
 berör: mall/; kunskap/byggstandard.md; kunskap/beroenden.md; .mcp.json
-källor: Node.js säkerhet; Astro releases
+källor: Node.js säkerhet; Astro releases; Wrangler releases
 källtyp: leverantor
 kontroll: kalla, codex
 intervall: vecka
@@ -493,7 +497,7 @@ ansvar: underhållet (beroendena) och helbygget (mallen)
 ```
 
 ```bevakning personuppgifter-i-kundsajter
-fråga: Hanterar kundsajterna personuppgifter enligt GDPR och IMY:s aktuella vägledning: kontaktformulär, överföring till tredjeland genom Vercel och externa typsnitt, skript eller kartor?
+fråga: Hanterar kundsajterna personuppgifter enligt GDPR och IMY:s aktuella vägledning: kontaktformulär och lagrade förfrågningar (D1 och R2 hos Cloudflare, mejl genom Resend), överföring till tredjeland och externa typsnitt, skript eller kartor?
 område: juridik
 steg: helbygge
 kompetens: leverans
@@ -506,12 +510,12 @@ ansvar: helbygget
 ```
 
 ```bevakning villkor-for-tjansterna
-fråga: Har villkoren, licenserna eller priserna ändrats för tjänsterna vi använder (Anthropics prenumeration, API och användarpolicy, OpenAI och Codex, Refero, Mobbin, 21st, Vercel och Resend), så att vår användning, kvoten eller kundleveransen påverkas?
+fråga: Har villkoren, licenserna eller priserna ändrats för tjänsterna vi använder (Anthropics prenumeration, API och användarpolicy, OpenAI och Codex, Refero, Mobbin, 21st, Cloudflare, Vercel och Resend), så att vår användning, kvoten eller kundleveransen påverkas?
 område: ai
 steg: forvaltning
 kompetens: arbetsledning
 berör: kunskap/beroenden.md; kunskap/metodkarta.md; README.md
-källor: Anthropic news; OpenAI news; Vercel changelog
+källor: Anthropic news; OpenAI news; Cloudflare Workers changelog; Resend changelog; Vercel changelog
 källtyp: leverantor
 kontroll: kalla, codex
 bedömning: vid-fynd

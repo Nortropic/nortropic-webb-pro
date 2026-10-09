@@ -77,7 +77,7 @@ formulär) är gjorda 2026-09-27 och redovisade i kontorets privata `evidence/na
 `BEVIS-BESOK-LIVE.txt` (claude-sonnet-5, 14 turer, uppgiften löst, tre förfrågningar inom ursprunget, formulärinskicket
 mottaget av provmottagaren) och `BEVIS-BESOK-LIVE-UNDANTAG.txt` (samma väg med skyddsundantag: init-filen privat utanför
 utförarens arbetskatalog läst av den verkliga MCP-servern, headern mottagen bara av målet). Inte prövat live: att
-utföraren faktiskt vägras de förbjudna verktygen (ingen tur försökte), en verkligt skyddad Vercel-förhandsvisning, och
+utföraren faktiskt vägras de förbjudna verktygen (ingen tur försökte), en verkligt skyddad förhandsvisning (nu bakom Cloudflare Access med servicetokenens två huvuden; prövningen gjordes för Vercels förbikoppling), och
 raderingen av den privata initkatalogen efter körning (båda livekörningarna gjordes före den ändringen; torrläget
 lämnar filen avsiktligt).
 
