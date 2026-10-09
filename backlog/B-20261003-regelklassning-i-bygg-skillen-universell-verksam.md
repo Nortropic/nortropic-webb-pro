@@ -1,11 +1,12 @@
 ---
 id: B-20261003-regelklassning-i-bygg-skillen-universell-verksam
-status: vilande
+status: klar
 kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: normal
-andrad: 2026-10-09T08:16Z
+commit: c964ea9
+andrad: 2026-10-09T08:37Z
 ---
 # Regelklassning i bygg-skillen: universell, verksamhetens behov eller visuell preferens från piloten (ägarbeslut om mobilreglerna)
 
@@ -22,3 +23,5 @@ andrad: 2026-10-09T08:16Z
 **Vilande (2026-10-09):** Avstämt 2026-10-09 (ägarens uppdrag punkt 3; avstämningstabellen regel → källa → räckvidd → verkställs → klassning → fråga i RAPPORT-2026-10-09-sju-backlogomraden). Redan på plats: GRANSKARE.md säger att navigation och formulär får vara standard, och bygg-skillen låter den godkända kandidaten avgöra mobilens komposition (rensningen inför 2.0). Rättat (3bd4455): klickytor 24×24 px (WCAG 2.2 AA, 2.5.8) och 44×44 för knappen för den primära handlingen (Nortropics produktkrav, inte WCAG:s minimum och inget krav på alla länkar) är åtskilda i designregler.md och byggstandarden 3.3; 'helst ingen gömd meny' (5.2) är en designhypotes; stilrapportens mått av mobilens första vy är underlag i GRANSKARE.md steg 9; kravexemplet i bygg-skillen beskriver en funktion, inte en placering. Inga nya krav på menyplacering, sidhuvudets höjd, rubrikkomposition, foto i första skärmen eller fast list. Kvar, ägarens beslut: det gemensamma kravet 'den primära handlingen syns i första vyn på mobilen och går att nå med tummen' (designregler.md); alternativ A–C med bilder ur de dömda K01–K13 i rapporten, rekommendation B (Nortropics produktkrav för dagens erbjudande: nås från mobilens första vy, 44×44; tummen en designhypotes).
 
 **Vilande (2026-10-09):** 2026-10-09: GR-20261009-metod-till-resultat-codex#H03 hör hit: placeringen av den primära handlingen prövas mot toppuppgift och sidtyp med bildjämförelser; tillgänglighet och fungerande kontakt består. Alternativen A–C och rekommendationen står i RAPPORT-2026-10-09-sju-backlogomraden; inget ägarbeslut fattat.
+
+**Klar (2026-10-09):** Ägarens beslut 2026-10-09 (alternativ C med precisering; BESLUT.md, tillägget samma dag) genomfört i c964ea9: den primära handlingen är tydlig och lätt att hitta; i mobilens första vy när briefens prioriterade besökaruppgift motiverar det, annars märkt som hypotes; minst 44×44 CSS-pixlar för primära interaktiva kontroller som Nortropics produktkrav, skilt från WCAG:s minimum; tummen och fast nederlist är designhypoteser; funktion och visuell kvalitet bedöms var för sig. Styrningsvakten fäller den ersatta formuleringen. Inte verifierad: ingen verklig granskare eller skapare har körts med texterna.
