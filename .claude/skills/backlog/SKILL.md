@@ -81,7 +81,9 @@ Hög prio först, sedan äldst. Har ägaren namngett poster: bara de, i den ordn
 
 Säger posten emot ett gällande ägarbeslut (`BESLUT.md`, besluten med räckvidd i `kunskap/designregler.md`): genomför
 den inte. Ägarens domar över byggen före rensningen 2026-10-05 (`LARDOMAR.md`, `kunskap/rensning-nortropic-2.md`) är
-historik: de fäller ingen post, och en post vars enda skäl är en sådan dom genomförs inte heller. Sätt
+historik: de fäller ingen post, och en post vars enda skäl är en sådan dom genomförs inte heller. Detsamma gäller allt
+designmaterial från före den rena designstarten 2026-10-09 (`kunskap/ren-designstart.md`): gamla prototyper, domar,
+kalibreringsankare och regler som härletts ur dem motiverar ingen post. Sätt
 `status <id> vilande --not "<krocken eller skälet>"` och ta upp det i slutrapporten.
 
 ## Efter sista posten

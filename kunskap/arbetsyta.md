@@ -173,7 +173,9 @@ motorns sessioner, så att samma instruktion aldrig går två vägar.
 | **Följ** | sessionens kort | sessionens observerade händelser ur transkriptet | skickar inget |
 | **Skriv** | sessionens kort, Meddelanden | en fråga eller ändringsinstruktion till sessionen som arbetar, eller till kandidatens utförare | ändrar inget själv; utföraren gör det i sin session |
 | **Historik** | sessionens kort (efter ditt första val) | sessionens samtal ur transkriptet, maskerat och avkortat, med verktygens namn | visar inga verktygssvar |
-| **Fortsätta arbetet** | Meddelanden, Kontroller | en ändringsinstruktion till kandidatens utförare (sessionen som arbetar med kandidaten nu eller härnäst) och Förfina under Kontroller: motorns egen förfiningssession med dess behörigheter genomför den | ingen förgrening skriver i kandidatens filer, och två aktörer skriver aldrig samtidigt |
+| **Ge ett uppdrag** | Skriv → Ändring, Prototyp | ett av de tre uppdragen på den markerade kandidaten och versionen: **Rätta** (angivna brister inom befintlig omfattning), **Omarbeta designen** (komposition, bildregi, typografi, rytm och hierarki inom avtalat innehåll) eller **Bygg ut** (överenskomna sektioner, undersidor och funktioner), med önskat resultat, omfattning, det som ska bevaras och avsändaren (du, eller kunden med ett belägg för var kundens ord står); sparas i domloggen | startar inget; uppdraget startas under Kontroller med knappen "Starta uppdraget: …", och motorns egen session med dess behörigheter genomför det (`kunskap/skapandeflodet.md`, steg 7) |
+| **Välj en tidigare version** | Resultat → Jämför, en tidigare version | väljer den bevarade versionen (före eller efter ett uppdrag); den tas fram med "Ta fram den valda versionen …" under Kontroller | den nuvarande versionen står kvar bevarad och kan väljas igen |
+| **Fortsätta arbetet** | Meddelanden, Kontroller | en ändringsinstruktion till kandidatens utförare (sessionen som arbetar med kandidaten nu eller härnäst) | ingen förgrening skriver i kandidatens filer, och två aktörer skriver aldrig samtidigt |
 | **Följdfråga** | Historik, för en avslutad session | en förgrening (`--resume <id> --fork-session`) med eget id, registrerad med föräldern och ansvaret, som bara läser (Read, Glob, Grep; dontAsk) i en egen tom katalog | förgrenar aldrig en session som arbetar; föräldern får aldrig en andra process |
 | **Pausa** | sessionens kort (en session), Kontroller (körningen) | se Paus och återupptagning | återställer inga filändringar eller externa handlingar |
 | **Återuppta** | samma ställen | fortsätter samma process från känt läge med det som kom under pausen | startar inget nytt |
@@ -181,7 +183,7 @@ motorns sessioner, så att samma instruktion aldrig går två vägar.
 | **Återuppta arbetet** | Kontroller | `--fortsatt` genom samma ingång | gör inget klart om |
 | **Partnern** | Samtal → Partnern | en tur i partnerns egen session (se Partnern) | ändrar inget, startar inget |
 
-Start, förfining, stopp och export går genom `POST /api/flode/<slug>/start` med samma start-id som Flöde
+Start, uppdrag, stopp och export går genom `POST /api/flode/<slug>/start` med samma start-id som Flöde
 (`nwp-start:<kund>:<handling>`): ett dubbelklick skickar en begäran, ett tappat svar försöks igen med samma id, och en
 andra flik nekas av servern.
 

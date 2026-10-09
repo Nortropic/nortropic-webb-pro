@@ -408,6 +408,9 @@ Ersatta designregler (ur `kunskap/designregler.md`, bevarade här):
 | "Sidhuvud på en rad med den primära handlingen som knapp, menylänkarna synliga utan hamburgare, fast list längst ned med den primära handlingen och Skriv, numret högst två gånger i första vyn" (A/B 2026-10-02 och domarna L1, L2, L4, L5) | bygget, som utgångspunkt | riktningens val inom kvalitetskraven (den primära handlingen nås från första vyn, menyn fungerar) | smak ur två byggen; inget bygge hittills var bra nog (rensningen inför Nortropic 2.0, 2026-10-06) |
 | "Gatuadressen i sidfoten på varje sida" (7.4; A/B 2026-10-02, L5, L6) | bygget | kontaktsidan och JSON-LD; placeringen i övrigt är riktningens | placeringen var en kunds smak; sanningen och NAP består |
 | "Ägarens domar i LARDOMAR.md gäller före allt" (skillsens anpassningar) och LARDOMAR som exempel till skapare, panel och granskare | alla agenter | ägarens aktuella beslut och kundens domar; LARDOMAR är historik med läsförbud | inget bygge hittills var bra nog: domarna över dem är inga förebilder |
+| "Minst tre förhandsvarv i läget full och i förfiningen" (arbetsregeln H02, `MIN_VARV`, `MIN_VARV_FORFINA`) | skaparen i läget full, förfiningen, ateljéns förfining | inget minsta antal varv: observerad brist, ändring och efterkontroll, rundgångsspärr vid två varv utan synlig förbättring, resursgränserna fristerna och turerna | ägarens uppdrag 2026-10-09 ~17:53Z, punkt 10: "Ta bort minimiantalet tre förfiningsvarv" |
+| "de du väljer fördjupas till hela startsidan, undersidan och besökarens flöde" (valj och putsa startade samma fördjupning) | kandidatflödet | ett val startar inget; uppdragen Rätta, Omarbeta designen och Bygg ut med version, resultat, omfattning och det som ska bevaras | punkt 8: "En begäran om putsning ska inte automatiskt beställa hela startsidan, en undersida och nya funktioner" |
+| "Ribban i tre nivåer ur ägarens kalibrering" (`kunskap/visuell-niva.md`) | granskaren, kritiken, ateljéns panel, metodens utdrag | kvalitetskravet Helhet och hierarki i `kunskap/designregler.md`; granskaren okalibrerad tills ägaren dömt nya exempel | punkt 3: kalibreringsankare och visuella lärdomar ur gamla bedömningar ska sluta påverka; "Kvalitetskraven består" |
 
 ## Tillägg 2026-10-06: ägarens fyra beslut (brew update, node@24, Figma, dashboardarna)
 
@@ -4298,3 +4301,60 @@ Genomförarens tillämpning, på det mandatet:
 - **Dubbletterna:** Flöde förs in i Byggflöde, och Prototyps beslut förs in i arbetsytans förslagsyta inom 97:s uppdrag
   om tio förslag. Därefter tas båda posterna ur menyn.
 - **Prospekt** står under Kundproduktion, eftersom det handlar om att hitta kunder och inte om att förbättra systemet.
+
+## Tillägg 2026-10-09 ~17:53Z: ägarens uppdrag om tio förslag och en ren designstart
+
+Ägaren klistrade in ett uppdrag i tolv punkter (ordagrant i minnet, `nortropic-agaren-tio-forslag-ren-designstart-uppdrag-20261009`),
+med raden "Var noggrann med att gå in på varje nämnd källa för förståelsen och websaercha". Ägarens egna formuleringar
+som styr, ordagrant:
+
+> Kundunderlag → kundförståelse → starka branschreferenser → visuell inspiration och användbara mallar/komponenter → tio kundanpassade förslag → kundens val → riktad förbättring → helbygge → verifierad leverans.
+
+> Tio förslag är mitt beslut. Det tidigare förslaget att minska antalet är inte antaget.
+
+> Målet är snabbare väg till hög kvalitet. Antalet rapporter, lästa skills, verktygsanrop eller iterationer är inget kvalitetsmått.
+
+> Ta bort minimiantalet tre förfiningsvarv. Använd observerad brist → ändring → efterkontroll. Behåll rimliga resursgränser och möjlighet att stoppa rundgång.
+
+> Detta uppdrag innebär inget automatiskt godkännande av helbygge eller publicering. Befintliga startmandat gäller.
+
+**Nuläget på 361f1e6 (punkt 2):** Codex fem iakttagelser på 422ff6b gällde fortfarande: prototyp.py förde både valj och
+kandidatens putsa till samma fördjupning; forfina_prompt beställde hela startsidan, undersidan och centralt flöde för
+skisskörningar; efter_fordjupning körde båda specialistpassen; passens visuella bedömning sparades men styrde ingen
+återställning; och minst tre förfiningsvarv var en instruktion fast metodkartan kallade antalet ett oprövat processval.
+
+**Genomfört** (grenen `claude/tio-forslag-20261009`; detaljerna i `kunskap/skapandeflodet.md` och rapporten
+`underlag/rapporter/RAPPORT-2026-10-09-tio-forslag-ren-designstart.md`, privat):
+- **Ren designstart** (`kunskap/ren-designstart.md`, `kontroller/ren_designstart.py`): manifest, verifierat arkiv i
+  `~/Arkiv/nortropic-ren-designstart-20261009/`, vakt i startkontrollen, läsförbud för arkivet, rapporterna och
+  granskningarna i flödets sessioner. `LARDOMAR.md` börjar om vid brytpunkten (numreringen fortsätter med L7),
+  `kunskap/visuell-niva.md` är borttagen, och granskaren säger sanningsenligt att den är okalibrerad
+  (`granska.kalibreringsstatus`). Taggen `fore-ren-designstart-20261009` är läget före.
+- **Uppdragen** (punkt 8): beslutet `uppdrag` med typen Rätta, Omarbeta designen eller Bygg ut, versionen, det
+  önskade resultatet, omfattningen och det som ska bevaras (`skapande.uppdrag_giltigt`); ett val startar inget;
+  `putsa` i kandidatflödet är ersatt; handlingens benämning är det som startas.
+- **Kundens beslut** (punkt 11): källan `kunden` med belägg gäller val, uppdrag och underkännanden, aldrig godkännandet
+  för helbygge eller publicering.
+- **Specialistpassen** (punkt 9) bara på uppdragets begäran, ändrande eller bedömande; återkopplingen i formen bild,
+  version, element, tillstånd, avvikelse och kodkoppling.
+- **Före och efter** (punkt 10): en separat blind granskare jämför versionerna som X och Y utan skaparens förklaring,
+  och regeln avgör fortsättningen; tidigare versioner kan väljas; inget minsta antal varv.
+- **Kundförståelsen** (punkt 4): KUNDFORSTAELSE.md i förberedelsen, prövad före publiceringen.
+- **Branschen och de tio förslagen** (punkt 5–6): branschgenomgången, förebilder utanför branschen, visuell
+  utgångspunkt och implementationsgrund per förslag, skillnadens dimensioner (bara färg avvisas), bristen mot tio
+  redovisad i stället för utfylld. 21st:s `get_theme` fick en uppgift (teman är CSS-variabler, användbara i Astro).
+
+**Ersatt:** raderna i tabellen Ersatta designregler ovan (minst tre varv, ett val som fördjupar, ribban ur
+kalibreringen) och designreglernas hypoteser ur gamla byggen (brödsmulor, upptagna val, tummen). Gällande ägarbeslut
+utanför uppdraget står kvar.
+
+**Öppna frågor för ägaren:** Mobbins villkor (§3.2) förbjuder cache och arkiv utan skriftligt medgivande, och
+21st:s villkor (§3) är oklara för komponentkod i kundsajter; båda bör klaras ut skriftligt med leverantörerna innan
+lagring och kundleveranser blir rutin. Prototyps funktioner flyttas in i arbetsytans förslagsyta efter det här
+uppdraget (b3:s förslag, delningen 2026-10-09 ~18:28Z).
+
+## Ägarens besked 2026-10-09 ~18:2xZ: Dyad-provet, köat efter uppdraget ovan
+
+Ordagrant:
+
+> angående dyad:  Efter pågående uppdrag: bygg hela Dyad-provet. Steg 1 genomförbarhet (claude -p mot falsk server, stanna och redovisa om det inte går). Steg 2 provläge låst till prov, med prov att det aldrig gäller i drift. Steg 3 prov per roll: modell, instruktion, bildernas sha256 och att blinda roller saknar skaparens material. Inga riktiga nycklar i dumparna.

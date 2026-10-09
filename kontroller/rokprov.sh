@@ -789,7 +789,7 @@ echo "   byggets läsgräns per kandidat (2026-10-07): sidans kod når varken sy
   || { echo "FEL: läsgränsens prov"; grep '^FEL' "$ROOT/kunder/rokprov-mall/lasgrans-prov.log" | cut -c1-300 || true; tail -3 "$ROOT/kunder/rokprov-mall/lasgrans-prov.log"; exit 1; }
 echo "   läsgränsens prov ok ($(grep -c '^ok: ' "$ROOT/kunder/rokprov-mall/lasgrans-prov.log") fall)"
 echo "   småverktygen: profilbladet ur VERKSAMHET.json (rapportens punkt 14), byggstandardens 3.2 (cqi), kundrepot, 21st, materialet, urvalet, Codex fynd R01–R08, leveransens visuella status och omgranskningens N01–N06, blindningen och arbetsroten, jämförelsen mot den godkända prototypen, kalibreringens frysning, fångsten av främmande sajter och glappen metod → resultat (F01–F03, T01–T02)"
-for litet in prov_profilblad prov_standard prov_kundrepo prov_21st prov_material prov_urval prov_codex_rester prov_bildstatus prov_omgranskning prov_vinnare prov_kalibrering prov_fangst prov_metodglapp; do
+for litet in prov_profilblad prov_standard prov_kundrepo prov_21st prov_material prov_urval prov_codex_rester prov_bildstatus prov_omgranskning prov_vinnare prov_kalibrering prov_fangst prov_metodglapp prov_tio_forslag; do
   "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/$litet.py" >"$ROOT/kunder/rokprov-mall/$litet.log" 2>&1 \
     || { echo "FEL: $litet"; tail -20 "$ROOT/kunder/rokprov-mall/$litet.log"; exit 1; }
 done

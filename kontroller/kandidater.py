@@ -2304,7 +2304,8 @@ def kompetenspass(slug, kid, pass_, fas, dom=None, lage='andra'):
         try:
             passverktyg = ([v_ for v_ in verktyg(slug, kid, komplettering=False) if not str(v_).startswith(('Write(', 'Edit('))]
                            if lage == 'bedom' else verktyg(slug, kid, komplettering=False))  # bedöm: läsande verktyg, ingen ändring
-            svar = atelje.session(pass_prompt(slug, kid, pass_, saknade, dom, lage), passverktyg + kompetens.verktyg(pass_, slug, kid),
+            svar = atelje.session(pass_prompt(slug, kid, pass_, saknade, dom, **({'lage': lage} if lage != 'andra' else {})),
+                                  passverktyg + kompetens.verktyg(pass_, slug, kid),
                                   ut, PASS_SCHEMA, 300, effort=EFFORT_SKISS, frist=FRIST_PASS_OMFORSOK if saknade else FRIST_PASS,
                                   nekas=andra_nekas(slug, kid), slug=slug,
                                   vid_start=lambda pid: satt_status(slug, kid, status0, 'kompetenspass %s' % pass_, session_pid=pid))
@@ -2869,7 +2870,7 @@ def omplanera(slug, plan, atergangar):
     nya = [k for k in (svar.get('structured_output') or {}).get('kandidater') or [] if isinstance(k, dict) and str(k.get('titel') or '').strip()]
     gjorda, avvisade = [], []
     for k_, k in zip(kids, nya):
-        brist = referensbrist(slug, k)
+        brist = referensbrist(slug, k) or planbrist(k)  # också omplaneringen: bara färg, eller en bild som kodmall, avvisas
         if brist:
             avvisade.append('%s: %s' % (k_, brist))
             continue

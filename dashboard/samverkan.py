@@ -313,6 +313,15 @@ def grenar(dash, slug):
     return {'grenar': _grenar(dash, slug)}
 
 
+def _brytpunkt(dash):
+    """Den rena designstartens brytpunkt ur det privata registret (kontroller/ren_designstart.py), eller None."""
+    try:
+        d = json.loads((Path(dash.UNDERLAG) / 'rensning' / 'REN-DESIGNSTART-20261009.json').read_text(encoding='utf-8'))
+        return str(d.get('brytpunkt') or '') or None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def foljdfraga(dash, slug, data):
     """En följdfråga till en avslutad session: en förgrenad session (claude -p --resume <id> --fork-session) med eget id,
     registrerad med föräldern och ansvaret, som bara får läsa (Read, Glob, Grep; dontAsk) och startar i en egen tom
@@ -333,6 +342,10 @@ def foljdfraga(dash, slug, data):
         raise M.Nekad('sessionen arbetar: skriv till den med ett meddelande; en förgrening startas först när den slutat')
     if not _transkript(sid):
         raise ValueError('sessionens transkript finns inte; den kan inte förgrenas')
+    bryt = _brytpunkt(dash)  # den rena designstarten: en session från före brytpunkten bär de gamla designunderlagen
+    start_ = str((post or {}).get('start') or (post or {}).get('startad') or (s or {}).get('start') or (s or {}).get('startad') or '')
+    if bryt and (not start_ or start_ < bryt):
+        raise ValueError('sessionen startade före den rena designstarten (%s) och förgrenas inte: den bär de gamla designunderlagen' % bryt)
     k = _grenkatalog(dash, slug)
     with GREN_LAS:
         f = k / ('%s.json' % gid)

@@ -14,9 +14,10 @@ specifika ur en riktig verksamhet och låta det bära sajten. Regeln mot slop fi
 gamla antislop-skill: `kunskap/copy-kontroll.md` (fraser och strukturer, med `kontroller/copy_kontroll.py` som
 rapport), `kunskap/redaktionellt-pass.md` och `kunskap/referenser-professionella.md` (åtta jämförelsedimensioner).
 Det som gäller i bygget, med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens beslut), kundens aktuella
-domar i domloggen och, efter ett godkännande, den godkända kandidatens kod och DESIGN.md. Ägarens domar över tidigare
-byggen (`LARDOMAR.md`) är historik: inget bygge hittills har varit bra nog (ägaren 2026-10-05), så de är varken
-förebilder eller regler för en ny kund, och bygget läser dem inte.
+domar i domloggen och, efter ett godkännande, den godkända kandidatens kod och DESIGN.md. Allt designmaterial från före
+den rena designstarten 2026-10-09 (`kunskap/ren-designstart.md`), ägarens domar över tidigare byggen inräknade, är
+borttaget ur den aktiva miljön: det är varken förebild eller regel, och bygget läser inte arkivet, rapporterna eller
+granskningarna.
 
 ## Ramar för körningen
 
@@ -335,8 +336,9 @@ KONCEPT.md.
    2 först, sedan `.venv/bin/python kontroller/atelje.py <slug>` med Bash-tidsgränsen 600000, och samma kommando igen så
    länge den svarar att ateljén pågår. Ateljén utforskar riktningar som är olika grundidéer, var och en på sin egen
    huvudreferenskandidat ur REFERENSER.md, med verksamhetens riktiga innehåll. En domarpanel om tre dömer hela sidan mot
-   ägarens kalibreringsankare, ägarens domlogg och de prövade grundidéerna: håller riktningen ribban eller inte. Den
-   valda förfinas i förhandsvarv med designskillsen och döms före mot efter. Ingen riktning som en majoritet håller
+   kvalitetskraven, ägarens kalibreringsankare när de finns (efter den rena designstarten 2026-10-09 finns inga, och
+   panelen säger att den är okalibrerad), ägarens domlogg och de prövade grundidéerna: håller riktningen ribban eller
+   inte. Den valda förfinas i förhandsvarv (brist, ändring, efterkontroll; inget minsta antal) och döms före mot efter. Ingen riktning som en majoritet håller
    över ribban = alla förkastade; ateljén gör då en omgång till med panelens kritik och stannar sedan med slutkod 6:
    bygg ingen sajt, skriv RAPPORT.md (varför, panelens kritik ur `atelje/VAL.md`, vad som behövs för ett nytt
    försök) och avsluta; stoppvakten släpper avslutet och körningen slutar med kod 6. Samma gäller när skaparen under
