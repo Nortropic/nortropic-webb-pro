@@ -71,6 +71,37 @@ class Upptagen(ValueError):
     """Ett meddelande som inte kan tas emot nu (en tur pågår, sessionen är öppen i en terminal): HTTP 409."""
 
 
+class Dold(ValueError):
+    """Kunden är en arm i en blind jämförelse som ägaren inte valt i än: varken samtalet eller en ny tur (HTTP 409)."""
+
+
+def bindning(dash, slug):
+    """Vad partnersessionen är bunden till nu, ur samma källor som arbetsytans läsväg: körningen (STATUS.json:s startad)
+    och blindläget (arbetsyta.dold, stängt vid fel). En sparad session återupptas bara i samma körning, och i ett blint
+    läge bara om den startades blind: en ny blind körning ärver aldrig ett samtal där tidigare bedömningar eller
+    försöksarmar kan stå (att dölja det senaste meddelandet rensar inte sessionens minne)."""
+    import arbetsyta
+    blind, ab = arbetsyta.dold(dash, slug)
+    try:
+        korning = (dash.las_json(dash.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}).get('startad')
+    except Exception:  # noqa: BLE001 — okänd körning: ingen sparad session passar, och nästa meddelande får en ny
+        korning = '?'
+    return {'korning': korning, 'blind': bool(blind), 'ab_dold': bool(ab)}
+
+
+def _galler(d, b):
+    """Den sparade sessionen i d får återupptas under bindningen b."""
+    return bool(d.get('session_id')) and d.get('korning') == b['korning'] and (not b['blind'] or d.get('blind_vid_start') is True)
+
+
+def _arkivera(d):
+    """Den gällande sessionen flyttas oförändrad till tidigare; nästa meddelande startar en ny session."""
+    if not d.get('session_id'):
+        return d
+    gammal = {k: d.get(k) for k in ('session_id', 'skapad', 'modell', 'effort', 'korning', 'blind_vid_start', 'meddelanden')}
+    return {'schema': 'partner/1', 'slug': d.get('slug'), 'tidigare': list(d.get('tidigare') or []) + [gammal], 'meddelanden': []}
+
+
 def _katalog(dash, slug):
     return dash.UNDERLAG / slug / 'arbetsyta'
 
@@ -192,10 +223,25 @@ def _meddelandelage(dash, slug, m, sid=None):
 def lage(dash, slug, samtal=False):
     """Partnerns läge för arbetsytan: sessionen (som en rad bland rollsessionerna), meddelandenas läge och, med samtal,
     hela samtalet. Läsningen ändrar ingenting."""
-    d = _las(dash, slug)
     p = profil()
+    b = bindning(dash, slug)
+    if b['ab_dold']:
+        return {'session_id': None, 'lage': 'dold', 'dold': True, 'profil': p, 'meddelanden': [] if samtal else None, 'antal': 0,
+                'lage_text': 'kunden är en arm i en blind jämförelse: partnersamtalet visas och tar emot meddelanden efter ditt val',
+                'tidigare': None, 'session': None}
+    d = _las(dash, slug)
+    if d.get('session_id') and not _galler(d, b):
+        d = _arkivera(d)  # bara i läsningen; filen ändras först när nästa meddelande skickas
+    tidigare = [t for t in d.get('tidigare') or [] if isinstance(t, dict)]
+    hist = {'tidigare': len(tidigare)}
+    if samtal and not b['blind']:
+        hist['tidigare_samtal'] = [{'session_id': t.get('session_id'), 'korning': t.get('korning'), 'skapad': t.get('skapad'),
+                                    'meddelanden': [_meddelandelage(dash, slug, m) for m in t.get('meddelanden') or [] if isinstance(m, dict)]}
+                                   for t in tidigare]
     if not d.get('session_id'):
-        return {'session_id': None, 'lage': 'vantar', 'profil': p, 'meddelanden': [] if samtal else None, 'antal': 0}
+        return dict({'session_id': None, 'lage': 'vantar', 'profil': p, 'meddelanden': [] if samtal else None, 'antal': 0, 'session': None,
+                     'lage_text': 'inget meddelande i den här körningen än' if hist['tidigare'] else 'inget meddelande än',
+                     'bindning': {'korning': b['korning'], 'blind': b['blind']}}, **hist)
     med = [_meddelandelage(dash, slug, m, d.get('session_id')) for m in d.get('meddelanden') or [] if isinstance(m, dict)]
     senaste = med[-1] if med else None
     egna = {m.get('pid') for m in d.get('meddelanden') or [] if isinstance(m, dict) and m.get('pid')}
@@ -225,7 +271,8 @@ def lage(dash, slug, samtal=False):
     ut = {'session_id': d['session_id'], 'skapad': d.get('skapad'), 'modell': d.get('modell'), 'effort': d.get('effort'), 'profil': p,
           'lage': sl, 'lage_text': text, 'session': session, 'antal': len(med), 'senaste': {k: (senaste or {}).get(k) for k in ('id', 'lage', 'tid')},
           'andra_processer': andra, 'terminal': 'claude --resume %s' % d['session_id'],
-          'arbetskatalog': str(_rum(dash, slug))}
+          'arbetskatalog': str(_rum(dash, slug)), 'bindning': {'korning': d.get('korning'), 'blind_vid_start': d.get('blind_vid_start')}}
+    ut.update(hist)
     if samtal:
         ut['meddelanden'] = med
     return ut
@@ -307,11 +354,21 @@ def skicka(dash, slug, data, starta=True):
         raise ValueError('skriv ett meddelande (högst %d tecken)' % MAX_TEXT)
     if avsikt not in AVSIKTER:
         raise ValueError('okänd avsikt')
+    b = bindning(dash, slug)
+    if b['ab_dold']:
+        raise Dold('kunden är en arm i en blind jämförelse som du inte valt i än: partnern tar emot meddelanden efter ditt val')
     with _lasat(dash, slug):
         d = _las(dash, slug)
+        if d.get('session_id') and not _galler(d, b):
+            d = _arkivera(d)  # skrivs tillsammans med det nya meddelandet, efter arbetskatalogens prövning
         for m in d.get('meddelanden') or []:
             if isinstance(m, dict) and m.get('id') == mid:
                 return dict(_meddelandelage(dash, slug, m), upprepat=True)
+        for t in d.get('tidigare') or []:  # en flik från en tidigare session: ingen ny tur och inget av det gamla svaret
+            for m in (t.get('meddelanden') or []) if isinstance(t, dict) else []:
+                if isinstance(m, dict) and m.get('id') == mid:
+                    return {'id': mid, 'tid': m.get('tid'), 'lage': 'tidigare', 'upprepat': True, 'svar': None, 'text': None,
+                            'fel': 'meddelandet hör till en tidigare partnersession (en annan körning eller ett annat blindläge)'}
         if d.get('session_id'):
             for m in d.get('meddelanden') or []:  # en tur som överlevt sin frist (dashboarden startades om mitt i den) stoppas här
                 if isinstance(m, dict) and m.get('pid') and not m.get('slut') and _lever(m['pid']) and not _svar(dash, slug, m) \
@@ -339,7 +396,8 @@ def skicka(dash, slug, data, starta=True):
         ny = not d.get('session_id')
         if ny:
             d = {'schema': 'partner/1', 'slug': slug, 'session_id': str(uuid.uuid4()), 'skapad': _nu(), 'modell': p['modell'],
-                 'effort': p['effort'], 'meddelanden': []}
+                 'effort': p['effort'], 'korning': b['korning'], 'blind_vid_start': b['blind'], 'meddelanden': [],
+                 **({'tidigare': d['tidigare']} if d.get('tidigare') else {})}
         kontext = _rensa_kontext(data.get('kontext'))
         try:
             ktext, _lage = kontexttext(dash, slug, kontext)

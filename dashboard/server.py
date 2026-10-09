@@ -3282,7 +3282,7 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, ta_in_kandidat(m.group(1)) if m.group(2) == 'ta-in' else avfarda_kandidat(m.group(1), data.get('skal')))
             return self.skicka(404, {'fel': 'finns inte'})
         except (ValueError, json.JSONDecodeError, OSError) as e:
-            if type(e).__name__ in ('Upptagen', 'Inaktuell'):  # arbetsytan: en tur pågår, eller ändringen gäller en äldre version
+            if type(e).__name__ in ('Upptagen', 'Inaktuell', 'Dold'):  # arbetsytan: en tur pågår, ändringen gäller en äldre version eller kunden är en dold arm
                 return self.skicka(409, {'fel': str(e), 'slag': type(e).__name__})
             if vag == '/api/kundstart' or vag.startswith('/api/kundstart/'):
                 import kundstart

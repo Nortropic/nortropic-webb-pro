@@ -288,7 +288,7 @@ class Arbetsyta(unittest.TestCase):
 
     def partnerpost(self, sid, pid, tid):
         """PARTNER.json med ett meddelande vars tur har processen pid och startade tid, utan svar."""
-        self.skriv(self.u / 'arbetsyta' / 'PARTNER.json', {'schema': 'partner/1', 'slug': SLUG, 'session_id': sid, 'skapad': tid,
+        self.skriv(self.u / 'arbetsyta' / 'PARTNER.json', {'schema': 'partner/1', 'slug': SLUG, 'session_id': sid, 'korning': self.status['startad'], 'blind_vid_start': True, 'skapad': tid,
                                                            'meddelanden': [{'id': 'meddelande-n4-0001', 'tid': tid, 'avsikt': 'fraga', 'text': 'Hej?',
                                                                             'svarsfil': 'svar-meddelande-n4-0001.json', 'pid': pid}]})
 
@@ -359,7 +359,7 @@ class Arbetsyta(unittest.TestCase):
         self.assertEqual((r['utforande']['lage'], r['granskning']['lage'], r['arbetsledning']['lage']), ('beslut', 'vantar', 'vantar'), r)
         self.assertIn('väntar på ditt beslut', r['utforande']['lage_text'])
         sid = str(uuid.uuid4())
-        self.skriv(self.u / 'arbetsyta' / 'PARTNER.json', {'schema': 'partner/1', 'slug': SLUG, 'session_id': sid, 'skapad': '2026-10-09T06:00:00Z',
+        self.skriv(self.u / 'arbetsyta' / 'PARTNER.json', {'schema': 'partner/1', 'slug': SLUG, 'session_id': sid, 'korning': self.status['startad'], 'blind_vid_start': True, 'skapad': '2026-10-09T06:00:00Z',
                                                            'meddelanden': [{'id': 'meddelande-0001', 'tid': '2026-10-09T06:00:00Z', 'avsikt': 'fraga',
                                                                             'text': 'Var står vi?', 'svarsfil': 'svar-meddelande-0001.json', 'pid': None,
                                                                             'slut': '2026-10-09T06:01:00Z', 'rc': 0}]})
@@ -772,6 +772,103 @@ class Arbetsyta(unittest.TestCase):
             self.assertEqual(args[args.index(par[0]) + 1], par[1], args)
         self.assertIn('--strict-mcp-config', args)
         self.assertEqual(args[args.index('--allowedTools') + 1:args.index('--append-system-prompt')], regler)
+
+    # --- partnerns blindning (ägarens kontrollpunkter 2026-10-09: server.py:2950 och partner.py:296 på b20ae3a) ---
+
+    def test_partnerns_egna_vagar_sparras_for_en_arm_i_en_blind_jamforelse(self):
+        # partnerns GET och POST gick förbi A/B-spärren som arbetsytans samlade läsväg har
+        sid = str(uuid.uuid4())
+        self.skriv(self.u / 'arbetsyta' / 'PARTNER.json', {
+            'schema': 'partner/1', 'slug': SLUG, 'session_id': sid, 'skapad': '2026-10-09T05:00:00Z', 'korning': self.status['startad'],
+            'blind_vid_start': True, 'meddelanden': [{'id': 'meddelande-ab-0001', 'tid': '2026-10-09T05:01:00Z', 'avsikt': 'fraga', 'text': 'Vilken arm är detta?',
+                             'svarsfil': 'svar-meddelande-ab-0001.json', 'pid': None}]})
+        self.skriv(self.u / 'arbetsyta' / 'partner' / 'svar-meddelande-ab-0001.json',
+                   {'type': 'result', 'is_error': False, 'result': 'Detta är arm B, metodvarianten.', 'session_id': sid})
+        falsk, _ps = self.falsk_partner()
+        port, host, anropa = self.server()
+        fore = json.dumps(partner.lage(dash, SLUG, samtal=True), ensure_ascii=False)
+        self.assertIn('arm B', fore, 'utan jämförelsen syns samtalet: provet nedan är inte tomt av sig självt')
+        skriv = {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'}
+        for namn, ab in (('oavgjord', {'return_value': True}), ('trasig', {'side_effect': RuntimeError('jämförelsen kunde inte läsas')})):
+            with self.subTest(jamforelse=namn), patch.object(dash, 'ab_oavgjord', **ab):
+                l = partner.lage(dash, SLUG, samtal=True)
+                self.assertTrue(l.get('dold'), l)
+                status, _r, kropp = anropa('GET', '/api/arbetsyta/%s/partner' % SLUG)
+                self.assertEqual(status, 200)
+                for text in (json.dumps(l, ensure_ascii=False), kropp.decode()):
+                    for spar in (sid, 'arm B', 'Vilken arm', 'meddelande-ab-0001'):
+                        self.assertNotIn(spar, text)
+                with self.assertRaises(Exception):
+                    partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-ab-0002', 'text': 'Och nu?'})
+                with self.assertRaises(Exception):  # samma id som det dolda meddelandet ger inte heller dess svar
+                    partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-ab-0001', 'text': 'Vilken arm är detta?'})
+                status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/partner' % SLUG, {'meddelande_id': 'meddelande-ab-0003', 'text': 'Och nu?'}, skriv)
+                self.assertEqual(status, 409, kropp)
+                self.assertNotIn('arm B', kropp.decode())
+        self.assertEqual(falsk.anrop, [], 'ingen partnertur startades för armen')
+        self.assertEqual([m['id'] for m in self.las(self.u / 'arbetsyta' / 'PARTNER.json')['meddelanden']], ['meddelande-ab-0001'])
+
+    def test_en_ny_blind_korning_far_en_ny_partnersession_utan_gammalt_minne(self):
+        # partnern återupptog samma session (--resume) i varje körning: en ny blind körning ärvde samtalet där tidigare
+        # bedömningar stod; att dölja det senaste meddelandet rensar inte sessionens minne
+        falsk, _ps = self.falsk_partner()
+        fil = self.u / 'arbetsyta' / 'PARTNER.json'
+        seende, blind = (False, False), (True, False)
+        with patch.object(arbetsyta, 'dold', return_value=seende):
+            partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-k1-0001', 'text': 'Vilken kandidat bedömdes bäst?'})
+            vanta_pa_vakter()
+            s1 = self.las(fil)['session_id']
+            partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-k1-0002', 'text': 'Och varför?'})
+            vanta_pa_vakter()
+            a = falsk.anrop[-1]
+            self.assertEqual(a[a.index('--resume') + 1], s1, 'samma körning och samma blindläge: samma session')
+        self.skriv_status(startad='2026-10-09T08:00:00Z', start_id='testdata-start-0002')
+        with patch.object(arbetsyta, 'dold', return_value=blind):
+            l = partner.lage(dash, SLUG, samtal=True)
+            self.assertEqual(l['meddelanden'], [], 'den nya blinda körningen visar inte det förra samtalet')
+            m = partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-k2-0001', 'text': 'Var står vi?'})
+            vanta_pa_vakter()
+            a = falsk.anrop[-1]
+            self.assertIn('--session-id', a)
+            self.assertNotIn('--resume', a)
+            s2 = a[a.index('--session-id') + 1]
+            self.assertNotEqual(s2, s1, 'en ny blind körning startar en ny session')
+            self.assertEqual(self.las(fil)['session_id'], s2)
+            l = partner.lage(dash, SLUG, samtal=True)
+            text = json.dumps([l, m], ensure_ascii=False)
+            for spar in (s1, 'Vilken kandidat bedömdes bäst', 'meddelande-k1-0001', 'meddelande-k1-0002'):
+                self.assertNotIn(spar, text)
+            self.assertEqual([x['id'] for x in l['meddelanden']], ['meddelande-k2-0001'])
+            self.assertEqual(l.get('tidigare'), 1, 'det förra samtalet räknas men visas inte')
+            # ett gammalt meddelande-id (en flik från förra körningen) startar ingen tur och ger inget av det gamla svaret
+            n = len(falsk.anrop)
+            gammal = partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-k1-0001', 'text': 'Vilken kandidat bedömdes bäst?'})
+            self.assertEqual(len(falsk.anrop), n)
+            self.assertNotIn('Svar (testdata)', json.dumps(gammal, ensure_ascii=False))
+            self.assertTrue(gammal.get('upprepat'))
+            # nästa meddelande i samma blinda körning fortsätter den nya sessionen
+            partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-k2-0002', 'text': 'Och sedan?'})
+            vanta_pa_vakter()
+            a = falsk.anrop[-1]
+            self.assertEqual(a[a.index('--resume') + 1], s2)
+        # efter ägarens val i körningen: den blinda sessionen har bara sett blint läge och får fortsätta; historiken syns
+        with patch.object(arbetsyta, 'dold', return_value=seende):
+            partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-k2-0003', 'text': 'Nu har jag valt.'})
+            vanta_pa_vakter()
+            a = falsk.anrop[-1]
+            self.assertEqual(a[a.index('--resume') + 1], s2)
+            l = partner.lage(dash, SLUG, samtal=True)
+            self.assertEqual([x['id'] for x in l['tidigare_samtal'][0]['meddelanden']], ['meddelande-k1-0001', 'meddelande-k1-0002'])
+        # samma körning men blind igen (en ny plan): sessionen som sett seende läge återupptas inte
+        with patch.object(arbetsyta, 'dold', return_value=blind):
+            d = self.las(fil)
+            d['blind_vid_start'] = False  # som om sessionen startats seende
+            self.skriv(fil, d)
+            partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-k2-0004', 'text': 'Ny plan?'})
+            vanta_pa_vakter()
+            a = falsk.anrop[-1]
+            self.assertIn('--session-id', a)
+            self.assertNotIn(a[a.index('--session-id') + 1], (s1, s2))
 
     # --- HTTP genom den riktiga hanteraren ---
 
