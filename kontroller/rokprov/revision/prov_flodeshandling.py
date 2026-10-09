@@ -186,9 +186,11 @@ class Flodeshandling(unittest.TestCase):
             self.assertEqual(status, 202, svar); self.assertIn('registrerad', svar['besked'])
             status, svar = anrop({'handling': 'stoppa-overgang', 'start_id': 'prov-stopp-2'})
             self.assertEqual(status, 202, svar)
-        html = (Path(__file__).resolve().parents[3] / 'dashboard' / 'index.html').read_text(encoding='utf-8')
-        block = html[html.index("const key = 'nwp-start:'"):html.index('async function flodesvy(slug)')]
-        self.assertGreater(block.index('sessionStorage.removeItem(key)'), block.index('await flodesvy(slug)'), 'start-id släpps först efter omläsningen (B7)')
+        # starterna går genom arbetsytans handling() (Flöde är en del av Byggflöde sedan 2026-10-09)
+        js = (Path(__file__).resolve().parents[3] / 'dashboard' / 'arbetsyta.js').read_text(encoding='utf-8')
+        block = js[js.index('async function handling(id, bekraftad)'):js.index('// --- byggflödet ---')]
+        self.assertGreater(block.index('slappId(nyckel, startId)'), block.index("await hamta('/api/arbetsyta/'"), 'start-id släpps först efter omläsningen (B7)')
+        self.assertIn("'nwp-start:' + slug + ':' + id", block, 'samma start-id-nyckel som förut, per kund och handling')
 
     def test_skrivande_anrop_kraver_dashboardnyckeln(self):
         # B-20261005-dashboardens-api-tar-emot-agarens-domar-fran-vil: Origin lika med Host räcker inte; nyckeln krävs

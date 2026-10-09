@@ -4288,3 +4288,13 @@ arbetsplatsen är därför inte klar, trots att genomföraren efter aktiveringen
   i stället för att ligga sist i Översikten. Översikten heter nu Byggen och dina domar.
 - **Kvar efter flytten:** några funktioner finns två gånger i arbetsytan. Flöde ligger bredvid Byggflöde, och
   Prototyps beslut ligger bredvid beslutet i Arbetsyta. Att slå ihop dem är nästa steg och redovisas för ägaren.
+
+**Ägarens ord ~18:28Z**, efter driftbeskedets tre öppna punkter, ordagrant: "Gör det det du anser är rekommendationen".
+Genomförarens tillämpning, på det mandatet:
+- **Codex fynd om B** (granskningsfynd för k02, 16:58Z): fyndet stämmer, men det ändrar inte B. B går inte till
+  helbygge, och 97:s uppdrag ~17:53Z rensar de gamla kandidaterna. Sakfrågan förs till kundförståelsen i nästa omgång:
+  obekräftade priser står bara som märkta utkast. Beställningens prisfrågor är redan öppna. Meddelandet står kvar
+  obeslutat, eftersom arbetsytan visar ett beslut där som ägarens eget.
+- **Dubbletterna:** Flöde förs in i Byggflöde, och Prototyps beslut förs in i arbetsytans förslagsyta inom 97:s uppdrag
+  om tio förslag. Därefter tas båda posterna ur menyn.
+- **Prospekt** står under Kundproduktion, eftersom det handlar om att hitta kunder och inte om att förbättra systemet.

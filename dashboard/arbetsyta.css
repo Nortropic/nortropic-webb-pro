@@ -263,6 +263,31 @@ body.ay-aktiv input[type=file]::file-selector-button { font: inherit; color: var
 
 /* byggflödet */
 .ay-flode { padding: var(--ay-gap) 18px 18px; display: grid; gap: var(--ay-gap); grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+/* Flöde i Byggflöde: beskedet, stegen i detalj och Figma-piloten */
+.ay-ton { display: inline-block; font-size: 11.5px; font-weight: 560; line-height: 1.5; padding: 0 8px; border-radius: 99px; border: 1px solid var(--ay-linje2); color: var(--ay-dampad); white-space: nowrap; vertical-align: 1px; }
+.ay-ton[data-ton="ok"] { color: var(--ay-ok); border-color: color-mix(in srgb, var(--ay-ok) 45%, transparent); }
+.ay-ton[data-ton="fel"] { color: var(--ay-fel); border-color: color-mix(in srgb, var(--ay-fel) 45%, transparent); }
+.ay-ton[data-ton="varn"] { color: var(--ay-varn); border-color: color-mix(in srgb, var(--ay-varn) 45%, transparent); }
+.ay-ton[data-ton="info"] { color: var(--ay-accent); border-color: color-mix(in srgb, var(--ay-accent) 45%, transparent); }
+.ay-besked { display: grid; gap: 10px; }
+.ay-besked dl { margin: 0; display: grid; gap: 10px; }
+.ay-besked dl > div { min-width: 0; }
+.ay-besked dt { font-weight: 560; }
+.ay-besked dd { margin: 3px 0 0; overflow-wrap: anywhere; display: grid; gap: 2px; }
+.ay-besked .ay-knapprad .ay-knapp { min-height: 44px; max-width: 100%; white-space: normal; }  /* som i Flöde: starterna är stora mål */
+.ay-poster h4 { font-size: 12.5px; color: var(--ay-svag); font-weight: 560; margin: 8px 0 2px; }
+.ay-poster ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.ay-poster li, .ay-poster code { overflow-wrap: anywhere; }
+.ay-stegdetalj { display: grid; gap: 6px; }
+.ay-stegdetalj details { border: 1px solid var(--ay-linje); border-radius: var(--ay-radie-s); padding: 8px 10px; background: var(--ay-yta2); }
+.ay-stegdetalj summary { cursor: pointer; font-weight: 560; }
+.ay-stegdetalj summary .nr { color: var(--ay-svag); font-variant-numeric: tabular-nums; }
+.ay-pilot { border-top: 1px solid var(--ay-linje); padding-top: 10px; margin-top: 10px; display: grid; gap: 4px; }
+.ay-pilot h3 { font-size: 13.5px; }
+.ay-pilotbilder { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.ay-pilotbilder figure { margin: 0; max-width: min(220px, 100%); }
+.ay-pilotbilder img { display: block; height: 90px; max-width: 100%; object-fit: cover; border: 1px solid var(--ay-linje); border-radius: 6px; }
+.ay-pilotbilder figcaption { font-size: 11.5px; color: var(--ay-svag); }
 .ay-stegrad { grid-column: 1 / -1; list-style: none; margin: 0; padding: 14px 12px 10px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 0;
   background: var(--ay-yta); border: 1px solid var(--ay-linje); border-radius: var(--ay-radie); }
 .ay-stegrad li { position: relative; display: grid; justify-items: center; gap: 4px; text-align: center; font-size: 12px; padding: 0 4px; }

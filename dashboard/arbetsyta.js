@@ -94,7 +94,7 @@
 
   function tomtLage() {
     A.vy = ''; A.sektion = null;
-    document.getElementById('rot').innerHTML = `<div class="ay">${huvudTom()}${flikrad()}<main class="ay-tom" style="padding:40px 18px">Inga kunder med underlag än. Starta ett ärende i <a href="#/kundstart">Kundstart</a> eller förbered en kund i <a href="#/flode">Flöde</a>.</main></div>`;
+    document.getElementById('rot').innerHTML = `<div class="ay">${huvudTom()}${flikrad()}<main class="ay-tom" style="padding:40px 18px">Inga kunder med underlag än. Starta ett ärende i <a href="#/kundstart">Kundstart</a> eller förbered en kund under <a href="#/starta">Starta</a>.</main></div>`;
     ritaRaknare();
   }
   function visaFel(text) {
@@ -179,7 +179,7 @@
   // gäller; varje del ritas i arbetsytans ram med samma funktioner och skrivvägar som förut. Kundproduktionen och
   // systemförbättringen hålls isär (uppdraget 2026-10-09 ~07:24Z).
   const DELAR = [
-    ['Kundproduktion', [['prototyp', 'Prototyp', 'kandidaterna sida vid sida, jämförelsen och ditt val', true], ['flode', 'Flöde', 'kundens körningar steg för steg, med starterna', true],
+    ['Kundproduktion', [['prototyp', 'Prototyp', 'kandidaterna sida vid sida, jämförelsen och ditt val', true],
       ['oversikt', 'Byggen och dina domar', 'helbyggena, deras prov och din dom'], ['ab', 'Jämförelser', 'blinda par: välj utan att veta vilket som är vilket'],
       ['kundstart', 'Kundstart', 'kundens ärende, underlag och överlämning'], ['prospekt', 'Prospekt', 'kampanjer, analyser och utskick', false, 'n-prospekt'],
       ['starta', 'Starta', 'kommandona för helbygge, backlog och prov']]],
@@ -206,7 +206,7 @@
     const sektion = DELNAMN[forsta] ? forsta : 'oversikt';
     document.body.classList.add('ay-aktiv');
     const gen = ++A.generation;  // en pågående läsning av en vy ger inte längre ramen
-    let slug = ['prototyp', 'flode', 'bygge'].includes(forsta) && andra ? decodeURIComponent(andra) : (A.slug || localStorageSenaste());
+    let slug = ['prototyp', 'bygge'].includes(forsta) && andra ? decodeURIComponent(andra) : (A.slug || localStorageSenaste());
     if (A.projekt.length && slug && !A.projekt.some((p) => p.slug === slug)) slug = A.projekt.some((p) => p.slug === A.slug) ? A.slug : null;  // ett bygge utan arbetsyta behåller kunden i huvudet
     bytKund(slug);
     A.vy = 'sektion'; A.sektion = sektion;
@@ -651,15 +651,19 @@
       rita(); document.querySelector('[data-fokus="bekrafta"]')?.focus(); return;
     }
     A.bekrafta = null;
-    const nyckel = 'nwp-start:' + A.slug + ':' + id, startId = nyttId(nyckel);
+    // kunden tas när begäran skickas: byter ägaren kund medan svaret dröjer skrivs svaret aldrig i den andra kundens vy
+    const slug = A.slug, nyckel = 'nwp-start:' + slug + ':' + id, startId = nyttId(nyckel);
     A.pagar = id; A.svar = 'Skickar begäran…'; rita();
     try {
-      const r = await postJson('/api/flode/' + encodeURIComponent(A.slug) + '/start', { handling: id, start_id: startId });
+      const r = await postJson('/api/flode/' + encodeURIComponent(slug) + '/start', { handling: id, start_id: startId });
+      let d = null;
+      try { d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); slappId(nyckel, startId); } catch { /* läget lästes inte om: samma start-id används vid nästa försök */ }
+      if (A.slug !== slug) { A.pagar = null; rita(); return; }
       A.fokusStart = startId;
-      try { tillampa(await hamta('/api/arbetsyta/' + encodeURIComponent(A.slug))); slappId(nyckel, startId); } catch { /* läget lästes inte om: samma start-id används vid nästa försök */ }
+      if (d) tillampa(d);
       A.svar = (r.besked || 'Begäran är registrerad.') + ` (start-id ${startId.slice(0, 8)})`;
-      if (A.vy !== '' && !['stoppa', 'stoppa-overgang'].includes(id)) { location.hash = '#/arbetsyta/' + encodeURIComponent(A.slug); return; }
-    } catch (err) { A.svar = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs läget eller försök igen; samma start-id används.'; } finally { A.pagar = null; }
+      if (A.vy !== '' && !STOPP.includes(id)) { location.hash = '#/arbetsyta/' + encodeURIComponent(slug); return; }
+    } catch (err) { if (A.slug === slug) A.svar = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs läget eller försök igen; samma start-id används.'; } finally { A.pagar = null; }
     rita();
   }
 
@@ -672,17 +676,84 @@
     const vald = sess.find((s) => s.session_id === A.folj);
     return `<ol class="ay-stegrad" aria-label="Kundens observerade förlopp">${(l.steg || []).map((s) => `<li ${klass(s.status)}><span class="nod">${e_(s.nr)}</span><span class="namn">${e_(s.namn)}</span><span class="status">${e_(s.status)}</span></li>`).join('')}</ol>
       <div class="ay-grupper">
+        ${l.ab_dold ? `<div class="ay-notis">${e_(l.dold || 'Kunden är en arm i en blind jämförelse som du inte har valt i än.')} Flödet visas efter ditt val i Jämförelser, så att jämförelsen förblir blind.</div>` : ''}
         ${l.blind ? '<div class="ay-notis">Ditt första val i körningen är inte gjort: förslagen har neutrala etiketter, och bedömningar, skäl och sökvägar i aktiviteten visas efter valet.</div>' : ''}
+        ${l.ab_dold ? '' : beskedpanel()}
         ${Object.keys(grupper).length ? Object.entries(grupper).map(([g, ss]) => `<section class="ay-panel ay-grupp" aria-label="${e_(g)}"><div class="ay-panelhuvud"><h2>${e_(g)}</h2><span class="svag">${ss.length} sessioner</span></div><div class="ay-panelkropp">${ss.map(sessionskort).join('')}</div></section>`).join('')
           : '<div class="ay-tom">Inga sessioner i körningen än. När en körning startar dyker dess sessioner upp här av sig själva.</div>'}
         ${vald ? `<section class="ay-panel" aria-labelledby="ay-detalj-rubrik"><div class="ay-panelhuvud"><h2 id="ay-detalj-rubrik">${e_(roll(vald))}${vald.kandidat ? ' · ' + e_(etikett(vald.kandidat)) : ''}</h2>${lagechip(vald.lage, vald.lage_text)}<button class="ay-knapp liten" type="button" data-folj-slut>Stäng</button></div><div class="ay-panelkropp ay-detalj">${detalj(vald)}</div></section>` : ''}
-        <section class="ay-panel"><details class="metod"><summary>Så är flödet tänkt (metodkartan, README)</summary><div class="ay-panelkropp" id="ay-metod">${metod()}</div></details></section>
+        ${l.ab_dold ? '' : stegdetalj()}
+        <section class="ay-panel"><details class="metod" data-oppen="metod"${oppen('metod')}><summary>Så är flödet tänkt (metodkartan, README)</summary><div class="ay-panelkropp" id="ay-metod">${metod()}</div></details></section>
+        ${pilotpanel()}
         <section class="ay-panel" aria-labelledby="ay-system"><div class="ay-panelhuvud"><h2 id="ay-system">Bevakning och systemförbättring, skilt från kundproduktionen</h2></div><div class="ay-panelkropp">${bevakningsvy()}<div class="ay-knapprad"><a class="ay-knapp liten" href="#/underhall">Underhåll och verktygslådan</a><a class="ay-knapp liten" href="#/kirurgen">Kirurgen och förbättringsloopen</a><a class="ay-knapp liten" href="#/backlog">Backlog</a><a class="ay-knapp liten" href="#/kalibrering">Kalibrering</a><a class="ay-knapp liten" href="#/dokumentation">Dokumentation och rapporter</a></div></div></section>
       </div>
       <section class="ay-panel" aria-labelledby="ay-tl"><div class="ay-panelhuvud"><h2 id="ay-tl">Sessionsflöde</h2>${anslutning()}</div><div class="ay-panelkropp">
         <ul class="ay-tidslinje">${tidslinje().map((x) => `<li><time datetime="${e_(x.tid)}">${e_(klocka(x.tid).slice(0, 5))}</time><span>${e_(x.text)}</span></li>`).join('') || '<li><span class="dampad">Inget observerat än.</span></li>'}</ul>
         ${(l.helbygge || []).length ? `<h3 style="margin:14px 0 6px">Helbyggets körningar (historik)</h3><ul class="ay-tidslinje">${l.helbygge.map((k) => `<li><time>${e_(k.id.slice(9, 13))}</time><span>${e_(k.id)}: ${e_(LAGEN[k.lage] || k.lage)}${k.slutkod != null ? ', slutkod ' + e_(k.slutkod) : ''}${k.uteblev ? ', slutposten uteblev' : ''}</span></li>`).join('')}</ul>` : ''}</div></section>`;
   }
+  // Flöde i Byggflöde (ägarens mandat 2026-10-09 ~18:28Z, "Gör det det du anser är rekommendationen"): samma läge som
+  // förut (dash.flode genom arbetsyta.lage). En fil som finns är inte ett kontrollerat steg; stegen gäller den aktuella
+  // körningen. Starterna går genom handling(), med samma start-id som arbetsytans kontroller.
+  const STOPP = ['stoppa', 'stoppa-overgang'];
+  const sakerLank = (u) => (/^(\/(?!\/)|https?:\/\/)/.test(String(u || '')) ? String(u) : null);
+  const kodtext_ = (t) => e_(t).replace(/`([^`]+)`/g, '<code>$1</code>');
+  const BESKEDTON = (s) => s === 'ja' ? 'ok' : s === 'nej' ? 'fel' : ['historiskt', 'ja med villkor'].includes(s) ? 'varn' : '';
+  const STEGTON = (s) => ['skapat', 'kontrollerat', 'beslutat'].includes(s) ? 'ok' : ['stoppat', 'underkänt'].includes(s) ? 'fel' : ['väntar på ägaren', 'inaktuellt'].includes(s) ? 'varn' : s === 'pågår' ? 'info' : '';
+  const ton = (t, text) => `<span class="ay-ton"${t ? ` data-ton="${t}"` : ''}>${e_(text)}</span>`;
+  const oppen = (k) => (A.oppna || new Set()).has(k) ? ' open' : '';
+  function poster(rubrik, lista) {
+    if (!lista || !lista.length) return '';
+    return `<div class="ay-poster"><h4>${e_(rubrik)}</h4><ul>${lista.map((x) => typeof x === 'string' ? `<li>${kodtext_(x)}</li>`
+      : `<li>${sakerLank(x.lank) ? `<a href="${e_(sakerLank(x.lank))}" target="_blank" rel="noopener">${e_(x.text)}</a>` : kodtext_(x.text)}${x.tid ? ` <span class="svag">${e_(kort(x.tid))}</span>` : ''}${x.sha ? ` <code title="sha256, beräknad nu">${e_(x.sha)}</code>` : ''}</li>`).join('')}</ul></div>`;
+  }
+  function beskedpanel() {
+    const l = A.lage, b = l.besked, hs = l.handlingar || [], m = l.startmiljo;
+    const stopp = hs.filter((h) => STOPP.includes(h.id)), ovriga = hs.filter((h) => !STOPP.includes(h.id));
+    const knappar = A.bekrafta ? `<p style="margin:0">${e_(A.bekrafta.text)}</p><div class="ay-knapprad"><button class="ay-knapp fara" type="button" data-handling="${e_(A.bekrafta.id)}" data-bekraftad data-fokus="bf-bekrafta">Stoppa</button><button class="ay-knapp" type="button" data-avbryt-bekraftelse data-fokus="bf-avbryt">Avbryt</button></div>`
+      : `<div class="ay-knapprad">${ovriga.map((h) => `<button class="ay-knapp primar" type="button" data-handling="${e_(h.id)}" data-fokus="bf-${e_(h.id)}"${h.hinder || A.pagar ? ' aria-disabled="true"' : ''}${h.hinder ? ' title="' + e_(h.hinder) + '"' : ''}>${e_(h.text)}</button>`).join('')}
+         ${stopp.map((h) => `<button class="ay-knapp fara" type="button" data-handling="${e_(h.id)}" data-fokus="bf-${e_(h.id)}"${A.pagar ? ' aria-disabled="true"' : ''}>${e_(h.text || 'Stoppa')}</button>`).join('')}
+         ${hs.length ? '' : '<span class="dampad">Ingen handling är möjlig just nu.</span>'}</div>`;
+    return `<section class="ay-panel" aria-labelledby="ay-besked-rubrik"><div class="ay-panelhuvud"><h2 id="ay-besked-rubrik" tabindex="-1">Aktuellt besked</h2>
+        <span class="svag">${b?.version ? 'Byggversion ' + e_(String(b.version).slice(0, 12)) + ', ' : ''}${b?.tid ? 'slutpost ' + e_(kort(b.tid)) : 'ingen slutpost än'}</span></div>
+      <div class="ay-panelkropp ay-besked">
+        <p class="svag" style="margin:0">Godkännandena gäller bara angiven version och omfattning.</p>
+        ${(b?.tillstand || []).length ? `<dl>${b.tillstand.map((r) => `<div><dt>${e_(r.namn)} ${ton(BESKEDTON(r.status), r.status)}</dt><dd>${e_(r.text)}${r.omfattning ? `<span class="svag">Omfattning: ${e_(r.omfattning)}</span>` : ''}</dd></div>`).join('')}</dl>` : '<p class="svag" style="margin:0">Inget besked än: körningen har ingen slutpost.</p>'}
+        ${poster('Kontrollera underlaget', b?.filer)}
+        ${m ? `<p class="svag" style="margin:0">Startmiljö: sandlåda ${e_(m.sandlada)}${m.kundstart_lager ? '; Kundstarts ärendelager finns' : ''} (ärvd från dashboardens process).</p>` : ''}
+        ${knappar}
+        ${ovriga.filter((h) => h.hinder).map((h) => `<p class="svag" style="margin:0">${e_(h.text)} går inte att starta: ${e_(h.hinder)}</p>`).join('')}
+        <p class="svag" style="margin:0" role="status" aria-live="polite" id="ay-handlingssvar">${e_(A.svar)}</p>
+        <p class="svag" style="margin:0">En startknapp beställer bara det namngivna steget. Att öppna vyn eller välja ett förslag startar inget arbete.</p>
+      </div></section>`;
+  }
+  function stegdetalj() {
+    const l = A.lage, steg = l.steg || [];
+    if (!steg.length) return '';
+    return `<section class="ay-panel" aria-labelledby="ay-steg-rubrik"><div class="ay-panelhuvud"><h2 id="ay-steg-rubrik">Stegen i detalj</h2>
+        <span class="svag">${l.korning?.startad ? `Körningen ${e_(kort(l.korning.startad))}${l.korning.lage ? ', ' + e_(LAGESNAMN[l.korning.lage] || l.korning.lage) : ''}` : 'Ingen körning'}</span></div>
+      <div class="ay-panelkropp ay-stegdetalj">
+        ${steg.map((x) => `<details data-oppen="steg-${e_(x.nr)}"${oppen('steg-' + x.nr)}><summary><span class="nr">${e_(x.nr)}.</span> ${e_(x.namn)} ${ton(STEGTON(x.status), x.status)}</summary>
+          ${poster('Underlag och versioner', x.underlag)}${poster('Vad steget producerade', x.utfall)}${poster('Kontroller och bedömningar', x.kontroller)}
+          ${poster('Beslut', x.beslut)}${poster('Fel, begränsningar och det som inte är verifierat', x.brister)}
+          ${x.nasta ? `<p class="svag" style="margin:6px 0 0">Nästa: ${kodtext_(x.nasta)}</p>` : ''}</details>`).join('')}
+        <p class="svag" style="margin:0">Stegen gäller den aktuella körningen: det som hör till en tidigare körning är inaktuellt, och det som inte går att knyta till den är inte observerat. En fil som finns är inte ett kontrollerat steg.</p>
+      </div></section>`;
+  }
+  function pilotpanel() {
+    const p = A.pilot || [];
+    if (!p.length) return '';
+    return `<section class="ay-panel"><details data-oppen="pilot"${oppen('pilot')}><summary>Figma-metodprovet (${p.length} moment)</summary><div class="ay-panelkropp">
+      <p class="svag" style="margin:0">Pilotens tre moment: A återskapar en referens, B anpassar till kundens material, C överför till webb. Inget i leveransen är verifierat genom piloten.</p>
+      ${p.map((m) => `<div class="ay-pilot"><h3>${e_(m.moment || m.id)} ${ton(STEGTON(m.status), m.status)}</h3>
+        ${m.status_skal ? `<p style="margin:0">Enligt VERSION.json: ${e_(m.status_skal)}</p>` : ''}
+        <p class="svag" style="margin:0">Aktuell version ${e_(m.aktuell || 'inte observerat')}, Figma-fil ${e_(m.figma?.fil || '–')}${m.tid ? ', ' + e_(kort(m.tid)) : ''}</p>
+        ${poster('Kontroller', m.kontroller)}${poster('Bedömningar (bilderna först, skaparens förklaring sedan)', m.bedomningar)}
+        ${(m.bilder || []).filter((b) => sakerLank(b.lank)).length ? `<div class="ay-pilotbilder">${m.bilder.filter((b) => sakerLank(b.lank)).map((b) => `<figure><a href="${e_(sakerLank(b.lank))}" target="_blank" rel="noopener" title="${e_(b.text)}"><img src="${e_(sakerLank(b.lank))}" alt="${e_(b.text)}, version ${e_(b.version)}" loading="lazy"></a><figcaption>version ${e_(b.version)}</figcaption></figure>`).join('')}</div>` : ''}
+        ${poster('Fynd', m.fynd)}</div>`).join('')}
+    </div></details></section>`;
+  }
+  document.addEventListener('toggle', (ev) => { const k = ev.target.dataset?.oppen; if (!k) return; A.oppna = A.oppna || new Set(); ev.target.open ? A.oppna.add(k) : A.oppna.delete(k); }, true);
+
   // --- bevakningen: Nortropics löpande bevakning (kontroller/bevakning.py), läst ur /api/bevakning ---
   const BEVLAGE = { bevakad: 'bevakad', ofullstandig: 'ofullständig', inaktuell: 'inaktuell', saknar_tackning: 'saknar täckning' };
   const BEVUTFALL = { misslyckad: 'misslyckad', ofullstandig: 'ofullständig', ej_utford: 'inte gjord', fynd: 'fynd', inget_nytt: 'inget nytt', inte_dags: 'inte prövad än' };
@@ -738,9 +809,10 @@
     return ut.filter((x) => x.tid).sort((a, b) => String(b.tid).localeCompare(String(a.tid))).slice(0, 30);
   }
   function metod() {
-    if (!A.metod) { hamta('/api/flode').then((d) => { A.metod = d.kedjan; const m = document.getElementById('ay-metod'); if (m) m.innerHTML = metod(); }).catch(() => {}); return '<p class="svag">Läser metodkartan…</p>'; }
+    if (!A.metod && A.metodLaser) return '<p class="svag">Läser metodkartan…</p>';
+    if (!A.metod) { A.metodLaser = true; hamta('/api/flode').finally(() => { A.metodLaser = false; }).then((d) => { A.metod = d.kedjan; A.pilot = d.pilot || []; if (A.vy === 'flode') rita(); }).catch((e) => { A.metod = { fel: 'Metodkartan gick inte att läsa: ' + e.message }; if (A.vy === 'flode') rita(); }); return '<p class="svag">Läser metodkartan…</p>'; }
     if (A.metod.fel) return `<p class="svag">${e_(A.metod.fel)}</p>`;
-    return `<p class="svag">Arbetssättet, ur README.md; inte kundens förlopp.</p><ol style="margin:0;padding-left:18px;display:grid;gap:6px">${(A.metod.steg || []).map((s) => `<li><b>${e_(String(s.steg).replace(/<[^>]+>/g, ''))}</b><div class="svag">${e_(String(s.vem).replace(/<[^>]+>/g, '')).slice(0, 400)}</div></li>`).join('')}</ol>`;
+    return `<p class="svag">Arbetssättet, ur README.md; inte kundens förlopp.</p><ol style="margin:0;padding-left:18px;display:grid;gap:6px">${(A.metod.steg || []).map((s) => `<li><b>${e_(String(s.steg).replace(/<[^>]+>/g, ''))}</b><div class="svag">${e_(String(s.vem).replace(/<[^>]+>/g, '')).slice(0, 400)}</div>${s.resultat ? `<div class="svag">Resultat: ${e_(String(s.resultat).replace(/<[^>]+>/g, ''))}</div>` : ''}${s.saknas ? `<div>${ton('varn', 'saknas i dag')} <span class="svag">${e_(String(s.saknas).replace(/<[^>]+>/g, ''))}</span></div>` : ''}</li>`).join('')}</ol>`;
   }
 
   // --- kod och preview ---
@@ -1175,7 +1247,7 @@
   document.addEventListener('change', (ev) => {
     if (ev.target.id === 'ay-kund' && ev.target.value) {
       if (A.vy !== 'sektion') location.hash = '#/arbetsyta/' + encodeURIComponent(ev.target.value) + (A.vy ? '/' + A.vy : '');
-      else if (['prototyp', 'flode'].includes(A.sektion)) location.hash = `#/${A.sektion}/` + encodeURIComponent(ev.target.value);
+      else if (A.sektion === 'prototyp') location.hash = `#/${A.sektion}/` + encodeURIComponent(ev.target.value);
       else { bytKund(ev.target.value); const gen = ++A.generation; ritaFlikrad(); rita(); lasHuvud(gen); }
     }
     if (ev.target.id === 'ay-kodkand') { A.valdKandidat = ev.target.value; A.kod.fil = null; A.kod.mot = null; laddaKod(); ritaMaterial(); }

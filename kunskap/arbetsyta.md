@@ -17,7 +17,9 @@ kompletta arbetsplatsen. Arbetet: `backlog/B-20261009-visuella-arbetsytan-samtal
 Arbetsytan öppnas på dashboardens rot (`#/`) och är dashboardens enda ram (ägarens besked 2026-10-09 ~17:11Z: "allt
 ska ju in i det här nya vyn"). Bredvid projektets tre vyer står arbetsytans delar i två menyer, kundproduktionen skild
 från systemförbättringen:
-- **Kundproduktion:** Prototyp, Flöde, Byggen och dina domar, Jämförelser, Kundstart, Prospekt och Starta.
+- **Kundproduktion:** Prototyp, Byggen och dina domar, Jämförelser, Kundstart, Prospekt och Starta. Flöde är en del av
+  Byggflöde: beskedet med version, omfattning och starterna, stegen i detalj (underlag, utfall, kontroller, beslut och
+  brister), startmiljön, det tänkta flödet med det som saknas i dag och Figma-piloten. `#/flode/<kund>` leder dit.
 - **Systemförbättring:** Underhåll och verktygslådan, Kirurgen, Backlog, Kalibrering, Lärdomar och Designprov.
 - **Dokumentation och rapporter** står för sig.
 

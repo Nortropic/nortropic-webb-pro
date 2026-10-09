@@ -755,11 +755,11 @@ with fall('B3 piloten'):
     kontroll(any('gäller en tidigare version' in t for t in texter(b, 'kontroller')), ('B3: moment B säger inte att bedömningen gäller en tidigare version', b.get('kontroller')))
     kontroll(p['moment-u']['status'] == 'skapat', ('B3: underkänt fast granskningen gällde v2, inte v3', p['moment-u']['status']))
     kontroll(p['moment-l']['status'] == 'kontrollerat' and not p['moment-l']['bilder'], ('B3: bilder ur en länkad katalog', p['moment-l']['bilder'][:2]))
-with fall('B3 vyns bildtext'):  # vyn visar varje bilds version under bilden och i alt-texten (index.html, pilotens bilder)
-    html = (ROOT / 'dashboard' / 'index.html').read_text(encoding='utf-8')
-    mall_ = html[html.find('m.bilder.filter((b) => b.lank).map('):]
+with fall('B3 vyns bildtext'):  # Byggflödet visar varje bilds version under bilden och i alt-texten (arbetsyta.js, pilotens bilder)
+    js = (ROOT / 'dashboard' / 'arbetsyta.js').read_text(encoding='utf-8')
+    mall_ = js[js.find('m.bilder.filter((b) => sakerLank(b.lank)).map('):]
     mall_ = mall_[:mall_.find('</figure>') + len('</figure>')]
-    kontroll('<figcaption>version ${esc(b.version)}</figcaption>' in mall_ and ', version ${esc(b.version)}"' in mall_,
+    kontroll('<figcaption>version ${e_(b.version)}</figcaption>' in mall_ and ', version ${e_(b.version)}"' in mall_,
              ('B3: vyn visar inte bildens version', mall_[:160]))
 
 # --- en länkad fil i kundens underlag visas inte (_fil följer ingen symlänk) ---

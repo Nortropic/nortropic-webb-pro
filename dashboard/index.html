@@ -88,13 +88,6 @@ th { color: var(--dampad); font-weight: 560; font-size: 13px; }
 td.tal, th.tal { text-align: right; font-variant-numeric: tabular-nums; }
 .tabell { overflow-x: auto; }
 .prosa { max-width: 78ch; }
-.flode :is(code, a, li, p) { overflow-wrap: anywhere; }
-.flode .flodesbesked { margin: 0; display: grid; gap: 14px; }
-.flodesbesked > div { min-width: 0; }
-.flodesbesked dt { font-weight: 560; }
-.flodesbesked dd { margin: 4px 0 0; overflow-wrap: anywhere; }
-.flode [data-flodeshandling], .flode [data-flode-las] { min-height: 44px; max-width: 100%; white-space: normal; }
-.flode .knapp:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }  /* långa kommandon och sökvägar bryts i mobilen */
 .prosa p, .prosa li { margin: 6px 0; }
 .prosa code, code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--yta2); border: 1px solid var(--linje); border-radius: 5px; padding: 1px 5px; }
 pre { background: var(--yta2); border: 1px solid var(--linje); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
@@ -1223,109 +1216,8 @@ document.addEventListener('click', async (e) => {
 // Flödet (ägarens tillägg 2026-10-06, punkt 4): det tänkta flödet ur README:s kedja, det som faktiskt hände för en kund
 // steg för steg, och Figma-metodprovet. En fil som finns är inte ett kontrollerat steg; ett steg som inte gjorts visas så.
 const FLODESTATUS = { skapat: '', kontrollerat: 'ok', 'underkänt': 'rod', 'väntar på ägaren': 'gul', beslutat: 'acc', inaktuellt: 'gul', 'pågår': 'acc puls', stoppat: 'rod', 'inte observerat': '', 'inte påbörjat': '' };
-let flodeGeneration = 0;
 const flodechip = (s) => `<span class="chip ${FLODESTATUS[s] ?? ''}">${esc(s)}</span>`;
 const kodtext = (t) => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>');
-function flodelista(rubrik, poster) {
-  if (!poster || !poster.length) return '';
-  return `<div class="under" style="margin:10px 0 2px">${esc(rubrik)}</div><ul style="margin:0;padding-left:18px">${poster.map((p) => typeof p === 'string' ? `<li>${kodtext(p)}</li>`
-    : `<li>${p.lank ? `<a href="${esc(p.lank)}" target="_blank" rel="noopener">${esc(p.text)}</a>` : kodtext(p.text)}${p.tid ? ` <span class="under">${tid(p.tid)}</span>` : ''}${p.sha ? ` <code title="sha256, beräknad nu">${esc(p.sha)}</code>` : ''}</li>`).join('')}</ul>`;
-}
-function flodesbesked(b, handlingar, slug, miljo) {
-  const rader = b?.tillstand || [];
-  return `<section class="kort" aria-labelledby="flode-besked-rubrik" style="margin-bottom:18px">
-    <h3 id="flode-besked-rubrik" tabindex="-1" style="margin-top:0">Aktuellt besked</h3>
-    <p class="under">${b?.version ? 'Byggversion ' + esc(b.version.slice(0, 12)) + ' · ' : ''}${b?.tid ? 'Slutpost ' + tid(b.tid) : 'Ingen slutpost än'}. Godkännandena gäller bara angiven version och omfattning.</p>
-    <dl class="flodesbesked">${rader.map((r) => `<div><dt>${esc(r.namn)} <span class="chip ${r.status === 'ja' ? 'ok' : r.status === 'nej' ? 'rod' : r.status === 'historiskt' || r.status === 'ja med villkor' ? 'gul' : ''}">${esc(r.status)}</span></dt>
-      <dd>${esc(r.text)}${r.omfattning ? `<p class="under" style="margin:4px 0 0">Omfattning: ${esc(r.omfattning)}</p>` : ''}</dd></div>`).join('')}</dl>
-    ${flodelista('Kontrollera underlaget', b?.filer)}
-    ${miljo ? `<p class="under">Startmiljö: sandlåda ${esc(miljo.sandlada)}${miljo.kundstart_lager ? ' · Kundstarts ärendelager finns' : ''} (ärvd från dashboardens process).</p>` : ''}
-    ${(handlingar || []).filter((h) => h.hinder).map((h) => `<p class="under rod-text">${esc(h.text)} går inte att starta: ${esc(h.hinder)}</p>`).join('')}
-    <div class="rad" style="margin-top:18px">${(handlingar || []).map((h) => `<button class="knapp primar" data-flodeshandling="${esc(h.id)}" data-flode-slug="${esc(slug)}"${h.hinder ? ' disabled aria-disabled="true"' : ''}>${esc(h.text)}</button>`).join('')}
-      <button class="knapp" data-flode-las="${esc(slug)}">Läs aktuellt läge</button></div>
-    <p class="under">En startknapp beställer bara det namngivna steget. Att välja ett förslag eller öppna vyn startar inget arbete.</p>
-    <p id="flode-handlingssvar" role="status" aria-live="polite" aria-atomic="true"></p>
-  </section>`;
-}
-document.addEventListener('click', async (e) => {
-  const las = e.target.closest('[data-flode-las]');
-  if (las) {
-    const generation = flodeGeneration + 1, hash = location.hash;
-    las.disabled = true;
-    $('#flode-handlingssvar').textContent = 'Läser aktuellt läge…';
-    try { if (await flodesvy(las.dataset.flodeLas)) $('#flode-besked-rubrik')?.focus(); }
-    catch (err) { if (generation===flodeGeneration && hash===location.hash && $('#flode-handlingssvar')) $('#flode-handlingssvar').textContent = 'Läget gick inte att läsa: ' + err.message + '. Inget arbete startades.'; }
-    finally { las.disabled = false; }
-    return;
-  }
-  const knapp = e.target.closest('[data-flodeshandling]');
-  if (!knapp || knapp.disabled) return;
-  const slug = knapp.dataset.flodeSlug, handling = knapp.dataset.flodeshandling;
-  const hash=location.hash; let generation=flodeGeneration;
-  const aktuell=()=>generation===flodeGeneration && hash===location.hash;
-  const key = 'nwp-start:' + slug + ':' + handling;
-  let startId;
-  try { startId = sessionStorage.getItem(key) || crypto.randomUUID(); sessionStorage.setItem(key, startId); }
-  catch { $('#flode-handlingssvar').textContent = 'Webbläsaren kunde inte spara start-id. Ingen start skickades; tillåt sessionslagring och försök igen.'; return; }
-  knapp.disabled = true; knapp.setAttribute('aria-busy', 'true');
-  $('#flode-handlingssvar').textContent = 'Skickar begäran… Du kan läsa aktuellt läge om svaret dröjer.';
-  try {
-    const r = await post('/api/flode/' + encodeURIComponent(slug) + '/start', { handling, start_id: startId });
-    if (!aktuell()) return;
-    generation=flodeGeneration+1;
-    if (!await flodesvy(slug)) return;
-    // start-id släpps först när svaret är bekräftat och läget omläst (GR-20261008-r117-claude#B7); annars används samma id igen
-    if (sessionStorage.getItem(key)===startId) sessionStorage.removeItem(key);
-    $('#flode-handlingssvar').textContent = r.besked;
-    $('#flode-besked-rubrik')?.focus();
-  } catch (err) {
-    const svar = $('#flode-handlingssvar');
-    if (svar && aktuell()) svar.textContent = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs aktuellt läge eller försök igen; samma start-id används.';
-    knapp.disabled = false;
-  } finally { knapp.removeAttribute('aria-busy'); }
-});
-
-async function flodesvy(slug) {
-  const generation=++flodeGeneration, hash=location.hash;
-  const aktuell=()=>generation===flodeGeneration && hash===location.hash;
-  try {
-  aktivNav('flode');
-  const d = await api('/api/flode');
-  if (!aktuell()) return false;
-  const val = slug || d.slugar[0] || '';
-  const tankt = d.kedjan.fel ? `<div class="meddelande fel">${esc(d.kedjan.fel)}</div>`
-    : d.kedjan.steg.map((s) => `<div class="kort" style="margin-bottom:8px"><div style="font-weight:560">${s.steg}</div><p style="margin:6px 0 0">${s.vem}</p><p class="under" style="margin:4px 0 0">Resultat: ${s.resultat}</p>${s.saknas ? `<p class="under" style="margin:4px 0 0"><span class="chip gul">saknas i dag</span> ${s.saknas}</p>` : ''}</div>`).join('');
-  let hande = '<p>Ingen kund med underlag eller bygge än.</p>';
-  if (val) {
-    const f = await api('/api/flode/' + encodeURIComponent(val));
-    if (!aktuell()) return false;
-    // en arm i en blind jämförelse som du inte valt i än: inga steg alls, lika för båda armarna (som vyn Bygge)
-    const stegen = f.ab_dold ? '<div class="meddelande">Bygget är en arm i en blind jämförelse som du inte har valt i än. Flödet visas efter ditt val i Jämförelser, så att jämförelsen förblir blind.</div>'
-      : `${f.blind ? '<div class="meddelande">Ditt första val i körningen är inte gjort: förslagen visas med neutrala etiketter, status, version och bilder, utan bedömningar.</div>' : ''}
-      ${flodesbesked(f.besked, f.handlingar, val, f.startmiljo)}
-      ${f.korning ? `<p class="under">Körningen startad ${tid(f.korning.startad)} · steg ${esc(f.korning.steg || '?')} · läge ${esc(f.korning.lage || '?')} · läst ${tid(f.tid)}</p>` : ''}
-      ${f.steg.map((s) => `<div class="kort" style="margin-bottom:10px"><div class="rad" style="justify-content:space-between"><div style="font-weight:560">${s.nr}. ${esc(s.namn)}</div>${flodechip(s.status)}</div>
-        ${flodelista('Underlag och versioner', s.underlag)}${flodelista('Vad steget producerade', s.utfall)}${flodelista('Kontroller och bedömningar', s.kontroller)}
-        ${flodelista('Beslut', s.beslut)}${flodelista('Fel, begränsningar och det som inte är verifierat', s.brister)}
-        ${s.nasta ? `<p class="under" style="margin:10px 0 0">Nästa: ${kodtext(s.nasta)}</p>` : ''}</div>`).join('')}`;
-    hande = `${d.slugar.length > 1 ? `<p class="under">${d.slugar.map((s) => s === val ? `<strong>${esc(s)}</strong>` : `<a href="#/flode/${esc(s)}">${esc(s)}</a>`).join(' · ')}</p>` : ''}
-      ${stegen}`;
-  }
-  const pilot = (d.pilot || []).map((m) => `<div class="kort" style="margin-bottom:10px"><div class="rad" style="justify-content:space-between"><div style="font-weight:560">${esc(m.moment || m.id)}</div>${flodechip(m.status)}</div>
-      ${m.status_skal ? `<p style="margin:6px 0 0">Enligt VERSION.json: ${esc(m.status_skal)}</p>` : ''}
-      <p class="under" style="margin:4px 0 0">Aktuell version ${esc(m.aktuell || 'inte observerat')} · Figma-fil ${esc(m.figma.fil || '–')}${m.tid ? ' · ' + tid(m.tid) : ''}</p>
-      ${flodelista('Kontroller', m.kontroller)}
-      ${flodelista('Bedömningar (bilderna först, skaparens förklaring sedan)', m.bedomningar)}
-      ${m.bilder.filter((b) => b.lank).length ? `<div class="rad" style="flex-wrap:wrap;gap:8px;margin-top:10px;align-items:flex-start">${m.bilder.filter((b) => b.lank).map((b) => `<figure style="margin:0;max-width:min(260px, 100%)"><a href="${esc(b.lank)}" target="_blank" rel="noopener" title="${esc(b.text)}"><img src="${esc(b.lank)}" alt="${esc(b.text)}, version ${esc(b.version)}" loading="lazy" style="display:block;height:96px;max-width:100%;object-fit:cover;border:1px solid var(--linje);border-radius:6px"></a><figcaption>version ${esc(b.version)}</figcaption></figure>`).join('')}</div>` : ''}
-      ${flodelista('Fynd', m.fynd)}</div>`).join('');
-  $('#vy').innerHTML = `<div class="flode"><h1>Flödet</h1><p class="under">Två perspektiv: så är flödet tänkt (grundkällan är README.md), och det som faktiskt hände för en kund, ur körningens egna filer. En fil som finns är inte ett kontrollerat steg. Stegen gäller den aktuella körningen: det som hör till en tidigare körning är inaktuellt, och det som inte går att knyta till den är inte observerat.</p>
-    <h2>Det här hände${val ? ': ' + esc(val) : ''}</h2>${val ? `<p class="under"><a href="#/arbetsyta/${esc(val)}">Följ kunden i arbetsytan</a>: sessionerna, förhandsvisningen och samtalet på ett ställe.</p>` : ''}${hande}
-    <h2 style="margin-top:28px">Så är flödet tänkt</h2>${tankt}
-    ${pilot ? `<h2 style="margin-top:28px">Figma-metodprovet</h2><p class="under">Pilotens tre moment: A återskapar en referens, B anpassar till kundens material, C överför till webb. Inget i leveransen är verifierat genom piloten.</p>${pilot}` : ''}</div>`;
-  return true;
-  } catch (err) { if (!aktuell()) return false; throw err; }
-}
-
 // <dokumentationsvyn>
 // Dokumentation och rapporter (ägarens uppdrag 2026-10-06, punkt 8, och 2026-10-07, punkt 9): sammanfattningen först,
 // sedan delarna. Servern läser samma källor och metadata som filstrukturen vid varje visning (README.md, Var information
@@ -1591,6 +1483,10 @@ async function route() {
     // arbetsytan är startvyn (ägarens uppdrag 2026-10-09), och varje annan del ritas i dess ram med samma adress och
     // samma funktioner som förut (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan)
     if (h === '' || h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
+    if (h === 'flode' || h.startsWith('flode/')) {  // Flöde är en del av Byggflöde (ägarens mandat 2026-10-09 ~18:28Z): adressen leder dit
+      let s = decodeURIComponent(h.slice(6)); if (!s) { try { s = localStorage.getItem('nwp-arbetsyta:senaste') || ''; } catch { s = ''; } }
+      location.replace('#/arbetsyta' + (s ? '/' + encodeURIComponent(s) + '/flode' : '')); return;
+    }
     if (typeof arbetsytaSektion === 'function') arbetsytaSektion(h);  // utan arbetsytans skript ritas delen ändå, utan ram
     else $('#rot').innerHTML = '<div id="vy"></div>';
     if (h.startsWith('bygge/')) return await byggevy(decodeURIComponent(h.slice(6)));
@@ -1603,7 +1499,6 @@ async function route() {
     if (h === 'designprov' || h.startsWith('designprov/')) return await designprovvy(decodeURIComponent(h.slice(11)));
     if (h === 'prototyp' || h.startsWith('prototyp/')) return await prototypvy(decodeURIComponent(h.slice(9)));
     if (h.startsWith('prospekt')) { const d = h.split('/'); return d[2] ? await prospektkortvy(decodeURIComponent(d[1]), decodeURIComponent(d[2])) : d[1] ? await kampanjvy(decodeURIComponent(d[1])) : await prospektvy(); }
-    if (h === 'flode' || h.startsWith('flode/')) return await flodesvy(decodeURIComponent(h.slice(6)));
     if (h === 'dokumentation' || h.startsWith('dokumentation/')) return await dokumentationsvy(h.slice(14));
     if (h === 'starta') return startavy();
     if (h === 'underhall') return await underhallvy();

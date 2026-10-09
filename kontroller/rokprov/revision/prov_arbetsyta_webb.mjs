@@ -444,7 +444,8 @@ try {
   const grupper = await delar.locator('details.ay-meny').evaluateAll((ds) => ds.map((d) => [d.querySelector('summary').firstChild.textContent.trim(),  // gruppens namn, utan räknarna
     [...d.querySelectorAll('.ay-menylista a')].map((a) => a.querySelector('span').firstChild.textContent.trim())]));
   const grupp = (text) => (grupper.find(([, l]) => l.includes(text)) || [])[0];
-  for (const [text, g] of [['Prototyp', 'Kundproduktion'], ['Flöde', 'Kundproduktion'], ['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'],
+  assert.equal(grupp('Flöde'), undefined, 'Flöde är en del av Byggflöde, inte en egen post i menyn');
+  for (const [text, g] of [['Prototyp', 'Kundproduktion'], ['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'],
     ['Underhåll och verktygslådan', 'Systemförbättring'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring']])
     assert.equal(grupp(text), g, `arbetsytans delar ska ha ${text} under ${g}`);
   assert.equal(await delar.getByRole('link', { name: 'Dokumentation och rapporter' }).count(), 1, 'Dokumentation och rapporter ska stå i delarna');
