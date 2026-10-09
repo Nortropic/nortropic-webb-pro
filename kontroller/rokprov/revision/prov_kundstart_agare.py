@@ -121,6 +121,7 @@ if __name__=='__main__':
         signal.signal(signal.SIGTERM,stopp)
         with korregister.egen_tmp_med('nwp-kundstart-','ägarens webbläsarprov') as tmp:
             dash.ROOT=Path(tmp).resolve()
+            dash.UNDERLAG,dash.KUNDER=dash.ROOT/'underlag',dash.ROOT/'kunder'  # arbetsytans ram läser kundlistan: provrotens, aldrig repots
             s=dash.ThreadingHTTPServer(('127.0.0.1',0),dash.H)
             dash.VARD['tillatna']={'127.0.0.1:'+str(s.server_address[1])}
             print(json.dumps({'port':s.server_address[1]}),flush=True)

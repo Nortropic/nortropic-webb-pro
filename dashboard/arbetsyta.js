@@ -63,8 +63,9 @@
     document.body.classList.add('ay-aktiv');
     if (typeof aktivNav === 'function') aktivNav('arbetsyta');
     const gen = ++A.generation;
+    A.fokusDel = false;
     let lista;
-    try { lista = await hamta('/api/arbetsyta'); } catch (err) { visaFel('Arbetsytan kunde inte läsa kunderna: ' + err.message); return; }
+    try { lista = await hamta('/api/arbetsyta'); } catch (err) { if (gen === A.generation) visaFel('Arbetsytan kunde inte läsa kunderna: ' + err.message); return; }
     if (gen !== A.generation) return;
     A.projekt = lista.projekt || [];
     if (!slug) {
@@ -80,19 +81,25 @@
     const l = layout(slug);
     A.enhet = l.enhet === 'mobil' ? 'mobil' : 'dator';
     ram();
+    ritaRaknare();
     if (A.lage) rita(); else {
-      try { tillampa(await hamta('/api/arbetsyta/' + encodeURIComponent(slug)), true); } catch (err) { visaFel('Läget kunde inte läsas: ' + err.message); }
+      let d;
+      try { d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); } catch (err) { if (gen === A.generation) visaFel('Läget kunde inte läsas: ' + err.message); return; }
+      if (gen !== A.generation || A.slug !== slug) return;  // ägaren har gått vidare under läsningen
+      tillampa(d, true);
     }
-    if (!A.strom && !A.pollTimer) oppnaStrom(slug);
+    if (!A.strom && !A.pollTimer && A.slug === slug) oppnaStrom(slug);
   };
   function localStorageSenaste() { try { return localStorage.getItem('nwp-arbetsyta:senaste'); } catch { return null; } }
 
   function tomtLage() {
-    document.getElementById('rot').innerHTML = `<div class="ay">${huvudTom()}${flikrad()}<div class="ay-tom" style="padding:40px 18px">Inga kunder med underlag än. Starta ett ärende i <a href="#/kundstart">Kundstart</a> eller förbered en kund i <a href="#/flode">Flöde</a>.</div></div>`;
+    A.vy = ''; A.sektion = null;
+    document.getElementById('rot').innerHTML = `<div class="ay">${huvudTom()}${flikrad()}<main class="ay-tom" style="padding:40px 18px">Inga kunder med underlag än. Starta ett ärende i <a href="#/kundstart">Kundstart</a> eller förbered en kund i <a href="#/flode">Flöde</a>.</main></div>`;
+    ritaRaknare();
   }
   function visaFel(text) {
     const v = document.getElementById('rot');
-    if (!v.querySelector('.ay')) v.innerHTML = `<div class="ay">${huvudTom()}${flikrad()}</div>`;
+    if (A.vy === 'sektion' || !v.querySelector('.ay')) { A.vy = ''; A.sektion = null; v.innerHTML = `<div class="ay">${huvudTom()}${flikrad()}</div>`; }
     const ruta = v.querySelector('.ay-felruta') || Object.assign(document.createElement('div'), { className: 'ay-felruta' });
     ruta.innerHTML = `<div class="ay-notis fel" role="alert" style="margin:12px 18px">${e_(text)}</div>`;
     v.querySelector('.ay').prepend(ruta);
@@ -162,7 +169,7 @@
       <header class="ay-huvud" id="ay-huvud">${huvudTom().replace(/^<header[^>]*>|<\/header>$/g, '')}</header>
       ${flikrad()}
       <p id="ay-meddelande" class="dolt" role="status" aria-live="polite" aria-atomic="true"></p>
-      <div id="ay-innehall">${A.vy === 'sektion' ? '<div id="vy" class="ay-sektion"><p class="under">Laddar …</p></div>' : A.vy === 'flode' ? '<div class="ay-flode" id="ay-flode"></div>' : A.vy === 'kod' ? kodRam() : ytRam(l)}</div>
+      <main id="ay-innehall">${A.vy === 'sektion' ? '<div id="vy" class="ay-sektion"><p class="under">Laddar …</p></div>' : A.vy === 'flode' ? '<div class="ay-flode" id="ay-flode"></div>' : A.vy === 'kod' ? kodRam() : ytRam(l)}</main>
     </div>`;
     if (A.vy === '') kopplaDelare();
     if (A.vy === 'kod') laddaKod();
@@ -191,7 +198,7 @@
           `<a href="#/arbetsyta${sl ? '/' + sl : ''}${k && sl ? '/' + k : ''}"${A.vy === k ? ' aria-current="page"' : ''}>${n}</a>`).join('')}</nav>
         <nav aria-label="Arbetsytans delar" class="ay-delar">${DELAR.map(([grupp, delar]) => { const har = delar.some(([k]) => k === del);
           return `<details class="ay-meny"><summary${har ? ' data-aktiv' : ''}>${grupp}${har ? `<span class="ay-meny-val">: ${e_(DELNAMN[A.sektion])}</span>` : ''}</summary>
-          <div class="ay-menylista">${delar.map(post).join('')}</div></details>`; }).join('')}<a href="#/dokumentation" data-v="dokumentation"${del === 'dokumentation' ? ' aria-current="page"' : ''}>Dokumentation och rapporter</a></nav>
+          <div class="ay-menylista">${delar.map(post).join('')}</div></details>`; }).join('')}<a href="#/dokumentation" data-v="dokumentation"${del === 'dokumentation' ? ' aria-current="page"' : ''}>Dokumentation<span class="ay-lang"> och rapporter</span></a></nav>
       </div>`;
   }
   window.arbetsytaSektion = function arbetsytaSektion(h) {
@@ -201,20 +208,65 @@
     const gen = ++A.generation;  // en pågående läsning av en vy ger inte längre ramen
     let slug = ['prototyp', 'flode', 'bygge'].includes(forsta) && andra ? decodeURIComponent(andra) : (A.slug || localStorageSenaste());
     if (A.projekt.length && slug && !A.projekt.some((p) => p.slug === slug)) slug = A.projekt.some((p) => p.slug === A.slug) ? A.slug : null;  // ett bygge utan arbetsyta behåller kunden i huvudet
-    if (A.slug !== slug) { stangStrom(); Object.assign(A, { mark: undefined, slug, lage: null, valdKandidat: null, folj: null, partner: null, partnerNyckel: null, material: null, logg: null, loggNyckel: null, svar: '', kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null } }); }
+    bytKund(slug);
     A.vy = 'sektion'; A.sektion = sektion;
     ram();
-    if (A.lage) rita();
-    (async () => {  // huvudet: kunden och dess läge, om de går att läsa; delen ritas oavsett
-      try {
-        if (!A.projekt.length) A.projekt = (await hamta('/api/arbetsyta')).projekt || [];
-        if (gen !== A.generation || !A.slug) return;
-        if (!A.projekt.some((p) => p.slug === A.slug)) { A.slug = null; return; }
-        if (!A.lage) tillampa(await hamta('/api/arbetsyta/' + encodeURIComponent(A.slug)), true);
-        if (gen === A.generation && !A.strom && !A.pollTimer) oppnaStrom(A.slug);
-      } catch { /* utan kundens läge visas huvudet utan det; delen påverkas inte */ }
-    })();
+    rita();
+    ritaRaknare();
+    if (A.fokusDel) { A.fokusDel = false; fokuseraDel(); }
+    lasHuvud(gen);
   };
+  // kunden i huvudet byts utan att delen lämnas: strömmen och läget hör till kunden, delen till adressen
+  function bytKund(slug) {
+    if (A.slug === slug) return;
+    stangStrom();
+    Object.assign(A, { mark: undefined, slug, lage: null, valdKandidat: null, folj: null, partner: null, partnerNyckel: null, material: null, logg: null, loggNyckel: null, svar: '', kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null } });
+    if (slug) { try { localStorage.setItem('nwp-arbetsyta:senaste', slug); } catch { /* bekvämlighet */ } }
+  }
+  async function lasHuvud(gen) {  // huvudet: kundlistan, kundens läge och strömmen, om de går att läsa; delen ritas oavsett
+    try {
+      const lista = (await hamta('/api/arbetsyta')).projekt || [];
+      if (gen !== A.generation) return;
+      A.projekt = lista;
+      if (A.slug && !A.projekt.some((p) => p.slug === A.slug)) bytKund(null);
+      ritaFlikrad(); rita();
+      if (!A.slug) return;
+      const slug = A.slug;
+      if (!A.lage) { const d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); if (gen !== A.generation || A.slug !== slug) return; tillampa(d, true); }
+      if (gen === A.generation && A.slug === slug && !A.strom && !A.pollTimer) oppnaStrom(slug);
+    } catch { /* utan kundens läge visas huvudet utan det; delen påverkas inte */ }
+  }
+  function ritaFlikrad() { const f = document.querySelector('.ay > .ay-flikrad'); if (f && !f.contains(document.activeElement)) { f.outerHTML = flikrad(); ritaRaknare(); } }
+  // efter ett val i menyn: fokus på delens rubrik när den ritats, så att tangentbordet fortsätter i delen
+  function fokuseraDel() {
+    const vy = document.getElementById('vy'); if (!vy) return;
+    const fokus = () => { const h = vy.querySelector('h1'); if (!h) return false; h.tabIndex = -1; h.focus({ preventScroll: true }); return true; };
+    if (fokus()) return;
+    const mo = new MutationObserver(() => { if (fokus()) mo.disconnect(); });
+    mo.observe(vy, { childList: true, subtree: true }); setTimeout(() => mo.disconnect(), 10000);
+  }
+  // räknarna (vilande i backloggen, intag som pågår, prospekt som väntar): de sista kända från /api/oversikt, i menyn och
+  // på gruppens knapp; läses om när de är äldre än en minut, och varje del som läser översikten uppdaterar dem (raknare)
+  window.arbetsytaRaknare = function arbetsytaRaknare(o) { A.raknare = { tid: Date.now(), backlog: o.backlog_vilande || 0, kirurg: o.intag_pagar || 0, prospekt: o.prospekt_vantar || 0 }; ritaRaknare(); };
+  async function ritaRaknare() {
+    const r = A.raknare;
+    const satt = (id, n, text) => { const b = document.getElementById(id); if (b) { b.hidden = !n; b.textContent = n ? text : ''; } };
+    if (r) {
+      satt('n-backlog', r.backlog, String(r.backlog)); satt('n-kirurg', r.kirurg, r.kirurg + ' pågår'); satt('n-prospekt', r.prospekt, String(r.prospekt));
+      document.querySelectorAll('.ay-meny').forEach((m) => {
+        const s = m.querySelector('summary'); if (!s) return;
+        s.querySelectorAll('.ay-summa').forEach((b) => b.remove());
+        for (const b of m.querySelectorAll('.ay-menylista b:not([hidden])')) {
+          const namn = b.closest('a')?.querySelector('span')?.firstChild?.textContent.trim() || '';
+          s.insertAdjacentHTML('beforeend', `<b class="ay-summa" title="${e_(namn + ': ' + b.textContent)}">${e_(b.textContent)}</b>`);
+        }
+      });
+    }
+    if (r && Date.now() - r.tid < 60000) return;
+    if (A.raknareLaser) return;
+    A.raknareLaser = true;
+    try { window.arbetsytaRaknare(await hamta('/api/oversikt')); } catch { /* räknarna är en bekvämlighet; utan dem visas inga */ } finally { A.raknareLaser = false; }
+  }
   function ytRam(l) {
     return `<div class="ay-omraden"><div class="ay-segment" role="group" aria-label="Visa område">${[['samtal', 'Samtal'], ['resultat', 'Resultat'], ['sessioner', 'Sessioner']].map(([k, n]) =>
         `<button type="button" data-omrade="${k}" aria-pressed="${(l.omrade || 'resultat') === k}">${n}</button>`).join('')}</div></div>
@@ -1121,8 +1173,11 @@
     if (ev.target.id === 'ay-foljdform') { ev.preventDefault(); stallFoljdfraga(); }
   });
   document.addEventListener('change', (ev) => {
-    if (ev.target.id === 'ay-kund' && ev.target.value) location.hash = A.vy === 'sektion' ? (['prototyp', 'flode'].includes(A.sektion) ? `#/${A.sektion}/` : '#/arbetsyta/') + encodeURIComponent(ev.target.value)
-      : '#/arbetsyta/' + encodeURIComponent(ev.target.value) + (A.vy ? '/' + A.vy : '');
+    if (ev.target.id === 'ay-kund' && ev.target.value) {
+      if (A.vy !== 'sektion') location.hash = '#/arbetsyta/' + encodeURIComponent(ev.target.value) + (A.vy ? '/' + A.vy : '');
+      else if (['prototyp', 'flode'].includes(A.sektion)) location.hash = `#/${A.sektion}/` + encodeURIComponent(ev.target.value);
+      else { bytKund(ev.target.value); const gen = ++A.generation; ritaFlikrad(); rita(); lasHuvud(gen); }
+    }
     if (ev.target.id === 'ay-kodkand') { A.valdKandidat = ev.target.value; A.kod.fil = null; A.kod.mot = null; laddaKod(); ritaMaterial(); }
     if (ev.target.id === 'ay-kodmot') laddaKod(undefined, ev.target.value || null);
     if (ev.target.id === 'ay-mottagare') { A.mottagareVald = ev.target.value; const f = document.getElementById('ay-skriv'); const t = f?.querySelector('textarea')?.value; f.dataset.ritad = ''; ritaMeddelandeform(); const nt = document.getElementById('ay-mtext'); if (nt && t) nt.value = t; document.getElementById('ay-mottagare')?.focus(); }
@@ -1133,7 +1188,11 @@
   document.addEventListener('keydown', (ev) => { if (ev.target.id === 'ay-text' && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); A.avsikt === 'andring' ? skickaAndring() : skickaPartner(); } });
   // delarnas menyer: en öppen åt gången; ett klick utanför eller Escape stänger, och fokus går tillbaka till knappen
   document.addEventListener('toggle', (ev) => { if (ev.target.classList?.contains('ay-meny') && ev.target.open) document.querySelectorAll('.ay-meny[open]').forEach((m) => { if (m !== ev.target) m.open = false; }); }, true);
-  document.addEventListener('click', (ev) => { document.querySelectorAll('.ay-meny[open]').forEach((m) => { if (!m.contains(ev.target) || ev.target.closest('.ay-menylista a')) m.open = false; }); });
-  document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; const m = document.querySelector('.ay-meny[open]'); if (m) { m.open = false; m.querySelector('summary')?.focus(); } });
+  document.addEventListener('click', (ev) => {
+    if (ev.target.closest?.('.ay-flikrad a')) A.fokusDel = true;  // delen som öppnas får fokus på sin rubrik
+    document.querySelectorAll('.ay-meny[open]').forEach((m) => { if (!m.contains(ev.target) || ev.target.closest('.ay-menylista a')) m.open = false; });
+  });
+  document.addEventListener('focusout', (ev) => { const m = ev.target.closest?.('.ay-meny[open]'); if (m && ev.relatedTarget && !m.contains(ev.relatedTarget)) m.open = false; });
+  document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; const m = document.querySelector('.ay-meny[open]'); if (m) { const inne = m.contains(document.activeElement); m.open = false; if (inne) m.querySelector('summary')?.focus(); } });
   window.__arbetsyta = A;  // för proven: läget i vyn, aldrig något att skriva i
 })();

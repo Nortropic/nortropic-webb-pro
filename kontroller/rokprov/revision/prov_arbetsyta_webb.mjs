@@ -249,7 +249,8 @@ const srv = createServer(async (req, res) => {
   if (vag === `/api/arbetsyta/${SLUG}/logg`) return json(LOGG());
   if (vag === '/api/flode') return json({ slugar: [SLUG], pilot: [], kedjan: { steg: [{ steg: 'Kundunderlaget', vem: 'Kundstart samlar underlaget; du godkänner det.' },
     { steg: 'Prototypen', vem: 'Ateljén skapar kandidater med neutrala etiketter; granskarna dömer var för sig.' }] } });
-  if (vag === '/api/oversikt') return json({ byggen: [], backlog_vilande: 0, intag_pagar: 0, prospekt_vantar: 0 });
+  if (vag === '/api/oversikt') return json({ byggen: [], backlog_vilande: 3, intag_pagar: 1, prospekt_vantar: 0 });
+  if (vag === '/api/underhall') return json({ senast: { start: T(90), slut: T(80), antal: { uppdaterad: 2, avvisad: 0, behallen: 1 } }, andringar: [], intervall_dagar: 1, pagar: null, md: '' });
   if (vag === '/api/bevakning') return json({ senast: { start: T(30), slut: T(29), automatisk: true, utfall: 'delvis', sen_timmar: 0.2 }, nasta: T(-600), tidszon: 'Europe/Stockholm',
     klockslag: '07:00', aktiv: true, forbattringar: { bevakade: 3, bedomda: 1, provade: 0, inforda: 0, verifierade: 0 },
     beslut: [{ id: 'besokarprov', fraga: 'När prövar vi en sajt med verkliga besökare?', lucka: 'ingen verklig användarobservation' }],
@@ -440,8 +441,8 @@ try {
   assert.equal(await page.getByRole('link', { name: 'Klassisk vy' }).count(), 0, 'knappen Klassisk vy ska vara borta');
   assert.equal(await page.locator('.ay-meny summary').filter({ hasText: 'Fler vyer' }).count(), 0, 'Fler vyer ska vara borta');
   const delar = page.getByRole('navigation', { name: 'Arbetsytans delar' });
-  const grupper = await delar.locator('details.ay-meny').evaluateAll((ds) => ds.map((d) => [d.querySelector('summary').textContent.trim(),
-    [...d.querySelectorAll('.ay-menylista a')].map((a) => a.querySelector('span').textContent.trim())]));
+  const grupper = await delar.locator('details.ay-meny').evaluateAll((ds) => ds.map((d) => [d.querySelector('summary').firstChild.textContent.trim(),  // gruppens namn, utan räknarna
+    [...d.querySelectorAll('.ay-menylista a')].map((a) => a.querySelector('span').firstChild.textContent.trim())]));
   const grupp = (text) => (grupper.find(([, l]) => l.includes(text)) || [])[0];
   for (const [text, g] of [['Prototyp', 'Kundproduktion'], ['Flöde', 'Kundproduktion'], ['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'],
     ['Underhåll och verktygslådan', 'Systemförbättring'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring']])
@@ -475,6 +476,24 @@ try {
   assert.equal(await delar.locator('.ay-meny[open]').count(), 0, 'menyn stängs när en del öppnas');
   assert.equal((await delar.locator('summary[data-aktiv]').textContent()).trim(), 'Kundproduktion: Byggen och dina domar', 'navigeringen visar var du är');
   assert.equal((await page.locator('#ay-kund option:checked').textContent()).trim(), `${NAMN} (testdata)`, 'huvudet behåller kunden i en del');
+  assert.equal(await page.evaluate(() => document.activeElement?.tagName + ':' + document.activeElement?.textContent), 'H1:Byggen och dina domar', 'efter ett val i menyn har delens rubrik fokus');
+  // räknarna ur översikten står kvar i menyn och på gruppens knapp, också i en annan del
+  await delar.locator('summary').filter({ hasText: 'Systemförbättring' }).locator('.ay-summa').first().waitFor();
+  assert.deepEqual(await delar.locator('summary').filter({ hasText: 'Systemförbättring' }).locator('.ay-summa').allTextContents(), ['1 pågår', '3'], 'räknarna på Systemförbättring');
+  await page.evaluate(() => { location.hash = '#/underhall'; });
+  await page.locator('#vy h1').filter({ hasText: 'Underhåll och verktygslådan' }).waitFor();
+  await page.locator('#verktygslada .chip').filter({ hasText: '2 uppdaterade' }).waitFor();
+  assert.deepEqual(await delar.locator('summary').filter({ hasText: 'Systemförbättring' }).locator('.ay-summa').allTextContents(), ['1 pågår', '3'], 'räknarna står kvar efter bytet');
+  await axeKor('Underhåll 1440');
+  // i smal bredd: navigeringen står kvar när delen rullas, och varje del i raden nås utan att raden rullas i sidled
+  for (const w of [390, 320]) {
+    await page.setViewportSize({ width: w, height: 800 }); await ram();
+    await page.evaluate(() => scrollTo(0, 400)); await ram();
+    const doc = await delar.getByRole('link', { name: /^Dokumentation/ }).boundingBox();
+    assert(doc && doc.x >= 0 && doc.x + doc.width <= w && doc.y >= 0 && doc.y + doc.height <= 800, `Dokumentation ska synas i navigeringen vid ${w} px: ${JSON.stringify(doc)}`);
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `spill i delen vid ${w} px`);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 }); await ram();
   await page.evaluate((s) => { location.hash = '#/arbetsyta/' + s + '/flode'; }, SLUG);
   await page.locator('ol.ay-stegrad').waitFor();
   await page.setViewportSize({ width: 1440, height: 900 }); await ram();
