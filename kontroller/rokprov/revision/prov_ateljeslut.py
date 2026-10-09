@@ -1247,7 +1247,7 @@ def _belagg_bilaga():
     assert skapande.senaste(s, underlag=U)['tid'] == t1, 'belägget blev ett nytt beslut i stället för att gälla raden'
     av = skapande.avsandare(d)
     assert av['agarens'] and av['typ'] == 'agaren' and 'belägget i bilagan' in av['text'] and 'rad 1' in av['text'], av
-    assert prototyp.lage(s)[0] == 'valda', prototyp.lage(s)
+    assert prototyp.lage(s)[0] == 'vanta' and 'nästa steg är ett uppdrag' in prototyp.lage(s)[1], prototyp.lage(s)  # ett val startar inget (2026-10-09)
     # i ateljéns slutpost räknas raden som ägarens, med belägget i avsändaren
     post = ateljeslut.bygg(s, json.loads((rot / 'STATUS.json').read_text()), '20261005T090000Z')
     e = post['agarens_beslut']['efter']
@@ -1374,14 +1374,14 @@ def _trasig_rad():
     skriv(u2 / 'atelje' / 'STATUS.json', {'slug': s2, 'startad': '2026-10-06T09:00:00Z', 'klar': '2026-10-06T10:00:00Z', 'steg': 'klar_for_bedomning', 'lage': 'ny', 'kandidatflode': True})
     val = dict(kandidater=[{'id': 'k01', 'version': 'v' * 64}])
     logg(s2, dom('2026-10-06T11:00:00Z', 'ägaren', 'valj', 'Välj k01.', **val))
-    assert prototyp.lage(s2)[0] == 'valda', prototyp.lage(s2)
+    assert prototyp.lage(s2)[0] == 'vanta', prototyp.lage(s2)
     logg(s2, b'{"tid": "2026-10-06T12:00:00Z", "kalla": "\xc3\xa4garen"}\n', b'trasig\n')
     vald, skal = prototyp.lage(s2)
     assert vald == 'stopp' and 'raderna 2, 3' in skal and 'nytt beslut' in skal, ('ett val före en trasig rad gav läget', vald, skal)
     lg = skapande.domlogg(s2, U)
     assert [x['rad'] for x in lg['olasbara']] == [2, 3] and 'ingen dom' in lg['olasbara'][0]['skal'] and lg['olasbara'][1]['skal'].startswith('inte JSON'), lg['olasbara']
     skapande.lagg_till_dom(s2, 'ägaren', 'valj', 'Välj k01, igen.', underlag=U, tid='2026-10-06T13:00:00Z', **val)
-    assert prototyp.lage(s2)[0] == 'valda' and [x['rad'] for x in skapande.domlogg(s2, U)['olasbara']] == [2, 3], ('vägen vidare', prototyp.lage(s2))
+    assert prototyp.lage(s2)[0] == 'vanta' and 'uppdrag' in prototyp.lage(s2)[1] and [x['rad'] for x in skapande.domlogg(s2, U)['olasbara']] == [2, 3], ('vägen vidare', prototyp.lage(s2))
 
 
 @fall('de andra JSONL-filerna läses också på radslut: tjänstesessionens logg, underhållets ändringar och provets historik')

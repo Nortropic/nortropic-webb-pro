@@ -306,7 +306,8 @@ with fall('R4 efter första valet'):
              and 'a1a1a1a1a1a1' in st[3]['beslut'][-1]['text'], st[3])
     kontroll(ANTAL_BRISTER.search(json.dumps(f, ensure_ascii=False)), ('R4: bristerna syns inte efter valet (detektorns motprov)', st[2]['brister']))
     kontroll('HEMLIG-TITEL' not in json.dumps(f, ensure_ascii=False), 'planens titlar visas aldrig i flödet')
-    kontroll('valda' in st[3]['nasta'] and st[4]['status'] == 'inte påbörjat' and st[5]['status'] == 'inte påbörjat', (st[3]['nasta'], st[4]['status'], st[5]['status']))
+    # ett val startar inget (ägarens uppdrag 2026-10-09, punkt 8): nästa steg är ett uppdrag, inte en förfining av de valda
+    kontroll('valda' not in st[3]['nasta'] and st[4]['status'] == 'inte påbörjat' and st[5]['status'] == 'inte påbörjat', (st[3]['nasta'], st[4]['status'], st[5]['status']))
 
 # --- R3: före det blinda A/B-valet skiljer ingenting armarna åt ---
 AB = 'ab-prov-20261006T000000Z'
