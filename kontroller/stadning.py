@@ -137,6 +137,7 @@ TMP_PREFIX = (
     'nwp-refinsp-',                                                                   # prov_referensinspektion.py
     'nwp-canvashig-',                                                                 # prov_canvas_hig.py
     'nwp-rorelse-',                                                                   # prov_rorelse.py
+    'nwp-fangst-',                                                                    # prov_fangst.py
     'nwp-pilotsession-',                                                              # kundstart_modell.py (Kundstarts pilotsession)
 )
 # fasta kataloger i /tmp som aldrig är tillfälliga: körregistret och intagslåset, läget när underlag/ är låst, och
