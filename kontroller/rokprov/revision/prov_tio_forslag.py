@@ -145,6 +145,9 @@ class RenDesignstart(unittest.TestCase):
         self.assertEqual(rd.prova(self.rot), [], 'vakten fällde en ren miljö')
         skriv(self.rot / 'kunder/kund-a/sajt/src/styles/mall.css', 'body{}')  # en ny sajt ur mallen är nytt material
         self.assertEqual(rd.prova(self.rot), [])
+        skriv(self.rot / 'underlag/kund-a/atelje/.las', '')  # ett tomt lås och [] är inte återkommet material (drift 2026-10-09)
+        skriv(self.rot / 'underlag/kund-a/atelje/LISTA.json', '[]')
+        self.assertEqual(rd.prova(self.rot), [])
         gammal = self.arkiv / 'underlag/kund-a/atelje/kandidater/k01/bilder/start/vy-390-forsta.png'
         skriv(self.rot / 'kunder/kund-a/sajt/public/bild.png', gammal.read_bytes())
         self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)])

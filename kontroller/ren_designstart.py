@@ -38,6 +38,7 @@ ARKIV = Path(os.environ.get('NWP_REN_ARKIV') or Path.home() / 'Arkiv' / 'nortrop
 NAMN = 'REN-DESIGNSTART-20261009'
 REGISTER = Path('underlag') / 'rensning' / (NAMN + '.json')  # privat: posterna, brytpunkten, arkivets plats
 HASHAR = Path('underlag') / 'rensning' / (NAMN + '.sha256')  # privat: de arkiverade filernas sha256, utan innehåll
+MINSTA_BYTE = 8  # filer på högst så många byte jämförs inte: samma tomma lås eller {} är inte återkommet material
 TMP = Path('/private/tmp') if Path('/private/tmp').is_dir() else Path('/tmp')
 
 # Det som bevaras i en kunds underlag (underlag/<slug> med VERKSAMHET.json): fakta, kundens ord och önskemål, material,
@@ -384,6 +385,11 @@ def prova(root=None):
             continue
         for rel, h in filer(k):
             if '/node_modules/' in '/%s/' % rel or h.startswith('lank:'):
+                continue
+            try:  # en tom låsfil, {} eller [] bär inget designmaterial (dashboarden skapar arbetsytans lås på nytt)
+                if (k / rel if rel else k).stat().st_size <= MINSTA_BYTE:
+                    continue
+            except OSError:
                 continue
             if h in hashar and h not in mall:
                 ut.append({'vad': 'arkiverat material har kommit tillbaka', 'detalj': '%s/%s' % (p['sokvag'], rel)})
