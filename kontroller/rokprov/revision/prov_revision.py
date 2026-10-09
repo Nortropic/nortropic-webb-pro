@@ -338,8 +338,9 @@ m1 = gr.metod_sha('ett-abx')
 (tmp / 'kritik' / 'GRANSKARE.md').write_text('k2'); m2 = gr.metod_sha('ett-abx'); assert m2 != m1, 'ändrade kriterier ska ge ny metodhash'
 (tmp / 'kunskap' / 'byggstandard.md').write_text('standard v2'); m3 = gr.metod_sha('ett-abx'); assert m3 != m2, 'ändrad byggstandard ska ge ny metodhash (F18)'
 (tmp / 'underlag' / 'ett-abx' / 'BRIEF.md').write_text('krav'); assert gr.metod_sha('ett-abx') != m3, 'ändrad brief ska ge ny metodhash (F18)'
-m4 = gr.metod_sha('ett-abx'); (tmp / 'kunskap' / 'visuell-niva.md').write_text('nivå v1'); m5 = gr.metod_sha('ett-abx'); assert m5 != m4, 'nivåfilen ingår i metodhashen (Codex R30)'
-(tmp / 'kunskap' / 'visuell-niva.md').write_text('nivå v2'); assert gr.metod_sha('ett-abx') != m5, 'ändrad nivåfil ska ge ny metodhash'
+m4 = gr.metod_sha('ett-abx'); (tmp / 'kunskap' / 'referenser-professionella.md').write_text('dimensioner v1'); m5 = gr.metod_sha('ett-abx'); assert m5 != m4, 'måttstockarna ingår i metodhashen'
+(tmp / 'kunskap' / 'referenser-professionella.md').write_text('dimensioner v2'); assert gr.metod_sha('ett-abx') != m5, 'ändrad måttstock ska ge ny metodhash'
+assert 'kunskap/visuell-niva.md' not in [f_ for _n, f_ in gr.MATTSTOCKAR], 'nivåfilen ur de gamla ankarna är borttagen (den rena designstarten 2026-10-09)'
 upp = {'metod_sha': m1, 'modell': 'opus[1m]', 'effort': 'high', 'granskare': 2, 'originalitet': 'skugga'}
 assert gr.samma_metod(dict(upp), upp) and not gr.samma_metod(dict(upp, granskare=1), upp) and not gr.samma_metod({}, upp)
 # falsk claude: svarar som granskare; PROV_FALL styr vem som faller
@@ -2770,7 +2771,8 @@ import referensval as rv_pt  # noqa: E402
 assert rv_pt.huvudreferens('pt-prov', pt_und)['kalla'].startswith('ateljéns val') and rv_pt.huvudreferens('pt-prov', pt_und)['vad'] == 'kompositionen', 'den valda referensen går före REFERENSER.md'
 assert at_pt.riktningsavsnitt(pt_u / 'atelje')[1][0] == 'Fönstret' and at_pt.sammandrag('Grundidé: x\nVarven: y') == 'Grundidé: x'
 fp = at_pt.forfina_prompt('pt-prov', pt_u / 'atelje')
-for krav_ in ('kontroller/forhandsvisa.py pt-prov', 'FORFINING.md', 'minst %d varv' % at_pt.MIN_VARV_FORFINA, 'TILLBAKA.md', 'KOMPLETTERING.json',
+assert not hasattr(at_pt, 'MIN_VARV_FORFINA') and 'inget minsta antal varv' in fp, 'minimiantalet varv är borttaget (2026-10-09)'
+for krav_ in ('kontroller/forhandsvisa.py pt-prov', 'FORFINING.md', 'TILLBAKA.md', 'KOMPLETTERING.json',
               '070-111 22 33', '600000 ms', 'forhand/start', '.claude/skills/better-layout/SKILL.md', 'humanizer', 'formgivning: luften glesar',
               'Huvudreferensen, som riktningen bär', 'vy-1440-ruta-02.png', 'DESIGN.md', 'design.py pt-prov --skriv', '> Grundidén bär inte.', 'utkast som skrivs om'):
     assert krav_ in fp, krav_
@@ -4551,10 +4553,15 @@ try:
     assert pt.lage(sl_kd)[0] == 'vanta' and kd.las_status(sl_kd, 'k01')['status'] == 'klar' and pt.bygget_nekas(sl_kd), 'jämförelsen ändrar ingen status (V5)'
     # valet av föreversionen före en förbättringsrunda (ägaren kan föredra den)
     fore2_ = kd.las_status(sl_kd, 'k02')['forbattrad']['fore']
-    dom_kd = at_pt.doma(sl_kd, 'ägaren', 'valj', 'Bygg vidare på den.', kandidater=[{'id': 'k02', 'version': fore2_}], delar={'k03': 'tidslinjen', 'x': 'bort'},
-                        tid='2026-10-05T12:10:00Z')
+    dom_v = at_pt.doma(sl_kd, 'ägaren', 'valj', 'Den här vill jag gå vidare med.', kandidater=[{'id': 'k02', 'version': fore2_}], tid='2026-10-05T12:09:00Z')
+    assert kd.las_status(sl_kd, 'k02')['status'] == 'vald' and pt.lage(sl_kd)[0] == 'vanta' and 'nästa steg är ett uppdrag' in pt.lage(sl_kd)[1], 'ett val startade arbete (2026-10-09)'
+    # den riktade förbättringen är ett uppdrag (ägarens uppdrag 2026-10-09, punkt 8): här Bygg ut, utan specialistpass
+    dom_kd = at_pt.doma(sl_kd, 'ägaren', 'uppdrag', 'Bygg vidare på den.', kandidater=[{'id': 'k02', 'version': fore2_}], delar={'k03': 'tidslinjen', 'x': 'bort'},
+                        tid='2026-10-05T12:10:00Z', uppdrag={'typ': 'bygg_ut', 'resultat': 'hela startsidan och projektsidan', 'omfattning': ['startsidans sektioner'],
+                                                            'bevara': ['första vyn'], 'specialister': {}})
     assert dom_kd['kandidater'][0]['version'] == fore2_ and dom_kd['delar'] == {'k03': 'tidslinjen'} and dom_kd['delar_titlar'] == {'k03': 'titel 2'} and dom_kd['plan'] == '2026-10-05T10:30:00Z', dom_kd
     assert kd.las_status(sl_kd, 'k02')['status'] == 'vald' and pt.lage(sl_kd)[0] == 'valda' and pt.bygget_nekas(sl_kd).startswith('valda')
+    assert pt.valda_text(sl_kd).startswith('Starta uppdraget: Bygg ut'), pt.valda_text(sl_kd)
     kr_kd = '\n'.join(sk.kritikrader(sl_kd, underlag=kd_u))
     assert 'kandidaterna i planen 2026-10-05T10:30:00Z: %s (k02 "titel 1"' % et_kd['k02'] in kr_kd and 'ägaren gillade i k03 "titel 2" i planen' in kr_kd, kr_kd
     sam2_ = next(k_ for k_ in kd.sammanstall(sl_kd) if k_['id'] == 'k02')
@@ -4618,7 +4625,7 @@ try:
         at_pt.subprocess.Popen, at_pt.vanta, at_pt.utforska_och_valj = spara_popen_kd, spara_vanta_kd, spara_uov_kd
         kd.leverera_metod, kd.fotografera = spara_kd['leverera_metod'], spara_kd['fotografera']
     stn_ = json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())
-    assert stn_['steg'] == 'klar_for_bedomning' and stn_['fas'] == 'forfining' and [s_['ut'][:13] for s_ in sess_kd[n_kd:]] == ['svar-forfina-'], (stn_, sess_kd[n_kd:], kd.las_status(sl_kd, 'k02'))
+    assert stn_['steg'] == 'klar_for_bedomning' and stn_['fas'] == 'forfining' and [s_['ut'][:13] for s_ in sess_kd[n_kd:]] == ['svar-uppdrag-'], (stn_, sess_kd[n_kd:], kd.las_status(sl_kd, 'k02'))
     st2n_ = kd.las_status(sl_kd, 'k02')
     assert 'den lokala servern startade inte' in st2n_['skal'], st2n_['skal']
     assert st2n_['status'] == 'vald' and 'återställd' in st2n_['skal'] and st2n_['version'] == fore2_ and 'forfining_pagar' not in st2n_, st2n_
@@ -4654,7 +4661,7 @@ try:
     n_kd = len(sess_kd)
     at_pt.arbetare(sl_kd, 'fortsatt')
     st2_ = kd.las_status(sl_kd, 'k02')
-    fp_kd = [s_ for s_ in sess_kd[n_kd:] if s_['ut'].startswith('svar-forfina-')]
+    fp_kd = [s_ for s_ in sess_kd[n_kd:] if s_['ut'].startswith('svar-uppdrag-')]
     assert len(fp_kd) == 1 and st2_['status'] == 'forfinad' and st2_['forfining']['fran'] == fore2_ and not [s_ for s_ in sess_kd[n_kd:] if s_['ut'].startswith('svar-skapa')], st2_
     assert json.loads((kd.rot(sl_kd) / 'STATUS.json').read_text())['steg'] == 'klar_for_bedomning', 'arbetaren förfinade de valda i stället för att skapa om (B1)'
     for krav_ in (et_kd['k02'], 'tidslinjen', 'kandidater/k03/kod', 'design.py kd-prov --kandidat k02 --skriv', 'Bygg vidare på den.', 'METOD-forfina.md', '--mellan', 'Visar'):
@@ -4667,7 +4674,8 @@ try:
     # en förfining som inte gör något eget varv blir aldrig "förfinad" (V7)
     (kd.kdir(sl_kd, 'k01') / 'RIKTNING.md').write_text((kd.kdir(sl_kd, 'k01') / 'RIKTNING.md').read_text() + '\nINGET-VARV\n')
     kd.satt_status(sl_kd, 'k01', 'vald', 'vald')
-    st1f_ = kd.forfina_kandidat(sl_kd, 'k01', kd.las_status(sl_kd, 'k01')['version'], {'tid': '2026-10-05T12:30:00Z', 'kandidater': []})
+    st1f_ = kd.forfina_kandidat(sl_kd, 'k01', kd.las_status(sl_kd, 'k01')['version'], {'tid': '2026-10-05T12:30:00Z', 'kandidater': [], 'uppdrag': {
+        'typ': 'ratta', 'resultat': 'r', 'omfattning': ['o'], 'bevara': ['b'], 'specialister': {}}})
     assert st1f_['status'] == 'vald' and 'inget eget förhandsvarv' in st1f_['skal'], st1f_
 
     # --- godkännandet: prövas helt innan något gällande ändras (B2) ---
@@ -5593,7 +5601,7 @@ try:
     # efter fördjupningen: passen i ordning, sedan DESIGN.md-kontrollen på den slutliga koden (G11)
     foto_kp.update(version='v9')
     kd.satt_status(sl_kp, 'k01', 'forfinad', 'förfinad', version='v7', ta_bort=('kompetens',))
-    st_kp = kd.efter_fordjupning(sl_kp, 'k01', {'tid': 'e', 'text': 'x'})
+    st_kp = kd.efter_fordjupning(sl_kp, 'k01', {'tid': 'e', 'text': 'x', 'uppdrag': {'typ': 'bygg_ut', 'resultat': 'hela startsidan', 'omfattning': ['/x/'], 'bevara': ['första vyn'], 'specialister': {'rorelse': 'andra', 'granskning': 'andra'}}})
     assert set(st_kp['kompetens']) == {'fordjupa:e:rorelse', 'fordjupa:e:granskning'} and st_kp['design_fel'] == [] and st_kp.get('design_version'), st_kp
 finally:
     for n_, v_ in spara_kp.items():
@@ -6763,6 +6771,9 @@ except RuntimeError as e_:
 (kal_r / 'K01' / 'start' / 'vy-390-forsta.png').unlink(); (kal_r / 'K01' / 'start' / 'vy-390-forsta.png').write_bytes(png_)
 # försöket: undanhållna förbereds med egna bilder och ankarna, uppdraget nämner inte de undanhållnas ord; jämförelsen räknar rätt
 spec_ = ilu_.spec_from_file_location('kalforsok', ROOT / 'kontroller' / 'granskarforsok' / 'kalibrering.py'); kf_ = ilu_.module_from_spec(spec_); spec_.loader.exec_module(kf_)
+# efter den rena designstarten 2026-10-09 finns ingen nivåfil (den byggs ur nya ankare); mekaniken prövas med designreglerna i dess ställe
+assert not (ROOT / kf_.NIVAFIL).exists()
+kf_.NIVAFIL = 'kunskap/designregler.md'
 gr.SCHEMA = ROOT / 'kritik' / 'SCHEMA-granskning.json'  # det riktiga schemat (F8-blocket bytte till ett tomt): de obligatoriska fälten prövas, och manifestet är stabilt genom blocket
 und_ = kf_.undanhallna(kal_u); assert [e['id'] for e in und_] == ['K02', 'K04']
 ut_kf = tmp / 'forsok'
@@ -6822,9 +6833,9 @@ def torr_(*extra_):
 assert (ut_kf / 'K02' / 'MANIFEST.json').is_file()
 # metoden fryses med bilderna (Codex R31): granskartext, schema och måttstockar i exemplets metod/, uppdraget och anropet pekar dit, manifestet hashar kopiorna
 fryst_ = ut_kf / 'K02' / 'metod'
-assert (fryst_ / 'kritik' / 'GRANSKARE.md').is_file() and (fryst_ / 'kritik' / 'SCHEMA-granskning.json').is_file() and (fryst_ / 'kunskap' / 'visuell-niva.md').is_file() and (fryst_ / 'kunskap' / 'teoretisk-grund.md').is_file()
+assert (fryst_ / 'kritik' / 'GRANSKARE.md').is_file() and (fryst_ / 'kritik' / 'SCHEMA-granskning.json').is_file() and (fryst_ / kf_.NIVAFIL).is_file() and (fryst_ / 'kunskap' / 'teoretisk-grund.md').is_file()
 man_ = json.loads((ut_kf / 'K02' / 'MANIFEST.json').read_text())
-assert man_['regler']['kritik/GRANSKARE.md'] == kf_.hash_fil(fryst_ / 'kritik' / 'GRANSKARE.md') and 'kunskap/visuell-niva.md' in man_['regler'] and 'kritik/SCHEMA-granskning.json' in man_['regler']
+assert man_['regler']['kritik/GRANSKARE.md'] == kf_.hash_fil(fryst_ / 'kritik' / 'GRANSKARE.md') and kf_.NIVAFIL in man_['regler'] and 'kritik/SCHEMA-granskning.json' in man_['regler']
 assert str(fryst_) in (ut_kf / 'K02' / 'PROMPT.txt').read_text()
 args_ = kf_.claude_args(ut_kf / 'K02', 'm', 'e', 'claude')
 assert (fryst_ / 'kritik' / 'SCHEMA-granskning.json').read_text() in args_ and ('Read(%s/**)' % kf_.ROOT) in args_ and '--add-dir' in args_
@@ -6845,9 +6856,10 @@ rc_, ut_text = torr_('--modell', 'annan'); assert 'återanvända (identiskt mani
 (ut_kf / 'K02' / 'svar.json').write_text(json.dumps({'subtype': 'success', 'structured_output': helt_})); (ut_kf / 'K02' / 'KORNING.json').write_text(json.dumps({'slutkod': 1}))
 rc_, ut_text = torr_('--modell', 'annan'); assert 'att köra: 2' in ut_text, ('slutkod 1 körs om', ut_text)
 assert kf_.giltigt_svar(ut_kf / 'K04')[1] is not None
-assert 'visuell-niva.md' in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'Kalibreringsankarna' in (ROOT / 'kritik' / 'GRANSKARE.md').read_text() and 'Bildankarna' not in (ROOT / 'kritik' / 'GRANSKARE.md').read_text()
-vn_ = (ROOT / 'kunskap' / 'visuell-niva.md').read_text().lower()
-assert all(x_ not in vn_ for x_ in ('oatly', 'koto', 'aman', 'dinesen', 'belvia', 'blue tit', 'sparky', 'vardehaugen', 'snickaren', 'paint it', 'sundbom', 'salong kreativ', 'grilli')), 'den publika filen namnger inga sajter'
+gr_text_ = (ROOT / 'kritik' / 'GRANSKARE.md').read_text()
+assert 'visuell-niva.md' not in gr_text_ and 'Kalibreringen:' in gr_text_ and 'inga kalibreringsankare' in gr_text_ and 'Bildankarna' not in gr_text_
+assert not (ROOT / 'kunskap' / 'visuell-niva.md').exists(), 'nivåfilen ur de gamla ankarna är borttagen (den rena designstarten)'
+assert all(x_ not in gr_text_.lower() for x_ in ('oatly', 'koto', 'dinesen', 'belvia', 'blue tit', 'sparky', 'vardehaugen', 'snickaren', 'paint it', 'sundbom', 'salong kreativ', 'grilli')), 'den publika granskartexten namnger inga sajter'
 print('kalibreringsankarna och försöket ok')
 
 # ---------------------------------------------------------------- referenssteget (ägarbeslut 2026-10-04; Codex R32): uppdraget validerat (riktiga värdnamn,

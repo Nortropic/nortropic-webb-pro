@@ -104,7 +104,7 @@ class Lasordning(unittest.TestCase):
 
     def test_sen_karna_i_bada_forsoken_ar_aldrig_genomford(self):
         self.ordning[:] = ['sen', 'sen', 'fore', 'fore']  # rörelsepasset läser sent två gånger; granskningspasset i ordning
-        kd.efter_fordjupning(self.SLUG, 'k01', {'tid': 'a', 'text': 'x'})
+        kd.efter_fordjupning(self.SLUG, 'k01', {'tid': 'a', 'text': 'x', 'uppdrag': {'typ': 'bygg_ut', 'resultat': 'hela startsidan', 'omfattning': ['/x/'], 'bevara': ['första vyn'], 'specialister': {'rorelse': 'andra', 'granskning': 'andra'}}})  # passen körs bara på uppdragets begäran (2026-10-09)
         r = self.rec('fordjupa:a:rorelse')
         self.assertIs(r['genomford'], False, 'arbete före kärnläsningen godkändes')
         self.assertTrue(r['sen_karna'] and r['kasserade_forsok'], r)

@@ -201,7 +201,7 @@ class Metodidentitet(unittest.TestCase):
 class Specialistpass(unittest.TestCase):
     """F03: båda försöken, slutversionen, återställningsfel och återupptagningen tillsammans, genom efter_fordjupning."""
     SLUG = 'f03-prov'
-    DOM = {'tid': 'a', 'text': 'x'}
+    DOM = {'tid': 'a', 'text': 'x', 'uppdrag': {'typ': 'bygg_ut', 'resultat': 'hela startsidan', 'omfattning': ['/x/'], 'bevara': ['första vyn'], 'specialister': {'rorelse': 'andra', 'granskning': 'andra'}}}  # passen körs bara på uppdragets begäran (2026-10-09)
     ROR = 'fordjupa:a:rorelse'
 
     def setUp(self):

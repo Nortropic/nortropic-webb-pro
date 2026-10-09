@@ -123,9 +123,13 @@ def kor(g):
     version = st['version']
     status = {'kandidatflode': True, 'steg': 'klar_for_bedomning', 'fas': 'skiss'}
     a.skriv_status(u / 'atelje', status)
-    dom = a.doma(slug, 'ägaren', 'valj', 'Syntetiskt teknikprov: förfina tjänstesidan.',
+    dom = a.doma(slug, 'ägaren', 'valj', 'Syntetiskt teknikprov: välj förslaget.',
         kandidater=[{'id': 'k01', 'version': version}], belagg='endast isolerat teknikprov')
     assert not skapande.godkand_giltig(slug)[0], 'ett val blev ett godkännande'
+    # ett val startar inget; den riktade förbättringen är ett uppdrag (ägarens uppdrag 2026-10-09, punkt 8), här Bygg ut
+    dom = a.doma(slug, 'ägaren', 'uppdrag', 'Syntetiskt teknikprov: bygg ut tjänstesidan.',
+        kandidater=[{'id': 'k01', 'version': version}], belagg='endast isolerat teknikprov',
+        uppdrag={'typ': 'bygg_ut', 'resultat': 'startsidan och tjänstesidan /service/', 'omfattning': ['/service/'], 'bevara': ['första vyn']})
     fordjupning = True
     g['SVAR'][lambda p, s: s is kd.PASS_SCHEMA] = lambda p, s: ({
         'kod_andrad': [], 'beteende_provat': [], 'visuell_bedomning': {'fore': '', 'efter': '', 'omdome': 'ej_bedomd', 'skal': 'Syntetiskt prov.'},

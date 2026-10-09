@@ -31,7 +31,7 @@ Passet skriver först ett privat paket; hela paketet och oförändrade indata pr
 bevaras vid paketet. Ett äldre INNEHALL.md arkiveras så att det nya TEXTUNDERLAG.md faktiskt blir textkällan.
 Fakta, kundönskemål, antaganden och kommersiellt accepterade villkor hålls isär. Paketet och kompetenskvittot finns
 i `underlag/<slug>/atelje/forberedelse/`; FORBEREDELSE.json binder arbetsfilerna till indata. Ett avbrott mitt i
-publiceringen är inte en klar förberedelse. Referensjakt och skiss startas därefter uttryckligen från Flöde eller CLI.
+publiceringen är inte en klar förberedelse. Referensjakt och skiss startas därefter uttryckligen från Byggflöde i arbetsytan eller CLI.
 
 **Återupptagning och material.** Skisskritiken binds till körning, kandidat, försök, projektets innehåll och aktuellt
 underlag. Tidigare kritik och status följer med försöksarkivet; den används inte som ett nytt granskningsbevis.
@@ -193,7 +193,7 @@ kandidaterna och granskningarna.
    belägg för var de står (`skapande.KUNDENS_BESLUT`), och en AI-bedömning bokförs aldrig som kundens. Godkännandet för
    helbygge och godkännandet för publicering är ägarens och egna beslut. Beslutet binds till kandidat och version, och en
    tidigare bevarad version kan väljas (`kandidater.valbara_versioner`). Valet startar ingen körning. Nästa tillåtna
-   handling startas uttryckligen i arbetsytan, i vyn Flöde eller med prototyp.py, och dess benämning säger vad som
+   handling startas uttryckligen i arbetsytan (Byggflöde) eller med prototyp.py, och dess benämning säger vad som
    startas; alla använder samma körlogik (`README.md`, Kedjan).
 7. **Riktad förbättring: Rätta, Omarbeta designen eller Bygg ut.** Beställaren ger ett uppdrag på en vald kandidat
    (arbetsytan: Ändring; Prototyp; eller `skapande.py dom <slug> --beslut uppdrag --uppdrag ratta|omarbeta|bygg_ut
@@ -497,7 +497,7 @@ projekt köas (`kunder/<slug>/.bygglas`), liksom typsnittsinstallationerna. Kand
 node_modules. Där skriver deras byggen bara i Vites och Astros cacher, och det ett bygge lämnar i dem kan nästa
 kandidats bygge läsa; Vites förbuntade paket därifrån kör bygget inte (prövat 2026-10-07). Det är samma gräns som för
 sajtens eget bygge, nu delad av fler skapare. Ett sandlådat bygge (`NWP_SANDLADA=pa`)
-kräver därför en godkänd startsida och tar vid från den. Finns Kundstarts ärendelager kräver kor.sh sandlådan; Flöde
+kräver därför en godkänd startsida och tar vid från den. Finns Kundstarts ärendelager kräver kor.sh sandlådan; Byggflöde
 prövar det före starten (`flodesstart.startmiljo`) och visar startmiljön vid knappen, så att starten nekas där med
 skälet i stället för i kor.sh efter att den registrerats (F07). Nästlade sessioner skriver aldrig i ägarens automatiska minne
 (`kontroller/nastlad.py`).

@@ -329,7 +329,7 @@ def _block():
     roller = kompetens.for_pass('skisskritik', k)
     assert len(roller) == 1, [r['id'] for r in roller]
     r = roller[0]
-    assert 'kunskap/visuell-niva.md' in r['karna'] and len(r['karna']) >= 2 and r['valj'], r
+    assert 'kunskap/designregler.md' in r['karna'] and len(r['karna']) >= 2 and r['valj'], r
     assert {'förhandsvisning', 'detektor'} <= set(r['verktyg']) and set(r['mcp']) == {'refero', 'mobbin'}, r
     assert kompetens.prova() == [], kompetens.prova()
     kund()
@@ -426,7 +426,7 @@ def _blind():
                'underlag/%s/atelje/kandidater/k02/RIKTNING.md' % SLUG, 'kunder/%s/kandidater/k02/sajt/src/pages/index.astro' % SLUG,
                '%s/DESIGNDOMAR.jsonl' % u]  # domloggen som fil: ägarens beslut 2026-10-07 (GR-20261007-r103#K4), fall 10
     oppna = ['%s/varv/start/varv-01/vy-390-forsta.png' % d, '%s/%s/start/varv-01/vy-768-forsta.png' % (d, forhandsvisa.GRANSKARE),
-             '%s/BRIEF.md' % u, '%s/atelje/metod/METOD-skiss.md' % u, 'kunskap/visuell-niva.md',
+             '%s/BRIEF.md' % u, '%s/atelje/metod/METOD-skiss.md' % u, 'kunskap/designregler.md',
              '.claude/skills/impeccable/reference/critique.md']
     for h in hemliga:
         assert nekade(neka, h), 'kritiken når %s' % h
@@ -767,7 +767,7 @@ def _oberoende():
         for h in ('%s/k02/sajt/src/pages/index.astro' % sajt, '%s/k02/RIKTNING.md' % a, '%s/k02/kod/index.astro' % a):
             assert nekade(n, h), 'skaparen (%s) når %s' % (s['ut'], h)
         for o in ('%s/k01/sajt/src/pages/index.astro' % sajt, '%s/k01/sajt/src/styles/sida.css' % sajt, '%s/k01/RIKTNING.md' % a,
-                  '%s/k01/UPPDRAG.md' % a, '%s/k01/varv/start/varv-01/vy-390-forsta.png' % a, 'underlag/%s/BRIEF.md' % SLUG, 'kunskap/visuell-niva.md'):
+                  '%s/k01/UPPDRAG.md' % a, '%s/k01/varv/start/varv-01/vy-390-forsta.png' % a, 'underlag/%s/BRIEF.md' % SLUG, 'kunskap/designregler.md'):
             assert not nekade(n, o), 'skaparen (%s) nekas sitt eget %s' % (s['ut'], o)
         assert 'Write(./%s/k01/sajt/src/**)' % sajt in s['verktyg'] and 'Edit(./%s/k01/RIKTNING.md)' % a in s['verktyg'], s['verktyg']
         egna_slapps(s['verktyg'], s['nekas'], EGNA_KOMMANDON['skiss'])
@@ -839,7 +839,7 @@ def _lista():
         ['kunder/%s/%s/src/pages/index.astro' % (SLUG, k_) for k_ in ('sajt', 'kundrepo', 'kandidater/k01/sajt', 'kandidater/k02/sajt')]
     oppna = ['%s/%s' % (U, f_) for f_ in ('BRIEF.md', 'VERKSAMHET.json', 'RESEARCH.md', 'INNEHALL.md', 'TEXTUNDERLAG.md', 'BESTALLNING.md',
                                           'bilder/BILDER.md', 'bilder/jobb-1.png', 'atelje/metod/METOD-skiss.md')] + \
-        ['%s/%s/start/varv-01/vy-768-forsta.png' % (A, forhandsvisa.GRANSKARE), 'kunskap/visuell-niva.md', '.claude/skills/hallmark/references/slop-test.md']
+        ['%s/%s/start/varv-01/vy-768-forsta.png' % (A, forhandsvisa.GRANSKARE), 'kunskap/designregler.md', '.claude/skills/hallmark/references/slop-test.md']
     for namn_, n, egna in (('skisskritiken', s['nekas'] + atelje.NEKAS, '%s/varv/start/varv-01/vy-390-forsta.png' % A),
                            ('granskningens första pass', kd.blind_nekas(SLUG, 'k01', ('bilder', forhandsvisa.GRANSKARE)) + atelje.NEKAS,
                             '%s/bilder/start/vy-390-forsta.png' % A)):

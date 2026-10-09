@@ -225,7 +225,7 @@ def main(argv=None):
             print('Starten vägrades: %s'%e,file=sys.stderr)
             return 2
         # beskedet: samma start-id läser samma begäran igen; stoppet är en egen handling (GR-20261008-r117-claude#B8)
-        print('%s %s: start-id %s, slutkod %d (%s). Läs läget i Flöde eller SLUT.json; samma --start-id läser samma begäran, '
+        print('%s %s: start-id %s, slutkod %d (%s). Läs läget i Byggflöde eller SLUT.json; samma --start-id läser samma begäran, '
               '--stoppa-overgang begär stopp.' % (prototyp_namn(handling), a.slug, a.start_id, rc,
                                                  'begäran registrerad eller pågår' if rc == 5 else 'avslutad'), flush=True)
         return rc

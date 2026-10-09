@@ -936,8 +936,10 @@ def skicka_andring(dash, slug, data):
     with _ANDRING_LAS:
         for d in skapande.domar(slug, dash.UNDERLAG):
             a = d.get('arbetsyta') if isinstance(d.get('arbetsyta'), dict) else {}
+            karna = lambda x: {k: (x or {}).get(k) for k in ('typ', 'resultat', 'omfattning', 'bevara')}  # noqa: E731 — uppdragets innehåll
             if a.get('andring_id') == aid or (a.get('andring_id') and str(d.get('text') or '').strip() == text and a.get('kandidat') == kid
                                               and a.get('version') == version[:12] and a.get('korning') == korning
+                                              and karna(d.get('uppdrag')) == karna(uppdrag)
                                               and all(a.get(k) == markering.get(k) for k in ('vy', 'sida', 'del', 'fil'))):
                 return {'ok': True, 'upprepat': True, 'dom': d}
         st = dash.las_json(dash.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}

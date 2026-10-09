@@ -278,8 +278,10 @@ class Arbetsyta(unittest.TestCase):
         return V_NU
 
     def andring(self, **falt):
+        # en ändring är ett uppdrag (ägarens uppdrag 2026-10-09, punkt 8): typen, resultatet, omfattningen och det som bevaras
         return dict({'andring_id': 'andring-prov-0001', 'text': 'Rubriken ska vara större.', 'kandidat': 'k02', 'version': V_NU,
-                     'korning': self.status['startad'], 'vy': 'Arbetsyta', 'sida': '/', 'del': 'rubriken'}, **falt)
+                     'korning': self.status['startad'], 'vy': 'Arbetsyta', 'sida': '/', 'del': 'rubriken', 'beslut': 'uppdrag',
+                     'uppdrag': {'typ': 'ratta', 'resultat': 'en större rubrik', 'omfattning': ['rubriken i första vyn'], 'bevara': ['kompositionen']}}, **falt)
 
     def falsk_partner(self):
         """Partnerns claude ersatt av FalskClaude (bara i partner-modulen) och processlistan tom."""
@@ -662,7 +664,7 @@ class Arbetsyta(unittest.TestCase):
         rader = self.domrader()
         self.assertEqual(len(rader), 1, rader)
         d = rader[-1]
-        self.assertEqual((d['kalla'], d['beslut']), ('ägaren', 'valj'))
+        self.assertEqual((d['kalla'], d['beslut'], d['uppdrag']['typ'], d['uppdrag']['namn']), ('ägaren', 'uppdrag', 'ratta', 'Rätta'))
         self.assertEqual({k: d['arbetsyta'].get(k) for k in ('andring_id', 'kandidat', 'version', 'korning')},
                          {'andring_id': 'andring-prov-0001', 'kandidat': 'k02', 'version': V_NU[:12], 'korning': self.status['startad']})
         self.assertEqual([(x['id'], x['version']) for x in d['kandidater']], [('k02', V_NU)])
@@ -673,6 +675,7 @@ class Arbetsyta(unittest.TestCase):
         self.assertEqual(l['ofullstandig'], [], l['ofullstandig'])
         self.assertFalse(l['blind'])
         self.assertIn('valda', [h['id'] for h in l['handlingar']], l['handlingar'])
+        self.assertIn('Starta uppdraget: Rätta', [h['text'] for h in l['handlingar'] if h['id'] == 'valda'][0], 'benämningen är inte det som startas')
         self.assertEqual(len(l['overlamningar']), 1, l['overlamningar'])
         o = l['overlamningar'][0]
         self.assertEqual((o['id'], o['kandidat'], o['version'], o['avsandare']), ('andring-prov-0001', 'k02', V_NU[:12], 'ägaren'))
@@ -1304,17 +1307,27 @@ class Arbetsyta(unittest.TestCase):
         r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0001'))
         self.assertFalse(r['upprepat'])
         self.assertEqual(kandidater.las_status(SLUG, 'k02')['status'], 'vald', 'kandidatens status har ändrats efter första raden')
-        for beslut, aid in (('valj', 'andring-n3-0002'), ('putsa', 'andring-n3-0003')):
-            r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id=aid, beslut=beslut))
-            self.assertTrue(r['upprepat'], beslut)
+        for aid in ('andring-n3-0002', 'andring-n3-0003'):
+            r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id=aid))
+            self.assertTrue(r['upprepat'], aid)
             self.assertEqual(r['dom']['arbetsyta']['andring_id'], 'andring-n3-0001')
         self.assertEqual(len(self.domrader()), 1)
-        r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0004', beslut='putsa', text='Knappen ska stå under rubriken.'))
+        r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0004', text='Knappen ska stå under rubriken.'))
         self.assertFalse(r['upprepat'], 'en annan text är en ny ändring')
-        self.assertEqual([d['beslut'] for d in self.domrader()], ['valj', 'putsa'])
+        self.assertEqual([d['beslut'] for d in self.domrader()], ['uppdrag', 'uppdrag'])
         # samma text riktad mot en annan del av samma version är en ny ändring (omgranskningens N3, provskrivarens not 3)
-        r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0005', beslut='putsa', text='Knappen ska stå under rubriken.', **{'del': 'sidfoten'}))
+        r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0005', text='Knappen ska stå under rubriken.', **{'del': 'sidfoten'}))
         self.assertFalse(r['upprepat'], 'samma text för en annan del')
+        # samma text och del med en annan uppdragstyp är ett nytt uppdrag (2026-10-09)
+        r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0006', text='Knappen ska stå under rubriken.', **{'del': 'sidfoten'},
+                                                              uppdrag={'typ': 'omarbeta', 'resultat': 'r', 'omfattning': ['o'], 'bevara': ['b']}))
+        self.assertFalse(r['upprepat'], 'en annan uppdragstyp')
+        # ett val eller en putsning är ingen ändring: ett val startar inget, och putsningen är ersatt av uppdragen
+        for beslut in ('valj', 'putsa'):
+            with self.assertRaises(ValueError):
+                arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-00%s' % beslut, beslut=beslut))
+        with self.assertRaises(ValueError):
+            arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0009', uppdrag={'typ': 'ratta', 'resultat': 'r', 'omfattning': ['o']}))
 
     def test_partnerns_tur_arbetar_bara_med_sessionens_id_och_inom_fristen(self):
         # N4: en levande pid utan sessionens id i kommandot (återanvänd), eller en tur äldre än fristen, arbetar inte

@@ -164,8 +164,8 @@ def stoppa(slug):
 
 
 def startmiljo():
-    """Miljön ett helbygge startar i genom Flöde: sandlådan (NWP_SANDLADA, ärvd från dashboardens process) och om Kundstarts
-    ärendelager finns i underlag/, som kor.sh kräver sandlådan för. Villkoret prövas här före starten och visas i Flöde, i
+    """Miljön ett helbygge startar i genom Byggflöde (arbetsytan): sandlådan (NWP_SANDLADA, ärvd från dashboardens process) och om Kundstarts
+    ärendelager finns i underlag/, som kor.sh kräver sandlådan för. Villkoret prövas här före starten och visas i Byggflöde, i
     stället för att kor.sh nekar efter att starten registrerats (motorinventeringen F07)."""
     sandlada=os.environ.get('NWP_SANDLADA','av');lager=atelje.UNDERLAG/'kundstart';finns=lager.exists() or lager.is_symlink()
     hinder=None

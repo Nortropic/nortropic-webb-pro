@@ -567,15 +567,15 @@ try {
   assert.equal(await page.evaluate(() => performance.timeOrigin), await page.evaluate(() => window.__laddad), 'sidan ska aldrig laddas om');
   sammanfattning.live = { start: startText, slut: slutText, verktygsanrop_meddelade: 0 };
 
-  // körningen väntar på ägaren: Förfina de valda erbjuds
+  // körningen väntar på ägaren: uppdraget erbjuds, med benämningen på det som startas (2026-10-09)
   for (const s of S.sessioner) if (s.lage !== 'avslutad') avsluta(s, 30);
   S.korning = korning('ny', START1, T(0), 'klar_for_bedomning', false);
   S.stegstatus = ['skapat', 'skapat', 'väntar på ägaren', ...Array(6).fill('inte påbörjat')];
-  S.handlingar = [{ id: 'valda', text: 'Förfina de valda förslagen' }];
+  S.handlingar = [{ id: 'valda', text: 'Starta uppdraget: Rätta Förslag A' }];
   S.startjournal[0] = { ...S.startjournal[0], status: 'klar', slutkod: 0, process_lever: false };
   skickaLage();
   await meddelat('Körningen väntar på ditt beslut');
-  await page.getByRole('button', { name: 'Förfina de valda förslagen' }).waitFor();
+  await page.getByRole('button', { name: 'Starta uppdraget: Rätta Förslag A' }).waitFor();
 
   // 10. Samtalet: en fråga med markeringen; meddelande-id:t är en hash av innehållet och samtalets position
   const markLagret = (sida = page) => sida.evaluate((k) => JSON.parse(sessionStorage.getItem(k) || 'null'), `nwp-arbetsyta-markering:${SLUG}`);
@@ -632,7 +632,7 @@ try {
   await page.locator('#ay-skriv').getByRole('button', { name: 'Ändring', exact: true }).click();
   await page.locator('#ay-skriv .ay-notis').filter({ hasText: 'ditt val av kandidaten' }).waitFor();
   let mark = await markLagret();
-  assert.deepEqual([mark?.kandidat, mark?.version_hel, mark?.korning, mark?.beslut], ['k01', V1, T(0), 'valj'], 'Ändring ska frysa kandidat, version, körning och beslut');
+  assert.deepEqual([mark?.kandidat, mark?.version_hel, mark?.korning, mark?.beslut], ['k01', V1, T(0), 'uppdrag'], 'Ändring ska frysa kandidat, version, körning och beslut');
   assert.match(await gallerText(), new RegExp(`Förslag A.* version ${V1K}, körningen .*, vy Arbetsyta`), 'raden Gäller ska visa den frysta markeringen');
   const rensa = galler.getByRole('button', { name: 'Rensa markeringen' });
   await rensa.click();
@@ -649,10 +649,14 @@ try {
   mark = await markLagret();
   assert.deepEqual([mark?.kandidat, mark?.version_hel, mark?.korning], ['k01', V1, T(0)], 'en kandidat som väljs medan Ändring är vald ska frysas');
   await rensa.waitFor();
-  const skickaAndring = page.locator('#ay-skriv').getByRole('button', { name: 'Skicka ändring' });
-  assert(await skickaAndring.isEnabled(), 'Skicka ändring ska gå att använda när körningen väntar på ditt beslut');
+  const skickaAndring = page.locator('#ay-skriv').getByRole('button', { name: 'Spara uppdraget' });
+  // uppdragets fält (ägarens uppdrag 2026-10-09, punkt 8): typen är förvald Rätta; resultat, omfattning och bevara fylls i
+  const fyllUppdrag = async (sida) => { await sida.locator('#ay-resultat').fill('En kortare rubrik i första vyn.');
+    await sida.locator('#ay-omfattning').fill('första vyns rubrik'); await sida.locator('#ay-bevara').fill('kompositionen'); };
+  assert(await skickaAndring.isEnabled(), 'Spara uppdraget ska gå att använda när körningen väntar på ditt beslut');
   await page.locator('#ay-text').fill('Gör rubriken i första vyn kortare.');
   await page.locator('[data-falt="sida"]').fill('/'); await page.locator('[data-falt="del"]').fill('första vyn');
+  await fyllUppdrag(page);
   // en ny version av den markerade kandidaten: markeringen blir inaktuell och inget skickas
   await page.locator('#ay-dialog-rubrik').click();
   nyVersion(V2);
@@ -660,7 +664,7 @@ try {
   const notis = page.locator('#ay-skriv .ay-notis').filter({ hasText: 'Inaktuell markering' });
   await notis.waitFor();
   assert.match(await notis.textContent(), new RegExp(`kandidaten har en ny version sedan du markerade \\(${V1K}, nu ${V2K}\\)`), 'notisen ska säga varför');
-  assert(await skickaAndring.isDisabled(), 'Skicka ändring ska vara inaktiv när markeringen är inaktuell');
+  assert(await skickaAndring.isDisabled(), 'Spara uppdraget ska vara inaktiv när markeringen är inaktuell');
   assert.match(String(await skickaAndring.getAttribute('title')), /inaktuell.*stäm av/, 'knappens title ska säga varför den är inaktiv');
   await page.locator('#ay-text').press('Control+Enter');  // kortkommandot går förbi knappen: spärren ska sitta i sändningen
   await page.locator('#ay-skrivsvar').filter({ hasText: /^Inaktuell: kandidaten har en ny version/ }).waitFor();
@@ -668,19 +672,20 @@ try {
   assert.equal(andringPosts().length, 0, 'en inaktuell markering får inte skickas');
   await notis.getByRole('button', { name: 'Stäm av mot den aktuella' }).click();
   await notis.waitFor({ state: 'detached', timeout: 2000 });
-  assert(await skickaAndring.isEnabled(), 'efter Stäm av ska Skicka ändring gå att använda');
+  assert(await skickaAndring.isEnabled(), 'efter Stäm av ska Spara uppdraget gå att använda');
   assert.equal(await skickaAndring.getAttribute('title'), '');
   mark = await markLagret();
-  assert.deepEqual([mark?.version_hel, mark?.sida, mark?.del, mark?.beslut], [V2, '/', 'första vyn', 'valj'], 'Stäm av ska binda den nya versionen och behålla sida och del');
+  assert.deepEqual([mark?.version_hel, mark?.sida, mark?.del, mark?.beslut], [V2, '/', 'första vyn', 'uppdrag'], 'Stäm av ska binda den nya versionen och behålla sida och del');
   assert.match(await gallerText(), new RegExp(`version ${V2K}`), 'raden Gäller ska visa den avstämda versionen');
 
   // N3: en andra flik som markerade medan kandidaten ännu var klar; den skickar efter att kandidaten blivit vald
   const sida3 = await nySida();
   await sida3.locator('#ay-skriv').getByRole('button', { name: 'Ändring', exact: true }).click();
   const mark3 = await markLagret(sida3);
-  assert.deepEqual([mark3?.version_hel, mark3?.beslut], [V2, 'valj'], 'den andra flikens markering ska frysa beslutet valj');
+  assert.deepEqual([mark3?.version_hel, mark3?.beslut], [V2, 'uppdrag'], 'den andra flikens markering ska frysa beslutet uppdrag');
   await sida3.locator('#ay-text').fill('Gör rubriken i första vyn kortare.');
   await sida3.locator('[data-falt="sida"]').fill('/'); await sida3.locator('[data-falt="del"]').fill('första vyn');
+  await fyllUppdrag(sida3);
 
   // 409: arbetsytan visar skälet och skickar inget av sig själv; omförsöket med samma innehåll ger samma id
   await skickaAndring.click();
@@ -690,34 +695,36 @@ try {
   assert.equal(andringPosts().length, 1, 'efter ett 409 skickar arbetsytan inget av sig själv');
   assert.equal(andringPosts()[0].version, V2, 'ändringen ska bära den avstämda versionen');
   await skickaAndring.click();
-  await page.locator('#ay-skrivsvar').filter({ hasText: 'Ändringen är sparad' }).waitFor();
+  await page.locator('#ay-skrivsvar').filter({ hasText: 'Uppdraget är sparat' }).waitFor();
   const ap = andringPosts();
   assert.equal(ap.length, 2, 'två försök med ändringen');
   assert.match(String(ap[0].andring_id), /^a[0-9a-f]{40}$/, 'ändrings-id:t ska vara innehållets hash (a och 40 hex)');
   assert.equal(ap[1].andring_id, ap[0].andring_id, 'samma ändring ska ge samma id vid omförsöket');
   assert.deepEqual([ap[1].kandidat, ap[1].version, ap[1].beslut, ap[1].vy, ap[1].sida, ap[1].del, ap[1].korning, ap[1].fil],
-    ['k01', V2, 'valj', 'Arbetsyta', '/', 'första vyn', T(0), null], 'ändringen ska vara bunden till kandidat, version, körning och markering');
+    ['k01', V2, 'uppdrag', 'Arbetsyta', '/', 'första vyn', T(0), null], 'ändringen ska vara bunden till kandidat, version, körning och markering');
+  assert.deepEqual(ap[1].uppdrag, { typ: 'ratta', resultat: 'En kortare rubrik i första vyn.', omfattning: ['första vyns rubrik'], bevara: ['kompositionen'] },
+    'uppdraget ska bära typ, resultat, omfattning och det som bevaras');
   assert.equal(await markLagret(), null, 'en sparad ändring släpper markeringen');
   assert(!(await page.evaluate((k) => sessionStorage.getItem(k), `nwp-arbetsyta-utkast:${SLUG}`)), 'en skickad ändring ska inte ligga kvar som utkast');
   assert.equal(S.k01, 'vald', 'attrappen: efter den första raden är kandidaten vald');
   skickaLage();
   await sida3.waitForFunction(() => window.__arbetsyta.lage?.kandidater?.[0]?.status === 'vald');
-  await sida3.locator('#ay-skriv').getByRole('button', { name: 'Skicka ändring' }).click();
-  await sida3.locator('#ay-skrivsvar').filter({ hasText: 'Ändringen är sparad' }).waitFor();
+  await sida3.locator('#ay-skriv').getByRole('button', { name: 'Spara uppdraget' }).click();
+  await sida3.locator('#ay-skrivsvar').filter({ hasText: 'Uppdraget är sparat' }).waitFor();
   assert.equal(andringPosts().length, 3);
   assert.equal(andringPosts()[2].andring_id, ap[0].andring_id, 'samma ändring från en andra flik ska ge samma andring_id, också efter att kandidaten blivit vald');
-  assert.equal(andringPosts()[2].beslut, 'valj', 'POST-kroppen ska bära beslutet från markeringen, inte kandidatens nya status');
-  // B3-rest i samma flik: efter en skickad ändring fryser första tangenttryckningen en ny markering, nu med beslutet putsa
+  assert.equal(andringPosts()[2].beslut, 'uppdrag', 'POST-kroppen ska bära uppdraget, oberoende av kandidatens nya status');
+  // B3-rest i samma flik: efter en skickad ändring fryser första tangenttryckningen en ny markering
   assert.equal(await markLagret(sida3), null);
   await sida3.locator('#ay-text').press('G');
   const mark3b = await markLagret(sida3);
-  assert.deepEqual([mark3b?.version_hel, mark3b?.beslut], [V2, 'putsa'], 'efter en skickad ändring ska första tangenttryckningen frysa en ny markering');
+  assert.deepEqual([mark3b?.version_hel, mark3b?.beslut], [V2, 'uppdrag'], 'efter en skickad ändring ska första tangenttryckningen frysa en ny markering');
   await sida3.locator('#ay-text').fill('Gör rubriken i första vyn kortare.');
-  await sida3.locator('#ay-skriv').getByRole('button', { name: 'Skicka ändring' }).click();
+  await sida3.locator('#ay-skriv').getByRole('button', { name: 'Spara uppdraget' }).click();
   await vantaPa(() => andringPosts().length === 4, 'den andra flikens nya markering ska kunna skicka');
-  assert.equal(andringPosts()[3].beslut, 'putsa');
-  assert.equal(andringPosts()[3].andring_id, ap[0].andring_id, 'beslutet får inte ingå i ändringens id');
-  await sida3.locator('#ay-skrivsvar').filter({ hasText: 'Ändringen är sparad' }).waitFor();
+  assert.equal(andringPosts()[3].beslut, 'uppdrag');
+  assert.equal(andringPosts()[3].andring_id, ap[0].andring_id, 'samma uppdrag ger samma id, också efter kandidatens statusbyte');
+  await sida3.locator('#ay-skrivsvar').filter({ hasText: 'Uppdraget är sparat' }).waitFor();
   await sida3.close();
 
   // B3-rest: kandidaten får en ny version efter din ändring; första tangenttryckningen fryser den då aktuella
@@ -726,7 +733,7 @@ try {
   await page.waitForFunction((v) => window.__arbetsyta.lage?.kandidater?.[0]?.version_hel === v, V3);
   await page.locator('#ay-text').press('K');
   mark = await markLagret();
-  assert.deepEqual([mark?.kandidat, mark?.version_hel, mark?.korning, mark?.beslut], ['k01', V3, T(0), 'putsa'], 'efter en skickad ändring ska första tangenttryckningen frysa den då aktuella versionen');
+  assert.deepEqual([mark?.kandidat, mark?.version_hel, mark?.korning, mark?.beslut], ['k01', V3, T(0), 'uppdrag'], 'efter en skickad ändring ska första tangenttryckningen frysa den då aktuella versionen');
   assert.match(await gallerText(), new RegExp(`version ${V3K}`), 'raden Gäller ska visa versionen som ändringen nu är bunden till');
   await rensa.click();
   await rensa.waitFor({ state: 'detached', timeout: 2000 });
@@ -735,11 +742,11 @@ try {
   await page.waitForFunction(() => (window.__arbetsyta.lage?.kandidater || []).length === 0);
   await page.locator('#ay-text').fill('En ändring utan kandidat.');
   assert.equal(await markLagret(), null, 'utan kandidat fryses ingen markering');
-  assert(await skickaAndring.isDisabled(), 'utan markering ska Skicka ändring vara inaktiv');
+  assert(await skickaAndring.isDisabled(), 'utan markering ska Spara uppdraget vara inaktiv');
   assert.match(String(await skickaAndring.getAttribute('title')), /markera kandidaten/);
   const andringarFore = andringPosts().length;
   await page.locator('#ay-text').press('Control+Enter');
-  await page.locator('#ay-skrivsvar').filter({ hasText: 'Markera kandidaten ändringen gäller först' }).waitFor();
+  await page.locator('#ay-skrivsvar').filter({ hasText: 'Markera kandidaten uppdraget gäller först' }).waitFor();
   await sov(300);
   assert.equal(andringPosts().length, andringarFore, 'utan markering får ingen ändring skickas');
   await page.locator('#ay-text').fill('');
@@ -760,10 +767,10 @@ try {
   assert.match(await gallerText(), /vy Kod och preview, fil src\/pages\/index\.astro/, 'raden Gäller ska visa kodvyns markering');
   assert.equal(await page.locator('#ay-skriv [data-avsikt="andring"]').getAttribute('aria-pressed'), 'true', 'en markering i kodvyn ska välja Ändring');
   await page.locator('#ay-text').fill('Korta rubriken i Hero till fyra ord.');
-  await page.locator('#ay-skriv').getByRole('button', { name: 'Skicka ändring' }).click();
-  await page.locator('#ay-skrivsvar').filter({ hasText: 'Ändringen är sparad' }).waitFor();
+  await page.locator('#ay-skriv').getByRole('button', { name: 'Spara uppdraget' }).click();
+  await page.locator('#ay-skrivsvar').filter({ hasText: 'Uppdraget är sparat' }).waitFor();
   const kp = andringPosts().at(-1);
-  assert.deepEqual([kp.fil, kp.vy, kp.kandidat, kp.version, kp.beslut], ['src/pages/index.astro', 'Kod och preview', 'k01', V3, 'putsa'], 'ändringen ska bära kodvyns fil');
+  assert.deepEqual([kp.fil, kp.vy, kp.kandidat, kp.version, kp.beslut], ['src/pages/index.astro', 'Kod och preview', 'k01', V3, 'uppdrag'], 'ändringen ska bära kodvyns fil');
   assert.notEqual(kp.andring_id, ap[0].andring_id, 'en annan ändring ger ett annat id');
   sammanfattning.partner = { meddelande_id: 'm+40 hex', samma_position_tva_flikar_samma_id: true, senare_ja_nytt_id: true, avsikt: 'fraga', kandidat: 'k01', blindvarning: true };
   sammanfattning.markering = { fryst_vid_andring: true, fryst_vid_kandidatval: true, fryst_vid_tangent_efter_rensa: true, fryst_vid_tangent_efter_skickad: true,
@@ -771,7 +778,7 @@ try {
     samma_id_andra_fliken_efter_statusbyte: true, beslut_ur_markeringen: true, beslut_utanfor_id: true, kodvyns_fil: true };
 
   // 6. Starten: dubbelklick och ett extra klick ger en begäran; ett förlorat svar ger samma start-id vid omförsöket
-  const forfina = page.getByRole('button', { name: 'Förfina de valda förslagen' });
+  const forfina = page.getByRole('button', { name: 'Starta uppdraget: Rätta Förslag A' });
   await forfina.click({ clickCount: 2 });
   await page.locator('[data-handling="valda"]').dispatchEvent('click');
   await vantaPa(() => startPosts().length >= 1, 'starten ska nå servern');
