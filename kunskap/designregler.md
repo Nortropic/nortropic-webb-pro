@@ -65,7 +65,7 @@ En skills standardråd står under alla fyra.
 - **Antaganden som kan ändra designen** prövas: vilket underlag stöder dem, hur prövas de, och vad ändras om de inte
   stämmer (researchen skriver dem i FORSKNING.md). För en prospektdemo får svaret vara "ännu inte observerat"; i ett
   skarpt uppdrag prövas de viktiga med relevanta användare eller befintliga beteendedata, med testuppgifter som
-  beskriver besökarens mål utan att avslöja vilken knapp hen ska trycka på.
+  beskriver besökarens mål utan att avslöja vilken knapp hen ska trycka på (protokollet: `kunskap/besokarprov.md`).
 - **"Bara de har"** i `RESEARCH.md`: det som skiljer verksamheten från andra bär positioneringen.
 - **Materialet** i `bilder/BILDER.md`: vad fotona visar och håller för (resultat, detalj, arbete, person). En riktning
   som kräver material kunden inte har skriver behovet under "Material".
