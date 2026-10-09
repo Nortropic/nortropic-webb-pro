@@ -71,6 +71,17 @@ intervall: vecka
 ansvar: bevakningen
 ```
 """
+VID_FYND = """
+```bevakning mekanisk
+fråga: Har källan ändrats?
+område: frontend
+källor: Provets release notes
+kontroll: kalla, codex
+bedömning: vid-fynd
+intervall: dag
+ansvar: underhållet
+```
+"""
 FEL = """
 ```bevakning trasig
 fråga: X
@@ -184,6 +195,60 @@ class Bevakning(unittest.TestCase):
         self.assertEqual(bevakning.codex_dags(nar=lokal(1, 7, 0)), ['en-lucka'])
         self.assertNotIn('veckofraga', bevakning.codex_dags(nar=lokal(6, 7, 0)))
         self.assertIn('veckofraga', bevakning.codex_dags(nar=lokal(7, 7, 0)))
+
+    def test_granskning_vid_fynd(self):
+        # ägarens ord 2026-10-09 ~19:20Z: varje relevant fråga får en granskning som bedömer; en fråga med mekanisk kontroll
+        # granskas av Codex när kontrollen hittat något nytt, högst en gång per vecka, och annars minst en gång i månaden
+        self.reg.write_text(TABELL + BLOCK + VID_FYND, encoding='utf-8')
+        f, fel = bevakning.register()
+        self.assertEqual(fel, [])
+        self.assertEqual((f['mekanisk']['bedomning'], f['sessioner']['bedomning']), ('vid_fynd', 'intervall'))
+        self.reg.write_text(TABELL + BLOCK + VID_FYND.replace('kontroll: kalla, codex', 'kontroll: kalla'), encoding='utf-8')
+        self.assertTrue(any('kräver kontrollen codex' in x for x in bevakning.register()[1][0]['fel']))
+        self.reg.write_text(TABELL + BLOCK + VID_FYND, encoding='utf-8')
+        idag = datetime.now(bevakning.TZ).date()
+
+        def lokal(dagar, h, m):
+            d = idag + timedelta(days=dagar)
+            return datetime(d.year, d.month, d.day, h, m, tzinfo=bevakning.TZ).astimezone(timezone.utc)
+
+        def z(t):
+            return t.strftime('%Y-%m-%dT%H:%M:%SZ')
+        self.assertIn('mekanisk', bevakning.codex_dags(nar=lokal(0, 7, 5)), 'aldrig granskad: dags')
+        (self.ut / 'codex').mkdir(parents=True)
+        (self.ut / 'codex' / 'mekanisk-a.json').write_text(json.dumps({'tid': z(lokal(0, 7, 10)), 'fraga': 'mekanisk', 'fynd': []}))
+        (self.ut / 'dag').mkdir(parents=True)
+        dag1 = self.ut / 'dag' / ('%s.json' % (idag + timedelta(days=1)))
+        dag1.write_text(json.dumps({'datum': str(idag + timedelta(days=1)), 'senast': {'start': z(lokal(1, 7, 0))},
+                                    'handlingsbart': [{'fraga': 'mekanisk', 'typ': 'kalla_andrad', 'text': 'Provets release notes har ändrats', 'belagg': 'x'}]}))
+        self.assertNotIn('mekanisk', bevakning.codex_dags(nar=lokal(1, 7, 5)), 'ett nytt fynd dagen efter en granskning: högst en granskning per vecka')
+        self.assertIn('mekanisk', bevakning.codex_dags(nar=lokal(7, 7, 5)), 'sju dagar och ett nytt fynd sedan granskningen: dags')
+        paket = bevakning.codex_paket(self.rot / 'paket', ['mekanisk'])
+        q = json.loads((self.rot / 'paket' / 'bevakning.json').read_text())['fragor'][0]
+        self.assertEqual((paket['fragor'], [x['text'] for x in q['nya_fynd']]), (['mekanisk'], ['Provets release notes har ändrats']), 'paketet bär fynden att bedöma')
+        self.assertIn('nya_fynd', (self.rot / 'paket' / 'AGENTS.md').read_text())
+        dag1.unlink()
+        self.assertNotIn('mekanisk', bevakning.codex_dags(nar=lokal(7, 7, 5)), 'utan nya fynd: ingen granskning efter en vecka')
+        self.assertIn('mekanisk', bevakning.codex_dags(nar=lokal(30, 7, 5)), 'utan nya fynd: ändå en granskning i månaden')
+        # svaret gäller i granskningens fönster (en månad), inte i frågans dagliga intervall
+        nar = datetime.now(timezone.utc)
+        self.drift(nar)
+        (self.ut / 'codex' / 'mekanisk-a.json').write_text(json.dumps({'tid': z(nar - timedelta(days=10)), 'fraga': 'mekanisk', 'fynd': []}))
+        d = bevakning.kor(nar=nar)
+        self.assertEqual(d['fragor']['mekanisk']['utfall'], 'inget_nytt', d['fragor']['mekanisk'].get('problem'))
+        (self.ut / 'codex' / 'mekanisk-a.json').write_text(json.dumps({'tid': z(nar - timedelta(days=40)), 'fraga': 'mekanisk', 'fynd': []}))
+        d = bevakning.kor(nar=nar + timedelta(days=1))
+        self.assertEqual(d['fragor']['mekanisk']['utfall'], 'ofullstandig', 'en bedömning äldre än en månad saknas: aldrig inget nytt')
+        # taket per körning: fler frågor dags än taket ger taket, resten nästa dag
+        anrop = []
+
+        def korare(kat, prompt, ut, logg):
+            anrop.append(json.loads((Path(kat) / 'bevakning.json').read_text())['fragor'][0]['id'])
+            return 1, None, None
+        with patch.dict(os.environ, {'NWP_BEVAKNING_CODEX': 'pa'}), patch.object(bevakning, 'CODEX_PER_KORNING', 2):
+            self.assertGreater(len(bevakning.codex_dags(nar=nar + timedelta(days=2))), 2)
+            bevakning.codex_vid_behov(nar=nar + timedelta(days=2), korare=korare)
+        self.assertEqual(len(anrop), 2, anrop)
 
     def test_fynd_kanns_igen_och_blir_signaler_en_gang(self):
         nar = datetime.now(timezone.utc)

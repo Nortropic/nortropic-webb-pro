@@ -4364,3 +4364,39 @@ uppdraget (b3:s förslag, delningen 2026-10-09 ~18:28Z).
 Ordagrant:
 
 > angående dyad:  Efter pågående uppdrag: bygg hela Dyad-provet. Steg 1 genomförbarhet (claude -p mot falsk server, stanna och redovisa om det inte går). Steg 2 provläge låst till prov, med prov att det aldrig gäller i drift. Steg 3 prov per roll: modell, instruktion, bildernas sha256 och att blinda roller saknar skaparens material. Inga riktiga nycklar i dumparna.
+
+## Ägarens ord 2026-10-09 ~19:20Z: alla relevanta saker täckta med granskningar
+
+Efter att det visat sig att juridikfrågan inte granskas av Codex, och att PTS bytts till sitt officiella pressrum, sa
+ägaren ordagrant:
+
+> alla relevanta saker ska vi täcka med våra granskningar, saknar vi någon?
+
+**Det som saknades:**
+- 14 av 22 frågor hade bara en mekanisk kontroll. Källan eller beroendet ändrat märktes, men ingen bedömde om det
+  spelade roll.
+- Åtta relevanta ämnen saknade fråga:
+  - säkerhet;
+  - personuppgifter i kundsajterna;
+  - villkoren för tjänsterna;
+  - prospekt och utskick;
+  - formulär och e-post;
+  - underhåll efter leverans;
+  - konkurrenter och ribban;
+  - text och språk.
+
+**Genomförarens tillämpning** (teknikval):
+- **Granskning vid fynd.** De 13 frågorna med mekanisk kontroll fick Codex-granskning med `bedömning: vid-fynd`, och
+  den nya frågan om villkoren fick samma.
+  - Codex bedömer frågan när kontrollerna hittat något nytt, högst en gång per vecka, och annars minst en gång i
+    månaden.
+  - Paketet bär de nya fynden att bedöma.
+- **Åtta nya frågor.** Säkerheten granskas veckovis med källan Node.js säkerhetsflöde och Astros releaser. De andra
+  granskas månadsvis.
+- **Täckningen nu:** 30 frågor, varav 29 med en bedömande granskning. Den som saknar en är inför byggstart, som prövas
+  vid varje byggstart.
+- **Utspridning.** Högst åtta granskningar per daglig körning, så att de cirka 21 första granskningarna sprids över
+  tre dagar.
+- **Kostnaden** är uppskattad ur dagens uppmätta granskningar, ungefär 60 000 tokens var. Det blir cirka 2–5 miljoner
+  tokens i månaden, mot cirka 0,9 miljoner före ändringen. Den faktiska förbrukningen mäts i förbrukningsfrågan. Kvoten
+  exponeras inte.

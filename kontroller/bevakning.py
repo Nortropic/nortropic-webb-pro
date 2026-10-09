@@ -53,6 +53,12 @@ SCHEMA = 1
 INTERVALL = {'dag': 1, 'vecka': 7, 'manad': 30}
 KONTROLLER = ('kalla', 'underhall', 'codex', 'forbrukning', 'manuell', 'byggstart')
 CODEX_TAK = int(os.environ.get('NWP_BEVAKNING_CODEX_FRIST') or 900)  # sekunder per Codex-granskning
+CODEX_PER_KORNING = int(os.environ.get('NWP_BEVAKNING_CODEX_MAX') or 8)  # granskningar per daglig körning; resten tas nästa dag
+# bedömningen av en fråga vars kontroll annars är mekanisk (källor, underhåll): Codex granskar när kontrollen hittat något
+# nytt, högst en gång per vecka, och annars minst en gång i månaden (ägarens ord 2026-10-09 ~19:20Z: "alla relevanta
+# saker ska vi täcka med våra granskningar")
+VID_FYND_MINST, VID_FYND_HOGST = 7, 30
+BEDOMNING = ('intervall', 'vid_fynd')
 KALLTYPER = {'standard': 'standard', 'regelverk': 'lag, myndighet och regelverk', 'kompatibilitet': 'kompatibilitetsdata (inte kvalitet)',
              'forskning': 'forskning', 'metod': 'etablerad metod', 'leverantor': 'leverantörsdokumentation', 'bransch': 'branscherfarenhet',
              'inspiration': 'inspiration', 'eget_beslut': 'Nortropics eget beslut'}
@@ -154,7 +160,8 @@ def register(text=None):
              'kompetens': lista(f.get('kompetens'), ','), 'beror': lista(f.get('berör')), 'kallor': lista(f.get('källor')),
              'kalltyp': f.get('källtyp', ''), 'version': f.get('version', ''), 'kontroll': lista(f.get('kontroll'), ','),
              'intervall': f.get('intervall', ''), 'ansvar': f.get('ansvar', ''), 'post': f.get('post') or None,
-             'lucka': f.get('lucka') or None, 'nasta_atgard': f.get('nästa') or None, 'forutsattning': f.get('förutsättning') or None}
+             'lucka': f.get('lucka') or None, 'nasta_atgard': f.get('nästa') or None, 'forutsattning': f.get('förutsättning') or None,
+             'bedomning': (f.get('bedömning') or 'intervall').replace('-', '_')}
         problem = []
         if not q['fraga']:
             problem.append('frågan saknas')
@@ -162,6 +169,10 @@ def register(text=None):
             problem.append('okänt område %r' % q['omrade'])
         if not q['kontroll'] or any(x not in KONTROLLER for x in q['kontroll']):
             problem.append('kontrollen ska vara %s' % ', '.join(KONTROLLER))
+        if q['bedomning'] not in BEDOMNING:
+            problem.append('bedömningen ska vara intervall eller vid-fynd')
+        elif q['bedomning'] == 'vid_fynd' and 'codex' not in q['kontroll']:
+            problem.append('bedömning vid-fynd kräver kontrollen codex')
         if q['intervall'] not in INTERVALL and q['intervall'] != 'byggstart':
             problem.append('intervallet ska vara dag, vecka, manad eller byggstart')
         if q['lucka'] and not (q['post'] and q['nasta_atgard'] and q['forutsattning'] and q['ansvar']):
@@ -286,7 +297,8 @@ def prova(q, k, fore, nar):
             f, p, e = _underhall(q, k, fore)
             lagen.append('fel' if p else 'ok')
         elif kontroll in ('codex', 'manuell'):
-            f, p, e = _svar(q, k, kontroll, dagar)
+            # vid-fynd: Codex svar gäller i granskningens eget fönster (högst en månad), inte i frågans dagliga intervall
+            f, p, e = _svar(q, k, kontroll, VID_FYND_HOGST if kontroll == 'codex' and q.get('bedomning') == 'vid_fynd' else dagar)
             lagen.append('ej' if f is None else 'fel' if p else 'ok')
             f = f or []
         elif kontroll == 'forbrukning':
@@ -618,6 +630,10 @@ Du läser bara; du ändrar inga filer. Svara med JSON enligt schema.json, en pos
 - nytta eller risk, minsta rimliga försök och hur vi avgör om det hjälper;
 - nu, senare eller avfärda. "Inget relevant nytt" är ett giltigt svar när du faktiskt kontrollerat källan.
 
+En fråga med "nya_fynd" har fått träffar från de mekaniska kontrollerna (en källa har ändrats, en ny post, ett beroende
+uppdaterat): bedöm varje fynd för sig, om det påverkar frågans steg och berör, och vad det i så fall kräver. En ändring vi
+inte påverkas av är "inget relevant nytt" för det fyndet. Sök också brett efter det som källorna inte täcker.
+
 En fråga med lucka gäller något Nortropic saknar: undersök vad som krävs för att stänga luckan, vilket minsta försök som
 ryms utan frågans förutsättning, och om förutsättningen fortfarande gäller.
 
@@ -647,7 +663,8 @@ def codex_paket(katalog, bara=None):
     kat = Path(katalog)
     kat.mkdir(parents=True, exist_ok=True)
     skriv_json(kat / 'bevakning.json', {'skapad': nu(), 'fragor': [dict(q, lage=(d.get('fragor') or {}).get(q['id']),
-                                                                         kalltabell=[rader[n] for n in q['kallor'] if n in rader]) for q in valda]})
+                                                                         kalltabell=[rader[n] for n in q['kallor'] if n in rader],
+                                                                         nya_fynd=_nya_fynd(k, q['id'])[-20:]) for q in valda]})
     (kat / 'AGENTS.md').write_text(AGENTS, encoding='utf-8')
     skriv_json(kat / 'schema.json', SVAR_SCHEMA)
     return {'katalog': str(kat), 'fragor': [q['id'] for q in valda]}
@@ -694,8 +711,26 @@ def codex_pa():
     return v == 'pa' if v else ROOT.resolve() == HUVUD
 
 
+def _nya_fynd(k, qid, sedan=None, dagar=35):
+    """Frågans fynd ur dagens sammanfattningar de senaste dagarna (nyast sist), eller bara de som kom efter sedan."""
+    ut = []
+    katalog = k['ut'] / 'dag'
+    for f in sorted(katalog.glob('*.json'))[-dagar:] if katalog.is_dir() else []:
+        d = las_json(f, {}) or {}
+        start = ((d.get('senast') or {}).get('start')) or ''
+        if sedan and start <= sedan:
+            continue
+        ut += [{'datum': d.get('datum'), 'typ': x.get('typ'), 'text': str(x.get('text'))[:400], 'belagg': str(x.get('belagg') or '')[:300]}
+               for x in d.get('handlingsbart') or [] if x.get('fraga') == qid and x.get('typ') != 'codex']
+    return ut
+
+
 def codex_dags(k=None, nar=None):
-    """Frågorna vars Codex-granskning är dags: kontrollen codex och ingen granskning (lyckad eller fallen) inom intervallet."""
+    """Frågorna vars Codex-granskning är dags, i den ordning de tas: en fallen granskning först, sedan de aldrig
+    granskade och sedan de äldsta. Kontrollen codex med bedömning intervall: ingen granskning (lyckad eller fallen) inom
+    frågans intervall. Med bedömning vid-fynd: nya fynd från de mekaniska kontrollerna sedan förra granskningen och minst
+    VID_FYND_MINST dagar sedan den, eller VID_FYND_HOGST dagar utan granskning. En fallen granskning görs om nästa lokala
+    dag. Intervallen räknas i lokala dagar."""
     k = k or kataloger()
     nar = nar or datetime.now(timezone.utc)
     fragor, _ = register()
@@ -706,10 +741,19 @@ def codex_dags(k=None, nar=None):
         filer = sorted((k['ut'] / 'codex').glob('%s-*.json' % q['id'])) if (k['ut'] / 'codex').is_dir() else []
         sista = (las_json(filer[-1], {}) or {}) if filer else {}
         t = tid(sista.get('tid'))
-        vanta = 1 if sista.get('fel') else INTERVALL[q['intervall']]  # i lokala dagar; en fallen görs om nästa lokala dags körning
-        if not t or dagar_sedan(nar, t) >= vanta:
-            ut.append(q['id'])
-    return ut
+        if not t:
+            ut.append((1, '', q['id']))
+            continue
+        dagar = dagar_sedan(nar, t)
+        if sista.get('fel'):
+            if dagar >= 1:
+                ut.append((0, sista.get('tid'), q['id']))
+        elif q.get('bedomning') == 'vid_fynd':
+            if dagar >= VID_FYND_HOGST or (dagar >= VID_FYND_MINST and _nya_fynd(k, q['id'], sedan=sista.get('tid'))):
+                ut.append((2, sista.get('tid'), q['id']))
+        elif dagar >= INTERVALL[q['intervall']]:
+            ut.append((2, sista.get('tid'), q['id']))
+    return [qid for _, _, qid in sorted(ut)]
 
 
 def _kor_codex(katalog, prompt, ut_fil, logg):
@@ -767,7 +811,7 @@ def codex_vid_behov(k=None, nar=None, korare=None):
             fcntl.flock(las, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return [{'hoppad': 'en annan Codex-granskning pågår'}]
-        for qid in codex_dags(k, nar):
+        for qid in codex_dags(k, nar)[:CODEX_PER_KORNING]:
             t = nu()
             kat = k['ut'] / 'codex-paket' / ('%s-%s' % (qid, t.replace(':', '')))
             codex_paket(kat, [qid])

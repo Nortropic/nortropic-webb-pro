@@ -82,6 +82,7 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | Sara Soueidan | https://www.sarasoueidan.com/blog/index.xml | | 1.2 | tillgänglighet |
 | rss | Astro releases | https://github.com/withastro/astro/releases.atom | vår stack | 1.5 | stacken |
 | rss | Astro blog | https://astro.build/rss.xml | | 1.3 | stacken |
+| rss | Node.js säkerhet | https://nodejs.org/en/feed/vulnerability.xml | säkerhetsreleaser för vår runtime (2026-10-09) | 1.4 | säkerhet |
 | rss | web-features (Baseline) | https://github.com/web-platform-dx/web-features/releases.atom | vad som går att använda i alla webbläsare | 1.3 | stacken |
 | rss | GOV.UK Frontend | https://github.com/alphagov/govuk-frontend/releases.atom | formulär- och felmönster | 1.2 | stacken |
 | rss | Chrome for Developers | https://developer.chrome.com/static/blog/feed.xml | | 1.5 | stacken |
@@ -143,7 +144,11 @@ lyckade kontrollen prövas frågan vid den dagens körning, också när förra k
 - `kalla`: spanarens hälsa, version och nya poster för källorna;
 - `underhall`: underhållets körning och vad som hänt med beroendena i `berör`;
 - `codex`: Codex prövar frågan med webbsökning (`codex --search exec`, skrivskyddat), automatiskt när frågans vecko- eller
-  månadsintervall gått, före den dagliga kontrollen; svaret är ett granskarförslag;
+  månadsintervall gått, före den dagliga kontrollen; svaret är ett granskarförslag. Med `bedömning: vid-fynd` (en fråga
+  vars övriga kontroller är mekaniska) granskar Codex i stället när kontrollerna hittat något nytt sedan förra
+  granskningen, högst en gång per vecka, och annars minst en gång i månaden; paketet bär de nya fynden att bedöma.
+  Varje fråga utom inför byggstart har en granskning som bedömer, inte bara en mekanisk kontroll (ägarens ord
+  2026-10-09 ~19:20Z). Högst åtta granskningar per daglig körning (`NWP_BEVAKNING_CODEX_MAX`); resten tas nästa dag;
 - `forbrukning`: den uppmätta förbrukningen (listpris och tokens; kvoten står som saknat mätvärde);
 - `byggstart`: startkontrollens rad inför varje byggstart.
 
@@ -171,7 +176,8 @@ berör: kontroller/blindvakt.py; kontroller/kundvakt.py; kontroller/atelje.py; k
 källor: Claude Code releases; Claude Code best practices
 källtyp: leverantor
 version: Claude Code 2.1.290 (underhållet 2026-10-08)
-kontroll: kalla, underhall
+kontroll: kalla, underhall, codex
+bedömning: vid-fynd
 intervall: dag
 ansvar: underhållet (versionen och vaktprovet), granskningen (blindvakten)
 ```
@@ -185,7 +191,8 @@ berör: kontroller/atelje.py; kontroller/kandidater.py; kontroller/granska.py; k
 källor: Claude platform release notes; Anthropic news
 källtyp: leverantor
 version: modell-id:na i koden 2026-10-09
-kontroll: kalla
+kontroll: kalla, codex
+bedömning: vid-fynd
 intervall: dag
 ansvar: underhållet och granskningen (kalibreringen görs om vid modellbyte)
 ```
@@ -212,7 +219,8 @@ kompetens: forska, plan
 berör: refero; mobbin; kunskap/metodkarta.md; kontroller/referenstjanster.py
 källtyp: leverantor
 version: verktygsbesluten i metodkartan (tjanstverktyg)
-kontroll: underhall
+kontroll: underhall, codex
+bedömning: vid-fynd
 intervall: dag
 ansvar: underhållet och startkontrollen
 ```
@@ -226,7 +234,8 @@ berör: kunskap/byggstandard.md; kunskap/teoretisk-grund.md; kritik/GRANSKARE.md
 källor: W3C WAI; Webbriktlinjer
 källtyp: standard
 version: WCAG 2.2 (W3C-rekommendation, uppdaterad 2024-12-12; WCAG 2 Overview läst 2026-10-09); EN 301 549 v3.2.1
-kontroll: kalla
+kontroll: kalla, codex
+bedömning: vid-fynd
 intervall: vecka
 ansvar: granskningen
 ```
@@ -240,7 +249,8 @@ berör: kunskap/byggstandard.md; kunskap/webblasare.md
 källor: web-features (Baseline)
 källtyp: kompatibilitet
 version: MDN Baseline-definitionen ändrad 2026-08-27
-kontroll: kalla
+kontroll: kalla, codex
+bedömning: vid-fynd
 intervall: vecka
 ansvar: granskningen
 ```
@@ -254,7 +264,8 @@ berör: axe-core; lighthouse; playwright; html-validate; kontroller/prova.py; ku
 källor: axe-core releases; Lighthouse releases; Playwright releases; html-validate
 källtyp: leverantor
 version: underhållet 2026-10-08 (axe-core 4.14.0 avvisad: rökprovet rött)
-kontroll: kalla, underhall
+kontroll: kalla, underhall, codex
+bedömning: vid-fynd
 intervall: dag
 ansvar: underhållet
 ```
@@ -268,7 +279,8 @@ berör: astro; tailwind; node; mall/astro; kunskap/beroenden.md
 källor: Astro releases; Astro blog; Chrome for Developers
 källtyp: leverantor
 version: Astro 7.3.5, Tailwind 4.3.3, Node 24 (godkänd, PATH pinnar 22)
-kontroll: kalla, underhall
+kontroll: kalla, underhall, codex
+bedömning: vid-fynd
 intervall: dag
 ansvar: underhållet
 ```
@@ -282,7 +294,8 @@ berör: kunskap/seo.md; kunskap/seo-lokal.md; kontroller/seo_kontroll.py; kunska
 källor: Google Search Central; Google Search Status; Google: AI-funktioner och din webbplats; schema.org
 källtyp: leverantor
 version: läst 2026-10-09
-kontroll: kalla
+kontroll: kalla, codex
+bedömning: vid-fynd
 intervall: vecka
 ansvar: helbygget
 ```
@@ -311,7 +324,8 @@ berör: kunskap/juridikflaggor.md; kunskap/byggstandard.md
 källor: IMY; Konsumentverket; PTS
 källtyp: regelverk
 version: läst 2026-10-09
-kontroll: kalla
+kontroll: kalla, codex
+bedömning: vid-fynd
 intervall: vecka
 ansvar: helbygget
 ```
@@ -366,7 +380,8 @@ berör: impeccable; taste; better; emil; frontend-design; kunskap/metodkarta.md
 källor: Anthropic frontend-design; Impeccable; Taste-skill; Jakub Krehels skills; Emil Kowalskis skills
 källtyp: inspiration
 version: KALLA.md per skill (underhållet 2026-10-08)
-kontroll: kalla, underhall
+kontroll: kalla, underhall, codex
+bedömning: vid-fynd
 intervall: dag
 ansvar: underhållet (intaget), skapandeflödet (metodkartan)
 ```
@@ -379,7 +394,8 @@ kompetens: rorelse
 berör: gsap; motion; kontroller/material.py
 källtyp: leverantor
 version: gsap 3.15.0, motion 14.0.0
-kontroll: underhall
+kontroll: underhall, codex
+bedömning: vid-fynd
 intervall: dag
 ansvar: underhållet
 ```
@@ -433,7 +449,8 @@ berör: vercel; kontroller/kundrepo.py; kontroller/exportera.py
 källor: Vercel changelog
 källtyp: leverantor
 version: Vercel CLI 62.4.0, @astrojs/vercel 11.0.11
-kontroll: kalla, underhall
+kontroll: kalla, underhall, codex
+bedömning: vid-fynd
 intervall: dag
 ansvar: underhållet och leveransen
 ```
@@ -443,7 +460,8 @@ fråga: Följer vi förbrukningen mot kvoten, väntan och omarbete i körningarn
 område: larande
 steg: forvaltning
 lucka: kvoten observeras inte (listpriset är inte kvoten); veckobeskedet i kunskap/drift.md har inget verktyg
-kontroll: forbrukning
+kontroll: forbrukning, codex
+bedömning: vid-fynd
 intervall: vecka
 ansvar: bevakningen (mätningen); ägaren för kvotbeslut
 post: B-20261009-forbrukning-mot-kvot-listpris-och-tokens-mats-kv
@@ -459,4 +477,106 @@ berör: kontroller/startkontroll.py; underlag/<kund>/atelje/STARTKVITTO.md
 kontroll: byggstart
 intervall: byggstart
 ansvar: startkontrollen
+```
+
+```bevakning sakerhet
+fråga: Har en sårbarhet eller ett säkerhetsråd publicerats för vår stack, verktygslådan eller kundsajternas plattform (Node, Astro, Vite och mallens npm-paket, Vercel, skills och MCP:er) som kräver en åtgärd, och följer mallens säkerhetshuvuden aktuell praxis?
+område: juridik
+steg: helbygge
+kompetens: leverans
+berör: mall/; kunskap/byggstandard.md; kunskap/beroenden.md; .mcp.json
+källor: Node.js säkerhet; Astro releases
+källtyp: leverantor
+kontroll: kalla, codex
+intervall: vecka
+ansvar: underhållet (beroendena) och helbygget (mallen)
+```
+
+```bevakning personuppgifter-i-kundsajter
+fråga: Hanterar kundsajterna personuppgifter enligt GDPR och IMY:s aktuella vägledning: kontaktformulär, överföring till tredjeland genom Vercel och externa typsnitt, skript eller kartor?
+område: juridik
+steg: helbygge
+kompetens: leverans
+berör: kunskap/juridikflaggor.md; kunskap/byggstandard.md; mall/
+källor: IMY
+källtyp: regelverk
+kontroll: codex
+intervall: manad
+ansvar: helbygget
+```
+
+```bevakning villkor-for-tjansterna
+fråga: Har villkoren, licenserna eller priserna ändrats för tjänsterna vi använder (Anthropics prenumeration, API och användarpolicy, OpenAI och Codex, Refero, Mobbin, 21st, Vercel och Resend), så att vår användning, kvoten eller kundleveransen påverkas?
+område: ai
+steg: forvaltning
+kompetens: arbetsledning
+berör: kunskap/beroenden.md; kunskap/metodkarta.md; README.md
+källor: Anthropic news; OpenAI news; Vercel changelog
+källtyp: leverantor
+kontroll: kalla, codex
+bedömning: vid-fynd
+intervall: vecka
+ansvar: underhållet; ägaren för avtal och köp
+```
+
+```bevakning prospekt-och-utskick
+fråga: Gäller våra regler för prospekt och utskick fortfarande: marknadsföringslagen om e-post till företag, IMY om enskilda firmor och personuppgifter i prospektlistor, och SCB:s villkor för företagsregistret?
+område: juridik
+steg: forberedelse
+kompetens: kundintag
+berör: kunskap/prospekt-och-utskick.md; kontroller/prospekt.py
+källor: IMY; Konsumentverket
+källtyp: regelverk
+kontroll: codex
+intervall: manad
+ansvar: prospektflödet; ägaren för utskicken
+```
+
+```bevakning formular-och-epost
+fråga: Når kundsajternas formulär och e-post fram och skyddas de mot spam enligt aktuell praxis: avsändarkraven hos Google och Microsoft (SPF, DKIM, DMARC), Resend och formulärskydd utan spårning?
+område: leverans
+steg: leverans
+kompetens: leverans
+berör: mall/; kunskap/formularsakerhet.md; kunskap/lansering.md
+källtyp: leverantor
+kontroll: codex
+intervall: manad
+ansvar: helbygget och leveransen
+```
+
+```bevakning underhall-efter-leverans
+fråga: Hur hålls en levererad sajt säker och fungerande efter leveransen: beroenden och säkerhetsuppdateringar, driftövervakning, förnyelse av domän och certifikat, och vad kunden behöver veta?
+område: leverans
+steg: forvaltning
+kompetens: leverans
+berör: kunskap/drift.md; kunskap/uppfoljning.md; README.md
+källtyp: metod
+kontroll: codex
+intervall: manad
+ansvar: leveransen
+post: B-20261004-leveransovning-forsta-kunden-och-verklig-anvandning
+```
+
+```bevakning konkurrenter-och-ribban
+fråga: Vad levererar AI-sajtbyggare och byråer för småföretag i dag (till exempel Framer, Webflow, Wix, Lovable och svenska byråer), och höjer det ribban för våra förslag i kvalitet, innehåll eller tid?
+område: kundintag
+steg: forberedelse
+kompetens: research
+berör: kunskap/designregler.md; kunskap/skapandeflodet.md
+källtyp: bransch
+kontroll: codex
+intervall: manad
+ansvar: skapandeflödet; ägaren för ribban
+```
+
+```bevakning text-och-sprak
+fråga: Följer kundtexterna aktuella råd om klarspråk och svensk webbtext (Språkrådet, Klarspråk), och fångar copy-kontrollen det som stör läsare?
+område: ux
+steg: helbygge
+kompetens: copy
+berör: kunskap/copy-kontroll.md; kunskap/redaktionellt-pass.md
+källtyp: metod
+kontroll: codex
+intervall: manad
+ansvar: skapandeflödet (texten)
 ```
