@@ -77,9 +77,10 @@ Byggarens egen jämförelse, koncept och rapport får du inte se, med flit. Döm
 8. Ställ sajten bredvid referensernas skärmbilder (ribban) och tidigare byggens första vy (bara likheten). Läs
    måttstockarna och sätt betyg.
 9. **Sätt betygen på designkvalitet och originalitet innan du öppnar stilrapporten och copykontrollens rapport,** så
-   att mätningarna inte förankrar omdömet. Läs dem sedan, med stilrapportens avsnitt om mobilens första vy (sidhuvudets
-   höjd, eget foto i första skärmen), och lägg till fynd; sänk inte ett betyg för något du inte själv såg i bilderna.
-   Stilrapportens varningar är val att motivera, inte fel. Navigation och formulär får vara standard: där besökaren ska
+   att mätningarna inte förankrar omdömet. Läs dem sedan och lägg till fynd; sänk inte ett betyg för något du inte
+   själv såg i bilderna. Stilrapportens varningar är val att motivera, inte fel. Dess mått av mobilens första vy
+   (sidhuvudets höjd, menyns form, foto i första skärmen, fast list) är underlag: sidhuvud, meny, rubrikens
+   komposition, foto och list är riktningens val. Navigation och formulär får vara standard: där besökaren ska
    hitta och fylla i är det invanda mönstret rätt. Mobilens första vy är riktningens: döm om den primära handlingen
    syns och nås med tummen, och om menyn fungerar; en godkänd startsida ur skapandeflödet går före.
 

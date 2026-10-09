@@ -853,7 +853,8 @@ def klickytor(stil):
 
 
 def smaknappar(stil):
-    """Byggstandarden 3.3, primära knappar 44×44: information ur stilrapporten (vilka som är primära avgör granskaren)."""
+    """Byggstandarden 3.3, knappen för den primära handlingen 44×44 (Nortropics produktkrav, inte WCAG:s minimum):
+    kandidater ur stilrapporten som information; vilken som bär den primära handlingen avgör granskaren."""
     try:
         data = json.loads(Path(stil).read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -861,7 +862,7 @@ def smaknappar(stil):
     per_sida = {}
     for y in data.get('smaKnappar', []):
         per_sida.setdefault(y['sida'], []).append(y)
-    return [{'punkt': '3.3', 'sida': s, 'text': '%d knappar eller ring-/mejllänkar under 44 px i 390, t.ex. "%s" %d×%d; primära knappar ska vara 44×44' % (
+    return [{'punkt': '3.3', 'sida': s, 'text': '%d knappar eller ring-/mejllänkar under 44 px i 390, t.ex. "%s" %d×%d; bara knappen för den primära handlingen ska vara 44×44 (Nortropics krav; WCAG:s minimum är 24 px)' % (
         len(ys), ys[0]['text'], ys[0]['bredd'], ys[0]['hojd'])} for s, ys in sorted(per_sida.items())]
 
 

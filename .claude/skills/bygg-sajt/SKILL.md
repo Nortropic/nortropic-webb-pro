@@ -158,7 +158,7 @@ och telefon överallt, och omdömen bara med källa). Skriv `underlag/<slug>/BRI
   får bokningen eller beställningen som primär handling
 - framgångsmått
 - krav i EARS-form, tre till åtta stycken, ett per toppuppgift och ett för den primära handlingen: "När [situation],
-  ska sajten [beteende]". Exempel: "När en besökare öppnar startsidan i mobilen, ska telefonnumret synas utan skroll."
+  ska sajten [beteende]". Exempel: "När en besökare trycker på telefonnumret i mobilen, ska samtalet starta."
   Granskaren prövar varje krav.
 - sajtkarta: så få sidor som toppuppgifterna kräver, oftast tre till sju, men en egen sida per huvudtjänst
   (byggstandarden 7.5), plus kontaktsidan med formuläret, tacksidan och integritetssidan

@@ -24,8 +24,8 @@ En skills standardråd står under alla fyra.
 - **Läsbarhet:** kontrast för brödtext minst 4,5:1 (WCAG 2.2 AA), radlängd och radhöjd som går att läsa, rubriker i
   ordning med en h1 per sida, `lang="sv"`.
 - **Fungerande interaktion:** varje länk och knapp leder dit den säger, formulär har etiketter och felbesked vid
-  fältet, synligt tangentbordsfokus, klickytor minst 24 px och primära knappar 44 px i 390 (byggstandarden 3.3),
-  inget sidled-spill i 390, 768 eller 1440, inga konsolfel.
+  fältet, synligt tangentbordsfokus, klickytor minst 24×24 px (WCAG 2.2 AA, 2.5.8; byggstandarden 3.3), inget
+  sidled-spill i 390, 768 eller 1440, inga konsolfel.
 - **Den primära handlingen nås:** den syns i första vyn på mobilen och går att nå med tummen. Hur den löses (sidhuvud,
   list, sektion) är riktningens val.
 - **Bilder med uppgift och äkthet:** alt-text efter bildens uppgift. En bild som visar verksamheten (dess arbeten,
@@ -48,6 +48,7 @@ En skills standardråd står under alla fyra.
 | Astro med förrenderade sidor; varje riktning väljer en sammanhängande implementation ur de förberedda, granskade och låsta beroendena (egen CSS, Referos CSS-variabler, Tailwind, Astro- och React-komponenter, Motion; `kunskap/beroenden.md`); självhostade typsnitt eller systemtypsnitt; verksamhetens bilder genom `astro:assets`. Nortropics standardval: ägaren godkände 2026-10-05 18:53Z att de tidigare förbuden omprövas, och urvalet av beroenden är agentens | dagens erbjudande: webbplatser för lokala tjänsteföretag. En bokningstjänst, en butik eller en större innehållssajt kan behöva andra lösningar och får då ett eget beslut |
 | Inga karuseller, marquees eller sidor som rullar av sig själva (byggstandarden) | dagens erbjudande |
 | Inga paketinstallationer i flödets sessioner: beroendena förbereds, granskas och låses i mallen (`kunskap/beroenden.md`), typsnitt genom `kontroller/typsnitt.py`; formulären demonstreras lokalt (`/api/forfragan` → `/tack/`) | skapandeflödet |
+| Knappen för briefens primära handling är minst 44×44 px i 390. Ett produktkrav för den knappen, inte för alla länkar, och strängare än WCAG:s minimum (24 px, 2.5.8; 44 px är 2.5.5, AAA) (byggstandarden 3.3) | dagens erbjudande |
 | Kundens kontaktvägar ur briefen (§4) finns på varje sida: har kontaktmodellen telefonen står numret som tel-länk på varje sida; placeringen är riktningens val (byggstandarden 9.2; Codex via ägaren 2026-10-05, punkt 2) | dagens erbjudande |
 | En namngiven referens får vara utgångspunkt för layout, palett och typografi (2026-10-03); dess identitet, texter och bilder blir aldrig kundens | allt designarbete |
 | Bäst av tre undermåliga godkänns aldrig (2026-10-04) | panelen och granskningen |
@@ -81,6 +82,7 @@ En skills standardråd står under alla fyra.
 | Ett motiv ur märket eller "Bara de har" | Anthropic frontend-design | utforskningen |
 | Undvik de upptagna valen (`UPPTAGNA-VAL.md`) om inte verksamhetens material motiverar dem | våra egna byggens generiska mönster (inget bygge hittills har varit bra nog) | utforskningen |
 | Standarddrag bedöms efter användning | frontend-design | panelen och granskningen |
+| Synliga menypunkter i stället för en dold meny när punkterna ryms | byggstandarden 5.2 till 2026-10-09 | en lösning bland flera; menyns form är riktningens |
 
 Det finns ingen fast sektionsordning: ordningen är riktningens val och motiveras ur besökarens frågor.
 
