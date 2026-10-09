@@ -15,7 +15,8 @@
 - HTTP genom den riktiga hanteraren: ramskydd, strömmens ursprung, nyckeln och ursprunget för skrivningar, 409 och 404;
 - signaturen och det delade läget som strömmen läser om läget efter.
 
-Fallen ur den oberoende granskningen (underlag/granskningar/GR-20261009-arbetsyta-oberoende.md) står vid sina prov.
+Fallen ur den oberoende granskningen och omgranskningen (underlag/granskningar/GR-20261009-arbetsyta-oberoende.md och
+GR-20261009-arbetsyta-omgranskning.md) står vid sina prov.
 
     .venv/bin/python -B kontroller/rokprov/revision/prov_arbetsyta.py
 
@@ -275,6 +276,21 @@ class Arbetsyta(unittest.TestCase):
     def andring(self, **falt):
         return dict({'andring_id': 'andring-prov-0001', 'text': 'Rubriken ska vara större.', 'kandidat': 'k02', 'version': V_NU,
                      'korning': self.status['startad'], 'vy': 'Arbetsyta', 'sida': '/', 'del': 'rubriken'}, **falt)
+
+    def falsk_partner(self):
+        """Partnerns claude ersatt av FalskClaude (bara i partner-modulen) och processlistan tom."""
+        falsk = FalskClaude()
+        self.addCleanup(falsk.stada)
+        self.stack.enter_context(patch.object(partner, 'subprocess', SimpleNamespace(
+            Popen=falsk, PIPE=subprocess.PIPE, run=subprocess.run, TimeoutExpired=subprocess.TimeoutExpired, SubprocessError=subprocess.SubprocessError)))
+        ps = self.stack.enter_context(patch.object(partner, '_ps', return_value=''))
+        return falsk, ps
+
+    def partnerpost(self, sid, pid, tid):
+        """PARTNER.json med ett meddelande vars tur har processen pid och startade tid, utan svar."""
+        self.skriv(self.u / 'arbetsyta' / 'PARTNER.json', {'schema': 'partner/1', 'slug': SLUG, 'session_id': sid, 'skapad': tid,
+                                                           'meddelanden': [{'id': 'meddelande-n4-0001', 'tid': tid, 'avsikt': 'fraga', 'text': 'Hej?',
+                                                                            'svarsfil': 'svar-meddelande-n4-0001.json', 'pid': pid}]})
 
     def server(self):
         """Den riktiga hanteraren på en egen port, med nyckel, värd och en kort strömlivslängd."""
@@ -690,11 +706,7 @@ class Arbetsyta(unittest.TestCase):
     # --- partnern ---
 
     def test_partnern_en_session_per_kund_och_ett_meddelande_i_taget(self):
-        falsk = FalskClaude()
-        self.addCleanup(falsk.stada)
-        self.stack.enter_context(patch.object(partner, 'subprocess', SimpleNamespace(
-            Popen=falsk, PIPE=subprocess.PIPE, run=subprocess.run, TimeoutExpired=subprocess.TimeoutExpired, SubprocessError=subprocess.SubprocessError)))
-        ps = self.stack.enter_context(patch.object(partner, '_ps', return_value=''))
+        falsk, ps = self.falsk_partner()
         fil = self.u / 'arbetsyta' / 'PARTNER.json'
         m1 = partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-0001', 'text': 'Var står vi?', 'avsikt': 'fraga',
                                           'kontext': {'kandidat': 'k01', 'vy': 'telefon', 'okant_falt': 'x'}})
@@ -844,6 +856,130 @@ class Arbetsyta(unittest.TestCase):
         b = arbetsyta.signatur(dash, SLUG)
         self.assertNotEqual(b, a)
         self.assertEqual(arbetsyta.signatur(dash, SLUG), b)
+
+    # --- omgranskningen (GR-20261009-arbetsyta-omgranskning) ---
+
+    def test_partnerns_arbetskatalog_provas_innan_nagot_journalfors(self):
+        # N1: en arbetskatalog som är en länk nekas innan meddelandet eller ett sessions-id sparas; en vanlig fil stoppar inte
+        falsk, _ps = self.falsk_partner()
+        fil = self.u / 'arbetsyta' / 'PARTNER.json'
+        rum = self.u / 'arbetsyta' / 'partner' / 'rum'
+        ute = self.root / 'utanfor-rum'
+        ute.mkdir()
+        rum.parent.mkdir(parents=True)
+        os.symlink(ute, rum)
+        with self.assertRaises(ValueError):
+            partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-n1-0001', 'text': 'Var står vi?'})
+        self.assertFalse(fil.exists(), 'inget sessions-id och ingen post för ett nekat meddelande')
+        self.assertEqual(falsk.anrop, [])
+        self.assertEqual(list(ute.iterdir()), [])
+        self.assertEqual(partner.lage(dash, SLUG)['lage'], 'vantar')
+        os.unlink(rum)
+        rum.mkdir()
+        # det Claude Code läser in ur arbetskatalogen (projektets inställningar, CLAUDE.md) stoppar turen innan något journalförs
+        for namn in ('.claude', 'CLAUDE.md'):
+            (rum / namn).mkdir() if namn == '.claude' else (rum / namn).write_text('vidga läsrätten', encoding='utf-8')
+            with self.assertRaises(ValueError):
+                partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-n1-0001', 'text': 'Var står vi?'})
+            self.assertFalse(fil.exists(), namn)
+            self.assertEqual(falsk.anrop, [], namn)
+            (rum / namn).rmdir() if namn == '.claude' else (rum / namn).unlink()
+        (rum / '.DS_Store').write_bytes(b'\x00\x00\x00\x01Bud1')  # Finder lägger den där när katalogen öppnas
+        m = partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-n1-0001', 'text': 'Var står vi?'})
+        self.assertFalse(m.get('upprepat'), 'det nekade meddelandet journalfördes aldrig')
+        self.assertEqual(m['lage'], 'svarat')
+        a = falsk.anrop[0]
+        self.assertEqual(a[a.index('--session-id') + 1], self.las(fil)['session_id'], 'första turen skapar sessionen')
+        self.assertNotIn('--resume', a)
+
+    def test_samma_andring_med_nytt_id_ger_samma_rad_aven_efter_statusbytet(self):
+        # N3: ett omförsök eller en andra flik som räknat ett nytt id (och beslut) ur kandidatens nya status skriver ingen ny rad
+        self.k02_fotograferad()
+        r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0001'))
+        self.assertFalse(r['upprepat'])
+        self.assertEqual(kandidater.las_status(SLUG, 'k02')['status'], 'vald', 'kandidatens status har ändrats efter första raden')
+        for beslut, aid in (('valj', 'andring-n3-0002'), ('putsa', 'andring-n3-0003')):
+            r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id=aid, beslut=beslut))
+            self.assertTrue(r['upprepat'], beslut)
+            self.assertEqual(r['dom']['arbetsyta']['andring_id'], 'andring-n3-0001')
+        self.assertEqual(len(self.domrader()), 1)
+        r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0004', beslut='putsa', text='Knappen ska stå under rubriken.'))
+        self.assertFalse(r['upprepat'], 'en annan text är en ny ändring')
+        self.assertEqual([d['beslut'] for d in self.domrader()], ['valj', 'putsa'])
+        # samma text riktad mot en annan del av samma version är en ny ändring (omgranskningens N3, provskrivarens not 3)
+        r = arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n3-0005', beslut='putsa', text='Knappen ska stå under rubriken.', **{'del': 'sidfoten'}))
+        self.assertFalse(r['upprepat'], 'samma text för en annan del')
+
+    def test_partnerns_tur_arbetar_bara_med_sessionens_id_och_inom_fristen(self):
+        # N4: en levande pid utan sessionens id i kommandot (återanvänd), eller en tur äldre än fristen, arbetar inte
+        sid = str(uuid.uuid4())
+        tur = ORIG_POPEN([sys.executable, '-c', 'import sys, time; time.sleep(float(sys.argv[1]))', '60', '--resume', sid], stdin=subprocess.DEVNULL)
+        self.addCleanup(stoppa, tur)
+        annan = self.levande()
+        nu = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        gammal = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - partner.profil()['frist'] - 120))
+        with patch.object(partner, '_ps', return_value=''):
+            for namn, pid, tid, vantat in (('turen', tur.pid, nu, 'arbetar'), ('återanvänd pid', annan, nu, 'avbrutet'),
+                                           ('över fristen', tur.pid, gammal, 'avbrutet')):
+                with self.subTest(namn):
+                    self.partnerpost(sid, pid, tid)
+                    p = partner.lage(dash, SLUG, samtal=True)
+                    self.assertEqual(p['meddelanden'][0]['lage'], vantat)
+                    self.assertEqual(p['lage'], 'aktiv' if vantat == 'arbetar' else 'avbruten')
+
+    def test_signaturen_och_det_delade_laget_foljer_jamforelsen(self):
+        # N5: en kund som blir en oavgjord arm får en ny signatur, så att det delade läget räknas om och döljs
+        a = arbetsyta.signatur(dash, SLUG)
+        self.assertFalse(arbetsyta.lage_delat(dash, SLUG, a)['ab_dold'])
+        with patch.object(dash, 'ab_oavgjord', return_value=True):
+            b = arbetsyta.signatur(dash, SLUG)
+            self.assertNotEqual(b, a)
+            l = arbetsyta.lage_delat(dash, SLUG, b)
+            self.assertTrue(l['ab_dold'])
+            self.assertEqual(l['korning'], {})
+        with patch.object(dash, 'ab_oavgjord', side_effect=RuntimeError('jämförelsen kunde inte läsas')):
+            self.assertNotEqual(arbetsyta.signatur(dash, SLUG), a)
+        self.assertEqual(arbetsyta.signatur(dash, SLUG), a)
+
+    def test_rollerna_doljs_fore_agarens_val_och_armens_tid_visas_inte(self):
+        # blindningens rest (B1, B2): rollnamnet (forbattra, skisskritik) säger vad granskningen ledde till; armens tid skiljer armarna
+        utf = self.session('forbattra-k01', slut='2026-10-09T05:20:00Z', utfall='avslutad, kod 0')
+        gr = self.session('skisskritik-k02', kandidat='k02', slut='2026-10-09T05:21:00Z', utfall='avslutad, kod 0')
+        with patch.object(partner, '_ps', return_value=''):
+            l = self.lage()
+            text, _ = partner.kontexttext(dash, SLUG, {})
+        s = {x['session_id']: x for x in l['sessioner'] if x.get('kalla') == 'ateljén'}
+        self.assertEqual(set(s), {utf, gr})
+        for i, ansvar in ((utf, 'utforande'), (gr, 'granskning')):
+            self.assertEqual((s[i]['roll'], s[i]['roll_dold'], s[i]['ansvar']), (None, True, ansvar))
+        for roll in ('forbattra', 'skisskritik'):
+            self.assertNotIn(roll, text)
+            self.assertNotIn(roll, json.dumps(l['sessioner'], ensure_ascii=False))
+        self.assertIn('roll dold före ägarens val', text)
+        self.agarens_val()
+        s = {x['session_id']: x for x in self.lage()['sessioner'] if x.get('kalla') == 'ateljén'}
+        self.assertEqual((s[utf]['roll'], s[utf]['roll_dold']), ('forbattra-k01', False))
+        self.assertTrue({x['slug']: x for x in arbetsyta.projekt(dash)}[SLUG]['senast_andrad'])
+        with patch.object(dash, 'ab_oavgjord', return_value=True):
+            self.assertIsNone({x['slug']: x for x in arbetsyta.projekt(dash)}[SLUG]['senast_andrad'])
+
+    def test_maskeringen_tar_leverantorsnycklar_utan_nyckelord(self):
+        # A7:s rest: Resends nycklar (re_…) står utan något nyckelord framför
+        for rad in ('re_AbCdEf1234567890xyz', 'skickar med re_AbCdEf1234567890xyz till mottagaren'):
+            m = arbetsyta.maskera(rad)
+            self.assertNotIn('AbCdEf1234567890xyz', m, rad)
+            self.assertIn('•••', m)
+
+    def test_skaparens_markeringsrad_utan_dashboardens_vynamn(self):
+        # N7: "i vyn Arbetsyta" säger skaparen ingenting; sida, del och fil gör det
+        self.k02_fotograferad()
+        arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-n7-0001', **{'vy': 'Arbetsyta', 'sida': '/', 'del': 'rubriken',
+                                                                                          'fil': 'kod/index.astro'}))
+        rad = [r for r in skapande.kritikrader(SLUG, underlag=self.root / 'underlag', aktuella=True) if 'ändringen gäller' in r]
+        self.assertEqual(len(rad), 1)
+        self.assertNotIn('i vyn', rad[0])
+        for del_ in ('sida /', 'del rubriken', 'fil kod/index.astro'):
+            self.assertIn(del_, rad[0])
 
     def test_strommarna_delar_laget_per_signatur(self):
         # GR-20261009-arbetsyta-oberoende#K7: en ström per flik räknar inte fram läget var för sig

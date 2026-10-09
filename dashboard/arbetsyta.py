@@ -120,8 +120,12 @@ def projekt(dash):
     ut = []
     for s in slugar:
         v = dash.las_json(dash.UNDERLAG / s / 'VERKSAMHET.json') or {}
-        aktiv = max(_mtid(dash.UNDERLAG / s / 'atelje' / 'STATUS.json'), _mtid(dash.UNDERLAG / s / 'atelje' / 'sessioner'),
-                    _mtid(dash.KUNDER / s / 'korningar'), _mtid(dash.UNDERLAG / s / 'ateljestarter'))
+        try:
+            ab = bool(dash.ab_oavgjord(s))
+        except Exception:  # noqa: BLE001
+            ab = True
+        aktiv = 0 if ab else max(_mtid(dash.UNDERLAG / s / 'atelje' / 'STATUS.json'), _mtid(dash.UNDERLAG / s / 'atelje' / 'sessioner'),
+                                 _mtid(dash.KUNDER / s / 'korningar'), _mtid(dash.UNDERLAG / s / 'ateljestarter'))
         ut.append({'slug': s, 'namn': v.get('namn') if isinstance(v, dict) else None, 'testdata': bool(isinstance(v, dict) and v.get('fiktiv')),
                    'senast_andrad': _iso(aktiv)})
     return sorted(ut, key=lambda x: (x['senast_andrad'] or '', x['slug']), reverse=True)
@@ -189,7 +193,8 @@ def ateljesessioner(dash, slug, korning, blind):
             akt, _skal = observation.aktivitet(tr, slug, vagar=not blind)
         ob = post.get('observation') or {}
         lage, text = _lage_ateljesession(post, ob, akt, _svarsfel(dash, slug, post))
-        ut.append({'session_id': post['session_id'], 'roll': post.get('roll'), 'ansvar': ansvar_for(post.get('roll')),
+        ut.append({'session_id': post['session_id'], 'roll': None if blind else post.get('roll'), 'roll_dold': bool(blind),
+                   'ansvar': ansvar_for(post.get('roll')),
                    'kandidat': post.get('kandidat'), 'korning': korning.get('id'), 'start': post.get('start'), 'slut': post.get('slut'),
                    'utfall': post.get('utfall'), 'pid': post.get('pid'), 'lage': lage, 'lage_text': text,
                    'foralder': {'typ': 'ateljéns arbetare', 'pid': korning.get('pid'), 'start_id': korning.get('start_id')},
@@ -280,6 +285,7 @@ def startjournal(dash, slug):
         pid = j.get('barn_pid') or j.get('pid')
         ut.append({'start_id': f.stem, 'handling': j.get('handling'), 'tid': j.get('tid'), 'status': j.get('status'),
                    'slutkod': j.get('slutkod'), 'stopp_begart': bool(j.get('stoppbegard') or j.get('stoppad')), 'stopp_sent': bool(j.get('stoppbegard_sen')),
+                   'stopp_tid': j.get('stoppad') if isinstance(j.get('stoppad'), str) else j.get('stoppbegard_tid'),
                    'fel': str(j.get('fel'))[:300] if j.get('fel') else None, 'process_lever': bool(pid and _lever(pid)) if pid else None})
     return ut
 
@@ -567,6 +573,10 @@ def signatur(dash, slug):
     st = dash.las_json(u / 'atelje' / 'STATUS.json') or {}
     if st.get('pid'):
         delar.append('arbetare:%s' % _lever(st['pid']))
+    try:
+        delar.append('ab:%s' % bool(dash.ab_oavgjord(slug)))
+    except Exception:  # noqa: BLE001
+        delar.append('ab:fel')
     pj = dash.las_json(u / 'arbetsyta' / 'PARTNER.json') or {}
     for m in (pj.get('meddelanden') or [])[-2:]:
         if isinstance(m, dict) and m.get('pid'):
@@ -721,6 +731,7 @@ HEMLIGT = (  # (mönster, ersättning): värdet ersätts, det som visar vad det 
     (re.compile(r'(?i)(authorization["\']?\s*[:=]\s*["\']?(?:bearer|basic|token)?\s*)([^\s"\',]{6,})'), r'\1•••'),
     (re.compile(r'(?i)\b(bearer\s+)([A-Za-z0-9._~+/=-]{8,})'), r'\1•••'),
     (re.compile(r'\b(sk-(?:ant-)?[a-z0-9]{0,6}-?)[A-Za-z0-9_-]{8,}'), r'\1•••'),
+    (re.compile(r'\b(re_)(?=[A-Za-z0-9_]*[0-9])(?=[A-Za-z0-9_]*[A-Z])[A-Za-z0-9_]{16,}'), r'\1•••'),  # Resends nycklar, inte re_render_x
     (re.compile(r'(?i)([?&](?:key|api_key|apikey|token|access_token|nyckel|secret)=)[^&\s"\']+'), r'\1•••'),
     (re.compile(r'(?i)(api[_-]?key|token|secret|nyckel|password|passwd|lösenord)(["\']?\s*[=:]\s*["\']?|\s+)([^\s"\'&,]{6,})'), r'\1\2•••'),
 )
@@ -802,7 +813,9 @@ def skicka_andring(dash, slug, data):
     with _ANDRING_LAS:
         for d in skapande.domar(slug, dash.UNDERLAG):
             a = d.get('arbetsyta') if isinstance(d.get('arbetsyta'), dict) else {}
-            if a.get('andring_id') == aid:
+            if a.get('andring_id') == aid or (a.get('andring_id') and str(d.get('text') or '').strip() == text and a.get('kandidat') == kid
+                                              and a.get('version') == version[:12] and a.get('korning') == korning
+                                              and all(a.get(k) == markering.get(k) for k in ('vy', 'sida', 'del', 'fil'))):
                 return {'ok': True, 'upprepat': True, 'dom': d}
         st = dash.las_json(dash.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
         if korning != str(st.get('startad') or ''):

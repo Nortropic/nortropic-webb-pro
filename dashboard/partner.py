@@ -163,13 +163,14 @@ def _svar(dash, slug, m):
 OVERLAMNING = re.compile(r'```overlamning\s*\n(.*?)\n```', re.S)
 
 
-def _meddelandelage(dash, slug, m):
+def _meddelandelage(dash, slug, m, sid=None):
     """Ett meddelandes läge ur processen och svarsfilen, prövat nu: skickat (journalfört, ingen process än), arbetar
     (processen lever), svarat, fel eller avbrutet (processen lever inte och inget svar finns)."""
     s = _svar(dash, slug, m)
     if s:
         lage = 'fel' if s['fel'] else 'svarat'
-    elif m.get('pid') and _lever(m['pid']):
+    elif m.get('pid') and _lever(m['pid']) and (not sid or sid in _kommando(m['pid'])) \
+            and time.time() - _epok(m.get('tid')) <= profil()['frist'] + 60:
         lage = 'arbetar'
     elif m.get('pid'):
         lage = 'avbrutet'
@@ -195,7 +196,7 @@ def lage(dash, slug, samtal=False):
     p = profil()
     if not d.get('session_id'):
         return {'session_id': None, 'lage': 'vantar', 'profil': p, 'meddelanden': [] if samtal else None, 'antal': 0}
-    med = [_meddelandelage(dash, slug, m) for m in d.get('meddelanden') or [] if isinstance(m, dict)]
+    med = [_meddelandelage(dash, slug, m, d.get('session_id')) for m in d.get('meddelanden') or [] if isinstance(m, dict)]
     senaste = med[-1] if med else None
     egna = {m.get('pid') for m in d.get('meddelanden') or [] if isinstance(m, dict) and m.get('pid')}
     andra = andra_processer(d['session_id'], utom=egna)
@@ -259,7 +260,8 @@ def kontexttext(dash, slug, markering):
     for s in l.get('sessioner') or []:
         if s.get('kalla') == 'partnersamtalet':
             continue
-        rader.append('Session %s%s: %s (%s)' % (s.get('roll') or '?', ' ' + s['kandidat'] if s.get('kandidat') else '', arbetsyta.LAGEN.get(s.get('lage'), s.get('lage')), s.get('lage_text') or ''))
+        rader.append('Session %s%s: %s (%s)' % (s.get('roll') or ({'granskning': 'granskning', 'utforande': 'utförande'}.get(s.get('ansvar'), '?') + ', roll dold före ägarens val'),
+                                               ' ' + s['kandidat'] if s.get('kandidat') else '', arbetsyta.LAGEN.get(s.get('lage'), s.get('lage')), s.get('lage_text') or ''))
     for nyckel, r in (l.get('roller') or {}).items():
         rader.append('Ansvar %s: %s — %s' % (r['rubrik'], arbetsyta.LAGEN.get(r['lage'], r['lage']), r['lage_text']))
     rader.append('Nästa tillåtna handlingar: %s' % (', '.join(h['text'] for h in l.get('handlingar') or []) or 'inga'))
@@ -324,6 +326,15 @@ def skicka(dash, slug, data, starta=True):
             andra = andra_processer(d['session_id'], utom={m.get('pid') for m in d.get('meddelanden') or [] if isinstance(m, dict)})
             if andra:
                 raise Upptagen('sessionen är öppen i en annan process (%s, pid %d); avsluta den först' % (andra[0]['kommando'], andra[0]['pid']))
+        rum = _rum(dash, slug)
+        # prövas innan något skrivs i PARTNER.json och innan en katalog skapas: ingen länk på vägen, och inget i katalogen som
+        # Claude Code läser in (projektets inställningar och CLAUDE.md skulle annars kunna vidga partnerns läsrätt)
+        if any(x.is_symlink() for x in (rum, rum.parent, rum.parent.parent)):
+            raise ValueError('partnerns arbetskatalog %s får inte vara en länk' % rum)
+        rum.mkdir(parents=True, exist_ok=True)
+        if rum.is_symlink() or any(x.name not in ('.DS_Store',) for x in rum.iterdir()):
+            raise ValueError('partnerns arbetskatalog %s ska vara tom (en .claude/ eller CLAUDE.md där skulle läsas in); ta bort det som '
+                             'ligger där' % rum)
         p = profil()
         ny = not d.get('session_id')
         if ny:
@@ -341,10 +352,6 @@ def skicka(dash, slug, data, starta=True):
         if not starta:
             return _meddelandelage(dash, slug, m)
         prompt = '%s\n\nÄgarens avsikt: %s\n\n%s' % (ktext, AVSIKTER[avsikt], text)
-        rum = _rum(dash, slug)
-        rum.mkdir(parents=True, exist_ok=True)
-        if any(x.is_symlink() for x in (rum, rum.parent, rum.parent.parent)) or any(rum.iterdir()):
-            raise ValueError('partnerns arbetskatalog %s ska vara en tom katalog utan länkar' % rum)
         ut = _katalog(dash, slug) / 'partner'
         try:
             fu = open(ut / m['svarsfil'], 'wb')
