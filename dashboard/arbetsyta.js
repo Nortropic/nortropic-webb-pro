@@ -343,7 +343,10 @@
     const n = document.getElementById('ay-forslagsnotis'); if (n) n.innerHTML = '';
     try { await prototypvy(slug); } catch (err) {
       if (gen !== A.generation || A.slug !== slug) return;
-      const v = document.getElementById('vy'); if (v) v.innerHTML = `<div class="ay-notis varn">Förslagen kunde inte läsas: ${e_(err.message)}</div>`;
+      const v = document.getElementById('vy'); if (!v) return;
+      v.innerHTML = /ingen prototyp/.test(err.message)  // ingen körning för kunden än (server.prototyp: 404), inget fel
+        ? `<h1>Förslagen · ${e_(slug)}</h1><div class="ay-tom">Inga förslag än för kunden. Förbered kundunderlaget och starta referensjakt och skiss under <a href="#/arbetsyta/${e_(slug)}/flode">Byggflöde</a>.</div>`
+        : `<div class="ay-notis varn">Förslagen kunde inte läsas: ${e_(err.message)}</div>`;
     }
   }
   function ritaForslagsnotis() {

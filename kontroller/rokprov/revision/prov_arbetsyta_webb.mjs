@@ -260,7 +260,7 @@ const srv = createServer(async (req, res) => {
   if (vag === `/api/arbetsyta/${SLUG}/logg`) return json(LOGG());
   if (vag === '/api/flode') return json({ slugar: [SLUG], pilot: [], kedjan: { steg: [{ steg: 'Kundunderlaget', vem: 'Kundstart samlar underlaget; du godkänner det.' },
     { steg: 'Prototypen', vem: 'Ateljén skapar kandidater med neutrala etiketter; granskarna dömer var för sig.' }] } });
-  if (vag === `/api/prototyp/${SLUG}`) return json(prototypData());
+  if (vag === `/api/prototyp/${SLUG}`) return S.utanPrototyp ? json({ fel: 'ingen prototyp för bygget' }, 404) : json(prototypData());
   if (vag === '/api/oversikt') return json({ byggen: [], backlog_vilande: 3, intag_pagar: 1, prospekt_vantar: 0 });
   if (vag === '/api/underhall') return json({ senast: { start: T(90), slut: T(80), antal: { uppdaterad: 2, avvisad: 0, behallen: 1 } }, andringar: [], intervall_dagar: 1, pagar: null, md: '' });
   if (vag === '/api/bevakning') return json({ senast: { start: T(30), slut: T(29), automatisk: true, utfall: 'delvis', sen_timmar: 0.2 }, nasta: T(-600), tidszon: 'Europe/Stockholm',
@@ -1012,10 +1012,16 @@ try {
   assert.deepEqual([fb.beslut, fb.kandidater, fb.sedd.map((x) => [x.bild.split('/').pop(), x.bild_sha, x.version])],
     ['godkand', [{ id: 'k01', version: S.k01v }], [['390-forsta.png', '9'.repeat(64), S.k01v], ['1440-forsta.png', BILDSHA, S.k01v]]], 'godkännandet bär versionen och bilderna du ser');
   S.forslagK01 = undefined; S.forslagFas = undefined;
+  // en kund utan körning: Förslagen säger det, inget fel
+  S.utanPrototyp = true;
+  await flikar.filter({ hasText: 'Arbetsyta' }).click(); await flikar.filter({ hasText: 'Förslagen' }).click();
+  await page.locator('#vy .ay-tom').filter({ hasText: 'Inga förslag än för kunden' }).waitFor();
+  assert.equal(await page.locator('#vy .ay-notis.varn').count(), 0, 'en kund utan körning är inget läsfel');
+  S.utanPrototyp = false;
   sammanfattning.forslagen = { adressen_leder_dit: true, val_med_delar: true, kundens_belagg: true, godkannande_med_bildernas_hash: true };
 
   // 13. Inga sidfel; konsolfelen är bara de nätfel provet självt framkallar
-  const avsiktliga = [/\/api\/flode\/prov-kund\/start$/, /\/api\/arbetsyta\/prov-kund\/andring$/, /\/api\/arbetsyta\/prov-kund\/strom$/, /\/api\/arbetsyta\/prov-kund\/kod$/];
+  const avsiktliga = [/\/api\/prototyp\/prov-kund$/, /\/api\/flode\/prov-kund\/start$/, /\/api\/arbetsyta\/prov-kund\/andring$/, /\/api\/arbetsyta\/prov-kund\/strom$/, /\/api\/arbetsyta\/prov-kund\/kod$/];
   const forvantat = (x) => (/^Failed to load resource/.test(x.text) && avsiktliga.some((r) => r.test(x.url.split('?')[0])))
     || /^EventSource's response has a status 503/.test(x.text);
   assert.deepEqual(sidfel, [], 'inga fel i sidans skript');
