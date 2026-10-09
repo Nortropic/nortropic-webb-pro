@@ -39,6 +39,11 @@
   function sparaLayout(andring) { if (!A.slug) return; const l = Object.assign(layout(A.slug), andring); try { localStorage.setItem(lager(A.slug), JSON.stringify(l)); } catch { /* bara en bekvämlighet */ } }
   function meddela(text) { const r = document.getElementById('ay-meddelande'); if (!r || !text) return; r.textContent = ''; setTimeout(() => { r.textContent = text; }, 60); }
   function nyttId(nyckel) { let id; try { id = sessionStorage.getItem(nyckel); } catch { id = null; } if (!id) { id = crypto.randomUUID(); try { sessionStorage.setItem(nyckel, id); } catch { /* utan lagring: ett nytt id per klick */ } } return id; }
+  async function innehallsId(prefix, delar) {
+    const b = new TextEncoder().encode(JSON.stringify(delar));
+    const h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', b))).map((x) => x.toString(16).padStart(2, '0')).join('');
+    return prefix + h.slice(0, 40);
+  }
   function slappId(nyckel, id) { try { if (sessionStorage.getItem(nyckel) === id) sessionStorage.removeItem(nyckel); } catch { /* inget att släppa */ } }
   async function postJson(url, body, ms = 45000) {
     const avbryt = new AbortController(), t = setTimeout(() => avbryt.abort(), ms);
@@ -70,7 +75,7 @@
     if (!A.projekt.some((p) => p.slug === slug)) { visaFel(`Arbetsytan känner inte till kunden ${slug}. Välj en kund i listan.`); return; }
     const byte = A.slug !== slug;
     A.vy = ['flode', 'kod'].includes(vy) ? vy : '';
-    if (byte) { stangStrom(); Object.assign(A, { slug, lage: null, valdKandidat: null, folj: null, partner: null, partnerNyckel: null, material: null, logg: null, loggNyckel: null, svar: '', kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null } }); }
+    if (byte) { stangStrom(); Object.assign(A, { mark: undefined, slug, lage: null, valdKandidat: null, folj: null, partner: null, partnerNyckel: null, material: null, logg: null, loggNyckel: null, svar: '', kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null } }); }
     try { localStorage.setItem('nwp-arbetsyta:senaste', slug); } catch { /* bekvämlighet */ }
     const l = layout(slug);
     A.enhet = l.enhet === 'mobil' ? 'mobil' : 'dator';
@@ -408,7 +413,7 @@
         : m.lage === 'skickat' ? `<div class="ay-msg partnern">${lagechip('startar', '')}</div>`
         : svar ? `<div class="ay-msg partnern">${svar.fel ? `<div class="ay-notis fel">Turen slutade med fel (${e_(svar.subtyp || 'okänt')}).</div>` : ''}${formatera(svar.text)}
             ${m.overlamning ? overlamningskort(m) : ''}
-            <div class="meta"><span>Partnern${anv ? ` · rapporterad användning ${e_(anv.in ?? '?')} in, ${e_(anv.ut ?? '?')} ut tokens` : ''}</span><time>${e_(klocka(m.slut).slice(0, 5))}</time></div></div>`
+            <div class="meta"><span>Partnern${anv ? ` · rapporterad användning: ${e_(anv.in ?? '?')} in, ${e_(anv.cache_las ?? '?')} ur cache, ${e_(anv.cache_skriv ?? '?')} till cache, ${e_(anv.ut ?? '?')} ut tokens${anv.listpris_usd != null ? `; listpris enligt Claude Code ${e_(Number(anv.listpris_usd).toFixed(2))} USD, inte fakturerat (prenumerationen räknar kvot)` : ''}` : ''}</span><time>${e_(klocka(m.slut).slice(0, 5))}</time></div></div>`
         : `<div class="ay-msg partnern"><div class="ay-notis fel">${e_(m.fel || 'Inget svar: processen lever inte och ingen svarsfil finns.')}</div></div>`}`;
   }
   function overlamningskort(m) {
@@ -418,24 +423,40 @@
     return `<div class="ay-overlamning"><strong>Förslag till överlämning</strong><dl>${rad('Kandidat', o.kandidat ? etikett(o.kandidat) : null)}${rad('Version', o.version)}${rad('Sida', o.sida)}${rad('Del', o.del)}${rad('Mål', o.mal)}${rad('Avgränsning', o.avgransning)}${rad('Förväntat', o.forvantat)}</dl>
       <button class="ay-knapp liten" type="button" data-anvand-forslag="${e_(m.id)}">Använd som min ändring</button><span class="svag"> Du läser, ändrar och skickar själv.</span></div>`;
   }
-  function markering() {
-    const k = (A.lage?.kandidater || []).find((x) => x.id === A.valdKandidat);
-    return { kandidat: k?.id || null, version: k?.version || null, version_hel: k?.version_hel || null, vy: { '': 'Arbetsyta', flode: 'Byggflöde', kod: 'Kod och preview' }[A.vy], korning: A.lage?.korning?.startad || null };
+  const VYNAMN = { '': 'Arbetsyta', flode: 'Byggflöde', kod: 'Kod och preview' };
+  function levande(kid) {
+    const k = (A.lage?.kandidater || []).find((x) => x.id === (kid ?? A.valdKandidat));
+    return { kandidat: k?.id || null, version: k?.version || null, version_hel: k?.version_hel || null, vy: VYNAMN[A.vy], korning: A.lage?.korning?.startad || null };
+  }
+  const markLager = () => 'nwp-arbetsyta-markering:' + A.slug;
+  function lasMark() { try { const m = JSON.parse(sessionStorage.getItem(markLager()) || 'null'); return m && typeof m === 'object' ? m : null; } catch { return null; } }
+  function sparaMark(m) { A.mark = m; try { m ? sessionStorage.setItem(markLager(), JSON.stringify(m)) : sessionStorage.removeItem(markLager()); } catch { /* bara en bekvämlighet */ } }
+  function markera(tillagg) { const m = Object.assign({}, levande(tillagg?.kandidat), tillagg || {}); sparaMark(m); return m; }
+  // det ändringen gäller: den frysta markeringen om du gjort en, annars den kandidat som är vald just nu
+  function markering() { if (A.mark === undefined) A.mark = lasMark(); return A.mark || levande(); }
+  function inaktuellMark() {
+    const m = A.mark; if (!m || !m.kandidat) return null;
+    const nu = levande(m.kandidat);
+    if (m.korning && nu.korning && m.korning !== nu.korning) return `körningen har bytts sedan du markerade (${kort(m.korning)}, nu ${kort(nu.korning)})`;
+    if (m.version_hel && nu.version_hel && m.version_hel !== nu.version_hel) return `kandidaten har en ny version sedan du markerade (${m.version}, nu ${nu.version})`;
+    return null;
   }
   function ritaSkriv() {
     const f = document.getElementById('ay-skriv'); if (!f || !A.lage) return;
     const mk = markering(), kand = mk.kandidat ? etikett(mk.kandidat) : null;
-    const form = JSON.stringify([A.avsikt, A.lage.blind, mk.kandidat, mk.version, mk.vy, A.lage.projekt?.namn]);
+    const form = JSON.stringify([A.avsikt, A.lage.blind, mk.kandidat, mk.version, mk.vy, mk.fil, A.lage.projekt?.namn, inaktuellMark(), Boolean(A.mark)]);  // fryst eller levande syns på raden Gäller
     if (f.dataset.ritad === form || (f.contains(document.activeElement) && f.dataset.ritad)) { uppdateraSkrivstatus(); return; }
     const utkast = f.querySelector('textarea')?.value ?? (sessionStorageLas('nwp-arbetsyta-utkast:' + A.slug) || '');
-    const behall = { sida: f.querySelector('[data-falt="sida"]')?.value || '', del: f.querySelector('[data-falt="del"]')?.value || '', svar: f.querySelector('#ay-skrivsvar')?.textContent || '' };
+    const behall = { sida: f.querySelector('[data-falt="sida"]')?.value || mk.sida || '', del: f.querySelector('[data-falt="del"]')?.value || mk.del || '', svar: f.querySelector('#ay-skrivsvar')?.textContent || '' };
     f.dataset.ritad = form;
     f.innerHTML = `<div class="ay-segment" role="group" aria-label="Avsikt">${[['fraga', 'Fråga'], ['plan', 'Planförslag'], ['andring', 'Ändring']].map(([k, n]) => `<button type="button" data-avsikt="${k}" data-fokus="a-${k}" aria-pressed="${A.avsikt === k}">${n}</button>`).join('')}</div>
       <label class="dolt" for="ay-text">Meddelande</label>
       <textarea id="ay-text" data-fokus="text" placeholder="${A.avsikt === 'andring' ? 'Vad ska ändras, och var?' : A.avsikt === 'plan' ? 'Vad vill du ha en plan för?' : 'Skriv en fråga om läget'}">${e_(utkast)}</textarea>
       ${A.avsikt === 'andring' ? `<div class="ay-skrivrad"><label class="svag">Sida <input data-falt="sida" data-fokus="sida" style="width:110px" class="ay-knapp liten" placeholder="/ (startsidan)"></label><label class="svag">Del <input data-falt="del" data-fokus="del" style="width:140px" class="ay-knapp liten" placeholder="t.ex. första vyn"></label></div>` : ''}
       ${A.avsikt === 'andring' && A.lage.blind ? '<p class="ay-notis varn" style="margin:0">En ändring som du skickar är ditt val av kandidaten i körningen. Bedömningarna visas efter det.</p>' : ''}
-      <div class="ay-markering" id="ay-markering">Gäller: <b>${e_(A.lage.projekt?.namn || A.slug)}</b>${kand ? `, <b>${e_(kand)}</b>${mk.version ? ' version ' + e_(mk.version) : ''}` : ', ingen kandidat vald'}, vy ${e_(mk.vy)}</div>
+      <div class="ay-markering" id="ay-markering">Gäller: <b>${e_(A.lage.projekt?.namn || A.slug)}</b>${kand ? `, <b>${e_(kand)}</b>${mk.version ? ' version ' + e_(mk.version) : ''}` : ', ingen kandidat vald'}${mk.korning ? ', körningen ' + e_(kort(mk.korning)) : ''}, vy ${e_(mk.vy)}${mk.fil ? ', fil ' + e_(mk.fil) : ''}
+        ${A.mark ? ' <button class="ay-knapp liten" type="button" data-rensa-markering data-fokus="rensa">Rensa markeringen</button>' : ''}</div>
+      <div id="ay-inaktuell"></div>
       <div class="ay-skrivrad"><span class="svag" id="ay-skrivsvar" role="status" aria-live="polite"></span><span class="ay-knapprad">
         ${A.avsikt === 'andring' ? `<button class="ay-knapp" type="submit" data-skicka="partner" data-fokus="s-partner">Be partnern formulera</button><button class="ay-knapp primar" type="button" data-skicka="andring" data-fokus="s-andring">Skicka ändring</button>`
           : `<button class="ay-knapp primar" type="submit" data-skicka="partner" data-fokus="s-partner">Skicka</button>`}</span></div>`;
@@ -452,9 +473,16 @@
     const a = document.querySelector('#ay-skriv [data-skicka="andring"]');
     if (a) {
       const k = A.lage.korning || {}, mk = markering();
-      const hinder = !mk.kandidat ? 'välj kandidaten ändringen gäller (under Kandidater)' : !['klar_for_bedomning', 'fel'].includes(k.steg) ? 'körningen väntar inte på ditt beslut' : null;
+      const hinder = !mk.kandidat || !mk.version_hel ? 'markera kandidaten ändringen gäller (under Kandidater)' : inaktuellMark() ? 'markeringen är inaktuell: stäm av mot den aktuella versionen'
+        : !['klar_for_bedomning', 'fel'].includes(k.steg) ? 'körningen väntar inte på ditt beslut' : null;
       a.disabled = Boolean(hinder); a.title = hinder || '';
       const m = document.getElementById('ay-markering'); if (m) m.dataset.hinder = hinder || '';
+    }
+    // notisen om en inaktuell markering uppdateras också medan du skriver, utan att fokus flyttas
+    const ruta = document.getElementById('ay-inaktuell'), gammal = inaktuellMark();
+    if (ruta && (ruta.dataset.text || '') !== (gammal || '')) {
+      ruta.dataset.text = gammal || '';
+      ruta.innerHTML = gammal ? `<p class="ay-notis varn" style="margin:0">Inaktuell markering: ${e_(gammal)}. Stäm av mot den aktuella versionen innan du skickar. <button class="ay-knapp liten" type="button" data-stam-av data-fokus="stam-av">Stäm av mot den aktuella</button></p>` : '';
     }
     const s = document.getElementById('ay-skrivsvar');
     if (s && upptagen && !s.textContent) s.textContent = (p?.andra_processer || []).length ? 'Sessionen är öppen i en annan process.' : 'Partnern svarar…';
@@ -463,29 +491,34 @@
   async function skickaPartner() {
     const t = document.getElementById('ay-text'), svar = document.getElementById('ay-skrivsvar');
     const text = t.value.trim(); if (!text) { svar.textContent = 'Skriv ett meddelande först.'; t.focus(); return; }
-    const nyckel = 'nwp-arbetsyta-meddelande:' + A.slug, id = nyttId(nyckel), mk = markering();
+    const mk = markering();
+    const kontext = { kandidat: mk.kandidat, version: mk.version, vy: mk.vy, korning: mk.korning, fil: mk.fil || null,
+      sida: document.querySelector('[data-falt="sida"]')?.value || null, del: document.querySelector('[data-falt="del"]')?.value || null };
+    const id = await innehallsId('m', [A.slug, A.avsikt, text, kontext]);
     svar.textContent = 'Skickar…';
     try {
-      await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/partner', { meddelande_id: id, text, avsikt: A.avsikt,
-        kontext: { kandidat: mk.kandidat, version: mk.version, vy: mk.vy, korning: mk.korning, sida: document.querySelector('[data-falt="sida"]')?.value || null, del: document.querySelector('[data-falt="del"]')?.value || null } });
-      slappId(nyckel, id); t.value = ''; try { sessionStorage.removeItem('nwp-arbetsyta-utkast:' + A.slug); } catch { /* */ }
-      svar.textContent = 'Skickat. Partnern svarar i samma session.';
+      const r = await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/partner', { meddelande_id: id, text, avsikt: A.avsikt, kontext });
+      t.value = ''; try { sessionStorage.removeItem('nwp-arbetsyta-utkast:' + A.slug); } catch { /* */ }
+      svar.textContent = r.upprepat ? 'Samma meddelande har redan skickats; svaret står i samtalet. Ändra texten för en ny fråga.' : 'Skickat. Partnern svarar i samma session.';
       await laddaPartner();
-    } catch (err) { svar.textContent = (err.status === 409 ? '' : 'Svaret gick inte att bekräfta: ') + err.message + (err.status === 409 ? '' : '. Försök igen; samma meddelande-id används.'); }
+    } catch (err) { svar.textContent = (err.status === 409 ? '' : 'Svaret gick inte att bekräfta: ') + err.message + (err.status === 409 ? '' : '. Försök igen: samma text ger samma meddelande-id, så inget skickas två gånger.'); }
   }
   async function skickaAndring() {
     const t = document.getElementById('ay-text'), svar = document.getElementById('ay-skrivsvar'), mk = markering();
     const text = t.value.trim(); if (!text) { svar.textContent = 'Skriv vad som ska ändras.'; t.focus(); return; }
+    if (inaktuellMark()) { svar.textContent = 'Inaktuell: ' + inaktuellMark() + '. Stäm av mot den aktuella versionen först.'; return; }
     const k = (A.lage.kandidater || []).find((x) => x.id === mk.kandidat);
-    const nyckel = 'nwp-arbetsyta-andring:' + A.slug, id = nyttId(nyckel);
+    const body = { text, beslut: k && ['forfinad', 'vald'].includes(k.status) ? 'putsa' : 'valj', kandidat: mk.kandidat, version: mk.version_hel, korning: mk.korning,
+      vy: mk.vy, fil: mk.fil || null, sida: document.querySelector('[data-falt="sida"]')?.value || null, del: document.querySelector('[data-falt="del"]')?.value || null };
+    const id = await innehallsId('a', [A.slug, body]);
     svar.textContent = 'Skickar ändringen…';
     try {
-      await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/andring', { andring_id: id, text, beslut: k && ['forfinad', 'vald'].includes(k.status) ? 'putsa' : 'valj',
-        kandidat: mk.kandidat, version: mk.version_hel, korning: mk.korning, vy: mk.vy, sida: document.querySelector('[data-falt="sida"]')?.value || null, del: document.querySelector('[data-falt="del"]')?.value || null });
-      slappId(nyckel, id); t.value = '';
+      await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/andring', Object.assign({ andring_id: id }, body));
+      t.value = ''; sparaMark(null); try { sessionStorage.removeItem('nwp-arbetsyta-utkast:' + A.slug); } catch { /* */ }  // som skickaPartner: en skickad ändring kommer inte tillbaka som utkast
+      const f_ = document.getElementById('ay-skriv'); if (f_) { f_.dataset.ritad = ''; ritaSkriv(); }
       const nasta = (A.lage.handlingar || []).find((h) => ['valda', 'putsa'].includes(h.id));
-      svar.textContent = 'Ändringen är sparad som ditt beslut i domloggen, bunden till kandidat och version. Inget arbete har startat: starta förfiningen under Kontroller.' + (nasta ? '' : ' Läs om läget om knappen inte syns.');
-    } catch (err) { svar.textContent = err.status === 409 ? 'Inaktuell: ' + err.message : 'Svaret gick inte att bekräfta: ' + err.message + '. Försök igen; samma ändrings-id används.'; }
+      (document.getElementById('ay-skrivsvar') || svar).textContent = 'Ändringen är sparad som ditt beslut i domloggen, bunden till kandidat och version. Inget arbete har startat: starta förfiningen under Kontroller.' + (nasta ? '' : ' Läs om läget om knappen inte syns.');
+    } catch (err) { svar.textContent = err.status === 409 ? 'Inaktuell: ' + err.message + ' Stäm av mot den aktuella versionen och läs igenom ändringen innan du skickar igen.' : 'Svaret gick inte att bekräfta: ' + err.message + '. Försök igen: samma ändring ger samma id, så den sparas inte två gånger.'; }
   }
 
   // --- handlingarna: flödets befintliga start, samma start-id som Flöde ---
@@ -500,8 +533,8 @@
     A.pagar = id; A.svar = 'Skickar begäran…'; rita();
     try {
       const r = await postJson('/api/flode/' + encodeURIComponent(A.slug) + '/start', { handling: id, start_id: startId });
-      slappId(nyckel, startId);
       A.fokusStart = startId;
+      try { tillampa(await hamta('/api/arbetsyta/' + encodeURIComponent(A.slug))); slappId(nyckel, startId); } catch { /* läget lästes inte om: samma start-id används vid nästa försök */ }
       A.svar = (r.besked || 'Begäran är registrerad.') + ` (start-id ${startId.slice(0, 8)})`;
       if (A.vy !== '' && !['stoppa', 'stoppa-overgang'].includes(id)) { location.hash = '#/arbetsyta/' + encodeURIComponent(A.slug); return; }
     } catch (err) { A.svar = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs läget eller försök igen; samma start-id används.'; } finally { A.pagar = null; }
@@ -577,7 +610,7 @@
     const el = document.getElementById('ay-filvy'), h = document.getElementById('ay-filhuvud'); if (!el) return;
     const f = A.kod.data?.fil;
     if (!f) { h.innerHTML = '<h2 id="ay-fil-rubrik">Fil</h2>'; el.innerHTML = '<div class="ay-tom" style="padding:14px">Välj en fil. Ändrade filer är märkta mot den bevarade versionen.</div>'; return; }
-    h.innerHTML = `<h2 id="ay-fil-rubrik" class="mono">${e_(sajtvag(f.fil))}</h2><div class="ay-segment" role="group" aria-label="Visning"><button type="button" data-kodvisning="diff" aria-pressed="${A.kod.visning === 'diff'}">Diff mot ${e_(A.kod.data.mot || '–')}</button><button type="button" data-kodvisning="hel" aria-pressed="${A.kod.visning === 'hel'}">Hela filen</button></div>${f.finns ? `<button class="ay-knapp liten" type="button" data-oppna-fil="${e_(f.fil)}">Öppna i editorn</button>` : ''}`;
+    h.innerHTML = `<h2 id="ay-fil-rubrik" class="mono">${e_(sajtvag(f.fil))}</h2><div class="ay-segment" role="group" aria-label="Visning"><button type="button" data-kodvisning="diff" aria-pressed="${A.kod.visning === 'diff'}">Diff mot ${e_(A.kod.data.mot || '–')}</button><button type="button" data-kodvisning="hel" aria-pressed="${A.kod.visning === 'hel'}">Hela filen</button></div>${f.finns ? `<button class="ay-knapp liten" type="button" data-markera-fil="${e_(sajtvag(f.fil))}">Markera för en ändring</button><button class="ay-knapp liten" type="button" data-oppna-fil="${e_(f.fil)}">Öppna i editorn</button>` : ''}`;
     if (A.kod.visning === 'diff') {
       el.innerHTML = f.diff == null ? '<div class="ay-tom" style="padding:14px">Ingen bevarad version att jämföra med.</div>' : f.diff.length ? `<pre class="ay-kodtext">${f.diff.map((r) => `<span class="${r.startsWith('@@') ? 'hunk' : r.startsWith('+') ? 'plus' : r.startsWith('-') ? 'minus' : ''}">${e_(r)}</span>`).join('')}</pre>` : '<div class="ay-tom" style="padding:14px">Ingen skillnad mot den bevarade versionen.</div>';
     } else el.innerHTML = f.text == null ? '<div class="ay-tom" style="padding:14px">Filen finns inte i arbetsversionen.</div>' : `<pre class="ay-kodtext">${e_(f.text).split('\n').map((r) => `<span>${r || ' '}</span>`).join('')}</pre>`;
@@ -633,17 +666,22 @@
     const d = t.dataset;
     if (d.material) { A.material = d.material; ritaMaterial(); document.querySelector(`[data-fokus="m-${d.material}"]`)?.focus(); return; }
     if (d.enhet) { A.enhet = d.enhet; sparaLayout({ enhet: d.enhet }); ritaMaterial(); document.querySelector(`[data-fokus="e-${d.enhet}"]`)?.focus(); return; }
-    if (d.kandidat) { A.valdKandidat = d.kandidat; A.material = null; rita(); ritaSkriv(); return; }
+    if (d.kandidat) { A.valdKandidat = d.kandidat; A.material = null; if (A.avsikt === 'andring' || A.mark) markera({ kandidat: d.kandidat }); rita(); ritaSkriv(); return; }
+    // knapparna står i formuläret och har fokus när de klickas: ritaSkriv ritar då inte om av sig själv, så formuläret tvingas (som Avsikt)
+    if (d.rensaMarkering !== undefined) { sparaMark(null); document.getElementById('ay-skriv').dataset.ritad = ''; ritaSkriv(); document.getElementById('ay-text')?.focus(); return; }
+    if (d.stamAv !== undefined) { const m = markering(); markera({ kandidat: m.kandidat, vy: m.vy, fil: m.fil, sida: m.sida, del: m.del }); document.getElementById('ay-skriv').dataset.ritad = ''; ritaSkriv(); document.getElementById('ay-text')?.focus(); return; }
+    if (d.markeraFil) { markera({ kandidat: A.kod.kandidat, vy: 'Kod och preview', fil: d.markeraFil }); A.avsikt = 'andring'; meddela('Filen är markerad för en ändring. Skriv ändringen i samtalet under Arbetsyta.'); return; }
     if (d.laddaOm !== undefined) { const f = ay.querySelector('#ay-material iframe'); if (f) f.src = f.src; return; }
     if (d.folj !== undefined) { A.folj = d.folj || null; if (A.vy === 'kod') ritaKodaktivitet(); else rita(); document.querySelector('[data-fokus="folj-slut"]')?.focus(); return; }
     if (d.foljSlut !== undefined) { const id = A.folj; A.folj = null; rita(); document.querySelector(`[data-fokus="f-${CSS.escape(id || '')}"]`)?.focus(); return; }
     if (d.falla) { const ytan = document.getElementById('ay-ytan'); ytan.toggleAttribute(d.falla === 'vanster' ? 'data-vanster-dold' : 'data-hoger-dold', true); sparaLayout({ [d.falla === 'vanster' ? 'vansterDold' : 'hogerDold']: true }); document.querySelector(`[data-visa="${d.falla}"]`)?.focus(); return; }
     if (d.visa) { const ytan = document.getElementById('ay-ytan'); ytan.removeAttribute(d.visa === 'vanster' ? 'data-vanster-dold' : 'data-hoger-dold'); sparaLayout({ [d.visa === 'vanster' ? 'vansterDold' : 'hogerDold']: false }); return; }
     if (d.omrade) { const ytan = document.getElementById('ay-ytan'); ytan.dataset.omrade = d.omrade; sparaLayout({ omrade: d.omrade }); ay.querySelectorAll('[data-omrade]').forEach((b) => b.tagName === 'BUTTON' && b.setAttribute('aria-pressed', String(b.dataset.omrade === d.omrade))); return; }
-    if (d.avsikt) { A.avsikt = d.avsikt; const f = document.getElementById('ay-skriv'); try { sessionStorage.setItem('nwp-arbetsyta-utkast:' + A.slug, f.querySelector('textarea').value); } catch { /* */ } f.dataset.ritad = ''; ritaSkriv(); document.querySelector(`[data-fokus="a-${d.avsikt}"]`)?.focus(); return; }
+    if (d.avsikt) { A.avsikt = d.avsikt; if (d.avsikt === 'andring' && !A.mark && markering().kandidat) markera(); const f = document.getElementById('ay-skriv'); try { sessionStorage.setItem('nwp-arbetsyta-utkast:' + A.slug, f.querySelector('textarea').value); } catch { /* */ } f.dataset.ritad = ''; ritaSkriv(); document.querySelector(`[data-fokus="a-${d.avsikt}"]`)?.focus(); return; }
     if (d.skicka === 'andring') { ev.preventDefault(); skickaAndring(); return; }
     if (d.anvandForslag) { const m = (A.partner?.meddelanden || []).find((x) => x.id === d.anvandForslag), o = m?.overlamning || {};
       if (o.kandidat && (A.lage.kandidater || []).some((k) => k.id === o.kandidat)) A.valdKandidat = o.kandidat;
+      markera({ kandidat: A.valdKandidat, sida: o.sida || undefined, del: o.del || undefined });  // bunden till versionen du ser nu, inte förslagets
       A.avsikt = 'andring'; const f = document.getElementById('ay-skriv'); f.dataset.ritad = ''; ritaSkriv();
       document.getElementById('ay-text').value = [o.mal, o.avgransning ? 'Rör inte: ' + o.avgransning : null, o.forvantat ? 'Klart när: ' + o.forvantat : null].filter(Boolean).join('\n');
       if (o.sida) document.querySelector('[data-falt="sida"]').value = o.sida; if (o.del) document.querySelector('[data-falt="del"]').value = o.del;
@@ -661,7 +699,7 @@
     if (ev.target.id === 'ay-kodkand') { A.valdKandidat = ev.target.value; A.kod.fil = null; A.kod.mot = null; laddaKod(); ritaMaterial(); }
     if (ev.target.id === 'ay-kodmot') laddaKod(undefined, ev.target.value || null);
   });
-  document.addEventListener('input', (ev) => { if (ev.target.id === 'ay-text') { try { sessionStorage.setItem('nwp-arbetsyta-utkast:' + A.slug, ev.target.value); } catch { /* */ } } });
+  document.addEventListener('input', (ev) => { if (ev.target.dataset?.falt && A.mark) { A.mark[ev.target.dataset.falt] = ev.target.value; sparaMark(A.mark); } if (ev.target.id === 'ay-text') { try { sessionStorage.setItem('nwp-arbetsyta-utkast:' + A.slug, ev.target.value); } catch { /* */ } } });
   document.addEventListener('keydown', (ev) => { if (ev.target.id === 'ay-text' && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); A.avsikt === 'andring' ? skickaAndring() : skickaPartner(); } });
   window.__arbetsyta = A;  // för proven: läget i vyn, aldrig något att skriva i
 })();

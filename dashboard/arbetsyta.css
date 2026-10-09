@@ -204,6 +204,9 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
   height: calc(100vh - 113px); min-height: 600px; }
 .ay-kod > .ay-panel { min-height: 0; overflow: hidden; }
 .ay-kod .ay-filer { grid-row: 1 / span 2; }
+/* filens namn får en egen rad: med Diff, Hela filen och två knappar trycktes rubriken till noll bredd */
+#ay-filhuvud { flex-wrap: wrap; row-gap: 8px; }
+#ay-filhuvud h2 { flex-basis: 100%; }
 .ay-filtrad { list-style: none; margin: 0; padding: 0; font-size: 12.5px; font-family: var(--ay-mono); }
 .ay-filtrad button { appearance: none; width: 100%; text-align: left; background: transparent; border: 0; color: var(--ay-text); font: inherit; padding: 4px 6px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
 .ay-filtrad button > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; direction: rtl; text-align: left; }

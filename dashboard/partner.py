@@ -15,6 +15,7 @@ Lagring (privat): underlag/<slug>/arbetsyta/PARTNER.json bär kopplingen (sessio
 avsikt, markering, ägarens text och processens identitet; svaret står i Claude Codes egen svarsfil
 underlag/<slug>/arbetsyta/partner/svar-<id>.json och transkriptet där Claude Code sparar det. Ingen annan status.
 """
+import calendar
 import fcntl
 import json
 import os
@@ -199,10 +200,10 @@ def lage(dash, slug, samtal=False):
     egna = {m.get('pid') for m in d.get('meddelanden') or [] if isinstance(m, dict) and m.get('pid')}
     andra = andra_processer(d['session_id'], utom=egna)
     sl = ('aktiv' if senaste and senaste['lage'] == 'arbetar' else 'startar' if senaste and senaste['lage'] == 'skickat'
-          else 'aktiv' if andra else 'beslut' if senaste and senaste['lage'] == 'svarat' else 'avbruten' if senaste and senaste['lage'] in ('fel', 'avbrutet')
+          else 'aktiv' if andra else 'avslutad' if senaste and senaste['lage'] == 'svarat' else 'avbruten' if senaste and senaste['lage'] in ('fel', 'avbrutet')
           else 'vantar')
     text = {'aktiv': 'partnern svarar' if not andra else 'sessionen är öppen i en annan process (%s)' % andra[0]['kommando'],
-            'startar': 'meddelandet är journalfört; processen har inte startat', 'beslut': 'partnern har svarat; ditt drag',
+            'startar': 'meddelandet är journalfört; processen har inte startat', 'avslutad': 'partnern har svarat; nästa tur startar när du skriver',
             'avbruten': 'senaste turen gav inget svar', 'vantar': 'inget meddelande än'}[sl]
     akt = None
     try:
@@ -310,8 +311,14 @@ def skicka(dash, slug, data, starta=True):
             if isinstance(m, dict) and m.get('id') == mid:
                 return dict(_meddelandelage(dash, slug, m), upprepat=True)
         if d.get('session_id'):
+            for m in d.get('meddelanden') or []:  # en tur som överlevt sin frist (dashboarden startades om mitt i den) stoppas här
+                if isinstance(m, dict) and m.get('pid') and not m.get('slut') and _lever(m['pid']) and not _svar(dash, slug, m) \
+                        and time.time() - _epok(m.get('tid')) > profil()['frist'] + 60 and str(d['session_id']) in _kommando(m['pid']):
+                    nastlad.doda_trad(m['pid'])
+                    m.update(slut=_nu(), fel='fristen (%d s) tog slut medan dashboarden startades om; turen stoppades' % profil()['frist'])
+                    _skriv(dash, slug, d)
             pagar = [m for m in d.get('meddelanden') or [] if isinstance(m, dict) and m.get('pid') and _lever(m['pid'])
-                     and not _svar(dash, slug, m)]
+                     and not _svar(dash, slug, m) and str(d['session_id']) in _kommando(m['pid'])]
             if pagar:
                 raise Upptagen('partnern svarar på ett tidigare meddelande; vänta på svaret')
             andra = andra_processer(d['session_id'], utom={m.get('pid') for m in d.get('meddelanden') or [] if isinstance(m, dict)})
@@ -336,6 +343,8 @@ def skicka(dash, slug, data, starta=True):
         prompt = '%s\n\nÄgarens avsikt: %s\n\n%s' % (ktext, AVSIKTER[avsikt], text)
         rum = _rum(dash, slug)
         rum.mkdir(parents=True, exist_ok=True)
+        if any(x.is_symlink() for x in (rum, rum.parent, rum.parent.parent)) or any(rum.iterdir()):
+            raise ValueError('partnerns arbetskatalog %s ska vara en tom katalog utan länkar' % rum)
         ut = _katalog(dash, slug) / 'partner'
         try:
             fu = open(ut / m['svarsfil'], 'wb')
@@ -384,3 +393,17 @@ def _vakta(dash, slug, mid, proc, prompt, fu, fe, frist):
 
 def _nu():
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+
+def _epok(t):
+    try:
+        return calendar.timegm(time.strptime(str(t), '%Y-%m-%dT%H:%M:%SZ'))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _kommando(pid):
+    try:
+        return subprocess.run(['ps', '-o', 'command=', '-p', str(int(pid))], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+        return ''

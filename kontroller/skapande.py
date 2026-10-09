@@ -485,6 +485,11 @@ def kritikrader(slug, antal=3, underlag=None, aktuella=False):
         if kand:
             rader.append('  kandidaterna%s: ' % plan + ', '.join('%s (%s%s, version %s)' % (
                 k.get('etikett') or k.get('id'), k.get('id'), (' "%s"' % k['titel']) if k.get('titel') else '', str(k.get('version') or '')[:12]) for k in kand))
+        ay = d.get('arbetsyta') if isinstance(d.get('arbetsyta'), dict) else {}  # en ändring som ägaren skickat från arbetsytan
+        mark = ', '.join('%s %s' % (n, re.sub(r'\s+', ' ', str(ay[k]))[:200]) for k, n in (('sida', 'sida'), ('del', 'del'), ('fil', 'fil'), ('vy', 'i vyn'))
+                         if ay.get(k))
+        if mark:
+            rader.append('  ändringen gäller (ägarens markering i arbetsytan, version %s): %s' % (str(ay.get('version') or '?')[:12], mark))
         titlar = d.get('delar_titlar') if isinstance(d.get('delar_titlar'), dict) else {}
         for kid, text in sorted((d.get('delar') or {}).items()) if isinstance(d.get('delar'), dict) else []:
             rader.append('  ägaren gillade i %s%s%s: %s' % (kid, (' "%s"' % titlar[kid]) if titlar.get(kid) else '', plan, re.sub(r'\s+', ' ', str(text))[:600]))

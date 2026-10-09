@@ -60,9 +60,9 @@ claude-session), aldrig av hur nyligen något hände:
 | start pågår (`startar`) | processen lever men transkriptet syns inte än, eller partnerns meddelande är journalfört utan process |
 | arbetar (`aktiv`) | processen lever |
 | väntar på verktyg (`verktyg`) | processen lever och senaste verktygsanropet har inget svar än |
-| väntar på ditt beslut (`beslut`) | partnern har svarat, eller körningen är klar för din bedömning |
-| avslutad (`avslutad`) | sessionen slutade med kod 0 och utan fel i svaret; ett avslut är inget godkännande |
-| avbruten (`avbruten`) | stopp, tidsgräns, en signal, en annan slutkod, ett fel i svaret, eller en process som inte lever utan observerat slut |
+| väntar på ditt beslut (`beslut`) | körningen är klar för din bedömning och inget utförande lever (står på utförandet; granskningen utan session står kvar som väntar på start) |
+| avslutad (`avslutad`) | sessionen slutade med kod 0 och utan fel i sin svarsfil, eller partnerns tur är besvarad; ett avslut är inget godkännande |
+| avbruten (`avbruten`) | stopp, tidsgräns, en signal, en annan slutkod, `is_error` i sessionens svarsfil, eller en process som inte lever utan observerat slut |
 | okänt läge (`okant`) | pid saknas eller tillhör en annan process |
 
 Ansvaren: **arbetsledning** är partnersamtalet; **utförande** är research, plan, skaparna, förfiningen och helbygget;
@@ -83,14 +83,16 @@ samtidigt, var och en i högst 30 minuter. En stängd flik avslutar bara strömm
 |---|---|---|
 | **Följ** (sessionens kort) | visar sessionens observerade händelser ur transkriptet: verktyg, tid, utfall, lästa och skrivna filers sökvägar, skillnamn | startar ingen modell och skickar inget till sessionen |
 | **Meddela** partnern (samtalet) | en ny tur i partnerns egen session | ändrar inget, startar inget arbete |
-| **Skicka ändring** (samtalet, avsikt Ändring) | ditt beslut i domloggen genom samma väg som vyn Prototyp, bundet till körningen, kandidaten och versionen du såg, med vy, sida och del | startar inget; nästa handling (Förfina de valda förslagen) startas uttryckligen under Kontroller |
+| **Skicka ändring** (samtalet, avsikt Ändring) | ditt beslut i domloggen genom samma väg som vyn Prototyp, bundet till körningen, kandidaten och versionen i din markering, med vy, sida, del och fil | startar inget; nästa handling (Förfina de valda förslagen) startas uttryckligen under Kontroller |
 | **Anslut** interaktivt | bara partnern: `claude --resume <id>` i en terminal, kommandot under Fortsätt i terminalen | motorns `claude -p`-arbetare tar inga meddelanden under arbetet (se nedan) |
 | **Stoppa** (Kontroller, två steg) | flödets stoppväg (`prototyp.py --stoppa`, `--stoppa-overgang`): arbetaren och dess sessioner med deras processträd | ingen paus finns; det som är klart bevaras |
 | **Återuppta** (Kontroller) | `--fortsatt` genom samma ingång | gör inget klart om |
 
 Start, förfining, stopp, återupptagning och export går genom `POST /api/flode/<slug>/start`, samma väg och samma
-start-id i webbläsaren som Flöde (`nwp-start:<kund>:<handling>`): dubbelklick, två flikar och ett tappat svar startar
-inte samma arbete två gånger, och ett start-id som redan slutat svarar med sin slutkod. När en start tagits emot visar
+start-id i fliken som Flöde (`nwp-start:<kund>:<handling>`, släppt först när svaret bekräftats och läget lästs om):
+ett dubbelklick skickar en begäran, ett tappat svar försöks igen med samma start-id, och en andra flik får ett eget
+start-id men nekas av servern, eftersom handlingen inte längre är nästa steg eller kundens startlås är upptaget. Ett
+start-id som redan slutat svarar med sin slutkod. När en start tagits emot visar
 arbetsytan den körningen (huvudet märker den som din start), och dess sessioner dyker upp när de startar; en körning som startats från
 terminalen syns på samma sätt.
 
@@ -99,6 +101,19 @@ session, men ett meddelande från en annan process hålls där i fem minuter och
 med `crossSessionInbound: accept`, och ett meddelande mitt i en skapares arbete binds varken till kandidatens version,
 startjournalen eller domloggen. En ändring går därför genom ditt beslut och nästa handling, som motorn genomför i sina
 egna sessioner.
+
+**Markeringen.** Det en ändring gäller fryses när du markerar: när du väljer Ändring, väljer en kandidat medan
+Ändring är vald, eller trycker Markera för en ändring vid en fil i kodvyn. Markeringen bär kund, körning, kandidat och
+hel version, vyn där den gjordes, och sida, del och fil; den följer med när du byter flik och står kvar tills du
+skickar eller rensar den. Har körningen eller kandidatens version bytts sedan dess står den som inaktuell, och Skicka
+ändring är spärrad tills du stämt av mot den aktuella versionen. Servern prövar samma sak: en ändring utan hel version
+och körning nekas, och en som inte stämmer med läget nu svarar Inaktuell (409); ingenting vidarebefordras blint.
+Ändringens och partnermeddelandets id är en hash av innehållet och markeringen, så samma ändring från ett dubbelklick,
+ett omförsök efter ett tappat svar eller en andra flik blir en rad, och en ändrad text blir en ny.
+
+I domloggen är din text domens text, ordagrant, och markeringen står i fältet `arbetsyta`. Skaparen läser markeringen
+som en egen rad ("ändringen gäller (ägarens markering i arbetsytan …)", `skapande.kritikrader`), skild från det du
+gillade i en kandidat.
 
 ## Partnern (arbetsledningen)
 
@@ -120,7 +135,11 @@ meddelande-id ger samma post.
   skickar själv. Partnerns svar blir aldrig ett beslut.
 - **Lagring (privat):** `underlag/<kund>/arbetsyta/PARTNER.json` (sessions-id, modell, meddelandenas id, avsikt,
   markering, din text och processens pid) och Claude Codes egen svarsfil per tur i `partner/`. Transkriptet sparar
-  Claude Code som vanligt. Ingen annan status.
+  Claude Code som vanligt. Ingen annan status. Ingen automatisk gallring: filerna ligger med kundens övriga underlag
+  och tas bort med det; transkriptet följer Claude Codes egen `cleanupPeriodDays`.
+- **Frist:** en tur stoppas med hela sitt processträd efter `NWP_PARTNER_FRIST` sekunder (600). Startas dashboarden om
+  mitt i en tur stoppas den i stället vid nästa meddelande, när fristen gått ut. En `claude --continue` i
+  arbetskatalogen syns inte som en annan process (den bär inget sessions-id i sina argument); använd `--resume <id>`.
 
 ## Modellprofilen
 
@@ -145,7 +164,8 @@ sessioners transkript. Helbyggets session identifieras ur stream-json-loggens f�
 
 - **Skrivningar** (partnerns meddelanden, ändringar, starter och stopp, öppning i editorn) kräver dashboardnyckeln och
   samma ursprung, som all skrivning i dashboarden. **Läsningar** är öppna för andra processer som samma användare kör,
-  som förut; arbetsytan lägger inget mer läsbart dit än vyerna redan gav, utom partnersamtalets text, som är ägarens egen.
+  som förut. Arbetsytan gör mer läsbart genom API:t än förut (partnersamtalet, kandidatens kod och körningsloggarna),
+  men inget som samma användare inte redan når direkt på disken.
 - **Strömmen** nekas när webbläsaren anger ett annat ursprung (`Sec-Fetch-Site` annat än same-origin, eller ett annat
   `Origin`), så att en förhandsvisad sajt på en annan port inte kan prenumerera.
 - **Förhandsvisningen** körs på provets statiska server på en egen port (ett annat ursprung än kontrollytan), i en
@@ -155,10 +175,15 @@ sessioners transkript. Helbyggets session identifieras ur stream-json-loggens f�
   'none'`, så att en sida inte kan rama in kontrollytan.
 - **Kod- och loggvyerna** visar bara textfiler som hör till kandidatens kod (sökvägen prövas del för del: ingen länk,
   inget `..`, inget utanför projektets verkliga väg, högst 512 kB) och visar allt som text, aldrig som HTML. Körningsloggen
-  maskerar värden efter ord som nyckel, token och lösenord.
+  maskerar värden efter ord som nyckel, token och lösenord, efter `Authorization` och `Bearer`, i `sk-`-nycklar och
+  i parametrar som `?key=`; en maskering är ett skyddsnät, inget löfte om att en hemlighet aldrig kan stå i en logg.
 - **Blindningen** gäller på servervägen, före ditt första val i körningen: läget, strömmen, partnerns kontext, följvyn
-  och kodvyn bär inga bedömningar, skäl eller sökvägar i sessionernas aktivitet, körningsloggens text visas inte och
-  DESIGN.md döljs. En ändring som du skickar är ditt val av kandidaten; vyn säger det innan du skickar.
+  och kodvyn bär inga bedömningar, skäl eller sökvägar i sessionernas aktivitet, körningsloggens text visas inte,
+  DESIGN.md döljs och bara kandidatens aktuella version kan väljas och jämföras (föreversionen före en förbättringsrunda
+  och diffen mot den visas efter valet, som i vyn Prototyp). En kund som är en arm i en blind jämförelse som du inte
+  valt i än visas inte alls: läget, strömmen, partnerns kontext, modden, koden, loggarna och ändringen är stängda tills
+  du valt i Jämförelser, och om jämförelsen inte går att pröva räknas den som oavgjord. En ändring som du skickar är
+  ditt val av kandidaten; vyn säger det innan du skickar.
 - **Kvarstående:** dashboardnyckeln ligger, som förut, i adressens fragment när `dashboard.sh` öppnar sidan och i
   webbläsarens lagring på dashboardens ursprung. Andra processer som samma användare kör kan läsa filerna och
   läs-API:t direkt; ingen isolering finns mellan ägarens egna processer. En mod körs utan sandlåda med användarens
@@ -166,7 +191,8 @@ sessioners transkript. Helbyggets session identifieras ur stream-json-loggens f�
 
 ## Claude-panelen
 
-`mod/nortropic-arbetsyta`: en rad ovanför prompten (kund, moment, utförande, granskning, när det lästes) och panelen
+`mod/nortropic-arbetsyta`: en rad ovanför prompten (kund, moment, utförande, granskning, när det lästes; andra moddars
+rader står kvar under den) och panelen
 `/nortropic` (rollerna, nästa handling, länken Öppna arbetsytan). Den läser dashboardens `GET /api/arbetsyta` på
 `http://localhost:<NWP_DASHBOARD_PORT, 4771>` var femtonde sekund, kunden ur `NWP_ARBETSYTA_KUND` eller den senast
 aktiva, och visar en avisering bara när körningen börjar vänta på ditt beslut eller en session avbryts. Den ser inte
@@ -190,9 +216,17 @@ skrivningar kräver att dashboarden öppnats en gång via `./dashboard.sh`.
 | `kontroller/rokprov/revision/prov_arbetsyta_verklig_webb.mjs` | verkliga sessioner (Opus 5.5 på low, Haiku) i testprojektet genom motorns sessionsväg, i webbläsaren: att de dyker upp, följs, lämnar resultat, syns efter omladdning och stoppas | för hand, mot en dashboard ur en worktree; kostar modellanrop |
 
 Testprojektet (`arbetsyta_fixtur.py`, `testdata-provverkstaden`) är en fiktiv verksamhet med en riktig byggd sajt ur
-mallen; det skapas aldrig i huvudutcheckningen. En utvecklingsdashboard ur en worktree ska få en egen port och en egen
-nyckelfil, och timtrådens spanare och underhåll stängda, så att den aldrig skriver över ägarens nyckel eller startar
-underhållet.
+mallen; det skapas aldrig i huvudutcheckningen. En dashboard ur en worktree eller kopia (`NWP_DASHBOARD_NYCKEL=<nyckel>
+.venv/bin/python -B dashboard/server.py --port <annan port>`) skriver sin nyckel i `kunder/.dashboard-nyckel` och har
+spanarens och underhållets timklocka av; i huvudutcheckningen gäller hemlighetsmappen och klockan som förut
+(`--nyckelfil`, `--klockor pa|av` ändrar det).
+
+**Vad det verkliga provet visar och inte visar.** `prov_arbetsyta_verklig.py` ersätter ateljéns orkestrering i provet:
+det skriver körningens status och startjournal som arbetaren gör, och kandidatens nya version som fotograferingen gör
+(utan skärmbilder). Sessionerna, deras förteckningsposter, transkripten, observationen, förhandsvisningens bygge och
+stoppvägen är motorns egna. Stoppet träffade därför den levande sessionen genom `atelje.stoppa`, men ingen riktig
+arbetare: i en ateljékörning får arbetaren också signalen och skriver "avbruten vid stoppet". Provet säger inget om
+designkvalitet eller om hur arbetsytan fungerar för en människa.
 
 ## Felsökning
 

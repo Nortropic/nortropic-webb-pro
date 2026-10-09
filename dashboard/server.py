@@ -2964,7 +2964,9 @@ class H(BaseHTTPRequestHandler):
         import arbetsyta
         sfs = (self.headers.get('Sec-Fetch-Site') or '').lower()
         ursprung = urlsplit(self.headers.get('Origin') or '')
-        if (sfs and sfs not in ('same-origin', 'none')) or (ursprung.netloc and ursprung.netloc.lower() != (self.headers.get('Host') or '').strip().lower()):
+        orig = (self.headers.get('Origin') or '').strip()
+        if (sfs and sfs not in ('same-origin', 'none')) or orig.lower() == 'null' \
+                or (orig and ursprung.netloc.lower() != (self.headers.get('Host') or '').strip().lower()):
             return self.skicka(403, {'fel': 'fel ursprung för strömmen'})
         with STROM_LAS:
             if STROMMAR['antal'] >= STROMMAR['max']:
@@ -2977,6 +2979,7 @@ class H(BaseHTTPRequestHandler):
                          ('X-Accel-Buffering', 'no')):
                 self.send_header(k, v)
             self.end_headers()
+            self.connection.settimeout(20)  # en klient som slutat läsa håller inte tråden kvar
             self.wfile.write(b'retry: 3000\n\n')
             self.wfile.flush()
             start, senaste_sig, senaste_hash, sekv, senast_full, senast_skrivet = time.time(), None, None, 0, 0, 0
@@ -2988,7 +2991,7 @@ class H(BaseHTTPRequestHandler):
                     sig = 'fel:%s' % type(e).__name__
                 if sig != senaste_sig or t - senast_full > 30:
                     try:
-                        lage_ = arbetsyta.lage(dash, slug)
+                        lage_ = dict(arbetsyta.lage_delat(dash, slug, sig))
                         jamfor = json.dumps({k: v for k, v in lage_.items() if k not in ('tid', 'observation')}, sort_keys=True, ensure_ascii=False, default=str)
                         h = hashlib.sha256(jamfor.encode()).hexdigest()[:16]
                         if h != senaste_hash:
@@ -3298,7 +3301,16 @@ def main():
     p = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     p.add_argument('--port', type=int, default=4771)
     p.add_argument('--utan-lan', action='store_true', help='ingen visning av sajten på nätverksadressen (I telefonen)')
+    p.add_argument('--nyckelfil', help='var nyckeln skrivs (standard: hemlighetsmappen för huvudutcheckningen, kunder/.dashboard-nyckel annars)')
+    p.add_argument('--klockor', choices=('pa', 'av'), help='spanarens och underhållets timklocka (standard: på bara i huvudutcheckningen)')
     a = p.parse_args()
+    global NYCKELFIL
+    huvud = ROOT.resolve() == (Path.home() / 'nortropic-repos' / 'nortropic-webb-pro').resolve()
+    if a.nyckelfil:
+        NYCKELFIL = Path(a.nyckelfil)
+    elif not huvud:  # en worktree eller kopia skriver aldrig över ägarens nyckel (kunskap/arbetsyta.md, Prov)
+        NYCKELFIL = KUNDER / '.dashboard-nyckel'
+    klockor = (a.klockor or ('pa' if huvud else 'av')) == 'pa'
     LAN['pa'] = not a.utan_lan
     VARD['tillatna'] = {'127.0.0.1:%d' % a.port, 'localhost:%d' % a.port}
     NYCKEL['varde'] = os.environ.pop('NWP_DASHBOARD_NYCKEL', None) or secrets.token_urlsafe(24)
@@ -3323,7 +3335,10 @@ def main():
             except Exception as e:  # noqa: BLE001
                 print('underhållet startade inte: %s' % e, flush=True)
             time.sleep(3600)
-    threading.Thread(target=spaningsklocka, daemon=True).start()
+    if klockor:
+        threading.Thread(target=spaningsklocka, daemon=True).start()
+    else:
+        print('Spanarens och underhållets timklocka är av (inte huvudutcheckningen, eller --klockor av).', flush=True)
     threading.Thread(target=lan_klocka, daemon=True).start()
     try:
         srv.serve_forever()

@@ -712,6 +712,7 @@ echo "   flödesstartens processprov ok"
 echo "   arbetsytan (2026-10-09): läget, sessionernas lägen, blindningen på servervägen, koden, ändringen, partnern, HTTP-vägen och signaturen"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_arbetsyta.py" >"$ROOT/kunder/rokprov-mall/arbetsyta-prov.log" 2>&1 \
   || { echo "FEL: arbetsytans prov"; tail -25 "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; exit 1; }
+if grep -q 'skipped=' "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; then echo "FEL: arbetsytans prov hoppade över fall, fast mallsajten finns i rökprovet (GR-20261009-arbetsyta-oberoende#K8)"; tail -5 "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; exit 1; fi
 echo "   arbetsytans prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log" | tr '\n' ' '))"
 echo "   dokumentationsvyn (2026-10-07): de fyra delarna, filtren, huvudena, besluten, blindningen, länkarna, saknade rapporter och avsändaren"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_dokumentationsvy.py" "$ROOT" >/dev/null 2>"$ROOT/kunder/rokprov-mall/dokumentationsvy-prov.log" \

@@ -2,22 +2,26 @@
 """Arbetsytans läsväg, partnersamtal och HTTP-väg (dashboard/arbetsyta.py, dashboard/partner.py, server.py; ägarens uppdrag
 2026-10-09) med testprojektet ur arbetsyta_fixtur.py i en isolerad rot, utan modell:
 
-- läget ur testprojektet: testdata, blindningen, neutrala etiketter, de tre ansvaren som väntar och förhandsvisningarna;
-- sessionernas lägen ur förteckningen och transkripten: avslutad, avbruten (stopp, signal, död process), aktiv, väntar på
-  verktyg, start pågår och okänt;
-- blindningen på servervägen: aktivitetens sökvägar, körningsloggen och DESIGN.md i kodvyn före ägarens första val, och
-  maskerade hemligheter efter det;
+- läget ur testprojektet: testdata, blindningen, neutrala etiketter, ansvaren och förhandsvisningarna;
+- sessionernas lägen ur förteckningen, transkripten och svarsfilerna: avslutad, avbruten (fel i svaret, stopp, signal,
+  död process), aktiv, väntar på verktyg, start pågår och okänt;
+- blindningen på servervägen: aktivitetens sökvägar, körningsloggen, DESIGN.md och föreversionerna i kodvyn före ägarens
+  första val, och en arm i en blind jämförelse som inte visas alls; maskerade hemligheter efter valet;
 - kodvyn: diffen mot den bevarade versionen, inga länkar och inga vägar ut ur projektet;
-- ägarens ändring: inaktuell körning, version och steg nekas; samma ändrings-id ger samma rad;
+- ägarens ändring: bunden till körningen och den hela versionen ägaren såg, egen text och markering (aldrig "det ägaren
+  gillade"); inaktuell körning, version och steg nekas; samma ändrings-id ger samma rad;
 - partnern: en session per kund (--session-id, sedan --resume), ett meddelande i taget, bara claude-processer räknas, och
   tillåtelselistan; claude startas aldrig (en falsk process står för den);
 - HTTP genom den riktiga hanteraren: ramskydd, strömmens ursprung, nyckeln och ursprunget för skrivningar, 409 och 404;
-- signaturen som strömmen läser om läget efter.
+- signaturen och det delade läget som strömmen läser om läget efter.
+
+Fallen ur den oberoende granskningen (underlag/granskningar/GR-20261009-arbetsyta-oberoende.md) står vid sina prov.
 
     .venv/bin/python -B kontroller/rokprov/revision/prov_arbetsyta.py
 
 Sajtens del av testprojektet kopieras ur rökprovets byggda mallsajt (kunder/rokprov-mall/sajt, som rokprov.sh bygger
-tidigare); saknas den hoppas det som kräver sajten över med skälet.
+tidigare); saknas den hoppas det som kräver sajten över med skälet. I rökprovet finns mallsajten, och där fäller ett
+överhoppat prov rökprovet.
 """
 import contextlib
 import http.client
@@ -56,7 +60,9 @@ TKAT = '-prov-arbetsyta'  # transkriptens katalog under Claude Codes projects/
 TILLAGG = '<!-- arbetsytans testdata: ändrad efter fotograferingen -->'  # fixturens rad i arbetsversionen
 PNG = bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'
                     '1f15c4890000000d49444154789c6360f8cf00000301010018dd8db00000000049454e44ae426082')
+V_NU, V_FORE = 'b' * 64, 'a' * 64  # k02:s fotograferade version och föreversionen före en förbättringsrunda
 ORIG_POPEN = subprocess.Popen
+ORIG_RUN = subprocess.run
 
 
 def utan_sajt():
@@ -112,6 +118,13 @@ def vanta_pa_vakter(frist=20):
             t.join(frist)
 
 
+def ingen_editor(argv, *a, **k):
+    """subprocess.run under provet: editorn öppnas aldrig, allt annat körs som vanligt."""
+    if list(argv)[:1] == ['open']:
+        raise AssertionError('editorn får inte öppnas i provet: %s' % list(argv))
+    return ORIG_RUN(argv, *a, **k)
+
+
 class FalskProcess:
     def __init__(self, p):
         self.p, self.pid, self.returncode, self.prompt = p, p.pid, None, None
@@ -123,8 +136,9 @@ class FalskProcess:
 
 
 class FalskClaude:
-    """claude -p i partnerns ställe: pid:en är en riktig kortlivad process, och svaret skrivs till stdout-filen som Claude
-    Code skriver sin svarsfil. Ingen modell anropas, och något annat än claude startas aldrig här."""
+    """claude -p i partnerns ställe: pid:en är en riktig kortlivad process som bär sessionens id i sina argument (som en
+    tur gör; partnern prövar det), och svaret skrivs till stdout-filen som Claude Code skriver sin svarsfil. Ingen modell
+    anropas, och något annat än claude startas aldrig här."""
 
     def __init__(self):
         self.anrop, self.processer, self.svara, self.sov = [], [], True, '0.3'
@@ -134,9 +148,10 @@ class FalskClaude:
         if os.path.basename(str(args[0])) != 'claude':
             raise AssertionError('partnern startade något annat än claude: %s' % args[:3])
         self.anrop.append(args)
-        p = ORIG_POPEN(['sleep', self.sov], stdin=subprocess.DEVNULL)
+        sid = args[args.index('--session-id' if '--session-id' in args else '--resume') + 1]
+        p = ORIG_POPEN([sys.executable, '-c', 'import sys, time; time.sleep(float(sys.argv[1]))', self.sov, '--resume', sid],
+                       stdin=subprocess.DEVNULL)
         if self.svara:
-            sid = args[args.index('--session-id' if '--session-id' in args else '--resume') + 1]
             kw['stdout'].write(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': 'Svar (testdata).',
                                            'session_id': sid, 'num_turns': 1, 'usage': {'input_tokens': 12, 'output_tokens': 3}}).encode())
             kw['stdout'].flush()
@@ -178,6 +193,8 @@ class Arbetsyta(unittest.TestCase):
             self.stack.enter_context(patch.multiple(m, ROOT=self.root, UNDERLAG=self.root / 'underlag', KUNDER=self.root / 'kunder'))
         self.stack.enter_context(patch.multiple(observation, ROOT=self.root, UNDERLAG=self.root / 'underlag'))
         self.stack.enter_context(patch.object(bildkedja, 'PROJEKT', self.projekt))
+        if hasattr(arbetsyta, '_DELAT'):  # strömmarnas delade läge gäller provets egen rot
+            self.stack.enter_context(patch.dict(arbetsyta._DELAT, clear=True))
         # ingen riktig claude kan startas ur provet, inte heller om en attrapp skulle missas
         self.stack.enter_context(patch.object(atelje, 'claude', return_value=str(self.root / 'saknas' / 'claude')))
         arbetsyta_fixtur.bygg(self.root, SLUG, self.sajt, med_sajt=self.sajt is not None)
@@ -193,10 +210,15 @@ class Arbetsyta(unittest.TestCase):
     def las(p):
         return json.loads(Path(p).read_text(encoding='utf-8'))
 
+    @staticmethod
+    def skriv(p, d):
+        Path(p).parent.mkdir(parents=True, exist_ok=True)
+        Path(p).write_text(json.dumps(d, ensure_ascii=False), encoding='utf-8')
+
     def skriv_status(self, **falt):
         f = self.u / 'atelje' / 'STATUS.json'
         st = dict(self.las(f), **falt)
-        f.write_text(json.dumps(st, ensure_ascii=False), encoding='utf-8')
+        self.skriv(f, st)
         return st
 
     def lage(self):
@@ -210,11 +232,9 @@ class Arbetsyta(unittest.TestCase):
     def session(self, roll, rader=None, kandidat='k01', slut=None, utfall=None, pid=None, start='2026-10-09T05:10:00Z'):
         """En post i ateljéns sessionsförteckning (som atelje.session skriver den) och, med rader, sessionens transkript."""
         sid = str(uuid.uuid4())
-        k = self.u / 'atelje' / 'sessioner'
-        k.mkdir(parents=True, exist_ok=True)
-        (k / (sid + '.json')).write_text(json.dumps({'session_id': sid, 'roll': roll, 'kandidat': kandidat, 'svar': 'svar-%s.json' % roll,
-                                                     'start': start, 'modell': 'claude-fable-5-1', 'pid': pid, 'slut': slut, 'utfall': utfall}),
-                                         encoding='utf-8')
+        self.skriv(self.u / 'atelje' / 'sessioner' / (sid + '.json'),
+                   {'session_id': sid, 'roll': roll, 'kandidat': kandidat, 'svar': 'svar-%s.json' % roll, 'start': start,
+                    'modell': 'claude-fable-5-1', 'pid': pid, 'slut': slut, 'utfall': utfall})
         if rader is not None:
             (self.projekt / TKAT / (sid + '.jsonl')).write_text(''.join(json.dumps(r, ensure_ascii=False) + '\n' for r in rader), encoding='utf-8')
         return sid
@@ -232,24 +252,75 @@ class Arbetsyta(unittest.TestCase):
         f = self.u / skapande.DOMLOGG
         return [json.loads(x) for x in f.read_text(encoding='utf-8').splitlines() if x.strip()] if f.is_file() else []
 
-    # --- A: läget ---
+    def bevarad_version(self, kid, v, text, mtid):
+        """versioner/<v12>/ med koden, som kandidater.bevara_version lämnar den."""
+        d = self.u / 'atelje' / 'kandidater' / kid / 'versioner' / v[:12]
+        (d / 'kod').mkdir(parents=True)
+        (d / 'kod' / 'index.astro').write_text(text, encoding='utf-8')
+        (d / 'VERSION').write_text(v + '\n', encoding='utf-8')
+        os.utime(d, (mtid, mtid))
+
+    def k02_fotograferad(self, fore=False):
+        """k02 fotograferad med en egen bevarad version (utan sajt, så att ändringens väg inte kräver mallsajten), och med
+        fore en bevarad föreversion före en förbättringsrunda (kandidater.forbattra)."""
+        nu = time.time()
+        if fore:
+            self.bevarad_version('k02', V_FORE, '<h1>Rubrik</h1>\n<img src="x.jpg">\n', nu - 600)
+        self.bevarad_version('k02', V_NU, '<h1>Rubrik</h1>\n<img src="x.jpg" alt="Verkstaden">\n', nu - 60)
+        f = self.u / 'atelje' / 'kandidater' / 'k02' / 'STATUS.json'
+        self.skriv(f, dict(self.las(f), version=V_NU, fotograferad='2026-10-09T05:31:00Z',
+                           **({'forbattrad': {'fore': V_FORE, 'atgarder': ['alt-text på bilden']}} if fore else {})))
+        return V_NU
+
+    def andring(self, **falt):
+        return dict({'andring_id': 'andring-prov-0001', 'text': 'Rubriken ska vara större.', 'kandidat': 'k02', 'version': V_NU,
+                     'korning': self.status['startad'], 'vy': 'Arbetsyta', 'sida': '/', 'del': 'rubriken'}, **falt)
+
+    def server(self):
+        """Den riktiga hanteraren på en egen port, med nyckel, värd och en kort strömlivslängd."""
+        srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        port = srv.server_port
+        host = '127.0.0.1:%d' % port
+        self.stack.enter_context(patch.dict(dash.VARD, {'tillatna': {host}}))
+        self.stack.enter_context(patch.dict(dash.NYCKEL, {'varde': 'provnyckel'}))
+        self.stack.enter_context(patch.dict(dash.STROMMAR, {'livslangd': 3, 'intervall': 0.2}))
+
+        def anropa(metod, vag, data=None, huvud=None):
+            c = http.client.HTTPConnection('127.0.0.1', port, timeout=20)
+            try:
+                c.request(metod, vag, json.dumps(data) if data is not None else None, huvud or {})
+                r = c.getresponse()
+                return r.status, r, r.read()
+            finally:
+                c.close()
+        return port, host, anropa
+
+    def vanta_pa_strommar(self, fore):
+        slut = time.time() + 15
+        while dash.STROMMAR['antal'] != fore and time.time() < slut:
+            time.sleep(0.1)
+        self.assertEqual(dash.STROMMAR['antal'], fore, 'strömmen slutar och släpper sin plats')
+
+    # --- läget ---
 
     def test_laget_ur_testprojektet_ar_blint_med_neutrala_etiketter(self):
         l = self.lage()
         self.assertEqual(l['ofullstandig'], [], l['ofullstandig'])
         self.assertEqual((l['projekt']['slug'], l['projekt']['testdata']), (SLUG, True))
         self.assertTrue(l['blind'])
+        self.assertFalse(l['ab_dold'])
         self.assertEqual([x['slug'] for x in arbetsyta.projekt(dash)], [SLUG])
         self.assertEqual(sorted(x['etikett'] for x in l['kandidater']), ['Förslag A', 'Förslag B'])
         self.assertEqual(sorted(x['id'] for x in l['kandidater']), ['k01', 'k02'])
         text = json.dumps(l, ensure_ascii=False)
         for dolt in ('Testdata: verkstaden i arbete', 'Testdata: lugn lista', 'Testdata k01'):  # planens och kandidaternas titlar
             self.assertNotIn(dolt, text, 'titeln syns före ägarens första val')
-        for nyckel in ('arbetsledning', 'utforande', 'granskning'):
-            self.assertEqual(l['roller'][nyckel]['lage'], 'vantar', l['roller'][nyckel])
-            self.assertEqual(l['roller'][nyckel]['sessioner'], [])
-        g = l['roller']['granskning']['lage_text']
-        self.assertIn('ingen session för granskning har startat', g)
+        self.assertEqual({n: r['lage'] for n, r in l['roller'].items()}, {'arbetsledning': 'vantar', 'utforande': 'beslut', 'granskning': 'vantar'})
+        self.assertTrue(all(r['sessioner'] == [] for r in l['roller'].values()), l['roller'])
+        self.assertIn('ingen session för granskning har startat', l['roller']['granskning']['lage_text'])
         self.assertTrue(l['korning']['vantar_pa_agaren'], l['korning'])
         pv = l['preview']
         snap = [x for x in pv if x['typ'] == 'snapshot' and x.get('kandidat') == 'k01']
@@ -266,7 +337,33 @@ class Arbetsyta(unittest.TestCase):
         self.assertEqual(k01['versioner'], [k01['version']])
         self.assertEqual(snap[0]['version'], k01['version'])
 
-    # --- B: sessionernas lägen ---
+    def test_rollerna_beslut_ur_korningen_och_partnern_avslutad_efter_svar(self):
+        # GR-20261009-arbetsyta-oberoende#A2: ditt beslut härleds ur körningen, inte ur att partnern svarat
+        r = self.lage()['roller']
+        self.assertEqual((r['utforande']['lage'], r['granskning']['lage'], r['arbetsledning']['lage']), ('beslut', 'vantar', 'vantar'), r)
+        self.assertIn('väntar på ditt beslut', r['utforande']['lage_text'])
+        sid = str(uuid.uuid4())
+        self.skriv(self.u / 'arbetsyta' / 'PARTNER.json', {'schema': 'partner/1', 'slug': SLUG, 'session_id': sid, 'skapad': '2026-10-09T06:00:00Z',
+                                                           'meddelanden': [{'id': 'meddelande-0001', 'tid': '2026-10-09T06:00:00Z', 'avsikt': 'fraga',
+                                                                            'text': 'Var står vi?', 'svarsfil': 'svar-meddelande-0001.json', 'pid': None,
+                                                                            'slut': '2026-10-09T06:01:00Z', 'rc': 0}]})
+        self.skriv(self.u / 'arbetsyta' / 'partner' / 'svar-meddelande-0001.json', {'type': 'result', 'is_error': False, 'result': 'Svar.', 'session_id': sid})
+        with patch.object(partner, '_ps', return_value=''):
+            p = partner.lage(dash, SLUG)
+            r = self.lage()['roller']
+        self.assertEqual(p['lage'], 'avslutad', p['lage_text'])
+        self.assertEqual(r['arbetsledning']['lage'], 'avslutad', r['arbetsledning'])
+        self.assertEqual(r['utforande']['lage'], 'beslut')
+        # en levande utförare: utförandet arbetar, inget beslut väntar där
+        pid = self.levande()
+        self.session('forfina-k01', pid=pid, rader=[anrop('f1', 'Read', str(self.u / 'BRIEF.md'), '2026-10-09T05:11:00Z'),
+                                                    svar('f1', '2026-10-09T05:12:00Z')])
+        with patch.object(nastlad, 'ar_session', side_effect=lambda x: int(x) == pid), patch.object(partner, '_ps', return_value=''):
+            r = self.lage()['roller']
+        self.assertEqual(r['utforande']['lage'], 'aktiv', r['utforande'])
+        self.assertEqual(r['granskning']['lage'], 'vantar')
+
+    # --- sessionernas lägen ---
 
     def test_sessionernas_lagen_ur_forteckningen_och_transkripten(self):
         flode_pid, annan_pid = self.levande(), self.levande()
@@ -274,9 +371,6 @@ class Arbetsyta(unittest.TestCase):
         rot = str(self.root)
         sid = {
             'avslutad': self.session('skiss-k01', slut='2026-10-09T05:20:00Z', utfall='avslutad, kod 0'),
-            'svarsfel': self.session('skiss-k02', kandidat='k02', slut='2026-10-09T05:21:00Z', utfall='avslutad, kod 0',
-                                     rader=[anrop('a1', 'Read', rot + '/underlag/%s/BRIEF.md' % SLUG, t % 1), svar('a1', t % 2),
-                                            {'type': 'result', 'subtype': 'error_max_turns', 'is_error': True, 'num_turns': 9, 'timestamp': t % 3}]),
             'stoppet': self.session('skiss-k02', kandidat='k02', slut='2026-10-09T05:22:00Z', utfall='avbruten vid stoppet'),
             'signal': self.session('skisskritik-k01', slut='2026-10-09T05:23:00Z', utfall='avslutad, kod -9'),
             'dod': self.session('forfina-k01', pid=dod_pid()),
@@ -294,9 +388,7 @@ class Arbetsyta(unittest.TestCase):
         s = {x['session_id']: x for x in l['sessioner'] if x.get('kalla') == 'ateljén'}
         self.assertEqual(set(s), set(sid.values()), 'bara den aktuella körningens sessioner')
         lagen = {namn: (s[i]['lage'], s[i]['lage_text']) for namn, i in sid.items()}
-        self.assertEqual(lagen['avslutad'][0], 'avslutad', lagen)
-        self.assertEqual(lagen['avslutad'][1], 'avslutad 2026-10-09T05:20:00Z')
-        self.assertEqual(lagen['svarsfel'], ('avbruten', 'avslutad med fel i sessionens svar'))
+        self.assertEqual(lagen['avslutad'], ('avslutad', 'avslutad 2026-10-09T05:20:00Z'))
         self.assertEqual(lagen['stoppet'], ('avbruten', 'avbruten vid stoppet'))
         self.assertEqual(lagen['signal'][0], 'avbruten')
         self.assertIn('signal 9', lagen['signal'][1])
@@ -317,7 +409,29 @@ class Arbetsyta(unittest.TestCase):
         self.assertEqual((r['granskning']['lage'], r['granskning']['sessioner']), ('avbruten', [sid['signal']]))
         self.assertEqual(r['arbetsledning']['lage'], 'vantar')
 
-    # --- C: blindningen på servervägen ---
+    def test_fel_i_svarsfilen_ger_avbruten_utan_resultatrad_i_transkriptet(self):
+        # GR-20261009-arbetsyta-oberoende#A1: Claude Codes transkript har ingen result-rad; felet står i sessionens svarsfil
+        t = '2026-10-09T05:1%d:00Z'
+        rader = [anrop('e1', 'Read', str(self.u / 'BRIEF.md'), t % 1), svar('e1', t % 2)]
+        fel = self.session('skiss-k02', kandidat='k02', slut='2026-10-09T05:20:00Z', utfall='avslutad, kod 0', rader=rader)
+        ok_ = self.session('skiss-k01', slut='2026-10-09T05:21:00Z', utfall='avslutad, kod 0', rader=rader)
+        plan = self.session('plan', kandidat=None, slut='2026-10-09T05:22:00Z', utfall='avslutad, kod 0')
+        k = self.u / 'atelje' / 'kandidater'
+        # svarsfilen bär sessionens id, som --output-format json skriver den (det verkliga provets svarsfiler)
+        self.skriv(k / 'k02' / 'svar-skiss-k02.json', {'type': 'result', 'subtype': 'error_max_turns', 'is_error': True, 'num_turns': 400, 'session_id': fel})
+        self.skriv(k / 'k01' / 'svar-skiss-k01.json', {'type': 'result', 'subtype': 'success', 'is_error': False, 'num_turns': 12, 'session_id': ok_})
+        self.skriv(self.u / 'atelje' / 'svar-plan.json', {'type': 'result', 'subtype': 'error_during_execution', 'is_error': True, 'session_id': plan})
+        s = {x['session_id']: x for x in self.lage()['sessioner'] if x.get('kalla') == 'ateljén'}
+        self.assertEqual((s[fel]['lage'], s[fel]['lage_text']), ('avbruten', 'avslutad med fel i sessionens svar'))
+        self.assertEqual(s[ok_]['lage'], 'avslutad')
+        self.assertEqual(s[plan]['lage'], 'avbruten', s[plan])
+        # samma roll skriver om samma filnamn: en svarsfil från en senare session med fel dömer inte en tidigare
+        self.skriv(self.u / 'atelje' / 'svar-plan.json', {'type': 'result', 'subtype': 'error_during_execution', 'is_error': True,
+                                                          'session_id': '00000000-0000-4000-8000-000000000000'})
+        s = {x['session_id']: x for x in self.lage()['sessioner'] if x.get('kalla') == 'ateljén'}
+        self.assertEqual(s[plan]['lage'], 'avslutad', 'en annan sessions svarsfil får inte döma den här (GR-20261009-arbetsyta-oberoende, provskrivarens not 2)')
+
+    # --- blindningen ---
 
     def test_blindningen_galler_pa_servervagen_och_hemligheter_maskeras(self):
         rot, t = str(self.root), '2026-10-09T05:1%d:00Z'
@@ -367,7 +481,72 @@ class Arbetsyta(unittest.TestCase):
         self.assertIn('DESIGN.md', [f['fil'] for f in k['filer']])
         self.assertEqual(k['fil']['text'], (kandidater.ksajt(SLUG, 'k01') / 'DESIGN.md').read_text(encoding='utf-8'))
 
-    # --- D: koden ---
+    def test_en_arm_i_en_blind_jamforelse_visas_inte_pa_nagon_vag(self):
+        # GR-20261009-arbetsyta-oberoende#B1: armen avslöjar inte sin ateljékörning (läget, strömmen, partnern, koden, loggen, ändringen)
+        self.k02_fotograferad()
+        sid = self.session('skiss-k01', slut='2026-10-09T05:20:00Z', utfall='avslutad, kod 0')
+        self.skriv(self.u / 'ateljestarter' / 'testdata-start-0001.json', {'handling': 'om', 'tid': '2026-10-09T05:00:00Z', 'status': 'slut', 'slutkod': 0})
+        (self.u / 'atelje' / 'arbetare.log').write_text('steg skiss\n', encoding='utf-8')
+        fore = self.lage()  # utan jämförelsen syns körningen: proven nedan är inte tomma av sig själva
+        self.assertTrue(fore['korning'] and fore['startjournal'] and fore['kandidater'] and sid in [x['session_id'] for x in fore['sessioner']])
+        self.assertTrue(arbetsyta.korningslogg(dash, SLUG)['loggar'])
+        for namn, ab in (('oavgjord', {'return_value': True}), ('trasig', {'side_effect': RuntimeError('jämförelsen kunde inte läsas')})):
+            with self.subTest(jamforelse=namn), patch.object(dash, 'ab_oavgjord', **ab), patch.object(subprocess, 'run', ingen_editor):
+                l = self.lage()
+                self.assertTrue(l['ab_dold'] and l['blind'], l)
+                self.assertEqual(l['korning'], {})
+                for falt in ('sessioner', 'kandidater', 'startjournal', 'helbygge', 'overlamningar'):
+                    self.assertEqual(l[falt], [], falt)
+                self.assertTrue(l.get('dold'), 'läget säger varför det är tomt')
+                text = json.dumps(l, ensure_ascii=False)
+                for spar in (self.status['startad'], self.status['start_id'], sid, 'arbetare.log'):
+                    self.assertNotIn(spar, text)
+                if namn == 'trasig':
+                    self.assertTrue(any('jämförelsen' in x for x in l['ofullstandig']), l['ofullstandig'])
+                kl = arbetsyta.korningslogg(dash, SLUG)
+                self.assertEqual(kl['loggar'], [])
+                self.assertTrue(kl.get('dold'), kl)
+                for kid in ('k01', 'k02'):
+                    with self.assertRaises(ValueError):
+                        arbetsyta.kod(dash, SLUG, kid)
+                    with self.assertRaises(ValueError):
+                        arbetsyta.oppna_i_editor(dash, SLUG, {'kandidat': kid, 'fil': 'kod/index.astro'})
+                with self.assertRaises(Exception):  # oavgjord: ValueError; en jämförelse som inte går att läsa: dess fel, och inget skrivs
+                    arbetsyta.skicka_andring(dash, SLUG, self.andring())
+                self.assertEqual(self.domrader(), [])
+        with patch.object(dash, 'ab_oavgjord', return_value=True):
+            with self.assertRaises(ValueError):
+                arbetsyta.skicka_andring(dash, SLUG, self.andring())
+
+    def test_foreversionen_visas_forst_efter_agarens_forsta_val(self):
+        # GR-20261009-arbetsyta-oberoende#B2: föreversionen före förbättringsrundan och diffen mot den håller sammanstall tillbaka
+        self.k02_fotograferad(fore=True)
+        k02 = next(x for x in self.lage()['kandidater'] if x['id'] == 'k02')
+        self.assertEqual(k02['versioner'], [V_NU[:12]])
+        self.assertEqual(arbetsyta.kod(dash, SLUG, 'k02')['versioner'], [V_NU[:12]])
+        with self.assertRaises(ValueError):
+            arbetsyta.kod(dash, SLUG, 'k02', mot=V_FORE[:12])
+        with self.assertRaises(ValueError):
+            arbetsyta.kod(dash, SLUG, 'k02', 'kod/index.astro', mot=V_FORE[:12])
+        self.agarens_val()
+        k02 = next(x for x in self.lage()['kandidater'] if x['id'] == 'k02')
+        self.assertEqual(k02['versioner'], [V_FORE[:12], V_NU[:12]])
+        k = arbetsyta.kod(dash, SLUG, 'k02', 'kod/index.astro', mot=V_FORE[:12])
+        self.assertEqual((k['mot'], k['versioner']), (V_FORE[:12], [V_FORE[:12], V_NU[:12]]))
+        self.assertIn('-<img src="x.jpg">', k['fil']['diff'])
+
+    def test_maskeringen_tar_vanliga_tokenformer(self):
+        # GR-20261009-arbetsyta-oberoende#A7
+        for rad, hemligt in (('Authorization: Bearer abc12345678', 'abc12345678'), ('anrop med sk-ant-api03-ABCDEFGHIJ klart', 'ABCDEFGHIJ'),
+                             ('GET https://x/?key=hemligt123 200', 'hemligt123'), ('lösenord: hunter2222', 'hunter2222'),
+                             ('using sk-ant-api03-QQQQQQQQ for call', 'QQQQQQQQ'), ('Bearer eyJhbGciOiJIUzI1NiJ9.abc', 'eyJhbGciOiJIUzI1NiJ9')):
+            m = arbetsyta.maskera(rad)
+            self.assertNotIn(hemligt, m, rad)
+            self.assertIn('•••', m, rad)
+        for vanlig in ('steg skiss klar: 2 kandidater, 12 bilder', 'kandidaten k01 fotograferad 2026-10-09T05:30:00Z'):
+            self.assertEqual(arbetsyta.maskera(vanlig), vanlig)
+
+    # --- koden ---
 
     def test_koden_visar_diffen_och_foljer_inga_lankar(self):
         if self.sajt is None:
@@ -402,12 +581,46 @@ class Arbetsyta(unittest.TestCase):
             with self.assertRaises(ValueError, msg=kid):
                 arbetsyta.kod(dash, SLUG, kid)
 
-    # --- E: ägarens ändring ---
+    def test_en_lank_i_stallet_for_kandidatens_projekt_foljs_inte(self):
+        # GR-20261009-arbetsyta-oberoende#A6: kandidatens katalog eller sajt som byts mot en länk ut ur projektet
+        ute = self.root / 'utanfor'
+        (ute / 'sajt' / 'src' / 'pages').mkdir(parents=True)
+        (ute / 'sajt' / 'src' / 'pages' / 'index.astro').write_text('MARKOR-UTANFOR\n', encoding='utf-8')
+        (ute / 'sajt' / 'DESIGN.md').write_text('MARKOR-UTANFOR\n', encoding='utf-8')
+        # k02:s hela katalog under kunder/ är en länk
+        (self.k / 'kandidater').mkdir(parents=True, exist_ok=True)
+        os.symlink(ute, self.k / 'kandidater' / 'k02')
+        # k01:s sajt är en länk (den byggda sajten flyttas ut när den finns)
+        sajt = kandidater.ksajt(SLUG, 'k01')
+        if sajt.exists():
+            shutil.move(str(sajt), str(ute / 'k01-sajt'))
+            (ute / 'k01-sajt' / 'src' / 'pages' / 'index.astro').write_text('MARKOR-UTANFOR\n', encoding='utf-8')
+            os.symlink(ute / 'k01-sajt', sajt)
+        else:
+            sajt.parent.mkdir(parents=True)
+            os.symlink(ute / 'sajt', sajt)
+        self.agarens_val()  # inte blint: inget hålls tillbaka av blindningen, bara av länken
+        with patch.object(subprocess, 'run', ingen_editor):
+            for kid in ('k01', 'k02'):
+                with self.assertRaises(ValueError, msg=kid):
+                    arbetsyta.kod(dash, SLUG, kid)
+                with self.assertRaises(ValueError, msg=kid):
+                    arbetsyta.kod(dash, SLUG, kid, 'kod/index.astro')
+                with self.assertRaises(ValueError, msg=kid):
+                    arbetsyta.oppna_i_editor(dash, SLUG, {'kandidat': kid, 'fil': 'kod/index.astro'})
+        vanlig = self.k / 'vanlig.astro'
+        vanlig.write_text('x\n', encoding='utf-8')
+        os.symlink(ute / 'sajt' / 'DESIGN.md', self.k / 'lank.astro')
+        self.assertTrue(arbetsyta._inom(self.k, vanlig))
+        self.assertFalse(arbetsyta._inom(self.k, self.k / 'lank.astro'))
+        self.assertFalse(arbetsyta._inom(self.k, self.k / 'kandidater' / 'k02' / 'sajt' / 'src' / 'pages' / 'index.astro'))
+        self.assertFalse(arbetsyta._inom(self.k, ute / 'sajt' / 'DESIGN.md'))
+
+    # --- ägarens ändring ---
 
     def test_andringen_binds_till_korning_version_och_steg(self):
-        v = kandidater.las_status(SLUG, 'k01').get('version') or ''
-        bas = {'andring_id': 'andring-prov-0001', 'text': 'Rubriken ska vara större.', 'kandidat': 'k01', 'version': v,
-               'korning': self.status['startad'], 'vy': 'telefon', 'sida': '/', 'del': 'rubriken'}
+        self.k02_fotograferad()
+        bas = self.andring()
         with self.assertRaises(arbetsyta.Inaktuell) as e:
             arbetsyta.skicka_andring(dash, SLUG, dict(bas, version='0' * 64))
         self.assertIn('ny version', str(e.exception))
@@ -423,8 +636,6 @@ class Arbetsyta(unittest.TestCase):
             with self.assertRaises(ValueError):
                 arbetsyta.skicka_andring(dash, SLUG, fel)
         self.assertEqual(self.domrader(), [], 'inget nekat skrevs i domloggen')
-        if self.sajt is None:
-            self.skipTest(utan_sajt())
         r = arbetsyta.skicka_andring(dash, SLUG, bas)
         self.assertTrue(r['ok'])
         self.assertFalse(r['upprepat'])
@@ -433,9 +644,8 @@ class Arbetsyta(unittest.TestCase):
         d = rader[-1]
         self.assertEqual((d['kalla'], d['beslut']), ('ägaren', 'valj'))
         self.assertEqual({k: d['arbetsyta'].get(k) for k in ('andring_id', 'kandidat', 'version', 'korning')},
-                         {'andring_id': 'andring-prov-0001', 'kandidat': 'k01', 'version': v[:12], 'korning': self.status['startad']})
-        self.assertEqual([(x['id'], x['version']) for x in d['kandidater']], [('k01', v)])
-        self.assertIn('Rubriken ska vara större.', d['delar']['k01'])
+                         {'andring_id': 'andring-prov-0001', 'kandidat': 'k02', 'version': V_NU[:12], 'korning': self.status['startad']})
+        self.assertEqual([(x['id'], x['version']) for x in d['kandidater']], [('k02', V_NU)])
         r = arbetsyta.skicka_andring(dash, SLUG, bas)
         self.assertTrue(r['upprepat'])
         self.assertEqual(len(self.domrader()), 1, 'samma ändrings-id ger samma rad')
@@ -445,10 +655,39 @@ class Arbetsyta(unittest.TestCase):
         self.assertIn('valda', [h['id'] for h in l['handlingar']], l['handlingar'])
         self.assertEqual(len(l['overlamningar']), 1, l['overlamningar'])
         o = l['overlamningar'][0]
-        self.assertEqual((o['id'], o['kandidat'], o['version'], o['avsandare']), ('andring-prov-0001', 'k01', v[:12], 'ägaren'))
+        self.assertEqual((o['id'], o['kandidat'], o['version'], o['avsandare']), ('andring-prov-0001', 'k02', V_NU[:12], 'ägaren'))
         self.assertEqual(set(o['steg']), {'skickad'}, 'inget steg efter skickad sätts av arbetsytan själv')
 
-    # --- F: partnern ---
+    def test_andringen_kraver_korningen_och_hela_versionen(self):
+        # GR-20261009-arbetsyta-oberoende#B3: utan körning eller hel version finns inget att stämma av mot; ett formfel, inte Inaktuell
+        self.k02_fotograferad()
+        utan_version = self.andring()
+        del utan_version['version']
+        for namn, data in (('utan version', utan_version), ('kort version', self.andring(version=V_NU[:12])),
+                           ('utan körning', self.andring(korning='')), ('version med versaler', self.andring(version=V_NU.upper()))):
+            with self.subTest(namn):
+                with self.assertRaises(ValueError) as e:
+                    arbetsyta.skicka_andring(dash, SLUG, data)
+                self.assertNotIsInstance(e.exception, arbetsyta.Inaktuell)
+        self.assertEqual(self.domrader(), [], 'inget skrevs')
+
+    def test_andringen_ar_agarens_text_och_markering_inte_det_agaren_gillade(self):
+        # GR-20261009-arbetsyta-oberoende#B4: ändringen når skaparen som ändring med sin markering, aldrig under "gillade"
+        self.k02_fotograferad()
+        text = 'Rubriken ska bli större och bära ortnamnet.'
+        mark = {'vy': 'Arbetsyta', 'sida': '/', 'del': 'första vyn', 'fil': 'kod/index.astro'}
+        arbetsyta.skicka_andring(dash, SLUG, self.andring(andring_id='andring-b4-0001', text=text, **mark))
+        d = self.domrader()[-1]
+        self.assertNotIn('delar', d)
+        self.assertEqual(d['text'], text)
+        self.assertEqual({k: d['arbetsyta'].get(k) for k in mark}, mark)
+        rader = '\n'.join(skapande.kritikrader(SLUG, underlag=self.root / 'underlag', aktuella=True))
+        self.assertIn('ändringen gäller (ägarens markering i arbetsytan', rader)
+        self.assertIn('  > ' + text, rader)
+        self.assertNotIn('ägaren gillade', rader)
+        self.assertEqual(kandidater.delar_rader(SLUG, d, 'k02'), [], 'förfiningens "Det ägaren gillade" är tomt')
+
+    # --- partnern ---
 
     def test_partnern_en_session_per_kund_och_ett_meddelande_i_taget(self):
         falsk = FalskClaude()
@@ -475,7 +714,7 @@ class Arbetsyta(unittest.TestCase):
         self.assertIn('Var står vi?', prompt)
         for dolt in ('Testdata: verkstaden i arbete', 'Testdata k01'):
             self.assertNotIn(dolt, prompt, 'partnerns läge är blindat som vyns')
-        self.assertEqual(partner.lage(dash, SLUG)['lage'], 'beslut')
+        self.assertEqual(partner.lage(dash, SLUG)['lage'], 'avslutad')
         # nästa meddelande fortsätter samma session
         m2 = partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-0002', 'text': 'Och sedan?'})
         self.assertEqual(len(falsk.anrop), 2)
@@ -522,28 +761,10 @@ class Arbetsyta(unittest.TestCase):
         self.assertIn('--strict-mcp-config', args)
         self.assertEqual(args[args.index('--allowedTools') + 1:args.index('--append-system-prompt')], regler)
 
-    # --- G: HTTP genom den riktiga hanteraren ---
+    # --- HTTP genom den riktiga hanteraren ---
 
     def test_http_vagen_genom_den_riktiga_hanteraren(self):
-        srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
-        self.addCleanup(srv.server_close)
-        self.addCleanup(srv.shutdown)
-        threading.Thread(target=srv.serve_forever, daemon=True).start()
-        port = srv.server_port
-        host = '127.0.0.1:%d' % port
-        self.stack.enter_context(patch.dict(dash.VARD, {'tillatna': {host}}))
-        self.stack.enter_context(patch.dict(dash.NYCKEL, {'varde': 'provnyckel'}))
-        self.stack.enter_context(patch.dict(dash.STROMMAR, {'livslangd': 3, 'intervall': 0.2}))
-
-        def anropa(metod, vag, data=None, huvud=None):
-            c = http.client.HTTPConnection('127.0.0.1', port, timeout=20)
-            try:
-                c.request(metod, vag, json.dumps(data) if data is not None else None, huvud or {})
-                r = c.getresponse()
-                return r.status, r, r.read()
-            finally:
-                c.close()
-
+        port, host, anropa = self.server()
         status, r, _ = anropa('GET', '/')
         self.assertEqual(status, 200)
         self.assertEqual(r.getheader('X-Frame-Options'), 'DENY')
@@ -573,10 +794,7 @@ class Arbetsyta(unittest.TestCase):
         self.assertTrue(data.startswith('data: '), data[:80])
         lage_ = json.loads(data[len('data: '):])
         self.assertEqual((lage_['slug'], lage_['blind']), (SLUG, True))
-        slut = time.time() + 15
-        while dash.STROMMAR['antal'] != fore and time.time() < slut:
-            time.sleep(0.1)
-        self.assertEqual(dash.STROMMAR['antal'], fore, 'strömmen slutar och släpper sin plats')
+        self.vanta_pa_strommar(fore)
         # skrivningar: nyckeln och ursprunget krävs, och inget startas utan dem
         with patch.object(partner, 'skicka') as sk:
             meddelande = {'meddelande_id': 'meddelande-http-01', 'text': 'Hej'}
@@ -587,16 +805,34 @@ class Arbetsyta(unittest.TestCase):
                                     {'Origin': 'http://annan.example:%d' % port, 'X-Nyckel': 'provnyckel'})[0], 403)
             sk.assert_not_called()
         self.assertFalse((self.u / 'arbetsyta').exists())
-        status, _, kropp = anropa('POST', '/api/arbetsyta/%s/andring' % SLUG,
-                                  {'andring_id': 'andring-http-0001', 'text': 'Större rubrik.', 'kandidat': 'k01', 'version': '0' * 64,
-                                   'korning': self.status['startad']},
+        self.k02_fotograferad()
+        status, _, kropp = anropa('POST', '/api/arbetsyta/%s/andring' % SLUG, self.andring(andring_id='andring-http-0001', version='0' * 64),
                                   {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'})
         svar_ = json.loads(kropp)
         self.assertEqual((status, svar_.get('slag')), (409, 'Inaktuell'), svar_)
         self.assertEqual(self.domrader(), [])
         self.assertEqual(anropa('POST', '/api/arbetsyta/okand-kund/andring', {}, {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'})[0], 404)
 
-    # --- H: signaturen ---
+    def test_strommen_nekar_ursprunget_null(self):
+        # GR-20261009-arbetsyta-oberoende#K1: en sida i en sandlåda (Origin: null) prenumererar inte
+        port, host, anropa = self.server()
+        fore = dash.STROMMAR['antal']
+        for huvud in ({'Origin': 'null'}, {'Origin': 'null', 'Sec-Fetch-Site': 'same-origin'}):
+            self.assertEqual(anropa('GET', '/api/arbetsyta/%s/strom' % SLUG, huvud=huvud)[0], 403, huvud)
+        self.vanta_pa_strommar(fore)
+
+    # --- startjournalen, signaturen och det delade läget ---
+
+    def test_startjournalens_stopp_syns(self):
+        # GR-20261009-arbetsyta-oberoende#K2: atelje.stoppa skriver 'stoppad', flodesstart 'stoppbegard'
+        j = self.u / 'ateljestarter'
+        self.skriv(j / 'prov-stoppad-0001.json', {'handling': 'valda', 'tid': '2026-10-09T05:40:00Z', 'status': 'slut', 'slutkod': 4,
+                                                  'stoppad': '2026-10-09T05:41:00Z'})
+        self.skriv(j / 'prov-stoppbegard-0002.json', {'handling': 'valda', 'tid': '2026-10-09T05:42:00Z', 'status': 'slut', 'slutkod': 4,
+                                                      'stoppbegard': '2026-10-09T05:43:00Z'})
+        self.skriv(j / 'prov-utan-stopp-0003.json', {'handling': 'om', 'tid': '2026-10-09T05:00:00Z', 'status': 'slut', 'slutkod': 0})
+        s = {x['start_id']: x['stopp_begart'] for x in arbetsyta.startjournal(dash, SLUG)}
+        self.assertEqual(s, {'prov-stoppad-0001': True, 'prov-stoppbegard-0002': True, 'prov-utan-stopp-0003': False})
 
     def test_signaturen_foljer_statusfilen(self):
         a = arbetsyta.signatur(dash, SLUG)
@@ -608,6 +844,21 @@ class Arbetsyta(unittest.TestCase):
         b = arbetsyta.signatur(dash, SLUG)
         self.assertNotEqual(b, a)
         self.assertEqual(arbetsyta.signatur(dash, SLUG), b)
+
+    def test_strommarna_delar_laget_per_signatur(self):
+        # GR-20261009-arbetsyta-oberoende#K7: en ström per flik räknar inte fram läget var för sig
+        with patch.object(arbetsyta, 'lage', wraps=arbetsyta.lage) as raknat:
+            a = arbetsyta.lage_delat(dash, SLUG, 'signatur-1')
+            b = arbetsyta.lage_delat(dash, SLUG, 'signatur-1')
+            self.assertIs(a, b)
+            self.assertEqual(raknat.call_count, 1)
+            c = arbetsyta.lage_delat(dash, SLUG, 'signatur-2')
+            self.assertIsNot(c, a)
+            self.assertEqual(raknat.call_count, 2)
+            d = arbetsyta.lage_delat(dash, SLUG, 'signatur-2', max_alder=0)  # äldre än 30 s (här 0): räknas om
+            self.assertIsNot(d, c)
+            self.assertEqual(raknat.call_count, 3)
+        self.assertEqual(a['slug'], SLUG)
 
 
 if __name__ == '__main__':

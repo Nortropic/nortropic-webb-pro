@@ -27,6 +27,10 @@ function dashboard(on: any, svarar = true) {
   on('command.register', async () => ({ value: undefined }))
   on('ui.open', async () => ({ value: { isPlaced: true } }))
   on('ui.toast', async () => ({ value: undefined }))
+  on('ui.render', { component: 'AbovePrompt' }, async ($: any, e: any) => {  // det som andra moddar och motorn ritar under raden
+    const { Text } = $.ui.resolve(e)
+    return Text({ children: ['en annan modds rad'] })
+  })
 }
 
 describe('nortropic-arbetsyta', () => {
@@ -47,6 +51,7 @@ describe('nortropic-arbetsyta', () => {
     for (const surface of ['terminal', 'desktop'] as const) {
       const rad = await $.ui.mount({ plugin: 'nortropic-arbetsyta', surface, ...BAND })
       expect(await rad.find({ type: 'Text', text: /Provverkstaden \(testdata\).*utförande arbetar, granskning väntar på start/ })).toBeDefined()
+      expect(await rad.find({ type: 'Text', text: /en annan modds rad/ })).toBeDefined()  // andra moddars rader står kvar
       await rad.unmount()
       const panel = await $.ui.mount({ plugin: 'nortropic-arbetsyta', surface, ...PANEL })
       expect(await panel.find({ type: 'Text', text: /väntar på ditt beslut/ })).toBeDefined()

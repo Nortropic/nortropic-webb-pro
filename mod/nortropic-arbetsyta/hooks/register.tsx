@@ -49,6 +49,7 @@ export function sammanfatta(d: Lage, bas: string, nu: string): Sammanfattning {
 // modulens läge: en omladdning börjar om, och nästa läsning fyller det igen
 let bas = 'http://localhost:4771'
 let forra: Sammanfattning | null = null
+let klockan: { cancel: () => void } | null = null
 
 async function las($: EngineInterface) {
   const nu = new Date(await $.clock.now()).toISOString()
@@ -80,9 +81,10 @@ async function las($: EngineInterface) {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
+    if (klockan) klockan.cancel()  // en omladdning eller en andra start: en klocka åt gången
     const port = await $.env.get('NWP_DASHBOARD_PORT')
     if (port && /^\d{2,5}$/.test(port)) bas = 'http://localhost:' + port
-    $.clock.every(INTERVALL, () => las($))
+    klockan = $.clock.every(INTERVALL, () => las($))
     void las($)
     try {
       await $.command.register({ name: 'nortropic', description: 'Nortropics arbetsyta: kund, moment och rollsessioner (läser bara)', immediate: true })
@@ -105,9 +107,11 @@ export const register: Register = on => {
     const utf = l.roller.find((r) => r.rubrik === 'Utförande'), gr = l.roller.find((r) => r.rubrik === 'Granskning')
     const text = l.fel && !l.slug ? `Nortropic: ${l.fel}`
       : `Nortropic ${l.namn ?? ''}${l.testdata ? ' (testdata)' : ''}: ${l.moment ?? 'moment okänt'}; utförande ${LAGEN[utf?.lage ?? 'okant'] ?? utf?.lage}, granskning ${LAGEN[gr?.lage ?? 'okant'] ?? gr?.lage}; läst ${(l.last ?? '').slice(11, 16)} UTC${l.fel ? ' (inaktuellt)' : ''} · /nortropic`
+    const andras = await next(e)  // andra moddars rader står kvar under vår
     return (
-      <Box>
+      <Box flexDirection="column">
         <Text dimColor wrap="truncate-end">{text}</Text>
+        {andras}
       </Box>
     )
   })

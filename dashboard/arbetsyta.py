@@ -17,6 +17,7 @@ import os
 import re
 import stat
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -70,6 +71,22 @@ def _kontroller():
         sys.path.insert(0, str(rot))
 
 
+def dold(dash, slug):
+    """(blind, ab_dold) på servervägen, stängt vid fel: en arm i en blind jämförelse som ägaren inte valt i än döljer allt
+    om körningen (som flode och bygge), och en körning före ägarens första val är blind. Går jämförelsen eller flödet inte
+    att läsa räknas kunden som dold respektive blind."""
+    try:
+        if dash.ab_oavgjord(slug):
+            return True, True
+    except Exception:  # noqa: BLE001
+        return True, True
+    try:
+        f = dash.flode(slug)
+    except Exception:  # noqa: BLE001
+        return True, False
+    return bool(f.get('blind')) or bool(f.get('ab_dold')), bool(f.get('ab_dold'))
+
+
 def ansvar_for(roll):
     """Vilket av de tre ansvaren en roll hör till: skaparna och förfiningen utför, kritikerna, panelen, jämförelsen och
     planprövningen granskar; research och plan är utförande i flödets mening."""
@@ -112,13 +129,14 @@ def projekt(dash):
 
 # --- sessionerna ---
 
-def _lage_ateljesession(post, ob, akt):
+def _lage_ateljesession(post, ob, akt, svarsfel=None):
     """(läge, text) för en session i ateljéns förteckning. Livet avgörs av processen (pagar: pid:en är en levande nästlad
-    claude-session), aldrig av hur nyligen något hände; ett avslut är inget godkännande."""
+    claude-session), aldrig av hur nyligen något hände; ett avslut är inget godkännande. svarsfel: sessionens svarsfil
+    (--output-format json) säger is_error; transkripten har ingen resultatrad."""
     utfall = str(post.get('utfall') or '')
     if post.get('slut'):
         if utfall == 'avslutad, kod 0':
-            fel = bool(((ob or {}).get('slut') or {}).get('fel'))
+            fel = bool(svarsfel) or bool(((ob or {}).get('slut') or {}).get('fel'))
             return ('avbruten', 'avslutad med fel i sessionens svar') if fel else ('avslutad', 'avslutad %s' % post['slut'])
         m = re.search(r'kod -(\d+)', utfall)
         if m:  # en negativ slutkod är en signal: processen avbröts utifrån, till exempel av ett stopp
@@ -135,6 +153,20 @@ def _lage_ateljesession(post, ob, akt):
     if post.get('pid'):
         return 'okant', 'processen %s lever men är inte en session ur flödet (pid:en kan ha återanvänts)' % post['pid']
     return 'okant', post.get('ofullstandig') or 'ingen process och inget slut i förteckningen'
+
+
+def _svarsfel(dash, slug, post):
+    """Sessionens svarsfil (svar-<roll>.json, i ateljén eller kandidatens katalog) säger is_error; None när den saknas."""
+    namn = str(post.get('svar') or '')
+    if not re.fullmatch(r'svar-[A-Za-z0-9_.-]{1,80}\.json', namn):
+        return None
+    rot = dash.UNDERLAG / slug / 'atelje'
+    f = rot / 'kandidater' / post['kandidat'] / namn if KID.fullmatch(str(post.get('kandidat') or '')) else rot / namn
+    d = dash.las_json(f) if f.is_file() and not f.is_symlink() else None
+    # samma roll kan skriva om samma filnamn: svarsfilen gäller bara sessionen vars id den bär
+    if not isinstance(d, dict) or str(d.get('session_id') or '') != str(post.get('session_id') or ''):
+        return None
+    return bool(d.get('is_error'))
 
 
 def ateljesessioner(dash, slug, korning, blind):
@@ -156,7 +188,7 @@ def ateljesessioner(dash, slug, korning, blind):
         if tr:
             akt, _skal = observation.aktivitet(tr, slug, vagar=not blind)
         ob = post.get('observation') or {}
-        lage, text = _lage_ateljesession(post, ob, akt)
+        lage, text = _lage_ateljesession(post, ob, akt, _svarsfel(dash, slug, post))
         ut.append({'session_id': post['session_id'], 'roll': post.get('roll'), 'ansvar': ansvar_for(post.get('roll')),
                    'kandidat': post.get('kandidat'), 'korning': korning.get('id'), 'start': post.get('start'), 'slut': post.get('slut'),
                    'utfall': post.get('utfall'), 'pid': post.get('pid'), 'lage': lage, 'lage_text': text,
@@ -198,7 +230,7 @@ def helbygge(dash, slug, blind):
     for i, d in enumerate(kat[:5]):
         start = dash.las_json(d / 'START.json') or {}
         slut = dash.las_json(d / 'SLUT.json')
-        lever = bool(start.get('pid') and _lever(start['pid']))
+        lever = bool(start.get('pid') and _lever(start['pid']) and 'kor.sh' in _kommando(start['pid']))
         lage = 'avslutad' if isinstance(slut, dict) else 'aktiv' if lever else 'avbruten'
         korningar.append({'id': d.name, 'start_id': start.get('start_id'), 'start': start.get('start'), 'pid': start.get('pid'),
                           'lage': lage, 'slutkod': (slut or {}).get('slutkod') if isinstance(slut, dict) else None,
@@ -226,6 +258,15 @@ def helbygge(dash, slug, blind):
     return korningar, sessioner
 
 
+def _kommando(pid):
+    _kontroller()
+    try:
+        import korregister
+        return korregister.kommando(pid) or ''
+    except Exception:  # noqa: BLE001
+        return ''
+
+
 def startjournal(dash, slug):
     """Flödets startbegäranden (underlag/<slug>/ateljestarter/<start-id>.json), nyast först: mottagen, startad, stopp
     begärt och slut, med processens liv prövat nu. Journalen är ett mottagningsbesked, inte arbetets resultat."""
@@ -238,7 +279,7 @@ def startjournal(dash, slug):
             continue
         pid = j.get('barn_pid') or j.get('pid')
         ut.append({'start_id': f.stem, 'handling': j.get('handling'), 'tid': j.get('tid'), 'status': j.get('status'),
-                   'slutkod': j.get('slutkod'), 'stopp_begart': bool(j.get('stoppbegard')), 'stopp_sent': bool(j.get('stoppbegard_sen')),
+                   'slutkod': j.get('slutkod'), 'stopp_begart': bool(j.get('stoppbegard') or j.get('stoppad')), 'stopp_sent': bool(j.get('stoppbegard_sen')),
                    'fel': str(j.get('fel'))[:300] if j.get('fel') else None, 'process_lever': bool(pid and _lever(pid)) if pid else None})
     return ut
 
@@ -260,7 +301,9 @@ def roller(sessioner, korning, konf, partnerlage):
         else:
             lage = 'vantar'
             text = ('ingen session för %s har startat i körningen%s' % (rubrik.lower(), ' än; körningen pågår' if aktiv else ''))
-        if nyckel != 'arbetsledning' and korning.get('vantar_pa_agaren') and lage not in ('aktiv', 'verktyg', 'startar'):
+        if nyckel == 'utforande' and korning.get('vantar_pa_agaren') and lage not in ('aktiv', 'verktyg', 'startar'):
+            lage, text = 'beslut', text + '; körningen väntar på ditt beslut'
+        elif nyckel == 'granskning' and korning.get('vantar_pa_agaren') and lage not in ('aktiv', 'verktyg', 'startar'):
             text += '; körningen väntar på ditt beslut'
         ut[nyckel] = {'rubrik': rubrik, 'lage': lage, 'lage_text': text, 'sessioner': [s.get('session_id') for s in egna],
                       'konfigurerad': konf.get(nyckel, {}).get('text')}
@@ -296,6 +339,18 @@ def _moment(steg):
     return {'nr': s['nr'], 'namn': s['namn'], 'status': s['status']} if s else None
 
 
+def synliga_versioner(slug, kid, st, blind):
+    """De bevarade versionerna ägaren får se. Före ägarens första val bara den aktuella (fotograferade): föreversionen
+    före en förbättringsrunda håller kandidater.sammanstall tillbaka till dess, och en diff mot den skulle visa vad
+    kritiken ändrade."""
+    _kontroller()
+    import kandidater
+    alla = [p.name for p in sorted((kandidater.kdir(slug, kid) / 'versioner').glob('*'), key=_mtid)
+            if V12.fullmatch(p.name) and kandidater.bevarad(slug, kid, p.name)]
+    nu12 = str(st.get('version') or '')[:12]
+    return [v for v in alla if v == nu12] if blind else alla
+
+
 def kandidatlista(dash, slug, blind):
     """Kandidaterna med neutrala etiketter (kandidater.sammanstall, som vyn Prototyp), version, förhandsvisning och den
     bevarade ögonblicksbilden. Före ägarens första val utan skapare- och granskningstext."""
@@ -312,8 +367,7 @@ def kandidatlista(dash, slug, blind):
             continue
         st = kandidater.las_status(slug, kid)
         dist = kandidater.ksajt(slug, kid) / 'dist' / 'index.html'
-        versioner = sorted((p.name for p in (kandidater.kdir(slug, kid) / 'versioner').glob('*')
-                            if V12.fullmatch(p.name) and kandidater.bevarad(slug, kid, p.name)), reverse=False)
+        versioner = synliga_versioner(slug, kid, st, blind)
         b = k.get('bilder') or {}
         ut.append({'id': kid, 'etikett': k.get('etikett') or kid, 'status': k.get('status'), 'statustext': k.get('statustext') or k.get('status'),
                    'version': str(st.get('version') or '')[:12] or None, 'version_hel': st.get('version'), 'fotograferad': st.get('fotograferad'),
@@ -379,6 +433,17 @@ def lage(dash, slug):
     ut['projekt'] = {'slug': slug, 'namn': v.get('namn') if isinstance(v, dict) else None,
                      'testdata': bool(isinstance(v, dict) and v.get('fiktiv'))}
     try:
+        ab = bool(dash.ab_oavgjord(slug))
+    except Exception as e:  # noqa: BLE001 — stängt vid fel: en jämförelse som inte går att pröva behandlas som oavgjord
+        ab = True
+        ut['ofullstandig'].append('jämförelsen: %s: %s' % (type(e).__name__, str(e)[:160]))
+    if ab:  # en arm i en blind jämförelse: inget om körningen, sessionerna, koden eller loggarna före ditt val (som flode och bygge)
+        ut.update({'blind': True, 'ab_dold': True, 'steg': [], 'besked': None, 'handlingar': [], 'startmiljo': None, 'moment': None,
+                   'korning': {}, 'kandidater': [], 'sessioner': [], 'helbygge': [], 'startjournal': [], 'overlamningar': [], 'roller': {},
+                   'preview': [], 'partner': None,
+                   'dold': 'Kunden är en arm i en blind jämförelse som du inte har valt i än. Arbetsytan visar den efter ditt val i Jämförelser.'})
+        return ut
+    try:
         f = dash.flode(slug)
     except Exception as e:  # noqa: BLE001
         f = {'blind': True, 'steg': [], 'handlingar': [], 'besked': None}
@@ -389,9 +454,9 @@ def lage(dash, slug):
     ut['moment'] = _moment(ut['steg'])
     korning = _korning(dash, slug)
     ut['korning'] = korning
-    if f.get('ab_dold'):  # en arm i en blind jämförelse: inget om ateljén, sessionerna eller bygget före valet (som flode)
-        ut.update({'kandidater': [], 'sessioner': [], 'helbygge': [], 'startjournal': [], 'overlamningar': [], 'roller': {},
-                   'preview': None, 'partner': None})
+    if f.get('ab_dold'):  # flödet säger armen dold fast jämförelsen ovan inte gjorde det: dölj ändå
+        ut.update({'korning': {}, 'kandidater': [], 'sessioner': [], 'helbygge': [], 'startjournal': [], 'overlamningar': [], 'roller': {},
+                   'preview': [], 'partner': None, 'dold': 'Kunden är en arm i en blind jämförelse.'})
         return ut
     kand, fel = kandidatlista(dash, slug, blind) if korning else ([], None)
     if fel:
@@ -447,8 +512,10 @@ def preview(dash, slug, kand, korning):
                    'etikett': 'Helbyggets arbetsversion (kunder/%s/sajt/dist), byggd %s' % (slug, _iso(_mtid(sajt)))})
     for k in kand:
         if k['preview']['finns']:
+            osaker = k.get('status') in ('fel', 'under_arbete', 'ofullstandig')
             ut.append({'typ': 'arbetsversion', 'kalla': 'kandidat', 'kandidat': k['id'], 'url': k['preview']['url'], 'byggd': k['preview']['byggd'],
-                       'etikett': '%s, arbetsversion byggd %s' % (k['etikett'], k['preview']['byggd'])})
+                       'osaker': osaker, 'etikett': '%s, arbetsversion byggd %s%s' % (
+                           k['etikett'], k['preview']['byggd'], '; kandidaten byggs om eller senaste bygget föll, så den kan vara äldre' if osaker else '')})
         if k['snapshot'].get('390') or k['snapshot'].get('1440'):
             ut.append({'typ': 'snapshot', 'kalla': 'kandidat', 'kandidat': k['id'], 'bilder': {'390': k['snapshot'].get('390'), '1440': k['snapshot'].get('1440')},
                        'version': k['snapshot'].get('version'), 'tid': k['snapshot'].get('tid'), 'aldre': not k['preview']['finns'],
@@ -560,8 +627,18 @@ def _arbetsfiler(slug, kid, blind):
                 r = p.relative_to(bas)
                 if p.is_symlink() or not p.is_file() or not ta_med(r) or p.suffix.lower() not in TEXTFILER:
                     continue
-                ut['%s/%s' % (namn, r.as_posix())] = p
+                if _inom(kandidater.atelje.KUNDER / slug, p):
+                    ut['%s/%s' % (namn, r.as_posix())] = p
     return ut
+
+
+def _inom(bas, p):
+    """Ligger p under bas utan någon länk på vägen och inom bas verkliga väg (_saker_fil)? Prövas när filen listas och
+    igen när den läses, så att en länk som byts in däremellan inte följs."""
+    try:
+        return _saker_fil(bas, Path(p).relative_to(bas).as_posix()) is not None
+    except ValueError:
+        return False
 
 
 def _versionsfiler(slug, kid, v12, blind):
@@ -571,7 +648,7 @@ def _versionsfiler(slug, kid, v12, blind):
         return None
     d = kandidater.kdir(slug, kid) / 'versioner' / v12
     return {r: p for r, p in kandidater.version_filer(d) if not r.startswith(kandidater.MATERIAL + '/')
-            and (r != 'DESIGN.md' or not blind) and Path(r).suffix.lower() in TEXTFILER}
+            and (r != 'DESIGN.md' or not blind) and Path(r).suffix.lower() in TEXTFILER and _inom(kandidater.atelje.UNDERLAG / slug, p)}
 
 
 def kod(dash, slug, kid, rel=None, mot=None):
@@ -579,13 +656,19 @@ def kod(dash, slug, kid, rel=None, mot=None):
     (versioner/<v12>/). Bara textfiler under projektets egna kataloger; ingenting skrivs."""
     _kontroller()
     import kandidater
+    blind, ab = dold(dash, slug)
+    if ab:
+        raise ValueError('kunden är en arm i en blind jämförelse som du inte har valt i än')
     if not KID.fullmatch(str(kid or '')) or kid not in kandidater.lista(slug):
         raise ValueError('okänd kandidat')
-    blind = bool(dash.flode(slug).get('blind'))
+    sajt = kandidater.ksajt(slug, kid)
+    if any(x.is_symlink() for x in (sajt, sajt.parent, sajt.parent.parent)):
+        raise ValueError('kandidatens projekt är en länk; det visas inte')
     arbete = _arbetsfiler(slug, kid, blind)
     st = kandidater.las_status(slug, kid)
-    versioner = [p.name for p in sorted((kandidater.kdir(slug, kid) / 'versioner').glob('*'), key=_mtid) if V12.fullmatch(p.name)
-                 and kandidater.bevarad(slug, kid, p.name)]
+    versioner = synliga_versioner(slug, kid, st, blind)
+    if mot and mot not in versioner:
+        raise ValueError('versionen finns inte bland de bevarade versionerna du kan se')
     mot = mot or (str(st.get('version') or '')[:12] if str(st.get('version') or '')[:12] in versioner else (versioner[-1] if versioner else None))
     jamf = _versionsfiler(slug, kid, mot, blind) if mot else None
     filer = sorted(set(arbete) | set(jamf or {}))
@@ -597,8 +680,8 @@ def kod(dash, slug, kid, rel=None, mot=None):
     if rel:
         if rel not in arbete and rel not in (jamf or {}):
             raise ValueError('filen hör inte till kandidatens kod')
-        a = _text(arbete.get(rel))
-        b = _text((jamf or {}).get(rel))
+        a = _text(arbete.get(rel)) if rel in arbete and _inom(kandidater.atelje.KUNDER / slug, arbete[rel]) else None
+        b = _text(jamf[rel]) if jamf and rel in jamf and _inom(kandidater.atelje.UNDERLAG / slug, jamf[rel]) else None
         ut['fil'] = {'fil': rel, 'text': a, 'finns': rel in arbete,
                      'diff': list(difflib.unified_diff((b or '').splitlines(), (a or '').splitlines(), 'version %s' % mot, 'arbetsversionen',
                                                        lineterm='', n=3))[:4000] if mot and jamf is not None else None,
@@ -634,19 +717,32 @@ def _relativ(dash, p):
 
 # --- körningsloggen ---
 
-HEMLIGT = re.compile(r'(?i)(api[_-]?key|token|secret|nyckel|password|lösenord|authorization)(["\'=:\s]+)([^\s"\']{6,})')
+HEMLIGT = (  # (mönster, ersättning): värdet ersätts, det som visar vad det var står kvar
+    (re.compile(r'(?i)(authorization["\']?\s*[:=]\s*["\']?(?:bearer|basic|token)?\s*)([^\s"\',]{6,})'), r'\1•••'),
+    (re.compile(r'(?i)\b(bearer\s+)([A-Za-z0-9._~+/=-]{8,})'), r'\1•••'),
+    (re.compile(r'\b(sk-(?:ant-)?[a-z0-9]{0,6}-?)[A-Za-z0-9_-]{8,}'), r'\1•••'),
+    (re.compile(r'(?i)([?&](?:key|api_key|apikey|token|access_token|nyckel|secret)=)[^&\s"\']+'), r'\1•••'),
+    (re.compile(r'(?i)(api[_-]?key|token|secret|nyckel|password|passwd|lösenord)(["\']?\s*[=:]\s*["\']?|\s+)([^\s"\'&,]{6,})'), r'\1\2•••'),
+)
+
+
+def maskera(rad):
+    for m, ers_ in HEMLIGT:
+        rad = m.sub(ers_, rad)
+    return rad
 
 
 def korningslogg(dash, slug, rader=200):
     """Körningens loggar som text: arbetarens logg i startjournalen och ateljéns arbetare.log, helbyggets vakt- och
     webbtjänstloggar. Före ägarens första val visas bara journalens rader (loggarna kan bära bedömningar). Värden efter
     ord som nyckel, token och lösenord maskeras; texten visas som text, aldrig som HTML."""
-    f = dash.flode(slug)
-    blind = bool(f.get('blind')) or bool(f.get('ab_dold'))
+    blind, ab = dold(dash, slug)
+    if ab:
+        return {'tid': _nu(), 'blind': True, 'loggar': [], 'dold': 'kunden är en arm i en blind jämförelse som du inte har valt i än'}
     u, k = dash.UNDERLAG / slug, dash.KUNDER / slug
     kallor = []
     st = dash.las_json(u / 'atelje' / 'STATUS.json') or {}
-    if st.get('start_id'):
+    if re.fullmatch(r'[A-Za-z0-9_-]{8,80}', str(st.get('start_id') or '')):
         kallor.append(u / 'ateljestarter' / ('%s.log' % st['start_id']))
     kallor.append(u / 'atelje' / 'arbetare.log')
     senaste = sorted((p for p in (k / 'korningar').glob('*') if p.is_dir() and STAMP.fullmatch(p.name)), key=lambda p: p.name) if (k / 'korningar').is_dir() else []
@@ -666,7 +762,7 @@ def korningslogg(dash, slug, rader=200):
         except OSError as e:
             ut.append({'fil': _relativ(dash, p), 'rader': [], 'fel': type(e).__name__})
             continue
-        r = [HEMLIGT.sub(lambda m: m.group(1) + m.group(2) + '•••', x) for x in text.splitlines()[-rader:]]
+        r = [maskera(x) for x in text.splitlines()[-rader:]]
         ut.append({'fil': _relativ(dash, p), 'rader': r, 'andrad': _iso(_mtid(p))})
     return {'tid': _nu(), 'blind': blind, 'loggar': ut}
 
@@ -690,6 +786,10 @@ def skicka_andring(dash, slug, data):
         raise ValueError('ändringen ska vara ett objekt')
     aid, text, beslut = str(data.get('andring_id') or ''), str(data.get('text') or '').strip(), data.get('beslut') or 'valj'
     kid, version, korning = str(data.get('kandidat') or ''), str(data.get('version') or ''), str(data.get('korning') or '')
+    if dold(dash, slug)[1]:  # stängt vid fel: en jämförelse som inte går att pröva räknas som oavgjord
+        raise ValueError('kunden är en arm i en blind jämförelse, eller jämförelsen kunde inte prövas; välj i Jämförelser först')
+    if not re.fullmatch(r'[0-9a-f]{64}', version) or not korning:
+        raise ValueError('ändringen ska bära körningen och kandidatens hela version, som du såg dem')
     if not ANDRING_ID.fullmatch(aid):
         raise ValueError('ett ändrings-id behövs')
     if beslut not in ANDRINGSBESLUT:
@@ -698,24 +798,24 @@ def skicka_andring(dash, slug, data):
         raise ValueError('skriv vad som ska ändras (högst 8000 tecken)')
     if not KID.fullmatch(kid) or kid not in kandidater.lista(slug):
         raise ValueError('välj kandidaten ändringen gäller')
-    markering = {k: str(data.get(k))[:200] for k in ('vy', 'sida', 'del') if data.get(k)}
+    markering = {k: str(data.get(k))[:200] for k in ('vy', 'sida', 'del', 'fil') if data.get(k)}
     with _ANDRING_LAS:
         for d in skapande.domar(slug, dash.UNDERLAG):
             a = d.get('arbetsyta') if isinstance(d.get('arbetsyta'), dict) else {}
             if a.get('andring_id') == aid:
                 return {'ok': True, 'upprepat': True, 'dom': d}
         st = dash.las_json(dash.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
-        if korning and korning != str(st.get('startad') or ''):
+        if korning != str(st.get('startad') or ''):
             raise Inaktuell('körningen har bytts sedan du skrev ändringen (din %s, nu %s); läs läget och skriv om den mot den aktuella' % (korning, st.get('startad')))
         nu_v = str(kandidater.las_status(slug, kid).get('version') or '')
-        if version and version != nu_v:
+        if version != nu_v:
             raise Inaktuell('kandidaten har en ny version sedan du skrev ändringen (din %s, nu %s); stäm av mot den aktuella' % (version[:12], nu_v[:12]))
         if st.get('steg') not in ('klar_for_bedomning', 'fel'):
             raise Inaktuell('körningen väntar inte på ditt beslut (steg %s); ändringen skickas inte' % st.get('steg'))
-        del_ = '; '.join('%s: %s' % (k, v) for k, v in markering.items())
-        res = dash.spara_kandidatbeslut(slug, st, {'beslut': beslut, 'kandidater': [{'id': kid, 'version': version or nu_v}],
-                                                   'delar': {kid: (del_ + ' — ' if del_ else '') + text}, 'text': text},
-                                        arbetsyta=dict(markering, andring_id=aid, kandidat=kid, version=(version or nu_v)[:12], korning=korning or None))
+        # din text är domens text, ordagrant; markeringen står för sig (skapande.kritikrader visar den som markerad i
+        # arbetsytan), aldrig i delar, som skaparen läser som det du gillade
+        res = dash.spara_kandidatbeslut(slug, st, {'beslut': beslut, 'kandidater': [{'id': kid, 'version': version}], 'text': text},
+                                        arbetsyta=dict(markering, andring_id=aid, kandidat=kid, version=version[:12], korning=korning))
     return dict(res, upprepat=False)
 
 
@@ -741,12 +841,31 @@ def oppna_i_editor(dash, slug, data):
     import kandidater
     if not KID.fullmatch(kid) or kid not in kandidater.lista(slug):
         raise ValueError('okänd kandidat')
-    blind = bool(dash.flode(slug).get('blind'))
+    blind, ab = dold(dash, slug)
+    if ab:
+        raise ValueError('kunden är en arm i en blind jämförelse som du inte har valt i än')
     p = _arbetsfiler(slug, kid, blind).get(rel)
-    if not p or p.is_symlink() or not p.is_file():
+    if not p or p.is_symlink() or not p.is_file() or not _inom(kandidater.atelje.KUNDER / slug, p):
         raise ValueError('filen hör inte till kandidatens arbetsversion')
     argv = ['open', '-a', str(EDITOR), str(p)] if EDITOR.is_dir() else ['open', '-t', str(p)]
     r = subprocess.run(argv, capture_output=True, text=True, timeout=15)
     if r.returncode:
         raise ValueError('editorn kunde inte öppnas: %s' % (r.stderr.strip()[:200] or r.returncode))
     return {'ok': True, 'fil': rel, 'program': 'Visual Studio Code' if EDITOR.is_dir() else 'textredigeraren'}
+
+
+_DELAT = {}
+_DELAT_LAS = threading.Lock()
+
+
+def lage_delat(dash, slug, sig, max_alder=30):
+    """Läget för strömmarna: räknas om när signaturen ändrats eller läget är äldre än max_alder sekunder, annars samma
+    läge till varje ström (en ström per flik ska inte räkna fram läget varje sekund var för sig)."""
+    with _DELAT_LAS:
+        x = _DELAT.get(slug)
+        if x and x[0] == sig and time.time() - x[1] < max_alder:
+            return x[2]
+    nytt = lage(dash, slug)
+    with _DELAT_LAS:
+        _DELAT[slug] = (sig, time.time(), nytt)
+    return nytt
