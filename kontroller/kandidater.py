@@ -4018,6 +4018,42 @@ def efter_beslut(slug, dom):
             satt_status(slug, kid, ny, 'ägarens dom %s (%s)' % (dom.get('tid'), b), agarens_dom=dom.get('tid'))
 
 
+def overlamning(slug, kid, v, paket, st):
+    """Överlämningens manifest och användning (ägarens uppdrag 2026-10-09, punkt 7, med v0 Design Systems 2.0 som
+    jämförelse): OVERLAMNING.json säger vad paketet innehåller, med hash per fil, vilka komponenter som finns och vilka sidor
+    som använder dem, designvärdena som filer (design.css och DESIGN.md) och den körbara startappen (sajten när
+    installera_godkand lagt paketet där); OVERLAMNING.md säger hur nästa agent använder det. Regeln är v0:s: det som inte
+    går att belägga i paketets filer används inte, och designen återskapas aldrig ur en sammanfattning."""
+    kod, kodsrc = Path(paket) / 'kod', Path(paket) / KODSRC
+    sidor = sorted(str(p.relative_to(kod)) for p in kod.rglob('*.astro')) if kod.is_dir() else []
+    komponenter = sorted(str(p.relative_to(kodsrc)) for p in kodsrc.rglob('*') if p.is_file() and not p.is_symlink()
+                         and p.suffix in ('.astro', '.tsx', '.jsx') and 'components' in p.parts) if kodsrc.is_dir() else []
+    anvands = {}
+    for k_ in komponenter:
+        namn = Path(k_).stem
+        anvands[k_] = sorted(s_ for s_ in sidor if re.search(r'\b%s\b' % re.escape(namn), (kod / s_).read_text(encoding='utf-8', errors='replace')))
+    tokens = sorted(str(p.relative_to(kodsrc)) for p in kodsrc.rglob('*.css') if p.is_file() and not p.is_symlink()) if kodsrc.is_dir() else []
+    variabler = sorted({m for t in tokens for m in re.findall(r'(--[a-z0-9-]+)\s*:', (kodsrc / t).read_text(encoding='utf-8', errors='replace'))})
+    u = (st.get('forfining') or {}).get('uppdrag') if isinstance(st.get('forfining'), dict) else None
+    man = {'schema': 1, 'kandidat': kid, 'version': v, 'tid': nu(), 'plan': plan_tid(slug),
+           'kallor': {'sidor': 'kod/', 'komponenter_layouter_stilar': KODSRC + '/', 'material': MATERIAL + '/', 'designkontrakt': 'DESIGN.md'},
+           'sidor': sidor, 'komponenter': [{'fil': k_, 'anvands_i': anvands[k_]} for k_ in komponenter], 'tokens': {'filer': tokens, 'variabler': variabler},
+           'startapp': 'kunder/%s/sajt efter atelje.installera_godkand (bygg-sajt steg 5.1): sidorna, komponenterna, stilarna, materialet och '
+                       'DESIGN.md läggs där med godkännandets hashar, och sajten byggs och förhandsvisas därifrån' % slug,
+           'senaste_uppdrag': {k_: u.get(k_) for k_ in ('typ', 'namn', 'resultat')} if isinstance(u, dict) else None,
+           'regel': 'det som inte går att belägga i paketets filer används inte; designen återskapas aldrig ur en sammanfattning'}
+    md = ['# Överlämning · %s version %s' % (kid, v[:12]), '',
+          'Den godkända designen som kod (ägarens uppdrag 2026-10-09, punkt 7). Nästa agent bygger vidare på de här filerna, med',
+          'godkännandets hashar (VINNARE.json), och återskapar aldrig designen ur en sammanfattning eller en skärmbild. Det som inte',
+          'går att belägga här används inte; en ändring av komponenter eller värden skrivs först i DESIGN.md och koden tillsammans.', '',
+          '## Sidor', ''] + ['- kod/%s' % x for x in sidor] + ['', '## Komponenter och var de används', ''] + \
+         (['- %s/%s: %s' % (KODSRC, k_, ', '.join(anvands[k_]) or 'används inte av någon sida') for k_ in komponenter] or ['- inga egna komponenter']) + \
+         ['', '## Designvärden', '', '- DESIGN.md (kontraktet; `kontroller/design.py` prövar att koden använder dess variabler)'] + \
+         ['- %s/%s' % (KODSRC, t) for t in tokens] + (['- variablerna: ' + ', '.join(variabler[:40]) + (' …' if len(variabler) > 40 else '')] if variabler else []) + \
+         ['', '## Startappen', '', man['startapp'] + '.', '']
+    return {'OVERLAMNING.json': json.dumps(man, ensure_ascii=False, indent=1) + '\n', 'OVERLAMNING.md': '\n'.join(md)}
+
+
 def forbered_vinnare(slug, kid, v):
     """Den godkända kandidaten som vinnare, byggd i en tempkatalog i ateljén (inget gällande ändras här): kod/ (alla
     sidor), DESIGN.md, startsidans bilder i bilder/ och undersidornas i undersidor/, och VINNARE.json:s post med hasharna
@@ -4048,6 +4084,9 @@ def forbered_vinnare(slug, kid, v):
             mal.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(b, mal / b.name)
             filer[(mal / b.name).relative_to(tmp).as_posix()] = atelje.sha256_fil(mal / b.name)
+    for namn, text in overlamning(slug, kid, v, tmp, st).items():  # manifestet och användningen (v0:s mönster, punkt 7)
+        (tmp / namn).write_text(text, encoding='utf-8')
+        filer[namn] = atelje.sha256_fil(tmp / namn)
     hr = riktningens_referens(slug, kid)
     if hr:  # referensbilderna ur uppdraget följer med: granskaren och byggaren jämför mot samma bilder
         hr['bilder'] = [[b, 'ur kandidatens uppdrag'] for b in uppdragets_bilder(slug, kid)]

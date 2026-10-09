@@ -457,6 +457,26 @@ class Versionerna(Uppdragsfixtur):
         self.assertEqual((fe['fore'], fe['efter']), ('v1', st['version']), 'före/efter gäller inte versionen som visas')
 
 
+class Overlamningen(unittest.TestCase):
+    """Punkt 7: den valda implementationen följer med som kod, komponenter och värden, med manifest och användning."""
+
+    def test_manifestet(self):
+        with tempfile.TemporaryDirectory() as d:
+            paket = Path(d)
+            skriv(paket / 'kod' / 'index.astro', '---\nimport Prislista from "../components/Prislista.astro";\n---\n<Prislista />')
+            skriv(paket / kd.KODSRC / 'components' / 'Prislista.astro', '<table></table>')
+            skriv(paket / kd.KODSRC / 'styles' / 'design.css', ':root{--farg-text:#111;--typ-rubrik-storlek:2rem}')
+            with patch.object(kd, 'plan_tid', lambda slug: 'plan-1'):
+                ut = kd.overlamning('x-prov', 'k01', 'a' * 64, paket, {'forfining': {'uppdrag': {'typ': 'bygg_ut', 'namn': 'Bygg ut', 'resultat': 'r'}}})
+        man = json.loads(ut['OVERLAMNING.json'])
+        self.assertEqual(man['komponenter'], [{'fil': 'components/Prislista.astro', 'anvands_i': ['index.astro']}])
+        self.assertEqual(man['tokens']['variabler'], ['--farg-text', '--typ-rubrik-storlek'])
+        self.assertIn('återskapas aldrig ur en sammanfattning', man['regel'])
+        self.assertIn('kunder/x-prov/sajt', man['startapp'])
+        self.assertIn('återskapar aldrig designen', ut['OVERLAMNING.md'])
+        self.assertIn('OVERLAMNING.md', (ROOT / '.claude/skills/bygg-sajt/SKILL.md').read_text())
+
+
 class ValetStartarInget(unittest.TestCase):
     """Ett val (valj) leder till väntan; ett uppdrag till läget valda; putsa i kandidatflödet stoppar."""
 

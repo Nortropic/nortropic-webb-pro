@@ -355,7 +355,10 @@ KONCEPT.md.
    utöver underlaget skrivs i `kunder/<slug>/INNEHALL-BYGGE.md`. Steg 5–7:s egna arbetsfiler (`KONCEPT.md`,
    `FRASER.txt`, `RESOR.json`, `JAMFORELSE.md`, `GRANSKNINGSLOGG.md` med flera) skrivs i `underlag/<slug>/` som förut.
    Vinnaren bevaras i `underlag/<slug>/atelje/vinnare/` (koden i
-   `kod/`, bilderna i `bilder/`, hasharna i `VINNARE.json`), och när vinnarens startsida bygger på sin nya plats står
+   `kod/`, komponenterna, layouterna och stilarna i `kod-src/`, bilderna i `bilder/`, hasharna i `VINNARE.json`, och
+   överlämningen i `OVERLAMNING.md` och `OVERLAMNING.json`: sidorna, komponenterna och var de används, designvärdena som
+   filer och startappen). Läs `OVERLAMNING.md` först: du bygger vidare på de filerna och återskapar aldrig designen ur en
+   sammanfattning eller en skärmbild, och det som inte går att belägga där används inte. När vinnarens startsida bygger på sin nya plats står
    den redan som `src/pages/index.astro` (`VINNARE.json`: `overford`); annars säger `overford` varför, och du bygger
    startsidan ur `kod/index.astro` för hand utan att ändra riktningen. Finns `vinnare/DESIGN.md` (förfiningen skrev
    den ur den förfinade startsidan; `VINNARE.json`: `design`) utgår du från den och prövar den mot startsidan; annars
