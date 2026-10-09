@@ -1022,7 +1022,7 @@ def spara_prototyp(slug, data, minuter=None):
     return {'ok': True, 'dom': dom}
 
 
-def spara_kandidatbeslut(slug, st, data, minuter=None):
+def spara_kandidatbeslut(slug, st, data, minuter=None, arbetsyta=None):
     """Ägarens beslut i kandidatflödet till domloggen: valj (en eller flera vidare), jamfor (sida vid sida), forkasta
     (alla), ny_riktning, putsa (de förfinade vidare) eller godkand (en förfinad kandidat till helbygget). Kandidaterna
     följer med sina versioner, och delar är det ägaren gillade per kandidat; atelje.doma prövar dem mot kandidaternas
@@ -1042,7 +1042,8 @@ def spara_kandidatbeslut(slug, st, data, minuter=None):
         text = '(ägaren skrev ingen text)'
     with PR_LAS:
         dom = atelje.doma(slug, 'ägaren', b, text[:20000], avser='skapandeflödet, kandidatplanen %s' % (las_json(UNDERLAG / slug / 'atelje' / 'KANDIDATPLAN.json') or {}).get('tid'),
-                          kandidater=kand, **({'delar': delar} if delar else {}), **({'minuter': minuter} if minuter is not None else {}))
+                          kandidater=kand, **({'delar': delar} if delar else {}), **({'minuter': minuter} if minuter is not None else {}),
+                          **({'arbetsyta': arbetsyta} if arbetsyta else {}))  # arbetsytans markering och ändringens id (dashboard/arbetsyta.py)
     return {'ok': True, 'dom': dom}
 
 
@@ -1484,6 +1485,8 @@ VISNING_LAN = {}
 LAN = {'pa': True, 'tid': 2 * 3600}  # visningen i telefonen stängs efter två timmar; knappen startar den igen
 LAN_LAS = threading.Lock()
 VARD = {'tillatna': set()}  # Host-värden dashboarden svarar på (sätts i main); annat är DNS-rebinding eller fel adress
+STROMMAR = {'antal': 0, 'max': 12, 'livslangd': 1800, 'intervall': 1.0}  # arbetsytans strömmar: en tråd var, högst max samtidigt
+STROM_LAS = threading.Lock()
 # Dashboardnyckeln (backlogposten B-20261005-dashboardens-api-tar-emot-agarens-domar-fran-vil): Origin lika med Host räcker inte
 # mot en lokal process som sätter Origin fritt (ett bygge, en sidas byggkod, ett skript). Varje skrivande anrop kräver nyckeln
 # som bara ägarens webbläsare får: dashboard.sh öppnar adressen med #nyckel=… och sidan skickar den som X-Nyckel. Sätts i
@@ -2927,14 +2930,97 @@ class H(BaseHTTPRequestHandler):
         vard = (self.headers.get('Host') or '').strip().lower()
         return not VARD['tillatna'] or vard in VARD['tillatna']
 
+    def arbetsyta_get(self, vag):
+        """Arbetsytans läsningar: projekten, läget per kund, strömmen, partnersamtalet, koden och körningsloggen. Bara kunder
+        som arbetsytan känner till (arbetsyta.projekt); blindningen gäller i arbetsyta.py och partner.py."""
+        import arbetsyta
+        import partner
+        dash = sys.modules[__name__]
+        if vag == '/api/arbetsyta':
+            return self.skicka(200, {'tid': nu(), 'projekt': arbetsyta.projekt(dash), 'lagen': arbetsyta.LAGEN})
+        m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})(?:/(strom|partner|kod|logg))?', vag)
+        if not m or m.group(1) not in {p['slug'] for p in arbetsyta.projekt(dash)}:
+            return self.skicka(404, {'fel': 'ingen kund som arbetsytan känner till'})
+        slug, del_ = m.groups()
+        q = dict(parse_qsl(urlsplit(self.path).query))
+        if del_ is None:
+            return self.skicka(200, arbetsyta.lage(dash, slug))
+        if del_ == 'strom':
+            return self.strom(slug)
+        if del_ == 'partner':
+            return self.skicka(200, partner.lage(dash, slug, samtal=True))
+        if del_ == 'kod':
+            try:
+                return self.skicka(200, arbetsyta.kod(dash, slug, q.get('kandidat'), q.get('fil'), q.get('mot')))
+            except ValueError as e:
+                return self.skicka(404, {'fel': str(e)})
+        return self.skicka(200, arbetsyta.korningslogg(dash, slug))
+
+    def strom(self, slug):
+        """Läget som en ström (text/event-stream): ett nytt läge när signaturen över källorna ändrats, en puls med tiden var
+        tionde sekund och ett fel som en egen händelse. Återanslutningen är webbläsarens (retry 3 s); varje ny anslutning får
+        hela läget först, så en tappad anslutning lämnar ingen lucka i läget, bara i tiden, som vyn visar. Bara dashboardens
+        egen sida får prenumerera (Sec-Fetch-Site och Origin); en stängd flik avslutar bara strömmen, aldrig arbetet."""
+        import arbetsyta
+        sfs = (self.headers.get('Sec-Fetch-Site') or '').lower()
+        ursprung = urlsplit(self.headers.get('Origin') or '')
+        if (sfs and sfs not in ('same-origin', 'none')) or (ursprung.netloc and ursprung.netloc.lower() != (self.headers.get('Host') or '').strip().lower()):
+            return self.skicka(403, {'fel': 'fel ursprung för strömmen'})
+        with STROM_LAS:
+            if STROMMAR['antal'] >= STROMMAR['max']:
+                return self.skicka(503, {'fel': 'för många öppna strömmar; stäng en flik'}, extra={'Retry-After': '10'})
+            STROMMAR['antal'] += 1
+        dash = sys.modules[__name__]
+        try:
+            self.send_response(200)
+            for k, v in (('Content-Type', 'text/event-stream; charset=utf-8'), ('Cache-Control', 'no-store'), ('X-Content-Type-Options', 'nosniff'),
+                         ('X-Accel-Buffering', 'no')):
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(b'retry: 3000\n\n')
+            self.wfile.flush()
+            start, senaste_sig, senaste_hash, sekv, senast_full, senast_skrivet = time.time(), None, None, 0, 0, 0
+            while time.time() - start < STROMMAR['livslangd']:
+                t = time.time()
+                try:
+                    sig = arbetsyta.signatur(dash, slug)
+                except Exception as e:  # noqa: BLE001
+                    sig = 'fel:%s' % type(e).__name__
+                if sig != senaste_sig or t - senast_full > 30:
+                    try:
+                        lage_ = arbetsyta.lage(dash, slug)
+                        jamfor = json.dumps({k: v for k, v in lage_.items() if k not in ('tid', 'observation')}, sort_keys=True, ensure_ascii=False, default=str)
+                        h = hashlib.sha256(jamfor.encode()).hexdigest()[:16]
+                        if h != senaste_hash:
+                            sekv += 1
+                            lage_['version'] = h
+                            self.wfile.write(('id: %d\nevent: lage\ndata: %s\n\n' % (sekv, json.dumps(lage_, ensure_ascii=False, default=str))).encode())
+                            senaste_hash, senast_skrivet = h, t
+                    except Exception as e:  # noqa: BLE001 — ett läsfel blir en händelse, aldrig ett stopp i arbetet
+                        self.wfile.write(('event: fel\ndata: %s\n\n' % json.dumps({'tid': nu(), 'fel': '%s: %s' % (type(e).__name__, str(e)[:200])}, ensure_ascii=False)).encode())
+                        senast_skrivet = t
+                    senaste_sig, senast_full = sig, t
+                if t - senast_skrivet >= 10:
+                    self.wfile.write(('event: puls\ndata: {"tid": "%s"}\n\n' % nu()).encode())
+                    senast_skrivet = t
+                self.wfile.flush()
+                time.sleep(STROMMAR['intervall'])
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            with STROM_LAS:
+                STROMMAR['antal'] -= 1
+        self.close_connection = True
+
     def do_GET(self):
         vag = unquote(urlsplit(self.path).path)
         if not self.vard_ok():
             return self.skicka(421, {'fel': 'fel värd: använd http://127.0.0.1:<port>'})
         try:
-            if vag in ('/', '/index.html'):
-                return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8')
-            if vag in ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js'):
+            if vag in ('/', '/index.html'):  # aldrig inramad av en annan sida, som en förhandsvisad sajt (arbetsytan, 2026-10-09)
+                return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8',
+                                   {'X-Frame-Options': 'DENY', 'Content-Security-Policy': "frame-ancestors 'none'"})
+            if vag in ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js', '/arbetsyta.js', '/arbetsyta.css'):
                 typ = 'text/javascript; charset=utf-8' if vag.endswith('.js') else 'text/css; charset=utf-8'
                 return self.skicka(200, (Path(__file__).parent / vag[1:]).read_bytes(), typ)
             if vag == '/api/kundstart':
@@ -2947,6 +3033,8 @@ class H(BaseHTTPRequestHandler):
             if m:
                 import kundstart_agare
                 return self.skicka(200, kundstart_agare.detalj(ROOT, m.group(1)))
+            if vag == '/api/arbetsyta' or vag.startswith('/api/arbetsyta/'):  # arbetsytan (dashboard/arbetsyta.py): läser bara
+                return self.arbetsyta_get(vag)
             if vag == '/api/oversikt':
                 bk = backloggen()
                 return self.skicka(200, {'byggen': byggen(), 'lardomar': md(las_text(lardomar_original()) or las_text(ROOT / 'LARDOMAR.md')),
@@ -3110,6 +3198,18 @@ class H(BaseHTTPRequestHandler):
                                               'Begäran är registrerad. Läs aktuellt läge och körningens besked.' if rc == 5 else
                                               'Handlingen är klar; läs det aktuella beskedet.' if rc in (0, 4) else
                                               'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'})
+            m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(partner|andring|oppna)', vag)
+            if m:  # arbetsytans skrivningar: ett meddelande till partnern, ägarens ändring och öppning i editorn (dashboard/arbetsyta.py)
+                import arbetsyta
+                import partner
+                dash = sys.modules[__name__]
+                if m.group(1) not in {p['slug'] for p in arbetsyta.projekt(dash)}:
+                    return self.skicka(404, {'fel': 'ingen kund som arbetsytan känner till'})
+                if m.group(2) == 'partner':
+                    return self.skicka(200, partner.skicka(dash, m.group(1), data))
+                if m.group(2) == 'andring':
+                    return self.skicka(200, arbetsyta.skicka_andring(dash, m.group(1), data))
+                return self.skicka(200, arbetsyta.oppna_i_editor(dash, m.group(1), data))
             m = re.fullmatch(r'/api/kirurg/forbattringar/([a-z]+)', vag)
             if m:
                 import kirurg_forbattring
@@ -3179,6 +3279,8 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, ta_in_kandidat(m.group(1)) if m.group(2) == 'ta-in' else avfarda_kandidat(m.group(1), data.get('skal')))
             return self.skicka(404, {'fel': 'finns inte'})
         except (ValueError, json.JSONDecodeError, OSError) as e:
+            if type(e).__name__ in ('Upptagen', 'Inaktuell'):  # arbetsytan: en tur pågår, eller ändringen gäller en äldre version
+                return self.skicka(409, {'fel': str(e), 'slag': type(e).__name__})
             if vag == '/api/kundstart' or vag.startswith('/api/kundstart/'):
                 import kundstart
                 if isinstance(e, kundstart.Konflikt):

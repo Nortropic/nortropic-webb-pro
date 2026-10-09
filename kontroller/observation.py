@@ -15,8 +15,9 @@ underlag/<slug>/referenser/**/session-*.jsonl, statusfilerna, förhandsvarven, p
 
 Observatören ändrar ingenting, startar inga modeller och gör inga egna anrop till Refero eller Mobbin. Den lagrar bara
 förteckningens metadatafält; resten räknas fram vid läsning och hålls i minnet. Ur ett anrop tas verktygets namn, tiden,
-utfallets klass och antalet träffar, bilder och bildlänkar, för Read också sökvägen och omfånget, för skillverktyget
-skillens namn; aldrig promptar, verktygsargument, verktygssvar eller bilddata. Etiketterna säger vad som observerats,
+utfallets klass och antalet träffar, bilder och bildlänkar, för Read också sökvägen och omfånget, för de skrivande
+verktygen (Edit, Write, MultiEdit, NotebookEdit) bara sökvägen (arbetsytans följvy, 2026-10-09), för skillverktyget
+skillens namn; aldrig promptar, övriga verktygsargument, verktygssvar, skrivet innehåll eller bilddata. Etiketterna säger vad som observerats,
 aldrig att något använts eller förståtts, och det som saknas heter "inte observerat". Ett fel här gör vyn ofullständig,
 aldrig arbetet. En fil som inte går att läsa om visar det senast lästa läget med felet och tiden för den senaste lyckade
 läsningen, så att vyn kan säga att det är inaktuellt; en fil som aldrig gått att läsa, och ett transkript som inte längre
@@ -275,7 +276,41 @@ def _anrop(c, t):
     elif namn == 'Skill':
         s = inn.get('skill') or inn.get('command')
         a['skill'] = str(s)[:80] if s else None
+    elif namn in SKRIVVERKTYG and isinstance(inn.get('file_path') or inn.get('notebook_path'), str):
+        a['fil'] = (inn.get('file_path') or inn.get('notebook_path'))[:400]  # bara sökvägen (arbetsytans följvy), aldrig innehållet
     return a
+
+
+SKRIVVERKTYG = ('Edit', 'Write', 'MultiEdit', 'NotebookEdit')
+
+
+def aktivitet(fil, slug=None, n=40, vagar=True):
+    """Sessionens senaste observerade händelser för arbetsytans följvy (ägarens uppdrag 2026-10-09), ur samma läsläge som
+    sammanfattningen: verktygets namn, tid och utfallets klass, för Read och de skrivande verktygen sökvägen och för
+    skillverktyget skillens namn. Inget nytt lagras och inget innehåll läses. Ett anrop utan observerat svar är pågående
+    (väntar på verktyget). vagar=False tar bort sökvägarna (före ägarens första val). Ger (None, skälet) när filen aldrig
+    gått att läsa."""
+    with _LAS:
+        lage = las_session(fil)
+        if lage.get('lasfel') and not lage.get('senast_last'):
+            return None, 'kunde inte läsas: %s' % lage['lasfel']['fel']
+        alla = list(lage['anrop'].items())
+        ut = []
+        for i, a in alla[-n:]:
+            s = lage['svar'].get(i)
+            h = {'tid': a.get('tid'), 'verktyg': a['namn'], 'utfall': (s or {}).get('utfall') or 'pågår', 'klar_tid': (s or {}).get('tid')}
+            if vagar and a.get('fil'):
+                rel = _relativ(a['fil'])
+                if slug and '/underlag/%s/' % slug in '/' + rel:
+                    rel = rel[('/' + rel).index('/underlag/%s/' % slug):]
+                h['fil'] = rel
+            if a.get('skill'):
+                h['skill'] = a['skill']
+            ut.append(h)
+        pagaende = [a['namn'] for i, a in alla if i not in lage['svar']][-5:]
+        return {'handelser': ut, 'antal': len(alla), 'pagaende': pagaende, 'senaste_handelse': lage.get('senaste'),
+                'slut': dict(lage['slut']) if lage.get('slut') else None, 'senast_last': lage.get('senast_last'),
+                'lasfel': dict(lage['lasfel']) if lage.get('lasfel') else None}, None
 
 
 # ett MCP-svar som är en feltext fast tjänsten inte satte is_error, och ett svar som säger att inget matchade
