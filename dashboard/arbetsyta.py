@@ -440,6 +440,7 @@ def kandidatlista(dash, slug, blind):
     """Kandidaterna med neutrala etiketter (kandidater.sammanstall, som vyn Prototyp), version, förhandsvisning och den
     bevarade ögonblicksbilden. Före ägarens första val utan skapare- och granskningstext."""
     _kontroller()
+    import forhandsvisa
     import kandidater
     ut = []
     try:
@@ -454,13 +455,18 @@ def kandidatlista(dash, slug, blind):
         dist = kandidater.ksajt(slug, kid) / 'dist' / 'index.html'
         versioner = synliga_versioner(slug, kid, st, blind)
         b = k.get('bilder') or {}
+        # är ögonblicksbilden kandidatens sida? fotograferingens inspektion bredvid bilden (forhandsvisa.ogiltig_sida;
+        # None när inspektionen saknas och det inte går att säga)
+        ins = dash.las_json(dash.ROOT / Path(str(b.get('390-forsta'))).parent / 'INSPEKTION.json') if b.get('390-forsta') else None
+        ogiltig = forhandsvisa.ogiltig_sida(ins) if ins else []
         ut.append({'id': kid, 'etikett': k.get('etikett') or kid, 'status': k.get('status'), 'statustext': k.get('statustext') or k.get('status'),
                    'version': str(st.get('version') or '')[:12] or None, 'version_hel': st.get('version'), 'fotograferad': st.get('fotograferad'),
                    'preview': {'url': '/visa/%s/%s' % (slug, kid), 'finns': dist.is_file(),
                                'byggd': _iso(_mtid(dist)) if dist.is_file() else None},
                    'snapshot': {'390': b.get('390-forsta'), '1440': b.get('1440-forsta') or b.get('1280-forsta'), 'version': str(st.get('version') or '')[:12] or None,
                                 'tid': st.get('fotograferad'),
-                                'sha': {'390': bild_sha(dash, b.get('390-forsta')), '1440': bild_sha(dash, b.get('1440-forsta') or b.get('1280-forsta'))}},
+                                'sha': {'390': bild_sha(dash, b.get('390-forsta')), '1440': bild_sha(dash, b.get('1440-forsta') or b.get('1280-forsta'))},
+                                'giltig': None if ins is None else not ogiltig, 'ogiltig': ogiltig},
                    'versioner': versioner, 'referens': _referens(k.get('referensjamforelse'))})
     return ut, None
 

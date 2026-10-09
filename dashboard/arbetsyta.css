@@ -139,6 +139,9 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-mandat summary { cursor: pointer; color: var(--ay-dampad); font-size: 13px; }
 .ay-mandatrad { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 12.5px; padding: 4px 0; }
 .ay-mandatform { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 6px; }
+.ay-mandat-atgarder { border: 0; margin: 0; padding: 0; width: 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.ay-mandat-atgarder legend { padding: 0; margin-bottom: 4px; }
+.ay-mandatform .ay-mandat-atgarder input { padding: 0; margin: 0 4px 0 0; width: auto; vertical-align: middle; }
 .ay-styr { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--ay-linje2); }
 .ay-styr[data-styr="pausad"] { color: var(--ay-info); border-color: color-mix(in srgb, var(--ay-info) 45%, transparent); }
 .ay-styr[data-styr="paus_begard"] { color: var(--ay-varn); border-color: color-mix(in srgb, var(--ay-varn) 45%, transparent); }

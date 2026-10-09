@@ -16,7 +16,8 @@ const logg = (...x) => { const r = `${new Date().toISOString().slice(11, 19)} ${
 const las = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } };
 const domar = () => { try { return fs.readFileSync(path.join(U, 'DESIGNDOMAR.jsonl'), 'utf8').split('\n').filter(Boolean).map((x) => JSON.parse(x)); } catch { return []; } };
 const meddelanden = () => { const d = path.join(U, 'arbetsyta', 'meddelanden'); try { return fs.readdirSync(d).filter((f) => f.endsWith('.json')).map((f) => las(path.join(d, f))).filter(Boolean); } catch { return []; } };
-const lageAv = (m) => { const h = m.handelser || []; const sista = h.at(-1)?.lage; if (['okant', 'ej_levererat', 'tillbaka'].includes(sista)) return sista; const efter = h.map((x) => x.lage).lastIndexOf('tillbaka'); const o = ['sparat', 'koat', 'tillbaka', 'mottaget', 'besvarat', 'genomfort']; return h.slice(efter + 1).reduce((b, x) => (o.indexOf(x.lage) > o.indexOf(b) ? x.lage : b), 'sparat'); };
+const lageAv = (m) => { const h = m.handelser || []; const sista = h.at(-1)?.lage; if (['okant', 'ej_levererat', 'tillbaka'].includes(sista)) return sista; const efter = h.map((x) => x.lage).lastIndexOf('tillbaka'); const o = ['sparat', 'koat', 'tillbaka', 'levererat', 'mottaget', 'besvarat', 'genomfort']; return h.slice(efter + 1).reduce((b, x) => (o.indexOf(x.lage) > o.indexOf(b) ? x.lage : b), 'sparat'); };
+const nar = (m, lage) => (m?.handelser || []).filter((x) => x.lage === lage).map((x) => x.tid).at(-1) || null;
 const styrning = () => { const d = path.join(U, 'arbetsyta', 'styrning'); try { return fs.readdirSync(d).map((f) => las(path.join(d, f))).filter(Boolean); } catch { return []; } };
 const sha = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 async function vanta(fn, tak, vad, steg = 2000) { const slut = Date.now() + tak; while (Date.now() < slut) { const v = await fn(); if (v) return v; await new Promise((r) => setTimeout(r, steg)); } throw new Error('väntade förgäves: ' + vad); }
@@ -73,21 +74,41 @@ try {
   await vanta(() => ['mottaget', 'besvarat'].includes(lageAv(meddelanden().find((m) => m.id === instr.id))), 10 * 60000, 'instruktionen mottagen', 3000);
   await bild(page, '3-instruktion-mottagen');
 
-  // 4. Ett granskningsfynd överlämnas till rätt arbetare: ditt mandat i arbetsytan, granskarens begäran genom den externa vägen
+  // 4. Ett granskningsfynd överlämnas till rätt arbetare: ditt uttryckliga mandat i arbetsytan (körning, kandidat, tillåtna
+  // åtgärder), den riktiga Codex läser provinstansens granskningspaket skrivskyddat och lämnar fyndet, som postas med
+  // granskarnyckeln. Saknas Codex postar provet en egen text och säger det (ingen annan modell ersätter Codex).
   await page.locator('.ay-mandat summary').click();
   await page.locator('[data-mandat="granskare"]').selectOption('extern:codex');
+  await page.locator('[data-mandat="kandidat"]').selectOption(arbetare.kandidat).catch(() => {});
   await page.locator('[data-mandat="omfattning"]').fill('rubrikens längd och läsbarhet i mobil');
+  await page.locator('[data-mandat-atgard="granskningsfynd"]').check();
   await page.locator('#ay-mandatform').getByRole('button', { name: 'Ge mandat' }).click();
   await vanta(() => { try { return fs.readdirSync(path.join(U, 'arbetsyta', 'mandat')).length; } catch { return 0; } }, 30000, 'mandatet');
+  const mandatet = fs.readdirSync(path.join(U, 'arbetsyta', 'mandat')).map((f) => las(path.join(U, 'arbetsyta', 'mandat', f))).find((x) => x && x.granskare?.namn === 'codex');
   const underlag = await extern('GET', `/api/extern/${slug}/underlag`);
   const kand = underlag.data.kandidater.find((k) => k.id === arbetare.kandidat) || underlag.data.kandidater[0];
-  const fynd = await extern('POST', `/api/extern/${slug}/fynd`, { syfte: 'andringsinstruktion', till: 'utforande', kandidat: kand.id, version: kand.version,
-    text: 'Rubriken bryts på för många rader i 390 px. Korta den till högst två rader. KVITTERA.', belagg: [`bilder/${kand.id}/390.png: rubriken bryts på flera rader`] });
-  if (fynd.status !== 200) throw new Error('granskarens begäran nekades: ' + JSON.stringify(fynd));
-  const levererat = await vanta(() => { const m = meddelanden().find((x) => x.id === fynd.data.id); return m && m.levererat_till && ['koat', 'mottaget', 'besvarat'].includes(lageAv(m)) && m; }, 10 * 60000, 'granskarens begäran hos arbetaren', 3000);
-  await bild(page, '4-granskarens-begaran');
-  punkt(4, levererat.levererat_till.session_id === arbetare.session_id && levererat.avsandare.typ === 'extern' && Boolean(levererat.mandat),
-    { meddelande: levererat.id, avsandare: levererat.avsandare, levererat_till: levererat.levererat_till, mandat: levererat.mandat, lage: lageAv(levererat) });
+  let fyndData = { syfte: 'granskningsfynd', till: 'utforande', kandidat: kand.id, version: kand.version,
+    text: 'Rubriken bryts på för många rader i 390 px; korta den till högst två rader.', belagg: [`bilder/${kand.id}/390.png: rubriken bryts på flera rader`] };
+  let forfattare = 'provets egen text (Codex saknas)';
+  const paket = path.join(ut, 'codex-paket');
+  try {
+    execFileSync(path.join(rot, '.venv', 'bin', 'python'), ['-B', path.join(rot, 'kontroller', 'extern_granskare.py'), '--bas', bas, 'paket', 'codex', slug, paket],
+      { env: { ...process.env, NWP_GRANSKARE_NYCKLAR: path.dirname(granskarfil) }, stdio: 'pipe' });
+    execFileSync('codex', ['exec', '--ignore-user-config', '-s', 'read-only', '--skip-git-repo-check', '--ephemeral', '-C', paket, '--output-schema', path.join(paket, 'fynd-schema.json'),
+      '-o', path.join(ut, 'codex-fynd.json'), `Ofarligt prov med fiktiva testdata. Läs AGENTS.md och underlag.json och titta på bilderna för ${kand.id}. Lämna exakt ett granskningsfynd till utforande för ${kand.id} inom mandatets omfattning, med konkret belägg ur bilden, och be om kvitto. Använd ${kand.id}:s version ur underlag.json.`],
+      { stdio: ['ignore', fs.openSync(path.join(ut, 'codex.log'), 'a'), fs.openSync(path.join(ut, 'codex.log'), 'a')], timeout: 10 * 60000 });
+    const f = (las(path.join(ut, 'codex-fynd.json'))?.fynd || []).find((x) => x.till === 'utforande');
+    if (f) { fyndData = f; forfattare = 'Codex (codex exec, skrivskyddat, i provinstansens paket)'; }
+  } catch (e) { logg('Codex gick inte att köra:', String(e.message).slice(0, 200)); }
+  const fynd = await extern('POST', `/api/extern/${slug}/fynd`, fyndData);
+  if (fynd.status !== 200) throw new Error('granskarens fynd nekades: ' + JSON.stringify(fynd));
+  const mottaget = await vanta(() => { const m = meddelanden().find((x) => x.id === fynd.data.id); return m && m.levererat_till && ['mottaget', 'besvarat', 'genomfort'].includes(lageAv(m)) && m; }, 15 * 60000, 'granskarens fynd mottaget av en arbetande session', 3000);
+  await bild(page, '4-granskarens-fynd');
+  const mottagaren = styrning().find((x) => x.session_id === mottaget.levererat_till.session_id);
+  punkt(4, mottaget.avsandare.typ === 'extern' && mottaget.levererat_till.ansvar === 'utforande' && mottaget.levererat_till.kandidat === kand.id && Boolean(mottaget.mandat)
+    && Boolean(nar(mottaget, 'levererat')) && Boolean(nar(mottaget, 'mottaget')) && mottaget.korning === (las(path.join(U, 'atelje', 'STATUS.json')) || {}).startad,
+    { meddelande: mottaget.id, forfattare, avsandare: mottaget.avsandare, korning: mottaget.korning, mandat: mottaget.mandat, mandatet: mandatet && { korning: mandatet.korning, kandidat: mandatet.kandidat, atgarder: mandatet.atgarder },
+      levererat_till: mottaget.levererat_till, mottagaren_arbetade: Boolean(mottagaren && mottagaren.init), registrerat: nar(mottaget, 'sparat'), levererat: nar(mottaget, 'levererat'), mottaget: nar(mottaget, 'mottaget') });
 
   // 5. Pausa och återuppta med rätt omfattning: sessionen, sedan körningen
   let pausad = null;
@@ -133,7 +154,8 @@ try {
   const forfinad = await vanta(() => { const st = las(path.join(U, 'atelje', 'STATUS.json')); return st && ['klar_for_bedomning', 'fel'].includes(st.steg) && st; }, 40 * 60000, 'förfiningen klar', 5000);
   const instrNu = meddelanden().find((m) => m.id === instr.id), fyndNu = meddelanden().find((m) => m.id === fynd.data.id);
   punkt(3, ['besvarat', 'genomfort'].includes(lageAv(instrNu)), { meddelande: instr.id, lage: lageAv(instrNu), kvitto: instrNu.kvitto, svar: (instrNu.svar?.text || '').slice(0, 300) });
-  sammanfattning.punkter[4].besvarat = lageAv(fyndNu); sammanfattning.punkter[4].kvitto = fyndNu.kvitto;
+  Object.assign(sammanfattning.punkter[4], { lage_till_slut: lageAv(fyndNu), besvarat: nar(fyndNu, 'besvarat'), kvitto: fyndNu.kvitto || null,
+    genomfort: fyndNu.syfte === 'andringsinstruktion' ? 'se genomförandet i arbetsytan' : 'ett granskningsfynd har inget genomförandeläge; kvittot är mottagarens påstående' });
   logg('körningen:', forfinad.steg, JSON.stringify(forfinad.fel || '').slice(0, 200));
 
   // 7. Jämföra versioner och begära en ändring

@@ -74,6 +74,22 @@ def giltig_bild(p):
     return int.from_bytes(huvud[16:20], 'big') > 0 and int.from_bytes(huvud[20:24], 'big') > 0
 
 
+def ogiltig_sida(ins):
+    """Skälen till att en fotograferad vy inte är kandidatens sida, ur INSPEKTION.json: huvuddokumentet svarade inte 200,
+    eller svarade med något annat än HTML (ett JSON-fel, en fil). Det fångar en felsida som fotograferats som
+    ögonblicksbild (arbetsytans testdata 2026-10-09, Codex fynd O1). Det fångar inte en sida som svarar 200 med HTML men
+    visar ett fel, en tom sida eller fel innehåll; den bedöms av den som ser bilden. Saknas uppgiften (äldre
+    inspektioner utan innehållstyp) prövas bara statusen."""
+    skal = []
+    for vy, r in sorted(((ins or {}).get('vyer') or {}).items()):
+        st, typ = r.get('status'), str(r.get('innehallstyp') or '')
+        if st != 200:
+            skal.append('%s px: sidan svarade %s, inte 200' % (vy, st if st is not None else 'inte alls'))
+        elif typ and not typ.lower().startswith('text/html'):
+            skal.append('%s px: sidan är %s, ingen HTML-sida' % (vy, typ.split(';')[0]))
+    return skal
+
+
 def sajt_for(slug, kandidat=None):
     """Projektet som byggs: sajten, eller en kandidats eget projekt i skapandeflödet."""
     return KUNDER / slug / 'kandidater' / kandidat / 'sajt' if kandidat else KUNDER / slug / 'sajt'
@@ -159,6 +175,9 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
             return 2, 'fotograferingen gav inte %s (rc %d); loggen visas inte för granskaren.' % (', '.join(saknas), rc), ut
         return 2, 'fotograferingen gav inte %s (rc %d):\n%s' % (', '.join(saknas), rc, prova.svans(out, 15)), ut
     ins = las_json(ut / 'INSPEKTION.json') or {}
+    ogiltig = ogiltig_sida(ins)
+    if ogiltig:  # bilderna visar något annat än sidan: inget att bedöma
+        return 2, 'bilderna är ingen sida att bedöma (%s); kontrollera bygget och sidans adress.' % '; '.join(ogiltig), ut
     fel, spill = [], []
     for vy, r in sorted((ins.get('vyer') or {}).items()):
         fel += ['%s: %s' % (vy, str(x.get('text', ''))[:160]) for x in r.get('konsol') or [] if x.get('typ') == 'error']

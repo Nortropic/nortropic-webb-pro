@@ -972,6 +972,7 @@ class Arbetsyta(unittest.TestCase):
         self.assertEqual(anropa('POST', bas + '/fynd', {'syfte': 'agarbeslut', 'text': 'Godkänt.'}, b)[0], 409)
         skriv = {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'}
         status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/mandat' % SLUG, {'id': 'mandat-codex-0001', 'kandidat': 'k01', 'granskare': {'typ': 'extern', 'namn': 'codex'},
+                                                                             'atgarder': ['andringsinstruktion'],
                                                                              'omfattning': 'kontrast och läsbarhet i rubriken', 'korning': self.status['startad']}, skriv)
         self.assertEqual(status, 200, kropp)
         self.assertEqual(anropa('POST', '/api/arbetsyta/%s/mandat' % SLUG, {'id': 'mandat-codex-0002', 'kandidat': 'k01', 'granskare': {'typ': 'extern', 'namn': 'codex'},
@@ -1099,6 +1100,42 @@ class Arbetsyta(unittest.TestCase):
                                                                'korning': meddelanden.korning(SLUG), 'pid': self.levande(), 'lopare_pid': os.getpid(), 'slut': None})
         status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/foljdfraga' % SLUG, dict(fraga, id='gren-prov-0002', session_id=levande), skriv)
         self.assertEqual(status, 409, 'en session som arbetar förgrenas inte: föräldern får aldrig en andra process')
+
+    def test_felsidan_som_ogonblicksbild(self):
+        """Regressionsfallet efter Codex fynd O1 (2026-10-09): en fotograferad felsida får inte stå som kandidatens
+        ögonblicksbild. Kontrollerat: huvuddokumentets HTTP-status (200) och innehållstyp (text/html) ur fotograferingens
+        INSPEKTION.json, i motorns fotografering (kandidater.fotografera, forhandsvisa) och i arbetsytans läge och beslut.
+        Inte kontrollerat: en sida som svarar 200 med HTML men visar ett fel, är tom eller visar fel innehåll; ett enskilt
+        fynd visar inte att alla ogiltiga förhandsbilder upptäcks."""
+        import forhandsvisa
+        fall = {'404 med JSON': ({'status': 404, 'innehallstyp': 'application/json'}, 1),
+                '200 med JSON': ({'status': 200, 'innehallstyp': 'application/json; charset=utf-8'}, 1),
+                'inget svar': ({'status': None}, 1),
+                '200 med HTML': ({'status': 200, 'innehallstyp': 'text/html; charset=utf-8'}, 0),
+                'äldre inspektion utan typ': ({'status': 200}, 0)}
+        for namn, (r, antal) in fall.items():
+            with self.subTest(namn):
+                self.assertEqual(len(forhandsvisa.ogiltig_sida({'vyer': {'390': r}})), antal)
+        if self.sajt is None:  # kandidatens fotograferade version kommer ur mallsajten (fixturen)
+            self.skipTest(utan_sajt())
+        start = self.u / 'atelje' / 'kandidater' / 'k01' / 'bilder' / 'start'
+        self.skriv(start / 'INSPEKTION.json', {'vyer': {'390': {'status': 404, 'innehallstyp': 'application/json'},
+                                                        '1440': {'status': 404, 'innehallstyp': 'application/json'}}})
+        port, host, anropa = self.server()
+        skriv = {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel'}
+        k = next(x for x in json.loads(anropa('GET', '/api/arbetsyta/%s' % SLUG)[2])['kandidater'] if x['id'] == 'k01')
+        self.assertIs(k['snapshot']['giltig'], False)
+        self.assertIn('svarade 404', k['snapshot']['ogiltig'][0])
+        v1 = kandidater.las_status(SLUG, 'k01')['version']
+        bild = k['snapshot']['390']
+        status, _r, kropp = anropa('POST', '/api/arbetsyta/%s/beslut' % SLUG, {'beslut': 'godkand', 'kandidater': [{'id': 'k01', 'version': v1}],
+                                                                              'sedd': [{'kandidat': 'k01', 'version': v1, 'bild': bild, 'bild_sha': k['snapshot']['sha']['390']}],
+                                                                              'korning': self.status['startad']}, skriv)
+        self.assertEqual(status, 400, kropp)
+        self.assertIn('ingen sida', json.loads(kropp)['fel'])
+        self.skriv(start / 'INSPEKTION.json', {'vyer': {'390': {'status': 200, 'innehallstyp': 'text/html'}}})
+        k = next(x for x in json.loads(anropa('GET', '/api/arbetsyta/%s' % SLUG)[2])['kandidater'] if x['id'] == 'k01')
+        self.assertIs(k['snapshot']['giltig'], True)
 
     def test_beslutet_binds_till_den_version_och_bild_agaren_sett(self):
         if self.sajt is None:  # kandidatens fotograferade version kommer ur mallsajten (fixturen)

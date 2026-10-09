@@ -55,7 +55,9 @@ import meddelanden
 PAUS_TAK = int(os.environ.get('NWP_PAUS_TAK') or 6 * 3600)
 EKO_TAK = float(os.environ.get('NWP_EKO_TAK') or 15)
 INTERVALL = 0.5
-BLOCK = re.compile(r'```(meddelande|kvitto)\s*\n?(\{.*?\})\s*\n?```', re.S)
+# ett block står med staketet först på en egen rad, som i protokollet: en citerad eller avkortad instruktion inne i en
+# rad kan aldrig slå ihop sig med ett riktigt block längre ned
+BLOCK = re.compile(r'^[ \t]*```(meddelande|kvitto)[ \t]*\n[ \t]*(\{.*?\})[ \t]*\n[ \t]*```', re.S | re.M)
 UPPGIFT = ('uppgift-', 'aterupptag-')  # id-prefixen för turer som bär uppgiften
 PROTOKOLL_UT = """Behöver du lämna en fråga eller ett förslag till ägaren, eller (som granskare) ett granskningsfynd med
 belägg, skriv ett block:
@@ -209,6 +211,7 @@ class Lopare:
                       {'kind': 'peer', 'from': json.dumps(a, ensure_ascii=False)[:200], 'name': str(a.get('roll') or a.get('namn') or a.get('typ'))})
             if self._anvandare(meddelanden.ramtext(m), uid=m['id'], origin=origin):
                 self.levererade[m['id']] = m
+                meddelanden.uppdatera(self.slug, m['id'], 'levererat', bevis='skrivet till sessionens inmatning (stdin)')
                 n += 1
             else:
                 meddelanden.uppdatera(self.slug, m['id'], 'tillbaka', notis='processen tog inte emot meddelandet')

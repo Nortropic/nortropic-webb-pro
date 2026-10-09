@@ -3092,6 +3092,8 @@ def fotografera(slug, kid, skiss=None):
                 if saknas:
                     brister.append('%s: fotograferingen gav inte %s (rc %d)' % (vag, ', '.join(saknas), rc))
                 ins = atelje.las_json(ut / 'INSPEKTION.json') or {}
+                # en felsida (inte 200, eller inte HTML) är ingen ögonblicksbild av kandidaten: ett hinder, också i skissläget
+                brister += ['%s %s' % (vag, x) for x in forhandsvisa.ogiltig_sida(ins)]
                 for vy, r in sorted((ins.get('vyer') or {}).items()):
                     fel = [x for x in r.get('konsol') or [] if x.get('typ') == 'error'] + list(r.get('sidfel') or [])
                     if fel:

@@ -144,7 +144,7 @@ for (const vy of vyer) {
   const regAnim = async (trigger) => { try { r.rorelse.push({ trigger, animationer: await b.page.evaluate(animationerPaSidan, medKod) }); } catch (e) { r.rorelse.push({ trigger, fel: String(e.message).slice(0, 120) }); } };
   try {
     const svar = await b.page.goto(a.adress, { waitUntil: 'load', timeout: 45000 });
-    r.status = svar?.status() ?? null; r.titel = await b.page.title();
+    r.status = svar?.status() ?? null; r.innehallstyp = svar?.headers()?.['content-type'] ?? null; r.titel = await b.page.title();
     await b.page.waitForTimeout(500);
     if (a.samtycke) r.samtycke = await stangSamtycke(b.page);
     if (a.lugn) r.lugn = await vantaLugn(b.page, Number(a.lugn) || 8000);

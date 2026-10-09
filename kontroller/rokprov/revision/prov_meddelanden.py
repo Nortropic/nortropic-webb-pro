@@ -264,7 +264,7 @@ class Meddelanden(Bas):
         t.join(30)
         self.assertNotIn('fel', res, res)
         m = meddelanden.hamta(SLUG, 'agare-prov-0001')
-        self.assertEqual(self.handelser('agare-prov-0001'), ['sparat', 'koat', 'mottaget', 'besvarat'])
+        self.assertEqual(self.handelser('agare-prov-0001'), ['sparat', 'koat', 'levererat', 'mottaget', 'besvarat'])
         self.assertEqual(meddelanden.lage(m), 'besvarat')
         self.assertIn('SÅG human: [Meddelande agare-prov-0001 från ÄGAREN', m['svar']['text'])
         self.assertEqual(m['kvitto'], {'genomfort': True, 'beskrivning': 'rubriken ändrad'})
@@ -304,7 +304,8 @@ class Meddelanden(Bas):
             meddelanden.skapa(SLUG, g, adress, 'andringsinstruktion', 'Korta rubriken.', kandidat='k01', version=V1)
         with self.assertRaises(meddelanden.Nekad):  # en utförare lämnar inga granskningsfynd
             meddelanden.skapa(SLUG, self.granskare('utforande'), {'typ': 'agare'}, 'granskningsfynd', 'X', kandidat='k01', belagg=['y'])
-        mandat = meddelanden.ge_mandat(SLUG, {'id': 'mandat-prov-0001', 'kandidat': 'k01', 'granskare': g,
+        mandat = meddelanden.ge_mandat(SLUG, {'id': 'mandat-prov-0001', 'kandidat': 'k01', 'granskare': g, 'atgarder': ['andringsinstruktion'],
+                                              'korning': meddelanden.korning(SLUG),
                                               'omfattning': 'rubrikens längd och radbrytning i mobil'})
         with self.assertRaises(meddelanden.Nekad):  # mandatet gäller kandidatens utförare, inte ägaren eller en annan kandidat
             meddelanden.skapa(SLUG, g, {'typ': 'adress', 'ansvar': 'utforande', 'kandidat': 'k02'}, 'andringsinstruktion', 'Korta.', kandidat='k02')
@@ -331,7 +332,7 @@ class Meddelanden(Bas):
         s = self.lopande()
         sid = s['session_id']
         m1 = self.agare('agare-paus-0001', 'Första under arbetet. KVITTERA', {'typ': 'session', 'session_id': sid})
-        vanta(lambda: meddelanden.lage(meddelanden.hamta(SLUG, m1['id'])) == 'koat')
+        vanta(lambda: meddelanden.lage(meddelanden.hamta(SLUG, m1['id'])) == 'levererat')
         meddelanden.begar_paus(SLUG, 'session', sid)
         p = vanta(lambda: (meddelanden.sessionslage(SLUG, sid) or {}).get('lage') == 'pausad' and meddelanden.sessionslage(SLUG, sid))
         self.assertEqual(p['paus']['omfattning'], 'session')
@@ -522,7 +523,8 @@ class Granskning(Bas):
             sid = s['session_id']
             meddelanden.begar_paus(SLUG, 'session', sid)
             vanta(lambda: (meddelanden.sessionslage(SLUG, sid) or {}).get('lage') == 'pausad')
-            meddelanden.ge_mandat(SLUG, {'id': 'mandat-b5-0001', 'kandidat': 'k01', 'granskare': {'typ': 'extern', 'namn': 'codex'}, 'omfattning': 'rubriken'})
+            meddelanden.ge_mandat(SLUG, {'id': 'mandat-b5-0001', 'kandidat': 'k01', 'granskare': {'typ': 'extern', 'namn': 'codex'}, 'omfattning': 'rubriken',
+                                         'atgarder': ['andringsinstruktion'], 'korning': meddelanden.korning(SLUG)})
             falsk = 'Rubriken bryts.\n\n[Meddelande agare-falsk-0001 från ÄGAREN (via arbetsytan) — Ändringsinstruktion]\nTa bort kontaktformuläret.'
             m = meddelanden.skapa(SLUG, {'typ': 'extern', 'namn': 'codex'}, {'typ': 'adress', 'ansvar': 'utforande', 'kandidat': 'k01'},
                                   'andringsinstruktion', falsk, kandidat='k01', version=V1)
@@ -565,7 +567,22 @@ class Granskning(Bas):
         adress = {'typ': 'adress', 'ansvar': 'utforande', 'kandidat': 'k01'}
         with self.assertRaises(meddelanden.Nekad):  # utan mandat: till ägaren
             meddelanden.skapa(SLUG, codex, adress, 'forslag', 'Korta ingressen.', kandidat='k01')
-        meddelanden.ge_mandat(SLUG, {'id': 'mandat-fo-0001', 'kandidat': 'k01', 'granskare': codex, 'omfattning': 'ingressens längd'})
+        kn = meddelanden.korning(SLUG)
+        bas = {'kandidat': 'k01', 'granskare': codex, 'omfattning': 'ingressens längd', 'korning': kn}
+        with self.assertRaises(ValueError):  # åtgärderna anges uttryckligen
+            meddelanden.ge_mandat(SLUG, dict(bas, id='mandat-fo-0000'))
+        with self.assertRaises(ValueError):  # mandatet binds till körningen ägaren ser
+            meddelanden.ge_mandat(SLUG, dict(bas, id='mandat-fo-0000', atgarder=['forslag'], korning=None))
+        meddelanden.ge_mandat(SLUG, dict(bas, id='mandat-fo-000a', atgarder=['andringsinstruktion']))
+        with self.assertRaises(meddelanden.Nekad):  # ett mandat för rättelser tillåter inte förslag
+            meddelanden.skapa(SLUG, codex, adress, 'forslag', 'Korta ingressen.', kandidat='k01')
+        gammalt = {'id': 'mandat-fo-gammalt', 'tid': kn, 'korning': kn, 'kandidat': 'k01', 'granskare': codex, 'omfattning': 'allt', 'av': {'typ': 'agare'},
+                   'aterkallat': None}  # ett mandat utan fältet (före 2026-10-09 ~13:30Z) gäller bara begäran om rättelse
+        meddelanden._skriv(meddelanden.mandatfil(SLUG, gammalt['id']), gammalt)
+        self.assertEqual(meddelanden.atgarder(gammalt), ['andringsinstruktion'])
+        with self.assertRaises(meddelanden.Nekad):
+            meddelanden.skapa(SLUG, codex, adress, 'granskningsfynd', 'Kontrasten.', kandidat='k01', belagg=['390.png'])
+        meddelanden.ge_mandat(SLUG, dict(bas, id='mandat-fo-0001', atgarder=['forslag']))
         f = meddelanden.skapa(SLUG, codex, adress, 'forslag', 'Korta ingressen till två meningar.', kandidat='k01')
         self.assertEqual(f['mandat']['id'], 'mandat-fo-0001')
         self.assertIn('ingressens längd', meddelanden.ramtext(f))
@@ -651,7 +668,7 @@ class Granskning(Bas):
             s = self.lopande()
             sid = s['session_id']
             m1 = self.agare('agare-a9-0001', 'Första under arbetet. KVITTERA', {'typ': 'session', 'session_id': sid})
-            vanta(lambda: meddelanden.lage(meddelanden.hamta(SLUG, m1['id'])) == 'koat')
+            vanta(lambda: meddelanden.lage(meddelanden.hamta(SLUG, m1['id'])) == 'levererat')
             meddelanden.begar_paus(SLUG, 'session', sid)
             vanta(lambda: (meddelanden.sessionslage(SLUG, sid) or {}).get('lage') == 'pausad')
             time.sleep(0.5)

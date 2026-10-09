@@ -53,9 +53,11 @@ KID = re.compile(r'^k\d{2}$')
 EXTERNA = re.compile(r'^[a-z][a-z0-9-]{1,30}$')
 SYFTEN = {'fraga': 'Fråga', 'forslag': 'Förslag', 'granskningsfynd': 'Granskningsfynd', 'andringsinstruktion': 'Ändringsinstruktion',
           'agarbeslut': 'Ägarbeslut', 'svar': 'Svar'}
-LAGEN = {'sparat': 'sparat', 'koat': 'köat', 'mottaget': 'mottaget', 'besvarat': 'besvarat', 'genomfort': 'genomfört',
-         'okant': 'okänt', 'ej_levererat': 'inte levererat', 'tillbaka': 'köat igen'}
-ORDNING = ('sparat', 'koat', 'tillbaka', 'mottaget', 'besvarat', 'genomfort')
+LAGEN = {'sparat': 'sparat', 'koat': 'köat', 'levererat': 'levererat', 'mottaget': 'mottaget', 'besvarat': 'besvarat',
+         'genomfort': 'genomfört', 'okant': 'okänt', 'ej_levererat': 'inte levererat', 'tillbaka': 'köat igen'}
+ORDNING = ('sparat', 'koat', 'tillbaka', 'levererat', 'mottaget', 'besvarat', 'genomfort')
+# vad ett mandat kan tillåta granskaren mot kandidatens utförare; ägaren väljer uttryckligen (ägarens svar 2026-10-09 ~13:27Z)
+ATGARDER = {'forslag': 'förslag', 'granskningsfynd': 'granskningsfynd', 'andringsinstruktion': 'begäran om rättelse'}
 ANSVAR = ('utforande', 'granskning')
 OBEROENDE = ('domare', 'planprovning', 'jamforelse')  # oberoende bedömningar: stängda för bussen som de blinda
 KVITTO = ('fraga', 'andringsinstruktion', 'granskningsfynd')  # syften där ramen ber om kvitto; besvarat kräver det
@@ -233,19 +235,33 @@ def _samma_granskare(g, avs):
     return False
 
 
-def gallande_mandat(slug, avs, kid):
-    """Ägarens mandat som gäller avsändaren för kandidaten i den aktuella körningen, eller None."""
+def atgarder(m):
+    """Åtgärderna ett mandat tillåter. Ett mandat från före 2026-10-09 ~13:30Z utan fältet gällde bara begäran om
+    rättelse, och tolkas aldrig vidare än så."""
+    a = m.get('atgarder')
+    return [x for x in a if x in ATGARDER] if isinstance(a, list) else ['andringsinstruktion']
+
+
+def gallande_mandat(slug, avs, kid, syfte=None):
+    """Ägarens mandat som gäller avsändaren för kandidaten i den aktuella körningen och, med syfte, tillåter den
+    åtgärden; annars None. Ett mandat från en annan körning gäller aldrig."""
     kn = korning(slug)
     for m in mandat(slug):
-        if not m.get('aterkallat') and m.get('korning') == kn and m.get('kandidat') == kid and _samma_granskare(m.get('granskare') or {}, avs):
+        if (not m.get('aterkallat') and m.get('korning') == kn and m.get('kandidat') == kid and _samma_granskare(m.get('granskare') or {}, avs)
+                and (syfte is None or syfte in atgarder(m))):
             return m
     return None
 
 
 def ge_mandat(slug, data):
-    """Ägarens mandat: granskaren (en extern granskare, en session eller ansvaret granskning) får begära rättelser av
-    kandidatens utförare i den aktuella körningen, inom omfattningen ägaren skrivit. Samma id ger samma mandat."""
+    """Ägarens mandat: granskaren (en extern granskare, en session eller ansvaret granskning) får lämna de åtgärder ägaren
+    valt (förslag, granskningsfynd, begäran om rättelse) till kandidatens utförare, i den körning ägaren såg och inom
+    omfattningen ägaren skrivit. Åtgärderna och körningen anges uttryckligen; inget tolkas in. Samma id ger samma mandat."""
     mid, kid, omf = str(data.get('id') or ''), str(data.get('kandidat') or ''), str(data.get('omfattning') or '').strip()
+    atg = data.get('atgarder')
+    if not isinstance(atg, list) or not atg or any(x not in ATGARDER for x in atg):
+        raise ValueError('välj vilka åtgärder mandatet tillåter: %s' % ', '.join(ATGARDER.values()))
+    atg = [x for x in ATGARDER if x in atg]
     g = data.get('granskare') if isinstance(data.get('granskare'), dict) else {}
     if not ID.fullmatch(mid):
         raise ValueError('ett mandat-id behövs')
@@ -262,15 +278,17 @@ def ge_mandat(slug, data):
     else:
         raise ValueError('okänd granskare')
     kn = korning(slug)
-    if data.get('korning') and data.get('korning') != kn:
+    if not data.get('korning'):
+        raise ValueError('mandatet binds till körningen du ser; körningen saknas i begäran')
+    if data.get('korning') != kn:
         raise Inaktuell('körningen har bytts sedan läget lästes; läs om och ge mandatet igen')
     with lasat(slug):
         f = mandatfil(slug, mid)
         d = _las(f)
         if d:
             return dict(d, upprepat=True)
-        d = {'id': mid, 'tid': nu(), 'korning': kn, 'kandidat': kid, 'granskare': g, 'omfattning': omf, 'av': {'typ': 'agare'},
-             'aterkallat': None}
+        d = {'id': mid, 'tid': nu(), 'korning': kn, 'kandidat': kid, 'granskare': g, 'omfattning': omf, 'atgarder': atg,
+             'av': {'typ': 'agare'}, 'aterkallat': None}
         _skriv(f, d)
         return d
 
@@ -393,7 +411,7 @@ def skapa(slug, avsandare, mottagare, syfte, text, kandidat=None, version=None, 
         if not kandidat:
             raise ValueError('en ändringsinstruktion gäller en kandidat')
         if agent:
-            mandat_ = gallande_mandat(slug, avs, kandidat)
+            mandat_ = gallande_mandat(slug, avs, kandidat, 'andringsinstruktion')
             if not mandat_:
                 raise Nekad('ingen granskare får ge ändringsinstruktioner utan ägarens mandat för kandidaten; skicka ett '
                             'granskningsfynd eller ett förslag till ägaren')
@@ -420,7 +438,7 @@ def skapa(slug, avsandare, mottagare, syfte, text, kandidat=None, version=None, 
     elif agent:
         _agentregler(slug, avs, mot, syfte, kandidat)
         if syfte in ('forslag', 'granskningsfynd') and mot.get('ansvar') == 'utforande':
-            mandat_ = gallande_mandat(slug, avs, kandidat)  # ramen säger mandatet och dess omfattning
+            mandat_ = gallande_mandat(slug, avs, kandidat, syfte)  # ramen säger mandatet och dess omfattning
     if kandidat and version is None and syfte == 'andringsinstruktion':
         raise ValueError('en ändringsinstruktion binds till den version du sett; versionen saknas')
     if kandidat and version is not None:
@@ -451,7 +469,7 @@ def skapa(slug, avsandare, mottagare, syfte, text, kandidat=None, version=None, 
                 raise Nekad('avsändaren har nått taket på %d meddelanden i körningen' % tak)
         m = {'schema': SCHEMA, 'id': mid, 'tid': nu(), 'projekt': slug, 'korning': kn, 'avsandare': avs, 'mottagare': mot,
              'syfte': syfte, 'text': text, 'kandidat': kandidat, 'version': version, 'belagg': bel, 'svar_pa': svar_pa,
-             'mandat': mandat_ and {'id': mandat_['id'], 'omfattning': mandat_['omfattning']}, 'dom': dom, 'handelser': [],
+             'mandat': mandat_ and {'id': mandat_['id'], 'omfattning': mandat_['omfattning'], 'atgarder': atgarder(mandat_)}, 'dom': dom, 'handelser': [],
              **({'forsok_av': forsok} if forsok else {})}
         if mot['typ'] in ('agare', 'extern'):
             _handelse(m, 'sparat', notis='hos mottagaren i arbetsytan' if mot['typ'] == 'agare' else 'hämtas av den externa granskaren')
@@ -489,9 +507,9 @@ def _som_mottagare(slug, a):
 
 def _agentregler(slug, avs, mot, syfte, kandidat):
     """Vad en agent (en session eller en extern granskare) får skicka till vem. Till ägaren: fråga, förslag och
-    granskningsfynd. Till en kandidats utförare: en ändringsinstruktion inom ägarens mandat (prövas i skapa), och med
-    samma mandat förslag och granskningsfynd, som utföraren hanterar inom sitt eget uppdrag vid en säker punkt (ägarens
-    tillägg 2026-10-09 om Codex som observatör, punkt 4). Mellan sessioner i samma kandidats uppdrag: frågor. Allt
+    granskningsfynd. Till en kandidats utförare: det ägarens mandat uttryckligen tillåter (förslag,
+    granskningsfynd, begäran om rättelse), som utföraren hanterar inom sitt eget uppdrag vid en säker punkt (ägarens
+    tillägg 2026-10-09 om Codex som observatör, punkt 4, och svaret ~13:27Z: mandatet är uttryckligt). Mellan sessioner i samma kandidats uppdrag: frågor. Allt
     annat går till ägaren, som godtar, avvisar eller diskuterar."""
     if mot['typ'] == 'agare':
         if syfte not in ('fraga', 'forslag', 'granskningsfynd'):
@@ -502,7 +520,7 @@ def _agentregler(slug, avs, mot, syfte, kandidat):
     if syfte == 'andringsinstruktion':
         return  # mandatet och mottagaren prövas i skapa
     if (syfte in ('forslag', 'granskningsfynd') and kandidat and mot.get('ansvar') == 'utforande' and mot.get('kandidat') == kandidat
-            and gallande_mandat(slug, avs, kandidat)):
+            and gallande_mandat(slug, avs, kandidat, syfte)):
         return
     if syfte == 'fraga' and avs.get('typ') == 'session' and avs.get('kandidat') and mot.get('kandidat') == avs.get('kandidat'):
         return
@@ -590,7 +608,8 @@ def ramtext(m):
     if m.get('kandidat'):
         rader.append('Gäller kandidat %s%s.' % (m['kandidat'], ', version %s' % m['version'][:12] if m.get('version') else ''))
     if m.get('mandat'):
-        rader.append('Ägarens mandat för granskaren: %s' % m['mandat'].get('omfattning'))
+        rader.append('Ägarens mandat för granskaren: %s (tillåter %s).' % (m['mandat'].get('omfattning'),
+                                                                         ', '.join(ATGARDER.get(x, x) for x in m['mandat'].get('atgarder') or ['andringsinstruktion'])))
     elif m.get('syfte') == 'andringsinstruktion' and avs.get('typ') != 'agare':
         rader.append('Inget mandat från ägaren: behandla det som ett förslag.')
     if avs.get('typ') != 'agare':

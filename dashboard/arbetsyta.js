@@ -724,12 +724,13 @@
     const vem = `${m.ansvar === 'granskning' ? 'granskaren' : 'utföraren'}${m.kandidat ? ' för ' + etikett(m.kandidat) : ''}`;
     return m.typ === 'adress' ? vem + ' (sessionen som arbetar med den nu eller härnäst)' : vem + ' (session ' + String(m.session_id).slice(0, 8) + ')';
   }
-  const STEG = [['sparat', 'sparat'], ['koat', 'köat'], ['mottaget', 'mottaget'], ['besvarat', 'besvarat'], ['genomfort', 'genomfört']];
+  const ATGARDER = { forslag: 'förslag', granskningsfynd: 'granskningsfynd', andringsinstruktion: 'begäran om rättelse' };
+  const STEG = [['sparat', 'sparat'], ['koat', 'köat'], ['levererat', 'levererat'], ['mottaget', 'mottaget'], ['besvarat', 'besvarat'], ['genomfort', 'genomfört']];
   function leveransrad(m) {
     const sista = (m.handelser || []).slice(-1)[0] || {};
     if (['okant', 'ej_levererat', 'tillbaka'].includes(m.lage)) return `<div class="ay-leverans-text" data-lage="${e_(m.lage)}"><b>${e_(m.lage_text)}</b>${sista.notis ? ': ' + e_(sista.notis) : ''}</div>`;
     const i = STEG.findIndex(([k]) => k === m.lage);
-    const stegen = m.syfte === 'andringsinstruktion' ? STEG : STEG.slice(0, 4);
+    const stegen = m.syfte === 'andringsinstruktion' ? STEG : STEG.slice(0, 5);
     return `<ol class="ay-leverans" aria-label="Leveransläge: ${e_(m.lage_text)}">${stegen.map(([k, n], j) => { const h = (m.handelser || []).filter((x) => x.lage === k).slice(-1)[0];
       return `<li data-gjort="${j <= i}"${j === i ? ' aria-current="step"' : ''} title="${e_(h ? klocka(h.tid) + (h.bevis ? ' · ' + h.bevis : '') : 'inte belagt')}">${n}</li>`; }).join('')}</ol>`;
   }
@@ -769,11 +770,12 @@
     const d = A.samverkan || {}, akt = (d.mandat || []).filter((x) => x.aktivt);
     const ks = A.lage?.kandidater || [];
     return `<details class="ay-mandat"${A.mandatOppen ? ' open' : ''}><summary>Mandat för granskare (${akt.length})</summary>
-      <p class="svag" style="margin:6px 0">En granskare med mandat får begära rättelser av kandidatens utförare i körningen, inom omfattningen du skriver. Utan mandat går granskarens fynd till dig.</p>
-      ${akt.map((x) => `<div class="ay-mandatrad"><span>${e_(x.granskare?.typ === 'extern' ? 'Extern: ' + x.granskare.namn : x.granskare?.typ === 'ansvar' ? 'Motorns granskare' : 'Session ' + String(x.granskare?.session_id).slice(0, 8))} · ${e_(etikett(x.kandidat))}: ${e_(x.omfattning)}</span><button class="ay-knapp liten" type="button" data-mandat-aterkalla="${e_(x.id)}">Återkalla</button></div>`).join('')}
+      <p class="svag" style="margin:6px 0">En granskare med mandat får lämna de åtgärder du kryssar i till kandidatens utförare, i den här körningen och inom omfattningen du skriver. Utan mandat går granskarens fynd och förslag till dig.</p>
+      ${akt.map((x) => `<div class="ay-mandatrad"><span>${e_(x.granskare?.typ === 'extern' ? 'Extern: ' + x.granskare.namn : x.granskare?.typ === 'ansvar' ? 'Motorns granskare' : 'Session ' + String(x.granskare?.session_id).slice(0, 8))} · ${e_(etikett(x.kandidat))}: ${e_(x.omfattning)} (${e_((x.atgarder || ['andringsinstruktion']).map((a) => ATGARDER[a] || a).join(', '))})</span><button class="ay-knapp liten" type="button" data-mandat-aterkalla="${e_(x.id)}">Återkalla</button></div>`).join('')}
       <form id="ay-mandatform" class="ay-mandatform" autocomplete="off"><label class="svag">Granskare <select data-mandat="granskare" class="ay-knapp liten"><option value="ansvar">Motorns granskare</option><option value="extern:codex">Codex (extern granskare)</option></select></label>
         <label class="svag">Kandidat <select data-mandat="kandidat" class="ay-knapp liten">${ks.map((k) => `<option value="${e_(k.id)}"${k.id === A.valdKandidat ? ' selected' : ''}>${e_(k.etikett)}</option>`).join('')}</select></label>
         <label class="svag" style="width:100%">Omfattning <input data-mandat="omfattning" class="ay-knapp liten" style="width:100%" placeholder="t.ex. kontrast och radbrytning i rubriken"></label>
+        <fieldset class="ay-mandat-atgarder"><legend class="svag">Får lämna till utföraren</legend>${Object.entries(ATGARDER).map(([k, n]) => `<label class="svag"><input type="checkbox" data-mandat-atgard="${e_(k)}"> ${e_(n)}</label>`).join(' ')}</fieldset>
         <button class="ay-knapp liten" type="submit"${ks.length ? '' : ' disabled'}>Ge mandat</button><span class="svag" id="ay-mandatsvar" role="status" aria-live="polite"></span></form></details>`;
   }
   function mottagarval() {
@@ -827,10 +829,12 @@
   async function geMandat(form) {
     const v = (n) => form.querySelector(`[data-mandat="${n}"]`)?.value || '';
     const g = v('granskare'), omf = v('omfattning').trim(), svar = document.getElementById('ay-mandatsvar');
+    const atgarder = [...form.querySelectorAll('[data-mandat-atgard]:checked')].map((x) => x.dataset.mandatAtgard);
     if (!omf) { svar.textContent = 'Skriv omfattningen.'; return; }
-    const body = { kandidat: v('kandidat'), omfattning: omf, korning: A.lage.korning?.startad || null,
+    if (!atgarder.length) { svar.textContent = 'Kryssa i vad granskaren får lämna till utföraren.'; return; }
+    const body = { kandidat: v('kandidat'), omfattning: omf, atgarder, korning: A.lage.korning?.startad || null,
       granskare: g === 'ansvar' ? { typ: 'ansvar' } : { typ: 'extern', namn: g.split(':')[1] } };
-    body.id = await innehallsId('md', [A.slug, body.kandidat, body.granskare, body.omfattning, body.korning]);
+    body.id = await innehallsId('md', [A.slug, body.kandidat, body.granskare, body.omfattning, body.atgarder, body.korning]);
     try { await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/mandat', body); A.mandatOppen = true; await laddaSamverkan(); meddela('Mandatet gäller i den här körningen.'); }
     catch (err) { svar.textContent = 'Mandatet sparades inte: ' + err.message; }
   }
@@ -923,11 +927,12 @@
     if (!k.version_hel) return `<p style="margin:0">${e_(k.etikett)} har ingen fotograferad version att besluta över än.</p>`;
     if (!bild) return `<p style="margin:0">${e_(k.etikett)} har version ${e_(k.version)} men ingen bevarad bild: ett beslut binds till bilden du ser, så fotografera kandidaten först (eller välj i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>).</p>`;
     const b = A.beslutBekrafta;
-    const godk = ['forfinad'].includes(k.status);
+    const ogiltig = k.snapshot.giltig === false;  // en fotograferad felsida: ingen version att välja eller godkänna
+    const godk = ['forfinad'].includes(k.status) && !ogiltig;
     return `<p style="margin:0">Beslutet gäller <b>${e_(k.etikett)}</b>, version ${e_(k.version)}, fotograferad ${e_(kort(k.snapshot.tid))}: bilden nedan${A.enhet === 'mobil' ? ' (beslutet binds till skärmbilden i 1440 px)' : ''}.</p>
       ${b ? `<div class="ay-bekraftruta"><p style="margin:0">${e_(b.text)}</p>${b.version_hel && b.version_hel !== k.version_hel ? `<p class="ay-notis varn" role="alert" style="margin:0">${e_(k.etikett)} har fått en ny version (${e_(k.version)}) sedan du öppnade beslutet. Beslutet gäller version ${e_(b.version)}, som inte längre är kandidatens, och nekas: avbryt och se den nya versionen först.</p>` : ''}${['forkasta', 'ny_riktning'].includes(b.beslut) || b.beslut === 'valj' ? `<label class="svag" for="ay-beslutstext">${b.beslut === 'valj' ? 'Vad du gillar (valfritt)' : 'Vad håller inte, och vad ska nästa försök pröva?'}</label><textarea id="ay-beslutstext" rows="3" data-fokus="beslutstext"></textarea>` : ''}
           <div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut-ja data-fokus="beslut-ja">${e_(b.knapp)}</button><button class="ay-knapp" type="button" data-beslut-nej>Avbryt</button></div></div>`
-        : `<div class="ay-knapprad"><button class="ay-knapp primar" type="button" data-beslut="valj" data-fokus="b-valj">Välj vidare</button>${godk ? '<button class="ay-knapp primar" type="button" data-beslut="godkand" data-fokus="b-godkand">Godkänn denna version</button>' : ''}<button class="ay-knapp" type="button" data-beslut="forkasta">Underkänn alla</button><button class="ay-knapp" type="button" data-beslut="ny_riktning">Ny riktning</button></div>
+        : `${ogiltig ? `<p class="ay-notis varn" role="alert" style="margin:0">Ögonblicksbilden av ${e_(k.etikett)} är ingen sida (${e_((k.snapshot.ogiltig || []).join('; '))}). Fotografera kandidaten igen innan du väljer eller godkänner den.</p>` : ''}<div class="ay-knapprad">${ogiltig ? '' : '<button class="ay-knapp primar" type="button" data-beslut="valj" data-fokus="b-valj">Välj vidare</button>'}${godk ? '<button class="ay-knapp primar" type="button" data-beslut="godkand" data-fokus="b-godkand">Godkänn denna version</button>' : ''}<button class="ay-knapp" type="button" data-beslut="forkasta">Underkänn alla</button><button class="ay-knapp" type="button" data-beslut="ny_riktning">Ny riktning</button></div>
           <p class="svag" style="margin:0">Jämför kandidaterna under Resultat → Jämför, eller sida vid sida i <a href="#/prototyp/${e_(A.slug)}">Prototyp</a>. Ett godkännande lämnar över till helbygget men startar det inte.</p>`}
       <p class="svag" role="status" aria-live="polite" id="ay-beslutssvar" style="margin:0">${e_(A.beslutSvar || '')}</p>`;
   }

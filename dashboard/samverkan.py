@@ -433,6 +433,8 @@ def beslut(dash, slug, data):
             if not bev:
                 raise ValueError('godkänn den version du ser: bilden av %s i version %s saknas i beslutet' % (k['id'], k['version'][:12]))
             kn_ = nu_.get(k['id']) or {}
+            if (kn_.get('snapshot') or {}).get('giltig') is False:  # en fotograferad felsida är ingen version att godkänna
+                raise ValueError('ögonblicksbilden av %s är ingen sida (%s); fotografera kandidaten igen' % (k['id'], '; '.join(kn_['snapshot']['ogiltig'])))
             if kn_.get('version_hel') != k['version']:  # den version ägaren öppnade beslutet för, aldrig en senare (A6)
                 raise M.Inaktuell('%s har en annan version nu än den du såg; se den nya versionen först' % k['id'])
             bilder = {v for b_, v in (kn_.get('snapshot') or {}).items() if b_ in ('390', '1440') and v}
