@@ -155,6 +155,12 @@ def metodvariant(slug=None, kid=None):
     if v not in METODVARIANTER:
         raise ValueError('okänd metodvariant %r (NWP_METODVARIANT): %s' % (v, ', '.join(METODVARIANTER)))
     return v
+# Kvalitetsprovet (ägarens mandat 2026-10-09): planprovning stannar en skisskörning efter planprövningen, före skaparna,
+# så att ett metodförsök kan förberedas på en planerad men ännu inte arbetad skiss (ab.py forbered-skiss); --fortsatt tar
+# sedan vid hos skaparna. Utan värde körs flödet som förut.
+STOPP_EFTER = os.environ.get('NWP_KANDIDAT_STOPP_EFTER') or ''
+if STOPP_EFTER not in ('', 'planprovning'):
+    raise ValueError('NWP_KANDIDAT_STOPP_EFTER kan bara vara planprovning')
 PASS_OMGANGAR = 2  # F03: passets omgångar, det första och ett uttryckligt nytt försök (begar_nytt_passforsok); ingen slinga
 FRIST_PASS = int(os.environ.get('NWP_KANDIDAT_FRIST_PASS') or 720)  # ett kompetenspass: läsningen, en omgång och en bekräftelse
 FRIST_PASS_OMFORSOK = 420  # ett pass som inte läste sina filer får ett omförsök
@@ -3736,6 +3742,12 @@ def kor(slug, status, skriv, n=None):
             elif kid not in saknas_ and st_.get('planprovning_saknas'):
                 satt_status(slug, kid, (st_['planprovning_saknas'] or {}).get('status_fore') or 'planerad', 'uppdraget är planprövat',
                             ta_bort=('planprovning_saknas',))
+    if STOPP_EFTER == 'planprovning' and lage == 'skiss':
+        status.update(steg='planprovad', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in ids},
+                      skal='körningen stannade efter planprövningen, före skaparna (NWP_KANDIDAT_STOPP_EFTER=planprovning): ett '
+                           'metodförsök kan förberedas med ab.py forbered-skiss, och prototyp.py --fortsatt tar vid hos skaparna')
+        skriv()
+        return []
     status.update(steg='skapa', kandidater={k: las_status(slug, k).get('status') for k in ids})
     skriv()
     if lage == 'skiss':  # ingen granskningspanel, förbättringsrunda eller jämförelse före ägarens val

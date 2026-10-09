@@ -547,6 +547,62 @@ class Metodforsoket(unittest.TestCase):
         with self.assertRaises(ValueError):
             ab.forbered_skiss(self.slug, 'k01', 'typsnitt')
 
+    def test_klonen_bar_planprovningen_och_provas_inte_om(self):
+        """Den andra armen är det prövade uppdraget byte för byte: --fortsatt prövar ingen arm för sig (N01)."""
+        post = ab.forbered_skiss(self.slug, 'k01', 'metodvariant')
+        pp = json.loads((kd.rot(self.slug) / 'PLANPROVNING.json').read_text())
+        self.assertEqual(pp['provade'].get('k02'), pp['provade']['k01'])
+        self.assertEqual((pp.get('klonade') or {}).get('k02'), {'fran': 'k01', 'forsok': post['id']})
+        self.assertEqual(kd.planprovning_behov(self.slug, post['kandidater']), [], 'en arm skulle prövas om för sig')
+
+    def test_en_oprovad_plan_ger_inget_forsok(self):
+        f = kd.rot(self.slug) / 'PLANPROVNING.json'
+        f.write_text(json.dumps({'kandidater': {'k01': {}}, 'provade': {'k01': 'en annan version'}}))
+        with self.assertRaises(ValueError):
+            ab.forbered_skiss(self.slug, 'k01', 'metodvariant')
+        self.assertFalse(kd.kdir(self.slug, 'k02').exists())
+
+
+class Stoppefterplanen(unittest.TestCase):
+    """NWP_KANDIDAT_STOPP_EFTER=planprovning: skisskörningen stannar efter planprövningen, före skaparna, som ett avslutat
+    läge (planprovad) med slutkod 0; prototyp.py utan --fortsatt startar inget nytt omtag därifrån."""
+
+    def test_skaparna_startar_inte_och_laget_ar_avslutat(self):
+        import ateljeslut
+        import prototyp
+        import urval
+        tmp = Path(self.enterContext(korregister.egen_tmp_med('nwp-kallgap-', 'stoppet efter planprövningen'))).resolve()
+        self.enterContext(patch.multiple(atelje, UNDERLAG=tmp / 'underlag', KUNDER=tmp / 'kunder'))
+        (kd.rot('stopp-prov')).mkdir(parents=True)
+        (kd.rot('stopp-prov') / kd.UPPDRAGSMATERIAL).write_text('{}')
+        status, skrivna = {}, []
+        with patch.multiple(kd, create=True, STOPP_EFTER='planprovning', lista=lambda slug: ['k01'], leverera_metod=lambda slug: {},
+                            planprovning_behov=lambda slug, ids: [], korlage=lambda slug, status: 'skiss',
+                            las_status=lambda slug, kid: {'status': 'planerad'},
+                            kor_pool=lambda *a, **k: self.fail('en skapare startade')), \
+                patch.object(urval, 'vid_start', return_value={}):
+            self.assertEqual(kd.kor('stopp-prov', status, lambda: skrivna.append(status.get('steg'))), [])
+        self.assertEqual(status['steg'], 'planprovad')
+        self.assertEqual(skrivna[-1], 'planprovad')
+        self.assertNotIn('skapa', skrivna, 'skapandet påbörjades')
+        self.assertIn('planprovad', atelje.AVSLUTADE)
+        self.assertFalse(atelje.avbruten(dict(status, pid=999999999)), 'ett avsiktligt stopp är inget avbrott')
+        utfall, kod, _text = ateljeslut.utfall(status)
+        self.assertEqual((utfall, kod), ('klar', 0))
+        with patch.object(atelje, 'las_json', return_value=dict(status)), patch.object(prototyp.skapande, 'senaste', return_value=None), \
+                patch.object(prototyp.skapande, 'agarens_senaste', return_value={'oklara': []}):
+            lage, skal = prototyp.lage('stopp-prov')
+        self.assertEqual(lage, 'stopp', skal)
+        self.assertIn('--fortsatt', skal)
+
+    def test_okant_varde_stoppar_vid_import(self):
+        import subprocess
+        import sys as sys_
+        r = subprocess.run([sys_.executable, '-B', '-c', 'import kandidater'], cwd=str(atelje.ROOT / 'kontroller'), capture_output=True, text=True,
+                           env=dict(__import__('os').environ, NWP_KANDIDAT_STOPP_EFTER='skapa'))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn('NWP_KANDIDAT_STOPP_EFTER', r.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -34,6 +34,7 @@ class Skissforsok(unittest.TestCase):
         skriv(kd.rot(self.slug)/'KANDIDATPLAN.json',json.dumps(plan))
         for f in ('FORSKNING.json','UPPDRAGSMATERIAL.json','PLANPROVNING.json'):
             skriv(kd.rot(self.slug)/f,json.dumps({'kandidater':{'k01':{'refero_stil':None,'mobbin':[]}}}))
+        skriv(kd.rot(self.slug)/'PLANPROVNING.json',json.dumps({'kandidater':{'k01':{}},'provade':{'k01':kd.uppdrag_sha(plan['kandidater']['k01'])}}))  # N01: prövad plan
         skriv(kd.rot(self.slug)/'FORSKNING.md','syntetisk forskning')
         skriv(kd.kdir(self.slug,'k01')/'UPPDRAG.md','# Samma uppdrag\nsyntetiskt innehåll\n')
         kd.satt_status(self.slug,'k01','planerad',forsok=0,titel='Samma uppgift')

@@ -17,6 +17,7 @@ def kor(g):
     skriv(kd.rot(slug) / 'KANDIDATPLAN.json', json.dumps(plan))
     for n in ('FORSKNING.json', 'PLANPROVNING.json', 'UPPDRAGSMATERIAL.json'):
         skriv(kd.rot(slug) / n, json.dumps({'kandidater': {'k01': {}}}))
+    skriv(kd.rot(slug) / 'PLANPROVNING.json', json.dumps({'kandidater': {'k01': {}}, 'provade': {'k01': kd.uppdrag_sha(plan['kandidater']['k01'])}}))
     skriv(kd.kdir(slug, 'k01') / 'UPPDRAG.md', '# Samma uppdrag\nSyntetisk webbskiss.')
     kd.satt_status(slug, 'k01', 'planerad', forsok=0)
     post = ab.forbered_skiss(slug, 'k01')

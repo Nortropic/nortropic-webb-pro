@@ -65,6 +65,9 @@ def lage(slug):
     if st.get('steg') == 'forberedd':
         import forberedelse
         return ('om', 'underlaget är förberett; designarbetet kan starta') if forberedelse.giltig(slug) else ('stopp', 'förberedelsen är inaktuell; kör --forbered igen')
+    if st.get('steg') == 'planprovad':  # inget nytt omtag över en planprövad plan: skaparna startar med --fortsatt
+        return 'stopp', ('körningen stannade efter planprövningen (NWP_KANDIDAT_STOPP_EFTER): förbered ett metodförsök med ab.py '
+                         'forbered-skiss om det ska göras, och ta vid hos skaparna med --fortsatt')
     efter = dom if dom and dom.get('tid', '') > (st.get('klar') or st.get('startad') or '') else None
     if efter:
         if efter['beslut'] == 'godkand':  # samma prövning som kor.sh gör innan bygget tar vid (skapande.godkand_giltig)

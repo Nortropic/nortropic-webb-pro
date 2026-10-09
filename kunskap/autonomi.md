@@ -115,11 +115,14 @@ annat hålls fast. Provet är förberett, inte kört: verkliga sessioner och hel
 - **Material:** en fiktiv verksamhet med ett skrivet underlag och licensierat eller tydligt illustrativt bildmaterial
   med källa, eller material som ägaren uttryckligen tillåtit. Kalibreringens undanhållna exempel (K14–K19) används
   aldrig.
-- **Underlag och plan:** skapandeflödet till en planprövad plan med en kandidat (`NWP_KANDIDATER=1 .venv/bin/python
-  kontroller/prototyp.py <slug>`), i skissläget.
+- **Underlag och plan:** kundunderlaget med `prototyp.py <slug> --forbered`, sedan skapandeflödet till en planprövad
+  plan med en kandidat, i skissläget: `NWP_KANDIDATER=1 NWP_KANDIDAT_STOPP_EFTER=planprovning .venv/bin/python
+  kontroller/prototyp.py <slug>` stannar efter planprövningen, före skaparna (läget `planprovad`, slutkod 0).
 - **Två armar:** `ab.py forbered-skiss <slug> --kandidat k01 --variabel metodvariant` lottar grund och h01 på två
-  kandidater med samma uppdrag, material, modell, effort, budget och metod i övrigt. Identitetslåset nekar jämförelsen
-  om något gemensamt ändras. Efter mandatet kör `prototyp.py <slug> --fortsatt` båda armarna.
+  kandidater med samma uppdrag, material, modell, effort, budget och metod i övrigt. Det kräver att k01:s uppdrag är
+  planprövat i sin nuvarande version, och klonen bär samma prövning (`PLANPROVNING.json`, `klonade`), så att ingen arm
+  prövas om för sig. Identitetslåset nekar jämförelsen om något gemensamt ändras. Efter mandatet kör `prototyp.py <slug>
+  --fortsatt` båda armarna.
 - **Bedömningen börjar med bilderna:** ägaren väljer blint i dashboardens Prototyp, före skaparnas förklaringar. Valet
   får vara ingen av dem, och en arm som bytt grundkomposition med skäl är inte felaktig.
 - **Var kvaliteten bevaras eller försvagas:** efter domen ställs referensbilderna, det visuella målet (h01), referenslåset

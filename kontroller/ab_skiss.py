@@ -157,6 +157,10 @@ def forbered(ab, slug, kid, variabel='effort'):
             raise ValueError('vänta tills den pågående körningen är avslutad')
         for n in ('FORSKNING.json', 'PLANPROVNING.json', 'UPPDRAGSMATERIAL.json'):
             las(r / n, root)
+        pp = las(r / 'PLANPROVNING.json', root)
+        provade = pp.get('provade') if isinstance(pp.get('provade'), dict) else {}
+        if provade.get(kid) != kd.uppdrag_sha((plan.get('kandidater') or {}).get(kid)):
+            raise ValueError('kandidatens uppdrag i sin nuvarande version är inte planprövat (N01); pröva planen före försöket')
         ids = [kid, next('k%02d' % n for n in range(1, 13) if 'k%02d' % n != kid)]
         if (kd.kdir(slug, ids[1]).exists() or kd.kdir(slug, ids[1]).is_symlink()
                 or any(kd.ksajt(slug, k).parent.exists() for k in ids)):
@@ -175,7 +179,8 @@ def forbered(ab, slug, kid, variabel='effort'):
         ident = 'skiss-%s-%s' % (slug, uuid.uuid4().hex[:12])
         post = {'schema': 1, 'id': ident, 'slug': slug, 'pass': 'skisskapare', 'variabel': variabel,
                 'status': 'forbereder', 'tid': ab.nu(), 'kandidater': ids, 'varden': dict(zip(ids, varden)),
-                'ursprung': {'plan': json.loads(gammal_plan), 'uppdrag': ursprung, 'material': copy.deepcopy(material)},
+                'ursprung': {'plan': json.loads(gammal_plan), 'uppdrag': ursprung, 'material': copy.deepcopy(material),
+                             'planprovning': copy.deepcopy(pp)},
                 'domlogg_prefix': {'bytes': len(vanlig(atelje.UNDERLAG / slug / skapande.DOMLOGG, root, saknas=True) or b''),
                                   'sha': sha(vanlig(atelje.UNDERLAG / slug / skapande.DOMLOGG, root, saknas=True) or b'')},
                 'begransning': 'Identitetslås före och efter. Externa svar och modellutfall varierar. Ingen kvalitetsdom ännu.'}
@@ -186,6 +191,11 @@ def forbered(ab, slug, kid, variabel='effort'):
         atelje.skriv_json_atomiskt(fil, post)
         plan.update(metodforsok=ident, metodforsok_varden_sha=sha(json.dumps(post['varden'], sort_keys=True).encode()), antal=2)
         plan['kandidater'][ids[1]] = copy.deepcopy(plan['kandidater'][kid])
+        # Klonens uppdrag är byte för byte det prövade (samma uppdrag_sha): prövningen följer med, så att --fortsatt inte
+        # prövar den andra armen för sig och låter armarna glida isär (N01).
+        pp_ny = copy.deepcopy(pp)
+        pp_ny['provade'] = dict(provade, **{ids[1]: provade[kid]})
+        pp_ny.setdefault('klonade', {})[ids[1]] = {'fran': kid, 'forsok': ident}
         d, skapad = kd.kdir(slug, ids[1]), False
         try:
             atelje.skriv_json_atomiskt(r / 'KANDIDATPLAN.json', plan)
@@ -196,6 +206,7 @@ def forbered(ab, slug, kid, variabel='effort'):
                 k: st.get(k) for k in ('titel', 'hypotes', 'huvudreferens')})
             material['kandidater'][ids[1]] = copy.deepcopy(material['kandidater'][kid])
             atelje.skriv_json_atomiskt(r / 'UPPDRAGSMATERIAL.json', material)
+            atelje.skriv_json_atomiskt(r / 'PLANPROVNING.json', pp_ny)
             post.update(status='forberedd', gemensamt=gemensamt(slug, ids))
             atelje.skriv_json_atomiskt(fil, post)
         except Exception:
@@ -204,13 +215,16 @@ def forbered(ab, slug, kid, variabel='effort'):
             # Det kräver avstämning mot ursprung, aldrig automatisk överskrivning.
             if (vanlig(kd.kdir(slug, kid) / 'UPPDRAG.md', root) not in (ursprung.encode(), uppdrag.encode())
                     or las(r / 'KANDIDATPLAN.json', root) not in (post['ursprung']['plan'], plan)
-                    or las(r / 'UPPDRAGSMATERIAL.json', root) not in (post['ursprung']['material'], material)):
+                    or las(r / 'UPPDRAGSMATERIAL.json', root) not in (post['ursprung']['material'], material)
+                    or las(r / 'PLANPROVNING.json', root) not in (pp, pp_ny)):
                 raise ValueError('förberedelsen föll och en fil ändrades oberoende; inget återställs, jämför med försökets ursprung')
             if skapad:
                 shutil.move(str(d), str(ab.AB / (ident + '-avbrutet')))
             (kd.kdir(slug, kid) / 'UPPDRAG.md').write_text(ursprung, encoding='utf-8')
             if las(r / 'UPPDRAGSMATERIAL.json', root) != post['ursprung']['material']:
                 atelje.skriv_json_atomiskt(r / 'UPPDRAGSMATERIAL.json', post['ursprung']['material'])
+            if las(r / 'PLANPROVNING.json', root) != pp:
+                atelje.skriv_json_atomiskt(r / 'PLANPROVNING.json', pp)
             atelje.skriv_json_atomiskt(r / 'KANDIDATPLAN.json', post['ursprung']['plan'])
             post.update(status='forberedelsefel', gemensamt=None)
             atelje.skriv_json_atomiskt(fil, post)

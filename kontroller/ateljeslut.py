@@ -155,6 +155,8 @@ def utfall(status):
         return 'avbruten', 4, 'avbruten i steg %s, %s: %s' % (var, av.get('tid') or EJ, av.get('text') or EJ)
     if av or steg == 'fel':
         return 'fel', 4, 'föll i steg %s, %s: %s' % (var, av.get('tid') or EJ, str(status.get('fel') or av.get('text') or EJ)[:400])
+    if steg == 'planprovad':  # stannade på begäran efter planprövningen (kandidater.STOPP_EFTER): inget att välja än, inget fel
+        return 'klar', 0, status.get('skal') or 'stannade efter planprövningen; prototyp.py --fortsatt tar vid hos skaparna'
     if steg in KLARA:
         import kandidater
         kand = status.get('kandidater') if isinstance(status.get('kandidater'), dict) else None

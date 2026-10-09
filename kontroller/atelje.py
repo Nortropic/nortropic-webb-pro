@@ -2061,7 +2061,7 @@ def redovisa(slug, rot, status):
     return rot / 'REDOVISNING.md'
 
 
-AVSLUTADE = ('klar', 'forkastad', 'tillbaka', 'klar_for_bedomning', 'forberedd')
+AVSLUTADE = ('klar', 'forkastad', 'tillbaka', 'klar_for_bedomning', 'forberedd', 'planprovad')  # planprovad: kandidater.STOPP_EFTER
 BARS = ('val', 'omgang', 'omgangar', 'overford', 'overforing', 'kompletteringar')  # följer med vid --fortsatt och --putsa
 BARS_FORTSATT = ('putsning', 'forfina_start')  # och vid --fortsatt det som gör en avbruten putsning och förfining hel
 BARS_KANDIDAT = ('kandidatflode', 'valda', 'dom', 'fas', 'forra_lage', 'kandidatlage', 'tider')  # och i kandidatflödet var körningen var (granskning 2, N1)
@@ -2594,6 +2594,9 @@ def besked(rot, st):
     saknas = 'Slutposten saknas: %s.' % (st.get('slutpost_fel') or 'körningen skrev ingen (den är från före slutposterna, eller arbetaren dog)')
     if steg == 'forberedd':
         print('Kundunderlaget är förberett. Nästa steg är referensjakt och skiss. %s' % saknas)
+        return 0
+    if steg == 'planprovad':
+        print('%s %s' % (st.get('skal') or 'Körningen stannade efter planprövningen.', saknas))
         return 0
     if steg == 'klar_for_bedomning':
         print('Kandidaterna är klara för ägarens bedömning (%s). Ägaren jämför och väljer i dashboardens vy Prototyp; '
