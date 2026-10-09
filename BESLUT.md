@@ -2810,7 +2810,8 @@ Tre beslut:
 
 ## Tillägg 2026-10-08: backlogavstämning och genomförande före första helbygget
 
-**Status:** gäller.
+**Status:** gäller; delvis ersatt av Tillägg 2026-10-09: ägarens precisering av "allt klart före första helbygget" (för de
+sju backlogområdena där). Övrigt gäller.
 
 Ägarens ord 2026-10-08 ~14:00Z, ordagrant: "Jag vill göra bort allt i backloggen innan vi sätter igång med första helbygget
 och testar på nytt." Uppdraget i sin helhet (inventera först och ändra inget; fyra grupper GJORT, INTE AKTUELLT, SAMMANFÖR,
@@ -3141,4 +3142,179 @@ Avsluta köläggningen med:
 - vad som återstår före nästa helbygge.
 
 Samordna med det redan köade arbetet för ren 2.0-start och samlad startkontroll. Startkontrollen ska bedöma den slutliga gemensamma versionen. Köläggningen i sig ger inget mandat att starta nästa helbygge.
+```
+
+## Tillägg 2026-10-09: ägarens precisering av "allt klart före första helbygget", och avstämningen av de sju återstående backlogområdena
+
+**Status:** gäller (preciseringen, för de sju områdena); uppdraget genomfört i RAPPORT-2026-10-09-sju-backlogomraden
+(privat), med noter i de sju posterna.
+
+Ägaren klistrade uppdraget i sessionen 2026-10-09 ~05:22Z, köat efter uppdraget om Codex omgranskning (N01–N06), och
+godkände i det en precisering av kravet från 2026-10-08 (tillägget om backlogavstämningen ovan): det som kan göras före
+bygget görs och prövas före starten; det som kräver ett verkligt helbygge verifieras under det; besökarprov genomförs vid
+en användbar prototyp och inför lansering, med deltagare och mandat; strategiska experiment får ligga uttryckligen
+uppskjutna och redovisas aldrig som genomförda eller verifierade. Preciseringen gäller de sju områdena (kalibreringen,
+mobilreglerna, prototyp mot helbygge, besökarprovet, modellsållningen, granskare ur en annan modellfamilj, plattformsprovet
+med Framer och Caliper) och upphäver inga säkerhetskrav, datagränser eller andra ägarbeslut. Inget mandat för köp, konton,
+installationer av nya externa verktyg, publicering eller deltagarkontakter; ägaren startar helbygget själv. Ordagrant:
+
+```text
+UPPDRAG: stäm av och prioritera de sju återstående backlogområdena inför nästa helbygge när pågående arbete är klart.
+
+Mitt beslut som ägare
+Jag godkänner följande precisering av mitt tidigare krav ”allt ska vara klart före första helbygget”:
+
+- All förberedelse och implementation som kan göras före bygget ska vara färdig och prövad före starten.
+- Sådant som kräver ett verkligt helbygge verifieras under det bygget.
+- Besökarprov genomförs när det finns en användbar prototyp och inför skarp lansering, med deltagare och mandat.
+- Strategiska experiment får ligga kvar uttryckligen uppskjutna. De ska inte redovisas som genomförda eller verifierade.
+
+Detta gäller de sju områdena nedan. Det upphäver inga säkerhetskrav, datagränser eller andra uttryckliga ägarbeslut.
+
+Genomför det lokalt möjliga arbetet enligt repots arbetsregler. Starta inget helbygge; det startar jag själv. Gör inga köp, kontoregistreringar, installationer av nya externa verktyg, publiceringar eller deltagarkontakter inom detta uppdrag. Läsande omvärldsbevakning är tillåten.
+
+1. STÄM AV VERKLIGHETEN FÖRST
+
+Läs aktuella backlogposter, kod, prov och dokumentation. Kontrollera vad som redan är genomfört och vad som faktiskt återstår.
+
+Codex uppgifter nedan kommer från granskningen av main 2c7aa5a. Kontrollera dem mot aktuellt HEAD; behandla dem inte som oföränderliga.
+
+Dela varje post i:
+- färdig implementation, med bevis;
+- lokalt arbete före helbygget;
+- verklig verifiering under pilotbygget;
+- arbete inför skarp lansering;
+- uppskjutet experiment;
+- konkret ägarbeslut.
+
+Återanvänd befintliga poster och dokumentationsstruktur. Skapa inte parallella rapporter eller nya backlogposter för samma ansvar. Uppdatera inaktuella beskrivningar och länka till befintliga bevis. Bevara historiska rapporter.
+
+2. KALIBRERING: FÄRDIGSTÄLL UNDERLAGET FÖRE MINA DOMAR
+
+Kontrollera att K14–K19 är kompletta och jämförbara. Vid Codex kontroll saknade K17 och K18 undersidornas kataloger, bilder och inspektionsrapporter.
+
+Förbered det som går inom mandatet. Om kompletteringen kräver en körning utanför mandatet: redovisa exakt vilken. Sänk inte omfattningen tyst och presentera inte ofullständigt underlag som klart för bedömning.
+
+Kontrollera även kvarstående anmärkningar på kalibreringsankarnas underlag. Jag ska få ett färdigt beslutsunderlag, inte behöva upptäcka tekniska brister själv.
+
+För försöket gäller:
+- Frys modell, instruktioner, kriterier, ankare och bilder före utvärderingen.
+- Mina domar över K14–K19 får inte visas för granskarna.
+- Använd inte domarna för att ändra visuell-niva.md eller granskarinstruktionerna före det oberoende försöket.
+- Redovisa falska godkännanden och falska underkännanden separat, med antal och nämnare.
+- Ogiltiga eller misslyckade anrop redovisas separat, aldrig som giltiga domar.
+- Om resultaten används för metodutveckling är exemplen därefter utvecklingsdata.
+
+Sex exempel är en första avgränsad kontroll, inte bevis på allmän träffsäkerhet. Kalibreringen prövar granskarens bedömning mot min ribba; den bevisar inte byggarens designförmåga eller sajtens användbarhet.
+
+Källa:
+https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
+
+3. MOBILREGLER: AVGRÄNSA DET VERKLIGA BESLUTET
+
+Backlogposten är delvis inaktuell. Kontrollera detta:
+- GRANSKARE.md tillåter redan standardiserad navigation och formulär.
+- Byggskillen låter den godkända kandidaten bestämma mobilens komposition.
+- designregler.md har fortfarande ett gemensamt krav på att primär handling syns i första mobilvyn och nås med tummen.
+
+Gör en kort avstämning av de regler som fortfarande styr formgivningen:
+regel → källa → räckvidd → var den verkställs → klassning → eventuell kvarstående fråga.
+
+Skilj mellan:
+- tillgänglighets- och funktionskrav;
+- Nortropics uttryckliga produktkrav;
+- belagda kundbehov;
+- designhypoteser och visuella preferenser.
+
+Återinför inte generella krav på viss menyplacering, sidhuvudshöjd, rubrikkomposition, foto ovanför vikningen eller fast kontaktlist.
+
+Om ett ägarbeslut fortfarande behövs, förbered konkreta alternativ och en rekommendation. Använd befintligt bildmaterial där det räcker. Starta inte nya skaparsessioner enbart för detta utan mandat.
+
+Ett smakbeslut får vara ett produktval med angiven räckvidd; kalla det inte universell UX-praxis utan belägg. Behåll fungerande tillgänglighetskrav. Exempelvis ska Nortropics krav på primära knappar inte blandas ihop med WCAG:s minimikrav eller göras till ett krav på alla länkar.
+
+Källa:
+https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
+
+4. PROTOTYP MOT HELBYGGE: FÄRDIGSTÄLL DEN AUTOMATISKA DELEN
+
+Vid Codex kontroll jämförde prova.vinnarjamforelse:
+- startsidans första ruta och helsida;
+- bredderna 390 och 1440;
+- totalt fyra bildpar.
+
+Undersidorna ingick inte, och granskarens frysta vinnarunderlag tog bara startsidans bilder.
+
+Kontrollera nuläget och färdigställ inom befintlig mekanik:
+- jämförelse av godkända undersidor;
+- rätt bildparning mellan godkänd prototyp och aktuellt bygge;
+- överföring av relevant underlag till granskaren;
+- tydlig rapportering av vad som jämförts och vad som saknas;
+- versionsbindning så att rätt godkänd design jämförs med rätt slutbygge.
+
+Bestäm vilka ytterligare bredder och interaktionstillstånd som faktiskt behöver jämföras utifrån den godkända designen. Skapa inte ett omfattande generellt mätsystem utan behov.
+
+Pröva lokalt med fixturer enligt repots regler. Verklig verifiering sker i pilotbygget.
+
+Pixelavvikelse visar förändring, inte kvalitet. Granskningen ska bedöma om förändringen är en försämring, en godkänd anpassning eller en förbättring. Saknat jämförelseunderlag får inte tolkas som bevarad design.
+
+5. BESÖKARPROV: FÖRBERED NU, GENOMFÖR VID RÄTT TILLFÄLLE
+
+Skilj detta från den automatiska bildjämförelsen.
+
+Förbered ett kort protokoll utifrån besökarens viktigaste uppgifter:
+- vad deltagaren ska försöka åstadkomma;
+- vad vi observerar;
+- var deltagaren tvekar, missförstår eller fastnar;
+- vad som ändras efter observationen.
+
+Uppgifterna ska vara neutrala och inte avslöja vilken knapp deltagaren ska använda. AI-simuleringar är inte verkliga användarobservationer.
+
+Återanvänd befintlig lagring och dokumentationsvy där det går. Bygg inte en ny forskningsplattform. Rekrytering, deltagarnas medverkan och eventuell inspelning hanteras separat med mandat.
+
+Källa:
+https://www.gov.uk/service-manual/user-research/using-moderated-usability-testing
+
+6. ÖVRIGA EXPERIMENT: BEHÅLL DEM, MEN LÅT DEM INTE BLOCKERA PILOTEN
+
+Modellsållning i spaningen:
+- Kontrollera först om befintliga loggar räcker för en meningsfull baslinje.
+- Ett senare försök jämför samma kandidater med och utan modellsållning.
+- Mät användbara fynd, missade fynd, kvot och granskningsarbete.
+- En vecka är ett insamlingsfönster, inte automatiskt tillräckligt bevis.
+
+Annan modellfamilj:
+- Behåll befintligt beslut att avvakta.
+- Ett första försök ska vara kompletterande granskning utan att styra godkännandet.
+- Nyttan mäts i relevanta brister som upptäcks och bekräftas, inte bara i att modellerna tycker olika.
+
+Framer:
+- Behåll som senare plattformsprov.
+- Samma brief, material och omfattning.
+- Jämför resultat, arbetstid, mänskliga ingripanden, redigerbarhet och löpande kostnad.
+- Starta inget konto eller försök nu.
+
+Caliper:
+- Korrigera eventuell uppgift om ”npx caliper”.
+- Det avsedda projektet är edonadei/caliper och dokumenterar Pythonpaketet caliper-eval; dess skill installeras separat.
+- Installera inget inom detta uppdrag.
+- Bedöm om verktyget förenklar våra befintliga jämförelser med och utan en skill eller instruktion.
+- Verktygsaktivering och resultatkvalitet ska bedömas separat.
+
+Källa:
+https://github.com/edonadei/caliper
+
+7. PROV, DOKUMENTATION OCH SLUTBESKED
+
+Följ repots gällande regler för grenar, commits, dokumentation, tempkataloger och prov. Ett tungt prov åt gången. För beteenderättelser: relevant prov rött före och grönt efter. Attrapper bevisar mekanik, inte verklig designkvalitet eller extern åtkomst.
+
+Avsluta med ett kort besked som länkar till den uppdaterade dokumentationen:
+- Vad är färdigt och hur har det verifierats?
+- Vad måste göras före helbygget?
+- Vad ska själva pilotbygget verifiera?
+- Vad behövs från mig, med färdigt underlag?
+- Vad ligger uttryckligen uppskjutet och varför?
+
+Markera aldrig uppskjutet, attrappat eller oprövat arbete som verifierat.
+
+Målet är att nästa bygge ska kunna bevara en design jag faktiskt godkänt, och att vi kan se var kvaliteten förändras. Prioritera konkreta förbättringar i den kedjan. Leverera inte fler verktyg eller mer dokumentation som ersättning för ett bedömbart resultat.
 ```
