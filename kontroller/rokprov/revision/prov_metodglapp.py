@@ -20,6 +20,11 @@ ingången med attrapper bara vid modellsessionerna, fotograferingen och nätet:
 - Blindvakten (ett verkligt prov av en parallell session: dontAsk nekar inte Read i arbetskatalogen, och en krok vars
   tidsgräns slår till blockerar inte): krokens tidsgräns i den blinda sessionens inställningar ligger klart över vaktens
   egen frist, så att en långsam vakt själv hinner stoppa läsningen.
+- H01 som avgränsad variant: med NWP_METODVARIANT=h01 skriver skaparen ett preliminärt visuellt mål före kod, knutet
+  till referensbilderna, och prövar det efter renderingen; grundvarianten är oförändrad; en okänd variant stoppar.
+- Kompetensens användning i sex nivåer i specialistpassets post, okänt som okänt.
+- Kvalitetsprovets mekanik: ab.py forbered-skiss --variabel metodvariant lottar grund och h01 på två armar med samma
+  uppdrag, effort och metod i övrigt, och varje arms skiss får sin variant.
 """
 import contextlib
 import json
@@ -34,8 +39,11 @@ import atelje  # noqa: E402
 import blindvakt  # noqa: E402
 import granska  # noqa: E402
 import kandidater as kd  # noqa: E402
+import kompetens  # noqa: E402
 import korregister  # noqa: E402
 import skapande  # noqa: E402
+import ab  # noqa: E402
+import prov_ab_skiss  # noqa: E402  fixturen för metodförsöket
 import prov_omgranskning  # noqa: E402  fixturen för planversionen (N01)
 import referenstjanster  # noqa: E402
 
@@ -216,6 +224,8 @@ class Specialistpass(unittest.TestCase):
         self.assertEqual(st['kompetens_ej_uppfyllda'], [self.ROR])
         self.assertIn('kompetenspass ej uppfyllda: rorelse', st['skal'], 'misslyckandet syns inte i beskedet')
         self.assertIs(self.rec('fordjupa:a:granskning')['uppfyllt'], True, 'nästa pass påverkades av det misslyckade')
+        n = r['nivaer']  # de sex nivåerna var för sig: det underkända passet är erbjudet, laddat men inte belagt i artefakten
+        self.assertEqual((n['erbjuden']['varde'], n['belagd_i_artefakten']['varde'], n['effekt_bedomd']['varde']), (True, False, None))
 
     def test_aterupptagningen_gor_inte_om_passet_av_sig_sjalv_men_ett_begart_forsok_gar(self):
         self.ordning[:] = ['sen', 'sen', 'fore', 'fore']
@@ -261,6 +271,10 @@ class Specialistpass(unittest.TestCase):
         self.ordning[:] = ['fore', 'fore']
         self.assertEqual(self.fordjupa(), 2)
         self.assertIs(self.rec()['uppfyllt'], True)
+        n = self.rec()['nivaer']
+        self.assertEqual({k: v['varde'] for k, v in n.items()}, {'erbjuden': True, 'laddad': True, 'anrop_med_resultat': True, 'redovisad': True,
+                                                                 'belagd_i_artefakten': True, 'effekt_bedomd': None})
+        self.assertIn('skaparens eget omdöme: battre', n['effekt_bedomd']['kalla'], 'skaparens omdöme räknades som oberoende bedömning')
         self.assertEqual(self.fordjupa(), 0)
         self.assertEqual(kd.main([self.SLUG, '--nytt-passforsok', 'k01', self.ROR]), 2)
 
@@ -440,6 +454,62 @@ class Blindvaktensfrist(unittest.TestCase):
         self.assertIn('exit 2', vakt[0]['command'])
         with self.assertRaises(ValueError):
             blindvakt.krok('/tmp/lista.json', timeout=blindvakt.FRIST)
+
+
+
+class Metodvariant(unittest.TestCase):
+    """H01: skissens uppdrag i grundvarianten och i varianten h01, med attrapper vid metodleveransen och kundens underlag."""
+
+    def prompt(self, variant):
+        m = {'sha': 's', 'filer': [], 'delar': {'före': ['METOD-skiss.md'], 'uppslag': ['METOD-skiss-uppslag.md'], 'varv': [], 'text': []}}
+        tmp = self.enterContext(korregister.egen_tmp_med('nwp-kallgap-', 'H01 varianten'))
+        with patch.multiple(atelje, UNDERLAG=Path(tmp) / 'underlag', KUNDER=Path(tmp) / 'kunder'), \
+                patch.multiple(kd, metodinfo=lambda *a, **k: m, uppdragsmaterial_rader=lambda *a: [], METODVARIANT=variant), \
+                patch.multiple(skapande, telefon=lambda *a, **k: None, kritikrader=lambda *a, **k: []), \
+                patch.object(kompetens, 'prompt_rader', lambda *a, **k: []):
+            return kd.skiss_prompt('h01-prov', 'k01')
+
+    def test_grundvarianten_ar_oforandrad(self):
+        t = self.prompt('grund')
+        self.assertNotIn('Visuellt mål', t)
+        self.assertIn('kunden. Bygg sedan en', ' '.join(t.split()))
+        self.assertIn('beslutsliggare för de betydande vägvalen', t)
+
+    def test_h01_skriver_malet_fore_kod_och_provar_det_efter_renderingen(self):
+        t = ' '.join(self.prompt('h01').split())
+        self.assertLess(t.index('Visuellt mål (preliminärt)'), t.index('Bygg sedan en första version'), 'målet kom inte före koden')
+        for ord_ in ('huvudkompositionen', 'de typografiska rollerna', 'bildernas uppgift och beskärning', 'kontrast, täthet och rytm',
+                     'knuten till en utpekad referensbild', 'Omprövat mål', 'det preliminära visuella målet'):
+            self.assertIn(ord_, t)
+
+    def test_okand_variant_stoppar(self):
+        with patch.object(kd, 'METODVARIANT', 'h1'):
+            with self.assertRaises(ValueError):
+                kd.metodvariant()
+
+
+
+class Metodforsoket(unittest.TestCase):
+    """Kvalitetsprovets H01-jämförelse i det befintliga metodförsöket (ab_skiss), utan modellanrop."""
+
+    def setUp(self):
+        prov_ab_skiss.Skissforsok.setUp(self)
+
+    def test_armarna_far_var_sin_variant_och_samma_ovriga_installningar(self):
+        with patch.object(atelje, 'session') as s:
+            post = ab.forbered_skiss(self.slug, 'k01', 'metodvariant')
+        s.assert_not_called()
+        self.assertEqual((post['variabel'], set(post['varden'].values())), ('metodvariant', {'grund', 'h01'}))
+        std = kd.skaparval()
+        for kid in post['kandidater']:
+            self.assertEqual(kd.skaparval(self.slug, kid), std, 'metodvarianten ändrade skaparens modell eller effort')
+            self.assertEqual(kd.metodvariant(self.slug, kid), post['varden'][kid])
+        self.assertEqual(kd.metodvariant(), 'grund', 'utan arm gäller standarden')
+        self.assertEqual((kd.kdir(self.slug, 'k01') / 'UPPDRAG.md').read_bytes(), (kd.kdir(self.slug, 'k02') / 'UPPDRAG.md').read_bytes())
+
+    def test_okand_variabel_nekas(self):
+        with self.assertRaises(ValueError):
+            ab.forbered_skiss(self.slug, 'k01', 'typsnitt')
 
 
 if __name__ == '__main__':
