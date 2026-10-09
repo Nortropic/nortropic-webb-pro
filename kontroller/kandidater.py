@@ -138,6 +138,23 @@ MENYKNAPP = forhandsvisa.MENYKNAPP
 STARTVYER = '390,768,1280,1440'  # startsidans bilder; 1280 är mellanbredden där en fast datorlayout spiller (ägaren 2026-10-06)
 FOTO_RESERV = 180  # sekunder av försökets tid för fotograferingen och kontrollerna efter sessionen
 KOMPETENSPASS = ('rorelse', 'granskning')  # efter fördjupningen, en gång var och i den ordningen; inga redigerande pass före ägarens val (Codex via ägaren 2026-10-05, punkt 8)
+# H01 (GR-20261009-metod-till-resultat-codex; ägarens uppdrag 2026-10-09, punkt 7): ett preliminärt visuellt mål före
+# kod i skissen, som en avgränsad variant för kvalitetsprovet; standard (grund) är referenslåset efter första renderingen.
+# Varianten bokförs i kandidatens metod, så att versionerna går att jämföra under samma modell, material och metod i övrigt.
+METODVARIANTER = ('grund', 'h01')
+METODVARIANT = os.environ.get('NWP_METODVARIANT') or 'grund'
+
+
+def metodvariant(slug=None, kid=None):
+    """Den valda metodvarianten: armens i ett metodförsök med variabeln metodvariant (ab.py forbered-skiss), annars
+    NWP_METODVARIANT; en okänd stoppar skissen i stället för att tyst köra grundvarianten."""
+    v = METODVARIANT
+    if slug is not None and kid is not None:
+        import ab
+        v = ab.skissvariant(slug, kid) or v
+    if v not in METODVARIANTER:
+        raise ValueError('okänd metodvariant %r (NWP_METODVARIANT): %s' % (v, ', '.join(METODVARIANTER)))
+    return v
 PASS_OMGANGAR = 2  # F03: passets omgångar, det första och ett uttryckligt nytt försök (begar_nytt_passforsok); ingen slinga
 FRIST_PASS = int(os.environ.get('NWP_KANDIDAT_FRIST_PASS') or 720)  # ett kompetenspass: läsningen, en omgång och en bekräftelse
 FRIST_PASS_OMFORSOK = 420  # ett pass som inte läste sina filer får ett omförsök
@@ -1431,11 +1448,17 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         '   anpassas till riktningen, mallens CSS och CSP:n (inga paket installeras på egen hand; kunskap/beroenden.md), och källan,',
         '   författaren, licensen och beroendena skrivs i RIKTNING.md under Referenser.',
         '1. Skriv %s med överst raden `Huvudreferens: <namn> — <vad den bär i skissen>` (eller `Huvudreferens: egen — …`, eller' % rel(d / 'RIKTNING.md'),
-        '   flera namn), sedan hypotesen i en mening, och rubriken "Idén" med idén och varför den passar kunden. Bygg sedan en',
+        '   flera namn), sedan hypotesen i en mening, och rubriken "Idén" med idén och varför den passar kunden.%s' % (
+            ' Skriv därefter, före' if metodvariant(slug, kid) == 'h01' else ' Bygg sedan en'),
+        *(['   kod, rubriken "Visuellt mål (preliminärt)" med fem korta rader, var och en knuten till en utpekad referensbild',
+           '   (vägen): huvudkompositionen; de typografiska rollerna och hierarkin; bildernas uppgift och beskärning; kontrast,',
+           '   täthet och rytm; de kvaliteter i referensen som ska bevaras. Efter första renderingen jämför du bilderna med målet;',
+           '   ändrar du målet skriver du under "Omprövat mål" det observerade problemet och skälet. Bygg sedan en'] if metodvariant(slug, kid) == 'h01' else []),
         '   första version och titta på den före rubriken "Referenslås" (refero-design: de observerbara egenskaper som bär',
         '   referensens kvalitet, i komposition, skala, kontraster, rytm, bildregi, typografi och detaljer i mobil och dator, vad',
         '   som lånas, vad som väljs bort och vad som ersätter det): låset skrivs efter första renderingen och får ändras. Skriv',
-        '   också en kort beslutsliggare (beslut, källa, roll, varför); rubriken "Referenser" med de faktiska referenserna (sökväg',
+        '   också en kort beslutsliggare för de betydande vägvalen (beslutet, problemet det löser, underlaget och källan, rollen,',
+        '   det övervägda alternativet, antagandet och hur effekten bedöms); rubriken "Referenser" med de faktiska referenserna (sökväg',
         '   eller adress) och vilka bilder du öppnade; rubriken "Material" med det kunden saknar; och rubriken "Kompetenserna" med',
         '   alternativen du valde och vilken synlig förbättring varje kompetens bidrog till, eller var en skill inte passade och',
         '   varför (att en fil lästs är inget resultat). När skissen är byggd: rubriken "%s" med två korta listor, det som' % OVERFORT,
@@ -1460,7 +1483,8 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
             rel(d / skapande.KOMPLETTERING), skapande.KOMPLETTERINGSFORMAT),
            'orkestratorn hämtar det och startar en ny session med resultatet, inom samma tid (högst en gång per kandidat).'] if erbjud else []), '',
         'Du är klar när skissen är byggd och renderad i 390, 1280 och 1440, du har tittat på bilderna, och RIKTNING.md har',
-        'huvudreferensen, idén, referenserna, referenslåset, hypotesen, det överförda och avvikelserna, de kvarvarande',
+        'huvudreferensen, idén, %sreferenserna, referenslåset, hypotesen, det överförda och avvikelserna, de kvarvarande' % (
+            'det preliminära visuella målet (och ett omprövat mål med skälet), ' if metodvariant(slug, kid) == 'h01' else ''),
         'svagheterna, varven, materialet och kompetensernas synliga bidrag.',
         'Ingen annan session ändrar',
         'skissen före ägarens val.', atelje.MATERIAL])
@@ -1869,7 +1893,7 @@ def skissa(slug, kid, fel=None):
     forbered_projekt(slug, kid)
     stilpaket_i_projekt(slug, kid)
     satt_status(slug, kid, 'under_arbete', 'skiss, försök %d' % forsok, forsok=forsok, startad=startad, frist=frist,
-                metod=dict(st.get('metod') or {}, skiss=metodinfo(slug, 'skiss')['sha']), ta_bort=('tekniskt_fel', 'skisskritik'),
+                metod=dict(st.get('metod') or {}, skiss=metodinfo(slug, 'skiss')['sha'], variant=metodvariant(slug, kid)), ta_bort=('tekniskt_fel', 'skisskritik'),
                 skaparinstallningar={'begart': installningar, 'observerat': {'modell': None, 'effort': None}})
     d = kdir(slug, kid)
     res, sessioner, sessionsfel = None, [], []

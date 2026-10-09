@@ -1,7 +1,9 @@
 """Ett avgränsat försök i befintliga A/B-poster och kandidatflödet.
 
-Två ännu inte arbetade kandidater får samma uppdrag. Bara skisskaparens effort
-lottas. Förberedelsen startar inga sessioner och ger inget körmandat. Gemensamma
+Två ännu inte arbetade kandidater får samma uppdrag. Bara en variabel lottas:
+skisskaparens effort (medium mot high) eller skissens metodvariant (grund mot h01,
+det preliminära visuella målet före kod; kunskap/autonomi.md, Kvalitetsprovet).
+Förberedelsen startar inga sessioner och ger inget körmandat. Gemensamma
 källor versionsbinds före start och kontrolleras också när resultatet tas fram.
 Det är ett identitetslås, inte en oföränderlig filsystemkopia eller bevis för att
 externa tjänster kommer att svara lika. Ingen kvalitetsvinst antas.
@@ -26,6 +28,7 @@ PLANFILER = ('KANDIDATPLAN.json', 'KANDIDATPLAN.md', 'FORSKNING.json', 'FORSKNIN
 METODROTTER = ('kontroller', 'kunskap', 'kritik', 'mall', '.claude/skills')
 IGNORERA = {'node_modules', '__pycache__', '.DS_Store'}
 ID = re.compile(r'skiss-[a-z0-9-]{2,60}-[a-f0-9]{12}')
+VARDEN = {'effort': ('medium', 'high'), 'metodvariant': ('grund', 'h01')}  # variabeln och dess två armar
 
 
 def vanlig(p, root, saknas=False):
@@ -129,9 +132,11 @@ def gemensamt(slug, ids):
                                         'NWP_ATELJE_', 'NWP_SKISS', 'NWP_OBSERVATION', 'NWP_SANDLADA'))}}}
 
 
-def forbered(ab, slug, kid):
+def forbered(ab, slug, kid, variabel='effort'):
     if not re.fullmatch(r'[a-z0-9-]{2,60}', slug) or not kd.ID.fullmatch(kid):
         raise ValueError('ogiltigt bygge eller kandidat')
+    if variabel not in VARDEN:
+        raise ValueError('variabeln är %s' % ' eller '.join(VARDEN))
     if os.environ.get('CLAUDE_CODE_EFFORT_LEVEL'):
         raise ValueError('metodförsöket kräver en miljö utan CLAUDE_CODE_EFFORT_LEVEL; ändra inte användarinställningarna')
     r, root = kd.rot(slug), atelje.ROOT
@@ -166,9 +171,9 @@ def forbered(ab, slug, kid):
         # Kandidatnummer är arbetsadresser, inte behandling. Samma designbrief i båda kontexterna.
         uppdrag = re.sub(r'^# Uppdrag k\d{2}.*$', '# Gemensamt designuppdrag', ursprung, count=1, flags=re.M)
         uppdrag = re.sub(r'^Kandidat \d+ av \d+[^\n]*\n?', '', uppdrag, flags=re.M)
-        varden = ['medium', 'high']; ab.random.shuffle(varden)
+        varden = list(VARDEN[variabel]); ab.random.shuffle(varden)
         ident = 'skiss-%s-%s' % (slug, uuid.uuid4().hex[:12])
-        post = {'schema': 1, 'id': ident, 'slug': slug, 'pass': 'skisskapare', 'variabel': 'effort',
+        post = {'schema': 1, 'id': ident, 'slug': slug, 'pass': 'skisskapare', 'variabel': variabel,
                 'status': 'forbereder', 'tid': ab.nu(), 'kandidater': ids, 'varden': dict(zip(ids, varden)),
                 'ursprung': {'plan': json.loads(gammal_plan), 'uppdrag': ursprung, 'material': copy.deepcopy(material)},
                 'domlogg_prefix': {'bytes': len(vanlig(atelje.UNDERLAG / slug / skapande.DOMLOGG, root, saknas=True) or b''),
@@ -225,12 +230,12 @@ def las_post(ab, slug):
         raise ValueError('ogiltig metodförsöksidentitet')
     p = las(ab.AB / (ident + '.json'), atelje.ROOT)
     ids = p.get('kandidater')
-    if (p.get('schema') != 1 or p.get('pass') != 'skisskapare' or p.get('variabel') != 'effort'
+    if (p.get('schema') != 1 or p.get('pass') != 'skisskapare' or p.get('variabel') not in VARDEN
             or p.get('id') != ident or p.get('slug') != slug or p.get('status') != 'forberedd'
             or not isinstance(ids, list) or len(ids) != 2
             or any(not isinstance(k, str) or not kd.ID.fullmatch(k) for k in ids) or len(set(ids)) != 2
             or set(ids) != set(plan.get('kandidater', {})) or not isinstance(p.get('varden'), dict)
-            or set(p['varden']) != set(ids) or sorted(str(v) for v in p['varden'].values()) != ['high', 'medium']
+            or set(p['varden']) != set(ids) or sorted(str(v) for v in p['varden'].values()) != sorted(VARDEN[p['variabel']])
             or not isinstance(p.get('gemensamt'), dict)):
         raise ValueError('metodförsöket är ofullständigt eller ändrat')
     if plan.get('metodforsok_varden_sha') != sha(json.dumps(p['varden'], sort_keys=True).encode()):
@@ -239,9 +244,12 @@ def las_post(ab, slug):
         st = kd.las_status(slug, k)
         begarda = [x.get('begard_installning') for x in st.get('forsok_tider') or [] if isinstance(x, dict)]
         begarda.append((st.get('skaparinstallningar') or {}).get('begart'))
-        vantat = dict(p['gemensamt'].get('installningar', {}).get('skapare') or {}, effort=p['varden'][k])
+        vantat = dict(p['gemensamt'].get('installningar', {}).get('skapare') or {},
+                      **({'effort': p['varden'][k]} if p['variabel'] == 'effort' else {}))
         if any(b is not None and b != vantat for b in begarda):
             raise ValueError('försökets tilldelning motsäger skaparens bokförda inställning')
+        if p['variabel'] == 'metodvariant' and (st.get('metod') or {}).get('variant') not in (None, p['varden'][k]):
+            raise ValueError('försökets metodvariant motsäger skissens bokförda variant')
     return p
 
 
@@ -260,7 +268,17 @@ def val(ab, slug, kid, standard):
         return standard
     if kid not in p['kandidater']:
         raise ValueError('kandidaten ingår inte i metodförsöket')
-    return dict(standard, effort=p['varden'][kid])
+    return dict(standard, effort=p['varden'][kid]) if p['variabel'] == 'effort' else standard
+
+
+def variant(ab, slug, kid):
+    """Armens metodvariant i ett försök med variabeln metodvariant, annars None (då gäller standarden)."""
+    p = krav(ab, slug)
+    if not p or p['variabel'] != 'metodvariant':
+        return None
+    if kid not in p['kandidater']:
+        raise ValueError('kandidaten ingår inte i metodförsöket')
+    return p['varden'][kid]
 
 
 def avslutad(ab, slug, kid):
@@ -333,7 +351,9 @@ def resultat(ab, slug):
         svar += [None] * len(saknade)
         armar[k] = {'status': st.get('status'), 'version': st.get('version'), 'forsok': st.get('forsok_tider') or [],
                     'fel': st.get('skal'), 'anvandning': autonomi.summa(svar), 'saknade_svar': sorted(saknade),
-                    'begard': {'modell': p['gemensamt']['installningar']['skapare']['modell'], 'effort': p['varden'][k]},
+                    'begard': {'modell': p['gemensamt']['installningar']['skapare']['modell'],
+                               'effort': p['varden'][k] if p['variabel'] == 'effort' else p['gemensamt']['installningar']['skapare'].get('effort'),
+                               **({'metodvariant': p['varden'][k]} if p['variabel'] == 'metodvariant' else {})},
                     'observerad_effort': None, 'observerad_modell': None,
                     'observationsskal': 'Ingen oberoende observation av effektiv effort/modell i denna sammanställning.'}
     return {'id': p['id'], 'jamforbara_kallor': not fel, 'fel': fel, 'armar': armar,

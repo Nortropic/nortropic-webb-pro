@@ -47,9 +47,14 @@ def nu():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
-def forbered_skiss(slug, kid):
+def forbered_skiss(slug, kid, variabel='effort'):
     import ab_skiss
-    return ab_skiss.forbered(sys.modules[__name__], slug, kid)
+    return ab_skiss.forbered(sys.modules[__name__], slug, kid, variabel)
+
+
+def skissvariant(slug, kid):
+    import ab_skiss
+    return ab_skiss.variant(sys.modules[__name__], slug, kid)
 
 
 def skissval(slug, kid, standard):
@@ -75,7 +80,7 @@ def skissresultat(slug):
 def skisskommando(a):
     try:
         if a.kommando == 'forbered-skiss':
-            p = forbered_skiss(a.slug, a.kandidat)
+            p = forbered_skiss(a.slug, a.kandidat, a.variabel)
             print('Förberett %s; inga sessioner startade. Kräver mandat för underlag och budget före körning.' % p['id'])
             print('Kör sedan befintligt prototypflöde med --fortsatt. Bedöm bilderna blint i Prototyp före resultatet.')
         else:
@@ -281,9 +286,11 @@ def main(argv=None):
     sub.add_parser('lista')
     h = sub.add_parser('hash', help='sätt saknad dist-hash för en äldre, ovald jämförelse')
     h.add_argument('id')
-    f = sub.add_parser('forbered-skiss', help='förbered medium mot high i skisskaparen; startar inga sessioner')
+    f = sub.add_parser('forbered-skiss', help='förbered två armar i skisskaparen (effort eller metodvariant); startar inga sessioner')
     f.add_argument('slug')
     f.add_argument('--kandidat', default='k01')
+    f.add_argument('--variabel', default='effort', choices=('effort', 'metodvariant'),
+                   help='effort: medium mot high; metodvariant: grund mot h01 (preliminärt visuellt mål före kod)')
     r = sub.add_parser('skissresultat', help='mått efter ägarens blinda val; ändrar inga standardvärden')
     r.add_argument('slug')
     a = p.parse_args(argv)
