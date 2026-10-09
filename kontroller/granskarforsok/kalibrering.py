@@ -67,7 +67,7 @@ LACKAGE_GRANS = ('Provet fångar bara ordagranna spår av de prövade exemplen (
 
 
 def undanhallna(underlag=None):
-    return [e for e in gr.kalibreringsexempel(underlag) if not e['ankare'] and e['bilder']]
+    return [e for e in gr.kalibreringsexempel(underlag) if not e['ankare'] and not e.get('historik') and e['bilder']]
 
 
 def forbered(e, ut, underlag=None):

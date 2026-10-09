@@ -48,6 +48,17 @@ class Kalibrering(unittest.TestCase):
     def domar(self, d):
         (self.k / 'DOMAR.json').write_text(json.dumps(d))
 
+    def test_ett_historiskt_ankare_ar_varken_ankare_eller_provat(self):
+        # ägarens beslut 2026-10-09 om K03: bilderna och domen bevaras som historik
+        (self.k / 'ANKARE.txt').write_text('K01 · ankare\nK02 · historik · ankare till 2026-10-09\n')
+        ex = {e['id']: e for e in gr.kalibreringsexempel(self.u)}
+        self.assertEqual((ex['K02']['ankare'], ex['K02']['historik']), (False, True))
+        self.assertEqual([e['id'] for e in kf.undanhallna(self.u)], [], 'det historiska ankaret prövades som undanhållet')
+        rdir = self.u.parent / 'omgang'
+        rdir.mkdir()
+        md, bilder = gr.frysta_ankare(rdir, self.u)
+        self.assertNotIn('K02', ' '.join(str(b) for b, _t in bilder), 'det historiska ankaret frystes som ankare')
+
     def test_frysningen_fore_domarna_och_brotten(self):
         ids = ['K14', 'K17']
         f = kf.frys(ids, 'opus[1m]', 'high', self.u)

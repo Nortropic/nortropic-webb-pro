@@ -382,13 +382,13 @@ def kalibreringsexempel(underlag=None):
     är namngivna sajter, några av dem lokala verksamheters; i uppdraget fryses bara ankarna (frysta_ankare)."""
     rot = Path(underlag or UNDERLAG) / 'kalibrering'
     domar = las_json(rot / 'DOMAR.json') or {}
-    ankare = set()
+    ankare, historik = set(), set()
     f = rot / 'ANKARE.txt'
     if f.is_file():
         for rad in f.read_text(encoding='utf-8').splitlines():
             delar = [d.strip() for d in rad.split('·')]
-            if len(delar) >= 2 and re.fullmatch(r'K\d{2}', delar[0]) and delar[1] == 'ankare':
-                ankare.add(delar[0])
+            if len(delar) >= 2 and re.fullmatch(r'K\d{2}', delar[0]) and delar[1] in ('ankare', 'historik'):
+                (ankare if delar[1] == 'ankare' else historik).add(delar[0])
     ut = []
     for ident in sorted(domar) if isinstance(domar, dict) else []:
         d = domar[ident]
@@ -396,7 +396,9 @@ def kalibreringsexempel(underlag=None):
             continue
         # första vyn i båda bredderna och helsidan i 1440: ribban gäller hela sidan, inte bara första vyn (granskningen av r53)
         bilder = [rot / ident / 'start' / v for v in ('vy-390-forsta.png', 'vy-1440-forsta.png', 'vy-1440-hela.png') if (rot / ident / 'start' / v).is_file()]
-        ut.append({'id': ident, 'niva': d['niva'], 'skiljer': (d.get('skiljer') or '').strip(), 'bilder': bilder, 'ankare': ident in ankare})
+        # historik (ägarens beslut 2026-10-09 om K03): bilderna och domen bevaras, men exemplet är varken ankare eller prövas
+        ut.append({'id': ident, 'niva': d['niva'], 'skiljer': (d.get('skiljer') or '').strip(), 'bilder': bilder, 'ankare': ident in ankare,
+                   'historik': ident in historik and ident not in ankare})
     return ut
 
 
