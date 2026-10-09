@@ -384,6 +384,21 @@ try {
   for (const [text, g] of [['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'], ['Dokumentation och rapporter', 'Rapporter'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring']])
     assert.equal(grupp(text), g, `Fler vyer ska ha ${text} under ${g}`);
   await page.locator('.ay-meny summary').click();
+  // menyn går att använda i varje bredd: flikraden rullar i sidled under 900 px och klippte förut hela listan (0 av 13 nåbara)
+  for (const w of [1440, 390, 320]) {
+    await page.setViewportSize({ width: w, height: 900 }); await ram();
+    await page.locator('.ay-meny summary').scrollIntoViewIfNeeded();
+    await page.locator('.ay-meny summary').click();
+    await meny.waitFor();
+    // utan att rulla något: en länk som bara syns när flikraden själv rullas på höjden är inte nåbar
+    const traffar = await meny.evaluate((n) => [...n.querySelectorAll('a')].map((a) => {
+      const r = a.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return [a.textContent.trim(), !!e && (e === a || a.contains(e)) && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight];
+    }));
+    assert.deepEqual(traffar.filter(([, ok]) => !ok).map(([t]) => t), [], `Fler vyer vid ${w} px: varje länk ska synas och gå att klicka`);
+    await page.locator('.ay-meny summary').click();
+  }
+  await page.setViewportSize({ width: 1440, height: 900 }); await ram();
   sammanfattning.lagen_med_text.byggflode = await statustexter('Byggflöde');
   await axeKor('Byggflöde 1440');
   await bild('byggflode', 1440);
