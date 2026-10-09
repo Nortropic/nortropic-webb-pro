@@ -402,6 +402,22 @@ else
 fi
 SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} ${GODKAND:+--fryst-underlag} ${SANDLADA[@]+"${SANDLADA[@]}"})" || stopp "inställningarna (kontroller/sandlada.py) kunde inte skapas"
 if [ "$SETTINGS" != "{}" ]; then ARGS+=(--settings "$SETTINGS"); fi
+# R06: med NWP_ARBETSROT=kundrepo och ett kundrepo startar byggsessionen i kunder/$SLUG/kundrepo (kontroller/arbetsrot.py),
+# som skapandeflödets sessioner: absoluta regler, motorns rot genom --add-dir, projektets krokar i --settings och inget
+# skrivande i kundrepot. Standard är motorns rot tills det verkliga sessionsprovet gett belägg (kontroller/formagoprov.py).
+ARBETSROT="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/arbetsrot.py" rot "$SLUG")" || stopp "arbetsroten kunde inte bestämmas (kontroller/arbetsrot.py rot)"
+if [ "$ARBETSROT" != "$ROOT" ]; then
+  AR="$ROOT/kunder/$SLUG/korningar/$STAMP"
+  printf '%s\0' "${ARGS[@]}" > "$AR/arbetsrot-fore.args"
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/arbetsrot.py" bygge "$SLUG" < "$AR/arbetsrot-fore.args" > "$AR/arbetsrot.args" \
+    || stopp "byggsessionens argument i kundrepot kunde inte skapas (kontroller/arbetsrot.py bygge)"
+  ARGS=()
+  while IFS= read -r -d '' x_; do ARGS+=("$x_"); done < "$AR/arbetsrot.args"
+  [ ${#ARGS[@]} -gt 10 ] || stopp "byggsessionens argument i kundrepot är tomma (kontroller/arbetsrot.py bygge)"
+  PROMPT="$(printf '%s' "$PROMPT" | "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/arbetsrot.py" prompt "$SLUG")" \
+    || stopp "byggets uppdrag i kundrepot kunde inte skapas (kontroller/arbetsrot.py prompt)"
+  echo "arbetsroten är kundrepot: $ARBETSROT (NWP_ARBETSROT=kundrepo)"
+fi
 
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort; bygget skriver
 # aldrig i ägarens automatiska minne (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 nedan, kontroller/nastlad.py).
@@ -477,8 +493,10 @@ except OSError:
     pass
 os.execvp(sys.argv[1], sys.argv[1:])'
 FAS=bygge
+cd "$ARBETSROT"   # R06: sessionens arbetskatalog; kor.sh själv arbetar vidare i motorns rot (nedan)
 printf '%s' "$PROMPT" | env "${RENSA[@]}" CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 NWP_SLUG="$SLUG" NWP_KORNING="$STAMP" NWP_COMMIT_TILLATET="backlog/" NWP_SANDLADA="${NWP_SANDLADA:-av}" ${WT_ENV[@]+"${WT_ENV[@]}"} "$ROOT/.venv/bin/python" -B -c "$SESSION" claude "${ARGS[@]}" > "$LOGG" 2>&1 3>&- 4>&- 8>&- 9>&- &
 CLAUDE_PID=$!
+cd "$ROOT"
 vakt_skriv "claude $CLAUDE_PID"
 if [ -n "$AVBRUTEN" ]; then  # en signal innan pid:en var känd
   kill -TERM -- "-$CLAUDE_PID" 2>/dev/null || kill -TERM "$CLAUDE_PID" 2>/dev/null || true

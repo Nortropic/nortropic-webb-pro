@@ -318,13 +318,20 @@ Ett tidigare designval, till exempel en färg, är inget förbud. Ett drag ur en
 verksamhetens material, och skälet ska också svara på kritiken mot den.
 
 **Arbetsroten** (R06; beställningen i BESLUT.md, tillägget 2026-10-07 punkt 3–4): med `NWP_ARBETSROT=kundrepo` startar
-ateljéns sessioner i kundprojektets eget repo (`kunder/<slug>/kundrepo`, `kontroller/kundrepo.py`). Kundrepot är ett eget
-git-repo, så kundens korta CLAUDE.md är projektkontexten; motorns skills och filer nås genom `--add-dir`, och varje regel,
-sökväg och kommando görs absolut (`atelje.regel_absolut`, `text_absolut`), så att datagränserna gäller oförändrade.
-Standard är motorns rot tills ett verkligt sessionsprov (init-beskedet) visat vilka CLAUDE.md, skills och MCP:er som
-laddas i kundrepots rot; helbygget (kor.sh) har ännu motorns rot. Skissens sparade kvitto bär hela kvittoformen, och
-kärnan står som läst bara när varje session observerades (R03); materialsteget nås av rollen komposition genom ett
-kandidatavgränsat verktyg (`material.py <slug> --kandidat <id>`; R05).
+kundens arbetssessioner i kundprojektets eget repo (`kunder/<slug>/kundrepo`, `kontroller/kundrepo.py`) med dess korta
+CLAUDE.md: kandidatskissen, kandidatförfiningen och de andra sessionerna i skapandeflödet (med slug), de äldre vägarna
+med riktningar, utforskningen, förfiningen och panelen (med `arbetsslug`, utan MCP:er som förut), och helbygget genom
+kor.sh (`kontroller/arbetsrot.py`, med projektets krokar, stoppvakten och commitvakten, i `--settings`). Motorns skills och
+filer nås genom `--add-dir`, varje regel, sökväg och kommando görs absolut (`atelje.regel_absolut`, `text_absolut`), så att
+datagränserna gäller oförändrade, och sessionen skriver aldrig i kundrepot (Write och Edit nekas där, och sandlådan nekar
+Bash det). Ett kundrepo med egna Claude Code-inställningar används aldrig som arbetsrot. Granskarna i helbygget
+(`granska.py`) är domare, inte arbetssessioner, och har motorns rot. Växeln är av som standard: vilka CLAUDE.md, skills och
+MCP:er Claude Code faktiskt laddar i kundrepots rot, och om motorns CLAUDE.md i en katalog ovanför kommer med, visar först
+det verkliga förmågeprovet (`kontroller/formagoprov.py`, ägarens klartecken). Skissens sparade kvitto bär hela
+kvittoformen, och kärnan står som läst bara när varje session observerades (R03); materialsteget nås av rollen
+komposition genom ett kandidatavgränsat verktyg (`material.py <slug> --kandidat <id>`; R05) som prövar den slutligt
+tolkade kandidaten och visar och använder bara kandidatens egna och det uttryckligen gemensamma kundmaterialet; registret
+läses aldrig direkt (N02).
 
 **Det aktiva urvalet** (ren start för Nortropic 2.0, ägarens uppdrag 2026-10-08, del 2): `underlag/<slug>/atelje/URVAL.json`
 (`kontroller/urval.py`) skrivs när en körning startar och säger vilken historik som är inkopplad. Standard är av: andra
