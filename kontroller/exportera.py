@@ -52,7 +52,8 @@ LACKA = [(re.compile(p), skal) for p, skal in (
     (r'/Users/|/private/tmp/|/home/[a-z]', 'en lokal sökväg'),
     (r'\bunderlag/[a-z0-9-]+/|LARDOMAR-original|DESIGNDOMAR|RIKTNINGSHISTORIK|REFERENSUPPDRAG|TJANSTEUPPDRAG|/kalibrering/', 'Nortropics privata underlag'),
     (r'\bre_[A-Za-z0-9]{6,}_[A-Za-z0-9]{16,}|\bre_[A-Za-z0-9]{16,}|\bsk-[A-Za-z0-9_-]{20,}|\bghp_[A-Za-z0-9]{20,}|\bvercel_blob_rw_[A-Za-z0-9_]{10,}', 'en nyckel'),
-    (r'(RESEND_API_KEY|BLOB_READ_WRITE_TOKEN|REFERO_MCP_TOKEN|CLOUDFLARE_API_TOKEN|CF_API_TOKEN)[ \t]*[=:][ \t]*["\']?[^\s#"\']', 'ett nyckelvärde'),
+    # också i JSON och YAML: namnet inom citattecken före kolon ("CLOUDFLARE_API_TOKEN": "…")
+    (r'(RESEND_API_KEY|BLOB_READ_WRITE_TOKEN|REFERO_MCP_TOKEN|CLOUDFLARE_API_TOKEN|CF_API_TOKEN)["\']?[ \t]*[=:][ \t]*["\']?[^\s#"\']', 'ett nyckelvärde'),
 )]
 HANVISNINGAR = re.compile(r'nortropic-webb-pro|\bkontroller/[a-z_]+\.py')
 
