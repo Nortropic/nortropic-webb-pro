@@ -126,6 +126,8 @@ def kopiera_repo(fran, till):
         else:
             shutil.copy2(k, till / f)
     for lank in ('.venv', 'kontroller/node_modules', 'mall/astro/node_modules'):
+        if (till / lank).is_symlink() or (till / lank).exists():  # en ögonblicksbild har redan länken bland filerna
+            continue
         if (fran / lank).exists():
             os.symlink((fran / lank).resolve(), till / lank)
 
