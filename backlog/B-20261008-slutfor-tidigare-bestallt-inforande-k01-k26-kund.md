@@ -6,7 +6,7 @@ kallref: BESLUT.md
 skapad: 2026-10-08
 prio: hog
 steg: efter backlogavstämningen; samordnat med B-20261008-ren-start-for-nortropic-2-0-och-samlad-startbesi; BESLUT.md; GR-20261008-bestallning-mot-leverans-codex.md
-andrad: 2026-10-09T10:06Z
+andrad: 2026-10-09T10:33Z
 ---
 # Slutför tidigare beställt införande: K01–K26, kundrepon, Vercel, 21st, materialsteget, planprövningens återgång (ägarens uppdrag 2026-10-08 ~14:58Z, köat)
 
@@ -192,3 +192,5 @@ Samordna med det redan köade arbetet för ren 2.0-start och samlad startkontrol
 **Pagar (2026-10-09):** 2026-10-09: GR-20261009-metod-till-resultat-codex#F01 rättad (5ad34aa): planprövningen stämplar bara uppdrag med en unik, användbar bedömning; dubbla, okända, ogiltiga och saknade lämnar uppdraget oprövat och stoppat före skaparen med skälet; omprövningen bevarar de oförändrades bedömning. prov_metodglapp Planprovningstackning (7 fall genom kor, falsk modell), rött mot b427aa7 och grönt efter.
 
 **Pagar (2026-10-09):** R06 (2A): förmågeprovets S1 på main bcfb70e 10:04Z (underlag/formagoprov/20261009t1004): sessionen startade i kundrepot, kundrepots CLAUDE.md fanns i kontexten, skillen aktiverades, briefen gick att läsa, den andra kandidaten och skrivningen i kundrepot nekades. Men motorns CLAUDE.md fanns också i kontexten: kundrepot ligger under motorns rot, och Claude Code läser CLAUDE.md i katalogerna ovanför. Växeln står kvar av. Kvar för R06: ett kundrepo utanför motorns rot, eller ett prövat sätt att utesluta motorns CLAUDE.md, och ett nytt verkligt S1. S1 prövar nu också skaparens tillåtna skrivning i den egna sajt/src (S1.egen_skrivning).
+
+**Pagar (2026-10-09):** R06 (2A), förmågeprovet kört om på main 7a4a596 10:31Z (underlag/formagoprov/20261009t1031): samma som körning 1 (motorns CLAUDE.md med i kontexten ovanifrån), och den nya punkten S1.egen_skrivning föll: skaparens Write i den egna kandidatens sajt/src nekades med "don't ask mode", trots den absoluta tillåtelseregeln (Write(//<rot>/kunder/<slug>/kandidater/k01/sajt/src/**)) och --add-dir till motorns rot. Orsaken är inte utredd (en hypotes: --add-dir till en katalog ovanför arbetskatalogen räknas inte som arbetskatalog för skrivning). Med kundrepot som arbetsrot kan skaparen alltså i dag inte arbeta; växeln står av, och skapandeflödet och kvalitetsprovet körs med motorns rot.
