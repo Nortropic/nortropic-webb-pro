@@ -45,7 +45,17 @@ function ateljesession(id, roll, ansvar, kandidat, start, lage, lageText, handel
     aktivitet: { handelser, antal: handelser.length, pagaende, senaste_handelse: (handelser.at(-1) || {}).tid || null } };
 }
 function avsluta(s, min) { Object.assign(s, { lage: 'avslutad', lage_text: 'avslutad ' + T(min), slut: T(min), utfall: 'avslutad, kod 0', aktivitet: { ...s.aktivitet, pagaende: [] } }); }
-const S = { blind: true, sessioner: [], partner: [], handlingar: [], startjournal: [], k01: 'klar', k01v: V1, k01versioner: [V1], utanKandidater: false };
+const S = { blind: true, sessioner: [], partner: [], handlingar: [], startjournal: [], k01: 'klar', k01v: V1, k01versioner: [V1], utanKandidater: false,
+  medd: [], pausad: null, projektpaus: null };
+const BILDSHA = '8'.repeat(64);
+// meddelandebussen i ägarens vy (dashboard/samverkan.py lage): agentens text döljs före första valet
+const STEGN = ['sparat', 'koat', 'mottaget', 'besvarat'];
+function meddelandeVy() {
+  return { tid: new Date().toISOString(), korning: S.korning.id, blind: S.blind, oppna: S.medd.filter((m) => m.agent && !m.beslut).map((m) => m.id), mandat: [], pausade: [],
+    styrning: { projekt: S.projektpaus, sessioner: {} }, syften: {}, lagen: {},
+    meddelanden: S.medd.map((m) => ({ ...m, lage_text: m.lage, handelser: STEGN.slice(0, STEGN.indexOf(m.lage) + 1).map((l) => ({ tid: T(5), lage: l })),
+      ...(S.blind && m.agent ? { text: 'visas efter ditt första val i körningen', belagg: [], dolt: true } : {}) })) };
+}
 function nyVersion(v) { S.k01v = v; S.k01versioner.push(v); }
 // de bevarade versionerna ägaren får se (arbetsyta.synliga_versioner): före första valet bara den aktuella
 const synligaVersioner = () => (S.blind ? [S.k01v] : S.k01versioner).map((v) => v.slice(0, 12));
@@ -69,7 +79,8 @@ function kandidater() {
     { id: 'k01', etikett: 'Förslag A', status: S.k01, statustext: { klar: 'klar, väntar på ditt val', vald: 'vald', under_arbete: 'byggs om' }[S.k01] || S.k01,
       version: S.k01v.slice(0, 12), version_hel: S.k01v, fotograferad: S.k01v,
       preview: { url: `/visa/${SLUG}/k01`, finns: true, byggd: T(20) },
-      snapshot: { 390: `kunder/${SLUG}/kandidater/k01/bilder/390-forsta.png`, 1440: `kunder/${SLUG}/kandidater/k01/bilder/1440-forsta.png`, version: S.k01v.slice(0, 12), tid: T(21) },
+      snapshot: { 390: `kunder/${SLUG}/kandidater/k01/bilder/390-forsta.png`, 1440: `kunder/${SLUG}/kandidater/k01/bilder/1440-forsta.png`, version: S.k01v.slice(0, 12), tid: T(21),
+        sha: { 390: '9'.repeat(64), 1440: BILDSHA } },
       versioner: synligaVersioner() },
     { id: 'k02', etikett: 'Förslag B', status: 'skapas', statustext: 'skapas', version: null, version_hel: null, fotograferad: null,
       preview: { url: `/visa/${SLUG}/k02`, finns: false, byggd: null }, snapshot: { 390: null, 1440: null, version: null, tid: null }, versioner: [] },
@@ -116,7 +127,9 @@ function roller(sess, k, partnerlage) {  // som arbetsyta.roller()
 let versionsnr = 0;
 function lage() {
   // före första valet döljer läget rollen (roll_dold); provet låter rollnamnet stå kvar, så att vyn inte får lita på att servern tömt det
-  const kand = kandidater(), p = partnerLage(false), sess = [p.session, ...S.sessioner.map((x) => ({ ...x, roll_dold: S.blind }))];
+  const kand = kandidater(), p = partnerLage(false), sess = [p.session, ...S.sessioner.map((x) => ({ ...x, roll_dold: S.blind,
+    styrning: x.roll === 'skapa-k01' && !x.slut ? { lopare: true, lever: true, blind: false, lage: S.pausad ? 'pausad' : 'arbetar', sedan: T(6), verktyg_kvar: [],
+      paus: S.pausad ? { omfattning: 'session', begard: T(6) } : null, kan_meddelas: true, kan_pausas: !S.pausad } : { lopare: false } }))];
   const steg = STEGNAMN.map((namn, i) => ({ nr: i + 1, namn, status: S.stegstatus[i], underlag: [], kontroller: [], beslut: [], brister: [], nasta: '',
     utfall: i === 0 ? [{ text: 'VERKSAMHET.json, verksamhetens uppgifter (testdata)', lank: `/fil/underlag/${SLUG}/VERKSAMHET.json`, tid: T(-60) }] : [] }));
   const moment = steg.find((s) => ['pågår', 'väntar på ägaren'].includes(s.status)) || steg.filter((s) => !['inte påbörjat', 'inte observerat'].includes(s.status)).at(-1);
@@ -126,7 +139,8 @@ function lage() {
       'Leverans inom angiven omfattning'].map((namn) => ({ namn, status: 'ej bedömt', varde: null, text: 'Syntetiskt besked för provet.' })) },
     moment: { nr: moment.nr, namn: moment.namn, status: moment.status }, korning: S.korning, kandidater: kand, helbygge: [], partner: p, sessioner: sess,
     startjournal: S.startjournal, roller: roller(sess, S.korning, p.lage), overlamningar: [], preview: preview(kand),
-    observation: { senast_last: new Date().toISOString(), ofullstandig: [] }, version: String(++versionsnr).padStart(16, '0') };
+    observation: { senast_last: new Date().toISOString(), ofullstandig: [] }, version: String(++versionsnr).padStart(16, '0'),
+    samverkan: { antal: S.medd.length, oppna: S.medd.filter((m) => m.agent && !m.beslut).length, nyckel: S.medd.map((m) => m.id + m.lage + (m.beslut ? 'b' : '')).join(), projektpaus: S.projektpaus, mandat: 0 } };
 }
 // en sida i den form ett bygge har den: ett sextiotal rader och en lång rad, så att kodvyn behöver rulla åt båda hållen
 const SIDA = ['---', "import Bas from '../layouts/Bas.astro';", "import Hero from '../components/Hero.astro';", "import Bild from '../components/Bild.astro';",
@@ -192,6 +206,22 @@ const srv = createServer(async (req, res) => {
       S.partner.push(m);
       return json(m);
     }
+    if (vag === `/api/arbetsyta/${SLUG}/meddelande`) {
+      const forra = S.medd.find((m) => m.id === body.id);
+      if (forra) return json({ ...forra, upprepat: true });
+      const m = { id: body.id, tid: new Date().toISOString(), avsandare: { typ: 'agare', klient: 'arbetsytan' }, mottagare: body.mottagare, syfte: body.syfte,
+        syfte_text: body.syfte === 'fraga' ? 'Fråga' : 'Ändringsinstruktion', text: body.text, kandidat: body.kandidat, version: body.version, korning: body.korning, agent: false, lage: 'sparat' };
+      S.medd.push(m);
+      return json({ ...m, upprepat: false });
+    }
+    const mb = vag.match(new RegExp(`^/api/arbetsyta/${SLUG}/meddelande/([A-Za-z0-9_-]+)/beslut$`));
+    if (mb) { const m = S.medd.find((x) => x.id === mb[1]); if (!m) return json({ fel: 'inget sådant meddelande' }, 400); m.beslut = { val: body.val, tid: new Date().toISOString() }; return json(m); }
+    if (vag === `/api/arbetsyta/${SLUG}/paus`) {
+      if (body.omfattning === 'session') S.pausad = body.aterta ? null : body.session_id;
+      if (body.omfattning === 'projekt') S.projektpaus = body.aterta ? null : { lage: 'pausad', lage_text: 'pausad: inga sessioner arbetar och ingen ny startar', begard: T(7) };
+      return json(meddelandeVy());
+    }
+    if (vag === `/api/arbetsyta/${SLUG}/beslut`) return json({ ok: true, dom: { tid: new Date().toISOString(), beslut: body.beslut } });
     if (vag === `/api/arbetsyta/${SLUG}/andring`) {
       if (++andringAnrop === 1) return json({ fel: `kandidaten har en ny version sedan du skrev ändringen (din ${String(body.version).slice(0, 12)}, nu 0a1b2c3d4e5f); stäm av mot den aktuella.`, slag: 'Inaktuell' }, 409);
       const upprepat = andringar.has(body.andring_id); andringar.add(body.andring_id);  // samma id ger samma rad (skicka_andring)
@@ -214,6 +244,7 @@ const srv = createServer(async (req, res) => {
     return;
   }
   if (vag === `/api/arbetsyta/${SLUG}/partner`) return json(partnerLage(true));
+  if (vag === `/api/arbetsyta/${SLUG}/meddelanden`) return json(meddelandeVy());
   if (vag === `/api/arbetsyta/${SLUG}/kod`) { const [k, d] = kod(url.searchParams); return json(d, k); }
   if (vag === `/api/arbetsyta/${SLUG}/logg`) return json(LOGG());
   if (vag === '/api/flode') return json({ slugar: [SLUG], pilot: [], kedjan: { steg: [{ steg: 'Kundunderlaget', vem: 'Kundstart samlar underlaget; du godkänner det.' },
@@ -804,6 +835,60 @@ try {
   sammanfattning.kodvyn_osynlig_version_laddas_om = true;
   await flikar.filter({ hasText: 'Arbetsyta' }).click();
   await page.locator('#ay-remsa').getByRole('heading', { name: 'Kontroller' }).waitFor();
+
+  // 14. Samverkan (2026-10-09): meddelandefliken, agentens text blindad, ett meddelande till sessionen som arbetar med samma id
+  // vid omförsök, pausens bekräftelse med omfattning, och beslutet under den bevarade bilden bundet till bildens hash
+  await page.setViewportSize({ width: 1440, height: 900 }); await ram();
+  const s14 = ateljesession('7d3e2c99-3e4f-4051-8cbd-2e3f4a5b6c7d', 'skapa-k01', 'utforande', 'k01', T(30), 'aktiv', 'processen lever', [handelse(31, 'Read')]);
+  S.sessioner.push(s14);  // en session med löpare som arbetar, för avsnittet
+  S.medd.push({ id: 'a-' + '1'.repeat(30), tid: T(4), avsandare: { typ: 'session', session_id: 'x', ansvar: 'granskning', kandidat: 'k01' }, mottagare: { typ: 'agare' },
+    syfte: 'granskningsfynd', syfte_text: 'Granskningsfynd', text: 'HEMLIG-BEDOMNING: rubriken bryts på fyra rader.', belagg: ['vy-390'], kandidat: 'k01', version: S.k01v, agent: true, lage: 'sparat' });
+  skickaLage();
+  await page.getByRole('tab', { name: /Meddelanden/ }).click();
+  await page.locator('#ay-samtal .ay-msg.agent').first().waitFor({ timeout: 5000 });
+  const agenttext = await page.locator('#ay-samtal .ay-msg.agent').first().innerText();
+  if (S.blind) assert(!agenttext.includes('HEMLIG-BEDOMNING') && /första val/.test(agenttext), 'agentens text döljs före första valet: ' + agenttext);
+  else assert(agenttext.includes('Inte dina ord'), 'agentens meddelande märks som inte ägarens ord');
+  assert.equal(await page.locator('#ay-oppna').innerText(), '1', 'räknaren visar meddelandet som väntar på dig');
+  await axeKor('Meddelanden 1440');
+  await page.locator('#ay-mottagare').selectOption({ value: `session:${s14.session_id}` });
+  await page.locator('[data-syfte="andringsinstruktion"]').click();
+  await page.locator('#ay-mtext').fill('Korta rubriken till två rader.');
+  const forePosts = posts.length;
+  await page.locator('#ay-skriv').getByRole('button', { name: 'Skicka' }).click();
+  await vantaPa(() => posts.length > forePosts, 'meddelandet skickas');
+  const mp = posts.at(-1);
+  assert.equal(mp.vag, `/api/arbetsyta/${SLUG}/meddelande`);
+  assert.deepEqual([mp.body.syfte, mp.body.mottagare.typ, mp.body.version, mp.body.korning], ['andringsinstruktion', 'session', S.k01v, S.korning.startad], 'meddelandet bär syfte, mottagare, hel version och körning');
+  await page.locator('#ay-mtext').fill('Korta rubriken till två rader.');
+  await page.locator('#ay-skriv').getByRole('button', { name: 'Skicka' }).click();
+  await vantaPa(() => posts.length > forePosts + 1, 'omförsöket skickas');
+  assert.equal(posts.at(-1).body.id, mp.body.id, 'samma meddelande vid omförsök: samma id');
+  sammanfattning.samverkan = { meddelande_id: 'o+hash', omforsok_samma_id: true, agenttext_blindad: S.blind };
+  // pausen: bekräftelsen säger omfattningen
+  await page.locator('[data-paus-session]').first().click();
+  const bekr = await page.locator('.ay-bekraftruta').filter({ hasText: 'Pausa bara den här sessionen' }).innerText();
+  assert(/resten av körningen fortsätter/.test(bekr) && /står kvar/.test(bekr), 'bekräftelsen säger omfattningen och att filändringar står kvar');
+  await page.locator('[data-paus-ja]').click();
+  await vantaPa(() => posts.some((p) => p.vag === `/api/arbetsyta/${SLUG}/paus` && p.body.omfattning === 'session' && p.body.session_id), 'pausen begärs för sessionen');
+  skickaLage();
+  await page.locator('#ay-roller').getByText(/Pausad/).first().waitFor({ timeout: 5000 });
+  await axeKor('Sessionerna, pausad');
+  await page.locator('[data-aterta-session]').first().click();
+  await vantaPa(() => posts.some((p) => p.vag === `/api/arbetsyta/${SLUG}/paus` && p.body.aterta), 'återupptagningen begärs');
+  sammanfattning.samverkan.paus = 'session med omfattning, återupptagen';
+  // beslutet under den bevarade bilden, bundet till bildens hash
+  const forraKorning = S.korning; S.korning = { ...S.korning, vantar_pa_agaren: true }; skickaLage();
+  await page.getByRole('button', { name: 'Visa bilden och besluta' }).click();
+  await page.locator('#ay-beslutsrad').getByRole('button', { name: 'Välj vidare' }).click();
+  await axeKor('Beslutsraden');
+  await page.locator('#ay-beslutsrad').getByRole('button', { name: 'Välj vidare' }).click();
+  await vantaPa(() => posts.some((p) => p.vag === `/api/arbetsyta/${SLUG}/beslut`), 'beslutet skickas');
+  const bp = posts.find((p) => p.vag === `/api/arbetsyta/${SLUG}/beslut`).body;
+  assert.deepEqual([bp.beslut, bp.kandidater[0].version, bp.sedd[0].bild_sha, bp.sedd[0].version], ['valj', S.k01v, BILDSHA, S.k01v], 'beslutet bär den version och bild som visas');
+  S.korning = forraKorning; S.sessioner.splice(S.sessioner.indexOf(s14), 1); skickaLage();
+  sammanfattning.samverkan.beslut = 'bundet till bildens hash';
+  await page.getByRole('tab', { name: /Partnern/ }).click();
 
   // 13. Inga sidfel; konsolfelen är bara de nätfel provet självt framkallar
   const avsiktliga = [/\/api\/flode\/prov-kund\/start$/, /\/api\/arbetsyta\/prov-kund\/andring$/, /\/api\/arbetsyta\/prov-kund\/strom$/, /\/api\/arbetsyta\/prov-kund\/kod$/];

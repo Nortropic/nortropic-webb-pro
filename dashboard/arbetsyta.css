@@ -127,6 +127,7 @@ body.ay-aktiv > main#vy { max-width: none; padding: 0; margin: 0; }
 .ay-underrubrik { font-size: 12.5px; color: var(--ay-dampad); font-weight: 600; margin: 10px 0 2px; }
 .ay-leverans { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0; margin: 8px 0 2px; font-size: 11.5px; }
 .ay-leverans li { padding: 1px 8px; border-radius: 99px; border: 1px solid var(--ay-linje2); color: var(--ay-svag); }
+.ay-msg.agaren .ay-leverans li[data-gjort="false"] { color: var(--ay-dampad); }  /* ägarens bubbla är mörkblå: den svaga färgen nådde 4,49:1 */
 .ay-leverans li[data-gjort="true"] { color: var(--ay-text); border-color: color-mix(in srgb, var(--ay-ok) 45%, var(--ay-linje2)); }
 .ay-leverans li[aria-current="step"] { background: color-mix(in srgb, var(--ay-ok) 18%, transparent); font-weight: 600; }
 .ay-leverans-text { margin: 8px 0 2px; font-size: 12.5px; color: var(--ay-varn); }
