@@ -5734,7 +5734,7 @@ const DB = (fel) => ({
     async run() { const u = lager.utkorg.find((x) => x.forfragan === st.args[5]); if (u) u.status = st.args[0]; return { meta: { changes: u ? 1 : 0 } }; } }; return st; },
   async batch([ins]) { if (fel) throw new Error('D1 svarar inte'); const [id, nyckel] = ins.args;
     if (lager.rader.some((x) => x.nyckel === nyckel)) return [{ meta: { changes: 0 } }, { meta: { changes: 0 } }];
-    lager.rader.push({ id, nyckel, bilaga: ins.args[6] }); lager.utkorg.push({ forfragan: id, status: 'vantar' }); return [{ meta: { changes: 1 } }, { meta: { changes: 1 } }]; } });
+    lager.rader.push({ id, nyckel, bilaga: ins.args[7] }); lager.utkorg.push({ forfragan: id, status: 'vantar' }); return [{ meta: { changes: 1 } }, { meta: { changes: 1 } }]; } });
 const R2 = { async put(k, b, o) { lager.r2.set(k, o.httpMetadata.contentType); return { key: k }; }, async delete(k) { lager.r2.delete(k); } };
 const ASSETS = { fetch: async () => new Response('<html>sida</html>', { headers: { 'content-type': 'text/html' } }) };
 const form = (f, bild) => { const fd = new FormData(); for (const [k, v] of Object.entries(f)) fd.append(k, v); if (bild) fd.append('bild', bild, 'b.jpg');
@@ -5751,9 +5751,10 @@ await kor(form({ ...g, telefon: '' }), prod);
 await kor(new Request('https://x.se/api/forfragan/', { method: 'POST', headers: { 'content-length': '5000000' }, body: 'x' }), prod);
 await kor(form(g), { MILJO: 'forhandsvisning' });
 await kor(form(g), { MILJO: 'produktion', DB: DB(true), BILAGOR: R2 });
-await kor(form({ ...g, inskick: 'prov-inskick-00000001' }, new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' })), konf, () => new Response('{"id":"m1"}', { status: 200 }));
-await kor(form({ ...g, inskick: 'prov-inskick-00000001' }), konf, () => new Response('{"id":"m2"}', { status: 200 }));
-await kor(form({ ...g, meddelande: 'Annan' }), konf, () => new Response('fel', { status: 500 }));
+const jpeg = () => new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' });
+await kor(form({ ...g, inskick: 'prov-inskick-00000001' }, jpeg()), konf, () => new Response('{"id":"m1"}', { status: 200 }));
+await kor(form({ ...g, inskick: 'prov-inskick-00000001' }, jpeg()), konf, () => new Response('{"id":"m2"}', { status: 200 }));
+await kor(form({ ...g, meddelande: 'Annan' }), konf, () => new Response('fel', { status: 422 }));
 await kor(form(g, new Blob([new Uint8Array(4200000)], { type: 'image/jpeg' })), prod);
 await kor(form(g, new Blob(['text'], { type: 'text/plain' })), prod);
 await kor(new Request('https://x.se/api/forfragan/', { method: 'POST', headers: { origin: 'https://annan.se' }, body: new FormData() }), prod);

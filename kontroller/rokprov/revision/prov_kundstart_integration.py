@@ -55,6 +55,11 @@ class Funktioner(unittest.TestCase):
         self.valj('bokning-val', 'K09', 'k09-bokningslank', behov='bokning')
         pl = ki.plan(self.db.internt(self.e))
         self.assertEqual([(x['paket'], x['lage']) for x in pl['omfattning']], [('k09-bokningslank', 'kundval')])
+        self.assertFalse(pl['klar_for_bygge'], 'kundens val utan ett accepterat erbjudande för omfattningen')
+        self.assertTrue(any('accepterat erbjudande' in h for h in pl['hinder']))
+        # samma behov kan inte bära ett andra paket
+        with self.assertRaises(ks.Vagrad):
+            self.valj('crm-val', 'K10', 'k10-csv-export', behov='bokning')
         sha_fore = pl['plan_sha256']
         # kunden ändrar sitt behov: valet blir inaktuellt och står utanför planen tills ägaren väljer igen (T03)
         self.gor('integrationsbehov', {'id': 'bokning', 'behov': 'Besökaren bokar och betalar en tid.', 'lage': 'kundval'})
@@ -150,7 +155,8 @@ class AiForslag(unittest.TestCase):
         for felaktigt in (dict(self.bas, id='a', omrade='K09', paket='k09-bokningslank', kallor=[]),
                           dict(self.bas, id='a', omrade='K09', paket='k09-bokningslank', kallor=['påhittad-källa']),
                           dict(self.bas, id='a', omrade='K09', paket='k09-bokningslank', kallor=[self.mid], kundval=True),
-                          dict(self.bas, id='a', omrade='K99', paket='utreds', kallor=[self.mid])):
+                          dict(self.bas, id='a', omrade='K99', paket='utreds', kallor=[self.mid]),
+                          dict(self.bas, id='a', omrade='K09', paket=['k09-bokningslank'], kallor=[self.mid])):
             with self.subTest(f=felaktigt):
                 with self.assertRaises(ks.Vagrad):
                     self.db.modellsvar(self.jobb, self.svar(felaktigt))

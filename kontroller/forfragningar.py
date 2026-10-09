@@ -80,13 +80,18 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def csv_fil(fil):
-    """Målet för en export med personuppgifter: aldrig i motorrepot utom underlag/ och kunder/, aldrig en symlänk."""
+    """Målet för en export med personuppgifter: aldrig en symlänk, aldrig i ett kundrepo (det pushas och driftsätts), och
+    i ett git-arbetsträd (motorrepot och dess worktrees) bara en sökväg som git ignorerar, till exempel underlag/."""
+    import subprocess
     f = Path(fil).absolute()
     if f.is_symlink() or (f.exists() and not f.is_file()):
         raise ValueError('exportens mål ska vara en ny eller vanlig fil')
-    r = f.resolve()
-    if REPO in r.parents and not any((REPO / d) in r.parents for d in ('underlag', 'kunder')):
-        raise ValueError('ärenden med personuppgifter skrivs aldrig i det publika repot (bara under underlag/ eller kunder/)')
+    r = f.parent.resolve() / f.name
+    if 'kundrepo' in r.parts or 'kundrepo-tidigare' in r.parts:
+        raise ValueError('ärenden med personuppgifter skrivs aldrig i ett kundrepo')
+    rot = next((d for d in (r.parent, *r.parent.parents) if (d / '.git').exists()), None)
+    if rot is not None and subprocess.run(['git', '-C', str(rot), 'check-ignore', '-q', str(r)], capture_output=True).returncode != 0:
+        raise ValueError('i ett git-arbetsträd skrivs ärenden med personuppgifter bara till en ignorerad sökväg (till exempel underlag/)')
     return f
 
 
@@ -107,10 +112,15 @@ def exportera_csv(kor, fil):
     for x in rader:
         w.writerow([cell(x['id']), cell(x['mottagen']), cell(x['namn']), cell(x['telefon']), cell(x['meddelande']),
                     'ja' if x['bilaga'] else 'nej', cell(x['avisering'] or 'okänd')])
-    fd = os.open(str(f), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600)
-    with os.fdopen(fd, 'w', encoding='utf-8-sig', newline='') as h:
-        h.write(ut.getvalue())
-    os.chmod(str(f), 0o600)
+    import tempfile
+    fd, tmp = tempfile.mkstemp(prefix='.export-', dir=str(f.parent))  # 0600 från början, sedan ett atomiskt byte
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8-sig', newline='') as h:
+            h.write(ut.getvalue())
+        os.replace(tmp, str(f))
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
     return len(rader)
 
 

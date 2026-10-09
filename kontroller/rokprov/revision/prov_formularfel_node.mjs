@@ -17,6 +17,7 @@ const logs = []; console.error = (...x) => logs.push(x.join(' '));
 const krok = async (vad, detalj, args) => {
   if (vad === 'd1.run') events.push([vad, args[0]]); else events.push([vad, typeof detalj === 'string' ? detalj : null]);
   if (vad === 'd1.batch' && (mode === 'lagerfel' || mode.startsWith('jsonfel'))) throw new Error('SYNTETISKT-HEMLIGT lagringsfel');
+  if (vad === 'd1.batch.efter' && mode === 'sparad-men-fel') throw new Error('Network connection lost');
   if (vad === 'r2.put' && mode === 'r2fel') throw new Error('SYNTETISKT-HEMLIGT bilagefel');
   if (vad === 'r2.put' && mode === 'r2kvitto') return { svar: { key: 'annan/bilaga' } };
   if (vad === 'r2.put' && mode === 'r2tomt') return { svar: null };
@@ -44,7 +45,7 @@ globalThis.fetch = async (url, opts) => {
   }
   if (mode === 'mejlkast') throw new Error('SYNTETISKT-HEMLIGT transportfel');
   const body = mode === 'tomtmejlkvitto' ? '{}' : mode === 'felmejlkvitto' ? '{"error":"fel"}' : mode === 'htmlmejlkvitto' ? '<html>ok</html>' : '{"id":"00000000-0000-4000-8000-000000000001"}';
-  return new Response(body, { status: mode === 'mejlfel' ? 500 : 200 });
+  return new Response(body, { status: mode === 'mejlfel' ? 500 : mode === 'mejlnekad' ? 422 : 200 });
 };
 
 const values = { namn: 'Syntetisk <text> & "citat"', telefon: '0700000000', meddelande: 'Rad ett\n</textarea><script>globalThis.xss=true</script>', fylltid: '9000', inskick: 'prov-inskick-0000000000000001' };
@@ -64,9 +65,10 @@ const begaran = (falt = values) => {
   const fd = new FormData(); for (const [k, v] of Object.entries(falt)) fd.append(k, v);
   if (mode === 'bildtyp') fd.append('bild', new Blob(['<svg/>'], { type: 'image/svg+xml' }), 'syntetisk.svg');
   if (mode === 'bildstor') fd.append('bild', new Blob([new Uint8Array(4000001)], { type: 'image/jpeg' }), 'syntetisk.jpg');
-  if (['giltig-bild', 'r2fel', 'r2kvitto', 'r2tomt', 'langsam-r2', 'langsam-batch'].includes(mode) || mode.startsWith('jsonfel')) fd.append('bild', new Blob(['syntetisk bild'], { type: 'image/jpeg' }), 'syntetisk.jpg');
+  if (['giltig-bild', 'r2fel', 'r2kvitto', 'r2tomt', 'langsam-r2', 'langsam-batch', 'sparad-men-fel'].includes(mode) || mode.startsWith('jsonfel')) fd.append('bild', new Blob(['syntetisk bild'], { type: 'image/jpeg' }), 'syntetisk.jpg');
   if (mode === 'filnamn') fd.append('bild', new Blob(['syntetisk bild'], { type: 'image/png' }), '../../forfragningar/annan/bilaga');
-  return new Request(bas + '/api/forfragan/', { method: 'POST', body: fd, headers: { origin: mode === 'origin' ? 'https://angripare.example.invalid' : bas } });
+  const vard = mode === 'lokal-resend' ? 'http://localhost:8787' : bas;
+  return new Request(vard + '/api/forfragan/', { method: 'POST', body: fd, headers: { origin: mode === 'origin' ? 'https://angripare.example.invalid' : vard } });
 };
 let req = begaran();
 if (mode === 'olast') req = new Request(req.url, { method: 'POST', body: 'x', headers: { 'content-type': 'multipart/form-data; boundary=saknas' } });
@@ -88,7 +90,9 @@ else await kor(req);
 if (mode.startsWith('langsam-')) await vanta(150);  // den sena operationen hinner bli klar innan lagret läses
 if (mode === 'fonstergrans') klocka += 2000;
 if (mode === 'nytt-fonster') klocka += 25 * 60000;
-if (['dubblett-inskick', 'dubblett-innehall', 'langsam-batch', 'mejlfel', 'fonstergrans', 'nytt-fonster'].includes(mode)) await kor(begaran());
+if (['dubblett-inskick', 'dubblett-innehall', 'langsam-batch', 'mejlfel', 'fonstergrans', 'nytt-fonster', 'sparad-men-fel'].includes(mode)) await kor(begaran());
+// samma inskicks-id (återställt av webbläsaren efter bakåt eller omladdning) med ett nytt meddelande är ett nytt ärende
+if (mode === 'nytt-meddelande-samma-inskick') { await kor(begaran({ ...values, meddelande: 'Ett helt annat meddelande.' })); }
 if (mode === 'dubblett-innehall') await kor(begaran({ ...values, meddelande: 'Ett annat meddelande' }));
 const rader = DB.db.prepare('SELECT f.*, u.status, u.forsok, u.mejl_id, u.fel FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id ORDER BY f.mottagen').all();
 console.log(JSON.stringify({ ...svar[0], svar, events, logs, values, rader, r2: [...BILAGOR.objekt.entries()] }));

@@ -23,7 +23,10 @@ export function d1(migreringar, krok = async () => null) {
     async batch(lista) {
       await krok('d1.batch', lista.map((x) => x.sql));
       db.exec('BEGIN');
-      try { const ut = lista.map((x) => kor(x.sql, x.args)); db.exec('COMMIT'); return ut; } catch (e) { db.exec('ROLLBACK'); throw e; }
+      let ut;
+      try { ut = lista.map((x) => kor(x.sql, x.args)); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+      await krok('d1.batch.efter', null);  // ett fel här kommer efter att satsen sparats (ett tvetydigt fel)
+      return ut;
     },
   };
 }

@@ -90,6 +90,14 @@ class Drift(unittest.TestCase):
             forsta = next(r for r in rader[1:] if r[0].endswith('1'))
             self.assertTrue(forsta[2].startswith("'=") and forsta[4].startswith("'+"), forsta)
             self.assertEqual(next(r for r in rader[1:] if r[0].endswith('2'))[5:], ['ja', 'fel'])
+        kr = ROOT / 'kunder' / 'prov-forfragningar-csv' / 'kundrepo' / 'public'
+        kr.mkdir(parents=True, exist_ok=True)
+        try:
+            with self.assertRaises(ValueError):
+                ff.exportera_csv(self.kor, kr / 'a.csv')  # ett kundrepo pushas och driftsätts
+        finally:
+            import shutil
+            shutil.rmtree(ROOT / 'kunder' / 'prov-forfragningar-csv', ignore_errors=True)
         for fel in (ROOT / 'kontroller' / 'arenden.csv', ROOT / 'arenden.csv'):
             with self.assertRaises(ValueError):
                 ff.exportera_csv(self.kor, fel)

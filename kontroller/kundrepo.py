@@ -517,27 +517,27 @@ def preview(slug, deploy=None, skydd=None):
 
 def wrangler_deploy(underlag, konto, post, tmp):
     """npm ci, astro build innanför processgränsen och wrangler deploy --env forhandsvisning i det frysta underlaget.
-    Ger (slutkod, utdata)."""
+    Ger (slutkod, utdata, steg): steget 'fore' (inget laddades upp) eller 'uppladdning' (bara där kan utfallet vara okänt)."""
     import exportera
     import processgrans
     r = kommando(['npm', 'ci', '--no-audit', '--no-fund', '--ignore-scripts'], underlag, frist=900,
                  env={k: v for k, v in os.environ.items() if not k.startswith(('NWP_', 'CLAUDE', 'CLOUDFLARE', 'ANTHROPIC'))})
     if r.returncode:
-        return r.returncode, 'npm ci föll: %s' % (r.stdout + r.stderr)[-400:]
+        return r.returncode, 'npm ci föll: %s' % (r.stdout + r.stderr)[-400:], 'fore'
     rc, ut = processgrans.kor_i_katalog(underlag, [underlag / 'node_modules' / '.bin' / 'astro', 'build'])
     if rc:
-        return rc, 'astro build föll: %s' % ut[-400:]
+        return rc, 'astro build föll: %s' % ut[-400:], 'fore'
     brister = exportera.publika_brister(underlag / 'dist')
     if brister:
-        return 1, 'filer som inte får bli publika ligger i dist/: %s' % ', '.join(brister[:5])
+        return 1, 'filer som inte får bli publika ligger i dist/: %s' % ', '.join(brister[:5]), 'fore'
     # Kontots identitet hos leverantören, inte bara etiketten i filen: tokenen ska nå just det angivna kontot.
     vem = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'whoami'], underlag, frist=120, env=cloudflare_miljo(konto, tmp))
     if vem.returncode or konto['konto'] not in (vem.stdout or '') + (vem.stderr or ''):
-        return 1, 'tokenen når inte kontot %s… (wrangler whoami): ingen uppladdning' % konto['konto'][:6]
+        return 1, 'tokenen når inte kontot %s… (wrangler whoami): ingen uppladdning' % konto['konto'][:6], 'fore'
     res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'deploy', '--env', 'forhandsvisning',
                     '--message', 'nortropic_commit=%s nortropic_export=%s' % (post['commit'], post['export'])],
                    underlag, frist=900, env=cloudflare_miljo(konto, tmp))
-    return res.returncode, (res.stdout or '') + '\n' + (res.stderr or '')
+    return res.returncode, (res.stdout or '') + '\n' + (res.stderr or ''), 'uppladdning'
 
 
 def fryst_underlag(r, commit, tmp):
@@ -605,14 +605,14 @@ def _preview(slug, deploy, skydd):
             post['status'] = 'vantar_pa_avstamning'
     if konto and not post['hinder']:
         try:
-            rc, ut = deploy(underlag, konto, post, tmp)
+            rc, ut, steg = (tuple(deploy(underlag, konto, post, tmp)) + ('uppladdning',))[:3]
         except (OSError, subprocess.SubprocessError) as e_:  # verktyget kunde inte köras: ingenting laddades upp
-            rc, ut = None, 'uppladdningen kunde inte köras: %s' % type(e_).__name__
+            rc, ut, steg = None, 'uppladdningen kunde inte köras: %s' % type(e_).__name__, 'fore'
         if exportera.manifest_sha(exportera.exportmanifest(underlag)) != post['underlag_sha256']:
             post['hinder'].append('det frysta underlaget ändrades under bygget eller uppladdningen')
         m = re.search(r'Current Version ID:\s*([0-9a-f-]{36})', ut)
         post['version_id'] = m.group(1) if m else None
-        if rc == 124 or (rc and not post['version_id'] and NATFEL.search(ut or '')):
+        if steg == 'uppladdning' and (rc == 124 or (rc and not post['version_id'] and NATFEL.search(ut or ''))):
             # Svaret förlorades efter att uppladdningen kan ha börjat: utfallet är okänt, inte ett fel att försöka om.
             post['status'] = 'osaker'
             post['hinder'].append('utfallet är okänt (%s): stäm av med kundrepo.py %s --stam-av innan ett nytt försök'
@@ -664,16 +664,21 @@ def osakert_forsok(slug):
 
 
 def wrangler_deployments(underlag, konto, tmp):
-    """Förhandsvisningens deployments ur Cloudflare (läsande): wrangler deployments list --json."""
+    """Förhandsvisningens versioner och deployments ur Cloudflare (läsande): {'versioner', 'deployments'}. Meddelandet ur
+    wrangler deploy --message ligger på versionen; deploymenten visar vilka versioner som är driftsatta."""
     r = kommando(['npm', 'ci', '--no-audit', '--no-fund', '--ignore-scripts'], underlag, frist=900,
                  env={k: v for k, v in os.environ.items() if not k.startswith(('NWP_', 'CLAUDE', 'CLOUDFLARE', 'ANTHROPIC'))})
     if r.returncode:
         raise RuntimeError('npm ci föll')
-    res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'deployments', 'list', '--env', 'forhandsvisning', '--json'],
-                   underlag, frist=120, env=cloudflare_miljo(konto, tmp))
-    if res.returncode:
-        raise RuntimeError('wrangler deployments list: %s' % (res.stderr or res.stdout)[-200:])
-    return json.loads(res.stdout or '[]')
+    ut = {}
+    for namn, kmd in (('versioner', 'versions'), ('deployments', 'deployments')):
+        res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), kmd, 'list', '--env', 'forhandsvisning', '--json'],
+                       underlag, frist=120, env=cloudflare_miljo(konto, tmp))
+        if res.returncode:
+            raise RuntimeError('wrangler %s list: %s' % (kmd, (res.stderr or res.stdout)[-200:]))
+        start = min([i for i in (res.stdout.find('['), res.stdout.find('{')) if i >= 0] or [0])
+        ut[namn] = json.loads(res.stdout[start:] or '[]')
+    return ut
 
 
 def avstam(slug, lista=None, skydd=None):
@@ -706,13 +711,18 @@ def avstam(slug, lista=None, skydd=None):
                 else:
                     deps = lista(konto, tmp)
                 markor = 'nortropic_commit=%s nortropic_export=%s' % (fore['commit'], fore['export'])
-                hittad = next((x for x in deps if markor in json.dumps(x, ensure_ascii=False)), None)
-                if hittad is None:
+                versioner = deps.get('versioner') if isinstance(deps, dict) else None
+                driftsatta = {v.get('version_id') for dep in ((deps.get('deployments') if isinstance(deps, dict) else None) or [])
+                              if isinstance(dep, dict) for v in (dep.get('versions') or []) if isinstance(v, dict)}
+                if not isinstance(versioner, list):
+                    raise ValueError('versionslistan saknas i svaret')
+                hittad = next((x for x in versioner if isinstance(x, dict) and markor in json.dumps(x, ensure_ascii=False)), None)
+                if hittad is None or hittad.get('id') not in driftsatta:
                     post['status'] = 'avstamd_ingen'
-                    post['text_avstamning'] = 'ingen deployment med försökets commit och export: ett nytt försök är säkert'
+                    post['text_avstamning'] = ('ingen version med försökets commit och export' if hittad is None else
+                                               'versionen %s finns men är inte driftsatt' % hittad.get('id')) + ': ett nytt försök är säkert'
                 else:
-                    versioner = hittad.get('versions') or []
-                    post['version_id'] = (versioner[0].get('version_id') if versioner and isinstance(versioner[0], dict) else None) or hittad.get('id')
+                    post['version_id'] = hittad.get('id')
                     ok, obs = (skydd or access_skyddar)(post['url'])
                     post['skydd'] = obs if ok else 'öppen: ' + obs
                     if not ok and not fiktiv(slug):

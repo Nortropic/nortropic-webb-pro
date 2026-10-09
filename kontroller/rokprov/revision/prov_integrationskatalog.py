@@ -76,6 +76,12 @@ class Plan(unittest.TestCase):
         self.assertNotEqual(a['plan_sha256'], ik.planera(v, arende={'id': 'A', 'revision': 4})['plan_sha256'])
         self.assertNotEqual(a['plan_sha256'], ik.planera(v[:2] + val('k04-befintlig-brevlada'))['plan_sha256'])
 
+    def test_dubbletter_och_tom_instans_ger_samma_plan_i_varje_ordning(self):
+        a_ = {'omrade': 'K09', 'paket': 'k09-bokningslank', 'lage': 'kundval'}
+        b_ = dict(a_, lage='onskemal')
+        self.assertEqual(ik.planera([a_, b_])['plan_sha256'], ik.planera([b_, a_])['plan_sha256'])
+        self.assertEqual(ik.planera([dict(a_, instans='')])['plan_sha256'], ik.planera([a_])['plan_sha256'])
+
     def test_onskemal_och_framtida_ingar_inte_i_omfattningen(self):
         pl = ik.planera(val('k02-cloudflare-workers') + val('k11-stripe-betallank', lage='onskemal') + val('k14-nyhetsbrev-utreds', lage='framtida'))
         self.assertEqual([x['paket'] for x in pl['omfattning']], ['k02-cloudflare-workers'])

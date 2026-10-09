@@ -47,7 +47,7 @@ def ledig_port():
 
 
 class Mejlattrapp:
-    """Resend-attrapp på 127.0.0.1: tar emot e-postanropet och svarar med ett kvitto, eller med fel när fel=True."""
+    """Resend-attrapp på 127.0.0.1: tar emot e-postanropet och svarar med ett kvitto, eller nekar (422) när fel=True."""
     def __init__(self):
         self.anrop, self.fel = [], False
         attrapp = self
@@ -60,7 +60,7 @@ class Mejlattrapp:
                 kropp = self.rfile.read(int(self.headers.get('content-length') or 0))
                 attrapp.anrop.append({'auth': self.headers.get('authorization'), 'kropp': json.loads(kropp or b'{}')})
                 if attrapp.fel:
-                    self.send_response(500)
+                    self.send_response(422)  # nekat av mejltjänsten: utkorgen visar fel (ett serverfel vore okänt utfall)
                     self.end_headers()
                     return
                 ut = json.dumps({'id': 'attrapp-%d' % len(attrapp.anrop)}).encode()

@@ -106,7 +106,8 @@ class Formular(unittest.TestCase):
         self.assertTrue(any('D1' in l for l in self.kor('ingetlager')['logs']),'en saknad bindning syns i loggen')
 
     def test_sparat_vid_mejlfel_far_eget_mottaget_besked_utan_omskick(self):
-        for mode,status in (('mejlfel','fel'),('mejlkast','fel'),('ingenmottagare','vantar')):
+        # nekat mejl (4xx) är fel; serverfel och transportfel är okänt utfall och står kvar som skickar
+        for mode,status in (('mejlfel','skickar'),('mejlkast','skickar'),('mejlnekad','fel'),('ingenmottagare','vantar')):
             with self.subTest(mode=mode):
                 # 303 till den förrenderade /mottagen/, aldrig en sida på POST-adressen (GR-20261008-r117-claude#D1)
                 d=self.kor(mode);self.assertEqual(d['status'],303);self.sakerhet(d)
@@ -125,7 +126,7 @@ class Formular(unittest.TestCase):
             with self.subTest(mode=mode):
                 d=self.kor(mode);self.assertEqual(d['status'],303)
                 self.assertEqual(d['headers']['location'],'/mottagen/');self.assertEqual(d['headers']['x-forfragan'],'sparad')
-                self.assertEqual(d['rader'][0]['status'],'fel');self.assertIsNone(d['rader'][0]['mejl_id'])
+                self.assertEqual(d['rader'][0]['status'],'skickar','ett oläsbart kvitto är ett okänt utfall');self.assertIsNone(d['rader'][0]['mejl_id'])
 
     def test_bilagan_tas_bort_nar_arendet_inte_kunde_sparas(self):
         # bilagan lagras före ärendet; faller den skrivningen är bilden annars föräldralös (GR-20261008-r117-claude#D7)
@@ -144,15 +145,26 @@ class Formular(unittest.TestCase):
         d=self.kor('giltig');self.assertEqual(d['status'],303);self.sakerhet(d)
         self.assertEqual(d['headers']['location'],'/tack/');self.assertEqual(d['headers']['x-forfragan'],'skickad')
         # ärendet och utkorgen först, avsikten ("skickar") före nätanropet, sedan kvittot
-        self.assertEqual([e[0] if e[0]!='d1.run' else 'utkorg:'+e[1] for e in d['events'] if e[0]!='d1.first'],
+        self.assertEqual([e[0] if e[0]!='d1.run' else 'utkorg:'+e[1] for e in d['events'] if e[0] not in ('d1.first','d1.batch.efter')],
                          ['d1.batch','utkorg:skickar','mejl','utkorg:accepterad'])
         rad=d['rader'][0]
         self.assertEqual((rad['status'],rad['forsok'],rad['mejl_id']),('accepterad',1,'00000000-0000-4000-8000-000000000001'))
         self.assertEqual(self.mejl(d)[0]['idempotens'],'forfragan-'+rad['id'],'mejlet bär ärendets id som idempotensnyckel')
-        self.assertEqual(rad['nyckel'],'i:'+d['values']['inskick'])
+        self.assertTrue(rad['nyckel'].startswith('i:'+d['values']['inskick']+':'),'inskicks-id och innehåll');self.assertTrue(rad['innehall'].startswith('h:'))
         self.assertEqual(rad['meddelande'],d['values']['meddelande']);self.assertEqual(rad['namn'],d['values']['namn'])
         mottagen=datetime.fromisoformat(rad['mottagen'].replace('Z','+00:00'))
         self.assertEqual(datetime.fromisoformat(rad['gallras'].replace('Z','+00:00'))-mottagen,timedelta(days=30))
+
+    def test_tvetydigt_lagringsfel_tar_inte_bort_bilagan_till_ett_sparat_arende(self):
+        d=self.kor('sparad-men-fel');self.assertEqual(d['status'],503)
+        self.assertEqual(len(d['rader']),1);self.assertEqual(len(d['r2']),1);self.assertEqual(d['r2'][0][0],d['rader'][0]['bilaga'])
+        self.assertFalse(any(e[0]=='r2.delete' for e in d['events']))
+        self.assertEqual((d['svar'][1]['status'],d['svar'][1]['headers'].get('x-forfragan')),(303,'dubblett'),'ett nytt försök blir samma ärende')
+
+    def test_lokalt_gar_inget_mejl_till_resend(self):
+        d=self.kor('lokal-resend');self.assertEqual((d['status'],d['headers'].get('location')),(303,'/mottagen/'))
+        self.assertEqual(self.mejl(d),[]);self.assertEqual(d['rader'][0]['status'],'vantar')
+        self.assertTrue(any('lokal' in l for l in d['logs']))
 
     def test_bilagan_lagras_privat_under_arendets_nyckel(self):
         for mode,namn in (('giltig-bild','syntetisk.jpg'),('filnamn','bilaga')):
@@ -179,7 +191,7 @@ class Formular(unittest.TestCase):
             with self.subTest(mode=mode):
                 d=self.kor(mode);self.assertEqual(d['status'],303);self.assertEqual(d['headers']['location'],'/mottagen/')
                 self.assertIn(['avbrutet','mejl'],d['events']);self.assertEqual(len(self.mejl(d)),1)
-                self.assertEqual(d['rader'][0]['status'],'fel')
+                self.assertEqual(d['rader'][0]['status'],'skickar','en tidsgräns är ett okänt utfall, inte ett fel')
         # utkorgens avsikt bekräftas inte: inget mejl i blindo
         d=self.kor('langsam-utkorg');self.assertEqual(d['status'],303);self.assertEqual(d['headers']['location'],'/mottagen/')
         self.assertEqual(self.mejl(d),[])
@@ -229,6 +241,9 @@ class Formular(unittest.TestCase):
         for mode,vantat in (('fonstergrans',['skickad','dubblett']),('nytt-fonster',['skickad','skickad'])):
             with self.subTest(mode=mode):
                 d=self.kor(mode);self.assertEqual([s['headers'].get('x-forfragan') for s in d['svar']],vantat)
+        # samma id med ett nytt meddelande (webbläsaren återställde det dolda fältet) är ett nytt ärende
+        d=self.kor('nytt-meddelande-samma-inskick')
+        self.assertEqual([s['headers'].get('x-forfragan') for s in d['svar']],['skickad','skickad']);self.assertEqual(len(d['rader']),2)
         # två samtidiga inskick med samma id: ett ärende, ett mejl
         d=self.kor('samtidigt')
         self.assertEqual(sorted(s['headers'].get('x-forfragan') for s in d['svar']),['dubblett','skickad'])

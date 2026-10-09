@@ -184,6 +184,10 @@ def planera(val, katalog=None, arende=None):
           'konflikter': [], 'saknade_beroenden': [], 'ordning': [], 'andringar': {'brief': [], 'design': [], 'kod': [], 'externt': []},
           'konton': [], 'kostnader': [], 'manniska': [], 'prov': [], 'begransningar': [], 'avveckling': []}
     valda, sedda = [], set()
+    # kanonisk ordning före dubblettkontrollen: valens ordning, och om instansen är tom eller saknas, ändrar inte planen
+    prio = {l: i for i, l in enumerate(('kundval', 'grund') + tuple(x for x in LAGEN if x not in ('kundval', 'grund')))}
+    val = sorted(({**v, 'instans': v.get('instans') or None} for v in val if isinstance(v, dict)),
+                 key=lambda v: (str(v.get('omrade')), str(v.get('paket')), str(v.get('instans') or ''), prio.get(v.get('lage'), 99), str(v.get('lage'))))
     for v in val:
         if v.get('lage') not in LAGEN:
             ut['hinder'].append('okänt läge för %s: %s' % (v.get('paket'), v.get('lage')))

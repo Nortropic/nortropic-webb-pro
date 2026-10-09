@@ -119,15 +119,16 @@ async function sha256(text) {
   return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Idempotensnycklarna: formulärets inskicks-id (sätts i webbläsaren när sidan laddas), annars innehållet i ett
-// tiominutersfönster, så att också ett inskick utan JavaScript som skickas igen efter ett tappat svar blir samma ärende.
-// Det föregående fönstret räknas också, så att två inskick på var sin sida av en fönstergräns inte blir två ärenden; den
-// första nyckeln är den som sparas.
+// Idempotensen: { nyckel, innehall }. nyckel är ärendets identitet: formulärets inskicks-id (sätts i webbläsaren när sidan
+// laddas) tillsammans med innehållet, så att ett nytt meddelande med ett återställt id (bakåt, omladdning) är ett nytt
+// ärende; utan id är det innehållet i tiominutersfönstret. innehall är innehållet i fönstret och det föregående, så att
+// samma innehåll skickat igen (också utan JavaScript, eller över en fönstergräns) blir samma ärende.
 async function idempotens(inskick, falt, bild) {
-  if (giltigtInskick(inskick)) return ['i:' + inskick];
   const fonster = Math.floor(Date.now() / 600000);
-  const innehall = [falt.namn, falt.telefon, falt.meddelande, bild ? `${bild.type}/${bild.size}` : ''].join('\n');
-  return Promise.all([fonster, fonster - 1].map(async (f) => 'h:' + await sha256(innehall + '\n' + f)));
+  const text = [falt.namn, falt.telefon, falt.meddelande, bild ? `${bild.type}/${bild.size}` : ''].join('\n');
+  const innehall = await Promise.all([fonster, fonster - 1].map(async (f) => 'h:' + await sha256(text + '\n' + f)));
+  const nyckel = giltigtInskick(inskick) ? 'i:' + inskick + ':' + (await sha256(text)).slice(0, 32) : innehall[0];
+  return { nyckel, innehall };
 }
 
 function base64(bytes) {
@@ -136,10 +137,10 @@ function base64(bytes) {
   return btoa(s);
 }
 
-async function befintlig(env, nycklar) {
-  const platser = nycklar.map(() => '?').join(', ');
-  return frist(env.DB.prepare(`SELECT f.id AS id, u.status AS status FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id WHERE f.nyckel IN (${platser}) ORDER BY f.mottagen LIMIT 1`)
-    .bind(...nycklar).first(), FRIST_LAGRING, 'kontrollen av tidigare inskick');
+async function befintlig(env, id) {
+  return frist(env.DB.prepare(`SELECT f.id AS id, u.status AS status FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id
+    WHERE f.nyckel = ? OR f.innehall IN (?, ?) ORDER BY f.mottagen LIMIT 1`)
+    .bind(id.nyckel, ...id.innehall).first(), FRIST_LAGRING, 'kontrollen av tidigare inskick');
 }
 
 async function radera(env, nyckel) {
@@ -147,7 +148,7 @@ async function radera(env, nyckel) {
   try { await env.BILAGOR.delete(nyckel); } catch { console.error('forfragan: bilagan kunde inte tas bort efter ett fel'); }
 }
 
-async function spara(env, id, nycklar, falt, bild, nu) {
+async function spara(env, id, idem, falt, bild, nu) {
   let bilaga = null;
   const dagar = Math.max(1, Number(env.GALLRING_DAGAR || 365));
   const gallras = new Date(Date.parse(nu) + dagar * 86400000).toISOString();
@@ -162,20 +163,24 @@ async function spara(env, id, nycklar, falt, bild, nu) {
     }
     // En batch är en transaktion: ärendet och dess utkorgsrad finns båda eller ingen av dem.
     resultat = await frist(env.DB.batch([
-      env.DB.prepare(`INSERT INTO forfragningar (id, nyckel, mottagen, namn, telefon, meddelande, bilaga, bilaga_typ, bilaga_storlek, bilaga_namn, gallras)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(nyckel) DO NOTHING`)
-        .bind(id, nycklar[0], nu, falt.namn, falt.telefon, falt.meddelande, bilaga, bild ? bild.type : null, bild ? bild.size : null,
+      env.DB.prepare(`INSERT INTO forfragningar (id, nyckel, innehall, mottagen, namn, telefon, meddelande, bilaga, bilaga_typ, bilaga_storlek, bilaga_namn, gallras)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(nyckel) DO NOTHING`)
+        .bind(id, idem.nyckel, idem.innehall[0], nu, falt.namn, falt.telefon, falt.meddelande, bilaga, bild ? bild.type : null, bild ? bild.size : null,
           bild ? filnamn(bild) : null, gallras),
       env.DB.prepare(`INSERT INTO utkorg (forfragan, status, forsok, uppdaterad) SELECT ?, 'vantar', 0, ? WHERE EXISTS (SELECT 1 FROM forfragningar WHERE id = ?)`)
         .bind(id, nu, id),
     ]), FRIST_LAGRING, 'ärendet');
   } catch (e) {
-    if (bilaga && !e.frist) await radera(env, bilaga);
+    // Bilagan tas bara bort när raden bevisligen inte finns: ett tvetydigt fel (eller en frist) kan ha sparat ärendet.
+    if (bilaga && !e.frist) {
+      const finns = await befintlig(env, idem).catch(() => undefined);
+      if (finns === null) await radera(env, bilaga);
+    }
     throw e;
   }
   if (!resultat[0].meta.changes) {  // samma inskick hann före: det första ärendet gäller
     if (bilaga) await radera(env, bilaga);
-    return { dubblett: (await befintlig(env, nycklar).catch(() => null)) || {} };
+    return { dubblett: (await befintlig(env, idem).catch(() => null)) || {} };
   }
   return { id, bilaga };
 }
@@ -190,7 +195,8 @@ async function mejla(env, id, falt, bild, signal) {
   const r = await fetch(mejladress(env), {
     method: 'POST', signal, headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `forfragan-${id}` }, body: JSON.stringify(kropp),
   });
-  if (!r.ok) throw egen('Mejltjänsten bekräftade inte mottagningen (' + r.status + ')');
+  // 4xx: mejltjänsten tog inte emot mejlet (fel); ett serverfel, en tidsgräns eller ett oläsbart kvitto är ett okänt utfall
+  if (!r.ok) throw egen('Mejltjänsten svarade ' + r.status, { nekad: r.status >= 400 && r.status < 500 });
   const kvitto = await r.json();
   if (!kvitto || Array.isArray(kvitto) || typeof kvitto.id !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(kvitto.id) || kvitto.error) throw egen('Mejltjänstens kvitto stämmer inte');
   return kvitto.id;
@@ -240,16 +246,21 @@ async function forfragan(request, env) {
     console.error('forfragan: ärendelagret (D1) saknas i produktionen');
     return felvy(raw, {}, 503, 'fel', OBEKRAFTAD, !!bild, t('inskick'));
   }
-  const nycklar = await idempotens(t('inskick'), falt, bild);
-  const redan = await befintlig(env, nycklar).catch(() => null);
+  const idem = await idempotens(t('inskick'), falt, bild);
+  const redan = await befintlig(env, idem).catch(() => null);
   if (redan) return svar(redan.status === 'accepterad' ? '/tack/' : '/mottagen/', 'dubblett');
   const id = crypto.randomUUID(), nu = new Date().toISOString();
   let sparad;
-  try { sparad = await spara(env, id, nycklar, falt, bild, nu); }
+  try { sparad = await spara(env, id, idem, falt, bild, nu); }
   catch (e) { console.error('forfragan: lagringen kunde inte bekräftas: ' + orsak(e)); }
   if (!sparad) return felvy(raw, {}, 503, 'fel', OBEKRAFTAD, !!bild, t('inskick'));
   if (sparad.dubblett) return svar(sparad.dubblett.status === 'accepterad' ? '/tack/' : '/mottagen/', 'dubblett');
   if (!konfigurerad(env)) { console.error('forfragan: mejlmottagaren är inte konfigurerad'); return mottagen(); }
+  // Lokalt (wrangler dev på localhost) går inget mejl till Resend, också om en nyckel ligger i .dev.vars; bara till en
+  // lokal provmottagare (RESEND_API_URL på 127.0.0.1 eller localhost).
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname) && mejladress(env) === RESEND) {
+    console.error('forfragan: lokal körning, inget mejl till Resend'); return mottagen();
+  }
   // Avsikten före nätanropet: "skickar" utan slutläge efter ett avbrott är ett osäkert utfall, inte ett skäl att skicka igen.
   try { await utkorg(env, id, 'skickar'); } catch { return mottagen(); }
   try {
@@ -258,7 +269,9 @@ async function forfragan(request, env) {
     catch { console.error('forfragan: mejlet accepterades men utkorgen kunde inte uppdateras; stäm av mot mejltjänsten'); }
     return svar('/tack/', 'skickad');
   } catch (e) {
-    try { await utkorg(env, id, 'fel', { forsok: 1, fel: orsak(e) }); }
+    // Nekat mejl är fel; allt annat (tidsgräns, nätfel, serverfel, oläsbart kvitto) står kvar som skickar: utfallet är
+    // okänt och stäms av mot mejltjänsten (samma idempotensnyckel gör ett nytt försök inom ett dygn säkert).
+    try { await utkorg(env, id, e && e.nekad ? 'fel' : 'skickar', { forsok: 1, fel: orsak(e) }); }
     catch { console.error('forfragan: aviseringen föll och utkorgen kunde inte uppdateras'); }
     return mottagen();
   }

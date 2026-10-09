@@ -14,8 +14,8 @@ npx wrangler d1 migrations apply DB --local             # formulärets tabeller 
 npx wrangler dev                                        # sidorna och Workern lokalt i workerd
 ```
 
-Lokalt (`wrangler dev`) är `MILJO` produktion men utan mejlhemlighet: förfrågningar sparas i den lokala D1 och
-aviseras inte. Lägg aldrig en riktig nyckel i `.dev.vars` i repot.
+Lokalt (`wrangler dev`) är `MILJO` produktion: förfrågningar sparas i den lokala D1, men på localhost går inget mejl
+till Resend, också om en nyckel ligger i `.dev.vars`. Lägg aldrig en riktig nyckel i repot.
 
 ## Driftsättning
 
@@ -50,8 +50,10 @@ av integritetstexten.
 
 Varje förfrågan står i D1-tabellen `forfragningar`, och dess avisering i `utkorg`:
 - `accepterad`: mejltjänsten tog emot mejlet (`mejl_id`).
-- `fel`: mejlet föll; ärendet är sparat och ska följas upp. Kontrollera mejltjänstens logg innan en omsändning.
-- `vantar` eller `skickar` som blir stående: utfallet är okänt. Stäm av mot mejltjänsten innan något skickas igen.
+- `fel`: mejltjänsten nekade mejlet; ärendet är sparat och ska följas upp.
+- `skickar` som blir stående: utfallet är okänt (tidsgräns, nätfel, serverfel). Stäm av mot mejltjänstens logg innan
+  något skickas igen; samma idempotensnyckel gör ett nytt försök inom ett dygn säkert.
+- `vantar`: ingen mejlmottagare var konfigurerad, eller körningen var lokal.
 
 Läs ärendena bara med behörig åtkomst, till exempel `npx wrangler d1 execute DB --remote --command "SELECT ..."`.
 Kopiera dem aldrig till Git, publika rapporter eller öppna loggar. `gallras` anger när ett ärende ska tas bort enligt

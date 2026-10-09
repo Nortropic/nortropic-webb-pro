@@ -67,29 +67,35 @@ Utfallen:
   utan det huvudet ett `Origin` som inte är webbplatsens.
 - Saknat lagringskvitto, också en produktion utan D1-bindning: **503** med texten kvar och beskedet att mottagningen
   inte kunde bekräftas. **Inget mejl försöks före lagringskvittot.** Ärendet och dess utkorgsrad skrivs i en
-  transaktion; en bilaga som lagrats före ett uttryckligt fel tas bort.
+  transaktion; en bilaga som lagrats tas bara bort när ärendet bevisligen inte sparades (ett tvetydigt fel kan ha sparat
+  det).
 - Lagringen bekräftad men mejlet inte bekräftat: **303** till den förrenderade `/mottagen/` (`X-Forfragan: sparad`),
   ett eget mottaget-besked utan omskicksknapp, aldrig ett svar på POST-adressen (GR-20261008-r117-claude#D1). Det
-  lovar ingen svarstid och säger att förfrågan inte behöver skickas igen. Utkorgsraden står kvar som `fel` eller
-  `vantar` för uppföljning.
+  lovar ingen svarstid och säger att förfrågan inte behöver skickas igen. Utkorgsraden står kvar som `fel` (mejlet
+  nekades), `skickar` (okänt utfall) eller `vantar` (ingen mejlmottagare) för uppföljning.
 - Både lagring och mejltjänstens acceptans bekräftade: **303** till `/tack/`, och utkorgen `accepterad` med mejl-id.
   Acceptans hos mejltjänsten betyder inte leverans till inkorgen eller ett mänskligt läst ärende.
 - Samma inskick igen: **303** `dubblett`, till `/tack/` om det första ärendet aviserades, annars `/mottagen/`. Inget
   nytt ärende och inget nytt mejl.
 
 **Utkorgen** (D1-tabellen `utkorg`): `vantar` → `skickar` → `accepterad` | `fel`. Avsikten skrivs före nätanropet, så
-`skickar` utan slutläge är ett osäkert utfall, inte ett skäl att skicka igen i blindo. Mejlet bär ärendets id som
+`skickar` utan slutläge är ett osäkert utfall, inte ett skäl att skicka igen i blindo. `fel` betyder bara att
+mejltjänsten nekade mejlet (4xx); en tidsgräns, ett nätfel, ett serverfel eller ett oläsbart kvitto lämnar raden som
+`skickar` (granskningspasset 2026-10-10: ett mejl som accepterats men vars svar kom sent får aldrig se ut som ett fel).
+Lokalt (`wrangler dev` på localhost) går inget mejl till Resend, också om en nyckel ligger i `.dev.vars`. Mejlet bär ärendets id som
 `Idempotency-Key` hos Resend: ett nytt försök med samma innehåll inom 24 timmar ger samma svar utan ett andra mejl
 (https://resend.com/docs/dashboard/emails/idempotency-keys, läst 2026-10-10). Loggen och utkorgen får bara Workerns
 egna orsaker, aldrig en leverantörs feltext. Läget och gallringen sköts med `kontroller/forfragningar.py` (`kunskap/drift.md`,
 Formulärets ärenden); ett automatiskt nytt försök och en schemalagd gallring körs inte, eftersom de väntar på
 beslutet om schemalagd körning (Cron Triggers är 5 per konto på gratisnivån).
 
-**Idempotensen (G05-R):** formuläret sätter ett inskicks-id (`crypto.randomUUID()`) när sidan laddas; utan JavaScript
-är nyckeln innehållet (namn, telefon, meddelande och bildens typ och storlek) i ett tiominutersfönster, där också det
-föregående fönstret räknas. Ett inskick utan JavaScript som skickas igen mer än tio till tjugo minuter senare blir
-alltså ett nytt ärende, och två olika personer kan inte skicka exakt samma text samtidigt utan att den andra räknas
-som samma ärende. Två samtidiga inskick med samma id blir ett ärende (D1:s unika nyckel).
+**Idempotensen (G05-R):** formuläret sätter ett inskicks-id (`crypto.randomUUID()`) när sidan laddas. Ärendets nyckel är
+id:t tillsammans med innehållet (namn, telefon, meddelande och bildens typ och storlek), så att ett nytt meddelande med
+ett id som webbläsaren återställt efter bakåt eller omladdning blir ett nytt ärende; utan JavaScript är nyckeln
+innehållet i ett tiominutersfönster. Varje ärende bär också innehållets fönsternyckel, och samma innehåll inom fönstret
+eller det föregående är samma ärende, med eller utan id. Samma innehåll skickat igen mer än tio till tjugo minuter
+senare utan id blir alltså ett nytt ärende, och två olika personer kan inte skicka exakt samma text samtidigt utan att
+den andra räknas som samma ärende. Två samtidiga inskick med samma nyckel blir ett ärende (D1:s unika nyckel).
 
 **Frister:** varje lagringssteg (kontrollen av tidigare inskick, bilagan, ärendet, utkorgen) har 10 s, mejlanropet
 inklusive kvittot 8 s. Ett steg som inte bekräftas inom fristen räknas som obekräftat; det kan ändå bli klart senare,

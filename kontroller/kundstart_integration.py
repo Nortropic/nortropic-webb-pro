@@ -44,6 +44,10 @@ def valj(lager, eid, revision, data, katalog=None):
         b = d.get('integrationer', {}).get(behov) if behov else None
         if behov and not b:
             raise ks.Vagrad('Kundens behov finns inte i ärendet.')
+        # ett behov bär ett paket: ett annat paket för samma behov kräver ett eget behov från kunden (eller att det
+        # tidigare valet avmarkeras), så att kundens läge aldrig sprids till paket kunden inte har bett om
+        if behov and any(v['behov'] == behov and v['id'] != vid for v in d.get('integrationsval', {}).values()):
+            raise ks.Vagrad('Kundens behov har redan ett paketval. Avmarkera det först, eller be kunden beskriva behovet för sig.')
         post = {'id': vid, 'omrade': p['omrade'], 'paket': p['id'], 'paketversion': p['version'], 'katalog': k['version'],
                 'behov': behov, 'behov_sha256': b['behov_sha256'] if b else None, 'instans': instans,
                 'motivering': motivering, 'avsandare': 'agare'}
@@ -96,6 +100,8 @@ def modellforslag(lista, kallor, revision, katalog=None):
         ks.falt(f, ('id', 'omrade', 'paket', 'kallor', 'nytta', 'alternativ', 'konsekvens', 'osakerhet', 'foljdfraga'),
                 ('id', 'omrade', 'paket', 'kallor', 'nytta', 'alternativ', 'konsekvens', 'osakerhet', 'foljdfraga'))
         fid = ks.nyckel(f['id'])
+        if not all(isinstance(f[n], str) for n in ('omrade', 'paket', 'nytta', 'alternativ', 'konsekvens', 'osakerhet', 'foljdfraga')):
+            raise ks.Vagrad('Integrationsförslaget har fält av fel typ.')
         if fid in sedda:
             raise ks.Vagrad('Två integrationsförslag har samma id.')
         sedda.add(fid)
@@ -137,6 +143,9 @@ def plan(d, katalog=None):
             versioner.append({'val': v['id'], 'paket': p['id'], 'vald': v['paketversion'], 'nu': p['version']})
         val.append({'omrade': v['omrade'], 'paket': v['paket'], 'lage': l, 'instans': v.get('instans')})
     pl = ik.planera(val, k, arende={'id': d['id'], 'revision': d['revision']})
+    if any(x['lage'] == 'kundval' for x in pl['omfattning']) and not ks.vy(d)['bestallning']['aktuell']:
+        pl['hinder'].append('kundens val ingår, men inget accepterat erbjudande gäller den aktuella omfattningen')
+        pl['klar_for_bygge'] = False
     pl['inaktuella_val'] = inaktuella
     pl['andrade_paketversioner'] = versioner
     if inaktuella or versioner:
