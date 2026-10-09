@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex bedömning av den visuella nivån, 2026-10-03
 skapad: 2026-10-03
 prio: hog
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-09T07:09Z
 ---
 # Kalibrering av visuell nivå: externa exempel i tre nivåer, granskarna prövade på osedda exempel
 
@@ -28,3 +28,5 @@ andrad: 2026-10-05T06:55Z
 **Tillägg (2026-10-04T20:19Z, Codex helhetsbedömning punkt 8 och ordning 3):** det oberoende slutmåttet på det nya orörda urvalet ska svara på två saker som Codex skiljer: att granskaren upptäcker svag design (falska godkännanden) och att den inte avvisar bra design av mekaniska skäl (falska underkännanden, med skälen lästa: standarddrag, tunna linjer eller återkommande layout får inte fälla en väl använd form). Granskarens träffsäkerhet mäts här; byggförmågan mäts separat (posten om varierade kundfall) och verkliga besökares förståelse är en tredje fråga som ett modellbaserat femsekunderstest inte besvarar (hypoteser, inte observationer).
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: ankare, nivåfil och försök levererade; siffran 0/4 och 0/2 är utvecklingsdata. K14–K19 är fångade men odömda (DOMAR.json slutar vid K13), K17 och K18 saknar undersida, och K01/K03/K04 är inte omfångade. Nästa steg: ägarens blinda dom i dashboardens Kalibrering, sedan kalibrering.py --bara K14,K15,K16,K17,K18,K19. Färdigkriteriet omskrivet i avstämningen; tidigare: "kunskap/visuell-niva.md med exemplen och skälen; GRANSKARE.md pekar på ankarna; granskarförsöket rapporterar falska godkännanden på de undanhållna exemplen, och siffran står i LARDOMAR.md."
+
+**Vilande (2026-10-09):** Avstämt 2026-10-09 (ägarens uppdrag punkt 2; RAPPORT-2026-10-09-sju-backlogomraden). Färdigt med bevis: frysningen före utvärderingen (kalibrering.py --frys; ett försök med --bara körs bara mot det frysta läget, annars är det utvecklingsdata; 319f500, prov_kalibrering rött mot 12b7004 och grönt efter); K17 och K18 är ensidiga sajter och döms som ensidiga (UNDERSIDA.txt, dashboardens kort); K14–K19 omfångade 2026-10-09 med inspektera.mjs --samtycke --lugn 8000 i samma motor, ägarens godkännande samma dag (de gamla fångsterna ligger kvar i <sida>-fore-omfangning-20261009): K14 var fångad mitt i en intoning, K16 och K19 bakom samtyckesdialoger. Omfångningen av K01 och K04 struken: de är dömda utvecklingsdata, och ägaren dömde bilderna som de var. Ägarbeslut med underlag i rapporten: ankaret K03 (huvudbildens video fångas varken i Chromium eller WebKit, och sajtens innehåll har bytts) och ankaret K07 (samtyckesdialogen täcker mobilens första vy; omfångad utan den med samma innehåll). Kvar i ordning: ägarens beslut om K03 och K07 och om mobilkravet (det ändrar granskarens text) → frysningen → ägarens blinda dom över K14–K19 → kalibrering.py --bara K14,K15,K16,K17,K18,K19 (verkliga granskarsessioner) → falska godkännanden och falska underkännanden var för sig med nämnare, ogiltiga anrop för sig.

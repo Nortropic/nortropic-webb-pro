@@ -4,7 +4,7 @@ status: vilande
 kalla: bevakning
 skapad: 2026-10-03
 prio: normal
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-09T07:10Z
 ---
 # Granskarpanel ur en annan modellfamilj: vilande tills en riktig kund är på väg; ägarens blinda val är måttet
 
@@ -15,3 +15,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** Ägaren har sagt att en riktig kund är på väg; skuggdomaren körd i minst tre byggen och jämförd med ägarens blinda val.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: väntar på ägarens besked att en riktig kund är på väg (BESLUT 2026-10-03); inget att ändra förrän dess.
+
+**Vilande (2026-10-09):** Avstämt 2026-10-09 (ägarens uppdrag punkt 6; uppskjutet experiment): beslutet att avvakta står kvar. Ett första försök är en kompletterande granskning som inte styr godkännandet; nyttan mäts i relevanta brister som upptäcks och bekräftas, inte i att modellerna tycker olika.

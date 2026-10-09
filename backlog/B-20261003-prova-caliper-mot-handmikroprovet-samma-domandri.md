@@ -6,7 +6,7 @@ kallref: kunskap/REGISTER.md · 2026-10-03 · AI LABS, Insane GitHub Repos That 
 skapad: 2026-10-03
 prio: normal
 steg: 8 Dom; backlog-skillen steg 4 (mikroprov av verktygslådans skills och domändringar)
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-09T07:10Z
 ---
 # Prova Caliper mot handmikroprovet: samma domändring mäts en gång för hand och en gång med caliper run --ablate, med aktivering, kontroll och tokens bredvid domen
 
@@ -17,3 +17,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** En dompost har körts på båda sätten och utfallet (dom, aktivering, tokens, tid) står på dess Ändring-rad; beslutet om backlog-skillen steg 4 och evaluate-skill är taget och registrets Utfall ifyllt
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: inget påbörjat. Aktiveringen mäts ur loggen (posten om Skill-anrop, baslinjen); Caliper prövas när en dompost finns igen.
+
+**Vilande (2026-10-09):** Avstämt 2026-10-09 (ägarens uppdrag punkt 6; uppskjutet experiment, inget installerat). Rättelse: 'npx caliper' i rapporterna 2026-10-08 är fel; Caliper är Pythonpaketet caliper-eval ur edonadei/caliper (pipx install caliper-eval, kommandot caliper), och dess skill installeras separat (npx skills@latest add edonadei/caliper). Bedömning ur README (läst 2026-10-09): verktyget kör samma uppgift med och utan en skill (ablation), med k försök, en domare på en annan modell och aktivering ('activates:') skild från resultatkvalitet ('expect:'/'assert:'), och kör genom en inloggad Claude Code-CLI ur kvoten. Det kan förenkla handmikroprovet för en skilltext på korta, kontrollerbara uppgifter; det mäter inte designkvalitet över ett helbygge, och aktiveringen i våra verkliga körningar mäts redan ur loggen. Prövas när en dompost ändrar en skill, i en isolerad kopia (skillen installeras där agenten letar).

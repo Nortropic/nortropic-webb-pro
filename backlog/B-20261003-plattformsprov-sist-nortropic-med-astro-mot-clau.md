@@ -5,7 +5,7 @@ kalla: bevakning
 kallref: Codex kartläggning av referenskällor och byggverktyg, 2026-10-03
 skapad: 2026-10-03
 prio: normal
-andrad: 2026-10-05T06:55Z
+andrad: 2026-10-09T07:10Z
 ---
 # Plattformsprov sist: Nortropic med Astro mot Claude med Framer på samma brief och tillgångar (ägarbeslut)
 
@@ -16,3 +16,5 @@ andrad: 2026-10-05T06:55Z
 **Klart när:** Ägaren har beslutat att köra provet; resultatet och beslutet om byggmiljö står i LARDOMAR.md och BESLUT.md.
 
 **Vilande (2026-10-05):** Avstämt 2026-10-05: inget ägarbeslut i BESLUT.md. När provet blir aktuellt är Nortropic-armen skapandeflödet plus kor.sh; valet "ingen når ribban" i Jämförelser behövs först.
+
+**Vilande (2026-10-09):** Avstämt 2026-10-09 (ägarens uppdrag punkt 6; uppskjutet experiment): ett senare plattformsprov med samma brief, material och omfattning; resultat, arbetstid, mänskliga ingripanden, redigerbarhet och löpande kostnad jämförs. Inget konto och inget försök nu.
