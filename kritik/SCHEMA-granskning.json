@@ -9,7 +9,8 @@
   "likhet_tidigare",
   "sett",
   "ej_bedomt",
-  "sammanfattning"
+  "sammanfattning",
+  "prototypjamforelse"
  ],
  "additionalProperties": false,
  "properties": {
@@ -170,6 +171,70 @@
   },
   "sammanfattning": {
    "type": "string"
+  },
+  "prototypjamforelse": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "status",
+    "jamforda",
+    "ej_bedomt",
+    "skal"
+   ],
+   "properties": {
+    "status": {
+     "type": "string",
+     "enum": [
+      "genomford",
+      "ej_bedomd",
+      "ingen_prototyp"
+     ]
+    },
+    "jamforda": {
+     "type": "array",
+     "maxItems": 40,
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "sida",
+       "vy",
+       "klass",
+       "skal"
+      ],
+      "properties": {
+       "sida": {
+        "type": "string"
+       },
+       "vy": {
+        "type": "string"
+       },
+       "klass": {
+        "type": "string",
+        "enum": [
+         "forsamring",
+         "godkand_anpassning",
+         "forbattring",
+         "oforandrad"
+        ]
+       },
+       "skal": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "ej_bedomt": {
+     "type": "array",
+     "maxItems": 40,
+     "items": {
+      "type": "string"
+     }
+    },
+    "skal": {
+     "type": "string"
+    }
+   }
   }
  },
  "$defs": {

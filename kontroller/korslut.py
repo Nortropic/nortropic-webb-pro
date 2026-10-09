@@ -776,10 +776,14 @@ def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, do
     if gfel:
         dg = {'varde': False, 'text': 'omgångarna kunde inte läsas eller valideras: %s' % gfel}
     elif aktuell_g:
+        vj = aktuell_g.get('visuell_jamforelse') if isinstance(aktuell_g.get('visuell_jamforelse'), dict) else {}
         dg = {'varde': bool(aktuell_g.get('godkand')), 'vem': design['vem'], 'omgang': aktuell_g.get('runda'),
-              'text': '%s; omgång %s, dist %s = slutliga bygget, metod %s vid körningens slut; %s' % (
+              'text': '%s; omgång %s, dist %s = slutliga bygget, metod %s vid körningens slut; %s; jämförelsen mot den godkända prototypen: %s' % (
                   'godkänd' if aktuell_g.get('godkand') else 'underkänd', aktuell_g.get('runda'), _kort(aktuell_g.get('dist_sha256')),
-                  _kort(metod.get('metod_sha')), design['vem'])}
+                  _kort(metod.get('metod_sha')), design['vem'], vj.get('status') or 'ej redovisad'),
+              # T02: designnivån och jämförelsens underlag är skilda besked; bara verifierad betyder att jämförelsen är belagd
+              'visuell_jamforelse': {'status': vj.get('status') or 'ej redovisad', 'text': vj.get('text') or 'domen redovisar ingen jämförelse',
+                                     'verifierad': vj.get('status') == 'verifierad'}}
     else:
         dg = {'varde': None, 'text': 'granskningen var avstängd (NWP_GRANSKNING=av)' if design['avstangd'] else 'inget bygge i dist/ att granska'
               if not nu_hash else 'ingen giltig omgång för det slutliga bygget %s med metoden vid körningens slut' % _kort(nu_hash)}

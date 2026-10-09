@@ -1608,7 +1608,7 @@ def _kalibrering_huvudvag():
     skriv(fryst / 'kalibrering.md', '# Ankarna\n\nÄgarens ord om ankarna.\n')
     krit = {n: {'betyg': 5, 'motivering': '', 'visa': False} for n in granska.KRITERIER}
     helt = {'kriterier': krit, 'kognitiv_genomgang': [], 'blockerande': [], 'forbattringar': [], 'styrkor': [], 'likhet_tidigare': '', 'sett': [],
-            'ej_bedomt': [], 'sammanfattning': ''}
+            'ej_bedomt': [], 'sammanfattning': '', 'prototypjamforelse': {'status': 'ingen_prototyp', 'jamforda': [], 'ej_bedomt': [], 'skal': ''}}
     skriv(fryst / 'svar.json', {'subtype': 'success', 'structured_output': helt})
     skriv(fryst / 'KORNING.json', {'slutkod': 0})
     exempel = [{'id': 'K02', 'niva': 'nastan', 'skiljer': DOM}]

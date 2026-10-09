@@ -376,6 +376,8 @@ r1 = omgang(1, 'granskare2', 'av')
 assert (r1 / 'FEL.txt').is_file() and 'ofullständig' in (r1 / 'FEL.txt').read_text() and not (r1 / 'GRANSKNING.json').is_file(), 'en fallen granskare ger fel, ingen dom (F8)'
 r2 = omgang(2, 'ingen', 'av')
 assert json.loads((r2 / 'GRANSKNING.json').read_text())['godkand'] is True and len(json.loads((r2 / 'GRANSKNING.json').read_text())['enskilda']) == 2
+g2_ = json.loads((r2 / 'GRANSKNING.json').read_text())  # T02/F02: jämförelsens besked och metodens beroenden i den verkliga omgången
+assert g2_['visuell_jamforelse']['status'] == 'ej_tillamplig' and 'kunskap/designregler.md' in g2_['metodberoenden'], g2_.get('visuell_jamforelse')
 r3 = omgang(3, 'originalitet', 'avgor')
 assert (r3 / 'FEL.txt').is_file() and 'originalitetsdomaren' in (r3 / 'FEL.txt').read_text(), 'avgörande originalitetsdomare som faller ger fel (F8)'
 r4 = omgang(4, 'originalitet', 'skugga')
@@ -6782,7 +6784,7 @@ rader_kf2, s_kf2 = kf_.jamfor(und_, {'K02': ({'kriterier': krit_lagt, 'blockeran
 assert rader_kf2[0]['utfall'] == 'rätt' and rader_kf2[1]['utfall'] == 'ofullständigt: inget svar' and s_kf2['svar'] == 1 and s_kf2['ofullstandiga'] == 1 and s_kf2['falska_godkannanden'] == 0
 rap_ = kf_.rapport(rader_kf, s_kf, ut_kf, 'm', 'e'); assert 'Falska godkännanden: 1 av 1' in rap_.read_text() and (ut_kf / 'RAPPORT.json').is_file()
 # validering (Codex R30): anropsfel och ofullständiga svar är aldrig domar; ett svar återanvänds bara med identiskt manifest
-helt_ = {'kriterier': krit_ok, 'kognitiv_genomgang': [], 'blockerande': [], 'forbattringar': [], 'styrkor': [], 'likhet_tidigare': '', 'sett': [], 'ej_bedomt': [], 'sammanfattning': ''}
+helt_ = {'kriterier': krit_ok, 'kognitiv_genomgang': [], 'blockerande': [], 'forbattringar': [], 'styrkor': [], 'likhet_tidigare': '', 'sett': [], 'ej_bedomt': [], 'sammanfattning': '', 'prototypjamforelse': {'status': 'ingen_prototyp', 'jamforda': [], 'ej_bedomt': [], 'skal': ''}}
 schema_ = kf_.las_schema(ROOT / 'kritik' / 'SCHEMA-granskning.json')
 block_ok = {'kriterium': 'text', 'allvarlighet': 3, 'var': 'x', 'observation': 'x', 'konsekvens': 'x', 'standardpunkt': 'x', 'heuristik': 'x', 'omfattning': 'detalj', 'rattning': 'x', 'acceptanskriterium': 'x', 'bild': 'x', 'referensbild': ''}
 assert kf_.validera({'subtype': 'success', 'structured_output': helt_}, schema_)[1] is None

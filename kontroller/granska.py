@@ -268,7 +268,8 @@ def kopiera_trad_sakert(kalla, mal):
                 raise RuntimeError('planterad symlänk i %s: %s' % (kalla, Path(d) / n))
 
 
-FRYSTA_FILER = ('copy.md', 'standard.md', 'stil/STIL.md', 'vinnare/VINNARJAMFORELSE.md', 'resor/RESOR.md')  # vinnaren bara när ateljén kördes
+FRYSTA_FILER = ('copy.md', 'standard.md', 'stil/STIL.md', 'vinnare/VINNARJAMFORELSE.md', 'vinnare/VINNARJAMFORELSE.json',
+                'resor/RESOR.md')  # vinnaren bara när ateljén kördes; JSON:en bär jämförelsens versionsbindning (T02)
 
 
 def frys_bygget(kund, rdir):
@@ -570,7 +571,9 @@ def uppdrag_text(slug, url, sidor, arbetskatalog, bilder, refs, tidigare, kal, r
            'bildbehandling eller en besökaruppgift), en godkänd anpassning (det godkända genomfört i riktigt innehåll, fler',
            'sidor eller en bredd, utan att riktningen ändras; en avsiktlig avvikelse står i DESIGN.md med skäl) eller en',
            'förbättring. En sida eller bredd utan godkänd bild, eller ett par som inte kunde jämföras, är inte bedömd mot det',
-           'godkända: skriv det, aldrig att designen är bevarad.',
+           'godkända: skriv det, aldrig att designen är bevarad. Svara i prototypjamforelse: status genomford när du jämfört,',
+           'en post per sida och bredd du jämfört (sida som start eller undersidans namn, vy som 390, klass och skälet), och i',
+           'ej_bedomt det du inte kunde jämföra; status ej_bedomd med skälet om du inte kunde jämföra alls.',
            *(['Avvikelsen mot vinnaren mätt pixel för pixel (förändring, inte kvalitet; du avgör): %s' % rad(rdir / 'VINNARJAMFORELSE.md')[2:]]
              if (rdir / 'VINNARJAMFORELSE.md').is_file() else []),
            *(['Skillnadsbilderna (röda pixlar skiljer):'] + [rad(p) for p in sorted((rdir / 'vinnarjamforelse').glob('*.png'))]
@@ -680,7 +683,7 @@ def arbetare(rdir):
         # rutor, ur transkriptet. Bokförs i domen; ännu inget krav (ateljéns panel har kravet).
         for s_ in sessioner:
             try:  # en iakttagelse får aldrig fälla en giltig dom
-                s_['lasning'] = bildkedja.lasning(s_.get('session_id'), granskarkrav(ankare, frysta, bilder))
+                s_['lasning'] = bildkedja.lasning(s_.get('session_id'), granskarkrav(ankare, frysta, bilder, vinnare))
             except Exception as e:  # noqa: BLE001
                 s_['lasning'] = {'verifierad': False, 'grupper': {}, 'bilder_lasta': None, 'skal': 'bildkedjan föll: %s' % e}
         if len(delar) < antal:
@@ -702,10 +705,15 @@ def arbetare(rdir):
                 res['kriterier']['originalitet'] = {k: sep[k] for k in ('betyg', 'motivering', 'visa')}
                 if sep['betyg'] >= TROSKEL['originalitet'] and sep['visa']:
                     res['blockerande'] = [f for f in res['blockerande'] if f.get('kriterium') != 'originalitet']
+        try:  # T02: jämförelsen mot den godkända prototypen, skild från designnivån; ett fel här fäller aldrig domen
+            jamforelse = jamforelsebesked(vinnare, bilder, delar, [s_.get('lasning') for s_ in sessioner], rdir, upp['dist_sha256'])
+        except Exception as e:  # noqa: BLE001
+            jamforelse = {'status': 'ej_observerbar', 'text': 'beskedet kunde inte räknas fram: %s' % str(e)[:200]}
         post = {'schema': 1, 'slug': slug, 'runda': upp['runda'], 'korning': upp['korning'], 'tid': nu(),
                 'startad': upp['tid'], 'dist_sha256': upp['dist_sha256'], 'modell': upp['modell'], 'effort': upp['effort'],
                 'metod_sha': upp.get('metod_sha'), 'granskare': antal, 'originalitet': lage,
-                'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res,
+                'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res, 'visuell_jamforelse': jamforelse,
+                'metodberoenden': [f for _n, f in METODBEROENDEN] + ['underlag/%s/%s' % (slug, f) for _n, f in KUNDBEROENDEN],
                 'session': {k: svar.get(k) for k in ('num_turns', 'duration_ms', 'session_id')}, 'sessioner': sessioner}
         def skriv_dom():  # inne i låset: tmp + replace, och tillståndet blir klar först efteråt; en läsare ser pagar till dess
             for namn, text in (('GRANSKNING.json', json.dumps(post, ensure_ascii=False, indent=1) + '\n'), ('GRANSKNING.md', markdown(post)),
@@ -734,9 +742,10 @@ def arbetare(rdir):
     return 0
 
 
-def granskarkrav(ankare, frysta, bilder):
-    """Det en granskare bör ha läst: ägarens ord och varje ankare (första vyn), referensernas utpekade bilder och
-    startsidans första ruta i 390 och 1440."""
+def granskarkrav(ankare, frysta, bilder, vinnare=None):
+    """Det en granskare bör ha läst: ägarens ord och varje ankare (första vyn), referensernas utpekade bilder,
+    startsidans första ruta i 390 och 1440, och med en godkänd prototyp jämförelsens båda sidor: prototypens bilder och
+    byggets motsvarande bilder, sida för sida och bredd för bredd (T02 i GR-20261009-metod-till-resultat-codex)."""
     krav = {}
     if ankare:
         krav['ankare'] = bildkedja.ankarkrav(ankare, vag)
@@ -745,7 +754,91 @@ def granskarkrav(ankare, frysta, bilder):
     hem = [vag(b) for b in bilder if b.parent.name == 'hem' and re.match(r'^vy-(390|1440)-(ruta-01|forsta)\.png$', b.name)]
     if hem:
         krav['startsidan'] = hem
+    par = jamforelsepar(vinnare, bilder)
+    if par:
+        krav['prototyp'] = [vag(pr) for _s, _v, _t, pr, _b in par]
+        krav['bygget_jamfort'] = [vag(b) for _s, _v, _t, _pr, b in par if b]
     return krav
+
+
+def jamforelsepar(vinnare, bilder):
+    """Den godkända prototypens jämförelsebilder och byggets motsvarande bild: [(sida, bredd, tillstånd, prototypens bild,
+    byggets bild eller None)]. Första vyn per bredd (ruta-01, annars forsta) och menyn öppen, för startsidan och varje
+    godkänd undersida; samma bredd och tillstånd i bygget (startsidan är inspektionens hem/)."""
+    if not vinnare:
+        return []
+    bygg = {(b.parent.name, b.name): b for b in bilder}
+    ut = []
+    for pr in sorted(vinnare[1]):
+        sida = pr.parent.name if pr.parent.parent.name == 'undersidor' else 'start'
+        m = re.match(r'^vy-(\d+)-(ruta-01|forsta|meny)\.png$', pr.name)
+        if not m or (m.group(2) == 'forsta' and (pr.parent / ('vy-%s-ruta-01.png' % m.group(1))).is_file()):
+            continue
+        tillstand = 'menyn öppen' if m.group(2) == 'meny' else 'första vyn'
+        mapp = 'hem' if sida == 'start' else sida
+        namn = [pr.name] if m.group(2) != 'ruta-01' else [pr.name, 'vy-%s-forsta.png' % m.group(1)]
+        b = next((bygg[(mapp, n)] for n in namn if (mapp, n) in bygg), None)
+        ut.append((sida, m.group(1), tillstand, pr, b))
+    return ut
+
+
+JAMFORELSE_ORDNING = ('fel_version', 'underlag_saknas', 'ej_bedomd', 'ej_last', 'ej_observerbar', 'verifierad')
+JAMFORELSE_TEXT = {
+    'ej_tillamplig': 'ingen godkänd prototyp att jämföra med',
+    'fel_version': 'jämförelseunderlaget gäller en annan version av prototypen eller bygget',
+    'underlag_saknas': 'jämförelseunderlaget saknas (prototypens bilder eller byggets motsvarande bilder)',
+    'ej_bedomd': 'granskaren bedömde inte jämförelsen, eller inte alla par',
+    'ej_last': 'observationen visar att granskaren inte läste alla jämförelsens bilder',
+    'ej_observerbar': 'observatören saknar belägg (transkriptet saknas eller läsningen kunde inte prövas)',
+    'verifierad': 'jämförelsen genomfördes och gav en bedömning, med underlaget läst',
+}
+
+
+def jamforelsebesked(vinnare, bilder, delar, lasningar, rdir, dist_sha):
+    """T02: jämförelsen mot den godkända prototypen som ett eget besked, skilt från designnivån (betygen och godkännandet).
+    Tre slag hålls isär: (a) underlaget saknas, gäller fel version eller granskaren bedömde inte jämförelsen; (b)
+    observatören saknar belägg eller föll; (c) jämförelsen genomfördes, med underlaget läst, och gav en bedömning. Ett
+    uttryckligt ej bedömt par är aldrig verifierat, och ett grönt godkännande säger inget om jämförelsen."""
+    if not vinnare:
+        return {'status': 'ej_tillamplig', 'text': JAMFORELSE_TEXT['ej_tillamplig']}
+    par = jamforelsepar(vinnare, bilder)
+    kravda = [(s, v, t_) for s, v, t_, _pr, b in par if b]
+    tackning = {'par': len(par), 'med_byggets_bild': len(kravda), 'utan_byggets_bild': ['%s %s %s' % (s, v, t_) for s, v, t_, _pr, b in par if not b]}
+    fel = []
+    vj = las_json(Path(rdir) / 'VINNARJAMFORELSE.json') if rdir else None
+    if isinstance(vj, dict) and isinstance(vj.get('bindning'), dict):
+        bv, bb = vj['bindning'].get('vinnare') or {}, vj['bindning'].get('bygget') or {}
+        if bb.get('dist_sha256') and dist_sha and bb['dist_sha256'] != dist_sha:
+            fel.append(('fel_version', 'provets pixeljämförelse gäller ett annat bygge (dist %s, granskat %s)' % (bb['dist_sha256'][:12], dist_sha[:12])))
+        if bv.get('kandidat') and vinnare[0].get('kandidat') and (bv.get('kandidat'), bv.get('version')) != (vinnare[0].get('kandidat'), vinnare[0].get('version')):
+            fel.append(('fel_version', 'provets pixeljämförelse gäller prototypen %s %s, den godkända är %s %s' % (
+                bv.get('kandidat'), bv.get('version'), vinnare[0].get('kandidat'), vinnare[0].get('version'))))
+    if not kravda:
+        fel.append(('underlag_saknas', 'inget par med både prototypens och byggets bild'))
+    granskare = []
+    for i, d in enumerate(delar):
+        pj = d.get('prototypjamforelse') if isinstance(d.get('prototypjamforelse'), dict) else {}
+        las = lasningar[i] if i < len(lasningar) else None
+        klassade = {(str(x.get('sida')), str(x.get('vy'))): x.get('klass') for x in pj.get('jamforda') or [] if isinstance(x, dict)}
+        obedomda = sorted({'%s %s' % (s, v) for s, v, _t in kravda if (s, v) not in klassade})
+        g = {'granskare': i + 1, 'besked': pj.get('status') or 'saknas', 'klasser': {}, 'obedomda': obedomda,
+             'ej_bedomt': [str(x) for x in pj.get('ej_bedomt') or []][:12], 'skal': str(pj.get('skal') or '')[:400]}
+        for k in klassade.values():
+            g['klasser'][k] = g['klasser'].get(k, 0) + 1
+        if pj.get('status') != 'genomford' or obedomda:
+            g['status'] = 'ej_bedomd'
+        elif not isinstance(las, dict) or not las.get('verifierad'):
+            g['status'] = 'ej_observerbar'
+            g['observation'] = (las or {}).get('skal') if isinstance(las, dict) else 'ingen observation'
+        else:
+            grp = las.get('grupper') or {}
+            saknas = [x for n in ('prototyp', 'bygget_jamfort') for x in (grp.get(n) or {}).get('saknas', [])]
+            g['status'] = 'ej_last' if saknas or any(n not in grp for n in ('prototyp', 'bygget_jamfort')) else 'verifierad'
+            g['olasta'] = saknas[:12]
+        granskare.append(g)
+    statusar = [s for s, _ in fel] + [g['status'] for g in granskare] or ['ej_bedomd']
+    status = min(statusar, key=JAMFORELSE_ORDNING.index)
+    return {'status': status, 'text': JAMFORELSE_TEXT[status], 'fel': [t_ for _s, t_ in fel], 'tackning': tackning, 'granskare': granskare}
 
 
 def originalitetsbilder(bilder):
@@ -863,6 +956,21 @@ def markdown(g):
         rad += ['', '%d granskare dömde var för sig; lägsta betyget och varje blockerande fynd gäller: %s.' % (
             len(g['enskilda']), '; '.join('granskare %d %s, %d blockerande' % (i, 'godkänner' if e['godkand'] else 'underkänner', e['blockerande'])
                                         for i, e in enumerate(g['enskilda'], 1)))]
+    vj = g.get('visuell_jamforelse')
+    if isinstance(vj, dict):  # T02: jämförelsen mot den godkända prototypen, skild från betygen och godkännandet ovan
+        rad += ['', '## Jämförelsen mot den godkända prototypen', '',
+                'Underlag och genomförande: **%s** (%s). Betygen och godkännandet ovan är granskarnas bedömning av designnivån; de '
+                'visar inte att jämförelsen är gjord.' % (vj.get('status'), vj.get('text'))]
+        tk = vj.get('tackning') or {}
+        if tk:
+            rad.append('Par: %s, varav %s med byggets bild%s.' % (tk.get('par'), tk.get('med_byggets_bild'), (
+                '; utan byggets bild: ' + ', '.join(tk.get('utan_byggets_bild'))) if tk.get('utan_byggets_bild') else ''))
+        rad += ['- %s' % x for x in vj.get('fel') or []]
+        for x in vj.get('granskare') or []:
+            rad.append('- granskare %d: %s; klasser %s%s%s' % (
+                x['granskare'], x.get('status'), ', '.join('%s %d' % kv for kv in sorted((x.get('klasser') or {}).items())) or 'inga',
+                ('; ej bedömda par: ' + ', '.join(x['obedomda'])) if x.get('obedomda') else '',
+                ('; ej lästa: ' + ', '.join(x['olasta'])) if x.get('olasta') else ''))
     rad += ['', '## Blockerande fynd', '']
     for i, f in enumerate(g.get('blockerande') or [], 1):
         grad = ' · grad %s' % f['allvarlighet'] if f.get('allvarlighet') else ''
