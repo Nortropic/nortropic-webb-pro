@@ -474,13 +474,15 @@ def _tom_eller_inaktuell():
 def _upptackt_verktyg():
     slug = 'k4-verktyg'
     kund(slug)
-    # ett färskt underhåll och en färsk spaning: annars är kvittot redan begränsat, och fallet prövade inget
+    # ett färskt underhåll, en färsk spaning och en färsk bevakning: annars är kvittot redan begränsat, och fallet prövade inget
     underhall = vl.lagekatalog() / 'UNDERHALL.json'
     spaning = KOPIA / 'kirurgen' / 'spaning'
     spaning.mkdir(parents=True, exist_ok=True)
     vl.skriv_json(underhall, {'slut': vl.nu(), 'sammanfattning': 'provets underhåll'})
     vl.skriv_json(spaning / 'SENAST.json', {'slut': vl.nu()})
     vl.skriv_json(spaning / 'KANDIDATER.json', [])
+    vl.skriv_json(KOPIA / 'kirurgen' / 'bevakning' / 'LAGE.json', {'senast': {'start': vl.nu(), 'automatisk': True, 'utfall': 'lyckad'},
+                                                                   'fragor': {}, 'kanda': {}})
     glom('prov:refero', 'prov:session')
     try:
         kv_a = sk.kor_kontroll(slug, 'ny')  # Referos lista med refero_search_apps, som har beslutet ingen uppgift
